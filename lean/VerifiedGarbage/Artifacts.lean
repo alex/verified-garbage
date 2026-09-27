@@ -9,6 +9,9 @@ import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Finalize
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Init
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Update
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Finalize
+import VerifiedGarbage.Proof.Sha256.Arm.Stream.Init
+import VerifiedGarbage.Proof.Sha256.Arm.Stream.Update
+import VerifiedGarbage.Proof.Sha256.Arm.Stream.Finalize
 
 /-!
 # The artifact registry
@@ -202,7 +205,62 @@ def artifacts : List Artifact := [
       around the end of the address space (no Rust object does)."
     code := Impl.Sha256.Arm.compress
     contract := Spec.Sha256.compressArm
-    verified := Proof.Sha256.Arm.compress_verified }
+    verified := Proof.Sha256.Arm.compress_verified },
+  { target := Arm.target
+    module := "sha256"
+    name := "vg_sha256_init"
+    rustSig := "(state: *mut [u8; 96])"
+    doc := "Starts a SHA-256 computation: makes the streaming state `*state` represent the \
+      empty message.\n\n\
+      Contract: `VG.Spec.Sha256.initArm`. The streaming state is the hash value followed \
+      by a buffered partial block (`VG.Spec.Sha256.Repr`).\n\n\
+      # Safety\n\n\
+      * `state` must be valid for writes of 96 bytes.\n\
+      * It must not wrap around the end of the address space (no Rust object does)."
+    code := Impl.Sha256.Arm.Stream.init
+    contract := Spec.Sha256.initArm
+    verified := Proof.Sha256.Arm.Stream.init_verified },
+  { target := Arm.target
+    module := "sha256"
+    name := "vg_sha256_update"
+    rustSig := "(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20])"
+    doc := "Absorbs data into a SHA-256 computation: if the streaming state `*state` represents \
+      a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by \
+      the `len` bytes at `data`.\n\n\
+      Contract: `VG.Spec.Sha256.updateArm`. Constant time: only the pointers, `count` and \
+      `len` may affect timing, not the state or the data.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 96 bytes.\n\
+      * `data` must be valid for reads of `len` bytes.\n\
+      * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, nor the arguments passed on the \
+      stack, and none of them may wrap around the end of the address space (distinct Rust \
+      objects never do)."
+    code := Impl.Sha256.Arm.Stream.update
+    contract := Spec.Sha256.updateArm
+    verified := Proof.Sha256.Arm.Stream.Update.update_verified },
+  { target := Arm.target
+    module := "sha256"
+    name := "vg_sha256_finalize"
+    rustSig := "(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20])"
+    doc := "Finishes a SHA-256 computation: if the streaming state `*state` represents a \
+      message of `count` bytes (modulo 2⁶⁴), writes the SHA-256 digest of that message to \
+      `*out`.\n\n\
+      Contract: `VG.Spec.Sha256.finalizeArm`. Constant time: only the pointers and `count` \
+      may affect timing, not the state.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 96 bytes; its contents on return are \
+      unspecified.\n\
+      * `out` must be valid for writes of 32 bytes.\n\
+      * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, nor the arguments passed on the \
+      stack, and none of them may wrap around the end of the address space (distinct Rust \
+      objects never do)."
+    code := Impl.Sha256.Arm.Stream.finalize
+    contract := Spec.Sha256.finalizeArm
+    verified := Proof.Sha256.Arm.Stream.Finalize.finalize_verified }
 ]
 
 #assert_standard_axioms artifacts
