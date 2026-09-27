@@ -11,19 +11,20 @@
 #![allow(dead_code)]
 
 use std::collections::{BTreeMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
 /// The environment variable pointing at a checkout of
-/// <https://github.com/C2SP/wycheproof>.
+/// <https://github.com/C2SP/wycheproof>. A relative path is relative to the
+/// crate root.
 pub const ROOT_VAR: &str = "WYCHEPROOF_ROOT";
 
 /// The directory containing the Wycheproof test vectors, or `None` if
 /// `WYCHEPROOF_ROOT` is not set (the tests are then skipped).
 pub fn vectors_dir() -> Option<PathBuf> {
-    let root = PathBuf::from(std::env::var_os(ROOT_VAR)?);
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join(std::env::var_os(ROOT_VAR)?);
     let dir = root.join("testvectors_v1");
     assert!(
         dir.is_dir(),

@@ -63,6 +63,9 @@ jobs:
           - os: windows-latest
         rust: [stable, "1.88"]
     runs-on: ${{ matrix.platform.os }}
+    env:
+      # Relative to the crate root.
+      WYCHEPROOF_ROOT: wycheproof
     # With an empty image the job runs directly on the runner.
     container:
       image: ${{ matrix.platform.container && format('rust:{0}-slim', matrix.rust == 'stable' && '1' || matrix.rust) || '' }}
@@ -89,9 +92,6 @@ jobs:
           git fetch -q --depth 1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$GITHUB_SHA"
           git checkout -q FETCH_HEAD
           git clone -q --depth 1 https://github.com/C2SP/wycheproof wycheproof
-      - name: Point the tests at the Wycheproof vectors
-        shell: bash
-        run: echo "WYCHEPROOF_ROOT=$PWD/wycheproof" >> "$GITHUB_ENV"
 
       - name: Install Rust
         if: ${{ !matrix.platform.container }}
