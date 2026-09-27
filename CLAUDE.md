@@ -44,9 +44,10 @@ This takes at least two PRs (see "One kind of change per PR"): step 1 alone,
 then steps 2–5 together. Any TCB additions the primitive needs (e.g. new
 instructions in an ISA model) go in their own PR before either.
 
-1. `Spec/<Alg>.lean`: the algorithm, transcribed from the standard, plus a
-   `Contract` per target. Choose `pub` honestly: only lengths and pointers are
-   public unless the algorithm says otherwise.
+1. `Spec/<Alg>.lean`: the algorithm, transcribed from the standard, with no
+   target-specific imports; and `Spec/<Alg>/<Target>.lean`: its `Contract` on
+   each target. Choose `pub` honestly: only lengths and pointers are public
+   unless the algorithm says otherwise.
 2. `Impl/<Alg>/<Target>.lean`: the code.
 3. `Proof/<Alg>/…`: the proof of `Verified`.
 4. An `Artifact` in `Artifacts.lean` (its `module` names the file under
