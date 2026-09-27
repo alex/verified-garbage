@@ -1,59 +1,46 @@
 //! SHA-256 (FIPS 180-4).
 //!
-//! The compression function is the verified assembly primitive
-//! `vg_sha256_compress` for the target architecture (contracts
-//! `VG.Spec.Sha256.compressX86_64`, `compressAArch64` and `compressArm`); this
-//! module adds the buffering, padding (§5.1.1) and output encoding around it.
+//! The whole computation is verified assembly: `vg_sha256_init`,
+//! `vg_sha256_update` and `vg_sha256_finalize` (contracts
+//! `VG.Spec.Sha256.initX86_64`, `updateX86_64` and `finalizeX86_64`) maintain
+//! a streaming state that represents the message absorbed so far
+//! (`VG.Spec.Sha256.Repr`: the hash value of its whole blocks, and its
+//! remaining bytes), and pad it and output the digest. This module only keeps
+//! that state together with the message length, which the contracts take as
+//! an argument.
+//!
+//! That is the case on x86-64. On AArch64 and 32-bit ARM, whose streaming
+//! functions are not verified yet, only the compression function is verified
+//! assembly (see the `compress` module).
 
-#[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::sha256::vg_sha256_compress;
-#[cfg(target_arch = "arm")]
-use crate::asm::arm::sha256::vg_sha256_compress;
+#[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
+mod compress;
+#[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
+pub use compress::Sha256;
+
 #[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::sha256::vg_sha256_compress;
+use crate::asm::x86_64::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
 
-/// The initial hash value `H⁽⁰⁾` (FIPS 180-4 §5.3.3).
-const H0: [u32; 8] = [
-    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
-];
-
-/// Updates `state` with every 64-byte block of `blocks` (whose length must be
-/// a multiple of 64).
-fn compress(state: &mut [u32; 8], blocks: &[u8]) {
-    debug_assert_eq!(blocks.len() % Sha256::BLOCK_SIZE, 0);
-    let mut scratch = [0u64; 14];
-    // SAFETY: `state` is valid for reads and writes of 32 bytes, `blocks` for
-    // reads of `64 * (blocks.len() / 64)` bytes and `scratch` for reads and
-    // writes of 112 bytes; they are distinct objects, so they do not overlap
-    // each other or the return address.
-    unsafe {
-        vg_sha256_compress(
-            state,
-            blocks.as_ptr(),
-            blocks.len() / Sha256::BLOCK_SIZE,
-            &mut scratch,
-        )
-    }
-}
-
+#[cfg(target_arch = "x86_64")]
 /// An incremental SHA-256 computation.
 ///
 /// Messages are limited to 2⁶¹ − 1 bytes (2⁶⁴ − 1 bits), as in FIPS 180-4.
 #[derive(Clone)]
 pub struct Sha256 {
-    state: [u32; 8],
-    buffer: [u8; 64],
-    buffered: usize,
+    /// The streaming state, representing the message so far.
+    state: [u8; 96],
     /// The message length so far, in bytes (modulo 2⁶⁴).
     length: u64,
 }
 
+#[cfg(target_arch = "x86_64")]
 impl Default for Sha256 {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(target_arch = "x86_64")]
 impl Sha256 {
     /// The size of a digest, in bytes.
     pub const OUTPUT_SIZE: usize = 32;
@@ -62,49 +49,43 @@ impl Sha256 {
 
     /// Starts a new computation.
     pub fn new() -> Self {
-        Sha256 {
-            state: H0,
-            buffer: [0; 64],
-            buffered: 0,
-            length: 0,
-        }
+        let mut state = [0; 96];
+        // SAFETY: `state` is valid for writes of 96 bytes, and is a distinct
+        // object from the return address.
+        unsafe { vg_sha256_init(&mut state) };
+        Sha256 { state, length: 0 }
     }
 
     /// Absorbs `data`.
-    pub fn update(&mut self, mut data: &[u8]) {
+    pub fn update(&mut self, data: &[u8]) {
+        let mut scratch = [0u64; 20];
+        // SAFETY: `self.state` is valid for reads and writes of 96 bytes,
+        // `data` for reads of `data.len()` bytes and `scratch` for reads and
+        // writes of 160 bytes; they are distinct objects, so they do not
+        // overlap each other or the return address. `self.length` is the
+        // length of the message `self.state` represents, modulo 2⁶⁴.
+        unsafe {
+            vg_sha256_update(
+                &mut self.state,
+                self.length,
+                data.as_ptr(),
+                data.len(),
+                &mut scratch,
+            )
+        };
         self.length = self.length.wrapping_add(data.len() as u64);
-        if self.buffered > 0 {
-            let take = (Self::BLOCK_SIZE - self.buffered).min(data.len());
-            self.buffer[self.buffered..self.buffered + take].copy_from_slice(&data[..take]);
-            self.buffered += take;
-            data = &data[take..];
-            if self.buffered < Self::BLOCK_SIZE {
-                return;
-            }
-            compress(&mut self.state, &self.buffer);
-            self.buffered = 0;
-        }
-        let whole = data.len() - data.len() % Self::BLOCK_SIZE;
-        compress(&mut self.state, &data[..whole]);
-        let rest = &data[whole..];
-        self.buffer[..rest.len()].copy_from_slice(rest);
-        self.buffered = rest.len();
     }
 
     /// Pads the message (FIPS 180-4 §5.1.1) and returns its digest.
     pub fn finalize(mut self) -> [u8; 32] {
-        let bits = self.length.wrapping_mul(8);
-        // `0x80`, then zeros up to 56 bytes modulo 64, then the length.
-        let zeros = (119 - self.buffered) % Self::BLOCK_SIZE;
-        let mut padding = [0u8; 72];
-        padding[0] = 0x80;
-        padding[1 + zeros..9 + zeros].copy_from_slice(&bits.to_be_bytes());
-        self.update(&padding[..9 + zeros]);
-        debug_assert_eq!(self.buffered, 0);
-        let mut digest = [0u8; 32];
-        for (out, word) in digest.as_chunks_mut::<4>().0.iter_mut().zip(self.state) {
-            *out = word.to_be_bytes();
-        }
+        let mut digest = [0; 32];
+        let mut scratch = [0u64; 20];
+        // SAFETY: `self.state` is valid for reads and writes of 96 bytes,
+        // `digest` for writes of 32 bytes and `scratch` for reads and writes
+        // of 160 bytes; they are distinct objects, so they do not overlap each
+        // other or the return address. `self.length` is the length of the
+        // message `self.state` represents, modulo 2⁶⁴.
+        unsafe { vg_sha256_finalize(&mut self.state, self.length, &mut digest, &mut scratch) };
         digest
     }
 

@@ -253,23 +253,71 @@ theorem Exec.widen {c : Prog isa} {s s' : State} {t : List Leak} {rd wr : List R
     obtain ⟨r₁, w₁, -⟩ := Exec.regions h₁
     exact .loopNext (ih₁ hc hw) ((eval_withRegions _ _ _ _).trans ‹_›) (ih₂ (by rwa [r₁, w₁]) (by rwa [w₁]))
 
+/-- The instructions of structured code. -/
+def instrs {I C : Type} : Code I C → List I
+  | .block is => is
+  | .seq a b => instrs a ++ instrs b
+  | .ite _ t e => instrs t ++ instrs e
+  | .loop b _ => instrs b
+
+theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.dstOf i ≠ some r) {s s' : State}
+    (h : exec i s = some s') : s'.gpr r = s.gpr r := by
+  cases hd : Taint.dstOf i with
+  | some d => exact (Taint.exec_nonstore hd h).2.2.2 r fun h' => hi (h' ▸ hd)
+  | none =>
+    cases i <;> simp only [Taint.dstOf, reduceCtorEq] at hd
+    · simp only [exec, State.store64] at h; split at h <;> cases h; rfl
+    · simp only [exec, State.store32] at h; split at h <;> cases h; rfl
+    · simp only [exec, State.store8] at h; split at h <;> cases h; rfl
+
+theorem execBlock_gpr {is : List Instr} {r : Reg} (hc : ∀ i ∈ is, Taint.dstOf i ≠ some r)
+    {s s' : State} {t : List Leak} (h : execBlock isa is s = some (s', t)) : s'.gpr r = s.gpr r := by
+  induction is generalizing s t with
+  | nil =>
+    simp only [execBlock, Option.some.injEq, Prod.mk.injEq] at h
+    rw [h.1]
+  | cons i is ih =>
+    simp only [execBlock] at h
+    split at h <;> [cases h; skip]
+    rename_i s₁ he
+    simp only [Option.map_eq_some_iff] at h
+    obtain ⟨⟨s₂, t₂⟩, h2, heq⟩ := h
+    simp only [Prod.mk.injEq] at heq
+    obtain ⟨rfl, rfl⟩ := heq
+    rw [ih (fun i hi => hc i (List.mem_cons_of_mem _ hi)) h2,
+      exec_gpr (hc i (List.mem_cons_self ..)) he]
+
+/-- A register that no instruction writes keeps its value. -/
+theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, Taint.dstOf i ≠ some r)
+    {s s' : State} {t : List Leak} (h : Exec isa c s t s') : s'.gpr r = s.gpr r := by
+  induction h with
+  | block h => exact execBlock_gpr hc h
+  | seq _ _ ih₁ ih₂ =>
+    rw [ih₂ fun i hi => hc i (List.mem_append_right _ hi), ih₁ fun i hi => hc i (List.mem_append_left _ hi)]
+  | iteT _ _ ih => exact ih fun i hi => hc i (List.mem_append_left _ hi)
+  | iteF _ _ ih => exact ih fun i hi => hc i (List.mem_append_right _ hi)
+  | loopExit _ _ ih => exact ih hc
+  | loopNext _ _ _ ih₁ ih₂ => rw [ih₂ hc, ih₁ hc]
+
 /-- Inlining verified code: from a state `s` in which the code's precondition
 holds once its permissions are narrowed to `rd` and `wr`, the code
 terminates in a state satisfying its postcondition and calling-convention
-obligations (both on the narrowed states), which has the permissions of `s`
-and differs from it in memory only within `wr`. -/
+obligations (both on the narrowed states), which has the permissions of `s`,
+differs from it in memory only within `wr`, and keeps every register that no
+instruction writes. -/
 theorem WP.inline {c : Prog isa} {k : Contract isa}
     (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
     {s : State} {rd wr : List Region} (hpre : k.pre (s.withRegions rd wr))
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → abiPreserved s s' → Frame wr s.mem s'.mem →
+      (∀ r, (∀ i ∈ instrs c, Taint.dstOf i ≠ some r) → s'.gpr r = s.gpr r) →
       k.post (s.withRegions rd wr) (s'.withRegions rd wr) → Q s') : WP isa c s Q := by
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre
   obtain ⟨hr, hwr, hf⟩ := Exec.regions he
   simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_mem] at hr hwr hf
   have he' := Exec.widen he (rd := s.rd) (wr := s.wr) (by simpa using hc) (by simpa using hw)
   simp only [State.withRegions_withRegions, State.withRegions_self] at he'
-  refine ⟨t, _, he', hQ _ rfl rfl habi hf ?_⟩
+  refine ⟨t, _, he', hQ _ rfl rfl habi hf (fun r hr => Exec.gpr hr he') ?_⟩
   have : (s₁.withRegions s.rd s.wr).withRegions rd wr = s₁ := by
     rw [State.withRegions_withRegions, ← hr, ← hwr]; rfl
   rw [this]; exact hpost
