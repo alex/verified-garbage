@@ -545,8 +545,8 @@ theorem compress_verified :
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0, .r1, .r2, .r3]) ?_
       (by decide +kernel)
     intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩
-    refine ⟨fun r hr => ?_, fun h => by cases h⟩
-    simp only [Taint.ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+    refine Taint.agree_ofRegs fun r hr => ?_
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
   · refine ⟨satState, rfl, rfl, ?_, ?_, ?_, by decide, by decide, by decide⟩ <;>
     · intro a h₁ h₂
