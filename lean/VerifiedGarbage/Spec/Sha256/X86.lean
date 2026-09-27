@@ -4,8 +4,18 @@ import VerifiedGarbage.TCB.X86.Target
 /-!
 # SHA-256: the x86 (32-bit) contract
 
-**Trusted** (as every file in `Spec/`). The contract of the x86 (32-bit)
-implementation of the compression function, in terms of `Spec/Sha256.lean`.
+**Trusted** (as every file in `Spec/`). The contracts of the x86 (32-bit)
+implementations of the compression function and of streaming SHA-256
+(`init`/`update`/`finalize`, on the representation `Repr`), in terms of
+`Spec/Sha256.lean`.
+
+The streaming functions may write their own argument area (cdecl passes the
+arguments in the caller's frame, just above the return address, and the
+callee owns them: GCC and LLVM both overwrite incoming argument slots, e.g.
+for sibling calls, and callers never read them back). This lets `update` and
+`finalize` pass arguments to inlined code that reads them from the stack,
+without moving `esp` below the caller's frame. The return address stays
+read-only.
 -/
 
 namespace VG.Spec.Sha256
@@ -42,5 +52,96 @@ def compressX86 : Contract X86.isa where
   pub s₁ s₂ :=
     s₁.gpr .esp = s₂.gpr .esp ∧
     arg s₁ 0 = arg s₂ 0 ∧ arg s₁ 1 = arg s₂ 1 ∧ arg s₁ 2 = arg s₂ 2 ∧ arg s₁ 3 = arg s₂ 3
+
+open X86 in
+/-- The 64-bit `count` argument of `update`/`finalize`, in argument slots 1
+and 2 (cdecl: the low word first). -/
+def countX86 (s : X86.State) : BitVec 64 := arg s 2 ++ arg s 1
+
+open X86 in
+/-- x86 (32-bit) contract for `vg_sha256_init(state: *mut [u8; 96])`, whose
+argument is on the stack (cdecl): makes the streaming state at `state`
+represent the empty message.
+
+The code may read the argument (4 bytes above the return address) and write
+`state` (96 bytes), which may not overlap the argument or the return address;
+nothing may wrap around the end of the (32-bit) address space. `esp` and the
+pointer are public. -/
+def initX86 : Contract X86.isa where
+  pre s :=
+    let state : Region := ⟨(arg s 0).setWidth 64, 96⟩
+    let args : Region := ⟨argAddr s 0, 4⟩
+    let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+    s.rd = [args] ∧ s.wr = [state] ∧ args.Disjoint state ∧ ret.Disjoint state ∧
+    (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (s.gpr .esp).toNat + 8 ≤ 2 ^ 32
+  post s s' := Repr s'.mem ((arg s 0).setWidth 64) []
+  pub s₁ s₂ := s₁.gpr .esp = s₂.gpr .esp ∧ arg s₁ 0 = arg s₂ 0
+
+open X86 in
+/-- x86 (32-bit) contract for
+`vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20])`,
+whose arguments are on the stack (cdecl: `state`, the low and high words of
+`count`, `data`, `len`, `scratch`): if the streaming state at `state`
+represents a message `m` of `count` bytes (modulo 2⁶⁴), then afterwards it
+represents `m` followed by the `len` bytes at `data`.
+
+The code may read `data` (`len` bytes), and read and write the arguments (24
+bytes above the return address, whose contents on exit are unspecified),
+`state` (96 bytes) and `scratch` (160 bytes, whose contents on exit are
+unspecified). The writable buffers may not overlap each other, the data or
+the return address, and nothing may wrap around the end of the (32-bit)
+address space. `esp`, the pointers, `count` and `len` are public; the state
+and the data are secret. -/
+def updateX86 : Contract X86.isa where
+  pre s :=
+    let state : Region := ⟨(arg s 0).setWidth 64, 96⟩
+    let data : Region := ⟨(arg s 3).setWidth 64, (arg s 4).toNat⟩
+    let scratch : Region := ⟨(arg s 5).setWidth 64, 160⟩
+    let args : Region := ⟨argAddr s 0, 24⟩
+    let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+    s.rd = [data] ∧ s.wr = [state, scratch, args] ∧
+    state.Disjoint scratch ∧ args.Disjoint state ∧ args.Disjoint scratch ∧
+    data.Disjoint state ∧ data.Disjoint scratch ∧ data.Disjoint args ∧
+    ret.Disjoint state ∧ ret.Disjoint scratch ∧
+    (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 3).toNat + (arg s 4).toNat ≤ 2 ^ 32 ∧
+    (arg s 5).toNat + 160 ≤ 2 ^ 32 ∧ (s.gpr .esp).toNat + 28 ≤ 2 ^ 32
+  post s s' := ∀ m, Repr s.mem ((arg s 0).setWidth 64) m → countX86 s = BitVec.ofNat 64 m.length →
+    Repr s'.mem ((arg s 0).setWidth 64)
+      (m ++ bytesAt s.mem ((arg s 3).setWidth 64) (arg s 4).toNat)
+  pub s₁ s₂ :=
+    s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 6, arg s₁ i = arg s₂ i
+
+open X86 in
+/-- x86 (32-bit) contract for
+`vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20])`,
+whose arguments are on the stack (cdecl: `state`, the low and high words of
+`count`, `out`, `scratch`): if the streaming state at `state` represents a
+message `m` of `count` bytes (modulo 2⁶⁴), writes the SHA-256 digest of `m`
+to `out`.
+
+The code may read and write the arguments (20 bytes above the return
+address, whose contents on exit are unspecified), `state` (96 bytes, whose
+contents on exit are unspecified), `out` (32 bytes) and `scratch` (160
+bytes, whose contents on exit are unspecified). These may not overlap each
+other or the return address, and nothing may wrap around the end of the
+(32-bit) address space. `esp`, the pointers and `count` are public; the
+state is secret. -/
+def finalizeX86 : Contract X86.isa where
+  pre s :=
+    let state : Region := ⟨(arg s 0).setWidth 64, 96⟩
+    let out : Region := ⟨(arg s 3).setWidth 64, 32⟩
+    let scratch : Region := ⟨(arg s 4).setWidth 64, 160⟩
+    let args : Region := ⟨argAddr s 0, 20⟩
+    let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+    s.rd = [] ∧ s.wr = [state, out, scratch, args] ∧
+    state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
+    args.Disjoint state ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
+    ret.Disjoint state ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧
+    (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 3).toNat + 32 ≤ 2 ^ 32 ∧
+    (arg s 4).toNat + 160 ≤ 2 ^ 32 ∧ (s.gpr .esp).toNat + 24 ≤ 2 ^ 32
+  post s s' := ∀ m, Repr s.mem ((arg s 0).setWidth 64) m → countX86 s = BitVec.ofNat 64 m.length →
+    bytesAt s'.mem ((arg s 3).setWidth 64) 32 = hash m
+  pub s₁ s₂ :=
+    s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 5, arg s₁ i = arg s₂ i
 
 end VG.Spec.Sha256
