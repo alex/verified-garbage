@@ -8,11 +8,12 @@ from FIPS 180-4, *Secure Hash Standard* (August 2015); section numbers below
 refer to it. Messages are sequences of bytes (the standard allows any number
 of bits); every multi-byte quantity is big-endian (§3.1).
 
-The primitive implemented in assembly is the compression function over a run
-of whole blocks (`compressBlocks`); padding and the final output are the
-caller's (Rust's) job. Its contract on each target, which says how the
-code's arguments and memory relate to `compressBlocks`, is in
-`Spec/Sha256/<Target>.lean`.
+The primitives implemented in assembly are the compression function over a
+run of whole blocks (`compressBlocks`), and the streaming (incremental)
+interface: initialize, absorb message bytes, pad and output the digest, on a
+streaming state that `Repr` relates to the message absorbed so far. Their
+contracts on each target, which say how the code's arguments and memory
+relate to these definitions, are in `Spec/Sha256/<Target>.lean`.
 -/
 
 namespace VG.Spec.Sha256
@@ -121,12 +122,14 @@ def rounds (H : HashValue) (M : Block) (n : Nat) : HashValue :=
 def compress (H : HashValue) (M : Block) : HashValue :=
   Vector.zipWith (· + ·) (rounds H M 64) H
 
+/-- `H` updated with the first `n` 64-byte blocks `M⁽¹⁾ … M⁽ⁿ⁾` of the bytes `p`. -/
+def compressList (H : HashValue) (p : List Byte) (n : Nat) : HashValue :=
+  (List.range n).foldl (fun H i => compress H (parseBlock fun k => p.getD (64 * i + k) 0)) H
+
 /-- The SHA-256 digest of a message: `H⁽ᴺ⁾` as 32 big-endian bytes. -/
 def hash (m : List Byte) : List Byte :=
   let p := pad m
-  let H := (List.range (p.length / 64)).foldl
-    (fun H i => compress H (parseBlock fun k => p.getD (64 * i + k) 0)) H0
-  H.toList.flatMap wordBytes
+  (compressList H0 p (p.length / 64)).toList.flatMap wordBytes
 
 /-! ## The compression function on memory
 
@@ -144,5 +147,28 @@ def blockAt (m : Mem) (p : Addr) : Block := parseBlock fun k => m (p + BitVec.of
 /-- `H` updated with the `n` consecutive blocks at `p`. -/
 def compressBlocks (H : HashValue) (m : Mem) (p : Addr) (n : Nat) : HashValue :=
   (List.range n).foldl (fun H i => compress H (blockAt m (p + BitVec.ofNat 64 (64 * i)))) H
+
+/-- The `n` bytes at `p`. -/
+def bytesAt (m : Mem) (p : Addr) (n : Nat) : List Byte :=
+  (List.range n).map fun i => m (p + BitVec.ofNat 64 i)
+
+/-! ## Streaming
+
+The streaming primitives hash a message given in pieces. Their state is 96
+bytes: the hash value after the message's whole blocks (stored as by
+`stateAt`), followed by a 64-byte buffer holding the bytes of the message
+after its last whole block. The length of the message is not part of the
+state: the caller keeps it (in bytes, modulo 2⁶⁴) and passes it to every
+call. (Lengths are public, so it may live anywhere; and `pad` only uses the
+length modulo 2⁶⁴ bits, so this suffices even beyond SHA-256's limit of
+`ℓ < 2⁶⁴` bits.) -/
+
+/-- The streaming state at `p` (96 bytes) represents the message `m`: its hash
+value is `H⁽⁰⁾` updated with the `⌊|m| / 64⌋` whole blocks of `m`, and its
+buffer starts with the remaining `|m| mod 64` bytes of `m`. The rest of the
+buffer is unspecified. -/
+def Repr (mem : Mem) (p : Addr) (m : List Byte) : Prop :=
+  stateAt mem p = compressList H0 m (m.length / 64) ∧
+  bytesAt mem (p + 32) (m.length % 64) = m.drop (64 * (m.length / 64))
 
 end VG.Spec.Sha256
