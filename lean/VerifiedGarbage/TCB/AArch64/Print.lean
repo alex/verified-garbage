@@ -28,16 +28,20 @@ def LogicOp.name : LogicOp → String
 
 def Instr.asm : Instr → List String
   | .add sz d n m => [s!"add {d.name sz}, {n.name sz}, {m.name sz}"]
+  | .sub sz d n m => [s!"sub {d.name sz}, {n.name sz}, {m.name sz}"]
   | .addImm sz d n imm => [s!"add {d.name sz}, {n.name sz}, #{imm}"]
   | .subImm sz d n imm => [s!"sub {d.name sz}, {n.name sz}, #{imm}"]
   | .logic op sz d n m => [s!"{op.name} {d.name sz}, {n.name sz}, {m.name sz}"]
   | .ror sz d n sh => [s!"ror {d.name sz}, {n.name sz}, #{sh}"]
   | .lsr sz d n sh => [s!"lsr {d.name sz}, {n.name sz}, #{sh}"]
   | .rev32 d n => [s!"rev {d.name .w}, {n.name .w}"]
+  | .rev d n => [s!"rev {d.name .x}, {n.name .x}"]
   | .movz sz d imm hw => [s!"movz {d.name sz}, #{imm.toNat}, lsl #{16 * hw}"]
   | .movk sz d imm hw => [s!"movk {d.name sz}, #{imm.toNat}, lsl #{16 * hw}"]
   | .ldr sz t n off => [s!"ldr {t.name sz}, [{n.name .x}, #{off}]"]
   | .str sz t n off => [s!"str {t.name sz}, [{n.name .x}, #{off}]"]
+  | .ldrb t n off => [s!"ldrb {t.name .w}, [{n.name .x}, #{off}]"]
+  | .strb t n off => [s!"strb {t.name .w}, [{n.name .x}, #{off}]"]
 
 def printer : Printer isa where
   instr := Instr.asm
