@@ -1,0 +1,11 @@
+// @generated from lean/VerifiedGarbage/Artifacts.lean by lean/Emit.lean. DO NOT EDIT.
+//! Formally verified assembly, emitted from Lean. See `lean/README.md`.
+//!
+//! Every function in these modules is the direct rendering of an `Artifact`
+//! whose machine code has been proven correct, memory safe and constant time
+//! against its contract.
+
+#[cfg(target_arch = "x86_64")]
+#[allow(dead_code)]
+#[rustfmt::skip]
+pub(crate) mod x86_64;

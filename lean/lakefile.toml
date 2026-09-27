@@ -1,0 +1,21 @@
+name = "VerifiedGarbage"
+defaultTargets = ["VerifiedGarbage", "VerifiedGarbageTest"]
+
+[leanOptions]
+autoImplicit = false
+relaxedAutoImplicit = false
+warningAsError = true
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "v4.34.1"
+
+[[lean_lib]]
+name = "VerifiedGarbage"
+# Build every file, not only those reachable from `Artifacts.lean`.
+globs = ["VerifiedGarbage.*"]
+
+[[lean_lib]]
+name = "VerifiedGarbageTest"
+globs = ["VerifiedGarbageTest.+"]

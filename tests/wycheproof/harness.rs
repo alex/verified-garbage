@@ -1,0 +1,167 @@
+//! Loading and validating Wycheproof test vector files.
+//!
+//! A test vector file is loaded as a [`TestFile`], parameterized by the
+//! algorithm-specific fields of its test groups (`P`) and of its tests
+//! (`T`). Algorithm tests declare structs for those fields (using [`Hex`] for
+//! byte strings) and iterate over [`TestFile::tests`]; loading checks that
+//! the file is internally consistent, so a test can never silently run on
+//! fewer vectors than the file contains.
+
+// Each algorithm test module uses a different subset of the harness.
+#![allow(dead_code)]
+
+use std::collections::{BTreeMap, HashSet};
+use std::path::{Path, PathBuf};
+
+use serde::Deserialize;
+use serde::de::DeserializeOwned;
+
+/// The directory containing the Wycheproof test vectors (the
+/// `vendor/wycheproof` git submodule).
+pub fn vectors_dir() -> PathBuf {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("vendor/wycheproof/testvectors_v1");
+    assert!(
+        dir.is_dir(),
+        "{} not found: run `git submodule update --init`",
+        dir.display()
+    );
+    dir
+}
+
+/// Every test vector file, sorted by name.
+pub fn all_files() -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(vectors_dir())
+        .expect("reading the Wycheproof directory")
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .filter(|n| n.ends_with(".json"))
+        .collect();
+    names.sort();
+    names
+}
+
+/// The expected outcome of a test.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Expectation {
+    /// The operation must succeed with the given result.
+    Valid,
+    /// The operation must fail (or the result must be rejected).
+    Invalid,
+    /// Either outcome is allowed; the test's `flags` say why.
+    Acceptable,
+}
+
+/// A byte string, hex-encoded in the JSON.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Hex(pub Vec<u8>);
+
+impl<'de> Deserialize<'de> for Hex {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        decode_hex(&s).map(Hex).map_err(serde::de::Error::custom)
+    }
+}
+
+impl std::ops::Deref for Hex {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
+    if !s.len().is_multiple_of(2) {
+        return Err(format!("odd-length hex string {s:?}"));
+    }
+    (0..s.len())
+        .step_by(2)
+        .map(|i| {
+            s.get(i..i + 2)
+                .and_then(|b| u8::from_str_radix(b, 16).ok())
+                .ok_or_else(|| format!("invalid hex string {s:?}"))
+        })
+        .collect()
+}
+
+/// A note describing a test flag.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Note {
+    /// The class of bug the flagged tests look for.
+    pub bug_type: Option<String>,
+    /// A description of the flag.
+    pub description: Option<String>,
+}
+
+/// One test.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Test<T> {
+    /// The test's id, unique within the file.
+    pub tc_id: u64,
+    #[serde(default)]
+    pub comment: String,
+    /// Usually keys into [`TestFile::notes`].
+    #[serde(default)]
+    pub flags: Vec<String>,
+    pub result: Expectation,
+    /// The algorithm-specific fields.
+    #[serde(flatten)]
+    pub case: T,
+}
+
+/// A group of tests sharing parameters (key, sizes, …).
+#[derive(Debug, Clone, Deserialize)]
+pub struct TestGroup<P, T> {
+    /// The algorithm-specific group fields.
+    #[serde(flatten)]
+    pub params: P,
+    pub tests: Vec<Test<T>>,
+}
+
+/// A test vector file.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TestFile<P, T> {
+    pub algorithm: Option<String>,
+    pub schema: String,
+    pub number_of_tests: usize,
+    #[serde(default)]
+    pub notes: BTreeMap<String, Note>,
+    pub test_groups: Vec<TestGroup<P, T>>,
+}
+
+/// Untyped fields, for tests that only look at the file structure.
+pub type Fields = serde_json::Map<String, serde_json::Value>;
+
+impl<P, T> TestFile<P, T> {
+    /// Every test, with its group.
+    pub fn tests(&self) -> impl Iterator<Item = (&TestGroup<P, T>, &Test<T>)> {
+        self.test_groups
+            .iter()
+            .flat_map(|g| g.tests.iter().map(move |t| (g, t)))
+    }
+}
+
+/// Parse a test vector file and check that it is internally consistent:
+/// the number of tests matches `numberOfTests` and test ids are unique.
+/// (Not every flag is described in `notes` upstream, so that is not checked.)
+pub fn parse<P: DeserializeOwned, T: DeserializeOwned>(name: &str, json: &str) -> TestFile<P, T> {
+    let file: TestFile<P, T> = serde_json::from_str(json).unwrap_or_else(|e| panic!("{name}: {e}"));
+    let mut ids = HashSet::new();
+    let mut count = 0;
+    for (_, t) in file.tests() {
+        count += 1;
+        assert!(ids.insert(t.tc_id), "{name}: duplicate tcId {}", t.tc_id);
+    }
+    assert_eq!(count, file.number_of_tests, "{name}: numberOfTests");
+    file
+}
+
+/// Load and validate the test vector file `name` (e.g. `"aes_gcm_test.json"`).
+pub fn load<P: DeserializeOwned, T: DeserializeOwned>(name: &str) -> TestFile<P, T> {
+    let path = vectors_dir().join(name);
+    let json = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("reading {}: {e}", path.display()));
+    parse(name, &json)
+}
