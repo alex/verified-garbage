@@ -2,6 +2,7 @@ import VerifiedGarbage.TCB.X86_64.Print
 import VerifiedGarbage.TCB.Rust
 import VerifiedGarbage.TCB.AArch64.Print
 import VerifiedGarbage.TCB.X86.Print
+import VerifiedGarbage.TCB.Arm.Print
 
 /-!
 # Golden tests for the trusted printers
@@ -184,6 +185,48 @@ def sampleX86 : Prog X86.isa :=
   "21:",
   "ret"
 ]
+
+/-- Every ARMv7 instruction form, every second-operand form, and both conditions. -/
+def sampleArm : Prog Arm.isa :=
+  .seq (.block [.cmp .r2 (.imm 0)])
+    (.ite .eq (.block [])
+      (.loop (.block [
+        .mov .r12 (.imm 255), .mov .lr (.reg .r4), .mov .r12 (.shifted .r8 .ror 6),
+        .mov .r12 (.shifted .r8 .lsr 10), .mov .r12 (.shifted .r8 .lsl 3),
+        .dp .add .r1 .r1 (.imm 64), .dp .sub .r4 .r5 (.reg .r6),
+        .dp .and .r7 .r8 (.reg .lr), .dp .orr .r9 .r10 (.reg .r11),
+        .dp .eor .r12 .r12 (.shifted .r8 .ror 11),
+        .movw .r12 0x2f98, .movt .r12 0x428a, .rev .r12 .r12,
+        .ldr .r12 .r1 60, .str .lr .r3 100, .subs .r2 .r2 (.imm 1)]) .ne))
+
+#guard Arm.printer.function sampleArm == [
+  "cmp r2, #0",
+  "beq 20f",
+  "22:",
+  "mov r12, #255",
+  "mov lr, r4",
+  "ror r12, r8, #6",
+  "lsr r12, r8, #10",
+  "lsl r12, r8, #3",
+  "add r1, r1, #64",
+  "sub r4, r5, r6",
+  "and r7, r8, lr",
+  "orr r9, r10, r11",
+  "eor r12, r12, r8, ror #11",
+  "movw r12, #12184",
+  "movt r12, #17034",
+  "rev r12, r12",
+  "ldr r12, [r1, #60]",
+  "str lr, [r3, #100]",
+  "subs r2, r2, #1",
+  "bne 22b",
+  "b 21f",
+  "20:",
+  "21:",
+  "bx lr"
+]
+
+#guard Arm.encodable 0xff000000 && Arm.encodable 0x3fc && !Arm.encodable 0x101 && !Arm.encodable 0x1fe00
 
 #guard Rust.escape "ld1 {v0.4s}, [x1] \\ \"q\"" == "ld1 {{v0.4s}}, [x1] \\\\ \\\"q\\\""
 
