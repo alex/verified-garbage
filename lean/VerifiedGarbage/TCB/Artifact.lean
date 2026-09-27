@@ -66,8 +66,7 @@ structure Artifact where
   /-- The Rust module the function is emitted into, `src/asm/<target>/<module>.rs`
   (e.g. `sha256`). -/
   module : String
-  /-- The Rust function name. Must be unique within the target; it is also
-  the prefix of the function's local assembler labels. -/
+  /-- The Rust function name. Must be unique within the target. -/
   name : String
   /-- The Rust parameter list and return type, e.g. `(a: u64, b: u64) -> u64`.
   **Trusted**: it must agree with how `contract` reads the argument registers

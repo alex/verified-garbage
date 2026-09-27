@@ -21,18 +21,46 @@ def sample : Prog isa :=
                       .alu .sub .rcx (.imm 1)]) .ne)
       (.block [.store { base := .rsi, disp := 16 } .rax, .mov .rdx (.imm (-1))]))
 
-#guard printer.function "f" sample == [
+#guard printer.function sample == [
   "xor rax, rax",
-  "jne .Lf_0",
+  "jne 20f",
   "mov QWORD PTR [rsi+16], rax",
   "mov rdx, -1",
-  "jmp .Lf_1",
-  ".Lf_0:",
-  ".Lf_2:",
+  "jmp 21f",
+  "20:",
+  "22:",
   "add rax, QWORD PTR [rdi+rcx*8-8]",
   "sub rcx, 1",
-  "jne .Lf_2",
-  ".Lf_1:",
+  "jne 22b",
+  "21:",
+  "ret"
+]
+
+/-- Every 32-bit instruction form. -/
+def sample32 : Prog isa := .block [
+  .mov32 .rax (.reg .r8),
+  .mov32 .r15 (.imm 0xfffffffe),
+  .mov32 .rcx (.mem { base := .rsi, disp := 60 }),
+  .store32 { base := .rdi, index := some .rdx, scale := 4 } .r11,
+  .alu32 .add .rbp (.imm 0x428a2f98),
+  .alu32 .xor .r12 (.reg .rsp),
+  .alu32 .and .r13 (.mem { base := .rcx, disp := -4 }),
+  .shift32 .ror .rbx 25,
+  .shift32 .shr .r9 3,
+  .bswap32 .r10
+]
+
+#guard printer.function sample32 == [
+  "mov eax, r8d",
+  "mov r15d, -2",
+  "mov ecx, DWORD PTR [rsi+60]",
+  "mov DWORD PTR [rdi+rdx*4], r11d",
+  "add ebp, 1116352408",
+  "xor r12d, esp",
+  "and r13d, DWORD PTR [rcx-4]",
+  "ror ebx, 25",
+  "shr r9d, 3",
+  "bswap r10d",
   "ret"
 ]
 

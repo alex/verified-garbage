@@ -8,7 +8,9 @@ Each instruction's semantics here must agree with the Intel SDM; when adding
 an instruction, cite the SDM pseudocode it transcribes.
 
 Modelling choices:
-* Only 64-bit operand size is modelled so far.
+* Only 64-bit and 32-bit operand sizes are modelled. SDM Vol. 1 §3.4.1.1:
+  "32-bit operands generate a 32-bit result, zero-extended to a 64-bit result
+  in the destination general-purpose register."
 * Only CF, ZF, SF and OF are modelled. Each is an `Option Bool`; `none` means
   "undefined" (as the SDM specifies for some instructions). Evaluating a
   branch on an undefined flag faults, so verified code never depends on one.
@@ -57,6 +59,10 @@ inductive Src
 inductive AluOp | add | adc | sub | sbb | and | or | xor | cmp | test
   deriving DecidableEq, Repr
 
+/-- Shifts and rotates by an immediate count. -/
+inductive ShiftOp | ror | shr
+  deriving DecidableEq, Repr
+
 inductive Instr
   /-- `mov dst, src` (64-bit) -/
   | mov (dst : Reg) (src : Src)
@@ -64,6 +70,19 @@ inductive Instr
   | store (dst : MemOp) (src : Reg)
   /-- Two-operand ALU instruction `op dst, src` (64-bit). -/
   | alu (op : AluOp) (dst : Reg) (src : Src)
+  /-- `mov r32, src` (32-bit; `DWORD PTR` for a memory source). An immediate
+  is used as is. The result is zero-extended into the 64-bit register. -/
+  | mov32 (dst : Reg) (src : Src)
+  /-- `mov DWORD PTR [dst], r32` -/
+  | store32 (dst : MemOp) (src : Reg)
+  /-- Two-operand ALU instruction `op r32, src` (32-bit; `DWORD PTR` for a
+  memory source). An immediate is used as is. -/
+  | alu32 (op : AluOp) (dst : Reg) (src : Src)
+  /-- `op r32, count` (32-bit) with an immediate count. Only counts `1 ≤ count ≤ 31`
+  are modelled; any other count faults. -/
+  | shift32 (op : ShiftOp) (dst : Reg) (count : Nat)
+  /-- `bswap r32` -/
+  | bswap32 (dst : Reg)
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`jcc` suffixes). -/
@@ -97,6 +116,17 @@ def load64 (s : State) (a : Addr) : Option (BitVec 64) :=
 def store64 (s : State) (a : Addr) (v : BitVec 64) : Option State :=
   if InRegions s.wr a 8 then some { s with mem := s.mem.writeW a v } else none
 
+/-- Load 4 bytes, faulting if not permitted. -/
+def load32 (s : State) (a : Addr) : Option (BitVec 32) :=
+  if InRegions (s.rd ++ s.wr) a 4 then some (s.mem.readW a 32) else none
+
+/-- Store 4 bytes, faulting if not permitted. -/
+def store32 (s : State) (a : Addr) (v : BitVec 32) : Option State :=
+  if InRegions s.wr a 4 then some { s with mem := s.mem.writeW a v } else none
+
+/-- Write a 32-bit result, zero-extended to 64 bits (SDM Vol. 1 §3.4.1.1). -/
+def setReg32 (s : State) (r : Reg) (v : BitVec 32) : State := s.setReg r (v.setWidth 64)
+
 /-- Set CF, OF, ZF and SF. -/
 def setFlags (s : State) (cf of zf sf : Option Bool) : State :=
   { s with cf := cf, of := of, zf := zf, sf := sf }
@@ -109,19 +139,26 @@ def readSrc (s : State) : Src → Option (BitVec 64)
   | .imm v => some (v.signExtend 64)
   | .mem m => s.load64 (s.ea m)
 
+/-- Read a 32-bit source operand: the low 32 bits of a register, the
+immediate itself, or 4 bytes of memory. -/
+def readSrc32 (s : State) : Src → Option (BitVec 32)
+  | .reg r => some ((s.gpr r).setWidth 32)
+  | .imm v => some v
+  | .mem m => s.load32 (s.ea m)
+
 def srcAddrs (s : State) : Src → List Addr
   | .mem m => [s.ea m]
   | _ => []
 
 /-- Flags after the result `r` of an arithmetic or logic operation with carry
 `c` and signed overflow `o`: ZF and SF are computed from `r`. -/
-def arithFlags (s : State) (r : BitVec 64) (c o : Bool) : State :=
+def arithFlags {w : Nat} (s : State) (r : BitVec w) (c o : Bool) : State :=
   s.setFlags (some c) (some o) (some (r == 0)) (some r.msb)
 
 /-- Signed overflow of `a + b (+ carry) = r`. -/
-def addOverflow (a b r : BitVec 64) : Bool := a.msb == b.msb && r.msb != a.msb
+def addOverflow {w : Nat} (a b r : BitVec w) : Bool := a.msb == b.msb && r.msb != a.msb
 /-- Signed overflow of `a - b (- borrow) = r`. -/
-def subOverflow (a b r : BitVec 64) : Bool := a.msb != b.msb && r.msb != a.msb
+def subOverflow {w : Nat} (a b r : BitVec w) : Bool := a.msb != b.msb && r.msb != a.msb
 
 /-- SDM Vol. 2: ADD, ADC, SUB, SBB, CMP set CF/OF/ZF/SF by the result; AND,
 OR, XOR, TEST clear CF and OF and set ZF/SF by the result. -/
@@ -146,15 +183,79 @@ def execAlu (op : AluOp) (dst : Reg) (src : Src) (s : State) : Option State :=
   | .xor => let r := a ^^^ b; some ((arithFlags s r false false).setReg dst r)
   | .test => let r := a &&& b; some (arithFlags s r false false)
 
+/-- The 32-bit forms of `execAlu`: the same operations on the low 32 bits,
+with the flags computed from the 32-bit result. CMP and TEST write no
+register; every other operation zero-extends its result (SDM Vol. 1 §3.4.1.1). -/
+def execAlu32 (op : AluOp) (dst : Reg) (src : Src) (s : State) : Option State :=
+  (readSrc32 s src).bind fun b =>
+  let a := (s.gpr dst).setWidth 32
+  match op with
+  | .add => let r := a + b
+    some ((arithFlags s r (2 ^ 32 ≤ a.toNat + b.toNat) (addOverflow a b r)).setReg32 dst r)
+  | .adc => s.cf.map fun c =>
+    let r := a + b + (BitVec.ofBool c).setWidth 32
+    (arithFlags s r (2 ^ 32 ≤ a.toNat + b.toNat + c.toNat) (addOverflow a b r)).setReg32 dst r
+  | .sub => let r := a - b
+    some ((arithFlags s r (a.toNat < b.toNat) (subOverflow a b r)).setReg32 dst r)
+  | .sbb => s.cf.map fun c =>
+    let r := a - b - (BitVec.ofBool c).setWidth 32
+    (arithFlags s r (a.toNat < b.toNat + c.toNat) (subOverflow a b r)).setReg32 dst r
+  | .cmp => let r := a - b
+    some (arithFlags s r (a.toNat < b.toNat) (subOverflow a b r))
+  | .and => let r := a &&& b; some ((arithFlags s r false false).setReg32 dst r)
+  | .or => let r := a ||| b; some ((arithFlags s r false false).setReg32 dst r)
+  | .xor => let r := a ^^^ b; some ((arithFlags s r false false).setReg32 dst r)
+  | .test => let r := a &&& b; some (arithFlags s r false false)
+
+/-- SDM Vol. 2, "RCL/RCR/ROL/ROR" and "SAL/SAR/SHL/SHR", for a 32-bit
+operand and a count `n` with `1 ≤ n ≤ 31` (so the masked count `n AND 1FH`
+is `n`; other counts fault):
+
+* ROR: the operand is rotated right by `n`; CF := MSB of the result; OF :=
+  MSB XOR MSB−1 of the result if `n = 1`, otherwise undefined; SF and ZF are
+  unaffected.
+* SHR: the operand is shifted right (logically) by `n`; CF := the last bit
+  shifted out (bit `n − 1` of the operand); OF := MSB of the original operand
+  if `n = 1`, otherwise undefined; SF and ZF are set according to the result.
+
+(AF and PF are not modelled.) -/
+def execShift32 (op : ShiftOp) (dst : Reg) (n : Nat) (s : State) : Option State :=
+  if 1 ≤ n ∧ n ≤ 31 then
+    let a := (s.gpr dst).setWidth 32
+    match op with
+    | .ror => let r := a.rotateRight n
+      some ((s.setFlags (some r.msb) (if n = 1 then some (r.msb ^^ r.getMsbD 1) else none)
+        s.zf s.sf).setReg32 dst r)
+    | .shr => let r := a >>> n
+      some ((s.setFlags (some (a.getLsbD (n - 1))) (if n = 1 then some a.msb else none)
+        (some (r == 0)) (some r.msb)).setReg32 dst r)
+  else none
+
+/-- SDM Vol. 2, "BSWAP": `DEST[7:0] := TEMP[31:24]; DEST[15:8] := TEMP[23:16];
+DEST[23:16] := TEMP[15:8]; DEST[31:24] := TEMP[7:0]` for a 32-bit operand
+(zero-extended, SDM Vol. 1 §3.4.1.1). No flags are affected. -/
+def bswap32 (a : BitVec 32) : BitVec 32 :=
+  a.extractLsb' 0 8 ++ a.extractLsb' 8 8 ++ a.extractLsb' 16 8 ++ a.extractLsb' 24 8
+
 def exec : Instr → State → Option State
   | .mov d src, s => (readSrc s src).map fun v => s.setReg d v
   | .store m r, s => s.store64 (s.ea m) (s.gpr r)
   | .alu op d src, s => execAlu op d src s
+  | .mov32 d src, s => (readSrc32 s src).map fun v => s.setReg32 d v
+  | .store32 m r, s => s.store32 (s.ea m) ((s.gpr r).setWidth 32)
+  | .alu32 op d src, s => execAlu32 op d src s
+  | .shift32 op d n, s => execShift32 op d n s
+  | .bswap32 d, s => some (s.setReg32 d (bswap32 ((s.gpr d).setWidth 32)))
 
 def addrs : Instr → State → List Addr
   | .mov _ src, s => srcAddrs s src
   | .store m _, s => [s.ea m]
   | .alu _ _ src, s => srcAddrs s src
+  | .mov32 _ src, s => srcAddrs s src
+  | .store32 m _, s => [s.ea m]
+  | .alu32 _ _ src, s => srcAddrs s src
+  | .shift32 .., _ => []
+  | .bswap32 _, _ => []
 
 def eval : Cond → State → Option Bool
   | .e, s => s.zf
