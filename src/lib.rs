@@ -21,6 +21,8 @@ mod asm;
 pub mod hash;
 #[cfg(target_arch = "x86_64")]
 pub mod hmac;
+#[cfg(target_arch = "x86_64")]
+pub mod pbkdf2;
 #[cfg(any(
     target_arch = "x86_64",
     target_arch = "aarch64",
