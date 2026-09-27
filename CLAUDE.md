@@ -28,6 +28,11 @@ trustworthy. Read `lean/README.md` first.
   (`src/` and `tests/`) from every platform and fails below 100%. Add tests
   or delete dead code; only exclude lines that genuinely cannot run, between
   `// NO-COVERAGE-START` and `// NO-COVERAGE-END`, with a comment saying why.
+* **Known-answer tests need clear provenance.** Never type test vectors into
+  a test. Use Wycheproof (`tests/wycheproof/`), or vendor the published
+  files byte for byte into a directory under `vectors/`, with a `[[source]]`
+  for that directory in `vectors/sources.toml` saying where they came from
+  (`ci/check_vectors.py` checks it), and read them from there.
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
@@ -56,6 +61,7 @@ instructions in an ISA model) go in their own PR before either.
 ```sh
 (cd lean && lake build && lake env lean --run Emit.lean --check)
 python3 ci/check_lean_imports.py
+python3 ci/check_vectors.py
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
 ```

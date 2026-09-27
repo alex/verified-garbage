@@ -47,6 +47,15 @@ jobs:
           persist-credentials: false
       - run: python3 ci/check_lean_imports.py
 
+  vectors:
+    name: Test vector provenance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 ci/check_vectors.py
+
   rust:
     strategy:
       fail-fast: false
