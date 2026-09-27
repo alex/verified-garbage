@@ -43,9 +43,20 @@ def checkBlock : A.T → List M.Instr → Option A.T
   | τ, [] => some τ
   | τ, i :: is => (A.step τ i).bind fun τ' => checkBlock τ' is
 
-/-- The analysis of structured code. A loop is checked with its entry taint
-as the invariant: the body must keep public everything that was public on
-entry, and leave the loop condition public. -/
+/-- How many times the analysis of a loop weakens its invariant. -/
+def loopFuel : Nat := 4
+
+/-- The analysis of a loop from invariant candidate `σ`, given the analysis
+`body` of its body: the candidate is an invariant if the body keeps public
+everything the candidate says is public, and leaves the loop condition
+public; otherwise the candidate is weakened to what is public both before
+and after the body, and tried again. -/
+def loopFix (body : A.T → Option A.T) (c : M.Cond) : Nat → A.T → Option A.T
+  | 0, _ => none
+  | n + 1, σ => (body σ).bind fun σ' =>
+    if A.le σ σ' && A.condPub σ' c then some σ' else loopFix body c n (A.meet σ σ')
+
+/-- The analysis of structured code. -/
 def check : A.T → Prog M → Option A.T
   | τ, .block is => A.checkBlock τ is
   | τ, .seq c₁ c₂ => (check τ c₁).bind fun τ' => check τ' c₂
@@ -53,8 +64,7 @@ def check : A.T → Prog M → Option A.T
     if A.condPub τ c then
       (check τ t).bind fun τ₁ => (check τ e).map fun τ₂ => A.meet τ₁ τ₂
     else none
-  | τ, .loop body c =>
-    (check τ body).bind fun τ' => if A.le τ τ' && A.condPub τ' c then some τ' else none
+  | τ, .loop body c => A.loopFix (check · body) c loopFuel τ
 
 variable {A}
 
@@ -82,6 +92,28 @@ theorem checkBlock_sound {is : List M.Instr} {τ τ' : A.T} {s₁ s₂ s₁' s�
     obtain ⟨hadd, ha₁⟩ := A.step_sound ha hs h₁ h₂
     obtain ⟨ht, ha'⟩ := ih hr ha₁ e₁ e₂
     exact ⟨by rw [hadd, ht], ha'⟩
+
+/-- A successful loop analysis found an invariant `σ`, public whenever the
+entry taint is, from which the body's analysis gives the result. -/
+theorem loopFix_sound {body : Prog M} {c : M.Cond} {τ τ' : A.T}
+    (h : A.check τ (.loop body c) = some τ') :
+    ∃ σ, (∀ {s₁ s₂}, A.Agree τ s₁ s₂ → A.Agree σ s₁ s₂) ∧ A.check σ body = some τ' ∧
+      A.le σ τ' = true ∧ A.condPub τ' c = true ∧ A.check σ (.loop body c) = some τ' := by
+  simp only [check] at h
+  generalize loopFuel = n at h
+  induction n generalizing τ with
+  | zero => cases h
+  | succ n ih =>
+    simp only [loopFix, Option.bind_eq_some_iff] at h
+    obtain ⟨σ', hb, hl⟩ := h
+    split at hl
+    · rename_i hle
+      cases hl
+      simp only [Bool.and_eq_true] at hle
+      refine ⟨τ, id, hb, hle.1, hle.2, ?_⟩
+      simp only [check, loopFuel, loopFix, hb, Option.bind_some, hle.1, hle.2, Bool.and_self, ite_true]
+    · obtain ⟨σ, hσ, hr⟩ := ih hl
+      exact ⟨σ, fun ha => hσ (A.meet_left ha), hr⟩
 
 theorem check_sound {c : Prog M} {τ τ' : A.T} {s₁ s₂ s₁' s₂' : M.State} {t₁ t₂ : List Leak}
     (h : A.check τ c = some τ') (ha : A.Agree τ s₁ s₂)
@@ -117,33 +149,21 @@ theorem check_sound {c : Prog M} {τ τ' : A.T} {s₁ s₂ s₁' s₂' : M.State
     | iteT hc' _ => rw [← A.cond_sound ha hp, hc] at hc'; cases hc'
     | iteF _ b => obtain ⟨rfl, hq⟩ := ih h₂ ha b; exact ⟨rfl, A.meet_right hq⟩
   | loopExit _ hc ih =>
-    have h' := h
-    simp only [check, Option.bind_eq_some_iff] at h'
-    obtain ⟨τ₁, hb, hl⟩ := h'
-    split at hl <;> [skip; cases hl]
-    rename_i hle
-    cases hl
-    simp only [Bool.and_eq_true] at hle
+    obtain ⟨σ, hσ, hb, hle, hc'', -⟩ := loopFix_sound h
     cases e₂ with
-    | loopExit a _ => obtain ⟨rfl, hq⟩ := ih hb ha a; exact ⟨rfl, hq⟩
+    | loopExit a _ => obtain ⟨rfl, hq⟩ := ih hb (hσ ha) a; exact ⟨rfl, hq⟩
     | loopNext a hc' _ =>
-      obtain ⟨_, ha₁⟩ := ih hb ha a
-      rw [← A.cond_sound ha₁ hle.2, hc] at hc'; cases hc'
+      obtain ⟨_, ha₁⟩ := ih hb (hσ ha) a
+      rw [← A.cond_sound ha₁ hc'', hc] at hc'; cases hc'
   | loopNext _ hc _ ih₁ ih₂ =>
-    have h' := h
-    simp only [check, Option.bind_eq_some_iff] at h'
-    obtain ⟨τ₁, hb, hl⟩ := h'
-    split at hl <;> [skip; cases hl]
-    rename_i hle
-    cases hl
-    simp only [Bool.and_eq_true] at hle
+    obtain ⟨σ, hσ, hb, hle, hc'', hloop⟩ := loopFix_sound h
     cases e₂ with
     | loopExit a hc' =>
-      obtain ⟨_, ha₁⟩ := ih₁ hb ha a
-      rw [← A.cond_sound ha₁ hle.2, hc] at hc'; cases hc'
+      obtain ⟨_, ha₁⟩ := ih₁ hb (hσ ha) a
+      rw [← A.cond_sound ha₁ hc'', hc] at hc'; cases hc'
     | loopNext a _ b =>
-      obtain ⟨rfl, ha₁⟩ := ih₁ hb ha a
-      obtain ⟨rfl, ha₂⟩ := ih₂ h (A.le_sound hle.1 ha₁) b
+      obtain ⟨rfl, ha₁⟩ := ih₁ hb (hσ ha) a
+      obtain ⟨rfl, ha₂⟩ := ih₂ hloop (A.le_sound hle ha₁) b
       exact ⟨rfl, ha₂⟩
 
 /-- A successful check proves constant time, for any `Pub` under which the
