@@ -10,3 +10,10 @@ directories = ["nist-cavp/sha256", "nist-cavp/sha512"]
 url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/shs/shabytetestvectors.zip"
 sha256 = "929ef80b7b3418aca026643f6f248815913b60e01741a44bba9e118067f4c9b8"
 retrieved = 2026-09-27
+
+[[source]]
+name = "RFC 8439, ChaCha20 and Poly1305 for IETF Protocols (test vectors in Appendix A)"
+directory = "rfc8439"
+url = "https://www.rfc-editor.org/rfc/rfc8439.txt"
+sha256 = "25bef70fbf7a07ff45c2fe4cb7c6ce954eac687413d8610603268b4e4415324c"
+retrieved = 2026-09-27
