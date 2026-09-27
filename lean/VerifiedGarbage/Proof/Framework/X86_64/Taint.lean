@@ -158,8 +158,9 @@ def step (τ : T) : Instr → Option T
   | .alu op d src | .alu32 op d src => aluStep τ op d src
   -- The result is a function of the old value of `d`, and so are the
   -- flags that change.
-  | .shift32 _ d _ => some { τ with flags := τ.flags && pub τ d, bases := kill τ d }
+  | .shift32 _ d _ | .shift _ d _ => some { τ with flags := τ.flags && pub τ d, bases := kill τ d }
   | .bswap32 d | .bswap d => some { τ with bases := kill τ d }
+  | .movImm64 d _ => some { τ with regs := set τ d true, bases := kill τ d }
   | .movzx8 d m => if memPub τ m then some { τ with regs := set τ d false, bases := kill τ d } else none
 
 def meet (τ₁ τ₂ : T) : T where
@@ -592,7 +593,7 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {m : 
 /-- The register an instruction writes (none for stores). -/
 def dstOf : Instr → Option Reg
   | .mov d _ | .mov32 d _ | .alu _ d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
-  | .movzx8 d _ | .bswap d => some d
+  | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
   | .store .. | .store32 .. | .store8 .. => none
 
 theorem exec_nonstore {i : Instr} {d : Reg} (hd : dstOf i = some d) {s s' : State}
@@ -630,6 +631,15 @@ theorem exec_nonstore {i : Instr} {d : Reg} (hd : dstOf i = some d) {s s' : Stat
     simp only [exec, Option.map_eq_some_iff] at h
     obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
   case bswap =>
+    simp only [exec, Option.some.injEq] at h
+    subst h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
+  case shift op _ n =>
+    simp only [exec, execShift] at h
+    split at h
+    · cases op <;> simp only [Option.some.injEq] at h <;> subst h <;>
+        exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
+    · cases h
+  case movImm64 v =>
     simp only [exec, Option.some.injEq] at h
     subst h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
 
@@ -778,6 +788,33 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     by_cases hrd : r = d
     · subst hrd; simp [State.setReg, ha.rf.1 r hr]
     · simp [State.setReg, hrd, ha.rf.1 r hr]
+  | shift op d n =>
+    simp only [step, Option.some.injEq] at hs
+    subst hs
+    refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl fun _ h => h⟩
+    by_cases hn : 1 ≤ n ∧ n ≤ 63
+    swap; · simp [exec, execShift, hn] at e₁
+    simp only [exec, execShift, hn, and_self, ite_true] at e₁ e₂
+    refine ⟨fun r hr => ?_, fun hf => ?_⟩
+    · by_cases hrd : r = d
+      · subst hrd
+        have := ha.rf.1 r hr
+        cases op <;> simp only [Option.some.injEq] at e₁ e₂ <;> subst e₁ e₂ <;>
+          simp [State.setReg, this]
+      · cases op <;> simp only [Option.some.injEq] at e₁ e₂ <;> subst e₁ e₂ <;>
+          simp [State.setReg, State.setFlags, hrd, ha.rf.1 r hr]
+    · simp only [Bool.and_eq_true] at hf
+      have hd := ha.reg hf.2
+      have hfl := ha.rf.2 hf.1
+      cases op <;> simp only [Option.some.injEq] at e₁ e₂ <;> subst e₁ e₂ <;>
+        simp [State.setReg, State.setFlags, hd, hfl]
+  | movImm64 d v =>
+    simp only [step, Option.some.injEq] at hs
+    subst hs
+    refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl fun _ h => h⟩
+    simp only [exec, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    exact ⟨regs_set (p := true) ha.rf.1 fun _ => rfl, by simpa using ha.rf.2⟩
 
 theorem cond_sound {τ : T} {c : Cond} {s₁ s₂ : State} (ha : Agree τ s₁ s₂)
     (hc : τ.flags = true) : eval c s₁ = eval c s₂ := by

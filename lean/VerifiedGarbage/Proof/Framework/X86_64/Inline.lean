@@ -149,6 +149,13 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     cases op <;> (simp only [Option.some.injEq] at h; subst h; rfl)
   | bswap32 d => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
   | bswap d => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
+  | shift op d n =>
+    simp only [exec, execShift] at h ⊢
+    split at h <;> [skip; cases h]
+    rename_i hn
+    simp only [hn, and_self, ite_true]
+    cases op <;> (simp only [Option.some.injEq] at h; subst h; rfl)
+  | movImm64 d v => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
 
 theorem addrs_withRegions (i : Instr) (s : State) (rd wr : List Region) :
     addrs i (s.withRegions rd wr) = addrs i s := by
