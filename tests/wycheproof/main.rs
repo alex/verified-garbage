@@ -9,6 +9,8 @@
 //! one must be rejected, and for an `acceptable` one either outcome is fine
 //! (but a result, if produced, must be the expected one).
 
+#[cfg(target_arch = "x86_64")]
+mod chacha20;
 mod harness;
 #[cfg(target_arch = "x86_64")]
 mod hmac;
