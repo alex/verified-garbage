@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.X86_64.Print
 import VerifiedGarbage.TCB.Rust
 import VerifiedGarbage.TCB.AArch64.Print
+import VerifiedGarbage.TCB.X86.Print
 
 /-!
 # Golden tests for the trusted printers
@@ -140,6 +141,45 @@ def sampleA64 : Prog AArch64.isa :=
   "strb w25, [x26, #4095]",
   "cbnz x2, 22b",
   "b 21f",
+  "20:",
+  "21:",
+  "ret"
+]
+
+/-- Every x86 (32-bit) instruction form, every operand form, and both conditions. -/
+def sampleX86 : Prog X86.isa :=
+  .seq (.block [.mov .eax (.mem { base := .esp, disp := 16 }), .alu .test .ebp (.reg .ebp)])
+    (.ite .e (.block [])
+      (.loop (.block [
+        .mov .ebx (.reg .eax), .mov .ecx (.imm 0xfffffffe), .mov .edx (.mem { base := .esi }),
+        .store { base := .eax, disp := 96 } .ebx,
+        .alu .add .ecx (.imm 0x428a2f98), .alu .adc .ecx (.reg .edx), .alu .sub .ebp (.imm 1),
+        .alu .sbb .ecx (.reg .edx), .alu .and .ebx (.mem { base := .esi, disp := 28 }),
+        .alu .or .ebx (.reg .edx), .alu .xor .ebx (.reg .ecx), .alu .cmp .edi (.imm 64),
+        .shift .ror .ebx 6, .shift .shr .eax 10, .bswap .eax]) .ne))
+
+#guard X86.printer.function sampleX86 == [
+  "mov eax, DWORD PTR [esp+16]",
+  "test ebp, ebp",
+  "je 20f",
+  "22:",
+  "mov ebx, eax",
+  "mov ecx, -2",
+  "mov edx, DWORD PTR [esi]",
+  "mov DWORD PTR [eax+96], ebx",
+  "add ecx, 1116352408",
+  "adc ecx, edx",
+  "sub ebp, 1",
+  "sbb ecx, edx",
+  "and ebx, DWORD PTR [esi+28]",
+  "or ebx, edx",
+  "xor ebx, ecx",
+  "cmp edi, 64",
+  "ror ebx, 6",
+  "shr eax, 10",
+  "bswap eax",
+  "jne 22b",
+  "jmp 21f",
   "20:",
   "21:",
   "ret"
