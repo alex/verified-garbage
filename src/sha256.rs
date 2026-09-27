@@ -2,11 +2,13 @@
 //!
 //! The compression function is the verified assembly primitive
 //! `vg_sha256_compress` for the target architecture (contracts
-//! `VG.Spec.Sha256.compressX86_64` and `compressAArch64`); this module adds the
-//! buffering, padding (§5.1.1) and output encoding around it.
+//! `VG.Spec.Sha256.compressX86_64`, `compressAArch64` and `compressArm`); this
+//! module adds the buffering, padding (§5.1.1) and output encoding around it.
 
 #[cfg(target_arch = "aarch64")]
 use crate::asm::aarch64::sha256::vg_sha256_compress;
+#[cfg(target_arch = "arm")]
+use crate::asm::arm::sha256::vg_sha256_compress;
 #[cfg(target_arch = "x86_64")]
 use crate::asm::x86_64::sha256::vg_sha256_compress;
 

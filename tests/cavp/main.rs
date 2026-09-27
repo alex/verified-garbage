@@ -6,7 +6,7 @@
 //! the test binary, so these tests always run. Every vector of every file is
 //! checked.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use verified_garbage::sha256::Sha256;
 
