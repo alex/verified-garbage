@@ -1,0 +1,5 @@
+// @generated from lean/VerifiedGarbage/Artifacts.lean by lean/Emit.lean. DO NOT EDIT.
+//! Verified functions for `arm`.
+
+#[rustfmt::skip]
+pub(crate) mod sha256;

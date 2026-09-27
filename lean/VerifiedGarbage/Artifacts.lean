@@ -3,6 +3,7 @@ import VerifiedGarbage.TCB.Rust
 import VerifiedGarbage.Proof.Selftest.X86_64
 import VerifiedGarbage.Proof.Sha256.X86_64.Compress
 import VerifiedGarbage.Proof.Sha256.AArch64.Compress
+import VerifiedGarbage.Proof.Sha256.Arm.Compress
 
 /-!
 # The artifact registry
@@ -75,7 +76,25 @@ def artifacts : List Artifact := [
       * These three regions must not overlap each other."
     code := Impl.Sha256.AArch64.compress
     contract := Spec.Sha256.compressAArch64
-    verified := Proof.Sha256.AArch64.compress_verified }
+    verified := Proof.Sha256.AArch64.compress_verified },
+  { target := Arm.target
+    module := "sha256"
+    name := "vg_sha256_compress"
+    rustSig := "(state: *mut [u32; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 14])"
+    doc := "The SHA-256 compression function (FIPS 180-4 §6.2.2): updates the hash value \
+      `*state` with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
+      Contract: `VG.Spec.Sha256.compressArm`. Constant time: only the pointers and `n` \
+      may affect timing, not the hash value or the blocks.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 32 bytes.\n\
+      * `blocks` must be valid for reads of `64 * n` bytes.\n\
+      * `scratch` must be valid for reads and writes of 112 bytes; its contents on \
+      return are unspecified.\n\
+      * These three regions must not overlap each other, and none of them may wrap \
+      around the end of the address space (no Rust object does)."
+    code := Impl.Sha256.Arm.compress
+    contract := Spec.Sha256.compressArm
+    verified := Proof.Sha256.Arm.compress_verified }
 ]
 
 #assert_standard_axioms artifacts
