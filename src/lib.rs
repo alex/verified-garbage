@@ -29,7 +29,7 @@ mod tests {
         for (a, b) in cases {
             // SAFETY: the contract has no preconditions.
             let r = unsafe { crate::asm::x86_64::selftest::vg_selftest_add(a, b) };
-            assert_eq!(r, a.wrapping_add(b), "vg_selftest_add({a:#x}, {b:#x})");
+            assert_eq!(r, a.wrapping_add(b));
         }
     }
 }
