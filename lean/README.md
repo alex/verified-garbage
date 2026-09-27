@@ -61,6 +61,10 @@ never import proofs.
 
 Everything in `Impl/` and `Proof/` is checked by Lean and need not be read.
 
+To keep review of the trusted parts focused, new specs, additions to the TCB,
+and new implementations are never combined in one PR: an implementation is
+only proven against a spec and TCB that were reviewed and merged beforehand.
+
 ## Building
 
 ```sh

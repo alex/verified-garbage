@@ -19,12 +19,21 @@ trustworthy. Read `lean/README.md` first.
   justify each ISA semantics change by citing the vendor manual (e.g. Intel SDM
   pseudocode). Never weaken a model, contract or `Verified` to make a proof go
   through: fix the proof or the code.
+* **One kind of change per PR.** New specs (`Spec/`), additions to the TCB
+  (`TCB/`), and new implementations (`Impl/` + `Proof/` + the `Artifacts.lean`
+  entry) must never be in the same PR. Trusted changes get reviewed on their
+  own, and an implementation is only ever proven against a spec and TCB that
+  have already been reviewed and merged.
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
   `Proof/`. `Spec/` and `Impl/` never import `Proof/`.
 
 ## Adding a primitive
+
+This takes at least two PRs (see "One kind of change per PR"): step 1 alone,
+then steps 2–5 together. Any TCB additions the primitive needs (e.g. new
+instructions in an ISA model) go in their own PR before either.
 
 1. `Spec/<Alg>.lean`: the algorithm, transcribed from the standard, plus a
    `Contract` per target. Choose `pub` honestly: only lengths and pointers are
