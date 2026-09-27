@@ -21,18 +21,18 @@ def sample : Prog isa :=
                       .alu .sub .rcx (.imm 1)]) .ne)
       (.block [.store { base := .rsi, disp := 16 } .rax, .mov .rdx (.imm (-1))]))
 
-#guard printer.function "f" sample == [
+#guard printer.function sample == [
   "xor rax, rax",
-  "jne .Lf_0",
+  "jne 20f",
   "mov QWORD PTR [rsi+16], rax",
   "mov rdx, -1",
-  "jmp .Lf_1",
-  ".Lf_0:",
-  ".Lf_2:",
+  "jmp 21f",
+  "20:",
+  "22:",
   "add rax, QWORD PTR [rdi+rcx*8-8]",
   "sub rcx, 1",
-  "jne .Lf_2",
-  ".Lf_1:",
+  "jne 22b",
+  "21:",
   "ret"
 ]
 
@@ -50,7 +50,7 @@ def sample32 : Prog isa := .block [
   .bswap32 .r10
 ]
 
-#guard printer.function "g" sample32 == [
+#guard printer.function sample32 == [
   "mov eax, r8d",
   "mov r15d, -2",
   "mov ecx, DWORD PTR [rsi+60]",

@@ -46,7 +46,7 @@ def docComment (indent doc : String) : String :=
 
 /-- One artifact as a Rust naked function. -/
 def function (a : Artifact) : String :=
-  let body := a.target.printer.function a.name a.code
+  let body := a.target.printer.function a.code
   docComment "" a.doc ++
   "#[unsafe(naked)]\n" ++
   s!"pub(crate) unsafe extern \"{a.target.rustAbi}\" fn {a.name}{a.rustSig} " ++ "{\n" ++
