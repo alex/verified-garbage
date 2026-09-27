@@ -38,6 +38,9 @@ def Instr.asm : Instr → List String
   | .rev d m => [s!"rev {d.name}, {m.name}"]
   | .ldr t n off => [s!"ldr {t.name}, [{n.name}, #{off}]"]
   | .str t n off => [s!"str {t.name}, [{n.name}, #{off}]"]
+  | .ldrb t n off => [s!"ldrb {t.name}, [{n.name}, #{off}]"]
+  | .strb t n off => [s!"strb {t.name}, [{n.name}, #{off}]"]
+  | .ldrSp t off => [s!"ldr {t.name}, [sp, #{off}]"]
 
 def Cond.name : Cond → String
   | .eq => "eq" | .ne => "ne"

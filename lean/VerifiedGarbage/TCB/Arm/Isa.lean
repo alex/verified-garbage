@@ -13,8 +13,9 @@ Modelling choices:
 * Only instructions that exist, with the same semantics, in both the ARM
   (A32) and the Thumb (T32) instruction sets are modelled, so the model is
   right whichever of the two a function is assembled in.
-* Registers are `r0`–`r12` and `lr` (`r14`); `sp` is separate and no modelled
-  instruction reads or writes it; `pc` is not an operand.
+* Registers are `r0`–`r12` and `lr` (`r14`); `sp` is separate: no modelled
+  instruction writes it, and only `ldr t, [sp, #off]` (for arguments passed
+  on the stack) reads it; `pc` is not an operand.
 * Only the N, Z, C and V flags are modelled.
 * Immediates that an A32 instruction cannot encode make the instruction
   fault, so verified code only contains encodable instructions. (A T32
@@ -85,6 +86,12 @@ inductive Instr
   | ldr (t n : Reg) (off : Nat)
   /-- `str t, [n, #off]` (`0 ≤ off < 4096`) -/
   | str (t n : Reg) (off : Nat)
+  /-- `ldrb t, [n, #off]` (`0 ≤ off < 4096`) -/
+  | ldrb (t n : Reg) (off : Nat)
+  /-- `strb t, [n, #off]` (`0 ≤ off < 4096`) -/
+  | strb (t n : Reg) (off : Nat)
+  /-- `ldr t, [sp, #off]` (`0 ≤ off < 4096`) -/
+  | ldrSp (t : Reg) (off : Nat)
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`b<cond>`). -/
@@ -115,6 +122,14 @@ def load32 (s : State) (a : Addr) : Option (BitVec 32) :=
 /-- Store 4 bytes, faulting if not permitted. -/
 def store32 (s : State) (a : Addr) (x : BitVec 32) : Option State :=
   if InRegions s.wr a 4 then some { s with mem := s.mem.writeW a x } else none
+
+/-- Load 1 byte, faulting if not permitted. -/
+def load8 (s : State) (a : Addr) : Option (BitVec 8) :=
+  if InRegions (s.rd ++ s.wr) a 1 then some (s.mem a) else none
+
+/-- Store 1 byte, faulting if not permitted. -/
+def store8 (s : State) (a : Addr) (x : BitVec 8) : Option State :=
+  if InRegions s.wr a 1 then some { s with mem := s.mem.writeW a x } else none
 
 end State
 
@@ -148,7 +163,11 @@ register); "ADD/SUB/AND/ORR/EOR (immediate)", "(register)" (with `S` = 0,
 so no flags); "SUB (immediate/register)" with `S` = 1 and "CMP": N, Z, C, V
 from `AddWithCarry(R[n], NOT(op2), '1')`; "MOVW" (`R[d] = ZeroExtend(imm16)`);
 "MOVT" (`R[d]<31:16> = imm16`, the low half unchanged); "REV"; "LDR
-(immediate)"/"STR (immediate)" with a positive offset and no writeback. -/
+(immediate)"/"STR (immediate)" with a positive offset and no writeback
+(A8.8.63, A8.8.204), including "LDR (immediate)" with `n` = 13 (`sp`) for
+arguments on the stack; "LDRB (immediate)" (A8.8.68: `R[t] =
+ZeroExtend(MemU[address,1], 32)`) and "STRB (immediate)" (A8.8.207:
+`MemU[address,1] = R[t]<7:0>`) with a positive offset and no writeback. -/
 def exec : Instr → State → Option State
   | .mov d op2, s => (op2.eval s).map fun x => s.setReg d x
   | .dp op d n op2, s => (op2.eval s).map fun y =>
@@ -168,10 +187,24 @@ def exec : Instr → State → Option State
   | .str t n off, s =>
     if off < 4096 then s.store32 (State.addr (s.gpr n + BitVec.ofNat 32 off)) (s.gpr t)
     else none
+  | .ldrb t n off, s =>
+    if off < 4096 then
+      (s.load8 (State.addr (s.gpr n + BitVec.ofNat 32 off))).map fun x => s.setReg t (x.setWidth 32)
+    else none
+  | .strb t n off, s =>
+    if off < 4096 then s.store8 (State.addr (s.gpr n + BitVec.ofNat 32 off)) ((s.gpr t).setWidth 8)
+    else none
+  | .ldrSp t off, s =>
+    if off < 4096 then
+      (s.load32 (State.addr (s.sp + BitVec.ofNat 32 off))).map fun x => s.setReg t x
+    else none
 
 def addrs : Instr → State → List Addr
   | .ldr _ n off, s => [State.addr (s.gpr n + BitVec.ofNat 32 off)]
   | .str _ n off, s => [State.addr (s.gpr n + BitVec.ofNat 32 off)]
+  | .ldrb _ n off, s => [State.addr (s.gpr n + BitVec.ofNat 32 off)]
+  | .strb _ n off, s => [State.addr (s.gpr n + BitVec.ofNat 32 off)]
+  | .ldrSp _ off, s => [State.addr (s.sp + BitVec.ofNat 32 off)]
   | _, _ => []
 
 def eval : Cond → State → Option Bool

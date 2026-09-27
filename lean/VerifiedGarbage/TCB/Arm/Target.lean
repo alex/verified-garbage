@@ -10,6 +10,11 @@ architecture version the assembler rejects instructions such as `movw`.
 
 AAPCS (Arm's "Procedure Call Standard for the Arm Architecture"): integer and
 pointer arguments arrive in `r0`–`r3`; `r4`–`r11` and `sp` are callee-saved.
+A 64-bit argument takes an even-odd register pair (`r0:r1` or `r2:r3`, the
+low word in the even register), skipping a register if needed; once the
+registers are used up, the remaining arguments are on the stack, each
+4-byte one in a 4-byte slot, the first at `[sp]` on entry (AAPCS §6.5,
+stage C). The caller removes them.
 The printer ends every function with `bx lr`, which returns to the address
 in the link register `lr`, so `lr` must be unchanged on exit.
 
@@ -36,5 +41,11 @@ abbrev target : Target where
 
 /-- AAPCS argument registers, in order. -/
 def argRegs : List Reg := [.r0, .r1, .r2, .r3]
+
+/-- The address of the `i`-th (from 0) 4-byte argument on the stack, on entry. -/
+def stackArgAddr (s : State) (i : Nat) : Addr := State.addr (s.sp + BitVec.ofNat 32 (4 * i))
+
+/-- The value of the `i`-th (from 0) 4-byte argument on the stack, on entry. -/
+def stackArg (s : State) (i : Nat) : BitVec 32 := s.mem.readW (stackArgAddr s i) 32
 
 end VG.Arm
