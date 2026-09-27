@@ -100,6 +100,28 @@ def sample8 : Prog isa := .block ([
   "ret"
 ]
 
+/-- The 64-bit shifts and `movabs`, including an immediate ≥ 2⁶³. -/
+def sample64 : Prog isa := .block [
+  .shift .ror .rax 28,
+  .shift .ror .r15 1,
+  .shift .shr .rbx 63,
+  .shift .shr .r9 7,
+  .movImm64 .rcx 0x428a2f98d728ae22,
+  .movImm64 .r13 0xb5c0fbcfec4d3b2f,
+  .movImm64 .rsi 1
+]
+
+#guard printer.function sample64 == [
+  "ror rax, 28",
+  "ror r15, 1",
+  "shr rbx, 63",
+  "shr r9, 7",
+  "movabs rcx, 4794697086780616226",
+  "movabs r13, -5349999486874862801",
+  "movabs rsi, 1",
+  "ret"
+]
+
 /-- Every AArch64 instruction form, and both branch conditions. -/
 def sampleA64 : Prog AArch64.isa :=
   .ite (.zero .x .x2) (.block [])
