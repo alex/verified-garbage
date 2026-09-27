@@ -23,6 +23,13 @@ def Reg.name32 : Reg → String
   | .r8 => "r8d" | .r9 => "r9d" | .r10 => "r10d" | .r11 => "r11d"
   | .r12 => "r12d" | .r13 => "r13d" | .r14 => "r14d" | .r15 => "r15d"
 
+/-- The 8-bit name of a register (its low byte). -/
+def Reg.name8 : Reg → String
+  | .rax => "al" | .rcx => "cl" | .rdx => "dl" | .rbx => "bl"
+  | .rsp => "spl" | .rbp => "bpl" | .rsi => "sil" | .rdi => "dil"
+  | .r8 => "r8b" | .r9 => "r9b" | .r10 => "r10b" | .r11 => "r11b"
+  | .r12 => "r12b" | .r13 => "r13b" | .r14 => "r14b" | .r15 => "r15b"
+
 /-- `[base+index*scale+disp]` -/
 def MemOp.addr (m : MemOp) : String :=
   let idx := match m.index with
@@ -34,6 +41,8 @@ def MemOp.addr (m : MemOp) : String :=
 def MemOp.str (m : MemOp) : String := s!"QWORD PTR {m.addr}"
 
 def MemOp.str32 (m : MemOp) : String := s!"DWORD PTR {m.addr}"
+
+def MemOp.str8 (m : MemOp) : String := s!"BYTE PTR {m.addr}"
 
 def Src.str : Src → String
   | .reg r => r.name
@@ -62,6 +71,9 @@ def Instr.asm : Instr → List String
   | .alu32 op d s => [s!"{op.name} {d.name32}, {s.str32}"]
   | .shift32 op d n => [s!"{op.name} {d.name32}, {n}"]
   | .bswap32 d => [s!"bswap {d.name32}"]
+  | .movzx8 d m => [s!"movzx {d.name32}, {m.str8}"]
+  | .store8 m r => [s!"mov {m.str8}, {r.name8}"]
+  | .bswap d => [s!"bswap {d.name}"]
 
 def Cond.name : Cond → String
   | .e => "e" | .ne => "ne" | .b => "b" | .ae => "ae"

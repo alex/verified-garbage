@@ -64,6 +64,39 @@ def sample32 : Prog isa := .block [
   "ret"
 ]
 
+/-- The byte instructions, every 8-bit register name, and 64-bit `bswap`. -/
+def sample8 : Prog isa := .block ([
+  .movzx8 .rax (.mk .rsi (some .rcx) 1 32),
+  .movzx8 .r15 { base := .r12 },
+  .bswap .rax,
+  .bswap .r9] ++
+  [Reg.rax, .rcx, .rdx, .rbx, .rsp, .rbp, .rsi, .rdi,
+   .r8, .r9, .r10, .r11, .r12, .r13, .r14, .r15].map (.store8 { base := .rdi, disp := -3 }))
+
+#guard printer.function sample8 == [
+  "movzx eax, BYTE PTR [rsi+rcx*1+32]",
+  "movzx r15d, BYTE PTR [r12]",
+  "bswap rax",
+  "bswap r9",
+  "mov BYTE PTR [rdi-3], al",
+  "mov BYTE PTR [rdi-3], cl",
+  "mov BYTE PTR [rdi-3], dl",
+  "mov BYTE PTR [rdi-3], bl",
+  "mov BYTE PTR [rdi-3], spl",
+  "mov BYTE PTR [rdi-3], bpl",
+  "mov BYTE PTR [rdi-3], sil",
+  "mov BYTE PTR [rdi-3], dil",
+  "mov BYTE PTR [rdi-3], r8b",
+  "mov BYTE PTR [rdi-3], r9b",
+  "mov BYTE PTR [rdi-3], r10b",
+  "mov BYTE PTR [rdi-3], r11b",
+  "mov BYTE PTR [rdi-3], r12b",
+  "mov BYTE PTR [rdi-3], r13b",
+  "mov BYTE PTR [rdi-3], r14b",
+  "mov BYTE PTR [rdi-3], r15b",
+  "ret"
+]
+
 #guard Rust.escape "ld1 {v0.4s}, [x1] \\ \"q\"" == "ld1 {{v0.4s}}, [x1] \\\\ \\\"q\\\""
 
 end VG.Test
