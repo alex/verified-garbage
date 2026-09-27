@@ -1,8 +1,14 @@
 //! SHA-256 (FIPS 180-4).
 //!
 //! The compression function is the verified assembly primitive
-//! `vg_sha256_compress` (contract `VG.Spec.Sha256.compressX86_64`); this
-//! module adds the buffering, padding (§5.1.1) and output encoding around it.
+//! `vg_sha256_compress` for the target architecture (contracts
+//! `VG.Spec.Sha256.compressX86_64` and `compressAArch64`); this module adds the
+//! buffering, padding (§5.1.1) and output encoding around it.
+
+#[cfg(target_arch = "aarch64")]
+use crate::asm::aarch64::sha256::vg_sha256_compress;
+#[cfg(target_arch = "x86_64")]
+use crate::asm::x86_64::sha256::vg_sha256_compress;
 
 /// The initial hash value `H⁽⁰⁾` (FIPS 180-4 §5.3.3).
 const H0: [u32; 8] = [
@@ -19,7 +25,7 @@ fn compress(state: &mut [u32; 8], blocks: &[u8]) {
     // writes of 112 bytes; they are distinct objects, so they do not overlap
     // each other or the return address.
     unsafe {
-        crate::asm::x86_64::sha256::vg_sha256_compress(
+        vg_sha256_compress(
             state,
             blocks.as_ptr(),
             blocks.len() / Sha256::BLOCK_SIZE,
