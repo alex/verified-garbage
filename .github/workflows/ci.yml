@@ -48,31 +48,26 @@ jobs:
       - run: python3 ci/check_lean_imports.py
 
   rust:
-    name: Rust (${{ matrix.name }})
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+        rust: [stable, "1.88"]
+        userspace: [64-bit, 32-bit]
+        exclude:
+          - os: macos-latest
+            userspace: 32-bit
+          - os: windows-latest
+            userspace: 32-bit
         include:
-          - name: x86-64 Linux
-            runner: ubuntu-latest
-          - name: x86-64 Linux, MSRV
-            runner: ubuntu-latest
-            toolchain: "1.88"
-          - name: x86 Linux
-            runner: ubuntu-latest
-            # 32-bit userspace, run natively on the x86-64 host.
+          # 32-bit userspaces run natively on the 64-bit Linux hosts, in containers.
+          - os: ubuntu-latest
+            userspace: 32-bit
             container-platform: linux/386
-          - name: ARM64 Linux
-            runner: ubuntu-24.04-arm
-          - name: ARMv7 Linux
-            runner: ubuntu-24.04-arm
-            # 32-bit userspace, run natively on the ARM64 host.
+          - os: ubuntu-24.04-arm
+            userspace: 32-bit
             container-platform: linux/arm/v7
-          - name: ARM64 macOS
-            runner: macos-latest
-          - name: x86-64 Windows
-            runner: windows-latest
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.os }}
     env:
       WYCHEPROOF_ROOT: ${{ github.workspace }}/wycheproof
     steps:
@@ -88,10 +83,10 @@ jobs:
       - name: Install Rust
         if: ${{ !matrix.container-platform }}
         run: |
-          rustup toolchain install ${{ matrix.toolchain || 'stable' }} --profile minimal --component clippy,rustfmt
-          rustup default ${{ matrix.toolchain || 'stable' }}
+          rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy,rustfmt
+          rustup default ${{ matrix.rust }}
       - name: Lint
-        if: ${{ !matrix.container-platform && !matrix.toolchain }}
+        if: ${{ !matrix.container-platform && matrix.rust == 'stable' }}
         run: |
           cargo fmt --check
           cargo clippy --all-targets --locked
@@ -105,4 +100,5 @@ jobs:
           docker run --rm --platform ${{ matrix.container-platform }}
           -v "$PWD:/src" -w /src -e RUSTFLAGS -e CARGO_TERM_COLOR
           -e WYCHEPROOF_ROOT=/src/wycheproof
-          rust:1-slim sh -c 'uname -m && rustc -vV && cargo test --locked'
+          rust:${{ matrix.rust == 'stable' && '1' || matrix.rust }}-slim
+          sh -c 'uname -m && rustc -vV && cargo test --locked'
