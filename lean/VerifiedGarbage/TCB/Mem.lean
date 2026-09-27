@@ -54,6 +54,9 @@ def Region.Contains (r : Region) (a : Addr) (n : Nat) : Prop :=
 instance (r : Region) (a : Addr) (n : Nat) : Decidable (r.Contains a n) := by
   unfold Region.Contains; infer_instance
 
+/-- No byte lies in both regions. -/
+def Region.Disjoint (r₁ r₂ : Region) : Prop := ∀ a, r₁.Contains a 1 → ¬ r₂.Contains a 1
+
 /-- The access `[a, a + n)` lies entirely within one of the regions. -/
 def InRegions (rs : List Region) (a : Addr) (n : Nat) : Prop := ∃ r ∈ rs, r.Contains a n
 
