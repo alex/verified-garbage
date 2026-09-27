@@ -1,0 +1,12 @@
+# Where the test vectors under vectors/ come from. Each [[source]] covers
+# every file in its `directory`: those files are extracted unmodified from the
+# download at `url` (whose SHA-256 is `sha256`), and .gitattributes keeps git
+# from touching their line endings. ci/check_vectors.py checks that every file
+# under vectors/ is covered by exactly one source.
+
+[[source]]
+name = "NIST CAVP SHA-2 byte-oriented test vectors (SHA-256 files only)"
+directory = "nist-cavp/sha256"
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/shs/shabytetestvectors.zip"
+sha256 = "929ef80b7b3418aca026643f6f248815913b60e01741a44bba9e118067f4c9b8"
+retrieved = 2026-09-27
