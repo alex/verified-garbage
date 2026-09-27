@@ -45,4 +45,5 @@ lake env lean --run Emit.lean        # regenerate src/asm/ after changing Artifa
 
 CI checks every proof, that `src/asm/` is exactly what Lean generates, and the
 import discipline of the Lean directories (`ci/check_lean_imports.py`); it
-builds and runs the Rust tests natively on each target architecture.
+builds and runs the Rust tests natively on each target architecture, and
+requires 100% line coverage of the Rust code, merged across all of them.

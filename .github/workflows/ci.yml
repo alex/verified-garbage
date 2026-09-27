@@ -55,7 +55,8 @@ jobs:
           - os: ubuntu-latest
           # x86: a 32-bit userspace, run natively on the x86-64 host. There's
           # no pyca runner image for i386, so the job starts by installing the
-          # amd64 libc that the runner's (64-bit) Node needs for JS actions.
+          # amd64 libc that the runner's (64-bit) Node needs for JS actions
+          # (and Python, for the coverage export).
           - os: ubuntu-latest
             container:
               image: rust:slim
@@ -79,6 +80,9 @@ jobs:
       # Selects the toolchain without `rustup default`, which refuses 32-bit
       # toolchains on a 64-bit kernel.
       RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
+      RUSTFLAGS: -D warnings -Cinstrument-coverage
+      # Relative to the crate root, where the test binaries run.
+      LLVM_PROFILE_FILE: .rust-cov/cov-%p-%m.profraw
       # Relative to the crate root.
       WYCHEPROOF_ROOT: wycheproof
     steps:
@@ -87,7 +91,7 @@ jobs:
         run: |
           dpkg --add-architecture amd64
           apt-get update -qq
-          apt-get install -qq -y --no-install-recommends libc6:amd64 libstdc++6:amd64 git ca-certificates
+          apt-get install -qq -y --no-install-recommends libc6:amd64 libstdc++6:amd64 git ca-certificates python3
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -99,7 +103,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Rust
-        run: rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy,rustfmt
+        run: rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy,rustfmt,llvm-tools
       - name: Lint
         if: ${{ matrix.rust == 'stable' }}
         run: |
@@ -107,3 +111,48 @@ jobs:
           cargo clippy --all-targets --locked
       - run: rustc -vV
       - run: cargo test --locked
+      - name: Export coverage
+        shell: bash
+        run: $(command -v python3 || command -v python) ci/export_rust_coverage.py .rust-cov
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-data-${{ strategy.job-index }}
+          path: "*.lcov"
+          if-no-files-found: error
+
+  coverage:
+    needs: rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: |
+          python3 -m venv .venv
+          .venv/bin/pip install -r ci/requirements-coverage.txt
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: coverage-data-*
+          merge-multiple: true
+          path: coverage-data/
+      - name: Combine coverage and fail if it's <100%
+        id: combinecoverage
+        run: |
+          set +e
+          echo "## Coverage" >> $GITHUB_STEP_SUMMARY
+          .venv/bin/python -u ci/merge_rust_coverage.py coverage-data/ | tee COV_REPORT
+          COV_EXIT_CODE=${PIPESTATUS[0]}
+          if [ $COV_EXIT_CODE -ne 0 ]; then
+            echo "🚨 Coverage failed. Under 100" | tee -a $GITHUB_STEP_SUMMARY
+          fi
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat COV_REPORT >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          exit $COV_EXIT_CODE
+      - name: Upload HTML report
+        if: ${{ failure() && steps.combinecoverage.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: _html-coverage-report
+          path: htmlcov
+          if-no-files-found: ignore

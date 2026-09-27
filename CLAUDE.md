@@ -24,6 +24,10 @@ trustworthy. Read `lean/README.md` first.
   entry) must never be in the same PR. Trusted changes get reviewed on their
   own, and an implementation is only ever proven against a spec and TCB that
   have already been reviewed and merged.
+* **100% test coverage.** CI merges the line coverage of the Rust code
+  (`src/` and `tests/`) from every platform and fails below 100%. Add tests
+  or delete dead code; only exclude lines that genuinely cannot run, between
+  `// NO-COVERAGE-START` and `// NO-COVERAGE-END`, with a comment saying why.
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
@@ -54,4 +58,14 @@ instructions in an ISA model) go in their own PR before either.
 python3 ci/check_lean_imports.py
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
+```
+
+Coverage on this platform (CI merges it across all of them; the merge needs
+`pip install -r ci/requirements-coverage.txt`):
+
+```sh
+export RUSTFLAGS=-Cinstrument-coverage LLVM_PROFILE_FILE='.rust-cov/cov-%p-%m.profraw'
+WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
+python3 ci/export_rust_coverage.py .rust-cov   # writes <uuid>.lcov
+python3 ci/merge_rust_coverage.py .            # reports; fails under 100%
 ```
