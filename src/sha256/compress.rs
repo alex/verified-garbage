@@ -1,14 +1,11 @@
 //! SHA-256 on targets whose streaming functions are not verified yet
-//! (AArch64): the compression function is the verified assembly primitive
-//! `vg_sha256_compress` (contract `VG.Spec.Sha256.compressAArch64`), and this
+//! (32-bit ARM): the compression function is the verified assembly primitive
+//! `vg_sha256_compress` (contract `VG.Spec.Sha256.compressArm`), and this
 //! module adds the buffering, padding (§5.1.1) and output encoding around it.
 //!
 //! Temporary: it goes away once the streaming functions are verified on every
 //! target.
 
-#[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::sha256::vg_sha256_compress;
-#[cfg(target_arch = "arm")]
 use crate::asm::arm::sha256::vg_sha256_compress;
 
 /// The initial hash value `H⁽⁰⁾` (FIPS 180-4 §5.3.3).
