@@ -14,6 +14,7 @@ mod asm;
 
 pub mod hash;
 pub mod hmac;
+pub mod pbkdf2;
 
 #[cfg(target_arch = "x86_64")]
 pub mod sha256;
