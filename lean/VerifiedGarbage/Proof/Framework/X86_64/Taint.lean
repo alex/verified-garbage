@@ -66,7 +66,9 @@ def step (τ : T) : Instr → Option T
   -- The result is a function of the old value of `d`, and so are the
   -- flags that change.
   | .shift32 _ d _ => some ⟨τ.regs, τ.flags && pub τ d⟩
-  | .bswap32 _ => some τ
+  | .bswap32 _ | .bswap _ => some τ
+  | .movzx8 d m => if memPub τ m then some ⟨set τ d false, τ.flags⟩ else none
+  | .store8 m _ => if memPub τ m then some τ else none
 
 def meet (τ₁ τ₂ : T) : T := ⟨τ₁.regs.filter (pub τ₂), τ₁.flags && τ₂.flags⟩
 
@@ -326,6 +328,30 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     by_cases hrd : r = d
     · subst hrd; simp [State.setReg32, State.setReg, ha.1 r hr]
     · simp [State.setReg32, State.setReg, hrd, ha.1 r hr]
+  | movzx8 d m =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hok; cases hs
+    simp only [exec, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨v₁, -, rfl⟩ := e₁; obtain ⟨v₂, -, rfl⟩ := e₂
+    exact ⟨by simp [addrs, ha.ea hok], regs_set (p := false) ha.1 (fun h => by cases h), ha.2⟩
+  | store8 m r =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hok; cases hs
+    simp only [exec, State.store8] at e₁ e₂
+    split at e₁ <;> [cases e₁; cases e₁]
+    split at e₂ <;> [cases e₂; cases e₂]
+    exact ⟨by simp [addrs, ha.ea hok], ha⟩
+  | bswap d =>
+    simp only [step, Option.some.injEq] at hs
+    subst hs
+    simp only [exec, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    refine ⟨rfl, fun r hr => ?_, fun hf => by simpa using ha.2 hf⟩
+    by_cases hrd : r = d
+    · subst hrd; simp [State.setReg, ha.1 r hr]
+    · simp [State.setReg, hrd, ha.1 r hr]
 
 theorem cond_sound {τ : T} {c : Cond} {s₁ s₂ : State} (ha : Agree τ s₁ s₂)
     (hc : τ.flags = true) : eval c s₁ = eval c s₂ := by

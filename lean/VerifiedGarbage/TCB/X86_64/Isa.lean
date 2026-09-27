@@ -8,9 +8,10 @@ Each instruction's semantics here must agree with the Intel SDM; when adding
 an instruction, cite the SDM pseudocode it transcribes.
 
 Modelling choices:
-* Only 64-bit and 32-bit operand sizes are modelled. SDM Vol. 1 §3.4.1.1:
-  "32-bit operands generate a 32-bit result, zero-extended to a 64-bit result
-  in the destination general-purpose register."
+* Only 64-bit and 32-bit operand sizes are modelled, plus byte loads
+  (`movzx`, zero-extending) and byte stores. SDM Vol. 1 §3.4.1.1: "32-bit
+  operands generate a 32-bit result, zero-extended to a 64-bit result in the
+  destination general-purpose register."
 * Only CF, ZF, SF and OF are modelled. Each is an `Option Bool`; `none` means
   "undefined" (as the SDM specifies for some instructions). Evaluating a
   branch on an undefined flag faults, so verified code never depends on one.
@@ -83,6 +84,12 @@ inductive Instr
   | shift32 (op : ShiftOp) (dst : Reg) (count : Nat)
   /-- `bswap r32` -/
   | bswap32 (dst : Reg)
+  /-- `movzx r32, BYTE PTR [src]`: the byte, zero-extended into the 64-bit register. -/
+  | movzx8 (dst : Reg) (src : MemOp)
+  /-- `mov BYTE PTR [dst], r8`: the low byte of `src`. -/
+  | store8 (dst : MemOp) (src : Reg)
+  /-- `bswap r64` -/
+  | bswap (dst : Reg)
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`jcc` suffixes). -/
@@ -123,6 +130,14 @@ def load32 (s : State) (a : Addr) : Option (BitVec 32) :=
 /-- Store 4 bytes, faulting if not permitted. -/
 def store32 (s : State) (a : Addr) (v : BitVec 32) : Option State :=
   if InRegions s.wr a 4 then some { s with mem := s.mem.writeW a v } else none
+
+/-- Load 1 byte, faulting if not permitted. -/
+def load8 (s : State) (a : Addr) : Option Byte :=
+  if InRegions (s.rd ++ s.wr) a 1 then some (s.mem a) else none
+
+/-- Store 1 byte, faulting if not permitted. -/
+def store8 (s : State) (a : Addr) (v : Byte) : Option State :=
+  if InRegions s.wr a 1 then some { s with mem := s.mem.writeW a v } else none
 
 /-- Write a 32-bit result, zero-extended to 64 bits (SDM Vol. 1 §3.4.1.1). -/
 def setReg32 (s : State) (r : Reg) (v : BitVec 32) : State := s.setReg r (v.setWidth 64)
@@ -237,6 +252,19 @@ DEST[23:16] := TEMP[15:8]; DEST[31:24] := TEMP[7:0]` for a 32-bit operand
 def bswap32 (a : BitVec 32) : BitVec 32 :=
   a.extractLsb' 0 8 ++ a.extractLsb' 8 8 ++ a.extractLsb' 16 8 ++ a.extractLsb' 24 8
 
+/-- SDM Vol. 2, "BSWAP", for a 64-bit operand: `DEST[7:0] := TEMP[63:56];
+DEST[15:8] := TEMP[55:48]; DEST[23:16] := TEMP[47:40]; DEST[31:24] :=
+TEMP[39:32]; DEST[39:32] := TEMP[31:24]; DEST[47:40] := TEMP[23:16];
+DEST[55:48] := TEMP[15:8]; DEST[63:56] := TEMP[7:0]`. No flags are affected. -/
+def bswap64 (a : BitVec 64) : BitVec 64 :=
+  a.extractLsb' 0 8 ++ a.extractLsb' 8 8 ++ a.extractLsb' 16 8 ++ a.extractLsb' 24 8 ++
+    a.extractLsb' 32 8 ++ a.extractLsb' 40 8 ++ a.extractLsb' 48 8 ++ a.extractLsb' 56 8
+
+/-- Semantics of an instruction. The byte forms: SDM Vol. 2, "MOVZX":
+`DEST := ZeroExtend(SRC)` (with a 32-bit destination, zero-extended to 64
+bits, SDM Vol. 1 §3.4.1.1), and "MOV": `DEST := SRC`, where the source of a
+byte store is the register's low byte (AL, CL, DL, BL, SPL, BPL, SIL, DIL,
+R8B–R15B; SDM Vol. 1 §3.4.1.1). Neither affects the flags. -/
 def exec : Instr → State → Option State
   | .mov d src, s => (readSrc s src).map fun v => s.setReg d v
   | .store m r, s => s.store64 (s.ea m) (s.gpr r)
@@ -246,6 +274,9 @@ def exec : Instr → State → Option State
   | .alu32 op d src, s => execAlu32 op d src s
   | .shift32 op d n, s => execShift32 op d n s
   | .bswap32 d, s => some (s.setReg32 d (bswap32 ((s.gpr d).setWidth 32)))
+  | .movzx8 d m, s => (s.load8 (s.ea m)).map fun v => s.setReg d (v.setWidth 64)
+  | .store8 m r, s => s.store8 (s.ea m) ((s.gpr r).setWidth 8)
+  | .bswap d, s => some (s.setReg d (bswap64 (s.gpr d)))
 
 def addrs : Instr → State → List Addr
   | .mov _ src, s => srcAddrs s src
@@ -256,6 +287,9 @@ def addrs : Instr → State → List Addr
   | .alu32 _ _ src, s => srcAddrs s src
   | .shift32 .., _ => []
   | .bswap32 _, _ => []
+  | .movzx8 _ m, s => [s.ea m]
+  | .store8 m _, s => [s.ea m]
+  | .bswap _, _ => []
 
 def eval : Cond → State → Option Bool
   | .e, s => s.zf
