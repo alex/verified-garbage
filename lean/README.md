@@ -21,8 +21,9 @@ VerifiedGarbage/
   Spec/         Algorithm specifications and per-target contracts (trusted, must be reviewed)
   Impl/         Implementations: `Prog`s over an ISA model (untrusted)
   Proof/        Proofs and intermediate proof artifacts (untrusted)
-    Framework/      generic lemmas: determinism, WP rules, memory frames, and a
-                    taint-tracking checker that proves constant time by evaluation
+    Framework/      generic lemmas: determinism, WP rules, memory frames, inlining
+                    verified code, and a taint-tracking checker that proves
+                    constant time by evaluation
   Artifacts.lean  The registry: the single list of everything that is emitted
 VerifiedGarbageTest/  Golden tests for the (unverified) printers
 Emit.lean       Renders `VG.artifacts` into `../src/asm/`
