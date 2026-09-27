@@ -2,3 +2,10 @@
 /lean/.lake
 # Optional local checkout for WYCHEPROOF_ROOT
 /wycheproof
+# Coverage (ci/export_rust_coverage.py, ci/merge_rust_coverage.py)
+/.rust-cov
+/*.lcov
+/.coverage
+/.coverage.*
+/htmlcov
+__pycache__/

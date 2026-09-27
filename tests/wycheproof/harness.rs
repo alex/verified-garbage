@@ -2,10 +2,10 @@
 //!
 //! A test vector file is loaded as a [`TestFile`], parameterized by the
 //! algorithm-specific fields of its test groups (`P`) and of its tests
-//! (`T`). Algorithm tests declare structs for those fields (using [`Hex`] for
-//! byte strings) and iterate over [`TestFile::tests`]; loading checks that
-//! the file is internally consistent, so a test can never silently run on
-//! fewer vectors than the file contains.
+//! (`T`). Algorithm tests declare structs for those fields and iterate over
+//! [`TestFile::tests`]; loading checks that the file is internally
+//! consistent, so a test can never silently run on fewer vectors than the
+//! file contains.
 
 // Each algorithm test module uses a different subset of the harness.
 #![allow(dead_code)]
@@ -26,12 +26,7 @@ pub const ROOT_VAR: &str = "WYCHEPROOF_ROOT";
 pub fn vectors_dir() -> Option<PathBuf> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join(std::env::var_os(ROOT_VAR)?);
     let dir = root.join("testvectors_v1");
-    assert!(
-        dir.is_dir(),
-        "{ROOT_VAR}={}: {} is not a directory",
-        root.display(),
-        dir.display()
-    );
+    assert!(dir.is_dir(), "{ROOT_VAR}: {dir:?} is not a directory");
     Some(dir)
 }
 
@@ -71,38 +66,6 @@ pub enum Expectation {
     Invalid,
     /// Either outcome is allowed; the test's `flags` say why.
     Acceptable,
-}
-
-/// A byte string, hex-encoded in the JSON.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Hex(pub Vec<u8>);
-
-impl<'de> Deserialize<'de> for Hex {
-    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(d)?;
-        decode_hex(&s).map(Hex).map_err(serde::de::Error::custom)
-    }
-}
-
-impl std::ops::Deref for Hex {
-    type Target = [u8];
-    fn deref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
-    if !s.len().is_multiple_of(2) {
-        return Err(format!("odd-length hex string {s:?}"));
-    }
-    (0..s.len())
-        .step_by(2)
-        .map(|i| {
-            s.get(i..i + 2)
-                .and_then(|b| u8::from_str_radix(b, 16).ok())
-                .ok_or_else(|| format!("invalid hex string {s:?}"))
-        })
-        .collect()
 }
 
 /// A note describing a test flag.
