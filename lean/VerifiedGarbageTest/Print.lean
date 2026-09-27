@@ -1,5 +1,6 @@
 import VerifiedGarbage.TCB.X86_64.Print
 import VerifiedGarbage.TCB.Rust
+import VerifiedGarbage.TCB.AArch64.Print
 
 /-!
 # Golden tests for the trusted printers
@@ -94,6 +95,44 @@ def sample8 : Prog isa := .block ([
   "mov BYTE PTR [rdi-3], r13b",
   "mov BYTE PTR [rdi-3], r14b",
   "mov BYTE PTR [rdi-3], r15b",
+  "ret"
+]
+
+/-- Every AArch64 instruction form, and both branch conditions. -/
+def sampleA64 : Prog AArch64.isa :=
+  .ite (.zero .x .x2) (.block [])
+    (.loop (.block [
+      .add .w .x4 .x5 .x6, .add .x .x0 .x1 .x30,
+      .addImm .x .x1 .x1 64, .subImm .x .x2 .x2 1,
+      .logic .and .w .x7 .x8 .x9, .logic .orr .w .x7 .x8 .x9, .logic .eor .x .x7 .x8 .x9,
+      .ror .w .x13 .x8 25, .lsr .w .x14 .x15 10, .rev32 .x12 .x12,
+      .movz .w .x13 0x2f98 0, .movk .w .x13 0x428a 1,
+      .ldr .w .x12 .x1 60, .str .w .x12 .x3 4, .ldr .x .x16 .x17 8, .str .x .x18 .x19 16])
+      (.nonzero .x .x2))
+
+#guard AArch64.printer.function sampleA64 == [
+  "cbz x2, 20f",
+  "22:",
+  "add w4, w5, w6",
+  "add x0, x1, x30",
+  "add x1, x1, #64",
+  "sub x2, x2, #1",
+  "and w7, w8, w9",
+  "orr w7, w8, w9",
+  "eor x7, x8, x9",
+  "ror w13, w8, #25",
+  "lsr w14, w15, #10",
+  "rev w12, w12",
+  "movz w13, #12184, lsl #0",
+  "movk w13, #17034, lsl #16",
+  "ldr w12, [x1, #60]",
+  "str w12, [x3, #4]",
+  "ldr x16, [x17, #8]",
+  "str x18, [x19, #16]",
+  "cbnz x2, 22b",
+  "b 21f",
+  "20:",
+  "21:",
   "ret"
 ]
 
