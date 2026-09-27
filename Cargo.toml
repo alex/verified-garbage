@@ -1,0 +1,24 @@
+[package]
+name = "verified-garbage"
+version = "0.0.0"
+edition = "2024"
+# Naked functions (`#[unsafe(naked)]`, `naked_asm!`) were stabilized in 1.88.
+rust-version = "1.88"
+description = "An experimental, formally verified cryptography library, implemented entirely by LLMs"
+license = "Apache-2.0 OR BSD-3-Clause"
+repository = "https://github.com/alex/verified-garbage"
+publish = false
+# All assembly is inline, in naked functions generated from Lean: no build script.
+build = false
+include = ["/src", "/LICENSE*", "/README.md"]
+
+[dependencies]
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# The Wycheproof tests parse ~100 MB of JSON; optimize dependencies (but not
+# this crate) in test builds.
+[profile.dev.package."*"]
+opt-level = 3

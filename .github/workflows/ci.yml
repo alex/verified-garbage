@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  lean:
+    name: Lean proofs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lean
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install elan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Fetch the Mathlib build cache
+        run: lake exe cache get
+      - name: Check every proof (and the axiom audit)
+        run: lake build
+      - name: Check the generated Rust is up to date
+        run: lake env lean --run Emit.lean --check
+
+  lean-imports:
+    name: Lean import discipline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 ci/check_lean_imports.py
+
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - os: ubuntu-latest
+          # x86: a 32-bit userspace, run natively on the x86-64 host. There's
+          # no pyca runner image for i386, so the job starts by installing the
+          # amd64 libc that the runner's (64-bit) Node needs for JS actions.
+          - os: ubuntu-latest
+            container:
+              image: rust:slim
+              options: --platform linux/386
+            install-amd64-libc: true
+          - os: ubuntu-24.04-arm
+          # ARMv7: a 32-bit userspace, run natively on the ARM64 host.
+          - os: ubuntu-24.04-arm
+            container:
+              image: ghcr.io/pyca/cryptography-runner-ubuntu-rolling:armv7l
+              options: --env RUSTUP_HOME=/root/.rustup
+          - os: macos-latest
+          - os: windows-latest
+        rust: [stable, "1.88"]
+    runs-on: ${{ matrix.platform.os }}
+    # With an empty image the job runs directly on the runner.
+    container:
+      image: ${{ matrix.platform.container.image || '' }}
+      options: ${{ matrix.platform.container.options || '' }}
+    env:
+      # Selects the toolchain without `rustup default`, which refuses 32-bit
+      # toolchains on a 64-bit kernel.
+      RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
+      # Relative to the crate root.
+      WYCHEPROOF_ROOT: wycheproof
+    steps:
+      - name: Install the amd64 libc for the runner's Node
+        if: ${{ matrix.platform.install-amd64-libc }}
+        run: |
+          dpkg --add-architecture amd64
+          apt-get update -qq
+          apt-get install -qq -y --no-install-recommends libc6:amd64 libstdc++6:amd64 git ca-certificates
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: C2SP/wycheproof
+          path: wycheproof
+          persist-credentials: false
+
+      - name: Install Rust
+        run: rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy,rustfmt
+      - name: Lint
+        if: ${{ matrix.rust == 'stable' }}
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --locked
+      - run: rustc -vV
+      - run: cargo test --locked
