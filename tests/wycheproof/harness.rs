@@ -116,6 +116,22 @@ pub struct TestFile<P, T> {
     pub test_groups: Vec<TestGroup<P, T>>,
 }
 
+/// Bytes, written in hex in the test vector files.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Hex(pub Vec<u8>);
+
+impl<'de> Deserialize<'de> for Hex {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        let bytes = (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect::<Result<Vec<u8>, _>>()
+            .map_err(serde::de::Error::custom)?;
+        Ok(Hex(bytes))
+    }
+}
+
 /// Untyped fields, for tests that only look at the file structure.
 pub type Fields = serde_json::Map<String, serde_json::Value>;
 

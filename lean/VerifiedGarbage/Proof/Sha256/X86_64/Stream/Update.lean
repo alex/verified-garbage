@@ -298,7 +298,7 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
     rcases hr with rfl | rfl
     · exact ⟨stR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
-  · intro s' hrd hwr hcs hf hstate
+  · intro s' hrd hwr hcs hf hstate _ _
     have cs : ∀ r, r ∈ calleeSaved → s'.gpr r = s.gpr r := hcs
     refine ⟨⟨⟨h.c_le, hrd.trans h.rd, hwr.trans h.wr, by rw [cs _ (by decide)]; exact h.rbx,
       by rw [cs _ (by decide)]; exact h.r15, by rw [cs _ (by decide)]; exact h.rsp,

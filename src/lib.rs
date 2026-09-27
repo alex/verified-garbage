@@ -13,6 +13,10 @@
 mod asm;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+pub mod hash;
+#[cfg(target_arch = "x86_64")]
+pub mod hmac;
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 pub mod sha256;
 
 #[cfg(test)]

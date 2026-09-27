@@ -299,6 +299,13 @@ theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, Taint.dstOf 
   | loopExit _ _ ih => exact ih hc
   | loopNext _ _ _ ih₁ ih₂ => rw [ih₂ hc, ih₁ hc]
 
+/-- A register that no instruction writes keeps its value, as a
+postcondition. -/
+theorem WP.gpr {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s Q) {r : Reg}
+    (hc : ∀ i ∈ instrs c, Taint.dstOf i ≠ some r) : WP isa c s fun s' => Q s' ∧ s'.gpr r = s.gpr r := by
+  obtain ⟨t, s', he, hq⟩ := h
+  exact ⟨t, s', he, hq, Exec.gpr hc he⟩
+
 /-- Inlining verified code: from a state `s` in which the code's precondition
 holds once its permissions are narrowed to `rd` and `wr`, the code
 terminates in a state satisfying its postcondition and calling-convention

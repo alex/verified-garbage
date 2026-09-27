@@ -49,7 +49,8 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
     (hw : Covers [⟨st, 32⟩, ⟨scr, 112⟩] s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
       Frame [⟨st, 32⟩, ⟨scr, 112⟩] s.mem s'.mem →
-      stateAt s'.mem st = compress (stateAt s.mem st) (blockAt s.mem src) → Q s') :
+      stateAt s'.mem st = compress (stateAt s.mem st) (blockAt s.mem src) →
+      s'.gpr .rdi = st → s'.gpr .rcx = scr → Q s') :
     WP isa compressAt s Q := by
   unfold compressAt
   have h₁ : WP isa (.block [.mov .rdi (.reg .rbx), .mov32 .rdx (.imm 1), .mov .rcx (.reg .r15)]) s
@@ -82,6 +83,7 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
     simp only [runBlock, exec, readSrc, isa, Option.map_some, Option.bind_some,
       Option.some.injEq, exists_eq_left']
     refine hQ _ (hrd.trans e₆) (hwr.trans e₇) (fun r hr => ?_) (e₈ ▸ hf) hpost
+      (by simp [State.setReg, k₁, e₁]) (by simp [State.setReg, k₃, e₃])
     have h₂ := habi.1 r hr
     simp only [State.setReg]
     by_cases h15 : r = .r15
