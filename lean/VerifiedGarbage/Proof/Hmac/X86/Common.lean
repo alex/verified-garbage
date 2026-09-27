@@ -38,6 +38,22 @@ theorem addr_word {x : BitVec 32} {o n k : Nat} (h : x.toNat + o + 4 * n ≤ 2 ^
     addr x (o + 4 * k) = x.setWidth 64 + BitVec.ofNat 64 o + BitVec.ofNat 64 (4 * k) := by
   rw [addr_eq (by omega), BitVec.add_assoc, ← BitVec.ofNat_add]
 
+/-- Reading a word outside the bytes written. -/
+theorem readW_writeBytes_sep (m : Mem) {a q : Addr} (xs : List Byte) (h : Mem.Sep a 4 q xs.length) :
+    (writeBytes m q xs).readW a 32 = m.readW a 32 := by
+  simp only [Mem.readW]
+  congr 1
+  apply VG.Proof.Hmac.X86_64.read_congr₂
+  intro i hi
+  simp only [writeBytes]
+  split
+  · rename_i hlt
+    refine (h (a + BitVec.ofNat 64 i) ?_ hlt).elim
+    rw [show a + BitVec.ofNat 64 i - a = BitVec.ofNat 64 i by bv_omega, BitVec.toNat_ofNat,
+      Nat.mod_eq_of_lt (by omega)]
+    omega
+  · rfl
+
 /-- Copying `n` words from `[x + o₁]` to `[y + o₂]`, byte-swapped: the bytes
 written are the words read, big-endian. -/
 theorem bswapWords_ok {src dst : Reg} (hs : src ≠ .ecx) (hd : dst ≠ .ecx) {x y : BitVec 32} {o₁ o₂ : Nat}

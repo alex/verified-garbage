@@ -18,7 +18,8 @@ open VG.Impl.Sha256.X86 (at_)
 open VG.Impl.Sha256.X86.Stream (compressAt restore saved)
 open VG.Proof.Sha256.X86 (contains_offset)
 open VG.Proof.Sha256.X86.Stream
-open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame repr_congr compressList_append hash_one lenBytes rest)
+open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append repr_congr compressList_append
+  hash_one lenBytes rest)
 open VG.Proof.Hmac.X86
 open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes countX86 Repr)
 open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256 countFinalizeX86)
@@ -333,5 +334,171 @@ theorem narrow_pre {s₀ s : State} (hp : Pre s₀) (h : Pro s₀ s) : SPre (nar
     rw [a4]; omega
   · show (s.gpr .esp).toNat + 24 ≤ 2 ^ 32
     rw [sp]; omega
+
+/-! ## The outer block -/
+
+/-- The little-endian bytes of a word. -/
+def le (v : BitVec 32) : List Byte := (List.range 4).map fun j => v.extractLsb' (8 * j) 8
+
+theorem writeW_le (m : Mem) (a : Addr) (v : BitVec 32) : m.writeW a v = writeBytes m a (le v) := by
+  rw [Mem.writeW, VG.Proof.Sha256.Stream.write_eq_writeBytes]; rfl
+
+/-- The rest of the outer block after the digest: `0x80`, zeros and the length 768, big-endian. -/
+def padBytes : List Byte := le 0x80 ++ le 0 ++ le 0 ++ le 0 ++ le 0 ++ le 0 ++ le 0 ++ le 0x00030000
+
+theorem padBytes_eq : padBytes = [0x80] ++ List.replicate 23 0 ++ [0, 0, 0, 0, 0, 0, 3, 0] := by decide
+
+theorem padWords_eq : padWords = [.mov .ecx (.imm 0x80), .store (at_ .ebx 64) .ecx, .mov .ecx (.imm 0),
+    .store (at_ .ebx 68) .ecx, .store (at_ .ebx 72) .ecx, .store (at_ .ebx 76) .ecx, .store (at_ .ebx 80) .ecx,
+    .store (at_ .ebx 84) .ecx, .store (at_ .ebx 88) .ecx, .mov .ecx (.imm 0x00030000), .store (at_ .ebx 92) .ecx] :=
+  rfl
+
+/-- Memory after the middle block, from `m`: the inner state holds the outer
+hash value and, in its buffer, the inner digest and `padBytes`; and the
+argument words `[esp + 4]` and `[esp + 16]` hold `inner` and `scratch`. -/
+def midMem (s₀ : State) (m : Mem) : Mem :=
+  ((writeBytes (writeBytes (writeBytes m (inA s₀ + BitVec.ofNat 64 32) (beWords m (inn s₀) 0 8))
+      (inA s₀ + BitVec.ofNat 64 0) (bytesAt m (ouA s₀ + BitVec.ofNat 64 0) (4 * 8)))
+      (inA s₀ + BitVec.ofNat 64 64) padBytes).writeW (addr (esp₀ s₀) 4) (inn s₀)).writeW
+    (addr (esp₀ s₀) 16) (scr s₀)
+
+/-- Consecutive words written after some bytes. -/
+theorem writeW_after (m : Mem) (q : Addr) (xs : List Byte) (v : BitVec 32) {d : Nat} (hd : d = xs.length)
+    (h : xs.length + 4 < 2 ^ 64) :
+    (writeBytes m q xs).writeW (q + BitVec.ofNat 64 d) v = writeBytes m q (xs ++ le v) := by
+  subst hd; rw [writeW_le, writeBytes_append _ _ _ _ (by simp [le]; omega)]
+
+theorem le_length (v : BitVec 32) : (le v).length = 4 := by simp [le]
+
+/-- What the middle block needs. -/
+structure MidPre (s₀ s : State) : Prop where
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
+  ebx : s.gpr .ebx = inn s₀
+  ebp : s.gpr .ebp = scr s₀
+  esp : s.gpr .esp = esp₀ s₀
+  ou : s.mem.readW (addr (scr s₀) 176) 32 = ou s₀
+
+/-- After it. -/
+structure Mid (s₀ s s' : State) : Prop where
+  rd : s'.rd = s₀.rd
+  wr : s'.wr = s₀.wr
+  gpr : ∀ r, r ≠ .eax → r ≠ .ecx → r ≠ .edx → s'.gpr r = s.gpr r
+  eax : s'.gpr .eax = inn s₀ + 32
+  mem : s'.mem = midMem s₀ s.mem
+
+set_option maxHeartbeats 4000000 in
+theorem mid_ok {s₀ s : State} (hp : Pre s₀) (h : MidPre s₀ s) :
+    WP isa (.block ((List.range 8).flatMap (bswapWord .ebx .ebx 0 32) ++ .mov .edx (.mem (at_ .ebp 176)) ::
+      (List.range 8).flatMap (copyWord .edx .ebx 0 0) ++ padWords ++
+      [.store (at_ .esp 4) .ebx, .store (at_ .esp 16) .ebp, .mov .eax (.reg .ebx), .alu .add .eax (.imm 32)]))
+      s (Mid s₀ s) := by
+  have fi := hp.in_fit
+  have fo := hp.ou_fit
+  have fsp := hp.sp_fit
+  have inn_in : ∀ d, d + 4 ≤ 96 → InRegions s.wr (addr (inn s₀) d) 4 :=
+    fun d hd => ⟨inR s₀, by simp [h.wr, hp.wr], hp.in_in hd (by omega)⟩
+  simp only [List.append_assoc, List.cons_append]
+  refine bswapWords_ok (by decide) (by decide) 8 _ s _ h.ebx h.ebx (by omega) (by omega)
+    (fun k hk => by have := inn_in (0 + 4 * k) (by omega); exact ⟨_, List.mem_append_right _ this.choose_spec.1,
+      this.choose_spec.2⟩)
+    (fun k hk => inn_in (32 + 4 * k) (by omega)) ?_ fun s₁ g₁ rd₁ wr₁ m₁ => ?_
+  · intro a ha hb
+    simp only [BitVec.add_zero] at ha hb
+    have := addr_toNat (inn s₀)
+    bv_omega
+  have e₁ : s₁.gpr .ebx = inn s₀ := by rw [g₁ _ (by decide), h.ebx]
+  have p₁ : s₁.gpr .ebp = scr s₀ := by rw [g₁ _ (by decide), h.ebp]
+  have sp₁ : s₁.gpr .esp = esp₀ s₀ := by rw [g₁ _ (by decide), h.esp]
+  have wr₁' : s₁.wr = s₀.wr := wr₁.trans h.wr
+  have rd₁' : s₁.rd = s₀.rd := rd₁.trans h.rd
+  have hs : (scR s₀).Contains (addr (scr s₀) 176) 4 := hp.scr_in (by omega) (by omega)
+  refine wp_movm (a := addr (scr s₀) 176) (by rw [ea_at, p₁])
+    ⟨scR s₀, by simp [rd₁', wr₁', hp.wr], hs⟩ fun s₂ u₂ => ?_
+  have ou₂ : s₂.gpr .edx = ou s₀ := by
+    rw [u₂.gpr, m₁, readW_writeBytes_sep _ _ ?_, h.ou]
+    rw [beWords_length]
+    exact hp.in_scr.symm.sep hs (contains_offset (by omega) (by omega))
+  have rd₂ : s₂.rd = s₀.rd := u₂.rd.trans rd₁'
+  have wr₂ : s₂.wr = s₀.wr := u₂.wr.trans wr₁'
+  have e₂ : s₂.gpr .ebx = inn s₀ := by rw [u₂.other _ (by decide), e₁]
+  refine copyWords_ok (by decide) (by decide) 8 _ s₂ _ ou₂ e₂ (by omega) (by omega)
+    (fun k hk => ⟨ouR s₀, by simp [rd₂, wr₂, hp.rd], contains_addr (by omega) (by omega) fo⟩)
+    (fun k hk => by rw [wr₂, ← h.wr]; exact inn_in (0 + 4 * k) (by omega))
+    (hp.o_in.sep (contains_offset (by omega) (by omega)) (contains_offset (by omega) (by omega)))
+    fun s₃ g₃ rd₃ wr₃ m₃ => ?_
+  have e₃ : s₃.gpr .ebx = inn s₀ := by rw [g₃ _ (by decide), e₂]
+  have rd₃' : s₃.rd = s₀.rd := rd₃.trans rd₂
+  have wr₃' : s₃.wr = s₀.wr := wr₃.trans wr₂
+  -- The padding words.
+  have padA : ∀ k, k < 8 → addr (inn s₀) (64 + 4 * k) = inA s₀ + BitVec.ofNat 64 64 + BitVec.ofNat 64 (4 * k) :=
+    fun k hk => addr_word (n := 8) (by omega) hk
+  have pin : ∀ (t : State), t.wr = s₀.wr → ∀ k, k < 8 →
+      InRegions t.wr (inA s₀ + BitVec.ofNat 64 64 + BitVec.ofNat 64 (4 * k)) 4 :=
+    fun t ht k hk => by rw [← padA k hk, ht, ← h.wr]; exact inn_in (64 + 4 * k) (by omega)
+  rw [padWords_eq]
+  simp only [List.cons_append, List.nil_append]
+  refine wp_movi fun s₄ u₄ => ?_
+  refine wp_store (a := inA s₀ + BitVec.ofNat 64 64 + BitVec.ofNat 64 (4 * 0))
+    (by rw [ea_at, u₄.other _ (by decide), e₃, ← padA 0 (by omega)]) (by rw [u₄.wr]; exact pin _ wr₃' 0 (by omega))
+    fun s₅ u₅ => wp_movi fun s₆ u₆ => ?_
+  have x₆ : ∀ r, r ≠ .ecx → s₆.gpr r = s₃.gpr r := fun r h => by rw [u₆.other r h, u₅.gpr, u₄.other r h]
+  have wr₆ : s₆.wr = s₀.wr := by rw [u₆.wr, u₅.wr, u₄.wr, wr₃']
+  have st : ∀ (t : State), t.wr = s₀.wr → (∀ r, r ≠ .ecx → t.gpr r = s₃.gpr r) → ∀ k, k < 8 →
+      t.ea (at_ .ebx (64 + 4 * k)) = inA s₀ + BitVec.ofNat 64 64 + BitVec.ofNat 64 (4 * k) :=
+    fun t _ ht k hk => by rw [ea_at, ht _ (by decide), e₃, padA k hk]
+  refine wp_store (st _ wr₆ x₆ 1 (by omega)) (pin _ wr₆ 1 (by omega)) fun s₇ u₇ => ?_
+  refine wp_store (st _ (by rw [u₇.wr, wr₆]) (fun r h => by rw [u₇.gpr, x₆ r h]) 2 (by omega))
+    (pin _ (by rw [u₇.wr, wr₆]) 2 (by omega)) fun s₈ u₈ => ?_
+  refine wp_store (st _ (by rw [u₈.wr, u₇.wr, wr₆]) (fun r h => by rw [u₈.gpr, u₇.gpr, x₆ r h]) 3 (by omega))
+    (pin _ (by rw [u₈.wr, u₇.wr, wr₆]) 3 (by omega)) fun s₉ u₉ => ?_
+  refine wp_store (st _ (by rw [u₉.wr, u₈.wr, u₇.wr, wr₆])
+      (fun r h => by rw [u₉.gpr, u₈.gpr, u₇.gpr, x₆ r h]) 4 (by omega))
+    (pin _ (by rw [u₉.wr, u₈.wr, u₇.wr, wr₆]) 4 (by omega)) fun s₁₀ u₁₀ => ?_
+  refine wp_store (st _ (by rw [u₁₀.wr, u₉.wr, u₈.wr, u₇.wr, wr₆])
+      (fun r h => by rw [u₁₀.gpr, u₉.gpr, u₈.gpr, u₇.gpr, x₆ r h]) 5 (by omega))
+    (pin _ (by rw [u₁₀.wr, u₉.wr, u₈.wr, u₇.wr, wr₆]) 5 (by omega)) fun s₁₁ u₁₁ => ?_
+  refine wp_store (st _ (by rw [u₁₁.wr, u₁₀.wr, u₉.wr, u₈.wr, u₇.wr, wr₆])
+      (fun r h => by rw [u₁₁.gpr, u₁₀.gpr, u₉.gpr, u₈.gpr, u₇.gpr, x₆ r h]) 6 (by omega))
+    (pin _ (by rw [u₁₁.wr, u₁₀.wr, u₉.wr, u₈.wr, u₇.wr, wr₆]) 6 (by omega)) fun s₁₂ u₁₂ => ?_
+  refine wp_movi fun s₁₃ u₁₃ => ?_
+  have x₁₃ : ∀ r, r ≠ .ecx → s₁₃.gpr r = s₃.gpr r := fun r h => by
+    rw [u₁₃.other r h, u₁₂.gpr, u₁₁.gpr, u₁₀.gpr, u₉.gpr, u₈.gpr, u₇.gpr, x₆ r h]
+  have wr₁₃ : s₁₃.wr = s₀.wr := by rw [u₁₃.wr, u₁₂.wr, u₁₁.wr, u₁₀.wr, u₉.wr, u₈.wr, u₇.wr, wr₆]
+  refine wp_store (st _ wr₁₃ x₁₃ 7 (by omega)) (pin _ wr₁₃ 7 (by omega)) fun s₁₄ u₁₄ => ?_
+  -- The argument words and `eax`.
+  have x₁₄ : ∀ r, r ≠ .ecx → s₁₄.gpr r = s₃.gpr r := fun r h => by rw [u₁₄.gpr, x₁₃ r h]
+  have wr₁₄ : s₁₄.wr = s₀.wr := by rw [u₁₄.wr, wr₁₃]
+  have rd₁₄ : s₁₄.rd = s₀.rd := by
+    rw [u₁₄.rd, u₁₃.rd, u₁₂.rd, u₁₁.rd, u₁₀.rd, u₉.rd, u₈.rd, u₇.rd, u₆.rd, u₅.rd, u₄.rd, rd₃']
+  have sp₃ : s₃.gpr .esp = esp₀ s₀ := by rw [g₃ _ (by decide), u₂.other _ (by decide), sp₁]
+  have ebp₃ : s₃.gpr .ebp = scr s₀ := by rw [g₃ _ (by decide), u₂.other _ (by decide), p₁]
+  have ain : ∀ d, 4 ≤ d → d + 4 ≤ 28 → InRegions s₀.wr (addr (esp₀ s₀) d) 4 :=
+    fun d h₁ h₂ => ⟨argR s₀, by simp [hp.wr], hp.arg_in h₁ h₂⟩
+  refine wp_store (a := addr (esp₀ s₀) 4) (by rw [ea_at, x₁₄ _ (by decide), sp₃])
+    (by rw [wr₁₄]; exact ain 4 (by omega) (by omega)) fun s₁₅ u₁₅ => ?_
+  refine wp_store (a := addr (esp₀ s₀) 16) (by rw [ea_at, u₁₅.gpr, x₁₄ _ (by decide), sp₃])
+    (by rw [u₁₅.wr, wr₁₄]; exact ain 16 (by omega) (by omega)) fun s₁₆ u₁₆ => ?_
+  refine wp_mov fun s₁₇ u₁₇ => wp_addi fun s₁₈ u₁₈ => WP.block_nil ⟨?_, ?_, fun r h₁ h₂ h₃ => ?_, ?_, ?_⟩
+  · rw [u₁₈.rd, u₁₇.rd, u₁₆.rd, u₁₅.rd, rd₁₄]
+  · rw [u₁₈.wr, u₁₇.wr, u₁₆.wr, u₁₅.wr, wr₁₄]
+  · rw [u₁₈.other r h₁, u₁₇.other r h₁, u₁₆.gpr, u₁₅.gpr, x₁₄ r h₂, g₃ r h₂, u₂.other r h₃, g₁ r h₂]
+  · rw [u₁₈.gpr, u₁₇.gpr, u₁₆.gpr, u₁₅.gpr, x₁₄ _ (by decide), e₃]
+  · have hq : inA s₀ + BitVec.ofNat 64 64 + BitVec.ofNat 64 (4 * 0) = inA s₀ + BitVec.ofNat 64 64 := by simp
+    have hl : ∀ xs : List Byte, xs.length ≤ 28 → xs.length + 4 < 2 ^ 64 := fun _ h => by omega
+    rw [u₁₈.mem, u₁₇.mem, u₁₆.mem, u₁₅.gpr, u₁₅.mem, x₁₄ .ebp (by decide), x₁₄ .ebx (by decide), ebp₃, e₃,
+      u₁₄.mem, u₁₃.gpr, u₁₃.mem, u₁₂.mem, u₁₁.gpr, u₁₁.mem, u₁₀.gpr, u₁₀.mem, u₉.gpr, u₉.mem,
+      u₈.gpr, u₈.mem, u₇.gpr, u₇.mem, u₆.gpr, u₆.mem, u₅.mem, u₄.gpr, u₄.mem, hq, writeW_le _ (inA s₀ + BitVec.ofNat 64 64),
+      writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
+      writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
+      writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
+      writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
+      writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
+      writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
+      writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
+      m₃, u₂.mem, m₁, VG.Proof.Hmac.X86_64.bytesAt_writeBytes_sep _ _ ?_ (by omega)]
+    · rfl
+    · rw [beWords_length]
+      exact hp.o_in.sep (contains_offset (by omega) (by omega)) (contains_offset (by omega) (by omega))
 
 end VG.Proof.Hmac.X86.Finalize
