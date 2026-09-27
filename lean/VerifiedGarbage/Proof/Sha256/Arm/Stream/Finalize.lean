@@ -875,7 +875,7 @@ theorem finalize_verified : Verified Arm.target finalize Spec.Sha256.finalizeArm
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by decide +kernel)
+  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · have e0 : stackArg sat 0 = 0x2000 := by decide
     have e1 : stackArg sat 1 = 0x3000 := by decide
     refine ⟨sat, ?_⟩

@@ -395,7 +395,7 @@ theorem compress_verified :
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
-  · refine VG.Taint.constantTime (A := taint) [.x0, .x1, .x2, .x3] ?_ (by decide +kernel)
+  · refine VG.Taint.constantTime (A := taint) [.x0, .x1, .x2, .x3] ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩ r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> assumption

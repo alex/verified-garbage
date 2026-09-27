@@ -76,7 +76,7 @@ theorem init_verified : Verified X86_64.target init Spec.Sha256.initX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl, ?_⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct hs
     exact ⟨t, s', he, h⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi]) ?_ (by decide +kernel)
+  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ h
     exact Taint.agree_ofRegs fun r hr => by simp at hr; subst hr; exact h
   · intro a h₁ h₂

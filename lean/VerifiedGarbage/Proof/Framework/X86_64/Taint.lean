@@ -26,6 +26,8 @@ region at that offset; any other store of a secret forgets every slot.
 
 namespace VG.X86_64.Taint
 
+deriving instance Lean.ToExpr for Reg
+
 structure T where
   regs : List Reg
   flags : Bool
@@ -35,7 +37,7 @@ structure T where
   bases : List (Reg × Nat) := []
   /-- `(i, o, n)`: the `n` bytes at offset `o` of writable region `i` are public. -/
   slots : List (Nat × Nat × Nat) := []
-  deriving DecidableEq
+  deriving DecidableEq, Lean.ToExpr
 
 def pub (τ : T) (r : Reg) : Bool := τ.regs.contains r
 

@@ -543,7 +543,7 @@ theorem compress_verified :
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0, .r1, .r2, .r3]) ?_
-      (by decide +kernel)
+      (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩
     refine Taint.agree_ofRegs fun r hr => ?_
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr

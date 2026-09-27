@@ -714,7 +714,7 @@ theorem finalize_verified : Verified AArch64.target finalize Spec.Sha256.finaliz
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
   · exact VG.Taint.constantTime (A := taint) [.x0, .x1, .x2, .x3] (fun _ _ _ _ hp => agree₀ hp)
-      (by decide +kernel)
+      (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂

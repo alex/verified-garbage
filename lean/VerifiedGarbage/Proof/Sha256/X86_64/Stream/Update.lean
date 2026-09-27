@@ -836,7 +836,7 @@ theorem update_verified : Verified X86_64.target update Spec.Sha256.updateX86_64
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by decide +kernel)
+  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
