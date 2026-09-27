@@ -31,15 +31,18 @@ trustworthy. Read `lean/README.md` first.
    public unless the algorithm says otherwise.
 2. `Impl/<Alg>/<Target>.lean`: the code.
 3. `Proof/<Alg>/…`: the proof of `Verified`.
-4. An `Artifact` in `Artifacts.lean`, whose `rustSig` and `doc` match the
+4. An `Artifact` in `Artifacts.lean` (its `module` names the file under
+   `src/asm/<target>/`), whose `rustSig` and `doc` match the
    contract (the doc must state every caller obligation).
-5. Regenerate `src/asm/`, write a safe Rust API around it, and run it against
-   the Wycheproof vectors in `tests/wycheproof/`.
+5. Regenerate `src/asm/`, build the public Rust API on top of the primitive,
+   and test it against the Wycheproof vectors in `tests/wycheproof/` (set
+   `WYCHEPROOF_ROOT` to a checkout of C2SP/wycheproof).
 
 ## Checks to run before pushing
 
 ```sh
 (cd lean && lake build && lake env lean --run Emit.lean --check)
-python3 ci/check_structure.py
-cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
+python3 ci/check_lean_imports.py
+cargo fmt --check && cargo clippy --all-targets -- -D warnings
+WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
 ```

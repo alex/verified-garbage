@@ -19,8 +19,8 @@ pub(crate) unsafe extern "<abi>" fn <name><sig> {
 A naked function has no compiler-generated prologue or epilogue, so the
 machine code that runs is exactly the code that was verified (plus the
 final `ret` from the printer). The functions of each target are collected
-in one module, `src/asm/<target>.rs`, compiled only under the target's
-`cfg`.
+in `src/asm/<target>/`, one file per `module`, compiled only under the
+target's `cfg`.
 -/
 
 namespace VG.Rust
@@ -55,32 +55,42 @@ def function (a : Artifact) : String :=
   "    )\n" ++
   "}\n"
 
-/-- The target names that have at least one artifact, in first-seen order. -/
-def targetNames (as : List Artifact) : List String :=
-  as.foldl (init := []) fun acc a =>
-    if acc.contains a.target.name then acc else acc ++ [a.target.name]
+/-- The distinct values of `f` over `as`, in first-seen order. -/
+def distinct (as : List Artifact) (f : Artifact → String) : List String :=
+  as.foldl (init := []) fun acc a => if acc.contains (f a) then acc else acc ++ [f a]
 
-/-- The generated files, as paths relative to `src/asm/` and their contents. -/
+/-- `mod` declarations for generated child modules (never reformatted by rustfmt). -/
+def modDecls (ms : List String) (cfg : String → Option String) : String :=
+  String.join (ms.map fun m =>
+    let c := match cfg m with
+      | some c => s!"#[cfg({c})]\n"
+      | none => ""
+    s!"\n{c}#[rustfmt::skip]\npub(crate) mod {m};\n")
+
+/-- The generated files, as paths relative to `src/asm/` and their contents:
+`mod.rs`, and for each target `<target>/mod.rs` and one `<target>/<module>.rs`
+per module. -/
 def files (as : List Artifact) : List (String × String) :=
-  let names := targetNames as
-  let modFor (n : String) : String × String :=
-    let arts := as.filter (·.target.name == n)
-    (s!"{n}.rs",
-      header ++ s!"//! Verified functions for `{n}`.\n" ++
-      String.join (arts.map fun a => "\n" ++ function a))
-  let cfgOf (n : String) : String :=
-    match as.find? (·.target.name == n) with
-    | some a => a.target.rustCfg
-    | none => "any()"
-  let modRs :=
+  let targets := distinct as (·.target.name)
+  let cfgOf (t : String) : Option String := (as.find? (·.target.name == t)).map (·.target.rustCfg)
+  let root :=
     header ++
     "//! Formally verified assembly, emitted from Lean. See `lean/README.md`.\n" ++
     "//!\n" ++
     "//! Every function in these modules is the direct rendering of an `Artifact`\n" ++
     "//! whose machine code has been proven correct, memory safe and constant time\n" ++
     "//! against its contract.\n" ++
-    String.join (names.map fun n =>
-      s!"\n#[cfg({cfgOf n})]\n#[allow(dead_code)]\n#[rustfmt::skip]\npub(crate) mod {n};\n")
-  ("mod.rs", modRs) :: names.map modFor
+    modDecls targets cfgOf
+  let perTarget (t : String) : List (String × String) :=
+    let arts := as.filter (·.target.name == t)
+    let modules := distinct arts (·.module)
+    (s!"{t}/mod.rs", header ++ s!"//! Verified functions for `{t}`.\n" ++
+      modDecls modules (fun _ => none)) ::
+    modules.map fun m =>
+      (s!"{t}/{m}.rs",
+        header ++ s!"//! Verified `{m}` functions for `{t}`.\n" ++
+        "#![allow(dead_code)]\n" ++
+        String.join ((arts.filter (·.module == m)).map fun a => "\n" ++ function a))
+  ("mod.rs", root) :: (targets.map perTarget).flatten
 
 end VG.Rust

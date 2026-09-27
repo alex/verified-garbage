@@ -32,6 +32,8 @@ def main (args : List String) : IO UInt32 := do
   unless check do IO.FS.createDirAll dir
   for (name, text) in files do
     let path := dir / name
+    if let some parent := path.parent then
+      unless check do IO.FS.createDirAll parent
     if check then
       let current ← if ← path.pathExists then IO.FS.readFile path else pure ""
       if current != text then
@@ -40,16 +42,17 @@ def main (args : List String) : IO UInt32 := do
     else
       IO.FS.writeFile path text
       IO.println s!"wrote {path}"
-  -- Any other `.rs` file in the directory would be unverified code.
+  -- Any other `.rs` file under the directory would be unverified code.
+  let expectedPaths := expected.map fun n => (dir / n).normalize
   if ← dir.pathExists then
-    for entry in ← dir.readDir do
-      if entry.fileName.endsWith ".rs" && !expected.contains entry.fileName then
+    for path in ← dir.walkDir do
+      if path.extension == some "rs" && !expectedPaths.contains path.normalize then
         if check then
-          IO.eprintln s!"{entry.path} is not generated from any artifact"
+          IO.eprintln s!"{path} is not generated from any artifact"
           ok := false
         else
-          IO.FS.removeFile entry.path
-          IO.println s!"removed stale {entry.path}"
+          IO.FS.removeFile path
+          IO.println s!"removed stale {path}"
   if !ok then
     IO.eprintln "run `lake build && lake env lean --run Emit.lean` in lean/ and commit the result"
     return 1

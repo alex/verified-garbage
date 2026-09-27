@@ -11,32 +11,53 @@
 #![allow(dead_code)]
 
 use std::collections::{BTreeMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
-/// The directory containing the Wycheproof test vectors (the
-/// `vendor/wycheproof` git submodule).
-pub fn vectors_dir() -> PathBuf {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("vendor/wycheproof/testvectors_v1");
+/// The environment variable pointing at a checkout of
+/// <https://github.com/C2SP/wycheproof>.
+pub const ROOT_VAR: &str = "WYCHEPROOF_ROOT";
+
+/// The directory containing the Wycheproof test vectors, or `None` if
+/// `WYCHEPROOF_ROOT` is not set (the tests are then skipped).
+pub fn vectors_dir() -> Option<PathBuf> {
+    let root = PathBuf::from(std::env::var_os(ROOT_VAR)?);
+    let dir = root.join("testvectors_v1");
     assert!(
         dir.is_dir(),
-        "{} not found: run `git submodule update --init`",
+        "{ROOT_VAR}={}: {} is not a directory",
+        root.display(),
         dir.display()
     );
-    dir
+    Some(dir)
 }
 
-/// Every test vector file, sorted by name.
-pub fn all_files() -> Vec<String> {
-    let mut names: Vec<String> = std::fs::read_dir(vectors_dir())
+/// Every test vector file, sorted by name; `None` if the vectors are not
+/// available.
+pub fn all_files() -> Option<Vec<String>> {
+    let mut names: Vec<String> = std::fs::read_dir(vectors_dir()?)
         .expect("reading the Wycheproof directory")
         .map(|e| e.unwrap().file_name().into_string().unwrap())
         .filter(|n| n.ends_with(".json"))
         .collect();
     names.sort();
-    names
+    Some(names)
+}
+
+/// Skip the calling test (by returning early) if the vectors are not available.
+#[macro_export]
+macro_rules! require_vectors {
+    () => {
+        if $crate::harness::vectors_dir().is_none() {
+            eprintln!(
+                "skipping: set {} to a checkout of https://github.com/C2SP/wycheproof",
+                $crate::harness::ROOT_VAR
+            );
+            return;
+        }
+    };
 }
 
 /// The expected outcome of a test.
@@ -159,8 +180,11 @@ pub fn parse<P: DeserializeOwned, T: DeserializeOwned>(name: &str, json: &str) -
 }
 
 /// Load and validate the test vector file `name` (e.g. `"aes_gcm_test.json"`).
+/// Tests calling this must start with `require_vectors!()`.
 pub fn load<P: DeserializeOwned, T: DeserializeOwned>(name: &str) -> TestFile<P, T> {
-    let path = vectors_dir().join(name);
+    let path = vectors_dir()
+        .expect("Wycheproof vectors not available; use require_vectors!()")
+        .join(name);
     let json = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("reading {}: {e}", path.display()));
     parse(name, &json)

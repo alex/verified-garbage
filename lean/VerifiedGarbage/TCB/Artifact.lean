@@ -63,6 +63,9 @@ def Verified (T : Target) (c : Prog T.isa) (k : Contract T.isa) : Prop :=
 /-- A verified function, ready to be emitted into the Rust crate. -/
 structure Artifact where
   target : Target
+  /-- The Rust module the function is emitted into, `src/asm/<target>/<module>.rs`
+  (e.g. `sha256`). -/
+  module : String
   /-- The Rust function name. Must be unique within the target; it is also
   the prefix of the function's local assembler labels. -/
   name : String

@@ -1,10 +1,10 @@
 //! An experimental, formally verified cryptography library, implemented
 //! entirely by LLMs.
 //!
-//! All cryptographic code in this crate is assembly that has been formally
-//! verified in Lean: see `lean/README.md` for what is proven and what has to
-//! be trusted. The assembly lives in naked functions in the generated
-//! `asm` module; everything else in the crate is safe Rust wrapping it.
+//! The cryptographic primitives are assembly that has been formally verified
+//! in Lean (see `lean/README.md` for what is proven and what has to be
+//! trusted). They live in naked functions in the generated `asm` module, and
+//! the public APIs compose them.
 
 #![no_std]
 #![deny(missing_docs)]
@@ -28,7 +28,7 @@ mod tests {
         ];
         for (a, b) in cases {
             // SAFETY: the contract has no preconditions.
-            let r = unsafe { crate::asm::x86_64::vg_selftest_add(a, b) };
+            let r = unsafe { crate::asm::x86_64::selftest::vg_selftest_add(a, b) };
             assert_eq!(r, a.wrapping_add(b), "vg_selftest_add({a:#x}, {b:#x})");
         }
     }

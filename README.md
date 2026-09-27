@@ -24,18 +24,18 @@ Our goal is to implement all the cryptographic algorithms that are used by the P
   target ISA, and proven in Lean to be correct against a specification, memory
   safe, and constant time. See [`lean/README.md`](lean/README.md) for the
   layout, the pipeline, and exactly what has to be trusted.
-* The proven assembly is emitted into [`src/asm/`](src/asm/) as Rust naked
-  functions (`naked_asm!`); there is no build script and no separate
-  assembler step. The rest of the crate is safe Rust around those functions.
-* The public API is tested against the [Wycheproof](https://github.com/C2SP/wycheproof)
-  test vectors (`tests/wycheproof/`, vectors in the `vendor/wycheproof`
-  submodule).
+* The proven assembly is emitted into [`src/asm/`](src/asm/) (one directory
+  per architecture) as Rust naked functions (`naked_asm!`); there is no build
+  script and no separate assembler step.
+* The public APIs are Rust that composes these verified primitives.
+* The public APIs are tested against the [Wycheproof](https://github.com/C2SP/wycheproof)
+  test vectors (`tests/wycheproof/`).
 
 ## Development
 
 ```sh
-git submodule update --init          # Wycheproof vectors
-cargo test
+git clone https://github.com/C2SP/wycheproof
+WYCHEPROOF_ROOT=$PWD/wycheproof cargo test   # without it, the Wycheproof tests are skipped
 
 cd lean
 lake exe cache get                   # prebuilt Mathlib
@@ -43,6 +43,6 @@ lake build                           # check all proofs
 lake env lean --run Emit.lean        # regenerate src/asm/ after changing Artifacts.lean
 ```
 
-CI checks every proof, that `src/asm/` is exactly what Lean generates, that no
-assembly exists outside `src/asm/` (`ci/check_structure.py`), and runs the
-Rust tests on x86-64 and AArch64.
+CI checks every proof, that `src/asm/` is exactly what Lean generates, and the
+import discipline of the Lean directories (`ci/check_lean_imports.py`); it
+builds and runs the Rust tests natively on each target architecture.

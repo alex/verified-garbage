@@ -24,7 +24,7 @@ jobs:
       run:
         working-directory: lean
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install elan
@@ -38,55 +38,71 @@ jobs:
       - name: Check the generated Rust is up to date
         run: lake env lean --run Emit.lean --check
 
-  structure:
-    name: Structure
+  lean-imports:
+    name: Lean import discipline
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: python3 ci/check_structure.py
+      - run: python3 ci/check_lean_imports.py
 
   rust:
-    name: Rust (${{ matrix.os }})
+    name: Rust (${{ matrix.name }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+        include:
+          - name: x86-64 Linux
+            runner: ubuntu-latest
+          - name: x86-64 Linux, MSRV
+            runner: ubuntu-latest
+            toolchain: "1.88"
+          - name: x86 Linux
+            runner: ubuntu-latest
+            # 32-bit userspace, run natively on the x86-64 host.
+            container-platform: linux/386
+          - name: ARM64 Linux
+            runner: ubuntu-24.04-arm
+          - name: ARMv7 Linux
+            runner: ubuntu-24.04-arm
+            # 32-bit userspace, run natively on the ARM64 host.
+            container-platform: linux/arm/v7
+          - name: ARM64 macOS
+            runner: macos-latest
+          - name: x86-64 Windows
+            runner: windows-latest
+    runs-on: ${{ matrix.runner }}
+    env:
+      WYCHEPROOF_ROOT: ${{ github.workspace }}/wycheproof
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          submodules: true
-      - run: rustup toolchain install stable --profile minimal --component clippy,rustfmt && rustup default stable
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets --locked
-      - run: cargo test --locked
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: C2SP/wycheproof
+          path: wycheproof
+          persist-credentials: false
 
-  rust-cross:
-    name: Rust cross-check (${{ matrix.target }})
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - i686-unknown-linux-gnu
-          - armv7-unknown-linux-gnueabihf
-          - powerpc64le-unknown-linux-gnu
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - run: rustup toolchain install stable --profile minimal --target ${{ matrix.target }} && rustup default stable
-      - run: cargo check --lib --locked --target ${{ matrix.target }}
+      - name: Install Rust
+        if: ${{ !matrix.container-platform }}
+        run: |
+          rustup toolchain install ${{ matrix.toolchain || 'stable' }} --profile minimal --component clippy,rustfmt
+          rustup default ${{ matrix.toolchain || 'stable' }}
+      - name: Lint
+        if: ${{ !matrix.container-platform && !matrix.toolchain }}
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --locked
+      - name: Test
+        if: ${{ !matrix.container-platform }}
+        run: cargo test --locked
 
-  msrv:
-    name: Rust MSRV
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - run: rustup toolchain install 1.88 --profile minimal && rustup default 1.88
-      - run: cargo check --lib --locked
+      - name: Test (in a native ${{ matrix.container-platform }} container)
+        if: ${{ matrix.container-platform }}
+        run: >-
+          docker run --rm --platform ${{ matrix.container-platform }}
+          -v "$PWD:/src" -w /src -e RUSTFLAGS -e CARGO_TERM_COLOR
+          -e WYCHEPROOF_ROOT=/src/wycheproof
+          rust:1-slim sh -c 'uname -m && rustc -vV && cargo test --locked'

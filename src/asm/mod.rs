@@ -6,6 +6,5 @@
 //! against its contract.
 
 #[cfg(target_arch = "x86_64")]
-#[allow(dead_code)]
 #[rustfmt::skip]
 pub(crate) mod x86_64;

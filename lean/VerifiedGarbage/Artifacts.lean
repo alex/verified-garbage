@@ -31,6 +31,7 @@ namespace VG
 
 def artifacts : List Artifact := [
   { target := X86_64.target
+    module := "selftest"
     name := "vg_selftest_add"
     rustSig := "(a: u64, b: u64) -> u64"
     doc := "Pipeline self-test: returns `a.wrapping_add(b)`.\n\n\

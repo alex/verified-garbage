@@ -1,4 +1,0 @@
-[submodule "vendor/wycheproof"]
-	path = vendor/wycheproof
-	url = https://github.com/C2SP/wycheproof
-	shallow = true

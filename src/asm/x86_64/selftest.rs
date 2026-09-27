@@ -1,5 +1,6 @@
 // @generated from lean/VerifiedGarbage/Artifacts.lean by lean/Emit.lean. DO NOT EDIT.
-//! Verified functions for `x86_64`.
+//! Verified `selftest` functions for `x86_64`.
+#![allow(dead_code)]
 
 /// Pipeline self-test: returns `a.wrapping_add(b)`.
 ///
