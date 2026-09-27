@@ -2,7 +2,8 @@
 //! pyca/cryptography.
 //!
 //! The block function is the verified assembly primitive `vg_chacha20_block`
-//! (contract `VG.Spec.ChaCha20.blockX86_64`); this module builds the state
+//! for the target architecture (contracts `VG.Spec.ChaCha20.blockX86_64` and
+//! `blockAArch64`); this module builds the state
 //! (RFC 8439 §2.3), XORs the keystream into the data (§2.4) and advances the
 //! block counter.
 //!
@@ -13,6 +14,11 @@
 //! agrees with RFC 8439, whose counter is only word 12, for the first
 //! 2³² − (initial counter) blocks.
 
+#[cfg(target_arch = "aarch64")]
+use crate::asm::aarch64::chacha20::vg_chacha20_block;
+#[cfg(target_arch = "x86_64")]
+use crate::asm::x86_64::chacha20::vg_chacha20_block;
+
 /// The constants `"expand 32-byte k"` (RFC 8439 §2.3).
 const CONSTANTS: [u32; 4] = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
 
@@ -22,7 +28,7 @@ fn block(state: &[u32; 16]) -> [u8; 64] {
     // SAFETY: `state` is valid for reads of 64 bytes and `buf` for reads and
     // writes of 256 bytes; they are distinct objects, so they do not overlap
     // each other or the return address.
-    unsafe { crate::asm::x86_64::chacha20::vg_chacha20_block(state, &mut buf) };
+    unsafe { vg_chacha20_block(state, &mut buf) };
     let mut out = [0u8; 64];
     for (o, word) in out.as_chunks_mut::<4>().0.iter_mut().zip(&buf[..16]) {
         *o = word.to_le_bytes();
