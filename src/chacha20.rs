@@ -2,8 +2,8 @@
 //! pyca/cryptography.
 //!
 //! The block function is the verified assembly primitive `vg_chacha20_block`
-//! for the target architecture (contracts `VG.Spec.ChaCha20.blockX86_64` and
-//! `blockAArch64`); this module builds the state
+//! for the target architecture (contracts `VG.Spec.ChaCha20.blockX86_64`,
+//! `blockAArch64` and `blockArm`); this module builds the state
 //! (RFC 8439 §2.3), XORs the keystream into the data (§2.4) and advances the
 //! block counter.
 //!
@@ -16,6 +16,8 @@
 
 #[cfg(target_arch = "aarch64")]
 use crate::asm::aarch64::chacha20::vg_chacha20_block;
+#[cfg(target_arch = "arm")]
+use crate::asm::arm::chacha20::vg_chacha20_block;
 #[cfg(target_arch = "x86_64")]
 use crate::asm::x86_64::chacha20::vg_chacha20_block;
 
