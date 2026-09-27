@@ -51,23 +51,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
-        rust: [stable, "1.88"]
-        userspace: [64-bit, 32-bit]
-        exclude:
-          - os: macos-latest
-            userspace: 32-bit
-          - os: windows-latest
-            userspace: 32-bit
-        include:
+        platform:
+          - os: ubuntu-latest
           # 32-bit userspaces run natively on the 64-bit Linux hosts, in containers.
           - os: ubuntu-latest
-            userspace: 32-bit
-            container-platform: linux/386
+            container: linux/386
           - os: ubuntu-24.04-arm
-            userspace: 32-bit
-            container-platform: linux/arm/v7
-    runs-on: ${{ matrix.os }}
+          - os: ubuntu-24.04-arm
+            container: linux/arm/v7
+          - os: macos-latest
+          - os: windows-latest
+        rust: [stable, "1.88"]
+    runs-on: ${{ matrix.platform.os }}
     env:
       WYCHEPROOF_ROOT: ${{ github.workspace }}/wycheproof
     steps:
@@ -81,23 +76,23 @@ jobs:
           persist-credentials: false
 
       - name: Install Rust
-        if: ${{ !matrix.container-platform }}
+        if: ${{ !matrix.platform.container }}
         run: |
           rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy,rustfmt
           rustup default ${{ matrix.rust }}
       - name: Lint
-        if: ${{ !matrix.container-platform && matrix.rust == 'stable' }}
+        if: ${{ !matrix.platform.container && matrix.rust == 'stable' }}
         run: |
           cargo fmt --check
           cargo clippy --all-targets --locked
       - name: Test
-        if: ${{ !matrix.container-platform }}
+        if: ${{ !matrix.platform.container }}
         run: cargo test --locked
 
-      - name: Test (in a native ${{ matrix.container-platform }} container)
-        if: ${{ matrix.container-platform }}
+      - name: Test (in a native ${{ matrix.platform.container }} container)
+        if: ${{ matrix.platform.container }}
         run: >-
-          docker run --rm --platform ${{ matrix.container-platform }}
+          docker run --rm --platform ${{ matrix.platform.container }}
           -v "$PWD:/src" -w /src -e RUSTFLAGS -e CARGO_TERM_COLOR
           -e WYCHEPROOF_ROOT=/src/wycheproof
           rust:${{ matrix.rust == 'stable' && '1' || matrix.rust }}-slim
