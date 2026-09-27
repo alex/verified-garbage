@@ -186,6 +186,30 @@ def sampleX86 : Prog X86.isa :=
   "ret"
 ]
 
+/-- The x86 (32-bit) byte instructions, every 8-bit register name, and `jb`/`jae`. -/
+def sampleX86Bytes : Prog X86.isa :=
+  .seq (.block ([.movzx8 .eax { base := .esi, disp := 32 }, .movzx8 .edi { base := .ebp }] ++
+      [X86.Reg8.al, .cl, .dl, .bl].map (.store8 { base := .ebx, disp := 5 })))
+    (.seq (.ite .b (.block []) (.block [])) (.ite .ae (.block []) (.block [])))
+
+#guard X86.printer.function sampleX86Bytes == [
+  "movzx eax, BYTE PTR [esi+32]",
+  "movzx edi, BYTE PTR [ebp]",
+  "mov BYTE PTR [ebx+5], al",
+  "mov BYTE PTR [ebx+5], cl",
+  "mov BYTE PTR [ebx+5], dl",
+  "mov BYTE PTR [ebx+5], bl",
+  "jb 20f",
+  "jmp 21f",
+  "20:",
+  "21:",
+  "jae 22f",
+  "jmp 23f",
+  "22:",
+  "23:",
+  "ret"
+]
+
 /-- Every ARMv7 instruction form, every second-operand form, and both conditions. -/
 def sampleArm : Prog Arm.isa :=
   .seq (.block [.cmp .r2 (.imm 0)])
