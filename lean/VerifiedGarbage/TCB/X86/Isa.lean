@@ -11,6 +11,11 @@ instruction, cite the SDM pseudocode it transcribes.
 Modelling choices:
 * Registers are the eight 32-bit general-purpose registers. `esp` can be read
   (e.g. to address the arguments on the stack) like any other register.
+* Operands are 32 bits wide, apart from byte loads (`movzx`, zero-extending)
+  and byte stores. Without a REX prefix (unavailable outside 64-bit mode),
+  only `al`, `cl`, `dl` and `bl` can be the source of a byte store as the low
+  byte of a 32-bit register (SDM Vol. 1 §3.4.1.1 and Vol. 2 §3.1.1.1), so a
+  byte store takes a `Reg8`.
 * Only CF, ZF, SF and OF are modelled. Each is an `Option Bool`; `none` means
   "undefined" (as the SDM specifies for some instructions). Evaluating a
   branch on an undefined flag faults, so verified code never depends on one.
@@ -48,6 +53,16 @@ structure MemOp where
   disp : Nat := 0
   deriving DecidableEq, Repr
 
+/-- The registers whose low byte has an 8-bit name without a REX prefix:
+`al`, `cl`, `dl`, `bl` (the low bytes of `eax`, `ecx`, `edx`, `ebx`). -/
+inductive Reg8
+  | al | cl | dl | bl
+  deriving DecidableEq, Repr
+
+/-- The 32-bit register whose low byte a `Reg8` is. -/
+def Reg8.reg : Reg8 → Reg
+  | .al => .eax | .cl => .ecx | .dl => .edx | .bl => .ebx
+
 inductive Src
   | reg (r : Reg)
   | imm (v : BitVec 32)
@@ -72,6 +87,10 @@ inductive Instr
   | shift (op : ShiftOp) (dst : Reg) (count : Nat)
   /-- `bswap dst` -/
   | bswap (dst : Reg)
+  /-- `movzx dst, BYTE PTR [src]`: the byte, zero-extended. -/
+  | movzx8 (dst : Reg) (src : MemOp)
+  /-- `mov BYTE PTR [dst], src`: the low byte of `src.reg`. -/
+  | store8 (dst : MemOp) (src : Reg8)
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`jcc` suffixes). -/
@@ -80,6 +99,10 @@ inductive Cond
   | e
   /-- `jne`: ZF = 0 -/
   | ne
+  /-- `jb`: CF = 1 -/
+  | b
+  /-- `jae`: CF = 0 -/
+  | ae
   deriving DecidableEq, Repr
 
 namespace State
@@ -97,6 +120,14 @@ def load32 (s : State) (a : Addr) : Option (BitVec 32) :=
 /-- Store 4 bytes, faulting if not permitted. -/
 def store32 (s : State) (a : Addr) (v : BitVec 32) : Option State :=
   if InRegions s.wr a 4 then some { s with mem := s.mem.writeW a v } else none
+
+/-- Load 1 byte, faulting if not permitted. -/
+def load8 (s : State) (a : Addr) : Option Byte :=
+  if InRegions (s.rd ++ s.wr) a 1 then some (s.mem a) else none
+
+/-- Store 1 byte, faulting if not permitted. -/
+def store8 (s : State) (a : Addr) (v : Byte) : Option State :=
+  if InRegions s.wr a 1 then some { s with mem := s.mem.writeW a v } else none
 
 /-- Set CF, OF, ZF and SF. -/
 def setFlags (s : State) (cf of zf sf : Option Bool) : State :=
@@ -176,12 +207,18 @@ DEST[23:16] := TEMP[15:8]; DEST[31:24] := TEMP[7:0]`. No flags are affected. -/
 def bswap (a : BitVec 32) : BitVec 32 :=
   a.extractLsb' 0 8 ++ a.extractLsb' 8 8 ++ a.extractLsb' 16 8 ++ a.extractLsb' 24 8
 
+/-- Semantics of an instruction. The byte forms: SDM Vol. 2, "MOVZX":
+`DEST := ZeroExtend(SRC)`, and "MOV": `DEST := SRC`, where the source of a
+byte store is the low byte of `eax`, `ecx`, `edx` or `ebx` (AL, CL, DL, BL;
+SDM Vol. 1 §3.4.1.1). Neither affects the flags. -/
 def exec : Instr → State → Option State
   | .mov d src, s => (readSrc s src).map fun v => s.setReg d v
   | .store m r, s => s.store32 (s.ea m) (s.gpr r)
   | .alu op d src, s => execAlu op d src s
   | .shift op d n, s => execShift op d n s
   | .bswap d, s => some (s.setReg d (bswap (s.gpr d)))
+  | .movzx8 d m, s => (s.load8 (s.ea m)).map fun v => s.setReg d (v.setWidth 32)
+  | .store8 m r, s => s.store8 (s.ea m) ((s.gpr r.reg).setWidth 8)
 
 def addrs : Instr → State → List Addr
   | .mov _ src, s => srcAddrs s src
@@ -189,10 +226,16 @@ def addrs : Instr → State → List Addr
   | .alu _ _ src, s => srcAddrs s src
   | .shift .., _ => []
   | .bswap _, _ => []
+  | .movzx8 _ m, s => [s.ea m]
+  | .store8 m _, s => [s.ea m]
 
+/-- SDM Vol. 2, "Jcc": JE jumps if ZF = 1, JNE if ZF = 0, JB if CF = 1 and
+JAE if CF = 0. -/
 def eval : Cond → State → Option Bool
   | .e, s => s.zf
   | .ne, s => s.zf.map (!·)
+  | .b, s => s.cf
+  | .ae, s => s.cf.map (!·)
 
 abbrev isa : ISA where
   State := State

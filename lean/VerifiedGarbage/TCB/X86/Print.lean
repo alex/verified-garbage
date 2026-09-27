@@ -14,9 +14,17 @@ def Reg.name : Reg → String
   | .eax => "eax" | .ecx => "ecx" | .edx => "edx" | .ebx => "ebx"
   | .esp => "esp" | .ebp => "ebp" | .esi => "esi" | .edi => "edi"
 
-def MemOp.str (m : MemOp) : String :=
+def Reg8.name : Reg8 → String
+  | .al => "al" | .cl => "cl" | .dl => "dl" | .bl => "bl"
+
+/-- `[base+disp]` -/
+def MemOp.addr (m : MemOp) : String :=
   let d := if m.disp = 0 then "" else s!"+{m.disp}"
-  s!"DWORD PTR [{m.base.name}{d}]"
+  s!"[{m.base.name}{d}]"
+
+def MemOp.str (m : MemOp) : String := s!"DWORD PTR {m.addr}"
+
+def MemOp.str8 (m : MemOp) : String := s!"BYTE PTR {m.addr}"
 
 def Src.str : Src → String
   | .reg r => r.name
@@ -36,9 +44,11 @@ def Instr.asm : Instr → List String
   | .alu op d s => [s!"{op.name} {d.name}, {s.str}"]
   | .shift op d n => [s!"{op.name} {d.name}, {n}"]
   | .bswap d => [s!"bswap {d.name}"]
+  | .movzx8 d m => [s!"movzx {d.name}, {m.str8}"]
+  | .store8 m r => [s!"mov {m.str8}, {r.name}"]
 
 def Cond.name : Cond → String
-  | .e => "e" | .ne => "ne"
+  | .e => "e" | .ne => "ne" | .b => "b" | .ae => "ae"
 
 def printer : Printer isa where
   instr := Instr.asm
