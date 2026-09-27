@@ -4,12 +4,16 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
 
+# Only pull requests share a group, so a new push to a PR cancels its stale
+# run. Runs on main and in the merge queue each get their own group: they're
+# never cancelled, and must not queue behind (or replace a pending) earlier run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -165,3 +169,19 @@ jobs:
           name: _html-coverage-report
           path: htmlcov
           if-no-files-found: ignore
+
+  # The one check to require in branch protection (and so for the merge queue),
+  # so the required checks don't have to track every job and matrix entry.
+  all-green:
+    if: ${{ always() }}
+    needs: [lean, lean-imports, vectors, rust, coverage]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check every job succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          for r in $RESULTS; do
+            [ "$r" = success ] || exit 1
+          done
