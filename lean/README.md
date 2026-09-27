@@ -34,10 +34,10 @@ never import proofs.
 ## The pipeline
 
 1. **Spec** — `Spec/<Alg>.lean` defines the algorithm as a readable Lean
-   function transcribed from the standard, and a `Contract` per target: a
-   precondition (argument registers, permitted memory regions), a
-   postcondition (in terms of the spec), and a `pub` relation saying which
-   inputs are public for constant-time purposes.
+   function transcribed from the standard, and `Spec/<Alg>/<Target>.lean` a
+   `Contract` per target: a precondition (argument registers, permitted
+   memory regions), a postcondition (in terms of the spec), and a `pub`
+   relation saying which inputs are public for constant-time purposes.
 2. **Impl** — `Impl/<Alg>/<Target>.lean` defines the code as a `Prog`.
 3. **Proof** — `Proof/<Alg>/…` proves `Verified target code contract`:
    termination without faults (hence memory safety), the postcondition,
