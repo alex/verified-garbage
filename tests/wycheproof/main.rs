@@ -10,6 +10,8 @@
 //! (but a result, if produced, must be the expected one).
 
 mod harness;
+#[cfg(target_arch = "x86_64")]
+mod hmac;
 
 use harness::Fields;
 

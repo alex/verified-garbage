@@ -4,6 +4,8 @@
 //! `vg_sha256_compress` (contract `VG.Spec.Sha256.compressX86_64`); this
 //! module adds the buffering, padding (§5.1.1) and output encoding around it.
 
+use crate::hash::HashFunction;
+
 /// The initial hash value `H⁽⁰⁾` (FIPS 180-4 §5.3.3).
 const H0: [u32; 8] = [
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
@@ -105,6 +107,24 @@ impl Sha256 {
         let mut h = Sha256::new();
         h.update(data);
         h.finalize()
+    }
+}
+
+impl HashFunction for Sha256 {
+    const OUTPUT_SIZE: usize = Sha256::OUTPUT_SIZE;
+    const BLOCK_SIZE: usize = Sha256::BLOCK_SIZE;
+    type Output = [u8; 32];
+
+    fn new() -> Self {
+        Sha256::new()
+    }
+
+    fn update(&mut self, data: &[u8]) {
+        Sha256::update(self, data)
+    }
+
+    fn finalize(self) -> [u8; 32] {
+        Sha256::finalize(self)
     }
 }
 
