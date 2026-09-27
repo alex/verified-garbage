@@ -94,6 +94,24 @@ impl Sha256 {
     }
 }
 
+impl crate::hash::HashFunction for Sha256 {
+    const OUTPUT_SIZE: usize = Sha256::OUTPUT_SIZE;
+    const BLOCK_SIZE: usize = Sha256::BLOCK_SIZE;
+    type Output = [u8; 32];
+
+    fn new() -> Self {
+        Sha256::new()
+    }
+
+    fn update(&mut self, data: &[u8]) {
+        Sha256::update(self, data)
+    }
+
+    fn finalize(self) -> [u8; 32] {
+        Sha256::finalize(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Sha256;

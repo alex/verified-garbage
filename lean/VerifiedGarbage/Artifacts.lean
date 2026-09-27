@@ -12,6 +12,8 @@ import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Finalize
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Init
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Update
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Finalize
+import VerifiedGarbage.Proof.Hmac.X86_64.Init
+import VerifiedGarbage.Proof.Hmac.X86_64.Finalize
 
 /-!
 # The artifact registry
@@ -121,6 +123,50 @@ def artifacts : List Artifact := [
     code := Impl.Sha256.X86_64.Stream.finalize
     contract := Spec.Sha256.finalizeX86_64
     verified := Proof.Sha256.X86_64.Stream.Finalize.finalize_verified },
+  { target := X86_64.target
+    module := "hmac"
+    name := "vg_hmac_sha256_init"
+    rustSig := "(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, \
+      scratch: *mut [u64; 20])"
+    doc := "Starts an HMAC-SHA-256 computation with a key of at most 64 bytes: makes the \
+      SHA-256 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent \
+      `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 64 bytes \
+      (FIPS 198-1). The text is then absorbed with `vg_sha256_update` on `*inner` (its \
+      `count` starting at 64), and the MAC computed with `vg_hmac_sha256_finalize`.\n\n\
+      Contract: `VG.Spec.Hmac.initSha256X86_64`. Constant time: only the pointers and \
+      `key_len` may affect timing, not the key.\n\n\
+      # Safety\n\n\
+      * `key_len` must be at most 64.\n\
+      * `inner` and `outer` must each be valid for reads and writes of 96 bytes.\n\
+      * `key` must be valid for reads of `key_len` bytes.\n\
+      * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
+      are unspecified.\n\
+      * These four regions must not overlap each other, nor the return address on the \
+      stack (distinct Rust objects never do)."
+    code := Impl.Hmac.X86_64.init
+    contract := Spec.Hmac.initSha256X86_64
+    verified := Proof.Hmac.X86_64.Init.init_verified },
+  { target := X86_64.target
+    module := "hmac"
+    name := "vg_hmac_sha256_finalize"
+    rustSig := "(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 30])"
+    doc := "Finishes an HMAC-SHA-256 computation: if, for a 64-byte key `K₀` and a text, the \
+      SHA-256 streaming state `*inner` represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes \
+      (modulo 2⁶⁴), and `*outer` represents `K₀ ⊕ opad`, leaves the HMAC-SHA-256 of the \
+      text under `K₀` in bytes 176 to 207 of `*scratch`.\n\n\
+      Contract: `VG.Spec.Hmac.finalizeSha256X86_64`. Constant time: only the pointers and \
+      `count` may affect timing, not the states.\n\n\
+      # Safety\n\n\
+      * `inner` must be valid for reads and writes of 96 bytes; its contents on return are \
+      unspecified.\n\
+      * `outer` must be valid for reads of 96 bytes.\n\
+      * `scratch` must be valid for reads and writes of 240 bytes; its contents on return \
+      are unspecified, apart from the MAC.\n\
+      * These three regions must not overlap each other, nor the return address on the \
+      stack (distinct Rust objects never do)."
+    code := Impl.Hmac.X86_64.finalize
+    contract := Spec.Hmac.finalizeSha256X86_64
+    verified := Proof.Hmac.X86_64.Finalize.finalize_verified },
   { target := AArch64.target
     module := "sha256"
     name := "vg_sha256_compress"

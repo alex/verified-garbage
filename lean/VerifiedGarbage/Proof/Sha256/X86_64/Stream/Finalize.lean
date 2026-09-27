@@ -208,7 +208,8 @@ theorem st_add (s₀ : State) (n : Nat) :
 theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s₀ s)
     (hrsi : s.gpr .rsi = st s₀ + 32) {Q : State → Prop}
     (hQ : ∀ s', Common s₀ s' → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
-      stateAt s'.mem (st s₀) = compress (stateAt s.mem (st s₀)) (blockAt s.mem (st s₀ + 32)) → Q s') :
+      stateAt s'.mem (st s₀) = compress (stateAt s.mem (st s₀)) (blockAt s.mem (st s₀ + 32)) →
+      s'.gpr .rdi = st s₀ → s'.gpr .rcx = scr s₀ → Q s') :
     WP isa compressAt s Q := by
   have e32 : Region.Sub ⟨st s₀, 32⟩ (stR s₀) := Region.sub_prefix (by omega)
   have e112 : Region.Sub ⟨scr s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
@@ -216,7 +217,8 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
   have hsp := hC.rsp
   refine compressAt_ok hC.rbx hC.r15 hrsi ((hp.st_scr.sub_left e32).sub_right e112) ?_
     ((hp.st_scr.sub_left eb).sub_right e112) (hsp ▸ (hp.ret_st.sub_right e32))
-    (hsp ▸ (hp.ret_scr.sub_right e112)) ?_ ?_ fun s' hrd hwr hcs hf hstate => hQ s' ?_ hcs hstate
+    (hsp ▸ (hp.ret_scr.sub_right e112)) ?_ ?_ fun s' hrd hwr hcs hf hstate hdi hcx =>
+      hQ s' ?_ hcs hstate hdi hcx
   · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
   · rw [hC.rd, hC.wr, hp.rd, hp.wr]
     apply Covers.of_sub
@@ -256,7 +258,7 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
 
 /-- The loop's postcondition for one iteration. -/
 def Step (s₀ : State) (k : Nat) (s : State) : Prop :=
-  (eval .e s = some false ∧ Done s₀ s) ∨ (eval .e s = some true ∧ k = 1 ∧ LInv s₀ 0 0 s)
+  (eval .e s = some false ∧ Done s₀ s ∧ s.gpr .rdi = st s₀ ∧ s.gpr .rcx = scr s₀) ∨ (eval .e s = some true ∧ k = 1 ∧ LInv s₀ 0 0 s)
 
 set_option maxHeartbeats 1000000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
@@ -384,7 +386,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv
     (by rw [u₁₀.wr, u₉.wr])
   have hrsi : s₁₀.gpr .rsi = st s₀ + 32 := by
     rw [u₁₀.gpr, u₉.gpr, hC₈.rbx]; rfl
-  refine WP.seq (compress_buf hp hC₁₀ hrsi fun s₁₁ hC₁₁ cs₁₁ hst₁₁ => ?_)
+  refine WP.seq (compress_buf hp hC₁₀ hrsi fun s₁₁ hC₁₁ cs₁₁ hst₁₁ hdi₁₁ hcx₁₁ => ?_)
   have h14₁₁ : s₁₁.gpr .r14 = BitVec.ofNat 64 k := by
     rw [cs₁₁ _ (by decide), u₁₀.other _ (by decide), u₉.other _ (by decide), h14₈]
   have hblk : ∀ m, R₀ s₀ m → blockAt s₁₀.mem (st s₀ + 32) = parseBlock fun t =>
@@ -419,7 +421,9 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv
       simp [bytesAt]
   · have hk0 : k = 0 := by omega
     subst hk0
-    refine .inl ⟨by simp [eval, hz], hC₁₃, fun m hm => ?_⟩
+    refine .inl ⟨by simp [eval, hz], ⟨hC₁₃, fun m hm => ?_⟩,
+      by rw [u₁₃.other _ (by decide), u₁₂.other _ (by decide), hdi₁₁],
+      by rw [u₁₃.other _ (by decide), u₁₂.other _ (by decide), hcx₁₁]⟩
     rw [h.hash m hm, hst m hm]
     simp only [show ¬ (0 = 1) by decide, ite_false, Fin0, List.append_assoc]
 
@@ -722,12 +726,19 @@ theorem WP.seq_assoc {M : ISA} {a b c : Prog M} {s : M.State} {Q : M.State → P
     WP M (.seq (.seq a b) c) s Q ↔ WP M (.seq a (.seq b c)) s Q := by
   simp only [WP.seq_iff]
 
+theorem out_keeps : (((List.range 8).flatMap outW ++ restore).all fun i =>
+    Taint.dstOf i != some .rdi && Taint.dstOf i != some .rcx) = true := by decide +kernel
+
+/-- `finalize` is correct, and leaves `rdi` and `rcx` as they were (which code
+inlining it relies on). -/
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.finalizeX86_64.post s₀ s' := by
+    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.finalizeX86_64.post s₀ s' ∧
+      s'.gpr .rdi = s₀.gpr .rdi ∧ s'.gpr .rcx = s₀.gpr .rcx := by
   unfold finalize
   rw [← WP.seq_assoc]
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨k, hL⟩ => ?_)
-  refine WP.seq (WP.mono (Q := Done s₀) ?_ fun sD hD => ?_)
+  refine WP.seq (WP.mono (Q := fun (s : State) => Done s₀ s ∧ s.gpr .rdi = st s₀ ∧ s.gpr .rcx = scr s₀) ?_
+    fun sD ⟨hD, hdi, hcx⟩ => ?_)
   · refine WP.loop (M := isa) (fun i s => ∃ n, LInv s₀ i n s) ?_ k s₁ ⟨_, hL⟩
     rintro i s ⟨n, hL⟩
     refine WP.mono (body_ok hp hL) fun s' h => ?_
@@ -736,7 +747,12 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     · exact .inr ⟨he, 0, by omega, 0, hL'⟩
   · have := out_all hp hD 8 le_rfl sD ⟨hD.1.rd, hD.1.wr, fun _ _ => rfl, by simp [writeBytes_nil]⟩
     rw [show 8 - 8 = 0 from rfl, List.drop_zero] at this
-    exact this
+    have keeps := fun i hi => List.all_eq_true.mp out_keeps i hi
+    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at keeps
+    refine WP.mono (WP.gpr (WP.gpr this (r := .rdi) fun i hi => (keeps i hi).1) (r := .rcx)
+      fun i hi => (keeps i hi).2) fun s' ⟨⟨h, h₁⟩, h₂⟩ => ⟨h.1, h.2, ?_, ?_⟩
+    · rw [h₁, hdi]
+    · rw [h₂, hcx]
 
 /-- The initial taint: the arguments are public, and `rdi`, `rdx` and `rcx`
 point at the writable regions. -/
@@ -776,7 +792,7 @@ def sat : State where
 theorem finalize_verified : Verified X86_64.target finalize Spec.Sha256.finalizeX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, h.1, h.2.1⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by decide +kernel)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
