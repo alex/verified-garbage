@@ -42,6 +42,9 @@ def step (τ : T) : Instr → Option T
   | .rev d m => some ⟨set τ d (pub τ m), τ.flags⟩
   | .ldr t n _ => if pub τ n then some ⟨set τ t false, τ.flags⟩ else none
   | .str _ n _ => if pub τ n then some τ else none
+  | .ldrb t n _ => if pub τ n then some ⟨set τ t false, τ.flags⟩ else none
+  | .strb _ n _ => if pub τ n then some τ else none
+  | .ldrSp _ _ => none
 
 theorem pub_iff {τ : T} {r : Reg} : pub τ r = true ↔ r ∈ τ.regs := by simp [pub]
 
@@ -146,6 +149,30 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     split at e₁ <;> [cases e₁; cases e₁]
     split at e₂ <;> [cases e₂; cases e₂]
     exact ha
+  | ldrb t n off =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hn; cases hs
+    refine ⟨by simp [addrs, ha.reg hn], ?_⟩
+    simp only [exec] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    rename_i hoff
+    simp only [hoff, ite_true, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨x₁, -, rfl⟩ := e₁; obtain ⟨x₂, -, rfl⟩ := e₂
+    exact ha.setReg t fun h => by cases h
+  | strb t n off =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hn; cases hs
+    refine ⟨by simp [addrs, ha.reg hn], ?_⟩
+    simp only [exec, State.store8] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    rename_i hoff
+    simp only [hoff, ite_true] at e₁ e₂
+    split at e₁ <;> [cases e₁; cases e₁]
+    split at e₂ <;> [cases e₂; cases e₂]
+    exact ha
+  | ldrSp t off => simp [step] at hs
 
 theorem cond_sound {τ : T} {c : Cond} {s₁ s₂ : State} (ha : Agree τ s₁ s₂)
     (hc : τ.flags = true) : eval c s₁ = eval c s₂ := by

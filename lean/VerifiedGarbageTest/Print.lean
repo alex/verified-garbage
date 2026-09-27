@@ -197,7 +197,8 @@ def sampleArm : Prog Arm.isa :=
         .dp .and .r7 .r8 (.reg .lr), .dp .orr .r9 .r10 (.reg .r11),
         .dp .eor .r12 .r12 (.shifted .r8 .ror 11),
         .movw .r12 0x2f98, .movt .r12 0x428a, .rev .r12 .r12,
-        .ldr .r12 .r1 60, .str .lr .r3 100, .subs .r2 .r2 (.imm 1)]) .ne))
+        .ldr .r12 .r1 60, .str .lr .r3 100, .ldrb .r5 .r6 4095, .strb .lr .r7 3, .ldrSp .r4 8,
+        .subs .r2 .r2 (.imm 1)]) .ne))
 
 #guard Arm.printer.function sampleArm == [
   "cmp r2, #0",
@@ -218,6 +219,9 @@ def sampleArm : Prog Arm.isa :=
   "rev r12, r12",
   "ldr r12, [r1, #60]",
   "str lr, [r3, #100]",
+  "ldrb r5, [r6, #4095]",
+  "strb lr, [r7, #3]",
+  "ldr r4, [sp, #8]",
   "subs r2, r2, #1",
   "bne 22b",
   "b 21f",
