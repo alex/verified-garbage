@@ -26,7 +26,7 @@ pub const ROOT_VAR: &str = "WYCHEPROOF_ROOT";
 pub fn vectors_dir() -> Option<PathBuf> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join(std::env::var_os(ROOT_VAR)?);
     let dir = root.join("testvectors_v1");
-    assert!(dir.is_dir(), "{ROOT_VAR}: {dir:?} is not a directory");
+    assert!(dir.is_dir());
     Some(dir)
 }
 
