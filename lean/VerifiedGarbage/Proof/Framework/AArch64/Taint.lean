@@ -24,13 +24,13 @@ def set (τ : T) (r : Reg) (p : Bool) : T :=
   if p then r :: τ else τ.filter (· != r)
 
 def step (τ : T) : Instr → Option T
-  | .add _ d n m | .logic _ _ d n m => some (set τ d (pub τ n && pub τ m))
-  | .addImm _ d n _ | .subImm _ d n _ | .ror _ d n _ | .lsr _ d n _ | .rev32 d n =>
+  | .add _ d n m | .sub _ d n m | .logic _ _ d n m => some (set τ d (pub τ n && pub τ m))
+  | .addImm _ d n _ | .subImm _ d n _ | .ror _ d n _ | .lsr _ d n _ | .rev32 d n | .rev d n =>
     some (set τ d (pub τ n))
   | .movz _ d _ _ => some (set τ d true)
   | .movk _ d _ _ => some (set τ d (pub τ d))
-  | .ldr _ t n _ => if pub τ n then some (set τ t false) else none
-  | .str _ _ n _ => if pub τ n then some τ else none
+  | .ldr _ t n _ | .ldrb t n _ => if pub τ n then some (set τ t false) else none
+  | .str _ _ n _ | .strb _ n _ => if pub τ n then some τ else none
 
 def condPub (τ : T) : Cond → Bool
   | .zero _ r | .nonzero _ r => pub τ r
@@ -63,6 +63,12 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     addrs i s₁ = addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i with
   | add sz d n m =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
+    refine ⟨rfl, ha.write sz d fun hp => ?_⟩
+    simp only [Bool.and_eq_true] at hp
+    rw [ha.read hp.1, ha.read hp.2]
+  | sub sz d n m =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
     refine ⟨rfl, ha.write sz d fun hp => ?_⟩
@@ -102,6 +108,10 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
     exact ⟨rfl, ha.write .w d fun hp => by rw [ha.read hp]⟩
+  | rev d n =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
+    exact ⟨rfl, ha.write .x d fun hp => by rw [ha.read hp]⟩
   | movz sz d imm hw =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec] at e₁ e₂
@@ -123,6 +133,24 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     obtain ⟨a₁, -, v₁, -, rfl⟩ := e₁; obtain ⟨a₂, -, v₂, -, rfl⟩ := e₂
     exact ha.write sz t fun h => by cases h
   | str sz t n off =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hn; cases hs
+    refine ⟨by simp [addrs, ha.reg hn], ?_⟩
+    simp only [exec, Option.bind_eq_some_iff, State.store] at e₁ e₂
+    obtain ⟨a₁, -, e₁⟩ := e₁; obtain ⟨a₂, -, e₂⟩ := e₂
+    split at e₁ <;> [cases e₁; cases e₁]
+    split at e₂ <;> [cases e₂; cases e₂]
+    exact ha
+  | ldrb t n off =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hn; cases hs
+    refine ⟨by simp [addrs, ha.reg hn], ?_⟩
+    simp only [exec, Option.bind_eq_some_iff, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨a₁, -, v₁, -, rfl⟩ := e₁; obtain ⟨a₂, -, v₂, -, rfl⟩ := e₂
+    exact ha.write .w t fun h => by cases h
+  | strb t n off =>
     simp only [step] at hs
     split at hs <;> [skip; cases hs]
     rename_i hn; cases hs

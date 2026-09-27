@@ -12,17 +12,17 @@ whose pseudocode it transcribes.
 Modelling choices:
 * Registers are `x0`–`x30`; the stack pointer is separate and no modelled
   instruction reads or writes it (register number 31, SP or the zero
-  register, is never an operand). Every instruction has a 32-bit (`w`) and a
-  64-bit (`x`) form; a 32-bit result is zero-extended into the 64-bit
+  register, is never an operand). Each operand is a 32-bit (`w`) or a
+  64-bit (`x`) register; a 32-bit result is zero-extended into the 64-bit
   register (DDI 0487, the pseudocode accessor `X[n, width] = value` sets
   `_R[n] = ZeroExtend(value, 64)`).
 * The condition flags are not modelled, and no modelled instruction reads or
   writes them; control flow uses `cbz`/`cbnz`.
 * Immediates that the instruction cannot encode make the instruction fault,
   so verified code only ever contains encodable instructions.
-* Memory accesses must lie within the state's permitted regions: loads within
-  `rd ++ wr`, stores within `wr`; otherwise the instruction faults. Memory is
-  little-endian.
+* Memory accesses (32-bit, 64-bit, and single bytes via `ldrb`/`strb`) must
+  lie within the state's permitted regions: loads within `rd ++ wr`, stores
+  within `wr`; otherwise the instruction faults. Memory is little-endian.
 * Instructions whose timing depends on their operands (e.g. `udiv`) must never
   be added: the constant-time leakage model assumes they do not exist.
 -/
@@ -57,6 +57,8 @@ inductive LogicOp | and | orr | eor
 inductive Instr
   /-- `add d, n, m` (ADD (shifted register), no shift) -/
   | add (sz : Size) (d n m : Reg)
+  /-- `sub d, n, m` (SUB (shifted register), no shift) -/
+  | sub (sz : Size) (d n m : Reg)
   /-- `add d, n, #imm` (ADD (immediate), `imm < 4096`, no shift) -/
   | addImm (sz : Size) (d n : Reg) (imm : Nat)
   /-- `sub d, n, #imm` (SUB (immediate), `imm < 4096`, no shift) -/
@@ -69,6 +71,8 @@ inductive Instr
   | lsr (sz : Size) (d n : Reg) (sh : Nat)
   /-- `rev wd, wn` (REV, 32-bit): reverse the bytes of the low 32 bits -/
   | rev32 (d n : Reg)
+  /-- `rev xd, xn` (REV, 64-bit): reverse the bytes of all 64 bits -/
+  | rev (d n : Reg)
   /-- `movz d, #imm, lsl #(16 * hw)` -/
   | movz (sz : Size) (d : Reg) (imm : BitVec 16) (hw : Nat)
   /-- `movk d, #imm, lsl #(16 * hw)` -/
@@ -78,6 +82,12 @@ inductive Instr
   | ldr (sz : Size) (t n : Reg) (off : Nat)
   /-- `str t, [n, #off]` (STR (immediate), unsigned offset, as for `ldr`) -/
   | str (sz : Size) (t n : Reg) (off : Nat)
+  /-- `ldrb wt, [n, #off]` (LDRB (immediate), unsigned offset, `off < 4096`):
+  the byte, zero-extended into the 64-bit register -/
+  | ldrb (t n : Reg) (off : Nat)
+  /-- `strb wt, [n, #off]` (STRB (immediate), unsigned offset, `off < 4096`):
+  the low byte of `t` -/
+  | strb (t n : Reg) (off : Nat)
   deriving DecidableEq, Repr
 
 /-- Branch conditions. -/
@@ -113,30 +123,45 @@ abbrev Size.bytes : Size → Nat
 
 theorem Size.bits_eq (sz : Size) : sz.bits = 8 * sz.bytes := by cases sz <;> rfl
 
-/-- The address of `[n, #off]`, if `off` is encodable (DDI 0487 C6.2, "LDR
-(immediate)"/"STR (immediate)", unsigned offset: `offset = LSL(imm12, scale)`). -/
-def addr (s : State) (sz : Size) (n : Reg) (off : Nat) : Option Addr :=
-  if off % sz.bytes = 0 ∧ off < 4096 * sz.bytes then some (s.gpr n + BitVec.ofNat 64 off)
+/-- The address of `[n, #off]` for an access of `bytes` bytes, if `off` is
+encodable (DDI 0487 C6.2, "LDR (immediate)"/"STR (immediate)" and "LDRB
+(immediate)"/"STRB (immediate)", unsigned offset: `offset = LSL(imm12,
+scale)`, where `bytes = 2 ^ scale`, and `scale = 0` for the byte forms). -/
+def addr (s : State) (bytes : Nat) (n : Reg) (off : Nat) : Option Addr :=
+  if off % bytes = 0 ∧ off < 4096 * bytes then some (s.gpr n + BitVec.ofNat 64 off)
   else none
 
 /-- `REV` (32-bit): `result<7:0> = X<31:24>` etc. (DDI 0487 C6.2, "REV"). -/
 def rev32 (a : BitVec 32) : BitVec 32 :=
   a.extractLsb' 0 8 ++ a.extractLsb' 8 8 ++ a.extractLsb' 16 8 ++ a.extractLsb' 24 8
 
+/-- `REV` (64-bit): `Reverse(X[n, 64], 8)`, i.e. `result<7:0> = X<63:56>`,
+`result<15:8> = X<55:48>`, …, `result<63:56> = X<7:0>` (DDI 0487 C6.2,
+"REV"). -/
+def rev64 (a : BitVec 64) : BitVec 64 :=
+  a.extractLsb' 0 8 ++ a.extractLsb' 8 8 ++ a.extractLsb' 16 8 ++ a.extractLsb' 24 8 ++
+    a.extractLsb' 32 8 ++ a.extractLsb' 40 8 ++ a.extractLsb' 48 8 ++ a.extractLsb' 56 8
+
 /-- Semantics, transcribing DDI 0487 C6.2:
 * "ADD (shifted register)", "ADD (immediate)", "SUB (immediate)": the
   result of `AddWithCarry` (the flags are not set by these forms);
+* "SUB (shifted register)": `AddWithCarry(operand1, NOT(operand2), '1')`,
+  i.e. `n - m` modulo `2 ^ size` (the flags are not set by this form);
 * "AND/ORR/EOR (shifted register)";
 * "ROR (immediate)" = "EXTR" with both sources `n`: `(n:n)<sh+size-1:sh>`,
   a rotation right by `sh`;
 * "LSR (immediate)" = "UBFM": a logical shift right by `sh`;
-* "REV"; "MOVZ": `imm` at bit `16 * hw` of zeros; "MOVK": `imm` into bits
-  `16 * hw + 15 : 16 * hw` of the destination, the others unchanged (`hw < 2`
-  for 32-bit, `hw < 4` for 64-bit);
+* "REV" (32- and 64-bit); "MOVZ": `imm` at bit `16 * hw` of zeros; "MOVK":
+  `imm` into bits `16 * hw + 15 : 16 * hw` of the destination, the others
+  unchanged (`hw < 2` for 32-bit, `hw < 4` for 64-bit);
 * "LDR (immediate)": the loaded value is zero-extended; "STR (immediate)":
-  the low `size` bits are stored. -/
+  the low `size` bits are stored;
+* "LDRB (immediate)": `data = Mem[address, 1]; X[t, 32] = ZeroExtend(data,
+  32)` (hence zero-extended to 64 bits); "STRB (immediate)": `data = X[t,
+  8]; Mem[address, 1] = data`, the low byte of `t`. -/
 def exec : Instr → State → Option State
   | .add sz d n m, s => some (s.write sz d (s.read sz n + s.read sz m))
+  | .sub sz d n m, s => some (s.write sz d (s.read sz n - s.read sz m))
   | .addImm sz d n imm, s =>
     if imm < 4096 then some (s.write sz d (s.read sz n + BitVec.ofNat _ imm)) else none
   | .subImm sz d n imm, s =>
@@ -150,6 +175,7 @@ def exec : Instr → State → Option State
   | .lsr sz d n sh, s =>
     if sh < sz.bits then some (s.write sz d (s.read sz n >>> sh)) else none
   | .rev32 d n, s => some (s.write .w d (rev32 (s.read .w n)))
+  | .rev d n, s => some (s.write .x d (rev64 (s.read .x n)))
   | .movz sz d imm hw, s =>
     if 16 * hw < sz.bits then some (s.write sz d (imm.setWidth sz.bits <<< (16 * hw))) else none
   | .movk sz d imm hw, s =>
@@ -158,14 +184,20 @@ def exec : Instr → State → Option State
       some (s.write sz d ((s.read sz d &&& ~~~mask) ||| (imm.setWidth sz.bits <<< (16 * hw))))
     else none
   | .ldr sz t n off, s =>
-    (addr s sz n off).bind fun a =>
+    (addr s sz.bytes n off).bind fun a =>
       (s.load a sz.bytes).map fun v => s.write sz t (v.setWidth sz.bits)
   | .str sz t n off, s =>
-    (addr s sz n off).bind fun a => s.store a sz.bytes ((s.read sz t).setWidth (8 * sz.bytes))
+    (addr s sz.bytes n off).bind fun a => s.store a sz.bytes ((s.read sz t).setWidth (8 * sz.bytes))
+  | .ldrb t n off, s =>
+    (addr s 1 n off).bind fun a => (s.load a 1).map fun v => s.write .w t (v.setWidth 32)
+  | .strb t n off, s =>
+    (addr s 1 n off).bind fun a => s.store a 1 ((s.read .w t).setWidth 8)
 
 def addrs : Instr → State → List Addr
   | .ldr _ _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
   | .str _ _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
+  | .ldrb _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
+  | .strb _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
   | _, _ => []
 
 /-- DDI 0487 C6.2, "CBZ"/"CBNZ": the branch is taken iff the operand is (not) zero. -/
