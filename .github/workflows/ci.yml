@@ -63,17 +63,35 @@ jobs:
           - os: windows-latest
         rust: [stable, "1.88"]
     runs-on: ${{ matrix.platform.os }}
-    env:
-      WYCHEPROOF_ROOT: ${{ github.workspace }}/wycheproof
+    # With an empty image the job runs directly on the runner.
+    container:
+      image: ${{ matrix.platform.container && format('rust:{0}-slim', matrix.rust == 'stable' && '1' || matrix.rust) || '' }}
+      options: ${{ matrix.platform.container && format('--platform {0}', matrix.platform.container) || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ !matrix.platform.container }}
         with:
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ !matrix.platform.container }}
         with:
           repository: C2SP/wycheproof
           path: wycheproof
           persist-credentials: false
+      # JavaScript actions can't run in the 32-bit containers (the runner's
+      # Node is 64-bit), so check out with git there.
+      - name: Checkout (container)
+        if: ${{ matrix.platform.container }}
+        run: |
+          apt-get update -qq && apt-get install -qq -y --no-install-recommends git ca-certificates
+          git config --global --add safe.directory '*'
+          git init -q .
+          git fetch -q --depth 1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$GITHUB_SHA"
+          git checkout -q FETCH_HEAD
+          git clone -q --depth 1 https://github.com/C2SP/wycheproof wycheproof
+      - name: Point the tests at the Wycheproof vectors
+        shell: bash
+        run: echo "WYCHEPROOF_ROOT=$PWD/wycheproof" >> "$GITHUB_ENV"
 
       - name: Install Rust
         if: ${{ !matrix.platform.container }}
@@ -85,15 +103,5 @@ jobs:
         run: |
           cargo fmt --check
           cargo clippy --all-targets --locked
-      - name: Test
-        if: ${{ !matrix.platform.container }}
-        run: cargo test --locked
-
-      - name: Test (in a native ${{ matrix.platform.container }} container)
-        if: ${{ matrix.platform.container }}
-        run: >-
-          docker run --rm --platform ${{ matrix.platform.container }}
-          -v "$PWD:/src" -w /src -e RUSTFLAGS -e CARGO_TERM_COLOR
-          -e WYCHEPROOF_ROOT=/src/wycheproof
-          rust:${{ matrix.rust == 'stable' && '1' || matrix.rust }}-slim
-          sh -c 'uname -m && rustc -vV && cargo test --locked'
+      - run: rustc -vV
+      - run: cargo test --locked
