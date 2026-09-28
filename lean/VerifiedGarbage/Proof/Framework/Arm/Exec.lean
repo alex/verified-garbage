@@ -48,7 +48,7 @@ theorem rev_readW (m : Mem) (a : Addr) :
 theorem exec_sp {i : Instr} {s s' : State} (h : exec i s = some s') : s'.sp = s.sp := by
   cases i <;>
   simp only [exec, Option.map_eq_some_iff, State.setReg, State.load32, State.store32, State.load8,
-    State.store8, subFlags] at h <;>
+    State.store8, addFlags, subFlags] at h <;>
   (repeat' split at h) <;>
   (try simp only [Option.some.injEq, reduceCtorEq] at h) <;>
   first
