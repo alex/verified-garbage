@@ -768,7 +768,7 @@ theorem correct {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) :
 and `rcx` point at the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
   { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .rsp], flags := false, lens := [96, 32, 160],
-    bases := [(.rdi, 0), (.rdx, 1), (.rcx, 2)] }
+    bases := [(.rdi, 0, 0), (.rdx, 1, 0), (.rcx, 2, 0)] }
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.finalizeX86_64.pre s₁)
     (h₂ : Proof.Sha256.finalizeX86_64.pre s₂) (hpub : Proof.Sha256.finalizeX86_64.pub s₁ s₂) :
@@ -779,7 +779,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.finalizeX86_64.pre s�
     obtain ⟨-, hw, d1, d2, d3, -⟩ := hs
     refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, d1, d2, d3], by simp [hw]⟩, fun p hp => ?_⟩
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]
+    rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.byteAddr, X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
   · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption

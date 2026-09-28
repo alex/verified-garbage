@@ -756,7 +756,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
   { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .r8, .rsp], flags := false, lens := [192, 224],
-    bases := [(.rdi, 0), (.r8, 1)] }
+    bases := [(.rdi, 0, 0), (.r8, 1, 0)] }
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha512.updateX86_64.pre s₁)
     (h₂ : Proof.Sha512.updateX86_64.pre s₂) (hpub : Proof.Sha512.updateX86_64.pub s₁ s₂) :
@@ -767,7 +767,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha512.updateX86_64.pre s₁)
     obtain ⟨-, hw, hd, -⟩ := hs
     refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, hd], by simp [hw]⟩, fun p hp => ?_⟩
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rcases hp with rfl | rfl <;> simp [X86_64.Taint.region, hw]
+    rcases hp with rfl | rfl <;> simp [X86_64.Taint.byteAddr, X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
   · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> assumption
