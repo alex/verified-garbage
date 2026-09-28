@@ -29,13 +29,17 @@ fn check<H: HmacHash>(name: &str) {
         let Case { key, msg, tag } = &test.case;
         assert_eq!(key.0.len() * 8, group.params.key_size);
         assert!(group.params.tag_size <= H::OUTPUT_SIZE * 8);
-        // Two ways of computing the MAC: at once, and one byte at a time.
+        // Two ways of computing the MAC: at once, and one byte at a time
+        // with each implementation this CPU can run (the best one, and the
+        // one for the baseline ISA).
         let full = Hmac::<H>::mac(&key.0, &msg.0);
-        let mut h = Hmac::<H>::new(&key.0);
-        for byte in &msg.0 {
-            h.update(core::slice::from_ref(byte));
+        for mask in [u32::MAX, 0] {
+            let mut h = Hmac::<H>::__with_features(&key.0, mask);
+            for byte in &msg.0 {
+                h.update(core::slice::from_ref(byte));
+            }
+            assert_eq!(h.finalize().as_ref(), full.as_ref());
         }
-        assert_eq!(h.finalize().as_ref(), full.as_ref());
         let computed = &full.as_ref()[..group.params.tag_size / 8];
         if test.result == Expectation::Valid {
             assert_eq!(computed, &tag.0[..], "tcId {}", test.tc_id);

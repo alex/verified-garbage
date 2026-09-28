@@ -14,11 +14,18 @@ return-address slot are unchanged on exit.
 
 The SSE registers `xmm0`–`xmm15` are all caller-saved (System V AMD64
 psABI §3.2.1, Figure 3.4: "No" under "callee-saved"; also on Windows, whose
-own convention the functions do not use), so `abiPreserved` says nothing
-about them.
+own convention the functions do not use), and so are the upper halves of
+the `ymm` registers that contain them (the psABI makes no vector register
+callee-saved), so `abiPreserved` says nothing about them.
+
+The control bits of MXCSR (15:6; bits 5:0 are the status flags, SDM Vol. 1
+§10.2.3) are callee-saved: "The control bits of the MXCSR register are
+callee-saved (preserved across calls), while the status bits are
+caller-saved (not preserved)" (System V AMD64 psABI §3.4.1, "Special
+Registers").
 
 Not modelled: the direction flag (no modelled instruction changes it; it is
-clear on entry and exit), x87/MXCSR control words (never modified), and the
+clear on entry and exit), the x87 control word (never modified), and the
 red zone: a contract that grants write access below `rsp` must keep it within
 the 128-byte red zone.
 -/
@@ -30,7 +37,8 @@ def calleeSaved : List Reg := [.rbx, .rbp, .rsp, .r12, .r13, .r14, .r15]
 /-- Calling-convention obligations on return. -/
 def abiPreserved (s s' : State) : Prop :=
   (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧
-  s'.mem.readW (s.gpr .rsp) 64 = s.mem.readW (s.gpr .rsp) 64
+  s'.mem.readW (s.gpr .rsp) 64 = s.mem.readW (s.gpr .rsp) 64 ∧
+  s'.mxcsr.extractLsb' 6 10 = s.mxcsr.extractLsb' 6 10
 
 /-- System V argument registers, in order. -/
 def argRegs : List Reg := [.rdi, .rsi, .rdx, .rcx, .r8, .r9]

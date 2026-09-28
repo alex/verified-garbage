@@ -35,8 +35,9 @@ super::streaming_hash!(
         output: 48,
         final_hash: 64,
         init: vg_sha384_init,
-        update: vg_sha512_update,
-        finalize: vg_sha512_finalize,
+        backends: Sha384Backend {
+            Scalar => (vg_sha512_update, vg_sha512_finalize),
+        },
     }
 );
 super::streaming_hash!(
@@ -48,8 +49,9 @@ super::streaming_hash!(
         output: 64,
         final_hash: 64,
         init: vg_sha512_init,
-        update: vg_sha512_update,
-        finalize: vg_sha512_finalize,
+        backends: Sha512Backend {
+            Scalar => (vg_sha512_update, vg_sha512_finalize),
+        },
     }
 );
 super::streaming_hash!(
@@ -61,8 +63,9 @@ super::streaming_hash!(
         output: 28,
         final_hash: 64,
         init: vg_sha512_224_init,
-        update: vg_sha512_update,
-        finalize: vg_sha512_finalize,
+        backends: Sha512_224Backend {
+            Scalar => (vg_sha512_update, vg_sha512_finalize),
+        },
     }
 );
 super::streaming_hash!(
@@ -74,8 +77,9 @@ super::streaming_hash!(
         output: 32,
         final_hash: 64,
         init: vg_sha512_256_init,
-        update: vg_sha512_update,
-        finalize: vg_sha512_finalize,
+        backends: Sha512_256Backend {
+            Scalar => (vg_sha512_update, vg_sha512_finalize),
+        },
     }
 );
 

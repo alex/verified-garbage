@@ -20,8 +20,7 @@ open VG.Proof.Hmac.X86_64 (bytesAt_length writeBytes_at writeBytes_other bytesAt
   bytesAt_writeBytes_self bytesAt_writeBytes_sep)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Sha256.X86_64 (contains_offset sub_offset toNat_ofNat_lt compress_verified ea_at)
-open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_addi wp_mov32i compress_keeps_rdi compress_keeps_rcx
-  compressBlocks_one compress_depth compress_nosp callEntry_byte)
+open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_addi wp_mov32i scalar_ok compressBlocks_one callEntry_byte)
 open VG.Spec.Sha256 (bytesAt stateAt blockAt compress Repr)
 
 /-! ## The precondition -/
@@ -98,6 +97,8 @@ theorem scr_disj (s₀ : State) {a m b n : Nat} (h : a + m ≤ b ∨ b + n ≤ a
 
 /-! ## A call of `vg_sha256_compress` on the block -/
 
+theorem compress_depth : Impl.Sha256.X86_64.compress.depth = 0 := scalar_ok.depth
+
 /-- Compressing the block at `rcx + 144` into the hash value at `rdi`, with
 scratch space at `rcx`. -/
 theorem compressBlock_ok {s : State} {st sc : Addr}
@@ -130,7 +131,7 @@ theorem compressBlock_ok {s : State} {st sc : Addr}
   have e₈ : s₃.mem = s.mem := by rw [u₃.mem, u₂.mem, u₁.mem]
   have hsp : s₃.gpr .rsp = s.gpr .rsp := e₅ _ (by simp [calleeSaved])
   have hne : ∀ r : Reg, r ≠ .rsp → s₃.callEntry.gpr r = s₃.gpr r := fun r h => State.callEntry_gpr _ h
-  refine WP.call (k := Proof.Sha256.compressX86_64) compress_verified.1 compress_nosp
+  refine WP.call (k := Proof.Sha256.compressX86_64) compress_verified.1 scalar_ok.nosp
     (by rw [compress_depth]; decide) (rd := [⟨sc + 144, 64 * 1⟩]) (wr := [⟨st, 32⟩, ⟨sc, 112⟩]) ?_ ?_ ?_ ?_
   · simp only [Proof.Sha256.compressX86_64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.callEntry_rsp, hne _ (by decide : Reg.rdi ≠ .rsp),
@@ -140,8 +141,8 @@ theorem compressBlock_ok {s : State} {st sc : Addr}
   · rw [e₆, e₇]; simpa using hc
   · rw [e₇]; exact hw
   · intro s₄ hrd hwr hcs hf hkeep ⟨s₅, hm₅, _, hpost⟩
-    have k₁ := hkeep .rdi compress_keeps_rdi
-    have k₃ := hkeep .rcx compress_keeps_rcx
+    have k₁ := hkeep .rdi scalar_ok.keeps_rdi
+    have k₃ := hkeep .rcx scalar_ok.keeps_rcx
     simp only [Proof.Sha256.compressX86_64, State.withRegions_gpr, State.withRegions_mem,
       hne _ (by decide : Reg.rdi ≠ .rsp), hne _ (by decide : Reg.rsi ≠ .rsp),
       hne _ (by decide : Reg.rdx ≠ .rsp), e₁, e₂, e₄, hm₅] at hpost
@@ -741,7 +742,7 @@ theorem stepM_eq {s₀ : State} {k0 : List Byte} (hk : k0.length = 64)
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Inv s₀ 0 s) :
     WP isa (.block epilogue) s fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Pbkdf2.iterateSha256X86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Pbkdf2.iterateSha256X86_64.post s₀ s' := by
   have i : ∀ {s' : State}, s'.rd = s₀.rd → s'.wr = s₀.wr → ∀ d : Nat, d + 8 ≤ 384 →
       InRegions (s'.rd ++ s'.wr) (scr s₀ + BitVec.ofNat 64 d) 8 := fun hrd hwr d hd => by
     have := InRegions.right (rd := s₀.rd) (in_scr hp hwr (a := d) (b := 0) (n := 8) (by omega))
@@ -984,7 +985,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
 /-! ## Correctness -/
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa iterate s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Pbkdf2.iterateSha256X86_64.post s₀ s' := by
+    WP isa iterate s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Pbkdf2.iterateSha256X86_64.post s₀ s' := by
   unfold iterate
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨h, hz⟩ => ?_)
   exact WP.seq (WP.mono (loop_ok hp h hz) fun s₂ h₂ => epilogue_ok hp h₂)
@@ -1031,7 +1032,7 @@ def sat : State where
 theorem iterate_verified : Verified X86_64.target iterate Proof.Pbkdf2.iterateSha256X86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h.1, h.2⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂

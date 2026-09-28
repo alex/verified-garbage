@@ -630,7 +630,7 @@ theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {s : State}
     (h : Out s₀ sD 5 s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Sha1.finalizeX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Sha1.finalizeX86_64.post s₀ s' := by
   have hC := hD.1
   have hfo := out_frame s₀ sD.mem (((stateAt sD.mem (st s₀)).toList.take 5).flatMap wordBytes)
     (by rw [flat_length _ _ le_rfl])
@@ -717,7 +717,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
 theorem out_all {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) :
     ∀ j ≤ 5, ∀ s, Out s₀ sD (5 - j) s →
       WP isa (.block (((List.range 5).drop (5 - j)).flatMap outW ++ restore)) s fun s' =>
-        abiPreserved s₀ s' ∧ Proof.Sha1.finalizeX86_64.post s₀ s' := by
+        gprPreserved s₀ s' ∧ Proof.Sha1.finalizeX86_64.post s₀ s' := by
   intro j
   induction j with
   | zero =>
@@ -742,7 +742,7 @@ theorem out_keeps : (((List.range 5).flatMap outW ++ restore).all fun i =>
 /-- `finalize` is correct, and leaves `rdi` and `rcx` as they were (which code
 calling it relies on). -/
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha1.finalizeX86_64.post s₀ s' ∧
+    WP isa finalize s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha1.finalizeX86_64.post s₀ s' ∧
       s'.gpr .rdi = s₀.gpr .rdi ∧ s'.gpr .rcx = s₀.gpr .rcx := by
   unfold finalize
   rw [← WP.seq_assoc]
@@ -803,7 +803,7 @@ def sat : State where
 theorem finalize_verified : Verified X86_64.target finalize Proof.Sha1.finalizeX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h.1, h.2.1⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2.1⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂

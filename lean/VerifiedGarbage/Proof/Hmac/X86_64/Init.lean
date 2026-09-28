@@ -541,7 +541,7 @@ theorem compress_ok {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s�
       Frame [⟨p, 32⟩, ⟨scr s₀, 112⟩, stkR s₀] s.mem s'.mem →
       stateAt s'.mem p = Spec.Sha256.compress (stateAt s.mem p) (Spec.Sha256.blockAt s.mem (p + 32)) →
       Q s') :
-    WP isa compressAt s Q := by
+    WP isa (compressAt .scalar) s Q := by
   have hs : Region.Disjoint ⟨p, 96⟩ (scR s₀) ∧ Region.Disjoint (stkR s₀) ⟨p, 96⟩ ∧ ⟨p, 96⟩ ∈ s₀.wr := by
     rcases hpR with rfl | rfl
     · exact ⟨hp.i_s, hp.stk_i, by simp [hp.wr]⟩
@@ -550,7 +550,7 @@ theorem compress_ok {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s�
   have e32 : Region.Sub ⟨p, 32⟩ ⟨p, 96⟩ := Region.sub_prefix (by omega)
   have eb : Region.Sub ⟨p + 32, 64⟩ ⟨p, 96⟩ := sub_offset (off := 32) (by omega) (by omega)
   have e112 : Region.Sub ⟨scr s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
-  refine compressAt_ok hbx h15 hsi ((d.sub_left e32).sub_right e112) ?_ ((d.sub_left eb).sub_right e112)
+  refine compressAt_ok Proof.Sha256.X86_64.Stream.scalar_ok hbx h15 hsi ((d.sub_left e32).sub_right e112) ?_ ((d.sub_left eb).sub_right e112)
     (by rw [hsp]; exact dr.sub_right e32) (by rw [hsp]; exact hp.stk_s.sub_right e112)
     (by rw [hsp]; exact dr.sub_right eb) ?_ ?_
     fun s' hrd' hwr' hcs hf hst _ _ => hQ s' hrd' hwr' hcs (by rw [hsp] at hf; exact hf) hst
@@ -589,7 +589,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s�
     (h15 : s.gpr .r15 = scr s₀) (hsp : s.gpr .rsp = s₀.gpr .rsp) (hsv : Saved s₀ s.mem)
     (hfr : Frame [inR s₀, outR s₀, scR s₀, stkR s₀] s₀.mem s.mem)
     (hI : Repr s.mem (inn s₀) (xorPad (K0 s₀) ipad)) (hO : Repr s.mem (out s₀) (xorPad (K0 s₀) opad)) :
-    WP isa (.block restore) s fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256X86_64.post s₀ s' := by
+    WP isa (.block restore) s fun s' => gprPreserved s₀ s' ∧ Proof.Hmac.initSha256X86_64.post s₀ s' := by
   have i : ∀ d : Nat, d + 8 ≤ 160 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
     fun d hd => ⟨scR s₀, by simp [hwr, hp.wr], contains_offset' hd (by omega)⟩
   have i0 := i 112 (by omega); have i1 := i 120 (by omega); have i2 := i 128 (by omega)
@@ -632,7 +632,7 @@ theorem buf_full {s₀ : State} (hp : Pre s₀) {m : Mem} (h : BufMem s₀ 64 m)
   exact ⟨rfl, rfl⟩
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256X86_64.post s₀ s' := by
+    WP isa init s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Hmac.initSha256X86_64.post s₀ s' := by
   have hkl := hp.kl_le
   unfold init
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨h₁, z₁⟩ => ?_)
@@ -775,7 +775,7 @@ def sat : State where
 theorem init_verified : Verified X86_64.target init Proof.Hmac.initSha256X86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · refine ⟨sat, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂

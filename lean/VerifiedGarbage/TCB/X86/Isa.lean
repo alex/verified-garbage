@@ -25,11 +25,17 @@ Modelling choices:
   mainstream 32-bit OS). Memory accesses must lie within the state's permitted
   regions: loads within `rd ++ wr`, stores within `wr`; otherwise the
   instruction faults. Memory is little-endian.
+* The baseline is i686 as Rust's `i686-*` targets define it: a Pentium 4 or
+  later, with SSE2 (the Rust crate refuses to build for 32-bit x86 without
+  SSE2). Older CPUs are not supported: the 80386 and 80486 multiply in a
+  time that depends on the multiplier (Intel 80386 Programmer's Reference
+  Manual, "MUL": "an early-out multiply algorithm").
 * Instructions whose timing depends on their operands (e.g. `div`) must never
   be added: the constant-time leakage model assumes they do not exist. `mul`
   is one of the instructions whose timing Intel documents as independent of
-  their data operands ("Data Operand Independent Timing Instruction Set
-  Architecture (ISA) Guidance", which lists `MUL`).
+  their data operands on its Core and Atom processors ("Data Operand
+  Independent Timing Instruction Set Architecture (ISA) Guidance", which
+  lists `MUL`).
 * Calls (`call`) and returns (`ret`) are near and direct (SDM Vol. 2, "CALL",
   "RET"). The return addresses are the next of the state's `unknowns`,
   which nothing constrains (see `TCB/Code.lean`).
@@ -361,7 +367,7 @@ abbrev isa : ISA where
   writesSp i := i.dst == some .esp
   push := push
   pop := pop
-  -- Every modelled instruction is in the i486 baseline.
+  -- Every modelled instruction is in the i686 baseline.
   requires _ := []
 
 end VG.X86

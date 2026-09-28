@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Rounds
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Framework.Range
@@ -478,7 +479,7 @@ theorem block_post {p : Addr} {m : Mem} {R v : CState}
   exact this
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa block s₀ fun s' => abiPreserved s₀ s' ∧ Proof.ChaCha20.blockX86_64.post s₀ s' := by
+    WP isa block s₀ fun s' => gprPreserved s₀ s' ∧ Proof.ChaCha20.blockX86_64.post s₀ s' := by
   have hw₀ := hp.hw
   refine WP.seq ?_
   rw [WP.block_append_iff, WP.block_append_iff]
@@ -563,7 +564,7 @@ theorem block_verified :
     Verified X86_64.target Impl.ChaCha20.X86_64.block Proof.ChaCha20.blockX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2⟩
     refine Taint.agree_ofRegs fun r hr => ?_

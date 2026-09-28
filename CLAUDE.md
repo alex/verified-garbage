@@ -46,6 +46,10 @@ trustworthy. Read `lean/README.md` first.
   [Algorithms](README.md#algorithms) section of `README.md` in the same PR.
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
+* On x86-64, `pmuludq` and `vpmuludq` may only take secret operands between
+  Intel's MXCSR prologue and epilogue (`stmxcsr`, `ldmxcsr` of `0x1FBF`,
+  `lfence`, … `lfence`, `ldmxcsr` of the saved value), which the proofs do
+  not check: see "MCDT" in `lean/VerifiedGarbage/TCB/X86_64/Isa.lean`.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
   `Proof/`. `Spec/` and `Impl/` never import `Proof/`.
 

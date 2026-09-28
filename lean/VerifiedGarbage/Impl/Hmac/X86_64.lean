@@ -57,9 +57,9 @@ def init : Prog isa :=
   (.seq (.block [.mov32 .rax (.imm 0x36), .mov32 .rcx (.imm 0x5c), .alu .cmp .r14 (.imm 64)])
   (.seq (.ite .e (.block []) padLoop)
   (.seq (.block [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm 32)])
-  (.seq compressAt
+  (.seq (compressAt .scalar)
   (.seq (.block [.mov .rbx (.reg .r12), .mov .rsi (.reg .r12), .alu .add .rsi (.imm 32)])
-  (.seq compressAt
+  (.seq (compressAt .scalar)
     (.block restore))))))))
 
 /-! ## `finalize`
@@ -90,7 +90,7 @@ def loadOuter : List Instr :=
   (List.range 8).flatMap (cp32 .rcx .rdi 208 0) ++ (List.range 4).flatMap (cp64 .rcx .rdi 176 32)
 
 /-- `vg_sha256_finalize`. -/
-def sha256Finalize : Prog isa := .call "vg_sha256_finalize" Impl.Sha256.X86_64.Stream.finalize
+def sha256Finalize : Prog isa := .call "vg_sha256_finalize" (Impl.Sha256.X86_64.Stream.finalize .scalar)
 
 def finalize : Prog isa :=
   .seq (.block (saveOuter ++ [.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))

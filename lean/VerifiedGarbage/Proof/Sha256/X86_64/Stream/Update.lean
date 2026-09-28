@@ -169,7 +169,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
 set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Sha256.updateX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Sha256.updateX86_64.post s₀ s' := by
   have i : ∀ d : Nat, d + 8 ≤ 160 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
     fun d hd => ⟨scR s₀, by simp [hI.rd, hI.wr, hp.wr], contains_offset' hd (by omega)⟩
   have i0 := i 112 (by omega); have i1 := i 120 (by omega); have i2 := i 128 (by omega)
@@ -255,8 +255,8 @@ theorem Inv.congr {s₀ : State} {c : Nat} {s s' : State} (h : Inv s₀ c s) (hg
     r13 := by rw [hg]; exact h.r13
     repr := by rw [hm]; exact h.repr }
 
-theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Pending s₀ c s) :
-    WP isa compressAt s fun s' => Inv s₀ c s' ∧ s'.gpr .r14 = 1 := by
+theorem Pending.compress_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Pending s₀ c s) :
+    WP isa (compressAt f) s fun s' => Inv s₀ c s' ∧ s'.gpr .r14 = 1 := by
   have e32 : Region.Sub ⟨st s₀, 32⟩ (stR s₀) := Region.sub_prefix (by omega)
   have e112 : Region.Sub ⟨scr s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
   have eSrc : Region.Sub ⟨s.gpr .rsi, 64⟩ (stR s₀) ∨ Region.Sub ⟨s.gpr .rsi, 64⟩ (dR s₀) := by
@@ -264,7 +264,7 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
     · exact .inl (h' ▸ sub_offset (off := 32) (by omega) (by omega))
     · exact .inr (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))
   have hsp := h.rsp
-  refine compressAt_ok h.rbx h.r15 rfl ((hp.st_scr.sub_left e32).sub_right e112) ?_ ?_
+  refine compressAt_ok hf h.rbx h.r15 rfl ((hp.st_scr.sub_left e32).sub_right e112) ?_ ?_
     (by rw [hsp]; exact hp.stk_st.sub_right e32) (by rw [hsp]; exact hp.stk_scr.sub_right e112) ?_ ?_ ?_ ?_
   · rcases h.src with h' | ⟨c₀, h', hc₀⟩
     · rw [h']; intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
@@ -334,15 +334,15 @@ theorem Pending.congr {s₀ : State} {c : Nat} {s s' : State} (h : Pending s₀ 
 
 /-- The second half of the loop body: compress if a block is ready, and loop
 back if so. -/
-theorem tail_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
+theorem tail_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
     (h : (∃ c', c < c' ∧ Pending s₀ c' s) ∨ Done s₀ s) :
     WP isa (.seq (.block [.alu .test .r14 (.reg .r14)])
-      (.seq (.ite .ne compressAt (.block [])) (.block [.alu .test .r14 (.reg .r14)]))) s (Step s₀ c) := by
+      (.seq (.ite .ne (compressAt f) (.block [])) (.block [.alu .test .r14 (.reg .r14)]))) s (Step s₀ c) := by
   refine WP.seq (WP.mono (test_ok .r14) fun s₁ ⟨hg, hm, hrd, hwr, hz⟩ => ?_)
   rcases h with ⟨c', hc, hP⟩ | ⟨hI, h14⟩
   · have hP₁ := hP.congr hg hm hrd hwr
     refine WP.seq (WP.ite true (by simp [eval, hz, hP.r14]) (fun _ => ?_) (fun h => by cases h))
-    refine WP.mono (hP₁.compress_ok hp) fun s₂ ⟨hI₂, h14⟩ => ?_
+    refine WP.mono (hP₁.compress_ok hf hp) fun s₂ ⟨hI₂, h14⟩ => ?_
     refine WP.mono (test_ok .r14) fun s₃ ⟨hg₃, hm₃, hrd₃, hwr₃, hz₃⟩ => ?_
     exact .inr ⟨by simp [eval, hz₃, h14], c', hc, hI₂.congr hg₃ hm₃ hrd₃ hwr₃⟩
   · refine WP.seq (WP.ite false (by simp [eval, hz, h14]) (fun h => by cases h) fun _ => ?_)
@@ -720,14 +720,14 @@ theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   · simp only [decide_eq_false_iff_not] at hb
     exact WP.block_nil (.inr (fill_done hp hI hC₉ h14 hb))
 
-theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) :
-    WP isa updateBody s (Step s₀ c) := by
+theorem body_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
+    (hI : Inv s₀ c s) : WP isa (updateBody f) s (Step s₀ c) := by
   have hlen := len_lt s₀; have hc := hI.c_le; have hr := rr_lt s₀ c
   unfold updateBody
   refine WP.seq (wp_test fun s₁ g₁ m₁ rd₁ wr₁ z₁ => WP.block_nil ?_)
   have hI₁ := hI.of_gpr (fun r _ => by rw [g₁]) m₁ rd₁ wr₁
   refine WP.seq (WP.mono (Q := fun s' => (∃ c', c < c' ∧ Pending s₀ c' s') ∨ Done s₀ s') ?_
-    fun s' h => tail_ok hp h)
+    fun s' h => tail_ok hf hp h)
   refine WP.ite (decide (rr s₀ c = 0))
     (by rw [show isa.eval .e s₁ = s₁.zf from rfl, z₁, hI.r13, BitVec.and_self, ofNat_beq_zero (by omega)])
     (fun hb => ?_) (fun _ => fill_ok hp hI₁)
@@ -740,14 +740,14 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   simp only [Bool.not_eq_true', decide_eq_false_iff_not, not_lt] at hb'
   exact WP.mono (direct_ok hp hI₂ hb hb') fun s' h => .inl ⟨c + 64, by omega, h⟩
 
-theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateX86_64.post s₀ s' := by
+theorem correct {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) :
+    WP isa (update f) s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha256.updateX86_64.post s₀ s' := by
   unfold update
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI => ?_)
   refine WP.seq (WP.mono (Q := Inv s₀ (len s₀)) ?_ fun s₂ hI₂ => epilogue_ok hp hI₂)
   refine WP.loop (M := isa) (fun n s => ∃ c, n = len s₀ - c ∧ Inv s₀ c s) ?_ (len s₀) s₁ ⟨0, rfl, hI⟩
   rintro n s ⟨c, rfl, hI⟩
-  refine WP.mono (body_ok hp hI) fun s' h => ?_
+  refine WP.mono (body_ok hf hp hI) fun s' h => ?_
   rcases h with ⟨he, hI'⟩ | ⟨he, c', hc, hI'⟩
   · exact .inl ⟨he, hI'⟩
   · exact .inr ⟨he, len s₀ - c', by have := hI'.c_le; omega, c', rfl, hI'⟩
@@ -788,14 +788,26 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 160⟩]
 
-theorem update_verified : Verified X86_64.target update Proof.Sha256.updateX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+/-- `update f` is verified if its constant-time analysis passes and it
+never loads MXCSR. -/
+theorem verified_of {f : Callee} (hf : f.Ok)
+    (hm : (update f).allInstrs (fun i => !loadsMxcsr i) = true)
+    (hct : ConstantTime isa Proof.Sha256.updateX86_64.pre Proof.Sha256.updateX86_64.pub (update f)) :
+    Verified X86_64.target (update f) Proof.Sha256.updateX86_64 := by
+  refine ⟨fun s hs => ?_, hct, ?_⟩
+  · obtain ⟨t, s', he, h⟩ := correct hf (pre_of hs)
+    exact ⟨t, s', he, abiPreserved_of_exec hm he h.1, h.2⟩
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
       bv_omega
+
+theorem update_verified : Verified X86_64.target (update .scalar) Proof.Sha256.updateX86_64 :=
+  verified_of scalar_ok (by decide +kernel)
+    (VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide))
+
+theorem update_shani_verified : Verified X86_64.target (update .shani) Proof.Sha256.updateX86_64 :=
+  verified_of shani_ok (by decide +kernel)
+    (VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide))
 
 end VG.Proof.Sha256.X86_64.Stream.Update
