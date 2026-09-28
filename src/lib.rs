@@ -41,6 +41,8 @@ pub mod hashes;
 ))]
 pub mod hmac;
 #[cfg(target_arch = "x86_64")]
+pub mod pbkdf2;
+#[cfg(target_arch = "x86_64")]
 pub mod poly1305;
 
 #[cfg(test)]

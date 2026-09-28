@@ -4,6 +4,7 @@ import VerifiedGarbage.Impl.ChaCha20.X86
 import VerifiedGarbage.Impl.ChaCha20.X86_64
 import VerifiedGarbage.Impl.Hmac.X86
 import VerifiedGarbage.Impl.Hmac.X86_64
+import VerifiedGarbage.Impl.Pbkdf2.X86_64
 import VerifiedGarbage.Impl.Md5.X86_64
 import VerifiedGarbage.Impl.Poly1305.X86_64
 import VerifiedGarbage.Impl.Md5.X86_64.Stream
@@ -154,6 +155,10 @@ theorem hmac_x86_64_init :
 
 theorem hmac_x86_64_finalize :
     Impl.Hmac.X86_64.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem pbkdf2_x86_64_iterate :
+    Impl.Pbkdf2.X86_64.iterate.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem chacha20_x86_64_block :
