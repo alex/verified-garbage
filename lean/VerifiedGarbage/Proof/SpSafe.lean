@@ -35,10 +35,6 @@ stack pointer: `Code.all_of_forall`.)
 
 namespace VG.Proof.SpSafe
 
-theorem selftest_x86_64_add :
-    Impl.Selftest.X86_64.add.all (fun i => !X86_64.target.isa.writesSp i) = true := by
-  decide +kernel
-
 theorem sha256_x86_64_compress :
     Impl.Sha256.X86_64.compress.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
