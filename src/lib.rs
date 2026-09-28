@@ -25,7 +25,6 @@ compile_error!("32-bit x86 needs an i686 target with SSE2 (e.g. i686-unknown-lin
 pub mod chacha20;
 pub mod hashes;
 pub mod hmac;
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub mod pbkdf2;
 #[cfg(all(
     any(target_arch = "x86_64", target_arch = "aarch64"),
