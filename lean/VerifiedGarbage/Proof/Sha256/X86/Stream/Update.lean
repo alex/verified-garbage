@@ -903,7 +903,7 @@ theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
     refine repr_append_block (hI.repr m hm) (by rw [hmod, hxs]; exact hfull) ?_
     rw [hs, m₄, h.mem, hst, heax, show (st s₀ + BitVec.ofNat 32 32).setWidth 64 = addr (st s₀) 32 from rfl,
       addr_eq (by have := hp.st_fit; omega)]
-    congr 1
+    refine congrArg (compress _) ?_
     apply parseBlock_congr
     intro k hk
     have hb := (hI.repr m hm).2
