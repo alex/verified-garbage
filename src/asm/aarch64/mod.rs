@@ -2,7 +2,13 @@
 //! Verified functions for `aarch64`.
 
 #[rustfmt::skip]
+pub(crate) mod aes;
+
+#[rustfmt::skip]
 pub(crate) mod chacha20;
+
+#[rustfmt::skip]
+pub(crate) mod gcm;
 
 #[rustfmt::skip]
 pub(crate) mod hmac;
