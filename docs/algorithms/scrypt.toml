@@ -1,4 +1,5 @@
 name = "scrypt"
+family = "KDFs"
 specs = ["Scrypt"]
 modules = ["src/scrypt.rs"]
 asm = ["scrypt"]
