@@ -1119,5 +1119,10 @@ def taint : VG.Taint isa where
   meet_right := Taint.meet_right
   le := Taint.le
   le_sound := Taint.le_sound
+  -- Not analysed yet: a call moves `esp`, relative to which the arguments are tracked.
+  call _ := none
+  call_sound _ h := by cases h
+  ret _ := none
+  ret_sound _ h := by cases h
 
 end VG.X86
