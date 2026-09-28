@@ -139,7 +139,7 @@ theorem Exec.frameSp {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa
         · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
         · simp only [List.mem_singleton] at hr; subst hr
           refine ⟨_, List.mem_append_right _ (List.mem_singleton_self _), ?_⟩
-          rw [show 8 * (b.depth + 1) = 8 * b.depth + 8 by ring]
+          rw [show 8 * (b.depth + 1) = 8 * b.depth + 8 by omega]
           exact below_callee _ _
     rw [hm]; exact Frame.trans f₀ f₁'
 
@@ -200,7 +200,7 @@ theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
         · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
         · simp only [List.mem_singleton] at hr; subst hr
           refine ⟨_, List.mem_append_right _ (List.mem_singleton_self _), ?_⟩
-          rw [show 8 * (c.depth + 1) = 8 * c.depth + 8 by ring]
+          rw [show 8 * (c.depth + 1) = 8 * c.depth + 8 by omega]
           exact below_callee _ _
     exact Frame.trans f₀ f₁
   · by_cases hrs : r = .rsp

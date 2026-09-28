@@ -399,7 +399,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 points at the inner state, and the 8 bytes of stack arguments are public,
 the second one pointing at the scratch space. -/
 def τ₀ : VG.Arm.Taint.T :=
-  { regs := [.r0, .r1, .r2, .r3], flags := false, lens := [96, 32, 240], bases := [(.r0, 0)],
+  { regs := .ofList [.r0, .r1, .r2, .r3], flags := false, lens := [96, 32, 240], bases := [(.r0, 0)],
     argLen := 8, argBases := [(4, 2)] }
 
 theorem wf₀ {s : State} (h : Proof.Hmac.finalizeSha256Arm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
@@ -430,7 +430,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256Arm.pre s�
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ h₁, wf₀ h₂,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim, fun _ => psp, fun k hk => ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
   · rw [hp₁.wr, hp₂.wr]; simp only [inR, outR, scR, inA, outA, scA, inn, out, scr, p0, a0, a1]
   · simp only [τ₀] at hk

@@ -35,8 +35,30 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-      - name: Fetch the Mathlib build cache
-        run: lake exe cache get
+      # Lake would clone mathlib4's whole history; a checkout of the pinned
+      # revision is all the build needs, and Lake accepts it as is.
+      - name: Shallow-clone Mathlib
+        run: |
+          rev=$(jq -r '.packages[] | select(.name == "mathlib") | .rev' lake-manifest.json)
+          git init -q .lake/packages/mathlib
+          cd .lake/packages/mathlib
+          git remote add origin https://github.com/leanprover-community/mathlib4
+          git fetch -q --depth 1 origin "$rev"
+          git checkout -q FETCH_HEAD
+      - name: Fetch the Mathlib build cache for what the proofs import
+        run: |
+          # Every module the Lean files import from outside this project and
+          # Lean itself, as Lean's own parser reads their headers; `cache get`
+          # fetches these and what they import, not all of Mathlib.
+          mods=$(git ls-files '*.lean' | xargs lean --deps-json \
+            | jq -r '.imports[].result.imports[].module
+                     | select(test("^(VerifiedGarbage[A-Za-z]*|Init|Std|Lean)(\\.|$)") | not)' \
+            | sort -u)
+          echo "$mods"
+          lake exe cache get $mods
+          # Fail, rather than quietly build part of Mathlib from source, if
+          # the cache left any of them (or what they import) unbuilt.
+          lake build --no-build $mods
       - name: Restore this project's build
         id: lean-build
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -46,8 +68,10 @@ jobs:
           restore-keys: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
       - name: Check every proof (and the axiom audit)
         run: lake build
+      # Merge queue runs each get their own branch, whose caches no other run
+      # can restore.
       - name: Save this project's build
-        if: ${{ steps.lean-build.outputs.cache-hit != 'true' }}
+        if: ${{ steps.lean-build.outputs.cache-hit != 'true' && github.event_name != 'merge_group' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: lean/.lake/build

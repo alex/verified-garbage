@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.Taint
+import VerifiedGarbage.Proof.Framework.RegSet
 import VerifiedGarbage.TCB.AArch64.Target
 
 /-!
@@ -6,7 +7,7 @@ import VerifiedGarbage.TCB.AArch64.Target
 
 Untrusted: everything here is checked by Lean.
 
-The abstract state is the list of registers known to be public. Memory is
+The abstract state is the set of registers known to be public. Memory is
 always secret: a loaded value is secret, and an address must be computed from
 public registers. (No modelled instruction touches the flags.)
 -/
@@ -15,15 +16,22 @@ namespace VG.AArch64.Taint
 
 deriving instance Lean.ToExpr for Reg
 
-abbrev T := List Reg
+instance : RegIdx Reg := ⟨Reg.ctorIdx, fun {a b} h => by rw [← Reg.ofNat_ctorIdx a, h, Reg.ofNat_ctorIdx]⟩
 
-def pub (τ : T) (r : Reg) : Bool := τ.contains r
+abbrev T := RegSet Reg
+
+def pub (τ : T) (r : Reg) : Bool := τ.mem r
+
+/-- Exactly the registers `rs` are public. -/
+def ofRegs (rs : List Reg) : T := RegSet.ofList rs
+
+@[simp] theorem mem_ofRegs {rs : List Reg} {r : Reg} : r ∈ ofRegs rs ↔ r ∈ rs := RegSet.mem_ofList
 
 def Agree (τ : T) (s₁ s₂ : State) : Prop := ∀ r ∈ τ, s₁.gpr r = s₂.gpr r
 
 /-- The public registers after writing `r`, with a public value iff `p`. -/
 def set (τ : T) (r : Reg) (p : Bool) : T :=
-  if p then r :: τ else τ.filter (· != r)
+  if p then τ.insert r else τ.erase r
 
 def step (τ : T) : Instr → Option T
   | .add _ d n m | .sub _ d n m | .logic _ _ d n m => some (set τ d (pub τ n && pub τ m))
@@ -37,7 +45,7 @@ def step (τ : T) : Instr → Option T
 def condPub (τ : T) : Cond → Bool
   | .zero _ r | .nonzero _ r => pub τ r
 
-theorem pub_iff {τ : T} {r : Reg} : pub τ r = true ↔ r ∈ τ := by simp [pub]
+theorem pub_iff {τ : T} {r : Reg} : pub τ r = true ↔ r ∈ τ := Iff.rfl
 
 theorem Agree.reg {τ : T} {s₁ s₂ : State} (h : Agree τ s₁ s₂) {r : Reg} (hr : pub τ r = true) :
     s₁.gpr r = s₂.gpr r := h r (pub_iff.mp hr)
@@ -53,12 +61,12 @@ theorem Agree.write {τ : T} {s₁ s₂ : State} (h : Agree τ s₁ s₂) (sz : 
   simp only [State.write]
   unfold set at hr
   by_cases hp : p = true
-  · simp only [hp, ite_true, List.mem_cons] at hr
+  · simp only [hp, ite_true, RegSet.mem_insert] at hr
     by_cases hrd : r = d
     · simp [hrd, hv hp]
     · simp [hrd, h r (hr.resolve_left hrd)]
-  · simp only [hp, Bool.false_eq_true, ite_false, List.mem_filter, bne_iff_ne, ne_eq] at hr
-    simp [hr.2, h r hr.1]
+  · simp only [hp, Bool.false_eq_true, ite_false, RegSet.mem_erase] at hr
+    simp [hr.1, h r hr.2]
 
 theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha : Agree τ s₁ s₂)
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
@@ -179,20 +187,20 @@ def taint : VG.Taint isa where
   step_sound := Taint.step_sound
   condPub := Taint.condPub
   cond_sound := Taint.cond_sound
-  meet τ₁ τ₂ := τ₁.filter (Taint.pub τ₂)
-  meet_left h r hr := h r (List.mem_filter.mp hr).1
-  meet_right h r hr := h r (Taint.pub_iff.mp (List.mem_filter.mp hr).2)
-  le τ σ := τ.all (Taint.pub σ)
-  le_sound hle h r hr := h r (Taint.pub_iff.mp (List.all_eq_true.mp hle r hr))
+  meet τ₁ τ₂ := τ₁.inter τ₂
+  meet_left h r hr := h r (RegSet.mem_inter.mp hr).1
+  meet_right h r hr := h r (RegSet.mem_inter.mp hr).2
+  le τ σ := τ.subset σ
+  le_sound hle h r hr := h r (RegSet.mem_of_subset hle hr)
   -- A call leaves unknown values in `x16`, `x17` and `x30`; a return changes nothing.
-  call τ := some (τ.filter fun r => r != .x16 && r != .x17 && r != .x30)
+  call τ := some ((τ.erase .x16).erase .x17 |>.erase .x30)
   call_sound h hs e₁ e₂ := by
     cases hs
     simp only [isa, call, Option.some.injEq] at e₁ e₂
     subst e₁ e₂
     refine ⟨rfl, fun r hr => ?_⟩
-    simp only [List.mem_filter, Bool.and_eq_true, bne_iff_ne, ne_eq] at hr
-    obtain ⟨hr, ⟨h16, h17⟩, h30⟩ := hr
+    simp only [RegSet.mem_erase] at hr
+    obtain ⟨h30, h17, h16, hr⟩ := hr
     simp only [h16, h17, h30, ite_false]
     exact h r hr
   ret τ := some τ

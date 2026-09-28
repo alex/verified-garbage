@@ -1,4 +1,12 @@
-import Mathlib.Tactic
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.NormNum.Basic
+import Mathlib.Tactic.Ring.RingNF
+import Mathlib.Data.List.Basic
+import Mathlib.Tactic.Tauto
+import Mathlib.Tactic.SplitIfs
+import Mathlib.Tactic.Set
+import Mathlib.Tactic.Use
+import Mathlib.Tactic.ByContra
 import VerifiedGarbage.Spec.Sha512
 import VerifiedGarbage.Proof.Framework.Mem
 

@@ -49,7 +49,8 @@ def Holds (v : CState) (s : State) : Prop := ∀ k (hk : k < 16), s.gpr (wreg k)
 def Words (r : Reg) : Prop := ∃ k < 16, r = wreg k
 
 theorem wreg_inj {j k : Nat} (hj : j < 16) (hk : k < 16) (h : wreg j = wreg k) : j = k := by
-  interval_cases j <;> interval_cases k <;> first | rfl | (simp [wreg] at h)
+  have key : ∀ j, j < 16 → ∀ k, k < 16 → wreg j = wreg k → j = k := by decide
+  exact key j hj k hk h
 
 /-- The rounds invariant, relative to the state `s₀` at the start of the rounds. -/
 structure RI (v : CState) (s₀ s : State) : Prop where

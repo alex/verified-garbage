@@ -1,3 +1,4 @@
+import Mathlib.Data.List.FinRange
 import VerifiedGarbage.Proof.Hmac.X86.Common
 import VerifiedGarbage.Proof.Hmac.X86.Contract
 
@@ -662,7 +663,7 @@ theorem comp_ok {s₀ s : State} (hp : Pre s₀) (hrd : s.rd = s₀.rd) (hwr : s
     intro a h₁ h₂
     simp only [Region.Contains] at h₁ h₂
     have := sep_off (inA s₀) (d := 32) (e := 0) (n := 64) (k := 32) (by omega) (by omega) (by omega) a
-      (by omega) (by simpa using h₂)
+      (by omega) (by simp at h₂ ⊢; omega)
     exact this
   · rw [hsp]
     apply Covers.of_sub
@@ -965,7 +966,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 words at offsets 0, 16 and 20 are the base addresses of `inner`, `out` and
 `scratch`. -/
 def τ₀ : VG.X86.Taint.T :=
-  { regs := [.esp], flags := false, lens := [96, 32, 240, 24], bases := [(.esp, 3, 4)],
+  { regs := .ofList [.esp], flags := false, lens := [96, 32, 240, 24], bases := [(.esp, 3, 4)],
     slots := [(3, 0, 24)], wbases := [(3, 0, 0), (3, 16, 1), (3, 20, 2)] }
 
 theorem argWord_eq {s : State} (hsp : (s.gpr .esp).toNat + 28 ≤ 2 ^ 32) {k : Nat} (hk : k < 24) :
@@ -1017,7 +1018,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256X86.pre s�
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
     fun h => absurd h (Nat.lt_irrefl 0), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
-  · simp only [τ₀, List.mem_singleton] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_singleton] at hr
     subst hr; exact hesp
   · rw [hp₁.wr, hp₂.wr]
     simp only [inR, outR, scR, argR, inA, outA, scA, inn, out, scr, esp₀, ha 0 (by omega), ha 4 (by omega),

@@ -360,7 +360,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-- The initial taint: the arguments are public, and `rdi` and `rcx` point
 at the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
-  { regs := [.rdi, .rsi, .rdx, .rcx, .rsp], flags := false, lens := [96, 240],
+  { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .rsp], flags := false, lens := [96, 240],
     bases := [(.rdi, 0), (.rcx, 1)] }
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256X86_64.pre s₁)
@@ -374,7 +374,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256X86_64.pre
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with rfl | rfl <;> simp [X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
   · rw [h₁.2.1, h₂.2.1, p1, p4]
   · intro sl h; simp [τ₀] at h

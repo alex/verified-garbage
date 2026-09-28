@@ -620,7 +620,7 @@ theorem flat_length (H : HashValue) (k : Nat) (hk : k ≤ 8) :
     ((H.toList.take k).flatMap wordBytes).length = 4 * k := by
   rw [List.length_flatMap]
   have : ∀ w ∈ H.toList.take k, (wordBytes w).length = 4 := fun w _ => rfl
-  rw [List.map_congr_left this, List.map_const', List.sum_replicate, List.length_take]
+  rw [List.map_congr_left this, List.map_const', List.sum_replicate_nat, List.length_take]
   simp; omega
 
 theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 32) :
@@ -771,7 +771,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-- The initial taint: the arguments and `rsp` are public, and `rdi`, `rdx`
 and `rcx` point at the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
-  { regs := [.rdi, .rsi, .rdx, .rcx, .rsp], flags := false, lens := [96, 32, 160],
+  { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .rsp], flags := false, lens := [96, 32, 160],
     bases := [(.rdi, 0), (.rdx, 1), (.rcx, 2)] }
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.finalizeX86_64.pre s₁)
@@ -785,7 +785,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.finalizeX86_64.pre s�
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
   · rw [h₁.2.1, h₂.2.1, p1, p3, p4]
   · intro sl h; simp [τ₀] at h
