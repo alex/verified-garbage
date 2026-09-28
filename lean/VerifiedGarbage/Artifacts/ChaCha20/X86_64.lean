@@ -7,27 +7,19 @@ import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
 
 A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`.
+caller to the contract; check them against the contract's `pre`/`post`. An
+artifact made from a function's `Api` (in `Spec/`, reviewed with the
+contract) takes its signature and most of its `doc` from there: what this
+file adds is the `# Safety` items that depend on the target, and any notes.
 -/
 
 namespace VG.Artifacts.ChaCha20.X86_64
 
 def artifacts : List Artifact := [
-  { target := X86_64.target
-    module := "chacha20"
-    name := "vg_chacha20_block"
-    sig := Spec.ChaCha20.blockSig
-    doc := "The ChaCha20 block function (RFC 8439 §2.3): writes the block function of the \
-      16-word state `*state` (20 rounds, then the input state added word by word) to the \
-      first 16 words of `*buf`.\n\n\
-      Contract: `VG.Spec.ChaCha20.blockContract`. Constant time: only the pointers may affect \
-      timing, not the state.\n\n\
-      # Safety\n\n\
-      * `state` must be valid for reads of 64 bytes.\n\
-      * `buf` must be valid for reads and writes of 256 bytes. On return its first 64 bytes \
-      hold the result and the rest is unspecified.\n\
-      * `buf` must not overlap `state`, nor the return address on the stack (distinct Rust \
-      objects never do)."
+  { Spec.ChaCha20.blockApi with
+    target := X86_64.target
+    doc := Spec.ChaCha20.blockApi.doc ["`buf` must not overlap `state`, nor the return address on \
+      the stack (distinct Rust objects never do)."]
     code := Impl.ChaCha20.X86_64.block
     contract := Spec.ChaCha20.blockContract X86_64.abi
     verified := Proof.ChaCha20.X86_64.Shared.block },
