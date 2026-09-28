@@ -6,7 +6,7 @@ import VerifiedGarbage.Spec.ChaCha20
 
 The test vectors of RFC 8439, Appendix A.1 (the block function) and A.2
 (encryption), read from the vendored RFC `vectors/rfc8439/rfc8439.txt` (see
-`vectors/sources.toml`) when this file is built and checked against
+`vectors/sources/`) when this file is built and checked against
 `VG.Spec.ChaCha20.chacha20Block`, `VG.Spec.ChaCha20.encrypt` and
 `VG.Spec.ChaCha20.keystream`, so that a transcription error in the spec fails
 the build.

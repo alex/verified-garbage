@@ -4,7 +4,10 @@
 //! for where it comes from) and compiled into the test binary, so these tests
 //! always run.
 
-#![cfg(all(target_arch = "x86_64", feature = "alloc"))]
+#![cfg(all(
+    any(target_arch = "x86_64", target_arch = "aarch64"),
+    feature = "alloc"
+))]
 
 use verified_garbage::scrypt::{Error, scrypt};
 

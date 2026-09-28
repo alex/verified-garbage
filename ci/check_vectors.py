@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Checks vectors/sources.toml against the files under vectors/.
+"""Checks vectors/sources/ against the files under vectors/.
 
-Every file under vectors/ (other than sources.toml itself) must be in one
-of the directories of exactly one [[source]], so that it can be traced to
-its upstream download.
+Each vectors/sources/<name>.toml is one source: its `directories` hold
+files extracted unmodified from the download at `url` (whose SHA-256 is
+`sha256`), and .gitattributes keeps git from touching their line endings.
+One file per source, so that PRs adding vectors add a file rather than
+editing a shared one.
+
+Every other file under vectors/ must be in one of the directories of
+exactly one source, so that it can be traced to its upstream download.
 """
 
 import pathlib
@@ -11,19 +16,24 @@ import sys
 import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent / "vectors"
-MANIFEST = ROOT / "sources.toml"
+SOURCES = ROOT / "sources"
 KEYS = ("name", "directories", "url", "sha256", "retrieved")
 
 
 def main() -> int:
-    sources = tomllib.loads(MANIFEST.read_text())["source"]
     errors = []
-    for source in sources:
+    sources = []
+    for path in sorted(SOURCES.iterdir()):
+        if path.suffix != ".toml":
+            errors.append(f"sources/{path.name}: not a .toml file")
+            continue
+        source = tomllib.loads(path.read_text())
+        sources.append(source)
         missing = [key for key in KEYS if key not in source]
         if missing:
-            errors.append(f"source {source.get('name', '?')!r}: missing {', '.join(missing)}")
+            errors.append(f"sources/{path.name}: missing {', '.join(missing)}")
         elif not isinstance(source["directories"], list) or not source["directories"]:
-            errors.append(f"source {source['name']!r}: directories must be a non-empty list")
+            errors.append(f"sources/{path.name}: directories must be a non-empty list")
         else:
             for directory in source["directories"]:
                 if not (ROOT / directory).is_dir():
@@ -36,7 +46,7 @@ def main() -> int:
     ]
     count = 0
     for file in sorted(ROOT.rglob("*")):
-        if not file.is_file() or file == MANIFEST:
+        if not file.is_file() or SOURCES in file.parents:
             continue
         path = pathlib.PurePosixPath(file.relative_to(ROOT).as_posix())
         owners = [d for d in dirs if d in path.parents]

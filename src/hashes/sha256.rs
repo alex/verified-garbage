@@ -11,6 +11,13 @@
 //! `vg_sha256_update_shani` and `vg_sha256_finalize_shani` instead, which
 //! have the same contracts and call `vg_sha256_compress_shani`.
 
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
+
 #[cfg(target_arch = "aarch64")]
 use crate::asm::aarch64::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
 #[cfg(target_arch = "arm")]
