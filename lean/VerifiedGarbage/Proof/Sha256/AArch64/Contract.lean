@@ -38,7 +38,7 @@ def compressAArch64 : Contract AArch64.isa where
       compressBlocks (stateAt s.mem (s.gpr .x0)) s.mem (s.gpr .x1) (s.gpr .x2).toNat
   pub s₁ s₂ :=
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧
-    s₁.gpr .x2 = s₂.gpr .x2 ∧ s₁.gpr .x3 = s₂.gpr .x3
+    s₁.gpr .x2 = s₂.gpr .x2 ∧ s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp
 
 open AArch64 in
 /-- AArch64 contract for `vg_sha256_init(state: *mut [u8; 96])`: makes the
@@ -50,7 +50,7 @@ def initAArch64 : Contract AArch64.isa where
     let state : Region := ⟨s.gpr .x0, 96⟩
     s.rd = [] ∧ s.wr = [state]
   post s s' := Repr s'.mem (s.gpr .x0) []
-  pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0
+  pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.sp = s₂.sp
 
 open AArch64 in
 /-- AArch64 contract for
@@ -61,20 +61,23 @@ if the streaming state at `state` represents a message `m` of `count` bytes
 
 The code may read `data` (`len` bytes) and read and write `state` (96
 bytes) and `scratch` (160 bytes, whose contents on exit are unspecified).
-These may not overlap each other. The pointers, `count` and `len` are public;
-the state and the data are secret. -/
+These may not overlap each other, nor the 16 bytes below the stack pointer
+(the frame saving `x30`), which do not wrap around. The pointers, `count` and
+`len` are public; the state and the data are secret. -/
 def updateAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 96⟩
     let data : Region := ⟨s.gpr .x2, (s.gpr .x3).toNat⟩
     let scratch : Region := ⟨s.gpr .x4, 160⟩
+    let stack : Region := ⟨s.sp - 16, 16⟩
     s.rd = [data] ∧ s.wr = [state, scratch] ∧
-    state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch
+    state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
+    16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint scratch
   post s s' := ∀ m, Repr s.mem (s.gpr .x0) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
     Repr s'.mem (s.gpr .x0) (m ++ bytesAt s.mem (s.gpr .x2) (s.gpr .x3).toNat)
   pub s₁ s₂ :=
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
-    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4
+    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
 
 open AArch64 in
 /-- AArch64 contract for
@@ -84,19 +87,22 @@ if the streaming state at `state` represents a message `m` of `count` bytes
 
 The code may read and write `state` (96 bytes, whose contents on exit are
 unspecified), `out` (32 bytes) and `scratch` (160 bytes, whose contents on
-exit are unspecified). These may not overlap each other. The pointers and
-`count` are public; the state is secret. -/
+exit are unspecified). These may not overlap each other, nor the 16 bytes
+below the stack pointer (the frame saving `x30`), which do not wrap around.
+The pointers and `count` are public; the state is secret. -/
 def finalizeAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 96⟩
     let out : Region := ⟨s.gpr .x2, 32⟩
     let scratch : Region := ⟨s.gpr .x3, 160⟩
+    let stack : Region := ⟨s.sp - 16, 16⟩
     s.rd = [] ∧ s.wr = [state, out, scratch] ∧
-    state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch
+    state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
+    16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch
   post s s' := ∀ m, Repr s.mem (s.gpr .x0) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
     bytesAt s'.mem (s.gpr .x2) 32 = Spec.Sha256.hash m
   pub s₁ s₂ :=
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
-    s₁.gpr .x3 = s₂.gpr .x3
+    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp
 
 end VG.Proof.Sha256

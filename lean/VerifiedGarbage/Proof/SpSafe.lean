@@ -4,6 +4,8 @@ import VerifiedGarbage.Impl.ChaCha20.X86
 import VerifiedGarbage.Impl.ChaCha20.X86_64
 import VerifiedGarbage.Impl.Hmac.X86
 import VerifiedGarbage.Impl.Hmac.X86_64
+import VerifiedGarbage.Impl.Md5.X86_64
+import VerifiedGarbage.Impl.Md5.X86_64.Stream
 import VerifiedGarbage.Impl.Selftest.X86_64
 import VerifiedGarbage.Impl.Sha256.X86
 import VerifiedGarbage.Impl.Sha256.X86.Stream
@@ -46,6 +48,22 @@ theorem sha256_x86_64_update :
 
 theorem sha256_x86_64_finalize :
     Impl.Sha256.X86_64.Stream.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem md5_x86_64_compress :
+    Impl.Md5.X86_64.compress.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem md5_x86_64_init :
+    Impl.Md5.X86_64.Stream.init.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem md5_x86_64_update :
+    Impl.Md5.X86_64.Stream.update.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem md5_x86_64_finalize :
+    Impl.Md5.X86_64.Stream.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem sha512_x86_64_compress :

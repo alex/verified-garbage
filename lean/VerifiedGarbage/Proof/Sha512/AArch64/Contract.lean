@@ -38,7 +38,7 @@ def compressAArch64 : Contract AArch64.isa where
       compressBlocks (stateAt s.mem (s.gpr .x0)) s.mem (s.gpr .x1) (s.gpr .x2).toNat
   pub s₁ s₂ :=
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧
-    s₁.gpr .x2 = s₂.gpr .x2 ∧ s₁.gpr .x3 = s₂.gpr .x3
+    s₁.gpr .x2 = s₂.gpr .x2 ∧ s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp
 
 open AArch64 in
 /-- AArch64 contract for `vg_<alg>_init(state: *mut [u8; 192])`, where `iv` is
@@ -52,7 +52,7 @@ def initAArch64 (iv : HashValue) : Contract AArch64.isa where
     let state : Region := ⟨s.gpr .x0, 192⟩
     s.rd = [] ∧ s.wr = [state]
   post s s' := Repr iv s'.mem (s.gpr .x0) []
-  pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0
+  pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.sp = s₂.sp
 
 open AArch64 in
 /-- AArch64 contract for
@@ -76,7 +76,7 @@ def updateAArch64 : Contract AArch64.isa where
     Repr iv s'.mem (s.gpr .x0) (m ++ bytesAt s.mem (s.gpr .x2) (s.gpr .x3).toNat)
   pub s₁ s₂ :=
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
-    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4
+    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
 
 open AArch64 in
 /-- AArch64 contract for
@@ -102,6 +102,6 @@ def finalizeAArch64 : Contract AArch64.isa where
     s.gpr .x1 = BitVec.ofNat 64 m.length → bytesAt s'.mem (s.gpr .x2) 64 = finalHash iv m
   pub s₁ s₂ :=
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
-    s₁.gpr .x3 = s₂.gpr .x3
+    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp
 
 end VG.Proof.Sha512

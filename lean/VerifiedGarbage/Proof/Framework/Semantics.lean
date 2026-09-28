@@ -171,6 +171,28 @@ def Code.noCalls {I C : Type} : Code I C → Bool
   | .call _ _ => false
   | .frame .. => false
 
+/-- Whether code, and the functions it calls, has no frame. -/
+def Code.noFrames {I C : Type} : Code I C → Bool
+  | .block _ => true
+  | .seq a b => a.noFrames && b.noFrames
+  | .ite _ t e => t.noFrames && e.noFrames
+  | .loop b _ => b.noFrames
+  | .call _ b => b.noFrames
+  | .frame .. => false
+
+/-- How deeply frames nest in `c` and the functions it calls. -/
+def Code.fdepth {I C : Type} : Code I C → Nat
+  | .block _ => 0
+  | .seq a b => max a.fdepth b.fdepth
+  | .ite _ t e => max t.fdepth e.fdepth
+  | .loop b _ => b.fdepth
+  | .call _ b => b.fdepth
+  | .frame _ b _ => b.fdepth + 1
+
+theorem Code.noFrames_of_noCalls {I C : Type} {c : Code I C} (h : c.noCalls = true) :
+    c.noFrames = true := by
+  induction c <;> simp_all [noCalls, noFrames]
+
 /-- `(instrs c).all p`, without building the list of instructions, which is
 much faster for the kernel to evaluate (`decide +kernel`). -/
 def Code.allInstrs {I C : Type} (p : I → Bool) : Code I C → Bool

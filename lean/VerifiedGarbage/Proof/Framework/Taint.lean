@@ -50,6 +50,14 @@ structure Taint (M : ISA) where
   ret : T → Option T
   ret_sound : ∀ {τ τ' a₁ a₂ b₁ b₂ c₁ c₂}, Agree τ b₁ b₂ → ret τ = some τ' →
     M.ret a₁ b₁ = some c₁ → M.ret a₂ b₂ = some c₂ → M.retAddrs b₁ = M.retAddrs b₂ ∧ Agree τ' c₁ c₂
+  /-- The analysis of a frame's push (`none` if it would leak). -/
+  push : T → M.Instr → Option T
+  push_sound : ∀ {τ τ' i s₁ s₂ s₁' s₂'}, Agree τ s₁ s₂ → push τ i = some τ' →
+    M.push i s₁ = some s₁' → M.push i s₂ = some s₂' → M.addrs i s₁ = M.addrs i s₂ ∧ Agree τ' s₁' s₂'
+  /-- The analysis of a frame's pop (`none` if it would leak). -/
+  pop : T → M.Instr → Option T
+  pop_sound : ∀ {τ τ' j a₁ a₂ b₁ b₂ c₁ c₂}, Agree τ b₁ b₂ → pop τ j = some τ' →
+    M.pop j a₁ b₁ = some c₁ → M.pop j a₂ b₂ = some c₂ → M.addrs j b₁ = M.addrs j b₂ ∧ Agree τ' c₁ c₂
 
 namespace Taint
 
@@ -62,6 +70,7 @@ inductive Hint (T : Type) where
   | ite (h₁ h₂ : Hint T)
   | loop (inv : T) (h : Hint T)
   | call (h : Hint T)
+  | frame (h : Hint T)
   deriving Lean.ToExpr
 
 variable {M : ISA} (A : Taint M)
@@ -93,6 +102,8 @@ def check : A.T → Prog M → Hint A.T → Option A.T
       (check σ body h).bind fun σ' => if A.le σ σ' && A.condPub σ' c then some σ' else none
     else none
   | τ, .call _ body, .call h => (A.call τ).bind fun τ₁ => (check τ₁ body h).bind A.ret
+  | τ, .frame i body j, .frame h =>
+    (A.push τ i).bind fun τ₁ => (check τ₁ body h).bind fun τ₂ => A.pop τ₂ j
   | _, _, _ => none
 
 /-! ## Computing hints
@@ -125,7 +136,8 @@ def hint : A.T → Prog M → Option (A.T × Hint A.T)
   | τ, .loop body c => go c (hint · body) loopFuel τ
   | τ, .call _ body =>
     (A.call τ).bind fun τ₁ => (hint τ₁ body).bind fun (τ₂, h) => (A.ret τ₂).map (·, .call h)
-  | _, .frame .. => none
+  | τ, .frame i body j =>
+    (A.push τ i).bind fun τ₁ => (hint τ₁ body).bind fun (τ₂, h) => (A.pop τ₂ j).map (·, .frame h)
 where
   go (c : M.Cond) (body : A.T → Option (A.T × Hint A.T)) :
       Nat → A.T → Option (A.T × Hint A.T)
@@ -275,7 +287,18 @@ theorem check_sound {c : Prog M} {τ τ' : A.T} {hc : Hint A.T} {s₁ s₂ s₁'
         obtain ⟨ha₃, ha₃'⟩ := A.ret_sound ha₂ h₃ hr hr₂
         exact ⟨by rw [ha₁, ha₃], ha₃'⟩
     | _ => simp only [check, reduceCtorEq] at h
-  | frame => cases hc <;> simp only [check, reduceCtorEq] at h
+  | frame hp₁ _ hq ih =>
+    cases hc with
+    | frame hb =>
+      simp only [check, Option.bind_eq_some_iff] at h
+      obtain ⟨τ₁, h₁, τ₂, h₂, h₃⟩ := h
+      cases e₂ with
+      | frame hp₂ b hq₂ =>
+        obtain ⟨ha₁, ha₁'⟩ := A.push_sound ha h₁ hp₁ hp₂
+        obtain ⟨rfl, ha₂⟩ := ih h₂ ha₁' b
+        obtain ⟨ha₃, ha₃'⟩ := A.pop_sound ha₂ h₃ hq hq₂
+        exact ⟨by rw [ha₁, ha₃], ha₃'⟩
+    | _ => simp only [check, reduceCtorEq] at h
 
 /-- A successful check proves constant time, for any `Pub` under which the
 initial states agree on what the initial taint says is public. -/

@@ -28,6 +28,6 @@ def blockAArch64 : Contract AArch64.isa where
     let buf : Region := ⟨s.gpr .x1, 256⟩
     s.rd = [state] ∧ s.wr = [buf] ∧ buf.Disjoint state
   post s s' := stateAt s'.mem (s.gpr .x1) = block (stateAt s.mem (s.gpr .x0))
-  pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1
+  pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.sp = s₂.sp
 
 end VG.Proof.ChaCha20
