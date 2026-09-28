@@ -82,3 +82,4 @@ This project is inspired by:
 - [Graviola](https://github.com/ctz/graviola/)
 - [s2n-bignum](https://github.com/awslabs/s2n-bignum)
 - [Bobby Powers](https://bpowers.net/)
+- [HACS Workshop](https://www.hacs-workshop.org)
