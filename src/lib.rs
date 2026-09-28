@@ -40,6 +40,8 @@ pub mod hashes;
     target_arch = "x86"
 ))]
 pub mod hmac;
+#[cfg(target_arch = "x86_64")]
+pub mod poly1305;
 
 #[cfg(test)]
 mod tests {
