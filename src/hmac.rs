@@ -11,8 +11,16 @@
 //! The only unverified step is step 2 of FIPS 198-1 §4: a key longer than a
 //! block is first hashed, with the verified hash function.
 
-use crate::asm::x86_64::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
-use crate::asm::x86_64::sha256::vg_sha256_update;
+#[cfg(target_arch = "aarch64")]
+use crate::asm::aarch64::{
+    hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init},
+    sha256::vg_sha256_update,
+};
+#[cfg(target_arch = "x86_64")]
+use crate::asm::x86_64::{
+    hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init},
+    sha256::vg_sha256_update,
+};
 use crate::hash::HashFunction;
 use crate::sha256::Sha256;
 
@@ -107,8 +115,8 @@ impl HmacHash for Sha256 {
         // SAFETY: `key.len()` is at most 64; `state.inner` and `state.outer`
         // are valid for reads and writes of 96 bytes, `key` for reads of
         // `key.len()` bytes and `scratch` for reads and writes of 160 bytes;
-        // they are distinct objects, so they do not overlap each other or the
-        // return address.
+        // they are distinct objects, so they do not overlap each other or (on
+        // x86-64) the return address.
         unsafe {
             vg_hmac_sha256_init(
                 &mut state.inner,
@@ -126,8 +134,8 @@ impl HmacHash for Sha256 {
         // SAFETY: `state.inner` is valid for reads and writes of 96 bytes,
         // `data` for reads of `data.len()` bytes and `scratch` for reads and
         // writes of 160 bytes; they are distinct objects, so they do not
-        // overlap each other or the return address. `state.count` is the
-        // length of the message `state.inner` represents, modulo 2⁶⁴.
+        // overlap each other or (on x86-64) the return address. `state.count`
+        // is the length of the message `state.inner` represents, modulo 2⁶⁴.
         unsafe {
             vg_sha256_update(
                 &mut state.inner,
@@ -145,9 +153,9 @@ impl HmacHash for Sha256 {
         // SAFETY: `state.inner` is valid for reads and writes of 96 bytes,
         // `state.outer` for reads of 96 bytes and `scratch` for reads and
         // writes of 240 bytes; they are distinct objects, so they do not
-        // overlap each other or the return address. `state.inner` represents
-        // `(K₀ ⊕ ipad) ‖ text`, of `state.count` bytes, and `state.outer`
-        // represents `K₀ ⊕ opad`.
+        // overlap each other or (on x86-64) the return address. `state.inner`
+        // represents `(K₀ ⊕ ipad) ‖ text`, of `state.count` bytes, and
+        // `state.outer` represents `K₀ ⊕ opad`.
         unsafe {
             vg_hmac_sha256_finalize(&mut state.inner, &state.outer, state.count, &mut scratch)
         };
