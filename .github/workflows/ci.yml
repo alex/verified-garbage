@@ -240,20 +240,28 @@ jobs:
           repository: C2SP/wycheproof
           path: wycheproof
           persist-credentials: false
-      - name: "TEMPORARY: time restoring SDE from the Actions cache"
+      # Restoring the unpacked SDE from the Actions cache (1.2 s) is faster
+      # than downloading and unpacking it (3.1 s, most of it xz).
+      - name: Restore Intel SDE
+        id: sde
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ runner.temp }}/sde-cached
+          path: ${{ runner.temp }}/sde
           key: sde-${{ env.SDE_VERSION }}
-      # Downloading it (0.5 s) is faster than restoring it from the Actions
-      # cache, so it isn't cached.
       - name: Download Intel SDE
+        if: ${{ steps.sde.outputs.cache-hit != 'true' }}
         run: |
           curl -sSfLo sde.tar.xz "$SDE_URL"
           echo "$SDE_SHA256  sde.tar.xz" | sha256sum -c
           mkdir "$RUNNER_TEMP/sde"
           tar -xJf sde.tar.xz -C "$RUNNER_TEMP/sde" --strip-components 1
           rm sde.tar.xz
+      - name: Save Intel SDE
+        if: ${{ steps.sde.outputs.cache-hit != 'true' && github.event_name != 'merge_group' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/sde
+          key: ${{ steps.sde.outputs.cache-primary-key }}
       - name: Choose where to run the tests of the implementations
         run: |
           missing=
