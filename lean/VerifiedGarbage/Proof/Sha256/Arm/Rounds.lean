@@ -1,3 +1,4 @@
+import Mathlib.Data.List.Nodup
 import VerifiedGarbage.Proof.Framework.Block
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.Arm.Taint
