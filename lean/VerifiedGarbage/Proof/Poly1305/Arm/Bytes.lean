@@ -103,10 +103,13 @@ theorem rlimb_frame {m m' : Mem} {B : Addr} (h : ∀ i < 4,
 
 /-! ## Regions of the state -/
 
-theorem sub_base (p : Addr) {a len len' : Nat} (h : a + len ≤ len') (h' : len' < 2 ^ 32) :
+theorem sub_base (p : Addr) {a len len' : Nat} (h : a + len ≤ len') (h' : len' < 2 ^ 64) :
     Region.Sub ⟨p + BitVec.ofNat 64 a, len⟩ ⟨p, len'⟩ := by
-  have := sub_sub p (a := a) (b := 0) (len := len) (len' := len') (by omega) (by omega) (by omega)
-  simpa using this
+  intro x hx
+  simp only [Region.Contains] at *
+  rw [show x - p = (x - (p + BitVec.ofNat 64 a)) + BitVec.ofNat 64 a by bv_omega, BitVec.toNat_add,
+    BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := a) (by omega), Nat.mod_eq_of_lt (by omega)]
+  omega
 
 theorem contains_base (p : Addr) {d n len : Nat} (h : d + n ≤ len) (h' : len < 2 ^ 32) :
     (⟨p, len⟩ : Region).Contains (p + BitVec.ofNat 64 d) n :=

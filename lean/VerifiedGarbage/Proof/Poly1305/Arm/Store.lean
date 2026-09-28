@@ -92,11 +92,11 @@ theorem stores_ok (b : Reg) {B : Addr} {bv : BitVec 32} {len : Nat} (hfit : bv.t
         refine (hf1.mono fun q hq => by simp at hq; simp [hq]).trans (hf'.mono fun q hq => by simp [hq])
     cases byte
     · refine wp_str (a := B + BitVec.ofNat 64 o) (by omega) ha ⟨_, hw, hc⟩ fun s1 u1 => rest s1
-        ⟨u1.gpr, rfl, u1.rd, u1.wr, u1.sp⟩ ?_ ?_
+        ⟨u1.gpr, rfl, u1.rd, u1.wr, u1.sp, u1.z⟩ ?_ ?_
       · simp only [Stored]; rw [u1.mem, Mem.readW_writeW_self32]
       · rw [u1.mem]; exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (Region.contains_self _ _)
     · refine wp_strb (a := B + BitVec.ofNat 64 o) (by omega) ha ⟨_, hw, hc⟩ fun s1 u1 => rest s1
-        ⟨u1.gpr, rfl, u1.rd, u1.wr, u1.sp⟩ ?_ ?_
+        ⟨u1.gpr, rfl, u1.rd, u1.wr, u1.sp, u1.z⟩ ?_ ?_
       · simp only [Stored]; rw [u1.mem]
         simp [Mem.writeW, Mem.write]
       · rw [u1.mem]; exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (Region.contains_self _ _)

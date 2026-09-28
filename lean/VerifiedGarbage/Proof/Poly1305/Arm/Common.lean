@@ -83,6 +83,7 @@ structure Mupd (s s' : State) (m : Mem) : Prop where
   rd : s'.rd = s.rd
   wr : s'.wr = s.wr
   sp : s'.sp = s.sp
+  z : s'.z = s.z
 
 /-- `s'` is `s` with other flags. -/
 structure Fupd (s s' : State) : Prop where
@@ -163,7 +164,7 @@ theorem wp_str {t n : Reg} {off : Nat} {a : Addr} (ho : off < 4096)
     (k : ∀ s', Mupd s s' (s.mem.writeW a (s.gpr t)) → WP isa (.block is) s' Q) :
     WP isa (.block (.str t n off :: is)) s Q := by
   subst ha
-  exact WP.cons (exec_str ho hout) (k _ ⟨rfl, rfl, rfl, rfl, rfl⟩)
+  exact WP.cons (exec_str ho hout) (k _ ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩)
 
 theorem wp_ldrb {t n : Reg} {off : Nat} {a : Addr} (ho : off < 4096)
     (ha : State.addr (s.gpr n + BitVec.ofNat 32 off) = a) (hin : InRegions (s.rd ++ s.wr) a 1)
@@ -179,7 +180,7 @@ theorem wp_strb {t n : Reg} {off : Nat} {a : Addr} (ho : off < 4096)
     WP isa (.block (.strb t n off :: is)) s Q := by
   subst ha
   exact WP.cons (s' := { s with mem := s.mem.writeW _ ((s.gpr t).setWidth 8) })
-    (by simp [exec, ho, State.store8, hout]) (k _ ⟨rfl, rfl, rfl, rfl, rfl⟩)
+    (by simp [exec, ho, State.store8, hout]) (k _ ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩)
 
 end
 
