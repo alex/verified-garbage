@@ -45,9 +45,11 @@ def updateWide : Contract X86_64.isa :=
       let data : Region := ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩
       let scratch : Region := ⟨s.gpr .r8, 272⟩
       let ret : Region := ⟨s.gpr .rsp, 8⟩
+      let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
       s.rd = [data] ∧ s.wr = [state, scratch] ∧
       state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
-      ret.Disjoint state ∧ ret.Disjoint scratch }
+      ret.Disjoint state ∧ ret.Disjoint scratch ∧
+      stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint scratch }
 
 /-- `finalizeX86_64` with 272 bytes of scratch. -/
 def finalizeWide : Contract X86_64.isa :=
@@ -57,9 +59,11 @@ def finalizeWide : Contract X86_64.isa :=
       let out : Region := ⟨s.gpr .rdx, 64⟩
       let scratch : Region := ⟨s.gpr .rcx, 272⟩
       let ret : Region := ⟨s.gpr .rsp, 8⟩
+      let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
       s.rd = [] ∧ s.wr = [state, out, scratch] ∧
       state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
-      ret.Disjoint state ∧ ret.Disjoint out ∧ ret.Disjoint scratch }
+      ret.Disjoint state ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧
+      stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch }
 
 theorem pfx {a : Addr} {m n : Nat} (h : Nat.ble m n = true) : Region.Prefix ⟨a, m⟩ ⟨a, n⟩ :=
   ⟨rfl, Nat.le_of_ble_eq_true h⟩
@@ -79,8 +83,9 @@ theorem updateWide_verified (hsat : ∃ s, updateWide.pre s) :
     Verified X86_64.target Impl.Sha512.X86_64.Stream.update updateWide :=
   Verified.widen Proof.Sha512.X86_64.Stream.Update.update_verified
     (fun s => [⟨s.gpr .rdi, 192⟩, ⟨s.gpr .r8, 224⟩])
-    (fun _ ⟨h₁, _, h₃, h₄, h₅, h₆, h₇⟩ =>
-      ⟨h₁, rfl, h₃.sub_right (sub224 _), h₄, h₅.sub_right (sub224 _), h₆, h₇.sub_right (sub224 _)⟩)
+    (fun _ ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀⟩ =>
+      ⟨h₁, rfl, h₃.sub_right (sub224 _), h₄, h₅.sub_right (sub224 _), h₆, h₇.sub_right (sub224 _),
+        h₈, h₉, h₁₀.sub_right (sub224 _)⟩)
     (fun _ ⟨_, h₂, _⟩ => h₂ ▸ .cons (pfx rfl) (.cons (pfx rfl) .nil))
     (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat
 
@@ -88,9 +93,9 @@ theorem finalizeWide_verified (hsat : ∃ s, finalizeWide.pre s) :
     Verified X86_64.target Impl.Sha512.X86_64.Stream.finalize finalizeWide :=
   Verified.widen Proof.Sha512.X86_64.Stream.Finalize.finalize_verified
     (fun s => [⟨s.gpr .rdi, 192⟩, ⟨s.gpr .rdx, 64⟩, ⟨s.gpr .rcx, 224⟩])
-    (fun _ ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈⟩ =>
+    (fun _ ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁⟩ =>
       ⟨h₁, rfl, h₃, h₄.sub_right (sub224 _), h₅.sub_right (sub224 _), h₆, h₇,
-        h₈.sub_right (sub224 _)⟩)
+        h₈.sub_right (sub224 _), h₉, h₁₀, h₁₁.sub_right (sub224 _)⟩)
     (fun _ ⟨_, h₂, _⟩ => h₂ ▸ .cons (pfx rfl) (.cons (pfx rfl)
       (.cons (pfx rfl) .nil)))
     (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat
@@ -123,16 +128,16 @@ theorem init (iv : Spec.Sha512.HashValue) :
       [Proof.Sha512.X86_64.Stream.initSat] using Proof.Sha512.X86_64.Stream.initSat)
 
 theorem update :
-    Verified X86_64.target Impl.Sha512.X86_64.Stream.update (Spec.Sha512.updateContract X86_64.abi) := by
-  have hi : updateWide.Implies (Spec.Sha512.updateContract X86_64.abi) := by
+    Verified X86_64.target Impl.Sha512.X86_64.Stream.update (Spec.Sha512.updateContract X86_64.abi 8) := by
+  have hi : updateWide.Implies (Spec.Sha512.updateContract X86_64.abi 8) := by
     contract_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, updateWide,
       Proof.Sha512.updateX86_64, X86_64.abi, X86_64.argRegs]
       [updateSat, Proof.Sha512.X86_64.Stream.Update.sat] using updateSat
   exact (updateWide_verified hi.sat_left).of_implies hi
 
 theorem finalize :
-    Verified X86_64.target Impl.Sha512.X86_64.Stream.finalize (Spec.Sha512.finalizeContract X86_64.abi) := by
-  have hi : finalizeWide.Implies (Spec.Sha512.finalizeContract X86_64.abi) := by
+    Verified X86_64.target Impl.Sha512.X86_64.Stream.finalize (Spec.Sha512.finalizeContract X86_64.abi 8) := by
+  have hi : finalizeWide.Implies (Spec.Sha512.finalizeContract X86_64.abi 8) := by
     contract_implies [Spec.Sha512.finalizeContract, Spec.Sha512.finalizeSig, finalizeWide,
       Proof.Sha512.finalizeX86_64, X86_64.abi, X86_64.argRegs]
       [finalizeSat, Proof.Sha512.X86_64.Stream.Finalize.sat] using finalizeSat

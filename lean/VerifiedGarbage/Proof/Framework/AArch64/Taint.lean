@@ -195,5 +195,24 @@ def taint : VG.Taint isa where
   meet_right h r hr := h r (RegSet.mem_inter.mp hr).2
   le τ σ := τ.subset σ
   le_sound hle h r hr := h r (RegSet.mem_of_subset hle hr)
+  -- A call leaves unknown values in `x16`, `x17` and `x30`; a return changes nothing.
+  call τ := some ((τ.erase .x16).erase .x17 |>.erase .x30)
+  call_sound h hs e₁ e₂ := by
+    cases hs
+    simp only [isa, call, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    refine ⟨rfl, fun r hr => ?_⟩
+    simp only [RegSet.mem_erase] at hr
+    obtain ⟨h30, h17, h16, hr⟩ := hr
+    simp only [h16, h17, h30, ite_false]
+    exact h r hr
+  ret τ := some τ
+  ret_sound h hs e₁ e₂ := by
+    cases hs
+    simp only [isa, ret] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    split at e₂ <;> [skip; cases e₂]
+    cases e₁; cases e₂
+    exact ⟨rfl, h⟩
 
 end VG.AArch64

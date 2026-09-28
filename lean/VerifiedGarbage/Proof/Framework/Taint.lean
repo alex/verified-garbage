@@ -42,6 +42,14 @@ structure Taint (M : ISA) where
   /-- `le τ σ`: everything public in `τ` is public in `σ`. -/
   le : T → T → Bool
   le_sound : ∀ {τ σ s₁ s₂}, le τ σ = true → Agree σ s₁ s₂ → Agree τ s₁ s₂
+  /-- The analysis of a call instruction (`none` if it would leak). -/
+  call : T → Option T
+  call_sound : ∀ {τ τ' s₁ s₂ s₁' s₂'}, Agree τ s₁ s₂ → call τ = some τ' →
+    M.call s₁ = some s₁' → M.call s₂ = some s₂' → M.callAddrs s₁ = M.callAddrs s₂ ∧ Agree τ' s₁' s₂'
+  /-- The analysis of a called function's return instruction. -/
+  ret : T → Option T
+  ret_sound : ∀ {τ τ' a₁ a₂ b₁ b₂ c₁ c₂}, Agree τ b₁ b₂ → ret τ = some τ' →
+    M.ret a₁ b₁ = some c₁ → M.ret a₂ b₂ = some c₂ → M.retAddrs b₁ = M.retAddrs b₂ ∧ Agree τ' c₁ c₂
 
 namespace Taint
 
@@ -53,6 +61,7 @@ inductive Hint (T : Type) where
   | seq (mid : T) (h₁ h₂ : Hint T)
   | ite (h₁ h₂ : Hint T)
   | loop (inv : T) (h : Hint T)
+  | call (h : Hint T)
   deriving Lean.ToExpr
 
 variable {M : ISA} (A : Taint M)
@@ -83,6 +92,7 @@ def check : A.T → Prog M → Hint A.T → Option A.T
     if A.le σ τ then
       (check σ body h).bind fun σ' => if A.le σ σ' && A.condPub σ' c then some σ' else none
     else none
+  | τ, .call _ body, .call h => (A.call τ).bind fun τ₁ => (check τ₁ body h).bind A.ret
   | _, _, _ => none
 
 /-! ## Computing hints
@@ -113,7 +123,8 @@ def hint : A.T → Prog M → Option (A.T × Hint A.T)
   | τ, .ite _ t e =>
     (hint τ t).bind fun (τ₁, h₁) => (hint τ e).map fun (τ₂, h₂) => (A.meet τ₁ τ₂, .ite h₁ h₂)
   | τ, .loop body c => go c (hint · body) loopFuel τ
-  | _, .call .. => none
+  | τ, .call _ body =>
+    (A.call τ).bind fun τ₁ => (hint τ₁ body).bind fun (τ₂, h) => (A.ret τ₂).map (·, .call h)
   | _, .frame .. => none
 where
   go (c : M.Cond) (body : A.T → Option (A.T × Hint A.T)) :
@@ -252,7 +263,18 @@ theorem check_sound {c : Prog M} {τ τ' : A.T} {hc : Hint A.T} {s₁ s₂ s₁'
         obtain ⟨rfl, ha₂⟩ := ih₂ hloop ha₁ b
         exact ⟨rfl, ha₂⟩
     | _ => simp only [check, reduceCtorEq] at h
-  | call => cases hc <;> simp only [check, reduceCtorEq] at h
+  | call hc₁ _ hr ih =>
+    cases hc with
+    | call hb =>
+      simp only [check, Option.bind_eq_some_iff] at h
+      obtain ⟨τ₁, h₁, τ₂, h₂, h₃⟩ := h
+      cases e₂ with
+      | call hc₂ b hr₂ =>
+        obtain ⟨ha₁, ha₁'⟩ := A.call_sound ha h₁ hc₁ hc₂
+        obtain ⟨rfl, ha₂⟩ := ih h₂ ha₁' b
+        obtain ⟨ha₃, ha₃'⟩ := A.ret_sound ha₂ h₃ hr hr₂
+        exact ⟨by rw [ha₁, ha₃], ha₃'⟩
+    | _ => simp only [check, reduceCtorEq] at h
   | frame => cases hc <;> simp only [check, reduceCtorEq] at h
 
 /-- A successful check proves constant time, for any `Pub` under which the

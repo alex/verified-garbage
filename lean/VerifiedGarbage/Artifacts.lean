@@ -103,10 +103,11 @@ def artifacts : List Artifact := [
       * `data` must be valid for reads of `len` bytes.\n\
       * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
       are unspecified.\n\
-      * These three regions must not overlap each other, nor the return address on the \
-      stack (distinct Rust objects never do)."
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_sha256_compress` stores its \
+      return address (distinct Rust objects never do)."
     code := Impl.Sha256.X86_64.Stream.update
-    contract := Spec.Sha256.updateContract X86_64.abi
+    contract := Spec.Sha256.updateContract X86_64.abi 8
     verified := Proof.Sha256.X86_64.Shared.update
     spSafe := Proof.SpSafe.sha256_x86_64_update },
   { target := X86_64.target
@@ -124,10 +125,11 @@ def artifacts : List Artifact := [
       * `out` must be valid for writes of 32 bytes.\n\
       * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
       are unspecified.\n\
-      * These three regions must not overlap each other, nor the return address on the \
-      stack (distinct Rust objects never do)."
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_sha256_compress` stores its \
+      return address (distinct Rust objects never do)."
     code := Impl.Sha256.X86_64.Stream.finalize
-    contract := Spec.Sha256.finalizeContract X86_64.abi
+    contract := Spec.Sha256.finalizeContract X86_64.abi 8
     verified := Proof.Sha256.X86_64.Shared.finalize
     spSafe := Proof.SpSafe.sha256_x86_64_finalize },
   { target := X86_64.target
@@ -228,10 +230,11 @@ def artifacts : List Artifact := [
       * `data` must be valid for reads of `len` bytes.\n\
       * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
-      * These three regions must not overlap each other, nor the return address on the \
-      stack (distinct Rust objects never do)."
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_sha512_compress` stores its \
+      return address (distinct Rust objects never do)."
     code := Impl.Sha512.X86_64.Stream.update
-    contract := Spec.Sha512.updateContract X86_64.abi
+    contract := Spec.Sha512.updateContract X86_64.abi 8
     verified := Proof.Sha512.X86_64.Shared.update
     spSafe := Proof.SpSafe.sha512_x86_64_update },
   { target := X86_64.target
@@ -253,10 +256,11 @@ def artifacts : List Artifact := [
       * `out` must be valid for writes of 64 bytes.\n\
       * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
-      * These three regions must not overlap each other, nor the return address on the \
-      stack (distinct Rust objects never do)."
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_sha512_compress` stores its \
+      return address (distinct Rust objects never do)."
     code := Impl.Sha512.X86_64.Stream.finalize
-    contract := Spec.Sha512.finalizeContract X86_64.abi
+    contract := Spec.Sha512.finalizeContract X86_64.abi 8
     verified := Proof.Sha512.X86_64.Shared.finalize
     spSafe := Proof.SpSafe.sha512_x86_64_finalize },
   { target := X86_64.target
@@ -276,10 +280,11 @@ def artifacts : List Artifact := [
       * `key` must be valid for reads of `key_len` bytes.\n\
       * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
       are unspecified.\n\
-      * These four regions must not overlap each other, nor the return address on the \
-      stack (distinct Rust objects never do)."
+      * These four regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its calls of `vg_sha256_compress` store their \
+      return address (distinct Rust objects never do)."
     code := Impl.Hmac.X86_64.init
-    contract := Spec.Hmac.initSha256Contract X86_64.abi
+    contract := Spec.Hmac.initSha256Contract X86_64.abi 8
     verified := Proof.Hmac.X86_64.Shared.init
     spSafe := Proof.SpSafe.hmac_x86_64_init },
   { target := X86_64.target
@@ -298,10 +303,12 @@ def artifacts : List Artifact := [
       * `outer` must be valid for reads of 96 bytes.\n\
       * `scratch` must be valid for reads and writes of 240 bytes; its contents on return \
       are unspecified, apart from the MAC.\n\
-      * These three regions must not overlap each other, nor the return address on the \
-      stack (distinct Rust objects never do)."
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 16 bytes of stack below it, where its calls of `vg_sha256_finalize` (which \
+      calls `vg_sha256_compress`) store their return addresses (distinct Rust objects never \
+      do)."
     code := Impl.Hmac.X86_64.finalize
-    contract := Spec.Hmac.finalizeSha256Contract X86_64.abi
+    contract := Spec.Hmac.finalizeSha256Contract X86_64.abi 16
     verified := Proof.Hmac.X86_64.Shared.finalize
     spSafe := Proof.SpSafe.hmac_x86_64_finalize },
   { target := AArch64.target
