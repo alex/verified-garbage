@@ -19,6 +19,11 @@ verified streaming functions of `H`, serves every hash function.
 
 `finalize` writes the MAC through an `out` pointer on every target.
 
+An `Instance` is a hash function as the Rust interface has it: the names of
+its functions `vg_hmac_<hash>_init` and `vg_hmac_<hash>_finalize` (and
+`vg_pbkdf2_hmac_<hash>_iterate`, `Spec/Pbkdf2/Generic.lean`), their working
+space, and their documentation (`Instance.initApi`, `Instance.finalizeApi`).
+
 `A` is the target's calling convention. The signatures fix where the
 arguments are, the memory each function may access, disjointness, and that
 the pointers and lengths are public (see `TCB/Sig.lean`); the contracts add
@@ -108,5 +113,98 @@ def finalizeContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
       bytesAt m' out S.digestBytes = hmacBlockKey S.H k0 text)
     (writeArgs := true)
     (stack := stack)
+
+/-! ## The functions in the Rust interface -/
+
+/-- A streaming hash function's HMAC functions in the Rust interface (and
+its PBKDF2 function, `VG.Spec.Pbkdf2.iterateApi`): the hash function, its
+name (`SHA-1`), the name that stands for it in the Rust names
+(`vg_hmac_sha1_init`), the Lean name of this record (for the
+documentation), the Rust name of its streaming `update` function, which
+the documentation points the caller to, and the number of
+64-bit words of working space of each function, which leaves room for the
+working space of the functions it calls and for its own spills. -/
+structure Instance where
+  S : StreamingHash
+  alg : String
+  rust : String
+  lean : String
+  update : String
+  scratch : Nat
+
+/-- SHA-1: `vg_sha1_update` needs 20 words of working space. -/
+def sha1I : Instance := ⟨sha1S, "SHA-1", "sha1", "sha1I", "vg_sha1_update", 56⟩
+
+/-- MD5: `vg_md5_update` needs 14 words of working space. -/
+def md5I : Instance := ⟨md5S, "MD5", "md5", "md5I", "vg_md5_update", 48⟩
+
+/-- SHA-384: `vg_sha512_update` needs 34 words of working space. -/
+def sha384I : Instance :=
+  ⟨sha384S, "SHA-384", "sha384", "sha384I", "vg_sha512_update", 96⟩
+
+/-- SHA-512: as SHA-384. -/
+def sha512I : Instance :=
+  ⟨sha512S, "SHA-512", "sha512", "sha512I", "vg_sha512_update", 96⟩
+
+/-- SHA-512/224: as SHA-384. -/
+def sha512_224I : Instance :=
+  ⟨sha512_224S, "SHA-512/224", "sha512_224", "sha512_224I", "vg_sha512_update", 96⟩
+
+/-- SHA-512/256: as SHA-384. -/
+def sha512_256I : Instance :=
+  ⟨sha512_256S, "SHA-512/256", "sha512_256", "sha512_256I", "vg_sha512_update", 96⟩
+
+namespace Instance
+
+variable (I : Instance)
+
+/-- The contract of `vg_hmac_<hash>_init`: `VG.Spec.Hmac.initContract`. -/
+def initContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
+  Hmac.initContract I.S I.scratch A stack
+
+/-- The contract of `vg_hmac_<hash>_finalize`: `VG.Spec.Hmac.finalizeContract`. -/
+def finalizeContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
+  Hmac.finalizeContract I.S I.scratch A stack
+
+/-- `vg_hmac_<hash>_init` on every target. -/
+def initApi : Api where
+  module := "hmac"
+  name := s!"vg_hmac_{I.rust}_init"
+  sig := initSig I.S I.scratch
+  summary := s!"Starts an HMAC-{I.alg} computation with a key of at most {I.S.H.blockSize} bytes: \
+    makes the {I.alg} streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent \
+    `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to \
+    {I.S.H.blockSize} bytes (FIPS 198-1). The text is then absorbed with \
+    `{I.update}` on `*inner` (its `count` starting at {I.S.H.blockSize}), and the MAC computed \
+    with `vg_hmac_{I.rust}_finalize`.\n\n\
+    Contract: `VG.Spec.Hmac.Instance.initContract` of `VG.Spec.Hmac.{I.lean}`. Constant time: \
+    only the pointers and `key_len` may affect timing, not the key."
+  safety := [
+    s!"`key_len` must be at most {I.S.H.blockSize}.",
+    s!"`inner` and `outer` must each be valid for reads and writes of {I.S.stateBytes} bytes.",
+    "`key` must be valid for reads of `key_len` bytes.",
+    s!"`scratch` must be valid for reads and writes of {8 * I.scratch} bytes; its contents on \
+      return are unspecified."]
+
+/-- `vg_hmac_<hash>_finalize` on every target. -/
+def finalizeApi : Api where
+  module := "hmac"
+  name := s!"vg_hmac_{I.rust}_finalize"
+  sig := finalizeSig I.S I.scratch
+  summary := s!"Finishes an HMAC-{I.alg} computation: if, for a {I.S.H.blockSize}-byte key `K₀` \
+    and a text of fewer than 2⁶⁴ − {I.S.H.blockSize} bytes, the {I.alg} streaming state `*inner` \
+    represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes, and `*outer` represents `K₀ ⊕ opad`, \
+    writes the HMAC-{I.alg} of the text under `K₀` ({I.S.digestBytes} bytes) to `*out`.\n\n\
+    Contract: `VG.Spec.Hmac.Instance.finalizeContract` of `VG.Spec.Hmac.{I.lean}`. Constant \
+    time: only the pointers and `count` may affect timing, not the states."
+  safety := [
+    s!"`inner` must be valid for reads and writes of {I.S.stateBytes} bytes; its contents on \
+      return are unspecified.",
+    s!"`outer` must be valid for reads of {I.S.stateBytes} bytes.",
+    s!"`out` must be valid for writes of {I.S.digestBytes} bytes.",
+    s!"`scratch` must be valid for reads and writes of {8 * I.scratch} bytes; its contents on \
+      return are unspecified."]
+
+end Instance
 
 end VG.Spec.Hmac

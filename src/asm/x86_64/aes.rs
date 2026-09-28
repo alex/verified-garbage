@@ -14,7 +14,8 @@
 /// * `key` must be valid for reads of `key_len` bytes.
 /// * `schedule` must be valid for reads and writes of 240 bytes; its bytes after the key schedule are unspecified on return.
 /// * `scratch` must be valid for reads and writes of 512 bytes; its contents on return are unspecified.
-/// * `key`, `schedule` and `scratch` must not overlap each other, `schedule` and `scratch` must not overlap the return address on the stack, and no region may wrap around the end of the address space (distinct Rust objects never do).
+/// * `schedule` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
+/// * None of `key`, `schedule` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_aes_expand_key(key: *const u8, key_len: usize, schedule: *mut [u8; 240], scratch: *mut [u64; 64]) {
     core::arch::naked_asm!(
@@ -1477,7 +1478,8 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_expand_key(key: *const u8, key_len: 
 /// * `counter` must be valid for reads and writes of 16 bytes.
 /// * `data` must be valid for reads and writes of `16 * n` bytes.
 /// * `scratch` must be valid for reads and writes of 2048 bytes; its contents on return are unspecified.
-/// * `counter`, `data` and `scratch` must not overlap each other, `schedule`, or the return address on the stack, and no region may wrap around the end of the address space (distinct Rust objects never do).
+/// * `counter`, `data` and `scratch` must not overlap each other or `schedule` (distinct Rust objects never do).
+/// * None of `schedule`, `counter`, `data` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_aes_ctr32(schedule: *const [u8; 240], rounds: usize, counter: *mut [u8; 16], data: *mut [u8; 16], n: usize, scratch: *mut [u64; 256]) {
     core::arch::naked_asm!(
@@ -3201,7 +3203,8 @@ pub(crate) const VG_AES_EXPAND_KEY_AESNI_FEATURES: &[&str] = &["aes"];
 /// * `key` must be valid for reads of `key_len` bytes.
 /// * `schedule` must be valid for reads and writes of 240 bytes; the bytes after the first `16 (Nr + 1)` are unspecified on return.
 /// * `scratch` must be valid for reads and writes of 512 bytes; its contents on return are unspecified.
-/// * `schedule` and `scratch` must not overlap each other, `key`, or the return address on the stack (distinct Rust objects never do).
+/// * `schedule` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
+/// * None of `key`, `schedule` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `aes` target feature.
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_aes_expand_key_aesni(key: *const u8, key_len: usize, schedule: *mut [u8; 240], scratch: *mut [u64; 64]) {
@@ -3628,7 +3631,8 @@ pub(crate) const VG_AES_CTR32_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
 /// * `counter` must be valid for reads and writes of 16 bytes.
 /// * `data` must be valid for reads and writes of `16 * n` bytes.
 /// * `scratch` must be valid for reads and writes of 2048 bytes; its contents on return are unspecified.
-/// * `counter`, `data` and `scratch` must not overlap each other, `schedule`, or the return address on the stack (distinct Rust objects never do).
+/// * `counter`, `data` and `scratch` must not overlap each other or `schedule` (distinct Rust objects never do).
+/// * None of `schedule`, `counter`, `data` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `aes` and `ssse3` target features.
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_aes_ctr32_aesni(schedule: *const [u8; 240], rounds: usize, counter: *mut [u8; 16], data: *mut [u8; 16], n: usize, scratch: *mut [u64; 256]) {

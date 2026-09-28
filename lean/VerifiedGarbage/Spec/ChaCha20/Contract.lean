@@ -64,4 +64,23 @@ def xorContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (writeArgs := true)
     (stack := stack)
 
+/-- `vg_chacha20_xor` on every target. -/
+def xorApi : Api where
+  module := "chacha20"
+  name := "vg_chacha20_xor"
+  sig := xorSig
+  writeArgs := true
+  summary := "XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` \
+    (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by \
+    0, 1, … modulo 2³²) into the `len` bytes at `data`, calling `vg_chacha20_block` for each 64 \
+    bytes.\n\n\
+    Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may \
+    affect timing, not the state or the data."
+  safety := [
+    "`state` must be valid for reads and writes of 64 bytes; its contents on return are \
+      unspecified.",
+    "`data` must be valid for reads and writes of `len` bytes.",
+    "`buf` must be valid for reads and writes of 320 bytes; its contents on return are \
+      unspecified."]
+
 end VG.Spec.ChaCha20

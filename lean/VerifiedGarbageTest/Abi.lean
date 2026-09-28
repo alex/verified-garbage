@@ -40,8 +40,18 @@ def x86_64State : X86_64.State where
   rd := []
   wr := []
 
+/-- `x86_64State` with `rsp = 0x100` and the bytes 1 to 8 at `0x108`. -/
+def x86_64Stack : X86_64.State :=
+  { x86_64State with
+    gpr := fun r => if r = .rsp then 0x100 else x86_64State.gpr r
+    mem := fun a => if 0x108 ≤ a.toNat ∧ a.toNat < 0x110 then BitVec.ofNat 8 (a.toNat - 0x107) else 0 }
+
 #guard (X86_64.abi.args [64, 32, 64, 64, 64, 64]).map (· x86_64State) == some [1, 2, 3, 4, 5, 6]
-#guard (X86_64.abi.args (List.replicate 7 64)).isNone
+-- The seventh argument is the eightbyte above the return address.
+#guard (X86_64.abi.args (List.replicate 7 64)).map (· x86_64Stack) ==
+  some [1, 2, 3, 4, 5, 6, 0x0807060504030201]
+#guard (X86_64.abi.argArea (List.replicate 8 64) x86_64Stack).map (·.1) == [⟨0x108, 16⟩]
+#guard (X86_64.abi.argArea (List.replicate 6 64) x86_64Stack).isEmpty
 #guard X86_64.abi.ret x86_64State == 7
 
 def aarch64State : AArch64.State where
@@ -53,8 +63,19 @@ def aarch64State : AArch64.State where
   rd := []
   wr := []
 
+/-- `aarch64State` with `sp = 0x100` and the bytes 1 to 8 at `0x100`. -/
+def aarch64Stack : AArch64.State :=
+  { aarch64State with
+    sp := 0x100
+    mem := fun a => if 0x100 ≤ a.toNat ∧ a.toNat < 0x108 then BitVec.ofNat 8 (a.toNat - 0xff) else 0 }
+
 #guard (AArch64.abi.args (List.replicate 8 64)).map (· aarch64State) == some [1, 2, 3, 4, 5, 6, 7, 8]
-#guard (AArch64.abi.args (List.replicate 9 64)).isNone
+-- The ninth argument is the 8 bytes at `sp`; narrower stack arguments are
+-- not modelled.
+#guard (AArch64.abi.args (List.replicate 9 64)).map (· aarch64Stack) ==
+  some [1, 2, 3, 4, 5, 6, 7, 8, 0x0807060504030201]
+#guard (AArch64.abi.args (List.replicate 8 64 ++ [32])).isNone
+#guard (AArch64.abi.argArea (List.replicate 9 64) aarch64Stack).map (·.1) == [⟨0x100, 8⟩]
 #guard AArch64.abi.ret aarch64State == 1
 
 /-! ### Public arguments are public only in the bits of their width

@@ -7,7 +7,12 @@ import VerifiedGarbage.Proof.ChaCha20Poly1305.X86_64.Shared
 
 A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`.
+caller to the contract; check them against the contract's `pre`/`post`. An
+artifact made from a function's `Api` (in `Spec/`, reviewed with the
+contract) takes them from there, and this file adds only notes on the
+implementation. The emitter adds the `# Safety` items that depend on the
+target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
+against the contract.
 -/
 
 namespace VG.Artifacts.ChaCha20Poly1305.X86_64
@@ -30,13 +35,11 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `ctx` must be valid for reads and writes of 1024 bytes.\n\
       * `aad` must be valid for reads of `aad_len` bytes.\n\
-      * `data` must be valid for reads and writes of `len` bytes.\n\
-      * `ctx` and `data` must not overlap each other, `aad`, the return address on the \
-      stack, or the 16 bytes of stack below it, where its calls store their return \
-      addresses; nor may `aad`. None of them may wrap around the end of the address \
-      space (distinct Rust objects never do)."
+      * `data` must be valid for reads and writes of `len` bytes."
     code := Impl.ChaCha20Poly1305.X86_64.«seal»
     contract := Spec.ChaCha20Poly1305.sealContract X86_64.abi 16
+    writeArgs := true
+    stack := 16
     verified := Proof.ChaCha20Poly1305.X86_64.Shared.«seal» },
   { target := X86_64.target
     module := "chacha20poly1305"
@@ -54,13 +57,11 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `ctx` must be valid for reads and writes of 1024 bytes.\n\
       * `aad` must be valid for reads of `aad_len` bytes.\n\
-      * `data` must be valid for reads and writes of `len` bytes.\n\
-      * `ctx` and `data` must not overlap each other, `aad`, the return address on the \
-      stack, or the 16 bytes of stack below it, where its calls store their return \
-      addresses; nor may `aad`. None of them may wrap around the end of the address \
-      space (distinct Rust objects never do)."
+      * `data` must be valid for reads and writes of `len` bytes."
     code := Impl.ChaCha20Poly1305.X86_64.«open»
     contract := Spec.ChaCha20Poly1305.openContract X86_64.abi 16
+    writeArgs := true
+    stack := 16
     verified := Proof.ChaCha20Poly1305.X86_64.Shared.«open» }]
 
 end VG.Artifacts.ChaCha20Poly1305.X86_64

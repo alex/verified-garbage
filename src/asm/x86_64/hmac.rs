@@ -12,7 +12,8 @@
 /// * `inner` and `outer` must each be valid for reads and writes of 96 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
 /// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 8 bytes of stack below it, where its calls of `vg_sha256_compress` store their return address (distinct Rust objects never do).
+/// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `key` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 20]) {
     core::arch::naked_asm!(
@@ -125,7 +126,8 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init(inner: *mut [u8; 96], o
 /// * `inner` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
 /// * `outer` must be valid for reads of 96 bytes.
 /// * `scratch` must be valid for reads and writes of 240 bytes; its contents on return are unspecified, apart from the MAC.
-/// * These three regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls of `vg_sha256_finalize` (which calls `vg_sha256_compress`) store their return addresses (distinct Rust objects never do).
+/// * `inner` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
+/// * None of `inner`, `outer` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 30]) {
     core::arch::naked_asm!(

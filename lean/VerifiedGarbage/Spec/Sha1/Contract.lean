@@ -90,6 +90,7 @@ def updateApi : Api where
   module := "sha1"
   name := "vg_sha1_update"
   sig := updateSig
+  writeArgs := true
   summary := "Absorbs data into a SHA-1 computation: if the streaming state `*state` represents a \
     message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` \
     bytes at `data`.\n\n\
@@ -122,6 +123,7 @@ def finalizeApi : Api where
   module := "sha1"
   name := "vg_sha1_finalize"
   sig := finalizeSig
+  writeArgs := true
   summary := "Finishes a SHA-1 computation: if the streaming state `*state` represents a message \
     of `count` bytes (modulo 2⁶⁴), writes the SHA-1 digest of that message to `*out`.\n\n\
     Contract: `VG.Spec.Sha1.finalizeContract`. Constant time: only the pointers and `count` may \
