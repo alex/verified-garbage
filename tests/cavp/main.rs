@@ -13,7 +13,7 @@
     target_arch = "x86"
 ))]
 
-use verified_garbage::sha256::Sha256;
+use verified_garbage::hashes::sha256::Sha256;
 
 /// The `key = value` lines of a CAVP response file, in order, without the
 /// comments, blank lines and `[L = ...]` section headers.
@@ -106,7 +106,7 @@ fn sha256_monte_carlo() {
 #[cfg(target_arch = "x86_64")]
 mod sha512 {
     use super::{check_messages, check_monte_carlo};
-    use verified_garbage::sha512::{Sha384, Sha512, Sha512_224, Sha512_256};
+    use verified_garbage::hashes::sha512::{Sha384, Sha512, Sha512_224, Sha512_256};
 
     macro_rules! cavp {
         ($name:ident, $hash:ident, $file:literal) => {
