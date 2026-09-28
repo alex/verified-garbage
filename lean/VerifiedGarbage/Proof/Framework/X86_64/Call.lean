@@ -22,6 +22,7 @@ def Code.depth {I C : Type} : Code I C → Nat
   | .ite _ t e => max t.depth e.depth
   | .loop b _ => b.depth
   | .call _ b => b.depth + 1
+  | .frame _ b _ => b.depth
 
 end VG
 
@@ -122,6 +123,7 @@ theorem Exec.frameSp {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa
     have hcb : NoSp body := hc
     rw [(Exec.rdwr h₁).2, Exec.gpr hcb h₁] at f₂
     exact Frame.trans (ih₁ hc hd) f₂
+  | frame hp => simp only [isa, reduceCtorEq] at hp
   | @call _ b s₀ s₁ s₂ s₃ _ hc₁ hb hr ih =>
     simp only [Code.depth] at hd ⊢
     have e₁ : s₁ = s₀.callEntry := (Option.some.inj ((call_callEntry s₀).symm.trans hc₁)).symm

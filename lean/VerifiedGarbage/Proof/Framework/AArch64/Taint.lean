@@ -41,6 +41,8 @@ def step (τ : T) : Instr → Option T
   | .movk _ d _ _ => some (set τ d (pub τ d))
   | .ldr _ t n _ | .ldrb t n _ => if pub τ n then some (set τ t false) else none
   | .str _ _ n _ | .strb _ n _ => if pub τ n then some τ else none
+  -- Frames are not analysed yet.
+  | .push .. | .pop .. => none
 
 def condPub (τ : T) : Cond → Bool
   | .zero _ r | .nonzero _ r => pub τ r
@@ -72,6 +74,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
     addrs i s₁ = addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i with
+  | push | pop => simp only [step, reduceCtorEq] at hs
   | add sz d n m =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂

@@ -305,4 +305,30 @@ def callSample : Prog X86_64.isa :=
 #guard Rust.line printer.call (.text "mov rax, QWORD PTR [rdi]") ==
   "        \"mov rax, QWORD PTR [rdi]\",\n"
 
+/-! ## Frames
+
+A frame is its push, its body and its pop, each printed as the target's
+instructions. -/
+
+-- Save the link register around a call (AArch64).
+#guard text (AArch64.printer.function
+    (.frame (.push .x30) (.call "vg_f" (.block [])) (.pop .x30) : Prog AArch64.isa)) == [
+  "str x30, [sp, #-16]!", "<call vg_f>", "ldr x30, [sp], #16", "ret"]
+
+-- Pass two arguments on the stack, inside a frame saving `lr` (ARMv7). A pop
+-- loads the lowest word of its frame.
+#guard text (Arm.printer.function
+    (.frame (.push [.lr])
+      (.frame (.push [.r0, .r1]) (.call "vg_f" (.block [])) (.pop .r2 8)) (.pop .lr 4) :
+      Prog Arm.isa)) == [
+  "push {lr}", "push {r0, r1}", "<call vg_f>", "ldr r2, [sp], #8", "ldr lr, [sp], #4", "bx lr"]
+
+-- Pass two arguments on the stack (x86): the first pushed is the higher
+-- address.
+#guard text (X86.printer.function
+    (.frame (.push [.ecx, .eax]) (.call "vg_f" (.block [])) (.pop .edx 2) : Prog X86.isa)) == [
+  "push ecx", "push eax", "<call vg_f>", "pop edx", "pop edx", "ret"]
+
+#guard Rust.line Arm.printer.call (.text "push {r4, lr}") == "        \"push {{r4, lr}}\",\n"
+
 end VG.Test
