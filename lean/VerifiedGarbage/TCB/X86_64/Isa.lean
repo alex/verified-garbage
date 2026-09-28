@@ -26,6 +26,14 @@ Modelling choices:
 * Calls (`call`) and returns (`ret`) are near and direct (SDM Vol. 2, "CALL",
   "RET"). The return addresses are the next of the state's `unknowns`,
   which nothing constrains (see `TCB/Code.lean`).
+* The SSE registers `xmm0`–`xmm15` are modelled as 128 bits each (SDM Vol. 1
+  §10.2.2); the upper bits of the `ymm`/`zmm` registers they alias are not
+  modelled, and the legacy SSE instructions modelled here leave them
+  unmodified. Every SSE instruction is register-to-register, except the
+  unaligned `movdqu` load and store, so no alignment fault (legacy SSE
+  memory operands must be 16-byte aligned) needs modelling. MXCSR is not
+  modelled: no modelled SSE instruction reads or writes it (integer SSE
+  instructions raise no SIMD floating-point exceptions).
 -/
 
 namespace VG.X86_64
@@ -35,12 +43,20 @@ inductive Reg
   | r8 | r9 | r10 | r11 | r12 | r13 | r14 | r15
   deriving DecidableEq, Repr, Inhabited
 
+/-- The SSE registers. -/
+inductive XReg
+  | xmm0 | xmm1 | xmm2 | xmm3 | xmm4 | xmm5 | xmm6 | xmm7
+  | xmm8 | xmm9 | xmm10 | xmm11 | xmm12 | xmm13 | xmm14 | xmm15
+  deriving DecidableEq, Repr, Inhabited
+
 structure State where
   gpr : Reg → BitVec 64
   cf : Option Bool
   zf : Option Bool
   sf : Option Bool
   of : Option Bool
+  /-- The low 128 bits of each SSE register. -/
+  xmm : XReg → BitVec 128 := fun _ => 0
   mem : Mem
   /-- Regions the code may read (in addition to `wr`). -/
   rd : List Region
@@ -72,6 +88,25 @@ inductive AluOp | add | adc | sub | sbb | and | or | xor | cmp | test
 
 /-- Shifts and rotates by an immediate count. -/
 inductive ShiftOp | ror | shr
+  deriving DecidableEq, Repr
+
+/-- Two-operand SSE2 instructions `op xmm1, xmm2` (register forms only). -/
+inductive XBinOp
+  | movdqa | paddd | pxor | por | punpckldq | punpckhdq | punpcklqdq | punpckhqdq
+  deriving DecidableEq, Repr
+
+/-- SSE2 shifts of each doubleword by an immediate count. -/
+inductive XShiftOp | pslld | psrld
+  deriving DecidableEq, Repr
+
+/-- SSE2 instructions that only read and write SSE registers. -/
+inductive XOp
+  /-- `op xmm1, xmm2` -/
+  | bin (op : XBinOp) (dst src : XReg)
+  /-- `op xmm1, imm8` -/
+  | shift (op : XShiftOp) (dst : XReg) (count : BitVec 8)
+  /-- `pshufd xmm1, xmm2, imm8` -/
+  | pshufd (dst src : XReg) (order : BitVec 8)
   deriving DecidableEq, Repr
 
 inductive Instr
@@ -106,6 +141,12 @@ inductive Instr
   /-- `movabs r64, imm64`: `MOV r64, imm64` (REX.W + B8+rd io), a full 64-bit
   immediate. -/
   | movImm64 (dst : Reg) (v : BitVec 64)
+  /-- `movdqu xmm, XMMWORD PTR [src]` (`F3 0F 6F /r`) -/
+  | movdquLoad (dst : XReg) (src : MemOp)
+  /-- `movdqu XMMWORD PTR [dst], xmm` (`F3 0F 7F /r`) -/
+  | movdquStore (dst : MemOp) (src : XReg)
+  /-- An SSE2 instruction on SSE registers only. -/
+  | xop (op : XOp)
   /-- `mul r64` (REX.W + F7 /4): the unsigned product `RDX:RAX := RAX * r64`. -/
   | mul (src : Reg)
   deriving DecidableEq, Repr
@@ -156,6 +197,17 @@ def load8 (s : State) (a : Addr) : Option Byte :=
 /-- Store 1 byte, faulting if not permitted. -/
 def store8 (s : State) (a : Addr) (v : Byte) : Option State :=
   if InRegions s.wr a 1 then some { s with mem := s.mem.writeW a v } else none
+
+/-- Load 16 bytes, faulting if not permitted. -/
+def load128 (s : State) (a : Addr) : Option (BitVec 128) :=
+  if InRegions (s.rd ++ s.wr) a 16 then some (s.mem.readW a 128) else none
+
+/-- Store 16 bytes, faulting if not permitted. -/
+def store128 (s : State) (a : Addr) (v : BitVec 128) : Option State :=
+  if InRegions s.wr a 16 then some { s with mem := s.mem.writeW a v } else none
+
+def setXmm (s : State) (r : XReg) (v : BitVec 128) : State :=
+  { s with xmm := fun r' => if r' = r then v else s.xmm r' }
 
 /-- Write a 32-bit result, zero-extended to 64 bits (SDM Vol. 1 §3.4.1.1). -/
 def setReg32 (s : State) (r : Reg) (v : BitVec 32) : State := s.setReg r (v.setWidth 64)
@@ -302,6 +354,76 @@ def bswap64 (a : BitVec 64) : BitVec 64 :=
   a.extractLsb' 0 8 ++ a.extractLsb' 8 8 ++ a.extractLsb' 16 8 ++ a.extractLsb' 24 8 ++
     a.extractLsb' 32 8 ++ a.extractLsb' 40 8 ++ a.extractLsb' 48 8 ++ a.extractLsb' 56 8
 
+/-! ### SSE2
+
+The SDM's pseudocode numbers bits from the least significant: doubleword `i`
+of a 128-bit operand is bits `32i+31:32i`, quadword `i` bits `64i+63:64i`. -/
+
+/-- Doubleword `i` of `x`: bits `32i+31:32i`. -/
+def dword (x : BitVec 128) (i : Nat) : BitVec 32 := x.extractLsb' (32 * i) 32
+
+/-- Quadword `i` of `x`: bits `64i+63:64i`. -/
+def qword (x : BitVec 128) (i : Nat) : BitVec 64 := x.extractLsb' (64 * i) 64
+
+/-- The 128-bit value with doublewords `d0` (bits 31:0), `d1`, `d2`, `d3` (bits 127:96). -/
+def ofDwords (d0 d1 d2 d3 : BitVec 32) : BitVec 128 := d3 ++ d2 ++ d1 ++ d0
+
+/-- The result of `op dst, src`, given the old values `a` of `dst` and `b` of
+`src`. SDM Vol. 2 (128-bit legacy SSE forms, which leave the destination's
+bits above 127 unmodified; no flags are affected):
+
+* MOVDQA: `DEST[127:0] := SRC[127:0]`.
+* PADDD: `DEST[31:0] := DEST[31:0] + SRC[31:0]`, and likewise for doublewords
+  1–3 (wrapping; no carry between doublewords).
+* PXOR: `DEST := DEST XOR SRC`. POR: `DEST := DEST OR SRC`.
+* PUNPCKLDQ (`INTERLEAVE_DWORDS`): `DEST[31:0] := SRC1[31:0]; DEST[63:32] :=
+  SRC2[31:0]; DEST[95:64] := SRC1[63:32]; DEST[127:96] := SRC2[63:32]`.
+* PUNPCKHDQ (`INTERLEAVE_HIGH_DWORDS`): `DEST[31:0] := SRC1[95:64];
+  DEST[63:32] := SRC2[95:64]; DEST[95:64] := SRC1[127:96]; DEST[127:96] :=
+  SRC2[127:96]`.
+* PUNPCKLQDQ (`INTERLEAVE_QWORDS`): `DEST[63:0] := SRC1[63:0];
+  DEST[127:64] := SRC2[63:0]`.
+* PUNPCKHQDQ (`INTERLEAVE_HIGH_QWORDS`): `DEST[63:0] := SRC1[127:64];
+  DEST[127:64] := SRC2[127:64]`.
+
+(`SRC1` is the destination, `SRC2` the source.) -/
+def XBinOp.eval : XBinOp → BitVec 128 → BitVec 128 → BitVec 128
+  | .movdqa, _, b => b
+  | .paddd, a, b =>
+    ofDwords (dword a 0 + dword b 0) (dword a 1 + dword b 1) (dword a 2 + dword b 2)
+      (dword a 3 + dword b 3)
+  | .pxor, a, b => a ^^^ b
+  | .por, a, b => a ||| b
+  | .punpckldq, a, b => ofDwords (dword a 0) (dword b 0) (dword a 1) (dword b 1)
+  | .punpckhdq, a, b => ofDwords (dword a 2) (dword b 2) (dword a 3) (dword b 3)
+  | .punpcklqdq, a, b => qword b 0 ++ qword a 0
+  | .punpckhqdq, a, b => qword b 1 ++ qword a 1
+
+/-- SDM Vol. 2, "PSLLW/PSLLD/PSLLQ" and "PSRLW/PSRLD/PSRLQ", the doubleword
+forms with an immediate count: `IF (COUNT > 31) THEN DEST[127:0] := 0 ELSE
+DEST[31:0] := ZeroExtend(DEST[31:0] << COUNT)` (respectively `>>`, a logical
+shift), and likewise for doublewords 1–3. No flags are affected. -/
+def XShiftOp.eval (op : XShiftOp) (a : BitVec 128) (count : BitVec 8) : BitVec 128 :=
+  let n := count.toNat
+  if 31 < n then 0 else
+    let f : BitVec 32 → BitVec 32 := match op with
+      | .pslld => (· <<< n)
+      | .psrld => (· >>> n)
+    ofDwords (f (dword a 0)) (f (dword a 1)) (f (dword a 2)) (f (dword a 3))
+
+/-- SDM Vol. 2, "PSHUFD": `DEST[31:0] := (SRC >> (ORDER[1:0] * 32))[31:0];
+DEST[63:32] := (SRC >> (ORDER[3:2] * 32))[31:0]; DEST[95:64] := (SRC >>
+(ORDER[5:4] * 32))[31:0]; DEST[127:96] := (SRC >> (ORDER[7:6] * 32))[31:0]`.
+No flags are affected. -/
+def shufDwords (a : BitVec 128) (order : BitVec 8) : BitVec 128 :=
+  ofDwords (dword a (order.extractLsb' 0 2).toNat) (dword a (order.extractLsb' 2 2).toNat)
+    (dword a (order.extractLsb' 4 2).toNat) (dword a (order.extractLsb' 6 2).toNat)
+
+/-- Semantics of an SSE2 instruction on SSE registers only. -/
+def XOp.exec : XOp → State → State
+  | .bin op d r, s => s.setXmm d (op.eval (s.xmm d) (s.xmm r))
+  | .shift op d n, s => s.setXmm d (op.eval (s.xmm d) n)
+  | .pshufd d r o, s => s.setXmm d (shufDwords (s.xmm r) o)
 /-- SDM Vol. 2, "MUL—Unsigned Multiply", for a 64-bit operand: `RDX:RAX :=
 RAX ∗ SRC` (the 128-bit product of the unsigned operands, its high half in
 RDX and its low half in RAX). "The OF and CF flags are set to 0 if the upper
@@ -333,6 +455,12 @@ def exec : Instr → State → Option State
   | .shift op d n, s => execShift op d n s
   -- SDM Vol. 2, "MOV": `DEST := SRC`; no flags are affected.
   | .movImm64 d v, s => some (s.setReg d v)
+  -- SDM Vol. 2, "MOVDQU": `DEST[127:0] := SRC[127:0]`, with memory in
+  -- little-endian byte order (SDM Vol. 1 §1.3.1); no alignment is required
+  -- and no flags are affected.
+  | .movdquLoad d m, s => (s.load128 (s.ea m)).map fun v => s.setXmm d v
+  | .movdquStore m r, s => s.store128 (s.ea m) (s.xmm r)
+  | .xop op, s => some (op.exec s)
   | .mul r, s => some (execMul r s)
 
 def addrs : Instr → State → List Addr
@@ -349,6 +477,9 @@ def addrs : Instr → State → List Addr
   | .bswap _, _ => []
   | .shift .., _ => []
   | .movImm64 .., _ => []
+  | .movdquLoad _ m, s => [s.ea m]
+  | .movdquStore m _, s => [s.ea m]
+  | .xop _, _ => []
   | .mul _, _ => []
 
 def eval : Cond → State → Option Bool
@@ -375,12 +506,12 @@ def ret (s₁ s₂ : State) : Option State :=
     some (s₂.setReg .rsp (s₂.gpr .rsp + 8))
   else none
 
-/-- The register an instruction writes, if it writes exactly one: `mul`
-writes two, `rax` and `rdx`, and stores none. -/
+/-- The general-purpose register an instruction writes, if it writes exactly
+one: `mul` writes two, `rax` and `rdx`, and stores and SSE instructions none. -/
 def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .mov32 d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
   | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
-  | .store .. | .store32 .. | .store8 .. | .mul _ => none
+  | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ | .mul _ => none
 
 abbrev isa : ISA where
   State := State
@@ -398,7 +529,8 @@ abbrev isa : ISA where
   -- No frames are modelled.
   push _ _ := none
   pop _ _ _ := none
-  -- Every modelled instruction is in the x86-64 baseline (x86-64-v1).
+  -- Every modelled instruction is in the x86-64 baseline (x86-64-v1), which
+  -- includes SSE and SSE2 (System V AMD64 psABI, "Micro-Architecture Levels").
   requires _ := []
 
 end VG.X86_64

@@ -44,6 +44,27 @@ def MemOp.str32 (m : MemOp) : String := s!"DWORD PTR {m.addr}"
 
 def MemOp.str8 (m : MemOp) : String := s!"BYTE PTR {m.addr}"
 
+def MemOp.str128 (m : MemOp) : String := s!"XMMWORD PTR {m.addr}"
+
+def XReg.name : XReg → String
+  | .xmm0 => "xmm0" | .xmm1 => "xmm1" | .xmm2 => "xmm2" | .xmm3 => "xmm3"
+  | .xmm4 => "xmm4" | .xmm5 => "xmm5" | .xmm6 => "xmm6" | .xmm7 => "xmm7"
+  | .xmm8 => "xmm8" | .xmm9 => "xmm9" | .xmm10 => "xmm10" | .xmm11 => "xmm11"
+  | .xmm12 => "xmm12" | .xmm13 => "xmm13" | .xmm14 => "xmm14" | .xmm15 => "xmm15"
+
+def XBinOp.name : XBinOp → String
+  | .movdqa => "movdqa" | .paddd => "paddd" | .pxor => "pxor" | .por => "por"
+  | .punpckldq => "punpckldq" | .punpckhdq => "punpckhdq"
+  | .punpcklqdq => "punpcklqdq" | .punpckhqdq => "punpckhqdq"
+
+def XShiftOp.name : XShiftOp → String
+  | .pslld => "pslld" | .psrld => "psrld"
+
+def XOp.asm : XOp → String
+  | .bin op d r => s!"{op.name} {d.name}, {r.name}"
+  | .shift op d n => s!"{op.name} {d.name}, {n.toNat}"
+  | .pshufd d r o => s!"pshufd {d.name}, {r.name}, {o.toNat}"
+
 def Src.str : Src → String
   | .reg r => r.name
   | .imm v => toString v.toInt
@@ -77,6 +98,9 @@ def Instr.asm : Instr → List String
   | .shift op d n => [s!"{op.name} {d.name}, {n}"]
   -- `movabs` always selects the `REX.W + B8+rd io` encoding, whatever the value.
   | .movImm64 d v => [s!"movabs {d.name}, {v.toInt}"]
+  | .movdquLoad d m => [s!"movdqu {d.name}, {m.str128}"]
+  | .movdquStore m r => [s!"movdqu {m.str128}, {r.name}"]
+  | .xop op => [op.asm]
   | .mul r => [s!"mul {r.name}"]
 
 def Cond.name : Cond → String

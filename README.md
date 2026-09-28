@@ -21,6 +21,7 @@ It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
 | HMAC-SHA-256 | ✅ | ✅ | ❌ |
 | PBKDF2-HMAC-SHA-256 | ✅ | ❌ | ❌ |
 | ChaCha20 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
+| Poly1305 | ✅ | ❌ | ❌ |
 | SHA-1 | ✅ | x86-64, ARM64 | ❌ |
 | MD5 | ✅ | x86-64, ARM64 | ❌ |
 
@@ -73,3 +74,11 @@ CI checks every proof, that `src/asm/` is exactly what Lean generates, and the
 import discipline of the Lean directories (`ci/check_lean_imports.py`); it
 builds and runs the Rust tests natively on each target architecture, and
 requires 100% line coverage of the Rust code, merged across all of them.
+
+## Credits
+
+This project is inspired by:
+
+- [Graviola](https://github.com/ctz/graviola/)
+- [s2n-bignum](https://github.com/awslabs/s2n-bignum)
+- [Bobby Powers](https://bpowers.net/)

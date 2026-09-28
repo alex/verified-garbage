@@ -174,6 +174,12 @@ def step (τ : T) : Instr → Option T
   | .bswap32 d | .bswap d => some { τ with bases := kill τ d }
   | .movImm64 d _ => some { τ with regs := set τ d true, bases := kill τ d }
   | .movzx8 d m => if memPub τ m then some { τ with regs := set τ d false, bases := kill τ d } else none
+  -- The SSE registers are not tracked: their values are always secret, and
+  -- no modelled instruction moves them into a general-purpose register or
+  -- the flags.
+  | .movdquLoad _ m => if memPub τ m then some τ else none
+  | .movdquStore m _ => storeStep τ m 16 false
+  | .xop _ => some τ
   | .mul r => some (mulStep τ r)
 
 def meet (τ₁ τ₂ : T) : T where
@@ -602,14 +608,23 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {m : 
 
 /-! ### Instructions that write a register -/
 
-/-- The register an instruction writes, if it writes exactly one (none for
-stores, and for `mul`, which writes two). -/
+/-- The general-purpose register an instruction writes, if it writes exactly
+one (none for stores and SSE instructions, and for `mul`, which writes two). -/
 def dstOf : Instr → Option Reg
   | .mov d _ | .mov32 d _ | .alu _ d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
   | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
-  | .store .. | .store32 .. | .store8 .. | .mul _ => none
+  | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ | .mul _ => none
 
-/-- Whether an instruction may write the register `r`. -/
+/-- An SSE instruction on registers changes only the SSE registers. -/
+theorem XOp.exec_eq (op : XOp) (s : State) : op.exec s = { s with xmm := (op.exec s).xmm } := by
+  cases op <;> rfl
+
+/-- Changing only the SSE registers, which the analysis does not track. -/
+theorem Agree.withXmm {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) (x₁ x₂ : XReg → BitVec 128) :
+    Agree τ { s₁ with xmm := x₁ } { s₂ with xmm := x₂ } :=
+  ha.keep ha.rf rfl rfl rfl rfl rfl rfl ha.wf₁.2 ha.wf₂.2
+
+/-- Whether an instruction may write the general-purpose register `r`. -/
 def clobbers (i : Instr) (r : Reg) : Bool :=
   match i with
   | .mul _ => r == .rax || r == .rdx
@@ -771,6 +786,28 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     split at e₁ <;> [cases e₁; cases e₁]
     split at e₂ <;> [cases e₂; cases e₂]
     exact ⟨by simp [addrs, ha.ea hok], ha.store (n := 1) hok (by decide) fun hp => by rw [ha.reg hp]⟩
+  | movdquLoad d m =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hok; cases hs
+    simp only [exec, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨v₁, -, rfl⟩ := e₁; obtain ⟨v₂, -, rfl⟩ := e₂
+    exact ⟨by simp [addrs, ha.ea hok], ha.withXmm _ _⟩
+  | movdquStore m r =>
+    simp only [step, storeStep] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hok; cases hs
+    simp only [exec, State.store128] at e₁ e₂
+    split at e₁ <;> [cases e₁; cases e₁]
+    split at e₂ <;> [cases e₂; cases e₂]
+    exact ⟨by simp [addrs, ha.ea hok], ha.store (n := 16) hok (by decide) fun hp => by cases hp⟩
+  | xop op =>
+    simp only [step, Option.some.injEq] at hs
+    subst hs
+    simp only [exec, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    rw [XOp.exec_eq op s₁, XOp.exec_eq op s₂]
+    exact ⟨rfl, ha.withXmm _ _⟩
   | alu op d src =>
     simp only [step, aluStep] at hs
     split at hs <;> [skip; cases hs]
