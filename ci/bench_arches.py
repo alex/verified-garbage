@@ -79,8 +79,10 @@ def arches(changed):
 
     for path in changed:
         asm, api, family = ASM.match(path), API.match(path), FAMILY.match(path)
-        if asm and asm[1] in PLATFORMS:
-            if asm[2] != "mod":
+        if asm:
+            # The assembly of an architecture that is not benchmarked (e.g.
+            # PPC64LE) needs no benchmark.
+            if asm[1] in PLATFORMS and asm[2] != "mod":
                 need(asm[1], asm[2])
         elif api:
             for a in PLATFORMS:
