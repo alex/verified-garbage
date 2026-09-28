@@ -31,14 +31,14 @@ theorem init (iv : Spec.Sha512.HashValue) :
       [Proof.Sha512.X86_64.Stream.initSat] using Proof.Sha512.X86_64.Stream.initSat)
 
 theorem update :
-    Verified X86_64.target Impl.Sha512.X86_64.Stream.update (Spec.Sha512.updateContract X86_64.abi) :=
+    Verified X86_64.target Impl.Sha512.X86_64.Stream.update (Spec.Sha512.updateContract X86_64.abi 8) :=
   Proof.Sha512.X86_64.Stream.Update.update_verified.of_implies (by
     contract_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, Proof.Sha512.updateX86_64,
       X86_64.abi, X86_64.argRegs]
       [Proof.Sha512.X86_64.Stream.Update.sat] using Proof.Sha512.X86_64.Stream.Update.sat)
 
 theorem finalize :
-    Verified X86_64.target Impl.Sha512.X86_64.Stream.finalize (Spec.Sha512.finalizeContract X86_64.abi) :=
+    Verified X86_64.target Impl.Sha512.X86_64.Stream.finalize (Spec.Sha512.finalizeContract X86_64.abi 8) :=
   Proof.Sha512.X86_64.Stream.Finalize.finalize_verified.of_implies (by
     contract_implies [Spec.Sha512.finalizeContract, Spec.Sha512.finalizeSig,
       Proof.Sha512.finalizeX86_64, X86_64.abi, X86_64.argRegs]

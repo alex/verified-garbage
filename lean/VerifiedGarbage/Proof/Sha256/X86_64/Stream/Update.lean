@@ -28,6 +28,8 @@ abbrev len : Nat := (s₀.gpr .rcx).toNat
 abbrev scr : Addr := s₀.gpr .r8
 abbrev stR : Region := ⟨st s₀, 96⟩
 abbrev dR : Region := ⟨dp s₀, len s₀⟩
+/-- Where the call of `vg_sha256_compress` stores its return address. -/
+abbrev stkR : Region := below (s₀.gpr .rsp) 8
 abbrev scR : Region := ⟨scr s₀, 160⟩
 abbrev retR : Region := ⟨s₀.gpr .rsp, 8⟩
 /-- The data. -/
@@ -51,10 +53,17 @@ structure Pre (s₀ : State) : Prop where
   d_scr : (dR s₀).Disjoint (scR s₀)
   ret_st : (retR s₀).Disjoint (stR s₀)
   ret_scr : (retR s₀).Disjoint (scR s₀)
+  stk_st : (stkR s₀).Disjoint (stR s₀)
+  stk_d : (stkR s₀).Disjoint (dR s₀)
+  stk_scr : (stkR s₀).Disjoint (scR s₀)
 
 theorem pre_of {s₀ : State} (h : Proof.Sha256.updateX86_64.pre s₀) : Pre s₀ := by
-  obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := h
-  exact ⟨h1, h2, h3, h4, h5, h6, h7⟩
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10⟩ := h
+  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10⟩
+
+/-- The return address and the 8 bytes below it. -/
+theorem ret_stk (s₀ : State) : (retR s₀).Disjoint (stkR s₀) := by
+  intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
 
 theorem R₀.length {s₀ : State} {m : List Byte} (h : R₀ s₀ m) : cnt s₀ % 64 = m.length % 64 := by
   rw [cnt, h.2, BitVec.toNat_ofNat]
@@ -76,7 +85,7 @@ structure Common (s₀ : State) (c : Nat) (s : State) : Prop where
   rsp : s.gpr .rsp = s₀.gpr .rsp
   rbp : s.gpr .rbp = dp s₀ + BitVec.ofNat 64 c
   r12 : s.gpr .r12 = BitVec.ofNat 64 (len s₀ - c)
-  frame : Frame [stR s₀, scR s₀] s₀.mem s.mem
+  frame : Frame [stR s₀, scR s₀, stkR s₀] s₀.mem s.mem
   saved : Saved s₀ s.mem
 
 /-- The loop invariant: the state represents the message followed by the
@@ -180,7 +189,8 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
   have g5 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((152 : Nat) : Int)) 64 = s₀.gpr .r15 :=
     hI.saved (.r15, 152) (by simp [saved])
   have hret : s.mem.readW (s₀.gpr .rsp) 64 = s₀.mem.readW (s₀.gpr .rsp) 64 :=
-    hI.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_scr⟩) (by decide)
+    hI.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_scr, ret_stk s₀⟩)
+      (by decide)
   have hrsp := hI.rsp
   have hr15 := hI.r15
   have hrepr := hI.repr
@@ -257,13 +267,17 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
     · exact .inr (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))
   have hsp := h.rsp
   refine compressAt_ok h.rbx h.r15 rfl ((hp.st_scr.sub_left e32).sub_right e112) ?_ ?_
-    (hsp ▸ (hp.ret_st.sub_right e32)) (hsp ▸ (hp.ret_scr.sub_right e112)) ?_ ?_ ?_
+    (by rw [hsp]; exact hp.stk_st.sub_right e32) (by rw [hsp]; exact hp.stk_scr.sub_right e112) ?_ ?_ ?_ ?_
   · rcases h.src with h' | ⟨c₀, h', hc₀⟩
     · rw [h']; intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
     · exact (hp.d_st.sub_left (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))).sub_right e32
   · rcases eSrc with e | e
     · exact (hp.st_scr.sub_left e).sub_right e112
     · exact (hp.d_scr.sub_left e).sub_right e112
+  · rw [hsp]
+    rcases eSrc with e | e
+    · exact hp.stk_st.sub_right e
+    · exact hp.stk_d.sub_right e
   · rw [h.rd, h.wr, hp.rd, hp.wr]
     apply Covers.of_sub
     intro r hr
@@ -290,9 +304,10 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
       by rw [cs _ (by decide)]; exact h.r14⟩
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl
+      rcases hr with rfl | rfl | rfl
       · exact ⟨stR s₀, by simp, e32⟩
       · exact ⟨scR s₀, by simp, e112⟩
+      · exact ⟨stkR s₀, by simp, by rw [hsp]; exact fun _ h => h⟩
     · simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
       have hd : ∀ d : Nat, 112 ≤ d → d + 8 ≤ 160 →
           s'.mem.readW (scr s₀ + BitVec.ofInt 64 (d : Int)) 64 =
@@ -301,9 +316,11 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
         refine hf.readW (r := ⟨scr s₀ + BitVec.ofInt 64 (d : Int), 8⟩) (Region.contains_self _ _) ?_ (by decide)
         intro r' hr'
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
-        rcases hr' with rfl | rfl
+        rcases hr' with rfl | rfl | rfl
         · exact (hp.st_scr.symm.sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))).sub_right e32
         · intro a h₁ h₂; simp only [Region.Contains, ofInt_natCast] at h₁ h₂; bv_omega
+        · rw [hsp]
+          exact hp.stk_scr.symm.sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))
       rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;>
       · rw [hd _ (by omega) (by omega)]; exact h.saved _ (by simp [saved])
     · rw [cs _ (by decide), h.r13, h.mod]; rfl
@@ -345,7 +362,7 @@ theorem D_getD (s₀ : State) {i : Nat} (hi : i < len s₀) :
 theorem Common.data {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Common s₀ c s) {i : Nat}
     (hi : i < len s₀) : s.mem (dp s₀ + BitVec.ofNat 64 i) = (D s₀).getD i 0 := by
   rw [D_getD s₀ hi]
-  exact h.frame.bytes (R := dR s₀) (by simpa using ⟨hp.d_st, hp.d_scr⟩) (len_lt s₀).le hi
+  exact h.frame.bytes (R := dR s₀) (by simpa using ⟨hp.d_st, hp.d_scr, hp.stk_d.symm⟩) (len_lt s₀).le hi
 
 theorem sx64 : BitVec.signExtend 64 (64 : BitVec 32) = (64 : BitVec 64) := by decide
 theorem sx1 : BitVec.signExtend 64 (1 : BitVec 32) = (1 : BitVec 64) := by decide
@@ -524,7 +541,7 @@ theorem Inv.of_gpr {s₀ : State} {c : Nat} {s s' : State} (h : Inv s₀ c s)
 /-- The memory after copying `tt` bytes. -/
 theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) :
     let mem := writeBytes sI.mem (q s₀ c) (xs s₀ c)
-    Frame [stR s₀, scR s₀] s₀.mem mem ∧ Saved s₀ mem ∧ stateAt mem (st s₀) = stateAt sI.mem (st s₀) ∧
+    Frame [stR s₀, scR s₀, stkR s₀] s₀.mem mem ∧ Saved s₀ mem ∧ stateAt mem (st s₀) = stateAt sI.mem (st s₀) ∧
       bytesAt mem (st s₀ + 32) (rr s₀ c + tt s₀ c) = bytesAt sI.mem (st s₀ + 32) (rr s₀ c) ++ xs s₀ c := by
   intro mem
   have hr := rr_lt s₀ c; have ht' := tt_le' s₀ c
@@ -742,16 +759,16 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   · exact .inl ⟨he, hI'⟩
   · exact .inr ⟨he, len s₀ - c', by have := hI'.c_le; omega, c', rfl, hI'⟩
 
-/-- The initial taint: the arguments are public, and `rdi` and `r8` point at
-the writable regions. -/
+/-- The initial taint: the arguments and `rsp` are public, and `rdi` and `r8`
+point at the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
-  { regs := [.rdi, .rsi, .rdx, .rcx, .r8], flags := false, lens := [96, 160],
+  { regs := [.rdi, .rsi, .rdx, .rcx, .r8, .rsp], flags := false, lens := [96, 160],
     bases := [(.rdi, 0), (.r8, 1)] }
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.updateX86_64.pre s₁)
     (h₂ : Proof.Sha256.updateX86_64.pre s₂) (hpub : Proof.Sha256.updateX86_64.pub s₁ s₂) :
     X86_64.Taint.Agree τ₀ s₁ s₂ := by
-  obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
+  obtain ⟨p1, p2, p3, p4, p5, p6⟩ := hpub
   have wf : ∀ s, Proof.Sha256.updateX86_64.pre s → X86_64.Taint.Wf τ₀ s := by
     intro s hs
     obtain ⟨-, hw, hd, -⟩ := hs
@@ -760,7 +777,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.updateX86_64.pre s₁)
     rcases hp with rfl | rfl <;> simp [X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
   · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
+    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> assumption
   · rw [h₁.2.1, h₂.2.1, p1, p5]
   · intro sl h; simp [τ₀] at h
   · intro sl h; simp [τ₀] at h
@@ -782,7 +799,7 @@ theorem update_verified : Verified X86_64.target update Proof.Sha256.updateX86_6
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩ <;>
+  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
       bv_omega

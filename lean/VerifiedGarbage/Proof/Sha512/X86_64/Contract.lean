@@ -63,7 +63,9 @@ represents `m` followed by the `len` bytes at `data`, from the same one.
 
 The code may read `data` (`len` bytes) and read and write `state` (192
 bytes) and `scratch` (224 bytes, whose contents on exit are unspecified).
-These may not overlap each other, nor the return address on the stack.
+These may not overlap each other, nor the return address on the stack, nor
+the 8 bytes below it (where the call of `vg_sha512_compress` stores its
+return address).
 The pointers, `count` and `len` are public; the state and the data are
 secret. -/
 def updateX86_64 : Contract X86_64.isa where
@@ -72,14 +74,16 @@ def updateX86_64 : Contract X86_64.isa where
     let data : Region := ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩
     let scratch : Region := ⟨s.gpr .r8, 224⟩
     let ret : Region := ⟨s.gpr .rsp, 8⟩
+    let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
     s.rd = [data] ∧ s.wr = [state, scratch] ∧
     state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
-    ret.Disjoint state ∧ ret.Disjoint scratch
+    ret.Disjoint state ∧ ret.Disjoint scratch ∧
+    stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint scratch
   post s s' := ∀ iv m, Repr iv s.mem (s.gpr .rdi) m → s.gpr .rsi = BitVec.ofNat 64 m.length →
     Repr iv s'.mem (s.gpr .rdi) (m ++ bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat)
   pub s₁ s₂ :=
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
-    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8
+    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
 open X86_64 in
 /-- x86-64 contract for
@@ -93,21 +97,24 @@ bytes.
 The code may read and write `state` (192 bytes, whose contents on exit are
 unspecified), `out` (64 bytes) and `scratch` (224 bytes, whose contents on
 exit are unspecified). These may not overlap each other, nor the return
-address on the stack. The pointers and `count` are public; the state is
-secret. -/
+address on the stack, nor the 8 bytes below it (where the call of
+`vg_sha512_compress` stores its return address). The pointers and `count`
+are public; the state is secret. -/
 def finalizeX86_64 : Contract X86_64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .rdi, 192⟩
     let out : Region := ⟨s.gpr .rdx, 64⟩
     let scratch : Region := ⟨s.gpr .rcx, 224⟩
     let ret : Region := ⟨s.gpr .rsp, 8⟩
+    let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
     s.rd = [] ∧ s.wr = [state, out, scratch] ∧
     state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
-    ret.Disjoint state ∧ ret.Disjoint out ∧ ret.Disjoint scratch
+    ret.Disjoint state ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧
+    stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch
   post s s' := ∀ iv m, Repr iv s.mem (s.gpr .rdi) m → m.length < 2 ^ 64 →
     s.gpr .rsi = BitVec.ofNat 64 m.length → bytesAt s'.mem (s.gpr .rdx) 64 = finalHash iv m
   pub s₁ s₂ :=
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
-    s₁.gpr .rcx = s₂.gpr .rcx
+    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
 end VG.Proof.Sha512

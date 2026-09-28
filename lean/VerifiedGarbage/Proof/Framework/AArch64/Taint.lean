@@ -184,5 +184,24 @@ def taint : VG.Taint isa where
   meet_right h r hr := h r (Taint.pub_iff.mp (List.mem_filter.mp hr).2)
   le τ σ := τ.all (Taint.pub σ)
   le_sound hle h r hr := h r (Taint.pub_iff.mp (List.all_eq_true.mp hle r hr))
+  -- A call leaves unknown values in `x16`, `x17` and `x30`; a return changes nothing.
+  call τ := some (τ.filter fun r => r != .x16 && r != .x17 && r != .x30)
+  call_sound h hs e₁ e₂ := by
+    cases hs
+    simp only [isa, call, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    refine ⟨rfl, fun r hr => ?_⟩
+    simp only [List.mem_filter, Bool.and_eq_true, bne_iff_ne, ne_eq] at hr
+    obtain ⟨hr, ⟨h16, h17⟩, h30⟩ := hr
+    simp only [h16, h17, h30, ite_false]
+    exact h r hr
+  ret τ := some τ
+  ret_sound h hs e₁ e₂ := by
+    cases hs
+    simp only [isa, ret] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    split at e₂ <;> [skip; cases e₂]
+    cases e₁; cases e₂
+    exact ⟨rfl, h⟩
 
 end VG.AArch64

@@ -812,6 +812,49 @@ end VG.Arm.Taint
 
 namespace VG.Arm
 
+namespace Taint
+
+/-- Whether a call leaves `r` unchanged (all but `lr` and `r12`). -/
+def callKeeps (r : Reg) : Bool := r != .lr && r != .r12
+
+/-- A call leaves unknown values in `lr` and `r12`. -/
+def callStep (τ : T) : T :=
+  { τ with regs := τ.regs.filter callKeeps, bases := τ.bases.filter (callKeeps ·.1) }
+
+theorem call_gpr {s s' : State} (e : isa.call s = some s') {r : Reg} (h : callKeeps r = true) :
+    s'.gpr r = s.gpr r := by
+  simp only [callKeeps, Bool.and_eq_true, bne_iff_ne, ne_eq] at h
+  simp only [isa, call, Option.some.injEq] at e; subst e
+  simp [State.setReg, h.1, h.2]
+
+theorem call_sound {τ τ' : T} {s₁ s₂ s₁' s₂' : State} (ha : Agree τ s₁ s₂)
+    (hs : some (callStep τ) = some τ') (e₁ : isa.call s₁ = some s₁') (e₂ : isa.call s₂ = some s₂') :
+    isa.callAddrs s₁ = isa.callAddrs s₂ ∧ Agree τ' s₁' s₂' := by
+  cases hs
+  have hr₁ := e₁; have hr₂ := e₂
+  simp only [isa, call, Option.some.injEq] at hr₁ hr₂
+  subst hr₁ hr₂
+  refine ⟨rfl, ha.keep ⟨fun r hr => ?_, ha.rf.2⟩ rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+    (fun p hp => ?_) (fun p hp => ?_)⟩
+  · simp only [callStep, List.mem_filter] at hr
+    rw [call_gpr e₁ hr.2, call_gpr e₂ hr.2]; exact ha.rf.1 r hr.1
+  · simp only [callStep, List.mem_filter] at hp
+    rw [call_gpr e₁ hp.2]; exact ha.wf₁.bases p hp.1
+  · simp only [callStep, List.mem_filter] at hp
+    rw [call_gpr e₂ hp.2]; exact ha.wf₂.bases p hp.1
+
+theorem ret_sound {τ τ' : T} {a₁ a₂ b₁ b₂ c₁ c₂ : State} (ha : Agree τ b₁ b₂)
+    (hs : some τ = some τ') (e₁ : isa.ret a₁ b₁ = some c₁) (e₂ : isa.ret a₂ b₂ = some c₂) :
+    isa.retAddrs b₁ = isa.retAddrs b₂ ∧ Agree τ' c₁ c₂ := by
+  cases hs
+  simp only [isa, ret] at e₁ e₂
+  split at e₁ <;> [skip; cases e₁]
+  split at e₂ <;> [skip; cases e₂]
+  cases e₁; cases e₂
+  exact ⟨rfl, ha⟩
+
+end Taint
+
 /-- Taint tracking for ARMv7. -/
 def taint : VG.Taint isa where
   T := Taint.T
@@ -825,6 +868,10 @@ def taint : VG.Taint isa where
   meet_right := Taint.meet_right
   le := Taint.le
   le_sound := Taint.le_sound
+  call τ := some (Taint.callStep τ)
+  call_sound := Taint.call_sound
+  ret τ := some τ
+  ret_sound := Taint.ret_sound
 
 /-- The taint in which exactly the registers `rs` are public. -/
 def Taint.ofRegs (rs : List Reg) : Taint.T := { regs := rs, flags := false }

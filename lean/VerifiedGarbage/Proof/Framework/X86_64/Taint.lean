@@ -885,6 +885,55 @@ end VG.X86_64.Taint
 
 namespace VG.X86_64
 
+namespace Taint
+
+/-- A call stores its return address, which may differ between the runs, at
+`rsp - 8`, which is not known to be outside the writable regions: `rsp` must
+be public, and every slot is forgotten. -/
+def callStep (τ : T) : Option T :=
+  if pub τ .rsp then some { τ with bases := kill τ .rsp, slots := [] } else none
+
+/-- A return loads its return address from `[rsp]` and moves `rsp`. -/
+def retStep (τ : T) : Option T :=
+  if pub τ .rsp then some { τ with bases := kill τ .rsp } else none
+
+theorem call_sound {τ τ' : T} {s₁ s₂ s₁' s₂' : State} (ha : Agree τ s₁ s₂)
+    (hs : callStep τ = some τ') (e₁ : isa.call s₁ = some s₁') (e₂ : isa.call s₂ = some s₂') :
+    isa.callAddrs s₁ = isa.callAddrs s₂ ∧ Agree τ' s₁' s₂' := by
+  simp only [callStep] at hs
+  split at hs <;> [rename_i hp; cases hs]
+  cases hs
+  simp only [isa, call, Option.some.injEq] at e₁ e₂
+  subst e₁ e₂
+  have hsp := ha.reg hp
+  refine ⟨by simp [hsp], ⟨⟨fun r hr => ?_, ha.rf.2⟩, ha.wr, ⟨ha.wf₁.1, ?_⟩, ⟨ha.wf₂.1, ?_⟩, ?_, ?_⟩⟩
+  · by_cases h : r = .rsp
+    · subst h; simp [State.setReg, hsp]
+    · simp only [State.setReg, h, ite_false]; exact ha.rf.1 r hr
+  · exact kill_bases (s' := s₁.setReg .rsp (s₁.gpr .rsp - 8)) ha.wf₁ rfl fun _ h => setReg_ne h
+  · exact kill_bases (s' := s₂.setReg .rsp (s₂.gpr .rsp - 8)) ha.wf₂ rfl fun _ h => setReg_ne h
+  · intro sl h; simp at h
+  · intro sl h; simp at h
+
+theorem ret_sound {τ τ' : T} {a₁ a₂ b₁ b₂ c₁ c₂ : State} (ha : Agree τ b₁ b₂)
+    (hs : retStep τ = some τ') (e₁ : isa.ret a₁ b₁ = some c₁) (e₂ : isa.ret a₂ b₂ = some c₂) :
+    isa.retAddrs b₁ = isa.retAddrs b₂ ∧ Agree τ' c₁ c₂ := by
+  simp only [retStep] at hs
+  split at hs <;> [rename_i hp; cases hs]
+  cases hs
+  simp only [isa, ret] at e₁ e₂
+  split at e₁ <;> [skip; cases e₁]
+  split at e₂ <;> [skip; cases e₂]
+  cases e₁; cases e₂
+  have hsp := ha.reg hp
+  refine ⟨by simp [hsp], ha.keep ⟨fun r hr => ?_, ha.rf.2⟩ rfl rfl rfl rfl rfl rfl
+    (kill_setReg ha.wf₁ _ _) (kill_setReg ha.wf₂ _ _)⟩
+  by_cases h : r = .rsp
+  · subst h; simp [State.setReg, hsp]
+  · simp only [State.setReg, h, ite_false]; exact ha.rf.1 r hr
+
+end Taint
+
 /-- Taint tracking for x86-64. -/
 def taint : VG.Taint isa where
   T := Taint.T
@@ -898,6 +947,10 @@ def taint : VG.Taint isa where
   meet_right := Taint.meet_right
   le := Taint.le
   le_sound := Taint.le_sound
+  call := Taint.callStep
+  call_sound := Taint.call_sound
+  ret := Taint.retStep
+  ret_sound := Taint.ret_sound
 
 /-- The taint in which exactly the registers `rs` are public. -/
 def Taint.ofRegs (rs : List Reg) : Taint.T := { regs := rs, flags := false }
