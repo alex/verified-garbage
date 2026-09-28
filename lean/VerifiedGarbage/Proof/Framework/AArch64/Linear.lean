@@ -1,8 +1,8 @@
-import VerifiedGarbage.Proof.Framework.X86_64.Straight
+import VerifiedGarbage.Proof.Framework.AArch64.Straight
 import VerifiedGarbage.Proof.Framework.Bitslice.Atoms
 
 /-!
-# x86-64: linear layers of bitsliced code, by evaluation
+# AArch64: linear layers of bitsliced code, by evaluation
 
 Untrusted: everything here is checked by Lean.
 
@@ -10,13 +10,13 @@ Straight-line code that only moves and XORs bits of 64-bit words, and masks
 them with constants, is checked by evaluating it (`Straight.check`) over
 the lane domain (`Bitslice.lanes`), on input words given as atoms: bit `t`
 of input word `i` is atom `64 i + t`. The inputs are registers (`ins`) and
-the external words `[ext + 8j]`, input words `xb + j`. `linPost` compares
+the external words `[ext, #8j]`, input words `xb + j`. `linPost` compares
 each output register with the XOR of the atoms `g p` at each bit position
 `p`, and `linear_ok` turns a successful check into a statement about the
 machine: bit `p` of the output register is the XOR of the input bits `g p`.
 -/
 
-namespace VG.X86_64.Straight
+namespace VG.AArch64.Straight
 
 open VG.Bitslice
 
@@ -41,12 +41,12 @@ theorem linear_ok {k xb : Nat} {c : Cfg} {is : List Instr} {ins : List (Reg × N
       64 * (xb + j) + 64 ≤ 2 ^ k ∧ W (xb + j) = s.mem.readW (wordAddr (s.gpr c.ext) j) 64) :
     ∃ s', runBlock isa is s = some s' ∧
       (∀ r g, (r, g) ∈ outs → ∀ p < 64, (s'.gpr r).getLsbD p = xorBits W (g p)) ∧
-      s'.rd = s.rd ∧ s'.wr = s.wr ∧
-      (∀ r, (is.all fun i => i.dst != some r) = true → s'.gpr r = s.gpr r) ∧
+      s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.sp = s.sp ∧
+      (∀ r, (is.all fun i => dstOf i != some r) = true → s'.gpr r = s.gpr r) ∧
       Frame [slotRegion c s] s.mem s'.mem := by
   obtain ⟨e', he, hpost⟩ := of_check _ _ _ hchk
   have hrel : Rel (LaneRel k (assign W (2 ^ k))) c (linExt xb) (linEnv ins) s := by
-    refine ⟨fun r a h => ?_, (fun _ _ _ h => by cases h), fun j a hj h => ?_⟩
+    refine ⟨fun r a h => ?_, (fun _ _ _ h => by cases h), fun j a hj h => ?_, fun _ _ h => by cases h⟩
     · simp only [linEnv, Option.map_eq_some_iff] at h
       obtain ⟨⟨r', i⟩, hf, rfl⟩ := h
       have hr : r' = r := by simpa using List.find?_some hf
@@ -57,9 +57,9 @@ theorem linear_ok {k xb : Nat} {c : Cfg} {is : List Instr} {ins : List (Reg × N
       obtain ⟨h1, h2⟩ := hext j hj
       rw [← h2]; exact inWord_rel W h1
   obtain ⟨s', hs', p⟩ := run lanes_sound hok hrel he
-  refine ⟨s', hs', fun r g hrg q hq => ?_, p.rd, p.wr, fun r hr => p.other r (by simp [hr]), p.frame⟩
+  refine ⟨s', hs', fun r g hrg q hq => ?_, p.rd, p.wr, p.sp, fun r hr => p.other r (by simp [hr]), p.frame⟩
   have h := List.all_eq_true.mp hpost (r, g) hrg
   simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true, List.mem_range, decide_eq_true_eq] at h
   exact outWord_rel (fun p hp a ha => h.2 p hp a ha) (p.rel.reg r _ h.1) q hq
 
-end VG.X86_64.Straight
+end VG.AArch64.Straight
