@@ -19,6 +19,13 @@
 //! this library knows: anything else panics, rather than quietly testing
 //! another configuration.
 
+// No PPC64LE module chooses among implementations yet, so detection is only
+// used by the tests there.
+#![cfg_attr(
+    all(target_arch = "powerpc64", target_endian = "little"),
+    allow(dead_code)
+)]
+
 use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The features detection knows, by their Rust `target_feature` names: bit
