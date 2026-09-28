@@ -16,7 +16,7 @@
     target_arch = "x86"
 ))]
 mod chacha20;
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 mod chacha20poly1305;
 mod harness;
 #[cfg(any(

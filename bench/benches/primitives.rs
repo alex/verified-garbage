@@ -188,7 +188,7 @@ fn poly1305(c: &mut Criterion) {
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn poly1305(_: &mut Criterion) {}
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn chacha20poly1305(c: &mut Criterion) {
     use openssl::symm::encrypt_aead;
     use verified_garbage::chacha20poly1305::ChaCha20Poly1305;
@@ -226,7 +226,7 @@ fn chacha20poly1305(c: &mut Criterion) {
     g.finish();
 }
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn chacha20poly1305(_: &mut Criterion) {}
 
 criterion_group!(

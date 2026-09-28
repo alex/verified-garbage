@@ -26,7 +26,7 @@ compile_error!("32-bit x86 needs an i686 target with SSE2 (e.g. i686-unknown-lin
     target_arch = "x86"
 ))]
 pub mod chacha20;
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub mod chacha20poly1305;
 #[cfg(any(
     target_arch = "x86_64",

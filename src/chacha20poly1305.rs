@@ -7,6 +7,9 @@
 //! lays out their context (the key, the nonce and the tag) and checks the
 //! length limit.
 
+#[cfg(target_arch = "aarch64")]
+use crate::asm::aarch64::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
+#[cfg(target_arch = "x86_64")]
 use crate::asm::x86_64::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
 
 /// The largest plaintext RFC 8439 allows (`P_MAX`, §2.8): 2³² − 1 blocks of
@@ -68,9 +71,9 @@ impl ChaCha20Poly1305 {
         // SAFETY: `ctx` is valid for reads and writes of 1024 bytes, `aad`
         // for reads of `aad.len()` bytes and `data` for reads and writes of
         // `data.len()` bytes; they are distinct objects (`aad` is a shared
-        // borrow and `data` a unique one), so they do not overlap each other,
-        // the return address or the stack below it, and do not wrap around
-        // the end of the address space.
+        // borrow and `data` a unique one), so they do not overlap each other
+        // or (on x86-64) the return address or the stack below it, and do
+        // not wrap around the end of the address space.
         unsafe {
             vg_chacha20_poly1305_seal(
                 &mut ctx,
