@@ -49,23 +49,16 @@ def runBlock (M : ISA) : List M.Instr → M.State → Option M.State
   | [], s => some s
   | i :: is, s => (M.exec i s).bind (runBlock M is)
 
-/-- The rest of a block, after an instruction with result `o`. -/
+/-- `runBlock` after one instruction. Unlike `Option.bind (runBlock M is)`, the
+rest of the block is data rather than a function, and `runStep_congr` keeps
+`simp` from looking into it, so `simp` does not evaluate the rest of the
+block symbolically (from an unknown state, after every instruction) before
+the instruction in front of it has run. Blocks are stepped through with each
+ISA's `runBlock_cons`, `runStep_some` and `runBlock_nil`
+(`Framework/<ISA>/Exec.lean`), stated at its concrete types: `simp` does not
+match them otherwise. -/
 def runStep (M : ISA) (o : Option M.State) (is : List M.Instr) : Option M.State :=
   o.bind (runBlock M is)
-
-/-! For symbolic execution, `simp only [runBlock_cons, runStep_some, runBlock_nil, …]`
-(with `(M := …)` given, or the lemmas do not fire) runs one instruction at a time:
-`runStep_congr` keeps `simp` from looking into the rest of the block before
-the instruction before it has been run. (Unfolding `runBlock` instead has
-`simp` run the whole rest of the block from an unknown state after every
-instruction, which makes proofs much bigger and slow for the kernel to check.) -/
-
-theorem runBlock_nil {s : M.State} : runBlock M [] s = some s := rfl
-
-theorem runBlock_cons {i : M.Instr} {is : List M.Instr} {s : M.State} :
-    runBlock M (i :: is) s = runStep M (M.exec i s) is := rfl
-
-theorem runStep_some {s : M.State} {is : List M.Instr} : runStep M (some s) is = runBlock M is s := rfl
 
 @[congr] theorem runStep_congr {o o' : Option M.State} (h : o = o') (is : List M.Instr) :
     runStep M o is = runStep M o' is := h ▸ rfl

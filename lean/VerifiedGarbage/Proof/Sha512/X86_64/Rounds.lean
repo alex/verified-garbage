@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Framework.Block
+import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Sha512.Spec
@@ -67,8 +67,8 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word)
   simp only [T0, T1, T2, List.nodup_cons, List.mem_cons, List.not_mem_nil, List.reverse_cons,
     List.reverse_nil, List.nil_append, List.cons_append, or_false, not_or,
     List.nodup_nil, and_true] at hd hd' hw ⊢
-  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
-    runBlock_nil (M := isa), exec, execAlu, execShift, readSrc,
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, exec, execAlu, execShift, readSrc,
     isa, State.setReg, arithFlags, State.setFlags, ite_true, ite_false, hd, hd',
     h0, h1, h2, h3, h4, h5, h6, h7, hw,
     Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
@@ -102,8 +102,8 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
   · have hi := hbin ht
     have hb := hblk ht
     simp only [Impl.Sha512.X86_64.schedule, ht, ite_true, slot, at_, T0, T1, T2]
-    simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
-      runBlock_nil (M := isa), exec, readSrc, isa, State.ea,
+    simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+      runBlock_nil, exec, readSrc, isa, State.ea,
       State.load64, State.store64, State.setReg, hrsi, hrcx, hi, hout, ite_true,
       ite_false, hb,
       Option.map_some, Option.some.injEq, exists_eq_left']
@@ -119,8 +119,8 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
     rw [show (t - 15) % 16 = (t + 1) % 16 by omega] at e15
     rw [show (t - 16) % 16 = t % 16 by omega] at e16
     simp only [Impl.Sha512.X86_64.schedule, ht, ite_false, slot, at_, T0, T1, T2]
-    simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
-      runBlock_nil (M := isa), exec, execAlu, execShift, readSrc,
+    simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+      runBlock_nil, exec, execAlu, execShift, readSrc,
       isa, State.ea, State.load64, State.store64, State.setReg, arithFlags,
       State.setFlags, hrcx, hin, hout, ite_true, ite_false, e2, e7, e15, e16,
       Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']

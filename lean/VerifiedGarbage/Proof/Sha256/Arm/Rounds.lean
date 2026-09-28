@@ -76,8 +76,8 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 
   simp only [T1, T2, pubRegs, List.nodup_cons, List.mem_cons, List.not_mem_nil,
     List.reverse_cons, List.reverse_nil, List.nil_append, List.cons_append, or_false, not_or,
     List.nodup_nil, and_true] at hd hd' ⊢
-  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
-    runBlock_nil (M := isa), exec, Op2.eval, isa, State.setReg,
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, exec, Op2.eval, isa, State.setReg,
     State.load32, ite_true, ite_false, hd, hd', h0, h1, h2, h3, h4, h5, h6, h7, hr3, hin, hw, hs,
     Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, trivial, trivial, trivial, fun r hr => ?_⟩
@@ -112,8 +112,8 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32)
     have hb := hblk ht
     have ho : 4 * t < 4096 := by omega
     simp only [Impl.Sha256.Arm.schedule, ht, ite_true, T1, T2]
-    simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
-      runBlock_nil (M := isa), exec, isa, State.setReg, State.load32,
+    simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+      runBlock_nil, exec, isa, State.setReg, State.load32,
       State.store32, hr1, hr3, hi, hout, ho, hs, ite_true, ite_false, hb, Option.map_some,
       Option.some.injEq, exists_eq_left']
     refine ⟨⟨0, .inr trivial⟩, trivial, trivial, fun r h1 _ => ?_⟩
@@ -128,8 +128,8 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32)
     rw [show slot (t - 15) = slot (t + 1) by simp only [slot]; omega] at e15
     rw [show slot (t - 16) = slot t by simp only [slot]; omega] at e16
     simp only [Impl.Sha256.Arm.schedule, ht, ite_false, T1, T2]
-    simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
-      runBlock_nil (M := isa), exec, Op2.eval, isa, State.setReg,
+    simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+      runBlock_nil, exec, Op2.eval, isa, State.setReg,
       State.load32, State.store32, hr3, hin, hout, htin, htout, hs, ite_true, ite_false,
       htsep, Mem.readW_writeW_self32, e2, e7, e15, e16, Option.map_some,
       Option.some.injEq, exists_eq_left']

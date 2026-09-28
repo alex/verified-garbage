@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Framework.Block
+import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Impl.ChaCha20.X86_64
 import VerifiedGarbage.Proof.ChaCha20.Spec
@@ -28,8 +28,8 @@ theorem qr_ok {a b c d : Reg} (hab : a ≠ b) (hac : a ≠ c) (had : a ≠ d) (h
       (∀ r, r ≠ a → r ≠ b → r ≠ c → r ≠ d → s'.gpr r = s.gpr r) ∧
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [qr, runBlock_cons (M := isa), runStep_some (M := isa),
-    runBlock_nil (M := isa), exec, execAlu32, execShift32, readSrc32,
+  simp (config := {decide := true}) only [qr, runBlock_cons, runStep_some,
+    runBlock_nil, exec, execAlu32, execShift32, readSrc32,
     isa, State.setReg32, State.setReg, arithFlags, State.setFlags, ha, hb, hc, hd,
     hab, hac, had, hbc, hbd, hcd, hab.symm, hac.symm, had.symm, hbc.symm, hbd.symm, hcd.symm,
     ite_true, ite_false, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq,
@@ -212,8 +212,8 @@ theorem swap_step {p : Bool} {buf : Addr} {v : CState} {s₀ s : State} (h : RI 
   have hf₁ := h.frame
   cases p
   · apply WP.of_runBlock
-    simp only [slotOff, runBlock_cons (M := isa), exec, isa, ea_at, State.store32, hrsi]
-    norm_num [runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa), exec,
+    simp only [slotOff, runBlock_cons, exec, isa, ea_at, State.store32, hrsi]
+    norm_num [runBlock_cons, runStep_some, runBlock_nil, exec,
       readSrc32, isa, ea_at, State.load32, State.store32, State.setReg32, State.setReg,
       i128, i132, i136, i140, o128, o132, o136, o140, hrsi]
     refine ⟨fun k hk => ?_, ?_, h.rd, h.wr, by simp [h.rsi], by simp [h.rsp]⟩
@@ -226,8 +226,8 @@ theorem swap_step {p : Bool} {buf : Addr} {v : CState} {s₀ s : State} (h : RI 
         (slotR_contains buf (d := 128) (by omega) (by omega))).writeW
         (List.mem_singleton_self _) _ (slotR_contains buf (d := 132) (by omega) (by omega))
   · apply WP.of_runBlock
-    simp only [slotOff, runBlock_cons (M := isa), exec, isa, ea_at, State.store32, hrsi]
-    norm_num [runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa), exec,
+    simp only [slotOff, runBlock_cons, exec, isa, ea_at, State.store32, hrsi]
+    norm_num [runBlock_cons, runStep_some, runBlock_nil, exec,
       readSrc32, isa, ea_at, State.load32, State.store32, State.setReg32, State.setReg,
       i128, i132, i136, i140, o128, o132, o136, o140, hrsi]
     refine ⟨fun k hk => ?_, ?_, h.rd, h.wr, by simp [h.rsi], by simp [h.rsp]⟩

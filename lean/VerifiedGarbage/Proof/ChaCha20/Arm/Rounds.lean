@@ -24,8 +24,8 @@ theorem qr_ok {a b c d : Reg} (hab : a ≠ b) (hac : a ≠ c) (had : a ≠ d) (h
       (∀ r, r ≠ a → r ≠ b → r ≠ c → r ≠ d → s'.gpr r = s.gpr r) ∧
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [qr, runBlock_cons (M := isa), runStep_some (M := isa),
-    runBlock_nil (M := isa), exec, Op2.eval, isa, State.setReg, ha, hb,
+  simp (config := {decide := true}) only [qr, runBlock_cons, runStep_some,
+    runBlock_nil, exec, Op2.eval, isa, State.setReg, ha, hb,
     hc, hd, hab, hac, had, hbc, hbd, hcd, hab.symm, hac.symm, had.symm, hbc.symm, hbd.symm,
     hcd.symm, ite_true, ite_false, Option.map_some, Option.some.injEq,
     exists_eq_left']

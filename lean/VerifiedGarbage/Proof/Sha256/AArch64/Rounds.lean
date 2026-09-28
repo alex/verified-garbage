@@ -74,8 +74,8 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word)
   simp only [T0, T1, T2, T3, pubRegs, List.nodup_cons, List.mem_cons, List.not_mem_nil,
     List.reverse_cons, List.reverse_nil, List.nil_append, List.cons_append, or_false, not_or,
     List.nodup_nil, and_true] at hs hs' hd' hw ⊢
-  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
-    runBlock_nil (M := isa), exec, isa, State.read, State.write, Size.bits,
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, exec, isa, State.read, State.write, Size.bits,
     ite_true, ite_false, hs, hs', h0, h1, h2, h3, h4, h5, h6, h7, hw,
     BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq, Option.some.injEq, exists_eq_left']
   refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, trivial, trivial, trivial, fun r hr => ?_⟩
@@ -115,8 +115,8 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
     have hb := hblk ht
     have ho : 4 * t % 4 = 0 ∧ 4 * t < 16384 := by omega
     simp only [Impl.Sha256.AArch64.schedule, ht, ite_true, T0, T1, T2, T3]
-    simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
-      runBlock_nil (M := isa), exec_ldr_w ho, exec_str_w (slot_ok _),
+    simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+      runBlock_nil, exec_ldr_w ho, exec_str_w (slot_ok _),
       exec_rev32, isa, State.read, State.write, Size.bits, hx1, hx3, hi, hout, ite_true,
       ite_false, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq, hb,
       Option.some.injEq, exists_eq_left']
@@ -132,8 +132,8 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
     rw [show slot (t - 15) = slot (t + 1) by simp only [slot]; omega] at e15
     rw [show slot (t - 16) = slot t by simp only [slot]; omega] at e16
     simp only [Impl.Sha256.AArch64.schedule, ht, ite_false, T0, T1, T2, T3]
-    simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
-      runBlock_nil (M := isa), exec_ldr_w (slot_ok _),
+    simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+      runBlock_nil, exec_ldr_w (slot_ok _),
       exec_str_w (slot_ok _), exec_add, exec_logic, exec_ror_w, exec_lsr_w, isa, State.read,
       State.write, Size.bits, hx3, hin, hout, ite_true, ite_false, BitVec.setWidth_setWidth_of_le,
       BitVec.setWidth_eq, e2, e7, e15, e16, Option.some.injEq, exists_eq_left']

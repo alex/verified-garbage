@@ -66,10 +66,10 @@ of the build time used to be the kernel, not tactics. Avoid these patterns
 * **Constant time:** use `VG.Taint.constantTime … (by taint_decide)`, never
   `decide +kernel` on a taint check: `taint_decide` precomputes loop
   invariants so the kernel does not search for them.
-* **Symbolic execution:** step blocks with `simp only [runBlock_cons (M := isa),
-  runStep_some (M := isa), runBlock_nil (M := isa), …]` (the `(M := isa)` is
-  needed), never `simp [runBlock]`, which runs the rest of the block from an
-  unknown state after every instruction.
+* **Symbolic execution:** step blocks with the ISA's `runBlock_cons`,
+  `runStep_some` and `runBlock_nil` (`Proof/Framework/<ISA>/Exec.lean`), never
+  `simp [runBlock]`, which runs the rest of the block from an unknown state
+  after every instruction.
 * **One symbolic execution per code shape:** don't case-split (e.g.
   `interval_cases` on a register rotation) and run the same block once per
   case; generalize what differs (see `round_ok` and `round_nodup`).

@@ -305,44 +305,6 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
 
 /-! ## The message length -/
 
-theorem shl3 (hi lo : BitVec 32) : (hi <<< 3 ||| lo >>> 29) ++ lo <<< 3 = (hi ++ lo) <<< 3 := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi'
-  conv_rhs => rw [BitVec.getLsbD_shiftLeft, BitVec.getLsbD_append]
-  rw [BitVec.getLsbD_append]
-  by_cases h1 : i < 32
-  · simp only [h1, ↓reduceIte]; rw [BitVec.getLsbD_shiftLeft]
-    by_cases h3 : i < 3
-    · simp [h3]
-    · simp only [show i - 3 < 32 by omega, ↓reduceIte]; simp [h1, h3, hi']
-  · simp only [h1, ↓reduceIte]; rw [BitVec.getLsbD_or, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_ushiftRight]
-    by_cases h35 : i < 35
-    · simp only [show i - 3 < 32 by omega, ↓reduceIte]; rw [show 29 + (i - 32) = i - 3 by omega]
-      simp [show i - 32 < 3 by omega, show ¬ i < 3 by omega, hi']
-    · simp only [show ¬ i - 3 < 32 by omega, ↓reduceIte]; rw [show i - 3 - 32 = i - 32 - 3 by omega]
-      have : lo.getLsbD (29 + (i - 32)) = false := BitVec.getLsbD_of_ge _ _ (by omega)
-      simp [this, show ¬ i - 32 < 3 by omega, show ¬ i < 3 by omega, show i - 32 < 32 by omega, hi']
-
-theorem bits8 (x : BitVec 64) : BitVec.ofNat 64 (8 * x.toNat) = x <<< 3 := by
-  apply BitVec.eq_of_toNat_eq
-  simp [BitVec.toNat_shiftLeft, Nat.shiftLeft_eq]
-  omega
-
-theorem lenBytes_arm (hi lo : BitVec 32) (m : List Byte) (h : hi ++ lo = BitVec.ofNat 64 m.length) :
-    lenBytes m = wordBytes (hi <<< 3 ||| lo >>> 29) ++ wordBytes (lo <<< 3) := by
-  have hx : BitVec.ofNat 64 (8 * m.length) = (hi <<< 3 ||| lo >>> 29) ++ lo <<< 3 := by
-    rw [shl3, h, ← bits8]
-    apply BitVec.eq_of_toNat_eq
-    simp [Nat.mul_mod]
-  simp only [Proof.Sha256.Stream.lenBytes, hx, wordBytes]
-  simp only [List.range_succ, List.range_zero, List.nil_append, List.reverse_cons,
-    List.reverse_nil, List.map_cons, List.map_nil, List.cons_append, List.nil_append]
-  refine List.cons_eq_cons.mpr ⟨?_, List.cons_eq_cons.mpr ⟨?_, List.cons_eq_cons.mpr ⟨?_, List.cons_eq_cons.mpr ⟨?_,
-    List.cons_eq_cons.mpr ⟨?_, List.cons_eq_cons.mpr ⟨?_, List.cons_eq_cons.mpr ⟨?_, List.cons_eq_cons.mpr ⟨?_, rfl⟩⟩⟩⟩⟩⟩⟩⟩ <;>
-  · ext i hi
-    simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_append]
-    split <;> first | omega | (congr 1; omega) | rfl
-
 theorem writeW_rev (m : Mem) (a : Addr) (w : BitVec 32) :
     m.writeW a (rev w) = writeBytes m a (wordBytes w) := by
   rw [Mem.writeW, write_eq_writeBytes, ← X86_64.Stream.bswap32_bytes']; rfl
@@ -488,7 +450,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv
       · simp only [show ¬ ((0 : Nat) = 1) by decide, ite_false]
         have e := bytesAt_writeBytes s₇.mem (stA s₀ + 32) 56 L (by simp [L, wordBytes])
         simp only [L, List.length_append, show ∀ w, (wordBytes w).length = 4 from fun _ => rfl] at e
-        rw [hw, e, f₇.mem, hby₆, ← lenBytes_arm _ _ m hm.2]
+        rw [hw, e, f₇.mem, hby₆, ← Proof.Sha256.Stream.lenBytes_halves _ _ m hm.2]
         simp [List.append_assoc]
     · simp only [decide_eq_false_iff_not] at hb
       have hk1 : k = 1 := by omega
@@ -851,8 +813,8 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.finalizeArm.pre s₁) (
     rcases hr with rfl | rfl | rfl <;> assumption
   · rw [hp₁.wr, hp₂.wr]; simp only [stR, outR, scR, stA, outA, scA, st, out, scr, p0, a0, a1]
   · simp only [τ₀] at hk
-    rw [argByte_eq hp₁.sp_fit hk, argByte_eq hp₂.sp_fit hk, readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)),
-      readW_byte s₂.mem _ (Nat.mod_lt _ (by omega))]
+    rw [argByte_eq hp₁.sp_fit hk, argByte_eq hp₂.sp_fit hk, Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)),
+      Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega))]
     have : k / 4 = 0 ∨ k / 4 = 1 := by omega
     rcases this with h | h <;> rw [h]
     · exact congrArg _ a0

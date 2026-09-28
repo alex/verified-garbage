@@ -109,7 +109,7 @@ theorem load_step {s₀ : State} (hp : Pre s₀) {n : Nat} (hn : n < 16) {s : St
   have hv : s.mem.readW (st s₀ + BitVec.ofNat 64 (4 * n)) 32 = (V s₀)[n] := by
     rw [h.mem]; exact hp.read_st (Frame.refl _ _) hn
   apply WP.of_runBlock
-  simp only [runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa),
+  simp only [runBlock_cons, runStep_some, runBlock_nil,
     exec_ldr_w (show 4 * n % 4 = 0 ∧ 4 * n < 16384 by omega) hin, isa,
     Option.some.injEq, exists_eq_left', hx0, hv]
   refine ⟨fun j hj hjn => ?_, h.mem, h.rd, h.wr, fun r hr => ?_⟩
@@ -186,8 +186,8 @@ theorem first_ok {s₀ : State} (hp : Pre s₀) {R : CState} {s : State} (hh : H
     rw [hwr, hx1]; exact hp.out_out (k := 0) (by omega)
   have h0 : s.gpr .x2 = R[0].setWidth 64 := hh 0 (by omega)
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
-    runBlock_nil (M := isa), isa,
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, isa,
     exec_str_w (show 0 % 4 = 0 ∧ 0 < 16384 by omega) hout, Option.some.injEq, exists_eq_left', hx1, h0,
     BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq]
   refine ⟨by simp only [Nat.mul_zero]; exact Mem.readW_writeW_self32 _ _ _, fun j _ h1 h2 => absurd h2 (by omega),
@@ -216,8 +216,8 @@ theorem last_ok {s₀ : State} (hp : Pre s₀) {R : CState} {sB s : State} (h : 
   have hv := hp.read_st h.frame (k := 0) (by omega)
   apply WP.of_runBlock
   rw [last_eq]
-  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
-    runBlock_nil (M := isa), exec_ldr_w
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, exec_ldr_w
     (show 4 * 0 % 4 = 0 ∧ 4 * 0 < 16384 by omega), exec_add, exec_str_w
     (show 4 * 0 % 4 = 0 ∧ 4 * 0 < 16384 by omega), isa, State.read, State.write, Size.bits, hx0,
     hx1, hin, hin', hout, hv, h.out0, ite_true, ite_false, BitVec.setWidth_setWidth_of_le,
