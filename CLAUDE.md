@@ -37,6 +37,18 @@ trustworthy. Read `lean/README.md` first.
   adds or removes support for an algorithm on an architecture, or optimizes
   an implementation must update the table in the
   [Algorithms](README.md#algorithms) section of `README.md` in the same PR.
+* **Never inline or duplicate a verified routine.** When one artifact needs
+  what another verified function does (e.g. `update` and `finalize` needing
+  `compress`, or HMAC needing SHA-256), it calls that function with
+  `Code.call` and the callee's own artifact; it never splices the callee's
+  `Prog` into its own code, copies it, or emits a variant of it. Every target
+  exposes its building blocks (e.g. `compress`) as standalone verified
+  artifacts for this. Reusing a callee's *proof* (`WP.inline`, its lemmas)
+  is fine; duplicated *emitted code* is not. If a call seems impossible (a
+  shared contract's scratch is too small on some target, a register or
+  stack constraint, performance), stop and ask a maintainer before writing
+  any code: the fix is usually to the Spec contract (as SHA-256 sizes
+  scratch for its tightest target), in its own PR, not a workaround.
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
