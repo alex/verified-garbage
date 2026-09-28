@@ -199,42 +199,6 @@ theorem ret_gpr {s₁ s₂ s' : State} (h : isa.ret s₁ s₂ = some s') (r : Re
     s₂.gpr .esp = s₁.gpr .esp ∧ s'.gpr r = if r = .esp then s₂.gpr .esp + 4 else s₂.gpr r := by
   simp only [isa, ret] at h; split at h <;> cases h; rename_i hc; exact ⟨hc.1, rfl⟩
 
-theorem ofNat_four_mul_succ (n : Nat) :
-    BitVec.ofNat 32 (4 * (n + 1)) = BitVec.ofNat 32 (4 * n) + 4 := by
-  rw [show 4 * (n + 1) = 4 * n + 4 by omega, BitVec.ofNat_add]; rfl
-
-theorem pushRegs_eq (s : State) (rs : List Reg) :
-    (pushRegs s rs).rd = s.rd ∧ (pushRegs s rs).wr = s.wr ∧
-      (pushRegs s rs).gpr .esp = s.gpr .esp - BitVec.ofNat 32 (4 * rs.length) ∧
-      ∀ r, r ≠ .esp → (pushRegs s rs).gpr r = s.gpr r := by
-  induction rs generalizing s with
-  | nil => exact ⟨rfl, rfl, by simp [pushRegs], fun _ _ => rfl⟩
-  | cons x xs ih =>
-    obtain ⟨h₁, h₂, h₃, h₄⟩ := ih { s.setReg .esp (s.gpr .esp - 4) with
-      mem := s.mem.writeW ((s.gpr .esp - 4).setWidth 64) (s.gpr x) }
-    refine ⟨h₁, h₂, ?_, fun r hr => ?_⟩
-    · simp only [pushRegs, h₃, List.length_cons, ofNat_four_mul_succ]
-      simp only [State.setReg, ite_true]
-      bv_omega
-    · simp only [pushRegs, h₄ r hr]
-      simp [State.setReg, hr]
-
-theorem popReg_eq (s : State) (d : Reg) (k : Nat) :
-    (popReg s d k).rd = s.rd ∧ (popReg s d k).wr = s.wr ∧
-      (popReg s d k).gpr .esp = s.gpr .esp + BitVec.ofNat 32 (4 * k) ∧
-      ∀ r, r ≠ .esp → r ≠ d → (popReg s d k).gpr r = s.gpr r := by
-  induction k generalizing s with
-  | zero => exact ⟨rfl, rfl, by simp [popReg], fun _ _ _ => rfl⟩
-  | succ k ih =>
-    obtain ⟨h₁, h₂, h₃, h₄⟩ := ih ((s.setReg d (s.mem.readW ((s.gpr .esp).setWidth 64) 32)).setReg .esp
-      (s.gpr .esp + 4))
-    refine ⟨h₁, h₂, ?_, fun r hr hr' => ?_⟩
-    · simp only [popReg, h₃, ofNat_four_mul_succ]
-      simp only [State.setReg, ite_true]
-      bv_omega
-    · simp only [popReg, h₄ r hr hr']
-      simp [State.setReg, hr, hr']
-
 theorem pushRegs_withRegions (s : State) (rs : List Reg) (rd wr : List Region) :
     pushRegs (s.withRegions rd wr) rs = (pushRegs s rs).withRegions rd wr := by
   induction rs generalizing s with
