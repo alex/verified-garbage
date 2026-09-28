@@ -35,9 +35,11 @@ def set (τ : T) (r : Reg) (p : Bool) : T :=
   if p then τ.insert r else τ.erase r
 
 def step (τ : T) : Instr → Option T
-  | .add _ d n m | .sub _ d n m | .logic _ _ d n m => some (set τ d (pub τ n && pub τ m))
-  | .addImm _ d n _ | .subImm _ d n _ | .ror _ d n _ | .lsr _ d n _ | .rev32 d n | .rev d n =>
-    some (set τ d (pub τ n))
+  | .add _ d n m | .sub _ d n m | .logic _ _ d n m | .mul _ d n m =>
+    some (set τ d (pub τ n && pub τ m))
+  | .madd _ d n m a => some (set τ d (pub τ n && pub τ m && pub τ a))
+  | .addImm _ d n _ | .subImm _ d n _ | .ror _ d n _ | .lsr _ d n _ | .lsl _ d n _ | .rev32 d n
+  | .rev d n => some (set τ d (pub τ n))
   | .movz _ d _ _ => some (set τ d true)
   | .movk _ d _ _ => some (set τ d (pub τ d))
   | .ldr _ t n _ | .ldrb t n _ => if pub τ n then some (set τ t false) else none
@@ -118,6 +120,24 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     split at e₁ <;> [skip; cases e₁]
     rename_i h; simp only [h, ite_true, Option.some.injEq] at e₁ e₂; subst e₁ e₂
     exact ⟨rfl, ha.write sz d fun hp => by rw [ha.read hp]⟩
+  | lsl sz d n sh =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    simp only [exec] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    rename_i h; simp only [h, ite_true, Option.some.injEq] at e₁ e₂; subst e₁ e₂
+    exact ⟨rfl, ha.write sz d fun hp => by rw [ha.read hp]⟩
+  | madd sz d n m a =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
+    refine ⟨rfl, ha.write sz d fun hp => ?_⟩
+    simp only [Bool.and_eq_true] at hp
+    rw [ha.read hp.1.1, ha.read hp.1.2, ha.read hp.2]
+  | mul sz d n m =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
+    refine ⟨rfl, ha.write sz d fun hp => ?_⟩
+    simp only [Bool.and_eq_true] at hp
+    rw [ha.read hp.1, ha.read hp.2]
   | rev32 d n =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂

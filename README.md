@@ -22,8 +22,10 @@ It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
 | PBKDF2-HMAC-SHA-256 | ✅ | ❌ | ❌ |
 | ChaCha20 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 | Poly1305 | ✅ | ❌ | ❌ |
+| ChaCha20-Poly1305 | ✅ | ❌ | ❌ |
 | SHA-1 | ✅ | x86-64, ARM64 | ❌ |
 | MD5 | ✅ | x86-64, ARM64 | ❌ |
+| AES-GCM (128-, 192- and 256-bit keys) | ✅ | ❌ | ❌ |
 
 * **Spec landed**: the algorithm's specification, transcribed from its
   standard, is in `lean/VerifiedGarbage/Spec/`.
@@ -82,3 +84,4 @@ This project is inspired by:
 - [Graviola](https://github.com/ctz/graviola/)
 - [s2n-bignum](https://github.com/awslabs/s2n-bignum)
 - [Bobby Powers](https://bpowers.net/)
+- [HACS Workshop](https://www.hacs-workshop.org)

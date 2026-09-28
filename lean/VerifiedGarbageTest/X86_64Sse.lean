@@ -1,10 +1,11 @@
 import VerifiedGarbage.TCB.X86_64.Print
 
 /-!
-# Semantics tests for the x86-64 SSE2 instructions
+# Semantics tests for the x86-64 SSE instructions
 
 Each expected value was computed on an x86-64 CPU, by the same instruction
-through its SSE2 intrinsic (`_mm_add_epi32`, `_mm_shuffle_epi32`, …; the
+through its intrinsic (`_mm_add_epi32`, `_mm_shuffle_epi32`,
+`_mm_sha256rnds2_epu32`, …; the
 shifts by a count in a register, whose semantics are those of the immediate
 form), and is compared with the model's result on the same inputs. This
 tests the transcription of the SDM's pseudocode (in particular which
@@ -18,8 +19,10 @@ open X86_64
 
 def a : BitVec 128 := 0x89abcdef01234567fedcba9876543210#128
 def b : BitVec 128 := 0xffffffff800000007fffffff12345678#128
+/-- The `pshufb` mask that reverses the bytes of each doubleword. -/
+def c : BitVec 128 := 0x0c0d0e0f08090a0b0405060700010203#128
 
-/-- A state with `a` in `xmm0` and `b` in `xmm1`, and 16 bytes `17 i + 3` at
+/-- A state with `a` in `xmm0`, `b` in `xmm1` and `c` in `xmm2`, and 16 bytes `17 i + 3` at
 address `0x100`, readable. -/
 def s : State where
   gpr r := if r = .rdi then 0x100 else 0
@@ -27,7 +30,7 @@ def s : State where
   zf := none
   sf := none
   of := none
-  xmm r := if r = .xmm0 then a else if r = .xmm1 then b else 0
+  xmm r := if r = .xmm0 then a else if r = .xmm1 then b else if r = .xmm2 then c else 0
   mem addr := if 0x100 ≤ addr.toNat ∧ addr.toNat < 0x110 then
     BitVec.ofNat 8 (17 * (addr.toNat - 0x100) + 3) else 0
   rd := [⟨0x100, 16⟩]
@@ -44,6 +47,37 @@ def bin (op : XBinOp) : BitVec 128 := ((XOp.bin op .xmm0 .xmm1).exec s).xmm .xmm
 #guard bin .punpckhdq == 0xffffffff89abcdef8000000001234567#128
 #guard bin .punpcklqdq == 0x7fffffff12345678fedcba9876543210#128
 #guard bin .punpckhqdq == 0xffffffff8000000089abcdef01234567#128
+#guard bin .pshufb == 0x0000000000101010890000005498dc67#128
+#guard bin .sha256msg1 == 0x71a8b4dd3e8111b31e5ca90676d443a1#128
+#guard bin .sha256msg2 == 0x53d29532d27aee3bff1cba9776748210#128
+
+/-- `xmm1` after `op xmm1, xmm0`. -/
+def binRev (op : XBinOp) : BitVec 128 := ((XOp.bin op .xmm1 .xmm0).exec s).xmm .xmm1
+
+#guard binRev .sha256msg1 == 0x22a233b29fffffff91001fff21343677#128
+#guard binRev .sha256msg2 == 0x246c964d5082e17c1f685f12dc537edc#128
+
+-- `pshufb xmm0, xmm2` reverses the bytes of each doubleword.
+#guard ((XOp.bin .pshufb .xmm0 .xmm2).exec s).xmm .xmm0 ==
+  0xefcdab896745230198badcfe10325476#128
+
+-- `sha256rnds2` reads `xmm0` (here `a`), including when it is the destination.
+#guard ((XOp.sha256rnds2 .xmm1 .xmm2).exec s).xmm .xmm1 == 0x3aa0667b764849a77d081e7962f81bbd#128
+#guard ((XOp.sha256rnds2 .xmm0 .xmm1).exec s).xmm .xmm0 == 0xdf90e07e06788845012d205c7defffbe#128
+
+/-- `xmm0` after `palignr xmm0, xmm1, n`. -/
+def align (n : BitVec 8) : BitVec 128 := ((XOp.palignr .xmm0 .xmm1 n).exec s).xmm .xmm0
+
+#guard align 4 == 0x76543210ffffffff800000007fffffff#128
+#guard align 0 == b
+#guard align 16 == a
+#guard align 20 == 0x0000000089abcdef01234567fedcba98#128
+#guard align 31 == 0x00000000000000000000000000000089#128
+#guard align 32 == 0
+#guard align 255 == 0
+
+-- `movq xmm0, rdi` zeroes the upper quadword.
+#guard ((XOp.movq .xmm0 .rdi).exec s).xmm .xmm0 == 0x100#128
 
 /-- `xmm0` after `op xmm0, n`. -/
 def shift (op : XShiftOp) (n : BitVec 8) : BitVec 128 := ((XOp.shift op .xmm0 n).exec s).xmm .xmm0
@@ -91,8 +125,23 @@ def shuf (order : BitVec 8) : BitVec 128 := ((XOp.pshufd .xmm1 .xmm0 order).exec
 #guard printer.instr (.xop (.shift .pslld .xmm1 7)) == ["pslld xmm1, 7"]
 #guard printer.instr (.xop (.shift .psrld .xmm2 25)) == ["psrld xmm2, 25"]
 #guard printer.instr (.xop (.pshufd .xmm3 .xmm4 0x93)) == ["pshufd xmm3, xmm4, 147"]
+#guard printer.instr (.xop (.bin .pshufb .xmm5 .xmm6)) == ["pshufb xmm5, xmm6"]
+#guard printer.instr (.xop (.bin .sha256msg1 .xmm7 .xmm8)) == ["sha256msg1 xmm7, xmm8"]
+#guard printer.instr (.xop (.bin .sha256msg2 .xmm9 .xmm10)) == ["sha256msg2 xmm9, xmm10"]
+#guard printer.instr (.xop (.palignr .xmm11 .xmm12 4)) == ["palignr xmm11, xmm12, 4"]
+#guard printer.instr (.xop (.sha256rnds2 .xmm13 .xmm14)) == ["sha256rnds2 xmm13, xmm14, xmm0"]
+#guard printer.instr (.xop (.movq .xmm15 .r9)) == ["movq xmm15, r9"]
+
+/-! ## Required features -/
 
 -- SSE2 is in the x86-64 baseline.
 #guard isa.requires (.xop (.pshufd .xmm3 .xmm4 0x93)) == []
+#guard isa.requires (.xop (.movq .xmm1 .rax)) == []
+#guard isa.requires (.movdquLoad .xmm0 { base := .rdi }) == []
+#guard isa.requires (.xop (.bin .pshufb .xmm1 .xmm2)) == ["ssse3"]
+#guard isa.requires (.xop (.palignr .xmm1 .xmm2 4)) == ["ssse3"]
+#guard isa.requires (.xop (.bin .sha256msg1 .xmm1 .xmm2)) == ["sha"]
+#guard isa.requires (.xop (.bin .sha256msg2 .xmm1 .xmm2)) == ["sha"]
+#guard isa.requires (.xop (.sha256rnds2 .xmm1 .xmm2)) == ["sha"]
 
 end VG.Test.Sse

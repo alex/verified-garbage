@@ -56,6 +56,7 @@ def XBinOp.name : XBinOp → String
   | .movdqa => "movdqa" | .paddd => "paddd" | .pxor => "pxor" | .por => "por"
   | .punpckldq => "punpckldq" | .punpckhdq => "punpckhdq"
   | .punpcklqdq => "punpcklqdq" | .punpckhqdq => "punpckhqdq"
+  | .pshufb => "pshufb" | .sha256msg1 => "sha256msg1" | .sha256msg2 => "sha256msg2"
 
 def XShiftOp.name : XShiftOp → String
   | .pslld => "pslld" | .psrld => "psrld"
@@ -64,6 +65,9 @@ def XOp.asm : XOp → String
   | .bin op d r => s!"{op.name} {d.name}, {r.name}"
   | .shift op d n => s!"{op.name} {d.name}, {n.toNat}"
   | .pshufd d r o => s!"pshufd {d.name}, {r.name}, {o.toNat}"
+  | .palignr d r n => s!"palignr {d.name}, {r.name}, {n.toNat}"
+  | .sha256rnds2 d r => s!"sha256rnds2 {d.name}, {r.name}, xmm0"
+  | .movq d r => s!"movq {d.name}, {r.name}"
 
 def Src.str : Src → String
   | .reg r => r.name

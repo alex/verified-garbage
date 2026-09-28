@@ -8,9 +8,9 @@ transcribed from RFC 8439, *ChaCha20 and Poly1305 for IETF Protocols* (June
 2018); section numbers below refer to it. Every multi-byte quantity is
 little-endian (§2.3).
 
-The primitive implemented in assembly is the block function (`block`) on a
-state in memory; everything else (building the state, the keystream XOR and
-advancing the block counter) is the caller's (Rust's) job. This file is
+The primitives implemented in assembly are the block function (`block`) on a
+state in memory, and the XOR of the keystream of such a state into data
+(`keystream`); building the state is the caller's job. This file is
 independent of any architecture; the contracts of the primitive on each
 target are in `Spec/ChaCha20/<Target>.lean`.
 -/
@@ -111,5 +111,21 @@ counter are the caller's (Rust's) job. -/
 /-- The state stored as `[u32; 16]` at `p`. -/
 def stateAt (m : Mem) (p : Addr) : State :=
   Vector.ofFn fun j => m.readW (p + BitVec.ofNat 64 (4 * j)) 32
+
+/-! ## The keystream on memory
+
+A second primitive XORs the keystream of a state in memory into data: the
+blocks for the states with word 12, the block counter, advanced by `0, 1, …`
+(modulo 2³², as in `encrypt`). -/
+
+/-- The first `n` bytes of the keystream from the state `s`: the serialized
+blocks of `s` with the counter (word 12) advanced by `j = 0, 1, …`. -/
+def keystream (s : State) (n : Nat) : List Byte :=
+  ((List.range ((n + 63) / 64)).flatMap fun j =>
+    serialize (block (s.set 12 (s[12] + BitVec.ofNat 32 j)))).take n
+
+/-- The `n` bytes at `p`. -/
+def bytesAt (m : Mem) (p : Addr) (n : Nat) : List Byte :=
+  (List.range n).map fun i => m (p + BitVec.ofNat 64 i)
 
 end VG.Spec.ChaCha20
