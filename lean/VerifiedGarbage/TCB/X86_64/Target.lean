@@ -14,8 +14,9 @@ return-address slot are unchanged on exit.
 
 The SSE registers `xmm0`–`xmm15` are all caller-saved (System V AMD64
 psABI §3.2.1, Figure 3.4: "No" under "callee-saved"; also on Windows, whose
-own convention the functions do not use), so `abiPreserved` says nothing
-about them.
+own convention the functions do not use), and so are the upper halves of
+the `ymm` registers that contain them (the psABI makes no vector register
+callee-saved), so `abiPreserved` says nothing about them.
 
 Not modelled: the direction flag (no modelled instruction changes it; it is
 clear on entry and exit), x87/MXCSR control words (never modified), and the
