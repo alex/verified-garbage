@@ -1044,3 +1044,59 @@ pub(crate) unsafe extern "C" fn vg_chacha20_block(state: *const [u32; 16], buf: 
         "ret",
     )
 }
+
+/// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`, calling `vg_chacha20_block` for each 64 bytes.
+///
+/// Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 64 bytes; its contents on return are unspecified.
+/// * `data` must be valid for reads and writes of `len` bytes.
+/// * `buf` must be valid for reads and writes of 320 bytes; its contents on return are unspecified.
+/// * `state`, `data` and `buf` must not overlap each other (distinct Rust objects never do).
+/// * None of `state`, `data` and `buf` may wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80]) {
+    core::arch::naked_asm!(
+        "str x19, [x3, #256]",
+        "str x20, [x3, #264]",
+        "str x30, [x3, #272]",
+        "add x19, x1, #0",
+        "add x20, x2, #0",
+        "add x1, x3, #0",
+        "cbz x20, 20f",
+        "22:",
+        "bl {vg_chacha20_block}",
+        "lsr x9, x20, #6",
+        "add x2, x20, #0",
+        "cbz x9, 23f",
+        "movz x2, #64, lsl #0",
+        "b 24f",
+        "23:",
+        "24:",
+        "sub x20, x20, x2",
+        "add x7, x1, #0",
+        "25:",
+        "ldrb w6, [x19, #0]",
+        "ldrb w8, [x7, #0]",
+        "eor w6, w6, w8",
+        "strb w6, [x19, #0]",
+        "add x19, x19, #1",
+        "add x7, x7, #1",
+        "sub x2, x2, #1",
+        "cbnz x2, 25b",
+        "ldr w3, [x0, #48]",
+        "add w3, w3, #1",
+        "str w3, [x0, #48]",
+        "cbnz x20, 22b",
+        "b 21f",
+        "20:",
+        "21:",
+        "ldr x19, [x1, #256]",
+        "ldr x20, [x1, #264]",
+        "ldr x30, [x1, #272]",
+        "ret",
+        vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
+    )
+}

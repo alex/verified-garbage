@@ -1,0 +1,5 @@
+name = "RFC 2202, Test Cases for HMAC-MD5 and HMAC-SHA-1 (Sections 2 and 3)"
+directories = ["rfc2202"]
+url = "https://www.rfc-editor.org/rfc/rfc2202.txt"
+sha256 = "c19effeca47e801be304460da3b2fb05f595e2309abceb050e40e024868fe483"
+retrieved = 2026-09-28
