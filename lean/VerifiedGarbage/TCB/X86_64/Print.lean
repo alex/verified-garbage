@@ -57,9 +57,13 @@ def XBinOp.name : XBinOp → String
   | .punpckldq => "punpckldq" | .punpckhdq => "punpckhdq"
   | .punpcklqdq => "punpcklqdq" | .punpckhqdq => "punpckhqdq"
   | .pshufb => "pshufb" | .sha256msg1 => "sha256msg1" | .sha256msg2 => "sha256msg2"
+  | .pand => "pand" | .pandn => "pandn" | .paddq => "paddq" | .pmuludq => "pmuludq"
+  | .aesenc => "aesenc" | .aesenclast => "aesenclast" | .aesdec => "aesdec"
+  | .aesdeclast => "aesdeclast" | .aesimc => "aesimc"
 
 def XShiftOp.name : XShiftOp → String
-  | .pslld => "pslld" | .psrld => "psrld"
+  | .pslld => "pslld" | .psrld => "psrld" | .psllq => "psllq" | .psrlq => "psrlq"
+  | .pslldq => "pslldq" | .psrldq => "psrldq"
 
 def XOp.asm : XOp → String
   | .bin op d r => s!"{op.name} {d.name}, {r.name}"
@@ -68,6 +72,8 @@ def XOp.asm : XOp → String
   | .palignr d r n => s!"palignr {d.name}, {r.name}, {n.toNat}"
   | .sha256rnds2 d r => s!"sha256rnds2 {d.name}, {r.name}, xmm0"
   | .movq d r => s!"movq {d.name}, {r.name}"
+  | .aeskeygenassist d r n => s!"aeskeygenassist {d.name}, {r.name}, {n.toNat}"
+  | .pclmulqdq d r n => s!"pclmulqdq {d.name}, {r.name}, {n.toNat}"
 
 def Src.str : Src → String
   | .reg r => r.name
