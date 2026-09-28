@@ -7,7 +7,10 @@ import VerifiedGarbage.Proof.ChaCha20Poly1305.X86_64.Shared
 
 A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`.
+caller to the contract; check them against the contract's `pre`/`post`. An
+artifact made from a function's `Api` (in `Spec/`, reviewed with the
+contract) takes its signature and most of its `doc` from there: what this
+file adds is the `# Safety` items that depend on the target, and any notes.
 -/
 
 namespace VG.Artifacts.ChaCha20Poly1305.X86_64
