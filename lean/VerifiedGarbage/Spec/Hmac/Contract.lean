@@ -25,6 +25,11 @@ address every region from the two pointers it keeps in registers across the
 inlined SHA-256 finalizations. On the 32-bit targets it writes the MAC
 through an `out` pointer (`finalizeSha256OutContract`), so that its arguments
 are those of `vg_sha256_finalize` with `outer` inserted after `inner`.
+
+`init` and `finalize` take the number of bytes of stack below the stack pointer that
+an implementation's calls use (`stack`, see `Sig.contract`), 0 for one that
+makes no call: it depends on the target, and on which functions the
+implementation calls.
 -/
 
 namespace VG.Spec.Hmac
@@ -41,13 +46,14 @@ def initSha256Sig : Sig where
 streaming state at `inner` represent `K₀ ⊕ ipad` and the one at `outer`
 represent `K₀ ⊕ opad`, for the key `K₀` made of the `key_len` bytes at `key`.
 The key is secret. -/
-def initSha256Contract {M : ISA} (A : Abi M) : Contract M :=
+def initSha256Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   initSha256Sig.contract A
     (pre := fun _inner _outer _key keyLen _scratch _ => keyLen.toNat ≤ 64)
     (post := fun inner outer key keyLen _scratch m m' _ =>
       let k0 := blockKey sha256 (bytesAt m key keyLen.toNat)
       Repr m' inner (xorPad k0 ipad) ∧ Repr m' outer (xorPad k0 opad))
     (writeArgs := true)
+    (stack := stack)
 
 /-- `vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 30])`,
 on 64-bit targets. `count` is public; `inner` is left unspecified, and
@@ -60,11 +66,12 @@ def finalizeSha256Sig : Sig where
 represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes (modulo 2⁶⁴), and the one at
 `outer` represents `K₀ ⊕ opad`, leaves the HMAC-SHA-256 of the text under
 `K₀` in bytes 176 to 207 of `scratch`. The states are secret. -/
-def finalizeSha256Contract {M : ISA} (A : Abi M) : Contract M :=
+def finalizeSha256Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   finalizeSha256Sig.contract A (post := fun inner outer count scratch m m' _ =>
     ∀ k0 text, k0.length = 64 → Repr m inner (xorPad k0 ipad ++ text) →
       count = BitVec.ofNat 64 (64 + text.length) → Repr m outer (xorPad k0 opad) →
       bytesAt m' (scratch + 176) 32 = hmacBlockKey sha256 k0 text)
+    (stack := stack)
 
 /-- `vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 30])`,
 on 32-bit targets. `count` is public; `inner` is left unspecified, and
@@ -74,11 +81,12 @@ def finalizeSha256OutSig : Sig where
     ("count", .int .u64 true), ("out", .array true .u8 32), ("scratch", .array true .u64 30)]
 
 /-- As `finalizeSha256Contract`, but writes the MAC to `out`. -/
-def finalizeSha256OutContract {M : ISA} (A : Abi M) : Contract M :=
+def finalizeSha256OutContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   finalizeSha256OutSig.contract A (post := fun inner outer count out _scratch m m' _ =>
     ∀ k0 text, k0.length = 64 → Repr m inner (xorPad k0 ipad ++ text) →
       count = BitVec.ofNat 64 (64 + text.length) → Repr m outer (xorPad k0 opad) →
       bytesAt m' out 32 = hmacBlockKey sha256 k0 text)
     (writeArgs := true)
+    (stack := stack)
 
 end VG.Spec.Hmac
