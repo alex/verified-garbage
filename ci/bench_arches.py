@@ -57,10 +57,14 @@ MODULES = {
     "chacha20": r"chacha20",
     "md5": r"md5",
     "sha1": r"sha1",
-    # HMAC-SHA-256 calls SHA-256's compression function.
-    "sha256": r"(hmac-)?sha256(-.*)?",
+    # HMAC-SHA-256 calls SHA-256's compression function, PBKDF2 calls
+    # HMAC-SHA-256, and scrypt calls PBKDF2.
+    "sha256": r"(hmac-)?sha256(-.*)?|pbkdf2.*|scrypt",
+    "hmac": r"hmac-.*|pbkdf2.*|scrypt",
+    "pbkdf2": r"pbkdf2.*|scrypt",
+    "scrypt": r"scrypt",
     "sha512": r"sha512(-.*)?",
-    "hmac": r"hmac-.*",
+    "sha3": r"sha3-.*|shake.*",
 }
 
 # The file of one module: its assembly on one architecture, or its Rust API

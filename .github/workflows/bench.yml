@@ -68,7 +68,9 @@ jobs:
         include: ${{ fromJSON(needs.arches.outputs.matrix) }}
     name: Compare with base (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    # A pull request that adds a primitive (or changes shared code) runs every
+    # benchmark, which takes over 15 minutes on x86-64 with SHA-3 and scrypt.
+    timeout-minutes: 30
     # With an empty image the job runs directly on the runner.
     container:
       image: ${{ matrix.image || '' }}
