@@ -14,7 +14,7 @@ namespace VG.Proof.Sha3.X86_64
 open VG VG.X86_64 VG.Impl.Sha3.X86_64
 open VG.Spec.Sha3 (stateAt keccakF)
 
-theorem permute_keeps : ((instrs permute).all fun i => Taint.dstOf i != some .rsp) = true := by
+theorem permute_keeps : ((instrs permute).all fun i => !Taint.clobbers i .rsp) = true := by
   rw [← Code.allInstrs_eq]; decide +kernel
 
 theorem permute_nosp : NoSp permute := by
