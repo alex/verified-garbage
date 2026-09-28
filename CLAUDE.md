@@ -80,7 +80,28 @@ of the build time used to be the kernel, not tactics. Avoid these patterns
   after every instruction.
 * **One symbolic execution per code shape:** don't case-split (e.g.
   `interval_cases` on a register rotation) and run the same block once per
-  case; generalize what differs (see `round_ok` and `round_nodup`).
+  case; generalize what differs (see `round_ok` and `round_nodup`). Memory
+  offsets generalize too: pass their bounds and separation from a lemma
+  proved once (`round_sep`, x86), stating each pair in both orders, since
+  `simp` won't match `a ∨ b` against `b ∨ a`.
+* **Short symbolic executions:** don't run a long block of loads and stores
+  in one `simp`; the states grow with every access. Prove one step for any
+  index (`ld_ok k`, `upd_ok k`) and compose the steps by induction with
+  `WP.block_append_iff`.
+* **Kernel-evaluated data:** anything the kernel evaluates (a taint domain,
+  a `decide +kernel` check) should use `Nat` arithmetic, which the kernel
+  runs natively, not lists it searches element by element: sets of
+  registers are `RegSet`s (`Proof/Framework/RegSet.lean`), not `List Reg`.
+* **Finite facts:** prove a fact about a few small numbers with one `decide`
+  on the bounded statement (`∀ j < 16, ∀ k < 16, wreg j = wreg k → j = k`),
+  not `interval_cases j <;> interval_cases k <;> simp`. For a nested `if`
+  on the same index on both sides, split the index into ranges once with
+  `omega` and resolve each `if` with
+  `simp (disch := omega) only [ite_eq_left, ite_eq_right]`, not `split_ifs`.
+* **Imports:** never import `Mathlib.Tactic` or all of Mathlib, which costs
+  seconds in every module that (transitively) imports it: import the
+  module of each tactic or lemma you use (e.g. `Mathlib.Tactic.IntervalCases`),
+  and prefer core lemmas.
 * **Properties of every instruction:** prove `(instrs c).all p` with
   `rw [← Code.allInstrs_eq]; decide +kernel`, not `decide +kernel` directly.
 * **Failing unfolding:** `rfl`, `trivial`, `congr 1`, `exact` and `simpa` on
@@ -96,6 +117,9 @@ To find what is slow, profile one file per declaration (time under
 lake env lean -DElab.async=false -Dtrace.profiler=true -Dtrace.profiler.threshold=1000 \
   VerifiedGarbage/Proof/….lean
 ```
+
+`set_option diagnostics true in` before a slow theorem lists the
+definitions unfolded while elaborating it, which finds failing unfoldings.
 
 ## Checks to run before pushing
 

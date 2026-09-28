@@ -395,7 +395,9 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hs : Saved s₀ s
 
 theorem wreg_inj {j k : Nat} (hj : j < 16) (hk : k < 16) (hj8 : inReg 8 j = true)
     (hk8 : inReg 8 k = true) (h : wreg j = wreg k) : j = k := by
-  interval_cases j <;> interval_cases k <;> first | rfl | simp_all [wreg, inReg]
+  have key : ∀ j, j < 16 → ∀ k, k < 16 → inReg 8 j = true → inReg 8 k = true →
+      wreg j = wreg k → j = k := by decide
+  exact key j hj k hk hj8 hk8 h
 
 /-- After loading words `< n`. -/
 structure LI (s₀ : State) (sL : State) (n : Nat) (s : State) : Prop where

@@ -565,7 +565,7 @@ theorem flat_length (H : HashValue) (k : Nat) (hk : k ≤ 8) :
     ((H.toList.take k).flatMap wordBytes).length = 4 * k := by
   rw [List.length_flatMap]
   have : ∀ w ∈ H.toList.take k, (wordBytes w).length = 4 := fun w _ => rfl
-  rw [List.map_congr_left this, List.map_const', List.sum_replicate, List.length_take]
+  rw [List.map_congr_left this, List.map_const', List.sum_replicate_nat, List.length_take]
   simp; omega
 
 theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 32) :
@@ -695,10 +695,10 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 
 /-- The initial taint: only the arguments are public. -/
 theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Sha256.finalizeAArch64.pub s₁ s₂) :
-    VG.AArch64.Taint.Agree [.x0, .x1, .x2, .x3] s₁ s₂ := by
+    VG.AArch64.Taint.Agree (VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3]) s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4⟩ := hpub
   intro r hr
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl <;> assumption
 
 /-- A state satisfying the precondition. -/
@@ -715,7 +715,7 @@ theorem finalize_verified : Verified AArch64.target finalize Proof.Sha256.finali
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) [.x0, .x1, .x2, .x3] (fun _ _ _ _ hp => agree₀ hp)
+  · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) (fun _ _ _ _ hp => agree₀ hp)
       (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂

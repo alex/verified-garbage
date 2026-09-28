@@ -112,7 +112,7 @@ theorem initSat_pre : Proof.Sha256.initX86.pre initSat := by
 
 /-- The initial taint: the argument is public, and the word holding `state`
 is the base address of the writable region. -/
-def initτ₀ : VG.X86.Taint.T := { regs := [.esp], flags := false, argLen := 8 }
+def initτ₀ : VG.X86.Taint.T := { regs := .ofList [.esp], flags := false, argLen := 8 }
 
 theorem init_agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.initX86.pre s₁) (h₂ : Proof.Sha256.initX86.pre s₂)
     (hpub : Proof.Sha256.initX86.pub s₁ s₂) : VG.X86.Taint.Agree initτ₀ s₁ s₂ := by
@@ -128,7 +128,7 @@ theorem init_agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.initX86.pre s₁)
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun h => absurd rfl h, wf _ h₁, wf _ h₂,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim, fun _ => hesp,
     fun k h4 hk => ?_⟩
-  · simp only [initτ₀, List.mem_singleton] at hr
+  · simp only [initτ₀, RegSet.mem_ofList, List.mem_singleton] at hr
     subst hr; exact hesp
   · simp only [initτ₀] at hk
     rw [VG.X86.Taint.argByte_eq h₁.2.2.2.2.2 h4 hk, VG.X86.Taint.argByte_eq h₂.2.2.2.2.2 h4 hk,

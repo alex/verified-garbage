@@ -279,9 +279,9 @@ theorem block_verified :
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
-  · refine VG.Taint.constantTime (A := taint) [.x0, .x1] ?_ (by taint_decide)
+  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2⟩ r hr
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl <;> assumption
   · refine ⟨satState, rfl, rfl, ?_⟩
     intro a h₁ h₂

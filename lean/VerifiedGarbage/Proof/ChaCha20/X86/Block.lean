@@ -400,7 +400,7 @@ theorem sat_pre : Proof.ChaCha20.blockX86.pre satState := by
 
 /-- The initial taint: `esp` is public, and so are the 12 bytes above it (the
 return address and the two pointer arguments), which no store changes. -/
-def τ₀ : VG.X86.Taint.T := { regs := [.esp], flags := false, argLen := 12 }
+def τ₀ : VG.X86.Taint.T := { regs := .ofList [.esp], flags := false, argLen := 12 }
 
 theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
   have hs := hp.esp_fits
@@ -421,7 +421,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.ChaCha20.blockX86.pre s₁)
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun h => absurd rfl h, wf₀ hp₁, wf₀ hp₂,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim, fun _ => hesp,
     fun k h4 hk => ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     subst hr; exact hesp
   · simp only [τ₀] at hk
     rw [VG.X86.Taint.argByte_eq f₁ h4 hk, VG.X86.Taint.argByte_eq f₂ h4 hk,
