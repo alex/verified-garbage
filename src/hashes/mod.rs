@@ -22,7 +22,7 @@ pub mod sha1;
     target_arch = "x86"
 ))]
 pub mod sha256;
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub mod sha3;
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 pub mod sha512;

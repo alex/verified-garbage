@@ -124,7 +124,7 @@ fn sha1(c: &mut Criterion) {
 #[cfg(not(target_arch = "x86_64"))]
 fn sha1(_: &mut Criterion) {}
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn sha3(c: &mut Criterion) {
     use verified_garbage::hashes::sha3::{
         Sha3_224, Sha3_256, Sha3_384, Sha3_512, Shake128, Shake256,
@@ -137,12 +137,12 @@ fn sha3(c: &mut Criterion) {
     xof_group(c, "shake256", Shake256::digest, MessageDigest::shake_256());
 }
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn sha3(_: &mut Criterion) {}
 
 /// Benchmarks the extendable-output function `vg` against OpenSSL's `md`,
 /// with 32 bytes of output.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn xof_group(c: &mut Criterion, name: &str, vg: fn(&[u8], &mut [u8]), md: MessageDigest) {
     use openssl::hash::Hasher;
     let mut g = c.benchmark_group(name);

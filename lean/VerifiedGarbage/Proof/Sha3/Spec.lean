@@ -1,5 +1,5 @@
 import VerifiedGarbage.Spec.Sha3
-import VerifiedGarbage.Impl.Sha3.X86_64
+import VerifiedGarbage.Impl.Sha3.Tables
 
 /-!
 # SHA-3: lemmas about the specification
@@ -14,7 +14,7 @@ compute it (`out`): the column parities `C`, `D`, the lanes `B` of
 namespace VG.Proof.Sha3
 
 open VG.Spec.Sha3
-open VG.Impl.Sha3.X86_64 (rhoOff piSrc)
+open VG.Impl.Sha3 (rhoOff piSrc)
 
 /-! ## ρ's offsets -/
 
