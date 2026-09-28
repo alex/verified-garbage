@@ -33,6 +33,10 @@ trustworthy. Read `lean/README.md` first.
   files byte for byte into a directory under `vectors/`, with a `[[source]]`
   for that directory in `vectors/sources.toml` saying where they came from
   (`ci/check_vectors.py` checks it), and read them from there.
+* **Keep the README's algorithm table current.** Any PR that lands a spec,
+  adds or removes support for an algorithm on an architecture, or optimizes
+  an implementation must update the table in the
+  [Algorithms](README.md#algorithms) section of `README.md` in the same PR.
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
