@@ -214,13 +214,15 @@ jobs:
           path: "*.lcov"
           if-no-files-found: error
 
-  # The implementations that need CPU features beyond x86-64's baseline (the
-  # SHA extensions and SSSE3), which the `rust` jobs' runners may lack. Where
-  # this runner has them, their tests run natively; otherwise under Intel
-  # SDE, emulating a CPU that has every feature. Either way their coverage
-  # is merged with the rest.
+  # CPU feature detection, and the implementations that need CPU features
+  # beyond x86-64's baseline (the SHA extensions and SSSE3), which the `rust`
+  # jobs' runners may lack. Their tests run natively where this runner has
+  # the features, and otherwise under Intel SDE, emulating a CPU that has
+  # every feature. Detection is also tested under SDE on a Pentium 4, which
+  # no runner is: it has neither feature, nor CPUID leaf 7. The coverage is
+  # merged with the rest.
   rust-sde:
-    name: Rust (CPU features, natively or under Intel SDE)
+    name: Rust (CPU features, natively and under Intel SDE)
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: -D warnings -Cinstrument-coverage
@@ -238,47 +240,40 @@ jobs:
           repository: C2SP/wycheproof
           path: wycheproof
           persist-credentials: false
-      - name: Check which CPU features this runner lacks
-        id: cpu
-        run: |
-          missing=
-          for f in sha_ni ssse3; do
-            grep -qw "$f" /proc/cpuinfo || missing="$missing $f"
-          done
-          echo "Missing:${missing:- none}" | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "missing=$missing" >> "$GITHUB_OUTPUT"
-          # TEMPORARY: always use SDE, to measure downloading it vs caching it.
-          echo "missing=measure" >> "$GITHUB_OUTPUT"
-      - name: "Measure: restore SDE from the Actions cache"
-        id: sde-cache
+      - name: "TEMPORARY: time restoring SDE from the Actions cache"
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/sde-cached
           key: sde-${{ env.SDE_VERSION }}
+      # Downloading it (0.5 s) is faster than restoring it from the Actions
+      # cache, so it isn't cached.
       - name: Download Intel SDE
-        if: ${{ steps.cpu.outputs.missing != '' }}
         run: |
           curl -sSfLo sde.tar.xz "$SDE_URL"
           echo "$SDE_SHA256  sde.tar.xz" | sha256sum -c
           mkdir "$RUNNER_TEMP/sde"
           tar -xJf sde.tar.xz -C "$RUNNER_TEMP/sde" --strip-components 1
           rm sde.tar.xz
-          echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER=$RUNNER_TEMP/sde/sde64 -future --" >> "$GITHUB_ENV"
-      - name: "Measure: save SDE to the Actions cache"
-        if: ${{ steps.sde-cache.outputs.cache-hit != 'true' }}
-        run: cp -r "$RUNNER_TEMP/sde" "$RUNNER_TEMP/sde-cached"
-      - if: ${{ steps.sde-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/sde-cached
-          key: sde-${{ env.SDE_VERSION }}
+      - name: Choose where to run the tests of the implementations
+        run: |
+          missing=
+          for f in sha_ni ssse3; do
+            grep -qw "$f" /proc/cpuinfo || missing="$missing $f"
+          done
+          echo "This runner lacks:${missing:- nothing}" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -n "$missing" ]; then
+            echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER=$RUNNER_TEMP/sde/sde64 -future --" >> "$GITHUB_ENV"
+          fi
       - name: Install Rust
         run: rustup toolchain install stable --profile minimal --component llvm-tools
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      # Only the tests of what dispatches on CPU features.
-      - run: cargo test --locked -- sha256 cpu
+      # Only the tests of what depends on CPU features.
+      - name: Test the implementations (under SDE if this runner lacks features)
+        run: cargo test --locked -- sha256 cpu
+      - name: Test detection on a Pentium 4 (under SDE)
+        run: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="$RUNNER_TEMP/sde/sde64 -p4p --" cargo test --locked --lib -- cpu
       - name: Export coverage
         run: python3 ci/export_rust_coverage.py .rust-cov
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
