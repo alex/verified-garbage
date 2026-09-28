@@ -699,7 +699,6 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
       exact this
   · simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact hu .x18 (by simp [untouched])
     · exact hsv (.x19, 176) (by simp [saved])
     · exact hsv (.x20, 184) (by simp [saved])
     · exact hsv (.x21, 192) (by simp [saved])

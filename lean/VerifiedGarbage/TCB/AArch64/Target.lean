@@ -11,7 +11,8 @@ integer/pointer arguments arrive in `x0`–`x7`; `x19`–`x28` and the frame
 pointer `x29` are callee-saved, as is `sp`. The printer ends every function
 with `ret`, which returns to the address in the link register `x30`, so `x30`
 must be unchanged on exit. `x18` is the platform register (reserved on Apple
-platforms and Windows), so it must not be modified either.
+platforms and Windows), which the model does not have (see `TCB/AArch64/Isa.lean`),
+so no code can modify it.
 
 Not modelled: the SIMD and floating-point registers (never modified; the
 low 64 bits of `v8`–`v15` are callee-saved), the condition flags (never
@@ -20,7 +21,7 @@ modified) and memory below `sp` (never granted to a function).
 
 namespace VG.AArch64
 
-def preserved : List Reg := [.x18, .x19, .x20, .x21, .x22, .x23, .x24, .x25, .x26, .x27, .x28,
+def preserved : List Reg := [.x19, .x20, .x21, .x22, .x23, .x24, .x25, .x26, .x27, .x28,
   .x29, .x30]
 
 /-- Calling-convention obligations on return. -/

@@ -26,7 +26,7 @@ def Vars (t : Nat) (s : State) (v : HashValue) : Prop :=
 
 /-- The pointers, the count and the registers the ABI requires us to
 preserve: never written by the rounds. -/
-def pubRegs : List Reg := [.x0, .x1, .x2, .x3, .x18, .x19, .x20, .x21, .x22, .x23, .x24, .x25,
+def pubRegs : List Reg := [.x0, .x1, .x2, .x3, .x19, .x20, .x21, .x22, .x23, .x24, .x25,
   .x26, .x27, .x28, .x29, .x30]
 
 /-- The working variables move one register along each round. -/
