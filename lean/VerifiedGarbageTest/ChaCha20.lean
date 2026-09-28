@@ -7,8 +7,9 @@ import VerifiedGarbage.Spec.ChaCha20
 The test vectors of RFC 8439, Appendix A.1 (the block function) and A.2
 (encryption), read from the vendored RFC `vectors/rfc8439/rfc8439.txt` (see
 `vectors/sources.toml`) when this file is built and checked against
-`VG.Spec.ChaCha20.chacha20Block` and `VG.Spec.ChaCha20.encrypt`, so that a
-transcription error in the spec fails the build.
+`VG.Spec.ChaCha20.chacha20Block`, `VG.Spec.ChaCha20.encrypt` and
+`VG.Spec.ChaCha20.keystream`, so that a transcription error in the spec fails
+the build.
 -/
 
 namespace VG.Test.ChaCha20
@@ -107,6 +108,9 @@ def check (text : String) : Except String Unit := do
     unless pt.length == ct.length do throw "A.2: plaintext and ciphertext lengths differ"
     unless encrypt (← v.get "Key:") (BitVec.ofNat 32 c) (← v.get "Nonce:") pt == ct do
       throw s!"A.2: the encryption of the {pt.length}-byte plaintext is wrong"
+    let ks := keystream (initState (← v.get "Key:") (BitVec.ofNat 32 c) (← v.get "Nonce:")) pt.length
+    unless List.zipWith (· ^^^ ·) pt ks == ct do
+      throw s!"A.2: the keystream for the {pt.length}-byte plaintext is wrong"
 
 run_cmd do
   -- This file is `lean/VerifiedGarbageTest/ChaCha20.lean`.
