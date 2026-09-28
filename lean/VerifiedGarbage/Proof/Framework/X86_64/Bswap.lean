@@ -40,7 +40,11 @@ theorem getLsbD_cat8 (b0 b1 b2 b3 b4 b5 b6 b7 : BitVec 8) (i : Nat) :
       else if i < 40 then b3.getLsbD (i - 32) else if i < 48 then b2.getLsbD (i - 40)
       else if i < 56 then b1.getLsbD (i - 48) else b0.getLsbD (i - 56) := by
   simp only [BitVec.getLsbD_append]
-  split_ifs <;> first | omega | rfl
+  simp only [Nat.sub_sub, Nat.reduceAdd]
+  rcases (by omega : i < 8 ∨ (8 ≤ i ∧ i < 16) ∨ (16 ≤ i ∧ i < 24) ∨ (24 ≤ i ∧ i < 32) ∨
+    (32 ≤ i ∧ i < 40) ∨ (40 ≤ i ∧ i < 48) ∨ (48 ≤ i ∧ i < 56) ∨ 56 ≤ i) with
+    h | h | h | h | h | h | h | h <;>
+  simp (disch := omega) only [ite_eq_left, ite_eq_right]
 
 theorem bswap64_bytes (b0 b1 b2 b3 b4 b5 b6 b7 : BitVec 8) :
     bswap64 ((0#0 ++ b7 ++ b6 ++ b5 ++ b4 ++ b3 ++ b2 ++ b1 ++ b0).setWidth 64) =
