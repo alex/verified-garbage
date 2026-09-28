@@ -65,7 +65,9 @@ Everything in `Impl/` and `Proof/` is checked by Lean and need not be read.
 
 To keep review of the trusted parts focused, new specs, additions to the TCB,
 and new implementations are never combined in one PR: an implementation is
-only proven against a spec and TCB that were reviewed and merged beforehand.
+only proven against a spec and TCB that were reviewed and approved beforehand,
+and never merges before them. Work that needs several kinds of change is
+opened as a stack of pull requests, one kind per layer (see `../CLAUDE.md`).
 
 ## Building
 
