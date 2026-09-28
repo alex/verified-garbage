@@ -9,6 +9,8 @@
 //! message absorbed so far (`VG.Spec.Sha1.Repr`: the hash value of its whole
 //! blocks, and its remaining bytes), and pad it and output the digest.
 
+#[cfg(target_arch = "aarch64")]
+use crate::asm::aarch64::sha1::{vg_sha1_finalize, vg_sha1_init, vg_sha1_update};
 #[cfg(target_arch = "x86_64")]
 use crate::asm::x86_64::sha1::{vg_sha1_finalize, vg_sha1_init, vg_sha1_update};
 
