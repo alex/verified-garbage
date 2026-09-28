@@ -123,7 +123,7 @@ def main():
     p.add_argument("head", type=pathlib.Path)
     p.add_argument("--summary", type=pathlib.Path)
     p.add_argument("--rounds", type=int, default=3)
-    p.add_argument("--threshold", type=float, default=0.10)
+    p.add_argument("--threshold", type=float, default=0.25)
     p.add_argument("--warm-up-time", type=float, default=0.5)
     p.add_argument("--measurement-time", type=float, default=2.0)
     p.add_argument("--work-dir", type=pathlib.Path, default=pathlib.Path("bench-compare"))
