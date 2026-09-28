@@ -140,7 +140,6 @@ theorem inv_zero {s₀ : State} (hp : Pre s₀) {s : State} (hm : s.mem = saveMe
     exact repr_congr (fun i hi => (saveMem_frame).bytes (R := stR s₀) (by simpa using hp.st_scr)
       (by simp) hi) hm₀.1
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .r8 ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .r8), .mov .rbp (.reg .rdx),
@@ -158,7 +157,6 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   refine inv_zero hp rfl rfl rfl ?_ ?_ ?_ ?_ ?_ ?_ <;>
     simp (config := {decide := true}) [State.setReg, arithFlags, State.setFlags, and127]
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block restore) s fun s' =>
@@ -360,7 +358,6 @@ theorem take_add_data (s₀ : State) (c t : Nat) (m : List Byte) :
     m ++ (D s₀).take c ++ ((D s₀).drop c).take t = m ++ (D s₀).take (c + t) := by
   rw [List.take_add, List.append_assoc]
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 /-- A whole block straight from the data. -/
 theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s)
@@ -444,7 +441,6 @@ theorem write_frame (s₀ : State) (c : Nat) (mI : Mem) (j : Nat) (hj : j ≤ tt
   rw [q_eq]
   exact contains_offset (by simp only [List.length_take]; omega) (by omega)
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {j : Nat}
     (hj : j < tt s₀ c) {s : State} (h : Copy s₀ c sI.mem j s) :
@@ -548,7 +544,6 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   · rw [← hxs]
     exact bytesAt_writeBytes _ _ _ _ (by omega)
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 /-- A full buffer: compress it. -/
 theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {s : State}
@@ -588,7 +583,6 @@ theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
     rw [hb, show rr s₀ c + tt s₀ c = 128 from hfull] at hby
     exact bytesAt_getD hby hk
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 /-- All the data fits in the buffer. -/
 theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {s : State}
@@ -643,7 +637,6 @@ theorem copy_loop_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
     rwa [show j + 1 = tt s₀ c by omega] at hc'
   · exact .inr ⟨by simp [eval, hz, hl], _, by omega, j + 1, rfl, by omega, hc'⟩
 
-set_option maxHeartbeats 0 in
 theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) :
     WP isa fill s fun s' => (∃ c', c < c' ∧ Pending s₀ c' s') ∨ Done s₀ s' := by
   have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c

@@ -183,7 +183,6 @@ theorem saved_frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) (hf : Frame [
   exact ⟨(key 64 (by omega) (by omega)).trans h1, (key 68 (by omega) (by omega)).trans h2,
     (key 72 (by omega) (by omega)).trans h3⟩
 
-set_option maxHeartbeats 0 in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block save) s₀ fun s₁ =>
       (∀ r, r ≠ .eax → r ≠ .ecx → r ≠ .esi → r ≠ .edi → s₁.gpr r = s₀.gpr r) ∧
@@ -218,7 +217,6 @@ structure CI (s₀ s₁ : State) (n : Nat) (s : State) : Prop where
   fw : Frame [workR (BA s₀)] s₁.mem s.mem
   copied : ∀ j (hj : j < 16), j < n → s.mem.readW (wordAddr (BA s₀) j) 32 = (V s₀)[j]
 
-set_option maxHeartbeats 400000 in
 theorem copy_step {s₀ s₁ : State} (hp : Pre s₀) (hesi : s₁.gpr .esi = bp s₀)
     (hedi : s₁.gpr .edi = st s₀) {n : Nat} (hn : n < 16) {s : State} (hc : CI s₀ s₁ n s) :
     WP isa (.block (copyWord n)) s (CI s₀ s₁ (n + 1)) := by
@@ -254,7 +252,6 @@ structure AI (s₀ sB : State) (n : Nat) (s : State) : Prop where
   fb : Frame [bufR s₀] s₀.mem s.mem
   fw : Frame [workR (BA s₀)] sB.mem s.mem
 
-set_option maxHeartbeats 400000 in
 theorem add_step {s₀ sB : State} (hp : Pre s₀) (hesi : sB.gpr .esi = bp s₀)
     (hedi : sB.gpr .edi = st s₀) {n : Nat} (hn : n < 16) {s : State} (ha : AI s₀ sB n s) :
     WP isa (.block (addWord n)) s (AI s₀ sB (n + 1)) := by
@@ -286,7 +283,6 @@ theorem add_step {s₀ sB : State} (hp : Pre s₀) (hesi : sB.gpr .esi = bp s₀
 
 /-! ## Restoring the callee-saved registers -/
 
-set_option maxHeartbeats 0 in
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hs : Saved s₀ s.mem)
     (hesi : s.gpr .esi = bp s₀) (hwr : s.wr = s₀.wr) :
     WP isa (.block restore) s fun s' =>
@@ -320,7 +316,6 @@ theorem block_post {p : Addr} {m : Mem} {R v : CState}
   simp only [stateAt, Vector.getElem_ofFn, Vector.getElem_zipWith]
   exact h j hj
 
-set_option maxHeartbeats 400000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa block s₀ fun s' => abiPreserved s₀ s' ∧ Proof.ChaCha20.blockX86.post s₀ s' := by
   refine WP.seq ?_

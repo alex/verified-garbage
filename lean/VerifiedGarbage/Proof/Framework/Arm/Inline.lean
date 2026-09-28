@@ -54,8 +54,8 @@ theorem Covers.push {xs ys xs' ys' : List Region} (f : Region) (h : Covers (xs +
 /-- The register an instruction writes, if any (a frame's pop writes its
 register). -/
 def dstOf : Instr → Option Reg
-  | .mov d _ | .dp _ d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _ | .ldr d _ _
-  | .ldrb d _ _ | .ldrSp d _ | .pop d _ => some d
+  | .mov d _ | .dp _ d _ _ | .adds d _ _ | .adc d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _
+  | .ldr d _ _ | .ldrb d _ _ | .ldrSp d _ | .pop d _ => some d
   | .cmp .. | .str .. | .strb .. | .push _ => none
 
 section
@@ -66,6 +66,9 @@ variable {s s' : State} {rd wr : List Region}
 
 theorem setReg_withRegions (d : Reg) (v : BitVec 32) :
     (s.withRegions rd wr).setReg d v = (s.setReg d v).withRegions rd wr := rfl
+
+theorem addFlags_withRegions (x y : BitVec 32) :
+    addFlags (s.withRegions rd wr) x y = (addFlags s x y).withRegions rd wr := rfl
 
 theorem subFlags_withRegions (x y : BitVec 32) :
     subFlags (s.withRegions rd wr) x y = (subFlags s x y).withRegions rd wr := rfl
@@ -343,7 +346,8 @@ theorem execBlock_gpr {is : List Instr} {r : Reg} (hc : ∀ i ∈ is, dstOf i �
 one of `linkRegs` and the code calls a function. -/
 theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, dstOf i ≠ some r)
     {s s' : State} {t : List Leak} (h : Exec isa c s t s')
-    (hn : c.noCalls = true ∨ r ∉ linkRegs := by first | exact .inl (by decide) | exact .inr (by decide)) :
+    (hn : c.noCalls = true ∨ r ∉ linkRegs :=
+      by first | exact .inr (by decide) | exact .inl (by decide +kernel)) :
     s'.gpr r = s.gpr r := by
   induction h with
   | block h => exact execBlock_gpr hc h
@@ -374,7 +378,8 @@ theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, dstOf i ≠ 
 postcondition. -/
 theorem WP.gpr {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s Q) {r : Reg}
     (hc : ∀ i ∈ instrs c, dstOf i ≠ some r)
-    (hn : c.noCalls = true ∨ r ∉ linkRegs := by first | exact .inl (by decide) | exact .inr (by decide)) :
+    (hn : c.noCalls = true ∨ r ∉ linkRegs :=
+      by first | exact .inr (by decide) | exact .inl (by decide +kernel)) :
     WP isa c s fun s' => Q s' ∧ s'.gpr r = s.gpr r := by
   obtain ⟨t, s', he, hq⟩ := h
   exact ⟨t, s', he, hq, Exec.gpr hc he hn⟩
@@ -392,7 +397,7 @@ theorem WP.inline {c : Prog isa} {k : Contract isa}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → abiPreserved s s' → Frame wr s.mem s'.mem →
       (∀ r, (∀ i ∈ instrs c, dstOf i ≠ some r) → s'.gpr r = s.gpr r) →
       k.post (s.withRegions rd wr) (s'.withRegions rd wr) → Q s')
-    (hn : c.noCalls = true := by decide) : WP isa c s Q := by
+    (hn : c.noCalls = true := by decide +kernel) : WP isa c s Q := by
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre
   obtain ⟨hr, hwr, -, hf⟩ := Exec.regions he hn
   simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_mem] at hr hwr hf

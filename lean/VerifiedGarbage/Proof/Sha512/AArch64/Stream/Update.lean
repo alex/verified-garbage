@@ -1,20 +1,20 @@
-import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Common
+import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Common
 
 /-!
-# Streaming SHA-256 on AArch64: `update`
+# Streaming SHA-512 on AArch64: `update`
 
 Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 proof (`VG.Proof.Sha256.X86_64.Stream.Update`); the loop runs while
+x86-128 proof (`VG.Proof.Sha512.X86_64.Stream.Update`); the loop runs while
 data is left, so every iteration consumes at least one byte.
 -/
 
-namespace VG.Proof.Sha256.AArch64.Stream.Update
+namespace VG.Proof.Sha512.AArch64.Stream.Update
 
-open VG VG.AArch64 VG.Impl.Sha256.AArch64.Stream
-open VG.Proof.Sha256.AArch64 (contains_offset toNat_ofNat_lt sub_offset)
-open VG.Proof.Sha256.AArch64.Stream
-open VG.Proof.Sha256.Stream
-open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt)
+open VG VG.AArch64 VG.Impl.Sha512.AArch64.Stream
+open VG.Proof.Sha512.AArch64 (contains_offset toNat_ofNat_lt sub_offset)
+open VG.Proof.Sha512.AArch64.Stream
+open VG.Proof.Sha512.Stream
+open VG.Spec.Sha512 (HashValue stateAt blockAt compress parseBlock bytesAt)
 
 /-! ## The precondition -/
 
@@ -26,15 +26,15 @@ abbrev cnt : Nat := (s₀.gpr .x1).toNat
 abbrev dp : Addr := s₀.gpr .x2
 abbrev len : Nat := (s₀.gpr .x3).toNat
 abbrev scr : Addr := s₀.gpr .x4
-abbrev stR : Region := ⟨st s₀, 96⟩
+abbrev stR : Region := ⟨st s₀, 192⟩
 abbrev dR : Region := ⟨dp s₀, len s₀⟩
-abbrev scR : Region := ⟨scr s₀, 160⟩
+abbrev scR : Region := ⟨scr s₀, 224⟩
 /-- The data. -/
 abbrev D : List Byte := bytesAt s₀.mem (dp s₀) (len s₀)
 
 /-- The messages the initial state represents. -/
-def R₀ (m : List Byte) : Prop :=
-  Spec.Sha256.Repr s₀.mem (st s₀) m ∧ s₀.gpr .x1 = BitVec.ofNat 64 m.length
+def R₀ (iv : HashValue) (m : List Byte) : Prop :=
+  Spec.Sha512.Repr iv s₀.mem (st s₀) m ∧ s₀.gpr .x1 = BitVec.ofNat 64 m.length
 
 /-- The caller's registers are saved in the scratch space. -/
 def Saved (m : Mem) : Prop :=
@@ -49,11 +49,11 @@ structure Pre (s₀ : State) : Prop where
   d_st : (dR s₀).Disjoint (stR s₀)
   d_scr : (dR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Proof.Sha256.updateAArch64.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha512.updateAArch64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
   exact ⟨h1, h2, h3, h4, h5⟩
 
-theorem R₀.length {s₀ : State} {m : List Byte} (h : R₀ s₀ m) : cnt s₀ % 64 = m.length % 64 := by
+theorem R₀.length {s₀ : State} {iv : HashValue} {m : List Byte} (h : R₀ s₀ iv m) : cnt s₀ % 128 = m.length % 128 := by
   rw [cnt, h.2, BitVec.toNat_ofNat]
   omega
 
@@ -79,19 +79,19 @@ structure Common (s₀ : State) (c : Nat) (s : State) : Prop where
 /-- The loop invariant: the state represents the message followed by the
 first `c` bytes of data. -/
 structure Inv (s₀ : State) (c : Nat) (s : State) : Prop extends Common s₀ c s where
-  x23 : s.gpr .x23 = BitVec.ofNat 64 ((cnt s₀ + c) % 64)
-  repr : ∀ m, R₀ s₀ m → Spec.Sha256.Repr s.mem (st s₀) (m ++ (D s₀).take c)
+  x23 : s.gpr .x23 = BitVec.ofNat 64 ((cnt s₀ + c) % 128)
+  repr : ∀ iv m, R₀ s₀ iv m → Spec.Sha512.Repr iv s.mem (st s₀) (m ++ (D s₀).take c)
 
 /-- A whole block is ready at `x1`, and compressing it absorbs the first `c`
 bytes of data. -/
 structure Pending (s₀ : State) (c : Nat) (s : State) : Prop extends Common s₀ c s where
   x23 : s.gpr .x23 = 0
   x10 : s.gpr .x10 = 1
-  mod : (cnt s₀ + c) % 64 = 0
-  src : s.gpr .x1 = st s₀ + 32 ∨ ∃ c₀, s.gpr .x1 = dp s₀ + BitVec.ofNat 64 c₀ ∧ c₀ + 64 ≤ len s₀
-  repr : ∀ m, R₀ s₀ m → ∀ mem', stateAt mem' (st s₀) =
+  mod : (cnt s₀ + c) % 128 = 0
+  src : s.gpr .x1 = st s₀ + 64 ∨ ∃ c₀, s.gpr .x1 = dp s₀ + BitVec.ofNat 64 c₀ ∧ c₀ + 128 ≤ len s₀
+  repr : ∀ iv m, R₀ s₀ iv m → ∀ mem', stateAt mem' (st s₀) =
       compress (stateAt s.mem (st s₀)) (blockAt s.mem (s.gpr .x1)) →
-    Spec.Sha256.Repr mem' (st s₀) (m ++ (D s₀).take c)
+    Spec.Sha512.Repr iv mem' (st s₀) (m ++ (D s₀).take c)
 
 /-- All the data is absorbed, and nothing is pending. -/
 def Done (s₀ : State) (s : State) : Prop := Inv s₀ (len s₀) s ∧ s.gpr .x10 = 0
@@ -122,7 +122,7 @@ theorem Inv.of_gpr {s₀ : State} {c : Nat} {s s' : State} (h : Inv s₀ c s)
 /-- Where the caller's registers are saved. -/
 theorem saved_sub {s₀ : State} {p : Reg × Nat} (hp : p ∈ saved) :
     Region.Sub ⟨scr s₀ + BitVec.ofNat 64 p.2, 8⟩ (scR s₀) := by
-  simp only [Impl.Sha256.AArch64.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp
+  simp only [Impl.Sha512.AArch64.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp
   rcases hp with rfl | rfl | rfl | rfl | rfl | rfl <;> exact sub_offset (by omega) (by omega)
 
 /-! ## Consuming data -/
@@ -137,8 +137,8 @@ theorem Common.data {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Co
   rw [D_getD s₀ hi]
   exact frame_bytes h.frame (R := dR s₀) (by simpa using ⟨hp.d_st, hp.d_scr⟩) (len_lt s₀).le hi
 
-theorem length_mid (s₀ : State) {m : List Byte} (hm : R₀ s₀ m) {c : Nat} (hc : c ≤ len s₀) :
-    (m ++ (D s₀).take c).length % 64 = (cnt s₀ + c) % 64 := by
+theorem length_mid (s₀ : State) {iv : HashValue} {m : List Byte} (hm : R₀ s₀ iv m) {c : Nat} (hc : c ≤ len s₀) :
+    (m ++ (D s₀).take c).length % 128 = (cnt s₀ + c) % 128 := by
   have := hm.length
   simp only [List.length_append, List.length_take, D_length, Nat.min_eq_left hc]
   omega
@@ -151,11 +151,11 @@ theorem take_add_data (s₀ : State) (c t : Nat) (m : List Byte) :
 
 theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Pending s₀ c s) :
     WP isa compressAt s (Inv s₀ c) := by
-  have e32 : Region.Sub ⟨st s₀, 32⟩ (stR s₀) := Region.sub_prefix (by omega)
-  have e112 : Region.Sub ⟨scr s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
-  have eSrc : Region.Sub ⟨s.gpr .x1, 64⟩ (stR s₀) ∨ Region.Sub ⟨s.gpr .x1, 64⟩ (dR s₀) := by
+  have e32 : Region.Sub ⟨st s₀, 64⟩ (stR s₀) := Region.sub_prefix (by omega)
+  have e112 : Region.Sub ⟨scr s₀, 176⟩ (scR s₀) := Region.sub_prefix (by omega)
+  have eSrc : Region.Sub ⟨s.gpr .x1, 128⟩ (stR s₀) ∨ Region.Sub ⟨s.gpr .x1, 128⟩ (dR s₀) := by
     rcases h.src with h' | ⟨c₀, h', hc₀⟩
-    · exact .inl (h' ▸ sub_offset (off := 32) (by omega) (by omega))
+    · exact .inl (h' ▸ sub_offset (off := 64) (by omega) (by omega))
     · exact .inr (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))
   refine compressAt_ok h.x19 h.x20 rfl ((hp.st_scr.sub_left e32).sub_right e112) ?_ ?_ ?_ ?_ ?_
   · rcases h.src with h' | ⟨c₀, h', hc₀⟩
@@ -170,7 +170,7 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
     · rcases h.src with h' | ⟨c₀, h', hc₀⟩
-      · exact ⟨stR s₀, by simp, 32, by rw [h']; rfl, by simp⟩
+      · exact ⟨stR s₀, by simp, 64, by rw [h']; rfl, by simp⟩
       · exact ⟨dR s₀, by simp, c₀, h', hc₀⟩
     · exact ⟨stR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
@@ -186,7 +186,7 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
     refine ⟨⟨h.c_le, hrd.trans h.rd, hwr.trans h.wr, by rw [cs _ (by decide)]; exact h.x19,
       by rw [cs _ (by decide)]; exact h.x20, hsp.trans h.sp,
       by rw [cs _ (by decide)]; exact h.x21, by rw [cs _ (by decide)]; exact h.x22,
-      h.frame.trans (hf.sub ?_), fun p hp' => ?_⟩, ?_, fun m hm => h.repr m hm _ hstate⟩
+      h.frame.trans (hf.sub ?_), fun p hp' => ?_⟩, ?_, fun iv m hm => h.repr iv m hm _ hstate⟩
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
@@ -198,7 +198,7 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
       rcases hr' with rfl | rfl
       · exact (hp.st_scr.symm.sub_left (saved_sub hp')).sub_right e32
-      · simp only [Impl.Sha256.AArch64.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
+      · simp only [Impl.Sha512.AArch64.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
         rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;>
         · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
     · rw [cs _ (by decide), h.x23, h.mod]; rfl
@@ -206,8 +206,8 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
 /-! ## A whole block straight from the data -/
 
 theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s)
-    (hr : (cnt s₀ + c) % 64 = 0) (hl : 64 ≤ len s₀ - c) :
-    WP isa (.block direct) s (Pending s₀ (c + 64)) := by
+    (hr : (cnt s₀ + c) % 128 = 0) (hl : 128 ≤ len s₀ - c) :
+    WP isa (.block direct) s (Pending s₀ (c + 128)) := by
   have hlen := len_lt s₀
   unfold direct
   refine wp_mov fun s₁ u₁ => wp_addImm (by decide) fun s₂ u₂ => wp_subImm (by decide) fun s₃ u₃ =>
@@ -227,14 +227,14 @@ theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv
   · rw [u₄.other _ (by decide), u₃.gpr, u₂.other _ (by decide), u₁.other _ (by decide), hI.x22,
       sub_ofNat (by omega), Nat.sub_sub]
   · rw [g _ (by decide) (by decide) (by decide) (by decide), hI.x23, hr]; rfl
-  · intro m hm mem' hs
+  · intro iv m hm mem' hs
     have hmod := length_mid s₀ hm (c := c) (by omega)
     rw [← take_add_data]
-    refine repr_append_block (hI.repr m hm)
+    refine repr_append_block (hI.repr iv m hm)
       (by rw [hmod, hr, List.length_take, List.length_drop, D_length]; omega) ?_
     rw [hs, m₄, h1]
     congr 1
-    rw [show (m ++ List.take c (D s₀)).drop (64 * ((m ++ List.take c (D s₀)).length / 64)) = [] by
+    rw [show (m ++ List.take c (D s₀)).drop (128 * ((m ++ List.take c (D s₀)).length / 128)) = [] by
       rw [List.drop_eq_nil_iff]; omega, List.nil_append]
     apply parseBlock_congr
     intro k hk
@@ -247,22 +247,22 @@ theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv
 section
 variable (s₀ : State) (c : Nat)
 /-- Bytes in the buffer before this iteration. -/
-abbrev rr : Nat := (cnt s₀ + c) % 64
+abbrev rr : Nat := (cnt s₀ + c) % 128
 /-- Bytes copied into the buffer in this iteration. -/
-abbrev tt : Nat := min (64 - rr s₀ c) (len s₀ - c)
+abbrev tt : Nat := min (128 - rr s₀ c) (len s₀ - c)
 /-- Where they go. -/
-abbrev q : Addr := st s₀ + 32 + BitVec.ofNat 64 (rr s₀ c)
+abbrev q : Addr := st s₀ + 64 + BitVec.ofNat 64 (rr s₀ c)
 /-- The data copied. -/
 abbrev xs : List Byte := ((D s₀).drop c).take (tt s₀ c)
 end
 
-theorem rr_lt (s₀ : State) (c : Nat) : rr s₀ c < 64 := Nat.mod_lt _ (by omega)
+theorem rr_lt (s₀ : State) (c : Nat) : rr s₀ c < 128 := Nat.mod_lt _ (by omega)
 theorem tt_le (s₀ : State) (c : Nat) : tt s₀ c ≤ len s₀ - c := Nat.min_le_right _ _
-theorem tt_le' (s₀ : State) (c : Nat) : tt s₀ c ≤ 64 - rr s₀ c := Nat.min_le_left _ _
-theorem rr_eq (s₀ : State) (c : Nat) : rr s₀ c = (cnt s₀ + c) % 64 := rfl
-theorem tt_eq (s₀ : State) (c : Nat) : tt s₀ c = min (64 - rr s₀ c) (len s₀ - c) := rfl
+theorem tt_le' (s₀ : State) (c : Nat) : tt s₀ c ≤ 128 - rr s₀ c := Nat.min_le_left _ _
+theorem rr_eq (s₀ : State) (c : Nat) : rr s₀ c = (cnt s₀ + c) % 128 := rfl
+theorem tt_eq (s₀ : State) (c : Nat) : tt s₀ c = min (128 - rr s₀ c) (len s₀ - c) := rfl
 
-theorem q_eq (s₀ : State) (c : Nat) : q s₀ c = st s₀ + BitVec.ofNat 64 (32 + rr s₀ c) := by
+theorem q_eq (s₀ : State) (c : Nat) : q s₀ c = st s₀ + BitVec.ofNat 64 (64 + rr s₀ c) := by
   simp only [q, BitVec.ofNat_add]; rw [BitVec.add_assoc]; rfl
 
 theorem xs_length (s₀ : State) (c : Nat) : (xs s₀ c).length = tt s₀ c := by
@@ -293,7 +293,7 @@ theorem write_frame (s₀ : State) (c : Nat) (mI : Mem) (j : Nat) (hj : j ≤ tt
 
 /-- The copy loop's body. -/
 def copyBody : List Instr :=
-  [.ldrb .x9 .x21 0, .add .x .x12 .x19 .x23, .strb .x9 .x12 32, .addImm .x .x21 .x21 1,
+  [.ldrb .x9 .x21 0, .add .x .x12 .x19 .x23, .strb .x9 .x12 64, .addImm .x .x21 .x21 1,
     .addImm .x .x23 .x23 1, .subImm .x .x11 .x11 1]
 
 theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {j : Nat}
@@ -322,7 +322,7 @@ theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
   refine wp_add fun s₂ u₂ => wp_strb (a := q s₀ c + BitVec.ofNat 64 j) (by omega) ?_
     (by rw [u₂.wr, u₁.wr]; exact hout) fun s₃ g₃ => ?_
   · rw [u₂.gpr, u₁.other _ (by decide), u₁.other _ (by decide), h.x19, h.x23, q]
-    simp only [BitVec.ofNat_add, show BitVec.ofNat 64 32 = (32 : BitVec 64) from rfl]
+    simp only [BitVec.ofNat_add, show BitVec.ofNat 64 64 = (64 : BitVec 64) from rfl]
     ac_rfl
   refine wp_addImm (by decide) fun s₄ u₄ => wp_addImm (by decide) fun s₅ u₅ =>
     wp_subImm (by decide) fun s₆ u₆ => WP.block_nil ?_
@@ -377,7 +377,7 @@ theorem copy_loop_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
 theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) :
     let mem := writeBytes sI.mem (q s₀ c) (xs s₀ c)
     Frame [stR s₀, scR s₀] s₀.mem mem ∧ Saved s₀ mem ∧ stateAt mem (st s₀) = stateAt sI.mem (st s₀) ∧
-      bytesAt mem (st s₀ + 32) (rr s₀ c + tt s₀ c) = bytesAt sI.mem (st s₀ + 32) (rr s₀ c) ++ xs s₀ c := by
+      bytesAt mem (st s₀ + 64) (rr s₀ c + tt s₀ c) = bytesAt sI.mem (st s₀ + 64) (rr s₀ c) ++ xs s₀ c := by
   intro mem
   have hr := rr_lt s₀ c; have ht' := tt_le' s₀ c
   have hxs := xs_length s₀ c
@@ -400,8 +400,8 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
 
 /-- A full buffer: compress it. -/
 theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {s : State}
-    (h : Copy s₀ c sI.mem (tt s₀ c) s) (hfull : rr s₀ c + tt s₀ c = 64) :
-    WP isa (.block [.addImm .x .x1 .x19 32, .movz .x .x23 0 0, .movz .x .x10 1 0]) s
+    (h : Copy s₀ c sI.mem (tt s₀ c) s) (hfull : rr s₀ c + tt s₀ c = 128) :
+    WP isa (.block [.addImm .x .x1 .x19 64, .movz .x .x23 0 0, .movz .x .x10 1 0]) s
       (Pending s₀ (c + tt s₀ c)) := by
   have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c
   have hrr := rr_eq s₀ c; have htt := tt_eq s₀ c
@@ -414,7 +414,7 @@ theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   have g : ∀ r, r ≠ .x1 → r ≠ .x23 → r ≠ .x10 → s₃.gpr r = s.gpr r := fun r h1 h2 h3 => by
     rw [u₃.other r h3, u₂.other r h2, u₁.other r h1]
   have m₃ : s₃.mem = s.mem := by rw [u₃.mem, u₂.mem, u₁.mem]
-  have hx1 : s₃.gpr .x1 = st s₀ + 32 := by
+  have hx1 : s₃.gpr .x1 = st s₀ + 64 := by
     rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.gpr, h.x19]; rfl
   refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by rw [m₃, hmem]; exact hfr, by rw [m₃, hmem]; exact hsv⟩,
     by rw [u₃.other _ (by decide), u₂.gpr]; rfl, by rw [u₃.gpr]; rfl, by omega, .inl hx1, ?_⟩
@@ -425,20 +425,20 @@ theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   · rw [u₃.sp, u₂.sp, u₁.sp, h.sp]
   · rw [g .x21 (by decide) (by decide) (by decide), h.x21]
   · rw [g .x22 (by decide) (by decide) (by decide), h.x22, Nat.sub_sub]
-  · intro m hm mem' hs
+  · intro iv m hm mem' hs
     rw [← take_add_data]
     have hmod := length_mid s₀ hm hc
-    refine repr_append_block (hI.repr m hm) (by rw [hmod, hxs]; exact hfull) ?_
+    refine repr_append_block (hI.repr iv m hm) (by rw [hmod, hxs]; exact hfull) ?_
     rw [hs, m₃, hmem, hst, hx1]
     refine congrArg (compress _) (parseBlock_congr fun k hk => ?_)
-    have hb := (hI.repr m hm).2
+    have hb := (hI.repr iv m hm).2
     rw [hmod] at hb
-    rw [hb, show rr s₀ c + tt s₀ c = 64 from hfull] at hby
+    rw [hb, show rr s₀ c + tt s₀ c = 128 from hfull] at hby
     exact bytesAt_getD hby hk
 
 /-- All the data fits in the buffer. -/
 theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {s : State}
-    (h : Copy s₀ c sI.mem (tt s₀ c) s) (hnf : rr s₀ c + tt s₀ c ≠ 64) : Done s₀ s := by
+    (h : Copy s₀ c sI.mem (tt s₀ c) s) (hnf : rr s₀ c + tt s₀ c ≠ 128) : Done s₀ s := by
   have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c
   have hrr := rr_eq s₀ c; have htt := tt_eq s₀ c
   have hxs := xs_length s₀ c
@@ -448,28 +448,28 @@ theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
   have hmem : s.mem = writeBytes sI.mem (q s₀ c) (xs s₀ c) := by
     rw [h.mem, List.take_of_length_le (by omega)]
   refine ⟨⟨⟨le_rfl, h.rd, h.wr, h.x19, h.x20, h.sp, ?_, ?_, by rw [hmem]; exact hfr,
-    by rw [hmem]; exact hsv⟩, ?_, fun m hm => ?_⟩, h.x10⟩
+    by rw [hmem]; exact hsv⟩, ?_, fun iv m hm => ?_⟩, h.x10⟩
   · rw [h.x21]; congr 2; omega
   · rw [h.x22]; congr 1; omega
   · rw [h.x23]; congr 1; omega
   · have hmod := length_mid s₀ hm hc
     rw [show len s₀ = c + tt s₀ c by omega, ← take_add_data]
-    refine repr_append_buf (hI.repr m hm) (by rw [hmod, hxs]; omega) (by rw [hmem, hst]) ?_
+    refine repr_append_buf (hI.repr iv m hm) (by rw [hmod, hxs]; omega) (by rw [hmem, hst]) ?_
     rw [hmod, hxs, hmem, hby]
-    have hb := (hI.repr m hm).2
+    have hb := (hI.repr iv m hm).2
     rw [hmod] at hb
     rw [hb]
 
 theorem fill_eq : fill =
-    .seq (.block [.movz .x .x11 64 0, .sub .x .x11 .x11 .x23, .lsr .x .x9 .x22 6])
+    .seq (.block [.movz .x .x11 128 0, .sub .x .x11 .x11 .x23, .lsr .x .x9 .x22 7])
     (.seq (.ite (.zero .x .x9)
-        (.seq (.block [.add .x .x9 .x22 .x23, .lsr .x .x9 .x9 6])
+        (.seq (.block [.add .x .x9 .x22 .x23, .lsr .x .x9 .x9 7])
           (.ite (.zero .x .x9) (.block [mov .x11 .x22]) (.block [])))
         (.block []))
     (.seq (.block [.sub .x .x22 .x22 .x11])
     (.seq (.loop (.block copyBody) (.nonzero .x .x11))
-    (.seq (.block [.subImm .x .x9 .x23 64])
-      (.ite (.zero .x .x9) (.block [.addImm .x .x1 .x19 32, .movz .x .x23 0 0, .movz .x .x10 1 0])
+    (.seq (.block [.subImm .x .x9 .x23 128])
+      (.ite (.zero .x .x9) (.block [.addImm .x .x1 .x19 64, .movz .x .x23 0 0, .movz .x .x10 1 0])
         (.block [])))))) := rfl
 
 theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) (hcl : c < len s₀)
@@ -480,33 +480,33 @@ theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   have ne : ∀ r ∈ [Reg.x19, .x20, .x21, .x22, .x23], r ≠ .x9 ∧ r ≠ .x11 := by decide
   have hc := hI.c_le; have hlen := len_lt s₀
   rw [fill_eq]
-  -- `x11 := 64 - r; x9 := len >> 6`
+  -- `x11 := 128 - r; x9 := len >> 7`
   refine WP.seq (wp_movz fun s₁ u₁ => wp_sub fun s₂ u₂ => wp_lsr (by decide) fun s₃ u₃ => WP.block_nil ?_)
   have e₃ : ∀ r, r ≠ .x9 → r ≠ .x11 → s₃.gpr r = s.gpr r := fun r h h' => by
     rw [u₃.other r h, u₂.other r h', u₁.other r h']
   have hI₃ : Inv s₀ c s₃ := hI.of_gpr (fun r hr => e₃ r (ne r hr).1 (ne r hr).2)
     (by rw [u₃.mem, u₂.mem, u₁.mem]) (by rw [u₃.rd, u₂.rd, u₁.rd]) (by rw [u₃.wr, u₂.wr, u₁.wr])
     (by rw [u₃.sp, u₂.sp, u₁.sp])
-  have h11₃ : s₃.gpr .x11 = BitVec.ofNat 64 (64 - rr s₀ c) := by
+  have h11₃ : s₃.gpr .x11 = BitVec.ofNat 64 (128 - rr s₀ c) := by
     rw [u₃.other _ (by decide), u₂.gpr, u₁.gpr, u₁.other _ (by decide), hI.x23,
-      show BitVec.setWidth 64 (64 : BitVec 16) = BitVec.ofNat 64 64 from rfl, sub_ofNat (by omega)]
-  have h9₃ : s₃.gpr .x9 = BitVec.ofNat 64 ((len s₀ - c) / 64) := by
-    rw [u₃.gpr, u₂.other _ (by decide), u₁.other _ (by decide), hI.x22, ofNat_shr6 (by omega)]
+      show BitVec.setWidth 64 (128 : BitVec 16) = BitVec.ofNat 64 128 from rfl, sub_ofNat (by omega)]
+  have h9₃ : s₃.gpr .x9 = BitVec.ofNat 64 ((len s₀ - c) / 128) := by
+    rw [u₃.gpr, u₂.other _ (by decide), u₁.other _ (by decide), hI.x22, ofNat_shr7 (by omega)]
   -- `x11 := min(x11, len)`
   refine WP.seq (WP.mono (Q := fun (s₄ : State) => Inv s₀ c s₄ ∧ s₄.gpr .x11 = BitVec.ofNat 64 (tt s₀ c) ∧
     s₄.gpr .x10 = 0 ∧ s₄.mem = s.mem) ?_ fun s₄ ⟨hI₄, h11₄, h10₄, hm₄⟩ => ?_)
   · have hm₃ : s₃.mem = s.mem := by rw [u₃.mem, u₂.mem, u₁.mem]
     have h10₃ : s₃.gpr .x10 = 0 := by rw [e₃ _ (by decide) (by decide), h10]
-    refine WP.ite (decide ((len s₀ - c) / 64 = 0))
+    refine WP.ite (decide ((len s₀ - c) / 128 = 0))
       (by show VG.AArch64.eval (.zero .x .x9) s₃ = _; rw [eval_zero, h9₃, ofNat_beq_zero (by omega)]) (fun hb => ?_) (fun hb => ?_)
     · simp only [decide_eq_true_eq] at hb
       refine WP.seq (wp_add fun s₅ u₅ => wp_lsr (by decide) fun s₆ u₆ => WP.block_nil ?_)
       have e₆ : ∀ r, r ≠ .x9 → s₆.gpr r = s₃.gpr r := fun r h => by rw [u₆.other r h, u₅.other r h]
       have hI₆ : Inv s₀ c s₆ := hI₃.of_gpr (fun r hr => e₆ r (ne r hr).1) (by rw [u₆.mem, u₅.mem]) (by rw [u₆.rd, u₅.rd]) (by rw [u₆.wr, u₅.wr])
         (by rw [u₆.sp, u₅.sp])
-      have h9₆ : s₆.gpr .x9 = BitVec.ofNat 64 ((len s₀ - c + rr s₀ c) / 64) := by
-        rw [u₆.gpr, u₅.gpr, hI₃.x22, hI₃.x23, ← BitVec.ofNat_add, ofNat_shr6 (by omega)]
-      refine WP.ite (decide ((len s₀ - c + rr s₀ c) / 64 = 0))
+      have h9₆ : s₆.gpr .x9 = BitVec.ofNat 64 ((len s₀ - c + rr s₀ c) / 128) := by
+        rw [u₆.gpr, u₅.gpr, hI₃.x22, hI₃.x23, ← BitVec.ofNat_add, ofNat_shr7 (by omega)]
+      refine WP.ite (decide ((len s₀ - c + rr s₀ c) / 128 = 0))
         (by show VG.AArch64.eval (.zero .x .x9) s₆ = _; rw [eval_zero, h9₆, ofNat_beq_zero (by omega)]) (fun hb' => ?_) (fun hb' => ?_)
       · simp only [decide_eq_true_eq] at hb'
         refine wp_mov fun s₇ u₇ => WP.block_nil ⟨hI₆.of_gpr (fun r hr => u₇.other r (ne r hr).2)
@@ -539,9 +539,9 @@ theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
       by rw [u₇.other _ (by decide), hC.x22], by rw [u₇.other _ (by decide), hC.x23],
       by rw [u₇.other _ (by decide), hC.x11], by rw [u₇.other _ (by decide), hC.x10],
       by rw [u₇.mem, hC.mem]⟩
-  have hz : eval (.zero .x .x9) s₇ = some (decide (rr s₀ c + tt s₀ c = 64)) := by
+  have hz : eval (.zero .x .x9) s₇ = some (decide (rr s₀ c + tt s₀ c = 128)) := by
     rw [eval_zero, u₇.gpr, hC.x23, sub_beq (by omega) (by omega)]
-  refine WP.ite (decide (rr s₀ c + tt s₀ c = 64)) hz (fun hb => ?_) (fun hb => ?_)
+  refine WP.ite (decide (rr s₀ c + tt s₀ c = 128)) hz (fun hb => ?_) (fun hb => ?_)
   · simp only [decide_eq_true_eq] at hb
     exact WP.mono (fill_pending hp hI hC₇ hb) fun s' h => .inl ⟨c + tt s₀ c, by omega, h⟩
   · simp only [decide_eq_false_iff_not] at hb
@@ -552,7 +552,7 @@ theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
 theorem body_eq : updateBody =
     .seq (.block [.movz .x .x10 0 0])
     (.seq (.ite (.zero .x .x23)
-        (.seq (.block [.lsr .x .x9 .x22 6]) (.ite (.zero .x .x9) fill (.block direct)))
+        (.seq (.block [.lsr .x .x9 .x22 7]) (.ite (.zero .x .x9) fill (.block direct)))
         fill)
       (.ite (.zero .x .x10) (.block []) compressAt)) := rfl
 
@@ -573,12 +573,12 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
     refine WP.seq (wp_lsr (by decide) fun s₂ u₂ => WP.block_nil ?_)
     have hI₂ : Inv s₀ c s₂ := hI₁.of_gpr (fun r hr => u₂.other r (ne r hr).2) u₂.mem u₂.rd u₂.wr u₂.sp
     have h10₂ : s₂.gpr .x10 = 0 := by rw [u₂.other _ (by decide), h10₁]
-    refine WP.ite (decide ((len s₀ - c) / 64 = 0))
+    refine WP.ite (decide ((len s₀ - c) / 128 = 0))
       (by show VG.AArch64.eval (.zero .x .x9) s₂ = _
-          rw [eval_zero, u₂.gpr, hI₁.x22, ofNat_shr6 (by omega), ofNat_beq_zero (by omega)])
+          rw [eval_zero, u₂.gpr, hI₁.x22, ofNat_shr7 (by omega), ofNat_beq_zero (by omega)])
       (fun _ => fill_ok hp hI₂ hcl h10₂) (fun hb' => ?_)
     simp only [decide_eq_false_iff_not] at hb'
-    exact WP.mono (direct_ok hp hI₂ hb (by omega)) fun s' h => .inl ⟨c + 64, by omega, h⟩
+    exact WP.mono (direct_ok hp hI₂ hb (by omega)) fun s' h => .inl ⟨c + 128, by omega, h⟩
   · rcases h with ⟨c', hc', hP⟩ | ⟨hD, h10⟩
     · refine WP.ite false (by show VG.AArch64.eval (.zero .x .x10) s' = _; rw [eval_zero, hP.x10]; rfl)
         (fun h => by cases h) fun _ => WP.mono (hP.compress_ok hp) fun s'' h => ⟨c', hc', h⟩
@@ -589,7 +589,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
 
 /-- The prologue after saving. -/
 def prologue : List Instr :=
-  [mov .x19 .x0, mov .x20 .x4, mov .x21 .x2, mov .x22 .x3, .movz .x .x9 63 0, .logic .and .x .x23 .x1 .x9]
+  [mov .x19 .x0, mov .x20 .x4, mov .x21 .x2, mov .x22 .x3, .movz .x .x9 127 0, .logic .and .x .x23 .x1 .x9]
 
 theorem update_eq : update = .seq (.block (save .x4 ++ prologue))
     (.seq (.ite (.zero .x .x22) (.block []) (.loop updateBody (.nonzero .x .x22))) (.block restore)) := rfl
@@ -603,7 +603,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     wp_movz fun s₆ u₆ => wp_and fun s₇ u₇ => WP.block_nil ?_
   have hm₇ : s₇.mem = saveMem s₀.mem (scr s₀) s₀.gpr := by
     rw [u₇.mem, u₆.mem, u₅.mem, u₄.mem, u₃.mem, u₂.mem, m₁]
-  refine ⟨⟨Nat.zero_le _, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, fun m hm => ?_⟩
+  refine ⟨⟨Nat.zero_le _, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, fun iv m hm => ?_⟩
   · rw [u₇.rd, u₆.rd, u₅.rd, u₄.rd, u₃.rd, u₂.rd, rd₁]
   · rw [u₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr, u₂.wr, wr₁]
   · rw [u₇.other _ (by decide), u₆.other _ (by decide), u₅.other _ (by decide), u₄.other _ (by decide),
@@ -620,21 +620,21 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   · rw [hm₇]; exact (saveMem_frame _ _ _).mono (by simp)
   · rw [hm₇]; exact saveMem_saved _ _ _
   · rw [u₇.gpr, u₆.gpr, u₆.other .x1 (by decide), u₅.other .x1 (by decide), u₄.other .x1 (by decide),
-      u₃.other .x1 (by decide), u₂.other .x1 (by decide), g₁, and63, Nat.add_zero]
+      u₃.other .x1 (by decide), u₂.other .x1 (by decide), g₁, and127, Nat.add_zero]
   · rw [List.take_zero, List.append_nil, hm₇]
     exact repr_congr (fun i hi => frame_bytes (saveMem_frame s₀.mem (scr s₀) s₀.gpr) (R := stR s₀)
       (by simpa using hp.st_scr) (by simp) hi) hm.1
 
 /-- The epilogue's postcondition. -/
 def Post (s₀ s' : State) : Prop :=
-  (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧ s'.sp = s₀.sp ∧ Proof.Sha256.updateAArch64.post s₀ s'
+  (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧ s'.sp = s₀.sp ∧ Proof.Sha512.updateAArch64.post s₀ s'
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block restore) s (Post s₀) := by
   refine restore_ok (scr := scr s₀) hI.x20
     (fun d hd₁ hd₂ => ⟨scR s₀, by simp [hI.rd, hI.wr, hp.wr], contains_offset hd₂ (by omega)⟩) s₀.gpr
-    hI.saved fun s' hs _ hmem _ _ hsp => ⟨hs, by rw [hsp, hI.sp], fun m hr hc => ?_⟩
-  have := hI.repr m ⟨hr, hc⟩
+    hI.saved fun s' hs _ hmem _ _ hsp => ⟨hs, by rw [hsp, hI.sp], fun iv m hr hc => ?_⟩
+  have := hI.repr iv m ⟨hr, hc⟩
   rwa [List.take_of_length_le (by rw [D_length]), ← hmem] at this
 
 /-- No instruction of `update` writes the callee-saved registers it does not save. -/
@@ -646,7 +646,7 @@ theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs update, dstOf i ≠
   simpa using this
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateAArch64.post s₀ s' := by
+    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.updateAArch64.post s₀ s' := by
   have hlen := len_lt s₀
   refine WP.mono (WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
@@ -676,15 +676,15 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   · simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
     · exact hu .x18 (by simp [untouched])
-    · exact hsv (.x19, 112) (by simp [saved])
-    · exact hsv (.x20, 120) (by simp [saved])
-    · exact hsv (.x21, 128) (by simp [saved])
-    · exact hsv (.x22, 136) (by simp [saved])
-    · exact hsv (.x23, 144) (by simp [saved])
-    · exact hsv (.x24, 152) (by simp [saved])
+    · exact hsv (.x19, 176) (by simp [saved])
+    · exact hsv (.x20, 184) (by simp [saved])
+    · exact hsv (.x21, 192) (by simp [saved])
+    · exact hsv (.x22, 200) (by simp [saved])
+    · exact hsv (.x23, 208) (by simp [saved])
+    · exact hsv (.x24, 216) (by simp [saved])
     all_goals exact hu _ (by simp [untouched])
 
-theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Sha256.updateAArch64.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Sha512.updateAArch64.pub s₁ s₂) :
     VG.AArch64.Taint.Agree (VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
   intro r hr
@@ -698,9 +698,9 @@ def sat : State where
   sp := 0x4000
   mem _ := 0
   rd := [⟨0x2000, 0⟩]
-  wr := [⟨0x1000, 96⟩, ⟨0x3000, 160⟩]
+  wr := [⟨0x1000, 192⟩, ⟨0x3000, 224⟩]
 
-theorem update_verified : Verified AArch64.target update Proof.Sha256.updateAArch64 := by
+theorem update_verified : Verified AArch64.target update Proof.Sha512.updateAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
@@ -711,4 +711,4 @@ theorem update_verified : Verified AArch64.target update Proof.Sha256.updateAArc
       simp only [Region.Contains, sat] at h₁ h₂
       bv_omega
 
-end VG.Proof.Sha256.AArch64.Stream.Update
+end VG.Proof.Sha512.AArch64.Stream.Update

@@ -31,6 +31,8 @@ def Instr.asm : Instr → List String
   | .mov d (.shifted m sh n) => [s!"{sh.name} {d.name}, {m.name}, #{n}"]
   | .mov d op2 => [s!"mov {d.name}, {op2.str}"]
   | .dp op d n op2 => [s!"{op.name} {d.name}, {n.name}, {op2.str}"]
+  | .adds d n op2 => [s!"adds {d.name}, {n.name}, {op2.str}"]
+  | .adc d n op2 => [s!"adc {d.name}, {n.name}, {op2.str}"]
   | .subs d n op2 => [s!"subs {d.name}, {n.name}, {op2.str}"]
   | .cmp n op2 => [s!"cmp {n.name}, {op2.str}"]
   | .movw d imm => [s!"movw {d.name}, #{imm.toNat}"]

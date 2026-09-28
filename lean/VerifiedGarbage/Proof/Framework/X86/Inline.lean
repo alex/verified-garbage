@@ -468,7 +468,7 @@ theorem WP.inline {c : Prog isa} {k : Contract isa}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → abiPreserved s s' → Frame wr s.mem s'.mem →
       (∀ r, (∀ i ∈ instrs c, dstOf i ≠ some r) → s'.gpr r = s.gpr r) →
       k.post (s.withRegions rd wr) (s'.withRegions rd wr) → Q s')
-    (hn : c.noCalls = true := by decide) : WP isa c s Q := by
+    (hn : c.noCalls = true := by decide +kernel) : WP isa c s Q := by
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre
   obtain ⟨hr, hwr, hf⟩ := Exec.regions he hn
   simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_mem] at hr hwr hf
@@ -488,7 +488,7 @@ theorem WP.narrow {c : Prog isa} {s : State} {rd wr : List Region} {P : State �
     (h : WP isa c (s.withRegions rd wr) P)
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → Frame wr s.mem s'.mem → P (s'.withRegions rd wr) → Q s')
-    (hn : c.noCalls = true := by decide) : WP isa c s Q := by
+    (hn : c.noCalls = true := by decide +kernel) : WP isa c s Q := by
   obtain ⟨t, s₁, he, hp⟩ := h
   obtain ⟨hr, hwr, hf⟩ := Exec.regions he hn
   simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_mem] at hr hwr hf

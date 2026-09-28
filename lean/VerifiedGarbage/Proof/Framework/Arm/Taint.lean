@@ -143,9 +143,11 @@ def storeStep (τ : T) (n : Reg) (off w : Nat) (p : Bool) : Option T :=
 def step (τ : T) : Instr → Option T
   | .mov d op2 => some { τ with regs := set τ d (op2Pub τ op2), bases := movBases τ d op2 }
   | .dp _ d n op2 => some { τ with regs := set τ d (pub τ n && op2Pub τ op2), bases := kill τ d }
-  | .subs d n op2 =>
+  | .adds d n op2 | .subs d n op2 =>
     let p := pub τ n && op2Pub τ op2
     some { τ with regs := set τ d p, flags := p, bases := kill τ d }
+  | .adc d n op2 =>
+    some { τ with regs := set τ d (pub τ n && op2Pub τ op2 && τ.flags), bases := kill τ d }
   | .cmp n op2 => some { τ with flags := pub τ n && op2Pub τ op2 }
   | .movw d _ => some { τ with regs := set τ d true, bases := kill τ d }
   | .movt d _ => some { τ with regs := set τ d (pub τ d), bases := kill τ d }
@@ -533,8 +535,8 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {r : 
 /-- The register an instruction writes, if it writes one (`cmp` and stores
 do not; a frame's pop writes its register). -/
 def dst : Instr → Option Reg
-  | .mov d _ | .dp _ d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _ | .ldr d _ _
-  | .ldrb d _ _ | .ldrSp d _ | .pop d _ => some d
+  | .mov d _ | .dp _ d _ _ | .adds d _ _ | .adc d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _
+  | .ldr d _ _ | .ldrb d _ _ | .ldrSp d _ | .pop d _ => some d
   | .cmp .. | .str .. | .strb .. | .push _ => none
 
 theorem exec_dst {i : Instr} {d : Reg} (hd : dst i = some d) {s s' : State}
@@ -546,7 +548,7 @@ theorem exec_dst {i : Instr} {d : Reg} (hd : dst i = some d) {s s' : State}
   (try simp only [Option.some.injEq, reduceCtorEq] at h) <;>
   first
   | (subst h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩)
-  | (obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl, rfl, fun r h => by simp [State.setReg, subFlags, h]⟩)
+  | (obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl, rfl, fun r h => by simp [State.setReg, addFlags, subFlags, h]⟩)
   | (cases h)
 
 theorem Agree.write {τ τ' : T} {i : Instr} {d : Reg} (hd : dst i = some d) {s₁ s₂ s₁' s₂' : State}
@@ -611,6 +613,23 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     refine ⟨regs_set ha.rf.1 fun hp => ?_, fun hf => ha.rf.2 hf⟩
     simp only [Bool.and_eq_true] at hp
     rw [op2_some ha h₁ h₂ hp.2, ha.reg hp.1]
+  | adds d n o =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl rfl rfl fun _ h => h⟩
+    simp only [exec, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨y₁, h₁, rfl⟩ := e₁; obtain ⟨y₂, h₂, rfl⟩ := e₂
+    refine ⟨regs_set (fun r hr => by simpa [addFlags] using ha.rf.1 r hr) fun hp => ?_, fun hp => ?_⟩ <;>
+    · simp only [Bool.and_eq_true] at hp
+      rw [op2_some ha h₁ h₂ hp.2, ha.reg hp.1]
+      try simp [addFlags, State.setReg]
+  | adc d n o =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl rfl rfl fun _ h => h⟩
+    simp only [exec, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨y₁, h₁, rfl⟩ := e₁; obtain ⟨y₂, h₂, rfl⟩ := e₂
+    refine ⟨regs_set ha.rf.1 fun hp => ?_, fun hf => ha.rf.2 hf⟩
+    simp only [Bool.and_eq_true] at hp
+    rw [op2_some ha h₁ h₂ hp.1.2, ha.reg hp.1.1, (ha.rf.2 hp.2).2.2.1]
   | subs d n o =>
     simp only [step, Option.some.injEq] at hs; subst hs
     refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl rfl rfl fun _ h => h⟩

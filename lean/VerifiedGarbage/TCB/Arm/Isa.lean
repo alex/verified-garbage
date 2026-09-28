@@ -87,6 +87,10 @@ inductive Instr
   | mov (d : Reg) (op2 : Op2)
   /-- `add`/`sub`/`and`/`orr`/`eor d, n, op2` (no flags set) -/
   | dp (op : DpOp) (d n : Reg) (op2 : Op2)
+  /-- `adds d, n, op2` (sets N, Z, C, V) -/
+  | adds (d n : Reg) (op2 : Op2)
+  /-- `adc d, n, op2` (adds the C flag; no flags set) -/
+  | adc (d n : Reg) (op2 : Op2)
   /-- `subs d, n, op2` (sets N, Z, C, V) -/
   | subs (d n : Reg) (op2 : Op2)
   /-- `cmp n, op2` (sets N, Z, C, V) -/
@@ -181,6 +185,12 @@ def Op2.eval (s : State) : Op2 → Option (BitVec 32)
         | .ror => (s.gpr r).rotateRight n)
     else none
 
+/-- The flags of `x + y` (DDI 0406C A2.2.1, `AddWithCarry(x, y, '0')`). -/
+def addFlags (s : State) (x y : BitVec 32) : State :=
+  let r := x + y
+  { s with n := r.msb, z := r == 0, c := 2 ^ 32 ≤ x.toNat + y.toNat,
+           v := x.msb == y.msb && r.msb != x.msb }
+
 /-- The flags of `x - y` (DDI 0406C A2.2.1, `AddWithCarry(x, NOT(y), '1')`). -/
 def subFlags (s : State) (x y : BitVec 32) : State :=
   let r := x - y
@@ -194,7 +204,11 @@ def rev (a : BitVec 32) : BitVec 32 :=
 /-- Semantics, transcribing DDI 0406C A8.8: "MOV (immediate)", "MOV
 (register)", "LSL/LSR/ROR (immediate)" (the aliases of MOV with a shifted
 register); "ADD/SUB/AND/ORR/EOR (immediate)", "(register)" (with `S` = 0,
-so no flags); "SUB (immediate/register)" with `S` = 1 and "CMP": N, Z, C, V
+so no flags); "ADD (immediate/register)" with `S` = 1: `R[d]` and N, Z,
+C, V from `AddWithCarry(R[n], op2, '0')`; "ADC (immediate)" and "ADC
+(register)" (A8.8.1, A8.8.2) with `S` = 0: `R[d]` from
+`AddWithCarry(R[n], op2, APSR.C)`, flags unchanged; "SUB
+(immediate/register)" with `S` = 1 and "CMP": N, Z, C, V
 from `AddWithCarry(R[n], NOT(op2), '1')`; "MOVW" (`R[d] = ZeroExtend(imm16)`);
 "MOVT" (`R[d]<31:16> = imm16`, the low half unchanged); "REV"; "LDR
 (immediate)"/"STR (immediate)" with a positive offset and no writeback
@@ -208,6 +222,10 @@ def exec : Instr → State → Option State
     let x := s.gpr n
     s.setReg d (match op with
       | .add => x + y | .sub => x - y | .and => x &&& y | .orr => x ||| y | .eor => x ^^^ y)
+  | .adds d n op2, s => (op2.eval s).map fun y =>
+    (addFlags s (s.gpr n) y).setReg d (s.gpr n + y)
+  | .adc d n op2, s => (op2.eval s).map fun y =>
+    s.setReg d (s.gpr n + y + (if s.c then 1 else 0))
   | .subs d n op2, s => (op2.eval s).map fun y =>
     (subFlags s (s.gpr n) y).setReg d (s.gpr n - y)
   | .cmp n op2, s => (op2.eval s).map fun y => subFlags s (s.gpr n) y
