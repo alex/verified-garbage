@@ -157,6 +157,36 @@ def shuf (order : BitVec 8) : BitVec 128 := ((XOp.pshufd .xmm1 .xmm0 order).exec
   (·.mem.readW 0x200 128)) == some a
 #guard (exec (.movdquStore { base := .rdi, disp := 0x101 } .xmm0) s).isNone
 
+/-! ## MXCSR and `lfence`
+
+The expected values are those of an x86-64 CPU: `stmxcsr` after `ldmxcsr` of
+`0x1FBF` stores the bytes `bf 1f 00 00`, the initial MXCSR of a process is
+`0x1F80`, `ldmxcsr` of `0xFFFF` succeeds, and `ldmxcsr` of `0x36251403`
+(the doubleword at `0x100` here), `0x10000` or `0x80000000` raises #GP
+(SIGSEGV). -/
+
+/-- `s` with `v` in MXCSR. -/
+def withMxcsr (v : BitVec 32) : State := { s with mxcsr := v }
+
+#guard s.mxcsr == 0x1F80
+#guard ((exec (.stmxcsr { base := .rdi, disp := 0x100 }) (withMxcsr 0x1FBF)).map
+  fun s' => [s'.mem 0x200, s'.mem 0x201, s'.mem 0x202, s'.mem 0x203]) == some [0xbf, 0x1f, 0, 0]
+#guard (exec (.stmxcsr { base := .rdi }) s).isNone
+#guard (exec (.stmxcsr { base := .rdi, disp := 0x10d }) s).isNone
+/-- `s` with `v` stored at `0x200`, from MXCSR. -/
+def stored (v : BitVec 32) : State :=
+  ((exec (.stmxcsr { base := .rdi, disp := 0x100 }) (withMxcsr v)).getD s)
+#guard ((exec (.ldmxcsr { base := .rdi, disp := 0x100 }) (stored 0x1FBF)).map (·.mxcsr)) ==
+  some 0x1FBF
+#guard ((exec (.ldmxcsr { base := .rdi, disp := 0x100 }) (stored 0xFFFF)).map (·.mxcsr)) ==
+  some 0xFFFF
+#guard (exec (.ldmxcsr { base := .rdi }) s).isNone
+#guard (exec (.ldmxcsr { base := .rdi, disp := 0x100 }) (stored 0x10000)).isNone
+#guard (exec (.ldmxcsr { base := .rdi, disp := 0x100 }) (stored 0x80000000)).isNone
+#guard (exec (.ldmxcsr { base := .rdi, disp := 0x10d }) s).isNone
+#guard ((exec .lfence (withMxcsr 0x1FBF)).map (·.mxcsr)) == some 0x1FBF
+#guard ((exec .lfence s).map (·.xmm .xmm0)) == some a
+
 /-! ## Printing -/
 
 #guard printer.instr (.movdquLoad .xmm0 { base := .rdi, disp := 16 }) ==
@@ -195,6 +225,9 @@ def shuf (order : BitVec 8) : BitVec 128 := ((XOp.pshufd .xmm1 .xmm0 order).exec
 #guard printer.instr (.xop (.shift .psrlq .xmm8 63)) == ["psrlq xmm8, 63"]
 #guard printer.instr (.xop (.shift .pslldq .xmm9 8)) == ["pslldq xmm9, 8"]
 #guard printer.instr (.xop (.shift .psrldq .xmm10 4)) == ["psrldq xmm10, 4"]
+#guard printer.instr (.stmxcsr { base := .rsp, disp := 8 }) == ["stmxcsr DWORD PTR [rsp+8]"]
+#guard printer.instr (.ldmxcsr { base := .rdi }) == ["ldmxcsr DWORD PTR [rdi]"]
+#guard printer.instr .lfence == ["lfence"]
 
 /-! ## Required features -/
 
@@ -213,5 +246,9 @@ def shuf (order : BitVec 8) : BitVec 128 := ((XOp.pshufd .xmm1 .xmm0 order).exec
   isa.requires (.xop (.bin op .xmm1 .xmm2)) == ["aes"]
 #guard isa.requires (.xop (.aeskeygenassist .xmm1 .xmm2 1)) == ["aes"]
 #guard isa.requires (.xop (.pclmulqdq .xmm1 .xmm2 0)) == ["pclmulqdq"]
+-- SSE (`ldmxcsr`, `stmxcsr`) and SSE2 (`lfence`) are in the x86-64 baseline.
+#guard isa.requires (.stmxcsr { base := .rsp }) == []
+#guard isa.requires (.ldmxcsr { base := .rsp }) == []
+#guard isa.requires .lfence == []
 
 end VG.Test.Sse

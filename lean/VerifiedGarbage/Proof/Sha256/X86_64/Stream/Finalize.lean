@@ -630,7 +630,7 @@ theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {s : State}
     (h : Out s₀ sD 8 s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Sha256.finalizeX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Sha256.finalizeX86_64.post s₀ s' := by
   have hC := hD.1
   have hfo := out_frame s₀ sD.mem (((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes)
     (by rw [flat_length _ _ le_rfl])
@@ -717,7 +717,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
 theorem out_all {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) :
     ∀ j ≤ 8, ∀ s, Out s₀ sD (8 - j) s →
       WP isa (.block (((List.range 8).drop (8 - j)).flatMap outW ++ restore)) s fun s' =>
-        abiPreserved s₀ s' ∧ Proof.Sha256.finalizeX86_64.post s₀ s' := by
+        gprPreserved s₀ s' ∧ Proof.Sha256.finalizeX86_64.post s₀ s' := by
   intro j
   induction j with
   | zero =>
@@ -742,7 +742,7 @@ theorem out_keeps : (((List.range 8).flatMap outW ++ restore).all fun i =>
 /-- `finalize` is correct, and leaves `rdi` and `rcx` as they were (which code
 inlining it relies on). -/
 theorem correct {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) :
-    WP isa (finalize f) s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.finalizeX86_64.post s₀ s' ∧
+    WP isa (finalize f) s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha256.finalizeX86_64.post s₀ s' ∧
       s'.gpr .rdi = s₀.gpr .rdi ∧ s'.gpr .rcx = s₀.gpr .rcx := by
   unfold finalize
   rw [← WP.seq_assoc]
@@ -799,25 +799,27 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 160⟩]
 
-/-- `finalize f` is verified if its constant-time analysis passes. -/
+/-- `finalize f` is verified if its constant-time analysis passes and it
+never loads MXCSR. -/
 theorem verified_of {f : Callee} (hf : f.Ok)
+    (hm : (finalize f).allInstrs (fun i => !loadsMxcsr i) = true)
     (hct : ConstantTime isa Proof.Sha256.finalizeX86_64.pre Proof.Sha256.finalizeX86_64.pub (finalize f)) :
     Verified X86_64.target (finalize f) Proof.Sha256.finalizeX86_64 := by
   refine ⟨fun s hs => ?_, hct, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct hf (pre_of hs)
-    exact ⟨t, s', he, h.1, h.2.1⟩
+    exact ⟨t, s', he, abiPreserved_of_exec hm he h.1, h.2.1⟩
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
       bv_omega
 
 theorem finalize_verified : Verified X86_64.target (finalize .scalar) Proof.Sha256.finalizeX86_64 :=
-  verified_of scalar_ok
+  verified_of scalar_ok (by decide +kernel)
     (VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide))
 
 theorem finalize_shani_verified :
     Verified X86_64.target (finalize .shani) Proof.Sha256.finalizeX86_64 :=
-  verified_of shani_ok
+  verified_of shani_ok (by decide +kernel)
     (VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide))
 
 end VG.Proof.Sha256.X86_64.Stream.Finalize

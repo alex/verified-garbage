@@ -426,7 +426,7 @@ theorem st16 (s₀ : State) {d : Nat} (hd : d ≤ 16) :
   contains_offset' (by omega) (by omega)
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.compressX86_64.post s₀ s' := by
+    WP isa compress s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha256.compressX86_64.post s₀ s' := by
   have in0 : InRegions (s₀.rd ++ s₀.wr) (s₀.gpr .rdi + BitVec.ofInt 64 ((0 : Nat) : Int)) 16 :=
     ⟨stR s₀, by simp [hp.wr], st16 s₀ (by omega)⟩
   have in16 : InRegions (s₀.rd ++ s₀.wr) (s₀.gpr .rdi + BitVec.ofInt 64 ((16 : Nat) : Int)) 16 :=
@@ -474,7 +474,7 @@ theorem compress_verified :
     Verified X86_64.target Impl.Sha256.X86_64.ShaNi.compress Proof.Sha256.compressX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩
     refine Taint.agree_ofRegs fun r hr => ?_
