@@ -371,7 +371,7 @@ theorem WP.inline {c : Prog isa} {k : Contract isa}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → abiPreserved s s' → Frame wr s.mem s'.mem →
       (∀ r, (∀ i ∈ instrs c, Taint.dstOf i ≠ some r) → s'.gpr r = s.gpr r) →
       k.post (s.withRegions rd wr) (s'.withRegions rd wr) → Q s')
-    (hn : c.noCalls = true := by decide) : WP isa c s Q := by
+    (hn : c.noCalls = true := by decide +kernel) : WP isa c s Q := by
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre
   obtain ⟨hr, hwr, hf⟩ := Exec.regions he hn
   simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_mem] at hr hwr hf

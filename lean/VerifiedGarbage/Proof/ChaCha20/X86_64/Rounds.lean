@@ -15,7 +15,6 @@ open VG VG.X86_64 VG.Impl.ChaCha20.X86_64
 open VG.Spec.ChaCha20 (Word quarterRound qround innerBlock)
 open VG.Proof.ChaCha20
 
-set_option maxHeartbeats 0 in
 theorem qr_ok {a b c d : Reg} (hab : a ≠ b) (hac : a ≠ c) (had : a ≠ d) (hbc : b ≠ c)
     (hbd : b ≠ d) (hcd : c ≠ d) (s : State) (va vb vc vd : Word)
     (ha : s.gpr a = va.setWidth 64) (hb : s.gpr b = vb.setWidth 64)
@@ -71,7 +70,6 @@ def QSide (p : Bool) (x y z w : Nat) : Bool :=
   (List.range 16).all fun k => [x, y, z, w].contains k || !inReg p k ||
     !([wreg x, wreg y, wreg z, wreg w].contains (wreg k))
 
-set_option maxHeartbeats 400000 in
 theorem quarter_ok {p : Bool} {x y z w : Nat} (hx : x < 16) (hy : y < 16) (hz : z < 16)
     (hw : w < 16) (hq : QSide p x y z w = true) {buf : Addr} {v : CState} {s : State}
     (h : Holds buf p v s) :
@@ -191,7 +189,6 @@ theorem out_buf {ws : List Region} {buf : Addr} (hw : bufR buf ∈ ws) {d n : Na
     InRegions ws (buf + BitVec.ofInt 64 (d : Int)) n :=
   ⟨bufR buf, hw, contains_off h (by omega)⟩
 
-set_option maxHeartbeats 0 in
 theorem swap_step {p : Bool} {buf : Addr} {v : CState} {s₀ s : State} (h : RI buf p v s₀ s)
     (hbuf : s₀.gpr .rsi = buf) (hw : bufR buf ∈ s₀.wr) :
     WP isa (swap (if p then 10 else 8) (if p then 8 else 10)) s (RI buf (!p) v s₀) := by

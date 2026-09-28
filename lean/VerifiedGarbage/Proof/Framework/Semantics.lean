@@ -174,4 +174,11 @@ theorem Code.allInstrs_eq {I C : Type} (p : I → Bool) (c : Code I C) :
     c.allInstrs p = (instrs c).all p := by
   induction c <;> simp [allInstrs, instrs, List.all_append, *]
 
+/-- `Code.all p` holds of all code when `p` holds of every instruction: for
+`Artifact.spSafe` on the ISAs whose `writesSp` is always `false`, without
+evaluating the code. -/
+theorem Code.all_of_forall {I C : Type} {p : I → Bool} (h : ∀ i, p i = true) (c : Code I C) :
+    c.all p = true := by
+  induction c <;> simp_all [Code.all]
+
 end VG

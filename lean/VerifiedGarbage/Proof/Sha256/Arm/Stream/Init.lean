@@ -34,7 +34,6 @@ theorem word_ok {x : BitVec 32} {off : Nat} (ho : off < 4096) {rest : List Instr
   rw [u.mem]
   simp only [State.setReg, ite_true, movw_movt]
 
-set_option maxHeartbeats 4000000 in
 theorem init_correct {s₀ : State} (hp : Proof.Sha256.initArm.pre s₀) :
     WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.initArm.post s₀ s' := by
   obtain ⟨-, hwr, hfit⟩ := hp
@@ -94,7 +93,6 @@ def initSat : State where
   rd := []
   wr := [⟨0x1000, 96⟩]
 
-set_option maxHeartbeats 0 in
 theorem init_verified : Verified Arm.target init Proof.Sha256.initArm := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl, by decide⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct hs

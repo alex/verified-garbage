@@ -1,52 +1,45 @@
-import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Common
+import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Common
 
 /-!
-# Streaming SHA-256 on AArch64: `init`
+# Streaming SHA-512 on AArch64: `init`
 
-Untrusted: everything here is checked by Lean.
+Untrusted: everything here is checked by Lean. One proof for every initial
+hash value `iv`.
 -/
 
-namespace VG.Proof.Sha256.AArch64.Stream
+namespace VG.Proof.Sha512.AArch64.Stream
 
-open VG VG.AArch64 VG.Impl.Sha256.AArch64.Stream
-open VG.Proof.Sha256.AArch64 (writeState stateAt_writeState contains_offset)
-open VG.Spec.Sha256 (stateAt H0)
+open VG VG.AArch64 VG.Impl.Sha512.AArch64.Stream
+open VG.Impl.Sha512.AArch64 (movImm64)
+open VG.Proof.Sha512.AArch64 (writeState stateAt_writeState contains_offset)
+open VG.Spec.Sha512 (HashValue stateAt)
 
-/-- The three instructions storing the 32-bit word `x` at `[x0 + off]`. -/
-def word (x : BitVec 32) (off : Nat) : List Instr :=
-  [.movz .w .x9 (x.extractLsb' 0 16) 0, .movk .w .x9 (x.extractLsb' 16 16) 1, .str .w .x9 .x0 off]
+/-- The five instructions storing the 64-bit word `x` at `[x0 + off]`. -/
+def word (x : BitVec 64) (off : Nat) : List Instr := movImm64 .x9 x ++ [.str .x .x9 .x0 off]
 
-theorem init_eq : init = .block (word H0[0] 0 ++ word H0[1] 4 ++ word H0[2] 8 ++ word H0[3] 12 ++
-    word H0[4] 16 ++ word H0[5] 20 ++ word H0[6] 24 ++ word H0[7] 28) := rfl
+theorem init_eq (iv : HashValue) : init iv = .block (word iv[0] 0 ++ word iv[1] 8 ++ word iv[2] 16 ++
+    word iv[3] 24 ++ word iv[4] 32 ++ word iv[5] 40 ++ word iv[6] 48 ++ word iv[7] 56) := rfl
 
-/-- `movz` of the low half then `movk` of the high half, then a 32-bit store. -/
-theorem movzk (x : BitVec 32) :
-    BitVec.setWidth 32 (BitVec.setWidth 64
-      (BitVec.setWidth 32 (BitVec.setWidth 64 (BitVec.setWidth 32 (x.extractLsb' 0 16))) &&& (65535 : BitVec 32) |||
-        BitVec.setWidth 32 (x.extractLsb' 16 16) <<< 16)) = x := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi
-  interval_cases i <;> simp
-
-theorem word_ok {x : BitVec 32} {off : Nat} (ho : off % 4 = 0 ∧ off < 16384) {rest : List Instr}
-    {s : State} {Q : State → Prop} (hout : InRegions s.wr (s.gpr .x0 + BitVec.ofNat 64 off) 4)
+theorem word_ok {x : BitVec 64} {off : Nat} (ho : off % 8 = 0 ∧ off < 32768) {rest : List Instr}
+    {s : State} {Q : State → Prop} (hout : InRegions s.wr (s.gpr .x0 + BitVec.ofNat 64 off) 8)
     (k : ∀ s', (∀ r, r ≠ .x9 → s'.gpr r = s.gpr r) → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
       s'.mem = s.mem.writeW (s.gpr .x0 + BitVec.ofNat 64 off) x → WP isa (.block rest) s' Q) :
     WP isa (.block (word x off ++ rest)) s Q := by
-  simp only [word, List.cons_append, List.nil_append]
-  refine WP.cons exec_movz_w (WP.cons exec_movk_w (WP.cons (exec_str_w ho ?_) (k _ ?_ rfl rfl rfl ?_)))
+  simp only [word, movImm64, List.cons_append, List.nil_append]
+  refine WP.cons rfl (WP.cons rfl (WP.cons rfl (WP.cons rfl
+    (WP.cons (exec_str_x ho ?_) (k _ ?_ rfl rfl rfl ?_)))))
   · simpa [State.write] using hout
   · intro r hr; simp [State.write, hr]
-  · simp only [State.write, ite_true]
+  · simp only [State.write, State.read, Size.bits, BitVec.setWidth_eq, ite_true]
     congr 1
-    exact movzk x
+    exact movz_movk64' x
 
-theorem init_correct {s₀ : State} (hp : Proof.Sha256.initAArch64.pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.initAArch64.post s₀ s' := by
+theorem init_correct {s₀ : State} (iv : HashValue) (hp : (Proof.Sha512.initAArch64 iv).pre s₀) :
+    WP isa (init iv) s₀ fun s' => abiPreserved s₀ s' ∧ (Proof.Sha512.initAArch64 iv).post s₀ s' := by
   obtain ⟨-, hwr⟩ := hp
-  have o : ∀ k, k < 8 → InRegions s₀.wr (s₀.gpr .x0 + BitVec.ofNat 64 (4 * k)) 4 :=
-    fun k hk => ⟨⟨s₀.gpr .x0, 96⟩, by simp [hwr], contains_offset (by omega) (by omega)⟩
-  rw [init_eq, ← List.append_nil (_ ++ word H0[7] 28)]
+  have o : ∀ k, k < 8 → InRegions s₀.wr (s₀.gpr .x0 + BitVec.ofNat 64 (8 * k)) 8 :=
+    fun k hk => ⟨⟨s₀.gpr .x0, 192⟩, by simp [hwr], contains_offset (by omega) (by omega)⟩
+  rw [init_eq, ← List.append_nil (_ ++ word iv[7] 56)]
   simp only [List.append_assoc]
   refine word_ok (by decide) (o 0 (by omega)) fun s1 g1 _ wr1 sp1 m1 => ?_
   refine word_ok (by decide) (by rw [wr1, g1 _ (by decide)]; exact o 1 (by omega))
@@ -71,7 +64,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha256.initAArch64.pre s₀) :
     WP.block_nil ?_
   have k8 : ∀ r, r ≠ .x9 → s8.gpr r = s₀.gpr r := fun r h => by
     rw [g8 r h, g7 r h, g6 r h, g5 r h, k4 r h]
-  have hm : s8.mem = writeState s₀.mem (s₀.gpr .x0) H0 := by
+  have hm : s8.mem = writeState s₀.mem (s₀.gpr .x0) iv := by
     rw [m8, m7, m6, m5, m4, m3, m2, m1]
     simp only [g7 _ (show Reg.x0 ≠ .x9 by decide), g6 _ (show Reg.x0 ≠ .x9 by decide),
       g5 _ (show Reg.x0 ≠ .x9 by decide), k4 _ (show Reg.x0 ≠ .x9 by decide),
@@ -81,9 +74,9 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha256.initAArch64.pre s₀) :
   refine ⟨⟨fun r hr => k8 r ?_, by rw [sp8, sp7, sp6, sp5, sp4, sp3, sp2, sp1]⟩, ?_⟩
   · simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-  · show Spec.Sha256.Repr s8.mem (s₀.gpr .x0) []
+  · show Spec.Sha512.Repr iv s8.mem (s₀.gpr .x0) []
     rw [hm]
-    exact Proof.Sha256.Stream.repr_nil (stateAt_writeState _ _ _)
+    exact Proof.Sha512.Stream.repr_nil (stateAt_writeState _ _ _)
 
 /-- A state satisfying the precondition. -/
 def initSat : State where
@@ -92,15 +85,28 @@ def initSat : State where
   sp := 0x4000
   mem _ := 0
   rd := []
-  wr := [⟨0x1000, 96⟩]
+  wr := [⟨0x1000, 192⟩]
 
-theorem init_verified : Verified AArch64.target init Proof.Sha256.initAArch64 := by
+/-- The hint for `init 0`, which is also one for `init iv`. -/
+abbrev initHint : VG.Taint.Hint taint.T := VG.Taint.hintOf taint (Taint.ofRegs [.x0]) (init 0)
+
+/-- The taint check never looks at an immediate, so its result on `init iv`
+is its result on `init 0`, which is decided. -/
+theorem init_check (iv : HashValue) :
+    (taint.check (Taint.ofRegs [.x0]) (init iv) initHint).isSome = true := by
+  have h : (taint.check (Taint.ofRegs [.x0]) (init 0) initHint).isSome = true := by taint_decide
+  rw [show taint.check (Taint.ofRegs [.x0]) (init iv) initHint =
+    taint.check (Taint.ofRegs [.x0]) (init 0) initHint from rfl]
+  exact h
+
+theorem init_verified (iv : HashValue) :
+    Verified AArch64.target (init iv) (Proof.Sha512.initAArch64 iv) := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl⟩⟩
-  · obtain ⟨t, s', he, h⟩ := init_correct hs
+  · obtain ⟨t, s', he, h⟩ := init_correct iv hs
     exact ⟨t, s', he, h⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0]) ?_ (by taint_decide)
+  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0]) ?_ (init_check iv)
     intro s₁ s₂ _ _ h r hr
     simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
     subst hr; exact h
 
-end VG.Proof.Sha256.AArch64.Stream
+end VG.Proof.Sha512.AArch64.Stream

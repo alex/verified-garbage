@@ -255,7 +255,6 @@ theorem proMem_a4 {s₀ : State} (hp : Pre s₀) : (proMem s₀).readW (addr (es
 theorem proMem_a16 {s₀ : State} : (proMem s₀).readW (addr (esp₀ s₀) 16) 32 = scr s₀ := by
   simp only [proMem]; rw [Mem.readW_writeW_self32]
 
-set_option maxHeartbeats 0 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ([.mov .eax (.mem (at_ .esp 24))] ++ save .eax ++
       [.mov .ebx (.mem (at_ .esp 4)), .mov .ebp (.mem (at_ .esp 16)), .mov .esi (.mem (at_ .esp 20)),
@@ -353,7 +352,6 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
       exacts [hp.st_scr, hp.a_st.symm]
     exact repr_congr (fun i hi => frame_bytes (proMem_frame' hp) (R := stR s₀) hd (by simp) hi) hm.1
 
-set_option maxHeartbeats 0 in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block (.mov .eax (.mem (at_ .esp 16)) :: restore .eax)) s fun s' =>
       abiPreserved s₀ s' ∧ Proof.Sha256.updateX86.post s₀ s' := by
@@ -431,7 +429,6 @@ theorem ofNat_add_add (x : BitVec 32) (a b : Nat) :
 
 theorem lit32 (n : Nat) : (OfNat.ofNat n : BitVec 32) = BitVec.ofNat 32 n := rfl
 
-set_option maxHeartbeats 0 in
 /-- A whole block straight from the data. -/
 theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s)
     (hr : (cnt s₀ + c) % 64 = 0) (hl : 64 ≤ len s₀ - c) :
@@ -569,7 +566,6 @@ theorem Pending.putArgs {s₀ : State} (hp : Pre s₀) {c : Nat} {s s' : State} 
       · exact putArgs_bytes hp _ (R := ⟨(s.gpr .eax).setWidth 64, 64⟩) (hp.a_st.symm.sub_left hsub) (by simp) hk
       · exact putArgs_bytes hp _ (R := ⟨(s.gpr .eax).setWidth 64, 64⟩) (hp.d_a.sub_left hsub) (by simp) hk }
 
-set_option maxHeartbeats 0 in
 theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Pending s₀ c s) :
     WP isa compressAt s (Inv s₀ c) := by
   have hst := hp.st_fit; have hsc := hp.scr_fit; have hsp := hp.sp_fit
@@ -670,7 +666,6 @@ theorem stores_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hC : Com
   exact k s₂ (by rw [u₂.gpr, u₁.gpr]) (by rw [u₂.mem, u₁.gpr, u₁.mem, hC.ebx, hedx]; rfl)
     (by rw [u₂.rd, u₁.rd]) (by rw [u₂.wr, u₁.wr])
 
-set_option maxHeartbeats 0 in
 /-- The second half of the loop body: write the arguments back, compress if a
 block is ready, and loop back if so. -/
 theorem tail_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
@@ -742,7 +737,6 @@ theorem write_frame (s₀ : State) (c : Nat) (mI : Mem) (j : Nat) (hj : j ≤ tt
   simp only [q]
   exact contains_offset (by simp only [List.length_take]; omega) (by omega)
 
-set_option maxHeartbeats 0 in
 theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {j : Nat}
     (hj : j < tt s₀ c) {s : State} (h : Copy s₀ c sI.mem j s) :
     WP isa (.block [.movzx8 .ecx (at_ .ebp 0), .store8 (at_ .edi 32) .cl,
@@ -878,7 +872,6 @@ theorem Copied.of_gpr {s₀ : State} {c : Nat} {mI : Mem} {s s' : State} (h : Co
     by rw [hg _ (by simp)]; exact h.edx, by rw [hg _ (by simp)]; exact h.ebp,
     by rw [hg _ (by simp)]; exact h.esi, hm.trans h.mem⟩
 
-set_option maxHeartbeats 0 in
 /-- A full buffer: compress it. -/
 theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {s : State}
     (h : Copied s₀ c sI.mem s) (hfull : rr s₀ c + tt s₀ c = 64) :
@@ -942,7 +935,6 @@ theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
     rw [hmod] at hb
     rw [hb]
 
-set_option maxHeartbeats 0 in
 theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) :
     WP isa fill s fun s' => (∃ c', c < c' ∧ Pending s₀ c' s') ∨ Done s₀ s' := by
   have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c

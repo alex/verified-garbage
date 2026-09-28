@@ -81,7 +81,6 @@ theorem blockKey_eq {s₀ : State} (hp : Pre s₀) :
 
 /-! ## Prologue -/
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .r8)) s₀ fun s =>
@@ -107,7 +106,6 @@ theorem h0_eq (b : Reg) : h0 b = [
     .mov32 .rax (.imm 0x1f83d9ab), .store32 (at_ b (4 * 6)) .rax,
     .mov32 .rax (.imm 0x5be0cd19), .store32 (at_ b (4 * 7)) .rax] := rfl
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 /-- `H⁽⁰⁾` stored at `b`. -/
 theorem h0_ok {b : Reg} (hb : b ≠ .rax) {s : State} {rest : List Instr} {Q : State → Prop}
@@ -174,7 +172,6 @@ theorem saved_frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Re
   intro r hr
   exact (hd r hr).sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))
 
-set_option maxHeartbeats 1000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .r8 ++ [.mov .rbx (.reg .rdi), .mov .r12 (.reg .rsi), .mov .r15 (.reg .r8),
       .mov .rbp (.reg .rdx), .mov .r13 (.reg .rcx)] ++ h0 .rbx ++ h0 .r12 ++
@@ -377,7 +374,6 @@ def keyBody : List Instr :=
 
 theorem keyLoop_eq : keyLoop = .loop (.block keyBody) .ne := rfl
 
-set_option maxHeartbeats 1000000 in
 theorem key_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < kl s₀) {s : State} (h : Buf s₀ j s) :
     WP isa (.block keyBody) s fun s' => Buf s₀ (j + 1) s' ∧ s'.zf = some (decide (j + 1 = kl s₀)) := by
   have hkl := hp.kl_le
@@ -450,7 +446,6 @@ structure Pad (s₀ : State) (j : Nat) (s : State) : Prop extends Buf s₀ j s w
   rax : s.gpr .rax = (0x36 : BitVec 32).setWidth 64
   rcx : s.gpr .rcx = (0x5c : BitVec 32).setWidth 64
 
-set_option maxHeartbeats 1000000 in
 theorem pad_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : kl s₀ ≤ j) (hj' : j < 64) {s : State}
     (h : Pad s₀ j s) :
     WP isa (.block padBody) s fun s' => Pad s₀ (j + 1) s' ∧ s'.zf = some (decide (j + 1 = 64)) := by
@@ -589,7 +584,6 @@ theorem state_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Ad
 theorem save_sub (s₀ : State) : Region.Sub ⟨scr s₀ + BitVec.ofNat 64 112, 48⟩ (scR s₀) :=
   sub_offset (by omega) (by omega)
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s₀.wr)
     (h15 : s.gpr .r15 = scr s₀) (hsp : s.gpr .rsp = s₀.gpr .rsp) (hsv : Saved s₀ s.mem)
@@ -637,7 +631,6 @@ theorem buf_full {s₀ : State} (hp : Pre s₀) {m : Mem} (h : BufMem s₀ 64 m)
   rw [h.bufI, h.bufO, List.take_of_length_le (by rw [K0_length s₀ hp])]
   exact ⟨rfl, rfl⟩
 
-set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256X86_64.post s₀ s' := by
   have hkl := hp.kl_le
@@ -778,7 +771,6 @@ def sat : State where
   rd := [⟨0x3000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-set_option maxHeartbeats 0 in
 theorem init_verified : Verified X86_64.target init Proof.Hmac.initSha256X86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)

@@ -329,7 +329,6 @@ theorem body_eq : finalizeBody =
     (.seq (.block [.dp .add .r1 .r0 (.imm 32)])
     (.seq compressAt (.block [.mov .r7 (.imm 0), .subs .r8 .r8 (.imm 1)])))))))) := rfl
 
-set_option maxHeartbeats 4000000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
     WP isa finalizeBody s (Step s₀ k) := by
   have hk := h.k_le; have hn := h.n_le; have hst := hp.st_fit
@@ -529,7 +528,6 @@ theorem arg_sub {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 2) :
     Region.Sub ⟨stackArgAddr s₀ k, 4⟩ (argR s₀) := by
   rw [argAddr_eq hp hk]; exact sub_offset (by omega) (by omega)
 
-set_option maxHeartbeats 4000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ([.ldrSp .r12 4] ++ save .r12 ++ prologue)) s₀
       fun s => ∃ k, LInv s₀ k (cnt s₀ % 64 + 1) s := by
@@ -662,7 +660,6 @@ theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 
     rw [show outA s₀ = outA s₀ + BitVec.ofNat 64 0 by simp]
     exact contains_offset (by omega) (by omega))
 
-set_option maxHeartbeats 1000000 in
 theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {k : Nat} (hk : k < 8)
     {s : State} (h : Out s₀ sD k s) {rest : List Instr} {Q : State → Prop}
     (hnext : ∀ s', Out s₀ sD (k + 1) s' → WP isa (.block rest) s' Q) :
@@ -835,7 +832,6 @@ def sat : State where
   rd := [⟨0x5000, 8⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 160⟩]
 
-set_option maxHeartbeats 0 in
 theorem finalize_verified : Verified Arm.target finalize Proof.Sha256.finalizeArm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)

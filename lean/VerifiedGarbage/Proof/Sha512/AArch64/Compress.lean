@@ -1,16 +1,16 @@
-import VerifiedGarbage.Proof.Sha256.AArch64.Rounds
-import VerifiedGarbage.Proof.Sha256.AArch64.Contract
+import VerifiedGarbage.Proof.Sha512.AArch64.Rounds
+import VerifiedGarbage.Proof.Sha512.AArch64.Contract
 
 /-!
-# SHA-256 compression function on AArch64: the whole function
+# SHA-512 compression function on AArch64: the whole function
 
 Untrusted: everything here is checked by Lean.
 -/
 
-namespace VG.Proof.Sha256.AArch64
+namespace VG.Proof.Sha512.AArch64
 
-open VG VG.AArch64 VG.Impl.Sha256.AArch64
-open VG.Spec.Sha256 (HashValue Word Block K W stateAt blockAt compressBlocks compress parseBlock)
+open VG VG.AArch64 VG.Impl.Sha512.AArch64
+open VG.Spec.Sha512 (HashValue Word Block K W stateAt blockAt compressBlocks compress parseBlock)
 
 /-! ## Addresses and regions -/
 
@@ -34,18 +34,18 @@ theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (
   omega
 
 theorem word_sep (p : Addr) {j k : Nat} (hj : j < 8) (hk : k < 8) (h : j ≠ k) :
-    Mem.Sep (p + BitVec.ofNat 64 (4 * j)) 4 (p + BitVec.ofNat 64 (4 * k)) 4 := by
+    Mem.Sep (p + BitVec.ofNat 64 (8 * j)) 8 (p + BitVec.ofNat 64 (8 * k)) 8 := by
   intro x hx hy
   bv_omega
 
 theorem readW_writeW_word (m : Mem) (p : Addr) (v : Word) {j k : Nat} (hj : j < 8) (hk : k < 8)
     (h : j ≠ k) :
-    (m.writeW (p + BitVec.ofNat 64 (4 * k)) v).readW (p + BitVec.ofNat 64 (4 * j)) 32 =
-    m.readW (p + BitVec.ofNat 64 (4 * j)) 32 :=
+    (m.writeW (p + BitVec.ofNat 64 (8 * k)) v).readW (p + BitVec.ofNat 64 (8 * j)) 64 =
+    m.readW (p + BitVec.ofNat 64 (8 * j)) 64 :=
   Mem.readW_writeW_sep (word_sep p hj hk h) (by decide)
 
 theorem stateAt_eq {m : Mem} {p : Addr} {v : HashValue}
-    (h : ∀ k : Nat, (hk : k < 8) → m.readW (p + BitVec.ofNat 64 (4 * k)) 32 = v[k]) :
+    (h : ∀ k : Nat, (hk : k < 8) → m.readW (p + BitVec.ofNat 64 (8 * k)) 64 = v[k]) :
     stateAt m p = v := by
   apply Vector.ext
   intro k hk
@@ -53,7 +53,7 @@ theorem stateAt_eq {m : Mem} {p : Addr} {v : HashValue}
   exact h k hk
 
 theorem stateAt_get (m : Mem) (p : Addr) {k : Nat} (hk : k < 8) :
-    (stateAt m p)[k] = m.readW (p + BitVec.ofNat 64 (4 * k)) 32 := by
+    (stateAt m p)[k] = m.readW (p + BitVec.ofNat 64 (8 * k)) 64 := by
   simp only [stateAt, Vector.getElem_ofFn]
 
 /-! ## The precondition -/
@@ -65,13 +65,13 @@ abbrev st : Addr := s₀.gpr .x0
 abbrev bp : Addr := s₀.gpr .x1
 abbrev nb : Nat := (s₀.gpr .x2).toNat
 abbrev scr : Addr := s₀.gpr .x3
-abbrev stR : Region := ⟨st s₀, 32⟩
-abbrev blR : Region := ⟨bp s₀, 64 * nb s₀⟩
-abbrev scrR : Region := ⟨scr s₀, 112⟩
+abbrev stR : Region := ⟨st s₀, 64⟩
+abbrev blR : Region := ⟨bp s₀, 128 * nb s₀⟩
+abbrev scrR : Region := ⟨scr s₀, 176⟩
 abbrev H₀ : HashValue := stateAt s₀.mem (st s₀)
 
 /-- Block `i`, and where it starts. -/
-abbrev blkAddr (i : Nat) : Addr := bp s₀ + BitVec.ofNat 64 (64 * i)
+abbrev blkAddr (i : Nat) : Addr := bp s₀ + BitVec.ofNat 64 (128 * i)
 abbrev blk (i : Nat) : Block := blockAt s₀.mem (blkAddr s₀ i)
 
 end
@@ -83,7 +83,7 @@ structure Pre (s₀ : State) : Prop where
   blk_st : (blR s₀).Disjoint (stR s₀)
   blk_scr : (blR s₀).Disjoint (scrR s₀)
 
-theorem pre_of (s₀ : State) (h : Proof.Sha256.compressAArch64.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.Sha512.compressAArch64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
   exact ⟨h1, h2, h3, h4, h5⟩
 
@@ -91,7 +91,7 @@ namespace Pre
 variable {s₀ : State} (h : Pre s₀)
 include h
 
-theorem nb_lt : 64 * nb s₀ < 2 ^ 64 := by
+theorem nb_lt : 128 * nb s₀ < 2 ^ 64 := by
   by_contra hn
   refine h.blk_st (st s₀) ?_ (by simp [Region.Contains])
   simp only [Region.Contains]
@@ -99,28 +99,28 @@ theorem nb_lt : 64 * nb s₀ < 2 ^ 64 := by
   omega
 
 theorem in_state {k : Nat} (hk : k < 8) :
-    InRegions (s₀.rd ++ s₀.wr) (st s₀ + BitVec.ofNat 64 (4 * k)) 4 :=
+    InRegions (s₀.rd ++ s₀.wr) (st s₀ + BitVec.ofNat 64 (8 * k)) 8 :=
   ⟨stR s₀, by simp [h.wr], contains_offset (by omega) (by omega)⟩
 
 theorem out_state {k : Nat} (hk : k < 8) :
-    InRegions s₀.wr (st s₀ + BitVec.ofNat 64 (4 * k)) 4 :=
+    InRegions s₀.wr (st s₀ + BitVec.ofNat 64 (8 * k)) 8 :=
   ⟨stR s₀, by simp [h.wr], contains_offset (by omega) (by omega)⟩
 
-theorem in_slot (j : Nat) : InRegions (s₀.rd ++ s₀.wr) (slotAddr (scr s₀) j) 4 :=
+theorem in_slot (j : Nat) : InRegions (s₀.rd ++ s₀.wr) (slotAddr (scr s₀) j) 8 :=
   ⟨scrR s₀, by simp [h.wr], contains_offset (by simp only [slot]; omega) (by simp only [slot]; omega)⟩
 
-theorem out_slot (j : Nat) : InRegions s₀.wr (slotAddr (scr s₀) j) 4 :=
+theorem out_slot (j : Nat) : InRegions s₀.wr (slotAddr (scr s₀) j) 8 :=
   ⟨scrR s₀, by simp [h.wr], contains_offset (by simp only [slot]; omega) (by simp only [slot]; omega)⟩
 
 theorem blk_contains {i t : Nat} (hi : i < nb s₀) (ht : t < 16) :
-    (blR s₀).Contains (blkAddr s₀ i + BitVec.ofNat 64 (4 * t)) 4 := by
+    (blR s₀).Contains (blkAddr s₀ i + BitVec.ofNat 64 (8 * t)) 8 := by
   have := h.nb_lt
-  rw [show blkAddr s₀ i + BitVec.ofNat 64 (4 * t) =
-    bp s₀ + BitVec.ofNat 64 (64 * i + 4 * t) by simp only [blkAddr]; bv_omega]
+  rw [show blkAddr s₀ i + BitVec.ofNat 64 (8 * t) =
+    bp s₀ + BitVec.ofNat 64 (128 * i + 8 * t) by simp only [blkAddr]; bv_omega]
   exact contains_offset (by omega) (by omega)
 
 theorem in_blk {i t : Nat} (hi : i < nb s₀) (ht : t < 16) :
-    InRegions (s₀.rd ++ s₀.wr) (blkAddr s₀ i + BitVec.ofNat 64 (4 * t)) 4 :=
+    InRegions (s₀.rd ++ s₀.wr) (blkAddr s₀ i + BitVec.ofNat 64 (8 * t)) 8 :=
   ⟨blR s₀, by simp [h.rd], h.blk_contains hi ht⟩
 
 end Pre
@@ -147,29 +147,29 @@ theorem preserved_sub : ∀ r ∈ preserved, r ∈ pubRegs := by decide
 /-! ## One block -/
 
 theorem load_eq : load = [
-    .ldr .w .x4 .x0 (4 * 0), .ldr .w .x5 .x0 (4 * 1), .ldr .w .x6 .x0 (4 * 2),
-    .ldr .w .x7 .x0 (4 * 3), .ldr .w .x8 .x0 (4 * 4), .ldr .w .x9 .x0 (4 * 5),
-    .ldr .w .x10 .x0 (4 * 6), .ldr .w .x11 .x0 (4 * 7)] := by
+    .ldr .x .x4 .x0 (8 * 0), .ldr .x .x5 .x0 (8 * 1), .ldr .x .x6 .x0 (8 * 2),
+    .ldr .x .x7 .x0 (8 * 3), .ldr .x .x8 .x0 (8 * 4), .ldr .x .x9 .x0 (8 * 5),
+    .ldr .x .x10 .x0 (8 * 6), .ldr .x .x11 .x0 (8 * 7)] := by
   decide
 
 theorem update_eq : update ++ advance = [
-    .ldr .w .x12 .x0 (4 * 0), .ldr .w .x13 .x0 (4 * 1), .ldr .w .x14 .x0 (4 * 2),
-    .ldr .w .x15 .x0 (4 * 3),
-    .add .w .x4 .x4 .x12, .add .w .x5 .x5 .x13, .add .w .x6 .x6 .x14, .add .w .x7 .x7 .x15,
-    .ldr .w .x12 .x0 (4 * (0 + 4)), .ldr .w .x13 .x0 (4 * (1 + 4)), .ldr .w .x14 .x0 (4 * (2 + 4)),
-    .ldr .w .x15 .x0 (4 * (3 + 4)),
-    .add .w .x8 .x8 .x12, .add .w .x9 .x9 .x13, .add .w .x10 .x10 .x14, .add .w .x11 .x11 .x15,
-    .str .w .x4 .x0 (4 * 0), .str .w .x5 .x0 (4 * 1), .str .w .x6 .x0 (4 * 2),
-    .str .w .x7 .x0 (4 * 3), .str .w .x8 .x0 (4 * 4), .str .w .x9 .x0 (4 * 5),
-    .str .w .x10 .x0 (4 * 6), .str .w .x11 .x0 (4 * 7),
-    .addImm .x .x1 .x1 64, .subImm .x .x2 .x2 1] := by
+    .ldr .x .x12 .x0 (8 * 0), .ldr .x .x13 .x0 (8 * 1), .ldr .x .x14 .x0 (8 * 2),
+    .ldr .x .x15 .x0 (8 * 3),
+    .add .x .x4 .x4 .x12, .add .x .x5 .x5 .x13, .add .x .x6 .x6 .x14, .add .x .x7 .x7 .x15,
+    .ldr .x .x12 .x0 (8 * (0 + 4)), .ldr .x .x13 .x0 (8 * (1 + 4)), .ldr .x .x14 .x0 (8 * (2 + 4)),
+    .ldr .x .x15 .x0 (8 * (3 + 4)),
+    .add .x .x8 .x8 .x12, .add .x .x9 .x9 .x13, .add .x .x10 .x10 .x14, .add .x .x11 .x11 .x15,
+    .str .x .x4 .x0 (8 * 0), .str .x .x5 .x0 (8 * 1), .str .x .x6 .x0 (8 * 2),
+    .str .x .x7 .x0 (8 * 3), .str .x .x8 .x0 (8 * 4), .str .x .x9 .x0 (8 * 5),
+    .str .x .x10 .x0 (8 * 6), .str .x .x11 .x0 (8 * 7),
+    .addImm .x .x1 .x1 128, .subImm .x .x2 .x2 1] := by
   decide
 
 theorem vars0 (s : State) (v : HashValue) : Vars 0 s v ↔
-    s.gpr .x4 = v[0].setWidth 64 ∧ s.gpr .x5 = v[1].setWidth 64 ∧
-    s.gpr .x6 = v[2].setWidth 64 ∧ s.gpr .x7 = v[3].setWidth 64 ∧
-    s.gpr .x8 = v[4].setWidth 64 ∧ s.gpr .x9 = v[5].setWidth 64 ∧
-    s.gpr .x10 = v[6].setWidth 64 ∧ s.gpr .x11 = v[7].setWidth 64 := Iff.rfl
+    s.gpr .x4 = v[0] ∧ s.gpr .x5 = v[1] ∧
+    s.gpr .x6 = v[2] ∧ s.gpr .x7 = v[3] ∧
+    s.gpr .x8 = v[4] ∧ s.gpr .x9 = v[5] ∧
+    s.gpr .x10 = v[6] ∧ s.gpr .x11 = v[7] := Iff.rfl
 
 set_option simprocs false in
 theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hx0 : s.gpr .x0 = st s₀)
@@ -177,7 +177,7 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hx0 : s.gpr .x0 = st
     WP isa (.block load) s fun s₁ =>
       Vars 0 s₁ (stateAt s.mem (st s₀)) ∧ (∀ r ∈ pubRegs, s₁.gpr r = s.gpr r) ∧
       s₁.rd = s.rd ∧ s₁.wr = s.wr ∧ s₁.mem = s.mem := by
-  have hin : ∀ k : Nat, k < 8 → InRegions (s.rd ++ s.wr) (st s₀ + BitVec.ofNat 64 (4 * k)) 4 := by
+  have hin : ∀ k : Nat, k < 8 → InRegions (s.rd ++ s.wr) (st s₀ + BitVec.ofNat 64 (8 * k)) 8 := by
     rw [hrd, hwr]; exact fun k hk => hp.in_state hk
   have h0 := hin 0 (by decide); have h1 := hin 1 (by decide); have h2 := hin 2 (by decide)
   have h3 := hin 3 (by decide); have h4 := hin 4 (by decide); have h5 := hin 5 (by decide)
@@ -185,7 +185,7 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hx0 : s.gpr .x0 = st
   apply WP.of_runBlock
   rw [load_eq]
   simp (config := {decide := true}) only [vars0, runBlock_cons, runStep_some,
-    runBlock_nil, exec_ldr_w, isa, State.write, hx0,
+    runBlock_nil, exec_ldr_x, isa, State.write, hx0,
     h0, h1, h2, h3, h4, h5, h6, h7, ite_true, ite_false, Option.some.injEq,
     exists_eq_left']
   simp only [stateAt_get _ _ (show 0 < 8 by decide), stateAt_get _ _ (show 1 < 8 by decide),
@@ -194,16 +194,16 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hx0 : s.gpr .x0 = st
     stateAt_get _ _ (show 6 < 8 by decide), stateAt_get _ _ (show 7 < 8 by decide)]
   simp (config := {decide := true}) [pubRegs]
 
-/-- Eight 32-bit words written to consecutive addresses. -/
+/-- Eight 64-bit words written to consecutive addresses. -/
 def writeState (m : Mem) (p : Addr) (v : HashValue) : Mem :=
-  ((((((((m.writeW (p + BitVec.ofNat 64 (4 * 0)) v[0]).writeW
-    (p + BitVec.ofNat 64 (4 * 1)) v[1]).writeW
-    (p + BitVec.ofNat 64 (4 * 2)) v[2]).writeW
-    (p + BitVec.ofNat 64 (4 * 3)) v[3]).writeW
-    (p + BitVec.ofNat 64 (4 * 4)) v[4]).writeW
-    (p + BitVec.ofNat 64 (4 * 5)) v[5]).writeW
-    (p + BitVec.ofNat 64 (4 * 6)) v[6]).writeW
-    (p + BitVec.ofNat 64 (4 * 7)) v[7])
+  ((((((((m.writeW (p + BitVec.ofNat 64 (8 * 0)) v[0]).writeW
+    (p + BitVec.ofNat 64 (8 * 1)) v[1]).writeW
+    (p + BitVec.ofNat 64 (8 * 2)) v[2]).writeW
+    (p + BitVec.ofNat 64 (8 * 3)) v[3]).writeW
+    (p + BitVec.ofNat 64 (8 * 4)) v[4]).writeW
+    (p + BitVec.ofNat 64 (8 * 5)) v[5]).writeW
+    (p + BitVec.ofNat 64 (8 * 6)) v[6]).writeW
+    (p + BitVec.ofNat 64 (8 * 7)) v[7])
 
 set_option simprocs false in
 theorem stateAt_writeState (m : Mem) (p : Addr) (v : HashValue) : stateAt (writeState m p v) p = v := by
@@ -211,11 +211,11 @@ theorem stateAt_writeState (m : Mem) (p : Addr) (v : HashValue) : stateAt (write
   intro k hk
   simp only [writeState]
   interval_cases k <;>
-  simp (config := {decide := true}) only [Mem.readW_writeW_self32, readW_writeW_word]
+  simp (config := {decide := true}) only [Mem.readW_writeW_self64, readW_writeW_word]
 
 theorem frame_writeState {s₀ : State} {m m' : Mem} (h : Frame [stR s₀] m m') (v : HashValue) :
     Frame [stR s₀] m (writeState m' (st s₀) v) := by
-  have c : ∀ k, k < 8 → (stR s₀).Contains (st s₀ + BitVec.ofNat 64 (4 * k)) (32 / 8) :=
+  have c : ∀ k, k < 8 → (stR s₀).Contains (st s₀ + BitVec.ofNat 64 (8 * k)) (64 / 8) :=
     fun k hk => contains_offset (by omega) (by omega)
   simp only [writeState]
   refine (((((((h.writeW ?_ _ (c 0 ?_)).writeW ?_ _ (c 1 ?_)).writeW ?_ _ (c 2 ?_)).writeW ?_ _
@@ -225,15 +225,15 @@ theorem frame_writeState {s₀ : State} {m m' : Mem} (h : Frame [stR s₀] m m')
 set_option simprocs false in
 theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (hv : Vars 0 s V)
     (hx0 : s.gpr .x0 = st s₀) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
-    (hH : ∀ k : Nat, (hk : k < 8) → s.mem.readW (st s₀ + BitVec.ofNat 64 (4 * k)) 32 = H[k]) :
+    (hH : ∀ k : Nat, (hk : k < 8) → s.mem.readW (st s₀ + BitVec.ofNat 64 (8 * k)) 64 = H[k]) :
     WP isa (.block (update ++ advance)) s fun s' =>
       s'.mem = writeState s.mem (st s₀) (Vector.zipWith (· + ·) V H) ∧
-      s'.gpr .x1 = s.gpr .x1 + 64 ∧ s'.gpr .x2 = s.gpr .x2 - 1 ∧
+      s'.gpr .x1 = s.gpr .x1 + 128 ∧ s'.gpr .x2 = s.gpr .x2 - 1 ∧
       s'.gpr .x0 = s.gpr .x0 ∧ s'.gpr .x3 = s.gpr .x3 ∧
       (∀ r ∈ preserved, s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
-  have hin : ∀ k : Nat, k < 8 → InRegions (s.rd ++ s.wr) (st s₀ + BitVec.ofNat 64 (4 * k)) 4 := by
+  have hin : ∀ k : Nat, k < 8 → InRegions (s.rd ++ s.wr) (st s₀ + BitVec.ofNat 64 (8 * k)) 8 := by
     rw [hrd, hwr]; exact fun k hk => hp.in_state hk
-  have hout : ∀ k : Nat, k < 8 → InRegions s.wr (st s₀ + BitVec.ofNat 64 (4 * k)) 4 := by
+  have hout : ∀ k : Nat, k < 8 → InRegions s.wr (st s₀ + BitVec.ofNat 64 (8 * k)) 8 := by
     rw [hwr]; exact fun k hk => hp.out_state hk
   have i0 := hin 0 (by decide); have i1 := hin 1 (by decide); have i2 := hin 2 (by decide)
   have i3 := hin 3 (by decide); have i4 := hin (0 + 4) (by decide); have i5 := hin (1 + 4) (by decide)
@@ -249,39 +249,37 @@ theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (
   apply WP.of_runBlock
   rw [update_eq]
   simp (config := {decide := true}) only [runBlock_cons, runStep_some,
-    runBlock_nil, exec_ldr_w, exec_str_w, exec_add, exec_addImm_x, exec_subImm_x, State.read, State.write, Size.bits, hx0,
+    runBlock_nil, exec_ldr_x, exec_str_x, exec_add, exec_addImm_x, exec_subImm_x, State.read, State.write, Size.bits, hx0,
     i0, i1, i2, i3, i4, i5, i6, i7, o0, o1, o2, o3, o4, o5, o6, o7,
     m0, m1, m2, m3, m4, m5, m6, m7, v0, v1, v2, v3, v4, v5, v6, v7, ite_true, ite_false,
-    BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq,
+    BitVec.setWidth_eq,
     Option.some.injEq, exists_eq_left']
   refine ⟨?_, ?_⟩
   · simp only [writeState, Vector.getElem_zipWith]
   and_intros
-  all_goals first
-    | trivial
-    | rfl
-    | (intro r hr
-       simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
-       rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-       simp (config := {decide := true}))
+  rotate_left 4
+  · intro r hr
+    simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+    simp (config := {decide := true})
+  all_goals trivial
 
 theorem compressBlocks_succ (H : HashValue) (m : Mem) (p : Addr) (i : Nat) :
     compressBlocks H m p (i + 1) =
-      compress (compressBlocks H m p i) (blockAt m (p + BitVec.ofNat 64 (64 * i))) := by
+      compress (compressBlocks H m p i) (blockAt m (p + BitVec.ofNat 64 (128 * i))) := by
   simp [compressBlocks, List.range_succ, List.foldl_append]
 
 theorem blk_word {s₀ : State} (i t : Nat) (ht : t < 16) :
-    rev32 (s₀.mem.readW (blkAddr s₀ i + BitVec.ofNat 64 (4 * t)) 32) = W (blk s₀ i) t := by
-  rw [W_lt _ ht, rev32_readW]
+    rev64 (s₀.mem.readW (blkAddr s₀ i + BitVec.ofNat 64 (8 * t)) 64) = W (blk s₀ i) t := by
+  rw [W_lt _ ht, rev64_readW]
   simp only [blk, blockAt, parseBlock]
-  rw [show blkAddr s₀ i + BitVec.ofNat 64 (4 * t) + 1 = blkAddr s₀ i + BitVec.ofNat 64 (4 * t + 1) by
-      bv_omega,
-    show blkAddr s₀ i + BitVec.ofNat 64 (4 * t + 1) + 1 = blkAddr s₀ i + BitVec.ofNat 64 (4 * t + 2) by
-      bv_omega,
-    show blkAddr s₀ i + BitVec.ofNat 64 (4 * t + 2) + 1 = blkAddr s₀ i + BitVec.ofNat 64 (4 * t + 3) by
-      bv_omega]
+  have e : ∀ j : Nat, j < 7 → blkAddr s₀ i + BitVec.ofNat 64 (8 * t + j) + 1 =
+      blkAddr s₀ i + BitVec.ofNat 64 (8 * t + (j + 1)) := fun j hj => by bv_omega
+  rw [show blkAddr s₀ i + BitVec.ofNat 64 (8 * t) = blkAddr s₀ i + BitVec.ofNat 64 (8 * t + 0) by rfl,
+    e 0 (by omega), e 1 (by omega), e 2 (by omega), e 3 (by omega), e 4 (by omega), e 5 (by omega),
+    e 6 (by omega)]
 
-theorem win_sub (p : Addr) : Region.Sub (winRegion p) ⟨p, 112⟩ := Region.sub_prefix (by omega)
+theorem win_sub (p : Addr) : Region.Sub (winRegion p) ⟨p, 176⟩ := Region.sub_prefix (by omega)
 
 theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s : State}
     (hL : LInv s₀ i s) :
@@ -292,7 +290,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
   have hwin : ∀ r' ∈ [winRegion (scr s₀)], (blR s₀).Disjoint r' := by
     simpa using Region.Disjoint.sub_right hp.blk_scr (win_sub _)
   have hblk : ∀ m, Frame [winRegion (scr s₀)] s₁.mem m → ∀ t : Nat, t < 16 →
-      rev32 (m.readW (blkAddr s₀ i + BitVec.ofNat 64 (4 * t)) 32) = W (blk s₀ i) t := by
+      rev64 (m.readW (blkAddr s₀ i + BitVec.ofNat 64 (8 * t)) 64) = W (blk s₀ i) t := by
     intro m hm t ht
     rw [hm.readW (hp.blk_contains hi ht) hwin (by decide), hm₁,
       hL.frame.readW (hp.blk_contains hi ht) (by simpa using ⟨hp.blk_st, hp.blk_scr⟩) (by decide)]
@@ -302,7 +300,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
   refine WP.seq (WP.mono (rounds_ok _ (blk s₀ i) _ (scr s₀) s₁ hx1₁ hx3₁
     (by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_slot)
     (by rw [hwr₁, hL.wr]; exact hp.out_slot)
-    (fun t ht => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_blk hi ht) hblk hv₁ 64 le_rfl)
+    (fun t ht => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_blk hi ht) hblk hv₁ 80 le_rfl)
     fun s₂ hR => ?_)
   have hst : ∀ r' ∈ [winRegion (scr s₀)], (stR s₀).Disjoint r' := by
     simpa using Region.Disjoint.sub_right hp.st_scr (win_sub _)
@@ -354,7 +352,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa compress s₀ fun s' =>
-      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Proof.Sha256.compressAArch64.post s₀ s' := by
+      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Proof.Sha512.compressAArch64.post s₀ s' := by
   have hc₀ : Common s₀ 0 s₀ :=
     ⟨rfl, rfl, fun _ _ => rfl, rfl, rfl, Frame.refl _ _, rfl⟩
   refine WP.mono (Q := Common s₀ (nb s₀)) ?_ fun s' hc => ⟨hc.kept, hc.state⟩
@@ -386,10 +384,10 @@ def satState : State where
   sp := 0x4000
   mem _ := 0
   rd := [⟨0x2000, 0⟩]
-  wr := [⟨0x1000, 32⟩, ⟨0x3000, 112⟩]
+  wr := [⟨0x1000, 64⟩, ⟨0x3000, 176⟩]
 
 theorem compress_verified :
-    Verified AArch64.target Impl.Sha256.AArch64.compress Proof.Sha256.compressAArch64 := by
+    Verified AArch64.target Impl.Sha512.AArch64.compress Proof.Sha512.compressAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
@@ -402,4 +400,4 @@ theorem compress_verified :
       simp only [Region.Contains, satState] at h₁ h₂
       bv_omega
 
-end VG.Proof.Sha256.AArch64
+end VG.Proof.Sha512.AArch64
