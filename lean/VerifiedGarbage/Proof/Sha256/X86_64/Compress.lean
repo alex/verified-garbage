@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.X86_64.Rounds
-import VerifiedGarbage.Spec.Sha256.X86_64
+import VerifiedGarbage.Proof.Sha256.X86_64.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.Bswap
 
 /-!
@@ -109,7 +109,7 @@ structure Pre (s₀ : State) : Prop where
   ret_st : (retR s₀).Disjoint (stR s₀)
   ret_scr : (retR s₀).Disjoint (scrR s₀)
 
-theorem pre_of (s₀ : State) (h : Spec.Sha256.compressX86_64.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.Sha256.compressX86_64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7⟩
 
@@ -499,7 +499,7 @@ set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Spec.Sha256.compressX86_64.post s₀ s' := by
+      abiPreserved s₀ s' ∧ Proof.Sha256.compressX86_64.post s₀ s' := by
   have i0 := hp.in_save (d := 64) (by omega); have i1 := hp.in_save (d := 72) (by omega)
   have i2 := hp.in_save (d := 80) (by omega); have i3 := hp.in_save (d := 88) (by omega)
   have i4 := hp.in_save (d := 96) (by omega); have i5 := hp.in_save (d := 104) (by omega)
@@ -525,7 +525,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 
 /-! ## The whole function -/
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.compressX86_64.post s₀ s' := by
+    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.compressX86_64.post s₀ s' := by
   refine WP.seq (WP.mono (save_ok hp) fun s₁ ⟨hg, hrd, hwr, hm, hzf⟩ => ?_)
   refine WP.seq (WP.mono (Q := Common s₀ (nb s₀)) ?_ fun s₂ hc => restore_ok hp hc)
   have hc₀ := common_zero hp hg hrd hwr hm
@@ -563,7 +563,7 @@ def satState : State where
   wr := [⟨0x1000, 32⟩, ⟨0x3000, 112⟩]
 
 theorem compress_verified :
-    Verified X86_64.target Impl.Sha256.X86_64.compress Spec.Sha256.compressX86_64 := by
+    Verified X86_64.target Impl.Sha256.X86_64.compress Proof.Sha256.compressX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, h⟩

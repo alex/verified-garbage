@@ -20,7 +20,8 @@ open VG.Proof.Sha256.X86 (contains_offset)
 open VG.Proof.Sha256.X86.Stream
 open VG.Proof.Sha256.X86.Stream.Update (lit32 ofNat_add_add)
 open VG.Proof.Sha256.Stream
-open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes countX86)
+open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes)
+open VG.Proof.Sha256 (countX86)
 
 /-! ## The precondition -/
 
@@ -78,7 +79,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 160 ≤ 2 ^ 32
   sp_fit : (esp₀ s₀).toNat + 24 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Sha256.finalizeX86.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha256.finalizeX86.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15⟩
 
@@ -892,7 +893,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
       List.flatMap_singleton, Vector.getElem_toList]
 
 /-- The epilogue's postcondition. -/
-def Post (s₀ s' : State) : Prop := abiPreserved s₀ s' ∧ Spec.Sha256.finalizeX86.post s₀ s'
+def Post (s₀ s' : State) : Prop := abiPreserved s₀ s' ∧ Proof.Sha256.finalizeX86.post s₀ s'
 
 set_option maxHeartbeats 0 in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {s : State}
@@ -1043,8 +1044,8 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
       rw [argWord_eq hs (k := 16) (by omega)]
       simp [addr, scr, arg]
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.finalizeX86.pre s₁) (h₂ : Spec.Sha256.finalizeX86.pre s₂)
-    (hpub : Spec.Sha256.finalizeX86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.finalizeX86.pre s₁) (h₂ : Proof.Sha256.finalizeX86.pre s₂)
+    (hpub : Proof.Sha256.finalizeX86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, ha⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
@@ -1083,18 +1084,18 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 160⟩, ⟨0x4004, 20⟩]
 
-theorem sat_pre : Spec.Sha256.finalizeX86.pre sat := by
+theorem sat_pre : Proof.Sha256.finalizeX86.pre sat := by
   have a0 : arg sat 0 = 0x1000 := by decide
   have a3 : arg sat 3 = 0x2000 := by decide
   have a4 : arg sat 4 = 0x3000 := by decide
   have e : argAddr sat 0 = 0x4004 := by decide
-  simp only [Spec.Sha256.finalizeX86, a0, a3, a4, e]
+  simp only [Proof.Sha256.finalizeX86, a0, a3, a4, e]
   refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
   · intro a h₁ h₂
     simp only [Region.Contains, sat] at h₁ h₂
     bv_omega
 
-theorem finalize_verified : Verified X86.target finalize Spec.Sha256.finalizeX86 := by
+theorem finalize_verified : Verified X86.target finalize Proof.Sha256.finalizeX86 := by
   refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

@@ -4,7 +4,7 @@
 
 /// Pipeline self-test: returns `a.wrapping_add(b)`.
 ///
-/// Contract: `VG.Spec.Selftest.addX86_64`. No safety requirements.
+/// Contract: `VG.Spec.Selftest.addContract`. No safety requirements.
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_selftest_add(a: u64, b: u64) -> u64 {
     core::arch::naked_asm!(

@@ -43,8 +43,8 @@ theorem word_ok {x : BitVec 32} {off : Nat} (ho : off % 4 = 0 ∧ off < 16384) {
     exact movzk x
 
 set_option maxHeartbeats 4000000 in
-theorem init_correct {s₀ : State} (hp : Spec.Sha256.initAArch64.pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.initAArch64.post s₀ s' := by
+theorem init_correct {s₀ : State} (hp : Proof.Sha256.initAArch64.pre s₀) :
+    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.initAArch64.post s₀ s' := by
   obtain ⟨-, hwr⟩ := hp
   have o : ∀ k, k < 8 → InRegions s₀.wr (s₀.gpr .x0 + BitVec.ofNat 64 (4 * k)) 4 :=
     fun k hk => ⟨⟨s₀.gpr .x0, 96⟩, by simp [hwr], contains_offset (by omega) (by omega)⟩
@@ -97,7 +97,7 @@ def initSat : State where
   wr := [⟨0x1000, 96⟩]
 
 set_option maxHeartbeats 0 in
-theorem init_verified : Verified AArch64.target init Spec.Sha256.initAArch64 := by
+theorem init_verified : Verified AArch64.target init Proof.Sha256.initAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct hs
     exact ⟨t, s', he, h⟩

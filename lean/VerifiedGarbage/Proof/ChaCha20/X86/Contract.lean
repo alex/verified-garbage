@@ -4,12 +4,14 @@ import VerifiedGarbage.TCB.X86.Target
 /-!
 # ChaCha20: the x86 (32-bit) contract of the block function
 
-**Trusted** (as every file in `Spec/`). The contract of the assembly
+**Untrusted**: the contract the proof is written against; the artifact is emitted with the shared contract of `Spec/`, which implies this one (`Contract.Implies`). The contract of the assembly
 primitive `vg_chacha20_block` on x86 (32-bit), in terms of the specification in
 `Spec/ChaCha20.lean`.
 -/
 
-namespace VG.Spec.ChaCha20
+namespace VG.Proof.ChaCha20
+
+open Spec.ChaCha20
 
 open X86 in
 /-- x86 (32-bit) contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64])`,
@@ -38,4 +40,4 @@ def blockX86 : Contract X86.isa where
     stateAt s'.mem ((arg s 1).setWidth 64) = block (stateAt s.mem ((arg s 0).setWidth 64))
   pub s₁ s₂ := s₁.gpr .esp = s₂.gpr .esp ∧ arg s₁ 0 = arg s₂ 0 ∧ arg s₁ 1 = arg s₂ 1
 
-end VG.Spec.ChaCha20
+end VG.Proof.ChaCha20

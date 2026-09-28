@@ -78,7 +78,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 160 ≤ 2 ^ 32
   sp_fit : (esp₀ s₀).toNat + 24 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Hmac.initSha256X86.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Hmac.initSha256X86.pre s₀) : Pre s₀ := by
   obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20⟩ := h
   exact ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20⟩
 
@@ -838,7 +838,7 @@ theorem callee_ne_eax {r : Reg} (hr : r ∈ calleeSaved) : r ≠ .eax := by
 
 set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Hmac.initSha256X86.post s₀ s' := by
+    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256X86.post s₀ s' := by
   have hkl := hp.kl_le
   have fi := hp.in_fit
   have fo := hp.ou_fit
@@ -1037,8 +1037,8 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
       rw [VG.Proof.Sha256.X86.Stream.Finalize.argWord_eq hs (k := 16) (by omega)]
       simp [addr, scr, arg]
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Hmac.initSha256X86.pre s₁) (h₂ : Spec.Hmac.initSha256X86.pre s₂)
-    (hpub : Spec.Hmac.initSha256X86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.initSha256X86.pre s₁) (h₂ : Proof.Hmac.initSha256X86.pre s₂)
+    (hpub : Proof.Hmac.initSha256X86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, ha⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
@@ -1079,14 +1079,14 @@ def sat : State where
   rd := [⟨0x1200, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x1100, 96⟩, ⟨0x3000, 160⟩, ⟨0x4004, 20⟩]
 
-theorem sat_pre : Spec.Hmac.initSha256X86.pre sat := by
+theorem sat_pre : Proof.Hmac.initSha256X86.pre sat := by
   have a0 : arg sat 0 = 0x1000 := by decide
   have a1 : arg sat 1 = 0x1100 := by decide
   have a2 : arg sat 2 = 0x1200 := by decide
   have a3 : arg sat 3 = 0 := by decide
   have a4 : arg sat 4 = 0x3000 := by decide
   have e : argAddr sat 0 = 0x4004 := by decide
-  simp only [Spec.Hmac.initSha256X86, a0, a1, a2, a3, a4, e]
+  simp only [Proof.Hmac.initSha256X86, a0, a1, a2, a3, a4, e]
   refine ⟨by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
     by decide, by decide, by decide⟩ <;>
   · intro a h₁ h₂
@@ -1094,7 +1094,7 @@ theorem sat_pre : Spec.Hmac.initSha256X86.pre sat := by
     bv_omega
 
 set_option maxHeartbeats 0 in
-theorem init_verified : Verified X86.target init Spec.Hmac.initSha256X86 := by
+theorem init_verified : Verified X86.target init Proof.Hmac.initSha256X86 := by
   refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

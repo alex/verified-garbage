@@ -4,10 +4,10 @@
 //! The construction is the same for every hash function `H` ([`HmacHash`]);
 //! what each one provides is verified assembly for a key of at most one
 //! block. For SHA-256, `vg_hmac_sha256_init`, `vg_sha256_update` and
-//! `vg_hmac_sha256_finalize` for the target architecture (contracts
-//! `VG.Spec.Hmac.initSha256X86_64`, `VG.Spec.Sha256.updateX86_64` and
-//! `VG.Spec.Hmac.finalizeSha256X86_64`, and their AArch64, 32-bit ARM and
-//! x86 counterparts) compute `H((K₀ ⊕ opad) ‖ H((K₀ ⊕ ipad) ‖ text))`
+//! `vg_hmac_sha256_finalize` (contracts `VG.Spec.Hmac.initSha256Contract`,
+//! `VG.Spec.Sha256.updateContract` and `VG.Spec.Hmac.finalizeSha256Contract`,
+//! or `finalizeSha256OutContract` on the 32-bit targets) compute
+//! `H((K₀ ⊕ opad) ‖ H((K₀ ⊕ ipad) ‖ text))`
 //! (`VG.Spec.Hmac.hmacBlockKey`), keeping the two SHA-256 streaming states.
 //! The only unverified step is step 2 of FIPS 198-1 §4: a key longer than a
 //! block is first hashed, with the verified hash function.

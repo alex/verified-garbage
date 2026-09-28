@@ -4,7 +4,7 @@
 
 /// The ChaCha20 block function (RFC 8439 §2.3): writes the block function of the 16-word state `*state` (20 rounds, then the input state added word by word) to the first 16 words of `*buf`.
 ///
-/// Contract: `VG.Spec.ChaCha20.blockAArch64`. Constant time: only the pointers may affect timing, not the state.
+/// Contract: `VG.Spec.ChaCha20.blockContract`. Constant time: only the pointers may affect timing, not the state.
 ///
 /// # Safety
 ///

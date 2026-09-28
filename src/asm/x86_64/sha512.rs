@@ -4,7 +4,7 @@
 
 /// The SHA-512 compression function (FIPS 180-4 §6.4.2), shared by SHA-384, SHA-512, SHA-512/224 and SHA-512/256: updates the hash value `*state` with the `n` 128-byte blocks starting at `blocks`, in order.
 ///
-/// Contract: `VG.Spec.Sha512.compressX86_64`. Constant time: only the pointers and `n` may affect timing, not the hash value or the blocks.
+/// Contract: `VG.Spec.Sha512.compressContract`. Constant time: only the pointers and `n` may affect timing, not the hash value or the blocks.
 ///
 /// # Safety
 ///
@@ -3826,7 +3826,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_compress(state: *mut [u64; 8], bl
 
 /// Starts a SHA-384 computation: makes the SHA-512 streaming state `*state` represent the empty message, hashed from the initial hash value of SHA-384 (`VG.Spec.Sha512.H0_384`). Continue with `vg_sha512_update` and `vg_sha512_finalize`.
 ///
-/// Contract: `VG.Spec.Sha512.initX86_64 VG.Spec.Sha512.H0_384`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha512.Repr`).
+/// Contract: `VG.Spec.Sha512.initContract` for `VG.Spec.Sha512.H0_384`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha512.Repr`).
 ///
 /// # Safety
 ///
@@ -3857,7 +3857,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha384_init(state: *mut [u8; 192]) {
 
 /// Starts a SHA-512 computation: makes the SHA-512 streaming state `*state` represent the empty message, hashed from the initial hash value of SHA-512 (`VG.Spec.Sha512.H0_512`). Continue with `vg_sha512_update` and `vg_sha512_finalize`.
 ///
-/// Contract: `VG.Spec.Sha512.initX86_64 VG.Spec.Sha512.H0_512`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha512.Repr`).
+/// Contract: `VG.Spec.Sha512.initContract` for `VG.Spec.Sha512.H0_512`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha512.Repr`).
 ///
 /// # Safety
 ///
@@ -3888,7 +3888,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_init(state: *mut [u8; 192]) {
 
 /// Starts a SHA-512/224 computation: makes the SHA-512 streaming state `*state` represent the empty message, hashed from the initial hash value of SHA-512/224 (`VG.Spec.Sha512.H0_512_224`). Continue with `vg_sha512_update` and `vg_sha512_finalize`.
 ///
-/// Contract: `VG.Spec.Sha512.initX86_64 VG.Spec.Sha512.H0_512_224`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha512.Repr`).
+/// Contract: `VG.Spec.Sha512.initContract` for `VG.Spec.Sha512.H0_512_224`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha512.Repr`).
 ///
 /// # Safety
 ///
@@ -3919,7 +3919,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_224_init(state: *mut [u8; 192]) {
 
 /// Starts a SHA-512/256 computation: makes the SHA-512 streaming state `*state` represent the empty message, hashed from the initial hash value of SHA-512/256 (`VG.Spec.Sha512.H0_512_256`). Continue with `vg_sha512_update` and `vg_sha512_finalize`.
 ///
-/// Contract: `VG.Spec.Sha512.initX86_64 VG.Spec.Sha512.H0_512_256`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha512.Repr`).
+/// Contract: `VG.Spec.Sha512.initContract` for `VG.Spec.Sha512.H0_512_256`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha512.Repr`).
 ///
 /// # Safety
 ///
@@ -3950,7 +3950,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_256_init(state: *mut [u8; 192]) {
 
 /// Absorbs data into a SHA-384, SHA-512, SHA-512/224 or SHA-512/256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
 ///
-/// Contract: `VG.Spec.Sha512.updateX86_64`. Constant time: only the pointers, `count` and `len` may affect timing, not the state or the data.
+/// Contract: `VG.Spec.Sha512.updateContract`. Constant time: only the pointers, `count` and `len` may affect timing, not the state or the data.
 ///
 /// # Safety
 ///
@@ -7879,7 +7879,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_update(state: *mut [u8; 192], cou
 
 /// Finishes a SHA-384, SHA-512, SHA-512/224 or SHA-512/256 computation: if the streaming state `*state` represents a message of `count` bytes, hashed from an initial hash value, writes the final hash value `H⁽ᴺ⁾` of that message (64 bytes) to `*out`. The SHA-512 digest is all of it; the SHA-384, SHA-512/224 and SHA-512/256 digests are its first 48, 28 and 32 bytes.
 ///
-/// Contract: `VG.Spec.Sha512.finalizeX86_64`. Constant time: only the pointers and `count` may affect timing, not the state.
+/// Contract: `VG.Spec.Sha512.finalizeContract`. Constant time: only the pointers and `count` may affect timing, not the state.
 ///
 /// # Safety
 ///

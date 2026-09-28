@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.ChaCha20.X86.Rounds
 import VerifiedGarbage.Proof.Framework.X86.Taint
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Spec.ChaCha20.X86
+import VerifiedGarbage.Proof.ChaCha20.X86.Contract
 
 /-!
 # ChaCha20 block function on x86 (32-bit): the whole function
@@ -45,7 +45,7 @@ structure Pre (s₀ : State) : Prop where
   buf_fits : (bp s₀).toNat + 256 ≤ 2 ^ 32
   esp_fits : (esp₀ s₀).toNat + 12 ≤ 2 ^ 32
 
-theorem pre_of (s₀ : State) (h : Spec.ChaCha20.blockX86.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.ChaCha20.blockX86.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
 
@@ -322,7 +322,7 @@ theorem block_post {p : Addr} {m : Mem} {R v : CState}
 
 set_option maxHeartbeats 400000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa block s₀ fun s' => abiPreserved s₀ s' ∧ Spec.ChaCha20.blockX86.post s₀ s' := by
+    WP isa block s₀ fun s' => abiPreserved s₀ s' ∧ Proof.ChaCha20.blockX86.post s₀ s' := by
   refine WP.seq ?_
   rw [WP.block_append_iff]
   refine WP.mono (save_ok hp) fun s₁ ⟨hk₁, hesi₁, hedi₁, hrd₁, hwr₁, hm₁⟩ => ?_
@@ -386,11 +386,11 @@ def satState : State where
   rd := [⟨0x1000, 64⟩, ⟨0x4004, 8⟩]
   wr := [⟨0x2000, 256⟩]
 
-theorem sat_pre : Spec.ChaCha20.blockX86.pre satState := by
+theorem sat_pre : Proof.ChaCha20.blockX86.pre satState := by
   have a0 : arg satState 0 = 0x1000 := by decide
   have a1 : arg satState 1 = 0x2000 := by decide
   have e : argAddr satState 0 = 0x4004 := by decide
-  simp only [Spec.ChaCha20.blockX86, a0, a1, e]
+  simp only [Proof.ChaCha20.blockX86, a0, a1, e]
   refine ⟨by decide, rfl, ?_, ?_, ?_, by decide, by decide, by decide⟩ <;>
   · intro a h₁ h₂
     simp only [Region.Contains, satState] at h₁ h₂
@@ -411,8 +411,8 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
   exact VG.X86.Taint.frame_disjoint (n := 8) (by omega) (by simpa using hp.ret_buf)
     (by simpa [argR, argAddr, addr] using hp.arg_buf)
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.ChaCha20.blockX86.pre s₁)
-    (h₂ : Spec.ChaCha20.blockX86.pre s₂) (hpub : Spec.ChaCha20.blockX86.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.ChaCha20.blockX86.pre s₁)
+    (h₂ : Proof.ChaCha20.blockX86.pre s₂) (hpub : Proof.ChaCha20.blockX86.pub s₁ s₂) :
     VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, a0, a1⟩ := hpub
   have hp₁ := pre_of _ h₁; have hp₂ := pre_of _ h₂
@@ -432,7 +432,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.ChaCha20.blockX86.pre s₁)
     · exact congrArg _ a1
 
 theorem block_verified :
-    Verified X86.target Impl.ChaCha20.X86.block Spec.ChaCha20.blockX86 :=
+    Verified X86.target Impl.ChaCha20.X86.block Proof.ChaCha20.blockX86 :=
   ⟨fun s hs => correct (pre_of s hs),
     VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hpub => agree₀ h₁ h₂ hpub) (by taint_decide),
     ⟨satState, sat_pre⟩⟩

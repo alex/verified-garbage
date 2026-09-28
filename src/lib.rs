@@ -36,7 +36,7 @@ pub mod hmac;
 
 #[cfg(test)]
 mod tests {
-    /// The pipeline self-test artifact (`VG.Spec.Selftest.addX86_64`).
+    /// The pipeline self-test artifact (`VG.Spec.Selftest.addContract`).
     #[cfg(target_arch = "x86_64")]
     #[test]
     fn selftest_add_x86_64() {

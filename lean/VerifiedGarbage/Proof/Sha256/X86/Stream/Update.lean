@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Common
-import VerifiedGarbage.Spec.Sha256.X86
+import VerifiedGarbage.Proof.Sha256.X86.Contract
 
 /-!
 # Streaming SHA-256 on x86 (32-bit): `update`
@@ -18,7 +18,8 @@ open VG.Impl.Sha256.X86 (at_)
 open VG.Proof.Sha256.X86 (contains_offset)
 open VG.Proof.Sha256.X86.Stream
 open VG.Proof.Sha256.Stream
-open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt countX86)
+open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt)
+open VG.Proof.Sha256 (countX86)
 
 /-! ## The precondition -/
 
@@ -67,7 +68,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 160 ≤ 2 ^ 32
   sp_fit : (esp₀ s₀).toNat + 28 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Sha256.updateX86.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha256.updateX86.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩
 
@@ -355,7 +356,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
 set_option maxHeartbeats 0 in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block (.mov .eax (.mem (at_ .esp 16)) :: restore .eax)) s fun s' =>
-      abiPreserved s₀ s' ∧ Spec.Sha256.updateX86.post s₀ s' := by
+      abiPreserved s₀ s' ∧ Proof.Sha256.updateX86.post s₀ s' := by
   have rin : ∀ d, d + 4 ≤ 160 → InRegions (s.rd ++ s.wr) (addr (scr s₀) d) 4 :=
     fun d hd => ⟨scR s₀, by simp [hI.rd, hI.wr, hp.wr], hp.scr_in hd⟩
   have ain : InRegions (s.rd ++ s.wr) (addr (esp₀ s₀) 16) 4 :=
@@ -1041,7 +1042,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   exact WP.mono (direct_ok hp hI₂ hb hb') fun s' h => .inl ⟨c + 64, by omega, h⟩
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.updateX86.post s₀ s' := by
+    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateX86.post s₀ s' := by
   unfold update
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI => ?_)
   refine WP.seq (WP.mono (Q := Inv s₀ (len s₀)) ?_ fun s₂ hI₂ => epilogue_ok hp hI₂)
@@ -1097,8 +1098,8 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
       rw [argWord_eq hs (k := 20) (by omega)]
       simp [addr, scr, arg]
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.updateX86.pre s₁) (h₂ : Spec.Sha256.updateX86.pre s₂)
-    (hpub : Spec.Sha256.updateX86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.updateX86.pre s₁) (h₂ : Proof.Sha256.updateX86.pre s₂)
+    (hpub : Proof.Sha256.updateX86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, ha⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
@@ -1136,19 +1137,19 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 160⟩, ⟨0x4004, 24⟩]
 
-theorem sat_pre : Spec.Sha256.updateX86.pre sat := by
+theorem sat_pre : Proof.Sha256.updateX86.pre sat := by
   have a0 : arg sat 0 = 0x1000 := by decide
   have a3 : arg sat 3 = 0x2000 := by decide
   have a4 : arg sat 4 = 0 := by decide
   have a5 : arg sat 5 = 0x3000 := by decide
   have e : argAddr sat 0 = 0x4004 := by decide
-  simp only [Spec.Sha256.updateX86, a0, a3, a4, a5, e]
+  simp only [Proof.Sha256.updateX86, a0, a3, a4, a5, e]
   refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
   · intro a h₁ h₂
     simp only [Region.Contains, sat] at h₁ h₂
     bv_omega
 
-theorem update_verified : Verified X86.target update Spec.Sha256.updateX86 := by
+theorem update_verified : Verified X86.target update Proof.Sha256.updateX86 := by
   refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

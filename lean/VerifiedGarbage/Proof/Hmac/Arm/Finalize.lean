@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Hmac.Arm.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Finalize
-import VerifiedGarbage.Spec.Hmac.Arm
+import VerifiedGarbage.Proof.Hmac.Arm.Contract
 
 /-!
 # HMAC-SHA-256 on ARMv7: `finalize`
@@ -23,7 +23,8 @@ open VG.Proof.Hmac.X86_64.Finalize (xorPad_length repr_outer)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Sha256.Arm (contains_offset)
 open VG.Proof.Sha256.Arm.Stream (Upd Mupd wp_mov wp_ldr wp_str wp_ldrSp op2_imm frame_bytes sub_offset)
-open VG.Spec.Sha256 (bytesAt stateAt Repr countArm)
+open VG.Spec.Sha256 (bytesAt stateAt Repr)
+open VG.Proof.Sha256 (countArm)
 open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
 
 /-! ## The precondition -/
@@ -67,7 +68,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 240 ≤ 2 ^ 32
   sp_fit : s₀.sp.toNat + 8 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Hmac.finalizeSha256Arm.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Hmac.finalizeSha256Arm.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16⟩
 
@@ -113,9 +114,9 @@ theorem finW_sub (s₀ : State) : ∀ r ∈ finW s₀, ∃ r' ∈ [inR s₀, out
 
 /-! ## The inlined finalization -/
 
-theorem fin_exec : ∀ s, Spec.Sha256.finalizeArm.pre s → ∃ t s',
+theorem fin_exec : ∀ s, Proof.Sha256.finalizeArm.pre s → ∃ t s',
     Exec isa Impl.Sha256.Arm.Stream.finalize s t s' ∧ abiPreserved s s' ∧
-      Spec.Sha256.finalizeArm.post s s' := by
+      Proof.Sha256.finalizeArm.post s s' := by
   intro s hs
   obtain ⟨t, s', he, h₁, h₂⟩ :=
     Proof.Sha256.Arm.Stream.Finalize.correct (Proof.Sha256.Arm.Stream.Finalize.pre_of hs)
@@ -141,8 +142,8 @@ theorem fin_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd)
   have e1 : stackArg (s.withRegions [argR s₀] (finW s₀)) 1 = scr s₀ := ha1
   have ea : stackArgAddr (s.withRegions [argR s₀] (finW s₀)) 0 = stackArgAddr s₀ 0 := by
     simp only [stackArgAddr, State.withRegions_sp, hsp]
-  refine WP.inline (k := Spec.Sha256.finalizeArm) fin_exec (rd := [argR s₀]) (wr := finW s₀) ?_ ?_ ?_ ?_
-  · simp only [Spec.Sha256.finalizeArm, e0, e1, ea, State.withRegions_gpr, State.withRegions_rd,
+  refine WP.inline (k := Proof.Sha256.finalizeArm) fin_exec (rd := [argR s₀]) (wr := finW s₀) ?_ ?_ ?_ ?_
+  · simp only [Proof.Sha256.finalizeArm, e0, e1, ea, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.withRegions_sp, h0, hsp]
     have := hp.scr_fit
     exact ⟨by first | rfl | trivial, by first | rfl | trivial, hp.i_o, hp.i_s.sub_right (sub160 s₀), hp.o_s.sub_right (sub160 s₀), hp.a_i, hp.a_o,
@@ -165,7 +166,7 @@ theorem fin_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd)
     · exact ⟨outR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
   · intro s' h₁ h₂ h₃ h₄ hg hpost
-    simp only [Spec.Sha256.finalizeArm, State.withRegions_gpr, State.withRegions_mem, h0, e0] at hpost
+    simp only [Proof.Sha256.finalizeArm, State.withRegions_gpr, State.withRegions_mem, h0, e0] at hpost
     exact hQ s' h₁ h₂ h₃ h₄ (by rw [hg _ r0_ok, h0]) hpost
 
 /-! ## Saving the outer hash value -/
@@ -350,7 +351,7 @@ theorem countArm_96 {s : State} (h2 : s.gpr .r2 = 96) (h3 : s.gpr .r3 = 0) :
 
 set_option maxHeartbeats 2000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Hmac.finalizeSha256Arm.post s₀ s' := by
+    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256Arm.post s₀ s' := by
   unfold finalize
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
   have fW₁ : Frame s₀.wr s₀.mem s₁.mem := h₁.frame.mono (by simp [hp.wr])
@@ -401,7 +402,7 @@ def τ₀ : VG.Arm.Taint.T :=
   { regs := [.r0, .r1, .r2, .r3], flags := false, lens := [96, 32, 240], bases := [(.r0, 0)],
     argLen := 8, argBases := [(4, 2)] }
 
-theorem wf₀ {s : State} (h : Spec.Hmac.finalizeSha256Arm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
+theorem wf₀ {s : State} (h : Proof.Hmac.finalizeSha256Arm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
   have hp := pre_of h
   have hst := hp.in_fit; have ho := hp.out_fit; have hsc := hp.scr_fit; have hs := hp.sp_fit
   refine ⟨fun _ => ⟨by simp [hp.wr, τ₀], ?_, ?_⟩, ?_, fun _ => ⟨hs, ?_⟩, ?_⟩
@@ -422,8 +423,8 @@ theorem wf₀ {s : State} (h : Spec.Hmac.finalizeSha256Arm.pre s) : VG.Arm.Taint
     simp only [VG.Arm.Taint.region, hp.wr]
     rfl
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Hmac.finalizeSha256Arm.pre s₁)
-    (h₂ : Spec.Hmac.finalizeSha256Arm.pre s₂) (hpub : Spec.Hmac.finalizeSha256Arm.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256Arm.pre s₁)
+    (h₂ : Proof.Hmac.finalizeSha256Arm.pre s₂) (hpub : Proof.Hmac.finalizeSha256Arm.pub s₁ s₂) :
     VG.Arm.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨psp, p0, p1, p2, p3, a0, a1⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
@@ -458,7 +459,7 @@ def sat : State where
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 32⟩, ⟨0x4000, 240⟩]
 
 set_option maxHeartbeats 0 in
-theorem finalize_verified : Verified Arm.target finalize Spec.Hmac.finalizeSha256Arm := by
+theorem finalize_verified : Verified Arm.target finalize Proof.Hmac.finalizeSha256Arm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
@@ -466,7 +467,7 @@ theorem finalize_verified : Verified Arm.target finalize Spec.Hmac.finalizeSha25
   · have e0 : stackArg sat 0 = 0x3000 := by decide
     have e1 : stackArg sat 1 = 0x4000 := by decide
     refine ⟨sat, ?_⟩
-    simp only [Spec.Hmac.finalizeSha256Arm, e0, e1]
+    simp only [Proof.Hmac.finalizeSha256Arm, e0, e1]
     refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide,
       by decide, by decide, by decide, by decide⟩ <;>
     · intro a h₁ h₂

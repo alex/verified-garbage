@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Common
 import VerifiedGarbage.Proof.Sha256.AArch64.Compress
-import VerifiedGarbage.Spec.Sha256.X86
+import VerifiedGarbage.Proof.Sha256.X86.Contract
 
 /-!
 # Streaming SHA-256 on x86 (32-bit): `init`
@@ -34,8 +34,8 @@ theorem word_ok {x : BitVec 32} {k : Nat} {rest : List Instr} {s : State} {Q : S
   rw [u₂.mem, u₁.gpr, u₁.mem]
 
 set_option maxHeartbeats 4000000 in
-theorem init_correct {s₀ : State} (hp : Spec.Sha256.initX86.pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.initX86.post s₀ s' := by
+theorem init_correct {s₀ : State} (hp : Proof.Sha256.initX86.pre s₀) :
+    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.initX86.post s₀ s' := by
   obtain ⟨hrd, hwr, hargs, hret, hfit, hsp⟩ := hp
   set st := arg s₀ 0 with hst
   have o : ∀ k, k < 8 → InRegions s₀.wr (addr st (4 * k)) 4 :=
@@ -101,10 +101,10 @@ def initSat : State where
   rd := [⟨0x4004, 4⟩]
   wr := [⟨0x1000, 96⟩]
 
-theorem initSat_pre : Spec.Sha256.initX86.pre initSat := by
+theorem initSat_pre : Proof.Sha256.initX86.pre initSat := by
   have a0 : arg initSat 0 = 0x1000 := by decide
   have e : argAddr initSat 0 = 0x4004 := by decide
-  simp only [Spec.Sha256.initX86, a0, e]
+  simp only [Proof.Sha256.initX86, a0, e]
   refine ⟨rfl, rfl, ?_, ?_, by decide, by decide⟩ <;>
   · intro a h₁ h₂
     simp only [Region.Contains, initSat] at h₁ h₂
@@ -114,10 +114,10 @@ theorem initSat_pre : Spec.Sha256.initX86.pre initSat := by
 is the base address of the writable region. -/
 def initτ₀ : VG.X86.Taint.T := { regs := [.esp], flags := false, argLen := 8 }
 
-theorem init_agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.initX86.pre s₁) (h₂ : Spec.Sha256.initX86.pre s₂)
-    (hpub : Spec.Sha256.initX86.pub s₁ s₂) : VG.X86.Taint.Agree initτ₀ s₁ s₂ := by
+theorem init_agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.initX86.pre s₁) (h₂ : Proof.Sha256.initX86.pre s₂)
+    (hpub : Proof.Sha256.initX86.pub s₁ s₂) : VG.X86.Taint.Agree initτ₀ s₁ s₂ := by
   obtain ⟨hesp, a0⟩ := hpub
-  have wf : ∀ s, Spec.Sha256.initX86.pre s → VG.X86.Taint.Wf initτ₀ s := by
+  have wf : ∀ s, Proof.Sha256.initX86.pre s → VG.X86.Taint.Wf initτ₀ s := by
     intro s hs
     obtain ⟨-, hw, hd, hr, -, hsp⟩ := hs
     refine ⟨fun h => absurd rfl h, fun _ h => (List.not_mem_nil h).elim,
@@ -137,7 +137,7 @@ theorem init_agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.initX86.pre s₁) 
     exact congrArg _ a0
 
 set_option maxHeartbeats 0 in
-theorem init_verified : Verified X86.target init Spec.Sha256.initX86 := by
+theorem init_verified : Verified X86.target init Proof.Sha256.initX86 := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, initSat_pre⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct hs
     exact ⟨t, s', he, h⟩

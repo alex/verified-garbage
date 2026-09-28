@@ -1,15 +1,15 @@
 import VerifiedGarbage.Spec.Hmac
-import VerifiedGarbage.Spec.Sha256.Arm
+import VerifiedGarbage.Proof.Sha256.Arm.Contract
 
 /-!
 # HMAC-SHA-256: the 32-bit ARM contracts
 
-**Trusted** (as every file in `Spec/`). The same functions as on x86-64
+**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The same functions as on x86-64
 (`VerifiedGarbage/Spec/Hmac/X86_64.lean`): an HMAC-SHA-256 computation is two
 SHA-256 streaming states (`VG.Spec.Sha256.Repr`), the inner one, which
 absorbs `(K₀ ⊕ ipad) ‖ text`, and the outer one, which holds `K₀ ⊕ opad`.
 `vg_hmac_sha256_init` sets them up from the key, the text is absorbed into
-the inner state with `vg_sha256_update` (`VG.Spec.Sha256.updateArm`), and
+the inner state with `vg_sha256_update` (`VG.Proof.Sha256.updateArm`), and
 `vg_hmac_sha256_finalize` computes the MAC.
 
 Under AAPCS the first four words of arguments are in `r0`–`r3` (a 64-bit
@@ -18,12 +18,14 @@ argument in an even-odd pair, low word first) and the rest on the stack at
 writes the MAC through an `out` pointer instead of leaving it in `scratch`:
 its `count` fills `r2:r3`, so `out` and `scratch` are its two stack
 arguments, laid out as the stack arguments of `vg_sha256_finalize`
-(`VG.Spec.Sha256.finalizeArm`) are.
+(`VG.Proof.Sha256.finalizeArm`) are.
 -/
 
-namespace VG.Spec.Hmac
+namespace VG.Proof.Hmac
 
-open Sha256 (Repr bytesAt)
+open Spec.Hmac
+
+open Spec.Sha256 (Repr bytesAt)
 
 open Arm in
 /-- 32-bit ARM contract for
@@ -93,7 +95,7 @@ def finalizeSha256Arm : Contract Arm.isa where
     s.sp.toNat + 8 ≤ 2 ^ 32
   post s s' := ∀ k0 text, k0.length = 64 →
     Repr s.mem (State.addr (s.gpr .r0)) (xorPad k0 ipad ++ text) →
-    Sha256.countArm s = BitVec.ofNat 64 (64 + text.length) →
+    Proof.Sha256.countArm s = BitVec.ofNat 64 (64 + text.length) →
     Repr s.mem (State.addr (s.gpr .r1)) (xorPad k0 opad) →
     bytesAt s'.mem (State.addr (stackArg s 0)) 32 = hmacBlockKey sha256 k0 text
   pub s₁ s₂ :=
@@ -101,4 +103,4 @@ def finalizeSha256Arm : Contract Arm.isa where
     s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧
     stackArg s₁ 0 = stackArg s₂ 0 ∧ stackArg s₁ 1 = stackArg s₂ 1
 
-end VG.Spec.Hmac
+end VG.Proof.Hmac

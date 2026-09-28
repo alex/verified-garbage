@@ -18,7 +18,7 @@ The streaming state (96 bytes at `state`) is the hash value followed by a
 The compression function's code (`Impl.Sha256.X86.compress`) is inlined. It
 reads its arguments `(state, blocks, n, scratch)` from `[esp + 4 .. 20)`, so
 before each compression we write them there, over our own arguments (the
-callee owns them; see `VG.Spec.Sha256.updateX86`). It saves and restores
+callee owns them: `VG.Spec.Sha256.updateContract` asks for `writeArgs`). It saves and restores
 `ebx`, `esi`, `edi`, `ebp`, so our own variables live there across it, and
 our caller's values of those registers are saved in `scratch[112..128)`.
 Every address and branch depends only on the pointers, `count` and `len`.
