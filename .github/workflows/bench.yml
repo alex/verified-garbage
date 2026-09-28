@@ -5,6 +5,10 @@ name: Benchmarks
 # benchmark slowed down by more than ci/bench_compare.py's threshold. The
 # results are in the run's summary. Not part of `all-green`: it only runs for
 # some pull requests.
+#
+# It can also be run by hand (Actions > Benchmarks > Run workflow), comparing
+# the chosen branch with any earlier commit on every architecture, e.g. to
+# measure the total speedup of a series of pull requests.
 on:
   pull_request:
     paths:
@@ -15,6 +19,11 @@ on:
       - "ci/bench_compare.py"
       - "ci/bench_arches.py"
       - ".github/workflows/bench.yml"
+  workflow_dispatch:
+    inputs:
+      base_commit:
+        description: The commit to compare against
+        required: true
 
 permissions:
   contents: read
@@ -30,6 +39,7 @@ jobs:
   arches:
     name: Choose architectures
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       matrix: ${{ steps.arches.outputs.matrix }}
     steps:
@@ -40,8 +50,12 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          git fetch -q --depth=1 origin "$BASE"
-          matrix=$(git diff --name-only "$BASE" HEAD | python3 ci/bench_arches.py)
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            matrix=$(python3 ci/bench_arches.py --all)
+          else
+            git fetch -q --depth=1 origin "$BASE"
+            matrix=$(git diff --name-only "$BASE" HEAD | python3 ci/bench_arches.py)
+          fi
           echo "$matrix"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
@@ -54,6 +68,7 @@ jobs:
         include: ${{ fromJSON(needs.arches.outputs.matrix) }}
     name: Compare with base (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     # With an empty image the job runs directly on the runner.
     container:
       image: ${{ matrix.image || '' }}
@@ -75,7 +90,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.base.sha || inputs.base_commit }}
           path: base
           persist-credentials: false
       - name: Install OpenSSL headers

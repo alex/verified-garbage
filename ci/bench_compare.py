@@ -3,7 +3,9 @@
     python3 ci/bench_compare.py BASE HEAD [--summary FILE]
 
 Both are built with HEAD's `bench/` crate (copied into BASE, so the two run
-the same benchmark code against different library code), and their benchmark
+the same benchmark code against different library code); if that doesn't
+build against BASE (it benchmarks an API BASE doesn't have yet), BASE uses
+its own `bench/` crate, and HEAD's other benchmarks show as new. Their benchmark
 binaries are run alternately on this machine, a few rounds each, keeping the
 fastest time of each benchmark on each side: interleaving cancels out slow
 drift in the machine's speed, and the minimum discards runs slowed by
@@ -31,8 +33,8 @@ VG = "verified-garbage"
 OPENSSL = "openssl"
 
 
-def build(checkout):
-    """Builds the benchmarks of `checkout`, returning the binary's path."""
+def build(bench):
+    """Builds the benchmark crate `bench`, returning the binary's path."""
     out = subprocess.run(
         [
             "cargo",
@@ -40,7 +42,7 @@ def build(checkout):
             "--no-run",
             "--message-format=json-render-diagnostics",
         ],
-        cwd=checkout / "bench",
+        cwd=bench,
         check=True,
         stdout=subprocess.PIPE,
         text=True,
@@ -50,7 +52,29 @@ def build(checkout):
         if msg.get("reason") == "compiler-artifact" and msg.get("executable"):
             if msg["target"]["name"] == "primitives":
                 return msg["executable"]
-    raise RuntimeError(f"no benchmark binary built in {checkout}")
+    raise RuntimeError(f"no benchmark binary built in {bench}")
+
+
+def build_base(base, head):
+    """Builds BASE's benchmarks (see the module docstring), returning the
+    binary's path and a note on which benchmark code it runs, or no path
+    if neither builds."""
+    if base == head:
+        return build(head / "bench"), None
+    # A sibling of BASE's own `bench/`, so its `path = ".."` is BASE too.
+    copy = base / "bench-head"
+    shutil.rmtree(copy, ignore_errors=True)
+    shutil.copytree(head / "bench", copy, ignore=shutil.ignore_patterns("target"))
+    try:
+        return build(copy), None
+    except subprocess.CalledProcessError:
+        pass
+    if (base / "bench").is_dir():
+        try:
+            return build(base / "bench"), "Head's benchmarks don't build against base, so base ran its own."
+        except subprocess.CalledProcessError:
+            pass
+    return None, "Base has no benchmarks that build, so head ran alone."
 
 
 def run(binary, home, library, args):
@@ -106,16 +130,16 @@ def main():
     args = p.parse_args()
 
     base, head = args.base.resolve(), args.head.resolve()
-    if base != head:
-        shutil.rmtree(base / "bench", ignore_errors=True)
-        shutil.copytree(head / "bench", base / "bench", ignore=shutil.ignore_patterns("target"))
-    binaries = {"base": build(base), "head": build(head)}
+    binaries = {"head": build(head / "bench")}
+    binaries["base"], note = build_base(base, head)
 
     shutil.rmtree(args.work_dir, ignore_errors=True)
     best = {"base": {}, "head": {}}
     for r in range(args.rounds):
         # Alternate which side goes first, so neither always runs warmer.
         for side in ("base", "head") if r % 2 == 0 else ("head", "base"):
+            if binaries[side] is None:
+                continue
             print(f"round {r + 1}/{args.rounds}: {side}", file=sys.stderr)
             times = run(binaries[side], args.work_dir.resolve() / f"{side}-{r}", VG, args)
             for bench_id, t in times.items():
@@ -129,6 +153,7 @@ def main():
         f"Fastest of {args.rounds} interleaved runs of each side on this runner;"
         f" a slowdown of more than {args.threshold:.0%} fails."
         " OpenSSL (through rust-openssl) ran once, for reference.",
+        *([f"{note}"] if note else []),
         "",
         "| Benchmark | Base | Head | Change | OpenSSL | Head vs OpenSSL |",
         "|---|--:|--:|--:|--:|--:|",
@@ -140,7 +165,7 @@ def main():
         if b is None:
             change = "new"
         else:
-            change = f"{h / b - 1:+.1%}"
+            change = f"{h / b - 1:.1%} slower" if h > b else f"{1 - h / b:.1%} faster"
             if h / b - 1 > args.threshold:
                 regressions.append(bench_id)
                 change += " 🚨"

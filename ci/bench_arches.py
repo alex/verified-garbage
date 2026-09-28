@@ -1,6 +1,7 @@
 """Chooses which architectures' benchmarks a change needs.
 
     git diff --name-only BASE HEAD | python3 ci/bench_arches.py
+    python3 ci/bench_arches.py --all
 
 Prints a JSON list of platforms (see `PLATFORMS`) for the Benchmarks
 workflow's matrix: an architecture is benchmarked when its own assembly
@@ -50,4 +51,8 @@ def arches(changed):
 
 
 if __name__ == "__main__":
-    print(json.dumps(arches(sys.stdin.read().split())))
+    if sys.argv[1:] == ["--all"]:
+        platforms = [{"arch": a, **PLATFORMS[a]} for a in PLATFORMS]
+    else:
+        platforms = arches(sys.stdin.read().split())
+    print(json.dumps(platforms))
