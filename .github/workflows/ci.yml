@@ -37,14 +37,6 @@ jobs:
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
       - name: Fetch the Mathlib build cache
         run: lake exe cache get
-      # This project's own build, from the latest run that saved one on this
-      # branch or on main. Lake rebuilds every module whose source or imports
-      # (transitively) changed, and reuses the rest: those proofs were checked
-      # when that build was saved.
-      #
-      # A cache entry can't be overwritten, so the key includes a hash of the
-      # sources: each change saves a new build, and restore-keys picks the most
-      # recent one for the same toolchain and dependencies.
       - name: Restore this project's build
         id: lean-build
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
