@@ -815,8 +815,8 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Hmac.initSha256Arm.pre s₁)
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
   · rw [hp₁.wr, hp₂.wr]; simp only [inR, ouR, scR, inA, ouA, scA, inn, ou, scr, p0, p1, a0]
   · simp only [τ₀] at hk
-    rw [argByte_eq, argByte_eq, Proof.Sha256.Arm.Stream.readW_byte s₁.mem _ hk,
-      Proof.Sha256.Arm.Stream.readW_byte s₂.mem _ hk]
+    rw [argByte_eq, argByte_eq, Mem.readW_byte s₁.mem _ hk,
+      Mem.readW_byte s₂.mem _ hk]
     exact congrArg _ a0
 
 /-- A state satisfying the precondition (with an empty key): `inner` at
