@@ -23,6 +23,8 @@ VerifiedGarbage/
                     call is of the artifact whose code the model runs for it, and
                     that each artifact declares the CPU features its code needs
     Axioms.lean     `#assert_standard_axioms`
+    Emit.lean       what is emitted (`Artifacts.lean` and every registration file
+                    under `Artifacts/`), and writing or checking `src/asm/`
     X86_64/         ISA model, printer, System V ABI target
   Spec/         Algorithm specifications and contracts (trusted, must be reviewed)
   Impl/         Implementations: `Prog`s over an ISA model (untrusted)
@@ -30,9 +32,11 @@ VerifiedGarbage/
     Framework/      generic lemmas: determinism, WP rules, memory frames, inlining
                     verified code, and a taint-tracking checker that proves
                     constant time by evaluation
-  Artifacts.lean  The registry: the single list of everything that is emitted
+  Artifacts/      The registry: one registration file per algorithm and target,
+                  each listing the artifacts it emits
+  Artifacts.lean  The registry's older entries, from before `Artifacts/`
 VerifiedGarbageTest/  Golden tests for the (unverified) printers and calling conventions
-Emit.lean       Renders `VG.artifacts` into `../src/asm/`
+Emit.lean       Renders every artifact into `../src/asm/` (see `TCB/Emit.lean`)
 ```
 
 `ci/check_lean_imports.py` enforces the import discipline between these
@@ -54,10 +58,11 @@ never import proofs.
    the ABI obligations (callee-saved registers etc.), constant time (up to
    anything the contract declares the function may leak), and
    satisfiability of the precondition.
-4. **Registry** — `Artifacts.lean` lists every `Artifact`, bundling target,
-   Rust name and signature, code, contract and proof. An `Artifact` cannot be
-   built without the proof, and `#assert_standard_axioms` rejects `sorry`,
-   `native_decide` and any non-standard axiom anywhere in the list.
+4. **Registry** — the registration files `Artifacts/<Alg>/<Target>.lean`
+   (and `Artifacts.lean`) list every `Artifact`, bundling target, Rust name
+   and signature, code, contract and proof. An `Artifact` cannot be built
+   without the proof, and the emitter's `#assert_standard_axioms` rejects
+   `sorry`, `native_decide` and any non-standard axiom anywhere in them.
 5. **Emit** — `Emit.lean` renders the registry into `src/asm/<target>/<module>.rs`.
    CI fails if the checked-in files differ from what Lean generates, so the
    Rust crate contains exactly the verified code.
@@ -90,7 +95,8 @@ constant.
   (including the CPU features each instruction requires), and the printers,
   which must print what the models mean.
 * For each artifact: its contract in `Spec/` (and the algorithm spec it
-  refers to), and its `sig` and `doc` in `Artifacts.lean`.
+  refers to), and its `sig` and `doc` in its registration file (or
+  `Artifacts.lean`), and `TCB/Emit.lean`, which decides what is emitted.
 * Lean's kernel, and the assembler in `rustc`/LLVM.
 
 Everything in `Impl/` and `Proof/` is checked by Lean and need not be read.

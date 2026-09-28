@@ -1,6 +1,6 @@
 //! The MD5 test suite of RFC 1321 (Appendix A.5).
 //!
-//! The RFC is vendored under `vectors/rfc1321/` (see `vectors/sources.toml`
+//! The RFC is vendored under `vectors/rfc1321/` (see `vectors/sources/`
 //! for where it comes from) and compiled into the test binary, so these tests
 //! always run. Every vector of the suite is checked, in one call and split
 //! into pieces at every position.

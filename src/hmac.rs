@@ -14,6 +14,13 @@
 //! The only unverified step is step 2 of FIPS 198-1 §4: a key longer than a
 //! block is first hashed, with the verified hash function.
 
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
+
 #[cfg(target_arch = "aarch64")]
 use crate::asm::aarch64::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 #[cfg(target_arch = "arm")]
@@ -97,7 +104,7 @@ impl<H: HmacHash> Hmac<H> {
     }
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 impl Hmac<Sha256> {
     /// The key's two SHA-256 streaming states, for `K₀ ⊕ ipad` and then
     /// `K₀ ⊕ opad`, as `vg_hmac_sha256_init` left them (the arguments of

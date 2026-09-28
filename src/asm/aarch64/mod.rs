@@ -17,13 +17,13 @@ pub(crate) mod sha512;
 pub(crate) mod hmac;
 
 #[rustfmt::skip]
+pub(crate) mod pbkdf2;
+
+#[rustfmt::skip]
 pub(crate) mod chacha20;
 
 #[rustfmt::skip]
 pub(crate) mod sha3;
 
 #[rustfmt::skip]
-pub(crate) mod poly1305;
-
-#[rustfmt::skip]
-pub(crate) mod chacha20poly1305;
+pub(crate) mod scrypt;
