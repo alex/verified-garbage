@@ -174,11 +174,13 @@ def setupR : List Instr :=
    .str .r8 .r0 104, .str .r9 .r0 108, .str .r10 .r0 112, .str .r11 .r0 116, .strb .r1 .r0 121]
 
 /-- The limbs of the stored accumulator as the columns: `d0`–`d8` in
-`r3`–`r11`, `d9` in memory. -/
+`r3`–`r11`, `d9` in memory. Only the low two bits of its word 4 are used (the
+accumulator is below `2¹³⁰`), so the columns are below `2¹³` whatever the
+state holds. -/
 def loadAcc : List Instr :=
   zeroY ++ [.mov .r1 (.reg .r0)] ++ addWords ++
-  [.mov .r1 (.shifted .r2 .lsr 21), .ldr .r2 .r0 16, .dp .add .r1 .r1 (.shifted .r2 .lsl 11),
-   .str .r1 .r0 d9Off]
+  [.mov .r1 (.shifted .r2 .lsr 21), .ldr .r2 .r0 16, .mov .r2 (.shifted .r2 .lsl 30),
+   .dp .add .r1 .r1 (.shifted .r2 .lsr 19), .str .r1 .r0 d9Off]
 
 /-! ## The final reduction -/
 
