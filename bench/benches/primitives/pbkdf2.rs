@@ -2,6 +2,10 @@
 
 use criterion::Criterion;
 
+/// The library modules whose code these benchmarks run (see
+/// `ci/bench_arches.py`): this one and those it calls.
+pub const USES: &[&str] = &["pbkdf2", "hmac", "sha256"];
+
 /// PBKDF2-HMAC-SHA-256 of a 32-byte key (one block), with the sizes as the
 /// iteration counts.
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]

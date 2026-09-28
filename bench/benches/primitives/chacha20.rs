@@ -8,6 +8,10 @@ use verified_garbage::chacha20::ChaCha20;
 
 use crate::{OPENSSL, SIZES, VG};
 
+/// The library modules whose code these benchmarks run (see
+/// `ci/bench_arches.py`).
+pub const USES: &[&str] = &["chacha20"];
+
 pub fn bench(c: &mut Criterion) {
     let key = [0x42; 32];
     let nonce = [0x24; 16];

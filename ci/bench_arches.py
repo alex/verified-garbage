@@ -11,12 +11,13 @@ to other files (e.g. Lean that leaves `src/asm/` as it was) need none.
 
 Each platform's `modules` narrows its benchmarks to those of the modules
 whose own files changed: `src/asm/<arch>/<module>.rs`, or the Rust API's
-`src/<module>.rs` or `src/hashes/<module>.rs` (for every architecture). See
-`MODULES` for which benchmarks run each module's code. Any other change it
-benchmarks (e.g. `src/cpu.rs`, a module not in `MODULES`, or the benchmarks
-themselves) runs every benchmark, and `modules` is empty. The generated
-`src/asm/<arch>/mod.rs` only declares the modules, so it narrows nothing
-either way.
+`src/<module>.rs` or `src/hashes/<module>.rs` (for every architecture). The
+benchmarks decide which of them run (each lists the modules it `USES`, see
+bench/benches/primitives/main.rs), and run everything for a module none of
+them uses (e.g. `cpu`, `lib`, or `hashes/mod.rs`'s `mod`). Any other change
+it benchmarks (e.g. the benchmarks themselves) runs every benchmark, and
+`modules` is empty. The generated `src/asm/<arch>/mod.rs` only declares the
+modules, so it narrows nothing either way.
 """
 
 import json
@@ -48,25 +49,6 @@ SHARED = re.compile(
 )
 
 
-# The benchmark groups (the first part of a benchmark's id, see
-# bench/benches/primitives.rs) that run each module's code, as regexes over
-# the whole group name. `bench_compare.py` also runs every group that no
-# entry matches, so a benchmark missing here is run too often, never
-# skipped.
-MODULES = {
-    "chacha20": r"chacha20",
-    "md5": r"md5",
-    "sha1": r"sha1",
-    # HMAC-SHA-256 calls SHA-256's compression function, PBKDF2 calls
-    # HMAC-SHA-256, and scrypt calls PBKDF2.
-    "sha256": r"(hmac-)?sha256(-.*)?|pbkdf2.*|scrypt",
-    "hmac": r"hmac-.*|pbkdf2.*|scrypt",
-    "pbkdf2": r"pbkdf2.*|scrypt",
-    "scrypt": r"scrypt",
-    "sha512": r"sha512(-.*)?",
-    "sha3": r"sha3-.*|shake.*",
-}
-
 # The file of one module: its assembly on one architecture, or its Rust API
 # on every one.
 ASM = re.compile(r"src/asm/([a-z0-9_]+)/([a-z0-9_]+)\.rs$")
@@ -80,9 +62,7 @@ def arches(changed):
     needed = {}
 
     def need(arch, module):
-        if module not in MODULES or needed.get(arch, set()) is ALL:
-            needed[arch] = ALL
-        else:
+        if needed.get(arch, set()) is not ALL:
             needed.setdefault(arch, set()).add(module)
 
     for path in changed:
