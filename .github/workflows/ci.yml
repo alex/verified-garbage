@@ -21,8 +21,36 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
+  # Which of the slow jobs this change needs (see ci/ci_jobs.py): a pull
+  # request or merge queue entry that only changes Lean skips the Rust jobs,
+  # and one that leaves Lean and the generated Rust alone skips the Lean job.
+  # Pushes to main run everything, which also keeps main's caches current.
+  changes:
+    name: Choose jobs
+    runs-on: ubuntu-latest
+    outputs:
+      lean: ${{ steps.jobs.outputs.lean }}
+      rust: ${{ steps.jobs.outputs.rust }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: jobs
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: |
+          if [ -z "$BASE" ]; then
+            jobs=$(python3 ci/ci_jobs.py --all)
+          else
+            git fetch -q --depth=1 origin "$BASE"
+            jobs=$(git diff --name-only "$BASE" HEAD | python3 ci/ci_jobs.py)
+          fi
+          echo "$jobs" | tee -a "$GITHUB_OUTPUT"
+
   lean:
     name: Lean proofs
+    needs: changes
+    if: ${{ needs.changes.outputs.lean == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -127,6 +155,8 @@ jobs:
       - run: python3 ci/check_vectors.py
 
   rust:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -223,6 +253,8 @@ jobs:
   # merged with the rest.
   rust-sde:
     name: Rust (CPU features, natively and under Intel SDE)
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: -D warnings -Cinstrument-coverage
@@ -316,14 +348,18 @@ jobs:
   # so the required checks don't have to track every job and matrix entry.
   all-green:
     if: ${{ always() }}
-    needs: [lean, lean-imports, vectors, rust, rust-sde, coverage]
+    needs: [changes, lean, lean-imports, vectors, rust, rust-sde, coverage]
     runs-on: ubuntu-latest
     steps:
-      - name: Check every job succeeded
+      # A job may be skipped only because `changes` chose to skip it: if
+      # `changes` itself failed, every job needing it was skipped too.
+      - name: Check every job succeeded or was skipped as not needed
         env:
+          CHANGES: ${{ needs.changes.result }}
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
           echo "$RESULTS"
+          [ "$CHANGES" = success ] || exit 1
           for r in $RESULTS; do
-            [ "$r" = success ] || exit 1
+            [ "$r" = success ] || [ "$r" = skipped ] || exit 1
           done
