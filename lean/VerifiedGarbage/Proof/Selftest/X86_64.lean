@@ -36,6 +36,6 @@ theorem add_verified :
     rw [Impl.Selftest.X86_64.add, Exec.block_iff] at h
     cases h
     rfl
-  · exact ⟨⟨fun _ => 0, none, none, none, none, fun _ => 0, [], [], fun _ => 0⟩, trivial⟩
+  · exact ⟨⟨fun _ => 0, none, none, none, none, fun _ => 0, fun _ => 0, [], [], fun _ => 0⟩, trivial⟩
 
 end VG.Proof.Selftest.X86_64

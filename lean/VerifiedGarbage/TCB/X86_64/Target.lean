@@ -12,6 +12,11 @@ callee-saved. The return address is at `[rsp]` on entry; the printer ends
 every function with `ret`, so `abiPreserved` demands that `rsp` and the
 return-address slot are unchanged on exit.
 
+The SSE registers `xmm0`–`xmm15` are all caller-saved (System V AMD64
+psABI §3.2.1, Figure 3.4: "No" under "callee-saved"; also on Windows, whose
+own convention the functions do not use), so `abiPreserved` says nothing
+about them.
+
 Not modelled: the direction flag (no modelled instruction changes it; it is
 clear on entry and exit), x87/MXCSR control words (never modified), and the
 red zone: a contract that grants write access below `rsp` must keep it within
