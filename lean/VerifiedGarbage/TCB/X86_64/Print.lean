@@ -156,6 +156,9 @@ def Instr.asm : Instr → List String
   | .vmovdquLoad l d m => [s!"vmovdqu {d.vname l}, {m.strV l}"]
   | .vmovdquStore l m r => [s!"vmovdqu {m.strV l}, {r.vname l}"]
   | .vbroadcasti128 d m => [s!"vbroadcasti128 {d.yname}, {m.str128}"]
+  | .stmxcsr m => [s!"stmxcsr {m.str32}"]
+  | .ldmxcsr m => [s!"ldmxcsr {m.str32}"]
+  | .lfence => ["lfence"]
 
 def Cond.name : Cond → String
   | .e => "e" | .ne => "ne" | .b => "b" | .ae => "ae"

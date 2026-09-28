@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Framework.Semantics
 import VerifiedGarbage.Proof.Framework.Mem
-import VerifiedGarbage.Proof.Framework.X86_64.Taint
+import VerifiedGarbage.Proof.Framework.X86_64.Abi
 
 /-!
 # Inlining verified code (x86-64)
@@ -215,6 +215,15 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     cases len
     · exact store128_widen hw h
     · exact store256_widen hw h
+  | stmxcsr m => exact store32_widen hw h
+  | ldmxcsr m =>
+    simp only [exec, Option.bind_eq_some_iff] at h
+    obtain ⟨v, hv, h⟩ := h
+    simp only [exec]
+    rw [show (s.withRegions rd wr).ea m = s.ea m from rfl, load32_widen hc hv, Option.bind_some]
+    split at h <;> [cases h; cases h]
+    rename_i hr; simp only [hr, ite_true]; rfl
+  | lfence => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
 
 theorem addrs_withRegions (i : Instr) (s : State) (rd wr : List Region) :
     addrs i (s.withRegions rd wr) = addrs i s := by
@@ -244,6 +253,12 @@ theorem exec_regions {i : Instr} (h : exec i s = some s') : s'.rd = s.rd ∧ s'.
     cases len
     · simp only [exec, State.store128] at h; split at h <;> cases h; exact ⟨rfl, rfl⟩
     · simp only [exec, State.store256] at h; split at h <;> cases h; exact ⟨rfl, rfl⟩
+  | stmxcsr m =>
+    simp only [exec, State.store32] at h; split at h <;> cases h; exact ⟨rfl, rfl⟩
+  | ldmxcsr m =>
+    simp only [exec, Option.bind_eq_some_iff] at h; obtain ⟨_, _, h⟩ := h
+    split at h <;> cases h; exact ⟨rfl, rfl⟩
+  | lfence => simp only [exec, Option.some.injEq] at h; subst h; exact ⟨rfl, rfl⟩
   | _ => exact ⟨(Taint.exec_nonstore rfl h).1, (Taint.exec_nonstore rfl h).2.1⟩
 
 theorem exec_frame {i : Instr} (h : exec i s = some s') : Frame s.wr s.mem s'.mem := by
@@ -277,6 +292,13 @@ theorem exec_frame {i : Instr} (h : exec i s = some s') : Frame s.wr s.mem s'.me
       rename_i hi; obtain ⟨r, hr, hc⟩ := hi; exact (Frame.refl _ _).writeW hr _ hc
     · simp only [exec, State.store256] at h; split at h <;> cases h
       rename_i hi; obtain ⟨r, hr, hc⟩ := hi; exact (Frame.refl _ _).writeW hr _ hc
+  | stmxcsr m =>
+    simp only [exec, State.store32] at h; split at h <;> cases h
+    rename_i hi; obtain ⟨r, hr, hc⟩ := hi; exact (Frame.refl _ _).writeW hr _ hc
+  | ldmxcsr m =>
+    simp only [exec, Option.bind_eq_some_iff] at h; obtain ⟨_, _, h⟩ := h
+    split at h <;> cases h; exact Frame.refl _ _
+  | lfence => simp only [exec, Option.some.injEq] at h; subst h; exact Frame.refl _ _
   | _ => rw [(Taint.exec_nonstore rfl h).2.2.1]; exact Frame.refl _ _
 
 theorem eval_withRegions (c : Cond) (s : State) (rd wr : List Region) :
@@ -422,6 +444,10 @@ theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.dstOf i ≠ some r) {s s' : S
       · simp only [exec, State.store128] at h; split at h <;> cases h; rfl
       · simp only [exec, State.store256] at h; split at h <;> cases h; rfl
     · simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; rfl
+    · simp only [exec, State.store32] at h; split at h <;> cases h; rfl
+    · simp only [exec, Option.bind_eq_some_iff] at h; obtain ⟨_, _, h⟩ := h
+      split at h <;> cases h; rfl
+    · simp only [exec, Option.some.injEq] at h; subst h; rfl
 
 theorem execBlock_gpr {is : List Instr} {r : Reg} (hc : ∀ i ∈ is, Taint.dstOf i ≠ some r)
     {s s' : State} {t : List Leak} (h : execBlock isa is s = some (s', t)) : s'.gpr r = s.gpr r := by

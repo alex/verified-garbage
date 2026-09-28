@@ -82,7 +82,7 @@ theorem finK_ok : ∀ s, finK.pre s → ∃ t s', Exec isa (Impl.Sha256.X86_64.S
   intro s hs
   obtain ⟨t, s', he, h₁, h₂, h₃, h₄⟩ :=
     Proof.Sha256.X86_64.Stream.Finalize.correct Proof.Sha256.X86_64.Stream.scalar_ok (Proof.Sha256.X86_64.Stream.Finalize.pre_of hs)
-  exact ⟨t, s', he, h₁, h₂, h₃, h₄⟩
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h₁, h₂, h₃, h₄⟩
 
 theorem sub176 (s₀ : State) : Region.Sub ⟨scr s₀ + 176, 32⟩ (scR s₀) :=
   sub_offset (off := 176) (by omega) (by omega)
@@ -304,7 +304,7 @@ theorem not_finW {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 32) :
   · exact fun hc => hp.stk_s _ hc hs
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256X86_64.post s₀ s' := by
+    WP isa finalize s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256X86_64.post s₀ s' := by
   unfold finalize
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
   have sp₁ := h₁.cs .rsp (by decide)
@@ -395,7 +395,7 @@ theorem finalize_verified :
     Verified X86_64.target finalize Proof.Hmac.finalizeSha256X86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂

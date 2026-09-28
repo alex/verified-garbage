@@ -24,7 +24,7 @@ theorem init_eq : init = .block [
 theorem init_post {s₀ : State}
     (hret : Region.Disjoint ⟨s₀.gpr .rsp, 8⟩ ⟨s₀.gpr .rdi, 84⟩) (g : Reg → BitVec 64)
     (hg : ∀ r, r ≠ .rax → g r = s₀.gpr r) :
-    abiPreserved s₀ { s₀ with gpr := g, mem := writeState s₀.mem (s₀.gpr .rdi) Spec.Sha1.H0 } ∧
+    gprPreserved s₀ { s₀ with gpr := g, mem := writeState s₀.mem (s₀.gpr .rdi) Spec.Sha1.H0 } ∧
       Proof.Sha1.initX86_64.post s₀
         { s₀ with gpr := g, mem := writeState s₀.mem (s₀.gpr .rdi) Spec.Sha1.H0 } := by
   have hf : Frame [⟨s₀.gpr .rdi, 84⟩] s₀.mem (writeState s₀.mem (s₀.gpr .rdi) Spec.Sha1.H0) := by
@@ -41,7 +41,7 @@ theorem init_post {s₀ : State}
 
 set_option simprocs false in
 theorem init_correct {s₀ : State} (hp : Proof.Sha1.initX86_64.pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha1.initX86_64.post s₀ s' := by
+    WP isa init s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha1.initX86_64.post s₀ s' := by
   obtain ⟨hrd, hwr, hret⟩ := hp
   have o : ∀ k, k < 5 → InRegions s₀.wr (s₀.gpr .rdi + BitVec.ofInt 64 ((4 * k : Nat) : Int)) 4 :=
     fun k hk => ⟨⟨s₀.gpr .rdi, 84⟩, by simp [hwr], contains_offset' (by omega) (by omega)⟩
@@ -70,7 +70,7 @@ def initSat : State where
 theorem init_verified : Verified X86_64.target init Proof.Sha1.initX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl, ?_⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct hs
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ h
     exact Taint.agree_ofRegs fun r hr => by simp at hr; subst hr; exact h
