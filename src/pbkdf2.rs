@@ -8,6 +8,8 @@
 //! the HMAC computation starts from. This module only splits the derived key
 //! into blocks and truncates the last one.
 
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+
 use core::num::NonZeroU32;
 
 #[cfg(target_arch = "aarch64")]

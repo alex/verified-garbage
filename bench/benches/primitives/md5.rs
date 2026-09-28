@@ -2,6 +2,10 @@
 
 use criterion::Criterion;
 
+/// The library modules whose code these benchmarks run (see
+/// `ci/bench_arches.py`).
+pub const USES: &[&str] = &["md5"];
+
 #[cfg(target_arch = "x86_64")]
 pub fn bench(c: &mut Criterion) {
     use openssl::hash::MessageDigest;

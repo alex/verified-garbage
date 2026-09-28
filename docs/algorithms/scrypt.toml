@@ -1,0 +1,4 @@
+name = "scrypt"
+specs = ["Scrypt"]
+modules = ["src/scrypt.rs"]
+asm = ["scrypt"]
