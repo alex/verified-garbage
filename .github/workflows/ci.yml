@@ -216,7 +216,8 @@ jobs:
           if-no-files-found: error
 
   # CPU feature detection, and the implementations that need CPU features
-  # beyond x86-64's baseline (the SHA extensions and SSSE3), which the `rust`
+  # beyond x86-64's baseline (the SHA extensions, AES-NI, PCLMULQDQ and
+  # SSSE3), which the `rust`
   # jobs' runners may lack. Their tests run natively where this runner has
   # the features, and otherwise under Intel SDE, emulating a CPU that has
   # every feature. Detection is also tested under SDE on a Pentium 4, which
@@ -251,7 +252,7 @@ jobs:
       - name: Choose where to run the tests of the implementations
         run: |
           missing=
-          for f in sha_ni ssse3; do
+          for f in sha_ni aes pclmulqdq ssse3; do
             grep -qw "$f" /proc/cpuinfo || missing="$missing $f"
           done
           echo "This runner lacks:${missing:- nothing}" | tee -a "$GITHUB_STEP_SUMMARY"
@@ -265,7 +266,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       # Only the tests of what depends on CPU features.
       - name: Test the implementations (under SDE if this runner lacks features)
-        run: cargo test --locked -- sha256 cpu
+        run: cargo test --locked -- sha256 aes_gcm cpu
       - name: Test detection on a Pentium 4 (under SDE)
         run: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="$RUNNER_TEMP/sde/sde64 -p4p --" cargo test --locked --lib -- cpu
       - name: Export coverage

@@ -9,13 +9,19 @@
 //! partial block, the zero padding and length block that GHASH absorbs, the
 //! tag, and the length limits of §5.2.1.1. Decryption checks the tag, in
 //! constant time, before it decrypts anything.
+//!
+//! On x86-64, CPUs with AES-NI, PCLMULQDQ and SSSE3 run
+//! `vg_aes_expand_key_aesni`, `vg_aes_ctr32_aesni` and `vg_ghash_pclmul`
+//! instead, which have the same contracts.
 
 #![cfg(target_arch = "x86_64")]
 
-#[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::aes::{vg_aes_ctr32, vg_aes_expand_key};
-#[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::gcm::vg_ghash;
+use crate::asm::x86_64::aes::{
+    VG_AES_CTR32_AESNI_FEATURES, VG_AES_EXPAND_KEY_AESNI_FEATURES, vg_aes_ctr32,
+    vg_aes_ctr32_aesni, vg_aes_expand_key, vg_aes_expand_key_aesni,
+};
+use crate::asm::x86_64::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash, vg_ghash_pclmul};
+use crate::cpu::{Features, available};
 
 /// A 16-byte block.
 type Block = [u8; 16];
@@ -100,6 +106,31 @@ pub struct AesGcm {
     schedule: [u8; 240],
     rounds: usize,
     h: Block,
+    backend: Backend,
+}
+
+/// The implementations of the primitives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Backend {
+    /// Constant-time scalar code, for the target's baseline ISA.
+    Scalar,
+    /// AES-NI and PCLMULQDQ.
+    AesNi,
+}
+
+impl Backend {
+    /// The best implementation a CPU with the features `f` can run.
+    fn select(f: Features) -> Backend {
+        if f.contains(Features::all(&[
+            VG_AES_EXPAND_KEY_AESNI_FEATURES,
+            VG_AES_CTR32_AESNI_FEATURES,
+            VG_GHASH_PCLMUL_FEATURES,
+        ])) {
+            Backend::AesNi
+        } else {
+            Backend::Scalar
+        }
+    }
 }
 
 impl AesGcm {
@@ -109,6 +140,14 @@ impl AesGcm {
     /// Prepares `key`, which must be 16, 24 or 32 bytes long (AES-128,
     /// AES-192 or AES-256).
     pub fn new(key: &[u8]) -> Result<Self, Error> {
+        Self::__with_features(key, u32::MAX)
+    }
+
+    /// Prepares `key`, using only the CPU features in `mask` (a set of
+    /// `crate::cpu::Features` bits). For testing every implementation; not
+    /// part of the stable API.
+    #[doc(hidden)]
+    pub fn __with_features(key: &[u8], mask: u32) -> Result<Self, Error> {
         if !matches!(key.len(), 16 | 24 | 32) {
             return Err(Error::InvalidKeyLength);
         }
@@ -116,13 +155,23 @@ impl AesGcm {
             schedule: [0; 240],
             rounds: key.len() / 4 + 6,
             h: [0; 16],
+            backend: Backend::select(available(mask)),
         };
         let mut scratch = [0u64; 64];
+        let (key_ptr, schedule) = (key.as_ptr(), &mut k.schedule);
         // SAFETY: `key` is valid for reads of `key.len()` bytes, which is 16,
         // 24 or 32; `k.schedule` and `scratch` are valid for reads and writes
         // of 240 and 512 bytes. They are distinct objects, so no two overlap,
-        // nor do they overlap the return address.
-        unsafe { vg_aes_expand_key(key.as_ptr(), key.len(), &mut k.schedule, &mut scratch) };
+        // nor do they overlap the return address. The CPU has the features
+        // of the implementation selected.
+        unsafe {
+            match k.backend {
+                Backend::Scalar => vg_aes_expand_key(key_ptr, key.len(), schedule, &mut scratch),
+                Backend::AesNi => {
+                    vg_aes_expand_key_aesni(key_ptr, key.len(), schedule, &mut scratch)
+                }
+            }
+        };
         // H = CIPH_K(0^128): the keystream of a zero block.
         let mut h = [[0u8; 16]];
         k.ctr32(&mut [0; 16], &mut h);
@@ -134,14 +183,20 @@ impl AesGcm {
     /// advances `counter` past them.
     fn ctr32(&self, counter: &mut Block, blocks: &mut [Block]) {
         let mut scratch = [0u64; 256];
+        let f = match self.backend {
+            Backend::Scalar => vg_aes_ctr32,
+            Backend::AesNi => vg_aes_ctr32_aesni,
+        };
         // SAFETY: `self.schedule` holds the key schedule for `self.rounds`
-        // (10, 12 or 14) rounds, written by `vg_aes_expand_key`; it is valid
-        // for reads of 240 bytes, `counter` for reads and writes of 16,
-        // `blocks` of `16 * blocks.len()` and `scratch` of 2048. `counter`,
-        // `blocks` and `scratch` are mutable borrows, so none overlaps
-        // another argument or the return address.
+        // (10, 12 or 14) rounds, written by key expansion (every
+        // implementation writes the same one); it is valid for reads of 240
+        // bytes, `counter` for reads and writes of 16, `blocks` of
+        // `16 * blocks.len()` and `scratch` of 2048. `counter`, `blocks` and
+        // `scratch` are mutable borrows, so none overlaps another argument or
+        // the return address. The CPU has the features of the implementation
+        // selected.
         unsafe {
-            vg_aes_ctr32(
+            f(
                 &self.schedule,
                 self.rounds,
                 counter,
@@ -157,16 +212,21 @@ impl AesGcm {
     fn ghash(&self, y: &mut Block, data: &[u8]) {
         let (blocks, rest) = data.as_chunks::<16>();
         let mut scratch = [0u64; 32];
+        let f = match self.backend {
+            Backend::Scalar => vg_ghash,
+            Backend::AesNi => vg_ghash_pclmul,
+        };
         // SAFETY: `self.h` is valid for reads of 16 bytes, `y` for reads and
         // writes of 16, `blocks` for reads of `16 * blocks.len()` and
         // `scratch` for reads and writes of 256. `y` and `scratch` are
-        // mutable borrows, so they overlap nothing else.
-        unsafe { vg_ghash(&self.h, y, blocks.as_ptr(), blocks.len(), &mut scratch) };
+        // mutable borrows, so they overlap nothing else. The CPU has the
+        // features of the implementation selected.
+        unsafe { f(&self.h, y, blocks.as_ptr(), blocks.len(), &mut scratch) };
         if !rest.is_empty() {
             let mut last = [[0u8; 16]];
             last[0][..rest.len()].copy_from_slice(rest);
             // SAFETY: as above.
-            unsafe { vg_ghash(&self.h, y, last.as_ptr(), 1, &mut scratch) };
+            unsafe { f(&self.h, y, last.as_ptr(), 1, &mut scratch) };
         }
     }
 
@@ -305,7 +365,20 @@ impl AesGcmStream {
     /// bytes long) and `nonce` (of any nonzero length; 12 bytes is the
     /// recommended one). A nonce must never be used twice with the same key.
     pub fn new(key: &[u8], nonce: &[u8], direction: Direction) -> Result<Self, Error> {
-        let key = AesGcm::new(key)?;
+        Self::__with_features(key, nonce, direction, u32::MAX)
+    }
+
+    /// As [`new`](Self::new), using only the CPU features in `mask` (a set
+    /// of `crate::cpu::Features` bits). For testing every implementation;
+    /// not part of the stable API.
+    #[doc(hidden)]
+    pub fn __with_features(
+        key: &[u8],
+        nonce: &[u8],
+        direction: Direction,
+        mask: u32,
+    ) -> Result<Self, Error> {
+        let key = AesGcm::__with_features(key, mask)?;
         let j0 = key.j0(nonce)?;
         let mut counter = j0;
         let c = u32::from_be_bytes(counter[12..].try_into().unwrap()).wrapping_add(1);
@@ -441,17 +514,42 @@ impl AesGcmStream {
 
 #[cfg(test)]
 mod tests {
-    use super::{AesGcm, AesGcmStream, Direction, Error, MAX_AAD, MAX_TEXT, add_len};
+    use super::{AesGcm, AesGcmStream, Backend, Direction, Error, MAX_AAD, MAX_TEXT, add_len};
+    use crate::cpu::{Features, available};
+
+    /// Masks that between them select every implementation this CPU can run.
+    const MASKS: [u32; 2] = [u32::MAX, 0];
+
+    /// The implementation chosen for each set of features.
+    #[test]
+    fn select() {
+        let all = Features::of(&["aes", "pclmulqdq", "ssse3"]);
+        assert_eq!(Backend::select(all), Backend::AesNi);
+        for f in [
+            Features::of(&["aes", "ssse3"]),
+            Features::of(&["pclmulqdq", "ssse3"]),
+        ] {
+            assert_eq!(Backend::select(f), Backend::Scalar);
+        }
+        assert_eq!(
+            AesGcm::__with_features(&[0; 16], 0).unwrap().backend,
+            Backend::Scalar
+        );
+        let best = AesGcm::new(&[0; 16]).unwrap().backend;
+        assert_eq!(best, Backend::select(available(u32::MAX)));
+    }
 
     /// Encryption and decryption are inverse, for every key size, 12-byte
     /// and other nonces, and texts and additional data of whole and partial
-    /// blocks; a truncated tag is accepted and a modified one is not.
+    /// blocks; a truncated tag is accepted and a modified one is not. Every
+    /// implementation gives the same ciphertext and tag.
     #[test]
     fn round_trip() {
         let key: [u8; 32] = core::array::from_fn(|i| i as u8);
         let msg: [u8; 67] = core::array::from_fn(|i| (i as u8).wrapping_mul(7));
-        for key_len in [16, 24, 32] {
-            let k = AesGcm::new(&key[..key_len]).unwrap();
+        for (key_len, mask) in [16, 24, 32].into_iter().flat_map(|l| MASKS.map(|m| (l, m))) {
+            let k = AesGcm::__with_features(&key[..key_len], mask).unwrap();
+            let scalar = AesGcm::__with_features(&key[..key_len], 0).unwrap();
             for nonce_len in [1, 12, 16, 17] {
                 let nonce = &[0x5a; 17][..nonce_len];
                 for len in [0, 1, 16, 31, 64, 67] {
@@ -461,6 +559,11 @@ mod tests {
                     buf.copy_from_slice(msg);
                     let tag = k.encrypt(nonce, aad, buf).unwrap();
                     assert!(len == 0 || buf != msg);
+                    let mut other = [0u8; 67];
+                    let other = &mut other[..len];
+                    other.copy_from_slice(msg);
+                    assert_eq!(scalar.encrypt(nonce, aad, other), Ok(tag));
+                    assert_eq!(other, buf);
                     let mut bad = tag;
                     bad[15] ^= 1;
                     assert_eq!(k.decrypt(nonce, aad, buf, &bad), Err(Error::TagMismatch));
@@ -476,11 +579,17 @@ mod tests {
     /// in both directions.
     #[test]
     fn stream() {
+        for mask in MASKS {
+            stream_with(mask);
+        }
+    }
+
+    fn stream_with(mask: u32) {
         let key = [7u8; 16];
         let nonce = [9u8; 12];
         let aad: [u8; 40] = core::array::from_fn(|i| i as u8);
         let msg: [u8; 50] = core::array::from_fn(|i| (i as u8).wrapping_mul(13));
-        let k = AesGcm::new(&key).unwrap();
+        let k = AesGcm::__with_features(&key, mask).unwrap();
         let mut ct = msg;
         let tag = k.encrypt(&nonce, &aad, &mut ct).unwrap();
         // Every split of one, with the other split in the middle.
@@ -488,7 +597,8 @@ mod tests {
             .map(|a| (a, msg.len() / 2))
             .chain((0..=msg.len()).map(|m| (aad.len() / 2, m)));
         for (a, m) in splits {
-            let mut e = AesGcmStream::new(&key, &nonce, Direction::Encrypt).unwrap();
+            let mut e =
+                AesGcmStream::__with_features(&key, &nonce, Direction::Encrypt, mask).unwrap();
             e.update_aad(&aad[..a]).unwrap();
             e.update_aad(&aad[a..]).unwrap();
             let mut buf = msg;
@@ -498,7 +608,8 @@ mod tests {
             assert_eq!(buf, ct);
             assert_eq!(e.finalize(), Ok(tag));
 
-            let mut d = AesGcmStream::new(&key, &nonce, Direction::Decrypt).unwrap();
+            let mut d =
+                AesGcmStream::__with_features(&key, &nonce, Direction::Decrypt, mask).unwrap();
             d.update_aad(&aad[..a]).unwrap();
             d.update_aad(&aad[a..]).unwrap();
             let (x, y) = buf.split_at_mut(m);
@@ -509,7 +620,7 @@ mod tests {
             assert_eq!(d.finalize(), Ok(tag));
         }
         // A byte at a time.
-        let mut e = AesGcmStream::new(&key, &nonce, Direction::Encrypt).unwrap();
+        let mut e = AesGcmStream::__with_features(&key, &nonce, Direction::Encrypt, mask).unwrap();
         for b in aad.chunks(1) {
             e.update_aad(b).unwrap();
         }
@@ -522,11 +633,11 @@ mod tests {
         // Without text, or without either.
         let mut t = [0u8; 0];
         let tag = k.encrypt(&nonce, &aad[..5], &mut t).unwrap();
-        let mut e = AesGcmStream::new(&key, &nonce, Direction::Encrypt).unwrap();
+        let mut e = AesGcmStream::__with_features(&key, &nonce, Direction::Encrypt, mask).unwrap();
         e.update_aad(&aad[..5]).unwrap();
         assert_eq!(e.finalize(), Ok(tag));
         let tag = k.encrypt(&nonce, &[], &mut t).unwrap();
-        let e = AesGcmStream::new(&key, &nonce, Direction::Encrypt).unwrap();
+        let e = AesGcmStream::__with_features(&key, &nonce, Direction::Encrypt, mask).unwrap();
         assert_eq!(e.finalize(), Ok(tag));
     }
 
