@@ -30,11 +30,14 @@ def blockContract {M : ISA} (A : Abi M) : Contract M :=
   blockSig.contract A (post := fun state buf m m' _ =>
     stateAt m' buf = block (stateAt m state))
 
-/-- `vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 64])`.
-`state` is left unspecified, and `buf` is working space. -/
+/-- `vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80])`.
+`state` is left unspecified, and `buf` is working space: 64 bytes more than
+`vg_chacha20_block`'s, so that an implementation that calls it can keep what
+it must preserve across the call (e.g. its caller's callee-saved registers)
+in `buf` outside the part it passes to the block function. -/
 def xorSig : Sig where
   params := [("state", .array true .u32 16), ("data", .slice true .u8 "len"),
-    ("buf", .array true .u32 64)]
+    ("buf", .array true .u32 80)]
 
 /-- XORs the first `len` bytes of the keystream of the state at `state` into
 the `len` bytes at `data`. The state (key, counter and nonce) and the data
