@@ -66,7 +66,7 @@ WYCHEPROOF_ROOT=$PWD/wycheproof cargo test   # without it, the Wycheproof tests 
 cd lean
 lake exe cache get                   # prebuilt Mathlib
 lake build                           # check all proofs
-lake env lean --run Emit.lean        # regenerate src/asm/ after changing Artifacts.lean
+lake env lean --run Emit.lean        # regenerate src/asm/ after changing lean/VerifiedGarbage/Artifacts/
 ```
 
 To benchmark against OpenSSL (through rust-openssl; needs its headers), and
