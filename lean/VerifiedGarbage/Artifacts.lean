@@ -1,5 +1,6 @@
 import VerifiedGarbage.TCB.Axioms
 import VerifiedGarbage.TCB.Rust
+import VerifiedGarbage.Proof.SpSafe
 import VerifiedGarbage.Proof.Selftest.X86_64.Shared
 import VerifiedGarbage.Proof.Sha256.X86_64.Shared
 import VerifiedGarbage.Proof.Sha256.AArch64.Shared
@@ -51,7 +52,8 @@ def artifacts : List Artifact := [
       Contract: `VG.Spec.Selftest.addContract`. No safety requirements."
     code := Impl.Selftest.X86_64.add
     contract := Spec.Selftest.addContract X86_64.abi
-    verified := Proof.Selftest.X86_64.Shared.add },
+    verified := Proof.Selftest.X86_64.Shared.add
+    spSafe := Proof.SpSafe.selftest_x86_64_add },
   { target := X86_64.target
     module := "sha256"
     name := "vg_sha256_compress"
@@ -69,7 +71,8 @@ def artifacts : List Artifact := [
       stack (distinct Rust objects never do)."
     code := Impl.Sha256.X86_64.compress
     contract := Spec.Sha256.compressContract X86_64.abi
-    verified := Proof.Sha256.X86_64.Shared.compress },
+    verified := Proof.Sha256.X86_64.Shared.compress
+    spSafe := Proof.SpSafe.sha256_x86_64_compress },
   { target := X86_64.target
     module := "sha256"
     name := "vg_sha256_init"
@@ -83,7 +86,8 @@ def artifacts : List Artifact := [
       * It must not overlap the return address on the stack (a Rust object never does)."
     code := Impl.Sha256.X86_64.Stream.init
     contract := Spec.Sha256.initContract X86_64.abi
-    verified := Proof.Sha256.X86_64.Shared.init },
+    verified := Proof.Sha256.X86_64.Shared.init
+    spSafe := Proof.SpSafe.sha256_x86_64_init },
   { target := X86_64.target
     module := "sha256"
     name := "vg_sha256_update"
@@ -102,7 +106,8 @@ def artifacts : List Artifact := [
       stack (distinct Rust objects never do)."
     code := Impl.Sha256.X86_64.Stream.update
     contract := Spec.Sha256.updateContract X86_64.abi
-    verified := Proof.Sha256.X86_64.Shared.update },
+    verified := Proof.Sha256.X86_64.Shared.update
+    spSafe := Proof.SpSafe.sha256_x86_64_update },
   { target := X86_64.target
     module := "sha256"
     name := "vg_sha256_finalize"
@@ -122,7 +127,8 @@ def artifacts : List Artifact := [
       stack (distinct Rust objects never do)."
     code := Impl.Sha256.X86_64.Stream.finalize
     contract := Spec.Sha256.finalizeContract X86_64.abi
-    verified := Proof.Sha256.X86_64.Shared.finalize },
+    verified := Proof.Sha256.X86_64.Shared.finalize
+    spSafe := Proof.SpSafe.sha256_x86_64_finalize },
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_compress"
@@ -141,7 +147,8 @@ def artifacts : List Artifact := [
       stack (distinct Rust objects never do)."
     code := Impl.Sha512.X86_64.compress
     contract := Spec.Sha512.compressContract X86_64.abi
-    verified := Proof.Sha512.X86_64.Shared.compress },
+    verified := Proof.Sha512.X86_64.Shared.compress
+    spSafe := Proof.SpSafe.sha512_x86_64_compress },
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha384_init"
@@ -156,7 +163,8 @@ def artifacts : List Artifact := [
       * It must not overlap the return address on the stack (a Rust object never does)."
     code := Impl.Sha512.X86_64.Stream.init Spec.Sha512.H0_384
     contract := Spec.Sha512.initContract X86_64.abi Spec.Sha512.H0_384
-    verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_384 },
+    verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_384
+    spSafe := Proof.SpSafe.sha512_x86_64_init_h0_384 },
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_init"
@@ -171,7 +179,8 @@ def artifacts : List Artifact := [
       * It must not overlap the return address on the stack (a Rust object never does)."
     code := Impl.Sha512.X86_64.Stream.init Spec.Sha512.H0_512
     contract := Spec.Sha512.initContract X86_64.abi Spec.Sha512.H0_512
-    verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_512 },
+    verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_512
+    spSafe := Proof.SpSafe.sha512_x86_64_init_h0_512 },
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_224_init"
@@ -186,7 +195,8 @@ def artifacts : List Artifact := [
       * It must not overlap the return address on the stack (a Rust object never does)."
     code := Impl.Sha512.X86_64.Stream.init Spec.Sha512.H0_512_224
     contract := Spec.Sha512.initContract X86_64.abi Spec.Sha512.H0_512_224
-    verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_512_224 },
+    verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_512_224
+    spSafe := Proof.SpSafe.sha512_x86_64_init_h0_512_224 },
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_256_init"
@@ -201,7 +211,8 @@ def artifacts : List Artifact := [
       * It must not overlap the return address on the stack (a Rust object never does)."
     code := Impl.Sha512.X86_64.Stream.init Spec.Sha512.H0_512_256
     contract := Spec.Sha512.initContract X86_64.abi Spec.Sha512.H0_512_256
-    verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_512_256 },
+    verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_512_256
+    spSafe := Proof.SpSafe.sha512_x86_64_init_h0_512_256 },
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_update"
@@ -220,7 +231,8 @@ def artifacts : List Artifact := [
       stack (distinct Rust objects never do)."
     code := Impl.Sha512.X86_64.Stream.update
     contract := Spec.Sha512.updateContract X86_64.abi
-    verified := Proof.Sha512.X86_64.Shared.update },
+    verified := Proof.Sha512.X86_64.Shared.update
+    spSafe := Proof.SpSafe.sha512_x86_64_update },
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_finalize"
@@ -244,7 +256,8 @@ def artifacts : List Artifact := [
       stack (distinct Rust objects never do)."
     code := Impl.Sha512.X86_64.Stream.finalize
     contract := Spec.Sha512.finalizeContract X86_64.abi
-    verified := Proof.Sha512.X86_64.Shared.finalize },
+    verified := Proof.Sha512.X86_64.Shared.finalize
+    spSafe := Proof.SpSafe.sha512_x86_64_finalize },
   { target := X86_64.target
     module := "hmac"
     name := "vg_hmac_sha256_init"
@@ -266,7 +279,8 @@ def artifacts : List Artifact := [
       stack (distinct Rust objects never do)."
     code := Impl.Hmac.X86_64.init
     contract := Spec.Hmac.initSha256Contract X86_64.abi
-    verified := Proof.Hmac.X86_64.Shared.init },
+    verified := Proof.Hmac.X86_64.Shared.init
+    spSafe := Proof.SpSafe.hmac_x86_64_init },
   { target := X86_64.target
     module := "hmac"
     name := "vg_hmac_sha256_finalize"
@@ -287,7 +301,8 @@ def artifacts : List Artifact := [
       stack (distinct Rust objects never do)."
     code := Impl.Hmac.X86_64.finalize
     contract := Spec.Hmac.finalizeSha256Contract X86_64.abi
-    verified := Proof.Hmac.X86_64.Shared.finalize },
+    verified := Proof.Hmac.X86_64.Shared.finalize
+    spSafe := Proof.SpSafe.hmac_x86_64_finalize },
   { target := AArch64.target
     module := "sha256"
     name := "vg_sha256_compress"
@@ -304,7 +319,8 @@ def artifacts : List Artifact := [
       * These three regions must not overlap each other."
     code := Impl.Sha256.AArch64.compress
     contract := Spec.Sha256.compressContract AArch64.abi
-    verified := Proof.Sha256.AArch64.Shared.compress },
+    verified := Proof.Sha256.AArch64.Shared.compress
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := AArch64.target
     module := "sha256"
     name := "vg_sha256_init"
@@ -317,7 +333,8 @@ def artifacts : List Artifact := [
       * `state` must be valid for writes of 96 bytes."
     code := Impl.Sha256.AArch64.Stream.init
     contract := Spec.Sha256.initContract AArch64.abi
-    verified := Proof.Sha256.AArch64.Shared.init },
+    verified := Proof.Sha256.AArch64.Shared.init
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := AArch64.target
     module := "sha256"
     name := "vg_sha256_update"
@@ -335,7 +352,8 @@ def artifacts : List Artifact := [
       * These three regions must not overlap each other."
     code := Impl.Sha256.AArch64.Stream.update
     contract := Spec.Sha256.updateContract AArch64.abi
-    verified := Proof.Sha256.AArch64.Shared.update },
+    verified := Proof.Sha256.AArch64.Shared.update
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := AArch64.target
     module := "sha256"
     name := "vg_sha256_finalize"
@@ -354,7 +372,8 @@ def artifacts : List Artifact := [
       * These three regions must not overlap each other."
     code := Impl.Sha256.AArch64.Stream.finalize
     contract := Spec.Sha256.finalizeContract AArch64.abi
-    verified := Proof.Sha256.AArch64.Shared.finalize },
+    verified := Proof.Sha256.AArch64.Shared.finalize
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := AArch64.target
     module := "hmac"
     name := "vg_hmac_sha256_init"
@@ -375,7 +394,8 @@ def artifacts : List Artifact := [
       * These four regions must not overlap each other."
     code := Impl.Hmac.AArch64.init
     contract := Spec.Hmac.initSha256Contract AArch64.abi
-    verified := Proof.Hmac.AArch64.Shared.init },
+    verified := Proof.Hmac.AArch64.Shared.init
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := AArch64.target
     module := "hmac"
     name := "vg_hmac_sha256_finalize"
@@ -395,7 +415,8 @@ def artifacts : List Artifact := [
       * These three regions must not overlap each other."
     code := Impl.Hmac.AArch64.finalize
     contract := Spec.Hmac.finalizeSha256Contract AArch64.abi
-    verified := Proof.Hmac.AArch64.Shared.finalize },
+    verified := Proof.Hmac.AArch64.Shared.finalize
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := Arm.target
     module := "sha256"
     name := "vg_sha256_compress"
@@ -413,7 +434,8 @@ def artifacts : List Artifact := [
       around the end of the address space (no Rust object does)."
     code := Impl.Sha256.Arm.compress
     contract := Spec.Sha256.compressContract Arm.abi
-    verified := Proof.Sha256.Arm.Shared.compress },
+    verified := Proof.Sha256.Arm.Shared.compress
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := Arm.target
     module := "sha256"
     name := "vg_sha256_init"
@@ -427,7 +449,8 @@ def artifacts : List Artifact := [
       * It must not wrap around the end of the address space (no Rust object does)."
     code := Impl.Sha256.Arm.Stream.init
     contract := Spec.Sha256.initContract Arm.abi
-    verified := Proof.Sha256.Arm.Shared.init },
+    verified := Proof.Sha256.Arm.Shared.init
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := Arm.target
     module := "sha256"
     name := "vg_sha256_update"
@@ -447,7 +470,8 @@ def artifacts : List Artifact := [
       objects never do)."
     code := Impl.Sha256.Arm.Stream.update
     contract := Spec.Sha256.updateContract Arm.abi
-    verified := Proof.Sha256.Arm.Shared.update },
+    verified := Proof.Sha256.Arm.Shared.update
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := Arm.target
     module := "sha256"
     name := "vg_sha256_finalize"
@@ -468,7 +492,8 @@ def artifacts : List Artifact := [
       objects never do)."
     code := Impl.Sha256.Arm.Stream.finalize
     contract := Spec.Sha256.finalizeContract Arm.abi
-    verified := Proof.Sha256.Arm.Shared.finalize },
+    verified := Proof.Sha256.Arm.Shared.finalize
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := X86_64.target
     module := "chacha20"
     name := "vg_chacha20_block"
@@ -486,7 +511,8 @@ def artifacts : List Artifact := [
       objects never do)."
     code := Impl.ChaCha20.X86_64.block
     contract := Spec.ChaCha20.blockContract X86_64.abi
-    verified := Proof.ChaCha20.X86_64.Shared.block },
+    verified := Proof.ChaCha20.X86_64.Shared.block
+    spSafe := Proof.SpSafe.chacha20_x86_64_block },
   { target := AArch64.target
     module := "chacha20"
     name := "vg_chacha20_block"
@@ -503,7 +529,8 @@ def artifacts : List Artifact := [
       * `buf` must not overlap `state`."
     code := Impl.ChaCha20.AArch64.block
     contract := Spec.ChaCha20.blockContract AArch64.abi
-    verified := Proof.ChaCha20.AArch64.Shared.block },
+    verified := Proof.ChaCha20.AArch64.Shared.block
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := Arm.target
     module := "chacha20"
     name := "vg_chacha20_block"
@@ -521,7 +548,8 @@ def artifacts : List Artifact := [
       space (no Rust object does)."
     code := Impl.ChaCha20.Arm.block
     contract := Spec.ChaCha20.blockContract Arm.abi
-    verified := Proof.ChaCha20.Arm.Shared.block },
+    verified := Proof.ChaCha20.Arm.Shared.block
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := X86.target
     module := "sha256"
     name := "vg_sha256_compress"
@@ -540,7 +568,8 @@ def artifacts : List Artifact := [
       the end of the address space (no Rust object does)."
     code := Impl.Sha256.X86.compress
     contract := Spec.Sha256.compressContract X86.abi
-    verified := Proof.Sha256.X86.Shared.compress },
+    verified := Proof.Sha256.X86.Shared.compress
+    spSafe := Proof.SpSafe.sha256_x86_compress },
   { target := X86.target
     module := "sha256"
     name := "vg_sha256_init"
@@ -555,7 +584,8 @@ def artifacts : List Artifact := [
       argument), and must not wrap around the end of the address space (no Rust object does)."
     code := Impl.Sha256.X86.Stream.init
     contract := Spec.Sha256.initContract X86.abi
-    verified := Proof.Sha256.X86.Shared.init },
+    verified := Proof.Sha256.X86.Shared.init
+    spSafe := Proof.SpSafe.sha256_x86_init },
   { target := X86.target
     module := "sha256"
     name := "vg_sha256_update"
@@ -576,7 +606,8 @@ def artifacts : List Artifact := [
       the address space (distinct Rust objects never do)."
     code := Impl.Sha256.X86.Stream.update
     contract := Spec.Sha256.updateContract X86.abi
-    verified := Proof.Sha256.X86.Shared.update },
+    verified := Proof.Sha256.X86.Shared.update
+    spSafe := Proof.SpSafe.sha256_x86_update },
   { target := X86.target
     module := "sha256"
     name := "vg_sha256_finalize"
@@ -598,7 +629,8 @@ def artifacts : List Artifact := [
       the address space (distinct Rust objects never do)."
     code := Impl.Sha256.X86.Stream.finalize
     contract := Spec.Sha256.finalizeContract X86.abi
-    verified := Proof.Sha256.X86.Shared.finalize },
+    verified := Proof.Sha256.X86.Shared.finalize
+    spSafe := Proof.SpSafe.sha256_x86_finalize },
   { target := Arm.target
     module := "hmac"
     name := "vg_hmac_sha256_init"
@@ -621,7 +653,8 @@ def artifacts : List Artifact := [
       the end of the address space (distinct Rust objects never do)."
     code := Impl.Hmac.Arm.init
     contract := Spec.Hmac.initSha256Contract Arm.abi
-    verified := Proof.Hmac.Arm.Shared.init },
+    verified := Proof.Hmac.Arm.Shared.init
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := Arm.target
     module := "hmac"
     name := "vg_hmac_sha256_finalize"
@@ -644,7 +677,8 @@ def artifacts : List Artifact := [
       (distinct Rust objects never do)."
     code := Impl.Hmac.Arm.finalize
     contract := Spec.Hmac.finalizeSha256OutContract Arm.abi
-    verified := Proof.Hmac.Arm.Shared.finalize },
+    verified := Proof.Hmac.Arm.Shared.finalize
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := X86.target
     module := "hmac"
     name := "vg_hmac_sha256_init"
@@ -668,7 +702,8 @@ def artifacts : List Artifact := [
       them may wrap around the end of the address space (distinct Rust objects never do)."
     code := Impl.Hmac.X86.init
     contract := Spec.Hmac.initSha256Contract X86.abi
-    verified := Proof.Hmac.X86.Shared.init },
+    verified := Proof.Hmac.X86.Shared.init
+    spSafe := Proof.SpSafe.hmac_x86_init },
   { target := X86.target
     module := "hmac"
     name := "vg_hmac_sha256_finalize"
@@ -693,7 +728,8 @@ def artifacts : List Artifact := [
       (distinct Rust objects never do)."
     code := Impl.Hmac.X86.finalize
     contract := Spec.Hmac.finalizeSha256OutContract X86.abi
-    verified := Proof.Hmac.X86.Shared.finalize },
+    verified := Proof.Hmac.X86.Shared.finalize
+    spSafe := Proof.SpSafe.hmac_x86_finalize },
   { target := X86.target
     module := "chacha20"
     name := "vg_chacha20_block"
@@ -711,7 +747,8 @@ def artifacts : List Artifact := [
       nothing may wrap around the end of the address space (distinct Rust objects never do)."
     code := Impl.ChaCha20.X86.block
     contract := Spec.ChaCha20.blockContract X86.abi
-    verified := Proof.ChaCha20.X86.Shared.block }
+    verified := Proof.ChaCha20.X86.Shared.block
+    spSafe := Proof.SpSafe.chacha20_x86_block }
 ]
 
 #assert_standard_axioms artifacts
