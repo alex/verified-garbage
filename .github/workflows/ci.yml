@@ -35,8 +35,29 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-      - name: Fetch the Mathlib build cache
-        run: lake exe cache get
+      # Lake would clone mathlib4's whole history; a checkout of the pinned
+      # revision is all the build needs, and Lake accepts it as is.
+      - name: Shallow-clone Mathlib
+        run: |
+          rev=$(jq -r '.packages[] | select(.name == "mathlib") | .rev' lake-manifest.json)
+          git init -q .lake/packages/mathlib
+          cd .lake/packages/mathlib
+          git remote add origin https://github.com/leanprover-community/mathlib4
+          git fetch -q --depth 1 origin "$rev"
+          git checkout -q FETCH_HEAD
+      - name: Fetch the Mathlib build cache for what the proofs import
+        run: |
+          # Every module imported here from outside this project and Lean
+          # itself; `cache get` fetches these and what they import, not all
+          # of Mathlib.
+          mods=$(grep -rhE --include='*.lean' --exclude-dir=.lake '^\s*(public\s+|meta\s+|private\s+)*import\s' . \
+            | sed -E 's/^\s*(public\s+|meta\s+|private\s+)*import\s+(all\s+)?//' | tr -s ' \t' '\n' \
+            | grep -vE '^(VerifiedGarbage[A-Za-z]*|Init|Std|Lean)(\.|$)' | sort -u)
+          echo "$mods"
+          lake exe cache get $mods
+          # Fail, rather than quietly build part of Mathlib from source, if
+          # the cache left any of them (or what they import) unbuilt.
+          lake build --no-build $mods
       - name: Restore this project's build
         id: lean-build
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
