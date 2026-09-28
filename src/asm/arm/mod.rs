@@ -2,13 +2,13 @@
 //! Verified functions for `arm`.
 
 #[rustfmt::skip]
-pub(crate) mod sha256;
-
-#[rustfmt::skip]
-pub(crate) mod sha512;
-
-#[rustfmt::skip]
 pub(crate) mod chacha20;
 
 #[rustfmt::skip]
 pub(crate) mod hmac;
+
+#[rustfmt::skip]
+pub(crate) mod sha256;
+
+#[rustfmt::skip]
+pub(crate) mod sha512;
