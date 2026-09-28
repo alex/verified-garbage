@@ -5,7 +5,7 @@ import VerifiedGarbage.Spec.Sha256
 # Known-answer tests for the SHA-256 specification
 
 Two of the NIST CAVP SHA-256 vectors, read from the vendored response file
-`vectors/nist-cavp/sha256/SHA256ShortMsg.rsp` (see `vectors/sources.toml`)
+`vectors/nist-cavp/sha256/SHA256ShortMsg.rsp` (see `vectors/sources/`)
 when this file is built and checked against `VG.Spec.Sha256.hash`, so that a
 transcription error in the spec fails the build. (Evaluating the spec is slow,
 so only two are checked here; the Rust tests run every CAVP vector against

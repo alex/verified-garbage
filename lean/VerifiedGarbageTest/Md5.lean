@@ -5,7 +5,7 @@ import VerifiedGarbage.Spec.Md5
 # Known-answer tests for the MD5 specification
 
 The seven vectors of the MD5 test suite in Appendix A.5 of RFC 1321, read from
-the vendored `vectors/rfc1321/rfc1321.txt` (see `vectors/sources.toml`) when
+the vendored `vectors/rfc1321/rfc1321.txt` (see `vectors/sources/`) when
 this file is built and checked against `VG.Spec.Md5.hash`, so that a
 transcription error in the spec fails the build. They include the empty
 message, messages whose padding takes one block, and 62- and 80-byte ones

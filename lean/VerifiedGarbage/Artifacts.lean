@@ -1,7 +1,6 @@
 import VerifiedGarbage.TCB.Axioms
 import VerifiedGarbage.TCB.Rust
 import VerifiedGarbage.Proof.SpSafe
-import VerifiedGarbage.Proof.Selftest.X86_64.Shared
 import VerifiedGarbage.Proof.Sha256.X86_64.Shared
 import VerifiedGarbage.Proof.Sha256.AArch64.Shared
 import VerifiedGarbage.Proof.Sha256.Arm.Shared
@@ -26,15 +25,17 @@ import VerifiedGarbage.Proof.Hmac.Arm.Shared
 import VerifiedGarbage.Proof.Hmac.X86.Shared
 import VerifiedGarbage.Proof.ChaCha20.X86.Shared
 import VerifiedGarbage.Proof.Scrypt.X86_64.Shared
+import VerifiedGarbage.Proof.Scrypt.AArch64.Shared
 import VerifiedGarbage.Proof.Poly1305.X86_64.Shared
 import VerifiedGarbage.Proof.Poly1305.AArch64.Shared
 
 /-!
 # The artifact registry
 
-**The single entry point.** Every function emitted into the Rust crate is an
-entry of `artifacts`, and `Emit.lean` emits exactly this list. An
-`Artifact` bundles
+The functions emitted into the Rust crate are the entries of `artifacts`
+here and of the registration files under `Artifacts/` (see
+`TCB/Emit.lean`), and `Emit.lean` emits exactly those. An `Artifact`
+bundles
 
 * the target and the Rust name and signature of the function,
 * the implementation (`Impl/`),
@@ -42,11 +43,15 @@ entry of `artifacts`, and `Emit.lean` emits exactly this list. An
 * the proof of `Verified` for them (`Proof/`),
 
 so nothing can be emitted without a proof. The `#assert_standard_axioms`
-check below then ensures none of those proofs relies on `sorry`,
-`native_decide` or any axiom beyond Lean's standard three.
+check below, and the emitter's over every registration file, then ensure
+none of those proofs relies on `sorry`, `native_decide` or any axiom beyond
+Lean's standard three.
 
 To add a function: write its spec and contract under `Spec/`, the code under
-`Impl/`, the proof under `Proof/`, and append an entry here. Then run
+`Impl/` and the proof under `Proof/`, and list it in the registration file
+of its algorithm and target, `Artifacts/<Alg>/<Target>.lean` (a new file
+for a new algorithm or target, like `Artifacts/Selftest/X86_64.lean`), not
+here: parallel changes that all append to this list conflict. Then run
 `lake build && lake env lean --run Emit.lean` (in `lean/`) and commit the
 regenerated `src/asm/`.
 
@@ -57,16 +62,6 @@ the contract; check them against the contract's `pre`/`post`.
 namespace VG
 
 def artifacts : List Artifact := [
-  { target := X86_64.target
-    module := "selftest"
-    name := "vg_selftest_add"
-    sig := Spec.Selftest.addSig
-    doc := "Pipeline self-test: returns `a.wrapping_add(b)`.\n\n\
-      Contract: `VG.Spec.Selftest.addContract`. No safety requirements."
-    code := Impl.Selftest.X86_64.add
-    contract := Spec.Selftest.addContract X86_64.abi
-    verified := Proof.Selftest.X86_64.Shared.add
-    spSafe := Proof.SpSafe.selftest_x86_64_add },
   { target := X86_64.target
     module := "sha256"
     name := "vg_sha256_compress"
@@ -1673,6 +1668,71 @@ def artifacts : List Artifact := [
     contract := Spec.Scrypt.roMixContract X86_64.abi 16
     verified := Proof.Scrypt.X86_64.Shared.roMix
     spSafe := Proof.SpSafe.scrypt_x86_64_romix },
+  { target := AArch64.target
+    module := "scrypt"
+    name := "vg_salsa20_8"
+    sig := Spec.Scrypt.salsaSig
+    doc := "The Salsa20/8 Core (RFC 7914 §3): replaces the 64 bytes `*b` by their Salsa20/8 \
+      Core (the 16 little-endian words, 8 rounds, then the input added word by word).\n\n\
+      Contract: `VG.Spec.Scrypt.salsaContract`. Constant time: only the pointers may affect \
+      timing, not the data.\n\n\
+      # Safety\n\n\
+      * `b` must be valid for reads and writes of 64 bytes.\n\
+      * `scratch` must be valid for reads and writes of 64 bytes. It is working space: its \
+      contents on return are unspecified.\n\
+      * `b` and `scratch` must not overlap each other, and neither may wrap around the end of \
+      the address space (distinct Rust objects never do)."
+    code := Impl.Scrypt.AArch64.salsa
+    contract := Spec.Scrypt.salsaContract AArch64.abi
+    verified := Proof.Scrypt.AArch64.Shared.salsa
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := AArch64.target
+    module := "scrypt"
+    name := "vg_scrypt_blockmix"
+    sig := Spec.Scrypt.blockMixSig
+    doc := "scryptBlockMix (RFC 7914 §4) with block size parameter `r`: writes scryptBlockMix of \
+      the `128 * r` bytes at `b` to the `128 * ry` bytes at `y`. Calls `vg_salsa20_8` for each \
+      64-byte block.\n\n\
+      Contract: `VG.Spec.Scrypt.blockMixContract`. Constant time: only the pointers and `r` may \
+      affect timing, not the data.\n\n\
+      # Safety\n\n\
+      * `ry` must equal `r`, and `r` must be positive.\n\
+      * `b` must be valid for reads of `128 * r` bytes, and `y` for reads and writes of \
+      `128 * ry` bytes.\n\
+      * `scratch` must be valid for reads and writes of 128 bytes. It is working space: its \
+      contents on return are unspecified.\n\
+      * `b`, `y` and `scratch` must not overlap each other or the 16 bytes of stack below the \
+      stack pointer, where it saves its return address, and none may wrap around the end of \
+      the address space (distinct Rust objects never do)."
+    code := Impl.Scrypt.AArch64.blockMix
+    contract := Spec.Scrypt.blockMixContract AArch64.abi 16
+    verified := Proof.Scrypt.AArch64.Shared.blockMix
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := AArch64.target
+    module := "scrypt"
+    name := "vg_scrypt_romix"
+    sig := Spec.Scrypt.roMixSig
+    doc := "scryptROMix (RFC 7914 §5) with block size parameter `r` and cost parameter \
+      `N = vlen / r`: replaces the `128 * r` bytes at `b` by their scryptROMix. Step 2 writes \
+      `V[0], …, V[N - 1]` to `v`. Calls `vg_scrypt_blockmix` for each scryptBlockMix.\n\n\
+      Contract: `VG.Spec.Scrypt.roMixContract`. Not constant time in the indices: timing may \
+      depend on the pointers, `r`, `N` and the indices `j` of step 3 \
+      (`VG.Spec.Scrypt.roMixIndices`), which are derived from the data and so leak \
+      information about it (as in every scrypt that indexes `V` directly), but on nothing \
+      else.\n\n\
+      # Safety\n\n\
+      * `r` must be positive, `vlen` must be `N * r` for a power of two `N`, and `slen` must \
+      be `r + 2`.\n\
+      * `b` must be valid for reads and writes of `128 * r` bytes, `v` of `128 * vlen` bytes \
+      and `scratch` of `128 * slen` bytes. `v` and `scratch` are working space: their \
+      contents on return are unspecified.\n\
+      * `b`, `v` and `scratch` must not overlap each other or the 16 bytes of stack below the \
+      stack pointer, where its calls of `vg_scrypt_blockmix` save their return address, and \
+      none may wrap around the end of the address space (distinct Rust objects never do)."
+    code := Impl.Scrypt.AArch64.roMix
+    contract := Spec.Scrypt.roMixContract AArch64.abi 16
+    verified := Proof.Scrypt.AArch64.Shared.roMix
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := X86_64.target
     module := "poly1305"
     name := "vg_poly1305_init"
