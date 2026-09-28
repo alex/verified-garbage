@@ -69,11 +69,11 @@ def mac (key msg : List Byte) : List Byte :=
 /-! ## Streaming
 
 The primitives on memory MAC a message given in pieces. Their state is 128
-bytes (`[u64; 16]`): the accumulator after the message's blocks so far
-(bytes 0–23, a little-endian number), the one-time key (bytes 24–55), and
-working space (the rest). The message given to the state so far is a whole
-number of 16-byte blocks: the caller keeps any shorter remainder, and passes
-it to `finalize` with the message's end. -/
+bytes (`[u64; 16]`): the accumulator after the message's whole 16-byte blocks
+so far (bytes 0–23, a little-endian number), the one-time key (bytes 24–55),
+the message's last bytes that do not fill a block (bytes 56–71, `Buffered`),
+and working space (the rest). `Repr` is the special case of a message of
+whole blocks, whose buffer is empty. -/
 
 /-- The `n` bytes at `p`. -/
 def bytesAt (m : Mem) (p : Addr) (n : Nat) : List Byte :=
@@ -86,5 +86,13 @@ and the accumulator at bytes 0–23 is `accumulate` of `msg` with the clamped
 def Repr (mem : Mem) (p : Addr) (key msg : List Byte) : Prop :=
   msg.length % 16 = 0 ∧ bytesAt mem (p + 24) 32 = key ∧
     leNum (bytesAt mem p 24) = accumulate (clamp (leNum (key.take 16))) msg
+
+/-- The state at `p` represents the message `msg`, of any length, under the
+one-time key `key`: its whole blocks as in `Repr`, and its remaining
+`msg.length % 16` bytes stored at bytes 56–71. For a message of whole blocks
+this is `Repr` (the buffer is empty). -/
+def Buffered (mem : Mem) (p : Addr) (key msg : List Byte) : Prop :=
+  Repr mem p key (msg.take (16 * (msg.length / 16))) ∧
+    bytesAt mem (p + 56) (msg.length % 16) = msg.drop (16 * (msg.length / 16))
 
 end VG.Spec.Poly1305
