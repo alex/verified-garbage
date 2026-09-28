@@ -125,5 +125,41 @@ fn hmac_sha256(c: &mut Criterion) {
     g.finish();
 }
 
-criterion_group!(benches, chacha20, md5, sha1, sha256, sha512, hmac_sha256);
+#[cfg(target_arch = "x86_64")]
+fn poly1305(c: &mut Criterion) {
+    use openssl::pkey::Id;
+    use verified_garbage::poly1305::Poly1305;
+    let key = [0x0b; 32];
+    let mut g = c.benchmark_group("poly1305");
+    for size in SIZES {
+        g.throughput(Throughput::Bytes(size as u64));
+        let data = vec![0x5a; size];
+        g.bench_function(BenchmarkId::new(VG, size), |b| {
+            b.iter(|| Poly1305::mac(black_box(&key), black_box(&data)))
+        });
+        let mut out = [0u8; 16];
+        g.bench_function(BenchmarkId::new(OPENSSL, size), |b| {
+            b.iter(|| {
+                let pkey = PKey::private_key_from_raw_bytes(black_box(&key), Id::POLY1305).unwrap();
+                let mut s = Signer::new_without_digest(&pkey).unwrap();
+                s.sign_oneshot(&mut out, black_box(&data)).unwrap()
+            })
+        });
+    }
+    g.finish();
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+fn poly1305(_: &mut Criterion) {}
+
+criterion_group!(
+    benches,
+    chacha20,
+    md5,
+    poly1305,
+    sha1,
+    sha256,
+    sha512,
+    hmac_sha256
+);
 criterion_main!(benches);
