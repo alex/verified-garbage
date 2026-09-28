@@ -10,6 +10,9 @@
 #![deny(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 mod asm;
 mod cpu;
 
@@ -22,6 +25,8 @@ compile_error!("32-bit x86 needs an i686 target with SSE2 (e.g. i686-unknown-lin
 pub mod chacha20;
 pub mod hashes;
 pub mod hmac;
+pub mod pbkdf2;
+pub mod scrypt;
 
 #[cfg(test)]
 mod tests {

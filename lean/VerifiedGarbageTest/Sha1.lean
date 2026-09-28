@@ -5,7 +5,7 @@ import VerifiedGarbage.Spec.Sha1
 # Known-answer tests for the SHA-1 specification
 
 Three of the NIST CAVP SHA-1 vectors, read from the vendored response file
-`vectors/nist-cavp/sha1/SHA1ShortMsg.rsp` (see `vectors/sources.toml`) when
+`vectors/nist-cavp/sha1/SHA1ShortMsg.rsp` (see `vectors/sources/`) when
 this file is built and checked against `VG.Spec.Sha1.hash`, so that a
 transcription error in the spec fails the build. The vectors checked are the
 empty message, and 55 and 56 bytes: the longest message whose padding fits in

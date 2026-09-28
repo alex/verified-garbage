@@ -1,0 +1,5 @@
+name = "RFC 7914, The scrypt Password-Based Key Derivation Function (Salsa20/8 Core, scryptBlockMix, scryptROMix, PBKDF2-HMAC-SHA-256 and scrypt test vectors in Sections 8-12)"
+directories = ["rfc7914"]
+url = "https://www.rfc-editor.org/rfc/rfc7914.txt"
+sha256 = "df55932f8b6a5d271f36a634d91a25903724e189ba6c120bf7257cd47f10b197"
+retrieved = 2026-09-28

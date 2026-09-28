@@ -7,13 +7,13 @@ trustworthy. Read `lean/README.md` first.
 
 * **All assembly comes from Lean.** Never write `asm!`, `naked_asm!`,
   `global_asm!`, naked functions, `extern` blocks or a `build.rs` by hand, and
-  never edit `src/asm/` by hand. Add an entry to
-  `lean/VerifiedGarbage/Artifacts.lean` and run `lake env lean --run Emit.lean`
-  in `lean/`.
+  never edit `src/asm/` by hand. Add an entry to a registration file,
+  `lean/VerifiedGarbage/Artifacts/<Alg>/<Target>.lean`, and run
+  `lake env lean --run Emit.lean` in `lean/`.
 * **No unverified shortcuts in proofs.** No `sorry`, `admit`, `native_decide`,
-  `bv_decide` or new `axiom`s in anything `Artifacts.lean` depends on.
-  `lake build` enforces this (warnings are errors, and
-  `#assert_standard_axioms` audits the registry); never work around it.
+  `bv_decide` or new `axiom`s in anything an artifact depends on.
+  `lake build` and the emitter enforce this (warnings are errors, and
+  `#assert_standard_axioms` audits every artifact); never work around it.
 * **Changes to `lean/VerifiedGarbage/TCB/` or `Spec/` are trust changes.**
   Keep them minimal, call them out explicitly in the PR description, and
   justify each ISA semantics change by citing the vendor manual (e.g. Intel SDM
@@ -23,8 +23,8 @@ trustworthy. Read `lean/README.md` first.
   `requires`, citing the manual (the SDM's "CPUID Feature Flag", the Arm
   ARM's `FEAT_*`).
 * **One kind of change per PR.** New specs (`Spec/`), additions to the TCB
-  (`TCB/`), and new implementations (`Impl/` + `Proof/` + the `Artifacts.lean`
-  entry) must never be in the same PR. Trusted changes get reviewed on their
+  (`TCB/`), and new implementations (`Impl/` + `Proof/` + the registration
+  file) must never be in the same PR. Trusted changes get reviewed on their
   own, and an implementation is only ever proven against a spec and TCB that
   have already been reviewed and merged.
 * **100% test coverage.** CI merges the line coverage of the Rust code
@@ -33,9 +33,9 @@ trustworthy. Read `lean/README.md` first.
   `// NO-COVERAGE-START` and `// NO-COVERAGE-END`, with a comment saying why.
 * **Known-answer tests need clear provenance.** Never type test vectors into
   a test. Use Wycheproof (`tests/wycheproof/`), or vendor the published
-  files byte for byte into a directory under `vectors/`, with a `[[source]]`
-  for that directory in `vectors/sources.toml` saying where they came from
-  (`ci/check_vectors.py` checks it), and read them from there.
+  files byte for byte into a directory under `vectors/`, with a new
+  `vectors/sources/<name>.toml` for that directory saying where they came
+  from (`ci/check_vectors.py` checks it), and read them from there.
 * **Every public API has a benchmark** in `bench/benches/primitives.rs`,
   next to OpenSSL's equivalent. The Benchmarks check compares each pull
   request that changes an architecture's code with its base, and fails on a
@@ -72,13 +72,15 @@ instructions in an ISA model) go in their own PR before either.
 3. `Proof/<Alg>/…`: the proof of `Verified`. A proof may be written against a
    simpler per-target contract of its own and moved to the shared one with
    `Verified.of_implies` (see `Proof/Framework/Contract.lean`).
-4. An `Artifact` in `Artifacts.lean` (its `module` names the file under
-   `src/asm/<target>/`), whose `sig` and `doc` match the
-   contract (the doc must state every caller obligation). Give it its
-   `spSafe` proof explicitly: on x86 and x86-64 a theorem in
-   `Proof/SpSafe.lean`, on ARMv7 and AArch64 `Code.all_of_forall (fun _ => rfl) _`
-   (the default, `decide +kernel`, would run in `Artifacts.lean`, which
-   every proof must finish before). If its code uses instructions outside
+4. An `Artifact` in the registration file `Artifacts/<Alg>/<Target>.lean`,
+   which defines `VG.Artifacts.<Alg>.<Target>.artifacts` (a new file for a
+   new algorithm or target; see `Artifacts/Selftest/X86_64.lean`; never
+   `Artifacts.lean`, whose list only holds older entries). Its `module`
+   names the file under `src/asm/<target>/`, and its `sig` and `doc` match
+   the contract (the doc must state every caller obligation). Its `spSafe`
+   can be the default, `decide +kernel`, which runs in the registration
+   file; on ARMv7 and AArch64 `Code.all_of_forall (fun _ => rfl) _` is
+   faster. If its code uses instructions outside
    the target's baseline ISA, list the CPU features they require in
    `features` (the emitter rejects anything but the exact set).
 5. Regenerate `src/asm/`, build the public Rust API on top of the primitive,
