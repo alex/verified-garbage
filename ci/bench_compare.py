@@ -17,15 +17,22 @@ verified-garbage benchmark got slower by more than `--threshold`.
 
 OpenSSL's code is the same on both sides, so its benchmarks run just once,
 with HEAD's binary, as a reference point for HEAD's times.
+
+`--modules` runs only the benchmarks of those modules (see `bench_arches.py`,
+whose `MODULES` says which benchmarks those are), and every benchmark that
+belongs to no module there.
 """
 
 import argparse
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
+
+from bench_arches import MODULES
 
 # Criterion filters (regexes over benchmark ids, which are
 # `<primitive>/<library>/<bytes>`, see bench/benches/primitives.rs).
@@ -77,6 +84,21 @@ def build_base(base, head):
     return None, "Base has no benchmarks that build, so head ran alone."
 
 
+def groups(binary, modules):
+    """The benchmark groups in `binary` to run for `modules` (all if none)."""
+    ids = subprocess.run(
+        [binary, "--bench", "--list"], check=True, stdout=subprocess.PIPE, text=True
+    ).stdout
+    names = {line.split("/")[0] for line in ids.splitlines() if f"/{VG}/" in line}
+    if not modules:
+        return names
+
+    def of(module):
+        return {g for g in names if re.fullmatch(MODULES[module], g)}
+
+    return set.union(*map(of, modules)) | (names - set.union(*map(of, MODULES)))
+
+
 def run(binary, home, library, args):
     """Runs the benchmarks once, returning each one's median time (ns)."""
     subprocess.run(
@@ -88,7 +110,7 @@ def run(binary, home, library, args):
             str(args.warm_up_time),
             "--measurement-time",
             str(args.measurement_time),
-            f"/{library}/",
+            f"^(?:{'|'.join(map(re.escape, sorted(args.groups)))})/{library}/",
         ],
         env={**os.environ, "CRITERION_HOME": str(home)},
         check=True,
@@ -127,11 +149,18 @@ def main():
     p.add_argument("--warm-up-time", type=float, default=0.5)
     p.add_argument("--measurement-time", type=float, default=2.0)
     p.add_argument("--work-dir", type=pathlib.Path, default=pathlib.Path("bench-compare"))
+    p.add_argument(
+        "--modules",
+        type=lambda s: [m for m in s.split() if m in MODULES or p.error(f"unknown module {m}")],
+        default=[],
+        help="space-separated; only benchmark these modules",
+    )
     args = p.parse_args()
 
     base, head = args.base.resolve(), args.head.resolve()
     binaries = {"head": build(head / "bench")}
     binaries["base"], note = build_base(base, head)
+    args.groups = groups(binaries["head"], args.modules)
 
     shutil.rmtree(args.work_dir, ignore_errors=True)
     best = {"base": {}, "head": {}}
@@ -153,6 +182,7 @@ def main():
         f"Fastest of {args.rounds} interleaved runs of each side on this runner;"
         f" a slowdown of more than {args.threshold:.0%} fails."
         " OpenSSL (through rust-openssl) ran once, for reference.",
+        *([f"Only the benchmarks of what changed: {', '.join(args.modules)}."] if args.modules else []),
         *([f"{note}"] if note else []),
         "",
         "| Benchmark | Base | Head | Change | OpenSSL | Head vs OpenSSL |",
