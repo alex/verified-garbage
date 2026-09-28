@@ -2,7 +2,7 @@
 
 Verified Garbage is an experimental cryptography library, implemented entirely by LLMs. All of the cryptography primitives are formally verified using Lean.
 
-It's aims are, in order:
+Its aims are, in order:
 
 1. Security
 2. Correctness
@@ -10,7 +10,7 @@ It's aims are, in order:
 
 The library is implemented in Lean, assembly, and Rust.
 
-It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
+It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 ## Algorithms
 

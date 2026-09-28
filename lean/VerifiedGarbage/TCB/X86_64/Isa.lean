@@ -34,8 +34,22 @@ Modelling choices:
   operand except the unaligned `movdqu`/`vmovdqu` loads and stores and
   `vbroadcasti128`, which (like every VEX memory operand but those of the
   aligned moves) need no alignment, so no alignment fault needs modelling.
-  MXCSR is not modelled: no modelled SSE or AVX instruction reads or writes
-  it (integer instructions raise no SIMD floating-point exceptions).
+* MXCSR (SDM Vol. 1 §10.2.3) is modelled as a 32-bit value that only
+  `ldmxcsr` and `stmxcsr` access: no other modelled instruction reads or
+  writes it (integer instructions raise no SIMD floating-point exceptions).
+  Its control bits (15:6) are callee-saved (see `Target.lean`). `lfence`
+  has no architectural effect, so the model treats it as a no-op.
+* MXCSR-configuration-dependent timing (MCDT): on some Intel processors,
+  `pmuludq` and `vpmuludq`, although on Intel's DOIT list, may take up to a
+  cycle longer to retire for specific data values unless MXCSR holds
+  `0x1FBF` (Intel, "MXCSR Configuration Dependent Timing"; the processors
+  that enumerate `MCDT_NO`, CPUID.(EAX=7H,ECX=2):EDX[5], are not affected).
+  The leakage model does not see this, so code must only give these two
+  instructions secret operands between Intel's prologue and epilogue:
+  `stmxcsr` (save the caller's MXCSR), `ldmxcsr` of `0x1FBF`, `lfence`, then
+  the code that uses them, then `lfence` and `ldmxcsr` of the saved value.
+  Reviewers of an implementation check this; `lfence` and the MXCSR
+  instructions exist in the model for it.
 -/
 
 namespace VG.X86_64
@@ -61,6 +75,8 @@ structure State where
   xmm : XReg → BitVec 128 := fun _ => 0
   /-- Bits 255:128 of each AVX register. -/
   ymmHi : XReg → BitVec 128 := fun _ => 0
+  /-- The SSE control and status register (SDM Vol. 1 §10.2.3). -/
+  mxcsr : BitVec 32 := 0x1F80
   mem : Mem
   /-- Regions the code may read (in addition to `wr`). -/
   rd : List Region
@@ -229,6 +245,12 @@ inductive Instr
   | vmovdquStore (len : VLen) (dst : MemOp) (src : XReg)
   /-- `vbroadcasti128 ymm, XMMWORD PTR [src]` (`VEX.256.66.0F38.W0 5A /r`) -/
   | vbroadcasti128 (dst : XReg) (src : MemOp)
+  /-- `stmxcsr DWORD PTR [dst]` (`NP 0F AE /3`) -/
+  | stmxcsr (dst : MemOp)
+  /-- `ldmxcsr DWORD PTR [src]` (`NP 0F AE /2`) -/
+  | ldmxcsr (src : MemOp)
+  /-- `lfence` (`NP 0F AE E8`) -/
+  | lfence
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`jcc` suffixes). -/
@@ -910,7 +932,9 @@ VEX.128 forms of the lane-wise instructions (e.g. `VEX.128.66.0F.WIG FE /r`
 VPADDD), for VMOVDQA, VMOVDQU (both lengths), VMOVQ and VZEROUPPER; AVX2 for
 their VEX.256 forms (e.g. `VEX.256.66.0F.WIG FE /r` VPADDD) and for VPBLENDD,
 VPSLLVD/Q, VPSRLVD/Q, VPBROADCASTD/Q, VPERMQ, VPERM2I128, VINSERTI128,
-VEXTRACTI128 and VBROADCASTI128 at any length. -/
+VEXTRACTI128 and VBROADCASTI128 at any length. LDMXCSR and STMXCSR (SSE,
+`NP 0F AE /2`, `NP 0F AE /3`) and LFENCE (SSE2, `NP 0F AE E8`) are in the
+baseline. -/
 def Instr.requires : Instr → List String
   | .xop (.bin .pshufb ..) | .xop (.palignr ..) => ["ssse3"]
   | .xop (.bin .sha256msg1 ..) | .xop (.bin .sha256msg2 ..) | .xop (.sha256rnds2 ..) => ["sha"]
@@ -966,6 +990,17 @@ def exec : Instr → State → Option State
   -- SDM Vol. 2, "VBROADCAST": `DEST[127:0] := SRC[127:0]; DEST[255:128] :=
   -- SRC[127:0]`; no alignment is required.
   | .vbroadcasti128 d m, s => (s.load128 (s.ea m)).map fun v => s.setV .l256 d v v
+  -- SDM Vol. 2, "STMXCSR": `m32 := MXCSR`. "LDMXCSR": `MXCSR := m32`, with
+  -- #GP(0) "for an attempt to set reserved bits in MXCSR", which are bits
+  -- 31:16 (SDM Vol. 1 §10.2.3); on processors without DAZ, bit 6 is
+  -- reserved too (§11.6.6, `MXCSR_MASK`), which the model does not know: it
+  -- is loaded only with values without it, or saved from MXCSR itself.
+  -- "LFENCE": it orders instructions and has no architectural effect.
+  -- None of them affects the flags.
+  | .stmxcsr m, s => s.store32 (s.ea m) s.mxcsr
+  | .ldmxcsr m, s => (s.load32 (s.ea m)).bind fun v =>
+    if v.extractLsb' 16 16 = 0 then some { s with mxcsr := v } else none
+  | .lfence, s => some s
 
 def addrs : Instr → State → List Addr
   | .mov _ src, s => srcAddrs s src
@@ -988,6 +1023,9 @@ def addrs : Instr → State → List Addr
   | .vmovdquLoad _ _ m, s => [s.ea m]
   | .vmovdquStore _ m _, s => [s.ea m]
   | .vbroadcasti128 _ m, s => [s.ea m]
+  | .stmxcsr m, s => [s.ea m]
+  | .ldmxcsr m, s => [s.ea m]
+  | .lfence, _ => []
 
 def eval : Cond → State → Option Bool
   | .e, s => s.zf
@@ -1018,7 +1056,8 @@ def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .mov32 d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
   | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _
-  | .vop _ | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. => none
+  | .vop _ | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .stmxcsr _ | .ldmxcsr _
+  | .lfence => none
 
 abbrev isa : ISA where
   State := State

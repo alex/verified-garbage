@@ -169,7 +169,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
 set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Sha256.updateX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Sha256.updateX86_64.post s₀ s' := by
   have i : ∀ d : Nat, d + 8 ≤ 160 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
     fun d hd => ⟨scR s₀, by simp [hI.rd, hI.wr, hp.wr], contains_offset' hd (by omega)⟩
   have i0 := i 112 (by omega); have i1 := i 120 (by omega); have i2 := i 128 (by omega)
@@ -741,7 +741,7 @@ theorem body_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {c : Nat
   exact WP.mono (direct_ok hp hI₂ hb hb') fun s' h => .inl ⟨c + 64, by omega, h⟩
 
 theorem correct {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) :
-    WP isa (update f) s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateX86_64.post s₀ s' := by
+    WP isa (update f) s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha256.updateX86_64.post s₀ s' := by
   unfold update
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI => ?_)
   refine WP.seq (WP.mono (Q := Inv s₀ (len s₀)) ?_ fun s₂ hI₂ => epilogue_ok hp hI₂)
@@ -787,24 +787,26 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 160⟩]
 
-/-- `update f` is verified if its constant-time analysis passes. -/
+/-- `update f` is verified if its constant-time analysis passes and it
+never loads MXCSR. -/
 theorem verified_of {f : Callee} (hf : f.Ok)
+    (hm : (update f).allInstrs (fun i => !loadsMxcsr i) = true)
     (hct : ConstantTime isa Proof.Sha256.updateX86_64.pre Proof.Sha256.updateX86_64.pub (update f)) :
     Verified X86_64.target (update f) Proof.Sha256.updateX86_64 := by
   refine ⟨fun s hs => ?_, hct, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct hf (pre_of hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec hm he h.1, h.2⟩
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
       bv_omega
 
 theorem update_verified : Verified X86_64.target (update .scalar) Proof.Sha256.updateX86_64 :=
-  verified_of scalar_ok
+  verified_of scalar_ok (by decide +kernel)
     (VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide))
 
 theorem update_shani_verified : Verified X86_64.target (update .shani) Proof.Sha256.updateX86_64 :=
-  verified_of shani_ok
+  verified_of shani_ok (by decide +kernel)
     (VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide))
 
 end VG.Proof.Sha256.X86_64.Stream.Update

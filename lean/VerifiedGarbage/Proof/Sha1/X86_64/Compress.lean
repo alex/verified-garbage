@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Sha1.X86_64.Rounds
 import VerifiedGarbage.Proof.Sha1.X86_64.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.Bswap
@@ -482,7 +483,7 @@ theorem common_zero {s₀ : State} (hp : Pre s₀) {s₁ : State} (hg : s₁.gpr
 set_option simprocs false in
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Sha1.compressX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Sha1.compressX86_64.post s₀ s' := by
   have i0 := hp.in_save (d := 64) (by omega); have i1 := hp.in_save (d := 72) (by omega)
   have i2 := hp.in_save (d := 80) (by omega); have i3 := hp.in_save (d := 88) (by omega)
   have i4 := hp.in_save (d := 96) (by omega); have i5 := hp.in_save (d := 104) (by omega)
@@ -508,7 +509,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 
 /-! ## The whole function -/
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha1.compressX86_64.post s₀ s' := by
+    WP isa compress s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha1.compressX86_64.post s₀ s' := by
   refine WP.seq (WP.mono (save_ok hp) fun s₁ ⟨hg, hrd, hwr, hm, hzf⟩ => ?_)
   refine WP.seq (WP.mono (Q := Common s₀ (nb s₀)) ?_ fun s₂ hc => restore_ok hp hc)
   have hc₀ := common_zero hp hg hrd hwr hm
@@ -549,7 +550,7 @@ theorem compress_verified :
     Verified X86_64.target Impl.Sha1.X86_64.compress Proof.Sha1.compressX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩
     refine Taint.agree_ofRegs fun r hr => ?_
