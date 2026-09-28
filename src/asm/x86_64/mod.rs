@@ -2,6 +2,9 @@
 //! Verified functions for `x86_64`.
 
 #[rustfmt::skip]
+pub(crate) mod chacha20;
+
+#[rustfmt::skip]
 pub(crate) mod pbkdf2;
 
 #[rustfmt::skip]
@@ -27,9 +30,6 @@ pub(crate) mod sha512;
 
 #[rustfmt::skip]
 pub(crate) mod hmac;
-
-#[rustfmt::skip]
-pub(crate) mod chacha20;
 
 #[rustfmt::skip]
 pub(crate) mod sha3;
