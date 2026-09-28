@@ -21,8 +21,8 @@ import VerifiedGarbage.Impl.Sha512.X86_64
 import VerifiedGarbage.Impl.Sha512.X86_64.Stream
 import VerifiedGarbage.Impl.Scrypt.X86_64.BlockMix
 import VerifiedGarbage.Impl.Scrypt.X86_64.RoMix
-import VerifiedGarbage.Impl.Poly1305.X86_64
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
+import VerifiedGarbage.Impl.Poly1305.X86_64
 import VerifiedGarbage.Impl.ChaCha20Poly1305.X86_64
 
 /-!
@@ -209,6 +209,10 @@ theorem chacha20_x86_block :
     Impl.ChaCha20.X86.block.all (fun i => !X86.target.isa.writesSp i) = true := by
   decide +kernel
 
+theorem chacha20_x86_64_xor :
+    Impl.ChaCha20.X86_64.Xor.xor.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
 theorem poly1305_x86_64_init :
     Impl.Poly1305.X86_64.init.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
@@ -219,10 +223,6 @@ theorem poly1305_x86_64_blocks :
 
 theorem poly1305_x86_64_finalize :
     Impl.Poly1305.X86_64.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
-  decide +kernel
-
-theorem chacha20_x86_64_xor :
-    Impl.ChaCha20.X86_64.Xor.xor.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem chacha20poly1305_x86_64_seal :
