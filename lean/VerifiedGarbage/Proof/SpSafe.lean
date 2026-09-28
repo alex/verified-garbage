@@ -19,7 +19,7 @@ import VerifiedGarbage.Impl.Sha256.X86_64.Stream
 import VerifiedGarbage.Impl.Sha256.X86_64.ShaNi
 import VerifiedGarbage.Impl.Sha512.X86_64
 import VerifiedGarbage.Impl.Sha512.X86_64.Stream
-import VerifiedGarbage.Impl.Scrypt.X86_64.Salsa
+import VerifiedGarbage.Impl.Scrypt.X86_64.BlockMix
 
 /-!
 # The stack discipline of the x86 and x86-64 artifacts
@@ -167,6 +167,10 @@ theorem chacha20_x86_64_block :
 
 theorem scrypt_x86_64_salsa :
     Impl.Scrypt.X86_64.salsa.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem scrypt_x86_64_blockmix :
+    Impl.Scrypt.X86_64.blockMix.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem sha256_x86_compress :

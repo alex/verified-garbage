@@ -1599,7 +1599,30 @@ def artifacts : List Artifact := [
     code := Impl.Scrypt.X86_64.salsa
     contract := Spec.Scrypt.salsaContract X86_64.abi
     verified := Proof.Scrypt.X86_64.Shared.salsa
-    spSafe := Proof.SpSafe.scrypt_x86_64_salsa }
+    spSafe := Proof.SpSafe.scrypt_x86_64_salsa },
+  { target := X86_64.target
+    module := "scrypt"
+    name := "vg_scrypt_blockmix"
+    sig := Spec.Scrypt.blockMixSig
+    doc := "scryptBlockMix (RFC 7914 §4) with block size parameter `r`: writes scryptBlockMix of \
+      the `128 * r` bytes at `b` to the `128 * ry` bytes at `y`. Calls `vg_salsa20_8` for each \
+      64-byte block.\n\n\
+      Contract: `VG.Spec.Scrypt.blockMixContract`. Constant time: only the pointers and `r` may \
+      affect timing, not the data.\n\n\
+      # Safety\n\n\
+      * `ry` must equal `r`, and `r` must be positive.\n\
+      * `b` must be valid for reads of `128 * r` bytes, and `y` for reads and writes of \
+      `128 * ry` bytes.\n\
+      * `scratch` must be valid for reads and writes of 128 bytes. It is working space: its \
+      contents on return are unspecified.\n\
+      * `b`, `y` and `scratch` must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its calls of `vg_salsa20_8` store their return \
+      address, and none may wrap around the end of the address space (distinct Rust objects \
+      never do)."
+    code := Impl.Scrypt.X86_64.blockMix
+    contract := Spec.Scrypt.blockMixContract X86_64.abi 8
+    verified := Proof.Scrypt.X86_64.Shared.blockMix
+    spSafe := Proof.SpSafe.scrypt_x86_64_blockmix }
 ]
 
 #assert_standard_axioms artifacts

@@ -25,9 +25,10 @@ namespace VG.Impl.Scrypt.X86_64
 
 open VG.X86_64
 
-/-- The callee-saved registers we use, and where they are saved in `scratch`. -/
+/-- The callee-saved registers we use, and where they are saved in `scratch`.
+`r13` is last: the epilogue reads the others through it. -/
 def bmSaved : List (Reg × Nat) :=
-  [(.rbx, 64), (.rbp, 72), (.r12, 80), (.r13, 88), (.r14, 96), (.r15, 104)]
+  [(.rbx, 64), (.rbp, 72), (.r12, 80), (.r14, 88), (.r15, 96), (.r13, 104)]
 
 /-- Word `k` (of 8 bytes) of `[dst] ← [x] xor [src]`. -/
 def xorW (dst x src : Reg) (k : Nat) : List Instr :=
@@ -69,5 +70,7 @@ def bmEpilogue : List Instr := bmSaved.map fun (r, d) => .mov r (.mem (at_ .r13 
 
 def blockMixWith (salsa : Prog isa) : Prog isa :=
   .seq (.block bmPrologue) (.seq (.loop (bmBody salsa) .ne) (.block bmEpilogue))
+
+def blockMix : Prog isa := blockMixWith salsa
 
 end VG.Impl.Scrypt.X86_64
