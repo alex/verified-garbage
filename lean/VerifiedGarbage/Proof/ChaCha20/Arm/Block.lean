@@ -175,13 +175,15 @@ theorem copyWord_ok {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 16) {s : 
     have e2 := hp.eaB (show slotOff k < 256 by simp only [slotOff]; omega)
     have h6 : slotOff k < 4096 := by simp only [slotOff]; omega
     simp (config := {decide := true}) only [copyWord, h, and_self, ite_true, List.cons_append,
-      List.nil_append, runBlock, exec, isa, State.setReg, State.load32, State.store32, hr0, hr1,
-      e0, e1, e2, h4, h5, h6, hin, o₁, o₂, ite_false, Option.map_some, Option.bind_some,
+      List.nil_append, runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa),
+          exec, isa, State.setReg, State.load32, State.store32, hr0, hr1,
+      e0, e1, e2, h4, h5, h6, hin, o₁, o₂, ite_false, Option.map_some,
       Option.some.injEq, exists_eq_left']
     exact ⟨trivial, fun r hr => by simp [hr], trivial⟩
-  · simp (config := {decide := true}) only [copyWord, h, ite_false, List.append_nil, runBlock,
+  · simp (config := {decide := true}) only [copyWord, h, ite_false, List.append_nil,
+      runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa),
       exec, isa, State.setReg, State.load32, State.store32, hr0, hr1, e0, e1, h4, h5, hin, o₁,
-      ite_true, Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+      ite_true, Option.map_some, Option.some.injEq, exists_eq_left']
     exact ⟨trivial, fun r hr => by simp [hr], trivial⟩
 
 /-- The copy invariant after `n` words, relative to the state `s₁` after the prologue's stores. -/
@@ -306,8 +308,10 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) :
   have e8 := hp.eaB (show 176 < 256 by omega)
   apply WP.of_runBlock
   rw [save_eq]
-  simp (config := {decide := true}) only [runBlock, exec, isa, State.store32, o0, o1, o2, o3, o4, o5, o6, o7, o8, e0, e1, e2, e3, e4, e5, e6, e7, e8,
-    ite_true, Option.bind_some, Option.some.injEq, exists_eq_left']
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, isa, State.store32, o0, o1, o2, o3, o4, o5, o6, o7, o8, e0, e1,
+    e2, e3, e4, e5, e6, e7, e8,
+    ite_true, Option.some.injEq, exists_eq_left']
   exact ⟨trivial, trivial, trivial, rfl⟩
 
 set_option simprocs false in
@@ -379,8 +383,9 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hs : Saved s₀ s
   have e8 := hp.eaB (show 176 < 256 by omega)
   apply WP.of_runBlock
   rw [restore_eq]
-  simp (config := {decide := true}) only [runBlock, exec, isa, State.setReg, State.load32, hr1,
-    i0, e0, g0, i1, e1, g1, i2, e2, g2, i3, e3, g3, i4, e4, g4, i5, e5, g5, i6, e6, g6, i7, e7, g7, i8, e8, g8, ite_true, ite_false, Option.map_some, Option.bind_some, Option.some.injEq,
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, isa, State.setReg, State.load32, hr1,
+    i0, e0, g0, i1, e1, g1, i2, e2, g2, i3, e3, g3, i4, e4, g4, i5, e5, g5, i6, e6, g6, i7, e7, g7, i8, e8, g8, ite_true, ite_false, Option.map_some, Option.some.injEq,
     exists_eq_left']
   refine ⟨trivial, fun r hr => ?_⟩
   simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -414,8 +419,9 @@ theorem load_step {s₀ s₁ sL : State} (hp : Pre s₀) (hc : CI s₀ s₁ 16 s
       exact hp.in_buf (in_lt hn) _
     simp only [loadWord, h911, ite_false]
     apply WP.of_runBlock
-    simp only [runBlock, isa, exec_ldr (show inOff n < 4096 by simp only [inOff]; omega) hin,
-      Option.bind_some, Option.some.injEq, exists_eq_left']
+    simp only [runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa), isa,
+      exec_ldr (show inOff n < 4096 by simp only [inOff]; omega) hin,
+      Option.some.injEq, exists_eq_left']
     rw [h.r1, hp.eaB (by simp only [inOff]; omega), h.mem, hc.inw n hn hn]
     refine ⟨fun j hj hjn hj8 => ?_, h.mem, h.rd, h.wr, ?_⟩
     · simp only [State.setReg]
@@ -485,15 +491,17 @@ theorem store_step {s₀ : State} (hp : Pre s₀) {R : CState} {sB : State} (hwB
         ⟨bufR s₀, List.mem_append_right _ hw, contains_off (by simp only [slotOff]; omega)
           (by simp only [slotOff]; omega)⟩
       have h5 : slotOff n < 4096 := by simp only [slotOff]; omega
-      simp (config := {decide := true}) only [storeWord, h, and_self, ite_true, runBlock, exec, isa,
+      simp (config := {decide := true}) only [storeWord, h, and_self, ite_true,
+        runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa), exec, isa,
         State.setReg, State.load32, State.store32, hr1, es, eo, i, o, h4, h5, ite_false,
-        Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+        Option.map_some, Option.some.injEq, exists_eq_left']
       refine key _ (by simp only [hr]) (fun j hj hnj _ => ?_) (by simp) rfl rfl
       simp [wreg_ne_r0 (show 10 ≤ j by omega) hj]
     · have hin : inReg 8 n = true := by simp [inReg]; omega
       simp only [hin, ite_true] at hr
-      simp (config := {decide := true}) only [storeWord, h, ite_false, runBlock, exec, isa,
-        State.store32, hr1, eo, o, h4, ite_true, hr, Option.bind_some, Option.some.injEq,
+      simp (config := {decide := true}) only [storeWord, h, ite_false, runBlock_cons (M := isa),
+        runStep_some (M := isa), runBlock_nil (M := isa), exec, isa,
+        State.store32, hr1, eo, o, h4, ite_true, hr, Option.some.injEq,
         exists_eq_left']
       exact key _ rfl (fun _ _ _ _ => rfl) rfl rfl rfl
   intro s' hm hg hr1' hrd hwr
@@ -548,9 +556,10 @@ theorem add_step {s₀ : State} (hp : Pre s₀) {R v : CState} {sB : State} (hwB
   simp only [lt_irrefl, ite_false] at ho
   have hi := hs.inw n hn
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [addWord, runBlock, exec, Op2.eval, isa, State.setReg,
+  simp (config := {decide := true}) only [addWord, runBlock_cons (M := isa),
+    runStep_some (M := isa), runBlock_nil (M := isa), exec, Op2.eval, isa, State.setReg,
     State.load32, State.store32, hr1, eo, ei, o, io, ii, h4, h5, ho, hi, ite_true, ite_false,
-    Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+    Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨fun j hj => ?_, fun j hj => ?_, hs.frame.writeW (List.mem_singleton_self _) _ cout,
     by simpa using hs.r1, hs.rd, hs.wr⟩
   · by_cases hjn : j = n
@@ -654,7 +663,7 @@ theorem block_verified :
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0, .r1]) ?_ (by decide +kernel)
+  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0, .r1]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2⟩
     refine Taint.agree_ofRegs fun r hr => ?_
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
