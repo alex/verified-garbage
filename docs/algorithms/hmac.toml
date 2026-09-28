@@ -1,0 +1,4 @@
+name = "HMAC-SHA-256"
+specs = ["Hmac"]
+modules = ["src/hmac.rs"]
+asm = ["hmac", "sha256"]

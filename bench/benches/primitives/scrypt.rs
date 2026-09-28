@@ -2,6 +2,10 @@
 
 use criterion::Criterion;
 
+/// The library modules whose code these benchmarks run (see
+/// `ci/bench_arches.py`): this one and those it calls.
+pub const USES: &[&str] = &["scrypt", "pbkdf2", "hmac", "sha256"];
+
 /// scrypt with `r = 8` and `p = 1` (the RFC 7914 vectors' block size) at a
 /// few costs `N`, deriving a 64-byte key. The ids' sizes are `N`.
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]

@@ -63,16 +63,35 @@ pub(crate) fn vg_group<const N: usize>(c: &mut Criterion, name: &str, vg: fn(&[u
     g.finish();
 }
 
+/// Each algorithm's `bench`, with the library modules whose code it runs.
+type Bench = (&'static [&'static str], fn(&mut Criterion));
+
+const BENCHES: &[Bench] = &[
+    (chacha20::USES, chacha20::bench),
+    (hmac::USES, hmac::bench),
+    (md5::USES, md5::bench),
+    (pbkdf2::USES, pbkdf2::bench),
+    (scrypt::USES, scrypt::bench),
+    (sha1::USES, sha1::bench),
+    (sha256::USES, sha256::bench),
+    (sha3::USES, sha3::bench),
+    (sha512::USES, sha512::bench),
+];
+
+/// Runs the benchmarks that use any of the modules in `$VG_BENCH_MODULES`
+/// (space-separated), or every benchmark if it is unset, empty, or names a
+/// module no benchmark uses (e.g. shared code such as `cpu`), so that a
+/// change is never left unbenchmarked.
 fn all(c: &mut Criterion) {
-    chacha20::bench(c);
-    hmac::bench(c);
-    md5::bench(c);
-    pbkdf2::bench(c);
-    scrypt::bench(c);
-    sha1::bench(c);
-    sha256::bench(c);
-    sha3::bench(c);
-    sha512::bench(c);
+    let modules = std::env::var("VG_BENCH_MODULES").unwrap_or_default();
+    let modules: Vec<&str> = modules.split_whitespace().collect();
+    let used = |m: &&str| BENCHES.iter().any(|(uses, _)| uses.contains(m));
+    let every = modules.is_empty() || !modules.iter().all(used);
+    for (uses, bench) in BENCHES {
+        if every || uses.iter().any(|u| modules.contains(u)) {
+            bench(c);
+        }
+    }
 }
 
 criterion_group!(benches, all);
