@@ -273,10 +273,8 @@ theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (
     m0, m1, m2, m3, m4, m5, m6, m7, v0, v1, v2, v3, v4, v5, v6, v7, ite_true, ite_false,
     Option.map_some, Option.some.injEq, exists_eq_left']
   and_intros
-  all_goals first
-    | trivial
-    | rfl
-    | (simp only [writeState, Vector.getElem_zipWith])
+  · simp only [writeState, Vector.getElem_zipWith]
+  all_goals trivial
 
 theorem save_sep {s₀ : State} (hp : Pre s₀) {d e : Nat} (hd : d + 4 ≤ 112) (he : e + 4 ≤ 112)
     (h : d + 4 ≤ e ∨ e + 4 ≤ d) : Mem.Sep (saveAddr s₀ d) 4 (saveAddr s₀ e) 4 := by
