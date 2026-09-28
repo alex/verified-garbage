@@ -392,10 +392,10 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-- The registers no instruction writes: the callee-saved ones, `rdi` and `rcx`. -/
 def kept : List Reg := [.rbx, .rbp, .rsp, .r12, .r13, .r14, .r15, .rdi, .rcx]
 
-theorem compress_keeps : ((instrs compress).all fun i => kept.all fun r => Taint.dstOf i != some r) = true := by
+theorem compress_keeps : ((instrs compress).all fun i => kept.all fun r => !Taint.clobbers i r) = true := by
   rw [← Code.allInstrs_eq]; decide +kernel
 
-theorem compress_keeps_reg {r : Reg} (hr : r ∈ kept) : ∀ i ∈ instrs compress, Taint.dstOf i ≠ some r := by
+theorem compress_keeps_reg {r : Reg} (hr : r ∈ kept) : ∀ i ∈ instrs compress, Taint.clobbers i r = false := by
   intro i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp compress_keeps i hi) r hr
   simpa using this

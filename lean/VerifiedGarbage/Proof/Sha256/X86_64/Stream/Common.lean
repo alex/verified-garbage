@@ -27,17 +27,17 @@ structure _root_.VG.Impl.Sha256.X86_64.Stream.Callee.Ok (f : Callee) : Prop wher
     ∃ t s', Exec isa f.code s t s' ∧ abiPreserved s s' ∧ Proof.Sha256.compressX86_64.post s s'
   nosp : NoSp f.code
   depth : f.code.depth = 0
-  keeps_rdi : ∀ i ∈ instrs f.code, Taint.dstOf i ≠ some .rdi
-  keeps_rcx : ∀ i ∈ instrs f.code, Taint.dstOf i ≠ some .rcx
+  keeps_rdi : ∀ i ∈ instrs f.code, Taint.clobbers i .rdi = false
+  keeps_rcx : ∀ i ∈ instrs f.code, Taint.clobbers i .rcx = false
 
 /-- The facts about the instructions of `f`, from one kernel check each. -/
 theorem _root_.VG.Impl.Sha256.X86_64.Stream.Callee.Ok.of_verified {f : Callee} (hv : ∀ s, Proof.Sha256.compressX86_64.pre s →
       ∃ t s', Exec isa f.code s t s' ∧ abiPreserved s s' ∧ Proof.Sha256.compressX86_64.post s s')
-    (hk : ((instrs f.code).all fun i => Taint.dstOf i != some .rdi && Taint.dstOf i != some .rcx &&
-      Taint.dstOf i != some .rsp) = true)
+    (hk : ((instrs f.code).all fun i => !Taint.clobbers i .rdi && !Taint.clobbers i .rcx &&
+      !Taint.clobbers i .rsp) = true)
     (hd : f.code.depth = 0) : f.Ok := by
   have h := fun i hi => List.all_eq_true.mp hk i hi
-  simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at h
+  simp only [Bool.and_eq_true, Bool.not_eq_true'] at h
   exact ⟨hv, fun i hi => (h i hi).2, hd, fun i hi => (h i hi).1.1, fun i hi => (h i hi).1.2⟩
 
 theorem scalar_ok : Callee.scalar.Ok :=
