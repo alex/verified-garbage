@@ -164,6 +164,12 @@ jobs:
 
       - name: Install Rust
         run: rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy,rustfmt,llvm-tools
+      # The dependencies (built with opt-level 3) are most of the build.
+      # Only main saves, so pull requests restore main's entries instead of
+      # filling the cache quota with their own.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Lint
         if: ${{ matrix.rust == 'stable' }}
         run: |
