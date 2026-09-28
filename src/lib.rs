@@ -11,6 +11,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 mod asm;
+mod cpu;
 
 #[cfg(any(
     target_arch = "x86_64",

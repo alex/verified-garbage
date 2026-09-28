@@ -73,8 +73,28 @@ fn hash_group<const N: usize>(
     g.finish();
 }
 
+/// Benchmarks the hash `vg` alone.
+fn vg_group<const N: usize>(c: &mut Criterion, name: &str, vg: fn(&[u8]) -> [u8; N]) {
+    let mut g = c.benchmark_group(name);
+    for size in SIZES {
+        g.throughput(Throughput::Bytes(size as u64));
+        let data = vec![0x5a; size];
+        g.bench_function(BenchmarkId::new(VG, size), |b| {
+            b.iter(|| vg(black_box(&data)))
+        });
+    }
+    g.finish();
+}
+
 fn sha256(c: &mut Criterion) {
     hash_group(c, "sha256", Sha256::digest, MessageDigest::sha256());
+    // The implementation for the baseline ISA (every CPU feature masked
+    // off), which `sha256` runs too on CPUs without the SHA extensions.
+    vg_group(c, "sha256-baseline", |m| {
+        let mut h = Sha256::__with_features(0);
+        h.update(m);
+        h.finalize()
+    });
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
@@ -157,6 +177,22 @@ fn hmac_sha256(c: &mut Criterion) {
             b.iter(|| {
                 let mut s = Signer::new(MessageDigest::sha256(), &pkey).unwrap();
                 s.sign_oneshot(&mut out, black_box(&data)).unwrap()
+            })
+        });
+    }
+    g.finish();
+
+    // With the baseline ISA's implementation (every CPU feature masked off),
+    // which `hmac-sha256` runs too on CPUs without the SHA extensions.
+    let mut g = c.benchmark_group("hmac-sha256-baseline");
+    for size in SIZES {
+        g.throughput(Throughput::Bytes(size as u64));
+        let data = vec![0x5a; size];
+        g.bench_function(BenchmarkId::new(VG, size), |b| {
+            b.iter(|| {
+                let mut h = Hmac::<Sha256>::__with_features(black_box(&key), 0);
+                h.update(black_box(&data));
+                h.finalize()
             })
         });
     }

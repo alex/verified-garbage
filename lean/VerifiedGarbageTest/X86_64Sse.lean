@@ -5,7 +5,7 @@ import VerifiedGarbage.TCB.X86_64.Print
 
 Each expected value was computed on an x86-64 CPU, by the same instruction
 through its intrinsic (`_mm_add_epi32`, `_mm_shuffle_epi32`,
-`_mm_sha256rnds2_epu32`, …; the
+`_mm_sha256rnds2_epu32`, `_mm_aesenc_si128`, `_mm_clmulepi64_si128`, …; the
 shifts by a count in a register, whose semantics are those of the immediate
 form), and is compared with the model's result on the same inputs. This
 tests the transcription of the SDM's pseudocode (in particular which
@@ -50,6 +50,16 @@ def bin (op : XBinOp) : BitVec 128 := ((XOp.bin op .xmm0 .xmm1).exec s).xmm .xmm
 #guard bin .pshufb == 0x0000000000101010890000005498dc67#128
 #guard bin .sha256msg1 == 0x71a8b4dd3e8111b31e5ca90676d443a1#128
 #guard bin .sha256msg2 == 0x53d29532d27aee3bff1cba9776748210#128
+#guard bin .pand == 0x89abcdef000000007edcba9812141210#128
+#guard bin .pandn == 0x76543210800000000123456700204468#128
+#guard bin .paddq == 0x89abcdee812345677edcba9788888888#128
+#guard bin .pmuludq == 0x0091a2b380000000086a1c970b88d780#128
+#guard bin .aesenc == 0xd8908bc5e4ae3f56c95bfb9bd0b4a271#128
+#guard bin .aesenclast == 0x8379dc203b20bd85479d91b9b512a2b2#128
+#guard bin .aesdec == 0xfafbac38e6a5c5c37f30df5470d1274c#128
+#guard bin .aesdeclast == 0xf06c979e72fdc00a76f15e1d1e06d604#128
+-- `aesimc` reads only its source.
+#guard bin .aesimc == 0xffffffff41f7daecbe082513851bd147#128
 
 /-- `xmm1` after `op xmm1, xmm0`. -/
 def binRev (op : XBinOp) : BitVec 128 := ((XOp.bin op .xmm1 .xmm0).exec s).xmm .xmm1
@@ -76,6 +86,32 @@ def align (n : BitVec 8) : BitVec 128 := ((XOp.palignr .xmm0 .xmm1 n).exec s).xm
 #guard align 32 == 0
 #guard align 255 == 0
 
+/-- `xmm1` after `aeskeygenassist xmm1, src, rcon`. -/
+def keygen (src : XReg) (rcon : BitVec 8) : BitVec 128 :=
+  ((XOp.aeskeygenassist .xmm1 src rcon).exec s).xmm .xmm1
+
+#guard keygen .xmm0 0x00 == 0xdfa762bda762bddf46bb86f4bb86f446#128
+#guard keygen .xmm0 0x01 == 0xdfa762bca762bddf46bb86f5bb86f446#128
+#guard keygen .xmm1 0x36 == 0x161616201616161616d21620d2161616#128
+#guard keygen .xmm1 0xff == 0x161616e91616161616d216e9d2161616#128
+
+/-- `xmm0` after `pclmulqdq xmm0, xmm1, sel`. -/
+def clmulSel (sel : BitVec 8) : BitVec 128 := ((XOp.pclmulqdq .xmm0 .xmm1 sel).exec s).xmm .xmm0
+
+#guard clmulSel 0x00 == 0x2ada34c44d51ecf6d3aacfb2b4211780#128
+#guard clmulSel 0x01 == 0x3c4ca252f17b911ec53c5924080b6a68#128
+#guard clmulSel 0x10 == 0x55b469880716253416e608f800000000#128
+#guard clmulSel 0x11 == 0x789944a53cad9e8f80709e6e80000000#128
+-- Only bits 0 and 4 of the immediate select.
+#guard clmulSel 0xee == clmulSel 0x00
+-- The largest product: bit 127 is always 0.
+#guard clmul (-1) (-1) == 0x55555555555555555555555555555555#128
+
+-- The S-box (FIPS 197 §5.1.1: `{00} ↦ {63}`, `{53} ↦ {ed}`), and the inverse S-box
+-- inverts it.
+#guard aesSbox 0x00 == 0x63 && aesSbox 0x53 == 0xed
+#guard (List.range 256).all fun i => aesInvSbox (aesSbox (BitVec.ofNat 8 i)) == BitVec.ofNat 8 i
+
 -- `movq xmm0, rdi` zeroes the upper quadword.
 #guard ((XOp.movq .xmm0 .rdi).exec s).xmm .xmm0 == 0x100#128
 
@@ -87,6 +123,19 @@ def shift (op : XShiftOp) (n : BitVec 8) : BitVec 128 := ((XOp.shift op .xmm0 n)
 #guard shift .pslld 31 == 0x80000000800000000000000000000000#128
 #guard shift .psrld 32 == 0
 #guard shift .pslld 255 == 0
+#guard shift .psllq 13 == 0x79bde02468ace00097530eca86420000#128
+#guard shift .psrlq 13 == 0x00044d5e6f78091a0007f6e5d4c3b2a1#128
+#guard shift .psllq 63 == 0x80000000000000000000000000000000#128
+#guard shift .psrlq 63 == 0x00000000000000010000000000000001#128
+#guard shift .psllq 64 == 0
+#guard shift .psrlq 255 == 0
+#guard shift .pslldq 4 == 0x01234567fedcba987654321000000000#128
+#guard shift .psrldq 4 == 0x0000000089abcdef01234567fedcba98#128
+#guard shift .pslldq 15 == 0x10000000000000000000000000000000#128
+#guard shift .psrldq 15 == 0x00000000000000000000000000000089#128
+#guard shift .pslldq 16 == 0
+#guard shift .psrldq 16 == 0
+#guard shift .pslldq 255 == 0
 
 /-- `xmm1` after `pshufd xmm1, xmm0, order`. -/
 def shuf (order : BitVec 8) : BitVec 128 := ((XOp.pshufd .xmm1 .xmm0 order).exec s).xmm .xmm1
@@ -131,6 +180,21 @@ def shuf (order : BitVec 8) : BitVec 128 := ((XOp.pshufd .xmm1 .xmm0 order).exec
 #guard printer.instr (.xop (.palignr .xmm11 .xmm12 4)) == ["palignr xmm11, xmm12, 4"]
 #guard printer.instr (.xop (.sha256rnds2 .xmm13 .xmm14)) == ["sha256rnds2 xmm13, xmm14, xmm0"]
 #guard printer.instr (.xop (.movq .xmm15 .r9)) == ["movq xmm15, r9"]
+#guard printer.instr (.xop (.bin .pand .xmm0 .xmm1)) == ["pand xmm0, xmm1"]
+#guard printer.instr (.xop (.bin .pandn .xmm2 .xmm3)) == ["pandn xmm2, xmm3"]
+#guard printer.instr (.xop (.bin .paddq .xmm4 .xmm5)) == ["paddq xmm4, xmm5"]
+#guard printer.instr (.xop (.bin .pmuludq .xmm6 .xmm7)) == ["pmuludq xmm6, xmm7"]
+#guard printer.instr (.xop (.bin .aesenc .xmm8 .xmm9)) == ["aesenc xmm8, xmm9"]
+#guard printer.instr (.xop (.bin .aesenclast .xmm10 .xmm11)) == ["aesenclast xmm10, xmm11"]
+#guard printer.instr (.xop (.bin .aesdec .xmm12 .xmm13)) == ["aesdec xmm12, xmm13"]
+#guard printer.instr (.xop (.bin .aesdeclast .xmm14 .xmm15)) == ["aesdeclast xmm14, xmm15"]
+#guard printer.instr (.xop (.bin .aesimc .xmm1 .xmm2)) == ["aesimc xmm1, xmm2"]
+#guard printer.instr (.xop (.aeskeygenassist .xmm3 .xmm4 0x36)) == ["aeskeygenassist xmm3, xmm4, 54"]
+#guard printer.instr (.xop (.pclmulqdq .xmm5 .xmm6 0x11)) == ["pclmulqdq xmm5, xmm6, 17"]
+#guard printer.instr (.xop (.shift .psllq .xmm7 1)) == ["psllq xmm7, 1"]
+#guard printer.instr (.xop (.shift .psrlq .xmm8 63)) == ["psrlq xmm8, 63"]
+#guard printer.instr (.xop (.shift .pslldq .xmm9 8)) == ["pslldq xmm9, 8"]
+#guard printer.instr (.xop (.shift .psrldq .xmm10 4)) == ["psrldq xmm10, 4"]
 
 /-! ## Required features -/
 
@@ -143,5 +207,11 @@ def shuf (order : BitVec 8) : BitVec 128 := ((XOp.pshufd .xmm1 .xmm0 order).exec
 #guard isa.requires (.xop (.bin .sha256msg1 .xmm1 .xmm2)) == ["sha"]
 #guard isa.requires (.xop (.bin .sha256msg2 .xmm1 .xmm2)) == ["sha"]
 #guard isa.requires (.xop (.sha256rnds2 .xmm1 .xmm2)) == ["sha"]
+#guard [XBinOp.pand, .pandn, .paddq, .pmuludq].all fun op => isa.requires (.xop (.bin op .xmm1 .xmm2)) == []
+#guard [XShiftOp.psllq, .psrlq, .pslldq, .psrldq].all fun op => isa.requires (.xop (.shift op .xmm1 1)) == []
+#guard [XBinOp.aesenc, .aesenclast, .aesdec, .aesdeclast, .aesimc].all fun op =>
+  isa.requires (.xop (.bin op .xmm1 .xmm2)) == ["aes"]
+#guard isa.requires (.xop (.aeskeygenassist .xmm1 .xmm2 1)) == ["aes"]
+#guard isa.requires (.xop (.pclmulqdq .xmm1 .xmm2 0)) == ["pclmulqdq"]
 
 end VG.Test.Sse
