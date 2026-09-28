@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Sha256.X86_64.Compress
 import VerifiedGarbage.Proof.Sha256.Stream
-import VerifiedGarbage.Proof.Framework.X86_64.Inline
+import VerifiedGarbage.Proof.Framework.X86_64.Call
 import VerifiedGarbage.Impl.Sha256.X86_64.Stream
 
 /-!
@@ -39,17 +39,34 @@ theorem compressBlocks_one (H : HashValue) (m : Mem) (p : Addr) :
     compressBlocks H m p 1 = compress H (blockAt m p) := by
   simp [compressBlocks]
 
+theorem compress_depth : Impl.Sha256.X86_64.compress.depth = 0 := by decide +kernel
+
+theorem compress_nosp : NoSp Impl.Sha256.X86_64.compress := by
+  have : ((instrs Impl.Sha256.X86_64.compress).all fun i => Taint.dstOf i != some .rsp) = true := by
+    rw [← Code.allInstrs_eq]; decide +kernel
+  intro i hi
+  simpa using List.all_eq_true.mp this i hi
+
+/-- A region disjoint from the return address of a call reads the same on
+entry to the callee. -/
+theorem callEntry_byte (s : State) {R : Region} (hd : (below (s.gpr .rsp) 8).Disjoint R)
+    (hR : R.len ≤ 2 ^ 64) {i : Nat} (hi : i < R.len) :
+    s.callEntry.mem (R.base + BitVec.ofNat 64 i) = s.mem (R.base + BitVec.ofNat 64 i) :=
+  Frame.bytes (rs := [below (s.gpr .rsp) 8])
+    (Frame.writeW (Frame.refl _ _) (List.mem_singleton_self _) _ (below_call _ (by omega) (by omega)))
+    (by simpa using hd.symm) hR hi
+
 /-- Compressing the block at `rsi` into the hash value at `rbx`, with scratch
-space at `r15`. -/
+space at `r15`, by calling `vg_sha256_compress`. -/
 theorem compressAt_ok {s : State} {st scr src : Addr}
     (hrbx : s.gpr .rbx = st) (hr15 : s.gpr .r15 = scr) (hrsi : s.gpr .rsi = src)
     (d₁ : Region.Disjoint ⟨st, 32⟩ ⟨scr, 112⟩) (d₂ : Region.Disjoint ⟨src, 64⟩ ⟨st, 32⟩)
-    (d₃ : Region.Disjoint ⟨src, 64⟩ ⟨scr, 112⟩) (d₄ : Region.Disjoint ⟨s.gpr .rsp, 8⟩ ⟨st, 32⟩)
-    (d₅ : Region.Disjoint ⟨s.gpr .rsp, 8⟩ ⟨scr, 112⟩)
+    (d₃ : Region.Disjoint ⟨src, 64⟩ ⟨scr, 112⟩) (d₄ : (below (s.gpr .rsp) 8).Disjoint ⟨st, 32⟩)
+    (d₅ : (below (s.gpr .rsp) 8).Disjoint ⟨scr, 112⟩) (d₆ : (below (s.gpr .rsp) 8).Disjoint ⟨src, 64⟩)
     (hc : Covers [⟨src, 64⟩, ⟨st, 32⟩, ⟨scr, 112⟩] (s.rd ++ s.wr))
     (hw : Covers [⟨st, 32⟩, ⟨scr, 112⟩] s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
-      Frame [⟨st, 32⟩, ⟨scr, 112⟩] s.mem s'.mem →
+      Frame [⟨st, 32⟩, ⟨scr, 112⟩, below (s.gpr .rsp) 8] s.mem s'.mem →
       stateAt s'.mem st = compress (stateAt s.mem st) (blockAt s.mem src) →
       s'.gpr .rdi = st → s'.gpr .rcx = scr → Q s') :
     WP isa compressAt s Q := by
@@ -68,26 +85,40 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [State.setReg, State.setReg32]
   refine WP.seq (WP.mono h₁ fun s₁ ⟨e₁, e₂, e₃, e₄, e₅, e₆, e₇, e₈⟩ => ?_)
   have hsp : s₁.gpr .rsp = s.gpr .rsp := e₅ _ (by simp [calleeSaved])
-  refine WP.seq (WP.inline (k := Proof.Sha256.compressX86_64) compress_verified.1
+  have hne : ∀ r : Reg, r ≠ .rsp → s₁.callEntry.gpr r = s₁.gpr r := fun r h => State.callEntry_gpr _ h
+  refine WP.seq (WP.call (k := Proof.Sha256.compressX86_64) compress_verified.1 compress_nosp (by rw [compress_depth]; decide)
     (rd := [⟨src, 64 * 1⟩]) (wr := [⟨st, 32⟩, ⟨scr, 112⟩]) ?_ ?_ ?_ ?_)
   · simp only [Proof.Sha256.compressX86_64, State.withRegions_gpr, State.withRegions_rd,
-      State.withRegions_wr, e₁, e₂, e₃, e₄, hsp]
+      State.withRegions_wr, State.callEntry_rsp, hne _ (by decide : Reg.rdi ≠ .rsp),
+      hne _ (by decide : Reg.rsi ≠ .rsp), hne _ (by decide : Reg.rdx ≠ .rsp),
+      hne _ (by decide : Reg.rcx ≠ .rsp), e₁, e₂, e₃, e₄, hsp]
     exact ⟨by simp, by simp, d₁, d₂, d₃, d₄, d₅⟩
   · rw [e₆, e₇]; simpa using hc
   · rw [e₇]; exact hw
-  · intro s₂ hrd hwr habi hf hkeep hpost
+  · intro s₂ hrd hwr hcs hf hkeep ⟨s₃, hm₃, _, hpost⟩
     have k₁ := hkeep .rdi compress_keeps_rdi
     have k₃ := hkeep .rcx compress_keeps_rcx
-    simp only [Proof.Sha256.compressX86_64, State.withRegions_gpr, State.withRegions_mem, e₁, e₂, e₄,
-      e₈] at hpost
+    simp only [Proof.Sha256.compressX86_64, State.withRegions_gpr, State.withRegions_mem,
+      hne _ (by decide : Reg.rdi ≠ .rsp), hne _ (by decide : Reg.rsi ≠ .rsp),
+      hne _ (by decide : Reg.rdx ≠ .rsp), e₁, e₂, e₄, hm₃] at hpost
     rw [show (1 : BitVec 64).toNat = 1 from rfl, compressBlocks_one] at hpost
+    have hst : stateAt s₁.callEntry.mem st = stateAt s.mem st :=
+      (Proof.Sha256.Stream.stateAt_congr fun i hi => callEntry_byte s₁ (R := ⟨st, 32⟩) (by rw [hsp]; exact d₄) (by simp)
+        hi).trans (by rw [e₈])
+    have hblk : blockAt s₁.callEntry.mem src = blockAt s.mem src := by
+      simp only [Spec.Sha256.blockAt]
+      apply Proof.Sha256.Stream.parseBlock_congr
+      intro k hk
+      rw [callEntry_byte s₁ (R := ⟨src, 64⟩) (by rw [hsp]; exact d₆) (by simp) hk, e₈]
     apply WP.of_runBlock
     simp only [runBlock_cons, runStep_some, runBlock_nil, exec,
       readSrc, isa, Option.map_some,
       Option.some.injEq, exists_eq_left']
-    refine hQ _ (hrd.trans e₆) (hwr.trans e₇) (fun r hr => ?_) (e₈ ▸ hf) hpost
-      (by simp [State.setReg, k₁, e₁]) (by simp [State.setReg, k₃, e₃])
-    have h₂ := habi.1 r hr
+    refine hQ _ (hrd.trans e₆) (hwr.trans e₇) (fun r hr => ?_) (by
+      rw [compress_depth, hsp, e₈] at hf; simpa [State.setReg] using hf)
+      (by simp only [State.setReg]; rw [hpost, hst, hblk]) (by simp [State.setReg, k₁, e₁])
+      (by simp [State.setReg, k₃, e₃])
+    have h₂ := hcs r hr
     simp only [State.setReg]
     by_cases h15 : r = .r15
     · subst h15; simp [k₃, e₃, hr15]

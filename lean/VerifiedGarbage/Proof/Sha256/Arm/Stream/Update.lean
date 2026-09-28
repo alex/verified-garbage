@@ -96,7 +96,6 @@ structure Common (s₀ : State) (c : Nat) (s : State) : Prop where
   wr : s.wr = s₀.wr
   r0 : s.gpr .r0 = st s₀
   r3 : s.gpr .r3 = scr s₀
-  lr : s.gpr .lr = s₀.gpr .lr
   sp : s.sp = s₀.sp
   r5 : s.gpr .r5 = dp s₀ + BitVec.ofNat 32 c
   r6 : s.gpr .r6 = BitVec.ofNat 32 (len s₀ - c)
@@ -132,7 +131,6 @@ theorem Common.of_gpr {s₀ : State} {c : Nat} {s s' : State} (h : Common s₀ c
   wr := hwr.trans h.wr
   r0 := by rw [hg _ (by simp)]; exact h.r0
   r3 := by rw [hg _ (by simp)]; exact h.r3
-  lr := by rw [hg _ (by simp)]; exact h.lr
   sp := hsp.trans h.sp
   r5 := by rw [hg _ (by simp)]; exact h.r5
   r6 := by rw [hg _ (by simp)]; exact h.r6
@@ -158,7 +156,7 @@ theorem Inv.of_flags {s₀ : State} {c : Nat} {s s' : State} (h : Inv s₀ c s) 
 theorem saved_sub {s₀ : State} {p : Reg × Nat} (hp : p ∈ saved) :
     Region.Sub ⟨scA s₀ + BitVec.ofNat 64 p.2, 4⟩ (scR s₀) := by
   simp only [Impl.Sha256.Arm.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
     exact sub_offset (by omega) (by omega)
 
 /-! ## Consuming data -/
@@ -224,8 +222,9 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
     rcases hr with rfl | rfl
     · exact ⟨stR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
-  · refine ⟨⟨h.c_le, hrd.trans h.rd, hwr.trans h.wr, h0, h3, by rw [hcs _ (by decide)]; exact h.lr,
-      hsp.trans h.sp, by rw [hcs _ (by decide)]; exact h.r5, by rw [hcs _ (by decide)]; exact h.r6,
+  · refine ⟨⟨h.c_le, hrd.trans h.rd, hwr.trans h.wr, h0, h3,
+      hsp.trans h.sp, by rw [hcs _ (by decide) (by decide)]; exact h.r5,
+      by rw [hcs _ (by decide) (by decide)]; exact h.r6,
       h.frame.trans (hf.sub ?_), fun p hp' => ?_⟩, ?_, fun m hm => h.repr m hm _ hstate⟩
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -239,9 +238,9 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
       rcases hr' with rfl | rfl
       · exact (hp.st_scr.symm.sub_left (saved_sub hp')).sub_right e32
       · simp only [Impl.Sha256.Arm.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
-        rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+        rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
         · intro a h₁ h₂; simp only [Region.Contains, scA] at h₁ h₂; bv_omega
-    · rw [hcs _ (by decide), h.r4, h.mod]; rfl
+    · rw [hcs _ (by decide) (by decide), h.r4, h.mod]; rfl
 
 /-! ## A whole block straight from the data -/
 
@@ -260,7 +259,6 @@ theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv
   refine ⟨⟨by omega, by rw [u₄.rd, u₃.rd, u₂.rd, u₁.rd, hI.rd], by rw [u₄.wr, u₃.wr, u₂.wr, u₁.wr, hI.wr],
     by rw [g _ (by decide) (by decide) (by decide) (by decide), hI.r0],
     by rw [g _ (by decide) (by decide) (by decide) (by decide), hI.r3],
-    by rw [g _ (by decide) (by decide) (by decide) (by decide), hI.lr],
     by rw [u₄.sp, u₃.sp, u₂.sp, u₁.sp, hI.sp], ?_, ?_, by rw [m₄]; exact hI.frame,
     by rw [m₄]; exact hI.saved⟩, ?_, by rw [u₄.gpr], by omega, .inr ⟨c, h1, by omega⟩, ?_⟩
   · rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr, u₁.other _ (by decide), hI.r5,
@@ -326,7 +324,6 @@ structure Copy (s₀ : State) (c : Nat) (mI : Mem) (j : Nat) (s : State) : Prop 
   wr : s.wr = s₀.wr
   r0 : s.gpr .r0 = st s₀
   r3 : s.gpr .r3 = scr s₀
-  lr : s.gpr .lr = s₀.gpr .lr
   sp : s.sp = s₀.sp
   r5 : s.gpr .r5 = dp s₀ + BitVec.ofNat 32 (c + j)
   r6 : s.gpr .r6 = BitVec.ofNat 32 (len s₀ - c - tt s₀ c)
@@ -385,12 +382,11 @@ theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
     rw [u₆.gpr, u₅.other _ (by decide), u₄.other _ (by decide), g₃.gpr, u₂.other _ (by decide),
       u₁.other _ (by decide), h.r8, show (1 : BitVec 32) = BitVec.ofNat 32 1 from rfl, sub_ofNat (by omega),
       Nat.sub_sub]
-  refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, h8, ?_, ?_⟩, ?_⟩
+  refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, h8, ?_, ?_⟩, ?_⟩
   · rw [u₆.rd, u₅.rd, u₄.rd, g₃.rd, u₂.rd, u₁.rd, h.rd]
   · rw [u₆.wr, u₅.wr, u₄.wr, g₃.wr, u₂.wr, u₁.wr, h.wr]
   · rw [g .r0 (by decide) (by decide) (by decide) (by decide) (by decide), h.r0]
   · rw [g .r3 (by decide) (by decide) (by decide) (by decide) (by decide), h.r3]
-  · rw [g .lr (by decide) (by decide) (by decide) (by decide) (by decide), h.lr]
   · rw [u₆.sp, u₅.sp, u₄.sp, g₃.sp, u₂.sp, u₁.sp, h.sp]
   · rw [u₆.other _ (by decide), u₅.other _ (by decide), u₄.gpr, g₃.gpr, u₂.other _ (by decide),
       u₁.other _ (by decide), h.r5, BitVec.add_assoc, show (1 : BitVec 32) = BitVec.ofNat 32 1 from rfl,
@@ -475,13 +471,12 @@ theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   have m₃ : s₃.mem = s.mem := by rw [u₃.mem, u₂.mem, u₁.mem]
   have hx1 : s₃.gpr .r1 = st s₀ + BitVec.ofNat 32 32 := by
     rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.gpr, h.r0]; rfl
-  refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by rw [m₃, hmem]; exact hfr, by rw [m₃, hmem]; exact hsv⟩,
+  refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by rw [m₃, hmem]; exact hfr, by rw [m₃, hmem]; exact hsv⟩,
     by rw [u₃.other _ (by decide), u₂.gpr], by rw [u₃.gpr], by omega, .inl hx1, ?_⟩
   · rw [u₃.rd, u₂.rd, u₁.rd, h.rd]
   · rw [u₃.wr, u₂.wr, u₁.wr, h.wr]
   · rw [g .r0 (by decide) (by decide) (by decide), h.r0]
   · rw [g .r3 (by decide) (by decide) (by decide), h.r3]
-  · rw [g .lr (by decide) (by decide) (by decide), h.lr]
   · rw [u₃.sp, u₂.sp, u₁.sp, h.sp]
   · rw [g .r5 (by decide) (by decide) (by decide), h.r5]
   · rw [g .r6 (by decide) (by decide) (by decide), h.r6, Nat.sub_sub]
@@ -507,7 +502,7 @@ theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
   obtain ⟨hfr, hsv, hstt, hby⟩ := copied_facts hp hI
   have hmem : s.mem = writeBytes sI.mem (q s₀ c) (xs s₀ c) := by
     rw [h.mem, List.take_of_length_le (by omega)]
-  refine ⟨⟨⟨le_rfl, h.rd, h.wr, h.r0, h.r3, h.lr, h.sp, ?_, ?_, by rw [hmem]; exact hfr,
+  refine ⟨⟨⟨le_rfl, h.rd, h.wr, h.r0, h.r3, h.sp, ?_, ?_, by rw [hmem]; exact hfr,
     by rw [hmem]; exact hsv⟩, ?_, fun m hm => ?_⟩, h.r7⟩
   · rw [h.r5]; congr 2; omega
   · rw [h.r6]; congr 1; omega
@@ -588,7 +583,7 @@ theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   have hC₀ : Copy s₀ c s.mem 0 s₆ := by
     have e : ∀ r, r ≠ .r6 → s₆.gpr r = s₅.gpr r := fun r h => u₆.other r h
     refine ⟨Nat.zero_le _, by rw [u₆.rd, hI₅.rd], by rw [u₆.wr, hI₅.wr],
-      by rw [e _ (by decide), hI₅.r0], by rw [e _ (by decide), hI₅.r3], by rw [e _ (by decide), hI₅.lr],
+      by rw [e _ (by decide), hI₅.r0], by rw [e _ (by decide), hI₅.r3],
       by rw [u₆.sp, hI₅.sp], by rw [e _ (by decide), hI₅.r5, Nat.add_zero], ?_,
       by rw [e _ (by decide), hI₅.r4, Nat.add_zero], by rw [e _ (by decide), h8₅, Nat.sub_zero],
       by rw [e _ (by decide), h7₅], ?_⟩
@@ -600,7 +595,7 @@ theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   refine WP.seq (wp_cmp (op2_imm (by decide)) fun s₈ f₈ z₈ => WP.block_nil ?_)
   have hC₈ : Copy s₀ c s.mem (tt s₀ c) s₈ :=
     ⟨hC.j_le, by rw [f₈.rd, hC.rd], by rw [f₈.wr, hC.wr], by rw [f₈.gpr, hC.r0], by rw [f₈.gpr, hC.r3],
-      by rw [f₈.gpr, hC.lr], by rw [f₈.sp, hC.sp], by rw [f₈.gpr, hC.r5], by rw [f₈.gpr, hC.r6],
+      by rw [f₈.sp, hC.sp], by rw [f₈.gpr, hC.r5], by rw [f₈.gpr, hC.r6],
       by rw [f₈.gpr, hC.r4], by rw [f₈.gpr, hC.r8], by rw [f₈.gpr, hC.r7], by rw [f₈.mem, hC.mem]⟩
   have hz : VG.Arm.eval .eq s₈ = some (decide (rr s₀ c + tt s₀ c = 64)) := by
     rw [eval_eq, z₈, hC.r4, show (64 : BitVec 32) = BitVec.ofNat 32 64 from rfl, sub_beq (by omega) (by omega)]
@@ -721,7 +716,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     rw [u₆.gpr, u₅.mem, u₄.mem, u₃.mem, harg 1 (by decide)]
   have h6 : s₇.gpr .r6 = stackArg s₀ 1 := by rw [f₇.gpr, h6']
   refine ⟨⟨⟨Nat.zero_le _, by rw [f₇.rd, u₆.rd, u₅.rd, u₄.rd, u₃.rd, rd₂, u₁.rd],
-    by rw [f₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr, wr₂, u₁.wr], g _ (by decide), ?_, g _ (by decide),
+    by rw [f₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr, wr₂, u₁.wr], g _ (by decide), ?_,
     by rw [f₇.sp, u₆.sp, u₅.sp, u₄.sp, u₃.sp, sp₂, u₁.sp], ?_, ?_, ?_, ?_⟩, ?_, ?_⟩, ?_⟩
   · rw [f₇.gpr, u₆.other _ (by decide), u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, g₂, h12]
   · rw [f₇.gpr, u₆.other _ (by decide), u₅.gpr, u₄.mem, u₃.mem, harg 0 (by decide)]; simp
@@ -730,7 +725,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   · intro p hp'
     rw [mm, m₂, u₁.mem, h12, saveMem_saved _ _ _ p hp', u₁.other]
     simp only [Impl.Sha256.Arm.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
-    rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+    rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
   · rw [f₇.gpr, u₆.other _ (by decide), u₅.other _ (by decide), u₄.gpr, u₃.other _ (by decide), g₂,
       u₁.other _ (by decide), and63, Nat.add_zero, cnt_mod]
   · intro m hm
@@ -755,7 +750,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
     · exact hs (.r9, 132) (by simp [saved])
     · exact hs (.r10, 136) (by simp [saved])
     · exact hs (.r11, 140) (by simp [saved])
-    · rw [ho _ (by decide), hI.lr]
+    · exact hs (.lr, 144) (by simp [saved])
   · have := hI.repr m ⟨hr, hc⟩
     rwa [List.take_of_length_le (by rw [D_length]), ← hmem] at this
 

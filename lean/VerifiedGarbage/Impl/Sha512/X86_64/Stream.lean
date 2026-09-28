@@ -15,12 +15,13 @@ The streaming state (192 bytes at `state`) is the hash value followed by a
   buffered bytes (one or two blocks), compresses them and writes the final
   hash value.
 
-The compression function's code (`Impl.Sha512.X86_64.compress`) is inlined
-with `scratch` as its scratch space; it saves and restores `rbx, rbp,
-r12–r15`, so our own variables live there across it (`rbx` = `state`, `r15` =
-`scratch`), and our caller's values of those registers are saved in
-`scratch[176..224)`. Every address and branch depends only on the pointers,
-`count` and `len`.
+The compression function is called (`vg_sha512_compress`,
+`Impl.Sha512.X86_64.compress`) with `scratch` as its scratch space; it
+preserves `rbx, rbp, r12–r15`, so our own variables live there across it
+(`rbx` = `state`, `r15` = `scratch`), and our caller's values of those
+registers are saved in `scratch[176..224)`. The call stores its return
+address in the 8 bytes below `rsp`. Every address and branch depends only on
+the pointers, `count` and `len`.
 -/
 
 namespace VG.Impl.Sha512.X86_64.Stream
@@ -47,7 +48,7 @@ def bufByte : MemOp := { base := .rbx, index := some .r13, scale := 1, disp := 6
 space `r15`. -/
 def compressAt : Prog isa :=
   .seq (.block [.mov .rdi (.reg .rbx), .mov32 .rdx (.imm 1), .mov .rcx (.reg .r15)])
-    (.seq compress (.block [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx)]))
+    (.seq (.call "vg_sha512_compress" compress) (.block [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx)]))
 
 /-! ## `update`
 

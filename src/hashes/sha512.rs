@@ -30,7 +30,7 @@ super::streaming_hash!(
     /// An incremental SHA-384 computation (FIPS 180-4 §6.5).
     Sha384 {
         state: 192,
-        scratch: 28,
+        scratch: 34,
         block: 128,
         output: 48,
         final_hash: 64,
@@ -43,7 +43,7 @@ super::streaming_hash!(
     /// An incremental SHA-512 computation (FIPS 180-4 §6.4).
     Sha512 {
         state: 192,
-        scratch: 28,
+        scratch: 34,
         block: 128,
         output: 64,
         final_hash: 64,
@@ -56,7 +56,7 @@ super::streaming_hash!(
     /// An incremental SHA-512/224 computation (FIPS 180-4 §6.6).
     Sha512_224 {
         state: 192,
-        scratch: 28,
+        scratch: 34,
         block: 128,
         output: 28,
         final_hash: 64,
@@ -69,7 +69,7 @@ super::streaming_hash!(
     /// An incremental SHA-512/256 computation (FIPS 180-4 §6.7).
     Sha512_256 {
         state: 192,
-        scratch: 28,
+        scratch: 34,
         block: 128,
         output: 32,
         final_hash: 64,

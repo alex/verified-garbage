@@ -13,9 +13,13 @@ Modelling choices:
 * Only instructions that exist, with the same semantics, in both the ARM
   (A32) and the Thumb (T32) instruction sets are modelled, so the model is
   right whichever of the two a function is assembled in.
-* Registers are `r0`–`r12` and `lr` (`r14`); `sp` is separate: no modelled
-  instruction writes it, and only `ldr t, [sp, #off]` (for arguments passed
-  on the stack) reads it; `pc` is not an operand.
+* Registers are `r0`–`r12` and `lr` (`r14`); `sp` is separate: only the push
+  and pop of a frame (`push {…}` and `ldr t, [sp], #n`, see `push`) write
+  it, and they and `ldr t, [sp, #off]` (for arguments passed on the stack)
+  read it; `pc` is not an operand.
+* The stack pointer is always word-aligned (AAPCS §5.2.1.1, "SP mod 4 = 0"),
+  and a frame moves it by whole words, so the model does not check the
+  alignment that `push` requires (DDI 0406C: `MemA`).
 * Only the N, Z, C and V flags are modelled.
 * Immediates that an A32 instruction cannot encode make the instruction
   fault, so verified code only contains encodable instructions. (A T32
@@ -107,6 +111,12 @@ inductive Instr
   | strb (t n : Reg) (off : Nat)
   /-- `ldr t, [sp, #off]` (`0 ≤ off < 4096`) -/
   | ldrSp (t : Reg) (off : Nat)
+  /-- `push {rs}`: the push of a frame (see `push`); `rs` must be in
+  ascending order and not empty -/
+  | push (rs : List Reg)
+  /-- `ldr t, [sp], #n`: the pop of a frame of `n` bytes (see `pop`), `n` a
+  multiple of 4 below 256 -/
+  | pop (t : Reg) (n : Nat)
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`b<cond>`). -/
@@ -116,6 +126,19 @@ inductive Cond
   /-- `ne`: Z = 0 -/
   | ne
   deriving DecidableEq, Repr
+
+/-- The register number (`lr` is `r14`). -/
+def Reg.num : Reg → Nat
+  | .r0 => 0 | .r1 => 1 | .r2 => 2 | .r3 => 3 | .r4 => 4 | .r5 => 5 | .r6 => 6 | .r7 => 7
+  | .r8 => 8 | .r9 => 9 | .r10 => 10 | .r11 => 11 | .r12 => 12 | .lr => 14
+
+/-- A register list of `push` or `pop`: not empty, in ascending order (so
+the printed list is the set of registers the instruction encodes, in the
+order it accesses them). -/
+def regList : List Reg → Bool
+  | [] => false
+  | [_] => true
+  | r :: r' :: rs => r.num < r'.num && regList (r' :: rs)
 
 /-- DDI 0406C A5.2.4, "Modified immediate constants in ARM instructions": an
 8-bit value rotated right by an even amount. -/
@@ -227,6 +250,12 @@ def exec : Instr → State → Option State
     if off < 4096 then
       (s.load32 (State.addr (s.sp + BitVec.ofNat 32 off))).map fun x => s.setReg t x
     else none
+  -- Only the push and pop of a frame (`push`, `pop`).
+  | .push _, _ | .pop .., _ => none
+
+/-- The addresses of `n` consecutive words from `a`. -/
+def words (a : BitVec 32) (n : Nat) : List Addr :=
+  (List.range n).map fun i => State.addr (a + BitVec.ofNat 32 (4 * i))
 
 def addrs : Instr → State → List Addr
   | .ldr _ n off, s => [State.addr (s.gpr n + BitVec.ofNat 32 off)]
@@ -234,6 +263,8 @@ def addrs : Instr → State → List Addr
   | .ldrb _ n off, s => [State.addr (s.gpr n + BitVec.ofNat 32 off)]
   | .strb _ n off, s => [State.addr (s.gpr n + BitVec.ofNat 32 off)]
   | .ldrSp _ off, s => [State.addr (s.sp + BitVec.ofNat 32 off)]
+  | .push rs, s => words (s.sp - BitVec.ofNat 32 (4 * rs.length)) rs.length
+  | .pop .., s => [State.addr s.sp]
   | _, _ => []
 
 def eval : Cond → State → Option Bool
@@ -257,6 +288,45 @@ otherwise the model faults. -/
 def ret (s₁ s₂ : State) : Option State :=
   if s₂.gpr .lr = s₁.gpr .lr then some s₂ else none
 
+/-- Store the words `vs` at consecutive addresses from `a`. -/
+def storeWords (m : Mem) (a : BitVec 32) : List (BitVec 32) → Mem
+  | [] => m
+  | v :: vs => storeWords (m.writeW (State.addr a) v) (a + 4) vs
+
+/-- The push of a frame, DDI 0406C A8.8.133 "PUSH" (= `STMDB sp!`):
+`address = SP - 4*BitCount(registers)`; for each register in ascending
+order, `MemA[address,4] = R[i]; address = address + 4`; `SP = SP -
+4*BitCount(registers)`. The frame becomes a writable region, at the head of
+`wr`. Faults if the register list is not valid (`regList`) or the frame
+would wrap around the address space. -/
+def push : Instr → State → Option State
+  | .push rs, s =>
+    let n := 4 * rs.length
+    if regList rs ∧ n ≤ s.sp.toNat then
+      let sp := s.sp - BitVec.ofNat 32 n
+      some { s with
+        sp := sp
+        mem := storeWords s.mem sp (rs.map s.gpr)
+        wr := ⟨State.addr sp, n⟩ :: s.wr }
+    else none
+  | _, _ => none
+
+/-- The pop of a frame, DDI 0406C A8.8.63 "LDR (immediate, ARM)" and A8.8.62
+"LDR (immediate, Thumb)" (encoding T4, whose offset is below 256),
+post-indexed (`ldr t, [sp], #n`): `address = R[n]; data =
+MemU[address,4]; R[n] = R[n] + imm32; R[t] = data`, with `n` = 13 (`sp`).
+Faults unless `n` is a multiple of 4 below 256, the stack pointer and the
+writable regions are those the push left (`s₁`), and the frame, the region
+at their head, has `n` bytes; it removes the frame. -/
+def pop : Instr → State → State → Option State
+  | .pop t n, s₁, s₂ =>
+    if n % 4 = 0 ∧ n < 256 ∧ s₂.sp = s₁.sp ∧ s₂.wr = s₁.wr ∧
+        s₁.wr.head? = some ⟨State.addr s₁.sp, n⟩ then
+      some { s₂.setReg t (s₂.mem.readW (State.addr s₂.sp) 32) with
+        sp := s₂.sp + BitVec.ofNat 32 n, wr := s₂.wr.tail }
+    else none
+  | _, _, _ => none
+
 abbrev isa : ISA where
   State := State
   Instr := Instr
@@ -268,7 +338,10 @@ abbrev isa : ISA where
   callAddrs _ := []
   ret := ret
   retAddrs _ := []
-  -- No modelled instruction writes the stack pointer.
+  -- No modelled instruction writes the stack pointer, other than the push
+  -- and pop of a frame.
   writesSp _ := false
+  push := push
+  pop := pop
 
 end VG.Arm

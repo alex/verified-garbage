@@ -159,6 +159,8 @@ def step (τ : T) : Instr → Option T
   | .strb t n off => storeStep τ n off 1 (pub τ t)
   | .ldrSp t off =>
     if off + 4 ≤ τ.argLen then some { τ with regs := set τ t true, bases := spBases τ t off } else none
+  -- Frames are not analysed yet.
+  | .push _ | .pop .. => none
 
 def meet (τ₁ τ₂ : T) : T where
   regs := τ₁.regs.inter τ₂.regs
@@ -530,11 +532,12 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {r : 
 
 /-! ### Instructions that write a register -/
 
-/-- The register an instruction writes, if it writes one (`cmp` and stores do not). -/
+/-- The register an instruction writes, if it writes one (`cmp` and stores
+do not; a frame's pop writes its register). -/
 def dst : Instr → Option Reg
-  | .mov d _ | .dp _ d _ _ | .adds d _ _ | .adc d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _ | .ldr d _ _
-  | .ldrb d _ _ | .ldrSp d _ => some d
-  | .cmp .. | .str .. | .strb .. => none
+  | .mov d _ | .dp _ d _ _ | .adds d _ _ | .adc d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _
+  | .ldr d _ _ | .ldrb d _ _ | .ldrSp d _ | .pop d _ => some d
+  | .cmp .. | .str .. | .strb .. | .push _ => none
 
 theorem exec_dst {i : Instr} {d : Reg} (hd : dst i = some d) {s s' : State}
     (h : exec i s = some s') :
@@ -595,6 +598,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
     addrs i s₁ = addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i with
+  | push | pop => simp only [step, reduceCtorEq] at hs
   | mov d o =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec, Option.map_eq_some_iff] at e₁ e₂
@@ -834,6 +838,51 @@ end VG.Arm.Taint
 
 namespace VG.Arm
 
+namespace Taint
+
+/-- Whether a call leaves `r` unchanged (all but `lr` and `r12`). -/
+def callKeeps (r : Reg) : Bool := r != .lr && r != .r12
+
+/-- A call leaves unknown values in `lr` and `r12`. -/
+def callStep (τ : T) : T :=
+  { τ with regs := (τ.regs.erase .lr).erase .r12, bases := τ.bases.filter (callKeeps ·.1) }
+
+theorem call_gpr {s s' : State} (e : isa.call s = some s') {r : Reg} (h : callKeeps r = true) :
+    s'.gpr r = s.gpr r := by
+  simp only [callKeeps, Bool.and_eq_true, bne_iff_ne, ne_eq] at h
+  simp only [isa, call, Option.some.injEq] at e; subst e
+  simp [State.setReg, h.1, h.2]
+
+theorem call_sound {τ τ' : T} {s₁ s₂ s₁' s₂' : State} (ha : Agree τ s₁ s₂)
+    (hs : some (callStep τ) = some τ') (e₁ : isa.call s₁ = some s₁') (e₂ : isa.call s₂ = some s₂') :
+    isa.callAddrs s₁ = isa.callAddrs s₂ ∧ Agree τ' s₁' s₂' := by
+  cases hs
+  have hr₁ := e₁; have hr₂ := e₂
+  simp only [isa, call, Option.some.injEq] at hr₁ hr₂
+  subst hr₁ hr₂
+  refine ⟨rfl, ha.keep ⟨fun r hr => ?_, ha.rf.2⟩ rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+    (fun p hp => ?_) (fun p hp => ?_)⟩
+  · simp only [callStep, RegSet.mem_erase] at hr
+    obtain ⟨h12, hlr, hr⟩ := hr
+    have hk : callKeeps r = true := by simp [callKeeps, hlr, h12]
+    rw [call_gpr e₁ hk, call_gpr e₂ hk]; exact ha.rf.1 r hr
+  · simp only [callStep, List.mem_filter] at hp
+    rw [call_gpr e₁ hp.2]; exact ha.wf₁.bases p hp.1
+  · simp only [callStep, List.mem_filter] at hp
+    rw [call_gpr e₂ hp.2]; exact ha.wf₂.bases p hp.1
+
+theorem ret_sound {τ τ' : T} {a₁ a₂ b₁ b₂ c₁ c₂ : State} (ha : Agree τ b₁ b₂)
+    (hs : some τ = some τ') (e₁ : isa.ret a₁ b₁ = some c₁) (e₂ : isa.ret a₂ b₂ = some c₂) :
+    isa.retAddrs b₁ = isa.retAddrs b₂ ∧ Agree τ' c₁ c₂ := by
+  cases hs
+  simp only [isa, ret] at e₁ e₂
+  split at e₁ <;> [skip; cases e₁]
+  split at e₂ <;> [skip; cases e₂]
+  cases e₁; cases e₂
+  exact ⟨rfl, ha⟩
+
+end Taint
+
 /-- Taint tracking for ARMv7. -/
 def taint : VG.Taint isa where
   T := Taint.T
@@ -847,6 +896,15 @@ def taint : VG.Taint isa where
   meet_right := Taint.meet_right
   le := Taint.le
   le_sound := Taint.le_sound
+  call τ := some (Taint.callStep τ)
+  call_sound := Taint.call_sound
+  ret τ := some τ
+  ret_sound := Taint.ret_sound
+  -- Frames are not analysed yet.
+  push _ _ := none
+  push_sound _ h := by cases h
+  pop _ _ := none
+  pop_sound _ h := by cases h
 
 /-- The taint in which exactly the registers `rs` are public. -/
 def Taint.ofRegs (rs : List Reg) : Taint.T := { regs := RegSet.ofList rs, flags := false }

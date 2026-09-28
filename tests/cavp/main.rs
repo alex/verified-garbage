@@ -100,6 +100,40 @@ fn sha256_monte_carlo() {
     );
 }
 
+/// SHA-1: every message length from 0 to 64 bytes, 64 long messages (from
+/// 163 to 6400 bytes) and the Monte Carlo test.
+#[cfg(target_arch = "x86_64")]
+mod sha1 {
+    use super::{check_messages, check_monte_carlo};
+    use verified_garbage::hashes::sha1::Sha1;
+
+    #[test]
+    fn short_messages() {
+        let n = check_messages(
+            include_str!("../../vectors/nist-cavp/sha1/SHA1ShortMsg.rsp"),
+            Sha1::digest,
+        );
+        assert_eq!(n, 65);
+    }
+
+    #[test]
+    fn long_messages() {
+        let n = check_messages(
+            include_str!("../../vectors/nist-cavp/sha1/SHA1LongMsg.rsp"),
+            Sha1::digest,
+        );
+        assert_eq!(n, 64);
+    }
+
+    #[test]
+    fn monte_carlo() {
+        check_monte_carlo(
+            include_str!("../../vectors/nist-cavp/sha1/SHA1Monte.rsp"),
+            Sha1::digest,
+        );
+    }
+}
+
 /// SHA-384, SHA-512, SHA-512/224 and SHA-512/256: for each, every message
 /// length from 0 to 128 bytes, 128 long messages (from 227 to 12800 bytes)
 /// and the Monte Carlo test.

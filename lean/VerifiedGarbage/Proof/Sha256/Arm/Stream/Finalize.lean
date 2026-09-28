@@ -99,7 +99,6 @@ structure Common (s₀ : State) (s : State) : Prop where
   r6 : s.gpr .r6 = out s₀
   r4 : s.gpr .r4 = s₀.gpr .r2
   r5 : s.gpr .r5 = s₀.gpr .r3
-  lr : s.gpr .lr = s₀.gpr .lr
   sp : s.sp = s₀.sp
   frame : Frame [stR s₀, scR s₀] s₀.mem s.mem
   saved : Saved s₀ s.mem
@@ -131,7 +130,6 @@ theorem Common.of_gpr {s₀ : State} {s s' : State} (h : Common s₀ s)
   r6 := by rw [hg _ (by simp [keepRegs])]; exact h.r6
   r4 := by rw [hg _ (by simp [keepRegs])]; exact h.r4
   r5 := by rw [hg _ (by simp [keepRegs])]; exact h.r5
-  lr := by rw [hg _ (by simp [keepRegs])]; exact h.lr
   sp := hsp.trans h.sp
   frame := by rw [hm]; exact h.frame
   saved := by rw [hm]; exact h.saved
@@ -147,7 +145,7 @@ theorem Common.of_flags {s₀ : State} {s s' : State} (h : Common s₀ s) (u : F
 theorem saved_sub {s₀ : State} {p : Reg × Nat} (hp : p ∈ saved) :
     Region.Sub ⟨scA s₀ + BitVec.ofNat 64 p.2, 4⟩ (scR s₀) := by
   simp only [Impl.Sha256.Arm.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> exact sub_offset (by omega) (by omega)
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> exact sub_offset (by omega) (by omega)
 
 /-- Writing buffer bytes `[n, n + |xs|)` keeps `Common`'s memory facts. -/
 theorem Common.writeBuf {s₀ : State} (hp : Pre s₀) {s : State} (h : Common s₀ s) {n : Nat}
@@ -252,10 +250,10 @@ theorem zero_ok {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI
 
 /-! ## One block -/
 
-/-- The inlined compression of the buffer. -/
+/-- The compression of the buffer. -/
 theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s₀ s)
     (hr1 : s.gpr .r1 = st s₀ + BitVec.ofNat 32 32) {Q : State → Prop}
-    (hQ : ∀ s', Common s₀ s' → (∀ r ∈ preserved, s'.gpr r = s.gpr r) →
+    (hQ : ∀ s', Common s₀ s' → (∀ r ∈ preserved, r ≠ .lr → s'.gpr r = s.gpr r) →
       stateAt s'.mem (stA s₀) = compress (stateAt s.mem (stA s₀)) (blockAt s.mem (stA s₀ + 32)) → Q s') :
     WP isa compressAt s Q := by
   have hst := hp.st_fit; have hsc := hp.scr_fit
@@ -285,9 +283,8 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
     rcases hr with rfl | rfl
     · exact ⟨stR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
-  · refine ⟨hrd.trans hC.rd, hwr.trans hC.wr, h0, h3, by rw [hcs _ (by decide)]; exact hC.r6,
-      by rw [hcs _ (by decide)]; exact hC.r4, by rw [hcs _ (by decide)]; exact hC.r5,
-      by rw [hcs _ (by decide)]; exact hC.lr, hsp.trans hC.sp, hC.frame.trans (hf.sub ?_), fun p hp' => ?_⟩
+  · refine ⟨hrd.trans hC.rd, hwr.trans hC.wr, h0, h3, by rw [hcs _ (by decide) (by decide)]; exact hC.r6,
+      by rw [hcs _ (by decide) (by decide)]; exact hC.r4, by rw [hcs _ (by decide) (by decide)]; exact hC.r5, hsp.trans hC.sp, hC.frame.trans (hf.sub ?_), fun p hp' => ?_⟩
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
@@ -300,7 +297,7 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
       rcases hr' with rfl | rfl
       · exact (hp.st_scr.symm.sub_left (saved_sub hp')).sub_right e32
       · simp only [Impl.Sha256.Arm.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
-        rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+        rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
         · intro a h₁ h₂; simp only [Region.Contains, scA] at h₁ h₂; bv_omega
 
 
@@ -376,8 +373,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv
   have hC₆ : Common s₀ s₆ :=
     ⟨hZ₆.rd.trans hC.rd, hZ₆.wr.trans hC.wr, by rw [hZ₆.keep _ (by simp [keepRegs]), hC.r0],
       by rw [hZ₆.keep _ (by simp [keepRegs]), hC.r3], by rw [hZ₆.keep _ (by simp [keepRegs]), hC.r6],
-      by rw [hZ₆.keep _ (by simp [keepRegs]), hC.r4], by rw [hZ₆.keep _ (by simp [keepRegs]), hC.r5],
-      by rw [hZ₆.keep _ (by simp [keepRegs]), hC.lr], hZ₆.sp.trans hC.sp,
+      by rw [hZ₆.keep _ (by simp [keepRegs]), hC.r4], by rw [hZ₆.keep _ (by simp [keepRegs]), hC.r5], hZ₆.sp.trans hC.sp,
       by rw [hZ₆.mem]; exact hfr₆, by rw [hZ₆.mem]; exact hsv₆⟩
   have hst₆ : stateAt s₆.mem (stA s₀) = stateAt s.mem (stA s₀) := by
     rw [hZ₆.mem]
@@ -438,7 +434,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv
           by rw [g₁₄.wr, u₁₃.wr, u₁₂.wr, g₁₁.wr, u₁₀.wr, u₉.wr, u₈.wr, hC₇.wr],
           by rw [kr _ (by simp [keepRegs]), hC₇.r0], by rw [kr _ (by simp [keepRegs]), hC₇.r3],
           by rw [kr _ (by simp [keepRegs]), hC₇.r6], by rw [kr _ (by simp [keepRegs]), hC₇.r4],
-          by rw [kr _ (by simp [keepRegs]), hC₇.r5], by rw [kr _ (by simp [keepRegs]), hC₇.lr],
+          by rw [kr _ (by simp [keepRegs]), hC₇.r5],
           by rw [g₁₄.sp, u₁₃.sp, u₁₂.sp, g₁₁.sp, u₁₀.sp, u₉.sp, u₈.sp, hC₇.sp],
           by rw [hw]; exact hfr, by rw [hw]; exact hsv⟩
       refine ⟨hC₁₄, by rw [keep _ (by decide), h8₇], ?_, fun m hm => ?_⟩
@@ -463,7 +459,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv
   have hr1 : s₉.gpr .r1 = st s₀ + BitVec.ofNat 32 32 := by rw [u₉.gpr, hC₈.r0]; rfl
   refine WP.seq (compress_buf hp hC₉ hr1 fun s₁₁ hC₁₁ cs₁₁ hst₁₁ => ?_)
   have h8₁₁ : s₁₁.gpr .r8 = BitVec.ofNat 32 k := by
-    rw [cs₁₁ _ (by decide), u₉.other _ (by decide), h8₈]
+    rw [cs₁₁ _ (by decide) (by decide), u₉.other _ (by decide), h8₈]
   have hblk : ∀ m, R₀ s₀ m → blockAt s₉.mem (stA s₀ + 32) = parseBlock fun t =>
       (bytesAt s.mem (stA s₀ + 32) n ++
         (if k = 1 then List.replicate (64 - n) 0 else List.replicate (56 - n) 0 ++ lenBytes m)).getD t 0 := by
@@ -553,7 +549,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
       u₃.other r hr.2.1, g₂, u₁.other r hr.2.2.2.2.2]
   have hC₇ : Common s₀ s₇ := by
     refine ⟨by rw [u₇.rd, u₆.rd, u₅.rd, u₄.rd, u₃.rd, rd₂, u₁.rd], by rw [u₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr, wr₂, u₁.wr],
-      g₇ _ (by decide), ?_, ?_, ?_, ?_, g₇ _ (by decide), by rw [u₇.sp, u₆.sp, u₅.sp, u₄.sp, u₃.sp, sp₂, u₁.sp],
+      g₇ _ (by decide), ?_, ?_, ?_, ?_, by rw [u₇.sp, u₆.sp, u₅.sp, u₄.sp, u₃.sp, sp₂, u₁.sp],
       by rw [hm₇]; exact hframe.mono (by simp), fun p hp' => ?_⟩
     · rw [u₇.other _ (by decide), u₆.other _ (by decide), u₅.gpr, u₄.other _ (by decide), u₃.other _ (by decide),
         g₂, h12]
@@ -566,7 +562,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
         g₂, u₁.other _ (by decide)]
     · rw [hm₇, m₂, u₁.mem, h12, saveMem_saved _ _ _ p hp', u₁.other]
       simp only [Impl.Sha256.Arm.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
-      rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+      rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
   have hr7 : s₇.gpr .r7 = BitVec.ofNat 32 (cnt s₀ % 64) := by
     rw [u₇.gpr, u₆.other _ (by decide), u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, g₂,
       u₁.other _ (by decide), and63, cnt_mod]
@@ -597,7 +593,6 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
       by rw [keep _ (by decide) (by decide) (by decide) (by decide), hC₇.r6],
       by rw [keep _ (by decide) (by decide) (by decide) (by decide), hC₇.r4],
       by rw [keep _ (by decide) (by decide) (by decide) (by decide), hC₇.r5],
-      by rw [keep _ (by decide) (by decide) (by decide) (by decide), hC₇.lr],
       by rw [u₁₃.sp, u₁₂.sp, u₁₁.sp, g₁₀.sp, u₉.sp, u₈.sp, hC₇.sp],
       by rw [hm₁₃, hm₁₀]; exact hfr, by rw [hm₁₃, hm₁₀]; exact hsv⟩
   have hr7' : s₁₃.gpr .r7 = BitVec.ofNat 32 (cnt s₀ % 64 + 1) := by
@@ -722,7 +717,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
     · exact hs (.r9, 132) (by simp [saved])
     · exact hs (.r10, 136) (by simp [saved])
     · exact hs (.r11, 140) (by simp [saved])
-    · rw [ho _ (by decide), h.keep _ (by simp [keepRegs]), hC.lr]
+    · exact hs (.lr, 144) (by simp [saved])
   · have e := bytesAt_writeBytes sD.mem (outA s₀) 0 (((stateAt sD.mem (stA s₀)).toList.take 8).flatMap wordBytes)
       (by rw [flat_length _ _ le_rfl]; omega)
     have e' : bytesAt (writeBytes sD.mem (outA s₀) (((stateAt sD.mem (stA s₀)).toList.take 8).flatMap wordBytes))

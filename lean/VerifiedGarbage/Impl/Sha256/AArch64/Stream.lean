@@ -14,11 +14,12 @@ The streaming state (96 bytes at `state`) is the hash value followed by a
 * `finalize(state = x0, count = x1, out = x2, scratch = x3)` pads the
   buffered bytes (one or two blocks), compresses them and writes the digest.
 
-The compression function's code (`Impl.Sha256.AArch64.compress`) is inlined
-with `scratch[0..112)` as its scratch space. It only uses `x0`–`x15`, and its
-`Verified` proof guarantees that it preserves `x19`–`x28`, so our own
-variables live there (`x19` = `state`, `x20` = `scratch`), and our caller's
-values of those registers are saved in `scratch[112..160)`.
+`update` and `finalize` call the compression function (`vg_sha256_compress`)
+with `scratch[0..112)` as its scratch space. It preserves `x19`–`x28`, so our
+own variables live there (`x19` = `state`, `x20` = `scratch`), and our
+caller's values of those registers are saved in `scratch[112..160)`. Our
+return address (`x30`), which each call replaces, is saved in a stack frame
+around the whole function.
 
 The model has no register-offset addressing, so byte `r` of the buffer is
 addressed as `[x12, #32]` with `x12 = state + r` computed just before the
@@ -56,7 +57,7 @@ def restore : List Instr :=
 /-- Compress the block at `x1` into the hash value at `x19`, with scratch
 space `x20`. -/
 def compressAt : Prog isa :=
-  .seq (.block [mov .x0 .x19, .movz .x .x2 1 0, mov .x3 .x20]) compress
+  .seq (.block [mov .x0 .x19, .movz .x .x2 1 0, mov .x3 .x20]) (.call "vg_sha256_compress" compress)
 
 /-! ## `update`
 
@@ -93,11 +94,14 @@ def updateBody : Prog isa :=
       fill)
     (.ite (.zero .x .x10) (.block []) compressAt))
 
-def update : Prog isa :=
+/-- `update`, but for saving `x30`. -/
+def updateMain : Prog isa :=
   .seq (.block (save .x4 ++ [mov .x19 .x0, mov .x20 .x4, mov .x21 .x2, mov .x22 .x3,
       .movz .x .x9 63 0, .logic .and .x .x23 .x1 .x9]))
   (.seq (.ite (.zero .x .x22) (.block []) (.loop updateBody (.nonzero .x .x22)))
     (.block restore))
+
+def update : Prog isa := .frame (.push .x30) updateMain (.pop .x30)
 
 /-! ## `finalize`
 
@@ -121,7 +125,8 @@ def finalizeBody : Prog isa :=
   (.seq compressAt
     (.block [.movz .x .x23 0 0, .subImm .x .x24 .x24 1])))))))
 
-def finalize : Prog isa :=
+/-- `finalize`, but for saving `x30`. -/
+def finalizeMain : Prog isa :=
   .seq (.block (save .x3 ++ [mov .x19 .x0, mov .x20 .x3, mov .x21 .x2, mov .x22 .x1,
       .movz .x .x9 63 0, .logic .and .x .x23 .x22 .x9,
       -- The `0x80` byte.
@@ -132,5 +137,7 @@ def finalize : Prog isa :=
     (.block ((List.range 8).flatMap (fun k =>
         [.ldr .w .x9 .x19 (4 * k), .rev32 .x9 .x9, .str .w .x9 .x21 (4 * k)]) ++
       restore)))
+
+def finalize : Prog isa := .frame (.push .x30) finalizeMain (.pop .x30)
 
 end VG.Impl.Sha256.AArch64.Stream

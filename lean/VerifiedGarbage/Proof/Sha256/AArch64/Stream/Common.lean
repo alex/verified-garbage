@@ -1,13 +1,13 @@
 import VerifiedGarbage.Proof.Sha256.AArch64.Compress
 import VerifiedGarbage.Proof.Sha256.Stream
-import VerifiedGarbage.Proof.Framework.AArch64.Inline
+import VerifiedGarbage.Proof.Framework.AArch64.Call
 import VerifiedGarbage.Impl.Sha256.AArch64.Stream
 
 /-!
 # Streaming SHA-256 on AArch64: common lemmas
 
 Untrusted: everything here is checked by Lean. Weakest-precondition rules for
-the instruction forms used, and the inlined compression function
+the instruction forms used, and the call of the compression function
 (`compressAt`).
 -/
 
@@ -179,15 +179,17 @@ theorem compressBlocks_one (H : HashValue) (m : Mem) (p : Addr) :
 
 theorem one_toNat : (BitVec.setWidth 64 (1 : BitVec 16)).toNat = 1 := rfl
 
+theorem compress_noFrames : Impl.Sha256.AArch64.compress.noFrames = true := by decide +kernel
+
 /-- Compressing the block at `x1` into the hash value at `x19`, with scratch
-space at `x20`. -/
+space at `x20`: the callee-saved registers other than `x30` are kept. -/
 theorem compressAt_ok {s : State} {st scr src : Addr}
     (h19 : s.gpr .x19 = st) (h20 : s.gpr .x20 = scr) (h1 : s.gpr .x1 = src)
     (d₁ : Region.Disjoint ⟨st, 32⟩ ⟨scr, 112⟩) (d₂ : Region.Disjoint ⟨src, 64⟩ ⟨st, 32⟩)
     (d₃ : Region.Disjoint ⟨src, 64⟩ ⟨scr, 112⟩)
     (hc : Covers [⟨src, 64⟩, ⟨st, 32⟩, ⟨scr, 112⟩] (s.rd ++ s.wr))
     (hw : Covers [⟨st, 32⟩, ⟨scr, 112⟩] s.wr) {Q : State → Prop}
-    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ preserved, s'.gpr r = s.gpr r) →
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s.gpr r) →
       s'.sp = s.sp → Frame [⟨st, 32⟩, ⟨scr, 112⟩] s.mem s'.mem →
       stateAt s'.mem st = compress (stateAt s.mem st) (blockAt s.mem src) → Q s') :
     WP isa compressAt s Q := by
@@ -212,18 +214,23 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
   have rd₃ : s₃.rd = s.rd := by rw [u₃.rd, u₂.rd, u₁.rd]
   have wr₃ : s₃.wr = s.wr := by rw [u₃.wr, u₂.wr, u₁.wr]
   have sp₃ : s₃.sp = s.sp := by rw [u₃.sp, u₂.sp, u₁.sp]
-  refine WP.inline (k := Proof.Sha256.compressAArch64) compress_verified.1
-    (rd := [⟨src, 64 * 1⟩]) (wr := [⟨st, 32⟩, ⟨scr, 112⟩]) ?_ ?_ ?_ ?_
+  have c0 : s₃.callEntry.gpr .x0 = st := (State.callEntry_gpr _ (by decide)).trans e0
+  have c1 : s₃.callEntry.gpr .x1 = src := (State.callEntry_gpr _ (by decide)).trans e1
+  have c2 : s₃.callEntry.gpr .x2 = BitVec.setWidth 64 (1 : BitVec 16) :=
+    (State.callEntry_gpr _ (by decide)).trans e2
+  have c3 : s₃.callEntry.gpr .x3 = scr := (State.callEntry_gpr _ (by decide)).trans e3
+  refine WP.call (k := Proof.Sha256.compressAArch64) compress_verified.1
+    (rd := [⟨src, 64 * 1⟩]) (wr := [⟨st, 32⟩, ⟨scr, 112⟩]) ?_ ?_ ?_ ?_ compress_noFrames
   · simp only [Proof.Sha256.compressAArch64, State.withRegions_gpr, State.withRegions_rd,
-      State.withRegions_wr, e0, e1, e2, e3, one_toNat]
+      State.withRegions_wr, c0, c1, c2, c3, one_toNat]
     exact ⟨trivial, trivial, d₁, d₂, d₃⟩
   · rw [rd₃, wr₃]; simpa using hc
   · rw [wr₃]; exact hw
-  · intro s' hrd hwr habi hf _ hpost
-    simp only [Proof.Sha256.compressAArch64, State.withRegions_gpr, State.withRegions_mem, e0, e1, e2,
-      one_toNat, compressBlocks_one, m₃] at hpost
-    exact hQ s' (hrd.trans rd₃) (hwr.trans wr₃) (fun r hr => (habi.1 r hr).trans (keep r hr))
-      (habi.2.trans sp₃) (m₃ ▸ hf) hpost
+  · intro s' hrd hwr hsp hf hcs _ hpost
+    simp only [Proof.Sha256.compressAArch64, State.withRegions_gpr, State.withRegions_mem,
+      State.callEntry_mem, c0, c1, c2, one_toNat, compressBlocks_one, m₃] at hpost
+    exact hQ s' (hrd.trans rd₃) (hwr.trans wr₃) (fun r hr h30 => (hcs r hr h30).trans (keep r hr))
+      (hsp.trans sp₃) (m₃ ▸ hf) hpost
 
 /-! ## Arithmetic -/
 
@@ -354,13 +361,31 @@ theorem frame_bytes {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {R : Re
 /-- Registers that no instruction writes keep their values, as a postcondition. -/
 theorem WP.gprs {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s Q) {rs : List Reg}
     (hc : ∀ r ∈ rs, ∀ i ∈ instrs c, dstOf i ≠ some r)
-    (hn : c.noCalls = true := by decide +kernel) :
+    (hn : c.noCalls = true ∨ ∀ r ∈ rs, r ∉ linkRegs :=
+      by first | exact .inr (by decide) | exact .inl (by decide +kernel)) :
     WP isa c s fun s' => Q s' ∧ ∀ r ∈ rs, s'.gpr r = s.gpr r := by
   obtain ⟨t, s', he, hq⟩ := h
-  exact ⟨t, s', he, hq, fun r hr => Exec.gpr (hc r hr) he (.inl hn)⟩
+  exact ⟨t, s', he, hq, fun r hr => Exec.gpr (hc r hr) he (hn.imp id fun h => h r hr)⟩
 
-/-- The callee-saved registers our code never touches. -/
-def untouched : List Reg := [.x18, .x25, .x26, .x27, .x28, .x29, .x30]
+/-- The callee-saved registers our code never touches (but for `x30`, which
+our calls change and the frame restores). -/
+def untouched : List Reg := [.x18, .x25, .x26, .x27, .x28, .x29]
+
+/-- A byte of a region disjoint from a frame is unchanged by the push. -/
+theorem write_frame_apply {m : Mem} {sp : Addr} {v : BitVec (8 * 8)} {R : Region}
+    (hd : Region.Disjoint ⟨sp - 16, 16⟩ R) {x : Addr} (hx : R.Contains x 1) :
+    m.write (sp - 16) 8 v x = m x :=
+  Mem.write_apply fun h => hd x (by simp only [Region.Contains]; omega) hx
+
+/-- The bytes of a region disjoint from a frame are unchanged by the push. -/
+theorem write_frame_bytes {m : Mem} {sp : Addr} {v : BitVec (8 * 8)} {R : Region}
+    (hd : Region.Disjoint ⟨sp - 16, 16⟩ R) (hR : R.len < 2 ^ 64) {i : Nat} (hi : i < R.len) :
+    m.write (sp - 16) 8 v (R.base + BitVec.ofNat 64 i) = m (R.base + BitVec.ofNat 64 i) :=
+  write_frame_apply hd (by
+    simp only [Region.Contains]
+    rw [show R.base + BitVec.ofNat 64 i - R.base = BitVec.ofNat 64 i by bv_omega,
+      BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+    omega)
 
 theorem restore_eq : restore = [.ldr .x .x19 .x20 112, .ldr .x .x21 .x20 128, .ldr .x .x22 .x20 136,
     .ldr .x .x23 .x20 144, .ldr .x .x24 .x20 152, .ldr .x .x20 .x20 120] := rfl

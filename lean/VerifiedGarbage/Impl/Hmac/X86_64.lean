@@ -7,16 +7,17 @@ Two SHA-256 streaming states (`inner`, `outer`; see `VG.Spec.Hmac`).
 
 * `init(inner = rdi, outer = rsi, key = rdx, key_len = rcx, scratch = r8)`
   stores `H⁽⁰⁾` in both states, the block `K₀ ⊕ ipad` in the inner buffer
-  and `K₀ ⊕ opad` in the outer one, and compresses both.
+  and `K₀ ⊕ opad` in the outer one, and compresses both (calling
+  `vg_sha256_compress`).
 * `finalize(inner = rdi, outer = rsi, count = rdx, scratch = rcx)`
-  finalizes the inner state (the inlined `vg_sha256_finalize`), makes the
+  finalizes the inner state (calling `vg_sha256_finalize`), makes the
   inner state represent `(K₀ ⊕ opad) ‖ digest` (96 bytes) from the outer
   hash value and that digest, and finalizes it again, leaving the MAC in
   `scratch[176..208)`.
 
-As in the streaming SHA-256 functions, inlined code saves and restores
-`rbx, rbp, r12–r15` itself, so our variables live there; our caller's are
-saved in `scratch` beyond what the inlined code uses.
+As in the streaming SHA-256 functions, the functions we call preserve `rbx,
+rbp, r12–r15`, so our variables live there; our caller's are saved in
+`scratch` beyond what the called functions use.
 -/
 
 namespace VG.Impl.Hmac.X86_64
@@ -69,7 +70,7 @@ left in `scratch[176..208)`. The outer hash value is first copied to
 then the inner state is overwritten with the outer hash value and that
 digest, so that it represents `(K₀ ⊕ opad) ‖ digest`, and finalized again.
 Everything after the first finalization is addressed through `rdi` (the
-state) and `rcx` (the scratch space), the only registers the inlined
+state) and `rcx` (the scratch space), the only registers the called
 finalization leaves pointing at their regions, which constant time needs;
 and we use no callee-saved register ourselves. -/
 
@@ -88,10 +89,13 @@ def saveOuter : List Instr := (List.range 8).flatMap (cp32 .rsi .rcx 0 208)
 def loadOuter : List Instr :=
   (List.range 8).flatMap (cp32 .rcx .rdi 208 0) ++ (List.range 4).flatMap (cp64 .rcx .rdi 176 32)
 
+/-- `vg_sha256_finalize`. -/
+def sha256Finalize : Prog isa := .call "vg_sha256_finalize" Impl.Sha256.X86_64.Stream.finalize
+
 def finalize : Prog isa :=
   .seq (.block (saveOuter ++ [.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
-  (.seq Impl.Sha256.X86_64.Stream.finalize
+  (.seq sha256Finalize
   (.seq (.block (loadOuter ++ [.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
-    Impl.Sha256.X86_64.Stream.finalize))
+    sha256Finalize))
 
 end VG.Impl.Hmac.X86_64

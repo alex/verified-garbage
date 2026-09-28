@@ -7,9 +7,10 @@ import VerifiedGarbage.TCB.AArch64.Target
 
 Untrusted: everything here is checked by Lean.
 
-The abstract state is the set of registers known to be public. Memory is
-always secret: a loaded value is secret, and an address must be computed from
-public registers. (No modelled instruction touches the flags.)
+The abstract state is the set of registers known to be public; the stack
+pointer is always public. Memory is always secret: a loaded value is secret,
+and an address must be computed from public registers or the stack pointer.
+(No modelled instruction touches the flags.)
 -/
 
 namespace VG.AArch64.Taint
@@ -27,7 +28,7 @@ def ofRegs (rs : List Reg) : T := RegSet.ofList rs
 
 @[simp] theorem mem_ofRegs {rs : List Reg} {r : Reg} : r ∈ ofRegs rs ↔ r ∈ rs := RegSet.mem_ofList
 
-def Agree (τ : T) (s₁ s₂ : State) : Prop := ∀ r ∈ τ, s₁.gpr r = s₂.gpr r
+def Agree (τ : T) (s₁ s₂ : State) : Prop := s₁.sp = s₂.sp ∧ ∀ r ∈ τ, s₁.gpr r = s₂.gpr r
 
 /-- The public registers after writing `r`, with a public value iff `p`. -/
 def set (τ : T) (r : Reg) (p : Bool) : T :=
@@ -41,6 +42,8 @@ def step (τ : T) : Instr → Option T
   | .movk _ d _ _ => some (set τ d (pub τ d))
   | .ldr _ t n _ | .ldrb t n _ => if pub τ n then some (set τ t false) else none
   | .str _ _ n _ | .strb _ n _ => if pub τ n then some τ else none
+  -- Frames are not analysed yet.
+  | .push .. | .pop .. => none
 
 def condPub (τ : T) : Cond → Bool
   | .zero _ r | .nonzero _ r => pub τ r
@@ -48,7 +51,7 @@ def condPub (τ : T) : Cond → Bool
 theorem pub_iff {τ : T} {r : Reg} : pub τ r = true ↔ r ∈ τ := Iff.rfl
 
 theorem Agree.reg {τ : T} {s₁ s₂ : State} (h : Agree τ s₁ s₂) {r : Reg} (hr : pub τ r = true) :
-    s₁.gpr r = s₂.gpr r := h r (pub_iff.mp hr)
+    s₁.gpr r = s₂.gpr r := h.2 r (pub_iff.mp hr)
 
 theorem Agree.read {τ : T} {s₁ s₂ : State} (h : Agree τ s₁ s₂) {r : Reg} (hr : pub τ r = true)
     (sz : Size) : s₁.read sz r = s₂.read sz r := by
@@ -57,21 +60,22 @@ theorem Agree.read {τ : T} {s₁ s₂ : State} (h : Agree τ s₁ s₂) {r : Re
 theorem Agree.write {τ : T} {s₁ s₂ : State} (h : Agree τ s₁ s₂) (sz : Size) (d : Reg) {p : Bool}
     {v₁ v₂ : BitVec sz.bits} (hv : p = true → v₁ = v₂) :
     Agree (set τ d p) (s₁.write sz d v₁) (s₂.write sz d v₂) := by
-  intro r hr
+  refine ⟨h.1, fun r hr => ?_⟩
   simp only [State.write]
   unfold set at hr
   by_cases hp : p = true
   · simp only [hp, ite_true, RegSet.mem_insert] at hr
     by_cases hrd : r = d
     · simp [hrd, hv hp]
-    · simp [hrd, h r (hr.resolve_left hrd)]
+    · simp [hrd, h.2 r (hr.resolve_left hrd)]
   · simp only [hp, Bool.false_eq_true, ite_false, RegSet.mem_erase] at hr
-    simp [hr.1, h r hr.2]
+    simp [hr.1, h.2 r hr.2]
 
 theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha : Agree τ s₁ s₂)
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
     addrs i s₁ = addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i with
+  | push | pop => simp only [step, reduceCtorEq] at hs
   | add sz d n m =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
@@ -175,6 +179,41 @@ theorem cond_sound {τ : T} {c : Cond} {s₁ s₂ : State} (ha : Agree τ s₁ s
     (hc : condPub τ c = true) : eval c s₁ = eval c s₂ := by
   cases c <;> simp only [condPub] at hc <;> simp [eval, ha.read hc]
 
+/-- A frame's push stores to memory, which is secret. -/
+def push (τ : T) : Instr → Option T
+  | .push _ => some τ
+  | _ => none
+
+/-- A frame's pop loads a secret. -/
+def pop (τ : T) : Instr → Option T
+  | .pop r => some (τ.erase r)
+  | _ => none
+
+theorem push_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (h : Agree τ s₁ s₂)
+    (hs : push τ i = some τ') (e₁ : isa.push i s₁ = some s₁') (e₂ : isa.push i s₂ = some s₂') :
+    isa.addrs i s₁ = isa.addrs i s₂ ∧ Agree τ' s₁' s₂' := by
+  cases i <;> simp only [push, reduceCtorEq] at hs
+  cases hs
+  simp only [isa, AArch64.push] at e₁ e₂
+  split at e₁ <;> [skip; cases e₁]
+  split at e₂ <;> [skip; cases e₂]
+  cases e₁; cases e₂
+  exact ⟨by simp [addrs, h.1], by simp [h.1], h.2⟩
+
+theorem pop_sound {τ τ' : T} {j : Instr} {a₁ a₂ b₁ b₂ c₁ c₂ : State} (h : Agree τ b₁ b₂)
+    (hs : pop τ j = some τ') (e₁ : isa.pop j a₁ b₁ = some c₁) (e₂ : isa.pop j a₂ b₂ = some c₂) :
+    isa.addrs j b₁ = isa.addrs j b₂ ∧ Agree τ' c₁ c₂ := by
+  cases j <;> simp only [pop, reduceCtorEq] at hs
+  rename_i r
+  cases hs
+  simp only [isa, AArch64.pop] at e₁ e₂
+  split at e₁ <;> [skip; cases e₁]
+  split at e₂ <;> [skip; cases e₂]
+  cases e₁; cases e₂
+  refine ⟨by simp [addrs, h.1], by simp [h.1], fun r' hr' => ?_⟩
+  simp only [RegSet.mem_erase] at hr'
+  simp [State.write, hr'.1, h.2 r' hr'.2]
+
 end VG.AArch64.Taint
 
 namespace VG.AArch64
@@ -188,9 +227,33 @@ def taint : VG.Taint isa where
   condPub := Taint.condPub
   cond_sound := Taint.cond_sound
   meet τ₁ τ₂ := τ₁.inter τ₂
-  meet_left h r hr := h r (RegSet.mem_inter.mp hr).1
-  meet_right h r hr := h r (RegSet.mem_inter.mp hr).2
+  meet_left h := ⟨h.1, fun r hr => h.2 r (RegSet.mem_inter.mp hr).1⟩
+  meet_right h := ⟨h.1, fun r hr => h.2 r (RegSet.mem_inter.mp hr).2⟩
   le τ σ := τ.subset σ
-  le_sound hle h r hr := h r (RegSet.mem_of_subset hle hr)
+  le_sound hle h := ⟨h.1, fun r hr => h.2 r (RegSet.mem_of_subset hle hr)⟩
+  -- A call leaves unknown values in `x16`, `x17` and `x30`; a return changes nothing.
+  call τ := some ((τ.erase .x16).erase .x17 |>.erase .x30)
+  call_sound h hs e₁ e₂ := by
+    cases hs
+    simp only [isa, call, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    refine ⟨rfl, h.1, fun r hr => ?_⟩
+    simp only [RegSet.mem_erase] at hr
+    obtain ⟨h30, h17, h16, hr⟩ := hr
+    simp only [h16, h17, h30, ite_false]
+    exact h.2 r hr
+  ret τ := some τ
+  ret_sound h hs e₁ e₂ := by
+    cases hs
+    simp only [isa, ret] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    split at e₂ <;> [skip; cases e₂]
+    cases e₁; cases e₂
+    exact ⟨rfl, h⟩
+  -- A frame's push stores to memory, which is secret; its pop loads a secret.
+  push := Taint.push
+  push_sound := Taint.push_sound
+  pop := Taint.pop
+  pop_sound := Taint.pop_sound
 
 end VG.AArch64

@@ -233,6 +233,7 @@ theorem Exec.rdwr {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa c 
   | iteF _ _ ih => exact ih
   | loopExit _ _ ih => exact ih
   | loopNext _ _ _ ih₁ ih₂ => exact ⟨ih₂.1.trans ih₁.1, ih₂.2.trans ih₁.2⟩
+  | frame hp => simp only [isa, reduceCtorEq] at hp
   | call hc _ hr ih =>
     obtain ⟨r₁, w₁⟩ := call_regions hc; obtain ⟨r₂, w₂⟩ := ret_regions hr
     exact ⟨r₂.trans (ih.1.trans r₁), w₂.trans (ih.2.trans w₁)⟩
@@ -253,6 +254,7 @@ theorem Exec.regions {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa
   | loopNext _ _ _ ih₁ ih₂ =>
     obtain ⟨r₁, w₁, f₁⟩ := ih₁ hn; obtain ⟨r₂, w₂, f₂⟩ := ih₂ hn
     exact ⟨r₂.trans r₁, w₂.trans w₁, f₁.trans (w₁ ▸ f₂)⟩
+  | frame hp => simp only [isa, reduceCtorEq] at hp
   | call => simp [Code.noCalls] at hn
 
 theorem execBlock_widen {is : List Instr} {s s' : State} {t : List Leak} {rd wr : List Region}
@@ -292,6 +294,7 @@ theorem Exec.widen {c : Prog isa} {s s' : State} {t : List Leak} {rd wr : List R
   | loopNext h₁ hc' _ ih₁ ih₂ =>
     obtain ⟨r₁, w₁⟩ := Exec.rdwr h₁
     exact .loopNext (ih₁ hc hw) ((eval_withRegions _ _ _ _).trans ‹_›) (ih₂ (by rwa [r₁, w₁]) (by rwa [w₁]))
+  | frame hp => simp only [isa, reduceCtorEq] at hp
   | @call n _ s₀ s₁ s₂ s₃ _ hc₁ _ hr ih =>
     obtain ⟨r₁, w₁⟩ := call_regions hc₁
     have hc' : isa.call (s₀.withRegions rd wr) = some (s₁.withRegions rd wr) := by
@@ -342,6 +345,7 @@ theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, Taint.dstOf 
   | iteF _ _ ih => exact ih fun i hi => hc i (List.mem_append_right _ hi)
   | loopExit _ _ ih => exact ih hc
   | loopNext _ _ _ ih₁ ih₂ => rw [ih₂ hc, ih₁ hc]
+  | frame hp => simp only [isa, reduceCtorEq] at hp
   | call hc₁ _ hr ih =>
     obtain ⟨hsp, h'⟩ := ret_gpr hr r
     rw [h']
@@ -381,5 +385,30 @@ theorem WP.inline {c : Prog isa} {k : Contract isa}
   have : (s₁.withRegions s.rd s.wr).withRegions rd wr = s₁ := by
     rw [State.withRegions_withRegions, ← hr, ← hwr]; rfl
   rw [this]; exact hpost
+
+/-- Widening writable regions: code verified against `k` is verified against
+a contract `k'` whose states permit writing regions that extend (same bases,
+at least as long) the ones `k` permits (`wr s`), reading the same ones, if
+`k'` asks nothing more. The code runs as it does from the narrowed state,
+with the same trace and result. -/
+theorem Verified.widen {c : Prog isa} {k k' : Contract isa} (h : Verified target c k)
+    (wr : State → List Region)
+    (hpre : ∀ s, k'.pre s → k.pre (s.withRegions s.rd (wr s)))
+    (hwr : ∀ s, k'.pre s → List.Forall₂ Region.Prefix (wr s) s.wr)
+    (hpost : ∀ s s', k'.pre s →
+      k.post (s.withRegions s.rd (wr s)) (s'.withRegions s.rd (wr s)) → k'.post s s')
+    (hpub : ∀ s₁ s₂, k'.pre s₁ → k'.pre s₂ → k'.pub s₁ s₂ →
+      k.pub (s₁.withRegions s₁.rd (wr s₁)) (s₂.withRegions s₂.rd (wr s₂)))
+    (hsat : ∃ s, k'.pre s) : Verified target c k' := by
+  refine h.of_narrow (fun s => s.withRegions s.rd (wr s)) (fun s s₁ => s₁.withRegions s.rd s.wr)
+    hpre (fun s t s₁ hs he => ?_) (fun s t s₁ hs he ha hq => ?_) hpub hsat
+  · have hw : Covers (wr s) s.wr := fun _ _ => InRegions.of_prefix (hwr s hs)
+    have := Exec.widen (rd := s.rd) (wr := s.wr) he (Covers.append (fun _ _ h => h) hw) hw
+    rwa [State.withRegions_withRegions, State.withRegions_self] at this
+  · obtain ⟨hr, hw⟩ := Exec.rdwr he
+    simp only [State.withRegions_rd, State.withRegions_wr] at hr hw
+    have : (s₁.withRegions s.rd s.wr).withRegions s.rd (wr s) = s₁ := by
+      rw [State.withRegions_withRegions, ← hr, ← hw]; rfl
+    exact ⟨ha, hpost s _ hs (by rw [this]; exact hq)⟩
 
 end VG.X86_64

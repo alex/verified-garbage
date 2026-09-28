@@ -25,11 +25,12 @@ open VG.Impl.Sha256.Arm.Stream (compressAt save restore)
 
 /-! ## `init`
 
-As in the streaming SHA-256 `update`, the inlined compression function
-(`compressAt`: the block at `r1` into the hash value at `r0`, with scratch
-space `r3`) saves and restores `r4`–`r11` and `lr` itself, so our variables
-live in `r4`–`r9`, and our caller's `r4`–`r11` are saved in
-`scratch[112..144)` (`Impl.Sha256.Arm.Stream.save`).
+As in the streaming SHA-256 `update`, the blocks are compressed by calling
+`vg_sha256_compress` (`compressAt`: the block at `r1` into the hash value at
+`r0`, with scratch space `r3`), which preserves `r4`–`r11` and never writes
+`r0` or `r3`, so our variables live in `r4`–`r9`, and our caller's
+`r4`–`r11` and our return address are saved in `scratch[112..148)`
+(`Impl.Sha256.Arm.Stream.save`).
 
 Registers: `r0` = `inner` (then `outer`, for the second compression), `r4` =
 `outer`, `r5` = the next key byte, `r6` = key bytes left (then pad bytes
@@ -72,9 +73,11 @@ def init : Prog isa :=
 
 /-! ## `finalize`
 
-The inlined finalization never writes `r0`, saves and restores `r4`–`r11`
-and `lr` itself, and only writes `inner`, `out` and `scratch[0..160)`; we
-use no callee-saved register. The outer hash value is first copied to
+The inlined finalization (which calls `vg_sha256_compress`) never writes
+`r0`, saves and restores `r4`–`r11` and `lr` itself, and only writes
+`inner`, `out` and `scratch[0..160)`; we use no callee-saved register.
+(Calling `vg_sha256_finalize` instead would take a stack frame for its
+stack arguments, which the ARMv7 taint analysis does not support yet.) The outer hash value is first copied to
 `scratch[160..192)` (with `r2`, the low word of `count`, spilled to
 `scratch[192..196)` to free a temporary); after the first finalization, it
 and the digest (from `out`) are copied into the inner state, so that it

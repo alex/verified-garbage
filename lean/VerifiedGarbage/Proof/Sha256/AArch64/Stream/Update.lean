@@ -49,9 +49,19 @@ structure Pre (s₀ : State) : Prop where
   d_st : (dR s₀).Disjoint (stR s₀)
   d_scr : (dR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Proof.Sha256.updateAArch64.pre s₀) : Pre s₀ := by
-  obtain ⟨h1, h2, h3, h4, h5⟩ := h
-  exact ⟨h1, h2, h3, h4, h5⟩
+/-- The frame saving `x30`, below the stack pointer. -/
+abbrev stkR (s₀ : State) : Region := ⟨s₀.sp - 16, 16⟩
+
+/-- The frame is below the stack pointer, and disjoint from the buffers. -/
+structure Stack (s₀ : State) : Prop where
+  sp16 : 16 ≤ s₀.sp.toNat
+  st : (stkR s₀).Disjoint (stR s₀)
+  d : (stkR s₀).Disjoint (dR s₀)
+  scr : (stkR s₀).Disjoint (scR s₀)
+
+theorem pre_of {s₀ : State} (h : Proof.Sha256.updateAArch64.pre s₀) : Pre s₀ ∧ Stack s₀ := by
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ := h
+  exact ⟨⟨h1, h2, h3, h4, h5⟩, ⟨h6, h7, h8, h9⟩⟩
 
 theorem R₀.length {s₀ : State} {m : List Byte} (h : R₀ s₀ m) : cnt s₀ % 64 = m.length % 64 := by
   rw [cnt, h.2, BitVec.toNat_ofNat]
@@ -182,10 +192,11 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
     · exact ⟨stR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
   · intro s' hrd hwr hcs hsp hf hstate
-    have cs : ∀ r, r ∈ preserved → s'.gpr r = s.gpr r := hcs
-    refine ⟨⟨h.c_le, hrd.trans h.rd, hwr.trans h.wr, by rw [cs _ (by decide)]; exact h.x19,
-      by rw [cs _ (by decide)]; exact h.x20, hsp.trans h.sp,
-      by rw [cs _ (by decide)]; exact h.x21, by rw [cs _ (by decide)]; exact h.x22,
+    have cs : ∀ r, r ∈ preserved → r ≠ .x30 → s'.gpr r = s.gpr r := hcs
+    refine ⟨⟨h.c_le, hrd.trans h.rd, hwr.trans h.wr, by rw [cs _ (by decide) (by decide)]; exact h.x19,
+      by rw [cs _ (by decide) (by decide)]; exact h.x20, hsp.trans h.sp,
+      by rw [cs _ (by decide) (by decide)]; exact h.x21,
+      by rw [cs _ (by decide) (by decide)]; exact h.x22,
       h.frame.trans (hf.sub ?_), fun p hp' => ?_⟩, ?_, fun m hm => h.repr m hm _ hstate⟩
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -201,7 +212,7 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
       · simp only [Impl.Sha256.AArch64.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
         rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;>
         · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
-    · rw [cs _ (by decide), h.x23, h.mod]; rfl
+    · rw [cs _ (by decide) (by decide), h.x23, h.mod]; rfl
 
 /-! ## A whole block straight from the data -/
 
@@ -591,7 +602,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
 def prologue : List Instr :=
   [mov .x19 .x0, mov .x20 .x4, mov .x21 .x2, mov .x22 .x3, .movz .x .x9 63 0, .logic .and .x .x23 .x1 .x9]
 
-theorem update_eq : update = .seq (.block (save .x4 ++ prologue))
+theorem update_eq : updateMain = .seq (.block (save .x4 ++ prologue))
     (.seq (.ite (.zero .x .x22) (.block []) (.loop updateBody (.nonzero .x .x22))) (.block restore)) := rfl
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
@@ -637,19 +648,21 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
   have := hI.repr m ⟨hr, hc⟩
   rwa [List.take_of_length_le (by rw [D_length]), ← hmem] at this
 
-/-- No instruction of `update` writes the callee-saved registers it does not save. -/
-theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs update, dstOf i ≠ some r := by
-  have : ((instrs update).all fun i => untouched.all fun r => dstOf i != some r) = true := by
+/-- No instruction of `updateMain` writes the callee-saved registers it does not save. -/
+theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs updateMain, dstOf i ≠ some r := by
+  have : ((instrs updateMain).all fun i => untouched.all fun r => dstOf i != some r) = true := by
     rw [← Code.allInstrs_eq]; decide +kernel
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this
 
-theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateAArch64.post s₀ s' := by
+/-- `update` without its frame: the callee-saved registers but `x30` are kept. -/
+theorem correctMain {s₀ : State} (hp : Pre s₀) :
+    WP isa updateMain s₀ fun s' => (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) ∧
+      s'.sp = s₀.sp ∧ Proof.Sha256.updateAArch64.post s₀ s' := by
   have hlen := len_lt s₀
   refine WP.mono (WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
-    ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
+    ⟨fun r hr h30 => ?_, hsp, hpost⟩
   · rw [update_eq]
     refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI => ?_)
     refine WP.seq (WP.mono (Q := Inv s₀ (len s₀)) ?_ fun s₂ hI₂ => epilogue_ok hp hI₂)
@@ -682,12 +695,37 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     · exact hsv (.x22, 136) (by simp [saved])
     · exact hsv (.x23, 144) (by simp [saved])
     · exact hsv (.x24, 152) (by simp [saved])
-    all_goals exact hu _ (by simp [untouched])
+    all_goals first | exact absurd rfl h30 | exact hu _ (by simp [untouched])
+
+/-- The state `updateMain` starts in, inside the frame. -/
+abbrev inner (s₀ : State) : State :=
+  { s₀ with sp := s₀.sp - 16, mem := s₀.mem.write (s₀.sp - 16) 8 (s₀.gpr .x30) }
+
+theorem correct {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) :
+    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateAArch64.post s₀ s' := by
+  have hpi : Pre (inner s₀) := ⟨hp.rd, hp.wr, hp.st_scr, hp.d_st, hp.d_scr⟩
+  refine WP.frameReg hs.sp16 (fun R hR => ?_) (WP.mono (correctMain hpi) fun s' ⟨hk, hsp, hpost⟩ => ?_)
+  · rw [hp.wr] at hR
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hR
+    rcases hR with rfl | rfl
+    · exact hs.st
+    · exact hs.scr
+  · refine ⟨⟨fun r hr => ?_, rfl⟩, fun m hm hc => ?_⟩
+    · by_cases h30 : r = .x30
+      · subst h30; simp [State.write]
+      · simp only [State.write, h30, ite_false]
+        exact hk r hr h30
+    · have e : bytesAt (inner s₀).mem (dp s₀) (len s₀) = bytesAt s₀.mem (dp s₀) (len s₀) :=
+        bytesAt_congr fun i hi => write_frame_bytes hs.d (len_lt s₀) hi
+      have := hpost m (repr_congr (fun i hi => write_frame_bytes (R := stR s₀) hs.st
+        (by simp) hi) hm) hc
+      rw [e] at this
+      exact this
 
 theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Sha256.updateAArch64.pub s₁ s₂) :
     VG.AArch64.Taint.Agree (VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) s₁ s₂ := by
-  obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
-  intro r hr
+  obtain ⟨p1, p2, p3, p4, p5, hsp⟩ := hpub
+  refine ⟨hsp, fun r hr => ?_⟩
   simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
 
@@ -702,11 +740,11 @@ def sat : State where
 
 theorem update_verified : Verified AArch64.target update Proof.Sha256.updateAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
     exact ⟨t, s', he, h⟩
   · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) (fun _ _ _ _ hp => agree₀ hp)
       (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_⟩ <;>
+  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, by decide, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
       bv_omega
