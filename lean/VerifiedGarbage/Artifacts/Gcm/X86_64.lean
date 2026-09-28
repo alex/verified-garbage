@@ -21,6 +21,11 @@ def artifacts : List Artifact := [
       `H` the block at `h`, replaces the block `Y` at `*y` with `Yₙ`, where `Y₀ = Y` and \
       `Yᵢ = (Yᵢ₋₁ ⊕ Xᵢ) • H` for the `n` 16-byte blocks `X₁ … Xₙ` starting at `data` (blocks \
       big-endian, `•` the multiplication of §6.3).\n\n\
+      The carry-less products are computed with integer multiplications (`mul`) of operands \
+      with \"holes\" (every fourth bit), which keep the carries away from the bits of the \
+      result, as in BearSSL's `ghash_ctmul64` (Thomas Pornin, MIT licence): three 64-bit \
+      products per block (Karatsuba) by `x⁻¹ · H`, computed once, and a reduction by shifts \
+      and XORs, in GCM's bit-reflected order.\n\n\
       Contract: `VG.Spec.Gcm.ghashContract`. Constant time: only the pointers and `n` may \
       affect timing, not `H`, `Y` or the data.\n\n\
       # Safety\n\n\
