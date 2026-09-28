@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Update
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Finalize
 import VerifiedGarbage.Impl.Hmac.X86_64
 

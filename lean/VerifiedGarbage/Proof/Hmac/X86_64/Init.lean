@@ -17,9 +17,8 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame repr_congr repr_nil rep
 open VG.Proof.Sha256.X86_64 (ea_at contains_offset contains_offset' toNat_ofNat_lt sub_offset ofInt_natCast
   writeState stateAt_writeState readW_writeW_save)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_mov32i wp_addi wp_cmp wp_cmpi wp_test wp_movzx8 wp_store8
-  compressAt_ok)
-open VG.Proof.Sha256.X86_64.Stream.Update (Saved saveMem saveMem_saved saveMem_frame ofNat_succ sub_beq
-  ofNat_beq_zero)
+  compressAt_ok ofNat_succ sub_beq ofNat_beq_zero)
+open VG.Proof.Sha256.X86_64.Stream.Update (Saved saveMem saveMem_saved saveMem_frame)
 open VG.Spec.Sha256 (bytesAt stateAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
 
@@ -517,7 +516,7 @@ theorem saved_frame' {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List R
 theorem blockAt_eq {m : Mem} {p : Addr} {xs : List Byte} (h : bytesAt m p 64 = xs) :
     Spec.Sha256.blockAt m p = Spec.Sha256.parseBlock fun k => xs.getD k 0 :=
   Proof.Sha256.Stream.parseBlock_congr fun _ hk =>
-    Proof.Sha256.X86_64.Stream.Update.bytesAt_getD h hk
+    Proof.Sha256.X86_64.Stream.bytesAt_getD h hk
 
 /-- A state with `H⁽⁰⁾` and a full buffer `xs`, compressed, represents `xs`. -/
 theorem repr_block {m m' : Mem} {p : Addr} {xs : List Byte} (hst : stateAt m p = H0)
@@ -605,7 +604,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s�
   have hret : s.mem.readW (s₀.gpr .rsp) 64 = s₀.mem.readW (s₀.gpr .rsp) 64 :=
     hfr.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_i, hp.ret_o, hp.ret_s⟩) (by decide)
   apply WP.of_runBlock
-  rw [Proof.Sha256.X86_64.Stream.Update.restore_eq]
+  rw [Proof.Sha256.X86_64.Stream.restore_eq]
   simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
     runBlock_nil (M := isa), exec, readSrc, isa, ea_at, State.load64,
     State.setReg, h15, i0, i1, i2, i3, i4, i5, ite_true, ite_false, g0, g1, g2, g3, g4, g5,

@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Update
+import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Common
 
 /-!
 # Streaming SHA-256 on x86-64: `finalize`
@@ -12,8 +12,6 @@ open VG VG.X86_64 VG.Impl.Sha256.X86_64.Stream
 open VG.Impl.Sha256.X86_64 (at_)
 open VG.Proof.Sha256.X86_64 (ea_at contains_offset contains_offset' toNat_ofNat_lt readW_writeW_save
   sub_offset ofInt_natCast)
-open VG.Proof.Sha256.X86_64.Stream.Update (sub_ofNat sub_beq ofNat_beq_zero ofNat_succ ofNat_pred
-  bytesAt_getD and63)
 open VG.Proof.Sha256.Stream
 open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes)
 
@@ -651,7 +649,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
     rw [h.mem, hfo.readW (Region.contains_self _ _) (by simpa using hp.ret_out) (by decide)]
     exact hC.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_scr⟩) (by decide)
   apply WP.of_runBlock
-  rw [Update.restore_eq]
+  rw [restore_eq]
   simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
     runBlock_nil (M := isa), exec, readSrc, isa, ea_at, State.load64,
     State.setReg, hr15, i0, i1, i2, i3, i4, i5, ite_true, ite_false, g0, g1, g2, g3, g4, g5,
