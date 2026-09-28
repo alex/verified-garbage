@@ -258,7 +258,7 @@ pub(crate) unsafe extern "C" fn vg_poly1305_blocks(state: *mut [u64; 16], blocks
 
 /// Finishes a Poly1305 computation: if the streaming state `*state` represents a message under a key, writes the tag of that message followed by the `len` bytes at `tail`, under that key, to `*out`.
 ///
-/// Contract: `VG.Spec.Poly1305.finalizeContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
+/// Contract: `VG.Spec.Poly1305.finalizeTailContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
 ///
 /// # Safety
 ///
