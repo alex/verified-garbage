@@ -12,6 +12,7 @@ import VerifiedGarbage.Proof.Sha512.AArch64.Shared
 import VerifiedGarbage.Proof.Sha512.Arm.Shared
 import VerifiedGarbage.Proof.Hmac.X86_64.Shared
 import VerifiedGarbage.Proof.Pbkdf2.X86_64.Shared
+import VerifiedGarbage.Proof.Pbkdf2.AArch64.Shared
 import VerifiedGarbage.Proof.Md5.X86_64.Shared
 import VerifiedGarbage.Proof.Md5.AArch64.Shared
 import VerifiedGarbage.Proof.Sha3.X86_64.Shared
@@ -947,6 +948,28 @@ def artifacts : List Artifact := [
     code := Impl.Hmac.AArch64.finalize
     contract := Spec.Hmac.finalizeSha256Contract AArch64.abi 32
     verified := Proof.Hmac.AArch64.Shared.finalize
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := AArch64.target
+    module := "pbkdf2"
+    name := "vg_pbkdf2_hmac_sha256_iterate"
+    sig := Spec.Pbkdf2.iterateSha256Sig
+    doc := "Runs `n` steps of PBKDF2-HMAC-SHA-256's iteration: if, for a 64-byte key `K₀`, the \
+      SHA-256 streaming state in bytes 0 to 95 of `*key` represents `K₀ ⊕ ipad` and the one \
+      in bytes 96 to 191 represents `K₀ ⊕ opad` (as `vg_hmac_sha256_init` leaves them), \
+      repeats `U ← HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, \
+      and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).\n\n\
+      Contract: `VG.Spec.Pbkdf2.iterateSha256Contract`. Constant time: only the pointers and \
+      `n` may affect timing, not the key, `U` or `T`.\n\n\
+      # Safety\n\n\
+      * `key` must be valid for reads of 192 bytes, and `u` for reads of 32 bytes.\n\
+      * `t` must be valid for reads and writes of 32 bytes.\n\
+      * `scratch` must be valid for reads and writes of 384 bytes; its contents on return \
+      are unspecified.\n\
+      * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects \
+      never do). The function uses no stack: it saves its return address in `scratch`."
+    code := Impl.Pbkdf2.AArch64.iterate
+    contract := Spec.Pbkdf2.iterateSha256Contract AArch64.abi
+    verified := Proof.Pbkdf2.AArch64.Shared.iterate
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := Arm.target
     module := "sha256"

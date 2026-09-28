@@ -43,7 +43,7 @@ pub mod hashes;
     target_arch = "x86"
 ))]
 pub mod hmac;
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub mod pbkdf2;
 #[cfg(all(target_arch = "x86_64", feature = "alloc"))]
 pub mod scrypt;
