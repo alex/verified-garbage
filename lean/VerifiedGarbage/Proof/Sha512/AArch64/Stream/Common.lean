@@ -329,10 +329,10 @@ theorem frame_bytes {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {R : Re
 
 /-- Registers that no instruction writes keep their values, as a postcondition. -/
 theorem WP.gprs {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s Q) {rs : List Reg}
-    (hc : ∀ r ∈ rs, ∀ i ∈ instrs c, dstOf i ≠ some r) :
+    (hc : ∀ r ∈ rs, ∀ i ∈ instrs c, dstOf i ≠ some r) (hn : c.noCalls = true := by decide) :
     WP isa c s fun s' => Q s' ∧ ∀ r ∈ rs, s'.gpr r = s.gpr r := by
   obtain ⟨t, s', he, hq⟩ := h
-  exact ⟨t, s', he, hq, fun r hr => Exec.gpr (hc r hr) he⟩
+  exact ⟨t, s', he, hq, fun r hr => Exec.gpr (hc r hr) he (.inl hn)⟩
 
 /-- The callee-saved registers our code never touches. -/
 def untouched : List Reg := [.x18, .x25, .x26, .x27, .x28, .x29, .x30]
