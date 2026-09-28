@@ -48,7 +48,9 @@ trustworthy. Read `lean/README.md` first.
   with its `family`; any PR
   that adds or removes support for an algorithm on an architecture, or
   optimizes an implementation, reruns the script in the same PR (and after
-  merging main, rather than resolving a conflict in the table by hand).
+  merging main, rather than resolving a conflict in the table by hand). The
+  tables put each architecture's cell on a line of its own, so PRs that
+  change different cells merge without conflicts.
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
 * On x86-64, `pmuludq` and `vpmuludq` may only take secret operands between
