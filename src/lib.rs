@@ -11,6 +11,13 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 mod asm;
+mod cpu;
+
+// The 32-bit x86 model's baseline is i686 with SSE2 (see
+// `lean/VerifiedGarbage/TCB/X86/Isa.lean`): older CPUs' `mul` is not constant
+// time.
+#[cfg(all(target_arch = "x86", not(target_feature = "sse2")))]
+compile_error!("32-bit x86 needs an i686 target with SSE2 (e.g. i686-unknown-linux-gnu)");
 
 #[cfg(any(
     target_arch = "x86_64",

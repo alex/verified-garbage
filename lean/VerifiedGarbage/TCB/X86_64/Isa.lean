@@ -24,13 +24,32 @@ Modelling choices:
   "RET"). The return addresses are the next of the state's `unknowns`,
   which nothing constrains (see `TCB/Code.lean`).
 * The SSE registers `xmm0`–`xmm15` are modelled as 128 bits each (SDM Vol. 1
-  §10.2.2); the upper bits of the `ymm`/`zmm` registers they alias are not
-  modelled, and the legacy SSE instructions modelled here leave them
-  unmodified. No SSE instruction has a memory operand except the unaligned
-  `movdqu` load and store, so no alignment fault (legacy SSE
-  memory operands must be 16-byte aligned) needs modelling. MXCSR is not
-  modelled: no modelled SSE instruction reads or writes it (integer SSE
-  instructions raise no SIMD floating-point exceptions).
+  §10.2.2), and the upper halves (bits 255:128) of the AVX registers
+  `ymm0`–`ymm15` that alias them (SDM Vol. 1 §14.1.1) separately. Bits above
+  255 (AVX-512) are not modelled: no modelled instruction reads them, and
+  every VEX-encoded instruction here zeroes them. The legacy SSE instructions
+  leave bits 255:128 unmodified; the VEX-encoded ones with 128-bit operands
+  zero them (SDM Vol. 1 §14.1.3: "VEX.128 encoded … the upper bits (MAXVL-1:128)
+  of the destination are zeroed"). No SSE or AVX instruction has a memory
+  operand except the unaligned `movdqu`/`vmovdqu` loads and stores and
+  `vbroadcasti128`, which (like every VEX memory operand but those of the
+  aligned moves) need no alignment, so no alignment fault needs modelling.
+* MXCSR (SDM Vol. 1 §10.2.3) is modelled as a 32-bit value that only
+  `ldmxcsr` and `stmxcsr` access: no other modelled instruction reads or
+  writes it (integer instructions raise no SIMD floating-point exceptions).
+  Its control bits (15:6) are callee-saved (see `Target.lean`). `lfence`
+  has no architectural effect, so the model treats it as a no-op.
+* MXCSR-configuration-dependent timing (MCDT): on some Intel processors,
+  `pmuludq` and `vpmuludq`, although on Intel's DOIT list, may take up to a
+  cycle longer to retire for specific data values unless MXCSR holds
+  `0x1FBF` (Intel, "MXCSR Configuration Dependent Timing"; the processors
+  that enumerate `MCDT_NO`, CPUID.(EAX=7H,ECX=2):EDX[5], are not affected).
+  The leakage model does not see this, so code must only give these two
+  instructions secret operands between Intel's prologue and epilogue:
+  `stmxcsr` (save the caller's MXCSR), `ldmxcsr` of `0x1FBF`, `lfence`, then
+  the code that uses them, then `lfence` and `ldmxcsr` of the saved value.
+  Reviewers of an implementation check this; `lfence` and the MXCSR
+  instructions exist in the model for it.
 -/
 
 namespace VG.X86_64
@@ -54,6 +73,10 @@ structure State where
   of : Option Bool
   /-- The low 128 bits of each SSE register. -/
   xmm : XReg → BitVec 128 := fun _ => 0
+  /-- Bits 255:128 of each AVX register. -/
+  ymmHi : XReg → BitVec 128 := fun _ => 0
+  /-- The SSE control and status register (SDM Vol. 1 §10.2.3). -/
+  mxcsr : BitVec 32 := 0x1F80
   mem : Mem
   /-- Regions the code may read (in addition to `wr`). -/
   rd : List Region
@@ -91,10 +114,32 @@ inductive ShiftOp | ror | shr
 inductive XBinOp
   | movdqa | paddd | pxor | por | punpckldq | punpckhdq | punpcklqdq | punpckhqdq
   | pshufb | sha256msg1 | sha256msg2
+  | pand | pandn | paddq | pmuludq
+  | aesenc | aesenclast | aesdec | aesdeclast | aesimc
   deriving DecidableEq, Repr
 
-/-- SSE2 shifts of each doubleword by an immediate count. -/
-inductive XShiftOp | pslld | psrld
+/-- SSE2 shifts by an immediate count: of each doubleword (`pslld`, `psrld`),
+of each quadword (`psllq`, `psrlq`), or of the whole register by bytes
+(`pslldq`, `psrldq`). -/
+inductive XShiftOp | pslld | psrld | psllq | psrlq | pslldq | psrldq
+  deriving DecidableEq, Repr
+
+/-- The vector length of a VEX-encoded instruction: 128 bits (`xmm`
+operands, `VEX.L = 0`) or 256 bits (`ymm` operands, `VEX.L = 1`). -/
+inductive VLen | l128 | l256
+  deriving DecidableEq, Repr
+
+/-- VEX-encoded three-operand instructions `vop dst, src1, src2` that act on
+each 128-bit lane as the legacy SSE instruction does on its destination
+(`src1`) and source (`src2`). -/
+inductive VBinOp
+  | vpaddd | vpaddq | vpxor | vpor | vpand | vpandn | vpshufb | vpmuludq
+  | vpunpckldq | vpunpckhdq | vpunpcklqdq | vpunpckhqdq
+  deriving DecidableEq, Repr
+
+/-- AVX2 shifts of each element by the count in the corresponding element
+of a register. -/
+inductive VVarOp | vpsllvd | vpsrlvd | vpsllvq | vpsrlvq
   deriving DecidableEq, Repr
 
 /-- SSE instructions that write only an SSE register. -/
@@ -111,6 +156,45 @@ inductive XOp
   | sha256rnds2 (dst src : XReg)
   /-- `movq xmm, r64` (`66 REX.W 0F 6E /r`) -/
   | movq (dst : XReg) (src : Reg)
+  /-- `aeskeygenassist xmm1, xmm2, imm8` -/
+  | aeskeygenassist (dst src : XReg) (rcon : BitVec 8)
+  /-- `pclmulqdq xmm1, xmm2, imm8` -/
+  | pclmulqdq (dst src : XReg) (sel : BitVec 8)
+  deriving DecidableEq, Repr
+
+/-- AVX instructions that write only vector registers. -/
+inductive VOp
+  /-- `vop dst, src1, src2` -/
+  | vbin (op : VBinOp) (len : VLen) (dst src1 src2 : XReg)
+  /-- `vmovdqa dst, src` -/
+  | vmovdqa (len : VLen) (dst src : XReg)
+  /-- `vop dst, src, imm8` (`vpslld`, `vpsrld`, `vpsllq`, `vpsrlq`, `vpslldq`,
+  `vpsrldq`) -/
+  | vshift (op : XShiftOp) (len : VLen) (dst src : XReg) (count : BitVec 8)
+  /-- `vpshufd dst, src, imm8` -/
+  | vpshufd (len : VLen) (dst src : XReg) (order : BitVec 8)
+  /-- `vpalignr dst, src1, src2, imm8` -/
+  | vpalignr (len : VLen) (dst src1 src2 : XReg) (shift : BitVec 8)
+  /-- `vpblendd dst, src1, src2, imm8` -/
+  | vpblendd (len : VLen) (dst src1 src2 : XReg) (sel : BitVec 8)
+  /-- `vop dst, src1, src2` (`vpsllvd`, `vpsrlvd`, `vpsllvq`, `vpsrlvq`) -/
+  | vvar (op : VVarOp) (len : VLen) (dst src1 src2 : XReg)
+  /-- `vpbroadcastd dst, xmm` -/
+  | vpbroadcastd (len : VLen) (dst src : XReg)
+  /-- `vpbroadcastq dst, xmm` -/
+  | vpbroadcastq (len : VLen) (dst src : XReg)
+  /-- `vpermq ymm1, ymm2, imm8` -/
+  | vpermq (dst src : XReg) (order : BitVec 8)
+  /-- `vperm2i128 ymm1, ymm2, ymm3, imm8` -/
+  | vperm2i128 (dst src1 src2 : XReg) (sel : BitVec 8)
+  /-- `vinserti128 ymm1, ymm2, xmm3, imm8` -/
+  | vinserti128 (dst src1 src2 : XReg) (sel : BitVec 8)
+  /-- `vextracti128 xmm1, ymm2, imm8` -/
+  | vextracti128 (dst src : XReg) (sel : BitVec 8)
+  /-- `vmovq xmm, r64` (`VEX.128.66.0F.W1 6E /r`) -/
+  | vmovq (dst : XReg) (src : Reg)
+  /-- `vzeroupper` -/
+  | vzeroupper
   deriving DecidableEq, Repr
 
 inductive Instr
@@ -151,6 +235,22 @@ inductive Instr
   | movdquStore (dst : MemOp) (src : XReg)
   /-- An SSE instruction that writes only an SSE register. -/
   | xop (op : XOp)
+  /-- An AVX instruction that writes only vector registers. -/
+  | vop (op : VOp)
+  /-- `vmovdqu xmm, XMMWORD PTR [src]` (`VEX.128.F3.0F.WIG 6F /r`) or
+  `vmovdqu ymm, YMMWORD PTR [src]` (`VEX.256.F3.0F.WIG 6F /r`) -/
+  | vmovdquLoad (len : VLen) (dst : XReg) (src : MemOp)
+  /-- `vmovdqu XMMWORD PTR [dst], xmm` (`VEX.128.F3.0F.WIG 7F /r`) or
+  `vmovdqu YMMWORD PTR [dst], ymm` (`VEX.256.F3.0F.WIG 7F /r`) -/
+  | vmovdquStore (len : VLen) (dst : MemOp) (src : XReg)
+  /-- `vbroadcasti128 ymm, XMMWORD PTR [src]` (`VEX.256.66.0F38.W0 5A /r`) -/
+  | vbroadcasti128 (dst : XReg) (src : MemOp)
+  /-- `stmxcsr DWORD PTR [dst]` (`NP 0F AE /3`) -/
+  | stmxcsr (dst : MemOp)
+  /-- `ldmxcsr DWORD PTR [src]` (`NP 0F AE /2`) -/
+  | ldmxcsr (src : MemOp)
+  /-- `lfence` (`NP 0F AE E8`) -/
+  | lfence
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`jcc` suffixes). -/
@@ -210,6 +310,28 @@ def store128 (s : State) (a : Addr) (v : BitVec 128) : Option State :=
 
 def setXmm (s : State) (r : XReg) (v : BitVec 128) : State :=
   { s with xmm := fun r' => if r' = r then v else s.xmm r' }
+
+/-- Load 32 bytes, faulting if not permitted. -/
+def load256 (s : State) (a : Addr) : Option (BitVec 256) :=
+  if InRegions (s.rd ++ s.wr) a 32 then some (s.mem.readW a 256) else none
+
+/-- Store 32 bytes, faulting if not permitted. -/
+def store256 (s : State) (a : Addr) (v : BitVec 256) : Option State :=
+  if InRegions s.wr a 32 then some { s with mem := s.mem.writeW a v } else none
+
+/-- Lane `i` (bits `128i+127:128i`, for `i` 0 or 1) of an AVX register. -/
+def lane (s : State) (r : XReg) (i : Nat) : BitVec 128 := if i = 0 then s.xmm r else s.ymmHi r
+
+/-- The 256 bits of an AVX register. -/
+def ymm (s : State) (r : XReg) : BitVec 256 := s.ymmHi r ++ s.xmm r
+
+/-- Write a VEX-encoded instruction's result to `r`: lane 0 is `lo`, and
+lane 1 is `hi` for 256-bit operands and 0 for 128-bit ones (SDM Vol. 1
+§14.1.3). -/
+def setV (s : State) (len : VLen) (r : XReg) (lo hi : BitVec 128) : State :=
+  { s with
+    xmm := fun r' => if r' = r then lo else s.xmm r'
+    ymmHi := fun r' => if r' = r then (match len with | .l128 => 0 | .l256 => hi) else s.ymmHi r' }
 
 /-- Write a 32-bit result, zero-extended to 64 bits (SDM Vol. 1 §3.4.1.1). -/
 def setReg32 (s : State) (r : Reg) (v : BitVec 32) : State := s.setReg r (v.setWidth 64)
@@ -416,6 +538,78 @@ def sha256Msg2 (src1 src2 : BitVec 128) : BitVec 128 :=
   let w19 := dword src1 3 + sha256Sigma1 w17
   ofDwords w16 w17 w18 w19
 
+/-! The AES transformations used, but not defined, by the SDM's pseudocode
+for the AES instructions: those of the AES standard, FIPS 197 (§4 and §5).
+The state `s[r, c]` (FIPS 197 §3.4) is byte `r + 4c` of the 128-bit operand,
+so the operand is the state's 16 bytes in memory order. -/
+
+/-- FIPS 197 §4.2, `XTIMES(b)`: `b` shifted left by one bit, XOR `{1b}` if the
+bit shifted out was 1. -/
+def aesXtimes (b : BitVec 8) : BitVec 8 := (b <<< 1) ^^^ (if b.msb then 0x1b else 0)
+
+/-- FIPS 197 §4.2, the product `b • c` in GF(2⁸): the XOR of `XTIMES` applied
+`i` times to `c`, for each bit `i` of `b` that is 1. -/
+def aesMul (b c : BitVec 8) : BitVec 8 :=
+  (List.range 8).foldl (fun acc i => if b.getLsbD i then acc ^^^ Nat.repeat aesXtimes i c else acc) 0
+
+/-- FIPS 197 §4.4, the inverse `b⁻¹ = b²⁵⁴` in GF(2⁸), with `{00} ↦ {00}`:
+`b^254 = b^2 • b^4 • … • b^128`, by repeated squaring. -/
+def aesInv (b : BitVec 8) : BitVec 8 :=
+  ((List.range 7).foldl (fun (acc, sq) _ => let sq := aesMul sq sq; (aesMul acc sq, sq))
+    ((1 : BitVec 8), b)).1
+
+/-- The byte whose bit `i` is `f i`. -/
+def ofBits8 (f : Nat → Bool) : BitVec 8 :=
+  BitVec.ofNat 8 ((List.range 8).foldl (fun acc i => acc + if f i then 2 ^ i else 0) 0)
+
+/-- FIPS 197 §5.1.1, the S-box: `b ↦ b⁻¹`, then `b'ᵢ = bᵢ ⊕ b₍ᵢ₊₄₎ mod 8 ⊕
+b₍ᵢ₊₅₎ mod 8 ⊕ b₍ᵢ₊₆₎ mod 8 ⊕ b₍ᵢ₊₇₎ mod 8 ⊕ cᵢ` with `c = {63}`. -/
+def aesSbox (b : BitVec 8) : BitVec 8 :=
+  let b := aesInv b
+  let c : BitVec 8 := 0x63
+  ofBits8 fun i => b.getLsbD i ^^ b.getLsbD ((i + 4) % 8) ^^ b.getLsbD ((i + 5) % 8) ^^
+    b.getLsbD ((i + 6) % 8) ^^ b.getLsbD ((i + 7) % 8) ^^ c.getLsbD i
+
+/-- FIPS 197 §5.3.2, the inverse S-box: the inverse of the affine
+transformation, `b'ᵢ = b₍ᵢ₊₂₎ mod 8 ⊕ b₍ᵢ₊₅₎ mod 8 ⊕ b₍ᵢ₊₇₎ mod 8 ⊕ dᵢ` with
+`d = {05}`, then `b ↦ b⁻¹`. -/
+def aesInvSbox (b : BitVec 8) : BitVec 8 :=
+  let d : BitVec 8 := 0x05
+  aesInv (ofBits8 fun i =>
+    b.getLsbD ((i + 2) % 8) ^^ b.getLsbD ((i + 5) % 8) ^^ b.getLsbD ((i + 7) % 8) ^^ d.getLsbD i)
+
+/-- FIPS 197 §5.1.1 `SUBBYTES` and §5.3.2 `INVSUBBYTES`: `f` applied to every byte. -/
+def aesMapBytes (f : BitVec 8 → BitVec 8) (x : BitVec 128) : BitVec 128 :=
+  ofBytes fun i => f (byte x i)
+
+/-- FIPS 197 §5.1.2 `SHIFTROWS`: `s'[r, c] = s[r, (c + r) mod 4]`. -/
+def aesShiftRows (x : BitVec 128) : BitVec 128 :=
+  ofBytes fun i => byte x (i % 4 + 4 * ((i / 4 + i % 4) % 4))
+
+/-- FIPS 197 §5.3.1 `INVSHIFTROWS`: `s'[r, c] = s[r, (c − r) mod 4]`. -/
+def aesInvShiftRows (x : BitVec 128) : BitVec 128 :=
+  ofBytes fun i => byte x (i % 4 + 4 * ((i / 4 + 4 - i % 4) % 4))
+
+/-- FIPS 197 §5.1.3 `MIXCOLUMNS` (with `m = [{02}, {03}, {01}, {01}]`) and
+§5.3.3 `INVMIXCOLUMNS` (with `m = [{0e}, {0b}, {0d}, {09}]`):
+`s'[r, c] = m₀ • s[r, c] ⊕ m₁ • s[r + 1, c] ⊕ m₂ • s[r + 2, c] ⊕ m₃ • s[r + 3, c]`,
+rows modulo 4. -/
+def aesMixWith (m₀ m₁ m₂ m₃ : BitVec 8) (x : BitVec 128) : BitVec 128 :=
+  ofBytes fun i =>
+    let a (k : Nat) : BitVec 8 := byte x ((i % 4 + k) % 4 + 4 * (i / 4))
+    aesMul m₀ (a 0) ^^^ aesMul m₁ (a 1) ^^^ aesMul m₂ (a 2) ^^^ aesMul m₃ (a 3)
+
+def aesMixColumns : BitVec 128 → BitVec 128 := aesMixWith 0x02 0x03 0x01 0x01
+
+def aesInvMixColumns : BitVec 128 → BitVec 128 := aesMixWith 0x0e 0x0b 0x0d 0x09
+
+/-- The carry-less product of two quadwords. SDM Vol. 2, "PCLMULQDQ", defines
+bit `i` of the product as `TEMP1[0] AND TEMP2[i]` XOR … XOR `TEMP1[j] AND
+TEMP2[i−j]` over all `j` with `0 ≤ i − j ≤ 63`, and bit 127 as 0; that is
+the XOR, over the bits `j` of `a` that are 1, of `b` shifted left by `j`. -/
+def clmul (a b : BitVec 64) : BitVec 128 :=
+  (List.range 64).foldl (fun acc j => if a.getLsbD j then acc ^^^ (b.setWidth 128 <<< j) else acc) 0
+
 /-- The result of `op dst, src`, given the old values `a` of `dst` and `b` of
 `src`. SDM Vol. 2 (128-bit legacy SSE forms, which leave the destination's
 bits above 127 unmodified; no flags are affected):
@@ -443,6 +637,20 @@ bits above 127 unmodified; no flags are affected):
   DEST[95:64] := W2 + σ0(W3); DEST[63:32] := W1 + σ0(W2); DEST[31:0] :=
   W0 + σ0(W1)`.
 * SHA256MSG2: see `sha256Msg2`.
+* PAND: `DEST := DEST AND SRC`. PANDN: `DEST := NOT(DEST) AND SRC`.
+* PADDQ: `DEST[63:0] := DEST[63:0] + SRC[63:0]; DEST[127:64] :=
+  DEST[127:64] + SRC[127:64]` (wrapping).
+* PMULUDQ: `DEST[63:0] := DEST[31:0] * SRC[31:0]; DEST[127:64] :=
+  DEST[95:64] * SRC[95:64]` (unsigned, full 64-bit products).
+* AESENC: `STATE := SRC1; RoundKey := SRC2; STATE := ShiftRows(STATE);
+  STATE := SubBytes(STATE); STATE := MixColumns(STATE); DEST[127:0] :=
+  STATE XOR RoundKey`.
+* AESENCLAST: as AESENC, without `MixColumns`.
+* AESDEC: `STATE := SRC1; RoundKey := SRC2; STATE := InvShiftRows(STATE);
+  STATE := InvSubBytes(STATE); STATE := InvMixColumns(STATE); DEST[127:0] :=
+  STATE XOR RoundKey`.
+* AESDECLAST: as AESDEC, without `InvMixColumns`.
+* AESIMC: `DEST[127:0] := InvMixColumns(SRC)`.
 
 (`SRC1` is the destination, `SRC2` the source.) -/
 def XBinOp.eval : XBinOp → BitVec 128 → BitVec 128 → BitVec 128
@@ -463,18 +671,41 @@ def XBinOp.eval : XBinOp → BitVec 128 → BitVec 128 → BitVec 128
     ofDwords (dword a 0 + sha256Sigma0 (dword a 1)) (dword a 1 + sha256Sigma0 (dword a 2))
       (dword a 2 + sha256Sigma0 (dword a 3)) (dword a 3 + sha256Sigma0 (dword b 0))
   | .sha256msg2, a, b => sha256Msg2 a b
+  | .pand, a, b => a &&& b
+  | .pandn, a, b => ~~~a &&& b
+  | .paddq, a, b => (qword a 1 + qword b 1) ++ (qword a 0 + qword b 0)
+  | .pmuludq, a, b =>
+    ((dword a 2).setWidth 64 * (dword b 2).setWidth 64) ++
+      ((dword a 0).setWidth 64 * (dword b 0).setWidth 64)
+  | .aesenc, a, b => aesMixColumns (aesMapBytes aesSbox (aesShiftRows a)) ^^^ b
+  | .aesenclast, a, b => aesMapBytes aesSbox (aesShiftRows a) ^^^ b
+  | .aesdec, a, b => aesInvMixColumns (aesMapBytes aesInvSbox (aesInvShiftRows a)) ^^^ b
+  | .aesdeclast, a, b => aesMapBytes aesInvSbox (aesInvShiftRows a) ^^^ b
+  | .aesimc, _, b => aesInvMixColumns b
 
-/-- SDM Vol. 2, "PSLLW/PSLLD/PSLLQ" and "PSRLW/PSRLD/PSRLQ", the doubleword
-forms with an immediate count: `IF (COUNT > 31) THEN DEST[127:0] := 0 ELSE
-DEST[31:0] := ZeroExtend(DEST[31:0] << COUNT)` (respectively `>>`, a logical
-shift), and likewise for doublewords 1–3. No flags are affected. -/
+/-- SDM Vol. 2, the forms with an immediate count (no flags are affected):
+
+* "PSLLW/PSLLD/PSLLQ" and "PSRLW/PSRLD/PSRLQ", doublewords: `IF (COUNT > 31)
+  THEN DEST[127:0] := 0 ELSE DEST[31:0] := ZeroExtend(DEST[31:0] << COUNT)`
+  (respectively `>>`, a logical shift), and likewise for doublewords 1–3.
+* The same, quadwords: `IF (COUNT > 63) THEN DEST[127:0] := 0 ELSE
+  DEST[63:0] := ZeroExtend(DEST[63:0] << COUNT)` (respectively `>>`), and
+  likewise for quadword 1.
+* "PSLLDQ" and "PSRLDQ": `TEMP := COUNT; IF (TEMP > 15) THEN TEMP := 16;
+  DEST := DEST << (TEMP * 8)` (respectively `>>`, a logical shift). -/
 def XShiftOp.eval (op : XShiftOp) (a : BitVec 128) (count : BitVec 8) : BitVec 128 :=
   let n := count.toNat
-  if 31 < n then 0 else
-    let f : BitVec 32 → BitVec 32 := match op with
-      | .pslld => (· <<< n)
-      | .psrld => (· >>> n)
-    ofDwords (f (dword a 0)) (f (dword a 1)) (f (dword a 2)) (f (dword a 3))
+  let dwords (f : BitVec 32 → BitVec 32) : BitVec 128 :=
+    if 31 < n then 0 else ofDwords (f (dword a 0)) (f (dword a 1)) (f (dword a 2)) (f (dword a 3))
+  let qwords (f : BitVec 64 → BitVec 64) : BitVec 128 :=
+    if 63 < n then 0 else f (qword a 1) ++ f (qword a 0)
+  match op with
+  | .pslld => dwords (· <<< n)
+  | .psrld => dwords (· >>> n)
+  | .psllq => qwords (· <<< n)
+  | .psrlq => qwords (· >>> n)
+  | .pslldq => a <<< (min n 16 * 8)
+  | .psrldq => a >>> (min n 16 * 8)
 
 /-- SDM Vol. 2, "PSHUFD": `DEST[31:0] := (SRC >> (ORDER[1:0] * 32))[31:0];
 DEST[63:32] := (SRC >> (ORDER[3:2] * 32))[31:0]; DEST[95:64] := (SRC >>
@@ -527,6 +758,151 @@ def sha256Rnds2 (src1 src2 wk : BitVec 128) : BitVec 128 :=
   let f2 := e1
   ofDwords f2 e2 b2 a2
 
+/-- SDM Vol. 2, "AESKEYGENASSIST": `X3[31:0] := SRC[127:96]; X2[31:0] :=
+SRC[95:64]; X1[31:0] := SRC[63:32]; X0[31:0] := SRC[31:0]; RCON[31:0] :=
+ZeroExtend(imm8[7:0]); DEST[31:0] := SubWord(X1); DEST[63:32] :=
+RotWord(SubWord(X1)) XOR RCON; DEST[95:64] := SubWord(X3); DEST[127:96] :=
+RotWord(SubWord(X3)) XOR RCON`, where `SubWord` applies the S-box to each
+byte and `RotWord(x) = (x >> 8) OR (x << 24)` (a 32-bit rotate right by 8).
+No flags are affected. -/
+def aesKeygenAssist (src : BitVec 128) (rcon : BitVec 8) : BitVec 128 :=
+  let subWord (x : BitVec 32) : BitVec 32 :=
+    aesSbox (x.extractLsb' 24 8) ++ aesSbox (x.extractLsb' 16 8) ++
+      aesSbox (x.extractLsb' 8 8) ++ aesSbox (x.extractLsb' 0 8)
+  let rc : BitVec 32 := rcon.setWidth 32
+  let x1 := subWord (dword src 1)
+  let x3 := subWord (dword src 3)
+  ofDwords x1 (x1.rotateRight 8 ^^^ rc) x3 (x3.rotateRight 8 ^^^ rc)
+
+/-- SDM Vol. 2, "PCLMULQDQ", 128-bit legacy SSE version: `IF (imm8[0] = 0)
+THEN TEMP1 := SRC1[63:0] ELSE TEMP1 := SRC1[127:64]; IF (imm8[4] = 0) THEN
+TEMP2 := SRC2[63:0] ELSE TEMP2 := SRC2[127:64]`, and `DEST[127:0]` the
+carry-less product of `TEMP1` and `TEMP2` (`clmul`). No flags are affected. -/
+def pclmul (src1 src2 : BitVec 128) (sel : BitVec 8) : BitVec 128 :=
+  clmul (qword src1 (if sel.getLsbD 0 then 1 else 0)) (qword src2 (if sel.getLsbD 4 then 1 else 0))
+
+/-! ### AVX
+
+The SDM defines most VEX-encoded integer instructions on 256-bit operands as
+the 128-bit operation applied to each 128-bit lane (e.g. "VPADDD (VEX.256
+encoded version)": the doubleword sums of `SRC1[127:0]` and `SRC2[127:0]`
+into `DEST[127:0]`, then of `SRC1[255:128]` and `SRC2[255:128]` into
+`DEST[255:128]`); `VEX.128` versions compute lane 0 only and zero the rest. -/
+
+/-- The legacy SSE instruction whose operation `op` applies to each lane:
+VPADDD, VPADDQ, VPXOR, VPOR, VPAND, VPANDN, VPSHUFB, VPMULUDQ and
+VPUNPCK{L,H}{DQ,QDQ} are, lane by lane, PADDD, PADDQ, PXOR, POR, PAND,
+PANDN, PSHUFB, PMULUDQ and PUNPCK{L,H}{DQ,QDQ} (SDM Vol. 2, each
+instruction's "VEX.256 encoded version" pseudocode, with `SRC1` in place of
+the destination). -/
+def VBinOp.sse : VBinOp → XBinOp
+  | .vpaddd => .paddd | .vpaddq => .paddq | .vpxor => .pxor | .vpor => .por
+  | .vpand => .pand | .vpandn => .pandn | .vpshufb => .pshufb | .vpmuludq => .pmuludq
+  | .vpunpckldq => .punpckldq | .vpunpckhdq => .punpckhdq
+  | .vpunpcklqdq => .punpcklqdq | .vpunpckhqdq => .punpckhqdq
+
+/-- SDM Vol. 2, "VPBLENDD", for one lane (`imm` holding that lane's four
+selector bits): `IF (imm8[i]) THEN DEST[32i+31:32i] := SRC2[32i+31:32i]
+ELSE DEST[32i+31:32i] := SRC1[32i+31:32i]`. -/
+def blendDwords (a b : BitVec 128) (imm : BitVec 4) : BitVec 128 :=
+  let pick (i : Nat) : BitVec 32 := if imm.getLsbD i then dword b i else dword a i
+  ofDwords (pick 0) (pick 1) (pick 2) (pick 3)
+
+/-- SDM Vol. 2, "VPSLLVD/VPSLLVQ" and "VPSRLVD/VPSRLVQ", for one lane:
+`COUNT := SRC2[32i+31:32i]; IF COUNT < 32 THEN DEST[32i+31:32i] :=
+ZeroExtend(SRC1[32i+31:32i] << COUNT) ELSE DEST[32i+31:32i] := 0`
+(respectively `>>`, a logical shift) for each doubleword `i`, and likewise
+for quadwords with `COUNT < 64`. -/
+def VVarOp.eval (op : VVarOp) (a b : BitVec 128) : BitVec 128 :=
+  let dwords (f : BitVec 32 → Nat → BitVec 32) : BitVec 128 :=
+    let e (i : Nat) := let n := (dword b i).toNat; if n < 32 then f (dword a i) n else 0
+    ofDwords (e 0) (e 1) (e 2) (e 3)
+  let qwords (f : BitVec 64 → Nat → BitVec 64) : BitVec 128 :=
+    let e (i : Nat) := let n := (qword b i).toNat; if n < 64 then f (qword a i) n else 0
+    e 1 ++ e 0
+  match op with
+  | .vpsllvd => dwords (· <<< ·)
+  | .vpsrlvd => dwords (· >>> ·)
+  | .vpsllvq => qwords (· <<< ·)
+  | .vpsrlvq => qwords (· >>> ·)
+
+/-- Quadword `i` (bits `64i+63:64i`) of a 256-bit value. -/
+def qword256 (x : BitVec 256) (i : Nat) : BitVec 64 := x.extractLsb' (64 * i) 64
+
+/-- SDM Vol. 2, "VPERMQ" (immediate form): `DEST[63:0] := (SRC >>
+(IMM8[1:0] * 64))[63:0]; DEST[127:64] := (SRC >> (IMM8[3:2] * 64))[63:0];
+DEST[191:128] := (SRC >> (IMM8[5:4] * 64))[63:0]; DEST[255:192] := (SRC >>
+(IMM8[7:6] * 64))[63:0]`. -/
+def permQwords (x : BitVec 256) (order : BitVec 8) : BitVec 256 :=
+  let q (i : Nat) := qword256 x (order.extractLsb' (2 * i) 2).toNat
+  q 3 ++ q 2 ++ q 1 ++ q 0
+
+/-- SDM Vol. 2, "VPERM2I128": `CASE IMM8[1:0] of 0: DEST[127:0] :=
+SRC1[127:0]; 1: DEST[127:0] := SRC1[255:128]; 2: DEST[127:0] :=
+SRC2[127:0]; 3: DEST[127:0] := SRC2[255:128]`, likewise `IMM8[5:4]` for
+`DEST[255:128]`; `IF (imm8[3]) DEST[127:0] := 0; IF (imm8[7])
+DEST[255:128] := 0`. Here `a i` and `b i` are lane `i` of `SRC1` and
+`SRC2`, and the result is lane `j` of `DEST`. -/
+def perm2Lanes (a b : Nat → BitVec 128) (sel : BitVec 8) (j : Nat) : BitVec 128 :=
+  if sel.getLsbD (4 * j + 3) then 0 else
+    let k := (sel.extractLsb' (4 * j) 2).toNat
+    if k < 2 then a (k % 2) else b (k % 2)
+
+/-- Semantics of an AVX instruction that writes only vector registers. SDM
+Vol. 2 (no flags are affected; `VEX.128` versions zero `DEST[MAXVL-1:128]`):
+
+* The lane-wise instructions: see `VBinOp.sse`, `XShiftOp.eval` (VPSLLD,
+  VPSRLD, VPSLLQ, VPSRLQ, VPSLLDQ and VPSRLDQ with an immediate count, each
+  lane as the legacy SSE form on `SRC`), `shufDwords` (VPSHUFD, each lane
+  with the same `imm8`), `alignRight` (VPALIGNR: `temp1[255:0] :=
+  ((SRC1[127:0] << 128) OR SRC2[127:0]) >> (imm8*8)`, and likewise for
+  bits 255:128), `blendDwords` (VPBLENDD, lane `j` selected by
+  `imm8[4j+3:4j]`), and `VVarOp.eval`.
+* VMOVDQA (register form): `DEST[255:0] := SRC[255:0]` (`VEX.128`:
+  `DEST[127:0] := SRC[127:0]`).
+* VPBROADCASTD/VPBROADCASTQ (register source): every doubleword
+  (quadword) of `DEST` is `SRC[31:0]` (`SRC[63:0]`).
+* VPERMQ: see `permQwords`. VPERM2I128: see `perm2Lanes`.
+* VINSERTI128: `TEMP[255:0] := SRC1[255:0]; CASE (imm8[0]) OF 0:
+  TEMP[127:0] := SRC2[127:0]; 1: TEMP[255:128] := SRC2[127:0]; DEST :=
+  TEMP`.
+* VEXTRACTI128 (register destination): `CASE (imm8[0]) OF 0: DEST[127:0]
+  := SRC1[127:0]; 1: DEST[127:0] := SRC1[255:128]; DEST[MAXVL-1:128] := 0`.
+* VMOVQ xmm, r64: `DEST[63:0] := SRC[63:0]; DEST[MAXVL-1:64] := 0`.
+* VZEROUPPER: in 64-bit mode, `YMM0[MAXVL-1:128] := 0` … `YMM15[MAXVL-1:128]
+  := 0`. -/
+def VOp.exec : VOp → State → State
+  | .vbin op len d a b, s =>
+    s.setV len d (op.sse.eval (s.lane a 0) (s.lane b 0)) (op.sse.eval (s.lane a 1) (s.lane b 1))
+  | .vmovdqa len d r, s => s.setV len d (s.lane r 0) (s.lane r 1)
+  | .vshift op len d r n, s => s.setV len d (op.eval (s.lane r 0) n) (op.eval (s.lane r 1) n)
+  | .vpshufd len d r o, s => s.setV len d (shufDwords (s.lane r 0) o) (shufDwords (s.lane r 1) o)
+  | .vpalignr len d a b n, s =>
+    s.setV len d (alignRight (s.lane a 0) (s.lane b 0) n) (alignRight (s.lane a 1) (s.lane b 1) n)
+  | .vpblendd len d a b n, s =>
+    s.setV len d (blendDwords (s.lane a 0) (s.lane b 0) (n.extractLsb' 0 4))
+      (blendDwords (s.lane a 1) (s.lane b 1) (n.extractLsb' 4 4))
+  | .vvar op len d a b, s =>
+    s.setV len d (op.eval (s.lane a 0) (s.lane b 0)) (op.eval (s.lane a 1) (s.lane b 1))
+  | .vpbroadcastd len d r, s =>
+    let v := dword (s.xmm r) 0
+    let x := ofDwords v v v v
+    s.setV len d x x
+  | .vpbroadcastq len d r, s =>
+    let x := qword (s.xmm r) 0 ++ qword (s.xmm r) 0
+    s.setV len d x x
+  | .vpermq d r o, s =>
+    let x := permQwords (s.ymm r) o
+    s.setV .l256 d (x.extractLsb' 0 128) (x.extractLsb' 128 128)
+  | .vperm2i128 d a b n, s =>
+    s.setV .l256 d (perm2Lanes (s.lane a) (s.lane b) n 0) (perm2Lanes (s.lane a) (s.lane b) n 1)
+  | .vinserti128 d a b n, s =>
+    if n.getLsbD 0 then s.setV .l256 d (s.lane a 0) (s.xmm b)
+    else s.setV .l256 d (s.xmm b) (s.lane a 1)
+  | .vextracti128 d r n, s => s.setV .l128 d (s.lane r (if n.getLsbD 0 then 1 else 0)) 0
+  | .vmovq d r, s => s.setV .l128 d ((0 : BitVec 64) ++ s.gpr r) 0
+  | .vzeroupper, s => { s with ymmHi := fun _ => 0 }
+
 /-- Semantics of an SSE instruction that writes only an SSE register. MOVQ
 with an XMM destination: SDM Vol. 2, "MOVD/MOVQ", 128-bit legacy SSE
 version: `DEST[63:0] := SRC[63:0]; DEST[127:64] := 0000000000000000H`. No
@@ -538,6 +914,8 @@ def XOp.exec : XOp → State → State
   | .palignr d r n, s => s.setXmm d (alignRight (s.xmm d) (s.xmm r) n)
   | .sha256rnds2 d r, s => s.setXmm d (sha256Rnds2 (s.xmm d) (s.xmm r) (s.xmm .xmm0))
   | .movq d r, s => s.setXmm d ((0 : BitVec 64) ++ s.gpr r)
+  | .aeskeygenassist d r n, s => s.setXmm d (aesKeygenAssist (s.xmm r) n)
+  | .pclmulqdq d r n, s => s.setXmm d (pclmul (s.xmm d) (s.xmm r) n)
 
 /-- The CPU features an instruction needs beyond the x86-64 baseline
 (x86-64-v1, which includes SSE and SSE2: System V AMD64 psABI,
@@ -545,10 +923,32 @@ def XOp.exec : XOp → State → State
 the "CPUID Feature Flag" column of each instruction's opcode table: SSSE3
 for PSHUFB and PALIGNR (`66 0F 38 00 /r`, `66 0F 3A 0F /r ib`), SHA for
 SHA256RNDS2, SHA256MSG1 and SHA256MSG2 (`NP 0F 38 CB /r`, `NP 0F 38 CC /r`,
-`NP 0F 38 CD /r`); SSE2 for MOVQ xmm, r64 (`66 REX.W 0F 6E /r`). -/
+`NP 0F 38 CD /r`); AES for AESENC, AESENCLAST, AESDEC, AESDECLAST, AESIMC
+and AESKEYGENASSIST (`66 0F 38 DC /r`, `66 0F 38 DD /r`, `66 0F 38 DE /r`,
+`66 0F 38 DF /r`, `66 0F 38 DB /r`, `66 0F 3A DF /r ib`); PCLMULQDQ for
+PCLMULQDQ (`66 0F 3A 44 /r ib`); SSE2 for MOVQ xmm, r64 (`66 REX.W 0F 6E /r`),
+PAND, PANDN, PADDQ, PMULUDQ, PSLLQ, PSRLQ, PSLLDQ and PSRLDQ; AVX for the
+VEX.128 forms of the lane-wise instructions (e.g. `VEX.128.66.0F.WIG FE /r`
+VPADDD), for VMOVDQA, VMOVDQU (both lengths), VMOVQ and VZEROUPPER; AVX2 for
+their VEX.256 forms (e.g. `VEX.256.66.0F.WIG FE /r` VPADDD) and for VPBLENDD,
+VPSLLVD/Q, VPSRLVD/Q, VPBROADCASTD/Q, VPERMQ, VPERM2I128, VINSERTI128,
+VEXTRACTI128 and VBROADCASTI128 at any length. LDMXCSR and STMXCSR (SSE,
+`NP 0F AE /2`, `NP 0F AE /3`) and LFENCE (SSE2, `NP 0F AE E8`) are in the
+baseline. -/
 def Instr.requires : Instr → List String
   | .xop (.bin .pshufb ..) | .xop (.palignr ..) => ["ssse3"]
   | .xop (.bin .sha256msg1 ..) | .xop (.bin .sha256msg2 ..) | .xop (.sha256rnds2 ..) => ["sha"]
+  | .xop (.bin .aesenc ..) | .xop (.bin .aesenclast ..) | .xop (.bin .aesdec ..)
+  | .xop (.bin .aesdeclast ..) | .xop (.bin .aesimc ..) | .xop (.aeskeygenassist ..) => ["aes"]
+  | .xop (.pclmulqdq ..) => ["pclmulqdq"]
+  | .vop (.vbin _ .l256 ..) | .vop (.vshift _ .l256 ..) | .vop (.vpshufd .l256 ..)
+  | .vop (.vpalignr .l256 ..) => ["avx2"]
+  | .vop (.vbin _ .l128 ..) | .vop (.vshift _ .l128 ..) | .vop (.vpshufd .l128 ..)
+  | .vop (.vpalignr .l128 ..) | .vop (.vmovdqa ..) | .vop (.vmovq ..) | .vop .vzeroupper
+  | .vmovdquLoad .. | .vmovdquStore .. => ["avx"]
+  | .vop (.vpblendd ..) | .vop (.vvar ..) | .vop (.vpbroadcastd ..) | .vop (.vpbroadcastq ..)
+  | .vop (.vpermq ..) | .vop (.vperm2i128 ..) | .vop (.vinserti128 ..) | .vop (.vextracti128 ..)
+  | .vbroadcasti128 .. => ["avx2"]
   | _ => []
 
 /-- Semantics of an instruction. The byte forms: SDM Vol. 2, "MOVZX":
@@ -577,6 +977,30 @@ def exec : Instr → State → Option State
   | .movdquLoad d m, s => (s.load128 (s.ea m)).map fun v => s.setXmm d v
   | .movdquStore m r, s => s.store128 (s.ea m) (s.xmm r)
   | .xop op, s => some (op.exec s)
+  | .vop op, s => some (op.exec s)
+  -- SDM Vol. 2, "MOVDQU" (VEX.128 and VEX.256 versions): `DEST[127:0] :=
+  -- SRC[127:0]; DEST[MAXVL-1:128] := 0`, respectively `DEST[255:0] :=
+  -- SRC[255:0]`, and for a store the 16 or 32 bytes of the source; no
+  -- alignment is required.
+  | .vmovdquLoad .l128 d m, s => (s.load128 (s.ea m)).map fun v => s.setV .l128 d v 0
+  | .vmovdquLoad .l256 d m, s =>
+    (s.load256 (s.ea m)).map fun v => s.setV .l256 d (v.extractLsb' 0 128) (v.extractLsb' 128 128)
+  | .vmovdquStore .l128 m r, s => s.store128 (s.ea m) (s.xmm r)
+  | .vmovdquStore .l256 m r, s => s.store256 (s.ea m) (s.ymm r)
+  -- SDM Vol. 2, "VBROADCAST": `DEST[127:0] := SRC[127:0]; DEST[255:128] :=
+  -- SRC[127:0]`; no alignment is required.
+  | .vbroadcasti128 d m, s => (s.load128 (s.ea m)).map fun v => s.setV .l256 d v v
+  -- SDM Vol. 2, "STMXCSR": `m32 := MXCSR`. "LDMXCSR": `MXCSR := m32`, with
+  -- #GP(0) "for an attempt to set reserved bits in MXCSR", which are bits
+  -- 31:16 (SDM Vol. 1 §10.2.3); on processors without DAZ, bit 6 is
+  -- reserved too (§11.6.6, `MXCSR_MASK`), which the model does not know: it
+  -- is loaded only with values without it, or saved from MXCSR itself.
+  -- "LFENCE": it orders instructions and has no architectural effect.
+  -- None of them affects the flags.
+  | .stmxcsr m, s => s.store32 (s.ea m) s.mxcsr
+  | .ldmxcsr m, s => (s.load32 (s.ea m)).bind fun v =>
+    if v.extractLsb' 16 16 = 0 then some { s with mxcsr := v } else none
+  | .lfence, s => some s
 
 def addrs : Instr → State → List Addr
   | .mov _ src, s => srcAddrs s src
@@ -595,6 +1019,13 @@ def addrs : Instr → State → List Addr
   | .movdquLoad _ m, s => [s.ea m]
   | .movdquStore m _, s => [s.ea m]
   | .xop _, _ => []
+  | .vop _, _ => []
+  | .vmovdquLoad _ _ m, s => [s.ea m]
+  | .vmovdquStore _ m _, s => [s.ea m]
+  | .vbroadcasti128 _ m, s => [s.ea m]
+  | .stmxcsr m, s => [s.ea m]
+  | .ldmxcsr m, s => [s.ea m]
+  | .lfence, _ => []
 
 def eval : Cond → State → Option Bool
   | .e, s => s.zf
@@ -624,7 +1055,9 @@ def ret (s₁ s₂ : State) : Option State :=
 def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .mov32 d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
   | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
-  | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ => none
+  | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _
+  | .vop _ | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .stmxcsr _ | .ldmxcsr _
+  | .lfence => none
 
 abbrev isa : ISA where
   State := State

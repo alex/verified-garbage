@@ -23,8 +23,9 @@ super::streaming_hash!(
         output: 16,
         final_hash: 16,
         init: vg_md5_init,
-        update: vg_md5_update,
-        finalize: vg_md5_finalize,
+        backends: Md5Backend {
+            Scalar => (vg_md5_update, vg_md5_finalize),
+        },
     }
 );
 

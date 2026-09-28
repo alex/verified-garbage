@@ -77,22 +77,22 @@ def finK : Contract isa :=
     post := fun s s' => Proof.Sha256.finalizeX86_64.post s s' ∧ s'.gpr .rdi = s.gpr .rdi ∧
       s'.gpr .rcx = s.gpr .rcx }
 
-theorem finK_ok : ∀ s, finK.pre s → ∃ t s', Exec isa Impl.Sha256.X86_64.Stream.finalize s t s' ∧
+theorem finK_ok : ∀ s, finK.pre s → ∃ t s', Exec isa (Impl.Sha256.X86_64.Stream.finalize .scalar) s t s' ∧
     abiPreserved s s' ∧ finK.post s s' := by
   intro s hs
   obtain ⟨t, s', he, h₁, h₂, h₃, h₄⟩ :=
-    Proof.Sha256.X86_64.Stream.Finalize.correct (Proof.Sha256.X86_64.Stream.Finalize.pre_of hs)
-  exact ⟨t, s', he, h₁, h₂, h₃, h₄⟩
+    Proof.Sha256.X86_64.Stream.Finalize.correct Proof.Sha256.X86_64.Stream.scalar_ok (Proof.Sha256.X86_64.Stream.Finalize.pre_of hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h₁, h₂, h₃, h₄⟩
 
 theorem sub176 (s₀ : State) : Region.Sub ⟨scr s₀ + 176, 32⟩ (scR s₀) :=
   sub_offset (off := 176) (by omega) (by omega)
 
 theorem sub160 (s₀ : State) : Region.Sub ⟨scr s₀, 160⟩ (scR s₀) := Region.sub_prefix (by omega)
 
-theorem finalize_depth : Impl.Sha256.X86_64.Stream.finalize.depth = 1 := by decide +kernel
+theorem finalize_depth : (Impl.Sha256.X86_64.Stream.finalize .scalar).depth = 1 := by decide +kernel
 
-theorem finalize_nosp : NoSp Impl.Sha256.X86_64.Stream.finalize := by
-  have : ((instrs Impl.Sha256.X86_64.Stream.finalize).all fun i => Taint.dstOf i != some .rsp) = true := by
+theorem finalize_nosp : NoSp (Impl.Sha256.X86_64.Stream.finalize .scalar) := by
+  have : ((instrs (Impl.Sha256.X86_64.Stream.finalize .scalar)).all fun i => Taint.dstOf i != some .rsp) = true := by
     rw [← Code.allInstrs_eq]; decide +kernel
   intro i hi
   simpa using List.all_eq_true.mp this i hi
@@ -304,7 +304,7 @@ theorem not_finW {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 32) :
   · exact fun hc => hp.stk_s _ hc hs
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256X86_64.post s₀ s' := by
+    WP isa finalize s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256X86_64.post s₀ s' := by
   unfold finalize
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
   have sp₁ := h₁.cs .rsp (by decide)
@@ -395,7 +395,7 @@ theorem finalize_verified :
     Verified X86_64.target finalize Proof.Hmac.finalizeSha256X86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
