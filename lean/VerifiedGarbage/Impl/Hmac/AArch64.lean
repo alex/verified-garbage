@@ -8,9 +8,10 @@ streaming states (`inner`, `outer`; see `VG.Spec.Hmac`).
 
 * `init(inner = x0, outer = x1, key = x2, key_len = x3, scratch = x4)`
   stores `H⁽⁰⁾` in both states, the block `K₀ ⊕ ipad` in the inner buffer
-  and `K₀ ⊕ opad` in the outer one, and compresses both.
+  and `K₀ ⊕ opad` in the outer one, and compresses both (calling
+  `vg_sha256_compress`).
 * `finalize(inner = x0, outer = x1, count = x2, scratch = x3)` finalizes the
-  inner state (the inlined `vg_sha256_finalize`), makes the inner state
+  inner state (calling `vg_sha256_finalize`), makes the inner state
   represent `(K₀ ⊕ opad) ‖ digest` (96 bytes) from the outer hash value and
   that digest, and finalizes it again, leaving the MAC in
   `scratch[176..208)`.
@@ -23,10 +24,11 @@ open VG.Impl.Sha256.AArch64.Stream (mov compressAt save restore)
 
 /-! ## `init`
 
-As in the streaming SHA-256 `update`, the inlined compression function
+As in the streaming SHA-256 `update`, the call of the compression function
 (`compressAt`: the block at `x1` into the hash value at `x19`, with scratch
-space `x20`) only writes `x0`–`x15`, so our variables live in `x19`–`x24`,
-and our caller's values of those are saved in `scratch[112..160)`.
+space `x20`) preserves `x19`–`x28`, so our variables live in `x19`–`x24`,
+our caller's values of those are saved in `scratch[112..160)`, and our return
+address in a stack frame.
 
 Registers: `x19` = the state being compressed (`inner`, then `outer`), `x20`
 = `scratch`, `x21` = `outer`, `x22` = the next key byte, `x23` = key bytes
@@ -53,7 +55,8 @@ def padLoop : Prog isa :=
   .loop (.block [.add .x .x12 .x19 .x24, .strb .x14 .x12 32, .add .x .x12 .x21 .x24, .strb .x15 .x12 32,
     .addImm .x .x24 .x24 1, .subImm .x .x11 .x11 1]) (.nonzero .x .x11)
 
-def init : Prog isa :=
+/-- `init`, but for saving `x30`. -/
+def initMain : Prog isa :=
   .seq (.block (save .x4 ++ [mov .x19 .x0, mov .x20 .x4, mov .x21 .x1, mov .x22 .x2, mov .x23 .x3] ++
       h0 .x19 ++ h0 .x21 ++ [.movz .x .x14 0x36 0, .movz .x .x15 0x5c 0, .movz .x .x24 0 0]))
   (.seq (.ite (.zero .x .x23) (.block []) keyLoop)
@@ -65,6 +68,8 @@ def init : Prog isa :=
   (.seq compressAt
     (.block restore))))))))
 
+def init : Prog isa := .frame (.push .x30) initMain (.pop .x30)
+
 /-! ## `finalize`
 
 The MAC is left in `scratch[176..208)`. The outer hash value is first copied
@@ -73,9 +78,10 @@ to `scratch[208..240)`; the inner state is finalized into
 value and that digest, so that it represents `(K₀ ⊕ opad) ‖ digest`, and
 finalized again.
 
-`inner` and `scratch` are kept in `x16` and `x17`, which the inlined
-finalization never writes (it only uses `x0`–`x15` and the callee-saved
-`x19`–`x24`, which it restores); we use no callee-saved register ourselves. -/
+`inner` and `scratch` are kept in `x25` and `x26`, which the calls of
+`vg_sha256_finalize` preserve and never even write (so the taint analysis
+knows they are still public after them); our caller's values of those are
+saved in `scratch[160..176)`, and our return address in a stack frame. -/
 
 /-- Copying 32-bit word `k` from `[src + o₁]` to `[dst + o₂]`. -/
 def cp32 (src dst : Reg) (o₁ o₂ k : Nat) : List Instr :=
@@ -90,12 +96,20 @@ def saveOuter : List Instr := (List.range 8).flatMap (cp32 .x1 .x3 0 208)
 
 /-- The outer hash value and the first digest into the inner state. -/
 def loadOuter : List Instr :=
-  (List.range 8).flatMap (cp32 .x17 .x16 208 0) ++ (List.range 4).flatMap (cp64 .x17 .x16 176 32)
+  (List.range 8).flatMap (cp32 .x26 .x25 208 0) ++ (List.range 4).flatMap (cp64 .x26 .x25 176 32)
 
-def finalize : Prog isa :=
-  .seq (.block ([mov .x16 .x0, mov .x17 .x3] ++ saveOuter ++ [mov .x1 .x2, .addImm .x .x2 .x3 176]))
-  (.seq Impl.Sha256.AArch64.Stream.finalize
-  (.seq (.block (loadOuter ++ [mov .x0 .x16, .movz .x .x1 96 0, .addImm .x .x2 .x17 176, mov .x3 .x17]))
-    Impl.Sha256.AArch64.Stream.finalize))
+/-- A call of `vg_sha256_finalize`. -/
+def sha256Finalize : Prog isa := .call "vg_sha256_finalize" Impl.Sha256.AArch64.Stream.finalize
+
+/-- `finalize`, but for saving `x30`. -/
+def finalizeMain : Prog isa :=
+  .seq (.block ([.str .x .x25 .x3 160, .str .x .x26 .x3 168, mov .x25 .x0, mov .x26 .x3] ++ saveOuter ++
+      [mov .x1 .x2, .addImm .x .x2 .x3 176]))
+  (.seq sha256Finalize
+  (.seq (.block (loadOuter ++ [mov .x0 .x25, .movz .x .x1 96 0, .addImm .x .x2 .x26 176, mov .x3 .x26]))
+  (.seq sha256Finalize
+    (.block [.ldr .x .x25 .x26 160, .ldr .x .x26 .x26 168]))))
+
+def finalize : Prog isa := .frame (.push .x30) finalizeMain (.pop .x30)
 
 end VG.Impl.Hmac.AArch64

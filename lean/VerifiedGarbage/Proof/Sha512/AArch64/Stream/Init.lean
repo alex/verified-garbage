@@ -105,8 +105,9 @@ theorem init_verified (iv : HashValue) :
   · obtain ⟨t, s', he, h⟩ := init_correct iv hs
     exact ⟨t, s', he, h⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0]) ?_ (init_check iv)
-    intro s₁ s₂ _ _ h r hr
+    intro s₁ s₂ _ _ h
+    refine ⟨h.2, fun r hr => ?_⟩
     simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
-    subst hr; exact h
+    subst hr; exact h.1
 
 end VG.Proof.Sha512.AArch64.Stream

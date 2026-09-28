@@ -277,7 +277,8 @@ theorem block_verified :
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2⟩ r hr
+    intro s₁ s₂ _ _ ⟨h1, h2, hsp⟩
+    refine ⟨hsp, fun r hr => ?_⟩
     simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl <;> assumption
   · refine ⟨satState, rfl, rfl, ?_⟩

@@ -357,9 +357,10 @@ def artifacts : List Artifact := [
       * `data` must be valid for reads of `len` bytes.\n\
       * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
       are unspecified.\n\
-      * These three regions must not overlap each other."
+      * These three regions must not overlap each other, or the 16 bytes of stack below the \
+      stack pointer, where it saves its return address (distinct Rust objects never do)."
     code := Impl.Sha256.AArch64.Stream.update
-    contract := Spec.Sha256.updateContract AArch64.abi
+    contract := Spec.Sha256.updateContract AArch64.abi 16
     verified := Proof.Sha256.AArch64.Shared.update
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := AArch64.target
@@ -377,9 +378,10 @@ def artifacts : List Artifact := [
       * `out` must be valid for writes of 32 bytes.\n\
       * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
       are unspecified.\n\
-      * These three regions must not overlap each other."
+      * These three regions must not overlap each other, or the 16 bytes of stack below the \
+      stack pointer, where it saves its return address (distinct Rust objects never do)."
     code := Impl.Sha256.AArch64.Stream.finalize
-    contract := Spec.Sha256.finalizeContract AArch64.abi
+    contract := Spec.Sha256.finalizeContract AArch64.abi 16
     verified := Proof.Sha256.AArch64.Shared.finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := AArch64.target
@@ -514,9 +516,10 @@ def artifacts : List Artifact := [
       * `key` must be valid for reads of `key_len` bytes.\n\
       * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
       are unspecified.\n\
-      * These four regions must not overlap each other."
+      * These four regions must not overlap each other, or the 16 bytes of stack below the \
+      stack pointer, where it saves its return address (distinct Rust objects never do)."
     code := Impl.Hmac.AArch64.init
-    contract := Spec.Hmac.initSha256Contract AArch64.abi
+    contract := Spec.Hmac.initSha256Contract AArch64.abi 16
     verified := Proof.Hmac.AArch64.Shared.init
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := AArch64.target
@@ -535,9 +538,11 @@ def artifacts : List Artifact := [
       * `outer` must be valid for reads of 96 bytes.\n\
       * `scratch` must be valid for reads and writes of 240 bytes; its contents on return \
       are unspecified, apart from the MAC.\n\
-      * These three regions must not overlap each other."
+      * These three regions must not overlap each other, or the 32 bytes of stack below the \
+      stack pointer, where it and its calls of `vg_sha256_finalize` save their return \
+      addresses (distinct Rust objects never do)."
     code := Impl.Hmac.AArch64.finalize
-    contract := Spec.Hmac.finalizeSha256Contract AArch64.abi
+    contract := Spec.Hmac.finalizeSha256Contract AArch64.abi 32
     verified := Proof.Hmac.AArch64.Shared.finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := Arm.target

@@ -1124,5 +1124,10 @@ def taint : VG.Taint isa where
   call_sound _ h := by cases h
   ret _ := none
   ret_sound _ h := by cases h
+  -- Frames are not analysed yet.
+  push _ _ := none
+  push_sound _ h := by cases h
+  pop _ _ := none
+  pop_sound _ h := by cases h
 
 end VG.X86

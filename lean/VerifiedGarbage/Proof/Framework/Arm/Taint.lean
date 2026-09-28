@@ -900,6 +900,11 @@ def taint : VG.Taint isa where
   call_sound := Taint.call_sound
   ret τ := some τ
   ret_sound := Taint.ret_sound
+  -- Frames are not analysed yet.
+  push _ _ := none
+  push_sound _ h := by cases h
+  pop _ _ := none
+  pop_sound _ h := by cases h
 
 /-- The taint in which exactly the registers `rs` are public. -/
 def Taint.ofRegs (rs : List Reg) : Taint.T := { regs := RegSet.ofList rs, flags := false }

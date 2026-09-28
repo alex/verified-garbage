@@ -31,14 +31,14 @@ theorem init :
       [Proof.Sha256.AArch64.Stream.initSat] using Proof.Sha256.AArch64.Stream.initSat)
 
 theorem update :
-    Verified AArch64.target Impl.Sha256.AArch64.Stream.update (Spec.Sha256.updateContract AArch64.abi) :=
+    Verified AArch64.target Impl.Sha256.AArch64.Stream.update (Spec.Sha256.updateContract AArch64.abi 16) :=
   Proof.Sha256.AArch64.Stream.Update.update_verified.of_implies (by
     contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, Proof.Sha256.updateAArch64,
       AArch64.abi, AArch64.argRegs]
       [Proof.Sha256.AArch64.Stream.Update.sat] using Proof.Sha256.AArch64.Stream.Update.sat)
 
 theorem finalize :
-    Verified AArch64.target Impl.Sha256.AArch64.Stream.finalize (Spec.Sha256.finalizeContract AArch64.abi) :=
+    Verified AArch64.target Impl.Sha256.AArch64.Stream.finalize (Spec.Sha256.finalizeContract AArch64.abi 16) :=
   Proof.Sha256.AArch64.Stream.Finalize.finalize_verified.of_implies (by
     contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig,
       Proof.Sha256.finalizeAArch64, AArch64.abi, AArch64.argRegs]
