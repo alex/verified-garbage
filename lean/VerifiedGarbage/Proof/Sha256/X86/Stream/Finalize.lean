@@ -945,7 +945,9 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
       (by rw [flat_length _ _ le_rfl]; omega)
     have e' : bytesAt (writeBytes sD.mem (outA s₀) (((stateAt sD.mem (stA s₀)).toList.take 8).flatMap wordBytes))
         (outA s₀) 32 = ((stateAt sD.mem (stA s₀)).toList.take 8).flatMap wordBytes := by
-      rw [flat_length _ _ le_rfl] at e; simpa [bytesAt] using e
+      rw [flat_length _ _ le_rfl, show outA s₀ + BitVec.ofNat 64 0 = outA s₀ by simp,
+        show bytesAt sD.mem (outA s₀) 0 = [] from rfl, List.nil_append] at e
+      exact e
     rw [← h.mem, ← hm₄] at e'
     show bytesAt s₄.mem (outA s₀) 32 = _
     rw [e', hD.2 m ⟨hm, hc⟩, List.take_of_length_le (by simp)]
@@ -1096,6 +1098,6 @@ theorem finalize_verified : Verified X86.target finalize Spec.Sha256.finalizeX86
   refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by decide +kernel)
+  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
 
 end VG.Proof.Sha256.X86.Stream.Finalize

@@ -101,7 +101,7 @@ theorem init_verified : Verified AArch64.target init Spec.Sha256.initAArch64 := 
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct hs
     exact ⟨t, s', he, h⟩
-  · refine VG.Taint.constantTime (A := taint) [.x0] ?_ (by decide +kernel)
+  · refine VG.Taint.constantTime (A := taint) [.x0] ?_ (by taint_decide)
     intro s₁ s₂ _ _ h r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     subst hr; exact h

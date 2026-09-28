@@ -1,8 +1,8 @@
 //! HMAC (`MacTest` vectors).
 
 use serde::Deserialize;
+use verified_garbage::hashes::sha256::Sha256;
 use verified_garbage::hmac::{Hmac, HmacHash};
-use verified_garbage::sha256::Sha256;
 
 use crate::harness::{self, Expectation, Hex};
 use crate::require_vectors;

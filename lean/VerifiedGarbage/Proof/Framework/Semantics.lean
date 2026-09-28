@@ -132,4 +132,23 @@ theorem ConstantTime.of_silent {Pre : M.State → Prop} {Pub : M.State → M.Sta
     ConstantTime M Pre Pub c :=
   .of_leakage (fun _ => []) h (fun _ _ _ _ _ => rfl)
 
+/-- The instructions of structured code. -/
+def instrs {I C : Type} : Code I C → List I
+  | .block is => is
+  | .seq a b => instrs a ++ instrs b
+  | .ite _ t e => instrs t ++ instrs e
+  | .loop b _ => instrs b
+
+/-- `(instrs c).all p`, without building the list of instructions, which is
+much faster for the kernel to evaluate (`decide +kernel`). -/
+def Code.allInstrs {I C : Type} (p : I → Bool) : Code I C → Bool
+  | .block is => is.all p
+  | .seq a b => a.allInstrs p && b.allInstrs p
+  | .ite _ t e => t.allInstrs p && e.allInstrs p
+  | .loop b _ => b.allInstrs p
+
+theorem Code.allInstrs_eq {I C : Type} (p : I → Bool) (c : Code I C) :
+    c.allInstrs p = (instrs c).all p := by
+  induction c <;> simp [allInstrs, instrs, List.all_append, *]
+
 end VG

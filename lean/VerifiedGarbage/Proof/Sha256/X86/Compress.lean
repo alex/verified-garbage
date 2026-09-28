@@ -756,7 +756,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.compressX86.pre s₁)
 theorem compress_verified :
     Verified X86.target Impl.Sha256.X86.compress Spec.Sha256.compressX86 :=
   ⟨fun s hs => correct (pre_of s hs),
-    VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hpub => agree₀ h₁ h₂ hpub) (by decide +kernel),
+    VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hpub => agree₀ h₁ h₂ hpub) (by taint_decide),
     ⟨satState, sat_pre⟩⟩
 
 end VG.Proof.Sha256.X86

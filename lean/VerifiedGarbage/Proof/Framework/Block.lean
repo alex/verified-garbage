@@ -50,12 +50,18 @@ def runBlock (M : ISA) : List M.Instr → M.State → Option M.State
   | i :: is, s => (M.exec i s).bind (runBlock M is)
 
 /-- `runBlock` after one instruction. Unlike `Option.bind (runBlock M is)`, the
-rest of the block is data rather than a function, so `simp` does not
-evaluate it symbolically (under a binder) before the instruction in front of
-it has run. (The rewrite lemmas are stated per ISA, at its concrete types:
-`simp` does not match them otherwise.) -/
-def runStep (M : ISA) (x : Option M.State) (is : List M.Instr) : Option M.State :=
-  x.bind (runBlock M is)
+rest of the block is data rather than a function, and `runStep_congr` keeps
+`simp` from looking into it, so `simp` does not evaluate the rest of the
+block symbolically (from an unknown state, after every instruction) before
+the instruction in front of it has run. Blocks are stepped through with each
+ISA's `runBlock_cons`, `runStep_some` and `runBlock_nil`
+(`Framework/<ISA>/Exec.lean`), stated at its concrete types: `simp` does not
+match them otherwise. -/
+def runStep (M : ISA) (o : Option M.State) (is : List M.Instr) : Option M.State :=
+  o.bind (runBlock M is)
+
+@[congr] theorem runStep_congr {o o' : Option M.State} (h : o = o') (is : List M.Instr) :
+    runStep M o is = runStep M o' is := h ▸ rfl
 
 theorem WP.of_runBlock {is : List M.Instr} {s : M.State} {Q : M.State → Prop}
     (h : ∃ s', runBlock M is s = some s' ∧ Q s') : WP M (.block is) s Q := by

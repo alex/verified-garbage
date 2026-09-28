@@ -13,6 +13,8 @@ public registers. (No modelled instruction touches the flags.)
 
 namespace VG.AArch64.Taint
 
+deriving instance Lean.ToExpr for Reg
+
 abbrev T := List Reg
 
 def pub (τ : T) (r : Reg) : Bool := τ.contains r
