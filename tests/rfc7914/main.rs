@@ -125,11 +125,8 @@ fn allocation_failure() {
 fn invalid_parameters() {
     let mut dk = [0u8; 64];
     let bad = |n: u64, r: u32, p: u32, dk: &mut [u8]| {
-        assert_eq!(
-            scrypt(b"pw", b"salt", n, r, p, usize::MAX, dk),
-            Err(Error::InvalidParameters),
-            "N={n} r={r} p={p}"
-        );
+        let got = scrypt(b"pw", b"salt", n, r, p, usize::MAX, dk);
+        assert_eq!(got, Err(Error::InvalidParameters));
     };
     // `n` a power of two greater than 1.
     bad(0, 1, 1, &mut dk);
