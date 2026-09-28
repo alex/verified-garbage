@@ -1,7 +1,5 @@
-//! Hash functions: SHA-1, SHA-256, and SHA-384, SHA-512, SHA-512/224 and
-//! SHA-512/256 (FIPS 180-4); SHA3-224, SHA3-256, SHA3-384 and SHA3-512, and
-//! the extendable-output functions SHAKE128 and SHAKE256 (FIPS 202); and MD5
-//! (RFC 1321).
+//! Hash functions, one module each (see each module for its standard and
+//! the architectures it supports).
 //!
 //! Each one's whole computation is verified assembly: an `init`, `update` and
 //! `finalize` that maintain a streaming state representing the message
@@ -11,20 +9,17 @@
 //! and SHAKE instead absorb, pad and squeeze a Keccak state, together with
 //! the position in the current block: see `sha3`.)
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-pub mod md5;
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-pub mod sha1;
-#[cfg(any(
+#![cfg(any(
     target_arch = "x86_64",
     target_arch = "aarch64",
     target_arch = "arm",
     target_arch = "x86"
 ))]
+
+pub mod md5;
+pub mod sha1;
 pub mod sha256;
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub mod sha3;
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 pub mod sha512;
 
 /// A hash function with an incremental interface, as used by the

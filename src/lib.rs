@@ -22,34 +22,19 @@ mod cpu;
 #[cfg(all(target_arch = "x86", not(target_feature = "sse2")))]
 compile_error!("32-bit x86 needs an i686 target with SSE2 (e.g. i686-unknown-linux-gnu)");
 
-#[cfg(any(
-    target_arch = "x86_64",
-    target_arch = "aarch64",
-    target_arch = "arm",
-    target_arch = "x86"
-))]
 pub mod chacha20;
 #[cfg(target_arch = "x86_64")]
 pub mod chacha20poly1305;
-#[cfg(any(
-    target_arch = "x86_64",
-    target_arch = "aarch64",
-    target_arch = "arm",
-    target_arch = "x86"
-))]
 pub mod hashes;
-#[cfg(any(
-    target_arch = "x86_64",
-    target_arch = "aarch64",
-    target_arch = "arm",
-    target_arch = "x86"
-))]
 pub mod hmac;
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub mod pbkdf2;
 #[cfg(target_arch = "x86_64")]
 pub mod poly1305;
-#[cfg(all(target_arch = "x86_64", feature = "alloc"))]
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "aarch64"),
+    feature = "alloc"
+))]
 pub mod scrypt;
 
 #[cfg(test)]

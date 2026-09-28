@@ -16,6 +16,13 @@
 //! agrees with RFC 8439, whose counter is only word 12, for the first
 //! 2³² − (initial counter) blocks.
 
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
+
 #[cfg(target_arch = "aarch64")]
 use crate::asm::aarch64::chacha20::vg_chacha20_block;
 #[cfg(target_arch = "arm")]
