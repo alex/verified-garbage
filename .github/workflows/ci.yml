@@ -247,6 +247,14 @@ jobs:
           done
           echo "Missing:${missing:- none}" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "missing=$missing" >> "$GITHUB_OUTPUT"
+          # TEMPORARY: always use SDE, to measure downloading it vs caching it.
+          echo "missing=measure" >> "$GITHUB_OUTPUT"
+      - name: "Measure: restore SDE from the Actions cache"
+        id: sde-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/sde-cached
+          key: sde-${{ env.SDE_VERSION }}
       - name: Download Intel SDE
         if: ${{ steps.cpu.outputs.missing != '' }}
         run: |
@@ -256,6 +264,14 @@ jobs:
           tar -xJf sde.tar.xz -C "$RUNNER_TEMP/sde" --strip-components 1
           rm sde.tar.xz
           echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER=$RUNNER_TEMP/sde/sde64 -future --" >> "$GITHUB_ENV"
+      - name: "Measure: save SDE to the Actions cache"
+        if: ${{ steps.sde-cache.outputs.cache-hit != 'true' }}
+        run: cp -r "$RUNNER_TEMP/sde" "$RUNNER_TEMP/sde-cached"
+      - if: ${{ steps.sde-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/sde-cached
+          key: sde-${{ env.SDE_VERSION }}
       - name: Install Rust
         run: rustup toolchain install stable --profile minimal --component llvm-tools
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
