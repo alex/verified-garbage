@@ -15,8 +15,8 @@ their final states by `Q`. The relations may carry what the correctness
 proof knows about each run (`RelCT.wp`, by determinism), such as the values
 of registers, so a public value is public again as soon as correctness
 determines it. Pieces of code whose timing the taint analysis can establish
-are proved with `RelCT.taint`, and the pieces are put together with `seq`
-and `loop`.
+are proved with `RelCT.taint`, and the pieces are put together with `seq`,
+`ite` and `loop`.
 -/
 
 namespace VG
@@ -94,6 +94,29 @@ theorem loop {body : Prog M} {c : M.Cond} {Q : M.State → M.State → Prop}
         obtain ⟨m, hm, hi⟩ := hi c₁
         obtain ⟨rfl, hq⟩ := ih m hm _ _ _ _ _ _ hi r₁ r₂
         exact ⟨rfl, hq⟩
+
+/-- A branch: the condition agrees in both runs, and each branch is related
+from the states in which it is taken. -/
+theorem ite {P Q : M.State → M.State → Prop} {c : M.Cond} {th el : Prog M}
+    (hc : ∀ s₁ s₂, P s₁ s₂ → M.eval c s₁ = M.eval c s₂)
+    (ht : RelCT M (fun s₁ s₂ => P s₁ s₂ ∧ M.eval c s₁ = some true) th Q)
+    (he : RelCT M (fun s₁ s₂ => P s₁ s₂ ∧ M.eval c s₁ = some false) el Q) :
+    RelCT M P (.ite c th el) Q := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  have hce := hc _ _ hp
+  cases e₁ with
+  | iteT c₁ b₁ =>
+    cases e₂ with
+    | iteT _ b₂ =>
+      obtain ⟨rfl, hq⟩ := ht _ _ _ _ _ _ ⟨hp, c₁⟩ b₁ b₂
+      exact ⟨rfl, hq⟩
+    | iteF c₂ _ => rw [c₁, c₂] at hce; cases hce
+  | iteF c₁ b₁ =>
+    cases e₂ with
+    | iteT c₂ _ => rw [c₁, c₂] at hce; cases hce
+    | iteF _ b₂ =>
+      obtain ⟨rfl, hq⟩ := he _ _ _ _ _ _ ⟨hp, c₁⟩ b₁ b₂
+      exact ⟨rfl, hq⟩
 
 /-- Code the taint analysis proves constant time, from states that agree on
 what the initial taint says is public. -/
