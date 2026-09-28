@@ -957,4 +957,117 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   rw [hdig, outer_hash hk (beWords_length _ _ _ _)]
 
 
+/-! ## Constant time -/
+
+/-- The initial taint: `esp + 4` is the base of the (public) arguments, whose
+words at offsets 0, 16 and 20 are the base addresses of `inner`, `out` and
+`scratch`. -/
+def τ₀ : VG.X86.Taint.T :=
+  { regs := [.esp], flags := false, lens := [96, 32, 240, 24], bases := [(.esp, 3, 4)],
+    slots := [(3, 0, 24)], wbases := [(3, 0, 0), (3, 16, 1), (3, 20, 2)] }
+
+theorem argWord_eq {s : State} (hsp : (s.gpr .esp).toNat + 28 ≤ 2 ^ 32) {k : Nat} (hk : k < 24) :
+    addr (s.gpr .esp) 4 + BitVec.ofNat 64 k = argAddr s (k / 4) + BitVec.ofNat 64 (k % 4) := by
+  simp only [argAddr]
+  rw [show (s.gpr .esp + BitVec.ofNat 32 (4 + 4 * (k / 4))).setWidth 64 = addr (s.gpr .esp) (4 + 4 * (k / 4))
+    from rfl, addr_eq (by omega), addr_eq (by omega), BitVec.add_assoc, BitVec.add_assoc,
+    ← BitVec.ofNat_add, ← BitVec.ofNat_add]
+  congr 2; omega
+
+theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
+  have hi := hp.in_fit; have ho := hp.out_fit; have hsc := hp.scr_fit; have hs := hp.sp_fit
+  refine ⟨fun _ => ⟨by simp [hp.wr, τ₀], ?_, ?_⟩, ?_, ?_, fun h => absurd h (Nat.lt_irrefl 0),
+    fun _ h => (List.not_mem_nil h).elim⟩
+  · simp only [hp.wr, List.pairwise_cons, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp,
+      forall_eq, List.Pairwise.nil, and_true]
+    exact ⟨⟨hp.in_out, hp.in_scr, hp.a_in.symm⟩, ⟨hp.out_scr, hp.a_out.symm⟩, hp.a_scr.symm, fun _ h => h.elim⟩
+  · simp only [hp.wr, List.mem_cons, List.not_mem_nil, or_false]
+    rintro r (rfl | rfl | rfl | rfl)
+    · simp only [addr_toNat]; omega
+    · simp only [addr_toNat]; omega
+    · simp only [addr_toNat]; omega
+    · simp only; rw [addr_eq (by omega), BitVec.toNat_add, addr_toNat, BitVec.toNat_ofNat]; omega
+  · intro p hp'
+    simp only [τ₀, List.mem_singleton] at hp'
+    subst hp'
+    simp [VG.X86.Taint.region, hp.wr]
+  · intro p hp'
+    simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp'
+    rcases hp' with rfl | rfl | rfl
+    · refine ⟨by decide, ?_⟩
+      simp only [VG.X86.Taint.byteAddr, VG.X86.Taint.region, hp.wr]
+      show addr (s.mem.readW (addr (esp₀ s) 4 + BitVec.ofNat 64 0) 32) 0 = inA s
+      simp [addr, inn, arg, argAddr]
+    · refine ⟨by decide, ?_⟩
+      simp only [VG.X86.Taint.byteAddr, VG.X86.Taint.region, hp.wr]
+      show addr (s.mem.readW (addr (esp₀ s) 4 + BitVec.ofNat 64 16) 32) 0 = outA s
+      rw [argWord_eq hs (k := 16) (by omega)]
+      simp [addr, out, arg]
+    · refine ⟨by decide, ?_⟩
+      simp only [VG.X86.Taint.byteAddr, VG.X86.Taint.region, hp.wr]
+      show addr (s.mem.readW (addr (esp₀ s) 4 + BitVec.ofNat 64 20) 32) 0 = scA s
+      rw [argWord_eq hs (k := 20) (by omega)]
+      simp [addr, scr, arg]
+
+theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Hmac.finalizeSha256X86.pre s₁) (h₂ : Spec.Hmac.finalizeSha256X86.pre s₂)
+    (hpub : Spec.Hmac.finalizeSha256X86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
+  obtain ⟨hesp, ha⟩ := hpub
+  have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
+  refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
+    fun h => absurd h (Nat.lt_irrefl 0), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
+  · simp only [τ₀, List.mem_singleton] at hr
+    subst hr; exact hesp
+  · rw [hp₁.wr, hp₂.wr]
+    simp only [inR, outR, scR, argR, inA, outA, scA, inn, out, scr, esp₀, ha 0 (by omega), ha 4 (by omega),
+      ha 5 (by omega), hesp]
+  · intro sl hsl
+    simp only [τ₀, List.mem_singleton] at hsl
+    subst hsl; decide
+  · intro sl hsl k _ hk
+    simp only [τ₀, List.mem_singleton] at hsl
+    subst hsl
+    simp only [Nat.zero_add] at hk
+    simp only [VG.X86.Taint.byteAddr, VG.X86.Taint.region, hp₁.wr, hp₂.wr]
+    show s₁.mem (addr (esp₀ s₁) 4 + BitVec.ofNat 64 k) = s₂.mem (addr (esp₀ s₂) 4 + BitVec.ofNat 64 k)
+    rw [argWord_eq hp₁.sp_fit hk, argWord_eq hp₂.sp_fit hk,
+      Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)), Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega))]
+    exact congrArg _ (ha _ (by omega))
+
+/-- Memory holding the arguments `0x1000, 0x1100, 0, 0, 0x2000, 0x3000` at `0x4004`. -/
+def satMem : Mem := fun a =>
+  if a = 0x4005 then 0x10 else if a = 0x4009 then 0x11 else if a = 0x4015 then 0x20 else
+  if a = 0x4019 then 0x30 else 0
+
+/-- A state satisfying the precondition. -/
+def sat : State where
+  gpr r := match r with
+    | .esp => 0x4000 | _ => 0
+  cf := none
+  zf := none
+  sf := none
+  of := none
+  mem := satMem
+  rd := [⟨0x1100, 96⟩]
+  wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 240⟩, ⟨0x4004, 24⟩]
+
+theorem sat_pre : Spec.Hmac.finalizeSha256X86.pre sat := by
+  have a0 : arg sat 0 = 0x1000 := by decide
+  have a1 : arg sat 1 = 0x1100 := by decide
+  have a4 : arg sat 4 = 0x2000 := by decide
+  have a5 : arg sat 5 = 0x3000 := by decide
+  have e : argAddr sat 0 = 0x4004 := by decide
+  simp only [Spec.Hmac.finalizeSha256X86, a0, a1, a4, a5, e]
+  refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
+    by decide, by decide⟩ <;>
+  · intro a h₁ h₂
+    simp only [Region.Contains, sat] at h₁ h₂
+    bv_omega
+
+set_option maxHeartbeats 0 in
+theorem finalize_verified : Verified X86.target finalize Spec.Hmac.finalizeSha256X86 := by
+  refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
+  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+    exact ⟨t, s', he, h⟩
+  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by decide +kernel)
+
 end VG.Proof.Hmac.X86.Finalize
