@@ -178,7 +178,7 @@ def aluStep (τ : T) (op : AluOp) (d : Reg) (src : Src) (wide : Bool) : Option T
 def mulStep (τ : T) (r : Reg) : T :=
   let p := pub τ .rax && pub τ r
   { τ with regs := if p then (τ.regs.insert .rax).insert .rdx else (τ.regs.erase .rax).erase .rdx,
-           flags := p, bases := (kill τ .rax).filter (·.1 != .rdx) }
+           flags := p, bases := (kill τ .rax).filter (·.1 != .rdx), lo := .empty }
 
 def step (τ : T) : Instr → Option T
   | .mov d src =>
@@ -788,7 +788,7 @@ theorem execMul_gpr (r : Reg) (s : State) {q : Reg} (h₁ : q ≠ .rax) (h₂ : 
 
 theorem mul_bases {τ : T} {s : State} (hw : Wf τ s) (r : Reg) :
     ∀ p ∈ (kill τ .rax).filter (·.1 != .rdx),
-      (execMul r s).gpr p.1 = (region (execMul r s) p.2).base := by
+      (execMul r s).gpr p.1 = (region (execMul r s) p.2.1).base + BitVec.ofNat 64 p.2.2 := by
   intro p hp
   simp only [kill, List.mem_filter, bne_iff_ne, ne_eq] at hp
   rw [execMul_gpr r s hp.1.2 hp.2, hw.2 p hp.1.1]; rfl
@@ -796,7 +796,7 @@ theorem mul_bases {τ : T} {s : State} (hw : Wf τ s) (r : Reg) :
 theorem Agree.mul {τ : T} {r : Reg} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) :
     Agree (mulStep τ r) (execMul r s₁) (execMul r s₂) := by
   refine ha.keep ⟨fun q hq => ?_, fun hp => ?_⟩ rfl rfl rfl rfl rfl rfl (mul_bases ha.wf₁ r)
-    (mul_bases ha.wf₂ r)
+    (mul_bases ha.wf₂ r) noLo
   · simp only [mulStep] at hq
     by_cases hp : (pub τ .rax && pub τ r) = true
     · have hp' := hp
