@@ -8,6 +8,9 @@ pub(crate) mod selftest;
 pub(crate) mod sha256;
 
 #[rustfmt::skip]
+pub(crate) mod sha512;
+
+#[rustfmt::skip]
 pub(crate) mod hmac;
 
 #[rustfmt::skip]
