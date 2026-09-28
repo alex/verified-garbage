@@ -1,4 +1,5 @@
 name = "SHA-1"
+family = "Hashes"
 specs = ["Sha1"]
 modules = ["src/hashes/sha1.rs"]
 asm = ["sha1"]
