@@ -27,3 +27,4 @@ pub(crate) mod chacha20;
 
 #[rustfmt::skip]
 pub(crate) mod sha3;
+pub(crate) mod scrypt;

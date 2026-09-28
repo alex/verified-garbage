@@ -24,6 +24,7 @@ import VerifiedGarbage.Proof.Hmac.AArch64.Shared
 import VerifiedGarbage.Proof.Hmac.Arm.Shared
 import VerifiedGarbage.Proof.Hmac.X86.Shared
 import VerifiedGarbage.Proof.ChaCha20.X86.Shared
+import VerifiedGarbage.Proof.Scrypt.X86_64.Shared
 
 /-!
 # The artifact registry
@@ -1580,7 +1581,25 @@ def artifacts : List Artifact := [
     code := Impl.Sha3.AArch64.Stream.squeeze
     contract := Spec.Sha3.squeezeContract AArch64.abi 16
     verified := Proof.Sha3.AArch64.Shared.squeeze
-    spSafe := Code.all_of_forall (fun _ => rfl) _ }
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := X86_64.target
+    module := "scrypt"
+    name := "vg_salsa20_8"
+    sig := Spec.Scrypt.salsaSig
+    doc := "The Salsa20/8 Core (RFC 7914 §3): replaces the 64 bytes `*b` by their Salsa20/8 \
+      Core (the 16 little-endian words, 8 rounds, then the input added word by word).\n\n\
+      Contract: `VG.Spec.Scrypt.salsaContract`. Constant time: only the pointers may affect \
+      timing, not the data.\n\n\
+      # Safety\n\n\
+      * `b` must be valid for reads and writes of 64 bytes.\n\
+      * `scratch` must be valid for reads and writes of 64 bytes. It is working space: its \
+      contents on return are unspecified.\n\
+      * `b` and `scratch` must not overlap each other, nor the return address on the stack, \
+      and neither may wrap around the end of the address space (distinct Rust objects never do)."
+    code := Impl.Scrypt.X86_64.salsa
+    contract := Spec.Scrypt.salsaContract X86_64.abi
+    verified := Proof.Scrypt.X86_64.Shared.salsa
+    spSafe := Proof.SpSafe.scrypt_x86_64_salsa }
 ]
 
 #assert_standard_axioms artifacts
