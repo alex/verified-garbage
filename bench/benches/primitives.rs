@@ -95,6 +95,15 @@ fn md5(c: &mut Criterion) {
 #[cfg(not(target_arch = "x86_64"))]
 fn md5(_: &mut Criterion) {}
 
+#[cfg(target_arch = "x86_64")]
+fn sha1(c: &mut Criterion) {
+    use verified_garbage::hashes::sha1::Sha1;
+    hash_group(c, "sha1", Sha1::digest, MessageDigest::sha1());
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+fn sha1(_: &mut Criterion) {}
+
 fn hmac_sha256(c: &mut Criterion) {
     let key = [0x0b; 32];
     let pkey = PKey::hmac(&key).unwrap();
@@ -116,5 +125,5 @@ fn hmac_sha256(c: &mut Criterion) {
     g.finish();
 }
 
-criterion_group!(benches, chacha20, md5, sha256, sha512, hmac_sha256);
+criterion_group!(benches, chacha20, md5, sha1, sha256, sha512, hmac_sha256);
 criterion_main!(benches);
