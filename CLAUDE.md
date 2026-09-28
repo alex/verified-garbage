@@ -60,7 +60,11 @@ instructions in an ISA model) go in their own PR before either.
    `Verified.of_implies` (see `Proof/Framework/Contract.lean`).
 4. An `Artifact` in `Artifacts.lean` (its `module` names the file under
    `src/asm/<target>/`), whose `sig` and `doc` match the
-   contract (the doc must state every caller obligation).
+   contract (the doc must state every caller obligation). Give it its
+   `spSafe` proof explicitly: on x86 and x86-64 a theorem in
+   `Proof/SpSafe.lean`, on ARMv7 and AArch64 `Code.all_of_forall (fun _ => rfl) _`
+   (the default, `decide +kernel`, would run in `Artifacts.lean`, which
+   every proof must finish before).
 5. Regenerate `src/asm/`, build the public Rust API on top of the primitive,
    and test it against the Wycheproof vectors in `tests/wycheproof/` (set
    `WYCHEPROOF_ROOT` to a checkout of C2SP/wycheproof).
