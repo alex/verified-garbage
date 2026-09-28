@@ -179,7 +179,15 @@ def step (τ : T) : Instr → Option T
   -- the flags.
   | .movdquLoad _ m => if memPub τ m then some τ else none
   | .movdquStore m _ => storeStep τ m 16 false
-  | .xop _ => some τ
+  | .xop _ | .vop _ => some τ
+  | .vmovdquLoad _ _ m | .vbroadcasti128 _ m => if memPub τ m then some τ else none
+  | .vmovdquStore .l128 m _ => storeStep τ m 16 false
+  | .vmovdquStore .l256 m _ => storeStep τ m 32 false
+  -- MXCSR is not tracked either: nothing moves it into a general-purpose
+  -- register or the flags, and it is stored as a secret.
+  | .stmxcsr m => storeStep τ m 4 false
+  | .ldmxcsr m => if memPub τ m then some τ else none
+  | .lfence => some τ
   | .mul r => some (mulStep τ r)
 
 def meet (τ₁ τ₂ : T) : T where
@@ -613,11 +621,17 @@ one (none for stores and SSE instructions, and for `mul`, which writes two). -/
 def dstOf : Instr → Option Reg
   | .mov d _ | .mov32 d _ | .alu _ d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
   | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
-  | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ | .mul _ => none
+  | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ | .vop _
+  | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .stmxcsr _ | .ldmxcsr _ | .lfence | .mul _ => none
 
 /-- An SSE instruction on registers changes only the SSE registers. -/
 theorem XOp.exec_eq (op : XOp) (s : State) : op.exec s = { s with xmm := (op.exec s).xmm } := by
   cases op <;> rfl
+
+/-- An AVX instruction on registers changes only the vector registers. -/
+theorem VOp.exec_eq (op : VOp) (s : State) :
+    op.exec s = { s with xmm := (op.exec s).xmm, ymmHi := (op.exec s).ymmHi } := by
+  cases op <;> simp only [VOp.exec] <;> (try split) <;> rfl
 
 /-- Changing only the SSE registers, which the analysis does not track. -/
 theorem Agree.withXmm {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) (x₁ x₂ : XReg → BitVec 128) :
@@ -629,6 +643,16 @@ def clobbers (i : Instr) (r : Reg) : Bool :=
   match i with
   | .mul _ => r == .rax || r == .rdx
   | _ => dstOf i == some r
+
+/-- Changing only the vector registers, which the analysis does not track. -/
+theorem Agree.withVec {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) (x₁ x₂ y₁ y₂ : XReg → BitVec 128) :
+    Agree τ { s₁ with xmm := x₁, ymmHi := y₁ } { s₂ with xmm := x₂, ymmHi := y₂ } :=
+  ha.keep ha.rf rfl rfl rfl rfl rfl rfl ha.wf₁.2 ha.wf₂.2
+
+/-- Changing only MXCSR, which the analysis does not track. -/
+theorem Agree.withMxcsr {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) (m₁ m₂ : BitVec 32) :
+    Agree τ { s₁ with mxcsr := m₁ } { s₂ with mxcsr := m₂ } :=
+  ha.keep ha.rf rfl rfl rfl rfl rfl rfl ha.wf₁.2 ha.wf₂.2
 
 theorem exec_nonstore {i : Instr} {d : Reg} (hd : dstOf i = some d) {s s' : State}
     (h : exec i s = some s') :
@@ -808,6 +832,66 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     subst e₁ e₂
     rw [XOp.exec_eq op s₁, XOp.exec_eq op s₂]
     exact ⟨rfl, ha.withXmm _ _⟩
+  | vop op =>
+    simp only [step, Option.some.injEq] at hs
+    subst hs
+    simp only [exec, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    rw [VOp.exec_eq op s₁, VOp.exec_eq op s₂]
+    exact ⟨rfl, ha.withVec _ _ _ _⟩
+  | vmovdquLoad len d m =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hok; cases hs
+    cases len <;> simp only [exec, Option.map_eq_some_iff] at e₁ e₂ <;>
+      obtain ⟨v₁, -, rfl⟩ := e₁ <;> obtain ⟨v₂, -, rfl⟩ := e₂ <;>
+      exact ⟨by simp [addrs, ha.ea hok], ha.withVec _ _ _ _⟩
+  | vbroadcasti128 d m =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hok; cases hs
+    simp only [exec, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨v₁, -, rfl⟩ := e₁; obtain ⟨v₂, -, rfl⟩ := e₂
+    exact ⟨by simp [addrs, ha.ea hok], ha.withVec _ _ _ _⟩
+  | vmovdquStore len m r =>
+    cases len
+    · simp only [step, storeStep] at hs
+      split at hs <;> [skip; cases hs]
+      rename_i hok; cases hs
+      simp only [exec, State.store128] at e₁ e₂
+      split at e₁ <;> [cases e₁; cases e₁]
+      split at e₂ <;> [cases e₂; cases e₂]
+      exact ⟨by simp [addrs, ha.ea hok], ha.store (n := 16) hok (by decide) fun hp => by cases hp⟩
+    · simp only [step, storeStep] at hs
+      split at hs <;> [skip; cases hs]
+      rename_i hok; cases hs
+      simp only [exec, State.store256] at e₁ e₂
+      split at e₁ <;> [cases e₁; cases e₁]
+      split at e₂ <;> [cases e₂; cases e₂]
+      exact ⟨by simp [addrs, ha.ea hok], ha.store (n := 32) hok (by decide) fun hp => by cases hp⟩
+  | stmxcsr m =>
+    simp only [step, storeStep] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hok; cases hs
+    simp only [exec, State.store32] at e₁ e₂
+    split at e₁ <;> [cases e₁; cases e₁]
+    split at e₂ <;> [cases e₂; cases e₂]
+    exact ⟨by simp [addrs, ha.ea hok], ha.store (n := 4) hok (by decide) fun hp => by cases hp⟩
+  | ldmxcsr m =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hok; cases hs
+    simp only [exec, Option.bind_eq_some_iff] at e₁ e₂
+    obtain ⟨v₁, -, e₁⟩ := e₁; obtain ⟨v₂, -, e₂⟩ := e₂
+    split at e₁ <;> [cases e₁; cases e₁]
+    split at e₂ <;> [cases e₂; cases e₂]
+    exact ⟨by simp [addrs, ha.ea hok], ha.withMxcsr _ _⟩
+  | lfence =>
+    simp only [step, Option.some.injEq] at hs
+    subst hs
+    simp only [exec, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    exact ⟨rfl, ha⟩
   | alu op d src =>
     simp only [step, aluStep] at hs
     split at hs <;> [skip; cases hs]

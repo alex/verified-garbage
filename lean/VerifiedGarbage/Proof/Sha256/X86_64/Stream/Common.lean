@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.X86_64.Compress
+import VerifiedGarbage.Proof.Sha256.X86_64.ShaNi.Compress
 import VerifiedGarbage.Proof.Sha256.Stream
 import VerifiedGarbage.Proof.Framework.X86_64.Call
 import VerifiedGarbage.Impl.Sha256.X86_64.Stream
@@ -6,8 +7,8 @@ import VerifiedGarbage.Impl.Sha256.X86_64.Stream
 /-!
 # Streaming SHA-256 on x86-64: common lemmas
 
-Untrusted: everything here is checked by Lean. The inlined compression
-function (`compressAt`), and memory written byte by byte.
+Untrusted: everything here is checked by Lean. The call of the compression
+function (`compressAt`), for either `Callee`, and memory written byte by byte.
 -/
 
 namespace VG.Proof.Sha256.X86_64.Stream
@@ -17,35 +18,38 @@ open VG.Impl.Sha256.X86_64 (at_)
 open VG.Proof.Sha256.X86_64 (ea_at contains_offset contains_offset' toNat_ofNat_lt compress_verified)
 open VG.Spec.Sha256 (HashValue stateAt blockAt compressBlocks compress parseBlock bytesAt)
 
-/-! ## The inlined compression function -/
+/-! ## The compression functions -/
 
-theorem compress_keeps : ((instrs Impl.Sha256.X86_64.compress).all fun i =>
-    !Taint.clobbers i .rdi && !Taint.clobbers i .rcx) = true := by
-  rw [← Code.allInstrs_eq]; decide +kernel
+/-- What `compressAt` needs of the compression function it calls: that it is
+correct, does not touch `rsp` or the stack, and keeps `rdi` and `rcx`. -/
+structure _root_.VG.Impl.Sha256.X86_64.Stream.Callee.Ok (f : Callee) : Prop where
+  verified : ∀ s, Proof.Sha256.compressX86_64.pre s →
+    ∃ t s', Exec isa f.code s t s' ∧ abiPreserved s s' ∧ Proof.Sha256.compressX86_64.post s s'
+  nosp : NoSp f.code
+  depth : f.code.depth = 0
+  keeps_rdi : ∀ i ∈ instrs f.code, Taint.clobbers i .rdi = false
+  keeps_rcx : ∀ i ∈ instrs f.code, Taint.clobbers i .rcx = false
 
-theorem compress_keeps_rdi : ∀ i ∈ instrs Impl.Sha256.X86_64.compress, Taint.clobbers i .rdi = false := by
-  intro i hi
-  have := List.all_eq_true.mp compress_keeps i hi
-  simp only [Bool.and_eq_true, Bool.not_eq_true'] at this
-  exact this.1
+/-- The facts about the instructions of `f`, from one kernel check each. -/
+theorem _root_.VG.Impl.Sha256.X86_64.Stream.Callee.Ok.of_verified {f : Callee} (hv : ∀ s, Proof.Sha256.compressX86_64.pre s →
+      ∃ t s', Exec isa f.code s t s' ∧ abiPreserved s s' ∧ Proof.Sha256.compressX86_64.post s s')
+    (hk : ((instrs f.code).all fun i => !Taint.clobbers i .rdi && !Taint.clobbers i .rcx &&
+      !Taint.clobbers i .rsp) = true)
+    (hd : f.code.depth = 0) : f.Ok := by
+  have h := fun i hi => List.all_eq_true.mp hk i hi
+  simp only [Bool.and_eq_true, Bool.not_eq_true'] at h
+  exact ⟨hv, fun i hi => (h i hi).2, hd, fun i hi => (h i hi).1.1, fun i hi => (h i hi).1.2⟩
 
-theorem compress_keeps_rcx : ∀ i ∈ instrs Impl.Sha256.X86_64.compress, Taint.clobbers i .rcx = false := by
-  intro i hi
-  have := List.all_eq_true.mp compress_keeps i hi
-  simp only [Bool.and_eq_true, Bool.not_eq_true'] at this
-  exact this.2
+theorem scalar_ok : Callee.scalar.Ok :=
+  .of_verified compress_verified.1 (by rw [← Code.allInstrs_eq]; decide +kernel) (by decide +kernel)
+
+theorem shani_ok : Callee.shani.Ok :=
+  .of_verified Proof.Sha256.X86_64.ShaNi.compress_verified.1 (by rw [← Code.allInstrs_eq]; decide +kernel)
+    (by decide +kernel)
 
 theorem compressBlocks_one (H : HashValue) (m : Mem) (p : Addr) :
     compressBlocks H m p 1 = compress H (blockAt m p) := by
   simp [compressBlocks]
-
-theorem compress_depth : Impl.Sha256.X86_64.compress.depth = 0 := by decide +kernel
-
-theorem compress_nosp : NoSp Impl.Sha256.X86_64.compress := by
-  have : ((instrs Impl.Sha256.X86_64.compress).all fun i => !Taint.clobbers i .rsp) = true := by
-    rw [← Code.allInstrs_eq]; decide +kernel
-  intro i hi
-  simpa using List.all_eq_true.mp this i hi
 
 /-- A region disjoint from the return address of a call reads the same on
 entry to the callee. -/
@@ -57,8 +61,8 @@ theorem callEntry_byte (s : State) {R : Region} (hd : (below (s.gpr .rsp) 8).Dis
     (by simpa using hd.symm) hR hi
 
 /-- Compressing the block at `rsi` into the hash value at `rbx`, with scratch
-space at `r15`, by calling `vg_sha256_compress`. -/
-theorem compressAt_ok {s : State} {st scr src : Addr}
+space at `r15`, by calling the compression function `f`. -/
+theorem compressAt_ok {f : Callee} (hf : f.Ok) {s : State} {st scr src : Addr}
     (hrbx : s.gpr .rbx = st) (hr15 : s.gpr .r15 = scr) (hrsi : s.gpr .rsi = src)
     (d₁ : Region.Disjoint ⟨st, 32⟩ ⟨scr, 112⟩) (d₂ : Region.Disjoint ⟨src, 64⟩ ⟨st, 32⟩)
     (d₃ : Region.Disjoint ⟨src, 64⟩ ⟨scr, 112⟩) (d₄ : (below (s.gpr .rsp) 8).Disjoint ⟨st, 32⟩)
@@ -69,7 +73,7 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
       Frame [⟨st, 32⟩, ⟨scr, 112⟩, below (s.gpr .rsp) 8] s.mem s'.mem →
       stateAt s'.mem st = compress (stateAt s.mem st) (blockAt s.mem src) →
       s'.gpr .rdi = st → s'.gpr .rcx = scr → Q s') :
-    WP isa compressAt s Q := by
+    WP isa (compressAt f) s Q := by
   unfold compressAt
   have h₁ : WP isa (.block [.mov .rdi (.reg .rbx), .mov32 .rdx (.imm 1), .mov .rcx (.reg .r15)]) s
       fun s₁ => s₁.gpr .rdi = st ∧ s₁.gpr .rdx = 1 ∧ s₁.gpr .rcx = scr ∧ s₁.gpr .rsi = src ∧
@@ -86,7 +90,7 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
   refine WP.seq (WP.mono h₁ fun s₁ ⟨e₁, e₂, e₃, e₄, e₅, e₆, e₇, e₈⟩ => ?_)
   have hsp : s₁.gpr .rsp = s.gpr .rsp := e₅ _ (by simp [calleeSaved])
   have hne : ∀ r : Reg, r ≠ .rsp → s₁.callEntry.gpr r = s₁.gpr r := fun r h => State.callEntry_gpr _ h
-  refine WP.seq (WP.call (k := Proof.Sha256.compressX86_64) compress_verified.1 compress_nosp (by rw [compress_depth]; decide)
+  refine WP.seq (WP.call (k := Proof.Sha256.compressX86_64) hf.verified hf.nosp (by rw [hf.depth]; decide)
     (rd := [⟨src, 64 * 1⟩]) (wr := [⟨st, 32⟩, ⟨scr, 112⟩]) ?_ ?_ ?_ ?_)
   · simp only [Proof.Sha256.compressX86_64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.callEntry_rsp, hne _ (by decide : Reg.rdi ≠ .rsp),
@@ -95,9 +99,9 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
     exact ⟨by simp, by simp, d₁, d₂, d₃, d₄, d₅⟩
   · rw [e₆, e₇]; simpa using hc
   · rw [e₇]; exact hw
-  · intro s₂ hrd hwr hcs hf hkeep ⟨s₃, hm₃, _, hpost⟩
-    have k₁ := hkeep .rdi compress_keeps_rdi
-    have k₃ := hkeep .rcx compress_keeps_rcx
+  · intro s₂ hrd hwr hcs hfr hkeep ⟨s₃, hm₃, _, hpost⟩
+    have k₁ := hkeep .rdi hf.keeps_rdi
+    have k₃ := hkeep .rcx hf.keeps_rcx
     simp only [Proof.Sha256.compressX86_64, State.withRegions_gpr, State.withRegions_mem,
       hne _ (by decide : Reg.rdi ≠ .rsp), hne _ (by decide : Reg.rsi ≠ .rsp),
       hne _ (by decide : Reg.rdx ≠ .rsp), e₁, e₂, e₄, hm₃] at hpost
@@ -115,7 +119,7 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
       readSrc, isa, Option.map_some,
       Option.some.injEq, exists_eq_left']
     refine hQ _ (hrd.trans e₆) (hwr.trans e₇) (fun r hr => ?_) (by
-      rw [compress_depth, hsp, e₈] at hf; simpa [State.setReg] using hf)
+      rw [hf.depth, hsp, e₈] at hfr; simpa [State.setReg] using hfr)
       (by simp only [State.setReg]; rw [hpost, hst, hblk]) (by simp [State.setReg, k₁, e₁])
       (by simp [State.setReg, k₃, e₃])
     have h₂ := hcs r hr

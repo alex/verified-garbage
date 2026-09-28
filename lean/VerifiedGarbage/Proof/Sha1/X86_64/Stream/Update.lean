@@ -169,7 +169,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
 set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Sha1.updateX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Sha1.updateX86_64.post s₀ s' := by
   have i : ∀ d : Nat, d + 8 ≤ 160 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
     fun d hd => ⟨scR s₀, by simp [hI.rd, hI.wr, hp.wr], contains_offset' hd (by omega)⟩
   have i0 := i 112 (by omega); have i1 := i 120 (by omega); have i2 := i 128 (by omega)
@@ -741,7 +741,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   exact WP.mono (direct_ok hp hI₂ hb hb') fun s' h => .inl ⟨c + 64, by omega, h⟩
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha1.updateX86_64.post s₀ s' := by
+    WP isa update s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha1.updateX86_64.post s₀ s' := by
   unfold update
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI => ?_)
   refine WP.seq (WP.mono (Q := Inv s₀ (len s₀)) ?_ fun s₂ hI₂ => epilogue_ok hp hI₂)
@@ -790,7 +790,7 @@ def sat : State where
 theorem update_verified : Verified X86_64.target update Proof.Sha1.updateX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂

@@ -2,7 +2,7 @@
 
 Verified Garbage is an experimental cryptography library, implemented entirely by LLMs. All of the cryptography primitives are formally verified using Lean.
 
-It's aims are, in order:
+Its aims are, in order:
 
 1. Security
 2. Correctness
@@ -10,21 +10,22 @@ It's aims are, in order:
 
 The library is implemented in Lean, assembly, and Rust.
 
-It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
+It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 ## Algorithms
 
 | Algorithm | Spec landed | Supported | Optimized |
 |---|---|---|---|
-| SHA-256 | ✅ | ✅ | ❌ |
+| SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
 | SHA-384, SHA-512, SHA-512/224, SHA-512/256 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
-| HMAC-SHA-256 | ✅ | ✅ | ❌ |
+| HMAC-SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
 | PBKDF2-HMAC-SHA-256 | ✅ | ❌ | ❌ |
 | ChaCha20 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 | Poly1305 | ✅ | x86-64 | ❌ |
 | ChaCha20-Poly1305 | ✅ | ❌ | ❌ |
 | SHA-1 | ✅ | x86-64, ARM64 | ❌ |
 | MD5 | ✅ | x86-64, ARM64 | ❌ |
+| SHA3-224, SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256 | ✅ | ❌ | ❌ |
 | AES-GCM (128-, 192- and 256-bit keys) | ✅ | ❌ | ❌ |
 
 * **Spec landed**: the algorithm's specification, transcribed from its
@@ -33,8 +34,10 @@ It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
   architectures (✅: x86, x86-64, ARMv7 and ARM64; PPC64le is not started
   yet).
 * **Optimized**: the implementations have been tuned for performance (e.g.
-  with SHA-NI or NEON). None have yet: every implementation is
-  straightforward scalar code.
+  with SHA-NI or NEON) on these architectures. Where that needs CPU features
+  beyond the architecture's baseline, the features are detected at run time,
+  and CPUs without them run the straightforward scalar code that every
+  other implementation is.
 
 Our goal is to implement all the cryptographic algorithms that are used by the Python pyca/cryptography library.
 
