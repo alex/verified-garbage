@@ -124,6 +124,46 @@ fn sha1(c: &mut Criterion) {
 #[cfg(not(target_arch = "x86_64"))]
 fn sha1(_: &mut Criterion) {}
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+fn sha3(c: &mut Criterion) {
+    use verified_garbage::hashes::sha3::{
+        Sha3_224, Sha3_256, Sha3_384, Sha3_512, Shake128, Shake256,
+    };
+    hash_group(c, "sha3-224", Sha3_224::digest, MessageDigest::sha3_224());
+    hash_group(c, "sha3-256", Sha3_256::digest, MessageDigest::sha3_256());
+    hash_group(c, "sha3-384", Sha3_384::digest, MessageDigest::sha3_384());
+    hash_group(c, "sha3-512", Sha3_512::digest, MessageDigest::sha3_512());
+    xof_group(c, "shake128", Shake128::digest, MessageDigest::shake_128());
+    xof_group(c, "shake256", Shake256::digest, MessageDigest::shake_256());
+}
+
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+fn sha3(_: &mut Criterion) {}
+
+/// Benchmarks the extendable-output function `vg` against OpenSSL's `md`,
+/// with 32 bytes of output.
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+fn xof_group(c: &mut Criterion, name: &str, vg: fn(&[u8], &mut [u8]), md: MessageDigest) {
+    use openssl::hash::Hasher;
+    let mut g = c.benchmark_group(name);
+    for size in SIZES {
+        g.throughput(Throughput::Bytes(size as u64));
+        let data = vec![0x5a; size];
+        let mut out = [0u8; 32];
+        g.bench_function(BenchmarkId::new(VG, size), |b| {
+            b.iter(|| vg(black_box(&data), &mut out))
+        });
+        g.bench_function(BenchmarkId::new(OPENSSL, size), |b| {
+            b.iter(|| {
+                let mut h = Hasher::new(md).unwrap();
+                h.update(black_box(&data)).unwrap();
+                h.finish_xof(&mut out).unwrap();
+            })
+        });
+    }
+    g.finish();
+}
+
 fn hmac_sha256(c: &mut Criterion) {
     let key = [0x0b; 32];
     let pkey = PKey::hmac(&key).unwrap();
@@ -161,5 +201,60 @@ fn hmac_sha256(c: &mut Criterion) {
     g.finish();
 }
 
-criterion_group!(benches, chacha20, md5, sha1, sha256, sha512, hmac_sha256);
+/// scrypt with `r = 8` and `p = 1` (the RFC 7914 vectors' block size) at a
+/// few costs `N`, deriving a 64-byte key. The ids' sizes are `N`.
+#[cfg(target_arch = "x86_64")]
+fn scrypt_kdf(c: &mut Criterion) {
+    use verified_garbage::scrypt::scrypt;
+
+    let mut g = c.benchmark_group("scrypt");
+    g.sample_size(10);
+    for n in [1024u64, 16384] {
+        let mut out = [0u8; 64];
+        g.bench_function(BenchmarkId::new(VG, n), |b| {
+            b.iter(|| {
+                scrypt(
+                    black_box(b"password"),
+                    black_box(b"NaCl"),
+                    n,
+                    8,
+                    1,
+                    usize::MAX,
+                    &mut out,
+                )
+                .unwrap()
+            })
+        });
+        g.bench_function(BenchmarkId::new(OPENSSL, n), |b| {
+            b.iter(|| {
+                openssl::pkcs5::scrypt(
+                    black_box(b"password"),
+                    black_box(b"NaCl"),
+                    n,
+                    8,
+                    1,
+                    u64::MAX,
+                    &mut out,
+                )
+                .unwrap()
+            })
+        });
+    }
+    g.finish();
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+fn scrypt_kdf(_: &mut Criterion) {}
+
+criterion_group!(
+    benches,
+    chacha20,
+    md5,
+    sha1,
+    sha256,
+    sha3,
+    sha512,
+    hmac_sha256,
+    scrypt_kdf
+);
 criterion_main!(benches);

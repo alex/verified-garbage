@@ -12,6 +12,11 @@ publish = false
 build = false
 include = ["/src", "/LICENSE*", "/README.md"]
 
+[features]
+default = ["alloc"]
+# APIs that allocate (scrypt's memory-hard table), through the `alloc` crate.
+alloc = []
+
 [dependencies]
 
 [dev-dependencies]

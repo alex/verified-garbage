@@ -737,7 +737,7 @@ theorem WP.seq_assoc {M : ISA} {a b c : Prog M} {s : M.State} {Q : M.State → P
   simp only [WP.seq_iff]
 
 theorem out_keeps : (((List.range 5).flatMap outW ++ restore).all fun i =>
-    Taint.dstOf i != some .rdi && Taint.dstOf i != some .rcx) = true := by decide +kernel
+    !Taint.clobbers i .rdi && !Taint.clobbers i .rcx) = true := by decide +kernel
 
 /-- `finalize` is correct, and leaves `rdi` and `rcx` as they were (which code
 calling it relies on). -/
@@ -758,7 +758,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   · have := out_all hp hD 5 le_rfl sD ⟨hD.1.rd, hD.1.wr, fun _ _ => rfl, by simp [writeBytes_nil]⟩
     rw [show 5 - 5 = 0 from rfl, List.drop_zero] at this
     have keeps := fun i hi => List.all_eq_true.mp out_keeps i hi
-    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at keeps
+    simp only [Bool.and_eq_true, Bool.not_eq_true'] at keeps
     refine WP.mono (WP.gpr (WP.gpr this (r := .rdi) fun i hi => (keeps i hi).1) (r := .rcx)
       fun i hi => (keeps i hi).2) fun s' ⟨⟨h, h₁⟩, h₂⟩ => ⟨h.1, h.2, ?_, ?_⟩
     · rw [h₁, hdi]
@@ -768,7 +768,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 and `rcx` point at the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
   { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .rsp], flags := false, lens := [84, 20, 160],
-    bases := [(.rdi, 0), (.rdx, 1), (.rcx, 2)] }
+    bases := [(.rdi, 0, 0), (.rdx, 1, 0), (.rcx, 2, 0)] }
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha1.finalizeX86_64.pre s₁)
     (h₂ : Proof.Sha1.finalizeX86_64.pre s₂) (hpub : Proof.Sha1.finalizeX86_64.pub s₁ s₂) :
@@ -780,7 +780,8 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha1.finalizeX86_64.pre s₁)
     refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, d1, d2, d3], by simp [hw]⟩, fun p hp => ?_⟩
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]
-  refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
+  refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_,
+    X86_64.Taint.noLo⟩
   · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
   · rw [h₁.2.1, h₂.2.1, p1, p3, p4]

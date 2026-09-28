@@ -19,14 +19,15 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 | SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
 | SHA-384, SHA-512, SHA-512/224, SHA-512/256 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 | HMAC-SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
-| PBKDF2-HMAC-SHA-256 | ✅ | ❌ | ❌ |
+| PBKDF2-HMAC-SHA-256 | ✅ | x86-64 | ❌ |
 | ChaCha20 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 | Poly1305 | ✅ | ❌ | ❌ |
 | ChaCha20-Poly1305 | ✅ | ❌ | ❌ |
 | SHA-1 | ✅ | x86-64, ARM64 | ❌ |
 | MD5 | ✅ | x86-64, ARM64 | ❌ |
-| SHA3-224, SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256 | ✅ | ❌ | ❌ |
+| SHA3-224, SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256 | ✅ | x86-64, ARM64 | ❌ |
 | AES-GCM (128-, 192- and 256-bit keys) | ✅ | ❌ | ❌ |
+| scrypt | ✅ | x86-64 | ❌ |
 
 * **Spec landed**: the algorithm's specification, transcribed from its
   standard, is in `lean/VerifiedGarbage/Spec/`.
@@ -45,7 +46,9 @@ Our goal is to implement all the cryptographic algorithms that are used by the P
 
 * Each primitive is written in assembly, as a program over a Lean model of the
   target ISA, and proven in Lean to be correct against a specification, memory
-  safe, and constant time. See [`lean/README.md`](lean/README.md) for the
+  safe, and constant time (scrypt's ROMix is the exception its standard
+  makes: it reads memory at indices derived from the password, and its
+  contract declares that it leaks them and nothing else secret). See [`lean/README.md`](lean/README.md) for the
   layout, the pipeline, and exactly what has to be trusted.
 * The proven assembly is emitted into [`src/asm/`](src/asm/) (one directory
   per architecture) as Rust naked functions (`naked_asm!`); there is no build

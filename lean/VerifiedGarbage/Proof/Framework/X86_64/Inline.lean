@@ -224,6 +224,7 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     split at h <;> [cases h; cases h]
     rename_i hr; simp only [hr, ite_true]; rfl
   | lfence => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
+  | mul r => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
 
 theorem addrs_withRegions (i : Instr) (s : State) (rd wr : List Region) :
     addrs i (s.withRegions rd wr) = addrs i s := by
@@ -259,6 +260,7 @@ theorem exec_regions {i : Instr} (h : exec i s = some s') : s'.rd = s.rd ∧ s'.
     simp only [exec, Option.bind_eq_some_iff] at h; obtain ⟨_, _, h⟩ := h
     split at h <;> cases h; exact ⟨rfl, rfl⟩
   | lfence => simp only [exec, Option.some.injEq] at h; subst h; exact ⟨rfl, rfl⟩
+  | mul r => simp only [exec, Option.some.injEq] at h; subst h; exact ⟨rfl, rfl⟩
   | _ => exact ⟨(Taint.exec_nonstore rfl h).1, (Taint.exec_nonstore rfl h).2.1⟩
 
 theorem exec_frame {i : Instr} (h : exec i s = some s') : Frame s.wr s.mem s'.mem := by
@@ -299,6 +301,7 @@ theorem exec_frame {i : Instr} (h : exec i s = some s') : Frame s.wr s.mem s'.me
     simp only [exec, Option.bind_eq_some_iff] at h; obtain ⟨_, _, h⟩ := h
     split at h <;> cases h; exact Frame.refl _ _
   | lfence => simp only [exec, Option.some.injEq] at h; subst h; exact Frame.refl _ _
+  | mul r => simp only [exec, Option.some.injEq] at h; subst h; exact Frame.refl _ _
   | _ => rw [(Taint.exec_nonstore rfl h).2.2.1]; exact Frame.refl _ _
 
 theorem eval_withRegions (c : Cond) (s : State) (rd wr : List Region) :
@@ -424,10 +427,13 @@ theorem Exec.widen {c : Prog isa} {s s' : State} {t : List Leak} {rd wr : List R
     have := Exec.call (name := n) hc' (ih (by rwa [r₁, w₁]) (by rwa [w₁])) hr'
     exact this
 
-theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.dstOf i ≠ some r) {s s' : State}
+theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.clobbers i r = false) {s s' : State}
     (h : exec i s = some s') : s'.gpr r = s.gpr r := by
   cases hd : Taint.dstOf i with
-  | some d => exact (Taint.exec_nonstore hd h).2.2.2 r fun h' => hi (h' ▸ hd)
+  | some d =>
+    refine (Taint.exec_nonstore hd h).2.2.2 r fun h' => ?_
+    subst h'
+    cases i <;> simp_all [Taint.clobbers, Taint.dstOf]
   | none =>
     cases i <;> simp only [Taint.dstOf, reduceCtorEq] at hd
     · simp only [exec, State.store64] at h; split at h <;> cases h; rfl
@@ -448,8 +454,12 @@ theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.dstOf i ≠ some r) {s s' : S
     · simp only [exec, Option.bind_eq_some_iff] at h; obtain ⟨_, _, h⟩ := h
       split at h <;> cases h; rfl
     · simp only [exec, Option.some.injEq] at h; subst h; rfl
+    · rename_i q
+      simp only [Taint.clobbers, Bool.or_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at hi
+      simp only [exec, Option.some.injEq] at h; subst h
+      exact Taint.execMul_gpr q s hi.1 hi.2
 
-theorem execBlock_gpr {is : List Instr} {r : Reg} (hc : ∀ i ∈ is, Taint.dstOf i ≠ some r)
+theorem execBlock_gpr {is : List Instr} {r : Reg} (hc : ∀ i ∈ is, Taint.clobbers i r = false)
     {s s' : State} {t : List Leak} (h : execBlock isa is s = some (s', t)) : s'.gpr r = s.gpr r := by
   induction is generalizing s t with
   | nil =>
@@ -467,7 +477,7 @@ theorem execBlock_gpr {is : List Instr} {r : Reg} (hc : ∀ i ∈ is, Taint.dstO
       exec_gpr (hc i (List.mem_cons_self ..)) he]
 
 /-- A register that no instruction writes keeps its value. -/
-theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, Taint.dstOf i ≠ some r)
+theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, Taint.clobbers i r = false)
     {s s' : State} {t : List Leak} (h : Exec isa c s t s') : s'.gpr r = s.gpr r := by
   induction h with
   | block h => exact execBlock_gpr hc h
@@ -490,7 +500,7 @@ theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, Taint.dstOf 
 /-- A register that no instruction writes keeps its value, as a
 postcondition. -/
 theorem WP.gpr {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s Q) {r : Reg}
-    (hc : ∀ i ∈ instrs c, Taint.dstOf i ≠ some r) : WP isa c s fun s' => Q s' ∧ s'.gpr r = s.gpr r := by
+    (hc : ∀ i ∈ instrs c, Taint.clobbers i r = false) : WP isa c s fun s' => Q s' ∧ s'.gpr r = s.gpr r := by
   obtain ⟨t, s', he, hq⟩ := h
   exact ⟨t, s', he, hq, Exec.gpr hc he⟩
 
@@ -505,7 +515,7 @@ theorem WP.inline {c : Prog isa} {k : Contract isa}
     {s : State} {rd wr : List Region} (hpre : k.pre (s.withRegions rd wr))
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → abiPreserved s s' → Frame wr s.mem s'.mem →
-      (∀ r, (∀ i ∈ instrs c, Taint.dstOf i ≠ some r) → s'.gpr r = s.gpr r) →
+      (∀ r, (∀ i ∈ instrs c, Taint.clobbers i r = false) → s'.gpr r = s.gpr r) →
       k.post (s.withRegions rd wr) (s'.withRegions rd wr) → Q s')
     (hn : c.noCalls = true := by decide +kernel) : WP isa c s Q := by
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre

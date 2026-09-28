@@ -11,8 +11,11 @@ import VerifiedGarbage.Proof.Sha1.AArch64.Shared
 import VerifiedGarbage.Proof.Sha512.AArch64.Shared
 import VerifiedGarbage.Proof.Sha512.Arm.Shared
 import VerifiedGarbage.Proof.Hmac.X86_64.Shared
+import VerifiedGarbage.Proof.Pbkdf2.X86_64.Shared
 import VerifiedGarbage.Proof.Md5.X86_64.Shared
 import VerifiedGarbage.Proof.Md5.AArch64.Shared
+import VerifiedGarbage.Proof.Sha3.X86_64.Shared
+import VerifiedGarbage.Proof.Sha3.AArch64.Shared
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Shared
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Shared
 import VerifiedGarbage.Proof.ChaCha20.Arm.Shared
@@ -21,6 +24,7 @@ import VerifiedGarbage.Proof.Hmac.AArch64.Shared
 import VerifiedGarbage.Proof.Hmac.Arm.Shared
 import VerifiedGarbage.Proof.Hmac.X86.Shared
 import VerifiedGarbage.Proof.ChaCha20.X86.Shared
+import VerifiedGarbage.Proof.Scrypt.X86_64.Shared
 
 /-!
 # The artifact registry
@@ -611,6 +615,30 @@ def artifacts : List Artifact := [
     contract := Spec.Hmac.finalizeSha256Contract X86_64.abi 16
     verified := Proof.Hmac.X86_64.Shared.finalize
     spSafe := Proof.SpSafe.hmac_x86_64_finalize },
+  { target := X86_64.target
+    module := "pbkdf2"
+    name := "vg_pbkdf2_hmac_sha256_iterate"
+    sig := Spec.Pbkdf2.iterateSha256Sig
+    doc := "Runs `n` steps of PBKDF2-HMAC-SHA-256's iteration: if, for a 64-byte key `K₀`, the \
+      SHA-256 streaming state in bytes 0 to 95 of `*key` represents `K₀ ⊕ ipad` and the one \
+      in bytes 96 to 191 represents `K₀ ⊕ opad` (as `vg_hmac_sha256_init` leaves them), \
+      repeats `U ← HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, \
+      and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).\n\n\
+      Contract: `VG.Spec.Pbkdf2.iterateSha256Contract`. Constant time: only the pointers and \
+      `n` may affect timing, not the key, `U` or `T`.\n\n\
+      # Safety\n\n\
+      * `key` must be valid for reads of 192 bytes, and `u` for reads of 32 bytes.\n\
+      * `t` must be valid for reads and writes of 32 bytes.\n\
+      * `scratch` must be valid for reads and writes of 384 bytes; its contents on return \
+      are unspecified.\n\
+      * `t` and `scratch` must not overlap each other, `key` or `u`, and none of the four \
+      regions may overlap the return address on the stack or the 8 bytes of stack below it, \
+      where its calls of `vg_sha256_compress` store their return address (distinct Rust \
+      objects never do)."
+    code := Impl.Pbkdf2.X86_64.iterate
+    contract := Spec.Pbkdf2.iterateSha256Contract X86_64.abi 8
+    verified := Proof.Pbkdf2.X86_64.Shared.iterate
+    spSafe := Proof.SpSafe.pbkdf2_x86_64_iterate },
   { target := AArch64.target
     module := "sha256"
     name := "vg_sha256_compress"
@@ -1378,7 +1406,248 @@ def artifacts : List Artifact := [
     code := Impl.ChaCha20.X86.block
     contract := Spec.ChaCha20.blockContract X86.abi
     verified := Proof.ChaCha20.X86.Shared.block
-    spSafe := Proof.SpSafe.chacha20_x86_block }
+    spSafe := Proof.SpSafe.chacha20_x86_block },
+  { target := X86_64.target
+    module := "sha3"
+    name := "vg_keccak_f1600"
+    sig := Spec.Sha3.permuteSig
+    doc := "The permutation Keccak-f[1600] (FIPS 202 §3.4): applies it to the state \
+      `*state` (lane `x + 5y` at index `x + 5y`).\n\n\
+      Contract: `VG.Spec.Sha3.permuteContract`. Constant time: only the pointers may affect \
+      timing, not the state.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 200 bytes.\n\
+      * `scratch` must be valid for reads and writes of 512 bytes; its contents on return \
+      are unspecified.\n\
+      * These two regions must not overlap each other, nor the return address on the stack \
+      (distinct Rust objects never do)."
+    code := Impl.Sha3.X86_64.permute
+    contract := Spec.Sha3.permuteContract X86_64.abi
+    verified := Proof.Sha3.X86_64.Shared.permute
+    spSafe := Proof.SpSafe.sha3_x86_64_permute },
+  { target := X86_64.target
+    module := "sha3"
+    name := "vg_keccak_absorb"
+    sig := Spec.Sha3.absorbSig
+    doc := "Absorbs data into a SHA-3 or SHAKE computation: if the state `*state` represents \
+      a message whose length is `pos` modulo `rate` (`VG.Spec.Sha3.Repr`), it then represents \
+      that message followed by the `len` bytes at `data`. Returns the position after them, \
+      `(pos + len) % rate`.\n\n\
+      Contract: `VG.Spec.Sha3.absorbContract`. Constant time: only the pointers, `rate`, `pos` \
+      and `len` may affect timing, not the state or the data.\n\n\
+      # Safety\n\n\
+      * `rate` must be 72, 104, 136, 144 or 168, and `pos` less than `rate`.\n\
+      * `state` must be valid for reads and writes of 200 bytes.\n\
+      * `data` must be valid for reads of `len` bytes.\n\
+      * `scratch` must be valid for reads and writes of 640 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_keccak_f1600` stores its \
+      return address (distinct Rust objects never do)."
+    code := Impl.Sha3.X86_64.Stream.absorb
+    contract := Spec.Sha3.absorbContract X86_64.abi 8
+    verified := Proof.Sha3.X86_64.Shared.absorb
+    spSafe := Proof.SpSafe.sha3_x86_64_absorb },
+  { target := X86_64.target
+    module := "sha3"
+    name := "vg_keccak_pad"
+    sig := Spec.Sha3.padSig
+    doc := "Pads a SHA-3 or SHAKE message: if the state `*state` represents a message whose \
+      length is `pos` modulo `rate` (`VG.Spec.Sha3.Repr`), it becomes the state after \
+      absorbing that message with the domain-separation suffix (the low byte of `suffix`, \
+      with the first bit of the padding: `0x06` for SHA-3, `0x1f` for SHAKE) and \
+      `pad10*1`.\n\n\
+      Contract: `VG.Spec.Sha3.padContract`. Constant time: only the pointers, `rate`, `pos` \
+      and `suffix` may affect timing, not the state.\n\n\
+      # Safety\n\n\
+      * `rate` must be 72, 104, 136, 144 or 168, and `pos` less than `rate`.\n\
+      * `state` must be valid for reads and writes of 200 bytes.\n\
+      * `scratch` must be valid for reads and writes of 640 bytes; its contents on return \
+      are unspecified.\n\
+      * These two regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_keccak_f1600` stores its \
+      return address (distinct Rust objects never do)."
+    code := Impl.Sha3.X86_64.Stream.pad
+    contract := Spec.Sha3.padContract X86_64.abi 8
+    verified := Proof.Sha3.X86_64.Shared.pad
+    spSafe := Proof.SpSafe.sha3_x86_64_pad },
+  { target := X86_64.target
+    module := "sha3"
+    name := "vg_keccak_squeeze"
+    sig := Spec.Sha3.squeezeSig
+    doc := "Squeezes output from a padded SHA-3 or SHAKE state: writes to `out` the \
+      `outlen` bytes of the output of the sponge with rate `rate` from the state `*state` \
+      (FIPS 202 Algorithm 8, steps 7 to 10), from byte `pos` of that output on; leaves in \
+      `*state` a state, and returns a position, from which the output continues after them. \
+      Start from the state `vg_keccak_pad` leaves and position 0.\n\n\
+      Contract: `VG.Spec.Sha3.squeezeContract`. Constant time: only the pointers, `rate`, \
+      `pos` and `outlen` may affect timing, not the state.\n\n\
+      # Safety\n\n\
+      * `rate` must be 72, 104, 136, 144 or 168, and `pos` at most `rate`.\n\
+      * `state` must be valid for reads and writes of 200 bytes.\n\
+      * `out` must be valid for writes of `outlen` bytes.\n\
+      * `scratch` must be valid for reads and writes of 640 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_keccak_f1600` stores its \
+      return address (distinct Rust objects never do)."
+    code := Impl.Sha3.X86_64.Stream.squeeze
+    contract := Spec.Sha3.squeezeContract X86_64.abi 8
+    verified := Proof.Sha3.X86_64.Shared.squeeze
+    spSafe := Proof.SpSafe.sha3_x86_64_squeeze },
+  { target := AArch64.target
+    module := "sha3"
+    name := "vg_keccak_f1600"
+    sig := Spec.Sha3.permuteSig
+    doc := "The permutation Keccak-f[1600] (FIPS 202 §3.4): applies it to the state \
+      `*state` (lane `x + 5y` at index `x + 5y`).\n\n\
+      Contract: `VG.Spec.Sha3.permuteContract`. Constant time: only the pointers may affect \
+      timing, not the state.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 200 bytes.\n\
+      * `scratch` must be valid for reads and writes of 512 bytes; its contents on return \
+      are unspecified.\n\
+      * These two regions must not overlap each other."
+    code := Impl.Sha3.AArch64.permute
+    contract := Spec.Sha3.permuteContract AArch64.abi
+    verified := Proof.Sha3.AArch64.Shared.permute
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := AArch64.target
+    module := "sha3"
+    name := "vg_keccak_absorb"
+    sig := Spec.Sha3.absorbSig
+    doc := "Absorbs data into a SHA-3 or SHAKE computation: if the state `*state` represents \
+      a message whose length is `pos` modulo `rate` (`VG.Spec.Sha3.Repr`), it then represents \
+      that message followed by the `len` bytes at `data`. Returns the position after them, \
+      `(pos + len) % rate`.\n\n\
+      Contract: `VG.Spec.Sha3.absorbContract`. Constant time: only the pointers, `rate`, `pos` \
+      and `len` may affect timing, not the state or the data.\n\n\
+      # Safety\n\n\
+      * `rate` must be 72, 104, 136, 144 or 168, and `pos` less than `rate`.\n\
+      * `state` must be valid for reads and writes of 200 bytes.\n\
+      * `data` must be valid for reads of `len` bytes.\n\
+      * `scratch` must be valid for reads and writes of 640 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, or the 16 bytes of stack below the \
+      stack pointer, where it saves its return address before calling `vg_keccak_f1600` \
+      (distinct Rust objects never do)."
+    code := Impl.Sha3.AArch64.Stream.absorb
+    contract := Spec.Sha3.absorbContract AArch64.abi 16
+    verified := Proof.Sha3.AArch64.Shared.absorb
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := AArch64.target
+    module := "sha3"
+    name := "vg_keccak_pad"
+    sig := Spec.Sha3.padSig
+    doc := "Pads a SHA-3 or SHAKE message: if the state `*state` represents a message whose \
+      length is `pos` modulo `rate` (`VG.Spec.Sha3.Repr`), it becomes the state after \
+      absorbing that message with the domain-separation suffix (the low byte of `suffix`, \
+      with the first bit of the padding: `0x06` for SHA-3, `0x1f` for SHAKE) and \
+      `pad10*1`.\n\n\
+      Contract: `VG.Spec.Sha3.padContract`. Constant time: only the pointers, `rate`, `pos` \
+      and `suffix` may affect timing, not the state.\n\n\
+      # Safety\n\n\
+      * `rate` must be 72, 104, 136, 144 or 168, and `pos` less than `rate`.\n\
+      * `state` must be valid for reads and writes of 200 bytes.\n\
+      * `scratch` must be valid for reads and writes of 640 bytes; its contents on return \
+      are unspecified.\n\
+      * These two regions must not overlap each other, or the 16 bytes of stack below the \
+      stack pointer, where it saves its return address before calling `vg_keccak_f1600` \
+      (distinct Rust objects never do)."
+    code := Impl.Sha3.AArch64.Stream.pad
+    contract := Spec.Sha3.padContract AArch64.abi 16
+    verified := Proof.Sha3.AArch64.Shared.pad
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := AArch64.target
+    module := "sha3"
+    name := "vg_keccak_squeeze"
+    sig := Spec.Sha3.squeezeSig
+    doc := "Squeezes output from a padded SHA-3 or SHAKE state: writes to `out` the \
+      `outlen` bytes of the output of the sponge with rate `rate` from the state `*state` \
+      (FIPS 202 Algorithm 8, steps 7 to 10), from byte `pos` of that output on; leaves in \
+      `*state` a state, and returns a position, from which the output continues after them. \
+      Start from the state `vg_keccak_pad` leaves and position 0.\n\n\
+      Contract: `VG.Spec.Sha3.squeezeContract`. Constant time: only the pointers, `rate`, \
+      `pos` and `outlen` may affect timing, not the state.\n\n\
+      # Safety\n\n\
+      * `rate` must be 72, 104, 136, 144 or 168, and `pos` at most `rate`.\n\
+      * `state` must be valid for reads and writes of 200 bytes.\n\
+      * `out` must be valid for writes of `outlen` bytes.\n\
+      * `scratch` must be valid for reads and writes of 640 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, or the 16 bytes of stack below the \
+      stack pointer, where it saves its return address before calling `vg_keccak_f1600` \
+      (distinct Rust objects never do)."
+    code := Impl.Sha3.AArch64.Stream.squeeze
+    contract := Spec.Sha3.squeezeContract AArch64.abi 16
+    verified := Proof.Sha3.AArch64.Shared.squeeze
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := X86_64.target
+    module := "scrypt"
+    name := "vg_salsa20_8"
+    sig := Spec.Scrypt.salsaSig
+    doc := "The Salsa20/8 Core (RFC 7914 §3): replaces the 64 bytes `*b` by their Salsa20/8 \
+      Core (the 16 little-endian words, 8 rounds, then the input added word by word).\n\n\
+      Contract: `VG.Spec.Scrypt.salsaContract`. Constant time: only the pointers may affect \
+      timing, not the data.\n\n\
+      # Safety\n\n\
+      * `b` must be valid for reads and writes of 64 bytes.\n\
+      * `scratch` must be valid for reads and writes of 64 bytes. It is working space: its \
+      contents on return are unspecified.\n\
+      * `b` and `scratch` must not overlap each other, nor the return address on the stack, \
+      and neither may wrap around the end of the address space (distinct Rust objects never do)."
+    code := Impl.Scrypt.X86_64.salsa
+    contract := Spec.Scrypt.salsaContract X86_64.abi
+    verified := Proof.Scrypt.X86_64.Shared.salsa
+    spSafe := Proof.SpSafe.scrypt_x86_64_salsa },
+  { target := X86_64.target
+    module := "scrypt"
+    name := "vg_scrypt_blockmix"
+    sig := Spec.Scrypt.blockMixSig
+    doc := "scryptBlockMix (RFC 7914 §4) with block size parameter `r`: writes scryptBlockMix of \
+      the `128 * r` bytes at `b` to the `128 * ry` bytes at `y`. Calls `vg_salsa20_8` for each \
+      64-byte block.\n\n\
+      Contract: `VG.Spec.Scrypt.blockMixContract`. Constant time: only the pointers and `r` may \
+      affect timing, not the data.\n\n\
+      # Safety\n\n\
+      * `ry` must equal `r`, and `r` must be positive.\n\
+      * `b` must be valid for reads of `128 * r` bytes, and `y` for reads and writes of \
+      `128 * ry` bytes.\n\
+      * `scratch` must be valid for reads and writes of 128 bytes. It is working space: its \
+      contents on return are unspecified.\n\
+      * `b`, `y` and `scratch` must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its calls of `vg_salsa20_8` store their return \
+      address, and none may wrap around the end of the address space (distinct Rust objects \
+      never do)."
+    code := Impl.Scrypt.X86_64.blockMix
+    contract := Spec.Scrypt.blockMixContract X86_64.abi 8
+    verified := Proof.Scrypt.X86_64.Shared.blockMix
+    spSafe := Proof.SpSafe.scrypt_x86_64_blockmix },
+  { target := X86_64.target
+    module := "scrypt"
+    name := "vg_scrypt_romix"
+    sig := Spec.Scrypt.roMixSig
+    doc := "scryptROMix (RFC 7914 §5) with block size parameter `r` and cost parameter \
+      `N = vlen / r`: replaces the `128 * r` bytes at `b` by their scryptROMix. Step 2 writes \
+      `V[0], …, V[N - 1]` to `v`. Calls `vg_scrypt_blockmix` for each scryptBlockMix.\n\n\
+      Contract: `VG.Spec.Scrypt.roMixContract`. Not constant time in the indices: timing may \
+      depend on the pointers, `r`, `N` and the indices `j` of step 3 \
+      (`VG.Spec.Scrypt.roMixIndices`), which are derived from the data and so leak \
+      information about it (as in every scrypt that indexes `V` directly), but on nothing \
+      else.\n\n\
+      # Safety\n\n\
+      * `r` must be positive, `vlen` must be `N * r` for a power of two `N`, and `slen` must \
+      be `r + 2`.\n\
+      * `b` must be valid for reads and writes of `128 * r` bytes, `v` of `128 * vlen` bytes \
+      and `scratch` of `128 * slen` bytes. `v` and `scratch` are working space: their \
+      contents on return are unspecified.\n\
+      * `b`, `v` and `scratch` must not overlap each other, the return address on the stack, \
+      or the 16 bytes of stack below it, where its calls store their return addresses, and \
+      none may wrap around the end of the address space (distinct Rust objects never do)."
+    code := Impl.Scrypt.X86_64.roMix
+    contract := Spec.Scrypt.roMixContract X86_64.abi 16
+    verified := Proof.Scrypt.X86_64.Shared.roMix
+    spSafe := Proof.SpSafe.scrypt_x86_64_romix }
 ]
 
 #assert_standard_axioms artifacts
