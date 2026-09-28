@@ -26,8 +26,8 @@ Modelling choices:
 * The SSE registers `xmm0`–`xmm15` are modelled as 128 bits each (SDM Vol. 1
   §10.2.2); the upper bits of the `ymm`/`zmm` registers they alias are not
   modelled, and the legacy SSE instructions modelled here leave them
-  unmodified. Every SSE instruction is register-to-register, except the
-  unaligned `movdqu` load and store, so no alignment fault (legacy SSE
+  unmodified. No SSE instruction has a memory operand except the unaligned
+  `movdqu` load and store, so no alignment fault (legacy SSE
   memory operands must be 16-byte aligned) needs modelling. MXCSR is not
   modelled: no modelled SSE instruction reads or writes it (integer SSE
   instructions raise no SIMD floating-point exceptions).
@@ -87,16 +87,17 @@ inductive AluOp | add | adc | sub | sbb | and | or | xor | cmp | test
 inductive ShiftOp | ror | shr
   deriving DecidableEq, Repr
 
-/-- Two-operand SSE2 instructions `op xmm1, xmm2` (register forms only). -/
+/-- Two-operand SSE instructions `op xmm1, xmm2` (register forms only). -/
 inductive XBinOp
   | movdqa | paddd | pxor | por | punpckldq | punpckhdq | punpcklqdq | punpckhqdq
+  | pshufb | sha256msg1 | sha256msg2
   deriving DecidableEq, Repr
 
 /-- SSE2 shifts of each doubleword by an immediate count. -/
 inductive XShiftOp | pslld | psrld
   deriving DecidableEq, Repr
 
-/-- SSE2 instructions that only read and write SSE registers. -/
+/-- SSE instructions that write only an SSE register. -/
 inductive XOp
   /-- `op xmm1, xmm2` -/
   | bin (op : XBinOp) (dst src : XReg)
@@ -104,6 +105,12 @@ inductive XOp
   | shift (op : XShiftOp) (dst : XReg) (count : BitVec 8)
   /-- `pshufd xmm1, xmm2, imm8` -/
   | pshufd (dst src : XReg) (order : BitVec 8)
+  /-- `palignr xmm1, xmm2, imm8` -/
+  | palignr (dst src : XReg) (shift : BitVec 8)
+  /-- `sha256rnds2 xmm1, xmm2, xmm0` (`xmm0` is implicit in the encoding) -/
+  | sha256rnds2 (dst src : XReg)
+  /-- `movq xmm, r64` (`66 REX.W 0F 6E /r`) -/
+  | movq (dst : XReg) (src : Reg)
   deriving DecidableEq, Repr
 
 inductive Instr
@@ -142,7 +149,7 @@ inductive Instr
   | movdquLoad (dst : XReg) (src : MemOp)
   /-- `movdqu XMMWORD PTR [dst], xmm` (`F3 0F 7F /r`) -/
   | movdquStore (dst : MemOp) (src : XReg)
-  /-- An SSE2 instruction on SSE registers only. -/
+  /-- An SSE instruction that writes only an SSE register. -/
   | xop (op : XOp)
   deriving DecidableEq, Repr
 
@@ -349,7 +356,7 @@ def bswap64 (a : BitVec 64) : BitVec 64 :=
   a.extractLsb' 0 8 ++ a.extractLsb' 8 8 ++ a.extractLsb' 16 8 ++ a.extractLsb' 24 8 ++
     a.extractLsb' 32 8 ++ a.extractLsb' 40 8 ++ a.extractLsb' 48 8 ++ a.extractLsb' 56 8
 
-/-! ### SSE2
+/-! ### SSE
 
 The SDM's pseudocode numbers bits from the least significant: doubleword `i`
 of a 128-bit operand is bits `32i+31:32i`, quadword `i` bits `64i+63:64i`. -/
@@ -362,6 +369,52 @@ def qword (x : BitVec 128) (i : Nat) : BitVec 64 := x.extractLsb' (64 * i) 64
 
 /-- The 128-bit value with doublewords `d0` (bits 31:0), `d1`, `d2`, `d3` (bits 127:96). -/
 def ofDwords (d0 d1 d2 d3 : BitVec 32) : BitVec 128 := d3 ++ d2 ++ d1 ++ d0
+
+/-- Byte `i` of `x`: bits `8i+7:8i`. -/
+def byte (x : BitVec 128) (i : Nat) : BitVec 8 := x.extractLsb' (8 * i) 8
+
+/-- The 128-bit value whose byte `i` (bits `8i+7:8i`) is `f i`. -/
+def ofBytes (f : Nat → BitVec 8) : BitVec 128 :=
+  f 15 ++ f 14 ++ f 13 ++ f 12 ++ f 11 ++ f 10 ++ f 9 ++ f 8 ++
+    f 7 ++ f 6 ++ f 5 ++ f 4 ++ f 3 ++ f 2 ++ f 1 ++ f 0
+
+/-! The SHA-256 functions used, but not defined, by the SDM's pseudocode for
+the SHA extensions: those of the SHA-256 standard, FIPS 180-4 §4.1.2, where
+`ROTRⁿ` is a 32-bit rotate right and `SHRⁿ` a logical shift right. -/
+
+/-- `Ch(x, y, z) = (x ∧ y) ⊕ (¬x ∧ z)` -/
+def sha256Ch (x y z : BitVec 32) : BitVec 32 := (x &&& y) ^^^ (~~~x &&& z)
+
+/-- `Maj(x, y, z) = (x ∧ y) ⊕ (x ∧ z) ⊕ (y ∧ z)` -/
+def sha256Maj (x y z : BitVec 32) : BitVec 32 := (x &&& y) ^^^ (x &&& z) ^^^ (y &&& z)
+
+/-- `Σ0(x) = ROTR²(x) ⊕ ROTR¹³(x) ⊕ ROTR²²(x)` -/
+def sha256BigSigma0 (x : BitVec 32) : BitVec 32 :=
+  x.rotateRight 2 ^^^ x.rotateRight 13 ^^^ x.rotateRight 22
+
+/-- `Σ1(x) = ROTR⁶(x) ⊕ ROTR¹¹(x) ⊕ ROTR²⁵(x)` -/
+def sha256BigSigma1 (x : BitVec 32) : BitVec 32 :=
+  x.rotateRight 6 ^^^ x.rotateRight 11 ^^^ x.rotateRight 25
+
+/-- `σ0(x) = ROTR⁷(x) ⊕ ROTR¹⁸(x) ⊕ SHR³(x)` -/
+def sha256Sigma0 (x : BitVec 32) : BitVec 32 := x.rotateRight 7 ^^^ x.rotateRight 18 ^^^ x >>> 3
+
+/-- `σ1(x) = ROTR¹⁷(x) ⊕ ROTR¹⁹(x) ⊕ SHR¹⁰(x)` -/
+def sha256Sigma1 (x : BitVec 32) : BitVec 32 :=
+  x.rotateRight 17 ^^^ x.rotateRight 19 ^^^ x >>> 10
+
+/-- SDM Vol. 2, "SHA256MSG2": `W14 := SRC2[95:64]; W15 := SRC2[127:96];
+W16 := SRC1[31:0] + σ1(W14); W17 := SRC1[63:32] + σ1(W15); W18 :=
+SRC1[95:64] + σ1(W16); W19 := SRC1[127:96] + σ1(W17); DEST[127:96] := W19;
+DEST[95:64] := W18; DEST[63:32] := W17; DEST[31:0] := W16`. -/
+def sha256Msg2 (src1 src2 : BitVec 128) : BitVec 128 :=
+  let w14 := dword src2 2
+  let w15 := dword src2 3
+  let w16 := dword src1 0 + sha256Sigma1 w14
+  let w17 := dword src1 1 + sha256Sigma1 w15
+  let w18 := dword src1 2 + sha256Sigma1 w16
+  let w19 := dword src1 3 + sha256Sigma1 w17
+  ofDwords w16 w17 w18 w19
 
 /-- The result of `op dst, src`, given the old values `a` of `dst` and `b` of
 `src`. SDM Vol. 2 (128-bit legacy SSE forms, which leave the destination's
@@ -381,6 +434,16 @@ bits above 127 unmodified; no flags are affected):
 * PUNPCKHQDQ (`INTERLEAVE_HIGH_QWORDS`): `DEST[63:0] := SRC1[127:64];
   DEST[127:64] := SRC2[127:64]`.
 
+* PSHUFB (with 128 bit operands): `TEMP := DEST; for i = 0 to 15 { if
+  (SRC[(i * 8)+7] = 1) then DEST[(i*8)+7..(i*8)+0] := 0; else index[3..0] :=
+  SRC[(i*8)+3 .. (i*8)+0]; DEST[(i*8)+7..(i*8)+0] :=
+  TEMP[(index*8+7)..(index*8+0)]; endif }`.
+* SHA256MSG1: `W4 := SRC2[31:0]; W3 := SRC1[127:96]; W2 := SRC1[95:64];
+  W1 := SRC1[63:32]; W0 := SRC1[31:0]; DEST[127:96] := W3 + σ0(W4);
+  DEST[95:64] := W2 + σ0(W3); DEST[63:32] := W1 + σ0(W2); DEST[31:0] :=
+  W0 + σ0(W1)`.
+* SHA256MSG2: see `sha256Msg2`.
+
 (`SRC1` is the destination, `SRC2` the source.) -/
 def XBinOp.eval : XBinOp → BitVec 128 → BitVec 128 → BitVec 128
   | .movdqa, _, b => b
@@ -393,6 +456,13 @@ def XBinOp.eval : XBinOp → BitVec 128 → BitVec 128 → BitVec 128
   | .punpckhdq, a, b => ofDwords (dword a 2) (dword b 2) (dword a 3) (dword b 3)
   | .punpcklqdq, a, b => qword b 0 ++ qword a 0
   | .punpckhqdq, a, b => qword b 1 ++ qword a 1
+  | .pshufb, a, b => ofBytes fun i =>
+    let c := byte b i
+    if c.msb then 0 else byte a (c.extractLsb' 0 4).toNat
+  | .sha256msg1, a, b =>
+    ofDwords (dword a 0 + sha256Sigma0 (dword a 1)) (dword a 1 + sha256Sigma0 (dword a 2))
+      (dword a 2 + sha256Sigma0 (dword a 3)) (dword a 3 + sha256Sigma0 (dword b 0))
+  | .sha256msg2, a, b => sha256Msg2 a b
 
 /-- SDM Vol. 2, "PSLLW/PSLLD/PSLLQ" and "PSRLW/PSRLD/PSRLQ", the doubleword
 forms with an immediate count: `IF (COUNT > 31) THEN DEST[127:0] := 0 ELSE
@@ -414,11 +484,72 @@ def shufDwords (a : BitVec 128) (order : BitVec 8) : BitVec 128 :=
   ofDwords (dword a (order.extractLsb' 0 2).toNat) (dword a (order.extractLsb' 2 2).toNat)
     (dword a (order.extractLsb' 4 2).toNat) (dword a (order.extractLsb' 6 2).toNat)
 
-/-- Semantics of an SSE2 instruction on SSE registers only. -/
+/-- SDM Vol. 2, "PALIGNR", 128-bit legacy SSE version: `temp1[255:0] :=
+((DEST[127:0] << 128) OR SRC[127:0])>>(imm8*8); DEST[127:0] :=
+temp1[127:0]`. No flags are affected. -/
+def alignRight (dst src : BitVec 128) (imm : BitVec 8) : BitVec 128 :=
+  ((dst ++ src) >>> (imm.toNat * 8)).extractLsb' 0 128
+
+/-- SDM Vol. 2, "SHA256RNDS2", where `SRC1` is the destination, `SRC2` the
+source and `wk` the implicit operand `XMM0`: `A_0 := SRC2[127:96]; B_0 :=
+SRC2[95:64]; C_0 := SRC1[127:96]; D_0 := SRC1[95:64]; E_0 := SRC2[63:32];
+F_0 := SRC2[31:0]; G_0 := SRC1[63:32]; H_0 := SRC1[31:0]; WK0 :=
+XMM0[31:0]; WK1 := XMM0[63:32]; FOR i = 0 to 1 A_(i+1) := Ch(E_i, F_i,
+G_i) + Σ1(E_i) + WKi + H_i + Maj(A_i, B_i, C_i) + Σ0(A_i); B_(i+1) := A_i;
+C_(i+1) := B_i; D_(i+1) := C_i; E_(i+1) := Ch(E_i, F_i, G_i) + Σ1(E_i) +
+WKi + H_i + D_i; F_(i+1) := E_i; G_(i+1) := F_i; H_(i+1) := G_i; ENDFOR
+DEST[127:96] := A_2; DEST[95:64] := B_2; DEST[63:32] := E_2; DEST[31:0] :=
+F_2`. No flags are affected. -/
+def sha256Rnds2 (src1 src2 wk : BitVec 128) : BitVec 128 :=
+  let a0 := dword src2 3
+  let b0 := dword src2 2
+  let c0 := dword src1 3
+  let d0 := dword src1 2
+  let e0 := dword src2 1
+  let f0 := dword src2 0
+  let g0 := dword src1 1
+  let h0 := dword src1 0
+  let wk0 := dword wk 0
+  let wk1 := dword wk 1
+  let a1 := sha256Ch e0 f0 g0 + sha256BigSigma1 e0 + wk0 + h0 + sha256Maj a0 b0 c0 +
+    sha256BigSigma0 a0
+  let b1 := a0
+  let c1 := b0
+  let d1 := c0
+  let e1 := sha256Ch e0 f0 g0 + sha256BigSigma1 e0 + wk0 + h0 + d0
+  let f1 := e0
+  let g1 := f0
+  let h1 := g0
+  let a2 := sha256Ch e1 f1 g1 + sha256BigSigma1 e1 + wk1 + h1 + sha256Maj a1 b1 c1 +
+    sha256BigSigma0 a1
+  let b2 := a1
+  let e2 := sha256Ch e1 f1 g1 + sha256BigSigma1 e1 + wk1 + h1 + d1
+  let f2 := e1
+  ofDwords f2 e2 b2 a2
+
+/-- Semantics of an SSE instruction that writes only an SSE register. MOVQ
+with an XMM destination: SDM Vol. 2, "MOVD/MOVQ", 128-bit legacy SSE
+version: `DEST[63:0] := SRC[63:0]; DEST[127:64] := 0000000000000000H`. No
+flags are affected. -/
 def XOp.exec : XOp → State → State
   | .bin op d r, s => s.setXmm d (op.eval (s.xmm d) (s.xmm r))
   | .shift op d n, s => s.setXmm d (op.eval (s.xmm d) n)
   | .pshufd d r o, s => s.setXmm d (shufDwords (s.xmm r) o)
+  | .palignr d r n, s => s.setXmm d (alignRight (s.xmm d) (s.xmm r) n)
+  | .sha256rnds2 d r, s => s.setXmm d (sha256Rnds2 (s.xmm d) (s.xmm r) (s.xmm .xmm0))
+  | .movq d r, s => s.setXmm d ((0 : BitVec 64) ++ s.gpr r)
+
+/-- The CPU features an instruction needs beyond the x86-64 baseline
+(x86-64-v1, which includes SSE and SSE2: System V AMD64 psABI,
+"Micro-Architecture Levels"), named as Rust's target features. SDM Vol. 2,
+the "CPUID Feature Flag" column of each instruction's opcode table: SSSE3
+for PSHUFB and PALIGNR (`66 0F 38 00 /r`, `66 0F 3A 0F /r ib`), SHA for
+SHA256RNDS2, SHA256MSG1 and SHA256MSG2 (`NP 0F 38 CB /r`, `NP 0F 38 CC /r`,
+`NP 0F 38 CD /r`); SSE2 for MOVQ xmm, r64 (`66 REX.W 0F 6E /r`). -/
+def Instr.requires : Instr → List String
+  | .xop (.bin .pshufb ..) | .xop (.palignr ..) => ["ssse3"]
+  | .xop (.bin .sha256msg1 ..) | .xop (.bin .sha256msg2 ..) | .xop (.sha256rnds2 ..) => ["sha"]
+  | _ => []
 
 /-- Semantics of an instruction. The byte forms: SDM Vol. 2, "MOVZX":
 `DEST := ZeroExtend(SRC)` (with a 32-bit destination, zero-extended to 64
@@ -510,8 +641,6 @@ abbrev isa : ISA where
   -- No frames are modelled.
   push _ _ := none
   pop _ _ _ := none
-  -- Every modelled instruction is in the x86-64 baseline (x86-64-v1), which
-  -- includes SSE and SSE2 (System V AMD64 psABI, "Micro-Architecture Levels").
-  requires _ := []
+  requires := Instr.requires
 
 end VG.X86_64
