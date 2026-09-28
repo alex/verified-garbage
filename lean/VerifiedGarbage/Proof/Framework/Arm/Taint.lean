@@ -155,6 +155,7 @@ def step (τ : T) : Instr → Option T
   | .movw d _ => some { τ with regs := set τ d true, bases := kill τ d }
   | .movt d _ => some { τ with regs := set τ d (pub τ d), bases := kill τ d }
   | .rev d m => some { τ with regs := set τ d (pub τ m), bases := kill τ d }
+  | .mul d n m => some { τ with regs := set τ d (pub τ n && pub τ m), bases := kill τ d }
   | .ldr t n off =>
     if pub τ n then some { τ with regs := set τ t (slotPub τ n off 4), bases := kill τ t } else none
   | .str t n off => storeStep τ n off 4 (pub τ t)
@@ -553,7 +554,7 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {r : 
 do not; a frame's pop writes its register). -/
 def dst : Instr → Option Reg
   | .mov d _ | .dp _ d _ _ | .adds d _ _ | .adc d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _
-  | .ldr d _ _ | .ldrb d _ _ | .ldrSp d _ | .pop d _ => some d
+  | .mul d _ _ | .ldr d _ _ | .ldrb d _ _ | .ldrSp d _ | .pop d _ => some d
   | .cmp .. | .str .. | .strb .. | .push _ => none
 
 theorem exec_dst {i : Instr} {d : Reg} (hd : dst i = some d) {s s' : State}
@@ -681,6 +682,13 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl rfl rfl fun _ h => h⟩
     simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
     exact ⟨regs_set ha.rf.1 fun hp => by rw [ha.reg hp], fun hf => ha.rf.2 hf⟩
+  | mul d n m =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl rfl rfl fun _ h => h⟩
+    simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
+    refine ⟨regs_set ha.rf.1 fun hp => ?_, fun hf => ha.rf.2 hf⟩
+    simp only [Bool.and_eq_true] at hp
+    rw [ha.reg hp.1, ha.reg hp.2]
   | ldr t n off =>
     simp only [step] at hs
     split at hs <;> [skip; cases hs]

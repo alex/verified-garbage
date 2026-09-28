@@ -31,7 +31,13 @@ Modelling choices:
   instruction faults. Memory is little-endian.
 * Instructions whose timing depends on their operands (e.g. `sdiv`, `udiv`)
   must never be added: the constant-time leakage model assumes they do not
-  exist.
+  exist. ARMv7 makes no architectural promise about multiply timing (it has
+  no equivalent of AArch64's PSTATE.DIT). The model has only the 32-bit
+  `mul`, which T. Pornin's survey ("Constant-Time Mul", BearSSL) reports as
+  constant time on the ARMv7 cores, including the Cortex-M3 (one cycle), which
+  runs the same Thumb code (`target_arch = "arm"` includes ARMv7-M); the long
+  multiplies `umull`/`umlal` are left out, as the Cortex-M3 terminates them
+  early depending on the operands.
 * Calls are `bl` and returns `bx lr` (DDI 0406C, A8.8.25 "BL, BLX
   (immediate)", A8.8.27 "BX"). The return addresses are the next of the
   state's `unknowns`, which nothing constrains (see `TCB/Code.lean`); a
@@ -101,6 +107,8 @@ inductive Instr
   | movt (d : Reg) (imm : BitVec 16)
   /-- `rev d, m` -/
   | rev (d m : Reg)
+  /-- `mul d, n, m`: the low 32 bits of `n * m` (no flags set) -/
+  | mul (d n m : Reg)
   /-- `ldr t, [n, #off]` (`0 ≤ off < 4096`) -/
   | ldr (t n : Reg) (off : Nat)
   /-- `str t, [n, #off]` (`0 ≤ off < 4096`) -/
@@ -215,7 +223,16 @@ from `AddWithCarry(R[n], NOT(op2), '1')`; "MOVW" (`R[d] = ZeroExtend(imm16)`);
 (A8.8.63, A8.8.204), including "LDR (immediate)" with `n` = 13 (`sp`) for
 arguments on the stack; "LDRB (immediate)" (A8.8.68: `R[t] =
 ZeroExtend(MemU[address,1], 32)`) and "STRB (immediate)" (A8.8.207:
-`MemU[address,1] = R[t]<7:0>`) with a positive offset and no writeback. -/
+`MemU[address,1] = R[t]<7:0>`) with a positive offset and no writeback;
+"MUL" (A8.8.114) with `S` = 0: `result = operand1 * operand2; R[d] =
+result<31:0>`, flags unchanged, where the operands are `SInt(R[n])` and
+`SInt(R[m])` (the low 32 bits of the product are those of the unsigned
+product). It exists in the ARM (encoding A1) and Thumb (encoding T2, ARMv6T2
+and later; the 16-bit T1 encoding sets the flags outside an IT block, so an
+assembler uses T2 for `mul`) instruction sets. `pc` (and, in Thumb, `sp`) as
+any of the registers is UNPREDICTABLE, which the model cannot express; since
+ARMv6, `d` may be `n` (the ARM encoding's `ArchVersion() < 6 && d == n`
+restriction does not apply to ARMv7). -/
 def exec : Instr → State → Option State
   | .mov d op2, s => (op2.eval s).map fun x => s.setReg d x
   | .dp op d n op2, s => (op2.eval s).map fun y =>
@@ -232,6 +249,7 @@ def exec : Instr → State → Option State
   | .movw d imm, s => some (s.setReg d (imm.setWidth 32))
   | .movt d imm, s => some (s.setReg d (imm ++ (s.gpr d).extractLsb' 0 16 : BitVec 32))
   | .rev d m, s => some (s.setReg d (rev (s.gpr m)))
+  | .mul d n m, s => some (s.setReg d (s.gpr n * s.gpr m))
   | .ldr t n off, s =>
     if off < 4096 then
       (s.load32 (State.addr (s.gpr n + BitVec.ofNat 32 off))).map fun x => s.setReg t x
