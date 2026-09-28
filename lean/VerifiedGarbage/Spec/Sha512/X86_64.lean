@@ -13,7 +13,7 @@ namespace VG.Spec.Sha512
 
 open X86_64 in
 /-- x86-64 contract for
-`vg_sha512_compress(state: *mut [u64; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 22])`:
+`vg_sha512_compress(state: *mut [u64; 8], blocks: *const [u8; 128], n: usize, scratch: *mut [u64; 22])`:
 updates the hash value at `state` with the `n` 128-byte blocks at `blocks`.
 
 The code may read `blocks` (`128 * n` bytes) and read and write `state`

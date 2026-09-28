@@ -51,7 +51,7 @@ instructions in an ISA model) go in their own PR before either.
 2. `Impl/<Alg>/<Target>.lean`: the code.
 3. `Proof/<Alg>/…`: the proof of `Verified`.
 4. An `Artifact` in `Artifacts.lean` (its `module` names the file under
-   `src/asm/<target>/`), whose `rustSig` and `doc` match the
+   `src/asm/<target>/`), whose `sig` and `doc` match the
    contract (the doc must state every caller obligation).
 5. Regenerate `src/asm/`, build the public Rust API on top of the primitive,
    and test it against the Wycheproof vectors in `tests/wycheproof/` (set

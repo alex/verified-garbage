@@ -49,7 +49,7 @@ def function (a : Artifact) : String :=
   let body := a.target.printer.function a.code
   docComment "" a.doc ++
   "#[unsafe(naked)]\n" ++
-  s!"pub(crate) unsafe extern \"{a.target.rustAbi}\" fn {a.name}{a.rustSig} " ++ "{\n" ++
+  s!"pub(crate) unsafe extern \"{a.target.rustAbi}\" fn {a.name}{a.sig.rust} " ++ "{\n" ++
   "    core::arch::naked_asm!(\n" ++
   String.join (body.map fun l => s!"        \"{escape l}\",\n") ++
   "    )\n" ++

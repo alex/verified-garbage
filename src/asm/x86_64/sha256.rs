@@ -13,7 +13,7 @@
 /// * `scratch` must be valid for reads and writes of 112 bytes; its contents on return are unspecified.
 /// * These three regions must not overlap each other, nor the return address on the stack (distinct Rust objects never do).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_compress(state: *mut [u32; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 14]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14]) {
     core::arch::naked_asm!(
         "mov QWORD PTR [rcx+64], rbx",
         "mov QWORD PTR [rcx+72], rbp",

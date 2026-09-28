@@ -14,7 +14,9 @@ VerifiedGarbage/
     Mem.lean        byte-addressed memory, regions
     Code.lean       structured programs, big-step semantics with leakage, constant time
     Print.lean      lowering of structured control flow to labels and branches
-    Artifact.lean   Target, Contract, `Verified`, `Artifact`: what "verified" means
+    Sig.lean        Rust signatures and calling conventions (`Abi`)
+    Artifact.lean   Target, Contract, `Verified`, `Artifact`: what "verified" means;
+                    `Sig.contract`: the contract obligations a signature implies
     Rust.lean       rendering artifacts as Rust naked functions
     Axioms.lean     `#assert_standard_axioms`
     X86_64/         ISA model, printer, System V ABI target
@@ -25,7 +27,7 @@ VerifiedGarbage/
                     verified code, and a taint-tracking checker that proves
                     constant time by evaluation
   Artifacts.lean  The registry: the single list of everything that is emitted
-VerifiedGarbageTest/  Golden tests for the (unverified) printers
+VerifiedGarbageTest/  Golden tests for the (unverified) printers and calling conventions
 Emit.lean       Renders `VG.artifacts` into `../src/asm/`
 ```
 
@@ -58,7 +60,7 @@ never import proofs.
 * `TCB/` — in particular the ISA models, which must match the vendor manuals,
   and the printers, which must print what the models mean.
 * For each artifact: its contract in `Spec/` (and the algorithm spec it
-  refers to), and its `rustSig` and `doc` in `Artifacts.lean`.
+  refers to), and its `sig` and `doc` in `Artifacts.lean`.
 * Lean's kernel, and the assembler in `rustc`/LLVM.
 
 Everything in `Impl/` and `Proof/` is checked by Lean and need not be read.

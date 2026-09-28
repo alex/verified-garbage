@@ -49,17 +49,70 @@ To add a function: write its spec and contract under `Spec/`, the code under
 `lake build && lake env lean --run Emit.lean` (in `lean/`) and commit the
 regenerated `src/asm/`.
 
-**Review note**: `rustSig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`.
+**Review note**: `sig` and `doc` are trusted, as they tie the Rust caller to
+the contract; check them against the contract's `pre`/`post`.
 -/
 
 namespace VG
+
+/-! ## Signatures
+
+The Rust signatures of the artifacts (rendered by `Sig.rust`). -/
+
+namespace Sigs
+
+def selftestAdd : Sig where
+  params := [("a", .int .u64 false), ("b", .int .u64 false)]
+  ret := some .u64
+
+def sha256Compress : Sig where
+  params := [("state", .array true .u32 8), ("blocks", .slice false (.array .u8 64) "n"),
+    ("scratch", .array true .u64 14)]
+
+def sha256Init : Sig where
+  params := [("state", .array true .u8 96)]
+
+def sha256Update : Sig where
+  params := [("state", .array true .u8 96), ("count", .int .u64 true),
+    ("data", .slice false .u8 "len"), ("scratch", .array true .u64 20)]
+
+def sha256Finalize : Sig where
+  params := [("state", .array true .u8 96), ("count", .int .u64 true),
+    ("out", .array true .u8 32), ("scratch", .array true .u64 20)]
+
+def sha512Compress : Sig where
+  params := [("state", .array true .u64 8), ("blocks", .slice false (.array .u8 128) "n"),
+    ("scratch", .array true .u64 22)]
+
+def sha512Init : Sig where
+  params := [("state", .array true .u8 192)]
+
+def sha512Update : Sig where
+  params := [("state", .array true .u8 192), ("count", .int .u64 true),
+    ("data", .slice false .u8 "len"), ("scratch", .array true .u64 28)]
+
+def sha512Finalize : Sig where
+  params := [("state", .array true .u8 192), ("count", .int .u64 true),
+    ("out", .array true .u8 64), ("scratch", .array true .u64 28)]
+
+def hmacSha256Init : Sig where
+  params := [("inner", .array true .u8 96), ("outer", .array true .u8 96),
+    ("key", .slice false .u8 "key_len"), ("scratch", .array true .u64 20)]
+
+def hmacSha256Finalize : Sig where
+  params := [("inner", .array true .u8 96), ("outer", .array false .u8 96),
+    ("count", .int .u64 true), ("scratch", .array true .u64 30)]
+
+def chacha20Block : Sig where
+  params := [("state", .array false .u32 16), ("buf", .array true .u32 64)]
+
+end Sigs
 
 def artifacts : List Artifact := [
   { target := X86_64.target
     module := "selftest"
     name := "vg_selftest_add"
-    rustSig := "(a: u64, b: u64) -> u64"
+    sig := Sigs.selftestAdd
     doc := "Pipeline self-test: returns `a.wrapping_add(b)`.\n\n\
       Contract: `VG.Spec.Selftest.addX86_64`. No safety requirements."
     code := Impl.Selftest.X86_64.add
@@ -68,7 +121,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "sha256"
     name := "vg_sha256_compress"
-    rustSig := "(state: *mut [u32; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 14])"
+    sig := Sigs.sha256Compress
     doc := "The SHA-256 compression function (FIPS 180-4 §6.2.2): updates the hash value \
       `*state` with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
       Contract: `VG.Spec.Sha256.compressX86_64`. Constant time: only the pointers and `n` \
@@ -86,7 +139,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "sha256"
     name := "vg_sha256_init"
-    rustSig := "(state: *mut [u8; 96])"
+    sig := Sigs.sha256Init
     doc := "Starts a SHA-256 computation: makes the streaming state `*state` represent the \
       empty message.\n\n\
       Contract: `VG.Spec.Sha256.initX86_64`. The streaming state is the hash value followed \
@@ -100,7 +153,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "sha256"
     name := "vg_sha256_update"
-    rustSig := "(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20])"
+    sig := Sigs.sha256Update
     doc := "Absorbs data into a SHA-256 computation: if the streaming state `*state` represents \
       a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by \
       the `len` bytes at `data`.\n\n\
@@ -119,7 +172,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "sha256"
     name := "vg_sha256_finalize"
-    rustSig := "(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20])"
+    sig := Sigs.sha256Finalize
     doc := "Finishes a SHA-256 computation: if the streaming state `*state` represents a \
       message of `count` bytes (modulo 2⁶⁴), writes the SHA-256 digest of that message to \
       `*out`.\n\n\
@@ -139,7 +192,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_compress"
-    rustSig := "(state: *mut [u64; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 22])"
+    sig := Sigs.sha512Compress
     doc := "The SHA-512 compression function (FIPS 180-4 §6.4.2), shared by SHA-384, SHA-512, \
       SHA-512/224 and SHA-512/256: updates the hash value `*state` with the `n` 128-byte \
       blocks starting at `blocks`, in order.\n\n\
@@ -158,7 +211,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha384_init"
-    rustSig := "(state: *mut [u8; 192])"
+    sig := Sigs.sha512Init
     doc := "Starts a SHA-384 computation: makes the SHA-512 streaming state `*state` represent \
       the empty message, hashed from the initial hash value of SHA-384 (`VG.Spec.Sha512.H0_384`). \
       Continue with `vg_sha512_update` and `vg_sha512_finalize`.\n\n\
@@ -173,7 +226,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_init"
-    rustSig := "(state: *mut [u8; 192])"
+    sig := Sigs.sha512Init
     doc := "Starts a SHA-512 computation: makes the SHA-512 streaming state `*state` represent \
       the empty message, hashed from the initial hash value of SHA-512 (`VG.Spec.Sha512.H0_512`). \
       Continue with `vg_sha512_update` and `vg_sha512_finalize`.\n\n\
@@ -188,7 +241,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_224_init"
-    rustSig := "(state: *mut [u8; 192])"
+    sig := Sigs.sha512Init
     doc := "Starts a SHA-512/224 computation: makes the SHA-512 streaming state `*state` represent \
       the empty message, hashed from the initial hash value of SHA-512/224 (`VG.Spec.Sha512.H0_512_224`). \
       Continue with `vg_sha512_update` and `vg_sha512_finalize`.\n\n\
@@ -203,7 +256,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_256_init"
-    rustSig := "(state: *mut [u8; 192])"
+    sig := Sigs.sha512Init
     doc := "Starts a SHA-512/256 computation: makes the SHA-512 streaming state `*state` represent \
       the empty message, hashed from the initial hash value of SHA-512/256 (`VG.Spec.Sha512.H0_512_256`). \
       Continue with `vg_sha512_update` and `vg_sha512_finalize`.\n\n\
@@ -218,7 +271,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_update"
-    rustSig := "(state: *mut [u8; 192], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 28])"
+    sig := Sigs.sha512Update
     doc := "Absorbs data into a SHA-384, SHA-512, SHA-512/224 or SHA-512/256 computation: if \
       the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it \
       then represents that message followed by the `len` bytes at `data`.\n\n\
@@ -237,7 +290,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_finalize"
-    rustSig := "(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 28])"
+    sig := Sigs.sha512Finalize
     doc := "Finishes a SHA-384, SHA-512, SHA-512/224 or SHA-512/256 computation: if the \
       streaming state `*state` represents a message of `count` bytes, hashed from an initial \
       hash value, writes the final hash value `H⁽ᴺ⁾` of that message (64 bytes) to `*out`. \
@@ -261,8 +314,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "hmac"
     name := "vg_hmac_sha256_init"
-    rustSig := "(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, \
-      scratch: *mut [u64; 20])"
+    sig := Sigs.hmacSha256Init
     doc := "Starts an HMAC-SHA-256 computation with a key of at most 64 bytes: makes the \
       SHA-256 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent \
       `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 64 bytes \
@@ -284,7 +336,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "hmac"
     name := "vg_hmac_sha256_finalize"
-    rustSig := "(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 30])"
+    sig := Sigs.hmacSha256Finalize
     doc := "Finishes an HMAC-SHA-256 computation: if, for a 64-byte key `K₀` and a text, the \
       SHA-256 streaming state `*inner` represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes \
       (modulo 2⁶⁴), and `*outer` represents `K₀ ⊕ opad`, leaves the HMAC-SHA-256 of the \
@@ -305,7 +357,7 @@ def artifacts : List Artifact := [
   { target := AArch64.target
     module := "sha256"
     name := "vg_sha256_compress"
-    rustSig := "(state: *mut [u32; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 14])"
+    sig := Sigs.sha256Compress
     doc := "The SHA-256 compression function (FIPS 180-4 §6.2.2): updates the hash value \
       `*state` with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
       Contract: `VG.Spec.Sha256.compressAArch64`. Constant time: only the pointers and `n` \
@@ -322,7 +374,7 @@ def artifacts : List Artifact := [
   { target := AArch64.target
     module := "sha256"
     name := "vg_sha256_init"
-    rustSig := "(state: *mut [u8; 96])"
+    sig := Sigs.sha256Init
     doc := "Starts a SHA-256 computation: makes the streaming state `*state` represent the \
       empty message.\n\n\
       Contract: `VG.Spec.Sha256.initAArch64`. The streaming state is the hash value followed \
@@ -335,7 +387,7 @@ def artifacts : List Artifact := [
   { target := AArch64.target
     module := "sha256"
     name := "vg_sha256_update"
-    rustSig := "(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20])"
+    sig := Sigs.sha256Update
     doc := "Absorbs data into a SHA-256 computation: if the streaming state `*state` represents \
       a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by \
       the `len` bytes at `data`.\n\n\
@@ -353,7 +405,7 @@ def artifacts : List Artifact := [
   { target := AArch64.target
     module := "sha256"
     name := "vg_sha256_finalize"
-    rustSig := "(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20])"
+    sig := Sigs.sha256Finalize
     doc := "Finishes a SHA-256 computation: if the streaming state `*state` represents a \
       message of `count` bytes (modulo 2⁶⁴), writes the SHA-256 digest of that message to \
       `*out`.\n\n\
@@ -372,8 +424,7 @@ def artifacts : List Artifact := [
   { target := AArch64.target
     module := "hmac"
     name := "vg_hmac_sha256_init"
-    rustSig := "(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, \
-      scratch: *mut [u64; 20])"
+    sig := Sigs.hmacSha256Init
     doc := "Starts an HMAC-SHA-256 computation with a key of at most 64 bytes: makes the \
       SHA-256 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent \
       `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 64 bytes \
@@ -394,7 +445,7 @@ def artifacts : List Artifact := [
   { target := AArch64.target
     module := "hmac"
     name := "vg_hmac_sha256_finalize"
-    rustSig := "(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 30])"
+    sig := Sigs.hmacSha256Finalize
     doc := "Finishes an HMAC-SHA-256 computation: if, for a 64-byte key `K₀` and a text, the \
       SHA-256 streaming state `*inner` represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes \
       (modulo 2⁶⁴), and `*outer` represents `K₀ ⊕ opad`, leaves the HMAC-SHA-256 of the \
@@ -414,7 +465,7 @@ def artifacts : List Artifact := [
   { target := Arm.target
     module := "sha256"
     name := "vg_sha256_compress"
-    rustSig := "(state: *mut [u32; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 14])"
+    sig := Sigs.sha256Compress
     doc := "The SHA-256 compression function (FIPS 180-4 §6.2.2): updates the hash value \
       `*state` with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
       Contract: `VG.Spec.Sha256.compressArm`. Constant time: only the pointers and `n` \
@@ -432,7 +483,7 @@ def artifacts : List Artifact := [
   { target := Arm.target
     module := "sha256"
     name := "vg_sha256_init"
-    rustSig := "(state: *mut [u8; 96])"
+    sig := Sigs.sha256Init
     doc := "Starts a SHA-256 computation: makes the streaming state `*state` represent the \
       empty message.\n\n\
       Contract: `VG.Spec.Sha256.initArm`. The streaming state is the hash value followed \
@@ -446,7 +497,7 @@ def artifacts : List Artifact := [
   { target := Arm.target
     module := "sha256"
     name := "vg_sha256_update"
-    rustSig := "(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20])"
+    sig := Sigs.sha256Update
     doc := "Absorbs data into a SHA-256 computation: if the streaming state `*state` represents \
       a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by \
       the `len` bytes at `data`.\n\n\
@@ -466,7 +517,7 @@ def artifacts : List Artifact := [
   { target := Arm.target
     module := "sha256"
     name := "vg_sha256_finalize"
-    rustSig := "(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20])"
+    sig := Sigs.sha256Finalize
     doc := "Finishes a SHA-256 computation: if the streaming state `*state` represents a \
       message of `count` bytes (modulo 2⁶⁴), writes the SHA-256 digest of that message to \
       `*out`.\n\n\
@@ -487,7 +538,7 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "chacha20"
     name := "vg_chacha20_block"
-    rustSig := "(state: *const [u32; 16], buf: *mut [u32; 64])"
+    sig := Sigs.chacha20Block
     doc := "The ChaCha20 block function (RFC 8439 §2.3): writes the block function of the \
       16-word state `*state` (20 rounds, then the input state added word by word) to the \
       first 16 words of `*buf`.\n\n\
@@ -505,7 +556,7 @@ def artifacts : List Artifact := [
   { target := AArch64.target
     module := "chacha20"
     name := "vg_chacha20_block"
-    rustSig := "(state: *const [u32; 16], buf: *mut [u32; 64])"
+    sig := Sigs.chacha20Block
     doc := "The ChaCha20 block function (RFC 8439 §2.3): writes the block function of the \
       16-word state `*state` (20 rounds, then the input state added word by word) to the \
       first 16 words of `*buf`.\n\n\
@@ -522,7 +573,7 @@ def artifacts : List Artifact := [
   { target := Arm.target
     module := "chacha20"
     name := "vg_chacha20_block"
-    rustSig := "(state: *const [u32; 16], buf: *mut [u32; 64])"
+    sig := Sigs.chacha20Block
     doc := "The ChaCha20 block function (RFC 8439 §2.3): writes the block function of the \
       16-word state `*state` (20 rounds, then the input state added word by word) to the \
       first 16 words of `*buf`.\n\n\
@@ -540,7 +591,7 @@ def artifacts : List Artifact := [
   { target := X86.target
     module := "sha256"
     name := "vg_sha256_compress"
-    rustSig := "(state: *mut [u32; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 14])"
+    sig := Sigs.sha256Compress
     doc := "The SHA-256 compression function (FIPS 180-4 §6.2.2): updates the hash value \
       `*state` with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
       Contract: `VG.Spec.Sha256.compressX86`. Constant time: only the pointers and `n` \
@@ -559,7 +610,7 @@ def artifacts : List Artifact := [
   { target := X86.target
     module := "sha256"
     name := "vg_sha256_init"
-    rustSig := "(state: *mut [u8; 96])"
+    sig := Sigs.sha256Init
     doc := "Starts a SHA-256 computation: makes the streaming state `*state` represent the \
       empty message.\n\n\
       Contract: `VG.Spec.Sha256.initX86`. The streaming state is the hash value followed \
@@ -574,7 +625,7 @@ def artifacts : List Artifact := [
   { target := X86.target
     module := "sha256"
     name := "vg_sha256_update"
-    rustSig := "(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20])"
+    sig := Sigs.sha256Update
     doc := "Absorbs data into a SHA-256 computation: if the streaming state `*state` represents \
       a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by \
       the `len` bytes at `data`.\n\n\
@@ -595,7 +646,7 @@ def artifacts : List Artifact := [
   { target := X86.target
     module := "sha256"
     name := "vg_sha256_finalize"
-    rustSig := "(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20])"
+    sig := Sigs.sha256Finalize
     doc := "Finishes a SHA-256 computation: if the streaming state `*state` represents a \
       message of `count` bytes (modulo 2⁶⁴), writes the SHA-256 digest of that message to \
       `*out`.\n\n\
