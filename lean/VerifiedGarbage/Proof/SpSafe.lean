@@ -13,6 +13,7 @@ import VerifiedGarbage.Impl.Sha256.X86
 import VerifiedGarbage.Impl.Sha256.X86.Stream
 import VerifiedGarbage.Impl.Sha256.X86_64
 import VerifiedGarbage.Impl.Sha256.X86_64.Stream
+import VerifiedGarbage.Impl.Sha256.X86_64.ShaNi
 import VerifiedGarbage.Impl.Sha512.X86_64
 import VerifiedGarbage.Impl.Sha512.X86_64.Stream
 
@@ -45,11 +46,23 @@ theorem sha256_x86_64_init :
   decide +kernel
 
 theorem sha256_x86_64_update :
-    Impl.Sha256.X86_64.Stream.update.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+    (Impl.Sha256.X86_64.Stream.update .scalar).all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem sha256_x86_64_finalize :
-    Impl.Sha256.X86_64.Stream.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+    (Impl.Sha256.X86_64.Stream.finalize .scalar).all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem sha256_x86_64_compress_shani :
+    Impl.Sha256.X86_64.ShaNi.compress.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem sha256_x86_64_update_shani :
+    (Impl.Sha256.X86_64.Stream.update .shani).all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem sha256_x86_64_finalize_shani :
+    (Impl.Sha256.X86_64.Stream.finalize .shani).all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem md5_x86_64_compress :

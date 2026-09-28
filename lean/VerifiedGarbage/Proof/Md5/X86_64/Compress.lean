@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Md5.X86_64.Rounds
 import VerifiedGarbage.Proof.Md5.X86_64.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.Inline
@@ -401,7 +402,7 @@ theorem compress_keeps_reg {r : Reg} (hr : r ∈ kept) : ∀ i ∈ instrs compre
 
 /-- `compress` meets the calling convention and its postcondition. -/
 theorem correct' {s₀ : State} (hp : Pre s₀) :
-    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Md5.compressX86_64.post s₀ s' := by
+    WP isa compress s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Md5.compressX86_64.post s₀ s' := by
   obtain ⟨t, s', he, hc⟩ := correct hp
   refine ⟨t, s', he, ⟨fun r hr => Exec.gpr (compress_keeps_reg ?_) he, ?_⟩, hc.state⟩
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -424,7 +425,7 @@ theorem compress_verified :
     Verified X86_64.target Impl.Md5.X86_64.compress Proof.Md5.compressX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct' (pre_of s hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩
     refine Taint.agree_ofRegs fun r hr => ?_

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Framework.Semantics
 import VerifiedGarbage.Proof.Framework.Mem
-import VerifiedGarbage.Proof.Framework.X86_64.Taint
+import VerifiedGarbage.Proof.Framework.X86_64.Abi
 
 /-!
 # Inlining verified code (x86-64)
@@ -127,6 +127,21 @@ theorem store128_widen (hc : Covers s.wr wr) {a : Addr} {v : BitVec 128} (h : s.
   cases h
   simp only [State.store128, State.withRegions_wr, hc _ _ hi, ite_true]; rfl
 
+theorem load256_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) {a : Addr} {v : BitVec 256}
+    (h : s.load256 a = some v) : (s.withRegions rd wr).load256 a = some v := by
+  simp only [State.load256] at h
+  split at h <;> [rename_i hi; cases h]
+  simp only [State.load256, State.withRegions_rd, State.withRegions_wr, State.withRegions_mem, hc _ _ hi,
+    ite_true]
+  exact h
+
+theorem store256_widen (hc : Covers s.wr wr) {a : Addr} {v : BitVec 256} (h : s.store256 a v = some s') :
+    (s.withRegions rd wr).store256 a v = some (s'.withRegions rd wr) := by
+  simp only [State.store256] at h
+  split at h <;> [rename_i hi; cases h]
+  cases h
+  simp only [State.store256, State.withRegions_wr, hc _ _ hi, ite_true]; rfl
+
 theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr) {i : Instr}
     (h : exec i s = some s') : exec i (s.withRegions rd wr) = some (s'.withRegions rd wr) := by
   cases i with
@@ -178,6 +193,37 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     rw [show (s.withRegions rd wr).ea m = s.ea m from rfl, load128_widen hc hv]; rfl
   | movdquStore m r => exact store128_widen hw h
   | xop op => simp only [exec, Option.some.injEq] at h ⊢; subst h; cases op <;> rfl
+  | vop op =>
+    simp only [exec, Option.some.injEq] at h ⊢; subst h
+    cases op <;> simp only [VOp.exec] <;> (try split) <;> rfl
+  | vmovdquLoad len d m =>
+    cases len
+    · simp only [exec, Option.map_eq_some_iff] at h
+      obtain ⟨v, hv, rfl⟩ := h
+      simp only [exec]
+      rw [show (s.withRegions rd wr).ea m = s.ea m from rfl, load128_widen hc hv]; rfl
+    · simp only [exec, Option.map_eq_some_iff] at h
+      obtain ⟨v, hv, rfl⟩ := h
+      simp only [exec]
+      rw [show (s.withRegions rd wr).ea m = s.ea m from rfl, load256_widen hc hv]; rfl
+  | vbroadcasti128 d m =>
+    simp only [exec, Option.map_eq_some_iff] at h
+    obtain ⟨v, hv, rfl⟩ := h
+    simp only [exec]
+    rw [show (s.withRegions rd wr).ea m = s.ea m from rfl, load128_widen hc hv]; rfl
+  | vmovdquStore len m r =>
+    cases len
+    · exact store128_widen hw h
+    · exact store256_widen hw h
+  | stmxcsr m => exact store32_widen hw h
+  | ldmxcsr m =>
+    simp only [exec, Option.bind_eq_some_iff] at h
+    obtain ⟨v, hv, h⟩ := h
+    simp only [exec]
+    rw [show (s.withRegions rd wr).ea m = s.ea m from rfl, load32_widen hc hv, Option.bind_some]
+    split at h <;> [cases h; cases h]
+    rename_i hr; simp only [hr, ite_true]; rfl
+  | lfence => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
   | mul r => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
 
 theorem addrs_withRegions (i : Instr) (s : State) (rd wr : List Region) :
@@ -197,6 +243,23 @@ theorem exec_regions {i : Instr} (h : exec i s = some s') : s'.rd = s.rd ∧ s'.
   | movdquLoad d m =>
     simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl⟩
   | xop op => simp only [exec, Option.some.injEq] at h; subst h; cases op <;> exact ⟨rfl, rfl⟩
+  | vop op =>
+    simp only [exec, Option.some.injEq] at h; subst h; rw [Taint.VOp.exec_eq op s]; exact ⟨rfl, rfl⟩
+  | vmovdquLoad len d m =>
+    cases len <;> simp only [exec, Option.map_eq_some_iff] at h <;> obtain ⟨_, _, rfl⟩ := h <;>
+      exact ⟨rfl, rfl⟩
+  | vbroadcasti128 d m =>
+    simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl⟩
+  | vmovdquStore len m r =>
+    cases len
+    · simp only [exec, State.store128] at h; split at h <;> cases h; exact ⟨rfl, rfl⟩
+    · simp only [exec, State.store256] at h; split at h <;> cases h; exact ⟨rfl, rfl⟩
+  | stmxcsr m =>
+    simp only [exec, State.store32] at h; split at h <;> cases h; exact ⟨rfl, rfl⟩
+  | ldmxcsr m =>
+    simp only [exec, Option.bind_eq_some_iff] at h; obtain ⟨_, _, h⟩ := h
+    split at h <;> cases h; exact ⟨rfl, rfl⟩
+  | lfence => simp only [exec, Option.some.injEq] at h; subst h; exact ⟨rfl, rfl⟩
   | mul r => simp only [exec, Option.some.injEq] at h; subst h; exact ⟨rfl, rfl⟩
   | _ => exact ⟨(Taint.exec_nonstore rfl h).1, (Taint.exec_nonstore rfl h).2.1⟩
 
@@ -218,6 +281,26 @@ theorem exec_frame {i : Instr} (h : exec i s = some s') : Frame s.wr s.mem s'.me
     simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; exact Frame.refl _ _
   | xop op =>
     simp only [exec, Option.some.injEq] at h; subst h; cases op <;> exact Frame.refl _ _
+  | vop op =>
+    simp only [exec, Option.some.injEq] at h; subst h; rw [Taint.VOp.exec_eq op s]; exact Frame.refl _ _
+  | vmovdquLoad len d m =>
+    cases len <;> simp only [exec, Option.map_eq_some_iff] at h <;> obtain ⟨_, _, rfl⟩ := h <;>
+      exact Frame.refl _ _
+  | vbroadcasti128 d m =>
+    simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; exact Frame.refl _ _
+  | vmovdquStore len m r =>
+    cases len
+    · simp only [exec, State.store128] at h; split at h <;> cases h
+      rename_i hi; obtain ⟨r, hr, hc⟩ := hi; exact (Frame.refl _ _).writeW hr _ hc
+    · simp only [exec, State.store256] at h; split at h <;> cases h
+      rename_i hi; obtain ⟨r, hr, hc⟩ := hi; exact (Frame.refl _ _).writeW hr _ hc
+  | stmxcsr m =>
+    simp only [exec, State.store32] at h; split at h <;> cases h
+    rename_i hi; obtain ⟨r, hr, hc⟩ := hi; exact (Frame.refl _ _).writeW hr _ hc
+  | ldmxcsr m =>
+    simp only [exec, Option.bind_eq_some_iff] at h; obtain ⟨_, _, h⟩ := h
+    split at h <;> cases h; exact Frame.refl _ _
+  | lfence => simp only [exec, Option.some.injEq] at h; subst h; exact Frame.refl _ _
   | mul r => simp only [exec, Option.some.injEq] at h; subst h; exact Frame.refl _ _
   | _ => rw [(Taint.exec_nonstore rfl h).2.2.1]; exact Frame.refl _ _
 
@@ -359,6 +442,18 @@ theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.clobbers i r = false) {s s' :
     · simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; rfl
     · simp only [exec, State.store128] at h; split at h <;> cases h; rfl
     · simp only [exec, Option.some.injEq] at h; subst h; rename_i op; cases op <;> rfl
+    · simp only [exec, Option.some.injEq] at h; subst h; rename_i op
+      rw [Taint.VOp.exec_eq op s]
+    · rename_i len _ _; cases len <;> simp only [exec, Option.map_eq_some_iff] at h <;>
+        obtain ⟨_, _, rfl⟩ := h <;> rfl
+    · rename_i len _ _; cases len
+      · simp only [exec, State.store128] at h; split at h <;> cases h; rfl
+      · simp only [exec, State.store256] at h; split at h <;> cases h; rfl
+    · simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; rfl
+    · simp only [exec, State.store32] at h; split at h <;> cases h; rfl
+    · simp only [exec, Option.bind_eq_some_iff] at h; obtain ⟨_, _, h⟩ := h
+      split at h <;> cases h; rfl
+    · simp only [exec, Option.some.injEq] at h; subst h; rfl
     · rename_i q
       simp only [Taint.clobbers, Bool.or_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at hi
       simp only [exec, Option.some.injEq] at h; subst h

@@ -52,14 +52,33 @@ def XReg.name : XReg → String
   | .xmm8 => "xmm8" | .xmm9 => "xmm9" | .xmm10 => "xmm10" | .xmm11 => "xmm11"
   | .xmm12 => "xmm12" | .xmm13 => "xmm13" | .xmm14 => "xmm14" | .xmm15 => "xmm15"
 
+/-- The name of the AVX register whose low 128 bits are `r`. -/
+def XReg.yname (r : XReg) : String := "y" ++ (r.name.drop 1).toString
+
+/-- A vector register's name at a VEX vector length. -/
+def XReg.vname (r : XReg) : VLen → String
+  | .l128 => r.name
+  | .l256 => r.yname
+
+def MemOp.str256 (m : MemOp) : String := s!"YMMWORD PTR {m.addr}"
+
+/-- A memory operand of a VEX vector length. -/
+def MemOp.strV (m : MemOp) : VLen → String
+  | .l128 => m.str128
+  | .l256 => m.str256
+
 def XBinOp.name : XBinOp → String
   | .movdqa => "movdqa" | .paddd => "paddd" | .pxor => "pxor" | .por => "por"
   | .punpckldq => "punpckldq" | .punpckhdq => "punpckhdq"
   | .punpcklqdq => "punpcklqdq" | .punpckhqdq => "punpckhqdq"
   | .pshufb => "pshufb" | .sha256msg1 => "sha256msg1" | .sha256msg2 => "sha256msg2"
+  | .pand => "pand" | .pandn => "pandn" | .paddq => "paddq" | .pmuludq => "pmuludq"
+  | .aesenc => "aesenc" | .aesenclast => "aesenclast" | .aesdec => "aesdec"
+  | .aesdeclast => "aesdeclast" | .aesimc => "aesimc"
 
 def XShiftOp.name : XShiftOp → String
-  | .pslld => "pslld" | .psrld => "psrld"
+  | .pslld => "pslld" | .psrld => "psrld" | .psllq => "psllq" | .psrlq => "psrlq"
+  | .pslldq => "pslldq" | .psrldq => "psrldq"
 
 def XOp.asm : XOp → String
   | .bin op d r => s!"{op.name} {d.name}, {r.name}"
@@ -68,6 +87,34 @@ def XOp.asm : XOp → String
   | .palignr d r n => s!"palignr {d.name}, {r.name}, {n.toNat}"
   | .sha256rnds2 d r => s!"sha256rnds2 {d.name}, {r.name}, xmm0"
   | .movq d r => s!"movq {d.name}, {r.name}"
+  | .aeskeygenassist d r n => s!"aeskeygenassist {d.name}, {r.name}, {n.toNat}"
+  | .pclmulqdq d r n => s!"pclmulqdq {d.name}, {r.name}, {n.toNat}"
+
+def VBinOp.name : VBinOp → String
+  | .vpaddd => "vpaddd" | .vpaddq => "vpaddq" | .vpxor => "vpxor" | .vpor => "vpor"
+  | .vpand => "vpand" | .vpandn => "vpandn" | .vpshufb => "vpshufb" | .vpmuludq => "vpmuludq"
+  | .vpunpckldq => "vpunpckldq" | .vpunpckhdq => "vpunpckhdq"
+  | .vpunpcklqdq => "vpunpcklqdq" | .vpunpckhqdq => "vpunpckhqdq"
+
+def VVarOp.name : VVarOp → String
+  | .vpsllvd => "vpsllvd" | .vpsrlvd => "vpsrlvd" | .vpsllvq => "vpsllvq" | .vpsrlvq => "vpsrlvq"
+
+def VOp.asm : VOp → String
+  | .vbin op l d a b => s!"{op.name} {d.vname l}, {a.vname l}, {b.vname l}"
+  | .vmovdqa l d r => s!"vmovdqa {d.vname l}, {r.vname l}"
+  | .vshift op l d r n => s!"v{op.name} {d.vname l}, {r.vname l}, {n.toNat}"
+  | .vpshufd l d r o => s!"vpshufd {d.vname l}, {r.vname l}, {o.toNat}"
+  | .vpalignr l d a b n => s!"vpalignr {d.vname l}, {a.vname l}, {b.vname l}, {n.toNat}"
+  | .vpblendd l d a b n => s!"vpblendd {d.vname l}, {a.vname l}, {b.vname l}, {n.toNat}"
+  | .vvar op l d a b => s!"{op.name} {d.vname l}, {a.vname l}, {b.vname l}"
+  | .vpbroadcastd l d r => s!"vpbroadcastd {d.vname l}, {r.name}"
+  | .vpbroadcastq l d r => s!"vpbroadcastq {d.vname l}, {r.name}"
+  | .vpermq d r o => s!"vpermq {d.yname}, {r.yname}, {o.toNat}"
+  | .vperm2i128 d a b n => s!"vperm2i128 {d.yname}, {a.yname}, {b.yname}, {n.toNat}"
+  | .vinserti128 d a b n => s!"vinserti128 {d.yname}, {a.yname}, {b.name}, {n.toNat}"
+  | .vextracti128 d r n => s!"vextracti128 {d.name}, {r.yname}, {n.toNat}"
+  | .vmovq d r => s!"vmovq {d.name}, {r.name}"
+  | .vzeroupper => "vzeroupper"
 
 def Src.str : Src → String
   | .reg r => r.name
@@ -105,6 +152,13 @@ def Instr.asm : Instr → List String
   | .movdquLoad d m => [s!"movdqu {d.name}, {m.str128}"]
   | .movdquStore m r => [s!"movdqu {m.str128}, {r.name}"]
   | .xop op => [op.asm]
+  | .vop op => [op.asm]
+  | .vmovdquLoad l d m => [s!"vmovdqu {d.vname l}, {m.strV l}"]
+  | .vmovdquStore l m r => [s!"vmovdqu {m.strV l}, {r.vname l}"]
+  | .vbroadcasti128 d m => [s!"vbroadcasti128 {d.yname}, {m.str128}"]
+  | .stmxcsr m => [s!"stmxcsr {m.str32}"]
+  | .ldmxcsr m => [s!"ldmxcsr {m.str32}"]
+  | .lfence => ["lfence"]
   | .mul r => [s!"mul {r.name}"]
 
 def Cond.name : Cond → String

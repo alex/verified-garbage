@@ -179,7 +179,7 @@ theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
   have hret : isa.ret s.callEntry s₂ = some (s₂.setReg .rsp (s₂.gpr .rsp + 8)) := by
     simp only [isa, ret]
     refine ite_eq_left ⟨by rw [hsp₂, State.callEntry_rsp], ?_⟩
-    have := habi.2
+    have := habi.2.1
     simp only [State.withRegions_gpr, State.withRegions_mem, State.callEntry_rsp] at this
     rw [hsp₂, State.callEntry_rsp]; exact this
   have hrsp : (s₂.setReg .rsp (s₂.gpr .rsp + 8)).gpr .rsp = s.gpr .rsp := by
