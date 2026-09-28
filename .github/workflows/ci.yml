@@ -47,12 +47,13 @@ jobs:
           git checkout -q FETCH_HEAD
       - name: Fetch the Mathlib build cache for what the proofs import
         run: |
-          # Every module imported here from outside this project and Lean
-          # itself; `cache get` fetches these and what they import, not all
-          # of Mathlib.
-          mods=$(grep -rhE --include='*.lean' --exclude-dir=.lake '^\s*(public\s+|meta\s+|private\s+)*import\s' . \
-            | sed -E 's/^\s*(public\s+|meta\s+|private\s+)*import\s+(all\s+)?//' | tr -s ' \t' '\n' \
-            | grep -vE '^(VerifiedGarbage[A-Za-z]*|Init|Std|Lean)(\.|$)' | sort -u)
+          # Every module the Lean files import from outside this project and
+          # Lean itself, as Lean's own parser reads their headers; `cache get`
+          # fetches these and what they import, not all of Mathlib.
+          mods=$(git ls-files '*.lean' | xargs lean --deps-json \
+            | jq -r '.imports[].result.imports[].module
+                     | select(test("^(VerifiedGarbage[A-Za-z]*|Init|Std|Lean)(\\.|$)") | not)' \
+            | sort -u)
           echo "$mods"
           lake exe cache get $mods
           # Fail, rather than quietly build part of Mathlib from source, if
