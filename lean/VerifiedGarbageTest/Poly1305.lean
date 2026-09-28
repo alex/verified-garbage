@@ -5,7 +5,7 @@ import VerifiedGarbage.Spec.Poly1305
 # Known-answer tests for the Poly1305 specification
 
 The test vectors of RFC 8439, Appendix A.3, read from the vendored RFC
-`vectors/rfc8439/rfc8439.txt` (see `vectors/sources.toml`) when this file is
+`vectors/rfc8439/rfc8439.txt` (see `vectors/sources/`) when this file is
 built and checked against `VG.Spec.Poly1305.mac`, so that a transcription
 error in the spec fails the build. Test vectors #1–#4 are hex dumps (as in
 Appendices A.1 and A.2); #5–#11, which exercise the edge cases of the

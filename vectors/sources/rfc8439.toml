@@ -1,0 +1,5 @@
+name = "RFC 8439, ChaCha20 and Poly1305 for IETF Protocols (test vectors in Appendix A)"
+directories = ["rfc8439"]
+url = "https://www.rfc-editor.org/rfc/rfc8439.txt"
+sha256 = "25bef70fbf7a07ff45c2fe4cb7c6ce954eac687413d8610603268b4e4415324c"
+retrieved = 2026-09-27
