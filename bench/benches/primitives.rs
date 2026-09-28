@@ -311,6 +311,7 @@ fn poly1305(c: &mut Criterion) {
     g.finish();
 }
 
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn poly1305(_: &mut Criterion) {}
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]

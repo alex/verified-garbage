@@ -6,8 +6,6 @@ import VerifiedGarbage.Impl.Hmac.X86
 import VerifiedGarbage.Impl.Hmac.X86_64
 import VerifiedGarbage.Impl.Pbkdf2.X86_64
 import VerifiedGarbage.Impl.Md5.X86_64
-import VerifiedGarbage.Impl.Poly1305.X86_64
-import VerifiedGarbage.Impl.ChaCha20Poly1305.X86_64
 import VerifiedGarbage.Impl.Md5.X86_64.Stream
 import VerifiedGarbage.Impl.Selftest.X86_64
 import VerifiedGarbage.Impl.Sha3.X86_64
@@ -23,6 +21,8 @@ import VerifiedGarbage.Impl.Sha512.X86_64
 import VerifiedGarbage.Impl.Sha512.X86_64.Stream
 import VerifiedGarbage.Impl.Scrypt.X86_64.BlockMix
 import VerifiedGarbage.Impl.Scrypt.X86_64.RoMix
+import VerifiedGarbage.Impl.Poly1305.X86_64
+import VerifiedGarbage.Impl.ChaCha20Poly1305.X86_64
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
 
 /-!
@@ -177,26 +177,6 @@ theorem scrypt_x86_64_romix :
     Impl.Scrypt.X86_64.roMix.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
-theorem poly1305_x86_64_init :
-    Impl.Poly1305.X86_64.init.all (fun i => !X86_64.target.isa.writesSp i) = true := by
-  decide +kernel
-
-theorem poly1305_x86_64_blocks :
-    Impl.Poly1305.X86_64.blocks.all (fun i => !X86_64.target.isa.writesSp i) = true := by
-  decide +kernel
-
-theorem poly1305_x86_64_finalize :
-    Impl.Poly1305.X86_64.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
-  decide +kernel
-
-theorem chacha20poly1305_x86_64_seal :
-    Impl.ChaCha20Poly1305.X86_64.«seal».all (fun i => !X86_64.target.isa.writesSp i) = true := by
-  decide +kernel
-
-theorem chacha20poly1305_x86_64_open :
-    Impl.ChaCha20Poly1305.X86_64.«open».all (fun i => !X86_64.target.isa.writesSp i) = true := by
-  decide +kernel
-
 theorem sha256_x86_compress :
     Impl.Sha256.X86.compress.all (fun i => !X86.target.isa.writesSp i) = true := by
   decide +kernel
@@ -223,6 +203,26 @@ theorem hmac_x86_finalize :
 
 theorem chacha20_x86_block :
     Impl.ChaCha20.X86.block.all (fun i => !X86.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem poly1305_x86_64_init :
+    Impl.Poly1305.X86_64.init.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem poly1305_x86_64_blocks :
+    Impl.Poly1305.X86_64.blocks.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem poly1305_x86_64_finalize :
+    Impl.Poly1305.X86_64.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem chacha20poly1305_x86_64_seal :
+    Impl.ChaCha20Poly1305.X86_64.«seal».all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem chacha20poly1305_x86_64_open :
+    Impl.ChaCha20Poly1305.X86_64.«open».all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem chacha20_x86_64_xor :

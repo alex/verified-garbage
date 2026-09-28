@@ -30,3 +30,6 @@ pub(crate) mod sha3;
 
 #[rustfmt::skip]
 pub(crate) mod scrypt;
+
+#[rustfmt::skip]
+pub(crate) mod poly1305;
