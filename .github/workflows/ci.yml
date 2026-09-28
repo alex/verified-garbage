@@ -122,6 +122,15 @@ jobs:
           - os: macos-latest
           - os: windows-latest
         rust: [stable, "1.88"]
+        # One job each for the upcoming toolchains, to catch regressions (and
+        # new warnings, which are errors here) before they reach stable.
+        include:
+          - platform:
+              os: ubuntu-latest
+            rust: beta
+          - platform:
+              os: ubuntu-latest
+            rust: nightly
     runs-on: ${{ matrix.platform.os }}
     # With an empty image the job runs directly on the runner.
     container:
