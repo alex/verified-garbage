@@ -35,16 +35,16 @@ def arg (s : State) (i : Nat) : BitVec 32 := s.mem.readW (argAddr s i) 32
 
 /-! ## The calling convention, for `Sig`
 
-Every argument is on the stack, from `[esp + 4]` on entry
-upwards: a 32-bit one in a 4-byte slot, a 64-bit one in two (low word
-first), with no further alignment. The callee owns the argument area and may
-overwrite it (see `Spec/Sha256/X86.lean`); the return address at `[esp]`
-may not be touched. The caller's frame (at and above `esp`) does not wrap
-around the end of the address space. The result is in `eax` (low word) and
-`edx`.
+Every argument is on the stack, from `[esp + 4]` on entry upwards: a 32-bit
+one in a 4-byte slot, a 64-bit one in two (low word first), with no further
+alignment. The callee owns the argument area and may overwrite it (see
+`Spec/Sha256/X86.lean`), if its contract asks for it (`writeArgs`); the
+return address at `[esp]` may not be touched. The caller's frame (at and
+above `esp`) does not wrap around the end of the address space. The result
+is in `eax` (low word) and `edx`.
 -/
 
-/-- The offsets from `esp + 4` (in 4-byte argSlots) of arguments of widths `ws`
+/-- The offsets from `esp + 4` (in 4-byte slots) of arguments of widths `ws`
 (32 or 64 bits). -/
 def argSlots : List Nat → Nat → List Nat
   | [], _ => []

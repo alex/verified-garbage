@@ -3,7 +3,7 @@
 //! The whole computation is verified assembly: `vg_sha256_init`,
 //! `vg_sha256_update` and `vg_sha256_finalize` for the target architecture
 //! (contracts `VG.Spec.Sha256.initX86_64`, `updateX86_64`, `finalizeX86_64`
-//! and their AArch64 and 32-bit ARM counterparts) maintain a streaming state
+//! and their AArch64, 32-bit ARM and x86 counterparts) maintain a streaming state
 //! that represents the message absorbed so far (`VG.Spec.Sha256.Repr`: the
 //! hash value of its whole blocks, and its remaining bytes), and pad it and
 //! output the digest. This module only keeps that state together with the
@@ -13,6 +13,8 @@
 use crate::asm::aarch64::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
 #[cfg(target_arch = "arm")]
 use crate::asm::arm::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
+#[cfg(target_arch = "x86")]
+use crate::asm::x86::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
 #[cfg(target_arch = "x86_64")]
 use crate::asm::x86_64::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
 
@@ -43,8 +45,9 @@ impl Sha256 {
     pub fn new() -> Self {
         let mut state = [0; 96];
         // SAFETY: `state` is valid for writes of 96 bytes, and is a distinct
-        // object from the return address (on x86-64); as a Rust object, it
-        // does not wrap around the end of the address space.
+        // object from the return address (on x86-64 and x86) and the argument
+        // on the stack (on x86); as a Rust object, it does not wrap around the
+        // end of the address space.
         unsafe { vg_sha256_init(&mut state) };
         Sha256 { state, length: 0 }
     }
@@ -55,10 +58,10 @@ impl Sha256 {
         // SAFETY: `self.state` is valid for reads and writes of 96 bytes,
         // `data` for reads of `data.len()` bytes and `scratch` for reads and
         // writes of 160 bytes; they are distinct objects, so they do not
-        // overlap each other, the return address (on x86-64) or the arguments
-        // on the stack (on 32-bit ARM), and do not wrap around the end of the
-        // address space. `self.length` is the
-        // length of the message `self.state` represents, modulo 2⁶⁴.
+        // overlap each other, the return address (on x86-64 and x86) or the
+        // arguments on the stack (on 32-bit ARM and x86), and do not wrap
+        // around the end of the address space. `self.length` is the length of
+        // the message `self.state` represents, modulo 2⁶⁴.
         unsafe {
             vg_sha256_update(
                 &mut self.state,
@@ -78,10 +81,10 @@ impl Sha256 {
         // SAFETY: `self.state` is valid for reads and writes of 96 bytes,
         // `digest` for writes of 32 bytes and `scratch` for reads and writes
         // of 160 bytes; they are distinct objects, so they do not overlap each
-        // other, the return address (on x86-64) or the arguments on the stack
-        // (on 32-bit ARM), and do not wrap around the end of the address
-        // space. `self.length` is the length of the
-        // message `self.state` represents, modulo 2⁶⁴.
+        // other, the return address (on x86-64 and x86) or the arguments on
+        // the stack (on 32-bit ARM and x86), and do not wrap around the end of
+        // the address space. `self.length` is the length of the message
+        // `self.state` represents, modulo 2⁶⁴.
         unsafe { vg_sha256_finalize(&mut self.state, self.length, &mut digest, &mut scratch) };
         digest
     }
