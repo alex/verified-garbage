@@ -37,16 +37,18 @@ def initSha256X86_64 : Contract X86_64.isa where
     let key : Region := ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩
     let scratch : Region := ⟨s.gpr .r8, 160⟩
     let ret : Region := ⟨s.gpr .rsp, 8⟩
+    let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
     (s.gpr .rcx).toNat ≤ 64 ∧ s.rd = [key] ∧ s.wr = [inner, outer, scratch] ∧
     inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
     key.Disjoint inner ∧ key.Disjoint outer ∧ key.Disjoint scratch ∧
-    ret.Disjoint inner ∧ ret.Disjoint outer ∧ ret.Disjoint scratch
+    ret.Disjoint inner ∧ ret.Disjoint outer ∧ ret.Disjoint scratch ∧
+    stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint key ∧ stack.Disjoint scratch
   post s s' :=
     let k0 := blockKey sha256 (bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat)
     Repr s'.mem (s.gpr .rdi) (xorPad k0 ipad) ∧ Repr s'.mem (s.gpr .rsi) (xorPad k0 opad)
   pub s₁ s₂ :=
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
-    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8
+    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
 open X86_64 in
 /-- x86-64 contract for
@@ -71,9 +73,11 @@ def finalizeSha256X86_64 : Contract X86_64.isa where
     let outer : Region := ⟨s.gpr .rsi, 96⟩
     let scratch : Region := ⟨s.gpr .rcx, 240⟩
     let ret : Region := ⟨s.gpr .rsp, 8⟩
+    let stack : Region := ⟨s.gpr .rsp - 16, 16⟩
     s.rd = [outer] ∧ s.wr = [inner, scratch] ∧
     inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
-    ret.Disjoint inner ∧ ret.Disjoint outer ∧ ret.Disjoint scratch
+    ret.Disjoint inner ∧ ret.Disjoint outer ∧ ret.Disjoint scratch ∧
+    stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint scratch
   post s s' := ∀ k0 text, k0.length = 64 →
     Repr s.mem (s.gpr .rdi) (xorPad k0 ipad ++ text) →
     s.gpr .rdx = BitVec.ofNat 64 (64 + text.length) →
@@ -81,6 +85,6 @@ def finalizeSha256X86_64 : Contract X86_64.isa where
     bytesAt s'.mem (s.gpr .rcx + 176) 32 = hmacBlockKey sha256 k0 text
   pub s₁ s₂ :=
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
-    s₁.gpr .rcx = s₂.gpr .rcx
+    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
 end VG.Proof.Hmac

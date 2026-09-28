@@ -208,19 +208,54 @@ theorem execBlock_regions {is : List Instr} {s s' : State} {t : List Leak}
     obtain ⟨hr', hw', hf⟩ := ih h2
     exact ⟨hr'.trans hr, hw'.trans hw, (exec_frame he).trans (hw ▸ hf)⟩
 
-theorem Exec.regions {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa c s t s') :
-    s'.rd = s.rd ∧ s'.wr = s.wr ∧ Frame s.wr s.mem s'.mem := by
+theorem call_regions {s s' : State} (h : isa.call s = some s') : s'.rd = s.rd ∧ s'.wr = s.wr := by
+  simp only [isa, call, Option.some.injEq] at h; subst h; exact ⟨rfl, rfl⟩
+
+theorem ret_regions {s₁ s₂ s' : State} (h : isa.ret s₁ s₂ = some s') : s'.rd = s₂.rd ∧ s'.wr = s₂.wr := by
+  simp only [isa, ret] at h; split at h <;> cases h; exact ⟨rfl, rfl⟩
+
+/-- Calls and returns change only `rsp` (by 8 each way), and the memory. -/
+theorem call_gpr {s s' : State} (h : isa.call s = some s') (r : Reg) :
+    s'.gpr r = if r = .rsp then s.gpr .rsp - 8 else s.gpr r := by
+  simp only [isa, call, Option.some.injEq] at h; subst h; rfl
+
+theorem ret_gpr {s₁ s₂ s' : State} (h : isa.ret s₁ s₂ = some s') (r : Reg) :
+    s₂.gpr .rsp = s₁.gpr .rsp ∧ s'.gpr r = if r = .rsp then s₂.gpr .rsp + 8 else s₂.gpr r := by
+  simp only [isa, ret] at h; split at h <;> cases h; rename_i hc; exact ⟨hc.1, rfl⟩
+
+/-- The permissions never change. -/
+theorem Exec.rdwr {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa c s t s') :
+    s'.rd = s.rd ∧ s'.wr = s.wr := by
   induction h with
-  | block h => exact execBlock_regions h
-  | seq _ _ ih₁ ih₂ =>
-    obtain ⟨r₁, w₁, f₁⟩ := ih₁; obtain ⟨r₂, w₂, f₂⟩ := ih₂
-    exact ⟨r₂.trans r₁, w₂.trans w₁, f₁.trans (w₁ ▸ f₂)⟩
+  | block h => exact ⟨(execBlock_regions h).1, (execBlock_regions h).2.1⟩
+  | seq _ _ ih₁ ih₂ => exact ⟨ih₂.1.trans ih₁.1, ih₂.2.trans ih₁.2⟩
   | iteT _ _ ih => exact ih
   | iteF _ _ ih => exact ih
   | loopExit _ _ ih => exact ih
-  | loopNext _ _ _ ih₁ ih₂ =>
-    obtain ⟨r₁, w₁, f₁⟩ := ih₁; obtain ⟨r₂, w₂, f₂⟩ := ih₂
+  | loopNext _ _ _ ih₁ ih₂ => exact ⟨ih₂.1.trans ih₁.1, ih₂.2.trans ih₁.2⟩
+  | frame hp => simp only [isa, reduceCtorEq] at hp
+  | call hc _ hr ih =>
+    obtain ⟨r₁, w₁⟩ := call_regions hc; obtain ⟨r₂, w₂⟩ := ret_regions hr
+    exact ⟨r₂.trans (ih.1.trans r₁), w₂.trans (ih.2.trans w₁)⟩
+
+/-- Code that calls no function changes memory only within the regions it
+may write (a call also stores its return address below the stack pointer). -/
+theorem Exec.regions {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa c s t s')
+    (hn : c.noCalls = true) : s'.rd = s.rd ∧ s'.wr = s.wr ∧ Frame s.wr s.mem s'.mem := by
+  induction h with
+  | block h => exact execBlock_regions h
+  | seq _ _ ih₁ ih₂ =>
+    simp only [Code.noCalls, Bool.and_eq_true] at hn
+    obtain ⟨r₁, w₁, f₁⟩ := ih₁ hn.1; obtain ⟨r₂, w₂, f₂⟩ := ih₂ hn.2
     exact ⟨r₂.trans r₁, w₂.trans w₁, f₁.trans (w₁ ▸ f₂)⟩
+  | iteT _ _ ih => simp only [Code.noCalls, Bool.and_eq_true] at hn; exact ih hn.1
+  | iteF _ _ ih => simp only [Code.noCalls, Bool.and_eq_true] at hn; exact ih hn.2
+  | loopExit _ _ ih => exact ih hn
+  | loopNext _ _ _ ih₁ ih₂ =>
+    obtain ⟨r₁, w₁, f₁⟩ := ih₁ hn; obtain ⟨r₂, w₂, f₂⟩ := ih₂ hn
+    exact ⟨r₂.trans r₁, w₂.trans w₁, f₁.trans (w₁ ▸ f₂)⟩
+  | frame hp => simp only [isa, reduceCtorEq] at hp
+  | call => simp [Code.noCalls] at hn
 
 theorem execBlock_widen {is : List Instr} {s s' : State} {t : List Leak} {rd wr : List Region}
     (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
@@ -251,14 +286,26 @@ theorem Exec.widen {c : Prog isa} {s s' : State} {t : List Leak} {rd wr : List R
   induction h with
   | block h => exact .block (execBlock_widen hc hw h)
   | seq h₁ _ ih₁ ih₂ =>
-    obtain ⟨r₁, w₁, -⟩ := Exec.regions h₁
+    obtain ⟨r₁, w₁⟩ := Exec.rdwr h₁
     exact .seq (ih₁ hc hw) (ih₂ (by rwa [r₁, w₁]) (by rwa [w₁]))
   | iteT hc' _ ih => exact .iteT ((eval_withRegions _ _ _ _).trans ‹_›) (ih hc hw)
   | iteF hc' _ ih => exact .iteF ((eval_withRegions _ _ _ _).trans ‹_›) (ih hc hw)
   | loopExit h₁ hc' ih => exact .loopExit (ih hc hw) ((eval_withRegions _ _ _ _).trans ‹_›)
   | loopNext h₁ hc' _ ih₁ ih₂ =>
-    obtain ⟨r₁, w₁, -⟩ := Exec.regions h₁
+    obtain ⟨r₁, w₁⟩ := Exec.rdwr h₁
     exact .loopNext (ih₁ hc hw) ((eval_withRegions _ _ _ _).trans ‹_›) (ih₂ (by rwa [r₁, w₁]) (by rwa [w₁]))
+  | frame hp => simp only [isa, reduceCtorEq] at hp
+  | @call n _ s₀ s₁ s₂ s₃ _ hc₁ _ hr ih =>
+    obtain ⟨r₁, w₁⟩ := call_regions hc₁
+    have hc' : isa.call (s₀.withRegions rd wr) = some (s₁.withRegions rd wr) := by
+      simp only [isa, call, Option.some.injEq] at hc₁ ⊢; subst hc₁; rfl
+    have hr' : isa.ret (s₁.withRegions rd wr) (s₂.withRegions rd wr) = some (s₃.withRegions rd wr) := by
+      simp only [isa, ret] at hr ⊢
+      split at hr <;> cases hr
+      rename_i h
+      exact (ite_eq_left h).trans rfl
+    have := Exec.call (name := n) hc' (ih (by rwa [r₁, w₁]) (by rwa [w₁])) hr'
+    exact this
 
 theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.dstOf i ≠ some r) {s s' : State}
     (h : exec i s = some s') : s'.gpr r = s.gpr r := by
@@ -298,6 +345,15 @@ theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, Taint.dstOf 
   | iteF _ _ ih => exact ih fun i hi => hc i (List.mem_append_right _ hi)
   | loopExit _ _ ih => exact ih hc
   | loopNext _ _ _ ih₁ ih₂ => rw [ih₂ hc, ih₁ hc]
+  | frame hp => simp only [isa, reduceCtorEq] at hp
+  | call hc₁ _ hr ih =>
+    obtain ⟨hsp, h'⟩ := ret_gpr hr r
+    rw [h']
+    by_cases hrs : r = .rsp
+    · subst hrs
+      rw [ite_eq_left rfl, hsp, call_gpr hc₁, ite_eq_left rfl]
+      exact BitVec.sub_add_cancel _ _
+    · simp only [hrs, ite_false, ih hc, call_gpr hc₁]
 
 /-- A register that no instruction writes keeps its value, as a
 postcondition. -/
@@ -318,9 +374,10 @@ theorem WP.inline {c : Prog isa} {k : Contract isa}
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → abiPreserved s s' → Frame wr s.mem s'.mem →
       (∀ r, (∀ i ∈ instrs c, Taint.dstOf i ≠ some r) → s'.gpr r = s.gpr r) →
-      k.post (s.withRegions rd wr) (s'.withRegions rd wr) → Q s') : WP isa c s Q := by
+      k.post (s.withRegions rd wr) (s'.withRegions rd wr) → Q s')
+    (hn : c.noCalls = true := by decide +kernel) : WP isa c s Q := by
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre
-  obtain ⟨hr, hwr, hf⟩ := Exec.regions he
+  obtain ⟨hr, hwr, hf⟩ := Exec.regions he hn
   simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_mem] at hr hwr hf
   have he' := Exec.widen he (rd := s.rd) (wr := s.wr) (by simpa using hc) (by simpa using hw)
   simp only [State.withRegions_withRegions, State.withRegions_self] at he'

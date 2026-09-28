@@ -37,6 +37,8 @@ abbrev outR : Region := ⟨out s₀, 96⟩
 abbrev kR : Region := ⟨kp s₀, kl s₀⟩
 abbrev scR : Region := ⟨scr s₀, 160⟩
 abbrev retR : Region := ⟨s₀.gpr .rsp, 8⟩
+/-- Where the calls of `vg_sha256_compress` store their return address. -/
+abbrev stkR : Region := below (s₀.gpr .rsp) 8
 
 /-- The key, padded with zeros to a block. -/
 def K0 : List Byte := bytesAt s₀.mem (kp s₀) (kl s₀) ++ List.replicate (64 - kl s₀) 0
@@ -56,10 +58,18 @@ structure Pre (s₀ : State) : Prop where
   ret_i : (retR s₀).Disjoint (inR s₀)
   ret_o : (retR s₀).Disjoint (outR s₀)
   ret_s : (retR s₀).Disjoint (scR s₀)
+  stk_i : (stkR s₀).Disjoint (inR s₀)
+  stk_o : (stkR s₀).Disjoint (outR s₀)
+  stk_k : (stkR s₀).Disjoint (kR s₀)
+  stk_s : (stkR s₀).Disjoint (scR s₀)
 
 theorem pre_of {s₀ : State} (h : Proof.Hmac.initSha256X86_64.pre s₀) : Pre s₀ := by
-  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩ := h
-  exact ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩
+  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15⟩ := h
+  exact ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15⟩
+
+/-- The return address and the 8 bytes below it. -/
+theorem ret_stk (s₀ : State) : (retR s₀).Disjoint (stkR s₀) := by
+  intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
 
 theorem K0_length (s₀ : State) (hp : Pre s₀) : (K0 s₀).length = 64 := by
   simp [K0, bytesAt_length]; have := hp.kl_le; omega
@@ -71,7 +81,6 @@ theorem blockKey_eq {s₀ : State} (hp : Pre s₀) :
 
 /-! ## Prologue -/
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .r8)) s₀ fun s =>
@@ -97,7 +106,6 @@ theorem h0_eq (b : Reg) : h0 b = [
     .mov32 .rax (.imm 0x1f83d9ab), .store32 (at_ b (4 * 6)) .rax,
     .mov32 .rax (.imm 0x5be0cd19), .store32 (at_ b (4 * 7)) .rax] := rfl
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 /-- `H⁽⁰⁾` stored at `b`. -/
 theorem h0_ok {b : Reg} (hb : b ≠ .rax) {s : State} {rest : List Instr} {Q : State → Prop}
@@ -164,7 +172,6 @@ theorem saved_frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Re
   intro r hr
   exact (hd r hr).sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))
 
-set_option maxHeartbeats 1000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .r8 ++ [.mov .rbx (.reg .rdi), .mov .r12 (.reg .rsi), .mov .r15 (.reg .r8),
       .mov .rbp (.reg .rdx), .mov .r13 (.reg .rcx)] ++ h0 .rbx ++ h0 .r12 ++
@@ -367,7 +374,6 @@ def keyBody : List Instr :=
 
 theorem keyLoop_eq : keyLoop = .loop (.block keyBody) .ne := rfl
 
-set_option maxHeartbeats 1000000 in
 theorem key_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < kl s₀) {s : State} (h : Buf s₀ j s) :
     WP isa (.block keyBody) s fun s' => Buf s₀ (j + 1) s' ∧ s'.zf = some (decide (j + 1 = kl s₀)) := by
   have hkl := hp.kl_le
@@ -440,7 +446,6 @@ structure Pad (s₀ : State) (j : Nat) (s : State) : Prop extends Buf s₀ j s w
   rax : s.gpr .rax = (0x36 : BitVec 32).setWidth 64
   rcx : s.gpr .rcx = (0x5c : BitVec 32).setWidth 64
 
-set_option maxHeartbeats 1000000 in
 theorem pad_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : kl s₀ ≤ j) (hj' : j < 64) {s : State}
     (h : Pad s₀ j s) :
     WP isa (.block padBody) s fun s' => Pad s₀ (j + 1) s' ∧ s'.zf = some (decide (j + 1 = 64)) := by
@@ -533,21 +538,22 @@ theorem compress_ok {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s�
     (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) (hbx : s.gpr .rbx = p) (h15 : s.gpr .r15 = scr s₀)
     (hsi : s.gpr .rsi = p + 32) (hsp : s.gpr .rsp = s₀.gpr .rsp) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
-      Frame [⟨p, 32⟩, ⟨scr s₀, 112⟩] s.mem s'.mem →
+      Frame [⟨p, 32⟩, ⟨scr s₀, 112⟩, stkR s₀] s.mem s'.mem →
       stateAt s'.mem p = Spec.Sha256.compress (stateAt s.mem p) (Spec.Sha256.blockAt s.mem (p + 32)) →
       Q s') :
     WP isa compressAt s Q := by
-  have hs : Region.Disjoint ⟨p, 96⟩ (scR s₀) ∧ Region.Disjoint (retR s₀) ⟨p, 96⟩ ∧ ⟨p, 96⟩ ∈ s₀.wr := by
+  have hs : Region.Disjoint ⟨p, 96⟩ (scR s₀) ∧ Region.Disjoint (stkR s₀) ⟨p, 96⟩ ∧ ⟨p, 96⟩ ∈ s₀.wr := by
     rcases hpR with rfl | rfl
-    · exact ⟨hp.i_s, hp.ret_i, by simp [hp.wr]⟩
-    · exact ⟨hp.o_s, hp.ret_o, by simp [hp.wr]⟩
+    · exact ⟨hp.i_s, hp.stk_i, by simp [hp.wr]⟩
+    · exact ⟨hp.o_s, hp.stk_o, by simp [hp.wr]⟩
   obtain ⟨d, dr, hm⟩ := hs
   have e32 : Region.Sub ⟨p, 32⟩ ⟨p, 96⟩ := Region.sub_prefix (by omega)
   have eb : Region.Sub ⟨p + 32, 64⟩ ⟨p, 96⟩ := sub_offset (off := 32) (by omega) (by omega)
   have e112 : Region.Sub ⟨scr s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
   refine compressAt_ok hbx h15 hsi ((d.sub_left e32).sub_right e112) ?_ ((d.sub_left eb).sub_right e112)
-    (hsp ▸ dr.sub_right e32) (hsp ▸ (hp.ret_s.sub_right e112)) ?_ ?_
-    fun s' hrd' hwr' hcs hf hst _ _ => hQ s' hrd' hwr' hcs hf hst
+    (by rw [hsp]; exact dr.sub_right e32) (by rw [hsp]; exact hp.stk_s.sub_right e112)
+    (by rw [hsp]; exact dr.sub_right eb) ?_ ?_
+    fun s' hrd' hwr' hcs hf hst _ _ => hQ s' hrd' hwr' hcs (by rw [hsp] at hf; exact hf) hst
   · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
   · rw [hrd, hwr]
     apply Covers.of_sub
@@ -578,11 +584,10 @@ theorem state_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Ad
 theorem save_sub (s₀ : State) : Region.Sub ⟨scr s₀ + BitVec.ofNat 64 112, 48⟩ (scR s₀) :=
   sub_offset (by omega) (by omega)
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s₀.wr)
     (h15 : s.gpr .r15 = scr s₀) (hsp : s.gpr .rsp = s₀.gpr .rsp) (hsv : Saved s₀ s.mem)
-    (hfr : Frame [inR s₀, outR s₀, scR s₀] s₀.mem s.mem)
+    (hfr : Frame [inR s₀, outR s₀, scR s₀, stkR s₀] s₀.mem s.mem)
     (hI : Repr s.mem (inn s₀) (xorPad (K0 s₀) ipad)) (hO : Repr s.mem (out s₀) (xorPad (K0 s₀) opad)) :
     WP isa (.block restore) s fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256X86_64.post s₀ s' := by
   have i : ∀ d : Nat, d + 8 ≤ 160 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
@@ -602,7 +607,8 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s�
   have g5 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((152 : Nat) : Int)) 64 = s₀.gpr .r15 :=
     hsv (.r15, 152) (by simp [Impl.Sha256.X86_64.Stream.saved])
   have hret : s.mem.readW (s₀.gpr .rsp) 64 = s₀.mem.readW (s₀.gpr .rsp) 64 :=
-    hfr.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_i, hp.ret_o, hp.ret_s⟩) (by decide)
+    hfr.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_i, hp.ret_o, hp.ret_s, ret_stk s₀⟩)
+      (by decide)
   apply WP.of_runBlock
   rw [Proof.Sha256.X86_64.Stream.restore_eq]
   simp (config := {decide := true}) only [runBlock_cons, runStep_some,
@@ -625,7 +631,6 @@ theorem buf_full {s₀ : State} (hp : Pre s₀) {m : Mem} (h : BufMem s₀ 64 m)
   rw [h.bufI, h.bufO, List.take_of_length_le (by rw [K0_length s₀ hp])]
   exact ⟨rfl, rfl⟩
 
-set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256X86_64.post s₀ s' := by
   have hkl := hp.kl_le
@@ -667,24 +672,27 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     fun s₉ rd₉ wr₉ cs₉ fr₉ st₉ => ?_)
   have hI₉ : Repr s₉.mem (inn s₀) (xorPad (K0 s₀) ipad) :=
     repr_block (by rw [m₈]; exact h₆.mem.stI) (by rw [m₈]; exact bI) (by simp [xorPad, K0_length s₀ hp]) st₉
-  have dO : ∀ r ∈ [(⟨inn s₀, 32⟩ : Region), ⟨scr s₀, 112⟩], Region.Disjoint ⟨out s₀, 96⟩ r := by
+  have dO : ∀ r ∈ [(⟨inn s₀, 32⟩ : Region), ⟨scr s₀, 112⟩, stkR s₀], Region.Disjoint ⟨out s₀, 96⟩ r := by
     simp only [List.mem_cons, List.not_mem_nil, or_false]
-    rintro r (rfl | rfl)
+    rintro r (rfl | rfl | rfl)
     · exact hp.i_o.symm.sub_right (sub32 _)
     · exact hp.o_s.sub_right (Region.sub_prefix (by omega))
+    · exact hp.stk_o.symm
   obtain ⟨sO₉, bO₉⟩ := state_frame fr₉ dO
   have sv₉ : Saved s₀ s₉.mem := by
     refine saved_frame' (by rw [m₈]; exact h₆.mem.saved) fr₉ ?_
     simp only [List.mem_cons, List.not_mem_nil, or_false]
-    rintro r (rfl | rfl)
+    rintro r (rfl | rfl | rfl)
     · exact (hp.i_s.symm.sub_left (save_sub s₀)).sub_right (sub32 _)
     · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
-  have f₉ : Frame [inR s₀, outR s₀, scR s₀] s₀.mem s₉.mem := by
-    refine (m₈ ▸ h₆.mem.frame).trans (fr₉.sub ?_)
+    · exact hp.stk_s.symm.sub_left (save_sub s₀)
+  have f₉ : Frame [inR s₀, outR s₀, scR s₀, stkR s₀] s₀.mem s₉.mem := by
+    refine Frame.trans (Frame.mono (m₈ ▸ h₆.mem.frame) (by simp)) (fr₉.sub ?_)
     simp only [List.mem_cons, List.not_mem_nil, or_false]
-    rintro r (rfl | rfl)
+    rintro r (rfl | rfl | rfl)
     · exact ⟨inR s₀, by simp, sub32 _⟩
     · exact ⟨scR s₀, by simp, Region.sub_prefix (by omega)⟩
+    · exact ⟨stkR s₀, by simp, fun _ h => h⟩
   -- The outer block.
   refine WP.seq (wp_mov fun s₁₀ u₁₀ _ _ => wp_mov fun s₁₁ u₁₁ _ _ => wp_addi fun s₁₂ u₁₂ => WP.block_nil ?_)
   have k₁₂ : ∀ r, r ≠ .rsi → r ≠ .rbx → s₁₂.gpr r = s₉.gpr r := fun r h h' => by
@@ -706,35 +714,38 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have hI : Repr s₁₃.mem (inn s₀) (xorPad (K0 s₀) ipad) := by
     refine repr_congr (fun i hi => fr₁₃.bytes (R := inR s₀) ?_ (by simp) hi) (m₁₂ ▸ hI₉)
     simp only [List.mem_cons, List.not_mem_nil, or_false]
-    rintro r (rfl | rfl)
+    rintro r (rfl | rfl | rfl)
     · exact hp.i_o.sub_right (sub32 _)
     · exact hp.i_s.sub_right (Region.sub_prefix (by omega))
+    · exact hp.stk_i.symm
   refine epilogue_ok hp (by rw [wr₁₃, u₁₂.wr, u₁₁.wr, u₁₀.wr, wr₉, u₈.wr, u₇.wr, h₆.wr])
     (by rw [cs₁₃ _ (by decide), k₁₂ _ (by decide) (by decide), r15₉])
     (by rw [cs₁₃ _ (by decide), k₁₂ _ (by decide) (by decide), rsp₉]) ?_ ?_ hI hO
   · refine saved_frame' (by rw [m₁₂]; exact sv₉) fr₁₃ ?_
     simp only [List.mem_cons, List.not_mem_nil, or_false]
-    rintro r (rfl | rfl)
+    rintro r (rfl | rfl | rfl)
     · exact (hp.o_s.symm.sub_left (save_sub s₀)).sub_right (sub32 _)
     · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+    · exact hp.stk_s.symm.sub_left (save_sub s₀)
   · refine (m₁₂ ▸ f₉).trans (fr₁₃.sub ?_)
     simp only [List.mem_cons, List.not_mem_nil, or_false]
-    rintro r (rfl | rfl)
+    rintro r (rfl | rfl | rfl)
     · exact ⟨outR s₀, by simp, sub32 _⟩
     · exact ⟨scR s₀, by simp, Region.sub_prefix (by omega)⟩
+    · exact ⟨stkR s₀, by simp, fun _ h => h⟩
 
 /-! ## `Verified` -/
 
 /-- The initial taint: the arguments are public, and `rdi`, `rsi` and `r8`
 point at the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
-  { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .r8], flags := false, lens := [96, 96, 160],
+  { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .r8, .rsp], flags := false, lens := [96, 96, 160],
     bases := [(.rdi, 0), (.rsi, 1), (.r8, 2)] }
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.initSha256X86_64.pre s₁)
     (h₂ : Proof.Hmac.initSha256X86_64.pre s₂) (hpub : Proof.Hmac.initSha256X86_64.pub s₁ s₂) :
     X86_64.Taint.Agree τ₀ s₁ s₂ := by
-  obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
+  obtain ⟨p1, p2, p3, p4, p5, p6⟩ := hpub
   have wf : ∀ s, Proof.Hmac.initSha256X86_64.pre s → X86_64.Taint.Wf τ₀ s := by
     intro s hs
     obtain ⟨-, -, hw, d1, d2, d3, -⟩ := hs
@@ -743,7 +754,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.initSha256X86_64.pre s�
     rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
   · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
+    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> assumption
   · rw [h₁.2.2.1, h₂.2.2.1, p1, p2, p5]
   · intro sl h; simp [τ₀] at h
   · intro sl h; simp [τ₀] at h
@@ -760,13 +771,12 @@ def sat : State where
   rd := [⟨0x3000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-set_option maxHeartbeats 0 in
 theorem init_verified : Verified X86_64.target init Proof.Hmac.initSha256X86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
-  · refine ⟨sat, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+  · refine ⟨sat, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
       bv_omega

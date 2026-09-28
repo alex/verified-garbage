@@ -26,7 +26,9 @@ def main (args : List String) : IO UInt32 := do
     | [] => pure "../src/asm"
     | [d] => pure d
     | _ => do IO.eprintln usage; return 2
-  let files := VG.Rust.files VG.artifacts
+  let files ← match VG.Rust.files VG.artifacts with
+    | .ok files => pure files
+    | .error e => do IO.eprintln e; return 1
   let expected := files.map (·.1)
   let mut ok := true
   unless check do IO.FS.createDirAll dir

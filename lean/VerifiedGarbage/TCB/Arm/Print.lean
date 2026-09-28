@@ -31,6 +31,8 @@ def Instr.asm : Instr → List String
   | .mov d (.shifted m sh n) => [s!"{sh.name} {d.name}, {m.name}, #{n}"]
   | .mov d op2 => [s!"mov {d.name}, {op2.str}"]
   | .dp op d n op2 => [s!"{op.name} {d.name}, {n.name}, {op2.str}"]
+  | .adds d n op2 => [s!"adds {d.name}, {n.name}, {op2.str}"]
+  | .adc d n op2 => [s!"adc {d.name}, {n.name}, {op2.str}"]
   | .subs d n op2 => [s!"subs {d.name}, {n.name}, {op2.str}"]
   | .cmp n op2 => [s!"cmp {n.name}, {op2.str}"]
   | .movw d imm => [s!"movw {d.name}, #{imm.toNat}"]
@@ -41,6 +43,8 @@ def Instr.asm : Instr → List String
   | .ldrb t n off => [s!"ldrb {t.name}, [{n.name}, #{off}]"]
   | .strb t n off => [s!"strb {t.name}, [{n.name}, #{off}]"]
   | .ldrSp t off => [s!"ldr {t.name}, [sp, #{off}]"]
+  | .push rs => [s!"push \{{", ".intercalate (rs.map Reg.name)}}"]
+  | .pop t n => [s!"ldr {t.name}, [sp], #{n}"]
 
 def Cond.name : Cond → String
   | .eq => "eq" | .ne => "ne"
@@ -50,5 +54,6 @@ def printer : Printer isa where
   branch c l := s!"b{c.name} {l}"
   jump l := s!"b {l}"
   ret := ["bx lr"]
+  call := "bl"
 
 end VG.Arm

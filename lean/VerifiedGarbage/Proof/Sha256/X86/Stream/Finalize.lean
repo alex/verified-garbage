@@ -219,7 +219,6 @@ structure Zero (s₀ : State) (sI : State) (n lim j : Nat) (s : State) : Prop wh
   eax : s.gpr .eax = BitVec.ofNat 32 (lim - n - j)
   mem : s.mem = writeBytes sI.mem (stA s₀ + 32 + BitVec.ofNat 64 n) (List.replicate j 0)
 
-set_option maxHeartbeats 0 in
 theorem zero_step {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI) (hecx : sI.gpr .ecx = 0)
     {n lim j : Nat} (hlim : lim ≤ 64) (hj : j < lim - n) {s : State} (h : Zero s₀ sI n lim j s) :
     WP isa (.block [.mov .edx (.reg .ebx), .alu .add .edx (.reg .edi), .store8 (at_ .edx 32) .cl,
@@ -276,7 +275,6 @@ theorem zero_ok {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI
 
 /-! ## One block -/
 
-set_option maxHeartbeats 0 in
 /-- The inlined compression of the buffer. -/
 theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s₀ s)
     (ha4 : s.mem.readW (addr (esp₀ s₀) 4) 32 = st s₀) (ha16 : s.mem.readW (addr (esp₀ s₀) 16) 32 = scr s₀)
@@ -365,7 +363,6 @@ theorem writeW_bswap (m : Mem) (a : Addr) (w : BitVec 32) :
 abbrev lenL (s₀ : State) : List Byte :=
   wordBytes ((arg s₀ 2 <<< 3) ||| (arg s₀ 1 >>> 29)) ++ wordBytes (arg s₀ 1 <<< 3)
 
-set_option maxHeartbeats 0 in
 /-- Storing the message length in bits, big-endian, at `state[88..96)`. -/
 theorem len_ok {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s₀ s) :
     WP isa (.block lengthStore) s fun s' =>
@@ -459,7 +456,6 @@ theorem regs3 {r : Reg} (hr : r ∈ [Reg.ebx, .ebp, .esp]) : r ≠ .eax ∧ r �
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl <;> decide
 
-set_option maxHeartbeats 0 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
     WP isa finalizeBody s (Step s₀ k) := by
   have hk := h.k_le; have hn := h.n_le; have hst := hp.st_fit
@@ -649,7 +645,6 @@ theorem arg_read {s₀ : State} (hp : Pre s₀) {m : Mem} (hf : Frame [scR s₀]
     (h₁ : 4 ≤ e) (h₂ : e + 4 ≤ 24) : m.readW (addr (esp₀ s₀) e) 32 = s₀.mem.readW (addr (esp₀ s₀) e) 32 :=
   hf.readW (Region.contains_self _ _) (by simpa using hp.a_scr.sub_left (hp.arg_sub h₁ h₂)) (by decide)
 
-set_option maxHeartbeats 0 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.seq (.block ([.mov .eax (.mem (at_ .esp 20))] ++ save .eax ++
       [.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)),
@@ -861,7 +856,6 @@ theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 
     rw [show outA s₀ = outA s₀ + BitVec.ofNat 64 0 by simp]
     exact contains_offset (by omega) (by omega))
 
-set_option maxHeartbeats 0 in
 theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {k : Nat} (hk : k < 8)
     {s : State} (h : Out s₀ sD k s) {rest : List Instr} {Q : State → Prop}
     (hnext : ∀ s', Out s₀ sD (k + 1) s' → WP isa (.block rest) s' Q) :
@@ -895,7 +889,6 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
 /-- The epilogue's postcondition. -/
 def Post (s₀ s' : State) : Prop := abiPreserved s₀ s' ∧ Proof.Sha256.finalizeX86.post s₀ s'
 
-set_option maxHeartbeats 0 in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {s : State}
     (h : Out s₀ sD 8 s) : WP isa (.block restore4) s (Post s₀) := by
   have hC := hD.1

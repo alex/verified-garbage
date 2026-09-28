@@ -28,6 +28,8 @@ abbrev stR : Region := ⟨st s₀, 192⟩
 abbrev outR : Region := ⟨out s₀, 64⟩
 abbrev scR : Region := ⟨scr s₀, 224⟩
 abbrev retR : Region := ⟨s₀.gpr .rsp, 8⟩
+/-- Where the call of `vg_sha512_compress` stores its return address. -/
+abbrev stkR : Region := below (s₀.gpr .rsp) 8
 
 /-- The messages the initial state represents, from the initial hash value
 `iv`, of fewer than 2⁶⁴ bytes. -/
@@ -60,10 +62,17 @@ structure Pre (s₀ : State) : Prop where
   ret_st : (retR s₀).Disjoint (stR s₀)
   ret_out : (retR s₀).Disjoint (outR s₀)
   ret_scr : (retR s₀).Disjoint (scR s₀)
+  stk_st : (stkR s₀).Disjoint (stR s₀)
+  stk_out : (stkR s₀).Disjoint (outR s₀)
+  stk_scr : (stkR s₀).Disjoint (scR s₀)
 
 theorem pre_of {s₀ : State} (h : Proof.Sha512.finalizeX86_64.pre s₀) : Pre s₀ := by
-  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
-  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩ := h
+  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩
+
+/-- The return address and the 8 bytes below it. -/
+theorem ret_stk (s₀ : State) : (retR s₀).Disjoint (stkR s₀) := by
+  intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
 
 /-! ## Invariants -/
 
@@ -75,7 +84,7 @@ structure Common (s₀ : State) (s : State) : Prop where
   rbp : s.gpr .rbp = out s₀
   r12 : s.gpr .r12 = s₀.gpr .rsi
   rsp : s.gpr .rsp = s₀.gpr .rsp
-  frame : Frame [stR s₀, scR s₀] s₀.mem s.mem
+  frame : Frame [stR s₀, scR s₀, stkR s₀] s₀.mem s.mem
   saved : Saved s₀ s.mem
 
 /-- The loop invariant: `k = 1` while the block being padded is not the last
@@ -109,7 +118,7 @@ theorem Common.of_gpr {s₀ : State} {s s' : State} (h : Common s₀ s)
 theorem Common.writeBuf {s₀ : State} (hp : Pre s₀) {s : State} (h : Common s₀ s) {n : Nat} {xs : List Byte}
     (hn : n + xs.length ≤ 128) :
     Frame [stR s₀] s.mem (writeBytes s.mem (st s₀ + 64 + BitVec.ofNat 64 n) xs) ∧
-      Frame [stR s₀, scR s₀] s₀.mem (writeBytes s.mem (st s₀ + 64 + BitVec.ofNat 64 n) xs) ∧
+      Frame [stR s₀, scR s₀, stkR s₀] s₀.mem (writeBytes s.mem (st s₀ + 64 + BitVec.ofNat 64 n) xs) ∧
       Saved s₀ (writeBytes s.mem (st s₀ + 64 + BitVec.ofNat 64 n) xs) := by
   have hf : Frame [stR s₀] s.mem (writeBytes s.mem (st s₀ + 64 + BitVec.ofNat 64 n) xs) := by
     refine writeBytes_frame _ _ _ ?_
@@ -215,9 +224,9 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
   have eb : Region.Sub ⟨st s₀ + 64, 128⟩ (stR s₀) := sub_offset (off := 64) (by omega) (by omega)
   have hsp := hC.rsp
   refine compressAt_ok hC.rbx hC.r15 hrsi ((hp.st_scr.sub_left e32).sub_right e112) ?_
-    ((hp.st_scr.sub_left eb).sub_right e112) (hsp ▸ (hp.ret_st.sub_right e32))
-    (hsp ▸ (hp.ret_scr.sub_right e112)) ?_ ?_ fun s' hrd hwr hcs hf hstate hdi hcx =>
-      hQ s' ?_ hcs hstate hdi hcx
+    ((hp.st_scr.sub_left eb).sub_right e112) (by rw [hsp]; exact hp.stk_st.sub_right e32)
+    (by rw [hsp]; exact hp.stk_scr.sub_right e112) (by rw [hsp]; exact hp.stk_st.sub_right eb) ?_ ?_
+    fun s' hrd hwr hcs hf hstate hdi hcx => hQ s' ?_ hcs hstate hdi hcx
   · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
   · rw [hC.rd, hC.wr, hp.rd, hp.wr]
     apply Covers.of_sub
@@ -241,9 +250,10 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
       hC.frame.trans (hf.sub ?_), fun p hp' => ?_⟩
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl
+      rcases hr with rfl | rfl | rfl
       · exact ⟨stR s₀, by simp, e32⟩
       · exact ⟨scR s₀, by simp, e112⟩
+      · exact ⟨stkR s₀, by simp, by rw [hsp]; exact fun _ h => h⟩
     · rw [← hC.saved p hp']
       simp only [Impl.Sha512.X86_64.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
       have hd : 176 ≤ p.2 ∧ p.2 + 8 ≤ 224 := by rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;> simp
@@ -251,9 +261,11 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
         (by decide)
       intro r' hr'
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
-      rcases hr' with rfl | rfl
+      rcases hr' with rfl | rfl | rfl
       · exact (hp.st_scr.symm.sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))).sub_right e32
       · intro a h₁ h₂; simp only [Region.Contains, ofInt_natCast] at h₁ h₂; bv_omega
+      · rw [hsp]
+        exact hp.stk_scr.symm.sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))
 
 theorem wp_shri {is : List Instr} {s : State} {Q : State → Prop} {d : Reg} {n : Nat}
     (hn : 1 ≤ n ∧ n ≤ 63) (k : ∀ s', Upd s s' d (s.gpr d >>> n) → WP isa (.block is) s' Q) :
@@ -268,7 +280,6 @@ theorem wp_shri {is : List Instr} {s : State} {Q : State → Prop} {d : Reg} {n 
 def Step (s₀ : State) (k : Nat) (s : State) : Prop :=
   (eval .e s = some false ∧ Done s₀ s ∧ s.gpr .rdi = st s₀ ∧ s.gpr .rcx = scr s₀) ∨ (eval .e s = some true ∧ k = 1 ∧ LInv s₀ 0 0 s)
 
-set_option maxHeartbeats 1000000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
     WP isa finalizeBody s (Step s₀ k) := by
   have hk := h.k_le; have hn := h.n_le
@@ -502,7 +513,6 @@ theorem prologue_eq : save .rcx ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx)
     .mov32 .rax (.imm 0x80), .store8 bufByte .rax, .alu .add .r13 (.imm 1),
     .mov32 .r14 (.imm 0), .alu .cmp .r13 (.imm 113)] := rfl
 
-set_option maxHeartbeats 1000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.seq (.block (save .rcx ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),
       .mov .r12 (.reg .rsi), .mov .r13 (.reg .rsi), .alu .and .r13 (.imm 127),
@@ -651,7 +661,6 @@ theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 
     rw [show out s₀ = out s₀ + BitVec.ofNat 64 0 by simp]
     exact contains_offset (by omega) (by omega))
 
-set_option maxHeartbeats 1000000 in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {s : State}
     (h : Out s₀ sD 8 s) :
     WP isa (.block restore) s fun s' =>
@@ -681,7 +690,8 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
   have hrsp : s.gpr .rsp = s₀.gpr .rsp := by rw [h.keep _ (by simp), hC.rsp]
   have hret : s.mem.readW (s₀.gpr .rsp) 64 = s₀.mem.readW (s₀.gpr .rsp) 64 := by
     rw [h.mem, hfo.readW (Region.contains_self _ _) (by simpa using hp.ret_out) (by decide)]
-    exact hC.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_scr⟩) (by decide)
+    exact hC.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_scr, ret_stk s₀⟩)
+      (by decide)
   apply WP.of_runBlock
   rw [restore_eq]
   simp (config := {decide := true}) only [runBlock_cons, runStep_some,
@@ -705,7 +715,6 @@ theorem writeW_bswap64 (m : Mem) (a : Addr) (w : BitVec 64) :
     m.writeW a (bswap64 w) = writeBytes m a (wordBytes w) := by
   rw [Mem.writeW, write_eq_writeBytes, ← bswap64_wordBytes]; rfl
 
-set_option maxHeartbeats 1000000 in
 theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {k : Nat} (hk : k < 8)
     {s : State} (h : Out s₀ sD k s) {rest : List Instr} {Q : State → Prop}
     (hnext : ∀ s', Out s₀ sD (k + 1) s' → WP isa (.block rest) s' Q) :
@@ -790,13 +799,13 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-- The initial taint: the arguments are public, and `rdi`, `rdx` and `rcx`
 point at the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
-  { regs := .ofList [.rdi, .rsi, .rdx, .rcx], flags := false, lens := [192, 64, 224],
+  { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .rsp], flags := false, lens := [192, 64, 224],
     bases := [(.rdi, 0), (.rdx, 1), (.rcx, 2)] }
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha512.finalizeX86_64.pre s₁)
     (h₂ : Proof.Sha512.finalizeX86_64.pre s₂) (hpub : Proof.Sha512.finalizeX86_64.pub s₁ s₂) :
     X86_64.Taint.Agree τ₀ s₁ s₂ := by
-  obtain ⟨p1, p2, p3, p4⟩ := hpub
+  obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
   have wf : ∀ s, Proof.Sha512.finalizeX86_64.pre s → X86_64.Taint.Wf τ₀ s := by
     intro s hs
     obtain ⟨-, hw, d1, d2, d3, -⟩ := hs
@@ -805,7 +814,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha512.finalizeX86_64.pre s�
     rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
   · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl <;> assumption
+    rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
   · rw [h₁.2.1, h₂.2.1, p1, p3, p4]
   · intro sl h; simp [τ₀] at h
   · intro sl h; simp [τ₀] at h
@@ -827,7 +836,7 @@ theorem finalize_verified : Verified X86_64.target finalize Proof.Sha512.finaliz
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h.1, h.2.1⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
       bv_omega

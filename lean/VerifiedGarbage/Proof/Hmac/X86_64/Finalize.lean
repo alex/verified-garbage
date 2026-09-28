@@ -32,8 +32,11 @@ abbrev inR : Region := ⟨inn s₀, 96⟩
 abbrev outR : Region := ⟨out s₀, 96⟩
 abbrev scR : Region := ⟨scr s₀, 240⟩
 abbrev retR : Region := ⟨s₀.gpr .rsp, 8⟩
-/-- Where the inlined finalizations may write. -/
+/-- Where the called finalizations may write. -/
 abbrev finW : List Region := [inR s₀, ⟨scr s₀ + 176, 32⟩, ⟨scr s₀, 160⟩]
+/-- Where the calls store their return addresses: ours, and that of the call
+of `vg_sha256_compress` in `vg_sha256_finalize`. -/
+abbrev stkR : Region := below (s₀.gpr .rsp) 16
 
 end
 
@@ -46,10 +49,25 @@ structure Pre (s₀ : State) : Prop where
   ret_i : (retR s₀).Disjoint (inR s₀)
   ret_o : (retR s₀).Disjoint (outR s₀)
   ret_s : (retR s₀).Disjoint (scR s₀)
+  stk_i : (stkR s₀).Disjoint (inR s₀)
+  stk_o : (stkR s₀).Disjoint (outR s₀)
+  stk_s : (stkR s₀).Disjoint (scR s₀)
 
 theorem pre_of {s₀ : State} (h : Proof.Hmac.finalizeSha256X86_64.pre s₀) : Pre s₀ := by
-  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
-  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩ := h
+  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩
+
+/-- The return address and the 16 bytes below it. -/
+theorem ret_stk (s₀ : State) : (retR s₀).Disjoint (stkR s₀) := by
+  intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+
+/-- Our call's return address. -/
+theorem sub_stk₁ (s₀ : State) : Region.Sub ⟨s₀.gpr .rsp - 8, 8⟩ (stkR s₀) := by
+  intro a h; simp only [Region.Contains] at h ⊢; bv_omega
+
+/-- The return address of `vg_sha256_finalize`'s call. -/
+theorem sub_stk₂ (s₀ : State) : Region.Sub ⟨s₀.gpr .rsp - 8 - 8, 8⟩ (stkR s₀) := by
+  intro a h; simp only [Region.Contains] at h ⊢; bv_omega
 
 /-! ## The inlined finalization -/
 
@@ -71,25 +89,41 @@ theorem sub176 (s₀ : State) : Region.Sub ⟨scr s₀ + 176, 32⟩ (scR s₀) :
 
 theorem sub160 (s₀ : State) : Region.Sub ⟨scr s₀, 160⟩ (scR s₀) := Region.sub_prefix (by omega)
 
-/-- The inlined `vg_sha256_finalize` on the inner state, with its digest at
+theorem finalize_depth : Impl.Sha256.X86_64.Stream.finalize.depth = 1 := by decide +kernel
+
+theorem finalize_nosp : NoSp Impl.Sha256.X86_64.Stream.finalize := by
+  have : ((instrs Impl.Sha256.X86_64.Stream.finalize).all fun i => Taint.dstOf i != some .rsp) = true := by
+    rw [← Code.allInstrs_eq]; decide +kernel
+  intro i hi
+  simpa using List.all_eq_true.mp this i hi
+
+/-- The called `vg_sha256_finalize` on the inner state, with its digest at
 `scratch[176..208)` and `scratch[0..160)` as its scratch space. -/
 theorem fin_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
     (hdi : s.gpr .rdi = inn s₀) (hcx : s.gpr .rcx = scr s₀) (hdx : s.gpr .rdx = scr s₀ + 176)
     (hsp : s.gpr .rsp = s₀.gpr .rsp) {Q : State → Prop}
-    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → abiPreserved s s' → Frame (finW s₀) s.mem s'.mem →
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
+      Frame (finW s₀ ++ [stkR s₀]) s.mem s'.mem →
       s'.gpr .rdi = inn s₀ → s'.gpr .rcx = scr s₀ →
       (∀ m, Repr s.mem (inn s₀) m → s.gpr .rsi = BitVec.ofNat 64 m.length →
         bytesAt s'.mem (scr s₀ + 176) 32 = Spec.Sha256.hash m) → Q s') :
-    WP isa Impl.Sha256.X86_64.Stream.finalize s Q := by
-  refine WP.inline (k := finK) finK_ok (rd := []) (wr := finW s₀) ?_ ?_ ?_ ?_
-  · refine ⟨rfl, by simp [hdi, hcx, hdx], ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-      simp only [State.withRegions_gpr, hdi, hcx, hdx, hsp]
+    WP isa sha256Finalize s Q := by
+  have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
+  refine WP.call (k := finK) finK_ok finalize_nosp (by rw [finalize_depth]; decide)
+    (rd := []) (wr := finW s₀) ?_ ?_ ?_ ?_
+  · refine ⟨rfl, by simp [hne _ (by decide : Reg.rdi ≠ .rsp), hne _ (by decide : Reg.rcx ≠ .rsp),
+      hne _ (by decide : Reg.rdx ≠ .rsp), hdi, hcx, hdx], ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+      simp only [State.withRegions_gpr, State.callEntry_rsp, hne _ (by decide : Reg.rdi ≠ .rsp),
+        hne _ (by decide : Reg.rcx ≠ .rsp), hne _ (by decide : Reg.rdx ≠ .rsp), hdi, hcx, hdx, hsp]
     · exact hp.i_s.sub_right (sub176 s₀)
     · exact hp.i_s.sub_right (sub160 s₀)
     · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
-    · exact hp.ret_i
-    · exact hp.ret_s.sub_right (sub176 s₀)
-    · exact hp.ret_s.sub_right (sub160 s₀)
+    · exact (hp.stk_i.sub_left (sub_stk₁ s₀))
+    · exact (hp.stk_s.sub_left (sub_stk₁ s₀)).sub_right (sub176 s₀)
+    · exact (hp.stk_s.sub_left (sub_stk₁ s₀)).sub_right (sub160 s₀)
+    · exact (hp.stk_i.sub_left (sub_stk₂ s₀))
+    · exact (hp.stk_s.sub_left (sub_stk₂ s₀)).sub_right (sub176 s₀)
+    · exact (hp.stk_s.sub_left (sub_stk₂ s₀)).sub_right (sub160 s₀)
   · rw [hrd, hwr, hp.rd, hp.wr]
     apply Covers.of_sub
     intro r hr
@@ -106,10 +140,15 @@ theorem fin_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd)
     · exact ⟨inR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp, 176, rfl, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
-  · intro s' h₁ h₂ h₃ h₄ _ h
-    obtain ⟨hpost, h₅, h₆⟩ := h
-    simp only [Proof.Sha256.finalizeX86_64, State.withRegions_gpr, State.withRegions_mem, hdi, hdx] at hpost h₅ h₆
-    exact hQ s' h₁ h₂ h₃ h₄ h₅ (h₆.trans hcx) hpost
+  · intro s' h₁ h₂ h₃ h₄ _ ⟨s₂, hm, hg, hpost, h₅, h₆⟩
+    simp only [Proof.Sha256.finalizeX86_64, State.withRegions_gpr, State.withRegions_mem, hm,
+      hne _ (by decide : Reg.rdi ≠ .rsp), hne _ (by decide : Reg.rcx ≠ .rsp),
+      hne _ (by decide : Reg.rdx ≠ .rsp), hne _ (by decide : Reg.rsi ≠ .rsp), hdi, hdx, hcx] at hpost h₅ h₆
+    rw [finalize_depth, hsp] at h₄
+    refine hQ s' h₁ h₂ h₃ h₄ (by rw [← hg _ (by decide)]; exact h₅) (by rw [← hg _ (by decide)]; exact h₆)
+      fun m hm hl => hpost m (Proof.Sha256.Stream.repr_congr (fun i hi => ?_) hm) hl
+    refine Proof.Sha256.X86_64.Stream.callEntry_byte s (R := inR s₀) ?_ (by simp) hi
+    rw [hsp]; exact hp.stk_i.sub_left (below_sub (by omega) (by omega))
 
 /-! ## Saving the outer hash value -/
 
@@ -251,19 +290,19 @@ theorem repr_outer {k0 d : List Byte} (hk : k0.length = 64) (hd : d.length = 32)
   · rw [hl, show 96 % 64 = 32 from rfl, show 64 * (96 / 64) = 64 from rfl,
       List.drop_left' (by rw [xorPad_length, hk]), hb]
 
-/-- `scratch[208..240)` is not written by the inlined finalizations. -/
+/-- `scratch[208..240)` is not written by the called finalizations. -/
 theorem not_finW {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 32) :
-    ∀ r ∈ finW s₀, ¬ r.Contains (scr s₀ + BitVec.ofNat 64 208 + BitVec.ofNat 64 i) 1 := by
+    ∀ r ∈ finW s₀ ++ [stkR s₀], ¬ r.Contains (scr s₀ + BitVec.ofNat 64 208 + BitVec.ofNat 64 i) 1 := by
   have hs : (scR s₀).Contains (scr s₀ + BitVec.ofNat 64 208 + BitVec.ofNat 64 i) 1 := by
     rw [BitVec.add_assoc, ← BitVec.ofNat_add]; exact contains_offset (by omega) (by omega)
   intro r hr
-  simp only [finW, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl
+  simp only [finW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl
   · exact fun hc => hp.i_s _ hc hs
   · simp only [Region.Contains]; bv_omega
   · simp only [Region.Contains]; bv_omega
+  · exact fun hc => hp.stk_s _ hc hs
 
-set_option maxHeartbeats 1000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256X86_64.post s₀ s' := by
   unfold finalize
@@ -271,21 +310,27 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have sp₁ := h₁.cs .rsp (by decide)
   refine WP.seq (fin_ok hp h₁.rd h₁.wr h₁.rdi h₁.rcx h₁.rdx sp₁
     fun s₂ rd₂ wr₂ abi₂ fr₂ di₂ cx₂ post₂ => ?_)
-  have sp₂ : s₂.gpr .rsp = s₀.gpr .rsp := (abi₂.1 .rsp (by decide)).trans sp₁
+  have sp₂ : s₂.gpr .rsp = s₀.gpr .rsp := (abi₂ .rsp (by decide)).trans sp₁
   refine WP.seq (WP.mono (load_ok hp (s := s₂) (wr₂.trans h₁.wr) di₂ cx₂) fun s₃ h₃ => ?_)
   have sp₃ : s₃.gpr .rsp = s₀.gpr .rsp := (h₃.cs .rsp (by decide)).trans sp₂
   refine fin_ok hp (h₃.rd.trans (rd₂.trans h₁.rd)) (h₃.wr.trans (wr₂.trans h₁.wr)) h₃.rdi h₃.rcx h₃.rdx sp₃
     fun s₄ rd₄ wr₄ abi₄ fr₄ _ _ post₄ => ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-  · rw [abi₄.1 r hr, h₃.cs r hr, abi₂.1 r hr, h₁.cs r hr]
+  · rw [abi₄ r hr, h₃.cs r hr, abi₂ r hr, h₁.cs r hr]
   · -- The return address.
     have fr₁ : Frame [scR s₀] s₀.mem s₁.mem := by
       rw [h₁.mem]; refine writeBytes_frame _ _ _ ?_
       rw [bytesAt_length]; exact contains_offset (by omega) (by omega)
     have ret : (retR s₀).Contains (s₀.gpr .rsp) (64 / 8) := Region.contains_self _ _
-    have a₄ := abi₄.2; rw [sp₃] at a₄
-    have a₂ := abi₂.2; rw [sp₁] at a₂
-    rw [a₄, h₃.frame.readW ret (by simpa using hp.ret_i) (by decide), a₂,
-      fr₁.readW ret (by simpa using hp.ret_s) (by decide)]
+    have dW : ∀ r ∈ finW s₀ ++ [stkR s₀], (retR s₀).Disjoint r := by
+      intro r hr
+      simp only [finW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl
+      · exact hp.ret_i
+      · exact hp.ret_s.sub_right (sub176 s₀)
+      · exact hp.ret_s.sub_right (sub160 s₀)
+      · exact ret_stk s₀
+    rw [fr₄.readW ret dW (by decide), h₃.frame.readW ret (by simpa using hp.ret_i) (by decide),
+      fr₂.readW ret dW (by decide), fr₁.readW ret (by simpa using hp.ret_s) (by decide)]
   · intro k0 text hk hin hcnt hout
     -- The inner digest.
     have hin₁ : Repr s₁.mem (inn s₀) (xorPad k0 ipad ++ text) := by
@@ -314,13 +359,13 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-- The initial taint: the arguments are public, and `rdi` and `rcx` point
 at the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
-  { regs := .ofList [.rdi, .rsi, .rdx, .rcx], flags := false, lens := [96, 240],
+  { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .rsp], flags := false, lens := [96, 240],
     bases := [(.rdi, 0), (.rcx, 1)] }
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256X86_64.pre s₁)
     (h₂ : Proof.Hmac.finalizeSha256X86_64.pre s₂) (hpub : Proof.Hmac.finalizeSha256X86_64.pub s₁ s₂) :
     X86_64.Taint.Agree τ₀ s₁ s₂ := by
-  obtain ⟨p1, p2, p3, p4⟩ := hpub
+  obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
   have wf : ∀ s, Proof.Hmac.finalizeSha256X86_64.pre s → X86_64.Taint.Wf τ₀ s := by
     intro s hs
     obtain ⟨-, hw, -, hd, -⟩ := hs
@@ -329,7 +374,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256X86_64.pre
     rcases hp with rfl | rfl <;> simp [X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
   · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl <;> assumption
+    rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
   · rw [h₁.2.1, h₂.2.1, p1, p4]
   · intro sl h; simp [τ₀] at h
   · intro sl h; simp [τ₀] at h
@@ -346,14 +391,13 @@ def sat : State where
   rd := [⟨0x2000, 96⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 240⟩]
 
-set_option maxHeartbeats 0 in
 theorem finalize_verified :
     Verified X86_64.target finalize Proof.Hmac.finalizeSha256X86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
       bv_omega

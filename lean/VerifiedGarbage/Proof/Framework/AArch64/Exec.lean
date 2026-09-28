@@ -91,6 +91,49 @@ theorem rev32_readW (m : Mem) (a : Addr) :
     rev32 (m.readW a 32) = (m a ++ m (a + 1) ++ m (a + 1 + 1) ++ m (a + 1 + 1 + 1) : BitVec 32) :=
   X86_64.bswap32_readW m a
 
+theorem exec_ldr_x {s : State} {t n : Reg} {off : Nat} (ho : off % 8 = 0 ∧ off < 32768)
+    (h : InRegions (s.rd ++ s.wr) (s.gpr n + BitVec.ofNat 64 off) 8) :
+    exec (.ldr .x t n off) s = some (s.write .x t (s.mem.readW (s.gpr n + BitVec.ofNat 64 off) 64)) := by
+  simp only [exec, addr, Size.bytes, ho, and_self, ite_true, Option.bind_some, State.load, h,
+    Option.map_some, Mem.readW]
+
+theorem exec_str_x {s : State} {t n : Reg} {off : Nat} (ho : off % 8 = 0 ∧ off < 32768)
+    (h : InRegions s.wr (s.gpr n + BitVec.ofNat 64 off) 8) :
+    exec (.str .x t n off) s =
+      some { s with mem := s.mem.writeW (s.gpr n + BitVec.ofNat 64 off) (s.gpr t) } := by
+  simp only [exec, addr, Size.bytes, ho, and_self, ite_true, Option.bind_some, State.store, h,
+    Mem.writeW]
+  rfl
+
+theorem exec_ror_x {s : State} {d n : Reg} {sh : Nat} (h : sh < 64) :
+    exec (.ror .x d n sh) s = some (s.write .x d ((s.read .x n).rotateRight sh)) := by
+  simp [exec, Size.bits, h]
+
+theorem exec_lsr_x {s : State} {d n : Reg} {sh : Nat} (h : sh < 64) :
+    exec (.lsr .x d n sh) s = some (s.write .x d (s.read .x n >>> sh)) := by
+  simp [exec, Size.bits, h]
+
+theorem exec_rev {s : State} {d n : Reg} :
+    exec (.rev d n) s = some (s.write .x d (rev64 (s.read .x n))) := rfl
+
+/-- `movz` then three `movk`s, as the symbolic execution leaves them, build the
+64-bit word. -/
+theorem movz_movk64' (x : BitVec 64) :
+    (((x.extractLsb' 0 16).setWidth 64 <<< (16 * 0) &&& ~~~((65535 : BitVec 64) <<< (16 * 1)) |||
+      (x.extractLsb' 16 16).setWidth 64 <<< (16 * 1)) &&& ~~~((65535 : BitVec 64) <<< (16 * 2)) |||
+      (x.extractLsb' 32 16).setWidth 64 <<< (16 * 2)) &&& ~~~((65535 : BitVec 64) <<< (16 * 3)) |||
+      (x.extractLsb' 48 16).setWidth 64 <<< (16 * 3) = x := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  interval_cases i <;> simp
+
+/-- A 64-bit load followed by `rev` reads the eight bytes big-endian. -/
+theorem rev64_readW (m : Mem) (a : Addr) :
+    rev64 (m.readW a 64) = (m a ++ m (a + 1) ++ m (a + 1 + 1) ++ m (a + 1 + 1 + 1) ++
+      m (a + 1 + 1 + 1 + 1) ++ m (a + 1 + 1 + 1 + 1 + 1) ++ m (a + 1 + 1 + 1 + 1 + 1 + 1) ++
+      m (a + 1 + 1 + 1 + 1 + 1 + 1 + 1) : BitVec 64) :=
+  X86_64.bswap64_readW m a
+
 end VG.AArch64
 
 namespace VG.AArch64
@@ -123,6 +166,16 @@ theorem execBlock_sp {is : List Instr} {s s' : State} {t : List Leak}
       rw [ih h]; exact exec_sp he
 
 /-- No modelled instruction changes `sp`. -/
+theorem push_sp {i : Instr} {s s₁ : State} (h : push i s = some s₁) : s₁.sp = s.sp - 16 := by
+  cases i <;> simp only [push, reduceCtorEq] at h
+  split at h <;> cases h; rfl
+
+theorem pop_sp {j : Instr} {s₁ s₂ s' : State} (h : pop j s₁ s₂ = some s') :
+    s₂.sp = s₁.sp ∧ s'.sp = s₂.sp + 16 := by
+  cases j <;> simp only [pop, reduceCtorEq] at h
+  split at h <;> cases h
+  rename_i hc; exact ⟨hc.1, rfl⟩
+
 theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c s t s') :
     s'.sp = s.sp := by
   induction h with
@@ -132,6 +185,12 @@ theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c
   | iteF _ _ ih => exact ih
   | loopExit _ _ ih => exact ih
   | loopNext _ _ _ ih₁ ih₂ => exact ih₂.trans ih₁
+  | call hc _ hr ih =>
+    simp only [isa, call, ret, Option.some.injEq] at hc hr
+    subst hc; split at hr <;> cases hr; exact ih
+  | frame hp _ hq ih =>
+    obtain ⟨h₁, h₂⟩ := pop_sp hq
+    rw [h₂, ih, push_sp hp, BitVec.sub_add_cancel]
 
 end VG.AArch64
 

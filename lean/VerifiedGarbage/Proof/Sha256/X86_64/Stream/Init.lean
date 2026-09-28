@@ -43,7 +43,6 @@ theorem init_post {s₀ : State}
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
   · exact hf.readW (Region.contains_self _ _) (by simpa using hret) (by decide)
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem init_correct {s₀ : State} (hp : Proof.Sha256.initX86_64.pre s₀) :
     WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.initX86_64.post s₀ s' := by

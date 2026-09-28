@@ -24,6 +24,9 @@ by hand for each target:
   slot);
 * that no buffer wraps around the end of the address space (no Rust
   allocation does);
+* that no buffer overlaps the stack below the stack pointer that the
+  function's calls and frames use (for return addresses, arguments and saved
+  registers; no Rust object lies below the stack pointer);
 * that the pointers, the slice lengths and the stack pointer are public.
 
 The generated Rust functions take raw pointers (`Sig.rust`), so these are
@@ -130,11 +133,14 @@ structure Abi (M : ISA) where
   /-- The memory holding the arguments passed in memory (if any), and whether
   the convention lets the callee write it (which a contract may decline). -/
   argArea : List Nat → M.State → List (Region × Bool)
-  /-- Memory that no buffer or argument area overlaps (the return address). -/
-  reserved : M.State → List Region
-  /-- Facts about the entry state that hold for every call (e.g. the part of
-  the stack the function sees does not wrap around). -/
-  wf : List Nat → M.State → Prop
+  /-- Memory that no buffer or argument area overlaps, for a function whose
+  calls and frames use `n` bytes of stack: the return address, and the `n`
+  bytes below the stack pointer (`stackBelow`). -/
+  reserved : (n : Nat) → M.State → List Region
+  /-- Facts about the entry state that hold for every call of a function
+  whose calls and frames use `n` bytes of stack (e.g. the part of the stack
+  the function sees does not wrap around). -/
+  wf : List Nat → (n : Nat) → M.State → Prop
   /-- The part of the state other than the arguments that is public (the
   stack pointer). -/
   pub : M.State → M.State → Prop
@@ -145,6 +151,11 @@ structure Abi (M : ISA) where
   /-- The register(s) an integer result is returned in, as 64 bits: a
   narrower result is in the low bits. -/
   ret : M.State → BitVec 64
+
+/-- The `n` bytes below the stack pointer `sp`, if any. -/
+def stackBelow (sp : Addr) : Nat → List Region
+  | 0 => []
+  | n + 1 => [⟨sp - BitVec.ofNat 64 (n + 1), n + 1⟩]
 
 /-- The buffers the parameters refer to, given the arguments' values, and
 whether each is writable. -/

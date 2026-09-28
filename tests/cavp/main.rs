@@ -103,7 +103,7 @@ fn sha256_monte_carlo() {
 /// SHA-384, SHA-512, SHA-512/224 and SHA-512/256: for each, every message
 /// length from 0 to 128 bytes, 128 long messages (from 227 to 12800 bytes)
 /// and the Monte Carlo test.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 mod sha512 {
     use super::{check_messages, check_monte_carlo};
     use verified_garbage::hashes::sha512::{Sha384, Sha512, Sha512_224, Sha512_256};

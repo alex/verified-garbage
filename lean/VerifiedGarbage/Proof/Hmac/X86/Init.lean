@@ -286,7 +286,6 @@ theorem wordB_ok {b : Reg} (hb : b ≠ .ecx) {x : BitVec 32} {k : Nat} {rest : L
   refine kk s₂ (fun r hr => by rw [u₂.gpr, u₁.other r hr]) (by rw [u₂.rd, u₁.rd]) (by rw [u₂.wr, u₁.wr]) ?_
   rw [u₂.mem, u₁.gpr, u₁.mem]
 
-set_option maxHeartbeats 1000000 in
 /-- `H⁽⁰⁾` stored at `[b]`. -/
 theorem h0_ok {b : Reg} (hb : b ≠ .ecx) {st : BitVec 32} (hfit : st.toNat + 32 ≤ 2 ^ 32) {rest : List Instr}
     {s : State} {Q : State → Prop} (hst : s.gpr b = st) (hout : ∀ k < 8, InRegions s.wr (addr st (4 * k)) 4)
@@ -346,7 +345,6 @@ structure Key (s₀ : State) (j : Nat) (s : State) : Prop extends Buf s₀ j s w
 theorem proMem_buf {s₀ : State} (hp : Pre s₀) : BufMem s₀ 0 (proMem s₀) :=
   ⟨proMem_stI hp, proMem_stO, by simp [bytesAt], proMem_saved hp, proMem_frame hp⟩
 
-set_option maxHeartbeats 4000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ([.mov .eax (.mem (at_ .esp 20))] ++ save .eax ++
       [.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)), .mov .esi (.mem (at_ .esp 8))] ++
@@ -509,7 +507,6 @@ theorem in_buf {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < 64) {wr : List
       rw [BitVec.ofNat_add]; rfl]
     exact contains_offset (by omega) (by omega)⟩
 
-set_option maxHeartbeats 1000000 in
 theorem key_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < kl s₀) {s : State} (h : Key s₀ j s) :
     WP isa (.block keyBody) s fun s' => Key s₀ (j + 1) s' ∧ s'.zf = some (decide (j + 1 = kl s₀)) := by
   have hkl := hp.kl_le
@@ -564,7 +561,6 @@ structure Pad (s₀ : State) (j : Nat) (s : State) : Prop extends Buf s₀ j s w
   eax : s.gpr .eax = inn s₀ + 96
   ecx : s.gpr .ecx = 0x36
 
-set_option maxHeartbeats 1000000 in
 theorem pad_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : kl s₀ ≤ j) (hj' : j < 64) {s : State}
     (h : Pad s₀ j s) :
     WP isa (.block padBody) s fun s' => Pad s₀ (j + 1) s' ∧ s'.zf = some (decide (j + 1 = 64)) := by
@@ -791,7 +787,6 @@ theorem compBuf_ok {s₀ s : State} (hp : Pre s₀) {b : Reg} {x : BitVec 32} (h
 
 /-! ## Epilogue -/
 
-set_option maxHeartbeats 1000000 in
 theorem epilogue_ok {s₀ s : State} (hp : Pre s₀) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
     (hebp : s.gpr .ebp = scr s₀) (hsp : s.gpr .esp = esp₀ s₀) (hsv : Saved s₀ s.mem) :
     WP isa (.block (.mov .eax (.reg .ebp) :: restore .eax)) s fun s' =>
@@ -836,7 +831,6 @@ theorem callee_ne_eax {r : Reg} (hr : r ∈ calleeSaved) : r ≠ .eax := by
   simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide
 
-set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256X86.post s₀ s' := by
   have hkl := hp.kl_le
@@ -1093,7 +1087,6 @@ theorem sat_pre : Proof.Hmac.initSha256X86.pre sat := by
     simp only [Region.Contains, sat] at h₁ h₂
     bv_omega
 
-set_option maxHeartbeats 0 in
 theorem init_verified : Verified X86.target init Proof.Hmac.initSha256X86 := by
   refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)

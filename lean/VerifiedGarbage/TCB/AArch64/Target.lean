@@ -43,8 +43,11 @@ def abi : Abi isa where
   args ws := if ws.length ≤ argRegs.length then
     some fun s => (argRegs.take ws.length).map s.gpr else none
   argArea _ _ := []
-  reserved _ := []
-  wf _ _ := True
+  reserved n s := stackBelow s.sp n
+  -- The stack the function's calls and frames use does not wrap around.
+  wf _ n s := match n with
+    | 0 => True
+    | n => n ≤ s.sp.toNat
   pub s₁ s₂ := s₁.sp = s₂.sp
   mem s := s.mem
   rd s := s.rd

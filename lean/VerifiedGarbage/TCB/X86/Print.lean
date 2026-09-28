@@ -46,6 +46,8 @@ def Instr.asm : Instr → List String
   | .bswap d => [s!"bswap {d.name}"]
   | .movzx8 d m => [s!"movzx {d.name}, {m.str8}"]
   | .store8 m r => [s!"mov {m.str8}, {r.name}"]
+  | .push rs => rs.map fun r => s!"push {r.name}"
+  | .pop r k => List.replicate k s!"pop {r.name}"
 
 def Cond.name : Cond → String
   | .e => "e" | .ne => "ne" | .b => "b" | .ae => "ae"
@@ -55,5 +57,6 @@ def printer : Printer isa where
   branch c l := s!"j{c.name} {l}"
   jump l := s!"jmp {l}"
   ret := ["ret"]
+  call := "call"
 
 end VG.X86

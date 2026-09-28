@@ -14,6 +14,10 @@ up in review.
 
 namespace VG.Test
 
+/-- The lines of a printed function, a call shown as `<call name>`. -/
+def text (ls : List Line) : List String :=
+  ls.map fun | .text s => s | .call n => s!"<call {n}>"
+
 open X86_64
 
 /-- Every `Code` constructor, nested. -/
@@ -24,7 +28,7 @@ def sample : Prog isa :=
                       .alu .sub .rcx (.imm 1)]) .ne)
       (.block [.store { base := .rsi, disp := 16 } .rax, .mov .rdx (.imm (-1))]))
 
-#guard printer.function sample == [
+#guard text (printer.function sample) == [
   "xor rax, rax",
   "jne 20f",
   "mov QWORD PTR [rsi+16], rax",
@@ -53,7 +57,7 @@ def sample32 : Prog isa := .block [
   .bswap32 .r10
 ]
 
-#guard printer.function sample32 == [
+#guard text (printer.function sample32) == [
   "mov eax, r8d",
   "mov r15d, -2",
   "mov ecx, DWORD PTR [rsi+60]",
@@ -76,7 +80,7 @@ def sample8 : Prog isa := .block ([
   [Reg.rax, .rcx, .rdx, .rbx, .rsp, .rbp, .rsi, .rdi,
    .r8, .r9, .r10, .r11, .r12, .r13, .r14, .r15].map (.store8 { base := .rdi, disp := -3 }))
 
-#guard printer.function sample8 == [
+#guard text (printer.function sample8) == [
   "movzx eax, BYTE PTR [rsi+rcx*1+32]",
   "movzx r15d, BYTE PTR [r12]",
   "bswap rax",
@@ -111,7 +115,7 @@ def sample64 : Prog isa := .block [
   .movImm64 .rsi 1
 ]
 
-#guard printer.function sample64 == [
+#guard text (printer.function sample64) == [
   "ror rax, 28",
   "ror r15, 1",
   "shr rbx, 63",
@@ -136,7 +140,7 @@ def sampleA64 : Prog AArch64.isa :=
       .ldrb .x11 .x20 0, .ldrb .x21 .x22 4095, .strb .x23 .x24 7, .strb .x25 .x26 4095])
       (.nonzero .x .x2))
 
-#guard AArch64.printer.function sampleA64 == [
+#guard text (AArch64.printer.function sampleA64) == [
   "cbz x2, 20f",
   "22:",
   "add w4, w5, w6",
@@ -181,7 +185,7 @@ def sampleX86 : Prog X86.isa :=
         .alu .or .ebx (.reg .edx), .alu .xor .ebx (.reg .ecx), .alu .cmp .edi (.imm 64),
         .shift .ror .ebx 6, .shift .shr .eax 10, .bswap .eax]) .ne))
 
-#guard X86.printer.function sampleX86 == [
+#guard text (X86.printer.function sampleX86) == [
   "mov eax, DWORD PTR [esp+16]",
   "test ebp, ebp",
   "je 20f",
@@ -214,7 +218,7 @@ def sampleX86Bytes : Prog X86.isa :=
       [X86.Reg8.al, .cl, .dl, .bl].map (.store8 { base := .ebx, disp := 5 })))
     (.seq (.ite .b (.block []) (.block [])) (.ite .ae (.block []) (.block [])))
 
-#guard X86.printer.function sampleX86Bytes == [
+#guard text (X86.printer.function sampleX86Bytes) == [
   "movzx eax, BYTE PTR [esi+32]",
   "movzx edi, BYTE PTR [ebp]",
   "mov BYTE PTR [ebx+5], al",
@@ -246,7 +250,7 @@ def sampleArm : Prog Arm.isa :=
         .ldr .r12 .r1 60, .str .lr .r3 100, .ldrb .r5 .r6 4095, .strb .lr .r7 3, .ldrSp .r4 8,
         .subs .r2 .r2 (.imm 1)]) .ne))
 
-#guard Arm.printer.function sampleArm == [
+#guard text (Arm.printer.function sampleArm) == [
   "cmp r2, #0",
   "beq 20f",
   "22:",
@@ -279,5 +283,52 @@ def sampleArm : Prog Arm.isa :=
 #guard Arm.encodable 0xff000000 && Arm.encodable 0x3fc && !Arm.encodable 0x101 && !Arm.encodable 0x1fe00
 
 #guard Rust.escape "ld1 {v0.4s}, [x1] \\ \"q\"" == "ld1 {{v0.4s}}, [x1] \\\\ \\\"q\\\""
+
+/-! ## Calls
+
+A call is its own line, whatever the callee's code; the emitter renders it as
+the call instruction with the callee's symbol as a `sym` operand. -/
+
+/-- A call between two blocks, on every target. -/
+def callSample : Prog X86_64.isa :=
+  .seq (.block [.mov .rdi (.reg .rbx)]) (.seq (.call "vg_f" (.block [.alu .add .rax (.imm 1)]))
+    (.block [.mov .rax (.reg .rdx)]))
+
+#guard printer.function callSample == [
+  .text "mov rdi, rbx", .call "vg_f", .text "mov rax, rdx", .text "ret"]
+#guard AArch64.printer.function (.call "vg_f" (.block []) : Prog AArch64.isa) == [.call "vg_f", .text "ret"]
+#guard X86.printer.function (.call "vg_f" (.block []) : Prog X86.isa) == [.call "vg_f", .text "ret"]
+#guard Arm.printer.function (.call "vg_f" (.block []) : Prog Arm.isa) == [.call "vg_f", .text "bx lr"]
+
+#guard Rust.line printer.call (.call "vg_f") == "        \"call {vg_f}\",\n"
+#guard Rust.line Arm.printer.call (.call "vg_f") == "        \"bl {vg_f}\",\n"
+#guard Rust.line printer.call (.text "mov rax, QWORD PTR [rdi]") ==
+  "        \"mov rax, QWORD PTR [rdi]\",\n"
+
+/-! ## Frames
+
+A frame is its push, its body and its pop, each printed as the target's
+instructions. -/
+
+-- Save the link register around a call (AArch64).
+#guard text (AArch64.printer.function
+    (.frame (.push .x30) (.call "vg_f" (.block [])) (.pop .x30) : Prog AArch64.isa)) == [
+  "str x30, [sp, #-16]!", "<call vg_f>", "ldr x30, [sp], #16", "ret"]
+
+-- Pass two arguments on the stack, inside a frame saving `lr` (ARMv7). A pop
+-- loads the lowest word of its frame.
+#guard text (Arm.printer.function
+    (.frame (.push [.lr])
+      (.frame (.push [.r0, .r1]) (.call "vg_f" (.block [])) (.pop .r2 8)) (.pop .lr 4) :
+      Prog Arm.isa)) == [
+  "push {lr}", "push {r0, r1}", "<call vg_f>", "ldr r2, [sp], #8", "ldr lr, [sp], #4", "bx lr"]
+
+-- Pass two arguments on the stack (x86): the first pushed is the higher
+-- address.
+#guard text (X86.printer.function
+    (.frame (.push [.ecx, .eax]) (.call "vg_f" (.block [])) (.pop .edx 2) : Prog X86.isa)) == [
+  "push ecx", "push eax", "<call vg_f>", "pop edx", "pop edx", "ret"]
+
+#guard Rust.line Arm.printer.call (.text "push {r4, lr}") == "        \"push {{r4, lr}}\",\n"
 
 end VG.Test

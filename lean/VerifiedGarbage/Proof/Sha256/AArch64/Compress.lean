@@ -171,7 +171,6 @@ theorem vars0 (s : State) (v : HashValue) : Vars 0 s v ↔
     s.gpr .x8 = v[4].setWidth 64 ∧ s.gpr .x9 = v[5].setWidth 64 ∧
     s.gpr .x10 = v[6].setWidth 64 ∧ s.gpr .x11 = v[7].setWidth 64 := Iff.rfl
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hx0 : s.gpr .x0 = st s₀)
     (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) :
@@ -223,7 +222,6 @@ theorem frame_writeState {s₀ : State} {m m' : Mem} (h : Frame [stR s₀] m m')
     (c 3 ?_)).writeW ?_ _ (c 4 ?_)).writeW ?_ _ (c 5 ?_)).writeW ?_ _ (c 6 ?_)).writeW ?_ _ (c 7 ?_) <;>
   simp
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (hv : Vars 0 s V)
     (hx0 : s.gpr .x0 = st s₀) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
@@ -285,7 +283,6 @@ theorem blk_word {s₀ : State} (i t : Nat) (ht : t < 16) :
 
 theorem win_sub (p : Addr) : Region.Sub (winRegion p) ⟨p, 112⟩ := Region.sub_prefix (by omega)
 
-set_option maxHeartbeats 400000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s : State}
     (hL : LInv s₀ i s) :
     WP isa body s fun s' =>

@@ -51,7 +51,6 @@ structure Ctx (B : Addr) (s : State) : Prop where
 
 /-! ## One quarter round -/
 
-set_option maxHeartbeats 0 in
 theorem qr_ok (s : State) (va vb vc vd : Word)
     (ha : s.gpr .eax = va) (hb : s.gpr .ebx = vb) (hc : s.gpr .ecx = vc) (hd : s.gpr .edx = vd) :
     WP isa (.block qr) s fun s' =>
@@ -66,7 +65,6 @@ theorem qr_ok (s : State) (va vb vc vd : Word)
   and_intros
   all_goals simp only [quarterRound_eq]
 
-set_option maxHeartbeats 1000000 in
 theorem quarter_ok {x y z w : Nat} (hx : x < 16) (hy : y < 16) (hz : z < 16) (hw : w < 16)
     (hd : [x, y, z, w].Nodup) {B : Addr} {v : CState} {s : State} (hctx : Ctx B s)
     (h : Holds B v s.mem) :
