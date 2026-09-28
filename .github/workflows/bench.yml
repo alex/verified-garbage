@@ -1,7 +1,8 @@
 name: Benchmarks
 
 # Compares the performance of a pull request with its base, on each
-# architecture whose code it changes (see ci/bench_arches.py), and fails if a
+# architecture whose code it changes, running the benchmarks of the
+# algorithms it changes (see ci/bench_arches.py), and fails if a
 # benchmark slowed down by more than ci/bench_compare.py's threshold. The
 # results are in the run's summary. Not part of `all-green`: it only runs for
 # some pull requests.
@@ -42,6 +43,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.arches.outputs.matrix }}
+      benchmarks: ${{ steps.arches.outputs.benchmarks }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -55,9 +57,12 @@ jobs:
           else
             git fetch -q --depth=1 origin "$BASE"
             matrix=$(git diff --name-only "$BASE" HEAD | python3 ci/bench_arches.py)
+            benchmarks=$(git diff --name-only "$BASE" HEAD | python3 ci/bench_arches.py --benchmarks)
           fi
           echo "$matrix"
+          echo "benchmarks: ${benchmarks:-all}"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "benchmarks=$benchmarks" >> "$GITHUB_OUTPUT"
 
   compare:
     needs: arches
@@ -68,7 +73,9 @@ jobs:
         include: ${{ fromJSON(needs.arches.outputs.matrix) }}
     name: Compare with base (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    # A change to shared code (a new algorithm, `lib.rs`, the benchmarks)
+    # runs every benchmark, which takes most of this.
+    timeout-minutes: 30
     # With an empty image the job runs directly on the runner.
     container:
       image: ${{ matrix.image || '' }}
@@ -107,4 +114,6 @@ jobs:
           cargo fmt --check
           cargo clippy --all-targets --locked -- -D warnings
       - name: Benchmark base and head
-        run: python3 head/ci/bench_compare.py base head --summary "$GITHUB_STEP_SUMMARY"
+        env:
+          BENCHMARKS: ${{ needs.arches.outputs.benchmarks }}
+        run: python3 head/ci/bench_compare.py base head --summary "$GITHUB_STEP_SUMMARY" --benchmarks "$BENCHMARKS"

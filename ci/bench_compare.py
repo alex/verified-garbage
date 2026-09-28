@@ -1,6 +1,6 @@
 """Compares the performance of two checkouts of this repository.
 
-    python3 ci/bench_compare.py BASE HEAD [--summary FILE]
+    python3 ci/bench_compare.py BASE HEAD [--summary FILE] [--benchmarks GROUPS]
 
 Both are built with HEAD's `bench/` crate (copied into BASE, so the two run
 the same benchmark code against different library code); if that doesn't
@@ -17,6 +17,10 @@ verified-garbage benchmark got slower by more than `--threshold`.
 
 OpenSSL's code is the same on both sides, so its benchmarks run just once,
 with HEAD's binary, as a reference point for HEAD's times.
+
+`--benchmarks` limits the run to some benchmark groups (the `<primitive>` of
+each id), as a regex alternation such as `sha256|hmac-sha256` (see
+`ci/bench_arches.py --benchmarks`); by default every benchmark runs.
 """
 
 import argparse
@@ -88,7 +92,7 @@ def run(binary, home, library, args):
             str(args.warm_up_time),
             "--measurement-time",
             str(args.measurement_time),
-            f"/{library}/",
+            f"^({args.benchmarks})/{library}/" if args.benchmarks else f"/{library}/",
         ],
         env={**os.environ, "CRITERION_HOME": str(home)},
         check=True,
@@ -122,6 +126,7 @@ def main():
     p.add_argument("base", type=pathlib.Path)
     p.add_argument("head", type=pathlib.Path)
     p.add_argument("--summary", type=pathlib.Path)
+    p.add_argument("--benchmarks", default="")
     p.add_argument("--rounds", type=int, default=3)
     p.add_argument("--threshold", type=float, default=0.25)
     p.add_argument("--warm-up-time", type=float, default=0.5)
