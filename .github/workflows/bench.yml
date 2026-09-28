@@ -1,9 +1,10 @@
 name: Benchmarks
 
-# Compares the performance of a pull request with its base, when it changes
-# the library (or the benchmarks), and fails if a benchmark slowed down by
-# more than ci/bench_compare.py's threshold. The results are in the run's
-# summary. Not part of `all-green`: it only runs for some pull requests.
+# Compares the performance of a pull request with its base, on each
+# architecture whose code it changes (see ci/bench_arches.py), and fails if a
+# benchmark slowed down by more than ci/bench_compare.py's threshold. The
+# results are in the run's summary. Not part of `all-green`: it only runs for
+# some pull requests.
 on:
   pull_request:
     paths:
@@ -12,6 +13,7 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - "ci/bench_compare.py"
+      - "ci/bench_arches.py"
       - ".github/workflows/bench.yml"
 
 permissions:
@@ -25,12 +27,32 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  arches:
+    name: Choose architectures
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.arches.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: arches
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch -q --depth=1 origin "$BASE"
+          matrix=$(git diff --name-only "$BASE" HEAD | python3 ci/bench_arches.py)
+          echo "$matrix"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   compare:
+    needs: arches
+    if: ${{ needs.arches.outputs.matrix != '[]' }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm]
-    name: Compare with base (${{ matrix.os }})
+        include: ${{ fromJSON(needs.arches.outputs.matrix) }}
+    name: Compare with base (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
