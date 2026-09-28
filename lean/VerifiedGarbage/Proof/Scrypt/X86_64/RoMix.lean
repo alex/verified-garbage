@@ -65,15 +65,29 @@ theorem ret8_sub (sp : Addr) : Region.Sub ⟨sp - 8, 8⟩ (below sp 16) := by
   have := Nat.mod_le ((a - (sp - 8)).toNat + 8) (2 ^ 64)
   omega
 
-theorem blockMixSpec : BlockMixSpec Impl.Scrypt.X86_64.blockMix := by
-  intro s src dst scr r hdi hsi hdx hcx hr8 hr hlt hds hsd hss bsrc bdst bscr nsrc ndst nscr
-    isrc idst iscr Q hQ
+/-- What a call of `vg_scrypt_blockmix` needs: its contract's precondition,
+once the return address is stored and its permissions are narrowed. -/
+theorem bm_pre {s : State} {src dst scr : Addr} {r : Nat} (hdi : s.gpr .rdi = src)
+    (hsi : s.gpr .rsi = BitVec.ofNat 64 r) (hdx : s.gpr .rdx = dst) (hcx : s.gpr .rcx = BitVec.ofNat 64 r)
+    (hr8 : s.gpr .r8 = scr) (hr : 0 < r) (hlt : 128 * r < 2 ^ 64)
+    (hds : Region.Disjoint ⟨dst, 128 * r⟩ ⟨scr, 128⟩) (hsd : Region.Disjoint ⟨src, 128 * r⟩ ⟨dst, 128 * r⟩)
+    (hss : Region.Disjoint ⟨src, 128 * r⟩ ⟨scr, 128⟩)
+    (bsrc : (below (s.gpr .rsp) 16).Disjoint ⟨src, 128 * r⟩)
+    (bdst : (below (s.gpr .rsp) 16).Disjoint ⟨dst, 128 * r⟩)
+    (bscr : (below (s.gpr .rsp) 16).Disjoint ⟨scr, 128⟩)
+    (nsrc : src.toNat + 128 * r ≤ 2 ^ 64) (ndst : dst.toNat + 128 * r ≤ 2 ^ 64)
+    (nscr : scr.toNat + 128 ≤ 2 ^ 64)
+    (isrc : InRegions (s.rd ++ s.wr) src (128 * r)) (idst : InRegions s.wr dst (128 * r))
+    (iscr : InRegions s.wr scr 128) :
+    Proof.Scrypt.blockMixX86_64.pre
+      (s.callEntry.withRegions [⟨src, 128 * r⟩] [⟨dst, 128 * r⟩, ⟨scr, 128⟩]) ∧
+    Covers ([⟨src, 128 * r⟩] ++ [⟨dst, 128 * r⟩, ⟨scr, 128⟩]) (s.rd ++ s.wr) ∧
+    Covers [⟨dst, 128 * r⟩, ⟨scr, 128⟩] s.wr := by
   have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
   have tr : (BitVec.ofNat 64 r).toNat = r := BlockMix.toNat_ofNat_lt (by omega)
   have c128 : r * 128 = 128 * r := Nat.mul_comm _ _
-  refine WP.call (k := Proof.Scrypt.blockMixX86_64) BlockMix.blockMix_verified.1 blockMix_nosp
-    (by rw [blockMix_depth]; decide) (rd := [⟨src, 128 * r⟩]) (wr := [⟨dst, 128 * r⟩, ⟨scr, 128⟩])
-    ?_ ?_ ?_ ?_
+  have cw := covers_pair (covers_of_in idst) (covers_of_in iscr)
+  refine ⟨?_, ?_, cw⟩
   · simp only [Proof.Scrypt.blockMixX86_64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.callEntry_rsp, hne _ (by decide : Reg.rdi ≠ .rsp),
       hne _ (by decide : Reg.rsi ≠ .rsp), hne _ (by decide : Reg.rdx ≠ .rsp),
@@ -85,30 +99,38 @@ theorem blockMixSpec : BlockMixSpec Impl.Scrypt.X86_64.blockMix := by
     · exact bsrc.sub_left (below8_sub _)
     · exact bdst.sub_left (below8_sub _)
     · exact bscr.sub_left (below8_sub _)
-  · have := covers_pair (covers_of_in idst) (covers_of_in iscr)
-    have h1 := covers_of_in isrc
+  · have h1 := covers_of_in isrc
     intro a n h
     simp only [List.cons_append, List.nil_append] at h
     obtain ⟨R, hR, hc⟩ := h
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hR
     rcases hR with rfl | rfl | rfl
     · exact h1 a n ⟨_, List.mem_singleton_self _, hc⟩
-    · obtain ⟨R', hR', hc'⟩ := this a n ⟨_, by simp, hc⟩
+    · obtain ⟨R', hR', hc'⟩ := cw a n ⟨_, by simp, hc⟩
       exact ⟨R', List.mem_append_right _ hR', hc'⟩
-    · obtain ⟨R', hR', hc'⟩ := this a n ⟨_, by simp, hc⟩
+    · obtain ⟨R', hR', hc'⟩ := cw a n ⟨_, by simp, hc⟩
       exact ⟨R', List.mem_append_right _ hR', hc'⟩
-  · exact covers_pair (covers_of_in idst) (covers_of_in iscr)
-  · intro s₂ hrd hwr hcs hf _ ⟨s₃, hm₃, _, hpost⟩
-    simp only [Proof.Scrypt.blockMixX86_64, State.withRegions_gpr, State.withRegions_mem,
-      hne _ (by decide : Reg.rdi ≠ .rsp), hne _ (by decide : Reg.rsi ≠ .rsp),
-      hne _ (by decide : Reg.rdx ≠ .rsp), hdi, hsi, hdx, hm₃, tr] at hpost
-    rw [blockMix_depth] at hf
-    refine hQ s₂ hrd hwr hcs (by simpa using hf) ?_
-    rw [hpost]
-    congr 1
-    exact BlockMix.bytesAt_congr fun i hi =>
-      callEntry_byte s (R := ⟨src, 128 * r⟩) (bsrc.sub_left (below_sub (by omega) (by omega)))
-        (by show 128 * r ≤ 2 ^ 64; omega) hi
+
+theorem blockMixSpec : BlockMixSpec Impl.Scrypt.X86_64.blockMix := by
+  intro s src dst scr r hdi hsi hdx hcx hr8 hr hlt hds hsd hss bsrc bdst bscr nsrc ndst nscr
+    isrc idst iscr Q hQ
+  have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
+  have tr : (BitVec.ofNat 64 r).toNat = r := BlockMix.toNat_ofNat_lt (by omega)
+  obtain ⟨p, c₁, c₂⟩ := bm_pre hdi hsi hdx hcx hr8 hr hlt hds hsd hss bsrc bdst bscr nsrc ndst nscr
+    isrc idst iscr
+  refine WP.call (k := Proof.Scrypt.blockMixX86_64) BlockMix.blockMix_verified.1 blockMix_nosp
+    (by rw [blockMix_depth]; decide) p c₁ c₂ ?_
+  intro s₂ hrd hwr hcs hf _ ⟨s₃, hm₃, _, hpost⟩
+  simp only [Proof.Scrypt.blockMixX86_64, State.withRegions_gpr, State.withRegions_mem,
+    hne _ (by decide : Reg.rdi ≠ .rsp), hne _ (by decide : Reg.rsi ≠ .rsp),
+    hne _ (by decide : Reg.rdx ≠ .rsp), hdi, hsi, hdx, hm₃, tr] at hpost
+  rw [blockMix_depth] at hf
+  refine hQ s₂ hrd hwr hcs (by simpa using hf) ?_
+  rw [hpost]
+  congr 1
+  exact BlockMix.bytesAt_congr fun i hi =>
+    callEntry_byte s (R := ⟨src, 128 * r⟩) (bsrc.sub_left (below_sub (by omega) (by omega)))
+      (by show 128 * r ≤ 2 ^ 64; omega) hi
 
 /-! ## The precondition -/
 
