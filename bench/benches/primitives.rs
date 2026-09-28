@@ -126,7 +126,9 @@ fn sha1(_: &mut Criterion) {}
 
 #[cfg(target_arch = "x86_64")]
 fn sha3(c: &mut Criterion) {
-    use verified_garbage::hashes::sha3::{Sha3_224, Sha3_256, Sha3_384, Sha3_512, Shake128, Shake256};
+    use verified_garbage::hashes::sha3::{
+        Sha3_224, Sha3_256, Sha3_384, Sha3_512, Shake128, Shake256,
+    };
     hash_group(c, "sha3-224", Sha3_224::digest, MessageDigest::sha3_224());
     hash_group(c, "sha3-256", Sha3_256::digest, MessageDigest::sha3_256());
     hash_group(c, "sha3-384", Sha3_384::digest, MessageDigest::sha3_384());
@@ -199,5 +201,14 @@ fn hmac_sha256(c: &mut Criterion) {
     g.finish();
 }
 
-criterion_group!(benches, chacha20, md5, sha1, sha256, sha3, sha512, hmac_sha256);
+criterion_group!(
+    benches,
+    chacha20,
+    md5,
+    sha1,
+    sha256,
+    sha3,
+    sha512,
+    hmac_sha256
+);
 criterion_main!(benches);
