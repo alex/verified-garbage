@@ -1,0 +1,4 @@
+name = "AES-GCM (128-, 192- and 256-bit keys)"
+specs = ["Aes", "Gcm"]
+modules = ["src/aes_gcm.rs"]
+asm = ["aes", "gcm"]
