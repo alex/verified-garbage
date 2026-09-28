@@ -583,7 +583,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s�
 /-- No instruction of `init` writes the callee-saved registers it does not save. -/
 theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs init, dstOf i ≠ some r := by
   have : ((instrs init).all fun i => untouched.all fun r => dstOf i != some r) = true := by
-    decide +kernel
+    rw [← Code.allInstrs_eq]; decide +kernel
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this
@@ -713,7 +713,7 @@ theorem init_verified : Verified AArch64.target init Spec.Hmac.initSha256AArch64
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
   · exact VG.Taint.constantTime (A := taint) [.x0, .x1, .x2, .x3, .x4] (fun _ _ _ _ hp => agree₀ hp)
-      (by decide +kernel)
+      (by taint_decide)
   · refine ⟨sat, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
