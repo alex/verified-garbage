@@ -74,13 +74,16 @@ def initSat : State where
   rd := []
   wr := [⟨0x1000, 192⟩]
 
+/-- The hint for `init 0`, which is also one for `init iv`. -/
+abbrev initHint : VG.Taint.Hint taint.T := VG.Taint.hintOf taint (Taint.ofRegs [.rdi]) (init 0)
+
 /-- The taint check never looks at an immediate, so its result on `init iv`
 is its result on `init 0`, which is decided. -/
 theorem init_check (iv : HashValue) :
-    (taint.check (Taint.ofRegs [.rdi]) (init iv)).isSome = true := by
-  have h : (taint.check (Taint.ofRegs [.rdi]) (init 0)).isSome = true := by decide +kernel
-  rw [show taint.check (Taint.ofRegs [.rdi]) (init iv) = taint.check (Taint.ofRegs [.rdi]) (init 0)
-    from rfl]
+    (taint.check (Taint.ofRegs [.rdi]) (init iv) initHint).isSome = true := by
+  have h : (taint.check (Taint.ofRegs [.rdi]) (init 0) initHint).isSome = true := by decide +kernel
+  rw [show taint.check (Taint.ofRegs [.rdi]) (init iv) initHint =
+    taint.check (Taint.ofRegs [.rdi]) (init 0) initHint from rfl]
   exact h
 
 theorem init_verified (iv : HashValue) :
