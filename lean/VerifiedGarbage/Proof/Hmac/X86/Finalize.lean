@@ -22,7 +22,8 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append repr_
   hash_one lenBytes rest)
 open VG.Proof.Hmac.X86
 open VG.Proof.Hmac.X86_64 (bytesAt_length)
-open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes countX86 Repr)
+open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes Repr)
+open VG.Proof.Sha256 (countX86)
 open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
 open VG.Proof.Hmac (countFinalizeX86)
 
