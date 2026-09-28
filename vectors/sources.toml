@@ -45,3 +45,17 @@ directories = ["nist-cavp/shake"]
 url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/sha3/shakebytetestvectors.zip"
 sha256 = "debfebc3157b3ceea002b84ca38476420389a3bf7e97dc5f53ea4689a16de4c7"
 retrieved = 2026-09-28
+
+[[source]]
+name = "NIST CAVP AES Known Answer Test (KAT) vectors (the ECB GFSbox, KeySbox, VarKey and VarTxt .rsp files only)"
+directories = ["nist-cavp/aes"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/aes/KAT_AES.zip"
+sha256 = "a203b16c9246b2ebae31dee5de21a606be80cf78ceabaca37150236fa098eb60"
+retrieved = 2026-09-28
+
+[[source]]
+name = "NIST CAVP GCM test vectors (every .rsp file: encryption with an external IV, and decryption)"
+directories = ["nist-cavp/gcm"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/mac/gcmtestvectors.zip"
+sha256 = "f9fc479e134cde2980b3bb7cddbcb567b2cd96fd753835243ed067699f26a023"
+retrieved = 2026-09-28
