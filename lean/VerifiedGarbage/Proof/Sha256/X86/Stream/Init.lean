@@ -119,7 +119,7 @@ theorem init_agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.initX86.pre s₁)
   have wf : ∀ s, Proof.Sha256.initX86.pre s → VG.X86.Taint.Wf initτ₀ s := by
     intro s hs
     obtain ⟨-, hw, hd, hr, -, hsp⟩ := hs
-    refine ⟨fun h => absurd rfl h, fun _ h => (List.not_mem_nil h).elim,
+    refine VG.X86.Taint.Wf.entry rfl rfl ⟨fun h => absurd rfl h, fun _ h => (List.not_mem_nil h).elim,
       fun _ h => (List.not_mem_nil h).elim, fun _ => ⟨hsp, ?_⟩, fun _ h => (List.not_mem_nil h).elim⟩
     simp only [hw, List.mem_singleton]
     rintro r rfl
@@ -130,6 +130,7 @@ theorem init_agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.initX86.pre s₁)
   · simp only [initτ₀, RegSet.mem_ofList, List.mem_singleton] at hr
     subst hr; exact hesp
   · simp only [initτ₀] at hk
+    rw [show VG.X86.Taint.depth initτ₀.stk = 0 from rfl, Nat.zero_add]
     rw [VG.X86.Taint.argByte_eq h₁.2.2.2.2.2 h4 hk, VG.X86.Taint.argByte_eq h₂.2.2.2.2.2 h4 hk,
       Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)), Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega)),
       show (k - 4) / 4 = 0 by omega]

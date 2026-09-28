@@ -29,9 +29,9 @@ theorem blocks :
 
 theorem finalize :
     Verified AArch64.target Impl.Poly1305.AArch64.finalize
-      (Spec.Poly1305.finalizeContract AArch64.abi) :=
+      (Spec.Poly1305.finalizeTailContract AArch64.abi) :=
   Proof.Poly1305.AArch64.finalize_verified.of_implies (by
-    contract_implies [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+    contract_implies [Spec.Poly1305.finalizeTailContract, Spec.Poly1305.finalizeTailSig,
       Proof.Poly1305.finalizeAArch64, AArch64.abi, AArch64.argRegs]
       [Proof.Poly1305.AArch64.finalizeSat] using Proof.Poly1305.AArch64.finalizeSat)
 

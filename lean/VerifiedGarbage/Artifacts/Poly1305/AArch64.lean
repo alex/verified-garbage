@@ -51,11 +51,11 @@ def artifacts : List Artifact := [
   { target := AArch64.target
     module := "poly1305"
     name := "vg_poly1305_finalize"
-    sig := Spec.Poly1305.finalizeSig
+    sig := Spec.Poly1305.finalizeTailSig
     doc := "Finishes a Poly1305 computation: if the streaming state `*state` represents a \
       message under a key, writes the tag of that message followed by the `len` bytes at \
       `tail`, under that key, to `*out`.\n\n\
-      Contract: `VG.Spec.Poly1305.finalizeContract`. Constant time: only the pointers and \
+      Contract: `VG.Spec.Poly1305.finalizeTailContract`. Constant time: only the pointers and \
       `len` may affect timing, not the state or the data.\n\n\
       # Safety\n\n\
       * `len` must be less than 16.\n\
@@ -65,7 +65,7 @@ def artifacts : List Artifact := [
       * `out` must be valid for writes of 16 bytes.\n\
       * These three regions must not overlap each other (distinct Rust objects never do)."
     code := Impl.Poly1305.AArch64.finalize
-    contract := Spec.Poly1305.finalizeContract AArch64.abi
+    contract := Spec.Poly1305.finalizeTailContract AArch64.abi
     verified := Proof.Poly1305.AArch64.Shared.finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
