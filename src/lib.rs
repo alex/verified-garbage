@@ -26,6 +26,7 @@ pub mod chacha20;
 pub mod hashes;
 pub mod hmac;
 pub mod pbkdf2;
+pub mod poly1305;
 pub mod scrypt;
 
 #[cfg(test)]
