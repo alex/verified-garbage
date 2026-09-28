@@ -3,18 +3,16 @@ import VerifiedGarbage.Proof.Framework.X86_64.Bswap
 import VerifiedGarbage.Proof.Gcm.Spec
 
 /-!
-# GHASH on x86-64: the bit manipulations of one step, and loading blocks
+# GHASH on x86-64: shifting a block left, and loading blocks
 
-Untrusted: everything here is checked by Lean. What the instructions of a
-step (`Impl.Gcm.X86_64.step`) compute on the two halves of a 128-bit value,
-stated on the whole value; and big-endian blocks as two `bswap`ped loads.
+Untrusted: everything here is checked by Lean. What `add`, `adc` and `sbb`
+compute on the two halves of a 128-bit value (`Impl.Gcm.X86_64.hInv`), and
+big-endian blocks as two `bswap`ped loads.
 -/
 
 namespace VG.Proof.Gcm.X86_64
 
 open VG.Proof.Gcm
-
-open VG.Impl.Gcm.X86_64 (rHigh)
 
 /-- `sbb r, r`. -/
 theorem sbb_self (r : BitVec 64) (c : Bool) :
@@ -42,40 +40,6 @@ theorem shl1_cf (a b : BitVec 64) :
   by_cases h : 2 ^ 64 ≤ b.toNat + b.toNat
   · rw [decide_eq_true h]; simp only [Bool.toNat_true]; apply decide_eq_decide.mpr; omega
   · rw [decide_eq_false h]; simp only [Bool.toNat_false]; apply decide_eq_decide.mpr; omega
-
-theorem mask_z (zh zl vh vl : BitVec 64) (c : Bool) :
-    (zh ^^^ (vh &&& if c then BitVec.allOnes 64 else 0#64)) ++
-      (zl ^^^ (vl &&& if c then BitVec.allOnes 64 else 0#64)) =
-      if c then (zh ++ zl) ^^^ (vh ++ vl) else zh ++ zl := by
-  cases c
-  · simp only [Bool.false_eq_true, ite_false, BitVec.and_zero, BitVec.xor_zero]
-  · simp only [ite_true, BitVec.and_allOnes, BitVec.xor_append]
-
-theorem R_eq : Spec.Gcm.R = rHigh ++ 0#64 := by decide
-
-theorem shr1 (vh vl : BitVec 64) :
-    (vh ++ vl) >>> 1 = (vh >>> 1) ++ ((vl >>> 1) ||| (vh &&& BitVec.signExtend 64 (1 : BitVec 32)).rotateRight 1) := by
-  rw [show BitVec.signExtend 64 (1 : BitVec 32) = 1 by decide]
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi
-  simp only [BitVec.getLsbD_append, BitVec.getLsbD_ushiftRight, BitVec.getLsbD_or,
-    BitVec.getLsbD_rotateRight, BitVec.getLsbD_and]
-  rcases (by omega : i < 63 ∨ i = 63 ∨ 64 ≤ i) with h | rfl | h
-  · simp [h, show 1 + i < 64 by omega, show i < 64 by omega]
-  · simp
-  · simp only [show ¬ 1 + i < 64 by omega, show ¬ i < 64 by omega, ite_false]
-    congr 1; omega
-
-theorem update_v (vh vl m : BitVec 64) :
-    ((vh >>> 1) ^^^ ((m - m - (BitVec.ofBool (vl.getLsbD (1 - 1))).setWidth 64) &&& rHigh)) ++
-      ((vl >>> 1) ||| (vh &&& BitVec.signExtend 64 (1 : BitVec 32)).rotateRight 1) =
-      if (vh ++ vl).getLsbD 0 then ((vh ++ vl) >>> 1) ^^^ Spec.Gcm.R else (vh ++ vl) >>> 1 := by
-  rw [sbb_self, shr1, R_eq, BitVec.getLsbD_append]
-  simp only [show (0 : Nat) < 64 by decide, ite_true, Nat.sub_self]
-  cases vl.getLsbD 0
-  · simp only [Bool.false_eq_true, ite_false, BitVec.zero_and, BitVec.xor_zero]
-  · simp only [ite_true, BitVec.allOnes_and]
-    rw [BitVec.xor_append, BitVec.xor_zero]
 
 /-- The 16 bytes as 8 bytes. -/
 theorem bytesAt_16 (m : Mem) (p : Addr) : Spec.Aes.bytesAt m p 16 =
