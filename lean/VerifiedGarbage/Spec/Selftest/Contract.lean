@@ -1,0 +1,22 @@
+import VerifiedGarbage.Spec.Selftest
+import VerifiedGarbage.TCB.Artifact
+
+/-!
+# Pipeline self-test: the contract, on every target
+
+**Trusted** (as every file in `Spec/`). `A` is the target's calling
+convention.
+-/
+
+namespace VG.Spec.Selftest
+
+/-- `vg_selftest_add(a: u64, b: u64) -> u64`. Both arguments are secret. -/
+def addSig : Sig where
+  params := [("a", .int .u64 false), ("b", .int .u64 false)]
+  ret := some .u64
+
+/-- Returns `add a b` and does not modify memory. -/
+def addContract {M : ISA} (A : Abi M) : Contract M :=
+  addSig.contract A (post := fun a b m m' r => r = add a b ∧ m' = m)
+
+end VG.Spec.Selftest
