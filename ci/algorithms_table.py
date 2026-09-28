@@ -6,6 +6,7 @@ it by hand (and two PRs for the same algorithm never conflict over a row):
 rerun this script instead. Each docs/algorithms/<name>.toml is a row:
 
   name     what the table calls it
+  family   the table it goes in, one of FAMILIES
   specs    its Lean specs, lean/VerifiedGarbage/Spec/<spec>.lean
   modules  the Rust modules of its public API
   asm      the generated modules, src/asm/<arch>/<asm>.rs, whose functions
@@ -37,6 +38,9 @@ END = "<!-- END ci/algorithms_table.py -->\n"
 
 # The architectures, in table order: Rust's name and the table's.
 ARCHES = {"x86_64": "x86-64", "aarch64": "ARM64", "arm": "ARMv7", "x86": "x86"}
+
+# The families, in README order: each has its own table, under a heading.
+FAMILIES = ["Hashes", "MACs", "Ciphers", "AEADs", "KDFs"]
 
 # How the table names CPU features (Rust's `target_feature` names); None
 # leaves a feature out, e.g. one that only comes with another.
@@ -97,19 +101,23 @@ def optimized(row, names):
 
 
 def table(errors):
-    lines = ["| Algorithm | Spec landed | Supported | Optimized |\n", "|---|---|---|---|\n"]
+    header = "| Algorithm | Spec landed | Supported | Optimized |\n|---|---|---|---|\n"
+    families = {f: [] for f in FAMILIES}
     for path in sorted(ROWS.glob("*.toml")):
         row = tomllib.loads(path.read_text())
-        missing = [k for k in ("name", "specs", "modules", "asm") if k not in row]
+        missing = [k for k in ("name", "family", "specs", "modules", "asm") if k not in row]
         if missing:
             errors.append(f"{path.relative_to(ROOT)}: missing {', '.join(missing)}")
             continue
+        if row["family"] not in families:
+            errors.append(f"{path.relative_to(ROOT)}: family must be one of {', '.join(FAMILIES)}")
+            continue
         spec = all((ROOT / "lean/VerifiedGarbage/Spec" / f"{s}.lean").is_file() for s in row["specs"])
         names = supported(row, errors)
-        lines.append(
+        families[row["family"]].append(
             f"| {row['name']} | {'✅' if spec else '❌'} | {arches(names)} | {optimized(row, names)} |\n"
         )
-    return "".join(lines)
+    return "\n".join(f"### {f}\n\n{header}{''.join(rows)}" for f, rows in families.items() if rows)
 
 
 def main() -> int:
