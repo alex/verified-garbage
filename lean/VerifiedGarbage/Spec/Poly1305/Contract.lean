@@ -17,7 +17,9 @@ the accumulator and the message are secret; the message's length so far
 which `Repr` and `Buffered` both describe). `vg_poly1305_update` absorbs
 bytes of any length, buffering in the state the ones that do not fill a
 block, and `vg_poly1305_finalize` absorbs the buffered bytes and computes the
-tag, as the hashes' `update` and `finalize` do. `vg_poly1305_blocks` absorbs
+tag, as the hashes' `update` and `finalize` do; like theirs, they take 128
+bytes of working space (`scratch`), since the state's own working space
+(bytes 72–127) is too small for some targets. `vg_poly1305_blocks` absorbs
 whole blocks into the state of a message of whole blocks, for callers that
 pad their message themselves (e.g. ChaCha20-Poly1305).
 
@@ -54,32 +56,33 @@ def blocksContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     ∀ key msg, Repr m state key msg → Repr m' state key (msg ++ bytesAt m blocks (16 * n.toNat)))
     (stack := stack)
 
-/-- `vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len: usize)`.
-`count` is public. -/
+/-- `vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 16])`.
+`count` is public; `scratch` is working space. -/
 def updateSig : Sig where
   params := [("state", .array true .u64 16), ("count", .int .u64 true),
-    ("data", .slice false .u8 "len")]
+    ("data", .slice false .u8 "len"), ("scratch", .array true .u64 16)]
 
 /-- If the state at `state` represents a message `msg` of `count` bytes
 (modulo 2⁶⁴) under a key, with its last bytes buffered, then afterwards it
 represents `msg` followed by the `len` bytes at `data`, under the same key. -/
 def updateContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
-  updateSig.contract A (post := fun state count data len m m' _ =>
+  updateSig.contract A (post := fun state count data len _scratch m m' _ =>
     ∀ key msg, Buffered m state key msg → count = BitVec.ofNat 64 msg.length →
       Buffered m' state key (msg ++ bytesAt m data len.toNat))
     (stack := stack)
 
-/-- `vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16])`.
-`count` is public; `state` is left unspecified. -/
+/-- `vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16], scratch: *mut [u64; 16])`.
+`count` is public; `state` is left unspecified, and `scratch` is working
+space. -/
 def finalizeSig : Sig where
   params := [("state", .array true .u64 16), ("count", .int .u64 true),
-    ("out", .array true .u8 16)]
+    ("out", .array true .u8 16), ("scratch", .array true .u64 16)]
 
 /-- If the state at `state` represents a message `msg` of `count` bytes
 (modulo 2⁶⁴) under a key, with its last bytes buffered, writes the Poly1305
 tag of `msg` under that key to `out`. -/
 def finalizeContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
-  finalizeSig.contract A (post := fun state count out m m' _ =>
+  finalizeSig.contract A (post := fun state count out _scratch m m' _ =>
     ∀ key msg, Buffered m state key msg → count = BitVec.ofNat 64 msg.length →
       bytesAt m' out 16 = mac key msg)
     (stack := stack)
