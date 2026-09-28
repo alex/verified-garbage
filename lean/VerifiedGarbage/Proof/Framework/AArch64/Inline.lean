@@ -456,6 +456,18 @@ theorem WP.gpr {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s Q
   obtain ⟨t, s', he, hq⟩ := h
   exact ⟨t, s', he, hq, Exec.gpr hc he hn⟩
 
+/-- The registers `rs`, which no instruction of the code (without calls) writes,
+are preserved: checked for all of them at once, by evaluation. -/
+theorem WP.gprs {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s Q) {rs : List Reg}
+    (hc : c.allInstrs (fun i => rs.all fun r => dstOf i != some r) = true)
+    (hn : c.noCalls = true) :
+    WP isa c s fun s' => Q s' ∧ ∀ r ∈ rs, s'.gpr r = s.gpr r := by
+  obtain ⟨t, s', he, hq⟩ := h
+  rw [Code.allInstrs_eq] at hc
+  refine ⟨t, s', he, hq, fun r hr => Exec.gpr (fun i hi => ?_) he (.inl hn)⟩
+  have := List.all_eq_true.mp (List.all_eq_true.mp hc i hi) r hr
+  simpa using this
+
 /-- Inlining verified code: from a state `s` in which the code's precondition
 holds once its permissions are narrowed to `rd` and `wr`, the code
 terminates in a state satisfying its postcondition and calling-convention
