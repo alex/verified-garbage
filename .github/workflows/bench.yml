@@ -1,0 +1,57 @@
+name: Benchmarks
+
+# Compares the performance of a pull request with its base, when it changes
+# the library (or the benchmarks), and fails if a benchmark slowed down by
+# more than ci/bench_compare.py's threshold. The results are in the run's
+# summary. Not part of `all-green`: it only runs for some pull requests.
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "bench/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "ci/bench_compare.py"
+      - ".github/workflows/bench.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  compare:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    name: Compare with base (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: head
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+      - name: Install OpenSSL headers
+        run: sudo apt-get install -qq -y --no-install-recommends libssl-dev pkg-config
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy,rustfmt
+          rustup default stable
+      - name: Lint the benchmarks
+        working-directory: head/bench
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --locked -- -D warnings
+      - name: Benchmark base and head
+        run: python3 head/ci/bench_compare.py base head --summary "$GITHUB_STEP_SUMMARY"

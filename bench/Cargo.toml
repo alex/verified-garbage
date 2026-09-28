@@ -1,0 +1,22 @@
+[package]
+name = "verified-garbage-bench"
+version = "0.0.0"
+edition = "2024"
+description = "Benchmarks of verified-garbage, against OpenSSL (through rust-openssl)"
+license = "Apache-2.0 OR BSD-3-Clause"
+publish = false
+
+# A package of its own, outside the library's, so that the library's tests,
+# lints and coverage never build criterion or link OpenSSL.
+[workspace]
+
+[dependencies]
+verified-garbage = { path = ".." }
+
+[dev-dependencies]
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
+openssl = "0.10"
+
+[[bench]]
+name = "primitives"
+harness = false
