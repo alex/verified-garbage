@@ -12,6 +12,11 @@
 //! them. That is inherent to scrypt; ROMix's contract declares that it leaks
 //! these indices and nothing else secret.
 
+#![cfg(all(
+    any(target_arch = "x86_64", target_arch = "aarch64"),
+    feature = "alloc"
+))]
+
 use alloc::vec::Vec;
 use core::fmt;
 use core::num::NonZeroU32;
