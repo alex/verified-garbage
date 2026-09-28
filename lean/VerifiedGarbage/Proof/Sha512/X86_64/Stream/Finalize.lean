@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Sha512.X86_64.Stream.Update
+import VerifiedGarbage.Proof.Sha512.X86_64.Stream.Common
 
 /-!
 # Streaming SHA-512 on x86-64: `finalize`
@@ -12,8 +12,6 @@ open VG VG.X86_64 VG.Impl.Sha512.X86_64.Stream
 open VG.Impl.Sha512.X86_64 (at_)
 open VG.Proof.Sha512.X86_64 (ea_at contains_offset contains_offset' toNat_ofNat_lt readW_writeW_save
   sub_offset ofInt_natCast)
-open VG.Proof.Sha512.X86_64.Stream.Update (sub_ofNat sub_beq ofNat_beq_zero ofNat_succ ofNat_pred
-  bytesAt_getD and127)
 open VG.Proof.Sha512.Stream
 open VG.Spec.Sha512 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes)
 
@@ -685,10 +683,11 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
     rw [h.mem, hfo.readW (Region.contains_self _ _) (by simpa using hp.ret_out) (by decide)]
     exact hC.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_scr⟩) (by decide)
   apply WP.of_runBlock
-  rw [Update.restore_eq]
-  simp (config := {decide := true}) only [runBlock, exec, readSrc, isa, ea_at, State.load64,
+  rw [restore_eq]
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, readSrc, isa, ea_at, State.load64,
     State.setReg, hr15, i0, i1, i2, i3, i4, i5, ite_true, ite_false, g0, g1, g2, g3, g4, g5,
-    Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+    Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨⟨fun r hr => ?_, hret⟩, fun iv m hm hb hc => ?_⟩
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hrsp]
@@ -696,7 +695,9 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
       (by rw [flat_length _ _ le_rfl]; omega)
     have e' : bytesAt (writeBytes sD.mem (out s₀) (((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes))
         (out s₀) 64 = ((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes := by
-      rw [flat_length _ _ le_rfl] at e; simpa [bytesAt] using e
+      rw [flat_length _ _ le_rfl, show out s₀ + BitVec.ofNat 64 0 = out s₀ by simp,
+        show bytesAt sD.mem (out s₀) 0 = [] from rfl, List.nil_append] at e
+      exact e
     rw [← h.mem] at e'
     rw [e', hD.2 iv m ⟨hm, hb, hc⟩, List.take_of_length_le (by simp)]
 

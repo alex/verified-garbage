@@ -23,30 +23,63 @@ def Vars (t : Nat) (s : State) (v : HashValue) : Prop :=
 /-- The registers that hold pointers and the count, and `rsp`: never written by the rounds. -/
 def pubRegs : List Reg := [.rdi, .rsi, .rdx, .rcx, .rsp]
 
+/-- The working variables move one register along each round. -/
+theorem var_succ (t k : Nat) (hk : k < 7) : var (t + 1) (k + 1) = var t k := by
+  simp only [var]; congr 1; omega
+
+theorem var_succ_zero (t : Nat) : var (t + 1) 0 = var t 7 := by
+  simp only [var]; congr 1; omega
+
+/-- The registers of a round are all different. -/
+theorem round_nodup (t : Nat) :
+    [var t 0, var t 1, var t 2, var t 3, var t 4, var t 5, var t 6, var t 7, T0, T1, T2,
+      .rdi, .rsi, .rdx, .rcx, .rsp].Nodup := by
+  simp only [var]
+  have := Nat.mod_lt t (show 8 > 0 by omega)
+  generalize t % 8 = c at *
+  interval_cases c <;> decide
+
 set_option maxHeartbeats 0 in
+/-- The round is symbolically executed once, for any registers `a … h`
+(which `round_nodup` says are different from each other and the others). -/
 theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word)
     (hv : Vars t s v) (hw : s.gpr T0 = w) :
     WP isa (.block (round t)) s fun s' =>
       Vars (t + 1) s' (roundKW v (K t) w) ∧
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ ∀ r ∈ pubRegs, s'.gpr r = s.gpr r := by
-  have h1 : (t + 1) % 8 = (t % 8 + 1) % 8 := by omega
-  have hc : t % 8 < 8 := Nat.mod_lt _ (by omega)
-  simp only [Vars, var, h1] at hv ⊢
+  have hd := round_nodup t
+  have hd' := List.nodup_reverse.mpr hd
+  simp only [Vars, var_succ_zero, var_succ t _ (show 0 < 7 by omega),
+    var_succ t _ (show 1 < 7 by omega), var_succ t _ (show 2 < 7 by omega),
+    var_succ t _ (show 3 < 7 by omega), var_succ t _ (show 4 < 7 by omega),
+    var_succ t _ (show 5 < 7 by omega), var_succ t _ (show 6 < 7 by omega)] at hv ⊢
   obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7⟩ := hv
   apply WP.of_runBlock
-  simp only [Impl.Sha512.X86_64.round, var]
-  generalize t % 8 = c at *
-  interval_cases c <;>
-  simp only [work, T0, T1, T2, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMod, List.getD_cons_succ,
-    List.getD_cons_zero] at h0 h1 h2 h3 h4 h5 h6 h7 hw ⊢ <;>
-  simp (config := {decide := true}) only [runBlock, exec, execAlu, execShift, readSrc,
-    isa, State.setReg, arithFlags, State.setFlags, ite_true, ite_false,
+  simp only [Impl.Sha512.X86_64.round]
+  generalize var t 0 = a at *
+  generalize var t 1 = b at *
+  generalize var t 2 = c at *
+  generalize var t 3 = d at *
+  generalize var t 4 = e at *
+  generalize var t 5 = f at *
+  generalize var t 6 = g at *
+  generalize var t 7 = h at *
+  simp only [T0, T1, T2, List.nodup_cons, List.mem_cons, List.not_mem_nil, List.reverse_cons,
+    List.reverse_nil, List.nil_append, List.cons_append, or_false, not_or,
+    List.nodup_nil, and_true] at hd hd' hw ⊢
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, execAlu, execShift, readSrc,
+    isa, State.setReg, arithFlags, State.setFlags, ite_true, ite_false, hd, hd',
     h0, h1, h2, h3, h4, h5, h6, h7, hw,
-    Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left'] <;>
-  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, trivial, trivial, trivial, by simp [pubRegs]⟩ <;>
-  simp (config := {failIfUnchanged := false}) only [roundKW, bsig1_eq, ch_eq, bsig0_eq, maj_eq, Vector.getElem_mk,
-    List.getElem_toArray, List.getElem_cons_zero, List.getElem_cons_succ] <;>
-  simp (config := {failIfUnchanged := false}) only [BitVec.add_assoc]
+    Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
+  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, trivial, trivial, trivial, fun r hr => ?_⟩
+  rotate_right
+  · simp only [pubRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl | rfl <;> simp [hd']
+  all_goals
+    simp (config := {failIfUnchanged := false}) only [roundKW, bsig1_eq, ch_eq, bsig0_eq, maj_eq,
+      Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero, List.getElem_cons_succ] <;>
+    simp (config := {failIfUnchanged := false}) only [BitVec.add_assoc]
 
 /-- The address of `W[j mod 16]`. -/
 abbrev slotAddr (scr : Addr) (j : Nat) : Addr := scr + BitVec.ofInt 64 ↑(8 * (j % 16))
@@ -69,10 +102,11 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
   · have hi := hbin ht
     have hb := hblk ht
     simp only [Impl.Sha512.X86_64.schedule, ht, ite_true, slot, at_, T0, T1, T2]
-    simp (config := {decide := true}) only [runBlock, exec, readSrc, isa, State.ea,
+    simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+      runBlock_nil (M := isa), exec, readSrc, isa, State.ea,
       State.load64, State.store64, State.setReg, hrsi, hrcx, hi, hout, ite_true,
       ite_false, hb,
-      Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
+      Option.map_some, Option.some.injEq, exists_eq_left']
     refine ⟨trivial, trivial, trivial, trivial, fun r h0 h1 h2 => ?_⟩
     simp [h0]
   · have hw := hwin (by omega)
@@ -85,7 +119,8 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
     rw [show (t - 15) % 16 = (t + 1) % 16 by omega] at e15
     rw [show (t - 16) % 16 = t % 16 by omega] at e16
     simp only [Impl.Sha512.X86_64.schedule, ht, ite_false, slot, at_, T0, T1, T2]
-    simp (config := {decide := true}) only [runBlock, exec, execAlu, execShift, readSrc,
+    simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+      runBlock_nil (M := isa), exec, execAlu, execShift, readSrc,
       isa, State.ea, State.load64, State.store64, State.setReg, arithFlags,
       State.setFlags, hrcx, hin, hout, ite_true, ite_false, e2, e7, e15, e16,
       Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']

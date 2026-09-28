@@ -5,8 +5,10 @@ import VerifiedGarbage.Proof.Sha256.X86_64.Compress
 import VerifiedGarbage.Proof.Sha256.AArch64.Compress
 import VerifiedGarbage.Proof.Sha256.Arm.Compress
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Init
+import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Update
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Finalize
 import VerifiedGarbage.Proof.Sha512.X86_64.Stream.Init
+import VerifiedGarbage.Proof.Sha512.X86_64.Stream.Update
 import VerifiedGarbage.Proof.Sha512.X86_64.Stream.Finalize
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Init
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Update

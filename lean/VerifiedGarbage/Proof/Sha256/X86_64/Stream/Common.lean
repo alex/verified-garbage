@@ -255,14 +255,6 @@ theorem bswap64_bytes (x : BitVec 64) :
 
 /-! ## Lemmas shared by `update` and `finalize` -/
 
-theorem _root_.VG.Frame.bytes {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {R : Region}
-    (hd : ∀ r ∈ rs, R.Disjoint r) (hR : R.len ≤ 2 ^ 64) {i : Nat} (hi : i < R.len) :
-    m' (R.base + BitVec.ofNat 64 i) = m (R.base + BitVec.ofNat 64 i) := by
-  refine hf _ fun r hr hc => hd r hr _ ?_ hc
-  simp only [Region.Contains]
-  rw [show R.base + BitVec.ofNat 64 i - R.base = BitVec.ofNat 64 i by bv_omega, toNat_ofNat_lt (by omega)]
-  omega
-
 theorem and63 (x : BitVec 64) : x &&& (63#32).signExtend 64 = BitVec.ofNat 64 (x.toNat % 64) := by
   rw [show (63#32).signExtend 64 = 63#64 by decide]
   apply BitVec.eq_of_toNat_eq
