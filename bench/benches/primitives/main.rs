@@ -19,6 +19,7 @@ mod chacha20;
 mod hmac;
 mod md5;
 mod pbkdf2;
+mod poly1305;
 mod scrypt;
 mod sha1;
 mod sha256;
@@ -73,6 +74,7 @@ const BENCHES: &[Bench] = &[
     (hmac::USES, hmac::bench),
     (md5::USES, md5::bench),
     (pbkdf2::USES, pbkdf2::bench),
+    (poly1305::USES, poly1305::bench),
     (scrypt::USES, scrypt::bench),
     (sha1::USES, sha1::bench),
     (sha256::USES, sha256::bench),
