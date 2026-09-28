@@ -35,6 +35,21 @@ def compressContract {M : ISA} (A : Abi M) : Contract M :=
   compressSig.contract A (post := fun state blocks n _scratch m m' _ =>
     stateAt m' state = compressBlocks (stateAt m state) m blocks n.toNat)
 
+/-- `vg_md5_compress` on every target. -/
+def compressApi : Api where
+  module := "md5"
+  name := "vg_md5_compress"
+  sig := compressSig
+  summary := "The MD5 compression function (RFC 1321 §3.4): updates the MD buffer `*state` \
+    (`A, B, C, D`) with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
+    Contract: `VG.Spec.Md5.compressContract`. Constant time: only the pointers and `n` may affect \
+    timing, not the MD buffer or the blocks."
+  safety := [
+    "`state` must be valid for reads and writes of 16 bytes.",
+    "`blocks` must be valid for reads of `64 * n` bytes.",
+    "`scratch` must be valid for reads and writes of 64 bytes; its contents on return are \
+      unspecified."]
+
 /-- `vg_md5_init(state: *mut [u8; 80])`. -/
 def initSig : Sig where
   params := [("state", .array true .u8 80)]
@@ -42,6 +57,17 @@ def initSig : Sig where
 /-- Makes the streaming state at `state` represent the empty message. -/
 def initContract {M : ISA} (A : Abi M) : Contract M :=
   initSig.contract A (post := fun state _ m' _ => Repr m' state [])
+
+/-- `vg_md5_init` on every target. -/
+def initApi : Api where
+  module := "md5"
+  name := "vg_md5_init"
+  sig := initSig
+  summary := "Starts an MD5 computation: makes the streaming state `*state` represent the empty \
+    message.\n\n\
+    Contract: `VG.Spec.Md5.initContract`. The streaming state is the MD buffer followed by a \
+    buffered partial block (`VG.Spec.Md5.Repr`)."
+  safety := ["`state` must be valid for writes of 80 bytes."]
 
 /-- `vg_md5_update(state: *mut [u8; 80], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 14])`.
 `count` is public; `scratch` is working space. -/
@@ -59,6 +85,22 @@ def updateContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (writeArgs := true)
     (stack := stack)
 
+/-- `vg_md5_update` on every target. -/
+def updateApi : Api where
+  module := "md5"
+  name := "vg_md5_update"
+  sig := updateSig
+  summary := "Absorbs data into an MD5 computation: if the streaming state `*state` represents a \
+    message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` \
+    bytes at `data`.\n\n\
+    Contract: `VG.Spec.Md5.updateContract`. Constant time: only the pointers, `count` and `len` \
+    may affect timing, not the state or the data."
+  safety := [
+    "`state` must be valid for reads and writes of 80 bytes.",
+    "`data` must be valid for reads of `len` bytes.",
+    "`scratch` must be valid for reads and writes of 112 bytes; its contents on return are \
+      unspecified."]
+
 /-- `vg_md5_finalize(state: *mut [u8; 80], count: u64, out: *mut [u8; 16], scratch: *mut [u64; 14])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
 space. -/
@@ -74,5 +116,21 @@ def finalizeContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     ∀ msg, Repr m state msg → count = BitVec.ofNat 64 msg.length → bytesAt m' out 16 = hash msg)
     (writeArgs := true)
     (stack := stack)
+
+/-- `vg_md5_finalize` on every target. -/
+def finalizeApi : Api where
+  module := "md5"
+  name := "vg_md5_finalize"
+  sig := finalizeSig
+  summary := "Finishes an MD5 computation: if the streaming state `*state` represents a message of \
+    `count` bytes (modulo 2⁶⁴), writes the MD5 digest of that message to `*out`.\n\n\
+    Contract: `VG.Spec.Md5.finalizeContract`. Constant time: only the pointers and `count` may \
+    affect timing, not the state."
+  safety := [
+    "`state` must be valid for reads and writes of 80 bytes; its contents on return are \
+      unspecified.",
+    "`out` must be valid for writes of 16 bytes.",
+    "`scratch` must be valid for reads and writes of 112 bytes; its contents on return are \
+      unspecified."]
 
 end VG.Spec.Md5
