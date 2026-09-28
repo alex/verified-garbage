@@ -1,7 +1,6 @@
 import VerifiedGarbage.TCB.Axioms
 import VerifiedGarbage.TCB.Rust
 import VerifiedGarbage.Proof.SpSafe
-import VerifiedGarbage.Proof.Selftest.X86_64.Shared
 import VerifiedGarbage.Proof.Sha256.X86_64.Shared
 import VerifiedGarbage.Proof.Sha256.AArch64.Shared
 import VerifiedGarbage.Proof.Sha256.Arm.Shared
@@ -30,9 +29,10 @@ import VerifiedGarbage.Proof.Scrypt.X86_64.Shared
 /-!
 # The artifact registry
 
-**The single entry point.** Every function emitted into the Rust crate is an
-entry of `artifacts`, and `Emit.lean` emits exactly this list. An
-`Artifact` bundles
+The functions emitted into the Rust crate are the entries of `artifacts`
+here and of the registration files under `Artifacts/` (see
+`TCB/Emit.lean`), and `Emit.lean` emits exactly those. An `Artifact`
+bundles
 
 * the target and the Rust name and signature of the function,
 * the implementation (`Impl/`),
@@ -40,11 +40,15 @@ entry of `artifacts`, and `Emit.lean` emits exactly this list. An
 * the proof of `Verified` for them (`Proof/`),
 
 so nothing can be emitted without a proof. The `#assert_standard_axioms`
-check below then ensures none of those proofs relies on `sorry`,
-`native_decide` or any axiom beyond Lean's standard three.
+check below, and the emitter's over every registration file, then ensure
+none of those proofs relies on `sorry`, `native_decide` or any axiom beyond
+Lean's standard three.
 
 To add a function: write its spec and contract under `Spec/`, the code under
-`Impl/`, the proof under `Proof/`, and append an entry here. Then run
+`Impl/` and the proof under `Proof/`, and list it in the registration file
+of its algorithm and target, `Artifacts/<Alg>/<Target>.lean` (a new file
+for a new algorithm or target, like `Artifacts/Selftest/X86_64.lean`), not
+here: parallel changes that all append to this list conflict. Then run
 `lake build && lake env lean --run Emit.lean` (in `lean/`) and commit the
 regenerated `src/asm/`.
 
@@ -55,16 +59,6 @@ the contract; check them against the contract's `pre`/`post`.
 namespace VG
 
 def artifacts : List Artifact := [
-  { target := X86_64.target
-    module := "selftest"
-    name := "vg_selftest_add"
-    sig := Spec.Selftest.addSig
-    doc := "Pipeline self-test: returns `a.wrapping_add(b)`.\n\n\
-      Contract: `VG.Spec.Selftest.addContract`. No safety requirements."
-    code := Impl.Selftest.X86_64.add
-    contract := Spec.Selftest.addContract X86_64.abi
-    verified := Proof.Selftest.X86_64.Shared.add
-    spSafe := Proof.SpSafe.selftest_x86_64_add },
   { target := X86_64.target
     module := "sha256"
     name := "vg_sha256_compress"
