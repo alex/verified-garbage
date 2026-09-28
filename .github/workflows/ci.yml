@@ -24,6 +24,11 @@ jobs:
   lean:
     name: Lean proofs
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # To find and download the build of an earlier run of this change.
+      actions: read
+      pull-requests: read
     defaults:
       run:
         working-directory: lean
@@ -94,6 +99,46 @@ jobs:
           path: lean/.lake/build
           key: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ hashFiles('lean/lakefile.toml', 'lean/*.lean', 'lean/VerifiedGarbage/**', 'lean/VerifiedGarbageTest/**') }}
           restore-keys: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
+      # A merge queue run can't read a pull request's caches, nor a push to
+      # main a merge queue run's, so a change to the proofs used to be proven
+      # three times over. Instead, a merge queue entry starts from the build
+      # of its pull request's head commit (the commit that was reviewed), and
+      # a push to main from the merge queue run of the same commit; Lake
+      # rebuilds whatever differs. Only builds made by this workflow, in a
+      # successful run, from this repository's own branches, are used; with
+      # none, the build restored from main's cache above is used as before.
+      - name: Restore the build of this change's earlier run
+        if: ${{ steps.lean-build.outputs.cache-hit != 'true' && github.event_name != 'pull_request' }}
+        # An error here (e.g. from GitHub's API) only costs the time saved.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.merge_group.head_ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
+            # The queue's branch is `gh-readonly-queue/<base>/pr-<number>-<sha>`.
+            pr=$(echo "$HEAD_REF" | sed -nE 's|^refs/heads/gh-readonly-queue/.+/pr-([0-9]+)-[0-9a-f]+$|\1|p')
+            sha=$(gh api "repos/$GITHUB_REPOSITORY/pulls/${pr:?not a merge queue branch}" \
+              --jq "select(.head.repo.full_name == \"$GITHUB_REPOSITORY\") | .head.sha")
+            event=pull_request
+          else
+            sha=$GITHUB_SHA
+            event=merge_group
+          fi
+          run=
+          if [ -n "$sha" ]; then
+            run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&event=$event&status=success" \
+              --jq "[.workflow_runs[] | select(.head_repository.full_name == \"$GITHUB_REPOSITORY\")][0].id // empty")
+          fi
+          if [ -z "$run" ]; then
+            echo "No successful $event run of $sha to reuse the build of"
+          elif gh run download "$run" -R "$GITHUB_REPOSITORY" -n lean-build -D "$RUNNER_TEMP/lean-build"; then
+            echo "Starting from the build of run $run ($event, $sha)"
+            rm -rf .lake/build
+            mv "$RUNNER_TEMP/lean-build" .lake/build
+          else
+            echo "Run $run ($event, $sha) has no build to reuse"
+          fi
       - name: Check every proof (and the axiom audit)
         run: lake build
       # Merge queue runs each get their own branch, whose caches no other run
@@ -106,6 +151,17 @@ jobs:
           key: ${{ steps.lean-build.outputs.cache-primary-key }}
       - name: Check the generated Rust is up to date
         run: lake env lean --run Emit.lean --check
+      # For the merge queue run of this pull request, and the push to main of
+      # this merge queue run's commit (see above).
+      - name: Keep this build for the next run of this change
+        if: ${{ github.event_name != 'push' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lean-build
+          path: lean/.lake/build
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: error
 
   lean-imports:
     name: Lean import discipline
