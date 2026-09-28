@@ -18,12 +18,12 @@ Public slots let public values survive a round trip through memory, e.g.
 callee-saved registers saved and restored around inlined code. They are byte
 ranges of the writable regions `s.wr` (identified by index) that hold the
 same bytes in both runs. To keep them sound in the presence of stores of
-secrets, the analysis knows the lengths of the writable regions (`lens`,
-whose regions are then pairwise disjoint and the same in both runs) and
-which registers point at a known offset into which region (`bases`). A
-store through such a register, at a known offset, can only change bytes of
-its own region at that offset; any other store of a secret forgets every
-slot.
+secrets, the analysis knows lower bounds on the lengths of the writable
+regions (`lens`, whose regions are then pairwise disjoint and the same in both
+runs; a bound of `0` means the length is unknown and the region has no slots) and
+which registers point at a known offset into which region (`bases`). A store
+through such a register, at a known offset, can only change bytes of its own
+region at that offset; any other store of a secret forgets every slot.
 
 A public 32-bit argument is public only in the low half of its register
 (`lo`): `mov32` from such a register gives a public register. Only stores
@@ -40,7 +40,8 @@ instance : RegIdx Reg := ⟨Reg.ctorIdx, fun {a b} h => by rw [← Reg.ofNat_cto
 structure T where
   regs : RegSet Reg
   flags : Bool
-  /-- The lengths of the writable regions `s.wr`, in order; `[]` if unknown. -/
+  /-- Lower bounds on the lengths of the writable regions `s.wr`, in order (one per region;
+  `0` if unknown); `[]` if nothing is known about the regions. -/
   lens : List Nat := []
   /-- `(r, i, k)`: register `r` holds the address of byte `k` of writable region `i`. -/
   bases : List (Reg × Nat × Nat) := []
@@ -67,7 +68,7 @@ def AgreeRF (regs : RegSet Reg) (flags : Bool) (s₁ s₂ : State) : Prop :=
 /-- What `τ` says about each state on its own. -/
 def Wf (τ : T) (s : State) : Prop :=
   (τ.lens ≠ [] →
-    s.wr.map Region.len = τ.lens ∧ s.wr.Pairwise Region.Disjoint ∧ ∀ r ∈ s.wr, r.len ≤ 2 ^ 64) ∧
+    List.Forall₂ (fun r l => l ≤ r.len) s.wr τ.lens ∧ s.wr.Pairwise Region.Disjoint ∧ ∀ r ∈ s.wr, r.len ≤ 2 ^ 64) ∧
   (∀ p ∈ τ.bases, s.gpr p.1 = (region s p.2.1).base + BitVec.ofNat 64 p.2.2)
 
 /-- Every slot lies within its region. -/
@@ -509,19 +510,31 @@ theorem Agree.readW {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {m : 
   rw [ha.ea hm] at hl ⊢
   exact Mem.readW_congr hl
 
+theorem forall₂_length {rs : List Region} {ls : List Nat}
+    (h : List.Forall₂ (fun r l => l ≤ r.len) rs ls) : rs.length = ls.length := by
+  induction h with
+  | nil => rfl
+  | cons _ _ ih => simp [ih]
+
+theorem forall₂_getD {rs : List Region} {ls : List Nat}
+    (h : List.Forall₂ (fun r l => l ≤ r.len) rs ls) (i : Nat) : ls.getD i 0 ≤ (rs.getD i ⟨0, 0⟩).len := by
+  induction h generalizing i with
+  | nil => simp
+  | cons h _ ih => cases i with
+    | zero => exact h
+    | succ i => exact ih i
+
 theorem region_len {τ : T} {s : State} (hw : Wf τ s) (hne : τ.lens ≠ []) (i : Nat) :
-    (region s i).len = τ.lens.getD i 0 := by
-  rw [← (hw.1 hne).1]
-  simp only [region, List.getD_eq_getElem?_getD, List.getElem?_map]
-  cases s.wr[i]? <;> rfl
+    τ.lens.getD i 0 ≤ (region s i).len :=
+  forall₂_getD (hw.1 hne).1 i
 
 theorem region_mem {τ : T} {s : State} (hw : Wf τ s) (hne : τ.lens ≠ []) {i : Nat}
     (hi : 0 < τ.lens.getD i 0) : ∃ h : i < s.wr.length, region s i = s.wr[i] := by
-  have hl := (hw.1 hne).1
+  have hl := forall₂_length (hw.1 hne).1
   have : i < τ.lens.length := by
     by_contra h'
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)] at hi; simp at hi
-  have hi' : i < s.wr.length := by rw [← hl, List.length_map] at this; exact this
+  have hi' : i < s.wr.length := hl ▸ this
   exact ⟨hi', by simp [region, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi']⟩
 
 /-- A store of `n` bytes at offset `d` of region `i` does not change byte `k`

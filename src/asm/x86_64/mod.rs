@@ -24,3 +24,6 @@ pub(crate) mod pbkdf2;
 
 #[rustfmt::skip]
 pub(crate) mod chacha20;
+
+#[rustfmt::skip]
+pub(crate) mod sha3;
