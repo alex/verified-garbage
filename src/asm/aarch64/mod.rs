@@ -5,6 +5,9 @@
 pub(crate) mod pbkdf2;
 
 #[rustfmt::skip]
+pub(crate) mod poly1305;
+
+#[rustfmt::skip]
 pub(crate) mod scrypt;
 
 #[rustfmt::skip]
