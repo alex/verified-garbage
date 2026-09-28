@@ -2,13 +2,10 @@
 //! Verified functions for `x86`.
 
 #[rustfmt::skip]
-pub(crate) mod poly1305;
-
-#[rustfmt::skip]
-pub(crate) mod sha256;
+pub(crate) mod chacha20;
 
 #[rustfmt::skip]
 pub(crate) mod hmac;
 
 #[rustfmt::skip]
-pub(crate) mod chacha20;
+pub(crate) mod sha256;

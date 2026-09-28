@@ -13,6 +13,7 @@
     target_arch = "x86"
 ))]
 
+mod aes_gcm;
 mod sha1;
 mod sha256;
 mod sha3;
