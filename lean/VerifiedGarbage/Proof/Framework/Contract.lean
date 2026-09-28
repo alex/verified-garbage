@@ -115,6 +115,9 @@ macro_rules
         obtain ⟨_, h⟩ := h
         have := h 0; have := h 1; have := h 2; have := h 3; have := h 4; have := h 5; have := h 6
         have := h 7; have := h 8; have := h 9
+        -- The widths are in the types of the equations: only `dsimp` can rewrite them.
+        dsimp only [List.getD, List.getElem?_cons_succ, List.getElem?_cons_zero, List.getElem?_nil,
+          Option.getD_some, Option.getD_none] at *
         simp [BitVec.setWidth_32_64_inj, BitVec.append_32_iff] at *
       all_goals and_intros
       all_goals simp_all))

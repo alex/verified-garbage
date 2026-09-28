@@ -57,6 +57,40 @@ def aarch64State : AArch64.State where
 #guard (AArch64.abi.args (List.replicate 9 64)).isNone
 #guard AArch64.abi.ret aarch64State == 1
 
+/-! ### Public arguments are public only in the bits of their width
+
+A 32-bit argument leaves the upper half of its 64-bit register unspecified
+(whatever the caller left there, which may be secret): two entry states that
+differ only there agree on the public argument, and states that differ in its
+low half do not. -/
+
+def pubU32 : Sig where
+  params := [("n", .int .u32 true)]
+
+/-- `x86_64State` with `v` in `rdi`, the register of `n`. -/
+def x86_64Rdi (v : BitVec 64) : X86_64.State :=
+  { x86_64State with gpr := fun r => if r = .rdi then v else x86_64State.gpr r }
+
+example : (pubU32.contract X86_64.abi (post := fun _ _ _ _ => True)).pub
+    (x86_64Rdi 0x00000000_00000001) (x86_64Rdi 0xffffffff_00000001) :=
+  ⟨rfl, fun | 0, _ => rfl | _ + 1, _ => rfl⟩
+
+example : ¬(pubU32.contract X86_64.abi (post := fun _ _ _ _ => True)).pub
+    (x86_64Rdi 0x00000000_00000001) (x86_64Rdi 0x00000000_00000002) :=
+  fun ⟨_, h⟩ => absurd (h 0 rfl) (by decide)
+
+/-- `aarch64State` with `v` in `x0`, the register of `n`. -/
+def aarch64X0 (v : BitVec 64) : AArch64.State :=
+  { aarch64State with gpr := fun r => if r = .x0 then v else aarch64State.gpr r }
+
+example : (pubU32.contract AArch64.abi (post := fun _ _ _ _ => True)).pub
+    (aarch64X0 0x00000000_00000001) (aarch64X0 0xffffffff_00000001) :=
+  ⟨rfl, fun | 0, _ => rfl | _ + 1, _ => rfl⟩
+
+example : ¬(pubU32.contract AArch64.abi (post := fun _ _ _ _ => True)).pub
+    (aarch64X0 0x00000000_00000001) (aarch64X0 0x00000000_00000002) :=
+  fun ⟨_, h⟩ => absurd (h 0 rfl) (by decide)
+
 /-! ## 32-bit ARM (AAPCS) -/
 
 open Arm in
