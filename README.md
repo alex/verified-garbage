@@ -24,7 +24,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 | HMAC-SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
 | MD5 | ✅ | x86-64, ARM64 | ❌ |
 | PBKDF2-HMAC-SHA-256 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
-| Poly1305 | ✅ | x86-64 | ❌ |
+| Poly1305 | ✅ | x86-64, ARM64 | ❌ |
 | scrypt | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 | SHA-1 | ✅ | x86-64, ARM64 | ❌ |
 | SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
