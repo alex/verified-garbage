@@ -77,6 +77,15 @@ def run(binary, home, library, args):
     return times
 
 
+def vs_openssl(ours, theirs):
+    """How head's time compares with OpenSSL's, in words."""
+    if ours > theirs * 1.05:
+        return f"{ours / theirs:.1f}× slower"
+    if theirs > ours * 1.05:
+        return f"{theirs / ours:.1f}× faster"
+    return "about the same"
+
+
 def fmt_time(ns):
     for unit, scale in (("ms", 1e6), ("µs", 1e3)):
         if ns >= scale:
@@ -119,10 +128,9 @@ def main():
         "",
         f"Fastest of {args.rounds} interleaved runs of each side on this runner;"
         f" a slowdown of more than {args.threshold:.0%} fails."
-        " OpenSSL (through rust-openssl) ran once, for reference; Head / OpenSSL"
-        " is head's time over OpenSSL's, so above 1× is slower.",
+        " OpenSSL (through rust-openssl) ran once, for reference.",
         "",
-        "| Benchmark | Base | Head | Change | OpenSSL | Head / OpenSSL |",
+        "| Benchmark | Base | Head | Change | OpenSSL | Head vs OpenSSL |",
         "|---|--:|--:|--:|--:|--:|",
     ]
     regressions = []
@@ -137,7 +145,7 @@ def main():
                 regressions.append(bench_id)
                 change += " 🚨"
         o = openssl.get((primitive, size))
-        vs = f"{h / o:.2f}×" if o else "–"
+        vs = vs_openssl(h, o) if o else "–"
         o = fmt_time(o) if o else "–"
         b = fmt_time(b) if b else "–"
         lines.append(f"| `{bench_id}` | {b} | {fmt_time(h)} | {change} | {o} | {vs} |")
