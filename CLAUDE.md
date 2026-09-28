@@ -67,9 +67,11 @@ instructions in an ISA model) go in their own PR before either.
    its Rust signature (`Sig`) and its `Contract` on every target, built with
    `Sig.contract` from a postcondition and any precondition the signature does
    not imply, and its `Api`: its Rust module (the file under
-   `src/asm/<target>/`) and name, its signature, and the documentation that
-   holds on every target (what it does, and the `# Safety` items that do not
-   depend on the calling convention or the stack). Choose
+   `src/asm/<target>/`) and name, its signature, its contract's `writeArgs`,
+   and its documentation: what it does, and the `# Safety` items but for what
+   the emitter generates (which buffers may not overlap each other, the
+   stack or the arguments on it, and that none wraps around the address
+   space: `Sig.layoutDoc`). Choose
    `pub` honestly: only lengths and pointers are public unless the algorithm
    says otherwise.
 2. `Impl/<Alg>/<Target>.lean`: the code.
@@ -80,12 +82,11 @@ instructions in an ISA model) go in their own PR before either.
    which defines `VG.Artifacts.<Alg>.<Target>.artifacts` (a new file for a
    new algorithm or target; see `Artifacts/Selftest/X86_64.lean`; never
    `Artifacts.lean`, whose list is empty), made from the function's `Api`:
-   `{ Spec.<Alg>.fooApi with target := …, doc := Spec.<Alg>.fooApi.doc […], … }`,
-   where the `doc` adds the `# Safety` items that depend on the target (what
-   the arguments must not overlap: the return address, arguments on the
-   stack, the stack the code's calls use; wrapping around the address space),
-   and any notes on the implementation. The whole doc must state every caller
-   obligation of the contract. Its `spSafe`
+   `{ Spec.<Alg>.fooApi with target := …, doc := Spec.<Alg>.fooApi.doc, … }`,
+   passing `doc` any notes on the implementation (`(notes := […])`). Set
+   `stack` to the contract's (and `writeArgs`, if the artifact is not made
+   from an `Api`): the default proof of `ofSig` checks both against the
+   contract, and the emitter documents what they imply. Its `spSafe`
    can be the default, `decide +kernel`, which runs in the registration
    file; on ARMv7 and AArch64 `Code.all_of_forall (fun _ => rfl) _` is
    faster. If its code uses instructions outside

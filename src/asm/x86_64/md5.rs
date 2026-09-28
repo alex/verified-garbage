@@ -11,7 +11,8 @@
 /// * `state` must be valid for reads and writes of 16 bytes.
 /// * `blocks` must be valid for reads of `64 * n` bytes.
 /// * `scratch` must be valid for reads and writes of 64 bytes; its contents on return are unspecified.
-/// * These three regions must not overlap each other, nor the return address on the stack (distinct Rust objects never do).
+/// * `state` and `scratch` must not overlap each other or `blocks` (distinct Rust objects never do).
+/// * None of `state`, `blocks` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_md5_compress(state: *mut [u32; 4], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 8]) {
     core::arch::naked_asm!(
@@ -607,7 +608,7 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_compress(state: *mut [u32; 4], block
 /// # Safety
 ///
 /// * `state` must be valid for writes of 80 bytes.
-/// * It must not overlap the return address on the stack (a Rust object never does).
+/// * `state` must not overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_md5_init(state: *mut [u8; 80]) {
     core::arch::naked_asm!(
@@ -632,7 +633,8 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_init(state: *mut [u8; 80]) {
 /// * `state` must be valid for reads and writes of 80 bytes.
 /// * `data` must be valid for reads of `len` bytes.
 /// * `scratch` must be valid for reads and writes of 112 bytes; its contents on return are unspecified.
-/// * These three regions must not overlap each other, the return address on the stack, or the 8 bytes of stack below it, where its call of `vg_md5_compress` stores its return address (distinct Rust objects never do).
+/// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
+/// * None of `state`, `data` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_md5_update(state: *mut [u8; 80], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 14]) {
     core::arch::naked_asm!(
@@ -758,7 +760,8 @@ pub(crate) unsafe extern "sysv64" fn vg_md5_update(state: *mut [u8; 80], count: 
 /// * `state` must be valid for reads and writes of 80 bytes; its contents on return are unspecified.
 /// * `out` must be valid for writes of 16 bytes.
 /// * `scratch` must be valid for reads and writes of 112 bytes; its contents on return are unspecified.
-/// * These three regions must not overlap each other, the return address on the stack, or the 8 bytes of stack below it, where its call of `vg_md5_compress` stores its return address (distinct Rust objects never do).
+/// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
+/// * None of `state`, `out` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_md5_finalize(state: *mut [u8; 80], count: u64, out: *mut [u8; 16], scratch: *mut [u64; 14]) {
     core::arch::naked_asm!(

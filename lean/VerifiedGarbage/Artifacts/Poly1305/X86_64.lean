@@ -7,7 +7,12 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Shared
 
 A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`.
+caller to the contract; check them against the contract's `pre`/`post`. An
+artifact made from a function's `Api` (in `Spec/`, reviewed with the
+contract) takes them from there, and this file adds only notes on the
+implementation. The emitter adds the `# Safety` items that depend on the
+target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
+against the contract.
 -/
 
 namespace VG.Artifacts.Poly1305.X86_64
@@ -24,9 +29,7 @@ def artifacts : List Artifact := [
       affect timing, not the key.\n\n\
       # Safety\n\n\
       * `state` must be valid for writes of 128 bytes.\n\
-      * `key` must be valid for reads of 32 bytes.\n\
-      * `state` must not overlap `key` or the return address on the stack (distinct Rust \
-      objects never do)."
+      * `key` must be valid for reads of 32 bytes."
     code := Impl.Poly1305.X86_64.init
     contract := Spec.Poly1305.initContract X86_64.abi
     verified := Proof.Poly1305.X86_64.Shared.init },
@@ -41,9 +44,7 @@ def artifacts : List Artifact := [
       may affect timing, not the state or the data.\n\n\
       # Safety\n\n\
       * `state` must be valid for reads and writes of 128 bytes.\n\
-      * `blocks` must be valid for reads of `16 * n` bytes.\n\
-      * `state` must not overlap `blocks` or the return address on the stack, and `blocks` \
-      must not wrap around the end of the address space (distinct Rust objects never do)."
+      * `blocks` must be valid for reads of `16 * n` bytes."
     code := Impl.Poly1305.X86_64.blocks
     contract := Spec.Poly1305.blocksContract X86_64.abi
     verified := Proof.Poly1305.X86_64.Shared.blocks },
@@ -61,9 +62,7 @@ def artifacts : List Artifact := [
       * `state` must be valid for reads and writes of 128 bytes; its contents on return are \
       unspecified.\n\
       * `tail` must be valid for reads of `len` bytes.\n\
-      * `out` must be valid for writes of 16 bytes.\n\
-      * These three regions must not overlap each other or the return address on the stack \
-      (distinct Rust objects never do)."
+      * `out` must be valid for writes of 16 bytes."
     code := Impl.Poly1305.X86_64.finalize
     contract := Spec.Poly1305.finalizeTailContract X86_64.abi
     verified := Proof.Poly1305.X86_64.Shared.finalize }]
