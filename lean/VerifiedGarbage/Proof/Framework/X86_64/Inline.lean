@@ -260,13 +260,6 @@ theorem Exec.widen {c : Prog isa} {s s' : State} {t : List Leak} {rd wr : List R
     obtain ⟨r₁, w₁, -⟩ := Exec.regions h₁
     exact .loopNext (ih₁ hc hw) ((eval_withRegions _ _ _ _).trans ‹_›) (ih₂ (by rwa [r₁, w₁]) (by rwa [w₁]))
 
-/-- The instructions of structured code. -/
-def instrs {I C : Type} : Code I C → List I
-  | .block is => is
-  | .seq a b => instrs a ++ instrs b
-  | .ite _ t e => instrs t ++ instrs e
-  | .loop b _ => instrs b
-
 theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.dstOf i ≠ some r) {s s' : State}
     (h : exec i s = some s') : s'.gpr r = s.gpr r := by
   cases hd : Taint.dstOf i with

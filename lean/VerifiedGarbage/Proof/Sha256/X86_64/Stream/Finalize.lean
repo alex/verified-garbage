@@ -663,7 +663,9 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
       (by rw [flat_length _ _ le_rfl]; omega)
     have e' : bytesAt (writeBytes sD.mem (out s₀) (((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes))
         (out s₀) 32 = ((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes := by
-      rw [flat_length _ _ le_rfl] at e; simpa [bytesAt] using e
+      rw [flat_length _ _ le_rfl, show out s₀ + BitVec.ofNat 64 0 = out s₀ by simp,
+        show bytesAt sD.mem (out s₀) 0 = [] from rfl, List.nil_append] at e
+      exact e
     rw [← h.mem] at e'
     rw [e', hD.2 m ⟨hm, hc⟩, List.take_of_length_le (by simp)]
 

@@ -20,7 +20,8 @@ open VG.Spec.Sha256 (HashValue stateAt blockAt compressBlocks compress parseBloc
 /-! ## The inlined compression function -/
 
 theorem compress_keeps : ((instrs Impl.Sha256.X86_64.compress).all fun i =>
-    Taint.dstOf i != some .rdi && Taint.dstOf i != some .rcx) = true := by decide +kernel
+    Taint.dstOf i != some .rdi && Taint.dstOf i != some .rcx) = true := by
+  rw [← Code.allInstrs_eq]; decide +kernel
 
 theorem compress_keeps_rdi : ∀ i ∈ instrs Impl.Sha256.X86_64.compress, Taint.dstOf i ≠ some .rdi := by
   intro i hi

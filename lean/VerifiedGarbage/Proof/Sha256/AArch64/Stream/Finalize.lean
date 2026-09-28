@@ -635,7 +635,9 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
       (by rw [flat_length _ _ le_rfl]; omega)
     have e' : bytesAt (writeBytes sD.mem (out s₀) (((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes))
         (out s₀) 32 = ((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes := by
-      rw [flat_length _ _ le_rfl] at e; simpa [bytesAt] using e
+      rw [flat_length _ _ le_rfl, show out s₀ + BitVec.ofNat 64 0 = out s₀ by simp,
+        show bytesAt sD.mem (out s₀) 0 = [] from rfl, List.nil_append] at e
+      exact e
     rw [← h.mem, ← hmem] at e'
     rw [e', hD.2 m ⟨hr, hc⟩, List.take_of_length_le (by simp)]
 
@@ -659,7 +661,7 @@ theorem out_all {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) 
 /-- No instruction of `finalize` writes the callee-saved registers it does not save. -/
 theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs finalize, dstOf i ≠ some r := by
   have : ((instrs finalize).all fun i => untouched.all fun r => dstOf i != some r) = true := by
-    decide +kernel
+    rw [← Code.allInstrs_eq]; decide +kernel
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this
