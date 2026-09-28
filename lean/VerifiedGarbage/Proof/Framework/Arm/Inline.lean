@@ -46,7 +46,7 @@ theorem Covers.of_sub {rs rs' : List Region}
 
 /-- The register an instruction writes, if any. -/
 def dstOf : Instr → Option Reg
-  | .mov d _ | .dp _ d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _ | .ldr d _ _
+  | .mov d _ | .dp _ d _ _ | .adds d _ _ | .adc d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _ | .ldr d _ _
   | .ldrb d _ _ | .ldrSp d _ => some d
   | .cmp .. | .str .. | .strb .. => none
 
@@ -58,6 +58,9 @@ variable {s s' : State} {rd wr : List Region}
 
 theorem setReg_withRegions (d : Reg) (v : BitVec 32) :
     (s.withRegions rd wr).setReg d v = (s.setReg d v).withRegions rd wr := rfl
+
+theorem addFlags_withRegions (x y : BitVec 32) :
+    addFlags (s.withRegions rd wr) x y = (addFlags s x y).withRegions rd wr := rfl
 
 theorem subFlags_withRegions (x y : BitVec 32) :
     subFlags (s.withRegions rd wr) x y = (subFlags s x y).withRegions rd wr := rfl
