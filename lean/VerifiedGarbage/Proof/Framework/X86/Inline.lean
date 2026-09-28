@@ -54,7 +54,7 @@ theorem Covers.push {xs ys xs' ys' : List Region} (f : Region) (h : Covers (xs +
   (InRegions_append_cons.mp hi).elim (fun hc => InRegions_append_cons.mpr (.inl hc))
     fun hi => InRegions_append_cons.mpr (.inr (h a n hi))
 
-/-- The register an instruction may write, if any. -/
+/-- The register an instruction may write, if it writes exactly one (see `Taint.clobbers`). -/
 abbrev dstOf : Instr → Option Reg := Taint.dst
 
 section
@@ -105,6 +105,7 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     subst h
     simp only [State.withRegions_wr, State.withRegions_gpr, State.withRegions_ea, hw _ _ hi, ite_true]
     rfl
+  | mul r => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
   | push _ | pop _ _ => simp only [exec, reduceCtorEq] at h
 
 theorem addrs_withRegions (i : Instr) (s : State) (rd wr : List Region) :
@@ -137,12 +138,13 @@ theorem exec_regions {i : Instr} (h : exec i s = some s') :
   | movzx8 d m =>
     simp only [exec, Option.map_eq_some_iff] at h
     obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl, Frame.refl _ _⟩
+  | mul r => simp only [exec, Option.some.injEq] at h; subst h; exact ⟨rfl, rfl, Frame.refl _ _⟩
   | push _ | pop _ _ => simp only [exec, reduceCtorEq] at h
 
-theorem exec_gpr {i : Instr} {r : Reg} (hi : dstOf i ≠ some r) (h : exec i s = some s') :
+theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.clobbers i r = false) (h : exec i s = some s') :
     s'.gpr r = s.gpr r := by
   cases hd : Taint.dst i with
-  | some d => exact (Taint.exec_dst hd h).2.2 r fun e => hi (e ▸ hd)
+  | some d => exact (Taint.exec_dst hd h).2.2 r fun e => Taint.dst_ne_of_clobbers hi (e ▸ hd)
   | none =>
     cases i with
     | store m r' | store8 m r' =>
@@ -150,6 +152,10 @@ theorem exec_gpr {i : Instr} {r : Reg} (hi : dstOf i ≠ some r) (h : exec i s =
       split at h <;> [skip; cases h]
       simp only [Option.some.injEq] at h
       subst h; rfl
+    | mul q =>
+      simp only [Taint.clobbers, Bool.or_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at hi
+      simp only [exec, Option.some.injEq] at h; subst h
+      exact Taint.execMul_gpr q s hi.1 hi.2
     | push _ | pop _ _ => simp only [exec, reduceCtorEq] at h
     | _ => simp [Taint.dst] at hd
 
@@ -399,7 +405,7 @@ def instrs {I C : Type} : Code I C → List I
   | .call _ b => instrs b
   | .frame i b j => i :: instrs b ++ [j]
 
-theorem execBlock_gpr {is : List Instr} {r : Reg} (hc : ∀ i ∈ is, dstOf i ≠ some r)
+theorem execBlock_gpr {is : List Instr} {r : Reg} (hc : ∀ i ∈ is, Taint.clobbers i r = false)
     {s s' : State} {t : List Leak} (h : execBlock isa is s = some (s', t)) : s'.gpr r = s.gpr r := by
   induction is generalizing s t with
   | nil =>
@@ -417,7 +423,7 @@ theorem execBlock_gpr {is : List Instr} {r : Reg} (hc : ∀ i ∈ is, dstOf i �
       exec_gpr (hc i (List.mem_cons_self ..)) he]
 
 /-- A register that no instruction writes keeps its value. -/
-theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, dstOf i ≠ some r)
+theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, Taint.clobbers i r = false)
     {s s' : State} {t : List Leak} (h : Exec isa c s t s') : s'.gpr r = s.gpr r := by
   induction h with
   | block h => exact execBlock_gpr hc h
@@ -446,12 +452,13 @@ theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, dstOf i ≠ 
       have : k = k' := by omega
       subst this
       rw [e₃, hb, e₁, BitVec.sub_add_cancel]
-    · rw [g₂ r hrs (hc _ (by simp [instrs])), hb, g₁ r hrs]
+    · rw [g₂ r hrs (Taint.dst_ne_of_clobbers (hc _ (by simp [instrs]))), hb, g₁ r hrs]
 
 /-- A register that no instruction writes keeps its value, as a
 postcondition. -/
 theorem WP.gpr {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s Q) {r : Reg}
-    (hc : ∀ i ∈ instrs c, dstOf i ≠ some r) : WP isa c s fun s' => Q s' ∧ s'.gpr r = s.gpr r := by
+    (hc : ∀ i ∈ instrs c, Taint.clobbers i r = false) :
+    WP isa c s fun s' => Q s' ∧ s'.gpr r = s.gpr r := by
   obtain ⟨t, s', he, hq⟩ := h
   exact ⟨t, s', he, hq, Exec.gpr hc he⟩
 
@@ -466,7 +473,7 @@ theorem WP.inline {c : Prog isa} {k : Contract isa}
     {s : State} {rd wr : List Region} (hpre : k.pre (s.withRegions rd wr))
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → abiPreserved s s' → Frame wr s.mem s'.mem →
-      (∀ r, (∀ i ∈ instrs c, dstOf i ≠ some r) → s'.gpr r = s.gpr r) →
+      (∀ r, (∀ i ∈ instrs c, Taint.clobbers i r = false) → s'.gpr r = s.gpr r) →
       k.post (s.withRegions rd wr) (s'.withRegions rd wr) → Q s')
     (hn : c.noCalls = true := by decide +kernel) : WP isa c s Q := by
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre

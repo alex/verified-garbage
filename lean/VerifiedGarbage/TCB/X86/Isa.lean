@@ -26,7 +26,10 @@ Modelling choices:
   regions: loads within `rd ++ wr`, stores within `wr`; otherwise the
   instruction faults. Memory is little-endian.
 * Instructions whose timing depends on their operands (e.g. `div`) must never
-  be added: the constant-time leakage model assumes they do not exist.
+  be added: the constant-time leakage model assumes they do not exist. `mul`
+  is one of the instructions whose timing Intel documents as independent of
+  their data operands ("Data Operand Independent Timing Instruction Set
+  Architecture (ISA) Guidance", which lists `MUL`).
 * Calls (`call`) and returns (`ret`) are near and direct (SDM Vol. 2, "CALL",
   "RET"). The return addresses are the next of the state's `unknowns`,
   which nothing constrains (see `TCB/Code.lean`).
@@ -106,6 +109,8 @@ inductive Instr
   /-- `pop r`, `k` times: the pop of a frame of `4 * k` bytes (see `pop`);
   `k > 0`, and `r` is not `esp` -/
   | pop (r : Reg) (k : Nat)
+  /-- `mul r32` (F7 /4): the unsigned product `EDX:EAX := EAX * r32`. -/
+  | mul (src : Reg)
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`jcc` suffixes). -/
@@ -222,6 +227,17 @@ DEST[23:16] := TEMP[15:8]; DEST[31:24] := TEMP[7:0]`. No flags are affected. -/
 def bswap (a : BitVec 32) : BitVec 32 :=
   a.extractLsb' 0 8 ++ a.extractLsb' 8 8 ++ a.extractLsb' 16 8 ++ a.extractLsb' 24 8
 
+/-- SDM Vol. 2, "MUL—Unsigned Multiply", for a 32-bit operand: `EDX:EAX :=
+EAX ∗ SRC` (the 64-bit product of the unsigned operands, its high half in
+EDX and its low half in EAX). "The OF and CF flags are set to 0 if the upper
+half of the result is 0; otherwise, they are set to 1. The SF, ZF, AF, and PF
+flags are undefined." (AF and PF are not modelled.) -/
+def execMul (src : Reg) (s : State) : State :=
+  let p := (s.gpr .eax).toNat * (s.gpr src).toNat
+  let hi : BitVec 32 := BitVec.ofNat 32 (p / 2 ^ 32)
+  ((s.setFlags (some (hi != 0)) (some (hi != 0)) none none).setReg .eax (BitVec.ofNat 32 p)).setReg
+    .edx hi
+
 /-- Semantics of an instruction. The byte forms: SDM Vol. 2, "MOVZX":
 `DEST := ZeroExtend(SRC)`, and "MOV": `DEST := SRC`, where the source of a
 byte store is the low byte of `eax`, `ecx`, `edx` or `ebx` (AL, CL, DL, BL;
@@ -234,6 +250,7 @@ def exec : Instr → State → Option State
   | .bswap d, s => some (s.setReg d (bswap (s.gpr d)))
   | .movzx8 d m, s => (s.load8 (s.ea m)).map fun v => s.setReg d (v.setWidth 32)
   | .store8 m r, s => s.store8 (s.ea m) ((s.gpr r.reg).setWidth 8)
+  | .mul r, s => some (execMul r s)
   -- Only the push and pop of a frame (`push`, `pop`).
   | .push _, _ | .pop .., _ => none
 
@@ -245,6 +262,7 @@ def addrs : Instr → State → List Addr
   | .bswap _, _ => []
   | .movzx8 _ m, s => [s.ea m]
   | .store8 m _, s => [s.ea m]
+  | .mul _, _ => []
   | .push rs, s => (List.range rs.length).map fun i =>
     (s.gpr .esp - BitVec.ofNat 32 (4 * (i + 1))).setWidth 64
   | .pop _ k, s => (List.range k).map fun i =>
@@ -320,11 +338,12 @@ def pop : Instr → State → State → Option State
     else none
   | _, _, _ => none
 
-/-- The register an instruction writes, if any (the pop of a frame also
-moves `esp`, as the push does). -/
+/-- The register an instruction writes, if it writes exactly one (the pop of
+a frame also moves `esp`, as the push does): `mul` writes two, `eax` and
+`edx`, and stores none. -/
 def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .shift _ d _ | .bswap d | .movzx8 d _ | .pop d _ => some d
-  | .store .. | .store8 .. | .push _ => none
+  | .store .. | .store8 .. | .push _ | .mul _ => none
 
 abbrev isa : ISA where
   State := State
@@ -337,7 +356,8 @@ abbrev isa : ISA where
   callAddrs s := [(s.gpr .esp - 4).setWidth 64]
   ret := ret
   retAddrs s := [(s.gpr .esp).setWidth 64]
-  -- Other than as the push and pop of a frame.
+  -- Other than as the push and pop of a frame. `mul` writes `eax` and `edx`,
+  -- never `esp`.
   writesSp i := i.dst == some .esp
   push := push
   pop := pop

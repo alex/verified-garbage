@@ -48,6 +48,7 @@ def Instr.asm : Instr → List String
   | .store8 m r => [s!"mov {m.str8}, {r.name}"]
   | .push rs => rs.map fun r => s!"push {r.name}"
   | .pop r k => List.replicate k s!"pop {r.name}"
+  | .mul r => [s!"mul {r.name}"]
 
 def Cond.name : Cond → String
   | .e => "e" | .ne => "ne" | .b => "b" | .ae => "ae"
