@@ -210,11 +210,11 @@ theorem Saved.frame {s₀ : State} {rs : List Region} {m m' : Mem} (h : Saved s�
 def kept : List Reg := [.rsi, .rsp]
 
 theorem block_keeps : ((instrs Impl.ChaCha20.X86_64.block).all fun i =>
-    kept.all fun r => Taint.dstOf i != some r) = true := by
+    kept.all fun r => !Taint.clobbers i r) = true := by
   rw [← Code.allInstrs_eq]; decide +kernel
 
 theorem block_keeps_reg {r : Reg} (hr : r ∈ kept) :
-    ∀ i ∈ instrs Impl.ChaCha20.X86_64.block, Taint.dstOf i ≠ some r := by
+    ∀ i ∈ instrs Impl.ChaCha20.X86_64.block, Taint.clobbers i r = false := by
   intro i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp block_keeps i hi) r hr
   simpa using this
