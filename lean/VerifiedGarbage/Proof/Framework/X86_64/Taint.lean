@@ -158,6 +158,13 @@ def aluStep (τ : T) (op : AluOp) (d : Reg) (src : Src) : Option T :=
     some { τ with regs := if writes op then set τ d p else τ.regs, flags := p, bases := kill τ d }
   else none
 
+/-- `mul r`: `rax`, `rdx` and the flags are functions of the old `rax` and
+`r` (SF and ZF become undefined in both runs). -/
+def mulStep (τ : T) (r : Reg) : T :=
+  let p := pub τ .rax && pub τ r
+  { τ with regs := if p then (τ.regs.insert .rax).insert .rdx else (τ.regs.erase .rax).erase .rdx,
+           flags := p, bases := (kill τ .rax).filter (·.1 != .rdx) }
+
 def step (τ : T) : Instr → Option T
   | .mov d src =>
     if srcOk τ src then
@@ -191,6 +198,7 @@ def step (τ : T) : Instr → Option T
   | .stmxcsr m => storeStep τ m 4 false
   | .ldmxcsr m => if memPub τ m then some τ else none
   | .lfence => some τ
+  | .mul r => some (mulStep τ r)
 
 def meet (τ₁ τ₂ : T) : T where
   regs := τ₁.regs.inter τ₂.regs
@@ -628,12 +636,13 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {m : 
 
 /-! ### Instructions that write a register -/
 
-/-- The register an instruction writes (none for stores). -/
+/-- The general-purpose register an instruction writes, if it writes exactly
+one (none for stores and SSE instructions, and for `mul`, which writes two). -/
 def dstOf : Instr → Option Reg
   | .mov d _ | .mov32 d _ | .alu _ d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
   | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ | .vop _
-  | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .stmxcsr _ | .ldmxcsr _ | .lfence => none
+  | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .stmxcsr _ | .ldmxcsr _ | .lfence | .mul _ => none
 
 /-- An SSE instruction on registers changes only the SSE registers. -/
 theorem XOp.exec_eq (op : XOp) (s : State) : op.exec s = { s with xmm := (op.exec s).xmm } := by
@@ -648,6 +657,12 @@ theorem VOp.exec_eq (op : VOp) (s : State) :
 theorem Agree.withXmm {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) (x₁ x₂ : XReg → BitVec 128) :
     Agree τ { s₁ with xmm := x₁ } { s₂ with xmm := x₂ } :=
   ha.keep ha.rf rfl rfl rfl rfl rfl rfl ha.wf₁.2 ha.wf₂.2
+
+/-- Whether an instruction may write the general-purpose register `r`. -/
+def clobbers (i : Instr) (r : Reg) : Bool :=
+  match i with
+  | .mul _ => r == .rax || r == .rdx
+  | _ => dstOf i == some r
 
 /-- Changing only the vector registers, which the analysis does not track. -/
 theorem Agree.withVec {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) (x₁ x₂ y₁ y₂ : XReg → BitVec 128) :
@@ -714,6 +729,39 @@ theorem Agree.write {τ τ' : T} {i : Instr} {d : Reg} (hd : dstOf i = some d) {
   obtain ⟨-, hw₂, hm₂, hg₂⟩ := exec_nonstore hd e₂
   exact ha.keep hrf hl hs hw₁ hw₂ hm₁ hm₂ (fun p h => kill_bases ha.wf₁ hw₁ hg₁ p (hb p h))
     (fun p h => kill_bases ha.wf₂ hw₂ hg₂ p (hb p h))
+
+theorem execMul_gpr (r : Reg) (s : State) {q : Reg} (h₁ : q ≠ .rax) (h₂ : q ≠ .rdx) :
+    (execMul r s).gpr q = s.gpr q := by
+  simp [execMul, State.setReg, State.setFlags, h₁, h₂]
+
+theorem mul_bases {τ : T} {s : State} (hw : Wf τ s) (r : Reg) :
+    ∀ p ∈ (kill τ .rax).filter (·.1 != .rdx),
+      (execMul r s).gpr p.1 = (region (execMul r s) p.2).base := by
+  intro p hp
+  simp only [kill, List.mem_filter, bne_iff_ne, ne_eq] at hp
+  rw [execMul_gpr r s hp.1.2 hp.2, hw.2 p hp.1.1]; rfl
+
+theorem Agree.mul {τ : T} {r : Reg} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) :
+    Agree (mulStep τ r) (execMul r s₁) (execMul r s₂) := by
+  refine ha.keep ⟨fun q hq => ?_, fun hp => ?_⟩ rfl rfl rfl rfl rfl rfl (mul_bases ha.wf₁ r)
+    (mul_bases ha.wf₂ r)
+  · simp only [mulStep] at hq
+    by_cases hp : (pub τ .rax && pub τ r) = true
+    · have hp' := hp
+      simp only [Bool.and_eq_true] at hp'
+      have e₁ := ha.reg hp'.1
+      have e₂ := ha.reg hp'.2
+      simp only [hp, ite_true, RegSet.mem_insert] at hq
+      by_cases h₁ : q = .rax
+      · subst h₁; simp [execMul, State.setReg, State.setFlags, e₁, e₂]
+      by_cases h₂ : q = .rdx
+      · subst h₂; simp [execMul, State.setReg, State.setFlags, e₁, e₂]
+      simp only [h₁, h₂, false_or] at hq
+      rw [execMul_gpr r s₁ h₁ h₂, execMul_gpr r s₂ h₁ h₂]; exact ha.rf.1 q hq
+    · simp only [hp, Bool.false_eq_true, ite_false, RegSet.mem_erase] at hq
+      rw [execMul_gpr r s₁ hq.2.1 hq.1, execMul_gpr r s₂ hq.2.1 hq.1]; exact ha.rf.1 q hq.2.2
+  · simp only [mulStep, Bool.and_eq_true] at hp
+    simp [execMul, State.setReg, State.setFlags, ha.reg hp.1, ha.reg hp.2]
 
 theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha : Agree τ s₁ s₂)
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
@@ -960,6 +1008,12 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     simp only [exec, Option.some.injEq] at e₁ e₂
     subst e₁ e₂
     exact ⟨regs_set (p := true) ha.rf.1 fun _ => rfl, by simpa using ha.rf.2⟩
+  | mul r =>
+    simp only [step, Option.some.injEq] at hs
+    subst hs
+    simp only [exec, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    exact ⟨rfl, ha.mul⟩
 
 theorem cond_sound {τ : T} {c : Cond} {s₁ s₂ : State} (ha : Agree τ s₁ s₂)
     (hc : τ.flags = true) : eval c s₁ = eval c s₂ := by

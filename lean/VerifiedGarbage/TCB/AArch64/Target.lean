@@ -14,9 +14,14 @@ must be unchanged on exit. `x18` is the platform register (reserved on Apple
 platforms and Windows), which the model does not have (see `TCB/AArch64/Isa.lean`),
 so no code can modify it.
 
-Not modelled: the SIMD and floating-point registers (never modified; the
-low 64 bits of `v8`–`v15` are callee-saved), the condition flags (never
-modified) and memory below `sp` (never granted to a function).
+The SIMD and floating-point registers `v0`–`v7` and `v16`–`v31` are
+caller-saved (AAPCS64 §6.1.2), so `abiPreserved` says nothing about them.
+The low 64 bits of `v8`–`v15` are callee-saved, and the model does not have
+those registers (see `TCB/AArch64/Isa.lean`), so no code can modify them.
+
+Not modelled: the condition flags (never modified), FPCR and FPSR (no
+modelled instruction reads or writes them) and memory below `sp` (never
+granted to a function).
 -/
 
 namespace VG.AArch64

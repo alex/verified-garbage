@@ -51,7 +51,8 @@ never import proofs.
 2. **Impl** — `Impl/<Alg>/<Target>.lean` defines the code as a `Prog`.
 3. **Proof** — `Proof/<Alg>/…` proves `Verified target code contract`:
    termination without faults (hence memory safety), the postcondition,
-   the ABI obligations (callee-saved registers etc.), constant time, and
+   the ABI obligations (callee-saved registers etc.), constant time (up to
+   anything the contract declares the function may leak), and
    satisfiability of the precondition.
 4. **Registry** — `Artifacts.lean` lists every `Artifact`, bundling target,
    Rust name and signature, code, contract and proof. An `Artifact` cannot be
