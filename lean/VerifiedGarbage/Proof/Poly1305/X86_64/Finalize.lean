@@ -481,17 +481,17 @@ theorem finalize_correct {s₀ : State} (hp : FPre s₀) :
     simp only [decide_eq_false_iff_not] at h
     exact lastBlock_ok hp hm h₁ (Nat.pos_of_ne_zero h)
 
-/-- A state satisfying the precondition. -/
+/-- A state satisfying the precondition (with 128 bytes of working space at `rcx`). -/
 def finalizeSat : State where
   gpr r := match r with
-    | .rdi => 0x1000 | .rdx => 0x3000 | .rsp => 0x4000 | _ => 0
+    | .rdi => 0x1000 | .rdx => 0x3000 | .rcx => 0x5000 | .rsp => 0x4000 | _ => 0
   cf := none
   zf := none
   sf := none
   of := none
   mem _ := 0
   rd := []
-  wr := [⟨0x1000, 128⟩, ⟨0x3000, 16⟩]
+  wr := [⟨0x1000, 128⟩, ⟨0x3000, 16⟩, ⟨0x5000, 128⟩]
 
 theorem finalize_verified :
     Verified X86_64.target Impl.Poly1305.X86_64.finalize Proof.Poly1305.finalizeX86_64 := by

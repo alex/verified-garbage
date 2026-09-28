@@ -690,17 +690,17 @@ theorem update_correct {s₀ : State} (hp : UPre s₀) :
   refine WP.seq (WP.mono (whole_ok hp h₂) fun s₃ h₃ => ?_)
   exact WP.seq (WP.mono (rest_ok hp h₃) fun s₄ h₄ => uepilogue_ok hp h₄)
 
-/-- A state satisfying the precondition (with no data). -/
+/-- A state satisfying the precondition (with no data, and 128 bytes of working space\nat `r8`). -/
 def updateSat : State where
   gpr r := match r with
-    | .rdi => 0x1000 | .rdx => 0x2000 | .rsp => 0x4000 | _ => 0
+    | .rdi => 0x1000 | .rdx => 0x2000 | .rsp => 0x4000 | .r8 => 0x5000 | _ => 0
   cf := none
   zf := none
   sf := none
   of := none
   mem _ := 0
   rd := [⟨0x2000, 0⟩]
-  wr := [⟨0x1000, 128⟩]
+  wr := [⟨0x1000, 128⟩, ⟨0x5000, 128⟩]
 
 theorem update_verified :
     Verified X86_64.target Impl.Poly1305.X86_64.update Proof.Poly1305.updateX86_64 := by
@@ -712,7 +712,7 @@ theorem update_verified :
     refine Taint.agree_ofRegs fun r hr => ?_
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
-  · refine ⟨updateSat, rfl, List.mem_singleton_self _, ?_, ?_⟩ <;>
+  · refine ⟨updateSat, rfl, List.mem_cons_self, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, updateSat] at h₁ h₂
       bv_omega

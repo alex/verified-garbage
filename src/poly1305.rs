@@ -7,7 +7,8 @@
 //! absorbed so far, with the message's last bytes that do not fill a block
 //! buffered in it (`VG.Spec.Poly1305.Buffered`), and compute the tag. This
 //! module only keeps that state together with the message length (modulo
-//! 2⁶⁴), which the contracts take as an argument.
+//! 2⁶⁴), which the contracts take as an argument, and gives them working
+//! space (`scratch`).
 //!
 //! A key must be used to authenticate only one message: the tags of two
 //! messages under the same key reveal enough to forge others.
@@ -15,7 +16,7 @@
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
 #[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::poly1305::{vg_poly1305_blocks, vg_poly1305_finalize, vg_poly1305_init};
+use crate::asm::aarch64::poly1305::{vg_poly1305_finalize, vg_poly1305_init, vg_poly1305_update};
 #[cfg(target_arch = "x86_64")]
 use crate::asm::x86_64::poly1305::{vg_poly1305_finalize, vg_poly1305_init, vg_poly1305_update};
 
@@ -45,23 +46,35 @@ impl Poly1305 {
 
     /// Absorbs `data`.
     pub fn update(&mut self, data: &[u8]) {
-        // SAFETY: `self.state` is valid for reads and writes of 128 bytes and
-        // `data` for reads of `data.len()` bytes; they are distinct objects,
-        // so they do not overlap each other or the return address, and `data`
-        // does not wrap around the end of the address space. `self.state`
-        // represents a message of `self.count` bytes, modulo 2⁶⁴.
-        unsafe { vg_poly1305_update(&mut self.state, self.count, data.as_ptr(), data.len()) };
+        let mut scratch = [0u64; 16];
+        // SAFETY: `self.state` and `scratch` are valid for reads and writes of
+        // 128 bytes and `data` for reads of `data.len()` bytes; they are
+        // distinct objects, so they do not overlap each other or the return
+        // address, and `data` does not wrap around the end of the address
+        // space. `self.state` represents a message of `self.count` bytes,
+        // modulo 2⁶⁴.
+        unsafe {
+            vg_poly1305_update(
+                &mut self.state,
+                self.count,
+                data.as_ptr(),
+                data.len(),
+                &mut scratch,
+            )
+        };
         self.count = self.count.wrapping_add(data.len() as u64);
     }
 
     /// Returns the tag of everything absorbed.
     pub fn finalize(mut self) -> [u8; 16] {
         let mut tag = [0; 16];
-        // SAFETY: `self.state` is valid for reads and writes of 128 bytes and
-        // `tag` for writes of 16 bytes; they are distinct objects, so they do
-        // not overlap each other or the return address. `self.state`
-        // represents a message of `self.count` bytes, modulo 2⁶⁴.
-        unsafe { vg_poly1305_finalize(&mut self.state, self.count, &mut tag) };
+        let mut scratch = [0u64; 16];
+        // SAFETY: `self.state` and `scratch` are valid for reads and writes of
+        // 128 bytes and `tag` for writes of 16 bytes; they are distinct
+        // objects, so they do not overlap each other or the return address.
+        // `self.state` represents a message of `self.count` bytes, modulo
+        // 2⁶⁴.
+        unsafe { vg_poly1305_finalize(&mut self.state, self.count, &mut tag, &mut scratch) };
         tag
     }
 
