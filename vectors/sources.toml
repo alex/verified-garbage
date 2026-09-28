@@ -31,3 +31,17 @@ directories = ["rfc7914"]
 url = "https://www.rfc-editor.org/rfc/rfc7914.txt"
 sha256 = "df55932f8b6a5d271f36a634d91a25903724e189ba6c120bf7257cd47f10b197"
 retrieved = 2026-09-28
+
+[[source]]
+name = "NIST CAVP AES Known Answer Test (KAT) vectors (the ECB GFSbox, KeySbox, VarKey and VarTxt .rsp files only)"
+directories = ["nist-cavp/aes"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/aes/KAT_AES.zip"
+sha256 = "a203b16c9246b2ebae31dee5de21a606be80cf78ceabaca37150236fa098eb60"
+retrieved = 2026-09-28
+
+[[source]]
+name = "NIST CAVP GCM test vectors (every .rsp file: encryption with an external IV, and decryption)"
+directories = ["nist-cavp/gcm"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/mac/gcmtestvectors.zip"
+sha256 = "f9fc479e134cde2980b3bb7cddbcb567b2cd96fd753835243ed067699f26a023"
+retrieved = 2026-09-28

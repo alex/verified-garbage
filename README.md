@@ -24,6 +24,7 @@ It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
 | Poly1305 | ✅ | ❌ | ❌ |
 | SHA-1 | ✅ | x86-64, ARM64 | ❌ |
 | MD5 | ✅ | x86-64, ARM64 | ❌ |
+| AES-GCM (128-, 192- and 256-bit keys) | ✅ | ❌ | ❌ |
 
 * **Spec landed**: the algorithm's specification, transcribed from its
   standard, is in `lean/VerifiedGarbage/Spec/`.
