@@ -352,6 +352,7 @@ fn chacha20poly1305(c: &mut Criterion) {
     g.finish();
 }
 
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn chacha20poly1305(_: &mut Criterion) {}
 
 criterion_group!(
