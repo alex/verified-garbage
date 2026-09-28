@@ -73,3 +73,11 @@ CI checks every proof, that `src/asm/` is exactly what Lean generates, and the
 import discipline of the Lean directories (`ci/check_lean_imports.py`); it
 builds and runs the Rust tests natively on each target architecture, and
 requires 100% line coverage of the Rust code, merged across all of them.
+
+## Credits
+
+This project is inspired by:
+
+- [Graviola](https://github.com/ctz/graviola/)
+- [s2n-bignum](https://github.com/awslabs/s2n-bignum)
+- [Bobby Powers](https://bpowers.net/)
