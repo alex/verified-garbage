@@ -4,7 +4,7 @@
 //! nonce sizes (all of whose vectors are invalid) are checked to be
 //! unrepresentable rather than run.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 
 use serde::Deserialize;
 use verified_garbage::chacha20poly1305::{ChaCha20Poly1305, InvalidTag};
