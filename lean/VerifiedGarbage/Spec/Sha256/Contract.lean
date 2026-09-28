@@ -14,6 +14,11 @@ the postconditions and which other arguments are public. `update` and
 `finalize` may overwrite their arguments passed in memory, where the calling
 convention allows it (`writeArgs`), to pass arguments to the code they
 inline.
+
+`update` and `finalize` take the number of bytes of stack below the stack pointer that
+an implementation's calls use (`stack`, see `Sig.contract`), 0 for one that
+makes no call: it depends on the target, and on which functions the
+implementation calls.
 -/
 
 namespace VG.Spec.Sha256
@@ -47,11 +52,12 @@ def updateSig : Sig where
 /-- If the streaming state at `state` represents a message `msg` of `count`
 bytes (modulo 2⁶⁴), then afterwards it represents `msg` followed by the `len`
 bytes at `data`. The state and the data are secret. -/
-def updateContract {M : ISA} (A : Abi M) : Contract M :=
+def updateContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   updateSig.contract A (post := fun state count data len _scratch m m' _ =>
     ∀ msg, Repr m state msg → count = BitVec.ofNat 64 msg.length →
       Repr m' state (msg ++ bytesAt m data len.toNat))
     (writeArgs := true)
+    (stack := stack)
 
 /-- `vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
@@ -63,9 +69,10 @@ def finalizeSig : Sig where
 /-- If the streaming state at `state` represents a message `msg` of `count`
 bytes (modulo 2⁶⁴), writes the SHA-256 digest of `msg` to `out`. The state is
 secret. -/
-def finalizeContract {M : ISA} (A : Abi M) : Contract M :=
+def finalizeContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   finalizeSig.contract A (post := fun state count out _scratch m m' _ =>
     ∀ msg, Repr m state msg → count = BitVec.ofNat 64 msg.length → bytesAt m' out 32 = hash msg)
     (writeArgs := true)
+    (stack := stack)
 
 end VG.Spec.Sha256

@@ -96,8 +96,10 @@ def abi : Abi isa where
     some fun s => (classify ws 0 0).1.map (Loc.val s) else none
   argArea ws s := let n := (classify ws 0 0).2
     if n = 0 then [] else [(⟨stackArgAddr s 0, n⟩, false)]
-  reserved _ := []
-  wf ws s := s.sp.toNat + (classify ws 0 0).2 ≤ 2 ^ 32
+  reserved n s := stackBelow (State.addr s.sp) n
+  wf ws n s := match n with
+    | 0 => s.sp.toNat + (classify ws 0 0).2 ≤ 2 ^ 32
+    | n => n ≤ s.sp.toNat ∧ s.sp.toNat + (classify ws 0 0).2 ≤ 2 ^ 32
   pub s₁ s₂ := s₁.sp = s₂.sp
   mem s := s.mem
   rd s := s.rd

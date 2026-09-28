@@ -12,6 +12,11 @@ The signatures fix where the arguments are, the memory each function may
 access, disjointness, and that the pointers and lengths are public (see
 `TCB/Sig.lean`); the contracts add the postconditions and which other
 arguments are public.
+
+`update` and `finalize` take the number of bytes of stack below the stack pointer that
+an implementation's calls use (`stack`, see `Sig.contract`), 0 for one that
+makes no call: it depends on the target, and on which functions the
+implementation calls.
 -/
 
 namespace VG.Spec.Sha512
@@ -48,10 +53,11 @@ def updateSig : Sig where
 bytes (modulo 2⁶⁴), hashed from any initial hash value, then afterwards it
 represents `msg` followed by the `len` bytes at `data`, from the same one.
 The state and the data are secret. -/
-def updateContract {M : ISA} (A : Abi M) : Contract M :=
+def updateContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   updateSig.contract A (post := fun state count data len _scratch m m' _ =>
     ∀ iv msg, Repr iv m state msg → count = BitVec.ofNat 64 msg.length →
       Repr iv m' state (msg ++ bytesAt m data len.toNat))
+    (stack := stack)
 
 /-- `vg_sha512_finalize(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 28])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
@@ -65,9 +71,10 @@ bytes, fewer than 2⁶⁴, hashed from the initial hash value `iv`, writes the
 final hash value `H⁽ᴺ⁾` of `msg` from `iv` (64 bytes; `finalHash iv msg`) to
 `out`. The digest of SHA-384, SHA-512/224 or SHA-512/256 is its first 48,
 28 or 32 bytes. The state is secret. -/
-def finalizeContract {M : ISA} (A : Abi M) : Contract M :=
+def finalizeContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   finalizeSig.contract A (post := fun state count out _scratch m m' _ =>
     ∀ iv msg, Repr iv m state msg → msg.length < 2 ^ 64 → count = BitVec.ofNat 64 msg.length →
       bytesAt m' out 64 = finalHash iv msg)
+    (stack := stack)
 
 end VG.Spec.Sha512
