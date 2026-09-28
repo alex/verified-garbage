@@ -5,7 +5,7 @@ import VerifiedGarbage.Spec.Pbkdf2
 # Known-answer tests for the PBKDF2 specification
 
 The PBKDF2-HMAC-SHA-256 vectors of Section 11 of RFC 7914, read from the
-vendored `vectors/rfc7914/rfc7914.txt` (see `vectors/sources.toml`) when this
+vendored `vectors/rfc7914/rfc7914.txt` (see `vectors/sources/`) when this
 file is built and checked against `VG.Spec.Pbkdf2.pbkdf2HmacSha256`, so that a
 transcription error in the spec fails the build. Only the vector with one
 iteration is evaluated (the other has 80000, which evaluating the spec

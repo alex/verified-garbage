@@ -5,7 +5,7 @@ import VerifiedGarbage.Spec.Gcm
 # Known-answer tests for the GCM specification
 
 NIST CAVP AES-GCM vectors, read from the vendored response files under
-`vectors/nist-cavp/gcm/` (see `vectors/sources.toml`) when this file is
+`vectors/nist-cavp/gcm/` (see `vectors/sources/`) when this file is
 built and checked against `VG.Spec.Gcm.aesGcmEncrypt` and
 `VG.Spec.Gcm.aesGcmDecrypt`, so that a transcription error in the spec
 fails the build.

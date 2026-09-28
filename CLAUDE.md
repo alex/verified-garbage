@@ -33,9 +33,9 @@ trustworthy. Read `lean/README.md` first.
   `// NO-COVERAGE-START` and `// NO-COVERAGE-END`, with a comment saying why.
 * **Known-answer tests need clear provenance.** Never type test vectors into
   a test. Use Wycheproof (`tests/wycheproof/`), or vendor the published
-  files byte for byte into a directory under `vectors/`, with a `[[source]]`
-  for that directory in `vectors/sources.toml` saying where they came from
-  (`ci/check_vectors.py` checks it), and read them from there.
+  files byte for byte into a directory under `vectors/`, with a new
+  `vectors/sources/<name>.toml` for that directory saying where they came
+  from (`ci/check_vectors.py` checks it), and read them from there.
 * **Every public API has a benchmark** in `bench/benches/primitives.rs`,
   next to OpenSSL's equivalent. The Benchmarks check compares each pull
   request that changes an architecture's code with its base, and fails on a
