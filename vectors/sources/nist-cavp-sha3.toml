@@ -1,0 +1,5 @@
+name = "NIST CAVP SHA-3 byte-oriented test vectors (SHA3-224, SHA3-256, SHA3-384 and SHA3-512)"
+directories = ["nist-cavp/sha3"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/sha3/sha-3bytetestvectors.zip"
+sha256 = "cd07701af2e47f5cc889d642528b4bf11f8b6eb55797c7307a96828ed8d8fc8c"
+retrieved = 2026-09-28
