@@ -33,8 +33,9 @@ def artifacts : List Artifact := [
       advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`, calling \
       `vg_chacha20_block` for each 64 bytes.\n\n\
       Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` \
-      may affect timing, not the state or the data. The function may overwrite its own \
-      arguments on the stack (which the callee owns under cdecl).\n\n\
+      may affect timing, not the state or the data.\n\n\
+      The function may overwrite its own arguments on the stack (which the callee owns under \
+      cdecl).\n\n\
       # Safety\n\n\
       * `state` must be valid for reads and writes of 64 bytes; its contents on return are \
       unspecified.\n\
