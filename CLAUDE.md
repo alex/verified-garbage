@@ -36,7 +36,7 @@ trustworthy. Read `lean/README.md` first.
   files byte for byte into a directory under `vectors/`, with a new
   `vectors/sources/<name>.toml` for that directory saying where they came
   from (`ci/check_vectors.py` checks it), and read them from there.
-* **Every public API has a benchmark** in `bench/benches/primitives.rs`,
+* **Every public API has a benchmark** in `bench/benches/primitives/`,
   next to OpenSSL's equivalent. The Benchmarks check compares each pull
   request that changes an architecture's code with its base, and fails on a
   slowdown; an optimization's speedup is shown in its run summary.
@@ -83,7 +83,7 @@ instructions in an ISA model) go in their own PR before either.
 5. Regenerate `src/asm/`, build the public Rust API on top of the primitive,
    and test it against the Wycheproof vectors in `tests/wycheproof/` (set
    `WYCHEPROOF_ROOT` to a checkout of C2SP/wycheproof). Benchmark the new
-   API in `bench/benches/primitives.rs`, next to the same operation in
+   API in `bench/benches/primitives/<alg>.rs`, next to the same operation in
    OpenSSL, at the sizes the others use.
 
 ## Keeping parallel PRs from conflicting
