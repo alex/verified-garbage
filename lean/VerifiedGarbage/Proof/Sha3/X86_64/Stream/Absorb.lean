@@ -13,65 +13,14 @@ namespace VG.Proof.Sha3.X86_64.Stream.Absorb
 open VG VG.X86_64 VG.Impl.Sha3.X86_64.Stream
 open VG.Impl.Sha3.X86_64 (at_)
 open VG.Proof.Sha3.X86_64 (Upd wp_mov wp_movm wp_movzx8 wp_store8 wp_store wp_xor wp_addi wp_subi
-  wp_cmp wp_test wp_mov32i wp_nil ea_at contains_offset sub_offset off_disjoint toNat_ofNat_lt
+  wp_cmp wp_test wp_mov32i wp_nil ea_at
   permuteAt_ok)
 open VG.Proof.Sha3 (Rep rep_snoc xorByte stateAt_xorByte)
 open VG.Spec.Sha3 (stateAt keccakF bytesAt rates)
 
 /-! ## Arithmetic -/
 
-theorem ofNat_succ (k : Nat) : BitVec.ofNat 64 (k + 1) = BitVec.ofNat 64 k + 1 := by
-  rw [BitVec.ofNat_add]; rfl
-
-theorem ofNat_pred {k : Nat} (h : 1 ≤ k) : BitVec.ofNat 64 k - 1 = BitVec.ofNat 64 (k - 1) := by
-  rw [show k = (k - 1) + 1 by omega, ofNat_succ, Nat.add_sub_cancel, BitVec.add_sub_cancel]
-
-theorem ofNat_beq_zero {k : Nat} (h : k < 2 ^ 64) : (BitVec.ofNat 64 k == 0) = decide (k = 0) := by
-  by_cases hk : k = 0
-  · simp [hk]
-  · simp only [hk, decide_false, beq_eq_false_iff_ne, ne_eq]
-    intro h'
-    have := congrArg BitVec.toNat h'
-    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt h] at this
-    exact hk this
-
-theorem sub_beq {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
-    (BitVec.ofNat 64 a - BitVec.ofNat 64 b == 0) = decide (a = b) := by
-  by_cases h : a = b
-  · simp [h]
-  · simp only [h, decide_false, beq_eq_false_iff_ne, ne_eq]
-    intro h'
-    apply h
-    have := congrArg BitVec.toNat h'
-    rw [BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ha,
-      Nat.mod_eq_of_lt hb] at this
-    change _ = 0 at this
-    omega
-
 theorem sx1 : BitVec.signExtend 64 (1 : BitVec 32) = 1 := by decide
-
-theorem xor_setWidth (x y : Byte) : (x.setWidth 64 ^^^ y.setWidth 64).setWidth 8 = x ^^^ y := by
-  ext i hi
-  simp
-
-/-- A one-byte store. -/
-theorem writeW8_apply (m : Mem) (a x : Addr) (v : Byte) :
-    m.writeW a v x = if x = a then v else m x := by
-  simp only [Mem.writeW, Mem.write]
-  by_cases h : x = a
-  · subst h
-    simp only [BitVec.sub_self, BitVec.toNat_zero, Nat.mul_zero, ite_true]
-    ext i hi
-    simp
-  · have : ¬ (x - a).toNat < 8 / 8 := by bv_omega
-    simp only [this, h, ite_false]
-
-theorem bytesAt_succ (m : Mem) (p : Addr) (c : Nat) :
-    bytesAt m p (c + 1) = bytesAt m p c ++ [m (p + BitVec.ofNat 64 c)] := by
-  simp [bytesAt, List.range_succ]
-
-theorem bytesAt_length (m : Mem) (p : Addr) (c : Nat) : (bytesAt m p c).length = c := by
-  simp [bytesAt]
 
 /-! ## The precondition -/
 

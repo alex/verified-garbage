@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Proof.Sha3.Spec
+import VerifiedGarbage.Proof.Sha3.Lanes
 import VerifiedGarbage.Proof.Sha3.X86_64.Wp
+import VerifiedGarbage.Impl.Sha3.X86_64
 
 /-!
 # Keccak-f[1600] on x86-64: one round
@@ -14,6 +15,7 @@ namespace VG.Proof.Sha3.X86_64
 
 open VG VG.X86_64 VG.Impl.Sha3.X86_64
 open VG.Proof.Sha3 (C D B out)
+open VG.Impl.Sha3 (piSrc)
 
 abbrev KState := Spec.Sha3.State
 abbrev Lane := Spec.Sha3.Lane
@@ -45,44 +47,6 @@ theorem ea_at (s : State) (b : Reg) (d : Nat) : s.ea (at_ b d) = s.gpr b + BitVe
 
 theorem ea_lane (s : State) (b : Reg) (i : Nat) :
     s.ea (lane b i) = s.gpr b + BitVec.ofNat 64 (8 * i) := ea_at s b (8 * i)
-
-/-- Lane `i` of the state at `p`. -/
-abbrev laneAddr (p : Addr) (i : Nat) : Addr := p + BitVec.ofNat 64 (8 * i)
-
-/-- The state at `p` holds `A`. -/
-def Lanes (m : Mem) (p : Addr) (A : KState) : Prop :=
-  ∀ i (hi : i < 25), m.readW (laneAddr p i) 64 = A[i]
-
-theorem lane_contains (p : Addr) {i : Nat} (hi : i < 25) : (⟨p, 200⟩ : Region).Contains (laneAddr p i) 8 := by
-  simp only [Region.Contains, laneAddr]
-  rw [show p + BitVec.ofNat 64 (8 * i) - p = BitVec.ofNat 64 (8 * i) by bv_omega, BitVec.toNat_ofNat,
-    Nat.mod_eq_of_lt (by omega)]
-  omega
-
-theorem lane_sep (p : Addr) {i j : Nat} (hi : i < 25) (hj : j < 25) (h : i ≠ j) :
-    Mem.Sep (laneAddr p i) 8 (laneAddr p j) 8 := by
-  intro x hx hy
-  simp only [laneAddr] at hx hy
-  bv_omega
-
-/-- Where a round reads and writes: the state at `src`, the round constant
-at `rcp`, and the state at `dst`, which overlaps neither. -/
-structure Env (rd wr : List Region) (src dst rcp : Addr) : Prop where
-  src_in : ∀ i < 25, InRegions (rd ++ wr) (laneAddr src i) 8
-  dst_out : ∀ i < 25, InRegions wr (laneAddr dst i) 8
-  rc_in : InRegions (rd ++ wr) rcp 8
-  dst_src : Region.Disjoint ⟨dst, 200⟩ ⟨src, 200⟩
-  dst_rc : Region.Disjoint ⟨dst, 200⟩ ⟨rcp, 8⟩
-
-/-- Writing the state at `dst` keeps the lanes at `src`. -/
-theorem Env.src_frame {rd wr : List Region} {src dst rcp : Addr} (h : Env rd wr src dst rcp)
-    {m m' : Mem} (hf : Frame [⟨dst, 200⟩] m m') {i : Nat} (hi : i < 25) :
-    m'.readW (laneAddr src i) 64 = m.readW (laneAddr src i) 64 :=
-  hf.readW (lane_contains src hi) (by simpa using h.dst_src.symm) (by decide)
-
-theorem Env.rc_frame {rd wr : List Region} {src dst rcp : Addr} (h : Env rd wr src dst rcp)
-    {m m' : Mem} (hf : Frame [⟨dst, 200⟩] m m') : m'.readW rcp 64 = m.readW rcp 64 :=
-  hf.readW (Region.contains_self _ _) (by simpa using h.dst_rc.symm) (by decide)
 
 /-! ## θ -/
 
@@ -323,17 +287,6 @@ theorem planes_ok (s₀ : State) (src dst rcp : Addr) (A : KState) (rc : Lane)
     fun s₂ h₂ => ⟨h₂.keeps, h₂.frame, h₂.dregs, fun j hj => h₂.lanes j (by omega)⟩
 
 /-! ## The round -/
-
-/-- The round's output. -/
-def outState (A : KState) (rc : Lane) : KState := Vector.ofFn fun i => out A rc (i.val % 5) (i.val / 5)
-
-theorem outState_eq (A : KState) (ir : Nat) : outState A (Spec.Sha3.RC ir) = Spec.Sha3.rnd A ir := by
-  apply Vector.ext
-  intro i hi
-  simp only [outState, Vector.getElem_ofFn]
-  have := Proof.Sha3.rnd_get A ir (x := i % 5) (y := i / 5) (Nat.mod_lt _ (by omega)) (by omega)
-  simp only [show i % 5 + 5 * (i / 5) = i by omega] at this
-  exact this.symm
 
 theorem tail_ok (s : State) :
     WP isa (.block [.mov .rax (.reg .rdi), .mov .rdi (.reg .rsi), .mov .rsi (.reg .rax),

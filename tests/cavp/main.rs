@@ -215,7 +215,7 @@ mod sha512 {
 /// from 0 to the rate in bytes, the long messages, and the Monte Carlo test.
 /// SHAKE128 and SHAKE256: the short and long messages, the variable output
 /// lengths, and the Monte Carlo test.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 mod sha3 {
     use super::{fields, unhex};
 

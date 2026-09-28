@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Sha3.X86_64.Permute
 import VerifiedGarbage.Proof.Sha3.Stream
+import VerifiedGarbage.Proof.Sha3.Arith
 import VerifiedGarbage.Proof.Framework.X86_64.Call
 import VerifiedGarbage.Impl.Sha3.X86_64.Stream
 

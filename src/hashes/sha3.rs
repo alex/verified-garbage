@@ -9,6 +9,9 @@
 //! Rust types only keep that state together with the position in the
 //! current block, which the contracts take as an argument.
 
+#[cfg(target_arch = "aarch64")]
+use crate::asm::aarch64::sha3::{vg_keccak_absorb, vg_keccak_pad, vg_keccak_squeeze};
+#[cfg(target_arch = "x86_64")]
 use crate::asm::x86_64::sha3::{vg_keccak_absorb, vg_keccak_pad, vg_keccak_squeeze};
 
 /// The domain-separation suffix of SHA-3 and the first bit of the padding

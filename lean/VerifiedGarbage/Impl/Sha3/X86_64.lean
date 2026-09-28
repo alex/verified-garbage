@@ -1,4 +1,5 @@
 import VerifiedGarbage.Spec.Sha3
+import VerifiedGarbage.Impl.Sha3.Tables
 import VerifiedGarbage.TCB.X86_64.Isa
 
 /-!
@@ -34,6 +35,7 @@ round loop's, so only the pointers can affect timing.
 namespace VG.Impl.Sha3.X86_64
 
 open VG.X86_64
+open VG.Impl.Sha3 (rhoOff piSrc)
 
 def at_ (b : Reg) (d : Nat) : MemOp := { base := b, disp := d }
 
@@ -49,11 +51,6 @@ def T : Reg := .r15
 /-- Lane `i` of the state at `b`. -/
 def lane (b : Reg) (i : Nat) : MemOp := at_ b (8 * i)
 
-/-- The rotation (left) of lane `i` by ρ (Algorithm 2), as a table. -/
-def rhoOff (i : Nat) : Nat :=
-  [0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39, 41, 45, 15, 21, 8,
-    18, 2, 61, 56, 14].getD i 0
-
 /-- `C[x] = A[x, 0] ⊕ … ⊕ A[x, 4]`. -/
 def column (x : Nat) : List Instr :=
   [.mov (creg x) (.mem (lane .rdi x)), .alu .xor (creg x) (.mem (lane .rdi (x + 5))),
@@ -64,9 +61,6 @@ def column (x : Nat) : List Instr :=
 def dcol (x : Nat) : List Instr :=
   [.mov (dreg x) (.reg (creg ((x + 1) % 5))), .shift .ror (dreg x) 63,
     .alu .xor (dreg x) (.reg (creg ((x + 4) % 5)))]
-
-/-- The lane of `A` that π moves to `(x, y)`: `((x + 3y) mod 5, x)`. -/
-def piSrc (x y : Nat) : Nat := (x + 3 * y) % 5 + 5 * x
 
 /-- `B[x] = ROTL^ρ(A[piSrc x y] ⊕ D[(x + 3y) mod 5])` for plane `y`. -/
 def laneB (x y : Nat) : List Instr :=

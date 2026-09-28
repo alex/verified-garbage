@@ -91,32 +91,7 @@ theorem Saved.frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Re
 
 /-! ## Arithmetic -/
 
-theorem beq_zero (x : BitVec 64) : (x == 0) = decide (x.toNat = 0) := by
-  by_cases h : x = 0
-  · subst h; rfl
-  · have : x.toNat ≠ 0 := fun e => h (BitVec.eq_of_toNat_eq e)
-    rw [beq_eq_false_iff_ne.mpr h]; simp [this]
-
-theorem sub_beq_zero {a : Nat} (ha : a < 2 ^ 64) (y : BitVec 64) :
-    (BitVec.ofNat 64 a - y == 0) = decide (a = y.toNat) := by
-  by_cases h : a = y.toNat
-  · subst h; simp
-  · have : BitVec.ofNat 64 a - y ≠ 0 := by intro e; apply h; bv_omega
-    rw [beq_eq_false_iff_ne.mpr this]; simp [h]
-
 theorem sx1 : BitVec.signExtend 64 (1 : BitVec 32) = 1 := by decide
-
-theorem ofNat_succ (k : Nat) : BitVec.ofNat 64 (k + 1) = BitVec.ofNat 64 k + 1 := by
-  rw [BitVec.ofNat_add]; rfl
-
-theorem ofNat_pred {k : Nat} (h : 1 ≤ k) : BitVec.ofNat 64 k - 1 = BitVec.ofNat 64 (k - 1) := by
-  rw [show k = (k - 1) + 1 by omega, ofNat_succ, Nat.add_sub_cancel, BitVec.add_sub_cancel]
-
-theorem writeW8_self (m : Mem) (a : Addr) (v : BitVec 8) : (m.writeW a v) a = v := by
-  simp [Mem.writeW, Mem.write]
-
-theorem writeW8_other (m : Mem) {a x : Addr} (v : BitVec 8) (h : x ≠ a) : (m.writeW a v) x = m x :=
-  Mem.write_apply (by intro h'; apply h; bv_omega)
 
 /-! ## The prologue -/
 
@@ -276,12 +251,6 @@ theorem permute_ok {s₀ : State} (hp : SPre s₀) {i k : Nat} {s : State} (hI :
   · rw [hst, u₁.mem, hI.state, iterF_succ]
   · refine Eq.trans (hf.bytes (R := OR s₀) hd (outn_lt s₀).le (by have := hI.i_le; omega : j < outn s₀)) ?_
     rw [u₁.mem]; exact hI.out j hj
-
-theorem div_mod_eq {r k pos : Nat} (hr : 0 < r) (hlt : pos < r) :
-    (r * k + pos) / r = k ∧ (r * k + pos) % r = pos := by
-  refine ⟨?_, ?_⟩
-  · rw [Nat.mul_add_div hr, Nat.div_eq_of_lt hlt, Nat.add_zero]
-  · rw [Nat.mul_add_mod, Nat.mod_eq_of_lt hlt]
 
 theorem store_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI : Inv s₀ i k pos s)
     (hlt : pos < rate s₀) (hi : i < outn s₀) :

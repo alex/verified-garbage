@@ -12,30 +12,9 @@ open VG VG.X86_64 VG.Impl.Sha3.X86_64.Stream
 open VG.Spec.Sha3 (stateAt keccakF absorb pad rates Repr)
 open VG.Proof.Sha3 (xorByte Rep stateAt_xorByte absorb_pad)
 
-theorem writeW8_apply (m : Mem) (a x : Addr) (v : BitVec 8) :
-    m.writeW a v x = if x = a then v else m x := by
-  simp only [Mem.writeW, Mem.write]
-  by_cases h : x = a
-  · subst h; simp
-  · have : ¬ (x - a).toNat < 8 / 8 := by
-      intro h'; apply h; bv_omega
-    simp only [this, ite_false, h]
-
-theorem xor_byte (b : BitVec 8) (v : BitVec 64) :
-    (b.setWidth 64 ^^^ v).setWidth 8 = b ^^^ v.setWidth 8 := by
-  ext i _; simp
-
 theorem xor_0x80 (b : BitVec 8) :
     (b.setWidth 64 ^^^ (0x80 : BitVec 32).signExtend 64).setWidth 8 = b ^^^ 0x80 := by
   rw [xor_byte]; rfl
-
-theorem rate_bounds {r : Nat} (h : r ∈ rates) : 72 ≤ r ∧ r ≤ 168 := by
-  simp only [rates, List.mem_cons, List.not_mem_nil, or_false] at h
-  omega
-
-theorem ne_of_lt200 {p : Addr} {a b : Nat} (ha : a < 200) (hb : b < 200) (h : a ≠ b) :
-    p + BitVec.ofNat 64 a ≠ p + BitVec.ofNat 64 b := by
-  intro e; apply h; bv_omega
 
 theorem ret_below (sp : Addr) : Region.Disjoint ⟨sp, 8⟩ (below sp 8) := by
   intro x h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
@@ -49,7 +28,7 @@ theorem correct {s₀ : State} (hp : Proof.Sha3.padX86_64.pre s₀) :
   set rate := (s₀.gpr .rsi).toNat with hrate'
   set pos := (s₀.gpr .rdx).toNat with hpos'
   have hin : ∀ j < 200, (⟨st, 200⟩ : Region).Contains (st + BitVec.ofNat 64 j) 1 := fun j hj =>
-    Proof.Sha3.X86_64.contains_offset (by omega) (by omega)
+    Proof.Sha3.contains_offset (by omega) (by omega)
   have hw : ∀ j < 200, InRegions s₀.wr (st + BitVec.ofNat 64 j) 1 := fun j hj => by
     rw [hwr]; exact ⟨_, List.mem_cons_self .., hin j hj⟩
   have hw' : ∀ j < 200, InRegions (s₀.rd ++ s₀.wr) (st + BitVec.ofNat 64 j) 1 := fun j hj => by

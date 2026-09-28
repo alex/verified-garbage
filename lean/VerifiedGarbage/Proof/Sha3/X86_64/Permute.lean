@@ -14,46 +14,6 @@ namespace VG.Proof.Sha3.X86_64
 open VG VG.X86_64 VG.Impl.Sha3.X86_64
 open VG.Spec.Sha3 (stateAt keccakF rnd RC)
 
-/-! ## Offsets -/
-
-theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = n := by
-  rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
-
-theorem contains_offset {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
-    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
-  simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, toNat_ofNat_lt ho]
-  exact h
-
-theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (ho : off < 2 ^ 64) :
-    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := by
-  intro a ha
-  simp only [Region.Contains] at *
-  have : (a - base).toNat ≤ (a - (base + BitVec.ofNat 64 off)).toNat + off := by
-    rw [show a - base = (a - (base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by bv_omega,
-      BitVec.toNat_add, toNat_ofNat_lt ho]
-    exact Nat.mod_le _ _
-  omega
-
-/-- Two runs of bytes at offsets of the same base. -/
-theorem off_disjoint (p : Addr) {a n b k : Nat} (ha : a + n ≤ 2 ^ 32) (hb : b + k ≤ 2 ^ 32)
-    (h : a + n ≤ b ∨ b + k ≤ a) :
-    Region.Disjoint ⟨p + BitVec.ofNat 64 a, n⟩ ⟨p + BitVec.ofNat 64 b, k⟩ := by
-  intro x h₁ h₂
-  simp only [Region.Contains] at h₁ h₂
-  bv_omega
-
-theorem off_sub (p : Addr) {a n b k : Nat} (hb : b + k ≤ 2 ^ 32) (h₁ : b ≤ a) (h₂ : a + n ≤ b + k) :
-    Region.Sub ⟨p + BitVec.ofNat 64 a, n⟩ ⟨p + BitVec.ofNat 64 b, k⟩ := by
-  intro x hx
-  simp only [Region.Contains] at hx ⊢
-  bv_omega
-
-theorem add_zero' (p : Addr) : p + BitVec.ofNat 64 0 = p := by simp
-
-theorem sub_prefix' {base : Addr} {len len' : Nat} (h : len ≤ len') :
-    Region.Sub ⟨base, len⟩ ⟨base, len'⟩ := Region.sub_prefix h
-
 /-! ## The precondition -/
 
 section
@@ -298,10 +258,6 @@ theorem off_beq (s₀ : State) {a b : Nat} (ha : a < 2 ^ 32) (hb : b < 2 ^ 32) :
     apply h
     simp only [off] at e
     bv_omega
-
-theorem foldl_succ (A : KState) (r : Nat) :
-    (List.range (r + 1)).foldl rnd A = rnd ((List.range r).foldl rnd A) r := by
-  simp [List.range_succ, List.foldl_append]
 
 theorem round_step {s₀ : State} (hp : Pre s₀) {r : Nat} (hr : r < 24) {s : State} (hL : LInv s₀ r s) :
     WP isa (.block round) s fun s' =>
