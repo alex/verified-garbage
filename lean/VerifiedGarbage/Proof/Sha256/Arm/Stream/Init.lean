@@ -99,7 +99,7 @@ theorem init_verified : Verified Arm.target init Proof.Sha256.initArm := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl, by decide⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct hs
     exact ⟨t, s', he, h⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0]) (fun _ _ _ _ hp => ?_) (by decide +kernel)
+  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0]) (fun _ _ _ _ hp => ?_) (by taint_decide)
     exact Taint.agree_ofRegs fun r hr => by simp only [List.mem_singleton] at hr; subst hr; exact hp
 
 end VG.Proof.Sha256.Arm.Stream

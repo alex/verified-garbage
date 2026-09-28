@@ -493,9 +493,7 @@ theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
     have hmod := length_mid s₀ hm hc
     refine repr_append_block (hI.repr m hm) (by rw [hmod, hxs]; exact hfull) ?_
     rw [hs, m₃, hmem, hstt, hx1, addr_off (by omega)]
-    congr 1
-    apply parseBlock_congr
-    intro k hk
+    refine congrArg (compress _) (parseBlock_congr fun k hk => ?_)
     have hb := (hI.repr m hm).2
     rw [hmod] at hb
     rw [hb, show rr s₀ c + tt s₀ c = 64 from hfull] at hby
@@ -860,7 +858,7 @@ theorem update_verified : Verified Arm.target update Proof.Sha256.updateArm := b
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by decide +kernel)
+  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · have e : ∀ k, stackArg sat k = 0 := fun k => by
       simp [stackArg, sat, Mem.readW, Mem.read]
     refine ⟨sat, ?_⟩

@@ -204,8 +204,9 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hr0 : s.gpr .r0 = st
   have h6 := hin 6 (by decide); have h7 := hin 7 (by decide)
   apply WP.of_runBlock
   rw [load_eq]
-  simp (config := {decide := true}) only [vars0, runBlock, exec, isa, State.setReg, State.load32,
-    hr0, h0, h1, h2, h3, h4, h5, h6, h7, ite_true, ite_false, Option.map_some, Option.bind_some,
+  simp (config := {decide := true}) only [vars0, runBlock_cons, runStep_some,
+    runBlock_nil, exec, isa, State.setReg, State.load32,
+    hr0, h0, h1, h2, h3, h4, h5, h6, h7, ite_true, ite_false, Option.map_some,
     Option.some.injEq, exists_eq_left']
   simp only [stateAt_get hp _ (show 0 < 8 by decide), stateAt_get hp _ (show 1 < 8 by decide),
     stateAt_get hp _ (show 2 < 8 by decide), stateAt_get hp _ (show 3 < 8 by decide),
@@ -264,17 +265,16 @@ theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (
   obtain ⟨v0, v1, v2, v3, v4, v5, v6, v7⟩ := hv
   apply WP.of_runBlock
   rw [update_eq]
-  simp (config := {decide := true}) only [runBlock, exec, Op2.eval, isa, State.setReg,
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, exec, Op2.eval, isa, State.setReg,
     State.load32, State.store32, subFlags, hr0,
     i0, i1, i2, i3, i4, i5, i6, i7, o0, o1, o2, o3, o4, o5, o6, o7,
     readW_writeW_word hp,
     m0, m1, m2, m3, m4, m5, m6, m7, v0, v1, v2, v3, v4, v5, v6, v7, ite_true, ite_false,
-    Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+    Option.map_some, Option.some.injEq, exists_eq_left']
   and_intros
-  all_goals first
-    | trivial
-    | rfl
-    | (simp only [writeState, Vector.getElem_zipWith])
+  · simp only [writeState, Vector.getElem_zipWith]
+  all_goals trivial
 
 theorem save_sep {s₀ : State} (hp : Pre s₀) {d e : Nat} (hd : d + 4 ≤ 112) (he : e + 4 ≤ 112)
     (h : d + 4 ≤ e ∨ e + 4 ≤ d) : Mem.Sep (saveAddr s₀ d) 4 (saveAddr s₀ e) 4 := by
@@ -439,8 +439,9 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) :
   have o8 := hp.out_save (d := 100) (by omega)
   apply WP.of_runBlock
   rw [save_eq]
-  simp (config := {decide := true}) only [runBlock, exec, Op2.eval, isa, State.store32, subFlags,
-    o0, o1, o2, o3, o4, o5, o6, o7, o8, ite_true, Option.map_some, Option.bind_some,
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, exec, Op2.eval, isa, State.store32, subFlags,
+    o0, o1, o2, o3, o4, o5, o6, o7, o8, ite_true, Option.map_some,
     Option.some.injEq, exists_eq_left']
   refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> trivial
 
@@ -487,9 +488,10 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 
   have hr3 := hc.r3
   apply WP.of_runBlock
   rw [restore_eq]
-  simp (config := {decide := true}) only [runBlock, exec, isa, State.setReg, State.load32, hr3,
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, exec, isa, State.setReg, State.load32, hr3,
     i0, i1, i2, i3, i4, i5, i6, i7, i8, ite_true, ite_false, g0, g1, g2, g3, g4, g5, g6, g7, g8,
-    Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+    Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨fun r hr => ?_, hstate⟩
   simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
@@ -543,7 +545,7 @@ theorem compress_verified :
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0, .r1, .r2, .r3]) ?_
-      (by decide +kernel)
+      (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩
     refine Taint.agree_ofRegs fun r hr => ?_
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr

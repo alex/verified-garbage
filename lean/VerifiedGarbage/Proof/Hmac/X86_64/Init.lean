@@ -17,9 +17,8 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame repr_congr repr_nil rep
 open VG.Proof.Sha256.X86_64 (ea_at contains_offset contains_offset' toNat_ofNat_lt sub_offset ofInt_natCast
   writeState stateAt_writeState readW_writeW_save)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_mov32i wp_addi wp_cmp wp_cmpi wp_test wp_movzx8 wp_store8
-  compressAt_ok)
-open VG.Proof.Sha256.X86_64.Stream.Update (Saved saveMem saveMem_saved saveMem_frame ofNat_succ sub_beq
-  ofNat_beq_zero)
+  compressAt_ok ofNat_succ sub_beq ofNat_beq_zero)
+open VG.Proof.Sha256.X86_64.Stream.Update (Saved saveMem saveMem_saved saveMem_frame)
 open VG.Spec.Sha256 (bytesAt stateAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
 
@@ -83,8 +82,9 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) :
   have o3 := o 136 (by omega); have o4 := o 144 (by omega); have o5 := o 152 (by omega)
   apply WP.of_runBlock
   simp (config := {decide := true}) only [save, Impl.Sha256.X86_64.Stream.saved, List.map_cons,
-    List.map_nil, runBlock, exec, isa, ea_at, State.store64, o0, o1, o2, o3, o4, o5, ite_true,
-    Option.bind_some, Option.some.injEq, exists_eq_left']
+    List.map_nil, runBlock_cons, runStep_some, runBlock_nil, exec,
+        isa, ea_at, State.store64, o0, o1, o2, o3, o4, o5, ite_true,
+    Option.some.injEq, exists_eq_left']
   trivial
 
 theorem h0_eq (b : Reg) : h0 b = [
@@ -110,9 +110,10 @@ theorem h0_ok {b : Reg} (hb : b ≠ .rax) {s : State} {rest : List Instr} {Q : S
   have o3 := hin 3 (by omega); have o4 := hin 4 (by omega); have o5 := hin 5 (by omega)
   have o6 := hin 6 (by omega); have o7 := hin 7 (by omega)
   rw [h0_eq]
-  simp (config := {decide := true}) only [runBlock, exec, readSrc32, isa, ea_at, State.store32,
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, exec, readSrc32, isa, ea_at, State.store32,
     State.setReg32, State.setReg, hb, o0, o1, o2, o3, o4, o5, o6, o7, ite_true, ite_false,
-    Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
+    Option.map_some, Option.some.injEq, exists_eq_left']
   exact k _ (fun r hr => by simp [hr]) rfl rfl rfl
 
 /-- Writing a hash value stays within its 32 bytes. -/
@@ -515,7 +516,7 @@ theorem saved_frame' {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List R
 theorem blockAt_eq {m : Mem} {p : Addr} {xs : List Byte} (h : bytesAt m p 64 = xs) :
     Spec.Sha256.blockAt m p = Spec.Sha256.parseBlock fun k => xs.getD k 0 :=
   Proof.Sha256.Stream.parseBlock_congr fun _ hk =>
-    Proof.Sha256.X86_64.Stream.Update.bytesAt_getD h hk
+    Proof.Sha256.X86_64.Stream.bytesAt_getD h hk
 
 /-- A state with `H⁽⁰⁾` and a full buffer `xs`, compressed, represents `xs`. -/
 theorem repr_block {m m' : Mem} {p : Addr} {xs : List Byte} (hst : stateAt m p = H0)
@@ -603,10 +604,11 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s�
   have hret : s.mem.readW (s₀.gpr .rsp) 64 = s₀.mem.readW (s₀.gpr .rsp) 64 :=
     hfr.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_i, hp.ret_o, hp.ret_s⟩) (by decide)
   apply WP.of_runBlock
-  rw [Proof.Sha256.X86_64.Stream.Update.restore_eq]
-  simp (config := {decide := true}) only [runBlock, exec, readSrc, isa, ea_at, State.load64,
+  rw [Proof.Sha256.X86_64.Stream.restore_eq]
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, exec, readSrc, isa, ea_at, State.load64,
     State.setReg, h15, i0, i1, i2, i3, i4, i5, ite_true, ite_false, g0, g1, g2, g3, g4, g5,
-    Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+    Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨⟨fun r hr => ?_, hret⟩, ?_⟩
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hsp]
@@ -763,7 +765,7 @@ theorem init_verified : Verified X86_64.target init Proof.Hmac.initSha256X86_64 
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by decide +kernel)
+  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · refine ⟨sat, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂

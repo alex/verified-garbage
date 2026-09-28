@@ -61,6 +61,38 @@ instructions in an ISA model) go in their own PR before either.
    and test it against the Wycheproof vectors in `tests/wycheproof/` (set
    `WYCHEPROOF_ROOT` to a checkout of C2SP/wycheproof).
 
+## Keeping proofs fast
+
+Lean's kernel re-checks every proof term, and it is a slow evaluator: most
+of the build time used to be the kernel, not tactics. Avoid these patterns
+(each has cost tens of seconds in one proof):
+
+* **Constant time:** use `VG.Taint.constantTime … (by taint_decide)`, never
+  `decide +kernel` on a taint check: `taint_decide` precomputes loop
+  invariants so the kernel does not search for them.
+* **Symbolic execution:** step blocks with the ISA's `runBlock_cons`,
+  `runStep_some` and `runBlock_nil` (`Proof/Framework/<ISA>/Exec.lean`), never
+  `simp [runBlock]`, which runs the rest of the block from an unknown state
+  after every instruction.
+* **One symbolic execution per code shape:** don't case-split (e.g.
+  `interval_cases` on a register rotation) and run the same block once per
+  case; generalize what differs (see `round_ok` and `round_nodup`).
+* **Properties of every instruction:** prove `(instrs c).all p` with
+  `rw [← Code.allInstrs_eq]; decide +kernel`, not `decide +kernel` directly.
+* **Failing unfolding:** `rfl`, `trivial`, `congr 1`, `exact` and `simpa` on
+  goals about symbolic memory or hash values can unfold definitions (down
+  to `BitVec` internals) for seconds before failing or succeeding. Close
+  such goals with explicit lemmas (`congrArg`, `rw`), and try the tactic
+  that works first rather than in `first | rfl | …`.
+
+To find what is slow, profile one file per declaration (time under
+`[Kernel]` is the kernel checking the term):
+
+```sh
+lake env lean -DElab.async=false -Dtrace.profiler=true -Dtrace.profiler.threshold=1000 \
+  VerifiedGarbage/Proof/….lean
+```
+
 ## Checks to run before pushing
 
 ```sh

@@ -198,6 +198,16 @@ theorem readW {rs : List Region} {m m' : Mem} (h : Frame rs m m') {r : Region} {
     m'.readW a w = m.readW a w := by
   simp only [Mem.readW, h.read ha hd hn]
 
+/-- A byte of a region disjoint from the frame's regions is unchanged. -/
+theorem bytes {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {R : Region}
+    (hd : ∀ r ∈ rs, R.Disjoint r) (hR : R.len ≤ 2 ^ 64) {i : Nat} (hi : i < R.len) :
+    m' (R.base + BitVec.ofNat 64 i) = m (R.base + BitVec.ofNat 64 i) := by
+  refine hf _ fun r hr hc => hd r hr _ ?_ hc
+  simp only [Region.Contains]
+  rw [show R.base + BitVec.ofNat 64 i - R.base = BitVec.ofNat 64 i by bv_omega, BitVec.toNat_ofNat,
+    Nat.mod_eq_of_lt (by omega)]
+  omega
+
 end Frame
 
 end VG

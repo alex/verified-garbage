@@ -142,6 +142,6 @@ theorem init_verified : Verified X86.target init Proof.Sha256.initX86 := by
   · obtain ⟨t, s', he, h⟩ := init_correct hs
     exact ⟨t, s', he, h⟩
   · exact VG.Taint.constantTime (A := taint) initτ₀ (fun _ _ h₁ h₂ hp => init_agree₀ h₁ h₂ hp)
-      (by decide +kernel)
+      (by taint_decide)
 
 end VG.Proof.Sha256.X86.Stream
