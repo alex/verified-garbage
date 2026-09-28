@@ -1,4 +1,5 @@
 import VerifiedGarbage.TCB.Code
+import VerifiedGarbage.TCB.AArch64.Simd
 
 /-!
 # AArch64 machine model
@@ -6,8 +7,10 @@ import VerifiedGarbage.TCB.Code
 **Trusted.** A model of the subset of AArch64 (A64) used by our
 implementations. Each instruction's semantics here must agree with the Arm
 Architecture Reference Manual for A-profile (DDI 0487), chapter C6 ("A64
-Base Instruction Descriptions"); when adding an instruction, cite the section
-whose pseudocode it transcribes.
+Base Instruction Descriptions") and, for the AdvSIMD and cryptographic
+instructions, chapter C7 ("A64 Advanced SIMD and Floating-point Instruction
+Descriptions"); when adding an instruction, cite the section whose
+pseudocode it transcribes.
 
 Modelling choices:
 * Registers are `x0`–`x17` and `x19`–`x30`. `x18` is not modelled, so no
@@ -48,6 +51,30 @@ Modelling choices:
 * The stack pointer is always 16-byte aligned (AAPCS64 §6.4.5.1, "SP mod 16
   = 0"), and a frame moves it by 16 bytes, so the model does not check the
   stack alignment that the push and pop of a frame require.
+* The SIMD and floating-point registers are `v0`–`v7` and `v16`–`v31`, 128
+  bits each (DDI 0487 B1.2.1). `v8`–`v15` are not modelled, so no code can
+  use them: the low 64 bits of each are callee-saved (AAPCS64 §6.1.2), and
+  leaving them out keeps `abiPreserved` true of all code. A write of a
+  scalar (`S`) register sets the other bits of its vector register to zero
+  (the pseudocode accessor `V[n, width] = value` sets `_Z[n] =
+  ZeroExtend(value, MAX_VL)`), and the modelled vector forms all write 128
+  bits, so no upper bits beyond 128 (SVE's `Z` registers) are observable to
+  the model; with SVE, those are also zeroed.
+* No modelled AdvSIMD instruction is a saturating or floating-point one, so
+  none reads FPCR or writes FPSR, and neither is modelled. The loads and
+  stores of a vector register (`LDR`/`STR (immediate, SIMD&FP)`) need no
+  alignment: they access Normal memory, and alignment is checked only if
+  `SCTLR_ELx.A` is 1 (DDI 0487 B2.5.2, "Alignment of data accesses"), which
+  Linux, macOS and Windows leave 0 for user code.
+* The AdvSIMD data-processing instructions modelled here (MOV = ORR, MOVI,
+  DUP, INS, UMOV, AND, ORR, EOR, BIC, ORN, NOT, ADD, SUB, SHL, USHR, SRI,
+  SLI, EXT, REV32, REV64, ZIP1, ZIP2, TRN1, TRN2, UZP1, UZP2, TBL, UMULL,
+  UMLAL, PMULL), and the cryptographic ones (AESE, AESD, AESMC, AESIMC,
+  SHA1C, SHA1P, SHA1M, SHA1H, SHA1SU0, SHA1SU1, SHA256H, SHA256H2,
+  SHA256SU0, SHA256SU1, SHA512H, SHA512H2, SHA512SU0, SHA512SU1, EOR3,
+  BCAX, RAX1, XAR) are all among those whose timing Arm specifies to be
+  independent of their data when PSTATE.DIT is 1 (DDI 0487, "About
+  PSTATE.DIT"). As above, the code does not set PSTATE.DIT.
 -/
 
 namespace VG.AArch64
@@ -55,6 +82,12 @@ namespace VG.AArch64
 inductive Reg
   | x0 | x1 | x2 | x3 | x4 | x5 | x6 | x7 | x8 | x9 | x10 | x11 | x12 | x13 | x14 | x15
   | x16 | x17 | x19 | x20 | x21 | x22 | x23 | x24 | x25 | x26 | x27 | x28 | x29 | x30
+  deriving DecidableEq, Repr, Inhabited
+
+/-- The SIMD and floating-point registers, other than `v8`–`v15` (see above). -/
+inductive VReg
+  | v0 | v1 | v2 | v3 | v4 | v5 | v6 | v7
+  | v16 | v17 | v18 | v19 | v20 | v21 | v22 | v23 | v24 | v25 | v26 | v27 | v28 | v29 | v30 | v31
   deriving DecidableEq, Repr, Inhabited
 
 /-- Operand size: 32-bit (`w` registers) or 64-bit (`x` registers). -/
@@ -68,6 +101,8 @@ abbrev Size.bits : Size → Nat
 structure State where
   gpr : Reg → BitVec 64
   sp : BitVec 64
+  /-- The SIMD and floating-point registers (`V[n]`, 128 bits). -/
+  v : VReg → BitVec 128 := fun _ => 0
   mem : Mem
   /-- Regions the code may read (in addition to `wr`). -/
   rd : List Region
@@ -79,6 +114,117 @@ structure State where
   unknowns : Nat → BitVec 64 := fun _ => 0
 
 inductive LogicOp | and | orr | eor
+  deriving DecidableEq, Repr
+
+/-- The arrangement of a vector of 32-bit (`.4s`) or 64-bit (`.2d`) lanes. -/
+inductive VArr | s4 | d2
+  deriving DecidableEq, Repr
+
+/-- The size of a lane of an arrangement. -/
+abbrev VArr.esize : VArr → Nat
+  | .s4 => 32
+  | .d2 => 64
+
+/-- Bitwise operations on whole vectors (`.16b`). -/
+inductive VLogicOp | and | orr | eor | bic | orn
+  deriving DecidableEq, Repr
+
+/-- Shifts of each lane by an immediate. -/
+inductive VShiftOp | shl | ushr | sri | sli
+  deriving DecidableEq, Repr
+
+/-- Permutations of the lanes of two vectors. -/
+inductive VPermOp | zip1 | zip2 | trn1 | trn2 | uzp1 | uzp2
+  deriving DecidableEq, Repr
+
+/-- Reversals of the elements within each container: `rev32 .16b` (bytes in
+each word), `rev32 .8h` (halfwords in each word), `rev64 .16b` (bytes in each
+doubleword), `rev64 .4s` (words in each doubleword). -/
+inductive VRevOp | rev32b | rev32h | rev64b | rev64s
+  deriving DecidableEq, Repr
+
+/-- The functions of SHA1C (`SHAchoose`), SHA1P (`SHAparity`) and SHA1M
+(`SHAmajority`). -/
+inductive Sha1Op | c | p | m
+  deriving DecidableEq, Repr
+
+/-- AdvSIMD and cryptographic instructions that write only a vector
+register (and access no memory). -/
+inductive VOp
+  /-- `mov vd.16b, vn.16b` (alias of ORR (vector, register) with both sources `n`) -/
+  | mov (d n : VReg)
+  /-- `movi vd.2d, #0` -/
+  | movi0 (d : VReg)
+  /-- `dup vd.4s, wn` / `dup vd.2d, xn` (DUP (general)) -/
+  | dup (a : VArr) (d : VReg) (n : Reg)
+  /-- `mov vd.s[i], wn` / `mov vd.d[i], xn` (alias of INS (general)) -/
+  | ins (a : VArr) (d : VReg) (i : Nat) (n : Reg)
+  /-- `dup sd, vn.s[i]` (DUP (element), scalar) -/
+  | dupS (d n : VReg) (i : Nat)
+  /-- `and`/`orr`/`eor`/`bic`/`orn vd.16b, vn.16b, vm.16b` -/
+  | logic (op : VLogicOp) (d n m : VReg)
+  /-- `not vd.16b, vn.16b` -/
+  | not (d n : VReg)
+  /-- `add vd.<a>, vn.<a>, vm.<a>` (ADD (vector)) -/
+  | add (a : VArr) (d n m : VReg)
+  /-- `sub vd.<a>, vn.<a>, vm.<a>` (SUB (vector)) -/
+  | sub (a : VArr) (d n m : VReg)
+  /-- `shl`/`ushr`/`sri`/`sli vd.<a>, vn.<a>, #sh` -/
+  | shift (op : VShiftOp) (a : VArr) (d n : VReg) (sh : Nat)
+  /-- `ext vd.16b, vn.16b, vm.16b, #imm` -/
+  | ext (d n m : VReg) (imm : Nat)
+  /-- `rev32`/`rev64 vd.<T>, vn.<T>` -/
+  | rev (op : VRevOp) (d n : VReg)
+  /-- `zip1`/`zip2`/`trn1`/`trn2`/`uzp1`/`uzp2 vd.<a>, vn.<a>, vm.<a>` -/
+  | perm (op : VPermOp) (a : VArr) (d n m : VReg)
+  /-- `tbl vd.16b, {vn.16b}, vm.16b` (a table of one register) -/
+  | tbl (d n m : VReg)
+  /-- `umull vd.2d, vn.2s, vm.2s`, or `umull2 vd.2d, vn.4s, vm.4s` if `hi` -/
+  | umull (hi : Bool) (d n m : VReg)
+  /-- `umlal vd.2d, vn.2s, vm.2s`, or `umlal2 vd.2d, vn.4s, vm.4s` if `hi` -/
+  | umlal (hi : Bool) (d n m : VReg)
+  /-- `pmull vd.1q, vn.1d, vm.1d`, or `pmull2 vd.1q, vn.2d, vm.2d` if `hi` -/
+  | pmull (hi : Bool) (d n m : VReg)
+  /-- `aese vd.16b, vn.16b` -/
+  | aese (d n : VReg)
+  /-- `aesd vd.16b, vn.16b` -/
+  | aesd (d n : VReg)
+  /-- `aesmc vd.16b, vn.16b` -/
+  | aesmc (d n : VReg)
+  /-- `aesimc vd.16b, vn.16b` -/
+  | aesimc (d n : VReg)
+  /-- `sha1c`/`sha1p`/`sha1m qd, sn, vm.4s` -/
+  | sha1 (op : Sha1Op) (d n m : VReg)
+  /-- `sha1h sd, sn` -/
+  | sha1h (d n : VReg)
+  /-- `sha1su0 vd.4s, vn.4s, vm.4s` -/
+  | sha1su0 (d n m : VReg)
+  /-- `sha1su1 vd.4s, vn.4s` -/
+  | sha1su1 (d n : VReg)
+  /-- `sha256h qd, qn, vm.4s` -/
+  | sha256h (d n m : VReg)
+  /-- `sha256h2 qd, qn, vm.4s` -/
+  | sha256h2 (d n m : VReg)
+  /-- `sha256su0 vd.4s, vn.4s` -/
+  | sha256su0 (d n : VReg)
+  /-- `sha256su1 vd.4s, vn.4s, vm.4s` -/
+  | sha256su1 (d n m : VReg)
+  /-- `sha512h qd, qn, vm.2d` -/
+  | sha512h (d n m : VReg)
+  /-- `sha512h2 qd, qn, vm.2d` -/
+  | sha512h2 (d n m : VReg)
+  /-- `sha512su0 vd.2d, vn.2d` -/
+  | sha512su0 (d n : VReg)
+  /-- `sha512su1 vd.2d, vn.2d, vm.2d` -/
+  | sha512su1 (d n m : VReg)
+  /-- `eor3 vd.16b, vn.16b, vm.16b, va.16b` -/
+  | eor3 (d n m a : VReg)
+  /-- `bcax vd.16b, vn.16b, vm.16b, va.16b` -/
+  | bcax (d n m a : VReg)
+  /-- `rax1 vd.2d, vn.2d, vm.2d` -/
+  | rax1 (d n m : VReg)
+  /-- `xar vd.2d, vn.2d, vm.2d, #imm` -/
+  | xar (d n m : VReg) (imm : Nat)
   deriving DecidableEq, Repr
 
 inductive Instr
@@ -128,6 +274,16 @@ inductive Instr
   /-- `ldr xr, [sp], #16` (LDR (immediate), 64-bit, post-index): the pop of a
   frame of 16 bytes (see `pop`) -/
   | pop (r : Reg)
+  /-- An AdvSIMD or cryptographic instruction that writes only a vector register. -/
+  | vop (op : VOp)
+  /-- `ldr qt, [n, #off]` (LDR (immediate, SIMD&FP), 128-bit, unsigned offset:
+  a multiple of 16, less than 65536) -/
+  | ldrq (t : VReg) (n : Reg) (off : Nat)
+  /-- `str qt, [n, #off]` (STR (immediate, SIMD&FP), 128-bit, unsigned offset,
+  as for `ldrq`) -/
+  | strq (t : VReg) (n : Reg) (off : Nat)
+  /-- `umov wd, vn.s[i]` / `umov xd, vn.d[i]` (UMOV) -/
+  | umov (sz : Size) (d : Reg) (n : VReg) (i : Nat)
   deriving DecidableEq, Repr
 
 /-- Branch conditions. -/
@@ -146,6 +302,10 @@ def read (s : State) (sz : Size) (r : Reg) : BitVec sz.bits := (s.gpr r).setWidt
 /-- Write a register at the operand size, zero-extending a 32-bit value. -/
 def write (s : State) (sz : Size) (r : Reg) (v : BitVec sz.bits) : State :=
   { s with gpr := fun r' => if r' = r then v.setWidth 64 else s.gpr r' }
+
+/-- Write a vector register (`V[n] = value`, 128 bits). -/
+def setV (s : State) (r : VReg) (x : BitVec 128) : State :=
+  { s with v := fun r' => if r' = r then x else s.v r' }
 
 /-- Load `n` bytes, faulting if not permitted. -/
 def load (s : State) (a : Addr) (n : Nat) : Option (BitVec (8 * n)) :=
@@ -182,6 +342,205 @@ def rev64 (a : BitVec 64) : BitVec 64 :=
   a.extractLsb' 0 8 ++ a.extractLsb' 8 8 ++ a.extractLsb' 16 8 ++ a.extractLsb' 24 8 ++
     a.extractLsb' 32 8 ++ a.extractLsb' 40 8 ++ a.extractLsb' 48 8 ++ a.extractLsb' 56 8
 
+/-! ### AdvSIMD and cryptographic instructions
+
+The semantics of `VOp`, transcribing DDI 0487 C7.2 (lanes as in
+`TCB/AArch64/Simd.lean`: lane `e` of size `esize` is bits
+`(e+1)*esize-1 : e*esize`). -/
+
+/-- `x` with lane `i` of size `w` (bits `(i+1)*w-1 : i*w`) replaced by `v`. -/
+def setLane (x : BitVec 128) (w i : Nat) (v : BitVec w) : BitVec 128 :=
+  (x &&& ~~~((BitVec.allOnes w).setWidth 128 <<< (w * i))) ||| (v.setWidth 128 <<< (w * i))
+
+/-- The vector whose lane `e` of the arrangement `a` is `f esize (lane e of x)
+(lane e of y)`, for a function `f` on lanes of any size. -/
+def VArr.map2 (a : VArr) (f : (w : Nat) → BitVec w → BitVec w → BitVec w)
+    (x y : BitVec 128) : BitVec 128 :=
+  match a with
+  | .s4 => ofVWords (f 32 (vword x 0) (vword y 0)) (f 32 (vword x 1) (vword y 1))
+      (f 32 (vword x 2) (vword y 2)) (f 32 (vword x 3) (vword y 3))
+  | .d2 => ofVDwords (f 64 (vdword x 0) (vdword y 0)) (f 64 (vdword x 1) (vdword y 1))
+
+/-- The lanes of `x` in the arrangement `a`, lowest first. -/
+def VArr.lanes (a : VArr) (x : BitVec 128) : List (BitVec 128) :=
+  match a with
+  | .s4 => [(vword x 0).setWidth 128, (vword x 1).setWidth 128, (vword x 2).setWidth 128,
+      (vword x 3).setWidth 128]
+  | .d2 => [(vdword x 0).setWidth 128, (vdword x 1).setWidth 128]
+
+/-- The vector of the arrangement `a` whose lanes are `ls`, lowest first. -/
+def VArr.ofLanes (a : VArr) (ls : List (BitVec 128)) : BitVec 128 :=
+  let l (e : Nat) : BitVec 128 := ls.getD e 0
+  match a with
+  | .s4 => ofVWords ((l 0).setWidth 32) ((l 1).setWidth 32) ((l 2).setWidth 32) ((l 3).setWidth 32)
+  | .d2 => ofVDwords ((l 0).setWidth 64) ((l 1).setWidth 64)
+
+/-- DDI 0487 C7.2, "ZIP1", "ZIP2", "TRN1", "TRN2", "UZP1", "UZP2", with
+`operand1 = V[n]` (lanes `n`) and `operand2 = V[m]` (lanes `m`), and `pairs`
+the number of lane pairs (`elements / 2`):
+* ZIP1/ZIP2: `base = part * pairs; for p = 0 to pairs-1: Elem[result, 2*p+0]
+  = Elem[operand1, base+p]; Elem[result, 2*p+1] = Elem[operand2, base+p]`
+  (`part` 0 or 1);
+* TRN1/TRN2: `for p = 0 to pairs-1: Elem[result, 2*p+0] = Elem[operand1,
+  2*p+part]; Elem[result, 2*p+1] = Elem[operand2, 2*p+part]`;
+* UZP1/UZP2: `zipped = operand2:operand1; for e = 0 to elements-1:
+  Elem[result, e] = Elem[zipped, 2*e+part]`. -/
+def VPermOp.eval (op : VPermOp) (a : VArr) (x y : BitVec 128) : BitVec 128 :=
+  let n := a.lanes x
+  let m := a.lanes y
+  let pairs := n.length / 2
+  let g (l : List (BitVec 128)) (i : Nat) : BitVec 128 := l.getD i 0
+  a.ofLanes <| match op with
+  | .zip1 => (List.range pairs).flatMap fun p => [g n p, g m p]
+  | .zip2 => (List.range pairs).flatMap fun p => [g n (pairs + p), g m (pairs + p)]
+  | .trn1 => (List.range pairs).flatMap fun p => [g n (2 * p), g m (2 * p)]
+  | .trn2 => (List.range pairs).flatMap fun p => [g n (2 * p + 1), g m (2 * p + 1)]
+  | .uzp1 => (List.range n.length).map fun e => g (n ++ m) (2 * e)
+  | .uzp2 => (List.range n.length).map fun e => g (n ++ m) (2 * e + 1)
+
+/-- DDI 0487 C7.2, "REV32" and "REV64" (`Reverse` of the elements within
+each container): byte `i` of the result is byte `rev i` of the operand. -/
+def VRevOp.eval (op : VRevOp) (x : BitVec 128) : BitVec 128 :=
+  ofVBytes fun i => vbyte x <| match op with
+    | .rev32b => 4 * (i / 4) + (3 - i % 4)
+    | .rev32h => 4 * (i / 4) + (i % 4 + 2) % 4
+    | .rev64b => 8 * (i / 8) + (7 - i % 8)
+    | .rev64s => 8 * (i / 8) + (i % 8 + 4) % 8
+
+/-- Whether the shift `sh` is encodable for `op` on lanes of `esize` bits:
+`0 ≤ sh < esize` for SHL and SLI, `1 ≤ sh ≤ esize` for USHR and SRI. -/
+def VShiftOp.ok (op : VShiftOp) (esize sh : Nat) : Bool :=
+  match op with
+  | .shl | .sli => sh < esize
+  | .ushr | .sri => 1 ≤ sh && sh ≤ esize
+
+/-- DDI 0487 C7.2, the shifts by an immediate of one lane `a` of the
+destination and `b` of the source (`operand = V[n]`, `operand2 = V[d]`):
+* SHL: `Elem[result, e] = LSL(Elem[operand, e], shift)`;
+* USHR: `Elem[result, e] = LSR(Elem[operand, e], shift)` (the unsigned,
+  unrounded form of `ShiftRight`);
+* SRI: `mask = LSR(Ones(esize), shift); shifted = LSR(Elem[operand, e],
+  shift); Elem[result, e] = (Elem[operand2, e] AND NOT(mask)) OR shifted`;
+* SLI: `mask = LSL(Ones(esize), shift); shifted = LSL(Elem[operand, e],
+  shift); Elem[result, e] = (Elem[operand2, e] AND NOT(mask)) OR shifted`. -/
+def VShiftOp.eval (op : VShiftOp) (sh w : Nat) (a b : BitVec w) : BitVec w :=
+  match op with
+  | .shl => b <<< sh
+  | .ushr => b >>> sh
+  | .sri => (a &&& ~~~(BitVec.allOnes w >>> sh)) ||| (b >>> sh)
+  | .sli => (a &&& ~~~(BitVec.allOnes w <<< sh)) ||| (b <<< sh)
+
+/-- The function of SHA1C, SHA1P or SHA1M. -/
+def Sha1Op.f : Sha1Op → BitVec 32 → BitVec 32 → BitVec 32 → BitVec 32
+  | .c => shaChoose
+  | .p => shaParity
+  | .m => shaMajority
+
+/-- The new value of the destination, given the state. DDI 0487 C7.2:
+* "MOV (vector)" = "ORR (vector, register)" with both sources `n`: `V[n]`;
+  "MOVI" (64-bit variant, `imm = 0`): zeros;
+* "DUP (general)": `element = X[n, esize]`, in every lane; "INS (general)":
+  `element = X[n, esize]; result = V[d]; Elem[result, index, esize] =
+  element`; "DUP (element)", scalar: `element = Elem[V[n], index, esize];
+  V[d] = element` (the other bits of `V[d]` zero);
+* "AND", "ORR", "EOR", "BIC" (`operand1 AND NOT(operand2)`), "ORN"
+  (`operand1 OR NOT(operand2)`) and "NOT" (vector, `.16b`);
+* "ADD (vector)", "SUB (vector)": lane-wise, modulo `2 ^ esize`;
+* the shifts (`VShiftOp.eval`), the permutations (`VPermOp.eval`) and the
+  reversals (`VRevOp.eval`);
+* "EXT": `concat = operand2:operand1; result = concat<position+127:position>`
+  with `operand1 = V[n]`, `operand2 = V[m]`, `position = imm * 8`;
+* "TBL" (one register): `index = UInt(Elem[indices, i, 8]); if index < 16
+  then Elem[result, i, 8] = Elem[table, index, 8] else 0`, with `table =
+  V[n]`, `indices = V[m]`;
+* "UMULL", "UMULL2", "UMLAL", "UMLAL2": `part` 0, or 1 for the `2` forms,
+  selects the lower or upper half of the sources: `element1 =
+  Elem[operand1, e, 32]; element2 = Elem[operand2, e, 32]; product =
+  element1 * element2` (unsigned, 64 bits), then `Elem[result, e, 64] =
+  product` (UMULL) or `Elem[operand3, e, 64] + product` (UMLAL, `operand3 =
+  V[d]`);
+* "PMULL", "PMULL2" (`.1q`): `Elem[result, 0, 128] =
+  PolynomialMult(Elem[operand1, part, 64], Elem[operand2, part, 64])`;
+* "AESE": `AESSubBytes(AESShiftRows(operand1 EOR operand2))`; "AESD":
+  `AESInvSubBytes(AESInvShiftRows(operand1 EOR operand2))`, with `operand1
+  = V[d]`, `operand2 = V[n]`; "AESMC": `AESMixColumns(V[n])`; "AESIMC":
+  `AESInvMixColumns(V[n])`;
+* "SHA1C", "SHA1P", "SHA1M": `sha1Hash`; "SHA1H": `V[d] = ROL(V[n]<31:0>,
+  30)` (the other bits zero); "SHA1SU0", "SHA1SU1": `sha1Su0`, `sha1Su1`;
+* "SHA256H": `SHA256hash(V[d], V[n], V[m], TRUE)`; "SHA256H2":
+  `SHA256hash(V[n], V[d], V[m], FALSE)`; "SHA256SU0", "SHA256SU1":
+  `sha256Su0`, `sha256Su1`;
+* "SHA512H", "SHA512H2", "SHA512SU0", "SHA512SU1": `sha512H`, `sha512H2`,
+  `sha512Su0`, `sha512Su1`;
+* "EOR3": `Vn EOR Vm EOR Va`; "BCAX": `Vn EOR (Vm AND NOT(Va))`; "RAX1":
+  `Elem[Vd, e, 64] = Elem[Vn, e, 64] EOR ROL(Elem[Vm, e, 64], 1)`; "XAR":
+  `Elem[Vd, e, 64] = ROR(Elem[Vn, e, 64] EOR Elem[Vm, e, 64], imm6)`.
+
+Immediates that are not encodable (an out-of-range shift, lane index or
+EXT position) make the instruction fault. -/
+def VOp.eval (s : State) : VOp → Option (VReg × BitVec 128)
+  | .mov d n => some (d, s.v n)
+  | .movi0 d => some (d, 0)
+  | .dup .s4 d n => let w := (s.gpr n).setWidth 32; some (d, ofVWords w w w w)
+  | .dup .d2 d n => some (d, ofVDwords (s.gpr n) (s.gpr n))
+  | .ins .s4 d i n => if i < 4 then some (d, setLane (s.v d) 32 i ((s.gpr n).setWidth 32)) else none
+  | .ins .d2 d i n => if i < 2 then some (d, setLane (s.v d) 64 i (s.gpr n)) else none
+  | .dupS d n i => if i < 4 then some (d, (vword (s.v n) i).setWidth 128) else none
+  | .logic op d n m =>
+    let a := s.v n
+    let b := s.v m
+    some (d, match op with
+      | .and => a &&& b | .orr => a ||| b | .eor => a ^^^ b | .bic => a &&& ~~~b
+      | .orn => a ||| ~~~b)
+  | .not d n => some (d, ~~~(s.v n))
+  | .add a d n m => some (d, a.map2 (fun _ x y => x + y) (s.v n) (s.v m))
+  | .sub a d n m => some (d, a.map2 (fun _ x y => x - y) (s.v n) (s.v m))
+  | .shift op a d n sh =>
+    if op.ok a.esize sh then some (d, a.map2 (fun w x y => op.eval sh w x y) (s.v d) (s.v n))
+    else none
+  | .ext d n m imm =>
+    if imm < 16 then some (d, ((s.v m ++ s.v n) >>> (imm * 8)).extractLsb' 0 128) else none
+  | .rev op d n => some (d, op.eval (s.v n))
+  | .perm op a d n m => some (d, op.eval a (s.v n) (s.v m))
+  | .tbl d n m => some (d, ofVBytes fun i =>
+      let idx := (vbyte (s.v m) i).toNat
+      if idx < 16 then vbyte (s.v n) idx else 0)
+  | .umull hi d n m =>
+    let p := if hi then 2 else 0
+    let prod (e : Nat) : BitVec 64 :=
+      (vword (s.v n) (p + e)).setWidth 64 * (vword (s.v m) (p + e)).setWidth 64
+    some (d, ofVDwords (prod 0) (prod 1))
+  | .umlal hi d n m =>
+    let p := if hi then 2 else 0
+    let prod (e : Nat) : BitVec 64 :=
+      (vword (s.v n) (p + e)).setWidth 64 * (vword (s.v m) (p + e)).setWidth 64
+    some (d, ofVDwords (vdword (s.v d) 0 + prod 0) (vdword (s.v d) 1 + prod 1))
+  | .pmull hi d n m =>
+    let p := if hi then 1 else 0
+    some (d, polyMul (vdword (s.v n) p) (vdword (s.v m) p))
+  | .aese d n => some (d, aesMapBytes aesSbox (aesShiftRows (s.v d ^^^ s.v n)))
+  | .aesd d n => some (d, aesMapBytes aesInvSbox (aesInvShiftRows (s.v d ^^^ s.v n)))
+  | .aesmc d n => some (d, aesMixColumns (s.v n))
+  | .aesimc d n => some (d, aesInvMixColumns (s.v n))
+  | .sha1 op d n m => some (d, sha1Hash op.f (s.v d) (vword (s.v n) 0) (s.v m))
+  | .sha1h d n => some (d, ((vword (s.v n) 0).rotateLeft 30).setWidth 128)
+  | .sha1su0 d n m => some (d, sha1Su0 (s.v d) (s.v n) (s.v m))
+  | .sha1su1 d n => some (d, sha1Su1 (s.v d) (s.v n))
+  | .sha256h d n m => some (d, sha256Hash (s.v d) (s.v n) (s.v m) true)
+  | .sha256h2 d n m => some (d, sha256Hash (s.v n) (s.v d) (s.v m) false)
+  | .sha256su0 d n => some (d, sha256Su0 (s.v d) (s.v n))
+  | .sha256su1 d n m => some (d, sha256Su1 (s.v d) (s.v n) (s.v m))
+  | .sha512h d n m => some (d, sha512H (s.v d) (s.v n) (s.v m))
+  | .sha512h2 d n m => some (d, sha512H2 (s.v d) (s.v n) (s.v m))
+  | .sha512su0 d n => some (d, sha512Su0 (s.v d) (s.v n))
+  | .sha512su1 d n m => some (d, sha512Su1 (s.v d) (s.v n) (s.v m))
+  | .eor3 d n m a => some (d, s.v n ^^^ s.v m ^^^ s.v a)
+  | .bcax d n m a => some (d, s.v n ^^^ (s.v m &&& ~~~(s.v a)))
+  | .rax1 d n m => some (d, VArr.d2.map2 (fun _ x y => x ^^^ y.rotateLeft 1) (s.v n) (s.v m))
+  | .xar d n m imm =>
+    if imm < 64 then some (d, VArr.d2.map2 (fun _ x y => (x ^^^ y).rotateRight imm) (s.v n) (s.v m))
+    else none
+
 /-- Semantics, transcribing DDI 0487 C6.2:
 * "ADD (shifted register)", "ADD (immediate)", "SUB (immediate)": the
   result of `AddWithCarry` (the flags are not set by these forms);
@@ -205,7 +564,13 @@ def rev64 (a : BitVec 64) : BitVec 64 :=
   the low `size` bits are stored;
 * "LDRB (immediate)": `data = Mem[address, 1]; X[t, 32] = ZeroExtend(data,
   32)` (hence zero-extended to 64 bits); "STRB (immediate)": `data = X[t,
-  8]; Mem[address, 1] = data`, the low byte of `t`. -/
+  8]; Mem[address, 1] = data`, the low byte of `t`;
+* an AdvSIMD or cryptographic instruction: `VOp.eval`;
+* "LDR (immediate, SIMD&FP)", "STR (immediate, SIMD&FP)" (128-bit, unsigned
+  offset: `offset = LSL(imm12, 4)`): `V[t] = Mem[address, 16]` and
+  `Mem[address, 16] = V[t]`;
+* "UMOV": `X[d, datasize] = ZeroExtend(Elem[V[n], index, esize], datasize)`,
+  with `esize = datasize` (32 or 64). -/
 def exec : Instr → State → Option State
   | .add sz d n m, s => some (s.write sz d (s.read sz n + s.read sz m))
   | .sub sz d n m, s => some (s.write sz d (s.read sz n - s.read sz m))
@@ -243,6 +608,12 @@ def exec : Instr → State → Option State
     (addr s 1 n off).bind fun a => (s.load a 1).map fun v => s.write .w t (v.setWidth 32)
   | .strb t n off, s =>
     (addr s 1 n off).bind fun a => s.store a 1 ((s.read .w t).setWidth 8)
+  | .vop op, s => (op.eval s).map fun (d, x) => s.setV d x
+  | .ldrq t n off, s => (addr s 16 n off).bind fun a => (s.load a 16).map fun x => s.setV t x
+  | .strq t n off, s => (addr s 16 n off).bind fun a => s.store a 16 (s.v t)
+  | .umov sz d n i, s =>
+    if i * sz.bits < 128 then some (s.write sz d ((s.v n).extractLsb' (sz.bits * i) sz.bits))
+    else none
   -- Only the push and pop of a frame (`push`, `pop`).
   | .push _, _ | .pop _, _ => none
 
@@ -251,6 +622,8 @@ def addrs : Instr → State → List Addr
   | .str _ _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
   | .ldrb _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
   | .strb _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
+  | .ldrq _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
+  | .strq _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
   | .push _, s => [s.sp - 16]
   | .pop _, s => [s.sp]
   | _, _ => []
@@ -303,6 +676,26 @@ def pop : Instr → State → State → Option State
     else none
   | _, _, _ => none
 
+/-- The CPU features an instruction needs beyond the AArch64 baseline
+(ARMv8.0-A with AdvSIMD, which every Rust AArch64 target assumes), named as
+Rust's target features. DDI 0487 A2 ("Armv8-A architecture extensions") and
+the "Is FEAT_…" condition in each instruction's decode (C7.2): FEAT_AES for
+AESE, AESD, AESMC, AESIMC and FEAT_PMULL for PMULL/PMULL2 with 64-bit
+sources, which Rust's `aes` feature covers together; FEAT_SHA1 for SHA1C,
+SHA1P, SHA1M, SHA1H, SHA1SU0, SHA1SU1 and FEAT_SHA256 for SHA256H,
+SHA256H2, SHA256SU0, SHA256SU1 (Rust's `sha2`); FEAT_SHA512 for SHA512H,
+SHA512H2, SHA512SU0, SHA512SU1 and FEAT_SHA3 for EOR3, BCAX, RAX1, XAR
+(Rust's `sha3`). -/
+def Instr.requires : Instr → List String
+  | .vop (.aese ..) | .vop (.aesd ..) | .vop (.aesmc ..) | .vop (.aesimc ..)
+  | .vop (.pmull ..) => ["aes"]
+  | .vop (.sha1 ..) | .vop (.sha1h ..) | .vop (.sha1su0 ..) | .vop (.sha1su1 ..)
+  | .vop (.sha256h ..) | .vop (.sha256h2 ..) | .vop (.sha256su0 ..) | .vop (.sha256su1 ..) =>
+    ["sha2"]
+  | .vop (.sha512h ..) | .vop (.sha512h2 ..) | .vop (.sha512su0 ..) | .vop (.sha512su1 ..)
+  | .vop (.eor3 ..) | .vop (.bcax ..) | .vop (.rax1 ..) | .vop (.xar ..) => ["sha3"]
+  | _ => []
+
 abbrev isa : ISA where
   State := State
   Instr := Instr
@@ -319,7 +712,6 @@ abbrev isa : ISA where
   writesSp _ := false
   push := push
   pop := pop
-  -- Every modelled instruction is in the ARMv8.0-A baseline.
-  requires _ := []
+  requires := Instr.requires
 
 end VG.AArch64

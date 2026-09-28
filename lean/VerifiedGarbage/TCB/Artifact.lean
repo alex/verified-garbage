@@ -17,6 +17,9 @@ verified. Every function the Rust crate contains is an `Artifact`, and an
    `T.abiPreserved` (callee-saved registers, stack pointer, return address).
 2. **Constant time.** Any two runs from `k.pre`-states that agree on public
    data (`k.pub`) have identical leakage traces (addresses and branches).
+   Public data is the pointers, lengths and public integer arguments, plus
+   anything the contract declares the function may leak (`Sig.contract`'s
+   `leak`): the traces may depend on that, and on nothing else secret.
 3. **Non-vacuity.** Some state satisfies `k.pre`. This is only a sanity
    check against an accidentally contradictory precondition; it does not
    replace reviewing the contract.
@@ -69,10 +72,19 @@ overlaps. A calling convention that does not model the arguments (`A.args`
 is `none`) gives an unsatisfiable precondition, which `Verified` rejects.
 Only the bits of a public argument's own width are public: a 32-bit argument
 in a 64-bit register leaves the upper half unspecified (whatever the caller
-left there, which may be secret), so two runs need not agree on it. -/
+left there, which may be secret), so two runs need not agree on it.
+
+`leak`, if given, declares what the function may leak beyond its public
+arguments: a list of numbers computed from the arguments and the memory on
+entry (e.g. the sequence of table indices an algorithm reads, when the
+algorithm itself makes them depend on secrets). It is added to the public
+data, so two runs need identical leakage traces only if they agree on it:
+the function may reveal it through its timing, and nothing else secret.
+Every contract without `leak` is constant time in the usual sense. -/
 def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
     (pre : Curry (sig.words A.ptrBits) (Mem → Prop) := Curry.const (fun _ => True) _)
-    (post : sig.Post A.ptrBits) (writeArgs : Bool := false) (stack : Nat := 0) : Contract M :=
+    (post : sig.Post A.ptrBits) (writeArgs : Bool := false) (stack : Nat := 0)
+    (leak : Option (Curry (sig.words A.ptrBits) (Mem → List Nat)) := none) : Contract M :=
   let ws := sig.words A.ptrBits
   let widths := ws.map (·.bits A.ptrBits)
   let pubs := sig.params.flatMap (·.2.pubs)
@@ -93,7 +105,11 @@ def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
           ((A.ret s').setWidth _)
     pub s₁ s₂ := match A.args widths with
       | none => False
-      | some vals => A.pub s₁ s₂ ∧
+      | some vals =>
+        (match leak with
+          | none => A.pub s₁ s₂
+          | some f => A.pub s₁ s₂ ∧
+            Curry.apply ws f (vals s₁) (A.mem s₁) = Curry.apply ws f (vals s₂) (A.mem s₂)) ∧
         ∀ i, pubs.getD i false = true →
           ((vals s₁).getD i 0).setWidth (widths.getD i 64) =
             ((vals s₂).getD i 0).setWidth (widths.getD i 64) }
@@ -118,7 +134,9 @@ structure Artifact where
   `sig.contract target.abi …` do. -/
   sig : Sig
   /-- Documentation for the generated Rust function. It must state every
-  requirement of `contract.pre` that the caller is responsible for. -/
+  requirement of `contract.pre` that the caller is responsible for, and
+  anything the contract declares the function may leak (`Sig.contract`'s
+  `leak`). -/
   doc : String
   code : Prog target.isa
   contract : Contract target.isa
