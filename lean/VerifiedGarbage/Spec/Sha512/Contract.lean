@@ -21,11 +21,13 @@ implementation calls.
 
 namespace VG.Spec.Sha512
 
-/-- `vg_sha512_compress(state: *mut [u64; 8], blocks: *const [u8; 128], n: usize, scratch: *mut [u64; 22])`.
-`scratch` is working space. -/
+/-- `vg_sha512_compress(state: *mut [u64; 8], blocks: *const [u8; 128], n: usize, scratch: *mut [u64; 28])`.
+`scratch` is working space: 224 bytes, enough for every target (the 32-bit
+ones need the most, keeping the message schedule, the working variables and
+spilled arguments and registers in it). -/
 def compressSig : Sig where
   params := [("state", .array true .u64 8), ("blocks", .slice false (.array .u8 128) "n"),
-    ("scratch", .array true .u64 22)]
+    ("scratch", .array true .u64 28)]
 
 /-- Updates the hash value at `state` with the `n` 128-byte blocks at
 `blocks`. The hash value and the blocks are secret. -/
@@ -43,11 +45,12 @@ from `iv`, the initial hash value of `<alg>` (`H0_384`, `H0_512`,
 def initContract {M : ISA} (A : Abi M) (iv : HashValue) : Contract M :=
   initSig.contract A (post := fun state _ m' _ => Repr iv m' state [])
 
-/-- `vg_sha512_update(state: *mut [u8; 192], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 28])`.
-`count` is public; `scratch` is working space. -/
+/-- `vg_sha512_update(state: *mut [u8; 192], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 34])`.
+`count` is public; `scratch` is working space: 272 bytes, room for the
+compression function's scratch (`compressSig`) and the function's own spills. -/
 def updateSig : Sig where
   params := [("state", .array true .u8 192), ("count", .int .u64 true),
-    ("data", .slice false .u8 "len"), ("scratch", .array true .u64 28)]
+    ("data", .slice false .u8 "len"), ("scratch", .array true .u64 34)]
 
 /-- If the streaming state at `state` represents a message `msg` of `count`
 bytes (modulo 2⁶⁴), hashed from any initial hash value, then afterwards it
@@ -59,12 +62,12 @@ def updateContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
       Repr iv m' state (msg ++ bytesAt m data len.toNat))
     (stack := stack)
 
-/-- `vg_sha512_finalize(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 28])`.
+/-- `vg_sha512_finalize(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 34])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
-space. -/
+space: 272 bytes, as for `updateSig`. -/
 def finalizeSig : Sig where
   params := [("state", .array true .u8 192), ("count", .int .u64 true),
-    ("out", .array true .u8 64), ("scratch", .array true .u64 28)]
+    ("out", .array true .u8 64), ("scratch", .array true .u64 34)]
 
 /-- If the streaming state at `state` represents a message `msg` of `count`
 bytes, fewer than 2⁶⁴, hashed from the initial hash value `iv`, writes the

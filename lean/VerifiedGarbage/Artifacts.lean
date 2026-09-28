@@ -6,6 +6,7 @@ import VerifiedGarbage.Proof.Sha256.X86_64.Shared
 import VerifiedGarbage.Proof.Sha256.AArch64.Shared
 import VerifiedGarbage.Proof.Sha256.Arm.Shared
 import VerifiedGarbage.Proof.Sha512.X86_64.Shared
+import VerifiedGarbage.Proof.Sha1.X86_64.Shared
 import VerifiedGarbage.Proof.Sha512.AArch64.Shared
 import VerifiedGarbage.Proof.Hmac.X86_64.Shared
 import VerifiedGarbage.Proof.Md5.X86_64.Shared
@@ -211,6 +212,83 @@ def artifacts : List Artifact := [
     verified := Proof.Md5.X86_64.Shared.finalize
     spSafe := Proof.SpSafe.md5_x86_64_finalize },
   { target := X86_64.target
+    module := "sha1"
+    name := "vg_sha1_compress"
+    sig := Spec.Sha1.compressSig
+    doc := "The SHA-1 compression function (FIPS 180-4 §6.1.2): updates the hash value \
+      `*state` with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
+      Contract: `VG.Spec.Sha1.compressContract`. Constant time: only the pointers and `n` \
+      may affect timing, not the hash value or the blocks.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 20 bytes.\n\
+      * `blocks` must be valid for reads of `64 * n` bytes.\n\
+      * `scratch` must be valid for reads and writes of 112 bytes; its contents on \
+      return are unspecified.\n\
+      * These three regions must not overlap each other, nor the return address on the \
+      stack (distinct Rust objects never do)."
+    code := Impl.Sha1.X86_64.compress
+    contract := Spec.Sha1.compressContract X86_64.abi
+    verified := Proof.Sha1.X86_64.Shared.compress
+    spSafe := Proof.SpSafe.sha1_x86_64_compress },
+  { target := X86_64.target
+    module := "sha1"
+    name := "vg_sha1_init"
+    sig := Spec.Sha1.initSig
+    doc := "Starts a SHA-1 computation: makes the streaming state `*state` represent the \
+      empty message.\n\n\
+      Contract: `VG.Spec.Sha1.initContract`. The streaming state is the hash value followed \
+      by a buffered partial block (`VG.Spec.Sha1.Repr`).\n\n\
+      # Safety\n\n\
+      * `state` must be valid for writes of 84 bytes.\n\
+      * It must not overlap the return address on the stack (a Rust object never does)."
+    code := Impl.Sha1.X86_64.Stream.init
+    contract := Spec.Sha1.initContract X86_64.abi
+    verified := Proof.Sha1.X86_64.Shared.init
+    spSafe := Proof.SpSafe.sha1_x86_64_init },
+  { target := X86_64.target
+    module := "sha1"
+    name := "vg_sha1_update"
+    sig := Spec.Sha1.updateSig
+    doc := "Absorbs data into a SHA-1 computation: if the streaming state `*state` represents \
+      a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by \
+      the `len` bytes at `data`.\n\n\
+      Contract: `VG.Spec.Sha1.updateContract`. Constant time: only the pointers, `count` and \
+      `len` may affect timing, not the state or the data.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 84 bytes.\n\
+      * `data` must be valid for reads of `len` bytes.\n\
+      * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_sha1_compress` stores its \
+      return address (distinct Rust objects never do)."
+    code := Impl.Sha1.X86_64.Stream.update
+    contract := Spec.Sha1.updateContract X86_64.abi 8
+    verified := Proof.Sha1.X86_64.Shared.update
+    spSafe := Proof.SpSafe.sha1_x86_64_update },
+  { target := X86_64.target
+    module := "sha1"
+    name := "vg_sha1_finalize"
+    sig := Spec.Sha1.finalizeSig
+    doc := "Finishes a SHA-1 computation: if the streaming state `*state` represents a \
+      message of `count` bytes (modulo 2⁶⁴), writes the SHA-1 digest of that message to \
+      `*out`.\n\n\
+      Contract: `VG.Spec.Sha1.finalizeContract`. Constant time: only the pointers and `count` \
+      may affect timing, not the state.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 84 bytes; its contents on return are \
+      unspecified.\n\
+      * `out` must be valid for writes of 20 bytes.\n\
+      * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_sha1_compress` stores its \
+      return address (distinct Rust objects never do)."
+    code := Impl.Sha1.X86_64.Stream.finalize
+    contract := Spec.Sha1.finalizeContract X86_64.abi 8
+    verified := Proof.Sha1.X86_64.Shared.finalize
+    spSafe := Proof.SpSafe.sha1_x86_64_finalize },
+  { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_compress"
     sig := Spec.Sha512.compressSig
@@ -222,7 +300,7 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 64 bytes.\n\
       * `blocks` must be valid for reads of `128 * n` bytes.\n\
-      * `scratch` must be valid for reads and writes of 176 bytes; its contents on \
+      * `scratch` must be valid for reads and writes of 224 bytes; its contents on \
       return are unspecified.\n\
       * These three regions must not overlap each other, nor the return address on the \
       stack (distinct Rust objects never do)."
@@ -306,7 +384,7 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 192 bytes.\n\
       * `data` must be valid for reads of `len` bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
       * These three regions must not overlap each other, the return address on the stack, \
       or the 8 bytes of stack below it, where its call of `vg_sha512_compress` stores its \
@@ -332,7 +410,7 @@ def artifacts : List Artifact := [
       * `state` must be valid for reads and writes of 192 bytes; its contents on return are \
       unspecified.\n\
       * `out` must be valid for writes of 64 bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
       * These three regions must not overlap each other, the return address on the stack, \
       or the 8 bytes of stack below it, where its call of `vg_sha512_compress` stores its \
@@ -474,7 +552,7 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 64 bytes.\n\
       * `blocks` must be valid for reads of `128 * n` bytes.\n\
-      * `scratch` must be valid for reads and writes of 176 bytes; its contents on \
+      * `scratch` must be valid for reads and writes of 224 bytes; its contents on \
       return are unspecified.\n\
       * These three regions must not overlap each other."
     code := Impl.Sha512.AArch64.compress
@@ -548,7 +626,7 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 192 bytes.\n\
       * `data` must be valid for reads of `len` bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
       * These three regions must not overlap each other."
     code := Impl.Sha512.AArch64.Stream.update
@@ -571,7 +649,7 @@ def artifacts : List Artifact := [
       * `state` must be valid for reads and writes of 192 bytes; its contents on return are \
       unspecified.\n\
       * `out` must be valid for writes of 64 bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
       * These three regions must not overlap each other."
     code := Impl.Sha512.AArch64.Stream.finalize
