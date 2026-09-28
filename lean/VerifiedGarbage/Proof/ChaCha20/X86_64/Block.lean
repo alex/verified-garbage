@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Rounds
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Spec.ChaCha20.X86_64
+import VerifiedGarbage.Proof.ChaCha20.X86_64.Contract
 
 /-!
 # ChaCha20 block function on x86-64: the whole function
@@ -115,7 +115,7 @@ structure Pre (s₀ : State) : Prop where
   buf_st : (bufR (buf s₀)).Disjoint (stR s₀)
   ret_buf : (retR s₀).Disjoint (bufR (buf s₀))
 
-theorem pre_of (s₀ : State) (h : Spec.ChaCha20.blockX86_64.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.ChaCha20.blockX86_64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4⟩ := h
   exact ⟨h1, h2, h3, h4⟩
 
@@ -477,7 +477,7 @@ theorem block_post {p : Addr} {m : Mem} {R v : CState}
 
 set_option maxHeartbeats 400000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa block s₀ fun s' => abiPreserved s₀ s' ∧ Spec.ChaCha20.blockX86_64.post s₀ s' := by
+    WP isa block s₀ fun s' => abiPreserved s₀ s' ∧ Proof.ChaCha20.blockX86_64.post s₀ s' := by
   have hw₀ := hp.hw
   refine WP.seq ?_
   rw [WP.block_append_iff, WP.block_append_iff]
@@ -559,7 +559,7 @@ def satState : State where
   wr := [⟨0x2000, 256⟩]
 
 theorem block_verified :
-    Verified X86_64.target Impl.ChaCha20.X86_64.block Spec.ChaCha20.blockX86_64 := by
+    Verified X86_64.target Impl.ChaCha20.X86_64.block Proof.ChaCha20.blockX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, h⟩

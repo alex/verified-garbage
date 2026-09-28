@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Rounds
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Spec.ChaCha20.AArch64
+import VerifiedGarbage.Proof.ChaCha20.AArch64.Contract
 
 /-!
 # ChaCha20 block function on AArch64: the whole function
@@ -34,7 +34,7 @@ structure Pre (s₀ : State) : Prop where
   wr : s₀.wr = [bufR s₀]
   buf_st : (bufR s₀).Disjoint (stR s₀)
 
-theorem pre_of (s₀ : State) (h : Spec.ChaCha20.blockAArch64.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.ChaCha20.blockAArch64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3⟩ := h
   exact ⟨h1, h2, h3⟩
 
@@ -244,7 +244,7 @@ theorem finish_split : finish = ([.str .w .x2 .x1 0] ++ (List.range 15).flatMap 
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa block s₀ fun s' =>
-      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Spec.ChaCha20.blockAArch64.post s₀ s' := by
+      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Proof.ChaCha20.blockAArch64.post s₀ s' := by
   have hl₀ : LI s₀ 0 s₀ := ⟨fun _ _ h => absurd h (by omega), rfl, rfl, rfl, fun _ _ => rfl⟩
   have hload : WP isa (.block load) s₀ (LI s₀ 16) := by
     unfold load
@@ -272,7 +272,7 @@ def satState : State where
 
 set_option maxRecDepth 100000 in
 theorem block_verified :
-    Verified AArch64.target Impl.ChaCha20.AArch64.block Spec.ChaCha20.blockAArch64 := by
+    Verified AArch64.target Impl.ChaCha20.AArch64.block Proof.ChaCha20.blockAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩

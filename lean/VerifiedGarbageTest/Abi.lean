@@ -2,17 +2,13 @@ import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.TCB.X86.Target
-import VerifiedGarbage.Spec.Sha256.X86_64
-import VerifiedGarbage.Spec.Sha256.Arm
 
 /-!
 # Golden tests for signatures and calling conventions
 
 `Sig.rust` and each target's `abi` are part of the TCB; these tests pin down
 the rendered signatures and where each calling convention places arguments,
-so that changes to them are deliberate and show up in review. The last
-section checks that `Sig.contract` implies the hand-written contracts of
-`vg_sha256_update` on x86-64 and 32-bit ARM.
+so that changes to them are deliberate and show up in review.
 -/
 
 namespace VG.Test.Abi
@@ -131,51 +127,5 @@ def x86State : X86.State where
 #guard X86.abi.argArea [32, 64, 32] x86State == [(⟨0x104, 16⟩, true)]
 #guard X86.abi.reserved x86State == [⟨0x100, 4⟩]
 #guard X86.abi.ret x86State == 0x0000000200000001
-
-/-! ## `Sig.contract` against hand-written contracts -/
-
-section
-open Spec.Sha256
-
-def updateSig : Sig where
-  params := [("state", .array true .u8 96), ("count", .int .u64 true),
-    ("data", .slice false .u8 "len"), ("scratch", .array true .u64 20)]
-
-/-- The contract of `vg_sha256_update` on any target. -/
-def update {M : ISA} (A : Abi M) : Contract M :=
-  updateSig.contract A (post := fun state count data len _scratch m m' _ =>
-    ∀ msg, Repr m state msg → count = BitVec.ofNat 64 msg.length →
-      Repr m' state (msg ++ bytesAt m data len.toNat))
-
-theorem update_x86_64_pre (s : X86_64.State) (h : (update X86_64.abi).pre s) :
-    updateX86_64.pre s := by
-  simp [update, Sig.contract, updateSig, Sig.words, Param.words, X86_64.abi, X86_64.argRegs,
-    ArgWord.bits, IntTy.bits, Sig.bufs, Elem.size, List.pairwise_cons] at h
-  obtain ⟨hrd, hwr, ⟨⟨h1, h2⟩, h3⟩, hret, -⟩ := h
-  exact ⟨hrd, hwr, h2, fun a ha hb => h1 a hb ha, h3, hret.1, hret.2.2⟩
-
-theorem update_x86_64_pub (s₁ s₂ : X86_64.State) (h : (update X86_64.abi).pub s₁ s₂) :
-    updateX86_64.pub s₁ s₂ := by
-  simp [update, Sig.contract, updateSig, Sig.words, Param.words, X86_64.abi, X86_64.argRegs,
-    ArgWord.bits, IntTy.bits, Param.pubs] at h
-  exact ⟨h.2 0 (by decide), h.2 1 (by decide), h.2 2 (by decide), h.2 3 (by decide),
-    h.2 4 (by decide)⟩
-
-theorem update_x86_64_post (s s' : X86_64.State) :
-    (update X86_64.abi).post s s' ↔ updateX86_64.post s s' :=
-  Iff.rfl
-
-theorem update_arm_pre (s : Arm.State) (h : (update Arm.abi).pre s) : updateArm.pre s := by
-  simp [update, Sig.contract, updateSig, Sig.words, Param.words, Arm.abi, Arm.argRegs,
-    ArgWord.bits, IntTy.bits, Sig.bufs, Elem.size, List.pairwise_cons, Arm.classify,
-    Arm.Loc.val] at h
-  obtain ⟨hsp, hrd, hwr, ⟨⟨h1, h2, h3⟩, h4, h5⟩, ⟨n0, n1, n2⟩, -⟩ := h
-  have fl : ∀ {a b : Region}, a.Disjoint b → b.Disjoint a := fun h x hb ha => h x ha hb
-  have m : ∀ x : BitVec 32, x.toNat % 18446744073709551616 = x.toNat := fun x => by
-    have := x.isLt; omega
-  simp only [m] at hrd n0 n1 n2 h1 h4
-  exact ⟨hrd, hwr, h2, fl h1, h4, fl h3, fl h5, by omega, n1, by omega, by omega⟩
-
-end
 
 end VG.Test.Abi

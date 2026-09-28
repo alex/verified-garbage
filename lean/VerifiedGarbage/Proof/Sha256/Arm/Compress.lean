@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.Arm.Rounds
-import VerifiedGarbage.Spec.Sha256.Arm
+import VerifiedGarbage.Proof.Sha256.Arm.Contract
 
 /-!
 # SHA-256 compression function on ARMv7: the whole function
@@ -48,7 +48,7 @@ structure Pre (s₀ : State) : Prop where
   blk_fits : (bp s₀).toNat + 64 * nb s₀ ≤ 2 ^ 32
   scr_fits : (scr s₀).toNat + 112 ≤ 2 ^ 32
 
-theorem pre_of (s₀ : State) (h : Spec.Sha256.compressArm.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.Sha256.compressArm.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
 
@@ -475,7 +475,7 @@ set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
     WP isa (.block restore) s fun s' =>
-      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Spec.Sha256.compressArm.post s₀ s' := by
+      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Proof.Sha256.compressArm.post s₀ s' := by
   have i0 := hp.in_save (d := 68) (by omega); have i1 := hp.in_save (d := 72) (by omega)
   have i2 := hp.in_save (d := 76) (by omega); have i3 := hp.in_save (d := 80) (by omega)
   have i4 := hp.in_save (d := 84) (by omega); have i5 := hp.in_save (d := 88) (by omega)
@@ -499,7 +499,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa compress s₀ fun s' =>
-      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Spec.Sha256.compressArm.post s₀ s' := by
+      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Proof.Sha256.compressArm.post s₀ s' := by
   refine WP.seq (WP.mono (save_ok hp) fun s₁ ⟨hg, hrd, hwr, hm, hz⟩ => ?_)
   refine WP.seq (WP.mono (Q := Common s₀ (nb s₀)) ?_ fun s₂ hc => restore_ok hp hc)
   have hc₀ := common_zero hp hg hrd hwr hm
@@ -538,7 +538,7 @@ def satState : State where
   wr := [⟨0x1000, 32⟩, ⟨0x3000, 112⟩]
 
 theorem compress_verified :
-    Verified Arm.target Impl.Sha256.Arm.compress Spec.Sha256.compressArm := by
+    Verified Arm.target Impl.Sha256.Arm.compress Proof.Sha256.compressArm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩

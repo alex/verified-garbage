@@ -57,7 +57,7 @@ structure Pre (s₀ : State) : Prop where
   st_scr : (stR s₀).Disjoint (scR s₀)
   out_scr : (outR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Spec.Sha256.finalizeAArch64.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha256.finalizeAArch64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
   exact ⟨h1, h2, h3, h4, h5⟩
 
@@ -614,7 +614,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
 
 /-- The epilogue's postcondition. -/
 def Post (s₀ s' : State) : Prop :=
-  (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧ s'.sp = s₀.sp ∧ Spec.Sha256.finalizeAArch64.post s₀ s'
+  (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧ s'.sp = s₀.sp ∧ Proof.Sha256.finalizeAArch64.post s₀ s'
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {s : State}
     (h : Out s₀ sD 8 s) : WP isa (.block restore) s (Post s₀) := by
@@ -665,7 +665,7 @@ theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs finalize, dstOf i �
   simpa using this
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.finalizeAArch64.post s₀ s' := by
+    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.finalizeAArch64.post s₀ s' := by
   refine WP.mono (WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
   · rw [finalize_eq]
@@ -692,7 +692,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     all_goals exact hu _ (by simp [untouched])
 
 /-- The initial taint: only the arguments are public. -/
-theorem agree₀ {s₁ s₂ : State} (hpub : Spec.Sha256.finalizeAArch64.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Sha256.finalizeAArch64.pub s₁ s₂) :
     VG.AArch64.Taint.Agree [.x0, .x1, .x2, .x3] s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4⟩ := hpub
   intro r hr
@@ -709,7 +709,7 @@ def sat : State where
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 160⟩]
 
 set_option maxHeartbeats 0 in
-theorem finalize_verified : Verified AArch64.target finalize Spec.Sha256.finalizeAArch64 := by
+theorem finalize_verified : Verified AArch64.target finalize Proof.Sha256.finalizeAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

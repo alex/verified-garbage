@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.AArch64.Rounds
-import VerifiedGarbage.Spec.Sha256.AArch64
+import VerifiedGarbage.Proof.Sha256.AArch64.Contract
 
 /-!
 # SHA-256 compression function on AArch64: the whole function
@@ -83,7 +83,7 @@ structure Pre (s₀ : State) : Prop where
   blk_st : (blR s₀).Disjoint (stR s₀)
   blk_scr : (blR s₀).Disjoint (scrR s₀)
 
-theorem pre_of (s₀ : State) (h : Spec.Sha256.compressAArch64.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.Sha256.compressAArch64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
   exact ⟨h1, h2, h3, h4, h5⟩
 
@@ -356,7 +356,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa compress s₀ fun s' =>
-      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Spec.Sha256.compressAArch64.post s₀ s' := by
+      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Proof.Sha256.compressAArch64.post s₀ s' := by
   have hc₀ : Common s₀ 0 s₀ :=
     ⟨rfl, rfl, fun _ _ => rfl, rfl, rfl, Frame.refl _ _, rfl⟩
   refine WP.mono (Q := Common s₀ (nb s₀)) ?_ fun s' hc => ⟨hc.kept, hc.state⟩
@@ -391,7 +391,7 @@ def satState : State where
   wr := [⟨0x1000, 32⟩, ⟨0x3000, 112⟩]
 
 theorem compress_verified :
-    Verified AArch64.target Impl.Sha256.AArch64.compress Spec.Sha256.compressAArch64 := by
+    Verified AArch64.target Impl.Sha256.AArch64.compress Proof.Sha256.compressAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩

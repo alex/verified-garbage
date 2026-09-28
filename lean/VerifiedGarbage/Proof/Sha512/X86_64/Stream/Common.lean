@@ -66,9 +66,9 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [State.setReg, State.setReg32]
   refine WP.seq (WP.mono h₁ fun s₁ ⟨e₁, e₂, e₃, e₄, e₅, e₆, e₇, e₈⟩ => ?_)
   have hsp : s₁.gpr .rsp = s.gpr .rsp := e₅ _ (by simp [calleeSaved])
-  refine WP.seq (WP.inline (k := Spec.Sha512.compressX86_64) compress_verified.1
+  refine WP.seq (WP.inline (k := Proof.Sha512.compressX86_64) compress_verified.1
     (rd := [⟨src, 128 * 1⟩]) (wr := [⟨st, 64⟩, ⟨scr, 176⟩]) ?_ ?_ ?_ ?_)
-  · simp only [Spec.Sha512.compressX86_64, State.withRegions_gpr, State.withRegions_rd,
+  · simp only [Proof.Sha512.compressX86_64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, e₁, e₂, e₃, e₄, hsp]
     exact ⟨by simp, by simp, d₁, d₂, d₃, d₄, d₅⟩
   · rw [e₆, e₇]; simpa using hc
@@ -76,7 +76,7 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
   · intro s₂ hrd hwr habi hf hkeep hpost
     have k₁ := hkeep .rdi compress_keeps_rdi
     have k₃ := hkeep .rcx compress_keeps_rcx
-    simp only [Spec.Sha512.compressX86_64, State.withRegions_gpr, State.withRegions_mem, e₁, e₂, e₄,
+    simp only [Proof.Sha512.compressX86_64, State.withRegions_gpr, State.withRegions_mem, e₁, e₂, e₄,
       e₈] at hpost
     rw [show (1 : BitVec 64).toNat = 1 from rfl, compressBlocks_one] at hpost
     apply WP.of_runBlock

@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Common
-import VerifiedGarbage.Spec.Sha256.Arm
+import VerifiedGarbage.Proof.Sha256.Arm.Contract
 
 /-!
 # Streaming SHA-256 on ARMv7: `update`
@@ -16,7 +16,8 @@ open VG VG.Arm VG.Impl.Sha256.Arm.Stream
 open VG.Proof.Sha256.Arm (contains_offset)
 open VG.Proof.Sha256.Arm.Stream
 open VG.Proof.Sha256.Stream
-open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt countArm)
+open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt)
+open VG.Proof.Sha256 (countArm)
 
 /-! ## The precondition -/
 
@@ -61,7 +62,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 160 ≤ 2 ^ 32
   sp_fit : s₀.sp.toNat + 12 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Sha256.updateArm.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha256.updateArm.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩
 
@@ -748,7 +749,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     simpa using this
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
-    WP isa (.block restore) s fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.updateArm.post s₀ s' := by
+    WP isa (.block restore) s fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateArm.post s₀ s' := by
   refine restore_ok hI.r3 hp.scr_fit
     (fun d hd₁ hd₂ => ⟨scR s₀, by simp [hI.rd, hI.wr, hp.wr], contains_offset (by omega) (by omega)⟩) s₀.gpr
     hI.saved fun s' hs ho hmem _ _ hsp => ⟨⟨fun r hr => ?_, by rw [hsp, hI.sp]⟩, fun m hr hc => ?_⟩
@@ -767,7 +768,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
     rwa [List.take_of_length_le (by rw [D_length]), ← hmem] at this
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.updateArm.post s₀ s' := by
+    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateArm.post s₀ s' := by
   have hlen := len_lt s₀
   rw [update_eq]
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨hI, hz⟩ => ?_)
@@ -806,7 +807,7 @@ theorem argByte_eq {s : State} (hsp : s.sp.toNat + 12 ≤ 2 ^ 32) {k : Nat} (hk 
   rw [addr_off (by omega), BitVec.add_assoc, ← BitVec.ofNat_add]
   congr 2; omega
 
-theorem wf₀ {s : State} (h : Spec.Sha256.updateArm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
+theorem wf₀ {s : State} (h : Proof.Sha256.updateArm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
   have hp := pre_of h
   have hst := hp.st_fit; have hsc := hp.scr_fit; have hs := hp.sp_fit
   refine ⟨fun _ => ⟨by simp [hp.wr, τ₀], by simpa [hp.wr] using hp.st_scr, ?_⟩, ?_, fun _ => ⟨hs, ?_⟩, ?_⟩
@@ -823,8 +824,8 @@ theorem wf₀ {s : State} (h : Spec.Sha256.updateArm.pre s) : VG.Arm.Taint.Wf τ
     simp only [VG.Arm.Taint.region, hp.wr]
     rfl
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.updateArm.pre s₁) (h₂ : Spec.Sha256.updateArm.pre s₂)
-    (hpub : Spec.Sha256.updateArm.pub s₁ s₂) : VG.Arm.Taint.Agree τ₀ s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.updateArm.pre s₁) (h₂ : Proof.Sha256.updateArm.pre s₂)
+    (hpub : Proof.Sha256.updateArm.pub s₁ s₂) : VG.Arm.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨psp, p0, p2, p3, a0, a1, a2⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ h₁, wf₀ h₂,
@@ -855,7 +856,7 @@ def sat : State where
   wr := [⟨0x1000, 96⟩, ⟨0, 160⟩]
 
 set_option maxHeartbeats 0 in
-theorem update_verified : Verified Arm.target update Spec.Sha256.updateArm := by
+theorem update_verified : Verified Arm.target update Proof.Sha256.updateArm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
@@ -863,7 +864,7 @@ theorem update_verified : Verified Arm.target update Spec.Sha256.updateArm := by
   · have e : ∀ k, stackArg sat k = 0 := fun k => by
       simp [stackArg, sat, Mem.readW, Mem.read]
     refine ⟨sat, ?_⟩
-    simp only [Spec.Sha256.updateArm, e]
+    simp only [Proof.Sha256.updateArm, e]
     refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
       by decide⟩ <;>
     · intro a h₁ h₂

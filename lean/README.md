@@ -20,7 +20,7 @@ VerifiedGarbage/
     Rust.lean       rendering artifacts as Rust naked functions
     Axioms.lean     `#assert_standard_axioms`
     X86_64/         ISA model, printer, System V ABI target
-  Spec/         Algorithm specifications and per-target contracts (trusted, must be reviewed)
+  Spec/         Algorithm specifications and contracts (trusted, must be reviewed)
   Impl/         Implementations: `Prog`s over an ISA model (untrusted)
   Proof/        Proofs and intermediate proof artifacts (untrusted)
     Framework/      generic lemmas: determinism, WP rules, memory frames, inlining
@@ -38,10 +38,12 @@ never import proofs.
 ## The pipeline
 
 1. **Spec** — `Spec/<Alg>.lean` defines the algorithm as a readable Lean
-   function transcribed from the standard, and `Spec/<Alg>/<Target>.lean` a
-   `Contract` per target: a precondition (argument registers, permitted
-   memory regions), a postcondition (in terms of the spec), and a `pub`
-   relation saying which inputs are public for constant-time purposes.
+   function transcribed from the standard, and `Spec/<Alg>/Contract.lean`
+   each function's Rust signature (`Sig`) and its `Contract`, for every
+   target at once: `Sig.contract` derives from the signature and the
+   target's calling convention where the arguments are, the permitted memory
+   regions, disjointness and which arguments are public, and the contract
+   adds a postcondition (in terms of the spec) and any further precondition.
 2. **Impl** — `Impl/<Alg>/<Target>.lean` defines the code as a `Prog`.
 3. **Proof** — `Proof/<Alg>/…` proves `Verified target code contract`:
    termination without faults (hence memory safety), the postcondition,

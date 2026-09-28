@@ -2,8 +2,8 @@
 //!
 //! The whole computation is verified assembly: `vg_sha256_init`,
 //! `vg_sha256_update` and `vg_sha256_finalize` for the target architecture
-//! (contracts `VG.Spec.Sha256.initX86_64`, `updateX86_64`, `finalizeX86_64`
-//! and their AArch64 and 32-bit ARM counterparts) maintain a streaming state
+//! (contracts `VG.Spec.Sha256.initContract`, `updateContract` and
+//! `finalizeContract`) maintain a streaming state
 //! that represents the message absorbed so far (`VG.Spec.Sha256.Repr`: the
 //! hash value of its whole blocks, and its remaining bytes), and pad it and
 //! output the digest. This module only keeps that state together with the

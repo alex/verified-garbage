@@ -28,7 +28,7 @@ theorem init_post {s₀ : State}
     (hret : Region.Disjoint ⟨s₀.gpr .rsp, 8⟩ ⟨s₀.gpr .rdi, 96⟩) (g : Reg → BitVec 64)
     (hg : ∀ r, r ≠ .rax → g r = s₀.gpr r) :
     abiPreserved s₀ { s₀ with gpr := g, mem := writeState s₀.mem (s₀.gpr .rdi) Spec.Sha256.H0 } ∧
-      Spec.Sha256.initX86_64.post s₀
+      Proof.Sha256.initX86_64.post s₀
         { s₀ with gpr := g, mem := writeState s₀.mem (s₀.gpr .rdi) Spec.Sha256.H0 } := by
   have hf : Frame [⟨s₀.gpr .rdi, 96⟩] s₀.mem (writeState s₀.mem (s₀.gpr .rdi) Spec.Sha256.H0) := by
     have c : ∀ k, k < 8 → (⟨s₀.gpr .rdi, 96⟩ : Region).Contains
@@ -45,8 +45,8 @@ theorem init_post {s₀ : State}
 
 set_option maxHeartbeats 0 in
 set_option simprocs false in
-theorem init_correct {s₀ : State} (hp : Spec.Sha256.initX86_64.pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.initX86_64.post s₀ s' := by
+theorem init_correct {s₀ : State} (hp : Proof.Sha256.initX86_64.pre s₀) :
+    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.initX86_64.post s₀ s' := by
   obtain ⟨hrd, hwr, hret⟩ := hp
   have o : ∀ k, k < 8 → InRegions s₀.wr (s₀.gpr .rdi + BitVec.ofInt 64 ((4 * k : Nat) : Int)) 4 :=
     fun k hk => ⟨⟨s₀.gpr .rdi, 96⟩, by simp [hwr], contains_offset' (by omega) (by omega)⟩
@@ -72,7 +72,7 @@ def initSat : State where
   rd := []
   wr := [⟨0x1000, 96⟩]
 
-theorem init_verified : Verified X86_64.target init Spec.Sha256.initX86_64 := by
+theorem init_verified : Verified X86_64.target init Proof.Sha256.initX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl, ?_⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct hs
     exact ⟨t, s', he, h⟩

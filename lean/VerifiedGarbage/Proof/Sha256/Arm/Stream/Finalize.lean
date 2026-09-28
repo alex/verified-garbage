@@ -17,7 +17,8 @@ open VG.Proof.Sha256.Arm (contains_offset)
 open VG.Proof.Sha256.Arm.Stream
 open VG.Proof.Sha256.Arm.Stream.Update (addr_off addr_toNat cmp0)
 open VG.Proof.Sha256.Stream
-open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes countArm)
+open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes)
+open VG.Proof.Sha256 (countArm)
 
 /-! ## The precondition -/
 
@@ -71,7 +72,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 160 ≤ 2 ^ 32
   sp_fit : s₀.sp.toNat + 8 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Sha256.finalizeArm.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha256.finalizeArm.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12⟩
 
@@ -735,7 +736,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
       List.flatMap_singleton, Vector.getElem_toList]
 
 /-- The epilogue's postcondition. -/
-def Post (s₀ s' : State) : Prop := abiPreserved s₀ s' ∧ Spec.Sha256.finalizeArm.post s₀ s'
+def Post (s₀ s' : State) : Prop := abiPreserved s₀ s' ∧ Proof.Sha256.finalizeArm.post s₀ s'
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {s : State}
     (h : Out s₀ sD 8 s) : WP isa (.block restore) s (Post s₀) := by
@@ -818,7 +819,7 @@ theorem argByte_eq {s : State} (hsp : s.sp.toNat + 8 ≤ 2 ^ 32) {k : Nat} (hk :
   rw [addr_off (by omega), BitVec.add_assoc, ← BitVec.ofNat_add]
   congr 2; omega
 
-theorem wf₀ {s : State} (h : Spec.Sha256.finalizeArm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
+theorem wf₀ {s : State} (h : Proof.Sha256.finalizeArm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
   have hp := pre_of h
   have hst := hp.st_fit; have ho := hp.out_fit; have hsc := hp.scr_fit; have hs := hp.sp_fit
   refine ⟨fun _ => ⟨by simp [hp.wr, τ₀], ?_, ?_⟩, ?_, fun _ => ⟨hs, ?_⟩, ?_⟩
@@ -839,8 +840,8 @@ theorem wf₀ {s : State} (h : Spec.Sha256.finalizeArm.pre s) : VG.Arm.Taint.Wf 
     simp only [VG.Arm.Taint.region, hp.wr]
     rfl
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.finalizeArm.pre s₁) (h₂ : Spec.Sha256.finalizeArm.pre s₂)
-    (hpub : Spec.Sha256.finalizeArm.pub s₁ s₂) : VG.Arm.Taint.Agree τ₀ s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.finalizeArm.pre s₁) (h₂ : Proof.Sha256.finalizeArm.pre s₂)
+    (hpub : Proof.Sha256.finalizeArm.pub s₁ s₂) : VG.Arm.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨psp, p0, p2, p3, a0, a1⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ h₁, wf₀ h₂,
@@ -871,7 +872,7 @@ def sat : State where
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 160⟩]
 
 set_option maxHeartbeats 0 in
-theorem finalize_verified : Verified Arm.target finalize Spec.Sha256.finalizeArm := by
+theorem finalize_verified : Verified Arm.target finalize Proof.Sha256.finalizeArm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
@@ -879,7 +880,7 @@ theorem finalize_verified : Verified Arm.target finalize Spec.Sha256.finalizeArm
   · have e0 : stackArg sat 0 = 0x2000 := by decide
     have e1 : stackArg sat 1 = 0x3000 := by decide
     refine ⟨sat, ?_⟩
-    simp only [Spec.Sha256.finalizeArm, e0, e1]
+    simp only [Proof.Sha256.finalizeArm, e0, e1]
     refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
       by decide⟩ <;>
     · intro a h₁ h₂

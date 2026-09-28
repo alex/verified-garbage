@@ -210,15 +210,15 @@ theorem compressAt_ok {s : State} {st scr src : BitVec 32}
   have e1 : s₁.gpr .r1 = src := by rw [u₁.other _ (by decide), h1]
   have e2 : s₁.gpr .r2 = 1 := u₁.gpr
   have e3 : s₁.gpr .r3 = scr := by rw [u₁.other _ (by decide), h3]
-  refine WP.inline (k := Spec.Sha256.compressArm) compress_verified.1
+  refine WP.inline (k := Proof.Sha256.compressArm) compress_verified.1
     (rd := [⟨State.addr src, 64 * 1⟩]) (wr := [⟨State.addr st, 32⟩, ⟨State.addr scr, 112⟩]) ?_ ?_ ?_ ?_
-  · simp only [Spec.Sha256.compressArm, State.withRegions_gpr, State.withRegions_rd,
+  · simp only [Proof.Sha256.compressArm, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, e0, e1, e2, e3]
     exact ⟨rfl, trivial, d₁, d₂, d₃, f₀, by simpa using f₁, f₃⟩
   · rw [u₁.rd, u₁.wr]; simpa using hc
   · rw [u₁.wr]; exact hw
   · intro s' hrd hwr habi hf hg hpost
-    simp only [Spec.Sha256.compressArm, State.withRegions_gpr, State.withRegions_mem, e0, e1, e2,
+    simp only [Proof.Sha256.compressArm, State.withRegions_gpr, State.withRegions_mem, e0, e1, e2,
       u₁.mem] at hpost
     rw [show (BitVec.toNat (1 : BitVec 32)) = 1 from rfl, compressBlocks_one] at hpost
     refine hQ s' (hrd.trans u₁.rd) (hwr.trans u₁.wr) (fun r hr => ?_) (by rw [hg _ r0_ok, e0])

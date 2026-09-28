@@ -45,11 +45,15 @@ then steps 2–5 together. Any TCB additions the primitive needs (e.g. new
 instructions in an ISA model) go in their own PR before either.
 
 1. `Spec/<Alg>.lean`: the algorithm, transcribed from the standard, with no
-   target-specific imports; and `Spec/<Alg>/<Target>.lean`: its `Contract` on
-   each target. Choose `pub` honestly: only lengths and pointers are public
+   target-specific imports; and `Spec/<Alg>/Contract.lean`: for each function,
+   its Rust signature (`Sig`) and its `Contract` on every target, built with
+   `Sig.contract` from a postcondition and any precondition the signature does
+   not imply. Choose `pub` honestly: only lengths and pointers are public
    unless the algorithm says otherwise.
 2. `Impl/<Alg>/<Target>.lean`: the code.
-3. `Proof/<Alg>/…`: the proof of `Verified`.
+3. `Proof/<Alg>/…`: the proof of `Verified`. A proof may be written against a
+   simpler per-target contract of its own and moved to the shared one with
+   `Verified.of_implies` (see `Proof/Framework/Contract.lean`).
 4. An `Artifact` in `Artifacts.lean` (its `module` names the file under
    `src/asm/<target>/`), whose `sig` and `doc` match the
    contract (the doc must state every caller obligation).

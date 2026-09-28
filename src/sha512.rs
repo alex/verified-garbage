@@ -3,7 +3,7 @@
 //! The whole computation is verified assembly: `vg_sha384_init`,
 //! `vg_sha512_init`, `vg_sha512_224_init` or `vg_sha512_256_init`, then
 //! `vg_sha512_update` and `vg_sha512_finalize` (contracts
-//! `VG.Spec.Sha512.initX86_64`, `updateX86_64` and `finalizeX86_64`) maintain
+//! `VG.Spec.Sha512.initContract`, `updateContract` and `finalizeContract`) maintain
 //! a streaming state that represents the message absorbed so far
 //! (`VG.Spec.Sha512.Repr`: the hash value of its whole blocks, from the
 //! function's initial hash value, and its remaining bytes), and pad it and
