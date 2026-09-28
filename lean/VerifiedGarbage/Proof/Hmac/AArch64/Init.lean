@@ -688,7 +688,7 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
     · exact (hp.o_s.symm.sub_left (save_sub s₀)).sub_right (sub32 _)
     · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
   · simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
     · exact hsv (.x19, 112) (by simp [saved])
     · exact hsv (.x20, 120) (by simp [saved])
     · exact hsv (.x21, 128) (by simp [saved])
