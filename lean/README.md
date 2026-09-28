@@ -34,7 +34,7 @@ VerifiedGarbage/
                     constant time by evaluation
   Artifacts/      The registry: one registration file per algorithm and target,
                   each listing the artifacts it emits
-  Artifacts.lean  The registry's older entries, from before `Artifacts/`
+  Artifacts.lean  An empty list, which the emitter still reads; add nothing to it
 VerifiedGarbageTest/  Golden tests for the (unverified) printers and calling conventions
 Emit.lean       Renders every artifact into `../src/asm/` (see `TCB/Emit.lean`)
 ```
@@ -59,7 +59,7 @@ never import proofs.
    anything the contract declares the function may leak), and
    satisfiability of the precondition.
 4. **Registry** — the registration files `Artifacts/<Alg>/<Target>.lean`
-   (and `Artifacts.lean`) list every `Artifact`, bundling target, Rust name
+   list every `Artifact`, bundling target, Rust name
    and signature, code, contract and proof. An `Artifact` cannot be built
    without the proof, and the emitter's `#assert_standard_axioms` rejects
    `sorry`, `native_decide` and any non-standard axiom anywhere in them.
@@ -95,8 +95,7 @@ constant.
   (including the CPU features each instruction requires), and the printers,
   which must print what the models mean.
 * For each artifact: its contract in `Spec/` (and the algorithm spec it
-  refers to), and its `sig` and `doc` in its registration file (or
-  `Artifacts.lean`), and `TCB/Emit.lean`, which decides what is emitted.
+  refers to), and its `sig` and `doc` in its registration file, and `TCB/Emit.lean`, which decides what is emitted.
 * Lean's kernel, and the assembler in `rustc`/LLVM.
 
 Everything in `Impl/` and `Proof/` is checked by Lean and need not be read.

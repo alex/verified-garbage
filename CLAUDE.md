@@ -75,7 +75,7 @@ instructions in an ISA model) go in their own PR before either.
 4. An `Artifact` in the registration file `Artifacts/<Alg>/<Target>.lean`,
    which defines `VG.Artifacts.<Alg>.<Target>.artifacts` (a new file for a
    new algorithm or target; see `Artifacts/Selftest/X86_64.lean`; never
-   `Artifacts.lean`, whose list only holds older entries). Its `module`
+   `Artifacts.lean`, whose list is empty). Its `module`
    names the file under `src/asm/<target>/`, and its `sig` and `doc` match
    the contract (the doc must state every caller obligation). Its `spSafe`
    can be the default, `decide +kernel`, which runs in the registration
