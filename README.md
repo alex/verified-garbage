@@ -27,6 +27,7 @@ It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
 | MD5 | ✅ | x86-64, ARM64 | ❌ |
 | SHA3-224, SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256 | ✅ | ❌ | ❌ |
 | AES-GCM (128-, 192- and 256-bit keys) | ✅ | ❌ | ❌ |
+| scrypt | ✅ | ❌ | ❌ |
 
 * **Spec landed**: the algorithm's specification, transcribed from its
   standard, is in `lean/VerifiedGarbage/Spec/`.
@@ -45,7 +46,9 @@ Our goal is to implement all the cryptographic algorithms that are used by the P
 
 * Each primitive is written in assembly, as a program over a Lean model of the
   target ISA, and proven in Lean to be correct against a specification, memory
-  safe, and constant time. See [`lean/README.md`](lean/README.md) for the
+  safe, and constant time (scrypt's ROMix is the exception its standard
+  makes: it reads memory at indices derived from the password, and its
+  contract declares that it leaks them and nothing else secret). See [`lean/README.md`](lean/README.md) for the
   layout, the pipeline, and exactly what has to be trusted.
 * The proven assembly is emitted into [`src/asm/`](src/asm/) (one directory
   per architecture) as Rust naked functions (`naked_asm!`); there is no build
