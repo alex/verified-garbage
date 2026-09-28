@@ -57,8 +57,9 @@ def labels : List String := ["Key:", "Nonce:", "Keystream:", "Plaintext:", "Ciph
 begins with `heading` and ending before the one that begins with `next`
 (section headings are not indented, which tells them apart from the table of
 contents). Page footers and headers between the lines of a hex dump are
-skipped. -/
-def vectorsIn (text heading next : String) : Except String (List Vector) := do
+skipped. `labels` are the labels of the hex dumps. -/
+def vectorsIn (text heading next : String) (labels : List String := labels) :
+    Except String (List Vector) := do
   let lines := text.splitOn "\n"
   let lines := (lines.dropWhile (!·.startsWith heading)).drop 1
   let lines := lines.takeWhile (!·.startsWith next)
