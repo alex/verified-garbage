@@ -62,8 +62,8 @@ theorem Covers.push {xs ys xs' ys' : List Region} (f : Region) (h : Covers (xs +
 register). -/
 def dstOf : Instr → Option Reg
   | .add _ d .. | .sub _ d .. | .addImm _ d .. | .subImm _ d .. | .logic _ _ d .. | .ror _ d ..
-  | .lsr _ d .. | .rev32 d _ | .rev d _ | .movz _ d .. | .movk _ d .. | .ldr _ d .. | .ldrb d ..
-  | .pop d => some d
+  | .lsr _ d .. | .lsl _ d .. | .madd _ d .. | .mul _ d .. | .rev32 d _ | .rev d _ | .movz _ d ..
+  | .movk _ d .. | .ldr _ d .. | .ldrb d .. | .pop d => some d
   | .str .. | .strb .. | .push _ => none
 
 section
