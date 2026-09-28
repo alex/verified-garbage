@@ -1714,14 +1714,15 @@ pub(crate) unsafe extern "C" fn vg_chacha20_block(state: *const [u32; 16], buf: 
 ///
 /// Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
 ///
-/// The function may overwrite its own arguments on the stack (which the callee owns under cdecl).
+/// The function may overwrite the arguments on the stack, as the calling convention lets it.
 ///
 /// # Safety
 ///
 /// * `state` must be valid for reads and writes of 64 bytes; its contents on return are unspecified.
 /// * `data` must be valid for reads and writes of `len` bytes.
 /// * `buf` must be valid for reads and writes of 320 bytes; its contents on return are unspecified.
-/// * These three regions must not overlap each other, the stack frame of the call (the return address and the arguments), or the 12 bytes of stack below the return address, where its calls of `vg_chacha20_block` store their arguments and return address, and none of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `state`, `data` and `buf` must not overlap each other (distinct Rust objects never do).
+/// * None of `state`, `data` and `buf` may overlap the arguments on the stack, overlap the return address on the stack or the 12 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80]) {
     core::arch::naked_asm!(
