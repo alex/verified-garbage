@@ -181,9 +181,24 @@ jobs:
             container:
               image: ghcr.io/pyca/cryptography-runner-ubuntu-rolling:armv7l
               options: --env RUSTUP_HOME=/root/.rustup
+          # PPC64LE: pyca's ppc64le runner image, on a ppc64le runner (as
+          # pyca/cryptography does).
+          - os: ubuntu-24.04-ppc64le
+            container:
+              image: ghcr.io/pyca/cryptography-runner-ubuntu-rolling:ppc64le
+              options: --env RUSTUP_HOME=/root/.rustup
           - os: macos-latest
           - os: windows-latest
         rust: [stable, "1.88"]
+        exclude:
+          # Inline assembly (and so `naked_asm!`) on PowerPC was stabilized
+          # in Rust 1.95, after the crate's minimum of 1.88.
+          - platform:
+              os: ubuntu-24.04-ppc64le
+              container:
+                image: ghcr.io/pyca/cryptography-runner-ubuntu-rolling:ppc64le
+                options: --env RUSTUP_HOME=/root/.rustup
+            rust: "1.88"
         # One job each for the upcoming toolchains, to catch regressions (and
         # new warnings, which are errors here) before they reach stable.
         include:
