@@ -1,6 +1,5 @@
 import VerifiedGarbage.Proof.Poly1305.X86_64.Blocks
-import VerifiedGarbage.Proof.Sha3.X86_64.Wp
-import VerifiedGarbage.Proof.Sha3.Arith
+import VerifiedGarbage.Proof.Poly1305.X86_64.Wp
 
 /-!
 # Poly1305 on x86-64: the buffer
@@ -14,8 +13,6 @@ namespace VG.Proof.Poly1305.X86_64
 
 open VG VG.X86_64 VG.Impl.Poly1305.X86_64
 open VG.Spec.Poly1305 (P leNum bytesAt Repr Buffered)
-open VG.Proof.Sha3.X86_64 (Upd wp_movzx8 wp_store8 wp_addi wp_subi)
-open VG.Proof.Sha3 (ofNat_succ ofNat_pred ofNat_beq_zero)
 
 /-! ## Bytes in memory -/
 
@@ -137,9 +134,6 @@ theorem bfR_contains (st : Addr) {d n : Nat} (h : d + n ≤ 16) :
     toNat_ofNat_lt (by omega)]
   omega
 
-theorem bufB_contains (st : Addr) {k : Nat} (hk : k < 16) : (bfR st).Contains (bufB st k) 1 := by
-  rw [bufB_eq]; exact bfR_contains st (by omega)
-
 theorem bufB_ne {st : Addr} {j k : Nat} (hj : j < 16) (hk : k < 16) (h : j ≠ k) :
     bufB st j ≠ bufB st k := by
   intro he
@@ -207,23 +201,6 @@ theorem and15 (x : BitVec 64) :
   apply BitVec.eq_of_toNat_eq
   rw [BitVec.toNat_and, show (BitVec.signExtend 64 (15 : BitVec 32)).toNat = 2 ^ 4 - 1 by decide,
     Nat.and_two_pow_sub_one_eq_mod, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := x.toNat % 16) (by omega)]
-
-section
-variable {is : List Instr} {s : State} {Q : State → Prop}
-
-theorem wp_sub {d r : Reg}
-    (k : ∀ s', Upd s s' d (s.gpr d - s.gpr r) → WP isa (.block is) s' Q) :
-    WP isa (.block (.alu .sub d (.reg r) :: is)) s Q :=
-  VG.Proof.Sha3.X86_64.WP.cons rfl (k _ (Upd.flags _ _ _ _ _ _))
-
-theorem wp_cmpi {d : Reg} {v : BitVec 32}
-    (k : ∀ s', s'.gpr = s.gpr → s'.mem = s.mem → s'.rd = s.rd → s'.wr = s.wr →
-      s'.cf = some (decide ((s.gpr d).toNat < (v.signExtend 64).toNat)) →
-      s'.zf = some (s.gpr d - v.signExtend 64 == 0) → WP isa (.block is) s' Q) :
-    WP isa (.block (.alu .cmp d (.imm v) :: is)) s Q :=
-  VG.Proof.Sha3.X86_64.WP.cons rfl (k _ rfl rfl rfl rfl rfl rfl)
-
-end
 
 theorem se16' : BitVec.signExtend 64 (16 : BitVec 32) = BitVec.ofNat 64 16 := by decide
 

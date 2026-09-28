@@ -10,8 +10,6 @@ namespace VG.Proof.Poly1305.X86_64
 
 open VG VG.X86_64 VG.Impl.Poly1305.X86_64
 open VG.Spec.Poly1305 (P clamp leNum bytesAt accumulate Repr Buffered)
-open VG.Proof.Sha3.X86_64 (Upd wp_mov wp_mov32i wp_cmp wp_test wp_addi wp_subi)
-open VG.Proof.Sha3 (ofNat_succ sub_ofNat ofNat_beq_zero)
 
 /-! ## The precondition -/
 
@@ -41,8 +39,6 @@ theorem UPre.of (s₀ : State) (h : Proof.Poly1305.updateX86_64.pre s₀) : UPre
 theorem dl_lt (s₀ : State) : dl s₀ < 2 ^ 64 := (s₀.gpr .rcx).isLt
 
 theorem kb_lt (s₀ : State) : kb s₀ < 16 := Nat.mod_lt _ (by omega)
-
-theorem Bf_length (s₀ : State) : (Bf s₀).length = kb s₀ := Poly1305.length_bytesAt _ _ _
 
 theorem rcx_eq (s₀ : State) : s₀.gpr .rcx = BitVec.ofNat 64 (dl s₀) := by simp
 
@@ -410,7 +406,7 @@ theorem fill_ok {s₀ : State} (hp : UPre s₀) {s : State} (h : Pre1 s₀ s) (h
   have h₃ := h₂.flags hf
   refine WP.ite (decide (kb s₀ + min (16 - kb s₀) (dl s₀) = 16))
     (by simp only [eval, z₃, h₂.r12, se16']
-        rw [VG.Proof.Sha3.sub_beq (a := kb s₀ + min (16 - kb s₀) (dl s₀)) (b := 16) (by omega) (by omega)])
+        rw [sub_beq (a := kb s₀ + min (16 - kb s₀) (dl s₀)) (b := 16) (by omega) (by omega)])
     (fun hfull => ?_) (fun hnf => ?_)
   · exact WP.mono (absorbFull_ok hp h₃ (by simpa using hfull)) fun s' h' => .inl ⟨_, h'⟩
   · simp only [decide_eq_false_iff_not] at hnf

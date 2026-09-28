@@ -10,8 +10,6 @@ namespace VG.Proof.Poly1305.X86_64
 
 open VG VG.X86_64 VG.Impl.Poly1305.X86_64
 open VG.Spec.Poly1305 (P clamp leNum bytesAt accumulate Repr Buffered leBytes mac)
-open VG.Proof.Sha3.X86_64 (Upd wp_mov32i wp_addi wp_store8)
-open VG.Proof.Sha3 (ofNat_succ sub_beq ofNat_beq_zero)
 
 /-- The buffer's bytes are `f k`. -/
 def BufHas (m : Mem) (st : Addr) (f : Nat → Byte) : Prop := ∀ k < 16, m (bufB st k) = f k
@@ -156,7 +154,7 @@ structure ZInv (s₀ : State) (m₁ : Mem) (s₁ : State) (j : Nat) (s : State) 
 
 theorem zinit_ok {s₀ : State} {m₁ : Mem} (hm : Mem₁ s₀ m₁) {s₁ : State} (h₁ : F0 s₀ m₁ s₁) :
     WP isa (.block [.mov32 .rax (.imm 0), .mov .r12 (.reg .rdx)]) s₁ (ZInv s₀ m₁ s₁ (kf s₀)) := by
-  refine wp_mov32i fun s₂ u₂ => VG.Proof.Sha3.X86_64.wp_mov fun s₃ u₃ => WP.block_nil ?_
+  refine wp_mov32i fun s₂ u₂ => wp_mov fun s₃ u₃ => WP.block_nil ?_
   refine ⟨⟨le_rfl, (kf_lt s₀).le⟩, by rw [u₃.gpr, u₂.other _ (by decide), h₁.rdx], by
     rw [u₃.other _ (by decide), u₂.gpr]; rfl, fun r h1 h2 => by rw [u₃.other r h2, u₂.other r h1],
     by rw [u₃.rd, u₂.rd, h₁.rd], by rw [u₃.wr, u₂.wr, h₁.wr],
