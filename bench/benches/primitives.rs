@@ -287,7 +287,7 @@ fn scrypt_kdf(c: &mut Criterion) {
 #[cfg(not(target_arch = "x86_64"))]
 fn scrypt_kdf(_: &mut Criterion) {}
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn poly1305(c: &mut Criterion) {
     use openssl::pkey::Id;
     use verified_garbage::poly1305::Poly1305;
@@ -311,7 +311,7 @@ fn poly1305(c: &mut Criterion) {
     g.finish();
 }
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn poly1305(_: &mut Criterion) {}
 
 criterion_group!(
