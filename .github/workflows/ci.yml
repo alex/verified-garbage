@@ -117,7 +117,7 @@ jobs:
         run: |
           if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
             # The queue's branch is `gh-readonly-queue/<base>/pr-<number>-<sha>`.
-            pr=$(echo "$HEAD_REF" | sed -nE 's|^refs/heads/gh-readonly-queue/.+/pr-([0-9]+)-[0-9a-f]+$|\1|p')
+            pr=$(echo "$HEAD_REF" | sed -nE 's|^(refs/heads/)?gh-readonly-queue/.+/pr-([0-9]+)-[0-9a-f]+$|\2|p')
             sha=$(gh api "repos/$GITHUB_REPOSITORY/pulls/${pr:?not a merge queue branch}" \
               --jq "select(.head.repo.full_name == \"$GITHUB_REPOSITORY\") | .head.sha")
             event=pull_request
