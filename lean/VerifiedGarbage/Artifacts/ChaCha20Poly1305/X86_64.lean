@@ -23,7 +23,6 @@ def artifacts : List Artifact := [
     doc := Spec.ChaCha20Poly1305.sealApi.doc
     code := Impl.ChaCha20Poly1305.X86_64.«seal»
     contract := Spec.ChaCha20Poly1305.sealContract X86_64.abi 16
-    writeArgs := true
     stack := 16
     verified := Proof.ChaCha20Poly1305.X86_64.Shared.«seal» },
   { Spec.ChaCha20Poly1305.openApi with
@@ -31,7 +30,6 @@ def artifacts : List Artifact := [
     doc := Spec.ChaCha20Poly1305.openApi.doc
     code := Impl.ChaCha20Poly1305.X86_64.«open»
     contract := Spec.ChaCha20Poly1305.openContract X86_64.abi 16
-    writeArgs := true
     stack := 16
     verified := Proof.ChaCha20Poly1305.X86_64.Shared.«open» }]
 
