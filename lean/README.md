@@ -52,6 +52,8 @@ never import proofs.
    target's calling convention where the arguments are, the permitted memory
    regions, disjointness and which arguments are public, and the contract
    adds a postcondition (in terms of the spec) and any further precondition.
+   Each function's `Api` gives its Rust module, name and signature, and the
+   part of its documentation that is the same on every target.
 2. **Impl** — `Impl/<Alg>/<Target>.lean` defines the code as a `Prog`.
 3. **Proof** — `Proof/<Alg>/…` proves `Verified target code contract`:
    termination without faults (hence memory safety), the postcondition,
@@ -59,8 +61,10 @@ never import proofs.
    anything the contract declares the function may leak), and
    satisfiability of the precondition.
 4. **Registry** — the registration files `Artifacts/<Alg>/<Target>.lean`
-   list every `Artifact`, bundling target, Rust name
-   and signature, code, contract and proof. An `Artifact` cannot be built
+   list every `Artifact`, bundling target, Rust name and signature, code,
+   contract and proof: mostly a function's `Api`, with the documentation the
+   target adds (e.g. the stack memory that the arguments must not overlap
+   under its calling convention). An `Artifact` cannot be built
    without the proof, and the emitter's `#assert_standard_axioms` rejects
    `sorry`, `native_decide` and any non-standard axiom anywhere in them.
 5. **Emit** — `Emit.lean` renders the registry into `src/asm/<target>/<module>.rs`.
@@ -95,7 +99,8 @@ constant.
   (including the CPU features each instruction requires), and the printers,
   which must print what the models mean.
 * For each artifact: its contract in `Spec/` (and the algorithm spec it
-  refers to), and its `sig` and `doc` in its registration file, and `TCB/Emit.lean`, which decides what is emitted.
+  refers to), its `sig` and `doc` (its `Api` in `Spec/`, and what its
+  registration file adds to the doc), and `TCB/Emit.lean`, which decides what is emitted.
 * Lean's kernel, and the assembler in `rustc`/LLVM.
 
 Everything in `Impl/` and `Proof/` is checked by Lean and need not be read.

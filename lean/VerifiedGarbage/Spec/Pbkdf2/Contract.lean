@@ -45,4 +45,22 @@ def iterateSha256Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M 
     (writeArgs := true)
     (stack := stack)
 
+/-- `vg_pbkdf2_hmac_sha256_iterate` on every target. -/
+def iterateSha256Api : Api where
+  module := "pbkdf2"
+  name := "vg_pbkdf2_hmac_sha256_iterate"
+  sig := iterateSha256Sig
+  summary := "Runs `n` steps of PBKDF2-HMAC-SHA-256's iteration: if, for a 64-byte key `K₀`, the \
+    SHA-256 streaming state in bytes 0 to 95 of `*key` represents `K₀ ⊕ ipad` and the one in bytes \
+    96 to 191 represents `K₀ ⊕ opad` (as `vg_hmac_sha256_init` leaves them), repeats \
+    `U ← HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, and leaves the \
+    final `T` in `*t` (RFC 8018, step 3 of `F`).\n\n\
+    Contract: `VG.Spec.Pbkdf2.iterateSha256Contract`. Constant time: only the pointers and `n` may \
+    affect timing, not the key, `U` or `T`."
+  safety := [
+    "`key` must be valid for reads of 192 bytes, and `u` for reads of 32 bytes.",
+    "`t` must be valid for reads and writes of 32 bytes.",
+    "`scratch` must be valid for reads and writes of 384 bytes; its contents on return are \
+      unspecified."]
+
 end VG.Spec.Pbkdf2

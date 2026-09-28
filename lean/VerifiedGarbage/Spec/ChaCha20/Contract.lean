@@ -30,6 +30,21 @@ def blockContract {M : ISA} (A : Abi M) : Contract M :=
   blockSig.contract A (post := fun state buf m m' _ =>
     stateAt m' buf = block (stateAt m state))
 
+/-- `vg_chacha20_block` on every target. -/
+def blockApi : Api where
+  module := "chacha20"
+  name := "vg_chacha20_block"
+  sig := blockSig
+  summary := "The ChaCha20 block function (RFC 8439 §2.3): writes the block function of the \
+    16-word state `*state` (20 rounds, then the input state added word by word) to the first 16 \
+    words of `*buf`.\n\n\
+    Contract: `VG.Spec.ChaCha20.blockContract`. Constant time: only the pointers may affect \
+    timing, not the state."
+  safety := [
+    "`state` must be valid for reads of 64 bytes.",
+    "`buf` must be valid for reads and writes of 256 bytes. On return its first 64 bytes hold the \
+      result and the rest is unspecified."]
+
 /-- `vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80])`.
 `state` is left unspecified, and `buf` is working space: 64 bytes more than
 `vg_chacha20_block`'s, so that an implementation that calls it can keep what
