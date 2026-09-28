@@ -1,6 +1,13 @@
 //! SHA-512/224: every message length from 0 to 128 bytes, 128 long messages
 //! (from 227 to 12800 bytes) and the Monte Carlo test.
 
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
+
 use super::{check_messages, check_monte_carlo};
 use verified_garbage::hashes::sha512_224::Sha512_224;
 
