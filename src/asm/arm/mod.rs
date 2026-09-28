@@ -2,6 +2,9 @@
 //! Verified functions for `arm`.
 
 #[rustfmt::skip]
+pub(crate) mod poly1305;
+
+#[rustfmt::skip]
 pub(crate) mod sha256;
 
 #[rustfmt::skip]
