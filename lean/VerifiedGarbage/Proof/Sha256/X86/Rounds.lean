@@ -50,7 +50,29 @@ theorem readW_writeW_scr {scr : BitVec 32} (h : scr.toNat + 112 ≤ 2 ^ 32) (m :
 
 theorem slot_lt (j : Nat) : slot j + 4 ≤ 64 := by simp only [slot]; omega
 
+/-- The working variables move one slot along each round. -/
+theorem var_succ (t k : Nat) (hk : k < 7) : var (t + 1) (k + 1) = var t k := by
+  simp only [var]; omega
+
+theorem var_succ_zero (t : Nat) : var (t + 1) 0 = var t 7 := by
+  simp only [var]; omega
+
+/-- The working variables of a round are in the scratch buffer, in separate words (stated
+for each pair in both orders, for rewriting). -/
+theorem round_sep (t : Nat) :
+    (∀ x ∈ [var t 0, var t 1, var t 2, var t 3, var t 4, var t 5, var t 6, var t 7], x + 4 ≤ 112) ∧
+    [var t 0, var t 1, var t 2, var t 3, var t 4, var t 5, var t 6, var t 7].Pairwise
+      (fun x y => x + 4 ≤ y ∨ y + 4 ≤ x) ∧
+    [var t 7, var t 6, var t 5, var t 4, var t 3, var t 2, var t 1, var t 0].Pairwise
+      fun x y => x + 4 ≤ y ∨ y + 4 ≤ x := by
+  simp only [var]
+  have := Nat.mod_lt t (show 8 > 0 by omega)
+  generalize t % 8 = c at *
+  interval_cases c <;> decide
+
 set_option maxHeartbeats 0 in
+/-- The round is symbolically executed once, for any offsets `a … h` of the
+working variables (which `round_sep` says are in separate words). -/
 theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 32)
     (hS : Scratch s scr) (hv : Vars t scr s.mem v) (hesi : s.gpr .esi = scr)
     (hw : s.mem.readW (addr scr (slot t)) 32 = w) :
@@ -58,27 +80,37 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 
       Vars (t + 1) scr s'.mem (roundKW v (K t) w) ∧
       (∃ x y : Word, s'.mem = (s.mem.writeW (addr scr (var t 3)) x).writeW (addr scr (var t 7)) y) ∧
       s'.rd = s.rd ∧ s'.wr = s.wr ∧ ∀ r ∈ pubRegs, s'.gpr r = s.gpr r := by
-  have h1 : (t + 1) % 8 = (t % 8 + 1) % 8 := by omega
-  have hc : t % 8 < 8 := Nat.mod_lt _ (by omega)
   have hin := hS.rd; have hout := hS.wr
   have hrw := readW_writeW_scr hS.fits
   have hs := hin (slot t) (by have := slot_lt t; omega)
-  simp only [Vars, var, h1] at hv ⊢
+  have hsep := round_sep t
+  simp only [Vars, var_succ_zero, var_succ t _ (show 0 < 7 by omega),
+    var_succ t _ (show 1 < 7 by omega), var_succ t _ (show 2 < 7 by omega),
+    var_succ t _ (show 3 < 7 by omega), var_succ t _ (show 4 < 7 by omega),
+    var_succ t _ (show 5 < 7 by omega), var_succ t _ (show 6 < 7 by omega)] at hv ⊢
   obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7⟩ := hv
   apply WP.of_runBlock
-  simp only [Impl.Sha256.X86.round, var, sc]
-  generalize t % 8 = c at *
-  interval_cases c <;>
-  simp only [Nat.reduceAdd, Nat.reduceSub, Nat.reduceMod, Nat.reduceMul] at h0 h1 h2 h3 h4 h5 h6 h7 ⊢ <;>
-  simp (config := {decide := true}) only [runBlock_cons, runBlock_nil, runStep_some, exec, execAlu,
-    execShift, readSrc, ea_at,
+  simp only [Impl.Sha256.X86.round]
+  generalize var t 0 = a at *
+  generalize var t 1 = b at *
+  generalize var t 2 = c at *
+  generalize var t 3 = d at *
+  generalize var t 4 = e at *
+  generalize var t 5 = f at *
+  generalize var t 6 = g at *
+  generalize var t 7 = h at *
+  simp only [List.pairwise_cons, List.mem_cons, List.not_mem_nil,
+    forall_eq_or_imp, IsEmpty.forall_iff, implies_true, List.Pairwise.nil, and_true, or_false,
+    forall_eq] at hsep
+  simp (config := {decide := true}) only
+    [hsep, runBlock_cons, runBlock_nil, runStep_some, exec, execAlu, execShift, readSrc, ea_at, sc,
     State.setReg, arithFlags, State.setFlags, State.load32, State.store32, ite_true, ite_false,
     hesi, hin, hout, hs, hrw, Mem.readW_writeW_self32, h0, h1, h2, h3, h4, h5, h6, h7, hw,
-    Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left'] <;>
+    Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ⟨_, _, rfl⟩, trivial, trivial, by simp [pubRegs]⟩ <;>
   simp (config := {failIfUnchanged := false}) only [roundKW, bsig1_eq, ch_eq, bsig0_eq, maj_eq,
-    Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero, List.getElem_cons_succ] <;>
-  simp (config := {failIfUnchanged := false}) only [BitVec.add_assoc]
+    Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero, List.getElem_cons_succ]
+  simp only [BitVec.add_assoc]
 
 set_option maxHeartbeats 0 in
 theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32) (hS : Scratch s scr)
