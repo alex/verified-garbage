@@ -7,6 +7,8 @@
 //! lays out their context (the key, the nonce and the tag) and checks the
 //! length limit.
 
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+
 #[cfg(target_arch = "aarch64")]
 use crate::asm::aarch64::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
 #[cfg(target_arch = "x86_64")]

@@ -15,9 +15,11 @@ use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_m
 use openssl::hash::{MessageDigest, hash};
 
 mod chacha20;
+mod chacha20poly1305;
 mod hmac;
 mod md5;
 mod pbkdf2;
+mod poly1305;
 mod scrypt;
 mod sha1;
 mod sha256;
