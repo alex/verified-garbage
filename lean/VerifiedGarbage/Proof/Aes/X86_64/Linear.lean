@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Aes.X86_64.Linear
 import VerifiedGarbage.Proof.Framework.X86_64.Linear
 import VerifiedGarbage.Proof.Aes.X86_64.Sbox
-import VerifiedGarbage.Proof.Aes.Bitsliced
+import VerifiedGarbage.Proof.Aes.Layers
 
 /-!
 # The linear layers of bitsliced AES on x86-64
@@ -30,21 +30,6 @@ def qIns : List (Reg × Nat) := (List.range 8).map fun k => (q k, k)
 /-- The outputs `q j`, bit `p` the XOR of the input bits `g j p`. -/
 def qOuts (g : Nat → Nat → List Nat) : List (Reg × (Nat → List Nat)) :=
   (List.range 8).map fun j => (q j, g j)
-
-/-- `toBs`: bit `j` of byte `i` of block `b`, from bit `8 (i mod 8) + j`
-of word `b + 4 ⌊i / 8⌋`. -/
-def toBsG (j p : Nat) : List Nat := [64 * (p % 4 + 4 * (idx p / 8)) + (8 * (idx p % 8) + j)]
-
-/-- `fromBs`: the inverse. -/
-def fromBsG (k t : Nat) : List Nat := [64 * (t % 8) + pos (k % 4) (t / 8 + 8 * (k / 4))]
-
-def srG (j p : Nat) : List Nat := [64 * j + srSrc p]
-
-/-- MixColumns: the bits `mcTerms`, as atoms. -/
-def mcG (j p : Nat) : List Nat := (mcTerms j p).map fun wt => 64 * wt.1 + wt.2
-
-/-- AddRoundKey: the round key is input words `8 … 15`. -/
-def arkG (j p : Nat) : List Nat := [64 * j + p, 64 * (8 + j) + p]
 
 theorem toBs_check : check (lanes 64 9) linCfg (linExt 0) toBs (linEnv qIns) (linPost 9 (qOuts toBsG)) = true := by
   decide +kernel
@@ -138,14 +123,6 @@ theorem shiftRows_ok {s : State} (hok : Ok linCfg s) :
   refine ⟨s', hs', fun j hj p hp => ?_, rest⟩
   rw [hout j hj p hp, srG, xorBits_cons, xorBits_nil, Bool.xor_false,
     bitOf_word _ _ _ (by simp only [srSrc]; omega)]
-
-theorem xorBits_map (W : Nat → BitVec 64) (l : List (Nat × Nat)) (hl : ∀ wt ∈ l, wt.2 < 64) :
-    xorBits W (l.map fun wt => 64 * wt.1 + wt.2) = termsXor W l := by
-  induction l with
-  | nil => rfl
-  | cons wt l ih =>
-    simp only [List.map_cons, xorBits_cons, termsXor, List.foldr_cons] at ih ⊢
-    rw [bitOf_word _ _ _ (hl wt (by simp)), ih fun v hv => hl v (by simp [hv])]
 
 theorem mixColumns_ok {s : State} (hok : Ok linCfg s) :
     ∃ s', runBlock isa mixColumns s = some s' ∧
