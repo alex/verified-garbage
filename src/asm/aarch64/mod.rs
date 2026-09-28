@@ -2,6 +2,9 @@
 //! Verified functions for `aarch64`.
 
 #[rustfmt::skip]
+pub(crate) mod md5;
+
+#[rustfmt::skip]
 pub(crate) mod sha256;
 
 #[rustfmt::skip]
