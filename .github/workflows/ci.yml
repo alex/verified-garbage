@@ -24,6 +24,9 @@ jobs:
   lean:
     name: Lean proofs
     runs-on: ubuntu-latest
+    # A full build takes under 10 minutes. Stops a run that ends up building
+    # Mathlib from source, which takes hours.
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: lean
@@ -46,9 +49,11 @@ jobs:
         if: ${{ steps.lean-deps.outputs.cache-hit != 'true' }}
         run: curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
       - run: echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-      # Installs the toolchain and clones the dependencies too. From a restored
-      # cache, it only checks that every file is already there.
+      # Installs the toolchain and clones the dependencies too. Skipped when
+      # they're restored: it decides what to download by the archives in
+      # ~/.cache/mathlib, not what's unpacked, so it would fetch it all again.
       - name: Fetch the Mathlib build cache
+        if: ${{ steps.lean-deps.outputs.cache-hit != 'true' }}
         run: lake exe cache get
       # Saved now, before `lake build`, so the cache holds nothing it writes,
       # and a failing proof doesn't stop the next run from reusing it.
