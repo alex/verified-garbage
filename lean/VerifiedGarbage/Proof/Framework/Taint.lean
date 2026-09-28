@@ -114,6 +114,7 @@ def hint : A.T → Prog M → Option (A.T × Hint A.T)
     (hint τ t).bind fun (τ₁, h₁) => (hint τ e).map fun (τ₂, h₂) => (A.meet τ₁ τ₂, .ite h₁ h₂)
   | τ, .loop body c => go c (hint · body) loopFuel τ
   | _, .call .. => none
+  | _, .frame .. => none
 where
   go (c : M.Cond) (body : A.T → Option (A.T × Hint A.T)) :
       Nat → A.T → Option (A.T × Hint A.T)
@@ -252,6 +253,7 @@ theorem check_sound {c : Prog M} {τ τ' : A.T} {hc : Hint A.T} {s₁ s₂ s₁'
         exact ⟨rfl, ha₂⟩
     | _ => simp only [check, reduceCtorEq] at h
   | call => cases hc <;> simp only [check, reduceCtorEq] at h
+  | frame => cases hc <;> simp only [check, reduceCtorEq] at h
 
 /-- A successful check proves constant time, for any `Pub` under which the
 initial states agree on what the initial taint says is public. -/
