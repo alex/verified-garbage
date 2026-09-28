@@ -19,7 +19,7 @@ It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
 | SHA-256 | ✅ | ✅ | ❌ |
 | SHA-384, SHA-512, SHA-512/224, SHA-512/256 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 | HMAC-SHA-256 | ✅ | ✅ | ❌ |
-| PBKDF2-HMAC-SHA-256 | ✅ | ❌ | ❌ |
+| PBKDF2-HMAC-SHA-256 | ✅ | x86-64 | ❌ |
 | ChaCha20 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 | Poly1305 | ✅ | ❌ | ❌ |
 | SHA-1 | ✅ | x86-64, ARM64 | ❌ |

@@ -20,4 +20,7 @@ pub(crate) mod sha512;
 pub(crate) mod hmac;
 
 #[rustfmt::skip]
+pub(crate) mod pbkdf2;
+
+#[rustfmt::skip]
 pub(crate) mod chacha20;
