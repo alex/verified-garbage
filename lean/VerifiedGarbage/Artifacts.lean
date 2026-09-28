@@ -22,6 +22,7 @@ import VerifiedGarbage.Proof.Hmac.AArch64.Init
 import VerifiedGarbage.Proof.Hmac.AArch64.Finalize
 import VerifiedGarbage.Proof.Hmac.Arm.Init
 import VerifiedGarbage.Proof.Hmac.Arm.Finalize
+import VerifiedGarbage.Proof.Hmac.X86.Init
 import VerifiedGarbage.Proof.Hmac.X86.Finalize
 
 /-!
@@ -483,6 +484,31 @@ def artifacts : List Artifact := [
     code := Impl.Hmac.Arm.finalize
     contract := Spec.Hmac.finalizeSha256Arm
     verified := Proof.Hmac.Arm.Finalize.finalize_verified },
+  { target := X86.target
+    module := "hmac"
+    name := "vg_hmac_sha256_init"
+    rustSig := "(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, \
+      scratch: *mut [u64; 20])"
+    doc := "Starts an HMAC-SHA-256 computation with a key of at most 64 bytes: makes the \
+      SHA-256 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent \
+      `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 64 bytes \
+      (FIPS 198-1). The text is then absorbed with `vg_sha256_update` on `*inner` (its \
+      `count` starting at 64), and the MAC computed with `vg_hmac_sha256_finalize`.\n\n\
+      Contract: `VG.Spec.Hmac.initSha256X86`. Constant time: only the pointers and \
+      `key_len` may affect timing, not the key. The function overwrites its own arguments \
+      on the stack (which the callee owns under cdecl).\n\n\
+      # Safety\n\n\
+      * `key_len` must be at most 64.\n\
+      * `inner` and `outer` must each be valid for reads and writes of 96 bytes.\n\
+      * `key` must be valid for reads of `key_len` bytes.\n\
+      * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
+      are unspecified.\n\
+      * These four regions must not overlap each other or the arguments of the call, \
+      `inner`, `outer` and `scratch` must not overlap its return address, and none of \
+      them may wrap around the end of the address space (distinct Rust objects never do)."
+    code := Impl.Hmac.X86.init
+    contract := Spec.Hmac.initSha256X86
+    verified := Proof.Hmac.X86.Init.init_verified },
   { target := X86.target
     module := "hmac"
     name := "vg_hmac_sha256_finalize"
