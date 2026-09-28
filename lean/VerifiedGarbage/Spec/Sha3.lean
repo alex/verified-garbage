@@ -167,6 +167,12 @@ when `d = 0`). -/
 def squeeze (rate : Nat) (S : State) (d : Nat) : List Byte :=
   (squeezeBlocks rate S ((d + rate - 1) / rate)).take d
 
+/-- Bytes `pos … pos + d - 1` of the output `Trunc_r(S) ‖ Trunc_r(f(S)) ‖ …`
+from the state `S`: the output of `squeeze` from offset `pos` on, for output
+squeezed in pieces. -/
+def squeezeFrom (rate : Nat) (S : State) (pos d : Nat) : List Byte :=
+  ((squeezeBlocks rate S ((pos + d + rate - 1) / rate)).drop pos).take d
+
 /-- `SPONGE[f, pad10*1, r](N ‖ suffix, d)` (Algorithm 8), for `d` bytes of
 output. -/
 def sponge (rate : Nat) (suffix : Byte) (m : List Byte) (d : Nat) : List Byte :=

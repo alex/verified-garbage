@@ -16,8 +16,10 @@ domain-separation suffix are public.
 
 A hash is computed from the all-zero state (which represents the empty
 message) by `vg_keccak_absorb` on each piece of the message,
-`vg_keccak_pad`, and `vg_keccak_squeeze`: by the definitions, the output is
-then `sponge rate suffix msg outlen`. SHA3-224/256/384/512 use the rates
+`vg_keccak_pad`, and `vg_keccak_squeeze` from position 0: by the
+definitions, the output is then `sponge rate suffix msg outlen`. Further
+calls of `vg_keccak_squeeze`, each from the state and position the previous
+one left, output the bytes that follow (for SHAKE). SHA3-224/256/384/512 use the rates
 144, 136, 104 and 72 and the suffix `sha3Suffix`; SHAKE128 and SHAKE256 the
 rates 168 and 136 and the suffix `shakeSuffix`.
 
@@ -89,21 +91,29 @@ def padContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (writeArgs := true)
     (stack := stack)
 
-/-- `vg_keccak_squeeze(state: *mut [u64; 25], rate: usize, out: *mut u8, outlen: usize, scratch: *mut [u64; 80])`.
-`rate` is public; `state` is left unspecified, and `scratch` is working
-space. -/
+/-- `vg_keccak_squeeze(state: *mut [u64; 25], rate: usize, pos: usize, out: *mut u8, outlen: usize, scratch: *mut [u64; 80]) -> usize`.
+`rate` and `pos` are public; `scratch` is working space. -/
 def squeezeSig : Sig where
   params := [("state", .array true .u64 25), ("rate", .int .usize true),
-    ("out", .slice true .u8 "outlen"), ("scratch", .array true .u64 80)]
+    ("pos", .int .usize true), ("out", .slice true .u8 "outlen"),
+    ("scratch", .array true .u64 80)]
+  ret := some .usize
 
-/-- For a rate `rate` in `rates`: writes the first `outlen` bytes of the
-output squeezed from the state at `state` (Algorithm 8, steps 7–10) to
-`out`. -/
+/-- For a rate `rate` in `rates` and `pos ≤ rate`: writes to `out` the
+`outlen` bytes of output (Algorithm 8, steps 7–10) from the state at `state`,
+starting at byte `pos` of its output; and leaves a state and returns a
+position from which the output continues after those bytes. So output can be
+squeezed in pieces: from the state after `pad` and position 0, then from
+each state and position a call leaves. -/
 def squeezeContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   squeezeSig.contract A
-    (pre := fun _state rate _out _outlen _scratch _ => rate.toNat ∈ rates)
-    (post := fun state rate out outlen _scratch m m' _ =>
-      bytesAt m' out outlen.toNat = squeeze rate.toNat (stateAt m state) outlen.toNat)
+    (pre := fun _state rate pos _out _outlen _scratch _ =>
+      rate.toNat ∈ rates ∧ pos.toNat ≤ rate.toNat)
+    (post := fun state rate pos out outlen _scratch m m' ret =>
+      bytesAt m' out outlen.toNat = squeezeFrom rate.toNat (stateAt m state) pos.toNat outlen.toNat ∧
+      ret.toNat ≤ rate.toNat ∧
+      ∀ d, squeezeFrom rate.toNat (stateAt m' state) ret.toNat d =
+        squeezeFrom rate.toNat (stateAt m state) (pos.toNat + outlen.toNat) d)
     (writeArgs := true)
     (stack := stack)
 

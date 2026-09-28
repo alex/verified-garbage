@@ -17,7 +17,8 @@ padding takes a block of its own. From SHAKE256's `VariableOut` file, the
 2-byte and 250-byte outputs: the shortest, and the longest, which is
 squeezed from two blocks. (Evaluating the spec is slow, so only these are
 checked here; the Rust tests run every CAVP vector against the
-implementation.)
+implementation.) Those two outputs are also squeezed in pieces with
+`squeezeFrom`, across the end of the first block.
 -/
 
 namespace VG.Test.Sha3
@@ -99,5 +100,12 @@ run_cmd do
       | throwError "SHAKE256VariableOut.rsp: no {d}-byte output"
     unless out.length == d && shake256 msg d == out do
       throwError "SHAKE256VariableOut.rsp: the {d}-byte output is wrong"
+    -- Squeezed in pieces, across the end of the first block: 100 bytes,
+    -- then 36 (the rest of the block), then 1 and the rest.
+    let S := absorb 136 (pad 136 shakeSuffix msg)
+    let pieces := [(0, 100), (100, 36), (136, 1), (137, d - 137)].filter (·.1 < d)
+    let pieces := pieces.map fun (p, n) => (p, min n (d - p))
+    unless (pieces.flatMap fun (p, n) => squeezeFrom 136 S p n) == out do
+      throwError "SHAKE256VariableOut.rsp: the {d}-byte output squeezed in pieces is wrong"
 
 end VG.Test.Sha3
