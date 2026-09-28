@@ -30,3 +30,6 @@ pub(crate) mod scrypt;
 
 #[rustfmt::skip]
 pub(crate) mod poly1305;
+
+#[rustfmt::skip]
+pub(crate) mod chacha20poly1305;
