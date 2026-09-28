@@ -550,6 +550,92 @@ theorem loop3_rel :
         exact ⟨NN s₀ - (i + 1), by omega, i + 1, rfl, by omega, j, j'⟩) (NN s₀)
   exact lp.mono (fun _ _ h => ⟨0, rfl, NN_pos hp, h.1, h.2⟩) fun _ _ h => h
 
+theorem roMix_rel :
+    RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') Impl.Scrypt.X86_64.roMix fun _ _ => True := by
+  show RelCT isa _ (roMixWith Impl.Scrypt.X86_64.blockMix) _
+  unfold roMixWith
+  have pro : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') (.block rmPrologue)
+      fun s s' => P1 s₀ s ∧ P1 s₀' s' :=
+    ((RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx, .r8, .rsp])
+      (P := fun s s' => s = s₀ ∧ s' = s₀') (fun _ _ ⟨e, e'⟩ => Taint.agree_ofRegs fun r hr => by
+        rw [e, e']
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | rfl | rfl | rfl | rfl | rfl
+        · exact hq.rdi
+        · exact hq.rsi
+        · exact hq.rdx
+        · exact hq.rcx
+        · exact hq.r8
+        · exact hq.rsp) (c := .block rmPrologue) (by taint_decide)).wp
+      (F₁ := P1 s₀) (F₂ := P1 s₀') fun _ _ ⟨e, e'⟩ => by
+        rw [e, e']; exact ⟨prologue_ok hp, prologue_ok hp'⟩).mono (fun _ _ h => h) fun _ _ h => h.2
+  have nl : RelCT isa (fun s s' => P1 s₀ s ∧ P1 s₀' s') nLoop fun s s' => N1 s₀ s ∧ N1 s₀' s' :=
+    ((RelCT.taint (A := taint) (Taint.ofRegs [.rax, .rdx, .rcx])
+      (fun _ _ ⟨h, h'⟩ => Taint.agree_ofRegs fun r hr => by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | rfl | rfl
+        · rw [h.rax, h'.rax, hq.rr]
+        · rw [h.rdx, h'.rdx]
+        · rw [h.rcx, h'.rcx, RoMix.vl, RoMix.vl, hq.rcx]) (c := nLoop) (by taint_decide)).wp
+      fun _ _ h => ⟨nloop_ok hp h.1, nloop_ok hp' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
+  have st : RelCT isa (fun s s' => N1 s₀ s ∧ N1 s₀' s') (.block rmSetup)
+      fun s s' => Inv2 s₀ 0 s ∧ Inv2 s₀' 0 s' :=
+    ((RelCT.taint (A := taint) (Taint.ofRegs [.rdx, .r12, .r13])
+      (fun _ _ ⟨h, h'⟩ => Taint.agree_ofRegs fun r hr => by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | rfl | rfl
+        · rw [h.rdx, h'.rdx, hq.NN]
+        · rw [h.r12, h'.r12, vP, vP, hq.rdx]
+        · rw [h.r13, h'.r13, sc, sc, hq.r8]) (c := .block rmSetup) (by taint_decide)).wp
+      fun _ _ h => ⟨setup2_ok hp h.1, setup2_ok hp' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
+  have md : RelCT isa (fun s s' => Inv2 s₀ (NN s₀) s ∧ Inv2 s₀' (NN s₀') s') (.block rmMid)
+      fun s s' => Inv3 s₀ 0 s ∧ Inv3 s₀' 0 s' :=
+    ((RelCT.taint (A := taint) (Taint.ofRegs [.r13])
+      (fun _ _ ⟨h, h'⟩ => Taint.agree_ofRegs fun r hr => by
+        simp only [List.mem_singleton] at hr; subst hr
+        rw [h.r13, h'.r13, sc, sc, hq.r8]) (c := .block rmMid) (by taint_decide)).wp
+      fun _ _ h => ⟨mid_ok hp h.1, mid_ok hp' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
+  have epi : RelCT isa (fun s s' => Inv3 s₀ (NN s₀) s ∧ Inv3 s₀' (NN s₀') s') (.block rmEpilogue)
+      fun _ _ => True :=
+    RelCT.taint (A := taint) (Taint.ofRegs [.r13]) (fun _ _ h => Taint.agree_ofRegs fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr
+      rw [h.1.r13, h.2.r13, sc, sc, hq.r8]) (by taint_decide)
+  exact pro.seq (nl.seq (st.seq ((loop2_rel hp hp' hq).seq
+    (md.seq ((loop3_rel hp hp' hq hL).seq epi)))))
+
 end
+
+/-! ## Verified -/
+
+theorem pubEq_of {s₁ s₂ : State} (h : Proof.Scrypt.roMixX86_64.pub s₁ s₂) : PubEq s₁ s₂ :=
+  ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.1, h.2.2.2.2.1, h.2.2.2.2.2.2.1⟩
+
+/-- A state satisfying the precondition. -/
+def satState : State where
+  gpr r := match r with
+    | .rdi => 0x1000 | .rsi => 1 | .rdx => 0x2000 | .rcx => 1 | .r8 => 0x3000 | .r9 => 3
+    | .rsp => 0x5000
+    | _ => 0
+  cf := none
+  zf := none
+  sf := none
+  of := none
+  mem _ := 0
+  rd := []
+  wr := [⟨0x1000, 128⟩, ⟨0x2000, 128⟩, ⟨0x3000, 384⟩]
+
+theorem roMix_verified :
+    Verified X86_64.target Impl.Scrypt.X86_64.roMix Proof.Scrypt.roMixX86_64 := by
+  refine ⟨fun s hs => ?_, ?_, ?_⟩
+  · obtain ⟨t, s', he, h⟩ := correct blockMixSpec (pre_of hs)
+    exact ⟨t, s', he, h⟩
+  · intro s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂
+    exact (roMix_rel (pre_of h₁) (pre_of h₂) (pubEq_of hpub) hpub.2.2.2.2.2.2.2
+      _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+  · refine ⟨satState, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
+      ⟨0, rfl⟩, rfl⟩
+    all_goals first
+      | (intro a h₁ h₂; simp only [Region.Contains, satState] at h₁ h₂; bv_omega)
+      | decide
 
 end VG.Proof.Scrypt.X86_64.RoMix
