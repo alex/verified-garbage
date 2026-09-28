@@ -2,7 +2,11 @@
 
 use criterion::Criterion;
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+/// The library modules whose code these benchmarks run (see
+/// `ci/bench_arches.py`).
+pub const USES: &[&str] = &["poly1305"];
+
+#[cfg(target_arch = "x86_64")]
 pub fn bench(c: &mut Criterion) {
     use std::hint::black_box;
 
@@ -32,5 +36,5 @@ pub fn bench(c: &mut Criterion) {
     g.finish();
 }
 
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(target_arch = "x86_64"))]
 pub fn bench(_: &mut Criterion) {}

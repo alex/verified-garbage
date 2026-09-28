@@ -10,8 +10,6 @@ import VerifiedGarbage.Proof.Sha1.AArch64.Shared
 import VerifiedGarbage.Proof.Sha512.AArch64.Shared
 import VerifiedGarbage.Proof.Sha512.Arm.Shared
 import VerifiedGarbage.Proof.Hmac.X86_64.Shared
-import VerifiedGarbage.Proof.Pbkdf2.X86_64.Shared
-import VerifiedGarbage.Proof.Pbkdf2.AArch64.Shared
 import VerifiedGarbage.Proof.Md5.X86_64.Shared
 import VerifiedGarbage.Proof.Md5.AArch64.Shared
 import VerifiedGarbage.Proof.Sha3.X86_64.Shared
@@ -24,10 +22,6 @@ import VerifiedGarbage.Proof.Hmac.AArch64.Shared
 import VerifiedGarbage.Proof.Hmac.Arm.Shared
 import VerifiedGarbage.Proof.Hmac.X86.Shared
 import VerifiedGarbage.Proof.ChaCha20.X86.Shared
-import VerifiedGarbage.Proof.Scrypt.X86_64.Shared
-import VerifiedGarbage.Proof.Scrypt.AArch64.Shared
-import VerifiedGarbage.Proof.Poly1305.X86_64.Shared
-import VerifiedGarbage.Proof.Poly1305.AArch64.Shared
 
 /-!
 # The artifact registry
@@ -613,30 +607,6 @@ def artifacts : List Artifact := [
     contract := Spec.Hmac.finalizeSha256Contract X86_64.abi 16
     verified := Proof.Hmac.X86_64.Shared.finalize
     spSafe := Proof.SpSafe.hmac_x86_64_finalize },
-  { target := X86_64.target
-    module := "pbkdf2"
-    name := "vg_pbkdf2_hmac_sha256_iterate"
-    sig := Spec.Pbkdf2.iterateSha256Sig
-    doc := "Runs `n` steps of PBKDF2-HMAC-SHA-256's iteration: if, for a 64-byte key `K₀`, the \
-      SHA-256 streaming state in bytes 0 to 95 of `*key` represents `K₀ ⊕ ipad` and the one \
-      in bytes 96 to 191 represents `K₀ ⊕ opad` (as `vg_hmac_sha256_init` leaves them), \
-      repeats `U ← HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, \
-      and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).\n\n\
-      Contract: `VG.Spec.Pbkdf2.iterateSha256Contract`. Constant time: only the pointers and \
-      `n` may affect timing, not the key, `U` or `T`.\n\n\
-      # Safety\n\n\
-      * `key` must be valid for reads of 192 bytes, and `u` for reads of 32 bytes.\n\
-      * `t` must be valid for reads and writes of 32 bytes.\n\
-      * `scratch` must be valid for reads and writes of 384 bytes; its contents on return \
-      are unspecified.\n\
-      * `t` and `scratch` must not overlap each other, `key` or `u`, and none of the four \
-      regions may overlap the return address on the stack or the 8 bytes of stack below it, \
-      where its calls of `vg_sha256_compress` store their return address (distinct Rust \
-      objects never do)."
-    code := Impl.Pbkdf2.X86_64.iterate
-    contract := Spec.Pbkdf2.iterateSha256Contract X86_64.abi 8
-    verified := Proof.Pbkdf2.X86_64.Shared.iterate
-    spSafe := Proof.SpSafe.pbkdf2_x86_64_iterate },
   { target := AArch64.target
     module := "sha256"
     name := "vg_sha256_compress"
@@ -945,28 +915,6 @@ def artifacts : List Artifact := [
     code := Impl.Hmac.AArch64.finalize
     contract := Spec.Hmac.finalizeSha256Contract AArch64.abi 32
     verified := Proof.Hmac.AArch64.Shared.finalize
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { target := AArch64.target
-    module := "pbkdf2"
-    name := "vg_pbkdf2_hmac_sha256_iterate"
-    sig := Spec.Pbkdf2.iterateSha256Sig
-    doc := "Runs `n` steps of PBKDF2-HMAC-SHA-256's iteration: if, for a 64-byte key `K₀`, the \
-      SHA-256 streaming state in bytes 0 to 95 of `*key` represents `K₀ ⊕ ipad` and the one \
-      in bytes 96 to 191 represents `K₀ ⊕ opad` (as `vg_hmac_sha256_init` leaves them), \
-      repeats `U ← HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, \
-      and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).\n\n\
-      Contract: `VG.Spec.Pbkdf2.iterateSha256Contract`. Constant time: only the pointers and \
-      `n` may affect timing, not the key, `U` or `T`.\n\n\
-      # Safety\n\n\
-      * `key` must be valid for reads of 192 bytes, and `u` for reads of 32 bytes.\n\
-      * `t` must be valid for reads and writes of 32 bytes.\n\
-      * `scratch` must be valid for reads and writes of 384 bytes; its contents on return \
-      are unspecified.\n\
-      * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects \
-      never do). The function uses no stack: it saves its return address in `scratch`."
-    code := Impl.Pbkdf2.AArch64.iterate
-    contract := Spec.Pbkdf2.iterateSha256Contract AArch64.abi
-    verified := Proof.Pbkdf2.AArch64.Shared.iterate
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := Arm.target
     module := "sha256"
@@ -1601,249 +1549,6 @@ def artifacts : List Artifact := [
     code := Impl.Sha3.AArch64.Stream.squeeze
     contract := Spec.Sha3.squeezeContract AArch64.abi 16
     verified := Proof.Sha3.AArch64.Shared.squeeze
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { target := X86_64.target
-    module := "scrypt"
-    name := "vg_salsa20_8"
-    sig := Spec.Scrypt.salsaSig
-    doc := "The Salsa20/8 Core (RFC 7914 §3): replaces the 64 bytes `*b` by their Salsa20/8 \
-      Core (the 16 little-endian words, 8 rounds, then the input added word by word).\n\n\
-      Contract: `VG.Spec.Scrypt.salsaContract`. Constant time: only the pointers may affect \
-      timing, not the data.\n\n\
-      # Safety\n\n\
-      * `b` must be valid for reads and writes of 64 bytes.\n\
-      * `scratch` must be valid for reads and writes of 64 bytes. It is working space: its \
-      contents on return are unspecified.\n\
-      * `b` and `scratch` must not overlap each other, nor the return address on the stack, \
-      and neither may wrap around the end of the address space (distinct Rust objects never do)."
-    code := Impl.Scrypt.X86_64.salsa
-    contract := Spec.Scrypt.salsaContract X86_64.abi
-    verified := Proof.Scrypt.X86_64.Shared.salsa
-    spSafe := Proof.SpSafe.scrypt_x86_64_salsa },
-  { target := X86_64.target
-    module := "scrypt"
-    name := "vg_scrypt_blockmix"
-    sig := Spec.Scrypt.blockMixSig
-    doc := "scryptBlockMix (RFC 7914 §4) with block size parameter `r`: writes scryptBlockMix of \
-      the `128 * r` bytes at `b` to the `128 * ry` bytes at `y`. Calls `vg_salsa20_8` for each \
-      64-byte block.\n\n\
-      Contract: `VG.Spec.Scrypt.blockMixContract`. Constant time: only the pointers and `r` may \
-      affect timing, not the data.\n\n\
-      # Safety\n\n\
-      * `ry` must equal `r`, and `r` must be positive.\n\
-      * `b` must be valid for reads of `128 * r` bytes, and `y` for reads and writes of \
-      `128 * ry` bytes.\n\
-      * `scratch` must be valid for reads and writes of 128 bytes. It is working space: its \
-      contents on return are unspecified.\n\
-      * `b`, `y` and `scratch` must not overlap each other, the return address on the stack, \
-      or the 8 bytes of stack below it, where its calls of `vg_salsa20_8` store their return \
-      address, and none may wrap around the end of the address space (distinct Rust objects \
-      never do)."
-    code := Impl.Scrypt.X86_64.blockMix
-    contract := Spec.Scrypt.blockMixContract X86_64.abi 8
-    verified := Proof.Scrypt.X86_64.Shared.blockMix
-    spSafe := Proof.SpSafe.scrypt_x86_64_blockmix },
-  { target := X86_64.target
-    module := "scrypt"
-    name := "vg_scrypt_romix"
-    sig := Spec.Scrypt.roMixSig
-    doc := "scryptROMix (RFC 7914 §5) with block size parameter `r` and cost parameter \
-      `N = vlen / r`: replaces the `128 * r` bytes at `b` by their scryptROMix. Step 2 writes \
-      `V[0], …, V[N - 1]` to `v`. Calls `vg_scrypt_blockmix` for each scryptBlockMix.\n\n\
-      Contract: `VG.Spec.Scrypt.roMixContract`. Not constant time in the indices: timing may \
-      depend on the pointers, `r`, `N` and the indices `j` of step 3 \
-      (`VG.Spec.Scrypt.roMixIndices`), which are derived from the data and so leak \
-      information about it (as in every scrypt that indexes `V` directly), but on nothing \
-      else.\n\n\
-      # Safety\n\n\
-      * `r` must be positive, `vlen` must be `N * r` for a power of two `N`, and `slen` must \
-      be `r + 2`.\n\
-      * `b` must be valid for reads and writes of `128 * r` bytes, `v` of `128 * vlen` bytes \
-      and `scratch` of `128 * slen` bytes. `v` and `scratch` are working space: their \
-      contents on return are unspecified.\n\
-      * `b`, `v` and `scratch` must not overlap each other, the return address on the stack, \
-      or the 16 bytes of stack below it, where its calls store their return addresses, and \
-      none may wrap around the end of the address space (distinct Rust objects never do)."
-    code := Impl.Scrypt.X86_64.roMix
-    contract := Spec.Scrypt.roMixContract X86_64.abi 16
-    verified := Proof.Scrypt.X86_64.Shared.roMix
-    spSafe := Proof.SpSafe.scrypt_x86_64_romix },
-  { target := AArch64.target
-    module := "scrypt"
-    name := "vg_salsa20_8"
-    sig := Spec.Scrypt.salsaSig
-    doc := "The Salsa20/8 Core (RFC 7914 §3): replaces the 64 bytes `*b` by their Salsa20/8 \
-      Core (the 16 little-endian words, 8 rounds, then the input added word by word).\n\n\
-      Contract: `VG.Spec.Scrypt.salsaContract`. Constant time: only the pointers may affect \
-      timing, not the data.\n\n\
-      # Safety\n\n\
-      * `b` must be valid for reads and writes of 64 bytes.\n\
-      * `scratch` must be valid for reads and writes of 64 bytes. It is working space: its \
-      contents on return are unspecified.\n\
-      * `b` and `scratch` must not overlap each other, and neither may wrap around the end of \
-      the address space (distinct Rust objects never do)."
-    code := Impl.Scrypt.AArch64.salsa
-    contract := Spec.Scrypt.salsaContract AArch64.abi
-    verified := Proof.Scrypt.AArch64.Shared.salsa
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { target := AArch64.target
-    module := "scrypt"
-    name := "vg_scrypt_blockmix"
-    sig := Spec.Scrypt.blockMixSig
-    doc := "scryptBlockMix (RFC 7914 §4) with block size parameter `r`: writes scryptBlockMix of \
-      the `128 * r` bytes at `b` to the `128 * ry` bytes at `y`. Calls `vg_salsa20_8` for each \
-      64-byte block.\n\n\
-      Contract: `VG.Spec.Scrypt.blockMixContract`. Constant time: only the pointers and `r` may \
-      affect timing, not the data.\n\n\
-      # Safety\n\n\
-      * `ry` must equal `r`, and `r` must be positive.\n\
-      * `b` must be valid for reads of `128 * r` bytes, and `y` for reads and writes of \
-      `128 * ry` bytes.\n\
-      * `scratch` must be valid for reads and writes of 128 bytes. It is working space: its \
-      contents on return are unspecified.\n\
-      * `b`, `y` and `scratch` must not overlap each other or the 16 bytes of stack below the \
-      stack pointer, where it saves its return address, and none may wrap around the end of \
-      the address space (distinct Rust objects never do)."
-    code := Impl.Scrypt.AArch64.blockMix
-    contract := Spec.Scrypt.blockMixContract AArch64.abi 16
-    verified := Proof.Scrypt.AArch64.Shared.blockMix
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { target := AArch64.target
-    module := "scrypt"
-    name := "vg_scrypt_romix"
-    sig := Spec.Scrypt.roMixSig
-    doc := "scryptROMix (RFC 7914 §5) with block size parameter `r` and cost parameter \
-      `N = vlen / r`: replaces the `128 * r` bytes at `b` by their scryptROMix. Step 2 writes \
-      `V[0], …, V[N - 1]` to `v`. Calls `vg_scrypt_blockmix` for each scryptBlockMix.\n\n\
-      Contract: `VG.Spec.Scrypt.roMixContract`. Not constant time in the indices: timing may \
-      depend on the pointers, `r`, `N` and the indices `j` of step 3 \
-      (`VG.Spec.Scrypt.roMixIndices`), which are derived from the data and so leak \
-      information about it (as in every scrypt that indexes `V` directly), but on nothing \
-      else.\n\n\
-      # Safety\n\n\
-      * `r` must be positive, `vlen` must be `N * r` for a power of two `N`, and `slen` must \
-      be `r + 2`.\n\
-      * `b` must be valid for reads and writes of `128 * r` bytes, `v` of `128 * vlen` bytes \
-      and `scratch` of `128 * slen` bytes. `v` and `scratch` are working space: their \
-      contents on return are unspecified.\n\
-      * `b`, `v` and `scratch` must not overlap each other or the 16 bytes of stack below the \
-      stack pointer, where its calls of `vg_scrypt_blockmix` save their return address, and \
-      none may wrap around the end of the address space (distinct Rust objects never do)."
-    code := Impl.Scrypt.AArch64.roMix
-    contract := Spec.Scrypt.roMixContract AArch64.abi 16
-    verified := Proof.Scrypt.AArch64.Shared.roMix
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { target := X86_64.target
-    module := "poly1305"
-    name := "vg_poly1305_init"
-    sig := Spec.Poly1305.initSig
-    doc := "Starts a Poly1305 computation (RFC 8439 §2.5): makes the streaming state `*state` \
-      represent the empty message under the 32-byte one-time key `*key`.\n\n\
-      Contract: `VG.Spec.Poly1305.initContract`. The streaming state is the accumulator \
-      followed by the key (`VG.Spec.Poly1305.Repr`). Constant time: only the pointers may \
-      affect timing, not the key.\n\n\
-      # Safety\n\n\
-      * `state` must be valid for writes of 128 bytes.\n\
-      * `key` must be valid for reads of 32 bytes.\n\
-      * `state` must not overlap `key` or the return address on the stack (distinct Rust \
-      objects never do)."
-    code := Impl.Poly1305.X86_64.init
-    contract := Spec.Poly1305.initContract X86_64.abi
-    verified := Proof.Poly1305.X86_64.Shared.init
-    spSafe := Proof.SpSafe.poly1305_x86_64_init },
-  { target := X86_64.target
-    module := "poly1305"
-    name := "vg_poly1305_blocks"
-    sig := Spec.Poly1305.blocksSig
-    doc := "Absorbs whole blocks into a Poly1305 computation: if the streaming state `*state` \
-      represents a message under a key, it then represents that message followed by the `n` \
-      16-byte blocks at `blocks`, under the same key.\n\n\
-      Contract: `VG.Spec.Poly1305.blocksContract`. Constant time: only the pointers and `n` \
-      may affect timing, not the state or the data.\n\n\
-      # Safety\n\n\
-      * `state` must be valid for reads and writes of 128 bytes.\n\
-      * `blocks` must be valid for reads of `16 * n` bytes.\n\
-      * `state` must not overlap `blocks` or the return address on the stack, and `blocks` \
-      must not wrap around the end of the address space (distinct Rust objects never do)."
-    code := Impl.Poly1305.X86_64.blocks
-    contract := Spec.Poly1305.blocksContract X86_64.abi
-    verified := Proof.Poly1305.X86_64.Shared.blocks
-    spSafe := Proof.SpSafe.poly1305_x86_64_blocks },
-  { target := X86_64.target
-    module := "poly1305"
-    name := "vg_poly1305_finalize"
-    sig := Spec.Poly1305.finalizeSig
-    doc := "Finishes a Poly1305 computation: if the streaming state `*state` represents a \
-      message under a key, writes the tag of that message followed by the `len` bytes at \
-      `tail`, under that key, to `*out`.\n\n\
-      Contract: `VG.Spec.Poly1305.finalizeContract`. Constant time: only the pointers and \
-      `len` may affect timing, not the state or the data.\n\n\
-      # Safety\n\n\
-      * `len` must be less than 16.\n\
-      * `state` must be valid for reads and writes of 128 bytes; its contents on return are \
-      unspecified.\n\
-      * `tail` must be valid for reads of `len` bytes.\n\
-      * `out` must be valid for writes of 16 bytes.\n\
-      * These three regions must not overlap each other or the return address on the stack \
-      (distinct Rust objects never do)."
-    code := Impl.Poly1305.X86_64.finalize
-    contract := Spec.Poly1305.finalizeContract X86_64.abi
-    verified := Proof.Poly1305.X86_64.Shared.finalize
-    spSafe := Proof.SpSafe.poly1305_x86_64_finalize },
-  { target := AArch64.target
-    module := "poly1305"
-    name := "vg_poly1305_init"
-    sig := Spec.Poly1305.initSig
-    doc := "Starts a Poly1305 computation (RFC 8439 §2.5): makes the streaming state `*state` \
-      represent the empty message under the 32-byte one-time key `*key`.\n\n\
-      Contract: `VG.Spec.Poly1305.initContract`. The streaming state is the accumulator \
-      followed by the key (`VG.Spec.Poly1305.Repr`). Constant time: only the pointers may \
-      affect timing, not the key.\n\n\
-      # Safety\n\n\
-      * `state` must be valid for writes of 128 bytes.\n\
-      * `key` must be valid for reads of 32 bytes.\n\
-      * `state` must not overlap `key` (distinct Rust objects never do)."
-    code := Impl.Poly1305.AArch64.init
-    contract := Spec.Poly1305.initContract AArch64.abi
-    verified := Proof.Poly1305.AArch64.Shared.init
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { target := AArch64.target
-    module := "poly1305"
-    name := "vg_poly1305_blocks"
-    sig := Spec.Poly1305.blocksSig
-    doc := "Absorbs whole blocks into a Poly1305 computation: if the streaming state `*state` \
-      represents a message under a key, it then represents that message followed by the `n` \
-      16-byte blocks at `blocks`, under the same key.\n\n\
-      Contract: `VG.Spec.Poly1305.blocksContract`. Constant time: only the pointers and `n` \
-      may affect timing, not the state or the data.\n\n\
-      # Safety\n\n\
-      * `state` must be valid for reads and writes of 128 bytes.\n\
-      * `blocks` must be valid for reads of `16 * n` bytes.\n\
-      * `state` must not overlap `blocks`, and `blocks` must not wrap around the end of the \
-      address space (distinct Rust objects never do)."
-    code := Impl.Poly1305.AArch64.blocks
-    contract := Spec.Poly1305.blocksContract AArch64.abi
-    verified := Proof.Poly1305.AArch64.Shared.blocks
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { target := AArch64.target
-    module := "poly1305"
-    name := "vg_poly1305_finalize"
-    sig := Spec.Poly1305.finalizeSig
-    doc := "Finishes a Poly1305 computation: if the streaming state `*state` represents a \
-      message under a key, writes the tag of that message followed by the `len` bytes at \
-      `tail`, under that key, to `*out`.\n\n\
-      Contract: `VG.Spec.Poly1305.finalizeContract`. Constant time: only the pointers and \
-      `len` may affect timing, not the state or the data.\n\n\
-      # Safety\n\n\
-      * `len` must be less than 16.\n\
-      * `state` must be valid for reads and writes of 128 bytes; its contents on return are \
-      unspecified.\n\
-      * `tail` must be valid for reads of `len` bytes.\n\
-      * `out` must be valid for writes of 16 bytes.\n\
-      * These three regions must not overlap each other (distinct Rust objects never do)."
-    code := Impl.Poly1305.AArch64.finalize
-    contract := Spec.Poly1305.finalizeContract AArch64.abi
-    verified := Proof.Poly1305.AArch64.Shared.finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ }
 ]
 
