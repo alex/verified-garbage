@@ -54,7 +54,21 @@ jobs:
         include: ${{ fromJSON(needs.arches.outputs.matrix) }}
     name: Compare with base (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
+    # With an empty image the job runs directly on the runner.
+    container:
+      image: ${{ matrix.image || '' }}
+      options: ${{ matrix.options || '' }}
+    env:
+      # Selects the toolchain without `rustup default`, which refuses 32-bit
+      # toolchains on a 64-bit kernel.
+      RUSTUP_TOOLCHAIN: stable
     steps:
+      - name: Install the amd64 libc for the runner's Node
+        if: ${{ matrix.install-amd64-libc }}
+        run: |
+          dpkg --add-architecture amd64
+          apt-get update -qq
+          apt-get install -qq -y --no-install-recommends libc6:amd64 libstdc++6:amd64 git ca-certificates python3
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: head
@@ -65,11 +79,13 @@ jobs:
           path: base
           persist-credentials: false
       - name: Install OpenSSL headers
-        run: sudo apt-get install -qq -y --no-install-recommends libssl-dev pkg-config
-      - name: Install Rust
         run: |
-          rustup toolchain install stable --profile minimal --component clippy,rustfmt
-          rustup default stable
+          # Containers run as root, without sudo.
+          if [ "$(id -u)" != 0 ]; then sudo=sudo; fi
+          $sudo apt-get update -qq
+          $sudo apt-get install -qq -y --no-install-recommends libssl-dev pkg-config python3
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --component clippy,rustfmt
       - name: Lint the benchmarks
         working-directory: head/bench
         run: |
