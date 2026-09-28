@@ -57,9 +57,19 @@ structure Pre (s₀ : State) : Prop where
   st_scr : (stR s₀).Disjoint (scR s₀)
   out_scr : (outR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Proof.Sha256.finalizeAArch64.pre s₀) : Pre s₀ := by
-  obtain ⟨h1, h2, h3, h4, h5⟩ := h
-  exact ⟨h1, h2, h3, h4, h5⟩
+/-- The frame saving `x30`, below the stack pointer. -/
+abbrev stkR (s₀ : State) : Region := ⟨s₀.sp - 16, 16⟩
+
+/-- The frame is below the stack pointer, and disjoint from the buffers. -/
+structure Stack (s₀ : State) : Prop where
+  sp16 : 16 ≤ s₀.sp.toNat
+  st : (stkR s₀).Disjoint (stR s₀)
+  out : (stkR s₀).Disjoint (outR s₀)
+  scr : (stkR s₀).Disjoint (scR s₀)
+
+theorem pre_of {s₀ : State} (h : Proof.Sha256.finalizeAArch64.pre s₀) : Pre s₀ ∧ Stack s₀ := by
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ := h
+  exact ⟨⟨h1, h2, h3, h4, h5⟩, ⟨h6, h7, h8, h9⟩⟩
 
 theorem R₀.length {s₀ : State} {m : List Byte} (h : R₀ s₀ m) : cnt s₀ % 64 = m.length % 64 := by
   rw [cnt, h.2, BitVec.toNat_ofNat]
@@ -210,10 +220,10 @@ theorem zero_ok {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI
 
 /-! ## One block -/
 
-/-- The inlined compression of the buffer. -/
+/-- The compression of the buffer. -/
 theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s₀ s)
     (hx1 : s.gpr .x1 = st s₀ + 32) {Q : State → Prop}
-    (hQ : ∀ s', Common s₀ s' → (∀ r ∈ preserved, s'.gpr r = s.gpr r) →
+    (hQ : ∀ s', Common s₀ s' → (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s.gpr r) →
       stateAt s'.mem (st s₀) = compress (stateAt s.mem (st s₀)) (blockAt s.mem (st s₀ + 32)) → Q s') :
     WP isa compressAt s Q := by
   have e32 : Region.Sub ⟨st s₀, 32⟩ (stR s₀) := Region.sub_prefix (by omega)
@@ -238,10 +248,11 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
     rcases hr with rfl | rfl
     · exact ⟨stR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
-  · have cs : ∀ r, r ∈ preserved → s'.gpr r = s.gpr r := hcs
-    refine ⟨hrd.trans hC.rd, hwr.trans hC.wr, by rw [cs _ (by decide)]; exact hC.x19,
-      by rw [cs _ (by decide)]; exact hC.x20, by rw [cs _ (by decide)]; exact hC.x21,
-      by rw [cs _ (by decide)]; exact hC.x22, hsp.trans hC.sp, hC.frame.trans (hf.sub ?_),
+  · have cs : ∀ r, r ∈ preserved → r ≠ .x30 → s'.gpr r = s.gpr r := hcs
+    refine ⟨hrd.trans hC.rd, hwr.trans hC.wr, by rw [cs _ (by decide) (by decide)]; exact hC.x19,
+      by rw [cs _ (by decide) (by decide)]; exact hC.x20,
+      by rw [cs _ (by decide) (by decide)]; exact hC.x21,
+      by rw [cs _ (by decide) (by decide)]; exact hC.x22, hsp.trans hC.sp, hC.frame.trans (hf.sub ?_),
       fun p hp' => ?_⟩
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -397,7 +408,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv
   have hx1 : s₉.gpr .x1 = st s₀ + 32 := by rw [u₉.gpr, hC₈.x19]; rfl
   refine WP.seq (compress_buf hp hC₉ hx1 fun s₁₁ hC₁₁ cs₁₁ hst₁₁ => ?_)
   have h24₁₁ : s₁₁.gpr .x24 = BitVec.ofNat 64 k := by
-    rw [cs₁₁ _ (by decide), u₉.other _ (by decide), h24₈]
+    rw [cs₁₁ _ (by decide) (by decide), u₉.other _ (by decide), h24₈]
   have hblk : ∀ m, R₀ s₀ m → blockAt s₉.mem (st s₀ + 32) = parseBlock fun t =>
       (bytesAt s.mem (st s₀ + 32) n ++
         (if k = 1 then List.replicate (64 - n) 0 else List.replicate (56 - n) 0 ++ lenBytes m)).getD t 0 := by
@@ -442,7 +453,7 @@ def prologue : List Instr :=
     .movz .x .x9 0x80 0, .add .x .x12 .x19 .x23, .strb .x9 .x12 32, .addImm .x .x23 .x23 1,
     .addImm .x .x24 .x23 7, .lsr .x .x24 .x24 6]
 
-theorem finalize_eq : finalize = .seq (.block (save .x3 ++ prologue))
+theorem finalize_eq : finalizeMain = .seq (.block (save .x3 ++ prologue))
     (.seq (.loop finalizeBody (.zero .x .x24))
       (.block ((List.range 8).flatMap (fun k =>
         [.ldr .w .x9 .x19 (4 * k), .rev32 .x9 .x9, .str .w .x9 .x21 (4 * k)]) ++ restore))) := rfl
@@ -655,18 +666,20 @@ theorem out_all {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) 
     rw [show 8 - (j + 1) + 1 = 8 - j by omega]
     exact ih (by omega) s' (by rwa [show 8 - (j + 1) + 1 = 8 - j by omega] at h')
 
-/-- No instruction of `finalize` writes the callee-saved registers it does not save. -/
-theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs finalize, dstOf i ≠ some r := by
-  have : ((instrs finalize).all fun i => untouched.all fun r => dstOf i != some r) = true := by
+/-- No instruction of `finalizeMain` writes the callee-saved registers it does not save. -/
+theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs finalizeMain, dstOf i ≠ some r := by
+  have : ((instrs finalizeMain).all fun i => untouched.all fun r => dstOf i != some r) = true := by
     rw [← Code.allInstrs_eq]; decide +kernel
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this
 
-theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.finalizeAArch64.post s₀ s' := by
+/-- `finalize` without its frame: the callee-saved registers but `x30` are kept. -/
+theorem correctMain {s₀ : State} (hp : Pre s₀) :
+    WP isa finalizeMain s₀ fun s' => (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) ∧
+      s'.sp = s₀.sp ∧ Proof.Sha256.finalizeAArch64.post s₀ s' := by
   refine WP.mono (WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
-    ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
+    ⟨fun r hr h30 => ?_, hsp, hpost⟩
   · rw [finalize_eq]
     refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨k, hL⟩ => ?_)
     refine WP.seq (WP.mono (Q := Done s₀) ?_ fun sD hD => ?_)
@@ -688,13 +701,35 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     · exact hsv (.x22, 136) (by simp [saved])
     · exact hsv (.x23, 144) (by simp [saved])
     · exact hsv (.x24, 152) (by simp [saved])
-    all_goals exact hu _ (by simp [untouched])
+    all_goals first | exact absurd rfl h30 | exact hu _ (by simp [untouched])
+
+/-- The state `finalizeMain` starts in, inside the frame. -/
+abbrev inner (s₀ : State) : State :=
+  { s₀ with sp := s₀.sp - 16, mem := s₀.mem.write (s₀.sp - 16) 8 (s₀.gpr .x30) }
+
+theorem correct {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) :
+    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.finalizeAArch64.post s₀ s' := by
+  have hpi : Pre (inner s₀) := ⟨hp.rd, hp.wr, hp.st_out, hp.st_scr, hp.out_scr⟩
+  refine WP.frameReg hs.sp16 (fun R hR => ?_) (WP.mono (correctMain hpi) fun s' ⟨hk, hsp, hpost⟩ => ?_)
+  · rw [hp.wr] at hR
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hR
+    rcases hR with rfl | rfl | rfl
+    · exact hs.st
+    · exact hs.out
+    · exact hs.scr
+  · refine ⟨⟨fun r hr => ?_, rfl⟩, fun m hm hc => ?_⟩
+    · by_cases h30 : r = .x30
+      · subst h30; simp [State.write]
+      · simp only [State.write, h30, ite_false]
+        exact hk r hr h30
+    · exact hpost m (repr_congr (fun i hi => write_frame_bytes (R := stR s₀) hs.st
+        (by simp) hi) hm) hc
 
 /-- The initial taint: only the arguments are public. -/
 theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Sha256.finalizeAArch64.pub s₁ s₂) :
     VG.AArch64.Taint.Agree (VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3]) s₁ s₂ := by
-  obtain ⟨p1, p2, p3, p4⟩ := hpub
-  intro r hr
+  obtain ⟨p1, p2, p3, p4, hsp⟩ := hpub
+  refine ⟨hsp, fun r hr => ?_⟩
   simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl <;> assumption
 
@@ -709,11 +744,11 @@ def sat : State where
 
 theorem finalize_verified : Verified AArch64.target finalize Proof.Sha256.finalizeAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
     exact ⟨t, s', he, h⟩
   · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) (fun _ _ _ _ hp => agree₀ hp)
       (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_⟩ <;>
+  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, by decide, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
       bv_omega

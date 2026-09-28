@@ -269,24 +269,28 @@ theorem Exec.rdwr {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa c 
     refine ⟨r₂.trans (ih.1.trans r₁), by rw [w₂, ih.2.1, w₁]; rfl, ?_⟩
     rw [p₃, ih.2.2, p₁, BitVec.sub_add_cancel]
 
-/-- Code without calls or frames changes memory only within the regions it
-may write (a frame's push stores below the stack pointer). -/
+/-- Code without frames changes memory only within the regions it may write
+(a call stores nothing; a frame's push stores below the stack pointer). -/
 theorem Exec.regions {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa c s t s')
-    (hn : c.noCalls = true) : s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.sp = s.sp ∧ Frame s.wr s.mem s'.mem := by
+    (hn : c.noFrames = true) : s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.sp = s.sp ∧ Frame s.wr s.mem s'.mem := by
   induction h with
   | block h => exact execBlock_regions h
   | seq _ _ ih₁ ih₂ =>
-    simp only [Code.noCalls, Bool.and_eq_true] at hn
+    simp only [Code.noFrames, Bool.and_eq_true] at hn
     obtain ⟨r₁, w₁, p₁, f₁⟩ := ih₁ hn.1; obtain ⟨r₂, w₂, p₂, f₂⟩ := ih₂ hn.2
     exact ⟨r₂.trans r₁, w₂.trans w₁, p₂.trans p₁, f₁.trans (w₁ ▸ f₂)⟩
-  | iteT _ _ ih => simp only [Code.noCalls, Bool.and_eq_true] at hn; exact ih hn.1
-  | iteF _ _ ih => simp only [Code.noCalls, Bool.and_eq_true] at hn; exact ih hn.2
+  | iteT _ _ ih => simp only [Code.noFrames, Bool.and_eq_true] at hn; exact ih hn.1
+  | iteF _ _ ih => simp only [Code.noFrames, Bool.and_eq_true] at hn; exact ih hn.2
   | loopExit _ _ ih => exact ih hn
   | loopNext _ _ _ ih₁ ih₂ =>
     obtain ⟨r₁, w₁, p₁, f₁⟩ := ih₁ hn; obtain ⟨r₂, w₂, p₂, f₂⟩ := ih₂ hn
     exact ⟨r₂.trans r₁, w₂.trans w₁, p₂.trans p₁, f₁.trans (w₁ ▸ f₂)⟩
-  | call => simp [Code.noCalls] at hn
-  | frame => simp [Code.noCalls] at hn
+  | call hc _ hr ih =>
+    obtain ⟨r₁, w₁, p₁, m₁, -⟩ := call_eq hc
+    obtain ⟨r₂, w₂, p₂, f₂⟩ := ih hn
+    rw [ret_eq hr, r₂, w₂, p₂, r₁, w₁, p₁]
+    exact ⟨rfl, rfl, rfl, m₁ ▸ w₁ ▸ f₂⟩
+  | frame => simp [Code.noFrames] at hn
 
 theorem execBlock_widen {is : List Instr} {s s' : State} {t : List Leak} {rd wr : List Region}
     (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
@@ -422,7 +426,7 @@ theorem WP.inline {c : Prog isa} {k : Contract isa}
       k.post (s.withRegions rd wr) (s'.withRegions rd wr) → Q s')
     (hn : c.noCalls = true := by decide +kernel) : WP isa c s Q := by
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre
-  obtain ⟨hr, hwr, -, hf⟩ := Exec.regions he hn
+  obtain ⟨hr, hwr, -, hf⟩ := Exec.regions he (Code.noFrames_of_noCalls hn)
   simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_mem] at hr hwr hf
   have he' := Exec.widen he (rd := s.rd) (wr := s.wr) (by simpa using hc) (by simpa using hw)
   simp only [State.withRegions_withRegions, State.withRegions_self] at he'
