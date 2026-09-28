@@ -20,7 +20,6 @@ def word (x : BitVec 64) (off : Nat) : List Instr := movImm64 .x9 x ++ [.str .x 
 theorem init_eq (iv : HashValue) : init iv = .block (word iv[0] 0 ++ word iv[1] 8 ++ word iv[2] 16 ++
     word iv[3] 24 ++ word iv[4] 32 ++ word iv[5] 40 ++ word iv[6] 48 ++ word iv[7] 56) := rfl
 
-set_option maxHeartbeats 1000000 in
 theorem word_ok {x : BitVec 64} {off : Nat} (ho : off % 8 = 0 ∧ off < 32768) {rest : List Instr}
     {s : State} {Q : State → Prop} (hout : InRegions s.wr (s.gpr .x0 + BitVec.ofNat 64 off) 8)
     (k : ∀ s', (∀ r, r ≠ .x9 → s'.gpr r = s.gpr r) → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
@@ -35,7 +34,6 @@ theorem word_ok {x : BitVec 64} {off : Nat} (ho : off % 8 = 0 ∧ off < 32768) {
     congr 1
     exact movz_movk64' x
 
-set_option maxHeartbeats 4000000 in
 theorem init_correct {s₀ : State} (iv : HashValue) (hp : (Proof.Sha512.initAArch64 iv).pre s₀) :
     WP isa (init iv) s₀ fun s' => abiPreserved s₀ s' ∧ (Proof.Sha512.initAArch64 iv).post s₀ s' := by
   obtain ⟨-, hwr⟩ := hp

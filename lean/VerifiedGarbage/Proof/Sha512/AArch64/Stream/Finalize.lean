@@ -286,7 +286,6 @@ theorem body_eq : finalizeBody =
     (.seq (.block [.addImm .x .x1 .x19 64])
     (.seq compressAt (.block [.movz .x .x23 0 0, .subImm .x .x24 .x24 1]))))))) := rfl
 
-set_option maxHeartbeats 2000000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
     WP isa finalizeBody s (Step s₀ k) := by
   have hk := h.k_le; have hn := h.n_le
@@ -468,7 +467,6 @@ theorem finalize_eq : finalize = .seq (.block (save .x3 ++ prologue))
       (.block ((List.range 8).flatMap (fun k =>
         [.ldr .x .x9 .x19 (8 * k), .rev .x9 .x9, .str .x .x9 .x21 (8 * k)]) ++ restore))) := rfl
 
-set_option maxHeartbeats 2000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .x3 ++ prologue)) s₀ fun s => ∃ k, LInv s₀ k (cnt s₀ % 128 + 1) s := by
   have hr : cnt s₀ % 128 < 128 := Nat.mod_lt _ (by omega)
@@ -598,7 +596,6 @@ theorem writeW_rev64 (m : Mem) (a : Addr) (w : BitVec 64) :
     m.writeW a (rev64 w) = writeBytes m a (wordBytes w) := by
   rw [Mem.writeW, write_eq_writeBytes, ← rev64_wordBytes]; rfl
 
-set_option maxHeartbeats 1000000 in
 theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {k : Nat} (hk : k < 8)
     {s : State} (h : Out s₀ sD k s) {rest : List Instr} {Q : State → Prop}
     (hnext : ∀ s', Out s₀ sD (k + 1) s' → WP isa (.block rest) s' Q) :
@@ -728,7 +725,6 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 192⟩, ⟨0x2000, 64⟩, ⟨0x3000, 224⟩]
 
-set_option maxHeartbeats 4000000 in
 theorem finalize_verified : Verified AArch64.target finalize Proof.Sha512.finalizeAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
