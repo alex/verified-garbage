@@ -244,7 +244,7 @@ fn pbkdf2_hmac_sha256(_: &mut Criterion) {}
 
 /// scrypt with `r = 8` and `p = 1` (the RFC 7914 vectors' block size) at a
 /// few costs `N`, deriving a 64-byte key. The ids' sizes are `N`.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn scrypt_kdf(c: &mut Criterion) {
     use verified_garbage::scrypt::scrypt;
 
@@ -284,7 +284,7 @@ fn scrypt_kdf(c: &mut Criterion) {
     g.finish();
 }
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn scrypt_kdf(_: &mut Criterion) {}
 
 criterion_group!(

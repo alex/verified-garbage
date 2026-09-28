@@ -6,7 +6,7 @@ import VerifiedGarbage.Spec.Aes
 
 The NIST CAVP AES known-answer tests for ECB (`GFSbox`, `KeySbox`, `VarKey`
 and `VarTxt`, each for 128-, 192- and 256-bit keys), read from the vendored
-response files under `vectors/nist-cavp/aes/` (see `vectors/sources.toml`)
+response files under `vectors/nist-cavp/aes/` (see `vectors/sources/`)
 when this file is built and checked against `VG.Spec.Aes.encrypt`, so that a
 transcription error in the spec fails the build. Every `GFSbox` and
 `KeySbox` vector is checked, and the first `VarKey` and `VarTxt` vectors of
