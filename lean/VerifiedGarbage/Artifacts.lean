@@ -300,7 +300,7 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 64 bytes.\n\
       * `blocks` must be valid for reads of `128 * n` bytes.\n\
-      * `scratch` must be valid for reads and writes of 176 bytes; its contents on \
+      * `scratch` must be valid for reads and writes of 224 bytes; its contents on \
       return are unspecified.\n\
       * These three regions must not overlap each other, nor the return address on the \
       stack (distinct Rust objects never do)."
@@ -384,7 +384,7 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 192 bytes.\n\
       * `data` must be valid for reads of `len` bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
       * These three regions must not overlap each other, the return address on the stack, \
       or the 8 bytes of stack below it, where its call of `vg_sha512_compress` stores its \
@@ -410,7 +410,7 @@ def artifacts : List Artifact := [
       * `state` must be valid for reads and writes of 192 bytes; its contents on return are \
       unspecified.\n\
       * `out` must be valid for writes of 64 bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
       * These three regions must not overlap each other, the return address on the stack, \
       or the 8 bytes of stack below it, where its call of `vg_sha512_compress` stores its \
@@ -552,7 +552,7 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 64 bytes.\n\
       * `blocks` must be valid for reads of `128 * n` bytes.\n\
-      * `scratch` must be valid for reads and writes of 176 bytes; its contents on \
+      * `scratch` must be valid for reads and writes of 224 bytes; its contents on \
       return are unspecified.\n\
       * These three regions must not overlap each other."
     code := Impl.Sha512.AArch64.compress
@@ -626,7 +626,7 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 192 bytes.\n\
       * `data` must be valid for reads of `len` bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
       * These three regions must not overlap each other."
     code := Impl.Sha512.AArch64.Stream.update
@@ -649,7 +649,7 @@ def artifacts : List Artifact := [
       * `state` must be valid for reads and writes of 192 bytes; its contents on return are \
       unspecified.\n\
       * `out` must be valid for writes of 64 bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
       * These three regions must not overlap each other."
     code := Impl.Sha512.AArch64.Stream.finalize
