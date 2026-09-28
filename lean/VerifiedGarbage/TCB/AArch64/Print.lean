@@ -50,5 +50,6 @@ def printer : Printer isa where
     | .nonzero sz r => s!"cbnz {r.name sz}, {l}"
   jump l := s!"b {l}"
   ret := ["ret"]
+  call := "bl"
 
 end VG.AArch64

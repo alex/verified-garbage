@@ -62,12 +62,14 @@ convention `A`: the obligations the signature implies (see `TCB/Sig.lean`),
 the further precondition `pre` and the postcondition `post`, both stated on
 the arguments by name. If `writeArgs`, the function may also overwrite its
 arguments passed in memory, where the calling convention gives them to the
-callee; otherwise it may only read them. A calling convention that does not
+callee; otherwise it may only read them. `stack` is the number of bytes of
+stack below the stack pointer that the function's calls use (return
+addresses and arguments), which no buffer overlaps. A calling convention that does not
 model the arguments (`A.args` is `none`) gives an unsatisfiable
 precondition, which `Verified` rejects. -/
 def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
     (pre : Curry (sig.words A.ptrBits) (Mem → Prop) := Curry.const (fun _ => True) _)
-    (post : sig.Post A.ptrBits) (writeArgs : Bool := false) : Contract M :=
+    (post : sig.Post A.ptrBits) (writeArgs : Bool := false) (stack : Nat := 0) : Contract M :=
   let ws := sig.words A.ptrBits
   let widths := ws.map (·.bits A.ptrBits)
   let pubs := sig.params.flatMap (·.2.pubs)
@@ -76,10 +78,10 @@ def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
       | some vals =>
         let bufs := Sig.bufs sig.params (vals s)
         let all := bufs ++ (A.argArea widths s).map fun (r, w) => (r, w && writeArgs)
-        A.wf widths s ∧
+        A.wf widths stack s ∧
         A.rd s = (all.filter (!·.2)).map (·.1) ∧ A.wr s = (all.filter (·.2)).map (·.1) ∧
         all.Pairwise (fun a b => (a.2 || b.2) → a.1.Disjoint b.1) ∧
-        (∀ r ∈ A.reserved s, ∀ a ∈ all, r.Disjoint a.1) ∧
+        (∀ r ∈ A.reserved stack s, ∀ a ∈ all, r.Disjoint a.1) ∧
         (∀ a ∈ bufs, a.1.base.toNat + a.1.len ≤ 2 ^ A.ptrBits) ∧
         Curry.apply ws pre (vals s) (A.mem s)
     post s s' := match A.args widths with
@@ -116,5 +118,10 @@ structure Artifact where
   code : Prog target.isa
   contract : Contract target.isa
   verified : Verified target code contract
+  /-- The code changes the stack pointer only by calls and returns: no
+  instruction of it, or of the functions it calls, writes it. So a call
+  instruction only ever stores below the stack pointer on entry, where no
+  Rust object lies. -/
+  spSafe : code.all (fun i => !target.isa.writesSp i) = true := by decide +kernel
 
 end VG

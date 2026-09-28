@@ -175,6 +175,9 @@ theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c
   | iteF _ _ ih => exact ih
   | loopExit _ _ ih => exact ih
   | loopNext _ _ _ ih₁ ih₂ => exact ih₂.trans ih₁
+  | call hc _ hr ih =>
+    simp only [isa, call, ret, Option.some.injEq] at hc hr
+    subst hc; split at hr <;> cases hr; exact ih
 
 end VG.AArch64
 

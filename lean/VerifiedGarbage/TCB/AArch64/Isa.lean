@@ -25,6 +25,11 @@ Modelling choices:
   within `wr`; otherwise the instruction faults. Memory is little-endian.
 * Instructions whose timing depends on their operands (e.g. `udiv`) must never
   be added: the constant-time leakage model assumes they do not exist.
+* Calls are `bl` and returns `ret` (DDI 0487, C6.2 "BL", "RET"). The return
+  addresses are the next of the state's `unknowns`, which nothing constrains
+  (see `TCB/Code.lean`). A linker veneer between a `bl` and its target may
+  change `x16` and `x17` (IP0, IP1: AAPCS64 §6.1.1, "Use of IP0 and IP1 by
+  the linker"), so a call leaves unknown values in them too.
 -/
 
 namespace VG.AArch64
@@ -50,6 +55,10 @@ structure State where
   rd : List Region
   /-- Regions the code may read and write. -/
   wr : List Region
+  /-- Values the model does not know, used in order: the return address each
+  call stores and, on the ARM targets, what a linker veneer may leave in the
+  intra-procedure-call scratch registers (see `TCB/Code.lean`). -/
+  unknowns : Nat → BitVec 64 := fun _ => 0
 
 inductive LogicOp | and | orr | eor
   deriving DecidableEq, Repr
@@ -205,6 +214,23 @@ def eval : Cond → State → Option Bool
   | .zero sz r, s => some (s.read sz r == 0)
   | .nonzero sz r, s => some (s.read sz r != 0)
 
+/-- DDI 0487, C6.2 "BL": `X[30, 64] = PC64 + 4` (the address of the next
+instruction), then the branch, possibly through a linker veneer, which may
+change `x16` and `x17` (AAPCS64 §6.1.1). The return address and the values
+left in `x16` and `x17` are the next three of the state's. -/
+def call (s : State) : Option State :=
+  some { s with
+    gpr := fun r =>
+      if r = .x30 then s.unknowns 0 else if r = .x16 then s.unknowns 1
+      else if r = .x17 then s.unknowns 2 else s.gpr r
+    unknowns := fun n => s.unknowns (n + 3) }
+
+/-- DDI 0487, C6.2 "RET" (with the default register `x30`): `target =
+X[30, 64]; BranchTo(target)`. It returns after the call instruction if `x30`
+is the return address the call left (`s₁`); otherwise the model faults. -/
+def ret (s₁ s₂ : State) : Option State :=
+  if s₂.gpr .x30 = s₁.gpr .x30 then some s₂ else none
+
 abbrev isa : ISA where
   State := State
   Instr := Instr
@@ -212,5 +238,11 @@ abbrev isa : ISA where
   exec := exec
   addrs := addrs
   eval := eval
+  call := call
+  callAddrs _ := []
+  ret := ret
+  retAddrs _ := []
+  -- No modelled instruction has the stack pointer as an operand.
+  writesSp _ := false
 
 end VG.AArch64
