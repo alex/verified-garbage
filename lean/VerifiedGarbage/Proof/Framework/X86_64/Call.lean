@@ -80,7 +80,7 @@ theorem below_callee (sp : Addr) (n : Nat) : Region.Sub (below (sp - 8) n) (belo
   omega
 
 /-- No instruction writes `rsp`. -/
-abbrev NoSp (c : Prog isa) : Prop := ∀ i ∈ instrs c, Taint.dstOf i ≠ some .rsp
+abbrev NoSp (c : Prog isa) : Prop := ∀ i ∈ instrs c, Taint.clobbers i .rsp = false
 
 theorem Frame.below_mono {wr : List Region} {sp : Addr} {a b : Nat} {m m' : Mem}
     (h : Frame (wr ++ [below sp a]) m m') (hab : a ≤ b) (hb : b < 2 ^ 64) :
@@ -160,7 +160,7 @@ theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
       Frame (wr ++ [below (s.gpr .rsp) (8 * (c.depth + 1))]) s.mem s'.mem →
-      (∀ r, (∀ i ∈ instrs c, Taint.dstOf i ≠ some r) → s'.gpr r = s.gpr r) →
+      (∀ r, (∀ i ∈ instrs c, Taint.clobbers i r = false) → s'.gpr r = s.gpr r) →
       (∃ s₂ : State, s₂.mem = s'.mem ∧ (∀ r, r ≠ .rsp → s₂.gpr r = s'.gpr r) ∧
         k.post (s.callEntry.withRegions rd wr) s₂) → Q s') :
     WP isa (.call n c) s Q := by

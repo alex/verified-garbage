@@ -20,19 +20,19 @@ open VG.Spec.Sha256 (HashValue stateAt blockAt compressBlocks compress parseBloc
 /-! ## The inlined compression function -/
 
 theorem compress_keeps : ((instrs Impl.Sha256.X86_64.compress).all fun i =>
-    Taint.dstOf i != some .rdi && Taint.dstOf i != some .rcx) = true := by
+    !Taint.clobbers i .rdi && !Taint.clobbers i .rcx) = true := by
   rw [← Code.allInstrs_eq]; decide +kernel
 
-theorem compress_keeps_rdi : ∀ i ∈ instrs Impl.Sha256.X86_64.compress, Taint.dstOf i ≠ some .rdi := by
+theorem compress_keeps_rdi : ∀ i ∈ instrs Impl.Sha256.X86_64.compress, Taint.clobbers i .rdi = false := by
   intro i hi
   have := List.all_eq_true.mp compress_keeps i hi
-  simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at this
+  simp only [Bool.and_eq_true, Bool.not_eq_true'] at this
   exact this.1
 
-theorem compress_keeps_rcx : ∀ i ∈ instrs Impl.Sha256.X86_64.compress, Taint.dstOf i ≠ some .rcx := by
+theorem compress_keeps_rcx : ∀ i ∈ instrs Impl.Sha256.X86_64.compress, Taint.clobbers i .rcx = false := by
   intro i hi
   have := List.all_eq_true.mp compress_keeps i hi
-  simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at this
+  simp only [Bool.and_eq_true, Bool.not_eq_true'] at this
   exact this.2
 
 theorem compressBlocks_one (H : HashValue) (m : Mem) (p : Addr) :
@@ -42,7 +42,7 @@ theorem compressBlocks_one (H : HashValue) (m : Mem) (p : Addr) :
 theorem compress_depth : Impl.Sha256.X86_64.compress.depth = 0 := by decide +kernel
 
 theorem compress_nosp : NoSp Impl.Sha256.X86_64.compress := by
-  have : ((instrs Impl.Sha256.X86_64.compress).all fun i => Taint.dstOf i != some .rsp) = true := by
+  have : ((instrs Impl.Sha256.X86_64.compress).all fun i => !Taint.clobbers i .rsp) = true := by
     rw [← Code.allInstrs_eq]; decide +kernel
   intro i hi
   simpa using List.all_eq_true.mp this i hi

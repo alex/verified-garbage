@@ -737,7 +737,7 @@ theorem WP.seq_assoc {M : ISA} {a b c : Prog M} {s : M.State} {Q : M.State → P
   simp only [WP.seq_iff]
 
 theorem out_keeps : (((List.range 8).flatMap outW ++ restore).all fun i =>
-    Taint.dstOf i != some .rdi && Taint.dstOf i != some .rcx) = true := by decide +kernel
+    !Taint.clobbers i .rdi && !Taint.clobbers i .rcx) = true := by decide +kernel
 
 /-- `finalize` is correct, and leaves `rdi` and `rcx` as they were (which code
 inlining it relies on). -/
@@ -758,7 +758,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   · have := out_all hp hD 8 le_rfl sD ⟨hD.1.rd, hD.1.wr, fun _ _ => rfl, by simp [writeBytes_nil]⟩
     rw [show 8 - 8 = 0 from rfl, List.drop_zero] at this
     have keeps := fun i hi => List.all_eq_true.mp out_keeps i hi
-    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at keeps
+    simp only [Bool.and_eq_true, Bool.not_eq_true'] at keeps
     refine WP.mono (WP.gpr (WP.gpr this (r := .rdi) fun i hi => (keeps i hi).1) (r := .rcx)
       fun i hi => (keeps i hi).2) fun s' ⟨⟨h, h₁⟩, h₂⟩ => ⟨h.1, h.2, ?_, ?_⟩
     · rw [h₁, hdi]

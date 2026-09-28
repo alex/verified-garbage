@@ -19,7 +19,10 @@ Modelling choices:
 * Memory accesses must lie within the state's permitted regions: loads within
   `rd ++ wr`, stores within `wr`; otherwise the instruction faults.
 * Instructions whose timing depends on their operands (e.g. `div`) must never
-  be added: the constant-time leakage model assumes they do not exist.
+  be added: the constant-time leakage model assumes they do not exist. `mul`
+  is one of the instructions whose timing Intel documents as independent of
+  their data operands ("Data Operand Independent Timing Instruction Set
+  Architecture (ISA) Guidance", which lists `MUL`).
 * Calls (`call`) and returns (`ret`) are near and direct (SDM Vol. 2, "CALL",
   "RET"). The return addresses are the next of the state's `unknowns`,
   which nothing constrains (see `TCB/Code.lean`).
@@ -103,6 +106,8 @@ inductive Instr
   /-- `movabs r64, imm64`: `MOV r64, imm64` (REX.W + B8+rd io), a full 64-bit
   immediate. -/
   | movImm64 (dst : Reg) (v : BitVec 64)
+  /-- `mul r64` (REX.W + F7 /4): the unsigned product `RDX:RAX := RAX * r64`. -/
+  | mul (src : Reg)
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`jcc` suffixes). -/
@@ -297,6 +302,17 @@ def bswap64 (a : BitVec 64) : BitVec 64 :=
   a.extractLsb' 0 8 ++ a.extractLsb' 8 8 ++ a.extractLsb' 16 8 ++ a.extractLsb' 24 8 ++
     a.extractLsb' 32 8 ++ a.extractLsb' 40 8 ++ a.extractLsb' 48 8 ++ a.extractLsb' 56 8
 
+/-- SDM Vol. 2, "MUL—Unsigned Multiply", for a 64-bit operand: `RDX:RAX :=
+RAX ∗ SRC` (the 128-bit product of the unsigned operands, its high half in
+RDX and its low half in RAX). "The OF and CF flags are set to 0 if the upper
+half of the result is 0; otherwise, they are set to 1. The SF, ZF, AF, and PF
+flags are undefined." (AF and PF are not modelled.) -/
+def execMul (src : Reg) (s : State) : State :=
+  let p := (s.gpr .rax).toNat * (s.gpr src).toNat
+  let hi : BitVec 64 := BitVec.ofNat 64 (p / 2 ^ 64)
+  ((s.setFlags (some (hi != 0)) (some (hi != 0)) none none).setReg .rax (BitVec.ofNat 64 p)).setReg
+    .rdx hi
+
 /-- Semantics of an instruction. The byte forms: SDM Vol. 2, "MOVZX":
 `DEST := ZeroExtend(SRC)` (with a 32-bit destination, zero-extended to 64
 bits, SDM Vol. 1 §3.4.1.1), and "MOV": `DEST := SRC`, where the source of a
@@ -317,6 +333,7 @@ def exec : Instr → State → Option State
   | .shift op d n, s => execShift op d n s
   -- SDM Vol. 2, "MOV": `DEST := SRC`; no flags are affected.
   | .movImm64 d v, s => some (s.setReg d v)
+  | .mul r, s => some (execMul r s)
 
 def addrs : Instr → State → List Addr
   | .mov _ src, s => srcAddrs s src
@@ -332,6 +349,7 @@ def addrs : Instr → State → List Addr
   | .bswap _, _ => []
   | .shift .., _ => []
   | .movImm64 .., _ => []
+  | .mul _, _ => []
 
 def eval : Cond → State → Option Bool
   | .e, s => s.zf
@@ -357,11 +375,12 @@ def ret (s₁ s₂ : State) : Option State :=
     some (s₂.setReg .rsp (s₂.gpr .rsp + 8))
   else none
 
-/-- The register an instruction writes, if any. -/
+/-- The register an instruction writes, if it writes exactly one: `mul`
+writes two, `rax` and `rdx`, and stores none. -/
 def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .mov32 d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
   | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
-  | .store .. | .store32 .. | .store8 .. => none
+  | .store .. | .store32 .. | .store8 .. | .mul _ => none
 
 abbrev isa : ISA where
   State := State
@@ -374,6 +393,7 @@ abbrev isa : ISA where
   callAddrs s := [s.gpr .rsp - 8]
   ret := ret
   retAddrs s := [s.gpr .rsp]
+  -- `mul` writes `rax` and `rdx`, never `rsp`.
   writesSp i := i.dst == some .rsp
   -- No frames are modelled.
   push _ _ := none

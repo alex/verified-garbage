@@ -77,6 +77,7 @@ def Instr.asm : Instr → List String
   | .shift op d n => [s!"{op.name} {d.name}, {n}"]
   -- `movabs` always selects the `REX.W + B8+rd io` encoding, whatever the value.
   | .movImm64 d v => [s!"movabs {d.name}, {v.toInt}"]
+  | .mul r => [s!"mul {r.name}"]
 
 def Cond.name : Cond → String
   | .e => "e" | .ne => "ne" | .b => "b" | .ae => "ae"
