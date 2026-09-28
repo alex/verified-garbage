@@ -19,6 +19,7 @@ It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
 | SHA-256 | ✅ | ✅ | ❌ |
 | SHA-384, SHA-512, SHA-512/224, SHA-512/256 | ✅ | x86-64, ARM64 | ❌ |
 | HMAC-SHA-256 | ✅ | ✅ | ❌ |
+| PBKDF2-HMAC-SHA-256 | ❌ | ✅ | ❌ |
 | ChaCha20 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 
 * **Spec landed**: the algorithm's specification, transcribed from its
@@ -29,6 +30,9 @@ It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
 * **Optimized**: the implementations have been tuned for performance (e.g.
   with SHA-NI or NEON). None have yet: every implementation is
   straightforward scalar code.
+
+PBKDF2 is Rust code that calls the verified HMAC-SHA-256; the PBKDF2
+iteration itself has no Lean spec yet.
 
 Our goal is to implement all the cryptographic algorithms that are used by the Python pyca/cryptography library.
 
