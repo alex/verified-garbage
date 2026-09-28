@@ -194,7 +194,6 @@ structure Pro (s₀ s : State) : Prop where
   gpr : ∀ r, r ≠ .ecx → r ≠ .edx → s.gpr r = s₀.gpr r
   mem : s.mem = proMem s₀
 
-set_option maxHeartbeats 4000000 in
 theorem pro_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block [.mov .edx (.mem (at_ .esp 24)), .mov .ecx (.mem (at_ .esp 8)), .store (at_ .edx 176) .ecx,
       .mov .ecx (.mem (at_ .esp 12)), .store (at_ .esp 8) .ecx,
@@ -391,7 +390,6 @@ structure Mid (s₀ s s' : State) : Prop where
   eax : s'.gpr .eax = inn s₀ + 32
   mem : s'.mem = midMem s₀ s.mem
 
-set_option maxHeartbeats 4000000 in
 theorem mid_ok {s₀ s : State} (hp : Pre s₀) (h : MidPre s₀ s) :
     WP isa (.block ((List.range 8).flatMap (bswapWord .ebx .ebx 0 32) ++ .mov .edx (.mem (at_ .ebp 176)) ::
       (List.range 8).flatMap (copyWord .edx .ebx 0 0) ++ padWords ++
@@ -689,7 +687,6 @@ theorem comp_ok {s₀ s : State} (hp : Pre s₀) (hrd : s.rd = s₀.rd) (hwr : s
 
 /-! ## Writing the MAC -/
 
-set_option maxHeartbeats 1000000 in
 theorem out_ok {s₀ s : State} (hp : Pre s₀) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
     (hebx : s.gpr .ebx = inn s₀) (hebp : s.gpr .ebp = scr s₀) (hsp : s.gpr .esp = esp₀ s₀)
     (hout : s.mem.readW (addr (scr s₀) 136) 32 = out s₀)
@@ -777,7 +774,6 @@ theorem outer_hash {k0 d : List Byte} (hk : k0.length = 64) (hd : d.length = 32)
   rw [hr, hlb, padBytes_eq]
   simp only [List.append_assoc]
 
-set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256X86.post s₀ s' := by
   have fi := hp.in_fit
@@ -1066,7 +1062,6 @@ theorem sat_pre : Proof.Hmac.finalizeSha256X86.pre sat := by
     simp only [Region.Contains, sat] at h₁ h₂
     bv_omega
 
-set_option maxHeartbeats 0 in
 theorem finalize_verified : Verified X86.target finalize Proof.Hmac.finalizeSha256X86 := by
   refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)

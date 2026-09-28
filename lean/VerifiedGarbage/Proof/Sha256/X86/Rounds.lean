@@ -70,7 +70,6 @@ theorem round_sep (t : Nat) :
   generalize t % 8 = c at *
   interval_cases c <;> decide
 
-set_option maxHeartbeats 0 in
 /-- The round is symbolically executed once, for any offsets `a … h` of the
 working variables (which `round_sep` says are in separate words). -/
 theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 32)
@@ -112,7 +111,6 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 
     Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero, List.getElem_cons_succ]
   simp only [BitVec.add_assoc]
 
-set_option maxHeartbeats 0 in
 theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32) (hS : Scratch s scr)
     (hedi : s.gpr .edi = bp) (hesi : s.gpr .esi = scr)
     (hbin : t < 16 → InRegions (s.rd ++ s.wr) (addr bp (4 * t)) 4)

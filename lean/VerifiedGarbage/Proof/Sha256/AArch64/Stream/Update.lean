@@ -205,7 +205,6 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
 
 /-! ## A whole block straight from the data -/
 
-set_option maxHeartbeats 1000000 in
 theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s)
     (hr : (cnt s₀ + c) % 64 = 0) (hl : 64 ≤ len s₀ - c) :
     WP isa (.block direct) s (Pending s₀ (c + 64)) := by
@@ -297,7 +296,6 @@ def copyBody : List Instr :=
   [.ldrb .x9 .x21 0, .add .x .x12 .x19 .x23, .strb .x9 .x12 32, .addImm .x .x21 .x21 1,
     .addImm .x .x23 .x23 1, .subImm .x .x11 .x11 1]
 
-set_option maxHeartbeats 2000000 in
 theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {j : Nat}
     (hj : j < tt s₀ c) {s : State} (h : Copy s₀ c sI.mem j s) :
     WP isa (.block copyBody) s fun s' =>
@@ -400,7 +398,6 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   · rw [← hxs]
     exact bytesAt_writeBytes _ _ _ _ (by omega)
 
-set_option maxHeartbeats 1000000 in
 /-- A full buffer: compress it. -/
 theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {s : State}
     (h : Copy s₀ c sI.mem (tt s₀ c) s) (hfull : rr s₀ c + tt s₀ c = 64) :
@@ -475,7 +472,6 @@ theorem fill_eq : fill =
       (.ite (.zero .x .x9) (.block [.addImm .x .x1 .x19 32, .movz .x .x23 0 0, .movz .x .x10 1 0])
         (.block [])))))) := rfl
 
-set_option maxHeartbeats 2000000 in
 theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) (hcl : c < len s₀)
     (h10 : s.gpr .x10 = 0) :
     WP isa fill s fun s' => (∃ c', c < c' ∧ Pending s₀ c' s') ∨ Done s₀ s' := by
@@ -560,7 +556,6 @@ theorem body_eq : updateBody =
         fill)
       (.ite (.zero .x .x10) (.block []) compressAt)) := rfl
 
-set_option maxHeartbeats 1000000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) (hcl : c < len s₀) :
     WP isa updateBody s fun s' => ∃ c', c < c' ∧ Inv s₀ c' s' := by
   have hlen := len_lt s₀; have hc := hI.c_le; have hr := rr_lt s₀ c
@@ -599,7 +594,6 @@ def prologue : List Instr :=
 theorem update_eq : update = .seq (.block (save .x4 ++ prologue))
     (.seq (.ite (.zero .x .x22) (.block []) (.loop updateBody (.nonzero .x .x22))) (.block restore)) := rfl
 
-set_option maxHeartbeats 1000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .x4 ++ prologue)) s₀ (Inv s₀ 0) := by
   refine save_ok (fun d hd₁ hd₂ => ⟨scR s₀, by simp [hp.wr], contains_offset (by omega) (by omega)⟩)
@@ -706,7 +700,6 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 160⟩]
 
-set_option maxHeartbeats 0 in
 theorem update_verified : Verified AArch64.target update Proof.Sha256.updateAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)

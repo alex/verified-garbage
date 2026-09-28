@@ -33,7 +33,6 @@ theorem word_ok {x : BitVec 32} {k : Nat} {rest : List Instr} {s : State} {Q : S
     (by rw [u₂.rd, u₁.rd]) (by rw [u₂.wr, u₁.wr]) ?_
   rw [u₂.mem, u₁.gpr, u₁.mem]
 
-set_option maxHeartbeats 4000000 in
 theorem init_correct {s₀ : State} (hp : Proof.Sha256.initX86.pre s₀) :
     WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.initX86.post s₀ s' := by
   obtain ⟨hrd, hwr, hargs, hret, hfit, hsp⟩ := hp
@@ -136,7 +135,6 @@ theorem init_agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.initX86.pre s₁)
       show (k - 4) / 4 = 0 by omega]
     exact congrArg _ a0
 
-set_option maxHeartbeats 0 in
 theorem init_verified : Verified X86.target init Proof.Sha256.initX86 := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, initSat_pre⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct hs

@@ -45,7 +45,6 @@ theorem round_nodup (t : Nat) :
   generalize t % 8 = c at *
   interval_cases c <;> decide
 
-set_option maxHeartbeats 0 in
 /-- The round is symbolically executed once, for any registers `a … h`
 (which `round_nodup` says are different from each other and the others). -/
 theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word)
@@ -96,7 +95,6 @@ theorem slot_ok (j : Nat) : slot j % 4 = 0 ∧ slot j < 16384 := by
 /-- The address of `W[j mod 16]`. -/
 abbrev slotAddr (scr : Addr) (j : Nat) : Addr := scr + BitVec.ofNat 64 (slot j)
 
-set_option maxHeartbeats 0 in
 theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
     (hx1 : s.gpr .x1 = bp) (hx3 : s.gpr .x3 = scr)
     (hin : ∀ j, InRegions (s.rd ++ s.wr) (slotAddr scr j) 4)

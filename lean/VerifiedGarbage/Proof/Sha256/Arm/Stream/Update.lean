@@ -245,7 +245,6 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
 
 /-! ## A whole block straight from the data -/
 
-set_option maxHeartbeats 1000000 in
 theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s)
     (hr : (cnt s₀ + c) % 64 = 0) (hl : 64 ≤ len s₀ - c) :
     WP isa (.block direct) s (Pending s₀ (c + 64)) := by
@@ -348,7 +347,6 @@ def copyBody : List Instr :=
   [.ldrb .r12 .r5 0, .dp .add .r1 .r0 (.reg .r4), .strb .r12 .r1 32, .dp .add .r5 .r5 (.imm 1),
     .dp .add .r4 .r4 (.imm 1), .subs .r8 .r8 (.imm 1)]
 
-set_option maxHeartbeats 2000000 in
 theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {j : Nat}
     (hj : j < tt s₀ c) {s : State} (h : Copy s₀ c sI.mem j s) :
     WP isa (.block copyBody) s fun s' =>
@@ -457,7 +455,6 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   · rw [← hxs]
     exact bytesAt_writeBytes _ _ _ _ (by omega)
 
-set_option maxHeartbeats 1000000 in
 /-- A full buffer: compress it. -/
 theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {s : State}
     (h : Copy s₀ c sI.mem (tt s₀ c) s) (hfull : rr s₀ c + tt s₀ c = 64) :
@@ -542,7 +539,6 @@ theorem shr6 {a : Nat} (h : a < 2 ^ 32) : BitVec.ofNat 32 a >>> 6 = BitVec.ofNat
 theorem cmp0 {a : Nat} (h : a < 2 ^ 32) : (BitVec.ofNat 32 a - 0 == 0) = decide (a = 0) := by
   rw [show BitVec.ofNat 32 a - 0 = BitVec.ofNat 32 a by simp]; exact ofNat_beq_zero h
 
-set_option maxHeartbeats 4000000 in
 theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) (hcl : c < len s₀)
     (h7 : s.gpr .r7 = 0) :
     WP isa fill s fun s' => (∃ c', c < c' ∧ Pending s₀ c' s') ∨ Done s₀ s' := by
@@ -624,7 +620,6 @@ theorem body_eq : updateBody =
     (.seq (.seq (.block [.cmp .r7 (.imm 0)]) (.ite .eq (.block []) compressAt))
       (.block [.cmp .r6 (.imm 0)]))) := rfl
 
-set_option maxHeartbeats 2000000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) (hcl : c < len s₀) :
     WP isa updateBody s fun s' => ∃ c', c < c' ∧ Inv s₀ c' s' ∧ s'.z = decide (len s₀ - c' = 0) := by
   have hlen := len_lt s₀; have hc := hI.c_le; have hr := rr_lt s₀ c
@@ -693,7 +688,6 @@ theorem arg_sub {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 3) :
     Region.Sub ⟨stackArgAddr s₀ k, 4⟩ (argR s₀) := by
   rw [argAddr_eq hp hk]; exact sub_offset (by omega) (by omega)
 
-set_option maxHeartbeats 4000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ([.ldrSp .r12 8] ++ save .r12 ++ prologue)) s₀
       fun s => Inv s₀ 0 s ∧ s.z = decide (len s₀ = 0) := by
@@ -853,7 +847,6 @@ def sat : State where
   rd := [⟨0, 0⟩, ⟨0x4000, 12⟩]
   wr := [⟨0x1000, 96⟩, ⟨0, 160⟩]
 
-set_option maxHeartbeats 0 in
 theorem update_verified : Verified Arm.target update Proof.Sha256.updateArm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)

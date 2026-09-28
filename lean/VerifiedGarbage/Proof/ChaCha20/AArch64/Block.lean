@@ -136,7 +136,6 @@ structure FI (s₀ : State) (R : CState) (sB : State) (i : Nat) (s : State) : Pr
   wr : s.wr = s₀.wr
   keep : ∀ r, ¬ Words r → s.gpr r = s₀.gpr r
 
-set_option maxHeartbeats 400000 in
 theorem add_step {s₀ : State} (hp : Pre s₀) {R : CState} {sB : State} {i : Nat} (hi : i < 15)
     {s : State} (h : FI s₀ R sB i s) :
     WP isa (.block (addWord (i + 1))) s (FI s₀ R sB (i + 1)) := by
@@ -152,13 +151,13 @@ theorem add_step {s₀ : State} (hp : Pre s₀) {R : CState} {sB : State} {i : N
   have hne : wreg (i + 1) ≠ .x2 := fun e => absurd (wreg_inj hk (show 0 < 16 by omega) e) (by omega)
   have n1 : Reg.x1 ≠ wreg (i + 1) := fun e => not_words_x1 ⟨_, hk, e⟩
   apply WP.of_runBlock
-  simp only [addWord, runBlock, exec_ldr_w (show 4 * (i + 1) % 4 = 0 ∧ 4 * (i + 1) < 16384 by omega)
-    hin, exec_add, isa, Option.bind_some, hx0, hv]
+  simp only [addWord, runBlock_cons, runStep_some,
+    exec_ldr_w (show 4 * (i + 1) % 4 = 0 ∧ 4 * (i + 1) < 16384 by omega) hin, exec_add, isa, hx0, hv]
   simp (config := {decide := true}) only [State.write, State.read, Size.bits, hne, ite_false,
     hr, ite_true, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq]
   rw [exec_str_w (show 4 * (i + 1) % 4 = 0 ∧ 4 * (i + 1) < 16384 by omega)
     (by simpa [State.write, hne, n1] using hout)]
-  simp (config := {decide := true}) only [Option.bind_some, Option.some.injEq,
+  simp (config := {decide := true}) only [runStep_some, runBlock_nil, Option.some.injEq,
     exists_eq_left', ite_true, ite_false, hx1, n1, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq]
   have ho : (outR s₀).Contains (buf s₀ + BitVec.ofNat 64 (4 * (i + 1))) (32 / 8) :=
     contains_off (by omega) (by omega)
@@ -199,7 +198,6 @@ theorem last_eq : [Instr.ldr .w .x2 .x0 0, .ldr .w .x3 .x1 0, .add .w .x2 .x3 .x
     [.ldr .w .x2 .x0 (4 * 0), .ldr .w .x3 .x1 (4 * 0), .add .w .x2 .x3 .x2, .str .w .x2 .x1 (4 * 0)] :=
   rfl
 
-set_option maxHeartbeats 400000 in
 theorem last_ok {s₀ : State} (hp : Pre s₀) {R : CState} {sB s : State} (h : FI s₀ R sB 15 s) :
     WP isa (.block [.ldr .w .x2 .x0 0, .ldr .w .x3 .x1 0, .add .w .x2 .x3 .x2, .str .w .x2 .x1 0]) s
       fun s' => (∀ j (hj : j < 16),
@@ -273,7 +271,6 @@ def satState : State where
   rd := [⟨0x1000, 64⟩]
   wr := [⟨0x2000, 256⟩]
 
-set_option maxRecDepth 100000 in
 theorem block_verified :
     Verified AArch64.target Impl.ChaCha20.AArch64.block Proof.ChaCha20.blockAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩

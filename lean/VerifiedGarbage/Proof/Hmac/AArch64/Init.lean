@@ -83,7 +83,6 @@ def word (b : Reg) (x : BitVec 32) (off : Nat) : List Instr :=
 theorem h0_eq (b : Reg) : h0 b = word b H0[0] 0 ++ word b H0[1] 4 ++ word b H0[2] 8 ++ word b H0[3] 12 ++
     word b H0[4] 16 ++ word b H0[5] 20 ++ word b H0[6] 24 ++ word b H0[7] 28 := rfl
 
-set_option maxHeartbeats 1000000 in
 theorem word_ok {b : Reg} (hb : b ≠ .x9) {x : BitVec 32} {off : Nat} (ho : off % 4 = 0 ∧ off < 16384)
     {rest : List Instr} {s : State} {Q : State → Prop}
     (hout : InRegions s.wr (s.gpr b + BitVec.ofNat 64 off) 4)
@@ -98,7 +97,6 @@ theorem word_ok {b : Reg} (hb : b ≠ .x9) {x : BitVec 32} {off : Nat} (ho : off
     congr 1
     exact movzk x
 
-set_option maxHeartbeats 4000000 in
 /-- `H⁽⁰⁾` stored at `b`. -/
 theorem h0_ok {b : Reg} (hb : b ≠ .x9) {s : State} {rest : List Instr} {Q : State → Prop}
     (o : ∀ k < 8, InRegions s.wr (s.gpr b + BitVec.ofNat 64 (4 * k)) 4)
@@ -202,7 +200,6 @@ theorem saved_frame' {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List R
     (hd : ∀ r ∈ rs, (scR s₀).Disjoint r) : Saved s₀ m' :=
   saved_frame h hf fun r hr => (hd r hr).sub_left (save_sub s₀)
 
-set_option maxHeartbeats 4000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .x4 ++ [mov .x19 .x0, mov .x20 .x4, mov .x21 .x1, mov .x22 .x2, mov .x23 .x3] ++
       h0 .x19 ++ h0 .x21 ++ [.movz .x .x14 0x36 0, .movz .x .x15 0x5c 0, .movz .x .x24 0 0])) s₀
@@ -373,7 +370,6 @@ theorem buf_in {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s₀.wr)
     rw [BitVec.ofNat_add]; rfl]
   exact contains_offset (by omega) (by omega)
 
-set_option maxHeartbeats 2000000 in
 theorem key_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < kl s₀) {s : State} (h : Key s₀ j s) :
     WP isa (.block keyBody) s (Key s₀ (j + 1)) := by
   have hkl := hp.kl_le
@@ -447,7 +443,6 @@ theorem padLoop_eq : padLoop = .loop (.block padBody) (.nonzero .x .x11) := rfl
 theorem ipad_byte : ((0x36 : BitVec 16).setWidth 64).setWidth 8 = (0 : Byte) ^^^ ipad := by decide
 theorem opad_byte : ((0x5c : BitVec 16).setWidth 64).setWidth 8 = (0 : Byte) ^^^ opad := by decide
 
-set_option maxHeartbeats 2000000 in
 theorem pad_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : kl s₀ ≤ j) (hj' : j < 64) {s : State}
     (h : Pad s₀ j s) : WP isa (.block padBody) s (Pad s₀ (j + 1)) := by
   have hl : j < (K0 s₀).length := by rw [K0_length s₀ hp]; omega
@@ -595,7 +590,6 @@ theorem buf_full {s₀ : State} (hp : Pre s₀) {m : Mem} (h : BufMem s₀ 64 m)
   rw [h.bufI, h.bufO, List.take_of_length_le (by rw [K0_length s₀ hp])]
   exact ⟨rfl, rfl⟩
 
-set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256AArch64.post s₀ s' := by
   have hkl := hp.kl_le
@@ -707,7 +701,6 @@ def sat : State where
   rd := [⟨0x3000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-set_option maxHeartbeats 0 in
 theorem init_verified : Verified AArch64.target init Proof.Hmac.initSha256AArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)

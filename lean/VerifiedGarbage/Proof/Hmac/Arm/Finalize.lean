@@ -182,7 +182,6 @@ structure Saved (s₀ s : State) : Prop where
 
 theorem ofNat_zero_add (p : Addr) : p + BitVec.ofNat 64 0 = p := by simp
 
-set_option maxHeartbeats 1000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block saveOuter) s₀ (Saved s₀) := by
   have hsc := hp.scr_fit; have hou := hp.ou_fit
   unfold saveOuter
@@ -247,7 +246,6 @@ structure Loaded (s₀ s s' : State) : Prop where
   buf : bytesAt s'.mem (inA s₀ + 32) 32 = bytesAt s.mem (outA s₀) 32
   frame : Frame [inR s₀] s.mem s'.mem
 
-set_option maxHeartbeats 1000000 in
 theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
     (hsp : s.sp = s₀.sp) (h0 : s.gpr .r0 = inn s₀) (ha0 : stackArg s 0 = out s₀)
     (ha1 : stackArg s 1 = scr s₀) : WP isa (.block loadOuter) s (Loaded s₀ s) := by
@@ -349,7 +347,6 @@ theorem countArm_96 {s : State} (h2 : s.gpr .r2 = 96) (h3 : s.gpr .r3 = 0) :
     countArm s = BitVec.ofNat 64 (64 + 32) := by
   simp only [countArm, h2, h3]; decide
 
-set_option maxHeartbeats 2000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256Arm.post s₀ s' := by
   unfold finalize
@@ -458,7 +455,6 @@ def sat : State where
   rd := [⟨0x2000, 96⟩, ⟨0x5000, 8⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 32⟩, ⟨0x4000, 240⟩]
 
-set_option maxHeartbeats 0 in
 theorem finalize_verified : Verified Arm.target finalize Proof.Hmac.finalizeSha256Arm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)

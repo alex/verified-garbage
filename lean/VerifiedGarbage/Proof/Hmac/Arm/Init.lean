@@ -117,7 +117,6 @@ theorem word_ok {b : Reg} (hb : b ≠ .r12) {x : BitVec 32} {off : Nat} (ho : of
   rw [u.mem]
   simp only [State.setReg, ite_true, movw_movt]
 
-set_option maxHeartbeats 4000000 in
 /-- `H⁽⁰⁾` stored at `b`. -/
 theorem h0_ok {b : Reg} (hb : b ≠ .r12) {s : State} {rest : List Instr} {Q : State → Prop}
     (hfit : (s.gpr b).toNat + 32 ≤ 2 ^ 32)
@@ -236,7 +235,6 @@ theorem beq_zero_toNat (x : BitVec 32) : (x - 0 == 0) = decide (x.toNat = 0) := 
   · simp only [h, decide_false, beq_eq_false_iff_ne, ne_eq]
     intro h'; exact h (by rw [h']; rfl)
 
-set_option maxHeartbeats 4000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ([.ldrSp .r12 0] ++ save .r12 ++ [.mov .r4 (.reg .r1), .mov .r5 (.reg .r2),
       .mov .r6 (.reg .r3)] ++ h0 .r0 ++ h0 .r4 ++
@@ -425,7 +423,6 @@ def keyBody : List Instr :=
 
 theorem keyLoop_eq : keyLoop = .loop (.block keyBody) .ne := rfl
 
-set_option maxHeartbeats 4000000 in
 theorem key_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < kl s₀) {s : State} (h : Key s₀ j s) :
     WP isa (.block keyBody) s fun s' => Key s₀ (j + 1) s' ∧ s'.z = decide (kl s₀ - (j + 1) = 0) := by
   have hkl := hp.kl_le; have hkf := hp.k_fit; have hin := hp.in_fit; have hou := hp.ou_fit
@@ -503,7 +500,6 @@ theorem padLoop_eq : padLoop = .loop (.block padBody) .ne := rfl
 theorem ipad_byte : (0x36 : BitVec 32).setWidth 8 = (0 : Byte) ^^^ ipad := by decide
 theorem opad_byte : (0x5c : BitVec 32).setWidth 8 = (0 : Byte) ^^^ opad := by decide
 
-set_option maxHeartbeats 2000000 in
 theorem pad_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : kl s₀ ≤ j) (hj' : j < 64) {s : State}
     (h : Pad s₀ j s) : WP isa (.block padBody) s fun s' => Pad s₀ (j + 1) s' ∧ s'.z = decide (64 - (j + 1) = 0) := by
   have hin := hp.in_fit; have hou := hp.ou_fit
@@ -670,7 +666,6 @@ theorem buf_full {s₀ : State} (hp : Pre s₀) {m : Mem} (h : BufMem s₀ 64 m)
   rw [h.bufI, h.bufO, List.take_of_length_le (by rw [K0_length s₀ hp])]
   exact ⟨rfl, rfl⟩
 
-set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) : WP isa init s₀ (Post s₀) := by
   have hkl := hp.kl_le
   unfold init
@@ -834,7 +829,6 @@ def sat : State where
   rd := [⟨0x3000, 0⟩, ⟨0x5000, 4⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-set_option maxHeartbeats 0 in
 theorem init_verified : Verified Arm.target init Proof.Hmac.initSha256Arm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
