@@ -8,8 +8,9 @@ import VerifiedGarbage.Proof.Hmac.Arm.Contract
 Untrusted: everything here is checked by Lean. The same structure as the
 x86-64 and AArch64 proofs (`VG.Proof.Hmac.X86_64.Finalize`,
 `VG.Proof.Hmac.AArch64.Finalize`). The two SHA-256 finalizations are the
-inlined `vg_sha256_finalize`, used as a black box through its proof,
-together with the fact that it never writes `r0` (`WP.inline`); their stack
+inlined `vg_sha256_finalize` (which calls `vg_sha256_compress`), used as a
+black box through its proof, together with the fact that it never writes
+`r0` (`WP.inlineCalls`); their stack
 arguments (`out`, `scratch`) are ours, which they never write.
 -/
 
@@ -142,7 +143,7 @@ theorem fin_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd)
   have e1 : stackArg (s.withRegions [argR s₀] (finW s₀)) 1 = scr s₀ := ha1
   have ea : stackArgAddr (s.withRegions [argR s₀] (finW s₀)) 0 = stackArgAddr s₀ 0 := by
     simp only [stackArgAddr, State.withRegions_sp, hsp]
-  refine WP.inline (k := Proof.Sha256.finalizeArm) fin_exec (rd := [argR s₀]) (wr := finW s₀) ?_ ?_ ?_ ?_
+  refine WP.inlineCalls (k := Proof.Sha256.finalizeArm) fin_exec (rd := [argR s₀]) (wr := finW s₀) ?_ ?_ ?_ ?_
   · simp only [Proof.Sha256.finalizeArm, e0, e1, ea, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.withRegions_sp, h0, hsp]
     have := hp.scr_fit
@@ -167,7 +168,7 @@ theorem fin_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd)
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
   · intro s' h₁ h₂ h₃ h₄ hg hpost
     simp only [Proof.Sha256.finalizeArm, State.withRegions_gpr, State.withRegions_mem, h0, e0] at hpost
-    exact hQ s' h₁ h₂ h₃ h₄ (by rw [hg _ r0_ok, h0]) hpost
+    exact hQ s' h₁ h₂ h₃ h₄ (by rw [hg _ r0_ok (by decide), h0]) hpost
 
 /-! ## Saving the outer hash value -/
 
