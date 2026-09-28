@@ -22,9 +22,10 @@ secrets, the analysis knows the lengths of the writable regions (`lens`,
 whose regions are then pairwise disjoint and the same in both runs; a length
 of 0 stands for any length, e.g. that of a slice, and such a region holds no
 slots) and
-which registers hold the base address of which region (`bases`). A store
-through such a register, at a known offset, can only change bytes of its own
-region at that offset; any other store of a secret forgets every slot.
+which registers hold the address of which byte of which region (`bases`: the
+region's base address, or an address inside it). A store through such a
+register, at a known offset, can only change bytes of its own region at that
+offset; any other store of a secret forgets every slot.
 -/
 
 namespace VG.X86_64.Taint
@@ -39,8 +40,9 @@ structure T where
   /-- The lengths of the writable regions `s.wr`, in order (0 for a region of
   any length); `[]` if unknown. -/
   lens : List Nat := []
-  /-- `(r, i)`: register `r` holds the base address of writable region `i`. -/
-  bases : List (Reg × Nat) := []
+  /-- `(r, i, k)`: register `r` holds the address of byte `k` of writable
+  region `i` (its base address if `k = 0`). -/
+  bases : List (Reg × Nat × Nat) := []
   /-- `(i, o, n)`: the `n` bytes at offset `o` of writable region `i` are public. -/
   slots : List (Nat × Nat × Nat) := []
   deriving DecidableEq, Lean.ToExpr
@@ -69,7 +71,7 @@ length. -/
 def Wf (τ : T) (s : State) : Prop :=
   (τ.lens ≠ [] →
     LensOk τ.lens s.wr ∧ s.wr.Pairwise Region.Disjoint ∧ ∀ r ∈ s.wr, r.len ≤ 2 ^ 64) ∧
-  (∀ p ∈ τ.bases, s.gpr p.1 = (region s p.2).base)
+  (∀ p ∈ τ.bases, s.gpr p.1 = byteAddr s p.2.1 p.2.2)
 
 /-- Every slot lies within its region. -/
 def SlotsOk (τ : T) : Prop := ∀ sl ∈ τ.slots, sl.2.1 + sl.2.2 ≤ τ.lens.getD sl.1 0
@@ -91,7 +93,7 @@ def set (τ : T) (r : Reg) (p : Bool) : RegSet Reg :=
   if p then τ.regs.insert r else τ.regs.erase r
 
 /-- The known region bases after writing `d`. -/
-def kill (τ : T) (d : Reg) : List (Reg × Nat) := τ.bases.filter (·.1 != d)
+def kill (τ : T) (d : Reg) : List (Reg × Nat × Nat) := τ.bases.filter (·.1 != d)
 
 def memPub (τ : T) (m : MemOp) : Bool :=
   pub τ m.base && match m.index with
@@ -101,7 +103,7 @@ def memPub (τ : T) (m : MemOp) : Bool :=
 /-- The region and offset addressed by `m`, if known. -/
 def addrOf (τ : T) (m : MemOp) : Option (Nat × Nat) :=
   if m.index = none ∧ 0 ≤ m.disp then
-    (τ.bases.find? (·.1 == m.base)).map fun p => (p.2, m.disp.toNat)
+    (τ.bases.find? (·.1 == m.base)).map fun p => (p.2.1, p.2.2 + m.disp.toNat)
   else none
 
 /-- `w` bytes at `m` are within a public slot. -/
@@ -127,7 +129,7 @@ def loadPub (τ : T) (w : Nat) : Src → Bool
   | _ => false
 
 /-- The known region bases after `mov d, src`. -/
-def movBases (τ : T) (d : Reg) : Src → List (Reg × Nat)
+def movBases (τ : T) (d : Reg) : Src → List (Reg × Nat × Nat)
   | .reg r => kill τ d ++ (τ.bases.filter (·.1 == r)).map fun p => (d, p.2)
   | _ => kill τ d
 
@@ -152,10 +154,25 @@ def writes : AluOp → Bool
   | .cmp | .test => false
   | _ => true
 
-def aluStep (τ : T) (op : AluOp) (d : Reg) (src : Src) : Option T :=
+/-- The known region bases after `op d, src` (of 64 bits if `wide`): `add d, k`
+with `k ≥ 0` moves a pointer `k` bytes forward, and `sub d, k` moves it `k`
+bytes back, if it stays within its region's offsets. -/
+def aluBases (τ : T) (wide : Bool) (op : AluOp) (d : Reg) (src : Src) : List (Reg × Nat × Nat) :=
+  match wide, op, src with
+  | true, .add, .imm v =>
+    if v.msb then kill τ d
+    else kill τ d ++ (τ.bases.filter (·.1 == d)).map fun p => (d, p.2.1, p.2.2 + v.toNat)
+  | true, .sub, .imm v =>
+    if v.msb then kill τ d
+    else kill τ d ++ ((τ.bases.filter fun p => p.1 == d && v.toNat ≤ p.2.2).map
+      fun p => (d, p.2.1, p.2.2 - v.toNat))
+  | _, _, _ => kill τ d
+
+def aluStep (τ : T) (wide : Bool) (op : AluOp) (d : Reg) (src : Src) : Option T :=
   if srcOk τ src then
     let p := pub τ d && srcPub τ src && (!usesCarry op || τ.flags)
-    some { τ with regs := if writes op then set τ d p else τ.regs, flags := p, bases := kill τ d }
+    some { τ with regs := (if writes op then set τ d p else τ.regs), flags := p,
+                  bases := aluBases τ wide op d src }
   else none
 
 /-- `mul r`: `rax`, `rdx` and the flags are functions of the old `rax` and
@@ -177,7 +194,8 @@ def step (τ : T) : Instr → Option T
   | .store m r => storeStep τ m 8 (pub τ r)
   | .store32 m r => storeStep τ m 4 (pub τ r)
   | .store8 m r => storeStep τ m 1 (pub τ r)
-  | .alu op d src | .alu32 op d src => aluStep τ op d src
+  | .alu op d src => aluStep τ true op d src
+  | .alu32 op d src => aluStep τ false op d src
   -- The result is a function of the old value of `d`, and so are the
   -- flags that change.
   | .shift32 _ d _ | .shift _ d _ => some { τ with flags := τ.flags && pub τ d, bases := kill τ d }
@@ -385,8 +403,8 @@ theorem setReg_gpr_eq (s : State) (d : Reg) (v : BitVec 64) (r : Reg) :
 theorem Agree.keep {τ τ' : T} {s₁ s₂ s₁' s₂' : State} (ha : Agree τ s₁ s₂)
     (hrf : AgreeRF τ'.regs τ'.flags s₁' s₂') (hl : τ'.lens = τ.lens) (hs : τ'.slots = τ.slots)
     (hw₁ : s₁'.wr = s₁.wr) (hw₂ : s₂'.wr = s₂.wr) (hm₁ : s₁'.mem = s₁.mem) (hm₂ : s₂'.mem = s₂.mem)
-    (hb₁ : ∀ p ∈ τ'.bases, s₁'.gpr p.1 = (region s₁' p.2).base)
-    (hb₂ : ∀ p ∈ τ'.bases, s₂'.gpr p.1 = (region s₂' p.2).base) : Agree τ' s₁' s₂' where
+    (hb₁ : ∀ p ∈ τ'.bases, s₁'.gpr p.1 = byteAddr s₁' p.2.1 p.2.2)
+    (hb₂ : ∀ p ∈ τ'.bases, s₂'.gpr p.1 = byteAddr s₂' p.2.1 p.2.2) : Agree τ' s₁' s₂' where
   rf := hrf
   wr h := by rw [hw₁, hw₂]; exact ha.wr (hl ▸ h)
   wf₁ := ⟨fun h => by rw [hw₁, hl]; exact ha.wf₁.1 (hl ▸ h), hb₁⟩
@@ -397,22 +415,22 @@ theorem Agree.keep {τ τ' : T} {s₁ s₂ s₁' s₂' : State} (ha : Agree τ s
     exact ha.slots sl (hs ▸ h) k h₁ h₂
 
 theorem kill_bases {τ : T} {s s' : State} (hw : Wf τ s) (hwr : s'.wr = s.wr) {d : Reg}
-    (hg : ∀ r, r ≠ d → s'.gpr r = s.gpr r) : ∀ p ∈ kill τ d, s'.gpr p.1 = (region s' p.2).base := by
+    (hg : ∀ r, r ≠ d → s'.gpr r = s.gpr r) : ∀ p ∈ kill τ d, s'.gpr p.1 = byteAddr s' p.2.1 p.2.2 := by
   intro p hp
   simp only [kill, List.mem_filter, bne_iff_ne, ne_eq] at hp
   rw [hg _ hp.2, hw.2 p hp.1]
-  simp [region, hwr]
+  simp [byteAddr, region, hwr]
 
 theorem setReg_ne {s : State} {d r : Reg} {v : BitVec 64} (h : r ≠ d) : (s.setReg d v).gpr r = s.gpr r := by
   simp [State.setReg, h]
 
 theorem kill_setReg {τ : T} {s : State} (hw : Wf τ s) (d : Reg) (v : BitVec 64) :
-    ∀ p ∈ kill τ d, (s.setReg d v).gpr p.1 = (region (s.setReg d v) p.2).base :=
+    ∀ p ∈ kill τ d, (s.setReg d v).gpr p.1 = byteAddr (s.setReg d v) p.2.1 p.2.2 :=
   kill_bases (s' := s.setReg d v) hw rfl fun _ h => setReg_ne h
 
 theorem movBases_ok {τ : T} {s : State} (hw : Wf τ s) {d : Reg} {src : Src} {v : BitVec 64}
     (hv : readSrc s src = some v) :
-    ∀ p ∈ movBases τ d src, (s.setReg d v).gpr p.1 = (region (s.setReg d v) p.2).base := by
+    ∀ p ∈ movBases τ d src, (s.setReg d v).gpr p.1 = byteAddr (s.setReg d v) p.2.1 p.2.2 := by
   cases src with
   | reg r =>
     simp only [readSrc, Option.some.injEq] at hv
@@ -427,7 +445,7 @@ theorem movBases_ok {τ : T} {s : State} (hw : Wf τ s) {d : Reg} {src : Src} {v
   | mem _ => exact kill_setReg hw d _
 
 theorem addrOf_some {τ : T} {m : MemOp} {i d : Nat} (h : addrOf τ m = some (i, d)) :
-    m.index = none ∧ (m.base, i) ∈ τ.bases ∧ m.disp = d := by
+    m.index = none ∧ 0 ≤ m.disp ∧ ∃ k, (m.base, i, k) ∈ τ.bases ∧ (k : Int) + m.disp = d := by
   unfold addrOf at h
   split at h <;> [skip; cases h]
   rename_i hc
@@ -436,14 +454,17 @@ theorem addrOf_some {τ : T} {m : MemOp} {i d : Nat} (h : addrOf τ m = some (i,
   have hm := List.mem_of_find?_eq_some hq
   have hb := List.find?_some hq
   simp only [beq_iff_eq] at hb
-  refine ⟨hc.1, ?_, (Int.toNat_of_nonneg hc.2).symm⟩
+  refine ⟨hc.1, hc.2, q.2.2, ?_, by rw [Nat.cast_add, Int.toNat_of_nonneg hc.2]⟩
   rw [← hb]; exact hm
 
 theorem ea_of_addrOf {τ : T} {s : State} (hw : Wf τ s) {m : MemOp} {i d : Nat}
     (h : addrOf τ m = some (i, d)) : s.ea m = byteAddr s i d := by
-  obtain ⟨hi, hb, hd⟩ := addrOf_some h
-  simp only [State.ea, hi, hd, byteAddr, hw.2 _ hb]
-  congr 1
+  obtain ⟨hi, h0, k, hb, hd⟩ := addrOf_some h
+  have hdisp : m.disp = ((d - k : Nat) : Int) := by omega
+  simp only [State.ea, hi, hdisp, byteAddr, hw.2 _ hb]
+  have e : BitVec.ofInt 64 ((d - k : Nat) : Int) = BitVec.ofNat 64 (d - k) := by
+    apply BitVec.eq_of_toInt_eq; simp
+  rw [BitVec.add_assoc, e, ← BitVec.ofNat_add, Nat.add_sub_cancel' (by omega)]
 
 theorem byteAddr_add (s : State) (i d k : Nat) :
     byteAddr s i d + BitVec.ofNat 64 k = byteAddr s i (d + k) := by
@@ -730,13 +751,68 @@ theorem Agree.write {τ τ' : T} {i : Instr} {d : Reg} (hd : dstOf i = some d) {
   exact ha.keep hrf hl hs hw₁ hw₂ hm₁ hm₂ (fun p h => kill_bases ha.wf₁ hw₁ hg₁ p (hb p h))
     (fun p h => kill_bases ha.wf₂ hw₂ hg₂ p (hb p h))
 
+theorem Agree.write' {τ τ' : T} {i : Instr} {d : Reg} (hd : dstOf i = some d) {s₁ s₂ s₁' s₂' : State}
+    (ha : Agree τ s₁ s₂) (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂')
+    (hrf : AgreeRF τ'.regs τ'.flags s₁' s₂') (hl : τ'.lens = τ.lens) (hs : τ'.slots = τ.slots)
+    (hb₁ : ∀ p ∈ τ'.bases, s₁'.gpr p.1 = byteAddr s₁' p.2.1 p.2.2)
+    (hb₂ : ∀ p ∈ τ'.bases, s₂'.gpr p.1 = byteAddr s₂' p.2.1 p.2.2) : Agree τ' s₁' s₂' := by
+  obtain ⟨-, hw₁, hm₁, -⟩ := exec_nonstore hd e₁
+  obtain ⟨-, hw₂, hm₂, -⟩ := exec_nonstore hd e₂
+  exact ha.keep hrf hl hs hw₁ hw₂ hm₁ hm₂ hb₁ hb₂
+
+theorem signExtend_of_msb {v : BitVec 32} (h : v.msb = false) :
+    v.signExtend 64 = BitVec.ofNat 64 v.toNat := by
+  rw [BitVec.signExtend_eq_setWidth_of_msb_false h]
+  apply BitVec.eq_of_toNat_eq
+  simp
+
+/-- The known bases after a 64-bit ALU instruction. -/
+theorem aluBases_ok {τ : T} {op : AluOp} {d : Reg} {src : Src} {s s' : State} (hw : Wf τ s)
+    (e : exec (.alu op d src) s = some s') :
+    ∀ p ∈ aluBases τ true op d src, s'.gpr p.1 = byteAddr s' p.2.1 p.2.2 := by
+  obtain ⟨-, hwr, -, hg⟩ := exec_nonstore (d := d) rfl e
+  have hk := kill_bases hw hwr hg
+  unfold aluBases
+  split
+  · rename_i v
+    split
+    · exact hk
+    · rename_i hv
+      intro p hp
+      rcases List.mem_append.mp hp with hp | hp
+      · exact hk p hp
+      · simp only [List.mem_map, List.mem_filter, beq_iff_eq] at hp
+        obtain ⟨q, ⟨hq, hqd⟩, rfl⟩ := hp
+        simp only [exec, execAlu, readSrc, Option.bind_some, Option.some.injEq] at e
+        subst e
+        simp only [State.setReg, ite_true, arithFlags, State.setFlags]
+        rw [← hqd, hw.2 q hq, signExtend_of_msb (by simpa using hv)]
+        simp only [byteAddr, region, BitVec.add_assoc, BitVec.ofNat_add]
+  · rename_i v _
+    split
+    · exact hk
+    · rename_i hv
+      intro p hp
+      rcases List.mem_append.mp hp with hp | hp
+      · exact hk p hp
+      · simp only [List.mem_map, List.mem_filter, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hp
+        obtain ⟨q, ⟨hq, hqd, hle⟩, rfl⟩ := hp
+        simp only [exec, execAlu, readSrc, Option.bind_some, Option.some.injEq] at e
+        subst e
+        simp only [State.setReg, ite_true, arithFlags, State.setFlags]
+        rw [← hqd, hw.2 q hq, signExtend_of_msb (by simpa using hv)]
+        simp only [byteAddr, region]
+        rw [show q.2.2 = (q.2.2 - v.toNat) + v.toNat by omega, BitVec.ofNat_add, ← BitVec.add_assoc,
+          BitVec.add_sub_cancel, Nat.add_sub_cancel]
+  · exact hk
+
 theorem execMul_gpr (r : Reg) (s : State) {q : Reg} (h₁ : q ≠ .rax) (h₂ : q ≠ .rdx) :
     (execMul r s).gpr q = s.gpr q := by
   simp [execMul, State.setReg, State.setFlags, h₁, h₂]
 
 theorem mul_bases {τ : T} {s : State} (hw : Wf τ s) (r : Reg) :
     ∀ p ∈ (kill τ .rax).filter (·.1 != .rdx),
-      (execMul r s).gpr p.1 = (region (execMul r s) p.2).base := by
+      (execMul r s).gpr p.1 = byteAddr (execMul r s) p.2.1 p.2.2 := by
   intro p hp
   simp only [kill, List.mem_filter, bne_iff_ne, ne_eq] at hp
   rw [execMul_gpr r s hp.1.2 hp.2, hw.2 p hp.1.1]; rfl
@@ -916,7 +992,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     simp only [step, aluStep] at hs
     split at hs <;> [skip; cases hs]
     rename_i hok; cases hs
-    refine ⟨ha.srcAddrs hok, ha.write rfl e₁ e₂ ?_ rfl rfl fun _ h => h⟩
+    refine ⟨ha.srcAddrs hok, ha.write' rfl e₁ e₂ ?_ rfl rfl (aluBases_ok ha.wf₁ e₁) (aluBases_ok ha.wf₂ e₂)⟩
     simp only [exec, execAlu_eq, Option.bind_eq_some_iff, Option.map_eq_some_iff] at e₁ e₂
     obtain ⟨b₁, hb₁, out₁, ho₁, rfl⟩ := e₁; obtain ⟨b₂, hb₂, out₂, ho₂, rfl⟩ := e₂
     exact alu_sound ha (fun s => s.gpr d) (fun s x => s.setReg d x) id
@@ -926,7 +1002,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     simp only [step, aluStep] at hs
     split at hs <;> [skip; cases hs]
     rename_i hok; cases hs
-    refine ⟨ha.srcAddrs hok, ha.write rfl e₁ e₂ ?_ rfl rfl fun _ h => h⟩
+    refine ⟨ha.srcAddrs hok, ha.write (d := d) rfl e₁ e₂ ?_ rfl rfl fun _ h => by simpa [aluBases] using h⟩
     simp only [exec, execAlu32_eq, Option.bind_eq_some_iff, Option.map_eq_some_iff] at e₁ e₂
     obtain ⟨b₁, hb₁, out₁, ho₁, rfl⟩ := e₁; obtain ⟨b₂, hb₂, out₂, ho₂, rfl⟩ := e₂
     exact alu_sound ha (fun s => (s.gpr d).setWidth 32) (fun s x => s.setReg32 d x)

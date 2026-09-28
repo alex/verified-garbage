@@ -7,6 +7,7 @@ import VerifiedGarbage.Impl.Hmac.X86
 import VerifiedGarbage.Impl.Hmac.X86_64
 import VerifiedGarbage.Impl.Md5.X86_64
 import VerifiedGarbage.Impl.Poly1305.X86_64
+import VerifiedGarbage.Impl.ChaCha20Poly1305.X86_64
 import VerifiedGarbage.Impl.Md5.X86_64.Stream
 import VerifiedGarbage.Impl.Selftest.X86_64
 import VerifiedGarbage.Impl.Sha1.X86_64
@@ -157,6 +158,14 @@ theorem poly1305_x86_64_blocks :
 
 theorem poly1305_x86_64_finalize :
     Impl.Poly1305.X86_64.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem chacha20poly1305_x86_64_seal :
+    Impl.ChaCha20Poly1305.X86_64.«seal».all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem chacha20poly1305_x86_64_open :
+    Impl.ChaCha20Poly1305.X86_64.«open».all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem sha256_x86_compress :

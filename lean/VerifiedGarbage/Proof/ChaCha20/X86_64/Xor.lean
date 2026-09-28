@@ -699,7 +699,7 @@ theorem xor_rsi (s : State) (hs : Proof.ChaCha20.xorX86_64.pre s) :
 of `state` and `buf` (the data's varies) and the registers holding their bases. -/
 def τ₀ : X86_64.Taint.T :=
   { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .rsp], flags := false, lens := [64, 0, 320],
-    bases := [(.rdi, 0), (.rsi, 1), (.rcx, 2)] }
+    bases := [(.rdi, 0, 0), (.rsi, 1, 0), (.rcx, 2, 0)] }
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.ChaCha20.xorX86_64.pre s₁)
     (h₂ : Proof.ChaCha20.xorX86_64.pre s₂) (hpub : Proof.ChaCha20.xorX86_64.pub s₁ s₂) :
@@ -711,7 +711,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.ChaCha20.xorX86_64.pre s₁)
     refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, d1, d2, d3], by simp [hw, (s.gpr .rdx).isLt.le]⟩,
       fun p hp => ?_⟩
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]
+    rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.byteAddr, X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
   · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
