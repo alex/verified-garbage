@@ -50,6 +50,7 @@ def iterateSha256Api : Api where
   module := "pbkdf2"
   name := "vg_pbkdf2_hmac_sha256_iterate"
   sig := iterateSha256Sig
+  writeArgs := true
   summary := "Runs `n` steps of PBKDF2-HMAC-SHA-256's iteration: if, for a 64-byte key `K₀`, the \
     SHA-256 streaming state in bytes 0 to 95 of `*key` represents `K₀ ⊕ ipad` and the one in bytes \
     96 to 191 represents `K₀ ⊕ opad` (as `vg_hmac_sha256_init` leaves them), repeats \

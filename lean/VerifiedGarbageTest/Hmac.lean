@@ -3,6 +3,9 @@ import VerifiedGarbage.Spec.Hmac.Contract
 import VerifiedGarbage.Spec.Hmac.Generic
 import VerifiedGarbage.Spec.Pbkdf2.Contract
 import VerifiedGarbage.Spec.Pbkdf2.Generic
+import VerifiedGarbage.Spec.Sha1.Contract
+import VerifiedGarbage.Spec.Md5.Contract
+import VerifiedGarbage.Spec.Sha512.Contract
 
 /-!
 # Known-answer tests for HMAC, and the generic contracts at SHA-256
@@ -21,7 +24,9 @@ the start of the computed one. (RFC 4231's HMAC-SHA-224 results are skipped:
 there is no SHA-224 spec.)
 
 It also checks that the generic contracts of `Spec/Hmac/Generic.lean` and
-`Spec/Pbkdf2/Generic.lean`, at SHA-256, are the HMAC-SHA-256 ones.
+`Spec/Pbkdf2/Generic.lean`, at SHA-256, are the HMAC-SHA-256 ones, and that
+each `Instance` names its own record and its hash's `update` function, and
+has at least that function's working space.
 -/
 
 namespace VG.Test.Hmac
@@ -185,5 +190,32 @@ example {M : ISA} (A : Abi M) (stack : Nat) :
 example {M : ISA} (A : Abi M) (stack : Nat) :
     Spec.Pbkdf2.iterateContract Spec.Hmac.sha256S 48 A stack =
       Spec.Pbkdf2.iterateSha256Contract A stack := rfl
+
+/-! ## The instances -/
+
+open Spec.Hmac in
+/-- Each instance, with its Lean name and the `Api` of its hash's `update`. -/
+def instances : List (Spec.Hmac.Instance × String × Api) :=
+  [(sha1I, "sha1I", Spec.Sha1.updateApi), (md5I, "md5I", Spec.Md5.updateApi),
+    (sha384I, "sha384I", Spec.Sha512.updateApi), (sha512I, "sha512I", Spec.Sha512.updateApi),
+    (sha512_224I, "sha512_224I", Spec.Sha512.updateApi),
+    (sha512_256I, "sha512_256I", Spec.Sha512.updateApi)]
+
+/-- The number of 64-bit words of the last parameter of `sig`, if it is an
+array of them (the working space). -/
+def scratchWords (sig : Sig) : Option Nat :=
+  match sig.params.getLast? with
+  | some (_, .array _ .u64 n) => some n
+  | _ => none
+
+run_cmd do
+  for (I, lean, update) in instances do
+    unless I.lean == lean do throwError "{lean} calls itself {I.lean}"
+    unless I.update == update.name do throwError "{lean}: `update` is {update.name}, not {I.update}"
+    let some w := scratchWords update.sig | throwError "{update.name} has no working space"
+    unless w ≤ I.scratch do throwError "{lean}: {update.name} needs {w} words of working space"
+  let names := instances.flatMap fun (I, _, _) =>
+    [I.initApi.name, I.finalizeApi.name, I.iterateApi.name]
+  unless names.eraseDups.length == names.length do throwError "duplicate names: {names}"
 
 end VG.Test.Hmac

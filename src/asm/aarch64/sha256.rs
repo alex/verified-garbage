@@ -11,7 +11,8 @@
 /// * `state` must be valid for reads and writes of 32 bytes.
 /// * `blocks` must be valid for reads of `64 * n` bytes.
 /// * `scratch` must be valid for reads and writes of 112 bytes; its contents on return are unspecified.
-/// * These three regions must not overlap each other.
+/// * `state` and `scratch` must not overlap each other or `blocks` (distinct Rust objects never do).
+/// * None of `state`, `blocks` and `scratch` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14]) {
     core::arch::naked_asm!(
@@ -2642,6 +2643,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_compress(state: *mut [u32; 8], blocks:
 /// # Safety
 ///
 /// * `state` must be valid for writes of 96 bytes.
+/// * `state` must not wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_sha256_init(state: *mut [u8; 96]) {
     core::arch::naked_asm!(
@@ -2682,7 +2684,8 @@ pub(crate) unsafe extern "C" fn vg_sha256_init(state: *mut [u8; 96]) {
 /// * `state` must be valid for reads and writes of 96 bytes.
 /// * `data` must be valid for reads of `len` bytes.
 /// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
-/// * These three regions must not overlap each other, or the 16 bytes of stack below the stack pointer, where it saves its return address (distinct Rust objects never do).
+/// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
+/// * None of `state`, `data` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20]) {
     core::arch::naked_asm!(
@@ -2810,7 +2813,8 @@ pub(crate) unsafe extern "C" fn vg_sha256_update(state: *mut [u8; 96], count: u6
 /// * `state` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
 /// * `out` must be valid for writes of 32 bytes.
 /// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
-/// * These three regions must not overlap each other, or the 16 bytes of stack below the stack pointer, where it saves its return address (distinct Rust objects never do).
+/// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
+/// * None of `state`, `out` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20]) {
     core::arch::naked_asm!(

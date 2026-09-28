@@ -1,4 +1,5 @@
 name = "SHA3-224, SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256"
+family = "Hashes"
 specs = ["Sha3"]
 modules = ["src/hashes/sha3.rs"]
 asm = ["sha3"]

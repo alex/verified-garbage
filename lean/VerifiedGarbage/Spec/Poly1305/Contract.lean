@@ -52,8 +52,8 @@ def initApi : Api where
   summary := "Starts a Poly1305 computation (RFC 8439 §2.5): makes the streaming state `*state` \
     represent the empty message under the 32-byte one-time key `*key`.\n\n\
     Contract: `VG.Spec.Poly1305.initContract`. The streaming state is the accumulator followed by \
-    the key (`VG.Spec.Poly1305.Repr`). Constant time: only the pointers may affect timing, not \
-    the key."
+    the key (`VG.Spec.Poly1305.Repr`). Constant time: only the pointers may affect timing, not the \
+    key."
   safety := [
     "`state` must be valid for writes of 128 bytes.",
     "`key` must be valid for reads of 32 bytes."]
@@ -76,8 +76,8 @@ def blocksApi : Api where
   name := "vg_poly1305_blocks"
   sig := blocksSig
   summary := "Absorbs whole blocks into a Poly1305 computation: if the streaming state `*state` \
-    represents a message under a key, it then represents that message followed by the `n` \
-    16-byte blocks at `blocks`, under the same key.\n\n\
+    represents a message under a key, it then represents that message followed by the `n` 16-byte \
+    blocks at `blocks`, under the same key.\n\n\
     Contract: `VG.Spec.Poly1305.blocksContract`. Constant time: only the pointers and `n` may \
     affect timing, not the state or the data."
   safety := [
@@ -99,24 +99,6 @@ def updateContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
       Buffered m' state key (msg ++ bytesAt m data len.toNat))
     (stack := stack)
 
-/-- `vg_poly1305_update` on every target. -/
-def updateApi : Api where
-  module := "poly1305"
-  name := "vg_poly1305_update"
-  sig := updateSig
-  summary := "Absorbs data into a Poly1305 computation: if the streaming state `*state` represents \
-    a message of `count` bytes (modulo 2⁶⁴) under a key, it then represents that message followed \
-    by the `len` bytes at `data`, under the same key.\n\n\
-    Contract: `VG.Spec.Poly1305.updateContract`. The streaming state is the accumulator, the key \
-    and the message's last bytes that do not fill a block (`VG.Spec.Poly1305.Buffered`). \
-    Constant time: only the pointers, `count` and `len` may affect timing, not the state or the \
-    data."
-  safety := [
-    "`state` must be valid for reads and writes of 128 bytes.",
-    "`data` must be valid for reads of `len` bytes.",
-    "`scratch` must be valid for reads and writes of 128 bytes; its contents on return are \
-      unspecified."]
-
 /-- `vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16], scratch: *mut [u64; 16])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
 space. -/
@@ -132,23 +114,6 @@ def finalizeContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     ∀ key msg, Buffered m state key msg → count = BitVec.ofNat 64 msg.length →
       bytesAt m' out 16 = mac key msg)
     (stack := stack)
-
-/-- `vg_poly1305_finalize` on every target. -/
-def finalizeApi : Api where
-  module := "poly1305"
-  name := "vg_poly1305_finalize"
-  sig := finalizeSig
-  summary := "Finishes a Poly1305 computation: if the streaming state `*state` represents a \
-    message of `count` bytes (modulo 2⁶⁴) under a key, writes the tag of that message, under that \
-    key, to `*out`.\n\n\
-    Contract: `VG.Spec.Poly1305.finalizeContract`. Constant time: only the pointers and `count` \
-    may affect timing, not the state."
-  safety := [
-    "`state` must be valid for reads and writes of 128 bytes; its contents on return are \
-      unspecified.",
-    "`out` must be valid for writes of 16 bytes.",
-    "`scratch` must be valid for reads and writes of 128 bytes; its contents on return are \
-      unspecified."]
 
 /-- The previous `vg_poly1305_finalize(state: *mut [u64; 16], tail: *const u8, len: usize, out: *mut [u8; 16])`.
 `state` is left unspecified. -/
@@ -166,7 +131,7 @@ def finalizeTailContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :
       ∀ key msg, Repr m state key msg → bytesAt m' out 16 = mac key (msg ++ bytesAt m tail len.toNat))
     (stack := stack)
 
-/-- The previous `vg_poly1305_finalize` (`finalizeTailContract`) on every target. -/
+/-- `vg_poly1305_finalize` on every target. -/
 def finalizeTailApi : Api where
   module := "poly1305"
   name := "vg_poly1305_finalize"
