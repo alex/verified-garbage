@@ -33,9 +33,7 @@ jobs:
           persist-credentials: false
       # The toolchain, and the dependencies with Mathlib's prebuilt .oleans in
       # them, change only when lean-toolchain or lake-manifest.json does, so
-      # they're cached under a key of those. Only third-party files are cached:
-      # this project's own files are always rebuilt, so every proof is checked
-      # from scratch on every run.
+      # they're cached under a key of those.
       - name: Restore the Lean toolchain and the dependencies
         id: lean-deps
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -62,8 +60,23 @@ jobs:
             ~/.elan
             lean/.lake/packages
           key: ${{ steps.lean-deps.outputs.cache-primary-key }}
+      # This project's own build, from the latest run that saved one on this
+      # branch or on main. Lake rebuilds every module whose source or imports
+      # (transitively) changed, and reuses the rest: those proofs were checked
+      # when that build was saved.
+      - name: Restore this project's build
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: lean/.lake/build
+          key: lean-build-${{ runner.os }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: lean-build-${{ runner.os }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
       - name: Check every proof (and the axiom audit)
         run: lake build
+      - name: Save this project's build
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: lean/.lake/build
+          key: lean-build-${{ runner.os }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Check the generated Rust is up to date
         run: lake env lean --run Emit.lean --check
 
