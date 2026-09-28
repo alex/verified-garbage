@@ -66,7 +66,10 @@ callee; otherwise it may only read them. `stack` is the number of bytes of
 stack below the stack pointer that the function's calls and frames use
 (return addresses, arguments and saved registers), which no buffer
 overlaps. A calling convention that does not model the arguments (`A.args`
-is `none`) gives an unsatisfiable precondition, which `Verified` rejects. -/
+is `none`) gives an unsatisfiable precondition, which `Verified` rejects.
+Only the bits of a public argument's own width are public: a 32-bit argument
+in a 64-bit register leaves the upper half unspecified (whatever the caller
+left there, which may be secret), so two runs need not agree on it. -/
 def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
     (pre : Curry (sig.words A.ptrBits) (Mem → Prop) := Curry.const (fun _ => True) _)
     (post : sig.Post A.ptrBits) (writeArgs : Bool := false) (stack : Nat := 0) : Contract M :=
@@ -91,7 +94,9 @@ def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
     pub s₁ s₂ := match A.args widths with
       | none => False
       | some vals => A.pub s₁ s₂ ∧
-        ∀ i, pubs.getD i false = true → (vals s₁).getD i 0 = (vals s₂).getD i 0 }
+        ∀ i, pubs.getD i false = true →
+          ((vals s₁).getD i 0).setWidth (widths.getD i 64) =
+            ((vals s₂).getD i 0).setWidth (widths.getD i 64) }
 
 /-- The proof obligation for emitting `c` on target `T` with contract `k`. -/
 def Verified (T : Target) (c : Prog T.isa) (k : Contract T.isa) : Prop :=

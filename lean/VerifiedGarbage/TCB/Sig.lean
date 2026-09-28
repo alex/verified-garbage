@@ -27,7 +27,8 @@ by hand for each target:
 * that no buffer overlaps the stack below the stack pointer that the
   function's calls and frames use (for return addresses, arguments and saved
   registers; no Rust object lies below the stack pointer);
-* that the pointers, the slice lengths and the stack pointer are public.
+* that the pointers, the slice lengths and the stack pointer are public (an
+  argument only in the bits of its width: see `Sig.contract`).
 
 The generated Rust functions take raw pointers (`Sig.rust`), so these are
 obligations on the caller, which a caller passing references (as the crate's
