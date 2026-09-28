@@ -16,6 +16,14 @@ namespace VG.Proof.Poly1305.Arm
 
 open VG.Spec.Poly1305 (P)
 
+/-! ## `if` -/
+
+theorem iteT {c : Prop} [Decidable c] {α : Type} {a b : α} (h : c) : (if c then a else b) = a := by
+  simp [h]
+
+theorem iteF {c : Prop} [Decidable c] {α : Type} {a b : α} (h : ¬c) : (if c then a else b) = b := by
+  simp [h]
+
 /-! ## Limbs -/
 
 /-- The number whose limbs are `f 0, …, f 9`. -/
@@ -103,15 +111,19 @@ theorem psum_le_col (h r : Nat → Nat) {j n k : Nat} (hj : j < 10) :
     rsum_mono (fun j' => h j' * coef r k j') (show j + 1 ≤ 10 by omega)
   split <;> omega
 
+theorem rsum_le_of_lt {f g : Nat → Nat} : ∀ n, (∀ j < n, f j ≤ g j) → rsum f n ≤ rsum g n
+  | 0, _ => le_rfl
+  | n + 1, h => Nat.add_le_add (rsum_le_of_lt n fun j hj => h j (by omega)) (h n (by omega))
+
 /-- A bound on every column. -/
-theorem col_le {h r : Nat → Nat} {H R : Nat} (hh : ∀ j, h j ≤ H) (hr : ∀ i, r i ≤ R) (k : Nat) :
-    col h r k ≤ 10 * (H * (5 * R)) := by
-  have : ∀ j, h j * coef r k j ≤ H * (5 * R) := fun j => by
-    apply Nat.mul_le_mul (hh j)
+theorem col_le {h r : Nat → Nat} {H R : Nat} (hh : ∀ j < 10, h j ≤ H) (hr : ∀ i < 10, r i ≤ R)
+    {k : Nat} (hk : k < 10) : col h r k ≤ 10 * (H * (5 * R)) := by
+  have : ∀ j < 10, h j * coef r k j ≤ H * (5 * R) := fun j hj => by
+    apply Nat.mul_le_mul (hh j hj)
     simp only [coef]; split
-    · have := hr (k - j); omega
-    · have := hr (k + 10 - j); omega
-  have := rsum_le this 10
+    · have := hr (k - j) (by omega); omega
+    · have := hr (k + 10 - j) (by omega); omega
+  have := rsum_le_of_lt 10 this
   rw [rsum_const] at this
   exact this
 
@@ -176,25 +188,89 @@ theorem carryN_lt (f : Nat → Nat) (a : Nat) : ∀ n j, a ≤ j → j < n + a �
       exact carryN_lt f a n j h₁ (by omega)
 
 /-- The column being carried into, if every column is below `2³² - 2¹⁹`. -/
-theorem carryN_top (f : Nat → Nat) (a : Nat) (hf : ∀ j, f j < 2 ^ 32 - 2 ^ 19) :
-    ∀ n, carryN f a n (n + a) < 2 ^ 32
-  | 0 => by have := hf a; simp only [carryN, Nat.zero_add]; omega
-  | n + 1 => by
-    have ih := carryN_top f a hf n
+theorem carryN_top (f : Nat → Nat) (a : Nat) (hf : ∀ j < 10, f j < 2 ^ 32 - 2 ^ 19) :
+    ∀ n, n + a ≤ 9 → carryN f a n (n + a) < 2 ^ 32
+  | 0, h => by have := hf a (by omega); simp only [carryN, Nat.zero_add]; omega
+  | n + 1, h => by
+    have ih := carryN_top f a hf n (by omega)
     have e : n + 1 + a = n + a + 1 := by omega
     simp only [carryN, cstep, e, show n + a + 1 ≠ n + a by omega, ite_false, ite_true]
     rw [carryN_above f a n _ (by omega)]
-    have := hf (n + a + 1)
+    have := hf (n + a + 1) (by omega)
     have : carryN f a n (n + a) / 2 ^ 13 < 2 ^ 19 := by omega
     omega
 
 /-- The carry step's sum does not overflow. -/
-theorem carryN_step_lt (f : Nat → Nat) (a : Nat) (hf : ∀ j, f j < 2 ^ 32 - 2 ^ 19) (n : Nat) :
+theorem carryN_step_lt (f : Nat → Nat) (a : Nat) (hf : ∀ j < 10, f j < 2 ^ 32 - 2 ^ 19) (n : Nat)
+    (hn : n + a < 9) :
     carryN f a n (n + a + 1) + carryN f a n (n + a) / 2 ^ 13 < 2 ^ 32 := by
-  have := carryN_top f a hf n
+  have := carryN_top f a hf n (by omega)
   rw [carryN_above f a n _ (by omega)]
-  have := hf (n + a + 1)
+  have := hf (n + a + 1) (by omega)
   omega
+
+/-- After carrying from columns `0, …, 8`, and then adding column 9's bits from 13 up, times 5,
+to column 0 and carrying it once more: the result is congruent to the columns modulo `p`
+(`p c` less), and its limbs are below `2¹³` but the second, which is below `2¹³ + 2⁹`. -/
+def fold (f : Nat → Nat) : Nat → Nat :=
+  let F := carryN f 0 9
+  cstep (fun j => if j = 0 then F 0 + 5 * (F 9 / 2 ^ 13) else if j = 9 then F 9 % 2 ^ 13 else F j) 0
+
+theorem fold_0 (f : Nat → Nat) :
+    fold f 0 = (carryN f 0 9 0 + 5 * (carryN f 0 9 9 / 2 ^ 13)) % 2 ^ 13 := by
+  simp [fold, cstep]
+
+theorem fold_1 (f : Nat → Nat) :
+    fold f 1 = carryN f 0 9 1 + (carryN f 0 9 0 + 5 * (carryN f 0 9 9 / 2 ^ 13)) / 2 ^ 13 := by
+  simp [fold, cstep]
+
+theorem fold_9 (f : Nat → Nat) : fold f 9 = carryN f 0 9 9 % 2 ^ 13 := by
+  simp [fold, cstep]
+
+theorem fold_mid (f : Nat → Nat) {j : Nat} (h1 : 2 ≤ j) (h2 : j < 9) : fold f j = carryN f 0 9 j := by
+  simp only [fold, cstep]
+  simp only [show j ≠ 0 by omega, show j ≠ 1 by omega, show j ≠ 9 by omega, show 0 + 1 = 1 from rfl,
+    ite_false]
+
+theorem fold_facts (f : Nat → Nat) (hf : ∀ j < 10, f j < 2 ^ 32 - 2 ^ 19) :
+    val (fold f) % P = val f % P ∧ val (fold f) < 2 ^ 130 + 2 ^ 22 ∧ fold f 0 < 2 ^ 13 ∧
+      fold f 1 < 2 ^ 13 + 2 ^ 9 ∧ ∀ j, 2 ≤ j → j < 10 → fold f j < 2 ^ 13 := by
+  have hv := val_carryN f 0 9 (by omega)
+  have ht := carryN_top f 0 hf 9 (by omega)
+  have hl : ∀ j < 9, carryN f 0 9 j < 2 ^ 13 := fun j hj => carryN_lt f 0 9 j (by omega) (by omega)
+  simp only [Nat.add_zero] at ht
+  have e : ∀ j, fold f j = cstep (fun j => if j = 0 then carryN f 0 9 0 + 5 * (carryN f 0 9 9 / 2 ^ 13)
+      else if j = 9 then carryN f 0 9 9 % 2 ^ 13 else carryN f 0 9 j) 0 j := fun j => rfl
+  generalize carryN f 0 9 = F at hv ht hl e
+  have f0 : fold f 0 = (F 0 + 5 * (F 9 / 2 ^ 13)) % 2 ^ 13 := by rw [e]; simp [cstep]
+  have f1 : fold f 1 = F 1 + (F 0 + 5 * (F 9 / 2 ^ 13)) / 2 ^ 13 := by rw [e]; simp [cstep]
+  have f9 : fold f 9 = F 9 % 2 ^ 13 := by rw [e]; simp [cstep]
+  have fj : ∀ j, 2 ≤ j → j < 9 → fold f j = F j := by
+    intro j h1 h2
+    rw [e]; simp only [cstep]
+    simp only [show j ≠ 0 by omega, show j ≠ 1 by omega, show j ≠ 9 by omega, show 0 + 1 = 1 from rfl,
+      ite_false]
+  have l0 := hl 0 (by omega); have l1 := hl 1 (by omega)
+  have key : val (fold f) + P * (F 9 / 2 ^ 13) = val F := by
+    simp only [val, f0, f1, f9, fj 2 (by omega) (by omega), fj 3 (by omega) (by omega),
+      fj 4 (by omega) (by omega), fj 5 (by omega) (by omega), fj 6 (by omega) (by omega),
+      fj 7 (by omega) (by omega), fj 8 (by omega) (by omega), P_eq]
+    omega
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · rw [← hv, ← key, Nat.add_mul_mod_self_left]
+  · have l2 := hl 2 (by omega); have l3 := hl 3 (by omega); have l4 := hl 4 (by omega)
+    have l5 := hl 5 (by omega); have l6 := hl 6 (by omega); have l7 := hl 7 (by omega)
+    have l8 := hl 8 (by omega)
+    simp only [val, f0, f1, f9, fj 2 (by omega) (by omega), fj 3 (by omega) (by omega),
+      fj 4 (by omega) (by omega), fj 5 (by omega) (by omega), fj 6 (by omega) (by omega),
+      fj 7 (by omega) (by omega), fj 8 (by omega) (by omega)]
+    omega
+  · rw [f0]; exact Nat.mod_lt _ (by norm_num)
+  · rw [f1]; omega
+  · intro j h2 h10
+    rcases Nat.lt_or_ge j 9 with h | h
+    · rw [fj j h2 h]; exact hl j h
+    · rw [show j = 9 by omega, f9]; exact Nat.mod_lt _ (by norm_num)
 
 /-! ## The limbs of four words -/
 
@@ -301,6 +377,65 @@ theorem reduce_eq {h : Nat} (hh : h < 2 ^ 131 - 10) :
   · have e : (h + 5) / 2 ^ 130 = 1 := by omega
     rw [e]
     omega
+
+/-! ## The whole final reduction -/
+
+theorem chainT_le (u : Nat → Nat) (hu : ∀ j < 10, u j ≤ 2 ^ 13) : ∀ k < 10, chainT u k ≤ 2 ^ 13 + 5
+  | 0, _ => by have := hu 0 (by omega); simp only [chainT]; omega
+  | k + 1, h => by
+    have := chainT_le u hu k (by omega)
+    have := hu (k + 1) h
+    simp only [chainT]
+    have : chainT u k / 2 ^ 13 ≤ 1 := by omega
+    omega
+
+/-- The limbs after `carry2`. -/
+def redK (E : Nat → Nat) : Nat → Nat := carryN (fold E) 1 8
+/-- `⌊(h + 5) / 2¹³⁰⌋`. -/
+def redC (E : Nat → Nat) : Nat := (val (redK E) + 5) / 2 ^ 130
+/-- The limbs after `addC`. -/
+def redK' (E : Nat → Nat) : Nat → Nat := fun j => if j = 0 then redK E 0 + 5 * redC E else redK E j
+/-- The limbs after `carry3`. -/
+def redL (E : Nat → Nat) : Nat → Nat :=
+  fun j => if j = 9 then carryN (redK' E) 0 9 9 % 2 ^ 13 else carryN (redK' E) 0 9 j
+
+theorem red_facts (E : Nat → Nat) (hE : ∀ j < 10, E j < 2 ^ 32 - 2 ^ 19) :
+    (∀ j < 10, fold E j < 2 ^ 32 - 2 ^ 19) ∧ (∀ j < 10, redK E j ≤ 2 ^ 13) ∧
+      (∀ j < 10, redK' E j < 2 ^ 32 - 2 ^ 19) ∧ val (redL E) = val E % P ∧
+      ∀ j < 10, redL E j < 2 ^ 13 := by
+  obtain ⟨hv, hvl, h0, h1, hj⟩ := fold_facts E hE
+  have hH : ∀ j < 10, fold E j < 2 ^ 32 - 2 ^ 19 := fun j hj' => by
+    rcases Nat.lt_or_ge j 2 with h | h
+    · interval_cases j <;> omega
+    · have := hj j h hj'; omega
+  have hvK : val (redK E) = val (fold E) := val_carryN _ 1 8 (by omega)
+  have hK0 : redK E 0 = fold E 0 := carryN_below _ 1 8 0 (by omega)
+  have hKm : ∀ j, 1 ≤ j → j < 9 → redK E j < 2 ^ 13 := fun j a b => carryN_lt _ 1 8 j a (by omega)
+  have hK9 : redK E 9 ≤ 2 ^ 13 := by
+    have : 2 ^ 117 * redK E 9 ≤ val (redK E) := by simp only [val]; omega
+    omega
+  have hK : ∀ j < 10, redK E j ≤ 2 ^ 13 := fun j hj' => by
+    rcases Nat.lt_or_ge j 9 with h | h
+    · rcases Nat.lt_or_ge j 1 with h' | h'
+      · rw [show j = 0 by omega, hK0]; omega
+      · have := hKm j h' h; omega
+    · rw [show j = 9 by omega]; exact hK9
+  have hc : redC E ≤ 1 := by simp only [redC]; omega
+  have hK' : ∀ j < 10, redK' E j < 2 ^ 32 - 2 ^ 19 := fun j hj' => by
+    have := hK j hj'
+    simp only [redK']; split <;> omega
+  have hl : ∀ j < 9, carryN (redK' E) 0 9 j < 2 ^ 13 := fun j hj' => carryN_lt _ 0 9 j (by omega) (by omega)
+  refine ⟨hH, hK, hK', ?_, fun j hj' => ?_⟩
+  · have hm := val_mask_top (g := carryN (redK' E) 0 9) (g' := redL E) hl
+      (fun k hk => by simp only [redL]; rw [iteF (by omega)]) (by simp [redL])
+    rw [hm, val_carryN _ 0 9 (by omega)]
+    have e : val (redK' E) = val (redK E) + 5 * redC E := by
+      simp only [val, redK', iteT]; norm_num; ring
+    rw [e, redC, reduce_eq (by omega), hvK, hv]
+  · simp only [redL]
+    split
+    · exact Nat.mod_lt _ (by norm_num)
+    · exact hl j (by omega)
 
 /-! ## Clamping -/
 

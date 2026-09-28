@@ -74,8 +74,8 @@ def ptrOff : Nat := 124
 def savedReg : Nat → Reg
   | 0 => .r4 | 1 => .r5 | 2 => .r6 | 3 => .r7 | 4 => .r8 | 5 => .r9 | 6 => .r10 | _ => .r11
 
-def saveRegs : List Instr := (List.range 8).map fun i => .str (savedReg i) .r0 (56 + 4 * i)
-def restoreRegs : List Instr := (List.range 8).map fun i => .ldr (savedReg i) .r0 (56 + 4 * i)
+def saveRegs : List Instr := (List.range 8).flatMap fun i => [.str (savedReg i) .r0 (56 + 4 * i)]
+def restoreRegs : List Instr := (List.range 8).flatMap fun i => [.ldr (savedReg i) .r0 (56 + 4 * i)]
 
 /-! ## Adding a 128-bit number to the columns
 
@@ -107,7 +107,7 @@ def addTop (pad : Bool) : List Instr :=
   if pad then [.dp .add .r1 .r1 (.imm 2048)] else []
 
 /-- Zero `r3`–`r11`. -/
-def zeroY : List Instr := (List.range 9).map fun k => .mov (yr k) (.imm 0)
+def zeroY : List Instr := (List.range 9).flatMap fun k => [.mov (yr k) (.imm 0)]
 
 /-! ## Carrying -/
 
@@ -133,7 +133,7 @@ def pack : List Instr :=
     [.dp .add (yr (2 * i)) (yr (2 * i)) (.shifted (yr (2 * i + 1)) .lsl 16), .str (yr (2 * i)) .r0 (4 * i)]
 
 /-- Zero the columns. -/
-def zeroX : List Instr := (List.range 10).map fun k => .mov (xr k) (.imm 0)
+def zeroX : List Instr := (List.range 10).flatMap fun k => [.mov (xr k) (.imm 0)]
 
 /-- `hj` into `r1`. -/
 def loadH (j : Nat) : List Instr :=
@@ -182,16 +182,28 @@ def loadAcc : List Instr :=
 
 /-! ## The final reduction -/
 
+/-- Carry limbs 1–8 (after `carryFold`, only limb 1 may exceed 13 bits). -/
+def carry2 : List Instr := (List.range 8).flatMap fun k => carryStep (k + 1)
+
+/-- `c`, the bits from 130 up of `h + 5`, into `r12`. -/
+def plus5 : List Instr :=
+  .dp .add .r12 .r3 (.imm 5) ::
+    (List.range 9).flatMap fun k => [.dp .add .r12 (yr (k + 1)) (.shifted .r12 .lsr 13)]
+
+/-- `5 c` added to limb 0. -/
+def addC : List Instr :=
+  [.mov .r12 (.shifted .r12 .lsr 13), .dp .add .r12 .r12 (.shifted .r12 .lsl 2),
+   .dp .add .r3 .r3 (.reg .r12)]
+
+/-- Carry every limb, dropping bit 130. -/
+def carry3 : List Instr := (List.range 9).flatMap carryStep ++ [.dp .and .r1 .r1 (.reg .r2)]
+
 /-- The columns carried into limbs below `2¹³` (the top one at most `2¹³`),
 then reduced fully: `c = ⌊(h + 5) / 2¹³⁰⌋` is 1 if `h ≥ p` (else 0), and
 `h + 5 c` without its bit 130 is `h mod p`. Limbs in `r3`–`r11`, `r1`. -/
-def reduce : List Instr :=
-  [.ldr .r1 .r0 d9Off] ++ carryFold ++ (List.range 8).flatMap (fun k => carryStep (k + 1)) ++
-  [.dp .add .r12 .r3 (.imm 5)] ++
-  (List.range 9).map (fun k => .dp .add .r12 (yr (k + 1)) (.shifted .r12 .lsr 13)) ++
-  [.mov .r12 (.shifted .r12 .lsr 13), .dp .add .r12 .r12 (.shifted .r12 .lsl 2),
-   .dp .add .r3 .r3 (.reg .r12)] ++
-  (List.range 9).flatMap carryStep ++ [.dp .and .r1 .r1 (.reg .r2)]
+def reduceRegs : List Instr := carryFold ++ carry2 ++ plus5 ++ addC ++ carry3
+
+def reduce : List Instr := .ldr .r1 .r0 d9Off :: reduceRegs
 
 /-- The limbs as words: bits 0–31 in `r3`, 32–63 in `r5`, 64–95 in `r7`,
 96–127 in `r10`, and 128 up in `r1`. -/
@@ -209,7 +221,7 @@ def toWords : List Instr := [
 
 def init : Prog isa := .block (
   (List.range 8).flatMap (fun i => [.ldr .r2 .r1 (4 * i), .str .r2 .r0 (24 + 4 * i)]) ++
-  .mov .r2 (.imm 0) :: (List.range 6).map fun i => .str .r2 .r0 (4 * i))
+  .mov .r2 (.imm 0) :: (List.range 6).flatMap fun i => [.str .r2 .r0 (4 * i)])
 
 /-! ## `blocks(state = r0, blocks = r1, n = r2)` -/
 
