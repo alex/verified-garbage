@@ -11,4 +11,5 @@
 __pycache__/
 /bench/target
 /bench-compare
+/bench-target
 /bench-head
