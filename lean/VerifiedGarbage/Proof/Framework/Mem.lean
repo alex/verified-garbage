@@ -180,6 +180,21 @@ theorem InRegions.of_prefix {rs rs' : List Region} (h : List.Forall₂ Region.Pr
 theorem Region.contains_self (a : Addr) (n : Nat) : (⟨a, n⟩ : Region).Contains a n := by
   simp [Region.Contains]
 
+/-- An access within regions with `f` inserted (as a frame's push inserts
+it at the head of the writable regions) is within `f` or the others. -/
+theorem InRegions_append_cons {xs ys : List Region} {f : Region} {a : Addr} {n : Nat} :
+    InRegions (xs ++ f :: ys) a n ↔ f.Contains a n ∨ InRegions (xs ++ ys) a n := by
+  simp only [InRegions, List.mem_append, List.mem_cons]
+  constructor
+  · rintro ⟨r, hr | rfl | hr, hc⟩
+    · exact .inr ⟨r, .inl hr, hc⟩
+    · exact .inl hc
+    · exact .inr ⟨r, .inr hr, hc⟩
+  · rintro (hc | ⟨r, hr | hr, hc⟩)
+    · exact ⟨f, .inr (.inl rfl), hc⟩
+    · exact ⟨r, .inl hr, hc⟩
+    · exact ⟨r, .inr (.inr hr), hc⟩
+
 /-- `m'` agrees with `m` outside the regions `rs`. -/
 def Frame (rs : List Region) (m m' : Mem) : Prop :=
   ∀ x, (∀ r ∈ rs, ¬ r.Contains x 1) → m' x = m x

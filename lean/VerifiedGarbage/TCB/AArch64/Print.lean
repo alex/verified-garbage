@@ -42,6 +42,8 @@ def Instr.asm : Instr → List String
   | .str sz t n off => [s!"str {t.name sz}, [{n.name .x}, #{off}]"]
   | .ldrb t n off => [s!"ldrb {t.name .w}, [{n.name .x}, #{off}]"]
   | .strb t n off => [s!"strb {t.name .w}, [{n.name .x}, #{off}]"]
+  | .push r => [s!"str {r.name .x}, [sp, #-16]!"]
+  | .pop r => [s!"ldr {r.name .x}, [sp], #16"]
 
 def printer : Printer isa where
   instr := Instr.asm

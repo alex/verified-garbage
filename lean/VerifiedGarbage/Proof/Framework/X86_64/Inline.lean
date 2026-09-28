@@ -233,6 +233,7 @@ theorem Exec.rdwr {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa c 
   | iteF _ _ ih => exact ih
   | loopExit _ _ ih => exact ih
   | loopNext _ _ _ ih₁ ih₂ => exact ⟨ih₂.1.trans ih₁.1, ih₂.2.trans ih₁.2⟩
+  | frame hp => simp only [isa, reduceCtorEq] at hp
   | call hc _ hr ih =>
     obtain ⟨r₁, w₁⟩ := call_regions hc; obtain ⟨r₂, w₂⟩ := ret_regions hr
     exact ⟨r₂.trans (ih.1.trans r₁), w₂.trans (ih.2.trans w₁)⟩
@@ -253,6 +254,7 @@ theorem Exec.regions {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa
   | loopNext _ _ _ ih₁ ih₂ =>
     obtain ⟨r₁, w₁, f₁⟩ := ih₁ hn; obtain ⟨r₂, w₂, f₂⟩ := ih₂ hn
     exact ⟨r₂.trans r₁, w₂.trans w₁, f₁.trans (w₁ ▸ f₂)⟩
+  | frame hp => simp only [isa, reduceCtorEq] at hp
   | call => simp [Code.noCalls] at hn
 
 theorem execBlock_widen {is : List Instr} {s s' : State} {t : List Leak} {rd wr : List Region}
@@ -292,6 +294,7 @@ theorem Exec.widen {c : Prog isa} {s s' : State} {t : List Leak} {rd wr : List R
   | loopNext h₁ hc' _ ih₁ ih₂ =>
     obtain ⟨r₁, w₁⟩ := Exec.rdwr h₁
     exact .loopNext (ih₁ hc hw) ((eval_withRegions _ _ _ _).trans ‹_›) (ih₂ (by rwa [r₁, w₁]) (by rwa [w₁]))
+  | frame hp => simp only [isa, reduceCtorEq] at hp
   | @call n _ s₀ s₁ s₂ s₃ _ hc₁ _ hr ih =>
     obtain ⟨r₁, w₁⟩ := call_regions hc₁
     have hc' : isa.call (s₀.withRegions rd wr) = some (s₁.withRegions rd wr) := by
@@ -342,6 +345,7 @@ theorem Exec.gpr {c : Prog isa} {r : Reg} (hc : ∀ i ∈ instrs c, Taint.dstOf 
   | iteF _ _ ih => exact ih fun i hi => hc i (List.mem_append_right _ hi)
   | loopExit _ _ ih => exact ih hc
   | loopNext _ _ _ ih₁ ih₂ => rw [ih₂ hc, ih₁ hc]
+  | frame hp => simp only [isa, reduceCtorEq] at hp
   | call hc₁ _ hr ih =>
     obtain ⟨hsp, h'⟩ := ret_gpr hr r
     rw [h']

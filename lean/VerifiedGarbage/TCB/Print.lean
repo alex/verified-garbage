@@ -11,6 +11,7 @@ conditional branches:
 * `call name body` ⟶  `<call> name` (the call instruction, e.g. `call` or
   `bl`, of the function `name`, which is emitted separately: see
   `VG.Rust.files`)
+* `frame push body pop` ⟶  `push; body; pop`
 
 Labels are numeric local labels (`N:`, referenced as `Nf` forward or `Nb`
 backward), the only kind Rust allows in inline assembly (the
@@ -70,6 +71,9 @@ def Printer.lower : Code M.Instr M.Cond → Nat → List Line × Nat
     let (lb, n) := lower body (n + 1)
     ([.text (lTop ++ ":")] ++ lb ++ [.text (P.branch c (lTop ++ "b"))], n)
   | .call name _, n => ([.call name], n)
+  | .frame i body j, n =>
+    let (lb, n) := lower body n
+    ((P.instr i).map .text ++ lb ++ (P.instr j).map .text, n)
 
 /-- The complete body of a function: the lowered code followed by the return. -/
 def Printer.function (body : Code M.Instr M.Cond) : List Line :=

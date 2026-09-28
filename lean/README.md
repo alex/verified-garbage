@@ -12,10 +12,10 @@ primitives: this directory verifies the primitives, not the Rust around them.
 VerifiedGarbage/
   TCB/          Trusted computing base: definitions only, Lean core only
     Mem.lean        byte-addressed memory, regions
-    Code.lean       structured programs and calls, big-step semantics with leakage,
-                    constant time
-    Print.lean      lowering of structured control flow to labels and branches, and
-                    of calls to call instructions
+    Code.lean       structured programs, calls and stack frames, big-step semantics
+                    with leakage, constant time
+    Print.lean      lowering of structured control flow to labels and branches, of
+                    calls to call instructions, and of frames to push and pop
     Sig.lean        Rust signatures and calling conventions (`Abi`)
     Artifact.lean   Target, Contract, `Verified`, `Artifact`: what "verified" means;
                     `Sig.contract`: the contract obligations a signature implies
@@ -65,6 +65,14 @@ callee's code `body` between the call and return instructions, so the
 caller's proof covers it, and the emitter only emits the call if `name` is
 the artifact whose code is `body`. A caller's proof can use the callee's
 `Verified` proof rather than go through its code again.
+
+Code saves registers on the stack, or passes arguments on the stack, in a
+stack frame (`Code.frame push body pop`): the push moves the stack pointer
+down, stores registers and makes those bytes a writable region; the pop
+faults unless the stack pointer and regions are as the push left them, loads
+one register and removes the region. Frames are nested by construction, so
+the stack pointer is always back where it was, and the stack a function's
+calls and frames use is part of its contract (`Sig.contract`'s `stack`).
 
 ## What you need to trust
 

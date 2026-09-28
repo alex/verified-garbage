@@ -375,5 +375,8 @@ abbrev isa : ISA where
   ret := ret
   retAddrs s := [s.gpr .rsp]
   writesSp i := i.dst == some .rsp
+  -- No frames are modelled.
+  push _ _ := none
+  pop _ _ _ := none
 
 end VG.X86_64
