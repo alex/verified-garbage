@@ -790,7 +790,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-- The initial taint: the arguments are public, and `rdi`, `rdx` and `rcx`
 point at the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
-  { regs := [.rdi, .rsi, .rdx, .rcx], flags := false, lens := [192, 64, 224],
+  { regs := .ofList [.rdi, .rsi, .rdx, .rcx], flags := false, lens := [192, 64, 224],
     bases := [(.rdi, 0), (.rdx, 1), (.rcx, 2)] }
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha512.finalizeX86_64.pre s₁)
@@ -804,7 +804,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha512.finalizeX86_64.pre s₁
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
   · rw [h₁.2.1, h₂.2.1, p1, p3, p4]
   · intro sl h; simp [τ₀] at h

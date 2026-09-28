@@ -1057,7 +1057,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-- The initial taint: `esp + 4` is the base of the (public) arguments, whose
 words at offsets 0 and 20 are the base addresses of `state` and `scratch`. -/
 def τ₀ : VG.X86.Taint.T :=
-  { regs := [.esp], flags := false, lens := [96, 160, 24], bases := [(.esp, 2, 4)],
+  { regs := .ofList [.esp], flags := false, lens := [96, 160, 24], bases := [(.esp, 2, 4)],
     slots := [(2, 0, 24)], wbases := [(2, 0, 0), (2, 20, 1)] }
 
 theorem argWord_eq {s : State} (hsp : (s.gpr .esp).toNat + 28 ≤ 2 ^ 32) {k : Nat} (hk : k < 24) :
@@ -1103,7 +1103,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.updateX86.pre s₁) (h�
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
     fun h => absurd h (Nat.lt_irrefl 0), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
-  · simp only [τ₀, List.mem_singleton] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_singleton] at hr
     subst hr; exact hesp
   · rw [hp₁.wr, hp₂.wr]
     simp only [stR, scR, argR, stA, scA, st, scr, esp₀, ha 0 (by omega), ha 5 (by omega), hesp]

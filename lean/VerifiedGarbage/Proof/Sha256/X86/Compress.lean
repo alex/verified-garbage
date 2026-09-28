@@ -714,7 +714,7 @@ theorem sat_pre : Spec.Sha256.compressX86.pre satState := by
 holding `state` and `scratch` known to be the base addresses of the writable
 regions. -/
 def τ₀ : VG.X86.Taint.T :=
-  { regs := [.esp], flags := false, lens := [32, 112], argLen := 20, argBases := [(4, 0), (16, 1)] }
+  { regs := .ofList [.esp], flags := false, lens := [32, 112], argLen := 20, argBases := [(4, 0), (16, 1)] }
 
 theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
   have hst := hp.st_fits; have hsc := hp.scr_fits; have hs := hp.esp_fits
@@ -740,7 +740,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.compressX86.pre s₁)
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim, fun _ => hesp,
     fun k h4 hk => ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     subst hr; exact hesp
   · rw [hp₁.wr, hp₂.wr]; simp only [stR, scrR, st, scr, a0, a3]
   · simp only [τ₀] at hk

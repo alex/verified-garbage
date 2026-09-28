@@ -997,7 +997,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) : WP isa finalize s₀ (Post s₀
 words at offsets 0, 12 and 16 are the base addresses of `state`, `out` and
 `scratch`. -/
 def τ₀ : VG.X86.Taint.T :=
-  { regs := [.esp], flags := false, lens := [96, 32, 160, 20], bases := [(.esp, 3, 4)],
+  { regs := .ofList [.esp], flags := false, lens := [96, 32, 160, 20], bases := [(.esp, 3, 4)],
     slots := [(3, 0, 20)], wbases := [(3, 0, 0), (3, 12, 1), (3, 16, 2)] }
 
 theorem argWord_eq {s : State} (hsp : (s.gpr .esp).toNat + 24 ≤ 2 ^ 32) {k : Nat} (hk : k < 20) :
@@ -1049,7 +1049,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.finalizeX86.pre s₁) (
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
     fun h => absurd h (Nat.lt_irrefl 0), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
-  · simp only [τ₀, List.mem_singleton] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_singleton] at hr
     subst hr; exact hesp
   · rw [hp₁.wr, hp₂.wr]
     simp only [stR, outR, scR, argR, stA, outA, scA, st, out, scr, esp₀, ha 0 (by omega), ha 3 (by omega),
