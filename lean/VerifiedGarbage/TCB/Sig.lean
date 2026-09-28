@@ -16,8 +16,8 @@ by hand for each target:
 
 * where each argument is;
 * the memory the function may read (every buffer, and arguments passed in
-  memory) and write (every `mut` buffer, and arguments passed in memory if
-  the convention gives them to the callee);
+  memory) and write (every `mut` buffer, and, if the contract asks for it,
+  arguments passed in memory that the convention gives to the callee);
 * that a `mut` buffer overlaps no other buffer and no argument passed in
   memory, and that nothing overlaps the return address (a `&mut` is unique,
   and no Rust object contains the callee's argument area or return-address
@@ -128,7 +128,7 @@ structure Abi (M : ISA) where
   way that is not modelled. -/
   args : List Nat → Option (M.State → List (BitVec 64))
   /-- The memory holding the arguments passed in memory (if any), and whether
-  the callee may write it. -/
+  the convention lets the callee write it (which a contract may decline). -/
   argArea : List Nat → M.State → List (Region × Bool)
   /-- Memory that no buffer or argument area overlaps (the return address). -/
   reserved : M.State → List Region
