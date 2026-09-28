@@ -4,32 +4,25 @@ import VerifiedGarbage.TCB.Arm.Isa
 /-!
 # SHA-512 compression function: ARMv7 implementation
 
-The compression of one block, inlined by the streaming functions
-(`VG.Impl.Sha512.Arm.Stream`); there is no stand-alone
-`vg_sha512_compress` on this target. Its signature gives the compression
-function 176 bytes of scratch space, which with 13 registers cannot hold the
-message schedule (128 bytes), the working variables (64 bytes) and the hash
-value's pointer, the blocks' pointer and count.
-
-With `state` in `r0` and `scratch` in `r3`, it compresses the block in the
-streaming state's buffer (`state[64..192)`) into the hash value
-(`state[0..64)`):
+`vg_sha512_compress(state = r0, blocks = r1, n = r2, scratch = r3)`.
 
 * Each 64-bit word is a pair of 32-bit words, the low one first (as in
   memory: little-endian), and is processed in a pair of registers: `adds` of
   the low halves and `adc` of the high halves add, and a rotation or shift of
   the word is two shifts of each half.
-* The message schedule is a 16-word window kept in the buffer itself: word
-  `Wₜ` (`t < 16`) replaces the block's big-endian bytes `8t … 8t + 7`
-  (`rev` of each half, and the halves swapped), and `Wₜ` (`t ≥ 16`) replaces
-  `Wₜ₋₁₆`. The buffer is left holding the end of the schedule.
 * The working variables `a … h` are in `scratch[0..64)`; the fully unrolled
   rounds rename them: in round `t`, variable `k` is at `vOff t k`.
-* It uses `r1`, `r2` and `r7`–`r12`; it reads `r0` and `r3` and does not
-  change `r4`–`r6`, `lr` or anything else.
-* No address and no branch depends on anything but `r0` and `r3`.
+* The message schedule is a 16-word window in `scratch[64..192)`: word `Wₜ`
+  (`t < 16`) is made from the block's big-endian bytes `8t … 8t + 7` (`rev`
+  of each half, and the halves swapped), and `Wₜ` (`t ≥ 16`) replaces
+  `Wₜ₋₁₆`.
+* The block pointer is in `r4` and the count of blocks left in `r5`; the
+  temporaries are `r1`, `r2` and `r7`–`r12`. `r4`–`r11` are saved in
+  `scratch[192..224)` and restored on exit; `r0`, `r3` and `lr` are never
+  written.
+* `r0`–`r3` (the pointers and the block count) are public; no address and no
+  branch depends on anything else.
 -/
-
 namespace VG.Impl.Sha512.Arm
 
 open VG.Arm
@@ -51,7 +44,7 @@ def Z1 : Reg := .r10
 def E0 : Reg := .r11
 def E1 : Reg := .r12
 
-/-- The offset from `r0` of `W[j mod 16]`, in the buffer. -/
+/-- The offset from `r3` of `W[j mod 16]`, in the scratch buffer. -/
 def wOff (j : Nat) : Nat := 64 + 8 * (j % 16)
 
 /-- The offset from `r3` of working variable `k` (`a = 0, …, h = 7`) at the start of round `t`. -/
@@ -123,26 +116,26 @@ def majW (b c : Nat) : List Instr :=
    .ldr X0 .r3 (b + 4), .dp .and Z1 X1 (.reg X0), .dp .orr X0 X1 (.reg X0), .ldr X1 .r3 (c + 4),
    .dp .and X0 X0 (.reg X1), .dp .orr X0 X0 (.reg Z1)]
 
-/-- `Wₜ` for `t < 16`, in place of the block's bytes at `[r0, #o]`. -/
-def loadW (o : Nat) : List Instr :=
-  [.ldr X0 .r0 o, .ldr X1 .r0 (o + 4), .rev X0 X0, .rev X1 X1, .str X1 .r0 o, .str X0 .r0 (o + 4)]
+/-- `Wₜ` for `t < 16`, from the block's bytes at `[r4, #i]`, stored at `[r3, #o]`. -/
+def loadW (i o : Nat) : List Instr :=
+  [.ldr X0 .r4 i, .ldr X1 .r4 (i + 4), .rev X0 X0, .rev X1 X1, .str X1 .r3 o, .str X0 .r3 (o + 4)]
 
 /-- `Wₜ = σ₁(Wₜ₋₂) + Wₜ₋₇ + σ₀(Wₜ₋₁₅) + Wₜ₋₁₆` for `t ≥ 16`, with `Wₜ₋ᵢ` at
-`[r0, #oᵢ]`, in place of `Wₜ₋₁₆`. The additions are in the order of the
+`[r3, #oᵢ]`, in place of `Wₜ₋₁₆`. The additions are in the order of the
 specification. -/
 def expandW (o2 o7 o15 o16 : Nat) : List Instr :=
-  ld X0 X1 .r0 o2 ++ sig Y0 Y1 X0 X1 ssig1 ++
-  ld Z0 Z1 .r0 o7 ++ add64 Y0 Y1 Z0 Z1 ++
-  ld X0 X1 .r0 o15 ++ sig Z0 Z1 X0 X1 ssig0 ++ add64 Y0 Y1 Z0 Z1 ++
-  ld Z0 Z1 .r0 o16 ++ add64 Y0 Y1 Z0 Z1 ++
-  st Y0 Y1 .r0 o16
+  ld X0 X1 .r3 o2 ++ sig Y0 Y1 X0 X1 ssig1 ++
+  ld Z0 Z1 .r3 o7 ++ add64 Y0 Y1 Z0 Z1 ++
+  ld X0 X1 .r3 o15 ++ sig Z0 Z1 X0 X1 ssig0 ++ add64 Y0 Y1 Z0 Z1 ++
+  ld Z0 Z1 .r3 o16 ++ add64 Y0 Y1 Z0 Z1 ++
+  st Y0 Y1 .r3 o16
 
 /-- Store `Wₜ` in its slot. -/
 def schedule (t : Nat) : List Instr :=
-  if t < 16 then loadW (wOff t) else expandW (wOff (t + 14)) (wOff (t + 9)) (wOff (t + 1)) (wOff t)
+  if t < 16 then loadW (8 * t) (wOff t) else expandW (wOff (t + 14)) (wOff (t + 9)) (wOff (t + 1)) (wOff t)
 
 /-- A round with the working variables at `[r3, #a]`, …, `[r3, #h]`, the
-constant `k` and the message word at `[r0, #w]`. The additions are in the
+constant `k` and the message word at `[r3, #w]`. The additions are in the
 order of the specification: `T₁` is accumulated in `(Y0, Y1)`, `d + T₁` in
 `(E0, E1)`, and then `T₁ + T₂` in `(Y0, Y1)`. -/
 def roundW (a b c d e f g h : Nat) (k : BitVec 64) (w : Nat) : List Instr :=
@@ -150,7 +143,7 @@ def roundW (a b c d e f g h : Nat) (k : BitVec 64) (w : Nat) : List Instr :=
   ld Y0 Y1 .r3 h ++ ld X0 X1 .r3 e ++ sig Z0 Z1 X0 X1 bsig1 ++ add64 Y0 Y1 Z0 Z1 ++
   chW f g ++ add64 Y0 Y1 Z0 X0 ++
   const64 Z0 Z1 k ++ add64 Y0 Y1 Z0 Z1 ++
-  ld Z0 Z1 .r0 w ++ add64 Y0 Y1 Z0 Z1 ++
+  ld Z0 Z1 .r3 w ++ add64 Y0 Y1 Z0 Z1 ++
   -- e' := d + T₁
   ld E0 E1 .r3 d ++ add64 E0 E1 Y0 Y1 ++
   -- a' := (T₁ + Σ₀(a)) + Maj(a, b, c)
@@ -180,7 +173,21 @@ def load : List Instr := (List.range 8).flatMap loadH
 
 def update : List Instr := (List.range 8).flatMap addH
 
-/-- Compress the block in the buffer into the hash value. -/
-def compress : Prog isa := .seq (.block load) (.seq (rounds 80) (.block update))
+/-- Advance to the next block and decrement the count (setting Z when it hits 0). -/
+def advance : List Instr := [.dp .add .r4 .r4 (.imm 128), .subs .r5 .r5 (.imm 1)]
+
+/-- One block. -/
+def body : Prog isa := .seq (.block load) (.seq (rounds 80) (.block (update ++ advance)))
+
+/-- The callee-saved registers we use, and where they are saved. -/
+def saved : List (Reg × Nat) :=
+  [(.r4, 192), (.r5, 196), (.r6, 200), (.r7, 204), (.r8, 208), (.r9, 212), (.r10, 216), (.r11, 220)]
+
+def save : List Instr := saved.map fun (r, d) => .str r .r3 d
+def restore : List Instr := saved.map fun (r, d) => .ldr r .r3 d
+
+def compress : Prog isa :=
+  .seq (.block (save ++ [.mov .r4 (.reg .r1), .mov .r5 (.reg .r2), .cmp .r2 (.imm 0)]))
+    (.seq (.ite .eq (.block []) (.loop body .ne)) (.block restore))
 
 end VG.Impl.Sha512.Arm

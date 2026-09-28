@@ -17,12 +17,12 @@ value is stored little-endian, so as its low half followed by its high half.
   the buffered bytes (one or two blocks), compresses them and writes the
   final hash value.
 
-The compression of the buffer (`Impl.Sha512.Arm.compress`) is inlined with
-`state` in `r0` and `scratch` in `r3`, which it never writes. It keeps the
-working variables in `scratch[0..64)` and uses `r1`, `r2` and `r7`–`r12`,
-so our variables live in `r4`–`r6`, and our caller's `r4`–`r11` are saved
-in `scratch[64..96)`. (`lr` is never written.) `finalize` also keeps `count`
-in `scratch[96..104)`.
+The buffer is compressed by calling `vg_sha512_compress`, with
+`scratch[0..224)` as its scratch space. Its code never writes `r0` or `r3`,
+so `state` stays in `r0` and `scratch` in `r3`; it preserves `r4`–`r11`, so
+our variables live in `r4`–`r6`. Our caller's `r4`–`r11` and our return
+address (`lr`, which the calls overwrite) are saved in `scratch[224..260)`.
+`finalize` also keeps `count` in `scratch[260..268)`.
 
 Byte `r` of the buffer is addressed as `[r1, #64]` with `r1 = state + r`
 computed just before the access, and `data` is consumed through a pointer
@@ -46,15 +46,23 @@ def initW (iv : Spec.Sha512.HashValue) (k : Nat) : List Instr :=
 def init (iv : Spec.Sha512.HashValue) : Prog isa :=
   .block ((List.range 8).flatMap (initW iv))
 
-/-- The callee-saved registers we use, and where they are saved in `scratch`. -/
+/-- The callee-saved registers we use (and `lr`), and where they are saved in `scratch`. -/
 def saved : List (Reg × Nat) :=
-  [(.r4, 64), (.r5, 68), (.r6, 72), (.r7, 76), (.r8, 80), (.r9, 84), (.r10, 88), (.r11, 92)]
+  [(.r4, 224), (.r5, 228), (.r6, 232), (.r7, 236), (.r8, 240), (.r9, 244), (.r10, 248), (.r11, 252),
+    (.lr, 256)]
 
 /-- Save them, with `scratch` in `b`. -/
 def save (b : Reg) : List Instr := saved.map fun (r, d) => .str r b d
 
 /-- Restore them from `scratch` in `r3`. -/
 def restore : List Instr := saved.map fun (r, d) => .ldr r .r3 d
+
+/-- A call of `vg_sha512_compress`. -/
+def compressCall : Prog isa := .call "vg_sha512_compress" compress
+
+/-- Compress the buffer of the state at `r0` into its hash value, with
+scratch space `r3`. -/
+def compressAt : Prog isa := .seq (.block [.dp .add .r1 .r0 (.imm 64), .mov .r2 (.imm 1)]) compressCall
 
 /-! ## `update`
 
@@ -77,7 +85,7 @@ def fill : Prog isa :=
       .dp .add .r5 .r5 (.imm 1), .dp .add .r4 .r4 (.imm 1), .subs .r8 .r8 (.imm 1)]) .ne)
   -- Full: compress the buffer.
   (.seq (.block [.cmp .r4 (.imm 128)])
-    (.ite .eq (.seq compress (.block [.mov .r4 (.imm 0)])) (.block []))))))
+    (.ite .eq (.seq compressAt (.block [.mov .r4 (.imm 0)])) (.block []))))))
 
 def updateBody : Prog isa := .seq fill (.block [.cmp .r6 (.imm 0)])
 
@@ -94,9 +102,9 @@ padded is not the last one (then 0), `r6` = `out`. -/
 
 /-- The message length in bits as a 128-bit big-endian integer, at the end of
 the buffer: `count >> 61`, then `count << 3` (modulo 2⁶⁴), from `count` in
-`scratch[96..104)`. -/
+`scratch[260..268)`. -/
 def lenW : List Instr :=
-  [.ldr .r9 .r3 96, .ldr .r10 .r3 100,
+  [.ldr .r9 .r3 260, .ldr .r10 .r3 264,
    .mov .r11 (.imm 0), .str .r11 .r0 176,
    .mov .r11 (.shifted .r10 .lsr 29), .rev .r11 .r11, .str .r11 .r0 180,
    .mov .r11 (.shifted .r10 .lsl 3), .dp .orr .r11 .r11 (.shifted .r9 .lsr 29), .rev .r11 .r11,
@@ -114,7 +122,7 @@ def finalizeBody : Prog isa :=
   -- In the last block, the message length.
   (.seq (.block [.cmp .r5 (.imm 0)])
   (.seq (.ite .eq (.block lenW) (.block []))
-  (.seq compress
+  (.seq compressAt
     (.block [.mov .r4 (.imm 0), .subs .r5 .r5 (.imm 1)])))))))
 
 /-- Word `k` of the final hash value, big-endian. -/
@@ -123,7 +131,7 @@ def outW (k : Nat) : List Instr :=
    .str .r10 .r6 (8 * k), .str .r9 .r6 (8 * k + 4)]
 
 def finalize : Prog isa :=
-  .seq (.block ([.ldrSp .r12 4] ++ save .r12 ++ [.str .r2 .r12 96, .str .r3 .r12 100,
+  .seq (.block ([.ldrSp .r12 4] ++ save .r12 ++ [.str .r2 .r12 260, .str .r3 .r12 264,
       .mov .r3 (.reg .r12), .ldrSp .r6 0, .dp .and .r4 .r2 (.imm 127),
       -- The `0x80` byte.
       .mov .r12 (.imm 0x80), .dp .add .r1 .r0 (.reg .r4), .strb .r12 .r1 64, .dp .add .r4 .r4 (.imm 1),

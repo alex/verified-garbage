@@ -438,17 +438,26 @@ theorem Only.wrote {ds : List Reg} {s₁ s₂ s₃ : State} {m : Mem} (h : Only 
 section
 variable {rest : List Instr} {s : State} {Q : State → Prop}
 
-theorem wp_loadW {o N : Nat} {B : BitVec 32} (hN : N ≤ 4096) (ho : o + 8 ≤ N) (hR : Reg64 s.wr B N)
-    (hb : s.gpr .r0 = B)
+theorem wp_loadW {i o N : Nat} {Bb B : BitVec 32} (hN : N ≤ 4096) (ho : o + 8 ≤ N) (hio : i + 8 < 4096)
+    (hR : Reg64 s.wr B N) (hb : s.gpr .r3 = B) (hbb : s.gpr .r4 = Bb)
+    (hin : InRegions (s.rd ++ s.wr) (A Bb i) 4) (hin' : InRegions (s.rd ++ s.wr) (A Bb (i + 4)) 4)
     (k : ∀ s', Wrote [X0, X1] s s' (write64 s.mem B o
-      (rev (lo (rd64 s.mem B o)) ++ rev (hi (rd64 s.mem B o)))) → WP isa (.block rest) s' Q) :
-    WP isa (.block (loadW o ++ rest)) s Q := by
-  have e : loadW o ++ rest = ld X0 X1 .r0 o ++ (.rev X0 X0 :: .rev X1 X1 :: (st X1 X0 .r0 o ++ rest)) := rfl
+      (rev (lo (rd64 s.mem Bb i)) ++ rev (hi (rd64 s.mem Bb i)))) → WP isa (.block rest) s' Q) :
+    WP isa (.block (loadW i o ++ rest)) s Q := by
+  have e : loadW i o ++ rest =
+      .ldr X0 .r4 i :: .ldr X1 .r4 (i + 4) :: .rev X0 X0 :: .rev X1 X1 :: (st X1 X0 .r3 o ++ rest) := rfl
   rw [e]
-  refine wp_ld (by decide) (by decide) (by omega) hb (hR o ho).1 (hR o ho).2 fun s₁ o₁ p₁ => ?_
+  refine wp_ldr (by omega) (by rw [hbb]) hin fun s₁ u₁ => ?_
+  refine wp_ldr (by omega) (by rw [u₁.other _ (by decide), hbb]) (by rw [u₁.rd, u₁.wr]; exact hin')
+    fun s₀ u₀ => ?_
+  have o₁ : Only [X0, X1] s s₀ := (Only.of_upd u₁).trans (Only.of_upd u₀)
+  have p₁ : Pair s₀ X0 X1 (rd64 s.mem Bb i) := by
+    refine ⟨?_, ?_⟩
+    · rw [u₀.other _ (by decide), u₁.gpr, lo_rd64]
+    · rw [u₀.gpr, u₁.mem, hi_rd64]
   refine wp_rev fun s₂ u₂ => wp_rev fun s₃ u₃ => ?_
   have O := (o₁.trans (Only.of_upd u₂)).trans (Only.of_upd u₃)
-  refine wp_st (B := B) (x := rev (lo (rd64 s.mem B o)) ++ rev (hi (rd64 s.mem B o))) (by omega)
+  refine wp_st (B := B) (x := rev (lo (rd64 s.mem Bb i)) ++ rev (hi (rd64 s.mem Bb i))) (by omega)
     (by rw [O.gpr _ (by decide), hb]) ⟨?_, ?_⟩ (by rw [O.wr]; exact (hR o ho).1)
     (by rw [O.wr]; exact (hR o ho).2) fun s₄ u₄ => k s₄ ?_
   · rw [u₃.gpr, u₂.other _ (by decide), p₁.2, lo_append]
@@ -458,7 +467,7 @@ theorem wp_loadW {o N : Nat} {B : BitVec 32} (hN : N ≤ 4096) (ho : o + 8 ≤ N
 
 theorem wp_expandW {o2 o7 o15 o16 N : Nat} {B : BitVec 32} (hN : N ≤ 4096) (h2 : o2 + 8 ≤ N)
     (h7 : o7 + 8 ≤ N) (h15 : o15 + 8 ≤ N) (h16 : o16 + 8 ≤ N) (hR : Reg64 s.wr B N)
-    (hb : s.gpr .r0 = B)
+    (hb : s.gpr .r3 = B)
     (k : ∀ s', Wrote [X0, X1, Y0, Y1, Z0, Z1] s s' (write64 s.mem B o16
       (Spec.Sha512.ssig1 (rd64 s.mem B o2) + rd64 s.mem B o7 + Spec.Sha512.ssig0 (rd64 s.mem B o15) +
         rd64 s.mem B o16)) → WP isa (.block rest) s' Q) :
@@ -509,7 +518,7 @@ variable {rest : List Instr} {s : State} {Q : State → Prop}
 theorem wp_roundW {a b c d e f g h w : Nat} {k : BitVec 64} {B V : BitVec 32}
     (ha : a + 8 ≤ 64) (hb : b + 8 ≤ 64) (hc : c + 8 ≤ 64) (hd : d + 8 ≤ 64) (he : e + 8 ≤ 64)
     (hf : f + 8 ≤ 64) (hg : g + 8 ≤ 64) (hh : h + 8 ≤ 64) (hw : w + 8 ≤ 192)
-    (hRB : Reg64 s.wr B 192) (hRV : Reg64 s.wr V 64) (h0 : s.gpr .r0 = B) (h3 : s.gpr .r3 = V)
+    (hRB : Reg64 s.wr B 192) (hRV : Reg64 s.wr V 64) (h0 : s.gpr .r3 = B) (h3 : s.gpr .r3 = V)
     (K : ∀ s', Wrote [X0, X1, Y0, Y1, Z0, Z1, E0, E1] s s'
       (write64 (write64 s.mem V h
         (T1 (rd64 s.mem V e) (rd64 s.mem V f) (rd64 s.mem V g) (rd64 s.mem V h) k (rd64 s.mem B w) +

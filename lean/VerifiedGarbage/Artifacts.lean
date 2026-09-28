@@ -781,6 +781,26 @@ def artifacts : List Artifact := [
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := Arm.target
     module := "sha512"
+    name := "vg_sha512_compress"
+    sig := Spec.Sha512.compressSig
+    doc := "The SHA-512 compression function (FIPS 180-4 §6.4.2), shared by SHA-384, SHA-512, \
+      SHA-512/224 and SHA-512/256: updates the hash value `*state` with the `n` 128-byte \
+      blocks starting at `blocks`, in order.\n\n\
+      Contract: `VG.Spec.Sha512.compressContract`. Constant time: only the pointers and `n` \
+      may affect timing, not the hash value or the blocks.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 64 bytes.\n\
+      * `blocks` must be valid for reads of `128 * n` bytes.\n\
+      * `scratch` must be valid for reads and writes of 224 bytes; its contents on \
+      return are unspecified.\n\
+      * These three regions must not overlap each other, and none of them may wrap \
+      around the end of the address space (no Rust object does)."
+    code := Impl.Sha512.Arm.compress
+    contract := Spec.Sha512.compressContract Arm.abi
+    verified := Proof.Sha512.Arm.Shared.compress
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := Arm.target
+    module := "sha512"
     name := "vg_sha384_init"
     sig := Spec.Sha512.initSig
     doc := "Starts a SHA-384 computation: makes the SHA-512 streaming state `*state` represent \
@@ -851,7 +871,7 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 192 bytes.\n\
       * `data` must be valid for reads of `len` bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
       * These three regions must not overlap each other, nor the arguments passed on the \
       stack, and none of them may wrap around the end of the address space (distinct Rust \
@@ -877,7 +897,7 @@ def artifacts : List Artifact := [
       * `state` must be valid for reads and writes of 192 bytes; its contents on return are \
       unspecified.\n\
       * `out` must be valid for writes of 64 bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
       * These three regions must not overlap each other, nor the arguments passed on the \
       stack, and none of them may wrap around the end of the address space (distinct Rust \
