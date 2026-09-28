@@ -10,7 +10,16 @@ Base Instruction Descriptions"); when adding an instruction, cite the section
 whose pseudocode it transcribes.
 
 Modelling choices:
-* Registers are `x0`–`x30`; the stack pointer is separate and only the push
+* Registers are `x0`–`x17` and `x19`–`x30`. `x18` is not modelled, so no
+  code can use it: it is the platform register (AAPCS64 §6.1.1, "r18 …
+  The Platform Register, if needed; otherwise a temporary register", and
+  "software developers creating platform-independent code are advised to
+  avoid using r18 if at all possible"). Apple's platforms reserve it ("The
+  platform reserves register x18. Don't use this register.", *Writing ARM64
+  code for Apple platforms*) and Windows points it at the thread's TEB
+  (*Overview of ARM64 ABI conventions*), so it may change under a function
+  that writes it, and restoring it before returning is not enough.
+* The stack pointer is separate and only the push
   and pop of a frame (`str`/`ldr` with writeback, see `push`) read or write
   it (register number 31, SP or the zero register, is never an operand).
   Each operand is a 32-bit (`w`) or a 64-bit (`x`) register; a 32-bit
@@ -39,7 +48,7 @@ namespace VG.AArch64
 
 inductive Reg
   | x0 | x1 | x2 | x3 | x4 | x5 | x6 | x7 | x8 | x9 | x10 | x11 | x12 | x13 | x14 | x15
-  | x16 | x17 | x18 | x19 | x20 | x21 | x22 | x23 | x24 | x25 | x26 | x27 | x28 | x29 | x30
+  | x16 | x17 | x19 | x20 | x21 | x22 | x23 | x24 | x25 | x26 | x27 | x28 | x29 | x30
   deriving DecidableEq, Repr, Inhabited
 
 /-- Operand size: 32-bit (`w` registers) or 64-bit (`x` registers). -/

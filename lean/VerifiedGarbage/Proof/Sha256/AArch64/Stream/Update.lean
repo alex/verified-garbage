@@ -688,7 +688,6 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
       · exact .inr ⟨by rw [hz]; simp [hl], len s₀ - c', by omega, c', rfl, by omega, hI'⟩
   · simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact hu .x18 (by simp [untouched])
     · exact hsv (.x19, 112) (by simp [saved])
     · exact hsv (.x20, 120) (by simp [saved])
     · exact hsv (.x21, 128) (by simp [saved])
