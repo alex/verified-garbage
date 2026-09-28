@@ -1,5 +1,6 @@
 import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.Proof.ChaCha20.Arm.Shared
+import VerifiedGarbage.Impl.ChaCha20.Arm.Xor
 
 /-!
 # The ChaCha20 block function (RFC 8439) on ARMv7
@@ -30,6 +31,28 @@ def artifacts : List Artifact := [
     code := Impl.ChaCha20.Arm.block
     contract := Spec.ChaCha20.blockContract Arm.abi
     verified := Proof.ChaCha20.Arm.Shared.block
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := Arm.target
+    module := "chacha20"
+    name := "vg_chacha20_xor"
+    sig := Spec.ChaCha20.xorSig
+    doc := "XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` \
+      (RFC 8439 §2.4: the block function of the state with its block counter, word 12, \
+      advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`, calling \
+      `vg_chacha20_block` for each 64 bytes.\n\n\
+      Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` \
+      may affect timing, not the state or the data.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 64 bytes; its contents on return are \
+      unspecified.\n\
+      * `data` must be valid for reads and writes of `len` bytes.\n\
+      * `buf` must be valid for reads and writes of 320 bytes; its contents on return are \
+      unspecified.\n\
+      * These three regions must not overlap each other, and none of them may wrap around the \
+      end of the address space (distinct Rust objects never do)."
+    code := Impl.ChaCha20.Arm.Xor.xor
+    contract := Spec.ChaCha20.xorContract Arm.abi
+    verified := Proof.ChaCha20.Arm.Shared.xor
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.ChaCha20.Arm

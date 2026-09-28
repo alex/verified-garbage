@@ -5,9 +5,9 @@
 //! for the target architecture (contract `VG.Spec.ChaCha20.blockContract`);
 //! this module builds the state
 //! (RFC 8439 §2.3), XORs the keystream into the data (§2.4) and advances the
-//! block counter. On x86-64, whole blocks of data are XORed with the verified
-//! `vg_chacha20_xor` (contract `VG.Spec.ChaCha20.xorContract`), which calls
-//! the block function.
+//! block counter. On x86-64 and 32-bit ARM, whole blocks of data are XORed
+//! with the verified `vg_chacha20_xor` (contract
+//! `VG.Spec.ChaCha20.xorContract`), which calls the block function.
 //!
 //! The 16-byte nonce is the initial block counter (4 bytes, little-endian)
 //! followed by the 12-byte RFC 8439 nonce, i.e. state words 12–15. As in
@@ -26,7 +26,7 @@
 #[cfg(target_arch = "aarch64")]
 use crate::asm::aarch64::chacha20::vg_chacha20_block;
 #[cfg(target_arch = "arm")]
-use crate::asm::arm::chacha20::vg_chacha20_block;
+use crate::asm::arm::chacha20::{vg_chacha20_block, vg_chacha20_xor};
 #[cfg(target_arch = "x86")]
 use crate::asm::x86::chacha20::vg_chacha20_block;
 #[cfg(target_arch = "x86_64")]
@@ -94,7 +94,7 @@ impl ChaCha20 {
     pub fn apply_keystream(&mut self, data: &mut [u8]) {
         let (head, rest) = data.split_at_mut((64 - self.used).min(data.len()));
         self.xor_bytes(head);
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(any(target_arch = "x86_64", target_arch = "arm"))]
         let rest = self.xor_blocks(rest);
         self.xor_bytes(rest);
     }
@@ -122,7 +122,7 @@ impl ChaCha20 {
 
     /// XORs the keystream into the whole blocks at the start of `data`, from
     /// the current counter (no block may be buffered), and returns the rest.
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86_64", target_arch = "arm"))]
     fn xor_blocks<'a>(&mut self, data: &'a mut [u8]) -> &'a mut [u8] {
         let (mut blocks, rest) = data.split_at_mut(data.len() / 64 * 64);
         while !blocks.is_empty() {
