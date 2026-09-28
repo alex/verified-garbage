@@ -6,14 +6,24 @@
 //! block. For SHA-256, `vg_hmac_sha256_init`, `vg_sha256_update` and
 //! `vg_hmac_sha256_finalize` for the target architecture (contracts
 //! `VG.Spec.Hmac.initSha256X86_64`, `VG.Spec.Sha256.updateX86_64` and
-//! `VG.Spec.Hmac.finalizeSha256X86_64`, and their AArch64 counterparts)
-//! compute `H((K₀ ⊕ opad) ‖ H((K₀ ⊕ ipad) ‖ text))`
+//! `VG.Spec.Hmac.finalizeSha256X86_64`, and their AArch64, 32-bit ARM and
+//! x86 counterparts) compute `H((K₀ ⊕ opad) ‖ H((K₀ ⊕ ipad) ‖ text))`
 //! (`VG.Spec.Hmac.hmacBlockKey`), keeping the two SHA-256 streaming states.
 //! The only unverified step is step 2 of FIPS 198-1 §4: a key longer than a
 //! block is first hashed, with the verified hash function.
 
 #[cfg(target_arch = "aarch64")]
 use crate::asm::aarch64::{
+    hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init},
+    sha256::vg_sha256_update,
+};
+#[cfg(target_arch = "arm")]
+use crate::asm::arm::{
+    hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init},
+    sha256::vg_sha256_update,
+};
+#[cfg(target_arch = "x86")]
+use crate::asm::x86::{
     hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init},
     sha256::vg_sha256_update,
 };
@@ -116,8 +126,8 @@ impl HmacHash for Sha256 {
         // SAFETY: `key.len()` is at most 64; `state.inner` and `state.outer`
         // are valid for reads and writes of 96 bytes, `key` for reads of
         // `key.len()` bytes and `scratch` for reads and writes of 160 bytes;
-        // they are distinct objects, so they do not overlap each other or (on
-        // x86-64) the return address.
+        // they are distinct objects, so they do not overlap each other or the
+        // call's stack frame, nor wrap around the address space.
         unsafe {
             vg_hmac_sha256_init(
                 &mut state.inner,
@@ -135,8 +145,9 @@ impl HmacHash for Sha256 {
         // SAFETY: `state.inner` is valid for reads and writes of 96 bytes,
         // `data` for reads of `data.len()` bytes and `scratch` for reads and
         // writes of 160 bytes; they are distinct objects, so they do not
-        // overlap each other or (on x86-64) the return address. `state.count`
-        // is the length of the message `state.inner` represents, modulo 2⁶⁴.
+        // overlap each other or the call's stack frame, nor wrap around the
+        // address space. `state.count` is the length of the message
+        // `state.inner` represents, modulo 2⁶⁴.
         unsafe {
             vg_sha256_update(
                 &mut state.inner,
@@ -149,6 +160,7 @@ impl HmacHash for Sha256 {
         state.count = state.count.wrapping_add(data.len() as u64);
     }
 
+    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
     fn hmac_finalize(mut state: Sha256HmacState) -> [u8; 32] {
         let mut scratch = [0u64; 30];
         // SAFETY: `state.inner` is valid for reads and writes of 96 bytes,
@@ -165,6 +177,29 @@ impl HmacHash for Sha256 {
         for (out, word) in mac.as_chunks_mut::<8>().0.iter_mut().zip(&scratch[22..26]) {
             *out = word.to_ne_bytes();
         }
+        mac
+    }
+
+    #[cfg(any(target_arch = "arm", target_arch = "x86"))]
+    fn hmac_finalize(mut state: Sha256HmacState) -> [u8; 32] {
+        let mut mac = [0u8; 32];
+        let mut scratch = [0u64; 30];
+        // SAFETY: `state.inner` is valid for reads and writes of 96 bytes,
+        // `state.outer` for reads of 96 bytes, `mac` for writes of 32 bytes
+        // and `scratch` for reads and writes of 240 bytes; they are distinct
+        // objects, so they do not overlap each other or the call's stack
+        // frame, nor wrap around the address space. `state.inner` represents
+        // `(K₀ ⊕ ipad) ‖ text`, of `state.count` bytes, and `state.outer`
+        // represents `K₀ ⊕ opad`.
+        unsafe {
+            vg_hmac_sha256_finalize(
+                &mut state.inner,
+                &state.outer,
+                state.count,
+                &mut mac,
+                &mut scratch,
+            )
+        };
         mac
     }
 }
