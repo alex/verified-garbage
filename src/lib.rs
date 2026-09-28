@@ -27,14 +27,8 @@ pub mod chacha20;
 pub mod chacha20poly1305;
 pub mod hashes;
 pub mod hmac;
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub mod pbkdf2;
-#[cfg(target_arch = "x86_64")]
 pub mod poly1305;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
-    feature = "alloc"
-))]
 pub mod scrypt;
 
 #[cfg(test)]

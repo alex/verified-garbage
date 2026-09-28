@@ -1,0 +1,4 @@
+name = "Poly1305"
+specs = ["Poly1305"]
+modules = ["src/poly1305.rs"]
+asm = ["poly1305"]

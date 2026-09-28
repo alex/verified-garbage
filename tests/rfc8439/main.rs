@@ -1,9 +1,9 @@
 //! The Poly1305 test vectors of RFC 8439 (Appendix A.3).
 //!
-//! The RFC is vendored under `vectors/rfc8439/` (see `vectors/sources.toml`
-//! for where it comes from) and compiled into the test binary, so these tests
-//! always run. Every vector is checked in one call, split into two pieces at
-//! every position, and a byte at a time.
+//! The RFC is vendored under `vectors/rfc8439/` (see
+//! `vectors/sources/rfc8439.toml` for where it comes from) and compiled into
+//! the test binary, so these tests always run. Every vector is checked in one
+//! call, split into two pieces at every position, and a byte at a time.
 
 #![cfg(target_arch = "x86_64")]
 
