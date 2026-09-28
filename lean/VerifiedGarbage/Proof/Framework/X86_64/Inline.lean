@@ -112,6 +112,21 @@ theorem store8_widen (hc : Covers s.wr wr) {a : Addr} {v : Byte} (h : s.store8 a
   cases h
   simp only [State.store8, State.withRegions_wr, hc _ _ hi, ite_true]; rfl
 
+theorem load128_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) {a : Addr} {v : BitVec 128}
+    (h : s.load128 a = some v) : (s.withRegions rd wr).load128 a = some v := by
+  simp only [State.load128] at h
+  split at h <;> [rename_i hi; cases h]
+  simp only [State.load128, State.withRegions_rd, State.withRegions_wr, State.withRegions_mem, hc _ _ hi,
+    ite_true]
+  exact h
+
+theorem store128_widen (hc : Covers s.wr wr) {a : Addr} {v : BitVec 128} (h : s.store128 a v = some s') :
+    (s.withRegions rd wr).store128 a v = some (s'.withRegions rd wr) := by
+  simp only [State.store128] at h
+  split at h <;> [rename_i hi; cases h]
+  cases h
+  simp only [State.store128, State.withRegions_wr, hc _ _ hi, ite_true]; rfl
+
 theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr) {i : Instr}
     (h : exec i s = some s') : exec i (s.withRegions rd wr) = some (s'.withRegions rd wr) := by
   cases i with
@@ -156,6 +171,13 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     simp only [hn, and_self, ite_true]
     cases op <;> (simp only [Option.some.injEq] at h; subst h; rfl)
   | movImm64 d v => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
+  | movdquLoad d m =>
+    simp only [exec, Option.map_eq_some_iff] at h
+    obtain ⟨v, hv, rfl⟩ := h
+    simp only [exec]
+    rw [show (s.withRegions rd wr).ea m = s.ea m from rfl, load128_widen hc hv]; rfl
+  | movdquStore m r => exact store128_widen hw h
+  | xop op => simp only [exec, Option.some.injEq] at h ⊢; subst h; cases op <;> rfl
 
 theorem addrs_withRegions (i : Instr) (s : State) (rd wr : List Region) :
     addrs i (s.withRegions rd wr) = addrs i s := by
@@ -169,6 +191,11 @@ theorem exec_regions {i : Instr} (h : exec i s = some s') : s'.rd = s.rd ∧ s'.
     simp only [exec, State.store32] at h; split at h <;> cases h; exact ⟨rfl, rfl⟩
   | store8 m r =>
     simp only [exec, State.store8] at h; split at h <;> cases h; exact ⟨rfl, rfl⟩
+  | movdquStore m r =>
+    simp only [exec, State.store128] at h; split at h <;> cases h; exact ⟨rfl, rfl⟩
+  | movdquLoad d m =>
+    simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl⟩
+  | xop op => simp only [exec, Option.some.injEq] at h; subst h; cases op <;> exact ⟨rfl, rfl⟩
   | _ => exact ⟨(Taint.exec_nonstore rfl h).1, (Taint.exec_nonstore rfl h).2.1⟩
 
 theorem exec_frame {i : Instr} (h : exec i s = some s') : Frame s.wr s.mem s'.mem := by
@@ -182,6 +209,13 @@ theorem exec_frame {i : Instr} (h : exec i s = some s') : Frame s.wr s.mem s'.me
   | store8 m r =>
     simp only [exec, State.store8] at h; split at h <;> cases h
     rename_i hi; obtain ⟨r, hr, hc⟩ := hi; exact (Frame.refl _ _).writeW hr _ hc
+  | movdquStore m r =>
+    simp only [exec, State.store128] at h; split at h <;> cases h
+    rename_i hi; obtain ⟨r, hr, hc⟩ := hi; exact (Frame.refl _ _).writeW hr _ hc
+  | movdquLoad d m =>
+    simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; exact Frame.refl _ _
+  | xop op =>
+    simp only [exec, Option.some.injEq] at h; subst h; cases op <;> exact Frame.refl _ _
   | _ => rw [(Taint.exec_nonstore rfl h).2.2.1]; exact Frame.refl _ _
 
 theorem eval_withRegions (c : Cond) (s : State) (rd wr : List Region) :
@@ -316,6 +350,9 @@ theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.dstOf i ≠ some r) {s s' : S
     · simp only [exec, State.store64] at h; split at h <;> cases h; rfl
     · simp only [exec, State.store32] at h; split at h <;> cases h; rfl
     · simp only [exec, State.store8] at h; split at h <;> cases h; rfl
+    · simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; rfl
+    · simp only [exec, State.store128] at h; split at h <;> cases h; rfl
+    · simp only [exec, Option.some.injEq] at h; subst h; rename_i op; cases op <;> rfl
 
 theorem execBlock_gpr {is : List Instr} {r : Reg} (hc : ∀ i ∈ is, Taint.dstOf i ≠ some r)
     {s s' : State} {t : List Leak} (h : execBlock isa is s = some (s', t)) : s'.gpr r = s.gpr r := by
