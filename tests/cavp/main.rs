@@ -102,7 +102,7 @@ fn sha256_monte_carlo() {
 
 /// SHA-1: every message length from 0 to 64 bytes, 64 long messages (from
 /// 163 to 6400 bytes) and the Monte Carlo test.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 mod sha1 {
     use super::{check_messages, check_monte_carlo};
     use verified_garbage::hashes::sha1::Sha1;
