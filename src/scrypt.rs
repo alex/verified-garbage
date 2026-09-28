@@ -12,12 +12,18 @@
 //! them. That is inherent to scrypt; ROMix's contract declares that it leaks
 //! these indices and nothing else secret.
 
-#![cfg(all(target_arch = "x86_64", feature = "alloc"))]
+#![cfg(all(
+    any(target_arch = "x86_64", target_arch = "aarch64"),
+    feature = "alloc"
+))]
 
 use alloc::vec::Vec;
 use core::fmt;
 use core::num::NonZeroU32;
 
+#[cfg(target_arch = "aarch64")]
+use crate::asm::aarch64::scrypt::vg_scrypt_romix;
+#[cfg(target_arch = "x86_64")]
 use crate::asm::x86_64::scrypt::vg_scrypt_romix;
 use crate::pbkdf2::pbkdf2_hmac_sha256;
 
