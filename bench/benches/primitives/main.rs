@@ -15,6 +15,7 @@ use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_m
 use openssl::hash::{MessageDigest, hash};
 
 mod chacha20;
+mod chacha20poly1305;
 mod hmac;
 mod md5;
 mod pbkdf2;
@@ -69,6 +70,7 @@ type Bench = (&'static [&'static str], fn(&mut Criterion));
 
 const BENCHES: &[Bench] = &[
     (chacha20::USES, chacha20::bench),
+    (chacha20poly1305::USES, chacha20poly1305::bench),
     (hmac::USES, hmac::bench),
     (md5::USES, md5::bench),
     (pbkdf2::USES, pbkdf2::bench),

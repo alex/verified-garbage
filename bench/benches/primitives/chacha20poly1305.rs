@@ -2,6 +2,10 @@
 
 use criterion::Criterion;
 
+/// The library modules whose code these benchmarks run (see
+/// `ci/bench_arches.py`): this one and those it calls.
+pub const USES: &[&str] = &["chacha20poly1305", "chacha20", "poly1305"];
+
 #[cfg(target_arch = "x86_64")]
 pub fn bench(c: &mut Criterion) {
     use std::hint::black_box;

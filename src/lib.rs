@@ -23,7 +23,6 @@ mod cpu;
 compile_error!("32-bit x86 needs an i686 target with SSE2 (e.g. i686-unknown-linux-gnu)");
 
 pub mod chacha20;
-#[cfg(target_arch = "x86_64")]
 pub mod chacha20poly1305;
 pub mod hashes;
 pub mod hmac;

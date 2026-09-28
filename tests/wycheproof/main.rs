@@ -10,7 +10,6 @@
 //! (but a result, if produced, must be the expected one).
 
 mod chacha20;
-#[cfg(target_arch = "x86_64")]
 mod chacha20poly1305;
 mod harness;
 mod hmac;
