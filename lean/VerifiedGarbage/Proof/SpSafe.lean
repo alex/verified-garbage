@@ -8,6 +8,8 @@ import VerifiedGarbage.Impl.Hmac.X86_64
 import VerifiedGarbage.Impl.Md5.X86_64
 import VerifiedGarbage.Impl.Md5.X86_64.Stream
 import VerifiedGarbage.Impl.Selftest.X86_64
+import VerifiedGarbage.Impl.Sha3.X86_64
+import VerifiedGarbage.Impl.Sha3.X86_64.Stream
 import VerifiedGarbage.Impl.Sha1.X86_64
 import VerifiedGarbage.Impl.Sha1.X86_64.Stream
 import VerifiedGarbage.Impl.Sha256.X86
@@ -80,6 +82,22 @@ theorem md5_x86_64_update :
 
 theorem md5_x86_64_finalize :
     Impl.Md5.X86_64.Stream.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem sha3_x86_64_permute :
+    Impl.Sha3.X86_64.permute.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem sha3_x86_64_absorb :
+    Impl.Sha3.X86_64.Stream.absorb.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem sha3_x86_64_pad :
+    Impl.Sha3.X86_64.Stream.pad.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem sha3_x86_64_squeeze :
+    Impl.Sha3.X86_64.Stream.squeeze.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem sha1_x86_64_compress :
