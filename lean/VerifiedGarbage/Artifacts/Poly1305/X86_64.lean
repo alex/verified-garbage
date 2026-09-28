@@ -50,11 +50,11 @@ def artifacts : List Artifact := [
   { target := X86_64.target
     module := "poly1305"
     name := "vg_poly1305_finalize"
-    sig := Spec.Poly1305.finalizeSig
+    sig := Spec.Poly1305.finalizeTailSig
     doc := "Finishes a Poly1305 computation: if the streaming state `*state` represents a \
       message under a key, writes the tag of that message followed by the `len` bytes at \
       `tail`, under that key, to `*out`.\n\n\
-      Contract: `VG.Spec.Poly1305.finalizeContract`. Constant time: only the pointers and \
+      Contract: `VG.Spec.Poly1305.finalizeTailContract`. Constant time: only the pointers and \
       `len` may affect timing, not the state or the data.\n\n\
       # Safety\n\n\
       * `len` must be less than 16.\n\
@@ -65,7 +65,7 @@ def artifacts : List Artifact := [
       * These three regions must not overlap each other or the return address on the stack \
       (distinct Rust objects never do)."
     code := Impl.Poly1305.X86_64.finalize
-    contract := Spec.Poly1305.finalizeContract X86_64.abi
+    contract := Spec.Poly1305.finalizeTailContract X86_64.abi
     verified := Proof.Poly1305.X86_64.Shared.finalize }]
 
 end VG.Artifacts.Poly1305.X86_64
