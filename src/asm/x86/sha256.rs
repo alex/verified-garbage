@@ -3396,7 +3396,9 @@ pub(crate) unsafe extern "C" fn vg_sha256_init(state: *mut [u8; 96]) {
 
 /// Absorbs data into a SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
 ///
-/// Contract: `VG.Spec.Sha256.updateContract`. Constant time: only the pointers, `count` and `len` may affect timing, not the state or the data. The function overwrites its own arguments on the stack (which the callee owns under cdecl).
+/// Contract: `VG.Spec.Sha256.updateContract`. Constant time: only the pointers, `count` and `len` may affect timing, not the state or the data.
+///
+/// The function overwrites its own arguments on the stack (which the callee owns under cdecl).
 ///
 /// # Safety
 ///
@@ -6870,7 +6872,9 @@ pub(crate) unsafe extern "C" fn vg_sha256_update(state: *mut [u8; 96], count: u6
 
 /// Finishes a SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), writes the SHA-256 digest of that message to `*out`.
 ///
-/// Contract: `VG.Spec.Sha256.finalizeContract`. Constant time: only the pointers and `count` may affect timing, not the state. The function overwrites its own arguments on the stack (which the callee owns under cdecl).
+/// Contract: `VG.Spec.Sha256.finalizeContract`. Constant time: only the pointers and `count` may affect timing, not the state.
+///
+/// The function overwrites its own arguments on the stack (which the callee owns under cdecl).
 ///
 /// # Safety
 ///

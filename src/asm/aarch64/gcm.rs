@@ -2,9 +2,11 @@
 //! Verified `gcm` functions for `aarch64`.
 #![allow(dead_code)]
 
-/// GHASH (NIST SP 800-38D §6.4) continued over whole blocks: with the hash subkey `H` the block at `h`, replaces the block `Y` at `*y` with `Yₙ`, where `Y₀ = Y` and `Yᵢ = (Yᵢ₋₁ ⊕ Xᵢ) • H` for the `n` 16-byte blocks `X₁ … Xₙ` starting at `data` (blocks big-endian, `•` the multiplication of §6.3, computed bit by bit as its Algorithm 1 does, with masks instead of branches).
+/// GHASH (NIST SP 800-38D §6.4) continued over whole blocks: with the hash subkey `H` the block at `h`, replaces the block `Y` at `*y` with `Yₙ`, where `Y₀ = Y` and `Yᵢ = (Yᵢ₋₁ ⊕ Xᵢ) • H` for the `n` 16-byte blocks `X₁ … Xₙ` starting at `data` (blocks big-endian, `•` the multiplication of §6.3).
 ///
 /// Contract: `VG.Spec.Gcm.ghashContract`. Constant time: only the pointers and `n` may affect timing, not `H`, `Y` or the data.
+///
+/// `•` is computed bit by bit as Algorithm 1 of §6.3 does, with masks instead of branches.
 ///
 /// # Safety
 ///

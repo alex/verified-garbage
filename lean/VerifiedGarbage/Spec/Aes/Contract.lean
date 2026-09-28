@@ -37,4 +37,23 @@ def expandKeyContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
         expandKey (bytesAt m key keyLen.toNat))
     (stack := stack)
 
+/-- `vg_aes_expand_key` on every target. -/
+def expandKeyApi : Api where
+  module := "aes"
+  name := "vg_aes_expand_key"
+  sig := expandKeySig
+  summary := "The AES key expansion (FIPS 197 §5.2, `KEYEXPANSION`): writes the key schedule of \
+    the `key_len`-byte key at `key`, the words `w[0] … w[4 * Nr + 3]` for `Nr = key_len / 4 + 6` \
+    rounds, each as its 4 bytes (`16 * (Nr + 1)` bytes in all), to the start of `*schedule`, as \
+    `vg_aes_ctr32` reads it.\n\n\
+    Contract: `VG.Spec.Aes.expandKeyContract`. Constant time: only the pointers and `key_len` may \
+    affect timing, not the key."
+  safety := [
+    "`key_len` must be 16, 24 or 32.",
+    "`key` must be valid for reads of `key_len` bytes.",
+    "`schedule` must be valid for reads and writes of 240 bytes; its bytes after the key schedule \
+      are unspecified on return.",
+    "`scratch` must be valid for reads and writes of 512 bytes; its contents on return are \
+      unspecified."]
+
 end VG.Spec.Aes

@@ -1,0 +1,189 @@
+import VerifiedGarbageTest.Sha256
+import VerifiedGarbage.Spec.Hmac.Contract
+import VerifiedGarbage.Spec.Hmac.Generic
+import VerifiedGarbage.Spec.Pbkdf2.Contract
+import VerifiedGarbage.Spec.Pbkdf2.Generic
+
+/-!
+# Known-answer tests for HMAC, and the generic contracts at SHA-256
+
+The HMAC-MD5 and HMAC-SHA-1 test cases of RFC 2202 (Sections 2 and 3) and
+the HMAC-SHA-256, HMAC-SHA-384 and HMAC-SHA-512 ones of RFC 4231 (Section 4),
+read from the vendored `vectors/rfc2202/rfc2202.txt` and
+`vectors/rfc4231/rfc4231.txt` (see `vectors/sources/`) when this file is
+built and checked against `VG.Spec.Hmac.hmac` with the hash functions of
+`Spec/Hmac.lean`, so that a transcription error (a wrong block size, say)
+fails the build. (Section 3 of RFC 2202, as published, repeats parts of
+its test cases 5 to 7 after test case 7; the first occurrence of each test
+case is used.) The cases cover keys shorter than, equal to and longer than
+a block, and messages of more than a block. A truncated MAC is compared with
+the start of the computed one. (RFC 4231's HMAC-SHA-224 results are skipped:
+there is no SHA-224 spec.)
+
+It also checks that the generic contracts of `Spec/Hmac/Generic.lean` and
+`Spec/Pbkdf2/Generic.lean`, at SHA-256, are the HMAC-SHA-256 ones.
+-/
+
+namespace VG.Test.Hmac
+
+open Lean Elab Command
+open Spec.Hmac (HashFunction hmac md5 sha1 sha256 sha384 sha512)
+
+def ascii (s : String) : List Byte := s.toList.map fun c => BitVec.ofNat 8 c.toNat
+
+/-- A test case: the key, the data and the (possibly truncated) MAC. -/
+structure Case where
+  key : List Byte
+  data : List Byte
+  mac : List Byte
+
+/-- The lines of an RFC without its page footers and headers. -/
+def body (text : String) (header : String) : List String :=
+  (text.splitOn "\n").filter fun l => !(l.splitOn "[Page ").length > 1 && !l.startsWith header
+
+/-! ## RFC 2202 -/
+
+/-- A value of RFC 2202: `0x<hex>`, `0x<hh> repeated <n> times`, or a quoted string. -/
+def value2202 (v : String) : Except String (List Byte) := do
+  if v.startsWith "\"" then
+    unless v.endsWith "\"" && v.length ≥ 2 do throw s!"unterminated string {v}"
+    return ascii ((v.drop 1).dropEnd 1).toString
+  match v.splitOn " repeated " with
+  | [b, n] =>
+    let some [x] := Test.Sha256.unhex (b.drop 2).toString | throw s!"bad byte {b}"
+    let some k := (n.splitOn " ").head?.bind String.toNat? | throw s!"bad count {n}"
+    return List.replicate k x
+  | _ =>
+    unless v.startsWith "0x" do throw s!"bad value {v}"
+    let some bs := Test.Sha256.unhex (v.drop 2).toString | throw s!"bad hex {v}"
+    return bs
+
+/-- The fields of a section of RFC 2202, as `(name, value)`: a field starts
+at the beginning of a line (`name =  value`, or `name  value`), and an
+indented line continues the previous one's value. -/
+def fields2202 (lines : List String) : List (String × String) :=
+  lines.foldl (init := []) fun acc l =>
+    if l.trimAscii.isEmpty then acc
+    else if l.startsWith " " then
+      match acc.reverse with
+      | (n, v) :: rest => ((n, v ++ " " ++ l.trimAscii.toString) :: rest).reverse
+      | [] => acc
+    else
+      let name := (l.splitOn " ").headD ""
+      let rest := (l.drop name.length).trimAscii.toString
+      let rest := if rest.startsWith "=" then (rest.drop 1).trimAscii.toString else rest
+      acc ++ [(name, rest)]
+
+/-- The test cases of the section of RFC 2202 between the lines `start` and `stop`. -/
+def cases2202 (text start stop : String) : Except String (List Case) := do
+  let lines := body text "RFC 2202"
+  let some i := lines.findIdx? (· == start) | throw s!"no `{start}`"
+  let sec := (lines.drop (i + 1)).takeWhile (· != stop)
+  -- Group the fields by `test_case`, keeping the first group of each number.
+  let groups := (fields2202 sec).foldl (init := ([] : List (String × List (String × String))))
+    fun acc f =>
+      if f.1 == "test_case" then acc ++ [(f.2, [])] else
+        match acc.reverse with
+        | (n, g) :: gs => gs.reverse ++ [(n, g ++ [f])]
+        | [] => acc
+  let firsts := groups.foldl (init := ([] : List (String × List (String × String)))) fun acc g =>
+    if acc.any (·.1 == g.1) then acc else acc ++ [g]
+  unless firsts.map (·.1) == (List.range 7).map (s!"{· + 1}") do
+    throw s!"expected test cases 1 to 7, found {firsts.map (·.1)}"
+  firsts.mapM fun (_, g) => do
+    let get (n : String) : Except String String := match g.lookup n with
+      | some v => pure v
+      | none => throw s!"no `{n}` in {g}"
+    let key ← value2202 (← get "key")
+    let data ← value2202 (← get "data")
+    let mac ← value2202 (← get "digest")
+    let some kl := (← get "key_len").toNat? | throw "bad key_len"
+    let some dl := (← get "data_len").toNat? | throw "bad data_len"
+    unless key.length == kl && data.length == dl do throw s!"lengths disagree in {g}"
+    return { key, data, mac }
+
+/-! ## RFC 4231 -/
+
+/-- The hex value of a field of RFC 4231 that starts on line `l` (after
+` = `) or continues on it: its first word. -/
+def hexWord (l : String) : Option String :=
+  let w := (l.trimAscii.toString.splitOn " ").headD ""
+  if !w.isEmpty && w.all Char.isHexDigit then some w else none
+
+/-- The names of the fields of a test case of RFC 4231. -/
+def names4231 : List String := ["Key", "Data", "HMAC-SHA-224", "HMAC-SHA-256", "HMAC-SHA-384", "HMAC-SHA-512"]
+
+/-- The fields of a test case of RFC 4231, as `(name, hex)`: a line starting
+with a field name, then `=` (missing after `Key` in test case 3 as
+published) and a hex word, continued by the hex words that start the
+following lines, up to a blank line or the next field. -/
+def fields4231 (lines : List String) : List (String × String) :=
+  (lines.foldl (init := (([] : List (String × String)), false)) fun (acc, open_) l =>
+    let ws := (l.trimAscii.toString.splitOn " ").filter (!·.isEmpty)
+    match ws with
+    | n :: rest =>
+      if names4231.contains n then
+        let rest := if rest.head? == some "=" then rest.drop 1 else rest
+        match rest.head?.bind hexWord with
+        | some w => (acc ++ [(n, w)], true)
+        | none => (acc, false)
+      else match open_, hexWord l, acc.reverse with
+        | true, some w, (n, v) :: rest => ((((n, v ++ w) :: rest).reverse), true)
+        | _, _, _ => (acc, false)
+    | [] => (acc, false)).1
+
+/-- The test cases of RFC 4231 for the MAC named `name` (e.g. `HMAC-SHA-256`). -/
+def cases4231 (text name : String) : Except String (List Case) := do
+  let lines := body text "RFC 4231"
+  let heads := (List.range 7).map fun i => s!"4.{i + 2}.  Test Case {i + 1}"
+  heads.mapM fun h => do
+    let some i := lines.findIdx? (·.trimAscii.toString == h) | throw s!"no `{h}`"
+    let sec := (lines.drop (i + 1)).takeWhile fun l => !(l.startsWith "4." || l.startsWith "5.")
+    let fs := fields4231 sec
+    let get (n : String) : Except String (List Byte) := match fs.lookup n with
+      | some v => match Test.Sha256.unhex v with
+        | some bs => pure bs
+        | none => throw s!"bad hex for `{n}` in {h}"
+      | none => throw s!"no `{n}` in {h}"
+    return { key := ← get "Key", data := ← get "Data", mac := ← get name }
+
+/-! ## The checks -/
+
+/-- Checks the cases against `hmac H`, with the MAC's full length `len`. -/
+def check (what : String) (H : HashFunction) (len : Nat) (cs : List Case) : CommandElabM Unit := do
+  unless cs.length == 7 do throwError "{what}: expected 7 test cases, found {cs.length}"
+  for c in cs, i in List.range cs.length do
+    let out := hmac H c.key c.data
+    unless out.length == len do throwError "{what}: a MAC of {out.length} bytes, not {len}"
+    unless c.mac.length == len || c.mac.length < len && i == 4 do
+      throwError "{what}: test case {i + 1} has a {c.mac.length}-byte MAC"
+    unless out.take c.mac.length == c.mac do throwError "{what}: test case {i + 1} is wrong"
+
+run_cmd do
+  -- This file is `lean/VerifiedGarbageTest/Hmac.lean`.
+  let file ← IO.FS.realPath (← getFileName)
+  let some root := file.parent >>= (·.parent) >>= (·.parent)
+    | throwError "no repository root above {file}"
+  let t2202 ← IO.FS.readFile (root / "vectors" / "rfc2202" / "rfc2202.txt")
+  let t4231 ← IO.FS.readFile (root / "vectors" / "rfc4231" / "rfc4231.txt")
+  let ok {α} (what : String) : Except String α → CommandElabM α
+    | .ok a => pure a
+    | .error e => throwError "{what}: {e}"
+  check "HMAC-MD5" md5 16 (← ok "rfc2202.txt" (cases2202 t2202 "2. Test Cases for HMAC-MD5"
+    "3. Test Cases for HMAC-SHA-1"))
+  check "HMAC-SHA-1" sha1 20 (← ok "rfc2202.txt" (cases2202 t2202 "3. Test Cases for HMAC-SHA-1"
+    "4. Security Considerations"))
+  check "HMAC-SHA-256" sha256 32 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-256"))
+  check "HMAC-SHA-384" sha384 48 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-384"))
+  check "HMAC-SHA-512" sha512 64 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-512"))
+
+/-! ## The generic contracts at SHA-256 -/
+
+example {M : ISA} (A : Abi M) (stack : Nat) :
+    Spec.Hmac.initContract Spec.Hmac.sha256S 20 A stack = Spec.Hmac.initSha256Contract A stack := rfl
+
+example {M : ISA} (A : Abi M) (stack : Nat) :
+    Spec.Pbkdf2.iterateContract Spec.Hmac.sha256S 48 A stack =
+      Spec.Pbkdf2.iterateSha256Contract A stack := rfl
+
+end VG.Test.Hmac

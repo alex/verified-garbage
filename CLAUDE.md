@@ -66,8 +66,12 @@ instructions in an ISA model) go in their own PR before either.
    target-specific imports; and `Spec/<Alg>/Contract.lean`: for each function,
    its Rust signature (`Sig`) and its `Contract` on every target, built with
    `Sig.contract` from a postcondition and any precondition the signature does
-   not imply. Choose `pub` honestly: only lengths and pointers are public
-   unless the algorithm says otherwise.
+   not imply, and its `Api`: its Rust module (the file under
+   `src/asm/<target>/`) and name, its signature, and the documentation that
+   holds on every target (what it does, and the `# Safety` items that do not
+   depend on the calling convention or the stack). Choose
+   `pub` honestly: only lengths and pointers are public unless the algorithm
+   says otherwise.
 2. `Impl/<Alg>/<Target>.lean`: the code.
 3. `Proof/<Alg>/…`: the proof of `Verified`. A proof may be written against a
    simpler per-target contract of its own and moved to the shared one with
@@ -75,9 +79,13 @@ instructions in an ISA model) go in their own PR before either.
 4. An `Artifact` in the registration file `Artifacts/<Alg>/<Target>.lean`,
    which defines `VG.Artifacts.<Alg>.<Target>.artifacts` (a new file for a
    new algorithm or target; see `Artifacts/Selftest/X86_64.lean`; never
-   `Artifacts.lean`, whose list is empty). Its `module`
-   names the file under `src/asm/<target>/`, and its `sig` and `doc` match
-   the contract (the doc must state every caller obligation). Its `spSafe`
+   `Artifacts.lean`, whose list is empty), made from the function's `Api`:
+   `{ Spec.<Alg>.fooApi with target := …, doc := Spec.<Alg>.fooApi.doc […], … }`,
+   where the `doc` adds the `# Safety` items that depend on the target (what
+   the arguments must not overlap: the return address, arguments on the
+   stack, the stack the code's calls use; wrapping around the address space),
+   and any notes on the implementation. The whole doc must state every caller
+   obligation of the contract. Its `spSafe`
    can be the default, `decide +kernel`, which runs in the registration
    file; on ARMv7 and AArch64 `Code.all_of_forall (fun _ => rfl) _` is
    faster. If its code uses instructions outside
