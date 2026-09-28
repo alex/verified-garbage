@@ -2,7 +2,6 @@ import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Impl.ChaCha20.X86
 import VerifiedGarbage.Impl.ChaCha20.X86_64
-import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
 import VerifiedGarbage.Impl.Hmac.X86
 import VerifiedGarbage.Impl.Hmac.X86_64
 import VerifiedGarbage.Impl.Pbkdf2.X86_64
@@ -20,6 +19,9 @@ import VerifiedGarbage.Impl.Sha256.X86_64.Stream
 import VerifiedGarbage.Impl.Sha256.X86_64.ShaNi
 import VerifiedGarbage.Impl.Sha512.X86_64
 import VerifiedGarbage.Impl.Sha512.X86_64.Stream
+import VerifiedGarbage.Impl.Scrypt.X86_64.BlockMix
+import VerifiedGarbage.Impl.Scrypt.X86_64.RoMix
+import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
 
 /-!
 # The stack discipline of the x86 and x86-64 artifacts
@@ -165,8 +167,16 @@ theorem chacha20_x86_64_block :
     Impl.ChaCha20.X86_64.block.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
-theorem chacha20_x86_64_xor :
-    Impl.ChaCha20.X86_64.Xor.xor.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+theorem scrypt_x86_64_salsa :
+    Impl.Scrypt.X86_64.salsa.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem scrypt_x86_64_blockmix :
+    Impl.Scrypt.X86_64.blockMix.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem scrypt_x86_64_romix :
+    Impl.Scrypt.X86_64.roMix.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem sha256_x86_compress :
@@ -195,6 +205,10 @@ theorem hmac_x86_finalize :
 
 theorem chacha20_x86_block :
     Impl.ChaCha20.X86.block.all (fun i => !X86.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem chacha20_x86_64_xor :
+    Impl.ChaCha20.X86_64.Xor.xor.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 end VG.Proof.SpSafe
