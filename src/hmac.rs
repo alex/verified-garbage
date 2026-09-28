@@ -97,7 +97,7 @@ impl<H: HmacHash> Hmac<H> {
     }
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 impl Hmac<Sha256> {
     /// The key's two SHA-256 streaming states, for `K₀ ⊕ ipad` and then
     /// `K₀ ⊕ opad`, as `vg_hmac_sha256_init` left them (the arguments of
