@@ -16,6 +16,9 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::num::NonZeroU32;
 
+#[cfg(target_arch = "aarch64")]
+use crate::asm::aarch64::scrypt::vg_scrypt_romix;
+#[cfg(target_arch = "x86_64")]
 use crate::asm::x86_64::scrypt::vg_scrypt_romix;
 use crate::pbkdf2::pbkdf2_hmac_sha256;
 

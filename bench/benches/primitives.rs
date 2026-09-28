@@ -201,9 +201,50 @@ fn hmac_sha256(c: &mut Criterion) {
     g.finish();
 }
 
+/// PBKDF2-HMAC-SHA-256 of a 32-byte key (one block), with the sizes as the
+/// iteration counts.
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+fn pbkdf2_hmac_sha256(c: &mut Criterion) {
+    use std::num::NonZeroU32;
+    let password = [0x0b; 32];
+    let salt = [0x5a; 16];
+    let mut g = c.benchmark_group("pbkdf2-hmac-sha256");
+    for iterations in SIZES {
+        g.throughput(Throughput::Elements(iterations as u64));
+        let mut out = [0u8; 32];
+        let n = NonZeroU32::new(iterations as u32).unwrap();
+        g.bench_function(BenchmarkId::new(VG, iterations), |b| {
+            b.iter(|| {
+                verified_garbage::pbkdf2::pbkdf2_hmac_sha256(
+                    black_box(&password),
+                    black_box(&salt),
+                    n,
+                    &mut out,
+                )
+            })
+        });
+        g.bench_function(BenchmarkId::new(OPENSSL, iterations), |b| {
+            b.iter(|| {
+                openssl::pkcs5::pbkdf2_hmac(
+                    black_box(&password),
+                    black_box(&salt),
+                    iterations,
+                    MessageDigest::sha256(),
+                    &mut out,
+                )
+                .unwrap()
+            })
+        });
+    }
+    g.finish();
+}
+
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+fn pbkdf2_hmac_sha256(_: &mut Criterion) {}
+
 /// scrypt with `r = 8` and `p = 1` (the RFC 7914 vectors' block size) at a
 /// few costs `N`, deriving a 64-byte key. The ids' sizes are `N`.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn scrypt_kdf(c: &mut Criterion) {
     use verified_garbage::scrypt::scrypt;
 
@@ -243,7 +284,7 @@ fn scrypt_kdf(c: &mut Criterion) {
     g.finish();
 }
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn scrypt_kdf(_: &mut Criterion) {}
 
 criterion_group!(
@@ -255,6 +296,7 @@ criterion_group!(
     sha3,
     sha512,
     hmac_sha256,
+    pbkdf2_hmac_sha256,
     scrypt_kdf
 );
 criterion_main!(benches);

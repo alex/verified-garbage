@@ -40,6 +40,11 @@ VG = "verified-garbage"
 OPENSSL = "openssl"
 
 
+# Every build shares one target directory, so the dependencies (criterion,
+# rust-openssl), which are the same on both sides, are compiled only once.
+TARGET = pathlib.Path("bench-target").resolve()
+
+
 def build(bench):
     """Builds the benchmark crate `bench`, returning the binary's path."""
     out = subprocess.run(
@@ -50,6 +55,7 @@ def build(bench):
             "--message-format=json-render-diagnostics",
         ],
         cwd=bench,
+        env={**os.environ, "CARGO_TARGET_DIR": str(TARGET)},
         check=True,
         stdout=subprocess.PIPE,
         text=True,
@@ -58,7 +64,10 @@ def build(bench):
         msg = json.loads(line)
         if msg.get("reason") == "compiler-artifact" and msg.get("executable"):
             if msg["target"]["name"] == "primitives":
-                return msg["executable"]
+                # A copy, which the next build can't overwrite.
+                binary = TARGET / f"primitives-{len(list(TARGET.glob('primitives-*')))}"
+                shutil.copy2(msg["executable"], binary)
+                return str(binary)
     raise RuntimeError(f"no benchmark binary built in {bench}")
 
 
@@ -110,6 +119,11 @@ def run(binary, home, library, args):
             str(args.warm_up_time),
             "--measurement-time",
             str(args.measurement_time),
+            # Only the median is used, not the bootstrapped confidence
+            # intervals, whose default 100000 resamples cost more than a
+            # short measurement.
+            "--nresamples",
+            "1000",
             f"^(?:{'|'.join(map(re.escape, sorted(args.groups)))})/{library}/",
         ],
         env={**os.environ, "CRITERION_HOME": str(home)},
@@ -146,8 +160,8 @@ def main():
     p.add_argument("--summary", type=pathlib.Path)
     p.add_argument("--rounds", type=int, default=3)
     p.add_argument("--threshold", type=float, default=0.25)
-    p.add_argument("--warm-up-time", type=float, default=0.5)
-    p.add_argument("--measurement-time", type=float, default=2.0)
+    p.add_argument("--warm-up-time", type=float, default=0.2)
+    p.add_argument("--measurement-time", type=float, default=0.5)
     p.add_argument("--work-dir", type=pathlib.Path, default=pathlib.Path("bench-compare"))
     p.add_argument(
         "--modules",

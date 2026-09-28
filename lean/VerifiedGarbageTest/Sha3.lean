@@ -6,7 +6,7 @@ import VerifiedGarbage.Spec.Sha3
 
 NIST CAVP vectors, read from the vendored response files under
 `vectors/nist-cavp/sha3/` and `vectors/nist-cavp/shake/` (see
-`vectors/sources.toml`) when this file is built and checked against
+`vectors/sources/`) when this file is built and checked against
 `VG.Spec.Sha3`, so that a transcription error in the spec fails the build.
 
 For each of SHA3-224/256/384/512 and SHAKE128/256 (with the fixed output

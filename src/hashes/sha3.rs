@@ -9,6 +9,8 @@
 //! Rust types only keep that state together with the position in the
 //! current block, which the contracts take as an argument.
 
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+
 #[cfg(target_arch = "aarch64")]
 use crate::asm::aarch64::sha3::{vg_keccak_absorb, vg_keccak_pad, vg_keccak_squeeze};
 #[cfg(target_arch = "x86_64")]

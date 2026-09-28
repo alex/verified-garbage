@@ -10,6 +10,9 @@
 
 use core::num::NonZeroU32;
 
+#[cfg(target_arch = "aarch64")]
+use crate::asm::aarch64::pbkdf2::vg_pbkdf2_hmac_sha256_iterate;
+#[cfg(target_arch = "x86_64")]
 use crate::asm::x86_64::pbkdf2::vg_pbkdf2_hmac_sha256_iterate;
 use crate::hashes::sha256::Sha256;
 use crate::hmac::Hmac;
@@ -35,9 +38,10 @@ pub fn pbkdf2_hmac_sha256(password: &[u8], salt: &[u8], iterations: NonZeroU32, 
         // SAFETY: `key` is valid for reads of 192 bytes, `u` for reads of 32
         // bytes, `t` for reads and writes of 32 bytes and `scratch` for reads
         // and writes of 384 bytes; they are distinct objects, so they do not
-        // overlap each other or the return address. `key` holds the streaming
-        // states for `K₀ ⊕ ipad` and `K₀ ⊕ opad` that `vg_hmac_sha256_init`
-        // left, so `t` becomes `U₁ ⊕ U₂ ⊕ … ⊕ U_c`.
+        // overlap each other or (on x86-64) the return address and the stack
+        // below it. `key` holds the streaming states for `K₀ ⊕ ipad` and
+        // `K₀ ⊕ opad` that `vg_hmac_sha256_init` left, so `t` becomes
+        // `U₁ ⊕ U₂ ⊕ … ⊕ U_c`.
         unsafe {
             vg_pbkdf2_hmac_sha256_iterate(&key, &u, iterations.get() - 1, &mut t, &mut scratch)
         };
