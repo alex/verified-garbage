@@ -1622,7 +1622,32 @@ def artifacts : List Artifact := [
     code := Impl.Scrypt.X86_64.blockMix
     contract := Spec.Scrypt.blockMixContract X86_64.abi 8
     verified := Proof.Scrypt.X86_64.Shared.blockMix
-    spSafe := Proof.SpSafe.scrypt_x86_64_blockmix }
+    spSafe := Proof.SpSafe.scrypt_x86_64_blockmix },
+  { target := X86_64.target
+    module := "scrypt"
+    name := "vg_scrypt_romix"
+    sig := Spec.Scrypt.roMixSig
+    doc := "scryptROMix (RFC 7914 §5) with block size parameter `r` and cost parameter \
+      `N = vlen / r`: replaces the `128 * r` bytes at `b` by their scryptROMix. Step 2 writes \
+      `V[0], …, V[N - 1]` to `v`. Calls `vg_scrypt_blockmix` for each scryptBlockMix.\n\n\
+      Contract: `VG.Spec.Scrypt.roMixContract`. Not constant time in the indices: timing may \
+      depend on the pointers, `r`, `N` and the indices `j` of step 3 \
+      (`VG.Spec.Scrypt.roMixIndices`), which are derived from the data and so leak \
+      information about it (as in every scrypt that indexes `V` directly), but on nothing \
+      else.\n\n\
+      # Safety\n\n\
+      * `r` must be positive, `vlen` must be `N * r` for a power of two `N`, and `slen` must \
+      be `r + 2`.\n\
+      * `b` must be valid for reads and writes of `128 * r` bytes, `v` of `128 * vlen` bytes \
+      and `scratch` of `128 * slen` bytes. `v` and `scratch` are working space: their \
+      contents on return are unspecified.\n\
+      * `b`, `v` and `scratch` must not overlap each other, the return address on the stack, \
+      or the 16 bytes of stack below it, where its calls store their return addresses, and \
+      none may wrap around the end of the address space (distinct Rust objects never do)."
+    code := Impl.Scrypt.X86_64.roMix
+    contract := Spec.Scrypt.roMixContract X86_64.abi 16
+    verified := Proof.Scrypt.X86_64.Shared.roMix
+    spSafe := Proof.SpSafe.scrypt_x86_64_romix }
 ]
 
 #assert_standard_axioms artifacts
