@@ -112,6 +112,13 @@ structure ISA where
   their head) has the size popped; otherwise loading a register from the
   frame, moving the stack pointer back up and removing the region. -/
   pop : Instr → State → State → Option State
+  /-- The CPU features beyond the target's baseline ISA that an instruction
+  needs, by their Rust `target_feature` names (e.g. `sha`), as the vendor
+  manual lists them for it (the Intel SDM's "CPUID Feature Flag"; the Arm
+  ARM's `FEAT_*`). On a CPU without them the instruction is undefined
+  (#UD), which `exec` does not model: `Artifact.features` makes their
+  presence the caller's obligation instead. -/
+  requires : Instr → List String
 
 /-- Structured code. -/
 inductive Code (I C : Type) where
@@ -134,6 +141,16 @@ def Code.all {I C : Type} (p : I → Bool) : Code I C → Bool
   | .loop b _ => b.all p
   | .call _ b => b.all p
   | .frame i b j => p i && b.all p && p j
+
+/-- The features that the instructions of `c`, and of the functions it
+calls, require (`ISA.requires`), with repetitions. -/
+def Code.requires {I C : Type} (req : I → List String) : Code I C → List String
+  | .block is => is.flatMap req
+  | .seq a b => a.requires req ++ b.requires req
+  | .ite _ t e => t.requires req ++ e.requires req
+  | .loop b _ => b.requires req
+  | .call _ b => b.requires req
+  | .frame i b j => req i ++ b.requires req ++ req j
 
 /-- The calls in `c`, and in the functions it calls: each function's name
 and code. -/

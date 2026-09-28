@@ -343,5 +343,7 @@ abbrev isa : ISA where
   writesSp _ := false
   push := push
   pop := pop
+  -- Every modelled instruction is in the ARMv7-A baseline.
+  requires _ := []
 
 end VG.Arm

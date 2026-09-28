@@ -378,5 +378,7 @@ abbrev isa : ISA where
   -- No frames are modelled.
   push _ _ := none
   pop _ _ _ := none
+  -- Every modelled instruction is in the x86-64 baseline (x86-64-v1).
+  requires _ := []
 
 end VG.X86_64

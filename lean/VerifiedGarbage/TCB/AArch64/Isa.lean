@@ -286,5 +286,7 @@ abbrev isa : ISA where
   writesSp _ := false
   push := push
   pop := pop
+  -- Every modelled instruction is in the ARMv8.0-A baseline.
+  requires _ := []
 
 end VG.AArch64

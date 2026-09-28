@@ -341,5 +341,7 @@ abbrev isa : ISA where
   writesSp i := i.dst == some .esp
   push := push
   pop := pop
+  -- Every modelled instruction is in the i486 baseline.
+  requires _ := []
 
 end VG.X86
