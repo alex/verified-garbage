@@ -5,7 +5,7 @@
 //! always run.
 
 #![cfg(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
+    any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"),
     feature = "alloc"
 ))]
 
@@ -114,12 +114,17 @@ fn memory_limit() {
     );
 }
 
-/// An allocation of 2⁶² bytes fails.
+/// An allocation of 2⁶² bytes (on 64-bit targets) or 2³¹ bytes (more than
+/// `isize::MAX`, on 32-bit targets) fails.
 #[test]
 fn allocation_failure() {
     let mut dk = [0u8; 64];
+    #[cfg(target_pointer_width = "64")]
+    let n = 1 << 53;
+    #[cfg(target_pointer_width = "32")]
+    let n = 1 << 22;
     assert_eq!(
-        scrypt(b"pw", b"salt", 1 << 53, 4, 1, usize::MAX, &mut dk),
+        scrypt(b"pw", b"salt", n, 4, 1, usize::MAX, &mut dk),
         Err(Error::AllocationFailed)
     );
 }
