@@ -22,8 +22,8 @@ use crate::asm::x86_64::{
     hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init},
     sha256::vg_sha256_update,
 };
-use crate::hash::HashFunction;
-use crate::sha256::Sha256;
+use crate::hashes::HashFunction;
+use crate::hashes::sha256::Sha256;
 
 mod sealed {
     pub trait Sealed {}
