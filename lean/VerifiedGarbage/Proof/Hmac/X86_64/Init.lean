@@ -541,7 +541,7 @@ theorem compress_ok {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s�
       Frame [⟨p, 32⟩, ⟨scr s₀, 112⟩, stkR s₀] s.mem s'.mem →
       stateAt s'.mem p = Spec.Sha256.compress (stateAt s.mem p) (Spec.Sha256.blockAt s.mem (p + 32)) →
       Q s') :
-    WP isa compressAt s Q := by
+    WP isa (compressAt .scalar) s Q := by
   have hs : Region.Disjoint ⟨p, 96⟩ (scR s₀) ∧ Region.Disjoint (stkR s₀) ⟨p, 96⟩ ∧ ⟨p, 96⟩ ∈ s₀.wr := by
     rcases hpR with rfl | rfl
     · exact ⟨hp.i_s, hp.stk_i, by simp [hp.wr]⟩
@@ -550,7 +550,7 @@ theorem compress_ok {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s�
   have e32 : Region.Sub ⟨p, 32⟩ ⟨p, 96⟩ := Region.sub_prefix (by omega)
   have eb : Region.Sub ⟨p + 32, 64⟩ ⟨p, 96⟩ := sub_offset (off := 32) (by omega) (by omega)
   have e112 : Region.Sub ⟨scr s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
-  refine compressAt_ok hbx h15 hsi ((d.sub_left e32).sub_right e112) ?_ ((d.sub_left eb).sub_right e112)
+  refine compressAt_ok Proof.Sha256.X86_64.Stream.scalar_ok hbx h15 hsi ((d.sub_left e32).sub_right e112) ?_ ((d.sub_left eb).sub_right e112)
     (by rw [hsp]; exact dr.sub_right e32) (by rw [hsp]; exact hp.stk_s.sub_right e112)
     (by rw [hsp]; exact dr.sub_right eb) ?_ ?_
     fun s' hrd' hwr' hcs hf hst _ _ => hQ s' hrd' hwr' hcs (by rw [hsp] at hf; exact hf) hst

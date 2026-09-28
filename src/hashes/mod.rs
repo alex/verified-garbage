@@ -56,6 +56,12 @@ pub trait HashFunction: Clone {
 /// * `finalize(state, count: u64, out: *mut [u8; FINAL], scratch)` writes
 ///   the final hash value, whose first `OUTPUT` bytes are the digest.
 ///
+/// `backends` names the enum of the implementations of `update` and
+/// `finalize` to choose from, each a variant: first the one for the
+/// target's baseline ISA, then any that need CPU features (listed in their
+/// generated `_FEATURES` constants), best first. An object uses the first
+/// that the CPU can run, chosen when it is created (see `crate::cpu`).
+///
 /// Every region is a distinct Rust object, so none overlaps another or the
 /// return address, and none wraps around the end of the address space; the
 /// length is kept exactly (`update` panics rather than let it reach 2⁶⁴
@@ -70,10 +76,84 @@ macro_rules! streaming_hash {
             output: $output:literal,
             final_hash: $final:literal,
             init: $init:path,
-            update: $update:path,
-            finalize: $finalize:path $(,)?
+            backends: $backend:ident {
+                $base:ident => ($update:path, $finalize:path)
+                $(, $(#[$attr:meta])* $variant:ident if [$($req:path),*] => ($vupdate:path, $vfinalize:path))*
+                $(,)?
+            } $(,)?
         }
     ) => {
+        /// The implementations of the streaming primitives.
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub(crate) enum $backend {
+            /// For the baseline ISA.
+            $base,
+            $(
+                $(#[$attr])*
+                /// Needing CPU features.
+                $variant,
+            )*
+        }
+
+        impl $backend {
+            /// The best implementation a CPU with the features `f` can run.
+            pub(crate) fn select(f: $crate::cpu::Features) -> Self {
+                $(
+                    $(#[$attr])*
+                    if f.contains($crate::cpu::Features::all(&[$($req),*])) {
+                        return Self::$variant;
+                    }
+                )*
+                let _ = f;
+                Self::$base
+            }
+
+            /// `update`.
+            ///
+            /// # Safety
+            ///
+            /// As for the artifacts; the CPU must have the features of the
+            /// implementation (as `select` guarantees).
+            pub(crate) unsafe fn update(
+                self,
+                state: &mut [u8; $state],
+                count: u64,
+                data: *const u8,
+                len: usize,
+                scratch: &mut [u64; $scratch],
+            ) {
+                // SAFETY: the caller's obligations.
+                unsafe {
+                    match self {
+                        Self::$base => $update(state, count, data, len, scratch),
+                        $($(#[$attr])* Self::$variant => $vupdate(state, count, data, len, scratch),)*
+                    }
+                }
+            }
+
+            /// `finalize`.
+            ///
+            /// # Safety
+            ///
+            /// As for the artifacts; the CPU must have the features of the
+            /// implementation (as `select` guarantees).
+            pub(crate) unsafe fn finalize(
+                self,
+                state: &mut [u8; $state],
+                count: u64,
+                out: &mut [u8; $final],
+                scratch: &mut [u64; $scratch],
+            ) {
+                // SAFETY: the caller's obligations.
+                unsafe {
+                    match self {
+                        Self::$base => $finalize(state, count, out, scratch),
+                        $($(#[$attr])* Self::$variant => $vfinalize(state, count, out, scratch),)*
+                    }
+                }
+            }
+        }
+
         $(#[$doc])*
         ///
         /// Messages are limited to 2⁶⁴ − 1 bytes.
@@ -83,6 +163,8 @@ macro_rules! streaming_hash {
             state: [u8; $state],
             /// The message length so far, in bytes.
             length: u64,
+            /// The implementation this CPU runs.
+            backend: $backend,
         }
 
         impl Default for $name {
@@ -99,13 +181,22 @@ macro_rules! streaming_hash {
 
             /// Starts a new computation.
             pub fn new() -> Self {
+                Self::__with_features(u32::MAX)
+            }
+
+            /// Starts a new computation, using only the CPU features in
+            /// `mask` (a set of `crate::cpu::Features` bits). For testing
+            /// every implementation on one CPU.
+            #[doc(hidden)]
+            pub fn __with_features(mask: u32) -> Self {
                 let mut state = [0; $state];
                 // SAFETY: `state` is valid for writes of its size, and is a
                 // distinct object from the return address (on x86-64 and x86)
                 // and the argument on the stack (on x86); as a Rust object, it
                 // does not wrap around the end of the address space.
                 unsafe { $init(&mut state) };
-                $name { state, length: 0 }
+                let backend = $backend::select($crate::cpu::available(mask));
+                $name { state, length: 0, backend }
             }
 
             /// Absorbs `data`.
@@ -126,9 +217,10 @@ macro_rules! streaming_hash {
                 // address (on x86-64 and x86) or the arguments on the stack
                 // (on 32-bit ARM and x86), and do not wrap around the end of
                 // the address space. `self.length` is the length of the
-                // message `self.state` represents.
+                // message `self.state` represents. `self.backend` was
+                // selected for this CPU's features.
                 unsafe {
-                    $update(
+                    self.backend.update(
                         &mut self.state,
                         self.length,
                         data.as_ptr(),
@@ -150,8 +242,12 @@ macro_rules! streaming_hash {
                 // and x86) or the arguments on the stack (on 32-bit ARM and
                 // x86), and do not wrap around the end of the address space.
                 // `self.length` is the exact length of the message
-                // `self.state` represents.
-                unsafe { $finalize(&mut self.state, self.length, &mut out, &mut scratch) };
+                // `self.state` represents. `self.backend` was selected for
+                // this CPU's features.
+                unsafe {
+                    self.backend
+                        .finalize(&mut self.state, self.length, &mut out, &mut scratch)
+                };
                 let mut digest = [0; $output];
                 digest.copy_from_slice(&out[..$output]);
                 digest

@@ -9,31 +9,21 @@
 //! or `finalizeSha256OutContract` on the 32-bit targets) compute
 //! `H((K₀ ⊕ opad) ‖ H((K₀ ⊕ ipad) ‖ text))`
 //! (`VG.Spec.Hmac.hmacBlockKey`), keeping the two SHA-256 streaming states.
+//! (`vg_sha256_update` is whichever implementation `Sha256` would use on
+//! this CPU, e.g. `vg_sha256_update_shani`, with the same contract.)
 //! The only unverified step is step 2 of FIPS 198-1 §4: a key longer than a
 //! block is first hashed, with the verified hash function.
 
 #[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::{
-    hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init},
-    sha256::vg_sha256_update,
-};
+use crate::asm::aarch64::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 #[cfg(target_arch = "arm")]
-use crate::asm::arm::{
-    hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init},
-    sha256::vg_sha256_update,
-};
+use crate::asm::arm::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 #[cfg(target_arch = "x86")]
-use crate::asm::x86::{
-    hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init},
-    sha256::vg_sha256_update,
-};
+use crate::asm::x86::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 #[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::{
-    hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init},
-    sha256::vg_sha256_update,
-};
+use crate::asm::x86_64::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 use crate::hashes::HashFunction;
-use crate::hashes::sha256::Sha256;
+use crate::hashes::sha256::{Sha256, Sha256Backend};
 
 mod sealed {
     pub trait Sealed {}
@@ -47,13 +37,14 @@ pub trait HmacHash: HashFunction + sealed::Sealed {
     /// The state of an HMAC computation.
     #[doc(hidden)]
     type State: Clone;
-    /// Starts an HMAC computation with a key of at most `BLOCK_SIZE` bytes.
+    /// Starts an HMAC computation with a key of at most `BLOCK_SIZE` bytes,
+    /// using only the CPU features in `mask` (as `__with_features`).
     ///
     /// # Panics
     ///
     /// If the key is longer than a block.
     #[doc(hidden)]
-    fn hmac_init(key: &[u8]) -> Self::State;
+    fn hmac_init(key: &[u8], mask: u32) -> Self::State;
     /// Absorbs `data`.
     #[doc(hidden)]
     fn hmac_update(state: &mut Self::State, data: &[u8]);
@@ -72,10 +63,18 @@ impl<H: HmacHash> Hmac<H> {
     /// Starts an HMAC computation with `key`, of any length (a key longer
     /// than the block size is hashed first).
     pub fn new(key: &[u8]) -> Self {
+        Self::__with_features(key, u32::MAX)
+    }
+
+    /// Starts an HMAC computation with `key`, using only the CPU features in
+    /// `mask` (a set of `crate::cpu::Features` bits). For testing every
+    /// implementation on one CPU.
+    #[doc(hidden)]
+    pub fn __with_features(key: &[u8], mask: u32) -> Self {
         let state = if key.len() > H::BLOCK_SIZE {
-            H::hmac_init(H::digest(key).as_ref())
+            H::hmac_init(H::digest(key).as_ref(), mask)
         } else {
-            H::hmac_init(key)
+            H::hmac_init(key, mask)
         };
         Hmac { state }
     }
@@ -108,6 +107,8 @@ pub struct Sha256HmacState {
     outer: [u8; 96],
     /// The length of `(K₀ ⊕ ipad) ‖ text`, in bytes (modulo 2⁶⁴).
     count: u64,
+    /// The implementation of `vg_sha256_update` this CPU runs.
+    backend: Sha256Backend,
 }
 
 impl sealed::Sealed for Sha256 {}
@@ -115,12 +116,13 @@ impl sealed::Sealed for Sha256 {}
 impl HmacHash for Sha256 {
     type State = Sha256HmacState;
 
-    fn hmac_init(key: &[u8]) -> Sha256HmacState {
+    fn hmac_init(key: &[u8], mask: u32) -> Sha256HmacState {
         assert!(key.len() <= Self::BLOCK_SIZE);
         let mut state = Sha256HmacState {
             inner: [0; 96],
             outer: [0; 96],
             count: Self::BLOCK_SIZE as u64,
+            backend: Sha256Backend::select(crate::cpu::available(mask)),
         };
         let mut scratch = [0u64; 20];
         // SAFETY: `key.len()` is at most 64; `state.inner` and `state.outer`
@@ -147,9 +149,10 @@ impl HmacHash for Sha256 {
         // writes of 160 bytes; they are distinct objects, so they do not
         // overlap each other or the call's stack frame, nor wrap around the
         // address space. `state.count` is the length of the message
-        // `state.inner` represents, modulo 2⁶⁴.
+        // `state.inner` represents, modulo 2⁶⁴. `state.backend` was
+        // selected for this CPU's features.
         unsafe {
-            vg_sha256_update(
+            state.backend.update(
                 &mut state.inner,
                 state.count,
                 data.as_ptr(),
