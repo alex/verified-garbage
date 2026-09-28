@@ -25,8 +25,14 @@ theorem ea_at (s : State) (b : Reg) (d : Nat) : s.ea (at_ b d) = off (s.gpr b) d
 theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = n := by
   rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
 
+theorem signExtend_of_msb {v : BitVec 32} (h : v.msb = false) :
+    v.signExtend 64 = BitVec.ofNat 64 v.toNat := by
+  rw [BitVec.signExtend_eq_setWidth_of_msb_false h]
+  apply BitVec.eq_of_toNat_eq
+  simp
+
 theorem se_ofNat {k : Nat} (h : k < 2 ^ 31) : BitVec.signExtend 64 (BitVec.ofNat 32 k) = BitVec.ofNat 64 k := by
-  rw [Taint.signExtend_of_msb (by
+  rw [signExtend_of_msb (by
     rw [BitVec.msb_eq_decide, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]; simp; omega)]
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
 
