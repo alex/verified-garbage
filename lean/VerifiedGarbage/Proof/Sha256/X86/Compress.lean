@@ -763,7 +763,7 @@ def τ₀ : VG.X86.Taint.T :=
 
 theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
   have hst := hp.st_fits; have hsc := hp.scr_fits; have hs := hp.esp_fits
-  refine ⟨fun _ => ⟨by simp [hp.wr, τ₀], by simpa [hp.wr] using hp.st_scr, ?_⟩,
+  refine VG.X86.Taint.Wf.entry rfl rfl ⟨fun _ => ⟨by simp [hp.wr, τ₀], by simpa [hp.wr] using hp.st_scr, ?_⟩,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim,
     fun _ => ⟨hs, ?_⟩, ?_⟩
   · simp only [hp.wr, List.mem_cons, List.not_mem_nil, or_false]
@@ -789,6 +789,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.compressX86.pre s₁)
     subst hr; exact hesp
   · rw [hp₁.wr, hp₂.wr]; simp only [stR, scrR, st, scr, a0, a3]
   · simp only [τ₀] at hk
+    rw [show VG.X86.Taint.depth τ₀.stk = 0 from rfl, Nat.zero_add]
     rw [VG.X86.Taint.argByte_eq hp₁.esp_fits h4 hk, VG.X86.Taint.argByte_eq hp₂.esp_fits h4 hk,
       Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)), Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega))]
     have : (k - 4) / 4 = 0 ∨ (k - 4) / 4 = 1 ∨ (k - 4) / 4 = 2 ∨ (k - 4) / 4 = 3 := by omega

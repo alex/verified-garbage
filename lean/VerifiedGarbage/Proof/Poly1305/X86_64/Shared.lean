@@ -29,9 +29,9 @@ theorem blocks :
       [Proof.Poly1305.X86_64.blocksSat] using Proof.Poly1305.X86_64.blocksSat)
 
 theorem finalize :
-    Verified X86_64.target Impl.Poly1305.X86_64.finalize (Spec.Poly1305.finalizeContract X86_64.abi) :=
+    Verified X86_64.target Impl.Poly1305.X86_64.finalize (Spec.Poly1305.finalizeTailContract X86_64.abi) :=
   Proof.Poly1305.X86_64.finalize_verified.of_implies (by
-    contract_implies [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+    contract_implies [Spec.Poly1305.finalizeTailContract, Spec.Poly1305.finalizeTailSig,
       Proof.Poly1305.finalizeX86_64, X86_64.abi, X86_64.argRegs]
       [Proof.Poly1305.X86_64.finalizeSat] using Proof.Poly1305.X86_64.finalizeSat)
 

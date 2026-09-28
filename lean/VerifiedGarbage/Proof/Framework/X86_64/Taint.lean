@@ -159,11 +159,16 @@ def writes : AluOp → Bool
   | _ => true
 
 /-- The known region bases after `op d, src`: a 64-bit `add` of a
-non-negative immediate moves a pointer that far into its region. -/
+non-negative immediate moves a pointer that far into its region, and a `sub`
+moves it back (no further back than the region's base). -/
 def aluBases (τ : T) (op : AluOp) (d : Reg) (src : Src) (wide : Bool) : List (Reg × Nat × Nat) :=
   match op, src with
   | .add, .imm v =>
     if wide && !v.msb then kill τ d ++ (τ.bases.filter (·.1 == d)).map fun p => (d, p.2.1, p.2.2 + v.toNat)
+    else kill τ d
+  | .sub, .imm v =>
+    if wide && !v.msb then
+      kill τ d ++ (τ.bases.filter fun p => p.1 == d && v.toNat ≤ p.2.2).map fun p => (d, p.2.1, p.2.2 - v.toNat)
     else kill τ d
   | _, _ => kill τ d
 
@@ -782,6 +787,28 @@ theorem aluBases_ok {τ : T} {s s' : State} (hw : Wf τ s) {op : AluOp} {d : Reg
       · exact kill_bases hw hwr hg p hp
       · simp only
         rw [hd, ← hqd, hw.2 q hq, BitVec.add_assoc, ← BitVec.ofNat_add]
+        simp [region, hwr]
+    · exact kill_bases hw hwr hg
+  · rename_i v
+    split
+    · rename_i hv
+      simp only [Bool.true_and, Bool.not_eq_eq_eq_not, Bool.not_true] at hv
+      have hd : s'.gpr d = s.gpr d - BitVec.ofNat 64 v.toNat := by
+        simp only [exec, execAlu, readSrc, Option.bind_some, Option.some.injEq] at e
+        subst e
+        simp only [arithFlags, State.setFlags, State.setReg, ite_true]
+        congr 1
+        rw [BitVec.signExtend_eq_setWidth_of_msb_false hv]
+        apply BitVec.eq_of_toNat_eq
+        simp only [BitVec.toNat_setWidth, BitVec.toNat_ofNat]
+      intro p hp
+      simp only [List.mem_append, List.mem_map, List.mem_filter, Bool.and_eq_true, beq_iff_eq,
+        decide_eq_true_eq] at hp
+      rcases hp with hp | ⟨q, ⟨hq, hqd, hle⟩, rfl⟩
+      · exact kill_bases hw hwr hg p hp
+      · simp only
+        rw [hd, ← hqd, hw.2 q hq, show q.2.2 = (q.2.2 - v.toNat) + v.toNat by omega, BitVec.ofNat_add,
+          ← BitVec.add_assoc, BitVec.add_sub_cancel, Nat.add_sub_cancel]
         simp [region, hwr]
     · exact kill_bases hw hwr hg
   · exact kill_bases hw hwr hg
