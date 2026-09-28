@@ -57,8 +57,9 @@ theorem init_correct {s₀ : State} (iv : HashValue) (hp : (Spec.Sha512.initX86_
   have o6 := o 6 (by omega); have o7 := o 7 (by omega)
   rw [init_eq]
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [runBlock, exec, isa, ea_at, State.store64,
-    State.setReg, o0, o1, o2, o3, o4, o5, o6, o7, ite_true, ite_false, Option.bind_some,
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, exec, isa, ea_at, State.store64,
+    State.setReg, o0, o1, o2, o3, o4, o5, o6, o7, ite_true, ite_false,
     Option.some.injEq, exists_eq_left']
   exact init_post iv hret _ fun r hr => by simp [hr]
 
@@ -74,13 +75,16 @@ def initSat : State where
   rd := []
   wr := [⟨0x1000, 192⟩]
 
+/-- The hint for `init 0`, which is also one for `init iv`. -/
+abbrev initHint : VG.Taint.Hint taint.T := VG.Taint.hintOf taint (Taint.ofRegs [.rdi]) (init 0)
+
 /-- The taint check never looks at an immediate, so its result on `init iv`
 is its result on `init 0`, which is decided. -/
 theorem init_check (iv : HashValue) :
-    (taint.check (Taint.ofRegs [.rdi]) (init iv)).isSome = true := by
-  have h : (taint.check (Taint.ofRegs [.rdi]) (init 0)).isSome = true := by decide +kernel
-  rw [show taint.check (Taint.ofRegs [.rdi]) (init iv) = taint.check (Taint.ofRegs [.rdi]) (init 0)
-    from rfl]
+    (taint.check (Taint.ofRegs [.rdi]) (init iv) initHint).isSome = true := by
+  have h : (taint.check (Taint.ofRegs [.rdi]) (init 0) initHint).isSome = true := by decide +kernel
+  rw [show taint.check (Taint.ofRegs [.rdi]) (init iv) initHint =
+    taint.check (Taint.ofRegs [.rdi]) (init 0) initHint from rfl]
   exact h
 
 theorem init_verified (iv : HashValue) :

@@ -55,8 +55,9 @@ theorem init_correct {s₀ : State} (hp : Spec.Sha256.initX86_64.pre s₀) :
   have o6 := o 6 (by omega); have o7 := o 7 (by omega)
   rw [init_eq]
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [runBlock, exec, readSrc32, isa, ea_at, State.store32,
-    State.setReg32, State.setReg, o0, o1, o2, o3, o4, o5, o6, o7, ite_true, ite_false, Option.bind_some,
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, exec, readSrc32, isa, ea_at, State.store32,
+    State.setReg32, State.setReg, o0, o1, o2, o3, o4, o5, o6, o7, ite_true, ite_false,
     Option.map_some, Option.some.injEq, exists_eq_left']
   exact init_post hret _ fun r hr => by simp [hr]
 
@@ -76,7 +77,7 @@ theorem init_verified : Verified X86_64.target init Spec.Sha256.initX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl, ?_⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct hs
     exact ⟨t, s', he, h⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi]) ?_ (by decide +kernel)
+  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ h
     exact Taint.agree_ofRegs fun r hr => by simp at hr; subst hr; exact h
   · intro a h₁ h₂

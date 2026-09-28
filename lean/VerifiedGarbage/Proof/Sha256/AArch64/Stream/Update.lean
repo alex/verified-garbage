@@ -433,9 +433,7 @@ theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
     have hmod := length_mid s₀ hm hc
     refine repr_append_block (hI.repr m hm) (by rw [hmod, hxs]; exact hfull) ?_
     rw [hs, m₃, hmem, hst, hx1]
-    congr 1
-    apply parseBlock_congr
-    intro k hk
+    refine congrArg (compress _) (parseBlock_congr fun k hk => ?_)
     have hb := (hI.repr m hm).2
     rw [hmod] at hb
     rw [hb, show rr s₀ c + tt s₀ c = 64 from hfull] at hby
@@ -648,7 +646,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
 /-- No instruction of `update` writes the callee-saved registers it does not save. -/
 theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs update, dstOf i ≠ some r := by
   have : ((instrs update).all fun i => untouched.all fun r => dstOf i != some r) = true := by
-    decide +kernel
+    rw [← Code.allInstrs_eq]; decide +kernel
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this
@@ -714,7 +712,7 @@ theorem update_verified : Verified AArch64.target update Spec.Sha256.updateAArch
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
   · exact VG.Taint.constantTime (A := taint) [.x0, .x1, .x2, .x3, .x4] (fun _ _ _ _ hp => agree₀ hp)
-      (by decide +kernel)
+      (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂

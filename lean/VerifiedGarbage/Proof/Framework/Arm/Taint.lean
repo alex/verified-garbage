@@ -33,6 +33,8 @@ writable region.
 
 namespace VG.Arm.Taint
 
+deriving instance Lean.ToExpr for Reg
+
 structure T where
   regs : List Reg
   flags : Bool
@@ -46,7 +48,7 @@ structure T where
   argLen : Nat := 0
   /-- `(o, i)`: the stack word at `sp + o` is the base address of writable region `i`. -/
   argBases : List (Nat × Nat) := []
-  deriving DecidableEq
+  deriving DecidableEq, Lean.ToExpr
 
 def pub (τ : T) (r : Reg) : Bool := τ.regs.contains r
 

@@ -27,12 +27,13 @@ theorem qr_ok {a b c d : Reg} (hab : a ≠ b) (hac : a ≠ c) (had : a ≠ d) (h
       (∀ r, r ≠ a → r ≠ b → r ≠ c → r ≠ d → s'.gpr r = s.gpr r) ∧
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [qr, runBlock, exec_add, exec_logic,
+  simp (config := {decide := true}) only [qr, runBlock_cons, runStep_some,
+    runBlock_nil, exec_add, exec_logic,
     exec_ror_w (show 16 < 32 by decide), exec_ror_w (show 20 < 32 by decide),
     exec_ror_w (show 24 < 32 by decide), exec_ror_w (show 25 < 32 by decide), isa,
     State.read, State.write, Size.bits, ha, hb, hc, hd, hab, hac, had, hbc, hbd, hcd, hab.symm,
     hac.symm, had.symm, hbc.symm, hbd.symm, hcd.symm, ite_true, ite_false,
-    BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq, Option.bind_some, Option.some.injEq,
+    BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq, Option.some.injEq,
     exists_eq_left']
   and_intros
   all_goals first

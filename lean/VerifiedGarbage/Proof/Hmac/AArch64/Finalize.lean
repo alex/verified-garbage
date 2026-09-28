@@ -63,11 +63,21 @@ theorem fin_exec : ∀ s, Spec.Sha256.finalizeAArch64.pre s → ∃ t s',
     Proof.Sha256.AArch64.Stream.Finalize.correct (Proof.Sha256.AArch64.Stream.Finalize.pre_of hs)
   exact ⟨t, s', he, h₁, h₂⟩
 
-theorem x16_ok : ∀ i ∈ VG.AArch64.instrs Impl.Sha256.AArch64.Stream.finalize,
-    VG.AArch64.dstOf i ≠ some .x16 := by decide +kernel
+theorem x16_ok : ∀ i ∈ instrs Impl.Sha256.AArch64.Stream.finalize,
+    VG.AArch64.dstOf i ≠ some .x16 := by
+  have : (Impl.Sha256.AArch64.Stream.finalize.allInstrs fun i => VG.AArch64.dstOf i != some .x16) =
+      true := by decide +kernel
+  rw [Code.allInstrs_eq] at this
+  intro i hi
+  simpa using List.all_eq_true.mp this i hi
 
-theorem x17_ok : ∀ i ∈ VG.AArch64.instrs Impl.Sha256.AArch64.Stream.finalize,
-    VG.AArch64.dstOf i ≠ some .x17 := by decide +kernel
+theorem x17_ok : ∀ i ∈ instrs Impl.Sha256.AArch64.Stream.finalize,
+    VG.AArch64.dstOf i ≠ some .x17 := by
+  have : (Impl.Sha256.AArch64.Stream.finalize.allInstrs fun i => VG.AArch64.dstOf i != some .x17) =
+      true := by decide +kernel
+  rw [Code.allInstrs_eq] at this
+  intro i hi
+  simpa using List.all_eq_true.mp this i hi
 
 theorem sub176 (s₀ : State) : Region.Sub ⟨scr s₀ + 176, 32⟩ (scR s₀) :=
   sub_offset (off := 176) (by omega) (by omega)
@@ -331,7 +341,7 @@ theorem finalize_verified : Verified AArch64.target finalize Spec.Hmac.finalizeS
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
   · exact VG.Taint.constantTime (A := taint) [.x0, .x1, .x2, .x3] (fun _ _ _ _ hp => agree₀ hp)
-      (by decide +kernel)
+      (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
