@@ -5,7 +5,9 @@
 //! for the target architecture (contract `VG.Spec.ChaCha20.blockContract`);
 //! this module builds the state
 //! (RFC 8439 §2.3), XORs the keystream into the data (§2.4) and advances the
-//! block counter.
+//! block counter. On x86-64, whole blocks of data are XORed with the verified
+//! `vg_chacha20_xor` (contract `VG.Spec.ChaCha20.xorContract`), which calls
+//! the block function.
 //!
 //! The 16-byte nonce is the initial block counter (4 bytes, little-endian)
 //! followed by the 12-byte RFC 8439 nonce, i.e. state words 12–15. As in
@@ -21,7 +23,7 @@ use crate::asm::arm::chacha20::vg_chacha20_block;
 #[cfg(target_arch = "x86")]
 use crate::asm::x86::chacha20::vg_chacha20_block;
 #[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::chacha20::vg_chacha20_block;
+use crate::asm::x86_64::chacha20::{vg_chacha20_block, vg_chacha20_xor};
 
 /// The constants `"expand 32-byte k"` (RFC 8439 §2.3).
 const CONSTANTS: [u32; 4] = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
@@ -83,19 +85,58 @@ impl ChaCha20 {
     /// XORs the next `data.len()` bytes of the keystream into `data`
     /// (encrypting or decrypting it).
     pub fn apply_keystream(&mut self, data: &mut [u8]) {
+        let (head, rest) = data.split_at_mut((64 - self.used).min(data.len()));
+        self.xor_bytes(head);
+        #[cfg(target_arch = "x86_64")]
+        let rest = self.xor_blocks(rest);
+        self.xor_bytes(rest);
+    }
+
+    /// Advances the 64-bit block counter in words 12 and 13 by `n`.
+    fn advance(&mut self, n: u64) {
+        let counter = (u64::from(self.state[13]) << 32 | u64::from(self.state[12])).wrapping_add(n);
+        self.state[12] = counter as u32;
+        self.state[13] = (counter >> 32) as u32;
+    }
+
+    /// XORs the keystream into `data` a byte at a time, from the buffered
+    /// block and then from new ones.
+    fn xor_bytes(&mut self, data: &mut [u8]) {
         for byte in data {
             if self.used == 64 {
                 self.keystream = block(&self.state);
                 self.used = 0;
-                // Advance the 64-bit block counter in words 12 and 13.
-                let counter =
-                    (u64::from(self.state[13]) << 32 | u64::from(self.state[12])).wrapping_add(1);
-                self.state[12] = counter as u32;
-                self.state[13] = (counter >> 32) as u32;
+                self.advance(1);
             }
             *byte ^= self.keystream[self.used];
             self.used += 1;
         }
+    }
+
+    /// XORs the keystream into the whole blocks at the start of `data`, from
+    /// the current counter (no block may be buffered), and returns the rest.
+    #[cfg(target_arch = "x86_64")]
+    fn xor_blocks<'a>(&mut self, data: &'a mut [u8]) -> &'a mut [u8] {
+        let (mut blocks, rest) = data.split_at_mut(data.len() / 64 * 64);
+        while !blocks.is_empty() {
+            // `vg_chacha20_xor`'s counter is word 12 alone: stop where it
+            // wraps, so that the carry into word 13 is ours.
+            let before_wrap = (1 << 32) - u64::from(self.state[12]);
+            let n = ((blocks.len() / 64) as u64).min(before_wrap);
+            let (now, later) = blocks.split_at_mut(64 * n as usize);
+            let mut state = self.state;
+            let mut buf = [0u32; 80];
+            // SAFETY: `state` is valid for reads and writes of 64 bytes,
+            // `now` for reads and writes of `now.len()` bytes and `buf` for
+            // reads and writes of 320 bytes; they are distinct objects, so
+            // they do not overlap each other, the return address or the
+            // stack below it, and do not wrap around the end of the address
+            // space.
+            unsafe { vg_chacha20_xor(&mut state, now.as_mut_ptr(), now.len(), &mut buf) };
+            self.advance(n);
+            blocks = later;
+        }
+        rest
     }
 }
 

@@ -2,6 +2,7 @@ import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Impl.ChaCha20.X86
 import VerifiedGarbage.Impl.ChaCha20.X86_64
+import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
 import VerifiedGarbage.Impl.Hmac.X86
 import VerifiedGarbage.Impl.Hmac.X86_64
 import VerifiedGarbage.Impl.Md5.X86_64
@@ -126,6 +127,10 @@ theorem hmac_x86_64_finalize :
 
 theorem chacha20_x86_64_block :
     Impl.ChaCha20.X86_64.block.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem chacha20_x86_64_xor :
+    Impl.ChaCha20.X86_64.Xor.xor.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem sha256_x86_compress :
