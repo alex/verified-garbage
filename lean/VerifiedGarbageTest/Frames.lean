@@ -2,6 +2,7 @@ import VerifiedGarbage.TCB.AArch64.Isa
 import VerifiedGarbage.TCB.Arm.Isa
 import VerifiedGarbage.TCB.X86.Isa
 import VerifiedGarbage.TCB.X86_64.Target
+import VerifiedGarbage.TCB.PPC64LE.Isa
 
 /-!
 # Golden tests for the push and pop of frames
@@ -134,5 +135,33 @@ def x64Entry : Option X86_64.State := x64Push.bind X86_64.call
     fun (r, w) => (r.base, r.len, w)) == some [(0xff0, 16, false)]
 #guard (x64Entry.map fun s => decide (InRegions (s.rd ++ s.wr) (X86_64.stackArgAddr s 0) 16)) ==
   some true
+
+/-! ## PPC64LE -/
+
+def ppc : PPC64LE.State :=
+  { gpr := fun r => if r = .r0 then 0x1122334455667788 else 0, lr := 0, sp := 0x1000,
+    mem := fun _ => 0, rd := [], wr := [⟨0x8000, 8⟩] }
+
+def ppcPush : Option PPC64LE.State := PPC64LE.push (.push .r0) ppc
+
+-- `stdu r1, -48(r1)` stores the back chain (the old `sp`) at the new `sp`; `std r0, 32(r1)`
+-- stores `r0` above the 32-byte header, and the 16 bytes there become a writable region at
+-- the head of `wr`.
+#guard (ppcPush.map fun s => (s.sp, s.mem.read 0xfd0 8, s.mem.read 0xff0 8, s.mem.read 0xfd8 24,
+    s.wr.map (·.base), s.wr.map (·.len))) ==
+  some (0xfd0, 0x1000, 0x1122334455667788, 0, [0xff0, 0x8000], [16, 8])
+
+-- The pop loads its register from the frame, moves `sp` back and removes the region.
+#guard (ppcPush.bind fun s₁ => (PPC64LE.pop (.pop .r9) s₁ s₁).map fun s =>
+    (s.sp, s.gpr .r9, s.wr.map (·.base))) == some (0x1000, 0x1122334455667788, [0x8000])
+
+-- It faults if the stack pointer or the regions are not those the push left.
+#guard (ppcPush.bind fun s₁ => PPC64LE.pop (.pop .r9) s₁ { s₁ with sp := s₁.sp + 16 }).isNone
+#guard (ppcPush.bind fun s₁ => PPC64LE.pop (.pop .r9) s₁ { s₁ with wr := s₁.wr.tail }).isNone
+#guard (PPC64LE.pop (.pop .r9) ppc ppc).isNone
+-- The push faults if the frame would wrap around the address space.
+#guard (PPC64LE.push (.push .r0) { ppc with sp := 32 }).isNone
+-- Neither is an instruction of a block.
+#guard (PPC64LE.exec (.push .r0) ppc).isNone && (PPC64LE.exec (.pop .r0) ppc).isNone
 
 end VG.Test.Frames
