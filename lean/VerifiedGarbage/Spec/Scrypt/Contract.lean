@@ -18,6 +18,12 @@ calls and frames use (see `Sig.contract`), which depends on the target.
 The rest of scrypt (the two PBKDF2-HMAC-SHA-256 steps, and the loop over the
 `p` blocks) is composed from the verified functions by the caller.
 
+The working space is sized for the tightest target, x86-64, whose model has
+no stack frames: each function keeps its callee's working space at the start
+of its own and saves its caller's registers after it (Salsa20/8: 64 bytes;
+scryptBlockMix: Salsa20/8's, then 64 bytes; scryptROMix: scryptBlockMix's,
+64 bytes, then `T = X xor V[j]`).
+
 scryptROMix reads the blocks `V[j]` at indices `j` computed from the
 password (§5), so its memory accesses depend on them: its contract declares
 that it leaks them (`Scrypt.roMixIndices`, through `Sig.contract`'s `leak`),
@@ -42,12 +48,12 @@ def salsaContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (writeArgs := true)
     (stack := stack)
 
-/-- `vg_scrypt_blockmix(b: *const [u8; 128], r: usize, y: *mut [u8; 128], ry: usize, scratch: *mut [u32; 16])`.
+/-- `vg_scrypt_blockmix(b: *const [u8; 128], r: usize, y: *mut [u8; 128], ry: usize, scratch: *mut [u32; 32])`.
 `b` and `y` are the input and the output, of `r` and `ry` 128-byte chunks;
 `scratch` is working space. -/
 def blockMixSig : Sig where
   params := [("b", .slice false (.array .u8 128) "r"), ("y", .slice true (.array .u8 128) "ry"),
-    ("scratch", .array true .u32 16)]
+    ("scratch", .array true .u32 32)]
 
 /-- If `ry = r` and `r` is positive: writes scryptBlockMix with block size
 parameter `r` of the `128 * r` bytes at `b` to the `128 * r` bytes at `y`.
@@ -62,21 +68,21 @@ def blockMixContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
 
 /-- `vg_scrypt_romix(b: *mut [u8; 128], r: usize, v: *mut [u8; 128], vlen: usize, scratch: *mut [u8; 128], slen: usize)`.
 `b` holds `B`, of `r` 128-byte chunks; `v`, of `vlen = N * r` chunks, is
-where step 2 writes `V[0], …, V[N - 1]`; `scratch`, of `r + 1` chunks, is
+where step 2 writes `V[0], …, V[N - 1]`; `scratch`, of `r + 2` chunks, is
 working space. -/
 def roMixSig : Sig where
   params := [("b", .slice true (.array .u8 128) "r"), ("v", .slice true (.array .u8 128) "vlen"),
     ("scratch", .slice true (.array .u8 128) "slen")]
 
 /-- If `r` is positive, `vlen = N * r` for a power of two `N`, and
-`slen = r + 1`: replaces the `128 * r` bytes at `b` by their scryptROMix
+`slen = r + 2`: replaces the `128 * r` bytes at `b` by their scryptROMix
 with block size parameter `r` and cost parameter `N`. The data is secret,
 but the indices `j` of step 3 (`roMixIndices`) may leak. -/
 def roMixContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   roMixSig.contract A
     (pre := fun _b r _v vlen _scratch slen _m =>
       0 < r.toNat ∧ vlen.toNat % r.toNat = 0 ∧ (vlen.toNat / r.toNat).isPowerOfTwo ∧
-        slen.toNat = r.toNat + 1)
+        slen.toNat = r.toNat + 2)
     (post := fun b r _v vlen _scratch _slen m m' _ =>
       bytesAt m' b (128 * r.toNat) =
         roMix r.toNat (vlen.toNat / r.toNat) (bytesAt m b (128 * r.toNat)))
