@@ -4,7 +4,7 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # SHA-256: the AArch64 contract
 
-**Trusted** (as every file in `Spec/`). The contracts of the AArch64
+**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the AArch64
 implementations of the compression function and the streaming interface, in
 terms of `Spec/Sha256.lean`.
 
@@ -13,11 +13,13 @@ calling convention requires to be preserved (`VG.AArch64.abiPreserved`), not
 on the stack, so unlike on x86-64 no region needs to be kept disjoint from it.
 -/
 
-namespace VG.Spec.Sha256
+namespace VG.Proof.Sha256
+
+open Spec.Sha256
 
 open AArch64 in
 /-- AArch64 contract for
-`vg_sha256_compress(state: *mut [u32; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 14])`:
+`vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14])`:
 updates the hash value at `state` with the `n` 64-byte blocks at `blocks`.
 
 The code may read `blocks` (`64 * n` bytes) and read and write `state`
@@ -92,9 +94,9 @@ def finalizeAArch64 : Contract AArch64.isa where
     s.rd = [] ∧ s.wr = [state, out, scratch] ∧
     state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch
   post s s' := ∀ m, Repr s.mem (s.gpr .x0) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
-    bytesAt s'.mem (s.gpr .x2) 32 = hash m
+    bytesAt s'.mem (s.gpr .x2) 32 = Spec.Sha256.hash m
   pub s₁ s₂ :=
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
     s₁.gpr .x3 = s₂.gpr .x3
 
-end VG.Spec.Sha256
+end VG.Proof.Sha256

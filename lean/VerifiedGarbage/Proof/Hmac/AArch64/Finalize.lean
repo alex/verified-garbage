@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Hmac.AArch64.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Finalize
-import VerifiedGarbage.Spec.Hmac.AArch64
+import VerifiedGarbage.Proof.Hmac.AArch64.Contract
 
 /-!
 # HMAC-SHA-256 on AArch64: `finalize`
@@ -49,15 +49,15 @@ structure Pre (s₀ : State) : Prop where
   i_s : (inR s₀).Disjoint (scR s₀)
   o_s : (outR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Spec.Hmac.finalizeSha256AArch64.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Hmac.finalizeSha256AArch64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
   exact ⟨h1, h2, h3, h4, h5⟩
 
 /-! ## The inlined finalization -/
 
-theorem fin_exec : ∀ s, Spec.Sha256.finalizeAArch64.pre s → ∃ t s',
+theorem fin_exec : ∀ s, Proof.Sha256.finalizeAArch64.pre s → ∃ t s',
     Exec isa Impl.Sha256.AArch64.Stream.finalize s t s' ∧ abiPreserved s s' ∧
-      Spec.Sha256.finalizeAArch64.post s s' := by
+      Proof.Sha256.finalizeAArch64.post s s' := by
   intro s hs
   obtain ⟨t, s', he, h₁, h₂⟩ :=
     Proof.Sha256.AArch64.Stream.Finalize.correct (Proof.Sha256.AArch64.Stream.Finalize.pre_of hs)
@@ -94,7 +94,7 @@ theorem fin_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd)
       (∀ m, Repr s.mem (inn s₀) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
         bytesAt s'.mem (scr s₀ + 176) 32 = Spec.Sha256.hash m) → Q s') :
     WP isa Impl.Sha256.AArch64.Stream.finalize s Q := by
-  refine WP.inline (k := Spec.Sha256.finalizeAArch64) fin_exec (rd := []) (wr := finW s₀) ?_ ?_ ?_ ?_
+  refine WP.inline (k := Proof.Sha256.finalizeAArch64) fin_exec (rd := []) (wr := finW s₀) ?_ ?_ ?_ ?_
   · refine ⟨rfl, by simp [h0, h3, h2], ?_, ?_, ?_⟩ <;>
       simp only [State.withRegions_gpr, h0, h3, h2]
     · exact hp.i_s.sub_right (sub176 s₀)
@@ -117,7 +117,7 @@ theorem fin_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd)
     · exact ⟨scR s₀, by simp, 176, rfl, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
   · intro s' h₁ h₂ h₃ h₄ hg hpost
-    simp only [Spec.Sha256.finalizeAArch64, State.withRegions_gpr, State.withRegions_mem, h0, h2]
+    simp only [Proof.Sha256.finalizeAArch64, State.withRegions_gpr, State.withRegions_mem, h0, h2]
       at hpost
     exact hQ s' h₁ h₂ h₃ h₄ (hg _ x16_ok) (hg _ x17_ok) hpost
 
@@ -282,7 +282,7 @@ theorem not_finW {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 32) :
 
 set_option maxHeartbeats 1000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Hmac.finalizeSha256AArch64.post s₀ s' := by
+    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256AArch64.post s₀ s' := by
   unfold finalize
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
   refine WP.seq (fin_ok hp h₁.rd h₁.wr h₁.x0 h₁.x3 h₁.x2
@@ -319,7 +319,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-! ## `Verified` -/
 
 /-- The initial taint: only the arguments are public. -/
-theorem agree₀ {s₁ s₂ : State} (hpub : Spec.Hmac.finalizeSha256AArch64.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Hmac.finalizeSha256AArch64.pub s₁ s₂) :
     VG.AArch64.Taint.Agree (VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3]) s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4⟩ := hpub
   intro r hr
@@ -336,7 +336,7 @@ def sat : State where
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 240⟩]
 
 set_option maxHeartbeats 0 in
-theorem finalize_verified : Verified AArch64.target finalize Spec.Hmac.finalizeSha256AArch64 := by
+theorem finalize_verified : Verified AArch64.target finalize Proof.Hmac.finalizeSha256AArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

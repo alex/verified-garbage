@@ -9,10 +9,20 @@
 //! one must be rejected, and for an `acceptable` one either outcome is fine
 //! (but a result, if produced, must be the expected one).
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 mod chacha20;
 mod harness;
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 mod hmac;
 
 use harness::Fields;

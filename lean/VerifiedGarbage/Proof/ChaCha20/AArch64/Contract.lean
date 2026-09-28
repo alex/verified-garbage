@@ -4,12 +4,14 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # ChaCha20: the AArch64 contract of the block function
 
-**Trusted** (as every file in `Spec/`). The contract of the assembly
+**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contract of the assembly
 primitive `vg_chacha20_block` on AArch64, in terms of the specification in
 `Spec/ChaCha20.lean`.
 -/
 
-namespace VG.Spec.ChaCha20
+namespace VG.Proof.ChaCha20
+
+open Spec.ChaCha20
 
 open AArch64 in
 /-- AArch64 contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64])`:
@@ -28,4 +30,4 @@ def blockAArch64 : Contract AArch64.isa where
   post s s' := stateAt s'.mem (s.gpr .x1) = block (stateAt s.mem (s.gpr .x0))
   pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1
 
-end VG.Spec.ChaCha20
+end VG.Proof.ChaCha20

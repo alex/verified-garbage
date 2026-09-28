@@ -52,7 +52,7 @@ structure Pre (s₀ : State) : Prop where
   ret_st : (retR s₀).Disjoint (stR s₀)
   ret_scr : (retR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Spec.Sha256.updateX86_64.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha256.updateX86_64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7⟩
 
@@ -162,7 +162,7 @@ set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Spec.Sha256.updateX86_64.post s₀ s' := by
+      abiPreserved s₀ s' ∧ Proof.Sha256.updateX86_64.post s₀ s' := by
   have i : ∀ d : Nat, d + 8 ≤ 160 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
     fun d hd => ⟨scR s₀, by simp [hI.rd, hI.wr, hp.wr], contains_offset' hd (by omega)⟩
   have i0 := i 112 (by omega); have i1 := i 120 (by omega); have i2 := i 128 (by omega)
@@ -731,7 +731,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   exact WP.mono (direct_ok hp hI₂ hb hb') fun s' h => .inl ⟨c + 64, by omega, h⟩
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.updateX86_64.post s₀ s' := by
+    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateX86_64.post s₀ s' := by
   unfold update
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI => ?_)
   refine WP.seq (WP.mono (Q := Inv s₀ (len s₀)) ?_ fun s₂ hI₂ => epilogue_ok hp hI₂)
@@ -748,11 +748,11 @@ def τ₀ : X86_64.Taint.T :=
   { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .r8], flags := false, lens := [96, 160],
     bases := [(.rdi, 0), (.r8, 1)] }
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.updateX86_64.pre s₁)
-    (h₂ : Spec.Sha256.updateX86_64.pre s₂) (hpub : Spec.Sha256.updateX86_64.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.updateX86_64.pre s₁)
+    (h₂ : Proof.Sha256.updateX86_64.pre s₂) (hpub : Proof.Sha256.updateX86_64.pub s₁ s₂) :
     X86_64.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
-  have wf : ∀ s, Spec.Sha256.updateX86_64.pre s → X86_64.Taint.Wf τ₀ s := by
+  have wf : ∀ s, Proof.Sha256.updateX86_64.pre s → X86_64.Taint.Wf τ₀ s := by
     intro s hs
     obtain ⟨-, hw, hd, -⟩ := hs
     refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, hd], by simp [hw]⟩, fun p hp => ?_⟩
@@ -777,7 +777,7 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 160⟩]
 
-theorem update_verified : Verified X86_64.target update Spec.Sha256.updateX86_64 := by
+theorem update_verified : Verified X86_64.target update Proof.Sha256.updateX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

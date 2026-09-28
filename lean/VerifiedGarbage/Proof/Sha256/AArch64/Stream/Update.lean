@@ -49,7 +49,7 @@ structure Pre (s₀ : State) : Prop where
   d_st : (dR s₀).Disjoint (stR s₀)
   d_scr : (dR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Spec.Sha256.updateAArch64.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha256.updateAArch64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
   exact ⟨h1, h2, h3, h4, h5⟩
 
@@ -633,7 +633,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
 
 /-- The epilogue's postcondition. -/
 def Post (s₀ s' : State) : Prop :=
-  (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧ s'.sp = s₀.sp ∧ Spec.Sha256.updateAArch64.post s₀ s'
+  (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧ s'.sp = s₀.sp ∧ Proof.Sha256.updateAArch64.post s₀ s'
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block restore) s (Post s₀) := by
@@ -652,7 +652,7 @@ theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs update, dstOf i ≠
   simpa using this
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.updateAArch64.post s₀ s' := by
+    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateAArch64.post s₀ s' := by
   have hlen := len_lt s₀
   refine WP.mono (WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
@@ -690,7 +690,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     · exact hsv (.x24, 152) (by simp [saved])
     all_goals exact hu _ (by simp [untouched])
 
-theorem agree₀ {s₁ s₂ : State} (hpub : Spec.Sha256.updateAArch64.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Sha256.updateAArch64.pub s₁ s₂) :
     VG.AArch64.Taint.Agree (VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
   intro r hr
@@ -707,7 +707,7 @@ def sat : State where
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 160⟩]
 
 set_option maxHeartbeats 0 in
-theorem update_verified : Verified AArch64.target update Spec.Sha256.updateAArch64 := by
+theorem update_verified : Verified AArch64.target update Proof.Sha256.updateAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

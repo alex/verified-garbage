@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.AArch64.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Init
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Init
-import VerifiedGarbage.Spec.Hmac.AArch64
+import VerifiedGarbage.Proof.Hmac.AArch64.Contract
 
 /-!
 # HMAC-SHA-256 on AArch64: `init`
@@ -60,7 +60,7 @@ structure Pre (s₀ : State) : Prop where
   k_o : (kR s₀).Disjoint (outR s₀)
   k_s : (kR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Spec.Hmac.initSha256AArch64.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Hmac.initSha256AArch64.pre s₀) : Pre s₀ := by
   obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
   exact ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8⟩
 
@@ -567,7 +567,7 @@ theorem state_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Ad
 
 /-- The epilogue's postcondition. -/
 def Post (s₀ s' : State) : Prop :=
-  (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧ s'.sp = s₀.sp ∧ Spec.Hmac.initSha256AArch64.post s₀ s'
+  (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧ s'.sp = s₀.sp ∧ Proof.Hmac.initSha256AArch64.post s₀ s'
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
     (h20 : s.gpr .x20 = scr s₀) (hsp : s.sp = s₀.sp) (hsv : Saved s₀ s.mem)
@@ -576,7 +576,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s�
   refine restore_ok (scr := scr s₀) h20
     (fun d hd₁ hd₂ => ⟨scR s₀, by simp [hrd, hwr, hp.wr], contains_offset hd₂ (by omega)⟩) s₀.gpr
     hsv fun s' hs _ hmem _ _ hsp' => ⟨hs, by rw [hsp', hsp], ?_⟩
-  simp only [Spec.Hmac.initSha256AArch64]
+  simp only [Proof.Hmac.initSha256AArch64]
   rw [blockKey_eq hp, hmem]
   exact ⟨hI, hO⟩
 
@@ -597,7 +597,7 @@ theorem buf_full {s₀ : State} (hp : Pre s₀) {m : Mem} (h : BufMem s₀ 64 m)
 
 set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Hmac.initSha256AArch64.post s₀ s' := by
+    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256AArch64.post s₀ s' := by
   have hkl := hp.kl_le
   refine WP.mono (Proof.Sha256.AArch64.Stream.WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
@@ -691,7 +691,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-! ## `Verified` -/
 
 /-- The initial taint: only the arguments are public. -/
-theorem agree₀ {s₁ s₂ : State} (hpub : Spec.Hmac.initSha256AArch64.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Hmac.initSha256AArch64.pub s₁ s₂) :
     VG.AArch64.Taint.Agree (VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
   intro r hr
@@ -708,7 +708,7 @@ def sat : State where
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
 set_option maxHeartbeats 0 in
-theorem init_verified : Verified AArch64.target init Spec.Hmac.initSha256AArch64 := by
+theorem init_verified : Verified AArch64.target init Proof.Hmac.initSha256AArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

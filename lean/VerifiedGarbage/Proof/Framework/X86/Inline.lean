@@ -286,4 +286,24 @@ theorem WP.inline {c : Prog isa} {k : Contract isa}
     rw [State.withRegions_withRegions, ← hr, ← hwr]; rfl
   rw [this]; exact hpost
 
+/-- Running code proven on narrower permissions: if, from `s` with its
+permissions narrowed to `rd` and `wr`, the code terminates in a state
+satisfying `P`, then from `s` it terminates in a state that has the
+permissions of `s`, differs from it in memory only within `wr`, and, narrowed
+likewise, satisfies `P`. -/
+theorem WP.narrow {c : Prog isa} {s : State} {rd wr : List Region} {P : State → Prop}
+    (h : WP isa c (s.withRegions rd wr) P)
+    (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → Frame wr s.mem s'.mem → P (s'.withRegions rd wr) → Q s') :
+    WP isa c s Q := by
+  obtain ⟨t, s₁, he, hp⟩ := h
+  obtain ⟨hr, hwr, hf⟩ := Exec.regions he
+  simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_mem] at hr hwr hf
+  have he' := Exec.widen he (rd := s.rd) (wr := s.wr) (by simpa using hc) (by simpa using hw)
+  simp only [State.withRegions_withRegions, State.withRegions_self] at he'
+  refine ⟨t, _, he', hQ _ rfl rfl hf ?_⟩
+  have : (s₁.withRegions s.rd s.wr).withRegions rd wr = s₁ := by
+    rw [State.withRegions_withRegions, ← hr, ← hwr]; rfl
+  rw [this]; exact hp
+
 end VG.X86

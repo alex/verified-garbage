@@ -37,8 +37,23 @@ jobs:
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
       - name: Fetch the Mathlib build cache
         run: lake exe cache get
+      - name: Restore this project's build
+        id: lean-build
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: lean/.lake/build
+          key: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ hashFiles('lean/lakefile.toml', 'lean/*.lean', 'lean/VerifiedGarbage/**', 'lean/VerifiedGarbageTest/**') }}
+          restore-keys: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
       - name: Check every proof (and the axiom audit)
         run: lake build
+      # Merge queue runs each get their own branch, whose caches no other run
+      # can restore.
+      - name: Save this project's build
+        if: ${{ steps.lean-build.outputs.cache-hit != 'true' && github.event_name != 'merge_group' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: lean/.lake/build
+          key: ${{ steps.lean-build.outputs.cache-primary-key }}
       - name: Check the generated Rust is up to date
         run: lake env lean --run Emit.lean --check
 

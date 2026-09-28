@@ -30,7 +30,7 @@ theorem init_post {s₀ : State} (iv : HashValue)
     (hret : Region.Disjoint ⟨s₀.gpr .rsp, 8⟩ ⟨s₀.gpr .rdi, 192⟩) (g : Reg → BitVec 64)
     (hg : ∀ r, r ≠ .rax → g r = s₀.gpr r) :
     abiPreserved s₀ { s₀ with gpr := g, mem := writeState s₀.mem (s₀.gpr .rdi) iv } ∧
-      (Spec.Sha512.initX86_64 iv).post s₀
+      (Proof.Sha512.initX86_64 iv).post s₀
         { s₀ with gpr := g, mem := writeState s₀.mem (s₀.gpr .rdi) iv } := by
   have hf : Frame [⟨s₀.gpr .rdi, 192⟩] s₀.mem (writeState s₀.mem (s₀.gpr .rdi) iv) := by
     have c : ∀ k, k < 8 → (⟨s₀.gpr .rdi, 192⟩ : Region).Contains
@@ -47,8 +47,8 @@ theorem init_post {s₀ : State} (iv : HashValue)
 
 set_option maxHeartbeats 0 in
 set_option simprocs false in
-theorem init_correct {s₀ : State} (iv : HashValue) (hp : (Spec.Sha512.initX86_64 iv).pre s₀) :
-    WP isa (init iv) s₀ fun s' => abiPreserved s₀ s' ∧ (Spec.Sha512.initX86_64 iv).post s₀ s' := by
+theorem init_correct {s₀ : State} (iv : HashValue) (hp : (Proof.Sha512.initX86_64 iv).pre s₀) :
+    WP isa (init iv) s₀ fun s' => abiPreserved s₀ s' ∧ (Proof.Sha512.initX86_64 iv).post s₀ s' := by
   obtain ⟨hrd, hwr, hret⟩ := hp
   have o : ∀ k, k < 8 → InRegions s₀.wr (s₀.gpr .rdi + BitVec.ofInt 64 ((8 * k : Nat) : Int)) 8 :=
     fun k hk => ⟨⟨s₀.gpr .rdi, 192⟩, by simp [hwr], contains_offset' (by omega) (by omega)⟩
@@ -88,7 +88,7 @@ theorem init_check (iv : HashValue) :
   exact h
 
 theorem init_verified (iv : HashValue) :
-    Verified X86_64.target (init iv) (Spec.Sha512.initX86_64 iv) := by
+    Verified X86_64.target (init iv) (Proof.Sha512.initX86_64 iv) := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl, ?_⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct iv hs
     exact ⟨t, s', he, h⟩

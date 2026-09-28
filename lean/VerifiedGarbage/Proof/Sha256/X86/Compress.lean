@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.X86.Rounds
-import VerifiedGarbage.Spec.Sha256.X86
+import VerifiedGarbage.Proof.Sha256.X86.Contract
 
 /-!
 # SHA-256 compression function on x86 (32-bit): the whole function
@@ -53,7 +53,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fits : (scr s₀).toNat + 112 ≤ 2 ^ 32
   esp_fits : (esp₀ s₀).toNat + 20 ≤ 2 ^ 32
 
-theorem pre_of (s₀ : State) (h : Spec.Sha256.compressX86.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.Sha256.compressX86.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13⟩
 
@@ -701,7 +701,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 
 /-! ## The whole function -/
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.compressX86.post s₀ s' := by
+    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.compressX86.post s₀ s' := by
   refine WP.seq (WP.mono (save_ok hp) fun s₁ ⟨hesi, hedi, hebp, hesp, hrd, hwr, hm, hz⟩ => ?_)
   refine WP.seq (WP.mono (Q := Common s₀ (nb s₀)) ?_ fun s₂ hc =>
     WP.mono (restore_ok hp hc) fun s' ⟨hr, hm'⟩ => ⟨⟨hr, ?_⟩, ?_⟩)
@@ -749,13 +749,13 @@ def satState : State where
   rd := [⟨0x2000, 0⟩, ⟨0x4004, 16⟩]
   wr := [⟨0x1000, 32⟩, ⟨0x3000, 112⟩]
 
-theorem sat_pre : Spec.Sha256.compressX86.pre satState := by
+theorem sat_pre : Proof.Sha256.compressX86.pre satState := by
   have a0 : arg satState 0 = 0x1000 := by decide
   have a1 : arg satState 1 = 0x2000 := by decide
   have a2 : arg satState 2 = 0 := by decide
   have a3 : arg satState 3 = 0x3000 := by decide
   have e : argAddr satState 0 = 0x4004 := by decide
-  simp only [Spec.Sha256.compressX86, a0, a1, a2, a3, e]
+  simp only [Proof.Sha256.compressX86, a0, a1, a2, a3, e]
   refine ⟨by decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
   · intro a h₁ h₂
     simp only [Region.Contains, satState] at h₁ h₂
@@ -783,8 +783,8 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
     rcases hp' with rfl | rfl <;> refine ⟨by decide, ?_⟩ <;>
       simp [VG.X86.Taint.region, hp.wr, addr, arg, argAddr]
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.compressX86.pre s₁)
-    (h₂ : Spec.Sha256.compressX86.pre s₂) (hpub : Spec.Sha256.compressX86.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.compressX86.pre s₁)
+    (h₂ : Proof.Sha256.compressX86.pre s₂) (hpub : Proof.Sha256.compressX86.pub s₁ s₂) :
     VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, a0, a1, a2, a3⟩ := hpub
   have hp₁ := pre_of _ h₁; have hp₂ := pre_of _ h₂
@@ -805,7 +805,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.compressX86.pre s₁)
     · exact congrArg _ a3
 
 theorem compress_verified :
-    Verified X86.target Impl.Sha256.X86.compress Spec.Sha256.compressX86 :=
+    Verified X86.target Impl.Sha256.X86.compress Proof.Sha256.compressX86 :=
   ⟨fun s hs => correct (pre_of s hs),
     VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hpub => agree₀ h₁ h₂ hpub) (by taint_decide),
     ⟨satState, sat_pre⟩⟩

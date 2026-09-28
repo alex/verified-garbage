@@ -4,16 +4,18 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # SHA-256: the x86-64 contract
 
-**Trusted** (as every file in `Spec/`). The contracts of the x86-64
+**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the x86-64
 implementations of the compression function and the streaming interface, in
 terms of `Spec/Sha256.lean`.
 -/
 
-namespace VG.Spec.Sha256
+namespace VG.Proof.Sha256
+
+open Spec.Sha256
 
 open X86_64 in
 /-- x86-64 contract for
-`vg_sha256_compress(state: *mut [u32; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 14])`:
+`vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14])`:
 updates the hash value at `state` with the `n` 64-byte blocks at `blocks`.
 
 The code may read `blocks` (`64 * n` bytes) and read and write `state`
@@ -98,9 +100,9 @@ def finalizeX86_64 : Contract X86_64.isa where
     state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
     ret.Disjoint state ∧ ret.Disjoint out ∧ ret.Disjoint scratch
   post s s' := ∀ m, Repr s.mem (s.gpr .rdi) m → s.gpr .rsi = BitVec.ofNat 64 m.length →
-    bytesAt s'.mem (s.gpr .rdx) 32 = hash m
+    bytesAt s'.mem (s.gpr .rdx) 32 = Spec.Sha256.hash m
   pub s₁ s₂ :=
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
     s₁.gpr .rcx = s₂.gpr .rcx
 
-end VG.Spec.Sha256
+end VG.Proof.Sha256

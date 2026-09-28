@@ -1,4 +1,5 @@
 import VerifiedGarbage.TCB.Print
+import VerifiedGarbage.TCB.Sig
 
 /-!
 # Targets, contracts and verified artifacts
@@ -22,7 +23,7 @@ verified. Every function the Rust crate contains is an `Artifact`, and an
 
 What a reviewer must read for each artifact is therefore: the ISA model and
 ABI of its target (`TCB/<arch>/`), its contract (in `Spec/`), and its Rust
-signature and documentation (in `Artifacts.lean`). The code and the proof
+signature (`Sig`) and documentation (in `Artifacts.lean`). The code and the proof
 need not be read.
 -/
 
@@ -42,6 +43,8 @@ structure Target where
   rustCfg : String
   /-- The Rust ABI string of the generated functions (e.g. `sysv64`). -/
   rustAbi : String
+  /-- The calling convention that `rustAbi` stands for. -/
+  abi : Abi isa
 
 /-- The specification of one function. -/
 structure Contract (M : ISA) where
@@ -53,6 +56,40 @@ structure Contract (M : ISA) where
   /-- When two entry states agree on everything public (e.g. lengths and
   pointers, but not keys or plaintexts). -/
   pub : M.State → M.State → Prop
+
+/-- The contract of a function with signature `sig` under the calling
+convention `A`: the obligations the signature implies (see `TCB/Sig.lean`),
+the further precondition `pre` and the postcondition `post`, both stated on
+the arguments by name. If `writeArgs`, the function may also overwrite its
+arguments passed in memory, where the calling convention gives them to the
+callee; otherwise it may only read them. A calling convention that does not
+model the arguments (`A.args` is `none`) gives an unsatisfiable
+precondition, which `Verified` rejects. -/
+def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
+    (pre : Curry (sig.words A.ptrBits) (Mem → Prop) := Curry.const (fun _ => True) _)
+    (post : sig.Post A.ptrBits) (writeArgs : Bool := false) : Contract M :=
+  let ws := sig.words A.ptrBits
+  let widths := ws.map (·.bits A.ptrBits)
+  let pubs := sig.params.flatMap (·.2.pubs)
+  { pre s := match A.args widths with
+      | none => False
+      | some vals =>
+        let bufs := Sig.bufs sig.params (vals s)
+        let all := bufs ++ (A.argArea widths s).map fun (r, w) => (r, w && writeArgs)
+        A.wf widths s ∧
+        A.rd s = (all.filter (!·.2)).map (·.1) ∧ A.wr s = (all.filter (·.2)).map (·.1) ∧
+        all.Pairwise (fun a b => (a.2 || b.2) → a.1.Disjoint b.1) ∧
+        (∀ r ∈ A.reserved s, ∀ a ∈ all, r.Disjoint a.1) ∧
+        (∀ a ∈ bufs, a.1.base.toNat + a.1.len ≤ 2 ^ A.ptrBits) ∧
+        Curry.apply ws pre (vals s) (A.mem s)
+    post s s' := match A.args widths with
+      | none => False
+      | some vals => Curry.apply ws post (vals s) (A.mem s) (A.mem s')
+          ((A.ret s').setWidth _)
+    pub s₁ s₂ := match A.args widths with
+      | none => False
+      | some vals => A.pub s₁ s₂ ∧
+        ∀ i, pubs.getD i false = true → (vals s₁).getD i 0 = (vals s₂).getD i 0 }
 
 /-- The proof obligation for emitting `c` on target `T` with contract `k`. -/
 def Verified (T : Target) (c : Prog T.isa) (k : Contract T.isa) : Prop :=
@@ -68,10 +105,11 @@ structure Artifact where
   module : String
   /-- The Rust function name. Must be unique within the target. -/
   name : String
-  /-- The Rust parameter list and return type, e.g. `(a: u64, b: u64) -> u64`.
-  **Trusted**: it must agree with how `contract` reads the argument registers
-  and writes the return register under `target`'s calling convention. -/
-  rustSig : String
+  /-- The Rust signature, rendered as the parameter list and return type
+  (`Sig.rust`). **Trusted**: `contract` must read the arguments and write the
+  return value where `target.abi` places them for `sig`, as the contracts
+  `sig.contract target.abi …` do. -/
+  sig : Sig
   /-- Documentation for the generated Rust function. It must state every
   requirement of `contract.pre` that the caller is responsible for. -/
   doc : String

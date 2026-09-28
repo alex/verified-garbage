@@ -4,7 +4,7 @@ import VerifiedGarbage.TCB.X86.Target
 /-!
 # SHA-256: the x86 (32-bit) contract
 
-**Trusted** (as every file in `Spec/`). The contracts of the x86 (32-bit)
+**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the x86 (32-bit)
 implementations of the compression function and of streaming SHA-256
 (`init`/`update`/`finalize`, on the representation `Repr`), in terms of
 `Spec/Sha256.lean`.
@@ -18,11 +18,13 @@ without moving `esp` below the caller's frame. The return address stays
 read-only.
 -/
 
-namespace VG.Spec.Sha256
+namespace VG.Proof.Sha256
+
+open Spec.Sha256
 
 open X86 in
 /-- x86 (32-bit) contract for
-`vg_sha256_compress(state: *mut [u32; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 14])`,
+`vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14])`,
 whose arguments are on the stack (cdecl): updates the hash value at `state`
 with the `n` 64-byte blocks at `blocks`.
 
@@ -140,8 +142,8 @@ def finalizeX86 : Contract X86.isa where
     (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 3).toNat + 32 ≤ 2 ^ 32 ∧
     (arg s 4).toNat + 160 ≤ 2 ^ 32 ∧ (s.gpr .esp).toNat + 24 ≤ 2 ^ 32
   post s s' := ∀ m, Repr s.mem ((arg s 0).setWidth 64) m → countX86 s = BitVec.ofNat 64 m.length →
-    bytesAt s'.mem ((arg s 3).setWidth 64) 32 = hash m
+    bytesAt s'.mem ((arg s 3).setWidth 64) 32 = Spec.Sha256.hash m
   pub s₁ s₂ :=
     s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 5, arg s₁ i = arg s₂ i
 
-end VG.Spec.Sha256
+end VG.Proof.Sha256

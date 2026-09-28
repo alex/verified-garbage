@@ -33,6 +33,10 @@ trustworthy. Read `lean/README.md` first.
   files byte for byte into a directory under `vectors/`, with a `[[source]]`
   for that directory in `vectors/sources.toml` saying where they came from
   (`ci/check_vectors.py` checks it), and read them from there.
+* **Keep the README's algorithm table current.** Any PR that lands a spec,
+  adds or removes support for an algorithm on an architecture, or optimizes
+  an implementation must update the table in the
+  [Algorithms](README.md#algorithms) section of `README.md` in the same PR.
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
@@ -45,13 +49,17 @@ then steps 2–5 together. Any TCB additions the primitive needs (e.g. new
 instructions in an ISA model) go in their own PR before either.
 
 1. `Spec/<Alg>.lean`: the algorithm, transcribed from the standard, with no
-   target-specific imports; and `Spec/<Alg>/<Target>.lean`: its `Contract` on
-   each target. Choose `pub` honestly: only lengths and pointers are public
+   target-specific imports; and `Spec/<Alg>/Contract.lean`: for each function,
+   its Rust signature (`Sig`) and its `Contract` on every target, built with
+   `Sig.contract` from a postcondition and any precondition the signature does
+   not imply. Choose `pub` honestly: only lengths and pointers are public
    unless the algorithm says otherwise.
 2. `Impl/<Alg>/<Target>.lean`: the code.
-3. `Proof/<Alg>/…`: the proof of `Verified`.
+3. `Proof/<Alg>/…`: the proof of `Verified`. A proof may be written against a
+   simpler per-target contract of its own and moved to the shared one with
+   `Verified.of_implies` (see `Proof/Framework/Contract.lean`).
 4. An `Artifact` in `Artifacts.lean` (its `module` names the file under
-   `src/asm/<target>/`), whose `rustSig` and `doc` match the
+   `src/asm/<target>/`), whose `sig` and `doc` match the
    contract (the doc must state every caller obligation).
 5. Regenerate `src/asm/`, build the public Rust API on top of the primitive,
    and test it against the Wycheproof vectors in `tests/wycheproof/` (set

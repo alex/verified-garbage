@@ -294,12 +294,12 @@ theorem compressAt_ok {s : State} {st scr blk : BitVec 32}
     apply Proof.Sha256.Stream.parseBlock_congr
     intro k hk
     exact frame_bytes fr₃ (R := ⟨blk.setWidth 64, 64⟩) (by simpa using d₈) (by simp) hk
-  refine WP.inline (k := Spec.Sha256.compressX86) compress_verified.1
+  refine WP.inline (k := Proof.Sha256.compressX86) compress_verified.1
     (rd := [⟨blk.setWidth 64, 64 * (1 : BitVec 32).toNat⟩, ⟨addr esp 4, 16⟩])
     (wr := [⟨st.setWidth 64, 32⟩, ⟨scr.setWidth 64, 112⟩]) ?_ ?_ ?_ ?_
   · have ha : ∀ rd wr, arg (s₃.withRegions rd wr) = arg s₃ := fun _ _ => rfl
     have hb : ∀ rd wr, argAddr (s₃.withRegions rd wr) 0 = addr esp 4 := fun _ _ => e₀
-    simp only [Spec.Sha256.compressX86, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
+    simp only [Proof.Sha256.compressX86, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
       hesp₃, ha, hb, a0, a1, a2, a3]
     exact ⟨trivial, trivial, d₁, d₂, d₃, d₄, d₅, d₆, d₇, f₀, by simpa using f₁, f₃, by omega⟩
   · rw [u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]
@@ -318,7 +318,7 @@ theorem compressAt_ok {s : State} {st scr blk : BitVec 32}
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢
     rcases hr with rfl | rfl <;> simp
   · intro s' hrd hwr habi hf hg hpost
-    simp only [Spec.Sha256.compressX86, State.withRegions_mem] at hpost
+    simp only [Proof.Sha256.compressX86, State.withRegions_mem] at hpost
     have : ∀ t : State, arg (t.withRegions [⟨blk.setWidth 64, 64 * (1 : BitVec 32).toNat⟩, ⟨addr esp 4, 16⟩]
         [⟨st.setWidth 64, 32⟩, ⟨scr.setWidth 64, 112⟩]) = arg t := fun _ => rfl
     rw [this, a0, a1, a2, show (1 : BitVec 32).toNat = 1 from rfl, compressBlocks_one, hst₃, hblk₃] at hpost

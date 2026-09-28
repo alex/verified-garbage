@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.ChaCha20.Arm.Rounds
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Spec.ChaCha20.Arm
+import VerifiedGarbage.Proof.ChaCha20.Arm.Contract
 
 /-!
 # ChaCha20 block function on 32-bit ARM: the whole function
@@ -106,7 +106,7 @@ structure Pre (s₀ : State) : Prop where
   st_fits : (st s₀).toNat + 64 ≤ 2 ^ 32
   buf_fits : (buf s₀).toNat + 256 ≤ 2 ^ 32
 
-theorem pre_of (s₀ : State) (h : Spec.ChaCha20.blockArm.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.ChaCha20.blockArm.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
   exact ⟨h1, h2, h3, h4, h5⟩
 
@@ -596,7 +596,7 @@ theorem block_post {p : Addr} {m : Mem} {R v : CState}
 set_option maxHeartbeats 400000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa block s₀ fun s' =>
-      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Spec.ChaCha20.blockArm.post s₀ s' := by
+      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Proof.ChaCha20.blockArm.post s₀ s' := by
   have hw₀ := hp.hw
   refine WP.seq ?_
   rw [WP.block_append_iff, WP.block_append_iff]
@@ -661,7 +661,7 @@ def satState : State where
 
 set_option maxRecDepth 100000 in
 theorem block_verified :
-    Verified Arm.target Impl.ChaCha20.Arm.block Spec.ChaCha20.blockArm := by
+    Verified Arm.target Impl.ChaCha20.Arm.block Proof.ChaCha20.blockArm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩

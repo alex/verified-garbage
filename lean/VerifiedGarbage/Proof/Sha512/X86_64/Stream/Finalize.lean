@@ -61,7 +61,7 @@ structure Pre (s₀ : State) : Prop where
   ret_out : (retR s₀).Disjoint (outR s₀)
   ret_scr : (retR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Spec.Sha512.finalizeX86_64.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha512.finalizeX86_64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
 
@@ -655,7 +655,7 @@ set_option maxHeartbeats 1000000 in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {s : State}
     (h : Out s₀ sD 8 s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Spec.Sha512.finalizeX86_64.post s₀ s' := by
+      abiPreserved s₀ s' ∧ Proof.Sha512.finalizeX86_64.post s₀ s' := by
   have hC := hD.1
   have hfo := out_frame s₀ sD.mem (((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes)
     (by rw [flat_length _ _ le_rfl])
@@ -740,7 +740,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
 theorem out_all {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) :
     ∀ j ≤ 8, ∀ s, Out s₀ sD (8 - j) s →
       WP isa (.block (((List.range 8).drop (8 - j)).flatMap outW ++ restore)) s fun s' =>
-        abiPreserved s₀ s' ∧ Spec.Sha512.finalizeX86_64.post s₀ s' := by
+        abiPreserved s₀ s' ∧ Proof.Sha512.finalizeX86_64.post s₀ s' := by
   intro j
   induction j with
   | zero =>
@@ -765,7 +765,7 @@ theorem out_keeps : (((List.range 8).flatMap outW ++ restore).all fun i =>
 /-- `finalize` is correct, and leaves `rdi` and `rcx` as they were (which code
 inlining it relies on). -/
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha512.finalizeX86_64.post s₀ s' ∧
+    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.finalizeX86_64.post s₀ s' ∧
       s'.gpr .rdi = s₀.gpr .rdi ∧ s'.gpr .rcx = s₀.gpr .rcx := by
   unfold finalize
   rw [← WP.seq_assoc]
@@ -793,11 +793,11 @@ def τ₀ : X86_64.Taint.T :=
   { regs := .ofList [.rdi, .rsi, .rdx, .rcx], flags := false, lens := [192, 64, 224],
     bases := [(.rdi, 0), (.rdx, 1), (.rcx, 2)] }
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha512.finalizeX86_64.pre s₁)
-    (h₂ : Spec.Sha512.finalizeX86_64.pre s₂) (hpub : Spec.Sha512.finalizeX86_64.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha512.finalizeX86_64.pre s₁)
+    (h₂ : Proof.Sha512.finalizeX86_64.pre s₂) (hpub : Proof.Sha512.finalizeX86_64.pub s₁ s₂) :
     X86_64.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4⟩ := hpub
-  have wf : ∀ s, Spec.Sha512.finalizeX86_64.pre s → X86_64.Taint.Wf τ₀ s := by
+  have wf : ∀ s, Proof.Sha512.finalizeX86_64.pre s → X86_64.Taint.Wf τ₀ s := by
     intro s hs
     obtain ⟨-, hw, d1, d2, d3, -⟩ := hs
     refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, d1, d2, d3], by simp [hw]⟩, fun p hp => ?_⟩
@@ -822,7 +822,7 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 192⟩, ⟨0x2000, 64⟩, ⟨0x3000, 224⟩]
 
-theorem finalize_verified : Verified X86_64.target finalize Spec.Sha512.finalizeX86_64 := by
+theorem finalize_verified : Verified X86_64.target finalize Proof.Sha512.finalizeX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h.1, h.2.1⟩
