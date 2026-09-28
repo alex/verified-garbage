@@ -443,12 +443,6 @@ theorem data_value {s₀ : State} (hp : UPre s₀) {m : Mem} (hf : Frame [wR (st
   have h1 : leNum [(0x01 : Byte)] = 1 := rfl
   rw [h1, Bool.toNat_true, show (256 : Nat) ^ 16 = 2 ^ 128 by norm_num]
 
-theorem ConsB.temps {s₀ s s' : State} {c : Nat} (h : ConsB s₀ c s) (ht : Temps s s')
-    (hx1 : s'.gpr .x1 = s.gpr .x1) (hx3 : s'.gpr .x3 = s.gpr .x3) : ConsB s₀ c s' :=
-  { Temps.ucommon h.toUCommon ht with
-    c_le := h.c_le, whole := h.whole, x1 := hx1.trans h.x1, x3 := hx3.trans h.x3
-    acc := Temps.acc h.acc ht }
-
 /-- One whole block of data. -/
 theorem whole_step {s₀ : State} (hp : UPre s₀) {c : Nat} {s : State} (h : ConsB s₀ c s)
     (hc : 16 ≤ dl s₀ - c) :
