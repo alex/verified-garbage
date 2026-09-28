@@ -1,0 +1,4 @@
+name = "ChaCha20"
+specs = ["ChaCha20"]
+modules = ["src/chacha20.rs"]
+asm = ["chacha20"]
