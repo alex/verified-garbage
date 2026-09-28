@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Sha256.X86_64.Compress
+import VerifiedGarbage.Proof.Sha256.X86_64.ShaNi.Compress
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Finalize
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Init
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Update
@@ -23,6 +24,13 @@ theorem compress :
       Proof.Sha256.compressX86_64, X86_64.abi, X86_64.argRegs]
       [Proof.Sha256.X86_64.satState] using Proof.Sha256.X86_64.satState)
 
+theorem compress_shani :
+    Verified X86_64.target Impl.Sha256.X86_64.ShaNi.compress (Spec.Sha256.compressContract X86_64.abi) :=
+  Proof.Sha256.X86_64.ShaNi.compress_verified.of_implies (by
+    contract_implies [Spec.Sha256.compressContract, Spec.Sha256.compressSig,
+      Proof.Sha256.compressX86_64, X86_64.abi, X86_64.argRegs]
+      [Proof.Sha256.X86_64.satState] using Proof.Sha256.X86_64.satState)
+
 theorem init :
     Verified X86_64.target Impl.Sha256.X86_64.Stream.init (Spec.Sha256.initContract X86_64.abi) :=
   Proof.Sha256.X86_64.Stream.init_verified.of_implies (by
@@ -31,15 +39,31 @@ theorem init :
       [Proof.Sha256.X86_64.Stream.initSat] using Proof.Sha256.X86_64.Stream.initSat)
 
 theorem update :
-    Verified X86_64.target Impl.Sha256.X86_64.Stream.update (Spec.Sha256.updateContract X86_64.abi 8) :=
+    Verified X86_64.target (Impl.Sha256.X86_64.Stream.update .scalar) (Spec.Sha256.updateContract X86_64.abi 8) :=
   Proof.Sha256.X86_64.Stream.Update.update_verified.of_implies (by
     contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, Proof.Sha256.updateX86_64,
       X86_64.abi, X86_64.argRegs]
       [Proof.Sha256.X86_64.Stream.Update.sat] using Proof.Sha256.X86_64.Stream.Update.sat)
 
 theorem finalize :
-    Verified X86_64.target Impl.Sha256.X86_64.Stream.finalize (Spec.Sha256.finalizeContract X86_64.abi 8) :=
+    Verified X86_64.target (Impl.Sha256.X86_64.Stream.finalize .scalar) (Spec.Sha256.finalizeContract X86_64.abi 8) :=
   Proof.Sha256.X86_64.Stream.Finalize.finalize_verified.of_implies (by
+    contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig,
+      Proof.Sha256.finalizeX86_64, X86_64.abi, X86_64.argRegs]
+      [Proof.Sha256.X86_64.Stream.Finalize.sat] using Proof.Sha256.X86_64.Stream.Finalize.sat)
+
+theorem update_shani :
+    Verified X86_64.target (Impl.Sha256.X86_64.Stream.update .shani)
+      (Spec.Sha256.updateContract X86_64.abi 8) :=
+  Proof.Sha256.X86_64.Stream.Update.update_shani_verified.of_implies (by
+    contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, Proof.Sha256.updateX86_64,
+      X86_64.abi, X86_64.argRegs]
+      [Proof.Sha256.X86_64.Stream.Update.sat] using Proof.Sha256.X86_64.Stream.Update.sat)
+
+theorem finalize_shani :
+    Verified X86_64.target (Impl.Sha256.X86_64.Stream.finalize .shani)
+      (Spec.Sha256.finalizeContract X86_64.abi 8) :=
+  Proof.Sha256.X86_64.Stream.Finalize.finalize_shani_verified.of_implies (by
     contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig,
       Proof.Sha256.finalizeX86_64, X86_64.abi, X86_64.argRegs]
       [Proof.Sha256.X86_64.Stream.Finalize.sat] using Proof.Sha256.X86_64.Stream.Finalize.sat)

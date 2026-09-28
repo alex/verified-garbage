@@ -16,9 +16,9 @@ It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
 
 | Algorithm | Spec landed | Supported | Optimized |
 |---|---|---|---|
-| SHA-256 | ✅ | ✅ | ❌ |
+| SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
 | SHA-384, SHA-512, SHA-512/224, SHA-512/256 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
-| HMAC-SHA-256 | ✅ | ✅ | ❌ |
+| HMAC-SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
 | PBKDF2-HMAC-SHA-256 | ✅ | ❌ | ❌ |
 | ChaCha20 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 | Poly1305 | ✅ | ❌ | ❌ |
@@ -32,8 +32,10 @@ It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
   architectures (✅: x86, x86-64, ARMv7 and ARM64; PPC64le is not started
   yet).
 * **Optimized**: the implementations have been tuned for performance (e.g.
-  with SHA-NI or NEON). None have yet: every implementation is
-  straightforward scalar code.
+  with SHA-NI or NEON) on these architectures. Where that needs CPU features
+  beyond the architecture's baseline, the features are detected at run time,
+  and CPUs without them run the straightforward scalar code that every
+  other implementation is.
 
 Our goal is to implement all the cryptographic algorithms that are used by the Python pyca/cryptography library.
 

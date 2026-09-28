@@ -214,8 +214,65 @@ jobs:
           path: "*.lcov"
           if-no-files-found: error
 
+  # The implementations that need CPU features beyond x86-64's baseline (the
+  # SHA extensions and SSSE3), which the `rust` jobs' runners may lack. Where
+  # this runner has them, their tests run natively; otherwise under Intel
+  # SDE, emulating a CPU that has every feature. Either way their coverage
+  # is merged with the rest.
+  rust-sde:
+    name: Rust (CPU features, natively or under Intel SDE)
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -D warnings -Cinstrument-coverage
+      LLVM_PROFILE_FILE: .rust-cov/cov-%p-%m.profraw
+      WYCHEPROOF_ROOT: wycheproof
+      SDE_VERSION: 10.13.1-2026-07-28
+      SDE_URL: https://downloadmirror.intel.com/924984/sde-external-10.13.1-2026-07-28-lin.tar.xz
+      SDE_SHA256: 94e97d623fec54385686e1e7ba65ebc9941748c05ee451423948334892bf2b50
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: C2SP/wycheproof
+          path: wycheproof
+          persist-credentials: false
+      - name: Check which CPU features this runner lacks
+        id: cpu
+        run: |
+          missing=
+          for f in sha_ni ssse3; do
+            grep -qw "$f" /proc/cpuinfo || missing="$missing $f"
+          done
+          echo "Missing:${missing:- none}" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "missing=$missing" >> "$GITHUB_OUTPUT"
+      - name: Download Intel SDE
+        if: ${{ steps.cpu.outputs.missing != '' }}
+        run: |
+          curl -sSfLo sde.tar.xz "$SDE_URL"
+          echo "$SDE_SHA256  sde.tar.xz" | sha256sum -c
+          mkdir "$RUNNER_TEMP/sde"
+          tar -xJf sde.tar.xz -C "$RUNNER_TEMP/sde" --strip-components 1
+          rm sde.tar.xz
+          echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER=$RUNNER_TEMP/sde/sde64 -future --" >> "$GITHUB_ENV"
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --component llvm-tools
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      # Only the tests of what dispatches on CPU features.
+      - run: cargo test --locked -- sha256 cpu
+      - name: Export coverage
+        run: python3 ci/export_rust_coverage.py .rust-cov
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-data-sde
+          path: "*.lcov"
+          if-no-files-found: error
+
   coverage:
-    needs: rust
+    needs: [rust, rust-sde]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -255,7 +312,7 @@ jobs:
   # so the required checks don't have to track every job and matrix entry.
   all-green:
     if: ${{ always() }}
-    needs: [lean, lean-imports, vectors, rust, coverage]
+    needs: [lean, lean-imports, vectors, rust, rust-sde, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Check every job succeeded

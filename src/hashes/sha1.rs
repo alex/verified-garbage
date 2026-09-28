@@ -23,8 +23,9 @@ super::streaming_hash!(
         output: 20,
         final_hash: 20,
         init: vg_sha1_init,
-        update: vg_sha1_update,
-        finalize: vg_sha1_finalize,
+        backends: Sha1Backend {
+            Scalar => (vg_sha1_update, vg_sha1_finalize),
+        },
     }
 );
 
