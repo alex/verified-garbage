@@ -33,7 +33,13 @@ Modelling choices:
   lie within the state's permitted regions: loads within `rd ++ wr`, stores
   within `wr`; otherwise the instruction faults. Memory is little-endian.
 * Instructions whose timing depends on their operands (e.g. `udiv`) must never
-  be added: the constant-time leakage model assumes they do not exist.
+  be added: the constant-time leakage model assumes they do not exist. The
+  multiplies (`madd`, `mul`) and the shifts (`lsl`, `lsr`: UBFM) are among the
+  data-processing instructions that Arm specifies to take a time independent
+  of their data when PSTATE.DIT is 1 (DDI 0487, "About PSTATE.DIT", FEAT_DIT,
+  which lists MADD and UBFM, as it does the other modelled data-processing
+  instructions that read a register: ADD, SUB, AND, EOR, ORR, EXTR, REV and
+  MOVK). The code does not set PSTATE.DIT, for these as for the others.
 * Calls are `bl` and returns `ret` (DDI 0487, C6.2 "BL", "RET"). The return
   addresses are the next of the state's `unknowns`, which nothing constrains
   (see `TCB/Code.lean`). A linker veneer between a `bl` and its target may
@@ -90,6 +96,13 @@ inductive Instr
   | ror (sz : Size) (d n : Reg) (sh : Nat)
   /-- `lsr d, n, #sh` (alias of UBFM), `sh < size` -/
   | lsr (sz : Size) (d n : Reg) (sh : Nat)
+  /-- `lsl d, n, #sh` (LSL (immediate), alias of UBFM), `sh < size` -/
+  | lsl (sz : Size) (d n : Reg) (sh : Nat)
+  /-- `madd d, n, m, a` (MADD): `a + n * m`, modulo `2 ^ size` -/
+  | madd (sz : Size) (d n m a : Reg)
+  /-- `mul d, n, m` (MUL, the alias of MADD with the zero register as the
+  addend): `n * m`, modulo `2 ^ size` -/
+  | mul (sz : Size) (d n m : Reg)
   /-- `rev wd, wn` (REV, 32-bit): reverse the bytes of the low 32 bits -/
   | rev32 (d n : Reg)
   /-- `rev xd, xn` (REV, 64-bit): reverse the bytes of all 64 bits -/
@@ -178,6 +191,13 @@ def rev64 (a : BitVec 64) : BitVec 64 :=
 * "ROR (immediate)" = "EXTR" with both sources `n`: `(n:n)<sh+size-1:sh>`,
   a rotation right by `sh`;
 * "LSR (immediate)" = "UBFM": a logical shift right by `sh`;
+* "LSL (immediate)" = "UBFM" with `immr = -sh MOD size`, `imms = size - 1 -
+  sh`: a logical shift left by `sh` (the bits shifted out are lost, zeros
+  shifted in);
+* "MADD": `result = UInt(operand3) + (UInt(operand1) * UInt(operand2));
+  X[d, destsize] = result<destsize-1:0>`, with `operand1 = X[n]`, `operand2
+  = X[m]`, `operand3 = X[a]` at the operand size; "MUL" = "MADD" with `a` the
+  zero register, so `operand3 = 0` (the flags are not set by either);
 * "REV" (32- and 64-bit); "MOVZ": `imm` at bit `16 * hw` of zeros; "MOVK":
   `imm` into bits `16 * hw + 15 : 16 * hw` of the destination, the others
   unchanged (`hw < 2` for 32-bit, `hw < 4` for 64-bit);
@@ -201,6 +221,10 @@ def exec : Instr → State → Option State
     if sh < sz.bits then some (s.write sz d ((s.read sz n).rotateRight sh)) else none
   | .lsr sz d n sh, s =>
     if sh < sz.bits then some (s.write sz d (s.read sz n >>> sh)) else none
+  | .lsl sz d n sh, s =>
+    if sh < sz.bits then some (s.write sz d (s.read sz n <<< sh)) else none
+  | .madd sz d n m a, s => some (s.write sz d (s.read sz a + s.read sz n * s.read sz m))
+  | .mul sz d n m, s => some (s.write sz d (s.read sz n * s.read sz m))
   | .rev32 d n, s => some (s.write .w d (rev32 (s.read .w n)))
   | .rev d n, s => some (s.write .x d (rev64 (s.read .x n)))
   | .movz sz d imm hw, s =>
