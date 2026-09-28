@@ -10,6 +10,8 @@
 //! A key must be used to authenticate only one message: the tags of two
 //! messages under the same key reveal enough to forge others.
 
+#![cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+
 #[cfg(target_arch = "x86")]
 use crate::asm::x86::poly1305::{vg_poly1305_blocks, vg_poly1305_finalize, vg_poly1305_init};
 #[cfg(target_arch = "x86_64")]
