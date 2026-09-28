@@ -48,6 +48,20 @@ def salsaContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (writeArgs := true)
     (stack := stack)
 
+/-- `vg_salsa20_8` on every target. -/
+def salsaApi : Api where
+  module := "scrypt"
+  name := "vg_salsa20_8"
+  sig := salsaSig
+  summary := "The Salsa20/8 Core (RFC 7914 §3): replaces the 64 bytes `*b` by their Salsa20/8 Core \
+    (the 16 little-endian words, 8 rounds, then the input added word by word).\n\n\
+    Contract: `VG.Spec.Scrypt.salsaContract`. Constant time: only the pointers may affect timing, \
+    not the data."
+  safety := [
+    "`b` must be valid for reads and writes of 64 bytes.",
+    "`scratch` must be valid for reads and writes of 64 bytes. It is working space: its contents \
+      on return are unspecified."]
+
 /-- `vg_scrypt_blockmix(b: *const [u8; 128], r: usize, y: *mut [u8; 128], ry: usize, scratch: *mut [u32; 32])`.
 `b` and `y` are the input and the output, of `r` and `ry` 128-byte chunks;
 `scratch` is working space. -/
@@ -65,6 +79,23 @@ def blockMixContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
       bytesAt m' y (128 * r.toNat) = blockMix r.toNat (bytesAt m b (128 * r.toNat)))
     (writeArgs := true)
     (stack := stack)
+
+/-- `vg_scrypt_blockmix` on every target. -/
+def blockMixApi : Api where
+  module := "scrypt"
+  name := "vg_scrypt_blockmix"
+  sig := blockMixSig
+  summary := "scryptBlockMix (RFC 7914 §4) with block size parameter `r`: writes scryptBlockMix of \
+    the `128 * r` bytes at `b` to the `128 * ry` bytes at `y`. Calls `vg_salsa20_8` for each \
+    64-byte block.\n\n\
+    Contract: `VG.Spec.Scrypt.blockMixContract`. Constant time: only the pointers and `r` may \
+    affect timing, not the data."
+  safety := [
+    "`ry` must equal `r`, and `r` must be positive.",
+    "`b` must be valid for reads of `128 * r` bytes, and `y` for reads and writes of `128 * ry` \
+      bytes.",
+    "`scratch` must be valid for reads and writes of 128 bytes. It is working space: its contents \
+      on return are unspecified."]
 
 /-- `vg_scrypt_romix(b: *mut [u8; 128], r: usize, v: *mut [u8; 128], vlen: usize, scratch: *mut [u8; 128], slen: usize)`.
 `b` holds `B`, of `r` 128-byte chunks; `v`, of `vlen = N * r` chunks, is
@@ -90,5 +121,24 @@ def roMixContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (stack := stack)
     (leak := some fun b r _v vlen _scratch _slen m =>
       roMixIndices r.toNat (vlen.toNat / r.toNat) (bytesAt m b (128 * r.toNat)))
+
+/-- `vg_scrypt_romix` on every target. -/
+def roMixApi : Api where
+  module := "scrypt"
+  name := "vg_scrypt_romix"
+  sig := roMixSig
+  summary := "scryptROMix (RFC 7914 §5) with block size parameter `r` and cost parameter \
+    `N = vlen / r`: replaces the `128 * r` bytes at `b` by their scryptROMix. Step 2 writes \
+    `V[0], …, V[N - 1]` to `v`. Calls `vg_scrypt_blockmix` for each scryptBlockMix.\n\n\
+    Contract: `VG.Spec.Scrypt.roMixContract`. Not constant time in the indices: timing may depend \
+    on the pointers, `r`, `N` and the indices `j` of step 3 (`VG.Spec.Scrypt.roMixIndices`), which \
+    are derived from the data and so leak information about it (as in every scrypt that indexes \
+    `V` directly), but on nothing else."
+  safety := [
+    "`r` must be positive, `vlen` must be `N * r` for a power of two `N`, and `slen` must be \
+      `r + 2`.",
+    "`b` must be valid for reads and writes of `128 * r` bytes, `v` of `128 * vlen` bytes and \
+      `scratch` of `128 * slen` bytes. `v` and `scratch` are working space: their contents on \
+      return are unspecified."]
 
 end VG.Spec.Scrypt

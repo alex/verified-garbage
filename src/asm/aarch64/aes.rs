@@ -2,9 +2,11 @@
 //! Verified `aes` functions for `aarch64`.
 #![allow(dead_code)]
 
-/// The AES key expansion (FIPS 197 §5.2, `KEYEXPANSION`): writes the key schedule of the `key_len`-byte key at `key`, the words `w[0] … w[4 * Nr + 3]` for `Nr = key_len / 4 + 6` rounds, each as its 4 bytes (`16 * (Nr + 1)` bytes in all), to the start of `*schedule`, as `vg_aes_ctr32` reads it. `SUBWORD` uses a constant-time bitsliced S-box, in the style of BearSSL's `aes_ct64` (Thomas Pornin, MIT licence).
+/// The AES key expansion (FIPS 197 §5.2, `KEYEXPANSION`): writes the key schedule of the `key_len`-byte key at `key`, the words `w[0] … w[4 * Nr + 3]` for `Nr = key_len / 4 + 6` rounds, each as its 4 bytes (`16 * (Nr + 1)` bytes in all), to the start of `*schedule`, as `vg_aes_ctr32` reads it.
 ///
 /// Contract: `VG.Spec.Aes.expandKeyContract`. Constant time: only the pointers and `key_len` may affect timing, not the key.
+///
+/// `SUBWORD` uses a constant-time bitsliced S-box, in the style of BearSSL's `aes_ct64` (Thomas Pornin, MIT licence).
 ///
 /// # Safety
 ///
@@ -1221,9 +1223,11 @@ pub(crate) unsafe extern "C" fn vg_aes_expand_key(key: *const u8, key_len: usize
     )
 }
 
-/// AES counter mode with GCM's 32-bit increment (NIST SP 800-38D §6.5, on whole blocks): XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in `*counter`. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it. Constant-time bitsliced AES, four blocks at a time, in the style of BearSSL's `aes_ct64` (Thomas Pornin, MIT licence).
+/// AES counter mode with GCM's 32-bit increment (NIST SP 800-38D §6.5, on whole blocks): XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in `*counter`. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.
 ///
 /// Contract: `VG.Spec.Gcm.ctr32Contract`. Constant time: only the pointers, `rounds` and `n` may affect timing, not the key schedule, the counter block or the data.
+///
+/// Constant-time bitsliced AES, four blocks at a time, in the style of BearSSL's `aes_ct64` (Thomas Pornin, MIT licence).
 ///
 /// # Safety
 ///

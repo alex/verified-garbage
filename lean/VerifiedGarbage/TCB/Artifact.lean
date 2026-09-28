@@ -26,8 +26,9 @@ verified. Every function the Rust crate contains is an `Artifact`, and an
 
 What a reviewer must read for each artifact is therefore: the ISA model and
 ABI of its target (`TCB/<arch>/`), its contract (in `Spec/`), and its Rust
-signature (`Sig`) and documentation (in `Artifacts.lean`). The code and the proof
-need not be read.
+signature (`Sig`) and documentation (its `Api` in `Spec/`, and what its
+registration file adds for the target). The code and the proof need not be
+read.
 -/
 
 namespace VG
@@ -119,6 +120,27 @@ def Verified (T : Target) (c : Prog T.isa) (k : Contract T.isa) : Prop :=
   (∀ s, k.pre s → ∃ t s', Exec T.isa c s t s' ∧ T.abiPreserved s s' ∧ k.post s s') ∧
   ConstantTime T.isa k.pre k.pub c ∧
   (∃ s, k.pre s)
+
+/-- What a function is on every target: its Rust module, name and signature,
+and the documentation of what it does and of the caller's obligations that
+do not depend on the target. A registration file makes an `Artifact` of it
+on each target (`{ api with target := …, doc := api.doc … }`), adding what
+does: the obligations that depend on where the calling convention passes the
+arguments and on the stack the code uses, and notes on the implementation. -/
+structure Api where
+  module : String
+  name : String
+  sig : Sig
+  /-- The documentation, up to its `# Safety` section. -/
+  summary : String
+  /-- The items of the `# Safety` section that hold on every target. -/
+  safety : List String
+
+/-- The documentation of `api` on a target: its summary, then the paragraphs
+`notes`, then its `# Safety` section, with the items `safety` after its own. -/
+def Api.doc (api : Api) (safety : List String) (notes : List String := []) : String :=
+  api.summary ++ String.join (notes.map ("\n\n" ++ ·)) ++ "\n\n# Safety\n\n" ++
+    "\n".intercalate ((api.safety ++ safety).map ("* " ++ ·))
 
 /-- A verified function, ready to be emitted into the Rust crate. -/
 structure Artifact where
