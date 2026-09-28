@@ -157,6 +157,8 @@ def step (τ : T) : Instr → Option T
   | .strb t n off => storeStep τ n off 1 (pub τ t)
   | .ldrSp t off =>
     if off + 4 ≤ τ.argLen then some { τ with regs := set τ t true, bases := spBases τ t off } else none
+  -- Frames are not analysed yet.
+  | .push _ | .pop .. => none
 
 def meet (τ₁ τ₂ : T) : T where
   regs := τ₁.regs.inter τ₂.regs
@@ -528,11 +530,12 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {r : 
 
 /-! ### Instructions that write a register -/
 
-/-- The register an instruction writes, if it writes one (`cmp` and stores do not). -/
+/-- The register an instruction writes, if it writes one (`cmp` and stores
+do not; a frame's pop writes its register). -/
 def dst : Instr → Option Reg
   | .mov d _ | .dp _ d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _ | .ldr d _ _
-  | .ldrb d _ _ | .ldrSp d _ => some d
-  | .cmp .. | .str .. | .strb .. => none
+  | .ldrb d _ _ | .ldrSp d _ | .pop d _ => some d
+  | .cmp .. | .str .. | .strb .. | .push _ => none
 
 theorem exec_dst {i : Instr} {d : Reg} (hd : dst i = some d) {s s' : State}
     (h : exec i s = some s') :
@@ -593,6 +596,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
     addrs i s₁ = addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i with
+  | push | pop => simp only [step, reduceCtorEq] at hs
   | mov d o =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec, Option.map_eq_some_iff] at e₁ e₂

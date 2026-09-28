@@ -25,8 +25,8 @@ by hand for each target:
 * that no buffer wraps around the end of the address space (no Rust
   allocation does);
 * that no buffer overlaps the stack below the stack pointer that the
-  function's calls use (for return addresses and arguments; no Rust object
-  lies below the stack pointer);
+  function's calls and frames use (for return addresses, arguments and saved
+  registers; no Rust object lies below the stack pointer);
 * that the pointers, the slice lengths and the stack pointer are public.
 
 The generated Rust functions take raw pointers (`Sig.rust`), so these are
@@ -134,12 +134,12 @@ structure Abi (M : ISA) where
   the convention lets the callee write it (which a contract may decline). -/
   argArea : List Nat → M.State → List (Region × Bool)
   /-- Memory that no buffer or argument area overlaps, for a function whose
-  calls use `n` bytes of stack: the return address, and the `n` bytes below
-  the stack pointer (`stackBelow`). -/
+  calls and frames use `n` bytes of stack: the return address, and the `n`
+  bytes below the stack pointer (`stackBelow`). -/
   reserved : (n : Nat) → M.State → List Region
   /-- Facts about the entry state that hold for every call of a function
-  whose calls use `n` bytes of stack (e.g. the part of the stack the function
-  sees does not wrap around). -/
+  whose calls and frames use `n` bytes of stack (e.g. the part of the stack
+  the function sees does not wrap around). -/
   wf : List Nat → (n : Nat) → M.State → Prop
   /-- The part of the state other than the arguments that is public (the
   stack pointer). -/

@@ -10,12 +10,12 @@ Base Instruction Descriptions"); when adding an instruction, cite the section
 whose pseudocode it transcribes.
 
 Modelling choices:
-* Registers are `x0`–`x30`; the stack pointer is separate and no modelled
-  instruction reads or writes it (register number 31, SP or the zero
-  register, is never an operand). Each operand is a 32-bit (`w`) or a
-  64-bit (`x`) register; a 32-bit result is zero-extended into the 64-bit
-  register (DDI 0487, the pseudocode accessor `X[n, width] = value` sets
-  `_R[n] = ZeroExtend(value, 64)`).
+* Registers are `x0`–`x30`; the stack pointer is separate and only the push
+  and pop of a frame (`str`/`ldr` with writeback, see `push`) read or write
+  it (register number 31, SP or the zero register, is never an operand).
+  Each operand is a 32-bit (`w`) or a 64-bit (`x`) register; a 32-bit
+  result is zero-extended into the 64-bit register (DDI 0487, the pseudocode
+  accessor `X[n, width] = value` sets `_R[n] = ZeroExtend(value, 64)`).
 * The condition flags are not modelled, and no modelled instruction reads or
   writes them; control flow uses `cbz`/`cbnz`.
 * Immediates that the instruction cannot encode make the instruction fault,
@@ -30,6 +30,9 @@ Modelling choices:
   (see `TCB/Code.lean`). A linker veneer between a `bl` and its target may
   change `x16` and `x17` (IP0, IP1: AAPCS64 §6.1.1, "Use of IP0 and IP1 by
   the linker"), so a call leaves unknown values in them too.
+* The stack pointer is always 16-byte aligned (AAPCS64 §6.4.5.1, "SP mod 16
+  = 0"), and a frame moves it by 16 bytes, so the model does not check the
+  stack alignment that the push and pop of a frame require.
 -/
 
 namespace VG.AArch64
@@ -97,6 +100,12 @@ inductive Instr
   /-- `strb wt, [n, #off]` (STRB (immediate), unsigned offset, `off < 4096`):
   the low byte of `t` -/
   | strb (t n : Reg) (off : Nat)
+  /-- `str xr, [sp, #-16]!` (STR (immediate), 64-bit, pre-index): the push
+  of a frame of 16 bytes (see `push`) -/
+  | push (r : Reg)
+  /-- `ldr xr, [sp], #16` (LDR (immediate), 64-bit, post-index): the pop of a
+  frame of 16 bytes (see `pop`) -/
+  | pop (r : Reg)
   deriving DecidableEq, Repr
 
 /-- Branch conditions. -/
@@ -201,12 +210,16 @@ def exec : Instr → State → Option State
     (addr s 1 n off).bind fun a => (s.load a 1).map fun v => s.write .w t (v.setWidth 32)
   | .strb t n off, s =>
     (addr s 1 n off).bind fun a => s.store a 1 ((s.read .w t).setWidth 8)
+  -- Only the push and pop of a frame (`push`, `pop`).
+  | .push _, _ | .pop _, _ => none
 
 def addrs : Instr → State → List Addr
   | .ldr _ _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
   | .str _ _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
   | .ldrb _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
   | .strb _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
+  | .push _, s => [s.sp - 16]
+  | .pop _, s => [s.sp]
   | _, _ => []
 
 /-- DDI 0487 C6.2, "CBZ"/"CBNZ": the branch is taken iff the operand is (not) zero. -/
@@ -231,6 +244,32 @@ is the return address the call left (`s₁`); otherwise the model faults. -/
 def ret (s₁ s₂ : State) : Option State :=
   if s₂.gpr .x30 = s₁.gpr .x30 then some s₂ else none
 
+/-- The push of a frame, DDI 0487 C6.2 "STR (immediate)", 64-bit, pre-index
+(`str xr, [sp, #-16]!`): `address = SP[] + offset` with `offset = -16`;
+`Mem[address, 8] = X[t]`; `SP[] = address`. The 16 bytes (the register,
+then 8 bytes it does not write) become a writable region, at the head of
+`wr`. Faults if the frame would wrap around the address space
+(`sp < 16`). -/
+def push : Instr → State → Option State
+  | .push r, s =>
+    if 16 ≤ s.sp.toNat then
+      let sp := s.sp - 16
+      some { s with sp := sp, mem := s.mem.write sp 8 (s.gpr r), wr := ⟨sp, 16⟩ :: s.wr }
+    else none
+  | _, _ => none
+
+/-- The pop of a frame, DDI 0487 C6.2 "LDR (immediate)", 64-bit, post-index
+(`ldr xr, [sp], #16`): `address = SP[]`; `data = Mem[address, 8]`; `SP[] =
+address + 16`; `X[t] = data`. Faults unless the stack pointer and the
+writable regions are those the push left (`s₁`), whose head is the frame;
+it removes the frame. -/
+def pop : Instr → State → State → Option State
+  | .pop r, s₁, s₂ =>
+    if s₂.sp = s₁.sp ∧ s₂.wr = s₁.wr ∧ s₁.wr.head? = some ⟨s₁.sp, 16⟩ then
+      some { s₂.write .x r (s₂.mem.read s₂.sp 8) with sp := s₂.sp + 16, wr := s₂.wr.tail }
+    else none
+  | _, _, _ => none
+
 abbrev isa : ISA where
   State := State
   Instr := Instr
@@ -242,7 +281,10 @@ abbrev isa : ISA where
   callAddrs _ := []
   ret := ret
   retAddrs _ := []
-  -- No modelled instruction has the stack pointer as an operand.
+  -- No modelled instruction has the stack pointer as an operand, other than
+  -- the push and pop of a frame.
   writesSp _ := false
+  push := push
+  pop := pop
 
 end VG.AArch64

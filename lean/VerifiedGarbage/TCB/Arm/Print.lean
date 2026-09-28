@@ -41,6 +41,8 @@ def Instr.asm : Instr → List String
   | .ldrb t n off => [s!"ldrb {t.name}, [{n.name}, #{off}]"]
   | .strb t n off => [s!"strb {t.name}, [{n.name}, #{off}]"]
   | .ldrSp t off => [s!"ldr {t.name}, [sp, #{off}]"]
+  | .push rs => [s!"push \{{", ".intercalate (rs.map Reg.name)}}"]
+  | .pop t n => [s!"ldr {t.name}, [sp], #{n}"]
 
 def Cond.name : Cond → String
   | .eq => "eq" | .ne => "ne"

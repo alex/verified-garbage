@@ -67,6 +67,12 @@ theorem Exec.det {c : Prog M} {s s₁ s₂ : M.State} {t₁ t₂ : List Leak}
       obtain ⟨rfl, rfl⟩ := ih b
       rw [hr] at hr'; cases hr'
       exact ⟨rfl, rfl⟩
+  | frame hp _ hq ih => cases h₂ with
+    | frame hp' b hq' =>
+      rw [hp] at hp'; cases hp'
+      obtain ⟨rfl, rfl⟩ := ih b
+      rw [hq] at hq'; cases hq'
+      exact ⟨rfl, rfl⟩
 
 theorem Exec.block_iff {is : List M.Instr} {s s' : M.State} {t : List Leak} :
     Exec M (.block is) s t s' ↔ execBlock M is s = some (s', t) :=
@@ -145,21 +151,25 @@ theorem ConstantTime.of_silent {Pre : M.State → Prop} {Pub : M.State → M.Sta
     ConstantTime M Pre Pub c :=
   .of_leakage (fun _ => []) h (fun _ _ _ _ _ => rfl)
 
-/-- The instructions of structured code, and of the functions it calls. -/
+/-- The instructions of structured code (including the pushes and pops of
+its frames), and of the functions it calls. -/
 def instrs {I C : Type} : Code I C → List I
   | .block is => is
   | .seq a b => instrs a ++ instrs b
   | .ite _ t e => instrs t ++ instrs e
   | .loop b _ => instrs b
   | .call _ b => instrs b
+  | .frame i b j => i :: instrs b ++ [j]
 
-/-- Whether code calls no function. -/
+/-- Whether code calls no function and has no frame: whether it runs only
+its own instructions, in the stack it was entered with. -/
 def Code.noCalls {I C : Type} : Code I C → Bool
   | .block _ => true
   | .seq a b => a.noCalls && b.noCalls
   | .ite _ t e => t.noCalls && e.noCalls
   | .loop b _ => b.noCalls
   | .call _ _ => false
+  | .frame .. => false
 
 /-- `(instrs c).all p`, without building the list of instructions, which is
 much faster for the kernel to evaluate (`decide +kernel`). -/
@@ -169,9 +179,10 @@ def Code.allInstrs {I C : Type} (p : I → Bool) : Code I C → Bool
   | .ite _ t e => t.allInstrs p && e.allInstrs p
   | .loop b _ => b.allInstrs p
   | .call _ b => b.allInstrs p
+  | .frame i b j => p i && b.allInstrs p && p j
 
 theorem Code.allInstrs_eq {I C : Type} (p : I → Bool) (c : Code I C) :
     c.allInstrs p = (instrs c).all p := by
-  induction c <;> simp [allInstrs, instrs, List.all_append, *]
+  induction c <;> simp [allInstrs, instrs, List.all_append, Bool.and_assoc, *]
 
 end VG

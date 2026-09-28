@@ -123,6 +123,16 @@ theorem execBlock_sp {is : List Instr} {s s' : State} {t : List Leak}
       rw [ih h]; exact exec_sp he
 
 /-- No modelled instruction changes `sp`. -/
+theorem push_sp {i : Instr} {s s₁ : State} (h : push i s = some s₁) : s₁.sp = s.sp - 16 := by
+  cases i <;> simp only [push, reduceCtorEq] at h
+  split at h <;> cases h; rfl
+
+theorem pop_sp {j : Instr} {s₁ s₂ s' : State} (h : pop j s₁ s₂ = some s') :
+    s₂.sp = s₁.sp ∧ s'.sp = s₂.sp + 16 := by
+  cases j <;> simp only [pop, reduceCtorEq] at h
+  split at h <;> cases h
+  rename_i hc; exact ⟨hc.1, rfl⟩
+
 theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c s t s') :
     s'.sp = s.sp := by
   induction h with
@@ -135,6 +145,9 @@ theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c
   | call hc _ hr ih =>
     simp only [isa, call, ret, Option.some.injEq] at hc hr
     subst hc; split at hr <;> cases hr; exact ih
+  | frame hp _ hq ih =>
+    obtain ⟨h₁, h₂⟩ := pop_sp hq
+    rw [h₂, ih, push_sp hp, BitVec.sub_add_cancel]
 
 end VG.AArch64
 

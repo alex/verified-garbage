@@ -71,7 +71,19 @@ theorem execBlock_sp {is : List Instr} {s s' : State} {t : List Leak}
       obtain ⟨rfl, -⟩ := he'
       rw [ih h]; exact exec_sp he
 
-/-- No modelled instruction changes `sp`. -/
+theorem push_sp {i : Instr} {s s₁ : State} (h : push i s = some s₁) :
+    ∃ n, s₁.sp = s.sp - BitVec.ofNat 32 n ∧ s₁.wr.head? = some ⟨State.addr s₁.sp, n⟩ := by
+  cases i <;> simp only [push, reduceCtorEq] at h
+  split at h <;> cases h; exact ⟨_, rfl, rfl⟩
+
+theorem pop_sp {j : Instr} {s₁ s₂ s' : State} (h : pop j s₁ s₂ = some s') :
+    s₂.sp = s₁.sp ∧ ∃ n, s₁.wr.head? = some ⟨State.addr s₁.sp, n⟩ ∧
+      s'.sp = s₂.sp + BitVec.ofNat 32 n := by
+  cases j <;> simp only [pop, reduceCtorEq] at h
+  split at h <;> cases h
+  rename_i hc; exact ⟨hc.2.2.1, _, hc.2.2.2.2, rfl⟩
+
+/-- `sp` is back where it was after any code: only frames change it. -/
 theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c s t s') :
     s'.sp = s.sp := by
   induction h with
@@ -84,6 +96,11 @@ theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c
   | call hc _ hr ih =>
     simp only [isa, call, ret, Option.some.injEq] at hc hr
     subst hc; split at hr <;> cases hr; exact ih
+  | frame hp _ hq ih =>
+    obtain ⟨n, h₁, h₂⟩ := push_sp hp
+    obtain ⟨h₃, m, h₄, h₅⟩ := pop_sp hq
+    rw [h₂] at h₄; cases h₄
+    rw [h₅, ih, h₁, BitVec.sub_add_cancel]
 
 /-- Addresses do not wrap. -/
 theorem addr_add {a : BitVec 32} {k : Nat} (h : a.toNat + k < 2 ^ 32) :

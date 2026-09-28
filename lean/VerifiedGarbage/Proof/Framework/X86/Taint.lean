@@ -217,6 +217,8 @@ def step (τ : T) : Instr → Option T
   | .movzx8 d m =>
     if d != .esp && memPub τ m then some { τ with regs := set τ d false, bases := kill τ d } else none
   | .store8 m r => storeStep τ m 1 (pub τ r.reg) []
+  -- Frames are not analysed yet.
+  | .push _ | .pop .. => none
 
 def meet (τ₁ τ₂ : T) : T where
   regs := τ₁.regs.inter τ₂.regs
@@ -734,13 +736,14 @@ theorem alu_sound {τ : T} {op : AluOp} {d : Reg} {src : Src} {s₁ s₂ : State
 
 /-- The register an instruction may write, if it writes one (stores do not). -/
 def dst : Instr → Option Reg
-  | .mov d _ | .alu _ d _ | .shift _ d _ | .bswap d | .movzx8 d _ => some d
-  | .store .. | .store8 .. => none
+  | .mov d _ | .alu _ d _ | .shift _ d _ | .bswap d | .movzx8 d _ | .pop d _ => some d
+  | .store .. | .store8 .. | .push _ => none
 
 theorem exec_dst {i : Instr} {d : Reg} (hd : dst i = some d) {s s' : State}
     (h : exec i s = some s') :
     s'.wr = s.wr ∧ s'.mem = s.mem ∧ ∀ r, r ≠ d → s'.gpr r = s.gpr r := by
   cases i with
+  | push | pop => simp only [exec, reduceCtorEq] at h
   | mov d' src =>
     simp only [dst, Option.some.injEq] at hd; subst hd
     simp only [exec, Option.map_eq_some_iff] at h
@@ -858,6 +861,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
     addrs i s₁ = addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i with
+  | push | pop => simp only [step, reduceCtorEq] at hs
   | mov d src =>
     simp only [step] at hs
     split at hs <;> [skip; cases hs]

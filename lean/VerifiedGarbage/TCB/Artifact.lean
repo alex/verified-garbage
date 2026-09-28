@@ -63,10 +63,10 @@ the further precondition `pre` and the postcondition `post`, both stated on
 the arguments by name. If `writeArgs`, the function may also overwrite its
 arguments passed in memory, where the calling convention gives them to the
 callee; otherwise it may only read them. `stack` is the number of bytes of
-stack below the stack pointer that the function's calls use (return
-addresses and arguments), which no buffer overlaps. A calling convention that does not
-model the arguments (`A.args` is `none`) gives an unsatisfiable
-precondition, which `Verified` rejects. -/
+stack below the stack pointer that the function's calls and frames use
+(return addresses, arguments and saved registers), which no buffer
+overlaps. A calling convention that does not model the arguments (`A.args`
+is `none`) gives an unsatisfiable precondition, which `Verified` rejects. -/
 def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
     (pre : Curry (sig.words A.ptrBits) (Mem → Prop) := Curry.const (fun _ => True) _)
     (post : sig.Post A.ptrBits) (writeArgs : Bool := false) (stack : Nat := 0) : Contract M :=
@@ -118,10 +118,11 @@ structure Artifact where
   code : Prog target.isa
   contract : Contract target.isa
   verified : Verified target code contract
-  /-- The code changes the stack pointer only by calls and returns: no
-  instruction of it, or of the functions it calls, writes it. So a call
-  instruction only ever stores below the stack pointer on entry, where no
-  Rust object lies. -/
+  /-- The code changes the stack pointer only by calls and returns and by
+  the pushes and pops of frames, which are nested: no other instruction of
+  it, or of the functions it calls, writes it. So a call instruction or a
+  push only ever stores below the stack pointer on entry, where no Rust
+  object lies. -/
   spSafe : code.all (fun i => !target.isa.writesSp i) = true := by decide +kernel
 
 end VG
