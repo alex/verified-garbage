@@ -1,4 +1,4 @@
-//! Hash functions: SHA-256, and SHA-384, SHA-512, SHA-512/224 and
+//! Hash functions: SHA-1, SHA-256, and SHA-384, SHA-512, SHA-512/224 and
 //! SHA-512/256 (FIPS 180-4); and MD5 (RFC 1321).
 //!
 //! Each one's whole computation is verified assembly: an `init`, `update` and
@@ -9,6 +9,8 @@
 
 #[cfg(target_arch = "x86_64")]
 pub mod md5;
+#[cfg(target_arch = "x86_64")]
+pub mod sha1;
 #[cfg(any(
     target_arch = "x86_64",
     target_arch = "aarch64",
