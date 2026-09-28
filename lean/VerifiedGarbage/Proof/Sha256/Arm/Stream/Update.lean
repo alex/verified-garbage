@@ -834,8 +834,8 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.updateArm.pre s₁) (h
     rcases hr with rfl | rfl | rfl <;> assumption
   · rw [hp₁.wr, hp₂.wr]; simp only [stR, scR, stA, scA, st, scr, p0, a2]
   · simp only [τ₀] at hk
-    rw [argByte_eq hp₁.sp_fit hk, argByte_eq hp₂.sp_fit hk, readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)),
-      readW_byte s₂.mem _ (Nat.mod_lt _ (by omega))]
+    rw [argByte_eq hp₁.sp_fit hk, argByte_eq hp₂.sp_fit hk, Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)),
+      Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega))]
     have : k / 4 = 0 ∨ k / 4 = 1 ∨ k / 4 = 2 := by omega
     rcases this with h | h | h <;> rw [h]
     · exact congrArg _ a0

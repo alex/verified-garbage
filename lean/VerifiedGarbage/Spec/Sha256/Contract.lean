@@ -10,7 +10,10 @@ representation `Repr`), in terms of `Spec/Sha256.lean`, for any target:
 `A` is the target's calling convention. The signatures fix where the
 arguments are, the memory each function may access, disjointness, and that
 the pointers and lengths are public (see `TCB/Sig.lean`); the contracts add
-the postconditions and which other arguments are public.
+the postconditions and which other arguments are public. `update` and
+`finalize` may overwrite their arguments passed in memory, where the calling
+convention allows it (`writeArgs`), to pass arguments to the code they
+inline.
 -/
 
 namespace VG.Spec.Sha256
@@ -48,6 +51,7 @@ def updateContract {M : ISA} (A : Abi M) : Contract M :=
   updateSig.contract A (post := fun state count data len _scratch m m' _ =>
     ∀ msg, Repr m state msg → count = BitVec.ofNat 64 msg.length →
       Repr m' state (msg ++ bytesAt m data len.toNat))
+    (writeArgs := true)
 
 /-- `vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
@@ -62,5 +66,6 @@ secret. -/
 def finalizeContract {M : ISA} (A : Abi M) : Contract M :=
   finalizeSig.contract A (post := fun state count out _scratch m m' _ =>
     ∀ msg, Repr m state msg → count = BitVec.ofNat 64 msg.length → bytesAt m' out 32 = hash msg)
+    (writeArgs := true)
 
 end VG.Spec.Sha256

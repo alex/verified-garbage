@@ -349,33 +349,6 @@ theorem bytesAt_getD {m : Mem} {p : Addr} {n : Nat} {l : List Byte} (h : bytesAt
     (hk : k < n) : m (p + BitVec.ofNat 64 k) = l.getD k 0 := by
   subst h; simp [bytesAt, List.getD_eq_getElem?_getD, hk]
 
-theorem extractLsb'_read (m : Mem) (a : Addr) {n j : Nat} (hj : j < n) :
-    (m.read a n).extractLsb' (8 * j) 8 = m (a + BitVec.ofNat 64 j) := by
-  induction n generalizing a j with
-  | zero => omega
-  | succ n ih =>
-    simp only [Mem.read]
-    cases j with
-    | zero =>
-      rw [BitVec.ofNat_eq_ofNat, BitVec.add_zero]
-      ext i hi
-      simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_append]
-      simp [hi]
-    | succ j =>
-      rw [show a + BitVec.ofNat 64 (j + 1) = a + 1 + BitVec.ofNat 64 j by bv_omega,
-        ← ih (a := a + 1) (by omega)]
-      ext i hi
-      simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_append,
-        show ¬ (8 * (j + 1) + i < 8) by omega, ite_false]
-      congr 1; omega
-
-/-- Byte `i` of a little-endian word. -/
-theorem readW_byte (m : Mem) (a : Addr) {i : Nat} (hi : i < 4) :
-    m (a + BitVec.ofNat 64 i) = (m.readW a 32).extractLsb' (8 * i) 8 := by
-  rw [← extractLsb'_read m a (n := 4) hi]
-  simp only [Mem.readW]
-  rfl
-
 theorem eval_eq (s : State) : eval .eq s = some s.z := rfl
 theorem eval_ne (s : State) : eval .ne s = some !s.z := rfl
 

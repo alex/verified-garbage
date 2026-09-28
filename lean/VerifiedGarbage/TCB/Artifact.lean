@@ -60,12 +60,14 @@ structure Contract (M : ISA) where
 /-- The contract of a function with signature `sig` under the calling
 convention `A`: the obligations the signature implies (see `TCB/Sig.lean`),
 the further precondition `pre` and the postcondition `post`, both stated on
-the arguments by name. A calling convention that does not model the
-arguments (`A.args` is `none`) gives an unsatisfiable precondition, which
-`Verified` rejects. -/
+the arguments by name. If `writeArgs`, the function may also overwrite its
+arguments passed in memory, where the calling convention gives them to the
+callee; otherwise it may only read them. A calling convention that does not
+model the arguments (`A.args` is `none`) gives an unsatisfiable
+precondition, which `Verified` rejects. -/
 def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
     (pre : Curry (sig.words A.ptrBits) (Mem → Prop) := Curry.const (fun _ => True) _)
-    (post : sig.Post A.ptrBits) : Contract M :=
+    (post : sig.Post A.ptrBits) (writeArgs : Bool := false) : Contract M :=
   let ws := sig.words A.ptrBits
   let widths := ws.map (·.bits A.ptrBits)
   let pubs := sig.params.flatMap (·.2.pubs)
@@ -73,7 +75,7 @@ def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
       | none => False
       | some vals =>
         let bufs := Sig.bufs sig.params (vals s)
-        let all := bufs ++ A.argArea widths s
+        let all := bufs ++ (A.argArea widths s).map fun (r, w) => (r, w && writeArgs)
         A.wf widths s ∧
         A.rd s = (all.filter (!·.2)).map (·.1) ∧ A.wr s = (all.filter (·.2)).map (·.1) ∧
         all.Pairwise (fun a b => (a.2 || b.2) → a.1.Disjoint b.1) ∧

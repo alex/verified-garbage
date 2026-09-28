@@ -15,7 +15,9 @@ and `vg_hmac_sha256_finalize` computes the MAC.
 `A` is the target's calling convention. The signatures fix where the
 arguments are, the memory each function may access, disjointness, and that
 the pointers and lengths are public (see `TCB/Sig.lean`); the contracts add
-the rest.
+the rest. `vg_hmac_sha256_init` and the 32-bit `vg_hmac_sha256_finalize` may
+overwrite their arguments passed in memory, where the calling convention
+allows it (`writeArgs`), to pass arguments to the code they inline.
 
 `vg_hmac_sha256_finalize` has two signatures. On the 64-bit targets it
 leaves the MAC in `scratch` (`finalizeSha256Contract`), so that the code can
@@ -45,6 +47,7 @@ def initSha256Contract {M : ISA} (A : Abi M) : Contract M :=
     (post := fun inner outer key keyLen _scratch m m' _ =>
       let k0 := blockKey sha256 (bytesAt m key keyLen.toNat)
       Repr m' inner (xorPad k0 ipad) ∧ Repr m' outer (xorPad k0 opad))
+    (writeArgs := true)
 
 /-- `vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 30])`,
 on 64-bit targets. `count` is public; `inner` is left unspecified, and
@@ -76,5 +79,6 @@ def finalizeSha256OutContract {M : ISA} (A : Abi M) : Contract M :=
     ∀ k0 text, k0.length = 64 → Repr m inner (xorPad k0 ipad ++ text) →
       count = BitVec.ofNat 64 (64 + text.length) → Repr m outer (xorPad k0 opad) →
       bytesAt m' out 32 = hmacBlockKey sha256 k0 text)
+    (writeArgs := true)
 
 end VG.Spec.Hmac

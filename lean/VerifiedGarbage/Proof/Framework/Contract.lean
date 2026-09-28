@@ -105,7 +105,8 @@ macro_rules
       intro s₁ s₂ _ _ h
       sig_unfold [$ls,*] at h
       set_option linter.unusedSimpArgs false in
-      simp only [$ls,*]
+      simp only [$ls,*, Nat.forall_lt_succ_right, Nat.not_lt_zero, false_imp_iff, forall_const,
+        true_and]
       all_goals
         obtain ⟨_, h⟩ := h
         have := h 0; have := h 1; have := h 2; have := h 3; have := h 4; have := h 5; have := h 6
