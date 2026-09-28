@@ -9,8 +9,10 @@ A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
 caller to the contract; check them against the contract's `pre`/`post`. An
 artifact made from a function's `Api` (in `Spec/`, reviewed with the
-contract) takes its signature and most of its `doc` from there: what this
-file adds is the `# Safety` items that depend on the target, and any notes.
+contract) takes them from there, and this file adds only notes on the
+implementation. The emitter adds the `# Safety` items that depend on the
+target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
+against the contract.
 -/
 
 namespace VG.Artifacts.Gcm.X86_64
@@ -18,9 +20,7 @@ namespace VG.Artifacts.Gcm.X86_64
 def artifacts : List Artifact := [
   { Spec.Gcm.ghashApi with
     target := X86_64.target
-    doc := Spec.Gcm.ghashApi.doc ["`y` and `scratch` must not overlap each other, `h` or `data` \
-      (`h` and `data` may overlap). None of the four regions may overlap the return address on \
-      the stack or wrap around the end of the address space (distinct Rust objects never do)."]
+    doc := Spec.Gcm.ghashApi.doc
       (notes := ["The carry-less products are computed with integer multiplications (`mul`) of \
         operands with \"holes\" (every fourth bit), which keep the carries away from the bits of \
         the result, as in BearSSL's `ghash_ctmul64` (Thomas Pornin, MIT licence): three 64-bit \
@@ -44,9 +44,7 @@ def artifacts : List Artifact := [
       * `y` must be valid for reads and writes of 16 bytes.\n\
       * `data` must be valid for reads of `16 * n` bytes.\n\
       * `scratch` must be valid for reads and writes of 256 bytes; its contents on return \
-      are unspecified.\n\
-      * `y` and `scratch` must not overlap each other, `h`, `data`, or the return address on \
-      the stack (distinct Rust objects never do)."
+      are unspecified."
     code := Impl.Gcm.X86_64.Pclmul.ghash
     contract := Spec.Gcm.ghashContract X86_64.abi
     verified := Proof.Gcm.X86_64.Pclmul.Shared.ghash
