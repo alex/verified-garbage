@@ -78,7 +78,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 160 ≤ 2 ^ 32
   sp_fit : (esp₀ s₀).toNat + 24 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Hmac.initSha256X86.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Hmac.initSha256X86.pre s₀) : Pre s₀ := by
   obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20⟩ := h
   exact ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20⟩
 
@@ -286,7 +286,6 @@ theorem wordB_ok {b : Reg} (hb : b ≠ .ecx) {x : BitVec 32} {k : Nat} {rest : L
   refine kk s₂ (fun r hr => by rw [u₂.gpr, u₁.other r hr]) (by rw [u₂.rd, u₁.rd]) (by rw [u₂.wr, u₁.wr]) ?_
   rw [u₂.mem, u₁.gpr, u₁.mem]
 
-set_option maxHeartbeats 1000000 in
 /-- `H⁽⁰⁾` stored at `[b]`. -/
 theorem h0_ok {b : Reg} (hb : b ≠ .ecx) {st : BitVec 32} (hfit : st.toNat + 32 ≤ 2 ^ 32) {rest : List Instr}
     {s : State} {Q : State → Prop} (hst : s.gpr b = st) (hout : ∀ k < 8, InRegions s.wr (addr st (4 * k)) 4)
@@ -346,7 +345,6 @@ structure Key (s₀ : State) (j : Nat) (s : State) : Prop extends Buf s₀ j s w
 theorem proMem_buf {s₀ : State} (hp : Pre s₀) : BufMem s₀ 0 (proMem s₀) :=
   ⟨proMem_stI hp, proMem_stO, by simp [bytesAt], proMem_saved hp, proMem_frame hp⟩
 
-set_option maxHeartbeats 4000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ([.mov .eax (.mem (at_ .esp 20))] ++ save .eax ++
       [.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)), .mov .esi (.mem (at_ .esp 8))] ++
@@ -509,7 +507,6 @@ theorem in_buf {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < 64) {wr : List
       rw [BitVec.ofNat_add]; rfl]
     exact contains_offset (by omega) (by omega)⟩
 
-set_option maxHeartbeats 1000000 in
 theorem key_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < kl s₀) {s : State} (h : Key s₀ j s) :
     WP isa (.block keyBody) s fun s' => Key s₀ (j + 1) s' ∧ s'.zf = some (decide (j + 1 = kl s₀)) := by
   have hkl := hp.kl_le
@@ -564,7 +561,6 @@ structure Pad (s₀ : State) (j : Nat) (s : State) : Prop extends Buf s₀ j s w
   eax : s.gpr .eax = inn s₀ + 96
   ecx : s.gpr .ecx = 0x36
 
-set_option maxHeartbeats 1000000 in
 theorem pad_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : kl s₀ ≤ j) (hj' : j < 64) {s : State}
     (h : Pad s₀ j s) :
     WP isa (.block padBody) s fun s' => Pad s₀ (j + 1) s' ∧ s'.zf = some (decide (j + 1 = 64)) := by
@@ -791,7 +787,6 @@ theorem compBuf_ok {s₀ s : State} (hp : Pre s₀) {b : Reg} {x : BitVec 32} (h
 
 /-! ## Epilogue -/
 
-set_option maxHeartbeats 1000000 in
 theorem epilogue_ok {s₀ s : State} (hp : Pre s₀) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
     (hebp : s.gpr .ebp = scr s₀) (hsp : s.gpr .esp = esp₀ s₀) (hsv : Saved s₀ s.mem) :
     WP isa (.block (.mov .eax (.reg .ebp) :: restore .eax)) s fun s' =>
@@ -836,9 +831,8 @@ theorem callee_ne_eax {r : Reg} (hr : r ∈ calleeSaved) : r ≠ .eax := by
   simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide
 
-set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Hmac.initSha256X86.post s₀ s' := by
+    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256X86.post s₀ s' := by
   have hkl := hp.kl_le
   have fi := hp.in_fit
   have fo := hp.ou_fit
@@ -999,7 +993,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 words at offsets 0, 4 and 16 are the base addresses of `inner`, `outer` and
 `scratch`. -/
 def τ₀ : VG.X86.Taint.T :=
-  { regs := [.esp], flags := false, lens := [96, 96, 160, 20], bases := [(.esp, 3, 4)],
+  { regs := .ofList [.esp], flags := false, lens := [96, 96, 160, 20], bases := [(.esp, 3, 4)],
     slots := [(3, 0, 20)], wbases := [(3, 0, 0), (3, 4, 1), (3, 16, 2)] }
 
 theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
@@ -1037,13 +1031,13 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
       rw [VG.Proof.Sha256.X86.Stream.Finalize.argWord_eq hs (k := 16) (by omega)]
       simp [addr, scr, arg]
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Hmac.initSha256X86.pre s₁) (h₂ : Spec.Hmac.initSha256X86.pre s₂)
-    (hpub : Spec.Hmac.initSha256X86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.initSha256X86.pre s₁) (h₂ : Proof.Hmac.initSha256X86.pre s₂)
+    (hpub : Proof.Hmac.initSha256X86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, ha⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
     fun h => absurd h (Nat.lt_irrefl 0), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
-  · simp only [τ₀, List.mem_singleton] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_singleton] at hr
     subst hr; exact hesp
   · rw [hp₁.wr, hp₂.wr]
     simp only [inR, ouR, scR, argR, inA, ouA, scA, inn, ou, scr, esp₀, ha 0 (by omega), ha 1 (by omega),
@@ -1079,22 +1073,21 @@ def sat : State where
   rd := [⟨0x1200, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x1100, 96⟩, ⟨0x3000, 160⟩, ⟨0x4004, 20⟩]
 
-theorem sat_pre : Spec.Hmac.initSha256X86.pre sat := by
+theorem sat_pre : Proof.Hmac.initSha256X86.pre sat := by
   have a0 : arg sat 0 = 0x1000 := by decide
   have a1 : arg sat 1 = 0x1100 := by decide
   have a2 : arg sat 2 = 0x1200 := by decide
   have a3 : arg sat 3 = 0 := by decide
   have a4 : arg sat 4 = 0x3000 := by decide
   have e : argAddr sat 0 = 0x4004 := by decide
-  simp only [Spec.Hmac.initSha256X86, a0, a1, a2, a3, a4, e]
+  simp only [Proof.Hmac.initSha256X86, a0, a1, a2, a3, a4, e]
   refine ⟨by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
     by decide, by decide, by decide⟩ <;>
   · intro a h₁ h₂
     simp only [Region.Contains, sat] at h₁ h₂
     bv_omega
 
-set_option maxHeartbeats 0 in
-theorem init_verified : Verified X86.target init Spec.Hmac.initSha256X86 := by
+theorem init_verified : Verified X86.target init Proof.Hmac.initSha256X86 := by
   refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

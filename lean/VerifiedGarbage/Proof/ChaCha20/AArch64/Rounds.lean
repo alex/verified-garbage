@@ -14,7 +14,6 @@ namespace VG.Proof.ChaCha20.AArch64
 open VG VG.AArch64 VG.Impl.ChaCha20.AArch64 VG.Proof.ChaCha20
 open VG.Spec.ChaCha20 (Word quarterRound qround innerBlock)
 
-set_option maxHeartbeats 0 in
 theorem qr_ok {a b c d : Reg} (hab : a ≠ b) (hac : a ≠ c) (had : a ≠ d) (hbc : b ≠ c)
     (hbd : b ≠ d) (hcd : c ≠ d) (s : State) (va vb vc vd : Word)
     (ha : s.gpr a = va.setWidth 64) (hb : s.gpr b = vb.setWidth 64)
@@ -49,7 +48,8 @@ def Holds (v : CState) (s : State) : Prop := ∀ k (hk : k < 16), s.gpr (wreg k)
 def Words (r : Reg) : Prop := ∃ k < 16, r = wreg k
 
 theorem wreg_inj {j k : Nat} (hj : j < 16) (hk : k < 16) (h : wreg j = wreg k) : j = k := by
-  interval_cases j <;> interval_cases k <;> first | rfl | (simp [wreg] at h)
+  have key : ∀ j, j < 16 → ∀ k, k < 16 → wreg j = wreg k → j = k := by decide
+  exact key j hj k hk h
 
 /-- The rounds invariant, relative to the state `s₀` at the start of the rounds. -/
 structure RI (v : CState) (s₀ s : State) : Prop where
@@ -59,7 +59,6 @@ structure RI (v : CState) (s₀ s : State) : Prop where
   wr : s.wr = s₀.wr
   keep : ∀ r, ¬ Words r → s.gpr r = s₀.gpr r
 
-set_option maxHeartbeats 400000 in
 theorem quarter_step {x y z w : Nat} (hx : x < 16) (hy : y < 16) (hz : z < 16) (hw : w < 16)
     (hd : [x, y, z, w].Nodup) {v : CState} {s₀ s : State} (h : RI v s₀ s) :
     WP isa (quarter x y z w) s (RI (qround v ⟨x, hx⟩ ⟨y, hy⟩ ⟨z, hz⟩ ⟨w, hw⟩) s₀) := by

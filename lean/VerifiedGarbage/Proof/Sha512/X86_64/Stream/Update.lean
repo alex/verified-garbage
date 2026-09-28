@@ -52,7 +52,7 @@ structure Pre (s₀ : State) : Prop where
   ret_st : (retR s₀).Disjoint (stR s₀)
   ret_scr : (retR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Spec.Sha512.updateX86_64.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha512.updateX86_64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7⟩
 
@@ -140,7 +140,6 @@ theorem inv_zero {s₀ : State} (hp : Pre s₀) {s : State} (hm : s.mem = saveMe
     exact repr_congr (fun i hi => (saveMem_frame).bytes (R := stR s₀) (by simpa using hp.st_scr)
       (by simp) hi) hm₀.1
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .r8 ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .r8), .mov .rbp (.reg .rdx),
@@ -158,11 +157,10 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   refine inv_zero hp rfl rfl rfl ?_ ?_ ?_ ?_ ?_ ?_ <;>
     simp (config := {decide := true}) [State.setReg, arithFlags, State.setFlags, and127]
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Spec.Sha512.updateX86_64.post s₀ s' := by
+      abiPreserved s₀ s' ∧ Proof.Sha512.updateX86_64.post s₀ s' := by
   have i : ∀ d : Nat, d + 8 ≤ 224 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
     fun d hd => ⟨scR s₀, by simp [hI.rd, hI.wr, hp.wr], contains_offset' hd (by omega)⟩
   have i0 := i 176 (by omega); have i1 := i 184 (by omega); have i2 := i 192 (by omega)
@@ -360,7 +358,6 @@ theorem take_add_data (s₀ : State) (c t : Nat) (m : List Byte) :
     m ++ (D s₀).take c ++ ((D s₀).drop c).take t = m ++ (D s₀).take (c + t) := by
   rw [List.take_add, List.append_assoc]
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 /-- A whole block straight from the data. -/
 theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s)
@@ -444,7 +441,6 @@ theorem write_frame (s₀ : State) (c : Nat) (mI : Mem) (j : Nat) (hj : j ≤ tt
   rw [q_eq]
   exact contains_offset (by simp only [List.length_take]; omega) (by omega)
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {j : Nat}
     (hj : j < tt s₀ c) {s : State} (h : Copy s₀ c sI.mem j s) :
@@ -548,7 +544,6 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   · rw [← hxs]
     exact bytesAt_writeBytes _ _ _ _ (by omega)
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 /-- A full buffer: compress it. -/
 theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {s : State}
@@ -588,7 +583,6 @@ theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
     rw [hb, show rr s₀ c + tt s₀ c = 128 from hfull] at hby
     exact bytesAt_getD hby hk
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 /-- All the data fits in the buffer. -/
 theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {s : State}
@@ -643,7 +637,6 @@ theorem copy_loop_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
     rwa [show j + 1 = tt s₀ c by omega] at hc'
   · exact .inr ⟨by simp [eval, hz, hl], _, by omega, j + 1, rfl, by omega, hc'⟩
 
-set_option maxHeartbeats 0 in
 theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) :
     WP isa fill s fun s' => (∃ c', c < c' ∧ Pending s₀ c' s') ∨ Done s₀ s' := by
   have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c
@@ -731,7 +724,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   exact WP.mono (direct_ok hp hI₂ hb hb') fun s' h => .inl ⟨c + 128, by omega, h⟩
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha512.updateX86_64.post s₀ s' := by
+    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.updateX86_64.post s₀ s' := by
   unfold update
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI => ?_)
   refine WP.seq (WP.mono (Q := Inv s₀ (len s₀)) ?_ fun s₂ hI₂ => epilogue_ok hp hI₂)
@@ -745,21 +738,21 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-- The initial taint: the arguments are public, and `rdi` and `r8` point at
 the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
-  { regs := [.rdi, .rsi, .rdx, .rcx, .r8], flags := false, lens := [192, 224],
+  { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .r8], flags := false, lens := [192, 224],
     bases := [(.rdi, 0), (.r8, 1)] }
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha512.updateX86_64.pre s₁)
-    (h₂ : Spec.Sha512.updateX86_64.pre s₂) (hpub : Spec.Sha512.updateX86_64.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha512.updateX86_64.pre s₁)
+    (h₂ : Proof.Sha512.updateX86_64.pre s₂) (hpub : Proof.Sha512.updateX86_64.pub s₁ s₂) :
     X86_64.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
-  have wf : ∀ s, Spec.Sha512.updateX86_64.pre s → X86_64.Taint.Wf τ₀ s := by
+  have wf : ∀ s, Proof.Sha512.updateX86_64.pre s → X86_64.Taint.Wf τ₀ s := by
     intro s hs
     obtain ⟨-, hw, hd, -⟩ := hs
     refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, hd], by simp [hw]⟩, fun p hp => ?_⟩
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with rfl | rfl <;> simp [X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
   · rw [h₁.2.1, h₂.2.1, p1, p5]
   · intro sl h; simp [τ₀] at h
@@ -777,7 +770,7 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 192⟩, ⟨0x3000, 224⟩]
 
-theorem update_verified : Verified X86_64.target update Spec.Sha512.updateX86_64 := by
+theorem update_verified : Verified X86_64.target update Proof.Sha512.updateX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

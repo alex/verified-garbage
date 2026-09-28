@@ -4,7 +4,7 @@
 
 /// The SHA-256 compression function (FIPS 180-4 §6.2.2): updates the hash value `*state` with the `n` 64-byte blocks starting at `blocks`, in order.
 ///
-/// Contract: `VG.Spec.Sha256.compressX86_64`. Constant time: only the pointers and `n` may affect timing, not the hash value or the blocks.
+/// Contract: `VG.Spec.Sha256.compressContract`. Constant time: only the pointers and `n` may affect timing, not the hash value or the blocks.
 ///
 /// # Safety
 ///
@@ -2962,7 +2962,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_compress(state: *mut [u32; 8], bl
 
 /// Starts a SHA-256 computation: makes the streaming state `*state` represent the empty message.
 ///
-/// Contract: `VG.Spec.Sha256.initX86_64`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha256.Repr`).
+/// Contract: `VG.Spec.Sha256.initContract`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha256.Repr`).
 ///
 /// # Safety
 ///
@@ -2993,7 +2993,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_init(state: *mut [u8; 96]) {
 
 /// Absorbs data into a SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
 ///
-/// Contract: `VG.Spec.Sha256.updateX86_64`. Constant time: only the pointers, `count` and `len` may affect timing, not the state or the data.
+/// Contract: `VG.Spec.Sha256.updateContract`. Constant time: only the pointers, `count` and `len` may affect timing, not the state or the data.
 ///
 /// # Safety
 ///
@@ -6058,7 +6058,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_update(state: *mut [u8; 96], coun
 
 /// Finishes a SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), writes the SHA-256 digest of that message to `*out`.
 ///
-/// Contract: `VG.Spec.Sha256.finalizeX86_64`. Constant time: only the pointers and `count` may affect timing, not the state.
+/// Contract: `VG.Spec.Sha256.finalizeContract`. Constant time: only the pointers and `count` may affect timing, not the state.
 ///
 /// # Safety
 ///

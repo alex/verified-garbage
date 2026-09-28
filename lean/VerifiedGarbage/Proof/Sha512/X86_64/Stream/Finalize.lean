@@ -61,7 +61,7 @@ structure Pre (s₀ : State) : Prop where
   ret_out : (retR s₀).Disjoint (outR s₀)
   ret_scr : (retR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Spec.Sha512.finalizeX86_64.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha512.finalizeX86_64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
 
@@ -268,7 +268,6 @@ theorem wp_shri {is : List Instr} {s : State} {Q : State → Prop} {d : Reg} {n 
 def Step (s₀ : State) (k : Nat) (s : State) : Prop :=
   (eval .e s = some false ∧ Done s₀ s ∧ s.gpr .rdi = st s₀ ∧ s.gpr .rcx = scr s₀) ∨ (eval .e s = some true ∧ k = 1 ∧ LInv s₀ 0 0 s)
 
-set_option maxHeartbeats 1000000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
     WP isa finalizeBody s (Step s₀ k) := by
   have hk := h.k_le; have hn := h.n_le
@@ -502,7 +501,6 @@ theorem prologue_eq : save .rcx ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx)
     .mov32 .rax (.imm 0x80), .store8 bufByte .rax, .alu .add .r13 (.imm 1),
     .mov32 .r14 (.imm 0), .alu .cmp .r13 (.imm 113)] := rfl
 
-set_option maxHeartbeats 1000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.seq (.block (save .rcx ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),
       .mov .r12 (.reg .rsi), .mov .r13 (.reg .rsi), .alu .and .r13 (.imm 127),
@@ -642,7 +640,7 @@ theorem flat_length (H : HashValue) (k : Nat) (hk : k ≤ 8) :
     ((H.toList.take k).flatMap wordBytes).length = 8 * k := by
   rw [List.length_flatMap]
   have : ∀ w ∈ H.toList.take k, (wordBytes w).length = 8 := fun w _ => by simp [wordBytes]
-  rw [List.map_congr_left this, List.map_const', List.sum_replicate, List.length_take]
+  rw [List.map_congr_left this, List.map_const', List.sum_replicate_nat, List.length_take]
   simp; omega
 
 theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 64) :
@@ -651,11 +649,10 @@ theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 
     rw [show out s₀ = out s₀ + BitVec.ofNat 64 0 by simp]
     exact contains_offset (by omega) (by omega))
 
-set_option maxHeartbeats 1000000 in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {s : State}
     (h : Out s₀ sD 8 s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Spec.Sha512.finalizeX86_64.post s₀ s' := by
+      abiPreserved s₀ s' ∧ Proof.Sha512.finalizeX86_64.post s₀ s' := by
   have hC := hD.1
   have hfo := out_frame s₀ sD.mem (((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes)
     (by rw [flat_length _ _ le_rfl])
@@ -705,7 +702,6 @@ theorem writeW_bswap64 (m : Mem) (a : Addr) (w : BitVec 64) :
     m.writeW a (bswap64 w) = writeBytes m a (wordBytes w) := by
   rw [Mem.writeW, write_eq_writeBytes, ← bswap64_wordBytes]; rfl
 
-set_option maxHeartbeats 1000000 in
 theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {k : Nat} (hk : k < 8)
     {s : State} (h : Out s₀ sD k s) {rest : List Instr} {Q : State → Prop}
     (hnext : ∀ s', Out s₀ sD (k + 1) s' → WP isa (.block rest) s' Q) :
@@ -740,7 +736,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
 theorem out_all {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) :
     ∀ j ≤ 8, ∀ s, Out s₀ sD (8 - j) s →
       WP isa (.block (((List.range 8).drop (8 - j)).flatMap outW ++ restore)) s fun s' =>
-        abiPreserved s₀ s' ∧ Spec.Sha512.finalizeX86_64.post s₀ s' := by
+        abiPreserved s₀ s' ∧ Proof.Sha512.finalizeX86_64.post s₀ s' := by
   intro j
   induction j with
   | zero =>
@@ -765,7 +761,7 @@ theorem out_keeps : (((List.range 8).flatMap outW ++ restore).all fun i =>
 /-- `finalize` is correct, and leaves `rdi` and `rcx` as they were (which code
 inlining it relies on). -/
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha512.finalizeX86_64.post s₀ s' ∧
+    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.finalizeX86_64.post s₀ s' ∧
       s'.gpr .rdi = s₀.gpr .rdi ∧ s'.gpr .rcx = s₀.gpr .rcx := by
   unfold finalize
   rw [← WP.seq_assoc]
@@ -790,21 +786,21 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-- The initial taint: the arguments are public, and `rdi`, `rdx` and `rcx`
 point at the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
-  { regs := [.rdi, .rsi, .rdx, .rcx], flags := false, lens := [192, 64, 224],
+  { regs := .ofList [.rdi, .rsi, .rdx, .rcx], flags := false, lens := [192, 64, 224],
     bases := [(.rdi, 0), (.rdx, 1), (.rcx, 2)] }
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha512.finalizeX86_64.pre s₁)
-    (h₂ : Spec.Sha512.finalizeX86_64.pre s₂) (hpub : Spec.Sha512.finalizeX86_64.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha512.finalizeX86_64.pre s₁)
+    (h₂ : Proof.Sha512.finalizeX86_64.pre s₂) (hpub : Proof.Sha512.finalizeX86_64.pub s₁ s₂) :
     X86_64.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4⟩ := hpub
-  have wf : ∀ s, Spec.Sha512.finalizeX86_64.pre s → X86_64.Taint.Wf τ₀ s := by
+  have wf : ∀ s, Proof.Sha512.finalizeX86_64.pre s → X86_64.Taint.Wf τ₀ s := by
     intro s hs
     obtain ⟨-, hw, d1, d2, d3, -⟩ := hs
     refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, d1, d2, d3], by simp [hw]⟩, fun p hp => ?_⟩
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
   · rw [h₁.2.1, h₂.2.1, p1, p3, p4]
   · intro sl h; simp [τ₀] at h
@@ -822,7 +818,7 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 192⟩, ⟨0x2000, 64⟩, ⟨0x3000, 224⟩]
 
-theorem finalize_verified : Verified X86_64.target finalize Spec.Sha512.finalizeX86_64 := by
+theorem finalize_verified : Verified X86_64.target finalize Proof.Sha512.finalizeX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h.1, h.2.1⟩

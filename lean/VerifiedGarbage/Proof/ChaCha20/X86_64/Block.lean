@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Rounds
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Spec.ChaCha20.X86_64
+import VerifiedGarbage.Proof.ChaCha20.X86_64.Contract
 
 /-!
 # ChaCha20 block function on x86-64: the whole function
@@ -22,7 +22,6 @@ theorem out_lt {k : Nat} (hk : k < 16) : outOff k + 4 ≤ 256 := by simp only [o
 
 /-! ## Copying the state -/
 
-set_option maxHeartbeats 400000 in
 theorem copyWord_ok {k : Nat} (hk : k < 16) {s : State} {st buf : Addr} (hrdi : s.gpr .rdi = st)
     (hrsi : s.gpr .rsi = buf) (hin : InRegions (s.rd ++ s.wr) (bufAt st (4 * k)) 4)
     (hw : bufR buf ∈ s.wr) :
@@ -117,7 +116,7 @@ structure Pre (s₀ : State) : Prop where
   buf_st : (bufR (buf s₀)).Disjoint (stR s₀)
   ret_buf : (retR s₀).Disjoint (bufR (buf s₀))
 
-theorem pre_of (s₀ : State) (h : Spec.ChaCha20.blockX86_64.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.ChaCha20.blockX86_64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4⟩ := h
   exact ⟨h1, h2, h3, h4⟩
 
@@ -212,7 +211,6 @@ structure SI (p : Addr) (R : CState) (sB : State) (n : Nat) (s : State) : Prop w
 theorem wreg_ne_rax {j : Nat} (h : 11 ≤ j) (hj : j < 16) : wreg j ≠ .rax := by
   interval_cases j <;> decide
 
-set_option maxHeartbeats 400000 in
 theorem store_step {p : Addr} {R : CState} {sB : State} (hw : bufR p ∈ sB.wr) {n : Nat} (hn : n < 16)
     {s : State} (hs : SI p R sB n s) : WP isa (.block (storeWord n)) s (SI p R sB (n + 1)) := by
   have hw' : bufR p ∈ s.wr := hs.wr ▸ hw
@@ -277,7 +275,6 @@ structure AI (p : Addr) (R v : CState) (sB : State) (n : Nat) (s : State) : Prop
   rd : s.rd = sB.rd
   wr : s.wr = sB.wr
 
-set_option maxHeartbeats 400000 in
 theorem add_step {p : Addr} {R v : CState} {sB : State} (hw : bufR p ∈ sB.wr) {n : Nat} (hn : n < 16)
     {s : State} (hs : AI p R v sB n s) : WP isa (.block (addWord n)) s (AI p R v sB (n + 1)) := by
   have hw' : bufR p ∈ s.wr := hs.wr ▸ hw
@@ -336,7 +333,6 @@ theorem restore_eq : restore = [
     .mov .r13 (.mem (at_ .rsi 168)), .mov .r14 (.mem (at_ .rsi 176)), .mov .r15 (.mem (at_ .rsi 184))] :=
   rfl
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block save) s₀ fun s₁ =>
@@ -395,7 +391,6 @@ theorem load_eq : load = [
     .mov32 .r10 (.mem (at_ .rsi (inOff 12))), .mov32 .r11 (.mem (at_ .rsi (inOff 13))),
     .mov32 .r12 (.mem (at_ .rsi (inOff 14))), .mov32 .r13 (.mem (at_ .rsi (inOff 15)))] := rfl
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem load_ok {s₀ s₁ : State} (hp : Pre s₀) (h₁ : s₁.gpr = s₀.gpr) {s : State}
     (hc : CI s₀ s₁ 16 s) :
@@ -434,7 +429,6 @@ theorem load_ok {s₀ s₁ : State} (hp : Pre s₀) (h₁ : s₁.gpr = s₀.gpr)
 
 /-! ## Phase 7: restoring the callee-saved registers -/
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem restore_ok {s₀ : State} {s : State} (hs : Saved s₀ s.mem) (hrsi : s.gpr .rsi = buf s₀)
     (hw : bufR (buf s₀) ∈ s.wr) :
@@ -483,9 +477,8 @@ theorem block_post {p : Addr} {m : Mem} {R v : CState}
   simp only [bufAt, outOff, ofInt_natCast] at this
   exact this
 
-set_option maxHeartbeats 400000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa block s₀ fun s' => abiPreserved s₀ s' ∧ Spec.ChaCha20.blockX86_64.post s₀ s' := by
+    WP isa block s₀ fun s' => abiPreserved s₀ s' ∧ Proof.ChaCha20.blockX86_64.post s₀ s' := by
   have hw₀ := hp.hw
   refine WP.seq ?_
   rw [WP.block_append_iff, WP.block_append_iff]
@@ -567,7 +560,7 @@ def satState : State where
   wr := [⟨0x2000, 256⟩]
 
 theorem block_verified :
-    Verified X86_64.target Impl.ChaCha20.X86_64.block Spec.ChaCha20.blockX86_64 := by
+    Verified X86_64.target Impl.ChaCha20.X86_64.block Proof.ChaCha20.blockX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, h⟩

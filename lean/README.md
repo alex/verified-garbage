@@ -12,15 +12,18 @@ primitives: this directory verifies the primitives, not the Rust around them.
 VerifiedGarbage/
   TCB/          Trusted computing base: definitions only, Lean core only
     Mem.lean        byte-addressed memory, regions
-    Code.lean       structured programs, big-step semantics with leakage, constant time
-    Print.lean      lowering of structured control flow to labels and branches
+    Code.lean       structured programs and calls, big-step semantics with leakage,
+                    constant time
+    Print.lean      lowering of structured control flow to labels and branches, and
+                    of calls to call instructions
     Sig.lean        Rust signatures and calling conventions (`Abi`)
     Artifact.lean   Target, Contract, `Verified`, `Artifact`: what "verified" means;
                     `Sig.contract`: the contract obligations a signature implies
-    Rust.lean       rendering artifacts as Rust naked functions
+    Rust.lean       rendering artifacts as Rust naked functions; checks that every
+                    call is of the artifact whose code the model runs for it
     Axioms.lean     `#assert_standard_axioms`
     X86_64/         ISA model, printer, System V ABI target
-  Spec/         Algorithm specifications and per-target contracts (trusted, must be reviewed)
+  Spec/         Algorithm specifications and contracts (trusted, must be reviewed)
   Impl/         Implementations: `Prog`s over an ISA model (untrusted)
   Proof/        Proofs and intermediate proof artifacts (untrusted)
     Framework/      generic lemmas: determinism, WP rules, memory frames, inlining
@@ -38,10 +41,12 @@ never import proofs.
 ## The pipeline
 
 1. **Spec** — `Spec/<Alg>.lean` defines the algorithm as a readable Lean
-   function transcribed from the standard, and `Spec/<Alg>/<Target>.lean` a
-   `Contract` per target: a precondition (argument registers, permitted
-   memory regions), a postcondition (in terms of the spec), and a `pub`
-   relation saying which inputs are public for constant-time purposes.
+   function transcribed from the standard, and `Spec/<Alg>/Contract.lean`
+   each function's Rust signature (`Sig`) and its `Contract`, for every
+   target at once: `Sig.contract` derives from the signature and the
+   target's calling convention where the arguments are, the permitted memory
+   regions, disjointness and which arguments are public, and the contract
+   adds a postcondition (in terms of the spec) and any further precondition.
 2. **Impl** — `Impl/<Alg>/<Target>.lean` defines the code as a `Prog`.
 3. **Proof** — `Proof/<Alg>/…` proves `Verified target code contract`:
    termination without faults (hence memory safety), the postcondition,
@@ -54,6 +59,12 @@ never import proofs.
 5. **Emit** — `Emit.lean` renders the registry into `src/asm/<target>/<module>.rs`.
    CI fails if the checked-in files differ from what Lean generates, so the
    Rust crate contains exactly the verified code.
+
+A function can call another (`Code.call name body`): the model runs the
+callee's code `body` between the call and return instructions, so the
+caller's proof covers it, and the emitter only emits the call if `name` is
+the artifact whose code is `body`. A caller's proof can use the callee's
+`Verified` proof rather than go through its code again.
 
 ## What you need to trust
 

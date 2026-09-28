@@ -1,11 +1,11 @@
 //! SHA-256 (FIPS 180-4).
 //!
 //! `vg_sha256_init`, `vg_sha256_update` and `vg_sha256_finalize` for the
-//! target architecture (contracts `VG.Spec.Sha256.initX86_64`,
-//! `updateX86_64`, `finalizeX86_64` and their AArch64, 32-bit ARM and x86
-//! counterparts) maintain a streaming state that represents the message
-//! absorbed so far (`VG.Spec.Sha256.Repr`: the hash value of its whole
-//! blocks, and its remaining bytes), and pad it and output the digest.
+//! target architecture (contracts `VG.Spec.Sha256.initContract`,
+//! `updateContract` and `finalizeContract`) maintain a streaming state that
+//! represents the message absorbed so far (`VG.Spec.Sha256.Repr`: the hash
+//! value of its whole blocks, and its remaining bytes), and pad it and output
+//! the digest.
 
 #[cfg(target_arch = "aarch64")]
 use crate::asm::aarch64::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};

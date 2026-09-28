@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
-import VerifiedGarbage.Spec.Hmac.X86_64
+import VerifiedGarbage.Proof.Hmac.X86_64.Contract
 
 /-!
 # HMAC-SHA-256 on x86-64: `init`
@@ -57,7 +57,7 @@ structure Pre (s₀ : State) : Prop where
   ret_o : (retR s₀).Disjoint (outR s₀)
   ret_s : (retR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Spec.Hmac.initSha256X86_64.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Hmac.initSha256X86_64.pre s₀) : Pre s₀ := by
   obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩ := h
   exact ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩
 
@@ -71,7 +71,6 @@ theorem blockKey_eq {s₀ : State} (hp : Pre s₀) :
 
 /-! ## Prologue -/
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .r8)) s₀ fun s =>
@@ -97,7 +96,6 @@ theorem h0_eq (b : Reg) : h0 b = [
     .mov32 .rax (.imm 0x1f83d9ab), .store32 (at_ b (4 * 6)) .rax,
     .mov32 .rax (.imm 0x5be0cd19), .store32 (at_ b (4 * 7)) .rax] := rfl
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 /-- `H⁽⁰⁾` stored at `b`. -/
 theorem h0_ok {b : Reg} (hb : b ≠ .rax) {s : State} {rest : List Instr} {Q : State → Prop}
@@ -164,7 +162,6 @@ theorem saved_frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Re
   intro r hr
   exact (hd r hr).sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))
 
-set_option maxHeartbeats 1000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .r8 ++ [.mov .rbx (.reg .rdi), .mov .r12 (.reg .rsi), .mov .r15 (.reg .r8),
       .mov .rbp (.reg .rdx), .mov .r13 (.reg .rcx)] ++ h0 .rbx ++ h0 .r12 ++
@@ -367,7 +364,6 @@ def keyBody : List Instr :=
 
 theorem keyLoop_eq : keyLoop = .loop (.block keyBody) .ne := rfl
 
-set_option maxHeartbeats 1000000 in
 theorem key_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < kl s₀) {s : State} (h : Buf s₀ j s) :
     WP isa (.block keyBody) s fun s' => Buf s₀ (j + 1) s' ∧ s'.zf = some (decide (j + 1 = kl s₀)) := by
   have hkl := hp.kl_le
@@ -440,7 +436,6 @@ structure Pad (s₀ : State) (j : Nat) (s : State) : Prop extends Buf s₀ j s w
   rax : s.gpr .rax = (0x36 : BitVec 32).setWidth 64
   rcx : s.gpr .rcx = (0x5c : BitVec 32).setWidth 64
 
-set_option maxHeartbeats 1000000 in
 theorem pad_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : kl s₀ ≤ j) (hj' : j < 64) {s : State}
     (h : Pad s₀ j s) :
     WP isa (.block padBody) s fun s' => Pad s₀ (j + 1) s' ∧ s'.zf = some (decide (j + 1 = 64)) := by
@@ -578,13 +573,12 @@ theorem state_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Ad
 theorem save_sub (s₀ : State) : Region.Sub ⟨scr s₀ + BitVec.ofNat 64 112, 48⟩ (scR s₀) :=
   sub_offset (by omega) (by omega)
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s₀.wr)
     (h15 : s.gpr .r15 = scr s₀) (hsp : s.gpr .rsp = s₀.gpr .rsp) (hsv : Saved s₀ s.mem)
     (hfr : Frame [inR s₀, outR s₀, scR s₀] s₀.mem s.mem)
     (hI : Repr s.mem (inn s₀) (xorPad (K0 s₀) ipad)) (hO : Repr s.mem (out s₀) (xorPad (K0 s₀) opad)) :
-    WP isa (.block restore) s fun s' => abiPreserved s₀ s' ∧ Spec.Hmac.initSha256X86_64.post s₀ s' := by
+    WP isa (.block restore) s fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256X86_64.post s₀ s' := by
   have i : ∀ d : Nat, d + 8 ≤ 160 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
     fun d hd => ⟨scR s₀, by simp [hwr, hp.wr], contains_offset' hd (by omega)⟩
   have i0 := i 112 (by omega); have i1 := i 120 (by omega); have i2 := i 128 (by omega)
@@ -612,7 +606,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s�
   refine ⟨⟨fun r hr => ?_, hret⟩, ?_⟩
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hsp]
-  · simp only [Spec.Hmac.initSha256X86_64]
+  · simp only [Proof.Hmac.initSha256X86_64]
     rw [blockKey_eq hp]
     exact ⟨hI, hO⟩
 
@@ -625,9 +619,8 @@ theorem buf_full {s₀ : State} (hp : Pre s₀) {m : Mem} (h : BufMem s₀ 64 m)
   rw [h.bufI, h.bufO, List.take_of_length_le (by rw [K0_length s₀ hp])]
   exact ⟨rfl, rfl⟩
 
-set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Hmac.initSha256X86_64.post s₀ s' := by
+    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256X86_64.post s₀ s' := by
   have hkl := hp.kl_le
   unfold init
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨h₁, z₁⟩ => ?_)
@@ -728,21 +721,21 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-- The initial taint: the arguments are public, and `rdi`, `rsi` and `r8`
 point at the writable regions. -/
 def τ₀ : X86_64.Taint.T :=
-  { regs := [.rdi, .rsi, .rdx, .rcx, .r8], flags := false, lens := [96, 96, 160],
+  { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .r8], flags := false, lens := [96, 96, 160],
     bases := [(.rdi, 0), (.rsi, 1), (.r8, 2)] }
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Hmac.initSha256X86_64.pre s₁)
-    (h₂ : Spec.Hmac.initSha256X86_64.pre s₂) (hpub : Spec.Hmac.initSha256X86_64.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.initSha256X86_64.pre s₁)
+    (h₂ : Proof.Hmac.initSha256X86_64.pre s₂) (hpub : Proof.Hmac.initSha256X86_64.pub s₁ s₂) :
     X86_64.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
-  have wf : ∀ s, Spec.Hmac.initSha256X86_64.pre s → X86_64.Taint.Wf τ₀ s := by
+  have wf : ∀ s, Proof.Hmac.initSha256X86_64.pre s → X86_64.Taint.Wf τ₀ s := by
     intro s hs
     obtain ⟨-, -, hw, d1, d2, d3, -⟩ := hs
     refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, d1, d2, d3], by simp [hw]⟩, fun p hp => ?_⟩
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
   · rw [h₁.2.2.1, h₂.2.2.1, p1, p2, p5]
   · intro sl h; simp [τ₀] at h
@@ -760,8 +753,7 @@ def sat : State where
   rd := [⟨0x3000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-set_option maxHeartbeats 0 in
-theorem init_verified : Verified X86_64.target init Spec.Hmac.initSha256X86_64 := by
+theorem init_verified : Verified X86_64.target init Proof.Hmac.initSha256X86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

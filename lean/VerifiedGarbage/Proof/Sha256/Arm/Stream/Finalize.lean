@@ -17,7 +17,8 @@ open VG.Proof.Sha256.Arm (contains_offset)
 open VG.Proof.Sha256.Arm.Stream
 open VG.Proof.Sha256.Arm.Stream.Update (addr_off addr_toNat cmp0)
 open VG.Proof.Sha256.Stream
-open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes countArm)
+open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes)
+open VG.Proof.Sha256 (countArm)
 
 /-! ## The precondition -/
 
@@ -71,7 +72,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 160 ≤ 2 ^ 32
   sp_fit : s₀.sp.toNat + 8 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Sha256.finalizeArm.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha256.finalizeArm.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12⟩
 
@@ -328,7 +329,6 @@ theorem body_eq : finalizeBody =
     (.seq (.block [.dp .add .r1 .r0 (.imm 32)])
     (.seq compressAt (.block [.mov .r7 (.imm 0), .subs .r8 .r8 (.imm 1)])))))))) := rfl
 
-set_option maxHeartbeats 4000000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
     WP isa finalizeBody s (Step s₀ k) := by
   have hk := h.k_le; have hn := h.n_le; have hst := hp.st_fit
@@ -528,7 +528,6 @@ theorem arg_sub {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 2) :
     Region.Sub ⟨stackArgAddr s₀ k, 4⟩ (argR s₀) := by
   rw [argAddr_eq hp hk]; exact sub_offset (by omega) (by omega)
 
-set_option maxHeartbeats 4000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ([.ldrSp .r12 4] ++ save .r12 ++ prologue)) s₀
       fun s => ∃ k, LInv s₀ k (cnt s₀ % 64 + 1) s := by
@@ -652,7 +651,7 @@ theorem flat_length (H : HashValue) (k : Nat) (hk : k ≤ 8) :
     ((H.toList.take k).flatMap wordBytes).length = 4 * k := by
   rw [List.length_flatMap]
   have : ∀ w ∈ H.toList.take k, (wordBytes w).length = 4 := fun w _ => rfl
-  rw [List.map_congr_left this, List.map_const', List.sum_replicate, List.length_take]
+  rw [List.map_congr_left this, List.map_const', List.sum_replicate_nat, List.length_take]
   simp; omega
 
 theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 32) :
@@ -661,7 +660,6 @@ theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 
     rw [show outA s₀ = outA s₀ + BitVec.ofNat 64 0 by simp]
     exact contains_offset (by omega) (by omega))
 
-set_option maxHeartbeats 1000000 in
 theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {k : Nat} (hk : k < 8)
     {s : State} (h : Out s₀ sD k s) {rest : List Instr} {Q : State → Prop}
     (hnext : ∀ s', Out s₀ sD (k + 1) s' → WP isa (.block rest) s' Q) :
@@ -697,7 +695,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
       List.flatMap_singleton, Vector.getElem_toList]
 
 /-- The epilogue's postcondition. -/
-def Post (s₀ s' : State) : Prop := abiPreserved s₀ s' ∧ Spec.Sha256.finalizeArm.post s₀ s'
+def Post (s₀ s' : State) : Prop := abiPreserved s₀ s' ∧ Proof.Sha256.finalizeArm.post s₀ s'
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {s : State}
     (h : Out s₀ sD 8 s) : WP isa (.block restore) s (Post s₀) := by
@@ -773,7 +771,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) : WP isa finalize s₀ (Post s₀
 points at the state, and the 8 bytes of stack arguments are public, the
 second one pointing at the scratch space. -/
 def τ₀ : VG.Arm.Taint.T :=
-  { regs := [.r0, .r2, .r3], flags := false, lens := [96, 32, 160], bases := [(.r0, 0)], argLen := 8,
+  { regs := .ofList [.r0, .r2, .r3], flags := false, lens := [96, 32, 160], bases := [(.r0, 0)], argLen := 8,
     argBases := [(4, 2)] }
 
 theorem argByte_eq {s : State} (hsp : s.sp.toNat + 8 ≤ 2 ^ 32) {k : Nat} (hk : k < 8) :
@@ -782,7 +780,7 @@ theorem argByte_eq {s : State} (hsp : s.sp.toNat + 8 ≤ 2 ^ 32) {k : Nat} (hk :
   rw [addr_off (by omega), BitVec.add_assoc, ← BitVec.ofNat_add]
   congr 2; omega
 
-theorem wf₀ {s : State} (h : Spec.Sha256.finalizeArm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
+theorem wf₀ {s : State} (h : Proof.Sha256.finalizeArm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
   have hp := pre_of h
   have hst := hp.st_fit; have ho := hp.out_fit; have hsc := hp.scr_fit; have hs := hp.sp_fit
   refine ⟨fun _ => ⟨by simp [hp.wr, τ₀], ?_, ?_⟩, ?_, fun _ => ⟨hs, ?_⟩, ?_⟩
@@ -803,13 +801,13 @@ theorem wf₀ {s : State} (h : Spec.Sha256.finalizeArm.pre s) : VG.Arm.Taint.Wf 
     simp only [VG.Arm.Taint.region, hp.wr]
     rfl
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.finalizeArm.pre s₁) (h₂ : Spec.Sha256.finalizeArm.pre s₂)
-    (hpub : Spec.Sha256.finalizeArm.pub s₁ s₂) : VG.Arm.Taint.Agree τ₀ s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.finalizeArm.pre s₁) (h₂ : Proof.Sha256.finalizeArm.pre s₂)
+    (hpub : Proof.Sha256.finalizeArm.pub s₁ s₂) : VG.Arm.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨psp, p0, p2, p3, a0, a1⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ h₁, wf₀ h₂,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim, fun _ => psp, fun k hk => ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl <;> assumption
   · rw [hp₁.wr, hp₂.wr]; simp only [stR, outR, scR, stA, outA, scA, st, out, scr, p0, a0, a1]
   · simp only [τ₀] at hk
@@ -834,8 +832,7 @@ def sat : State where
   rd := [⟨0x5000, 8⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 160⟩]
 
-set_option maxHeartbeats 0 in
-theorem finalize_verified : Verified Arm.target finalize Spec.Sha256.finalizeArm := by
+theorem finalize_verified : Verified Arm.target finalize Proof.Sha256.finalizeArm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
@@ -843,7 +840,7 @@ theorem finalize_verified : Verified Arm.target finalize Spec.Sha256.finalizeArm
   · have e0 : stackArg sat 0 = 0x2000 := by decide
     have e1 : stackArg sat 1 = 0x3000 := by decide
     refine ⟨sat, ?_⟩
-    simp only [Spec.Sha256.finalizeArm, e0, e1]
+    simp only [Proof.Sha256.finalizeArm, e0, e1]
     refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
       by decide⟩ <;>
     · intro a h₁ h₂

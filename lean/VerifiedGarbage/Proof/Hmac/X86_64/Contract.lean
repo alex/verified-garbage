@@ -1,21 +1,23 @@
 import VerifiedGarbage.Spec.Hmac
-import VerifiedGarbage.Spec.Sha256.X86_64
+import VerifiedGarbage.Proof.Sha256.X86_64.Contract
 
 /-!
 # HMAC-SHA-256: the x86-64 contracts
 
-**Trusted** (as every file in `Spec/`). An HMAC-SHA-256 computation is two
+**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). An HMAC-SHA-256 computation is two
 SHA-256 streaming states (`VG.Spec.Sha256.Repr`): the inner one, which
 absorbs `(K₀ ⊕ ipad) ‖ text`, and the outer one, which holds `K₀ ⊕ opad`.
 `vg_hmac_sha256_init` sets them up from the key, the text is absorbed into
 the inner state with `vg_sha256_update` (its contract,
-`VG.Spec.Sha256.updateX86_64`, is all that is needed), and
+`VG.Proof.Sha256.updateX86_64`, is all that is needed), and
 `vg_hmac_sha256_finalize` computes the MAC.
 -/
 
-namespace VG.Spec.Hmac
+namespace VG.Proof.Hmac
 
-open Sha256 (Repr bytesAt)
+open Spec.Hmac
+
+open Spec.Sha256 (Repr bytesAt)
 
 open X86_64 in
 /-- x86-64 contract for
@@ -81,4 +83,4 @@ def finalizeSha256X86_64 : Contract X86_64.isa where
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
     s₁.gpr .rcx = s₂.gpr .rcx
 
-end VG.Spec.Hmac
+end VG.Proof.Hmac

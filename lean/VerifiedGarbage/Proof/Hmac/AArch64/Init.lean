@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.AArch64.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Init
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Init
-import VerifiedGarbage.Spec.Hmac.AArch64
+import VerifiedGarbage.Proof.Hmac.AArch64.Contract
 
 /-!
 # HMAC-SHA-256 on AArch64: `init`
@@ -60,7 +60,7 @@ structure Pre (s₀ : State) : Prop where
   k_o : (kR s₀).Disjoint (outR s₀)
   k_s : (kR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Spec.Hmac.initSha256AArch64.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Hmac.initSha256AArch64.pre s₀) : Pre s₀ := by
   obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
   exact ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8⟩
 
@@ -83,7 +83,6 @@ def word (b : Reg) (x : BitVec 32) (off : Nat) : List Instr :=
 theorem h0_eq (b : Reg) : h0 b = word b H0[0] 0 ++ word b H0[1] 4 ++ word b H0[2] 8 ++ word b H0[3] 12 ++
     word b H0[4] 16 ++ word b H0[5] 20 ++ word b H0[6] 24 ++ word b H0[7] 28 := rfl
 
-set_option maxHeartbeats 1000000 in
 theorem word_ok {b : Reg} (hb : b ≠ .x9) {x : BitVec 32} {off : Nat} (ho : off % 4 = 0 ∧ off < 16384)
     {rest : List Instr} {s : State} {Q : State → Prop}
     (hout : InRegions s.wr (s.gpr b + BitVec.ofNat 64 off) 4)
@@ -98,7 +97,6 @@ theorem word_ok {b : Reg} (hb : b ≠ .x9) {x : BitVec 32} {off : Nat} (ho : off
     congr 1
     exact movzk x
 
-set_option maxHeartbeats 4000000 in
 /-- `H⁽⁰⁾` stored at `b`. -/
 theorem h0_ok {b : Reg} (hb : b ≠ .x9) {s : State} {rest : List Instr} {Q : State → Prop}
     (o : ∀ k < 8, InRegions s.wr (s.gpr b + BitVec.ofNat 64 (4 * k)) 4)
@@ -202,7 +200,6 @@ theorem saved_frame' {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List R
     (hd : ∀ r ∈ rs, (scR s₀).Disjoint r) : Saved s₀ m' :=
   saved_frame h hf fun r hr => (hd r hr).sub_left (save_sub s₀)
 
-set_option maxHeartbeats 4000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .x4 ++ [mov .x19 .x0, mov .x20 .x4, mov .x21 .x1, mov .x22 .x2, mov .x23 .x3] ++
       h0 .x19 ++ h0 .x21 ++ [.movz .x .x14 0x36 0, .movz .x .x15 0x5c 0, .movz .x .x24 0 0])) s₀
@@ -373,7 +370,6 @@ theorem buf_in {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s₀.wr)
     rw [BitVec.ofNat_add]; rfl]
   exact contains_offset (by omega) (by omega)
 
-set_option maxHeartbeats 2000000 in
 theorem key_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < kl s₀) {s : State} (h : Key s₀ j s) :
     WP isa (.block keyBody) s (Key s₀ (j + 1)) := by
   have hkl := hp.kl_le
@@ -447,7 +443,6 @@ theorem padLoop_eq : padLoop = .loop (.block padBody) (.nonzero .x .x11) := rfl
 theorem ipad_byte : ((0x36 : BitVec 16).setWidth 64).setWidth 8 = (0 : Byte) ^^^ ipad := by decide
 theorem opad_byte : ((0x5c : BitVec 16).setWidth 64).setWidth 8 = (0 : Byte) ^^^ opad := by decide
 
-set_option maxHeartbeats 2000000 in
 theorem pad_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : kl s₀ ≤ j) (hj' : j < 64) {s : State}
     (h : Pad s₀ j s) : WP isa (.block padBody) s (Pad s₀ (j + 1)) := by
   have hl : j < (K0 s₀).length := by rw [K0_length s₀ hp]; omega
@@ -567,7 +562,7 @@ theorem state_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Ad
 
 /-- The epilogue's postcondition. -/
 def Post (s₀ s' : State) : Prop :=
-  (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧ s'.sp = s₀.sp ∧ Spec.Hmac.initSha256AArch64.post s₀ s'
+  (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧ s'.sp = s₀.sp ∧ Proof.Hmac.initSha256AArch64.post s₀ s'
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
     (h20 : s.gpr .x20 = scr s₀) (hsp : s.sp = s₀.sp) (hsv : Saved s₀ s.mem)
@@ -576,7 +571,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s�
   refine restore_ok (scr := scr s₀) h20
     (fun d hd₁ hd₂ => ⟨scR s₀, by simp [hrd, hwr, hp.wr], contains_offset hd₂ (by omega)⟩) s₀.gpr
     hsv fun s' hs _ hmem _ _ hsp' => ⟨hs, by rw [hsp', hsp], ?_⟩
-  simp only [Spec.Hmac.initSha256AArch64]
+  simp only [Proof.Hmac.initSha256AArch64]
   rw [blockKey_eq hp, hmem]
   exact ⟨hI, hO⟩
 
@@ -595,9 +590,8 @@ theorem buf_full {s₀ : State} (hp : Pre s₀) {m : Mem} (h : BufMem s₀ 64 m)
   rw [h.bufI, h.bufO, List.take_of_length_le (by rw [K0_length s₀ hp])]
   exact ⟨rfl, rfl⟩
 
-set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Hmac.initSha256AArch64.post s₀ s' := by
+    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.initSha256AArch64.post s₀ s' := by
   have hkl := hp.kl_le
   refine WP.mono (Proof.Sha256.AArch64.Stream.WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
@@ -691,11 +685,11 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-! ## `Verified` -/
 
 /-- The initial taint: only the arguments are public. -/
-theorem agree₀ {s₁ s₂ : State} (hpub : Spec.Hmac.initSha256AArch64.pub s₁ s₂) :
-    VG.AArch64.Taint.Agree [.x0, .x1, .x2, .x3, .x4] s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Hmac.initSha256AArch64.pub s₁ s₂) :
+    VG.AArch64.Taint.Agree (VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
   intro r hr
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
 
 /-- A state satisfying the precondition (with an empty key). -/
@@ -707,12 +701,11 @@ def sat : State where
   rd := [⟨0x3000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-set_option maxHeartbeats 0 in
-theorem init_verified : Verified AArch64.target init Spec.Hmac.initSha256AArch64 := by
+theorem init_verified : Verified AArch64.target init Proof.Hmac.initSha256AArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) [.x0, .x1, .x2, .x3, .x4] (fun _ _ _ _ hp => agree₀ hp)
+  · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) (fun _ _ _ _ hp => agree₀ hp)
       (by taint_decide)
   · refine ⟨sat, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂

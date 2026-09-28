@@ -1,19 +1,19 @@
 import VerifiedGarbage.Spec.Hmac
-import VerifiedGarbage.Spec.Sha256.X86
+import VerifiedGarbage.Proof.Sha256.X86.Contract
 
 /-!
 # HMAC-SHA-256: the x86 (32-bit) contracts
 
-**Trusted** (as every file in `Spec/`). The same functions as on x86-64
+**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The same functions as on x86-64
 (`VerifiedGarbage/Spec/Hmac/X86_64.lean`): an HMAC-SHA-256 computation is
 two SHA-256 streaming states (`VG.Spec.Sha256.Repr`), the inner one, which
 absorbs `(K₀ ⊕ ipad) ‖ text`, and the outer one, which holds `K₀ ⊕ opad`.
 `vg_hmac_sha256_init` sets them up from the key, the text is absorbed into
-the inner state with `vg_sha256_update` (`VG.Spec.Sha256.updateX86`), and
+the inner state with `vg_sha256_update` (`VG.Proof.Sha256.updateX86`), and
 `vg_hmac_sha256_finalize` computes the MAC.
 
 Every argument is on the stack above the return address (cdecl). As in
-`VG.Spec.Sha256.updateX86` and `VG.Spec.Sha256.finalizeX86`, the code may
+`VG.Proof.Sha256.updateX86` and `VG.Proof.Sha256.finalizeX86`, the code may
 overwrite its arguments, which the callee owns under cdecl.
 `vg_hmac_sha256_init` has the x86-64 signature. `vg_hmac_sha256_finalize`
 has the 32-bit ARM one (`VerifiedGarbage/Spec/Hmac/Arm.lean`), where the MAC
@@ -22,9 +22,11 @@ that the two 32-bit targets share one Rust signature; its arguments are then
 those of `vg_sha256_finalize` with `outer` inserted after `inner`.
 -/
 
-namespace VG.Spec.Hmac
+namespace VG.Proof.Hmac
 
-open Sha256 (Repr bytesAt)
+open Spec.Hmac
+
+open Spec.Sha256 (Repr bytesAt)
 
 open X86 in
 /-- x86 (32-bit) contract for
@@ -109,4 +111,4 @@ def finalizeSha256X86 : Contract X86.isa where
   pub s₁ s₂ :=
     s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 6, arg s₁ i = arg s₂ i
 
-end VG.Spec.Hmac
+end VG.Proof.Hmac

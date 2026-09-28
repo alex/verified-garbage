@@ -33,6 +33,10 @@ trustworthy. Read `lean/README.md` first.
   files byte for byte into a directory under `vectors/`, with a `[[source]]`
   for that directory in `vectors/sources.toml` saying where they came from
   (`ci/check_vectors.py` checks it), and read them from there.
+* **Keep the README's algorithm table current.** Any PR that lands a spec,
+  adds or removes support for an algorithm on an architecture, or optimizes
+  an implementation must update the table in the
+  [Algorithms](README.md#algorithms) section of `README.md` in the same PR.
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
@@ -45,14 +49,22 @@ then steps 2–5 together. Any TCB additions the primitive needs (e.g. new
 instructions in an ISA model) go in their own PR before either.
 
 1. `Spec/<Alg>.lean`: the algorithm, transcribed from the standard, with no
-   target-specific imports; and `Spec/<Alg>/<Target>.lean`: its `Contract` on
-   each target. Choose `pub` honestly: only lengths and pointers are public
+   target-specific imports; and `Spec/<Alg>/Contract.lean`: for each function,
+   its Rust signature (`Sig`) and its `Contract` on every target, built with
+   `Sig.contract` from a postcondition and any precondition the signature does
+   not imply. Choose `pub` honestly: only lengths and pointers are public
    unless the algorithm says otherwise.
 2. `Impl/<Alg>/<Target>.lean`: the code.
-3. `Proof/<Alg>/…`: the proof of `Verified`.
+3. `Proof/<Alg>/…`: the proof of `Verified`. A proof may be written against a
+   simpler per-target contract of its own and moved to the shared one with
+   `Verified.of_implies` (see `Proof/Framework/Contract.lean`).
 4. An `Artifact` in `Artifacts.lean` (its `module` names the file under
    `src/asm/<target>/`), whose `sig` and `doc` match the
-   contract (the doc must state every caller obligation).
+   contract (the doc must state every caller obligation). Give it its
+   `spSafe` proof explicitly: on x86 and x86-64 a theorem in
+   `Proof/SpSafe.lean`, on ARMv7 and AArch64 `Code.all_of_forall (fun _ => rfl) _`
+   (the default, `decide +kernel`, would run in `Artifacts.lean`, which
+   every proof must finish before).
 5. Regenerate `src/asm/`, build the public Rust API on top of the primitive,
    and test it against the Wycheproof vectors in `tests/wycheproof/` (set
    `WYCHEPROOF_ROOT` to a checkout of C2SP/wycheproof).
@@ -60,8 +72,17 @@ instructions in an ISA model) go in their own PR before either.
 ## Keeping proofs fast
 
 Lean's kernel re-checks every proof term, and it is a slow evaluator: most
-of the build time used to be the kernel, not tactics. Avoid these patterns
-(each has cost tens of seconds in one proof):
+of the build time used to be the kernel, not tactics.
+
+Every declaration must elaborate and pass the kernel within Lean's default
+`maxHeartbeats` (200000; the largest proof needs about half of that). Never
+`set_option maxHeartbeats`, `maxRecDepth` or another resource limit, in a
+source file or the lakefile: a proof that hits the limit is too slow, so make
+it faster.
+`ci/check_lean_speed.py` enforces this, and the rules below that can be
+checked without building.
+
+Avoid these patterns (each has cost tens of seconds in one proof):
 
 * **Constant time:** use `VG.Taint.constantTime … (by taint_decide)`, never
   `decide +kernel` on a taint check: `taint_decide` precomputes loop
@@ -72,7 +93,28 @@ of the build time used to be the kernel, not tactics. Avoid these patterns
   after every instruction.
 * **One symbolic execution per code shape:** don't case-split (e.g.
   `interval_cases` on a register rotation) and run the same block once per
-  case; generalize what differs (see `round_ok` and `round_nodup`).
+  case; generalize what differs (see `round_ok` and `round_nodup`). Memory
+  offsets generalize too: pass their bounds and separation from a lemma
+  proved once (`round_sep`, x86), stating each pair in both orders, since
+  `simp` won't match `a ∨ b` against `b ∨ a`.
+* **Short symbolic executions:** don't run a long block of loads and stores
+  in one `simp`; the states grow with every access. Prove one step for any
+  index (`ld_ok k`, `upd_ok k`) and compose the steps by induction with
+  `WP.block_append_iff`.
+* **Kernel-evaluated data:** anything the kernel evaluates (a taint domain,
+  a `decide +kernel` check) should use `Nat` arithmetic, which the kernel
+  runs natively, not lists it searches element by element: sets of
+  registers are `RegSet`s (`Proof/Framework/RegSet.lean`), not `List Reg`.
+* **Finite facts:** prove a fact about a few small numbers with one `decide`
+  on the bounded statement (`∀ j < 16, ∀ k < 16, wreg j = wreg k → j = k`),
+  not `interval_cases j <;> interval_cases k <;> simp`. For a nested `if`
+  on the same index on both sides, split the index into ranges once with
+  `omega` and resolve each `if` with
+  `simp (disch := omega) only [ite_eq_left, ite_eq_right]`, not `split_ifs`.
+* **Imports:** never import `Mathlib.Tactic` or all of Mathlib, which costs
+  seconds in every module that (transitively) imports it: import the
+  module of each tactic or lemma you use (e.g. `Mathlib.Tactic.IntervalCases`),
+  and prefer core lemmas.
 * **Properties of every instruction:** prove `(instrs c).all p` with
   `rw [← Code.allInstrs_eq]; decide +kernel`, not `decide +kernel` directly.
 * **Failing unfolding:** `rfl`, `trivial`, `congr 1`, `exact` and `simpa` on
@@ -89,11 +131,18 @@ lake env lean -DElab.async=false -Dtrace.profiler=true -Dtrace.profiler.threshol
   VerifiedGarbage/Proof/….lean
 ```
 
+`set_option diagnostics true in` before a slow theorem lists the
+definitions unfolded while elaborating it, which finds failing unfoldings.
+`#count_heartbeats in` (from `Mathlib.Util.CountHeartbeats`, imported only
+while measuring) before a declaration prints the heartbeats it uses
+against the 200000 budget.
+
 ## Checks to run before pushing
 
 ```sh
 (cd lean && lake build && lake env lean --run Emit.lean --check)
 python3 ci/check_lean_imports.py
+python3 ci/check_lean_speed.py
 python3 ci/check_vectors.py
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test

@@ -4,12 +4,14 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # SHA-512: the x86-64 contracts
 
-**Trusted** (as every file in `Spec/`). The contracts of the x86-64
+**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the x86-64
 implementations of the compression function and the streaming interface, in
 terms of `Spec/Sha512.lean`.
 -/
 
-namespace VG.Spec.Sha512
+namespace VG.Proof.Sha512
+
+open Spec.Sha512
 
 open X86_64 in
 /-- x86-64 contract for
@@ -108,4 +110,4 @@ def finalizeX86_64 : Contract X86_64.isa where
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
     s₁.gpr .rcx = s₂.gpr .rcx
 
-end VG.Spec.Sha512
+end VG.Proof.Sha512

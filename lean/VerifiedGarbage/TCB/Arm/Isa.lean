@@ -28,6 +28,13 @@ Modelling choices:
 * Instructions whose timing depends on their operands (e.g. `sdiv`, `udiv`)
   must never be added: the constant-time leakage model assumes they do not
   exist.
+* Calls are `bl` and returns `bx lr` (DDI 0406C, A8.8.25 "BL, BLX
+  (immediate)", A8.8.27 "BX"). The return addresses are the next of the
+  state's `unknowns`, which nothing constrains (see `TCB/Code.lean`); a
+  return address also says whether the caller is ARM or Thumb code, which
+  `bx` switches back to. A linker veneer between a `bl` and its target may
+  change `r12` (IP: AAPCS §6.1.1, "the intra-procedure-call scratch
+  register"), so a call leaves an unknown value in it too.
 -/
 
 namespace VG.Arm
@@ -49,6 +56,10 @@ structure State where
   rd : List Region
   /-- Regions the code may read and write. -/
   wr : List Region
+  /-- Values the model does not know, used in order: the return address each
+  call stores and, on the ARM targets, what a linker veneer may leave in the
+  intra-procedure-call scratch registers (see `TCB/Code.lean`). -/
+  unknowns : Nat → BitVec 32 := fun _ => 0
 
 inductive Shift | lsl | lsr | ror
   deriving DecidableEq, Repr
@@ -72,6 +83,10 @@ inductive Instr
   | mov (d : Reg) (op2 : Op2)
   /-- `add`/`sub`/`and`/`orr`/`eor d, n, op2` (no flags set) -/
   | dp (op : DpOp) (d n : Reg) (op2 : Op2)
+  /-- `adds d, n, op2` (sets N, Z, C, V) -/
+  | adds (d n : Reg) (op2 : Op2)
+  /-- `adc d, n, op2` (adds the C flag; no flags set) -/
+  | adc (d n : Reg) (op2 : Op2)
   /-- `subs d, n, op2` (sets N, Z, C, V) -/
   | subs (d n : Reg) (op2 : Op2)
   /-- `cmp n, op2` (sets N, Z, C, V) -/
@@ -147,6 +162,12 @@ def Op2.eval (s : State) : Op2 → Option (BitVec 32)
         | .ror => (s.gpr r).rotateRight n)
     else none
 
+/-- The flags of `x + y` (DDI 0406C A2.2.1, `AddWithCarry(x, y, '0')`). -/
+def addFlags (s : State) (x y : BitVec 32) : State :=
+  let r := x + y
+  { s with n := r.msb, z := r == 0, c := 2 ^ 32 ≤ x.toNat + y.toNat,
+           v := x.msb == y.msb && r.msb != x.msb }
+
 /-- The flags of `x - y` (DDI 0406C A2.2.1, `AddWithCarry(x, NOT(y), '1')`). -/
 def subFlags (s : State) (x y : BitVec 32) : State :=
   let r := x - y
@@ -160,7 +181,11 @@ def rev (a : BitVec 32) : BitVec 32 :=
 /-- Semantics, transcribing DDI 0406C A8.8: "MOV (immediate)", "MOV
 (register)", "LSL/LSR/ROR (immediate)" (the aliases of MOV with a shifted
 register); "ADD/SUB/AND/ORR/EOR (immediate)", "(register)" (with `S` = 0,
-so no flags); "SUB (immediate/register)" with `S` = 1 and "CMP": N, Z, C, V
+so no flags); "ADD (immediate/register)" with `S` = 1: `R[d]` and N, Z,
+C, V from `AddWithCarry(R[n], op2, '0')`; "ADC (immediate)" and "ADC
+(register)" (A8.8.1, A8.8.2) with `S` = 0: `R[d]` from
+`AddWithCarry(R[n], op2, APSR.C)`, flags unchanged; "SUB
+(immediate/register)" with `S` = 1 and "CMP": N, Z, C, V
 from `AddWithCarry(R[n], NOT(op2), '1')`; "MOVW" (`R[d] = ZeroExtend(imm16)`);
 "MOVT" (`R[d]<31:16> = imm16`, the low half unchanged); "REV"; "LDR
 (immediate)"/"STR (immediate)" with a positive offset and no writeback
@@ -174,6 +199,10 @@ def exec : Instr → State → Option State
     let x := s.gpr n
     s.setReg d (match op with
       | .add => x + y | .sub => x - y | .and => x &&& y | .orr => x ||| y | .eor => x ^^^ y)
+  | .adds d n op2, s => (op2.eval s).map fun y =>
+    (addFlags s (s.gpr n) y).setReg d (s.gpr n + y)
+  | .adc d n op2, s => (op2.eval s).map fun y =>
+    s.setReg d (s.gpr n + y + (if s.c then 1 else 0))
   | .subs d n op2, s => (op2.eval s).map fun y =>
     (subFlags s (s.gpr n) y).setReg d (s.gpr n - y)
   | .cmp n op2, s => (op2.eval s).map fun y => subFlags s (s.gpr n) y
@@ -211,6 +240,23 @@ def eval : Cond → State → Option Bool
   | .eq, s => some s.z
   | .ne, s => some !s.z
 
+/-- DDI 0406C, A8.8.25 "BL, BLX (immediate)": `LR = PC − 4` in ARM state,
+`LR = PC<31:1> : '1'` in Thumb state (the address of the next instruction,
+and which state it is in), then the branch (with a change of instruction set
+to that of the target, which the linker arranges), possibly through a linker
+veneer, which may change `r12` (AAPCS §6.1.1). The return address and the
+value left in `r12` are the next two of the state's. -/
+def call (s : State) : Option State :=
+  some { (s.setReg .lr (s.unknowns 0)).setReg .r12 (s.unknowns 1) with
+    unknowns := fun n => s.unknowns (n + 2) }
+
+/-- DDI 0406C, A8.8.27 "BX" (`bx lr`): `BXWritePC(R[14])`, a branch to the
+address in `lr`, in the instruction set its bit 0 selects. It returns after
+the call instruction if `lr` is the return address the call left (`s₁`);
+otherwise the model faults. -/
+def ret (s₁ s₂ : State) : Option State :=
+  if s₂.gpr .lr = s₁.gpr .lr then some s₂ else none
+
 abbrev isa : ISA where
   State := State
   Instr := Instr
@@ -218,5 +264,11 @@ abbrev isa : ISA where
   exec := exec
   addrs := addrs
   eval := eval
+  call := call
+  callAddrs _ := []
+  ret := ret
+  retAddrs _ := []
+  -- No modelled instruction writes the stack pointer.
+  writesSp _ := false
 
 end VG.Arm

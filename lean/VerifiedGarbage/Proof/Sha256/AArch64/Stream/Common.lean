@@ -212,15 +212,15 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
   have rd₃ : s₃.rd = s.rd := by rw [u₃.rd, u₂.rd, u₁.rd]
   have wr₃ : s₃.wr = s.wr := by rw [u₃.wr, u₂.wr, u₁.wr]
   have sp₃ : s₃.sp = s.sp := by rw [u₃.sp, u₂.sp, u₁.sp]
-  refine WP.inline (k := Spec.Sha256.compressAArch64) compress_verified.1
+  refine WP.inline (k := Proof.Sha256.compressAArch64) compress_verified.1
     (rd := [⟨src, 64 * 1⟩]) (wr := [⟨st, 32⟩, ⟨scr, 112⟩]) ?_ ?_ ?_ ?_
-  · simp only [Spec.Sha256.compressAArch64, State.withRegions_gpr, State.withRegions_rd,
+  · simp only [Proof.Sha256.compressAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, e0, e1, e2, e3, one_toNat]
     exact ⟨trivial, trivial, d₁, d₂, d₃⟩
   · rw [rd₃, wr₃]; simpa using hc
   · rw [wr₃]; exact hw
   · intro s' hrd hwr habi hf _ hpost
-    simp only [Spec.Sha256.compressAArch64, State.withRegions_gpr, State.withRegions_mem, e0, e1, e2,
+    simp only [Proof.Sha256.compressAArch64, State.withRegions_gpr, State.withRegions_mem, e0, e1, e2,
       one_toNat, compressBlocks_one, m₃] at hpost
     exact hQ s' (hrd.trans rd₃) (hwr.trans wr₃) (fun r hr => (habi.1 r hr).trans (keep r hr))
       (habi.2.trans sp₃) (m₃ ▸ hf) hpost
@@ -353,10 +353,11 @@ theorem frame_bytes {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {R : Re
 
 /-- Registers that no instruction writes keep their values, as a postcondition. -/
 theorem WP.gprs {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s Q) {rs : List Reg}
-    (hc : ∀ r ∈ rs, ∀ i ∈ instrs c, dstOf i ≠ some r) :
+    (hc : ∀ r ∈ rs, ∀ i ∈ instrs c, dstOf i ≠ some r)
+    (hn : c.noCalls = true := by decide +kernel) :
     WP isa c s fun s' => Q s' ∧ ∀ r ∈ rs, s'.gpr r = s.gpr r := by
   obtain ⟨t, s', he, hq⟩ := h
-  exact ⟨t, s', he, hq, fun r hr => Exec.gpr (hc r hr) he⟩
+  exact ⟨t, s', he, hq, fun r hr => Exec.gpr (hc r hr) he (.inl hn)⟩
 
 /-- The callee-saved registers our code never touches. -/
 def untouched : List Reg := [.x18, .x25, .x26, .x27, .x28, .x29, .x30]

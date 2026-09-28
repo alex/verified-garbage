@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Common
-import VerifiedGarbage.Spec.Sha256.X86
+import VerifiedGarbage.Proof.Sha256.X86.Contract
 
 /-!
 # Streaming SHA-256 on x86 (32-bit): `update`
@@ -18,7 +18,8 @@ open VG.Impl.Sha256.X86 (at_)
 open VG.Proof.Sha256.X86 (contains_offset)
 open VG.Proof.Sha256.X86.Stream
 open VG.Proof.Sha256.Stream
-open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt countX86)
+open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt)
+open VG.Proof.Sha256 (countX86)
 
 /-! ## The precondition -/
 
@@ -67,7 +68,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 160 ≤ 2 ^ 32
   sp_fit : (esp₀ s₀).toNat + 28 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Sha256.updateX86.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha256.updateX86.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩
 
@@ -254,7 +255,6 @@ theorem proMem_a4 {s₀ : State} (hp : Pre s₀) : (proMem s₀).readW (addr (es
 theorem proMem_a16 {s₀ : State} : (proMem s₀).readW (addr (esp₀ s₀) 16) 32 = scr s₀ := by
   simp only [proMem]; rw [Mem.readW_writeW_self32]
 
-set_option maxHeartbeats 0 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ([.mov .eax (.mem (at_ .esp 24))] ++ save .eax ++
       [.mov .ebx (.mem (at_ .esp 4)), .mov .ebp (.mem (at_ .esp 16)), .mov .esi (.mem (at_ .esp 20)),
@@ -352,10 +352,9 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
       exacts [hp.st_scr, hp.a_st.symm]
     exact repr_congr (fun i hi => frame_bytes (proMem_frame' hp) (R := stR s₀) hd (by simp) hi) hm.1
 
-set_option maxHeartbeats 0 in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block (.mov .eax (.mem (at_ .esp 16)) :: restore .eax)) s fun s' =>
-      abiPreserved s₀ s' ∧ Spec.Sha256.updateX86.post s₀ s' := by
+      abiPreserved s₀ s' ∧ Proof.Sha256.updateX86.post s₀ s' := by
   have rin : ∀ d, d + 4 ≤ 160 → InRegions (s.rd ++ s.wr) (addr (scr s₀) d) 4 :=
     fun d hd => ⟨scR s₀, by simp [hI.rd, hI.wr, hp.wr], hp.scr_in hd⟩
   have ain : InRegions (s.rd ++ s.wr) (addr (esp₀ s₀) 16) 4 :=
@@ -430,7 +429,6 @@ theorem ofNat_add_add (x : BitVec 32) (a b : Nat) :
 
 theorem lit32 (n : Nat) : (OfNat.ofNat n : BitVec 32) = BitVec.ofNat 32 n := rfl
 
-set_option maxHeartbeats 0 in
 /-- A whole block straight from the data. -/
 theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s)
     (hr : (cnt s₀ + c) % 64 = 0) (hl : 64 ≤ len s₀ - c) :
@@ -568,7 +566,6 @@ theorem Pending.putArgs {s₀ : State} (hp : Pre s₀) {c : Nat} {s s' : State} 
       · exact putArgs_bytes hp _ (R := ⟨(s.gpr .eax).setWidth 64, 64⟩) (hp.a_st.symm.sub_left hsub) (by simp) hk
       · exact putArgs_bytes hp _ (R := ⟨(s.gpr .eax).setWidth 64, 64⟩) (hp.d_a.sub_left hsub) (by simp) hk }
 
-set_option maxHeartbeats 0 in
 theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Pending s₀ c s) :
     WP isa compressAt s (Inv s₀ c) := by
   have hst := hp.st_fit; have hsc := hp.scr_fit; have hsp := hp.sp_fit
@@ -669,7 +666,6 @@ theorem stores_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hC : Com
   exact k s₂ (by rw [u₂.gpr, u₁.gpr]) (by rw [u₂.mem, u₁.gpr, u₁.mem, hC.ebx, hedx]; rfl)
     (by rw [u₂.rd, u₁.rd]) (by rw [u₂.wr, u₁.wr])
 
-set_option maxHeartbeats 0 in
 /-- The second half of the loop body: write the arguments back, compress if a
 block is ready, and loop back if so. -/
 theorem tail_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
@@ -741,7 +737,6 @@ theorem write_frame (s₀ : State) (c : Nat) (mI : Mem) (j : Nat) (hj : j ≤ tt
   simp only [q]
   exact contains_offset (by simp only [List.length_take]; omega) (by omega)
 
-set_option maxHeartbeats 0 in
 theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {j : Nat}
     (hj : j < tt s₀ c) {s : State} (h : Copy s₀ c sI.mem j s) :
     WP isa (.block [.movzx8 .ecx (at_ .ebp 0), .store8 (at_ .edi 32) .cl,
@@ -877,7 +872,6 @@ theorem Copied.of_gpr {s₀ : State} {c : Nat} {mI : Mem} {s s' : State} (h : Co
     by rw [hg _ (by simp)]; exact h.edx, by rw [hg _ (by simp)]; exact h.ebp,
     by rw [hg _ (by simp)]; exact h.esi, hm.trans h.mem⟩
 
-set_option maxHeartbeats 0 in
 /-- A full buffer: compress it. -/
 theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {s : State}
     (h : Copied s₀ c sI.mem s) (hfull : rr s₀ c + tt s₀ c = 64) :
@@ -941,7 +935,6 @@ theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
     rw [hmod] at hb
     rw [hb]
 
-set_option maxHeartbeats 0 in
 theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) :
     WP isa fill s fun s' => (∃ c', c < c' ∧ Pending s₀ c' s') ∨ Done s₀ s' := by
   have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c
@@ -1041,7 +1034,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   exact WP.mono (direct_ok hp hI₂ hb hb') fun s' h => .inl ⟨c + 64, by omega, h⟩
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.updateX86.post s₀ s' := by
+    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateX86.post s₀ s' := by
   unfold update
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI => ?_)
   refine WP.seq (WP.mono (Q := Inv s₀ (len s₀)) ?_ fun s₂ hI₂ => epilogue_ok hp hI₂)
@@ -1057,7 +1050,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 /-- The initial taint: `esp + 4` is the base of the (public) arguments, whose
 words at offsets 0 and 20 are the base addresses of `state` and `scratch`. -/
 def τ₀ : VG.X86.Taint.T :=
-  { regs := [.esp], flags := false, lens := [96, 160, 24], bases := [(.esp, 2, 4)],
+  { regs := .ofList [.esp], flags := false, lens := [96, 160, 24], bases := [(.esp, 2, 4)],
     slots := [(2, 0, 24)], wbases := [(2, 0, 0), (2, 20, 1)] }
 
 theorem argWord_eq {s : State} (hsp : (s.gpr .esp).toNat + 28 ≤ 2 ^ 32) {k : Nat} (hk : k < 24) :
@@ -1097,13 +1090,13 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
       rw [argWord_eq hs (k := 20) (by omega)]
       simp [addr, scr, arg]
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.updateX86.pre s₁) (h₂ : Spec.Sha256.updateX86.pre s₂)
-    (hpub : Spec.Sha256.updateX86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.updateX86.pre s₁) (h₂ : Proof.Sha256.updateX86.pre s₂)
+    (hpub : Proof.Sha256.updateX86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, ha⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
     fun h => absurd h (Nat.lt_irrefl 0), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
-  · simp only [τ₀, List.mem_singleton] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_singleton] at hr
     subst hr; exact hesp
   · rw [hp₁.wr, hp₂.wr]
     simp only [stR, scR, argR, stA, scA, st, scr, esp₀, ha 0 (by omega), ha 5 (by omega), hesp]
@@ -1136,19 +1129,19 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 160⟩, ⟨0x4004, 24⟩]
 
-theorem sat_pre : Spec.Sha256.updateX86.pre sat := by
+theorem sat_pre : Proof.Sha256.updateX86.pre sat := by
   have a0 : arg sat 0 = 0x1000 := by decide
   have a3 : arg sat 3 = 0x2000 := by decide
   have a4 : arg sat 4 = 0 := by decide
   have a5 : arg sat 5 = 0x3000 := by decide
   have e : argAddr sat 0 = 0x4004 := by decide
-  simp only [Spec.Sha256.updateX86, a0, a3, a4, a5, e]
+  simp only [Proof.Sha256.updateX86, a0, a3, a4, a5, e]
   refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
   · intro a h₁ h₂
     simp only [Region.Contains, sat] at h₁ h₂
     bv_omega
 
-theorem update_verified : Verified X86.target update Spec.Sha256.updateX86 := by
+theorem update_verified : Verified X86.target update Proof.Sha256.updateX86 := by
   refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

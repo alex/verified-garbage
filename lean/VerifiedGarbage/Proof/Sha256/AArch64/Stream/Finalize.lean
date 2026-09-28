@@ -57,7 +57,7 @@ structure Pre (s₀ : State) : Prop where
   st_scr : (stR s₀).Disjoint (scR s₀)
   out_scr : (outR s₀).Disjoint (scR s₀)
 
-theorem pre_of {s₀ : State} (h : Spec.Sha256.finalizeAArch64.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha256.finalizeAArch64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
   exact ⟨h1, h2, h3, h4, h5⟩
 
@@ -284,7 +284,6 @@ theorem body_eq : finalizeBody =
     (.seq (.block [.addImm .x .x1 .x19 32])
     (.seq compressAt (.block [.movz .x .x23 0 0, .subImm .x .x24 .x24 1]))))))) := rfl
 
-set_option maxHeartbeats 2000000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
     WP isa finalizeBody s (Step s₀ k) := by
   have hk := h.k_le; have hn := h.n_le
@@ -448,7 +447,6 @@ theorem finalize_eq : finalize = .seq (.block (save .x3 ++ prologue))
       (.block ((List.range 8).flatMap (fun k =>
         [.ldr .w .x9 .x19 (4 * k), .rev32 .x9 .x9, .str .w .x9 .x21 (4 * k)]) ++ restore))) := rfl
 
-set_option maxHeartbeats 2000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .x3 ++ prologue)) s₀ fun s => ∃ k, LInv s₀ k (cnt s₀ % 64 + 1) s := by
   have hr : cnt s₀ % 64 < 64 := Nat.mod_lt _ (by omega)
@@ -565,7 +563,7 @@ theorem flat_length (H : HashValue) (k : Nat) (hk : k ≤ 8) :
     ((H.toList.take k).flatMap wordBytes).length = 4 * k := by
   rw [List.length_flatMap]
   have : ∀ w ∈ H.toList.take k, (wordBytes w).length = 4 := fun w _ => rfl
-  rw [List.map_congr_left this, List.map_const', List.sum_replicate, List.length_take]
+  rw [List.map_congr_left this, List.map_const', List.sum_replicate_nat, List.length_take]
   simp; omega
 
 theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 32) :
@@ -580,7 +578,6 @@ theorem writeW_rev32 (m : Mem) (a : Addr) (w : BitVec 32) :
 
 theorem sw32 (v : BitVec 32) : (v.setWidth 64).setWidth 32 = v := by ext i hi; simp
 
-set_option maxHeartbeats 1000000 in
 theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {k : Nat} (hk : k < 8)
     {s : State} (h : Out s₀ sD k s) {rest : List Instr} {Q : State → Prop}
     (hnext : ∀ s', Out s₀ sD (k + 1) s' → WP isa (.block rest) s' Q) :
@@ -614,7 +611,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
 
 /-- The epilogue's postcondition. -/
 def Post (s₀ s' : State) : Prop :=
-  (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧ s'.sp = s₀.sp ∧ Spec.Sha256.finalizeAArch64.post s₀ s'
+  (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧ s'.sp = s₀.sp ∧ Proof.Sha256.finalizeAArch64.post s₀ s'
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {s : State}
     (h : Out s₀ sD 8 s) : WP isa (.block restore) s (Post s₀) := by
@@ -667,7 +664,7 @@ theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs finalize, dstOf i �
   simpa using this
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.finalizeAArch64.post s₀ s' := by
+    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.finalizeAArch64.post s₀ s' := by
   refine WP.mono (WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
   · rw [finalize_eq]
@@ -694,11 +691,11 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     all_goals exact hu _ (by simp [untouched])
 
 /-- The initial taint: only the arguments are public. -/
-theorem agree₀ {s₁ s₂ : State} (hpub : Spec.Sha256.finalizeAArch64.pub s₁ s₂) :
-    VG.AArch64.Taint.Agree [.x0, .x1, .x2, .x3] s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Sha256.finalizeAArch64.pub s₁ s₂) :
+    VG.AArch64.Taint.Agree (VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3]) s₁ s₂ := by
   obtain ⟨p1, p2, p3, p4⟩ := hpub
   intro r hr
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl <;> assumption
 
 /-- A state satisfying the precondition. -/
@@ -710,12 +707,11 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 160⟩]
 
-set_option maxHeartbeats 0 in
-theorem finalize_verified : Verified AArch64.target finalize Spec.Sha256.finalizeAArch64 := by
+theorem finalize_verified : Verified AArch64.target finalize Proof.Sha256.finalizeAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) [.x0, .x1, .x2, .x3] (fun _ _ _ _ hp => agree₀ hp)
+  · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) (fun _ _ _ _ hp => agree₀ hp)
       (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂

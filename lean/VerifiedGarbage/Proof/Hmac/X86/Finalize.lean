@@ -1,5 +1,6 @@
+import Mathlib.Data.List.FinRange
 import VerifiedGarbage.Proof.Hmac.X86.Common
-import VerifiedGarbage.Spec.Hmac.X86
+import VerifiedGarbage.Proof.Hmac.X86.Contract
 
 /-!
 # HMAC-SHA-256 on x86 (32-bit): `finalize`
@@ -22,8 +23,10 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append repr_
   hash_one lenBytes rest)
 open VG.Proof.Hmac.X86
 open VG.Proof.Hmac.X86_64 (bytesAt_length)
-open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes countX86 Repr)
-open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256 countFinalizeX86)
+open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes Repr)
+open VG.Proof.Sha256 (countX86)
+open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
+open VG.Proof.Hmac (countFinalizeX86)
 
 /-! ## The precondition -/
 
@@ -75,7 +78,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 240 ≤ 2 ^ 32
   sp_fit : (esp₀ s₀).toNat + 28 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Hmac.finalizeSha256X86.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Hmac.finalizeSha256X86.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20⟩
 
@@ -191,7 +194,6 @@ structure Pro (s₀ s : State) : Prop where
   gpr : ∀ r, r ≠ .ecx → r ≠ .edx → s.gpr r = s₀.gpr r
   mem : s.mem = proMem s₀
 
-set_option maxHeartbeats 4000000 in
 theorem pro_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block [.mov .edx (.mem (at_ .esp 24)), .mov .ecx (.mem (at_ .esp 8)), .store (at_ .edx 176) .ecx,
       .mov .ecx (.mem (at_ .esp 12)), .store (at_ .esp 8) .ecx,
@@ -388,7 +390,6 @@ structure Mid (s₀ s s' : State) : Prop where
   eax : s'.gpr .eax = inn s₀ + 32
   mem : s'.mem = midMem s₀ s.mem
 
-set_option maxHeartbeats 4000000 in
 theorem mid_ok {s₀ s : State} (hp : Pre s₀) (h : MidPre s₀ s) :
     WP isa (.block ((List.range 8).flatMap (bswapWord .ebx .ebx 0 32) ++ .mov .edx (.mem (at_ .ebp 176)) ::
       (List.range 8).flatMap (copyWord .edx .ebx 0 0) ++ padWords ++
@@ -660,7 +661,7 @@ theorem comp_ok {s₀ s : State} (hp : Pre s₀) (hrd : s.rd = s₀.rd) (hwr : s
     intro a h₁ h₂
     simp only [Region.Contains] at h₁ h₂
     have := sep_off (inA s₀) (d := 32) (e := 0) (n := 64) (k := 32) (by omega) (by omega) (by omega) a
-      (by omega) (by simpa using h₂)
+      (by omega) (by simp at h₂ ⊢; omega)
     exact this
   · rw [hsp]
     apply Covers.of_sub
@@ -686,7 +687,6 @@ theorem comp_ok {s₀ s : State} (hp : Pre s₀) (hrd : s.rd = s₀.rd) (hwr : s
 
 /-! ## Writing the MAC -/
 
-set_option maxHeartbeats 1000000 in
 theorem out_ok {s₀ s : State} (hp : Pre s₀) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
     (hebx : s.gpr .ebx = inn s₀) (hebp : s.gpr .ebp = scr s₀) (hsp : s.gpr .esp = esp₀ s₀)
     (hout : s.mem.readW (addr (scr s₀) 136) 32 = out s₀)
@@ -774,9 +774,8 @@ theorem outer_hash {k0 d : List Byte} (hk : k0.length = 64) (hd : d.length = 32)
   rw [hr, hlb, padBytes_eq]
   simp only [List.append_assoc]
 
-set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Hmac.finalizeSha256X86.post s₀ s' := by
+    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256X86.post s₀ s' := by
   have fi := hp.in_fit
   have fs := hp.scr_fit
   have fsp := hp.sp_fit
@@ -963,7 +962,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 words at offsets 0, 16 and 20 are the base addresses of `inner`, `out` and
 `scratch`. -/
 def τ₀ : VG.X86.Taint.T :=
-  { regs := [.esp], flags := false, lens := [96, 32, 240, 24], bases := [(.esp, 3, 4)],
+  { regs := .ofList [.esp], flags := false, lens := [96, 32, 240, 24], bases := [(.esp, 3, 4)],
     slots := [(3, 0, 24)], wbases := [(3, 0, 0), (3, 16, 1), (3, 20, 2)] }
 
 theorem argWord_eq {s : State} (hsp : (s.gpr .esp).toNat + 28 ≤ 2 ^ 32) {k : Nat} (hk : k < 24) :
@@ -1009,13 +1008,13 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
       rw [argWord_eq hs (k := 20) (by omega)]
       simp [addr, scr, arg]
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Hmac.finalizeSha256X86.pre s₁) (h₂ : Spec.Hmac.finalizeSha256X86.pre s₂)
-    (hpub : Spec.Hmac.finalizeSha256X86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256X86.pre s₁) (h₂ : Proof.Hmac.finalizeSha256X86.pre s₂)
+    (hpub : Proof.Hmac.finalizeSha256X86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, ha⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
     fun h => absurd h (Nat.lt_irrefl 0), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
-  · simp only [τ₀, List.mem_singleton] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_singleton] at hr
     subst hr; exact hesp
   · rw [hp₁.wr, hp₂.wr]
     simp only [inR, outR, scR, argR, inA, outA, scA, inn, out, scr, esp₀, ha 0 (by omega), ha 4 (by omega),
@@ -1050,21 +1049,20 @@ def sat : State where
   rd := [⟨0x1100, 96⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 240⟩, ⟨0x4004, 24⟩]
 
-theorem sat_pre : Spec.Hmac.finalizeSha256X86.pre sat := by
+theorem sat_pre : Proof.Hmac.finalizeSha256X86.pre sat := by
   have a0 : arg sat 0 = 0x1000 := by decide
   have a1 : arg sat 1 = 0x1100 := by decide
   have a4 : arg sat 4 = 0x2000 := by decide
   have a5 : arg sat 5 = 0x3000 := by decide
   have e : argAddr sat 0 = 0x4004 := by decide
-  simp only [Spec.Hmac.finalizeSha256X86, a0, a1, a4, a5, e]
+  simp only [Proof.Hmac.finalizeSha256X86, a0, a1, a4, a5, e]
   refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
     by decide, by decide⟩ <;>
   · intro a h₁ h₂
     simp only [Region.Contains, sat] at h₁ h₂
     bv_omega
 
-set_option maxHeartbeats 0 in
-theorem finalize_verified : Verified X86.target finalize Spec.Hmac.finalizeSha256X86 := by
+theorem finalize_verified : Verified X86.target finalize Proof.Hmac.finalizeSha256X86 := by
   refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

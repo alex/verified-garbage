@@ -37,11 +37,12 @@ def arg (s : State) (i : Nat) : BitVec 32 := s.mem.readW (argAddr s i) 32
 
 Every argument is on the stack, from `[esp + 4]` on entry upwards: a 32-bit
 one in a 4-byte slot, a 64-bit one in two (low word first), with no further
-alignment. The callee owns the argument area and may overwrite it (see
-`Spec/Sha256/X86.lean`), if its contract asks for it (`writeArgs`); the
-return address at `[esp]` may not be touched. The caller's frame (at and
-above `esp`) does not wrap around the end of the address space. The result
-is in `eax` (low word) and `edx`.
+alignment. The callee owns the argument area: GCC and LLVM both overwrite
+incoming argument slots (e.g. for sibling calls), and callers never read them
+back. So a function may overwrite it if its contract asks for it
+(`writeArgs`). The return address at `[esp]` may not be touched. The
+caller's frame (at and above `esp`) does not wrap around the end of the
+address space. The result is in `eax` (low word) and `edx`.
 -/
 
 /-- The offsets from `esp + 4` (in 4-byte slots) of arguments of widths `ws`
@@ -61,8 +62,10 @@ def abi : Abi isa where
   args ws := if ws.all (fun w => w = 32 ∨ w = 64) then
     some fun s => (ws.zip (argSlots ws 0)).map fun (w, i) => argVal s w i else none
   argArea ws s := if argBytes ws = 0 then [] else [(⟨argAddr s 0, argBytes ws⟩, true)]
-  reserved s := [⟨(s.gpr .esp).setWidth 64, 4⟩]
-  wf ws s := (s.gpr .esp).toNat + 4 + argBytes ws ≤ 2 ^ 32
+  reserved n s := ⟨(s.gpr .esp).setWidth 64, 4⟩ :: stackBelow ((s.gpr .esp).setWidth 64) n
+  wf ws n s := match n with
+    | 0 => (s.gpr .esp).toNat + 4 + argBytes ws ≤ 2 ^ 32
+    | n => n ≤ (s.gpr .esp).toNat ∧ (s.gpr .esp).toNat + 4 + argBytes ws ≤ 2 ^ 32
   pub s₁ s₂ := s₁.gpr .esp = s₂.gpr .esp
   mem s := s.mem
   rd s := s.rd

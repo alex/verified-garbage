@@ -4,7 +4,7 @@ import VerifiedGarbage.TCB.Arm.Target
 /-!
 # SHA-256: the 32-bit ARM contract
 
-**Trusted** (as every file in `Spec/`). The contracts of the 32-bit ARM
+**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the 32-bit ARM
 implementations of the compression function and of the streaming functions
 (`init`, `update`, `finalize`; see `VG.Spec.Sha256.Repr`), in terms of
 `Spec/Sha256.lean`. The streaming contracts are those of x86-64 and AArch64
@@ -12,7 +12,9 @@ implementations of the compression function and of the streaming functions
 where AAPCS passes them.
 -/
 
-namespace VG.Spec.Sha256
+namespace VG.Proof.Sha256
+
+open Spec.Sha256
 
 open Arm in
 /-- 32-bit ARM contract for
@@ -117,9 +119,9 @@ def finalizeArm : Contract Arm.isa where
     (s.gpr .r0).toNat + 96 ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + 32 ≤ 2 ^ 32 ∧
     (stackArg s 1).toNat + 160 ≤ 2 ^ 32 ∧ s.sp.toNat + 8 ≤ 2 ^ 32
   post s s' := ∀ m, Repr s.mem (State.addr (s.gpr .r0)) m → countArm s = BitVec.ofNat 64 m.length →
-    bytesAt s'.mem (State.addr (stackArg s 0)) 32 = hash m
+    bytesAt s'.mem (State.addr (stackArg s 0)) 32 = Spec.Sha256.hash m
   pub s₁ s₂ :=
     s₁.sp = s₂.sp ∧ s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧
     stackArg s₁ 0 = stackArg s₂ 0 ∧ stackArg s₁ 1 = stackArg s₂ 1
 
-end VG.Spec.Sha256
+end VG.Proof.Sha256

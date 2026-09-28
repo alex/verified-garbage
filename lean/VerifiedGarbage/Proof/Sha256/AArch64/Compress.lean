@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.AArch64.Rounds
-import VerifiedGarbage.Spec.Sha256.AArch64
+import VerifiedGarbage.Proof.Sha256.AArch64.Contract
 
 /-!
 # SHA-256 compression function on AArch64: the whole function
@@ -83,7 +83,7 @@ structure Pre (s₀ : State) : Prop where
   blk_st : (blR s₀).Disjoint (stR s₀)
   blk_scr : (blR s₀).Disjoint (scrR s₀)
 
-theorem pre_of (s₀ : State) (h : Spec.Sha256.compressAArch64.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.Sha256.compressAArch64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
   exact ⟨h1, h2, h3, h4, h5⟩
 
@@ -171,7 +171,6 @@ theorem vars0 (s : State) (v : HashValue) : Vars 0 s v ↔
     s.gpr .x8 = v[4].setWidth 64 ∧ s.gpr .x9 = v[5].setWidth 64 ∧
     s.gpr .x10 = v[6].setWidth 64 ∧ s.gpr .x11 = v[7].setWidth 64 := Iff.rfl
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hx0 : s.gpr .x0 = st s₀)
     (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) :
@@ -223,7 +222,6 @@ theorem frame_writeState {s₀ : State} {m m' : Mem} (h : Frame [stR s₀] m m')
     (c 3 ?_)).writeW ?_ _ (c 4 ?_)).writeW ?_ _ (c 5 ?_)).writeW ?_ _ (c 6 ?_)).writeW ?_ _ (c 7 ?_) <;>
   simp
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (hv : Vars 0 s V)
     (hx0 : s.gpr .x0 = st s₀) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
@@ -285,7 +283,6 @@ theorem blk_word {s₀ : State} (i t : Nat) (ht : t < 16) :
 
 theorem win_sub (p : Addr) : Region.Sub (winRegion p) ⟨p, 112⟩ := Region.sub_prefix (by omega)
 
-set_option maxHeartbeats 400000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s : State}
     (hL : LInv s₀ i s) :
     WP isa body s fun s' =>
@@ -357,7 +354,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa compress s₀ fun s' =>
-      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Spec.Sha256.compressAArch64.post s₀ s' := by
+      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Proof.Sha256.compressAArch64.post s₀ s' := by
   have hc₀ : Common s₀ 0 s₀ :=
     ⟨rfl, rfl, fun _ _ => rfl, rfl, rfl, Frame.refl _ _, rfl⟩
   refine WP.mono (Q := Common s₀ (nb s₀)) ?_ fun s' hc => ⟨hc.kept, hc.state⟩
@@ -392,13 +389,13 @@ def satState : State where
   wr := [⟨0x1000, 32⟩, ⟨0x3000, 112⟩]
 
 theorem compress_verified :
-    Verified AArch64.target Impl.Sha256.AArch64.compress Spec.Sha256.compressAArch64 := by
+    Verified AArch64.target Impl.Sha256.AArch64.compress Proof.Sha256.compressAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
-  · refine VG.Taint.constantTime (A := taint) [.x0, .x1, .x2, .x3] ?_ (by taint_decide)
+  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩ r hr
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
   · refine ⟨satState, rfl, rfl, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂

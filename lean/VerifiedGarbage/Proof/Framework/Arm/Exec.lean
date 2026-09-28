@@ -1,4 +1,11 @@
-import Mathlib.Tactic
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.NormNum.Basic
+import Mathlib.Tactic.Ring.Basic
+import Mathlib.Tactic.Tauto
+import Mathlib.Tactic.SplitIfs
+import Mathlib.Tactic.Set
+import Mathlib.Tactic.Use
+import Mathlib.Tactic.ByContra
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.Block
 import VerifiedGarbage.Proof.Framework.X86_64.Bswap
@@ -41,7 +48,7 @@ theorem rev_readW (m : Mem) (a : Addr) :
 theorem exec_sp {i : Instr} {s s' : State} (h : exec i s = some s') : s'.sp = s.sp := by
   cases i <;>
   simp only [exec, Option.map_eq_some_iff, State.setReg, State.load32, State.store32, State.load8,
-    State.store8, subFlags] at h <;>
+    State.store8, addFlags, subFlags] at h <;>
   (repeat' split at h) <;>
   (try simp only [Option.some.injEq, reduceCtorEq] at h) <;>
   first
@@ -74,6 +81,9 @@ theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c
   | iteF _ _ ih => exact ih
   | loopExit _ _ ih => exact ih
   | loopNext _ _ _ ih₁ ih₂ => exact ih₂.trans ih₁
+  | call hc _ hr ih =>
+    simp only [isa, call, ret, Option.some.injEq] at hc hr
+    subst hc; split at hr <;> cases hr; exact ih
 
 /-- Addresses do not wrap. -/
 theorem addr_add {a : BitVec 32} {k : Nat} (h : a.toNat + k < 2 ^ 32) :

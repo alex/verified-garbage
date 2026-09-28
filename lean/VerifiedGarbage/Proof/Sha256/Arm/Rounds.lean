@@ -1,3 +1,4 @@
+import Mathlib.Data.List.Nodup
 import VerifiedGarbage.Proof.Framework.Block
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.Arm.Taint
@@ -45,7 +46,6 @@ theorem round_nodup (t : Nat) :
   generalize t % 8 = c at *
   interval_cases c <;> decide
 
-set_option maxHeartbeats 0 in
 /-- The round is symbolically executed once, for any registers `a … h`
 (which `round_nodup` says are different from each other and the others). -/
 theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 32)
@@ -89,7 +89,6 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 
       List.getElem_cons_succ] <;>
     simp (config := {failIfUnchanged := false}) only [BitVec.add_assoc]
 
-set_option maxHeartbeats 0 in
 theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32)
     (hr1 : s.gpr .r1 = bp) (hr3 : s.gpr .r3 = scr)
     (hin : ∀ j, InRegions (s.rd ++ s.wr) (slotAddr scr j) 4)

@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.X86.Rounds
-import VerifiedGarbage.Spec.Sha256.X86
+import VerifiedGarbage.Proof.Sha256.X86.Contract
 
 /-!
 # SHA-256 compression function on x86 (32-bit): the whole function
@@ -53,7 +53,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fits : (scr s₀).toNat + 112 ≤ 2 ^ 32
   esp_fits : (esp₀ s₀).toNat + 20 ≤ 2 ^ 32
 
-theorem pre_of (s₀ : State) (h : Spec.Sha256.compressX86.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.Sha256.compressX86.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13⟩
 
@@ -219,15 +219,17 @@ structure LInv (s₀ : State) (i : Nat) (s : State) : Prop extends Common s₀ i
 
 /-! ## One block -/
 
-theorem load_eq : load = [.mov .eax (.mem ⟨.esp, 4⟩),
-    .mov .ebx (.mem ⟨.eax, 0⟩), .store ⟨.esi, 64⟩ .ebx,
-    .mov .ebx (.mem ⟨.eax, 4⟩), .store ⟨.esi, 68⟩ .ebx,
-    .mov .ebx (.mem ⟨.eax, 8⟩), .store ⟨.esi, 72⟩ .ebx,
-    .mov .ebx (.mem ⟨.eax, 12⟩), .store ⟨.esi, 76⟩ .ebx,
-    .mov .ebx (.mem ⟨.eax, 16⟩), .store ⟨.esi, 80⟩ .ebx,
-    .mov .ebx (.mem ⟨.eax, 20⟩), .store ⟨.esi, 84⟩ .ebx,
-    .mov .ebx (.mem ⟨.eax, 24⟩), .store ⟨.esi, 88⟩ .ebx,
-    .mov .ebx (.mem ⟨.eax, 28⟩), .store ⟨.esi, 92⟩ .ebx] := by
+/-- Word `k` of the load: copy `state[k]` to its working variable. -/
+def ld (k : Nat) : List Instr :=
+  [.mov .ebx (.mem ⟨.eax, 4 * k⟩), .store ⟨.esi, 64 + 4 * k⟩ .ebx]
+
+/-- Words `0 … j-1` of the load. -/
+def ldTo (j : Nat) : List Instr := (List.range j).flatMap ld
+
+theorem ldTo_succ (j : Nat) : ldTo (j + 1) = ldTo j ++ ld j := by
+  simp [ldTo, List.range_succ, List.flatMap_append]
+
+theorem load_eq : load = [.mov .eax (.mem ⟨.esp, 4⟩)] ++ ldTo 8 := by
   decide
 
 /-- Word `k` of the update: `state[k] := var k + state[k]`. -/
@@ -275,7 +277,49 @@ theorem frame_writeVars {scr : BitVec 32} (h : scr.toNat + 112 ≤ 2 ^ 32) (m : 
     mm _ (c 72 (by omega))).writeW mm _ (c 76 (by omega))).writeW mm _ (c 80 (by omega))).writeW
     mm _ (c 84 (by omega))).writeW mm _ (c 88 (by omega))).writeW mm _ (c 92 (by omega))
 
-set_option maxHeartbeats 0 in
+theorem ld_ok (k : Nat) {s : State} {p q : BitVec 32} (heax : s.gpr .eax = p)
+    (hesi : s.gpr .esi = q) (hi : InRegions (s.rd ++ s.wr) (addr p (4 * k)) 4)
+    (ho : InRegions s.wr (addr q (64 + 4 * k)) 4) :
+    WP isa (.block (ld k)) s fun s' =>
+      s'.mem = s.mem.writeW (addr q (64 + 4 * k)) (s.mem.readW (addr p (4 * k)) 32) ∧
+      (∀ r, r ≠ .ebx → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+  apply WP.of_runBlock
+  simp (config := {decide := true}) only [ld, runBlock_cons, runBlock_nil, runStep_some, exec,
+    readSrc, ea_mk, State.setReg, State.load32, State.store32, heax, hesi, hi, ho, ite_true,
+    ite_false, Option.map_some, Option.some.injEq, exists_eq_left']
+  exact ⟨trivial, fun r hr => by simp [hr], trivial⟩
+
+/-- The working variables at `q` after loading words `0 … j-1` of the hash value at `p`. -/
+def copyWords (p q : BitVec 32) (m : Mem) : Nat → Mem
+  | 0 => m
+  | j + 1 => (copyWords p q m j).writeW (addr q (64 + 4 * j)) (m.readW (addr p (4 * j)) 32)
+
+theorem copyWords_st {s₀ : State} (hp : Pre s₀) (m : Mem) {i : Nat} (hi : i < 8) :
+    ∀ j ≤ 8, (copyWords (st s₀) (scr s₀) m j).readW (addr (st s₀) (4 * i)) 32 =
+      m.readW (addr (st s₀) (4 * i)) 32
+  | 0, _ => rfl
+  | j + 1, hj => by
+    rw [copyWords, readW_writeW_scr_st hp _ _ (by omega) (by omega)]
+    exact copyWords_st hp m hi j (by omega)
+
+theorem ldTo_ok {s₀ : State} (hp : Pre s₀) {s : State} (heax : s.gpr .eax = st s₀)
+    (hesi : s.gpr .esi = scr s₀) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) :
+    ∀ j ≤ 8, WP isa (.block (ldTo j)) s fun s' =>
+      s'.mem = copyWords (st s₀) (scr s₀) s.mem j ∧ (∀ r, r ≠ .ebx → s'.gpr r = s.gpr r) ∧
+      s'.rd = s.rd ∧ s'.wr = s.wr
+  | 0, _ => WP.block_nil (M := isa) ⟨rfl, fun _ _ => rfl, rfl, rfl⟩
+  | j + 1, hj => by
+    rw [ldTo_succ, WP.block_append_iff]
+    refine WP.mono (ldTo_ok hp heax hesi hrd hwr j (by omega))
+      fun s₁ ⟨hm₁, hr₁, hrd₁, hwr₁⟩ => ?_
+    refine WP.mono (ld_ok j (p := st s₀) (q := scr s₀)
+      (by rw [hr₁ .eax (by decide), heax]) (by rw [hr₁ .esi (by decide), hesi])
+      (by rw [hrd₁, hwr₁, hrd, hwr]; exact in_st hp (by omega))
+      (by rw [hwr₁, hwr]; exact hp.scratch.wr _ (by omega))) fun s₂ ⟨hm₂, hr₂, hrd₂, hwr₂⟩ => ?_
+    refine ⟨?_, fun r hr => by rw [hr₂ r hr, hr₁ r hr], by rw [hrd₂, hrd₁], by rw [hwr₂, hwr₁]⟩
+    rw [hm₂, hm₁, copyWords_st hp _ (by omega) j (by omega)]
+    rfl
+
 theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hesp : s.gpr .esp = esp₀ s₀)
     (hesi : s.gpr .esi = scr s₀) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
     (harg : s.mem.readW (addr (esp₀ s₀) 4) 32 = st s₀) :
@@ -284,22 +328,28 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hesp : s.gpr .esp = 
       (∀ r ∈ pubRegs, s₁.gpr r = s.gpr r) ∧ s₁.rd = s.rd ∧ s₁.wr = s.wr := by
   have ia : InRegions (s.rd ++ s.wr) (addr (esp₀ s₀) 4) 4 := by
     rw [hrd, hwr]; exact hp.in_arg (by omega) (by omega)
-  have hin : ∀ d, d + 4 ≤ 32 → InRegions (s.rd ++ s.wr) (addr (st s₀) d) 4 := by
-    rw [hrd, hwr]; exact fun d hd => in_st hp hd
-  have hout : ∀ d, d + 4 ≤ 112 → InRegions s.wr (addr (scr s₀) d) 4 := by
-    rw [hwr]; exact hp.scratch.wr
-  have hsw := readW_writeW_scr_st hp
-  apply WP.of_runBlock
-  rw [load_eq]
-  simp (config := {decide := true, maxSteps := 1000000}) (disch := decide) only [runBlock_cons,
-    runBlock_nil, runStep_some, exec, readSrc, ea_mk, State.setReg, State.load32, State.store32, hesp, hesi, ia, harg, hin, hout, hsw, ite_true, ite_false,
-    Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨?_, by simp (config := {decide := true}) [pubRegs], trivial⟩
-  simp only [writeVars, stateAt_get hp _ (show 0 < 8 by decide), stateAt_get hp _ (show 1 < 8 by decide),
-    stateAt_get hp _ (show 2 < 8 by decide), stateAt_get hp _ (show 3 < 8 by decide),
-    stateAt_get hp _ (show 4 < 8 by decide), stateAt_get hp _ (show 5 < 8 by decide),
-    stateAt_get hp _ (show 6 < 8 by decide), stateAt_get hp _ (show 7 < 8 by decide), stAddr,
-    Nat.reduceMul]
+  -- `mov eax, [esp + 4]`
+  have h₁ : WP isa (.block [.mov .eax (.mem ⟨.esp, 4⟩)]) s fun s₁ =>
+      s₁.gpr .eax = st s₀ ∧ (∀ r, r ≠ .eax → s₁.gpr r = s.gpr r) ∧ s₁.mem = s.mem ∧
+      s₁.rd = s.rd ∧ s₁.wr = s.wr := by
+    apply WP.of_runBlock
+    simp (config := {decide := true}) only [runBlock_cons, runBlock_nil, runStep_some, exec,
+      readSrc, ea_mk, State.setReg, State.load32, hesp, ia, harg, ite_true, Option.map_some,
+      Option.some.injEq, exists_eq_left']
+    exact ⟨trivial, fun r hr => by simp [hr], trivial⟩
+  rw [load_eq, WP.block_append_iff]
+  refine WP.mono h₁ fun s₁ ⟨he₁, hr₁, hm₁, hrd₁, hwr₁⟩ => ?_
+  refine WP.mono (ldTo_ok hp he₁ (by rw [hr₁ .esi (by decide), hesi]) (hrd₁.trans hrd)
+    (hwr₁.trans hwr) 8 le_rfl) fun s₂ ⟨hm₂, hr₂, hrd₂, hwr₂⟩ => ?_
+  refine ⟨?_, fun r hr => ?_, by rw [hrd₂, hrd₁], by rw [hwr₂, hwr₁]⟩
+  · rw [hm₂, hm₁]
+    simp only [copyWords, writeVars, stateAt_get hp _ (show 0 < 8 by decide),
+      stateAt_get hp _ (show 1 < 8 by decide), stateAt_get hp _ (show 2 < 8 by decide),
+      stateAt_get hp _ (show 3 < 8 by decide), stateAt_get hp _ (show 4 < 8 by decide),
+      stateAt_get hp _ (show 5 < 8 by decide), stateAt_get hp _ (show 6 < 8 by decide),
+      stateAt_get hp _ (show 7 < 8 by decide), stAddr, Nat.reduceMul, Nat.reduceAdd]
+  · simp only [pubRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl <;> rw [hr₂ _ (by decide), hr₁ _ (by decide)]
 
 /-- Eight words written in order to the hash value. -/
 def writeState (s₀ : State) (m : Mem) (v : HashValue) : Mem :=
@@ -326,7 +376,6 @@ theorem frame_writeState {s₀ : State} (hp : Pre s₀) {m m' : Mem} (h : Frame 
     (c 28 ?_) <;>
   simp
 
-set_option maxHeartbeats 0 in
 theorem upd_ok (k : Nat) {s : State} {p q : BitVec 32} (heax : s.gpr .eax = p)
     (hesi : s.gpr .esi = q) (hv : InRegions (s.rd ++ s.wr) (addr q (64 + 4 * k)) 4)
     (hh : InRegions (s.rd ++ s.wr) (addr p (4 * k)) 4) (ho : InRegions s.wr (addr p (4 * k)) 4) :
@@ -383,7 +432,6 @@ theorem updTo_ok {s₀ : State} (hp : Pre s₀) {s : State} (heax : s.gpr .eax =
       writeWords_st hp _ (by omega) j (by omega)]
     rfl
 
-set_option maxHeartbeats 0 in
 theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue)
     (hv : Vars 0 (scr s₀) s.mem V) (hesp : s.gpr .esp = esp₀ s₀) (hesi : s.gpr .esi = scr s₀)
     (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) (harg : s.mem.readW (addr (esp₀ s₀) 4) 32 = st s₀)
@@ -479,7 +527,6 @@ theorem harg_of {s₀ : State} (hp : Pre s₀) {m : Mem} (hf : Frame [stR s₀, 
     m.readW (addr (esp₀ s₀) 4) 32 = st s₀ :=
   hp.arg_frame hf (i := 0) (by decide)
 
-set_option maxHeartbeats 400000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s : State}
     (hL : LInv s₀ i s) :
     WP isa body s fun s' =>
@@ -579,7 +626,6 @@ def saveMem (s₀ : State) : Mem :=
   (((s₀.mem.writeW (addr (scr s₀) 96) (s₀.gpr .ebx)).writeW (addr (scr s₀) 100) (s₀.gpr .esi)).writeW
     (addr (scr s₀) 104) (s₀.gpr .edi)).writeW (addr (scr s₀) 108) (s₀.gpr .ebp)
 
-set_option maxHeartbeats 0 in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block prologue) s₀ fun s₁ =>
       s₁.gpr .esi = scr s₀ ∧ s₁.gpr .edi = bp s₀ ∧ s₁.gpr .ebp = arg s₀ 2 ∧
@@ -628,7 +674,6 @@ theorem common_zero {s₀ : State} (hp : Pre s₀) {s₁ : State} (hesi : s₁.g
       (by simpa using hp.st_scr) (by decide), ← stateAt_get hp _ hk]
     rfl
 
-set_option maxHeartbeats 0 in
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
     WP isa (.block epilogue) s fun s' =>
       (∀ r ∈ calleeSaved, s'.gpr r = s₀.gpr r) ∧ s'.mem = s.mem := by
@@ -650,7 +695,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 
 /-! ## The whole function -/
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.compressX86.post s₀ s' := by
+    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.compressX86.post s₀ s' := by
   refine WP.seq (WP.mono (save_ok hp) fun s₁ ⟨hesi, hedi, hebp, hesp, hrd, hwr, hm, hz⟩ => ?_)
   refine WP.seq (WP.mono (Q := Common s₀ (nb s₀)) ?_ fun s₂ hc =>
     WP.mono (restore_ok hp hc) fun s' ⟨hr, hm'⟩ => ⟨⟨hr, ?_⟩, ?_⟩)
@@ -698,13 +743,13 @@ def satState : State where
   rd := [⟨0x2000, 0⟩, ⟨0x4004, 16⟩]
   wr := [⟨0x1000, 32⟩, ⟨0x3000, 112⟩]
 
-theorem sat_pre : Spec.Sha256.compressX86.pre satState := by
+theorem sat_pre : Proof.Sha256.compressX86.pre satState := by
   have a0 : arg satState 0 = 0x1000 := by decide
   have a1 : arg satState 1 = 0x2000 := by decide
   have a2 : arg satState 2 = 0 := by decide
   have a3 : arg satState 3 = 0x3000 := by decide
   have e : argAddr satState 0 = 0x4004 := by decide
-  simp only [Spec.Sha256.compressX86, a0, a1, a2, a3, e]
+  simp only [Proof.Sha256.compressX86, a0, a1, a2, a3, e]
   refine ⟨by decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
   · intro a h₁ h₂
     simp only [Region.Contains, satState] at h₁ h₂
@@ -714,7 +759,7 @@ theorem sat_pre : Spec.Sha256.compressX86.pre satState := by
 holding `state` and `scratch` known to be the base addresses of the writable
 regions. -/
 def τ₀ : VG.X86.Taint.T :=
-  { regs := [.esp], flags := false, lens := [32, 112], argLen := 20, argBases := [(4, 0), (16, 1)] }
+  { regs := .ofList [.esp], flags := false, lens := [32, 112], argLen := 20, argBases := [(4, 0), (16, 1)] }
 
 theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
   have hst := hp.st_fits; have hsc := hp.scr_fits; have hs := hp.esp_fits
@@ -732,15 +777,15 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
     rcases hp' with rfl | rfl <;> refine ⟨by decide, ?_⟩ <;>
       simp [VG.X86.Taint.region, hp.wr, addr, arg, argAddr]
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.compressX86.pre s₁)
-    (h₂ : Spec.Sha256.compressX86.pre s₂) (hpub : Spec.Sha256.compressX86.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.compressX86.pre s₁)
+    (h₂ : Proof.Sha256.compressX86.pre s₂) (hpub : Proof.Sha256.compressX86.pub s₁ s₂) :
     VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, a0, a1, a2, a3⟩ := hpub
   have hp₁ := pre_of _ h₁; have hp₂ := pre_of _ h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim, fun _ => hesp,
     fun k h4 hk => ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     subst hr; exact hesp
   · rw [hp₁.wr, hp₂.wr]; simp only [stR, scrR, st, scr, a0, a3]
   · simp only [τ₀] at hk
@@ -754,7 +799,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.compressX86.pre s₁)
     · exact congrArg _ a3
 
 theorem compress_verified :
-    Verified X86.target Impl.Sha256.X86.compress Spec.Sha256.compressX86 :=
+    Verified X86.target Impl.Sha256.X86.compress Proof.Sha256.compressX86 :=
   ⟨fun s hs => correct (pre_of s hs),
     VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hpub => agree₀ h₁ h₂ hpub) (by taint_decide),
     ⟨satState, sat_pre⟩⟩

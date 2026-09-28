@@ -20,7 +20,8 @@ open VG.Proof.Sha256.X86 (contains_offset)
 open VG.Proof.Sha256.X86.Stream
 open VG.Proof.Sha256.X86.Stream.Update (lit32 ofNat_add_add)
 open VG.Proof.Sha256.Stream
-open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes countX86)
+open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes)
+open VG.Proof.Sha256 (countX86)
 
 /-! ## The precondition -/
 
@@ -78,7 +79,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 160 ≤ 2 ^ 32
   sp_fit : (esp₀ s₀).toNat + 24 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Sha256.finalizeX86.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha256.finalizeX86.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15⟩
 
@@ -218,7 +219,6 @@ structure Zero (s₀ : State) (sI : State) (n lim j : Nat) (s : State) : Prop wh
   eax : s.gpr .eax = BitVec.ofNat 32 (lim - n - j)
   mem : s.mem = writeBytes sI.mem (stA s₀ + 32 + BitVec.ofNat 64 n) (List.replicate j 0)
 
-set_option maxHeartbeats 0 in
 theorem zero_step {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI) (hecx : sI.gpr .ecx = 0)
     {n lim j : Nat} (hlim : lim ≤ 64) (hj : j < lim - n) {s : State} (h : Zero s₀ sI n lim j s) :
     WP isa (.block [.mov .edx (.reg .ebx), .alu .add .edx (.reg .edi), .store8 (at_ .edx 32) .cl,
@@ -275,7 +275,6 @@ theorem zero_ok {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI
 
 /-! ## One block -/
 
-set_option maxHeartbeats 0 in
 /-- The inlined compression of the buffer. -/
 theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s₀ s)
     (ha4 : s.mem.readW (addr (esp₀ s₀) 4) 32 = st s₀) (ha16 : s.mem.readW (addr (esp₀ s₀) 16) 32 = scr s₀)
@@ -364,7 +363,6 @@ theorem writeW_bswap (m : Mem) (a : Addr) (w : BitVec 32) :
 abbrev lenL (s₀ : State) : List Byte :=
   wordBytes ((arg s₀ 2 <<< 3) ||| (arg s₀ 1 >>> 29)) ++ wordBytes (arg s₀ 1 <<< 3)
 
-set_option maxHeartbeats 0 in
 /-- Storing the message length in bits, big-endian, at `state[88..96)`. -/
 theorem len_ok {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s₀ s) :
     WP isa (.block lengthStore) s fun s' =>
@@ -458,7 +456,6 @@ theorem regs3 {r : Reg} (hr : r ∈ [Reg.ebx, .ebp, .esp]) : r ≠ .eax ∧ r �
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl <;> decide
 
-set_option maxHeartbeats 0 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
     WP isa finalizeBody s (Step s₀ k) := by
   have hk := h.k_le; have hn := h.n_le; have hst := hp.st_fit
@@ -648,7 +645,6 @@ theorem arg_read {s₀ : State} (hp : Pre s₀) {m : Mem} (hf : Frame [scR s₀]
     (h₁ : 4 ≤ e) (h₂ : e + 4 ≤ 24) : m.readW (addr (esp₀ s₀) e) 32 = s₀.mem.readW (addr (esp₀ s₀) e) 32 :=
   hf.readW (Region.contains_self _ _) (by simpa using hp.a_scr.sub_left (hp.arg_sub h₁ h₂)) (by decide)
 
-set_option maxHeartbeats 0 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.seq (.block ([.mov .eax (.mem (at_ .esp 20))] ++ save .eax ++
       [.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)),
@@ -851,7 +847,7 @@ theorem flat_length (H : HashValue) (k : Nat) (hk : k ≤ 8) :
     ((H.toList.take k).flatMap wordBytes).length = 4 * k := by
   rw [List.length_flatMap]
   have : ∀ w ∈ H.toList.take k, (wordBytes w).length = 4 := fun w _ => rfl
-  rw [List.map_congr_left this, List.map_const', List.sum_replicate, List.length_take]
+  rw [List.map_congr_left this, List.map_const', List.sum_replicate_nat, List.length_take]
   simp; omega
 
 theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 32) :
@@ -860,7 +856,6 @@ theorem out_frame (s₀ : State) (m : Mem) (xs : List Byte) (hx : xs.length ≤ 
     rw [show outA s₀ = outA s₀ + BitVec.ofNat 64 0 by simp]
     exact contains_offset (by omega) (by omega))
 
-set_option maxHeartbeats 0 in
 theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {k : Nat} (hk : k < 8)
     {s : State} (h : Out s₀ sD k s) {rest : List Instr} {Q : State → Prop}
     (hnext : ∀ s', Out s₀ sD (k + 1) s' → WP isa (.block rest) s' Q) :
@@ -892,9 +887,8 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
       List.flatMap_singleton, Vector.getElem_toList]
 
 /-- The epilogue's postcondition. -/
-def Post (s₀ s' : State) : Prop := abiPreserved s₀ s' ∧ Spec.Sha256.finalizeX86.post s₀ s'
+def Post (s₀ s' : State) : Prop := abiPreserved s₀ s' ∧ Proof.Sha256.finalizeX86.post s₀ s'
 
-set_option maxHeartbeats 0 in
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) {s : State}
     (h : Out s₀ sD 8 s) : WP isa (.block restore4) s (Post s₀) := by
   have hC := hD.1
@@ -997,7 +991,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) : WP isa finalize s₀ (Post s₀
 words at offsets 0, 12 and 16 are the base addresses of `state`, `out` and
 `scratch`. -/
 def τ₀ : VG.X86.Taint.T :=
-  { regs := [.esp], flags := false, lens := [96, 32, 160, 20], bases := [(.esp, 3, 4)],
+  { regs := .ofList [.esp], flags := false, lens := [96, 32, 160, 20], bases := [(.esp, 3, 4)],
     slots := [(3, 0, 20)], wbases := [(3, 0, 0), (3, 12, 1), (3, 16, 2)] }
 
 theorem argWord_eq {s : State} (hsp : (s.gpr .esp).toNat + 24 ≤ 2 ^ 32) {k : Nat} (hk : k < 20) :
@@ -1043,13 +1037,13 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
       rw [argWord_eq hs (k := 16) (by omega)]
       simp [addr, scr, arg]
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.finalizeX86.pre s₁) (h₂ : Spec.Sha256.finalizeX86.pre s₂)
-    (hpub : Spec.Sha256.finalizeX86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.finalizeX86.pre s₁) (h₂ : Proof.Sha256.finalizeX86.pre s₂)
+    (hpub : Proof.Sha256.finalizeX86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, ha⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
     fun h => absurd h (Nat.lt_irrefl 0), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
-  · simp only [τ₀, List.mem_singleton] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_singleton] at hr
     subst hr; exact hesp
   · rw [hp₁.wr, hp₂.wr]
     simp only [stR, outR, scR, argR, stA, outA, scA, st, out, scr, esp₀, ha 0 (by omega), ha 3 (by omega),
@@ -1083,18 +1077,18 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 160⟩, ⟨0x4004, 20⟩]
 
-theorem sat_pre : Spec.Sha256.finalizeX86.pre sat := by
+theorem sat_pre : Proof.Sha256.finalizeX86.pre sat := by
   have a0 : arg sat 0 = 0x1000 := by decide
   have a3 : arg sat 3 = 0x2000 := by decide
   have a4 : arg sat 4 = 0x3000 := by decide
   have e : argAddr sat 0 = 0x4004 := by decide
-  simp only [Spec.Sha256.finalizeX86, a0, a3, a4, e]
+  simp only [Proof.Sha256.finalizeX86, a0, a3, a4, e]
   refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
   · intro a h₁ h₂
     simp only [Region.Contains, sat] at h₁ h₂
     bv_omega
 
-theorem finalize_verified : Verified X86.target finalize Spec.Sha256.finalizeX86 := by
+theorem finalize_verified : Verified X86.target finalize Proof.Sha256.finalizeX86 := by
   refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩

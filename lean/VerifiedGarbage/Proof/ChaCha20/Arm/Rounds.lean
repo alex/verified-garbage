@@ -14,7 +14,6 @@ namespace VG.Proof.ChaCha20.Arm
 open VG VG.Arm VG.Impl.ChaCha20.Arm VG.Proof.ChaCha20
 open VG.Spec.ChaCha20 (Word quarterRound qround innerBlock)
 
-set_option maxHeartbeats 0 in
 theorem qr_ok {a b c d : Reg} (hab : a ≠ b) (hac : a ≠ c) (had : a ≠ d) (hbc : b ≠ c)
     (hbd : b ≠ d) (hcd : c ≠ d) (s : State) (va vb vc vd : Word)
     (ha : s.gpr a = va) (hb : s.gpr b = vb) (hc : s.gpr c = vc) (hd : s.gpr d = vd) :
@@ -60,7 +59,6 @@ def QSide (c x y z w : Nat) : Bool :=
   (List.range 16).all fun k => [x, y, z, w].contains k || !inReg c k ||
     !([wreg x, wreg y, wreg z, wreg w].contains (wreg k))
 
-set_option maxHeartbeats 400000 in
 theorem quarter_ok {c x y z w : Nat} (hx : x < 16) (hy : y < 16) (hz : z < 16) (hw : w < 16)
     (hq : QSide c x y z w = true) {B : Addr} {v : CState} {s : State} (h : Holds B c v s) :
     WP isa (quarter x y z w) s fun s' =>
@@ -136,7 +134,6 @@ theorem quarter_step {c x y z w : Nat} (hx : x < 16) (hy : y < 16) (hz : z < 16)
   WP.mono (quarter_ok hx hy hz hw hq h.holds) fun _ ⟨hh, hm, hrd, hwr, hr1⟩ =>
     ⟨hh, hm ▸ h.frame, hrd.trans h.rd, hwr.trans h.wr, hr1.trans h.r1⟩
 
-set_option maxHeartbeats 400000 in
 theorem swap_step {i j : Nat} (hi8 : 8 ≤ i) (hi : i ≤ 11) (hj8 : 8 ≤ j) (hj : j ≤ 11) (hij : i ≠ j)
     {B : Addr} {v : CState} {s₀ s : State} (h : RI B i v s₀ s)
     (haddr : ∀ off, off < 256 → State.addr (s₀.gpr .r1 + BitVec.ofNat 32 off) = B + BitVec.ofNat 64 off)
@@ -162,13 +159,13 @@ theorem swap_step {i j : Nat} (hi8 : 8 ≤ i) (hi : i ≤ 11) (hj8 : 8 ≤ j) (h
   have wj : wreg j = .lr := by interval_cases j <;> rfl
   rw [wi] at hl
   apply WP.of_runBlock
-  simp only [runBlock, isa]
+  simp only [runBlock_cons, isa]
   rw [exec_str (by simp only [slotOff]; omega) (by rw [ea _ (by simp only [slotOff]; omega)]; exact hout)]
-  simp only [Option.bind_some]
+  simp only [runStep_some, runBlock_cons]
   rw [exec_ldr (by simp only [slotOff]; omega)
     (by show InRegions (s.rd ++ s.wr) (State.addr (s.gpr .r1 + BitVec.ofNat 32 (slotOff j))) 4
         rw [ea _ (by simp only [slotOff]; omega)]; exact hin)]
-  simp only [Option.bind_some, Option.some.injEq, exists_eq_left', ea _ (show slotOff i < 256 by
+  simp only [runStep_some, runBlock_nil, Option.some.injEq, exists_eq_left', ea _ (show slotOff i < 256 by
     simp only [slotOff]; omega), ea _ (show slotOff j < 256 by simp only [slotOff]; omega)]
   rw [Mem.readW_writeW_sep (slot_sep B hj8 hj hi8 hi (Ne.symm hij)) (by decide)]
   refine ⟨fun k hk => ?_, ?_, h.rd, h.wr, ?_⟩

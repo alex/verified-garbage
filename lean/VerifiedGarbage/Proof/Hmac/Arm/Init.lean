@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.Arm.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Init
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Init
-import VerifiedGarbage.Spec.Hmac.Arm
+import VerifiedGarbage.Proof.Hmac.Arm.Contract
 
 /-!
 # HMAC-SHA-256 on ARMv7: `init`
@@ -78,7 +78,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 160 ≤ 2 ^ 32
   sp_fit : s₀.sp.toNat + 4 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Hmac.initSha256Arm.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Hmac.initSha256Arm.pre s₀) : Pre s₀ := by
   obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16⟩ := h
   exact ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16⟩
 
@@ -117,7 +117,6 @@ theorem word_ok {b : Reg} (hb : b ≠ .r12) {x : BitVec 32} {off : Nat} (ho : of
   rw [u.mem]
   simp only [State.setReg, ite_true, movw_movt]
 
-set_option maxHeartbeats 4000000 in
 /-- `H⁽⁰⁾` stored at `b`. -/
 theorem h0_ok {b : Reg} (hb : b ≠ .r12) {s : State} {rest : List Instr} {Q : State → Prop}
     (hfit : (s.gpr b).toNat + 32 ≤ 2 ^ 32)
@@ -236,7 +235,6 @@ theorem beq_zero_toNat (x : BitVec 32) : (x - 0 == 0) = decide (x.toNat = 0) := 
   · simp only [h, decide_false, beq_eq_false_iff_ne, ne_eq]
     intro h'; exact h (by rw [h']; rfl)
 
-set_option maxHeartbeats 4000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ([.ldrSp .r12 0] ++ save .r12 ++ [.mov .r4 (.reg .r1), .mov .r5 (.reg .r2),
       .mov .r6 (.reg .r3)] ++ h0 .r0 ++ h0 .r4 ++
@@ -425,7 +423,6 @@ def keyBody : List Instr :=
 
 theorem keyLoop_eq : keyLoop = .loop (.block keyBody) .ne := rfl
 
-set_option maxHeartbeats 4000000 in
 theorem key_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < kl s₀) {s : State} (h : Key s₀ j s) :
     WP isa (.block keyBody) s fun s' => Key s₀ (j + 1) s' ∧ s'.z = decide (kl s₀ - (j + 1) = 0) := by
   have hkl := hp.kl_le; have hkf := hp.k_fit; have hin := hp.in_fit; have hou := hp.ou_fit
@@ -503,7 +500,6 @@ theorem padLoop_eq : padLoop = .loop (.block padBody) .ne := rfl
 theorem ipad_byte : (0x36 : BitVec 32).setWidth 8 = (0 : Byte) ^^^ ipad := by decide
 theorem opad_byte : (0x5c : BitVec 32).setWidth 8 = (0 : Byte) ^^^ opad := by decide
 
-set_option maxHeartbeats 2000000 in
 theorem pad_step {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : kl s₀ ≤ j) (hj' : j < 64) {s : State}
     (h : Pad s₀ j s) : WP isa (.block padBody) s fun s' => Pad s₀ (j + 1) s' ∧ s'.z = decide (64 - (j + 1) = 0) := by
   have hin := hp.in_fit; have hou := hp.ou_fit
@@ -639,7 +635,7 @@ theorem state_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Ad
 /-! ## Epilogue -/
 
 /-- The epilogue's postcondition. -/
-def Post (s₀ s' : State) : Prop := abiPreserved s₀ s' ∧ Spec.Hmac.initSha256Arm.post s₀ s'
+def Post (s₀ s' : State) : Prop := abiPreserved s₀ s' ∧ Proof.Hmac.initSha256Arm.post s₀ s'
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
     (h3 : s.gpr .r3 = scr s₀) (hsp : s.sp = s₀.sp) (hlr : s.gpr .lr = s₀.gpr .lr) (hsv : Saved s₀ s.mem)
@@ -659,7 +655,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s�
     · exact hs (.r10, 136) (by simp [saved])
     · exact hs (.r11, 140) (by simp [saved])
     · rw [ho _ (by decide), hlr]
-  · simp only [Spec.Hmac.initSha256Arm]
+  · simp only [Proof.Hmac.initSha256Arm]
     rw [blockKey_eq hp, hmem]
     exact ⟨hI, hO⟩
 
@@ -670,7 +666,6 @@ theorem buf_full {s₀ : State} (hp : Pre s₀) {m : Mem} (h : BufMem s₀ 64 m)
   rw [h.bufI, h.bufO, List.take_of_length_le (by rw [K0_length s₀ hp])]
   exact ⟨rfl, rfl⟩
 
-set_option maxHeartbeats 4000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) : WP isa init s₀ (Post s₀) := by
   have hkl := hp.kl_le
   unfold init
@@ -774,10 +769,10 @@ theorem correct {s₀ : State} (hp : Pre s₀) : WP isa init s₀ (Post s₀) :=
 public, `r0` and `r1` point at the two states, and the 4 bytes of stack
 arguments are public, pointing at the scratch space. -/
 def τ₀ : VG.Arm.Taint.T :=
-  { regs := [.r0, .r1, .r2, .r3], flags := false, lens := [96, 96, 160], bases := [(.r0, 0), (.r1, 1)],
+  { regs := .ofList [.r0, .r1, .r2, .r3], flags := false, lens := [96, 96, 160], bases := [(.r0, 0), (.r1, 1)],
     argLen := 4, argBases := [(0, 2)] }
 
-theorem wf₀ {s : State} (h : Spec.Hmac.initSha256Arm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
+theorem wf₀ {s : State} (h : Proof.Hmac.initSha256Arm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
   have hp := pre_of h
   have hi := hp.in_fit; have ho := hp.ou_fit; have hsc := hp.scr_fit; have hs := hp.sp_fit
   refine ⟨fun _ => ⟨by simp [hp.wr, τ₀], ?_, ?_⟩, ?_, fun _ => ⟨hs, ?_⟩, ?_⟩
@@ -804,14 +799,14 @@ theorem argByte_eq (s : State) (k : Nat) :
     VG.Arm.Taint.argByte s k = stackArgAddr s 0 + BitVec.ofNat 64 k := by
   simp [VG.Arm.Taint.argByte, stackArgAddr]
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Hmac.initSha256Arm.pre s₁)
-    (h₂ : Spec.Hmac.initSha256Arm.pre s₂) (hpub : Spec.Hmac.initSha256Arm.pub s₁ s₂) :
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.initSha256Arm.pre s₁)
+    (h₂ : Proof.Hmac.initSha256Arm.pre s₂) (hpub : Proof.Hmac.initSha256Arm.pub s₁ s₂) :
     VG.Arm.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨psp, p0, p1, p2, p3, a0⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ h₁, wf₀ h₂,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim, fun _ => psp, fun k hk => ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
   · rw [hp₁.wr, hp₂.wr]; simp only [inR, ouR, scR, inA, ouA, scA, inn, ou, scr, p0, p1, a0]
   · simp only [τ₀] at hk
@@ -834,15 +829,14 @@ def sat : State where
   rd := [⟨0x3000, 0⟩, ⟨0x5000, 4⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-set_option maxHeartbeats 0 in
-theorem init_verified : Verified Arm.target init Spec.Hmac.initSha256Arm := by
+theorem init_verified : Verified Arm.target init Proof.Hmac.initSha256Arm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · have e0 : stackArg sat 0 = 0x4000 := by decide
     refine ⟨sat, ?_⟩
-    simp only [Spec.Hmac.initSha256Arm, e0]
+    simp only [Proof.Hmac.initSha256Arm, e0]
     refine ⟨by decide, by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
       by decide, by decide, by decide, by decide, by decide⟩ <;>
     · intro a h₁ h₂

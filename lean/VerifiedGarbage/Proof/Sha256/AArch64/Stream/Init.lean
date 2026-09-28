@@ -28,7 +28,6 @@ theorem movzk (x : BitVec 32) :
   intro i hi
   interval_cases i <;> simp
 
-set_option maxHeartbeats 1000000 in
 theorem word_ok {x : BitVec 32} {off : Nat} (ho : off % 4 = 0 ∧ off < 16384) {rest : List Instr}
     {s : State} {Q : State → Prop} (hout : InRegions s.wr (s.gpr .x0 + BitVec.ofNat 64 off) 4)
     (k : ∀ s', (∀ r, r ≠ .x9 → s'.gpr r = s.gpr r) → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
@@ -42,9 +41,8 @@ theorem word_ok {x : BitVec 32} {off : Nat} (ho : off % 4 = 0 ∧ off < 16384) {
     congr 1
     exact movzk x
 
-set_option maxHeartbeats 4000000 in
-theorem init_correct {s₀ : State} (hp : Spec.Sha256.initAArch64.pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.initAArch64.post s₀ s' := by
+theorem init_correct {s₀ : State} (hp : Proof.Sha256.initAArch64.pre s₀) :
+    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.initAArch64.post s₀ s' := by
   obtain ⟨-, hwr⟩ := hp
   have o : ∀ k, k < 8 → InRegions s₀.wr (s₀.gpr .x0 + BitVec.ofNat 64 (4 * k)) 4 :=
     fun k hk => ⟨⟨s₀.gpr .x0, 96⟩, by simp [hwr], contains_offset (by omega) (by omega)⟩
@@ -96,14 +94,13 @@ def initSat : State where
   rd := []
   wr := [⟨0x1000, 96⟩]
 
-set_option maxHeartbeats 0 in
-theorem init_verified : Verified AArch64.target init Spec.Sha256.initAArch64 := by
+theorem init_verified : Verified AArch64.target init Proof.Sha256.initAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct hs
     exact ⟨t, s', he, h⟩
-  · refine VG.Taint.constantTime (A := taint) [.x0] ?_ (by taint_decide)
+  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ h r hr
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
     subst hr; exact h
 
 end VG.Proof.Sha256.AArch64.Stream

@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Common
-import VerifiedGarbage.Spec.Sha256.Arm
+import VerifiedGarbage.Proof.Sha256.Arm.Contract
 
 /-!
 # Streaming SHA-256 on ARMv7: `update`
@@ -16,7 +16,8 @@ open VG VG.Arm VG.Impl.Sha256.Arm.Stream
 open VG.Proof.Sha256.Arm (contains_offset)
 open VG.Proof.Sha256.Arm.Stream
 open VG.Proof.Sha256.Stream
-open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt countArm)
+open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt)
+open VG.Proof.Sha256 (countArm)
 
 /-! ## The precondition -/
 
@@ -61,7 +62,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 160 ≤ 2 ^ 32
   sp_fit : s₀.sp.toNat + 12 ≤ 2 ^ 32
 
-theorem pre_of {s₀ : State} (h : Spec.Sha256.updateArm.pre s₀) : Pre s₀ := by
+theorem pre_of {s₀ : State} (h : Proof.Sha256.updateArm.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩
 
@@ -244,7 +245,6 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
 
 /-! ## A whole block straight from the data -/
 
-set_option maxHeartbeats 1000000 in
 theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s)
     (hr : (cnt s₀ + c) % 64 = 0) (hl : 64 ≤ len s₀ - c) :
     WP isa (.block direct) s (Pending s₀ (c + 64)) := by
@@ -347,7 +347,6 @@ def copyBody : List Instr :=
   [.ldrb .r12 .r5 0, .dp .add .r1 .r0 (.reg .r4), .strb .r12 .r1 32, .dp .add .r5 .r5 (.imm 1),
     .dp .add .r4 .r4 (.imm 1), .subs .r8 .r8 (.imm 1)]
 
-set_option maxHeartbeats 2000000 in
 theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {j : Nat}
     (hj : j < tt s₀ c) {s : State} (h : Copy s₀ c sI.mem j s) :
     WP isa (.block copyBody) s fun s' =>
@@ -456,7 +455,6 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   · rw [← hxs]
     exact bytesAt_writeBytes _ _ _ _ (by omega)
 
-set_option maxHeartbeats 1000000 in
 /-- A full buffer: compress it. -/
 theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {s : State}
     (h : Copy s₀ c sI.mem (tt s₀ c) s) (hfull : rr s₀ c + tt s₀ c = 64) :
@@ -541,7 +539,6 @@ theorem shr6 {a : Nat} (h : a < 2 ^ 32) : BitVec.ofNat 32 a >>> 6 = BitVec.ofNat
 theorem cmp0 {a : Nat} (h : a < 2 ^ 32) : (BitVec.ofNat 32 a - 0 == 0) = decide (a = 0) := by
   rw [show BitVec.ofNat 32 a - 0 = BitVec.ofNat 32 a by simp]; exact ofNat_beq_zero h
 
-set_option maxHeartbeats 4000000 in
 theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) (hcl : c < len s₀)
     (h7 : s.gpr .r7 = 0) :
     WP isa fill s fun s' => (∃ c', c < c' ∧ Pending s₀ c' s') ∨ Done s₀ s' := by
@@ -623,7 +620,6 @@ theorem body_eq : updateBody =
     (.seq (.seq (.block [.cmp .r7 (.imm 0)]) (.ite .eq (.block []) compressAt))
       (.block [.cmp .r6 (.imm 0)]))) := rfl
 
-set_option maxHeartbeats 2000000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) (hcl : c < len s₀) :
     WP isa updateBody s fun s' => ∃ c', c < c' ∧ Inv s₀ c' s' ∧ s'.z = decide (len s₀ - c' = 0) := by
   have hlen := len_lt s₀; have hc := hI.c_le; have hr := rr_lt s₀ c
@@ -692,7 +688,6 @@ theorem arg_sub {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 3) :
     Region.Sub ⟨stackArgAddr s₀ k, 4⟩ (argR s₀) := by
   rw [argAddr_eq hp hk]; exact sub_offset (by omega) (by omega)
 
-set_option maxHeartbeats 4000000 in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ([.ldrSp .r12 8] ++ save .r12 ++ prologue)) s₀
       fun s => Inv s₀ 0 s ∧ s.z = decide (len s₀ = 0) := by
@@ -746,7 +741,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     simpa using this
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
-    WP isa (.block restore) s fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.updateArm.post s₀ s' := by
+    WP isa (.block restore) s fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateArm.post s₀ s' := by
   refine restore_ok hI.r3 hp.scr_fit
     (fun d hd₁ hd₂ => ⟨scR s₀, by simp [hI.rd, hI.wr, hp.wr], contains_offset (by omega) (by omega)⟩) s₀.gpr
     hI.saved fun s' hs ho hmem _ _ hsp => ⟨⟨fun r hr => ?_, by rw [hsp, hI.sp]⟩, fun m hr hc => ?_⟩
@@ -765,7 +760,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
     rwa [List.take_of_length_le (by rw [D_length]), ← hmem] at this
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha256.updateArm.post s₀ s' := by
+    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.updateArm.post s₀ s' := by
   have hlen := len_lt s₀
   rw [update_eq]
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨hI, hz⟩ => ?_)
@@ -795,7 +790,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 points at the state, and the 12 bytes of stack arguments are public, the
 third one pointing at the scratch space. -/
 def τ₀ : VG.Arm.Taint.T :=
-  { regs := [.r0, .r2, .r3], flags := false, lens := [96, 160], bases := [(.r0, 0)], argLen := 12,
+  { regs := .ofList [.r0, .r2, .r3], flags := false, lens := [96, 160], bases := [(.r0, 0)], argLen := 12,
     argBases := [(8, 1)] }
 
 theorem argByte_eq {s : State} (hsp : s.sp.toNat + 12 ≤ 2 ^ 32) {k : Nat} (hk : k < 12) :
@@ -804,7 +799,7 @@ theorem argByte_eq {s : State} (hsp : s.sp.toNat + 12 ≤ 2 ^ 32) {k : Nat} (hk 
   rw [addr_off (by omega), BitVec.add_assoc, ← BitVec.ofNat_add]
   congr 2; omega
 
-theorem wf₀ {s : State} (h : Spec.Sha256.updateArm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
+theorem wf₀ {s : State} (h : Proof.Sha256.updateArm.pre s) : VG.Arm.Taint.Wf τ₀ s := by
   have hp := pre_of h
   have hst := hp.st_fit; have hsc := hp.scr_fit; have hs := hp.sp_fit
   refine ⟨fun _ => ⟨by simp [hp.wr, τ₀], by simpa [hp.wr] using hp.st_scr, ?_⟩, ?_, fun _ => ⟨hs, ?_⟩, ?_⟩
@@ -821,13 +816,13 @@ theorem wf₀ {s : State} (h : Spec.Sha256.updateArm.pre s) : VG.Arm.Taint.Wf τ
     simp only [VG.Arm.Taint.region, hp.wr]
     rfl
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Spec.Sha256.updateArm.pre s₁) (h₂ : Spec.Sha256.updateArm.pre s₂)
-    (hpub : Spec.Sha256.updateArm.pub s₁ s₂) : VG.Arm.Taint.Agree τ₀ s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.updateArm.pre s₁) (h₂ : Proof.Sha256.updateArm.pre s₂)
+    (hpub : Proof.Sha256.updateArm.pub s₁ s₂) : VG.Arm.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨psp, p0, p2, p3, a0, a1, a2⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ h₁, wf₀ h₂,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim, fun _ => psp, fun k hk => ?_⟩
-  · simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hr
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl <;> assumption
   · rw [hp₁.wr, hp₂.wr]; simp only [stR, scR, stA, scA, st, scr, p0, a2]
   · simp only [τ₀] at hk
@@ -852,8 +847,7 @@ def sat : State where
   rd := [⟨0, 0⟩, ⟨0x4000, 12⟩]
   wr := [⟨0x1000, 96⟩, ⟨0, 160⟩]
 
-set_option maxHeartbeats 0 in
-theorem update_verified : Verified Arm.target update Spec.Sha256.updateArm := by
+theorem update_verified : Verified Arm.target update Proof.Sha256.updateArm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
@@ -861,7 +855,7 @@ theorem update_verified : Verified Arm.target update Spec.Sha256.updateArm := by
   · have e : ∀ k, stackArg sat k = 0 := fun k => by
       simp [stackArg, sat, Mem.readW, Mem.read]
     refine ⟨sat, ?_⟩
-    simp only [Spec.Sha256.updateArm, e]
+    simp only [Proof.Sha256.updateArm, e]
     refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
       by decide⟩ <;>
     · intro a h₁ h₂

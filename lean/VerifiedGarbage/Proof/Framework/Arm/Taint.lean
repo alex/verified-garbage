@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.Taint
+import VerifiedGarbage.Proof.Framework.RegSet
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.Arm.Exec
 import VerifiedGarbage.TCB.Arm.Target
@@ -35,8 +36,10 @@ namespace VG.Arm.Taint
 
 deriving instance Lean.ToExpr for Reg
 
+instance : RegIdx Reg := ⟨Reg.ctorIdx, fun {a b} h => by rw [← Reg.ofNat_ctorIdx a, h, Reg.ofNat_ctorIdx]⟩
+
 structure T where
-  regs : List Reg
+  regs : RegSet Reg
   flags : Bool
   /-- The lengths of the writable regions `s.wr`, in order; `[]` if unknown. -/
   lens : List Nat := []
@@ -50,7 +53,7 @@ structure T where
   argBases : List (Nat × Nat) := []
   deriving DecidableEq, Lean.ToExpr
 
-def pub (τ : T) (r : Reg) : Bool := τ.regs.contains r
+def pub (τ : T) (r : Reg) : Bool := τ.regs.mem r
 
 /-- Writable region `i`. -/
 def region (s : State) (i : Nat) : Region := s.wr.getD i ⟨0, 0⟩
@@ -62,7 +65,7 @@ def byteAddr (s : State) (i k : Nat) : Addr := (region s i).base + BitVec.ofNat 
 def argByte (s : State) (k : Nat) : Addr := State.addr s.sp + BitVec.ofNat 64 k
 
 /-- The registers `regs` and, if `flags`, the flags are the same in both states. -/
-def AgreeRF (regs : List Reg) (flags : Bool) (s₁ s₂ : State) : Prop :=
+def AgreeRF (regs : RegSet Reg) (flags : Bool) (s₁ s₂ : State) : Prop :=
   (∀ r ∈ regs, s₁.gpr r = s₂.gpr r) ∧
   (flags = true → s₁.n = s₂.n ∧ s₁.z = s₂.z ∧ s₁.c = s₂.c ∧ s₁.v = s₂.v)
 
@@ -95,8 +98,8 @@ structure Agree (τ : T) (s₁ s₂ : State) : Prop where
   argMem : ∀ k < τ.argLen, s₁.mem (argByte s₁ k) = s₂.mem (argByte s₂ k)
 
 /-- The public registers after writing `r`, with a public value iff `p`. -/
-def set (τ : T) (r : Reg) (p : Bool) : List Reg :=
-  if p then r :: τ.regs else τ.regs.filter (· != r)
+def set (τ : T) (r : Reg) (p : Bool) : RegSet Reg :=
+  if p then τ.regs.insert r else τ.regs.erase r
 
 /-- The known region bases after writing `d`. -/
 def kill (τ : T) (d : Reg) : List (Reg × Nat) := τ.bases.filter (·.1 != d)
@@ -140,9 +143,11 @@ def storeStep (τ : T) (n : Reg) (off w : Nat) (p : Bool) : Option T :=
 def step (τ : T) : Instr → Option T
   | .mov d op2 => some { τ with regs := set τ d (op2Pub τ op2), bases := movBases τ d op2 }
   | .dp _ d n op2 => some { τ with regs := set τ d (pub τ n && op2Pub τ op2), bases := kill τ d }
-  | .subs d n op2 =>
+  | .adds d n op2 | .subs d n op2 =>
     let p := pub τ n && op2Pub τ op2
     some { τ with regs := set τ d p, flags := p, bases := kill τ d }
+  | .adc d n op2 =>
+    some { τ with regs := set τ d (pub τ n && op2Pub τ op2 && τ.flags), bases := kill τ d }
   | .cmp n op2 => some { τ with flags := pub τ n && op2Pub τ op2 }
   | .movw d _ => some { τ with regs := set τ d true, bases := kill τ d }
   | .movt d _ => some { τ with regs := set τ d (pub τ d), bases := kill τ d }
@@ -156,7 +161,7 @@ def step (τ : T) : Instr → Option T
     if off + 4 ≤ τ.argLen then some { τ with regs := set τ t true, bases := spBases τ t off } else none
 
 def meet (τ₁ τ₂ : T) : T where
-  regs := τ₁.regs.filter (pub τ₂)
+  regs := τ₁.regs.inter τ₂.regs
   flags := τ₁.flags && τ₂.flags
   lens := if τ₁.lens = τ₂.lens then τ₁.lens else []
   bases := τ₁.bases.filter (τ₂.bases.contains ·)
@@ -165,13 +170,13 @@ def meet (τ₁ τ₂ : T) : T where
   argBases := if τ₁.argLen = τ₂.argLen then τ₁.argBases.filter (τ₂.argBases.contains ·) else []
 
 def le (τ σ : T) : Bool :=
-  τ.regs.all (pub σ) && (!τ.flags || σ.flags) && τ.lens == σ.lens &&
+  τ.regs.subset σ.regs && (!τ.flags || σ.flags) && τ.lens == σ.lens &&
     τ.bases.all (σ.bases.contains ·) && τ.slots.all (σ.slots.contains ·) && τ.argLen == σ.argLen &&
     τ.argBases.all (σ.argBases.contains ·)
 
 /-! ## Soundness -/
 
-theorem pub_iff {τ : T} {r : Reg} : pub τ r = true ↔ r ∈ τ.regs := by simp [pub]
+theorem pub_iff {τ : T} {r : Reg} : pub τ r = true ↔ r ∈ τ.regs := Iff.rfl
 
 section
 variable {τ : T} {s₁ s₂ : State}
@@ -198,12 +203,12 @@ theorem regs_set {τ : T} {s₁ s₂ : State} (h : ∀ r ∈ τ.regs, s₁.gpr r
   simp only [State.setReg]
   unfold set at hr
   by_cases hp : p = true
-  · simp only [hp, ite_true, List.mem_cons] at hr
+  · simp only [hp, ite_true, RegSet.mem_insert] at hr
     by_cases hrd : r = d
     · simp [hrd, hv hp]
     · simp [hrd, h r (hr.resolve_left hrd)]
-  · simp only [hp, Bool.false_eq_true, ite_false, List.mem_filter, bne_iff_ne, ne_eq] at hr
-    simp [hr.2, h r hr.1]
+  · simp only [hp, Bool.false_eq_true, ite_false, RegSet.mem_erase] at hr
+    simp [hr.1, h r hr.2]
 
 theorem setReg_ne {s : State} {d r : Reg} {v : BitVec 32} (h : r ≠ d) : (s.setReg d v).gpr r = s.gpr r := by
   simp [State.setReg, h]
@@ -527,7 +532,7 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {r : 
 
 /-- The register an instruction writes, if it writes one (`cmp` and stores do not). -/
 def dst : Instr → Option Reg
-  | .mov d _ | .dp _ d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _ | .ldr d _ _
+  | .mov d _ | .dp _ d _ _ | .adds d _ _ | .adc d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _ | .ldr d _ _
   | .ldrb d _ _ | .ldrSp d _ => some d
   | .cmp .. | .str .. | .strb .. => none
 
@@ -540,7 +545,7 @@ theorem exec_dst {i : Instr} {d : Reg} (hd : dst i = some d) {s s' : State}
   (try simp only [Option.some.injEq, reduceCtorEq] at h) <;>
   first
   | (subst h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩)
-  | (obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl, rfl, fun r h => by simp [State.setReg, subFlags, h]⟩)
+  | (obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl, rfl, fun r h => by simp [State.setReg, addFlags, subFlags, h]⟩)
   | (cases h)
 
 theorem Agree.write {τ τ' : T} {i : Instr} {d : Reg} (hd : dst i = some d) {s₁ s₂ s₁' s₂' : State}
@@ -604,6 +609,23 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     refine ⟨regs_set ha.rf.1 fun hp => ?_, fun hf => ha.rf.2 hf⟩
     simp only [Bool.and_eq_true] at hp
     rw [op2_some ha h₁ h₂ hp.2, ha.reg hp.1]
+  | adds d n o =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl rfl rfl fun _ h => h⟩
+    simp only [exec, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨y₁, h₁, rfl⟩ := e₁; obtain ⟨y₂, h₂, rfl⟩ := e₂
+    refine ⟨regs_set (fun r hr => by simpa [addFlags] using ha.rf.1 r hr) fun hp => ?_, fun hp => ?_⟩ <;>
+    · simp only [Bool.and_eq_true] at hp
+      rw [op2_some ha h₁ h₂ hp.2, ha.reg hp.1]
+      try simp [addFlags, State.setReg]
+  | adc d n o =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl rfl rfl fun _ h => h⟩
+    simp only [exec, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨y₁, h₁, rfl⟩ := e₁; obtain ⟨y₂, h₂, rfl⟩ := e₂
+    refine ⟨regs_set ha.rf.1 fun hp => ?_, fun hf => ha.rf.2 hf⟩
+    simp only [Bool.and_eq_true] at hp
+    rw [op2_some ha h₁ h₂ hp.1.2, ha.reg hp.1.1, (ha.rf.2 hp.2).2.2.1]
   | subs d n o =>
     simp only [step, Option.some.injEq] at hs; subst hs
     refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl rfl rfl fun _ h => h⟩
@@ -746,7 +768,7 @@ theorem Wf.meet_right {τ₁ τ₂ : T} {s : State} (h : Wf τ₂ s) : Wf (meet 
     · simp [meet, he] at hp
 
 theorem meet_left {τ₁ τ₂ : T} {s₁ s₂ : State} (h : Agree τ₁ s₁ s₂) : Agree (meet τ₁ τ₂) s₁ s₂ where
-  rf := ⟨fun r hr => h.rf.1 r (List.mem_filter.mp hr).1,
+  rf := ⟨fun r hr => h.rf.1 r (RegSet.mem_inter.mp hr).1,
     fun hf => h.rf.2 (by simp only [meet, Bool.and_eq_true] at hf; exact hf.1)⟩
   wr hne := by
     simp only [meet] at hne
@@ -768,7 +790,7 @@ theorem meet_left {τ₁ τ₂ : T} {s₁ s₂ : State} (h : Agree τ₁ s₁ s�
     split at hk <;> [exact h.argMem k hk; cases hk]
 
 theorem meet_right {τ₁ τ₂ : T} {s₁ s₂ : State} (h : Agree τ₂ s₁ s₂) : Agree (meet τ₁ τ₂) s₁ s₂ where
-  rf := ⟨fun r hr => h.rf.1 r (pub_iff.mp (List.mem_filter.mp hr).2),
+  rf := ⟨fun r hr => h.rf.1 r (RegSet.mem_inter.mp hr).2,
     fun hf => h.rf.2 (by simp only [meet, Bool.and_eq_true] at hf; exact hf.2)⟩
   wr hne := by
     simp only [meet] at hne
@@ -797,7 +819,7 @@ theorem le_sound {τ σ : T} {s₁ s₂ : State} (hle : le τ σ = true) (h : Ag
   simp only [le, Bool.and_eq_true, List.all_eq_true, Bool.or_eq_true, Bool.not_eq_true',
     beq_iff_eq, List.contains_iff_mem] at hle
   obtain ⟨⟨⟨⟨⟨⟨hr, hf⟩, hl⟩, hb⟩, hs⟩, ha⟩, hab⟩ := hle
-  refine ⟨⟨fun r h' => h.rf.1 r (pub_iff.mp (hr r h')), fun hf' => h.rf.2 ?_⟩, fun hne => h.wr (hl ▸ hne),
+  refine ⟨⟨fun r h' => h.rf.1 r (RegSet.mem_of_subset hr h'), fun hf' => h.rf.2 ?_⟩, fun hne => h.wr (hl ▸ hne),
     ⟨fun hne => hl ▸ h.wf₁.lens (hl ▸ hne), fun p hp => h.wf₁.bases p (hb p hp),
       fun hp => ha ▸ h.wf₁.args (ha ▸ hp), fun p hp => ha ▸ h.wf₁.argBases p (hab p hp)⟩,
     ⟨fun hne => hl ▸ h.wf₂.lens (hl ▸ hne), fun p hp => h.wf₂.bases p (hb p hp),
@@ -827,11 +849,11 @@ def taint : VG.Taint isa where
   le_sound := Taint.le_sound
 
 /-- The taint in which exactly the registers `rs` are public. -/
-def Taint.ofRegs (rs : List Reg) : Taint.T := { regs := rs, flags := false }
+def Taint.ofRegs (rs : List Reg) : Taint.T := { regs := RegSet.ofList rs, flags := false }
 
 theorem Taint.agree_ofRegs {rs : List Reg} {s₁ s₂ : State}
     (h : ∀ r ∈ rs, s₁.gpr r = s₂.gpr r) : Taint.Agree (Taint.ofRegs rs) s₁ s₂ where
-  rf := ⟨h, fun h => by cases h⟩
+  rf := ⟨fun r hr => h r (RegSet.mem_ofList.mp hr), fun h => by cases h⟩
   wr h := absurd rfl h
   wf₁ := ⟨fun h => absurd rfl h, fun _ h => (List.not_mem_nil h).elim,
     fun h => absurd h (Nat.lt_irrefl 0), fun _ h => (List.not_mem_nil h).elim⟩

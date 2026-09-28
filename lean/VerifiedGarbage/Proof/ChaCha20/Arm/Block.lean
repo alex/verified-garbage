@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.ChaCha20.Arm.Rounds
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Spec.ChaCha20.Arm
+import VerifiedGarbage.Proof.ChaCha20.Arm.Contract
 
 /-!
 # ChaCha20 block function on 32-bit ARM: the whole function
@@ -106,7 +106,7 @@ structure Pre (s₀ : State) : Prop where
   st_fits : (st s₀).toNat + 64 ≤ 2 ^ 32
   buf_fits : (buf s₀).toNat + 256 ≤ 2 ^ 32
 
-theorem pre_of (s₀ : State) (h : Spec.ChaCha20.blockArm.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.ChaCha20.blockArm.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := h
   exact ⟨h1, h2, h3, h4, h5⟩
 
@@ -149,7 +149,6 @@ theorem out_lt {k : Nat} (hk : k < 16) : outOff k + 4 ≤ 256 := by simp only [o
 
 /-! ## Copying the state -/
 
-set_option maxHeartbeats 400000 in
 theorem copyWord_ok {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 16) {s : State}
     (hr0 : s.gpr .r0 = st s₀) (hr1 : s.gpr .r1 = buf s₀)
     (hin : InRegions (s.rd ++ s.wr) (SA s₀ + BitVec.ofNat 64 (4 * k)) 4)
@@ -283,7 +282,6 @@ theorem restore_eq : restore = [
     .ldr .r11 .r1 172,
     .ldr .lr .r1 176] := rfl
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block save) s₀ fun s₁ =>
@@ -347,7 +345,6 @@ theorem saved_frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) (hf : Frame [
     (key 168 (by omega) (by omega)).trans h6, (key 172 (by omega) (by omega)).trans h7,
     (key 176 (by omega) (by omega)).trans h8⟩
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hs : Saved s₀ s.mem)
     (hr1 : s.gpr .r1 = buf s₀) (hwr : s.wr = s₀.wr) :
@@ -395,7 +392,9 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hs : Saved s₀ s
 
 theorem wreg_inj {j k : Nat} (hj : j < 16) (hk : k < 16) (hj8 : inReg 8 j = true)
     (hk8 : inReg 8 k = true) (h : wreg j = wreg k) : j = k := by
-  interval_cases j <;> interval_cases k <;> first | rfl | simp_all [wreg, inReg]
+  have key : ∀ j, j < 16 → ∀ k, k < 16 → inReg 8 j = true → inReg 8 k = true →
+      wreg j = wreg k → j = k := by decide
+  exact key j hj k hk hj8 hk8 h
 
 /-- After loading words `< n`. -/
 structure LI (s₀ : State) (sL : State) (n : Nat) (s : State) : Prop where
@@ -466,7 +465,6 @@ structure SI (B : Addr) (R : CState) (sB : State) (n : Nat) (s : State) : Prop w
 theorem wreg_ne_r0 {j : Nat} (h : 10 ≤ j) (hj : j < 16) : wreg j ≠ .r0 := by
   interval_cases j <;> decide
 
-set_option maxHeartbeats 400000 in
 theorem store_step {s₀ : State} (hp : Pre s₀) {R : CState} {sB : State} (hwB : bufR s₀ ∈ sB.wr)
     (hr1B : sB.gpr .r1 = buf s₀) {n : Nat} (hn : n < 16) {s : State} (hs : SI (BA s₀) R sB n s) :
     WP isa (.block (storeWord n)) s (SI (BA s₀) R sB (n + 1)) := by
@@ -534,7 +532,6 @@ structure AI (B : Addr) (R v : CState) (sB : State) (n : Nat) (s : State) : Prop
   rd : s.rd = sB.rd
   wr : s.wr = sB.wr
 
-set_option maxHeartbeats 400000 in
 theorem add_step {s₀ : State} (hp : Pre s₀) {R v : CState} {sB : State} (hwB : bufR s₀ ∈ sB.wr)
     (hr1B : sB.gpr .r1 = buf s₀) {n : Nat} (hn : n < 16) {s : State}
     (hs : AI (BA s₀) R v sB n s) : WP isa (.block (addWord n)) s (AI (BA s₀) R v sB (n + 1)) := by
@@ -591,10 +588,9 @@ theorem block_post {p : Addr} {m : Mem} {R v : CState}
   simp only [stateAt, Vector.getElem_ofFn, Vector.getElem_zipWith]
   exact h j hj
 
-set_option maxHeartbeats 400000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa block s₀ fun s' =>
-      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Spec.ChaCha20.blockArm.post s₀ s' := by
+      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Proof.ChaCha20.blockArm.post s₀ s' := by
   have hw₀ := hp.hw
   refine WP.seq ?_
   rw [WP.block_append_iff, WP.block_append_iff]
@@ -657,9 +653,8 @@ def satState : State where
   rd := [⟨0x1000, 64⟩]
   wr := [⟨0x2000, 256⟩]
 
-set_option maxRecDepth 100000 in
 theorem block_verified :
-    Verified Arm.target Impl.ChaCha20.Arm.block Spec.ChaCha20.blockArm := by
+    Verified Arm.target Impl.ChaCha20.Arm.block Proof.ChaCha20.blockArm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩

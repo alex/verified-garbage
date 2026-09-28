@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.Arm.Rounds
-import VerifiedGarbage.Spec.Sha256.Arm
+import VerifiedGarbage.Proof.Sha256.Arm.Contract
 
 /-!
 # SHA-256 compression function on ARMv7: the whole function
@@ -48,7 +48,7 @@ structure Pre (s₀ : State) : Prop where
   blk_fits : (bp s₀).toNat + 64 * nb s₀ ≤ 2 ^ 32
   scr_fits : (scr s₀).toNat + 112 ≤ 2 ^ 32
 
-theorem pre_of (s₀ : State) (h : Spec.Sha256.compressArm.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.Sha256.compressArm.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
 
@@ -189,7 +189,6 @@ theorem vars0 (s : State) (v : HashValue) : Vars 0 s v ↔
     s.gpr .r4 = v[0] ∧ s.gpr .r5 = v[1] ∧ s.gpr .r6 = v[2] ∧ s.gpr .r7 = v[3] ∧
     s.gpr .r8 = v[4] ∧ s.gpr .r9 = v[5] ∧ s.gpr .r10 = v[6] ∧ s.gpr .r11 = v[7] := Iff.rfl
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hr0 : s.gpr .r0 = st s₀)
     (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) :
@@ -238,7 +237,6 @@ theorem frame_writeState {s₀ : State} (hp : Pre s₀) {m m' : Mem} (h : Frame 
     (c 3 ?_)).writeW ?_ _ (c 4 ?_)).writeW ?_ _ (c 5 ?_)).writeW ?_ _ (c 6 ?_)).writeW ?_ _ (c 7 ?_) <;>
   simp
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (hv : Vars 0 s V)
     (hr0 : s.gpr .r0 = st s₀) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
@@ -335,7 +333,6 @@ theorem blk_word {s₀ : State} (hp : Pre s₀) {i t : Nat} (hi : i < nb s₀) (
 theorem work_sub (p : BitVec 32) : Region.Sub (workRegion p) ⟨State.addr p, 112⟩ :=
   Region.sub_prefix (by omega)
 
-set_option maxHeartbeats 400000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s : State}
     (hL : LInv s₀ i s) :
     WP isa body s fun s' =>
@@ -426,7 +423,6 @@ def saveMem (s₀ : State) : Mem :=
     (saveAddr s₀ 92) (s₀.gpr .r10)).writeW (saveAddr s₀ 96) (s₀.gpr .r11)).writeW
     (saveAddr s₀ 100) (s₀.gpr .lr)
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save ++ [.cmp .r2 (.imm 0)])) s₀ fun s₁ =>
@@ -472,11 +468,10 @@ theorem common_zero {s₀ : State} (hp : Pre s₀) {s₁ : State} (hg : s₁.gpr
       (by simpa using hp.st_scr) (by decide), ← stateAt_get hp _ hk]
     rfl
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
     WP isa (.block restore) s fun s' =>
-      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Spec.Sha256.compressArm.post s₀ s' := by
+      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Proof.Sha256.compressArm.post s₀ s' := by
   have i0 := hp.in_save (d := 68) (by omega); have i1 := hp.in_save (d := 72) (by omega)
   have i2 := hp.in_save (d := 76) (by omega); have i3 := hp.in_save (d := 80) (by omega)
   have i4 := hp.in_save (d := 84) (by omega); have i5 := hp.in_save (d := 88) (by omega)
@@ -501,7 +496,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa compress s₀ fun s' =>
-      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Spec.Sha256.compressArm.post s₀ s' := by
+      (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Proof.Sha256.compressArm.post s₀ s' := by
   refine WP.seq (WP.mono (save_ok hp) fun s₁ ⟨hg, hrd, hwr, hm, hz⟩ => ?_)
   refine WP.seq (WP.mono (Q := Common s₀ (nb s₀)) ?_ fun s₂ hc => restore_ok hp hc)
   have hc₀ := common_zero hp hg hrd hwr hm
@@ -540,7 +535,7 @@ def satState : State where
   wr := [⟨0x1000, 32⟩, ⟨0x3000, 112⟩]
 
 theorem compress_verified :
-    Verified Arm.target Impl.Sha256.Arm.compress Spec.Sha256.compressArm := by
+    Verified Arm.target Impl.Sha256.Arm.compress Proof.Sha256.compressArm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩

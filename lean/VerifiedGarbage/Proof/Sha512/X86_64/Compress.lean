@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Sha512.X86_64.Rounds
 import VerifiedGarbage.Proof.Framework.X86_64.Bswap
-import VerifiedGarbage.Spec.Sha512.X86_64
+import VerifiedGarbage.Proof.Sha512.X86_64.Contract
 
 /-!
 # SHA-512 compression function on x86-64: the whole function
@@ -109,7 +109,7 @@ structure Pre (s₀ : State) : Prop where
   ret_st : (retR s₀).Disjoint (stR s₀)
   ret_scr : (retR s₀).Disjoint (scrR s₀)
 
-theorem pre_of (s₀ : State) (h : Spec.Sha512.compressX86_64.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : Proof.Sha512.compressX86_64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7⟩
 
@@ -212,7 +212,6 @@ theorem vars0 (s : State) (v : HashValue) : Vars 0 s v ↔
     s.gpr .rax = v[0] ∧ s.gpr .rbx = v[1] ∧ s.gpr .rbp = v[2] ∧ s.gpr .r8 = v[3] ∧
     s.gpr .r9 = v[4] ∧ s.gpr .r10 = v[5] ∧ s.gpr .r11 = v[6] ∧ s.gpr .r12 = v[7] := Iff.rfl
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrdi : s.gpr .rdi = st s₀)
     (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) :
@@ -265,7 +264,6 @@ theorem frame_writeState {s₀ : State} {m m' : Mem} (h : Frame [stR s₀] m m')
     (c 3 ?_)).writeW ?_ _ (c 4 ?_)).writeW ?_ _ (c 5 ?_)).writeW ?_ _ (c 6 ?_)).writeW ?_ _ (c 7 ?_) <;>
   simp
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (hv : Vars 0 s V)
     (hrdi : s.gpr .rdi = st s₀) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
@@ -350,7 +348,6 @@ theorem blk_word {s₀ : State} (i t : Nat) (ht : t < 16) :
 
 theorem win_sub (p : Addr) : Region.Sub (winRegion p) ⟨p, 176⟩ := Region.sub_prefix (by omega)
 
-set_option maxHeartbeats 400000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s : State}
     (hL : LInv s₀ i s) :
     WP isa body s fun s' =>
@@ -446,7 +443,6 @@ def saveMem (s₀ : State) : Mem :=
     (scr s₀ + BitVec.ofInt 64 ((160 : Nat) : Int)) (s₀.gpr .r14)).writeW
     (scr s₀ + BitVec.ofInt 64 ((168 : Nat) : Int)) (s₀.gpr .r15)
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save ++ [.alu .test .rdx (.reg .rdx)])) s₀ fun s₁ =>
@@ -491,11 +487,10 @@ theorem common_zero {s₀ : State} (hp : Pre s₀) {s₁ : State} (hg : s₁.gpr
       (by decide), ← stateAt_get _ _ hk]
     rfl
 
-set_option maxHeartbeats 0 in
 set_option simprocs false in
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Spec.Sha512.compressX86_64.post s₀ s' := by
+      abiPreserved s₀ s' ∧ Proof.Sha512.compressX86_64.post s₀ s' := by
   have i0 := hp.in_save (d := 128) (by omega); have i1 := hp.in_save (d := 136) (by omega)
   have i2 := hp.in_save (d := 144) (by omega); have i3 := hp.in_save (d := 152) (by omega)
   have i4 := hp.in_save (d := 160) (by omega); have i5 := hp.in_save (d := 168) (by omega)
@@ -521,7 +516,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 
 /-! ## The whole function -/
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ Spec.Sha512.compressX86_64.post s₀ s' := by
+    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.compressX86_64.post s₀ s' := by
   refine WP.seq (WP.mono (save_ok hp) fun s₁ ⟨hg, hrd, hwr, hm, hzf⟩ => ?_)
   refine WP.seq (WP.mono (Q := Common s₀ (nb s₀)) ?_ fun s₂ hc => restore_ok hp hc)
   have hc₀ := common_zero hp hg hrd hwr hm
@@ -559,7 +554,7 @@ def satState : State where
   wr := [⟨0x1000, 64⟩, ⟨0x3000, 176⟩]
 
 theorem compress_verified :
-    Verified X86_64.target Impl.Sha512.X86_64.compress Spec.Sha512.compressX86_64 := by
+    Verified X86_64.target Impl.Sha512.X86_64.compress Proof.Sha512.compressX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
     exact ⟨t, s', he, h⟩

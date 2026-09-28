@@ -4,12 +4,14 @@ import VerifiedGarbage.TCB.Arm.Target
 /-!
 # ChaCha20: the 32-bit ARM contract of the block function
 
-**Trusted** (as every file in `Spec/`). The contract of the assembly
+**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contract of the assembly
 primitive `vg_chacha20_block` on 32-bit ARM, in terms of the specification in
 `Spec/ChaCha20.lean`.
 -/
 
-namespace VG.Spec.ChaCha20
+namespace VG.Proof.ChaCha20
+
+open Spec.ChaCha20
 
 open Arm in
 /-- 32-bit ARM contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64])`:
@@ -31,4 +33,4 @@ def blockArm : Contract Arm.isa where
     stateAt s'.mem (State.addr (s.gpr .r1)) = block (stateAt s.mem (State.addr (s.gpr .r0)))
   pub s₁ s₂ := s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1
 
-end VG.Spec.ChaCha20
+end VG.Proof.ChaCha20

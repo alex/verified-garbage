@@ -12,7 +12,12 @@
 
 mod asm;
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 pub mod chacha20;
 #[cfg(any(
     target_arch = "x86_64",
@@ -38,7 +43,7 @@ pub mod pbkdf2;
 
 #[cfg(test)]
 mod tests {
-    /// The pipeline self-test artifact (`VG.Spec.Selftest.addX86_64`).
+    /// The pipeline self-test artifact (`VG.Spec.Selftest.addContract`).
     #[cfg(target_arch = "x86_64")]
     #[test]
     fn selftest_add_x86_64() {
