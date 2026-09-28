@@ -166,7 +166,8 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   have o3 := o 136 (by omega); have o4 := o 144 (by omega); have o5 := o 152 (by omega)
   apply WP.of_runBlock
   rw [prologue_eq]
-  simp (config := {decide := true}) only [runBlock, exec, execAlu, readSrc, isa, ea_at,
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, execAlu, readSrc, isa, ea_at,
     State.store64, o0, o1, o2, o3, o4, o5, ite_true, Option.bind_some, Option.map_some,
     Option.some.injEq, exists_eq_left']
   refine inv_zero hp rfl rfl rfl ?_ ?_ ?_ ?_ ?_ ?_ <;>
@@ -205,9 +206,10 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
   have hrepr := hI.repr
   apply WP.of_runBlock
   rw [restore_eq]
-  simp (config := {decide := true}) only [runBlock, exec, readSrc, isa, ea_at, State.load64,
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, readSrc, isa, ea_at, State.load64,
     State.setReg, hr15, i0, i1, i2, i3, i4, i5, ite_true, ite_false, g0, g1, g2, g3, g4, g5,
-    Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+    Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨⟨fun r hr => ?_, hret⟩, fun m hm hc => ?_⟩
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hrsp]
@@ -241,7 +243,8 @@ theorem test_ok {s : State} (r : Reg) :
       s'.gpr = s.gpr ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
         s'.zf = some (s.gpr r &&& s.gpr r == 0) := by
   apply WP.of_runBlock
-  simp only [runBlock, exec, execAlu, readSrc, isa, Option.bind_some, Option.some.injEq,
+  simp only [runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa), exec,
+    execAlu, readSrc, isa, Option.bind_some, Option.some.injEq,
     exists_eq_left']
   exact ⟨rfl, rfl, rfl, rfl, rfl⟩
 
@@ -385,7 +388,8 @@ theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv
     WP isa (.block direct) s (Pending s₀ (c + 64)) := by
   have hrbp := hI.rbp; have hr12 := hI.r12; have hr13 := hI.r13
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [direct, runBlock, exec, execAlu, readSrc, readSrc32, isa,
+  simp (config := {decide := true}) only [direct, runBlock_cons (M := isa),
+    runStep_some (M := isa), runBlock_nil (M := isa), exec, execAlu, readSrc, readSrc32, isa,
     Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
   have hlen := len_lt s₀
   refine ⟨⟨by omega, hI.rd, hI.wr, ?_, ?_, ?_, ?_, ?_, hI.frame, hI.saved⟩, ?_, ?_, by omega, ?_, ?_⟩ <;>

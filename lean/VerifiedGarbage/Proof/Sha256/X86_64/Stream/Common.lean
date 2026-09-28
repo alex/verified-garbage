@@ -57,7 +57,8 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
       fun s₁ => s₁.gpr .rdi = st ∧ s₁.gpr .rdx = 1 ∧ s₁.gpr .rcx = scr ∧ s₁.gpr .rsi = src ∧
         (∀ r ∈ calleeSaved, s₁.gpr r = s.gpr r) ∧ s₁.rd = s.rd ∧ s₁.wr = s.wr ∧ s₁.mem = s.mem := by
     apply WP.of_runBlock
-    simp only [runBlock, exec, readSrc, readSrc32, isa, Option.map_some, Option.bind_some,
+    simp only [runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa), exec,
+      readSrc, readSrc32, isa, Option.map_some,
       Option.some.injEq, exists_eq_left']
     refine ⟨by simp [State.setReg, State.setReg32, hrbx], by simp [State.setReg, State.setReg32],
       by simp [State.setReg, State.setReg32, hr15], by simp [State.setReg, State.setReg32, hrsi],
@@ -80,7 +81,8 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
       e₈] at hpost
     rw [show (1 : BitVec 64).toNat = 1 from rfl, compressBlocks_one] at hpost
     apply WP.of_runBlock
-    simp only [runBlock, exec, readSrc, isa, Option.map_some, Option.bind_some,
+    simp only [runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa), exec,
+      readSrc, isa, Option.map_some,
       Option.some.injEq, exists_eq_left']
     refine hQ _ (hrd.trans e₆) (hwr.trans e₇) (fun r hr => ?_) (e₈ ▸ hf) hpost
       (by simp [State.setReg, k₁, e₁]) (by simp [State.setReg, k₃, e₃])

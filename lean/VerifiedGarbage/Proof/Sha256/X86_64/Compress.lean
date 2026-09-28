@@ -229,9 +229,10 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrdi : s.gpr .rdi = 
   have h0 := hin 0 (by decide); have h1 := hin 1 (by decide); have h2 := hin 2 (by decide)
   have h3 := hin 3 (by decide); have h4 := hin 4 (by decide); have h5 := hin 5 (by decide)
   have h6 := hin 6 (by decide); have h7 := hin 7 (by decide)
-  simp (config := {decide := true}) only [vars0, runBlock, exec, readSrc32, isa, ea_at,
+  simp (config := {decide := true}) only [vars0, runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, readSrc32, isa, ea_at,
     State.load32, State.setReg32, State.setReg, hrdi, h0, h1, h2, h3, h4, h5, h6, h7, ite_true, ite_false,
-    Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
+    Option.map_some, Option.some.injEq, exists_eq_left']
   simp only [stateAt_get _ _ (show 0 < 8 by decide), stateAt_get _ _ (show 1 < 8 by decide),
     stateAt_get _ _ (show 2 < 8 by decide), stateAt_get _ _ (show 3 < 8 by decide),
     stateAt_get _ _ (show 4 < 8 by decide), stateAt_get _ _ (show 5 < 8 by decide),
@@ -297,7 +298,8 @@ theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (
   obtain ⟨v0, v1, v2, v3, v4, v5, v6, v7⟩ := hv
   apply WP.of_runBlock
   rw [update_eq]
-  simp (config := {decide := true}) only [runBlock, exec, execAlu32, execAlu, readSrc32, readSrc,
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, execAlu32, execAlu, readSrc32, readSrc,
     isa, ea_at, State.load32, State.store32, State.setReg32, State.setReg, arithFlags,
     State.setFlags, hrdi, i0, i1, i2, i3, i4, i5, i6, i7, o0, o1, o2, o3, o4, o5, o6, o7,
     m0, m1, m2, m3, m4, m5, m6, m7, v0, v1, v2, v3, v4, v5, v6, v7, ite_true, ite_false,
@@ -459,7 +461,8 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) :
   have o4 := hp.out_save (d := 96) (by omega); have o5 := hp.out_save (d := 104) (by omega)
   apply WP.of_runBlock
   rw [save_eq]
-  simp (config := {decide := true}) only [runBlock, exec, execAlu, readSrc, isa, ea_at,
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, execAlu, readSrc, isa, ea_at,
     State.store64, arithFlags, State.setFlags, o0, o1, o2, o3, o4, o5, ite_true,
     Option.bind_some, Option.some.injEq, exists_eq_left']
   refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> trivial
@@ -509,9 +512,10 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 
   have hrcx := hc.rcx
   apply WP.of_runBlock
   rw [restore_eq]
-  simp (config := {decide := true}) only [runBlock, exec, readSrc, isa, ea_at, State.load64,
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, readSrc, isa, ea_at, State.load64,
     State.setReg, hrcx, i0, i1, i2, i3, i4, i5, ite_true, ite_false, g0, g1, g2, g3, g4, g5,
-    Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+    Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hrsp]

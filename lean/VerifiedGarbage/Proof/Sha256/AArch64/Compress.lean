@@ -185,8 +185,9 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hx0 : s.gpr .x0 = st
   have h6 := hin 6 (by decide); have h7 := hin 7 (by decide)
   apply WP.of_runBlock
   rw [load_eq]
-  simp (config := {decide := true}) only [vars0, runBlock, exec_ldr_w, isa, State.write, hx0,
-    h0, h1, h2, h3, h4, h5, h6, h7, ite_true, ite_false, Option.bind_some, Option.some.injEq,
+  simp (config := {decide := true}) only [vars0, runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec_ldr_w, isa, State.write, hx0,
+    h0, h1, h2, h3, h4, h5, h6, h7, ite_true, ite_false, Option.some.injEq,
     exists_eq_left']
   simp only [stateAt_get _ _ (show 0 < 8 by decide), stateAt_get _ _ (show 1 < 8 by decide),
     stateAt_get _ _ (show 2 < 8 by decide), stateAt_get _ _ (show 3 < 8 by decide),
@@ -249,12 +250,12 @@ theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (
   obtain ⟨v0, v1, v2, v3, v4, v5, v6, v7⟩ := hv
   apply WP.of_runBlock
   rw [update_eq]
-  simp (config := {decide := true}) only [runBlock, exec_ldr_w, exec_str_w, exec_add,
-    exec_addImm_x, exec_subImm_x, isa, State.read, State.write, Size.bits, hx0,
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec_ldr_w, exec_str_w, exec_add, exec_addImm_x, exec_subImm_x, State.read, State.write, Size.bits, hx0,
     i0, i1, i2, i3, i4, i5, i6, i7, o0, o1, o2, o3, o4, o5, o6, o7,
     m0, m1, m2, m3, m4, m5, m6, m7, v0, v1, v2, v3, v4, v5, v6, v7, ite_true, ite_false,
     BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq,
-    Option.bind_some, Option.some.injEq, exists_eq_left']
+    Option.some.injEq, exists_eq_left']
   refine ⟨?_, ?_⟩
   · simp only [writeState, Vector.getElem_zipWith]
   and_intros

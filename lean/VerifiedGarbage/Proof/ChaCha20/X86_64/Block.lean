@@ -37,14 +37,16 @@ theorem copyWord_ok {k : Nat} (hk : k < 16) {s : State} {st buf : Addr} (hrdi : 
   by_cases h : k = 10 ∨ k = 11
   · have o₂ := out_buf hw (d := slotOff k) (n := 4) (by simp only [slotOff]; omega)
     simp (config := {decide := true}) only [copyWord, h, ite_true, ite_false, List.cons_append,
-      List.nil_append, runBlock, exec, readSrc32, isa, ea_at, State.load32, State.store32,
+      List.nil_append, runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa),
+          exec, readSrc32, isa, ea_at, State.load32, State.store32,
       State.setReg32, State.setReg, hrdi, hin, hrsi, o₁, o₂, BitVec.setWidth_setWidth_of_le,
-      BitVec.setWidth_eq, Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
+      BitVec.setWidth_eq, Option.map_some, Option.some.injEq, exists_eq_left']
     exact ⟨trivial, fun r hr => by simp [hr], trivial⟩
   · simp (config := {decide := true}) only [copyWord, h, ite_true, ite_false, List.append_nil,
-      runBlock, exec, readSrc32, isa, ea_at, State.load32, State.store32, State.setReg32,
+      runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa), exec, readSrc32,
+          isa, ea_at, State.load32, State.store32, State.setReg32,
       State.setReg, hrdi, hin, hrsi, o₁, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq,
-      Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
+      Option.map_some, Option.some.injEq, exists_eq_left']
     exact ⟨trivial, fun r hr => by simp [hr], trivial⟩
 
 /-! ## Offsets -/
@@ -229,9 +231,10 @@ theorem store_step {p : Addr} {R : CState} {sB : State} (hw : bufR p ∈ sB.wr) 
     · have hin : inReg false n = false := by rcases h with rfl | rfl <;> rfl
       simp only [hin, Bool.false_eq_true, ite_false] at hr
       have i := in_buf (rs := s.rd) hw' (d := slotOff n) (n := 4) (by simp only [slotOff]; omega)
-      simp (config := {decide := true}) only [storeWord, h, ite_true, runBlock, exec, readSrc32,
+      simp (config := {decide := true}) only [storeWord, h, ite_true, runBlock_cons (M := isa),
+        runStep_some (M := isa), runBlock_nil (M := isa), exec, readSrc32,
         isa, ea_at, State.load32, State.store32, State.setReg32, State.setReg, hrsi, i, o,
-        ite_false, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq, Option.bind_some,
+        ite_false, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq,
         Option.map_some, Option.some.injEq, exists_eq_left']
       simp only [slotAddr] at hr
       refine key _ (by simp only [hr]) (fun j hj hnj _ => ?_) (by simp) (by simp) rfl rfl
@@ -239,9 +242,10 @@ theorem store_step {p : Addr} {R : CState} {sB : State} (hw : bufR p ∈ sB.wr) 
     · have hin : inReg false n = true := by
         simp only [inReg]; split <;> simp_all
       simp only [hin, ite_true] at hr
-      simp (config := {decide := true}) only [storeWord, h, ite_false, runBlock, exec, isa, ea_at,
+      simp (config := {decide := true}) only [storeWord, h, ite_false, runBlock_cons (M := isa),
+        runStep_some (M := isa), runBlock_nil (M := isa), exec, isa, ea_at,
         State.store32, hrsi, o, ite_true, hr, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq,
-        Option.bind_some, Option.some.injEq, exists_eq_left']
+        Option.some.injEq, exists_eq_left']
       exact key _ rfl (fun _ _ _ _ => rfl) rfl rfl rfl rfl
   intro s' hm hg hrsi' hrsp' hrd hwr
   refine ⟨fun j hj hjn => ?_, fun j hj hjn => ?_, ?_, hrsi'.trans hs.rsi, hrsp'.trans hs.rsp,
@@ -287,7 +291,8 @@ theorem add_step {p : Addr} {R v : CState} {sB : State} (hw : bufR p ∈ sB.wr) 
   have hi := hs.inw n hn
   have hrsi := hs.rsi
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [addWord, runBlock, exec, execAlu32, readSrc32, isa, ea_at,
+  simp (config := {decide := true}) only [addWord, runBlock_cons (M := isa),
+    runStep_some (M := isa), runBlock_nil (M := isa), exec, execAlu32, readSrc32, isa, ea_at,
     State.load32, State.store32, State.setReg32, State.setReg, arithFlags, State.setFlags, hrsi, o,
     io, ii, ho, hi, ite_true, ite_false, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq,
     Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
@@ -344,8 +349,9 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) :
   have o5 := out_buf hp.hw (d := 184) (n := 8) (by omega)
   apply WP.of_runBlock
   rw [save_eq]
-  simp (config := {decide := true}) only [runBlock, exec, isa, ea_at, State.store64, o0, o1, o2,
-    o3, o4, o5, ite_true, Option.bind_some, Option.some.injEq, exists_eq_left']
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, isa, ea_at, State.store64, o0, o1, o2,
+    o3, o4, o5, ite_true, Option.some.injEq, exists_eq_left']
   exact ⟨trivial, trivial, trivial, rfl⟩
 
 set_option simprocs false in
@@ -405,13 +411,14 @@ theorem load_ok {s₀ s₁ : State} (hp : Pre s₀) (h₁ : s₁.gpr = s₀.gpr)
       (V s₀)[k] := fun k hk => hc.inw k hk hk
   apply WP.of_runBlock
   rw [load_eq]
-  simp (config := {decide := true}) only [runBlock, exec, readSrc32, isa, ea_at, State.load32,
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, readSrc32, isa, ea_at, State.load32,
     State.setReg32, State.setReg, hrsi, hin _ (show 0 < 16 by decide), hin _ (show 1 < 16 by decide),
     hin _ (show 2 < 16 by decide), hin _ (show 3 < 16 by decide), hin _ (show 4 < 16 by decide),
     hin _ (show 5 < 16 by decide), hin _ (show 6 < 16 by decide), hin _ (show 7 < 16 by decide),
     hin _ (show 8 < 16 by decide), hin _ (show 9 < 16 by decide), hin _ (show 12 < 16 by decide),
     hin _ (show 13 < 16 by decide), hin _ (show 14 < 16 by decide), hin _ (show 15 < 16 by decide),
-    ite_true, ite_false, Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+    ite_true, ite_false, Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨fun k hk => ?_, trivial, trivial, trivial, by simp (config := {decide := true}),
     by simp (config := {decide := true}) [hrsp]⟩
   have v' : ∀ k (hk : k < 16), s.mem.readW (buf s₀ + BitVec.ofNat 64 (inOff k)) 32 = (V s₀)[k] :=
@@ -443,9 +450,10 @@ theorem restore_ok {s₀ : State} {s : State} (hs : Saved s₀ s.mem) (hrsi : s.
   obtain ⟨g0, g1, g2, g3, g4, g5⟩ := hs
   apply WP.of_runBlock
   rw [restore_eq]
-  simp (config := {decide := true}) only [runBlock, exec, readSrc, isa, ea_at, State.load64,
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, readSrc, isa, ea_at, State.load64,
     State.setReg, hrsi, i0, i1, i2, i3, i4, i5, ite_true, ite_false, g0, g1, g2, g3, g4, g5,
-    Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+    Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨trivial, trivial, fun r hr => ?_⟩
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true})

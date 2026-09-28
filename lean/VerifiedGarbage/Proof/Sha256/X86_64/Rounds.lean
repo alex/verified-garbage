@@ -41,7 +41,8 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word)
   interval_cases c <;>
   simp only [work, T0, T1, T2, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMod, List.getD_cons_succ,
     List.getD_cons_zero] at h0 h1 h2 h3 h4 h5 h6 h7 hw ⊢ <;>
-  simp (config := {decide := true}) only [runBlock, exec, execAlu32, execShift32, readSrc32,
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, execAlu32, execShift32, readSrc32,
     isa, State.setReg32, State.setReg, arithFlags, State.setFlags, ite_true, ite_false,
     h0, h1, h2, h3, h4, h5, h6, h7, hw, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq,
     Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left'] <;>
@@ -72,10 +73,11 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
   · have hi := hbin ht
     have hb := hblk ht
     simp only [Impl.Sha256.X86_64.schedule, ht, ite_true, slot, at_, T0, T1, T2]
-    simp (config := {decide := true}) only [runBlock, exec, readSrc32, isa, State.ea,
+    simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+      runBlock_nil (M := isa), exec, readSrc32, isa, State.ea,
       State.load32, State.store32, State.setReg32, State.setReg, hrsi, hrcx, hi, hout, ite_true,
       ite_false, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq, hb,
-      Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
+      Option.map_some, Option.some.injEq, exists_eq_left']
     refine ⟨trivial, trivial, trivial, trivial, fun r h0 h1 h2 => ?_⟩
     simp [h0]
   · have hw := hwin (by omega)
@@ -88,7 +90,8 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
     rw [show (t - 15) % 16 = (t + 1) % 16 by omega] at e15
     rw [show (t - 16) % 16 = t % 16 by omega] at e16
     simp only [Impl.Sha256.X86_64.schedule, ht, ite_false, slot, at_, T0, T1, T2]
-    simp (config := {decide := true}) only [runBlock, exec, execAlu32, execShift32, readSrc32,
+    simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+      runBlock_nil (M := isa), exec, execAlu32, execShift32, readSrc32,
       isa, State.ea, State.load32, State.store32, State.setReg32, State.setReg, arithFlags,
       State.setFlags, hrcx, hin, hout, ite_true, ite_false, BitVec.setWidth_setWidth_of_le,
       BitVec.setWidth_eq, e2, e7, e15, e16,

@@ -83,8 +83,9 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) :
   have o3 := o 136 (by omega); have o4 := o 144 (by omega); have o5 := o 152 (by omega)
   apply WP.of_runBlock
   simp (config := {decide := true}) only [save, Impl.Sha256.X86_64.Stream.saved, List.map_cons,
-    List.map_nil, runBlock, exec, isa, ea_at, State.store64, o0, o1, o2, o3, o4, o5, ite_true,
-    Option.bind_some, Option.some.injEq, exists_eq_left']
+    List.map_nil, runBlock_cons (M := isa), runStep_some (M := isa), runBlock_nil (M := isa), exec,
+        isa, ea_at, State.store64, o0, o1, o2, o3, o4, o5, ite_true,
+    Option.some.injEq, exists_eq_left']
   trivial
 
 theorem h0_eq (b : Reg) : h0 b = [
@@ -110,9 +111,10 @@ theorem h0_ok {b : Reg} (hb : b ≠ .rax) {s : State} {rest : List Instr} {Q : S
   have o3 := hin 3 (by omega); have o4 := hin 4 (by omega); have o5 := hin 5 (by omega)
   have o6 := hin 6 (by omega); have o7 := hin 7 (by omega)
   rw [h0_eq]
-  simp (config := {decide := true}) only [runBlock, exec, readSrc32, isa, ea_at, State.store32,
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, readSrc32, isa, ea_at, State.store32,
     State.setReg32, State.setReg, hb, o0, o1, o2, o3, o4, o5, o6, o7, ite_true, ite_false,
-    Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
+    Option.map_some, Option.some.injEq, exists_eq_left']
   exact k _ (fun r hr => by simp [hr]) rfl rfl rfl
 
 /-- Writing a hash value stays within its 32 bytes. -/
@@ -604,9 +606,10 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s�
     hfr.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_i, hp.ret_o, hp.ret_s⟩) (by decide)
   apply WP.of_runBlock
   rw [Proof.Sha256.X86_64.Stream.Update.restore_eq]
-  simp (config := {decide := true}) only [runBlock, exec, readSrc, isa, ea_at, State.load64,
+  simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
+    runBlock_nil (M := isa), exec, readSrc, isa, ea_at, State.load64,
     State.setReg, h15, i0, i1, i2, i3, i4, i5, ite_true, ite_false, g0, g1, g2, g3, g4, g5,
-    Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+    Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨⟨fun r hr => ?_, hret⟩, ?_⟩
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hsp]
