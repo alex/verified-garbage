@@ -40,8 +40,9 @@ pub(crate) const <NAME>_FEATURES: &[&str] = &["<feature>", …];
 
 `files` checks that `features` are exactly the features the code requires.
 (The functions get no `#[target_feature]` attribute: Rust does not allow one
-on naked functions, and the x86 assemblers accept every instruction without
-it.)
+on naked functions. The x86 assemblers accept every instruction without it;
+on AArch64 the printer's `enableFeature`/`disableFeature` directives enable
+each feature for the function's body only.)
 -/
 
 namespace VG.Rust
@@ -125,7 +126,9 @@ def checkFeatures (a : Artifact) : Except String Unit :=
 /-- One artifact as a Rust naked function; `moduleOf` gives the module of
 each function it calls. -/
 def function (a : Artifact) (moduleOf : String → String) : String :=
-  let body := a.target.printer.function a.code
+  let P := a.target.printer
+  let body := (a.features.flatMap P.enableFeature).map .text ++ P.function a.code ++
+    (a.features.flatMap P.disableFeature).map .text
   let callees := dedup (body.filterMap fun | .call n => some n | .text _ => none)
   featuresConst a.name a.features ++
   docComment "" (featureDoc a.doc a.features) ++
