@@ -14,20 +14,26 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 ## Algorithms
 
+<!-- BEGIN ci/algorithms_table.py: edit docs/algorithms/, then run it -->
+
 | Algorithm | Spec landed | Supported | Optimized |
 |---|---|---|---|
-| SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
-| SHA-384, SHA-512, SHA-512/224, SHA-512/256 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
-| HMAC-SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
-| PBKDF2-HMAC-SHA-256 | ✅ | x86-64, ARM64 | ❌ |
-| ChaCha20 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
-| Poly1305 | ✅ | x86-64 | ❌ |
-| ChaCha20-Poly1305 | ✅ | ❌ | ❌ |
-| SHA-1 | ✅ | x86-64, ARM64 | ❌ |
-| MD5 | ✅ | x86-64, ARM64 | ❌ |
-| SHA3-224, SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256 | ✅ | x86-64, ARM64 | ❌ |
 | AES-GCM (128-, 192- and 256-bit keys) | ✅ | ❌ | ❌ |
+| ChaCha20 | ✅ | ✅ | ❌ |
+| ChaCha20-Poly1305 | ✅ | ❌ | ❌ |
+| HMAC-SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
+| MD5 | ✅ | x86-64, ARM64 | ❌ |
+| PBKDF2-HMAC-SHA-256 | ✅ | x86-64, ARM64 | ❌ |
+| Poly1305 | ✅ | x86-64 | ❌ |
 | scrypt | ✅ | x86-64, ARM64 | ❌ |
+| SHA-1 | ✅ | x86-64, ARM64 | ❌ |
+| SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
+| SHA3-224, SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256 | ✅ | x86-64, ARM64 | ❌ |
+| SHA-384, SHA-512, SHA-512/224, SHA-512/256 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
+
+<!-- END ci/algorithms_table.py -->
+
+The table is generated from the code by `ci/algorithms_table.py`.
 
 * **Spec landed**: the algorithm's specification, transcribed from its
   standard, is in `lean/VerifiedGarbage/Spec/`.

@@ -116,6 +116,7 @@ jobs:
           persist-credentials: false
       - run: python3 ci/check_lean_imports.py
       - run: python3 ci/check_lean_speed.py
+      - run: python3 ci/algorithms_table.py --check
 
   vectors:
     name: Test vector provenance

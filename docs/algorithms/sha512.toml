@@ -1,0 +1,4 @@
+name = "SHA-384, SHA-512, SHA-512/224, SHA-512/256"
+specs = ["Sha512"]
+modules = ["src/hashes/sha512.rs"]
+asm = ["sha512"]

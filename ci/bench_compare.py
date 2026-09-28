@@ -17,6 +17,9 @@ verified-garbage benchmark got slower by more than `--threshold`.
 
 OpenSSL's code is the same on both sides, so its benchmarks run just once,
 with HEAD's binary, as a reference point for HEAD's times.
+
+`--modules` runs only the benchmarks of those library modules (see
+`bench_arches.py`).
 """
 
 import argparse
@@ -104,7 +107,7 @@ def run(binary, home, library, args):
             "1000",
             f"/{library}/",
         ],
-        env={**os.environ, "CRITERION_HOME": str(home)},
+        env={**os.environ, "CRITERION_HOME": str(home), "VG_BENCH_MODULES": args.modules},
         check=True,
         stdout=subprocess.DEVNULL,
     )
@@ -141,6 +144,7 @@ def main():
     p.add_argument("--warm-up-time", type=float, default=0.2)
     p.add_argument("--measurement-time", type=float, default=0.5)
     p.add_argument("--work-dir", type=pathlib.Path, default=pathlib.Path("bench-compare"))
+    p.add_argument("--modules", default="", help="space-separated; only benchmark these modules")
     args = p.parse_args()
 
     base, head = args.base.resolve(), args.head.resolve()
@@ -167,6 +171,14 @@ def main():
         f"Fastest of {args.rounds} interleaved runs of each side on this runner;"
         f" a slowdown of more than {args.threshold:.0%} fails."
         " OpenSSL (through rust-openssl) ran once, for reference.",
+        *(
+            [
+                f"Changed modules: {args.modules}. Only the benchmarks that use them ran"
+                " (all of them, if one of these modules has no benchmark)."
+            ]
+            if args.modules.strip()
+            else []
+        ),
         *([f"{note}"] if note else []),
         "",
         "| Benchmark | Base | Head | Change | OpenSSL | Head vs OpenSSL |",
