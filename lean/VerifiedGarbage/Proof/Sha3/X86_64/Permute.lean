@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Sha3.X86_64.Round
 import VerifiedGarbage.Proof.Sha3.X86_64.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
@@ -351,7 +352,7 @@ def ResInv (s₀ s₁ : State) (k : Nat) (s : State) : Prop :=
 
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hL : LInv s₀ 24 s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Sha3.permuteX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Sha3.permuteX86_64.post s₀ s' := by
   rw [restore_eq]
   have hsi : s.gpr .rsi = scr s₀ := by rw [hL.rsi]; simp [oth]
   have hdi : s.gpr .rdi = st s₀ := by rw [hL.rdi]; simp [cur]
@@ -390,7 +391,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hL : LInv s₀ 24
 /-! ## The whole function -/
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa permute s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha3.permuteX86_64.post s₀ s' := by
+    WP isa permute s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha3.permuteX86_64.post s₀ s' := by
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
   refine WP.seq (WP.mono (Q := LInv s₀ 24) ?_ fun s₂ h₂ => restore_ok hp h₂)
   let Inv : Nat → State → Prop := fun n s => ∃ j, n = 12 - j ∧ j < 12 ∧ LInv s₀ (2 * j) s
@@ -417,7 +418,7 @@ theorem permute_verified :
     Verified X86_64.target Impl.Sha3.X86_64.permute Proof.Sha3.permuteX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2⟩
     refine Taint.agree_ofRegs fun r hr => ?_

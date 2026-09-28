@@ -451,7 +451,7 @@ def ResInv (s₀ s₁ : State) (k : Nat) (s : State) : Prop :=
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block (.mov .rax (.reg .r12) :: restore)) s fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Sha3.absorbX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Sha3.absorbX86_64.post s₀ s' := by
   have ⟨hr₀, hr₁⟩ := hp.rt_pos
   refine wp_mov fun s₁ u₁ => ?_
   rw [restore_eq]
@@ -488,7 +488,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
 /-! ## The whole function -/
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa absorb s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha3.absorbX86_64.post s₀ s' := by
+    WP isa absorb s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha3.absorbX86_64.post s₀ s' := by
   unfold absorb
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨hI, hz⟩ => ?_)
   refine WP.seq (WP.mono (Q := Inv s₀ (len s₀)) ?_ fun s₂ hI₂ => epilogue_ok hp hI₂)
@@ -544,7 +544,7 @@ def sat : State where
 theorem absorb_verified : Verified X86_64.target absorb Proof.Sha3.absorbX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide⟩ <;>
     · intro a h₁ h₂

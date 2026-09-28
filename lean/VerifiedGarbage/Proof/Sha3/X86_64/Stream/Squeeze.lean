@@ -374,7 +374,7 @@ def ResInv (s₀ s₁ : State) (k : Nat) (s : State) : Prop :=
 
 theorem epilogue_ok {s₀ : State} (hp : SPre s₀) {k pos : Nat} {s : State} (hI : Inv s₀ (outn s₀) k pos s) :
     WP isa (.block (.mov .rax (.reg .r12) :: restore)) s fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Sha3.squeezeX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Sha3.squeezeX86_64.post s₀ s' := by
   have ⟨hr0, hr200⟩ := hp.rate_pos
   refine wp_mov fun s₁ u₁ => ?_
   have hI₁ : Inv s₀ (outn s₀) k pos s₁ := hI.congr (fun r hr => u₁.other r (by
@@ -423,7 +423,7 @@ theorem epilogue_ok {s₀ : State} (hp : SPre s₀) {k pos : Nat} {s : State} (h
 /-! ## The whole function -/
 
 theorem correct {s₀ : State} (hp : SPre s₀) :
-    WP isa squeeze s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha3.squeezeX86_64.post s₀ s' := by
+    WP isa squeeze s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha3.squeezeX86_64.post s₀ s' := by
   unfold squeeze
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨hI, hz⟩ => ?_)
   refine WP.seq (WP.mono (Q := fun s => ∃ k pos, Inv s₀ (outn s₀) k pos s) ?_
@@ -482,7 +482,7 @@ def sat : State where
 theorem squeeze_verified : Verified X86_64.target squeeze Proof.Sha3.squeezeX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide⟩ <;>
     · intro a h₁ h₂

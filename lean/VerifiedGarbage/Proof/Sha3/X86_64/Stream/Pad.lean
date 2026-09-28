@@ -41,7 +41,7 @@ theorem ret_below (sp : Addr) : Region.Disjoint ⟨sp, 8⟩ (below sp 8) := by
   intro x h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
 
 theorem correct {s₀ : State} (hp : Proof.Sha3.padX86_64.pre s₀) :
-    WP isa Impl.Sha3.X86_64.Stream.pad s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha3.padX86_64.post s₀ s' := by
+    WP isa Impl.Sha3.X86_64.Stream.pad s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha3.padX86_64.post s₀ s' := by
   obtain ⟨hrd, hwr, d_ss, d_rs, d_rc, d_ks, d_kc, hrate, hpos⟩ := hp
   have hr := rate_bounds hrate
   set st := s₀.gpr .rdi with hst
@@ -139,7 +139,7 @@ def sat : State where
 theorem pad_verified : Verified X86_64.target Impl.Sha3.X86_64.Stream.pad Proof.Sha3.padX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct hs
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .r8, .rsp]) ?_
       (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, h5⟩
