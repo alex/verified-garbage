@@ -1,0 +1,110 @@
+name: Benchmarks
+
+# Compares the performance of a pull request with its base, on each
+# architecture whose code it changes (see ci/bench_arches.py), and fails if a
+# benchmark slowed down by more than ci/bench_compare.py's threshold. The
+# results are in the run's summary. Not part of `all-green`: it only runs for
+# some pull requests.
+#
+# It can also be run by hand (Actions > Benchmarks > Run workflow), comparing
+# the chosen branch with any earlier commit on every architecture, e.g. to
+# measure the total speedup of a series of pull requests.
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "bench/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "ci/bench_compare.py"
+      - "ci/bench_arches.py"
+      - ".github/workflows/bench.yml"
+  workflow_dispatch:
+    inputs:
+      base_commit:
+        description: The commit to compare against
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  arches:
+    name: Choose architectures
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.arches.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: arches
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            matrix=$(python3 ci/bench_arches.py --all)
+          else
+            git fetch -q --depth=1 origin "$BASE"
+            matrix=$(git diff --name-only "$BASE" HEAD | python3 ci/bench_arches.py)
+          fi
+          echo "$matrix"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  compare:
+    needs: arches
+    if: ${{ needs.arches.outputs.matrix != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.arches.outputs.matrix) }}
+    name: Compare with base (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    # With an empty image the job runs directly on the runner.
+    container:
+      image: ${{ matrix.image || '' }}
+      options: ${{ matrix.options || '' }}
+    env:
+      # Selects the toolchain without `rustup default`, which refuses 32-bit
+      # toolchains on a 64-bit kernel.
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - name: Install the amd64 libc for the runner's Node
+        if: ${{ matrix.install-amd64-libc }}
+        run: |
+          dpkg --add-architecture amd64
+          apt-get update -qq
+          apt-get install -qq -y --no-install-recommends libc6:amd64 libstdc++6:amd64 git ca-certificates python3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: head
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha || inputs.base_commit }}
+          path: base
+          persist-credentials: false
+      - name: Install OpenSSL headers
+        run: |
+          # Containers run as root, without sudo.
+          if [ "$(id -u)" != 0 ]; then sudo=sudo; fi
+          $sudo apt-get update -qq
+          $sudo apt-get install -qq -y --no-install-recommends libssl-dev pkg-config python3
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --component clippy,rustfmt
+      - name: Lint the benchmarks
+        working-directory: head/bench
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --locked -- -D warnings
+      - name: Benchmark base and head
+        run: python3 head/ci/bench_compare.py base head --summary "$GITHUB_STEP_SUMMARY"

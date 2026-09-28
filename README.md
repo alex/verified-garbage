@@ -60,6 +60,15 @@ lake build                           # check all proofs
 lake env lean --run Emit.lean        # regenerate src/asm/ after changing Artifacts.lean
 ```
 
+To benchmark against OpenSSL (through rust-openssl; needs its headers), and
+to compare a branch with a checkout of `main`, as CI does for every pull
+request that changes the library:
+
+```sh
+(cd bench && cargo bench)
+python3 ci/bench_compare.py path/to/main-checkout .
+```
+
 CI checks every proof, that `src/asm/` is exactly what Lean generates, and the
 import discipline of the Lean directories (`ci/check_lean_imports.py`); it
 builds and runs the Rust tests natively on each target architecture, and
