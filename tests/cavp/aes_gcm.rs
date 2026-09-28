@@ -45,16 +45,20 @@ fn field<'a>(fields: &[(&str, &'a str)], key: &str) -> &'a str {
 
 /// Encryption with an external IV must give the ciphertext and the tag
 /// (truncated to its length), and decryption must return the plaintext or,
-/// for a `FAIL` vector, reject the tag.
+/// for a `FAIL` vector, reject the tag. With every implementation (on
+/// x86-64 without AES-NI or PCLMULQDQ, both masks select the scalar one).
 #[test]
 fn aes_gcm() {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("vectors/nist-cavp/gcm");
     let (mut encrypted, mut decrypted, mut failed) = (0, 0, 0);
-    for bits in [128, 192, 256] {
+    let runs = [u32::MAX, 0]
+        .into_iter()
+        .flat_map(|m| [128, 192, 256].map(|b| (m, b)));
+    for (mask, bits) in runs {
         let text = std::fs::read_to_string(dir.join(format!("gcmEncryptExtIV{bits}.rsp"))).unwrap();
         for (r, fail) in records(&text) {
             assert!(!fail);
-            let key = AesGcm::new(&unhex(field(&r, "Key"))).unwrap();
+            let key = AesGcm::__with_features(&unhex(field(&r, "Key")), mask).unwrap();
             let tag = unhex(field(&r, "Tag"));
             let mut buf = unhex(field(&r, "PT"));
             let t = key
@@ -66,7 +70,7 @@ fn aes_gcm() {
         }
         let text = std::fs::read_to_string(dir.join(format!("gcmDecrypt{bits}.rsp"))).unwrap();
         for (r, fail) in records(&text) {
-            let key = AesGcm::new(&unhex(field(&r, "Key"))).unwrap();
+            let key = AesGcm::__with_features(&unhex(field(&r, "Key")), mask).unwrap();
             let mut buf = unhex(field(&r, "CT"));
             let tag = unhex(field(&r, "Tag"));
             let result = key.decrypt(
@@ -85,6 +89,6 @@ fn aes_gcm() {
             decrypted += 1;
         }
     }
-    assert_eq!((encrypted, decrypted), (3 * 7875, 3 * 7875));
+    assert_eq!((encrypted, decrypted), (6 * 7875, 6 * 7875));
     assert!(0 < failed && failed < decrypted);
 }
