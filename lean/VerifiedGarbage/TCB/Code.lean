@@ -8,9 +8,31 @@ type of straight-line instructions with a partial semantics, and a type of
 branch conditions.
 
 Programs are `Code`: straight-line blocks of real instructions glued together
-with structured control flow (`ite` and do-while `loop`). The printer
-(`TCB/Print.lean`) lowers the structured control flow to labels and
-conditional jumps.
+with structured control flow (`ite` and do-while `loop`) and calls of other
+functions (`call`). The printer (`TCB/Print.lean`) lowers the structured
+control flow to labels and conditional jumps, and a call to a call
+instruction naming the function, which is emitted separately.
+
+## Calls
+
+`call name body` is a call of the function `name`, whose code is `body`: its
+semantics is that of the call instruction (`ISA.call`), then `body`, then the
+function's return instruction (`ISA.ret`). The emitter checks that the
+function it calls by that name is exactly `body` (`VG.Rust.files`).
+
+A call instruction stores a return address (in memory or in a register),
+which is where the code of the caller is loaded: the model does not know it.
+On the ARM targets, a veneer that the linker may put between the call
+instruction and the function (to reach it, or to switch between ARM and
+Thumb code) may also change the intra-procedure-call scratch registers. So
+the machine state supplies the values the model does not know, for all the
+calls to come, and a contract never constrains them, so that a proof covers
+every value.
+The return instruction faults in the model unless it returns to that
+address. The stack pointer is only changed by calls and returns
+(`ISA.writesSp`, `Artifact.spSafe`), so that the memory a call instruction
+stores to is below the stack pointer on entry: never memory that the caller
+of the function uses.
 
 ## Semantics, safety and leakage
 
@@ -45,6 +67,23 @@ structure ISA where
   addrs : Instr → State → List Addr
   /-- Evaluate a branch condition; `none` if it depends on an undefined flag. -/
   eval : Cond → State → Option Bool
+  /-- Semantics of a call instruction, up to the transfer of control to the
+  called function: storing the return address, moving the stack pointer if
+  it is stored in memory, and what a linker veneer may do. The values the
+  model does not know are the next of the state's. `none` if it faults. -/
+  call : State → Option State
+  /-- The addresses of the memory a call instruction accesses. -/
+  callAddrs : State → List Addr
+  /-- Semantics of the return instruction of a called function, in the state
+  `s₂`, given the state `s₁` in which the function was entered (just after
+  the call instruction): `none` unless it returns to the return address that
+  the call instruction stored. -/
+  ret : State → State → Option State
+  /-- The addresses of the memory a return instruction accesses, in the state
+  it is executed in. -/
+  retAddrs : State → List Addr
+  /-- Whether an instruction may write the stack pointer. -/
+  writesSp : Instr → Bool
 
 /-- Structured code. -/
 inductive Code (I C : Type) where
@@ -54,6 +93,25 @@ inductive Code (I C : Type) where
   | ite (c : C) (t e : Code I C)
   /-- `do body while c` -/
   | loop (body : Code I C) (c : C)
+  /-- A call of the function `name`, whose code is `body`. -/
+  | call (name : String) (body : Code I C)
+
+/-- Whether every instruction of `c`, and of the functions it calls, satisfies `p`. -/
+def Code.all {I C : Type} (p : I → Bool) : Code I C → Bool
+  | .block is => is.all p
+  | .seq a b => a.all p && b.all p
+  | .ite _ t e => t.all p && e.all p
+  | .loop b _ => b.all p
+  | .call _ b => b.all p
+
+/-- The calls in `c`, and in the functions it calls: each function's name
+and code. -/
+def Code.calls {I C : Type} : Code I C → List (String × Code I C)
+  | .block _ => []
+  | .seq a b => a.calls ++ b.calls
+  | .ite _ t e => t.calls ++ e.calls
+  | .loop b _ => b.calls
+  | .call n b => (n, b) :: b.calls
 
 variable (M : ISA)
 
@@ -82,6 +140,9 @@ inductive Exec : Prog M → M.State → List Leak → M.State → Prop
   | loopNext {body c s s' s'' t t'} :
       Exec body s t s' → M.eval c s' = some true → Exec (.loop body c) s' t' s'' →
       Exec (.loop body c) s (t ++ .branch true :: t') s''
+  | call {name body s s₁ s₂ s' t} :
+      M.call s = some s₁ → Exec body s₁ t s₂ → M.ret s₁ s₂ = some s' →
+      Exec (.call name body) s ((M.callAddrs s).map .addr ++ t ++ (M.retAddrs s₂).map .addr) s'
 
 /-- `c` is constant-time with respect to `Pub` ("the two initial states agree
 on all public data") under the precondition `Pre`: any two terminating runs
