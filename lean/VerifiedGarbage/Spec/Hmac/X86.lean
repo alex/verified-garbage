@@ -16,10 +16,10 @@ Every argument is on the stack above the return address (cdecl). As in
 `VG.Spec.Sha256.updateX86` and `VG.Spec.Sha256.finalizeX86`, the code may
 overwrite its arguments, which the callee owns under cdecl.
 `vg_hmac_sha256_init` has the x86-64 signature. `vg_hmac_sha256_finalize`
-has the 32-bit ARM one (`VerifiedGarbage/Spec/Hmac/Arm.lean`): it writes the
-MAC through an `out` pointer instead of leaving it in `scratch`, so that
-every buffer the inlined `vg_sha256_finalize` writes is one of its own
-arguments.
+has the 32-bit ARM one (`VerifiedGarbage/Spec/Hmac/Arm.lean`), where the MAC
+is written through an `out` pointer instead of being left in `scratch`, so
+that the two 32-bit targets share one Rust signature; its arguments are then
+those of `vg_sha256_finalize` with `outer` inserted after `inner`.
 -/
 
 namespace VG.Spec.Hmac
