@@ -233,7 +233,7 @@ theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv
     refine repr_append_block (hI.repr iv m hm)
       (by rw [hmod, hr, List.length_take, List.length_drop, D_length]; omega) ?_
     rw [hs, m₄, h1]
-    congr 1
+    refine congrArg (compress _) ?_
     rw [show (m ++ List.take c (D s₀)).drop (128 * ((m ++ List.take c (D s₀)).length / 128)) = [] by
       rw [List.drop_eq_nil_iff]; omega, List.nil_append]
     apply parseBlock_congr
