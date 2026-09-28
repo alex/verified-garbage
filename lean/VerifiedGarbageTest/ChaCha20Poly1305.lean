@@ -5,7 +5,7 @@ import VerifiedGarbage.Spec.ChaCha20Poly1305
 # Known-answer tests for the ChaCha20-Poly1305 specification
 
 The test vectors of RFC 8439 for the AEAD, read from the vendored RFC
-`vectors/rfc8439/rfc8439.txt` (see `vectors/sources.toml`) when this file is
+`vectors/rfc8439/rfc8439.txt` (see `vectors/sources/`) when this file is
 built, so that a transcription error in the spec fails the build:
 
 * Appendix A.4, the one-time key (`VG.Spec.ChaCha20Poly1305.polyKeyGen`);

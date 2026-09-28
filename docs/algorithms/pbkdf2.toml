@@ -1,0 +1,4 @@
+name = "PBKDF2-HMAC-SHA-256"
+specs = ["Pbkdf2"]
+modules = ["src/pbkdf2.rs"]
+asm = ["pbkdf2"]

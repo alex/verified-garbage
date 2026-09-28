@@ -1,0 +1,4 @@
+name = "SHA-1"
+specs = ["Sha1"]
+modules = ["src/hashes/sha1.rs"]
+asm = ["sha1"]

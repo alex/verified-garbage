@@ -7,6 +7,13 @@
 //! keystream; the tag, and the invalid vectors (which are about the tag or
 //! the nonce size), are for a ChaCha20-Poly1305 implementation.
 
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
+
 use serde::Deserialize;
 use verified_garbage::chacha20::ChaCha20;
 

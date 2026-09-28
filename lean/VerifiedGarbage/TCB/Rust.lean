@@ -159,6 +159,12 @@ def checkCalls (as : List Artifact) (a : Artifact) : Except String Unit :=
       unless a.target.printer.function body == b.target.printer.function b.code do
         throw s!"{a.target.name}: {a.name} calls {n}, whose code is not what the call runs"
 
+/-- No two artifacts of a target have the same name. -/
+def checkUnique (as : List Artifact) : Except String Unit :=
+  as.forM fun a =>
+    unless (as.filter fun b => b.target.name == a.target.name && b.name == a.name).length == 1 do
+      throw s!"{a.target.name}: {a.name} is defined more than once"
+
 /-- `mod` declarations for generated child modules (never reformatted by rustfmt). -/
 def modDecls (ms : List String) (cfg : String → Option String) : String :=
   String.join (ms.map fun m =>
@@ -193,9 +199,11 @@ def render (as : List Artifact) (moduleOf : Artifact → String → String) : Li
 
 /-- The generated files, as paths relative to `src/asm/` and their contents:
 `mod.rs`, and for each target `<target>/mod.rs` and one `<target>/<module>.rs`
-per module; an error if a call is not of the code it runs (`checkCalls`) or
-an artifact's features are not those its code requires (`checkFeatures`). -/
+per module; an error if two artifacts of a target have the same name
+(`checkUnique`), a call is not of the code it runs (`checkCalls`) or an
+artifact's features are not those its code requires (`checkFeatures`). -/
 def files (as : List Artifact) : Except String (List (String × String)) := do
+  checkUnique as
   as.forM (checkCalls as)
   as.forM checkFeatures
   return render as fun a n => ((callee as a n).map (·.module)).getD ""

@@ -5,7 +5,7 @@ import VerifiedGarbage.Spec.Scrypt
 # Known-answer tests for the scrypt specification
 
 The vectors of Sections 8–10 and 12 of RFC 7914, read from the vendored
-`vectors/rfc7914/rfc7914.txt` (see `vectors/sources.toml`) when this file is
+`vectors/rfc7914/rfc7914.txt` (see `vectors/sources/`) when this file is
 built and checked against `VG.Spec.Scrypt`, so that a transcription error in
 the spec fails the build: the Salsa20/8 Core (§8), scryptBlockMix with
 `r = 1` (§9), scryptROMix with `r = 1` and `N = 16` (§10), and the first
