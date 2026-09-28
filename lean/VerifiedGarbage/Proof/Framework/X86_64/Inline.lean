@@ -382,4 +382,29 @@ theorem WP.inline {c : Prog isa} {k : Contract isa}
     rw [State.withRegions_withRegions, ← hr, ← hwr]; rfl
   rw [this]; exact hpost
 
+/-- Widening writable regions: code verified against `k` is verified against
+a contract `k'` whose states permit writing regions that extend (same bases,
+at least as long) the ones `k` permits (`wr s`), reading the same ones, if
+`k'` asks nothing more. The code runs as it does from the narrowed state,
+with the same trace and result. -/
+theorem Verified.widen {c : Prog isa} {k k' : Contract isa} (h : Verified target c k)
+    (wr : State → List Region)
+    (hpre : ∀ s, k'.pre s → k.pre (s.withRegions s.rd (wr s)))
+    (hwr : ∀ s, k'.pre s → List.Forall₂ Region.Prefix (wr s) s.wr)
+    (hpost : ∀ s s', k'.pre s →
+      k.post (s.withRegions s.rd (wr s)) (s'.withRegions s.rd (wr s)) → k'.post s s')
+    (hpub : ∀ s₁ s₂, k'.pre s₁ → k'.pre s₂ → k'.pub s₁ s₂ →
+      k.pub (s₁.withRegions s₁.rd (wr s₁)) (s₂.withRegions s₂.rd (wr s₂)))
+    (hsat : ∃ s, k'.pre s) : Verified target c k' := by
+  refine h.of_narrow (fun s => s.withRegions s.rd (wr s)) (fun s s₁ => s₁.withRegions s.rd s.wr)
+    hpre (fun s t s₁ hs he => ?_) (fun s t s₁ hs he ha hq => ?_) hpub hsat
+  · have hw : Covers (wr s) s.wr := fun _ _ => InRegions.of_prefix (hwr s hs)
+    have := Exec.widen (rd := s.rd) (wr := s.wr) he (Covers.append (fun _ _ h => h) hw) hw
+    rwa [State.withRegions_withRegions, State.withRegions_self] at this
+  · obtain ⟨hr, hw⟩ := Exec.rdwr he
+    simp only [State.withRegions_rd, State.withRegions_wr] at hr hw
+    have : (s₁.withRegions s.rd s.wr).withRegions s.rd (wr s) = s₁ := by
+      rw [State.withRegions_withRegions, ← hr, ← hw]; rfl
+    exact ⟨ha, hpost s _ hs (by rw [this]; exact hq)⟩
+
 end VG.X86_64

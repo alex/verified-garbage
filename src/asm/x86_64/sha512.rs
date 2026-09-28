@@ -10,10 +10,10 @@
 ///
 /// * `state` must be valid for reads and writes of 64 bytes.
 /// * `blocks` must be valid for reads of `128 * n` bytes.
-/// * `scratch` must be valid for reads and writes of 176 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 224 bytes; its contents on return are unspecified.
 /// * These three regions must not overlap each other, nor the return address on the stack (distinct Rust objects never do).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha512_compress(state: *mut [u64; 8], blocks: *const [u8; 128], n: usize, scratch: *mut [u64; 22]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha512_compress(state: *mut [u64; 8], blocks: *const [u8; 128], n: usize, scratch: *mut [u64; 28]) {
     core::arch::naked_asm!(
         "mov QWORD PTR [rcx+128], rbx",
         "mov QWORD PTR [rcx+136], rbp",
@@ -3956,10 +3956,10 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_256_init(state: *mut [u8; 192]) {
 ///
 /// * `state` must be valid for reads and writes of 192 bytes.
 /// * `data` must be valid for reads of `len` bytes.
-/// * `scratch` must be valid for reads and writes of 224 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 272 bytes; its contents on return are unspecified.
 /// * These three regions must not overlap each other, nor the return address on the stack (distinct Rust objects never do).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha512_update(state: *mut [u8; 192], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 28]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha512_update(state: *mut [u8; 192], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 34]) {
     core::arch::naked_asm!(
         "mov QWORD PTR [r8+176], rbx",
         "mov QWORD PTR [r8+184], rbp",
@@ -7886,10 +7886,10 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_update(state: *mut [u8; 192], cou
 /// * `count` must be the exact length of the message: messages of 2⁶⁴ bytes or more are not supported.
 /// * `state` must be valid for reads and writes of 192 bytes; its contents on return are unspecified.
 /// * `out` must be valid for writes of 64 bytes.
-/// * `scratch` must be valid for reads and writes of 224 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 272 bytes; its contents on return are unspecified.
 /// * These three regions must not overlap each other, nor the return address on the stack (distinct Rust objects never do).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha512_finalize(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 28]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha512_finalize(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 34]) {
     core::arch::naked_asm!(
         "mov QWORD PTR [rcx+176], rbx",
         "mov QWORD PTR [rcx+184], rbp",

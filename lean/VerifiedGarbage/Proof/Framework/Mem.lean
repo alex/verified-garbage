@@ -160,6 +160,23 @@ theorem Region.sub_prefix {base : Addr} {len len' : Nat} (h : len ≤ len') :
     Region.Sub ⟨base, len⟩ ⟨base, len'⟩ := fun a ha => by
   simp only [Region.Contains] at *; omega
 
+/-- `r'` extends `r`: the same base, at least as long. -/
+def Region.Prefix (r r' : Region) : Prop := r.base = r'.base ∧ r.len ≤ r'.len
+
+/-- Every access that the regions `rs` permit, regions extending them permit. -/
+theorem InRegions.of_prefix {rs rs' : List Region} (h : List.Forall₂ Region.Prefix rs rs')
+    {a : Addr} {n : Nat} (ha : InRegions rs a n) : InRegions rs' a n := by
+  induction h with
+  | nil => obtain ⟨_, hr, -⟩ := ha; cases hr
+  | @cons r r' _ _ hp _ ih =>
+    obtain ⟨q, hq, hc⟩ := ha
+    rcases List.mem_cons.mp hq with rfl | hq
+    · obtain ⟨hb, hl⟩ := hp
+      refine ⟨r', List.mem_cons_self .., ?_⟩
+      simp only [Region.Contains, ← hb] at hc ⊢; omega
+    · obtain ⟨q', hq', hc'⟩ := ih ⟨q, hq, hc⟩
+      exact ⟨q', List.mem_cons_of_mem _ hq', hc'⟩
+
 theorem Region.contains_self (a : Addr) (n : Nat) : (⟨a, n⟩ : Region).Contains a n := by
   simp [Region.Contains]
 
