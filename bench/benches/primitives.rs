@@ -77,13 +77,13 @@ fn sha256(c: &mut Criterion) {
     hash_group(c, "sha256", Sha256::digest, MessageDigest::sha256());
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn sha512(c: &mut Criterion) {
     use verified_garbage::hashes::sha512::Sha512;
     hash_group(c, "sha512", Sha512::digest, MessageDigest::sha512());
 }
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn sha512(_: &mut Criterion) {}
 
 fn hmac_sha256(c: &mut Criterion) {
