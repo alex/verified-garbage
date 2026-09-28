@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Scrypt.X86_64.Block
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 
@@ -31,7 +32,7 @@ theorem post_of {s₀ : State} {m : Mem}
   rw [Spec.Scrypt.core, Vector.getElem_zipWith, ← h j hj, bufAt, ofInt_natCast]
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa salsa s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Scrypt.salsaX86_64.post s₀ s' := by
+    WP isa salsa s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Scrypt.salsaX86_64.post s₀ s' := by
   refine WP.seq ?_
   rw [WP.block_append_iff]
   refine WP.mono (save_ok hp) fun s₁ ⟨hg₁, hrd₁, hwr₁, hm₁⟩ => ?_
@@ -94,7 +95,7 @@ theorem salsa_verified :
     Verified X86_64.target Impl.Scrypt.X86_64.salsa Proof.Scrypt.salsaX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2⟩
     refine Taint.agree_ofRegs fun r hr => ?_

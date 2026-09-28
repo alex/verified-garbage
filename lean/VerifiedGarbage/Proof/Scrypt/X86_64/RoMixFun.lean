@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Scrypt.X86_64.RoMix
 import VerifiedGarbage.Proof.Scrypt.X86_64.RoMixLoops
 
@@ -814,7 +815,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Inv3 s₀ (NN
 
 theorem correct {c : Prog isa} (hS : BlockMixSpec c) {s₀ : State} (hp : Pre s₀) :
     WP isa (roMixWith c) s₀ fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Scrypt.roMixX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Scrypt.roMixX86_64.post s₀ s' := by
   unfold roMixWith
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
   refine start_ok hp h₁ fun s₂ h₂ => ?_

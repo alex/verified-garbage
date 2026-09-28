@@ -17,11 +17,10 @@ open VG.Proof.Sha1.X86_64.Stream (callEntry_byte)
 theorem salsa_depth : Impl.Scrypt.X86_64.salsa.depth = 0 := by decide +kernel
 
 theorem salsa_nosp : NoSp Impl.Scrypt.X86_64.salsa := by
-  have : ((instrs Impl.Scrypt.X86_64.salsa).all fun i => Taint.dstOf i != some .rsp) = true := by
+  have : ((instrs Impl.Scrypt.X86_64.salsa).all fun i => !Taint.clobbers i .rsp) = true := by
     rw [← Code.allInstrs_eq]; decide +kernel
   intro i hi
-  have := List.all_eq_true.mp this i hi
-  simpa using this
+  simpa using List.all_eq_true.mp this i hi
 
 /-- A region inside one of `rs` is covered by `rs`. -/
 theorem covers_of_in {rs : List Region} {a : Addr} {n : Nat} (h : InRegions rs a n) :

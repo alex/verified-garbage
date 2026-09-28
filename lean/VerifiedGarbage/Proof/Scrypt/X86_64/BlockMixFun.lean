@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Scrypt.X86_64.BlockMix
 
 /-!
@@ -248,7 +249,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block bmPrologue) 
 
 theorem correct {c : Prog isa} (hS : SalsaSpec c) {s₀ : State} (hp : Pre s₀) :
     WP isa (blockMixWith c) s₀ fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Scrypt.blockMixX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Scrypt.blockMixX86_64.post s₀ s' := by
   unfold blockMixWith
   refine WP.seq ?_
   rw [prologue_eq]

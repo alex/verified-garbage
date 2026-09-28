@@ -46,11 +46,10 @@ def BlockMixSpec (c : Prog isa) : Prop :=
 theorem blockMix_depth : Impl.Scrypt.X86_64.blockMix.depth = 1 := by decide +kernel
 
 theorem blockMix_nosp : NoSp Impl.Scrypt.X86_64.blockMix := by
-  have : ((instrs Impl.Scrypt.X86_64.blockMix).all fun i => Taint.dstOf i != some .rsp) = true := by
+  have : ((instrs Impl.Scrypt.X86_64.blockMix).all fun i => !Taint.clobbers i .rsp) = true := by
     rw [← Code.allInstrs_eq]; decide +kernel
   intro i hi
-  have := List.all_eq_true.mp this i hi
-  simpa using this
+  simpa using List.all_eq_true.mp this i hi
 
 /-- The 8 bytes below the stack pointer after a call are within the 16 below it before. -/
 theorem below8_sub (sp : Addr) : Region.Sub (below (sp - 8) 8) (below sp 16) :=
