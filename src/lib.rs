@@ -22,6 +22,7 @@ mod cpu;
 #[cfg(all(target_arch = "x86", not(target_feature = "sse2")))]
 compile_error!("32-bit x86 needs an i686 target with SSE2 (e.g. i686-unknown-linux-gnu)");
 
+pub mod aes_gcm;
 pub mod chacha20;
 pub mod hashes;
 pub mod hmac;
