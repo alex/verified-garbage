@@ -58,15 +58,15 @@ def sv (s : State) (j : Nat) : BitVec 64 := s.gpr (H.getD (j - 1) .x4)
 
 set_option simprocs false in
 theorem storeCoefs_ok (s : State)
-    (hw : ∀ d, 56 ≤ d → d + 4 ≤ 92 → InRegions s.wr (s.gpr .x0 + BitVec.ofNat 64 d) 4) :
+    (hw : ∀ d, 72 ≤ d → d + 4 ≤ 108 → InRegions s.wr (s.gpr .x0 + BitVec.ofNat 64 d) 4) :
     WP isa (.block storeCoefs) s fun s' =>
       s'.mem = coefMem s.mem (s.gpr .x0) (rv s) (sv s) ∧ s'.gpr = s.gpr ∧ s'.rd = s.rd ∧
         s'.wr = s.wr := by
-  have o0 := hw (56 + 4 * 0) (by omega) (by omega); have o1 := hw (56 + 4 * 1) (by omega) (by omega)
-  have o2 := hw (56 + 4 * 2) (by omega) (by omega); have o3 := hw (56 + 4 * 3) (by omega) (by omega)
-  have o4 := hw (56 + 4 * 4) (by omega) (by omega); have o5 := hw (72 + 4 * 1) (by omega) (by omega)
-  have o6 := hw (72 + 4 * 2) (by omega) (by omega); have o7 := hw (72 + 4 * 3) (by omega) (by omega)
-  have o8 := hw (72 + 4 * 4) (by omega) (by omega)
+  have o0 := hw (72 + 4 * 0) (by omega) (by omega); have o1 := hw (72 + 4 * 1) (by omega) (by omega)
+  have o2 := hw (72 + 4 * 2) (by omega) (by omega); have o3 := hw (72 + 4 * 3) (by omega) (by omega)
+  have o4 := hw (72 + 4 * 4) (by omega) (by omega); have o5 := hw (88 + 4 * 1) (by omega) (by omega)
+  have o6 := hw (88 + 4 * 2) (by omega) (by omega); have o7 := hw (88 + 4 * 3) (by omega) (by omega)
+  have o8 := hw (88 + 4 * 4) (by omega) (by omega)
   apply WP.of_runBlock
   simp (config := {decide := true}) only [storeCoefs, rOff, sOff, runBlock_cons, runStep_some,
     runBlock_nil, exec, addr, Size.bytes, State.store, State.read, Size.bits, Option.bind_some,
@@ -88,13 +88,13 @@ theorem coefMem_s (m : Mem) (st : Addr) (r s : Nat → BitVec 64) {j : Nat} (hj�
     readW32_writeW32_off]
 
 /-- The coefficients' region. -/
-abbrev cR (st : Addr) : Region := ⟨off st 56, 36⟩
+abbrev cR (st : Addr) : Region := ⟨off st 72, 36⟩
 
 theorem coefMem_frame (m : Mem) (st : Addr) (r s : Nat → BitVec 64) :
     Frame [cR st] m (coefMem m st r s) := by
-  have c : ∀ d, 56 ≤ d → d + 4 ≤ 92 → (cR st).Contains (off st d) (32 / 8) := fun d h₁ h₂ => by
+  have c : ∀ d, 72 ≤ d → d + 4 ≤ 108 → (cR st).Contains (off st d) (32 / 8) := fun d h₁ h₂ => by
     simp only [Region.Contains, off]
-    rw [show st + BitVec.ofNat 64 d - (st + BitVec.ofNat 64 56) = BitVec.ofNat 64 (d - 56) by bv_omega,
+    rw [show st + BitVec.ofNat 64 d - (st + BitVec.ofNat 64 72) = BitVec.ofNat 64 (d - 72) by bv_omega,
       toNat_ofNat_lt (by omega)]
     omega
   simp only [coefMem]

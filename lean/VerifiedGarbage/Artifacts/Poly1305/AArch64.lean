@@ -32,12 +32,20 @@ def artifacts : List Artifact := [
     contract := Spec.Poly1305.blocksContract AArch64.abi
     verified := Proof.Poly1305.AArch64.Shared.blocks
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.Poly1305.finalizeTailApi with
+  { Spec.Poly1305.updateApi with
     target := AArch64.target
-    doc := Spec.Poly1305.finalizeTailApi.doc ["These three regions must not overlap each other \
+    doc := Spec.Poly1305.updateApi.doc ["These three regions must not overlap each other, and \
+      `data` must not wrap around the end of the address space (distinct Rust objects never do)."]
+    code := Impl.Poly1305.AArch64.update
+    contract := Spec.Poly1305.updateContract AArch64.abi
+    verified := Proof.Poly1305.AArch64.Shared.update
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.Poly1305.finalizeApi with
+    target := AArch64.target
+    doc := Spec.Poly1305.finalizeApi.doc ["These three regions must not overlap each other \
       (distinct Rust objects never do)."]
     code := Impl.Poly1305.AArch64.finalize
-    contract := Spec.Poly1305.finalizeTailContract AArch64.abi
+    contract := Spec.Poly1305.finalizeContract AArch64.abi
     verified := Proof.Poly1305.AArch64.Shared.finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 

@@ -20,7 +20,7 @@ def Coefs (m : Mem) (st : Addr) (R : Nat) : Prop :=
 
 /-- The coefficient words may be read. -/
 def CoefIn (s : State) : Prop :=
-  ∀ off, 56 ≤ off → off + 4 ≤ 92 → InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 off) 4
+  ∀ off, 72 ≤ off → off + 4 ≤ 108 → InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 off) 4
 
 /-- `dk`, from the limbs of `h` in `s`. -/
 def dform (s : State) (R k : Nat) : Nat :=

@@ -13,39 +13,6 @@ namespace VG.Proof.Poly1305.X86_64
 
 open VG VG.X86_64
 
-theorem ofNat_succ (k : Nat) : BitVec.ofNat 64 (k + 1) = BitVec.ofNat 64 k + 1 := by
-  rw [BitVec.ofNat_add]; rfl
-
-theorem ofNat_pred {k : Nat} (h : 1 ≤ k) : BitVec.ofNat 64 k - 1 = BitVec.ofNat 64 (k - 1) := by
-  rw [show k = (k - 1) + 1 by omega, ofNat_succ, Nat.add_sub_cancel, BitVec.add_sub_cancel]
-
-theorem sub_ofNat {a b : Nat} (h : b ≤ a) :
-    BitVec.ofNat 64 a - BitVec.ofNat 64 b = BitVec.ofNat 64 (a - b) := by
-  conv_lhs => rw [show a = (a - b) + b by omega, BitVec.ofNat_add]
-  rw [BitVec.add_sub_cancel]
-
-theorem ofNat_beq_zero {k : Nat} (h : k < 2 ^ 64) : (BitVec.ofNat 64 k == 0) = decide (k = 0) := by
-  by_cases hk : k = 0
-  · simp [hk]
-  · simp only [hk, decide_false, beq_eq_false_iff_ne, ne_eq]
-    intro h'
-    have := congrArg BitVec.toNat h'
-    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt h] at this
-    exact hk this
-
-theorem sub_beq {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
-    (BitVec.ofNat 64 a - BitVec.ofNat 64 b == 0) = decide (a = b) := by
-  by_cases h : a = b
-  · simp [h]
-  · simp only [h, decide_false, beq_eq_false_iff_ne, ne_eq]
-    intro h'
-    apply h
-    have := congrArg BitVec.toNat h'
-    rw [BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ha,
-      Nat.mod_eq_of_lt hb] at this
-    change _ = 0 at this
-    omega
-
 /-- `s'` is `s` with register `d` set to `v` (flags aside). -/
 structure Upd (s s' : State) (d : Reg) (v : BitVec 64) : Prop where
   gpr : s'.gpr d = v

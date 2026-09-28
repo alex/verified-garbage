@@ -183,7 +183,7 @@ theorem finalize_call {s : State} {P O : Addr} (hrdi : s.gpr .rdi = P) (hrsi : s
     simp only [State.withRegions_gpr, State.withRegions_mem, callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp),
       callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp), hrdi,
       hrsi, hrdx, hm₂] at hpost
-    refine hpost key msg (Proof.Poly1305.X86_64.Repr.buffered
+    refine hpost key msg (Proof.Poly1305.Repr.buffered
       (Repr.frame (callEntry_frame s) (h := hr) (by simpa using hsP.symm))) ?_
     rw [show (0 : BitVec 64).toNat = 0 from rfl, hr.1]
 
