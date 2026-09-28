@@ -201,6 +201,51 @@ fn hmac_sha256(c: &mut Criterion) {
     g.finish();
 }
 
+/// scrypt with `r = 8` and `p = 1` (the RFC 7914 vectors' block size) at a
+/// few costs `N`, deriving a 64-byte key. The ids' sizes are `N`.
+#[cfg(target_arch = "x86_64")]
+fn scrypt_kdf(c: &mut Criterion) {
+    use verified_garbage::scrypt::scrypt;
+
+    let mut g = c.benchmark_group("scrypt");
+    g.sample_size(10);
+    for n in [1024u64, 16384] {
+        let mut out = [0u8; 64];
+        g.bench_function(BenchmarkId::new(VG, n), |b| {
+            b.iter(|| {
+                scrypt(
+                    black_box(b"password"),
+                    black_box(b"NaCl"),
+                    n,
+                    8,
+                    1,
+                    usize::MAX,
+                    &mut out,
+                )
+                .unwrap()
+            })
+        });
+        g.bench_function(BenchmarkId::new(OPENSSL, n), |b| {
+            b.iter(|| {
+                openssl::pkcs5::scrypt(
+                    black_box(b"password"),
+                    black_box(b"NaCl"),
+                    n,
+                    8,
+                    1,
+                    u64::MAX,
+                    &mut out,
+                )
+                .unwrap()
+            })
+        });
+    }
+    g.finish();
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+fn scrypt_kdf(_: &mut Criterion) {}
+
 criterion_group!(
     benches,
     chacha20,
@@ -210,5 +255,8 @@ criterion_group!(
     sha3,
     sha512,
     hmac_sha256
+    sha512,
+    hmac_sha256,
+    scrypt_kdf
 );
 criterion_main!(benches);
