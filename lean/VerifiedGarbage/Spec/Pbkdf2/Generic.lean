@@ -19,6 +19,9 @@ number of bytes of stack below the stack pointer that an implementation's
 calls use (see `Sig.contract`). The function may overwrite its arguments
 passed in memory, where the calling convention allows it (`writeArgs`), to
 pass arguments to the functions it calls.
+
+`VG.Spec.Hmac.Instance.iterateApi` is the function of an `Instance` in the
+Rust interface.
 -/
 
 namespace VG.Spec.Pbkdf2
@@ -50,3 +53,33 @@ def iterateContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (stack := stack)
 
 end VG.Spec.Pbkdf2
+
+namespace VG.Spec.Hmac.Instance
+
+variable (I : Instance)
+
+/-- The contract of `vg_pbkdf2_hmac_<hash>_iterate`: `VG.Spec.Pbkdf2.iterateContract`. -/
+def iterateContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
+  Pbkdf2.iterateContract I.S I.scratch A stack
+
+/-- `vg_pbkdf2_hmac_<hash>_iterate` on every target. -/
+def iterateApi : Api where
+  module := "pbkdf2"
+  name := s!"vg_pbkdf2_hmac_{I.rust}_iterate"
+  sig := Pbkdf2.iterateSig I.S I.scratch
+  summary := s!"Runs `n` steps of PBKDF2-HMAC-{I.alg}'s iteration: if, for a \
+    {I.S.H.blockSize}-byte key `K₀`, the {I.alg} streaming state in bytes 0 to \
+    {I.S.stateBytes - 1} of `*key` represents `K₀ ⊕ ipad` and the one in bytes {I.S.stateBytes} \
+    to {2 * I.S.stateBytes - 1} represents `K₀ ⊕ opad` (as `vg_hmac_{I.rust}_init` leaves them), \
+    repeats `U ← HMAC-{I.alg} (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, and \
+    leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).\n\n\
+    Contract: `VG.Spec.Hmac.Instance.iterateContract` of `VG.Spec.Hmac.{I.lean}`. Constant \
+    time: only the pointers and `n` may affect timing, not the key, `U` or `T`."
+  safety := [
+    s!"`key` must be valid for reads of {2 * I.S.stateBytes} bytes, and `u` for reads of \
+      {I.S.digestBytes} bytes.",
+    s!"`t` must be valid for reads and writes of {I.S.digestBytes} bytes.",
+    s!"`scratch` must be valid for reads and writes of {8 * I.scratch} bytes; its contents on \
+      return are unspecified."]
+
+end VG.Spec.Hmac.Instance
