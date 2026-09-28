@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Framework.Arm.Inline
+import VerifiedGarbage.Proof.Framework.Arm.Call
 import VerifiedGarbage.Proof.Sha256.Arm.Compress
 import VerifiedGarbage.Proof.Sha256.Stream
 import VerifiedGarbage.Impl.Sha256.Arm.Stream
@@ -198,35 +198,38 @@ theorem compressAt_ok {s : State} {st scr src : BitVec 32}
     (d₃ : Region.Disjoint ⟨State.addr src, 64⟩ ⟨State.addr scr, 112⟩)
     (hc : Covers [⟨State.addr src, 64⟩, ⟨State.addr st, 32⟩, ⟨State.addr scr, 112⟩] (s.rd ++ s.wr))
     (hw : Covers [⟨State.addr st, 32⟩, ⟨State.addr scr, 112⟩] s.wr) {Q : State → Prop}
-    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ preserved, s'.gpr r = s.gpr r) →
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ preserved, r ≠ .lr → s'.gpr r = s.gpr r) →
       s'.gpr .r0 = st → s'.gpr .r3 = scr → s'.sp = s.sp →
       Frame [⟨State.addr st, 32⟩, ⟨State.addr scr, 112⟩] s.mem s'.mem →
       stateAt s'.mem (State.addr st) =
         compress (stateAt s.mem (State.addr st)) (blockAt s.mem (State.addr src)) → Q s') :
     WP isa compressAt s Q := by
-  unfold compressAt
+  unfold compressAt compressCall
   refine WP.seq (wp_mov (op2_imm (by decide)) fun s₁ u₁ => WP.block_nil ?_)
   have e0 : s₁.gpr .r0 = st := by rw [u₁.other _ (by decide), h0]
   have e1 : s₁.gpr .r1 = src := by rw [u₁.other _ (by decide), h1]
   have e2 : s₁.gpr .r2 = 1 := u₁.gpr
   have e3 : s₁.gpr .r3 = scr := by rw [u₁.other _ (by decide), h3]
-  refine WP.inline (k := Proof.Sha256.compressArm) compress_verified.1
+  have c : ∀ r, r ∉ linkRegs → s₁.callEntry.gpr r = s₁.gpr r := fun r h => State.callEntry_gpr s₁ h
+  refine WP.call (k := Proof.Sha256.compressArm) compress_verified.1
     (rd := [⟨State.addr src, 64 * 1⟩]) (wr := [⟨State.addr st, 32⟩, ⟨State.addr scr, 112⟩]) ?_ ?_ ?_ ?_
   · simp only [Proof.Sha256.compressArm, State.withRegions_gpr, State.withRegions_rd,
-      State.withRegions_wr, e0, e1, e2, e3]
+      State.withRegions_wr, c _ (show Reg.r0 ∉ linkRegs by decide), c _ (show Reg.r1 ∉ linkRegs by decide),
+      c _ (show Reg.r2 ∉ linkRegs by decide), c _ (show Reg.r3 ∉ linkRegs by decide), e0, e1, e2, e3]
     exact ⟨rfl, trivial, d₁, d₂, d₃, f₀, by simpa using f₁, f₃⟩
   · rw [u₁.rd, u₁.wr]; simpa using hc
   · rw [u₁.wr]; exact hw
-  · intro s' hrd hwr habi hf hg hpost
-    simp only [Proof.Sha256.compressArm, State.withRegions_gpr, State.withRegions_mem, e0, e1, e2,
-      u₁.mem] at hpost
+  · intro s' hrd hwr hsp hf hcs hg hpost
+    simp only [Proof.Sha256.compressArm, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem,
+      c _ (show Reg.r0 ∉ linkRegs by decide), c _ (show Reg.r1 ∉ linkRegs by decide),
+      c _ (show Reg.r2 ∉ linkRegs by decide), e0, e1, e2, u₁.mem] at hpost
     rw [show (BitVec.toNat (1 : BitVec 32)) = 1 from rfl, compressBlocks_one] at hpost
-    refine hQ s' (hrd.trans u₁.rd) (hwr.trans u₁.wr) (fun r hr => ?_) (by rw [hg _ r0_ok, e0])
-      (by rw [hg _ r3_ok, e3]) (habi.2.trans u₁.sp) (u₁.mem ▸ hf) hpost
+    refine hQ s' (hrd.trans u₁.rd) (hwr.trans u₁.wr) (fun r hr hlr => ?_) (by rw [hg _ r0_ok (by decide), e0])
+      (by rw [hg _ r3_ok (by decide), e3]) (hsp.trans u₁.sp) (u₁.mem ▸ hf) hpost
     have : r ≠ .r2 := by
       simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-    rw [habi.1 r hr, u₁.other r this]
+    rw [hcs r hr hlr, u₁.other r this]
 
 /-! ## Saving and restoring our caller's registers -/
 
@@ -255,17 +258,17 @@ theorem saveList_ok {b : Reg} {rest : List Instr} (l : List (Reg × Nat)) :
 
 theorem save_eq (b : Reg) : save b = saved.map (fun p => Instr.str p.1 b p.2) := rfl
 
-/-- Saving `r4`–`r11` with the scratch pointer in `b`. -/
+/-- Saving `r4`–`r11` and `lr` with the scratch pointer in `b`. -/
 theorem save_ok {b : Reg} {rest : List Instr} {s : State} {Q : State → Prop}
     (hfit : (s.gpr b).toNat + 160 ≤ 2 ^ 32)
-    (hin : ∀ d, 112 ≤ d → d + 4 ≤ 144 → InRegions s.wr (State.addr (s.gpr b) + BitVec.ofNat 64 d) 4)
+    (hin : ∀ d, 112 ≤ d → d + 4 ≤ 148 → InRegions s.wr (State.addr (s.gpr b) + BitVec.ofNat 64 d) 4)
     (k : ∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
       s'.mem = saveMem s.mem (State.addr (s.gpr b)) s.gpr saved → WP isa (.block rest) s' Q) :
     WP isa (.block (save b ++ rest)) s Q := by
   rw [save_eq]
   refine saveList_ok saved s Q (fun p hp => ?_) k
   simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
   exact ⟨by decide, by simp only; omega, hin _ (by decide) (by decide)⟩
 
 theorem save_sep (B : Addr) {d e : Nat} (hd : d < 2 ^ 32) (he : e < 2 ^ 32)
@@ -283,7 +286,7 @@ theorem saveMem_saved (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
     ∀ p ∈ saved, (saveMem m B g saved).readW (B + BitVec.ofNat 64 p.2) 32 = g p.1 := by
   intro p hp
   simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
   simp (config := {decide := true}) only [saved, saveMem, Mem.readW_writeW_self32, readW_writeW_save]
 
 theorem saveMem_frame (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
@@ -326,9 +329,9 @@ theorem restoreList_ok {rest : List Instr} (l : List (Reg × Nat)) :
 
 theorem restore_eq : restore = saved.map (fun p => Instr.ldr p.1 .r3 p.2) := rfl
 
-/-- Restoring `r4`–`r11` from the save area at `scratch`. -/
+/-- Restoring `r4`–`r11` and `lr` from the save area at `scratch`. -/
 theorem restore_ok {s : State} {scr : BitVec 32} (h3 : s.gpr .r3 = scr) (hfit : scr.toNat + 160 ≤ 2 ^ 32)
-    (hin : ∀ d, 112 ≤ d → d + 4 ≤ 144 → InRegions (s.rd ++ s.wr) (State.addr scr + BitVec.ofNat 64 d) 4)
+    (hin : ∀ d, 112 ≤ d → d + 4 ≤ 148 → InRegions (s.rd ++ s.wr) (State.addr scr + BitVec.ofNat 64 d) 4)
     (g : Reg → BitVec 32) (hsv : ∀ p ∈ saved, s.mem.readW (State.addr scr + BitVec.ofNat 64 p.2) 32 = g p.1)
     {Q : State → Prop}
     (k : ∀ s', (∀ p ∈ saved, s'.gpr p.1 = g p.1) → (∀ r, r ∉ saved.map Prod.fst → s'.gpr r = s.gpr r) →
@@ -339,7 +342,7 @@ theorem restore_ok {s : State} {scr : BitVec 32} (h3 : s.gpr .r3 = scr) (hfit : 
     fun s' ho hr hm hrd hwr hsp => WP.block_nil (k s' (fun p hp => ?_) hr hm hrd hwr hsp)
   · simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
     rw [h3]
-    rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+    rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
     exact ⟨by decide, by decide, by simp only; omega, hin _ (by decide) (by decide)⟩
   · rw [ho p hp, h3, hsv p hp]
 

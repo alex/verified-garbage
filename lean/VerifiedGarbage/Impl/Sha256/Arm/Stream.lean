@@ -16,12 +16,12 @@ The streaming state (96 bytes at `state`) is the hash value followed by a
   the buffered bytes (one or two blocks), compresses them and writes the
   digest.
 
-The compression function's code (`Impl.Sha256.Arm.compress`) is inlined with
-`scratch[0..112)` as its scratch space. It never writes `r0` or `r3`, so
-`state` stays in `r0` and `scratch` in `r3`; it saves and restores `r4`–`r11`
-and `lr` itself, so our other variables live in `r4`–`r8`, and our caller's
-`r4`–`r11` are saved in `scratch[112..144)`. (`lr` is never written except
-by the inlined code, which restores it.)
+Blocks are compressed by calling `vg_sha256_compress`, with
+`scratch[0..112)` as its scratch space. Its code never writes `r0` or `r3`,
+so `state` stays in `r0` and `scratch` in `r3`; it preserves `r4`–`r11`, so
+our other variables live in `r4`–`r8`. Our caller's `r4`–`r11` are saved in
+`scratch[112..144)`, and our return address (`lr`, which the calls
+overwrite) in `scratch[144..148)`.
 
 Byte `r` of the buffer is addressed as `[r1, #32]` with `r1 = state + r`
 computed just before the access, and `data` is consumed through a pointer
@@ -41,9 +41,10 @@ def init : Prog isa :=
      .movt .r12 (Spec.Sha256.H0[k]!.extractLsb' 16 16),
      .str .r12 .r0 (4 * k)])
 
-/-- The callee-saved registers we use, and where they are saved in `scratch`. -/
+/-- The callee-saved registers we use (and `lr`), and where they are saved in `scratch`. -/
 def saved : List (Reg × Nat) :=
-  [(.r4, 112), (.r5, 116), (.r6, 120), (.r7, 124), (.r8, 128), (.r9, 132), (.r10, 136), (.r11, 140)]
+  [(.r4, 112), (.r5, 116), (.r6, 120), (.r7, 124), (.r8, 128), (.r9, 132), (.r10, 136), (.r11, 140),
+    (.lr, 144)]
 
 /-- Save them, with `scratch` in `b`. -/
 def save (b : Reg) : List Instr := saved.map fun (r, d) => .str r b d
@@ -51,9 +52,12 @@ def save (b : Reg) : List Instr := saved.map fun (r, d) => .str r b d
 /-- Restore them from `scratch` in `r3`. -/
 def restore : List Instr := saved.map fun (r, d) => .ldr r .r3 d
 
+/-- A call of `vg_sha256_compress`. -/
+def compressCall : Prog isa := .call "vg_sha256_compress" compress
+
 /-- Compress the block at `r1` into the hash value at `r0`, with scratch
 space `r3`. -/
-def compressAt : Prog isa := .seq (.block [.mov .r2 (.imm 1)]) compress
+def compressAt : Prog isa := .seq (.block [.mov .r2 (.imm 1)]) compressCall
 
 /-! ## `update`
 
