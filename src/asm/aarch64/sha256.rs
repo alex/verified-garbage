@@ -13,7 +13,7 @@
 /// * `scratch` must be valid for reads and writes of 112 bytes; its contents on return are unspecified.
 /// * These three regions must not overlap each other.
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_sha256_compress(state: *mut [u32; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 14]) {
+pub(crate) unsafe extern "C" fn vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14]) {
     core::arch::naked_asm!(
         "cbz x2, 20f",
         "22:",

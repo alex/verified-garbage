@@ -13,7 +13,7 @@ namespace VG.Spec.Sha256
 
 open X86_64 in
 /-- x86-64 contract for
-`vg_sha256_compress(state: *mut [u32; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 14])`:
+`vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14])`:
 updates the hash value at `state` with the `n` 64-byte blocks at `blocks`.
 
 The code may read `blocks` (`64 * n` bytes) and read and write `state`

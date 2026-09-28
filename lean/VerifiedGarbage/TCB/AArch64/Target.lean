@@ -27,6 +27,30 @@ def preserved : List Reg := [.x18, .x19, .x20, .x21, .x22, .x23, .x24, .x25, .x2
 def abiPreserved (s s' : State) : Prop :=
   (∀ r ∈ preserved, s'.gpr r = s.gpr r) ∧ s'.sp = s.sp
 
+/-- AAPCS64 argument registers, in order. -/
+def argRegs : List Reg := [.x0, .x1, .x2, .x3, .x4, .x5, .x6, .x7]
+
+/-! ## The calling convention, for `Sig`
+
+Each integer or pointer argument takes the next of `x0`–`x7`
+(a 32-bit argument in the low half; the upper half is unspecified).
+Arguments on the stack (more than eight) are not modelled. The return
+address is in `x30`, not in memory; the integer result is in `x0`.
+-/
+
+def abi : Abi isa where
+  ptrBits := 64
+  args ws := if ws.length ≤ argRegs.length then
+    some fun s => (argRegs.take ws.length).map s.gpr else none
+  argArea _ _ := []
+  reserved _ := []
+  wf _ _ := True
+  pub s₁ s₂ := s₁.sp = s₂.sp
+  mem s := s.mem
+  rd s := s.rd
+  wr s := s.wr
+  ret s := s.gpr .x0
+
 abbrev target : Target where
   name := "aarch64"
   isa := isa
@@ -34,8 +58,6 @@ abbrev target : Target where
   abiPreserved := abiPreserved
   rustCfg := "target_arch = \"aarch64\""
   rustAbi := "C"
-
-/-- AAPCS64 argument registers, in order. -/
-def argRegs : List Reg := [.x0, .x1, .x2, .x3, .x4, .x5, .x6, .x7]
+  abi := abi
 
 end VG.AArch64

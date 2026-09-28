@@ -22,7 +22,7 @@ namespace VG.Spec.Sha256
 
 open X86 in
 /-- x86 (32-bit) contract for
-`vg_sha256_compress(state: *mut [u32; 8], blocks: *const u8, n: usize, scratch: *mut [u64; 14])`,
+`vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14])`,
 whose arguments are on the stack (cdecl): updates the hash value at `state`
 with the `n` 64-byte blocks at `blocks`.
 
