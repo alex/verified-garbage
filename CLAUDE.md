@@ -132,7 +132,16 @@ Avoid these patterns (each has cost tens of seconds in one proof):
   goals about symbolic memory or hash values can unfold definitions (down
   to `BitVec` internals) for seconds before failing or succeeding. Close
   such goals with explicit lemmas (`congrArg`, `rw`), and try the tactic
-  that works first rather than in `first | rfl | …`.
+  that works first rather than in `first | rfl | …`. For example, on
+  `compress H (blockAt m p) = compress H (parseBlock f)` or
+  `bytesAt m p n ++ [0x80] = xs ++ [0x80]`, use
+  `refine congrArg (compress _) ?_` or `refine congrArg (· ++ [0x80]) ?_`,
+  not `congr 1`, which first tries to unify both sides.
+* **Unfolding recursive definitions:** `simp`/`dsimp` unfolding a recursive
+  definition that uses a recursive call's result twice (`let r := f …;
+  (… r.1, r.2)`) duplicates the call at every level. Evaluate it in one
+  step with a `dsimproc` instead (`Arm.reduceClassify`,
+  `Proof/Framework/Arm/Contract.lean`).
 
 To find what is slow, profile one file per declaration (time under
 `[Kernel]` is the kernel checking the term):

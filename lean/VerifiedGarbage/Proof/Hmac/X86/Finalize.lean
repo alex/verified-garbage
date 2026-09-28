@@ -763,9 +763,8 @@ theorem outer_hash {k0 d : List Byte} (hk : k0.length = 64) (hd : d.length = 32)
         (parseBlock fun t => (d ++ padBytes).getD t 0)).toList.flatMap wordBytes := by
   have hl : (xorPad k0 opad ++ d).length = 96 := by simp [xorPad_length, hk, hd]
   rw [hash_one (by rw [hl]; omega), hl, compressList_append (by rw [xorPad_length, hk])]
-  congr 3
-  funext t
-  congr 1
+  refine congrArg (fun b => (compress _ b).toList.flatMap wordBytes) (congrArg parseBlock (funext fun t => ?_))
+  refine congrArg (fun l : List Byte => l.getD t 0) ?_
   have hr : rest (xorPad k0 opad ++ d) = d := by
     simp only [rest, hl, show 64 * (96 / 64) = (xorPad k0 opad).length by rw [xorPad_length, hk]]
     exact List.drop_left

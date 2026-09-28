@@ -462,7 +462,7 @@ theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv
       (by rw [hmod, hr, List.length_take, List.length_drop, D_length]; omega) ?_
     rw [hs, hm, heax, show (dp s₀ + BitVec.ofNat 32 c).setWidth 64 = addr (dp s₀) c from rfl,
       addr_eq (by omega)]
-    congr 1
+    refine congrArg (compress _) ?_
     rw [show (m ++ List.take c (D s₀)).drop (64 * ((m ++ List.take c (D s₀)).length / 64)) = [] by
       rw [List.drop_eq_nil_iff]; omega, List.nil_append]
     apply parseBlock_congr
@@ -558,7 +558,7 @@ theorem Pending.putArgs {s₀ : State} (hp : Pre s₀) {c : Nat} {s s' : State} 
     repr := fun m hm₀ mem' hs => by
       refine h.repr m hm₀ mem' ?_
       rw [hs, hm, hg, stateAt_putArgs hp]
-      congr 1
+      refine congrArg (compress _) ?_
       simp only [blockAt]
       apply parseBlock_congr
       intro k hk
@@ -903,7 +903,7 @@ theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
     refine repr_append_block (hI.repr m hm) (by rw [hmod, hxs]; exact hfull) ?_
     rw [hs, m₄, h.mem, hst, heax, show (st s₀ + BitVec.ofNat 32 32).setWidth 64 = addr (st s₀) 32 from rfl,
       addr_eq (by have := hp.st_fit; omega)]
-    congr 1
+    refine congrArg (compress _) ?_
     apply parseBlock_congr
     intro k hk
     have hb := (hI.repr m hm).2

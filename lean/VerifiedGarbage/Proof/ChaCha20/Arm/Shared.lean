@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.ChaCha20.Arm.Block
 import VerifiedGarbage.Spec.ChaCha20.Contract
 
@@ -16,7 +16,7 @@ namespace VG.Proof.ChaCha20.Arm.Shared
 theorem block : Verified Arm.target Impl.ChaCha20.Arm.block (Spec.ChaCha20.blockContract Arm.abi) :=
   Proof.ChaCha20.Arm.block_verified.of_implies (by
     contract_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, Proof.ChaCha20.blockArm,
-      Arm.abi, Arm.argRegs, Arm.classify, Arm.Loc.val, Arm.State.addr]
+      Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
       [Proof.ChaCha20.Arm.satState, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.ChaCha20.Arm.satState)
 

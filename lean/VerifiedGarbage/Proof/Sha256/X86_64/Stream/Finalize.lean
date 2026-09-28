@@ -574,7 +574,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     have e := bytesAt_writeBytes s₁₂.mem (st s₀ + 32) (cnt s₀ % 64) [0x80] (by simp; omega)
     simp only [List.length_singleton] at e
     rw [hm₁₇, hm₁₄, e, hm₁₂]
-    congr 1
+    refine congrArg (· ++ [0x80]) ?_
     rw [hm.length]
     refine (bytesAt_congr ?_).trans hm.1.2
     intro i hi

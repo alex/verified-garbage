@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Sha256.Arm.Compress
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Finalize
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Init
@@ -20,14 +20,14 @@ theorem compress :
     Verified Arm.target Impl.Sha256.Arm.compress (Spec.Sha256.compressContract Arm.abi) :=
   Proof.Sha256.Arm.compress_verified.of_implies (by
     contract_implies [Spec.Sha256.compressContract, Spec.Sha256.compressSig,
-      Proof.Sha256.compressArm, Arm.abi, Arm.argRegs, Arm.classify, Arm.Loc.val, Arm.State.addr]
+      Proof.Sha256.compressArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
       [Proof.Sha256.Arm.satState, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Sha256.Arm.satState)
 
 theorem init : Verified Arm.target Impl.Sha256.Arm.Stream.init (Spec.Sha256.initContract Arm.abi) :=
   Proof.Sha256.Arm.Stream.init_verified.of_implies (by
     contract_implies [Spec.Sha256.initContract, Spec.Sha256.initSig, Proof.Sha256.initArm, Arm.abi,
-      Arm.argRegs, Arm.classify, Arm.Loc.val, Arm.State.addr]
+      Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
       [Proof.Sha256.Arm.Stream.initSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Sha256.Arm.Stream.initSat)
 
@@ -35,7 +35,7 @@ theorem update :
     Verified Arm.target Impl.Sha256.Arm.Stream.update (Spec.Sha256.updateContract Arm.abi) :=
   Proof.Sha256.Arm.Stream.Update.update_verified.of_implies (by
     contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, Proof.Sha256.updateArm,
-      Proof.Sha256.countArm, Arm.abi, Arm.argRegs, Arm.classify, Arm.Loc.val, Arm.State.addr]
+      Proof.Sha256.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
       [Proof.Sha256.Arm.Stream.Update.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Sha256.Arm.Stream.Update.sat)
 
@@ -43,7 +43,7 @@ theorem finalize :
     Verified Arm.target Impl.Sha256.Arm.Stream.finalize (Spec.Sha256.finalizeContract Arm.abi) :=
   Proof.Sha256.Arm.Stream.Finalize.finalize_verified.of_implies (by
     contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig,
-      Proof.Sha256.finalizeArm, Proof.Sha256.countArm, Arm.abi, Arm.argRegs, Arm.classify,
+      Proof.Sha256.finalizeArm, Proof.Sha256.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify,
       Arm.Loc.val, Arm.State.addr]
       [Proof.Sha256.Arm.Stream.Finalize.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Sha256.Arm.Stream.Finalize.sat)
