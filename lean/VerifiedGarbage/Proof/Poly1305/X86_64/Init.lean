@@ -86,7 +86,7 @@ theorem initMem_acc (m : Mem) (st key : Addr) {d : Nat} (hd : d < 24) (h8 : d % 
   all_goals simp (config := {decide := true}) only [Mem.readW_writeW_self64, readW_writeW_off]
 
 theorem init_correct {s₀ : State} (hp : IPre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Poly1305.initX86_64.post s₀ s' := by
+    WP isa init s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Poly1305.initX86_64.post s₀ s' := by
   refine WP.mono (init_exec hp) fun s' ⟨hm, hg⟩ => ⟨⟨fun r hr => ?_, ?_⟩, ?_, ?_, ?_⟩
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     exact hg r (by rcases hr with h | h | h | h | h | h | h <;> subst h <;> decide)
@@ -119,7 +119,8 @@ theorem init_verified :
     Verified X86_64.target Impl.Poly1305.X86_64.init Proof.Poly1305.initX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨h1, h2, h3, h4⟩ := hs
-    exact init_correct ⟨h1, h2, h3, h4⟩
+    obtain ⟨t, s', he, h⟩ := init_correct ⟨h1, h2, h3, h4⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2⟩
     refine Taint.agree_ofRegs fun r hr => ?_

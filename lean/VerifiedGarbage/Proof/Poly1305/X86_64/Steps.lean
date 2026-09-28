@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.X86_64.Exec
+import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Poly1305.X86_64.Arith
 import VerifiedGarbage.Impl.Poly1305.X86_64
 

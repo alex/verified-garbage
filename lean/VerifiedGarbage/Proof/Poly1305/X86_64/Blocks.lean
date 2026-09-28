@@ -342,7 +342,7 @@ theorem epilogue_ok {s₀ : State} (hp : BPre s₀) {m₁ : Mem} (hm : Mem₁ s�
     (hc : Common s₀ m₁ (nb s₀) s) :
     WP isa (.block (reduce ++ [.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
       .store (at_ .rdi 16) .rbp] ++ restore)) s fun s' =>
-      abiPreserved s₀ s' ∧ Proof.Poly1305.blocksX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.Poly1305.blocksX86_64.post s₀ s' := by
   rw [List.append_assoc]
   refine WP.block_append (WP.mono (reduce_ok s) fun s₁ ⟨hr, k₁⟩ => ?_)
   have rdi₁ : s₁.gpr .rdi = st s₀ := by rw [k₁.gpr' (r := .rdi), hc.rdi]
@@ -388,7 +388,7 @@ theorem epilogue_ok {s₀ : State} (hp : BPre s₀) {m₁ : Mem} (hm : Mem₁ s�
 /-! ## The whole function -/
 
 theorem blocks_correct {s₀ : State} (hp : BPre s₀) :
-    WP isa blocks s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Poly1305.blocksX86_64.post s₀ s' := by
+    WP isa blocks s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Poly1305.blocksX86_64.post s₀ s' := by
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨m₁, hm, hc, hrsi, hrcx, hzf⟩ => ?_)
   refine WP.seq (WP.mono (Q := Common s₀ m₁ (nb s₀)) ?_ fun s₂ hc₂ => epilogue_ok hp hm hc₂)
   refine WP.ite (s₀.gpr .rdx &&& s₀.gpr .rdx == 0) (by simp [eval, hzf]) (fun h => ?_) (fun h => ?_)
@@ -428,7 +428,7 @@ theorem blocks_verified :
     Verified X86_64.target Impl.Poly1305.X86_64.blocks Proof.Poly1305.blocksX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := blocks_correct (BPre.of s hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2, h3⟩
     refine Taint.agree_ofRegs fun r hr => ?_
