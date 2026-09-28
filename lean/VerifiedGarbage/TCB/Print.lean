@@ -45,6 +45,12 @@ structure Printer (M : ISA) where
   /-- The mnemonic of the call instruction whose operand is a function's
   symbol (`ISA.call`), e.g. `call` or `bl`. -/
   call : String
+  /-- Assembler directives before, and after, the body of a function that
+  needs the CPU feature `f` (`Artifact.features`), for an assembler that
+  rejects the instructions of a feature the target does not enable: they
+  enable it for that function only. -/
+  enableFeature : String → List String := fun _ => []
+  disableFeature : String → List String := fun _ => []
 
 variable {M : ISA} (P : Printer M)
 

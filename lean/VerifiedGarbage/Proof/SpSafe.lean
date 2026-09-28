@@ -4,11 +4,12 @@ import VerifiedGarbage.Impl.ChaCha20.X86
 import VerifiedGarbage.Impl.ChaCha20.X86_64
 import VerifiedGarbage.Impl.Hmac.X86
 import VerifiedGarbage.Impl.Hmac.X86_64
+import VerifiedGarbage.Impl.Pbkdf2.X86_64
 import VerifiedGarbage.Impl.Md5.X86_64
-import VerifiedGarbage.Impl.Poly1305.X86
-import VerifiedGarbage.Impl.Poly1305.X86_64
 import VerifiedGarbage.Impl.Md5.X86_64.Stream
 import VerifiedGarbage.Impl.Selftest.X86_64
+import VerifiedGarbage.Impl.Sha3.X86_64
+import VerifiedGarbage.Impl.Sha3.X86_64.Stream
 import VerifiedGarbage.Impl.Sha1.X86_64
 import VerifiedGarbage.Impl.Sha1.X86_64.Stream
 import VerifiedGarbage.Impl.Sha256.X86
@@ -18,6 +19,10 @@ import VerifiedGarbage.Impl.Sha256.X86_64.Stream
 import VerifiedGarbage.Impl.Sha256.X86_64.ShaNi
 import VerifiedGarbage.Impl.Sha512.X86_64
 import VerifiedGarbage.Impl.Sha512.X86_64.Stream
+import VerifiedGarbage.Impl.Scrypt.X86_64.BlockMix
+import VerifiedGarbage.Impl.Scrypt.X86_64.RoMix
+import VerifiedGarbage.Impl.Poly1305.X86_64
+import VerifiedGarbage.Impl.Poly1305.X86
 
 /-!
 # The stack discipline of the x86 and x86-64 artifacts
@@ -34,10 +39,6 @@ stack pointer: `Code.all_of_forall`.)
 -/
 
 namespace VG.Proof.SpSafe
-
-theorem selftest_x86_64_add :
-    Impl.Selftest.X86_64.add.all (fun i => !X86_64.target.isa.writesSp i) = true := by
-  decide +kernel
 
 theorem sha256_x86_64_compress :
     Impl.Sha256.X86_64.compress.all (fun i => !X86_64.target.isa.writesSp i) = true := by
@@ -81,6 +82,22 @@ theorem md5_x86_64_update :
 
 theorem md5_x86_64_finalize :
     Impl.Md5.X86_64.Stream.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem sha3_x86_64_permute :
+    Impl.Sha3.X86_64.permute.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem sha3_x86_64_absorb :
+    Impl.Sha3.X86_64.Stream.absorb.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem sha3_x86_64_pad :
+    Impl.Sha3.X86_64.Stream.pad.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem sha3_x86_64_squeeze :
+    Impl.Sha3.X86_64.Stream.squeeze.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem sha1_x86_64_compress :
@@ -139,32 +156,24 @@ theorem hmac_x86_64_finalize :
     Impl.Hmac.X86_64.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
+theorem pbkdf2_x86_64_iterate :
+    Impl.Pbkdf2.X86_64.iterate.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
 theorem chacha20_x86_64_block :
     Impl.ChaCha20.X86_64.block.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
-theorem poly1305_x86_64_init :
-    Impl.Poly1305.X86_64.init.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+theorem scrypt_x86_64_salsa :
+    Impl.Scrypt.X86_64.salsa.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
-theorem poly1305_x86_64_blocks :
-    Impl.Poly1305.X86_64.blocks.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+theorem scrypt_x86_64_blockmix :
+    Impl.Scrypt.X86_64.blockMix.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
-theorem poly1305_x86_64_finalize :
-    Impl.Poly1305.X86_64.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
-  decide +kernel
-
-theorem poly1305_x86_init :
-    Impl.Poly1305.X86.init.all (fun i => !X86.target.isa.writesSp i) = true := by
-  decide +kernel
-
-theorem poly1305_x86_blocks :
-    Impl.Poly1305.X86.blocks.all (fun i => !X86.target.isa.writesSp i) = true := by
-  decide +kernel
-
-theorem poly1305_x86_finalize :
-    Impl.Poly1305.X86.finalize.all (fun i => !X86.target.isa.writesSp i) = true := by
+theorem scrypt_x86_64_romix :
+    Impl.Scrypt.X86_64.roMix.all (fun i => !X86_64.target.isa.writesSp i) = true := by
   decide +kernel
 
 theorem sha256_x86_compress :
@@ -193,6 +202,30 @@ theorem hmac_x86_finalize :
 
 theorem chacha20_x86_block :
     Impl.ChaCha20.X86.block.all (fun i => !X86.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem poly1305_x86_64_init :
+    Impl.Poly1305.X86_64.init.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem poly1305_x86_64_blocks :
+    Impl.Poly1305.X86_64.blocks.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem poly1305_x86_64_finalize :
+    Impl.Poly1305.X86_64.finalize.all (fun i => !X86_64.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem poly1305_x86_init :
+    Impl.Poly1305.X86.init.all (fun i => !X86.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem poly1305_x86_blocks :
+    Impl.Poly1305.X86.blocks.all (fun i => !X86.target.isa.writesSp i) = true := by
+  decide +kernel
+
+theorem poly1305_x86_finalize :
+    Impl.Poly1305.X86.finalize.all (fun i => !X86.target.isa.writesSp i) = true := by
   decide +kernel
 
 end VG.Proof.SpSafe

@@ -6,7 +6,7 @@ import VerifiedGarbage.Spec.Sha512
 
 Three of the NIST CAVP vectors for each of SHA-384, SHA-512, SHA-512/224 and
 SHA-512/256, read from the vendored response files under
-`vectors/nist-cavp/sha512/` (see `vectors/sources.toml`) when this file is
+`vectors/nist-cavp/sha512/` (see `vectors/sources/`) when this file is
 built and checked against `VG.Spec.Sha512`, so that a transcription error in
 the spec fails the build. The vectors checked are the empty message, and 111
 and 112 bytes: the longest message whose padding fits in one block, and the

@@ -10,7 +10,9 @@ Untrusted: everything here is checked by Lean.
 The abstract state is the set of registers known to be public; the stack
 pointer is always public. Memory is always secret: a loaded value is secret,
 and an address must be computed from public registers or the stack pointer.
-(No modelled instruction touches the flags.)
+The vector registers are always secret too: a value moved from one to a
+general-purpose register (`umov`) is secret. (No modelled instruction
+touches the flags.)
 -/
 
 namespace VG.AArch64.Taint
@@ -44,6 +46,9 @@ def step (τ : T) : Instr → Option T
   | .movk _ d _ _ => some (set τ d (pub τ d))
   | .ldr _ t n _ | .ldrb t n _ => if pub τ n then some (set τ t false) else none
   | .str _ _ n _ | .strb _ n _ => if pub τ n then some τ else none
+  | .vop _ => some τ
+  | .ldrq _ n _ | .strq _ n _ => if pub τ n then some τ else none
+  | .umov _ d _ _ => some (set τ d false)
   -- Frames are not analysed yet.
   | .push .. | .pop .. => none
 
@@ -194,6 +199,35 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     split at e₁ <;> [cases e₁; cases e₁]
     split at e₂ <;> [cases e₂; cases e₂]
     exact ha
+  | vop op =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    simp only [exec, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨⟨_, _⟩, -, rfl⟩ := e₁; obtain ⟨⟨_, _⟩, -, rfl⟩ := e₂
+    exact ⟨rfl, ha.1, ha.2⟩
+  | ldrq t n off =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hn; cases hs
+    refine ⟨by simp [addrs, ha.reg hn], ?_⟩
+    simp only [exec, Option.bind_eq_some_iff, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨a₁, -, v₁, -, rfl⟩ := e₁; obtain ⟨a₂, -, v₂, -, rfl⟩ := e₂
+    exact ⟨ha.1, ha.2⟩
+  | strq t n off =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hn; cases hs
+    refine ⟨by simp [addrs, ha.reg hn], ?_⟩
+    simp only [exec, Option.bind_eq_some_iff, State.store] at e₁ e₂
+    obtain ⟨a₁, -, e₁⟩ := e₁; obtain ⟨a₂, -, e₂⟩ := e₂
+    split at e₁ <;> [cases e₁; cases e₁]
+    split at e₂ <;> [cases e₂; cases e₂]
+    exact ha
+  | umov sz d n i =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    simp only [exec] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    rename_i h; simp only [h, ite_true, Option.some.injEq] at e₁ e₂; subst e₁ e₂
+    exact ⟨rfl, ha.write sz d fun h => by cases h⟩
 
 theorem cond_sound {τ : T} {c : Cond} {s₁ s₂ : State} (ha : Agree τ s₁ s₂)
     (hc : condPub τ c = true) : eval c s₁ = eval c s₂ := by
