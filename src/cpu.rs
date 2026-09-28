@@ -14,7 +14,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The features detection knows, by their Rust `target_feature` names: bit
 /// `i` of a [`Features`] is `NAMES[i]`.
-const NAMES: [&str; 2] = ["ssse3", "sha"];
+const NAMES: [&str; 4] = ["ssse3", "sha", "aes", "pclmulqdq"];
 
 /// The bit of a feature detection does not know, which is never detected.
 const UNKNOWN: u32 = 1 << 31;
@@ -73,8 +73,9 @@ pub(crate) fn available(mask: u32) -> Features {
     Features(detected().0 & mask)
 }
 
-/// Asks the CPU (Intel SDM Vol. 2A, CPUID: leaf 1 ECX bit 9 is SSSE3, leaf 7
-/// sub-leaf 0 EBX bit 29 is SHA; AMD reports them in the same bits).
+/// Asks the CPU (Intel SDM Vol. 2A, CPUID: leaf 1 ECX bit 9 is SSSE3, bit 25
+/// AES and bit 1 PCLMULQDQ; leaf 7 sub-leaf 0 EBX bit 29 is SHA; AMD reports
+/// them in the same bits).
 #[cfg(target_arch = "x86_64")]
 fn runtime() -> u32 {
     use core::arch::x86_64::{__cpuid, __cpuid_count};
@@ -83,13 +84,16 @@ fn runtime() -> u32 {
     #[allow(unused_unsafe)]
     unsafe {
         let max = __cpuid(0).eax;
-        let ssse3 = (__cpuid(1).ecx >> 9) & 1;
+        let ecx = __cpuid(1).ecx;
+        let ssse3 = (ecx >> 9) & 1;
+        let aes = (ecx >> 25) & 1;
+        let pclmulqdq = (ecx >> 1) & 1;
         let sha = if max >= 7 {
             (__cpuid_count(7, 0).ebx >> 29) & 1
         } else {
             0
         };
-        ssse3 | (sha << 1)
+        ssse3 | (sha << 1) | (aes << 2) | (pclmulqdq << 3)
     }
 }
 
@@ -107,6 +111,7 @@ mod tests {
     fn of_names() {
         assert_eq!(Features::of(&[]), Features(0));
         assert_eq!(Features::of(&["sha", "ssse3"]), Features(0b11));
+        assert_eq!(Features::of(&["pclmulqdq", "aes"]), Features(0b1100));
         assert_eq!(Features::of(&["avx512f"]), Features(UNKNOWN));
         assert_eq!(
             Features::all(&[&["sha"], &[], &["ssse3", "sha"]]),
@@ -125,7 +130,7 @@ mod tests {
         let all = detected();
         assert_eq!(available(u32::MAX), all);
         assert_eq!(available(0), Features(0));
-        for mask in 0..4 {
+        for mask in 0..16 {
             assert!(all.contains(available(mask)));
         }
     }

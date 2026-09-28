@@ -40,7 +40,12 @@ ARCHES = {"x86_64": "x86-64", "aarch64": "ARM64", "arm": "ARMv7", "x86": "x86"}
 
 # How the table names CPU features (Rust's `target_feature` names); None
 # leaves a feature out, e.g. one that only comes with another.
-FEATURES = {"sha": "SHA extensions", "ssse3": None}
+FEATURES = {
+    "sha": "SHA extensions",
+    "aes": "AES-NI",
+    "pclmulqdq": "PCLMULQDQ",
+    "ssse3": None,
+}
 
 CFG = re.compile(r"^#!\[cfg\((.*?)\)\]$", re.MULTILINE | re.DOTALL)
 ARCH = re.compile(r'target_arch\s*=\s*"(\w+)"')
