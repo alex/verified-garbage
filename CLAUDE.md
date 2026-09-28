@@ -84,6 +84,18 @@ instructions in an ISA model) go in their own PR before either.
    API in `bench/benches/primitives.rs`, next to the same operation in
    OpenSSL, at the sizes the others use.
 
+## Keeping parallel PRs from conflicting
+
+Many PRs are in flight at once, so adding an algorithm or an architecture
+should add files, not edit lists that every other PR edits too.
+
+* A Rust module states the architectures it supports in its own file, as an
+  inner `#![cfg(...)]` after its `//!` docs; the parent only says
+  `mod <name>;`. Supporting another architecture changes that one line of
+  the algorithm's own file.
+* Tests of one algorithm go in a file of their own (`tests/cavp/<alg>.rs`,
+  `tests/wycheproof/<alg>.rs`), declared with one `mod` line.
+
 ## Keeping proofs fast
 
 Lean's kernel re-checks every proof term, and it is a slow evaluator: most
