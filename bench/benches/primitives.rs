@@ -254,8 +254,6 @@ criterion_group!(
     sha256,
     sha3,
     sha512,
-    hmac_sha256
-    sha512,
     hmac_sha256,
     scrypt_kdf
 );
