@@ -129,6 +129,9 @@ lake env lean -DElab.async=false -Dtrace.profiler=true -Dtrace.profiler.threshol
 
 `set_option diagnostics true in` before a slow theorem lists the
 definitions unfolded while elaborating it, which finds failing unfoldings.
+`#count_heartbeats in` (from `Mathlib.Util.CountHeartbeats`, imported only
+while measuring) before a declaration prints the heartbeats it uses,
+kernel included, against the 200000 budget.
 
 ## Checks to run before pushing
 
