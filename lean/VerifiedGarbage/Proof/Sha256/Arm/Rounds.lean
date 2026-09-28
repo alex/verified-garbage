@@ -29,34 +29,65 @@ def pubRegs : List Reg := [.r0, .r1, .r2, .r3]
 abbrev slotAddr (scr : BitVec 32) (j : Nat) : Addr := State.addr (scr + BitVec.ofNat 32 (slot j))
 abbrev tmpAddr (scr : BitVec 32) : Addr := State.addr (scr + BitVec.ofNat 32 tmp)
 
+/-- The working variables move one register along each round. -/
+theorem var_succ (t k : Nat) (hk : k < 7) : var (t + 1) (k + 1) = var t k := by
+  simp only [var]; congr 1; omega
+
+theorem var_succ_zero (t : Nat) : var (t + 1) 0 = var t 7 := by
+  simp only [var]; congr 1; omega
+
+/-- The registers of a round are all different. -/
+theorem round_nodup (t : Nat) :
+    ([var t 0, var t 1, var t 2, var t 3, var t 4, var t 5, var t 6, var t 7, T1, T2] ++
+      pubRegs).Nodup := by
+  simp only [var]
+  have := Nat.mod_lt t (show 8 > 0 by omega)
+  generalize t % 8 = c at *
+  interval_cases c <;> decide
+
 set_option maxHeartbeats 0 in
+/-- The round is symbolically executed once, for any registers `a … h`
+(which `round_nodup` says are different from each other and the others). -/
 theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 32)
     (hv : Vars t s v) (hr3 : s.gpr .r3 = scr) (hin : InRegions (s.rd ++ s.wr) (slotAddr scr t) 4)
     (hw : s.mem.readW (slotAddr scr t) 32 = w) :
     WP isa (.block (round t)) s fun s' =>
       Vars (t + 1) s' (roundKW v (K t) w) ∧
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ ∀ r ∈ pubRegs, s'.gpr r = s.gpr r := by
-  have h1 : (t + 1) % 8 = (t % 8 + 1) % 8 := by omega
-  have hc : t % 8 < 8 := Nat.mod_lt _ (by omega)
   have hs : slot t < 4096 := by simp only [slot]; omega
+  have hd := round_nodup t
+  have hd' := List.nodup_reverse.mpr hd
   simp only [slotAddr] at hin hw
-  simp only [Vars, var, h1] at hv ⊢
+  simp only [Vars, var_succ_zero, var_succ t _ (show 0 < 7 by omega),
+    var_succ t _ (show 1 < 7 by omega), var_succ t _ (show 2 < 7 by omega),
+    var_succ t _ (show 3 < 7 by omega), var_succ t _ (show 4 < 7 by omega),
+    var_succ t _ (show 5 < 7 by omega), var_succ t _ (show 6 < 7 by omega)] at hv ⊢
   obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7⟩ := hv
   apply WP.of_runBlock
-  simp only [Impl.Sha256.Arm.round, var]
-  generalize t % 8 = c at *
-  interval_cases c <;>
-  simp only [work, T1, T2, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMod, List.getD_cons_succ,
-    List.getD_cons_zero] at h0 h1 h2 h3 h4 h5 h6 h7 ⊢ <;>
+  simp only [Impl.Sha256.Arm.round]
+  generalize var t 0 = a at *
+  generalize var t 1 = b at *
+  generalize var t 2 = c at *
+  generalize var t 3 = d at *
+  generalize var t 4 = e at *
+  generalize var t 5 = f at *
+  generalize var t 6 = g at *
+  generalize var t 7 = h at *
+  simp only [T1, T2, pubRegs, List.nodup_cons, List.mem_cons, List.not_mem_nil,
+    List.reverse_cons, List.reverse_nil, List.nil_append, List.cons_append, or_false, not_or,
+    List.nodup_nil, and_true] at hd hd' ⊢
   simp (config := {decide := true}) only [runBlock_cons (M := isa), runStep_some (M := isa),
     runBlock_nil (M := isa), exec, Op2.eval, isa, State.setReg,
-    State.load32, ite_true, ite_false, h0, h1, h2, h3, h4, h5, h6, h7, hr3, hin, hw, hs,
-    Option.map_some, Option.some.injEq, exists_eq_left'] <;>
-  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, trivial, trivial, trivial, by simp [pubRegs]⟩ <;>
-  simp (config := {failIfUnchanged := false}) only [roundKW, bsig1, ch_eq, bsig0, maj_eq,
-    movw_movt, Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero,
-    List.getElem_cons_succ] <;>
-  simp (config := {failIfUnchanged := false}) only [BitVec.add_assoc]
+    State.load32, ite_true, ite_false, hd, hd', h0, h1, h2, h3, h4, h5, h6, h7, hr3, hin, hw, hs,
+    Option.map_some, Option.some.injEq, exists_eq_left']
+  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, trivial, trivial, trivial, fun r hr => ?_⟩
+  rotate_right
+  · rcases hr with rfl | rfl | rfl | rfl <;> simp [hd']
+  all_goals
+    simp (config := {failIfUnchanged := false}) only [roundKW, bsig1, ch_eq, bsig0, maj_eq,
+      movw_movt, Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero,
+      List.getElem_cons_succ] <;>
+    simp (config := {failIfUnchanged := false}) only [BitVec.add_assoc]
 
 set_option maxHeartbeats 0 in
 theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32)
