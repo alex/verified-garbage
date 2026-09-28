@@ -15,6 +15,11 @@ use crate::asm::aarch64::sha512::{
     vg_sha384_init, vg_sha512_224_init, vg_sha512_256_init, vg_sha512_finalize, vg_sha512_init,
     vg_sha512_update,
 };
+#[cfg(target_arch = "arm")]
+use crate::asm::arm::sha512::{
+    vg_sha384_init, vg_sha512_224_init, vg_sha512_256_init, vg_sha512_finalize, vg_sha512_init,
+    vg_sha512_update,
+};
 #[cfg(target_arch = "x86_64")]
 use crate::asm::x86_64::sha512::{
     vg_sha384_init, vg_sha512_224_init, vg_sha512_256_init, vg_sha512_finalize, vg_sha512_init,
