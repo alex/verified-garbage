@@ -13,6 +13,7 @@ import VerifiedGarbage.Proof.Sha256.X86.Shared
 import VerifiedGarbage.Proof.Hmac.AArch64.Shared
 import VerifiedGarbage.Proof.Hmac.Arm.Shared
 import VerifiedGarbage.Proof.Hmac.X86.Shared
+import VerifiedGarbage.Proof.ChaCha20.X86.Shared
 
 /-!
 # The artifact registry
@@ -692,7 +693,25 @@ def artifacts : List Artifact := [
       (distinct Rust objects never do)."
     code := Impl.Hmac.X86.finalize
     contract := Spec.Hmac.finalizeSha256OutContract X86.abi
-    verified := Proof.Hmac.X86.Shared.finalize }
+    verified := Proof.Hmac.X86.Shared.finalize },
+  { target := X86.target
+    module := "chacha20"
+    name := "vg_chacha20_block"
+    sig := Spec.ChaCha20.blockSig
+    doc := "The ChaCha20 block function (RFC 8439 §2.3): writes the block function of the \
+      16-word state `*state` (20 rounds, then the input state added word by word) to the \
+      first 16 words of `*buf`.\n\n\
+      Contract: `VG.Spec.ChaCha20.blockContract`. Constant time: only the pointers may affect \
+      timing, not the state.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads of 64 bytes.\n\
+      * `buf` must be valid for reads and writes of 256 bytes. On return its first 64 bytes \
+      hold the result and the rest is unspecified.\n\
+      * `buf` must not overlap `state`, the arguments or the return address on the stack, and \
+      nothing may wrap around the end of the address space (distinct Rust objects never do)."
+    code := Impl.ChaCha20.X86.block
+    contract := Spec.ChaCha20.blockContract X86.abi
+    verified := Proof.ChaCha20.X86.Shared.block }
 ]
 
 #assert_standard_axioms artifacts

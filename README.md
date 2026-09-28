@@ -14,7 +14,21 @@ It targets: x86, x86-64, ARMv7, ARM64, and PPC64le.
 
 ## Algorithms
 
-There will eventually be a table with all the algorithms here.
+| Algorithm | Spec landed | Supported | Optimized |
+|---|---|---|---|
+| SHA-256 | ✅ | ✅ | ❌ |
+| SHA-384, SHA-512, SHA-512/224, SHA-512/256 | ✅ | x86-64 | ❌ |
+| HMAC-SHA-256 | ✅ | ✅ | ❌ |
+| ChaCha20 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
+
+* **Spec landed**: the algorithm's specification, transcribed from its
+  standard, is in `lean/VerifiedGarbage/Spec/`.
+* **Supported**: verified assembly and a public Rust API exist on these
+  architectures (✅: x86, x86-64, ARMv7 and ARM64; PPC64le is not started
+  yet).
+* **Optimized**: the implementations have been tuned for performance (e.g.
+  with SHA-NI or NEON). None have yet: every implementation is
+  straightforward scalar code.
 
 Our goal is to implement all the cryptographic algorithms that are used by the Python pyca/cryptography library.
 

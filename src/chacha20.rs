@@ -18,6 +18,8 @@
 use crate::asm::aarch64::chacha20::vg_chacha20_block;
 #[cfg(target_arch = "arm")]
 use crate::asm::arm::chacha20::vg_chacha20_block;
+#[cfg(target_arch = "x86")]
+use crate::asm::x86::chacha20::vg_chacha20_block;
 #[cfg(target_arch = "x86_64")]
 use crate::asm::x86_64::chacha20::vg_chacha20_block;
 
