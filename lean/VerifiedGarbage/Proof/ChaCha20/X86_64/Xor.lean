@@ -624,7 +624,7 @@ set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j = L s₀) {s : State}
     (h : OInv s₀ j s) :
     WP isa (.block restore) s fun s' =>
-      gprPreserved s₀ s' ∧ Proof.ChaCha20.xorX86_64.post s₀ s' := by
+      (gprPreserved s₀ s' ∧ Proof.ChaCha20.xorX86_64.post s₀ s') ∧ s'.gpr .rsi = bp s₀ := by
   have i : ∀ d, d + 8 ≤ 320 → InRegions (s.rd ++ s.wr) (off (bp s₀) d) 8 :=
     fun d hd => ⟨bR s₀, by simp [h.rd, h.wr, hp.rd, hp.wr], bR_contains s₀ hd⟩
   have i0 := i 256 (by omega); have i1 := i 264 (by omega); have i2 := i 272 (by omega)
@@ -636,7 +636,7 @@ theorem epilogue_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j = L
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, ea_at,
     readSrc, State.load64, State.setReg, h.rsi, i0, i1, i2, sv1, sv2, sv3, ite_true, ite_false,
     Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
+  refine ⟨⟨⟨fun r hr => ?_, ?_⟩, ?_⟩, by simp (config := {decide := true})⟩
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
       simp (config := {decide := true}) only [ite_true, ite_false] <;>
@@ -661,7 +661,8 @@ theorem xor_eq : Impl.ChaCha20.X86_64.Xor.xor =
     (.seq (.ite .e (.block []) (.loop body .ne)) (.block restore)) := rfl
 
 theorem correct {s₀ : State} (hp : XPre s₀) :
-    WP isa Impl.ChaCha20.X86_64.Xor.xor s₀ fun s' => gprPreserved s₀ s' ∧ Proof.ChaCha20.xorX86_64.post s₀ s' := by
+    WP isa Impl.ChaCha20.X86_64.Xor.xor s₀ fun s' =>
+      (gprPreserved s₀ s' ∧ Proof.ChaCha20.xorX86_64.post s₀ s') ∧ s'.gpr .rsi = bp s₀ := by
   rw [xor_eq]
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨h₁, hz⟩ => ?_)
   refine WP.seq (WP.mono (Q := fun s => ∃ j, P s₀ j = L s₀ ∧ OInv s₀ j s) ?_
@@ -683,6 +684,14 @@ theorem correct {s₀ : State} (hp : XPre s₀) :
       · exact .inl ⟨by simp [eval, hz', hl], j + 1, by omega, h'⟩
       · exact .inr ⟨by simp [eval, hz', hl], L s₀ - P s₀ (j + 1), by omega, j + 1, rfl, by omega, h'⟩
     exact WP.loop (M := isa) Inv hstep (L s₀ - P s₀ 0) s₁ ⟨0, rfl, by simp [P]; omega, h₁⟩
+
+/-- `vg_chacha20_xor` returns with `rsi` pointing at `buf`, for a caller that
+recomputes pointers from it. -/
+theorem xor_rsi (s : State) (hs : Proof.ChaCha20.xorX86_64.pre s) :
+    ∃ t s', Exec isa Impl.ChaCha20.X86_64.Xor.xor s t s' ∧ abiPreserved s s' ∧
+      (Proof.ChaCha20.xorX86_64.post s s' ∧ s'.gpr .rsi = s.gpr .rcx) := by
+  obtain ⟨t, s', he, ⟨h, hr⟩⟩ := correct (XPre.of s hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2, hr⟩
 
 /-! ## Constant time -/
 
@@ -725,7 +734,7 @@ def sat : State where
 theorem xor_verified :
     Verified X86_64.target Impl.ChaCha20.X86_64.Xor.xor Proof.ChaCha20.xorX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (XPre.of s hs)
+  · obtain ⟨t, s', he, ⟨h, -⟩⟩ := correct (XPre.of s hs)
     exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide⟩ <;>
