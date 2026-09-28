@@ -5,6 +5,9 @@
 pub(crate) mod chacha20;
 
 #[rustfmt::skip]
+pub(crate) mod hmac_sha256;
+
+#[rustfmt::skip]
 pub(crate) mod sha256;
 
 #[rustfmt::skip]
