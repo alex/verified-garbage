@@ -23,6 +23,10 @@ structure Contract.Implies {M : ISA} (k k' : Contract M) : Prop where
   pub : ∀ s₁ s₂, k'.pre s₁ → k'.pre s₂ → k'.pub s₁ s₂ → k.pub s₁ s₂
   sat : ∃ s, k'.pre s
 
+/-- `k` is satisfiable if a contract it implies is. -/
+theorem Contract.Implies.sat_left {M : ISA} {k k' : Contract M} (h : k.Implies k') : ∃ s, k.pre s :=
+  h.sat.elim fun s hs => ⟨s, h.pre s hs⟩
+
 theorem Verified.of_implies {T : Target} {c : Prog T.isa} {k k' : Contract T.isa}
     (h : Verified T c k) (hk : k.Implies k') : Verified T c k' := by
   obtain ⟨hc, hct, -⟩ := h

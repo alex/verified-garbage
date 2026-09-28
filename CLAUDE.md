@@ -18,7 +18,10 @@ trustworthy. Read `lean/README.md` first.
   Keep them minimal, call them out explicitly in the PR description, and
   justify each ISA semantics change by citing the vendor manual (e.g. Intel SDM
   pseudocode). Never weaken a model, contract or `Verified` to make a proof go
-  through: fix the proof or the code.
+  through: fix the proof or the code. An instruction outside the target's
+  baseline ISA must list the CPU features it needs in the model's
+  `requires`, citing the manual (the SDM's "CPUID Feature Flag", the Arm
+  ARM's `FEAT_*`).
 * **One kind of change per PR.** New specs (`Spec/`), additions to the TCB
   (`TCB/`), and new implementations (`Impl/` + `Proof/` + the `Artifacts.lean`
   entry) must never be in the same PR. Trusted changes get reviewed on their
@@ -64,7 +67,9 @@ instructions in an ISA model) go in their own PR before either.
    `spSafe` proof explicitly: on x86 and x86-64 a theorem in
    `Proof/SpSafe.lean`, on ARMv7 and AArch64 `Code.all_of_forall (fun _ => rfl) _`
    (the default, `decide +kernel`, would run in `Artifacts.lean`, which
-   every proof must finish before).
+   every proof must finish before). If its code uses instructions outside
+   the target's baseline ISA, list the CPU features they require in
+   `features` (the emitter rejects anything but the exact set).
 5. Regenerate `src/asm/`, build the public Rust API on top of the primitive,
    and test it against the Wycheproof vectors in `tests/wycheproof/` (set
    `WYCHEPROOF_ROOT` to a checkout of C2SP/wycheproof).

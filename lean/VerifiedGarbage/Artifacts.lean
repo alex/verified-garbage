@@ -6,8 +6,11 @@ import VerifiedGarbage.Proof.Sha256.X86_64.Shared
 import VerifiedGarbage.Proof.Sha256.AArch64.Shared
 import VerifiedGarbage.Proof.Sha256.Arm.Shared
 import VerifiedGarbage.Proof.Sha512.X86_64.Shared
+import VerifiedGarbage.Proof.Sha1.X86_64.Shared
 import VerifiedGarbage.Proof.Sha512.AArch64.Shared
 import VerifiedGarbage.Proof.Hmac.X86_64.Shared
+import VerifiedGarbage.Proof.Md5.X86_64.Shared
+import VerifiedGarbage.Proof.Md5.AArch64.Shared
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Shared
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Shared
 import VerifiedGarbage.Proof.ChaCha20.Arm.Shared
@@ -103,10 +106,11 @@ def artifacts : List Artifact := [
       * `data` must be valid for reads of `len` bytes.\n\
       * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
       are unspecified.\n\
-      * These three regions must not overlap each other, nor the return address on the \
-      stack (distinct Rust objects never do)."
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_sha256_compress` stores its \
+      return address (distinct Rust objects never do)."
     code := Impl.Sha256.X86_64.Stream.update
-    contract := Spec.Sha256.updateContract X86_64.abi
+    contract := Spec.Sha256.updateContract X86_64.abi 8
     verified := Proof.Sha256.X86_64.Shared.update
     spSafe := Proof.SpSafe.sha256_x86_64_update },
   { target := X86_64.target
@@ -124,12 +128,242 @@ def artifacts : List Artifact := [
       * `out` must be valid for writes of 32 bytes.\n\
       * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
       are unspecified.\n\
-      * These three regions must not overlap each other, nor the return address on the \
-      stack (distinct Rust objects never do)."
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_sha256_compress` stores its \
+      return address (distinct Rust objects never do)."
     code := Impl.Sha256.X86_64.Stream.finalize
-    contract := Spec.Sha256.finalizeContract X86_64.abi
+    contract := Spec.Sha256.finalizeContract X86_64.abi 8
     verified := Proof.Sha256.X86_64.Shared.finalize
     spSafe := Proof.SpSafe.sha256_x86_64_finalize },
+  { target := X86_64.target
+    module := "md5"
+    name := "vg_md5_compress"
+    sig := Spec.Md5.compressSig
+    doc := "The MD5 compression function (RFC 1321 §3.4): updates the MD buffer `*state` \
+      (`A, B, C, D`) with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
+      Contract: `VG.Spec.Md5.compressContract`. Constant time: only the pointers and `n` \
+      may affect timing, not the MD buffer or the blocks.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 16 bytes.\n\
+      * `blocks` must be valid for reads of `64 * n` bytes.\n\
+      * `scratch` must be valid for reads and writes of 64 bytes; its contents on \
+      return are unspecified.\n\
+      * These three regions must not overlap each other, nor the return address on the \
+      stack (distinct Rust objects never do)."
+    code := Impl.Md5.X86_64.compress
+    contract := Spec.Md5.compressContract X86_64.abi
+    verified := Proof.Md5.X86_64.Shared.compress
+    spSafe := Proof.SpSafe.md5_x86_64_compress },
+  { target := X86_64.target
+    module := "md5"
+    name := "vg_md5_init"
+    sig := Spec.Md5.initSig
+    doc := "Starts an MD5 computation: makes the streaming state `*state` represent the \
+      empty message.\n\n\
+      Contract: `VG.Spec.Md5.initContract`. The streaming state is the MD buffer followed \
+      by a buffered partial block (`VG.Spec.Md5.Repr`).\n\n\
+      # Safety\n\n\
+      * `state` must be valid for writes of 80 bytes.\n\
+      * It must not overlap the return address on the stack (a Rust object never does)."
+    code := Impl.Md5.X86_64.Stream.init
+    contract := Spec.Md5.initContract X86_64.abi
+    verified := Proof.Md5.X86_64.Shared.init
+    spSafe := Proof.SpSafe.md5_x86_64_init },
+  { target := X86_64.target
+    module := "md5"
+    name := "vg_md5_update"
+    sig := Spec.Md5.updateSig
+    doc := "Absorbs data into an MD5 computation: if the streaming state `*state` represents \
+      a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by \
+      the `len` bytes at `data`.\n\n\
+      Contract: `VG.Spec.Md5.updateContract`. Constant time: only the pointers, `count` and \
+      `len` may affect timing, not the state or the data.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 80 bytes.\n\
+      * `data` must be valid for reads of `len` bytes.\n\
+      * `scratch` must be valid for reads and writes of 112 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_md5_compress` stores its \
+      return address (distinct Rust objects never do)."
+    code := Impl.Md5.X86_64.Stream.update
+    contract := Spec.Md5.updateContract X86_64.abi 8
+    verified := Proof.Md5.X86_64.Shared.update
+    spSafe := Proof.SpSafe.md5_x86_64_update },
+  { target := X86_64.target
+    module := "md5"
+    name := "vg_md5_finalize"
+    sig := Spec.Md5.finalizeSig
+    doc := "Finishes an MD5 computation: if the streaming state `*state` represents a \
+      message of `count` bytes (modulo 2⁶⁴), writes the MD5 digest of that message to \
+      `*out`.\n\n\
+      Contract: `VG.Spec.Md5.finalizeContract`. Constant time: only the pointers and `count` \
+      may affect timing, not the state.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 80 bytes; its contents on return are \
+      unspecified.\n\
+      * `out` must be valid for writes of 16 bytes.\n\
+      * `scratch` must be valid for reads and writes of 112 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_md5_compress` stores its \
+      return address (distinct Rust objects never do)."
+    code := Impl.Md5.X86_64.Stream.finalize
+    contract := Spec.Md5.finalizeContract X86_64.abi 8
+    verified := Proof.Md5.X86_64.Shared.finalize
+    spSafe := Proof.SpSafe.md5_x86_64_finalize },
+  { target := AArch64.target
+    module := "md5"
+    name := "vg_md5_compress"
+    sig := Spec.Md5.compressSig
+    doc := "The MD5 compression function (RFC 1321 §3.4): updates the MD buffer `*state` \
+      (`A, B, C, D`) with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
+      Contract: `VG.Spec.Md5.compressContract`. Constant time: only the pointers and `n` \
+      may affect timing, not the MD buffer or the blocks.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 16 bytes.\n\
+      * `blocks` must be valid for reads of `64 * n` bytes.\n\
+      * `scratch` must be valid for reads and writes of 64 bytes; its contents on \
+      return are unspecified.\n\
+      * These three regions must not overlap each other."
+    code := Impl.Md5.AArch64.compress
+    contract := Spec.Md5.compressContract AArch64.abi
+    verified := Proof.Md5.AArch64.Shared.compress
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := AArch64.target
+    module := "md5"
+    name := "vg_md5_init"
+    sig := Spec.Md5.initSig
+    doc := "Starts an MD5 computation: makes the streaming state `*state` represent the \
+      empty message.\n\n\
+      Contract: `VG.Spec.Md5.initContract`. The streaming state is the MD buffer followed \
+      by a buffered partial block (`VG.Spec.Md5.Repr`).\n\n\
+      # Safety\n\n\
+      * `state` must be valid for writes of 80 bytes."
+    code := Impl.Md5.AArch64.Stream.init
+    contract := Spec.Md5.initContract AArch64.abi
+    verified := Proof.Md5.AArch64.Shared.init
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := AArch64.target
+    module := "md5"
+    name := "vg_md5_update"
+    sig := Spec.Md5.updateSig
+    doc := "Absorbs data into an MD5 computation: if the streaming state `*state` represents \
+      a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by \
+      the `len` bytes at `data`.\n\n\
+      Contract: `VG.Spec.Md5.updateContract`. Constant time: only the pointers, `count` and \
+      `len` may affect timing, not the state or the data.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 80 bytes.\n\
+      * `data` must be valid for reads of `len` bytes.\n\
+      * `scratch` must be valid for reads and writes of 112 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, or the 16 bytes of stack below the \
+      stack pointer, where it saves its return address before calling `vg_md5_compress` \
+      (distinct Rust objects never do)."
+    code := Impl.Md5.AArch64.Stream.update
+    contract := Spec.Md5.updateContract AArch64.abi 16
+    verified := Proof.Md5.AArch64.Shared.update
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := AArch64.target
+    module := "md5"
+    name := "vg_md5_finalize"
+    sig := Spec.Md5.finalizeSig
+    doc := "Finishes an MD5 computation: if the streaming state `*state` represents a \
+      message of `count` bytes (modulo 2⁶⁴), writes the MD5 digest of that message to \
+      `*out`.\n\n\
+      Contract: `VG.Spec.Md5.finalizeContract`. Constant time: only the pointers and `count` \
+      may affect timing, not the state.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 80 bytes; its contents on return are \
+      unspecified.\n\
+      * `out` must be valid for writes of 16 bytes.\n\
+      * `scratch` must be valid for reads and writes of 112 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, or the 16 bytes of stack below the \
+      stack pointer, where it saves its return address before calling `vg_md5_compress` \
+      (distinct Rust objects never do)."
+    code := Impl.Md5.AArch64.Stream.finalize
+    contract := Spec.Md5.finalizeContract AArch64.abi 16
+    verified := Proof.Md5.AArch64.Shared.finalize
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := X86_64.target
+    module := "sha1"
+    name := "vg_sha1_compress"
+    sig := Spec.Sha1.compressSig
+    doc := "The SHA-1 compression function (FIPS 180-4 §6.1.2): updates the hash value \
+      `*state` with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
+      Contract: `VG.Spec.Sha1.compressContract`. Constant time: only the pointers and `n` \
+      may affect timing, not the hash value or the blocks.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 20 bytes.\n\
+      * `blocks` must be valid for reads of `64 * n` bytes.\n\
+      * `scratch` must be valid for reads and writes of 112 bytes; its contents on \
+      return are unspecified.\n\
+      * These three regions must not overlap each other, nor the return address on the \
+      stack (distinct Rust objects never do)."
+    code := Impl.Sha1.X86_64.compress
+    contract := Spec.Sha1.compressContract X86_64.abi
+    verified := Proof.Sha1.X86_64.Shared.compress
+    spSafe := Proof.SpSafe.sha1_x86_64_compress },
+  { target := X86_64.target
+    module := "sha1"
+    name := "vg_sha1_init"
+    sig := Spec.Sha1.initSig
+    doc := "Starts a SHA-1 computation: makes the streaming state `*state` represent the \
+      empty message.\n\n\
+      Contract: `VG.Spec.Sha1.initContract`. The streaming state is the hash value followed \
+      by a buffered partial block (`VG.Spec.Sha1.Repr`).\n\n\
+      # Safety\n\n\
+      * `state` must be valid for writes of 84 bytes.\n\
+      * It must not overlap the return address on the stack (a Rust object never does)."
+    code := Impl.Sha1.X86_64.Stream.init
+    contract := Spec.Sha1.initContract X86_64.abi
+    verified := Proof.Sha1.X86_64.Shared.init
+    spSafe := Proof.SpSafe.sha1_x86_64_init },
+  { target := X86_64.target
+    module := "sha1"
+    name := "vg_sha1_update"
+    sig := Spec.Sha1.updateSig
+    doc := "Absorbs data into a SHA-1 computation: if the streaming state `*state` represents \
+      a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by \
+      the `len` bytes at `data`.\n\n\
+      Contract: `VG.Spec.Sha1.updateContract`. Constant time: only the pointers, `count` and \
+      `len` may affect timing, not the state or the data.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 84 bytes.\n\
+      * `data` must be valid for reads of `len` bytes.\n\
+      * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_sha1_compress` stores its \
+      return address (distinct Rust objects never do)."
+    code := Impl.Sha1.X86_64.Stream.update
+    contract := Spec.Sha1.updateContract X86_64.abi 8
+    verified := Proof.Sha1.X86_64.Shared.update
+    spSafe := Proof.SpSafe.sha1_x86_64_update },
+  { target := X86_64.target
+    module := "sha1"
+    name := "vg_sha1_finalize"
+    sig := Spec.Sha1.finalizeSig
+    doc := "Finishes a SHA-1 computation: if the streaming state `*state` represents a \
+      message of `count` bytes (modulo 2⁶⁴), writes the SHA-1 digest of that message to \
+      `*out`.\n\n\
+      Contract: `VG.Spec.Sha1.finalizeContract`. Constant time: only the pointers and `count` \
+      may affect timing, not the state.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 84 bytes; its contents on return are \
+      unspecified.\n\
+      * `out` must be valid for writes of 20 bytes.\n\
+      * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
+      are unspecified.\n\
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_sha1_compress` stores its \
+      return address (distinct Rust objects never do)."
+    code := Impl.Sha1.X86_64.Stream.finalize
+    contract := Spec.Sha1.finalizeContract X86_64.abi 8
+    verified := Proof.Sha1.X86_64.Shared.finalize
+    spSafe := Proof.SpSafe.sha1_x86_64_finalize },
   { target := X86_64.target
     module := "sha512"
     name := "vg_sha512_compress"
@@ -142,7 +376,7 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 64 bytes.\n\
       * `blocks` must be valid for reads of `128 * n` bytes.\n\
-      * `scratch` must be valid for reads and writes of 176 bytes; its contents on \
+      * `scratch` must be valid for reads and writes of 224 bytes; its contents on \
       return are unspecified.\n\
       * These three regions must not overlap each other, nor the return address on the \
       stack (distinct Rust objects never do)."
@@ -226,12 +460,13 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 192 bytes.\n\
       * `data` must be valid for reads of `len` bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
-      * These three regions must not overlap each other, nor the return address on the \
-      stack (distinct Rust objects never do)."
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_sha512_compress` stores its \
+      return address (distinct Rust objects never do)."
     code := Impl.Sha512.X86_64.Stream.update
-    contract := Spec.Sha512.updateContract X86_64.abi
+    contract := Spec.Sha512.updateContract X86_64.abi 8
     verified := Proof.Sha512.X86_64.Shared.update
     spSafe := Proof.SpSafe.sha512_x86_64_update },
   { target := X86_64.target
@@ -251,12 +486,13 @@ def artifacts : List Artifact := [
       * `state` must be valid for reads and writes of 192 bytes; its contents on return are \
       unspecified.\n\
       * `out` must be valid for writes of 64 bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
-      * These three regions must not overlap each other, nor the return address on the \
-      stack (distinct Rust objects never do)."
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its call of `vg_sha512_compress` stores its \
+      return address (distinct Rust objects never do)."
     code := Impl.Sha512.X86_64.Stream.finalize
-    contract := Spec.Sha512.finalizeContract X86_64.abi
+    contract := Spec.Sha512.finalizeContract X86_64.abi 8
     verified := Proof.Sha512.X86_64.Shared.finalize
     spSafe := Proof.SpSafe.sha512_x86_64_finalize },
   { target := X86_64.target
@@ -276,10 +512,11 @@ def artifacts : List Artifact := [
       * `key` must be valid for reads of `key_len` bytes.\n\
       * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
       are unspecified.\n\
-      * These four regions must not overlap each other, nor the return address on the \
-      stack (distinct Rust objects never do)."
+      * These four regions must not overlap each other, the return address on the stack, \
+      or the 8 bytes of stack below it, where its calls of `vg_sha256_compress` store their \
+      return address (distinct Rust objects never do)."
     code := Impl.Hmac.X86_64.init
-    contract := Spec.Hmac.initSha256Contract X86_64.abi
+    contract := Spec.Hmac.initSha256Contract X86_64.abi 8
     verified := Proof.Hmac.X86_64.Shared.init
     spSafe := Proof.SpSafe.hmac_x86_64_init },
   { target := X86_64.target
@@ -298,10 +535,12 @@ def artifacts : List Artifact := [
       * `outer` must be valid for reads of 96 bytes.\n\
       * `scratch` must be valid for reads and writes of 240 bytes; its contents on return \
       are unspecified, apart from the MAC.\n\
-      * These three regions must not overlap each other, nor the return address on the \
-      stack (distinct Rust objects never do)."
+      * These three regions must not overlap each other, the return address on the stack, \
+      or the 16 bytes of stack below it, where its calls of `vg_sha256_finalize` (which \
+      calls `vg_sha256_compress`) store their return addresses (distinct Rust objects never \
+      do)."
     code := Impl.Hmac.X86_64.finalize
-    contract := Spec.Hmac.finalizeSha256Contract X86_64.abi
+    contract := Spec.Hmac.finalizeSha256Contract X86_64.abi 16
     verified := Proof.Hmac.X86_64.Shared.finalize
     spSafe := Proof.SpSafe.hmac_x86_64_finalize },
   { target := AArch64.target
@@ -350,9 +589,10 @@ def artifacts : List Artifact := [
       * `data` must be valid for reads of `len` bytes.\n\
       * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
       are unspecified.\n\
-      * These three regions must not overlap each other."
+      * These three regions must not overlap each other, or the 16 bytes of stack below the \
+      stack pointer, where it saves its return address (distinct Rust objects never do)."
     code := Impl.Sha256.AArch64.Stream.update
-    contract := Spec.Sha256.updateContract AArch64.abi
+    contract := Spec.Sha256.updateContract AArch64.abi 16
     verified := Proof.Sha256.AArch64.Shared.update
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := AArch64.target
@@ -370,9 +610,10 @@ def artifacts : List Artifact := [
       * `out` must be valid for writes of 32 bytes.\n\
       * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
       are unspecified.\n\
-      * These three regions must not overlap each other."
+      * These three regions must not overlap each other, or the 16 bytes of stack below the \
+      stack pointer, where it saves its return address (distinct Rust objects never do)."
     code := Impl.Sha256.AArch64.Stream.finalize
-    contract := Spec.Sha256.finalizeContract AArch64.abi
+    contract := Spec.Sha256.finalizeContract AArch64.abi 16
     verified := Proof.Sha256.AArch64.Shared.finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := AArch64.target
@@ -387,7 +628,7 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 64 bytes.\n\
       * `blocks` must be valid for reads of `128 * n` bytes.\n\
-      * `scratch` must be valid for reads and writes of 176 bytes; its contents on \
+      * `scratch` must be valid for reads and writes of 224 bytes; its contents on \
       return are unspecified.\n\
       * These three regions must not overlap each other."
     code := Impl.Sha512.AArch64.compress
@@ -461,7 +702,7 @@ def artifacts : List Artifact := [
       # Safety\n\n\
       * `state` must be valid for reads and writes of 192 bytes.\n\
       * `data` must be valid for reads of `len` bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
       * These three regions must not overlap each other."
     code := Impl.Sha512.AArch64.Stream.update
@@ -484,7 +725,7 @@ def artifacts : List Artifact := [
       * `state` must be valid for reads and writes of 192 bytes; its contents on return are \
       unspecified.\n\
       * `out` must be valid for writes of 64 bytes.\n\
-      * `scratch` must be valid for reads and writes of 224 bytes; its contents on return \
+      * `scratch` must be valid for reads and writes of 272 bytes; its contents on return \
       are unspecified.\n\
       * These three regions must not overlap each other."
     code := Impl.Sha512.AArch64.Stream.finalize
@@ -507,9 +748,10 @@ def artifacts : List Artifact := [
       * `key` must be valid for reads of `key_len` bytes.\n\
       * `scratch` must be valid for reads and writes of 160 bytes; its contents on return \
       are unspecified.\n\
-      * These four regions must not overlap each other."
+      * These four regions must not overlap each other, or the 16 bytes of stack below the \
+      stack pointer, where it saves its return address (distinct Rust objects never do)."
     code := Impl.Hmac.AArch64.init
-    contract := Spec.Hmac.initSha256Contract AArch64.abi
+    contract := Spec.Hmac.initSha256Contract AArch64.abi 16
     verified := Proof.Hmac.AArch64.Shared.init
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := AArch64.target
@@ -528,9 +770,11 @@ def artifacts : List Artifact := [
       * `outer` must be valid for reads of 96 bytes.\n\
       * `scratch` must be valid for reads and writes of 240 bytes; its contents on return \
       are unspecified, apart from the MAC.\n\
-      * These three regions must not overlap each other."
+      * These three regions must not overlap each other, or the 32 bytes of stack below the \
+      stack pointer, where it and its calls of `vg_sha256_finalize` save their return \
+      addresses (distinct Rust objects never do)."
     code := Impl.Hmac.AArch64.finalize
-    contract := Spec.Hmac.finalizeSha256Contract AArch64.abi
+    contract := Spec.Hmac.finalizeSha256Contract AArch64.abi 32
     verified := Proof.Hmac.AArch64.Shared.finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := Arm.target

@@ -305,4 +305,83 @@ def callSample : Prog X86_64.isa :=
 #guard Rust.line printer.call (.text "mov rax, QWORD PTR [rdi]") ==
   "        \"mov rax, QWORD PTR [rdi]\",\n"
 
+/-! ## Frames
+
+A frame is its push, its body and its pop, each printed as the target's
+instructions. -/
+
+-- Save the link register around a call (AArch64).
+#guard text (AArch64.printer.function
+    (.frame (.push .x30) (.call "vg_f" (.block [])) (.pop .x30) : Prog AArch64.isa)) == [
+  "str x30, [sp, #-16]!", "<call vg_f>", "ldr x30, [sp], #16", "ret"]
+
+-- Pass two arguments on the stack, inside a frame saving `lr` (ARMv7). A pop
+-- loads the lowest word of its frame.
+#guard text (Arm.printer.function
+    (.frame (.push [.lr])
+      (.frame (.push [.r0, .r1]) (.call "vg_f" (.block [])) (.pop .r2 8)) (.pop .lr 4) :
+      Prog Arm.isa)) == [
+  "push {lr}", "push {r0, r1}", "<call vg_f>", "ldr r2, [sp], #8", "ldr lr, [sp], #4", "bx lr"]
+
+-- Pass two arguments on the stack (x86): the first pushed is the higher
+-- address.
+#guard text (X86.printer.function
+    (.frame (.push [.ecx, .eax]) (.call "vg_f" (.block [])) (.pop .edx 2) : Prog X86.isa)) == [
+  "push ecx", "push eax", "<call vg_f>", "pop edx", "pop edx", "ret"]
+
+#guard Rust.line Arm.printer.call (.text "push {r4, lr}") == "        \"push {{r4, lr}}\",\n"
+
+/-! ## CPU features
+
+`Code.requires` collects what every instruction needs, through calls and
+frames; `Rust.featureCheck` accepts exactly the declared set; the emitted
+`# Safety` item and constant list it. -/
+
+/-- A stand-in for an ISA's `requires`, over instructions named by strings. -/
+def req : String → List String
+  | "sha256rnds2" => ["sha"]
+  | "pshufb" => ["ssse3"]
+  | "pblendw" => ["sse4.1"]
+  | _ => []
+
+def featureSample : Code String Unit :=
+  .seq (.block ["mov", "sha256rnds2", "sha256rnds2"])
+    (.ite () (.loop (.call "vg_f" (.block ["pshufb"])) ())
+      (.frame "push" (.block ["pblendw"]) "pop"))
+
+#guard featureSample.requires req == ["sha", "sha", "ssse3", "sse4.1"]
+#guard (Code.block ["mov", "add"] : Code String Unit).requires req == []
+
+/-- The error of a failed check. -/
+def err : Except String Unit → Option String
+  | .error e => some e
+  | .ok _ => none
+
+def safeDoc : String := "Does things.\n\n# Safety\n\n* `p` must be valid."
+
+#guard (Rust.featureCheck "f" "No safety requirements." [] []).toBool
+#guard (Rust.featureCheck "f" safeDoc (featureSample.requires req) ["sse4.1", "sha", "ssse3"]).toBool
+-- An undeclared feature, an unneeded one, and a doc the item can't be added to.
+#guard err (Rust.featureCheck "f" safeDoc ["sha", "ssse3"] ["sha"]) ==
+  some "f requires the CPU feature ssse3 but does not declare it"
+#guard err (Rust.featureCheck "f" safeDoc ["sha"] ["sha", "avx2"]) ==
+  some "f declares the CPU feature avx2, which none of its code requires"
+#guard err (Rust.featureCheck "f" "No safety requirements." ["sha"] ["sha"]) ==
+  some "f needs CPU features but its doc has no `# Safety` section"
+#guard err (Rust.featureCheck "f" (safeDoc ++ "\n\n# Panics\n\nNever.") ["sha"] ["sha"]) ==
+  some "f needs CPU features but its doc does not end with its `# Safety` section"
+
+#guard Rust.featureDoc safeDoc [] == safeDoc
+#guard Rust.featureDoc safeDoc ["sha"] ==
+  safeDoc ++ "\n* The CPU must support the `sha` target feature."
+#guard Rust.featureDoc safeDoc ["sha", "ssse3"] ==
+  safeDoc ++ "\n* The CPU must support the `sha` and `ssse3` target features."
+#guard Rust.featureDoc safeDoc ["sha", "ssse3", "sse4.1"] ==
+  safeDoc ++ "\n* The CPU must support the `sha`, `ssse3` and `sse4.1` target features."
+
+#guard Rust.featuresConst "vg_f" [] == ""
+#guard Rust.featuresConst "vg_sha256_compress_shani" ["sha", "ssse3"] ==
+  "/// The CPU features `vg_sha256_compress_shani` requires (`Artifact.features`).\n\
+  pub(crate) const VG_SHA256_COMPRESS_SHANI_FEATURES: &[&str] = &[\"sha\", \"ssse3\"];\n\n"
+
 end VG.Test

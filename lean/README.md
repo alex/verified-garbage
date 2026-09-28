@@ -12,15 +12,16 @@ primitives: this directory verifies the primitives, not the Rust around them.
 VerifiedGarbage/
   TCB/          Trusted computing base: definitions only, Lean core only
     Mem.lean        byte-addressed memory, regions
-    Code.lean       structured programs and calls, big-step semantics with leakage,
-                    constant time
-    Print.lean      lowering of structured control flow to labels and branches, and
-                    of calls to call instructions
+    Code.lean       structured programs, calls and stack frames, big-step semantics
+                    with leakage, constant time
+    Print.lean      lowering of structured control flow to labels and branches, of
+                    calls to call instructions, and of frames to push and pop
     Sig.lean        Rust signatures and calling conventions (`Abi`)
     Artifact.lean   Target, Contract, `Verified`, `Artifact`: what "verified" means;
                     `Sig.contract`: the contract obligations a signature implies
     Rust.lean       rendering artifacts as Rust naked functions; checks that every
-                    call is of the artifact whose code the model runs for it
+                    call is of the artifact whose code the model runs for it, and
+                    that each artifact declares the CPU features its code needs
     Axioms.lean     `#assert_standard_axioms`
     X86_64/         ISA model, printer, System V ABI target
   Spec/         Algorithm specifications and contracts (trusted, must be reviewed)
@@ -66,10 +67,27 @@ caller's proof covers it, and the emitter only emits the call if `name` is
 the artifact whose code is `body`. A caller's proof can use the callee's
 `Verified` proof rather than go through its code again.
 
+Code saves registers on the stack, or passes arguments on the stack, in a
+stack frame (`Code.frame push body pop`): the push moves the stack pointer
+down, stores registers and makes those bytes a writable region; the pop
+faults unless the stack pointer and regions are as the push left them, loads
+one register and removes the region. Frames are nested by construction, so
+the stack pointer is always back where it was, and the stack a function's
+calls and frames use is part of its contract (`Sig.contract`'s `stack`).
+
+Instructions outside a target's baseline ISA (e.g. SHA-NI) name the CPU
+features they need (`ISA.requires`, transcribed from the vendor manual). An
+artifact using them declares those features (`Artifact.features`), the
+emitter checks the declaration is exact, and the generated function's
+`# Safety` section makes their presence the caller's obligation. The Rust
+that calls it checks for them first, using the generated `<NAME>_FEATURES`
+constant.
+
 ## What you need to trust
 
-* `TCB/` — in particular the ISA models, which must match the vendor manuals,
-  and the printers, which must print what the models mean.
+* `TCB/` — in particular the ISA models, which must match the vendor manuals
+  (including the CPU features each instruction requires), and the printers,
+  which must print what the models mean.
 * For each artifact: its contract in `Spec/` (and the algorithm spec it
   refers to), and its `sig` and `doc` in `Artifacts.lean`.
 * Lean's kernel, and the assembler in `rustc`/LLVM.

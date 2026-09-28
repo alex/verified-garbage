@@ -686,8 +686,8 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 
 theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Sha512.updateAArch64.pub s₁ s₂) :
     VG.AArch64.Taint.Agree (VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) s₁ s₂ := by
-  obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
-  intro r hr
+  obtain ⟨p1, p2, p3, p4, p5, hsp⟩ := hpub
+  refine ⟨hsp, fun r hr => ?_⟩
   simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
 

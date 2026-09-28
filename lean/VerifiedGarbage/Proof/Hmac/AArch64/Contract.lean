@@ -33,23 +33,27 @@ state at `inner` represent `K₀ ⊕ ipad` and the one at `outer` represent
 
 The code may read `key` (`key_len` bytes) and read and write `inner` and
 `outer` (96 bytes each) and `scratch` (160 bytes, whose contents on exit are
-unspecified). These may not overlap each other. The pointers and `key_len`
-are public; the key is secret. -/
+unspecified). These may not overlap each other, nor the 16 bytes below the
+stack pointer (the frame saving `x30`), which do not wrap around. The
+pointers and `key_len` are public; the key is secret. -/
 def initSha256AArch64 : Contract AArch64.isa where
   pre s :=
     let inner : Region := ⟨s.gpr .x0, 96⟩
     let outer : Region := ⟨s.gpr .x1, 96⟩
     let key : Region := ⟨s.gpr .x2, (s.gpr .x3).toNat⟩
     let scratch : Region := ⟨s.gpr .x4, 160⟩
+    let stack : Region := ⟨s.sp - 16, 16⟩
     (s.gpr .x3).toNat ≤ 64 ∧ s.rd = [key] ∧ s.wr = [inner, outer, scratch] ∧
     inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
-    key.Disjoint inner ∧ key.Disjoint outer ∧ key.Disjoint scratch
+    key.Disjoint inner ∧ key.Disjoint outer ∧ key.Disjoint scratch ∧
+    16 ≤ s.sp.toNat ∧ stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint key ∧
+    stack.Disjoint scratch
   post s s' :=
     let k0 := blockKey sha256 (bytesAt s.mem (s.gpr .x2) (s.gpr .x3).toNat)
     Repr s'.mem (s.gpr .x0) (xorPad k0 ipad) ∧ Repr s'.mem (s.gpr .x1) (xorPad k0 opad)
   pub s₁ s₂ :=
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
-    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4
+    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
 
 open AArch64 in
 /-- AArch64 contract for
@@ -65,14 +69,18 @@ Rust signature (and one Rust wrapper).
 The code may read `outer` (96 bytes), and read and write `inner` (96 bytes,
 whose contents on exit are unspecified) and `scratch` (240 bytes, whose
 contents on exit are unspecified apart from the MAC). These may not overlap
-each other. The pointers and `count` are public; the states are secret. -/
+each other, nor the 32 bytes below the stack pointer (the frames saving `x30`
+here and in `vg_sha256_finalize`), which do not wrap around. The pointers
+and `count` are public; the states are secret. -/
 def finalizeSha256AArch64 : Contract AArch64.isa where
   pre s :=
     let inner : Region := ⟨s.gpr .x0, 96⟩
     let outer : Region := ⟨s.gpr .x1, 96⟩
     let scratch : Region := ⟨s.gpr .x3, 240⟩
+    let stack : Region := ⟨s.sp - 32, 32⟩
     s.rd = [outer] ∧ s.wr = [inner, scratch] ∧
-    inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch
+    inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
+    32 ≤ s.sp.toNat ∧ stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint scratch
   post s s' := ∀ k0 text, k0.length = 64 →
     Repr s.mem (s.gpr .x0) (xorPad k0 ipad ++ text) →
     s.gpr .x2 = BitVec.ofNat 64 (64 + text.length) →
@@ -80,6 +88,6 @@ def finalizeSha256AArch64 : Contract AArch64.isa where
     bytesAt s'.mem (s.gpr .x3 + 176) 32 = hmacBlockKey sha256 k0 text
   pub s₁ s₂ :=
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
-    s₁.gpr .x3 = s₂.gpr .x3
+    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp
 
 end VG.Proof.Hmac

@@ -67,6 +67,12 @@ theorem Exec.det {c : Prog M} {s s₁ s₂ : M.State} {t₁ t₂ : List Leak}
       obtain ⟨rfl, rfl⟩ := ih b
       rw [hr] at hr'; cases hr'
       exact ⟨rfl, rfl⟩
+  | frame hp _ hq ih => cases h₂ with
+    | frame hp' b hq' =>
+      rw [hp] at hp'; cases hp'
+      obtain ⟨rfl, rfl⟩ := ih b
+      rw [hq] at hq'; cases hq'
+      exact ⟨rfl, rfl⟩
 
 theorem Exec.block_iff {is : List M.Instr} {s s' : M.State} {t : List Leak} :
     Exec M (.block is) s t s' ↔ execBlock M is s = some (s', t) :=
@@ -145,21 +151,47 @@ theorem ConstantTime.of_silent {Pre : M.State → Prop} {Pub : M.State → M.Sta
     ConstantTime M Pre Pub c :=
   .of_leakage (fun _ => []) h (fun _ _ _ _ _ => rfl)
 
-/-- The instructions of structured code, and of the functions it calls. -/
+/-- The instructions of structured code (including the pushes and pops of
+its frames), and of the functions it calls. -/
 def instrs {I C : Type} : Code I C → List I
   | .block is => is
   | .seq a b => instrs a ++ instrs b
   | .ite _ t e => instrs t ++ instrs e
   | .loop b _ => instrs b
   | .call _ b => instrs b
+  | .frame i b j => i :: instrs b ++ [j]
 
-/-- Whether code calls no function. -/
+/-- Whether code calls no function and has no frame: whether it runs only
+its own instructions, in the stack it was entered with. -/
 def Code.noCalls {I C : Type} : Code I C → Bool
   | .block _ => true
   | .seq a b => a.noCalls && b.noCalls
   | .ite _ t e => t.noCalls && e.noCalls
   | .loop b _ => b.noCalls
   | .call _ _ => false
+  | .frame .. => false
+
+/-- Whether code, and the functions it calls, has no frame. -/
+def Code.noFrames {I C : Type} : Code I C → Bool
+  | .block _ => true
+  | .seq a b => a.noFrames && b.noFrames
+  | .ite _ t e => t.noFrames && e.noFrames
+  | .loop b _ => b.noFrames
+  | .call _ b => b.noFrames
+  | .frame .. => false
+
+/-- How deeply frames nest in `c` and the functions it calls. -/
+def Code.fdepth {I C : Type} : Code I C → Nat
+  | .block _ => 0
+  | .seq a b => max a.fdepth b.fdepth
+  | .ite _ t e => max t.fdepth e.fdepth
+  | .loop b _ => b.fdepth
+  | .call _ b => b.fdepth
+  | .frame _ b _ => b.fdepth + 1
+
+theorem Code.noFrames_of_noCalls {I C : Type} {c : Code I C} (h : c.noCalls = true) :
+    c.noFrames = true := by
+  induction c <;> simp_all [noCalls, noFrames]
 
 /-- `(instrs c).all p`, without building the list of instructions, which is
 much faster for the kernel to evaluate (`decide +kernel`). -/
@@ -169,10 +201,11 @@ def Code.allInstrs {I C : Type} (p : I → Bool) : Code I C → Bool
   | .ite _ t e => t.allInstrs p && e.allInstrs p
   | .loop b _ => b.allInstrs p
   | .call _ b => b.allInstrs p
+  | .frame i b j => p i && b.allInstrs p && p j
 
 theorem Code.allInstrs_eq {I C : Type} (p : I → Bool) (c : Code I C) :
     c.allInstrs p = (instrs c).all p := by
-  induction c <;> simp [allInstrs, instrs, List.all_append, *]
+  induction c <;> simp [allInstrs, instrs, List.all_append, Bool.and_assoc, *]
 
 /-- `Code.all p` holds of all code when `p` holds of every instruction: for
 `Artifact.spSafe` on the ISAs whose `writesSp` is always `false`, without
@@ -180,5 +213,25 @@ evaluating the code. -/
 theorem Code.all_of_forall {I C : Type} {p : I → Bool} (h : ∀ i, p i = true) (c : Code I C) :
     c.all p = true := by
   induction c <;> simp_all [Code.all]
+
+/-- Moving a proof to a contract `k'` whose states permit more than those of
+`k`: each state `s` of `k'` narrows to a state `n s` of `k`, and an execution
+from `n s` gives one from `s` with the same trace, ending in `w s s₁`. -/
+theorem Verified.of_narrow {T : Target} {c : Prog T.isa} {k k' : Contract T.isa} (h : Verified T c k)
+    (n : T.isa.State → T.isa.State) (w : T.isa.State → T.isa.State → T.isa.State)
+    (hpre : ∀ s, k'.pre s → k.pre (n s))
+    (hexec : ∀ s t s₁, k'.pre s → Exec T.isa c (n s) t s₁ → Exec T.isa c s t (w s s₁))
+    (hpost : ∀ s t s₁, k'.pre s → Exec T.isa c (n s) t s₁ → T.abiPreserved (n s) s₁ →
+      k.post (n s) s₁ → T.abiPreserved s (w s s₁) ∧ k'.post s (w s s₁))
+    (hpub : ∀ s₁ s₂, k'.pre s₁ → k'.pre s₂ → k'.pub s₁ s₂ → k.pub (n s₁) (n s₂))
+    (hsat : ∃ s, k'.pre s) : Verified T c k' := by
+  obtain ⟨hc, hct, -⟩ := h
+  refine ⟨fun s hs => ?_, fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hp e₁ e₂ => ?_, hsat⟩
+  · obtain ⟨t, s₁, he, ha, hq⟩ := hc _ (hpre s hs)
+    exact ⟨t, w s s₁, hexec s t s₁ hs he, hpost s t s₁ hs he ha hq⟩
+  · obtain ⟨u₁, r₁, f₁, -⟩ := hc _ (hpre _ h₁)
+    obtain ⟨u₂, r₂, f₂, -⟩ := hc _ (hpre _ h₂)
+    rw [(Exec.det e₁ (hexec _ _ _ h₁ f₁)).1, (Exec.det e₂ (hexec _ _ _ h₂ f₂)).1]
+    exact hct _ _ _ _ _ _ (hpre _ h₁) (hpre _ h₂) (hpub _ _ h₁ h₂ hp) f₁ f₂
 
 end VG

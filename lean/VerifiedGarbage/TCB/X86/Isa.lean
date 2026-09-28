@@ -30,6 +30,8 @@ Modelling choices:
 * Calls (`call`) and returns (`ret`) are near and direct (SDM Vol. 2, "CALL",
   "RET"). The return addresses are the next of the state's `unknowns`,
   which nothing constrains (see `TCB/Code.lean`).
+* `push` and `pop` (of registers other than `esp`) only occur as the push
+  and pop of a frame (see `push`), as a sequence of them.
 -/
 
 namespace VG.X86
@@ -98,6 +100,12 @@ inductive Instr
   | movzx8 (dst : Reg) (src : MemOp)
   /-- `mov BYTE PTR [dst], src`: the low byte of `src.reg`. -/
   | store8 (dst : MemOp) (src : Reg8)
+  /-- `push r` for each `r` of `rs`, in order: the push of a frame (see
+  `push`); `rs` must not be empty or contain `esp` -/
+  | push (rs : List Reg)
+  /-- `pop r`, `k` times: the pop of a frame of `4 * k` bytes (see `pop`);
+  `k > 0`, and `r` is not `esp` -/
+  | pop (r : Reg) (k : Nat)
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`jcc` suffixes). -/
@@ -226,6 +234,8 @@ def exec : Instr → State → Option State
   | .bswap d, s => some (s.setReg d (bswap (s.gpr d)))
   | .movzx8 d m, s => (s.load8 (s.ea m)).map fun v => s.setReg d (v.setWidth 32)
   | .store8 m r, s => s.store8 (s.ea m) ((s.gpr r.reg).setWidth 8)
+  -- Only the push and pop of a frame (`push`, `pop`).
+  | .push _, _ | .pop .., _ => none
 
 def addrs : Instr → State → List Addr
   | .mov _ src, s => srcAddrs s src
@@ -235,6 +245,10 @@ def addrs : Instr → State → List Addr
   | .bswap _, _ => []
   | .movzx8 _ m, s => [s.ea m]
   | .store8 m _, s => [s.ea m]
+  | .push rs, s => (List.range rs.length).map fun i =>
+    (s.gpr .esp - BitVec.ofNat 32 (4 * (i + 1))).setWidth 64
+  | .pop _ k, s => (List.range k).map fun i =>
+    (s.gpr .esp + BitVec.ofNat 32 (4 * i)).setWidth 64
 
 /-- SDM Vol. 2, "Jcc": JE jumps if ZF = 1, JNE if ZF = 0, JB if CF = 1 and
 JAE if CF = 0. -/
@@ -264,10 +278,53 @@ def ret (s₁ s₂ : State) : Option State :=
     some (s₂.setReg .esp (s₂.gpr .esp + 4))
   else none
 
-/-- The register an instruction writes, if any. -/
+/-- `push r` for each of `rs`, in order, where `r ≠ esp`: SDM Vol. 2,
+"PUSH", 32-bit operand size: `ESP := ESP − 4; Memory[SS:ESP] := SRC`. No
+flags are affected. -/
+def pushRegs (s : State) : List Reg → State
+  | [] => s
+  | r :: rs =>
+    let sp := s.gpr .esp - 4
+    pushRegs { s.setReg .esp sp with mem := s.mem.writeW (sp.setWidth 64) (s.gpr r) } rs
+
+/-- `pop r`, `k` times, where `r ≠ esp`: SDM Vol. 2, "POP", 32-bit operand
+size: `DEST := SS:ESP; ESP := ESP + 4`. No flags are affected. -/
+def popReg (s : State) (r : Reg) : Nat → State
+  | 0 => s
+  | k + 1 =>
+    popReg ((s.setReg r (s.mem.readW ((s.gpr .esp).setWidth 64) 32)).setReg .esp
+      (s.gpr .esp + 4)) r k
+
+/-- The push of a frame: `push r` for each `r` of `rs` (`pushRegs`). The
+`4 * rs.length` bytes it stores become a writable region, at the head of
+`wr`. Faults if `rs` is empty or contains `esp`, or if the frame would wrap
+around the address space. -/
+def push : Instr → State → Option State
+  | .push rs, s =>
+    let n := 4 * rs.length
+    if rs ≠ [] ∧ .esp ∉ rs ∧ n ≤ (s.gpr .esp).toNat then
+      some { pushRegs s rs with
+        wr := ⟨(s.gpr .esp - BitVec.ofNat 32 n).setWidth 64, n⟩ :: s.wr }
+    else none
+  | _, _ => none
+
+/-- The pop of a frame: `pop r`, `k` times (`popReg`), so that `r` holds the
+last word of the frame. Faults if `k = 0` or `r` is `esp`, and unless `esp`
+and the writable regions are those the push left (`s₁`), and the frame, the
+region at their head, has `4 * k` bytes; it removes the frame. -/
+def pop : Instr → State → State → Option State
+  | .pop r k, s₁, s₂ =>
+    if k ≠ 0 ∧ r ≠ .esp ∧ s₂.gpr .esp = s₁.gpr .esp ∧ s₂.wr = s₁.wr ∧
+        s₁.wr.head? = some ⟨(s₁.gpr .esp).setWidth 64, 4 * k⟩ then
+      some { popReg s₂ r k with wr := s₂.wr.tail }
+    else none
+  | _, _, _ => none
+
+/-- The register an instruction writes, if any (the pop of a frame also
+moves `esp`, as the push does). -/
 def Instr.dst : Instr → Option Reg
-  | .mov d _ | .alu _ d _ | .shift _ d _ | .bswap d | .movzx8 d _ => some d
-  | .store .. | .store8 .. => none
+  | .mov d _ | .alu _ d _ | .shift _ d _ | .bswap d | .movzx8 d _ | .pop d _ => some d
+  | .store .. | .store8 .. | .push _ => none
 
 abbrev isa : ISA where
   State := State
@@ -280,6 +337,11 @@ abbrev isa : ISA where
   callAddrs s := [(s.gpr .esp - 4).setWidth 64]
   ret := ret
   retAddrs s := [(s.gpr .esp).setWidth 64]
+  -- Other than as the push and pop of a frame.
   writesSp i := i.dst == some .esp
+  push := push
+  pop := pop
+  -- Every modelled instruction is in the i486 baseline.
+  requires _ := []
 
 end VG.X86

@@ -375,5 +375,10 @@ abbrev isa : ISA where
   ret := ret
   retAddrs s := [s.gpr .rsp]
   writesSp i := i.dst == some .rsp
+  -- No frames are modelled.
+  push _ _ := none
+  pop _ _ _ := none
+  -- Every modelled instruction is in the x86-64 baseline (x86-64-v1).
+  requires _ := []
 
 end VG.X86_64

@@ -8,10 +8,11 @@ type of straight-line instructions with a partial semantics, and a type of
 branch conditions.
 
 Programs are `Code`: straight-line blocks of real instructions glued together
-with structured control flow (`ite` and do-while `loop`) and calls of other
-functions (`call`). The printer (`TCB/Print.lean`) lowers the structured
-control flow to labels and conditional jumps, and a call to a call
-instruction naming the function, which is emitted separately.
+with structured control flow (`ite` and do-while `loop`), calls of other
+functions (`call`) and stack frames (`frame`). The printer
+(`TCB/Print.lean`) lowers the structured control flow to labels and
+conditional jumps, a call to a call instruction naming the function, which
+is emitted separately, and a frame to its push, its body and its pop.
 
 ## Calls
 
@@ -29,10 +30,26 @@ the machine state supplies the values the model does not know, for all the
 calls to come, and a contract never constrains them, so that a proof covers
 every value.
 The return instruction faults in the model unless it returns to that
-address. The stack pointer is only changed by calls and returns
-(`ISA.writesSp`, `Artifact.spSafe`), so that the memory a call instruction
-stores to is below the stack pointer on entry: never memory that the caller
-of the function uses.
+address. The stack pointer is only changed by calls and returns and by
+frames (`ISA.writesSp`, `Artifact.spSafe`), which are nested, so that the
+memory a call instruction or a push stores to is below the stack pointer on
+entry: never memory that the caller of the function uses.
+
+## Stack frames
+
+`frame push body pop` saves registers on the stack around `body`, or passes
+arguments on the stack to the functions `body` calls: its semantics is that
+of the push instruction (`ISA.push`), then `body`, then the pop instruction
+(`ISA.pop`). The push moves the stack pointer down, stores registers there
+and makes those bytes a new region at the head of the writable regions `wr`
+(so that `body`, and the functions it calls, may read and write them). The
+pop faults unless the stack pointer and the writable regions are those the
+push left, and the frame has the size popped; it loads one register from the
+frame, moves the stack pointer back up and removes the region. So frames are
+nested, the stack pointer is back where it was after each one, and code may
+access a frame only while it lies at or above the stack pointer (memory
+below the stack pointer may be overwritten at any time, e.g. by a signal
+handler). Push and pop instructions fault outside a frame (`ISA.exec`).
 
 ## Semantics, safety and leakage
 
@@ -82,8 +99,26 @@ structure ISA where
   /-- The addresses of the memory a return instruction accesses, in the state
   it is executed in. -/
   retAddrs : State → List Addr
-  /-- Whether an instruction may write the stack pointer. -/
+  /-- Whether an instruction may write the stack pointer (other than as the
+  push or pop of a frame). -/
   writesSp : Instr → Bool
+  /-- Semantics of the push instruction of a frame: moving the stack pointer
+  down, storing registers there, and adding those bytes as a region at the
+  head of the writable regions. `none` if it faults (or is not a push). -/
+  push : Instr → State → Option State
+  /-- Semantics of the pop instruction of a frame, in the state `s₂`, given
+  the state `s₁` just after the push: `none` unless the stack pointer and
+  the writable regions are those the push left, and the frame (the region at
+  their head) has the size popped; otherwise loading a register from the
+  frame, moving the stack pointer back up and removing the region. -/
+  pop : Instr → State → State → Option State
+  /-- The CPU features beyond the target's baseline ISA that an instruction
+  needs, by their Rust `target_feature` names (e.g. `sha`), as the vendor
+  manual lists them for it (the Intel SDM's "CPUID Feature Flag"; the Arm
+  ARM's `FEAT_*`). On a CPU without them the instruction is undefined
+  (#UD), which `exec` does not model: `Artifact.features` makes their
+  presence the caller's obligation instead. -/
+  requires : Instr → List String
 
 /-- Structured code. -/
 inductive Code (I C : Type) where
@@ -95,6 +130,8 @@ inductive Code (I C : Type) where
   | loop (body : Code I C) (c : C)
   /-- A call of the function `name`, whose code is `body`. -/
   | call (name : String) (body : Code I C)
+  /-- `push; body; pop`: a stack frame around `body`. -/
+  | frame (push : I) (body : Code I C) (pop : I)
 
 /-- Whether every instruction of `c`, and of the functions it calls, satisfies `p`. -/
 def Code.all {I C : Type} (p : I → Bool) : Code I C → Bool
@@ -103,6 +140,17 @@ def Code.all {I C : Type} (p : I → Bool) : Code I C → Bool
   | .ite _ t e => t.all p && e.all p
   | .loop b _ => b.all p
   | .call _ b => b.all p
+  | .frame i b j => p i && b.all p && p j
+
+/-- The features that the instructions of `c`, and of the functions it
+calls, require (`ISA.requires`), with repetitions. -/
+def Code.requires {I C : Type} (req : I → List String) : Code I C → List String
+  | .block is => is.flatMap req
+  | .seq a b => a.requires req ++ b.requires req
+  | .ite _ t e => t.requires req ++ e.requires req
+  | .loop b _ => b.requires req
+  | .call _ b => b.requires req
+  | .frame i b j => req i ++ b.requires req ++ req j
 
 /-- The calls in `c`, and in the functions it calls: each function's name
 and code. -/
@@ -112,6 +160,7 @@ def Code.calls {I C : Type} : Code I C → List (String × Code I C)
   | .ite _ t e => t.calls ++ e.calls
   | .loop b _ => b.calls
   | .call n b => (n, b) :: b.calls
+  | .frame _ b _ => b.calls
 
 variable (M : ISA)
 
@@ -143,6 +192,9 @@ inductive Exec : Prog M → M.State → List Leak → M.State → Prop
   | call {name body s s₁ s₂ s' t} :
       M.call s = some s₁ → Exec body s₁ t s₂ → M.ret s₁ s₂ = some s' →
       Exec (.call name body) s ((M.callAddrs s).map .addr ++ t ++ (M.retAddrs s₂).map .addr) s'
+  | frame {i j body s s₁ s₂ s' t} :
+      M.push i s = some s₁ → Exec body s₁ t s₂ → M.pop j s₁ s₂ = some s' →
+      Exec (.frame i body j) s ((M.addrs i s).map .addr ++ t ++ (M.addrs j s₂).map .addr) s'
 
 /-- `c` is constant-time with respect to `Pub` ("the two initial states agree
 on all public data") under the precondition `Pre`: any two terminating runs
