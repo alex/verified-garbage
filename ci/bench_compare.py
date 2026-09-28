@@ -13,8 +13,8 @@ Writes a Markdown table of the results to stdout (and appends it to
 `--summary`, e.g. `$GITHUB_STEP_SUMMARY`), and exits with status 1 if any
 verified-garbage benchmark got slower by more than `--threshold`.
 
-A few OpenSSL benchmarks run too, as a control: their code is the same on
-both sides, so their change is the noise of this comparison.
+OpenSSL's code is the same on both sides, so its benchmarks run just once,
+with HEAD's binary, as a reference point for HEAD's times.
 """
 
 import argparse
@@ -25,10 +25,10 @@ import shutil
 import subprocess
 import sys
 
-# A criterion filter (a regex over benchmark ids, which are
+# Criterion filters (regexes over benchmark ids, which are
 # `<primitive>/<library>/<bytes>`, see bench/benches/primitives.rs).
-FILTER = r"/verified-garbage/|/openssl/16384$"
-CONTROL = "/openssl/"
+VG = "verified-garbage"
+OPENSSL = "openssl"
 
 
 def build(checkout):
@@ -53,7 +53,7 @@ def build(checkout):
     raise RuntimeError(f"no benchmark binary built in {checkout}")
 
 
-def run(binary, home, args):
+def run(binary, home, library, args):
     """Runs the benchmarks once, returning each one's median time (ns)."""
     subprocess.run(
         [
@@ -64,23 +64,17 @@ def run(binary, home, args):
             str(args.warm_up_time),
             "--measurement-time",
             str(args.measurement_time),
-            FILTER,
+            f"/{library}/",
         ],
         env={**os.environ, "CRITERION_HOME": str(home)},
         check=True,
         stdout=subprocess.DEVNULL,
     )
     times = {}
-    for est in home.glob("*/*/*/new/estimates.json"):
-        bench_id = "/".join(est.relative_to(home).parts[:3])
-        times[bench_id] = json.loads(est.read_text())["median"]["point_estimate"]
+    for est in home.glob(f"*/{library}/*/new/estimates.json"):
+        primitive, _, size = est.relative_to(home).parts[:3]
+        times[primitive, int(size)] = json.loads(est.read_text())["median"]["point_estimate"]
     return times
-
-
-def sort_key(bench_id):
-    """Groups the controls last, and sorts sizes numerically."""
-    primitive, library, size = bench_id.split("/")
-    return (CONTROL in bench_id, primitive, library, int(size))
 
 
 def fmt_time(ns):
@@ -114,32 +108,39 @@ def main():
         # Alternate which side goes first, so neither always runs warmer.
         for side in ("base", "head") if r % 2 == 0 else ("head", "base"):
             print(f"round {r + 1}/{args.rounds}: {side}", file=sys.stderr)
-            times = run(binaries[side], args.work_dir.resolve() / f"{side}-{r}", args)
+            times = run(binaries[side], args.work_dir.resolve() / f"{side}-{r}", VG, args)
             for bench_id, t in times.items():
                 best[side][bench_id] = min(t, best[side].get(bench_id, t))
+    print("OpenSSL", file=sys.stderr)
+    openssl = run(binaries["head"], args.work_dir.resolve() / "openssl", OPENSSL, args)
 
     lines = [
         "## Benchmarks",
         "",
         f"Fastest of {args.rounds} interleaved runs of each side on this runner;"
         f" a slowdown of more than {args.threshold:.0%} fails."
-        " The OpenSSL rows are the same code on both sides, so their change is noise.",
+        " OpenSSL (through rust-openssl) ran once, for reference; Head / OpenSSL"
+        " is head's time over OpenSSL's, so above 1× is slower.",
         "",
-        "| Benchmark | Base | Head | Change |",
-        "|---|--:|--:|--:|",
+        "| Benchmark | Base | Head | Change | OpenSSL | Head / OpenSSL |",
+        "|---|--:|--:|--:|--:|--:|",
     ]
     regressions = []
-    for bench_id in sorted(best["head"], key=sort_key):
-        b, h = best["base"].get(bench_id), best["head"][bench_id]
+    for primitive, size in sorted(best["head"]):
+        bench_id = f"{primitive}/{size}"
+        b, h = best["base"].get((primitive, size)), best["head"][primitive, size]
         if b is None:
-            lines.append(f"| `{bench_id}` | – | {fmt_time(h)} | new |")
-            continue
-        change = h / b - 1
-        mark = ""
-        if CONTROL not in bench_id and change > args.threshold:
-            regressions.append(bench_id)
-            mark = " 🚨"
-        lines.append(f"| `{bench_id}` | {fmt_time(b)} | {fmt_time(h)} | {change:+.1%}{mark} |")
+            change = "new"
+        else:
+            change = f"{h / b - 1:+.1%}"
+            if h / b - 1 > args.threshold:
+                regressions.append(bench_id)
+                change += " 🚨"
+        o = openssl.get((primitive, size))
+        vs = f"{h / o:.2f}×" if o else "–"
+        o = fmt_time(o) if o else "–"
+        b = fmt_time(b) if b else "–"
+        lines.append(f"| `{bench_id}` | {b} | {fmt_time(h)} | {change} | {o} | {vs} |")
     lines.append("")
     if regressions:
         lines.append(f"🚨 {len(regressions)} benchmark(s) slowed down by more than {args.threshold:.0%}.")
