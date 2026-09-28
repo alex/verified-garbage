@@ -2,7 +2,7 @@
 
 Verified Garbage is an experimental cryptography library, implemented entirely by LLMs. All of the cryptography primitives are formally verified using Lean.
 
-It's aims are, in order:
+Its aims are, in order:
 
 1. Security
 2. Correctness
