@@ -18,7 +18,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 | Algorithm | Spec landed | Supported | Optimized |
 |---|---|---|---|
-| AES-GCM (128-, 192- and 256-bit keys) | ✅ | x86-64 | x86-64 (AES-NI, PCLMULQDQ), x86-64 (GHASH with `mul`) |
+| AES-GCM (128-, 192- and 256-bit keys) | ✅ | x86-64, ARM64 | x86-64 (AES-NI, PCLMULQDQ), x86-64 (GHASH with `mul`) |
 | ChaCha20 | ✅ | ✅ | ❌ |
 | ChaCha20-Poly1305 | ✅ | ❌ | ❌ |
 | HMAC-SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
