@@ -28,6 +28,13 @@ Modelling choices:
 * Instructions whose timing depends on their operands (e.g. `sdiv`, `udiv`)
   must never be added: the constant-time leakage model assumes they do not
   exist.
+* Calls are `bl` and returns `bx lr` (DDI 0406C, A8.8.25 "BL, BLX
+  (immediate)", A8.8.27 "BX"). The return addresses are the next of the
+  state's `unknowns`, which nothing constrains (see `TCB/Code.lean`); a
+  return address also says whether the caller is ARM or Thumb code, which
+  `bx` switches back to. A linker veneer between a `bl` and its target may
+  change `r12` (IP: AAPCS §6.1.1, "the intra-procedure-call scratch
+  register"), so a call leaves an unknown value in it too.
 -/
 
 namespace VG.Arm
@@ -49,6 +56,10 @@ structure State where
   rd : List Region
   /-- Regions the code may read and write. -/
   wr : List Region
+  /-- Values the model does not know, used in order: the return address each
+  call stores and, on the ARM targets, what a linker veneer may leave in the
+  intra-procedure-call scratch registers (see `TCB/Code.lean`). -/
+  unknowns : Nat → BitVec 32 := fun _ => 0
 
 inductive Shift | lsl | lsr | ror
   deriving DecidableEq, Repr
@@ -229,6 +240,23 @@ def eval : Cond → State → Option Bool
   | .eq, s => some s.z
   | .ne, s => some !s.z
 
+/-- DDI 0406C, A8.8.25 "BL, BLX (immediate)": `LR = PC − 4` in ARM state,
+`LR = PC<31:1> : '1'` in Thumb state (the address of the next instruction,
+and which state it is in), then the branch (with a change of instruction set
+to that of the target, which the linker arranges), possibly through a linker
+veneer, which may change `r12` (AAPCS §6.1.1). The return address and the
+value left in `r12` are the next two of the state's. -/
+def call (s : State) : Option State :=
+  some { (s.setReg .lr (s.unknowns 0)).setReg .r12 (s.unknowns 1) with
+    unknowns := fun n => s.unknowns (n + 2) }
+
+/-- DDI 0406C, A8.8.27 "BX" (`bx lr`): `BXWritePC(R[14])`, a branch to the
+address in `lr`, in the instruction set its bit 0 selects. It returns after
+the call instruction if `lr` is the return address the call left (`s₁`);
+otherwise the model faults. -/
+def ret (s₁ s₂ : State) : Option State :=
+  if s₂.gpr .lr = s₁.gpr .lr then some s₂ else none
+
 abbrev isa : ISA where
   State := State
   Instr := Instr
@@ -236,5 +264,11 @@ abbrev isa : ISA where
   exec := exec
   addrs := addrs
   eval := eval
+  call := call
+  callAddrs _ := []
+  ret := ret
+  retAddrs _ := []
+  -- No modelled instruction writes the stack pointer.
+  writesSp _ := false
 
 end VG.Arm

@@ -8,6 +8,9 @@ conditional branches:
 
 * `ite c t e`  ⟶  `b<c> Lthen; e; b Lend; Lthen: t; Lend:`
 * `loop body c` ⟶  `Ltop: body; b<c> Ltop`
+* `call name body` ⟶  `<call> name` (the call instruction, e.g. `call` or
+  `bl`, of the function `name`, which is emitted separately: see
+  `VG.Rust.files`)
 
 Labels are numeric local labels (`N:`, referenced as `Nf` forward or `Nb`
 backward), the only kind Rust allows in inline assembly (the
@@ -23,6 +26,12 @@ tests in `Proof/Framework/PrintTest.lean`.
 
 namespace VG
 
+/-- A line of assembly: text, or a call instruction of the function it names. -/
+inductive Line
+  | text (s : String)
+  | call (name : String)
+  deriving DecidableEq, Repr
+
 structure Printer (M : ISA) where
   /-- Assembly text for one instruction (may be several lines). -/
   instr : M.Instr → List String
@@ -32,6 +41,9 @@ structure Printer (M : ISA) where
   jump : String → String
   /-- Return to the caller. -/
   ret : List String
+  /-- The mnemonic of the call instruction whose operand is a function's
+  symbol (`ISA.call`), e.g. `call` or `bl`. -/
+  call : String
 
 variable {M : ISA} (P : Printer M)
 
@@ -40,8 +52,8 @@ def labelNum (n : Nat) : String := s!"2{n}"
 
 /-- Lower code to lines of assembly, using labels `labelNum n`; returns the
 next unused label number. -/
-def Printer.lower : Code M.Instr M.Cond → Nat → List String × Nat
-  | .block is, n => ((is.map P.instr).flatten, n)
+def Printer.lower : Code M.Instr M.Cond → Nat → List Line × Nat
+  | .block is, n => ((is.map P.instr).flatten.map .text, n)
   | .seq c₁ c₂, n =>
     let (l₁, n) := lower c₁ n
     let (l₂, n) := lower c₂ n
@@ -51,15 +63,16 @@ def Printer.lower : Code M.Instr M.Cond → Nat → List String × Nat
     let lEnd := labelNum (n + 1)
     let (le, n) := lower e (n + 2)
     let (lt, n) := lower t n
-    ([P.branch c (lThen ++ "f")] ++ le ++ [P.jump (lEnd ++ "f"), lThen ++ ":"] ++ lt ++
-      [lEnd ++ ":"], n)
+    ([.text (P.branch c (lThen ++ "f"))] ++ le ++ [.text (P.jump (lEnd ++ "f")), .text (lThen ++ ":")] ++
+      lt ++ [.text (lEnd ++ ":")], n)
   | .loop body c, n =>
     let lTop := labelNum n
     let (lb, n) := lower body (n + 1)
-    ([lTop ++ ":"] ++ lb ++ [P.branch c (lTop ++ "b")], n)
+    ([.text (lTop ++ ":")] ++ lb ++ [.text (P.branch c (lTop ++ "b"))], n)
+  | .call name _, n => ([.call name], n)
 
 /-- The complete body of a function: the lowered code followed by the return. -/
-def Printer.function (body : Code M.Instr M.Cond) : List String :=
-  (P.lower body 0).1 ++ P.ret
+def Printer.function (body : Code M.Instr M.Cond) : List Line :=
+  (P.lower body 0).1 ++ P.ret.map .text
 
 end VG

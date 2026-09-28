@@ -55,5 +55,6 @@ def printer : Printer isa where
   branch c l := s!"j{c.name} {l}"
   jump l := s!"jmp {l}"
   ret := ["ret"]
+  call := "call"
 
 end VG.X86
