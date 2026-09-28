@@ -92,7 +92,7 @@ theorem sub160 (s₀ : State) : Region.Sub ⟨scr s₀, 160⟩ (scR s₀) := Reg
 theorem finalize_depth : (Impl.Sha256.X86_64.Stream.finalize .scalar).depth = 1 := by decide +kernel
 
 theorem finalize_nosp : NoSp (Impl.Sha256.X86_64.Stream.finalize .scalar) := by
-  have : ((instrs (Impl.Sha256.X86_64.Stream.finalize .scalar)).all fun i => Taint.dstOf i != some .rsp) = true := by
+  have : ((instrs (Impl.Sha256.X86_64.Stream.finalize .scalar)).all fun i => !Taint.clobbers i .rsp) = true := by
     rw [← Code.allInstrs_eq]; decide +kernel
   intro i hi
   simpa using List.all_eq_true.mp this i hi
