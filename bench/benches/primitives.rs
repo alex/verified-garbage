@@ -161,7 +161,7 @@ fn hmac_sha256(c: &mut Criterion) {
     g.finish();
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 fn poly1305(c: &mut Criterion) {
     use openssl::pkey::Id;
     use verified_garbage::poly1305::Poly1305;
@@ -185,7 +185,7 @@ fn poly1305(c: &mut Criterion) {
     g.finish();
 }
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
 fn poly1305(_: &mut Criterion) {}
 
 criterion_group!(

@@ -9,3 +9,6 @@ pub(crate) mod hmac;
 
 #[rustfmt::skip]
 pub(crate) mod chacha20;
+
+#[rustfmt::skip]
+pub(crate) mod poly1305;
