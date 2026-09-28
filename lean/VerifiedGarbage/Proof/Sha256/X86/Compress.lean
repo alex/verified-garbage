@@ -277,7 +277,6 @@ theorem frame_writeVars {scr : BitVec 32} (h : scr.toNat + 112 ≤ 2 ^ 32) (m : 
     mm _ (c 72 (by omega))).writeW mm _ (c 76 (by omega))).writeW mm _ (c 80 (by omega))).writeW
     mm _ (c 84 (by omega))).writeW mm _ (c 88 (by omega))).writeW mm _ (c 92 (by omega))
 
-set_option maxHeartbeats 0 in
 theorem ld_ok (k : Nat) {s : State} {p q : BitVec 32} (heax : s.gpr .eax = p)
     (hesi : s.gpr .esi = q) (hi : InRegions (s.rd ++ s.wr) (addr p (4 * k)) 4)
     (ho : InRegions s.wr (addr q (64 + 4 * k)) 4) :
@@ -377,7 +376,6 @@ theorem frame_writeState {s₀ : State} (hp : Pre s₀) {m m' : Mem} (h : Frame 
     (c 28 ?_) <;>
   simp
 
-set_option maxHeartbeats 0 in
 theorem upd_ok (k : Nat) {s : State} {p q : BitVec 32} (heax : s.gpr .eax = p)
     (hesi : s.gpr .esi = q) (hv : InRegions (s.rd ++ s.wr) (addr q (64 + 4 * k)) 4)
     (hh : InRegions (s.rd ++ s.wr) (addr p (4 * k)) 4) (ho : InRegions s.wr (addr p (4 * k)) 4) :
@@ -434,7 +432,6 @@ theorem updTo_ok {s₀ : State} (hp : Pre s₀) {s : State} (heax : s.gpr .eax =
       writeWords_st hp _ (by omega) j (by omega)]
     rfl
 
-set_option maxHeartbeats 0 in
 theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue)
     (hv : Vars 0 (scr s₀) s.mem V) (hesp : s.gpr .esp = esp₀ s₀) (hesi : s.gpr .esi = scr s₀)
     (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) (harg : s.mem.readW (addr (esp₀ s₀) 4) 32 = st s₀)
@@ -530,7 +527,6 @@ theorem harg_of {s₀ : State} (hp : Pre s₀) {m : Mem} (hf : Frame [stR s₀, 
     m.readW (addr (esp₀ s₀) 4) 32 = st s₀ :=
   hp.arg_frame hf (i := 0) (by decide)
 
-set_option maxHeartbeats 400000 in
 theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s : State}
     (hL : LInv s₀ i s) :
     WP isa body s fun s' =>
@@ -630,7 +626,6 @@ def saveMem (s₀ : State) : Mem :=
   (((s₀.mem.writeW (addr (scr s₀) 96) (s₀.gpr .ebx)).writeW (addr (scr s₀) 100) (s₀.gpr .esi)).writeW
     (addr (scr s₀) 104) (s₀.gpr .edi)).writeW (addr (scr s₀) 108) (s₀.gpr .ebp)
 
-set_option maxHeartbeats 0 in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block prologue) s₀ fun s₁ =>
       s₁.gpr .esi = scr s₀ ∧ s₁.gpr .edi = bp s₀ ∧ s₁.gpr .ebp = arg s₀ 2 ∧
@@ -679,7 +674,6 @@ theorem common_zero {s₀ : State} (hp : Pre s₀) {s₁ : State} (hesi : s₁.g
       (by simpa using hp.st_scr) (by decide), ← stateAt_get hp _ hk]
     rfl
 
-set_option maxHeartbeats 0 in
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
     WP isa (.block epilogue) s fun s' =>
       (∀ r ∈ calleeSaved, s'.gpr r = s₀.gpr r) ∧ s'.mem = s.mem := by

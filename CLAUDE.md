@@ -68,8 +68,17 @@ instructions in an ISA model) go in their own PR before either.
 ## Keeping proofs fast
 
 Lean's kernel re-checks every proof term, and it is a slow evaluator: most
-of the build time used to be the kernel, not tactics. Avoid these patterns
-(each has cost tens of seconds in one proof):
+of the build time used to be the kernel, not tactics.
+
+Every declaration must elaborate and pass the kernel within Lean's default
+`maxHeartbeats` (200000; the largest proof needs about half of that). Never
+`set_option maxHeartbeats`, `maxRecDepth` or another resource limit, in a
+source file or the lakefile: a proof that hits the limit is too slow, so make
+it faster.
+`ci/check_lean_speed.py` enforces this, and the rules below that can be
+checked without building.
+
+Avoid these patterns (each has cost tens of seconds in one proof):
 
 * **Constant time:** use `VG.Taint.constantTime … (by taint_decide)`, never
   `decide +kernel` on a taint check: `taint_decide` precomputes loop
@@ -126,6 +135,7 @@ definitions unfolded while elaborating it, which finds failing unfoldings.
 ```sh
 (cd lean && lake build && lake env lean --run Emit.lean --check)
 python3 ci/check_lean_imports.py
+python3 ci/check_lean_speed.py
 python3 ci/check_vectors.py
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test

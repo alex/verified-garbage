@@ -263,7 +263,6 @@ theorem not_finW {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 32) :
   · simp only [Region.Contains]; bv_omega
   · simp only [Region.Contains]; bv_omega
 
-set_option maxHeartbeats 1000000 in
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256X86_64.post s₀ s' := by
   unfold finalize
@@ -346,7 +345,6 @@ def sat : State where
   rd := [⟨0x2000, 96⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 240⟩]
 
-set_option maxHeartbeats 0 in
 theorem finalize_verified :
     Verified X86_64.target finalize Proof.Hmac.finalizeSha256X86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
