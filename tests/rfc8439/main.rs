@@ -5,7 +5,7 @@
 //! always run. Every vector is checked in one call, split into two pieces at
 //! every position, and a byte at a time.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
 use verified_garbage::poly1305::Poly1305;
 
