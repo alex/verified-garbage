@@ -20,7 +20,8 @@ VerifiedGarbage/
     Artifact.lean   Target, Contract, `Verified`, `Artifact`: what "verified" means;
                     `Sig.contract`: the contract obligations a signature implies
     Rust.lean       rendering artifacts as Rust naked functions; checks that every
-                    call is of the artifact whose code the model runs for it
+                    call is of the artifact whose code the model runs for it, and
+                    that each artifact declares the CPU features its code needs
     Axioms.lean     `#assert_standard_axioms`
     X86_64/         ISA model, printer, System V ABI target
   Spec/         Algorithm specifications and contracts (trusted, must be reviewed)
@@ -74,10 +75,19 @@ one register and removes the region. Frames are nested by construction, so
 the stack pointer is always back where it was, and the stack a function's
 calls and frames use is part of its contract (`Sig.contract`'s `stack`).
 
+Instructions outside a target's baseline ISA (e.g. SHA-NI) name the CPU
+features they need (`ISA.requires`, transcribed from the vendor manual). An
+artifact using them declares those features (`Artifact.features`), the
+emitter checks the declaration is exact, and the generated function's
+`# Safety` section makes their presence the caller's obligation. The Rust
+that calls it checks for them first, using the generated `<NAME>_FEATURES`
+constant.
+
 ## What you need to trust
 
-* `TCB/` — in particular the ISA models, which must match the vendor manuals,
-  and the printers, which must print what the models mean.
+* `TCB/` — in particular the ISA models, which must match the vendor manuals
+  (including the CPU features each instruction requires), and the printers,
+  which must print what the models mean.
 * For each artifact: its contract in `Spec/` (and the algorithm spec it
   refers to), and its `sig` and `doc` in `Artifacts.lean`.
 * Lean's kernel, and the assembler in `rustc`/LLVM.

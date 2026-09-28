@@ -124,5 +124,12 @@ structure Artifact where
   push only ever stores below the stack pointer on entry, where no Rust
   object lies. -/
   spSafe : code.all (fun i => !target.isa.writesSp i) = true := by decide +kernel
+  /-- The CPU features beyond the target's baseline ISA that the code needs,
+  by their Rust `target_feature` names: exactly those its instructions, and
+  those of the functions it calls, require (`ISA.requires`). The emitter
+  checks this (`Rust.checkFeatures`) and adds their presence to the
+  function's `# Safety` section, which `doc` must end with when this is not
+  empty. -/
+  features : List String := []
 
 end VG

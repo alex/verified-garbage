@@ -331,4 +331,57 @@ instructions. -/
 
 #guard Rust.line Arm.printer.call (.text "push {r4, lr}") == "        \"push {{r4, lr}}\",\n"
 
+/-! ## CPU features
+
+`Code.requires` collects what every instruction needs, through calls and
+frames; `Rust.featureCheck` accepts exactly the declared set; the emitted
+`# Safety` item and constant list it. -/
+
+/-- A stand-in for an ISA's `requires`, over instructions named by strings. -/
+def req : String → List String
+  | "sha256rnds2" => ["sha"]
+  | "pshufb" => ["ssse3"]
+  | "pblendw" => ["sse4.1"]
+  | _ => []
+
+def featureSample : Code String Unit :=
+  .seq (.block ["mov", "sha256rnds2", "sha256rnds2"])
+    (.ite () (.loop (.call "vg_f" (.block ["pshufb"])) ())
+      (.frame "push" (.block ["pblendw"]) "pop"))
+
+#guard featureSample.requires req == ["sha", "sha", "ssse3", "sse4.1"]
+#guard (Code.block ["mov", "add"] : Code String Unit).requires req == []
+
+/-- The error of a failed check. -/
+def err : Except String Unit → Option String
+  | .error e => some e
+  | .ok _ => none
+
+def safeDoc : String := "Does things.\n\n# Safety\n\n* `p` must be valid."
+
+#guard (Rust.featureCheck "f" "No safety requirements." [] []).toBool
+#guard (Rust.featureCheck "f" safeDoc (featureSample.requires req) ["sse4.1", "sha", "ssse3"]).toBool
+-- An undeclared feature, an unneeded one, and a doc the item can't be added to.
+#guard err (Rust.featureCheck "f" safeDoc ["sha", "ssse3"] ["sha"]) ==
+  some "f requires the CPU feature ssse3 but does not declare it"
+#guard err (Rust.featureCheck "f" safeDoc ["sha"] ["sha", "avx2"]) ==
+  some "f declares the CPU feature avx2, which none of its code requires"
+#guard err (Rust.featureCheck "f" "No safety requirements." ["sha"] ["sha"]) ==
+  some "f needs CPU features but its doc has no `# Safety` section"
+#guard err (Rust.featureCheck "f" (safeDoc ++ "\n\n# Panics\n\nNever.") ["sha"] ["sha"]) ==
+  some "f needs CPU features but its doc does not end with its `# Safety` section"
+
+#guard Rust.featureDoc safeDoc [] == safeDoc
+#guard Rust.featureDoc safeDoc ["sha"] ==
+  safeDoc ++ "\n* The CPU must support the `sha` target feature."
+#guard Rust.featureDoc safeDoc ["sha", "ssse3"] ==
+  safeDoc ++ "\n* The CPU must support the `sha` and `ssse3` target features."
+#guard Rust.featureDoc safeDoc ["sha", "ssse3", "sse4.1"] ==
+  safeDoc ++ "\n* The CPU must support the `sha`, `ssse3` and `sse4.1` target features."
+
+#guard Rust.featuresConst "vg_f" [] == ""
+#guard Rust.featuresConst "vg_sha256_compress_shani" ["sha", "ssse3"] ==
+  "/// The CPU features `vg_sha256_compress_shani` requires (`Artifact.features`).\n\
+  pub(crate) const VG_SHA256_COMPRESS_SHANI_FEATURES: &[&str] = &[\"sha\", \"ssse3\"];\n\n"
+
 end VG.Test
