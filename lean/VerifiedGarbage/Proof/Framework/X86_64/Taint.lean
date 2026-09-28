@@ -166,6 +166,11 @@ def step (τ : T) : Instr → Option T
   | .shift32 _ d _ | .shift _ d _ => some { τ with flags := τ.flags && pub τ d, bases := kill τ d }
   | .bswap32 d | .bswap d => some { τ with bases := kill τ d }
   | .movImm64 d _ => some { τ with regs := set τ d true, bases := kill τ d }
+  -- The product, CF and OF are functions of the two operands; SF and ZF
+  -- become undefined in both runs.
+  | .imul d r =>
+    let p := pub τ d && pub τ r
+    some { τ with regs := set τ d p, flags := p, bases := kill τ d }
   | .movzx8 d m => if memPub τ m then some { τ with regs := set τ d false, bases := kill τ d } else none
   -- The SSE registers are not tracked: their values are always secret, and
   -- no modelled instruction moves them into a general-purpose register or
@@ -603,7 +608,7 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {m : 
 /-- The register an instruction writes (none for stores). -/
 def dstOf : Instr → Option Reg
   | .mov d _ | .mov32 d _ | .alu _ d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
-  | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
+  | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ | .imul d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ => none
 
 /-- An SSE instruction on registers changes only the SSE registers. -/
@@ -659,6 +664,9 @@ theorem exec_nonstore {i : Instr} {d : Reg} (hd : dstOf i = some d) {s s' : Stat
         exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
     · cases h
   case movImm64 v =>
+    simp only [exec, Option.some.injEq] at h
+    subst h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
+  case imul r =>
     simp only [exec, Option.some.injEq] at h
     subst h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
 
@@ -856,6 +864,17 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     simp only [exec, Option.some.injEq] at e₁ e₂
     subst e₁ e₂
     exact ⟨regs_set (p := true) ha.rf.1 fun _ => rfl, by simpa using ha.rf.2⟩
+  | imul d r =>
+    simp only [step, Option.some.injEq] at hs
+    subst hs
+    refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl fun _ h => h⟩
+    simp only [exec, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    refine ⟨regs_set ha.rf.1 fun hp => ?_, fun hf => ?_⟩
+    · simp only [Bool.and_eq_true] at hp
+      simp [ha.reg hp.1, ha.reg hp.2]
+    · simp only [Bool.and_eq_true] at hf
+      simp [State.setReg, State.setFlags, ha.reg hf.1, ha.reg hf.2]
 
 theorem cond_sound {τ : T} {c : Cond} {s₁ s₂ : State} (ha : Agree τ s₁ s₂)
     (hc : τ.flags = true) : eval c s₁ = eval c s₂ := by

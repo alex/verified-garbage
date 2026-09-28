@@ -102,6 +102,7 @@ def Instr.asm : Instr → List String
   | .shift op d n => [s!"{op.name} {d.name}, {n}"]
   -- `movabs` always selects the `REX.W + B8+rd io` encoding, whatever the value.
   | .movImm64 d v => [s!"movabs {d.name}, {v.toInt}"]
+  | .imul d r => [s!"imul {d.name}, {r.name}"]
   | .movdquLoad d m => [s!"movdqu {d.name}, {m.str128}"]
   | .movdquStore m r => [s!"movdqu {m.str128}, {r.name}"]
   | .xop op => [op.asm]

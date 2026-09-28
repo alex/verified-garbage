@@ -20,6 +20,11 @@ Modelling choices:
   `rd ++ wr`, stores within `wr`; otherwise the instruction faults.
 * Instructions whose timing depends on their operands (e.g. `div`) must never
   be added: the constant-time leakage model assumes they do not exist.
+  `imul r64, r64` (the low 64 bits of a 64 × 64-bit product) takes the
+  same time whatever its operands on every Intel x86-64 core (Core 2 to
+  Skylake, and the Atoms from Bonnell to Goldmont) and every AMD one (K8 to
+  Zen), per the survey at https://www.bearssl.org/ctmul.html (the "64→64"
+  column); the one exception listed there is the VIA Nano 2000 series.
 * Calls (`call`) and returns (`ret`) are near and direct (SDM Vol. 2, "CALL",
   "RET"). The return addresses are the next of the state's `unknowns`,
   which nothing constrains (see `TCB/Code.lean`).
@@ -145,6 +150,8 @@ inductive Instr
   /-- `movabs r64, imm64`: `MOV r64, imm64` (REX.W + B8+rd io), a full 64-bit
   immediate. -/
   | movImm64 (dst : Reg) (v : BitVec 64)
+  /-- `imul r64, r64` (`REX.W 0F AF /r`): the low 64 bits of the product. -/
+  | imul (dst src : Reg)
   /-- `movdqu xmm, XMMWORD PTR [src]` (`F3 0F 6F /r`) -/
   | movdquLoad (dst : XReg) (src : MemOp)
   /-- `movdqu XMMWORD PTR [dst], xmm` (`F3 0F 7F /r`) -/
@@ -571,6 +578,15 @@ def exec : Instr → State → Option State
   | .shift op d n, s => execShift op d n s
   -- SDM Vol. 2, "MOV": `DEST := SRC`; no flags are affected.
   | .movImm64 d v, s => some (s.setReg d v)
+  -- SDM Vol. 2, "IMUL", two-operand form with 64-bit operands:
+  -- `TMP_XP := DEST ∗ SRC` (signed, 128 bits); `DEST := TruncateToOperandSize(TMP_XP)`;
+  -- `IF SignExtend(DEST) ≠ TMP_XP THEN CF := 1; OF := 1; ELSE CF := 0; OF := 0; FI`.
+  -- "The SF, ZF, AF, and PF flags are undefined." The low 64 bits of the
+  -- product are the same whether the operands are read as signed or unsigned.
+  | .imul d r, s =>
+    let a := s.gpr d; let b := s.gpr r; let p := a * b
+    let o := p.toInt ≠ a.toInt * b.toInt
+    some ((s.setFlags (some o) (some o) none none).setReg d p)
   -- SDM Vol. 2, "MOVDQU": `DEST[127:0] := SRC[127:0]`, with memory in
   -- little-endian byte order (SDM Vol. 1 §1.3.1); no alignment is required
   -- and no flags are affected.
@@ -592,6 +608,7 @@ def addrs : Instr → State → List Addr
   | .bswap _, _ => []
   | .shift .., _ => []
   | .movImm64 .., _ => []
+  | .imul .., _ => []
   | .movdquLoad _ m, s => [s.ea m]
   | .movdquStore m _, s => [s.ea m]
   | .xop _, _ => []
@@ -623,7 +640,7 @@ def ret (s₁ s₂ : State) : Option State :=
 /-- The register an instruction writes, if any. -/
 def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .mov32 d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
-  | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
+  | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ | .imul d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ => none
 
 abbrev isa : ISA where
