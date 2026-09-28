@@ -31,4 +31,36 @@ def blockX86_64 : Contract X86_64.isa where
   post s s' := stateAt s'.mem (s.gpr .rsi) = block (stateAt s.mem (s.gpr .rdi))
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi
 
+open X86_64 in
+/-- x86-64 contract for
+`vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80])`:
+XORs the first `len` bytes of the keystream of the state at `state` into the
+`len` bytes at `data`.
+
+The code may read and write `state` (64 bytes; its contents on exit are
+unspecified), `data` (`len` bytes) and `buf` (320 bytes of working space).
+They may not overlap each other, the return address on the stack, or the 8
+bytes below it, where the call of the block function stores its return
+address; `data` does not wrap around the end of the address space. The
+pointers and the length are public; the state and the data are secret. -/
+def xorX86_64 : Contract X86_64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .rdi, 64⟩
+    let data : Region := ⟨s.gpr .rsi, (s.gpr .rdx).toNat⟩
+    let buf : Region := ⟨s.gpr .rcx, 320⟩
+    let ret : Region := ⟨s.gpr .rsp, 8⟩
+    let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
+    s.rd = [] ∧ s.wr = [state, data, buf] ∧
+    state.Disjoint data ∧ state.Disjoint buf ∧ data.Disjoint buf ∧
+    ret.Disjoint state ∧ ret.Disjoint data ∧ ret.Disjoint buf ∧
+    stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint buf ∧
+    (s.gpr .rsi).toNat + (s.gpr .rdx).toNat ≤ 2 ^ 64
+  post s s' :=
+    bytesAt s'.mem (s.gpr .rsi) (s.gpr .rdx).toNat =
+      List.zipWith (· ^^^ ·) (bytesAt s.mem (s.gpr .rsi) (s.gpr .rdx).toNat)
+        (keystream (stateAt s.mem (s.gpr .rdi)) (s.gpr .rdx).toNat)
+  pub s₁ s₂ :=
+    s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
+    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .rsp = s₂.gpr .rsp
+
 end VG.Proof.ChaCha20

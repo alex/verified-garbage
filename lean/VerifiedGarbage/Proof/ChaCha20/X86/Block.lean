@@ -399,7 +399,7 @@ def τ₀ : VG.X86.Taint.T := { regs := .ofList [.esp], flags := false, argLen :
 
 theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
   have hs := hp.esp_fits
-  refine ⟨fun h => absurd rfl h, fun _ h => (List.not_mem_nil h).elim,
+  refine VG.X86.Taint.Wf.entry rfl rfl ⟨fun h => absurd rfl h, fun _ h => (List.not_mem_nil h).elim,
     fun _ h => (List.not_mem_nil h).elim, fun _ => ⟨hs, ?_⟩, fun _ h => (List.not_mem_nil h).elim⟩
   simp only [hp.wr, List.mem_cons, List.not_mem_nil, or_false]
   rintro r rfl
@@ -419,6 +419,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.ChaCha20.blockX86.pre s₁)
   · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     subst hr; exact hesp
   · simp only [τ₀] at hk
+    rw [show VG.X86.Taint.depth τ₀.stk = 0 from rfl, Nat.zero_add]
     rw [VG.X86.Taint.argByte_eq f₁ h4 hk, VG.X86.Taint.argByte_eq f₂ h4 hk,
       Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)), Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega))]
     have : (k - 4) / 4 = 0 ∨ (k - 4) / 4 = 1 := by omega

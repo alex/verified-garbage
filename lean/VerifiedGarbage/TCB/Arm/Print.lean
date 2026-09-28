@@ -38,6 +38,7 @@ def Instr.asm : Instr → List String
   | .movw d imm => [s!"movw {d.name}, #{imm.toNat}"]
   | .movt d imm => [s!"movt {d.name}, #{imm.toNat}"]
   | .rev d m => [s!"rev {d.name}, {m.name}"]
+  | .mul d n m => [s!"mul {d.name}, {n.name}, {m.name}"]
   | .ldr t n off => [s!"ldr {t.name}, [{n.name}, #{off}]"]
   | .str t n off => [s!"str {t.name}, [{n.name}, #{off}]"]
   | .ldrb t n off => [s!"ldrb {t.name}, [{n.name}, #{off}]"]

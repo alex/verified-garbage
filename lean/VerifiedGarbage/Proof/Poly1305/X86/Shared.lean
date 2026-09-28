@@ -32,9 +32,9 @@ theorem blocks :
         Mem.read] using Proof.Poly1305.X86.blocksSat)
 
 theorem finalize :
-    Verified X86.target Impl.Poly1305.X86.finalize (Spec.Poly1305.finalizeContract X86.abi) :=
+    Verified X86.target Impl.Poly1305.X86.finalize (Spec.Poly1305.finalizeTailContract X86.abi) :=
   Proof.Poly1305.X86.finalize_verified.of_implies (by
-    contract_implies [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+    contract_implies [Spec.Poly1305.finalizeTailContract, Spec.Poly1305.finalizeTailSig,
       Proof.Poly1305.finalizeX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
       [Proof.Poly1305.X86.finalizeSat, Proof.Poly1305.X86.finalizeSatMem, X86.arg, X86.argAddr,
         Mem.readW, Mem.read] using Proof.Poly1305.X86.finalizeSat)
