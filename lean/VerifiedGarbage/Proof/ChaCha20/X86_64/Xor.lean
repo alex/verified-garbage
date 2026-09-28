@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Block
 import VerifiedGarbage.Proof.ChaCha20.Keystream
 import VerifiedGarbage.Proof.Framework.X86_64.Call
+import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
 
 /-!
@@ -623,7 +624,7 @@ set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j = L s₀) {s : State}
     (h : OInv s₀ j s) :
     WP isa (.block restore) s fun s' =>
-      abiPreserved s₀ s' ∧ Proof.ChaCha20.xorX86_64.post s₀ s' := by
+      gprPreserved s₀ s' ∧ Proof.ChaCha20.xorX86_64.post s₀ s' := by
   have i : ∀ d, d + 8 ≤ 320 → InRegions (s.rd ++ s.wr) (off (bp s₀) d) 8 :=
     fun d hd => ⟨bR s₀, by simp [h.rd, h.wr, hp.rd, hp.wr], bR_contains s₀ hd⟩
   have i0 := i 256 (by omega); have i1 := i 264 (by omega); have i2 := i 272 (by omega)
@@ -660,7 +661,7 @@ theorem xor_eq : Impl.ChaCha20.X86_64.Xor.xor =
     (.seq (.ite .e (.block []) (.loop body .ne)) (.block restore)) := rfl
 
 theorem correct {s₀ : State} (hp : XPre s₀) :
-    WP isa Impl.ChaCha20.X86_64.Xor.xor s₀ fun s' => abiPreserved s₀ s' ∧ Proof.ChaCha20.xorX86_64.post s₀ s' := by
+    WP isa Impl.ChaCha20.X86_64.Xor.xor s₀ fun s' => gprPreserved s₀ s' ∧ Proof.ChaCha20.xorX86_64.post s₀ s' := by
   rw [xor_eq]
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨h₁, hz⟩ => ?_)
   refine WP.seq (WP.mono (Q := fun s => ∃ j, P s₀ j = L s₀ ∧ OInv s₀ j s) ?_
@@ -725,7 +726,7 @@ theorem xor_verified :
     Verified X86_64.target Impl.ChaCha20.X86_64.Xor.xor Proof.ChaCha20.xorX86_64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (XPre.of s hs)
-    exact ⟨t, s', he, h⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide⟩ <;>
     · intro a h₁ h₂
