@@ -33,6 +33,20 @@ sha256 = "df55932f8b6a5d271f36a634d91a25903724e189ba6c120bf7257cd47f10b197"
 retrieved = 2026-09-28
 
 [[source]]
+name = "NIST CAVP SHA-3 byte-oriented test vectors (SHA3-224, SHA3-256, SHA3-384 and SHA3-512)"
+directories = ["nist-cavp/sha3"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/sha3/sha-3bytetestvectors.zip"
+sha256 = "cd07701af2e47f5cc889d642528b4bf11f8b6eb55797c7307a96828ed8d8fc8c"
+retrieved = 2026-09-28
+
+[[source]]
+name = "NIST CAVP SHAKE byte-oriented test vectors (SHAKE128 and SHAKE256)"
+directories = ["nist-cavp/shake"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/sha3/shakebytetestvectors.zip"
+sha256 = "debfebc3157b3ceea002b84ca38476420389a3bf7e97dc5f53ea4689a16de4c7"
+retrieved = 2026-09-28
+
+[[source]]
 name = "NIST CAVP AES Known Answer Test (KAT) vectors (the ECB GFSbox, KeySbox, VarKey and VarTxt .rsp files only)"
 directories = ["nist-cavp/aes"]
 url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/aes/KAT_AES.zip"
