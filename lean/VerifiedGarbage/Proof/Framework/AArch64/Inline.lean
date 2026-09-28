@@ -455,7 +455,7 @@ theorem Verified.widen {c : Prog isa} {k k' : Contract isa} (h : Verified target
       k.post (s.withRegions s.rd (wr s)) (s'.withRegions s.rd (wr s)) → k'.post s s')
     (hpub : ∀ s₁ s₂, k'.pre s₁ → k'.pre s₂ → k'.pub s₁ s₂ →
       k.pub (s₁.withRegions s₁.rd (wr s₁)) (s₂.withRegions s₂.rd (wr s₂)))
-    (hsat : ∃ s, k'.pre s) (hn : c.noCalls = true := by decide +kernel) :
+    (hsat : ∃ s, k'.pre s) (hn : c.noFrames = true := by decide +kernel) :
     Verified target c k' := by
   refine h.of_narrow (fun s => s.withRegions s.rd (wr s)) (fun s s₁ => s₁.withRegions s.rd s.wr)
     hpre (fun s t s₁ hs he => ?_) (fun s t s₁ hs he ha hq => ?_) hpub hsat
