@@ -54,6 +54,12 @@ theorem Exec.det {c : Prog M} {s s₁ s₂ : M.State} {t₁ t₂ : List Leak}
       obtain ⟨rfl, rfl⟩ := ih₁ a
       obtain ⟨rfl, rfl⟩ := ih₂ b
       exact ⟨rfl, rfl⟩
+  | call hc _ hr ih => cases h₂ with
+    | call hc' b hr' =>
+      rw [hc] at hc'; cases hc'
+      obtain ⟨rfl, rfl⟩ := ih b
+      rw [hr] at hr'; cases hr'
+      exact ⟨rfl, rfl⟩
 
 theorem Exec.block_iff {is : List M.Instr} {s s' : M.State} {t : List Leak} :
     Exec M (.block is) s t s' ↔ execBlock M is s = some (s', t) :=
@@ -132,12 +138,21 @@ theorem ConstantTime.of_silent {Pre : M.State → Prop} {Pub : M.State → M.Sta
     ConstantTime M Pre Pub c :=
   .of_leakage (fun _ => []) h (fun _ _ _ _ _ => rfl)
 
-/-- The instructions of structured code. -/
+/-- The instructions of structured code, and of the functions it calls. -/
 def instrs {I C : Type} : Code I C → List I
   | .block is => is
   | .seq a b => instrs a ++ instrs b
   | .ite _ t e => instrs t ++ instrs e
   | .loop b _ => instrs b
+  | .call _ b => instrs b
+
+/-- Whether code calls no function. -/
+def Code.noCalls {I C : Type} : Code I C → Bool
+  | .block _ => true
+  | .seq a b => a.noCalls && b.noCalls
+  | .ite _ t e => t.noCalls && e.noCalls
+  | .loop b _ => b.noCalls
+  | .call _ _ => false
 
 /-- `(instrs c).all p`, without building the list of instructions, which is
 much faster for the kernel to evaluate (`decide +kernel`). -/
@@ -146,6 +161,7 @@ def Code.allInstrs {I C : Type} (p : I → Bool) : Code I C → Bool
   | .seq a b => a.allInstrs p && b.allInstrs p
   | .ite _ t e => t.allInstrs p && e.allInstrs p
   | .loop b _ => b.allInstrs p
+  | .call _ b => b.allInstrs p
 
 theorem Code.allInstrs_eq {I C : Type} (p : I → Bool) (c : Code I C) :
     c.allInstrs p = (instrs c).all p := by

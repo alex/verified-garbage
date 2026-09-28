@@ -125,7 +125,9 @@ def x86State : X86.State where
 #guard (X86.abi.args [32, 64, 32]).map (· x86State) ==
   some [0x07060504, 0x0f0e0d0c0b0a0908, 0x13121110]
 #guard X86.abi.argArea [32, 64, 32] x86State == [(⟨0x104, 16⟩, true)]
-#guard X86.abi.reserved x86State == [⟨0x100, 4⟩]
+#guard X86.abi.reserved 0 x86State == [⟨0x100, 4⟩]
+-- A function whose calls use 12 bytes of stack: the 12 bytes below `esp` too.
+#guard X86.abi.reserved 12 x86State == [⟨0x100, 4⟩, ⟨0xf4, 12⟩]
 #guard X86.abi.ret x86State == 0x0000000200000001
 
 end VG.Test.Abi

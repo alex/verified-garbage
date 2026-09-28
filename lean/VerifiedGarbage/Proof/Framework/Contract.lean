@@ -69,11 +69,11 @@ macro_rules
   | `(tactic| sig_unfold [$ls,*] $[$loc]?) => `(tactic| (
       set_option linter.unusedSimpArgs false in
       dsimp only [$ls,*, Sig.contract, Sig.words, Param.words, List.flatMap, List.flatten,
-        List.map, List.append, ArgWord.bits, IntTy.bits, Sig.retBits] $[$loc]?
+        List.map, List.append, ArgWord.bits, IntTy.bits, Sig.retBits, stackBelow] $[$loc]?
       set_option linter.unusedSimpArgs false in
       simp [$ls,*, Sig.bufs, Elem.size, List.pairwise_cons, Curry.apply, Curry.apply_const, Curry.const,
         ArgWord.ofRaw, -BitVec.toNat_setWidth, BitVec.toNat_setWidth_32_64,
-        BitVec.setWidth_32_64_32, Param.pubs] $[$loc]?))
+        BitVec.setWidth_32_64_32, Param.pubs, stackBelow] $[$loc]?))
 
 /-- Proves `∀ s, k'.pre s → k.pre s`, for `k'` built with `Sig.contract`. -/
 syntax "implies_pre " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic

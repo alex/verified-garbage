@@ -27,6 +27,9 @@ Modelling choices:
   instruction faults. Memory is little-endian.
 * Instructions whose timing depends on their operands (e.g. `div`) must never
   be added: the constant-time leakage model assumes they do not exist.
+* Calls (`call`) and returns (`ret`) are near and direct (SDM Vol. 2, "CALL",
+  "RET"). The return addresses are the next of the state's `unknowns`,
+  which nothing constrains (see `TCB/Code.lean`).
 -/
 
 namespace VG.X86
@@ -46,6 +49,10 @@ structure State where
   rd : List Region
   /-- Regions the code may read and write. -/
   wr : List Region
+  /-- Values the model does not know, used in order: the return address each
+  call stores and, on the ARM targets, what a linker veneer may leave in the
+  intra-procedure-call scratch registers (see `TCB/Code.lean`). -/
+  unknowns : Nat → BitVec 32 := fun _ => 0
 
 /-- A memory operand `[base + disp]`. -/
 structure MemOp where
@@ -237,6 +244,31 @@ def eval : Cond → State → Option Bool
   | .b, s => s.cf
   | .ae, s => s.cf.map (!·)
 
+/-- SDM Vol. 2, "CALL", near call with a 32-bit operand size: `ESP := ESP −
+4; Memory[ESP] := EIP` (`Push(EIP)`, where `EIP` is the address of the next
+instruction), then the jump. No flags are affected. The return address is
+the next of the state's. -/
+def call (s : State) : Option State :=
+  let sp := s.gpr .esp - 4
+  some { s.setReg .esp sp with
+    mem := s.mem.writeW (sp.setWidth 64) (s.unknowns 0)
+    unknowns := fun n => s.unknowns (n + 1) }
+
+/-- SDM Vol. 2, "RET", near return with a 32-bit operand size: `EIP :=
+Pop()`, i.e. `EIP := Memory[ESP]; ESP := ESP + 4`. No flags are affected. It
+returns after the call instruction if `ESP` and the return address at
+`[ESP]` are those the call left (`s₁`); otherwise the model faults. -/
+def ret (s₁ s₂ : State) : Option State :=
+  if s₂.gpr .esp = s₁.gpr .esp ∧
+      s₂.mem.readW ((s₂.gpr .esp).setWidth 64) 32 = s₁.mem.readW ((s₁.gpr .esp).setWidth 64) 32 then
+    some (s₂.setReg .esp (s₂.gpr .esp + 4))
+  else none
+
+/-- The register an instruction writes, if any. -/
+def Instr.dst : Instr → Option Reg
+  | .mov d _ | .alu _ d _ | .shift _ d _ | .bswap d | .movzx8 d _ => some d
+  | .store .. | .store8 .. => none
+
 abbrev isa : ISA where
   State := State
   Instr := Instr
@@ -244,5 +276,10 @@ abbrev isa : ISA where
   exec := exec
   addrs := addrs
   eval := eval
+  call := call
+  callAddrs s := [(s.gpr .esp - 4).setWidth 64]
+  ret := ret
+  retAddrs s := [(s.gpr .esp).setWidth 64]
+  writesSp i := i.dst == some .esp
 
 end VG.X86
