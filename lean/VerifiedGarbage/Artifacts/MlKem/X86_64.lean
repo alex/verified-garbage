@@ -8,6 +8,7 @@ import VerifiedGarbage.Proof.MlKem.X86_64.DecodeDecompress
 import VerifiedGarbage.Proof.MlKem.X86_64.CheckEk
 import VerifiedGarbage.Proof.MlKem.X86_64.Mul
 import VerifiedGarbage.Proof.MlKem.X86_64.NttInv
+import VerifiedGarbage.Proof.MlKem.X86_64.SampleCT
 
 /-!
 # ML-KEM (FIPS 203) on x86-64: the polynomial primitives and ML-KEM-768
@@ -57,6 +58,13 @@ def artifacts : List Artifact := [
     code := Impl.MlKem.X86_64.multiplyNTTs
     contract := Spec.MlKem.mulContract X86_64.abi
     verified := Proof.MlKem.X86_64.mul_verified },
+  { Spec.MlKem.sampleNTTApi with
+    target := X86_64.target
+    doc := Spec.MlKem.sampleNTTApi.doc
+    code := Impl.MlKem.X86_64.sampleNTT
+    contract := Spec.MlKem.sampleNTTContract X86_64.abi 16
+    stack := 16
+    verified := Proof.MlKem.X86_64.sample_verified },
   { Spec.MlKem.encode12Api with
     target := X86_64.target
     doc := Spec.MlKem.encode12Api.doc
