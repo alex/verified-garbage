@@ -4,6 +4,7 @@ import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Gcm.Contract
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # AES counter mode on AArch64: the whole function
@@ -210,18 +211,8 @@ theorem ctrSetup_ok {s : State} {b ctr : Addr} (hb : s.gpr .x5 = b) (hc : s.gpr 
   simp only [setupMem, Mem.writeW, Mem.readW, BitVec.setWidth_eq, sw_32]
 
 theorem c_off (base : Addr) {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
-    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
-  simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, BitVec.toNat_ofNat,
-    Nat.mod_eq_of_lt ho]
-  omega
-
-theorem sep_off (b : Addr) {x n y k : Nat} (h : x + n ≤ y ∨ y + k ≤ x) (hx : x + n < 2 ^ 64)
-    (hy : y + k < 2 ^ 64) : Mem.Sep (b + BitVec.ofNat 64 x) n (b + BitVec.ofNat 64 y) k := by
-  intro z h₁ h₂
-  have e1 : (BitVec.ofNat 64 x).toNat = x := by simp; omega
-  have e2 : (BitVec.ofNat 64 y).toNat = y := by simp; omega
-  rcases h with h | h <;> bv_omega
+    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n :=
+  Offset.contains_base base h ho
 
 theorem out_of_disj {r₁ r₂ : Region} (hd : r₁.Disjoint r₂) {x a : Addr} {n : Nat} (hx : r₁.Contains x 1)
     (ha : r₂.Contains a n) : ¬ (x - a).toNat < n := fun h => hd x hx (ha.byte h)
@@ -268,11 +259,11 @@ theorem setup_slots (hd : Region.Disjoint ⟨ctr, 16⟩ ⟨b, 2048⟩) :
     hd.symm.sep (c_off b h (by omega)) (c_off ctr (by omega) (by omega))
   refine ⟨?_, ?_, ?_⟩
   · rw [cloW, Mem.readW_writeW_sep (t (by omega)) (by decide),
-      Mem.readW_writeW_sep (sep_off b (by omega) (by omega) (by omega)) (by decide),
-      Mem.readW_writeW_sep (sep_off b (by omega) (by omega) (by omega)) (by decide),
+      Mem.readW_writeW_sep (Offset.sep b (by omega) (by omega) (by omega)) (by decide),
+      Mem.readW_writeW_sep (Offset.sep b (by omega) (by omega) (by omega)) (by decide),
       Mem.readW_writeW_self64]
   · rw [chiW, Mem.readW_writeW_sep (t (by omega)) (by decide),
-      Mem.readW_writeW_sep (sep_off b (by omega) (by omega) (by omega)) (by decide),
+      Mem.readW_writeW_sep (Offset.sep b (by omega) (by omega) (by omega)) (by decide),
       Mem.readW_writeW_self64]
   · rw [numW, Mem.readW_writeW_sep (t (by omega)) (by decide), Mem.readW_writeW_self32]
 
@@ -460,7 +451,7 @@ theorem correct {s₀ : State} (hp : Proof.Aes.ctr32AArch64.pre s₀) :
       x2 := by
         rw [x2₃, o₂ _ (by decide), g₁]
         simp only [R]
-        bv_omega
+        exact Offset.add_one_eq _
       x0 := by rw [x0₃, o₂ _ (by decide), o₂ _ (by decide), g₁, shl4]
       x1 := by rw [x1₃, o₂ _ (by decide), g₁]; simp [keyAddr, sb]
       rd := rfl
@@ -491,13 +482,13 @@ theorem correct {s₀ : State} (hp : Proof.Aes.ctr32AArch64.pre s₀) :
     intro x lx h1 h2 r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
-    · exact off_disjoint _ (by omega) (by omega) (by omega)
-    · exact off_disjoint _ (by omega) (by omega) (by omega)
+    · exact Offset.disjoint _ (by omega) (by omega) (by omega)
+    · exact Offset.disjoint _ (by omega) (by omega) (by omega)
   have cd : ∀ {x lx}, x + lx ≤ 16 → ∀ r ∈ [(⟨s₀.gpr .x5, 8 * 59⟩ : Region)],
       Region.Disjoint ⟨s₀.gpr .x2 + BitVec.ofNat 64 x, lx⟩ r := by
     intro x lx h r hr
     simp only [List.mem_singleton] at hr; subst hr
-    exact (dCS.sub_right (Region.sub_prefix (by omega))).sub_left (off_sub_base _ h (by decide))
+    exact (dCS.sub_right (Region.sub_prefix (by omega))).sub_left (Offset.sub_base _ h)
   obtain ⟨sl₁, sl₂, sl₃⟩ := setup_slots (m := s₁.mem) (N := s₁.gpr .x4) dCS
   rw [← m₂, ← m₃] at sl₁ sl₂ sl₃
   have clo₅ : cloW s₅.mem (s₀.gpr .x5) = s₀.mem.readW (s₀.gpr .x2) 64 := by
@@ -563,14 +554,14 @@ theorem correct {s₀ : State} (hp : Proof.Aes.ctr32AArch64.pre s₀) :
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
-      · exact off_disjoint _ (by omega) (by omega) (by omega)
+      · exact Offset.disjoint _ (by omega) (by omega) (by omega)
       · exact (dCS.sub_right (scr_sub _ (by omega))).symm
     · exact kd (by omega) (by omega)
     · intro r hr
       simp only [gRegions, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl
       · exact (scr_disj _ (by omega) (by omega)).symm
-      · exact off_disjoint _ (by omega) (by omega) (by omega)
+      · exact Offset.disjoint _ (by omega) (by omega) (by omega)
       · exact (dDS.sub_right (scr_sub _ (by omega))).symm
   obtain ⟨s₇, h₇, rg₇, fR⟩ :=
     restore_ok (by rw [gd.wr, wr₅, d₄.wr, wr₃, wr₂, wr₁]; exact hwS) gd.base (by decide) sv

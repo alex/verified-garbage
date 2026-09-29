@@ -48,9 +48,17 @@ theorem ofDwords_dword (x : BitVec 128) :
   apply BitVec.eq_of_getLsbD_eq; intro i hi
   rw [getLsbD_ofDwords]
   simp only [getLsbD_dword]
-  rcases (by omega : i < 32 ∨ (32 ≤ i ∧ i < 64) ∨ (64 ≤ i ∧ i < 96) ∨ 96 ≤ i) with h | h | h | h <;>
-  simp (disch := omega) only [ite_eq_left, ite_eq_right, decide_eq_true, Bool.true_and] <;>
-  exact congrArg _ (by omega)
+  by_cases h1 : i < 32
+  · simp only [h1, ite_true, decide_true, Bool.true_and] <;> exact congrArg _ (by omega)
+  by_cases h2 : i < 64
+  · simp only [h1, show i - 32 < 32 by omega, ite_true, ite_false, decide_true,
+      Bool.true_and] <;> exact congrArg _ (by omega)
+  by_cases h3 : i < 96
+  · simp only [h1, show ¬ i - 32 < 32 by omega, show i - 32 - 32 < 32 by omega, ite_true, ite_false,
+      decide_true, Bool.true_and] <;> exact congrArg _ (by omega)
+  · simp only [h1, show ¬ i - 32 < 32 by omega, show ¬ i - 32 - 32 < 32 by omega,
+      show i - 32 - 32 - 32 < 32 by omega, ite_false, decide_true, Bool.true_and] <;>
+      exact congrArg _ (by omega)
 
 /-- Two values are equal if their doublewords are. -/
 theorem ext_dword {x y : BitVec 128} (h0 : dword x 0 = dword y 0) (h1 : dword x 1 = dword y 1)
@@ -66,18 +74,34 @@ theorem punpcklqdq_eq (a b : BitVec 128) :
   apply BitVec.eq_of_getLsbD_eq; intro i hi
   simp only [XBinOp.eval, qword, getLsbD_ofDwords, getLsbD_dword, BitVec.getLsbD_append,
     BitVec.getLsbD_extractLsb']
-  rcases (by omega : i < 32 ∨ (32 ≤ i ∧ i < 64) ∨ (64 ≤ i ∧ i < 96) ∨ 96 ≤ i) with h | h | h | h <;>
-  simp (disch := omega) only [ite_eq_left, ite_eq_right, decide_eq_true, Bool.true_and] <;>
-  exact congrArg _ (by omega)
+  by_cases h1 : i < 32
+  · simp only [h1, ite_true, decide_true, Bool.true_and, show i < 64 by omega] <;> exact congrArg _ (by omega)
+  by_cases h2 : i < 64
+  · simp only [h1, show i - 32 < 32 by omega, ite_true, ite_false, decide_true,
+      Bool.true_and, h2] <;> exact congrArg _ (by omega)
+  by_cases h3 : i < 96
+  · simp only [h1, show ¬ i - 32 < 32 by omega, show i - 32 - 32 < 32 by omega, ite_true, ite_false,
+      decide_true, Bool.true_and, h2, show i - 64 < 64 by omega] <;> exact congrArg _ (by omega)
+  · simp only [h1, show ¬ i - 32 < 32 by omega, show ¬ i - 32 - 32 < 32 by omega,
+      show i - 32 - 32 - 32 < 32 by omega, ite_false, decide_true, Bool.true_and, h2, show i - 64 < 64 by omega] <;>
+      exact congrArg _ (by omega)
 
 theorem punpckhqdq_eq (a b : BitVec 128) :
     XBinOp.eval .punpckhqdq a b = ofDwords (dword a 2) (dword a 3) (dword b 2) (dword b 3) := by
   apply BitVec.eq_of_getLsbD_eq; intro i hi
   simp only [XBinOp.eval, qword, getLsbD_ofDwords, getLsbD_dword, BitVec.getLsbD_append,
     BitVec.getLsbD_extractLsb']
-  rcases (by omega : i < 32 ∨ (32 ≤ i ∧ i < 64) ∨ (64 ≤ i ∧ i < 96) ∨ 96 ≤ i) with h | h | h | h <;>
-  simp (disch := omega) only [ite_eq_left, ite_eq_right, decide_eq_true, Bool.true_and] <;>
-  exact congrArg _ (by omega)
+  by_cases h1 : i < 32
+  · simp only [h1, ite_true, decide_true, Bool.true_and, show i < 64 by omega] <;> exact congrArg _ (by omega)
+  by_cases h2 : i < 64
+  · simp only [h1, show i - 32 < 32 by omega, ite_true, ite_false, decide_true,
+      Bool.true_and, h2] <;> exact congrArg _ (by omega)
+  by_cases h3 : i < 96
+  · simp only [h1, show ¬ i - 32 < 32 by omega, show i - 32 - 32 < 32 by omega, ite_true, ite_false,
+      decide_true, Bool.true_and, h2, show i - 64 < 64 by omega] <;> exact congrArg _ (by omega)
+  · simp only [h1, show ¬ i - 32 < 32 by omega, show ¬ i - 32 - 32 < 32 by omega,
+      show i - 32 - 32 - 32 < 32 by omega, ite_false, decide_true, Bool.true_and, h2, show i - 64 < 64 by omega] <;>
+      exact congrArg _ (by omega)
 
 theorem shufDwords_b1 (a : BitVec 128) :
     shufDwords a 0xb1 = ofDwords (dword a 1) (dword a 0) (dword a 3) (dword a 2) := rfl
@@ -90,10 +114,19 @@ theorem alignRight_4 (a b : BitVec 128) :
   apply BitVec.eq_of_getLsbD_eq; intro i hi
   have e : (4 : BitVec 8).toNat * 8 = 32 := rfl
   simp only [alignRight, e, getLsbD_ofDwords, getLsbD_dword, BitVec.getLsbD_append,
-    BitVec.getLsbD_extractLsb', BitVec.getLsbD_ushiftRight]
-  rcases (by omega : i < 32 ∨ (32 ≤ i ∧ i < 64) ∨ (64 ≤ i ∧ i < 96) ∨ 96 ≤ i) with h | h | h | h <;>
-  simp (disch := omega) only [ite_eq_left, ite_eq_right, decide_eq_true, Bool.true_and] <;>
-  exact congrArg _ (by omega)
+    BitVec.getLsbD_extractLsb', BitVec.getLsbD_ushiftRight, decide_eq_true hi, Bool.true_and,
+    Nat.zero_add]
+  by_cases h1 : i < 32
+  · simp only [h1, ite_true, decide_true, Bool.true_and, show 32 + i < 128 by omega] <;> exact congrArg _ (by omega)
+  by_cases h2 : i < 64
+  · simp only [h1, show i - 32 < 32 by omega, ite_true, ite_false, decide_true,
+      Bool.true_and, show 32 + i < 128 by omega] <;> exact congrArg _ (by omega)
+  by_cases h3 : i < 96
+  · simp only [h1, show ¬ i - 32 < 32 by omega, show i - 32 - 32 < 32 by omega, ite_true, ite_false,
+      decide_true, Bool.true_and, show 32 + i < 128 by omega] <;> exact congrArg _ (by omega)
+  · simp only [h1, show ¬ i - 32 < 32 by omega, show ¬ i - 32 - 32 < 32 by omega,
+      show i - 32 - 32 - 32 < 32 by omega, ite_false, decide_true, Bool.true_and, show ¬ 32 + i < 128 by omega] <;>
+      exact congrArg _ (by omega)
 
 theorem movq_const (c : BitVec 128) :
     XBinOp.eval .punpcklqdq ((0 : BitVec 64) ++ c.extractLsb' 0 64)
@@ -118,10 +151,26 @@ theorem getLsbD_append_block {w n : Nat} (x : BitVec w) (y : BitVec n) (k : Nat)
 theorem getLsbD_ofBytes (f : Nat → BitVec 8) {k r : Nat} (hk : k < 16) (hr : r < 8) :
     (ofBytes f).getLsbD (8 * k + r) = (f k).getLsbD r := by
   simp only [ofBytes, getLsbD_append_block _ _ _ hr]
-  rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨
-    k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 ∨ k = 15) with
-    h | h | h | h | h | h | h | h | h | h | h | h | h | h | h | h <;> subst h <;>
-  simp only [↓reduceIte, Nat.reduceSub, Nat.reduceEqDiff, Nat.mul_zero, Nat.zero_add]
+  match k, hk with
+  | 0, _ => ?_
+  | 1, _ => ?_
+  | 2, _ => ?_
+  | 3, _ => ?_
+  | 4, _ => ?_
+  | 5, _ => ?_
+  | 6, _ => ?_
+  | 7, _ => ?_
+  | 8, _ => ?_
+  | 9, _ => ?_
+  | 10, _ => ?_
+  | 11, _ => ?_
+  | 12, _ => ?_
+  | 13, _ => ?_
+  | 14, _ => ?_
+  | 15, _ => ?_
+  | _ + 16, h => exact absurd h (by omega)
+  all_goals
+    simp only [↓reduceIte, Nat.reduceSub, Nat.reduceEqDiff, Nat.mul_zero, Nat.zero_add]
 
 theorem pshufb_bswap_bytes (a : BitVec 128) :
     XBinOp.eval .pshufb a 0x0c0d0e0f08090a0b0405060700010203#128 =
@@ -162,12 +211,28 @@ theorem pshufb_bswap (a : BitVec 128) :
   rw [getLsbD_ofBytes _ hk hr, show 8 * k + r = 32 * (k / 4) + (8 * (k % 4) + r) by omega,
     getLsbD_ofDwords_block _ _ _ _ (by omega) (by omega)]
   simp only [getLsbD_bswap32_block _ (Nat.mod_lt k (by decide : 4 > 0)) hr]
-  rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨
-    k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 ∨ k = 15) with
-    h | h | h | h | h | h | h | h | h | h | h | h | h | h | h | h <;> subst h <;>
-  simp (disch := omega) only [↓reduceIte, Nat.reduceSub, Nat.reduceDiv, Nat.reduceMod, Nat.reduceEqDiff,
-    Nat.reduceAdd, Nat.reduceMul, ← Nat.add_assoc, byte, dword, BitVec.getLsbD_extractLsb',
-    decide_eq_true, Bool.true_and]
+  match k, hk with
+  | 0, _ => ?_
+  | 1, _ => ?_
+  | 2, _ => ?_
+  | 3, _ => ?_
+  | 4, _ => ?_
+  | 5, _ => ?_
+  | 6, _ => ?_
+  | 7, _ => ?_
+  | 8, _ => ?_
+  | 9, _ => ?_
+  | 10, _ => ?_
+  | 11, _ => ?_
+  | 12, _ => ?_
+  | 13, _ => ?_
+  | 14, _ => ?_
+  | 15, _ => ?_
+  | _ + 16, h => exact absurd h (by omega)
+  all_goals
+    simp (disch := omega) only [↓reduceIte, Nat.reduceSub, Nat.reduceDiv, Nat.reduceMod, Nat.reduceEqDiff,
+      Nat.reduceAdd, Nat.reduceMul, ← Nat.add_assoc, byte, dword, BitVec.getLsbD_extractLsb',
+      decide_eq_true, Bool.true_and]
 
 theorem getLsbD_read (m : Mem) (a : Addr) {n i : Nat} (hi : i < 8 * n) :
     (m.read a n).getLsbD i = (m (a + BitVec.ofNat 64 (i / 8))).getLsbD (i % 8) := by
@@ -180,7 +245,7 @@ theorem getLsbD_read (m : Mem) (a : Addr) {n i : Nat} (hi : i < 8 * n) :
     · simp only [h, ite_false]
       refine (ih (a + 1) (by omega)).trans ?_
       rw [show a + BitVec.ofNat 64 (i / 8) = a + 1 + BitVec.ofNat 64 ((i - 8) / 8) by
-        rw [show i / 8 = (i - 8) / 8 + 1 by omega]; bv_omega]
+        rw [show i / 8 = (i - 8) / 8 + 1 by omega, Offset.add_ofNat_succ]]
       exact congrArg _ (by omega)
 
 theorem dword_readW (m : Mem) (a : Addr) {j : Nat} (hj : j < 4) :
@@ -191,7 +256,7 @@ theorem dword_readW (m : Mem) (a : Addr) {j : Nat} (hj : j < 4) :
   · simp only [h, decide_true, Bool.true_and]
     rw [getLsbD_read _ _ (by omega), getLsbD_read _ _ (by omega)]
     rw [show a + BitVec.ofNat 64 ((32 * j + i) / 8) = a + BitVec.ofNat 64 (4 * j) + BitVec.ofNat 64 (i / 8) by
-      rw [show (32 * j + i) / 8 = 4 * j + i / 8 by omega]; bv_omega]
+      rw [show (32 * j + i) / 8 = 4 * j + i / 8 by omega, BitVec.ofNat_add, BitVec.add_assoc]]
     rw [decide_eq_true (by omega), Bool.true_and]; exact congrArg _ (by omega)
   · simp [h]
 
@@ -203,7 +268,7 @@ theorem readW_writeW128 (m : Mem) (a : Addr) (v : BitVec 128) {j : Nat} (hj : j 
   rw [getLsbD_read _ _ (by omega)]
   simp only [Mem.writeW, Mem.write]
   rw [show a + BitVec.ofNat 64 (4 * j) + BitVec.ofNat 64 (i / 8) - a = BitVec.ofNat 64 (4 * j + i / 8) by
-    bv_omega]
+    rw [BitVec.add_assoc, ← BitVec.ofNat_add, Offset.add_sub_cancel_left]]
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   simp only [show 4 * j + i / 8 < 128 / 8 by omega, ite_true, BitVec.getLsbD_extractLsb', BitVec.getLsbD_setWidth]
   rw [decide_eq_true (by omega), decide_eq_true (by omega), Bool.true_and, Bool.true_and]

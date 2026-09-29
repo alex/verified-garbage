@@ -2,6 +2,8 @@ import VerifiedGarbage.Impl.Gcm.X86_64
 import VerifiedGarbage.Proof.Framework.X86_64.Bswap
 import VerifiedGarbage.Proof.Gcm.Bits
 import VerifiedGarbage.Proof.Gcm.Spec
+import VerifiedGarbage.Proof.Framework.PowLit
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # GHASH on x86-64: shifting a block left, and loading blocks
@@ -10,6 +12,8 @@ Untrusted: everything here is checked by Lean. What `add`, `adc` and `sbb`
 compute on the two halves of a 128-bit value (`Impl.Gcm.X86_64.hInv`), and
 big-endian blocks as two `bswap`ped loads.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Gcm.X86_64
 
@@ -56,7 +60,7 @@ theorem blockAt_bswap (m : Mem) (p : Addr) :
     X86_64.bswap64 (m.readW (p + BitVec.ofNat 64 0) 64) ++
       X86_64.bswap64 (m.readW (p + BitVec.ofNat 64 8) 64) = Spec.Gcm.blockAt m p := by
   have e : ∀ j : Nat, j < 15 → p + BitVec.ofNat 64 j + 1 = p + BitVec.ofNat 64 (j + 1) :=
-    fun j hj => by bv_omega
+    fun j hj => by bv_omega_using []
   rw [X86_64.bswap64_readW, X86_64.bswap64_readW, e 0 (by omega), e 1 (by omega), e 2 (by omega),
     e 3 (by omega), e 4 (by omega), e 5 (by omega), e 6 (by omega), e 8 (by omega), e 9 (by omega),
     e 10 (by omega), e 11 (by omega), e 12 (by omega), e 13 (by omega), e 14 (by omega),

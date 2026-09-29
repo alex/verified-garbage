@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MdStream.X86_64.Common
+import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
 
 /-!
 # Streaming Merkle–Damgård hash functions on x86-64: `update`
@@ -62,7 +63,9 @@ theorem pre_of {s₀ : State} (h : (updK H).pre s₀) : Pre P s₀ := by
 
 /-- The return address and the 8 bytes below it. -/
 theorem ret_stk (s₀ : State) : (retR s₀).Disjoint (stkR s₀) := by
-  intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+  have := Offset.disjoint_base (s₀.gpr .rsp - BitVec.ofNat 64 8) (d := 8) (n := 8) (k := 8)
+    (Nat.le_refl _) (by omega)
+  rwa [BitVec.sub_add_cancel] at this
 
 theorem R₀.length (hd : Dims P) {s₀ : State} {iv : H.HV} {m : List Byte} (h : R₀ H s₀ iv m) :
     cnt s₀ % P.B = m.length % P.B := by
@@ -137,7 +140,8 @@ theorem prologue_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) :
     State.store64, o0, o1, o2, o3, o4, o5, ite_true, Option.bind_some, Option.map_some,
     Option.some.injEq, exists_eq_left']
   refine inv_zero hd hp rfl rfl rfl ?_ ?_ ?_ ?_ ?_ ?_ <;>
-    simp (config := {decide := true}) [State.setReg, arithFlags, State.setFlags, and_mask hd.B]
+    simp (config := {decide := true}) only [RegUpd.gpr_setReg_self, RegUpd.gpr_setReg_of_ne,
+      RegUpd.gpr_arithFlags, not_false_eq_true, and_mask hd.B]
 
 set_option simprocs false in
 theorem epilogue_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {s : State} (hI : Inv H s₀ (len s₀) s) :
@@ -240,7 +244,7 @@ theorem Pending.callOk (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} 
   refine ⟨h.rbx, h.r15, rfl, (hp.st_scr.sub_left eN).sub_right eso, ?_, ?_,
     by rw [hsp]; exact hp.stk_st.sub_right eN, by rw [hsp]; exact hp.stk_scr.sub_right eso, ?_, ?_, ?_⟩
   · rcases h.src with h' | ⟨c₀, h', hc₀⟩
-    · rw [h']; intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+    · rw [h']; exact Offset.disjoint_base _ (Nat.le_refl _) (by omega)
     · exact (hp.d_st.sub_left (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))).sub_right eN
   · rcases eSrc with e | e
     · exact (hp.st_scr.sub_left e).sub_right eso
@@ -299,7 +303,7 @@ theorem Pending.compress_ok (hd : Dims P) {name : String} {code : Prog isa} (hf 
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
       rcases hr' with rfl | rfl | rfl
       · exact (hp.st_scr.symm.sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))).sub_right eN
-      · intro a h₁ h₂; simp only [Region.Contains, ofInt_natCast] at h₁ h₂; bv_omega
+      · rw [ofInt_natCast]; exact Offset.disjoint_base _ (by omega) (by omega)
       · rw [hsp]
         exact hp.stk_scr.symm.sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))
     rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;>
@@ -375,13 +379,15 @@ theorem direct_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {s : 
     Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
   have hlen := len_lt s₀
   refine ⟨⟨⟨by omega, hI.rd, hI.wr, ?_, ?_, ?_, ?_, ?_, hI.frame, hI.saved⟩, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩ <;>
-    try simp (config := {decide := true}) only [State.setReg, State.setReg32, arithFlags, State.setFlags,
-      ite_false, ite_true, sB, hrbp, hr12, hr13, hr]
+    try simp (config := {decide := true}) only [State.setReg32, RegUpd.gpr_setReg_self,
+      RegUpd.gpr_setReg_of_ne, RegUpd.gpr_arithFlags, RegUpd.mem_setReg, RegUpd.mem_arithFlags,
+      not_false_eq_true, sB, hrbp, hr12, hr13, hr]
   · exact hI.rbx
   · exact hI.r15
   · exact hI.rsp
-  · bv_omega
-  · bv_omega
+  · rw [BitVec.add_assoc, ← BitVec.ofNat_add]
+  · rw [show BitVec.ofNat 64 (len s₀ - c) = BitVec.ofNat 64 (len s₀ - (c + P.B)) + BitVec.ofNat 64 P.B by
+      rw [← BitVec.ofNat_add]; exact congrArg _ (by omega), BitVec.add_sub_cancel]
   · rw [← Nat.add_assoc, Nat.add_mod_right]; exact hr
   · exact .inr ⟨c, rfl, by omega⟩
   · intro iv m hm mem' hs

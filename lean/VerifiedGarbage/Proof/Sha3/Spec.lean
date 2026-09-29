@@ -31,7 +31,7 @@ theorem rhoOff_lt : ∀ j < 25, rhoOff j < 64 := by decide
 theorem rotateLeft_zero (x : Lane) : x.rotateLeft 0 = x := by
   ext i hi
   simp only [BitVec.getElem_rotateLeft]
-  split <;> (try congr 1) <;> omega
+  split <;> first | (exfalso; omega) | exact getElem_congr rfl (by omega) _
 
 theorem rho_get (A : State) {j : Nat} (hj : j < 25) :
     (rho A)[j] = A[j].rotateLeft (rhoOff j) := by
@@ -64,7 +64,7 @@ theorem rotateLeft_eq (x : Lane) {k : Nat} (hk : 0 < k) (hk' : k < 64) :
     x.rotateLeft k = x.rotateRight (64 - k) := by
   ext i hi
   simp only [BitVec.getElem_rotateLeft, BitVec.getElem_rotateRight]
-  split <;> split <;> (try congr 1) <;> omega
+  split <;> split <;> first | (exfalso; omega) | exact getElem_congr rfl (by omega) _
 
 theorem rotl_eq (v : Lane) {k : Nat} (hk : k < 64) : rotl v k = v.rotateLeft k := by
   unfold rotl

@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Poly1305.Spec
-import Mathlib.Tactic.Conv
+import VerifiedGarbage.Proof.Framework.PowLit
+import VerifiedGarbage.Proof.Framework.WriteBytes
 
 /-!
 # Poly1305: the streaming state, for every target
@@ -8,6 +9,8 @@ Untrusted: everything here is checked by Lean. Counters, bytes written to
 memory, and a message with its last bytes buffered (`Buffered`) as its whole
 blocks and the rest.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305
 
@@ -23,8 +26,8 @@ theorem ofNat_pred {k : Nat} (h : 1 ≤ k) : BitVec.ofNat 64 k - 1 = BitVec.ofNa
 
 theorem sub_ofNat {a b : Nat} (h : b ≤ a) :
     BitVec.ofNat 64 a - BitVec.ofNat 64 b = BitVec.ofNat 64 (a - b) := by
-  conv_lhs => rw [show a = (a - b) + b by omega, BitVec.ofNat_add]
-  rw [BitVec.add_sub_cancel]
+  rw [show BitVec.ofNat 64 a = BitVec.ofNat 64 (a - b) + BitVec.ofNat 64 b by
+    rw [← BitVec.ofNat_add, Nat.sub_add_cancel h], BitVec.add_sub_cancel]
 
 theorem ofNat_beq_zero {k : Nat} (h : k < 2 ^ 64) : (BitVec.ofNat 64 k == 0) = decide (k = 0) := by
   by_cases hk : k = 0
@@ -50,18 +53,8 @@ theorem sub_beq {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
 
 /-! ## Bytes in memory -/
 
-theorem writeW8_apply (m : Mem) (a x : Addr) (v : Byte) :
-    (m.writeW a v) x = if x = a then v else m x := by
-  simp only [Mem.writeW, Mem.write]
-  by_cases h : x = a
-  · subst h; simp
-  · have : ¬ (x - a).toNat < 8 / 8 := by
-      intro h'
-      apply h
-      have h0 : (x - a).toNat = 0 := by omega
-      have := BitVec.eq_of_toNat_eq (x := x - a) (y := 0) (by rw [h0]; rfl)
-      bv_omega
-    simp only [this, h, ↓reduceIte]
+export VG.WriteBytes (writeBytes writeBytes_nil writeW8_apply writeBytes_snoc writeBytes_before
+  writeBytes_frame)
 
 theorem writeW64_zero_apply (m : Mem) (a x : Addr) :
     (m.writeW a (0 : BitVec 64)) x = if (x - a).toNat < 8 then 0 else m x := by
@@ -76,49 +69,6 @@ theorem bytesAt_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : 
   intro i hi
   exact hf.bytes (R := ⟨p, n⟩) hd hn (List.mem_range.mp hi)
 
-/-- `m` with the bytes `xs` written from `q` on. -/
-def writeBytes (m : Mem) (q : Addr) (xs : List Byte) : Mem :=
-  fun a => if (a - q).toNat < xs.length then xs.getD (a - q).toNat 0 else m a
-
-theorem writeBytes_nil (m : Mem) (q : Addr) : writeBytes m q [] = m := by
-  funext a; simp [writeBytes]
-
-theorem writeBytes_snoc (m : Mem) (q : Addr) (xs : List Byte) (b : Byte) (h : xs.length < 2 ^ 64) :
-    writeBytes m q (xs ++ [b]) = (writeBytes m q xs).writeW (q + BitVec.ofNat 64 xs.length) b := by
-  funext a
-  rw [writeW8_apply]
-  simp only [writeBytes, List.length_append, List.length_singleton]
-  by_cases ha : a = q + BitVec.ofNat 64 xs.length
-  · subst ha
-    rw [show q + BitVec.ofNat 64 xs.length - q = BitVec.ofNat 64 xs.length by bv_omega,
-      BitVec.toNat_ofNat, Nat.mod_eq_of_lt h]
-    simp [List.getD_eq_getElem?_getD]
-  · have hne : (a - q).toNat ≠ xs.length := by
-      intro h'
-      apply ha
-      have : a - q = BitVec.ofNat 64 xs.length :=
-        BitVec.eq_of_toNat_eq (by rw [h', BitVec.toNat_ofNat, Nat.mod_eq_of_lt h])
-      bv_omega
-    simp only [ha, ite_false]
-    by_cases hl : (a - q).toNat < xs.length
-    · simp only [show (a - q).toNat < xs.length + 1 by omega, hl, ite_true]
-      simp only [List.getD_eq_getElem?_getD, List.getElem?_append_left hl]
-    · simp only [show ¬ (a - q).toNat < xs.length + 1 by omega, hl, ite_false]
-
-/-- The bytes before `q` (within `2⁶⁴ - |xs|`) are unchanged. -/
-theorem writeBytes_before (m : Mem) (q : Addr) (xs : List Byte) {i d : Nat} (hi : i < d)
-    (h : d + xs.length < 2 ^ 64) :
-    writeBytes m (q + BitVec.ofNat 64 d) xs (q + BitVec.ofNat 64 i) = m (q + BitVec.ofNat 64 i) := by
-  simp only [writeBytes]
-  split
-  · rename_i hc
-    rw [show q + BitVec.ofNat 64 i - (q + BitVec.ofNat 64 d) = BitVec.ofNat 64 i - BitVec.ofNat 64 d by
-      bv_omega, BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := i) (by omega),
-      Nat.mod_eq_of_lt (a := d) (by omega), show 2 ^ 64 - d + i = 2 ^ 64 - (d - i) by omega,
-      Nat.mod_eq_of_lt (by omega)] at hc
-    omega
-  · rfl
-
 /-- Bytes `[0, r)` from `p` stay, and the bytes `xs` follow them. -/
 theorem bytesAt_writeBytes (m : Mem) (p : Addr) (r : Nat) (xs : List Byte) (h : r + xs.length < 2 ^ 64) :
     bytesAt (writeBytes m (p + BitVec.ofNat 64 r) xs) p (r + xs.length) = bytesAt m p r ++ xs := by
@@ -132,17 +82,9 @@ theorem bytesAt_writeBytes (m : Mem) (p : Addr) (r : Nat) (xs : List Byte) (h : 
     intro j h₁ h₂
     simp only [List.getElem_map, List.getElem_range, Function.comp, writeBytes]
     have hj : j < xs.length := by simpa using h₁
-    rw [show p + BitVec.ofNat 64 (r + j) - (p + BitVec.ofNat 64 r) = BitVec.ofNat 64 j by
-      simp only [BitVec.ofNat_add]; bv_omega, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+    rw [show p + BitVec.ofNat 64 (r + j) - (p + BitVec.ofNat 64 r) = BitVec.ofNat 64 j from
+      Offset.add_ofNat_add_sub p r j, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
     simp [hj, List.getD_eq_getElem?_getD]
-
-theorem writeBytes_frame (m : Mem) (q : Addr) (xs : List Byte) {R : Region} (hR : R.Contains q xs.length) :
-    Frame [R] m (writeBytes m q xs) := by
-  intro x hx
-  simp only [writeBytes]
-  split
-  · rename_i h; exact absurd (hR.byte h) (hx R (List.mem_singleton_self _))
-  · rfl
 
 /-! ## Whole blocks and the rest -/
 

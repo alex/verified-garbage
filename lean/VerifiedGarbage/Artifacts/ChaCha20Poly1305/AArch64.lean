@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Impl.ChaCha20Poly1305.AArch64
 import VerifiedGarbage.Proof.ChaCha20Poly1305.AArch64.Verified
+import VerifiedGarbage.Proof.ChaCha20Poly1305.AArch64.Lit
 
 /-!
 # ChaCha20-Poly1305 (RFC 8439 §2.8) on AArch64

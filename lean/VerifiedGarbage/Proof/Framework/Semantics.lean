@@ -3,6 +3,7 @@ import Batteries.Tactic.PermuteGoals
 import Batteries.Tactic.SeqFocus
 import Mathlib.Util.CompileInductive
 import VerifiedGarbage.TCB.Artifact
+import VerifiedGarbage.Proof.Framework.GetElem
 
 /-!
 # Reasoning about `Exec`: determinism, weakest preconditions, constant time
@@ -215,7 +216,7 @@ theorem Code.all_of_forall {I C : Type} {p : I → Bool} (h : ∀ i, p i = true)
   induction c <;> simp_all [Code.all]
 
 /-- `Code.all p` from `Code.allInstrs p`: for `Artifact.spSafe` on the other
-ISAs, `Code.all_of_allInstrs (by decide +kernel)` has the kernel evaluate the
+ISAs, `Code.all_of_allInstrs (by lit_decide)` has the kernel evaluate the
 faster `Code.allInstrs`. -/
 theorem Code.all_of_allInstrs {I C : Type} {p : I → Bool} {c : Code I C} (h : c.allInstrs p = true) :
     c.all p = true := by

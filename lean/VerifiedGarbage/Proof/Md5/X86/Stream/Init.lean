@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Md5.StateMem
 import VerifiedGarbage.Proof.Md5.X86.Contract
 import VerifiedGarbage.Impl.Md5.X86.Stream
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Md5.X86.Lit
 
 /-!
 # Streaming MD5 on x86 (32-bit): `init`

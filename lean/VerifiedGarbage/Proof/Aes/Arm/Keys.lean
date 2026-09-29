@@ -62,8 +62,8 @@ theorem ortho_ok' (s : State) :
   have hmem : ∀ j < 8, (q j, orthoG j) ∈ qOuts orthoG := fun j hj => by
     simp only [qOuts, List.mem_map, List.mem_range]; exact ⟨j, hj, rfl⟩
   refine ⟨s', hs', fun j hj p hp => ?_, hrd, hwr, hsp, fun r hr => hoth r ?_, frame_nil hfr⟩
-  · rw [hout _ _ (hmem j hj) p hp, orthoG, xorBits_cons, xorBits_nil, Bool.xor_false,
-      bitOf_word _ _ _ (by omega)]
+  · rw [hout _ _ (hmem j hj) p hp, orthoG, Straight.xorBits_cons, Straight.xorBits_nil, Bool.xor_false,
+      Straight.bitOf_word _ _ _ (by omega)]
   · simp [ortho_writes r hr]
 
 /-! ## Loading a round key -/

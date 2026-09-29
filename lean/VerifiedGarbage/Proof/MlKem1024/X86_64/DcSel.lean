@@ -80,8 +80,8 @@ theorem select4_ok {s : State} (hc : InRegions (s.rd ++ s.wr) (pa s (.r14, 0)) 1
   have hax : s₃.gpr .rax = if decide (bytesAt s.mem (pa s (.r14, 0)) 1568 = bytesAt s.mem (pa s (sc oCT4)) 1568) then
       BitVec.allOnes 64 else 0 := by
     rw [hax₃, hdx₂, hm₁, ← hsi₁, ← hdi₁, hsi₁, hdi₁]
-    exact if_congr (zx_eq_zero.trans ((eq_iff_foldl_or_xor (by rw [bytesAt_length, bytesAt_length])).symm.trans
-      decide_eq_true_iff.symm)) rfl rfl
+    exact ite_congr (propext (zx_eq_zero.trans ((eq_iff_foldl_or_xor (by rw [bytesAt_length, bytesAt_length])).symm.trans
+      decide_eq_true_iff.symm))) (fun _ => rfl) (fun _ => rfl)
   refine WP.mono (sel_ok s₃ _ (by rw [hrd]; exact hg) (by rw [hrd]; exact hkb) (by rw [hwr]; exact hkey) dg dkb hsi₃
     hdi₃ h8₃ hax hcx₃) fun s₄ ⟨hb, hf, k₄⟩ => ⟨?_, ?_⟩
   · refine post_of_keep ((((k₁.trans k₂).trans k₃).trans k₄).mono (rs' := [.rax, .rcx, .rdx, .rsi, .rdi, .r8, .r9, .r10])

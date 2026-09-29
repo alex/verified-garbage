@@ -61,7 +61,7 @@ def scalar : XorImpl where
   ct := scalar_ct
   nosp := Avx2.xor_nosp
   mxcsr := by decide +kernel
-  spSafe := Code.all_of_allInstrs (by decide +kernel)
+  spSafe := Code.all_of_allInstrs (by lit_decide)
   suffix := ""
   features := []
 
@@ -87,7 +87,7 @@ def avx2 : XorImpl where
   ct := avx2_ct
   nosp := avx2_nosp
   mxcsr := by decide +kernel
-  spSafe := Code.all_of_allInstrs (by decide +kernel)
+  spSafe := Code.all_of_allInstrs (by lit_decide)
   suffix := "_avx2"
   features := ["avx", "avx2"]
 

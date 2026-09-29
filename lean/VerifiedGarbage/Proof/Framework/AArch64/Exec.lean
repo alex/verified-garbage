@@ -207,7 +207,7 @@ theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c
   | loopNext _ _ _ ih₁ ih₂ => exact ih₂.trans ih₁
   | call hc _ hr ih =>
     simp only [isa, call, ret, Option.some.injEq] at hc hr
-    subst hc; split at hr <;> cases hr; exact ih
+    subst hc; obtain ⟨-, h⟩ := Option.ite_none_right_eq_some.mp hr; cases h; exact ih
   | frame hp _ hq ih =>
     obtain ⟨h₁, h₂⟩ := pop_sp hq
     rw [h₂, ih, push_sp hp, BitVec.sub_add_cancel]

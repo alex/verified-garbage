@@ -55,7 +55,7 @@ theorem q_linear {k xb : Nat} {c : Cfg} {is : List Instr} {g : Nat → Nat → L
     (hext : ∀ j < c.exts,
       32 * (xb + j) + 32 ≤ 2 ^ k ∧ W (xb + j) = s.mem.readW (wordAddr (s.gpr c.ext) j) 32) :
     ∃ s', runBlock isa is s = some s' ∧
-      (∀ j < 8, ∀ p < 32, (s'.gpr (q j)).getLsbD p = xorBits W (g j p)) ∧
+      (∀ j < 8, ∀ p < 32, (s'.gpr (q j)).getLsbD p = Straight.xorBits W (g j p)) ∧
       s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.sp = s.sp ∧ (∀ r, r ∉ layerWrites → s'.gpr r = s.gpr r) ∧
       Frame [slotRegion c s] s.mem s'.mem := by
   obtain ⟨s', hs', hout, hrd, hwr, hsp, hoth, hfr⟩ := linear_ok hchk hok W (fun r i hri => by
@@ -78,8 +78,8 @@ theorem ortho_ok {s : State} (hok : Ok linCfg s) :
   obtain ⟨s', hs', hout, rest⟩ := q_linear ortho_check (by decide) (by decide +kernel) hok (Q s)
     (fun _ _ => rfl) (fun j hj => by simp [sboxCfg] at hj)
   refine ⟨s', hs', fun j hj p hp => ?_, rest⟩
-  rw [hout j hj p hp, orthoG, xorBits_cons, xorBits_nil, Bool.xor_false,
-    bitOf_word _ _ _ (by omega)]
+  rw [hout j hj p hp, orthoG, Straight.xorBits_cons, Straight.xorBits_nil, Bool.xor_false,
+    Straight.bitOf_word _ _ _ (by omega)]
 
 theorem shiftRows_ok {s : State} (hok : Ok linCfg s) :
     ∃ s', runBlock isa shiftRows s = some s' ∧
@@ -89,8 +89,8 @@ theorem shiftRows_ok {s : State} (hok : Ok linCfg s) :
   obtain ⟨s', hs', hout, rest⟩ := q_linear shiftRows_check (by decide) (by decide +kernel) hok (Q s)
     (fun _ _ => rfl) (fun j hj => by simp [sboxCfg] at hj)
   refine ⟨s', hs', fun j hj p hp => ?_, rest⟩
-  rw [hout j hj p hp, srG, xorBits_cons, xorBits_nil, Bool.xor_false,
-    bitOf_word _ _ _ (by simp only [srSrc]; omega)]
+  rw [hout j hj p hp, srG, Straight.xorBits_cons, Straight.xorBits_nil, Bool.xor_false,
+    Straight.bitOf_word _ _ _ (by simp only [srSrc]; omega)]
 
 theorem mixColumns_ok {s : State} (hok : Ok linCfg s) :
     ∃ s', runBlock isa mixColumns s = some s' ∧
@@ -120,8 +120,9 @@ theorem addRoundKey_ok {s : State} (hok : Ok arkCfg s) :
       refine ⟨by omega, ?_⟩
       simp [W, show ¬ 8 + j < 8 by omega])
   refine ⟨s', hs', fun j hj p hp => ?_, rest⟩
-  rw [hout j hj p hp, arkG, xorBits_cons, xorBits_cons, xorBits_nil, Bool.xor_false,
-    bitOf_word _ _ _ hp, bitOf_word _ _ _ hp]
+  rw [hout j hj p hp, arkG, Straight.xorBits_cons, Straight.xorBits_cons,
+    Straight.xorBits_nil, Bool.xor_false, Straight.bitOf_word _ _ _ hp,
+    Straight.bitOf_word _ _ _ hp]
   simp [W, hj, show ¬ 8 + j < 8 by omega]
 
 end VG.Proof.Aes.Arm

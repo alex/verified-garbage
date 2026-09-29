@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Hmac.AArch64.Common
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
+import Mathlib.Tactic.ClearExcept
 
 /-!
 # HMAC-SHA-256 on AArch64: `finalize`
@@ -105,7 +106,7 @@ theorem fin_ok {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) {s : State} (hrd
     refine ⟨trivial, trivial, ?_, ?_, ?_, hs.sp16, hs.i, ?_, ?_⟩
     · exact hp.i_s.sub_right (sub176 s₀)
     · exact hp.i_s.sub_right (sub160 s₀)
-    · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+    · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; clear * - h₁ h₂; bv_omega
     · exact hs.s.sub_right (sub176 s₀)
     · exact hs.s.sub_right (sub160 s₀)
   · rw [hrd, hwr, hp.rd, hp.wr]
@@ -466,7 +467,7 @@ theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Hmac.finalizeSha256AArch64.pu
   obtain ⟨p1, p2, p3, p4, hsp⟩ := hpub
   refine ⟨hsp, fun r hr => ?_⟩
   simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl <;> assumption
+  rcases hr with rfl | rfl | rfl | rfl <;> with_reducible assumption
 
 /-- A state satisfying the precondition. -/
 def sat : State where

@@ -24,7 +24,7 @@ def artifacts : List Artifact := [
     contract := Spec.Hmac.initSha256Contract X86.abi 20
     stack := 20
     verified := Proof.Hmac.X86.Init.init_verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Hmac.finalizeSha256OutApi with
     target := X86.target
     doc := Spec.Hmac.finalizeSha256OutApi.doc
@@ -32,6 +32,6 @@ def artifacts : List Artifact := [
     contract := Spec.Hmac.finalizeSha256OutContract X86.abi 20
     stack := 20
     verified := Proof.Hmac.X86.Finalize.finalize_verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.HmacSha256.X86

@@ -265,10 +265,15 @@ theorem add_verified : Verified Arm.target Impl.MlKem.Arm.add (Spec.MlKem.addCon
       Arm.Loc.val] at h
     exact ⟨h.2.1, h.2.2⟩
   · refine ⟨satState, ?_⟩
-    sig_pre [Spec.MlKem.addContract, Spec.MlKem.accSig, Arm.abi, Arm.argRegs, Arm.reduceClassify,
-      Arm.Loc.val]
-    refine ⟨by decide, rfl, rfl, Region.disjoint_of_sep (by decide), by decide, by decide,
-      reduced_zero _, reduced_zero _⟩
+    sig_apply_check
+    · decide +kernel
+    · sig_reduce [Spec.MlKem.addContract, Spec.MlKem.accSig, Arm.abi, Arm.argRegs, Arm.reduceClassify,
+        Arm.Loc.val]
+      sig_and_intros
+      all_goals first
+        | trivial
+        | exact reduced_zero _
+        | decide +kernel
 
 theorem sub_verified : Verified Arm.target Impl.MlKem.Arm.sub (Spec.MlKem.subContract Arm.abi) := by
   refine ⟨fun s hs => ?_, ct (fun s₁ s₂ h => ?_) (by taint_decide), ?_⟩
@@ -282,9 +287,14 @@ theorem sub_verified : Verified Arm.target Impl.MlKem.Arm.sub (Spec.MlKem.subCon
       Arm.Loc.val] at h
     exact ⟨h.2.1, h.2.2⟩
   · refine ⟨satState, ?_⟩
-    sig_pre [Spec.MlKem.subContract, Spec.MlKem.accSig, Arm.abi, Arm.argRegs, Arm.reduceClassify,
-      Arm.Loc.val]
-    refine ⟨by decide, rfl, rfl, Region.disjoint_of_sep (by decide), by decide, by decide,
-      reduced_zero _, reduced_zero _⟩
+    sig_apply_check
+    · decide +kernel
+    · sig_reduce [Spec.MlKem.subContract, Spec.MlKem.accSig, Arm.abi, Arm.argRegs, Arm.reduceClassify,
+        Arm.Loc.val]
+      sig_and_intros
+      all_goals first
+        | trivial
+        | exact reduced_zero _
+        | decide +kernel
 
 end VG.Proof.MlKem.Arm.Add

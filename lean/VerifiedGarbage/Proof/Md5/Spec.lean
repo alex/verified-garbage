@@ -1,5 +1,6 @@
 import VerifiedGarbage.Spec.Md5
 import Mathlib.Tactic.SplitIfs
+import VerifiedGarbage.Proof.Framework.GetElem
 
 /-!
 # MD5: lemmas about the specification

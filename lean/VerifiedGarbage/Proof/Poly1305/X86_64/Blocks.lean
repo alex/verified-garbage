@@ -2,12 +2,15 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Setup
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
 
 /-!
 # Poly1305 on x86-64: `blocks`
 
 Untrusted: everything here is checked by Lean.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305.X86_64
 
@@ -145,8 +148,6 @@ theorem block_value {s₀ : State} (hp : BPre s₀) {m : Mem} (hf : Frame [sR (s
   have h1 : leNum [(0x01 : Byte)] = 1 := rfl
   have h2 : (1 : BitVec 32).toNat = 1 := rfl
   rw [h1, h2]
-  simp only [off]
-  omega
 
 theorem blks_succ (s₀ : State) (i : Nat) :
     blks s₀ (i + 1) = blks s₀ i ++ bytesAt s₀.mem (blkAddr s₀ i) 16 := by

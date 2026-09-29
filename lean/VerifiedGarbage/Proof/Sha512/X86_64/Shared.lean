@@ -9,7 +9,7 @@ import VerifiedGarbage.Spec.Sha512.Contract
 # Sha512 on X86_64: the shared contracts
 
 Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha512/X86_64/Contract.lean`); these theorems move
+per-target contracts (`Proof/Sha512/X86_64/Compress.lean`); these theorems move
 them to the shared contracts of `Spec/Sha512/Contract.lean`, which the
 artifacts are emitted with.
 
@@ -114,7 +114,7 @@ def finalizeSat : State :=
 theorem compress :
     Verified X86_64.target Impl.Sha512.X86_64.compress (Spec.Sha512.compressContract X86_64.abi) := by
   have hi : compressWide.Implies (Spec.Sha512.compressContract X86_64.abi) := by
-    contract_implies [Spec.Sha512.compressContract, Spec.Sha512.compressSig, compressWide,
+    sig_implies [Spec.Sha512.compressContract, Spec.Sha512.compressSig, compressWide,
       Proof.Sha512.compressX86_64, X86_64.abi, X86_64.argRegs]
       [compressSat, Proof.Sha512.X86_64.satState] using compressSat
   exact (compressWide_verified hi.sat_left).of_implies hi
@@ -129,7 +129,7 @@ theorem init (iv : Spec.Sha512.HashValue) :
 theorem update :
     Verified X86_64.target Impl.Sha512.X86_64.Stream.update (Spec.Sha512.updateContract X86_64.abi 8) := by
   have hi : updateWide.Implies (Spec.Sha512.updateContract X86_64.abi 8) := by
-    contract_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, updateWide,
+    sig_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, updateWide,
       Proof.Sha512.updateX86_64, X86_64.abi, X86_64.argRegs]
       [updateSat, Proof.Sha512.X86_64.Stream.Update.sat,
         MdStream.X86_64.Update.sat, Impl.Sha512.X86_64.Stream.params] using updateSat
@@ -138,7 +138,7 @@ theorem update :
 theorem finalize :
     Verified X86_64.target Impl.Sha512.X86_64.Stream.finalize (Spec.Sha512.finalizeContract X86_64.abi 8) := by
   have hi : finalizeWide.Implies (Spec.Sha512.finalizeContract X86_64.abi 8) := by
-    contract_implies [Spec.Sha512.finalizeContract, Spec.Sha512.finalizeSig, finalizeWide,
+    sig_implies [Spec.Sha512.finalizeContract, Spec.Sha512.finalizeSig, finalizeWide,
       Proof.Sha512.finalizeX86_64, X86_64.abi, X86_64.argRegs]
       [finalizeSat, Proof.Sha512.X86_64.Stream.Finalize.sat,
         MdStream.X86_64.Finalize.sat, Impl.Sha512.X86_64.Stream.params] using finalizeSat

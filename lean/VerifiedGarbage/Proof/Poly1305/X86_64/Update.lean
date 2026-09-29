@@ -1,12 +1,15 @@
 import VerifiedGarbage.Proof.Poly1305.X86_64.Buffer
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
 
 /-!
 # Poly1305 on x86-64: `update`
 
 Untrusted: everything here is checked by Lean.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305.X86_64
 
@@ -443,8 +446,6 @@ theorem data_value {s₀ : State} (hp : UPre s₀) {m : Mem} (hf : Frame [wR (st
   have h1 : leNum [(0x01 : Byte)] = 1 := rfl
   have h2 : (1 : BitVec 32).toNat = 1 := rfl
   rw [h1, h2]
-  simp only [off]
-  omega
 
 set_option simprocs false in
 theorem advance16_ok (s : State) :

@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Hmac.Common
 import VerifiedGarbage.Impl.Hmac.Arm
 import VerifiedGarbage.Spec.Hmac
 import VerifiedGarbage.Proof.Sha256.Arm.Contract
+import VerifiedGarbage.Proof.Hmac.Arm.Lit
 
 /-!
 # HMAC-SHA-256 on ARMv7: common lemmas

@@ -68,11 +68,36 @@ theorem zetas_length : zetas.length = 128 := by decide +kernel
 
 theorem gammas_length : gammas.length = 128 := by decide +kernel
 
+/-- Entry `j` of `l` is `f (i + j)`, for each entry: a `List.rec` over `Nat.beq`,
+which the kernel evaluates in one pass (rather than `getD` for each index). -/
+private noncomputable def listIs (f : Nat → Nat) (l : List Nat) : Nat → Bool :=
+  List.rec (fun _ => true) (fun a _ ih i => Nat.beq a (f i) && ih (i + 1)) l
+
+private theorem listIs_spec {f : Nat → Nat} {l : List Nat} {i : Nat} (h : listIs f l i = true) :
+    ∀ j < l.length, l.getD j 0 = f (i + j) := by
+  induction l generalizing i with
+  | nil => intro j hj; simp at hj
+  | cons a l ih =>
+    simp only [listIs, Bool.and_eq_true] at h
+    intro j hj
+    cases j with
+    | zero => simpa using Nat.eq_of_beq_eq_true h.1
+    | succ j =>
+      have := ih h.2 j (by simpa using hj)
+      rw [show i + (j + 1) = i + 1 + j by omega]
+      simpa using this
+
 private theorem zetas_nat : ∀ i < 128, zetas.getD i 0 = 17 ^ bitRev7 i % 3329 := by
-  decide +kernel
+  intro i hi
+  have := listIs_spec (f := fun i => 17 ^ bitRev7 i % 3329) (l := zetas) (i := 0) (by decide +kernel) i
+    (by rw [zetas_length]; exact hi)
+  simpa using this
 
 private theorem gammas_nat : ∀ i < 128, gammas.getD i 0 = 17 ^ (2 * bitRev7 i + 1) % 3329 := by
-  decide +kernel
+  intro i hi
+  have := listIs_spec (f := fun i => 17 ^ (2 * bitRev7 i + 1) % 3329) (l := gammas) (i := 0)
+    (by decide +kernel) i (by rw [gammas_length]; exact hi)
+  simpa using this
 
 /-- Entry `k` of `zetas` is `ζ^BitRev7(k)`. -/
 theorem zetas_getD {k : Nat} (hk : k < 128) : zetas.getD k 0 = (zeta k).val := by

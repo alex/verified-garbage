@@ -1,14 +1,131 @@
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Md5.X86_64.Rounds
-import VerifiedGarbage.Proof.Md5.X86_64.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.Inline
 import Mathlib.Tactic.SplitIfs
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Md5
+import VerifiedGarbage.TCB.X86_64.Target
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # MD5 compression function on x86-64: the whole function
 
 Untrusted: everything here is checked by Lean.
 -/
+
+/-!
+## MD5: the x86-64 contract
+
+**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the x86-64
+implementations of the compression function and the streaming interface, in
+terms of `Spec/Md5.lean`.
+-/
+
+namespace VG.Proof.Md5
+
+open Spec.Md5
+
+open VG.X86_64 in
+/-- x86-64 contract for
+`vg_md5_compress(state: *mut [u32; 4], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 8])`:
+updates the MD buffer at `state` with the `n` 64-byte blocks at `blocks`.
+
+The code may read `blocks` (`64 * n` bytes) and read and write `state`
+(16 bytes) and `scratch` (64 bytes, whose contents on exit are unspecified).
+These may not overlap each other, nor the return address on the stack.
+The pointers and `n` are public; the MD buffer and the blocks are secret. -/
+def compressX86_64 : Contract X86_64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .rdi, 16⟩
+    let blocks : Region := ⟨s.gpr .rsi, 64 * (s.gpr .rdx).toNat⟩
+    let scratch : Region := ⟨s.gpr .rcx, 64⟩
+    let ret : Region := ⟨s.gpr .rsp, 8⟩
+    s.rd = [blocks] ∧ s.wr = [state, scratch] ∧
+    state.Disjoint scratch ∧ blocks.Disjoint state ∧ blocks.Disjoint scratch ∧
+    ret.Disjoint state ∧ ret.Disjoint scratch
+  post s s' :=
+    stateAt s'.mem (s.gpr .rdi) =
+      compressBlocks (stateAt s.mem (s.gpr .rdi)) s.mem (s.gpr .rsi) (s.gpr .rdx).toNat
+  pub s₁ s₂ :=
+    s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧
+    s₁.gpr .rdx = s₂.gpr .rdx ∧ s₁.gpr .rcx = s₂.gpr .rcx
+
+open VG.X86_64 in
+/-- x86-64 contract for `vg_md5_init(state: *mut [u8; 80])`: makes the
+streaming state at `state` represent the empty message.
+
+The code may write `state` (80 bytes), which may not overlap the return
+address on the stack. The pointer is public. -/
+def initX86_64 : Contract X86_64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .rdi, 80⟩
+    let ret : Region := ⟨s.gpr .rsp, 8⟩
+    s.rd = [] ∧ s.wr = [state] ∧ ret.Disjoint state
+  post s s' := Repr s'.mem (s.gpr .rdi) []
+  pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi
+
+open VG.X86_64 in
+/-- x86-64 contract for
+`vg_md5_update(state: *mut [u8; 80], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 14])`:
+if the streaming state at `state` represents a message `m` of `count` bytes
+(modulo 2⁶⁴), then afterwards it represents `m` followed by the `len` bytes at
+`data`.
+
+The code may read `data` (`len` bytes) and read and write `state` (80
+bytes) and `scratch` (112 bytes, whose contents on exit are unspecified).
+These may not overlap each other, nor the return address on the stack, nor
+the 8 bytes below it (where the call of `vg_md5_compress` stores its
+return address).
+The pointers, `count` and `len` are public; the state and the data are
+secret. -/
+def updateX86_64 : Contract X86_64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .rdi, 80⟩
+    let data : Region := ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩
+    let scratch : Region := ⟨s.gpr .r8, 112⟩
+    let ret : Region := ⟨s.gpr .rsp, 8⟩
+    let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
+    s.rd = [data] ∧ s.wr = [state, scratch] ∧
+    state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
+    ret.Disjoint state ∧ ret.Disjoint scratch ∧
+    stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint scratch
+  post s s' := ∀ m, Repr s.mem (s.gpr .rdi) m → s.gpr .rsi = BitVec.ofNat 64 m.length →
+    Repr s'.mem (s.gpr .rdi) (m ++ bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat)
+  pub s₁ s₂ :=
+    s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
+    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
+
+open VG.X86_64 in
+/-- x86-64 contract for
+`vg_md5_finalize(state: *mut [u8; 80], count: u64, out: *mut [u8; 16], scratch: *mut [u64; 14])`:
+if the streaming state at `state` represents a message `m` of `count` bytes
+(modulo 2⁶⁴), writes the MD5 digest of `m` to `out`.
+
+The code may read and write `state` (80 bytes, whose contents on exit are
+unspecified), `out` (16 bytes) and `scratch` (112 bytes, whose contents on
+exit are unspecified). These may not overlap each other, nor the return
+address on the stack, nor the 8 bytes below it (where the call of
+`vg_md5_compress` stores its return address). The pointers and `count`
+are public; the state is secret. -/
+def finalizeX86_64 : Contract X86_64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .rdi, 80⟩
+    let out : Region := ⟨s.gpr .rdx, 16⟩
+    let scratch : Region := ⟨s.gpr .rcx, 112⟩
+    let ret : Region := ⟨s.gpr .rsp, 8⟩
+    let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
+    s.rd = [] ∧ s.wr = [state, out, scratch] ∧
+    state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
+    ret.Disjoint state ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧
+    stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch
+  post s s' := ∀ m, Repr s.mem (s.gpr .rdi) m → s.gpr .rsi = BitVec.ofNat 64 m.length →
+    bytesAt s'.mem (s.gpr .rdx) 16 = Spec.Md5.hash m
+  pub s₁ s₂ :=
+    s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
+    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .rsp = s₂.gpr .rsp
+
+end VG.Proof.Md5
+
 
 namespace VG.Proof.Md5.X86_64
 
@@ -24,24 +141,14 @@ theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = 
   rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
 
 theorem contains_offset {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
-    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
-  simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, toNat_ofNat_lt ho]
-  exact h
+    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := Offset.contains_base base h ho
 
 theorem contains_offset' {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
     (⟨base, len⟩ : Region).Contains (base + BitVec.ofInt 64 (off : Int)) n := by
   rw [ofInt_natCast]; exact contains_offset h ho
 
-theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (ho : off < 2 ^ 64) :
-    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := by
-  intro a ha
-  simp only [Region.Contains] at *
-  have : (a - base).toNat ≤ (a - (base + BitVec.ofNat 64 off)).toNat + off := by
-    rw [show a - base = (a - (base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by bv_omega,
-      BitVec.toNat_add, toNat_ofNat_lt ho]
-    exact Nat.mod_le _ _
-  omega
+theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (_ho : off < 2 ^ 64) :
+    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := Offset.sub_base base h
 
 theorem word_sep (p : Addr) {j k : Nat} (hj : j < 4) (hk : k < 4) (h : j ≠ k) :
     Mem.Sep (p + BitVec.ofInt 64 ((4 * j : Nat) : Int)) 4 (p + BitVec.ofInt 64 ((4 * k : Nat) : Int)) 4 := by
@@ -433,8 +540,6 @@ theorem compress_verified :
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
   · refine ⟨satState, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, satState] at h₁ h₂
-      bv_omega
+    exact Region.disjoint_of_sep (by decide)
 
 end VG.Proof.Md5.X86_64

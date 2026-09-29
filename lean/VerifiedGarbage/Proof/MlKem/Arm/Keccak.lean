@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Sha3.Arm.Stream.Absorb
 import VerifiedGarbage.Proof.Sha3.Arm.Stream.Pad
 import VerifiedGarbage.Proof.Sha3.Arm.Stream.Squeeze
 import VerifiedGarbage.Proof.Framework.Arm.Frame
-import VerifiedGarbage.Proof.MlKem.Hash
+import VerifiedGarbage.Proof.MlKem.KPke
 import VerifiedGarbage.Impl.MlKem.Arm.Sample
 
 /-!

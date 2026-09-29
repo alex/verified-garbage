@@ -83,6 +83,7 @@ theorem encode12_byte0 (f : Poly) {i : Nat} (hi : i < 128) :
   have h := encode12_group f hi (j := 0) (by decide)
   rw [Nat.add_zero] at h
   rw [h]
+  clear h
   exact ofNat8_eq (by have := val_lt f[2 * i]!; have := val_lt f[2 * i + 1]!; omega)
 
 theorem encode12_byte1 (f : Poly) {i : Nat} (hi : i < 128) :
@@ -134,6 +135,7 @@ theorem decode12_even (B : List Byte) (hB : B.length = 384) {i : Nat} (hi : i < 
   have h := decode12_group B hB hi (e := 0) (by decide)
   rw [Nat.add_zero] at h
   rw [h]
+  clear h
   refine congrArg ofNat ?_
   have := byte_lt (B.getD (3 * i) 0); have := byte_lt (B.getD (3 * i + 1) 0)
   have := byte_lt (B.getD (3 * i + 2) 0)
@@ -166,6 +168,7 @@ theorem compressEncode1 (f : Poly) {k : Nat} (hk : k < 32) :
     (map_toList_lt f (compress_lt 1)) (by decide) (by omega)
   rw [show 1 * k + 0 = k by omega] at h
   rw [compressEncode, h, take_drop_eq _ 0 (by rw [map_toList_length]; omega)]
+  clear h
   simp only [range8, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero,
     Nat.mul_zero, Nat.pow_zero, Nat.div_one]
   simp (disch := omega) only [map_toList_getD]
@@ -180,6 +183,7 @@ theorem compressEncode4 (f : Poly) {k : Nat} (hk : k < 128) :
     (map_toList_lt f (compress_lt 4)) (by decide) (by omega)
   rw [show 1 * k + 0 = k by omega] at h
   rw [compressEncode, h, take_drop_eq _ 0 (by rw [map_toList_length]; omega)]
+  clear h
   simp only [range2, List.map_cons, List.map_nil, digits_cons, digits_nil, Nat.add_zero,
     Nat.mul_zero, Nat.pow_zero, Nat.div_one]
   simp (disch := omega) only [map_toList_getD]
@@ -209,6 +213,7 @@ theorem compressEncode10_0 :
   have h := compressEncode10_group f hg (j := 0) (by decide)
   rw [Nat.add_zero] at h
   rw [h]
+  clear h
   have := c10_lt f (4 * g); have := c10_lt f (4 * g + 1); have := c10_lt f (4 * g + 2)
   have := c10_lt f (4 * g + 3)
   exact ofNat8_eq (by omega)
@@ -319,6 +324,7 @@ theorem decodeDecompress10_0 :
   have h := decodeDecompress10_group B hB hg (e := 0) (by decide)
   rw [Nat.add_zero] at h
   rw [h]
+  clear h
   refine congrArg (decompress 10) ?_
   have := bytes5_lt B (g := g)
   omega

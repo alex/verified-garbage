@@ -158,15 +158,14 @@ theorem Ok.congr {c : Cfg} {s s' : State} (h : Ok c s) (hb : s'.gpr c.base = s.g
 theorem slot_sep (b : Addr) {j k : Nat} (hj : 8 * j < 2 ^ 64) (hk : 8 * k < 2 ^ 64) (h : j ≠ k) :
     Mem.Sep (wordAddr b j) 8 (wordAddr b k) 8 := by
   intro x h₁ h₂
-  simp only [wordAddr] at h₁ h₂
-  have : j < k ∨ k < j := by omega
-  rcases this with h' | h' <;> bv_omega
+  simp only [wordAddr, Offset.sub_add_eq, Offset.toNat_sub_ofNat] at h₁ h₂
+  have := (x - b).isLt
+  omega
 
 theorem slot_contains (b : Addr) {n k : Nat} (hk : k < n) (hn : 8 * n < 2 ^ 64) :
     (⟨b, 8 * n⟩ : Region).Contains (wordAddr b k) (64 / 8) := by
   simp only [Region.Contains, wordAddr]
-  rw [show b + BitVec.ofNat 64 (8 * k) - b = BitVec.ofNat 64 (8 * k) by bv_omega,
-    BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+  rw [Offset.add_sub_cancel_left, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   omega
 
 theorem loc_some_slot {c : Cfg} {m : MemOp} {k : Nat} (h : c.loc m = some (.slot k)) :
@@ -433,9 +432,8 @@ theorem contains_word {r : Region} {a : Addr} {off k n : Nat} (ha : a = r.base +
     (hk : off + 8 * k + 8 ≤ n) (hn : n ≤ r.len) (hlen : r.len < 2 ^ 64) :
     r.Contains (wordAddr a k) 8 := by
   simp only [Region.Contains, wordAddr, ha]
-  rw [show r.base + BitVec.ofNat 64 off + BitVec.ofNat 64 (8 * k) - r.base =
-    BitVec.ofNat 64 (off + 8 * k) by rw [BitVec.ofNat_add]; bv_omega,
-    BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+  rw [BitVec.add_assoc, ← BitVec.ofNat_add, Offset.add_sub_cancel_left, BitVec.toNat_ofNat,
+    Nat.mod_eq_of_lt (by omega)]
   omega
 
 /-- `Ok` for slots at offset `off` of a writable region, and no external words. -/

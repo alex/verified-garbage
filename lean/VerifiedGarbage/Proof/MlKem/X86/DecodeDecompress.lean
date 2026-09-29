@@ -4,6 +4,7 @@ import VerifiedGarbage.Spec.MlKem.Poly
 import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.Framework.Sig
 import VerifiedGarbage.Proof.Framework.Contract
+import Mathlib.Tactic.Tauto
 
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_decode_decompress`
@@ -524,18 +525,8 @@ theorem verified :
     rw [hm]
     exact polyIs_of_coeffAt fun i hi => hinv.coef i (by rw [n_eq] at hi; exact hi)
   · let st := satState satMem [⟨0, 32⟩] [⟨0x400, 1024⟩, ⟨0x5004, 16⟩]
-    have a0 : arg st 0 = 0 := by decide
-    have a1 : arg st 1 = 32 := by decide
-    have a2 : arg st 2 = 1 := by decide
-    have a3 : arg st 3 = 0x400 := by decide
-    have e : argAddr st 0 = 0x5004 := by decide
-    have esp : st.gpr .esp = 0x5000 := rfl
     refine ⟨st, ?_⟩
-    sig_pre [decodeDecompressContract, decodeDecompressSig, X86.abi, X86.argSlots, X86.argVal,
+    sig_sat_check [decodeDecompressContract, decodeDecompressSig, X86.abi, X86.argSlots, X86.argVal,
       X86.argBytes]
-    simp only [a0, a1, a2, a3, e, esp]
-    refine ⟨by decide, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
-      by decide, by decide⟩ <;>
-    exact Region.disjoint_of_sep (by decide)
 
 end VG.Proof.MlKem.X86.DecodeDecompress

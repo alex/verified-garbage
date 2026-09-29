@@ -30,22 +30,21 @@ theorem cdgh_two (v : HashValue) (k0 w0 k1 w1 : Word) :
 theorem rnds2_eq (v : HashValue) (x : BitVec 128) {k0 w0 k1 w1 : Word}
     (h0 : dword x 0 = k0 + w0) (h1 : dword x 1 = k1 + w1) :
     sha256Rnds2 (cdgh v) (abef v) x = abef (roundKW (roundKW v k0 w0) k1 w1) := by
-  simp only [sha256Rnds2, abef, cdgh, dword_ofDwords_0, dword_ofDwords_1, dword_ofDwords_2,
-    dword_ofDwords_3, h0, h1]
   have ech : sha256Ch = ch := rfl
   have emaj : sha256Maj = maj := rfl
   have es0 : sha256BigSigma0 = bsig0 := rfl
   have es1 : sha256BigSigma1 = bsig1 := rfl
-  simp only [ech, emaj, es0, es1, roundKW, Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero,
-    List.getElem_cons_succ]
-  generalize v[0] = a at *
-  generalize v[1] = b at *
-  generalize v[2] = c at *
-  generalize v[3] = d at *
-  generalize v[4] = e at *
-  generalize v[5] = f at *
-  generalize v[6] = g at *
-  generalize v[7] = h at *
+  simp only [sha256Rnds2, abef, cdgh, dword_ofDwords_0, dword_ofDwords_1, dword_ofDwords_2,
+    dword_ofDwords_3, h0, h1, ech, emaj, es0, es1, roundKW_0, roundKW_1, roundKW_2, roundKW_3,
+    roundKW_4, roundKW_5, roundKW_6, roundKW_7]
+  generalize v[0]'(by decide) = a
+  generalize v[1]'(by decide) = b
+  generalize v[2]'(by decide) = c
+  generalize v[3]'(by decide) = d
+  generalize v[4]'(by decide) = e
+  generalize v[5]'(by decide) = f
+  generalize v[6]'(by decide) = g
+  generalize v[7]'(by decide) = h
   have e1 : ch e f g + bsig1 e + (k0 + w0) + h + d = d + (h + bsig1 e + ch e f g + k0 + w0) := by ac_rfl
   have a1 : ch e f g + bsig1 e + (k0 + w0) + h + maj a b c + bsig0 a =
       h + bsig1 e + ch e f g + k0 + w0 + (bsig0 a + maj a b c) := by ac_rfl
@@ -65,6 +64,11 @@ theorem W_ge' (M : Block) (t : Nat) :
     W M (t + 16) = ssig1 (W M (t + 14)) + W M (t + 9) + ssig0 (W M (t + 1)) + W M t := by
   rw [W_ge M (by omega)]; rfl
 
+/-- `W_ge'`, summed in the order of `sha256msg1` and `sha256msg2`. -/
+theorem W_ge_rev (M : Block) (t : Nat) :
+    W M (t + 16) = W M t + ssig0 (W M (t + 1)) + W M (t + 9) + ssig1 (W M (t + 14)) := by
+  rw [W_ge' M t]; ac_rfl
+
 /-- `sha256msg1`, `palignr` and `sha256msg2` compute the next four schedule words
 from the previous sixteen. -/
 theorem schedule_eq (M : Block) (i : Nat) :
@@ -74,10 +78,10 @@ theorem schedule_eq (M : Block) (i : Nat) :
   have ess1 : sha256Sigma1 = ssig1 := rfl
   simp only [sha256Msg2, XBinOp.eval, alignRight_4, quad, dword_ofDwords_0, dword_ofDwords_1,
     dword_ofDwords_2, dword_ofDwords_3, ess0, ess1]
-  have w0 := W_ge' M (4 * i)
-  have w1 := W_ge' M (4 * i + 1)
-  have w2 := W_ge' M (4 * i + 2)
-  have w3 := W_ge' M (4 * i + 3)
+  have w0 := W_ge_rev M (4 * i)
+  have w1 := W_ge_rev M (4 * i + 1)
+  have w2 := W_ge_rev M (4 * i + 2)
+  have w3 := W_ge_rev M (4 * i + 3)
   simp only [show 4 * i + 16 = 4 * (i + 4) by omega, show 4 * i + 1 + 16 = 4 * (i + 4) + 1 by omega,
     show 4 * i + 2 + 16 = 4 * (i + 4) + 2 by omega, show 4 * i + 3 + 16 = 4 * (i + 4) + 3 by omega,
     show 4 * i + 14 = 4 * (i + 3) + 2 by omega, show 4 * i + 1 + 14 = 4 * (i + 3) + 3 by omega,
@@ -86,7 +90,6 @@ theorem schedule_eq (M : Block) (i : Nat) :
     show 4 * i + 1 + 1 = 4 * i + 2 by omega, show 4 * i + 2 + 1 = 4 * i + 3 by omega,
     show 4 * i + 3 + 1 = 4 * (i + 1) by omega] at w0 w1 w2 w3 ⊢
   rw [w2, w3, w0, w1]
-  ac_rfl
 
 /-- Adding the working variables into the hash value, two registers at a time. -/
 theorem paddd_abef (v H : HashValue) :

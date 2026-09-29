@@ -235,13 +235,7 @@ theorem verified : Verified X86.target Impl.MlKem.X86.checkEk (checkEkContract X
     · rw [ite_eq_left e]; exact (ite_eq_left (ok_iff.mpr e)).symm
     · rw [ite_eq_right e]; exact (ite_eq_right fun h => e (ok_iff.mp h)).symm
   · let st := satState satMem [⟨0, 1184⟩, ⟨0x5004, 4⟩] []
-    have a0 : arg st 0 = 0 := by decide
-    have e : argAddr st 0 = 0x5004 := by decide
-    have esp : st.gpr .esp = 0x5000 := rfl
     refine ⟨st, ?_⟩
-    sig_pre [checkEkContract, checkEkSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [a0, e, esp]
-    refine ⟨by decide, by decide, rfl, rfl, ?_, ?_, ?_, ?_, by decide⟩ <;>
-    exact Region.disjoint_of_sep (by decide)
+    sig_sat_check [checkEkContract, checkEkSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
 
 end VG.Proof.MlKem.X86.CheckEk

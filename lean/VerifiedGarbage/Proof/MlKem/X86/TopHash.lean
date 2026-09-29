@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.MlKem.X86.TopSeq
-import VerifiedGarbage.Proof.MlKem.Hash
+import VerifiedGarbage.Proof.MlKem.KPke
 
 /-!
 # ML-KEM on x86 (32-bit): SHA-3 and SHAKE in the top-level functions

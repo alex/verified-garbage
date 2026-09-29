@@ -3,15 +3,17 @@ import VerifiedGarbage.Spec.Poly1305
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
-import Mathlib.Tactic.NormNum.Basic
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
 
 /-!
 # Poly1305 on AArch64: `blocks`
 
 Untrusted: everything here is checked by Lean.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305
 
@@ -265,7 +267,7 @@ theorem block_value {s₀ : State} (hp : BPre s₀) {m : Mem} (hf : Frame [cR (s
   rw [hp.blk_word hf hi (by omega), hp.blk_word hf hi (by omega), Poly1305.leNum_append,
     Poly1305.length_bytesAt, leNum_key]
   have h1 : leNum [(0x01 : Byte)] = 1 := rfl
-  rw [h1, Bool.toNat_true, show (256 : Nat) ^ 16 = 2 ^ 128 by norm_num]
+  rw [h1, Bool.toNat_true, show (256 : Nat) ^ 16 = 2 ^ 128 from rfl]
 
 theorem blks_succ (s₀ : State) (i : Nat) :
     blks s₀ (i + 1) = blks s₀ i ++ bytesAt s₀.mem (blkAddr s₀ i) 16 := by

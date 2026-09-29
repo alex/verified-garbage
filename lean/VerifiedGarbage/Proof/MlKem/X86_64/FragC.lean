@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.MlKem.X86_64.FragS
-import VerifiedGarbage.Proof.MlKem.Hash
+import VerifiedGarbage.Proof.MlKem.KPke
 
 /-!
 # ML-KEM-768 on x86-64: `PRF` and `SamplePolyCBD₂`, and sums of products

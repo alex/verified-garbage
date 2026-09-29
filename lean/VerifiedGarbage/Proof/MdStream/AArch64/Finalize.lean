@@ -238,7 +238,7 @@ theorem compress_buf (hd : Dims P) {name : String} {code : Prog isa} (hf : Calle
   refine compressAt_ok hf hC.x19 hC.x20 hx1 ((hp.st_scr.sub_left eN).sub_right eso) ?_
     ((hp.st_scr.sub_left eb).sub_right eso) ?_ ?_ fun s' hrd hwr hcs hsp hf' hstate =>
       hQ s' ?_ hcs hstate
-  · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+  · exact Offset.disjoint_base _ (Nat.le_refl _) (by omega)
   · rw [hC.rd, hC.wr, hp.rd, hp.wr]
     apply Covers.of_sub
     intro r hr
@@ -272,7 +272,7 @@ theorem compress_buf (hd : Dims P) {name : String} {code : Prog isa} (hf : Calle
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
       rcases hr' with rfl | rfl
       · exact (hp.st_scr.symm.sub_left (saved_sub hd hp')).sub_right eN
-      · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+      · exact Offset.disjoint_base _ (by omega) (by omega)
 
 /-- The loop's postcondition for one iteration. -/
 def Step {P : Params} (H : Md 64 P.N 8) (s₀ : State) (k : Nat) (s : State) : Prop :=
@@ -633,10 +633,14 @@ theorem verified (hd : Dims P) (hs : Shape H) {name : String} {code : Prog isa} 
   refine ⟨fun s hs' => ?_, hct, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct hd hs hf hu' hn (pre_of hs').1 (pre_of hs').2
     exact ⟨t, s', he, h⟩
-  · refine ⟨sat P, rfl, rfl, ?_, ?_, ?_, by simp only [sat]; decide, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+  · refine ⟨sat P, rfl, rfl, ?_, ?_, ?_, by simp only [sat]; decide, ?_, ?_, ?_⟩
+    all_goals try simp only [sat]
+    · exact Offset.disjoint_of_le (by simp <;> omega) (by simp <;> omega)
+    · exact Offset.disjoint_of_le (by simp <;> omega) (by simp <;> omega)
+    · exact Offset.disjoint_of_le (by simp <;> omega) (by simp <;> omega)
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
 
 /-- The initial taint agrees on the public arguments. -/
 theorem agree₀ {s₁ s₂ : State} (hpub : (finK H).pub s₁ s₂) :

@@ -7,6 +7,9 @@ import Mathlib.Tactic.LinearCombination
 import Mathlib.Tactic.Ring.RingNF
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Gcm.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
+import VerifiedGarbage.Proof.Framework.Omega
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # GHASH with PCLMULQDQ: the whole function
@@ -18,6 +21,8 @@ The registers `xmm3`–`xmm6` hold `Tₖ` with `x · Tₖ = Hᵏ` (`k = 1 … 4`
 that `mul(a, Tₖ) = a · Hᵏ`, and `xmm2` holds `Y` after `i` blocks, as a
 block; the memory is not written until the epilogue stores `Y`.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Gcm.X86_64.Pclmul
 
@@ -86,10 +91,7 @@ theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = 
   rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
 
 theorem contains_offset {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
-    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
-  simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, toNat_ofNat_lt ho]
-  exact h
+    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := Offset.contains_base base h ho
 
 theorem add_zero' (p : Addr) : p + BitVec.ofInt 64 ((0 : Nat) : Int) = p := by
   rw [ofInt_natCast]; exact BitVec.add_zero p
@@ -211,16 +213,12 @@ theorem pxor72_ok (s : State) :
     simp only [hr, ite_false]
 
 /-- `rcx − k`, for `rcx` counting blocks down. -/
-theorem ofNat_sub_ofNat {n k : Nat} (hk : k ≤ n) (hn : n < 2 ^ 64) :
-    BitVec.ofNat 64 n - BitVec.ofNat 64 k = BitVec.ofNat 64 (n - k) := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_sub, BitVec.toNat_ofNat]
-  omega
+theorem ofNat_sub_ofNat {n k : Nat} (hk : k ≤ n) (_hn : n < 2 ^ 64) :
+    BitVec.ofNat 64 n - BitVec.ofNat 64 k = BitVec.ofNat 64 (n - k) := Offset.ofNat_sub_ofNat hk
 
 /-- `rdx + b`, for `rdx` at an offset `a` into the data. -/
 theorem add_ofNat_ofNat (p : Addr) {a b c : Nat} (h : a + b = c) :
-    p + BitVec.ofNat 64 a + BitVec.ofNat 64 b = p + BitVec.ofNat 64 c := by
-  rw [BitVec.add_assoc, ← BitVec.ofNat_add, h]
+    p + BitVec.ofNat 64 a + BitVec.ofNat 64 b = p + BitVec.ofNat 64 c := Offset.add_add_eq p h
 
 /-- The end of a body: `add rdx, 16 k`, `sub rcx, k`, and for the four-block
 body `cmp rcx, 4`. -/

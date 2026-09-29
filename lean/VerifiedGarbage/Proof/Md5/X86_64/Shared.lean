@@ -8,7 +8,7 @@ import VerifiedGarbage.Spec.Md5.Contract
 # MD5 on x86-64: the shared contracts
 
 Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Md5/X86_64/Contract.lean`); these theorems move
+per-target contracts (`Proof/Md5/X86_64/Compress.lean`); these theorems move
 them to the shared contracts of `Spec/Md5/Contract.lean`, which the
 artifacts are emitted with.
 -/
@@ -18,7 +18,7 @@ namespace VG.Proof.Md5.X86_64.Shared
 theorem compress :
     Verified X86_64.target Impl.Md5.X86_64.compress (Spec.Md5.compressContract X86_64.abi) :=
   Proof.Md5.X86_64.compress_verified.of_implies (by
-    contract_implies [Spec.Md5.compressContract, Spec.Md5.compressSig,
+    sig_implies [Spec.Md5.compressContract, Spec.Md5.compressSig,
       Proof.Md5.compressX86_64, X86_64.abi, X86_64.argRegs]
       [Proof.Md5.X86_64.satState] using Proof.Md5.X86_64.satState)
 
@@ -32,7 +32,7 @@ theorem init :
 theorem update :
     Verified X86_64.target Impl.Md5.X86_64.Stream.update (Spec.Md5.updateContract X86_64.abi 8) :=
   Proof.Md5.X86_64.Stream.Update.update_verified.of_implies (by
-    contract_implies [Spec.Md5.updateContract, Spec.Md5.updateSig, Proof.Md5.updateX86_64,
+    sig_implies [Spec.Md5.updateContract, Spec.Md5.updateSig, Proof.Md5.updateX86_64,
       X86_64.abi, X86_64.argRegs]
       [Proof.Md5.X86_64.Stream.Update.sat,
         MdStream.X86_64.Update.sat, Impl.Md5.X86_64.Stream.params] using Proof.Md5.X86_64.Stream.Update.sat)
@@ -40,7 +40,7 @@ theorem update :
 theorem finalize :
     Verified X86_64.target Impl.Md5.X86_64.Stream.finalize (Spec.Md5.finalizeContract X86_64.abi 8) :=
   Proof.Md5.X86_64.Stream.Finalize.finalize_verified.of_implies (by
-    contract_implies [Spec.Md5.finalizeContract, Spec.Md5.finalizeSig,
+    sig_implies [Spec.Md5.finalizeContract, Spec.Md5.finalizeSig,
       Proof.Md5.finalizeX86_64, X86_64.abi, X86_64.argRegs]
       [Proof.Md5.X86_64.Stream.Finalize.sat,
         MdStream.X86_64.Finalize.sat, Impl.Md5.X86_64.Stream.params] using Proof.Md5.X86_64.Stream.Finalize.sat)

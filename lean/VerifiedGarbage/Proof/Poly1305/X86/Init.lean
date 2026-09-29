@@ -1,12 +1,16 @@
 import VerifiedGarbage.Proof.Poly1305.X86.Blocks
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # Poly1305 on x86 (32-bit): `init`
 
 Untrusted: everything here is checked by Lean.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305.X86
 
@@ -75,7 +79,7 @@ theorem copyWord_ok {s₀ : State} (hp : IPre s₀) {j : Nat} (hj : j < 8) {s : 
         have : (a - (kp s₀).setWidth 64).toNat ≤ (a - addr (kp s₀) (4 * j)).toNat +
             (addr (kp s₀) (4 * j) - (kp s₀).setWidth 64).toNat := by
           rw [show a - (kp s₀).setWidth 64 = (a - addr (kp s₀) (4 * j)) +
-            (addr (kp s₀) (4 * j) - (kp s₀).setWidth 64) by bv_omega, BitVec.toNat_add]
+            (addr (kp s₀) (4 * j) - (kp s₀).setWidth 64) by bv_omega_using [], BitVec.toNat_add]
           exact Nat.mod_le _ _
         omega)).symm)
     rw [u₂.mem, u₁.mem, u₁.gpr]

@@ -514,10 +514,9 @@ theorem verified : Verified X86.target Impl.MlKem.X86.multiplyNTTs (mulContract 
     have a2 : arg st 2 = 0x800 := by decide
     have a3 : arg st 3 = 0xc00 := by decide
     have e : argAddr st 0 = 0x5004 := by decide
-    have esp : st.gpr .esp = 0x5000 := rfl
     refine ⟨st, ?_⟩
     sig_pre [mulContract, mulSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [a0, a1, a2, a3, e, esp]
+    simp only [a0, a1, a2, a3, e]
     refine ⟨by decide, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
       ?_, ?_, by decide, by decide, by decide, by decide, reduced_below (fun a ha => ?_) 0x400 (by decide),
       reduced_below (fun a ha => ?_) 0x800 (by decide)⟩

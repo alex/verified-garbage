@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Hmac.Generic.X86.Lit
 import VerifiedGarbage.Proof.Pbkdf2.Generic.X86.IterateCT
 import VerifiedGarbage.Proof.Hmac.Generic.X86.Hashes
 

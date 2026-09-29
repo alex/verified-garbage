@@ -1,4 +1,5 @@
-import VerifiedGarbage.Proof.Sha3.Arm.Call
+import VerifiedGarbage.Proof.Sha3.Arm.Permute
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # The SHA-3 sponge on ARMv7: `pad`
@@ -113,7 +114,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) : WP isa pad s₀ (Post s₀) := 
     rw [u₈.gpr, u₇.gpr, k₆ .r0 (by decide) (by decide) (by decide),
       k₆ .r1 (by decide) (by decide) (by decide), BitVec.add_zero,
       show s₀.gpr .r0 + s₀.gpr .r1 - 1 = s₀.gpr .r0 + BitVec.ofNat 32 ((s₀.gpr .r1).toNat - 1) by
-        bv_omega]
+        exact Offset.add_sub_one32 _ _ (by omega)]
     exact addr_add (by omega)
   refine wp_ldrb (a := stA s₀ + BitVec.ofNat 64 (rt s₀ - 1)) (by decide) e₂
     (hin _ (by simp [u₈.rd, u₈.wr, u₇.rd, u₇.wr, g₆.rd, g₆.wr, u₅.rd, u₅.wr, u₄.rd, u₄.wr, u₃.rd,
@@ -236,15 +237,13 @@ theorem pad_verified : Verified Arm.target pad Proof.Sha3.padArm := by
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
   · exact VG.Taint.constantTime (A := VG.Arm.taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
-      (by taint_decide)
+      (by taint_decide_weak VG.Proof.Sha3.Arm.dropRC)
   · have e : ∀ k, stackArg sat k = 0 := fun k => by
       simp [stackArg, sat, Mem.readW, Mem.read]
     refine ⟨sat, ?_⟩
     simp only [Proof.Sha3.padArm, e]
     refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, by decide, by decide, by decide,
       by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+    · exact Region.disjoint_of_sep (by decide)
 
 end VG.Proof.Sha3.Arm.Stream.Pad

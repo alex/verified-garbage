@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Sha3.X86.Stream.Common
+import VerifiedGarbage.Proof.Sha3.X86.Permute
 
 /-!
 # The SHA-3 sponge on x86 (32-bit): `absorb`
@@ -474,7 +474,7 @@ theorem body_block {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) 
       Proof.Sha3.stateAt_congr fun i hi => hfc.bytes (R := stR s₀) (by simpa using hp.st_scr) (by simp) hi]
     refine stateAt_xorByte (by omega) ?_ fun i hi hij => ?_
     · rw [hm₁, writeW8_apply, ite_eq_left_of_eq_true _ _ (eq_true rfl), BitVec.xor_comm]
-    · rw [hm₁, writeW8_apply, ite_eq_right_of_eq_false _ _ (eq_false fun e => hij (by bv_omega))]
+    · rw [hm₁, writeW8_apply, ite_eq_right_of_eq_false _ _ (eq_false (VG.Proof.Sha3.ne_of_lt200 hi (by omega) hij))]
 
 /-- A store of the position keeps what holds throughout. -/
 theorem Common.write_ptr {s₀ : State} (hp : Pre s₀) {c : Nat} {s s' : State} (h : Common s₀ c s)
@@ -739,12 +739,10 @@ theorem sat_pre : Proof.Sha3.absorbX86.pre sat := by
   simp only [Proof.Sha3.absorbX86, a0, a1, a2, a3, a4, a5, e]
   refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
     by decide, by decide, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, sat] at h₁ h₂
-    bv_omega
+  · exact Region.disjoint_of_sep (by decide)
 
 theorem absorb_verified : Verified X86.target absorb Proof.Sha3.absorbX86 := by
   refine ⟨fun s hs => correct (pre_of hs), ?_, ⟨sat, sat_pre⟩⟩
-  exact VG.Taint.constantTime (A := VG.X86.taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+  exact VG.Taint.constantTime (A := VG.X86.taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide_weak VG.Proof.Sha3.X86.dropRC)
 
 end VG.Proof.Sha3.X86.Stream.Absorb

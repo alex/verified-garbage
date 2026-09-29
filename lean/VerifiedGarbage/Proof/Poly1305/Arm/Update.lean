@@ -1,9 +1,8 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Steps
 import VerifiedGarbage.Proof.Framework.Arm.Taint
-import Mathlib.Tactic.Conv
-import Mathlib.Tactic.Ring.RingNF
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
 
 /-!
 # Poly1305 on 32-bit ARM: `update`
@@ -18,6 +17,8 @@ stored (`epi_ok`), and the last bytes of the data are copied into the buffer
 (`rest_ok`). Throughout (`UC`), only the state's working space, the buffer,
 the accumulator and `scratch` change.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305.Arm.Update
 
@@ -243,8 +244,8 @@ theorem shr4_beq (x : BitVec 32) : (x >>> 4 - 0 == 0) = decide (x.toNat < 16) :=
 
 theorem sub_ofNat32 {a b : Nat} (h : b ≤ a) :
     BitVec.ofNat 32 a - BitVec.ofNat 32 b = BitVec.ofNat 32 (a - b) := by
-  conv_lhs => rw [show a = (a - b) + b by omega, BitVec.ofNat_add]
-  rw [BitVec.add_sub_cancel]
+  rw [show BitVec.ofNat 32 a = BitVec.ofNat 32 (a - b) + BitVec.ofNat 32 b by
+    rw [← BitVec.ofNat_add, Nat.sub_add_cancel h], BitVec.add_sub_cancel]
 
 theorem CopyInv.keepsF {sI : State} {st src : BitVec 32} {j0 : Nat} {xs : List Byte} (hj0 : j0 + xs.length ≤ 16)
     {s : State} (h : CopyInv sI st src j0 xs xs.length s) :
@@ -591,7 +592,7 @@ theorem body_ok {s₀ : State} (hp : UPre s₀) {i : Nat} (hi : i < nw s₀) {s 
     fun s' ⟨hA', k', hptr, hcnt, hz⟩ => ?_
   have hLI : LI s₀ (i + 1) s' := by
     refine ⟨h.toUC.keepsF hp k' (by decide) (by decide) (by decide), ?_, ?_, ?_, ?_, ?_⟩
-    · rw [hblk, List.append_assoc, ← Poly1305.bytesAt_add, show 16 * i + 16 = 16 * (i + 1) by ring] at hA'
+    · rw [hblk, List.append_assoc, ← Poly1305.bytesAt_add, show 16 * i + 16 = 16 * (i + 1) by omega] at hA'
       exact hA'
     · rw [hptr, BitVec.add_assoc, show (16 : BitVec 32) = BitVec.ofNat 32 16 from rfl, ← BitVec.ofNat_add]
       rfl

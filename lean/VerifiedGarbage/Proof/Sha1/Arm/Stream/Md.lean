@@ -2,7 +2,6 @@ import VerifiedGarbage.Proof.MdStream.Arm.Update
 import VerifiedGarbage.Proof.MdStream.Arm.Finalize
 import VerifiedGarbage.Proof.MdStream.Arm.Words
 import VerifiedGarbage.Proof.Sha1.Md
-import VerifiedGarbage.Proof.Sha1.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Sha1.Arm.Compress
 import VerifiedGarbage.Impl.Sha1.Arm.Stream

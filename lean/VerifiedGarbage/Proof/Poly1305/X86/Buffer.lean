@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.X86.Blocks
 import VerifiedGarbage.Proof.Poly1305.Stream
+import VerifiedGarbage.Proof.Framework.PowLit
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # Poly1305 on x86 (32-bit): the buffer
@@ -9,6 +11,8 @@ state, words 14 to 17), bytes copied into it, absorbing it as a block, and
 what `update` and `finalize` share: the number of bytes buffered, from
 `count`.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305.X86
 
@@ -39,7 +43,7 @@ theorem addr_buf {st : BitVec 32} (hfit : st.toNat + 128 ≤ 2 ^ 32) {k : Nat} (
 theorem bfR_contains {d n : Nat} (st : BitVec 32) (h : d + n ≤ 16) :
     (bfR st).Contains (bq st + BitVec.ofNat 64 d) n := by
   simp only [Region.Contains, bq]
-  rw [show addr st 56 + BitVec.ofNat 64 d - addr st 56 = BitVec.ofNat 64 d by bv_omega, BitVec.toNat_ofNat,
+  rw [show addr st 56 + BitVec.ofNat 64 d - addr st 56 = BitVec.ofNat 64 d by bv_omega_using [], BitVec.toNat_ofNat,
     Nat.mod_eq_of_lt (by omega)]
   omega
 
@@ -248,7 +252,7 @@ theorem copy_step {sI : State} {st : BitVec 32} {m₀ : Mem} {src : BitVec 32} {
   · rw [u₅.wr, u₄.wr, u₃.wr, m₂.wr, u₁.wr, h.wr]
   · have hj' : j < (bytesAt m₀ (src.setWidth 64) n).length := by omega
     have hl : ((bytesAt m₀ (src.setWidth 64) n).take j).length = j := by
-      rw [List.length_take, Nat.min_eq_left hj'.le]
+      rw [List.length_take, Nat.min_eq_left (Nat.le_of_lt hj')]
     have ea : bq st + BitVec.ofNat 64 (j0 + j) =
         bq st + BitVec.ofNat 64 j0 + BitVec.ofNat 64 ((bytesAt m₀ (src.setWidth 64) n).take j).length := by
       rw [hl, BitVec.add_assoc, ← BitVec.ofNat_add]

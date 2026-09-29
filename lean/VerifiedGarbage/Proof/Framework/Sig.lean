@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.SigEval
 import VerifiedGarbage.TCB.Artifact
 
 /-!
@@ -24,8 +25,9 @@ proof works with:
   each public argument (in the bits of its width).
 
 `defs` are the definitions to unfold: the contract, the signature, the
-calling convention and its helpers. Each runs one `dsimp` and one `simp only`
-with a fixed set of lemmas, and no search over hypotheses.
+calling convention and its helpers. Each runs one `sig_reduce` and one
+`simp only` with a fixed set of lemmas, and no search over
+hypotheses.
 -/
 
 namespace VG
@@ -66,29 +68,193 @@ theorem Sig.forall_pubs_nil {P : Nat → Prop} :
     (∀ i, ([] : List Bool).getD i false = true → P i) ↔ True :=
   ⟨fun _ => trivial, fun _ i h => by simp at h⟩
 
+/-! ## Conjunctions of lists of facts
+
+The disjointness and bounds facts of `Sig.contract` are stated with
+`List.Pairwise` and `∀ x ∈ l`, which only rewriting turns into facts. Stated
+instead as `Sig.conj` of a list of facts, which evaluation computes, they are
+rewritten once, by the lemmas below. -/
+
+/-- The conjunction of `l`. -/
+def Sig.conj : List Prop → Prop
+  | [] => True
+  | [p] => p
+  | p :: q :: l => p ∧ Sig.conj (q :: l)
+
+theorem Sig.conj_cons {p : Prop} {l : List Prop} : Sig.conj (p :: l) ↔ p ∧ Sig.conj l := by
+  cases l with
+  | nil => exact ⟨fun h => ⟨h, trivial⟩, fun h => h.1⟩
+  | cons => exact Iff.rfl
+
+theorem Sig.conj_append {l₁ l₂ : List Prop} : Sig.conj (l₁ ++ l₂) ↔ Sig.conj l₁ ∧ Sig.conj l₂ := by
+  induction l₁ with
+  | nil => exact ⟨fun h => ⟨trivial, h⟩, fun h => h.2⟩
+  | cons p l ih => rw [List.cons_append, Sig.conj_cons, Sig.conj_cons, ih, and_assoc]
+
+theorem Sig.conj_map {α : Type} {P : α → Prop} {l : List α} : Sig.conj (l.map P) ↔ ∀ a ∈ l, P a := by
+  induction l with
+  | nil => exact ⟨fun _ _ h => absurd h List.not_mem_nil, fun _ => trivial⟩
+  | cons a l ih => rw [List.map_cons, Sig.conj_cons, ih, List.forall_mem_cons]
+
+/-- The disjointness of each pair of regions of `l` (in order) of which one is writable. -/
+def Sig.pairFacts : List (Region × Bool) → List Prop
+  | [] => []
+  | a :: l => l.filterMap (fun b => bif a.2 || b.2 then some (a.1.Disjoint b.1) else none) ++
+      Sig.pairFacts l
+
+theorem Sig.forall_pair_iff {a : Region × Bool} {l : List (Region × Bool)} :
+    (∀ b ∈ l, (a.2 || b.2) = true → a.1.Disjoint b.1) ↔
+      Sig.conj (l.filterMap fun b => bif a.2 || b.2 then some (a.1.Disjoint b.1) else none) := by
+  induction l with
+  | nil => exact ⟨fun _ => trivial, fun _ _ h => absurd h List.not_mem_nil⟩
+  | cons b l ih =>
+    rw [List.forall_mem_cons, ih, List.filterMap_cons]
+    cases a.2 || b.2
+    · simp only [Bool.cond_false, Bool.false_eq_true, false_implies, true_and]
+    · simp only [Bool.cond_true, Sig.conj_cons, true_implies]
+
+theorem Sig.pairwise_iff {l : List (Region × Bool)} :
+    l.Pairwise (fun a b => (a.2 || b.2) = true → a.1.Disjoint b.1) ↔ Sig.conj (Sig.pairFacts l) := by
+  induction l with
+  | nil => exact ⟨fun _ => trivial, fun _ => .nil⟩
+  | cons a l ih => rw [List.pairwise_cons, Sig.pairFacts, Sig.conj_append, ih, Sig.forall_pair_iff]
+
+theorem Sig.forall_mem_disjoint_iff {rs : List Region} {l : List (Region × Bool)} :
+    (∀ r ∈ rs, ∀ a ∈ l, r.Disjoint a.1) ↔
+      Sig.conj (rs.flatMap fun r => l.map fun a => r.Disjoint a.1) := by
+  induction rs with
+  | nil => exact ⟨fun _ => trivial, fun _ _ h => absurd h List.not_mem_nil⟩
+  | cons r rs ih => rw [List.forall_mem_cons, List.flatMap_cons, Sig.conj_append, Sig.conj_map, ih]
+
+theorem Sig.forall_mem_bound_iff {n : Nat} {l : List (Region × Bool)} :
+    (∀ a ∈ l, a.1.base.toNat + a.1.len ≤ 2 ^ n) ↔
+      Sig.conj (l.map fun a => a.1.base.toNat + a.1.len ≤ 2 ^ n) :=
+  Sig.conj_map.symm
+
+/-- The facts `P i` for the public arguments `i` (from `k`) of `l`. -/
+def Sig.pubFacts (P : Nat → Prop) : List Bool → Nat → List Prop
+  | [], _ => []
+  | b :: l, k => bif b then P k :: Sig.pubFacts P l (k + 1) else Sig.pubFacts P l (k + 1)
+
+theorem Sig.forall_pubs_iff_aux {P : Nat → Prop} :
+    ∀ {l : List Bool} {k : Nat},
+      (∀ i, l.getD i false = true → P (k + i)) ↔ Sig.conj (Sig.pubFacts P l k)
+  | [], _ => ⟨fun _ => trivial, fun _ i h => by simp at h⟩
+  | b :: l, k => by
+    rw [Sig.forall_pubs_cons]
+    have ih := Sig.forall_pubs_iff_aux (P := P) (l := l) (k := k + 1)
+    simp only [Nat.add_assoc, Nat.add_comm 1] at ih
+    cases b
+    · simp only [Sig.pubFacts, Bool.cond_false, ← ih, Bool.false_eq_true, false_implies, true_and]
+    · simp only [Sig.pubFacts, Bool.cond_true, Sig.conj_cons, ← ih, true_implies, Nat.add_zero]
+
+theorem Sig.forall_pubs_iff {P : Nat → Prop} {l : List Bool} :
+    (∀ i, l.getD i false = true → P i) ↔ Sig.conj (Sig.pubFacts P l 0) := by
+  rw [← Sig.forall_pubs_iff_aux]; simp only [Nat.zero_add]
+
+/-- The precondition of `sig.contract A pre _ writeArgs stack`, with its
+disjointness and bounds facts as `Sig.conj` of lists, which evaluate. -/
+def Sig.preE {M : ISA} (A : Abi M) (sig : Sig) (pre : Curry (sig.words A.ptrBits) (Mem → Prop))
+    (writeArgs : Bool) (stack : Nat) (s : M.State) : Prop :=
+  let ws := sig.words A.ptrBits
+  let widths := ws.map (·.bits A.ptrBits)
+  match A.args widths with
+  | none => False
+  | some vals =>
+    let bufs := Sig.bufs sig.params (vals s)
+    let all := bufs ++ (A.argArea widths s).map fun (r, w) => (r, w && writeArgs)
+    A.wf widths stack s ∧
+    A.rd s = (all.filter (!·.2)).map (·.1) ∧ A.wr s = (all.filter (·.2)).map (·.1) ∧
+    Sig.conj (Sig.pairFacts all) ∧
+    Sig.conj ((A.reserved stack s).flatMap fun r => all.map fun a => r.Disjoint a.1) ∧
+    Sig.conj (bufs.map fun a => a.1.base.toNat + a.1.len ≤ 2 ^ A.ptrBits) ∧
+    Curry.apply ws pre (vals s) (A.mem s)
+
+theorem Sig.contract_pre_iff {M : ISA} {A : Abi M} {sig : Sig}
+    {pre : Curry (sig.words A.ptrBits) (Mem → Prop)} {post : sig.Post A.ptrBits} {writeArgs : Bool}
+    {stack : Nat} {leak : Option (Curry (sig.words A.ptrBits) (Mem → List Nat))} {s : M.State} :
+    (sig.contract A pre post writeArgs stack leak).pre s ↔ Sig.preE A sig pre writeArgs stack s := by
+  simp only [Sig.contract, Sig.preE]
+  generalize A.args ((sig.words A.ptrBits).map (·.bits A.ptrBits)) = o
+  cases o with
+  | none => exact Iff.rfl
+  | some vals => simp only [Sig.pairwise_iff, Sig.forall_mem_disjoint_iff, Sig.forall_mem_bound_iff]
+
+/-- The public data of `sig.contract A _ _ _ _ leak`, with the public
+arguments as `Sig.conj` of a list, which evaluates. -/
+def Sig.pubE {M : ISA} (A : Abi M) (sig : Sig)
+    (leak : Option (Curry (sig.words A.ptrBits) (Mem → List Nat))) (s₁ s₂ : M.State) : Prop :=
+  let ws := sig.words A.ptrBits
+  let widths := ws.map (·.bits A.ptrBits)
+  let pubs := sig.params.flatMap (·.2.pubs)
+  match A.args widths with
+  | none => False
+  | some vals =>
+    (match leak with
+      | none => A.pub s₁ s₂
+      | some f => A.pub s₁ s₂ ∧
+        Curry.apply ws f (vals s₁) (A.mem s₁) = Curry.apply ws f (vals s₂) (A.mem s₂)) ∧
+    Sig.conj (Sig.pubFacts (fun i => ((vals s₁).getD i 0).setWidth (widths.getD i 64) =
+      ((vals s₂).getD i 0).setWidth (widths.getD i 64)) pubs 0)
+
+theorem Sig.contract_pub_iff {M : ISA} {A : Abi M} {sig : Sig}
+    {pre : Curry (sig.words A.ptrBits) (Mem → Prop)} {post : sig.Post A.ptrBits} {writeArgs : Bool}
+    {stack : Nat} {leak : Option (Curry (sig.words A.ptrBits) (Mem → List Nat))} {s₁ s₂ : M.State} :
+    (sig.contract A pre post writeArgs stack leak).pub s₁ s₂ ↔ Sig.pubE A sig leak s₁ s₂ := by
+  simp only [Sig.contract, Sig.pubE]
+  generalize A.args ((sig.words A.ptrBits).map (·.bits A.ptrBits)) = o
+  cases o with
+  | none => exact Iff.rfl
+  | some vals => simp only [Sig.forall_pubs_iff]; exact Iff.rfl
+
+/-! ## Evaluation
+
+The signature and the calling convention are data: evaluating them (the
+argument words, the buffers, the argument area, which buffers are writable)
+is computation, which `sig_reduce` (`Proof/Framework/SigEval.lean`) does by
+unfolding definitions, with no proof term: the kernel checks the result once,
+by evaluation. Only then does `simp` rewrite what is not computation
+(`List.Pairwise` and membership in the concrete lists, `setWidth`, the
+conjunctions), on a term that is already small. (Evaluating the lists with
+`simp` instead produces a proof step per list operation, each stated on the
+whole contract, which the kernel spends up to seconds checking.) -/
+
+/-- `sig_simp [ls] [xs] (at h)?` is `simp -failIfUnchanged only [xs, ts]`,
+where `ts` are the theorems among `ls` (the definitions among them are
+unfolded by `sig_reduce`, which is cheaper than elaborating their equations
+into simp lemmas at every use); nothing if there are none. -/
+syntax "sig_simp " "[" Lean.Parser.Tactic.simpLemma,* "]" " [" Lean.Parser.Tactic.simpLemma,* "]"
+  (Lean.Parser.Tactic.location)? : tactic
+
+open Lean Elab Tactic in
+elab_rules : tactic
+  | `(tactic| sig_simp [$ls,*] [$xs,*] $[$loc]?) => do
+    let mut args : Array (TSyntax ``Lean.Parser.Tactic.simpLemma) := xs.getElems
+    for l in ls.getElems do
+      let t := l.raw[2]
+      unless t.isIdent do continue
+      let cs ← try realizeGlobalConstWithInfos t catch _ => pure []
+      let env ← getEnv
+      if cs.any fun c => (env.find? c).any (· matches .thmInfo _) then args := args.push l
+    if args.isEmpty then return
+    evalTactic (← `(tactic|
+      set_option linter.unusedSimpArgs false in simp -failIfUnchanged only [$args,*] $[$loc]?))
+
 /-- Unfolds a contract built with `Sig.contract` (at `loc`), evaluating the
 signature and the calling convention given by `ls`. -/
 syntax "sig_eval " "[" Lean.Parser.Tactic.simpLemma,* "]" (Lean.Parser.Tactic.location)? : tactic
 macro_rules
   | `(tactic| sig_eval [$ls,*] $[$loc]?) => `(tactic| (
-      set_option linter.unusedSimpArgs false in
-      dsimp only [$ls,*, Sig.contract, Sig.words, Param.words, Param.pubs, List.flatMap,
-        List.flatten, List.map, List.append, ArgWord.bits, IntTy.bits, Sig.retBits, stackBelow,
-        List.length, List.take, List.cons_append, List.nil_append] $[$loc]?
-      set_option linter.unusedSimpArgs false in
-      simp only [$ls,*, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMul, Nat.reduceDiv,
-        Nat.reduceLeDiff, Nat.reduceEqDiff, ↓reduceIte, Sig.bufs, Curry.apply, Curry.const,
-        Curry.apply_const, ArgWord.ofRaw, Elem.size, List.filter, List.map, List.cons_append,
-        List.nil_append, List.all_cons, List.all_nil, Bool.not_true, Bool.not_false, Bool.and_true,
-        Bool.and_false, Bool.true_and, Bool.false_and, Bool.and_self, Bool.or_true, Bool.true_or,
-        Bool.or_false, Bool.false_or, Bool.false_eq_true, decide_true, decide_false, Nat.mul_one,
-        Nat.one_mul, List.pairwise_cons, List.forall_mem_cons, List.not_mem_nil, List.Pairwise.nil,
-        List.mem_cons, List.mem_nil_iff, forall_eq_or_imp, forall_eq, forall_false, implies_true,
-        true_implies, false_implies, and_true, true_and, and_self, or_self, or_true, true_or,
-        false_or, or_false, and_assoc, Nat.add_zero, List.zip_cons_cons, List.zip_nil_left,
-        List.zip_nil_right, List.sum_cons, List.sum_nil, BitVec.setWidth_eq,
-        BitVec.setWidth_32_64_32, BitVec.toNat_setWidth_32_64, BitVec.setWidth_setWidth_of_le,
-        Sig.forall_pubs_cons, Sig.forall_pubs_nil] $[$loc]?))
+      -- The facts about lists as `Sig.conj` of lists, which evaluate.
+      first
+        | (sig_iff $[$loc]?
+           sig_reduce [$ls,*] $[$loc]?)
+        | (sig_reduce [$ls,*] $[$loc]?
+           try simp only [Sig.pairwise_iff, Sig.forall_mem_disjoint_iff, Sig.forall_mem_bound_iff,
+             Sig.forall_pubs_iff] $[$loc]?
+           try sig_reduce [] $[$loc]?)
+      sig_simp [$ls,*] [Sig.bufs, Curry.apply, Curry.const, Curry.apply_const, ArgWord.ofRaw, Elem.size, List.filter, List.map, List.cons_append, List.nil_append, List.all_cons, List.all_nil, Bool.not_true, Bool.not_false, Bool.and_true, Bool.and_false, Bool.true_and, Bool.false_and, Bool.and_self, Bool.or_true, Bool.true_or, Bool.or_false, Bool.false_or, Bool.false_eq_true, decide_true, decide_false, Nat.mul_one, Nat.one_mul, List.pairwise_cons, List.forall_mem_cons, List.not_mem_nil, List.Pairwise.nil, List.mem_cons, List.mem_nil_iff, forall_eq_or_imp, forall_eq, forall_false, implies_true, true_implies, false_implies, and_true, true_and, and_self, or_self, or_true, true_or, false_or, or_false, and_assoc, Nat.add_zero, List.zip_cons_cons, List.zip_nil_left, List.zip_nil_right, List.sum_cons, List.sum_nil, BitVec.setWidth_eq, BitVec.setWidth_32_64_32, BitVec.toNat_setWidth_32_64, BitVec.setWidth_setWidth_of_le, Sig.forall_pubs_cons, Sig.forall_pubs_nil, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMul, Nat.reduceDiv,
+        Nat.reduceLeDiff, Nat.reduceEqDiff, ↓reduceIte] $[$loc]?))
 
 /-- Evaluates the precondition of a contract built with `Sig.contract` into
 a conjunction of plain facts (see the module documentation). -/
@@ -107,9 +273,6 @@ syntax "sig_pub " "[" Lean.Parser.Tactic.simpLemma,* "]" (Lean.Parser.Tactic.loc
 macro_rules
   | `(tactic| sig_pub [$ls,*] $[$loc]?) => `(tactic| (
       sig_eval [$ls,*] $[$loc]?
-      -- The widths are in the types of the equations: only `dsimp` can rewrite them.
-      try dsimp only [List.getD, List.getElem?_cons_succ, List.getElem?_cons_zero,
-        List.getElem?_nil, Option.getD_some, Option.getD_none, Nat.zero_add] $[$loc]?
       try simp only [BitVec.setWidth_eq, BitVec.setWidth_32_64_32, BitVec.setWidth_32_64_inj,
         BitVec.append_32_iff, and_assoc, and_true, true_and] $[$loc]?))
 

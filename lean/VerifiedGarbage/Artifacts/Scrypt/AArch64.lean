@@ -5,6 +5,7 @@ import VerifiedGarbage.Impl.Scrypt.AArch64.RoMix
 import VerifiedGarbage.Proof.Scrypt.AArch64.BlockMixVerified
 import VerifiedGarbage.Proof.Scrypt.AArch64.RoMixCT
 import VerifiedGarbage.Proof.Scrypt.AArch64.Salsa
+import VerifiedGarbage.Proof.Scrypt.AArch64.Lit
 
 /-!
 # scrypt (RFC 7914): Salsa20/8, scryptBlockMix and scryptROMix on AArch64

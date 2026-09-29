@@ -1,12 +1,15 @@
 import VerifiedGarbage.Proof.Poly1305.X86.Buffer
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
 
 /-!
 # Poly1305 on x86 (32-bit): `finalize`
 
 Untrusted: everything here is checked by Lean.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305.X86
 
@@ -146,7 +149,7 @@ theorem zinit_ok {s₀ : State} {F : Nat → Nat} {s₁ : State} (h₁ : F0 s₀
     WP isa (.block [.mov .eax (.imm 0), .mov .ecx (.reg .edx), .alu .add .ecx (.reg .edi)]) s₁
       (ZeroInv s₀ s₁ (kb s₀)) := by
   refine wp_movi fun s₂ u₂ _ => wp_mov fun s₃ u₃ _ => wp_addx (readSrc_reg _ _) fun s₄ u₄ _ =>
-    WP.block_nil ⟨⟨(Nat.le_refl _), (kb_lt s₀).le⟩, ?_, ?_, ?_, fun r h1 h2 h3 => ?_, by rw [u₄.rd, u₃.rd, u₂.rd],
+    WP.block_nil ⟨⟨(Nat.le_refl _), Nat.le_of_lt (kb_lt s₀)⟩, ?_, ?_, ?_, fun r h1 h2 h3 => ?_, by rw [u₄.rd, u₃.rd, u₂.rd],
       by rw [u₄.wr, u₃.wr, u₂.wr], by rw [u₄.mem, u₃.mem, u₂.mem]; exact Frame.refl _ _, fun k hk => ?_⟩
   · rw [u₄.gpr, u₃.gpr, u₃.other _ (by decide), u₂.other _ (by decide), u₂.other _ (by decide), hedx,
       h₁.ctx.edi, BitVec.add_comm]
@@ -172,7 +175,7 @@ theorem zero_step {s₀ : State} (hp : FPre s₀) {F : Nat → Nat} {s₁ : Stat
   have hedx : s₄.gpr .edx = BitVec.ofNat 32 (j + 1) := by
     rw [u₄.gpr, u₃.other _ (by decide), m₂.gpr, h.edx, show (1 : BitVec 32) = BitVec.ofNat 32 1 from rfl,
       ← BitVec.ofNat_add]
-  refine ⟨⟨⟨h.j_le.1.trans (Nat.le_succ _), by omega⟩, ?_, by rw [k₅.gpr', hedx], ?_,
+  refine ⟨⟨⟨Nat.le_trans h.j_le.1 (Nat.le_succ _), by omega⟩, ?_, by rw [k₅.gpr', hedx], ?_,
       fun r h1 h2 h3 => ?_, by rw [k₅.2.2.1, u₄.rd, u₃.rd, m₂.rd, h.rd],
       by rw [k₅.2.2.2, u₄.wr, u₃.wr, m₂.wr, h.wr], ?_, fun k hk => ?_⟩, ?_⟩
   · rw [k₅.gpr', u₄.other _ (by decide), u₃.gpr, m₂.gpr, h.ecx, BitVec.add_assoc,

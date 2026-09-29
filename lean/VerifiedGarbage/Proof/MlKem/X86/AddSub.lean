@@ -336,16 +336,18 @@ theorem add_verified : Verified X86.target add (addContract X86.abi 16) := by
     sig_post [addContract, accSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
     rw [hm]
     exact map_post (G := (· + ·)) (fun x y => val_add x y) (AccPre.of_add h₀) hinv
-  · have a0 : arg accSat 0 = 0 := by decide
-    have a1 : arg accSat 1 = 0x400 := by decide
-    have e : argAddr accSat 0 = 0x5004 := by decide
-    have esp : accSat.gpr .esp = 0x5000 := rfl
-    refine ⟨accSat, ?_⟩
-    sig_pre [addContract, accSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [a0, a1, e, esp]
-    refine ⟨by decide, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
-      accSat_red 0 (by decide), accSat_red 0x400 (by decide)⟩ <;>
-    exact Region.disjoint_of_sep (by decide)
+  · refine ⟨accSat, ?_⟩
+    sig_apply_check
+    · decide +kernel
+    · sig_reduce [addContract, accSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      sig_and_intros
+      all_goals first
+        | trivial
+        | (rw [show BitVec.setWidth 64 (arg accSat 0) = BitVec.ofNat 64 0 by decide]
+           exact accSat_red 0 (by decide))
+        | (rw [show BitVec.setWidth 64 (arg accSat 1) = BitVec.ofNat 64 0x400 by decide]
+           exact accSat_red 0x400 (by decide))
+        | decide +kernel
 
 theorem sub_verified : Verified X86.target sub (subContract X86.abi 16) := by
   refine Piece.verified (((map_piece subOp_spec (NoSp.of_all (by decide +kernel)) (by taint_decide)).pre_mono
@@ -357,14 +359,16 @@ theorem sub_verified : Verified X86.target sub (subContract X86.abi 16) := by
     sig_post [subContract, accSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
     rw [hm]
     exact map_post (G := (· - ·)) (fun x y => val_sub x y) (AccPre.of_sub h₀) hinv
-  · have a0 : arg accSat 0 = 0 := by decide
-    have a1 : arg accSat 1 = 0x400 := by decide
-    have e : argAddr accSat 0 = 0x5004 := by decide
-    have esp : accSat.gpr .esp = 0x5000 := rfl
-    refine ⟨accSat, ?_⟩
-    sig_pre [subContract, accSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [a0, a1, e, esp]
-    refine ⟨by decide, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
-      accSat_red 0 (by decide), accSat_red 0x400 (by decide)⟩ <;>
-    exact Region.disjoint_of_sep (by decide)
+  · refine ⟨accSat, ?_⟩
+    sig_apply_check
+    · decide +kernel
+    · sig_reduce [subContract, accSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      sig_and_intros
+      all_goals first
+        | trivial
+        | (rw [show BitVec.setWidth 64 (arg accSat 0) = BitVec.ofNat 64 0 by decide]
+           exact accSat_red 0 (by decide))
+        | (rw [show BitVec.setWidth 64 (arg accSat 1) = BitVec.ofNat 64 0x400 by decide]
+           exact accSat_red 0x400 (by decide))
+        | decide +kernel
 end VG.Proof.MlKem.X86

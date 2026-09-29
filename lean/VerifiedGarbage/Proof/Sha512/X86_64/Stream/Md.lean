@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.Sha512.Md
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Sha512.X86_64.Compress
 import VerifiedGarbage.Impl.Sha512.X86_64.Stream
+import VerifiedGarbage.Proof.Sha512.X86_64.Lit
 
 /-!
 # Streaming SHA-512 on x86-64: `update` and `finalize`

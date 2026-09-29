@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Sha1.X86.Rounds
+import VerifiedGarbage.Proof.Sha1.X86.Lit
 import VerifiedGarbage.Proof.Sha1.X86.Contract
 
 /-!

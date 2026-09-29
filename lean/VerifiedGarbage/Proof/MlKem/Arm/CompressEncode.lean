@@ -572,9 +572,14 @@ theorem verified : Verified Arm.target Impl.MlKem.Arm.compressEncode
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
   · refine ⟨satState, ?_⟩
-    sig_pre [Spec.MlKem.compressEncodeContract, Spec.MlKem.compressEncodeSig, Arm.abi,
-      Arm.argRegs, Arm.reduceClassify, Arm.Loc.val]
-    exact ⟨by decide, rfl, rfl, Region.disjoint_of_sep (by decide), by decide, by decide, by decide,
-      by decide, Add.reduced_zero _⟩
+    sig_apply_check
+    · decide +kernel
+    · sig_reduce [Spec.MlKem.compressEncodeContract, Spec.MlKem.compressEncodeSig, Arm.abi,
+        Arm.argRegs, Arm.reduceClassify, Arm.Loc.val]
+      sig_and_intros
+      all_goals first
+        | trivial
+        | exact Add.reduced_zero _
+        | decide +kernel
 
 end VG.Proof.MlKem.Arm.CompressEncode

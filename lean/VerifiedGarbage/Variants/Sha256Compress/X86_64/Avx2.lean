@@ -21,7 +21,7 @@ def variant : Proof.Sha256.X86_64.Compress where
   callee := .avx2
   ok := ok
   mxcsr := by decide +kernel
-  spSafe := Code.all_of_allInstrs (by decide +kernel)
+  spSafe := Code.all_of_allInstrs (by lit_decide)
   suffix := "_avx2"
   features := ["avx", "avx2", "bmi1", "bmi2"]
 

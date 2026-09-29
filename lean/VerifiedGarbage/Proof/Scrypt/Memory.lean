@@ -34,7 +34,7 @@ theorem toNat_add_ofNat (a : Addr) {o : Nat} (h : a.toNat + o < 2 ^ 64) :
 theorem contains_off {a : Addr} {len o n : Nat} (h : o + n ≤ len) (ho : o < 2 ^ 64) :
     (⟨a, len⟩ : Region).Contains (a + BitVec.ofNat 64 o) n := by
   simp only [Region.Contains]
-  rw [show a + BitVec.ofNat 64 o - a = BitVec.ofNat 64 o by bv_omega, toNat_ofNat_lt ho]; omega
+  rw [show a + BitVec.ofNat 64 o - a = BitVec.ofNat 64 o by rw [BitVec.add_comm, BitVec.add_sub_cancel], toNat_ofNat_lt ho]; omega
 
 /-- `[a + o, a + o + n)` is a sub-region of `[a, a + len)`. -/
 theorem sub_off {a : Addr} {len o n : Nat} (h : o + n ≤ len) (ho : o < 2 ^ 64) :
@@ -42,7 +42,7 @@ theorem sub_off {a : Addr} {len o n : Nat} (h : o + n ≤ len) (ho : o < 2 ^ 64)
   intro x hx
   simp only [Region.Contains] at hx ⊢
   have : (x - a).toNat ≤ (x - (a + BitVec.ofNat 64 o)).toNat + o := by
-    rw [show x - a = (x - (a + BitVec.ofNat 64 o)) + BitVec.ofNat 64 o by bv_omega,
+    rw [show x - a = (x - (a + BitVec.ofNat 64 o)) + BitVec.ofNat 64 o by rw [← BitVec.sub_sub, BitVec.sub_add_cancel],
       BitVec.toNat_add, toNat_ofNat_lt (by omega)]
     exact Nat.mod_le _ _
   omega

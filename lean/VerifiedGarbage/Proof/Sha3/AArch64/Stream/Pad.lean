@@ -1,7 +1,8 @@
-import VerifiedGarbage.Proof.Sha3.AArch64.Call
+import VerifiedGarbage.Proof.Sha3.AArch64.Permute
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Sha3.Contract
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # The SHA-3 sponge on AArch64: `pad`
@@ -79,7 +80,7 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
   have e₆ : s₆.gpr .x9 + BitVec.ofNat 64 0 = st s₀ + BitVec.ofNat 64 ((s₀.gpr .x1).toNat - 1) := by
     rw [u₆.gpr, u₅.gpr, k₄ _ (by decide) (by decide), k₄ _ (by decide) (by decide)]
     simp only [st]
-    bv_omega
+    rw [BitVec.add_zero]; exact Offset.add_sub_one64 _ _ (by omega)
   refine wp_ldrb (a := st s₀ + BitVec.ofNat 64 ((s₀.gpr .x1).toNat - 1)) (by omega) e₆
     (by rw [u₆.rd, u₆.wr, u₅.rd, u₅.wr, g₄.rd, g₄.wr, u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]
         exact hw' _ (by omega))
