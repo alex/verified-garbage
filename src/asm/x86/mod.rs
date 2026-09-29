@@ -11,6 +11,9 @@ pub(crate) mod chacha20poly1305;
 pub(crate) mod hmac_sha256;
 
 #[rustfmt::skip]
+pub(crate) mod md5;
+
+#[rustfmt::skip]
 pub(crate) mod pbkdf2_sha256;
 
 #[rustfmt::skip]
