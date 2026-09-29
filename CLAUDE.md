@@ -114,6 +114,10 @@ should add files, not edit lists that every other PR edits too.
   Tests and benchmarks are gated on exactly the architectures of the
   library modules they use (`ci/check_arch_gates.py` checks it), so update
   their `cfg`s with the module's.
+* Import the verified functions from `crate::arch::<module>` (the target's
+  `crate::asm::<target>::<module>`, `src/lib.rs`), once for every
+  architecture, not with a `use` per architecture; only functions a target
+  alone has (e.g. an x86-64 `_shani` variant) take a `#[cfg(target_arch)]`.
 * Tests of one algorithm go in a file of their own (`tests/cavp/<alg>.rs`,
   `tests/wycheproof/<alg>.rs`), declared with one `mod` line.
 * A construction over many hash functions (HMAC, PBKDF2) gets a file per

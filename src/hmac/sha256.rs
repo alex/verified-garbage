@@ -15,14 +15,7 @@
 ))]
 
 use super::{HmacHash, sealed};
-#[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
-#[cfg(target_arch = "arm")]
-use crate::asm::arm::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
-#[cfg(target_arch = "x86")]
-use crate::asm::x86::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
-#[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
+use crate::arch::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 use crate::hashes::sha256::{Sha256, Sha256Backend};
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]

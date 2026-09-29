@@ -11,10 +11,7 @@
 
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
-#[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::sha1::{vg_sha1_finalize, vg_sha1_init, vg_sha1_update};
-#[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::sha1::{vg_sha1_finalize, vg_sha1_init, vg_sha1_update};
+use crate::arch::sha1::{vg_sha1_finalize, vg_sha1_init, vg_sha1_update};
 
 super::streaming_hash!(
     /// An incremental SHA-1 computation.
