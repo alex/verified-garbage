@@ -12,7 +12,7 @@ namespace VG.Proof.Pbkdf2.Arm
 open VG VG.Arm VG.Impl.Pbkdf2.Arm
 open VG.Impl.Sha256.Arm.Stream (saved)
 open VG.Proof.MdStream.Arm (wp_subs op2_imm eval_eq eval_ne ofNat_beq_zero sub_ofNat)
-open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep)
+open VG.Proof.Hmac.Common (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Pbkdf2.X86_64.Iterate (frame_bytesAt contains_base blockAt_eq xorBytes_length add_ofNat digest_self)
 open VG.Spec.Sha256 (bytesAt stateAt blockAt compress HashValue)

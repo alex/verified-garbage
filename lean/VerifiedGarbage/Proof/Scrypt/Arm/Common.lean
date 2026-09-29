@@ -80,8 +80,8 @@ theorem writeW_xor32 (m m' : Mem) (d a b : Addr) :
   intro j h₁ h₂
   simp only [List.length_map, List.length_range] at h₁
   simp only [xorBytes, bytesAt, List.getElem_map, List.getElem_range, List.getElem_zipWith]
-  rw [BitVec.extractLsb'_xor, Proof.Hmac.X86_64.extractLsb'_read _ _ h₁,
-    Proof.Hmac.X86_64.extractLsb'_read _ _ h₁]
+  rw [BitVec.extractLsb'_xor, Proof.Hmac.Common.extractLsb'_read _ _ h₁,
+    Proof.Hmac.Common.extractLsb'_read _ _ h₁]
 
 /-! ## The 64-byte exclusive-or -/
 

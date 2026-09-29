@@ -159,7 +159,7 @@ theorem bytesAt_length (m : Mem) (p : Addr) (n : Nat) : (bytesAt m p n).length =
 
 theorem bytesAt_add (m : Mem) (p : Addr) (a b : Nat) :
     bytesAt m p (a + b) = bytesAt m p a ++ bytesAt m (p + BitVec.ofNat 64 a) b :=
-  Proof.Hmac.X86_64.bytesAt_add m p a b
+  Proof.Hmac.Common.bytesAt_add m p a b
 
 theorem bytesAt_congr {m m' : Mem} {p : Addr} {n : Nat}
     (h : ∀ i < n, m (p + BitVec.ofNat 64 i) = m' (p + BitVec.ofNat 64 i)) :
@@ -173,12 +173,12 @@ theorem frame_bytesAt {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : 
 
 theorem bytesAt_writeBytes_self (m : Mem) (q : Addr) (xs : List Byte) (hl : xs.length < 2 ^ 64) :
     bytesAt (writeBytes m q xs) q xs.length = xs :=
-  Proof.Hmac.X86_64.bytesAt_writeBytes_self m q xs hl
+  Proof.Hmac.Common.bytesAt_writeBytes_self m q xs hl
 
 theorem bytesAt_writeBytes_sep (m : Mem) {p q : Addr} {n : Nat} (xs : List Byte)
     (h : Region.Disjoint ⟨p, n⟩ ⟨q, xs.length⟩) (hn : n < 2 ^ 64) :
     bytesAt (writeBytes m q xs) p n = bytesAt m p n :=
-  Proof.Hmac.X86_64.bytesAt_writeBytes_sep m xs (fun x h₁ h₂ => h x h₁ h₂) hn
+  Proof.Hmac.Common.bytesAt_writeBytes_sep m xs (fun x h₁ h₂ => h x h₁ h₂) hn
 
 /-- The `64 n` bytes at `p` as `n` blocks of 64. -/
 theorem bytesAt_blocks (m : Mem) (p : Addr) (n : Nat) :
@@ -211,8 +211,8 @@ theorem writeW_xor (m m' : Mem) (d a b : Addr) :
   intro j h₁ h₂
   simp only [List.length_map, List.length_range] at h₁
   simp only [xorBytes, bytesAt, List.getElem_map, List.getElem_range, List.getElem_zipWith]
-  rw [BitVec.extractLsb'_xor, Proof.Hmac.X86_64.extractLsb'_read _ _ h₁,
-    Proof.Hmac.X86_64.extractLsb'_read _ _ h₁]
+  rw [BitVec.extractLsb'_xor, Proof.Hmac.Common.extractLsb'_read _ _ h₁,
+    Proof.Hmac.Common.extractLsb'_read _ _ h₁]
 
 theorem wp_xorm {is : List Instr} {s : State} {Q : State → Prop} {d : Reg} {m : MemOp} {a : Addr}
     (ha : s.ea m = a) (hin : InRegions (s.rd ++ s.wr) a 8)

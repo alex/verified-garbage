@@ -26,7 +26,7 @@ open VG.Proof.Sha256.X86 (contains_offset)
 open VG.Proof.Sha256.X86.Stream (Upd Mupd Fupd wp_mov wp_movi wp_movm wp_store wp_test ea_at addr_toNat
   readW_writeW_addr ofNat_beq_zero)
 open VG.Proof.Hmac.X86 (copyWords_ok)
-open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep)
+open VG.Proof.Hmac.Common (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_nil)
 open VG.Proof.Pbkdf2.X86_64.Iterate (frame_bytesAt contains_base writeW_bytes writeBytes_append' iterate_congr
   add_ofNat)

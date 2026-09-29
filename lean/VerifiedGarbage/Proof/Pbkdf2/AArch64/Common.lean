@@ -62,7 +62,7 @@ namespace VG.Proof.Pbkdf2.AArch64
 
 open VG VG.AArch64 VG.Impl.Pbkdf2.AArch64
 open VG.Impl.Sha256.AArch64.Stream (mov save restore compressAt saved)
-open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep bytesAt_add)
+open VG.Proof.Hmac.Common (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep bytesAt_add)
 open VG.Proof.Hmac.AArch64 (add_off)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append writeBytes_nil)
 open VG.Proof.Sha256.AArch64 (contains_offset sub_offset toNat_ofNat_lt)
