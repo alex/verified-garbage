@@ -1,0 +1,165 @@
+// @generated from lean/VerifiedGarbage/Artifacts.lean by lean/Emit.lean. DO NOT EDIT.
+//! Verified `hmac_md5` functions for `aarch64`.
+#![allow(dead_code)]
+
+/// Starts an HMAC-MD5 computation with a key of at most 64 bytes: makes the MD5 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 64 bytes (FIPS 198-1). The text is then absorbed with `vg_md5_update` on `*inner` (its `count` starting at 64), and the MAC computed with `vg_hmac_md5_finalize`.
+///
+/// Contract: `VG.Spec.Hmac.Instance.initContract` of `VG.Spec.Hmac.md5I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
+///
+/// # Safety
+///
+/// * `key_len` must be at most 64.
+/// * `inner` and `outer` must each be valid for reads and writes of 80 bytes.
+/// * `key` must be valid for reads of `key_len` bytes.
+/// * `scratch` must be valid for reads and writes of 384 bytes; its contents on return are unspecified.
+/// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `key` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_hmac_md5_init(inner: *mut [u8; 80], outer: *mut [u8; 80], key: *const u8, key_len: usize, scratch: *mut [u64; 48]) {
+    core::arch::naked_asm!(
+        "str x19, [x4, #112]",
+        "str x20, [x4, #120]",
+        "str x21, [x4, #128]",
+        "str x22, [x4, #136]",
+        "str x24, [x4, #144]",
+        "str x30, [x4, #152]",
+        "str x23, [x4, #160]",
+        "add x19, x0, #0",
+        "add x20, x1, #0",
+        "add x21, x2, #0",
+        "add x22, x3, #0",
+        "add x23, x4, #0",
+        "movz x14, #54, lsl #0",
+        "movz x15, #92, lsl #0",
+        "movz x24, #0, lsl #0",
+        "cbz x22, 20f",
+        "22:",
+        "add x13, x21, x24",
+        "ldrb w9, [x13, #0]",
+        "add x12, x23, x24",
+        "eor x10, x9, x14",
+        "strb w10, [x12, #168]",
+        "eor x10, x9, x15",
+        "strb w10, [x12, #232]",
+        "add x24, x24, #1",
+        "sub x11, x22, x24",
+        "cbnz x11, 22b",
+        "b 21f",
+        "20:",
+        "21:",
+        "movz x11, #64, lsl #0",
+        "sub x11, x11, x24",
+        "cbz x11, 23f",
+        "25:",
+        "add x12, x23, x24",
+        "strb w14, [x12, #168]",
+        "strb w15, [x12, #232]",
+        "add x24, x24, #1",
+        "movz x11, #64, lsl #0",
+        "sub x11, x11, x24",
+        "cbnz x11, 25b",
+        "b 24f",
+        "23:",
+        "24:",
+        "add x0, x19, #0",
+        "bl {vg_md5_init}",
+        "add x0, x19, #0",
+        "movz x1, #0, lsl #0",
+        "add x2, x23, #168",
+        "movz x3, #64, lsl #0",
+        "add x4, x23, #0",
+        "bl {vg_md5_update}",
+        "add x0, x20, #0",
+        "bl {vg_md5_init}",
+        "add x0, x20, #0",
+        "movz x1, #0, lsl #0",
+        "add x2, x23, #232",
+        "movz x3, #64, lsl #0",
+        "add x4, x23, #0",
+        "bl {vg_md5_update}",
+        "ldr x19, [x23, #112]",
+        "ldr x20, [x23, #120]",
+        "ldr x21, [x23, #128]",
+        "ldr x22, [x23, #136]",
+        "ldr x24, [x23, #144]",
+        "ldr x30, [x23, #152]",
+        "ldr x23, [x23, #160]",
+        "ret",
+        vg_md5_init = sym super::md5::vg_md5_init,
+        vg_md5_update = sym super::md5::vg_md5_update,
+    )
+}
+
+/// Finishes an HMAC-MD5 computation: if, for a 64-byte key `K₀` and a text of fewer than 2⁶⁴ − 64 bytes, the MD5 streaming state `*inner` represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes, and `*outer` represents `K₀ ⊕ opad`, writes the HMAC-MD5 of the text under `K₀` (16 bytes) to `*out`.
+///
+/// Contract: `VG.Spec.Hmac.Instance.finalizeContract` of `VG.Spec.Hmac.md5I`. Constant time: only the pointers and `count` may affect timing, not the states.
+///
+/// # Safety
+///
+/// * `inner` must be valid for reads and writes of 80 bytes; its contents on return are unspecified.
+/// * `outer` must be valid for reads of 80 bytes.
+/// * `out` must be valid for writes of 16 bytes.
+/// * `scratch` must be valid for reads and writes of 384 bytes; its contents on return are unspecified.
+/// * `inner`, `out` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `out` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_hmac_md5_finalize(inner: *mut [u8; 80], outer: *const [u8; 80], count: u64, out: *mut [u8; 16], scratch: *mut [u64; 48]) {
+    core::arch::naked_asm!(
+        "str x19, [x4, #112]",
+        "str x20, [x4, #120]",
+        "str x21, [x4, #128]",
+        "str x22, [x4, #136]",
+        "str x24, [x4, #144]",
+        "str x30, [x4, #152]",
+        "str x23, [x4, #160]",
+        "add x19, x0, #0",
+        "add x20, x1, #0",
+        "add x21, x3, #0",
+        "add x23, x4, #0",
+        "add x1, x2, #0",
+        "add x2, x23, #168",
+        "add x3, x23, #0",
+        "bl {vg_md5_finalize}",
+        "movz x24, #0, lsl #0",
+        "20:",
+        "add x12, x20, x24",
+        "ldrb w9, [x12, #0]",
+        "add x13, x19, x24",
+        "strb w9, [x13, #0]",
+        "add x24, x24, #1",
+        "movz x11, #80, lsl #0",
+        "sub x11, x11, x24",
+        "cbnz x11, 20b",
+        "add x0, x19, #0",
+        "movz x1, #64, lsl #0",
+        "add x2, x23, #168",
+        "movz x3, #16, lsl #0",
+        "add x4, x23, #0",
+        "bl {vg_md5_update}",
+        "add x0, x19, #0",
+        "movz x1, #80, lsl #0",
+        "add x2, x23, #168",
+        "add x3, x23, #0",
+        "bl {vg_md5_finalize}",
+        "movz x24, #0, lsl #0",
+        "21:",
+        "add x12, x23, x24",
+        "ldrb w9, [x12, #168]",
+        "add x13, x21, x24",
+        "strb w9, [x13, #0]",
+        "add x24, x24, #1",
+        "movz x11, #16, lsl #0",
+        "sub x11, x11, x24",
+        "cbnz x11, 21b",
+        "ldr x19, [x23, #112]",
+        "ldr x20, [x23, #120]",
+        "ldr x21, [x23, #128]",
+        "ldr x22, [x23, #136]",
+        "ldr x24, [x23, #144]",
+        "ldr x30, [x23, #152]",
+        "ldr x23, [x23, #160]",
+        "ret",
+        vg_md5_finalize = sym super::md5::vg_md5_finalize,
+        vg_md5_update = sym super::md5::vg_md5_update,
+    )
+}

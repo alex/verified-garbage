@@ -6,7 +6,7 @@
 //! and `finalize` are the one HMAC implementation for every streaming hash
 //! function, calling MD5's verified functions.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
 use crate::arch::hmac_md5::{vg_hmac_md5_finalize, vg_hmac_md5_init};
 use crate::hashes::md5::Md5;
