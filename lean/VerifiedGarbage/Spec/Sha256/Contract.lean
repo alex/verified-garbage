@@ -48,11 +48,7 @@ def compressApi : Api where
     `*state` with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
     Contract: `VG.Spec.Sha256.compressContract`. Constant time: only the pointers and `n` may \
     affect timing, not the hash value or the blocks."
-  safety := [
-    "`state` must be valid for reads and writes of 32 bytes.",
-    "`blocks` must be valid for reads of `64 * n` bytes.",
-    "`scratch` must be valid for reads and writes of 560 bytes; its contents on return are \
-      unspecified."]
+  safety := ["The contents of `scratch` on return are unspecified."]
 
 /-- `vg_sha256_init(state: *mut [u8; 96])`. -/
 def initSig : Sig where
@@ -71,7 +67,7 @@ def initApi : Api where
     message.\n\n\
     Contract: `VG.Spec.Sha256.initContract`. The streaming state is the hash value followed by a \
     buffered partial block (`VG.Spec.Sha256.Repr`)."
-  safety := ["`state` must be valid for writes of 96 bytes."]
+  safety := []
 
 /-- `vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 76])`.
 `count` is public; `scratch` is working space. -/
@@ -100,11 +96,7 @@ def updateApi : Api where
     bytes at `data`.\n\n\
     Contract: `VG.Spec.Sha256.updateContract`. Constant time: only the pointers, `count` and `len` \
     may affect timing, not the state or the data."
-  safety := [
-    "`state` must be valid for reads and writes of 96 bytes.",
-    "`data` must be valid for reads of `len` bytes.",
-    "`scratch` must be valid for reads and writes of 608 bytes; its contents on return are \
-      unspecified."]
+  safety := ["The contents of `scratch` on return are unspecified."]
 
 /-- `vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 76])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
@@ -133,10 +125,7 @@ def finalizeApi : Api where
     Contract: `VG.Spec.Sha256.finalizeContract`. Constant time: only the pointers and `count` may \
     affect timing, not the state."
   safety := [
-    "`state` must be valid for reads and writes of 96 bytes; its contents on return are \
-      unspecified.",
-    "`out` must be valid for writes of 32 bytes.",
-    "`scratch` must be valid for reads and writes of 608 bytes; its contents on return are \
-      unspecified."]
+    "The contents of `state` on return are unspecified.",
+    "The contents of `scratch` on return are unspecified."]
 
 end VG.Spec.Sha256

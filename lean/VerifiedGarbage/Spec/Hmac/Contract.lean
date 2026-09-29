@@ -70,10 +70,7 @@ def initSha256Api : Api where
     may affect timing, not the key."
   safety := [
     "`key_len` must be at most 64.",
-    "`inner` and `outer` must each be valid for reads and writes of 96 bytes.",
-    "`key` must be valid for reads of `key_len` bytes.",
-    "`scratch` must be valid for reads and writes of 608 bytes; its contents on return are \
-      unspecified."]
+    "The contents of `scratch` on return are unspecified."]
 
 /-- `vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 86])`,
 on 64-bit targets. `count` is public; `inner` is left unspecified, and
@@ -105,11 +102,8 @@ def finalizeSha256Api : Api where
     Contract: `VG.Spec.Hmac.finalizeSha256Contract`. Constant time: only the pointers and `count` \
     may affect timing, not the states."
   safety := [
-    "`inner` must be valid for reads and writes of 96 bytes; its contents on return are \
-      unspecified.",
-    "`outer` must be valid for reads of 96 bytes.",
-    "`scratch` must be valid for reads and writes of 688 bytes; its contents on return are \
-      unspecified, apart from the MAC."]
+    "The contents of `inner` on return are unspecified.",
+    "The contents of `scratch` on return are unspecified, apart from the MAC."]
 
 /-- `vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 86])`,
 on 32-bit targets. `count` is public; `inner` is left unspecified, and
@@ -140,11 +134,7 @@ def finalizeSha256OutApi : Api where
     Contract: `VG.Spec.Hmac.finalizeSha256OutContract`. Constant time: only the pointers and \
     `count` may affect timing, not the states."
   safety := [
-    "`inner` must be valid for reads and writes of 96 bytes; its contents on return are \
-      unspecified.",
-    "`outer` must be valid for reads of 96 bytes.",
-    "`out` must be valid for writes of 32 bytes.",
-    "`scratch` must be valid for reads and writes of 688 bytes; its contents on return are \
-      unspecified."]
+    "The contents of `inner` on return are unspecified.",
+    "The contents of `scratch` on return are unspecified."]
 
 end VG.Spec.Hmac

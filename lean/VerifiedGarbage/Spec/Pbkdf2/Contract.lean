@@ -60,11 +60,7 @@ def iterateSha256Api : Api where
     final `T` in `*t` (RFC 8018, step 3 of `F`).\n\n\
     Contract: `VG.Spec.Pbkdf2.iterateSha256Contract`. Constant time: only the pointers and `n` may \
     affect timing, not the key, `U` or `T`."
-  safety := [
-    "`key` must be valid for reads of 192 bytes, and `u` for reads of 32 bytes.",
-    "`t` must be valid for reads and writes of 32 bytes.",
-    "`scratch` must be valid for reads and writes of 832 bytes; its contents on return are \
-      unspecified."]
+  safety := ["The contents of `scratch` on return are unspecified."]
 
 /-- `vg_pbkdf2_hmac_sha256(password: *const u8, password_len: usize, salt: *const u8, salt_len: usize, c: u32, out: *mut u8, out_len: usize, scratch: *mut [u64; 256])`.
 The iteration count `c` and the lengths are public; `scratch` is working
@@ -102,10 +98,6 @@ def pbkdf2Sha256Api : Api where
     lengths and `c` may affect timing, not the password, the salt or the key."
   safety := [
     "`c` must be positive, and `out_len` at most `(2^32 - 1) * 32`.",
-    "`password` must be valid for reads of `password_len` bytes, and `salt` for reads of \
-      `salt_len` bytes.",
-    "`out` must be valid for reads and writes of `out_len` bytes.",
-    "`scratch` must be valid for reads and writes of 2048 bytes; its contents on return are \
-      unspecified."]
+    "The contents of `scratch` on return are unspecified."]
 
 end VG.Spec.Pbkdf2

@@ -10,9 +10,11 @@
 ///
 /// # Safety
 ///
-/// * `key` must be valid for reads of 384 bytes, and `u` for reads of 48 bytes.
+/// * `key` must be valid for reads of 384 bytes.
+/// * `u` must be valid for reads of 48 bytes.
 /// * `t` must be valid for reads and writes of 48 bytes.
-/// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 768 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
 /// * None of `key`, `u`, `t` and `scratch` may overlap the arguments on the stack, overlap the return address on the stack or the 48 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
