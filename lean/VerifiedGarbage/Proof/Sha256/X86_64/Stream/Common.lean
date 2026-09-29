@@ -21,10 +21,12 @@ open VG.Spec.Sha256 (HashValue stateAt blockAt compressBlocks compress parseBloc
 /-! ## The compression functions -/
 
 /-- What `compressAt` needs of the compression function it calls: that it is
-correct, does not touch `rsp` or the stack, and keeps `rdi` and `rcx`. -/
+correct and constant time, does not touch `rsp` or the stack, and keeps
+`rdi` and `rcx`. -/
 structure _root_.VG.Impl.Sha256.X86_64.Stream.Callee.Ok (f : Callee) : Prop where
   verified : ∀ s, Proof.Sha256.compressX86_64.pre s →
     ∃ t s', Exec isa f.code s t s' ∧ abiPreserved s s' ∧ Proof.Sha256.compressX86_64.post s s'
+  ct : ConstantTime isa Proof.Sha256.compressX86_64.pre Proof.Sha256.compressX86_64.pub f.code
   nosp : NoSp f.code
   depth : f.code.depth = 0
   keeps_rdi : ∀ i ∈ instrs f.code, Taint.clobbers i .rdi = false
@@ -33,18 +35,20 @@ structure _root_.VG.Impl.Sha256.X86_64.Stream.Callee.Ok (f : Callee) : Prop wher
 /-- The facts about the instructions of `f`, from one kernel check each. -/
 theorem _root_.VG.Impl.Sha256.X86_64.Stream.Callee.Ok.of_verified {f : Callee} (hv : ∀ s, Proof.Sha256.compressX86_64.pre s →
       ∃ t s', Exec isa f.code s t s' ∧ abiPreserved s s' ∧ Proof.Sha256.compressX86_64.post s s')
+    (hct : ConstantTime isa Proof.Sha256.compressX86_64.pre Proof.Sha256.compressX86_64.pub f.code)
     (hk : ((instrs f.code).all fun i => !Taint.clobbers i .rdi && !Taint.clobbers i .rcx &&
       !Taint.clobbers i .rsp) = true)
     (hd : f.code.depth = 0) : f.Ok := by
   have h := fun i hi => List.all_eq_true.mp hk i hi
   simp only [Bool.and_eq_true, Bool.not_eq_true'] at h
-  exact ⟨hv, fun i hi => (h i hi).2, hd, fun i hi => (h i hi).1.1, fun i hi => (h i hi).1.2⟩
+  exact ⟨hv, hct, fun i hi => (h i hi).2, hd, fun i hi => (h i hi).1.1, fun i hi => (h i hi).1.2⟩
 
 theorem scalar_ok : Callee.scalar.Ok :=
-  .of_verified compress_verified.1 (by rw [← Code.allInstrs_eq]; decide +kernel) (by decide +kernel)
+  .of_verified compress_verified.1 compress_verified.2.1 (by rw [← Code.allInstrs_eq]; decide +kernel) (by decide +kernel)
 
 theorem shani_ok : Callee.shani.Ok :=
-  .of_verified Proof.Sha256.X86_64.ShaNi.compress_verified.1 (by rw [← Code.allInstrs_eq]; decide +kernel)
+  .of_verified Proof.Sha256.X86_64.ShaNi.compress_verified.1
+    Proof.Sha256.X86_64.ShaNi.compress_verified.2.1 (by rw [← Code.allInstrs_eq]; decide +kernel)
     (by decide +kernel)
 
 theorem compressBlocks_one (H : HashValue) (m : Mem) (p : Addr) :

@@ -65,6 +65,25 @@ theorem seq {P R Q : M.State → M.State → Prop} {c₁ c₂ : Prog M} (h₁ : 
       obtain ⟨rfl, hq⟩ := h₂ _ _ _ _ _ _ hr b₁ b₂
       exact ⟨rfl, hq⟩
 
+/-- A branch whose condition agrees in both runs; each branch may assume it
+was taken. -/
+theorem ite {P Q : M.State → M.State → Prop} {c : M.Cond} {t e : Prog M}
+    (hc : ∀ s₁ s₂, P s₁ s₂ → M.eval c s₁ = M.eval c s₂)
+    (ht : RelCT M (fun s₁ s₂ => P s₁ s₂ ∧ M.eval c s₁ = some true) t Q)
+    (he : RelCT M (fun s₁ s₂ => P s₁ s₂ ∧ M.eval c s₁ = some false) e Q) :
+    RelCT M P (.ite c t e) Q := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  have hce := hc _ _ hp
+  cases e₁ with
+  | iteT c₁ a₁ =>
+    cases e₂ with
+    | iteT _ a₂ => obtain ⟨rfl, hq⟩ := ht _ _ _ _ _ _ ⟨hp, c₁⟩ a₁ a₂; exact ⟨rfl, hq⟩
+    | iteF c₂ _ => rw [hce, c₂] at c₁; cases c₁
+  | iteF c₁ a₁ =>
+    cases e₂ with
+    | iteT c₂ _ => rw [hce, c₂] at c₁; cases c₁
+    | iteF _ a₂ => obtain ⟨rfl, hq⟩ := he _ _ _ _ _ _ ⟨hp, c₁⟩ a₁ a₂; exact ⟨rfl, hq⟩
+
 /-- A loop, with an invariant indexed by a measure that decreases on every
 iteration that loops back; the condition must agree in both runs. -/
 theorem loop {body : Prog M} {c : M.Cond} {Q : M.State → M.State → Prop}
