@@ -118,8 +118,8 @@ structure CrA (s₀ s : State) : Prop where
   esi : s.gpr .esi = C32 s₀ 128
 
 theorem crA_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) :
-    WP isa (.block ([.mov .eax (.imm 1), .store (at_ .edi 112) .eax] ++ ptr .eax .edi 64 ++
-      [.mov .ecx (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 20))] ++ ptr .esi .edi 128)) s fun s' =>
+    WP isa (.block (([.mov .eax (.imm 1), .store (at_ .edi 112) .eax] : List Instr) ++ ptr .eax .edi 64 ++
+      ([.mov .ecx (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 20))] : List Instr) ++ ptr .esi .edi 128)) s fun s' =>
       CrA s₀ s' ∧ s'.mem = s.mem.writeW (cx s₀ + BitVec.ofNat 64 112) (1 : BitVec 32) := by
   rw [show ([.mov .eax (.imm 1), .store (at_ .edi 112) .eax] ++ ptr .eax .edi 64 ++
       [.mov .ecx (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 20))] ++ ptr .esi .edi 128 : List Instr) =
@@ -157,8 +157,8 @@ theorem crA_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) :
   · rw [g₆ _ (by decide), u₅.gpr, u₄.mem, m₃]; exact inv₂.arg hp (by omega)
 
 theorem crypt_eq : crypt =
-    .seq (.block ([.mov .eax (.imm 1), .store (at_ .edi 112) .eax] ++ ptr .eax .edi 64 ++
-      [.mov .ecx (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 20))] ++ ptr .esi .edi 128))
+    .seq (.block (([.mov .eax (.imm 1), .store (at_ .edi 112) .eax] : List Instr) ++ ptr .eax .edi 64 ++
+      ([.mov .ecx (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 20))] : List Instr) ++ ptr .esi .edi 128))
     (callWith [.esi, .edx, .ecx, .eax] "vg_chacha20_xor" Impl.ChaCha20.X86.Xor.xor) := rfl
 
 theorem crB_ok {s₀ : State} (hp : APre s₀) {s : State} (h : CrA s₀ s) :
@@ -219,7 +219,7 @@ structure FiA (s₀ : State) (out : Nat) (s : State) : Prop where
   esi : s.gpr .esi = C32 s₀ 448
 
 theorem fiA_ok {s₀ : State} {s : State} (h : Inv s₀ s) (out : Nat) :
-    WP isa (.block (ptr .ebx .edi 672 ++ ptr .ecx .edi out ++ [.mov .eax (.imm 0)] ++ ptr .esi .edi 448)) s
+    WP isa (.block (ptr .ebx .edi 672 ++ ptr .ecx .edi out ++ ([.mov .eax (.imm 0)] : List Instr) ++ ptr .esi .edi 448)) s
       fun s' => FiA s₀ out s' ∧ s'.mem = s.mem := by
   rw [show (ptr .ebx .edi 672 ++ ptr .ecx .edi out ++ [.mov .eax (.imm 0)] ++ ptr .esi .edi 448 : List Instr) =
     ptr .ebx .edi 672 ++ (ptr .ecx .edi out ++ (.mov .eax (.imm 0) :: ptr .esi .edi 448)) by simp]
@@ -241,7 +241,7 @@ theorem fiA_ok {s₀ : State} {s : State} (h : Inv s₀ s) (out : Nat) :
   · rw [e₄, edi₃]
 
 theorem finalizeTo_eq (out : Nat) : finalizeTo out =
-    .seq (.block (ptr .ebx .edi 672 ++ ptr .ecx .edi out ++ [.mov .eax (.imm 0)] ++ ptr .esi .edi 448))
+    .seq (.block (ptr .ebx .edi 672 ++ ptr .ecx .edi out ++ ([.mov .eax (.imm 0)] : List Instr) ++ ptr .esi .edi 448))
       (callWith finRegs "vg_poly1305_finalize" Impl.Poly1305.X86.finalize) := rfl
 
 /-- What the tag's computation keeps: enough to restore the registers. -/

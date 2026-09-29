@@ -78,7 +78,7 @@ structure OneA (s₀ : State) (k : Nat) (s : State) : Prop where
   edx : s.gpr .edx = C32 s₀ 448
 
 theorem oneA_ok {s₀ : State} {s : State} (h : Inv s₀ s) (k : Nat) :
-    WP isa (.block ([.mov .eax (.imm 1)] ++ ptr .ecx .edi k ++ ptr .edx .edi 448)) s fun s' =>
+    WP isa (.block (([.mov .eax (.imm 1)] : List Instr) ++ ptr .ecx .edi k ++ ptr .edx .edi 448)) s fun s' =>
       OneA s₀ k s' ∧ s'.mem = s.mem := by
   rw [show ([.mov .eax (.imm 1)] ++ ptr .ecx .edi k ++ ptr .edx .edi 448 : List Instr) =
     .mov .eax (.imm 1) :: (ptr .ecx .edi k ++ ptr .edx .edi 448) from rfl]
@@ -95,7 +95,7 @@ theorem oneA_ok {s₀ : State} {s : State} (h : Inv s₀ s) (k : Nat) :
     by rw [g₃ _ (by decide), e₂, u₁.other _ (by decide), h.edi], by rw [e₃, edi]⟩, mm⟩
 
 theorem absorbOne_eq (k : Nat) : absorbOne k =
-    .seq (.block ([.mov .eax (.imm 1)] ++ ptr .ecx .edi k ++ ptr .edx .edi 448))
+    .seq (.block (([.mov .eax (.imm 1)] : List Instr) ++ ptr .ecx .edi k ++ ptr .edx .edi 448))
       (callWith [.eax, .ecx, .edx] "vg_poly1305_blocks" Impl.Poly1305.X86.blocks) := rfl
 
 theorem oneB_ok {s₀ : State} (hp : APre s₀) {k : Nat} (hk : k + 16 ≤ 448 ∨ (576 ≤ k ∧ k + 16 ≤ 1024))
@@ -156,8 +156,8 @@ structure MA (s₀ : State) (i : Nat) (s : State) : Prop where
   ecx : s.gpr .ecx = C32 s₀ 448
 
 theorem maA_ok {s₀ : State} (hp : APre s₀) {i : Nat} (hi : i + 1 < 5) {s : State} (h : Inv s₀ s) :
-    WP isa (.block ([.mov .ebx (.mem (at_ .esp (4 + 4 * i))), .mov .ebp (.mem (at_ .esp (8 + 4 * i))),
-      .mov .eax (.reg .ebp), .shift .shr .eax 4] ++ ptr .ecx .edi 448)) s fun s' =>
+    WP isa (.block (([.mov .ebx (.mem (at_ .esp (4 + 4 * i))), .mov .ebp (.mem (at_ .esp (8 + 4 * i))),
+      .mov .eax (.reg .ebp), .shift .shr .eax 4] : List Instr) ++ ptr .ecx .edi 448)) s fun s' =>
       MA s₀ i s' ∧ s'.mem = s.mem := by
   have i₁ : InRegions (s.rd ++ s.wr) (argAddr s₀ i) 4 := by rw [h.rd, h.wr]; exact hp.in_arg (by omega)
   have i₂ : InRegions (s.rd ++ s.wr) (argAddr s₀ (i + 1)) 4 := by rw [h.rd, h.wr]; exact hp.in_arg hi
@@ -267,9 +267,9 @@ theorem tail_start (P N : BitVec 32) :
   omega
 
 theorem pd_ok {s₀ : State} (hp : APre s₀) {i : Nat} {s : State} (h : MC s₀ i s) :
-    WP isa (.block ([.mov .esi (.reg .ebp), .alu .sub .esi (.reg .edx), .alu .add .esi (.reg .ebx),
+    WP isa (.block (([.mov .esi (.reg .ebp), .alu .sub .esi (.reg .edx), .alu .add .esi (.reg .ebx),
       .mov .eax (.imm 0), .store (at_ .edi 576) .eax, .store (at_ .edi 580) .eax,
-      .store (at_ .edi 584) .eax, .store (at_ .edi 588) .eax] ++ ptr .ecx .edi 576)) s fun s' =>
+      .store (at_ .edi 584) .eax, .store (at_ .edi 588) .eax] : List Instr) ++ ptr .ecx .edi 576)) s fun s' =>
       PD s₀ i s' ∧ Frame [sub s₀ 576 16] s.mem s'.mem ∧
       ∀ j < 16, s'.mem (cx s₀ + BitVec.ofNat 64 (576 + j)) = 0 := by
   have hi := h.inv
@@ -472,9 +472,9 @@ theorem Src.tail {s₀ : State} {P : BitVec 32} {len : Nat} (hs : Src s₀ P len
     simpa using this
 
 theorem padTail_eq : padTail =
-    .seq (.block ([.mov .esi (.reg .ebp), .alu .sub .esi (.reg .edx), .alu .add .esi (.reg .ebx),
+    .seq (.block (([.mov .esi (.reg .ebp), .alu .sub .esi (.reg .edx), .alu .add .esi (.reg .ebx),
       .mov .eax (.imm 0), .store (at_ .edi 576) .eax, .store (at_ .edi 580) .eax,
-      .store (at_ .edi 584) .eax, .store (at_ .edi 588) .eax] ++ ptr .ecx .edi 576))
+      .store (at_ .edi 584) .eax, .store (at_ .edi 588) .eax] : List Instr) ++ ptr .ecx .edi 576))
     (.seq (.loop (.block copyBody) .ne) (absorbOne 576)) := rfl
 
 /-- After the copy loop. -/
@@ -520,8 +520,8 @@ theorem padTail_ok {s₀ : State} (hp : APre s₀) {i : Nat} (hs : Src s₀ (arg
       simp only [List.mem_singleton, forall_eq]; exact ht.disj) (by have := ht.lt; omega)] at this
 
 theorem macPad_eq (p n : Nat) : macPad p n =
-    .seq (.block ([.mov .ebx (.mem (at_ .esp p)), .mov .ebp (.mem (at_ .esp n)), .mov .eax (.reg .ebp),
-      .shift .shr .eax 4] ++ ptr .ecx .edi 448))
+    .seq (.block (([.mov .ebx (.mem (at_ .esp p)), .mov .ebp (.mem (at_ .esp n)), .mov .eax (.reg .ebp),
+      .shift .shr .eax 4] : List Instr) ++ ptr .ecx .edi 448))
     (.seq (callWith [.eax, .ebx, .ecx] "vg_poly1305_blocks" Impl.Poly1305.X86.blocks)
     (.seq (.block [.mov .edx (.reg .ebp), .alu .and .edx (.imm 15)])
       (.ite .e (.block []) padTail))) := rfl

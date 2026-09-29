@@ -332,9 +332,9 @@ abbrev dO (s₀ : State) (o : Nat) : Addr := scr s₀ + BitVec.ofNat 64 o
 
 theorem updArgs_ok {s : State} (hk : KR (H := H) s₀ s) {st : Reg} (hst : st = .rbx ∨ st = .r12) {p : Addr}
     (hs : s.gpr st = p) (hpR : p = inn s₀ ∨ p = out s₀) {o : Nat} (ho : o = H.buf ∨ o = H.buf + H.B) :
-    WP isa (.block ([.mov .rdi (.reg st)] ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 0))] ++
+    WP isa (.block (([.mov .rdi (.reg st)] : List Instr) ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 0))] : List Instr) ++
         VG.Impl.Hmac.Generic.X86_64.scr .rdx o ++
-        [.mov32 .rcx (.imm (BitVec.ofNat 32 H.B)), .mov .r8 (.reg .r15)])) s fun t =>
+        ([.mov32 .rcx (.imm (BitVec.ofNat 32 H.B)), .mov .r8 (.reg .r15)] : List Instr))) s fun t =>
       KR (H := H) s₀ t ∧ UpdArgs hH t p (dO s₀ o) (scr s₀) H.B ∧ t.gpr .rsi = 0 ∧ t.mem = s.mem := by
   obtain ⟨dS, dK, _⟩ := state_disj hp hpR
   have hB := hp.hB; have hW := hp.hW; have hf := hp.fits; have nw := hp.nw

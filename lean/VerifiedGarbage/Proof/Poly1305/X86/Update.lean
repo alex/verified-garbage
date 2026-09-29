@@ -146,8 +146,8 @@ theorem Done.regs {s₀ s s' : State} {F : Nat → Nat} (h : Done s₀ F s)
 /-! ## Prologue -/
 
 theorem uprologue_ok {s₀ : State} (hp : UPre s₀) :
-    WP isa (.block (setup ++ [.mov .esi (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 8)),
-      .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)])) s₀ fun s => ∃ F, SetupF s₀ F ∧
+    WP isa (.block (setup ++ ([.mov .esi (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 8)),
+      .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)] : List Instr))) s₀ fun s => ∃ F, SetupF s₀ F ∧
         Pre1 s₀ F s ∧ s.gpr .edx = BitVec.ofNat 32 (kb s₀) ∧
         s.zf = some (BitVec.ofNat 32 (kb s₀) &&& BitVec.ofNat 32 (kb s₀) == 0) := by
   have hfit := hp.st_fit
@@ -627,8 +627,8 @@ theorem uepilogue_ok {s₀ : State} (hp : UPre s₀) {F : Nat → Nat} (hF : Set
 
 /-! ## The whole function -/
 
-theorem update_eq : update = .seq (.block (setup ++ [.mov .esi (.mem (at_ .esp 16)),
-    .mov .edx (.mem (at_ .esp 8)), .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)]))
+theorem update_eq : update = .seq (.block (setup ++ ([.mov .esi (.mem (at_ .esp 16)),
+    .mov .edx (.mem (at_ .esp 8)), .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)] : List Instr)))
     (.seq (.ite .e (.block []) fill) (.seq whole (.seq rest (.block (reduce ++ restore))))) := rfl
 
 /-- Nothing buffered: nothing of the data is consumed yet. -/

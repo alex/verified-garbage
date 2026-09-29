@@ -520,7 +520,7 @@ def prologue : List Instr :=
 /-- Word `k` of the digest. -/
 def outW (k : Nat) : List Instr := [.ldr .r9 .r0 (4 * k), .str .r9 .r6 (4 * k)]
 
-theorem finalize_eq : finalize = .seq (.block ([.ldrSp .r12 4] ++ save .r12 ++ prologue))
+theorem finalize_eq : finalize = .seq (.block (([.ldrSp .r12 4] : List Instr) ++ save .r12 ++ prologue))
     (.seq (.loop finalizeBody .eq) (.block ((List.range 4).flatMap outW ++ restore))) := rfl
 
 theorem argAddr_eq {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 2) :
@@ -539,7 +539,7 @@ theorem arg_sub {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 2) :
   rw [argAddr_eq hp hk]; exact sub_offset (by omega) (by omega)
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block ([.ldrSp .r12 4] ++ save .r12 ++ prologue)) s₀
+    WP isa (.block (([.ldrSp .r12 4] : List Instr) ++ save .r12 ++ prologue)) s₀
       fun s => ∃ k, LInv s₀ k (cnt s₀ % 64 + 1) s := by
   have hr : cnt s₀ % 64 < 64 := Nat.mod_lt _ (by omega)
   have hsc := hp.scr_fit; have hst := hp.st_fit

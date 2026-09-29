@@ -253,9 +253,9 @@ theorem kr_regs {m : Nat} {s t : State} (hk : KR (H := H) sc s₀ m s) (hrd : t.
     (rs := []) (by rw [hm]; exact Frame.refl _ _) (by simp) (by simp)
 
 theorem updArgs_ok {m : Nat} {s : State} (hk : KR (H := H) sc s₀ m s) {o : Nat} (ho : o = uO H ∨ o = tmpO H) :
-    WP isa (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi (stO H) ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 H.B))] ++
+    WP isa (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi (stO H) ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 H.B))] : List Instr) ++
       VG.Impl.Hmac.Generic.X86_64.scr .rdx o ++
-      [.mov32 .rcx (.imm (BitVec.ofNat 32 H.D)), .mov .r8 (.reg .r15)])) s fun t =>
+      ([.mov32 .rcx (.imm (BitVec.ofNat 32 H.D)), .mov .r8 (.reg .r15)] : List Instr))) s fun t =>
         KR (H := H) sc s₀ m t ∧ UpdArgs hH t (ST (H := H) s₀) (scr s₀ + BitVec.ofNat 64 o) (scr s₀) H.D ∧
         t.gpr .rsi = BitVec.ofNat 64 H.B ∧ t.mem = s.mem := by
   obtain ⟨hb, hf, hnw, hW, hS0, hS, hD0, hDF, hF, hB0, hB⟩ := bounds hp
@@ -328,7 +328,7 @@ theorem updCall_ok {m : Nat} {t : State} (hk : KR (H := H) sc s₀ m t) {d : Add
 
 theorem finArgs_ok {m : Nat} {s : State} (hk : KR (H := H) sc s₀ m s) {o : Nat} (ho : o = uO H ∨ o = tmpO H) :
     WP isa (.block (VG.Impl.Hmac.Generic.X86_64.scr .rdi (stO H) ++ count2 H ++
-      VG.Impl.Hmac.Generic.X86_64.scr .rdx o ++ [.mov .rcx (.reg .r15)])) s fun t =>
+      VG.Impl.Hmac.Generic.X86_64.scr .rdx o ++ ([.mov .rcx (.reg .r15)] : List Instr))) s fun t =>
         KR (H := H) sc s₀ m t ∧ FinArgs hH t (ST (H := H) s₀) (scr s₀ + BitVec.ofNat 64 o) (scr s₀) ∧
         t.gpr .rsi = BitVec.ofNat 64 (H.B + H.D) ∧ t.mem = s.mem := by
   obtain ⟨hb, hf, hnw, hW, hS0, hS, hD0, hDF, hF, hB0, hB⟩ := bounds hp

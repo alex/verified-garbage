@@ -202,8 +202,8 @@ structure P1 (s₀ s : State) : Prop extends UC s₀ s where
   z : s.z = decide (kb s₀ = 0)
 
 theorem prologue_ok {s₀ : State} (hp : UPre s₀) :
-    WP isa (.block ([.ldrSp .r12 8] ++ saveScr ++
-      [.dp .and .r4 .r2 (.imm 15), .ldrSp .r5 0, .ldrSp .r6 4, .cmp .r4 (.imm 0)])) s₀ (P1 s₀) := by
+    WP isa (.block (([.ldrSp .r12 8] : List Instr) ++ saveScr ++
+      ([.dp .and .r4 .r2 (.imm 15), .ldrSp .r5 0, .ldrSp .r6 4, .cmp .r4 (.imm 0)] : List Instr))) s₀ (P1 s₀) := by
   have hsc := hp.sc_fit
   refine wp_arg' (i := 2) hp rfl rfl (by omega) rfl fun s₁ u₁ => ?_
   refine WP.append (saveScr_ok hsc u₁.gpr (by rw [u₁.wr]; exact hp.scW rfl))
@@ -419,9 +419,9 @@ structure F3 (s₀ s : State) : Prop extends UC s₀ s where
 def wsList : List (Reg × Nat × Bool) := [(.r5, 124, false), (.r6, 76, false), (.r1, 20, false), (.r4, 72, false)]
 
 theorem mid_ok {s₀ : State} (hp : UPre s₀) {s : State} (h : F2 s₀ s) :
-    WP isa (.block ([.mov .r1 (.shifted .r6 .lsr 4), .str .r5 .r0 ptrOff, .str .r6 .r0 lenOff,
-      .str .r1 .r0 cntOff, .str .r4 .r0 fillOff] ++ setupR ++ loadAcc ++
-      [.ldr .r1 .r0 fillOff, .cmp .r1 (.imm 16)])) s (F3 s₀) := by
+    WP isa (.block (([.mov .r1 (.shifted .r6 .lsr 4), .str .r5 .r0 ptrOff, .str .r6 .r0 lenOff,
+      .str .r1 .r0 cntOff, .str .r4 .r0 fillOff] : List Instr) ++ setupR ++ loadAcc ++
+      ([.ldr .r1 .r0 fillOff, .cmp .r1 (.imm 16)] : List Instr))) s (F3 s₀) := by
   have hfit := hp.st_fit
   obtain ⟨hn1, hn2, -, -⟩ := nf_facts s₀
   have hdl := dl_lt s₀
@@ -658,8 +658,8 @@ structure F6 (s₀ s : State) : Prop extends UC s₀ s where
   z : s.z = decide (nr s₀ = 0)
 
 theorem epi_ok {s₀ : State} (hp : UPre s₀) {s : State} (h : LI s₀ (nw s₀) s) :
-    WP isa (.block (reduce ++ toWords ++ storeAcc ++ [.ldr .r8 .r0 lenOff, .dp .and .r8 .r8 (.imm 15),
-      .ldr .r5 .r0 ptrOff, .mov .r1 (.reg .r0), .cmp .r8 (.imm 0)])) s (F6 s₀) := by
+    WP isa (.block (reduce ++ toWords ++ storeAcc ++ ([.ldr .r8 .r0 lenOff, .dp .and .r8 .r8 (.imm 15),
+      .ldr .r5 .r0 ptrOff, .mov .r1 (.reg .r0), .cmp .r8 (.imm 0)] : List Instr))) s (F6 s₀) := by
   have hfit := hp.st_fit
   obtain ⟨hn1, hn2, -, -⟩ := nf_facts s₀
   have hdl := dl_lt s₀
