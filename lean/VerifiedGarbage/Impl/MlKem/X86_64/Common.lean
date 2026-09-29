@@ -12,7 +12,10 @@ Pieces of code that the ML-KEM functions share:
   one 64-bit product (`⌊rax · 1290167 / 2³²⌋ · q` subtracted, then
   `csubQ`), with `mul`, which is the only multiplication of the model
   (its timing does not depend on its operands: it is on Intel's DOIT list).
-  It uses `rax`, `rdx` and `r11`.
+  It uses `rax`, `rdx` and `r11`;
+* `storeTab t n`: the table `t 0, …, t (n - 1)` of constants stored as
+  `u32`s at `r9` (in the working space: the code has no other memory), with
+  immediates. It uses `rax`.
 -/
 
 namespace VG.Impl.MlKem.X86_64
@@ -36,5 +39,12 @@ right by 32, times `q`, subtracted from the copy of `rax` in `r10`, then
 def reduce : List Instr :=
   [.mov .r10 (.reg .rax), .mov .r11 (.imm 1290167), .mul .r11, .shift .shr .rax 32,
     .mov .r11 (.imm qImm), .mul .r11, .alu .sub .r10 (.reg .rax)] ++ csubQ .r10 .r11
+
+/-- `t i` to `[r9 + 4i]`. -/
+def tabStep (t : Nat → Nat) (i : Nat) : List Instr :=
+  [.mov32 .rax (.imm (BitVec.ofNat 32 (t i))), .store32 (at_ .r9 (4 * i)) .rax]
+
+/-- The table `t 0, …, t (n - 1)` at `r9`. -/
+def storeTab (t : Nat → Nat) (n : Nat) : List Instr := (List.range n).flatMap (tabStep t)
 
 end VG.Impl.MlKem.X86_64

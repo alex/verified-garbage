@@ -24,10 +24,6 @@ open VG.X86_64
 /-- `γᵢ = ζ^(2 BitRev7(i) + 1) mod q`. -/
 def gammaTab (i : Nat) : Nat := 17 ^ (2 * Spec.MlKem.bitRev7 i + 1) % 3329
 
-/-- `γᵢ` to `[r9 + 4i]`. -/
-def mulTabStep (i : Nat) : List Instr :=
-  [.mov32 .rax (.imm (BitVec.ofNat 32 (gammaTab i))), .store32 (at_ .r9 (4 * i)) .rax]
-
 /-- The even coefficient of the pair. -/
 def mulEven : List Instr :=
   [.mov32 .rax (.mem (at_ .rsi 4)), .mov32 .rdx (.mem (at_ .r8 4)), .mul .rdx] ++ reduce ++
@@ -48,7 +44,7 @@ def mulStep : List Instr :=
 def mulBody : List Instr := mulEven ++ mulOdd ++ mulStep
 
 def multiplyNTTs : Prog isa :=
-  .seq (.block ([.mov .r8 (.reg .rdx), .mov .r9 (.reg .rcx)] ++ (List.range 128).flatMap mulTabStep))
+  .seq (.block ([.mov .r8 (.reg .rdx), .mov .r9 (.reg .rcx)] ++ storeTab gammaTab 128))
     (.seq (.block [.mov32 .rcx (.imm 128)]) (.loop (.block mulBody) .ne))
 
 end VG.Impl.MlKem.X86_64

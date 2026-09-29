@@ -6,6 +6,8 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Cbd
 import VerifiedGarbage.Proof.MlKem.X86_64.CompressEncode
 import VerifiedGarbage.Proof.MlKem.X86_64.DecodeDecompress
 import VerifiedGarbage.Proof.MlKem.X86_64.CheckEk
+import VerifiedGarbage.Proof.MlKem.X86_64.Mul
+import VerifiedGarbage.Proof.MlKem.X86_64.NttInv
 
 /-!
 # ML-KEM (FIPS 203) on x86-64: the polynomial primitives and ML-KEM-768
@@ -23,6 +25,20 @@ against the contract.
 namespace VG.Artifacts.MlKem.X86_64
 
 def artifacts : List Artifact := [
+  { Spec.MlKem.nttApi with
+    target := X86_64.target
+    doc := Spec.MlKem.nttApi.doc
+    code := Impl.MlKem.X86_64.ntt
+    contract := Spec.MlKem.nttContract X86_64.abi
+    verified := Proof.MlKem.X86_64.ntt_verified
+    ofSig := ⟨_, _, _, by unfold Spec.MlKem.nttContract Spec.MlKem.inPlaceContract; rfl⟩ },
+  { Spec.MlKem.nttInvApi with
+    target := X86_64.target
+    doc := Spec.MlKem.nttInvApi.doc
+    code := Impl.MlKem.X86_64.nttInv
+    contract := Spec.MlKem.nttInvContract X86_64.abi
+    verified := Proof.MlKem.X86_64.nttInv_verified
+    ofSig := ⟨_, _, _, by unfold Spec.MlKem.nttInvContract Spec.MlKem.inPlaceContract; rfl⟩ },
   { Spec.MlKem.addApi with
     target := X86_64.target
     doc := Spec.MlKem.addApi.doc
@@ -35,6 +51,12 @@ def artifacts : List Artifact := [
     code := Impl.MlKem.X86_64.sub
     contract := Spec.MlKem.subContract X86_64.abi
     verified := Proof.MlKem.X86_64.sub_verified },
+  { Spec.MlKem.mulApi with
+    target := X86_64.target
+    doc := Spec.MlKem.mulApi.doc
+    code := Impl.MlKem.X86_64.multiplyNTTs
+    contract := Spec.MlKem.mulContract X86_64.abi
+    verified := Proof.MlKem.X86_64.mul_verified },
   { Spec.MlKem.encode12Api with
     target := X86_64.target
     doc := Spec.MlKem.encode12Api.doc
