@@ -8,7 +8,12 @@ pub const USES: &[&str] = &["pbkdf2_sha1", "hmac_sha1", "sha1"];
 
 /// PBKDF2-HMAC-SHA-1 of a 32-byte password, deriving one block, with the
 /// sizes as the iteration counts.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 pub fn bench(c: &mut Criterion) {
     use openssl::hash::MessageDigest;
     use verified_garbage::hashes::sha1::Sha1;
@@ -23,5 +28,10 @@ pub fn bench(c: &mut Criterion) {
     );
 }
 
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm")))]
+#[cfg(not(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+)))]
 pub fn bench(_: &mut Criterion) {}
