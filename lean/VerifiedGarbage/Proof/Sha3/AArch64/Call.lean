@@ -33,7 +33,7 @@ theorem call_ok {s : State} {st scr : Addr} (h0 : s.gpr .x0 = st) (h1 : s.gpr .x
     WP isa (.call "vg_keccak_f1600" permute) s Q := by
   have c0 : s.callEntry.gpr .x0 = st := (State.callEntry_gpr _ (by decide)).trans h0
   have c1 : s.callEntry.gpr .x1 = scr := (State.callEntry_gpr _ (by decide)).trans h1
-  refine WP.call (k := Proof.Sha3.permuteAArch64) permute_verified.1
+  refine WP.call (k := Proof.Sha3.permuteAArch64) permute_correct
     (rd := []) (wr := [⟨st, 200⟩, ⟨scr, 512⟩]) ?_ ?_ hw ?_ permute_noFrames
   · simp only [Proof.Sha3.permuteAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, c0, c1]
