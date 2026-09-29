@@ -22,7 +22,7 @@ open VG.Proof.Hmac.X86_64 (writeBytes_at writeBytes_other bytesAt_getD' bytesAt_
 open VG.Proof.Hmac.X86_64.Finalize (xorPad_length repr_outer)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Sha256.AArch64 (contains_offset sub_offset toNat_ofNat_lt)
-open VG.Proof.Sha256.AArch64.Stream (Upd Mupd wp_mov wp_movz wp_addImm wp_str wp_ldr frame_bytes
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_movz wp_addImm wp_str wp_ldr frame_bytes
   write_frame_bytes readW_writeW_save)
 open VG.Spec.Sha256 (bytesAt stateAt Repr)
 open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
@@ -75,10 +75,7 @@ theorem pre_of {s₀ : State} (h : Proof.Hmac.finalizeSha256AArch64.pre s₀) : 
 theorem fin_exec : ∀ s, Proof.Sha256.finalizeAArch64.pre s → ∃ t s',
     Exec isa Impl.Sha256.AArch64.Stream.finalize s t s' ∧ abiPreserved s s' ∧
       Proof.Sha256.finalizeAArch64.post s s' := by
-  intro s hs
-  have h := Proof.Sha256.AArch64.Stream.Finalize.pre_of hs
-  obtain ⟨t, s', he, h₁, h₂⟩ := Proof.Sha256.AArch64.Stream.Finalize.correct h.1 h.2
-  exact ⟨t, s', he, h₁, h₂⟩
+  exact Proof.Sha256.AArch64.Stream.Finalize.finalize_verified.1
 
 theorem fin_fdepth : Impl.Sha256.AArch64.Stream.finalize.fdepth = 1 := by decide +kernel
 

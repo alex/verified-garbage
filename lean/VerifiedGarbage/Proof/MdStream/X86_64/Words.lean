@@ -16,22 +16,6 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil write_eq_writeBytes write
 
 /-! ## Byte order -/
 
-/-- The bytes of a 32-bit word, big-endian if `be`, little-endian otherwise. -/
-def bytes32 (be : Bool) (x : BitVec 32) : List Byte :=
-  if be then [x.extractLsb' 24 8, x.extractLsb' 16 8, x.extractLsb' 8 8, x.extractLsb' 0 8]
-  else [x.extractLsb' 0 8, x.extractLsb' 8 8, x.extractLsb' 16 8, x.extractLsb' 24 8]
-
-/-- The bytes of a 64-bit word, big-endian if `be`, little-endian otherwise. -/
-def bytes64 (be : Bool) (x : BitVec 64) : List Byte :=
-  if be then (List.range 8).reverse.map fun i => x.extractLsb' (8 * i) 8
-  else (List.range 8).map fun i => x.extractLsb' (8 * i) 8
-
-/-- An 8-bit vector is its 8 bits. -/
-theorem byte_ext {x y : Byte} (h : ∀ i, (hi : i < 8) → x.getLsbD i = y.getLsbD i) : x = y := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi
-  exact h i hi
-
 theorem bytes32_store (be : Bool) (x : BitVec 32) :
     (List.range 4).map (fun j => (if be then bswap32 x else x).extractLsb' (8 * j) 8) = bytes32 be x := by
   cases be
@@ -65,12 +49,6 @@ theorem writeW32 (m : Mem) (a : Addr) (be : Bool) (x : BitVec 32) :
 theorem writeW64 (m : Mem) (a : Addr) (be : Bool) (x : BitVec 64) :
     m.writeW a (if be then bswap64 x else x) = writeBytes m a (bytes64 be x) := by
   rw [Mem.writeW, write_eq_writeBytes, ← bytes64_store]; rfl
-
-theorem bytes32_length (be : Bool) (x : BitVec 32) : (bytes32 be x).length = 4 := by
-  cases be <;> rfl
-
-theorem bytes64_length (be : Bool) (x : BitVec 64) : (bytes64 be x).length = 8 := by
-  cases be <;> simp [bytes64]
 
 /-! ## Regions -/
 

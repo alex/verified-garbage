@@ -16,7 +16,7 @@ namespace VG.Proof.Hmac.Generic.AArch64
 open VG.AArch64
 open VG.Impl.Hmac.Generic.AArch64 (Hash)
 open VG.Proof.Sha256.X86_64 (contains_offset toNat_ofNat_lt)
-open VG.Proof.Sha256.AArch64.Stream (Upd Mupd wp_str wp_ldr)
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_str wp_ldr)
 open VG.Proof.Hmac.Generic.X86_64 (readW_writeW_ne add_ofNat_add InRegions.right')
 
 variable (H : Hash)

@@ -16,7 +16,7 @@ open VG VG.AArch64 VG.Impl.Scrypt.AArch64
 open VG.Spec.Scrypt (bytesAt)
 open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil)
-open VG.Proof.Md5.AArch64.Stream (Upd Mupd wp_add wp_sub wp_addImm wp_subImm wp_ldr wp_str
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_add wp_sub wp_addImm wp_subImm wp_ldr wp_str
   eval_nonzero ofNat_beq_zero ofNat_pred sub_beq)
 open VG.Proof.Scrypt.AArch64.BlockMix (wp_eor)
 open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat)

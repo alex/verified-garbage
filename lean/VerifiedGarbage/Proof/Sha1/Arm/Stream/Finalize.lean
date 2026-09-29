@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.Sha1.X86_64.Stream.Common
 # Streaming SHA-1 on ARMv7: `finalize`
 
 Untrusted: everything here is checked by Lean. The same structure as the
-AArch64 proof (`VG.Proof.Sha1.AArch64.Stream.Finalize`), with `state` in
+AArch64 proof (`VG.Proof.MdStream.AArch64.Finalize`), with `state` in
 `r0`, `scratch` in `r3`, `out` in `r6`, `count` in `r4:r5` (low, high), the
 buffered bytes in `r7`, and whether the block is not the last in `r8`.
 -/

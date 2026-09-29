@@ -6,7 +6,7 @@ import Mathlib.Tactic.Tauto
 # Streaming SHA-1 on ARMv7: `update`
 
 Untrusted: everything here is checked by Lean. The same structure as the
-AArch64 proof (`VG.Proof.Sha1.AArch64.Stream.Update`), with `state` in
+AArch64 proof (`VG.Proof.MdStream.AArch64.Update`), with `state` in
 `r0`, `scratch` in `r3`, `data` in `r5`, the bytes left in `r6`, the
 buffered bytes in `r4`, and whether a block is pending in `r7`.
 -/

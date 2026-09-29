@@ -43,4 +43,10 @@ theorem repr_iff {mem : Mem} {p : Addr} {m : List Byte} : Repr mem p m ↔ md.Re
 
 theorem hash_eq (m : List Byte) : Spec.Md5.hash m = md.hash H0 m := rfl
 
+/-- The digest, as 32-bit words. -/
+theorem digest_eq (mem : Mem) (p : Addr) :
+    md.digest (md.stateAt mem p) = (List.range 4).flatMap fun k =>
+      MdStream.bytes32 false (mem.readW (p + BitVec.ofNat 64 (4 * k)) 32) := by
+  simp [md, stateAt, Vector.toList_ofFn, List.range_succ, List.ofFn_succ, MdStream.bytes32, wordBytes]
+
 end VG.Proof.Md5

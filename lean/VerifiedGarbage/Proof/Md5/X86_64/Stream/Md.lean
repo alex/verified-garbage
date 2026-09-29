@@ -27,11 +27,6 @@ abbrev params := Impl.Md5.X86_64.Stream.params
 
 theorem dims : Dims params := ⟨.inl rfl, by decide, by decide, by decide⟩
 
-theorem digest_eq (mem : Mem) (p : Addr) :
-    md.digest (md.stateAt mem p) = (List.range 4).flatMap fun k =>
-      bytes32 false (mem.readW (p + BitVec.ofNat 64 (4 * k)) 32) := by
-  simp [md, Spec.Md5.stateAt, Vector.toList_ofFn, List.range_succ, List.ofFn_succ, bytes32, Spec.Md5.wordBytes]
-
 theorem shape : Shape (P := params) md where
   len s hout := by
     rw [show params.len = len64 72 false ++ [] from rfl]
