@@ -18,28 +18,35 @@ them, and then they are carried (each limb's bits from 13 up added to the
 next, the top one's times 5 to the bottom) into `h` with limbs below
 `2¹³ + 2⁹`, which keeps the next columns below `2³²`.
 
-The state (`state`, 128 bytes, see `VG.Spec.Poly1305.Repr`):
+The state (`state`, 128 bytes, see `VG.Spec.Poly1305.Buffered`):
 
 * `[0, 24)`: the accumulator in six little-endian words (the last one
   zero), fully reduced, between calls. During a call: the carried `h`, two
   limbs per word (`h(2i) + 2¹⁶ h(2i+1)` at `4i`), while it is multiplied;
-  the top column `d9` at `16` between blocks; the number of blocks left (in
-  `blocks`) or the pointer `out` (in `finalize`) at `20`;
+  the top column `d9` at `16` between blocks; the number of blocks left
+  (`cntOff`) at `20`;
 * `[24, 56)`: the key: `r` (`[24, 40)`) and `s` (`[40, 56)`);
-* `[56, 88)`: the saved `r4`–`r11`;
+* `[56, 72)`: the buffer, in `update` and `finalize`; in `blocks`, whose
+  contract leaves it unspecified, `[56, 88)` holds the saved `r4`–`r11`;
+* `[72, 80)`, in `update`: the bytes buffered once the buffer is filled
+  (`fillOff`) and the length of the data after that (`lenOff`);
 * `[88, 120)`: the limbs `r0`–`r3`, `r5`–`r8` of the clamped `r`, and
   `[120, 122)`: `r4` and `r9`, one byte each (they are below `2⁸`);
-* `[124, 128)`: the pointer to the next block (in `blocks`) or the tail's
-  length (in `finalize`).
+* `[124, 128)`: the pointer to the next block (`ptrOff`, in `blocks` and
+  `update`) or the number of bytes buffered (in `finalize`).
+
+`update` and `finalize` save `r4`–`r11` at `[0, 32)` of `scratch` instead,
+where they do not overwrite the buffer.
 
 Registers: `r0` = `state`. The columns `d0`–`d8` are in `r3`–`r11` (`yr`),
 `d9` in memory, then in `r1`, while a block is added and carried; while `h`
 is multiplied by `r`, row by row, the columns are in `r3`–`r12` (`xr`),
 `hj` (then `5 hj`) in `r1` and `ri` in `r2`.
 
-The only branches are on the block count and the tail's length, and every
-address is `state`, a pointer or a pointer plus a constant or a count, so
-only the pointers and lengths can affect timing.
+The only branches are on the block count, the lengths and the number of
+bytes buffered (`count mod 16`), and every address is `state`, a pointer or
+a pointer plus a constant or a count, so only the pointers, `count` and the
+lengths can affect timing.
 -/
 
 namespace VG.Impl.Poly1305.Arm
@@ -65,9 +72,9 @@ def rOff : Nat → Nat
 
 /-- The top column between blocks. -/
 def d9Off : Nat := 16
-/-- The number of blocks left (`blocks`), or `out` (`finalize`). -/
+/-- The number of blocks left (`blocks`, `update`). -/
 def cntOff : Nat := 20
-/-- The next block (`blocks`), or the tail's length (`finalize`). -/
+/-- The next block (`blocks`, `update`), or the number of bytes buffered (`finalize`). -/
 def ptrOff : Nat := 124
 
 /-- The callee-saved registers we use, saved at `56 + 4i`. -/
@@ -239,28 +246,97 @@ def blocks : Prog isa :=
       [.str .r3 .r0 0, .str .r5 .r0 4, .str .r7 .r0 8, .str .r10 .r0 12, .str .r1 .r0 16,
        .mov .r2 (.imm 0), .str .r2 .r0 20] ++ restoreRegs)))
 
-/-! ## `finalize(state = r0, tail = r1, len = r2, out = r3)`
+/-! ## `update(state = r0, count = r2:r3, data = [sp], len = [sp, #4], scratch = [sp, #8])`
 
-A non-empty tail is copied to `out`, padded with `0x01` and zeros, and
-absorbed from there without `2¹²⁸`. Then `h` is reduced, `s` added, and the
-sum carried and stored modulo `2¹²⁸`. -/
+The callee-saved registers are saved in `scratch`, not in the state, whose
+buffer (`[56, 72)`) they would overwrite. With `r4` = the number of bytes
+buffered (`count mod 16`), `r5` = the data not yet consumed and `r6` = its
+length: a non-empty buffer is filled from the data, as far as it goes
+(`fill`); then, with the state's working space holding the data pointer
+(`ptrOff`), the number of its whole blocks (`cntOff`), the bytes buffered
+(`fillOff`) and the data's length (`lenOff`), the limbs of `r` are computed
+and the accumulator loaded; a full buffer is absorbed in place, then the
+whole blocks of the data (`body`, as in `blocks`); the accumulator is reduced
+and stored, and the rest of the data is copied into the (now empty) buffer. -/
 
-def copyTail : Prog isa :=
-  .seq (.block [.mov .r12 (.imm 0), .str .r12 .r3 0, .str .r12 .r3 4, .str .r12 .r3 8,
-      .str .r12 .r3 12, .mov .r4 (.reg .r3), .mov .r5 (.reg .r2)])
-  (.seq (.loop (.block [.ldrb .r12 .r1 0, .strb .r12 .r4 0, .dp .add .r1 .r1 (.imm 1),
-      .dp .add .r4 .r4 (.imm 1), .subs .r5 .r5 (.imm 1)]) .ne)
-    (.block [.mov .r12 (.imm 1), .strb .r12 .r4 0]))
+/-- The bytes buffered once the buffer is filled. -/
+def fillOff : Nat := 72
+/-- The data's length once the buffer is filled. -/
+def lenOff : Nat := 76
+
+/-- Our callee-saved registers, saved at `[r12, #4i]` of `scratch`. -/
+def saveScr : List Instr := (List.range 8).flatMap fun i => [.str (savedReg i) .r12 (4 * i)]
+def restoreScr : List Instr := (List.range 8).flatMap fun i => [.ldr (savedReg i) .r12 (4 * i)]
+
+/-- Copies the `r8 > 0` bytes at `r5` to `[r1, #56]` on, advancing `r5` and `r1`. -/
+def copyBody : List Instr :=
+  [.ldrb .r12 .r5 0, .strb .r12 .r1 56, .dp .add .r5 .r5 (.imm 1), .dp .add .r1 .r1 (.imm 1),
+   .subs .r8 .r8 (.imm 1)]
+
+def copyIn : Prog isa := .loop (.block copyBody) .ne
+
+/-- The number of bytes to copy into the buffer, `min(16 - r4, r6)`, into `r8`:
+`16 - r4`, unless `r6 < 16` and `r6 + r4 < 16`. -/
+def fillCount : Prog isa :=
+  .seq (.block [.mov .r8 (.imm 16), .dp .sub .r8 .r8 (.reg .r4), .mov .r12 (.shifted .r6 .lsr 4),
+      .cmp .r12 (.imm 0)])
+    (.ite .eq
+      (.seq (.block [.dp .add .r12 .r6 (.reg .r4), .mov .r12 (.shifted .r12 .lsr 4), .cmp .r12 (.imm 0)])
+        (.ite .eq (.block [.mov .r8 (.reg .r6)]) (.block [])))
+      (.block []))
+
+/-- Copies `min(16 - r4, r6)` bytes of the data into the buffer, after its
+`r4` bytes, advancing `r4`, `r5` and `r6`. -/
+def fill : Prog isa :=
+  .seq fillCount
+  (.seq (.block [.dp .sub .r6 .r6 (.reg .r8), .dp .add .r1 .r0 (.reg .r4), .dp .add .r4 .r4 (.reg .r8),
+      .cmp .r8 (.imm 0)])
+    (.ite .eq (.block []) copyIn))
+
+/-- The accumulator stored, from its words in `r3`, `r5`, `r7`, `r10` and `r1`. -/
+def storeAcc : List Instr :=
+  [.str .r3 .r0 0, .str .r5 .r0 4, .str .r7 .r0 8, .str .r10 .r0 12, .str .r1 .r0 16,
+   .mov .r2 (.imm 0), .str .r2 .r0 20]
+
+def update : Prog isa :=
+  .seq (.block ([.ldrSp .r12 8] ++ saveScr ++
+      [.dp .and .r4 .r2 (.imm 15), .ldrSp .r5 0, .ldrSp .r6 4, .cmp .r4 (.imm 0)]))
+  (.seq (.ite .eq (.block []) fill)
+  (.seq (.block ([.mov .r1 (.shifted .r6 .lsr 4), .str .r5 .r0 ptrOff, .str .r6 .r0 lenOff,
+      .str .r1 .r0 cntOff, .str .r4 .r0 fillOff] ++ setupR ++ loadAcc ++
+      [.ldr .r1 .r0 fillOff, .cmp .r1 (.imm 16)]))
+  (.seq (.ite .eq (.block (.dp .add .r1 .r0 (.imm 56) :: absorb true)) (.block []))
+  (.seq (.block [.ldr .r1 .r0 cntOff, .cmp .r1 (.imm 0)])
+  (.seq (.ite .eq (.block []) (.loop body .ne))
+  (.seq (.block (reduce ++ toWords ++ storeAcc ++
+      [.ldr .r8 .r0 lenOff, .dp .and .r8 .r8 (.imm 15), .ldr .r5 .r0 ptrOff, .mov .r1 (.reg .r0),
+       .cmp .r8 (.imm 0)]))
+  (.seq (.ite .eq (.block []) copyIn)
+    (.block (.ldrSp .r12 8 :: restoreScr)))))))))
+
+/-! ## `finalize(state = r0, count = r2:r3, out = [sp], scratch = [sp, #4])`
+
+The registers are saved in `scratch`. A non-empty buffer is padded in place
+with `0x01` and zeros (`padBuf`); its length is kept at `ptrOff` while the
+limbs of `r` are computed and the accumulator loaded, and then the padded
+buffer is absorbed without `2¹²⁸`. Then `h` is reduced, `s` added, and the
+sum carried and stored modulo `2¹²⁸` in `out`. -/
+
+/-- Zeros the buffer from byte `r4 > 0` on, then stores `0x01` at byte `r4`. -/
+def padBuf : Prog isa :=
+  .seq (.block [.mov .r12 (.imm 0), .dp .add .r1 .r0 (.reg .r4), .mov .r5 (.imm 16),
+      .dp .sub .r5 .r5 (.reg .r4)])
+  (.seq (.loop (.block [.strb .r12 .r1 56, .dp .add .r1 .r1 (.imm 1), .subs .r5 .r5 (.imm 1)]) .ne)
+    (.block [.mov .r12 (.imm 1), .dp .add .r1 .r0 (.reg .r4), .strb .r12 .r1 56]))
 
 def finalize : Prog isa :=
-  .seq (.block (saveRegs ++ [.cmp .r2 (.imm 0)]))
-  (.seq (.ite .eq (.block []) copyTail)
-  (.seq (.block ([.str .r3 .r0 cntOff, .str .r2 .r0 ptrOff] ++ setupR ++ loadAcc ++
-      [.ldr .r1 .r0 ptrOff, .cmp .r1 (.imm 0)]))
-  (.seq (.ite .eq (.block []) (.block (.ldr .r1 .r0 cntOff :: absorb false)))
+  .seq (.block ([.ldrSp .r12 4] ++ saveScr ++ [.dp .and .r4 .r2 (.imm 15), .cmp .r4 (.imm 0)]))
+  (.seq (.ite .eq (.block []) padBuf)
+  (.seq (.block (.str .r4 .r0 ptrOff :: setupR ++ loadAcc ++ [.ldr .r1 .r0 ptrOff, .cmp .r1 (.imm 0)]))
+  (.seq (.ite .eq (.block []) (.block (.dp .add .r1 .r0 (.imm 56) :: absorb false)))
     (.block (reduce ++ [.str .r1 .r0 d9Off, .dp .add .r1 .r0 (.imm 40)] ++ addWords ++ addTop false ++
       mask :: (List.range 9).flatMap carryStep ++ toWords ++
-      [.ldr .r2 .r0 cntOff, .str .r3 .r2 0, .str .r5 .r2 4, .str .r7 .r2 8, .str .r10 .r2 12] ++
-      restoreRegs)))))
+      [.ldrSp .r2 0, .str .r3 .r2 0, .str .r5 .r2 4, .str .r7 .r2 8, .str .r10 .r2 12, .ldrSp .r12 4] ++
+      restoreScr)))))
 
 end VG.Impl.Poly1305.Arm

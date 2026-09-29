@@ -32,11 +32,18 @@ def artifacts : List Artifact := [
     contract := Spec.Poly1305.blocksContract Arm.abi
     verified := Proof.Poly1305.Arm.Shared.blocks
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.Poly1305.finalizeTailApi with
+  { Spec.Poly1305.updateApi with
     target := Arm.target
-    doc := Spec.Poly1305.finalizeTailApi.doc
+    doc := Spec.Poly1305.updateApi.doc
+    code := Impl.Poly1305.Arm.update
+    contract := Spec.Poly1305.updateContract Arm.abi
+    verified := Proof.Poly1305.Arm.Shared.update
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.Poly1305.finalizeApi with
+    target := Arm.target
+    doc := Spec.Poly1305.finalizeApi.doc
     code := Impl.Poly1305.Arm.finalize
-    contract := Spec.Poly1305.finalizeTailContract Arm.abi
+    contract := Spec.Poly1305.finalizeContract Arm.abi
     verified := Proof.Poly1305.Arm.Shared.finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
