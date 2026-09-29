@@ -43,8 +43,8 @@ theorem nosp_of {c : Prog isa} (h : ((instrs c).all fun i => !Taint.clobbers i .
 /-! ## SHA-1 -/
 
 def sha1H : Hash := ⟨64, 84, 20, 20, 20, "vg_sha1_init", Impl.Sha1.X86_64.Stream.init,
-  "vg_sha1_update", Impl.Sha1.X86_64.Stream.update, "vg_sha1_finalize",
-  Impl.Sha1.X86_64.Stream.finalize⟩
+  "vg_sha1_update", Impl.Sha1.X86_64.Stream.update .scalar, "vg_sha1_finalize",
+  Impl.Sha1.X86_64.Stream.finalize .scalar⟩
 
 theorem sha1_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
     (h : ∀ i < 84, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i))

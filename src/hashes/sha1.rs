@@ -8,9 +8,18 @@
 //! `finalizeContract`) maintain a streaming state that represents the
 //! message absorbed so far (`VG.Spec.Sha1.Repr`: the hash value of its whole
 //! blocks, and its remaining bytes), and pad it and output the digest.
+//!
+//! On x86-64, CPUs with the SHA extensions (and SSSE3) run
+//! `vg_sha1_update_shani` and `vg_sha1_finalize_shani` instead, which have
+//! the same contracts and call `vg_sha1_compress_shani`.
 
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
+#[cfg(target_arch = "x86_64")]
+use crate::arch::sha1::{
+    VG_SHA1_FINALIZE_SHANI_FEATURES, VG_SHA1_UPDATE_SHANI_FEATURES, vg_sha1_finalize_shani,
+    vg_sha1_update_shani,
+};
 use crate::arch::sha1::{vg_sha1_finalize, vg_sha1_init, vg_sha1_update};
 
 super::streaming_hash!(
@@ -24,13 +33,17 @@ super::streaming_hash!(
         init: vg_sha1_init,
         backends: Sha1Backend {
             Scalar => (vg_sha1_update, vg_sha1_finalize),
+            #[cfg(target_arch = "x86_64")]
+            ShaNi if [VG_SHA1_UPDATE_SHANI_FEATURES, VG_SHA1_FINALIZE_SHANI_FEATURES] =>
+                (vg_sha1_update_shani, vg_sha1_finalize_shani),
         },
     }
 );
 
 #[cfg(test)]
 mod tests {
-    use super::Sha1;
+    use super::{Sha1, Sha1Backend};
+    use crate::cpu::{Features, detected};
 
     /// Every way of splitting a message into two updates gives the same
     /// digest, for every length around the padding boundaries.
@@ -52,6 +65,19 @@ mod tests {
                 assert_eq!(h.finalize(), expected);
             }
         }
+    }
+
+    /// The implementation chosen for each set of the features it depends on.
+    #[test]
+    fn select() {
+        for bits in 0..4 {
+            let backend = Sha1Backend::select(Features(bits));
+            #[cfg(target_arch = "x86_64")]
+            assert_eq!(backend == Sha1Backend::ShaNi, bits == 0b11);
+            #[cfg(not(target_arch = "x86_64"))]
+            assert_eq!(backend, Sha1Backend::Scalar);
+        }
+        assert_eq!(Sha1::new().backend, Sha1Backend::select(detected()));
     }
 
     /// The `HashFunction` implementation is the inherent functions.
