@@ -2,6 +2,8 @@ import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Impl.ChaCha20.X86_64
 import VerifiedGarbage.Proof.ChaCha20.Spec
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # ChaCha20 block function on x86-64: the rounds

@@ -1,4 +1,7 @@
 import VerifiedGarbage.Proof.Gcm.X86_64.Ctmul
+import Mathlib.Tactic.LinearCombination
+import Mathlib.Tactic.Ring.RingNF
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # GHASH on x86-64: Karatsuba, the reduction and `x⁻¹ · H`

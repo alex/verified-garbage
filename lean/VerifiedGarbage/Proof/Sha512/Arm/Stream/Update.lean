@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Sha512.Arm.Stream.Common
+import Mathlib.Tactic.Tauto
 
 /-!
 # Streaming SHA-512 on ARMv7: `update`
@@ -318,7 +319,7 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   have hr := rr_lt s₀ c; have ht' := tt_le' s₀ c
   have hxs := xs_length s₀ c
   have hf : Frame [stR s₀] sI.mem mem := by
-    have := write_frame s₀ c sI.mem (tt s₀ c) le_rfl
+    have := write_frame s₀ c sI.mem (tt s₀ c) (Nat.le_refl _)
     rwa [List.take_of_length_le (by omega)] at this
   refine ⟨hI.frame.trans (hf.mono (by simp)), fun p hp' => ?_, ?_, ?_⟩
   · rw [← hI.saved p hp']
@@ -396,7 +397,7 @@ theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
   obtain ⟨hfr, hsv, hstt, hby⟩ := copied_facts hp hI
   have hmem : s.mem = writeBytes sI.mem (q s₀ c) (xs s₀ c) := by
     rw [h.mem, List.take_of_length_le (by omega)]
-  refine ⟨⟨le_rfl, h.rd, h.wr, h.r0, h.r3, h.sp, ?_, ?_, by rw [hmem]; exact hfr,
+  refine ⟨⟨(Nat.le_refl _), h.rd, h.wr, h.r0, h.r3, h.sp, ?_, ?_, by rw [hmem]; exact hfr,
     by rw [hmem]; exact hsv⟩, ?_, fun iv m hm => ?_⟩
   · rw [h.r5]; congr 2; omega
   · rw [h.r6]; congr 1; omega

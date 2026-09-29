@@ -1,3 +1,4 @@
+import Lean.Meta.Reduce
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.TCB.Arm.Target
 

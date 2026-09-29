@@ -381,7 +381,7 @@ theorem updArgs_ok {s : State} (hk : KR (H := H) s₀ s) {st : Reg} (hst : st = 
         exact Covers.of_sub fun r hr => by
           simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
           rcases hr with rfl | rfl
-          · exact sub_of_self (r := ⟨p, H.S⟩) (state_in hp hpR) le_rfl
+          · exact sub_of_self (r := ⟨p, H.S⟩) (state_in hp hpR) (Nat.le_refl _)
           · exact sub_of_self (r := scR sc s₀) (by rw [hp.wr]; simp) (by
               have := hH.hWb; show hH.Wb ≤ 8 * sc; omega)
       st_sc := dS.sub_right (cal_sub hH hp)

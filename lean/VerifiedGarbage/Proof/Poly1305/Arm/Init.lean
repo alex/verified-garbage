@@ -84,10 +84,10 @@ theorem init_correct {s₀ : State} (hp : IPre s₀) :
     WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Poly1305.initArm.post s₀ s' := by
   unfold init
   rw [← List.append_nil ((List.range 6).flatMap _)]
-  refine WP.append (wp_range_flatMap (M := isa) (KI s₀) (key_step hp) 8 le_rfl s₀
+  refine WP.append (wp_range_flatMap (M := isa) (KI s₀) (key_step hp) 8 (Nat.le_refl _) s₀
     ⟨fun _ h => absurd h (by omega), (Keeps.refl _ _).keepsF _⟩) fun s₁ h₁ => ?_
   refine wp_mov (op2_imm (by decide)) fun s₂ u₂ => ?_
-  refine WP.mono (wp_range_flatMap (M := isa) (ZI s₀) (zero_step hp) 6 le_rfl s₂
+  refine WP.mono (wp_range_flatMap (M := isa) (ZI s₀) (zero_step hp) 6 (Nat.le_refl _) s₂
     ⟨fun _ h => absurd h (by omega), fun j hj => by rw [u₂.mem]; exact h₁.words j hj, u₂.gpr,
       h₁.keeps.trans ⟨fun r hr => u₂.other r (by simpa using hr), by rw [u₂.mem]; exact Frame.refl _ _,
         u₂.rd, u₂.wr, u₂.sp⟩⟩) fun s' h' => ⟨⟨fun r hr => ?_, h'.keeps.sp⟩, ?_, ?_, ?_⟩

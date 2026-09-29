@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.ChaCha20Poly1305.AArch64.Common
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # ChaCha20-Poly1305 on AArch64: the prologue
@@ -82,7 +83,7 @@ theorem saveMoves_ok {s₀ : State} (hp : APre s₀) :
       |>.writeW (List.mem_singleton_self _) _ (c 616 (by omega) (by omega))
       |>.writeW (List.mem_singleton_self _) _ (c 624 (by omega) (by omega))
       |>.writeW (List.mem_singleton_self _) _ (c 632 (by omega) (by omega))
-      |>.writeW (List.mem_singleton_self _) _ (c 592 le_rfl (by omega))
+      |>.writeW (List.mem_singleton_self _) _ (c 592 (Nat.le_refl _) (by omega))
   · rw [hm]
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     simp (config := {decide := true}) only [Mem.readW_writeW_self64, readW64_off]
@@ -275,7 +276,7 @@ theorem block1_ok {s₀ : State} (hp : APre s₀) :
     fun s₁ ⟨⟨e21, e24, e25, e22, e23, un₁, rd₁, wr₁, f₁, sv₁⟩, sp₁⟩ => ?_)
   have hc₁ : CtxOk (cx s₀) s₁ := fun a w h => by
     rw [rd₁, wr₁]; exact ⟨hp.in_ctx' h, hp.in_ctx h⟩
-  refine WP.block_append (WP.mono (WP.withSp (initState_ok (j := 16) le_rfl e21 hc₁))
+  refine WP.block_append (WP.mono (WP.withSp (initState_ok (j := 16) (Nat.le_refl _) e21 hc₁))
     fun s₂ ⟨⟨g₂, rd₂, wr₂, f₂, w₂⟩, sp₂⟩ => ?_)
   refine WP.mono (ptrs2_ok (a := 64) (b := 128) (by omega) (by omega) s₂) fun s₃ ⟨h0, h1, k₃⟩ => ?_
   have x21₂ : s₂.gpr .x21 = cx s₀ := by rw [g₂ _ (by decide), e21]

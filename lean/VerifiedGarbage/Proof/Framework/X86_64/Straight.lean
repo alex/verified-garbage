@@ -349,7 +349,7 @@ theorem step_ok (hD : D.Sound R) {e e' : Env α} {s : State} (hok : Ok c s)
     split at h
     · cases h
     · rename_i hd
-      simp only [not_or, not_not] at hd
+      simp only [not_or, Classical.not_not] at hd
       obtain ⟨hdb, hde, hn⟩ := hd
       split at h
       · rename_i a ha

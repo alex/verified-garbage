@@ -1,12 +1,5 @@
-import Mathlib.Tactic.IntervalCases
-import Mathlib.Tactic.NormNum.Basic
-import Mathlib.Tactic.Ring.Basic
-import Mathlib.Tactic.Tauto
-import Mathlib.Tactic.SplitIfs
-import Mathlib.Tactic.Set
-import Mathlib.Tactic.Use
-import Mathlib.Tactic.ByContra
 import VerifiedGarbage.Spec.Sha512
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # SHA-512: lemmas about the specification

@@ -1,11 +1,3 @@
-import Mathlib.Tactic.IntervalCases
-import Mathlib.Tactic.NormNum.Basic
-import Mathlib.Tactic.Ring.Basic
-import Mathlib.Tactic.Tauto
-import Mathlib.Tactic.SplitIfs
-import Mathlib.Tactic.Set
-import Mathlib.Tactic.Use
-import Mathlib.Tactic.ByContra
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.X86_64.Bswap
 import VerifiedGarbage.TCB.AArch64.Isa
@@ -44,12 +36,21 @@ theorem exec_movk_w {s : State} {d : Reg} {imm : BitVec 16} :
         BitVec 32)) := by
   simp [exec, Size.bits, State.read]
 
+theorem testBit_65535 (i : Nat) : Nat.testBit 65535 i = decide (i < 16) :=
+  Nat.testBit_two_pow_sub_one 16 i
+
 /-- `movz` of the low half then `movk` of the high half builds the word. -/
 theorem movz_movk (x : BitVec 32) :
     (x.extractLsb' 0 16).setWidth 32 &&& 0xFFFF ||| (x.extractLsb' 16 16).setWidth 32 <<< 16 = x := by
   apply BitVec.eq_of_getLsbD_eq
   intro i hi
-  interval_cases i <;> simp
+  simp only [BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_setWidth,
+    BitVec.getLsbD_extractLsb', BitVec.natCast_eq_ofNat,
+    BitVec.getLsbD_ofNat, testBit_65535, hi, decide_true, Bool.true_and, Nat.zero_add]
+  rcases (by omega : i < 16 ∨ 16 ≤ i) with h | h <;>
+  simp (disch := omega) only [decide_eq_true, decide_eq_false, Bool.true_and, Bool.false_and,
+    Bool.and_false, Bool.or_false, Bool.false_or, Bool.not_false, Bool.not_true, Bool.and_true]
+  all_goals exact congrArg _ (by omega)
 
 theorem exec_add {sz : Size} {s : State} {d n m : Reg} :
     exec (.add sz d n m) s = some (s.write sz d (s.read sz n + s.read sz m)) := rfl
@@ -85,7 +86,14 @@ theorem movz_movk' (x : BitVec 32) :
       (x.extractLsb' 16 16).setWidth 32 <<< (16 * 1) = x := by
   apply BitVec.eq_of_getLsbD_eq
   intro i hi
-  interval_cases i <;> simp
+  simp only [BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_setWidth,
+    BitVec.getLsbD_extractLsb', BitVec.getLsbD_not, BitVec.ofNat_eq_ofNat,
+    BitVec.getLsbD_ofNat, testBit_65535, hi, decide_true, Bool.true_and, Nat.zero_add,
+    Nat.reduceMul, Nat.sub_zero]
+  rcases (by omega : i < 16 ∨ 16 ≤ i) with h | h <;>
+  simp (disch := omega) only [decide_eq_true, decide_eq_false, Bool.true_and, Bool.false_and,
+    Bool.and_false, Bool.or_false, Bool.false_or, Bool.not_false, Bool.not_true, Bool.and_true]
+  all_goals exact congrArg _ (by omega)
 
 theorem rev32_readW (m : Mem) (a : Addr) :
     rev32 (m.readW a 32) = (m a ++ m (a + 1) ++ m (a + 1 + 1) ++ m (a + 1 + 1 + 1) : BitVec 32) :=
@@ -125,7 +133,14 @@ theorem movz_movk64' (x : BitVec 64) :
       (x.extractLsb' 48 16).setWidth 64 <<< (16 * 3) = x := by
   apply BitVec.eq_of_getLsbD_eq
   intro i hi
-  interval_cases i <;> simp
+  simp only [BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_setWidth,
+    BitVec.getLsbD_extractLsb', BitVec.getLsbD_not, BitVec.ofNat_eq_ofNat,
+    BitVec.getLsbD_ofNat, testBit_65535, hi, decide_true, Bool.true_and, Nat.zero_add,
+    Nat.reduceMul, Nat.sub_zero]
+  rcases (by omega : i < 16 ∨ (16 ≤ i ∧ i < 32) ∨ (32 ≤ i ∧ i < 48) ∨ 48 ≤ i) with h | h | h | h <;>
+  simp (disch := omega) only [decide_eq_true, decide_eq_false, Bool.true_and, Bool.false_and,
+    Bool.and_false, Bool.or_false, Bool.false_or, Bool.not_false, Bool.not_true, Bool.and_true] <;>
+  exact congrArg _ (by omega)
 
 /-- A 64-bit load followed by `rev` reads the eight bytes big-endian. -/
 theorem rev64_readW (m : Mem) (a : Addr) :

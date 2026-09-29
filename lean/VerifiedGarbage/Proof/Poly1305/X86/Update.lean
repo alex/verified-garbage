@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Poly1305.X86.Buffer
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Poly1305 on x86 (32-bit): `update`
@@ -437,7 +438,7 @@ theorem Pos.whole {s₀ s : State} {F : Nat → Nat} (h : (∃ c, Cons s₀ F c 
     ∃ c, c ≤ dl s₀ ∧ s.gpr .esi = dp s₀ + BitVec.ofNat 32 c := by
   rcases h with ⟨c, hc⟩ | hd
   · exact ⟨c, hc.c_le, hc.esi⟩
-  · exact ⟨dl s₀, le_rfl, hd.esi⟩
+  · exact ⟨dl s₀, (Nat.le_refl _), hd.esi⟩
 
 /-- One whole block of data. -/
 theorem whole_step {s₀ : State} (hp : UPre s₀) {F : Nat → Nat} (hF : SetupF s₀ F) {c : Nat} {s : State}
@@ -522,7 +523,7 @@ theorem whole_ok {s₀ : State} (hp : UPre s₀) {F : Nat → Nat} (hF : SetupF 
       exact WP.mono (whole_loop hp hF (hc.regs (k₂.gpr') (k₂.gpr') (k₂.gpr') k₂.2.1 k₂.2.2.1 k₂.2.2.2) hb)
         fun s' h' => .inl h'
     · have := hd.esi; rw [hesi] at this
-      have := add_ofNat_inj hcl le_rfl (dl_lt s₀) this
+      have := add_ofNat_inj hcl (Nat.le_refl _) (dl_lt s₀) this
       omega
 
 /-! ## The rest of the data -/
@@ -543,7 +544,7 @@ theorem rest_ok {s₀ : State} (hp : UPre s₀) {F : Nat → Nat} {s : State}
   obtain ⟨c, hcl, hesi⟩ : ∃ c, c ≤ dl s₀ ∧ s.gpr .esi = dp s₀ + BitVec.ofNat 32 c := by
     rcases h with ⟨c, hc, _⟩ | hd
     · exact ⟨c, hc.c_le, hc.esi⟩
-    · exact ⟨dl s₀, le_rfl, hd.esi⟩
+    · exact ⟨dl s₀, (Nat.le_refl _), hd.esi⟩
   have hU : UCommon s₀ F s := by rcases h with ⟨_, hc, _⟩ | hd; exacts [hc.toUCommon, hd.toUCommon]
   refine WP.seq (WP.mono (Q := fun s₂ : State => Keeps [.eax, .ecx] s s₂ ∧
       s₂.gpr .eax = BitVec.ofNat 32 (dl s₀ - c) ∧ s₂.zf = some (decide (dl s₀ - c = 0)))
@@ -586,7 +587,7 @@ theorem rest_ok {s₀ : State} (hp : UPre s₀) {F : Nat → Nat} {s : State}
         rw [Nat.zero_add, hp.data_bytes (by omega)] at hb'
         rw [hY, hb']
         rfl
-    · have := add_ofNat_inj le_rfl hcl (dl_lt s₀) (hd.esi.symm.trans hesi)
+    · have := add_ofNat_inj (Nat.le_refl _) hcl (dl_lt s₀) (hd.esi.symm.trans hesi)
       omega
 
 /-! ## Epilogue -/

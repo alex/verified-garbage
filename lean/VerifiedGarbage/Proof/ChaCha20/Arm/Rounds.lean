@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Framework.Block
 import VerifiedGarbage.Proof.Framework.Arm.Exec
 import VerifiedGarbage.Proof.ChaCha20.Spec
 import VerifiedGarbage.Impl.ChaCha20.Arm
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # ChaCha20 block function on 32-bit ARM: the rounds

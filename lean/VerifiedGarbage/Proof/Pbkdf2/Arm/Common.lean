@@ -223,7 +223,7 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Regs s₀ s) {o 
     exact Region.Disjoint.sep hp.k_t (contains_offset (by omega) (by omega)) (contains_offset (by omega) (by omega))
   · rw [m', h.r0]
     refine writeBytes_frame _ _ _ (R := tR s₀) ?_ |>.mono (by simp)
-    rw [bytesAt_length, ofNat_zero]; exact contains_base le_rfl
+    rw [bytesAt_length, ofNat_zero]; exact contains_base (Nat.le_refl _)
   · rw [m', h.r0, h.r4, ofNat_zero, show 4 * 8 = 32 from rfl, stateAt_copy]
     apply Proof.Sha256.Stream.stateAt_congr
     intro i hi
@@ -341,7 +341,7 @@ theorem digest_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Regs s₀ s) {
   have := hp.scr_fit; have := hp.t_fit
   unfold Impl.Pbkdf2.Arm.digest
   refine out_ok (p0 := tP s₀) (p3 := scr s₀) (by omega) (by omega)
-    (hp.t_s.sub_right (scr_sub s₀ (o := 192) (n := 32) (by omega))) 8 le_rfl rest s Q h.r0 h.r3
+    (hp.t_s.sub_right (scr_sub s₀ (o := 192) (n := 32) (by omega))) 8 (Nat.le_refl _) rest s Q h.r0 h.r3
     (fun j hj => InRegions.right (in_t hp h.wr (by omega)))
     (fun j hj => by rw [add_ofNat]; exact in_scr hp h.wr (a := 192 + 4 * j) (by omega))
     fun s' g' rd' wr' sp' m' => ?_

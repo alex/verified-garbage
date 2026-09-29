@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.ChaCha20.Spec
 import VerifiedGarbage.Proof.Framework.Mem
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # Facts about the ChaCha20 keystream

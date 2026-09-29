@@ -3,6 +3,9 @@ import VerifiedGarbage.Proof.Sha256.X86_64.ShaNi.Compress
 import VerifiedGarbage.Proof.Sha256.Stream
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 import VerifiedGarbage.Impl.Sha256.X86_64.Stream
+import Mathlib.Tactic.Conv
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Streaming SHA-256 on x86-64: common lemmas

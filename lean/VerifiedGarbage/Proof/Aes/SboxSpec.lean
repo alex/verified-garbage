@@ -236,7 +236,7 @@ theorem testBit_sum_pow (f : Nat → Bool) (n : Nat) :
       · rw [Nat.testBit_two_pow_add_gt hj, hbit]; simp [hj, show j < n + 1 by omega]
       · by_cases hj' : j = n
         · subst hj'; rw [Nat.testBit_two_pow_add_eq, hbit]; simp [hf]
-        · rw [Nat.testBit_lt_two_pow (lt_of_lt_of_le (show 2 ^ n + S < 2 ^ (n + 1) by
+        · rw [Nat.testBit_lt_two_pow (Nat.lt_of_lt_of_le (show 2 ^ n + S < 2 ^ (n + 1) by
             rw [Nat.pow_succ]; omega) (Nat.pow_le_pow_right (by omega) (by omega)))]
           simp; omega
     · rename_i hf

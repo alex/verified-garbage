@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Poly1305.X86.Absorb
+import Mathlib.Tactic.Set
 
 /-!
 # Poly1305 on x86 (32-bit): the final reduction
@@ -252,7 +253,7 @@ theorem reduce_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {f : Nat → Nat}
     have := hlt 3 (by omega); have := hf 4 (by omega); simp only [g4]; omega
   have m₁' := m₁.trans (mask_of hg4 _ e₁)
   set b := decide (g4 / 4 = 1) with hb
-  refine WP.block_append (WP.mono (selects_ok (A₁.ctx hc) A₁.words m₁' 4 le_rfl) fun s₂ A₂ => ?_)
+  refine WP.block_append (WP.mono (selects_ok (A₁.ctx hc) A₁.words m₁' 4 (Nat.le_refl _)) fun s₂ A₂ => ?_)
   refine WP.mono (selectTop_ok ((A₁.trans A₂).ctx hc) A₂.words (by rw [A₂.gpr _ (by decide)]; exact m₁'))
     fun s₃ A₃ => ⟨_, ((A₁.trans A₂).trans A₃).mono, fun k h₁ h₂ => ?_, fun k h₁ => ?_, ?_, ?_⟩
   · simp only [upd, selWords, hG]

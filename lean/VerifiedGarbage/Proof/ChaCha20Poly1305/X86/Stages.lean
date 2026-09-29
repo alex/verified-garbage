@@ -63,7 +63,7 @@ theorem lengths_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) 
     rw [u₇.mem, u₆.gpr, u₆.mem, u₅.gpr, u₅.mem, u₄.mem, v₃, u₃.mem, u₂.mem, v₁, u₁.mem]
   have hf : Frame [sub s₀ 656 16] s.mem s₇.mem := by
     rw [hm]
-    exact ((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ le_rfl (by omega) (by omega))).writeW
+    exact ((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ (Nat.le_refl _) (by omega) (by omega))).writeW
       (List.mem_singleton_self _) _ (contains_sub s₀ (by omega) (by omega) (by omega))).writeW
       (List.mem_singleton_self _) _ (contains_sub s₀ (by omega) (by omega) (by omega))).writeW
       (List.mem_singleton_self _) _ (contains_sub s₀ (by omega) (by omega) (by omega))
@@ -133,7 +133,7 @@ theorem crA_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) :
   have edi₂ : s₂.gpr .edi = CX s₀ := by rw [u₂.gpr, u₁.other _ (by decide), h.edi]
   have hf₂ : Frame [sub s₀ 112 4, stkR s₀] s.mem s₂.mem := by
     rw [hm₂]
-    exact (Frame.refl _ _).writeW (List.mem_cons_self ..) _ (contains_sub s₀ le_rfl (by omega) (by omega))
+    exact (Frame.refl _ _).writeW (List.mem_cons_self ..) _ (contains_sub s₀ (Nat.le_refl _) (by omega) (by omega))
   have inv₂ : Inv s₀ s₂ := h.part hp ⟨by rw [u₂.gpr, u₁.other _ (by decide), h.esp],
     by rw [u₂.rd, u₁.rd, h.rd], by rw [u₂.wr, u₁.wr, h.wr]⟩ (by rw [edi₂, h.edi]) (by omega) (by omega)
     (by omega) hf₂
@@ -200,7 +200,7 @@ theorem crypt_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) :
   · have d₁ : bytesAt s₁.mem (dp s₀) (L s₀) = bytesAt s.mem (dp s₀) (L s₀) := by
       rw [m₁]
       exact bytesAt_frame ((Frame.refl _ _).writeW (List.mem_singleton_self (sub s₀ 112 4)) _
-        (contains_sub s₀ le_rfl (by omega) (by omega))) (fun r hr => by
+        (contains_sub s₀ (Nat.le_refl _) (by omega) (by omega))) (fun r hr => by
           simp only [List.mem_singleton] at hr; subst hr; exact hp.d_sub (by omega))
         (Nat.le_of_lt (Nat.lt_trans (LN s₀).isLt (by decide)))
     have st₁ : stateAt s₁.mem (cx s₀ + BitVec.ofNat 64 64) = Spec.ChaCha20.initState (K s₀) 1 (N s₀) := by

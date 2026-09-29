@@ -1,5 +1,6 @@
-import Mathlib.Tactic.Ring
 import VerifiedGarbage.Spec.Poly1305
+import Mathlib.Tactic.NormNum.Basic
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Poly1305 on AArch64: the arithmetic in radix `2²⁶`

@@ -1,11 +1,7 @@
-import Mathlib.Tactic.IntervalCases
-import Mathlib.Tactic.NormNum.Basic
-import Mathlib.Tactic.Ring.Basic
-import Mathlib.Tactic.Tauto
-import Mathlib.Tactic.SplitIfs
-import Mathlib.Tactic.Set
-import Mathlib.Tactic.Use
-import Mathlib.Tactic.ByContra
+import Batteries.Tactic.Init
+import Batteries.Tactic.PermuteGoals
+import Batteries.Tactic.SeqFocus
+import Mathlib.Util.CompileInductive
 import VerifiedGarbage.TCB.Artifact
 
 /-!
@@ -123,7 +119,7 @@ theorem loop {body : Prog M} {c : M.Cond} {Q : M.State → Prop}
         (M.eval c s' = some false ∧ Q s') ∨
         (M.eval c s' = some true ∧ ∃ m < n, Inv m s')))
     (n : Nat) (s : M.State) (hs : Inv n s) : WP M (.loop body c) s Q := by
-  induction n using Nat.strong_induction_on generalizing s with
+  induction n using Nat.strongRecOn generalizing s with
   | _ n ih =>
     obtain ⟨t, s', h1, h2⟩ := hstep n s hs
     rcases h2 with ⟨hc, hq⟩ | ⟨hc, m, hm, hi⟩

@@ -187,7 +187,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have hl₀ : LI s₀ 0 s₀ := ⟨fun _ _ h => absurd h (by omega), rfl, rfl, rfl, fun _ _ => rfl⟩
   have hload : WP isa (.block load) s₀ (LI s₀ 16) := by
     unfold load
-    exact wp_range_flatMap (M := isa) (LI s₀) (fun k s hk h => load_step hp hk h) 16 le_rfl s₀ hl₀
+    exact wp_range_flatMap (M := isa) (LI s₀) (fun k s hk h => load_step hp hk h) 16 (Nat.le_refl _) s₀ hl₀
   refine WP.seq (WP.mono hload fun s₁ h₁ => ?_)
   have hh₁ : Holds (V s₀) s₁ := fun k hk => h₁.loaded k hk hk
   refine WP.seq (WP.mono (rounds_ok hh₁ 4) fun s₂ h₂ => ?_)
@@ -197,7 +197,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
       fun r hw hx => (h₂.keep r hw hx).trans (h₁.keep r hw)⟩
   unfold finish
   refine WP.mono (wp_range_flatMap (M := isa) (FI s₀ (Rs s₀)) (fun i s hi h => finish_step hp hi h)
-    16 le_rfl s₂ hF₀) fun s' hF => ⟨fun r hr => ?_, ?_⟩
+    16 (Nat.le_refl _) s₂ hF₀) fun s' hF => ⟨fun r hr => ?_, ?_⟩
   · have ⟨hw, hx⟩ := not_words_preserved hr
     exact hF.keep r hw hx
   · show Spec.Scrypt.bytesAt s'.mem (bp s₀) 64 =

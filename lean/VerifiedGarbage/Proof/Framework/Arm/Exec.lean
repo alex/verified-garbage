@@ -1,11 +1,3 @@
-import Mathlib.Tactic.IntervalCases
-import Mathlib.Tactic.NormNum.Basic
-import Mathlib.Tactic.Ring.Basic
-import Mathlib.Tactic.Tauto
-import Mathlib.Tactic.SplitIfs
-import Mathlib.Tactic.Set
-import Mathlib.Tactic.Use
-import Mathlib.Tactic.ByContra
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.Block
 import VerifiedGarbage.Proof.Framework.X86_64.Bswap
@@ -39,7 +31,10 @@ theorem movw_movt (x : BitVec 32) :
   have e : ∀ a b : BitVec 16, (a ++ b : BitVec (16 + 16)).getLsbD i =
       if i < 16 then b.getLsbD i else a.getLsbD (i - 16) := fun a b => BitVec.getLsbD_append
   rw [e]
-  interval_cases i <;> simp
+  rcases (by omega : i < 16 ∨ 16 ≤ i) with h | h <;>
+  simp (disch := omega) only [ite_eq_left, ite_eq_right, BitVec.getLsbD_extractLsb', BitVec.getLsbD_setWidth,
+    decide_eq_true, Bool.true_and] <;>
+  exact congrArg _ (by omega)
 
 theorem rev_readW (m : Mem) (a : Addr) :
     rev (m.readW a 32) = (m a ++ m (a + 1) ++ m (a + 1 + 1) ++ m (a + 1 + 1 + 1) : BitVec 32) :=

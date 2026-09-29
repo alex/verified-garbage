@@ -185,7 +185,7 @@ theorem xorData_ok (regs : List XReg) (j : Nat) (s : State) (hnd : regs.Nodup) (
           x₁ _ (fun h => hbs (h ▸ List.getElem_mem hk')) (fun h => h8' (h ▸ List.getElem_mem hk'))]
     · rw [m₁] at hf
       refine (Frame.writeW (Frame.refl [⟨s.gpr .rcx + BitVec.ofNat 64 (16 * j), 16 * (bs.length + 1)⟩]
-        s.mem) List.mem_cons_self _ (by simp only [Region.Contains, BitVec.sub_self]; simp)).trans
+        s.mem) List.mem_cons_self _ (by simp only [Region.Contains, BitVec.sub_self]; simp; omega)).trans
         (hf.sub fun r hr => ⟨_, List.mem_cons_self, fun a ha => ?_⟩)
       simp only [List.mem_singleton] at hr
       subst hr

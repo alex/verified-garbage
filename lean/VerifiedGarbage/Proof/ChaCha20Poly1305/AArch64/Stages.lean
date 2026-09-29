@@ -25,7 +25,7 @@ theorem sub_sub (s₀ : State) {a m k n : Nat} (h₁ : a ≤ k) (h₂ : k + n �
   have e : x - (cx s₀ + BitVec.ofNat 64 a) = (x - (cx s₀ + BitVec.ofNat 64 k)) + BitVec.ofNat 64 (k - a) := by
     rw [show k = a + (k - a) by omega, BitVec.ofNat_add]; bv_omega
   rw [e, BitVec.toNat_add, toNat_ofNat_lt (by omega)]
-  exact le_trans (Nat.add_le_add_right (Nat.mod_le _ _) _) (by omega)
+  exact Nat.le_trans (Nat.add_le_add_right (Nat.mod_le _ _) _) (by omega)
 
 theorem mac_inv {s₀ s s' : State} (h : Inv s₀ s) (hk : Kept (macR s₀) s s') : Inv s₀ s' :=
   h.step1 (k := 448) (n := 144) hk (by omega) (by omega) (by omega)
@@ -51,7 +51,7 @@ theorem lengths_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) 
   refine WP.mono (WP.kept core (by simp [lengths, dstOf, preserved])) fun s' ⟨⟨hrd, hwr, hm⟩, hg, hsp⟩ => ?_
   have hk : Kept [sub s₀ 656 16] s s' := Kept.of hg hsp hrd hwr (by
     rw [hm]
-    exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ le_rfl (by omega) (by omega))
+    exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ (Nat.le_refl _) (by omega) (by omega))
       |>.writeW (List.mem_singleton_self _) _ (contains_sub s₀ (by omega) (by omega) (by omega)))
   refine ⟨h.step1 hk (by omega) (by omega) (by omega), hk, ?_⟩
   rw [bytesAt_16, off_off, show 656 + 8 = 664 from rfl, hm, readW64_off _ _ _ (by omega) (by omega) (by omega),
@@ -134,10 +134,10 @@ theorem crypt_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s)
   have hk : Kept [sub s₀ 64 384, dR s₀] s s₂ := by
     refine (k₁.sub fun r hr => ?_).trans (k₂.sub fun r hr => ?_)
     · simp only [List.mem_singleton] at hr; subst hr
-      exact ⟨sub s₀ 64 384, by simp, sub_sub s₀ le_rfl (by omega) (by omega)⟩
+      exact ⟨sub s₀ 64 384, by simp, sub_sub s₀ (Nat.le_refl _) (by omega) (by omega)⟩
     · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl
-      · exact ⟨sub s₀ 64 384, by simp, sub_sub s₀ le_rfl (by omega) (by omega)⟩
+      · exact ⟨sub s₀ 64 384, by simp, sub_sub s₀ (Nat.le_refl _) (by omega) (by omega)⟩
       · exact ⟨dR s₀, by simp, fun _ h => h⟩
       · exact ⟨sub s₀ 64 384, by simp, sub_sub s₀ (by omega) (by omega) (by omega)⟩
   refine ⟨h.step hk hsub (fun r hr => ?_), hk, ?_⟩
@@ -305,8 +305,8 @@ theorem nz_bit (x : BitVec 64) : (x ||| (0 - x)) >>> 63 = if x = 0 then 0 else 1
     have h1 : 2 ^ 63 ≤ (x ||| (0 - x)).toNat := by
       rw [BitVec.toNat_or]
       rcases Nat.lt_or_ge x.toNat (2 ^ 63) with h2 | h2
-      · exact le_trans (by omega) (Nat.right_le_or (n := x.toNat))
-      · exact le_trans h2 Nat.left_le_or
+      · exact Nat.le_trans (by omega) (Nat.right_le_or (n := x.toNat))
+      · exact Nat.le_trans h2 Nat.left_le_or
     have h2 := (x ||| (0 - x)).isLt
     apply BitVec.eq_of_toNat_eq
     rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, show (1 : BitVec 64).toNat = 1 from rfl]

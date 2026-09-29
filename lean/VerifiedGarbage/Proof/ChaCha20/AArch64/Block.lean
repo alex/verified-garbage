@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.ChaCha20.AArch64.Rounds
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Range
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Contract
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # ChaCha20 block function on AArch64: the whole function
@@ -249,7 +250,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have hl₀ : LI s₀ 0 s₀ := ⟨fun _ _ h => absurd h (by omega), rfl, rfl, rfl, fun _ _ => rfl⟩
   have hload : WP isa (.block load) s₀ (LI s₀ 16) := by
     unfold load
-    exact wp_range_flatMap (M := isa) (LI s₀) (fun k s hk h => load_step hp hk h) 16 le_rfl s₀ hl₀
+    exact wp_range_flatMap (M := isa) (LI s₀) (fun k s hk h => load_step hp hk h) 16 (Nat.le_refl _) s₀ hl₀
   refine WP.seq (WP.mono hload fun s₁ h₁ => ?_)
   have hh₁ : Holds (V s₀) s₁ := fun k hk => h₁.loaded k hk hk
   refine WP.seq (WP.mono (rounds_ok hh₁ 10) fun s₂ h₂ => ?_)
@@ -257,7 +258,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   rw [finish_split, WP.block_append_iff, WP.block_append_iff]
   refine WP.mono (first_ok hp h₂.holds (h₂.mem.trans h₁.mem) (h₂.rd.trans h₁.rd)
     (h₂.wr.trans h₁.wr) hk₂) fun s₃ h₃ => ?_
-  refine WP.mono (wp_range_flatMap (M := isa) (FI s₀ (Rs s₀) s₂) (fun i s hi h => add_step hp hi h) 15 le_rfl
+  refine WP.mono (wp_range_flatMap (M := isa) (FI s₀ (Rs s₀) s₂) (fun i s hi h => add_step hp hi h) 15 (Nat.le_refl _)
     s₃ h₃) fun s₄ h₄ => ?_
   refine WP.mono (last_ok hp h₄) fun s' ⟨hout, hk'⟩ => ⟨fun r hr => hk' r (not_words_preserved hr), ?_⟩
   exact block_post hout

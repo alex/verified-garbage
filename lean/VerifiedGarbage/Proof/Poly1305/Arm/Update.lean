@@ -1,6 +1,8 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Steps
 import VerifiedGarbage.Proof.Poly1305.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Taint
+import Mathlib.Tactic.Conv
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Poly1305 on 32-bit ARM: `update`

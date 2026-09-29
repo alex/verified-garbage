@@ -4,6 +4,8 @@ import VerifiedGarbage.Proof.Framework.KernelList
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.X86.Exec
 import VerifiedGarbage.TCB.X86.Target
+import Mathlib.Tactic.Set
+import Mathlib.Tactic.Tauto
 
 /-!
 # Taint tracking for x86 (32-bit)
@@ -429,7 +431,7 @@ theorem region_mem {τ : T} {s : State} (hw : Wf τ s) (hne : τ.lens ≠ []) {i
 /-- Region `i` lies within the 32-bit address space. -/
 theorem region_bound {τ : T} {s : State} (hw : Wf τ s) {i : Nat} (hi : 0 < τ.lens.getD i 0) :
     (region s i).base.toNat + τ.lens.getD i 0 ≤ 2 ^ 32 := by
-  have hne := lens_ne hi le_rfl
+  have hne := lens_ne hi (Nat.le_refl _)
   obtain ⟨hi', hr⟩ := region_mem hw hne hi
   have := region_len hw hne i
   rw [hr] at this ⊢
@@ -739,13 +741,13 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {m : 
           · simp only [List.mem_filter, Bool.or_eq_true, bne_iff_ne, decide_eq_true_eq] at hsl
             exact .inr ⟨hsl.1, by tauto⟩
         rcases hsl' with rfl | ⟨h, hsep⟩
-        · have hp : p = true := by split at hsl <;> simp_all
+        · have hp : p = true := by split at hsl <;> simp_all <;> omega
           simp only at hk₁ hk₂
           simp only [e₁, e₂, Mem.write, hv hp]
           have hd : ∀ s : State, byteAddr s i k - byteAddr s i d = BitVec.ofNat 64 (k - d) := by
             intro s; simp only [byteAddr]; bv_omega
           have hlt : (BitVec.ofNat 64 (k - d)).toNat < n := by
-            rw [BitVec.toNat_ofNat]; exact lt_of_le_of_lt (Nat.mod_le _ _) (by omega)
+            rw [BitVec.toNat_ofNat]; exact Nat.lt_of_le_of_lt (Nat.mod_le _ _) (by omega)
           rw [hd, hd]; simp only [hlt, ite_true]
         · by_cases hp : p = true
           · exact same h hp
@@ -1035,7 +1037,7 @@ theorem regBases_ok {τ : T} {s : State} (hw : Wf τ s) {m : MemOp} {r : Reg} :
     ∀ i ∈ regBases τ r, 4 ≤ 32 / 8 ∧
       addr ((s.mem.writeW (s.ea m) (s.gpr r)).readW (s.ea m) 32) 0 = (region s i).base := by
   intro i hi
-  refine ⟨le_rfl, ?_⟩
+  refine ⟨(Nat.le_refl _), ?_⟩
   rw [Mem.readW_writeW_self32]
   simp only [regBases, List.mem_map, List.mem_filter, Bool.and_eq_true, beq_iff_eq] at hi
   obtain ⟨q, ⟨hq, hr, h0⟩, rfl⟩ := hi
@@ -1248,7 +1250,7 @@ theorem meet_left {τ₁ τ₂ : T} {s₁ s₂ : State} (h : Agree τ₁ s₁ s�
   · split <;> simp_all
   · split at hp <;> [rename_i he; cases hp]
     exact ⟨(List.mem_filter.mp hp).1, by simp [he]⟩
-  · split <;> simp_all
+  · split <;> simp_all [Nat.min_le_left]
 
 theorem meet_right {τ₁ τ₂ : T} {s₁ s₂ : State} (h : Agree τ₂ s₁ s₂) : Agree (meet τ₁ τ₂) s₁ s₂ := by
   refine h.mono (fun r h => (RegSet.mem_inter.mp h).2) (fun hf => ?_) ?_
@@ -1263,7 +1265,7 @@ theorem meet_right {τ₁ τ₂ : T} {s₁ s₂ : State} (h : Agree τ₂ s₁ s
   · split <;> simp_all
   · split at hp <;> [rename_i he; cases hp]
     exact ⟨by simpa using (List.mem_filter.mp hp).2, by simp [he]⟩
-  · split <;> simp_all
+  · split <;> simp_all [Nat.min_le_right]
 
 theorem le_sound {τ σ : T} {s₁ s₂ : State} (hle : le τ σ = true) (h : Agree σ s₁ s₂) :
     Agree τ s₁ s₂ := by

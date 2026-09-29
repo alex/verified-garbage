@@ -90,7 +90,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {r : Nat} {s : State} (h : Inv s�
   have hpad : ∀ {m : Mem}, Frame (bodyR s₀) s.mem m → bytesAt m (blkA s₀ + 32) 32 = pad96 := by
     intro m hf
     rw [show blkA s₀ + 32 = scr s₀ + BitVec.ofNat 64 224 by bv_omega, ← h.pad]
-    exact frame_bytesAt hf (body_disj hp (o := 224) (n := 32) (.inr le_rfl) (by omega)) (by omega)
+    exact frame_bytesAt hf (body_disj hp (o := 224) (n := 32) (.inr (Nat.le_refl _)) (by omega)) (by omega)
   -- The inner hash.
   refine WP.seq ?_
   refine load_ok hp h.toRegs (o := 0) (by omega) (by decide) fun s₁ k₁ e₁ => ?_
@@ -116,7 +116,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {r : Nat} {s : State} (h : Inv s�
   refine digest_ok hp h₇ fun s₈ h₈ g₈ f₈ m₈ => ?_
   have hd : Region.Disjoint (tR s₀) ⟨scr s₀ + BitVec.ofNat 64 192, 32⟩ :=
     hp.t_s.sub_right (scr_sub s₀ (o := 192) (by omega))
-  refine xor_ok (tp := tP s₀) (sc := scr s₀) hd 4 le_rfl _ s₈ _ h₈.x22 h₈.x20
+  refine xor_ok (tp := tP s₀) (sc := scr s₀) hd 4 (Nat.le_refl _) _ s₈ _ h₈.x22 h₈.x20
     (fun j hj => InRegions.right (by rw [add_ofNat]; exact in_scr hp h₈.wr (a := 192 + 8 * j) (n := 8) (by omega)))
     (fun j hj => in_t hp h₈.wr (b := 8 * j) (n := 8) (by omega)) fun s₉ g₉ rd₉ wr₉ sp₉ m₉ => ?_
   rw [show 8 * 4 = 32 from rfl] at m₉
@@ -173,7 +173,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {r : Nat} {s : State} (h : Inv s�
     cases r <;> rfl
   · rw [u₁₀.gpr, e₁₀]
   · rw [← h.pad]
-    exact frame_bytesAt fb (body_disj hp (o := 224) (n := 32) (.inr le_rfl) (by omega)) (by omega)
+    exact frame_bytesAt fb (body_disj hp (o := 224) (n := 32) (.inr (Nat.le_refl _)) (by omega)) (by omega)
   · rw [h.val, hU₁₀, hT₁₀]; rfl
 
 theorem loop_ok {s₀ : State} (hp : Pre s₀) {n : Nat} {s : State} (h : Inv s₀ n s) :

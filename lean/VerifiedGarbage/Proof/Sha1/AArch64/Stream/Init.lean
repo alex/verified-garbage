@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Sha1.AArch64.Stream.Common
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # Streaming SHA-1 on AArch64: `init`

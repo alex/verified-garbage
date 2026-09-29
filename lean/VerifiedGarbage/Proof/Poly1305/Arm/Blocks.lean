@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Regions
 import VerifiedGarbage.Proof.Poly1305.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Taint
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Poly1305 on 32-bit ARM: `blocks`
@@ -123,7 +124,7 @@ theorem body_ok {s₀ : State} (hp : BPre s₀) {i : Nat} (hi : i < nb s₀) {s 
       rw [show 16 * (i + 1) = 16 * i + 16 by ring, BitVec.ofNat_add]; rfl
     rw [u₃.mem, u₂.gpr, u₁.gpr, u₂.mem, u₁.mem, hL.ptr, BitVec.add_assoc, e]
   have f₃ : Frame (offR (stB s₀) [(124, 4)]) s.mem s₃.mem := by
-    rw [m₃]; exact Frame.writeOff (Frame.refl _ _) (a := 124) (len := 4) (List.mem_singleton_self _) le_rfl le_rfl
+    rw [m₃]; exact Frame.writeOff (Frame.refl _ _) (a := 124) (len := 4) (List.mem_singleton_self _) (Nat.le_refl _) (Nat.le_refl _)
       (by omega) _ rfl
   have k₃ : KeepsF [.r1, .r2] (offR (stB s₀) [(124, 4)]) s s₃ :=
     ⟨fun r hr => by
@@ -279,8 +280,8 @@ theorem prologue_ok {s₀ : State} (hp : BPre s₀) :
       (stB s₀ + BitVec.ofNat 64 20) (s₀.gpr .r2) := by rw [u₃.mem, u₂.mem, u₂.gpr, hg₁]
   have f₁₃ : Frame (offR (stB s₀) [(20, 4), (124, 4)]) s₁.mem s₃.mem := by
     rw [m₃]
-    exact Frame.writeOff (Frame.writeOff (Frame.refl _ _) (a := 124) (len := 4) (by decide) le_rfl le_rfl
-      (by omega) _ rfl) (a := 20) (len := 4) (by decide) le_rfl le_rfl (by omega) _ rfl
+    exact Frame.writeOff (Frame.writeOff (Frame.refl _ _) (a := 124) (len := 4) (by decide) (Nat.le_refl _) (Nat.le_refl _)
+      (by omega) _ rfl) (a := 20) (len := 4) (by decide) (Nat.le_refl _) (Nat.le_refl _) (by omega) _ rfl
   have hs₃0 : s₃.gpr .r0 = s₀.gpr .r0 := by rw [u₃.gpr, u₂.gpr, hg₁]
   have hw₃ : stR (s₀.gpr .r0) ∈ s₃.wr := by rw [u₃.wr, u₂.wr]; exact hw₁
   rw [← List.append_assoc setupR loadAcc]

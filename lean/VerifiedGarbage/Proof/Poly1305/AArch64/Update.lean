@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Poly1305.AArch64.Buffer
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Poly1305 on AArch64: `update`

@@ -1,5 +1,6 @@
-import Mathlib.Tactic.Ring
 import VerifiedGarbage.Spec.Poly1305
+import Mathlib.Tactic.NormNum.Basic
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Poly1305 on x86-64: the arithmetic of a block
@@ -19,7 +20,7 @@ theorem mul_lt {a b c d : Nat} (h₁ : a < b) (h₂ : c < d) : a * c < b * d :=
   Nat.mul_lt_mul_of_lt_of_lt h₁ h₂
 
 theorem mul_le_lt {a b c d : Nat} (h₁ : a ≤ b) (h₂ : c < d) : a * c ≤ b * d :=
-  Nat.mul_le_mul h₁ (Nat.le_of_lt h₂)
+  Nat.mul_le_mul h₁ h₂.le
 
 /-- The bounds that make every sum of products fit its registers. -/
 theorem absorb_bounds {h0 h1 h2 r0 q : Nat} (hh0 : h0 < 2 ^ 64) (hh1 : h1 < 2 ^ 64) (hh2 : h2 ≤ 6)

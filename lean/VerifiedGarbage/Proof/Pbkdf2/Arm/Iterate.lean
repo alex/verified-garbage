@@ -170,8 +170,8 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     rw [f₁₀.mem, m₉, m₈, m₇]
   have fU : Frame [sR s₀ 192 32, sR s₀ 160 32, sR s₀ 224 32] s₆.mem s₁₀.mem := by
     rw [hm]
-    exact (((writeBytes_frame _ _ _ (by rw [bytesAt_length]; exact contains_base le_rfl)).mono (by simp)).trans
-      ((writeBytes_frame _ _ _ (R := sR s₀ 160 32) (by rw [bytesAt_length]; exact contains_base le_rfl)).mono
+    exact (((writeBytes_frame _ _ _ (by rw [bytesAt_length]; exact contains_base (Nat.le_refl _))).mono (by simp)).trans
+      ((writeBytes_frame _ _ _ (R := sR s₀ 160 32) (by rw [bytesAt_length]; exact contains_base (Nat.le_refl _))).mono
         (by simp))).trans
       ((writeBytes_frame _ _ _ (R := sR s₀ 224 32) (contains_base (by decide))).mono (by simp))
   have F' : Frame [scR s₀] s₀.mem s₁₀.mem :=
@@ -185,12 +185,12 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     frame_bytesAt F₆ (by simpa using hp.u_s.sub_right s160) (by omega)
   have hT₇ : bytesAt s₇.mem (tA s₀) 32 = bytesAt s₀.mem (tA s₀) 32 := by
     rw [m₇, bytesAt_writeBytes_sep _ _ (Region.Disjoint.sep (hp.t_s.sub_right (scr_sub s₀ (o := 192) (n := 32)
-      (by omega))) (contains_base le_rfl) (by rw [bytesAt_length]; exact contains_base le_rfl)) (by omega)]
+      (by omega))) (contains_base (Nat.le_refl _)) (by rw [bytesAt_length]; exact contains_base (Nat.le_refl _))) (by omega)]
     exact frame_bytesAt F₆ (by simpa using hp.t_s.sub_right s160) (by omega)
   have sep : ∀ {a b : Nat}, a + 32 ≤ b ∨ b + 32 ≤ a → a + 32 ≤ 384 → b + 32 ≤ 384 → ∀ xs : List Byte,
       xs.length = 32 → Mem.Sep (scA s₀ + BitVec.ofNat 64 a) 32 (scA s₀ + BitVec.ofNat 64 b) xs.length :=
-    fun h ha hb xs hx => Region.Disjoint.sep (scr_disj s₀ h ha hb) (contains_base le_rfl)
-      (by rw [hx]; exact contains_base le_rfl)
+    fun h ha hb xs hx => Region.Disjoint.sep (scr_disj s₀ h ha hb) (contains_base (Nat.le_refl _))
+      (by rw [hx]; exact contains_base (Nat.le_refl _))
   have hB : bytesAt s₁₀.mem (blkA s₀) 32 = bytesAt s₀.mem (uA s₀) 32 := by
     rw [hm, bytesAt_writeBytes_sep _ _ (sep (a := 192) (b := 224) (by omega) (by omega) (by omega) _ rfl) (by omega),
       bytesAt_writeBytes_sep _ _ (sep (a := 192) (b := 160) (by omega) (by omega) (by omega) _ (bytesAt_length _ _ _))
@@ -217,7 +217,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   refine ⟨⟨⟨by rw [f₁₀.rd, rd₉, rd₈, rd₇, rd₆], by rw [f₁₀.wr, wr₉, wr₈, wr₇, wr₆],
     by rw [f₁₀.sp, sp₉, sp₈, sp₇, sp₆], by rw [G₁₀ _ (by decide), r0₆], by rw [G₁₀ _ (by decide), r3₆],
     by rw [G₁₀ _ (by decide), r4₆], F'.mono (by simp)⟩, by rw [G₁₀ _ (by decide), r5₆, ofNat_toNat32], hS, ?_,
-    le_rfl, by rw [hB, hT]⟩, ?_⟩
+    (Nat.le_refl _), by rw [hB, hT]⟩, ?_⟩
   · rw [hm]
     exact bytesAt_writeBytes_self _ (scA s₀ + BitVec.ofNat 64 224) pad96 (by decide)
   · rw [z₁₀, g₉ _ (by decide), g₈ _ (by decide), g₇ _ (by decide), r5₆, beq_zero_toNat]
@@ -250,7 +250,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Inv s₀ 0 s
   simp only [h.r3, h.r0, ofNat_zero] at m₁
   rw [show 4 * 8 = 32 from rfl] at m₁
   have fT : Frame [tR s₀] s.mem s₁.mem := by
-    rw [m₁]; exact writeBytes_frame _ _ _ (by rw [bytesAt_length]; exact contains_base le_rfl)
+    rw [m₁]; exact writeBytes_frame _ _ _ (by rw [bytesAt_length]; exact contains_base (Nat.le_refl _))
   refine restore_ok (scr := scr s₀) (by rw [g₁ _ (by decide), h.r3]) (by omega)
     (fun d _ hd₂ => by rw [rd₁, wr₁]; exact InRegions.right (in_scr hp h.wr (by omega))) s₀.gpr
     (fun p hp' => ?_) fun s' hs _ hmem _ _ hsp => ⟨⟨fun r hr => ?_, by rw [hsp, sp₁, h.sp]⟩, fun k0 hk hi ho => ?_⟩
