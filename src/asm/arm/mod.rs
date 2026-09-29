@@ -14,6 +14,9 @@ pub(crate) mod hmac_sha256;
 pub(crate) mod md5;
 
 #[rustfmt::skip]
+pub(crate) mod mlkem;
+
+#[rustfmt::skip]
 pub(crate) mod pbkdf2_sha256;
 
 #[rustfmt::skip]
