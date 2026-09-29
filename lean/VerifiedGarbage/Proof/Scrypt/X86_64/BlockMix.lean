@@ -16,6 +16,8 @@ open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Scrypt (yAt xBefore yAt_eq xBefore_succ blockMix_eq yAt_length)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.MdStream.X86_64 (Upd wp_mov wp_movm wp_store wp_add wp_addi wp_subi)
+open VG.Proof.Scrypt.Memory (toNat_ofNat_lt add_ofNat toNat_add_ofNat contains_off sub_off disj_off
+  InRegions.of_mem bytesAt_length frame_bytesAt bytesAt_writeBytes_self blk_bytesAt xorBytes_length)
 
 /-! ## What a call of `vg_salsa20_8` does -/
 

@@ -84,7 +84,7 @@ theorem bm_pre {s : State} {src dst scr : Addr} {r : Nat} (hdi : s.gpr .rdi = sr
     Covers ([⟨src, 128 * r⟩] ++ [⟨dst, 128 * r⟩, ⟨scr, 128⟩]) (s.rd ++ s.wr) ∧
     Covers [⟨dst, 128 * r⟩, ⟨scr, 128⟩] s.wr := by
   have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
-  have tr : (BitVec.ofNat 64 r).toNat = r := BlockMix.toNat_ofNat_lt (by omega)
+  have tr : (BitVec.ofNat 64 r).toNat = r := Memory.toNat_ofNat_lt (by omega)
   have c128 : r * 128 = 128 * r := Nat.mul_comm _ _
   have cw := covers_pair (covers_of_in idst) (covers_of_in iscr)
   refine ⟨?_, ?_, cw⟩
@@ -115,7 +115,7 @@ theorem blockMixSpec : BlockMixSpec Impl.Scrypt.X86_64.blockMix := by
   intro s src dst scr r hdi hsi hdx hcx hr8 hr hlt hds hsd hss bsrc bdst bscr nsrc ndst nscr
     isrc idst iscr Q hQ
   have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
-  have tr : (BitVec.ofNat 64 r).toNat = r := BlockMix.toNat_ofNat_lt (by omega)
+  have tr : (BitVec.ofNat 64 r).toNat = r := Memory.toNat_ofNat_lt (by omega)
   obtain ⟨p, c₁, c₂⟩ := bm_pre hdi hsi hdx hcx hr8 hr hlt hds hsd hss bsrc bdst bscr nsrc ndst nscr
     isrc idst iscr
   refine WP.call (k := Proof.Scrypt.blockMixX86_64) BlockMix.blockMix_correct blockMix_nosp
@@ -128,7 +128,7 @@ theorem blockMixSpec : BlockMixSpec Impl.Scrypt.X86_64.blockMix := by
   refine hQ s₂ hrd hwr hcs (by simpa using hf) ?_
   rw [hpost]
   congr 1
-  exact BlockMix.bytesAt_congr fun i hi =>
+  exact Memory.bytesAt_congr fun i hi =>
     callEntry_byte s (R := ⟨src, 128 * r⟩) (bsrc.sub_left (below_sub (by omega) (by omega)))
       (by show 128 * r ≤ 2 ^ 64; omega) hi
 
@@ -222,7 +222,7 @@ theorem vAt_sub {i : Nat} (hi : i < NN s₀) : Region.Sub ⟨vAt s₀ i, 128 * r
   have : 128 * rr s₀ * i + 128 * rr s₀ ≤ 128 * rr s₀ * NN s₀ := by
     rw [← Nat.mul_succ]; exact Nat.mul_le_mul_left _ hi
   show Region.Sub ⟨vP s₀ + BitVec.ofNat 64 (128 * rr s₀ * i), 128 * rr s₀⟩ ⟨vP s₀, vl s₀ * 128⟩
-  exact BlockMix.sub_off (by rw [e]; omega) (by omega)
+  exact Memory.sub_off (by rw [e]; omega) (by omega)
 
 theorem vAt_disj {i k : Nat} (hi : i < NN s₀) (hk : k < NN s₀) (hik : i ≠ k) :
     Region.Disjoint ⟨vAt s₀ i, 128 * rr s₀⟩ ⟨vAt s₀ k, 128 * rr s₀⟩ := by
@@ -232,7 +232,7 @@ theorem vAt_disj {i k : Nat} (hi : i < NN s₀) (hk : k < NN s₀) (hik : i ≠ 
   have h1 := hle i hi
   have h2 := hle k hk
   have hpos := hp.pos
-  refine BlockMix.disj_off _ ?_ (by omega) (by omega) (by omega) (by omega)
+  refine Memory.disj_off _ ?_ (by omega) (by omega) (by omega) (by omega)
   rcases Nat.lt_or_gt_of_ne hik with h | h
   · left
     have : 128 * rr s₀ * i + 128 * rr s₀ ≤ 128 * rr s₀ * k := by
@@ -246,7 +246,7 @@ theorem vAt_disj {i k : Nat} (hi : i < NN s₀) (hk : k < NN s₀) (hik : i ≠ 
 /-- `T` is in `scratch`. -/
 theorem t_sub : Region.Sub ⟨tP s₀, 128 * rr s₀⟩ (scR s₀) := by
   have := hp.s_nw
-  exact BlockMix.sub_off (by omega) (by omega)
+  exact Memory.sub_off (by omega) (by omega)
 
 omit hp in
 /-- The block-mix working space is in `scratch`. -/
@@ -255,7 +255,7 @@ theorem w_sub : Region.Sub ⟨sc s₀, 128⟩ (scR s₀) := Region.sub_prefix (b
 theorem t_w : Region.Disjoint ⟨tP s₀, 128 * rr s₀⟩ ⟨sc s₀, 128⟩ := by
   have := hp.s_nw
   have := hp.pos
-  have := BlockMix.disj_off (sc s₀) (o₁ := 192) (n₁ := 128 * rr s₀) (o₂ := 0) (n₂ := 128) (by omega)
+  have := Memory.disj_off (sc s₀) (o₁ := 192) (n₁ := 128 * rr s₀) (o₂ := 0) (n₂ := 128) (by omega)
     (by omega) (by omega) (by omega) (by omega)
   simpa using this
 
@@ -263,11 +263,11 @@ end
 
 theorem in_s (s₀ : State) {o n : Nat} (h : o + n ≤ 256) :
     (scR s₀).Contains (sc s₀ + BitVec.ofNat 64 o) n :=
-  BlockMix.contains_off (by omega) (by omega)
+  Memory.contains_off (by omega) (by omega)
 
 theorem s_sub (s₀ : State) {o n : Nat} (h : o + n ≤ 256) :
     Region.Sub ⟨sc s₀ + BitVec.ofNat 64 o, n⟩ (scR s₀) :=
-  BlockMix.sub_off (by omega) (by omega)
+  Memory.sub_off (by omega) (by omega)
 
 /-! ## What stays in `scratch`: the caller's registers and `N` -/
 
@@ -279,8 +279,8 @@ def Kept (s₀ : State) (m : Mem) : Prop :=
 
 theorem word_sub (s₀ : State) {d : Nat} (h₁ : 128 ≤ d) (h₂ : d + 8 ≤ 184) :
     Region.Sub ⟨sc s₀ + BitVec.ofNat 64 d, 8⟩ (keepR s₀) := by
-  rw [show d = 128 + (d - 128) by omega, ← BlockMix.add_ofNat]
-  exact BlockMix.sub_off (by omega) (by omega)
+  rw [show d = 128 + (d - 128) by omega, ← Memory.add_ofNat]
+  exact Memory.sub_off (by omega) (by omega)
 
 theorem saved_offs {p : Reg × Nat} (hp : p ∈ rmSaved) : 128 ≤ p.2 ∧ p.2 + 8 ≤ 176 := by
   simp only [rmSaved, List.mem_cons, List.not_mem_nil, or_false] at hp
@@ -309,14 +309,14 @@ theorem keep_stk : (keepR s₀).Disjoint (stkR s₀) := hp.stk_s.symm.sub_left (
 
 omit hp in
 theorem keep_w : (keepR s₀).Disjoint ⟨sc s₀, 128⟩ := by
-  have := BlockMix.disj_off (sc s₀) (o₁ := 128) (n₁ := 56) (o₂ := 0) (n₂ := 128) (by omega)
+  have := Memory.disj_off (sc s₀) (o₁ := 128) (n₁ := 56) (o₂ := 0) (n₂ := 128) (by omega)
     (by omega) (by omega) (by omega) (by omega)
   simpa using this
 
 theorem keep_t : (keepR s₀).Disjoint ⟨tP s₀, 128 * rr s₀⟩ := by
   have := hp.s_nw
   have := hp.pos
-  exact BlockMix.disj_off (sc s₀) (o₁ := 128) (n₁ := 56) (o₂ := 192) (n₂ := 128 * rr s₀) (by omega)
+  exact Memory.disj_off (sc s₀) (o₁ := 128) (n₁ := 56) (o₂ := 192) (n₂ := 128 * rr s₀) (by omega)
     (by omega) (by omega) (by omega) (by omega)
 
 omit hp in
@@ -351,7 +351,7 @@ end
 theorem shr_ofNat {a : Nat} (n : Nat) (h : a < 2 ^ 64) :
     BitVec.ofNat 64 a >>> n = BitVec.ofNat 64 (a / 2 ^ n) := by
   apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_ushiftRight, BlockMix.toNat_ofNat_lt h, BlockMix.toNat_ofNat_lt
+  rw [BitVec.toNat_ushiftRight, Memory.toNat_ofNat_lt h, Memory.toNat_ofNat_lt
     (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) h), Nat.shiftRight_eq_div_pow]
 
 end VG.Proof.Scrypt.X86_64.RoMix

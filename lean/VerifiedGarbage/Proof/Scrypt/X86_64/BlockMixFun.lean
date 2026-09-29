@@ -15,6 +15,8 @@ open VG VG.X86_64 VG.Impl.Scrypt.X86_64
 open VG.Spec.Scrypt (bytesAt blk blockMix)
 open VG.Proof.Scrypt (yAt xBefore blockMix_eq flatMap_congr)
 open VG.Proof.MdStream.X86_64 (Upd wp_mov wp_movm wp_store wp_add wp_subi)
+open VG.Proof.Scrypt.Memory (toNat_ofNat_lt add_ofNat InRegions.of_mem bytesAt_add frame_bytesAt
+  bytesAt_blocks)
 
 /-! ## The prologue -/
 
