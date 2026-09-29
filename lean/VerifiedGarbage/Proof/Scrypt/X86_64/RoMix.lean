@@ -118,7 +118,7 @@ theorem blockMixSpec : BlockMixSpec Impl.Scrypt.X86_64.blockMix := by
   have tr : (BitVec.ofNat 64 r).toNat = r := BlockMix.toNat_ofNat_lt (by omega)
   obtain ⟨p, c₁, c₂⟩ := bm_pre hdi hsi hdx hcx hr8 hr hlt hds hsd hss bsrc bdst bscr nsrc ndst nscr
     isrc idst iscr
-  refine WP.call (k := Proof.Scrypt.blockMixX86_64) BlockMix.blockMix_verified.1 blockMix_nosp
+  refine WP.call (k := Proof.Scrypt.blockMixX86_64) BlockMix.blockMix_correct blockMix_nosp
     (by rw [blockMix_depth]; decide) p c₁ c₂ ?_
   intro s₂ hrd hwr hcs hf _ ⟨s₃, hm₃, _, hpost⟩
   simp only [Proof.Scrypt.blockMixX86_64, State.withRegions_gpr, State.withRegions_mem,

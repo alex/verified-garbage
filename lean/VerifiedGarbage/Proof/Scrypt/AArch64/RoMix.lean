@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Scrypt.AArch64.Common
-import VerifiedGarbage.Proof.Scrypt.AArch64.Contract
 import VerifiedGarbage.Proof.Scrypt.RoMix
 import VerifiedGarbage.Impl.Scrypt.AArch64.RoMix
 

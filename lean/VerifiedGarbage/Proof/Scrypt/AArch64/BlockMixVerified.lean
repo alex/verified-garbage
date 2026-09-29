@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Scrypt.AArch64.BlockMixFun
 import VerifiedGarbage.Proof.Scrypt.AArch64.Salsa
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Scrypt.Contract
 
 /-!
 # scryptBlockMix on AArch64: verified
@@ -37,7 +39,7 @@ theorem salsaSpec : SalsaSpec Impl.Scrypt.AArch64.salsa := by
   have c0 : s.callEntry.gpr .x0 = d := (State.callEntry_gpr _ (by decide)).trans hd
   have c1 : s.callEntry.gpr .x1 = sc := (State.callEntry_gpr _ (by decide)).trans hsc
   have hw : Covers [⟨d, 64⟩, ⟨sc, 64⟩] s.wr := covers_pair (covers_of_in hind) (covers_of_in hins)
-  refine WP.call (k := Proof.Scrypt.salsaAArch64) Proof.Scrypt.AArch64.salsa_verified.1
+  refine WP.call (k := Proof.Scrypt.salsaAArch64) Proof.Scrypt.AArch64.salsa_correct
     (rd := []) (wr := [⟨d, 64⟩, ⟨sc, 64⟩]) ?_ ?_ hw ?_ salsa_noFrames
   · simp only [Proof.Scrypt.salsaAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, c0, c1]
@@ -69,18 +71,35 @@ def bmSat : State where
   rd := [⟨0x1000, 128⟩]
   wr := [⟨0x2000, 128⟩, ⟨0x3000, 128⟩]
 
+theorem blockMix_correct (s : State) (hs : Proof.Scrypt.blockMixAArch64.pre s) :
+    ∃ t s', Exec isa Impl.Scrypt.AArch64.blockMix s t s' ∧ abiPreserved s s' ∧
+      Proof.Scrypt.blockMixAArch64.post s s' := by
+  obtain ⟨t, s', he, h⟩ :=
+    BlockMix.correct salsaSpec main_fdepth (pre_of hs).1 (pre_of hs).2
+  exact ⟨t, s', he, h⟩
+
+theorem blockMix_ct : ConstantTime isa Proof.Scrypt.blockMixAArch64.pre
+    Proof.Scrypt.blockMixAArch64.pub Impl.Scrypt.AArch64.blockMix := by
+  exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4])
+    (fun _ _ _ _ hp => agree₀ hp) (by taint_decide)
+
 theorem blockMix_verified :
-    Verified AArch64.target Impl.Scrypt.AArch64.blockMix Proof.Scrypt.blockMixAArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ :=
-      BlockMix.correct salsaSpec main_fdepth (pre_of hs).1 (pre_of hs).2
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4])
-      (fun _ _ _ _ hp => agree₀ hp) (by taint_decide)
-  · refine ⟨bmSat, rfl, rfl, ?_, ?_, ?_, by decide, ?_, ?_, ?_, by decide, by decide, by decide,
-      rfl, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, bmSat] at h₁ h₂
-      bv_omega
+    Verified AArch64.target Impl.Scrypt.AArch64.blockMix (Spec.Scrypt.blockMixContract AArch64.abi
+      16) :=
+  Verified.of_correct blockMix_correct blockMix_ct
+    { pre := by
+        sig_implies_pre [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
+          Proof.Scrypt.blockMixAArch64, AArch64.abi, AArch64.argRegs]
+      post := by
+        sig_implies_post [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
+          Proof.Scrypt.blockMixAArch64, AArch64.abi, AArch64.argRegs]
+      pub := by
+        sig_implies_pub [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
+          Proof.Scrypt.blockMixAArch64, AArch64.abi, AArch64.argRegs]
+      sat := by
+        sig_implies_sat [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
+          Proof.Scrypt.blockMixAArch64, AArch64.abi, AArch64.argRegs,
+          Proof.Scrypt.AArch64.BlockMix.bmSat]
+          [Proof.Scrypt.AArch64.BlockMix.bmSat] using Proof.Scrypt.AArch64.BlockMix.bmSat }
 
 end VG.Proof.Scrypt.AArch64.BlockMix
