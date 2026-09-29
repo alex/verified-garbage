@@ -64,11 +64,30 @@ theorem contains_offset' {base : Addr} {len off n : Nat} (h : off + n ≤ len) (
     Nat.mod_eq_of_lt (by omega)]
   exact h
 
+theorem sub_offset' {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (hl : len' < 2 ^ 64) :
+    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := by
+  intro a ha
+  simp only [Region.Contains] at *
+  have e : a - base = (a - (base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off := by bv_omega
+  rw [e, BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := off) (by omega),
+    Nat.mod_eq_of_lt (by omega)]
+  omega
+
+/-- Two ranges at offsets of the same pointer, one below the other. -/
+theorem off_disj {p : Addr} {a n b m : Nat} (h : a + n ≤ b) (hb : b + m < 2 ^ 64) :
+    Region.Disjoint ⟨p + BitVec.ofNat 64 a, n⟩ ⟨p + BitVec.ofNat 64 b, m⟩ := by
+  intro x h₁ h₂
+  simp only [Region.Contains] at h₁ h₂
+  bv_omega
+
 /-! ## Bytes written -/
 
 /-- `m'` is `m` with the `c` bytes at `o` replaced by `v 0, …, v (c - 1)`. -/
 def Written (m m' : Mem) (o : Addr) (c : Nat) (v : Nat → Byte) : Prop :=
   ∀ x, m' x = if (x - o).toNat < c then v (x - o).toNat else m x
+
+theorem Written.nil (m : Mem) (o : Addr) (v : Nat → Byte) : Written m m o 0 v := fun x => by
+  rw [ifn (Nat.not_lt_zero _)]
 
 theorem Written.first (m : Mem) (o : Addr) (b : Byte) : Written m (m.writeW o b) o 1 fun _ => b := by
   intro x

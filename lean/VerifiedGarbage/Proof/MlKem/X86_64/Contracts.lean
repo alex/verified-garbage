@@ -1,6 +1,7 @@
 import VerifiedGarbage.Spec.MlKem.Poly
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.X86_64.Taint
 
 /-!
 # ML-KEM on x86-64: the contracts the proofs are written against
@@ -61,6 +62,51 @@ def cbd2K : Contract isa where
     (retR s).Disjoint (pR (s.gpr .rsi))
   post s s' := PolyIs s'.mem (s.gpr .rsi) (samplePolyCBD 2 (Spec.Sha3.bytesAt s.mem (s.gpr .rdi) 128))
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rsp = s₂.gpr .rsp
+
+/-- The width `d`, a `u32` argument in `r`. -/
+abbrev dArg (s : State) (r : Reg) : Nat := ((s.gpr r).setWidth 32).toNat
+
+/-- `vg_mlkem_compress_encode(f = rdi, d = esi, out = rdx, len = rcx)`. -/
+def compressEncodeK : Contract isa where
+  pre s :=
+    s.rd = [pR (s.gpr .rdi)] ∧ s.wr = [⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩] ∧
+    (pR (s.gpr .rdi)).Disjoint ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩ ∧ (retR s).Disjoint (pR (s.gpr .rdi)) ∧
+    (retR s).Disjoint ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩ ∧ dArg s .rsi ∈ compressWidths ∧
+    (s.gpr .rcx).toNat = 32 * dArg s .rsi ∧ Reduced s.mem (s.gpr .rdi)
+  post s s' := Spec.Sha3.bytesAt s'.mem (s.gpr .rdx) (s.gpr .rcx).toNat =
+    compressEncode (dArg s .rsi) (polyAt s.mem (s.gpr .rdi))
+  pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧ s₁.gpr .rcx = s₂.gpr .rcx ∧
+    s₁.gpr .rsp = s₂.gpr .rsp ∧ (s₁.gpr .rsi).setWidth 32 = (s₂.gpr .rsi).setWidth 32
+
+/-- `vg_mlkem_decode_decompress(b = rdi, len = rsi, d = edx, f = rcx)`. -/
+def decodeDecompressK : Contract isa where
+  pre s :=
+    s.rd = [⟨s.gpr .rdi, (s.gpr .rsi).toNat⟩] ∧ s.wr = [pR (s.gpr .rcx)] ∧
+    Region.Disjoint ⟨s.gpr .rdi, (s.gpr .rsi).toNat⟩ (pR (s.gpr .rcx)) ∧
+    (retR s).Disjoint ⟨s.gpr .rdi, (s.gpr .rsi).toNat⟩ ∧ (retR s).Disjoint (pR (s.gpr .rcx)) ∧
+    dArg s .rdx ∈ compressWidths ∧ (s.gpr .rsi).toNat = 32 * dArg s .rdx
+  post s s' := PolyIs s'.mem (s.gpr .rcx)
+    (decodeDecompress (dArg s .rdx) (Spec.Sha3.bytesAt s.mem (s.gpr .rdi) (s.gpr .rsi).toNat))
+  pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rcx = s₂.gpr .rcx ∧
+    s₁.gpr .rsp = s₂.gpr .rsp ∧ (s₁.gpr .rdx).setWidth 32 = (s₂.gpr .rdx).setWidth 32
+
+/-! ## Constant time -/
+
+/-- The taint in which the registers `rs` are public, and the low halves of
+`los` (public 32-bit arguments). -/
+def regsLo (rs los : List Reg) : X86_64.Taint.T :=
+  { regs := RegSet.ofList rs, flags := false, lo := RegSet.ofList los }
+
+theorem agree_regsLo {rs los : List Reg} {s₁ s₂ : State} (h : ∀ r ∈ rs, s₁.gpr r = s₂.gpr r)
+    (hl : ∀ r ∈ los, (s₁.gpr r).setWidth 32 = (s₂.gpr r).setWidth 32) :
+    X86_64.Taint.Agree (regsLo rs los) s₁ s₂ where
+  rf := ⟨fun r hr => h r (RegSet.mem_ofList.mp hr), fun h => by cases h⟩
+  wr h := absurd rfl h
+  wf₁ := ⟨fun h => absurd rfl h, fun _ h => by cases h⟩
+  wf₂ := ⟨fun h => absurd rfl h, fun _ h => by cases h⟩
+  ok _ h := by cases h
+  slots _ h := by cases h
+  lo r hr := hl r (RegSet.mem_ofList.mp hr)
 
 /-! ## Satisfiability -/
 
