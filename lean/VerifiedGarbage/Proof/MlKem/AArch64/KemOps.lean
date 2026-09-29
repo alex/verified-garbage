@@ -280,7 +280,7 @@ theorem ce_ok {s₀ : State} (hp : Pre L s₀) {off d k o : Nat} (ho : PO off) (
     (by rw [h₄.get .x1, h₃.get .x1, e₂]; exact wd)
     (by rw [h₄.get .x2, e₃, h₂.get _ (g (by decide)), h₁.get _ (g (by decide)), hk.ptr k hk4])
     (by rw [e₄]; exact imm16 wd') hd
-    (R.disj hp.args hp.scb hb (by rw [hp.scl]; exact fo) f (by
+    (hp.args.rdisj hp.scb hb (by rw [hp.scl]; exact fo) f (.inr (.inl hp.scw)) (by
       rcases hs with hs | ⟨-, hs⟩
       · exact .inl (Ne.symm hs)
       · exact .inr hs.symm))
@@ -320,7 +320,7 @@ theorem dd_ok {s₀ : State} (hp : Pre L s₀) {k o d off : Nat} (hk4 : k < 4)
     (by rw [h₄.get .x1, h₃.get .x1, e₂]; exact imm16 wd')
     (by rw [h₄.get .x2, e₃]; exact wd)
     (by rw [e₄, h₃.get .x28, h₂.get .x28, h₁.get .x28, e28 hk]) hd
-    (R.disj hp.args hb hp.scb f (by rw [hp.scl]; exact fo) hs)
+    (hp.args.rdisj hb hp.scb f (by rw [hp.scl]; exact fo) (.inr (.inr hp.scw)) hs)
     (covers_cons (cov_r hp kb₄ hb f) (cov_sr hp kb₄ fo)) (cov_s hp kb₄ fo) fun s₅ k₅ p₅ => ?_
   refine ⟨kb₄.call k₅ fun r hr => by rw [List.mem_singleton.mp hr]; exact ho.safe hp,
     by rw [← m₄]; exact k₅.frame, by rw [← m₄]; exact p₅,
@@ -343,7 +343,7 @@ theorem dec12_ok {s₀ : State} (hp : Pre L s₀) {k o off : Nat} (hk4 : k < 4)
   have m₂ : s₂.mem = s.mem := by rw [h₂.mem, h₁.mem]
   refine decode12_call (b := kA s₀ (L.slot k) + BitVec.ofNat 64 o) (f := sA L s₀ off)
     (by rw [h₂.get .x0, e₁, hk.ptr k hk4]) (by rw [e₂, h₁.get .x28, e28 hk])
-    (R.disj hp.args hb hp.scb f (by rw [hp.scl]; exact fo) hs)
+    (hp.args.rdisj hb hp.scb f (by rw [hp.scl]; exact fo) (.inr (.inr hp.scw)) hs)
     (covers_cons (cov_r hp kb₂ hb f) (cov_sr hp kb₂ fo)) (cov_s hp kb₂ fo) fun s₃ k₃ p₃ => ?_
   refine ⟨kb₂.call k₃ fun r hr => by rw [List.mem_singleton.mp hr]; exact ho.safe hp,
     by rw [← m₂]; exact k₃.frame, by rw [← m₂]; exact p₃,

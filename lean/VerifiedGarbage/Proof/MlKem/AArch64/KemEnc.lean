@@ -88,7 +88,8 @@ theorem far_s {s₀ : State} (hp : Pre L s₀) {kE eo kC co : Nat} (A : EncArgs 
   obtain ⟨h1, h2, h3, h4, h5, h6⟩ := h
   refine ⟨sdisj hp (by decide) f' (by omega), sdisj hp (by decide) f' (by omega),
     sdisj hp (by decide) f' (by omega), sdisj hp (by simp only [YH]; omega) f' (by omega),
-    R.disj hp.args (hp.lt A.hkC) hp.scb (by have := A.fC; omega) (by rw [hp.scl]; exact f') ?_, ?_⟩
+    hp.args.rdisj (hp.lt A.hkC) hp.scb (by have := A.fC; omega) (by rw [hp.scl]; exact f')
+      (.inr (.inr hp.scw)) ?_, ?_⟩
   · rcases A.sC with hC | hC
     · exact .inl hC
     · exact .inr (.inr (by subst hC; simp only [CB] at h5 ⊢; omega))
@@ -206,12 +207,12 @@ theorem far_ct {s₀ : State} (hp : Pre L s₀) {kE eo kC co : Nat} (A : EncArgs
     · exact .inl hC
     · exact .inr (.inl (by subst hC; omega))
   have g : ∀ {o' l' : Nat}, o' + l' ≤ CB → (R (kA s₀) L.sc o' l').Disjoint (R (kA s₀) (L.slot kC) o l) :=
-    fun h' => R.disj hp.args hp.scb hb (by rw [hp.scl]; simp only [CB] at h'; omega) f' (by
+    fun h' => hp.args.rdisj hp.scb hb (by rw [hp.scl]; simp only [CB] at h'; omega) f' (.inr (.inl hp.scw)) (by
       rcases hs h' with e | e
       · exact .inl (Ne.symm e)
       · exact .inr e)
   exact ⟨g (by decide), g (by decide), g (by decide), g (by decide),
-    R.disj hp.args hb hb (by omega) f' (.inr (.inl h)), ⟨_, by simp, R.sub2 (by omega) f⟩⟩
+    hp.args.rdisj hb hb (by omega) f' (.inl rfl) (.inr (.inl h)), ⟨_, by simp, R.sub2 (by omega) f⟩⟩
 
 theorem u_part1 {s₀ : State} (hp : Pre L s₀) {kE eo kC co : Nat} (A : EncArgs L kE eo kC co) {mE mB : Mem}
     {v : BitVec 64} {rv mv : List Byte} {i : Nat} (hi : i < 3) {s : State}

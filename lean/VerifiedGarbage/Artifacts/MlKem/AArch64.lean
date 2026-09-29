@@ -10,6 +10,7 @@ import VerifiedGarbage.Proof.MlKem.AArch64.Mul
 import VerifiedGarbage.Proof.MlKem.AArch64.NttInv
 import VerifiedGarbage.Proof.MlKem.AArch64.Sample
 import VerifiedGarbage.Proof.MlKem.AArch64.KeyGen
+import VerifiedGarbage.Proof.MlKem.AArch64.Encaps
 
 /-!
 # ML-KEM on AArch64
@@ -121,6 +122,14 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem.keyGenContract AArch64.abi 16
     stack := 16
     verified := Proof.MlKem.AArch64.KeyGen.keyGen_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem.encapsApi with
+    target := AArch64.target
+    doc := Spec.MlKem.encapsApi.doc
+    code := Impl.MlKem.AArch64.encaps
+    contract := Spec.MlKem.encapsContract AArch64.abi 16
+    stack := 16
+    verified := Proof.MlKem.AArch64.Encaps.encaps_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.MlKem.AArch64

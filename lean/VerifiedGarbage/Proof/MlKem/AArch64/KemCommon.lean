@@ -35,10 +35,35 @@ abbrev Layout.sc (L : Layout) : Nat := L.slot 3
 /-- Argument `b`. -/
 def kA (s₀ : State) (b : Nat) : Addr := s₀.gpr (argReg b)
 
+/-- The arguments' regions `⟨A b, len b⟩` (for `b < nb`) are disjoint if one
+of them is written (`nrd ≤ b`), at most 32 KiB, and apart from the 16 bytes
+below `sp`. -/
+structure KArgs (A : Nat → Addr) (ln : Nat → Nat) (nb nrd : Nat) (sp : Addr) : Prop where
+  disj : ∀ b < nb, ∀ c < nb, b ≠ c → nrd ≤ b ∨ nrd ≤ c → Region.Disjoint ⟨A b, ln b⟩ ⟨A c, ln c⟩
+  len : ∀ b < nb, ln b ≤ 32768
+  stk : ∀ b < nb, Region.Disjoint ⟨sp - 16, 16⟩ ⟨A b, ln b⟩
+
+theorem KArgs.rdisj {A : Nat → Addr} {ln : Nat → Nat} {nb nrd : Nat} {sp : Addr} (h : KArgs A ln nb nrd sp)
+    {b₁ o₁ l₁ b₂ o₂ l₂ : Nat} (hb₁ : b₁ < nb) (hb₂ : b₂ < nb) (f₁ : o₁ + l₁ ≤ ln b₁)
+    (f₂ : o₂ + l₂ ≤ ln b₂) (hw : b₁ = b₂ ∨ nrd ≤ b₁ ∨ nrd ≤ b₂) (hs : b₁ ≠ b₂ ∨ o₁ + l₁ ≤ o₂ ∨ o₂ + l₂ ≤ o₁) :
+    (R A b₁ o₁ l₁).Disjoint (R A b₂ o₂ l₂) := by
+  by_cases hb : b₁ = b₂
+  · subst hb
+    have hl := h.len b₁ hb₁
+    have hs' : o₁ + l₁ ≤ o₂ ∨ o₂ + l₂ ≤ o₁ := hs.resolve_left (fun h => h rfl)
+    intro x h₁ h₂
+    simp only [Region.Contains] at h₁ h₂
+    exact sep_off (A b₁) hs' (by omega) (by omega) x (Nat.lt_of_succ_le h₁) (Nat.lt_of_succ_le h₂)
+  · exact ((h.disj b₁ hb₁ b₂ hb₂ hb (hw.resolve_left hb)).sub_left (R.sub f₁)).sub_right (R.sub f₂)
+
+theorem KArgs.stkR {A : Nat → Addr} {ln : Nat → Nat} {nb nrd : Nat} {sp : Addr} (h : KArgs A ln nb nrd sp)
+    {b o l : Nat} (hb : b < nb) (f : o + l ≤ ln b) : Region.Disjoint ⟨sp - 16, 16⟩ (R A b o l) :=
+  (h.stk b hb).sub_right (R.sub f)
+
 structure Pre (L : Layout) (s₀ : State) : Prop where
   rd : s₀.rd = (List.range L.nrd).map fun b => ⟨kA s₀ b, L.len b⟩
   wr : s₀.wr = (List.range' L.nrd (L.nb - L.nrd)).map fun b => ⟨kA s₀ b, L.len b⟩
-  args : ArgsOk (kA s₀) L.len L.nb s₀.sp
+  args : KArgs (kA s₀) L.len L.nb L.nrd s₀.sp
   sp16 : 16 ≤ s₀.sp.toNat
   slots : ∀ k < 4, L.slot k < L.nb
   scw : L.nrd ≤ L.sc
@@ -63,6 +88,9 @@ structure KB (L : Layout) (s₀ s : State) : Prop where
 variable {L : Layout}
 
 theorem KB.x28 {s₀ s : State} (h : KB L s₀ s) : s.gpr .x28 = kA s₀ L.sc := h.ptr 3 (by decide)
+theorem KB.x25 {s₀ s : State} (h : KB L s₀ s) : s.gpr .x25 = kA s₀ (L.slot 0) := h.ptr 0 (by decide)
+theorem KB.x26 {s₀ s : State} (h : KB L s₀ s) : s.gpr .x26 = kA s₀ (L.slot 1) := h.ptr 1 (by decide)
+theorem KB.x27 {s₀ s : State} (h : KB L s₀ s) : s.gpr .x27 = kA s₀ (L.slot 2) := h.ptr 2 (by decide)
 
 theorem slotReg_mem : ∀ k < 4, slotReg k ∈ [Reg.x25, .x26, .x27, .x28] := by decide
 
@@ -131,15 +159,15 @@ theorem Pre.scb {s₀ : State} (hp : Pre L s₀) : L.sc < L.nb := hp.slots 3 (by
 /-- A written buffer is safe, if apart from the saved registers. -/
 theorem safe_R {s₀ : State} (hp : Pre L s₀) {b o l : Nat} (hb : L.nrd ≤ b ∧ b < L.nb) (f : o + l ≤ L.len b)
     (hs : b ≠ L.sc ∨ SV + 48 ≤ o ∨ o + l ≤ SV) : Safe L s₀ (R (kA s₀) b o l) :=
-  ⟨R.disj hp.args hp.scb hb.2 (by rw [hp.scl]; decide) f (by
+  ⟨hp.args.rdisj hp.scb hb.2 (by rw [hp.scl]; decide) f (.inr (.inl hp.scw)) (by
       rcases hs with hs | hs
       · exact .inl (Ne.symm hs)
       · exact .inr (by omega)),
-    fun c hc => (hp.args.disj c (by omega) b hb.2 (by omega)).sub_right (R.sub f)⟩
+    fun c hc => (hp.args.disj c (by omega) b hb.2 (by omega) (.inr hb.1)).sub_right (R.sub f)⟩
 
 theorem below_R {s₀ : State} (hp : Pre L s₀) {b o l : Nat} (hb : b < L.nb) (f : o + l ≤ L.len b) :
     (R (kA s₀) b o l).Disjoint (below s₀.sp 16) := by
-  rw [below16]; exact (R.stk hp.args hb f).symm
+  rw [below16]; exact (hp.args.stkR hb f).symm
 
 theorem safe_below {s₀ : State} (hp : Pre L s₀) : Safe L s₀ (below s₀.sp 16) :=
   ⟨below_R hp hp.scb (by rw [hp.scl]; decide), fun c hc => by
@@ -151,7 +179,7 @@ theorem safe_scr {s₀ : State} (hp : Pre L s₀) {o l : Nat} (h : o + l ≤ SV)
 
 theorem stk_R {s₀ s : State} (hp : Pre L s₀) (h : KB L s₀ s) {b o l : Nat} (hb : b < L.nb)
     (f : o + l ≤ L.len b) : (stk s).Disjoint (R (kA s₀) b o l) := by
-  rw [stk_sp h.sp]; exact R.stk hp.args hb f
+  rw [stk_sp h.sp]; exact hp.args.stkR hb f
 
 /-- Regions a callee may write. -/
 theorem cov_w {s₀ s : State} (hp : Pre L s₀) (h : KB L s₀ s) {b o l : Nat} (hb : L.nrd ≤ b ∧ b < L.nb)
@@ -180,7 +208,7 @@ theorem cov_sr {s₀ s : State} (hp : Pre L s₀) (h : KB L s₀ s) {o l : Nat} 
 /-- Two buffers of `scratch`. -/
 theorem sdisj {s₀ : State} (hp : Pre L s₀) {o₁ l₁ o₂ l₂ : Nat} (f₁ : o₁ + l₁ ≤ 32768) (f₂ : o₂ + l₂ ≤ 32768)
     (h : o₁ + l₁ ≤ o₂ ∨ o₂ + l₂ ≤ o₁) : (R (kA s₀) L.sc o₁ l₁).Disjoint (R (kA s₀) L.sc o₂ l₂) :=
-  R.disj hp.args hp.scb hp.scb (by rw [hp.scl]; exact f₁) (by rw [hp.scl]; exact f₂) (.inr h)
+  hp.args.rdisj hp.scb hp.scb (by rw [hp.scl]; exact f₁) (by rw [hp.scl]; exact f₂) (.inl rfl) (.inr h)
 
 theorem hsetup {s₀ s : State} (hp : Pre L s₀) (h : KB L s₀ s) {rate : Nat} (hr : rate ∈ Spec.Sha3.rates) :
     HSetup .x28 ST WK rate s := by
@@ -205,12 +233,12 @@ theorem pieceOk {s₀ s : State} (hp : Pre L s₀) (h : KB L s₀ s) {w : Bool} 
   have fs : ∀ {o l : Nat}, o + l ≤ 840 → o + l ≤ L.len L.sc := fun h => by rw [hp.scl]; omega
   refine ⟨slot_pres hk, ho, hl, ?_, ?_, ?_, ?_⟩
   · rw [eb, VG.Proof.MlKem.AArch64.STr, e]
-    exact R.disj hp.args hb hp.scb f (fs (by decide)) (by
+    exact hp.args.rdisj hb hp.scb f (fs (by decide)) (.inr (.inr hp.scw)) (by
       rcases hs with hs | hs
       · exact .inl hs
       · exact .inr (.inr (by simp only [KEM.ST]; omega)))
   · rw [eb, VG.Proof.MlKem.AArch64.WKr, e]
-    exact R.disj hp.args hb hp.scb f (fs (by decide)) (by
+    exact hp.args.rdisj hb hp.scb f (fs (by decide)) (.inr (.inr hp.scw)) (by
       rcases hs with hs | hs
       · exact .inl hs
       · exact .inr (.inr (by simp only [KEM.WK]; omega)))
@@ -304,7 +332,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre L s₀) :
     exact bytesAt_frame f₁ (fun r hr => by
       rw [List.mem_singleton.mp hr]
       exact (hp.args.disj b (by have := hp.scw; have := hp.scb; omega) L.sc hp.scb
-        (by have := hp.scw; omega)).sub_right (R.sub (by rw [hp.scl]; decide))) (by
+        (by have := hp.scw; omega) (.inr hp.scw)).sub_right (R.sub (by rw [hp.scl]; decide))) (by
           have := hp.args.len b (by have := hp.scw; have := hp.scb; omega); omega)
 
 /-- Our caller's registers back, and the result. -/
