@@ -283,7 +283,7 @@ jobs:
           fi
       # Only the tests of what depends on CPU features.
       - name: Test the implementations
-        run: cargo test --locked --features cpu-features-env -- sha256 aes_gcm chacha20 cpu
+        run: cargo test --locked --features cpu-features-env -- sha1 sha256 aes_gcm chacha20 cpu
       - name: Test detection on a Pentium 4 (under SDE)
         if: ${{ matrix.cpu-features == '' }}
         run: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="$RUNNER_TEMP/sde/sde64 -p4p --" cargo test --locked --features cpu-features-env --lib -- cpu

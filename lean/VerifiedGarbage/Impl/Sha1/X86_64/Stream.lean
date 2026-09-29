@@ -1,4 +1,5 @@
 import VerifiedGarbage.Impl.Sha1.X86_64
+import VerifiedGarbage.Impl.Sha1.X86_64.ShaNi
 import VerifiedGarbage.Impl.MdStream.X86_64
 
 /-!
@@ -16,10 +17,13 @@ The streaming state (84 bytes at `state`) is the hash value followed by a
   buffered bytes (one or two blocks), compresses them and writes the digest.
 
 `update` and `finalize` are the generic streaming code of
-`Impl/MdStream/X86_64.lean`, calling `vg_sha1_compress`
-(`Impl.Sha1.X86_64.compress`) with `scratch[0..112)` as its scratch space;
-our caller's callee-saved registers are saved in `scratch[112..160)`. The
-length field is big-endian, and so are the words of the digest.
+`Impl/MdStream/X86_64.lean`. They take the compression function they call (a
+`Callee`, e.g. `vg_sha1_compress` or `vg_sha1_compress_shani`), and are
+emitted once for each implementation
+(`Generic/Sha1Compress/X86_64/Sha1.lean`). It is called with
+`scratch[0..112)` as its scratch space; our caller's callee-saved registers
+are saved in `scratch[112..160)`. The length field is big-endian, and so are
+the words of the digest.
 -/
 
 namespace VG.Impl.Sha1.X86_64.Stream
@@ -27,6 +31,14 @@ namespace VG.Impl.Sha1.X86_64.Stream
 open VG.X86_64
 open VG.Impl.Sha1.X86_64 (at_ compress)
 open VG.Impl.MdStream.X86_64 (Params len64 out32)
+
+/-- A compression function to call: its symbol and its code. -/
+structure Callee where
+  name : String
+  code : Prog isa
+
+def Callee.scalar : Callee := ⟨"vg_sha1_compress", compress⟩
+def Callee.shani : Callee := ⟨"vg_sha1_compress_shani", ShaNi.compress⟩
 
 def init : Prog isa :=
   .block ((List.range 5).flatMap fun k =>
@@ -41,8 +53,8 @@ def params : Params where
   len := len64 76 true
   out := out32 5 true
 
-def update : Prog isa := MdStream.X86_64.update params "vg_sha1_compress" compress
+def update (f : Callee) : Prog isa := MdStream.X86_64.update params f.name f.code
 
-def finalize : Prog isa := MdStream.X86_64.finalize params "vg_sha1_compress" compress
+def finalize (f : Callee) : Prog isa := MdStream.X86_64.finalize params f.name f.code
 
 end VG.Impl.Sha1.X86_64.Stream
