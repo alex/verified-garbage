@@ -550,9 +550,9 @@ theorem compress_ok {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s�
   have e32 : Region.Sub ⟨p, 32⟩ ⟨p, 96⟩ := Region.sub_prefix (by omega)
   have eb : Region.Sub ⟨p + 32, 64⟩ ⟨p, 96⟩ := sub_offset (off := 32) (by omega) (by omega)
   have e112 : Region.Sub ⟨scr s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
-  refine compressAt_ok Proof.Sha256.X86_64.Stream.scalar_ok hbx h15 hsi ((d.sub_left e32).sub_right e112) ?_ ((d.sub_left eb).sub_right e112)
-    (by rw [hsp]; exact dr.sub_right e32) (by rw [hsp]; exact hp.stk_s.sub_right e112)
-    (by rw [hsp]; exact dr.sub_right eb) ?_ ?_
+  refine compressAt_ok Proof.Sha256.X86_64.Stream.scalar_ok ⟨hbx, h15, hsi, (d.sub_left e32).sub_right e112, ?_,
+    (d.sub_left eb).sub_right e112, by rw [hsp]; exact dr.sub_right e32,
+    by rw [hsp]; exact hp.stk_s.sub_right e112, by rw [hsp]; exact dr.sub_right eb, ?_, ?_⟩
     fun s' hrd' hwr' hcs hf hst _ _ => hQ s' hrd' hwr' hcs (by rw [hsp] at hf; exact hf) hst
   · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
   · rw [hrd, hwr]

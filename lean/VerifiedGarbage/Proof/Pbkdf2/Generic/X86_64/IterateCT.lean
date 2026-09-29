@@ -8,28 +8,6 @@ Untrusted: everything here is checked by Lean. As for HMAC's `init`
 public, and the two runs run the same number of steps (`RelCT.loop`).
 -/
 
-namespace VG
-
-/-- A branch, in two runs whose condition agrees. -/
-theorem RelCT.ite {M : ISA} {P Q : M.State → M.State → Prop} {c : M.Cond} {th el : Prog M}
-    (hc : ∀ s s', P s s' → M.eval c s = M.eval c s')
-    (ht : RelCT M (fun s s' => P s s' ∧ M.eval c s = some true) th Q)
-    (he : RelCT M (fun s s' => P s s' ∧ M.eval c s = some false) el Q) :
-    RelCT M P (.ite c th el) Q := by
-  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
-  have h := hc _ _ hp
-  cases e₁ with
-  | iteT c₁ b₁ =>
-    cases e₂ with
-    | iteT _ b₂ => obtain ⟨rfl, hq⟩ := ht _ _ _ _ _ _ ⟨hp, c₁⟩ b₁ b₂; exact ⟨rfl, hq⟩
-    | iteF c₂ _ => rw [c₁, c₂] at h; cases h
-  | iteF c₁ b₁ =>
-    cases e₂ with
-    | iteT c₂ _ => rw [c₁, c₂] at h; cases h
-    | iteF _ b₂ => obtain ⟨rfl, hq⟩ := he _ _ _ _ _ _ ⟨hp, c₁⟩ b₁ b₂; exact ⟨rfl, hq⟩
-
-end VG
-
 namespace VG.Proof.Pbkdf2.Generic.X86_64
 
 open VG.X86_64
