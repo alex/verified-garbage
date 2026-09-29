@@ -75,11 +75,6 @@ def iterateApi : Api where
     leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).\n\n\
     Contract: `VG.Spec.Hmac.Instance.iterateContract` of `VG.Spec.Hmac.{I.lean}`. Constant \
     time: only the pointers and `n` may affect timing, not the key, `U` or `T`."
-  safety := [
-    s!"`key` must be valid for reads of {2 * I.S.stateBytes} bytes, and `u` for reads of \
-      {I.S.digestBytes} bytes.",
-    s!"`t` must be valid for reads and writes of {I.S.digestBytes} bytes.",
-    s!"`scratch` must be valid for reads and writes of {8 * I.scratch} bytes; its contents on \
-      return are unspecified."]
+  safety := ["The contents of `scratch` on return are unspecified."]
 
 end VG.Spec.Hmac.Instance

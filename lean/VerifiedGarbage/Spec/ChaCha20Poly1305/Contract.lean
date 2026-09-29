@@ -72,12 +72,6 @@ def openContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (writeArgs := true)
     (stack := stack)
 
-/-- The `# Safety` items of seal and open that hold on every target. -/
-private def aeadSafety : List String := [
-  "`ctx` must be valid for reads and writes of 1024 bytes.",
-  "`aad` must be valid for reads of `aad_len` bytes.",
-  "`data` must be valid for reads and writes of `len` bytes."]
-
 /-- `vg_chacha20_poly1305_seal` on every target. -/
 def sealApi : Api where
   module := "chacha20poly1305"
@@ -93,7 +87,7 @@ def sealApi : Api where
     lengths may affect timing, not the key, the nonce or the data. The block counter wraps around \
     beyond 2³²-1 blocks of data (RFC 8439's `P_MAX`), which the caller must not exceed for the \
     construction to be secure."
-  safety := aeadSafety
+  safety := []
 
 /-- `vg_chacha20_poly1305_open` on every target. -/
 def openApi : Api where
@@ -109,6 +103,6 @@ def openApi : Api where
     return. The tags are compared without a branch.\n\n\
     Contract: `VG.Spec.ChaCha20Poly1305.openContract`. Constant time: only the pointers and the \
     lengths may affect timing, not the key, the nonce, the tag or the data."
-  safety := aeadSafety
+  safety := []
 
 end VG.Spec.ChaCha20Poly1305

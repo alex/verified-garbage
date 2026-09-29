@@ -10,10 +10,12 @@
 ///
 /// # Safety
 ///
-/// * `key_len` must be 16, 24 or 32.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `schedule` must be valid for reads and writes of 240 bytes; its bytes after the key schedule are unspecified on return.
-/// * `scratch` must be valid for reads and writes of 512 bytes; its contents on return are unspecified.
+/// * `schedule` must be valid for reads and writes of 240 bytes.
+/// * `scratch` must be valid for reads and writes of 512 bytes.
+/// * `key_len` must be 16, 24 or 32.
+/// * The bytes of `schedule` after the key schedule are unspecified on return.
+/// * The contents of `scratch` on return are unspecified.
 /// * `schedule` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `key`, `schedule` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -1473,11 +1475,12 @@ pub(crate) unsafe extern "sysv64" fn vg_aes_expand_key(key: *const u8, key_len: 
 ///
 /// # Safety
 ///
-/// * `rounds` must be 10, 12 or 14.
 /// * `schedule` must be valid for reads of 240 bytes.
 /// * `counter` must be valid for reads and writes of 16 bytes.
 /// * `data` must be valid for reads and writes of `16 * n` bytes.
-/// * `scratch` must be valid for reads and writes of 2048 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 2048 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
 /// * `counter`, `data` and `scratch` must not overlap each other or `schedule` (distinct Rust objects never do).
 /// * None of `schedule`, `counter`, `data` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -3199,10 +3202,12 @@ pub(crate) const VG_AES_EXPAND_KEY_AESNI_FEATURES: &[&str] = &["aes"];
 ///
 /// # Safety
 ///
-/// * `key_len` must be 16, 24 or 32.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `schedule` must be valid for reads and writes of 240 bytes; the bytes after the first `16 (Nr + 1)` are unspecified on return.
-/// * `scratch` must be valid for reads and writes of 512 bytes; its contents on return are unspecified.
+/// * `schedule` must be valid for reads and writes of 240 bytes.
+/// * `scratch` must be valid for reads and writes of 512 bytes.
+/// * `key_len` must be 16, 24 or 32.
+/// * The bytes of `schedule` after the first `16 (Nr + 1)` are unspecified on return.
+/// * The contents of `scratch` on return are unspecified.
 /// * `schedule` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `key`, `schedule` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `aes` target feature.
@@ -3626,11 +3631,12 @@ pub(crate) const VG_AES_CTR32_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
 ///
 /// # Safety
 ///
-/// * `rounds` must be 10, 12 or 14.
 /// * `schedule` must be valid for reads of 240 bytes.
 /// * `counter` must be valid for reads and writes of 16 bytes.
 /// * `data` must be valid for reads and writes of `16 * n` bytes.
-/// * `scratch` must be valid for reads and writes of 2048 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 2048 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
 /// * `counter`, `data` and `scratch` must not overlap each other or `schedule` (distinct Rust objects never do).
 /// * None of `schedule`, `counter`, `data` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `aes` and `ssse3` target features.

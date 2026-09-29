@@ -50,11 +50,8 @@ def artifacts : List Artifact := [
       may affect timing, not the key.\n\n\
       # Safety\n\n\
       * `key_len` must be 16, 24 or 32.\n\
-      * `key` must be valid for reads of `key_len` bytes.\n\
-      * `schedule` must be valid for reads and writes of 240 bytes; the bytes after the first \
-      `16 (Nr + 1)` are unspecified on return.\n\
-      * `scratch` must be valid for reads and writes of 512 bytes; its contents on return \
-      are unspecified."
+      * The bytes of `schedule` after the first `16 (Nr + 1)` are unspecified on return.\n\
+      * The contents of `scratch` on return are unspecified."
     code := Impl.Aes.X86_64.AesNi.expandKey
     contract := Spec.Aes.expandKeyContract X86_64.abi
     verified := Proof.Aes.X86_64.AesNi.Key.expandKey_verified
@@ -74,11 +71,7 @@ def artifacts : List Artifact := [
       `n` may affect timing, not the key schedule, the counter block or the data.\n\n\
       # Safety\n\n\
       * `rounds` must be 10, 12 or 14.\n\
-      * `schedule` must be valid for reads of 240 bytes.\n\
-      * `counter` must be valid for reads and writes of 16 bytes.\n\
-      * `data` must be valid for reads and writes of `16 * n` bytes.\n\
-      * `scratch` must be valid for reads and writes of 2048 bytes; its contents on return \
-      are unspecified."
+      * The contents of `scratch` on return are unspecified."
     code := Impl.Aes.X86_64.AesNi.ctr32
     contract := Spec.Gcm.ctr32Contract X86_64.abi
     verified := Proof.Aes.X86_64.AesNi.ctr32_verified

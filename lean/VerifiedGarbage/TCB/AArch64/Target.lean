@@ -96,7 +96,10 @@ abbrev target : Target where
   isa := isa
   printer := printer
   abiPreserved := abiPreserved
-  rustCfg := "target_arch = \"aarch64\""
+  -- `aarch64_be` targets are big-endian, and ILP32 ones (`aarch64-unknown-linux-gnu_ilp32`)
+  -- have 32-bit pointers.
+  rustCfg := "all(target_arch = \"aarch64\", target_endian = \"little\", \
+    target_pointer_width = \"64\")"
   rustAbi := "C"
   abi := abi
 
