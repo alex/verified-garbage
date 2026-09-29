@@ -19,17 +19,6 @@ open VG.Spec.MlKem
 
 /-! ## One coefficient -/
 
-/-- What `csubQ` leaves of `v`. -/
-def csub32 (v : BitVec 32) : BitVec 32 :=
-  v - qImm + (0#32 - BitVec.setWidth 32 (BitVec.ofBool (decide (v.toNat < qImm.toNat))) &&& qImm)
-
-theorem csub32_toNat {v : BitVec 32} (hv : v.toNat < 2 * 3329) : (csub32 v).toNat = condSub v.toNat := by
-  have := csub_val hv 0
-  rw [BitVec.sub_self] at this
-  unfold csub32
-  rw [this]
-  rfl
-
 theorem csub32_add {a b : BitVec 32} (ha : a.toNat < q) (hb : b.toNat < q) :
     (csub32 (a + b)).toNat = condSub (a.toNat + b.toNat) := by
   have e : (a + b).toNat = a.toNat + b.toNat := by rw [BitVec.toNat_add]; rw [q_eq] at *; omega

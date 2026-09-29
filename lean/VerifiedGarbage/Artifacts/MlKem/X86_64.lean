@@ -1,5 +1,7 @@
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.MlKem.X86_64.AddSub
+import VerifiedGarbage.Proof.MlKem.X86_64.Encode12
+import VerifiedGarbage.Proof.MlKem.X86_64.Decode12
 
 /-!
 # ML-KEM (FIPS 203) on x86-64: the polynomial primitives and ML-KEM-768
@@ -28,6 +30,18 @@ def artifacts : List Artifact := [
     doc := Spec.MlKem.subApi.doc
     code := Impl.MlKem.X86_64.sub
     contract := Spec.MlKem.subContract X86_64.abi
-    verified := Proof.MlKem.X86_64.sub_verified }]
+    verified := Proof.MlKem.X86_64.sub_verified },
+  { Spec.MlKem.encode12Api with
+    target := X86_64.target
+    doc := Spec.MlKem.encode12Api.doc
+    code := Impl.MlKem.X86_64.encode12
+    contract := Spec.MlKem.encode12Contract X86_64.abi
+    verified := Proof.MlKem.X86_64.encode12_verified },
+  { Spec.MlKem.decode12Api with
+    target := X86_64.target
+    doc := Spec.MlKem.decode12Api.doc
+    code := Impl.MlKem.X86_64.decode12
+    contract := Spec.MlKem.decode12Contract X86_64.abi
+    verified := Proof.MlKem.X86_64.decode12_verified }]
 
 end VG.Artifacts.MlKem.X86_64

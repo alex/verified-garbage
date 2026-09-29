@@ -35,6 +35,24 @@ def accK (t : Poly → Poly → Poly) : Contract isa where
   post s s' := PolyIs s'.mem (s.gpr .rdi) (t (polyAt s.mem (s.gpr .rdi)) (polyAt s.mem (s.gpr .rsi)))
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
+/-- `vg_mlkem_encode12(f = rdi, out = rsi)`. -/
+def encode12K : Contract isa where
+  pre s :=
+    s.rd = [pR (s.gpr .rdi)] ∧ s.wr = [⟨s.gpr .rsi, 384⟩] ∧
+    (pR (s.gpr .rdi)).Disjoint ⟨s.gpr .rsi, 384⟩ ∧ (retR s).Disjoint (pR (s.gpr .rdi)) ∧
+    (retR s).Disjoint ⟨s.gpr .rsi, 384⟩ ∧ Reduced s.mem (s.gpr .rdi)
+  post s s' := Spec.Sha3.bytesAt s'.mem (s.gpr .rsi) 384 = encode12 (polyAt s.mem (s.gpr .rdi))
+  pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rsp = s₂.gpr .rsp
+
+/-- `vg_mlkem_decode12(b = rdi, f = rsi)`. -/
+def decode12K : Contract isa where
+  pre s :=
+    s.rd = [⟨s.gpr .rdi, 384⟩] ∧ s.wr = [pR (s.gpr .rsi)] ∧
+    Region.Disjoint ⟨s.gpr .rdi, 384⟩ (pR (s.gpr .rsi)) ∧ (retR s).Disjoint ⟨s.gpr .rdi, 384⟩ ∧
+    (retR s).Disjoint (pR (s.gpr .rsi))
+  post s s' := PolyIs s'.mem (s.gpr .rsi) (decode12 (Spec.Sha3.bytesAt s.mem (s.gpr .rdi) 384))
+  pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rsp = s₂.gpr .rsp
+
 /-! ## Satisfiability -/
 
 theorem read_zero (a : Addr) : ∀ n, Mem.read (fun _ => 0) a n = 0

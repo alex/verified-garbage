@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Framework.Sig
 import VerifiedGarbage.Proof.Framework.X86_64.Inline
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Impl.MlKem.X86_64.Common
+import VerifiedGarbage.Proof.MlKem.Arith
 
 /-!
 # ML-KEM on x86-64: running blocks symbolically
@@ -26,6 +27,14 @@ namespace VG.Proof.MlKem.X86_64
 
 open VG VG.X86_64
 open VG.Impl.MlKem.X86_64 (at_ qImm)
+
+/-! ## Conditionals -/
+
+theorem ifp {α : Sort _} {p : Prop} [Decidable p] (h : p) (a b : α) : (if p then a else b) = a :=
+  ite_eq_left_of_eq_true a b (eq_true h)
+
+theorem ifn {α : Sort _} {p : Prop} [Decidable p] (h : ¬ p) (a b : α) : (if p then a else b) = b :=
+  ite_eq_right_of_eq_false a b (eq_false h)
 
 /-! ## Projections of the state updates -/
 
@@ -108,7 +117,7 @@ macro_rules
         setFlags_gpr, setFlags_mem, setFlags_rd, setFlags_wr, setFlags_cf, setFlags_zf,
         Option.bind_some, Option.map_some, Option.map, Option.some.injEq, exists_eq_left', ite_true,
         ite_false, reduceCtorEq, BitVec.setWidth_32_64_32, BitVec.sub_self, sx1, sx2, sx3, sx4, sx5, sx8,
-        sx16, sx32, sxQ, $ls,*]))
+        sx16, sx32, sxQ, true_and, and_true, $ls,*]))
 
 /-! ## What a block keeps -/
 
@@ -184,6 +193,17 @@ theorem csub_val {v : BitVec 32} (hv : v.toNat < 2 * 3329) (m : BitVec 32) :
     unfold qImm
     bv_omega
 
+/-- What `csubQ` leaves of `v`. -/
+def csub32 (v : BitVec 32) : BitVec 32 :=
+  v - qImm + (0#32 - BitVec.setWidth 32 (BitVec.ofBool (decide (v.toNat < qImm.toNat))) &&& qImm)
+
+theorem csub32_toNat {v : BitVec 32} (hv : v.toNat < 2 * 3329) : (csub32 v).toNat = condSub v.toNat := by
+  have := csub_val hv 0
+  rw [BitVec.sub_self] at this
+  unfold csub32
+  rw [this]
+  rfl
+
 /-! ## Counted loops -/
 
 theorem ofNat64_pred {k : Nat} (h : 1 ≤ k) (hk : k < 2 ^ 64) :
@@ -224,5 +244,19 @@ theorem wp_countdown {body : Prog isa} {cnt : Reg} {N : Nat} (hN : N < 2 ^ 64) (
     exact .inl ⟨by rw [hev]; simp, hQ s' hI'⟩
   · exact .inr ⟨by rw [hev]; simp; omega, N - (i + 1), by omega, i + 1, rfl, by omega, hI',
       by rw [hc']; congr 1⟩
+
+/-- `mov ecx, N` and a loop whose body counts `rcx` down: the body runs `N`
+times, from a state that the `mov` left as it found it (but `rcx`). -/
+theorem wp_counted {body : Prog isa} {v : BitVec 32} {N : Nat} (hv : v.toNat = N) (hN : 0 < N)
+    (Inv : Nat → State → Prop) {s₀ : State}
+    (h0 : ∀ s, s.mem = s₀.mem → Keep [.rcx] s₀ s → Inv 0 s)
+    (hbody : ∀ i < N, ∀ s, Inv i s → WP isa body s fun s' => Inv (i + 1) s' ∧
+      s'.gpr .rcx = s.gpr .rcx - 1 ∧ s'.zf = some (s.gpr .rcx - 1 == 0)) :
+    WP isa (.seq (.block [.mov32 .rcx (.imm v)]) (.loop body .ne)) s₀ (Inv N) := by
+  refine WP.seq (WP.mono (WP.keep [.rcx] (Q := fun s => s.mem = s₀.mem ∧ s.gpr .rcx = BitVec.ofNat 64 N)
+    (by xrun; apply BitVec.eq_of_toNat_eq; rw [BitVec.toNat_setWidth, BitVec.toNat_ofNat, hv])
+    rfl) fun s ⟨⟨hm, hc⟩, hk⟩ => ?_)
+  have := v.isLt
+  exact wp_countdown (by omega) hN Inv (fun i hi s hI _ => hbody i hi s hI) (fun _ h => h) (h0 s hm hk) hc
 
 end VG.Proof.MlKem.X86_64
