@@ -32,7 +32,8 @@ def artifacts : List Artifact := [
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Instances.sha512_init },
+    verified := Instances.sha512_init
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { Spec.Hmac.sha512I.finalizeApi with
     target := X86_64.target
     doc := Spec.Hmac.sha512I.finalizeApi.doc
@@ -41,6 +42,7 @@ def artifacts : List Artifact := [
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.finalizeContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Instances.sha512_finalize }]
+    verified := Instances.sha512_finalize
+    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.HmacSha512.X86_64

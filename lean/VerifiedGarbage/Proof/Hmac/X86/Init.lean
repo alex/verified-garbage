@@ -1,6 +1,4 @@
 import VerifiedGarbage.Proof.Hmac.X86.Finalize
-import VerifiedGarbage.Proof.Hmac.X86_64.Init
-import VerifiedGarbage.Proof.Sha256.AArch64.Compress
 import Mathlib.Tactic.IntervalCases
 import Mathlib.Tactic.Set
 import VerifiedGarbage.Proof.Framework.Contract
@@ -15,9 +13,9 @@ caller's registers in `scratch[112..128)` and stores `H⁽⁰⁾` in both states
 the key loop and the pad loop then fill the inner buffer with `K₀ ⊕ ipad`
 a byte at a time (invariant `Buf`: `j` bytes written, `edx` at byte `j`),
 the outer buffer is computed from it a word at a time (`xorWords_ok`), and
-each buffer is compressed with the inlined compression function
-(`compBuf_ok`, via `compressAt_ok`), after which each state represents its
-block (`X86_64.Init.repr_block`).
+each buffer is compressed by calling the compression function
+(`compBuf_ok`, via `compressAt_ok`, using the 20 bytes below `esp`), after which each state represents its
+block (`Common.repr_block`).
 -/
 
 namespace VG.Proof.Hmac.X86.Init
@@ -29,7 +27,7 @@ open VG.Proof.Sha256.X86 (contains_offset)
 open VG.Proof.Sha256.X86.Stream
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append repr_congr)
 open VG.Proof.Hmac.X86
-open VG.Proof.Hmac.X86_64 (bytesAt_length)
+open VG.Proof.Hmac.Common (bytesAt_length writeState stateAt_writeState)
 open VG.Spec.Sha256 (HashValue stateAt blockAt compress bytesAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
 
@@ -54,6 +52,7 @@ abbrev kR : Region := ⟨kA s₀, kl s₀⟩
 abbrev scR : Region := ⟨scA s₀, 160⟩
 abbrev argR : Region := ⟨addr (esp₀ s₀) 4, 20⟩
 abbrev retR : Region := ⟨(esp₀ s₀).setWidth 64, 4⟩
+abbrev stkR : Region := below (esp₀ s₀) 20
 
 /-- The key, padded with zeros to a block. -/
 def K0 : List Byte := bytesAt s₀.mem (kA s₀) (kl s₀) ++ List.replicate (64 - kl s₀) 0
@@ -77,15 +76,23 @@ structure Pre (s₀ : State) : Prop where
   ret_i : (retR s₀).Disjoint (inR s₀)
   ret_o : (retR s₀).Disjoint (ouR s₀)
   ret_s : (retR s₀).Disjoint (scR s₀)
+  stk_i : (stkR s₀).Disjoint (inR s₀)
+  stk_o : (stkR s₀).Disjoint (ouR s₀)
+  stk_s : (stkR s₀).Disjoint (scR s₀)
   in_fit : (inn s₀).toNat + 96 ≤ 2 ^ 32
   ou_fit : (ou s₀).toNat + 96 ≤ 2 ^ 32
   k_fit : (kp s₀).toNat + kl s₀ ≤ 2 ^ 32
   scr_fit : (scr s₀).toNat + 160 ≤ 2 ^ 32
+  sp_lo : 20 ≤ (esp₀ s₀).toNat
   sp_fit : (esp₀ s₀).toNat + 24 ≤ 2 ^ 32
 
 theorem pre_of {s₀ : State} (h : Proof.Hmac.initSha256X86.pre s₀) : Pre s₀ := by
-  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20⟩ := h
-  exact ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20⟩
+  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20,
+    h21, h22, h23, h24⟩ := h
+  have e := stk_eq h23
+  exact ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15,
+    by show (below _ _).Disjoint _; rw [e]; exact h16, by show (below _ _).Disjoint _; rw [e]; exact h17,
+    by show (below _ _).Disjoint _; rw [e]; exact h18, h19, h20, h21, h22, h23, h24⟩
 
 /-! ## Regions and the key -/
 
@@ -113,6 +120,15 @@ theorem ret_a {s₀ : State} (hp : Pre s₀) : (retR s₀).Disjoint (argR s₀) 
   intro a h₁ h₂
   simp only [Region.Contains] at h₁ h₂
   rw [addr_eq (by omega)] at h₂
+  generalize (esp₀ s₀).setWidth 64 = b at *
+  bv_omega
+
+theorem ret_stk {s₀ : State} (hp : Pre s₀) : (retR s₀).Disjoint (stkR s₀) := by
+  have := hp.sp_fit; have := hp.sp_lo
+  intro a h₁ h₂
+  simp only [Region.Contains] at h₁ h₂
+  rw [Taint.sub_setWidth (by omega)] at h₂
+  have hE : ((esp₀ s₀).setWidth 64).toNat = (esp₀ s₀).toNat := addr_toNat _
   generalize (esp₀ s₀).setWidth 64 = b at *
   bv_omega
 
@@ -205,7 +221,7 @@ def saveMem (s₀ : State) : Mem :=
 
 /-- And after storing `H⁽⁰⁾` in both states. -/
 def proMem (s₀ : State) : Mem :=
-  Proof.Sha256.AArch64.writeState (Proof.Sha256.AArch64.writeState (saveMem s₀) (inA s₀) H0) (ouA s₀) H0
+  writeState (writeState (saveMem s₀) (inA s₀) H0) (ouA s₀) H0
 
 theorem saveMem_frame {s₀ : State} (hp : Pre s₀) : Frame [scR s₀] s₀.mem (saveMem s₀) := by
   have c : ∀ d, d + 4 ≤ 160 → (scR s₀).Contains (addr (scr s₀) d) (32 / 8) := fun d hd => hp.scr_in hd (by omega)
@@ -231,10 +247,10 @@ theorem saveMem_saved {s₀ : State} (hp : Pre s₀) : Saved s₀ (saveMem s₀)
 
 /-- Writing a hash value stays within its 32 bytes. -/
 theorem writeState_frame (m : Mem) (p : Addr) (v : HashValue) :
-    Frame [⟨p, 32⟩] m (Proof.Sha256.AArch64.writeState m p v) := by
+    Frame [⟨p, 32⟩] m (writeState m p v) := by
   have c : ∀ k, k < 8 → (⟨p, 32⟩ : Region).Contains (p + BitVec.ofNat 64 (4 * k)) (32 / 8) :=
     fun k hk => contains_offset (by omega) (by omega)
-  unfold Proof.Sha256.AArch64.writeState
+  unfold writeState
   exact ((((((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 0 (by omega))).writeW
     (List.mem_singleton_self _) _ (c 1 (by omega))).writeW (List.mem_singleton_self _) _
     (c 2 (by omega))).writeW (List.mem_singleton_self _) _ (c 3 (by omega))).writeW
@@ -261,12 +277,12 @@ theorem proMem_saved {s₀ : State} (hp : Pre s₀) : Saved s₀ (proMem s₀) :
 
 theorem proMem_stI {s₀ : State} (hp : Pre s₀) : stateAt (proMem s₀) (inA s₀) = H0 := by
   refine (Proof.Sha256.Stream.stateAt_congr fun i hi => ?_).trans
-    (Proof.Sha256.AArch64.stateAt_writeState (saveMem s₀) _ _)
+    (stateAt_writeState (saveMem s₀) _ _)
   exact frame_bytes (writeState_frame _ _ _) (R := ⟨inA s₀, 32⟩)
     (by simpa using (hp.i_o.sub_left (sub32 _)).sub_right (sub32 _)) (by simp) hi
 
 theorem proMem_stO {s₀ : State} : stateAt (proMem s₀) (ouA s₀) = H0 :=
-  Proof.Sha256.AArch64.stateAt_writeState _ _ _
+  stateAt_writeState _ _ _
 
 /-- Reading an argument word from memory that differs only in `inner`, `outer` and `scratch`. -/
 theorem arg_frame {s₀ : State} (hp : Pre s₀) {m : Mem} (hf : Frame [inR s₀, ouR s₀, scR s₀] s₀.mem m)
@@ -295,7 +311,7 @@ theorem wordB_ok {b : Reg} (hb : b ≠ .ecx) {x : BitVec 32} {k : Nat} {rest : L
 theorem h0_ok {b : Reg} (hb : b ≠ .ecx) {st : BitVec 32} (hfit : st.toNat + 32 ≤ 2 ^ 32) {rest : List Instr}
     {s : State} {Q : State → Prop} (hst : s.gpr b = st) (hout : ∀ k < 8, InRegions s.wr (addr st (4 * k)) 4)
     (kk : ∀ s', (∀ r, r ≠ .ecx → s'.gpr r = s.gpr r) → s'.rd = s.rd → s'.wr = s.wr →
-      s'.mem = Proof.Sha256.AArch64.writeState s.mem (st.setWidth 64) H0 → WP isa (.block rest) s' Q) :
+      s'.mem = writeState s.mem (st.setWidth 64) H0 → WP isa (.block rest) s' Q) :
     WP isa (.block (h0 b ++ rest)) s Q := by
   rw [h0_eq]
   simp only [List.append_assoc]
@@ -491,7 +507,7 @@ theorem buf_write {s₀ : State} (hp : Pre s₀) {j : Nat} {m : Mem} (h : BufMem
   refine ⟨?_, ?_, ?_, saved_frame h.saved F ?_, h.frame.trans (F.sub ?_)⟩
   · rw [st _ self, h.stI]
   · rw [st _ ((hp.i_o.symm.sub_left (sub32 _)).sub_right sI), h.stO]
-  · rw [VG.Proof.Hmac.X86_64.Init.bytesAt_snoc _ _ (by omega), h.buf, List.take_succ_eq_append_getElem hl,
+  · rw [VG.Proof.Hmac.Common.bytesAt_snoc _ _ (by omega), h.buf, List.take_succ_eq_append_getElem hl,
       List.map_append]
     rfl
   · intro d h₁ h₂ r hr
@@ -679,7 +695,7 @@ theorem xorWords_ok {x y : BitVec 32} (n : Nat) : ∀ (rest : List Instr) (s : S
     rw [hl] at e
     rw [u₄.mem, u₃.gpr, u₂.gpr, u₃.mem, u₂.mem, m₁, addr_word fx (by omega : n < n + 1),
       addr_word fy (by omega : n < n + 1), readW_writeBytes_sep _ _ hsep', writeW_xor, e,
-      show 4 * (n + 1) = 4 * n + 4 by omega, VG.Proof.Hmac.X86_64.bytesAt_add, List.map_append]
+      show 4 * (n + 1) = 4 * n + 4 by omega, VG.Proof.Hmac.Common.bytesAt_add, List.map_append]
 
 /-- `K₀ ⊕ ipad ⊕ 0x6a = K₀ ⊕ opad`. -/
 theorem xorPad_6a (k : List Byte) : (xorPad k ipad).map (· ^^^ 0x6a) = xorPad k opad := by
@@ -694,101 +710,61 @@ theorem compBuf_ok {s₀ s : State} (hp : Pre s₀) {b : Reg} {x : BitVec 32} (h
     (hb : b = .ebx ∨ b = .esi) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) (hbx : s.gpr b = x)
     (hebp : s.gpr .ebp = scr s₀) (hsp : s.gpr .esp = esp₀ s₀) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s₀.rd → s'.wr = s₀.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
-      Frame [⟨x.setWidth 64, 32⟩, ⟨scA s₀, 112⟩, argR s₀] s.mem s'.mem →
+      Frame [⟨x.setWidth 64, 32⟩, ⟨scA s₀, 112⟩, stkR s₀] s.mem s'.mem →
       stateAt s'.mem (x.setWidth 64) =
         compress (stateAt s.mem (x.setWidth 64)) (blockAt s.mem (x.setWidth 64 + 32)) → Q s') :
     WP isa (compressBuf b) s Q := by
   have fs := hp.scr_fit
   have fsp := hp.sp_fit
-  obtain ⟨fx, dS, dA, dR, hm⟩ : x.toNat + 96 ≤ 2 ^ 32 ∧ Region.Disjoint ⟨x.setWidth 64, 96⟩ (scR s₀) ∧
-      (argR s₀).Disjoint ⟨x.setWidth 64, 96⟩ ∧ (retR s₀).Disjoint ⟨x.setWidth 64, 96⟩ ∧
-      (⟨x.setWidth 64, 96⟩ : Region) ∈ s₀.wr := by
+  obtain ⟨fx, dS, dK, hm⟩ : x.toNat + 96 ≤ 2 ^ 32 ∧ Region.Disjoint ⟨x.setWidth 64, 96⟩ (scR s₀) ∧
+      (stkR s₀).Disjoint ⟨x.setWidth 64, 96⟩ ∧ (⟨x.setWidth 64, 96⟩ : Region) ∈ s₀.wr := by
     rcases hx with rfl | rfl
-    · exact ⟨hp.in_fit, hp.i_s, hp.a_i, hp.ret_i, by simp [hp.wr]⟩
-    · exact ⟨hp.ou_fit, hp.o_s, hp.a_o, hp.ret_o, by simp [hp.wr]⟩
+    · exact ⟨hp.in_fit, hp.i_s, hp.stk_i, by simp [hp.wr]⟩
+    · exact ⟨hp.ou_fit, hp.o_s, hp.stk_o, by simp [hp.wr]⟩
   have hb' : b ≠ .eax := by rcases hb with rfl | rfl <;> decide
-  have ain : ∀ d, 4 ≤ d → d + 4 ≤ 24 → InRegions s.wr (addr (esp₀ s₀) d) 4 :=
-    fun d h₁ h₂ => ⟨argR s₀, by simp [hwr, hp.wr], hp.arg_in h₁ h₂⟩
   unfold compressBuf
-  refine WP.seq (wp_store (a := addr (esp₀ s₀) 4) (by rw [ea_at, hsp]) (ain 4 (by omega) (by omega))
-    fun s₁ u₁ => ?_)
-  refine wp_store (a := addr (esp₀ s₀) 16) (by rw [ea_at, u₁.gpr, hsp])
-    (by rw [u₁.wr]; exact ain 16 (by omega) (by omega)) fun s₂ u₂ => ?_
-  refine wp_mov fun s₃ u₃ => wp_addi fun s₄ u₄ => WP.block_nil ?_
-  have g₄ : ∀ r, r ≠ .eax → s₄.gpr r = s.gpr r := fun r h => by
-    rw [u₄.other r h, u₃.other r h, u₂.gpr, u₁.gpr]
-  have m₄ : s₄.mem = (s.mem.writeW (addr (esp₀ s₀) 4) x).writeW (addr (esp₀ s₀) 16) (scr s₀) := by
-    rw [u₄.mem, u₃.mem, u₂.mem, u₁.gpr, hebp, u₁.mem, hbx]
-  have rd₄ : s₄.rd = s₀.rd := by rw [u₄.rd, u₃.rd, u₂.rd, u₁.rd, hrd]
-  have wr₄ : s₄.wr = s₀.wr := by rw [u₄.wr, u₃.wr, u₂.wr, u₁.wr, hwr]
-  have sp₄ : s₄.gpr .esp = esp₀ s₀ := by rw [g₄ _ (by decide), hsp]
-  have eax₄ : s₄.gpr .eax = x + 32 := by rw [u₄.gpr, u₃.gpr, u₂.gpr, u₁.gpr, hbx]
-  have h4 : s₄.mem.readW (addr (s₄.gpr .esp) 4) 32 = x := by
-    rw [sp₄, m₄, readW_writeW_addr _ _ (by omega) (by omega) (by omega), Mem.readW_writeW_self32]
-  have h16 : s₄.mem.readW (addr (s₄.gpr .esp) 16) 32 = scr s₀ := by
-    rw [sp₄, m₄, Mem.readW_writeW_self32]
-  have fr₄ : Frame [argR s₀] s.mem s₄.mem := by
-    rw [m₄]
-    exact ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (hp.arg_in (d := 4) (by omega) (by omega))).writeW
-      (List.mem_singleton_self _) _ (hp.arg_in (d := 16) (by omega) (by omega))
+  refine WP.seq (wp_mov fun s₃ u₃ => wp_addi fun s₄ u₄ => WP.block_nil ?_)
+  have g₄ : ∀ r, r ≠ .eax → s₄.gpr r = s.gpr r := fun r h => by rw [u₄.other r h, u₃.other r h]
+  have m₄ : s₄.mem = s.mem := by rw [u₄.mem, u₃.mem]
+  have rd₄ : s₄.rd = s₀.rd := by rw [u₄.rd, u₃.rd, hrd]
+  have wr₄ : s₄.wr = s₀.wr := by rw [u₄.wr, u₃.wr, hwr]
+  have eax₄ : s₄.gpr .eax = x + 32 := by rw [u₄.gpr, u₃.gpr, hbx]
   have hbA : (x + 32).setWidth 64 = x.setWidth 64 + 32 := addr_eq (x := x) (k := 32) (by omega)
   have s32 : Region.Sub ⟨x.setWidth 64, 32⟩ ⟨x.setWidth 64, 96⟩ := sub32 _
   have s112 : Region.Sub ⟨scA s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
-  have a16 : Region.Sub ⟨addr (esp₀ s₀) 4, 16⟩ (argR s₀) := Region.sub_prefix (by omega)
   have b64 : Region.Sub ⟨(x + 32).setWidth 64, 64⟩ ⟨x.setWidth 64, 96⟩ := by
     rw [hbA]; exact sub_offset (off := 32) (by omega) (by omega)
-  refine compressAt_ok (st := x) (scr := scr s₀) (blk := x + 32) h4 h16 eax₄ (by rw [sp₄]; omega) (by omega)
-    (by rw [show (x + 32).toNat = x.toNat + 32 by
+  refine compressAt_ok (st := x) (scr := scr s₀) (blk := x + 32) (E := esp₀ s₀)
+    (by rcases hb with rfl | rfl <;> decide) (by decide) (by rcases hb with rfl | rfl <;> decide) (by decide)
+    (by rw [g₄ _ (by decide), hsp]) (by rw [g₄ _ hb', hbx]) (by rw [g₄ _ (by decide), hebp]) eax₄ hp.sp_lo
+    (by omega) (by rw [show (x + 32).toNat = x.toNat + 32 by
       rw [BitVec.toNat_add]; exact Nat.mod_eq_of_lt (by simp; omega)]; omega) (by omega)
     ((dS.sub_left s32).sub_right s112) ?_ ((dS.sub_left b64).sub_right s112)
-    (by rw [sp₄]; exact (dA.sub_left a16).sub_right s32)
-    (by rw [sp₄]; exact (hp.a_s.sub_left a16).sub_right s112)
-    (by rw [sp₄]; exact dR.sub_right s32) (by rw [sp₄]; exact hp.ret_s.sub_right s112)
-    (by rw [sp₄]; exact (dA.sub_left a16).symm.sub_left b64) ?_ ?_ ?_
+    (dK.sub_right s32) (hp.stk_s.sub_right s112) (dK.sub_right b64) ?_ ?_ ?_
   · rw [hbA]
     intro a h₁ h₂
     simp only [Region.Contains] at h₁ h₂
     bv_omega
-  · rw [sp₄, rd₄, wr₄]
+  · rw [rd₄, wr₄]
     apply Covers.of_sub
     intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl
-    · exact ⟨_, List.mem_append_right _ hm, 32, hbA, by simp⟩
-    · exact ⟨argR s₀, by simp [hp.wr], 0, by simp, by simp⟩
-    · exact ⟨_, List.mem_append_right _ hm, 0, by simp, by simp⟩
-    · exact ⟨scR s₀, by simp [hp.wr], 0, by simp, by simp⟩
-  · rw [sp₄, wr₄]
+    subst hr
+    exact ⟨_, List.mem_append_right _ hm, 32, hbA, by simp⟩
+  · rw [wr₄]
     apply Covers.of_sub
     intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl
+    rcases hr with rfl | rfl
     · exact ⟨_, hm, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp [hp.wr], 0, by simp, by simp⟩
-    · exact ⟨argR s₀, by simp [hp.wr], 0, by simp, by simp⟩
-  · intro s' h₁ h₂ h₃ h₅ _ _ h₇
-    rw [sp₄] at h₅
+  · intro s' h₁ h₂ h₃ h₅ h₇
+    rw [m₄] at h₅ h₇
     refine hQ s' (h₁.trans rd₄) (h₂.trans wr₄) (fun r hr => by
       rw [h₃ r hr, g₄ r (by
         simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-        rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide)]) ?_ ?_
-    · refine (fr₄.mono (by simp)).trans (h₅.sub ?_)
-      intro r hr
-      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl
-      · exact ⟨_, by simp, fun _ h => h⟩
-      · exact ⟨_, by simp, fun _ h => h⟩
-      · exact ⟨argR s₀, by simp, a16⟩
-    · have hst : stateAt s₄.mem (x.setWidth 64) = stateAt s.mem (x.setWidth 64) :=
-        Proof.Sha256.Stream.stateAt_congr fun i hi =>
-          frame_bytes fr₄ (R := ⟨x.setWidth 64, 32⟩) (by simpa using dA.symm.sub_left s32) (by simp) hi
-      have hblk : blockAt s₄.mem (x.setWidth 64 + 32) = blockAt s.mem (x.setWidth 64 + 32) := by
-        simp only [blockAt]
-        apply Proof.Sha256.Stream.parseBlock_congr
-        intro k hk
-        exact frame_bytes fr₄ (R := ⟨x.setWidth 64 + 32, 64⟩)
-          (by simpa using dA.symm.sub_left (sub_offset (off := 32) (by omega) (by omega))) (by simp) hk
-      rw [h₇, hst, hbA, hblk]
+        rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide)]) h₅ ?_
+    rw [h₇, hbA]
 
 /-! ## Epilogue -/
 
@@ -830,7 +806,7 @@ theorem epilogue_ok {s₀ s : State} (hp : Pre s₀) (hrd : s.rd = s₀.rd) (hwr
 /-! ## Correctness -/
 
 /-- Everything we may write. -/
-abbrev allR (s₀ : State) : List Region := [inR s₀, ouR s₀, scR s₀, argR s₀]
+abbrev allR (s₀ : State) : List Region := [inR s₀, ouR s₀, scR s₀, argR s₀, stkR s₀]
 
 theorem callee_ne_eax {r : Reg} (hr : r ∈ calleeSaved) : r ≠ .eax := by
   simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -909,7 +885,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     bv_omega
   have bO₈ : bytesAt s₈.mem (ouA s₀ + 32) 64 = xorPad (K0 s₀) opad := by
     rw [m₈, ← hob']
-    have := VG.Proof.Hmac.X86_64.bytesAt_writeBytes_self s₇.mem (ouA s₀ + BitVec.ofNat 64 32) ob (by omega)
+    have := VG.Proof.Hmac.Common.bytesAt_writeBytes_self s₇.mem (ouA s₀ + BitVec.ofNat 64 32) ob (by omega)
     rw [hobl] at this
     exact this
   have sv₈ : Saved s₀ s₈.mem := saved_frame h₇.mem.saved F₈ fun d h₁ h₂ r hr => by
@@ -922,13 +898,13 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     (by rw [wr₈, h₇.wr]) (by rw [g₈ _ (by decide), h₇.ebx]) (by rw [g₈ _ (by decide), h₇.ebp])
     (by rw [g₈ _ (by decide), h₇.esp]) fun s₉ rd₉ wr₉ cs₉ fr₉ st₉ => ?_)
   have hI₉ : Repr s₉.mem (inA s₀) (xorPad (K0 s₀) ipad) :=
-    VG.Proof.Hmac.X86_64.Init.repr_block stI₈ bI₈ (by simp [xorPad, K0_length s₀ hp]) st₉
-  have dO : ∀ r ∈ [(⟨inA s₀, 32⟩ : Region), ⟨scA s₀, 112⟩, argR s₀], Region.Disjoint (ouR s₀) r := by
+    VG.Proof.Hmac.Common.repr_block stI₈ bI₈ (by simp [xorPad, K0_length s₀ hp]) st₉
+  have dO : ∀ r ∈ [(⟨inA s₀, 32⟩ : Region), ⟨scA s₀, 112⟩, stkR s₀], Region.Disjoint (ouR s₀) r := by
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl)
     · exact hp.i_o.symm.sub_right (sub32 _)
     · exact hp.o_s.sub_right (Region.sub_prefix (by omega))
-    · exact hp.a_o.symm
+    · exact hp.stk_o.symm
   have stO₉ : stateAt s₉.mem (ouA s₀) = H0 := by
     rw [← stO₈]
     exact Proof.Sha256.Stream.stateAt_congr fun i hi =>
@@ -943,13 +919,13 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     rcases hr with rfl | rfl | rfl
     · exact save_disj hp (hp.i_s.sub_left (sub32 _)) d h₁ h₂
     · exact save_disj112 hp d h₁ h₂
-    · exact save_disj hp hp.a_s d h₁ h₂
+    · exact save_disj hp hp.stk_s d h₁ h₂
   have f₉ : Frame (allR s₀) s₀.mem s₉.mem := (f₈.mono (by simp)).trans (fr₉.sub fun r hr => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
     · exact ⟨inR s₀, by simp, sub32 _⟩
     · exact ⟨scR s₀, by simp, Region.sub_prefix (by omega)⟩
-    · exact ⟨argR s₀, by simp, fun _ h => h⟩)
+    · exact ⟨stkR s₀, by simp, fun _ h => h⟩)
   have cs₉' : ∀ r ∈ calleeSaved, s₉.gpr r = s₇.gpr r := fun r hr => by
     rw [cs₉ r hr, g₈ r (callee_ne_eax hr)]
   -- The outer block.
@@ -957,26 +933,26 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     (by rw [cs₉' _ (by decide), h₇.esi]) (by rw [cs₉' _ (by decide), h₇.ebp])
     (by rw [cs₉' _ (by decide), h₇.esp]) fun s₁₀ rd₁₀ wr₁₀ cs₁₀ fr₁₀ st₁₀ => ?_)
   have hO : Repr s₁₀.mem (ouA s₀) (xorPad (K0 s₀) opad) :=
-    VG.Proof.Hmac.X86_64.Init.repr_block stO₉ bO₉ (by simp [xorPad, K0_length s₀ hp]) st₁₀
+    VG.Proof.Hmac.Common.repr_block stO₉ bO₉ (by simp [xorPad, K0_length s₀ hp]) st₁₀
   have hI : Repr s₁₀.mem (inA s₀) (xorPad (K0 s₀) ipad) := by
     refine repr_congr (fun i hi => frame_bytes fr₁₀ (R := inR s₀) ?_ (by simp) hi) hI₉
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl)
     · exact hp.i_o.sub_right (sub32 _)
     · exact hp.i_s.sub_right (Region.sub_prefix (by omega))
-    · exact hp.a_i.symm
+    · exact hp.stk_i.symm
   have sv₁₀ : Saved s₀ s₁₀.mem := saved_frame sv₉ fr₁₀ fun d h₁ h₂ r hr => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
     · exact save_disj hp (hp.o_s.sub_left (sub32 _)) d h₁ h₂
     · exact save_disj112 hp d h₁ h₂
-    · exact save_disj hp hp.a_s d h₁ h₂
+    · exact save_disj hp hp.stk_s d h₁ h₂
   have f₁₀ : Frame (allR s₀) s₀.mem s₁₀.mem := f₉.trans (fr₁₀.sub fun r hr => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
     · exact ⟨ouR s₀, by simp, sub32 _⟩
     · exact ⟨scR s₀, by simp, Region.sub_prefix (by omega)⟩
-    · exact ⟨argR s₀, by simp, fun _ h => h⟩)
+    · exact ⟨stkR s₀, by simp, fun _ h => h⟩)
   have cs₁₀' : ∀ r ∈ calleeSaved, s₁₀.gpr r = s₇.gpr r := fun r hr => by rw [cs₁₀ r hr, cs₉' r hr]
   -- Epilogue.
   refine WP.mono (epilogue_ok hp rd₁₀ wr₁₀ (by rw [cs₁₀' _ (by decide), h₇.ebp])
@@ -985,8 +961,8 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     refine f₁₀.readW (r := retR s₀) (Region.contains_self _ _) ?_ (by decide)
     intro r hr
     simp only [allR, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl
-    exacts [hp.ret_i, hp.ret_o, hp.ret_s, ret_a hp]
+    rcases hr with rfl | rfl | rfl | rfl | rfl
+    exacts [hp.ret_i, hp.ret_o, hp.ret_s, ret_a hp, ret_stk hp]
   · show Repr s'.mem (inA s₀) (xorPad (blockKey sha256 (bytesAt s₀.mem (kA s₀) (kl s₀))) ipad) ∧
       Repr s'.mem (ouA s₀) (xorPad (blockKey sha256 (bytesAt s₀.mem (kA s₀) (kl s₀))) opad)
     rw [blockKey_eq hp, m']
@@ -999,12 +975,15 @@ words at offsets 0, 4 and 16 are the base addresses of `inner`, `outer` and
 `scratch`. -/
 def τ₀ : VG.X86.Taint.T :=
   { regs := .ofList [.esp], flags := false, lens := [96, 96, 160, 20], bases := [(.esp, 3, 4)],
-    slots := [(3, 0, 20)], wbases := [(3, 0, 0), (3, 4, 1), (3, 16, 2)] }
+    slots := [(3, 0, 20)], wbases := [(3, 0, 0), (3, 4, 1), (3, 16, 2)], room := 20 }
 
-theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
+theorem wf₀ {s : State} (h : Proof.Hmac.initSha256X86.pre s) : VG.X86.Taint.Wf τ₀ s := by
+  have hp := pre_of h
   have hi := hp.in_fit; have ho := hp.ou_fit; have hsc := hp.scr_fit; have hs := hp.sp_fit
-  refine VG.X86.Taint.Wf.entry rfl rfl ⟨fun _ => ⟨by simp [hp.wr, τ₀], ?_, ?_⟩, ?_, ?_, fun h => absurd h (Nat.lt_irrefl 0),
-    fun _ h => (List.not_mem_nil h).elim⟩
+  have hlo := hp.sp_lo
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, k1, k2, k3, -⟩ := h
+  refine VG.X86.Taint.Wf.entryRoom rfl ⟨fun _ => ⟨by simp [hp.wr, τ₀], ?_, ?_⟩, ?_, ?_,
+    fun h => absurd h (Nat.lt_irrefl 0), fun _ h => (List.not_mem_nil h).elim⟩ fun _ => ⟨hlo, ?_⟩
   · simp only [hp.wr, List.pairwise_cons, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp,
       forall_eq, List.Pairwise.nil, and_true]
     exact ⟨⟨hp.i_o, hp.i_s, hp.a_i.symm⟩, ⟨hp.o_s, hp.a_o.symm⟩, hp.a_s.symm, fun _ h => h.elim⟩
@@ -1035,12 +1014,23 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
       show addr (s.mem.readW (addr (esp₀ s) 4 + BitVec.ofNat 64 16) 32) 0 = scA s
       rw [VG.Proof.Sha256.X86.Stream.Finalize.argWord_eq hs (k := 16) (by omega)]
       simp [addr, scr, arg]
+  · simp only [hp.wr, List.mem_cons, List.not_mem_nil, or_false]
+    rintro r (rfl | rfl | rfl | rfl)
+    · exact k1
+    · exact k2
+    · exact k3
+    · intro a h₁ h₂
+      simp only [Region.Contains, τ₀] at h₁ h₂
+      rw [addr_eq (by omega)] at h₂
+      have hE : ((esp₀ s).setWidth 64).toNat = (esp₀ s).toNat := addr_toNat _
+      generalize (esp₀ s).setWidth 64 = b at *
+      bv_omega
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.initSha256X86.pre s₁) (h₂ : Proof.Hmac.initSha256X86.pre s₂)
     (hpub : Proof.Hmac.initSha256X86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, ha⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
-  refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
+  refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ h₁, wf₀ h₂, ?_, ?_,
     fun h => absurd h (Nat.lt_irrefl 0), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
   · simp only [τ₀, RegSet.mem_ofList, List.mem_singleton] at hr
     subst hr; exact hesp
@@ -1097,14 +1087,16 @@ def initWide : Contract isa :=
       let scratch : Region := ⟨(arg s 4).setWidth 64, 608⟩
       let args : Region := ⟨argAddr s 0, 20⟩
       let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+      let stack : Region := ⟨(s.gpr .esp).setWidth 64 - 20, 20⟩
       (arg s 3).toNat ≤ 64 ∧ s.rd = [key] ∧ s.wr = [inner, outer, scratch, args] ∧
       inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
       args.Disjoint inner ∧ args.Disjoint outer ∧ args.Disjoint scratch ∧
       key.Disjoint inner ∧ key.Disjoint outer ∧ key.Disjoint scratch ∧ key.Disjoint args ∧
       ret.Disjoint inner ∧ ret.Disjoint outer ∧ ret.Disjoint scratch ∧
+      stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint scratch ∧
       (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 1).toNat + 96 ≤ 2 ^ 32 ∧
       (arg s 2).toNat + (arg s 3).toNat ≤ 2 ^ 32 ∧ (arg s 4).toNat + 608 ≤ 2 ^ 32 ∧
-      (s.gpr .esp).toNat + 24 ≤ 2 ^ 32 }
+      20 ≤ (s.gpr .esp).toNat ∧ (s.gpr .esp).toNat + 24 ≤ 2 ^ 32 }
 
 /-- The regions `initSha256X86` lets the code write. -/
 def narrowWr (s : State) : List Region :=
@@ -1121,18 +1113,18 @@ local macro "narrow" loc:(Lean.Parser.Tactic.location)? : tactic =>
 theorem initWide_pre (s : State) (h : initWide.pre s) :
     Proof.Hmac.initSha256X86.pre (s.withRegions s.rd (narrowWr s)) := by
   obtain ⟨h₁, h₂, _, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅, h₁₆, h₁₇, h₁₈, h₁₉,
-    h₂₀, h₂₁⟩ := h
+    h₂₀, h₂₁, h₂₂, h₂₃, h₂₄, h₂₅⟩ := h
   narrow
   exact ⟨h₁, h₂, trivial, h₄, h₅.sub_right (Region.sub_of_ble rfl),
     h₆.sub_right (Region.sub_of_ble rfl), h₇, h₈, h₉.sub_right (Region.sub_of_ble rfl), h₁₀, h₁₁,
     h₁₂.sub_right (Region.sub_of_ble rfl), h₁₃, h₁₄, h₁₅, h₁₆.sub_right (Region.sub_of_ble rfl), h₁₇,
-    h₁₈, h₁₉, Region.end_le_of_ble rfl h₂₀, h₂₁⟩
+    h₁₈, h₁₉.sub_right (Region.sub_of_ble rfl), h₂₀, h₂₁, h₂₂, Region.end_le_of_ble rfl h₂₃, h₂₄, h₂₅⟩
 
 /-- A state satisfying `initWide.pre`. -/
 def wideSat : State :=
   { sat with wr := [⟨0x1000, 96⟩, ⟨0x1100, 96⟩, ⟨0x3000, 608⟩, ⟨0x4004, 20⟩] }
 
-theorem initWide_implies : initWide.Implies (Spec.Hmac.initSha256Contract X86.abi) := by
+theorem initWide_implies : initWide.Implies (Spec.Hmac.initSha256Contract X86.abi 20) := by
   have a0 : arg wideSat 0 = 0x1000 := by decide
   have a1 : arg wideSat 1 = 0x1100 := by decide
   have a2 : arg wideSat 2 = 0x1200 := by decide
@@ -1147,7 +1139,7 @@ theorem initWide_implies : initWide.Implies (Spec.Hmac.initSha256Contract X86.ab
 /-- The proof is written against `initSha256X86`, widened to the shared
 contract's scratch. -/
 theorem init_verified :
-    Verified X86.target Impl.Hmac.X86.init (Spec.Hmac.initSha256Contract X86.abi) :=
+    Verified X86.target Impl.Hmac.X86.init (Spec.Hmac.initSha256Contract X86.abi 20) :=
   have hsat := initWide_implies.sat_left
   (Verified.widen (Verified.of_correct init_correct init_ct
     (.refl (hsat.elim fun s hs => ⟨_, initWide_pre s hs⟩)))

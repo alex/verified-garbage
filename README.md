@@ -48,7 +48,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -58,13 +58,13 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -74,7 +74,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>✅ SHA extensions</td>
+<td>✅ SHA extensions, AVX2, BMI1, BMI2</td>
 
 <td>✅</td>
 
@@ -160,7 +160,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -176,7 +176,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>✅ SHA extensions</td>
+<td>✅ SHA extensions, AVX2, BMI1, BMI2</td>
 
 <td>✅</td>
 
@@ -348,7 +348,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ AVX2</td>
 
 <td>✅</td>
 
@@ -402,7 +402,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -418,13 +418,13 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>✅ SHA extensions</td>
+<td>✅ SHA extensions, AVX2, BMI1, BMI2</td>
 
 <td>✅</td>
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 

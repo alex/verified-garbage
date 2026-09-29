@@ -124,14 +124,6 @@ theorem seed_split {s₀ : State} (hp : TPre Y s₀) (m : Mem) :
 
 /-! ## The value returned by `SampleNTT`, and `kgACC` -/
 
-theorem acc_step {a r : BitVec 32} (ha : a = 0 ∨ a = 1) (hr : r = 0 ∨ r = 1) :
-    (a &&& r = 0 ∨ a &&& r = 1) ∧ (a &&& r = 1 → a = 1 ∧ r = 1) ∧ (a &&& r = 0 → a = 0 ∨ r = 0) := by
-  rcases ha with rfl | rfl <;> rcases hr with rfl | rfl <;> decide
-
-theorem outcome_01 {f : Nat → Option Poly} {r : BitVec 32} {out : Poly} (h : Outcome f r out) : r = 0 ∨ r = 1 := by
-  rcases h with ⟨e, _⟩ | ⟨e, _⟩
-  exacts [.inr e, .inl e]
-
 theorem mS_eq (s₀ : State) {i j : Nat} (hj : j < 3) : mS s₀ (3 * i + j) = matSeed (kgRho (d s₀)) i j := by
   simp only [mS]
   rw [show (3 * i + j) / 3 = i by omega, show (3 * i + j) % 3 = j by omega]

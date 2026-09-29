@@ -11,7 +11,8 @@ Untrusted: everything here is checked by Lean.
   (`sv_eq`). Finitely many that each finish within some bound all finish
   within one (`samp_bound`).
 * A polynomial whose coefficients are ANDed with `0 - r`, for `r` 1 or 0:
-  unchanged or zero (`mask_poly`).
+  unchanged or zero (`mask_poly`); the AND of such values (`acc_step`), and
+  that the value a function returns with `Outcome` is 0 or 1 (`outcome_01`).
 -/
 
 namespace VG.Proof.MlKem
@@ -67,5 +68,14 @@ theorem mask_poly {m m' : Mem} {p : Addr} {r : BitVec 32} (hr : r = 0 ∨ r = 1)
       intro i hi
       simp only [polyAt, Vector.getElem_ofFn]
       rw [e i (by rw [n_eq] at hi; exact hi)]
+
+/-- `a &&& r`, for `a` and `r` each 0 or 1. -/
+theorem acc_step {a r : BitVec 32} (ha : a = 0 ∨ a = 1) (hr : r = 0 ∨ r = 1) :
+    (a &&& r = 0 ∨ a &&& r = 1) ∧ (a &&& r = 1 → a = 1 ∧ r = 1) ∧ (a &&& r = 0 → a = 0 ∨ r = 0) := by
+  rcases ha with rfl | rfl <;> rcases hr with rfl | rfl <;> decide
+
+theorem outcome_01 {f : Nat → Option Poly} {r : BitVec 32} {out : Poly} (h : Outcome f r out) : r = 0 ∨ r = 1 := by
+  rcases h with ⟨e, _⟩ | ⟨e, _⟩
+  exacts [.inr e, .inl e]
 
 end VG.Proof.MlKem

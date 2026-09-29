@@ -32,6 +32,7 @@ def artifacts : List Artifact := [
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Proof.Pbkdf2.Generic.Arm.Instances.sha512_224 }]
+    verified := Proof.Pbkdf2.Generic.Arm.Instances.sha512_224
+    spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.Pbkdf2Sha512_224.Arm

@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Sha256.X86_64.Compress
 import VerifiedGarbage.Proof.Sha256.X86_64.ShaNi.Compress
+import VerifiedGarbage.Proof.Sha256.X86_64.Avx2.Compress
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Init
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Md
 import VerifiedGarbage.Spec.Sha256.Contract
@@ -27,6 +28,13 @@ theorem compress :
 theorem compress_shani :
     Verified X86_64.target Impl.Sha256.X86_64.ShaNi.compress (Spec.Sha256.compressContract X86_64.abi) :=
   Proof.Sha256.X86_64.ShaNi.compress_verified.of_implies (by
+    contract_implies [Spec.Sha256.compressContract, Spec.Sha256.compressSig,
+      Proof.Sha256.compressX86_64, X86_64.abi, X86_64.argRegs]
+      [Proof.Sha256.X86_64.satState] using Proof.Sha256.X86_64.satState)
+
+theorem compress_avx2 :
+    Verified X86_64.target Impl.Sha256.X86_64.Avx2.compress (Spec.Sha256.compressContract X86_64.abi) :=
+  Proof.Sha256.X86_64.Avx2.compress_verified.of_implies (by
     contract_implies [Spec.Sha256.compressContract, Spec.Sha256.compressSig,
       Proof.Sha256.compressX86_64, X86_64.abi, X86_64.argRegs]
       [Proof.Sha256.X86_64.satState] using Proof.Sha256.X86_64.satState)

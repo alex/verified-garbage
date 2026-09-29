@@ -17,7 +17,7 @@ namespace VG.Proof.Scrypt.Arm.RoMix
 open VG VG.Arm VG.Impl.Scrypt.Arm
 open VG.Spec.Scrypt (bytesAt blockMix integerify leNat)
 open VG.Proof.Scrypt (bytesAt_add' bytesAt_length' leNat_append leNat_bytesAt blk_bytesAt')
-open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat toNat_add_ofNat contains_off sub_off
+open VG.Proof.Scrypt.Memory (toNat_ofNat_lt add_ofNat toNat_add_ofNat contains_off sub_off
   disj_off InRegions.of_mem)
 
 /-! ## What a call of `vg_scrypt_blockmix` does -/
