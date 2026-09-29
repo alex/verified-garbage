@@ -52,6 +52,8 @@ never import proofs.
    target's calling convention where the arguments are, the permitted memory
    regions, disjointness and which arguments are public, and the contract
    adds a postcondition (in terms of the spec) and any further precondition.
+   Each function's `Api` gives its Rust module, name and signature, and its
+   documentation, but for what the emitter derives from the signature.
 2. **Impl** — `Impl/<Alg>/<Target>.lean` defines the code as a `Prog`.
 3. **Proof** — `Proof/<Alg>/…` proves `Verified target code contract`:
    termination without faults (hence memory safety), the postcondition,
@@ -59,11 +61,17 @@ never import proofs.
    anything the contract declares the function may leak), and
    satisfiability of the precondition.
 4. **Registry** — the registration files `Artifacts/<Alg>/<Target>.lean`
-   list every `Artifact`, bundling target, Rust name
-   and signature, code, contract and proof. An `Artifact` cannot be built
+   list every `Artifact`, bundling target, Rust name and signature, code,
+   contract and proof: mostly a function's `Api`, with the stack its contract
+   gives its calls (`stack`) and any notes on the implementation. An
+   `Artifact` cannot be built
    without the proof, and the emitter's `#assert_standard_axioms` rejects
    `sorry`, `native_decide` and any non-standard axiom anywhere in them.
-5. **Emit** — `Emit.lean` renders the registry into `src/asm/<target>/<module>.rs`.
+5. **Emit** — `Emit.lean` renders the registry into `src/asm/<target>/<module>.rs`,
+   adding to each function's `# Safety` section what its contract requires of
+   where its buffers are, which depends on the target's calling convention
+   and the stack it uses (`Sig.layoutDoc`, from the same signature, `stack`
+   and `writeArgs` as the contract, as `Artifact.ofSig` proves).
    CI fails if the checked-in files differ from what Lean generates, so the
    Rust crate contains exactly the verified code.
 
@@ -95,7 +103,8 @@ constant.
   (including the CPU features each instruction requires), and the printers,
   which must print what the models mean.
 * For each artifact: its contract in `Spec/` (and the algorithm spec it
-  refers to), and its `sig` and `doc` in its registration file, and `TCB/Emit.lean`, which decides what is emitted.
+  refers to), its `sig` and `doc` (its `Api` in `Spec/`, and any notes its
+  registration file adds), and `TCB/Emit.lean`, which decides what is emitted.
 * Lean's kernel, and the assembler in `rustc`/LLVM.
 
 Everything in `Impl/` and `Proof/` is checked by Lean and need not be read.

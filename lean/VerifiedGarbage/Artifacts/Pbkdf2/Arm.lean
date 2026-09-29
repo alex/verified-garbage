@@ -7,30 +7,21 @@ import VerifiedGarbage.Proof.Pbkdf2.Arm.Shared
 
 A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
-caller to the contract; check them against the contract's `pre`/`post`.
+caller to the contract; check them against the contract's `pre`/`post`. An
+artifact made from a function's `Api` (in `Spec/`, reviewed with the
+contract) takes them from there, and this file adds only notes on the
+implementation. The emitter adds the `# Safety` items that depend on the
+target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
+against the contract.
 -/
 
 namespace VG.Artifacts.Pbkdf2.Arm
 
 def artifacts : List Artifact := [
-  { target := Arm.target
-    module := "pbkdf2"
-    name := "vg_pbkdf2_hmac_sha256_iterate"
-    sig := Spec.Pbkdf2.iterateSha256Sig
-    doc := "Runs `n` steps of PBKDF2-HMAC-SHA-256's iteration: if, for a 64-byte key `K₀`, the \
-      SHA-256 streaming state in bytes 0 to 95 of `*key` represents `K₀ ⊕ ipad` and the one \
-      in bytes 96 to 191 represents `K₀ ⊕ opad` (as `vg_hmac_sha256_init` leaves them), \
-      repeats `U ← HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, \
-      and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).\n\n\
-      Contract: `VG.Spec.Pbkdf2.iterateSha256Contract`. Constant time: only the pointers and \
-      `n` may affect timing, not the key, `U` or `T`.\n\n\
-      # Safety\n\n\
-      * `key` must be valid for reads of 192 bytes, and `u` for reads of 32 bytes.\n\
-      * `t` must be valid for reads and writes of 32 bytes.\n\
-      * `scratch` must be valid for reads and writes of 384 bytes; its contents on return \
-      are unspecified.\n\
-      * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects \
-      never do). The function uses no stack: it saves its return address in `scratch`."
+  { Spec.Pbkdf2.iterateSha256Api with
+    target := Arm.target
+    doc := Spec.Pbkdf2.iterateSha256Api.doc
+      (notes := ["The function uses no stack: it saves its return address in `scratch`."])
     code := Impl.Pbkdf2.Arm.iterate
     contract := Spec.Pbkdf2.iterateSha256Contract Arm.abi
     verified := Proof.Pbkdf2.Arm.Shared.iterate

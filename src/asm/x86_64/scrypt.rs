@@ -10,7 +10,8 @@
 ///
 /// * `b` must be valid for reads and writes of 64 bytes.
 /// * `scratch` must be valid for reads and writes of 64 bytes. It is working space: its contents on return are unspecified.
-/// * `b` and `scratch` must not overlap each other, nor the return address on the stack, and neither may wrap around the end of the address space (distinct Rust objects never do).
+/// * `b` and `scratch` must not overlap each other (distinct Rust objects never do).
+/// * Neither `b` nor `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32; 16]) {
     core::arch::naked_asm!(
@@ -639,7 +640,8 @@ pub(crate) unsafe extern "sysv64" fn vg_salsa20_8(b: *mut [u8; 64], scratch: *mu
 /// * `ry` must equal `r`, and `r` must be positive.
 /// * `b` must be valid for reads of `128 * r` bytes, and `y` for reads and writes of `128 * ry` bytes.
 /// * `scratch` must be valid for reads and writes of 128 bytes. It is working space: its contents on return are unspecified.
-/// * `b`, `y` and `scratch` must not overlap each other, the return address on the stack, or the 8 bytes of stack below it, where its calls of `vg_salsa20_8` store their return address, and none may wrap around the end of the address space (distinct Rust objects never do).
+/// * `y` and `scratch` must not overlap each other or `b` (distinct Rust objects never do).
+/// * None of `b`, `y` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_scrypt_blockmix(b: *const [u8; 128], r: usize, y: *mut [u8; 128], ry: usize, scratch: *mut [u32; 32]) {
     core::arch::naked_asm!(
@@ -746,7 +748,8 @@ pub(crate) unsafe extern "sysv64" fn vg_scrypt_blockmix(b: *const [u8; 128], r: 
 ///
 /// * `r` must be positive, `vlen` must be `N * r` for a power of two `N`, and `slen` must be `r + 2`.
 /// * `b` must be valid for reads and writes of `128 * r` bytes, `v` of `128 * vlen` bytes and `scratch` of `128 * slen` bytes. `v` and `scratch` are working space: their contents on return are unspecified.
-/// * `b`, `v` and `scratch` must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls store their return addresses, and none may wrap around the end of the address space (distinct Rust objects never do).
+/// * `b`, `v` and `scratch` must not overlap each other (distinct Rust objects never do).
+/// * None of `b`, `v` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_scrypt_romix(b: *mut [u8; 128], r: usize, v: *mut [u8; 128], vlen: usize, scratch: *mut [u8; 128], slen: usize) {
     core::arch::naked_asm!(

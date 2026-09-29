@@ -11,7 +11,8 @@
 /// * `key` must be valid for reads of 192 bytes, and `u` for reads of 32 bytes.
 /// * `t` must be valid for reads and writes of 32 bytes.
 /// * `scratch` must be valid for reads and writes of 384 bytes; its contents on return are unspecified.
-/// * `t` and `scratch` must not overlap each other, `key` or `u`, and none of the four regions may overlap the return address on the stack or the 8 bytes of stack below it, where its calls of `vg_sha256_compress` store their return address (distinct Rust objects never do).
+/// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
+/// * None of `key`, `u`, `t` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha256_iterate(key: *const [u8; 192], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 48]) {
     core::arch::naked_asm!(

@@ -1,4 +1,7 @@
 import VerifiedGarbage.Spec.Sha256
+import VerifiedGarbage.Spec.Sha1
+import VerifiedGarbage.Spec.Md5
+import VerifiedGarbage.Spec.Sha512
 
 /-!
 # HMAC (RFC 2104; FIPS 198-1)
@@ -9,7 +12,9 @@ transcribed from FIPS 198-1, *The Keyed-Hash Message Authentication Code*
 (July 2008), §4 (the same construction as RFC 2104 §2). Keys, messages and
 digests are sequences of bytes.
 
-Its contracts on each target, for HMAC-SHA-256, are in `Spec/Hmac/<Target>.lean`.
+The hash functions it is used with are below; the contracts of HMAC-SHA-256
+are in `Spec/Hmac/Contract.lean`, and those for any hash function with a
+streaming implementation in `Spec/Hmac/Generic.lean`.
 -/
 
 namespace VG.Spec.Hmac
@@ -45,5 +50,24 @@ def hmac (key text : List Byte) : List Byte := hmacBlockKey H (blockKey H key) t
 
 /-- SHA-256 (block size 64 bytes, FIPS 180-4 §1). -/
 def sha256 : HashFunction := ⟨64, Sha256.hash⟩
+
+/-- SHA-1 (block size 64 bytes, FIPS 180-4 §1). -/
+def sha1 : HashFunction := ⟨64, Sha1.hash⟩
+
+/-- MD5 (block size 64 bytes: RFC 1321 §3.4 processes the message in 16-word
+blocks; RFC 2104 §2 uses `B = 64` for it). -/
+def md5 : HashFunction := ⟨64, Md5.hash⟩
+
+/-- SHA-384 (block size 128 bytes, FIPS 180-4 §1). -/
+def sha384 : HashFunction := ⟨128, Sha512.sha384⟩
+
+/-- SHA-512 (block size 128 bytes, FIPS 180-4 §1). -/
+def sha512 : HashFunction := ⟨128, Sha512.sha512⟩
+
+/-- SHA-512/224 (block size 128 bytes, FIPS 180-4 §1). -/
+def sha512_224 : HashFunction := ⟨128, Sha512.sha512_224⟩
+
+/-- SHA-512/256 (block size 128 bytes, FIPS 180-4 §1). -/
+def sha512_256 : HashFunction := ⟨128, Sha512.sha512_256⟩
 
 end VG.Spec.Hmac
