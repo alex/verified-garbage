@@ -9,6 +9,7 @@ import VerifiedGarbage.Proof.MlKem.X86_64.CheckEk
 import VerifiedGarbage.Proof.MlKem.X86_64.Mul
 import VerifiedGarbage.Proof.MlKem.X86_64.NttInv
 import VerifiedGarbage.Proof.MlKem.X86_64.SampleCT
+import VerifiedGarbage.Proof.MlKem.X86_64.KgTop
 
 /-!
 # ML-KEM (FIPS 203) on x86-64: the polynomial primitives and ML-KEM-768
@@ -100,6 +101,15 @@ def artifacts : List Artifact := [
     doc := Spec.MlKem.checkEkApi.doc
     code := Impl.MlKem.X86_64.checkEk
     contract := Spec.MlKem.checkEkContract X86_64.abi
-    verified := Proof.MlKem.X86_64.checkEk_verified }]
+    verified := Proof.MlKem.X86_64.checkEk_verified },
+  { Spec.MlKem.keyGenApi with
+    target := X86_64.target
+    doc := Spec.MlKem.keyGenApi.doc
+      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 24 \
+        bytes of stack below its return address."])
+    code := Impl.MlKem.X86_64.keyGen
+    contract := Spec.MlKem.keyGenContract X86_64.abi 24
+    stack := 24
+    verified := Proof.MlKem.X86_64.keyGen_verified }]
 
 end VG.Artifacts.MlKem.X86_64

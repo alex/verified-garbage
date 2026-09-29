@@ -18,6 +18,7 @@ open VG.Spec.Sha3 (bytesAt)
 
 theorem rbx_cs : Reg.rbx ∈ calleeSaved := by decide
 theorem rbx_na : Reg.rbx ∉ argRegs := by decide
+theorem rbx_bases : Reg.rbx ∈ bases := by decide
 
 /-! ## Composing what pieces leave -/
 
