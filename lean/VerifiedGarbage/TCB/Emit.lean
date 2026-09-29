@@ -13,10 +13,35 @@ say `VerifiedGarbage/Artifacts/Sha3/X86_64.lean`, must define the list
 an algorithm or a target adds such a file, so that parallel changes don't
 all edit one list.
 
-`Emit.lean` finds the registration files (`registrations`), writes a
-program that imports them all, checks that the whole list depends only on
-the standard axioms and emits it (`driver`), and runs that program, whose
-`main` is `run`.
+## Variants and generic callers
+
+Some functions have several implementations with the same contract (e.g. a
+compression function in scalar code and with the SHA extensions), and other
+functions call them. A caller whose proof holds for any implementation is
+*generic*: it is emitted once for each implementation, each a direct call
+of that implementation. Adding an implementation must not edit its callers,
+so both are found by their files:
+
+* a *variant* file, `VerifiedGarbage/Variants/<Iface>/<Target>/<Name>.lean`,
+  defines `VG.Variants.<Iface>.<Target>.<Name>.variant`, one implementation
+  of the interface `<Iface>` on `<Target>`;
+* a *generic* file, `VerifiedGarbage/Generic/<Iface>/<Target>/<Alg>.lean`,
+  defines `VG.Generic.<Iface>.<Target>.<Alg>.artifacts`, a function from a
+  variant of `<Iface>` on `<Target>` to a list of artifacts.
+
+The artifacts emitted include each generic function applied to each variant
+of its interface and target, in order of their module names. What a variant
+is (its type) is up to the interface, as long as every variant and every
+generic function of it agree, which elaboration checks. Nothing here needs
+trusting beyond the files found: every artifact carries its own proof, and
+the emitter checks its calls and features (`Rust.files`) as for any other.
+A variant's own functions (e.g. the implementation itself) are listed in a
+registration file as usual.
+
+`Emit.lean` finds the registration, variant and generic files
+(`registrations`, `grouped`), writes a program that imports them all,
+checks that the whole list depends only on the standard axioms and emits it
+(`driver`), and runs that program, whose `main` is `run`.
 -/
 
 namespace VG.Emit
@@ -31,13 +56,43 @@ def registrationDir : FilePath := "VerifiedGarbage" / "Artifacts"
 def moduleOf (path : FilePath) : String :=
   ".".intercalate ((path.withExtension "").components.filter (· != "."))
 
-/-- The registration modules: the `.lean` files under `registrationDir`, in
-order of their module names. -/
-def registrations : IO (List String) := do
-  unless ← registrationDir.pathExists do return []
-  let files ← registrationDir.walkDir
+/-- The directory of the variant files, relative to `lean/`. -/
+def variantDir : FilePath := "VerifiedGarbage" / "Variants"
+
+/-- The directory of the generic files, relative to `lean/`. -/
+def genericDir : FilePath := "VerifiedGarbage" / "Generic"
+
+/-- The modules of the `.lean` files under `dir`, in order of their names. -/
+def modulesUnder (dir : FilePath) : IO (List String) := do
+  unless ← dir.pathExists do return []
+  let files ← dir.walkDir
   let mods := files.toList.filter (·.extension == some "lean") |>.map moduleOf
   return mods.mergeSort (· ≤ ·)
+
+/-- The registration modules: the `.lean` files under `registrationDir`, in
+order of their module names. -/
+def registrations : IO (List String) := modulesUnder registrationDir
+
+/-- The interface and target of a variant or generic module `mod`, e.g.
+`Sha256Compress.X86_64` for `VerifiedGarbage.Variants.Sha256Compress.X86_64.ShaNi`;
+`none` unless it is exactly three levels below the directory. -/
+def groupOf (mod : String) : Option String :=
+  match mod.splitOn "." with
+  | [_, _, i, t, _] => some s!"{i}.{t}"
+  | _ => none
+
+/-- The modules under `dir`, grouped by interface and target (`groupOf`), in
+order of the groups' names; fails on a module at any other depth. -/
+def grouped (dir : FilePath) : IO (List (String × List String)) := do
+  let mods ← modulesUnder dir
+  let mut groups : List (String × List String) := []
+  for m in mods do
+    let some g := groupOf m
+      | throw <| IO.userError s!"{m} must be at {dir}/<Iface>/<Target>/<Name>.lean"
+    groups := match groups.find? (·.1 == g) with
+      | some _ => groups.map fun (h, ms) => if h == g then (h, ms ++ [m]) else (h, ms)
+      | none => groups ++ [(g, [m])]
+  return groups.mergeSort (·.1 ≤ ·.1)
 
 /-- The name of the list a registration module defines:
 `VerifiedGarbage.Artifacts.Sha3.X86_64` defines
@@ -45,19 +100,36 @@ def registrations : IO (List String) := do
 def listOf (mod : String) : String :=
   "VG." ++ (mod.dropPrefix "VerifiedGarbage.").toString ++ ".artifacts"
 
+/-- The variant a variant module defines:
+`VerifiedGarbage.Variants.Sha256Compress.X86_64.ShaNi` defines
+`VG.Variants.Sha256Compress.X86_64.ShaNi.variant`. -/
+def variantOf (mod : String) : String :=
+  "VG." ++ (mod.dropPrefix "VerifiedGarbage.").toString ++ ".variant"
+
+/-- The artifacts of the generic modules `gens` of one interface and target,
+for each of its variant modules `vars`: one term of type `List Artifact`. -/
+def instances (gens vars : List String) : String :=
+  "(List.flatMap (fun v => List.flatten [" ++
+  ", ".intercalate (gens.map fun g => s!"{listOf g} v") ++ "]) [" ++
+  ", ".intercalate (vars.map variantOf) ++ "])"
+
 /-- The program that emits every artifact: those of each registration
-module `mods`, in order, then those of `Artifacts.lean`. It fails to
-elaborate unless each module defines its list, and unless everything
-emitted depends only on the standard axioms (`#assert_standard_axioms`). -/
-def driver (mods : List String) : String :=
+module `mods`, in order, then each generic function of `gens` applied to
+each variant of its interface and target in `vars`, then those of
+`Artifacts.lean`. It fails to elaborate unless each module defines its list
+(or variant), with types that agree, and unless everything emitted depends
+only on the standard axioms (`#assert_standard_axioms`). -/
+def driver (mods : List String) (gens vars : List (String × List String) := []) : String :=
+  let groups := gens.map fun (g, gs) => (gs, ((vars.find? (·.1 == g)).map (·.2)).getD [])
   "-- Generated by Emit.lean, which runs it. DO NOT EDIT.\n" ++
   "import VerifiedGarbage.TCB.Axioms\n" ++
   "import VerifiedGarbage.TCB.Emit\n" ++
   "import VerifiedGarbage.Artifacts\n" ++
-  String.join (mods.map fun m => s!"import {m}\n") ++
+  String.join ((mods ++ (gens ++ vars).flatMap (·.2)).map fun m => s!"import {m}\n") ++
   "\nnamespace VG.Emit\n\n" ++
   "def all : List Artifact := List.flatten [\n" ++
   String.join (mods.map fun m => s!"  {listOf m},\n") ++
+  String.join (groups.map fun (gs, vs) => s!"  {instances gs vs},\n") ++
   "  VG.artifacts]\n\n" ++
   "#assert_standard_axioms all\n\n" ++
   "end VG.Emit\n\n" ++

@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.Semantics
+import Mathlib.Util.CompileInductive
 import Lean.Elab.Tactic
 
 /-!
@@ -75,9 +76,12 @@ inductive Hint (T : Type) where
 
 variable {M : ISA} (A : Taint M)
 
-def checkBlock : A.T → List M.Instr → Option A.T
-  | τ, [] => some τ
-  | τ, i :: is => (A.step τ i).bind fun τ' => checkBlock τ' is
+/-- The analysis of a block. The kernel evaluates this for every instruction
+checked, so it is a `List.rec`, which the kernel evaluates faster than
+structural recursion (compiled to `brecOn`); `Mathlib.Util.CompileInductive`
+compiles it for `hint`. -/
+def checkBlock (τ : A.T) (is : List M.Instr) : Option A.T :=
+  List.rec (motive := fun _ => A.T → Option A.T) some (fun i _ ih τ => (A.step τ i).bind ih) is τ
 
 /-- How many instructions of a block `check` analyses between hints. -/
 def chunk : Nat := 64

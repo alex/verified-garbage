@@ -117,6 +117,7 @@ jobs:
       - run: python3 ci/check_lean_imports.py
       - run: python3 ci/check_lean_speed.py
       - run: python3 ci/algorithms_table.py --check
+      - run: python3 ci/check_arch_gates.py
 
   vectors:
     name: Test vector provenance

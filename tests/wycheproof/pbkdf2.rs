@@ -6,7 +6,6 @@
 use core::num::NonZeroU32;
 
 use serde::Deserialize;
-use verified_garbage::pbkdf2::{Pbkdf2Hash, pbkdf2_hmac};
 
 use crate::harness::{self, Expectation, Fields, Hex};
 
@@ -36,9 +35,4 @@ pub(crate) fn check_with(name: &str, derive: fn(&[u8], &[u8], NonZeroU32, &mut [
         );
         assert_eq!(dk, c.dk.0, "tcId {}", test.tc_id);
     }
-}
-
-/// Every vector of `name`, with `pbkdf2_hmac::<H>`.
-pub(crate) fn check<H: Pbkdf2Hash>(name: &str) {
-    check_with(name, pbkdf2_hmac::<H>);
 }

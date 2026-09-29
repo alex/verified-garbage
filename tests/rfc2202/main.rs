@@ -1,18 +1,16 @@
-//! The HMAC-MD5 and HMAC-SHA-1 test cases of RFC 2202 (Sections 2 and 3).
+//! The HMAC-MD5 test cases of RFC 2202 (Section 2), which Wycheproof does
+//! not have (HMAC-SHA-1, the RFC's other hash function, is tested with
+//! Wycheproof's vectors, in `tests/wycheproof/hmac_sha1.rs`).
 //!
 //! The RFC is vendored under `vectors/rfc2202/` (see `vectors/sources/`
 //! for where it comes from) and compiled into the test binary, so these tests
-//! always run. (Test cases 5 to 7 of Section 3 are printed twice, the second
-//! time after a page break in the middle of a value; the first printing of
-//! each is used.) Test case 5's truncated MAC is compared with the start of
-//! the computed one. A module here for each hash function.
+//! always run. Test case 5's truncated MAC is compared with the start of the
+//! computed one.
 
 #![cfg(target_arch = "x86_64")]
 
-mod md5;
-mod sha1;
-
-use verified_garbage::hmac::{Hmac, HmacHash};
+use verified_garbage::hashes::md5::Md5;
+use verified_garbage::hmac::Hmac;
 
 const RFC: &str = include_str!("../../vectors/rfc2202/rfc2202.txt");
 
@@ -40,7 +38,7 @@ fn value(v: &str) -> Vec<u8> {
 }
 
 /// A test case: the key, the data and the (possibly truncated) MAC.
-pub(crate) struct Case {
+struct Case {
     key: Vec<u8>,
     data: Vec<u8>,
     mac: Vec<u8>,
@@ -50,7 +48,7 @@ pub(crate) struct Case {
 /// `stop`. A field starts at the beginning of a line (`name =  value`, or
 /// `name  value`), and an indented line, or one of a single word, continues
 /// the previous one's value; the page footers and headers are skipped.
-pub(crate) fn cases(start: &str, stop: &str) -> Vec<Case> {
+fn cases(start: &str, stop: &str) -> Vec<Case> {
     let mut groups: Vec<(String, Vec<(String, String)>)> = Vec::new();
     let section = RFC
         .lines()
@@ -78,10 +76,7 @@ pub(crate) fn cases(start: &str, stop: &str) -> Vec<Case> {
         }
     }
     let mut out = Vec::new();
-    for (i, (n, fields)) in groups.iter().enumerate() {
-        if groups[..i].iter().any(|(m, _)| m == n) {
-            continue;
-        }
+    for (n, fields) in &groups {
         assert_eq!(*n, (out.len() + 1).to_string());
         let get = |name: &str| {
             let (_, v) = fields.iter().find(|(f, _)| f == name).unwrap();
@@ -102,13 +97,14 @@ pub(crate) fn cases(start: &str, stop: &str) -> Vec<Case> {
 
 /// Checks the cases, at once and one byte at a time, with each
 /// implementation this CPU can run.
-pub(crate) fn check<H: HmacHash>(cases: &[Case]) {
-    for c in cases {
-        let full = Hmac::<H>::mac(&c.key, &c.data);
-        assert_eq!(full.as_ref().len(), H::OUTPUT_SIZE);
+#[test]
+fn hmac_md5() {
+    for c in cases("2. Test Cases for HMAC-MD5", "3. Test Cases for HMAC-SHA-1") {
+        let full = Hmac::<Md5>::mac(&c.key, &c.data);
+        assert_eq!(full.as_ref().len(), Md5::OUTPUT_SIZE);
         assert_eq!(&full.as_ref()[..c.mac.len()], &c.mac[..]);
         for mask in [u32::MAX, 0] {
-            let mut h = Hmac::<H>::__with_features(&c.key, mask);
+            let mut h = Hmac::<Md5>::__with_features(&c.key, mask);
             for byte in &c.data {
                 h.update(core::slice::from_ref(byte));
             }

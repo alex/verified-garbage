@@ -3,6 +3,7 @@
 #![cfg(target_arch = "x86_64")]
 
 use verified_garbage::hashes::sha512::Sha512;
+use verified_garbage::hmac::Hmac;
 
 use crate::hmac::check;
 use crate::require_vectors;
@@ -10,5 +11,5 @@ use crate::require_vectors;
 #[test]
 fn hmac_sha512() {
     require_vectors!();
-    check::<Sha512>("hmac_sha512_test.json");
+    check("hmac_sha512_test.json", Hmac::<Sha512>::new);
 }
