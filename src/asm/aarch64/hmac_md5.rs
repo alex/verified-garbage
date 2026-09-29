@@ -8,10 +8,12 @@
 ///
 /// # Safety
 ///
-/// * `key_len` must be at most 64.
-/// * `inner` and `outer` must each be valid for reads and writes of 80 bytes.
+/// * `inner` must be valid for reads and writes of 80 bytes.
+/// * `outer` must be valid for reads and writes of 80 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `scratch` must be valid for reads and writes of 384 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 384 bytes.
+/// * `key_len` must be at most 64.
+/// * The contents of `scratch` on return are unspecified.
 /// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `key` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -96,10 +98,12 @@ pub(crate) unsafe extern "C" fn vg_hmac_md5_init(inner: *mut [u8; 80], outer: *m
 ///
 /// # Safety
 ///
-/// * `inner` must be valid for reads and writes of 80 bytes; its contents on return are unspecified.
+/// * `inner` must be valid for reads and writes of 80 bytes.
 /// * `outer` must be valid for reads of 80 bytes.
-/// * `out` must be valid for writes of 16 bytes.
-/// * `scratch` must be valid for reads and writes of 384 bytes; its contents on return are unspecified.
+/// * `out` must be valid for reads and writes of 16 bytes.
+/// * `scratch` must be valid for reads and writes of 384 bytes.
+/// * The contents of `inner` on return are unspecified.
+/// * The contents of `scratch` on return are unspecified.
 /// * `inner`, `out` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `out` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]

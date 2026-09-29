@@ -29,11 +29,12 @@ whose printed code is exactly that of `body`, for every call, including the
 calls in `body` itself; otherwise nothing is emitted.
 
 The documentation of each function is its `doc`, with what its contract
-requires of where its buffers are added to its `# Safety` section
-(`fullDoc`, `Sig.layoutDoc`): these obligations depend on the target's
-calling convention and on the stack the code uses, and are generated from the
-same signature, calling convention, `writeArgs` and `stack` as the contract
-(`Artifact.ofSig`).
+requires of the memory each buffer is valid for and of where its buffers are
+added to its `# Safety` section (`fullDoc`, `Sig.validDoc`, `Sig.layoutDoc`):
+the latter depends on the target's calling convention and on the stack the
+code uses, and both are generated from the same signature, calling
+convention, `writeArgs` and `stack` as the contract (`Artifact.ofSig`), so
+the `doc` must not state them itself (`checkLayout`).
 
 An artifact whose code needs CPU features beyond the target's baseline
 (`Artifact.features`) also gets a last `# Safety` item saying the CPU must
@@ -140,25 +141,45 @@ def insertNotes (doc : String) : List String → String
       sep.intercalate rest.reverse ++ String.join (notes.map ("\n\n" ++ ·)) ++ sep ++ safety
     | _ => doc
 
+/-- `doc` with the items `items` first in its `# Safety` section (after
+`"\n\n# Safety\n\n"`, which `checkLayout` requires it to have if there are
+any), which may have no items of its own. -/
+def prependSafety (doc : String) : List String → String
+  | [] => doc
+  | items =>
+    let sep := "\n\n# Safety\n\n"
+    match (doc.splitOn sep).reverse with
+    | safety :: rest@(_ :: _) =>
+      sep.intercalate rest.reverse ++ sep ++ "\n".intercalate (items.map ("* " ++ ·)) ++
+        (if safety.isEmpty then "" else "\n" ++ safety)
+    | _ => doc
+
 /-- The documentation of `a` as emitted: its `doc`, with what its signature's
-contract requires of where its buffers are (`Sig.layoutNote` before its
-`# Safety` section, `Sig.layoutDoc` at the end), and the CPU features it
-needs (`featureDoc`). -/
+contract requires of the memory each buffer is valid for and of where its
+buffers are (`Sig.layoutNote` before its `# Safety` section, `Sig.validDoc`
+first in it and `Sig.layoutDoc` at the end), and the CPU features it needs
+(`featureDoc`). -/
 def fullDoc (a : Artifact) : String :=
   let A := a.target.abi
   let items := Sig.layoutDoc A a.sig a.writeArgs a.stack
-  featureDoc (insertNotes a.doc (Sig.layoutNote A a.sig a.writeArgs) ++
-    String.join (items.map ("\n* " ++ ·))) a.features
+  featureDoc (prependSafety (insertNotes a.doc (Sig.layoutNote A a.sig a.writeArgs))
+    (Sig.validDoc a.sig) ++ String.join (items.map ("\n* " ++ ·))) a.features
 
 /-- If the emitter adds anything to the documentation of `a` from its
-signature (`fullDoc`), `doc` ends with its `# Safety` section. -/
+signature (`fullDoc`), `doc` ends with its `# Safety` section, which starts
+with `"\n\n# Safety\n\n"`; and `doc` does not itself state what memory a
+buffer must be valid for, which the emitter generates (`Sig.validDoc`). -/
 def checkLayout (a : Artifact) : Except String Unit := do
+  if (a.doc.splitOn "valid for").length > 1 then
+    throw s!"{a.target.name}: {a.name}'s doc states what memory a buffer must be valid for, \
+      which the emitter generates from its signature (`Sig.validDoc`)"
   let A := a.target.abi
   if (Sig.layoutDoc A a.sig a.writeArgs a.stack).isEmpty &&
-      (Sig.layoutNote A a.sig a.writeArgs).isEmpty then return
+      (Sig.layoutNote A a.sig a.writeArgs).isEmpty && (Sig.validDoc a.sig).isEmpty then return
   let ok := match a.doc.splitOn "\n# " with
     | [_] => false
-    | parts => parts.getLast!.startsWith "Safety\n"
+    | parts => parts.getLast!.startsWith "Safety\n" &&
+        (a.doc.splitOn "\n\n# Safety\n\n").length > 1
   unless ok do
     throw s!"{a.target.name}: {a.name} has buffers but its doc does not end with its \
       `# Safety` section"

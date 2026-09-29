@@ -44,11 +44,7 @@ def compressApi : Api where
     (`A, B, C, D`) with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
     Contract: `VG.Spec.Md5.compressContract`. Constant time: only the pointers and `n` may affect \
     timing, not the MD buffer or the blocks."
-  safety := [
-    "`state` must be valid for reads and writes of 16 bytes.",
-    "`blocks` must be valid for reads of `64 * n` bytes.",
-    "`scratch` must be valid for reads and writes of 64 bytes; its contents on return are \
-      unspecified."]
+  safety := ["The contents of `scratch` on return are unspecified."]
 
 /-- `vg_md5_init(state: *mut [u8; 80])`. -/
 def initSig : Sig where
@@ -67,7 +63,7 @@ def initApi : Api where
     message.\n\n\
     Contract: `VG.Spec.Md5.initContract`. The streaming state is the MD buffer followed by a \
     buffered partial block (`VG.Spec.Md5.Repr`)."
-  safety := ["`state` must be valid for writes of 80 bytes."]
+  safety := []
 
 /-- `vg_md5_update(state: *mut [u8; 80], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 14])`.
 `count` is public; `scratch` is working space. -/
@@ -96,11 +92,7 @@ def updateApi : Api where
     bytes at `data`.\n\n\
     Contract: `VG.Spec.Md5.updateContract`. Constant time: only the pointers, `count` and `len` \
     may affect timing, not the state or the data."
-  safety := [
-    "`state` must be valid for reads and writes of 80 bytes.",
-    "`data` must be valid for reads of `len` bytes.",
-    "`scratch` must be valid for reads and writes of 112 bytes; its contents on return are \
-      unspecified."]
+  safety := ["The contents of `scratch` on return are unspecified."]
 
 /-- `vg_md5_finalize(state: *mut [u8; 80], count: u64, out: *mut [u8; 16], scratch: *mut [u64; 14])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
@@ -129,10 +121,7 @@ def finalizeApi : Api where
     Contract: `VG.Spec.Md5.finalizeContract`. Constant time: only the pointers and `count` may \
     affect timing, not the state."
   safety := [
-    "`state` must be valid for reads and writes of 80 bytes; its contents on return are \
-      unspecified.",
-    "`out` must be valid for writes of 16 bytes.",
-    "`scratch` must be valid for reads and writes of 112 bytes; its contents on return are \
-      unspecified."]
+    "The contents of `state` on return are unspecified.",
+    "The contents of `scratch` on return are unspecified."]
 
 end VG.Spec.Md5

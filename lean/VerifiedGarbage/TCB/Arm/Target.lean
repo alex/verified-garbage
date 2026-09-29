@@ -114,7 +114,8 @@ abbrev target : Target where
   isa := isa
   printer := printer
   abiPreserved := abiPreserved
-  rustCfg := "target_arch = \"arm\""
+  -- `armeb` targets are big-endian.
+  rustCfg := "all(target_arch = \"arm\", target_endian = \"little\")"
   rustAbi := "C"
   abi := abi
 

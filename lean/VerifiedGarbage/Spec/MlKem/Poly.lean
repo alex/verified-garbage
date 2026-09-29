@@ -195,15 +195,15 @@ def decodeDecompressContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract
 
 /-! ## The functions on every target -/
 
-/-- The `# Safety` item of a polynomial argument. -/
-private def polySafety (name : String) (access : String) (reduced : Bool) : String :=
-  s!"`{name}` must be valid for {access} of 1024 bytes" ++
-    (if reduced then ", and each of its 256 `u32`s must be less than 3329." else ".")
+/-- The `# Safety` item of a polynomial argument whose coefficients must be
+reduced. -/
+private def reducedSafety (name : String) : String :=
+  s!"Each of the 256 `u32`s of `{name}` must be less than 3329."
 
-/-- The `# Safety` item of `scratch`, of `bytes` bytes. -/
-private def scratchSafety (bytes : Nat) : String :=
-  s!"`scratch` must be valid for reads and writes of {bytes} bytes. It is working space: on \
-    return it may hold intermediate values, which the caller must destroy (FIPS 203 §3.3)."
+/-- The `# Safety` item of `scratch`. -/
+private def scratchSafety : String :=
+  "`scratch` is working space: on return it may hold intermediate values, which the caller must \
+    destroy (FIPS 203 §3.3)."
 
 /-- A constant-time polynomial primitive: the sentence that says so. -/
 private def ctDoc (contract : String) : String :=
@@ -218,7 +218,7 @@ def nttApi : Api where
   writeArgs := true
   summary := "The ML-KEM number-theoretic transform, `NTT` (FIPS 203 Algorithm 9), of the \
     polynomial `*f` (256 coefficients less than `q` = 3329), in place." ++ ctDoc "nttContract"
-  safety := [polySafety "f" "reads and writes" true, scratchSafety 1024]
+  safety := [reducedSafety "f", scratchSafety]
 
 /-- `vg_mlkem_inv_ntt` on every target. (Not `vg_mlkem_ntt_inv`: a function
 named after another with a suffix and the same signature is a variant of it,
@@ -231,7 +231,7 @@ def nttInvApi : Api where
   summary := "The inverse of the ML-KEM number-theoretic transform, `NTT⁻¹` (FIPS 203 \
     Algorithm 10), of `*f` (256 coefficients less than `q` = 3329), in place." ++
     ctDoc "nttInvContract"
-  safety := [polySafety "f" "reads and writes" true, scratchSafety 1024]
+  safety := [reducedSafety "f", scratchSafety]
 
 /-- `vg_mlkem_multiply_ntts` on every target. -/
 def mulApi : Api where
@@ -242,8 +242,7 @@ def mulApi : Api where
   summary := "The product of two NTT representations, `MultiplyNTTs` (FIPS 203 Algorithm 11): \
     writes the product of `*f` and `*g` to `*h`, each of 256 coefficients less than \
     `q` = 3329." ++ ctDoc "mulContract"
-  safety := [polySafety "h" "writes" false, polySafety "f" "reads" true,
-    polySafety "g" "reads" true, scratchSafety 1024]
+  safety := [reducedSafety "f", reducedSafety "g", scratchSafety]
 
 /-- `vg_mlkem_add` on every target. -/
 def addApi : Api where
@@ -253,7 +252,7 @@ def addApi : Api where
   writeArgs := true
   summary := "Adds the polynomial `*g` to `*f` modulo `q` = 3329, coefficient by coefficient \
     (FIPS 203 (2.3))." ++ ctDoc "addContract"
-  safety := [polySafety "f" "reads and writes" true, polySafety "g" "reads" true]
+  safety := [reducedSafety "f", reducedSafety "g"]
 
 /-- `vg_mlkem_sub` on every target. -/
 def subApi : Api where
@@ -263,7 +262,7 @@ def subApi : Api where
   writeArgs := true
   summary := "Subtracts the polynomial `*g` from `*f` modulo `q` = 3329, coefficient by \
     coefficient." ++ ctDoc "subContract"
-  safety := [polySafety "f" "reads and writes" true, polySafety "g" "reads" true]
+  safety := [reducedSafety "f", reducedSafety "g"]
 
 /-- `vg_mlkem_sample_ntt` on every target. -/
 def sampleNTTApi : Api where
@@ -279,8 +278,7 @@ def sampleNTTApi : Api where
     Contract: `VG.Spec.MlKem.sampleNTTContract`. Not constant time in the seed: timing may \
     depend on the pointer and on `*seed` (public in ML-KEM: the seed `ρ` of the matrix and two \
     indices), but not on anything else."
-  safety := ["`seed` must be valid for reads of 34 bytes.", polySafety "a" "writes" false,
-    scratchSafety 2048]
+  safety := [scratchSafety]
 
 /-- `vg_mlkem_cbd2` on every target. -/
 def cbd2Api : Api where
@@ -291,7 +289,7 @@ def cbd2Api : Api where
   summary := "`SamplePolyCBD₂` (FIPS 203 Algorithm 8 with `η` = 2): writes the polynomial \
     sampled from the 128 bytes `*b` to `*f` (256 coefficients less than `q` = 3329)." ++
     ctDoc "cbd2Contract"
-  safety := ["`b` must be valid for reads of 128 bytes.", polySafety "f" "writes" false]
+  safety := []
 
 /-- `vg_mlkem_encode12` on every target. -/
 def encode12Api : Api where
@@ -301,7 +299,7 @@ def encode12Api : Api where
   writeArgs := true
   summary := "`ByteEncode₁₂` (FIPS 203 Algorithm 5): writes the 256 coefficients of `*f`, each \
     less than `q` = 3329, to `*out` as 12-bit little-endian fields." ++ ctDoc "encode12Contract"
-  safety := [polySafety "f" "reads" true, "`out` must be valid for writes of 384 bytes."]
+  safety := [reducedSafety "f"]
 
 /-- `vg_mlkem_decode12` on every target. -/
 def decode12Api : Api where
@@ -311,7 +309,7 @@ def decode12Api : Api where
   writeArgs := true
   summary := "`ByteDecode₁₂` (FIPS 203 Algorithm 6): writes the 256 12-bit little-endian \
     fields of `*b`, each reduced modulo `q` = 3329, to `*f`." ++ ctDoc "decode12Contract"
-  safety := ["`b` must be valid for reads of 384 bytes.", polySafety "f" "writes" false]
+  safety := []
 
 /-- `vg_mlkem_compress_encode` on every target. -/
 def compressEncodeApi : Api where
@@ -324,8 +322,7 @@ def compressEncodeApi : Api where
     `d`-bit little-endian fields.\n\n\
     Contract: `VG.Spec.MlKem.compressEncodeContract`. Constant time: only the pointers, `d` \
     and `len` may affect timing, not the data."
-  safety := ["`d` must be 1, 4 or 10, and `len` must be `32 * d`.", polySafety "f" "reads" true,
-    "`out` must be valid for writes of `len` bytes."]
+  safety := ["`d` must be 1, 4 or 10, and `len` must be `32 * d`.", reducedSafety "f"]
 
 /-- `vg_mlkem_decode_decompress` on every target. -/
 def decodeDecompressApi : Api where
@@ -338,7 +335,6 @@ def decodeDecompressApi : Api where
     than `q` = 3329).\n\n\
     Contract: `VG.Spec.MlKem.decodeDecompressContract`. Constant time: only the pointers, `d` \
     and `len` may affect timing, not the data."
-  safety := ["`d` must be 1, 4 or 10, and `len` must be `32 * d`.",
-    "`b` must be valid for reads of `len` bytes.", polySafety "f" "writes" false]
+  safety := ["`d` must be 1, 4 or 10, and `len` must be `32 * d`."]
 
 end VG.Spec.MlKem

@@ -13,7 +13,8 @@
 /// * `h` must be valid for reads of 16 bytes.
 /// * `y` must be valid for reads and writes of 16 bytes.
 /// * `data` must be valid for reads of `16 * n` bytes.
-/// * `scratch` must be valid for reads and writes of 256 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 256 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `y` and `scratch` must not overlap each other, `h` or `data` (distinct Rust objects never do).
 /// * None of `h`, `y`, `data` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -717,7 +718,8 @@ pub(crate) const VG_GHASH_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
 /// * `h` must be valid for reads of 16 bytes.
 /// * `y` must be valid for reads and writes of 16 bytes.
 /// * `data` must be valid for reads of `16 * n` bytes.
-/// * `scratch` must be valid for reads and writes of 256 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 256 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `y` and `scratch` must not overlap each other, `h` or `data` (distinct Rust objects never do).
 /// * None of `h`, `y`, `data` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `pclmulqdq` and `ssse3` target features.
