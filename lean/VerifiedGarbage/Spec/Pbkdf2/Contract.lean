@@ -90,7 +90,7 @@ def pbkdf2Sha256Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :
 
 /-- `vg_pbkdf2_hmac_sha256` on every target. -/
 def pbkdf2Sha256Api : Api where
-  module := "pbkdf2"
+  module := "pbkdf2_sha256"
   name := "vg_pbkdf2_hmac_sha256"
   sig := pbkdf2Sha256Sig
   writeArgs := true
