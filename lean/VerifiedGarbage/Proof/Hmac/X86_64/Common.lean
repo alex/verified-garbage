@@ -19,13 +19,13 @@ open VG.X86_64 in
 /-- The contract the proof is written against (and verified callers use); the
 artifact's is the shared contract of `Spec/`, which implies it.
 x86-64 contract for
-`vg_hmac_sha256_init(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 20])`,
+`vg_hmac_sha256_init(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 76])`,
 for a key of at most 64 bytes (the SHA-256 block size): makes the streaming
 state at `inner` represent `K₀ ⊕ ipad` and the one at `outer` represent
 `K₀ ⊕ opad`, for the key `K₀` made of the `key_len` bytes at `key`.
 
 The code may read `key` (`key_len` bytes) and read and write `inner` and
-`outer` (96 bytes each) and `scratch` (160 bytes, whose contents on exit are
+`outer` (96 bytes each) and `scratch` (608 bytes, whose contents on exit are
 unspecified). These may not overlap each other, nor the return address on
 the stack. The pointers and `key_len` are public; the key is secret. -/
 def initSha256X86_64 : Contract X86_64.isa where
@@ -33,7 +33,7 @@ def initSha256X86_64 : Contract X86_64.isa where
     let inner : Region := ⟨s.gpr .rdi, 96⟩
     let outer : Region := ⟨s.gpr .rsi, 96⟩
     let key : Region := ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩
-    let scratch : Region := ⟨s.gpr .r8, 160⟩
+    let scratch : Region := ⟨s.gpr .r8, 608⟩
     let ret : Region := ⟨s.gpr .rsp, 8⟩
     let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
     (s.gpr .rcx).toNat ≤ 64 ∧ s.rd = [key] ∧ s.wr = [inner, outer, scratch] ∧
@@ -52,7 +52,7 @@ open VG.X86_64 in
 /-- The contract the proof is written against (and verified callers use); the
 artifact's is the shared contract of `Spec/`, which implies it.
 x86-64 contract for
-`vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 30])`:
+`vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 86])`:
 if, for a 64-byte key `K₀` and a text, the streaming state at `inner`
 represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes (modulo 2⁶⁴), and the one at
 `outer` represents `K₀ ⊕ opad`, leaves the HMAC-SHA-256 of the text under
@@ -63,7 +63,7 @@ own so that the code can address every region from the two pointers it
 keeps in registers across the inlined SHA-256 finalizations.
 
 The code may read `outer` (96 bytes), and read and write `inner` (96 bytes,
-whose contents on exit are unspecified) and `scratch` (240 bytes, whose
+whose contents on exit are unspecified) and `scratch` (688 bytes, whose
 contents on exit are unspecified apart from the MAC). These may not overlap
 each other, nor the return address on the stack. The pointers and `count`
 are public; the states are secret. -/
@@ -71,7 +71,7 @@ def finalizeSha256X86_64 : Contract X86_64.isa where
   pre s :=
     let inner : Region := ⟨s.gpr .rdi, 96⟩
     let outer : Region := ⟨s.gpr .rsi, 96⟩
-    let scratch : Region := ⟨s.gpr .rcx, 240⟩
+    let scratch : Region := ⟨s.gpr .rcx, 688⟩
     let ret : Region := ⟨s.gpr .rsp, 8⟩
     let stack : Region := ⟨s.gpr .rsp - 16, 16⟩
     s.rd = [outer] ∧ s.wr = [inner, scratch] ∧

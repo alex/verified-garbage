@@ -1,6 +1,6 @@
 //! PBKDF2-HMAC-SHA-512 against its definition.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use verified_garbage::hashes::sha512::Sha512;
 use verified_garbage::pbkdf2::pbkdf2_hmac;

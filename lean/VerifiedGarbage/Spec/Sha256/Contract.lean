@@ -23,11 +23,15 @@ implementation calls.
 
 namespace VG.Spec.Sha256
 
-/-- `vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14])`.
-`scratch` is working space. -/
+/-- `vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 70])`.
+`scratch` is working space, sized for the tightest target: x86-64 with AVX2
+keeps the message schedules of two blocks in it (512 bytes), and saves six
+callee-saved registers. The other SHA-256 functions, and HMAC-SHA-256's and
+PBKDF2-HMAC-SHA-256's, pass theirs to it, so theirs have room for it and for
+what they keep across its calls. -/
 def compressSig : Sig where
   params := [("state", .array true .u32 8), ("blocks", .slice false (.array .u8 64) "n"),
-    ("scratch", .array true .u64 14)]
+    ("scratch", .array true .u64 70)]
 
 /-- Updates the hash value at `state` with the `n` 64-byte blocks at
 `blocks`. The hash value and the blocks are secret. -/
@@ -47,7 +51,7 @@ def compressApi : Api where
   safety := [
     "`state` must be valid for reads and writes of 32 bytes.",
     "`blocks` must be valid for reads of `64 * n` bytes.",
-    "`scratch` must be valid for reads and writes of 112 bytes; its contents on return are \
+    "`scratch` must be valid for reads and writes of 560 bytes; its contents on return are \
       unspecified."]
 
 /-- `vg_sha256_init(state: *mut [u8; 96])`. -/
@@ -69,11 +73,11 @@ def initApi : Api where
     buffered partial block (`VG.Spec.Sha256.Repr`)."
   safety := ["`state` must be valid for writes of 96 bytes."]
 
-/-- `vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20])`.
+/-- `vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 76])`.
 `count` is public; `scratch` is working space. -/
 def updateSig : Sig where
   params := [("state", .array true .u8 96), ("count", .int .u64 true),
-    ("data", .slice false .u8 "len"), ("scratch", .array true .u64 20)]
+    ("data", .slice false .u8 "len"), ("scratch", .array true .u64 76)]
 
 /-- If the streaming state at `state` represents a message `msg` of `count`
 bytes (modulo 2⁶⁴), then afterwards it represents `msg` followed by the `len`
@@ -99,15 +103,15 @@ def updateApi : Api where
   safety := [
     "`state` must be valid for reads and writes of 96 bytes.",
     "`data` must be valid for reads of `len` bytes.",
-    "`scratch` must be valid for reads and writes of 160 bytes; its contents on return are \
+    "`scratch` must be valid for reads and writes of 608 bytes; its contents on return are \
       unspecified."]
 
-/-- `vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20])`.
+/-- `vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 76])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
 space. -/
 def finalizeSig : Sig where
   params := [("state", .array true .u8 96), ("count", .int .u64 true),
-    ("out", .array true .u8 32), ("scratch", .array true .u64 20)]
+    ("out", .array true .u8 32), ("scratch", .array true .u64 76)]
 
 /-- If the streaming state at `state` represents a message `msg` of `count`
 bytes (modulo 2⁶⁴), writes the SHA-256 digest of `msg` to `out`. The state is
@@ -132,7 +136,7 @@ def finalizeApi : Api where
     "`state` must be valid for reads and writes of 96 bytes; its contents on return are \
       unspecified.",
     "`out` must be valid for writes of 32 bytes.",
-    "`scratch` must be valid for reads and writes of 160 bytes; its contents on return are \
+    "`scratch` must be valid for reads and writes of 608 bytes; its contents on return are \
       unspecified."]
 
 end VG.Spec.Sha256

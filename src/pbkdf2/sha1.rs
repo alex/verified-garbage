@@ -3,7 +3,7 @@
 //! PBKDF2 iteration for every streaming hash function, calling SHA-1's verified
 //! functions.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use crate::arch::pbkdf2_sha1::vg_pbkdf2_hmac_sha1_iterate;
 use crate::hashes::sha1::Sha1;

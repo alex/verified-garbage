@@ -10,11 +10,11 @@
 ///
 /// * `state` must be valid for reads and writes of 32 bytes.
 /// * `blocks` must be valid for reads of `64 * n` bytes.
-/// * `scratch` must be valid for reads and writes of 112 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 560 bytes; its contents on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `blocks` (distinct Rust objects never do).
 /// * None of `state`, `blocks` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 70]) {
     core::arch::naked_asm!(
         "mov QWORD PTR [rcx+64], rbx",
         "mov QWORD PTR [rcx+72], rbp",
@@ -3008,7 +3008,7 @@ pub(crate) const VG_SHA256_COMPRESS_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
 /// * None of `state`, `blocks` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_compress_shani(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_compress_shani(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 70]) {
     core::arch::naked_asm!(
         "movabs rax, 289644378169868803",
         "movq xmm8, rax",
@@ -3267,18 +3267,18 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_compress_shani(state: *mut [u32; 
 ///
 /// * `state` must be valid for reads and writes of 96 bytes.
 /// * `data` must be valid for reads of `len` bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
 /// * None of `state`, `data` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 76]) {
     core::arch::naked_asm!(
-        "mov QWORD PTR [r8+112], rbx",
-        "mov QWORD PTR [r8+120], rbp",
-        "mov QWORD PTR [r8+128], r12",
-        "mov QWORD PTR [r8+136], r13",
-        "mov QWORD PTR [r8+144], r14",
-        "mov QWORD PTR [r8+152], r15",
+        "mov QWORD PTR [r8+560], rbx",
+        "mov QWORD PTR [r8+568], rbp",
+        "mov QWORD PTR [r8+576], r12",
+        "mov QWORD PTR [r8+584], r13",
+        "mov QWORD PTR [r8+592], r14",
+        "mov QWORD PTR [r8+600], r15",
         "mov rbx, rdi",
         "mov r15, r8",
         "mov rbp, rdx",
@@ -3375,12 +3375,12 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_update(state: *mut [u8; 96], coun
         "220:",
         "test r14, r14",
         "jne 20b",
-        "mov rbx, QWORD PTR [r15+112]",
-        "mov rbp, QWORD PTR [r15+120]",
-        "mov r12, QWORD PTR [r15+128]",
-        "mov r13, QWORD PTR [r15+136]",
-        "mov r14, QWORD PTR [r15+144]",
-        "mov r15, QWORD PTR [r15+152]",
+        "mov rbx, QWORD PTR [r15+560]",
+        "mov rbp, QWORD PTR [r15+568]",
+        "mov r12, QWORD PTR [r15+576]",
+        "mov r13, QWORD PTR [r15+584]",
+        "mov r14, QWORD PTR [r15+592]",
+        "mov r15, QWORD PTR [r15+600]",
         "ret",
         vg_sha256_compress = sym super::sha256::vg_sha256_compress,
     )
@@ -3394,18 +3394,18 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_update(state: *mut [u8; 96], coun
 ///
 /// * `state` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
 /// * `out` must be valid for writes of 32 bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
 /// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
 /// * None of `state`, `out` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 76]) {
     core::arch::naked_asm!(
-        "mov QWORD PTR [rcx+112], rbx",
-        "mov QWORD PTR [rcx+120], rbp",
-        "mov QWORD PTR [rcx+128], r12",
-        "mov QWORD PTR [rcx+136], r13",
-        "mov QWORD PTR [rcx+144], r14",
-        "mov QWORD PTR [rcx+152], r15",
+        "mov QWORD PTR [rcx+560], rbx",
+        "mov QWORD PTR [rcx+568], rbp",
+        "mov QWORD PTR [rcx+576], r12",
+        "mov QWORD PTR [rcx+584], r13",
+        "mov QWORD PTR [rcx+592], r14",
+        "mov QWORD PTR [rcx+600], r15",
         "mov rbx, rdi",
         "mov r15, rcx",
         "mov rbp, rdx",
@@ -3487,12 +3487,12 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_finalize(state: *mut [u8; 96], co
         "mov eax, DWORD PTR [rbx+28]",
         "bswap eax",
         "mov DWORD PTR [rbp+28], eax",
-        "mov rbx, QWORD PTR [r15+112]",
-        "mov rbp, QWORD PTR [r15+120]",
-        "mov r12, QWORD PTR [r15+128]",
-        "mov r13, QWORD PTR [r15+136]",
-        "mov r14, QWORD PTR [r15+144]",
-        "mov r15, QWORD PTR [r15+152]",
+        "mov rbx, QWORD PTR [r15+560]",
+        "mov rbp, QWORD PTR [r15+568]",
+        "mov r12, QWORD PTR [r15+576]",
+        "mov r13, QWORD PTR [r15+584]",
+        "mov r14, QWORD PTR [r15+592]",
+        "mov r15, QWORD PTR [r15+600]",
         "ret",
         vg_sha256_compress = sym super::sha256::vg_sha256_compress,
     )
@@ -3509,19 +3509,19 @@ pub(crate) const VG_SHA256_UPDATE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
 ///
 /// * `state` must be valid for reads and writes of 96 bytes.
 /// * `data` must be valid for reads of `len` bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
 /// * None of `state`, `data` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_update_shani(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_update_shani(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 76]) {
     core::arch::naked_asm!(
-        "mov QWORD PTR [r8+112], rbx",
-        "mov QWORD PTR [r8+120], rbp",
-        "mov QWORD PTR [r8+128], r12",
-        "mov QWORD PTR [r8+136], r13",
-        "mov QWORD PTR [r8+144], r14",
-        "mov QWORD PTR [r8+152], r15",
+        "mov QWORD PTR [r8+560], rbx",
+        "mov QWORD PTR [r8+568], rbp",
+        "mov QWORD PTR [r8+576], r12",
+        "mov QWORD PTR [r8+584], r13",
+        "mov QWORD PTR [r8+592], r14",
+        "mov QWORD PTR [r8+600], r15",
         "mov rbx, rdi",
         "mov r15, r8",
         "mov rbp, rdx",
@@ -3618,12 +3618,12 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_update_shani(state: *mut [u8; 96]
         "220:",
         "test r14, r14",
         "jne 20b",
-        "mov rbx, QWORD PTR [r15+112]",
-        "mov rbp, QWORD PTR [r15+120]",
-        "mov r12, QWORD PTR [r15+128]",
-        "mov r13, QWORD PTR [r15+136]",
-        "mov r14, QWORD PTR [r15+144]",
-        "mov r15, QWORD PTR [r15+152]",
+        "mov rbx, QWORD PTR [r15+560]",
+        "mov rbp, QWORD PTR [r15+568]",
+        "mov r12, QWORD PTR [r15+576]",
+        "mov r13, QWORD PTR [r15+584]",
+        "mov r14, QWORD PTR [r15+592]",
+        "mov r15, QWORD PTR [r15+600]",
         "ret",
         vg_sha256_compress_shani = sym super::sha256::vg_sha256_compress_shani,
     )
@@ -3640,19 +3640,19 @@ pub(crate) const VG_SHA256_FINALIZE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
 ///
 /// * `state` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
 /// * `out` must be valid for writes of 32 bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
 /// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
 /// * None of `state`, `out` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_finalize_shani(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_finalize_shani(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 76]) {
     core::arch::naked_asm!(
-        "mov QWORD PTR [rcx+112], rbx",
-        "mov QWORD PTR [rcx+120], rbp",
-        "mov QWORD PTR [rcx+128], r12",
-        "mov QWORD PTR [rcx+136], r13",
-        "mov QWORD PTR [rcx+144], r14",
-        "mov QWORD PTR [rcx+152], r15",
+        "mov QWORD PTR [rcx+560], rbx",
+        "mov QWORD PTR [rcx+568], rbp",
+        "mov QWORD PTR [rcx+576], r12",
+        "mov QWORD PTR [rcx+584], r13",
+        "mov QWORD PTR [rcx+592], r14",
+        "mov QWORD PTR [rcx+600], r15",
         "mov rbx, rdi",
         "mov r15, rcx",
         "mov rbp, rdx",
@@ -3734,12 +3734,12 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_finalize_shani(state: *mut [u8; 9
         "mov eax, DWORD PTR [rbx+28]",
         "bswap eax",
         "mov DWORD PTR [rbp+28], eax",
-        "mov rbx, QWORD PTR [r15+112]",
-        "mov rbp, QWORD PTR [r15+120]",
-        "mov r12, QWORD PTR [r15+128]",
-        "mov r13, QWORD PTR [r15+136]",
-        "mov r14, QWORD PTR [r15+144]",
-        "mov r15, QWORD PTR [r15+152]",
+        "mov rbx, QWORD PTR [r15+560]",
+        "mov rbp, QWORD PTR [r15+568]",
+        "mov r12, QWORD PTR [r15+576]",
+        "mov r13, QWORD PTR [r15+584]",
+        "mov r14, QWORD PTR [r15+592]",
+        "mov r15, QWORD PTR [r15+600]",
         "ret",
         vg_sha256_compress_shani = sym super::sha256::vg_sha256_compress_shani,
     )
