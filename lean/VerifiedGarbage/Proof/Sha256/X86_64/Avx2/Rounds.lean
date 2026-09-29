@@ -1,0 +1,168 @@
+import VerifiedGarbage.Proof.Framework.X86_64.Exec
+import VerifiedGarbage.Proof.Framework.Mem
+import VerifiedGarbage.Proof.Sha256.Spec
+import VerifiedGarbage.Impl.Sha256.X86_64.Avx2
+
+/-!
+# SHA-256 with AVX2 on x86-64: one round
+
+Untrusted: everything here is checked by Lean. `round j t` computes
+`roundKW`, with `Σ₀` and `Σ₁` as three `rorx`, `Ch` as a sum of two
+disjoint masks and `Maj` from the previous round's `a ⊕ b`.
+-/
+
+namespace VG.Proof.Sha256.X86_64.Avx2
+
+open VG VG.X86_64 VG.Impl.Sha256.X86_64.Avx2
+open VG.Spec.Sha256 (HashValue Word Block K W bsig0 bsig1 ch maj)
+open VG.Proof.Sha256 (roundKW rounds_succ round_eq)
+
+/-- The working variables `v` are in the registers of round `t`, and
+`b ⊕ c` is in `carry t`. -/
+def Vars (t : Nat) (s : State) (v : HashValue) : Prop :=
+  s.gpr (var t 0) = v[0].setWidth 64 ∧ s.gpr (var t 1) = v[1].setWidth 64 ∧
+  s.gpr (var t 2) = v[2].setWidth 64 ∧ s.gpr (var t 3) = v[3].setWidth 64 ∧
+  s.gpr (var t 4) = v[4].setWidth 64 ∧ s.gpr (var t 5) = v[5].setWidth 64 ∧
+  s.gpr (var t 6) = v[6].setWidth 64 ∧ s.gpr (var t 7) = v[7].setWidth 64 ∧
+  s.gpr (carry t) = (v[1] ^^^ v[2]).setWidth 64
+
+/-- The registers that hold pointers and the count, and `rsp`: never written
+by the rounds. -/
+def pubRegs : List Reg := [.rdi, .rsi, .rdx, .rcx, .rsp]
+
+theorem var_succ (t k : Nat) (hk : k < 7) : var (t + 1) (k + 1) = var t k := by
+  simp only [var]; congr 1; omega
+
+theorem var_succ_zero (t : Nat) : var (t + 1) 0 = var t 7 := by
+  simp only [var]; congr 1; omega
+
+/-- The registers of a round are all different. -/
+theorem round_nodup (t : Nat) :
+    [var t 0, var t 1, var t 2, var t 3, var t 4, var t 5, var t 6, var t 7, carry t, carry (t + 1), T,
+      .rdi, .rsi, .rdx, .rcx, .rsp].Nodup := by
+  have e : carry (t + 1) = if t % 2 = 0 then .r14 else .r13 := by
+    simp only [carry]; split <;> split <;> first | rfl | omega
+  rw [e]
+  simp only [var, carry]
+  have h8 := Nat.mod_lt t (show 8 > 0 by omega)
+  rw [show t % 2 = t % 8 % 2 by omega]
+  generalize t % 8 = c at *
+  revert h8; revert c; decide
+
+theorem ch_add (e f g : Word) : ch e f g = (e &&& f) + (~~~e &&& g) := by
+  rw [BitVec.add_eq_or_of_and_eq_zero]
+  · ext i hi
+    simp only [ch, BitVec.getElem_xor, BitVec.getElem_or, BitVec.getElem_and, BitVec.getElem_not]
+    cases e[i] <;> cases f[i] <;> cases g[i] <;> rfl
+  · ext i hi
+    simp only [BitVec.getElem_and, BitVec.getElem_not, BitVec.getElem_zero]
+    cases e[i] <;> cases f[i] <;> cases g[i] <;> rfl
+
+theorem maj_carry (a b c : Word) : maj a b c = (b ^^^ c) &&& (a ^^^ b) ^^^ b := by
+  ext i hi
+  simp only [maj, BitVec.getElem_xor, BitVec.getElem_and]
+  cases a[i] <;> cases b[i] <;> cases c[i] <;> rfl
+
+/-- The round is symbolically executed once, for any registers `a … h`
+(which `round_nodup` says are different from each other and the others). -/
+theorem round_ok (j t : Nat) (s : State) (v : HashValue) (w : Word)
+    (hv : Vars t s v) (hin : InRegions (s.rd ++ s.wr) (s.ea (wSlot j t)) 4)
+    (hw : s.mem.readW (s.ea (wSlot j t)) 32 = w) :
+    WP isa (.block (round j t)) s fun s' =>
+      Vars (t + 1) s' (roundKW v (K t) w) ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
+      (∀ r ∈ pubRegs, s'.gpr r = s.gpr r) ∧ s'.xmm = s.xmm ∧ s'.ymmHi = s.ymmHi := by
+  have hd := round_nodup t
+  have hd' := VG.nodup_reverse hd
+  simp only [Vars, var_succ_zero, var_succ t _ (show 0 < 7 by omega),
+    var_succ t _ (show 1 < 7 by omega), var_succ t _ (show 2 < 7 by omega),
+    var_succ t _ (show 3 < 7 by omega), var_succ t _ (show 4 < 7 by omega),
+    var_succ t _ (show 5 < 7 by omega), var_succ t _ (show 6 < 7 by omega)] at hv ⊢
+  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, hc⟩ := hv
+  have ea : s.ea (wSlot j t) = s.gpr .rcx + BitVec.ofInt 64 ((32 * (t / 4) + 16 * j + 4 * (t % 4) : Nat) : Int) :=
+    rfl
+  rw [ea] at hin hw
+  apply WP.of_runBlock
+  simp only [Impl.Sha256.X86_64.Avx2.round, wSlot, at_]
+  generalize var t 0 = a at *
+  generalize var t 1 = b at *
+  generalize var t 2 = c at *
+  generalize var t 3 = d at *
+  generalize var t 4 = e at *
+  generalize var t 5 = f at *
+  generalize var t 6 = g at *
+  generalize var t 7 = h at *
+  generalize carry t = x at *
+  generalize carry (t + 1) = y at *
+  simp only [T, List.nodup_cons, List.mem_cons, List.not_mem_nil, List.reverse_cons,
+    List.reverse_nil, List.nil_append, List.cons_append, or_false, not_or,
+    List.nodup_nil, and_true] at hd hd' ⊢
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some,
+    runBlock_nil, exec, execAlu32, execRorx32, execAndn32, readSrc32, State.ea,
+    isa, State.load32, State.setReg32, State.setReg, arithFlags, State.setFlags, ite_true, ite_false,
+    hd, hd', h0, h1, h2, h3, h4, h5, h6, h7, hc, hin, hw, BitVec.setWidth_setWidth_of_le,
+    BitVec.setWidth_eq, and_self, Option.bind_some, Option.map_some, Option.some.injEq,
+    exists_eq_left']
+  refine ⟨?_, trivial, trivial, trivial, fun r hr => ?_, trivial⟩
+  rotate_left
+  · simp only [pubRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl | rfl <;> simp [hd']
+  · simp only [roundKW, Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero,
+      List.getElem_cons_succ, ch_add, maj_carry, bsig0, bsig1, BitVec.add_assoc,
+      and_self]
+
+/-! ## Rounds of a block -/
+
+/-- What the rounds leave alone. -/
+def Keeps (s s' : State) : Prop :=
+  s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ (∀ r ∈ pubRegs, s'.gpr r = s.gpr r) ∧
+    s'.xmm = s.xmm ∧ s'.ymmHi = s.ymmHi
+
+theorem Keeps.refl (s : State) : Keeps s s := ⟨rfl, rfl, rfl, fun _ _ => rfl, rfl, rfl⟩
+
+theorem Keeps.trans {s₁ s₂ s₃ : State} (h₁ : Keeps s₁ s₂) (h₂ : Keeps s₂ s₃) : Keeps s₁ s₃ :=
+  ⟨h₂.1.trans h₁.1, h₂.2.1.trans h₁.2.1, h₂.2.2.1.trans h₁.2.2.1,
+    fun r hr => (h₂.2.2.2.1 r hr).trans (h₁.2.2.2.1 r hr), h₂.2.2.2.2.1.trans h₁.2.2.2.2.1,
+    h₂.2.2.2.2.2.trans h₁.2.2.2.2.2⟩
+
+/-- Round `t` of block `j` can read `Wₜ` of `M`. -/
+def WOk (j : Nat) (M : Block) (s : State) (t : Nat) : Prop :=
+  InRegions (s.rd ++ s.wr) (s.ea (wSlot j t)) 4 ∧ s.mem.readW (s.ea (wSlot j t)) 32 = W M t
+
+theorem WOk.keeps {j : Nat} {M : Block} {s s' : State} {t : Nat} (h : WOk j M s t) (hk : Keeps s s') :
+    WOk j M s' t := by
+  have e : s'.ea (wSlot j t) = s.ea (wSlot j t) := by
+    simp only [State.ea, wSlot, at_, hk.2.2.2.1 .rcx (by decide)]
+  rw [WOk, e, hk.1, hk.2.1, hk.2.2.1]; exact h
+
+theorem round_step (j t : Nat) (H : HashValue) (M : Block) (s : State)
+    (hv : Vars t s (Spec.Sha256.rounds H M t)) (hw : WOk j M s t) :
+    WP isa (.block (round j t)) s fun s' => Vars (t + 1) s' (Spec.Sha256.rounds H M (t + 1)) ∧ Keeps s s' := by
+  rw [rounds_succ, round_eq]
+  exact round_ok j t s _ _ hv hw.1 hw.2
+
+theorem rounds4_ok (j n : Nat) (H : HashValue) (M : Block) (s : State)
+    (hv : Vars (4 * n) s (Spec.Sha256.rounds H M (4 * n))) (hw : ∀ q < 4, WOk j M s (4 * n + q)) :
+    WP isa (.block (round j (4 * n) ++ round j (4 * n + 1) ++ round j (4 * n + 2) ++ round j (4 * n + 3))) s
+      fun s' => Vars (4 * n + 4) s' (Spec.Sha256.rounds H M (4 * n + 4)) ∧ Keeps s s' := by
+  rw [WP.block_append_iff, WP.block_append_iff, WP.block_append_iff]
+  refine WP.mono (round_step j _ H M s hv (hw 0 (by omega))) fun s₁ ⟨hv₁, hk₁⟩ => ?_
+  refine WP.mono (round_step j _ H M s₁ hv₁ ((hw 1 (by omega)).keeps hk₁)) fun s₂ ⟨hv₂, hk₂⟩ => ?_
+  have hk₂' := hk₁.trans hk₂
+  refine WP.mono (round_step j _ H M s₂ hv₂ ((hw 2 (by omega)).keeps hk₂')) fun s₃ ⟨hv₃, hk₃⟩ => ?_
+  have hk₃' := hk₂'.trans hk₃
+  refine WP.mono (round_step j _ H M s₃ hv₃ ((hw 3 (by omega)).keeps hk₃')) fun s₄ ⟨hv₄, hk₄⟩ => ?_
+  exact ⟨hv₄, hk₃'.trans hk₄⟩
+
+/-- The rounds of the second block. -/
+theorem rounds2_ok (H : HashValue) (M : Block) (s : State) (hv : Vars 0 s H)
+    (hw : ∀ t < 64, WOk 1 M s t) :
+    ∀ n ≤ 64, WP isa (rounds2 n) s fun s' => Vars n s' (Spec.Sha256.rounds H M n) ∧ Keeps s s' := by
+  intro n hn
+  induction n with
+  | zero => exact WP.block_nil ⟨hv, Keeps.refl s⟩
+  | succ n ih =>
+    refine WP.seq (WP.mono (ih (by omega)) fun s₁ ⟨hv₁, hk₁⟩ => ?_)
+    exact WP.mono (round_step 1 n H M s₁ hv₁ ((hw n (by omega)).keeps hk₁)) fun s₂ ⟨hv₂, hk₂⟩ =>
+      ⟨hv₂, hk₁.trans hk₂⟩
+
+end VG.Proof.Sha256.X86_64.Avx2
