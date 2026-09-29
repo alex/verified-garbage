@@ -217,7 +217,7 @@ theorem keys_ok {s₀ : State} (hp : Pre (H := H) sc s₀) : WP isa H.initKeys s
   have hm : LoopMem H (scr s₀) (kp s₀) (kl s₀) s₉ :=
     ⟨hp.kl_le, fun k hk => by
         rw [hrd, hwr, hp.rd]
-        exact inRegions_of_sub (R := keyR s₀) (by simp) (fun _ h => h) (kl_lt s₀ |>.trans (by decide))
+        exact inRegions_of_sub (R := keyR s₀) (by simp) (fun _ h => h) (Nat.lt_trans (kl_lt s₀) (by decide))
           hk |>.elim fun r ⟨hr, hc⟩ => ⟨r, List.mem_append_left _ hr, hc⟩,
       fun k hk => by
         rw [hwr, hp.wr]; exact inRegions_of_sub (R := scR sc s₀) (by simp) (buf_sub hp) (by omega) hk,
@@ -230,7 +230,7 @@ theorem keys_ok {s₀ : State} (hp : Pre (H := H) sc s₀) : WP isa H.initKeys s
     simp only [K0, K0₀]
     congr 1
     refine bytesAt_prefix_congr fun i hi => fk.bytes (R := keyR s₀) (by
-      simp only [List.mem_singleton]; rintro r rfl; exact (hp.k_s.sub_right (save_sub hp))) (kl_lt s₀ |>.trans (by decide)).le hi
+      simp only [List.mem_singleton]; rintro r rfl; exact (hp.k_s.sub_right (save_sub hp))) (Nat.le_of_lt (Nat.lt_trans (kl_lt s₀) (by decide))) hi
   have hg : ∀ r ∉ clob, t.gpr r = s₉.gpr r := ht.other
   have sv : SavedRegs H (scr s₀) s₀ s₉.mem := hm₉ ▸ sv₂.of_eq H fun r hr => u₁.other r (by
     simp only [savedRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -349,7 +349,7 @@ theorem updArgs_ok {s : State} (hk : KR (H := H) s₀ s) {st : Reg} {p : BitVec 
         exact Covers.of_sub fun r hr => by
           simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
           rcases hr with rfl | rfl
-          · exact sub_of_self (r := ⟨State.addr p, H.S⟩) (state_in hp hpR) le_rfl
+          · exact sub_of_self (r := ⟨State.addr p, H.S⟩) (state_in hp hpR) (Nat.le_refl _)
           · exact sub_of_self (r := scR sc s₀) (by rw [hp.wr]; simp) (by
               have := hH.hWb; show hH.Wb ≤ 8 * sc; omega)
       st_sc := dS.sub_right (cal_sub hH hp)

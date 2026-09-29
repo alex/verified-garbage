@@ -215,7 +215,7 @@ theorem loop_rel (hc : Checks H) :
     have z := h.2
     rw [ev h.1.1.2] at z
     have e : nn s₀ ≠ 0 := by simpa using z
-    exact ⟨by omega, le_rfl, h.1.1.1, hN ▸ h.1.2.1⟩
+    exact ⟨by omega, (Nat.le_refl _), h.1.1.1, hN ▸ h.1.2.1⟩
 
 theorem ct (hc : Checks H) : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') (iterate H) fun _ _ => True := by
   have hN := hq.nn

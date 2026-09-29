@@ -37,9 +37,7 @@ theorem saved_mem {p : Reg × Nat} (hp : p ∈ H.saved) : 8 * H.W ≤ p.2 ∧ p.
   rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp only <;> omega
 
 theorem saved_pairwise : H.saved.Pairwise (fun p q => p.2 + 4 ≤ q.2 ∨ q.2 + 4 ≤ p.2) := by
-  simp only [Hash.saved, List.pairwise_cons, List.mem_cons, List.not_mem_nil, or_false,
-    forall_eq_or_imp, forall_eq, List.Pairwise.nil, IsEmpty.forall_iff, implies_true, and_true]
-  omega
+  simp [Hash.saved]
 
 /-- Slot `d` of the save area. -/
 theorem slot_sub (scr : BitVec 32) {d : Nat} (h₁ : 8 * H.W ≤ d) (h₂ : d + 4 ≤ 8 * H.W + 36) :

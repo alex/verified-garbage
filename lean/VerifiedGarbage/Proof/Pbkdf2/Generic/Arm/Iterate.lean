@@ -338,7 +338,7 @@ theorem updCall_ok {m : Nat} {t : State} (hk : KR (H := H) sc s₀ m t) {o : Nat
     rw [eS]
     rintro r (rfl | rfl)
     · exact save_off hp (by simp only [stO]; omega) (by simp only [stO]; omega)
-    · exact ((cal_disj hH hp (b := 8 * H.W) (n := 36) le_rfl (by omega))).symm
+    · exact ((cal_disj hH hp (b := 8 * H.W) (n := 36) (Nat.le_refl _) (by omega))).symm
   · simp only [List.mem_cons, List.not_mem_nil, or_false]
     rw [eS]
     rintro r (rfl | rfl)
@@ -422,7 +422,7 @@ theorem finCall_ok {m : Nat} {t : State} (hk : KR (H := H) sc s₀ m t) {o : Nat
     rintro r (rfl | rfl | rfl)
     · exact save_off hp (by omega) (by omega)
     · exact save_off hp (by omega) (by omega)
-    · exact ((cal_disj hH hp (b := 8 * H.W) (n := 36) le_rfl (by omega))).symm
+    · exact ((cal_disj hH hp (b := 8 * H.W) (n := 36) (Nat.le_refl _) (by omega))).symm
   · simp only [List.mem_cons, List.not_mem_nil, or_false]
     rw [eS, eO]
     rintro r (rfl | rfl | rfl)
@@ -441,7 +441,7 @@ theorem xor'_ok {m : Nat} {s : State} (hk : KR (H := H) sc s₀ m s) :
   obtain ⟨sR, tR'⟩ := mem_wr hp
   have nt := hp.nt
   have usub : Region.Sub ⟨UA (H := H) s₀, H.D⟩ (scR sc s₀) := off_sub hp (by omega)
-  refine WP.mono (xor_ok (uo := uO H) (n := H.D) (off_lt hp le_rfl) hD0 (by omega)
+  refine WP.mono (xor_ok (uo := uO H) (n := H.D) (off_lt hp (Nat.le_refl _)) hD0 (by omega)
     (by rw [hk.r11]; omega) (by rw [hk.r5]; omega)
     (fun k hk' => by
       rw [hk.r11, hk.rd, hk.wr]; exact inRegions_of_sub (List.mem_append_right _ sR) usub (by omega) hk')
@@ -634,7 +634,7 @@ theorem copyU_ok {s : State} (hk : KR (H := H) sc s₀ (nn s₀) s) (hr1 : s.gpr
   have uR' : uR (H := H) s₀ ∈ s.rd ++ s.wr := by rw [hk.rd, hp.rd]; simp
   have usub : Region.Sub ⟨UA (H := H) s₀, H.D⟩ (scR sc s₀) := off_sub hp (by omega)
   refine WP.mono (copy_ok (so := 0) (d := uO H) (n := H.D) (by decide) (by decide) (by decide)
-    (off_lt hp le_rfl) hD0 (by omega) (by rw [hr1]; omega) (by rw [hk.r11]; omega)
+    (off_lt hp (Nat.le_refl _)) hD0 (by omega) (by rw [hr1]; omega) (by rw [hk.r11]; omega)
     (fun k hk' => by rw [hr1, add_zero']; exact inRegions_of_sub uR' (fun _ h => h) (by omega) hk')
     (fun k hk' => by rw [hk.r11, hk.wr]; exact inRegions_of_sub sR usub (by omega) hk')
     (by rw [hr1, hk.r11, add_zero']; exact hp.u_s.sub_right usub)) fun t c => ?_
@@ -672,7 +672,7 @@ theorem loop_ok {s : State} (h : Inv hH sc s₀ (nn s₀) s) (hz : s.z = decide 
     exact e ▸ h
   · have hpos : 1 ≤ nn s₀ := by have := of_decide_eq_false h0; omega
     refine WP.loop (M := isa) (fun k t => ∃ m, k = m ∧ 1 ≤ m ∧ m ≤ nn s₀ ∧ Inv hH sc s₀ m t) ?_ (nn s₀) s
-      ⟨nn s₀, rfl, hpos, le_rfl, h⟩
+      ⟨nn s₀, rfl, hpos, (Nat.le_refl _), h⟩
     rintro k t ⟨m, hkm, h1, h2, ht⟩
     refine WP.mono (body_ok hH hp h1 (by omega) ht) fun t' ⟨ht', hz'⟩ => ?_
     have he : isa.eval .ne t' = some (!decide (m - 1 = 0)) := by
