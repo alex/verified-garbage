@@ -56,12 +56,8 @@ fn keygen_seed() {
         // The expanded key is `dk_PKE ‖ ek ‖ H(ek) ‖ z`, which the API keeps
         // private: check its layout against the seed and the key.
         assert_eq!(c.dk.0[1152..2336], ek[..], "tcId {}", test.tc_id);
-        assert_eq!(
-            c.dk.0[2336..2368],
-            Sha3_256::digest(ek),
-            "tcId {}",
-            test.tc_id
-        );
+        let h = Sha3_256::digest(ek);
+        assert_eq!(c.dk.0[2336..2368], h, "tcId {}", test.tc_id);
         assert_eq!(c.dk.0[2368..], dk.seed()[32..], "tcId {}", test.tc_id);
     }
 }
@@ -105,18 +101,10 @@ fn decaps() {
                 let dk = DecapsulationKey768::from_seed(&seed).unwrap();
                 // Every valid test gives the encapsulation key.
                 let ek = c.ek.as_ref().unwrap();
-                assert_eq!(
-                    dk.encapsulation_key().as_bytes()[..],
-                    ek.0,
-                    "tcId {}",
-                    test.tc_id
-                );
-                assert_eq!(
-                    dk.decapsulate(&ct).unwrap()[..],
-                    c.k.0,
-                    "tcId {}",
-                    test.tc_id
-                );
+                let got = dk.encapsulation_key().as_bytes();
+                assert_eq!(got[..], ek.0, "tcId {}", test.tc_id);
+                let k = dk.decapsulate(&ct).unwrap();
+                assert_eq!(k[..], c.k.0, "tcId {}", test.tc_id);
             }
             _ => assert_eq!(test.result, Expectation::Invalid, "tcId {}", test.tc_id),
         }
