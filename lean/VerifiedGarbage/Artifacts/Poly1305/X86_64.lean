@@ -9,8 +9,10 @@ A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
 caller to the contract; check them against the contract's `pre`/`post`. An
 artifact made from a function's `Api` (in `Spec/`, reviewed with the
-contract) takes its signature and most of its `doc` from there: what this
-file adds is the `# Safety` items that depend on the target, and any notes.
+contract) takes them from there, and this file adds only notes on the
+implementation. The emitter adds the `# Safety` items that depend on the
+target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
+against the contract.
 -/
 
 namespace VG.Artifacts.Poly1305.X86_64
@@ -18,31 +20,25 @@ namespace VG.Artifacts.Poly1305.X86_64
 def artifacts : List Artifact := [
   { Spec.Poly1305.initApi with
     target := X86_64.target
-    doc := Spec.Poly1305.initApi.doc ["`state` must not overlap `key` or the return address on the \
-      stack (distinct Rust objects never do)."]
+    doc := Spec.Poly1305.initApi.doc
     code := Impl.Poly1305.X86_64.init
     contract := Spec.Poly1305.initContract X86_64.abi
     verified := Proof.Poly1305.X86_64.Shared.init },
   { Spec.Poly1305.blocksApi with
     target := X86_64.target
-    doc := Spec.Poly1305.blocksApi.doc ["`state` must not overlap `blocks` or the return address on \
-      the stack, and `blocks` must not wrap around the end of the address space (distinct Rust \
-      objects never do)."]
+    doc := Spec.Poly1305.blocksApi.doc
     code := Impl.Poly1305.X86_64.blocks
     contract := Spec.Poly1305.blocksContract X86_64.abi
     verified := Proof.Poly1305.X86_64.Shared.blocks },
   { Spec.Poly1305.updateApi with
     target := X86_64.target
-    doc := Spec.Poly1305.updateApi.doc ["These three regions must not overlap each other or the \
-      return address on the stack, and `data` must not wrap around the end of the address space \
-      (distinct Rust objects never do)."]
+    doc := Spec.Poly1305.updateApi.doc
     code := Impl.Poly1305.X86_64.update
     contract := Spec.Poly1305.updateContract X86_64.abi
     verified := Proof.Poly1305.X86_64.Shared.update },
   { Spec.Poly1305.finalizeApi with
     target := X86_64.target
-    doc := Spec.Poly1305.finalizeApi.doc ["These three regions must not overlap each other or the \
-      return address on the stack (distinct Rust objects never do)."]
+    doc := Spec.Poly1305.finalizeApi.doc
     code := Impl.Poly1305.X86_64.finalize
     contract := Spec.Poly1305.finalizeContract X86_64.abi
     verified := Proof.Poly1305.X86_64.Shared.finalize }]

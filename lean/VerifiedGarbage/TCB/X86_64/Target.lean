@@ -63,6 +63,9 @@ def abi : Abi isa where
   rd s := s.rd
   wr s := s.wr
   ret s := s.gpr .rax
+  argAreaDoc _ := none
+  reservedDoc n := some (if n = 0 then "the return address on the stack" else
+    s!"the return address on the stack or the {n} bytes of stack below it")
 
 abbrev target : Target where
   name := "x86_64"

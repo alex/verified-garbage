@@ -115,6 +115,71 @@ def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
           ((vals s₁).getD i 0).setWidth (widths.getD i 64) =
             ((vals s₂).getD i 0).setWidth (widths.getD i 64) }
 
+/-! ## Documenting the obligations `Sig.contract` implies
+
+The emitter adds to each function's `# Safety` section what `Sig.contract`
+requires of where its buffers are (`Sig.layoutDoc`), and a note if it may
+overwrite its arguments (`Sig.layoutNote`), from the same signature, calling
+convention, `writeArgs` and `stack` as its contract (`Artifact.ofSig`). The
+calling convention names its argument area and reserved memory
+(`Abi.argAreaDoc`, `Abi.reservedDoc`).
+-/
+
+/-- The buffers of the parameters `ps` by name, and whether each is
+writable: those of `Sig.bufs`, in the same order. -/
+def Sig.bufNames : List (String × Param) → List (String × Bool)
+  | [] => []
+  | (_, .int ..) :: ps => Sig.bufNames ps
+  | (n, .array w ..) :: ps => (n, w) :: Sig.bufNames ps
+  | (n, .slice w ..) :: ps => (n, w) :: Sig.bufNames ps
+
+/-- `xs` as an English list joined by `conj`: "a", "a or b", "a, b or c". -/
+def englishList (conj : String) : List String → String
+  | [] => ""
+  | [x] => x
+  | [x, y] => s!"{x} {conj} {y}"
+  | x :: xs => s!"{x}, " ++ englishList conj xs
+
+/-- The `# Safety` items stating what the contracts `sig.contract A _ _
+writeArgs stack _` require of where the buffers are: that a writable buffer
+overlaps no other buffer, nor the arguments in memory (`A.argArea`); that no
+buffer overlaps the arguments in memory if the function may write them, nor
+the memory `A.reserved stack` (the return address, and the stack that the
+function's calls and frames use); and that no buffer wraps around the end of
+the address space. -/
+def Sig.layoutDoc {M : ISA} (A : Abi M) (sig : Sig) (writeArgs : Bool) (stack : Nat) :
+    List String :=
+  let bufs := Sig.bufNames sig.params
+  let all := bufs.map fun b => s!"`{b.1}`"
+  let w := (bufs.filter (·.2)).map fun b => s!"`{b.1}`"
+  let r := (bufs.filter (!·.2)).map fun b => s!"`{b.1}`"
+  let args := A.argAreaDoc ((sig.words A.ptrBits).map (·.bits A.ptrBits))
+  let argsWritable := match args with
+    | some (_, wr) => wr && writeArgs
+    | none => false
+  let argsName := (args.map (·.1)).toList
+  let wObjs := (if w.length ≥ 2 then ["each other"] else []) ++ r ++
+    (if argsWritable then [] else argsName)
+  let allObjs := (if argsWritable then argsName else []) ++ (A.reservedDoc stack).toList
+  let tail := ", ".intercalate (allObjs.map ("overlap " ++ ·)) ++
+    (if allObjs.isEmpty then "" else ", or ") ++ "wrap around the end of the address space"
+  (if w.isEmpty || wObjs.isEmpty then [] else
+    [s!"{englishList "and" w} must not overlap {englishList "or" wObjs} (distinct Rust \
+      objects never do)."]) ++
+  match all with
+    | [] => []
+    | [b] => [s!"{b} must not {tail} (no Rust object does)."]
+    | [a, b] => [s!"Neither {a} nor {b} may {tail} (no Rust object does)."]
+    | _ => [s!"None of {englishList "and" all} may {tail} (no Rust object does)."]
+
+/-- A paragraph saying that the function may overwrite its arguments in
+memory, if the contracts `sig.contract A _ _ writeArgs _ _` let it. -/
+def Sig.layoutNote {M : ISA} (A : Abi M) (sig : Sig) (writeArgs : Bool) : List String :=
+  match A.argAreaDoc ((sig.words A.ptrBits).map (·.bits A.ptrBits)) with
+  | some (d, true) => if writeArgs then
+      [s!"The function may overwrite {d}, as the calling convention lets it."] else []
+  | _ => []
+
 /-- The proof obligation for emitting `c` on target `T` with contract `k`. -/
 def Verified (T : Target) (c : Prog T.isa) (k : Contract T.isa) : Prop :=
   (∀ s, k.pre s → ∃ t s', Exec T.isa c s t s' ∧ T.abiPreserved s s' ∧ k.post s s') ∧
@@ -122,25 +187,28 @@ def Verified (T : Target) (c : Prog T.isa) (k : Contract T.isa) : Prop :=
   (∃ s, k.pre s)
 
 /-- What a function is on every target: its Rust module, name and signature,
-and the documentation of what it does and of the caller's obligations that
-do not depend on the target. A registration file makes an `Artifact` of it
-on each target (`{ api with target := …, doc := api.doc … }`), adding what
-does: the obligations that depend on where the calling convention passes the
-arguments and on the stack the code uses, and notes on the implementation. -/
+whether its contract lets it overwrite its arguments in memory
+(`Sig.contract`'s `writeArgs`), and its documentation. A registration file
+makes an `Artifact` of it on each target
+(`{ api with target := …, doc := api.doc, … }`), adding any notes on the
+implementation; the emitter adds the obligations that depend on the target
+(`Sig.layoutDoc`). -/
 structure Api where
   module : String
   name : String
   sig : Sig
+  writeArgs : Bool := false
   /-- The documentation, up to its `# Safety` section. -/
   summary : String
-  /-- The items of the `# Safety` section that hold on every target. -/
+  /-- The items of the `# Safety` section, but for those `Sig.layoutDoc`
+  gives. -/
   safety : List String
 
 /-- The documentation of `api` on a target: its summary, then the paragraphs
-`notes`, then its `# Safety` section, with the items `safety` after its own. -/
-def Api.doc (api : Api) (safety : List String) (notes : List String := []) : String :=
+`notes`, then its `# Safety` section. -/
+def Api.doc (api : Api) (notes : List String := []) : String :=
   api.summary ++ String.join (notes.map ("\n\n" ++ ·)) ++ "\n\n# Safety\n\n" ++
-    "\n".intercalate ((api.safety ++ safety).map ("* " ++ ·))
+    "\n".intercalate (api.safety.map ("* " ++ ·))
 
 /-- A verified function, ready to be emitted into the Rust crate. -/
 structure Artifact where
@@ -151,11 +219,11 @@ structure Artifact where
   /-- The Rust function name. Must be unique within the target. -/
   name : String
   /-- The Rust signature, rendered as the parameter list and return type
-  (`Sig.rust`). **Trusted**: `contract` must read the arguments and write the
-  return value where `target.abi` places them for `sig`, as the contracts
-  `sig.contract target.abi …` do. -/
+  (`Sig.rust`). -/
   sig : Sig
-  /-- Documentation for the generated Rust function. It must state every
+  /-- Documentation for the generated Rust function. With what the emitter
+  adds to it (`Sig.layoutNote` and `Sig.layoutDoc`, which need it to end with
+  its `# Safety` section if they add anything), it must state every
   requirement of `contract.pre` that the caller is responsible for, and
   anything the contract declares the function may leak (`Sig.contract`'s
   `leak`). -/
@@ -163,6 +231,16 @@ structure Artifact where
   code : Prog target.isa
   contract : Contract target.isa
   verified : Verified target code contract
+  /-- `Sig.contract`'s `writeArgs` and `stack` for `contract` (see `ofSig`). -/
+  writeArgs : Bool := false
+  stack : Nat := 0
+  /-- `contract` is one that `Sig.contract` derives from `sig` for the
+  target's calling convention, `writeArgs` and `stack`: so it reads the
+  arguments and writes the return value where the calling convention places
+  them for `sig`, and requires what `Sig.layoutDoc` documents of where the
+  buffers are. -/
+  ofSig : ∃ pre post leak, contract = sig.contract target.abi pre post writeArgs stack leak := by
+    exact ⟨_, _, _, rfl⟩
   /-- The code changes the stack pointer only by calls and returns and by
   the pushes and pops of frames, which are nested: no other instruction of
   it, or of the functions it calls, writes it. So a call instruction or a

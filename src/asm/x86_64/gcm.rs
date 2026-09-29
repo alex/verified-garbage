@@ -14,7 +14,8 @@
 /// * `y` must be valid for reads and writes of 16 bytes.
 /// * `data` must be valid for reads of `16 * n` bytes.
 /// * `scratch` must be valid for reads and writes of 256 bytes; its contents on return are unspecified.
-/// * `y` and `scratch` must not overlap each other, `h` or `data` (`h` and `data` may overlap). None of the four regions may overlap the return address on the stack or wrap around the end of the address space (distinct Rust objects never do).
+/// * `y` and `scratch` must not overlap each other, `h` or `data` (distinct Rust objects never do).
+/// * None of `h`, `y`, `data` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_ghash(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32]) {
     core::arch::naked_asm!(
@@ -717,7 +718,8 @@ pub(crate) const VG_GHASH_PCLMUL_FEATURES: &[&str] = &["pclmulqdq", "ssse3"];
 /// * `y` must be valid for reads and writes of 16 bytes.
 /// * `data` must be valid for reads of `16 * n` bytes.
 /// * `scratch` must be valid for reads and writes of 256 bytes; its contents on return are unspecified.
-/// * `y` and `scratch` must not overlap each other, `h`, `data`, or the return address on the stack (distinct Rust objects never do).
+/// * `y` and `scratch` must not overlap each other, `h` or `data` (distinct Rust objects never do).
+/// * None of `h`, `y`, `data` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `pclmulqdq` and `ssse3` target features.
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_ghash_pclmul(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32]) {

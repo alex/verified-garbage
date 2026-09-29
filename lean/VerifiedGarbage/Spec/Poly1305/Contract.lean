@@ -52,8 +52,8 @@ def initApi : Api where
   summary := "Starts a Poly1305 computation (RFC 8439 §2.5): makes the streaming state `*state` \
     represent the empty message under the 32-byte one-time key `*key`.\n\n\
     Contract: `VG.Spec.Poly1305.initContract`. The streaming state is the accumulator followed by \
-    the key (`VG.Spec.Poly1305.Repr`). Constant time: only the pointers may affect timing, not \
-    the key."
+    the key (`VG.Spec.Poly1305.Repr`). Constant time: only the pointers may affect timing, not the \
+    key."
   safety := [
     "`state` must be valid for writes of 128 bytes.",
     "`key` must be valid for reads of 32 bytes."]
@@ -76,8 +76,8 @@ def blocksApi : Api where
   name := "vg_poly1305_blocks"
   sig := blocksSig
   summary := "Absorbs whole blocks into a Poly1305 computation: if the streaming state `*state` \
-    represents a message under a key, it then represents that message followed by the `n` \
-    16-byte blocks at `blocks`, under the same key.\n\n\
+    represents a message under a key, it then represents that message followed by the `n` 16-byte \
+    blocks at `blocks`, under the same key.\n\n\
     Contract: `VG.Spec.Poly1305.blocksContract`. Constant time: only the pointers and `n` may \
     affect timing, not the state or the data."
   safety := [
@@ -166,7 +166,7 @@ def finalizeTailContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :
       ∀ key msg, Repr m state key msg → bytesAt m' out 16 = mac key (msg ++ bytesAt m tail len.toNat))
     (stack := stack)
 
-/-- The previous `vg_poly1305_finalize` (`finalizeTailContract`) on every target. -/
+/-- `vg_poly1305_finalize` on every target. -/
 def finalizeTailApi : Api where
   module := "poly1305"
   name := "vg_poly1305_finalize"
