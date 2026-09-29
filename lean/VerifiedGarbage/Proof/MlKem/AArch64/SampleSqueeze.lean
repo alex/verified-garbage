@@ -334,7 +334,7 @@ theorem calls_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterPro s₀ s
     rate168 (by decide) (disj_so s₀ (by omega) (by omega) (by omega))
     (hp.d_ss.sub_right (sub_so s₀ (by omega))) (hp.d_ss.sub_right (sub_so s₀ (by omega)))
     (hsd h.mid) (by rw [stk_eq h.mid.sp]; exact k_so hp (by omega)) (by rw [stk_eq h.mid.sp]; exact hp.k_s)
-    (by rw [stk_eq h.mid.sp]; exact k_so hp (by omega)) ?_ (cw h.mid ?_) fun s₁ k₁ r₁ => ?_)
+    (by rw [stk_eq h.mid.sp]; exact k_so hp (by omega)) ?_ (cw h.mid ?_) fun s₁ k₁ r₁ _ => ?_)
   · rw [h.mid.rd, h.mid.wr, hp.rd, hp.wr]
     refine Covers.of_sub fun r hr => ?_
     rcases mem3 hr with rfl | rfl | rfl
@@ -414,7 +414,7 @@ theorem calls_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterPro s₀ s
     (disj_so s₀ (by omega) (by omega) (by omega)) (disj_so s₀ (by omega) (by omega) (by omega))
     (hsd mid₁₃) (by rw [stk_eq mid₁₃.sp]; exact k_so hp (by omega))
     (by rw [stk_eq mid₁₃.sp]; exact k_so hp (by omega)) (by rw [stk_eq mid₁₃.sp]; exact k_so hp (by omega))
-    (covers_rw (cw mid₁₃ ?_)) (cw mid₁₃ ?_) fun s₁₄ k₁₄ r₁₄ => ?_)
+    (covers_rw (cw mid₁₃ ?_)) (cw mid₁₃ ?_) fun s₁₄ k₁₄ r₁₄ _ _ => ?_)
   · intro r hr
     rcases mem3 hr with rfl | rfl | rfl
     · exact ⟨840, rfl, Nat.le_of_ble_eq_true rfl⟩

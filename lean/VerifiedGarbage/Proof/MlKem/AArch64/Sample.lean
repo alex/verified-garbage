@@ -34,7 +34,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
   · rw [k.gpr r (pres_loop r hr), hf.cs r hr]
   · rw [k.sp, hf.sp]
-  rcases res with ⟨h0, hpoly, hs⟩ | ⟨h0, hn⟩
+  rcases res.2 with ⟨h0, hpoly, hs⟩ | ⟨h0, hn⟩
   · have r1 : (s'.gpr .x0).setWidth 32 = 1 := by rw [h0]; rfl
     refine ⟨fun _ => hpoly.1, outcome_of_min (.inl ⟨r1, ?_⟩)⟩
     show sampleNTT 280 (Bs s₀) = some (polyAt s'.mem (aP s₀))
@@ -169,6 +169,28 @@ def sat : State where
 theorem sample_correct (s : State) (hs : sampleAArch64.pre s) :
     ∃ t s', Exec isa sampleNTT s t s' ∧ abiPreserved s s' ∧ sampleAArch64.post s s' :=
   correct (pre_of hs)
+
+/-- What callers use: `a` is always reduced, and the return value is
+determined by the seed (`SampleNTT` with 280 iterations). -/
+def sampleStrong : Contract isa :=
+  { sampleAArch64 with
+    post := fun s s' => Reduced s'.mem (s.gpr .x1) ∧
+      ((s'.gpr .x0 = 1 ∧ sampleNTT 280 (bytesAt s.mem (s.gpr .x0) 34) = some (polyAt s'.mem (s.gpr .x1))) ∨
+        (s'.gpr .x0 = 0 ∧ sampleNTT 280 (bytesAt s.mem (s.gpr .x0) 34) = none)) }
+
+theorem sample_strong (s : State) (hs : sampleStrong.pre s) :
+    ∃ t s', Exec isa sampleNTT s t s' ∧ abiPreserved s s' ∧ sampleStrong.post s s' := by
+  have hp := pre_of hs
+  refine WP.mono (WP.seq (WP.mono (phaseA_ok hp) fun u ⟨hl, hf⟩ => WP.mono (loop_ok hl)
+    fun s' ⟨k, _, res⟩ => ?_)) fun s' h => h
+  refine ⟨⟨fun r hr => ?_, ?_⟩, res.1, ?_⟩
+  · rw [k.gpr r (pres_loop r hr), hf.cs r hr]
+  · rw [k.sp, hf.sp]
+  rcases res.2 with ⟨h0, hpoly, hs⟩ | ⟨h0, hn⟩
+  · exact .inl ⟨h0, by rw [hpoly.2]; exact hs⟩
+  · exact .inr ⟨h0, hn⟩
+
+theorem ct_strong : ConstantTime isa sampleStrong.pre sampleStrong.pub sampleNTT := ct
 
 theorem sample_verified :
     Verified AArch64.target sampleNTT (Spec.MlKem.sampleNTTContract AArch64.abi 16) :=

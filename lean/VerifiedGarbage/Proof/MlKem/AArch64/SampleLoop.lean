@@ -279,11 +279,23 @@ theorem cv_toPoly {L : List Zq} {i : Nat} (hi : i < 256) :
     cv L i = BitVec.ofNat 32 ((toPoly L)[i]!).val := by
   simp [cv, toPoly, hi]
 
-/-- The loop's result: 1 and `SampleNTT` at `a`, or 0 and failure. -/
+/-- The loop's result: 1 and `SampleNTT` at `a`, or 0 and failure; `a` is
+reduced either way. -/
 def Res (B : List Byte) (aP : Addr) (u : State) : Prop :=
-  (u.gpr .x0 = 1 ∧ PolyIs u.mem aP (toPoly (LA B 280)) ∧
+  Reduced u.mem aP ∧ ((u.gpr .x0 = 1 ∧ PolyIs u.mem aP (toPoly (LA B 280)) ∧
       sampleNTT 280 B = some (toPoly (LA B 280))) ∨
-    (u.gpr .x0 = 0 ∧ sampleNTT 280 B = none)
+    (u.gpr .x0 = 0 ∧ sampleNTT 280 B = none))
+
+theorem reduced_of_coeffs {m : Mem} {p : Addr} {L : List Zq} (h : CoeffsUpTo m p L.length (cv L) fun _ => 0) :
+    Reduced m p := fun i hi => by
+  rw [h i hi]
+  split
+  · simp only [cv, BitVec.toNat_ofNat]
+    have := val_lt (L.getD i 0)
+    have hq : q = 3329 := rfl
+    omega
+  · show (0 : BitVec 32).toNat < q
+    decide
 
 theorem loop_ok {B : List Byte} {bP aP : Addr} {s₀ : State} (hp : LPre B bP aP s₀) :
     WP isa sampleLoop s₀ fun u => Keep (.x0 :: lRegs) s₀ u ∧ Frame [polyRegion aP] s₀.mem u.mem ∧
@@ -305,6 +317,7 @@ theorem loop_ok {B : List Byte} {bP aP : Addr} {s₀ : State} (hp : LPre B bP aP
     rw [e₂, toNat_lsr, e₁, BitVec.toNat_sub, c4]
     simp only [BitVec.toNat_ofNat]
     split <;> omega
+  refine ⟨by rw [h₂.mem, h₁.mem]; exact reduced_of_coeffs h.acc.coeffs, ?_⟩
   by_cases hf : (LA B 280).length = 256
   · rw [ite_eq_left hf] at v0
     refine .inl ⟨BitVec.eq_of_toNat_eq (by rw [v0]; rfl), ?_, sampleNTT_of_full (Nat.le_refl _) hf⟩

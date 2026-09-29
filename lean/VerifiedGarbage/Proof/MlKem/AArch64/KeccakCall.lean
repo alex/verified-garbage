@@ -56,7 +56,8 @@ theorem absorb_call {s : State} {st dt sc : Addr} {rate pos len : Nat}
     (hw : Covers [⟨st, 200⟩, ⟨sc, 640⟩] s.wr) {Q : State → Prop}
     (hQ : ∀ s', Kept [⟨st, 200⟩, ⟨sc, 640⟩, below s.sp 16] s s' →
       (∀ msg, Repr s.mem st rate msg → pos = msg.length % rate →
-        Repr s'.mem st rate (msg ++ bytesAt s.mem dt len)) → Q s') :
+        Repr s'.mem st rate (msg ++ bytesAt s.mem dt len)) →
+      (s'.gpr .x0).toNat = (pos + len) % rate → Q s') :
     WP isa (.call "vg_keccak_absorb" Impl.Sha3.AArch64.Stream.absorb) s Q := by
   have c0 : s.callEntry.gpr .x0 = st := (gpr_entry s).trans h0
   have c1 : (s.callEntry.gpr .x1).toNat = rate := by rw [gpr_entry s]; exact h1
@@ -73,7 +74,7 @@ theorem absorb_call {s : State} {st dt sc : Addr} {rate pos len : Nat}
     rw [absorb_fdepth, Nat.mul_one] at hf
     simp only [Proof.Sha3.absorbAArch64, State.withRegions_gpr, State.withRegions_mem,
       State.callEntry_mem, c0, c1, c2, c3, c4] at hpost
-    exact hQ s' ⟨hcs, hsp', hrd, hwr, frame3 hf⟩ hpost.1
+    exact hQ s' ⟨hcs, hsp', hrd, hwr, frame3 hf⟩ hpost.1 hpost.2
 
 /-- `vg_keccak_pad(st, rate, pos, suffix, sc)`. -/
 theorem pad_call {s : State} {st sc : Addr} {rate pos : Nat}
@@ -115,7 +116,10 @@ theorem squeeze_call {s : State} {st out sc : Addr} {rate pos len : Nat}
     (hc : Covers [⟨st, 200⟩, ⟨out, len⟩, ⟨sc, 640⟩] (s.rd ++ s.wr))
     (hw : Covers [⟨st, 200⟩, ⟨out, len⟩, ⟨sc, 640⟩] s.wr) {Q : State → Prop}
     (hQ : ∀ s', Kept [⟨st, 200⟩, ⟨out, len⟩, ⟨sc, 640⟩, below s.sp 16] s s' →
-      bytesAt s'.mem out len = squeezeFrom rate (stateAt s.mem st) pos len → Q s') :
+      bytesAt s'.mem out len = squeezeFrom rate (stateAt s.mem st) pos len →
+      (s'.gpr .x0).toNat ≤ rate →
+      (∀ d, squeezeFrom rate (stateAt s'.mem st) (s'.gpr .x0).toNat d =
+        squeezeFrom rate (stateAt s.mem st) (pos + len) d) → Q s') :
     WP isa (.call "vg_keccak_squeeze" Impl.Sha3.AArch64.Stream.squeeze) s Q := by
   have c0 : s.callEntry.gpr .x0 = st := (gpr_entry s).trans h0
   have c1 : (s.callEntry.gpr .x1).toNat = rate := by rw [gpr_entry s]; exact h1
@@ -133,6 +137,6 @@ theorem squeeze_call {s : State} {st out sc : Addr} {rate pos len : Nat}
     rw [squeeze_fdepth, Nat.mul_one] at hf
     simp only [Proof.Sha3.squeezeAArch64, State.withRegions_gpr, State.withRegions_mem,
       State.callEntry_mem, c0, c1, c2, c3, c4] at hpost
-    exact hQ s' ⟨hcs, hsp', hrd, hwr, frame4 hf⟩ hpost.1
+    exact hQ s' ⟨hcs, hsp', hrd, hwr, frame4 hf⟩ hpost.1 hpost.2.1 hpost.2.2
 
 end VG.Proof.MlKem.AArch64
