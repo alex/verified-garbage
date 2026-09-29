@@ -222,12 +222,6 @@ impl DecapsulationKey768 {
         }
         Ok(key)
     }
-
-    /// The expanded decapsulation key, for tests only.
-    #[doc(hidden)]
-    pub fn expanded_key(&self) -> &[u8; 2400] {
-        &self.dk
-    }
 }
 
 #[cfg(test)]

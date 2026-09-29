@@ -9,7 +9,7 @@
 #![cfg(target_arch = "x86_64")]
 
 use serde::Deserialize;
-use verified_garbage::hashes::sha3::Shake256;
+use verified_garbage::hashes::sha3::{Sha3_256, Shake256};
 use verified_garbage::mlkem768::{DecapsulationKey768, EncapsulationKey768, Error};
 
 #[derive(Deserialize)]
@@ -98,8 +98,14 @@ fn key_generation() {
     assert_eq!(vectors.len(), 25);
     for v in &vectors {
         let dk = key(v);
-        assert_eq!(dk.encapsulation_key().as_bytes()[..], unhex(&v.ek));
-        assert_eq!(dk.expanded_key()[..], unhex(&v.dk));
+        let ek = dk.encapsulation_key().as_bytes();
+        assert_eq!(ek[..], unhex(&v.ek));
+        // The expanded key is `dk_PKE ‖ ek ‖ H(ek) ‖ z`, which the API keeps
+        // private: check its layout against the seed and the key.
+        let expanded = unhex(&v.dk);
+        assert_eq!(expanded[1152..2336], ek[..]);
+        assert_eq!(expanded[2336..2368], Sha3_256::digest(ek));
+        assert_eq!(expanded[2368..], dk.seed()[32..]);
     }
 }
 

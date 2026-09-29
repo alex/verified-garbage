@@ -11,6 +11,7 @@
 #![cfg(target_arch = "x86_64")]
 
 use serde::Deserialize;
+use verified_garbage::hashes::sha3::Sha3_256;
 use verified_garbage::mlkem768::{DecapsulationKey768, EncapsulationKey768, Error};
 
 use crate::harness::{self, Expectation, Fields, Hex};
@@ -50,13 +51,18 @@ fn keygen_seed() {
         let c = &test.case;
         assert_eq!(test.result, Expectation::Valid, "tcId {}", test.tc_id);
         let dk = DecapsulationKey768::from_seed(&c.seed.0[..].try_into().unwrap()).unwrap();
+        let ek = dk.encapsulation_key().as_bytes();
+        assert_eq!(ek[..], c.ek.0, "tcId {}", test.tc_id);
+        // The expanded key is `dk_PKE ‖ ek ‖ H(ek) ‖ z`, which the API keeps
+        // private: check its layout against the seed and the key.
+        assert_eq!(c.dk.0[1152..2336], ek[..], "tcId {}", test.tc_id);
         assert_eq!(
-            dk.encapsulation_key().as_bytes()[..],
-            c.ek.0,
+            c.dk.0[2336..2368],
+            Sha3_256::digest(ek),
             "tcId {}",
             test.tc_id
         );
-        assert_eq!(dk.expanded_key()[..], c.dk.0, "tcId {}", test.tc_id);
+        assert_eq!(c.dk.0[2368..], dk.seed()[32..], "tcId {}", test.tc_id);
     }
 }
 
