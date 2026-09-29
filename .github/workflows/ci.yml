@@ -104,6 +104,20 @@ jobs:
         with:
           path: lean/.lake/build
           key: ${{ steps.lean-build.outputs.cache-primary-key }}
+      # The restored build may hold the outputs of modules since deleted or
+      # renamed, which `leanchecker` would replay against today's imports.
+      - name: Remove the build outputs of modules without a source file
+        run: |
+          find .lake/build/lib/lean/VerifiedGarbage -name '*.olean' | while read -r f; do
+            m=${f#.lake/build/lib/lean/}
+            [ -f "${m%.olean}.lean" ] || rm -fv "${f%.olean}".*
+          done
+      # `lake build` trusts what each file adds to the environment, which the
+      # kernel need not have checked: `set_option debug.skipKernelTC`, or a
+      # declaration added from a metaprogram, skips it. Replay every
+      # declaration of every `VerifiedGarbage.*` module through the kernel.
+      - name: Replay every declaration in the kernel
+        run: lake env leanchecker VerifiedGarbage
       - name: Check the generated Rust is up to date
         run: lake env lean --run Emit.lean --check
 
