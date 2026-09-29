@@ -73,6 +73,13 @@ theorem sub_beq_zero (x v : BitVec 32) : (x - v == 0) = decide (x.toNat = v.toNa
     intro e
     exact h (by have := congrArg BitVec.toNat e; simp only [BitVec.toNat_sub] at this; bv_omega)
 
+/-- The returned `u32` is the low word, `eax`, of the returned pair. -/
+theorem setWidth_append32 (a b : BitVec 32) : (a ++ b).setWidth 32 = b := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_setWidth, BitVec.toNat_append, Nat.shiftLeft_eq, Nat.mul_comm,
+    ← Nat.two_pow_add_eq_or_of_lt b.isLt]
+  omega
+
 /-- A pointer advanced by `d`. -/
 theorem ptr_next (x : BitVec 32) (k d : Nat) :
     x + BitVec.ofNat 32 (d * k) + BitVec.ofNat 32 d = x + BitVec.ofNat 32 (d * (k + 1)) := by
@@ -247,6 +254,16 @@ theorem addr_add {x : BitVec 32} {k d : Nat} (h : x.toNat + k + d < 2 ^ 32) :
 theorem ea_add {x : BitVec 32} {k d : Nat} (h : x.toNat + k + d < 2 ^ 32) :
     (x + BitVec.ofNat 32 k + BitVec.ofNat 32 d).setWidth 64 = x.setWidth 64 + BitVec.ofNat 64 (k + d) :=
   addr_add h
+
+/-- `[x + d]` of a 32-bit pointer `x`, where nothing wraps around. -/
+theorem ea_off {x : BitVec 32} {d : Nat} (h : x.toNat + d < 2 ^ 32) :
+    (x + BitVec.ofNat 32 d).setWidth 64 = x.setWidth 64 + BitVec.ofNat 64 d := by
+  have := ea_add (x := x) (k := 0) (d := d) (by omega)
+  simpa using this
+
+/-- An access within a region is a sub-region of it. -/
+theorem sub_of_contains {r : Region} {a : Addr} {n : Nat} (h : r.Contains a n) : Region.Sub ⟨a, n⟩ r :=
+  fun _ hx => h.byte (by simp only [Region.Contains] at hx; omega)
 
 /-- An access of `n` bytes at offset `o` of a region at a 32-bit pointer. -/
 theorem contains_at {x : BitVec 32} {len o n : Nat} (h : o + n ≤ len) (hx : x.toNat + len ≤ 2 ^ 32) :

@@ -5,6 +5,9 @@ import VerifiedGarbage.Proof.MlKem.X86.Decode12
 import VerifiedGarbage.Proof.MlKem.X86.Cbd
 import VerifiedGarbage.Proof.MlKem.X86.CompressEncode
 import VerifiedGarbage.Proof.MlKem.X86.DecodeDecompress
+import VerifiedGarbage.Proof.MlKem.X86.NttInv
+import VerifiedGarbage.Proof.MlKem.X86.Mul
+import VerifiedGarbage.Proof.MlKem.X86.CheckEk
 
 /-!
 # ML-KEM (FIPS 203) on x86
@@ -73,6 +76,36 @@ def artifacts : List Artifact := [
     code := Impl.MlKem.X86.decodeDecompress
     contract := Spec.MlKem.decodeDecompressContract X86.abi 16
     stack := 16
-    verified := Proof.MlKem.X86.DecodeDecompress.verified }]
+    verified := Proof.MlKem.X86.DecodeDecompress.verified },
+  { Spec.MlKem.nttApi with
+    target := X86.target
+    doc := Spec.MlKem.nttApi.doc
+    code := Impl.MlKem.X86.ntt
+    contract := Spec.MlKem.nttContract X86.abi 16
+    stack := 16
+    verified := Proof.MlKem.X86.NttFwd.verified
+    ofSig := ⟨_, _, _, by unfold Spec.MlKem.nttContract Spec.MlKem.inPlaceContract; rfl⟩ },
+  { Spec.MlKem.nttInvApi with
+    target := X86.target
+    doc := Spec.MlKem.nttInvApi.doc
+    code := Impl.MlKem.X86.nttInv
+    contract := Spec.MlKem.nttInvContract X86.abi 16
+    stack := 16
+    verified := Proof.MlKem.X86.NttInvP.verified
+    ofSig := ⟨_, _, _, by unfold Spec.MlKem.nttInvContract Spec.MlKem.inPlaceContract; rfl⟩ },
+  { Spec.MlKem.mulApi with
+    target := X86.target
+    doc := Spec.MlKem.mulApi.doc
+    code := Impl.MlKem.X86.multiplyNTTs
+    contract := Spec.MlKem.mulContract X86.abi 16
+    stack := 16
+    verified := Proof.MlKem.X86.Mul.verified },
+  { Spec.MlKem.checkEkApi with
+    target := X86.target
+    doc := Spec.MlKem.checkEkApi.doc
+    code := Impl.MlKem.X86.checkEk
+    contract := Spec.MlKem.checkEkContract X86.abi 16
+    stack := 16
+    verified := Proof.MlKem.X86.CheckEk.verified }]
 
 end VG.Artifacts.MlKem.X86
