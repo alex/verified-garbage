@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Init
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Finalize
 
 /-!
 # HMAC over any streaming hash function on AArch64: `finalize`, correct
@@ -15,12 +14,10 @@ open VG.Impl.Hmac.Generic.AArch64 (Hash copy)
 open VG.Impl.Sha256.AArch64.Stream (mov)
 open VG.Proof.Hmac.Generic.AArch64
 open VG.Proof.Hmac.Generic.AArch64.Init (untouched untouched_clob)
-open VG.Proof.Hmac.Generic.X86_64 (inRegions_of_sub)
-open VG.Proof.Hmac.Generic.X86_64.Init (off_disj off_disj0 covers_one sub_of_off sub_of_self bytes_keep)
-open VG.Proof.Hmac.Generic.X86_64.Finalize (bytesAt_take bytesAt_writeBytes_self' xorPad_length)
-open VG.Proof.Sha256.X86_64 (toNat_ofNat_lt sub_offset contains_offset)
-open VG.Proof.MdStream.AArch64 (Upd wp_mov wp_movz wp_addImm)
-open VG.Proof.Hmac.X86_64 (bytesAt_length writeBytes_at bytesAt_getD')
+open VG.Proof.Hmac.Generic.Common (inRegions_of_sub off_disj off_disj0 covers_one sub_of_off sub_of_self
+  bytes_keep bytesAt_take bytesAt_writeBytes_self')
+open VG.Proof.MdStream.AArch64 (toNat_ofNat_lt sub_offset contains_offset Upd wp_mov wp_movz wp_addImm)
+open VG.Proof.Hmac.Common (bytesAt_length writeBytes_at bytesAt_getD' xorPad_length)
 open Spec.Sha256 (bytesAt)
 open VG.Proof.Sha256.Stream (writeBytes)
 open Spec.Hmac (xorPad ipad opad hmacBlockKey)

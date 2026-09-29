@@ -1,8 +1,8 @@
 import VerifiedGarbage.Proof.Hmac.Generic.Arm.Hash
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Hashes
 import VerifiedGarbage.Proof.Sha1.Arm.Shared
 import VerifiedGarbage.Proof.Md5.Arm.Shared
 import VerifiedGarbage.Proof.Sha512.Arm.Shared
+import VerifiedGarbage.Proof.Hmac.Generic.Common
 
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: the hash functions
@@ -19,7 +19,7 @@ namespace VG.Proof.Hmac.Generic.Arm
 
 open VG.Arm
 open VG.Impl.Hmac.Generic.Arm (Hash)
-open VG.Proof.Hmac.Generic.X86_64 (sha1_repr md5_repr sha512_repr finalHash_length)
+open VG.Proof.Hmac.Generic.Common (sha1_repr md5_repr sha512_repr finalHash_length)
 
 /-! ## SHA-1 -/
 

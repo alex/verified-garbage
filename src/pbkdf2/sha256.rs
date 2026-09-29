@@ -10,15 +10,23 @@
 //!
 //! On x86-64, when the HMAC computation runs SHA-256 with the SHA extensions,
 //! the iteration does too: `vg_pbkdf2_hmac_sha256_iterate_shani`, the same
-//! verified code calling `vg_sha256_compress_shani`, with the same contract.
+//! verified code calling `vg_sha256_compress_shani`, with the same contract;
+//! likewise `vg_pbkdf2_hmac_sha256_iterate_avx2` with AVX2.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use core::num::NonZeroU32;
 
 use crate::arch::pbkdf2_sha256::vg_pbkdf2_hmac_sha256_iterate;
 #[cfg(target_arch = "x86_64")]
-use crate::arch::pbkdf2_sha256::vg_pbkdf2_hmac_sha256_iterate_shani;
+use crate::arch::pbkdf2_sha256::{
+    vg_pbkdf2_hmac_sha256_iterate_avx2, vg_pbkdf2_hmac_sha256_iterate_shani,
+};
 use crate::hashes::sha256::Sha256;
 #[cfg(target_arch = "x86_64")]
 use crate::hashes::sha256::Sha256Backend;
@@ -49,6 +57,7 @@ impl super::Pbkdf2Hash for Sha256 {
         let iterate = match key.backend {
             Sha256Backend::Scalar => vg_pbkdf2_hmac_sha256_iterate,
             Sha256Backend::ShaNi => vg_pbkdf2_hmac_sha256_iterate_shani,
+            Sha256Backend::Avx2 => vg_pbkdf2_hmac_sha256_iterate_avx2,
         };
         #[cfg(not(target_arch = "x86_64"))]
         let iterate = vg_pbkdf2_hmac_sha256_iterate;
@@ -58,12 +67,12 @@ impl super::Pbkdf2Hash for Sha256 {
         // reads and writes of 832 bytes; `t` and `scratch` are distinct
         // objects from each other and the others (`key` and `u` are only
         // read), so they do not overlap each other, the stack arguments (on
-        // ARMv7) or (on x86-64) the return address and the stack below it,
-        // nor wrap around the address space. `key.states` holds the
+        // ARMv7 and x86), the return address and the stack below it (on
+        // x86-64 and x86), nor wrap around the address space. `key.states` holds the
         // streaming states for `K₀ ⊕ ipad` and `K₀ ⊕ opad` that
         // `vg_hmac_sha256_init` left. On x86-64, `iterate` needs the CPU
         // features of the SHA-256 implementation the HMAC computation was
-        // created with, which were detected (`tests::shani_features`).
+        // created with, which were detected (`tests::backend_features`).
         unsafe { iterate(&key.states, u, n, t, &mut scratch) };
     }
 }
@@ -82,18 +91,28 @@ pub fn pbkdf2_hmac_sha256(password: &[u8], salt: &[u8], iterations: NonZeroU32, 
 
 #[cfg(all(test, target_arch = "x86_64"))]
 mod tests {
-    use crate::arch::pbkdf2_sha256::VG_PBKDF2_HMAC_SHA256_ITERATE_SHANI_FEATURES;
-    use crate::arch::sha256::{VG_SHA256_FINALIZE_SHANI_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES};
+    use crate::arch::pbkdf2_sha256::{
+        VG_PBKDF2_HMAC_SHA256_ITERATE_AVX2_FEATURES, VG_PBKDF2_HMAC_SHA256_ITERATE_SHANI_FEATURES,
+    };
+    use crate::arch::sha256::{
+        VG_SHA256_FINALIZE_AVX2_FEATURES, VG_SHA256_FINALIZE_SHANI_FEATURES,
+        VG_SHA256_UPDATE_AVX2_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES,
+    };
     use crate::cpu::Features;
 
-    /// The SHA-NI iteration needs no CPU feature that the SHA-NI SHA-256
-    /// backend was not selected for.
+    /// Each backend's iteration needs no CPU feature that its SHA-256 backend
+    /// was not selected for.
     #[test]
-    fn shani_features() {
-        let backend = Features::all(&[
+    fn backend_features() {
+        let shani = Features::all(&[
             VG_SHA256_UPDATE_SHANI_FEATURES,
             VG_SHA256_FINALIZE_SHANI_FEATURES,
         ]);
-        assert!(backend.contains(Features::of(VG_PBKDF2_HMAC_SHA256_ITERATE_SHANI_FEATURES)));
+        assert!(shani.contains(Features::of(VG_PBKDF2_HMAC_SHA256_ITERATE_SHANI_FEATURES)));
+        let avx2 = Features::all(&[
+            VG_SHA256_UPDATE_AVX2_FEATURES,
+            VG_SHA256_FINALIZE_AVX2_FEATURES,
+        ]);
+        assert!(avx2.contains(Features::of(VG_PBKDF2_HMAC_SHA256_ITERATE_AVX2_FEATURES)));
     }
 }

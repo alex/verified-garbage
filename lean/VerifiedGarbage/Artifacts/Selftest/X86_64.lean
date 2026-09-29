@@ -26,6 +26,7 @@ def artifacts : List Artifact := [
       Contract: `VG.Spec.Selftest.addContract`. No safety requirements."
     code := Impl.Selftest.X86_64.add
     contract := Spec.Selftest.addContract X86_64.abi
-    verified := Proof.Selftest.X86_64.add_verified }]
+    verified := Proof.Selftest.X86_64.add_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.Selftest.X86_64

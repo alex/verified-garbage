@@ -1,13 +1,13 @@
 import VerifiedGarbage.Proof.Hmac.Generic.Arm.Hash
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Loops
+import VerifiedGarbage.Proof.Hmac.Generic.Common
 
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: the byte loops
 
 Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Hmac/Generic/AArch64/Loops.lean`, whose byte-list lemmas from x86-64
-are reused): the byte copy (`copy`), the exclusive-or of `U` into `T`, and
-`init`'s loops that write `K₀ ⊕ ipad` and `K₀ ⊕ opad`. Each counts `r8` up
+(`Proof/Hmac/Generic/AArch64/Loops.lean`, with the byte-list lemmas of
+`Proof/Hmac/Generic/Common.lean`): the byte copy (`copy`), the exclusive-or
+of `U` into `T`, and `init`'s loops that write `K₀ ⊕ ipad` and `K₀ ⊕ opad`. Each counts `r8` up
 from 0 and `r9` down to 0 with `subs`, and branches on its result.
 Addresses are 32 bits, zero-extended: every buffer the loops touch lies
 below 2³², so byte `k` of a buffer at `p + o` is at `State.addr p + o + k`.
@@ -20,8 +20,8 @@ open VG.Impl.Hmac.Generic.Arm (Hash copy)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil)
 open VG.Proof.MdStream.Arm (Upd Mupd Fupd WP.cons op2_imm op2_reg wp_mov wp_add wp_subs wp_ldrb wp_strb
   eval_ne sub_beq sub_ofNat)
-open VG.Proof.Hmac.X86_64 (bytesAt_length)
-open VG.Proof.Hmac.Generic.X86_64 (writeBytes_snoc bytesAt_snoc' not_mem_of_disjoint xorBytes_snoc xorBytes_length'
+open VG.Proof.Hmac.Common (bytesAt_length)
+open VG.Proof.Hmac.Generic.Common (writeBytes_snoc bytesAt_snoc' not_mem_of_disjoint xorBytes_snoc xorBytes_length'
   InRegions.right' add_ofNat_add BufMem buf_write K0 K0_length K0_lt K0_ge)
 open Spec.Sha256 (bytesAt)
 
@@ -326,7 +326,7 @@ theorem key_step {scr kp : BitVec 32} {kl : Nat} {s : State} (hr : LoopRegs scr 
     rw [K0_lt hj hl]
     refine h.mem.frame _ fun r hr' hc => ?_
     simp only [List.mem_singleton] at hr'; subst hr'
-    exact hm.disj _ (Proof.Sha256.X86_64.contains_offset (n := 1) (by omega) (by omega)) hc
+    exact hm.disj _ (Proof.MdStream.Arm.contains_offset (n := 1) (by omega) (by omega)) hc
   refine wp_add (op2_reg _ _) fun t₁ u₁ => ?_
   refine wp_ldrb (a := K + BitVec.ofNat 64 j) (by decide)
     (by rw [u₁.gpr, rt.r6, h.r8, addr3 (by omega)]; exact congrArg (· + BitVec.ofNat 64 j) (BitVec.add_zero _))

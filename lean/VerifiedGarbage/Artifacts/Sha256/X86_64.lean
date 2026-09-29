@@ -22,30 +22,35 @@ def artifacts : List Artifact := [
     doc := Spec.Sha256.compressApi.doc
     code := Impl.Sha256.X86_64.compress
     contract := Spec.Sha256.compressContract X86_64.abi
-    verified := Proof.Sha256.X86_64.Shared.compress },
+    verified := Proof.Sha256.X86_64.Shared.compress
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { Spec.Sha256.initApi with
     target := X86_64.target
     doc := Spec.Sha256.initApi.doc
     code := Impl.Sha256.X86_64.Stream.init
     contract := Spec.Sha256.initContract X86_64.abi
-    verified := Proof.Sha256.X86_64.Shared.init },
-  { target := X86_64.target
-    module := "sha256"
+    verified := Proof.Sha256.X86_64.Shared.init
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.Sha256.compressApi with
     name := "vg_sha256_compress_shani"
-    sig := Spec.Sha256.compressSig
-    doc := "The SHA-256 compression function (FIPS 180-4 §6.2.2), with the SHA extensions: \
-      updates the hash value `*state` with the `n` 64-byte blocks starting at `blocks`, in \
-      order.\n\n\
-      Contract: `VG.Spec.Sha256.compressContract`. Constant time: only the pointers and `n` \
-      may affect timing, not the hash value or the blocks.\n\n\
-      # Safety\n\n\
-      * `state` must be valid for reads and writes of 32 bytes.\n\
-      * `blocks` must be valid for reads of `64 * n` bytes.\n\
-      * `scratch` must be valid for reads and writes of 112 bytes; its contents on \
-      return are unspecified."
+    target := X86_64.target
+    doc := Spec.Sha256.compressApi.doc
+      (notes := ["This implementation uses the SHA extensions."])
     code := Impl.Sha256.X86_64.ShaNi.compress
     contract := Spec.Sha256.compressContract X86_64.abi
     verified := Proof.Sha256.X86_64.Shared.compress_shani
-    features := ["sha", "ssse3"] }]
+    features := ["sha", "ssse3"]
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.Sha256.compressApi with
+    name := "vg_sha256_compress_avx2"
+    target := X86_64.target
+    doc := Spec.Sha256.compressApi.doc
+      (notes := ["This implementation computes the message schedules of two blocks at a time in \
+        the two lanes of the AVX2 registers, and the rounds with BMI1 and BMI2."])
+    code := Impl.Sha256.X86_64.Avx2.compress
+    contract := Spec.Sha256.compressContract X86_64.abi
+    verified := Proof.Sha256.X86_64.Shared.compress_avx2
+    features := ["avx", "avx2", "bmi1", "bmi2"]
+    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.Sha256.X86_64

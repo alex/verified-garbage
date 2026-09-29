@@ -18,13 +18,12 @@ open VG.Impl.Sha256.AArch64.Stream (mov)
 open VG.Proof.Hmac.Generic.AArch64
 open VG.Proof.Hmac.Generic.AArch64.Init (untouched)
 open VG.Proof.Hmac.Generic.AArch64.Finalize (add_zero')
-open VG.Proof.Hmac.Generic.X86_64 (inRegions_of_sub xorBytes_length')
-open VG.Proof.Hmac.Generic.X86_64.Init (sub_of_off sub_of_self bytes_keep)
-open VG.Proof.Hmac.Generic.X86_64.Finalize (bytesAt_take bytesAt_writeBytes_self' xorPad_length)
-open VG.Proof.Sha256.X86_64 (toNat_ofNat_lt sub_offset)
+open VG.Proof.Hmac.Generic.Common (inRegions_of_sub xorBytes_length' sub_of_off sub_of_self bytes_keep
+  bytesAt_take bytesAt_writeBytes_self')
+open VG.Proof.MdStream.AArch64 (toNat_ofNat_lt sub_offset)
 open VG.Proof.MdStream.AArch64 (Upd wp_mov wp_movz wp_addImm wp_subImm eval_zero eval_nonzero
   ofNat_beq_zero)
-open VG.Proof.Hmac.X86_64 (bytesAt_length writeBytes_at bytesAt_getD')
+open VG.Proof.Hmac.Common (bytesAt_length writeBytes_at bytesAt_getD' xorPad_length)
 open VG.Proof.Sha256.Stream (writeBytes)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad hmacBlockKey)

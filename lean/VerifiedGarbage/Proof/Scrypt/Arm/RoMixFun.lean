@@ -21,7 +21,7 @@ open VG.Proof.Sha256.Stream (writeBytes)
 open VG.Proof.MdStream.Arm (Upd Mupd wp_mov wp_add wp_sub wp_and wp_subs wp_ldr wp_str wp_ldrSp
   op2_reg op2_imm op2_lsl op2_lsr saveMem saveList_ok readW_writeW_save)
 open VG.Proof.Scrypt (vList vList_getD roMix_eq roMixIndices_eq mixLoop_succ_fst mixLoop_succ_snd)
-open VG.Proof.Scrypt.X86_64.BlockMix (add_ofNat contains_off sub_off InRegions.of_mem
+open VG.Proof.Scrypt.Memory (add_ofNat contains_off sub_off InRegions.of_mem
   InRegions.right frame_bytesAt bytesAt_writeBytes_self bytesAt_writeBytes_sep bytesAt_length
   xorBytes_length)
 

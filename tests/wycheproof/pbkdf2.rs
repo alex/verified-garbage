@@ -1,7 +1,12 @@
 //! PBKDF2 (`PbkdfTest` vectors): the checks every hash function's tests
 //! (`pbkdf2_<hash>.rs`) run.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use core::num::NonZeroU32;
 

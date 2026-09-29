@@ -118,10 +118,10 @@ structure SrcOK (s₀ : State) (A : Addr) : Prop where
 
 theorem srcOK_v {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < NN s₀) : SrcOK s₀ (vAt s₀ i) :=
   ⟨(vAt_b hp hi).sub_right b_sub', (vAt_s hp hi).sub_right w_sub, (vAt_stk hp hi).symm,
-    vAt_nw hp hi, BlockMix.InRegions.right (vAt_in hp hi)⟩
+    vAt_nw hp hi, Memory.InRegions.right (vAt_in hp hi)⟩
 
 theorem srcOK_t {s₀ : State} (hp : Pre s₀) : SrcOK s₀ (tP s₀) :=
-  ⟨t_b hp, t_w hp, hp.stk_s.sub_right (t_sub hp), t_nw hp, BlockMix.InRegions.right (t_in hp)⟩
+  ⟨t_b hp, t_w hp, hp.stk_s.sub_right (t_sub hp), t_nw hp, Memory.InRegions.right (t_in hp)⟩
 
 /-! ## The call -/
 
@@ -342,8 +342,8 @@ theorem j_wp {s₀ : State} (hp : Pre s₀) {q : Addr} {s : State}
   refine Proof.MdStream.X86_64.wp_movm (a := bP s₀ + BitVec.ofNat 64 (128 * rr s₀ - 64))
     (ea_j hp s h.rbx h.r14)
     (by rw [h.rd, h.wr, hp.rd, hp.wr]
-        exact BlockMix.InRegions.of_mem (R := bR s₀) (by simp)
-          (BlockMix.contains_off (by omega) (by omega)))
+        exact Memory.InRegions.of_mem (R := bR s₀) (by simp)
+          (Memory.contains_off (by omega) (by omega)))
     fun a ua => wp_and fun b ub => WP.block_nil ⟨?_, ?_⟩
   · exact h.upd (by rw [ub.rd, ua.rd]) (by rw [ub.wr, ua.wr]) fun r h1 _ _ _ _ _ => by
       rw [ub.other _ h1, ua.other _ h1]
@@ -398,7 +398,7 @@ theorem xor_wp {bp q : Addr} {s₀ : State} {s : State} (h : KR s₀ bp q s) (hp
   refine WP.mono (xorLoop_ok (x := bP s₀) (y := vAt s₀ j) (d := tP s₀) (n := 16 * rr s₀)
     (by have := hp.pos; omega) (by omega) hdi hsi hr8 hcx
     (fun k hk => by rw [h.rd, h.wr]; exact b_word hp hk)
-    (fun k hk => by rw [h.rd, h.wr]; exact BlockMix.InRegions.right (v_word hp hj hk))
+    (fun k hk => by rw [h.rd, h.wr]; exact Memory.InRegions.right (v_word hp hj hk))
     (fun k hk => by rw [h.wr]; exact t_word hp hk)
     (by rw [e8]; exact t_b hp) (by rw [e8]; exact (vAt_s hp hj).symm.sub_left (t_sub hp)))
     fun _ ⟨rd, wr, g, _⟩ => h.upd rd wr fun r h1 h2 h3 h4 _ h6 => g r h1 h2 h3 h6 h4

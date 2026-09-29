@@ -47,8 +47,9 @@ ARCHES = {"x86_64": "x86-64", "aarch64": "ARM64", "arm": "ARMv7", "x86": "x86"}
 # The families, in README order: each has its own table, under a heading.
 FAMILIES = ["Hashes", "MACs", "Ciphers", "AEADs", "KDFs", "KEMs"]
 
-# How the table names CPU features (Rust's `target_feature` names); None
-# leaves a feature out, e.g. one that only comes with another.
+# How the table names CPU features (Rust's `target_feature` names), in the
+# order it lists them; None leaves a feature out, e.g. one that only comes
+# with another.
 FEATURES = {
     "sha": "SHA extensions",
     "aes": "AES-NI",
@@ -56,6 +57,8 @@ FEATURES = {
     "ssse3": None,
     "avx2": "AVX2",
     "avx": None,
+    "bmi1": "BMI1",
+    "bmi2": "BMI2",
 }
 
 CFG = re.compile(r"^#!\[cfg\((.*?)\)\]$", re.MULTILINE | re.DOTALL)
@@ -85,10 +88,11 @@ def optimized(row, arch):
         if path.is_file():
             for m in FEATURE_CONST.finditer(path.read_text()):
                 features += re.findall(r'"([^"]+)"', m[1])
+    order = list(FEATURES)
     shown = []
-    for f in features:
+    for f in sorted(set(features), key=lambda f: (order.index(f) if f in order else len(order), f)):
         f = FEATURES.get(f, f)
-        if f is not None and f not in shown:
+        if f is not None:
             shown.append(f)
     note = row.get("optimized", {}).get(arch)
     return ", ".join(shown) + ("; " if shown and note else "") + (note or "")

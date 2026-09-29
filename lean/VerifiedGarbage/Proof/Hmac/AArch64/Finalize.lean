@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Hmac.AArch64.Common
-import VerifiedGarbage.Proof.Hmac.X86_64.Finalize
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
@@ -18,9 +17,8 @@ namespace VG.Proof.Hmac.AArch64.Finalize
 open VG VG.AArch64 VG.Impl.Hmac.AArch64
 open VG.Impl.Sha256.AArch64.Stream (mov)
 open VG.Proof.Hmac.AArch64
-open VG.Proof.Hmac.X86_64 (writeBytes_at writeBytes_other bytesAt_getD' bytesAt_length
-  bytesAt_writeBytes_self bytesAt_writeBytes_sep stateAt_eq_of_bytes)
-open VG.Proof.Hmac.X86_64.Finalize (xorPad_length repr_outer)
+open VG.Proof.Hmac.Common (writeBytes_at writeBytes_other bytesAt_getD' bytesAt_length
+  bytesAt_writeBytes_self bytesAt_writeBytes_sep stateAt_eq_of_bytes xorPad_length repr_outer)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Sha256.AArch64 (contains_offset sub_offset toNat_ofNat_lt)
 open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_movz wp_addImm wp_str wp_ldr frame_bytes
