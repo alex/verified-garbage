@@ -8,21 +8,24 @@
 //! the HMAC computation starts from (see `super`, which splits the derived
 //! key into blocks).
 //!
-//! On x86-64 the whole function is instead one call of the verified
-//! `vg_pbkdf2_hmac_sha256` (contract `VG.Spec.Pbkdf2.pbkdf2Sha256Contract`),
-//! which composes the verified SHA-256, HMAC-SHA-256 and PBKDF2 functions by
-//! calls: `vg_pbkdf2_hmac_sha256_shani` when SHA-256 runs with the SHA
-//! extensions on this CPU, the same verified code calling the SHA-NI
-//! functions, with the same contract.
+//! On x86-64 and AArch64 the whole function is instead one call of the
+//! verified `vg_pbkdf2_hmac_sha256` (contract
+//! `VG.Spec.Pbkdf2.pbkdf2Sha256Contract`), which composes the verified
+//! SHA-256, HMAC-SHA-256 and PBKDF2 functions by calls; on x86-64,
+//! `vg_pbkdf2_hmac_sha256_shani` when SHA-256 runs with the SHA extensions
+//! on this CPU, the same verified code calling the SHA-NI functions, with
+//! the same contract.
 
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use core::num::NonZeroU32;
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+use crate::arch::pbkdf2_sha256::vg_pbkdf2_hmac_sha256;
 use crate::arch::pbkdf2_sha256::vg_pbkdf2_hmac_sha256_iterate;
 #[cfg(target_arch = "x86_64")]
 use crate::arch::pbkdf2_sha256::{
-    vg_pbkdf2_hmac_sha256, vg_pbkdf2_hmac_sha256_iterate_shani, vg_pbkdf2_hmac_sha256_shani,
+    vg_pbkdf2_hmac_sha256_iterate_shani, vg_pbkdf2_hmac_sha256_shani,
 };
 use crate::hashes::sha256::Sha256;
 #[cfg(target_arch = "x86_64")]
@@ -72,7 +75,7 @@ impl super::Pbkdf2Hash for Sha256 {
         unsafe { iterate(&key.states, u, n, t, &mut scratch) };
     }
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
     fn pbkdf2_derive(
         password: &[u8],
         salt: &[u8],
@@ -80,9 +83,15 @@ impl super::Pbkdf2Hash for Sha256 {
         out: &mut [u8],
         mask: u32,
     ) {
+        #[cfg(target_arch = "x86_64")]
         let derive = match Sha256Backend::select(crate::cpu::available(mask)) {
             Sha256Backend::Scalar => vg_pbkdf2_hmac_sha256,
             Sha256Backend::ShaNi => vg_pbkdf2_hmac_sha256_shani,
+        };
+        #[cfg(target_arch = "aarch64")]
+        let derive = {
+            let _ = mask;
+            vg_pbkdf2_hmac_sha256
         };
         u32::try_from(out.len().div_ceil(32)).expect("PBKDF2 derived key too long");
         let mut scratch = [0u64; 256];
@@ -92,10 +101,10 @@ impl super::Pbkdf2Hash for Sha256 {
         // and `scratch` for reads and writes of 2048 bytes; `out` and
         // `scratch` are distinct objects from each other and the others
         // (`password` and `salt` are only read), so none of them overlaps
-        // another written one, the stack arguments, or the return address
-        // and the stack below it, and, as Rust objects, none wraps around
-        // the address space. `derive` needs the CPU features of the SHA-256
-        // implementation selected for this CPU, which were detected
+        // another written one, the stack arguments, the return address or
+        // the stack below it, and, as Rust objects, none wraps around the
+        // address space. On x86-64, `derive` needs the CPU features of the
+        // SHA-256 implementation selected for this CPU, which were detected
         // (`tests::shani_features`).
         unsafe {
             derive(
@@ -124,20 +133,24 @@ pub fn pbkdf2_hmac_sha256(password: &[u8], salt: &[u8], iterations: NonZeroU32, 
     super::pbkdf2_hmac::<Sha256>(password, salt, iterations, out);
 }
 
-#[cfg(all(test, target_arch = "x86_64"))]
+#[cfg(all(test, any(target_arch = "x86_64", target_arch = "aarch64")))]
 mod tests {
     use core::num::NonZeroU32;
 
+    #[cfg(target_arch = "x86_64")]
     use crate::arch::pbkdf2_sha256::{
         VG_PBKDF2_HMAC_SHA256_ITERATE_SHANI_FEATURES, VG_PBKDF2_HMAC_SHA256_SHANI_FEATURES,
     };
+    #[cfg(target_arch = "x86_64")]
     use crate::arch::sha256::{VG_SHA256_FINALIZE_SHANI_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES};
+    #[cfg(target_arch = "x86_64")]
     use crate::cpu::Features;
     use crate::hashes::sha256::Sha256;
     use crate::pbkdf2::Pbkdf2Hash;
 
     /// The SHA-NI iteration and derivation need no CPU feature that the
     /// SHA-NI SHA-256 backend was not selected for.
+    #[cfg(target_arch = "x86_64")]
     #[test]
     fn shani_features() {
         let backend = Features::all(&[
@@ -149,7 +162,7 @@ mod tests {
     }
 
     /// The whole verified function derives the same keys as the
-    /// computation block by block that it replaces on x86-64, with and
+    /// computation block by block that it replaces, with and
     /// without the CPU's features, from a password shorter and one longer
     /// than a block, for keys of zero, part of one, one and several blocks.
     #[test]
