@@ -5,12 +5,13 @@
 //! always run. (Test cases 5 to 7 of Section 3 are printed twice, the second
 //! time after a page break in the middle of a value; the first printing of
 //! each is used.) Test case 5's truncated MAC is compared with the start of
-//! the computed one.
+//! the computed one. A module here for each hash function.
 
 #![cfg(target_arch = "x86_64")]
 
-use verified_garbage::hashes::md5::Md5;
-use verified_garbage::hashes::sha1::Sha1;
+mod md5;
+mod sha1;
+
 use verified_garbage::hmac::{Hmac, HmacHash};
 
 const RFC: &str = include_str!("../../vectors/rfc2202/rfc2202.txt");
@@ -39,7 +40,7 @@ fn value(v: &str) -> Vec<u8> {
 }
 
 /// A test case: the key, the data and the (possibly truncated) MAC.
-struct Case {
+pub(crate) struct Case {
     key: Vec<u8>,
     data: Vec<u8>,
     mac: Vec<u8>,
@@ -49,7 +50,7 @@ struct Case {
 /// `stop`. A field starts at the beginning of a line (`name =  value`, or
 /// `name  value`), and an indented line, or one of a single word, continues
 /// the previous one's value; the page footers and headers are skipped.
-fn cases(start: &str, stop: &str) -> Vec<Case> {
+pub(crate) fn cases(start: &str, stop: &str) -> Vec<Case> {
     let mut groups: Vec<(String, Vec<(String, String)>)> = Vec::new();
     let section = RFC
         .lines()
@@ -101,7 +102,7 @@ fn cases(start: &str, stop: &str) -> Vec<Case> {
 
 /// Checks the cases, at once and one byte at a time, with each
 /// implementation this CPU can run.
-fn check<H: HmacHash>(cases: &[Case]) {
+pub(crate) fn check<H: HmacHash>(cases: &[Case]) {
     for c in cases {
         let full = Hmac::<H>::mac(&c.key, &c.data);
         assert_eq!(full.as_ref().len(), H::OUTPUT_SIZE);
@@ -114,16 +115,4 @@ fn check<H: HmacHash>(cases: &[Case]) {
             assert_eq!(h.finalize().as_ref(), full.as_ref());
         }
     }
-}
-
-#[test]
-fn hmac_md5() {
-    let cases = cases("2. Test Cases for HMAC-MD5", "3. Test Cases for HMAC-SHA-1");
-    check::<Md5>(&cases);
-}
-
-#[test]
-fn hmac_sha1() {
-    let cases = cases("3. Test Cases for HMAC-SHA-1", "4. Security Considerations");
-    check::<Sha1>(&cases);
 }

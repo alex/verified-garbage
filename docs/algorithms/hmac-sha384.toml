@@ -1,0 +1,5 @@
+name = "HMAC-SHA-384"
+family = "MACs"
+specs = ["Hmac", "Sha512"]
+modules = ["src/hmac/sha384.rs"]
+asm = ["hmac_sha384", "sha512"]

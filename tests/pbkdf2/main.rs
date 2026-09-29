@@ -1,16 +1,21 @@
-//! PBKDF2 against its definition (RFC 8018 §5.2), computed with [`Hmac`],
+//! PBKDF2 against its definition (RFC 8018 §5.2), computed with [`Hmac`]:
 //! for the hash functions without published PBKDF2 test vectors (their HMAC
-//! is tested against published vectors in `tests/wycheproof/hmac.rs` and
-//! `tests/rfc2202/`), and the others too, so these tests always run.
+//! is tested against published vectors in `tests/wycheproof/hmac_<hash>.rs`
+//! and `tests/rfc2202/`), and the others too, so these tests always run. A
+//! module here for each hash function.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+
+mod md5;
+mod sha1;
+mod sha256;
+mod sha384;
+mod sha512;
+mod sha512_224;
+mod sha512_256;
 
 use core::num::NonZeroU32;
 
-use verified_garbage::hashes::md5::Md5;
-use verified_garbage::hashes::sha1::Sha1;
-use verified_garbage::hashes::sha256::Sha256;
-use verified_garbage::hashes::sha512::{Sha384, Sha512, Sha512_224, Sha512_256};
 use verified_garbage::hmac::Hmac;
 use verified_garbage::pbkdf2::{Pbkdf2Hash, pbkdf2_hmac};
 
@@ -41,7 +46,7 @@ fn reference<H: Pbkdf2Hash>(password: &[u8], salt: &[u8], c: u32, len: usize) ->
 /// Passwords shorter than, as long as and longer than a block, derived keys
 /// of up to three blocks (the last one partial or whole), and iteration
 /// counts from 1.
-fn check<H: Pbkdf2Hash>() {
+pub(crate) fn check<H: Pbkdf2Hash>() {
     let d = H::OUTPUT_SIZE;
     for plen in [0, 1, H::BLOCK_SIZE, H::BLOCK_SIZE + 1] {
         let password: Vec<u8> = (0..plen).map(|i| i as u8 ^ 0x5c).collect();
@@ -52,39 +57,4 @@ fn check<H: Pbkdf2Hash>() {
             assert_eq!(dk, reference::<H>(&password, &salt, c, len));
         }
     }
-}
-
-#[test]
-fn pbkdf2_hmac_md5() {
-    check::<Md5>();
-}
-
-#[test]
-fn pbkdf2_hmac_sha1() {
-    check::<Sha1>();
-}
-
-#[test]
-fn pbkdf2_hmac_sha256() {
-    check::<Sha256>();
-}
-
-#[test]
-fn pbkdf2_hmac_sha384() {
-    check::<Sha384>();
-}
-
-#[test]
-fn pbkdf2_hmac_sha512() {
-    check::<Sha512>();
-}
-
-#[test]
-fn pbkdf2_hmac_sha512_224() {
-    check::<Sha512_224>();
-}
-
-#[test]
-fn pbkdf2_hmac_sha512_256() {
-    check::<Sha512_256>();
 }

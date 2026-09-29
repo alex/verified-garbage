@@ -1,6 +1,5 @@
-name = "HMAC-SHA-384, HMAC-SHA-512, HMAC-SHA-512/224, HMAC-SHA-512/256"
+name = "HMAC-SHA-512"
 family = "MACs"
-specs = ["Hmac/Generic", "Sha512"]
-modules = ["src/hmac.rs", "src/hashes/sha512.rs"]
-asm = ["hmac", "sha512"]
-functions = ["vg_hmac_sha384_init", "vg_hmac_sha384_finalize", "vg_hmac_sha512_init", "vg_hmac_sha512_finalize", "vg_hmac_sha512_224_init", "vg_hmac_sha512_224_finalize", "vg_hmac_sha512_256_init", "vg_hmac_sha512_256_finalize"]
+specs = ["Hmac", "Sha512"]
+modules = ["src/hmac/sha512.rs"]
+asm = ["hmac_sha512", "sha512"]

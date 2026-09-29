@@ -1,6 +1,5 @@
-name = "PBKDF2-HMAC-SHA-384, PBKDF2-HMAC-SHA-512, PBKDF2-HMAC-SHA-512/224, PBKDF2-HMAC-SHA-512/256"
+name = "PBKDF2-HMAC-SHA-512"
 family = "KDFs"
-specs = ["Pbkdf2/Generic", "Sha512"]
-modules = ["src/pbkdf2.rs", "src/hashes/sha512.rs"]
-asm = ["pbkdf2", "hmac", "sha512"]
-functions = ["vg_pbkdf2_hmac_sha384_iterate", "vg_pbkdf2_hmac_sha512_iterate", "vg_pbkdf2_hmac_sha512_224_iterate", "vg_pbkdf2_hmac_sha512_256_iterate", "vg_hmac_sha384_init", "vg_hmac_sha384_finalize", "vg_hmac_sha512_init", "vg_hmac_sha512_finalize", "vg_hmac_sha512_224_init", "vg_hmac_sha512_224_finalize", "vg_hmac_sha512_256_init", "vg_hmac_sha512_256_finalize"]
+specs = ["Pbkdf2", "Sha512"]
+modules = ["src/pbkdf2/sha512.rs"]
+asm = ["pbkdf2_sha512"]

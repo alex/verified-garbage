@@ -168,7 +168,7 @@ def finalizeContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
 
 /-- `vg_hmac_<hash>_init` on every target. -/
 def initApi : Api where
-  module := "hmac"
+  module := s!"hmac_{I.rust}"
   name := s!"vg_hmac_{I.rust}_init"
   sig := initSig I.S I.scratch
   summary := s!"Starts an HMAC-{I.alg} computation with a key of at most {I.S.H.blockSize} bytes: \
@@ -188,7 +188,7 @@ def initApi : Api where
 
 /-- `vg_hmac_<hash>_finalize` on every target. -/
 def finalizeApi : Api where
-  module := "hmac"
+  module := s!"hmac_{I.rust}"
   name := s!"vg_hmac_{I.rust}_finalize"
   sig := finalizeSig I.S I.scratch
   summary := s!"Finishes an HMAC-{I.alg} computation: if, for a {I.S.H.blockSize}-byte key `K₀` \

@@ -1,0 +1,107 @@
+// @generated from lean/VerifiedGarbage/Artifacts.lean by lean/Emit.lean. DO NOT EDIT.
+//! Verified `pbkdf2_sha384` functions for `x86_64`.
+#![allow(dead_code)]
+
+/// Runs `n` steps of PBKDF2-HMAC-SHA-384's iteration: if, for a 128-byte key `K₀`, the SHA-384 streaming state in bytes 0 to 191 of `*key` represents `K₀ ⊕ ipad` and the one in bytes 192 to 383 represents `K₀ ⊕ opad` (as `vg_hmac_sha384_init` leaves them), repeats `U ← HMAC-SHA-384 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).
+///
+/// Contract: `VG.Spec.Hmac.Instance.iterateContract` of `VG.Spec.Hmac.sha384I`. Constant time: only the pointers and `n` may affect timing, not the key, `U` or `T`.
+///
+/// # Safety
+///
+/// * `key` must be valid for reads of 384 bytes, and `u` for reads of 48 bytes.
+/// * `t` must be valid for reads and writes of 48 bytes.
+/// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
+/// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
+/// * None of `key`, `u`, `t` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha384_iterate(key: *const [u8; 384], u: *const [u8; 48], n: u32, t: *mut [u8; 48], scratch: *mut [u64; 96]) {
+    core::arch::naked_asm!(
+        "mov QWORD PTR [r8+272], rbx",
+        "mov QWORD PTR [r8+280], rbp",
+        "mov QWORD PTR [r8+288], r12",
+        "mov QWORD PTR [r8+296], r13",
+        "mov QWORD PTR [r8+304], r14",
+        "mov QWORD PTR [r8+312], r15",
+        "mov r13d, edx",
+        "mov rbx, rdi",
+        "mov r12, rcx",
+        "mov r15, r8",
+        "mov r14d, 0",
+        "20:",
+        "movzx eax, BYTE PTR [rsi+r14*1]",
+        "mov BYTE PTR [r15+r14*1+576], al",
+        "add r14, 1",
+        "cmp r14, 48",
+        "jne 20b",
+        "test r13, r13",
+        "je 21f",
+        "23:",
+        "mov r14d, 0",
+        "24:",
+        "movzx eax, BYTE PTR [rbx+r14*1]",
+        "mov BYTE PTR [r15+r14*1+320], al",
+        "add r14, 1",
+        "cmp r14, 192",
+        "jne 24b",
+        "mov rdi, r15",
+        "add rdi, 320",
+        "mov esi, 128",
+        "mov rdx, r15",
+        "add rdx, 576",
+        "mov ecx, 48",
+        "mov r8, r15",
+        "call {vg_sha512_update}",
+        "mov rdi, r15",
+        "add rdi, 320",
+        "mov esi, 176",
+        "mov rdx, r15",
+        "add rdx, 512",
+        "mov rcx, r15",
+        "call {vg_sha512_finalize}",
+        "mov r14d, 0",
+        "25:",
+        "movzx eax, BYTE PTR [rbx+r14*1+192]",
+        "mov BYTE PTR [r15+r14*1+320], al",
+        "add r14, 1",
+        "cmp r14, 192",
+        "jne 25b",
+        "mov rdi, r15",
+        "add rdi, 320",
+        "mov esi, 128",
+        "mov rdx, r15",
+        "add rdx, 512",
+        "mov ecx, 48",
+        "mov r8, r15",
+        "call {vg_sha512_update}",
+        "mov rdi, r15",
+        "add rdi, 320",
+        "mov esi, 176",
+        "mov rdx, r15",
+        "add rdx, 576",
+        "mov rcx, r15",
+        "call {vg_sha512_finalize}",
+        "mov r14d, 0",
+        "26:",
+        "movzx eax, BYTE PTR [r15+r14*1+576]",
+        "movzx ecx, BYTE PTR [r12+r14*1]",
+        "xor eax, ecx",
+        "mov BYTE PTR [r12+r14*1], al",
+        "add r14, 1",
+        "cmp r14, 48",
+        "jne 26b",
+        "sub r13, 1",
+        "jne 23b",
+        "jmp 22f",
+        "21:",
+        "22:",
+        "mov rbx, QWORD PTR [r15+272]",
+        "mov rbp, QWORD PTR [r15+280]",
+        "mov r12, QWORD PTR [r15+288]",
+        "mov r13, QWORD PTR [r15+296]",
+        "mov r14, QWORD PTR [r15+304]",
+        "mov r15, QWORD PTR [r15+312]",
+        "ret",
+        vg_sha512_update = sym super::sha512::vg_sha512_update,
+        vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
+    )
+}

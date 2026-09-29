@@ -13,13 +13,21 @@ use std::hint::black_box;
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use openssl::hash::{MessageDigest, hash};
+use openssl::pkey::PKey;
+use openssl::sign::Signer;
 
 mod aes_gcm;
 mod chacha20;
 mod chacha20poly1305;
-mod hmac;
+mod hmac_md5;
+mod hmac_sha1;
+mod hmac_sha256;
+mod hmac_sha384;
+mod hmac_sha512;
 mod md5;
-mod pbkdf2;
+mod pbkdf2_sha1;
+mod pbkdf2_sha256;
+mod pbkdf2_sha512;
 mod poly1305;
 mod scrypt;
 mod sha1;
@@ -66,6 +74,71 @@ pub(crate) fn vg_group<const N: usize>(c: &mut Criterion, name: &str, vg: fn(&[u
     g.finish();
 }
 
+/// Benchmarks HMAC with the hash of `vg` and `md` (32-byte key) against
+/// OpenSSL's.
+pub(crate) fn hmac_group<O>(
+    c: &mut Criterion,
+    name: &str,
+    vg: fn(&[u8], &[u8]) -> O,
+    md: MessageDigest,
+) {
+    let key = [0x0b; 32];
+    let pkey = PKey::hmac(&key).unwrap();
+    let mut g = c.benchmark_group(name);
+    for size in SIZES {
+        g.throughput(Throughput::Bytes(size as u64));
+        let data = vec![0x5a; size];
+        g.bench_function(BenchmarkId::new(VG, size), |b| {
+            b.iter(|| vg(black_box(&key), black_box(&data)))
+        });
+        let mut out = [0u8; 64];
+        g.bench_function(BenchmarkId::new(OPENSSL, size), |b| {
+            b.iter(|| {
+                let mut s = Signer::new(md, &pkey).unwrap();
+                s.sign_oneshot(&mut out, black_box(&data)).unwrap()
+            })
+        });
+    }
+    g.finish();
+}
+
+/// Benchmarks PBKDF2 with the hash of `vg` and `md` against OpenSSL's, of a
+/// 32-byte password, deriving `len` bytes (a digest), with the sizes as the
+/// iteration counts.
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+pub(crate) fn pbkdf2_group(
+    c: &mut Criterion,
+    name: &str,
+    vg: fn(&[u8], &[u8], std::num::NonZeroU32, &mut [u8]),
+    md: MessageDigest,
+    len: usize,
+) {
+    let password = [0x0b; 32];
+    let salt = [0x5a; 16];
+    let mut g = c.benchmark_group(name);
+    for iterations in SIZES {
+        g.throughput(Throughput::Elements(iterations as u64));
+        let mut out = vec![0u8; len];
+        let n = std::num::NonZeroU32::new(iterations as u32).unwrap();
+        g.bench_function(BenchmarkId::new(VG, iterations), |b| {
+            b.iter(|| vg(black_box(&password), black_box(&salt), n, &mut out))
+        });
+        g.bench_function(BenchmarkId::new(OPENSSL, iterations), |b| {
+            b.iter(|| {
+                openssl::pkcs5::pbkdf2_hmac(
+                    black_box(&password),
+                    black_box(&salt),
+                    iterations,
+                    md,
+                    &mut out,
+                )
+                .unwrap()
+            })
+        });
+    }
+    g.finish();
+}
+
 /// Each algorithm's `bench`, with the library modules whose code it runs.
 type Bench = (&'static [&'static str], fn(&mut Criterion));
 
@@ -73,9 +146,15 @@ const BENCHES: &[Bench] = &[
     (aes_gcm::USES, aes_gcm::bench),
     (chacha20::USES, chacha20::bench),
     (chacha20poly1305::USES, chacha20poly1305::bench),
-    (hmac::USES, hmac::bench),
+    (hmac_md5::USES, hmac_md5::bench),
+    (hmac_sha1::USES, hmac_sha1::bench),
+    (hmac_sha256::USES, hmac_sha256::bench),
+    (hmac_sha384::USES, hmac_sha384::bench),
+    (hmac_sha512::USES, hmac_sha512::bench),
     (md5::USES, md5::bench),
-    (pbkdf2::USES, pbkdf2::bench),
+    (pbkdf2_sha1::USES, pbkdf2_sha1::bench),
+    (pbkdf2_sha256::USES, pbkdf2_sha256::bench),
+    (pbkdf2_sha512::USES, pbkdf2_sha512::bench),
     (poly1305::USES, poly1305::bench),
     (scrypt::USES, scrypt::bench),
     (sha1::USES, sha1::bench),

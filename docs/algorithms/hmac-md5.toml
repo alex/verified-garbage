@@ -1,6 +1,5 @@
 name = "HMAC-MD5"
 family = "MACs"
-specs = ["Hmac/Generic", "Md5"]
-modules = ["src/hmac.rs", "src/hashes/md5.rs"]
-asm = ["hmac", "md5"]
-functions = ["vg_hmac_md5_init", "vg_hmac_md5_finalize"]
+specs = ["Hmac", "Md5"]
+modules = ["src/hmac/md5.rs"]
+asm = ["hmac_md5", "md5"]

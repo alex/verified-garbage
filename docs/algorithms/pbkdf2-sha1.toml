@@ -1,6 +1,5 @@
 name = "PBKDF2-HMAC-SHA-1"
 family = "KDFs"
-specs = ["Pbkdf2/Generic", "Sha1"]
-modules = ["src/pbkdf2.rs", "src/hashes/sha1.rs"]
-asm = ["pbkdf2", "hmac", "sha1"]
-functions = ["vg_pbkdf2_hmac_sha1_iterate", "vg_hmac_sha1_init", "vg_hmac_sha1_finalize"]
+specs = ["Pbkdf2", "Sha1"]
+modules = ["src/pbkdf2/sha1.rs"]
+asm = ["pbkdf2_sha1"]
