@@ -79,6 +79,11 @@ macro_rules
         subFlags, addFlags, ite_true, ite_false, Option.map_some, Option.some.injEq,
         exists_eq_left', List.cons_append, List.nil_append, List.append_nil, $ls,*]))
 
+/-- Resolves the `if`s on indices whose ranges `omega` knows. -/
+macro "resolve_ifs" : tactic => `(tactic| (
+  set_option linter.unusedSimpArgs false in
+  simp (disch := omega) only [ite_eq_left, ite_eq_right, ite_true, ite_false]))
+
 /-! ## Addresses -/
 
 theorem addr_toNat (a : BitVec 32) : (State.addr a).toNat = a.toNat := by
@@ -123,6 +128,60 @@ theorem frame_coeff {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Ad
     (hd : ∀ r ∈ rs, (polyRegion p).Disjoint r) {i : Nat} (hi : i < n) :
     coeffAt m' p i = coeffAt m p i :=
   coeffAt_congr (bytes_frame hf hd (by decide)) hi
+
+/-- A pointer `p + i` plus an instruction's offset `o`, at coefficient `j`
+of the polynomial at `p`. -/
+theorem addr_coeff {p : BitVec 32} {i o j : Nat} (h : p.toNat + 1024 ≤ 2 ^ 32) (hj : i + o = 4 * j)
+    (hjn : j < 256) :
+    State.addr (p + BitVec.ofNat 32 i + BitVec.ofNat 32 o) = coeffAddr (State.addr p) j := by
+  rw [addr_ptr _ _ _ (by omega), hj]
+
+/-- A pointer `p + i` plus an instruction's offset `o`, at byte `k` of the
+`len` bytes at `p`. -/
+theorem addr_byte {p : BitVec 32} {i o k len : Nat} (h : p.toNat + len ≤ 2 ^ 32) (hk : i + o = k)
+    (hkl : k < len) : State.addr (p + BitVec.ofNat 32 i + BitVec.ofNat 32 o) = State.addr p + BitVec.ofNat 64 k := by
+  rw [addr_ptr _ _ _ (by omega), hk]
+
+/-- The low byte of a word, as `strb` stores it. -/
+theorem setWidth8 (v : BitVec 32) : v.setWidth 8 = BitVec.ofNat 8 v.toNat := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_setWidth, BitVec.toNat_ofNat]
+
+/-- A byte zero-extended, as `ldrb` loads it. -/
+theorem setWidth32_toNat (b : Byte) : (b.setWidth 32).toNat = b.toNat := by
+  simp only [BitVec.toNat_setWidth]
+  exact Nat.mod_eq_of_lt (by have := b.isLt; omega)
+
+/-- Byte `k` after writing byte `a`, of the bytes at `O`. -/
+theorem byte_writeW8 (m : Mem) (O : Addr) {a k : Nat} (ha : a < 2 ^ 64) (hk : k < 2 ^ 64) (v : Byte) :
+    (m.writeW (O + BitVec.ofNat 64 a) v) (O + BitVec.ofNat 64 k) =
+      if k = a then v else m (O + BitVec.ofNat 64 k) := by
+  rw [writeW8_apply]
+  by_cases h : k = a
+  · subst h; simp
+  · rw [ite_eq_right h, ite_eq_right]
+    intro e
+    apply h
+    have := congrArg BitVec.toNat ((BitVec.add_right_inj _).mp e)
+    rwa [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hk, Nat.mod_eq_of_lt ha] at this
+
+/-- A byte of a region disjoint from one written. -/
+theorem byte_writeW_disj {m : Mem} {R S : Region} (hd : R.Disjoint S) {a x : Addr} {w : Nat}
+    (v : BitVec w) (ha : S.Contains a (w / 8)) (hx : R.Contains x 1) : (m.writeW a v) x = m x :=
+  Mem.write_apply fun h => hd x hx (ha.byte h)
+
+/-- A word of a region disjoint from one written. -/
+theorem readW_writeW_disj {m : Mem} {R S : Region} (hd : R.Disjoint S) {a x : Addr} {w : Nat}
+    (v : BitVec w) (ha : S.Contains a (w / 8)) (hx : R.Contains x 4) :
+    (m.writeW a v).readW x 32 = m.readW x 32 :=
+  Mem.readW_writeW_sep (hd.sep hx ha) (by decide)
+
+/-- The returned `u32` is the low word, `r0`, of the returned pair. -/
+theorem setWidth_append32 (a b : BitVec 32) : (a ++ b).setWidth 32 = b := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_setWidth, BitVec.toNat_append, Nat.shiftLeft_eq, Nat.mul_comm,
+    ← Nat.two_pow_add_eq_or_of_lt b.isLt]
+  omega
 
 /-! ## Reduction modulo `q` -/
 
