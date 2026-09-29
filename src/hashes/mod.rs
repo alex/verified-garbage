@@ -257,7 +257,7 @@ macro_rules! streaming_hash {
             /// represent a message of `length` bytes (for HMAC, whose
             /// `init` makes such states), and which runs the implementation
             /// `backend` (which must have been selected for this CPU).
-            #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+            #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm", target_arch = "x86"))]
             #[allow(dead_code)]
             pub(crate) fn from_state(state: [u8; $state], length: u64, backend: $backend) -> Self {
                 $name { state, length, backend }
@@ -265,7 +265,7 @@ macro_rules! streaming_hash {
 
             /// The implementation this computation runs, selected for this
             /// CPU, which functions built on it (e.g. HMAC's) follow.
-            #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+            #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm", target_arch = "x86"))]
             #[allow(dead_code)]
             pub(crate) fn backend(&self) -> $backend {
                 self.backend
@@ -273,7 +273,7 @@ macro_rules! streaming_hash {
 
             /// The streaming state and the length of the message it
             /// represents.
-            #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+            #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm", target_arch = "x86"))]
             #[allow(dead_code)]
             pub(crate) fn state(&self) -> ([u8; $state], u64) {
                 (self.state, self.length)
