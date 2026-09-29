@@ -398,8 +398,23 @@ theorem sample_verified :
   Verified.of_correct sample_correct sample_ct
     { pre := by sig_implies_pre [Spec.MlKem.sampleNTTContract, Spec.MlKem.sampleNTTSig, sampleK, X86_64.abi,
         X86_64.argRegs]
-      post := by sig_implies_post [Spec.MlKem.sampleNTTContract, Spec.MlKem.sampleNTTSig, sampleK, X86_64.abi,
-        X86_64.argRegs]
+      post := by
+        intro s s' _ h
+        sig_post [Spec.MlKem.sampleNTTContract, Spec.MlKem.sampleNTTSig, sampleK, X86_64.abi, X86_64.argRegs]
+        dsimp only [sampleK] at h
+        obtain ⟨hr, hp⟩ := h
+        cases e : Spec.MlKem.sampleNTT Spec.MlKem.minIterations (Spec.Sha3.bytesAt s.mem (s.gpr .rdi) 34) with
+        | none =>
+          rw [e] at hr
+          have h0 : BitVec.setWidth 32 (s'.gpr .rax) = 0 := hr
+          exact ⟨fun h1 => absurd (h0.symm.trans h1) (by decide : (0 : BitVec 32) ≠ 1), .inr ⟨h0, e⟩⟩
+        | some f =>
+          rw [e] at hr
+          have h1 : BitVec.setWidth 32 (s'.gpr .rax) = 1 := hr
+          obtain ⟨hred, hf⟩ := hp f e
+          exact ⟨fun _ => hred, .inl ⟨h1, Spec.MlKem.minIterations, by
+            show Spec.MlKem.sampleNTT _ _ = _
+            rw [e, hf]⟩⟩
       pub := by
         intro s₁ s₂ _ _ h
         sig_pub [Spec.MlKem.sampleNTTContract, Spec.MlKem.sampleNTTSig, sampleK, X86_64.abi,

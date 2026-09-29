@@ -31,9 +31,8 @@ def sampleK : Contract isa where
     (below (s.gpr .rsp) 16).Disjoint ⟨s.gpr .rdi, 34⟩ ∧ (below (s.gpr .rsp) 16).Disjoint (pR (s.gpr .rsi)) ∧
     (below (s.gpr .rsp) 16).Disjoint ⟨s.gpr .rdx, 2048⟩ ∧ (s.gpr .rdx).toNat + 2048 ≤ 2 ^ 64
   post s s' :=
-    ((s'.gpr .rax).setWidth 32 = 1 → Reduced s'.mem (s.gpr .rsi)) ∧
-      Outcome (fun iters => sampleNTT iters (bytesAt s.mem (s.gpr .rdi) 34)) ((s'.gpr .rax).setWidth 32)
-        (polyAt s'.mem (s.gpr .rsi))
+    (s'.gpr .rax).setWidth 32 = (if (sampleNTT minIterations (bytesAt s.mem (s.gpr .rdi) 34)).isSome then 1 else 0) ∧
+      ∀ f, sampleNTT minIterations (bytesAt s.mem (s.gpr .rdi) 34) = some f → PolyIs s'.mem (s.gpr .rsi) f
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
     s₁.gpr .rsp = s₂.gpr .rsp ∧ bytesAt s₁.mem (s₁.gpr .rdi) 34 = bytesAt s₂.mem (s₂.gpr .rdi) 34
 
@@ -421,11 +420,17 @@ theorem loopG_ok {s : State} (h : I6 σ s) : WP isa (.seq snLoop (.block snEpi))
   · by_cases hfull : (Ls σ).length = 256
     · have e1 : (s3.gpr .rax).setWidth 32 = 1 := by rw [hr, hfull]; rfl
       obtain ⟨hred, hpoly⟩ := stored_polyAt (m := s3.mem) (aP := aP σ) (by rw [hm3]; exact hst2) hfull
-      refine ⟨fun _ => hred, outcome_of_min (.inl ⟨e1, ?_⟩)⟩
-      rw [hpoly]; exact sampleNTT_of_full (Nat.le_refl _) (by rw [n_eq]; exact hfull)
+      have hs : sampleNTT minIterations (B σ) = some (toPoly (Ls σ)) :=
+        sampleNTT_of_full (Nat.le_refl _) (by rw [n_eq]; exact hfull)
+      refine ⟨by rw [e1, hs]; rfl, fun f hf => ?_⟩
+      rw [hs] at hf
+      rw [← Option.some.inj hf]
+      exact ⟨hred, hpoly⟩
     · have e0 : (s3.gpr .rax).setWidth 32 = 0 := by rw [hr, Nat.div_eq_of_lt (by omega)]; rfl
-      exact ⟨fun h1 => absurd (e0.symm.trans h1) (by decide),
-        outcome_of_min (.inr ⟨e0, sampleNTT_none (by rw [n_eq]; exact hfull)⟩)⟩
+      have hs : sampleNTT minIterations (B σ) = none := sampleNTT_none (by rw [n_eq]; exact hfull)
+      refine ⟨by rw [e0, hs]; rfl, fun f hf => ?_⟩
+      rw [hs] at hf
+      exact absurd hf (Option.some_ne_none f).symm
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr'
     rcases hr' with rfl | rfl | rfl | rfl | rfl | rfl | rfl
     · exact hbx.trans hsv.1
