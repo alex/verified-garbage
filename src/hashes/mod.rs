@@ -109,21 +109,6 @@ macro_rules! streaming_hash {
                 Self::$base
             }
 
-            /// The CPU features this implementation needs, which `select`
-            /// checks: what the implementations of functions built on it (e.g.
-            /// HMAC's `init` and `finalize`) may need too.
-            #[cfg(test)]
-            #[allow(dead_code)]
-            pub(crate) fn features(self) -> $crate::cpu::Features {
-                match self {
-                    Self::$base => $crate::cpu::Features::all(&[]),
-                    $(
-                        $(#[$attr])*
-                        Self::$variant => $crate::cpu::Features::all(&[$($req),*]),
-                    )*
-                }
-            }
-
             /// `update`.
             ///
             /// # Safety

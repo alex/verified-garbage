@@ -212,16 +212,18 @@ macro_rules! streaming_hmac {
             use super::*;
 
             /// Each implementation's `init` and `finalize` need no CPU
-            /// feature that the hash's implementation is not selected for.
+            /// feature that the hash's implementation is not selected for:
+            /// on every set of features that selects it.
             #[test]
             fn backend_features() {
                 $(
                     $(#[$attr])*
-                    assert!(
-                        $backend::$variant
-                            .features()
-                            .contains($crate::cpu::Features::all(&[$($req),*]))
-                    );
+                    for bits in 0..1u32 << $crate::cpu::NAMES.len() {
+                        let f = $crate::cpu::Features(bits);
+                        if $backend::select(f) == $backend::$variant {
+                            assert!(f.contains($crate::cpu::Features::all(&[$($req),*])));
+                        }
+                    }
                 )*
             }
         }
