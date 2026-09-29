@@ -19,7 +19,8 @@ narrowed state is the actual run with fewer permissions (`Exec.widen` and
 determinism), and the callee is constant time. The addresses the call and
 return instructions, and a frame's push and pop (`RelCT.frame`), access
 depend only on `esp`. `RelCT.callWith` combines them for a call in a frame
-of its arguments (`WP.callWith`).
+of its arguments (`WP.callWith`). `RelCT.ite` relates a branch on a
+condition that agrees in both runs.
 
 `τr rs` is the taint state in which only the registers `rs` are public, for
 the pieces the taint analysis proves (`RelCT.taint`).
@@ -112,6 +113,29 @@ theorem RelCT.callWith {rs : List Reg} {n : String} {c : Prog isa} {k : Contract
   refine ⟨k₁.pre, k₂.pre, hpub, by rw [pushed_rd, pushed_wr]; exact k₁.cov, by rw [pushed_wr]; exact k₁.covw,
     by rw [pushed_rd, pushed_wr]; exact k₂.cov, by rw [pushed_wr]; exact k₂.covw, ?_⟩
   rw [pushed_esp, pushed_esp, hsp]
+
+/-- A branch: the condition agrees in both runs, and each branch is related
+from the states in which it is taken. -/
+theorem RelCT.ite {P Q : State → State → Prop} {c : Cond} {th el : Prog isa}
+    (hc : ∀ s₁ s₂, P s₁ s₂ → isa.eval c s₁ = isa.eval c s₂)
+    (ht : RelCT isa (fun s₁ s₂ => P s₁ s₂ ∧ isa.eval c s₁ = some true) th Q)
+    (he : RelCT isa (fun s₁ s₂ => P s₁ s₂ ∧ isa.eval c s₁ = some false) el Q) :
+    RelCT isa P (.ite c th el) Q := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  have hce := hc _ _ hp
+  cases e₁ with
+  | iteT c₁ b₁ =>
+    cases e₂ with
+    | iteT _ b₂ =>
+      obtain ⟨rfl, hq⟩ := ht _ _ _ _ _ _ ⟨hp, c₁⟩ b₁ b₂
+      exact ⟨rfl, hq⟩
+    | iteF c₂ _ => rw [c₁, c₂] at hce; cases hce
+  | iteF c₁ b₁ =>
+    cases e₂ with
+    | iteT c₂ _ => rw [c₁, c₂] at hce; cases hce
+    | iteF _ b₂ =>
+      obtain ⟨rfl, hq⟩ := he _ _ _ _ _ _ ⟨hp, c₁⟩ b₁ b₂
+      exact ⟨rfl, hq⟩
 
 /-! ## Pieces the taint analysis proves -/
 
