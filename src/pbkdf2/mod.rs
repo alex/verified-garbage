@@ -73,7 +73,7 @@ pub fn pbkdf2_hmac<H: Pbkdf2Hash>(
 /// `VG.Spec.Hmac.Instance.iterateContract` of the hash's `Instance`), given
 /// its streaming state size, the function's working space (in 64-bit words)
 /// and its digest size.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 macro_rules! streaming_pbkdf2 {
     (
         $hash:ident: $iterate:path,
@@ -115,5 +115,5 @@ macro_rules! streaming_pbkdf2 {
     };
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use streaming_pbkdf2;

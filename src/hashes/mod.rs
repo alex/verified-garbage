@@ -265,7 +265,7 @@ macro_rules! streaming_hash {
             /// represent a message of `length` bytes, using only the CPU
             /// features in `mask` (for HMAC, whose `init` makes such
             /// states).
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
             #[allow(dead_code)]
             pub(crate) fn from_state(state: [u8; $state], length: u64, mask: u32) -> Self {
                 let backend = $backend::select($crate::cpu::available(mask));
@@ -274,7 +274,7 @@ macro_rules! streaming_hash {
 
             /// The streaming state and the length of the message it
             /// represents.
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
             #[allow(dead_code)]
             pub(crate) fn state(&self) -> ([u8; $state], u64) {
                 (self.state, self.length)

@@ -6,7 +6,7 @@
 //! streaming states. `init` and `finalize` are the one HMAC implementation for
 //! every streaming hash function, calling SHA-512's verified functions.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
 use crate::arch::hmac_sha512::{vg_hmac_sha512_finalize, vg_hmac_sha512_init};
 use crate::hashes::sha512::Sha512;

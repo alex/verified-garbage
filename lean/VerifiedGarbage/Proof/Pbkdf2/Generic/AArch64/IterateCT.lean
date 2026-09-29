@@ -191,7 +191,7 @@ theorem loop_rel (hc : Checks H) :
     · intro _ _ _ _ _ _ h
       have z := h.2
       rw [zero_eval h.1.1.kr (by omega)] at z
-      simp [e] at z
+      exact absurd (by simpa using z) e
   · refine (RelCT.loop (M := isa) (LoopInv hH (sc := sc) (s₀ := s₀) (s₀' := s₀')) (step_rel hH hp hp' hq hc)
       (nn s₀)).mono (fun s s' h => ?_) fun _ _ h => h
     have z := h.2
