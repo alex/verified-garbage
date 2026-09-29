@@ -3,6 +3,8 @@ import VerifiedGarbage.Proof.MlKem.X86.AddSub
 import VerifiedGarbage.Proof.MlKem.X86.Encode12
 import VerifiedGarbage.Proof.MlKem.X86.Decode12
 import VerifiedGarbage.Proof.MlKem.X86.Cbd
+import VerifiedGarbage.Proof.MlKem.X86.CompressEncode
+import VerifiedGarbage.Proof.MlKem.X86.DecodeDecompress
 
 /-!
 # ML-KEM (FIPS 203) on x86
@@ -57,6 +59,20 @@ def artifacts : List Artifact := [
     code := Impl.MlKem.X86.cbd2
     contract := Spec.MlKem.cbd2Contract X86.abi 16
     stack := 16
-    verified := Proof.MlKem.X86.Cbd.verified }]
+    verified := Proof.MlKem.X86.Cbd.verified },
+  { Spec.MlKem.compressEncodeApi with
+    target := X86.target
+    doc := Spec.MlKem.compressEncodeApi.doc
+    code := Impl.MlKem.X86.compressEncode
+    contract := Spec.MlKem.compressEncodeContract X86.abi 16
+    stack := 16
+    verified := Proof.MlKem.X86.CompressEncode.verified },
+  { Spec.MlKem.decodeDecompressApi with
+    target := X86.target
+    doc := Spec.MlKem.decodeDecompressApi.doc
+    code := Impl.MlKem.X86.decodeDecompress
+    contract := Spec.MlKem.decodeDecompressContract X86.abi 16
+    stack := 16
+    verified := Proof.MlKem.X86.DecodeDecompress.verified }]
 
 end VG.Artifacts.MlKem.X86

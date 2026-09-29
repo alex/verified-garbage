@@ -65,6 +65,14 @@ theorem add_ofNat_add (x : BitVec 32) (a b : Nat) :
     x + BitVec.ofNat 32 a + BitVec.ofNat 32 b = x + BitVec.ofNat 32 (a + b) := by
   rw [BitVec.add_assoc, ofNat_add_ofNat]
 
+theorem sub_beq_zero (x v : BitVec 32) : (x - v == 0) = decide (x.toNat = v.toNat) := by
+  by_cases h : x.toNat = v.toNat
+  · have e : x = v := BitVec.eq_of_toNat_eq h
+    subst e; simp
+  · simp only [h, decide_false, beq_eq_false_iff_ne, ne_eq]
+    intro e
+    exact h (by have := congrArg BitVec.toNat e; simp only [BitVec.toNat_sub] at this; bv_omega)
+
 /-- A pointer advanced by `d`. -/
 theorem ptr_next (x : BitVec 32) (k d : Nat) :
     x + BitVec.ofNat 32 (d * k) + BitVec.ofNat 32 d = x + BitVec.ofNat 32 (d * (k + 1)) := by
@@ -204,6 +212,22 @@ theorem wp_shr {d : Reg} {n : Nat} (h1 : 1 ≤ n) (h2 : n ≤ 31) {is : List Ins
     rfl
   · simp [State.setReg]
 
+theorem Only.setReg (s : State) (r : Reg) (v : BitVec 32) : Only [r] s (s.setReg r v) :=
+  ⟨fun x hx => by
+    simp only [State.setReg]
+    rw [ite_eq_right_iff.mpr fun (e : x = r) => absurd (e ▸ List.mem_singleton_self r) hx], rfl, rfl, rfl⟩
+
+/-- `and r, imm` -/
+theorem wp_and {r : Reg} {v : BitVec 32} {is : List Instr} {s : State} {Q : State → Prop}
+    (k : ∀ s', Only [r] s s' → s'.gpr r = s.gpr r &&& v → WP isa (.block is) s' Q) :
+    WP isa (.block (.alu .and r (.imm v) :: is)) s Q := by
+  refine wp_cons (s' := (arithFlags s (s.gpr r &&& v) false false).setReg r (s.gpr r &&& v))
+    (by simp only [exec, execAlu, readSrc, Option.bind_some]) (k _ ⟨fun x hx => ?_, rfl, rfl, rfl⟩ ?_)
+  · simp only [State.setReg]
+    rw [ite_eq_right_iff.mpr fun (e : x = r) => absurd (e ▸ List.mem_singleton_self r) hx]
+    rfl
+  · simp [State.setReg]
+
 /-! ## Addresses -/
 
 /-- `[x + k + d]` of a 32-bit pointer `x`, where nothing wraps around. -/
@@ -262,6 +286,17 @@ theorem bytes_extend {m : Mem} {o : Addr} {L : List Byte} {k : Nat} (hk : k + 3 
   by_cases e0 : j = k
   · subst e0; simp [h0]
   rw [ite_eq_right_iff.mpr fun e => absurd e (add_ofNat_ne (by omega) (by omega) e0)]
+  exact h j (by omega)
+
+/-- Bytes `j < k + 1` at `o`, after the byte `x = L[k]` is written at `o + k`. -/
+theorem bytes_extend1 {m : Mem} {o : Addr} {L : List Byte} {k : Nat} (hk : k < 2 ^ 64)
+    (h : ∀ j < k, m (o + BitVec.ofNat 64 j) = L[j]!) {x : Byte} (hx : x = L[k]!) :
+    ∀ j < k + 1, (m.writeW (o + BitVec.ofNat 64 k) x) (o + BitVec.ofNat 64 j) = L[j]! := by
+  intro j hj
+  simp only [writeW8_apply]
+  by_cases e : j = k
+  · subst e; simp [hx]
+  rw [ite_eq_right_iff.mpr fun e' => absurd e' (add_ofNat_ne (by omega) (by omega) e)]
   exact h j (by omega)
 
 /-- Coefficient `k` of a polynomial at a 32-bit pointer. -/
