@@ -93,7 +93,12 @@ pub(crate) fn hmac_group<O>(
 /// Benchmarks PBKDF2 with the hash of `vg` and `md` against OpenSSL's, of a
 /// 32-byte password, deriving `len` bytes (a digest), with the sizes as the
 /// iteration counts.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 pub(crate) fn pbkdf2_group(
     c: &mut Criterion,
     name: &str,

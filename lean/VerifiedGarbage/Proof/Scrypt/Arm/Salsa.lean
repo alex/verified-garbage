@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Scrypt.Spec
 import VerifiedGarbage.Spec.Scrypt.Contract
 import VerifiedGarbage.TCB.Arm.Target
-import VerifiedGarbage.Proof.Scrypt.X86_64.Common
+import VerifiedGarbage.Proof.Scrypt.Memory
 import VerifiedGarbage.Proof.Framework.Range
 import VerifiedGarbage.Proof.Hmac.Arm.Init
 import VerifiedGarbage.Impl.Scrypt.Arm.Salsa
@@ -112,7 +112,7 @@ open VG.Spec.Scrypt (Word)
 open VG.Proof.Scrypt
 open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str wp_add op2_reg)
 open VG.Proof.Hmac.Arm.Init (wp_eor)
-open VG.Proof.Scrypt.X86_64.BlockMix (contains_off)
+open VG.Proof.Scrypt.Memory (contains_off)
 
 /-! ## The precondition -/
 

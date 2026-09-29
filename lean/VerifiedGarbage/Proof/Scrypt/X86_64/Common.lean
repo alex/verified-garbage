@@ -1,6 +1,6 @@
-import VerifiedGarbage.Proof.Hmac.X86_64.Common
 import VerifiedGarbage.Proof.MdStream.X86_64.Common
 import VerifiedGarbage.Proof.Scrypt.BlockMix
+import VerifiedGarbage.Proof.Scrypt.Memory
 import VerifiedGarbage.Impl.Scrypt.X86_64.BlockMix
 import VerifiedGarbage.Spec.Scrypt.Contract
 import VerifiedGarbage.TCB.X86_64.Target
@@ -8,9 +8,9 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # scrypt on x86-64: common lemmas
 
-Untrusted: everything here is checked by Lean. Bytes of memory
-(`Spec.Scrypt.bytesAt`) read and written, and the 64-byte exclusive-or
-(`xor64`).
+Untrusted: everything here is checked by Lean. The contracts the proofs are
+written against, and the 64-byte exclusive-or (`xor64`); the
+target-independent memory lemmas are in `VG.Proof.Scrypt.Memory`.
 -/
 
 namespace VG.Proof.Scrypt
@@ -92,6 +92,8 @@ open VG.Spec.Scrypt (bytesAt blk salsa)
 open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil writeBytes_frame)
 open VG.Proof.MdStream.X86_64 (Upd wp_movm wp_store)
+open VG.Proof.Scrypt.Memory (sub_off bytesAt_add bytesAt_length bytesAt_writeBytes_sep xorBytes_length
+  writeW_xor)
 
 /-! ## Addresses -/
 
@@ -102,117 +104,7 @@ theorem ea_at (s : State) (b : Reg) (d : Nat) :
     s.ea (at_ b d) = s.gpr b + BitVec.ofNat 64 d := by
   simp only [State.ea, at_, ofInt_natCast]
 
-theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = n := by
-  rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
-
-theorem add_ofNat (a : Addr) (o j : Nat) :
-    a + BitVec.ofNat 64 o + BitVec.ofNat 64 j = a + BitVec.ofNat 64 (o + j) := by
-  rw [BitVec.add_assoc, ← BitVec.ofNat_add]
-
-theorem toNat_add_ofNat (a : Addr) {o : Nat} (h : a.toNat + o < 2 ^ 64) :
-    (a + BitVec.ofNat 64 o).toNat = a.toNat + o := by
-  rw [BitVec.toNat_add, toNat_ofNat_lt (by omega), Nat.mod_eq_of_lt h]
-
-/-- `[a + o, a + o + n)` lies in `[a, a + len)`. -/
-theorem contains_off {a : Addr} {len o n : Nat} (h : o + n ≤ len) (ho : o < 2 ^ 64) :
-    (⟨a, len⟩ : Region).Contains (a + BitVec.ofNat 64 o) n := by
-  simp only [Region.Contains]
-  rw [show a + BitVec.ofNat 64 o - a = BitVec.ofNat 64 o by bv_omega, toNat_ofNat_lt ho]; omega
-
-/-- `[a + o, a + o + n)` is a sub-region of `[a, a + len)`. -/
-theorem sub_off {a : Addr} {len o n : Nat} (h : o + n ≤ len) (ho : o < 2 ^ 64) :
-    Region.Sub ⟨a + BitVec.ofNat 64 o, n⟩ ⟨a, len⟩ := by
-  intro x hx
-  simp only [Region.Contains] at hx ⊢
-  have : (x - a).toNat ≤ (x - (a + BitVec.ofNat 64 o)).toNat + o := by
-    rw [show x - a = (x - (a + BitVec.ofNat 64 o)) + BitVec.ofNat 64 o by bv_omega,
-      BitVec.toNat_add, toNat_ofNat_lt (by omega)]
-    exact Nat.mod_le _ _
-  omega
-
-/-- Two parts `[a + o₁, a + o₁ + n₁)` and `[a + o₂, a + o₂ + n₂)` of one
-region that do not overlap. -/
-theorem disj_off (a : Addr) {o₁ n₁ o₂ n₂ : Nat} (h : o₁ + n₁ ≤ o₂ ∨ o₂ + n₂ ≤ o₁)
-    (h₁ : o₁ < 2 ^ 64) (h₂ : o₂ < 2 ^ 64) (h₁' : o₁ + n₁ ≤ 2 ^ 64) (h₂' : o₂ + n₂ ≤ 2 ^ 64) :
-    Region.Disjoint ⟨a + BitVec.ofNat 64 o₁, n₁⟩ ⟨a + BitVec.ofNat 64 o₂, n₂⟩ := by
-  intro x hx hy
-  simp only [Region.Contains] at hx hy
-  have t₁ : (BitVec.ofNat 64 o₁).toNat = o₁ := toNat_ofNat_lt h₁
-  have t₂ : (BitVec.ofNat 64 o₂).toNat = o₂ := toNat_ofNat_lt h₂
-  bv_omega
-
-theorem InRegions.of_mem {rs : List Region} {R : Region} (hR : R ∈ rs) {a : Addr} {n : Nat}
-    (h : R.Contains a n) : InRegions rs a n := ⟨R, hR, h⟩
-
-theorem InRegions.right {rd wr : List Region} {a : Addr} {n : Nat} (h : InRegions wr a n) :
-    InRegions (rd ++ wr) a n := by
-  obtain ⟨r, hr, hc⟩ := h; exact ⟨r, List.mem_append_right _ hr, hc⟩
-
-theorem InRegions.left {rd wr : List Region} {a : Addr} {n : Nat} (h : InRegions rd a n) :
-    InRegions (rd ++ wr) a n := by
-  obtain ⟨r, hr, hc⟩ := h; exact ⟨r, List.mem_append_left _ hr, hc⟩
-
-/-! ## Bytes -/
-
-theorem bytesAt_length (m : Mem) (p : Addr) (n : Nat) : (bytesAt m p n).length = n := by
-  simp [bytesAt]
-
-theorem bytesAt_add (m : Mem) (p : Addr) (a b : Nat) :
-    bytesAt m p (a + b) = bytesAt m p a ++ bytesAt m (p + BitVec.ofNat 64 a) b :=
-  Proof.Hmac.X86_64.bytesAt_add m p a b
-
-theorem bytesAt_congr {m m' : Mem} {p : Addr} {n : Nat}
-    (h : ∀ i < n, m (p + BitVec.ofNat 64 i) = m' (p + BitVec.ofNat 64 i)) :
-    bytesAt m p n = bytesAt m' p n := by
-  simp only [bytesAt]
-  exact List.map_congr_left fun i hi => h i (List.mem_range.mp hi)
-
-theorem frame_bytesAt {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr} {n : Nat}
-    (hd : ∀ r ∈ rs, Region.Disjoint ⟨p, n⟩ r) (hn : n ≤ 2 ^ 64) : bytesAt m' p n = bytesAt m p n :=
-  bytesAt_congr fun _ hi => hf.bytes (R := ⟨p, n⟩) hd hn hi
-
-theorem bytesAt_writeBytes_self (m : Mem) (q : Addr) (xs : List Byte) (hl : xs.length < 2 ^ 64) :
-    bytesAt (writeBytes m q xs) q xs.length = xs :=
-  Proof.Hmac.X86_64.bytesAt_writeBytes_self m q xs hl
-
-theorem bytesAt_writeBytes_sep (m : Mem) {p q : Addr} {n : Nat} (xs : List Byte)
-    (h : Region.Disjoint ⟨p, n⟩ ⟨q, xs.length⟩) (hn : n < 2 ^ 64) :
-    bytesAt (writeBytes m q xs) p n = bytesAt m p n :=
-  Proof.Hmac.X86_64.bytesAt_writeBytes_sep m xs (fun x h₁ h₂ => h x h₁ h₂) hn
-
-/-- The `64 n` bytes at `p` as `n` blocks of 64. -/
-theorem bytesAt_blocks (m : Mem) (p : Addr) (n : Nat) :
-    bytesAt m p (64 * n) = (List.range n).flatMap fun i => bytesAt m (p + BitVec.ofNat 64 (64 * i)) 64 := by
-  induction n with
-  | zero => rfl
-  | succ n ih => rw [Nat.mul_succ, bytesAt_add, ih, List.range_succ, List.flatMap_append,
-      List.flatMap_singleton]
-
-/-- Block `i` of the bytes at `p`. -/
-theorem blk_bytesAt (m : Mem) (p : Addr) {n i : Nat} (h : 64 * i + 64 ≤ n) :
-    blk (bytesAt m p n) i = bytesAt m (p + BitVec.ofNat 64 (64 * i)) 64 := by
-  obtain ⟨k, rfl⟩ : ∃ k, n = 64 * i + 64 + k := ⟨n - (64 * i + 64), by omega⟩
-  rw [blk, bytesAt_add, bytesAt_add, List.append_assoc, List.drop_left' (bytesAt_length _ _ _),
-    List.take_left' (bytesAt_length _ _ _)]
-
-theorem xorBytes_length (a b : List Byte) (h : a.length = b.length) : (xorBytes a b).length = a.length := by
-  simp [xorBytes, h]
-
 /-! ## The 64-byte exclusive-or -/
-
-theorem writeW_xor (m m' : Mem) (d a b : Addr) :
-    m.writeW d (m'.readW a 64 ^^^ m'.readW b 64) =
-      writeBytes m d (xorBytes (bytesAt m' a 8) (bytesAt m' b 8)) := by
-  simp only [Mem.writeW, Mem.readW]
-  rw [show (64 : Nat) / 8 = 8 from rfl, BitVec.setWidth_eq, BitVec.setWidth_eq, BitVec.setWidth_eq,
-    Proof.Sha256.Stream.write_eq_writeBytes]
-  congr 1
-  apply List.ext_getElem (by simp [xorBytes, bytesAt])
-  intro j h₁ h₂
-  simp only [List.length_map, List.length_range] at h₁
-  simp only [xorBytes, bytesAt, List.getElem_map, List.getElem_range, List.getElem_zipWith]
-  rw [BitVec.extractLsb'_xor, Proof.Hmac.X86_64.extractLsb'_read _ _ h₁,
-    Proof.Hmac.X86_64.extractLsb'_read _ _ h₁]
 
 theorem wp_xorm {is : List Instr} {s : State} {Q : State → Prop} {d : Reg} {m : MemOp} {a : Addr}
     (ha : s.ea m = a) (hin : InRegions (s.rd ++ s.wr) a 8)

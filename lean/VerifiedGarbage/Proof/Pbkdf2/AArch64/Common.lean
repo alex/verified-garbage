@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Pbkdf2.Hmac
 import VerifiedGarbage.Spec.Pbkdf2
 import VerifiedGarbage.Proof.Sha256.AArch64.Contract
-import VerifiedGarbage.Proof.Pbkdf2.X86_64.Iterate
+import VerifiedGarbage.Proof.Pbkdf2.Memory
 import VerifiedGarbage.Proof.Hmac.AArch64.Common
 import VerifiedGarbage.Impl.Pbkdf2.AArch64
 
@@ -9,8 +9,8 @@ import VerifiedGarbage.Impl.Pbkdf2.AArch64
 # PBKDF2-HMAC-SHA-256's iteration on AArch64: the parts of a step
 
 Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 proof (`VG.Proof.Pbkdf2.X86_64.Iterate`), whose target-independent
-memory lemmas are reused. Each step is two calls of `vg_sha256_compress`,
+x86-64 proof (`VG.Proof.Pbkdf2.X86_64.Iterate`), with the same
+target-independent memory lemmas (`VG.Proof.Pbkdf2.Memory`). Each step is two calls of `vg_sha256_compress`,
 used as a black box through its proof (`compressAt_ok`, from the streaming
 SHA-256 proof).
 
@@ -62,14 +62,14 @@ namespace VG.Proof.Pbkdf2.AArch64
 
 open VG VG.AArch64 VG.Impl.Pbkdf2.AArch64
 open VG.Impl.Sha256.AArch64.Stream (mov save restore compressAt saved)
-open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep bytesAt_add)
+open VG.Proof.Hmac.Common (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep bytesAt_add)
 open VG.Proof.Hmac.AArch64 (add_off)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append writeBytes_nil)
 open VG.Proof.Sha256.AArch64 (contains_offset sub_offset toNat_ofNat_lt)
 open VG.Proof.MdStream.AArch64 (Upd Mupd wp_addImm wp_ldr wp_str wp_ldr32 wp_str32 wp_rev32)
 open VG.Proof.Sha256.AArch64.Stream (compressAt_ok)
 open VG.Proof.Sha256.AArch64.Stream.Finalize (writeW_rev32 sw32 flat_length)
-open VG.Proof.Pbkdf2.X86_64.Iterate (frame_bytesAt contains_base off_contains sep_after writeW_xor
+open VG.Proof.Pbkdf2.Memory (frame_bytesAt contains_base off_contains sep_after writeW_xor
   xorBytes_length add_ofNat stateAt_copy)
 open VG.Spec.Sha256 (bytesAt stateAt blockAt compress HashValue wordBytes)
 

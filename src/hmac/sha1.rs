@@ -5,14 +5,30 @@
 //! ipad) ‖ text))` (`VG.Spec.Hmac.hmacBlockKey`), keeping the two SHA-1
 //! streaming states. `init` and `finalize` are the one HMAC implementation for
 //! every streaming hash function, calling SHA-1's verified functions.
+//!
+//! They follow the implementation of SHA-1 that `Sha1` runs on this CPU: on
+//! x86-64 with the SHA extensions, `vg_hmac_sha1_init_shani` and
+//! `vg_hmac_sha1_finalize_shani`, the same verified code calling
+//! `vg_sha1_update_shani` and `vg_sha1_finalize_shani`, with the same
+//! contracts.
 
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
+#[cfg(target_arch = "x86_64")]
+use crate::arch::hmac_sha1::{
+    VG_HMAC_SHA1_FINALIZE_SHANI_FEATURES, VG_HMAC_SHA1_INIT_SHANI_FEATURES,
+    vg_hmac_sha1_finalize_shani, vg_hmac_sha1_init_shani,
+};
 use crate::arch::hmac_sha1::{vg_hmac_sha1_finalize, vg_hmac_sha1_init};
-use crate::hashes::sha1::Sha1;
+use crate::hashes::sha1::{Sha1, Sha1Backend};
 
 super::streaming_hmac!(
-    Sha1: (vg_hmac_sha1_init, vg_hmac_sha1_finalize),
+    Sha1 (Sha1Backend) {
+        Scalar => (vg_hmac_sha1_init, vg_hmac_sha1_finalize),
+        #[cfg(target_arch = "x86_64")]
+        ShaNi if [VG_HMAC_SHA1_INIT_SHANI_FEATURES, VG_HMAC_SHA1_FINALIZE_SHANI_FEATURES] =>
+            (vg_hmac_sha1_init_shani, vg_hmac_sha1_finalize_shani),
+    },
     state: 84,
     scratch: 56,
     output: 20,

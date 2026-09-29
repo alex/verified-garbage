@@ -9,10 +9,12 @@
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use crate::arch::hmac_sha384::{vg_hmac_sha384_finalize, vg_hmac_sha384_init};
-use crate::hashes::sha512::Sha384;
+use crate::hashes::sha512::{Sha384, Sha384Backend};
 
 super::streaming_hmac!(
-    Sha384: (vg_hmac_sha384_init, vg_hmac_sha384_finalize),
+    Sha384 (Sha384Backend) {
+        Scalar => (vg_hmac_sha384_init, vg_hmac_sha384_finalize),
+    },
     state: 192,
     scratch: 96,
     output: 48,

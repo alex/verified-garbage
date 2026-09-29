@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Hmac.Arm.Common
-import VerifiedGarbage.Proof.Hmac.X86_64.Finalize
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
@@ -20,9 +19,8 @@ namespace VG.Proof.Hmac.Arm.Finalize
 
 open VG VG.Arm VG.Impl.Hmac.Arm
 open VG.Proof.Hmac.Arm
-open VG.Proof.Hmac.X86_64 (writeBytes_at writeBytes_other bytesAt_getD' bytesAt_length
-  bytesAt_writeBytes_self bytesAt_writeBytes_sep stateAt_eq_of_bytes)
-open VG.Proof.Hmac.X86_64.Finalize (xorPad_length repr_outer)
+open VG.Proof.Hmac.Common (writeBytes_at writeBytes_other bytesAt_getD' bytesAt_length
+  bytesAt_writeBytes_self bytesAt_writeBytes_sep stateAt_eq_of_bytes xorPad_length repr_outer)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Sha256.Arm (contains_offset)
 open VG.Proof.MdStream.Arm (Upd Mupd wp_mov wp_ldr wp_str wp_ldrSp op2_imm frame_bytes sub_offset)

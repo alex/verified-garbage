@@ -19,7 +19,7 @@ open VG.Proof.Sha256.Stream (writeBytes)
 open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_add wp_addImm wp_subImm wp_ldr wp_str wp_movz
   wp_lsr wp_and readW_writeW_save)
 open VG.Proof.Scrypt.AArch64.BlockMix (wp_lsl)
-open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat toNat_add_ofNat contains_off sub_off
+open VG.Proof.Scrypt.Memory (toNat_ofNat_lt add_ofNat toNat_add_ofNat contains_off sub_off
   InRegions.of_mem InRegions.right frame_bytesAt bytesAt_writeBytes_self bytesAt_writeBytes_sep
   bytesAt_length xorBytes_length)
 

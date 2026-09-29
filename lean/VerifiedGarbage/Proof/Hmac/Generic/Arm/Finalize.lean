@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Hmac.Generic.Arm.Init
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Finalize
 
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: `finalize`, correct
@@ -15,12 +14,10 @@ namespace VG.Proof.Hmac.Generic.Arm.Finalize
 open VG.Arm
 open VG.Impl.Hmac.Generic.Arm (Hash copy scrAt)
 open VG.Proof.Hmac.Generic.Arm
-open VG.Proof.Hmac.Generic.X86_64 (inRegions_of_sub)
-open VG.Proof.Hmac.Generic.X86_64.Init (off_disj off_disj0 sub_of_off sub_of_self bytes_keep)
-open VG.Proof.Hmac.Generic.X86_64.Finalize (bytesAt_take bytesAt_writeBytes_self' xorPad_length)
-open VG.Proof.Sha256.X86_64 (contains_offset)
-open VG.Proof.MdStream.Arm (Upd wp_mov wp_add wp_ldrSp op2_imm op2_reg sub_offset)
-open VG.Proof.Hmac.X86_64 (bytesAt_length writeBytes_at bytesAt_getD')
+open VG.Proof.Hmac.Generic.Common (inRegions_of_sub off_disj off_disj0 sub_of_off sub_of_self bytes_keep
+  bytesAt_take bytesAt_writeBytes_self')
+open VG.Proof.MdStream.Arm (contains_offset Upd wp_mov wp_add wp_ldrSp op2_imm op2_reg sub_offset)
+open VG.Proof.Hmac.Common (bytesAt_length writeBytes_at bytesAt_getD' xorPad_length)
 open Spec.Sha256 (bytesAt)
 open VG.Proof.Sha256.Stream (writeBytes)
 open Spec.Hmac (xorPad ipad opad hmacBlockKey)

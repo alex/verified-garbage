@@ -1,5 +1,6 @@
 import VerifiedGarbage.Impl.Sha256.X86_64
 import VerifiedGarbage.Impl.Sha256.X86_64.ShaNi
+import VerifiedGarbage.Impl.Sha256.X86_64.Avx2
 import VerifiedGarbage.Impl.MdStream.X86_64
 
 /-!
@@ -39,6 +40,7 @@ structure Callee where
 
 def Callee.scalar : Callee := ⟨"vg_sha256_compress", compress⟩
 def Callee.shani : Callee := ⟨"vg_sha256_compress_shani", ShaNi.compress⟩
+def Callee.avx2 : Callee := ⟨"vg_sha256_compress_avx2", Avx2.compress⟩
 
 def init : Prog isa :=
   .block ((List.range 8).flatMap fun k =>

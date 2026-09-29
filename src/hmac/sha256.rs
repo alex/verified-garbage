@@ -8,7 +8,7 @@
 //! this CPU, e.g. `vg_sha256_update_shani`, with the same contract; on
 //! x86-64, `init` and `finalize` follow it, e.g. `vg_hmac_sha256_init_shani`
 //! and `vg_hmac_sha256_finalize_shani`, the same verified code calling
-//! `vg_sha256_compress_shani`.)
+//! `vg_sha256_compress_shani`, or the `_avx2` ones.)
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -20,10 +20,12 @@
 use super::{HmacHash, sealed};
 use crate::arch::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 #[cfg(target_arch = "x86_64")]
-use crate::arch::hmac_sha256::{vg_hmac_sha256_finalize_shani, vg_hmac_sha256_init_shani};
+use crate::arch::hmac_sha256::{
+    vg_hmac_sha256_finalize_avx2, vg_hmac_sha256_finalize_shani, vg_hmac_sha256_init_avx2,
+    vg_hmac_sha256_init_shani,
+};
 use crate::hashes::sha256::{Sha256, Sha256Backend};
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 impl super::Hmac<Sha256> {
     /// The key's two SHA-256 streaming states, for `K₀ ⊕ ipad` and then
     /// `K₀ ⊕ opad`, as `vg_hmac_sha256_init` left them (the arguments of
@@ -77,6 +79,7 @@ impl HmacHash for Sha256 {
         let init = match state.backend {
             Sha256Backend::Scalar => vg_hmac_sha256_init,
             Sha256Backend::ShaNi => vg_hmac_sha256_init_shani,
+            Sha256Backend::Avx2 => vg_hmac_sha256_init_avx2,
         };
         #[cfg(not(target_arch = "x86_64"))]
         let init = vg_hmac_sha256_init;
@@ -87,7 +90,7 @@ impl HmacHash for Sha256 {
         // they are distinct objects, so they do not overlap each other or the
         // call's stack frame, nor wrap around the address space. On x86-64,
         // `init` needs the CPU features of `state.backend`, which were
-        // detected (`tests::shani_features`).
+        // detected (`tests::backend_features`).
         unsafe {
             init(
                 &mut state.inner,
@@ -127,6 +130,7 @@ impl HmacHash for Sha256 {
         let finalize = match state.backend {
             Sha256Backend::Scalar => vg_hmac_sha256_finalize,
             Sha256Backend::ShaNi => vg_hmac_sha256_finalize_shani,
+            Sha256Backend::Avx2 => vg_hmac_sha256_finalize_avx2,
         };
         #[cfg(not(target_arch = "x86_64"))]
         let finalize = vg_hmac_sha256_finalize;
@@ -138,7 +142,7 @@ impl HmacHash for Sha256 {
         // represents `(K₀ ⊕ ipad) ‖ text`, of `state.count` bytes, and
         // `state.outer` represents `K₀ ⊕ opad`. On x86-64, `finalize` needs
         // the CPU features of `state.backend`, which were detected
-        // (`tests::shani_features`).
+        // (`tests::backend_features`).
         unsafe { finalize(&mut state.inner, &state.outer, state.count, &mut scratch) };
         // The MAC is in bytes 176 to 207 of `scratch`.
         let mut mac = [0u8; 32];
@@ -175,20 +179,30 @@ impl HmacHash for Sha256 {
 #[cfg(all(test, target_arch = "x86_64"))]
 mod tests {
     use crate::arch::hmac_sha256::{
-        VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES, VG_HMAC_SHA256_INIT_SHANI_FEATURES,
+        VG_HMAC_SHA256_FINALIZE_AVX2_FEATURES, VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES,
+        VG_HMAC_SHA256_INIT_AVX2_FEATURES, VG_HMAC_SHA256_INIT_SHANI_FEATURES,
     };
-    use crate::arch::sha256::{VG_SHA256_FINALIZE_SHANI_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES};
+    use crate::arch::sha256::{
+        VG_SHA256_FINALIZE_AVX2_FEATURES, VG_SHA256_FINALIZE_SHANI_FEATURES,
+        VG_SHA256_UPDATE_AVX2_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES,
+    };
     use crate::cpu::Features;
 
-    /// The SHA-NI `init` and `finalize` need no CPU feature that the SHA-NI
+    /// Each backend's `init` and `finalize` need no CPU feature that its
     /// SHA-256 backend was not selected for.
     #[test]
-    fn shani_features() {
-        let backend = Features::all(&[
+    fn backend_features() {
+        let shani = Features::all(&[
             VG_SHA256_UPDATE_SHANI_FEATURES,
             VG_SHA256_FINALIZE_SHANI_FEATURES,
         ]);
-        assert!(backend.contains(Features::of(VG_HMAC_SHA256_INIT_SHANI_FEATURES)));
-        assert!(backend.contains(Features::of(VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES)));
+        assert!(shani.contains(Features::of(VG_HMAC_SHA256_INIT_SHANI_FEATURES)));
+        assert!(shani.contains(Features::of(VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES)));
+        let avx2 = Features::all(&[
+            VG_SHA256_UPDATE_AVX2_FEATURES,
+            VG_SHA256_FINALIZE_AVX2_FEATURES,
+        ]);
+        assert!(avx2.contains(Features::of(VG_HMAC_SHA256_INIT_AVX2_FEATURES)));
+        assert!(avx2.contains(Features::of(VG_HMAC_SHA256_FINALIZE_AVX2_FEATURES)));
     }
 }

@@ -13,6 +13,7 @@ namespace VG.Proof.Scrypt.X86_64.BlockMix
 open VG VG.X86_64
 open VG.Spec.Scrypt (bytesAt salsa)
 open VG.Proof.MdStream.X86_64 (callEntry_byte)
+open VG.Proof.Scrypt.Memory (bytesAt_congr)
 
 theorem salsa_depth : Impl.Scrypt.X86_64.salsa.depth = 0 := by decide +kernel
 

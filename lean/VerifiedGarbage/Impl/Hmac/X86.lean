@@ -9,16 +9,16 @@ argument is on the stack (cdecl).
 * `init(inner, outer, key, key_len, scratch)` stores `H⁽⁰⁾` in both states,
   the block `K₀ ⊕ ipad` in the inner buffer and `K₀ ⊕ opad` (computed from it
   a word at a time, as `(K₀ ⊕ ipad) ⊕ (ipad ⊕ opad)`) in the outer one, and
-  compresses both, with the inlined compression function
-  (`Impl.Sha256.X86.compress`), whose arguments it writes over its own.
+  compresses both, calling `vg_sha256_compress`.
 * `finalize(inner, outer, count, out, scratch)` computes the inner hash
   value with the code of `vg_sha256_finalize` up to writing the digest, then
   the outer hash, of `(K₀ ⊕ opad) ‖ digest`, as one compression of a block
   laid out at known offsets, and writes it to `out`.
 
-The inlined compression function saves and restores `ebx`, `esi`, `edi`,
-`ebp` itself, so our variables live there; our caller's are saved in
-`scratch[112..128)`, as in the streaming functions.
+The compression function is called as in the streaming functions (with the
+20 bytes below `esp` for its frame of arguments and its return address), and
+preserves `ebx`, `esi`, `edi`, `ebp`, so our variables live there; our
+caller's are saved in `scratch[112..128)`, as in the streaming functions.
 
 The constant-time analysis follows pointers through memory only while they
 are the base address of a writable region, and forgets which words of memory
@@ -60,8 +60,7 @@ def opadWord (k : Nat) : List Instr :=
 
 /-- Compress the buffer of the state at `b` into its hash value. -/
 def compressBuf (b : Reg) : Prog isa :=
-  .seq (.block [.store (at_ .esp 4) b, .store (at_ .esp 16) .ebp, .mov .eax (.reg b),
-    .alu .add .eax (.imm 32)]) compressAt
+  .seq (.block [.mov .eax (.reg b), .alu .add .eax (.imm 32)]) (compressAt b .ebp)
 
 def init : Prog isa :=
   .seq (.block ([.mov .eax (.mem (at_ .esp 20))] ++ save .eax ++
@@ -126,8 +125,8 @@ def finalize : Prog isa :=
   -- The inner digest into the inner buffer, and the outer hash value into the inner state.
   (.seq (.block ((List.range 8).flatMap (bswapWord .ebx .ebx 0 32) ++ .mov .edx (.mem (at_ .ebp 176)) ::
       (List.range 8).flatMap (copyWord .edx .ebx 0 0) ++ padWords ++
-      [.store (at_ .esp 4) .ebx, .store (at_ .esp 16) .ebp, .mov .eax (.reg .ebx), .alu .add .eax (.imm 32)]))
-  (.seq compressAt
+      [.mov .eax (.reg .ebx), .alu .add .eax (.imm 32)]))
+  (.seq (compressAt .ebx .ebp)
     (.block (.mov .eax (.mem (at_ .ebp 136)) :: (List.range 8).flatMap (bswapWord .ebx .eax 0 0) ++
       .mov .eax (.reg .ebp) :: restore .eax)))))
 

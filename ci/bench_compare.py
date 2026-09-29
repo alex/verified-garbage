@@ -19,7 +19,9 @@ OpenSSL's code is the same on both sides, so its benchmarks run just once,
 with HEAD's binary, as a reference point for HEAD's times.
 
 `VG_CPU_FEATURES` in the environment (see src/cpu.rs) restricts the CPU
-features both sides use, and is named in the report.
+features both sides use, and is named in the report. Each side is passed
+only the features its own src/cpu.rs knows (base may predate one), since it
+cannot use the others anyway.
 
 `--modules` runs only the benchmarks of those library modules (see
 `bench_arches.py`).
@@ -29,6 +31,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -92,8 +95,22 @@ def build_base(base, head):
     return None, "Base has no benchmarks that build, so head ran alone."
 
 
-def run(binary, home, library, args):
-    """Runs the benchmarks once, returning each one's median time (ns)."""
+NAMES = re.compile(r"const NAMES: \[&str; \d+\] = \[(.*?)\];", re.DOTALL)
+
+
+def cpu_features(checkout):
+    """`VG_CPU_FEATURES` without the features `checkout`'s src/cpu.rs does
+    not know (which it rejects)."""
+    features = os.environ.get("VG_CPU_FEATURES", "")
+    if features in ("", "none"):
+        return features
+    known = re.findall(r'"([^"]+)"', NAMES.search((checkout / "src/cpu.rs").read_text())[1])
+    return ",".join(f for f in features.split(",") if f in known) or "none"
+
+
+def run(binary, home, library, args, checkout):
+    """Runs the benchmarks of `checkout` once, returning each one's median
+    time (ns)."""
     subprocess.run(
         [
             binary,
@@ -110,7 +127,12 @@ def run(binary, home, library, args):
             "1000",
             f"/{library}/",
         ],
-        env={**os.environ, "CRITERION_HOME": str(home), "VG_BENCH_MODULES": args.modules},
+        env={
+            **os.environ,
+            "CRITERION_HOME": str(home),
+            "VG_BENCH_MODULES": args.modules,
+            "VG_CPU_FEATURES": cpu_features(checkout),
+        },
         check=True,
         stdout=subprocess.DEVNULL,
     )
@@ -162,11 +184,12 @@ def main():
             if binaries[side] is None:
                 continue
             print(f"round {r + 1}/{args.rounds}: {side}", file=sys.stderr)
-            times = run(binaries[side], args.work_dir.resolve() / f"{side}-{r}", VG, args)
+            checkout = base if side == "base" else head
+            times = run(binaries[side], args.work_dir.resolve() / f"{side}-{r}", VG, args, checkout)
             for bench_id, t in times.items():
                 best[side][bench_id] = min(t, best[side].get(bench_id, t))
     print("OpenSSL", file=sys.stderr)
-    openssl = run(binaries["head"], args.work_dir.resolve() / "openssl", OPENSSL, args)
+    openssl = run(binaries["head"], args.work_dir.resolve() / "openssl", OPENSSL, args, head)
 
     cpu_features = os.environ.get("VG_CPU_FEATURES", "")
     lines = [

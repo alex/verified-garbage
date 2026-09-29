@@ -25,14 +25,16 @@ def artifacts : List Artifact := [
     doc := Spec.ChaCha20.blockApi.doc
     code := Impl.ChaCha20.X86_64.block
     contract := Spec.ChaCha20.blockContract X86_64.abi
-    verified := Proof.ChaCha20.X86_64.block_verified },
+    verified := Proof.ChaCha20.X86_64.block_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { Spec.ChaCha20.xorApi with
     target := X86_64.target
     doc := Spec.ChaCha20.xorApi.doc
     code := Impl.ChaCha20.X86_64.Xor.xor
     contract := Spec.ChaCha20.xorContract X86_64.abi 8
     stack := 8
-    verified := Proof.ChaCha20.X86_64.Xor.xor_verified },
+    verified := Proof.ChaCha20.X86_64.Xor.xor_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { target := X86_64.target
     module := "chacha20"
     name := "vg_chacha20_xor_avx2"
@@ -54,6 +56,7 @@ def artifacts : List Artifact := [
     writeArgs := true
     stack := 16
     verified := Proof.ChaCha20.X86_64.Avx2.xor_verified
-    features := ["avx", "avx2"] }]
+    features := ["avx", "avx2"]
+    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.ChaCha20.X86_64

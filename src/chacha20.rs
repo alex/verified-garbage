@@ -53,9 +53,10 @@ fn words<const N: usize>(bytes: &[u8]) -> [u32; N] {
     core::array::from_fn(|i| u32::from_le_bytes(bytes[4 * i..4 * i + 4].try_into().unwrap()))
 }
 
-/// The implementations of `vg_chacha20_xor`.
+/// The implementations of `vg_chacha20_xor`, which ChaCha20-Poly1305 follows
+/// (`crate::chacha20poly1305`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Backend {
+pub(crate) enum Backend {
     /// Constant-time scalar code, for the target's baseline ISA.
     Scalar,
     /// AVX2, eight blocks at a time.
@@ -66,7 +67,7 @@ enum Backend {
 impl Backend {
     /// The best implementation a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
-    fn select(f: Features) -> Backend {
+    pub(crate) fn select(f: Features) -> Backend {
         if f.contains(Features::of(VG_CHACHA20_XOR_AVX2_FEATURES)) {
             Backend::Avx2
         } else {
@@ -77,7 +78,7 @@ impl Backend {
     /// The best implementation a CPU with the features `f` can run: there
     /// is only one here.
     #[cfg(not(target_arch = "x86_64"))]
-    fn select(_: Features) -> Backend {
+    pub(crate) fn select(_: Features) -> Backend {
         Backend::Scalar
     }
 }
