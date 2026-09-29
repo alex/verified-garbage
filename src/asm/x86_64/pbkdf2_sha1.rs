@@ -105,3 +105,111 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha1_iterate(key: *const [u8
         vg_sha1_finalize = sym super::sha1::vg_sha1_finalize,
     )
 }
+
+/// The CPU features `vg_pbkdf2_hmac_sha1_iterate_shani` requires (`Artifact.features`).
+pub(crate) const VG_PBKDF2_HMAC_SHA1_ITERATE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
+
+/// Runs `n` steps of PBKDF2-HMAC-SHA-1's iteration: if, for a 64-byte key `K₀`, the SHA-1 streaming state in bytes 0 to 83 of `*key` represents `K₀ ⊕ ipad` and the one in bytes 84 to 167 represents `K₀ ⊕ opad` (as `vg_hmac_sha1_init` leaves them), repeats `U ← HMAC-SHA-1 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).
+///
+/// Contract: `VG.Spec.Hmac.Instance.iterateContract` of `VG.Spec.Hmac.sha1I`. Constant time: only the pointers and `n` may affect timing, not the key, `U` or `T`.
+///
+/// # Safety
+///
+/// * `key` must be valid for reads of 168 bytes, and `u` for reads of 20 bytes.
+/// * `t` must be valid for reads and writes of 20 bytes.
+/// * `scratch` must be valid for reads and writes of 448 bytes; its contents on return are unspecified.
+/// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
+/// * None of `key`, `u`, `t` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `sha` and `ssse3` target features.
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha1_iterate_shani(key: *const [u8; 168], u: *const [u8; 20], n: u32, t: *mut [u8; 20], scratch: *mut [u64; 56]) {
+    core::arch::naked_asm!(
+        "mov QWORD PTR [r8+160], rbx",
+        "mov QWORD PTR [r8+168], rbp",
+        "mov QWORD PTR [r8+176], r12",
+        "mov QWORD PTR [r8+184], r13",
+        "mov QWORD PTR [r8+192], r14",
+        "mov QWORD PTR [r8+200], r15",
+        "mov r13d, edx",
+        "mov rbx, rdi",
+        "mov r12, rcx",
+        "mov r15, r8",
+        "mov r14d, 0",
+        "20:",
+        "movzx eax, BYTE PTR [rsi+r14*1]",
+        "mov BYTE PTR [r15+r14*1+312], al",
+        "add r14, 1",
+        "cmp r14, 20",
+        "jne 20b",
+        "test r13, r13",
+        "je 21f",
+        "23:",
+        "mov r14d, 0",
+        "24:",
+        "movzx eax, BYTE PTR [rbx+r14*1]",
+        "mov BYTE PTR [r15+r14*1+208], al",
+        "add r14, 1",
+        "cmp r14, 84",
+        "jne 24b",
+        "mov rdi, r15",
+        "add rdi, 208",
+        "mov esi, 64",
+        "mov rdx, r15",
+        "add rdx, 312",
+        "mov ecx, 20",
+        "mov r8, r15",
+        "call {vg_sha1_update_shani}",
+        "mov rdi, r15",
+        "add rdi, 208",
+        "mov esi, 84",
+        "mov rdx, r15",
+        "add rdx, 292",
+        "mov rcx, r15",
+        "call {vg_sha1_finalize_shani}",
+        "mov r14d, 0",
+        "25:",
+        "movzx eax, BYTE PTR [rbx+r14*1+84]",
+        "mov BYTE PTR [r15+r14*1+208], al",
+        "add r14, 1",
+        "cmp r14, 84",
+        "jne 25b",
+        "mov rdi, r15",
+        "add rdi, 208",
+        "mov esi, 64",
+        "mov rdx, r15",
+        "add rdx, 292",
+        "mov ecx, 20",
+        "mov r8, r15",
+        "call {vg_sha1_update_shani}",
+        "mov rdi, r15",
+        "add rdi, 208",
+        "mov esi, 84",
+        "mov rdx, r15",
+        "add rdx, 312",
+        "mov rcx, r15",
+        "call {vg_sha1_finalize_shani}",
+        "mov r14d, 0",
+        "26:",
+        "movzx eax, BYTE PTR [r15+r14*1+312]",
+        "movzx ecx, BYTE PTR [r12+r14*1]",
+        "xor eax, ecx",
+        "mov BYTE PTR [r12+r14*1], al",
+        "add r14, 1",
+        "cmp r14, 20",
+        "jne 26b",
+        "sub r13, 1",
+        "jne 23b",
+        "jmp 22f",
+        "21:",
+        "22:",
+        "mov rbx, QWORD PTR [r15+160]",
+        "mov rbp, QWORD PTR [r15+168]",
+        "mov r12, QWORD PTR [r15+176]",
+        "mov r13, QWORD PTR [r15+184]",
+        "mov r14, QWORD PTR [r15+192]",
+        "mov r15, QWORD PTR [r15+200]",
+        "ret",
+        vg_sha1_update_shani = sym super::sha1::vg_sha1_update_shani,
+        vg_sha1_finalize_shani = sym super::sha1::vg_sha1_finalize_shani,
+    )
+}

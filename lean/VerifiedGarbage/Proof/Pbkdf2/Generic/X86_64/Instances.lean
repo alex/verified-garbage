@@ -35,7 +35,7 @@ def iterSat (S D sc : Nat) : State where
 
 /-! ## SHA-1 -/
 
-theorem sha1_checks : Checks sha1H where
+theorem sha1_checks₀ : Checks (sha1H .scalar) where
   pro := ⟨_, by taint_decide⟩
   copyU := ⟨_, by taint_decide⟩
   test := ⟨_, by taint_decide⟩
@@ -58,9 +58,40 @@ theorem sha1_imp : (iterG Spec.Hmac.sha1S 56).Implies (Spec.Hmac.sha1I.iterateCo
     X86_64.argRegs]
     [iterSat] using iterSat 84 20 56
 
-theorem sha1 : Verified X86_64.target (Impl.Pbkdf2.Generic.X86_64.iterate sha1H)
-    (Spec.Hmac.sha1I.iterateContract X86_64.abi 16) :=
-  (verified sha1OK sha1_checks (by decide) (by decide +kernel) sha1_imp.sat_left).of_implies sha1_imp
+/-- The checks do not look at the functions `iterate` calls, so they hold for
+every implementation `v` of the compression function. -/
+theorem sha1_checks (v : Proof.Sha1.X86_64.Compress) : Checks (sha1H v) :=
+  have h := sha1_checks₀
+  ⟨h.pro, h.copyU, h.test, h.copyK, h.upd, h.fin, h.xor, h.dec, h.restore⟩
+
+/-- `iterate` never loads MXCSR, for any implementation `v`. -/
+theorem sha1_mx (v : Proof.Sha1.X86_64.Compress) :
+    (Impl.Pbkdf2.Generic.X86_64.iterate (sha1H v)).allInstrs (fun i => !loadsMxcsr i) = true := by
+  simp only [Impl.Pbkdf2.Generic.X86_64.iterate, Impl.Pbkdf2.Generic.X86_64.body,
+    Impl.Pbkdf2.Generic.X86_64.prologue, Impl.Pbkdf2.Generic.X86_64.xorLoop,
+    Impl.Pbkdf2.Generic.X86_64.count2, Impl.Pbkdf2.Generic.X86_64.uO, Impl.Pbkdf2.Generic.X86_64.stO,
+    Impl.Pbkdf2.Generic.X86_64.tmpO, Impl.Hmac.Generic.X86_64.Hash.callUpd,
+    Impl.Hmac.Generic.X86_64.Hash.callFin, Code.allInstrs, sha1H_B, sha1H_S, sha1H_D, sha1H_F, sha1H_buf,
+    sha1H_save, sha1H_restore, sha1H_updC, sha1H_finC, v.update_mxcsr, v.finalize_mxcsr, Bool.and_true]
+  decide +kernel
+
+/-- `iterate` never writes the stack pointer, for any implementation `v`. -/
+theorem sha1_sp (v : Proof.Sha1.X86_64.Compress) :
+    (Impl.Pbkdf2.Generic.X86_64.iterate (sha1H v)).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [Impl.Pbkdf2.Generic.X86_64.iterate, Impl.Pbkdf2.Generic.X86_64.body,
+    Impl.Pbkdf2.Generic.X86_64.prologue, Impl.Pbkdf2.Generic.X86_64.xorLoop,
+    Impl.Pbkdf2.Generic.X86_64.count2, Impl.Pbkdf2.Generic.X86_64.uO, Impl.Pbkdf2.Generic.X86_64.stO,
+    Impl.Pbkdf2.Generic.X86_64.tmpO, Impl.Hmac.Generic.X86_64.Hash.callUpd,
+    Impl.Hmac.Generic.X86_64.Hash.callFin, Code.all, sha1H_B, sha1H_S, sha1H_D, sha1H_F, sha1H_buf,
+    sha1H_save, sha1H_restore, sha1H_updC, sha1H_finC, Proof.Sha1.X86_64.Shared.update_spSafe v.spSafe,
+    Proof.Sha1.X86_64.Shared.finalize_spSafe v.spSafe, Bool.and_true]
+  decide +kernel
+
+theorem sha1 (v : Proof.Sha1.X86_64.Compress) :
+    Verified X86_64.target (Impl.Pbkdf2.Generic.X86_64.iterate (sha1H v))
+      (Spec.Hmac.sha1I.iterateContract X86_64.abi 16) :=
+  (verified (sha1OK v) (sha1_checks v) (by simp only [sha1H_buf, sha1H_S, sha1H_F]; decide) (sha1_mx v)
+    sha1_imp.sat_left).of_implies sha1_imp
 
 /-! ## MD5 -/
 
