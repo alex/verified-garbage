@@ -2,10 +2,16 @@
 //! Verified functions for `x86`.
 
 #[rustfmt::skip]
+pub(crate) mod aes;
+
+#[rustfmt::skip]
 pub(crate) mod chacha20;
 
 #[rustfmt::skip]
 pub(crate) mod chacha20poly1305;
+
+#[rustfmt::skip]
+pub(crate) mod gcm;
 
 #[rustfmt::skip]
 pub(crate) mod hmac_md5;
@@ -32,6 +38,12 @@ pub(crate) mod hmac_sha512_256;
 pub(crate) mod md5;
 
 #[rustfmt::skip]
+pub(crate) mod mlkem;
+
+#[rustfmt::skip]
+pub(crate) mod mlkem768;
+
+#[rustfmt::skip]
 pub(crate) mod pbkdf2_md5;
 
 #[rustfmt::skip]
@@ -54,6 +66,9 @@ pub(crate) mod pbkdf2_sha512_256;
 
 #[rustfmt::skip]
 pub(crate) mod poly1305;
+
+#[rustfmt::skip]
+pub(crate) mod scrypt;
 
 #[rustfmt::skip]
 pub(crate) mod sha1;

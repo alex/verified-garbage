@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Sha512.Arm.Stream.Update
-import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Common
 
 /-!
 # Streaming SHA-512 on ARMv7: `finalize`
@@ -26,58 +25,27 @@ open VG.Proof.Sha512.Stream
 open VG.Spec.Sha512 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes)
 open VG.Proof.Sha512 (countArm)
 
-/-! ## Words -/
+/-! ## Words
 
-/-- The big-endian bytes of a 64-bit word are those of its high half, then
-those of its low half. -/
+The halves of the length the padding ends with (`Proof/Sha512/Word64.lean`),
+for the implementation's `lo` and `hi`. -/
+
 theorem wordBytes_split (x : BitVec 64) :
-    wordBytes x = Spec.Sha256.wordBytes (hi x) ++ Spec.Sha256.wordBytes (lo x) := by
-  simp only [Spec.Sha512.wordBytes, Spec.Sha256.wordBytes, List.range_succ, List.range_zero, List.nil_append,
-    List.reverse_cons, List.reverse_nil, List.map_cons, List.map_nil, List.cons_append, List.nil_append,
-    List.cons.injEq, and_true, hi, lo]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  all_goals apply BitVec.eq_of_getLsbD_eq; intro i hi
-  all_goals simp only [BitVec.getLsbD_extractLsb', hi, decide_true, Bool.true_and]
-  all_goals rw [decide_eq_true (by omega), Bool.true_and]; congr 1; omega
+    wordBytes x = Spec.Sha256.wordBytes (hi x) ++ Spec.Sha256.wordBytes (lo x) :=
+  Word64.wordBytes_split x
 
 theorem writeW_rev (m : Mem) (a : Addr) (w : BitVec 32) :
     m.writeW a (rev w) = writeBytes m a (Spec.Sha256.wordBytes w) := by
-  rw [Mem.writeW, write_eq_writeBytes, ← VG.Proof.Sha256.X86_64.Stream.bswap32_bytes']; rfl
+  rw [Mem.writeW, write_eq_writeBytes]
+  exact congrArg (writeBytes m a) (byteRev32_extract w)
 
-theorem lo_shr61 (x : BitVec 64) : lo (x >>> 61) = hi x >>> 29 := by
-  apply BitVec.eq_of_toNat_eq
-  rw [lo_toNat]
-  simp only [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, hi_toNat]
-  have := x.isLt
-  omega
+theorem lo_shr61 (x : BitVec 64) : lo (x >>> 61) = hi x >>> 29 := Word64.lo_shr61 x
 
-theorem hi_shr61 (x : BitVec 64) : hi (x >>> 61) = 0 := by
-  apply BitVec.eq_of_toNat_eq
-  rw [hi_toNat]
-  simp only [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, show (0 : BitVec 32).toNat = 0 from rfl]
-  have := x.isLt
-  omega
+theorem hi_shr61 (x : BitVec 64) : hi (x >>> 61) = 0 := Word64.hi_shr61 x
 
-theorem lo_shl3 (x : BitVec 64) : lo (x <<< 3) = lo x <<< 3 := by
-  apply BitVec.eq_of_toNat_eq
-  rw [lo_toNat]
-  simp only [BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, lo_toNat]
-  omega
+theorem lo_shl3 (x : BitVec 64) : lo (x <<< 3) = lo x <<< 3 := Word64.lo_shl3 x
 
-theorem hi_shl3 (x : BitVec 64) : hi (x <<< 3) = (hi x <<< 3) ||| (lo x >>> 29) := by
-  apply BitVec.eq_of_getLsbD_eq; intro i hi'
-  simp only [hi, lo, BitVec.getLsbD_extractLsb', BitVec.getLsbD_shiftLeft, BitVec.getLsbD_or,
-    BitVec.getLsbD_ushiftRight, hi', decide_true, Bool.true_and]
-  by_cases h : i < 3
-  · rw [decide_eq_true (by omega : 32 + i < 64), decide_eq_false (by omega : ¬ 32 + i < 3),
-      decide_eq_true (by omega : 29 + i < 32), show 32 + i - 3 = 29 + i by omega]
-    rw [decide_eq_true h, Nat.zero_add]
-    simp only [Bool.not_true, Bool.not_false, Bool.true_and, Bool.false_and, Bool.false_or]
-  · rw [decide_eq_true (by omega : 32 + i < 64), decide_eq_false (by omega : ¬ 32 + i < 3),
-      decide_eq_true (by omega : i - 3 < 32), decide_eq_false (by omega : ¬ 29 + i < 32),
-      show 32 + i - 3 = 32 + (i - 3) by omega]
-    rw [decide_eq_false h]
-    simp only [Bool.not_false, Bool.true_and, Bool.false_and, Bool.or_false]
+theorem hi_shl3 (x : BitVec 64) : hi (x <<< 3) = (hi x <<< 3) ||| (lo x >>> 29) := Word64.hi_shl3 x
 
 /-! ## The precondition -/
 

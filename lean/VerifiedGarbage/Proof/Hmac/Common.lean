@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.Stream
+import VerifiedGarbage.Proof.Sha256.StateMem
 import VerifiedGarbage.Spec.Hmac
 
 /-!
@@ -158,45 +159,11 @@ theorem bytesAt_snoc (m : Mem) (p : Addr) {j : Nat} (hj : j + 1 < 2 ^ 64) (x : B
 ]
     simp
 
-/-! ## Hash values -/
+/-! ## Hash values
 
-theorem word_sep (p : Addr) {j k : Nat} (hj : j < 8) (hk : k < 8) (h : j ≠ k) :
-    Mem.Sep (p + BitVec.ofNat 64 (4 * j)) 4 (p + BitVec.ofNat 64 (4 * k)) 4 := by
-  intro x hx hy
-  bv_omega
+Those of `Proof/Sha256/StateMem.lean`. -/
 
-theorem readW_writeW_word (m : Mem) (p : Addr) (v : Word) {j k : Nat} (hj : j < 8) (hk : k < 8)
-    (h : j ≠ k) :
-    (m.writeW (p + BitVec.ofNat 64 (4 * k)) v).readW (p + BitVec.ofNat 64 (4 * j)) 32 =
-    m.readW (p + BitVec.ofNat 64 (4 * j)) 32 :=
-  Mem.readW_writeW_sep (word_sep p hj hk h) (by decide)
-
-theorem stateAt_eq {m : Mem} {p : Addr} {v : HashValue}
-    (h : ∀ k : Nat, (hk : k < 8) → m.readW (p + BitVec.ofNat 64 (4 * k)) 32 = v[k]) :
-    stateAt m p = v := by
-  apply Vector.ext
-  intro k hk
-  simp only [stateAt, Vector.getElem_ofFn]
-  exact h k hk
-
-/-- Eight 32-bit words written to consecutive addresses. -/
-def writeState (m : Mem) (p : Addr) (v : HashValue) : Mem :=
-  ((((((((m.writeW (p + BitVec.ofNat 64 (4 * 0)) v[0]).writeW
-    (p + BitVec.ofNat 64 (4 * 1)) v[1]).writeW
-    (p + BitVec.ofNat 64 (4 * 2)) v[2]).writeW
-    (p + BitVec.ofNat 64 (4 * 3)) v[3]).writeW
-    (p + BitVec.ofNat 64 (4 * 4)) v[4]).writeW
-    (p + BitVec.ofNat 64 (4 * 5)) v[5]).writeW
-    (p + BitVec.ofNat 64 (4 * 6)) v[6]).writeW
-    (p + BitVec.ofNat 64 (4 * 7)) v[7])
-
-set_option simprocs false in
-theorem stateAt_writeState (m : Mem) (p : Addr) (v : HashValue) : stateAt (writeState m p v) p = v := by
-  apply stateAt_eq
-  intro k hk
-  simp only [writeState]
-  rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7) with h | h | h | h | h | h | h | h <;> subst h <;>
-  simp (config := {decide := true}) only [Mem.readW_writeW_self32, readW_writeW_word]
+export VG.Proof.Sha256.StateMem (word_sep readW_writeW_word stateAt_eq writeState stateAt_writeState)
 
 /-! ## Streaming states -/
 

@@ -16,7 +16,7 @@ namespace VG.Proof.Sha3.X86
 
 open VG VG.X86 VG.Impl.Sha3.X86
 open VG.Impl.Sha512.X86 (at_)
-open VG.Impl.Sha512.Arm (lo hi)
+open VG.Proof.Sha512.Word64 (lo hi)
 open VG.Impl.Sha3 (piSrc rhoOff)
 open VG.Proof.Sha512.X86 (Only Pair Wrote rd64 write64 mem_rd Acc rd64_write64_self rd64_write64_ne
   rd64_frame wp_xorS)

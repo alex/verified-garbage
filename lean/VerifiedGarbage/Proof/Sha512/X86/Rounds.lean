@@ -12,7 +12,7 @@ namespace VG.Proof.Sha512.X86
 open VG VG.X86 VG.Impl.Sha512.X86
 open VG.Spec.Sha512 (HashValue Word Block W)
 open VG.Proof.Sha256.X86.Stream (contains_addr)
-open VG.Proof.Sha512.Arm (hi_append_lo)
+open VG.Proof.Sha512.Word64 (hi_append_lo)
 
 /-! ## 64-bit words in memory -/
 

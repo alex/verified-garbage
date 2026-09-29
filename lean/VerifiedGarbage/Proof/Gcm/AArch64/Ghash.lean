@@ -1,5 +1,5 @@
+import VerifiedGarbage.Proof.Gcm.Bits
 import VerifiedGarbage.Proof.Gcm.AArch64.Step
-import VerifiedGarbage.Proof.Gcm.X86_64.Bits
 import VerifiedGarbage.Spec.Gcm
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
@@ -56,9 +56,8 @@ open VG.Spec.Gcm (Block blockAt blocksAt ghashFrom mul)
 
 /-! ## Big-endian halves -/
 
-/-- `rev` is `bswap` (the same byte reversal), whose involution is proved for
-x86-64's GHASH. -/
-theorem rev64_rev64 (a : BitVec 64) : rev64 (rev64 a) = a := Proof.Gcm.X86_64.bswap64_bswap64 a
+/-- `rev` is `byteRev64`, an involution. -/
+theorem rev64_rev64 (a : BitVec 64) : rev64 (rev64 a) = a := byteRev64_byteRev64 a
 
 /-- The 16 bytes as 8 bytes. -/
 theorem bytesAt_16 (m : Mem) (p : Addr) : Spec.Aes.bytesAt m p 16 =

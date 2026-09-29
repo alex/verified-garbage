@@ -408,7 +408,7 @@ theorem rev64_wordBytes (x : BitVec 64) :
     List.cons_append, List.reverse_cons, List.reverse_nil, List.cons.injEq, and_true,
     Spec.Sha512.wordBytes]
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-  · simp (disch := decide) only [rev64, Nat.mul_zero, Nat.reduceMul, VG.X86_64.extractLsb'_append_byte_lo,
-      VG.X86_64.extractLsb'_append_byte_hi, Nat.reduceSub, BitVec.extractLsb'_eq_self]
+  · simp (disch := decide) only [rev64, Nat.mul_zero, Nat.reduceMul, VG.extractLsb'_append_byte_lo,
+      VG.extractLsb'_append_byte_hi, Nat.reduceSub, BitVec.extractLsb'_eq_self]
 
 end VG.Proof.Sha512.AArch64.Stream

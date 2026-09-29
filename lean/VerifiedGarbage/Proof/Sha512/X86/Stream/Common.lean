@@ -251,4 +251,17 @@ theorem compressAt_ok {s : State} {st scr E : BitVec 32} {d : Nat}
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide
 
+/-! ## Lemmas shared by `update` and `finalize` -/
+
+/-- The contract's stack region. -/
+theorem stk_eq {E : BitVec 32} (h : 20 ≤ E.toNat) : below E 20 = ⟨E.setWidth 64 - 20, 20⟩ := by
+  simp only [below]; rw [Taint.sub_setWidth h]; rfl
+
+/-- The count of bytes buffered, from the low word of the count. -/
+theorem and127 (x : BitVec 32) : x &&& 127 = BitVec.ofNat 32 (x.toNat % 128) := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_and, BitVec.toNat_ofNat]
+  rw [show (127 : BitVec 32).toNat = 2 ^ 7 - 1 from rfl, Nat.and_two_pow_sub_one_eq_mod]
+  omega
+
 end VG.Proof.Sha512.X86.Stream
