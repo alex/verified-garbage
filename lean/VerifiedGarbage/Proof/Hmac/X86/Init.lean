@@ -3,6 +3,8 @@ import VerifiedGarbage.Proof.Hmac.X86_64.Init
 import VerifiedGarbage.Proof.Sha256.AArch64.Compress
 import Mathlib.Tactic.IntervalCases
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
 # HMAC-SHA-256 on x86 (32-bit): `init`
@@ -1075,24 +1077,26 @@ def sat : State where
   rd := [⟨0x1200, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x1100, 96⟩, ⟨0x3000, 160⟩, ⟨0x4004, 20⟩]
 
-theorem sat_pre : Proof.Hmac.initSha256X86.pre sat := by
-  have a0 : arg sat 0 = 0x1000 := by decide
-  have a1 : arg sat 1 = 0x1100 := by decide
-  have a2 : arg sat 2 = 0x1200 := by decide
-  have a3 : arg sat 3 = 0 := by decide
-  have a4 : arg sat 4 = 0x3000 := by decide
-  have e : argAddr sat 0 = 0x4004 := by decide
-  simp only [Proof.Hmac.initSha256X86, a0, a1, a2, a3, a4, e]
-  refine ⟨by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
-    by decide, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, sat] at h₁ h₂
-    bv_omega
+theorem init_correct (s : State) (hs : Proof.Hmac.initSha256X86.pre s) :
+    ∃ t s', Exec isa init s t s' ∧ abiPreserved s s' ∧ Proof.Hmac.initSha256X86.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  exact ⟨t, s', he, h⟩
 
-theorem init_verified : Verified X86.target init Proof.Hmac.initSha256X86 := by
-  refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+theorem init_ct : ConstantTime isa Proof.Hmac.initSha256X86.pre Proof.Hmac.initSha256X86.pub init :=
+  VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+
+theorem init_verified :
+    Verified X86.target Impl.Hmac.X86.init (Spec.Hmac.initSha256Contract X86.abi) :=
+  Verified.of_correct init_correct init_ct (by
+    have a0 : arg sat 0 = 0x1000 := by decide
+    have a1 : arg sat 1 = 0x1100 := by decide
+    have a2 : arg sat 2 = 0x1200 := by decide
+    have a3 : arg sat 3 = 0 := by decide
+    have a4 : arg sat 4 = 0x3000 := by decide
+    have e : argAddr sat 0 = 0x4004 := by decide
+    have esp : sat.gpr .esp = 0x4000 := rfl
+    sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig, Proof.Hmac.initSha256X86,
+      X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      [a0, a1, a2, a3, a4, e, esp] using Proof.Hmac.X86.Init.sat)
 
 end VG.Proof.Hmac.X86.Init

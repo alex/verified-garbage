@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.X86_64.Target
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Shared
+import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Instances
 
 /-!
 # HMAC-MD5 (RFC 2104) on x86-64
@@ -32,7 +32,7 @@ def artifacts : List Artifact := [
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Shared.md5_init },
+    verified := Instances.md5_init },
   { Spec.Hmac.md5I.finalizeApi with
     target := X86_64.target
     doc := Spec.Hmac.md5I.finalizeApi.doc
@@ -41,6 +41,6 @@ def artifacts : List Artifact := [
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.finalizeContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Shared.md5_finalize }]
+    verified := Instances.md5_finalize }]
 
 end VG.Artifacts.HmacMd5.X86_64

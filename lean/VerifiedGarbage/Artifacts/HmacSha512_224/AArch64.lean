@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.AArch64.Target
-import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Shared
+import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Instances
 
 /-!
 # HMAC-SHA-512/224 (RFC 2104) on AArch64
@@ -32,7 +32,7 @@ def artifacts : List Artifact := [
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Shared.sha512_224_init },
+    verified := Instances.sha512_224_init },
   { Spec.Hmac.sha512_224I.finalizeApi with
     target := AArch64.target
     doc := Spec.Hmac.sha512_224I.finalizeApi.doc
@@ -41,6 +41,6 @@ def artifacts : List Artifact := [
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.finalizeContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Shared.sha512_224_finalize }]
+    verified := Instances.sha512_224_finalize }]
 
 end VG.Artifacts.HmacSha512_224.AArch64
