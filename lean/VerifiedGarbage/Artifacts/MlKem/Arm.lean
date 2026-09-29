@@ -6,6 +6,7 @@ import VerifiedGarbage.Proof.MlKem.Arm.Cbd2
 import VerifiedGarbage.Proof.MlKem.Arm.CheckEk
 import VerifiedGarbage.Proof.MlKem.Arm.CompressEncode
 import VerifiedGarbage.Proof.MlKem.Arm.Decompress
+import VerifiedGarbage.Proof.MlKem.Arm.Mul
 
 /-!
 # ML-KEM (FIPS 203) on 32-bit ARM
@@ -23,6 +24,14 @@ against the contract.
 namespace VG.Artifacts.MlKem.Arm
 
 def artifacts : List Artifact := [
+  { Spec.MlKem.mulApi with
+    target := Arm.target
+    doc := Spec.MlKem.mulApi.doc
+      (notes := ["The function uses no stack: it saves `r4`–`r11` in `scratch`."])
+    code := Impl.MlKem.Arm.multiplyNTTs
+    contract := Spec.MlKem.mulContract Arm.abi
+    verified := Proof.MlKem.Arm.Mul.verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.MlKem.addApi with
     target := Arm.target
     doc := Spec.MlKem.addApi.doc
