@@ -8,6 +8,7 @@ import VerifiedGarbage.Proof.MlKem.Arm.CompressEncode
 import VerifiedGarbage.Proof.MlKem.Arm.Decompress
 import VerifiedGarbage.Proof.MlKem.Arm.Mul
 import VerifiedGarbage.Proof.MlKem.Arm.NttInv
+import VerifiedGarbage.Proof.MlKem.Arm.SampleCT
 
 /-!
 # ML-KEM (FIPS 203) on 32-bit ARM
@@ -25,6 +26,16 @@ against the contract.
 namespace VG.Artifacts.MlKem.Arm
 
 def artifacts : List Artifact := [
+  { Spec.MlKem.sampleNTTApi with
+    target := Arm.target
+    doc := Spec.MlKem.sampleNTTApi.doc
+      (notes := ["The function saves `r4`–`r11` and its return address in `scratch`; the 8 bytes of stack \
+        below the stack pointer hold the stack arguments of the SHA-3 functions it calls."])
+    code := Impl.MlKem.Arm.sampleNTT
+    contract := Spec.MlKem.sampleNTTContract Arm.abi 8
+    stack := 8
+    verified := Proof.MlKem.Arm.Sample.verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.MlKem.nttApi with
     target := Arm.target
     doc := Spec.MlKem.nttApi.doc

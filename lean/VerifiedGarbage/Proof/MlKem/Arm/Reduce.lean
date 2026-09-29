@@ -142,6 +142,10 @@ theorem add_ofNat_add (S : Addr) (a b : Nat) :
     S + BitVec.ofNat 64 a + BitVec.ofNat 64 b = S + BitVec.ofNat 64 (a + b) := by
   rw [BitVec.add_assoc, ← BitVec.ofNat_add]
 
+theorem ptr_add_add32 (p : BitVec 32) (a b : Nat) :
+    p + BitVec.ofNat 32 a + BitVec.ofNat 32 b = p + BitVec.ofNat 32 (a + b) := by
+  rw [BitVec.add_assoc, ← BitVec.ofNat_add]
+
 theorem addr_toNat64 (a : BitVec 32) : (State.addr a).toNat + 2 ^ 32 ≤ 2 ^ 64 := by
   rw [addr_toNat]; have := a.isLt; omega
 
