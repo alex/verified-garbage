@@ -16,7 +16,7 @@ open VG.Proof.Sha3.Arm (saveA_ok restoreA_ok saveMemA saveMemA_frame SSaved ssav
   restore_eq call_ok covers_of preserved_cases ofNat32_succ sub_ofNat32 ofNat32_beq_zero sub_beq_zero32
   beq_zero32 xor_setWidth32 ofNat_toNat32 arg_in argByte_eq addr_toNat)
 open VG.Proof.Sha512.Arm (contains_A)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd op2_imm op2_reg wp_mov wp_add wp_sub wp_cmp wp_ldrb
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd op2_imm op2_reg wp_mov wp_add wp_sub wp_cmp wp_ldrb
   wp_strb wp_ldrSp eval_eq eval_ne)
 open VG.Proof.Sha512.Arm (wp_eor)
 open VG.Proof.Sha3 (Rep rep_snoc xorByte stateAt_xorByte stateAt_congr writeW8_apply bytesAt_succ

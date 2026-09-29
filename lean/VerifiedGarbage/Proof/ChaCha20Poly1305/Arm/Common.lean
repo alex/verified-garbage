@@ -72,7 +72,7 @@ end VG.Proof.ChaCha20Poly1305
 namespace VG.Proof.ChaCha20Poly1305.Arm
 
 open VG VG.Arm VG.Impl.ChaCha20Poly1305.Arm
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd)
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd)
 open VG.Proof.ChaCha20.Arm (toNat_ofNat_lt)
 open VG.Spec.Poly1305 (Repr bytesAt mac)
 open VG.Spec.ChaCha20 (stateAt keystream)

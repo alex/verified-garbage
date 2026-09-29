@@ -11,8 +11,7 @@ namespace VG.Proof.Sha512.Arm
 
 open VG VG.Arm VG.Impl.Sha512.Arm
 open VG.Spec.Sha512 (HashValue Word Block W)
-open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (readW_writeW_save)
+open VG.Proof.MdStream.Arm (contains_offset readW_writeW_save)
 
 /-! ## 64-bit words in memory -/
 

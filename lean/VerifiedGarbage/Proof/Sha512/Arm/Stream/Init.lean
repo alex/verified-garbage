@@ -15,7 +15,7 @@ namespace VG.Proof.Sha512.Arm.Stream
 
 open VG VG.Arm VG.Impl.Sha512.Arm.Stream
 open VG.Impl.Sha512.Arm (lo hi)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd wp_str)
+open VG.Proof.MdStream.Arm (Upd Mupd wp_str)
 open VG.Spec.Sha512 (HashValue stateAt)
 
 /-- After the first `n` words of `iv`. -/

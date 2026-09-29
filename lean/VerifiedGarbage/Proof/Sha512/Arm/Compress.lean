@@ -12,8 +12,8 @@ namespace VG.Proof.Sha512.Arm
 
 open VG VG.Arm VG.Impl.Sha512.Arm
 open VG.Spec.Sha512 (HashValue Word Block W stateAt blockAt compress compressBlocks parseBlock)
-open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (sub_offset wp_add wp_subs wp_mov wp_cmp op2_imm op2_reg eval_ne)
+open VG.Proof.MdStream.Arm (contains_offset)
+open VG.Proof.MdStream.Arm (sub_offset wp_add wp_subs wp_mov wp_cmp op2_imm op2_reg eval_ne)
 
 /-! ## Memory -/
 
