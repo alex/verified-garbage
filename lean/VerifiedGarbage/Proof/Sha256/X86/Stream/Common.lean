@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Framework.X86.Inline
+import VerifiedGarbage.Proof.Framework.X86.CallWith
 import VerifiedGarbage.Proof.Sha256.X86.Compress
 import VerifiedGarbage.Proof.Sha256.Stream
 import VerifiedGarbage.Impl.Sha256.X86.Stream
@@ -9,7 +9,7 @@ import Mathlib.Tactic.Set
 # Streaming SHA-256 on x86 (32-bit): common lemmas
 
 Untrusted: everything here is checked by Lean. Per-instruction WP rules that
-expose only what changes, the inlined compression function (`compressAt`),
+expose only what changes, the call of the compression function (`compressAt`),
 and arithmetic on 32-bit values.
 -/
 
@@ -216,7 +216,11 @@ theorem eval_ne (s : State) : eval .ne s = s.zf.map (!·) := rfl
 theorem eval_b (s : State) : eval .b s = s.cf := rfl
 theorem eval_ae (s : State) : eval .ae s = s.cf.map (!·) := rfl
 
-/-! ## The inlined compression function -/
+/-! ## The call of the compression function -/
+
+/-- The 20 bytes of stack below `E`, as the contracts write them. -/
+theorem stk_eq {E : BitVec 32} (h : 20 ≤ E.toNat) : below E 20 = ⟨E.setWidth 64 - 20, 20⟩ := by
+  simp only [below]; rw [Taint.sub_setWidth h]; rfl
 
 theorem compressBlocks_one (H : HashValue) (m : Mem) (p : Addr) :
     compressBlocks H m p 1 = compress H (blockAt m p) := by
@@ -224,132 +228,109 @@ theorem compressBlocks_one (H : HashValue) (m : Mem) (p : Addr) :
 
 theorem arg_eq (s : State) (i : Nat) : arg s i = s.mem.readW (addr (s.gpr .esp) (4 + 4 * i)) 32 := rfl
 
-/-- Compressing the block at `eax` into the hash value at `[esp + 4]`, with
-scratch space at `[esp + 16]`. -/
-theorem compressAt_ok {s : State} {st scr blk : BitVec 32}
-    (h4 : s.mem.readW (addr (s.gpr .esp) 4) 32 = st) (h16 : s.mem.readW (addr (s.gpr .esp) 16) 32 = scr)
-    (heax : s.gpr .eax = blk) (fsp : (s.gpr .esp).toNat + 20 ≤ 2 ^ 32)
-    (f₀ : st.toNat + 32 ≤ 2 ^ 32) (f₁ : blk.toNat + 64 ≤ 2 ^ 32) (f₃ : scr.toNat + 112 ≤ 2 ^ 32)
+theorem compress_nosp : NoSp Impl.Sha256.X86.compress := NoSp.of_all (by decide +kernel)
+
+theorem compress_stack : stackUse Impl.Sha256.X86.compress = 0 := by decide +kernel
+
+/-- A region within one of `rs'`, at offset `o`. -/
+theorem within {r : Region} {rs' : List Region} (r' : Region) (hr' : r' ∈ rs') (o : Nat)
+    (hb : r.base = r'.base + BitVec.ofNat 64 o) (hl : o + r.len ≤ r'.len) :
+    ∃ r' ∈ rs', ∃ o, r.base = r'.base + BitVec.ofNat 64 o ∧ o + r.len ≤ r'.len :=
+  ⟨r', hr', o, hb, hl⟩
+
+/-- Compressing the block at `eax` (`blk`) into the hash value at `st` (in
+register `sr`), with the scratch space at `scr` (in register `cr`): a call of
+`vg_sha256_compress(st, blk, 1, scr)` in a frame of its arguments, which
+uses the 20 bytes below `esp` (`E`) and writes only there, the hash value
+and the first 112 bytes of the scratch space. -/
+theorem compressAt_ok {sr cr : Reg} (hsr : sr ≠ .esp) (hcr : cr ≠ .esp) (hsr' : sr ≠ .ecx)
+    (hcr' : cr ≠ .ecx) {s : State} {st scr blk E : BitVec 32}
+    (hesp : s.gpr .esp = E) (hS : s.gpr sr = st) (hC : s.gpr cr = scr) (heax : s.gpr .eax = blk)
+    (hE : 20 ≤ E.toNat) (f₀ : st.toNat + 32 ≤ 2 ^ 32) (f₁ : blk.toNat + 64 ≤ 2 ^ 32)
+    (f₃ : scr.toNat + 112 ≤ 2 ^ 32)
     (d₁ : Region.Disjoint ⟨st.setWidth 64, 32⟩ ⟨scr.setWidth 64, 112⟩)
     (d₂ : Region.Disjoint ⟨blk.setWidth 64, 64⟩ ⟨st.setWidth 64, 32⟩)
     (d₃ : Region.Disjoint ⟨blk.setWidth 64, 64⟩ ⟨scr.setWidth 64, 112⟩)
-    (d₄ : Region.Disjoint ⟨addr (s.gpr .esp) 4, 16⟩ ⟨st.setWidth 64, 32⟩)
-    (d₅ : Region.Disjoint ⟨addr (s.gpr .esp) 4, 16⟩ ⟨scr.setWidth 64, 112⟩)
-    (d₆ : Region.Disjoint ⟨(s.gpr .esp).setWidth 64, 4⟩ ⟨st.setWidth 64, 32⟩)
-    (d₇ : Region.Disjoint ⟨(s.gpr .esp).setWidth 64, 4⟩ ⟨scr.setWidth 64, 112⟩)
-    (d₈ : Region.Disjoint ⟨blk.setWidth 64, 64⟩ ⟨addr (s.gpr .esp) 4, 16⟩)
-    (hc : Covers [⟨blk.setWidth 64, 64⟩, ⟨addr (s.gpr .esp) 4, 16⟩, ⟨st.setWidth 64, 32⟩,
-      ⟨scr.setWidth 64, 112⟩] (s.rd ++ s.wr))
-    (hw : Covers [⟨st.setWidth 64, 32⟩, ⟨scr.setWidth 64, 112⟩, ⟨addr (s.gpr .esp) 4, 16⟩] s.wr)
+    (dS : Region.Disjoint (below E 20) ⟨st.setWidth 64, 32⟩)
+    (dC : Region.Disjoint (below E 20) ⟨scr.setWidth 64, 112⟩)
+    (dB : Region.Disjoint (below E 20) ⟨blk.setWidth 64, 64⟩)
+    (hc : Covers [⟨blk.setWidth 64, 64⟩] (s.rd ++ s.wr))
+    (hw : Covers [⟨st.setWidth 64, 32⟩, ⟨scr.setWidth 64, 112⟩] s.wr)
     {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
-      Frame [⟨st.setWidth 64, 32⟩, ⟨scr.setWidth 64, 112⟩, ⟨addr (s.gpr .esp) 4, 16⟩] s.mem s'.mem →
-      s'.mem.readW (addr (s.gpr .esp) 4) 32 = st → s'.mem.readW (addr (s.gpr .esp) 16) 32 = scr →
+      Frame [⟨st.setWidth 64, 32⟩, ⟨scr.setWidth 64, 112⟩, below E 20] s.mem s'.mem →
       stateAt s'.mem (st.setWidth 64) =
         compress (stateAt s.mem (st.setWidth 64)) (blockAt s.mem (blk.setWidth 64)) → Q s') :
-    WP isa compressAt s Q := by
+    WP isa (compressAt sr cr) s Q := by
   unfold compressAt
-  set esp := s.gpr .esp with hesp
-  have hA : ∀ d, d + 4 ≤ 16 → (⟨addr esp 4, 16⟩ : Region).Contains (addr esp (4 + d)) 4 := by
-    intro d hd
-    simp only [Region.Contains]
-    rw [addr_eq (by omega), addr_eq (by omega),
-      show esp.setWidth 64 + BitVec.ofNat 64 (4 + d) - (esp.setWidth 64 + BitVec.ofNat 64 4) =
-        BitVec.ofNat 64 d by rw [BitVec.ofNat_add]; bv_omega, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
-    omega
-  have hout : ∀ d, d + 4 ≤ 16 → InRegions s.wr (addr esp (4 + d)) 4 :=
-    fun d hd => hw _ _ ⟨_, by simp, hA d hd⟩
-  refine WP.seq (wp_store (a := addr esp 8) (ea_at _ _ _) (hout 4 (by omega)) fun s₁ u₁ => ?_)
-  refine wp_movi fun s₂ u₂ => wp_store (a := addr esp 12) (by rw [ea_at, u₂.other _ (by decide), u₁.gpr])
-    (by rw [u₂.wr, u₁.wr]; exact hout 8 (by omega)) fun s₃ u₃ => WP.block_nil ?_
-  have g₃ : ∀ r, r ≠ .ecx → s₃.gpr r = s.gpr r := fun r h => by rw [u₃.gpr, u₂.other r h, u₁.gpr]
-  have hm₃ : s₃.mem = (s.mem.writeW (addr esp 8) blk).writeW (addr esp 12) (1 : BitVec 32) := by
-    rw [u₃.mem, u₂.gpr, u₂.mem, u₁.mem, heax]
-  have hesp₃ : s₃.gpr .esp = esp := g₃ _ (by decide)
-  -- The arguments of the inlined code.
-  have rd : ∀ (m : Mem) (d e : Nat) (v : BitVec 32), d + 4 ≤ 20 → e + 4 ≤ 20 → d + 4 ≤ e ∨ e + 4 ≤ d →
-      (m.writeW (addr esp e) v).readW (addr esp d) 32 = m.readW (addr esp d) 32 :=
-    fun m d e v h₁ h₂ h => readW_writeW_addr m v (by omega) (by omega) h
-  have a0 : arg s₃ 0 = st := by
-    rw [arg_eq, hesp₃, hm₃, rd _ 4 12 _ (by omega) (by omega) (by omega),
-      rd _ 4 8 _ (by omega) (by omega) (by omega), h4]
-  have a1 : arg s₃ 1 = blk := by
-    rw [arg_eq, hesp₃, hm₃, rd _ 8 12 _ (by omega) (by omega) (by omega)]
-    exact Mem.readW_writeW_self32 _ _ _
-  have a2 : arg s₃ 2 = 1 := by
-    rw [arg_eq, hesp₃, hm₃]
-    exact Mem.readW_writeW_self32 _ _ _
-  have a3 : arg s₃ 3 = scr := by
-    rw [arg_eq, hesp₃, hm₃, rd _ 16 12 _ (by omega) (by omega) (by omega),
-      rd _ 16 8 _ (by omega) (by omega) (by omega), h16]
-  have e₀ : argAddr s₃ 0 = addr esp 4 := by rw [argAddr, hesp₃]; rfl
-  -- The memory the stores changed.
-  have fr₃ : Frame [⟨addr esp 4, 16⟩] s.mem s₃.mem := by
-    rw [hm₃]
-    exact ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (hA 4 (by omega))).writeW
-      (List.mem_singleton_self _) _ (hA 8 (by omega))
-  have hst₃ : stateAt s₃.mem (st.setWidth 64) = stateAt s.mem (st.setWidth 64) :=
-    Proof.Sha256.Stream.stateAt_congr fun i hi =>
-      frame_bytes fr₃ (R := ⟨st.setWidth 64, 32⟩) (by simpa using d₄.symm) (by simp) hi
-  have hblk₃ : blockAt s₃.mem (blk.setWidth 64) = blockAt s.mem (blk.setWidth 64) := by
-    simp only [blockAt]
-    apply Proof.Sha256.Stream.parseBlock_congr
-    intro k hk
-    exact frame_bytes fr₃ (R := ⟨blk.setWidth 64, 64⟩) (by simpa using d₈) (by simp) hk
-  refine WP.inline (k := Proof.Sha256.compressX86) compress_verified.1
-    (rd := [⟨blk.setWidth 64, 64 * (1 : BitVec 32).toNat⟩, ⟨addr esp 4, 16⟩])
-    (wr := [⟨st.setWidth 64, 32⟩, ⟨scr.setWidth 64, 112⟩]) ?_ ?_ ?_ ?_
-  · have ha : ∀ rd wr, arg (s₃.withRegions rd wr) = arg s₃ := fun _ _ => rfl
-    have hb : ∀ rd wr, argAddr (s₃.withRegions rd wr) 0 = addr esp 4 := fun _ _ => e₀
-    simp only [Proof.Sha256.compressX86, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
-      hesp₃, ha, hb, a0, a1, a2, a3]
-    exact ⟨trivial, trivial, d₁, d₂, d₃, d₄, d₅, d₆, d₇, f₀, by simpa using f₁, f₃, by omega⟩
-  · rw [u₃.rd, u₃.wr, u₂.rd, u₂.wr, u₁.rd, u₁.wr]
-    intro a n hin
-    obtain ⟨r, hr, hc'⟩ := hin
-    refine hc a n ⟨r, ?_, hc'⟩
-    simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢
-    rcases hr with (rfl | rfl) | rfl | rfl
-    · left; simp
-    · right; left; rfl
-    · right; right; left; rfl
-    · right; right; right; rfl
-  · rw [u₃.wr, u₂.wr, u₁.wr]
-    intro a n ⟨r, hr, hc'⟩
-    refine hw a n ⟨r, ?_, hc'⟩
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢
-    rcases hr with rfl | rfl <;> simp
-  · intro s' hrd hwr habi hf hg hpost
-    simp only [Proof.Sha256.compressX86, State.withRegions_mem] at hpost
-    have : ∀ t : State, arg (t.withRegions [⟨blk.setWidth 64, 64 * (1 : BitVec 32).toNat⟩, ⟨addr esp 4, 16⟩]
-        [⟨st.setWidth 64, 32⟩, ⟨scr.setWidth 64, 112⟩]) = arg t := fun _ => rfl
-    rw [this, a0, a1, a2, show (1 : BitVec 32).toNat = 1 from rfl, compressBlocks_one, hst₃, hblk₃] at hpost
-    have hcs : ∀ r ∈ calleeSaved, s'.gpr r = s.gpr r := fun r hr => by
-      rw [habi.1 r hr, g₃ r (by simp [calleeSaved] at hr; rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide)]
-    have hesp' : s'.gpr .esp = esp := hcs _ (by simp [calleeSaved])
-    have hf' : Frame [⟨st.setWidth 64, 32⟩, ⟨scr.setWidth 64, 112⟩, ⟨addr esp 4, 16⟩] s.mem s'.mem :=
-      (fr₃.mono (by simp)).trans (hf.mono (by simp))
-    have keep : ∀ d, d + 4 ≤ 16 → d + 4 ≤ 4 ∨ 12 ≤ d → s'.mem.readW (addr esp (4 + d)) 32 = s.mem.readW (addr esp (4 + d)) 32 := by
-      intro d hd hd'
-      rw [hf.readW (r := ⟨addr esp (4 + d), 4⟩) (Region.contains_self _ _) ?_ (by decide)]
-      · rw [hm₃, rd _ _ 12 _ (by omega) (by omega) (by omega), rd _ _ 8 _ (by omega) (by omega) (by omega)]
-      · intro r hr
-        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-        rcases hr with rfl | rfl
-        · exact d₄.sub_left (fun a ha => by
-            simp only [Region.Contains] at ha ⊢
-            rw [addr_eq (by omega), addr_eq (by omega)] at *
-            generalize esp.setWidth 64 = b at *
-            bv_omega)
-        · exact d₅.sub_left (fun a ha => by
-            simp only [Region.Contains] at ha ⊢
-            rw [addr_eq (by omega), addr_eq (by omega)] at *
-            generalize esp.setWidth 64 = b at *
-            bv_omega)
-    refine hQ s' (hrd.trans (by rw [u₃.rd, u₂.rd, u₁.rd])) (hwr.trans (by rw [u₃.wr, u₂.wr, u₁.wr])) hcs hf'
-      ?_ ?_ hpost
-    · rw [← h4]; exact keep 0 (by omega) (by omega)
-    · rw [← h16]; exact keep 12 (by omega) (by omega)
+  refine WP.seq (WP.cons (s' := s.setReg .ecx 1) rfl (WP.block_nil ?_))
+  set s₁ := s.setReg .ecx 1 with hs₁
+  have g₁ : ∀ r, r ≠ .ecx → s₁.gpr r = s.gpr r := fun r h => by simp [hs₁, State.setReg, h]
+  have fit : 4 * [cr, Reg.ecx, .eax, sr].length + 4 ≤ (s₁.gpr .esp).toNat := by
+    rw [g₁ _ (by decide), hesp]; simp only [List.length_cons, List.length_nil]; omega
+  have hrs : Reg.esp ∉ [cr, Reg.ecx, .eax, sr] := by simp [Ne.symm hsr, Ne.symm hcr]
+  set sE := (pushed [cr, Reg.ecx, .eax, sr] s₁).callEntry with hsE
+  have a0 : arg sE 0 = st := by rw [hsE, callEntry_arg fit hrs (by simp)]; simp [g₁ _ hsr', hS]
+  have a1 : arg sE 1 = blk := by rw [hsE, callEntry_arg fit hrs (by simp)]; simp [g₁ Reg.eax (by decide), heax]
+  have a2 : arg sE 2 = 1 := by rw [hsE, callEntry_arg fit hrs (by simp)]; simp [hs₁, State.setReg]
+  have a3 : arg sE 3 = scr := by rw [hsE, callEntry_arg fit hrs (by simp)]; simp [g₁ _ hcr', hC]
+  have eA : argAddr sE 0 = (E - BitVec.ofNat 32 16).setWidth 64 := by
+    rw [hsE, callEntry_argAddr0, g₁ _ (by decide), hesp]; rfl
+  have eSp : sE.gpr .esp = E - BitVec.ofNat 32 20 := by
+    rw [hsE, callEntry_esp', g₁ _ (by decide), hesp]; rfl
+  have b16 : Region.Sub (below E 16) (below E 20) := below_sub (by omega) hE
+  have r4 : Region.Sub ⟨(E - BitVec.ofNat 32 20).setWidth 64, 4⟩ (below E 20) := by
+    have := below_inner (sp := E) (a := 4) (b := 20) (k := 16) (by omega) hE
+    rw [show E - BitVec.ofNat 32 20 = E - BitVec.ofNat 32 16 - BitVec.ofNat 32 4 by bv_omega]
+    exact this
+  have hesp₁ : s₁.gpr .esp = E := by rw [g₁ _ (by decide), hesp]
+  refine WP.callWith (k := Proof.Sha256.compressX86) compress_verified.1 compress_nosp (by simp) hrs
+    (by rw [compress_stack, hesp₁]; simp only [List.length_cons, List.length_nil]; omega)
+    (rd := [⟨blk.setWidth 64, 64 * (1 : BitVec 32).toNat⟩, ⟨argAddr sE 0, 16⟩])
+    (wr := [⟨st.setWidth 64, 32⟩, ⟨scr.setWidth 64, 112⟩])
+    ⟨?_, ?_, ?_⟩ fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
+  · rw [← hsE]
+    simp only [Proof.Sha256.compressX86, State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr,
+      arg_withRegions, argAddr_withRegions, a0, a1, a2, a3, eA, eSp]
+    refine ⟨trivial, trivial, d₁, d₂, d₃, dS.sub_left b16, dC.sub_left b16,
+      dS.sub_left r4, dC.sub_left r4, f₀, by simpa using f₁, f₃, ?_⟩
+    rw [sub_toNat hE]; have := E.isLt; omega
+  · rw [hesp₁]
+    intro a n ⟨r, hr, hcn⟩
+    simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl
+    · obtain ⟨r', hr', hc'⟩ := hc a n ⟨_, List.mem_singleton_self _, by simpa using hcn⟩
+      exact InRegions_append_cons.mpr (.inr ⟨r', hr', hc'⟩)
+    · refine InRegions_append_cons.mpr (.inl ?_)
+      rw [eA] at hcn
+      simp only [Region.Contains] at hcn ⊢
+      simpa using hcn
+    · obtain ⟨r', hr', hc'⟩ := hw a n ⟨_, by simp, hcn⟩
+      exact InRegions_append_cons.mpr (.inr ⟨r', List.mem_append_right _ hr', hc'⟩)
+    · obtain ⟨r', hr', hc'⟩ := hw a n ⟨_, by simp, hcn⟩
+      exact InRegions_append_cons.mpr (.inr ⟨r', List.mem_append_right _ hr', hc'⟩)
+  · rw [hesp₁]
+    intro a n ⟨r, hr, hcn⟩
+    obtain ⟨r', hr', hc'⟩ := hw a n ⟨r, hr, hcn⟩
+    exact ⟨r', List.mem_cons_of_mem _ hr', hc'⟩
+  · rw [compress_stack, hesp₁] at f'
+    have hsE' : Frame [below E 20] s.mem sE.mem := by
+      have := callEntry_frame fit hrs
+      rw [hesp₁] at this; exact this
+    rw [← hsE] at post
+    simp only [Proof.Sha256.compressX86, arg_withRegions, State.withRegions_mem, a0, a1, a2, m₂,
+      show (1 : BitVec 32).toNat = 1 from rfl, compressBlocks_one] at post
+    rw [hs₁] at f'
+    refine hQ s' rd' wr' (fun r hr => ?_) (by simpa [State.setReg] using f') ?_
+    · rw [cs' r hr, g₁ r (by simp [calleeSaved] at hr; rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide)]
+    · have e₁ : stateAt sE.mem (st.setWidth 64) = stateAt s.mem (st.setWidth 64) :=
+        Proof.Sha256.Stream.stateAt_congr fun i hi =>
+          hsE'.bytes (R := ⟨st.setWidth 64, 32⟩) (by simpa using dS.symm) (by simp) hi
+      have e₂ : blockAt sE.mem (blk.setWidth 64) = blockAt s.mem (blk.setWidth 64) := by
+        simp only [blockAt]
+        exact Proof.Sha256.Stream.parseBlock_congr fun k hk =>
+          hsE'.bytes (R := ⟨blk.setWidth 64, 64⟩) (by simpa using dB.symm) (by simp) hk
+      rw [post, e₁, e₂]
 
 /-! ## Arithmetic -/
 

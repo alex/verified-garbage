@@ -507,4 +507,27 @@ theorem Verified.widen {c : Prog isa} {k k' : Contract isa} (h : Verified target
       rw [State.withRegions_withRegions, ← hr, ← hw]; rfl
     exact ⟨ha, hpost s _ hs (by rw [this]; exact hq)⟩
 
+/-- `Verified.widen`, narrowing the readable regions too: `k` may read
+`rd s` and write `wr s`, which the regions of `k'` cover (a region `k'` lets
+the code write may be only read under `k`). -/
+theorem Verified.narrowTo {c : Prog isa} {k k' : Contract isa} (h : Verified target c k)
+    (rd wr : State → List Region)
+    (hpre : ∀ s, k'.pre s → k.pre (s.withRegions (rd s) (wr s)))
+    (hc : ∀ s, k'.pre s → Covers (rd s ++ wr s) (s.rd ++ s.wr))
+    (hw : ∀ s, k'.pre s → Covers (wr s) s.wr)
+    (hpost : ∀ s s', k'.pre s →
+      k.post (s.withRegions (rd s) (wr s)) (s'.withRegions (rd s) (wr s)) → k'.post s s')
+    (hpub : ∀ s₁ s₂, k'.pre s₁ → k'.pre s₂ → k'.pub s₁ s₂ →
+      k.pub (s₁.withRegions (rd s₁) (wr s₁)) (s₂.withRegions (rd s₂) (wr s₂)))
+    (hsat : ∃ s, k'.pre s) : Verified target c k' := by
+  refine h.of_narrow (fun s => s.withRegions (rd s) (wr s)) (fun s s₁ => s₁.withRegions s.rd s.wr)
+    hpre (fun s t s₁ hs he => ?_) (fun s t s₁ hs he ha hq => ?_) hpub hsat
+  · have := Exec.widen (rd := s.rd) (wr := s.wr) he (hc s hs) (hw s hs)
+    rwa [State.withRegions_withRegions, State.withRegions_self] at this
+  · obtain ⟨hr, hw'⟩ := Exec.rdwr he
+    simp only [State.withRegions_rd, State.withRegions_wr] at hr hw'
+    have : (s₁.withRegions s.rd s.wr).withRegions (rd s) (wr s) = s₁ := by
+      rw [State.withRegions_withRegions, ← hr, ← hw']; rfl
+    exact ⟨ha, hpost s _ hs (by rw [this]; exact hq)⟩
+
 end VG.X86

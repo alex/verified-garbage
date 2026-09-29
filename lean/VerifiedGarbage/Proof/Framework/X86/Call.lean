@@ -324,4 +324,25 @@ theorem WP.frame {rs : List Reg} {r : Reg} {body : Prog isa} {s : State} {Q : St
     rw [pushed_wr, pushed_esp]; rfl
   exact ⟨_, _, Exec.frame (push_pushed hne hrs hn) he hpop, hq⟩
 
+/-- `WP.narrow` for code that never writes `esp` but may call functions and
+push frames: from `s`, it terminates in a state that differs from `s` in
+memory only within `wr` and the `stackUse c` bytes below `esp`. -/
+theorem WP.narrowSp {c : Prog isa} {s : State} {rd wr : List Region} {P : State → Prop}
+    (h : WP isa c (s.withRegions rd wr) P)
+    (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) (hsp : NoSp c)
+    (hd : stackUse c ≤ (s.gpr .esp).toNat) {Q : State → Prop}
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr →
+      Frame (wr ++ [below (s.gpr .esp) (stackUse c)]) s.mem s'.mem → P (s'.withRegions rd wr) → Q s') :
+    WP isa c s Q := by
+  obtain ⟨t, s₁, he, hp⟩ := h
+  obtain ⟨hr, hwr⟩ := Exec.rdwr he
+  have hf := Exec.frameSp he hsp (by simpa using hd)
+  simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_mem, State.withRegions_gpr] at hr hwr hf
+  have he' := Exec.widen he (rd := s.rd) (wr := s.wr) (by simpa using hc) (by simpa using hw)
+  simp only [State.withRegions_withRegions, State.withRegions_self] at he'
+  refine ⟨t, _, he', hQ _ rfl rfl hf ?_⟩
+  have : (s₁.withRegions s.rd s.wr).withRegions rd wr = s₁ := by
+    rw [State.withRegions_withRegions, ← hr, ← hwr]; rfl
+  rw [this]; exact hp
+
 end VG.X86
