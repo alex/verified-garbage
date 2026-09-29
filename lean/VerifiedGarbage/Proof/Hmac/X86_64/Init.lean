@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
 import Mathlib.Tactic.Set
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.X86_64.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
@@ -914,16 +915,57 @@ theorem init_ct {f : Callee} (hf : f.Ok) :
   exact (init_rel hf (pre_of h₁) (pre_of h₂) ⟨p1, p2, p3, p4, p5, p6⟩ _ _ _ _ _ _ ⟨rfl, rfl⟩
     e₁ e₂).1
 
-/-- `init`, calling any compression function `f`. -/
+/-- `initSha256X86_64` with the 608 bytes of scratch of the shared contract
+(sized for the AVX2 compression function), of which the code uses 160. -/
+def initWide : Contract isa :=
+  { Proof.Hmac.initSha256X86_64 with
+    pre := fun s =>
+      let inner : Region := ⟨s.gpr .rdi, 96⟩
+      let outer : Region := ⟨s.gpr .rsi, 96⟩
+      let key : Region := ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩
+      let scratch : Region := ⟨s.gpr .r8, 608⟩
+      let ret : Region := ⟨s.gpr .rsp, 8⟩
+      let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
+      (s.gpr .rcx).toNat ≤ 64 ∧ s.rd = [key] ∧ s.wr = [inner, outer, scratch] ∧
+      inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
+      key.Disjoint inner ∧ key.Disjoint outer ∧ key.Disjoint scratch ∧
+      ret.Disjoint inner ∧ ret.Disjoint outer ∧ ret.Disjoint scratch ∧
+      stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint key ∧ stack.Disjoint scratch }
+
+/-- The regions `initSha256X86_64` lets the code write. -/
+def narrowWr (s : State) : List Region := [⟨s.gpr .rdi, 96⟩, ⟨s.gpr .rsi, 96⟩, ⟨s.gpr .r8, 160⟩]
+
+theorem initWide_pre (s : State) (h : initWide.pre s) :
+    Proof.Hmac.initSha256X86_64.pre (s.withRegions s.rd (narrowWr s)) :=
+  let ⟨h₁, h₂, _, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅, h₁₆⟩ := h
+  ⟨h₁, h₂, rfl, h₄, h₅.sub_right (Region.sub_of_ble rfl), h₆.sub_right (Region.sub_of_ble rfl), h₇,
+    h₈, h₉.sub_right (Region.sub_of_ble rfl), h₁₀, h₁₁, h₁₂.sub_right (Region.sub_of_ble rfl), h₁₃,
+    h₁₄, h₁₅, h₁₆.sub_right (Region.sub_of_ble rfl)⟩
+
+/-- A state satisfying `initWide.pre`. -/
+def wideSat : State := { sat with wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 608⟩] }
+
+theorem initWide_implies : initWide.Implies (Spec.Hmac.initSha256Contract X86_64.abi 8) := by
+  sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig, initWide,
+    Proof.Hmac.initSha256X86_64, X86_64.abi, X86_64.argRegs] [wideSat, sat] using wideSat
+
+/-- `init`, calling any compression function `f`. The proof is written
+against `initSha256X86_64`, widened to the shared contract's scratch. -/
 theorem init_verified {f : Callee} (hf : f.Ok)
     (hm : f.code.allInstrs (fun i => !loadsMxcsr i) = true) :
     Verified X86_64.target (init f) (Spec.Hmac.initSha256Contract X86_64.abi 8) :=
-  Verified.of_correct (init_ok hf (by
+  have hsat := initWide_implies.sat_left
+  (Verified.widen (Verified.of_correct (init_ok hf (by
     simp only [init, Impl.Sha256.X86_64.Stream.compressAt, Code.allInstrs, hm, Bool.true_and,
       Bool.and_true]
-    decide +kernel)) (init_ct hf) (by
-    sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig,
-      Proof.Hmac.initSha256X86_64, X86_64.abi, X86_64.argRegs] [sat] using sat)
+    decide +kernel)) (init_ct hf) (.refl (hsat.elim fun s hs => ⟨_, initWide_pre s hs⟩)))
+    narrowWr initWide_pre
+    (fun _ h => by
+      obtain ⟨_, _, h₃, _⟩ := h
+      rw [h₃]
+      exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl)
+        (.cons (Region.prefix_of_ble rfl) .nil)))
+    (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat).of_implies initWide_implies
 
 theorem init_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
     (init f).all (fun i => !X86_64.isa.writesSp i) = true := by

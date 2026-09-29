@@ -12,11 +12,11 @@
 ///
 /// * `key` must be valid for reads of 192 bytes, and `u` for reads of 32 bytes.
 /// * `t` must be valid for reads and writes of 32 bytes.
-/// * `scratch` must be valid for reads and writes of 384 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 832 bytes; its contents on return are unspecified.
 /// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
 /// * None of `key`, `u`, `t` and `scratch` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_pbkdf2_hmac_sha256_iterate(key: *const [u8; 192], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 48]) {
+pub(crate) unsafe extern "C" fn vg_pbkdf2_hmac_sha256_iterate(key: *const [u8; 192], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 104]) {
     core::arch::naked_asm!(
         "add w2, w2, #0",
         "str x19, [x4, #112]",

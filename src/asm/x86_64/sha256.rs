@@ -10,11 +10,11 @@
 ///
 /// * `state` must be valid for reads and writes of 32 bytes.
 /// * `blocks` must be valid for reads of `64 * n` bytes.
-/// * `scratch` must be valid for reads and writes of 112 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 560 bytes; its contents on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `blocks` (distinct Rust objects never do).
 /// * None of `state`, `blocks` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 70]) {
     core::arch::naked_asm!(
         "mov QWORD PTR [rcx+64], rbx",
         "mov QWORD PTR [rcx+72], rbp",
@@ -3008,7 +3008,7 @@ pub(crate) const VG_SHA256_COMPRESS_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
 /// * None of `state`, `blocks` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_compress_shani(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_compress_shani(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 70]) {
     core::arch::naked_asm!(
         "movabs rax, 289644378169868803",
         "movq xmm8, rax",
@@ -3267,11 +3267,11 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_compress_shani(state: *mut [u32; 
 ///
 /// * `state` must be valid for reads and writes of 96 bytes.
 /// * `data` must be valid for reads of `len` bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
 /// * None of `state`, `data` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 76]) {
     core::arch::naked_asm!(
         "mov QWORD PTR [r8+112], rbx",
         "mov QWORD PTR [r8+120], rbp",
@@ -3394,11 +3394,11 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_update(state: *mut [u8; 96], coun
 ///
 /// * `state` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
 /// * `out` must be valid for writes of 32 bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
 /// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
 /// * None of `state`, `out` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 76]) {
     core::arch::naked_asm!(
         "mov QWORD PTR [rcx+112], rbx",
         "mov QWORD PTR [rcx+120], rbp",
@@ -3509,12 +3509,12 @@ pub(crate) const VG_SHA256_UPDATE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
 ///
 /// * `state` must be valid for reads and writes of 96 bytes.
 /// * `data` must be valid for reads of `len` bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
 /// * None of `state`, `data` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_update_shani(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_update_shani(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 76]) {
     core::arch::naked_asm!(
         "mov QWORD PTR [r8+112], rbx",
         "mov QWORD PTR [r8+120], rbp",
@@ -3640,12 +3640,12 @@ pub(crate) const VG_SHA256_FINALIZE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
 ///
 /// * `state` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
 /// * `out` must be valid for writes of 32 bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
 /// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
 /// * None of `state`, `out` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_sha256_finalize_shani(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20]) {
+pub(crate) unsafe extern "sysv64" fn vg_sha256_finalize_shani(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 76]) {
     core::arch::naked_asm!(
         "mov QWORD PTR [rcx+112], rbx",
         "mov QWORD PTR [rcx+120], rbp",

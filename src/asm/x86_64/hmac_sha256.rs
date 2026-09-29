@@ -11,11 +11,11 @@
 /// * `key_len` must be at most 64.
 /// * `inner` and `outer` must each be valid for reads and writes of 96 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
 /// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `key` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 20]) {
+pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 76]) {
     core::arch::naked_asm!(
         "mov QWORD PTR [r8+112], rbx",
         "mov QWORD PTR [r8+120], rbp",
@@ -125,11 +125,11 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init(inner: *mut [u8; 96], o
 ///
 /// * `inner` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
 /// * `outer` must be valid for reads of 96 bytes.
-/// * `scratch` must be valid for reads and writes of 240 bytes; its contents on return are unspecified, apart from the MAC.
+/// * `scratch` must be valid for reads and writes of 688 bytes; its contents on return are unspecified, apart from the MAC.
 /// * `inner` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
 /// * None of `inner`, `outer` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 30]) {
+pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 86]) {
     core::arch::naked_asm!(
         "mov eax, DWORD PTR [rsi]",
         "mov DWORD PTR [rcx+208], eax",
@@ -196,12 +196,12 @@ pub(crate) const VG_HMAC_SHA256_INIT_SHANI_FEATURES: &[&str] = &["sha", "ssse3"]
 /// * `key_len` must be at most 64.
 /// * `inner` and `outer` must each be valid for reads and writes of 96 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
 /// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `key` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init_shani(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 20]) {
+pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init_shani(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 76]) {
     core::arch::naked_asm!(
         "mov QWORD PTR [r8+112], rbx",
         "mov QWORD PTR [r8+120], rbp",
@@ -314,12 +314,12 @@ pub(crate) const VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES: &[&str] = &["sha", "sss
 ///
 /// * `inner` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
 /// * `outer` must be valid for reads of 96 bytes.
-/// * `scratch` must be valid for reads and writes of 240 bytes; its contents on return are unspecified, apart from the MAC.
+/// * `scratch` must be valid for reads and writes of 688 bytes; its contents on return are unspecified, apart from the MAC.
 /// * `inner` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
 /// * None of `inner`, `outer` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_finalize_shani(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 30]) {
+pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_finalize_shani(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 86]) {
     core::arch::naked_asm!(
         "mov eax, DWORD PTR [rsi]",
         "mov DWORD PTR [rcx+208], eax",
