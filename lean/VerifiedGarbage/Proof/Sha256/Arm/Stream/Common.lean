@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.MdStream.Arm.Common
 import VerifiedGarbage.Proof.Sha256.Arm.Compress
 import VerifiedGarbage.Impl.Sha256.Arm.Stream
+import VerifiedGarbage.Proof.Sha256.Arm.Lit
 
 /-!
 # Streaming SHA-256 on ARMv7: calling the compression function, and saving registers

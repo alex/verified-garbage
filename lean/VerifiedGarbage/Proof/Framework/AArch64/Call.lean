@@ -148,13 +148,7 @@ theorem ofNat_split {a b : Nat} (hab : a ≤ b) :
 
 theorem below_sub {sp : Addr} {a b : Nat} (hab : a ≤ b) (hb : b < 2 ^ 64) :
     Region.Sub (below sp a) (below sp b) := by
-  intro x hx
-  simp only [Region.Contains] at hx ⊢
-  have e : x - (sp - BitVec.ofNat 64 b) = (x - (sp - BitVec.ofNat 64 a)) + BitVec.ofNat 64 (b - a) := by
-    rw [ofNat_split hab]; bv_omega
-  rw [e, BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := b - a) (by omega),
-    Nat.mod_eq_of_lt (by omega)]
-  omega
+  exact Offset.below_mono sp hab hb
 
 /-- A frame's 16 bytes are in the `n + 16` bytes below the stack pointer. -/
 theorem below_frame (sp : Addr) (n : Nat) (hn : n + 16 < 2 ^ 64) :
@@ -165,8 +159,9 @@ theorem below_frame (sp : Addr) (n : Nat) (hn : n + 16 < 2 ^ 64) :
 theorem below_frame_contains (sp : Addr) (n : Nat) (hn : n + 16 < 2 ^ 64) :
     (below sp (n + 16)).Contains (sp - 16) 8 := by
   simp only [Region.Contains]
-  rw [show sp - 16 - (sp - BitVec.ofNat 64 (n + 16)) = BitVec.ofNat 64 n by
-    rw [BitVec.ofNat_add]; bv_omega, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+  rw [show sp - 16 - (sp - BitVec.ofNat 64 (n + 16)) = BitVec.ofNat 64 n from
+    (Offset.sub_ofNat_sub_sub_ofNat sp (a := 16) (by omega)).trans (by rw [Nat.add_sub_cancel]),
+    BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   omega
 
 /-- The stack a frame's body uses is below the frame. -/
@@ -174,7 +169,7 @@ theorem below_body (sp : Addr) (n : Nat) : Region.Sub (below (sp - 16) n) (below
   intro x hx
   simp only [Region.Contains] at hx ⊢
   rw [show x - (sp - BitVec.ofNat 64 (n + 16)) = x - (sp - 16 - BitVec.ofNat 64 n) by
-    rw [BitVec.ofNat_add]; bv_omega]
+    rw [BitVec.sub_sub (sp : Addr) 16, BitVec.ofNat_add, BitVec.add_comm (BitVec.ofNat 64 n)]; rfl]
   omega
 
 theorem Frame.below_mono {wr : List Region} {sp : Addr} {a b : Nat} {m m' : Mem}
@@ -308,7 +303,8 @@ theorem frame_not_below (sp : Addr) {n : Nat} (hn : n + 16 < 2 ^ 64) :
     Region.Disjoint ⟨sp - 16, 16⟩ (below (sp - 16) n) := by
   intro x h₁ h₂
   simp only [Region.Contains] at h₁ h₂
-  have e : x - (sp - 16 - BitVec.ofNat 64 n) = (x - (sp - 16)) + BitVec.ofNat 64 n := by bv_omega
+  have e : x - (sp - 16 - BitVec.ofNat 64 n) = (x - (sp - 16)) + BitVec.ofNat 64 n :=
+    Offset.sub_sub_eq _ _ _
   rw [e, BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := n) (by omega),
     Nat.mod_eq_of_lt (by omega)] at h₂
   omega

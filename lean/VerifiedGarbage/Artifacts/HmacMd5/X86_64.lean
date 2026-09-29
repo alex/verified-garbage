@@ -33,7 +33,7 @@ def artifacts : List Artifact := [
     writeArgs := true
     stack := 16
     verified := Instances.md5_init
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Hmac.md5I.finalizeApi with
     target := X86_64.target
     doc := Spec.Hmac.md5I.finalizeApi.doc
@@ -43,6 +43,6 @@ def artifacts : List Artifact := [
     writeArgs := true
     stack := 16
     verified := Instances.md5_finalize
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.HmacMd5.X86_64

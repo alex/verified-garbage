@@ -83,9 +83,11 @@ theorem acc_call {op : Poly → Poly → Poly} {nm : String} {c : Prog isa}
       · exact .inr (Buf.withinW hp h0' (Lay.okW_iff.mp h0).2 h.wr)
       · exact .inl (by rw [h.esp])
     refine ⟨h, ?_, cv.1, cv.2⟩
+    -- The callee's entry state stays opaque to `sig_pre`, which would unfold it.
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e
     sig_pre [accSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr, State.withRegions_mem,
-      arg_withRegions, argAddr_withRegions, a0, a1, eA, eSp]
+    subst he
+    simp only [arg_withRegions, argAddr_withRegions, a0, a1, eA, eSp]
     have ek := @ent_keep Y s₀ s hp h [.ecx, .eax] (by decide) (by simp; omega)
     refine ⟨by rw [sub_toNat (by omega)]; omega, by rw [sub_toNat (by omega)]; have := (E1 s₀).isLt; omega,
       trivial, trivial, Buf.disj hp h0' h1' d01, r0₁, r1₁, r0₂, r1₂, rA₂, r0₃, r1₃, rA₃,
@@ -101,8 +103,11 @@ theorem acc_call {op : Poly → Poly → Poly} {nm : String} {c : Prog isa}
     have fit : 4 * [Reg.ecx, Reg.eax].length + 4 ≤ (s.gpr .esp).toNat := by
       have := ctx_E hp h (N := 28) (by omega); simp only [List.length_cons, List.length_nil]; omega
     refine ⟨by simp only [Buf.rgn, hq.ptr h1'], by simp only [Buf.rgn, hq.ptr h0', hq.E1], ?_⟩
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e
+    generalize he' : (pushed [.ecx, .eax] s').callEntry = e'
     sig_pub [accSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_gpr, arg_withRegions, callEntry_esp', hsp]
+    subst he he'
+    simp only [arg_withRegions, callEntry_esp', hsp]
     exact ⟨trivial, callEntry_arg_eq (by decide) fit hsp hr (by decide),
       callEntry_arg_eq (by decide) fit hsp hr (by decide)⟩
   · obtain ⟨h, hax, hcx, -⟩ := hA s₀ s hp ha
@@ -114,8 +119,10 @@ theorem acc_call {op : Poly → Poly → Poly} {nm : String} {c : Prog isa}
     have a1 : arg (pushed [.ecx, .eax] s).callEntry 1 = Buf.ptr s₀ ⟨ga, go, 1024⟩ := by
       rw [callEntry_arg fit (by decide) (by decide)]; exact hcx
     have ek := @ent_keep Y s₀ s hp h [.ecx, .eax] (by decide) (by simp; omega)
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e at post
     sig_post [accSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at post
-    simp only [arg_withRegions, State.withRegions_mem, a0, a1, m₂] at post
+    subst he
+    simp only [arg_withRegions, a0, a1, m₂] at post
     rw [polyAt_congr (ek h0'), polyAt_congr (ek h1')] at post
     exact hQ s₀ s s' hp ha h' e₃ (fr_conv hp (a := 8) (N := 28) (by omega) (by omega)
       (by rw [hst] at fr; exact fr)) post
@@ -168,9 +175,11 @@ theorem cbd2_call (ba bo fa fo : Nat)
       · exact .inr (Buf.withinW hp h1' (Lay.okW_iff.mp h1).2 h.wr)
       · exact .inl (by rw [h.esp])
     refine ⟨h, ?_, cv.1, cv.2⟩
+    -- The callee's entry state stays opaque to `sig_pre`, which would unfold it.
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e
     sig_pre [cbd2Contract, cbd2Sig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr,
-      arg_withRegions, argAddr_withRegions, a0, a1, eA, eSp]
+    subst he
+    simp only [arg_withRegions, argAddr_withRegions, a0, a1, eA, eSp]
     have ek := @ent_keep Y s₀ s hp h [.ecx, .eax] (by decide) (by simp; omega)
     refine ⟨by rw [sub_toNat (by omega)]; omega, by rw [sub_toNat (by omega)]; have := (E1 s₀).isLt; omega,
       trivial, trivial, Buf.disj hp h0' h1' d01, r0₁, r1₁, r0₂, r1₂, rA₂, r0₃, r1₃, rA₃,
@@ -186,8 +195,11 @@ theorem cbd2_call (ba bo fa fo : Nat)
     have fit : 4 * [Reg.ecx, Reg.eax].length + 4 ≤ (s.gpr .esp).toNat := by
       have := ctx_E hp h (N := 28) (by omega); simp only [List.length_cons, List.length_nil]; omega
     refine ⟨by simp only [Buf.rgn, hq.ptr h0'], by simp only [Buf.rgn, hq.ptr h1', hq.E1], ?_⟩
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e
+    generalize he' : (pushed [.ecx, .eax] s').callEntry = e'
     sig_pub [cbd2Contract, cbd2Sig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_gpr, arg_withRegions, callEntry_esp', hsp]
+    subst he he'
+    simp only [arg_withRegions, callEntry_esp', hsp]
     exact ⟨trivial, callEntry_arg_eq (by decide) fit hsp hr (by decide),
       callEntry_arg_eq (by decide) fit hsp hr (by decide)⟩
   · obtain ⟨h, hax, hcx⟩ := hA s₀ s hp ha
@@ -199,8 +211,10 @@ theorem cbd2_call (ba bo fa fo : Nat)
     have a1 : arg (pushed [.ecx, .eax] s).callEntry 1 = Buf.ptr s₀ ⟨fa, fo, 1024⟩ := by
       rw [callEntry_arg fit (by decide) (by decide)]; exact hcx
     have ek := @ent_keep Y s₀ s hp h [.ecx, .eax] (by decide) (by simp; omega)
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e at post
     sig_post [cbd2Contract, cbd2Sig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at post
-    simp only [arg_withRegions, State.withRegions_mem, a0, a1, m₂] at post
+    subst he
+    simp only [arg_withRegions, a0, a1, m₂] at post
     rw [bytesAt_congr (ek h0')] at post
     exact hQ s₀ s s' hp ha h' e₃ (fr_conv hp (a := 8) (N := 28) (by omega) (by omega)
       (by rw [cbd2_stack] at fr; exact fr)) post
@@ -253,9 +267,11 @@ theorem encode12_call (fa fo oa oo : Nat)
       · exact .inr (Buf.withinW hp h1' (Lay.okW_iff.mp h1).2 h.wr)
       · exact .inl (by rw [h.esp])
     refine ⟨h, ?_, cv.1, cv.2⟩
+    -- The callee's entry state stays opaque to `sig_pre`, which would unfold it.
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e
     sig_pre [encode12Contract, encode12Sig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr, State.withRegions_mem,
-      arg_withRegions, argAddr_withRegions, a0, a1, eA, eSp]
+    subst he
+    simp only [arg_withRegions, argAddr_withRegions, a0, a1, eA, eSp]
     have ek := @ent_keep Y s₀ s hp h [.ecx, .eax] (by decide) (by simp; omega)
     refine ⟨by rw [sub_toNat (by omega)]; omega, by rw [sub_toNat (by omega)]; have := (E1 s₀).isLt; omega,
       trivial, trivial, Buf.disj hp h0' h1' d01, r0₁, r1₁, r0₂, r1₂, rA₂, r0₃, r1₃, rA₃,
@@ -271,8 +287,11 @@ theorem encode12_call (fa fo oa oo : Nat)
     have fit : 4 * [Reg.ecx, Reg.eax].length + 4 ≤ (s.gpr .esp).toNat := by
       have := ctx_E hp h (N := 28) (by omega); simp only [List.length_cons, List.length_nil]; omega
     refine ⟨by simp only [Buf.rgn, hq.ptr h0'], by simp only [Buf.rgn, hq.ptr h1', hq.E1], ?_⟩
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e
+    generalize he' : (pushed [.ecx, .eax] s').callEntry = e'
     sig_pub [encode12Contract, encode12Sig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_gpr, arg_withRegions, callEntry_esp', hsp]
+    subst he he'
+    simp only [arg_withRegions, callEntry_esp', hsp]
     exact ⟨trivial, callEntry_arg_eq (by decide) fit hsp hr (by decide),
       callEntry_arg_eq (by decide) fit hsp hr (by decide)⟩
   · obtain ⟨h, hax, hcx, -⟩ := hA s₀ s hp ha
@@ -284,8 +303,10 @@ theorem encode12_call (fa fo oa oo : Nat)
     have a1 : arg (pushed [.ecx, .eax] s).callEntry 1 = Buf.ptr s₀ ⟨oa, oo, 384⟩ := by
       rw [callEntry_arg fit (by decide) (by decide)]; exact hcx
     have ek := @ent_keep Y s₀ s hp h [.ecx, .eax] (by decide) (by simp; omega)
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e at post
     sig_post [encode12Contract, encode12Sig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at post
-    simp only [arg_withRegions, State.withRegions_mem, a0, a1, m₂] at post
+    subst he
+    simp only [arg_withRegions, a0, a1, m₂] at post
     rw [polyAt_congr (ek h0')] at post
     exact hQ s₀ s s' hp ha h' e₃ (fr_conv hp (a := 8) (N := 28) (by omega) (by omega)
       (by rw [encode12_stack] at fr; exact fr)) post
@@ -338,9 +359,11 @@ theorem decode12_call (ba bo fa fo : Nat)
       · exact .inr (Buf.withinW hp h1' (Lay.okW_iff.mp h1).2 h.wr)
       · exact .inl (by rw [h.esp])
     refine ⟨h, ?_, cv.1, cv.2⟩
+    -- The callee's entry state stays opaque to `sig_pre`, which would unfold it.
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e
     sig_pre [decode12Contract, decode12Sig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr,
-      arg_withRegions, argAddr_withRegions, a0, a1, eA, eSp]
+    subst he
+    simp only [arg_withRegions, argAddr_withRegions, a0, a1, eA, eSp]
     have ek := @ent_keep Y s₀ s hp h [.ecx, .eax] (by decide) (by simp; omega)
     refine ⟨by rw [sub_toNat (by omega)]; omega, by rw [sub_toNat (by omega)]; have := (E1 s₀).isLt; omega,
       trivial, trivial, Buf.disj hp h0' h1' d01, r0₁, r1₁, r0₂, r1₂, rA₂, r0₃, r1₃, rA₃,
@@ -356,8 +379,11 @@ theorem decode12_call (ba bo fa fo : Nat)
     have fit : 4 * [Reg.ecx, Reg.eax].length + 4 ≤ (s.gpr .esp).toNat := by
       have := ctx_E hp h (N := 28) (by omega); simp only [List.length_cons, List.length_nil]; omega
     refine ⟨by simp only [Buf.rgn, hq.ptr h0'], by simp only [Buf.rgn, hq.ptr h1', hq.E1], ?_⟩
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e
+    generalize he' : (pushed [.ecx, .eax] s').callEntry = e'
     sig_pub [decode12Contract, decode12Sig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_gpr, arg_withRegions, callEntry_esp', hsp]
+    subst he he'
+    simp only [arg_withRegions, callEntry_esp', hsp]
     exact ⟨trivial, callEntry_arg_eq (by decide) fit hsp hr (by decide),
       callEntry_arg_eq (by decide) fit hsp hr (by decide)⟩
   · obtain ⟨h, hax, hcx⟩ := hA s₀ s hp ha
@@ -369,8 +395,10 @@ theorem decode12_call (ba bo fa fo : Nat)
     have a1 : arg (pushed [.ecx, .eax] s).callEntry 1 = Buf.ptr s₀ ⟨fa, fo, 1024⟩ := by
       rw [callEntry_arg fit (by decide) (by decide)]; exact hcx
     have ek := @ent_keep Y s₀ s hp h [.ecx, .eax] (by decide) (by simp; omega)
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e at post
     sig_post [decode12Contract, decode12Sig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at post
-    simp only [arg_withRegions, State.withRegions_mem, a0, a1, m₂] at post
+    subst he
+    simp only [arg_withRegions, a0, a1, m₂] at post
     rw [bytesAt_congr (ek h0')] at post
     exact hQ s₀ s s' hp ha h' e₃ (fr_conv hp (a := 8) (N := 28) (by omega) (by omega)
       (by rw [decode12_stack] at fr; exact fr)) post

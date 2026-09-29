@@ -3,7 +3,6 @@ import VerifiedGarbage.Proof.Md5.Arm.Compress
 import VerifiedGarbage.Proof.Md5.Stream
 import VerifiedGarbage.Impl.Md5.Arm.Stream
 import VerifiedGarbage.Proof.Md5.StateMem
-import VerifiedGarbage.Proof.Md5.Arm.Contract
 
 /-!
 # Streaming MD5 on ARMv7: `init`

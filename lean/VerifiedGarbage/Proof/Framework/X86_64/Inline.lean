@@ -50,7 +50,8 @@ theorem Covers.of_sub {rs rs' : List Region}
   unfold Region.Contains at *
   rw [hb] at hc
   have : (a - r'.base).toNat ≤ (a - (r'.base + BitVec.ofNat 64 off)).toNat + off := by
-    rw [show a - r'.base = (a - (r'.base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by bv_omega,
+    rw [show a - r'.base = (a - (r'.base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by
+        rw [Offset.sub_add_eq, BitVec.sub_add_cancel],
       BitVec.toNat_add, BitVec.toNat_ofNat]
     exact Nat.le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
   omega
@@ -417,7 +418,7 @@ theorem pushRegs_eq (s : State) (rs : List Reg) :
     refine ⟨h₁, h₂, ?_, fun r hr => ?_⟩
     · simp only [pushRegs, h₃, List.length_cons, ofNat_eight_mul_succ]
       simp only [State.setReg, ite_true]
-      bv_omega
+      rw [BitVec.sub_sub, BitVec.add_comm]
     · simp only [pushRegs, h₄ r hr]
       simp [State.setReg, hr]
 
@@ -433,7 +434,7 @@ theorem popReg_eq (s : State) (d : Reg) (k : Nat) :
     refine ⟨h₁, h₂, ?_, fun r hr hr' => ?_⟩
     · simp only [popReg, h₃, ofNat_eight_mul_succ]
       simp only [State.setReg, ite_true]
-      bv_omega
+      rw [BitVec.add_assoc, BitVec.add_comm (8 : BitVec 64)]
     · simp only [popReg, h₄ r hr hr']
       simp [State.setReg, hr, hr']
 

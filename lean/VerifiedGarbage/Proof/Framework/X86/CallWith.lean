@@ -46,7 +46,7 @@ variable (rs : List Reg) (s : State)
 
 theorem callEntry_esp' :
     (pushed rs s).callEntry.gpr .esp = s.gpr .esp - BitVec.ofNat 32 (4 * rs.length + 4) := by
-  rw [State.callEntry_esp, pushed_esp, BitVec.ofNat_add]; bv_omega
+  rw [State.callEntry_esp, pushed_esp, BitVec.ofNat_add, BitVec.sub_sub]; rfl
 
 theorem callEntry_gpr' {r : Reg} (h : r ≠ .esp) : (pushed rs s).callEntry.gpr r = s.gpr r := by
   rw [State.callEntry_gpr _ h, pushed_gpr _ _ h]
@@ -73,7 +73,7 @@ theorem callEntry_frame (hrs : Reg.esp ∉ rs) :
       exact ⟨_, List.mem_singleton_self _, below_sub (by omega) hfit⟩
   refine f₁.writeW (List.mem_singleton_self _) _ ?_
   rw [pushed_esp, show s.gpr .esp - BitVec.ofNat 32 (4 * rs.length) - 4 =
-    s.gpr .esp - BitVec.ofNat 32 (4 * rs.length + 4) by rw [BitVec.ofNat_add]; bv_omega]
+    s.gpr .esp - BitVec.ofNat 32 (4 * rs.length + 4) by rw [BitVec.ofNat_add, BitVec.sub_sub]; rfl]
   exact below_top (Nat.le_refl _) hfit (by omega)
 
 /-- Argument `i` is the `i`-th register from the end of those pushed. -/

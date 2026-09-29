@@ -61,7 +61,7 @@ theorem length_serialize (S : CState) : (serialize S).length = 64 := by
 
 /-- Byte `i` of a serialized state: byte `i % 4` of word `i / 4`. -/
 theorem serialize_getD (S : CState) {i : Nat} (hi : i < 64) :
-    (serialize S).getD i 0 = S[i / 4].extractLsb' (8 * (i % 4)) 8 := by
+    (serialize S).getD i 0 = (S[i / 4]'(by omega)).extractLsb' (8 * (i % 4)) 8 := by
   rw [serialize, getD_flatMap _ (n := 4) (fun _ => rfl) 0 _ (by rw [Vector.length_toList]; omega)]
   have h4 : i % 4 < 4 := Nat.mod_lt _ (by omega)
   have e : S.toList.getD (i / 4) 0 = S[i / 4] := by

@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.X86_64.Exec
+import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
 import VerifiedGarbage.Proof.Sha256.X86_64.Avx2.Lanes
 
 /-!
@@ -23,7 +24,7 @@ theorem msg_nodup (n : Nat) :
   rw [show (n + 1) % 4 = (n % 4 + 1) % 4 by omega, show (n + 2) % 4 = (n % 4 + 2) % 4 by omega,
     show (n + 3) % 4 = (n % 4 + 3) % 4 by omega]
   generalize n % 4 = c at *
-  rcases (by omega : c = 0 ∨ c = 1 ∨ c = 2 ∨ c = 3) with rfl | rfl | rfl | rfl <;> decide
+  rcases (by omega : c = 0 ∨ c = 1 ∨ c = 2 ∨ c = 3) with rfl | rfl | rfl | rfl <;> decide +kernel
 
 theorem ea_at (s : State) (b : Reg) (d : Nat) :
     s.ea (at_ b d) = s.gpr b + BitVec.ofInt 64 (d : Int) := rfl
@@ -56,7 +57,8 @@ theorem schedule_ok (i : Nat) (s : State) (a b c d a' b' c' d' : BitVec 128)
     or_false, not_or, List.nodup_nil, and_true, List.reverse_cons, List.reverse_nil, List.nil_append,
     List.cons_append] at hn hn' hBA hBA' hDC hDC' ⊢
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, VOp.exec,
-    isa, State.setV, State.lane, State.ymm, State.store256, ea_at, hout, ite_true, ite_false, hn, hn',
+    isa, RegUpd.xmm_setV, RegUpd.ymmHi_setV_256, RegUpd.gpr_setV, RegUpd.mem_setV,
+    RegUpd.rd_setV, RegUpd.wr_setV, State.lane, State.ymm, State.store256, ea_at, hout, ite_true, ite_false, hn, hn',
     ha, hb, hc, hd, ha', hb', hc', hd', hBA, hBA', hDC, hDC', Option.some.injEq, exists_eq_left']
   refine ⟨rfl, rfl, fun r h0 h1 h2 h3 h4 => by simp [h0, h1, h2, h3, h4], trivial, rfl, trivial⟩
 

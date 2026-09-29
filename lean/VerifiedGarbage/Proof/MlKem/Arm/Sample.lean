@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.MlKem.Arm.Keccak
-import VerifiedGarbage.Proof.MlKem.Sample
+import VerifiedGarbage.Proof.MlKem.KPke
 import VerifiedGarbage.Proof.Sha512.Arm.Word64
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Proof.Framework.Arm.Contract

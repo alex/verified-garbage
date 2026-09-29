@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MdStream.AArch64.Common
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # Streaming Merkle–Damgård hash functions on AArch64: length fields and digests
@@ -16,31 +17,119 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil write_eq_writeBytes write
 
 /-! ## Byte order -/
 
+/-- The bytes of a byte-reversed word, one by one. -/
+theorem rev32_byte_0 (x : BitVec 32) : (rev32 x).extractLsb' 0 8 = x.extractLsb' 24 8 := by
+  unfold rev32
+  rw [BitVec.extractLsb'_append_eq_of_add_le (v := 24) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev32_byte_1 (x : BitVec 32) : (rev32 x).extractLsb' 8 8 = x.extractLsb' 16 8 := by
+  unfold rev32
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 24) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_add_le (v := 16) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev32_byte_2 (x : BitVec 32) : (rev32 x).extractLsb' 16 8 = x.extractLsb' 8 8 := by
+  unfold rev32
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 24) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 16) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_add_le (v := 8) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev32_byte_3 (x : BitVec 32) : (rev32 x).extractLsb' 24 8 = x.extractLsb' 0 8 := by
+  unfold rev32
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 24) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 16) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 8) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+
+theorem rev64_byte_0 (x : BitVec 64) : (rev64 x).extractLsb' 0 8 = x.extractLsb' 56 8 := by
+  unfold rev64
+  rw [BitVec.extractLsb'_append_eq_of_add_le (v := 56) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev64_byte_1 (x : BitVec 64) : (rev64 x).extractLsb' 8 8 = x.extractLsb' 48 8 := by
+  unfold rev64
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 56) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_add_le (v := 48) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev64_byte_2 (x : BitVec 64) : (rev64 x).extractLsb' 16 8 = x.extractLsb' 40 8 := by
+  unfold rev64
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 56) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 48) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_add_le (v := 40) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev64_byte_3 (x : BitVec 64) : (rev64 x).extractLsb' 24 8 = x.extractLsb' 32 8 := by
+  unfold rev64
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 56) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 48) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 40) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_add_le (v := 32) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev64_byte_4 (x : BitVec 64) : (rev64 x).extractLsb' 32 8 = x.extractLsb' 24 8 := by
+  unfold rev64
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 56) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 48) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 40) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 32) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_add_le (v := 24) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev64_byte_5 (x : BitVec 64) : (rev64 x).extractLsb' 40 8 = x.extractLsb' 16 8 := by
+  unfold rev64
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 56) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 48) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 40) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 32) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 24) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_add_le (v := 16) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev64_byte_6 (x : BitVec 64) : (rev64 x).extractLsb' 48 8 = x.extractLsb' 8 8 := by
+  unfold rev64
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 56) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 48) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 40) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 32) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 24) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 16) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_add_le (v := 8) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev64_byte_7 (x : BitVec 64) : (rev64 x).extractLsb' 56 8 = x.extractLsb' 0 8 := by
+  unfold rev64
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 56) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 48) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 40) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 32) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 24) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 16) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 8) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+
 theorem bytes32_store (be : Bool) (x : BitVec 32) :
     (List.range 4).map (fun j => (if be then rev32 x else x).extractLsb' (8 * j) 8) = bytes32 be x := by
   cases be
-  · simp [bytes32, List.range_succ]
+  · rfl
   · simp only [bytes32, ite_true, List.range_succ, List.range_zero, List.nil_append, List.map_cons,
-      List.map_nil, List.cons_append, List.cons.injEq, and_true]
-    refine ⟨?_, ?_, ?_, ?_⟩ <;>
-    · refine byte_ext fun i hi => ?_
-      rcases i with _ | _ | _ | _ | _ | _ | _ | _ | i
-      all_goals first
-        | exact absurd hi (by omega)
-        | (simp only [rev32, BitVec.getLsbD_extractLsb', BitVec.getLsbD_append]; simp)
+      List.map_nil, List.cons_append, Nat.reduceMul, rev32_byte_0, rev32_byte_1, rev32_byte_2,
+      rev32_byte_3]
+
 
 theorem bytes64_store (be : Bool) (x : BitVec 64) :
     (List.range 8).map (fun j => (if be then rev64 x else x).extractLsb' (8 * j) 8) = bytes64 be x := by
   cases be
-  · simp [bytes64]
+  · rfl
   · simp only [bytes64, ite_true, List.range_succ, List.range_zero, List.nil_append, List.map_cons,
-      List.map_nil, List.cons_append, List.reverse_cons, List.reverse_nil, List.cons.injEq, and_true]
-    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    · refine byte_ext fun i hi => ?_
-      rcases i with _ | _ | _ | _ | _ | _ | _ | _ | i
-      all_goals first
-        | exact absurd hi (by omega)
-        | (simp only [rev64, BitVec.getLsbD_extractLsb', BitVec.getLsbD_append]; simp)
+      List.map_nil, List.cons_append, List.reverse_cons, List.reverse_nil, Nat.reduceMul,
+      rev64_byte_0, rev64_byte_1, rev64_byte_2, rev64_byte_3, rev64_byte_4, rev64_byte_5, rev64_byte_6,
+      rev64_byte_7]
+
 
 theorem writeW32 (m : Mem) (a : Addr) (be : Bool) (x : BitVec 32) :
     m.writeW a (if be then rev32 x else x) = writeBytes m a (bytes32 be x) := by
@@ -58,7 +147,7 @@ theorem InRegions.offset {rs : List Region} {a : Addr} {n off m : Nat} (h : InRe
   refine ⟨R, hR, ?_⟩
   simp only [Region.Contains] at *
   have : (a + BitVec.ofNat 64 off - R.base).toNat ≤ (a - R.base).toNat + off := by
-    rw [show a + BitVec.ofNat 64 off - R.base = (a - R.base) + BitVec.ofNat 64 off by bv_omega,
+    rw [Offset.add_sub_comm,
       BitVec.toNat_add, toNat_ofNat_lt (by omega)]
     exact Nat.mod_le _ _
   omega

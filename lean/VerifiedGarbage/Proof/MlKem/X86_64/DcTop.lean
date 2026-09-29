@@ -123,7 +123,7 @@ theorem select_okD {σ : State} {s : State} (h : EncO σ s) : WP isa select s (D
     (L.disj (show sepB dcB (sc oKB) 32 (.r12, 0) 32 = true by decide))) fun s' ⟨hP, hb⟩ => ?_
   refine ⟨k.dc.step hp hP.b (by decide), by rw [hP.cs .r15 (by decide)]; exact h.r15, fun ho => ?_⟩
   rw [hP.pa KeyGen.r12_cs, hb]
-  exact if_congr (by rw [k.dc.c, h.ct ho]) k.k k.kb
+  exact ite_congr (propext (by rw [k.dc.c, h.ct ho])) (fun _ => k.k) (fun _ => k.kb)
 
 theorem DEnd.hin {σ s : State} (hp : decapsK.pre σ) (h : DEnd σ s) :
     ∀ k < 6, InRegions (s.rd ++ s.wr) (pa s (sc (oSV + 8 * k))) 8 := fun k hk => by

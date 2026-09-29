@@ -2,6 +2,8 @@ import VerifiedGarbage.Proof.Framework.X86.Call
 import VerifiedGarbage.Proof.Sha512.X86.Compress
 import VerifiedGarbage.Proof.Sha512.Stream
 import VerifiedGarbage.Impl.Sha512.X86.Stream
+import VerifiedGarbage.Proof.Sha512.X86.Lit
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # Streaming SHA-512 on x86 (32-bit): common lemmas
@@ -34,12 +36,12 @@ theorem x86_instrs_eq {I C : Type} (c : Code I C) : X86.instrs c = VG.instrs c :
 
 theorem compress_nosp : NoSp Impl.Sha512.X86.compress := by
   have : ((VG.instrs Impl.Sha512.X86.compress).all fun i => !Taint.clobbers i .esp) = true := by
-    rw [← Code.allInstrs_eq]; decide +kernel
+    rw [← Code.allInstrs_eq]; lit_decide
   intro i hi
   rw [x86_instrs_eq] at hi
   simpa using List.all_eq_true.mp this i hi
 
-theorem compress_stackUse : stackUse Impl.Sha512.X86.compress = 0 := by decide +kernel
+theorem compress_stackUse : stackUse Impl.Sha512.X86.compress = 0 := by lit_decide
 
 /-- The frame's argument registers, pushed last to first. -/
 abbrev args : List Reg := [.edx, .ecx, .eax, .ebx]
@@ -82,48 +84,48 @@ theorem compressCall_ok {s : State} {st scr E : BitVec 32}
       stateAt s'.mem (st.setWidth 64) =
         compress (stateAt s.mem (st.setWidth 64)) (blockAt s.mem (st.setWidth 64 + 64)) → Q s') :
     WP isa compressCall s Q := by
-  have hn : 4 * args.length ≤ (s.gpr .esp).toNat := by rw [hesp]; simp only [args]; simp; omega
+  have hn : 4 * args.length ≤ (s.gpr .esp).toNat := by rw [hesp]; simp only [args]; simp; omega_arith
   have hd : stackUse Impl.Sha512.X86.compress + 4 ≤ ((pushed args s).gpr .esp).toNat := by
-    rw [compress_stackUse, pushed_esp, sub_toNat hn, hesp]; simp only [args]; simp; omega
+    rw [compress_stackUse, pushed_esp, sub_toNat hn, hesp]; simp only [args]; simp; omega_arith
   have hE16 : ((pushed args s).gpr .esp) = E - BitVec.ofNat 32 16 := by rw [pushed_esp, hesp]; rfl
   -- The arguments, as the callee sees them.
   set sE := (pushed args s).callEntry with hsE
   have ha : ∀ j, j < 4 → arg sE j = s.gpr (args[3 - j]!) := by
     intro j hj
-    rw [hsE, arg_callEntry (by rw [hE16, sub_toNat (by omega)]; omega)
-      (by rw [hE16, sub_toNat (by omega)]; have := E.isLt; omega)]
-    have := pushed_word (rs := args) (s := s) (by decide) hn (i := j) (by simp only [args]; simp; omega)
+    rw [hsE, arg_callEntry (by rw [hE16, sub_toNat (by omega_arith)]; omega_arith)
+      (by rw [hE16, sub_toNat (by omega_arith)]; have := E.isLt; omega_arith)]
+    have := pushed_word (rs := args) (s := s) (by decide) hn (i := j) (by simp only [args]; simp; omega_arith)
     rw [this]
     simp only [args, List.length_cons, List.length_nil]
-    rcases (by omega : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3) with rfl | rfl | rfl | rfl <;> rfl
-  have e0 : arg sE 0 = st := by rw [ha 0 (by omega)]; exact hebx
-  have e1 : arg sE 1 = st + 64 := by rw [ha 1 (by omega)]; exact heax
-  have e2 : arg sE 2 = 1 := by rw [ha 2 (by omega)]; exact hecx
-  have e3 : arg sE 3 = scr := by rw [ha 3 (by omega)]; exact hedx
+    rcases (by omega_arith : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3) with rfl | rfl | rfl | rfl <;> rfl
+  have e0 : arg sE 0 = st := by rw [ha 0 (by omega_arith)]; exact hebx
+  have e1 : arg sE 1 = st + 64 := by rw [ha 1 (by omega_arith)]; exact heax
+  have e2 : arg sE 2 = 1 := by rw [ha 2 (by omega_arith)]; exact hecx
+  have e3 : arg sE 3 = scr := by rw [ha 3 (by omega_arith)]; exact hedx
   have hbase : (st + 64).setWidth 64 = st.setWidth 64 + BitVec.ofNat 64 64 :=
-    setWidth_add (k := 64) (by omega)
+    setWidth_add (k := 64) (by omega_arith)
   have hbt : (st + 64).toNat = st.toNat + 64 := by
-    rw [BitVec.toNat_add, show (64 : BitVec 32).toNat = 64 from rfl, Nat.mod_eq_of_lt (by omega)]
+    rw [BitVec.toNat_add, show (64 : BitVec 32).toNat = 64 from rfl, Nat.mod_eq_of_lt (by omega_arith)]
   have espE : (sE.gpr .esp) = E - BitVec.ofNat 32 20 := by
-    rw [hsE, State.callEntry_esp, hE16]; bv_omega
+    rw [hsE, State.callEntry_esp, hE16]; bv_omega_arith
   have argA : argAddr sE 0 = (E - BitVec.ofNat 32 16).setWidth 64 := by
     rw [hsE, argAddr_callEntry, hE16]; simp
   -- The stack below `esp`.
-  have below16 : Region.Sub (below E 16) (below E 20) := below_sub (by omega) hE
+  have below16 : Region.Sub (below E 16) (below E 20) := below_sub (by omega_arith) hE
   have ret_sub : Region.Sub ⟨(sE.gpr .esp).setWidth 64, 4⟩ (below E 20) := by
-    have := below_inner (sp := E) (a := 4) (b := 20) (k := 16) (by omega) hE
-    rw [espE, show E - BitVec.ofNat 32 20 = E - BitVec.ofNat 32 16 - BitVec.ofNat 32 4 by bv_omega]
+    have := below_inner (sp := E) (a := 4) (b := 20) (k := 16) (by omega_arith) hE
+    rw [espE, show E - BitVec.ofNat 32 20 = E - BitVec.ofNat 32 16 - BitVec.ofNat 32 4 by bv_omega_arith]
     exact this
-  have sS : Region.Sub ⟨st.setWidth 64, 64⟩ ⟨st.setWidth 64, 192⟩ := Region.sub_prefix (by omega)
+  have sS : Region.Sub ⟨st.setWidth 64, 64⟩ ⟨st.setWidth 64, 192⟩ := Region.sub_prefix (by omega_arith)
   have sB : Region.Sub ⟨(st + 64).setWidth 64, 128 * 1⟩ ⟨st.setWidth 64, 192⟩ := by
     rw [hbase]; exact Proof.Sha256.X86.Stream.sub_offset (by decide) (by decide)
-  have sV : Region.Sub ⟨scr.setWidth 64, 224⟩ ⟨scr.setWidth 64, 272⟩ := Region.sub_prefix (by omega)
+  have sV : Region.Sub ⟨scr.setWidth 64, 224⟩ ⟨scr.setWidth 64, 272⟩ := Region.sub_prefix (by omega_arith)
   have dBS : Region.Disjoint ⟨(st + 64).setWidth 64, 128 * 1⟩ ⟨st.setWidth 64, 64⟩ := by
     intro a h₁ h₂
     simp only [Region.Contains] at h₁ h₂
     rw [hbase] at h₁
     generalize st.setWidth 64 = B at *
-    bv_omega
+    bv_omega_arith
   have hA16 : Region.Sub ⟨argAddr sE 0, 16⟩ (below E 20) := by
     rw [argA]; exact fun a h => below16 a h
   let rdC : List Region := [⟨(st + 64).setWidth 64, 128 * 1⟩, ⟨argAddr sE 0, 16⟩]
@@ -141,9 +143,9 @@ theorem compressCall_ok {s : State} {st scr E : BitVec 32}
     refine ⟨rfl, rfl, (d.sub_left sS).sub_right sV, dBS, (d.sub_left sB).sub_right sV,
       (dS.symm.sub_right hA16).sub_left sS |>.symm, (dV.symm.sub_right hA16).sub_left sV |>.symm,
       ((dS.symm.sub_right ret_sub).sub_left sS).symm, ((dV.symm.sub_right ret_sub).sub_left sV).symm,
-      by omega, by rw [hbt]; simp only [show (1 : BitVec 32).toNat = 1 from rfl]; omega, by omega, ?_⟩
+      by omega_arith, by rw [hbt]; simp only [show (1 : BitVec 32).toNat = 1 from rfl]; omega_arith, by omega_arith, ?_⟩
     show (sE.gpr .esp).toNat + 20 ≤ 2 ^ 32
-    rw [espE, sub_toNat hE]; have := E.isLt; omega
+    rw [espE, sub_toNat hE]; have := E.isLt; omega_arith
   · rw [pushed_rd, pushed_wr]
     apply Covers.of_sub
     intro r hr
@@ -175,25 +177,25 @@ theorem compressCall_ok {s : State} {st scr E : BitVec 32}
         · exact ⟨_, by simp, fun _ h => h⟩
         · refine ⟨below E 20, by simp, ?_⟩
           rw [hE16]
-          exact below_inner (by omega) hE
+          exact below_inner (by omega_arith) hE
     -- The callee's memory on entry is ours outside the stack.
     have hFe : Frame [below E 20] s.mem sE.mem := by
       rw [hsE, State.callEntry_mem]
-      have h20 : (pushed args s).gpr .esp - 4 = E - BitVec.ofNat 32 20 := by rw [hE16]; bv_omega
+      have h20 : (pushed args s).gpr .esp - 4 = E - BitVec.ofNat 32 20 := by rw [hE16]; bv_omega_arith
       refine Frame.writeW (Frame.sub (pushed_frame (by decide) hn) fun r hr => ?_) (List.mem_singleton_self _) _
         ?_
       · simp only [List.mem_singleton] at hr; subst hr
         exact ⟨below E 20, by simp, by rw [hesp]; simpa [args] using below16⟩
-      · rw [h20]; exact below_top (k := 20) (Nat.le_refl _) hE (by omega)
+      · rw [h20]; exact below_top (k := 20) (Nat.le_refl _) hE (by omega_arith)
     have hst : stateAt sE.mem (st.setWidth 64) = stateAt s.mem (st.setWidth 64) :=
       Proof.Sha512.Stream.stateAt_congr fun i hi =>
-        hFe.bytes (R := ⟨st.setWidth 64, 192⟩) (by simpa using dS.symm) (by simp) (show _ < 192 by omega)
+        hFe.bytes (R := ⟨st.setWidth 64, 192⟩) (by simpa using dS.symm) (by simp) (show _ < 192 by omega_arith)
     have hblk : blockAt sE.mem (st.setWidth 64 + 64) = blockAt s.mem (st.setWidth 64 + 64) := by
       simp only [blockAt]
       refine Proof.Sha512.Stream.parseBlock_congr fun k hk => ?_
       rw [show st.setWidth 64 + 64 + BitVec.ofNat 64 k = st.setWidth 64 + BitVec.ofNat 64 (64 + k) by
         rw [BitVec.add_assoc, BitVec.ofNat_add]; rfl]
-      exact hFe.bytes (R := ⟨st.setWidth 64, 192⟩) (by simpa using dS.symm) (by simp) (show _ < 192 by omega)
+      exact hFe.bytes (R := ⟨st.setWidth 64, 192⟩) (by simpa using dS.symm) (by simp) (show _ < 192 by omega_arith)
     have hpost' : stateAt s'.mem (st.setWidth 64) =
         compress (stateAt s.mem (st.setWidth 64)) (blockAt s.mem (st.setWidth 64 + 64)) := by
       have := (show stateAt s₂.mem ((arg (sE.withRegions rdC wrC) 0).setWidth 64) =

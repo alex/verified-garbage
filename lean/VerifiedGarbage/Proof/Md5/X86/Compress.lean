@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Md5.X86.Rounds
+import VerifiedGarbage.Proof.Md5.X86.Lit
 import VerifiedGarbage.Proof.Md5.X86.Contract
 import Mathlib.Tactic.SplitIfs
 

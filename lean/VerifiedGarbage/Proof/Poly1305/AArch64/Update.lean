@@ -1,13 +1,15 @@
 import VerifiedGarbage.Proof.Poly1305.AArch64.Buffer
-import Mathlib.Tactic.NormNum.Basic
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
 
 /-!
 # Poly1305 on AArch64: `update`
 
 Untrusted: everything here is checked by Lean.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305.AArch64
 
@@ -444,7 +446,7 @@ theorem data_value {s₀ : State} (hp : UPre s₀) {m : Mem} (hf : Frame [wR (st
   simp only [w64]
   rw [hw 0 (by omega), hw 8 (by omega), Poly1305.leNum_append, Poly1305.length_bytesAt, leNum_key]
   have h1 : leNum [(0x01 : Byte)] = 1 := rfl
-  rw [h1, Bool.toNat_true, show (256 : Nat) ^ 16 = 2 ^ 128 by norm_num]
+  rw [h1, Bool.toNat_true, show (256 : Nat) ^ 16 = 2 ^ 128 from rfl]
 
 /-- One whole block of data. -/
 theorem whole_step {s₀ : State} (hp : UPre s₀) {c : Nat} {s : State} (h : ConsB s₀ c s)
@@ -493,7 +495,6 @@ theorem whole_step {s₀ : State} (hp : UPre s₀) {c : Nat} {s : State} (h : Co
   · apply BitVec.eq_of_toNat_eq
     rw [u₄.gpr, lsr_toNat, u₃.gpr, u₂.other _ (by decide), k₁.gpr' (r := .x3), h.x3, sub_ofNat (by omega),
       toNat_ofNat_lt (by omega), toNat_ofNat_lt (by omega), Nat.sub_sub]
-    rfl
 
 /-- The loop over the whole blocks of data. -/
 theorem whole_loop {s₀ : State} (hp : UPre s₀) {c : Nat} {s : State} (h : ConsB s₀ c s)
@@ -530,7 +531,6 @@ theorem whole_ok {s₀ : State} (hp : UPre s₀) {s : State}
     have hq : s₂.gpr .x2 = BitVec.ofNat 64 ((dl s₀ - c) / 16) := by
       apply BitVec.eq_of_toNat_eq
       rw [hx2, lsr_toNat, hc.x3, toNat_ofNat_lt (by omega), toNat_ofNat_lt (by omega)]
-      rfl
     refine WP.ite (decide (dl s₀ - c < 16)) (by
       rw [eval_zero, hq, ofNat_beq_zero (by omega)]; simp only [Option.some.injEq, decide_eq_decide]; omega)
       (fun hl => ?_) (fun hl => ?_)

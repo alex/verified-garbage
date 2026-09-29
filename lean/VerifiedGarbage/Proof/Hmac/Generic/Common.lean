@@ -219,7 +219,7 @@ theorem readW_reloc {m m' : Mem} {p q : Addr} {n : Nat}
     (hw : o + w / 8 ≤ n) :
     m'.readW (q + BitVec.ofNat 64 o) w = m.readW (p + BitVec.ofNat 64 o) w := by
   simp only [Mem.readW]
-  congr 1
+  refine congrArg (BitVec.setWidth _) ?_
   refine read_congr₂ fun i hi => ?_
   rw [BitVec.add_assoc, BitVec.add_assoc, ← BitVec.ofNat_add, h (o + i) (by omega)]
 

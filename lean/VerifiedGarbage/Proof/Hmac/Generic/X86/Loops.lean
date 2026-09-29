@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Hmac.Generic.X86.Hash
+import Mathlib.Tactic.Set
+import Mathlib.Tactic.Tauto
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 
 /-!

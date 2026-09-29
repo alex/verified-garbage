@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Sha1.StateMem
 import VerifiedGarbage.Proof.Sha1.X86.Contract
 import VerifiedGarbage.Impl.Sha1.X86.Stream
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Sha1.X86.Lit
 
 /-!
 # Streaming SHA-1 on x86 (32-bit): `init`

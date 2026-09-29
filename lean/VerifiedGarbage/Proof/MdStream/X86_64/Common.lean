@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbage.Proof.Framework.Block
 import VerifiedGarbage.Impl.MdStream.X86_64
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # Streaming Merkle–Damgård hash functions on x86-64: common lemmas
@@ -30,37 +31,41 @@ theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = 
   rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
 
 theorem contains_offset {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
-    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
-  simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, toNat_ofNat_lt ho]
-  exact h
+    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := Offset.contains_base base h ho
 
 theorem contains_offset' {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
     (⟨base, len⟩ : Region).Contains (base + BitVec.ofInt 64 (off : Int)) n := by
   rw [ofInt_natCast]; exact contains_offset h ho
 
-theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (ho : off < 2 ^ 64) :
-    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := by
-  intro a ha
-  simp only [Region.Contains] at *
-  have : (a - base).toNat ≤ (a - (base + BitVec.ofNat 64 off)).toNat + off := by
-    rw [show a - base = (a - (base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by bv_omega,
-      BitVec.toNat_add, toNat_ofNat_lt ho]
-    exact Nat.mod_le _ _
-  omega
+theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (_ho : off < 2 ^ 64) :
+    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := Offset.sub_base base h
 
 theorem save_sep (p : Addr) {d e : Nat} (hd : d < 2 ^ 32) (he : e < 2 ^ 32)
     (h : d + 8 ≤ e ∨ e + 8 ≤ d) :
     Mem.Sep (p + BitVec.ofInt 64 (d : Int)) 8 (p + BitVec.ofInt 64 (e : Int)) 8 := by
-  intro x hx hy
-  simp only [ofInt_natCast] at hx hy
-  bv_omega
+  rw [ofInt_natCast, ofInt_natCast]
+  exact Offset.sep p h (by omega) (by omega)
 
 theorem readW_writeW_save (m : Mem) (p : Addr) (v : BitVec 64) {d e : Nat} (hd : d < 2 ^ 32)
     (he : e < 2 ^ 32) (h : d + 8 ≤ e ∨ e + 8 ≤ d) :
     (m.writeW (p + BitVec.ofInt 64 (e : Int)) v).readW (p + BitVec.ofInt 64 (d : Int)) 64 =
     m.readW (p + BitVec.ofInt 64 (d : Int)) 64 :=
   Mem.readW_writeW_sep (save_sep p hd he h) (by decide)
+
+/-! Saves at `so + d`, with the conditions on the literal offsets `d`, `e`
+alone, which `decide` discharges. -/
+theorem readW_writeW_save_so {so : Nat} (hso : so ≤ 1024) (m : Mem) (p : Addr) (v : BitVec 64)
+    {d e : Nat} (hd : d ≤ 64) (he : e ≤ 64) (h : d + 8 ≤ e ∨ e + 8 ≤ d) :
+    (m.writeW (p + BitVec.ofInt 64 ((so + e : Nat) : Int)) v).readW
+      (p + BitVec.ofInt 64 ((so + d : Nat) : Int)) 64 =
+      m.readW (p + BitVec.ofInt 64 ((so + d : Nat) : Int)) 64 :=
+  readW_writeW_save m p v (by omega) (by omega) (by omega)
+
+theorem readW_writeW_save_so_l {so : Nat} (hso : so ≤ 1024) (m : Mem) (p : Addr) (v : BitVec 64)
+    {e : Nat} (he : e ≤ 64) (h : 8 ≤ e) :
+    (m.writeW (p + BitVec.ofInt 64 ((so + e : Nat) : Int)) v).readW (p + BitVec.ofInt 64 (so : Int)) 64 =
+      m.readW (p + BitVec.ofInt 64 (so : Int)) 64 :=
+  readW_writeW_save m p v (by omega) (by omega) (by omega)
 
 theorem ea_at (s : State) (b : Reg) (d : Nat) :
     s.ea (at_ b d) = s.gpr b + BitVec.ofInt 64 (d : Int) := rfl
@@ -183,7 +188,8 @@ theorem saveMem_saved (hd : Dims P) : Saved P s₀ b (saveMem P s₀ b) := by
   intro p hp
   simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
   rcases hp with rfl | rfl | rfl | rfl | rfl | rfl <;>
-  simp (disch := omega) only [saveMem, Mem.readW_writeW_self64, readW_writeW_save]
+  simp (disch := decide) only [saveMem, Mem.readW_writeW_self64, readW_writeW_save_so this,
+    readW_writeW_save_so_l this]
 
 theorem saveMem_frame (hd : Dims P) : Frame [⟨s₀.gpr b, P.so + 48⟩] s₀.mem (saveMem P s₀ b) := by
   have := hd.so

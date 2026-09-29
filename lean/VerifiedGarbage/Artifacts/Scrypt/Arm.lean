@@ -4,7 +4,7 @@ import VerifiedGarbage.Impl.Scrypt.Arm.BlockMix
 import VerifiedGarbage.Impl.Scrypt.Arm.RoMix
 import VerifiedGarbage.Proof.Scrypt.Arm.BlockMixVerified
 import VerifiedGarbage.Proof.Scrypt.Arm.RoMixCT
-import VerifiedGarbage.Proof.Scrypt.Arm.Salsa
+import VerifiedGarbage.Proof.Scrypt.Arm.Lit
 
 /-!
 # scrypt (RFC 7914): Salsa20/8, scryptBlockMix and scryptROMix on 32-bit ARM

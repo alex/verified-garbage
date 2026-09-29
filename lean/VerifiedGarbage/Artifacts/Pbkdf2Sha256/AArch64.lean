@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Impl.Pbkdf2.AArch64
 import VerifiedGarbage.Proof.Pbkdf2.AArch64.Iterate
+import VerifiedGarbage.Proof.Pbkdf2.AArch64.Lit
 
 /-!
 # The PBKDF2-HMAC-SHA-256 iteration (RFC 8018) on AArch64

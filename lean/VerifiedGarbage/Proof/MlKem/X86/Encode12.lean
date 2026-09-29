@@ -203,10 +203,9 @@ theorem verified : Verified X86.target Impl.MlKem.X86.encode12 (encode12Contract
     have a0 : arg st 0 = 0 := by decide
     have a1 : arg st 1 = 0x400 := by decide
     have e : argAddr st 0 = 0x5004 := by decide
-    have esp : st.gpr .esp = 0x5000 := rfl
     refine ⟨st, ?_⟩
     sig_pre [encode12Contract, encode12Sig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [a0, a1, e, esp]
+    simp only [a0, a1, e]
     refine ⟨by decide, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
       reduced_below (fun a ha => ?_) 0 (by decide)⟩
     all_goals first

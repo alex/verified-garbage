@@ -6,6 +6,7 @@ import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Sha256.AArch64.Compress
 import VerifiedGarbage.Proof.Sha256.Stream
 import VerifiedGarbage.Impl.Sha256.AArch64.Stream
+import VerifiedGarbage.Proof.Sha256.AArch64.Lit
 
 /-!
 # Streaming SHA-256 on AArch64: `update` and `finalize`

@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Framework.X86_64.Inline
-import Mathlib.Tactic.Set
 
 /-!
 # Calls (x86-64)
@@ -56,20 +55,14 @@ theorem ofNat_split {a b : Nat} (hab : a ≤ b) :
 
 theorem below_sub {sp : Addr} {a b : Nat} (hab : a ≤ b) (hb : b < 2 ^ 64) :
     Region.Sub (below sp a) (below sp b) := by
-  intro x hx
-  simp only [Region.Contains] at hx ⊢
-  have e : x - (sp - BitVec.ofNat 64 b) = (x - (sp - BitVec.ofNat 64 a)) + BitVec.ofNat 64 (b - a) := by
-    rw [ofNat_split hab]; bv_omega
-  rw [e, BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := b - a) (by omega),
-    Nat.mod_eq_of_lt (by omega)]
-  omega
+  exact Offset.below_mono sp hab hb
 
 /-- The return address of a call from `sp` is in the `n ≥ 8` bytes below it. -/
 theorem below_call (sp : Addr) {n : Nat} (h₁ : 8 ≤ n) (h₂ : n < 2 ^ 64) :
     (below sp n).Contains (sp - 8) 8 := by
   simp only [Region.Contains]
-  rw [show sp - 8 - (sp - BitVec.ofNat 64 n) = BitVec.ofNat 64 (n - 8) by
-    rw [ofNat_split h₁]; bv_omega, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+  rw [show sp - 8 - (sp - BitVec.ofNat 64 n) = BitVec.ofNat 64 (n - 8) from
+    Offset.sub_ofNat_sub_sub_ofNat sp (a := 8) h₁, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   omega
 
 /-- The stack a function called from `sp` uses is below the return address. -/
@@ -77,7 +70,7 @@ theorem below_callee (sp : Addr) (n : Nat) : Region.Sub (below (sp - 8) n) (belo
   intro x hx
   simp only [Region.Contains] at hx ⊢
   rw [show x - (sp - BitVec.ofNat 64 (n + 8)) = x - (sp - 8 - BitVec.ofNat 64 n) by
-    rw [BitVec.ofNat_add]; bv_omega]
+    rw [BitVec.sub_sub (sp : Addr) 8, BitVec.ofNat_add, BitVec.add_comm (BitVec.ofNat 64 n)]; rfl]
   omega
 
 /-- No instruction writes `rsp`. -/
@@ -178,7 +171,8 @@ theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
   have he' := Exec.widen he (rd := s.rd) (wr := s.wr) (by simpa using hc) (by simpa using hw)
   simp only [State.withRegions_withRegions] at he'
   rw [show s.callEntry.withRegions s.rd s.wr = s.callEntry from rfl] at he'
-  set s₂ := s₁.withRegions s.rd s.wr with hs₂
+  let s₂ := s₁.withRegions s.rd s.wr
+  have hs₂ : s₂ = s₁.withRegions s.rd s.wr := rfl
   have hsp₂ : s₂.gpr .rsp = s.gpr .rsp - 8 := by
     rw [hs₂, State.withRegions_gpr, habi.1 .rsp (by simp [calleeSaved])]; simp
   have hret : isa.ret s.callEntry s₂ = some (s₂.setReg .rsp (s₂.gpr .rsp + 8)) := by

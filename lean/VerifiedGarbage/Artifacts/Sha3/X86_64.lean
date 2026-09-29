@@ -26,7 +26,7 @@ def artifacts : List Artifact := [
     code := Impl.Sha3.X86_64.permute
     contract := Spec.Sha3.permuteContract X86_64.abi
     verified := Proof.Sha3.X86_64.permute_verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha3.absorbApi with
     target := X86_64.target
     doc := Spec.Sha3.absorbApi.doc
@@ -34,7 +34,7 @@ def artifacts : List Artifact := [
     contract := Spec.Sha3.absorbContract X86_64.abi 8
     stack := 8
     verified := Proof.Sha3.X86_64.Stream.Absorb.absorb_verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha3.padApi with
     target := X86_64.target
     doc := Spec.Sha3.padApi.doc
@@ -42,7 +42,7 @@ def artifacts : List Artifact := [
     contract := Spec.Sha3.padContract X86_64.abi 8
     stack := 8
     verified := Proof.Sha3.X86_64.Stream.Pad.pad_verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha3.squeezeApi with
     target := X86_64.target
     doc := Spec.Sha3.squeezeApi.doc
@@ -50,6 +50,6 @@ def artifacts : List Artifact := [
     contract := Spec.Sha3.squeezeContract X86_64.abi 8
     stack := 8
     verified := Proof.Sha3.X86_64.Stream.Squeeze.squeeze_verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Sha3.X86_64

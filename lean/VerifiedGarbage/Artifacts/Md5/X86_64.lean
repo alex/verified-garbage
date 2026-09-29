@@ -23,14 +23,14 @@ def artifacts : List Artifact := [
     code := Impl.Md5.X86_64.compress
     contract := Spec.Md5.compressContract X86_64.abi
     verified := Proof.Md5.X86_64.Shared.compress
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Md5.initApi with
     target := X86_64.target
     doc := Spec.Md5.initApi.doc
     code := Impl.Md5.X86_64.Stream.init
     contract := Spec.Md5.initContract X86_64.abi
     verified := Proof.Md5.X86_64.Shared.init
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Md5.updateApi with
     target := X86_64.target
     doc := Spec.Md5.updateApi.doc
@@ -38,7 +38,7 @@ def artifacts : List Artifact := [
     contract := Spec.Md5.updateContract X86_64.abi 8
     stack := 8
     verified := Proof.Md5.X86_64.Shared.update
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Md5.finalizeApi with
     target := X86_64.target
     doc := Spec.Md5.finalizeApi.doc
@@ -46,6 +46,6 @@ def artifacts : List Artifact := [
     contract := Spec.Md5.finalizeContract X86_64.abi 8
     stack := 8
     verified := Proof.Md5.X86_64.Shared.finalize
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Md5.X86_64

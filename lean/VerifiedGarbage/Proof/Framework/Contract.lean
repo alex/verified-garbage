@@ -1,4 +1,5 @@
 import Mathlib.Tactic.CasesM
+import Lean.Meta.Eqns
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.Sig
 
@@ -70,22 +71,115 @@ theorem Region.disjoint_of_le {r₁ r₂ : Region}
   simp only [Region.Contains] at c₁ c₂
   bv_omega
 
+open Lean Meta Elab Command in
+/-- Generates the equation lemmas of the definitions `ids` in this module, so
+that the modules importing it find them, rather than each generating them
+again (a fraction of a second each) when `simp` first unfolds a definition. -/
+elab "realize_eqns " ids:ident* : command => liftTermElabM do
+  for id in ids do
+    let n ← realizeGlobalConstNoOverloadWithInfo id
+    discard <| getEqnsFor? n
+    discard <| getUnfoldEqnFor? n (nonRec := true)
+
+realize_eqns Sig.bufs Curry.apply Curry.const Elem.size ArgWord.ofRaw Sig.contract Sig.words
+  Param.words Param.pubs ArgWord.bits IntTy.bits Sig.retBits stackBelow
+
+/-- Two regions that do not wrap around the end of the address space, one
+entirely below the other: a check that `decide` evaluates on concrete regions. -/
+def Region.sep (a b : Region) : Bool :=
+  a.base.toNat + a.len ≤ 2 ^ 64 && b.base.toNat + b.len ≤ 2 ^ 64 &&
+    (a.base.toNat + a.len ≤ b.base.toNat || b.base.toNat + b.len ≤ a.base.toNat)
+
+theorem Region.disjoint_of_sep {a b : Region} (h : Region.sep a b = true) : a.Disjoint b := by
+  simp only [Region.sep, Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq] at h
+  exact Region.disjoint_of_le h.2 h.1.1 h.1.2
+
+/-! ## Satisfiability by evaluation
+
+A witness of a contract built with `Sig.contract` is a concrete state, on
+which all of the precondition but `A.wf` and the further precondition is a
+computation: `Sig.check` computes it (disjointness by `Region.sep`), for the
+kernel to evaluate with `decide +kernel`, rather than evaluating each fact
+symbolically and closing it by evaluation again. -/
+
+/-- The writable pairs of `l` (those of which one is writable) are separate
+(`Region.sep`). -/
+def Sig.pairsSep : List (Region × Bool) → Bool
+  | [] => true
+  | a :: l => l.all (fun b => !(a.2 || b.2) || Region.sep a.1 b.1) && Sig.pairsSep l
+
+theorem Sig.pairwise_of_pairsSep :
+    ∀ {l : List (Region × Bool)}, Sig.pairsSep l = true →
+      l.Pairwise (fun a b => (a.2 || b.2) = true → a.1.Disjoint b.1)
+  | [], _ => .nil
+  | a :: l, h => by
+    simp only [Sig.pairsSep, Bool.and_eq_true, List.all_eq_true] at h
+    refine .cons (fun b hb hab => Region.disjoint_of_sep ?_) (Sig.pairwise_of_pairsSep h.2)
+    have := h.1 b hb
+    rw [hab] at this
+    exact this
+
+/-- All of the precondition of `sig.contract A pre post writeArgs stack` at
+`s` but `A.wf` and `pre`, with disjointness decided by `Region.sep`. -/
+def Sig.check {M : ISA} (A : Abi M) (sig : Sig) (writeArgs : Bool) (stack : Nat) (s : M.State) :
+    Bool :=
+  let widths := (sig.words A.ptrBits).map (·.bits A.ptrBits)
+  match A.args widths with
+  | none => false
+  | some vals =>
+    let bufs := Sig.bufs sig.params (vals s)
+    let all : List (Region × Bool) :=
+      bufs ++ (A.argArea widths s).map fun (r, w) => (r, w && writeArgs)
+    decide (A.rd s = (all.filter (!·.2)).map (·.1)) &&
+      decide (A.wr s = (all.filter (·.2)).map (·.1)) && Sig.pairsSep all &&
+      (A.reserved stack s).all (fun r => all.all fun a => Region.sep r a.1) &&
+      bufs.all (fun a => decide (a.1.base.toNat + a.1.len ≤ 2 ^ A.ptrBits))
+
+/-- The rest of the precondition of `sig.contract A pre post writeArgs stack`
+at `s`: `A.wf` and `pre`. -/
+def Sig.wfPre {M : ISA} (A : Abi M) (sig : Sig) (pre : Curry (sig.words A.ptrBits) (Mem → Prop))
+    (stack : Nat) (s : M.State) : Prop :=
+  let widths := (sig.words A.ptrBits).map (·.bits A.ptrBits)
+  match A.args widths with
+  | none => False
+  | some vals => A.wf widths stack s ∧ Curry.apply (sig.words A.ptrBits) pre (vals s) (A.mem s)
+
+theorem Sig.contract_pre_of_check {M : ISA} {A : Abi M} {sig : Sig}
+    {pre : Curry (sig.words A.ptrBits) (Mem → Prop)} {post : sig.Post A.ptrBits} {writeArgs : Bool}
+    {stack : Nat} {leak : Option (Curry (sig.words A.ptrBits) (Mem → List Nat))} {s : M.State}
+    (hc : Sig.check A sig writeArgs stack s = true) (h : Sig.wfPre A sig pre stack s) :
+    (sig.contract A pre post writeArgs stack leak).pre s := by
+  simp only [Sig.check] at hc
+  simp only [Sig.wfPre] at h
+  simp only [Sig.contract]
+  split at hc
+  · exact absurd hc Bool.false_ne_true
+  · rename_i vals hv
+    rw [hv] at h ⊢
+    simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true] at hc
+    obtain ⟨⟨⟨⟨hrd, hwr⟩, hp⟩, hr⟩, hb⟩ := hc
+    exact ⟨h.1, hrd, hwr, Sig.pairwise_of_pairsSep hp,
+      fun r hr' a ha => Region.disjoint_of_sep (hr r hr' a ha), hb, h.2⟩
+
+/-- Proves `(sig.contract A …).pre w` (unfolded by `ls`, which `ws` extends to
+evaluate the witness `w`) by evaluating `Sig.check` in the kernel; `A.wf` and
+the further precondition are evaluated with `sig_reduce` and closed by
+evaluation. -/
+syntax "sig_sat_check " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
+macro_rules
+  | `(tactic| sig_sat_check [$ls,*]) => `(tactic| (
+      sig_apply_check
+      · decide +kernel
+      · sig_reduce [$ls,*]
+        sig_and_intros
+        all_goals first
+          | trivial
+          | decide +kernel))
+
 /-! ## Tactics
 
 Each takes the definitions to unfold: the contracts, the signature and the
 calling convention (and its helpers). -/
-
-/-- Unfolds a `Sig.contract` in `h` and in the goal, evaluating the signature. -/
-syntax "sig_unfold " "[" Lean.Parser.Tactic.simpLemma,* "]" (Lean.Parser.Tactic.location)? : tactic
-macro_rules
-  | `(tactic| sig_unfold [$ls,*] $[$loc]?) => `(tactic| (
-      set_option linter.unusedSimpArgs false in
-      dsimp only [$ls,*, Sig.contract, Sig.words, Param.words, List.flatMap, List.flatten,
-        List.map, List.append, ArgWord.bits, IntTy.bits, Sig.retBits, stackBelow] $[$loc]?
-      set_option linter.unusedSimpArgs false in
-      simp [$ls,*, Sig.bufs, Elem.size, List.pairwise_cons, Curry.apply, Curry.apply_const, Curry.const,
-        ArgWord.ofRaw, -BitVec.toNat_setWidth, BitVec.toNat_setWidth_32_64,
-        BitVec.setWidth_32_64_32, Param.pubs, stackBelow] $[$loc]?))
 
 /-- Proves `∀ s, k'.pre s → k.pre s`, for `k'` built with `Sig.contract`. The
 hypothesis is split into its facts once, and each fact of `k.pre` is closed from
@@ -96,14 +190,15 @@ syntax "implies_pre " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
 macro_rules
   | `(tactic| implies_pre [$ls,*]) => `(tactic| (
       intro s h
-      sig_unfold [$ls,*] at h
-      set_option linter.unusedSimpArgs false in
-      simp only [$ls,*]
-      all_goals casesm* _ ∧ _
-      all_goals and_intros
+      sig_pre [$ls,*] at h
+      sig_split h
+      sig_reduce [$ls,*]
+      sig_simp [$ls,*] []
+      sig_and_intros
+      sig_close
       all_goals first
         | with_reducible assumption
-        | with_reducible exact Region.Disjoint.symm (by with_reducible assumption)
+        | with_reducible exact Region.Disjoint.symm ‹_›
         | omega
         | simp_all [Region.disjoint_comm, Nat.mul_comm]))
 
@@ -113,46 +208,47 @@ syntax "implies_post " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
 macro_rules
   | `(tactic| implies_post [$ls,*]) => `(tactic| (
       intro s s' _ h
-      sig_unfold [$ls,*]
-      set_option linter.unusedSimpArgs false in
-      simp only [$ls,*] at h
-      all_goals simpa [Nat.mul_comm] using h))
+      sig_post [$ls,*]
+      sig_reduce [$ls,*] at h
+      sig_simp [$ls,*] [] at h
+      all_goals first
+        | exact h
+        | simpa [Nat.mul_comm] using h))
 
 /-- Proves `∀ s₁ s₂, k'.pre s₁ → k'.pre s₂ → k'.pub s₁ s₂ → k.pub s₁ s₂`, for
 `k'` built with `Sig.contract`. -/
 syntax "implies_pub " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
 macro_rules
   | `(tactic| implies_pub [$ls,*]) => `(tactic| (
-      rintro s₁ s₂ - - h
-      sig_unfold [$ls,*] at h
-      set_option linter.unusedSimpArgs false in
-      simp only [$ls,*, Nat.forall_lt_succ_right, Nat.not_lt_zero, false_imp_iff, forall_const,
+      intro s₁ s₂ _ _ h
+      sig_pub [$ls,*] at h
+      sig_split h
+      sig_reduce [$ls,*]
+      sig_simp [$ls,*] [Nat.forall_lt_succ_right, Nat.not_lt_zero, false_imp_iff, forall_const,
         true_and]
-      all_goals
-        obtain ⟨_, h⟩ := h
-        have := h 0; have := h 1; have := h 2; have := h 3; have := h 4; have := h 5; have := h 6
-        have := h 7; have := h 8; have := h 9
-        clear h
-        -- The widths are in the types of the equations: only `dsimp` can rewrite them.
-        dsimp only [List.getD, List.getElem?_cons_succ, List.getElem?_cons_zero, List.getElem?_nil,
-          Option.getD_some, Option.getD_none] at *
-        simp [BitVec.setWidth_32_64_inj, BitVec.append_32_iff] at *
-      all_goals and_intros
-      all_goals simp_all))
-
-/-- Proves `∃ s, k'.pre s` with the witness `w`, for `k'` built with `Sig.contract`. -/
-syntax "implies_sat " "[" Lean.Parser.Tactic.simpLemma,* "]" " using " term : tactic
-macro_rules
-  | `(tactic| implies_sat [$ls,*] using $w) => `(tactic| (
-      refine ⟨$w, ?_⟩
-      sig_unfold [$ls,*]
-      all_goals and_intros
+      sig_and_intros
+      sig_close
       all_goals first
-        | exact Region.disjoint_of_le (by decide) (by decide) (by decide)
-        | rfl
-        | decide
-        | exact Region.disjoint_of_sep (by decide)
-        | (intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega)))
+        | with_reducible assumption
+        | simp_all))
+
+/-- Proves `∃ s, k'.pre s` with the witness `w`, for `k'` built with `Sig.contract`
+(`ws` unfolds `w`, if `sig_sat_check` fails). -/
+syntax "implies_sat " "[" Lean.Parser.Tactic.simpLemma,* "]" " [" Lean.Parser.Tactic.simpLemma,* "]"
+  " using " term : tactic
+macro_rules
+  | `(tactic| implies_sat [$ls,*] [$ws,*] using $w) => `(tactic| (
+      refine ⟨$w, ?_⟩
+      first
+        | sig_sat_check [$ls,*]
+        | (sig_pre [$ls,*, $ws,*]
+           sig_and_intros
+           all_goals first
+             | rfl
+             | decide
+             | exact Region.disjoint_of_sep (by decide)
+             | exact Region.disjoint_of_le (by decide) (by decide) (by decide)
+             | (intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega))))
 
 /-- Proves `k.Implies k'` for `k'` built with `Sig.contract`, with the witness
 `w` for the satisfiability of `k'.pre` (and further definitions to unfold to
@@ -164,19 +260,7 @@ macro_rules
       { pre := by implies_pre [$ls,*]
         post := by implies_post [$ls,*]
         pub := by implies_pub [$ls,*]
-        sat := by implies_sat [$ls,*, $ws,*] using $w })
-
-/-- Two regions that do not wrap around the end of the address space, one
-entirely below the other: a check that `decide` evaluates on concrete regions. -/
-def Region.sep (a b : Region) : Bool :=
-  a.base.toNat + a.len ≤ 2 ^ 64 && b.base.toNat + b.len ≤ 2 ^ 64 &&
-    (a.base.toNat + a.len ≤ b.base.toNat || b.base.toNat + b.len ≤ a.base.toNat)
-
-theorem Region.disjoint_of_sep {a b : Region} (h : Region.sep a b = true) : a.Disjoint b := by
-  simp only [Region.sep, Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq] at h
-  intro x h₁ h₂
-  simp only [Region.Contains] at h₁ h₂
-  bv_omega
+        sat := by implies_sat [$ls,*] [$ws,*] using $w })
 
 /-! ## Cheap implications
 
@@ -190,21 +274,17 @@ are equalities among `k'`'s. `w` is a state satisfying
 `k'.pre`, and `ws` unfolds what `k'.pre` needs to evaluate on it. Unlike
 `contract_implies`, nothing searches over all hypotheses with `simp`. -/
 
-/-- Splits the conjunction `h` into anonymous hypotheses. -/
-syntax "split_ands_at " ident : tactic
-macro_rules
-  | `(tactic| split_ands_at $h) => `(tactic| repeat (obtain ⟨_, $h:ident⟩ := $h:ident))
-
 /-- Proves `∀ s, k'.pre s → k.pre s` (see `sig_implies`). -/
 syntax "sig_implies_pre " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
 macro_rules
   | `(tactic| sig_implies_pre [$ls,*]) => `(tactic| (
       intro s h
       sig_pre [$ls,*] at h
-      split_ands_at h
-      set_option linter.unusedSimpArgs false in
-      dsimp only [$ls,*]
-      and_intros
+      sig_split h
+      sig_reduce [$ls,*]
+      sig_simp [$ls,*] []
+      sig_and_intros
+      sig_close
       all_goals first
         | with_reducible assumption
         | with_reducible exact Region.Disjoint.symm ‹_›
@@ -219,8 +299,8 @@ macro_rules
   | `(tactic| sig_implies_post [$ls,*]) => `(tactic| (
       intro s s' _ h
       sig_post [$ls,*]
-      set_option linter.unusedSimpArgs false in
-      dsimp only [$ls,*] at h
+      sig_reduce [$ls,*] at h
+      sig_simp [$ls,*] [] at h
       exact h))
 
 /-- Proves `∀ s₁ s₂, k'.pre s₁ → k'.pre s₂ → k'.pub s₁ s₂ → k.pub s₁ s₂` (see
@@ -230,32 +310,33 @@ macro_rules
   | `(tactic| sig_implies_pub [$ls,*]) => `(tactic| (
       intro s₁ s₂ _ _ h
       sig_pub [$ls,*] at h
-      split_ands_at h
-      set_option linter.unusedSimpArgs false in
-      simp only [$ls,*, Nat.forall_lt_succ_right, Nat.not_lt_zero, false_imp_iff, forall_const,
+      sig_split h
+      sig_reduce [$ls,*]
+      sig_simp [$ls,*] [Nat.forall_lt_succ_right, Nat.not_lt_zero, false_imp_iff, forall_const,
         true_and]
-      and_intros
+      sig_and_intros
+      sig_close
       all_goals with_reducible assumption))
 
-/-- Proves `∃ s, k'.pre s` with the witness `w`, whose facts (`rd`, `wr`,
-bounds) hold by `rfl` or `decide`, and whose disjointness facts follow by
-`bv_omega` once `ws` (e.g. `w` itself) evaluates its regions (see
-`sig_implies`). -/
+/-- Proves `∃ s, k'.pre s` with the witness `w` (see `sig_sat_check`; `ws`
+unfolds `w` if that fails). -/
 syntax "sig_implies_sat " "[" Lean.Parser.Tactic.simpLemma,* "]" " [" Lean.Parser.Tactic.simpLemma,* "]"
   " using " term : tactic
 macro_rules
   | `(tactic| sig_implies_sat [$ls,*] [$ws,*] using $w) => `(tactic| (
       refine ⟨$w, ?_⟩
-      sig_pre [$ls,*]
-      and_intros
-      all_goals first
-        | rfl
-        | decide
-        | exact Region.disjoint_of_sep (by decide)
-        | (intro a h₁ h₂
-           set_option linter.unusedSimpArgs false in
-           simp only [Region.Contains, $ws,*] at h₁ h₂
-           bv_omega)))
+      first
+        | sig_sat_check [$ls,*]
+        | (sig_pre [$ls,*]
+           sig_and_intros
+           all_goals first
+             | rfl
+             | decide
+             | exact Region.disjoint_of_sep (by decide)
+             | (intro a h₁ h₂
+                set_option linter.unusedSimpArgs false in
+                simp only [Region.Contains, $ws,*] at h₁ h₂
+                bv_omega))))
 
 syntax "sig_implies " "[" Lean.Parser.Tactic.simpLemma,* "]" " [" Lean.Parser.Tactic.simpLemma,* "]"
   " using " term : tactic

@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Poly1305.Arm.Bytes
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
 
 /-!
 # Poly1305 on 32-bit ARM: `init`
@@ -10,6 +11,8 @@ Untrusted: everything here is checked by Lean. The key is copied to
 `[24, 56)` of the state, a word at a time, and the accumulator's six words
 are zeroed.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305.Arm
 

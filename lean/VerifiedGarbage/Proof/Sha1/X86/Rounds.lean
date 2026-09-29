@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Framework.X86.Taint
 import VerifiedGarbage.Proof.Sha1.Spec
 import VerifiedGarbage.Impl.Sha1.X86
 import Mathlib.Tactic.SplitIfs
+import Mathlib.Tactic.Set
 
 /-!
 # SHA-1 compression function on x86 (32-bit): the message schedule and the rounds

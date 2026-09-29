@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Xor
 import VerifiedGarbage.Impl.ChaCha20.AArch64.Xor
+import VerifiedGarbage.Proof.ChaCha20.AArch64.Lit
 
 /-!
 # The ChaCha20 block function (RFC 8439) on AArch64

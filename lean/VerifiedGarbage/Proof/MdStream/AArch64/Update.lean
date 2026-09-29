@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.MdStream.AArch64.Common
-import Mathlib.Tactic.Tauto
 
 /-!
 # Streaming Merkle–Damgård hash functions on AArch64: `update`
@@ -138,7 +137,7 @@ theorem Inv.of_gpr {s₀ : State} {c : Nat} {s s' : State} (h : Inv H s₀ c s)
     (hg : ∀ r ∈ [Reg.x19, .x20, .x21, .x22, .x23], s'.gpr r = s.gpr r)
     (hm : s'.mem = s.mem) (hrd : s'.rd = s.rd) (hwr : s'.wr = s.wr) (hsp : s'.sp = s.sp) :
     Inv H s₀ c s' :=
-  { h.toCommon.of_gpr (fun r hr => hg r (by simp at hr ⊢; tauto)) hm hrd hwr hsp with
+  { h.toCommon.of_gpr (fun r hr => hg r (List.mem_append_left [_] hr)) hm hrd hwr hsp with
     x23 := by rw [hg _ (by simp)]; exact h.x23
     repr := by rw [hm]; exact h.repr }
 
@@ -195,7 +194,7 @@ theorem Pending.compress_ok (hd : Dims P) {name : String} {code : Prog isa} (hf 
     · exact .inr (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))
   refine compressAt_ok hf h.x19 h.x20 rfl ((hp.st_scr.sub_left eN).sub_right eso) ?_ ?_ ?_ ?_ ?_
   · rcases h.src with h' | ⟨c₀, h', hc₀⟩
-    · rw [h']; intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+    · rw [h']; exact Offset.disjoint_base _ (Nat.le_refl _) (by omega)
     · exact (hp.d_st.sub_left (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))).sub_right eN
   · rcases eSrc with e | e
     · exact (hp.st_scr.sub_left e).sub_right eso
@@ -236,7 +235,7 @@ theorem Pending.compress_ok (hd : Dims P) {name : String} {code : Prog isa} (hf 
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
       rcases hr' with rfl | rfl
       · exact (hp.st_scr.symm.sub_left (saved_sub hd hp')).sub_right eN
-      · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+      · exact Offset.disjoint_base _ (by omega) (by omega)
     · rw [cs _ (by decide) (by decide), h.x23, h.mod]; rfl
 
 /-! ## A whole block straight from the data -/
@@ -734,10 +733,14 @@ theorem verified (hd : Dims P) {name : String} {code : Prog isa} (hf : CalleeOk 
   refine ⟨fun s hs' => ?_, hct, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct hd hf hu' hn (pre_of hs').1 (pre_of hs').2
     exact ⟨t, s', he, h⟩
-  · refine ⟨sat P, rfl, rfl, ?_, ?_, ?_, by simp only [sat]; decide, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+  · refine ⟨sat P, rfl, rfl, ?_, ?_, ?_, by simp only [sat]; decide, ?_, ?_, ?_⟩
+    all_goals try simp only [sat]
+    · exact Offset.disjoint_of_le (by simp <;> omega) (by simp <;> omega)
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact Offset.disjoint_of_le (by simp) (by simp <;> omega)
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
 
 /-- The initial taint agrees on the public arguments. -/
 theorem agree₀ {s₁ s₂ : State} (hpub : (updK H).pub s₁ s₂) :

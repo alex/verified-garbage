@@ -1,7 +1,8 @@
-import VerifiedGarbage.Proof.Sha3.X86_64.Call
+import VerifiedGarbage.Proof.Sha3.X86_64.Permute
 import Mathlib.Tactic.Set
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Sha3.Contract
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # SHA-3 on x86-64: `pad`
@@ -42,7 +43,7 @@ theorem correct {s₀ : State} (hp : Proof.Sha3.padX86_64.pre s₀) :
   have e₂ : s₀.ea { base := .rdi, index := some .rsi, scale := 1, disp := -1 } =
       st + BitVec.ofNat 64 (rate - 1) := by
     simp only [State.ea, BitVec.mul_one, ← hst]
-    bv_omega
+    exact Offset.add_ofInt_neg_one _ _ (by omega)
   unfold Impl.Sha3.X86_64.Stream.pad
   refine WP.seq (wp_movzx8 e₁ (hw' _ (by omega)) fun s₁ u₁ => wp_xor fun s₂ u₂ =>
     wp_store8 (a := st + BitVec.ofNat 64 pos) ?_ ?_ fun s₃ g₃ m₃ rd₃ wr₃ => ?_)
@@ -127,7 +128,7 @@ theorem pad_correct (s : State) (hs : Proof.Sha3.padX86_64.pre s) :
 theorem pad_ct : ConstantTime isa Proof.Sha3.padX86_64.pre Proof.Sha3.padX86_64.pub
     Impl.Sha3.X86_64.Stream.pad := by
   refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .r8, .rsp]) ?_
-    (by taint_decide)
+    (by taint_decide_weak VG.Proof.Sha3.X86_64.dropRC)
   intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, h5⟩
   refine Taint.agree_ofRegs fun r hr => ?_
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr

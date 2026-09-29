@@ -13,7 +13,7 @@ def variant : Proof.Sha256.X86_64.Compress where
   callee := .shani
   ok := Proof.Sha256.X86_64.Stream.shani_ok
   mxcsr := by decide +kernel
-  spSafe := Code.all_of_allInstrs (by decide +kernel)
+  spSafe := Code.all_of_allInstrs (by lit_decide)
   suffix := "_shani"
   features := ["sha", "ssse3"]
 

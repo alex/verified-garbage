@@ -33,7 +33,7 @@ def artifacts : List Artifact := [
     writeArgs := true
     stack := 48
     verified := Instances.sha1_init
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Hmac.sha1I.finalizeApi with
     target := X86.target
     doc := Spec.Hmac.sha1I.finalizeApi.doc
@@ -43,6 +43,6 @@ def artifacts : List Artifact := [
     writeArgs := true
     stack := 48
     verified := Instances.sha1_finalize
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.HmacSha1.X86

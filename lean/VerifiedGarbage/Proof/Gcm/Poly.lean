@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.Gcm.Spec
 import Mathlib.Tactic.LinearCombination
 import Mathlib.Tactic.Ring.RingNF
 import Mathlib.Tactic.SplitIfs
+import VerifiedGarbage.Proof.Framework.PowLit
 
 /-!
 # GCM: the field GF(2¹²⁸) as polynomials
@@ -19,6 +20,8 @@ whose coefficient of `xⁱ` is bit `i` of `v` from the left (`getMsbD i`), and
 where `φ v` is the class of `gp v`. Blocks are determined by their classes
 (`φ_inj`), so implementations are proven correct by computing in `Q`.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Gcm.Poly
 
@@ -142,7 +145,7 @@ theorem φ_eq (v : BitVec 128) :
 /-! ## `Spec.Gcm.mul` is the product in `Q` -/
 
 theorem gp_R : gp Spec.Gcm.R = X ^ 7 + X ^ 2 + X + 1 := by
-  have hb : ∀ d < 128, Spec.Gcm.R.getMsbD d = (d = 0 || d = 1 || d = 2 || d = 7) := by decide
+  have hb : ∀ d < 128, Spec.Gcm.R.getMsbD d = (d = 0 || d = 1 || d = 2 || d = 7) := by decide +kernel
   ext d
   rw [coeff_gp]
   simp only [coeff_add, coeff_X_pow, coeff_X, coeff_one]

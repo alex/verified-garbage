@@ -189,9 +189,14 @@ theorem verified :
       Arm.reduceClassify, Arm.Loc.val] at h
     exact ⟨h.2.1, h.2.2⟩
   · refine ⟨satState, ?_⟩
-    sig_pre [Spec.MlKem.encode12Contract, Spec.MlKem.encode12Sig, Arm.abi, Arm.argRegs,
-      Arm.reduceClassify, Arm.Loc.val]
-    exact ⟨by decide, rfl, rfl, Region.disjoint_of_sep (by decide), by decide, by decide,
-      reduced_zero _⟩
+    sig_apply_check
+    · decide +kernel
+    · sig_reduce [Spec.MlKem.encode12Contract, Spec.MlKem.encode12Sig, Arm.abi, Arm.argRegs,
+        Arm.reduceClassify, Arm.Loc.val]
+      sig_and_intros
+      all_goals first
+        | trivial
+        | exact reduced_zero _
+        | decide +kernel
 
 end VG.Proof.MlKem.Arm.Encode12

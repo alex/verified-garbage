@@ -26,7 +26,7 @@ def artifacts : List Artifact := [
     code := Impl.Aes.X86.expandKey
     contract := Spec.Aes.expandKeyContract X86.abi
     verified := Proof.Aes.X86.expandKey_verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Gcm.ctr32Api with
     target := X86.target
     doc := Spec.Gcm.ctr32Api.doc
@@ -35,6 +35,6 @@ def artifacts : List Artifact := [
     code := Impl.Aes.X86.ctr32
     contract := Spec.Gcm.ctr32Contract X86.abi
     verified := Proof.Aes.X86.ctr32_verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Aes.X86

@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.MdStream.Spec
 import VerifiedGarbage.Proof.Framework.Arm.Call
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Impl.MdStream.Arm
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # Streaming Merkle–Damgård hash functions on ARMv7: common lemmas
@@ -26,20 +27,10 @@ theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = 
   rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
 
 theorem contains_offset {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
-    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
-  simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, toNat_ofNat_lt ho]
-  exact h
+    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := Offset.contains_base base h ho
 
-theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (ho : off < 2 ^ 64) :
-    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := by
-  intro a ha
-  simp only [Region.Contains] at *
-  have : (a - base).toNat ≤ (a - (base + BitVec.ofNat 64 off)).toNat + off := by
-    rw [show a - base = (a - (base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by bv_omega,
-      BitVec.toNat_add, toNat_ofNat_lt ho]
-    exact Nat.mod_le _ _
-  omega
+theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (_ho : off < 2 ^ 64) :
+    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := Offset.sub_base base h
 
 theorem add_ofNat (p : Addr) (a b : Nat) :
     p + BitVec.ofNat 64 a + BitVec.ofNat 64 b = p + BitVec.ofNat 64 (a + b) := by
@@ -50,7 +41,7 @@ theorem frame_bytes {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {R : Re
     m' (R.base + BitVec.ofNat 64 i) = m (R.base + BitVec.ofNat 64 i) := by
   refine hf _ fun r hr hc => hd r hr _ ?_ hc
   simp only [Region.Contains]
-  rw [show R.base + BitVec.ofNat 64 i - R.base = BitVec.ofNat 64 i by bv_omega, toNat_ofNat_lt (by omega)]
+  rw [Offset.add_sub_cancel_left, toNat_ofNat_lt (by omega)]
   omega
 
 /-- Addresses within a region that does not wrap around the 32-bit space. -/
@@ -280,13 +271,27 @@ theorem saveList_ok {b : Reg} {rest : List Instr} (l : List (Reg × Nat)) :
 
 theorem save_sep (B : Addr) {d e : Nat} (hd : d < 2 ^ 32) (he : e < 2 ^ 32)
     (h : d + 4 ≤ e ∨ e + 4 ≤ d) : Mem.Sep (B + BitVec.ofNat 64 d) 4 (B + BitVec.ofNat 64 e) 4 := by
-  intro x hx hy
-  bv_omega
+  exact Offset.sep _ h (by omega) (by omega)
 
 theorem readW_writeW_save (m : Mem) (B : Addr) (v : BitVec 32) {d e : Nat} (hd : d < 2 ^ 32)
     (he : e < 2 ^ 32) (h : d + 4 ≤ e ∨ e + 4 ≤ d) :
     (m.writeW (B + BitVec.ofNat 64 e) v).readW (B + BitVec.ofNat 64 d) 32 = m.readW (B + BitVec.ofNat 64 d) 32 :=
   Mem.readW_writeW_sep (save_sep B hd he h) (by decide)
+
+/-! Saves at `so + d`, with the conditions on the literal offsets `d`, `e`
+alone, which `decide` discharges. -/
+theorem readW_writeW_save_so {so : Nat} (hso : so ≤ 256) (m : Mem) (B : Addr) (v : BitVec 32)
+    {d e : Nat} (hd : d ≤ 64) (he : e ≤ 64) (h : d + 4 ≤ e ∨ e + 4 ≤ d) :
+    (m.writeW (B + BitVec.ofNat 64 (so + e)) v).readW (B + BitVec.ofNat 64 (so + d)) 32 =
+      m.readW (B + BitVec.ofNat 64 (so + d)) 32 :=
+  readW_writeW_save m B v (by omega) (by omega) (by omega)
+
+theorem readW_writeW_save_so_l {so : Nat} (hso : so ≤ 256) (m : Mem) (B : Addr) (v : BitVec 32)
+    {e : Nat} (he : e ≤ 64) (h : 4 ≤ e) :
+    (m.writeW (B + BitVec.ofNat 64 (so + e)) v).readW (B + BitVec.ofNat 64 so) 32 =
+      m.readW (B + BitVec.ofNat 64 so) 32 :=
+  readW_writeW_save m B v (by omega) (by omega) (by omega)
+
 
 theorem saveMem_frame (m : Mem) (B : Addr) (g : Reg → BitVec 32) {L : Nat} (hL : L < 2 ^ 32) :
     ∀ (l : List (Reg × Nat)), (∀ p ∈ l, p.2 + 4 ≤ L) → Frame [⟨B, L⟩] m (saveMem m B g l) := by
@@ -370,7 +375,8 @@ theorem saveMem_saved (hd : Dims P) (m : Mem) (B : Addr) (g : Reg → BitVec 32)
   intro p hp
   simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp
   rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-  simp (disch := omega) only [saved, saveMem, Mem.readW_writeW_self32, readW_writeW_save]
+  simp (disch := decide) only [saved, saveMem, Mem.readW_writeW_self32,
+    readW_writeW_save_so this.2, readW_writeW_save_so_l this.2]
 
 /-- Restoring `r4`–`r11` and `lr` from the save area at `scratch`. -/
 theorem restore_ok (hd : Dims P) {s : State} {scr : BitVec 32} (h3 : s.gpr .r3 = scr)

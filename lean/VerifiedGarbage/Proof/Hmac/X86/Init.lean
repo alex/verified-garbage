@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Hmac.X86.Finalize
-import Mathlib.Tactic.IntervalCases
 import Mathlib.Tactic.Set
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.X86.Inline
@@ -642,7 +641,7 @@ theorem writeW_xor (m m' : Mem) (d a : Addr) :
   simp only [Function.comp]
   rw [BitVec.extractLsb'_xor, Mem.readW_byte m' a hj]
   congr 1
-  interval_cases j <;> rfl
+  rcases (by omega : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3) with rfl | rfl | rfl | rfl <;> rfl
 
 /-- Bytes `[A + a, A + a + 4)` of a range `[A, A + a + 4)` separate from `[B, B + b)`. -/
 theorem sep_last {A B : Addr} {a b : Nat} (h : Mem.Sep A (a + 4) B b) (ha : a + 4 < 2 ^ 64) :

@@ -6,6 +6,7 @@ import VerifiedGarbage.Proof.Sha256.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Sha256.Arm.Compress
 import VerifiedGarbage.Impl.Sha256.Arm.Stream
+import VerifiedGarbage.Proof.Sha256.Arm.Lit
 
 /-!
 # Streaming SHA-256 on ARMv7: `update` and `finalize`

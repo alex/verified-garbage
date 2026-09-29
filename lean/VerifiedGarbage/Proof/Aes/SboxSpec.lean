@@ -1,6 +1,5 @@
 import VerifiedGarbage.Spec.Aes
 import VerifiedGarbage.Proof.Framework.Bitslice.Table
-import Mathlib.Tactic.IntervalCases
 
 /-!
 # The specification's S-box, on all 256 inputs at once
@@ -129,12 +128,12 @@ theorem getLsbD_xtimes (b : Byte) {j : Nat} (hj : j < 8) :
   simp only [xtimes, BitVec.getLsbD_xor, BitVec.getLsbD_shiftLeft, BitVec.msb_eq_getLsbD_last]
   have : decide (j < 8) = true := by simp [hj]
   rw [this]
-  cases b.getLsbD (8 - 1) <;> simp <;> interval_cases j <;> simp
+  cases b.getLsbD (8 - 1) <;> simp <;> rcases j with _ | _ | _ | _ | _ | _ | _ | _ | j <;> first | omega | simp
 
 theorem row_xtT (A : List Nat) (c : Nat) : row (xtT A) c = xtimes (row A c) := by
   refine row_ext fun j hj => ?_
   rw [getLsbD_xtimes _ hj, getLsbD_row _ _ (show 7 < 8 by omega)]
-  interval_cases j <;> simp [xtT, Nat.testBit_xor]
+  rcases j with _ | _ | _ | _ | _ | _ | _ | _ | j <;> first | omega | simp [xtT, Nat.testBit_xor]
 
 theorem row_repeat_xtT (A : List Nat) (c i : Nat) :
     row (Nat.repeat xtT i A) c = Nat.repeat xtimes i (row A c) := by
@@ -162,7 +161,7 @@ theorem row_mulT_aux (B C : List Nat) (hC : C.length = 8) (c : Nat) (l : List Na
 
 theorem row_zeroT (c : Nat) : row zeroT c = 0 := by
   refine row_ext fun j hj => ?_
-  interval_cases j <;> simp [zeroT]
+  rcases j with _ | _ | _ | _ | _ | _ | _ | _ | j <;> first | omega | simp [zeroT]
 
 theorem row_mulT {B C : List Nat} (hC : C.length = 8) (c : Nat) :
     row (mulT B C) c = mul (row B c) (row C c) := by
@@ -171,7 +170,8 @@ theorem row_mulT {B C : List Nat} (hC : C.length = 8) (c : Nat) :
 
 theorem row_oneT {c : Nat} (hc : c < 256) : row oneT c = 1 := by
   refine row_ext fun j hj => ?_
-  interval_cases j <;> simp [oneT, List.getD_eq_getElem?_getD, testBit_ONES, hc]
+  rcases j with _ | _ | _ | _ | _ | _ | _ | _ | j <;> first | omega |
+    simp [oneT, List.getD_eq_getElem?_getD, testBit_ONES, hc]
 
 theorem row_powT_aux (n c : Nat) (l : List Nat) (acc sq : List Nat) (hacc : acc.length = 8)
     (hsq : sq.length = 8) :
@@ -259,7 +259,8 @@ theorem row_affT (A : List Nat) {c : Nat} (hc : c < 256) :
     getLsbD_row _ _ (Nat.mod_lt _ (by omega)), getLsbD_row _ _ (Nat.mod_lt _ (by omega)),
     getLsbD_row _ _ (Nat.mod_lt _ (by omega))]
   congr 1
-  interval_cases j <;> simp only [testBit_ite_ONES, hc, decide_true, Bool.and_true] <;> decide
+  rcases j with _ | _ | _ | _ | _ | _ | _ | _ | j <;> first | omega |
+    (simp only [testBit_ite_ONES, hc, decide_true, Bool.and_true] <;> decide)
 
 theorem row_sboxT {A : List Nat} (hA : A.length = 8) {c : Nat} (hc : c < 256) :
     row (sboxT A) c = sbox (row A c) := by

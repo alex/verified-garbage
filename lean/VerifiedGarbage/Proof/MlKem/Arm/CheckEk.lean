@@ -226,8 +226,7 @@ theorem verified :
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     subst hr; exact hp.2
   · refine ⟨satState, ?_⟩
-    sig_pre [Spec.MlKem.checkEkContract, Spec.MlKem.checkEkSig, Arm.abi, Arm.argRegs,
+    sig_sat_check [Spec.MlKem.checkEkContract, Spec.MlKem.checkEkSig, Arm.abi, Arm.argRegs,
       Arm.reduceClassify, Arm.Loc.val]
-    exact ⟨by decide, rfl, rfl, by decide⟩
 
 end VG.Proof.MlKem.Arm.CheckEk

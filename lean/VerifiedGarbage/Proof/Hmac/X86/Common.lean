@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Finalize
 import VerifiedGarbage.Proof.Hmac.Common
 import VerifiedGarbage.Impl.Hmac.X86
+import VerifiedGarbage.Proof.Hmac.X86.Lit
 
 /-!
 # HMAC-SHA-256 on x86 (32-bit): common lemmas

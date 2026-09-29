@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Common
+import VerifiedGarbage.Proof.Framework.Contract
 
 /-!
 # Streaming SHA-512 on AArch64: `finalize`
@@ -731,8 +732,6 @@ theorem finalize_verified : Verified AArch64.target finalize Proof.Sha512.finali
   · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) (fun _ _ _ _ hp => agree₀ hp)
       (by taint_decide)
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+    exact Region.disjoint_of_sep (by decide)
 
 end VG.Proof.Sha512.AArch64.Stream.Finalize
