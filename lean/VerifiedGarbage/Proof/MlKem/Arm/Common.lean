@@ -165,6 +165,12 @@ theorem byte_writeW8 (m : Mem) (O : Addr) {a k : Nat} (ha : a < 2 ^ 64) (hk : k 
     have := congrArg BitVec.toNat ((BitVec.add_right_inj _).mp e)
     rwa [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hk, Nat.mod_eq_of_lt ha] at this
 
+/-- Two writes of a byte at the same address: the second is what remains. -/
+theorem writeW8_writeW8 (m : Mem) (a : Addr) (v w : Byte) : (m.writeW a v).writeW a w = m.writeW a w := by
+  funext x
+  rw [writeW8_apply, writeW8_apply, writeW8_apply]
+  split <;> rfl
+
 /-- A byte of a region disjoint from one written. -/
 theorem byte_writeW_disj {m : Mem} {R S : Region} (hd : R.Disjoint S) {a x : Addr} {w : Nat}
     (v : BitVec w) (ha : S.Contains a (w / 8)) (hx : R.Contains x 1) : (m.writeW a v) x = m x :=
@@ -182,6 +188,48 @@ theorem setWidth_append32 (a b : BitVec 32) : (a ++ b).setWidth 32 = b := by
   rw [BitVec.toNat_setWidth, BitVec.toNat_append, Nat.shiftLeft_eq, Nat.mul_comm,
     ← Nat.two_pow_add_eq_or_of_lt b.isLt]
   omega
+
+/-- The next coefficient written, from an invariant saying which are. -/
+theorem coeff_one {m m₀ : Mem} {F : Addr} {out : Nat → BitVec 32} {a : Nat} (ha : a < 256)
+    (h : ∀ j < 256, coeffAt m F j = if j < a then out j else coeffAt m₀ F j) {v : BitVec 32}
+    (hv : v = out a) :
+    ∀ j < 256, coeffAt (m.writeW (coeffAddr F a) v) F j = if j < a + 1 then out j else coeffAt m₀ F j := by
+  intro j hj
+  rw [coeffAt_writeW _ _ (by rw [n_eq]; exact hj) (by rw [n_eq]; exact ha), h j hj]
+  rcases (by omega : j < a ∨ j = a ∨ a < j) with h' | rfl | h'
+  · resolve_ifs
+  · rw [hv]; resolve_ifs
+  · resolve_ifs
+
+/-- The next byte written, from an invariant saying which are. -/
+theorem byte_one {m m₀ : Mem} {O : Addr} {out : Nat → Byte} {a L : Nat} (ha : a < L)
+    (hL : L < 2 ^ 64) (h : ∀ k < L, m (O + BitVec.ofNat 64 k) = if k < a then out k else m₀ (O + BitVec.ofNat 64 k))
+    {v : Byte} (hv : v = out a) :
+    ∀ k < L, (m.writeW (O + BitVec.ofNat 64 a) v) (O + BitVec.ofNat 64 k) =
+      if k < a + 1 then out k else m₀ (O + BitVec.ofNat 64 k) := by
+  intro k hk
+  rw [byte_writeW8 _ _ (by omega) (by omega), h k hk]
+  rcases (by omega : k < a ∨ k = a ∨ a < k) with h' | rfl | h'
+  · resolve_ifs
+  · rw [hv]; resolve_ifs
+  · resolve_ifs
+
+/-- `x - y` is zero exactly when `x = y`, as `cmp` computes it. -/
+theorem sub_beq_zero (x y : BitVec 32) : (x - y == 0) = decide (x = y) := by
+  by_cases h : x = y
+  · subst h; simp
+  · simp only [h, decide_false, beq_eq_false_iff_ne, ne_eq]
+    intro e
+    exact h (by rw [← BitVec.sub_add_cancel x y, e]; simp)
+
+/-- The flag `Z` of `cmp x, #k`. -/
+theorem cmp_z (x : BitVec 32) (k : Nat) (hk : k < 2 ^ 32) :
+    (x - BitVec.ofNat 32 k == 0) = decide (x.toNat = k) := by
+  rw [sub_beq_zero]
+  have : x = BitVec.ofNat 32 k ↔ x.toNat = k :=
+    ⟨fun e => by rw [e, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hk],
+      fun e => BitVec.eq_of_toNat_eq (by rw [e, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hk])⟩
+  simp only [this]
 
 /-! ## Reduction modulo `q` -/
 

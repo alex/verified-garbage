@@ -31,12 +31,12 @@ arrays.
   2-bit fields `v`, each `v - (v >> 1)`, reduced with `fixup`. The byte is
   loaded again for each field, as there are only two temporaries.
 * `vg_mlkem_compress_encode(f = r0, d = r1, out = r2, len = r3)` branches
-  on `d` (public), and loops over the output: `Compress_d(x)` is
-  `((x · M_d + 2¹⁸ - 64) >> 19) mod 2ᵈ` (`VG.Proof.MlKem.compress_eq`),
-  with `M_d` built in `r12` and `mul`. The bits of the byte being built
-  are added into the low bits of `r3`, whose top 8 bits count the loop
-  down (the count is shifted down, decremented with `subs`, and shifted
-  back, which also clears the low bits).
+  on `d` (public), and loops over the output with `r3` counting:
+  `Compress_d(x)` is `((x · M_d + 2¹⁸ - 64) >> 19) mod 2ᵈ`
+  (`VG.Proof.MlKem.compress_eq`), with `M_d` built in `r12` and `mul`. A
+  byte made of several fields is built in the output itself: its first
+  field is stored, and each next one is added to it (`ldrb`, `add`,
+  `strb`), as there is no register left to accumulate it in.
 * `vg_mlkem_decode_decompress(b = r0, len = r1, d = r2, f = r3)` branches
   on `d`, and loops over the input with `len` counting down:
   `Decompress_d(y) = (q · y + 2ᵈ⁻¹) >> d`.
@@ -132,51 +132,44 @@ def compressAt (off : Nat) (mlo mhi : BitVec 16) : List Instr :=
   [.mul .r1 .r1 .r12, .dp .add .r1 .r1 (.imm 0x40000), .dp .sub .r1 .r1 (.imm 0x40),
    .mov .r1 (.shifted .r1 .lsr 19)]
 
-/-- The end of an output byte: stored, the count in the top 8 bits of `r3`
-decremented, and the low bits cleared. -/
-def byteTail : List Instr :=
-  [.strb .r3 .r2 0, .mov .r3 (.shifted .r3 .lsr 24), .subs .r3 .r3 (.imm 1),
-   .mov .r3 (.shifted .r3 .lsl 24)]
-
-/-- Bit `j` of an output byte of `ByteEncode₁(Compress₁)`. -/
+/-- Bit `j` of an output byte of `ByteEncode₁(Compress₁)`, added into the
+byte at `r2`. -/
 def ce1Bit (j : Nat) : List Instr :=
   compressAt (4 * j) 315 0 ++
-    [.mov .r1 (.shifted .r1 .lsl 31), .dp .add .r3 .r3 (.shifted .r1 .lsr (31 - j))]
+    [.mov .r1 (.shifted .r1 .lsl 31), .ldrb .r12 .r2 0, .dp .add .r12 .r12 (.shifted .r1 .lsr (31 - j)),
+     .strb .r12 .r2 0]
 
 def ce1Body : List Instr :=
-  (List.range 8).flatMap ce1Bit ++ byteTail ++ [.dp .add .r0 .r0 (.imm 32), .dp .add .r2 .r2 (.imm 1)]
-
-/-- Nibble `k` of an output byte of `ByteEncode₄(Compress₄)`. -/
-def ce4Nibble (k : Nat) : List Instr :=
-  compressAt (4 * k) 2520 0 ++
-    [.mov .r1 (.shifted .r1 .lsl 28), .dp .add .r3 .r3 (.shifted .r1 .lsr (28 - 4 * k))]
+  [.mov .r12 (.imm 0), .strb .r12 .r2 0] ++ (List.range 8).flatMap ce1Bit ++
+    [.dp .add .r0 .r0 (.imm 32), .dp .add .r2 .r2 (.imm 1), .subs .r3 .r3 (.imm 1)]
 
 def ce4Body : List Instr :=
-  ce4Nibble 0 ++ ce4Nibble 1 ++ byteTail ++ [.dp .add .r0 .r0 (.imm 8), .dp .add .r2 .r2 (.imm 1)]
+  compressAt 0 2520 0 ++ [.mov .r1 (.shifted .r1 .lsl 28), .mov .r1 (.shifted .r1 .lsr 28), .strb .r1 .r2 0] ++
+  compressAt 4 2520 0 ++ [.mov .r1 (.shifted .r1 .lsl 28), .ldrb .r12 .r2 0,
+    .dp .add .r12 .r12 (.shifted .r1 .lsr 24), .strb .r12 .r2 0] ++
+  [.dp .add .r0 .r0 (.imm 8), .dp .add .r2 .r2 (.imm 1), .subs .r3 .r3 (.imm 1)]
 
 /-- `Compress₁₀` of coefficient `k` of the group, into `r1`. -/
 def ce10Coeff (k : Nat) : List Instr :=
   compressAt (4 * k) 0x75F7 0x2 ++ [.mov .r1 (.shifted .r1 .lsl 22), .mov .r1 (.shifted .r1 .lsr 22)]
 
-/-- Clears the low 24 bits of `r3`. -/
-def clearAcc : List Instr := [.mov .r3 (.shifted .r3 .lsr 24), .mov .r3 (.shifted .r3 .lsl 24)]
+/-- Coefficient `k` of the group (`k = 1, 2, 3`), whose low `8 - 2k` bits
+complete byte `k` and whose high `2k + 2` bits start byte `k + 1`. -/
+def ce10Mid (k : Nat) : List Instr :=
+  ce10Coeff k ++ [.ldrb .r12 .r2 k, .dp .add .r12 .r12 (.shifted .r1 .lsl (2 * k)), .strb .r12 .r2 k,
+    .mov .r1 (.shifted .r1 .lsr (8 - 2 * k)), .strb .r1 .r2 (k + 1)]
 
 def ce10Body : List Instr :=
-  ce10Coeff 0 ++ [.strb .r1 .r2 0, .dp .add .r3 .r3 (.shifted .r1 .lsr 8)] ++
-  ce10Coeff 1 ++ [.dp .add .r3 .r3 (.shifted .r1 .lsl 2), .strb .r3 .r2 1] ++ clearAcc ++
-    [.dp .add .r3 .r3 (.shifted .r1 .lsr 6)] ++
-  ce10Coeff 2 ++ [.dp .add .r3 .r3 (.shifted .r1 .lsl 4), .strb .r3 .r2 2] ++ clearAcc ++
-    [.dp .add .r3 .r3 (.shifted .r1 .lsr 4)] ++
-  ce10Coeff 3 ++ [.dp .add .r3 .r3 (.shifted .r1 .lsl 6), .strb .r3 .r2 3] ++ clearAcc ++
-    [.mov .r1 (.shifted .r1 .lsr 2), .strb .r1 .r2 4] ++
-  [.subs .r3 .r3 (.imm 0x1000000), .dp .add .r0 .r0 (.imm 16), .dp .add .r2 .r2 (.imm 5)]
+  ce10Coeff 0 ++ [.strb .r1 .r2 0, .mov .r1 (.shifted .r1 .lsr 8), .strb .r1 .r2 1] ++
+  ce10Mid 1 ++ ce10Mid 2 ++ ce10Mid 3 ++
+  [.dp .add .r0 .r0 (.imm 16), .dp .add .r2 .r2 (.imm 5), .subs .r3 .r3 (.imm 1)]
 
 def compressEncode : Prog isa :=
   .seq (.block [.cmp .r1 (.imm 1)])
-    (.ite .eq (.seq (.block [.mov .r3 (.imm 0x20000000)]) (.loop (.block ce1Body) .ne))
+    (.ite .eq (.seq (.block [.mov .r3 (.imm 32)]) (.loop (.block ce1Body) .ne))
       (.seq (.block [.cmp .r1 (.imm 4)])
-        (.ite .eq (.seq (.block [.mov .r3 (.imm 0x80000000)]) (.loop (.block ce4Body) .ne))
-          (.seq (.block [.mov .r3 (.imm 0x40000000)]) (.loop (.block ce10Body) .ne)))))
+        (.ite .eq (.seq (.block [.mov .r3 (.imm 128)]) (.loop (.block ce4Body) .ne))
+          (.seq (.block [.mov .r3 (.imm 64)]) (.loop (.block ce10Body) .ne)))))
 
 /-! ## `Decompress_d ∘ ByteDecode_d` -/
 

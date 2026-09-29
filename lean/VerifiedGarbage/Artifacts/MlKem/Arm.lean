@@ -4,6 +4,8 @@ import VerifiedGarbage.Proof.MlKem.Arm.Encode12
 import VerifiedGarbage.Proof.MlKem.Arm.Decode12
 import VerifiedGarbage.Proof.MlKem.Arm.Cbd2
 import VerifiedGarbage.Proof.MlKem.Arm.CheckEk
+import VerifiedGarbage.Proof.MlKem.Arm.CompressEncode
+import VerifiedGarbage.Proof.MlKem.Arm.Decompress
 
 /-!
 # ML-KEM (FIPS 203) on 32-bit ARM
@@ -55,6 +57,20 @@ def artifacts : List Artifact := [
     code := Impl.MlKem.Arm.decode12
     contract := Spec.MlKem.decode12Contract Arm.abi
     verified := Proof.MlKem.Arm.Decode12.verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem.compressEncodeApi with
+    target := Arm.target
+    doc := Spec.MlKem.compressEncodeApi.doc
+    code := Impl.MlKem.Arm.compressEncode
+    contract := Spec.MlKem.compressEncodeContract Arm.abi
+    verified := Proof.MlKem.Arm.CompressEncode.verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem.decodeDecompressApi with
+    target := Arm.target
+    doc := Spec.MlKem.decodeDecompressApi.doc
+    code := Impl.MlKem.Arm.decodeDecompress
+    contract := Spec.MlKem.decodeDecompressContract Arm.abi
+    verified := Proof.MlKem.Arm.Decompress.verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.MlKem.checkEkApi with
     target := Arm.target

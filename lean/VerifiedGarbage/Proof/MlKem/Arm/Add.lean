@@ -244,6 +244,15 @@ theorem ct {k : Contract isa} (hpub : ∀ s₁ s₂, k.pub s₁ s₂ → s₁.gp
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl <;> assumption) h
 
+/-- The taint analysis, with the registers `rs` public. -/
+theorem ctRegs {k : Contract isa} (rs : List Reg)
+    (hpub : ∀ s₁ s₂, k.pub s₁ s₂ → ∀ r ∈ rs, s₁.gpr r = s₂.gpr r)
+    {c : Prog isa} {hc : VG.Taint.Hint VG.Arm.taint.T}
+    (h : (VG.Arm.taint.check (Taint.ofRegs rs) c hc).isSome = true) :
+    ConstantTime isa k.pre k.pub c :=
+  VG.Taint.constantTime (A := VG.Arm.taint) (Taint.ofRegs rs)
+    (fun s₁ s₂ _ _ hp => Taint.agree_ofRegs (hpub s₁ s₂ hp)) h
+
 theorem add_verified : Verified Arm.target Impl.MlKem.Arm.add (Spec.MlKem.addContract Arm.abi) := by
   refine ⟨fun s hs => ?_, ct (fun s₁ s₂ h => ?_) (by taint_decide), ?_⟩
   · have hp := pre_of hs
