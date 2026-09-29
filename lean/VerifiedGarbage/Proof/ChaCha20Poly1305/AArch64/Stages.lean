@@ -175,28 +175,26 @@ theorem absorbLengths_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s�
   have hk : Kept (macR s₀) s s₂ := (kept_mac0 k₁).trans (kept_mac (k := 448) (n := 128) (by omega) (by omega) k₂)
   exact ⟨mac_inv h hk, hk, fun key msg hr => by rw [← m₁]; exact repr₂ key msg (by rw [m₁]; exact hr)⟩
 
-/-- `x0 = x21 + 448`, `x1 = x21 + 656`, `x2 = 0` and `x3 = x21 + out`. -/
-theorem ptrs4_ok {out : Nat} (ho : out < 4096) (s : State) :
-    WP isa (.block [.addImm .x .x0 .x21 448, .addImm .x .x1 .x21 656, .movz .x .x2 0 0,
-      .addImm .x .x3 .x21 out]) s fun s' =>
-      s'.gpr .x0 = off (s.gpr .x21) 448 ∧ s'.gpr .x1 = off (s.gpr .x21) 656 ∧
-      s'.gpr .x2 = BitVec.ofNat 64 0 ∧ s'.gpr .x3 = off (s.gpr .x21) out ∧ Kept [] s s' := by
-  have h : WP isa (.block [.addImm .x .x0 .x21 448, .addImm .x .x1 .x21 656, .movz .x .x2 0 0,
-      .addImm .x .x3 .x21 out]) s fun s' =>
-      s'.gpr .x0 = off (s.gpr .x21) 448 ∧ s'.gpr .x1 = off (s.gpr .x21) 656 ∧
-      s'.gpr .x2 = BitVec.ofNat 64 0 ∧ s'.gpr .x3 = off (s.gpr .x21) out ∧
+/-- `x0 = x21 + 448`, `x1 = 0`, `x2 = x21 + out` and `x3 = x21 + 672`. -/
+theorem fptrs_ok {out : Nat} (ho : out < 4096) (s : State) :
+    WP isa (.block [.addImm .x .x0 .x21 448, .movz .x .x1 0 0, .addImm .x .x2 .x21 out,
+      .addImm .x .x3 .x21 672]) s fun s' =>
+      s'.gpr .x0 = off (s.gpr .x21) 448 ∧ s'.gpr .x1 = 0 ∧ s'.gpr .x2 = off (s.gpr .x21) out ∧
+      Kept [] s s' := by
+  have h : WP isa (.block [.addImm .x .x0 .x21 448, .movz .x .x1 0 0, .addImm .x .x2 .x21 out,
+      .addImm .x .x3 .x21 672]) s fun s' =>
+      s'.gpr .x0 = off (s.gpr .x21) 448 ∧ s'.gpr .x1 = 0 ∧ s'.gpr .x2 = off (s.gpr .x21) out ∧
       s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.mem = s.mem :=
-    wp_addImm (by decide) fun s₁ u₁ => wp_addImm (by decide) fun s₂ u₂ => wp_movz fun s₃ u₃ =>
-      wp_addImm ho fun s₄ u₄ => WP.block_nil
+    wp_addImm (by decide) fun s₁ u₁ => wp_movz fun s₂ u₂ => wp_addImm ho fun s₃ u₃ =>
+      wp_addImm (by decide) fun s₄ u₄ => WP.block_nil
       ⟨by rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide), u₁.gpr],
-        by rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr, u₁.other _ (by decide)],
-        by rw [u₄.other _ (by decide), u₃.gpr]; rfl,
-        by rw [u₄.gpr, u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide)],
+        by rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr]; rfl,
+        by rw [u₄.other _ (by decide), u₃.gpr, u₂.other _ (by decide), u₁.other _ (by decide)],
         by rw [u₄.rd, u₃.rd, u₂.rd, u₁.rd], by rw [u₄.wr, u₃.wr, u₂.wr, u₁.wr],
         by rw [u₄.mem, u₃.mem, u₂.mem, u₁.mem]⟩
   exact WP.mono (WP.kept h (by simp [dstOf, preserved]))
-    fun s' ⟨⟨h0, h1, h2, h3, hrd, hwr, hm⟩, hg, hsp⟩ =>
-      ⟨h0, h1, h2, h3, Kept.of hg hsp hrd hwr (by rw [hm]; exact Frame.refl _ _)⟩
+    fun s' ⟨⟨h0, h1, h2, hrd, hwr, hm⟩, hg, hsp⟩ =>
+      ⟨h0, h1, h2, Kept.of hg hsp hrd hwr (by rw [hm]; exact Frame.refl _ _)⟩
 
 /-- The tag written to `ctx[out, out + 16)`. -/
 theorem finalizeTo_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) {out : Nat}
@@ -204,19 +202,15 @@ theorem finalizeTo_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ 
     WP isa (finalizeTo out) s fun s' => Kept [sub s₀ 448 128, sub s₀ out 16] s s' ∧
       ∀ key msg, Repr s.mem (off (cx s₀) 448) key msg → bytesAt s'.mem (off (cx s₀) out) 16 = mac key msg := by
   unfold finalizeTo
-  refine WP.seq (WP.mono (ptrs4_ok (out := out) (by omega) s) fun s₁ ⟨h0, h1, h2, h3, k₁⟩ => ?_)
-  rw [h.x21] at h0 h1 h3
+  refine WP.seq (WP.mono (fptrs_ok (out := out) (by omega) s) fun s₁ ⟨h0, h1, h2, k₁⟩ => ?_)
+  rw [h.x21] at h0 h2
   have wr₁ : s₁.wr = s₀.wr := by rw [k₁.wr, h.wr]
   have m₁ := k₁.mem_eq
   have ho : out + 16 ≤ 1024 := by omega
-  refine finalize_call h0 h1 h2 h3 (by omega)
-    (sub_disj s₀ (by omega) (by omega) (by omega)) (sub_disj s₀ (by omega) (by omega) ho)
-    (sub_disj s₀ (by omega) (by omega) ho)
+  refine finalize_call h0 h1 h2 (sub_disj s₀ (by omega) (by omega) ho)
     (covers_left _ (covers_sub hp wr₁ _ (by
-      intro r hr; simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
-        or_false] at hr
-      rcases hr with rfl | rfl | rfl
-      · exact ⟨656, rfl, show 656 + 0 ≤ 1024 by omega⟩
+      intro r hr; simp only [List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl
       · exact ⟨448, rfl, show 448 + 128 ≤ 1024 by omega⟩
       · exact ⟨out, rfl, ho⟩)))
     (covers_sub hp wr₁ _ (by
@@ -225,9 +219,8 @@ theorem finalizeTo_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ 
       · exact ⟨448, rfl, show 448 + 128 ≤ 1024 by omega⟩
       · exact ⟨out, rfl, ho⟩))
     fun s₂ k₂ tag₂ => ?_
-  refine ⟨(k₁.sub fun _ hr => absurd hr List.not_mem_nil).trans k₂, fun key msg hr => ?_⟩
-  have := tag₂ key msg (by rw [m₁]; exact hr)
-  rwa [show bytesAt _ _ 0 = [] from rfl, List.append_nil] at this
+  exact ⟨(k₁.sub fun _ hr => absurd hr List.not_mem_nil).trans k₂,
+    fun key msg hr => tag₂ key msg (by rw [m₁]; exact hr)⟩
 
 /-! ## Restoring the registers -/
 

@@ -47,6 +47,20 @@ def permuteContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     stateAt m' state = keccakF (stateAt m state))
     (stack := stack)
 
+/-- `vg_keccak_f1600` on every target. -/
+def permuteApi : Api where
+  module := "sha3"
+  name := "vg_keccak_f1600"
+  sig := permuteSig
+  summary := "The permutation Keccak-f[1600] (FIPS 202 §3.4): applies it to the state `*state` \
+    (lane `x + 5y` at index `x + 5y`).\n\n\
+    Contract: `VG.Spec.Sha3.permuteContract`. Constant time: only the pointers may affect timing, \
+    not the state."
+  safety := [
+    "`state` must be valid for reads and writes of 200 bytes.",
+    "`scratch` must be valid for reads and writes of 512 bytes; its contents on return are \
+      unspecified."]
+
 /-- `vg_keccak_absorb(state: *mut [u64; 25], rate: usize, pos: usize, data: *const u8, len: usize, scratch: *mut [u64; 80]) -> usize`.
 `rate` and `pos` are public; `scratch` is working space. -/
 def absorbSig : Sig where
@@ -70,6 +84,25 @@ def absorbContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (writeArgs := true)
     (stack := stack)
 
+/-- `vg_keccak_absorb` on every target. -/
+def absorbApi : Api where
+  module := "sha3"
+  name := "vg_keccak_absorb"
+  sig := absorbSig
+  writeArgs := true
+  summary := "Absorbs data into a SHA-3 or SHAKE computation: if the state `*state` represents a \
+    message whose length is `pos` modulo `rate` (`VG.Spec.Sha3.Repr`), it then represents that \
+    message followed by the `len` bytes at `data`. Returns the position after them, \
+    `(pos + len) % rate`.\n\n\
+    Contract: `VG.Spec.Sha3.absorbContract`. Constant time: only the pointers, `rate`, `pos` and \
+    `len` may affect timing, not the state or the data."
+  safety := [
+    "`rate` must be 72, 104, 136, 144 or 168, and `pos` less than `rate`.",
+    "`state` must be valid for reads and writes of 200 bytes.",
+    "`data` must be valid for reads of `len` bytes.",
+    "`scratch` must be valid for reads and writes of 640 bytes; its contents on return are \
+      unspecified."]
+
 /-- `vg_keccak_pad(state: *mut [u64; 25], rate: usize, pos: usize, suffix: u32, scratch: *mut [u64; 80])`.
 `rate`, `pos` and `suffix` are public; `scratch` is working space. -/
 def padSig : Sig where
@@ -90,6 +123,24 @@ def padContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
         stateAt m' state = absorb rate.toNat (pad rate.toNat (suffix.setWidth 8) msg))
     (writeArgs := true)
     (stack := stack)
+
+/-- `vg_keccak_pad` on every target. -/
+def padApi : Api where
+  module := "sha3"
+  name := "vg_keccak_pad"
+  sig := padSig
+  writeArgs := true
+  summary := "Pads a SHA-3 or SHAKE message: if the state `*state` represents a message whose \
+    length is `pos` modulo `rate` (`VG.Spec.Sha3.Repr`), it becomes the state after absorbing that \
+    message with the domain-separation suffix (the low byte of `suffix`, with the first bit of the \
+    padding: `0x06` for SHA-3, `0x1f` for SHAKE) and `pad10*1`.\n\n\
+    Contract: `VG.Spec.Sha3.padContract`. Constant time: only the pointers, `rate`, `pos` and \
+    `suffix` may affect timing, not the state."
+  safety := [
+    "`rate` must be 72, 104, 136, 144 or 168, and `pos` less than `rate`.",
+    "`state` must be valid for reads and writes of 200 bytes.",
+    "`scratch` must be valid for reads and writes of 640 bytes; its contents on return are \
+      unspecified."]
 
 /-- `vg_keccak_squeeze(state: *mut [u64; 25], rate: usize, pos: usize, out: *mut u8, outlen: usize, scratch: *mut [u64; 80]) -> usize`.
 `rate` and `pos` are public; `scratch` is working space. -/
@@ -116,5 +167,25 @@ def squeezeContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
         squeezeFrom rate.toNat (stateAt m state) (pos.toNat + outlen.toNat) d)
     (writeArgs := true)
     (stack := stack)
+
+/-- `vg_keccak_squeeze` on every target. -/
+def squeezeApi : Api where
+  module := "sha3"
+  name := "vg_keccak_squeeze"
+  sig := squeezeSig
+  writeArgs := true
+  summary := "Squeezes output from a padded SHA-3 or SHAKE state: writes to `out` the `outlen` \
+    bytes of the output of the sponge with rate `rate` from the state `*state` (FIPS 202 Algorithm \
+    8, steps 7 to 10), from byte `pos` of that output on; leaves in `*state` a state, and returns \
+    a position, from which the output continues after them. Start from the state `vg_keccak_pad` \
+    leaves and position 0.\n\n\
+    Contract: `VG.Spec.Sha3.squeezeContract`. Constant time: only the pointers, `rate`, `pos` and \
+    `outlen` may affect timing, not the state."
+  safety := [
+    "`rate` must be 72, 104, 136, 144 or 168, and `pos` at most `rate`.",
+    "`state` must be valid for reads and writes of 200 bytes.",
+    "`out` must be valid for writes of `outlen` bytes.",
+    "`scratch` must be valid for reads and writes of 640 bytes; its contents on return are \
+      unspecified."]
 
 end VG.Spec.Sha3

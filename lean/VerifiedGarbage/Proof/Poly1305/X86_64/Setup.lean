@@ -20,39 +20,39 @@ end
 
 /-- The callee-saved registers of `s` are saved in the state at `st`. -/
 def Saved (st : Addr) (s : State) (m : Mem) : Prop :=
-  m.readW (off st 56) 64 = s.gpr .rbx ∧ m.readW (off st 64) 64 = s.gpr .rbp ∧
-  m.readW (off st 72) 64 = s.gpr .r12 ∧ m.readW (off st 80) 64 = s.gpr .r13 ∧
-  m.readW (off st 88) 64 = s.gpr .r14 ∧ m.readW (off st 96) 64 = s.gpr .r15
+  m.readW (off st 72) 64 = s.gpr .rbx ∧ m.readW (off st 80) 64 = s.gpr .rbp ∧
+  m.readW (off st 88) 64 = s.gpr .r12 ∧ m.readW (off st 96) 64 = s.gpr .r13 ∧
+  m.readW (off st 104) 64 = s.gpr .r14 ∧ m.readW (off st 112) 64 = s.gpr .r15
 
 theorem save_eq : save = [
-    .store (at_ .rdi 56) .rbx, .store (at_ .rdi 64) .rbp, .store (at_ .rdi 72) .r12,
-    .store (at_ .rdi 80) .r13, .store (at_ .rdi 88) .r14, .store (at_ .rdi 96) .r15] := rfl
+    .store (at_ .rdi 72) .rbx, .store (at_ .rdi 80) .rbp, .store (at_ .rdi 88) .r12,
+    .store (at_ .rdi 96) .r13, .store (at_ .rdi 104) .r14, .store (at_ .rdi 112) .r15] := rfl
 
 theorem restore_eq : restore = [
-    .mov .rbx (.mem (at_ .rdi 56)), .mov .rbp (.mem (at_ .rdi 64)), .mov .r12 (.mem (at_ .rdi 72)),
-    .mov .r13 (.mem (at_ .rdi 80)), .mov .r14 (.mem (at_ .rdi 88)), .mov .r15 (.mem (at_ .rdi 96))] := rfl
+    .mov .rbx (.mem (at_ .rdi 72)), .mov .rbp (.mem (at_ .rdi 80)), .mov .r12 (.mem (at_ .rdi 88)),
+    .mov .r13 (.mem (at_ .rdi 96)), .mov .r14 (.mem (at_ .rdi 104)), .mov .r15 (.mem (at_ .rdi 112))] := rfl
 
 set_option simprocs false in
 theorem save_ok (s : State) (hw : sR (s.gpr .rdi) ∈ s.wr) :
     WP isa (.block save) s fun s' =>
       s'.gpr = s.gpr ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.cf = s.cf ∧ s'.zf = s.zf ∧
-      Frame [wR (s.gpr .rdi)] s.mem s'.mem ∧ Saved (s.gpr .rdi) s s'.mem := by
+      Frame [svR (s.gpr .rdi)] s.mem s'.mem ∧ Saved (s.gpr .rdi) s s'.mem := by
   have o : ∀ d, d + 8 ≤ 128 → InRegions s.wr (off (s.gpr .rdi) d) 8 :=
     fun d hd => ⟨_, hw, contains_off hd (by omega)⟩
-  have o0 := o 56 (by omega); have o1 := o 64 (by omega); have o2 := o 72 (by omega)
-  have o3 := o 80 (by omega); have o4 := o 88 (by omega); have o5 := o 96 (by omega)
+  have o0 := o 72 (by omega); have o1 := o 80 (by omega); have o2 := o 88 (by omega)
+  have o3 := o 96 (by omega); have o4 := o 104 (by omega); have o5 := o 112 (by omega)
   apply WP.of_runBlock
   rw [save_eq]
   simp only [off] at o0 o1 o2 o3 o4 o5
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, ea_at,
     State.store64, o0, o1, o2, o3, o4, o5, ite_true, Option.some.injEq, exists_eq_left']
   refine ⟨trivial, trivial, trivial, trivial, trivial, ?_, ?_⟩
-  · have c : ∀ d, 56 ≤ d → d + 8 ≤ 128 → (wR (s.gpr .rdi)).Contains (off (s.gpr .rdi) d) (64 / 8) :=
-      fun d h₁ h₂ => wR_contains _ h₁ h₂
-    refine (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 56 ?_ ?_)).writeW
-      (List.mem_singleton_self _) _ (c 64 ?_ ?_)).writeW (List.mem_singleton_self _) _ (c 72 ?_ ?_)).writeW
-      (List.mem_singleton_self _) _ (c 80 ?_ ?_)).writeW (List.mem_singleton_self _) _ (c 88 ?_ ?_)
-      |>.writeW (List.mem_singleton_self _) _ (c 96 ?_ ?_) <;> omega
+  · have c : ∀ d, 72 ≤ d → d + 8 ≤ 120 → (svR (s.gpr .rdi)).Contains (off (s.gpr .rdi) d) (64 / 8) :=
+      fun d h₁ h₂ => svR_contains _ h₁ h₂
+    refine (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 72 ?_ ?_)).writeW
+      (List.mem_singleton_self _) _ (c 80 ?_ ?_)).writeW (List.mem_singleton_self _) _ (c 88 ?_ ?_)).writeW
+      (List.mem_singleton_self _) _ (c 96 ?_ ?_)).writeW (List.mem_singleton_self _) _ (c 104 ?_ ?_)
+      |>.writeW (List.mem_singleton_self _) _ (c 112 ?_ ?_) <;> omega
   · refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     simp (config := {decide := true}) only [off, Mem.readW_writeW_self64, readW_writeW_off]
 

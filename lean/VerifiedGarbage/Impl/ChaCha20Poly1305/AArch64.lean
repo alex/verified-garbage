@@ -18,7 +18,8 @@ The context (1024 bytes, see `VG.Spec.ChaCha20Poly1305.sealContract`):
 * `[576, 592)`: the padded last block of the additional data or the data;
 * `[592, 640)`: our caller's `x21`–`x25` and our return address `x30`;
 * `[640, 656)`: the tag computed by `open`;
-* `[656, 672)`: the lengths block.
+* `[656, 672)`: the lengths block;
+* `[672, 800)`: the working space of `vg_poly1305_finalize` (`scratch`).
 
 `x21` holds the context, `x22` the data, `x23` its length, `x24` the
 additional data and `x25` its length throughout: they are callee-saved, and
@@ -114,10 +115,11 @@ def absorbLengths : Prog isa :=
   .seq (.block [.addImm .x .x0 .x21 448, .addImm .x .x1 .x21 656, .movz .x .x2 1 0])
     (.call "vg_poly1305_blocks" Impl.Poly1305.AArch64.blocks)
 
-/-- The tag written to `x21 + out`. -/
+/-- The tag written to `x21 + out`: the message is whole blocks, so its
+length (`count`) is 0 modulo 16, and nothing is buffered. -/
 def finalizeTo (out : Nat) : Prog isa :=
-  .seq (.block [.addImm .x .x0 .x21 448, .addImm .x .x1 .x21 656, .movz .x .x2 0 0,
-    .addImm .x .x3 .x21 out])
+  .seq (.block [.addImm .x .x0 .x21 448, .movz .x .x1 0 0, .addImm .x .x2 .x21 out,
+    .addImm .x .x3 .x21 672])
     (.call "vg_poly1305_finalize" Impl.Poly1305.AArch64.finalize)
 
 def «seal» : Prog isa :=

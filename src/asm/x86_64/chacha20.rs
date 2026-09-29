@@ -10,7 +10,8 @@
 ///
 /// * `state` must be valid for reads of 64 bytes.
 /// * `buf` must be valid for reads and writes of 256 bytes. On return its first 64 bytes hold the result and the rest is unspecified.
-/// * `buf` must not overlap `state`, nor the return address on the stack (distinct Rust objects never do).
+/// * `buf` must not overlap `state` (distinct Rust objects never do).
+/// * Neither `state` nor `buf` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64]) {
     core::arch::naked_asm!(
@@ -1193,7 +1194,8 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_block(state: *const [u32; 16], 
 /// * `state` must be valid for reads and writes of 64 bytes; its contents on return are unspecified.
 /// * `data` must be valid for reads and writes of `len` bytes.
 /// * `buf` must be valid for reads and writes of 320 bytes; its contents on return are unspecified.
-/// * These three regions must not overlap each other, the return address on the stack, or the 8 bytes of stack below it, where its calls of `vg_chacha20_block` store their return address, and none of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `state`, `data` and `buf` must not overlap each other (distinct Rust objects never do).
+/// * None of `state`, `data` and `buf` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80]) {
     core::arch::naked_asm!(

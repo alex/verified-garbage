@@ -137,32 +137,29 @@ theorem blocks_call {s : State} {P p : Addr} {n : Nat} (hx0 : s.gpr .x0 = P) (hx
 
 /-! ## `vg_poly1305_finalize` -/
 
-theorem finalize_call {s : State} {P T O : Addr} {n : Nat} (hx0 : s.gpr .x0 = P) (hx1 : s.gpr .x1 = T)
-    (hx2 : s.gpr .x2 = BitVec.ofNat 64 n) (hx3 : s.gpr .x3 = O) (hn : n < 16)
-    (hPT : (⟨P, 128⟩ : Region).Disjoint ⟨T, n⟩) (hPO : (⟨P, 128⟩ : Region).Disjoint ⟨O, 16⟩)
-    (hTO : (⟨T, n⟩ : Region).Disjoint ⟨O, 16⟩)
-    (hc : Covers ([⟨T, n⟩] ++ [⟨P, 128⟩, ⟨O, 16⟩]) (s.rd ++ s.wr)) (hw : Covers [⟨P, 128⟩, ⟨O, 16⟩] s.wr)
+/-- With `count = 0`: the message is whole blocks, so nothing is buffered.
+The per-target contract does not use `scratch` (`x3`). -/
+theorem finalize_call {s : State} {P O : Addr} (hx0 : s.gpr .x0 = P) (hx1 : s.gpr .x1 = 0)
+    (hx2 : s.gpr .x2 = O) (hPO : (⟨P, 128⟩ : Region).Disjoint ⟨O, 16⟩)
+    (hc : Covers ([] ++ [⟨P, 128⟩, ⟨O, 16⟩]) (s.rd ++ s.wr)) (hw : Covers [⟨P, 128⟩, ⟨O, 16⟩] s.wr)
     {Q : State → Prop}
     (hQ : ∀ s', Kept [⟨P, 128⟩, ⟨O, 16⟩] s s' →
-      (∀ key msg, Repr s.mem P key msg → bytesAt s'.mem O 16 = mac key (msg ++ bytesAt s.mem T n)) →
-      Q s') :
+      (∀ key msg, Repr s.mem P key msg → bytesAt s'.mem O 16 = mac key msg) → Q s') :
     WP isa (.call "vg_poly1305_finalize" Impl.Poly1305.AArch64.finalize) s Q := by
-  have hn' : (BitVec.ofNat 64 n).toNat = n := by
-    rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by omega)
   refine WP.call (k := Proof.Poly1305.finalizeAArch64) Proof.Poly1305.AArch64.finalize_verified.1
-    (rd := [⟨T, n⟩]) (wr := [⟨P, 128⟩, ⟨O, 16⟩]) ?_ hc hw ?_ finalize_noFrames
-  · simp only [Proof.Poly1305.finalizeAArch64, State.withRegions_gpr, State.withRegions_rd,
-      State.withRegions_wr, callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs),
-      callEntry_gpr' s (by decide : Reg.x1 ∉ linkRegs), callEntry_gpr' s (by decide : Reg.x2 ∉ linkRegs),
-      callEntry_gpr' s (by decide : Reg.x3 ∉ linkRegs), hx0, hx1, hx2, hx3, hn']
-    exact ⟨trivial, trivial, hPT, hPO, hTO, hn⟩
+    (rd := []) (wr := [⟨P, 128⟩, ⟨O, 16⟩]) ?_ hc hw ?_ finalize_noFrames
+  · simp only [Proof.Poly1305.finalizeAArch64, State.withRegions_gpr, State.withRegions_wr,
+      callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs), callEntry_gpr' s (by decide : Reg.x2 ∉ linkRegs),
+      hx0, hx2]
+    exact ⟨List.mem_cons_self, List.mem_cons_of_mem _ List.mem_cons_self, hPO⟩
   · intro s' hrd hwr hsp hf hcs _ hpost
     refine hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ fun key msg hr => ?_
     simp only [Proof.Poly1305.finalizeAArch64, State.withRegions_gpr, State.withRegions_mem,
       State.callEntry_mem, callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs),
       callEntry_gpr' s (by decide : Reg.x1 ∉ linkRegs), callEntry_gpr' s (by decide : Reg.x2 ∉ linkRegs),
-      callEntry_gpr' s (by decide : Reg.x3 ∉ linkRegs), hx0, hx1, hx2, hx3, hn'] at hpost
-    exact hpost key msg hr
+      hx0, hx1, hx2] at hpost
+    refine hpost key msg (Proof.Poly1305.Repr.buffered hr) ?_
+    rw [show (0 : BitVec 64).toNat = 0 from rfl, hr.1]
 
 /-! ## `vg_chacha20_block` -/
 

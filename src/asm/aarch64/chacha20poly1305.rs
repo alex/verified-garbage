@@ -11,7 +11,8 @@
 /// * `ctx` must be valid for reads and writes of 1024 bytes.
 /// * `aad` must be valid for reads of `aad_len` bytes.
 /// * `data` must be valid for reads and writes of `len` bytes.
-/// * `ctx` and `data` must not overlap each other or `aad`, and none of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `ctx` and `data` must not overlap each other or `aad` (distinct Rust objects never do).
+/// * None of `ctx`, `aad` and `data` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_chacha20_poly1305_seal(ctx: *mut [u64; 128], aad: *const u8, aad_len: usize, data: *mut u8, len: usize) {
     core::arch::naked_asm!(
@@ -136,9 +137,9 @@ pub(crate) unsafe extern "C" fn vg_chacha20_poly1305_seal(ctx: *mut [u64; 128], 
         "movz x2, #1, lsl #0",
         "bl {vg_poly1305_blocks}",
         "add x0, x21, #448",
-        "add x1, x21, #656",
-        "movz x2, #0, lsl #0",
-        "add x3, x21, #48",
+        "movz x1, #0, lsl #0",
+        "add x2, x21, #48",
+        "add x3, x21, #672",
         "bl {vg_poly1305_finalize}",
         "ldr x22, [x21, #600]",
         "ldr x23, [x21, #608]",
@@ -164,7 +165,8 @@ pub(crate) unsafe extern "C" fn vg_chacha20_poly1305_seal(ctx: *mut [u64; 128], 
 /// * `ctx` must be valid for reads and writes of 1024 bytes.
 /// * `aad` must be valid for reads of `aad_len` bytes.
 /// * `data` must be valid for reads and writes of `len` bytes.
-/// * `ctx` and `data` must not overlap each other or `aad`, and none of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `ctx` and `data` must not overlap each other or `aad` (distinct Rust objects never do).
+/// * None of `ctx`, `aad` and `data` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_chacha20_poly1305_open(ctx: *mut [u64; 128], aad: *const u8, aad_len: usize, data: *mut u8, len: usize) -> u32 {
     core::arch::naked_asm!(
@@ -289,9 +291,9 @@ pub(crate) unsafe extern "C" fn vg_chacha20_poly1305_open(ctx: *mut [u64; 128], 
         "add x3, x21, #128",
         "bl {vg_chacha20_xor}",
         "add x0, x21, #448",
-        "add x1, x21, #656",
-        "movz x2, #0, lsl #0",
-        "add x3, x21, #640",
+        "movz x1, #0, lsl #0",
+        "add x2, x21, #640",
+        "add x3, x21, #672",
         "bl {vg_poly1305_finalize}",
         "ldr x9, [x21, #640]",
         "ldr x10, [x21, #48]",

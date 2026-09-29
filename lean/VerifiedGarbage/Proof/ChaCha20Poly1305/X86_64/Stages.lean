@@ -358,8 +358,22 @@ theorem absorbLengths_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s�
   exact ⟨mac_inv hp h cs (by rw [rd₃, rd₂, rd₁]) (by rw [wr₃, wr₂, wr₁]) hf, cs, hf,
     fun key msg hr => by rw [m₃]; exact repr₂ key msg hr⟩
 
+set_option simprocs false in
+theorem fptrs_ok (k : Nat) (hk : k < 2 ^ 31) (s : State) :
+    WP isa (.block (ptr .rdi .r15 448 ++ [.mov32 .rsi (.imm 0)] ++ ptr .rdx .r15 k)) s fun s' =>
+      s'.gpr .rdi = off (s.gpr .r15) 448 ∧ s'.gpr .rsi = 0 ∧ s'.gpr .rdx = off (s.gpr .r15) k ∧
+      (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.mem = s.mem := by
+  apply WP.of_runBlock
+  simp (config := {decide := true}) only [ptr, List.cons_append, List.nil_append, runBlock_cons, runStep_some,
+    runBlock_nil, exec, readSrc, readSrc32, execAlu, arithFlags, State.setReg, State.setReg32, State.setFlags,
+    ite_true, ite_false, Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left',
+    se_ofNat (show 448 < 2 ^ 31 by omega), se_ofNat hk]
+  refine ⟨by rw [off_eq], trivial, by rw [off_eq], fun r hr => ?_, trivial⟩
+  have := calleeSaved_ne hr
+  simp [this.2.2.1, this.2.2.2.1, this.2.2.2.2]
+
 theorem finalizeTo_eq (out : Nat) : finalizeTo out =
-    .seq (.block ((ptr .rdi .r15 448 ++ ptr .rsi .r15 656 ++ [.mov32 .rdx (.imm 0)]) ++ ptr .rcx .r15 out))
+    .seq (.block (ptr .rdi .r15 448 ++ [.mov32 .rsi (.imm 0)] ++ ptr .rdx .r15 out))
       (.call "vg_poly1305_finalize" Impl.Poly1305.X86_64.finalize) := rfl
 
 /-- The tag written to `ctx[out, out + 16)`. -/
@@ -370,46 +384,31 @@ theorem finalizeTo_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ 
       Frame [sub s₀ 448 128, sub s₀ out 16, stkR s₀] s.mem s'.mem ∧
       ∀ key msg, Repr s.mem (off (cx s₀) 448) key msg → bytesAt s'.mem (off (cx s₀) out) 16 = mac key msg := by
   rw [finalizeTo_eq]
-  refine WP.seq (WP.block_append (WP.mono (ptrs_ok 656 (by omega) 0 s)
-    fun s₁ ⟨rdi₁, rsi₁, rdx₁, cs₁, rd₁, wr₁, m₁⟩ => ?_))
-  refine WP.mono (ptr_ok .rcx .r15 (k := out) (by omega) s₁) fun s₂ ⟨e2, g₂, rd₂, wr₂, m₂⟩ => ?_
-  have cs₂' : ∀ r ∈ calleeSaved, s₂.gpr r = s.gpr r := fun r hr => by
-    rw [g₂ r (calleeSaved_ne hr).2.1, cs₁ r hr]
-  have rsp₂ : s₂.gpr .rsp = s₀.gpr .rsp := by rw [cs₂' _ calleeSaved_rsp, h.rsp]
-  have wr₂' : s₂.wr = s₀.wr := by rw [wr₂, wr₁, h.wr]
-  have r15₁ : s₁.gpr .r15 = cx s₀ := by rw [cs₁ _ (by simp [calleeSaved]), h.r15]
-  have hrdi : s₂.gpr .rdi = off (cx s₀) 448 := by rw [g₂ _ (by decide), rdi₁, h.r15]
-  have hrsi : s₂.gpr .rsi = off (cx s₀) 656 := by rw [g₂ _ (by decide), rsi₁, h.r15]
-  have hrdx : s₂.gpr .rdx = BitVec.ofNat 64 0 := by rw [g₂ _ (by decide), rdx₁]; rfl
-  have hrcx : s₂.gpr .rcx = off (cx s₀) out := by rw [e2, r15₁]
   have ho : out + 16 ≤ 1024 := by omega
-  refine finalize_call hrdi hrsi hrdx hrcx (by omega)
-    (sub_disj s₀ (by omega) (by omega) (by omega)) (sub_disj s₀ (by omega) (by omega) ho)
-    (sub_disj s₀ (by omega) (by omega) ho)
-    (by rw [rsp₂]; exact hp.below8_sub (by omega)) (by rw [rsp₂]; exact hp.below8_sub (by omega))
-    (by rw [rsp₂]; exact hp.below8_sub ho)
-    (covers_left _ (covers_sub hp wr₂' _ (by
-      intro r hr; simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
-        or_false] at hr
-      rcases hr with rfl | rfl | rfl
-      · exact ⟨656, rfl, show 656 + 0 ≤ 1024 by omega⟩
+  refine WP.seq (WP.mono (fptrs_ok out (by omega) s) fun s₁ ⟨rdi₁, rsi₁, rdx₁, cs₁, rd₁, wr₁, m₁⟩ => ?_)
+  have rsp₁ : s₁.gpr .rsp = s₀.gpr .rsp := by rw [cs₁ _ calleeSaved_rsp, h.rsp]
+  have wr₁' : s₁.wr = s₀.wr := by rw [wr₁, h.wr]
+  rw [h.r15] at rdi₁ rdx₁
+  refine finalize_call rdi₁ rsi₁ rdx₁ (sub_disj s₀ (by omega) (by omega) ho)
+    (by rw [rsp₁]; exact hp.below8_sub (by omega)) (by rw [rsp₁]; exact hp.below8_sub ho)
+    (covers_left _ (covers_sub hp wr₁' _ (by
+      intro r hr; simp only [List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl
       · exact ⟨448, rfl, show 448 + 128 ≤ 1024 by omega⟩
       · exact ⟨out, rfl, ho⟩)))
-    (covers_sub hp wr₂' _ (by
+    (covers_sub hp wr₁' _ (by
       intro r hr; simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
       · exact ⟨448, rfl, show 448 + 128 ≤ 1024 by omega⟩
       · exact ⟨out, rfl, ho⟩))
     fun s₃ rd₃ wr₃ cs₃ f₃ rdi₃ rcx₃ tag₃ => ?_
-  rw [rsp₂, m₂, m₁] at f₃
-  refine ⟨fun r hr => by rw [cs₃ r hr, cs₂' r hr], by rw [rd₃, rd₂, rd₁], by rw [wr₃, wr₂, wr₁], rdi₃, rcx₃,
-    f₃.sub fun r hr => ?_, fun key msg hr => ?_⟩
-  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl
-    · exact ⟨sub s₀ 448 128, by simp, fun _ h => h⟩
-    · exact ⟨sub s₀ out 16, by simp, fun _ h => h⟩
-    · exact ⟨stkR s₀, by simp, below8_stk s₀⟩
-  · have := tag₃ key msg (by rw [m₂, m₁]; exact hr)
-    rwa [show bytesAt _ _ 0 = [] from rfl, List.append_nil] at this
+  rw [rsp₁, m₁] at f₃
+  refine ⟨fun r hr => by rw [cs₃ r hr, cs₁ r hr], by rw [rd₃, rd₁], by rw [wr₃, wr₁], rdi₃, rcx₃,
+    f₃.sub fun r hr => ?_, fun key msg hr => tag₃ key msg (by rw [m₁]; exact hr)⟩
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl
+  · exact ⟨sub s₀ 448 128, by simp, fun _ h => h⟩
+  · exact ⟨sub s₀ out 16, by simp, fun _ h => h⟩
+  · exact ⟨stkR s₀, by simp, below8_stk s₀⟩
 
 end VG.Proof.ChaCha20Poly1305.X86_64

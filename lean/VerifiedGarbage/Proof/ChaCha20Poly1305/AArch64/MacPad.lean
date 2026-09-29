@@ -154,7 +154,7 @@ theorem padZ_ok {s₀ : State} (hp : APre s₀) {s : State} (hx21 : s.gpr .x21 =
   · rw [hm]
     exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ le_rfl (by omega) (by omega))
       |>.writeW (List.mem_singleton_self _) _ (contains_sub s₀ (by omega) (by omega) (by omega))
-  · rw [hm, VG.Proof.Poly1305.AArch64.writeW64_zero_apply, VG.Proof.Poly1305.AArch64.writeW64_zero_apply]
+  · rw [hm, VG.Proof.Poly1305.writeW64_zero_apply, VG.Proof.Poly1305.writeW64_zero_apply]
     have e : ∀ d, d ≤ 576 + j → (off (cx s₀) (576 + j) - off (cx s₀) d).toNat = 576 + j - d := by
       intro d hd
       rw [show off (cx s₀) (576 + j) - off (cx s₀) d = BitVec.ofNat 64 (576 + j - d) by

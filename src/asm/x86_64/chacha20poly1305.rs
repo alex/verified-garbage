@@ -11,7 +11,8 @@
 /// * `ctx` must be valid for reads and writes of 1024 bytes.
 /// * `aad` must be valid for reads of `aad_len` bytes.
 /// * `data` must be valid for reads and writes of `len` bytes.
-/// * `ctx` and `data` must not overlap each other, `aad`, the return address on the stack, or the 16 bytes of stack below it, where its calls store their return addresses; nor may `aad`. None of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `ctx` and `data` must not overlap each other or `aad` (distinct Rust objects never do).
+/// * None of `ctx`, `aad` and `data` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_seal(ctx: *mut [u64; 128], aad: *const u8, aad_len: usize, data: *mut u8, len: usize) {
     core::arch::naked_asm!(
@@ -164,11 +165,9 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_seal(ctx: *mut [u64; 1
         "sub r15, 448",
         "mov rdi, r15",
         "add rdi, 448",
-        "mov rsi, r15",
-        "add rsi, 656",
-        "mov edx, 0",
-        "mov rcx, r15",
-        "add rcx, 48",
+        "mov esi, 0",
+        "mov rdx, r15",
+        "add rdx, 48",
         "call {vg_poly1305_finalize}",
         "mov rbx, QWORD PTR [rdi+144]",
         "mov rbp, QWORD PTR [rdi+152]",
@@ -193,7 +192,8 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_seal(ctx: *mut [u64; 1
 /// * `ctx` must be valid for reads and writes of 1024 bytes.
 /// * `aad` must be valid for reads of `aad_len` bytes.
 /// * `data` must be valid for reads and writes of `len` bytes.
-/// * `ctx` and `data` must not overlap each other, `aad`, the return address on the stack, or the 16 bytes of stack below it, where its calls store their return addresses; nor may `aad`. None of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `ctx` and `data` must not overlap each other or `aad` (distinct Rust objects never do).
+/// * None of `ctx`, `aad` and `data` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_open(ctx: *mut [u64; 128], aad: *const u8, aad_len: usize, data: *mut u8, len: usize) -> u32 {
     core::arch::naked_asm!(
@@ -346,11 +346,9 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_open(ctx: *mut [u64; 1
         "sub r15, 128",
         "mov rdi, r15",
         "add rdi, 448",
-        "mov rsi, r15",
-        "add rsi, 656",
-        "mov edx, 0",
-        "mov rcx, r15",
-        "add rcx, 640",
+        "mov esi, 0",
+        "mov rdx, r15",
+        "add rdx, 640",
         "call {vg_poly1305_finalize}",
         "mov rax, QWORD PTR [rcx]",
         "xor rax, QWORD PTR [rdi-400]",
