@@ -317,16 +317,17 @@ theorem constantTime {Pre : M.State → Prop} {Pub : M.State → M.State → Pro
 end Taint
 
 open Lean Meta Elab Tactic in
-/-- Proves `(Taint.check A τ c ?hint).isSome = true`: computes the hint
-(`Taint.hintOf`, in compiled code) and then has the kernel evaluate the check.
-The domain `A.T` needs a `ToExpr` instance. -/
+/-- Proves `(Taint.check A τ c ?hint).isSome = true`, or any decidable
+equation whose left side contains `Taint.check A τ c ?hint` (e.g. a property of
+the resulting taint): computes the hint (`Taint.hintOf`, in compiled code) and
+then has the kernel evaluate the goal. The domain `A.T` needs a `ToExpr`
+instance. -/
 elab "taint_decide" : tactic => do
   let g ← getMainGoal
   let some (_, lhs, _) := (← instantiateMVars (← g.getType)).eq?
-    | throwError "taint_decide: the goal is not `(Taint.check A τ c h).isSome = true`"
-  let chk := lhs.appArg!
-  unless chk.isAppOfArity ``Taint.check 5 do
-    throwError "taint_decide: the goal is not `(Taint.check A τ c h).isSome = true`"
+    | throwError "taint_decide: the goal is not an equation about `Taint.check A τ c h`"
+  let some chk := lhs.find? (·.isAppOfArity ``Taint.check 5)
+    | throwError "taint_decide: the goal is not an equation about `Taint.check A τ c h`"
   let args := chk.getAppArgs
   let (m, a, τ, c, h) := (args[0]!, args[1]!, args[2]!, args[3]!, args[4]!)
   let hty := mkApp (mkConst ``Taint.Hint) (← whnfD (mkApp2 (mkConst ``Taint.T) m a))

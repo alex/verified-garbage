@@ -1,9 +1,9 @@
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Sha256.X86_64.Compress
 import VerifiedGarbage.Proof.Sha256.X86_64.ShaNi.Compress
-import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Finalize
+import VerifiedGarbage.Proof.Sha256.X86_64.Stream.FinalizeCT
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Init
-import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Update
+import VerifiedGarbage.Proof.Sha256.X86_64.Stream.UpdateCT
 import VerifiedGarbage.Spec.Sha256.Contract
 
 /-!
@@ -12,7 +12,8 @@ import VerifiedGarbage.Spec.Sha256.Contract
 Untrusted: everything here is checked by Lean. The proofs are written against
 per-target contracts (`Proof/Sha256/X86_64/Contract.lean`); these theorems move
 them to the shared contracts of `Spec/Sha256/Contract.lean`, which the
-artifacts are emitted with.
+artifacts are emitted with. `update` and `finalize` hold for any
+implementation `f` of the compression function.
 -/
 
 namespace VG.Proof.Sha256.X86_64.Shared
@@ -38,34 +39,47 @@ theorem init :
       X86_64.abi, X86_64.argRegs]
       [Proof.Sha256.X86_64.Stream.initSat] using Proof.Sha256.X86_64.Stream.initSat)
 
-theorem update :
-    Verified X86_64.target (Impl.Sha256.X86_64.Stream.update .scalar) (Spec.Sha256.updateContract X86_64.abi 8) :=
-  Proof.Sha256.X86_64.Stream.Update.update_verified.of_implies (by
+open VG.Impl.Sha256.X86_64.Stream (Callee) in
+/-- `update`, for any compression function `f` (see `Variant.lean`). -/
+theorem update {f : Callee} (hf : f.Ok)
+    (hm : f.code.allInstrs (fun i => !X86_64.loadsMxcsr i) = true) :
+    Verified X86_64.target (Impl.Sha256.X86_64.Stream.update f) (Spec.Sha256.updateContract X86_64.abi 8) :=
+  (Proof.Sha256.X86_64.Stream.Update.verified_of hf (by
+    simp only [Impl.Sha256.X86_64.Stream.update, Impl.Sha256.X86_64.Stream.updateBody,
+      Impl.Sha256.X86_64.Stream.updateTail, Impl.Sha256.X86_64.Stream.compressAt, Code.allInstrs, hm,
+      Bool.true_and]
+    decide +kernel) (Proof.Sha256.X86_64.Stream.Update.constantTime hf)).of_implies (by
     contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, Proof.Sha256.updateX86_64,
       X86_64.abi, X86_64.argRegs]
       [Proof.Sha256.X86_64.Stream.Update.sat] using Proof.Sha256.X86_64.Stream.Update.sat)
 
-theorem finalize :
-    Verified X86_64.target (Impl.Sha256.X86_64.Stream.finalize .scalar) (Spec.Sha256.finalizeContract X86_64.abi 8) :=
-  Proof.Sha256.X86_64.Stream.Finalize.finalize_verified.of_implies (by
-    contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig,
-      Proof.Sha256.finalizeX86_64, X86_64.abi, X86_64.argRegs]
-      [Proof.Sha256.X86_64.Stream.Finalize.sat] using Proof.Sha256.X86_64.Stream.Finalize.sat)
+open VG.Impl.Sha256.X86_64.Stream (Callee) in
+theorem update_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
+    (Impl.Sha256.X86_64.Stream.update f).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [Impl.Sha256.X86_64.Stream.update, Impl.Sha256.X86_64.Stream.updateBody,
+    Impl.Sha256.X86_64.Stream.updateTail, Impl.Sha256.X86_64.Stream.compressAt, Code.all, h,
+    Bool.true_and]
+  decide +kernel
 
-theorem update_shani :
-    Verified X86_64.target (Impl.Sha256.X86_64.Stream.update .shani)
-      (Spec.Sha256.updateContract X86_64.abi 8) :=
-  Proof.Sha256.X86_64.Stream.Update.update_shani_verified.of_implies (by
-    contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, Proof.Sha256.updateX86_64,
-      X86_64.abi, X86_64.argRegs]
-      [Proof.Sha256.X86_64.Stream.Update.sat] using Proof.Sha256.X86_64.Stream.Update.sat)
-
-theorem finalize_shani :
-    Verified X86_64.target (Impl.Sha256.X86_64.Stream.finalize .shani)
+open VG.Impl.Sha256.X86_64.Stream (Callee) in
+/-- `finalize`, for any compression function `f` (see `Variant.lean`). -/
+theorem finalize {f : Callee} (hf : f.Ok)
+    (hm : f.code.allInstrs (fun i => !X86_64.loadsMxcsr i) = true) :
+    Verified X86_64.target (Impl.Sha256.X86_64.Stream.finalize f)
       (Spec.Sha256.finalizeContract X86_64.abi 8) :=
-  Proof.Sha256.X86_64.Stream.Finalize.finalize_shani_verified.of_implies (by
+  (Proof.Sha256.X86_64.Stream.Finalize.verified_of hf (by
+    simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.Sha256.X86_64.Stream.finalizeBody,
+      Impl.Sha256.X86_64.Stream.compressAt, Code.allInstrs, hm, Bool.true_and]
+    decide +kernel) (Proof.Sha256.X86_64.Stream.Finalize.constantTime hf)).of_implies (by
     contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig,
       Proof.Sha256.finalizeX86_64, X86_64.abi, X86_64.argRegs]
       [Proof.Sha256.X86_64.Stream.Finalize.sat] using Proof.Sha256.X86_64.Stream.Finalize.sat)
+
+open VG.Impl.Sha256.X86_64.Stream (Callee) in
+theorem finalize_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
+    (Impl.Sha256.X86_64.Stream.finalize f).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.Sha256.X86_64.Stream.finalizeBody,
+    Impl.Sha256.X86_64.Stream.compressAt, Code.all, h, Bool.true_and]
+  decide +kernel
 
 end VG.Proof.Sha256.X86_64.Shared
