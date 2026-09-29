@@ -17,9 +17,9 @@ use openssl::hash::{MessageDigest, hash};
 mod aes_gcm;
 mod chacha20;
 mod chacha20poly1305;
-mod hmac;
+mod hmac_sha256;
 mod md5;
-mod pbkdf2;
+mod pbkdf2_sha256;
 mod poly1305;
 mod scrypt;
 mod sha1;
@@ -73,9 +73,9 @@ const BENCHES: &[Bench] = &[
     (aes_gcm::USES, aes_gcm::bench),
     (chacha20::USES, chacha20::bench),
     (chacha20poly1305::USES, chacha20poly1305::bench),
-    (hmac::USES, hmac::bench),
+    (hmac_sha256::USES, hmac_sha256::bench),
     (md5::USES, md5::bench),
-    (pbkdf2::USES, pbkdf2::bench),
+    (pbkdf2_sha256::USES, pbkdf2_sha256::bench),
     (poly1305::USES, poly1305::bench),
     (scrypt::USES, scrypt::bench),
     (sha1::USES, sha1::bench),

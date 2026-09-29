@@ -16,17 +16,15 @@
 
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
-#[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::aes::{vg_aes_ctr32, vg_aes_expand_key};
-#[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::gcm::vg_ghash;
 #[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::aes::{
-    VG_AES_CTR32_AESNI_FEATURES, VG_AES_EXPAND_KEY_AESNI_FEATURES, vg_aes_ctr32,
-    vg_aes_ctr32_aesni, vg_aes_expand_key, vg_aes_expand_key_aesni,
+use crate::arch::aes::{
+    VG_AES_CTR32_AESNI_FEATURES, VG_AES_EXPAND_KEY_AESNI_FEATURES, vg_aes_ctr32_aesni,
+    vg_aes_expand_key_aesni,
 };
+use crate::arch::aes::{vg_aes_ctr32, vg_aes_expand_key};
+use crate::arch::gcm::vg_ghash;
 #[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash, vg_ghash_pclmul};
+use crate::arch::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash_pclmul};
 use crate::cpu::{Features, available};
 
 /// A 16-byte block.
