@@ -1,6 +1,8 @@
 import VerifiedGarbage.TCB.X86_64.Target
-import VerifiedGarbage.Proof.Aes.X86_64.Shared
-import VerifiedGarbage.Proof.Aes.X86_64.AesNi.Shared
+import VerifiedGarbage.Proof.Aes.X86_64.Ctr32
+import VerifiedGarbage.Proof.Aes.X86_64.ExpandKey
+import VerifiedGarbage.Proof.Aes.X86_64.AesNi.Ctr32
+import VerifiedGarbage.Proof.Aes.X86_64.AesNi.ExpandKey
 
 /-!
 # AES on x86-64
@@ -25,7 +27,7 @@ def artifacts : List Artifact := [
         `aes_ct64` (Thomas Pornin, MIT licence)."])
     code := Impl.Aes.X86_64.expandKey
     contract := Spec.Aes.expandKeyContract X86_64.abi
-    verified := Proof.Aes.X86_64.Shared.expandKey },
+    verified := Proof.Aes.X86_64.expandKey_verified },
   { Spec.Gcm.ctr32Api with
     target := X86_64.target
     doc := Spec.Gcm.ctr32Api.doc
@@ -33,7 +35,7 @@ def artifacts : List Artifact := [
         `aes_ct64` (Thomas Pornin, MIT licence)."])
     code := Impl.Aes.X86_64.ctr32
     contract := Spec.Gcm.ctr32Contract X86_64.abi
-    verified := Proof.Aes.X86_64.Shared.ctr32 },
+    verified := Proof.Aes.X86_64.ctr32_verified },
   { target := X86_64.target
     module := "aes"
     name := "vg_aes_expand_key_aesni"
@@ -53,7 +55,7 @@ def artifacts : List Artifact := [
       are unspecified."
     code := Impl.Aes.X86_64.AesNi.expandKey
     contract := Spec.Aes.expandKeyContract X86_64.abi
-    verified := Proof.Aes.X86_64.AesNi.Shared.expandKey
+    verified := Proof.Aes.X86_64.AesNi.Key.expandKey_verified
     features := ["aes"] },
   { target := X86_64.target
     module := "aes"
@@ -76,7 +78,7 @@ def artifacts : List Artifact := [
       are unspecified."
     code := Impl.Aes.X86_64.AesNi.ctr32
     contract := Spec.Gcm.ctr32Contract X86_64.abi
-    verified := Proof.Aes.X86_64.AesNi.Shared.ctr32
+    verified := Proof.Aes.X86_64.AesNi.ctr32_verified
     features := ["aes", "ssse3"] }]
 
 end VG.Artifacts.Aes.X86_64

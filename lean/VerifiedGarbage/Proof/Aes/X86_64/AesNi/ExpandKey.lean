@@ -1,8 +1,9 @@
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Aes.X86_64.AesNi.KeySteps
-import VerifiedGarbage.Proof.Aes.X86_64.AesNi.Contract
 import VerifiedGarbage.Proof.Framework.Range
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Aes.Contract
 
 /-!
 # AES-NI key expansion: the whole function
@@ -389,19 +390,24 @@ def satState : State where
   rd := [⟨0x1000, 16⟩]
   wr := [⟨0x2000, 240⟩, ⟨0x3000, 512⟩]
 
-theorem expandKey_verified : Verified X86_64.target expandKey expandKeyX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx]) ?_
-      (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩
-    refine Taint.agree_ofRegs fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl <;> assumption
-  · refine ⟨satState, rfl, rfl, ?_, by decide⟩
-    intro a h₁ h₂
-    simp only [Region.Contains, satState] at h₁ h₂
-    bv_omega
+theorem expandKey_correct (s : State) (hs : expandKeyX86_64.pre s) :
+    ∃ t s', Exec isa expandKey s t s' ∧ abiPreserved s s' ∧ expandKeyX86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
+theorem expandKey_ct : ConstantTime isa expandKeyX86_64.pre expandKeyX86_64.pub expandKey := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx]) ?_
+    (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl <;> assumption
+
+theorem expandKey_verified :
+    Verified X86_64.target Impl.Aes.X86_64.AesNi.expandKey (Spec.Aes.expandKeyContract X86_64.abi) :=
+  Verified.of_correct expandKey_correct expandKey_ct (by
+    sig_implies [Spec.Aes.expandKeyContract, Spec.Aes.expandKeySig,
+      Proof.Aes.X86_64.AesNi.expandKeyX86_64, X86_64.abi, X86_64.argRegs]
+      [Proof.Aes.X86_64.AesNi.Key.satState] using Proof.Aes.X86_64.AesNi.Key.satState)
 
 end VG.Proof.Aes.X86_64.AesNi.Key
