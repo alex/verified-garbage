@@ -84,7 +84,7 @@ macro_rules
         Bool.and_self, Bool.or_true, Bool.true_or, Bool.or_false, Bool.false_or, Bool.false_eq_true,
         decide_true, decide_false, Nat.mul_one, Nat.one_mul, List.pairwise_cons,
         List.forall_mem_cons, List.not_mem_nil, List.Pairwise.nil, List.mem_cons, List.mem_nil_iff,
-        forall_eq_or_imp, forall_eq, forall_const, forall_false, implies_true, true_implies,
+        forall_eq_or_imp, forall_eq, forall_false, implies_true, true_implies,
         false_implies, and_true, true_and, and_self, or_self, or_true, true_or, false_or, or_false,
         and_assoc, Nat.add_zero, List.zip_cons_cons, List.zip_nil_left, List.zip_nil_right,
         List.sum_cons, List.sum_nil, BitVec.setWidth_eq, BitVec.setWidth_32_64_32, BitVec.toNat_setWidth_32_64,

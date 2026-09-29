@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Poly1305.X86.Blocks
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on x86 (32-bit): `init`
@@ -222,20 +224,23 @@ def initSat : State where
   rd := [⟨0x2000, 32⟩, ⟨0x4004, 8⟩]
   wr := [⟨0x1000, 128⟩]
 
-theorem initSat_pre : Proof.Poly1305.initX86.pre initSat := by
-  have a0 : arg initSat 0 = 0x1000 := by decide
-  have a1 : arg initSat 1 = 0x2000 := by decide
-  have e : argAddr initSat 0 = 0x4004 := by decide
-  simp only [Proof.Poly1305.initX86, a0, a1, e]
-  refine ⟨rfl, rfl, ?_, ?_, ?_, by decide, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, initSat] at h₁ h₂
-    bv_omega
+theorem init_ok (s : State) (hs : Proof.Poly1305.initX86.pre s) :
+    ∃ t s', Exec isa init s t s' ∧ abiPreserved s s' ∧ Proof.Poly1305.initX86.post s s' :=
+  init_correct (IPre.of s hs)
 
-theorem init_verified : Verified X86.target init Proof.Poly1305.initX86 :=
-  ⟨fun s hs => init_correct (IPre.of s hs),
-    VG.Taint.constantTime (A := taint) initτ₀ (fun _ _ h₁ h₂ hp => init_agree₀ h₁ h₂ hp)
-      (by taint_decide),
-    ⟨initSat, initSat_pre⟩⟩
+theorem init_ct : ConstantTime isa Proof.Poly1305.initX86.pre Proof.Poly1305.initX86.pub init :=
+  VG.Taint.constantTime (A := taint) initτ₀ (fun _ _ h₁ h₂ hp => init_agree₀ h₁ h₂ hp)
+    (by taint_decide)
+
+theorem init_verified :
+    Verified X86.target Impl.Poly1305.X86.init (Spec.Poly1305.initContract X86.abi) :=
+  Verified.of_correct init_ok init_ct (by
+    have a0 : arg initSat 0 = 0x1000 := by decide
+    have a1 : arg initSat 1 = 0x2000 := by decide
+    have e : argAddr initSat 0 = 0x4004 := by decide
+    have esp : initSat.gpr .esp = 0x4000 := rfl
+    sig_implies [Spec.Poly1305.initContract, Spec.Poly1305.initSig, Proof.Poly1305.initX86, X86.abi,
+      X86.argSlots, X86.argVal, X86.argBytes]
+      [a0, a1, e, esp] using Proof.Poly1305.X86.initSat)
 
 end VG.Proof.Poly1305.X86

@@ -1,4 +1,6 @@
-import VerifiedGarbage.Proof.Poly1305.AArch64.Shared
+import VerifiedGarbage.Proof.Poly1305.AArch64.Init
+import VerifiedGarbage.Proof.Poly1305.AArch64.Blocks
+import VerifiedGarbage.Proof.Poly1305.AArch64.Finalize
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Xor
 import VerifiedGarbage.Proof.ChaCha20Poly1305.Spec
 import VerifiedGarbage.Impl.ChaCha20Poly1305.AArch64
@@ -96,7 +98,7 @@ theorem init_call {s : State} {P K : Addr} (hx0 : s.gpr .x0 = P) (hx1 : s.gpr .x
     {Q : State → Prop}
     (hQ : ∀ s', Kept [⟨P, 128⟩] s s' → Repr s'.mem P (bytesAt s.mem K 32) [] → Q s') :
     WP isa (.call "vg_poly1305_init" Impl.Poly1305.AArch64.init) s Q := by
-  refine WP.call (k := Proof.Poly1305.initAArch64) Proof.Poly1305.AArch64.init_verified.1
+  refine WP.call (k := Proof.Poly1305.initAArch64) Proof.Poly1305.AArch64.init_ok
     (rd := [⟨K, 32⟩]) (wr := [⟨P, 128⟩]) ?_ hc hw ?_ init_noFrames
   · simp only [Proof.Poly1305.initAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs),
@@ -120,7 +122,7 @@ theorem blocks_call {s : State} {P p : Addr} {n : Nat} (hx0 : s.gpr .x0 = P) (hx
     WP isa (.call "vg_poly1305_blocks" Impl.Poly1305.AArch64.blocks) s Q := by
   have hn' : (BitVec.ofNat 64 n).toNat = n := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by omega)
-  refine WP.call (k := Proof.Poly1305.blocksAArch64) Proof.Poly1305.AArch64.blocks_verified.1
+  refine WP.call (k := Proof.Poly1305.blocksAArch64) Proof.Poly1305.AArch64.blocks_ok
     (rd := [⟨p, 16 * n⟩]) (wr := [⟨P, 128⟩]) ?_ hc hw ?_ blocks_noFrames
   · simp only [Proof.Poly1305.blocksAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs),
@@ -146,7 +148,7 @@ theorem finalize_call {s : State} {P O : Addr} (hx0 : s.gpr .x0 = P) (hx1 : s.gp
     (hQ : ∀ s', Kept [⟨P, 128⟩, ⟨O, 16⟩] s s' →
       (∀ key msg, Repr s.mem P key msg → bytesAt s'.mem O 16 = mac key msg) → Q s') :
     WP isa (.call "vg_poly1305_finalize" Impl.Poly1305.AArch64.finalize) s Q := by
-  refine WP.call (k := Proof.Poly1305.finalizeAArch64) Proof.Poly1305.AArch64.finalize_verified.1
+  refine WP.call (k := Proof.Poly1305.finalizeAArch64) Proof.Poly1305.AArch64.finalize_ok
     (rd := []) (wr := [⟨P, 128⟩, ⟨O, 16⟩]) ?_ hc hw ?_ finalize_noFrames
   · simp only [Proof.Poly1305.finalizeAArch64, State.withRegions_gpr, State.withRegions_wr,
       callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs), callEntry_gpr' s (by decide : Reg.x2 ∉ linkRegs),

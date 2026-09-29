@@ -1,4 +1,6 @@
-import VerifiedGarbage.Proof.Poly1305.X86_64.Shared
+import VerifiedGarbage.Proof.Poly1305.X86_64.Init
+import VerifiedGarbage.Proof.Poly1305.X86_64.Blocks
+import VerifiedGarbage.Proof.Poly1305.X86_64.Finalize
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Xor
 import VerifiedGarbage.Proof.ChaCha20Poly1305.Spec
 import VerifiedGarbage.Impl.ChaCha20Poly1305.X86_64
@@ -108,7 +110,7 @@ theorem init_call {s : State} {P K : Addr} (hrdi : s.gpr .rdi = P) (hrsi : s.gpr
       Frame [⟨P, 128⟩, below (s.gpr .rsp) 8] s.mem s'.mem → s'.gpr .rdi = P →
       Repr s'.mem P (bytesAt s.mem K 32) [] → Q s') :
     WP isa (.call "vg_poly1305_init" Impl.Poly1305.X86_64.init) s Q := by
-  refine WP.call (k := Proof.Poly1305.initX86_64) Proof.Poly1305.X86_64.init_verified.1
+  refine WP.call (k := Proof.Poly1305.initX86_64) Proof.Poly1305.X86_64.init_ok
     (keeps_of init_keeps fun _ h => and_right h) (by rw [init_depth]; decide)
     (rd := [⟨K, 32⟩]) (wr := [⟨P, 128⟩]) ?_ hc hw ?_
   · simp only [Proof.Poly1305.initX86_64, State.withRegions_gpr, State.withRegions_rd,
@@ -137,7 +139,7 @@ theorem blocks_call {s : State} {P p : Addr} {n : Nat} (hrdi : s.gpr .rdi = P) (
     WP isa (.call "vg_poly1305_blocks" Impl.Poly1305.X86_64.blocks) s Q := by
   have hn' : (BitVec.ofNat 64 n).toNat = n := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by omega)
-  refine WP.call (k := Proof.Poly1305.blocksX86_64) Proof.Poly1305.X86_64.blocks_verified.1
+  refine WP.call (k := Proof.Poly1305.blocksX86_64) Proof.Poly1305.X86_64.blocks_ok
     (keeps_of blocks_keeps fun _ h => and_right h) (by rw [blocks_depth]; decide)
     (rd := [⟨p, 16 * n⟩]) (wr := [⟨P, 128⟩]) ?_ hc hw ?_
   · simp only [Proof.Poly1305.blocksX86_64, State.withRegions_gpr, State.withRegions_rd,
@@ -170,7 +172,7 @@ theorem finalize_call {s : State} {P O : Addr} (hrdi : s.gpr .rdi = P) (hrsi : s
     keeps_of finalize_keeps fun _ h => and_left h
   have k3 : ∀ i ∈ instrs Impl.Poly1305.X86_64.finalize, Taint.clobbers i .rsp = false :=
     keeps_of finalize_keeps fun _ h => and_right h
-  refine WP.call (k := Proof.Poly1305.finalizeX86_64) Proof.Poly1305.X86_64.finalize_verified.1
+  refine WP.call (k := Proof.Poly1305.finalizeX86_64) Proof.Poly1305.X86_64.finalize_ok
     k3 (by rw [finalize_depth]; decide) (rd := []) (wr := [⟨P, 128⟩, ⟨O, 16⟩]) ?_ hc hw ?_
   · simp only [Proof.Poly1305.finalizeX86_64, State.withRegions_gpr, State.withRegions_wr,
       State.callEntry_rsp, callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp),

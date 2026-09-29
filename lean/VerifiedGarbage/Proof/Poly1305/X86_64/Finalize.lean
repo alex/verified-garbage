@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Poly1305.X86_64.Buffer
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on x86-64: `finalize`
@@ -493,19 +495,40 @@ def finalizeSat : State where
   rd := []
   wr := [⟨0x1000, 128⟩, ⟨0x3000, 16⟩, ⟨0x5000, 128⟩]
 
+theorem finalize_ok (s : State) (hs : Proof.Poly1305.finalizeX86_64.pre s) :
+    ∃ t s', Exec isa Impl.Poly1305.X86_64.finalize s t s' ∧ abiPreserved s s' ∧
+      Proof.Poly1305.finalizeX86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := finalize_correct (FPre.of s hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
+theorem finalize_ct : ConstantTime isa Proof.Poly1305.finalizeX86_64.pre
+    Proof.Poly1305.finalizeX86_64.pub Impl.Poly1305.X86_64.finalize := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx]) ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, h3⟩
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl <;> assumption
+
 theorem finalize_verified :
-    Verified X86_64.target Impl.Poly1305.X86_64.finalize Proof.Poly1305.finalizeX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := finalize_correct (FPre.of s hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3⟩
-    refine Taint.agree_ofRegs fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl <;> assumption
-  · refine ⟨finalizeSat, by decide, by decide, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, finalizeSat] at h₁ h₂
-      bv_omega
+    Verified X86_64.target Impl.Poly1305.X86_64.finalize (Spec.Poly1305.finalizeContract X86_64.abi)
+      :=
+  Verified.of_correct finalize_ok finalize_ct
+    { pre := by
+        sig_implies_pre [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+          Proof.Poly1305.finalizeX86_64, X86_64.abi, X86_64.argRegs]
+      post := by
+        intro s s' _ h
+        sig_eval [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig, X86_64.abi,
+            X86_64.argRegs]
+        intro key msg hb hc
+        exact h.2 key msg hb (count_mod hc)
+      pub := by
+        sig_implies_pub [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+          Proof.Poly1305.finalizeX86_64, X86_64.abi, X86_64.argRegs]
+      sat := by
+        sig_implies_sat [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig, X86_64.abi,
+          X86_64.argRegs,
+          Proof.Poly1305.X86_64.finalizeSat]
+          [Proof.Poly1305.X86_64.finalizeSat] using Proof.Poly1305.X86_64.finalizeSat }
 
 end VG.Proof.Poly1305.X86_64

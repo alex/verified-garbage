@@ -206,7 +206,7 @@ theorem init_call {s₀ s : State} (hp : APre s₀) (h : At s₀ s) (hecx : s.gp
   have hk : [Reg.ecx, .edx].length ≤ 5 := by decide
   have fit := h.fit hp hk
   have e := hp.sp_lo
-  refine WP.callWith Proof.Poly1305.X86.init_verified.1 init_nosp (by simp) (by decide)
+  refine WP.callWith Proof.Poly1305.X86.init_ok init_nosp (by simp) (by decide)
     (by rw [init_stack, h.esp]; simp only [List.length_cons, List.length_nil]; omega)
     (init_pre hp h hecx hedx) fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   rw [init_stack, h.esp] at f'
@@ -294,7 +294,7 @@ theorem blocks_call {s₀ s : State} (hp : APre s₀) (h : At s₀ s) {rn rp rst
   have fit := h.fit hp hk
   have e := hp.sp_lo
   have hf := hs.fit
-  refine WP.callWith Proof.Poly1305.X86.blocks_verified.1 blocks_nosp (by simp) hesp
+  refine WP.callWith Proof.Poly1305.X86.blocks_ok blocks_nosp (by simp) hesp
     (by rw [blocks_stack, h.esp]; simp only [List.length_cons, List.length_nil]; omega)
     (blocks_pre hp h hesp hs hst hP hn) fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   rw [blocks_stack, h.esp] at f'
@@ -491,7 +491,7 @@ theorem finalize_call {Q : State → Prop}
   have ho' : out + 16 ≤ 1024 := by unfold OutOk at ho; omega
   have hk : finRegs.length ≤ 5 := by decide
   have e := hp.sp_lo
-  refine WP.callWith Proof.Poly1305.X86.finalize_verified.1 finalize_nosp (by simp) (by decide)
+  refine WP.callWith Proof.Poly1305.X86.finalize_ok finalize_nosp (by simp) (by decide)
     (by rw [finalize_stack, h.esp]; simp only [List.length_cons, List.length_nil]; omega)
     (finalize_pre hp h ho hebx hecx heax hesi) fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   rw [finalize_stack, h.esp] at f'

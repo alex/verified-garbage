@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Bytes
-import VerifiedGarbage.Proof.Poly1305.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Taint
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on 32-bit ARM: `init`
@@ -120,17 +121,24 @@ def initSat : State where
   rd := [⟨0x2000, 32⟩]
   wr := [⟨0x1000, 128⟩]
 
-theorem init_verified : Verified Arm.target Impl.Poly1305.Arm.init Proof.Poly1305.initArm := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · exact init_correct (IPre.of s hs)
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0, .r1]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2⟩
-    refine Taint.agree_ofRegs fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl <;> assumption
-  · refine ⟨initSat, rfl, rfl, ?_, by decide, by decide⟩
-    intro a h₁ h₂
-    simp only [Region.Contains, initSat, State.addr] at h₁ h₂
-    bv_omega
+theorem init_ok (s : State) (hs : Proof.Poly1305.initArm.pre s) :
+    ∃ t s', Exec isa Impl.Poly1305.Arm.init s t s' ∧ abiPreserved s s' ∧ Proof.Poly1305.initArm.post
+      s s' := by
+  exact init_correct (IPre.of s hs)
+
+theorem init_ct : ConstantTime isa Proof.Poly1305.initArm.pre Proof.Poly1305.initArm.pub
+    Impl.Poly1305.Arm.init := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0, .r1]) ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2⟩
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl <;> assumption
+
+theorem init_verified :
+    Verified Arm.target Impl.Poly1305.Arm.init (Spec.Poly1305.initContract Arm.abi) :=
+  Verified.of_correct init_ok init_ct (by
+    sig_implies [Spec.Poly1305.initContract, Spec.Poly1305.initSig, Proof.Poly1305.initArm, Arm.abi,
+      Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] [Proof.Poly1305.Arm.initSat,
+      Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using Proof.Poly1305.Arm.initSat)
 
 end VG.Proof.Poly1305.Arm

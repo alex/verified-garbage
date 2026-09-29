@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Poly1305.X86_64.Buffer
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on x86-64: `update`
@@ -702,19 +704,39 @@ def updateSat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 128⟩, ⟨0x5000, 128⟩]
 
+theorem update_ok (s : State) (hs : Proof.Poly1305.updateX86_64.pre s) :
+    ∃ t s', Exec isa Impl.Poly1305.X86_64.update s t s' ∧ abiPreserved s s' ∧
+      Proof.Poly1305.updateX86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := update_correct (UPre.of s hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
+theorem update_ct : ConstantTime isa Proof.Poly1305.updateX86_64.pre Proof.Poly1305.updateX86_64.pub
+    Impl.Poly1305.X86_64.update := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx]) ?_ (by
+      taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl <;> assumption
+
 theorem update_verified :
-    Verified X86_64.target Impl.Poly1305.X86_64.update Proof.Poly1305.updateX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := update_correct (UPre.of s hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩
-    refine Taint.agree_ofRegs fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl <;> assumption
-  · refine ⟨updateSat, rfl, List.mem_cons_self, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, updateSat] at h₁ h₂
-      bv_omega
+    Verified X86_64.target Impl.Poly1305.X86_64.update (Spec.Poly1305.updateContract X86_64.abi) :=
+  Verified.of_correct update_ok update_ct
+    { pre := by
+        sig_implies_pre [Spec.Poly1305.updateContract, Spec.Poly1305.updateSig,
+          Proof.Poly1305.updateX86_64, X86_64.abi, X86_64.argRegs]
+      post := by
+        intro s s' _ h
+        sig_eval [Spec.Poly1305.updateContract, Spec.Poly1305.updateSig, X86_64.abi, X86_64.argRegs]
+        intro key msg hb hc
+        exact h key msg hb (count_mod hc)
+      pub := by
+        sig_implies_pub [Spec.Poly1305.updateContract, Spec.Poly1305.updateSig,
+          Proof.Poly1305.updateX86_64, X86_64.abi, X86_64.argRegs]
+      sat := by
+        sig_implies_sat [Spec.Poly1305.updateContract, Spec.Poly1305.updateSig, X86_64.abi,
+          X86_64.argRegs,
+          Proof.Poly1305.X86_64.updateSat]
+          [Proof.Poly1305.X86_64.updateSat] using Proof.Poly1305.X86_64.updateSat }
 
 end VG.Proof.Poly1305.X86_64

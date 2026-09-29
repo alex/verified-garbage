@@ -98,8 +98,8 @@ theorem frame_ct {s₁ s₂ : State} (hp₁ : APre s₁) (hp₂ : APre s₂) (hp
   refine RelCT.frame (fun x₁ x₂ h => by
     obtain ⟨i₁, i₂, -⟩ := hF x₁ x₂ h
     rw [i₁.sp, i₂.sp, psp]) ?_
-  refine RelCT.call (k := Proof.Poly1305.finalizeArm) Proof.Poly1305.Arm.Fin.finalize_verified.1
-    Proof.Poly1305.Arm.Fin.finalize_verified.2.1 [⟨State.addr s₁.sp - 8, 8⟩]
+  refine RelCT.call (k := Proof.Poly1305.finalizeArm) Proof.Poly1305.Arm.Fin.finalize_ok
+    Proof.Poly1305.Arm.Fin.finalize_ct [⟨State.addr s₁.sp - 8, 8⟩]
     (finWr (cP s₁) (ptr s₁ tagOff) (ptr s₁ scrOff)) fun a b ⟨x₁, x₂, h, pa, pb⟩ => ?_
   obtain ⟨i₁, i₂, a0, a1, a12, b0, b1, b12, hc⟩ := hF x₁ x₂ h
   rw [push_eq' pa, push_eq' pb]

@@ -192,15 +192,14 @@ macro_rules
   | `(tactic| split_ands_at $h) => `(tactic| repeat (obtain ⟨_, $h:ident⟩ := $h:ident))
 
 /-- Proves `∀ s, k'.pre s → k.pre s` (see `sig_implies`). -/
-syntax "sig_implies_pre " "[" Lean.Parser.Tactic.simpLemma,* "]" " [" Lean.Parser.Tactic.simpLemma,* "]" :
-  tactic
+syntax "sig_implies_pre " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
 macro_rules
-  | `(tactic| sig_implies_pre [$ls,*] [$ks,*]) => `(tactic| (
+  | `(tactic| sig_implies_pre [$ls,*]) => `(tactic| (
       intro s h
       sig_pre [$ls,*] at h
       split_ands_at h
       set_option linter.unusedSimpArgs false in
-      dsimp only [$ks,*]
+      dsimp only [$ls,*]
       and_intros
       all_goals first
         | with_reducible assumption
@@ -211,27 +210,25 @@ macro_rules
         | simp only [*, List.mem_cons, List.mem_singleton, true_or, or_true]))
 
 /-- Proves `∀ s s', k'.pre s → k.post s s' → k'.post s s'` (see `sig_implies`). -/
-syntax "sig_implies_post " "[" Lean.Parser.Tactic.simpLemma,* "]" " [" Lean.Parser.Tactic.simpLemma,* "]" :
-  tactic
+syntax "sig_implies_post " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
 macro_rules
-  | `(tactic| sig_implies_post [$ls,*] [$ks,*]) => `(tactic| (
+  | `(tactic| sig_implies_post [$ls,*]) => `(tactic| (
       intro s s' _ h
       sig_post [$ls,*]
       set_option linter.unusedSimpArgs false in
-      dsimp only [$ks,*] at h
+      dsimp only [$ls,*] at h
       exact h))
 
 /-- Proves `∀ s₁ s₂, k'.pre s₁ → k'.pre s₂ → k'.pub s₁ s₂ → k.pub s₁ s₂` (see
 `sig_implies`). -/
-syntax "sig_implies_pub " "[" Lean.Parser.Tactic.simpLemma,* "]" " [" Lean.Parser.Tactic.simpLemma,* "]" :
-  tactic
+syntax "sig_implies_pub " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
 macro_rules
-  | `(tactic| sig_implies_pub [$ls,*] [$ks,*]) => `(tactic| (
+  | `(tactic| sig_implies_pub [$ls,*]) => `(tactic| (
       intro s₁ s₂ _ _ h
       sig_pub [$ls,*] at h
       split_ands_at h
       set_option linter.unusedSimpArgs false in
-      simp only [$ks,*, Nat.forall_lt_succ_right, Nat.not_lt_zero, false_imp_iff, forall_const,
+      simp only [$ls,*, Nat.forall_lt_succ_right, Nat.not_lt_zero, false_imp_iff, forall_const,
         true_and]
       and_intros
       all_goals with_reducible assumption))
@@ -260,9 +257,9 @@ syntax "sig_implies " "[" Lean.Parser.Tactic.simpLemma,* "]" " [" Lean.Parser.Ta
   " using " term : tactic
 macro_rules
   | `(tactic| sig_implies [$ls,*] [$ws,*] using $w) => `(tactic| exact
-      { pre := by sig_implies_pre [$ls,*] [$ls,*]
-        post := by sig_implies_post [$ls,*] [$ls,*]
-        pub := by sig_implies_pub [$ls,*] [$ls,*]
+      { pre := by sig_implies_pre [$ls,*]
+        post := by sig_implies_post [$ls,*]
+        pub := by sig_implies_pub [$ls,*]
         sat := by sig_implies_sat [$ls,*] [$ws,*] using $w })
 
 end VG
