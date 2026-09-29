@@ -170,7 +170,7 @@ theorem sha512_repr (iv : Spec.Sha512.HashValue) (m m' : Mem) (p q : Addr) (msg 
 
 /-- `HashOK` for a member of the SHA-512 family, whose digest is the first
 `D` bytes of the final hash value. -/
-def sha512OK (SH : Spec.Hmac.StreamingHash) (D : Nat) (initN : String) (iv : Spec.Sha512.HashValue)
+def sha512FamOK (SH : Spec.Hmac.StreamingHash) (D : Nat) (initN : String) (iv : Spec.Sha512.HashValue)
     (hS : SH.stateBytes = 192) (hD : SH.digestBytes = D) (hB : SH.H.blockSize = 128)
     (hR : SH.Repr = Spec.Sha512.Repr iv)
     (hh : ∀ m, SH.H.hash m = (Spec.Sha512.finalHash iv m).take D) (hD0 : 0 < D) (hD64 : D ≤ 64)
@@ -215,17 +215,22 @@ theorem finalHash_length (iv : Spec.Sha512.HashValue) (m : List Byte) :
     (Spec.Sha512.finalHash iv m).length = 64 := by
   simp [Spec.Sha512.finalHash, Spec.Sha512.wordBytes]
 
-def sha384OK := sha512OK Spec.Hmac.sha384S 48 "vg_sha384_init" Spec.Sha512.H0_384 rfl rfl rfl rfl
-  (fun _ => rfl) (by decide) (by decide)
-  (by decide +kernel) (nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel))
-def sha512OK' := sha512OK Spec.Hmac.sha512S 64 "vg_sha512_init" Spec.Sha512.H0_512 rfl rfl rfl rfl
-  (fun m => (List.take_of_length_le (finalHash_length _ m).le).symm) (by decide) (by decide)
-  (by decide +kernel) (nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel))
-def sha512_224OK := sha512OK Spec.Hmac.sha512_224S 28 "vg_sha512_224_init" Spec.Sha512.H0_512_224
+def sha384H : Hash := sha512H 48 "vg_sha384_init" Spec.Sha512.H0_384
+def sha512H' : Hash := sha512H 64 "vg_sha512_init" Spec.Sha512.H0_512
+def sha512_224H : Hash := sha512H 28 "vg_sha512_224_init" Spec.Sha512.H0_512_224
+def sha512_256H : Hash := sha512H 32 "vg_sha512_256_init" Spec.Sha512.H0_512_256
+
+def sha384OK : HashOK sha384H := sha512FamOK Spec.Hmac.sha384S 48 "vg_sha384_init" Spec.Sha512.H0_384
   rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
   (by decide +kernel) (nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel))
-def sha512_256OK := sha512OK Spec.Hmac.sha512_256S 32 "vg_sha512_256_init" Spec.Sha512.H0_512_256
-  rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
+def sha512OK : HashOK sha512H' := sha512FamOK Spec.Hmac.sha512S 64 "vg_sha512_init" Spec.Sha512.H0_512
+  rfl rfl rfl rfl (fun m => (List.take_of_length_le (finalHash_length _ m).le).symm) (by decide) (by decide)
+  (by decide +kernel) (nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel))
+def sha512_224OK : HashOK sha512_224H := sha512FamOK Spec.Hmac.sha512_224S 28 "vg_sha512_224_init"
+  Spec.Sha512.H0_512_224 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
+  (by decide +kernel) (nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel))
+def sha512_256OK : HashOK sha512_256H := sha512FamOK Spec.Hmac.sha512_256S 32 "vg_sha512_256_init"
+  Spec.Sha512.H0_512_256 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
   (by decide +kernel) (nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel))
 
 end VG.Proof.Hmac.Generic.X86_64
