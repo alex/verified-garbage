@@ -2,6 +2,7 @@ import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.MlKem1024.AArch64.CompressEncode
 import VerifiedGarbage.Proof.MlKem1024.AArch64.DecodeDecompress
 import VerifiedGarbage.Proof.MlKem1024.AArch64.CheckEk
+import VerifiedGarbage.Proof.MlKem1024.AArch64.KeyGen
 
 /-!
 # ML-KEM-1024 on AArch64
@@ -39,6 +40,14 @@ def artifacts : List Artifact := [
     code := Impl.MlKem1024.AArch64.checkEk
     contract := Spec.MlKem1024.checkEkContract AArch64.abi
     verified := Proof.MlKem1024.AArch64.CheckEk.checkEk_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem1024.keyGenApi with
+    target := AArch64.target
+    doc := Spec.MlKem1024.keyGenApi.doc
+    code := Impl.MlKem1024.AArch64.keyGen
+    contract := Spec.MlKem1024.keyGenContract AArch64.abi 16
+    stack := 16
+    verified := Proof.MlKem1024.AArch64.KeyGen.keyGen_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.MlKem1024.AArch64
