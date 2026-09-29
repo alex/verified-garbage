@@ -16,6 +16,20 @@ extern crate alloc;
 mod asm;
 mod cpu;
 
+// The verified assembly of the architecture being compiled for:
+// `crate::arch::<module>` is `crate::asm::<target>::<module>`, so a module
+// that runs the same functions on every architecture it supports imports
+// them once (and supporting another architecture changes only its
+// `#![cfg(...)]`).
+#[cfg(target_arch = "aarch64")]
+use asm::aarch64 as arch;
+#[cfg(target_arch = "arm")]
+use asm::arm as arch;
+#[cfg(target_arch = "x86")]
+use asm::x86 as arch;
+#[cfg(target_arch = "x86_64")]
+use asm::x86_64 as arch;
+
 // The 32-bit x86 model's baseline is i686 with SSE2 (see
 // `lean/VerifiedGarbage/TCB/X86/Isa.lean`): older CPUs' `mul` is not constant
 // time.

@@ -18,17 +18,12 @@
     target_arch = "x86"
 ))]
 
-#[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
-#[cfg(target_arch = "arm")]
-use crate::asm::arm::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
-#[cfg(target_arch = "x86")]
-use crate::asm::x86::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
 #[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::sha256::{
-    VG_SHA256_FINALIZE_SHANI_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES, vg_sha256_finalize,
-    vg_sha256_finalize_shani, vg_sha256_init, vg_sha256_update, vg_sha256_update_shani,
+use crate::arch::sha256::{
+    VG_SHA256_FINALIZE_SHANI_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES, vg_sha256_finalize_shani,
+    vg_sha256_update_shani,
 };
+use crate::arch::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
 
 super::streaming_hash!(
     /// An incremental SHA-256 computation.
