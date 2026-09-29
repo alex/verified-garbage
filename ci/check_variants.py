@@ -23,8 +23,7 @@ only worth having if everything built on the primitive can run it, so:
   primitive's backend enum, so that a new variant does not compile until it
   is handled.
 
-`KNOWN_GAPS` lists the callers that do not follow a variant yet; each entry
-must be a gap that exists (so the list only shrinks), and a new one fails.
+There are no exceptions.
 """
 
 import pathlib
@@ -33,15 +32,6 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ASM = ROOT / "src" / "asm"
-
-# (target, caller, suffix): callers that do not have the variant with that
-# suffix yet, although a function they call does. Remove an entry with the
-# change that fixes it.
-KNOWN_GAPS = {
-    # The AEAD calls `vg_chacha20_xor`; `vg_chacha20_xor_avx2` needs more stack.
-    ("x86_64", "vg_chacha20_poly1305_seal", "avx2"),
-    ("x86_64", "vg_chacha20_poly1305_open", "avx2"),
-}
 
 FN = re.compile(
     r"^pub\(crate\) unsafe extern \"[\w-]+\" fn (vg_\w+)\((.*?)\)(?: -> ([^{]+?))? \{\n(.*?)^\}",
@@ -78,7 +68,6 @@ def variants(fns):
 
 def check(targets, rust):
     errors = []
-    gaps = set()
     for target, fns in sorted(targets.items()):
         var = variants(fns)
         by_base = {}
@@ -92,17 +81,13 @@ def check(targets, rust):
                     if var.get(caller) and var[caller][1] == suffix:
                         continue  # already the variant
                     want = f"{caller}_{suffix}"
-                    key = (target, caller, suffix)
                     if want not in fns or var.get(want) != (caller, suffix):
-                        if key in KNOWN_GAPS:
-                            gaps.add(key)
-                        else:
-                            errors.append(
-                                f"{target}: {caller} calls {callee}, which has the variant "
-                                f"{callee}_{suffix}, but there is no {want} (with the same "
-                                f"signature) calling it: make {caller} generic over the "
-                                f"implementations of {callee} (see CLAUDE.md)"
-                            )
+                        errors.append(
+                            f"{target}: {caller} calls {callee}, which has the variant "
+                            f"{callee}_{suffix}, but there is no {want} (with the same "
+                            f"signature) calling it: make {caller} generic over the "
+                            f"implementations of {callee} (see CLAUDE.md)"
+                        )
                     elif f"{callee}_{suffix}" not in fns[want][1]:
                         errors.append(f"{target}: {want} does not call {callee}_{suffix}")
         called = set().union(*(c for _, c in fns.values())) if fns else set()
@@ -113,8 +98,6 @@ def check(targets, rust):
                     f"function nor used by the Rust code in src/ (outside src/asm/): dispatch "
                     f"to it where {var[name][0]} is used"
                 )
-    for key in sorted(KNOWN_GAPS - gaps):
-        errors.append(f"KNOWN_GAPS lists {key}, which is no longer a gap: remove it")
     return errors
 
 

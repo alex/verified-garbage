@@ -6,6 +6,11 @@
 //! the verified ChaCha20 and Poly1305 functions themselves; this module only
 //! lays out their context (the key, the nonce and the tag) and checks the
 //! length limit.
+//!
+//! They are emitted once for each implementation of `vg_chacha20_xor`, and
+//! the one called is that of the implementation `ChaCha20` selects
+//! (`crate::chacha20::Backend`): on x86-64, CPUs with AVX2 run
+//! `vg_chacha20_poly1305_seal_avx2` and `vg_chacha20_poly1305_open_avx2`.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -15,6 +20,12 @@
 ))]
 
 use crate::arch::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
+#[cfg(target_arch = "x86_64")]
+use crate::arch::chacha20poly1305::{
+    vg_chacha20_poly1305_open_avx2, vg_chacha20_poly1305_seal_avx2,
+};
+use crate::chacha20::Backend;
+use crate::cpu::detected;
 
 /// The largest plaintext RFC 8439 allows (`P_MAX`, §2.8): 2³² − 1 blocks of
 /// 64 bytes, as the block counter starts at 1.
@@ -33,6 +44,8 @@ pub struct InvalidTag;
 #[derive(Clone)]
 pub struct ChaCha20Poly1305 {
     key: [u8; 32],
+    /// The implementation of `vg_chacha20_xor` the functions called call.
+    backend: Backend,
 }
 
 impl ChaCha20Poly1305 {
@@ -45,7 +58,10 @@ impl ChaCha20Poly1305 {
 
     /// The AEAD with the key `key`.
     pub fn new(key: &[u8; 32]) -> Self {
-        ChaCha20Poly1305 { key: *key }
+        ChaCha20Poly1305 {
+            key: *key,
+            backend: Backend::select(detected()),
+        }
     }
 
     /// The context of the assembly functions: the key, the nonce and the tag
@@ -72,15 +88,21 @@ impl ChaCha20Poly1305 {
     pub fn encrypt_in_place(&self, nonce: &[u8; 12], aad: &[u8], data: &mut [u8]) -> [u8; 16] {
         assert!(!too_long(data.len()), "message too long");
         let mut ctx = self.ctx(nonce, &[0; 16]);
+        let seal = match self.backend {
+            Backend::Scalar => vg_chacha20_poly1305_seal,
+            #[cfg(target_arch = "x86_64")]
+            Backend::Avx2 => vg_chacha20_poly1305_seal_avx2,
+        };
         // SAFETY: `ctx` is valid for reads and writes of 1024 bytes, `aad`
         // for reads of `aad.len()` bytes and `data` for reads and writes of
         // `data.len()` bytes; they are distinct objects (`aad` is a shared
         // borrow and `data` a unique one), so they do not overlap each other
         // or anything on the stack (the return address, any arguments, and
         // the stack below the stack pointer the calls use), and do not wrap
-        // around the end of the address space.
+        // around the end of the address space. The CPU has the features of
+        // the implementation selected (see `features` in the tests).
         unsafe {
-            vg_chacha20_poly1305_seal(
+            seal(
                 &mut ctx,
                 aad.as_ptr(),
                 aad.len(),
@@ -110,9 +132,14 @@ impl ChaCha20Poly1305 {
     ) -> Result<(), InvalidTag> {
         assert!(!too_long(data.len()), "message too long");
         let mut ctx = self.ctx(nonce, tag);
+        let open = match self.backend {
+            Backend::Scalar => vg_chacha20_poly1305_open,
+            #[cfg(target_arch = "x86_64")]
+            Backend::Avx2 => vg_chacha20_poly1305_open_avx2,
+        };
         // SAFETY: as in `encrypt_in_place`.
         let ok = unsafe {
-            vg_chacha20_poly1305_open(
+            open(
                 &mut ctx,
                 aad.as_ptr(),
                 aad.len(),
@@ -131,7 +158,8 @@ impl ChaCha20Poly1305 {
 
 #[cfg(test)]
 mod tests {
-    use super::{ChaCha20Poly1305, InvalidTag, P_MAX, too_long};
+    use super::{Backend, ChaCha20Poly1305, InvalidTag, P_MAX, too_long};
+    use crate::cpu::detected;
 
     /// Decryption undoes encryption, and rejects any change to the data, the
     /// additional data, the nonce or the tag, zeroing the data.
@@ -190,5 +218,55 @@ mod tests {
         if let Ok(len) = usize::try_from(P_MAX + 1) {
             assert!(too_long(len));
         }
+    }
+
+    /// Every implementation gives the same ciphertext and tag as the scalar
+    /// one, and decrypts what any of them encrypted.
+    #[test]
+    fn implementations_agree() {
+        let key = core::array::from_fn(|i| (i * 7) as u8);
+        let mut scalar = ChaCha20Poly1305::new(&key);
+        scalar.backend = Backend::Scalar;
+        let best = ChaCha20Poly1305::new(&key);
+        assert_eq!(best.backend, Backend::select(detected()));
+        let nonce = [9; 12];
+        let aad = [4; 20];
+        for len in [0, 63, 64, 65, 511, 512, 513, 1000] {
+            let msg: [u8; 1000] = core::array::from_fn(|i| (i * 31) as u8);
+            let mut a = msg;
+            let mut b = msg;
+            let tag = scalar.encrypt_in_place(&nonce, &aad, &mut a[..len]);
+            assert_eq!(best.encrypt_in_place(&nonce, &aad, &mut b[..len]), tag);
+            assert_eq!(a, b);
+            assert_eq!(
+                best.decrypt_in_place(&nonce, &aad, &mut a[..len], &tag),
+                Ok(())
+            );
+            assert_eq!(
+                scalar.decrypt_in_place(&nonce, &aad, &mut b[..len], &tag),
+                Ok(())
+            );
+            assert_eq!(a, msg);
+            assert_eq!(b, msg);
+        }
+    }
+
+    /// The functions called for each implementation need exactly the
+    /// features of the ChaCha20 implementation `Backend::select` checks for.
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn features() {
+        use crate::arch::chacha20::VG_CHACHA20_XOR_AVX2_FEATURES;
+        use crate::arch::chacha20poly1305::{
+            VG_CHACHA20_POLY1305_OPEN_AVX2_FEATURES, VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES,
+        };
+        assert_eq!(
+            VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES,
+            VG_CHACHA20_XOR_AVX2_FEATURES
+        );
+        assert_eq!(
+            VG_CHACHA20_POLY1305_OPEN_AVX2_FEATURES,
+            VG_CHACHA20_XOR_AVX2_FEATURES
+        );
     }
 }
