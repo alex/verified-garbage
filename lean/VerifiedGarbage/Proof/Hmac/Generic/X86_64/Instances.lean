@@ -51,7 +51,7 @@ def finSat (S D sc : Nat) : State where
 
 /-! ## SHA-1 -/
 
-theorem sha1_initChecks : Init.Checks sha1H where
+theorem sha1_initChecks₀ : Init.Checks (sha1H .scalar) where
   keys := ⟨_, by taint_decide⟩
   argI := by
     simp only [List.mem_cons, List.not_mem_nil, or_false]
@@ -60,7 +60,7 @@ theorem sha1_initChecks : Init.Checks sha1H where
   argU₂ := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha1_finChecks : Finalize.Checks sha1H where
+theorem sha1_finChecks₀ : Finalize.Checks (sha1H .scalar) where
   pro := ⟨_, by taint_decide⟩
   fin1 := ⟨_, by taint_decide⟩
   copy1 := ⟨_, by taint_decide⟩
@@ -80,13 +80,60 @@ theorem sha1_finImp : (finG Spec.Hmac.sha1S 56).Implies (Spec.Hmac.sha1I.finaliz
     X86_64.argRegs]
     [finSat] using finSat 84 20 56
 
-theorem sha1_init : Verified X86_64.target sha1H.init (Spec.Hmac.sha1I.initContract X86_64.abi 16) :=
-  (Init.verified sha1OK sha1_initChecks (by decide) (by decide +kernel) sha1_initImp.sat_left).of_implies
-    sha1_initImp
+/-- The checks do not look at the functions `init` and `finalize` call, so
+they hold for every implementation `v` of the compression function. -/
+theorem sha1_initChecks (v : Proof.Sha1.X86_64.Compress) : Init.Checks (sha1H v) :=
+  have h := sha1_initChecks₀
+  ⟨h.keys, h.argI, h.argU₁, h.argU₂, h.restore⟩
 
-theorem sha1_finalize : Verified X86_64.target sha1H.finalize (Spec.Hmac.sha1I.finalizeContract X86_64.abi 16) :=
-  (Finalize.verified sha1OK sha1_finChecks (by decide) (by decide +kernel) sha1_finImp.sat_left).of_implies
-    sha1_finImp
+theorem sha1_finChecks (v : Proof.Sha1.X86_64.Compress) : Finalize.Checks (sha1H v) :=
+  have h := sha1_finChecks₀
+  ⟨h.pro, h.fin1, h.copy1, h.upd, h.fin2, h.copy2, h.restore⟩
+
+/-- `init` never loads MXCSR, for any implementation `v` of the compression
+function. -/
+theorem sha1_initMx (v : Proof.Sha1.X86_64.Compress) :
+    (sha1H v).init.allInstrs (fun i => !loadsMxcsr i) = true := by
+  simp only [Impl.Hmac.Generic.X86_64.Hash.init, Impl.Hmac.Generic.X86_64.Hash.callInit,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.allInstrs, sha1H_B, sha1H_buf, sha1H_restore,
+    sha1H_initC, sha1H_updC, sha1H_initKeys, v.update_mxcsr, Bool.and_true]
+  decide +kernel
+
+theorem sha1_finMx (v : Proof.Sha1.X86_64.Compress) :
+    (sha1H v).finalize.allInstrs (fun i => !loadsMxcsr i) = true := by
+  simp only [Impl.Hmac.Generic.X86_64.Hash.finalize, Impl.Hmac.Generic.X86_64.Hash.callFin,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.allInstrs, sha1H_B, sha1H_S, sha1H_D, sha1H_buf,
+    sha1H_restore, sha1H_updC, sha1H_finC, sha1H_finPrologue, v.update_mxcsr, v.finalize_mxcsr,
+    Bool.and_true]
+  decide +kernel
+
+/-- `init` and `finalize` never write the stack pointer, for any
+implementation `v` of the compression function. -/
+theorem sha1_initSp (v : Proof.Sha1.X86_64.Compress) :
+    (sha1H v).init.all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [Impl.Hmac.Generic.X86_64.Hash.init, Impl.Hmac.Generic.X86_64.Hash.callInit,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.all, sha1H_B, sha1H_buf, sha1H_restore, sha1H_initC,
+    sha1H_updC, sha1H_initKeys, Proof.Sha1.X86_64.Shared.update_spSafe v.spSafe, Bool.and_true]
+  decide +kernel
+
+theorem sha1_finSp (v : Proof.Sha1.X86_64.Compress) :
+    (sha1H v).finalize.all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [Impl.Hmac.Generic.X86_64.Hash.finalize, Impl.Hmac.Generic.X86_64.Hash.callFin,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.all, sha1H_B, sha1H_S, sha1H_D, sha1H_buf,
+    sha1H_restore, sha1H_updC, sha1H_finC, sha1H_finPrologue,
+    Proof.Sha1.X86_64.Shared.update_spSafe v.spSafe, Proof.Sha1.X86_64.Shared.finalize_spSafe v.spSafe,
+    Bool.and_true]
+  decide +kernel
+
+theorem sha1_init (v : Proof.Sha1.X86_64.Compress) :
+    Verified X86_64.target (sha1H v).init (Spec.Hmac.sha1I.initContract X86_64.abi 16) :=
+  (Init.verified (sha1OK v) (sha1_initChecks v) (by simp only [sha1H_buf, sha1H_B]; decide) (sha1_initMx v)
+    sha1_initImp.sat_left).of_implies sha1_initImp
+
+theorem sha1_finalize (v : Proof.Sha1.X86_64.Compress) :
+    Verified X86_64.target (sha1H v).finalize (Spec.Hmac.sha1I.finalizeContract X86_64.abi 16) :=
+  (Finalize.verified (sha1OK v) (sha1_finChecks v) (by simp only [sha1H_buf, sha1H_F]; decide) (sha1_finMx v)
+    sha1_finImp.sat_left).of_implies sha1_finImp
 
 /-! ## MD5 -/
 

@@ -9,12 +9,6 @@ A variant of `Sha1Compress` on x86-64 (see `TCB/Emit.lean`):
 
 namespace VG.Variants.Sha1Compress.X86_64.Scalar
 
-def variant : Proof.Sha1.X86_64.Compress where
-  callee := .scalar
-  ok := Proof.Sha1.X86_64.Stream.scalar_ok
-  mxcsr := by decide +kernel
-  spSafe := Code.all_of_allInstrs (by decide +kernel)
-  suffix := ""
-  features := []
+def variant : Proof.Sha1.X86_64.Compress := .scalar
 
 end VG.Variants.Sha1Compress.X86_64.Scalar
