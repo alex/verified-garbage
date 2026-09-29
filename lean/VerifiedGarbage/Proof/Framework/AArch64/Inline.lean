@@ -468,6 +468,32 @@ theorem WP.gprs {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s 
   have := List.all_eq_true.mp (List.all_eq_true.mp hc i hi) r hr
   simpa using this
 
+/-- Instruction `i` writes none of the registers `rs`: `rs.all fun r => dstOf i != some r`
+(`keeps_ofList`), with one lookup in a `RegSet` instead of a comparison of
+`dstOf i` with every register of `rs`, which the kernel evaluates several
+times faster. -/
+def keeps (rs : RegSet Reg) (i : Instr) : Bool :=
+  match dstOf i with
+  | none => true
+  | some d => !rs.mem d
+
+theorem keeps_ofList (rs : List Reg) (i : Instr) :
+    keeps (RegSet.ofList rs) i = rs.all fun r => dstOf i != some r := by
+  unfold keeps
+  cases dstOf i with
+  | none => simp
+  | some d =>
+    rw [Bool.eq_iff_iff, Bool.not_eq_true', ← Bool.not_eq_true, List.all_eq_true]
+    show ¬d ∈ RegSet.ofList rs ↔ _
+    simp only [RegSet.mem_ofList, bne_iff_ne, ne_eq, Option.some.injEq]
+    exact ⟨fun h r hr e => h (e ▸ hr), fun h hd => h d hd rfl⟩
+
+/-- No instruction of `c` writes any of the registers `rs`, checked by evaluating
+`keeps` on every instruction (`decide +kernel`). -/
+theorem instrs_keeps {c : Prog isa} {rs : List Reg} (h : c.allInstrs (keeps (RegSet.ofList rs)) = true) :
+    ((instrs c).all fun i => rs.all fun r => dstOf i != some r) = true := by
+  rwa [← Code.allInstrs_eq, ← funext (keeps_ofList rs)]
+
 /-- Inlining verified code: from a state `s` in which the code's precondition
 holds once its permissions are narrowed to `rd` and `wr`, the code
 terminates in a state satisfying its postcondition and calling-convention

@@ -96,6 +96,12 @@ instructions in an ISA model) go in their own PR before either.
    faster. If its code uses instructions outside
    the target's baseline ISA, list the CPU features they require in
    `features` (the emitter rejects anything but the exact set).
+   A function that calls another one with several implementations (e.g.
+   scalar and SHA-NI compression) is proven once for any of them and
+   registered in `Generic/<Iface>/<Target>/<Alg>.lean`, which the emitter
+   applies to every implementation in `Variants/<Iface>/<Target>/` (see
+   `TCB/Emit.lean`). Never list the implementations in the caller: a new
+   implementation is a new variant file, and its callers follow.
 5. Regenerate `src/asm/`, build the public Rust API on top of the primitive,
    and test it against the Wycheproof vectors in `tests/wycheproof/` (set
    `WYCHEPROOF_ROOT` to a checkout of C2SP/wycheproof). Benchmark the new
@@ -111,6 +117,9 @@ should add files, not edit lists that every other PR edits too.
   inner `#![cfg(...)]` after its `//!` docs; the parent only says
   `mod <name>;`. Supporting another architecture changes that one line of
   the algorithm's own file.
+  Tests and benchmarks are gated on exactly the architectures of the
+  library modules they use (`ci/check_arch_gates.py` checks it), so update
+  their `cfg`s with the module's.
 * Import the verified functions from `crate::arch::<module>` (the target's
   `crate::asm::<target>::<module>`, `src/lib.rs`), once for every
   architecture, not with a `use` per architecture; only functions a target
@@ -209,6 +218,7 @@ against the 200000 budget.
 python3 ci/check_lean_imports.py
 python3 ci/check_lean_speed.py
 python3 ci/check_vectors.py
+python3 ci/check_arch_gates.py
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
 ```

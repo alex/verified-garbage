@@ -44,6 +44,11 @@ def Z1 : Reg := .r10
 def E0 : Reg := .r11
 def E1 : Reg := .r12
 
+/-- `++`, grouping to the right. The kernel evaluates the code (for the
+constant-time analysis), and `(a ++ b) ++ c` has it copy `a` twice: for the
+rounds, several times slower than `a ++ (b ++ c)`. -/
+local infixr:65 " +++ " => HAppend.hAppend
+
 /-- The offset from `r3` of `W[j mod 16]`, in the scratch buffer. -/
 def wOff (j : Nat) : Nat := 64 + 8 * (j % 16)
 
@@ -124,10 +129,10 @@ def loadW (i o : Nat) : List Instr :=
 `[r3, #oᵢ]`, in place of `Wₜ₋₁₆`. The additions are in the order of the
 specification. -/
 def expandW (o2 o7 o15 o16 : Nat) : List Instr :=
-  ld X0 X1 .r3 o2 ++ sig Y0 Y1 X0 X1 ssig1 ++
-  ld Z0 Z1 .r3 o7 ++ add64 Y0 Y1 Z0 Z1 ++
-  ld X0 X1 .r3 o15 ++ sig Z0 Z1 X0 X1 ssig0 ++ add64 Y0 Y1 Z0 Z1 ++
-  ld Z0 Z1 .r3 o16 ++ add64 Y0 Y1 Z0 Z1 ++
+  ld X0 X1 .r3 o2 +++ sig Y0 Y1 X0 X1 ssig1 +++
+  ld Z0 Z1 .r3 o7 +++ add64 Y0 Y1 Z0 Z1 +++
+  ld X0 X1 .r3 o15 +++ sig Z0 Z1 X0 X1 ssig0 +++ add64 Y0 Y1 Z0 Z1 +++
+  ld Z0 Z1 .r3 o16 +++ add64 Y0 Y1 Z0 Z1 +++
   st Y0 Y1 .r3 o16
 
 /-- Store `Wₜ` in its slot. -/
@@ -140,16 +145,16 @@ order of the specification: `T₁` is accumulated in `(Y0, Y1)`, `d + T₁` in
 `(E0, E1)`, and then `T₁ + T₂` in `(Y0, Y1)`. -/
 def roundW (a b c d e f g h : Nat) (k : BitVec 64) (w : Nat) : List Instr :=
   -- T₁ := h + Σ₁(e) + Ch(e, f, g) + Kₜ + Wₜ
-  ld Y0 Y1 .r3 h ++ ld X0 X1 .r3 e ++ sig Z0 Z1 X0 X1 bsig1 ++ add64 Y0 Y1 Z0 Z1 ++
-  chW f g ++ add64 Y0 Y1 Z0 X0 ++
-  const64 Z0 Z1 k ++ add64 Y0 Y1 Z0 Z1 ++
-  ld Z0 Z1 .r3 w ++ add64 Y0 Y1 Z0 Z1 ++
+  ld Y0 Y1 .r3 h +++ ld X0 X1 .r3 e +++ sig Z0 Z1 X0 X1 bsig1 +++ add64 Y0 Y1 Z0 Z1 +++
+  chW f g +++ add64 Y0 Y1 Z0 X0 +++
+  const64 Z0 Z1 k +++ add64 Y0 Y1 Z0 Z1 +++
+  ld Z0 Z1 .r3 w +++ add64 Y0 Y1 Z0 Z1 +++
   -- e' := d + T₁
-  ld E0 E1 .r3 d ++ add64 E0 E1 Y0 Y1 ++
+  ld E0 E1 .r3 d +++ add64 E0 E1 Y0 Y1 +++
   -- a' := (T₁ + Σ₀(a)) + Maj(a, b, c)
-  ld X0 X1 .r3 a ++ sig Z0 Z1 X0 X1 bsig0 ++ add64 Y0 Y1 Z0 Z1 ++
-  majW b c ++ add64 Y0 Y1 Z0 X0 ++
-  st Y0 Y1 .r3 h ++ st E0 E1 .r3 d
+  ld X0 X1 .r3 a +++ sig Z0 Z1 X0 X1 bsig0 +++ add64 Y0 Y1 Z0 Z1 +++
+  majW b c +++ add64 Y0 Y1 Z0 X0 +++
+  st Y0 Y1 .r3 h +++ st E0 E1 .r3 d
 
 /-- Round `t`. -/
 def round (t : Nat) : List Instr :=
