@@ -11,10 +11,7 @@
 
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
-#[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::md5::{vg_md5_finalize, vg_md5_init, vg_md5_update};
-#[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::md5::{vg_md5_finalize, vg_md5_init, vg_md5_update};
+use crate::arch::md5::{vg_md5_finalize, vg_md5_init, vg_md5_update};
 
 super::streaming_hash!(
     /// An incremental MD5 computation.

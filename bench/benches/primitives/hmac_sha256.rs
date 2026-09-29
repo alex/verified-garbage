@@ -1,4 +1,4 @@
-//! HMAC.
+//! HMAC-SHA-256.
 
 use std::hint::black_box;
 
@@ -13,7 +13,7 @@ use crate::{OPENSSL, SIZES, VG};
 
 /// The library modules whose code these benchmarks run (see
 /// `ci/bench_arches.py`): this one and those it calls.
-pub const USES: &[&str] = &["hmac", "sha256"];
+pub const USES: &[&str] = &["hmac_sha256", "sha256"];
 
 pub fn bench(c: &mut Criterion) {
     let key = [0x0b; 32];
