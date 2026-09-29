@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.X86.Run
 import VerifiedGarbage.Proof.Poly1305.X86.Contract
 import VerifiedGarbage.Proof.Framework.X86.Taint
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Poly1305 on x86 (32-bit): `blocks`

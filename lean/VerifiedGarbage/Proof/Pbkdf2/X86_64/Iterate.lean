@@ -607,7 +607,7 @@ theorem digest_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Regs s₀ s) {
     WP isa (.block (Impl.Pbkdf2.X86_64.digest ++ rest)) s Q := by
   unfold Impl.Pbkdf2.X86_64.digest
   refine out_ok (st := scr s₀ + 112) (sc := scr s₀) (scr_disj s₀ (a := 112) (b := 144) (by omega) (by omega)
-    (by omega)) 8 le_rfl rest s Q h.rdi h.rcx (fun j hj => InRegions.right (in_scr hp h.wr (a := 112) (b := 4 * j) (n := 4) (by omega)))
+    (by omega)) 8 (Nat.le_refl _) rest s Q h.rdi h.rcx (fun j hj => InRegions.right (in_scr hp h.wr (a := 112) (b := 4 * j) (n := 4) (by omega)))
     (fun j hj => in_scr hp h.wr (a := 144) (by omega)) fun s' g' rd' wr' m' => ?_
   rw [digest_eq] at m'
   have hf : Frame [sR s₀ 144 32] s.mem s'.mem := by
@@ -656,7 +656,7 @@ theorem body_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {r : Nat
   rw [List.append_assoc]
   refine digest_ok hp h₅ fun s₆ h₆ g₆ f₆ m₆ => ?_
   have hd : Region.Disjoint (tR s₀) ⟨scr s₀ + 144, 32⟩ := hp.t_s.sub_right (scr_sub s₀ (o := 144) (by omega))
-  refine xor_ok (tp := tP s₀) (sc := scr s₀) hd 4 le_rfl _ s₆ _ h₆.rbp h₆.rcx
+  refine xor_ok (tp := tP s₀) (sc := scr s₀) hd 4 (Nat.le_refl _) _ s₆ _ h₆.rbp h₆.rcx
     (fun j hj => InRegions.right (in_scr hp h₆.wr (a := 144) (b := 8 * j) (n := 8) (by omega)))
     (fun j hj => in_t hp h₆.wr (b := 8 * j) (n := 8) (by omega)) fun s₇ g₇ rd₇ wr₇ m₇ => ?_
   rw [show 8 * 4 = 32 from rfl] at m₇
@@ -931,7 +931,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
       (writeBytes_frame _ _ _ (inS 176 32 (by omega)))
   have hsep : Mem.Sep (scr s₀ + BitVec.ofNat 64 144) 32 (scr s₀ + BitVec.ofNat 64 176) pad96.length :=
     Region.Disjoint.sep (scr_disj s₀ (a := 144) (m := 32) (b := 176) (n := 32) (by omega) (by omega) (by omega))
-      (contains_base le_rfl) (contains_base le_rfl)
+      (contains_base (Nat.le_refl _)) (contains_base (Nat.le_refl _))
   have hU : bytesAt s₁₂.mem (scr s₀ + 144) 32 = bytesAt s₀.mem (uP s₀) 32 := by
     show bytesAt s₁₂.mem (scr s₀ + BitVec.ofNat 64 144) 32 = _
     have := bytesAt_writeBytes_self s₃.mem (scr s₀ + BitVec.ofNat 64 144) (bytesAt s₃.mem (uP s₀) 32)
@@ -948,12 +948,12 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     let A : Region := ⟨scr s₀ + BitVec.ofNat 64 144, 32⟩
     let B : Region := ⟨scr s₀ + BitVec.ofNat 64 176, 32⟩
     have f₁ : Frame [A, B] s₃.mem (writeBytes s₃.mem (scr s₀ + BitVec.ofNat 64 144) (bytesAt s₃.mem (uP s₀) 32)) :=
-      (writeBytes_frame _ _ _ (R := A) (by rw [bytesAt_length]; exact contains_base le_rfl)).mono (by simp)
+      (writeBytes_frame _ _ _ (R := A) (by rw [bytesAt_length]; exact contains_base (Nat.le_refl _))).mono (by simp)
     have f₂ : Frame [A, B] (writeBytes s₃.mem (scr s₀ + BitVec.ofNat 64 144) (bytesAt s₃.mem (uP s₀) 32))
         (writeBytes (writeBytes s₃.mem (scr s₀ + BitVec.ofNat 64 144) (bytesAt s₃.mem (uP s₀) 32))
           (scr s₀ + BitVec.ofNat 64 176) pad96) :=
       (writeBytes_frame _ _ _ (R := B) (contains_base (by decide))).mono (by simp)
-    refine (f₁.trans f₂).readW (r := ⟨scr s₀ + BitVec.ofNat 64 d, 8⟩) (contains_base le_rfl) ?_ (by decide)
+    refine (f₁.trans f₂).readW (r := ⟨scr s₀ + BitVec.ofNat 64 d, 8⟩) (contains_base (Nat.le_refl _)) ?_ (by decide)
     intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
@@ -968,7 +968,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   refine ⟨⟨⟨by rw [rd₁₂, rd₁₁, rd₁₀, rd₉], by rw [wr₁₂, wr₁₁, wr₁₀, wr₉], by rw [G _ (by decide), rbx₉],
     by rw [G _ (by decide), rbp₉], by rw [G _ (by decide), rcx₉], by rw [G _ (by decide), rdi₉],
     G' _ (by simp), G' _ (by simp), G' _ (by simp), G' _ (by simp), F.mono (by simp)⟩,
-    by rw [G _ (by decide), r13₉], ?_, ?_, le_rfl, by rw [hU, hT]⟩, ?_⟩
+    by rw [G _ (by decide), r13₉], ?_, ?_, (Nat.le_refl _), by rw [hU, hT]⟩, ?_⟩
   · intro p hp'
     simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
     rcases hp' with rfl | rfl | rfl

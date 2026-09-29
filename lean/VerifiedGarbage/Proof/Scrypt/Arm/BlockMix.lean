@@ -335,7 +335,7 @@ theorem half_ok {c : Prog isa} (hS : SalsaSpec c) {s₀ : State} (hp : Pre s₀)
   have eb : State.addr (bP s₀ + BitVec.ofNat 32 ob) = bA s₀ + BitVec.ofNat 64 ob := b_addr hp (by omega)
   rw [← List.append_nil (xor64 dR xR sR)]
   refine xor64_ok hd hx hs (y_fit hp ho) fx (b_fit hp hob) (by rw [ed]; exact hdx)
-    (by rw [ed, eb]; exact yb_disj hp ho hob) 16 le_rfl [] s _ gd gx gs hinx
+    (by rw [ed, eb]; exact yb_disj hp ho hob) 16 (Nat.le_refl _) [] s _ gd gx gs hinx
     (fun i hi => by
       rw [hrd, hwr, eb, add_ofNat]; exact InRegions.of_mem (by simp) (in_b hp (by omega)))
     (fun i hi => by

@@ -138,7 +138,7 @@ theorem loop {body : Prog M} {c : M.Cond} {Q : M.State → M.State → Prop}
     (hstep : ∀ n, RelCT M (I n) body fun s₁ s₂ => M.eval c s₁ = M.eval c s₂ ∧
       (M.eval c s₁ = some false → Q s₁ s₂) ∧ (M.eval c s₁ = some true → ∃ m < n, I m s₁ s₂))
     (n : Nat) : RelCT M (I n) (.loop body c) Q := by
-  induction n using Nat.strong_induction_on with
+  induction n using Nat.strongRecOn with
   | _ n ih =>
     intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
     cases e₁ with

@@ -1,6 +1,9 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Steps
 import VerifiedGarbage.Proof.Poly1305.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Taint
+import Mathlib.Tactic.Conv
+import Mathlib.Tactic.NormNum.Basic
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Poly1305 on 32-bit ARM: `finalize`
@@ -232,7 +235,7 @@ theorem zinit_ok {s₀ s₁ : State} (h₁ : P1 s₀ s₁) :
   have hk := kb_lt s₀
   refine wp_mov (op2_imm (by decide)) fun s₂ u₂ => wp_add (op2_reg _ _) fun s₃ u₃ =>
     wp_mov (op2_imm (by decide)) fun s₄ u₄ => wp_sub (op2_reg _ _) fun s₅ u₅ => WP.block_nil ?_
-  refine ⟨⟨le_rfl, hk.le⟩, ?_, ?_, ?_, ⟨fun r hr => ?_, ?_, ?_, ?_, ?_⟩, fun k hk' => ?_⟩
+  refine ⟨⟨(Nat.le_refl _), hk.le⟩, ?_, ?_, ?_, ⟨fun r hr => ?_, ?_, ?_, ?_, ?_⟩, fun k hk' => ?_⟩
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.other .r0 (by decide),
       u₂.other .r4 (by decide), h₁.r0, h₁.r4]
   · rw [u₅.gpr, u₄.gpr, u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide), h₁.r4,
@@ -421,7 +424,7 @@ theorem mid_ok {s₀ : State} (hp : FPre s₀) {s : State} (h : F2 s₀ s) :
     fun s₁ u₁ => ?_
   have f₁ : Frame (offR (stB s₀) [(124, 4)]) s.mem s₁.mem := by
     rw [u₁.mem]
-    exact Frame.writeOff (Frame.refl _ _) (a := 124) (len := 4) (List.mem_singleton_self _) le_rfl le_rfl
+    exact Frame.writeOff (Frame.refl _ _) (a := 124) (len := 4) (List.mem_singleton_self _) (Nat.le_refl _) (Nat.le_refl _)
       (by omega) _ rfl
   have fc₁ : FC s₀ s₁ := h.toFC.keepsF hp (ws := []) ⟨fun r _ => by rw [u₁.gpr], f₁, u₁.rd, u₁.wr, u₁.sp⟩
     (by decide) (by decide) (by decide)
@@ -673,7 +676,7 @@ theorem tag_ok {s₀ : State} (hp : FPre s₀) {s : State} (h : F4 s₀ s) :
     have hS : leNum (((bytesAt s₀.mem (stB s₀ + 24) 32).drop 16).take 16) =
         w 0 + 2 ^ 32 * w 1 + 2 ^ 64 * w 2 + 2 ^ 96 * w 3 := by
       rw [(drop_bytesAt s₀.mem (stB s₀ + 24) 16 16 : (bytesAt s₀.mem (stB s₀ + 24) 32).drop 16 = _),
-        take_bytesAt _ _ le_rfl, leNum_bytesAt_16, show (24 : Addr) = BitVec.ofNat 64 24 from rfl, off_add, off_add,
+        take_bytesAt _ _ (Nat.le_refl _), leNum_bytesAt_16, show (24 : Addr) = BitVec.ofNat 64 24 from rfl, off_add, off_add,
         off_add, off_add, off_add]
     simp only [Spec.Poly1305.mac]
     rw [← hkey, take_bytesAt _ _ (by omega), ← val_rlimb, Poly1305.accumulate_append hlen, hA, hS,

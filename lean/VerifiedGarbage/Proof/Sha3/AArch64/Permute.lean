@@ -146,7 +146,7 @@ def RcInv (s₀ : State) (k : Nat) (s : State) : Prop :=
 theorem rcs_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ((List.range 24).flatMap rcStore)) s₀ (RcInv s₀ 24) := by
   refine wp_range_flatMap (M := isa) (RcInv s₀) (fun k s hk ⟨hx0, hx1, hrd, hwr, hsp, hf, hv⟩ => ?_)
-    24 le_rfl s₀ ⟨rfl, rfl, rfl, rfl, rfl, Frame.refl _ _, fun _ h => absurd h (by omega)⟩
+    24 (Nat.le_refl _) s₀ ⟨rfl, rfl, rfl, rfl, rfl, Frame.refl _ _, fun _ h => absurd h (by omega)⟩
   refine WP.mono (rcStore_ok k hk s
     (by rw [hwr, hx1]; exact hp.off_in (by omega))) fun s' ⟨g', r', w', p', m'⟩ => ?_
   rw [hx1] at m'

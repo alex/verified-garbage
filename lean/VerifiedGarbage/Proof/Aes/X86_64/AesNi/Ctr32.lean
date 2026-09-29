@@ -184,7 +184,7 @@ theorem blocks_ok {s₀ : State} (hp : Pre s₀) (rs : List XReg) (hrs : rs = re
   simp only [addr'] at b₃
   have kx : ∀ r, r ≠ .xmm8 → r ≠ .xmm9 → r ∉ rs → s₃.xmm r = s.xmm r := fun r h8' h9 hr => by
     rw [x₃ r h8' hr, f₂.xmm r (by simp [h8', hr]), f₁.xmm r (by simp [h9, hr])]
-  refine ⟨hc.trans' (by omega), ?_, ?_, ?_, fun r h1 h2 h3 h4 => by rw [g₃, f₂.gpr, hg₁ r h1 h2 h3 h4], ?_,
+  refine ⟨Nat.le_trans (by omega) hc, ?_, ?_, ?_, fun r h1 h2 h3 h4 => by rw [g₃, f₂.gpr, hg₁ r h1 h2 h3 h4], ?_,
     by rw [g₃, hrcx₂], by rw [g₃, f₂.gpr, f₁.gpr, hI.r8], ?_, ?_, by rw [rd₃, f₂.rd, f₁.rd, hI.rd],
     by rw [wr₃, f₂.wr, f₁.wr, hI.wr]⟩
   · rw [x₃ _ (by decide) (fun h => (hx _ h).1 rfl), f₂.xmm _ (by

@@ -1,14 +1,6 @@
-import Mathlib.Tactic.IntervalCases
-import Mathlib.Tactic.NormNum.Basic
-import Mathlib.Tactic.Ring.RingNF
-import Mathlib.Data.List.Basic
-import Mathlib.Tactic.Tauto
-import Mathlib.Tactic.SplitIfs
-import Mathlib.Tactic.Set
-import Mathlib.Tactic.Use
-import Mathlib.Tactic.ByContra
 import VerifiedGarbage.Spec.Sha1
 import VerifiedGarbage.Proof.Framework.Mem
+import Mathlib.Tactic.Conv
 
 /-!
 # Streaming SHA-1: facts about the specification
@@ -54,7 +46,7 @@ theorem compressList_add (H : HashValue) (p : List Byte) (a b : Nat) :
     have : blockOf p (a + b) = blockOf (p.drop (64 * a)) b := by
       funext t
       simp only [blockOf, parseBlock, List.getD_eq_getElem?_getD, List.getElem?_drop]
-      ring_nf
+      simp only [Nat.mul_add, Nat.add_assoc]
     rw [this]
 
 theorem getD_append_left {p q : List Byte} {j : Nat} (h : j < p.length) :
@@ -347,7 +339,7 @@ theorem hash_two {m : List Byte} (hr : 56 ≤ m.length % 64) :
   have e : rest m ++ [0x80] ++ List.replicate ((119 - m.length % 64) % 64) 0 ++ lenBytes m =
       (rest m ++ [0x80] ++ List.replicate (63 - m.length % 64) 0) ++
         (List.replicate 56 0 ++ lenBytes m) := by
-    rw [show (119 - m.length % 64) % 64 = (63 - m.length % 64) + 56 by omega, List.replicate_add]
+    rw [show (119 - m.length % 64) % 64 = (63 - m.length % 64) + 56 by omega, ← List.replicate_append_replicate]
     simp only [List.append_assoc]
   have hl : (rest m ++ [0x80] ++ List.replicate (63 - m.length % 64) 0).length = 64 := by
     simp only [List.length_append, rest_length, List.length_replicate, List.length_singleton]; omega

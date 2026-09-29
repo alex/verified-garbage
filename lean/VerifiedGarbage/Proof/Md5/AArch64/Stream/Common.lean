@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Md5.AArch64.Compress
 import VerifiedGarbage.Proof.Md5.Stream
 import VerifiedGarbage.Proof.Framework.AArch64.Call
 import VerifiedGarbage.Impl.Md5.AArch64.Stream
+import Mathlib.Tactic.Conv
 
 /-!
 # Streaming MD5 on AArch64: common lemmas

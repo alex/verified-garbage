@@ -1,6 +1,7 @@
-import Mathlib.Tactic.Ring
-import Mathlib.Tactic.IntervalCases
 import VerifiedGarbage.Spec.Poly1305
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.NormNum.Basic
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Poly1305 on 32-bit ARM: the arithmetic in radix `2¹³`
@@ -41,7 +42,7 @@ def rsum (f : Nat → Nat) : Nat → Nat
   | n + 1 => rsum f n + f n
 
 theorem rsum_le {f g : Nat → Nat} (h : ∀ j, f j ≤ g j) : ∀ n, rsum f n ≤ rsum g n
-  | 0 => le_rfl
+  | 0 => (Nat.le_refl _)
   | n + 1 => Nat.add_le_add (rsum_le h n) (h n)
 
 theorem rsum_mono (f : Nat → Nat) {m n : Nat} (h : m ≤ n) : rsum f m ≤ rsum f n := by
@@ -49,7 +50,7 @@ theorem rsum_mono (f : Nat → Nat) {m n : Nat} (h : m ≤ n) : rsum f m ≤ rsu
   | zero => rw [Nat.le_zero.mp h]
   | succ n ih =>
     rcases Nat.lt_or_ge m (n + 1) with h' | h'
-    · exact le_trans (ih (by omega)) (Nat.le_add_right _ _)
+    · exact Nat.le_trans (ih (by omega)) (Nat.le_add_right _ _)
     · rw [show m = n + 1 by omega]
 
 theorem rsum_const (c : Nat) : ∀ n, rsum (fun _ => c) n = n * c
@@ -112,7 +113,7 @@ theorem psum_le_col (h r : Nat → Nat) {j n k : Nat} (hj : j < 10) :
   split <;> omega
 
 theorem rsum_le_of_lt {f g : Nat → Nat} : ∀ n, (∀ j < n, f j ≤ g j) → rsum f n ≤ rsum g n
-  | 0, _ => le_rfl
+  | 0, _ => (Nat.le_refl _)
   | n + 1, h => Nat.add_le_add (rsum_le_of_lt n fun j hj => h j (by omega)) (h n (by omega))
 
 /-- A bound on every column. -/
@@ -443,7 +444,7 @@ theorem land_split32 {a b c d : Nat} (ha : a < 2 ^ 32) (hc : c < 2 ^ 32) :
     (a + 2 ^ 32 * b) &&& (c + 2 ^ 32 * d) = (a &&& c) + 2 ^ 32 * (b &&& d) := by
   apply Nat.eq_of_testBit_eq
   intro i
-  have hac : (a &&& c) < 2 ^ 32 := lt_of_le_of_lt Nat.and_le_left ha
+  have hac : (a &&& c) < 2 ^ 32 := Nat.lt_of_le_of_lt Nat.and_le_left ha
   rw [Nat.testBit_and]
   rw [Nat.add_comm a, Nat.add_comm c, Nat.add_comm (a &&& c)]
   rw [Nat.testBit_two_pow_mul_add _ ha, Nat.testBit_two_pow_mul_add _ hc,
@@ -462,7 +463,7 @@ theorem clamp_words {k0 k1 k2 k3 : Nat} (h0 : k0 < 2 ^ 32) (h1 : k1 < 2 ^ 32) (h
     land_split32 h0 (by norm_num), land_split32 h1 (by norm_num), land_split32 h2 (by norm_num)]
 
 theorem and_lt {k m : Nat} (h : m < 2 ^ 28) : (k &&& m) < 2 ^ 28 :=
-  lt_of_le_of_lt Nat.and_le_right h
+  Nat.lt_of_le_of_lt Nat.and_le_right h
 
 theorem and_fffffffc_mod (k : Nat) : (k &&& 0x0ffffffc) % 2 = 0 := by
   rw [show (2 : Nat) = 2 ^ 1 from rfl, ← Nat.and_two_pow_sub_one_eq_mod, Nat.and_assoc,

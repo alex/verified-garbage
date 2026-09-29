@@ -185,7 +185,7 @@ theorem loop_rel (hc : Checks H) :
   · refine (RelCT.loop (M := isa) (LoopInv hH (sc := sc) (s₀ := s₀) (s₀' := s₀')) (step_rel hH hp hp' hq hc)
       (nn s₀)).mono (fun s s' h => ?_) fun _ _ h => h
     have e : nn s₀ ≠ 0 := by simpa [eval, h.1.1.2] using h.2
-    exact ⟨by omega, le_rfl, h.1.1.1, hN ▸ h.1.2.1⟩
+    exact ⟨by omega, (Nat.le_refl _), h.1.1.1, hN ▸ h.1.2.1⟩
 
 theorem ct (hc : Checks H) : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') (iterate H) fun _ _ => True := by
   have hN := hq.nn

@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.AArch64.Exec
 import VerifiedGarbage.Proof.Sha256.Spec
 import VerifiedGarbage.Impl.Sha256.AArch64
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # SHA-256 compression function on AArch64: the message schedule and the rounds

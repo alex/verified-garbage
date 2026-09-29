@@ -71,7 +71,7 @@ theorem init_all (iv : HashValue) {s₀ : State} (hfit : (s₀.gpr .r0).toNat + 
 theorem init_correct {s₀ : State} (iv : HashValue) (hp : (Proof.Sha512.initArm iv).pre s₀) :
     WP isa (init iv) s₀ fun s' => abiPreserved s₀ s' ∧ (Proof.Sha512.initArm iv).post s₀ s' := by
   obtain ⟨-, hwr, hfit⟩ := hp
-  refine WP.mono (init_all iv hfit (Reg64.of_mem (by simp [hwr]) hfit) 8 le_rfl) fun s h => ⟨⟨?_, h.sp⟩, ?_⟩
+  refine WP.mono (init_all iv hfit (Reg64.of_mem (by simp [hwr]) hfit) 8 (Nat.le_refl _)) fun s h => ⟨⟨?_, h.sp⟩, ?_⟩
   · intro r hr
     simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
     exact h.gpr r (by rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide)

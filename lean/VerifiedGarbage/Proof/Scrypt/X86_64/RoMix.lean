@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Scrypt.X86_64.BlockMixCT
 import VerifiedGarbage.Proof.Scrypt.RoMix
 import VerifiedGarbage.Impl.Scrypt.X86_64.RoMix
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # scryptROMix on x86-64: the precondition and the calls
@@ -351,6 +352,6 @@ theorem shr_ofNat {a : Nat} (n : Nat) (h : a < 2 ^ 64) :
     BitVec.ofNat 64 a >>> n = BitVec.ofNat 64 (a / 2 ^ n) := by
   apply BitVec.eq_of_toNat_eq
   rw [BitVec.toNat_ushiftRight, BlockMix.toNat_ofNat_lt h, BlockMix.toNat_ofNat_lt
-    (lt_of_le_of_lt (Nat.div_le_self _ _) h), Nat.shiftRight_eq_div_pow]
+    (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) h), Nat.shiftRight_eq_div_pow]
 
 end VG.Proof.Scrypt.X86_64.RoMix

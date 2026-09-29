@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Framework.Taint
 import VerifiedGarbage.Proof.Framework.RegSet
 import VerifiedGarbage.TCB.AArch64.Target
+import Mathlib.Tactic.Set
 
 /-!
 # Taint tracking for AArch64

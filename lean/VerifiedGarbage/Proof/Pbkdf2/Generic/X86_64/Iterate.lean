@@ -320,7 +320,7 @@ theorem updCall_ok {m : Nat} {t : State} (hk : KR (H := H) sc s₀ m t) {d : Add
   · simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl)
     · exact save_off hp (by simp only [stO]; omega) (by simp only [stO]; omega) hS0
-    · exact ((cal_disj hH hp (b := 8 * H.W) (n := 48) le_rfl (by omega))).symm
+    · exact ((cal_disj hH hp (b := 8 * H.W) (n := 48) (Nat.le_refl _) (by omega))).symm
   · simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl)
     · exact st_sub hp
@@ -394,7 +394,7 @@ theorem finCall_ok {m : Nat} {t : State} (hk : KR (H := H) sc s₀ m t) {o : Nat
     rintro r (rfl | rfl | rfl)
     · exact save_off hp (by simp only [stO]; omega) (by simp only [stO]; omega) hS0
     · exact save_off hp (by simp only [stO] at ho'; omega) (by omega) (by omega)
-    · exact ((cal_disj hH hp (b := 8 * H.W) (n := 48) le_rfl (by omega))).symm
+    · exact ((cal_disj hH hp (b := 8 * H.W) (n := 48) (Nat.le_refl _) (by omega))).symm
   · simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl)
     · exact st_sub hp
@@ -651,7 +651,7 @@ theorem loop_ok {s : State} (h : Inv hH sc s₀ (nn s₀) s) (hz : s.zf = some (
     exact e ▸ h
   · have hpos : 1 ≤ nn s₀ := by have := of_decide_eq_false h0; omega
     refine WP.loop (M := isa) (fun k t => ∃ m, k = m ∧ 1 ≤ m ∧ m ≤ nn s₀ ∧ Inv hH sc s₀ m t) ?_ (nn s₀) s
-      ⟨nn s₀, rfl, hpos, le_rfl, h⟩
+      ⟨nn s₀, rfl, hpos, (Nat.le_refl _), h⟩
     rintro k t ⟨m, hkm, h1, h2, ht⟩
     refine WP.mono (body_ok hH hp h1 (by omega) ht) fun t' ⟨ht', hz'⟩ => ?_
     by_cases hl : m - 1 = 0

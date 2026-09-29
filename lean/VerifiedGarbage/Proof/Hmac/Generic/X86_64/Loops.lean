@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Hash
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
 import VerifiedGarbage.Spec.Pbkdf2
+import Mathlib.Tactic.Set
 
 /-!
 # HMAC over any streaming hash function on x86-64: the byte loops
@@ -488,7 +489,7 @@ theorem pad_ok {P K : Addr} {kl : Nat} {s₀ : State} (hr : LoopRegs H P K kl s�
     exact this ▸ i0.toKeyInv
   · have : kl < H.B := by simp at h0; omega
     refine WP.mono (WP.loop (M := isa) (fun n t => ∃ j, n = H.B - j ∧ kl ≤ j ∧ j < H.B ∧ PadInv H s₀ P K kl j t)
-      ?_ (H.B - kl) t₃ ⟨kl, rfl, le_rfl, this, i0⟩) fun _ h => h
+      ?_ (H.B - kl) t₃ ⟨kl, rfl, (Nat.le_refl _), this, i0⟩) fun _ h => h
     rintro n t ⟨j, rfl, hj, hj', hb⟩
     refine WP.mono (pad_step H hr hm hj hj' hb) fun t' ⟨hb', hz'⟩ => ?_
     by_cases hl : j + 1 = H.B

@@ -1,8 +1,10 @@
 import Mathlib.Algebra.Field.ZMod
 import Mathlib.RingTheory.AdjoinRoot
 import Mathlib.Tactic.ComputeDegree
-import Mathlib.Tactic.LinearCombination
 import VerifiedGarbage.Proof.Gcm.Spec
+import Mathlib.Tactic.LinearCombination
+import Mathlib.Tactic.Ring.RingNF
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # GCM: the field GF(2¹²⁸) as polynomials

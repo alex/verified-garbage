@@ -74,7 +74,7 @@ theorem callEntry_frame (hrs : Reg.esp ∉ rs) :
   refine f₁.writeW (List.mem_singleton_self _) _ ?_
   rw [pushed_esp, show s.gpr .esp - BitVec.ofNat 32 (4 * rs.length) - 4 =
     s.gpr .esp - BitVec.ofNat 32 (4 * rs.length + 4) by rw [BitVec.ofNat_add]; bv_omega]
-  exact below_top le_rfl hfit (by omega)
+  exact below_top (Nat.le_refl _) hfit (by omega)
 
 /-- Argument `i` is the `i`-th register from the end of those pushed. -/
 theorem callEntry_arg (hrs : Reg.esp ∉ rs) {i : Nat} (hi : i < rs.length) :

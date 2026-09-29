@@ -1,5 +1,5 @@
 import VerifiedGarbage.Spec.Scrypt
-import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # scryptBlockMix, one block at a time

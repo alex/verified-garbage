@@ -3,6 +3,8 @@ import VerifiedGarbage.Proof.Framework.RegSet
 import VerifiedGarbage.Proof.Framework.KernelList
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.TCB.X86_64.Target
+import Mathlib.Tactic.Set
+import Mathlib.Tactic.Tauto
 
 /-!
 # Taint tracking for x86-64
@@ -650,13 +652,13 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {m : 
             exact .inr ⟨hsl.1, by tauto⟩
         rcases hsl' with rfl | ⟨h, hsep⟩
         · -- The new slot: the stored bytes.
-          have hp : p = true := by split at hsl <;> simp_all
+          have hp : p = true := by split at hsl <;> simp_all <;> omega
           simp only at hk₁ hk₂
           simp only [e₁, e₂, Mem.write, hv hp]
           have hd : ∀ s : State, byteAddr s i k - byteAddr s i d = BitVec.ofNat 64 (k - d) := by
             intro s; simp only [byteAddr]; bv_omega
           have hlt : (BitVec.ofNat 64 (k - d)).toNat < n := by
-            rw [BitVec.toNat_ofNat]; exact lt_of_le_of_lt (Nat.mod_le _ _) (by omega)
+            rw [BitVec.toNat_ofNat]; exact Nat.lt_of_le_of_lt (Nat.mod_le _ _) (by omega)
           rw [hd, hd]; simp only [hlt, ite_true]
         · by_cases hp : p = true
           · exact same h hp

@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Poly1305.AArch64.Steps
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Poly1305 on AArch64: absorbing a block
@@ -92,7 +93,7 @@ theorem products_ok (s : State) (R : Nat) (hco : Coefs s.mem (s.gpr .x0) R) (hc 
       v s' .x9 = dform s R 0 % 2 ^ 64 ∧ v s' .x10 = dform s R 1 % 2 ^ 64 ∧
       v s' .x11 = dform s R 2 % 2 ^ 64 ∧ v s' .x12 = dform s R 3 % 2 ^ 64 ∧
       v s' .x13 = dform s R 4 % 2 ^ 64 ∧ Keeps [.x9, .x10, .x11, .x12, .x13, .x14] s s' :=
-  WP.mono (prods_ok s R hco hc 5 le_rfl) fun _ ⟨e, k⟩ =>
+  WP.mono (prods_ok s R hco hc 5 (Nat.le_refl _)) fun _ ⟨e, k⟩ =>
     ⟨e 0 (by omega), e 1 (by omega), e 2 (by omega), e 3 (by omega), e 4 (by omega), k⟩
 
 /-- `h += 2¹²⁸` if `pad`. -/

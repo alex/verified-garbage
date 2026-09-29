@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.ChaCha20Poly1305.X86.Calls
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): the prologue
@@ -37,7 +38,7 @@ def saveMem (s₀ : State) : Mem :=
 theorem saveMem_frame (s₀ : State) : Frame [sub s₀ 592 16] s₀.mem (saveMem s₀) := by
   have c : ∀ d, 592 ≤ d → d + 4 ≤ 608 → (sub s₀ 592 16).Contains (cx s₀ + BitVec.ofNat 64 d) (32 / 8) :=
     fun d h₁ h₂ => contains_sub s₀ h₁ h₂ (by omega)
-  exact ((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 592 le_rfl (by omega))).writeW
+  exact ((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 592 (Nat.le_refl _) (by omega))).writeW
     (List.mem_singleton_self _) _ (c 596 (by omega) (by omega))).writeW (List.mem_singleton_self _) _
     (c 600 (by omega) (by omega))).writeW (List.mem_singleton_self _) _ (c 604 (by omega) (by omega))
 
@@ -254,7 +255,7 @@ theorem pro2_ok {s₀ : State} (hp : APre s₀) :
       (s₀.setReg .eax (CX s₀)) (Pro2 s₀) := by
   rw [B2_eq]
   refine WP.block_append (WP.mono (save_ok hp) fun s₁ ⟨e₁, g₁, m₁, rd₁, wr₁⟩ => ?_)
-  refine WP.block_append (WP.mono (initState_ok hp (j := 16) le_rfl e₁ rd₁ wr₁)
+  refine WP.block_append (WP.mono (initState_ok hp (j := 16) (Nat.le_refl _) e₁ rd₁ wr₁)
     fun s₂ ⟨g₂, rd₂, wr₂, f₂, w₂⟩ => ?_)
   refine WP.block_append (WP.mono (ptr_ok .ecx .edi 64 s₂) fun s₃ ⟨e₃, g₃, rd₃, wr₃, m₃⟩ => ?_)
   refine WP.mono (ptr_ok .edx .edi 128 s₃) fun s₄ ⟨e₄, g₄, rd₄, wr₄, m₄⟩ => ?_
@@ -292,7 +293,7 @@ theorem pro3_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Pro2 s₀ s) :
   · refine (h.frame.sub fun r hr => ?_).trans (f'.sub fun r hr => ?_)
     · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
-      · exact ⟨workR s₀, by simp, sub_sub s₀ le_rfl (by omega) (by omega)⟩
+      · exact ⟨workR s₀, by simp, sub_sub s₀ (Nat.le_refl _) (by omega) (by omega)⟩
       · exact ⟨workR s₀, by simp, sub_sub s₀ (by omega) (by omega) (by omega)⟩
     · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl

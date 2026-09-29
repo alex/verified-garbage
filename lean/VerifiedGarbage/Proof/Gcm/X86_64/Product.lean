@@ -146,7 +146,7 @@ theorem clsCode_ok {q k : Nat} {hv yv : BitVec 64} {s : State} (hT : Tbl s q hv)
     (fun t s' ht ⟨h₁, h₂⟩ => WP.mono (term_ok ht (hT₁.keeps h₂ (by decide))
       (hB₁.keeps h₂ fun j _ => B_not_mem.1)) fun s'' ⟨h₃, h₄⟩ =>
         ⟨by rw [h₃, h₁, classSum_succ], h₂.trans h₄⟩)
-    8 le_rfl s₁ ⟨hz, Keeps.refl _ _⟩) fun s₂ ⟨h₁, h₂⟩ => ?_
+    8 (Nat.le_refl _) s₁ ⟨hz, Keeps.refl _ _⟩) fun s₂ ⟨h₁, h₂⟩ => ?_
   refine WP.mono (mask_ok k s₂) fun s₃ ⟨h₃, h₄⟩ => ⟨?_, ?_⟩
   · have hk : Keeps termClob s s₂ := (hk₁.mono (by decide)).trans h₂
     rw [h₃, h₁, hk.1 PL (by decide), hk.1 PH (by decide)]
@@ -190,7 +190,7 @@ theorem split_ok (y : Src) (s : State) {yv : BitVec 64}
     (fun j s' hj ⟨h₁, h₂⟩ => WP.mono (andCls_ok (B j) (cls j) y s' fun v => hy _ (h₁.setReg (B_mem j) v))
       fun s'' ⟨h₃, h₄⟩ => ⟨h₁.trans (h₄.mono fun r hr => by
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hr; exact hr ▸ B_mem j), fun i hi => ?_⟩)
-    4 le_rfl s ⟨Keeps.refl _ _, fun _ h => absurd h (Nat.not_lt_zero _)⟩) fun s' ⟨h₁, h₂⟩ => ⟨h₂, h₁⟩
+    4 (Nat.le_refl _) s ⟨Keeps.refl _ _, fun _ h => absurd h (Nat.not_lt_zero _)⟩) fun s' ⟨h₁, h₂⟩ => ⟨h₂, h₁⟩
   by_cases hij : i = j
   · rw [hij, h₃]
   · rw [h₄.1 _ fun h => hij (B_inj i (by omega) j hj (by simpa using h)), h₂ i (by omega)]
@@ -225,6 +225,6 @@ theorem product_ok (y : Src) (q : Nat) {hv yv : BitVec 64} {s : State} (hT : Tbl
         simp only [termClob, List.mem_cons, List.not_mem_nil, or_false, not_or] at this ⊢
         exact ⟨this.1.1, this.1.2.1, this.1.2.2.1, this.1.2.2.2, this.2.1, this.2.2.1⟩))
       fun s'' ⟨h₃, h₄⟩ => ⟨by rw [h₃, h₁, prodPart_succ], h₂.trans h₄⟩)
-    4 le_rfl s₂ ⟨hz, Keeps.refl _ _⟩) fun s₃ ⟨h₁, h₂⟩ => ⟨h₁, hk.trans (h₂.mono (by decide))⟩
+    4 (Nat.le_refl _) s₂ ⟨hz, Keeps.refl _ _⟩) fun s₃ ⟨h₁, h₂⟩ => ⟨h₁, hk.trans (h₂.mono (by decide))⟩
 
 end VG.Proof.Gcm.X86_64

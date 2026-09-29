@@ -144,7 +144,7 @@ theorem zinit_ok {s₀ : State} {F : Nat → Nat} {s₁ : State} (h₁ : F0 s₀
     WP isa (.block [.mov .eax (.imm 0), .mov .ecx (.reg .edx), .alu .add .ecx (.reg .edi)]) s₁
       (ZeroInv s₀ s₁ (kb s₀)) := by
   refine wp_movi fun s₂ u₂ _ => wp_mov fun s₃ u₃ _ => wp_addx (readSrc_reg _ _) fun s₄ u₄ _ =>
-    WP.block_nil ⟨⟨le_rfl, (kb_lt s₀).le⟩, ?_, ?_, ?_, fun r h1 h2 h3 => ?_, by rw [u₄.rd, u₃.rd, u₂.rd],
+    WP.block_nil ⟨⟨(Nat.le_refl _), (kb_lt s₀).le⟩, ?_, ?_, ?_, fun r h1 h2 h3 => ?_, by rw [u₄.rd, u₃.rd, u₂.rd],
       by rw [u₄.wr, u₃.wr, u₂.wr], by rw [u₄.mem, u₃.mem, u₂.mem]; exact Frame.refl _ _, fun k hk => ?_⟩
   · rw [u₄.gpr, u₃.gpr, u₃.other _ (by decide), u₂.other _ (by decide), u₂.other _ (by decide), hedx,
       h₁.ctx.edi, BitVec.add_comm]
@@ -462,7 +462,7 @@ theorem addS_ok {st o : BitVec 32} {s : State} (hc : Ctx st s) (ho : o.toNat + 1
       rw [List.range_succ, List.flatMap_append, List.flatMap_singleton]
       exact WP.block_append (WP.mono (ih (by omega)) fun s' h' =>
         tagWord_ok c₁ ho esi (by rw [u₁.wr]; exact hout) hd (by omega) h')
-  refine WP.mono (ind 4 le_rfl) fun s₂ h₂ =>
+  refine WP.mono (ind 4 (Nat.le_refl _)) fun s₂ h₂ =>
     ⟨fun r h₁ h₂' => ?_, by rw [h₂.rd, u₁.rd], by rw [h₂.wr, u₁.wr], ?_, fun i hi => ?_⟩
   · rw [h₂.gpr r h₁, u₁.other r h₂']
   · rw [← u₁.mem]; exact h₂.frame

@@ -49,7 +49,7 @@ theorem carries_ok (a n : Nat) (hn : n + a ≤ 9) {f : Nat → Nat} (hf : ∀ j 
     {s : State} (hc : Cols f s) (hm : s.gpr .r2 = maskV) :
     WP isa (.block ((List.range n).flatMap fun k => carryStep (k + a))) s fun s' =>
       Cols (carryN f a n) s' ∧ Keeps cregs s s' := by
-  refine WP.mono (wp_range_flatMap (M := isa) (CI f a s) (fun k s' hk h => ?_) n le_rfl s
+  refine WP.mono (wp_range_flatMap (M := isa) (CI f a s) (fun k s' hk h => ?_) n (Nat.le_refl _) s
     ⟨hc, Keeps.refl _ _⟩) fun s' h => ⟨h.cols, h.keeps⟩
   have hm' : s'.gpr .r2 = maskV := by rw [h.keeps.gpr _ cregs_r2, hm]
   have hb := carryN_step_lt f a hf k (by omega)

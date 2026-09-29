@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Scrypt.AArch64.RoMixLoops
+import Mathlib.Tactic.Conv
+import Mathlib.Tactic.Set
 
 /-!
 # scryptROMix on AArch64: correctness

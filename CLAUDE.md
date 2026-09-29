@@ -179,7 +179,12 @@ Avoid these patterns (each has cost tens of seconds in one proof):
 * **Imports:** never import `Mathlib.Tactic` or all of Mathlib, which costs
   seconds in every module that (transitively) imports it: import the
   module of each tactic or lemma you use (e.g. `Mathlib.Tactic.IntervalCases`),
-  and prefer core lemmas.
+  and prefer core lemmas. The framework (`Proof/Framework/`) provides no
+  Mathlib tactics, only Batteries' light ones (`by_contra`, `absurd`,
+  `exacts`, `swap`, `<;> [t₁; t₂]`). `IntervalCases`, `NormNum`, `Ring` and
+  `Mathlib.Data.List.*` each add about half a second to every module that
+  imports them, even indirectly: keep them out of modules that many others
+  import (a framework file, an algorithm's `Spec` or `Stream` lemmas).
 * **Properties of every instruction:** prove `(instrs c).all p` with
   `rw [← Code.allInstrs_eq]; decide +kernel`, not `decide +kernel` directly.
 * **Failing unfolding:** `rfl`, `trivial`, `congr 1`, `exact` and `simpa` on

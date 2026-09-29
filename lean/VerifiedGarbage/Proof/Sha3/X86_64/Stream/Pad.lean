@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Sha3.X86_64.Call
+import Mathlib.Tactic.Set
 
 /-!
 # SHA-3 on x86-64: `pad`

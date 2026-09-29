@@ -130,7 +130,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
       (List.mem_singleton_self _) _ (inS 256 8 (by omega))
   have fU : Frame [sR s₀ 192 32, sR s₀ 224 32] s₇.mem s₉.mem := by
     rw [hm]
-    exact ((writeBytes_frame _ _ _ (by rw [bytesAt_length]; exact contains_base le_rfl)).mono (by simp)).trans
+    exact ((writeBytes_frame _ _ _ (by rw [bytesAt_length]; exact contains_base (Nat.le_refl _))).mono (by simp)).trans
       ((writeBytes_frame _ _ _ (R := sR s₀ 224 32) (contains_base (by decide))).mono (by simp))
   have F' : Frame [scR s₀] s₀.mem s₉.mem :=
     F₇.trans (fU.sub fun r hr => by
@@ -141,7 +141,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   have F : Frame [tR s₀, scR s₀] s₀.mem s₉.mem := F'.mono (by simp)
   have hsep : Mem.Sep (blkA s₀) 32 (scr s₀ + BitVec.ofNat 64 224) pad96.length :=
     Region.Disjoint.sep (scr_disj s₀ (a := 192) (m := 32) (b := 224) (n := 32) (by omega) (by omega) (by omega))
-      (contains_base le_rfl) (contains_base le_rfl)
+      (contains_base (Nat.le_refl _)) (contains_base (Nat.le_refl _))
   have hU : bytesAt s₉.mem (blkA s₀) 32 = bytesAt s₀.mem (uP s₀) 32 := by
     have := bytesAt_writeBytes_self s₇.mem (blkA s₀) (bytesAt s₇.mem (uP s₀) 32) (by rw [bytesAt_length]; omega)
     rw [bytesAt_length] at this
@@ -160,13 +160,13 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     · exact scr_disj s₀ (by omega) (by omega) (by omega)
   refine ⟨⟨by rw [rd₉, rd₈, rd₇], by rw [wr₉, wr₈, wr₇], by rw [sp₉, sp₈, sp₇], by rw [G₉ _ (by decide), x19₇],
     by rw [G₉ _ (by decide), x20₇], by rw [G₉ _ (by decide), x21₇], by rw [G₉ _ (by decide), x22₇], F⟩,
-    ?_, ⟨fun p hp' => ?_, ?_⟩, ?_, le_rfl, by rw [hU, hT]⟩
+    ?_, ⟨fun p hp' => ?_, ?_⟩, ?_, (Nat.le_refl _), by rw [hU, hT]⟩
   · rw [G₉ _ (by decide), x23₇]; simp [nn]
   · simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
     have hd : 112 ≤ p.2 ∧ p.2 + 8 ≤ 160 := by rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;> simp
     rw [hS (.inl hd) (by omega), M₇, readW_writeW_save _ _ _ (by omega) (by omega) (by omega)]
     exact saveMem_saved _ _ _ p (by simp only [saved, List.mem_cons, List.not_mem_nil, or_false]; exact hp')
-  · rw [hS (.inr le_rfl) (by omega), M₇, Mem.readW_writeW_self64]
+  · rw [hS (.inr (Nat.le_refl _)) (by omega), M₇, Mem.readW_writeW_self64]
   · rw [hm]
     exact bytesAt_writeBytes_self _ (scr s₀ + BitVec.ofNat 64 224) pad96 (by decide)
 

@@ -232,12 +232,12 @@ theorem shr_ofNat {a : Nat} (n : Nat) (h : a < 2 ^ 64) :
     BitVec.ofNat 64 a >>> n = BitVec.ofNat 64 (a / 2 ^ n) := by
   apply BitVec.eq_of_toNat_eq
   rw [BitVec.toNat_ushiftRight, toNat_ofNat_lt h, toNat_ofNat_lt
-    (lt_of_le_of_lt (Nat.div_le_self _ _) h), Nat.shiftRight_eq_div_pow]
+    (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) h), Nat.shiftRight_eq_div_pow]
 
 theorem shl_ofNat {a : Nat} (n : Nat) (h : a * 2 ^ n < 2 ^ 64) :
     BitVec.ofNat 64 a <<< n = BitVec.ofNat 64 (a * 2 ^ n) := by
   apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_shiftLeft, toNat_ofNat_lt (lt_of_le_of_lt (Nat.le_mul_of_pos_right _
+  rw [BitVec.toNat_shiftLeft, toNat_ofNat_lt (Nat.lt_of_le_of_lt (Nat.le_mul_of_pos_right _
     (Nat.two_pow_pos n)) h), Nat.shiftLeft_eq, Nat.mod_eq_of_lt h, toNat_ofNat_lt h]
 
 end VG.Proof.Scrypt.AArch64.RoMix

@@ -48,7 +48,7 @@ theorem Covers.of_sub {rs rs' : List Region}
   have : (a - r'.base).toNat ≤ (a - (r'.base + BitVec.ofNat 64 off)).toNat + off := by
     rw [show a - r'.base = (a - (r'.base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by bv_omega,
       BitVec.toNat_add, BitVec.toNat_ofNat]
-    exact le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
+    exact Nat.le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
   omega
 
 /-- A frame's push inserts its region into the writable regions of both

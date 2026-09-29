@@ -360,7 +360,7 @@ theorem D_getD (s₀ : State) {i : Nat} (hi : i < len s₀) :
 theorem Common.data {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Common s₀ c s) {i : Nat}
     (hi : i < len s₀) : s.mem (dp s₀ + BitVec.ofNat 64 i) = (D s₀).getD i 0 := by
   rw [D_getD s₀ hi]
-  exact h.frame.bytes (R := dR s₀) (by simpa using ⟨hp.d_st, hp.d_scr, hp.stk_d.symm⟩) (len_lt s₀).le hi
+  exact h.frame.bytes (R := dR s₀) (by simpa using ⟨hp.d_st, hp.d_scr, hp.stk_d.symm⟩) (Nat.le_of_lt (len_lt s₀)) hi
 
 theorem sx64 : BitVec.signExtend 64 (64 : BitVec 32) = (64 : BitVec 64) := by decide
 theorem sx1 : BitVec.signExtend 64 (1 : BitVec 32) = (1 : BitVec 64) := by decide
@@ -510,7 +510,7 @@ theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
     rw [u₅.mem, u₄.mem, u₃.mem, m₂, u₁.mem, u₁.gpr, hbyte, h.mem, List.take_add_one,
       List.getElem?_eq_getElem hj', Option.toList_some,
       writeBytes_snoc _ _ _ _ (by simp only [List.length_take]; omega)]
-    have hl : (List.take j (xs s₀ c)).length = j := by rw [List.length_take, Nat.min_eq_left hj'.le]
+    have hl : (List.take j (xs s₀ c)).length = j := by rw [List.length_take, Nat.min_eq_left (Nat.le_of_lt hj')]
     rw [hl, BitVec.setWidth_setWidth_of_le _ (by omega), BitVec.setWidth_eq]
     congr 1
     simp only [xs, List.getElem_take, List.getElem_drop, List.getD_eq_getElem?_getD,
@@ -543,7 +543,7 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   have hr := rr_lt s₀ c; have ht' := tt_le' s₀ c
   have hxs := xs_length s₀ c
   have hf : Frame [stR s₀] sI.mem mem := by
-    have := write_frame s₀ c sI.mem (tt s₀ c) le_rfl
+    have := write_frame s₀ c sI.mem (tt s₀ c) (Nat.le_refl _)
     rwa [List.take_of_length_le (by omega)] at this
   refine ⟨hI.frame.trans (hf.mono (by simp)), fun p hp' => ?_, ?_, ?_⟩
   · rw [← hI.saved p hp']
@@ -613,7 +613,7 @@ theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
   obtain ⟨hfr, hsv, hst, hby⟩ := copied_facts hp hI
   have hmem : s.mem = writeBytes sI.mem (q s₀ c) (xs s₀ c) := by
     rw [h.mem, List.take_of_length_le (by omega)]
-  refine ⟨⟨⟨le_rfl, h.rd, h.wr, h.rbx, h.r15, h.rsp, ?_, ?_, by rw [hmem]; exact hfr,
+  refine ⟨⟨⟨(Nat.le_refl _), h.rd, h.wr, h.rbx, h.r15, h.rsp, ?_, ?_, by rw [hmem]; exact hfr,
     by rw [hmem]; exact hsv⟩, ?_, fun m hm => ?_⟩, h14⟩
   · rw [h.rbp]; congr 2; omega
   · rw [h.r12]; congr 1; omega
@@ -737,7 +737,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   have hcf : s₂.cf = some (decide (len s₀ - c < 64)) := by
     rw [cf₂, hI₁.r12, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]; rfl
   refine WP.ite (!decide (len s₀ - c < 64)) (by simp [eval, hcf]) (fun hb' => ?_) (fun _ => fill_ok hp hI₂)
-  simp only [Bool.not_eq_true', decide_eq_false_iff_not, not_lt] at hb'
+  simp only [Bool.not_eq_true', decide_eq_false_iff_not, Nat.not_lt] at hb'
   exact WP.mono (direct_ok hp hI₂ hb hb') fun s' h => .inl ⟨c + 64, by omega, h⟩
 
 theorem correct {s₀ : State} (hp : Pre s₀) :

@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Scrypt.Arm.RoMixFun
 import VerifiedGarbage.Proof.Scrypt.Arm.BlockMixVerified
+import Mathlib.Tactic.DefEqTransformations
 
 /-!
 # scryptROMix on 32-bit ARM: verified

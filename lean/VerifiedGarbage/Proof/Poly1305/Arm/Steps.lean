@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Blocks
 import VerifiedGarbage.Proof.Poly1305.Stream
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Poly1305 on 32-bit ARM: the steps of `update` and `finalize`
@@ -110,7 +111,7 @@ theorem body_gen {R : Nat → Nat} (hR : ∀ i < 10, R i < 2 ^ 13) {A : Nat} {X 
     rw [u₃.mem, u₂.gpr, u₁.gpr, u₂.mem, u₁.mem, hptr]
   have f₃ : Frame (offR (State.addr st) [(124, 4)]) s.mem s₃.mem := by
     rw [m₃]
-    exact Frame.writeOff (Frame.refl _ _) (a := 124) (len := 4) (List.mem_singleton_self _) le_rfl le_rfl
+    exact Frame.writeOff (Frame.refl _ _) (a := 124) (len := 4) (List.mem_singleton_self _) (Nat.le_refl _) (Nat.le_refl _)
       (by omega) _ rfl
   have k₃ : KeepsF [.r1, .r2] (offR (State.addr st) [(124, 4)]) s s₃ :=
     ⟨fun r hr => by
@@ -150,7 +151,7 @@ theorem body_gen {R : Nat → Nat} (hR : ∀ i < 10, R i < 2 ^ 13) {A : Nat} {X 
     · have h1 : r ≠ .r1 := by rintro rfl; exact hr (by decide)
       rw [u₇.gpr, u₆.other _ h1, u₅.other _ h1]
     · rw [m₇]
-      exact Frame.writeOff (Frame.refl _ _) (a := 20) (len := 4) (List.mem_singleton_self _) le_rfl le_rfl
+      exact Frame.writeOff (Frame.refl _ _) (a := 20) (len := 4) (List.mem_singleton_self _) (Nat.le_refl _) (Nat.le_refl _)
         (by omega) _ rfl
   refine ⟨hA₄.keep k₄₇ (by decide) (by decide) (by decide), ?_, ?_, by rw [m₇, Mem.readW_writeW_self32], ?_⟩
   · refine ((k₃.mono (by simp [work])).sub (sub_offR _ (by decide) (by decide))).trans
@@ -286,7 +287,7 @@ theorem restoreScr_ok {s : State} {g : Reg → BitVec 32} (h12 : s.gpr .r12 = sc
   refine WP.mono (wp_range_flatMap (M := isa)
     (fun n s' => (∀ i < n, s'.gpr (savedReg i) = g (savedReg i)) ∧
       Keeps [.r4, .r5, .r6, .r7, .r8, .r9, .r10, .r11] s s')
-    (fun n s' hn ⟨hl, hk⟩ => ?_) 8 le_rfl s ⟨fun _ h => absurd h (by omega), Keeps.refl _ _⟩)
+    (fun n s' hn ⟨hl, hk⟩ => ?_) 8 (Nat.le_refl _) s ⟨fun _ h => absurd h (by omega), Keeps.refl _ _⟩)
     fun s' h => h
   refine wp_ldr (a := State.addr sc + BitVec.ofNat 64 (4 * n)) (by omega)
     (by rw [hk.gpr _ (by decide), h12]; exact addr_add (by omega))
@@ -398,13 +399,13 @@ omit hfit in
 theorem CopyInv.buf {sI : State} {src : BitVec 32} {j0 : Nat} {xs : List Byte} (hj0 : j0 + xs.length ≤ 16)
     {s : State} (h : CopyInv sI st src j0 xs xs.length s) :
     bytesAt s.mem (State.addr st + 56) (j0 + xs.length) = bytesAt sI.mem (State.addr st + 56) j0 ++ xs := by
-  rw [h.mem, List.take_of_length_le le_rfl, ← off_add]
+  rw [h.mem, List.take_of_length_le (Nat.le_refl _), ← off_add]
   exact bytesAt_writeBytes sI.mem (State.addr st + 56) j0 xs (by omega)
 
 omit hfit in
 theorem CopyInv.frame {sI : State} {src : BitVec 32} {j0 : Nat} {xs : List Byte} (hj0 : j0 + xs.length ≤ 16)
     {s : State} (h : CopyInv sI st src j0 xs xs.length s) : Frame [bufR (State.addr st)] sI.mem s.mem := by
-  rw [h.mem, List.take_of_length_le le_rfl]
+  rw [h.mem, List.take_of_length_le (Nat.le_refl _)]
   exact writeBytes_frame _ _ _ (contains_sub _ (by omega) (by omega) (by omega))
 
 end

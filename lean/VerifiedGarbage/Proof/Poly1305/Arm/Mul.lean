@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Common
+import Mathlib.Tactic.Ring.RingNF
+import Mathlib.Tactic.Set
 
 /-!
 # Poly1305 on 32-bit ARM: the columns of `h r`
@@ -168,7 +170,7 @@ theorem row_ok {h r : Nat → Nat} (hh : ∀ j < 10, h j ≤ Hb) (hr : ∀ i < 1
   refine WP.append (loadH_ok hfit hh hj (by rw [hk.gpr _ (by decide), h0]) (by rw [hk.wr]; exact hw)
     (by rw [hk.mem]; exact hH)) fun s1 ⟨ha, k1⟩ => ?_
   refine WP.mono (wp_range_flatMap (M := isa) (MI h r s₀ j) (fun n s' hn hs' =>
-    mac_step hfit hh hr h0 hw hR hj n s' hn hs') 10 le_rfl s1 ⟨fun k hk' => ?_, ?_, ?_⟩)
+    mac_step hfit hh hr h0 hw hR hj n s' hn hs') 10 (Nat.le_refl _) s1 ⟨fun k hk' => ?_, ?_, ?_⟩)
     fun s' hs' => ⟨fun k hk' => by rw [hs'.cols k hk', psum_row], hs'.keeps⟩
   · rw [k1.gpr _ (by simpa using (xr_ne k hk').2.1)]; exact hc k hk'
   · rw [ha, iteF (by omega)]
@@ -180,7 +182,7 @@ theorem zeroX_ok {s : State} :
   refine WP.mono (wp_range_flatMap (M := isa)
     (fun n s' => (∀ k < n, (s'.gpr (xr k)).toNat = 0) ∧ Keeps work s s')
     (fun n s' hn ⟨hz, hk⟩ => wp_mov (op2_imm (by decide)) fun s1 u1 => WP.block_nil ⟨fun k hk' => ?_,
-      hk.trans (u1.keeps (xr_work n hn))⟩) 10 le_rfl s ⟨fun _ h => absurd h (by omega), Keeps.refl _ _⟩)
+      hk.trans (u1.keeps (xr_work n hn))⟩) 10 (Nat.le_refl _) s ⟨fun _ h => absurd h (by omega), Keeps.refl _ _⟩)
     fun s' h => h
   rcases Nat.lt_succ_iff_lt_or_eq.mp hk' with h' | rfl
   · rw [u1.other _ (fun e => absurd (xr_inj _ (by omega) _ hn e) (by omega))]; exact hz k h'
@@ -195,7 +197,7 @@ theorem multiply_ok {h r : Nat → Nat} (hh : ∀ j < 10, h j ≤ Hb) (hr : ∀ 
   refine WP.append zeroX_ok fun s1 ⟨hz, k1⟩ => ?_
   refine WP.mono (wp_range_flatMap (M := isa)
     (fun j s => (∀ k < 10, (s.gpr (xr k)).toNat = psum h r j 0 k) ∧ Keeps work s₀ s)
-    (fun j s hj hs => row_ok hfit hh hr h0 hw hR hH j s hj hs) 10 le_rfl s1
+    (fun j s hj hs => row_ok hfit hh hr h0 hw hR hH j s hj hs) 10 (Nat.le_refl _) s1
     ⟨fun k hk => by rw [hz k hk, psum_zero], k1⟩)
     fun s' ⟨hc, hk⟩ => ⟨fun k hk' => by rw [hc k hk', psum_ten], hk⟩
 

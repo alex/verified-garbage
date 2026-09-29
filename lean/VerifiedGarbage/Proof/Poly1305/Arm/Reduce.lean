@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Carry
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # Poly1305 on 32-bit ARM: carrying all columns, the final reduction, and words
@@ -82,7 +83,7 @@ theorem plus5_ok {K : Nat → Nat} (hK : ∀ j < 10, K j ≤ 2 ^ 13) {s : State}
   simp only [yr] at h0
   refine WP.mono (wp_range_flatMap (M := isa)
     (fun k s' => (s'.gpr .r12).toNat = chainT K k ∧ Keeps [.r12] s1 s')
-    (fun k s' hk ⟨h12, hk'⟩ => ?_) 9 le_rfl s1
+    (fun k s' hk ⟨h12, hk'⟩ => ?_) 9 (Nat.le_refl _) s1
     ⟨by rw [u1.gpr, toNat_add_lt (by rw [h0]; simp; omega), h0]; rfl, Keeps.refl _ _⟩)
     fun s' ⟨h, k⟩ => ⟨h, (u1.keeps (by simp)).trans k⟩
   have hy : (s'.gpr (yr (k + 1))).toNat = K (k + 1) := by

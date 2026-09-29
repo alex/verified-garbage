@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.ChaCha20.AArch64.Block
 import VerifiedGarbage.Proof.ChaCha20.Keystream
 import VerifiedGarbage.Proof.Framework.AArch64.Call
 import VerifiedGarbage.Impl.ChaCha20.AArch64.Xor
+import Mathlib.Tactic.Conv
 
 /-!
 # ChaCha20 keystream XOR on AArch64
@@ -316,7 +317,7 @@ theorem Saved.frame {s₀ : State} {rs : List Region} {m m' : Mem} (h : Saved s�
       bv_omega, toNat_ofNat_lt (by omega)]
     omega
   obtain ⟨h1, h2, h3⟩ := h
-  exact ⟨by rw [hf.readW (c 256 le_rfl (by omega)) hd (by decide), h1],
+  exact ⟨by rw [hf.readW (c 256 (Nat.le_refl _) (by omega)) hd (by decide), h1],
     by rw [hf.readW (c 264 (by omega) (by omega)) hd (by decide), h2],
     by rw [hf.readW (c 272 (by omega) (by omega)) hd (by decide), h3]⟩
 

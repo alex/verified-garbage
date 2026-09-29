@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Proof.Framework.Arm.Exec
 import VerifiedGarbage.Proof.Sha256.Spec
 import VerifiedGarbage.Impl.Sha256.Arm
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # SHA-256 compression function on ARMv7: the message schedule and the rounds
