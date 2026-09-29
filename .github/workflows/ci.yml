@@ -21,8 +21,28 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
-  lean:
-    name: Lean proofs
+  # The Lean build is split into shards that build in parallel, one per
+  # target and one for the rest (see ci/lean_shards.py): no target's proofs
+  # need another's, and one runner would check them one after another.
+  lean-shards:
+    name: List the Lean shards
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.list.outputs.shards }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: list
+        run: echo "shards=$(python3 ci/lean_shards.py list)" >> "$GITHUB_OUTPUT"
+
+  lean-shard:
+    needs: lean-shards
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.lean-shards.outputs.shards) }}
+    name: Lean proofs (${{ matrix.shard }})
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -31,62 +51,51 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install elan
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
-          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-      - name: List the modules the proofs import from outside the project
-        id: mods
-        run: |
-          # Every module the Lean files import from outside this project and
-          # Lean itself, as Lean's own parser reads their headers.
-          mods=$(git ls-files '*.lean' | xargs lean --deps-json \
-            | jq -r '.imports[].result.imports[].module
-                     | select(test("^(VerifiedGarbage[A-Za-z]*|Init|Std|Lean)(\\.|$)") | not)' \
-            | sort -u)
-          echo "$mods"
-          echo "mods=$(echo $mods)" >> "$GITHUB_OUTPUT"
-          echo "hash=$(echo "$mods" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
-      # Mathlib and its dependencies, with the prebuilt files for those
-      # modules: they change only with the toolchain, the manifest or the
-      # list, so a hit skips the clones, building Mathlib's `cache` tool and
-      # the download.
-      - name: Restore Mathlib and its dependencies
-        id: lake-packages
+      - uses: ./.github/actions/lean-setup
+      # The last build `lean` saved: Lake rebuilds only what changed since.
+      - name: Restore this project's build
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: lean/.lake/packages
-          key: lake-packages-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ steps.mods.outputs.hash }}
-      # Lake would clone mathlib4's whole history; a checkout of the pinned
-      # revision is all the build needs, and Lake accepts it as is.
-      - name: Shallow-clone Mathlib
-        if: ${{ steps.lake-packages.outputs.cache-hit != 'true' }}
+          path: lean/.lake/build
+          key: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ hashFiles('lean/lakefile.toml', 'lean/*.lean', 'lean/VerifiedGarbage/**', 'lean/VerifiedGarbageTest/**') }}
+          restore-keys: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
+      - name: Check the shard's proofs (and the axiom audit)
+        env:
+          SHARD: ${{ matrix.shard }}
         run: |
-          rev=$(jq -r '.packages[] | select(.name == "mathlib") | .rev' lake-manifest.json)
-          git init -q .lake/packages/mathlib
-          cd .lake/packages/mathlib
-          git remote add origin https://github.com/leanprover-community/mathlib4
-          git fetch -q --depth 1 origin "$rev"
-          git checkout -q FETCH_HEAD
-      # `cache get` fetches these modules and what they import, not all of
-      # Mathlib.
-      - name: Fetch the Mathlib build cache for what the proofs import
-        if: ${{ steps.lake-packages.outputs.cache-hit != 'true' }}
+          touch "$RUNNER_TEMP/before-build"
+          lake build $(python3 ../ci/lean_shards.py targets "$SHARD")
+      # What this build wrote for the shard's own modules; Lean's outputs
+      # are deterministic, so the shards' outputs agree on the modules they
+      # all import.
+      - name: Collect the outputs of the shard's modules
         env:
-          MODS: ${{ steps.mods.outputs.mods }}
-        run: lake exe cache get $MODS
-      # Fail, rather than quietly build part of Mathlib from source, if the
-      # cache left any of them (or what they import) unbuilt.
-      - name: Check Mathlib is built for every import
-        env:
-          MODS: ${{ steps.mods.outputs.mods }}
-        run: lake build --no-build $MODS
-      - name: Save Mathlib and its dependencies
-        if: ${{ steps.lake-packages.outputs.cache-hit != 'true' && github.event_name != 'merge_group' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+          SHARD: ${{ matrix.shard }}
+        run: |
+          cd .lake/build
+          find . -type f -newer "$RUNNER_TEMP/before-build" -printf '%P\n' \
+            | python3 ../../../ci/lean_shards.py outputs "$SHARD" \
+            | tar --zstd -cf "$RUNNER_TEMP/lean-build-$SHARD.tar.zst" -T -
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          path: lean/.lake/packages
-          key: ${{ steps.lake-packages.outputs.cache-primary-key }}
+          name: lean-build-${{ matrix.shard }}
+          path: ${{ runner.temp }}/lean-build-${{ matrix.shard }}.tar.zst
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+
+  lean:
+    name: Lean proofs
+    needs: lean-shard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lean
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/lean-setup
       - name: Restore this project's build
         id: lean-build
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -94,6 +103,20 @@ jobs:
           path: lean/.lake/build
           key: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ hashFiles('lean/lakefile.toml', 'lean/*.lean', 'lean/VerifiedGarbage/**', 'lean/VerifiedGarbageTest/**') }}
           restore-keys: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: lean-build-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/lean-build
+      - name: Add the shards' outputs to the build
+        run: |
+          mkdir -p .lake/build
+          for f in "$RUNNER_TEMP"/lean-build/*.tar.zst; do
+            tar --zstd -xf "$f" -C .lake/build
+          done
+      # With every shard's outputs this builds nothing; anything it does
+      # build (e.g. if a newer cache was restored here than in a shard) is
+      # checked here.
       - name: Check every proof (and the axiom audit)
         run: lake build
       # Merge queue runs each get their own branch, whose caches no other run
