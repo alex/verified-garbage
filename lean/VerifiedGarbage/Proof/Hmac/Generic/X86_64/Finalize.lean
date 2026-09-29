@@ -11,10 +11,12 @@ namespace VG.Proof.Hmac.Generic.X86_64.Finalize
 open VG.X86_64
 open VG.Impl.Hmac.Generic.X86_64 (Hash copy)
 open VG.Proof.Hmac.Generic.X86_64
-open VG.Proof.Hmac.Generic.X86_64.Init (off_disj off_disj0 covers_one sub_of_off sub_of_self bytes_keep repr_keep)
+open VG.Proof.Hmac.Generic.X86_64.Init (repr_keep)
+open VG.Proof.Hmac.Generic.Common (off_disj off_disj0 covers_one sub_of_off sub_of_self bytes_keep
+  bytesAt_take bytesAt_writeBytes_self' inRegions_of_sub)
 open VG.Proof.Sha256.X86_64 (toNat_ofNat_lt sub_offset contains_offset)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_mov32i wp_addi)
-open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self writeBytes_at bytesAt_getD')
+open VG.Proof.Hmac.Common (bytesAt_length bytesAt_writeBytes_self writeBytes_at bytesAt_getD' xorPad_length)
 open Spec.Sha256 (bytesAt)
 open VG.Proof.Sha256.Stream (writeBytes)
 open Spec.Hmac (xorPad ipad opad hmacBlockKey)
@@ -394,20 +396,6 @@ theorem copy2_ok {s : State} (hk : KR (H := H) s₀ s) :
       simp only [List.mem_singleton]; rintro r rfl; exact hp.ret_p), c.mem⟩
 
 /-! ## Correctness -/
-
-omit hp in
-theorem bytesAt_take (m : Mem) (p : Addr) {D F : Nat} (h : D ≤ F) :
-    bytesAt m p D = (bytesAt m p F).take D := by
-  simp only [bytesAt, ← List.map_take, List.take_range, Nat.min_eq_left h]
-
-omit hp in
-theorem bytesAt_writeBytes_self' {m : Mem} {q : Addr} {xs : List Byte} {n : Nat} (hl : xs.length = n)
-    (hn : n < 2 ^ 64) : bytesAt (writeBytes m q xs) q n = xs := by
-  subst hl; exact bytesAt_writeBytes_self m q xs hn
-
-omit hp in
-theorem xorPad_length (k : List Byte) (p : Byte) : (xorPad k p).length = k.length := by
-  simp [xorPad]
 
 theorem correct : WP isa H.finalize s₀ fun s' => gprPreserved s₀ s' ∧ (finG hH.SH sc).post s₀ s' := by
   have hD := hp.hD; have hS := hp.hS; have hB := hp.hB

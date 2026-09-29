@@ -11,28 +11,12 @@ namespace VG.Proof.Hmac.Generic.X86_64.Init
 open VG.X86_64
 open VG.Impl.Hmac.Generic.X86_64 (Hash)
 open VG.Proof.Hmac.Generic.X86_64
+open VG.Proof.Hmac.Generic.Common (bytesAt_prefix_congr take_map_xor add_ofNat_add inRegions_of_sub
+  off_disj off_disj0 covers_one sub_of_off sub_of_self bytes_keep K0 K0_length)
 open VG.Proof.Sha256.X86_64 (toNat_ofNat_lt sub_offset contains_offset)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_mov32i wp_addi wp_test)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad blockKey)
-
-/-- Parts of a region at offsets `a` and `b` do not overlap. -/
-theorem off_disj (p : Addr) {a m b n : Nat} (h : a + m ≤ b ∨ b + n ≤ a) (ha : a + m < 2 ^ 64)
-    (hb : b + n < 2 ^ 64) :
-    Region.Disjoint ⟨p + BitVec.ofNat 64 a, m⟩ ⟨p + BitVec.ofNat 64 b, n⟩ := by
-  intro x h₁ h₂
-  simp only [Region.Contains] at h₁ h₂
-  have ta : (BitVec.ofNat 64 a).toNat = a := toNat_ofNat_lt (by omega)
-  have tb : (BitVec.ofNat 64 b).toNat = b := toNat_ofNat_lt (by omega)
-  bv_omega
-
-/-- The start of a region and a part of it at offset `b`. -/
-theorem off_disj0 (p : Addr) {m b n : Nat} (h : m ≤ b) (hb : b + n < 2 ^ 64) :
-    Region.Disjoint ⟨p, m⟩ ⟨p + BitVec.ofNat 64 b, n⟩ := by
-  intro x h₁ h₂
-  simp only [Region.Contains] at h₁ h₂
-  have tb : (BitVec.ofNat 64 b).toNat = b := toNat_ofNat_lt (by omega)
-  bv_omega
 
 variable {H : Hash} (hH : HashOK H) (sc : Nat)
 
@@ -175,10 +159,6 @@ structure PhK (s₀ s : State) : Prop where
   bufI : bytesAt s.mem (P (H := H) s₀) H.B = xorPad (K0₀ (H := H) s₀) ipad
   bufO : bytesAt s.mem (P (H := H) s₀ + BitVec.ofNat 64 H.B) H.B = xorPad (K0₀ (H := H) s₀) opad
 
-theorem take_map_xor {K : List Byte} {n : Nat} (h : K.length = n) (p : Byte) :
-    (K.take n).map (· ^^^ p) = xorPad K p := by
-  rw [List.take_of_length_le (by omega)]; rfl
-
 theorem keys_ok {s₀ : State} (hp : Pre (H := H) sc s₀) : WP isa H.initKeys s₀ (PhK (H := H) s₀) := by
   have hsc : ⟨scr s₀, 8 * sc⟩ ∈ s₀.wr := by rw [hp.wr]; simp
   have hL : 8 * H.W + 48 ≤ 8 * sc := by have := hp.fits; simp only [Hash.buf] at this; omega
@@ -255,11 +235,6 @@ theorem keys_ok {s₀ : State} (hp : Pre (H := H) sc s₀) : WP isa H.initKeys s
 
 /-! ## The calls -/
 
-theorem covers_one {rs : List Region} {r : Region} (h : r ∈ rs) : Covers [r] rs :=
-  Covers.of_sub fun r' hr' => by
-    simp only [List.mem_singleton] at hr'
-    exact ⟨r, h, 0, by rw [hr']; simp, by rw [hr']; simp⟩
-
 section
 variable {sc : Nat} {s₀ : State} (hp : Pre (H := H) sc s₀)
 include hp
@@ -314,18 +289,6 @@ theorem callInit_ok {s : State} (hk : KR (H := H) s₀ s) {st : Reg} {p : Addr} 
     WP isa (H.callInit st) s Q :=
   WP.seq (WP.mono (initArgs_ok hk hs) fun _ ⟨k, d, m⟩ =>
     initCall_ok hH hp k d hpR fun s' k' f r => hQ s' k' (m ▸ f) r)
-
-omit hp in
-theorem sub_of_off {rs : List Region} {base : Addr} {L : Nat} (h : ⟨base, L⟩ ∈ rs) {o n : Nat}
-    (hn : o + n ≤ L) : ∃ r' ∈ rs, ∃ off, (⟨base + BitVec.ofNat 64 o, n⟩ : Region).base =
-      r'.base + BitVec.ofNat 64 off ∧ off + (⟨base + BitVec.ofNat 64 o, n⟩ : Region).len ≤ r'.len :=
-  ⟨_, h, o, rfl, hn⟩
-
-omit hp in
-theorem sub_of_self {rs : List Region} {r : Region} (h : r ∈ rs) {n : Nat} (hn : n ≤ r.len) :
-    ∃ r' ∈ rs, ∃ off, (⟨r.base, n⟩ : Region).base = r'.base + BitVec.ofNat 64 off ∧
-      off + (⟨r.base, n⟩ : Region).len ≤ r'.len :=
-  ⟨r, h, 0, by simp, by simpa using hn⟩
 
 /-- The arguments of `init`'s calls of `update`. -/
 abbrev dO (s₀ : State) (o : Nat) : Addr := scr s₀ + BitVec.ofNat 64 o
@@ -429,11 +392,6 @@ theorem callUpd_ok {s : State} (hk : KR (H := H) s₀ s) {st : Reg} (hst : st = 
 /-! ## Memory kept by the calls -/
 
 omit hp in
-theorem bytes_keep {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr} {n : Nat}
-    (hd : ∀ r ∈ rs, Region.Disjoint ⟨p, n⟩ r) (hn : n ≤ 2 ^ 64) : bytesAt m' p n = bytesAt m p n :=
-  bytesAt_prefix_congr fun _ hi => hf.bytes (R := ⟨p, n⟩) hd hn hi
-
-omit hp in
 include hH in
 theorem repr_keep {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr}
     (hd : ∀ r ∈ rs, Region.Disjoint ⟨p, H.S⟩ r) {msg : List Byte} (hr : hH.SH.Repr m p msg) :
@@ -443,7 +401,7 @@ theorem repr_keep {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr
 theorem blockKey_eq : blockKey hH.SH.H (bytesAt s₀.mem (kp s₀) (kl s₀)) = K0₀ (H := H) s₀ := by
   have := hp.kl_le
   have hb := hH.hB
-  simp only [blockKey, K0₀, K0, Proof.Hmac.X86_64.bytesAt_length, hb, show ¬ (H.B < kl s₀) by omega,
+  simp only [blockKey, K0₀, K0, Proof.Hmac.Common.bytesAt_length, hb, show ¬ (H.B < kl s₀) by omega,
     ↓reduceIte]
 
 /-! ## Correctness -/

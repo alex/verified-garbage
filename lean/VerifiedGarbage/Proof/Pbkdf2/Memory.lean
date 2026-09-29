@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Hmac
 import VerifiedGarbage.Proof.Framework.Mem
+import VerifiedGarbage.Proof.Hmac.Common
 
 /-!
 # PBKDF2-HMAC-SHA-256's iteration: memory lemmas
@@ -13,11 +14,14 @@ namespace VG.Proof.Pbkdf2.Memory
 
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append write_eq_writeBytes)
 open VG.Spec.Sha256 (bytesAt stateAt blockAt HashValue)
+open VG.Proof.Hmac.Common (bytesAt_add read_congr₂ stateAt_eq_of_bytes writeBytes_at bytesAt_getD'
+  bytesAt_length bytesAt_writeBytes_self)
 
 /-! ## Helpers
 
-Copies of lemmas of the x86-64 SHA-256 and HMAC proofs, which this module
-does not import. -/
+Copies of lemmas of the x86-64 SHA-256 proofs, which this module does not
+import; the lemmas about bytes are the target-independent HMAC ones
+(`Proof/Hmac/Common.lean`). -/
 
 private theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = n := by
   rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
@@ -31,57 +35,6 @@ private theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤
       BitVec.toNat_add, toNat_ofNat_lt ho]
     exact Nat.mod_le _ _
   omega
-
-private theorem bytesAt_add (m : Mem) (p : Addr) (a b : Nat) :
-    bytesAt m p (a + b) = bytesAt m p a ++ bytesAt m (p + BitVec.ofNat 64 a) b := by
-  simp only [bytesAt, List.range_add, List.map_append, List.map_map]
-  congr 1
-  exact List.map_congr_left fun i _ => by
-    simp only [Function.comp_apply, BitVec.ofNat_add, BitVec.add_assoc]
-
-private theorem read_congr₂ {m m' : Mem} {a b : Addr} {n : Nat}
-    (h : ∀ i < n, m (a + BitVec.ofNat 64 i) = m' (b + BitVec.ofNat 64 i)) : m.read a n = m'.read b n := by
-  induction n generalizing a b with
-  | zero => rfl
-  | succ n ih =>
-    simp only [Mem.read]
-    have h0 := h 0 (by omega)
-    simp only [BitVec.add_zero] at h0
-    rw [h0, ih fun i hi => ?_]
-    have := h (i + 1) (by omega)
-    rwa [show a + BitVec.ofNat 64 (i + 1) = a + 1 + BitVec.ofNat 64 i by bv_omega,
-      show b + BitVec.ofNat 64 (i + 1) = b + 1 + BitVec.ofNat 64 i by bv_omega] at this
-
-private theorem stateAt_eq_of_bytes {m m' : Mem} {p q : Addr}
-    (h : ∀ i < 32, m (p + BitVec.ofNat 64 i) = m' (q + BitVec.ofNat 64 i)) : stateAt m p = stateAt m' q := by
-  apply Vector.ext
-  intro j hj
-  simp only [stateAt, Vector.getElem_ofFn, Mem.readW]
-  congr 1
-  refine read_congr₂ fun i hi => ?_
-  have := h (4 * j + i) (by omega)
-  rwa [show p + BitVec.ofNat 64 (4 * j + i) = p + BitVec.ofNat 64 (4 * j) + BitVec.ofNat 64 i by
-      simp only [BitVec.ofNat_add, BitVec.add_assoc],
-    show q + BitVec.ofNat 64 (4 * j + i) = q + BitVec.ofNat 64 (4 * j) + BitVec.ofNat 64 i by
-      simp only [BitVec.ofNat_add, BitVec.add_assoc]] at this
-
-private theorem writeBytes_at (m : Mem) (q : Addr) (xs : List Byte) {i : Nat} (hi : i < xs.length)
-    (hl : xs.length < 2 ^ 64) : writeBytes m q xs (q + BitVec.ofNat 64 i) = xs.getD i 0 := by
-  simp only [writeBytes, Mem.sub_ofNat_toNat q (show i < 2 ^ 64 by omega), hi, ite_true]
-
-private theorem bytesAt_getD' (m : Mem) (p : Addr) {n i : Nat} (hi : i < n) :
-    (bytesAt m p n).getD i 0 = m (p + BitVec.ofNat 64 i) := by
-  simp [bytesAt, List.getD_eq_getElem?_getD, hi]
-
-private theorem bytesAt_length (m : Mem) (p : Addr) (n : Nat) : (bytesAt m p n).length = n := by
-  simp [bytesAt]
-
-private theorem bytesAt_writeBytes_self (m : Mem) (q : Addr) (xs : List Byte) (hl : xs.length < 2 ^ 64) :
-    bytesAt (writeBytes m q xs) q xs.length = xs := by
-  apply List.ext_getElem (by simp [bytesAt])
-  intro i h₁ h₂
-  simp only [bytesAt, List.getElem_map, List.getElem_range]
-  rw [writeBytes_at _ _ _ h₂ hl, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h₂, Option.getD_some]
 
 /-! ## Memory -/
 

@@ -15,6 +15,7 @@ open VG VG.X86_64 VG.Impl.Hmac.X86_64
 open VG.Impl.Sha256.X86_64 (at_)
 open VG.Impl.Sha256.X86_64.Stream (Callee save restore compressAt)
 open VG.Proof.Hmac.X86_64
+open VG.Proof.Hmac.Common (bytesAt_add bytesAt_length bytesAt_snoc repr_block)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame repr_congr repr_nil repr_append_block)
 open VG.Proof.Sha256.X86_64 (ea_at contains_offset contains_offset' toNat_ofNat_lt sub_offset ofInt_natCast
   writeState stateAt_writeState readW_writeW_save)
@@ -277,24 +278,6 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
       simp only [Option.some.injEq, beq_eq_false_iff_ne, ne_eq]
       intro h'; exact h (by show (s₀.gpr .rcx).toNat = 0; rw [h']; rfl)
 
-/-- A byte written right after `j` bytes. -/
-theorem bytesAt_snoc (m : Mem) (p : Addr) {j : Nat} (hj : j + 1 < 2 ^ 64) (x : Byte) :
-    bytesAt (m.writeW (p + BitVec.ofNat 64 j) x) p (j + 1) = bytesAt m p j ++ [x] := by
-  rw [bytesAt_add]
-  congr 1
-  · simp only [bytesAt]
-    refine List.map_congr_left fun i hi => ?_
-    have hi := List.mem_range.mp hi
-    simp only [Mem.writeW]
-    refine Mem.write_apply ?_
-    rw [show p + BitVec.ofNat 64 i - (p + BitVec.ofNat 64 j) = BitVec.ofNat 64 i - BitVec.ofNat 64 j by bv_omega,
-      BitVec.toNat_sub, toNat_ofNat_lt (by omega), toNat_ofNat_lt (by omega)]
-    omega
-  · have e : p + BitVec.ofNat 64 j + BitVec.ofNat 64 0 - (p + BitVec.ofNat 64 j) = 0 := by bv_omega
-    simp only [bytesAt, List.range_one, List.map_cons, List.map_nil, Mem.writeW, Mem.write, e,
-]
-    simp
-
 /-- The two buffer bytes `j`. -/
 theorem buf_write {s₀ : State} (hp : Pre s₀) {j : Nat} {m : Mem} (h : BufMem s₀ j m) (hj : j < 64) :
     BufMem s₀ (j + 1) ((m.writeW (inn s₀ + 32 + BitVec.ofNat 64 j) ((K0 s₀)[j]'(by rw [K0_length s₀ hp]; omega) ^^^ ipad)).writeW
@@ -548,20 +531,6 @@ theorem saved_frame' {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List R
   simp only [Impl.Sha256.X86_64.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
   rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;>
   · intro a ha; simp only [Region.Contains, ofInt_natCast] at *; bv_omega
-
-theorem blockAt_eq {m : Mem} {p : Addr} {xs : List Byte} (h : bytesAt m p 64 = xs) :
-    Spec.Sha256.blockAt m p = Spec.Sha256.parseBlock fun k => xs.getD k 0 :=
-  Proof.Sha256.Stream.parseBlock_congr fun _ hk =>
-    Proof.Sha256.X86_64.Stream.bytesAt_getD h hk
-
-/-- A state with `H⁽⁰⁾` and a full buffer `xs`, compressed, represents `xs`. -/
-theorem repr_block {m m' : Mem} {p : Addr} {xs : List Byte} (hst : stateAt m p = H0)
-    (hb : bytesAt m (p + 32) 64 = xs) (hx : xs.length = 64)
-    (hs : stateAt m' p = Spec.Sha256.compress (stateAt m p) (Spec.Sha256.blockAt m (p + 32))) :
-    Repr m' p xs := by
-  have := repr_append_block (mem' := m') (xs := xs) (repr_nil hst) (by simp [hx])
-    (by rw [hs, blockAt_eq hb]; simp)
-  simpa using this
 
 /-- The call of the compression function on the state at `p` (the inner or
 the outer one) may be made. -/

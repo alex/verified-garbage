@@ -62,7 +62,7 @@ namespace VG.Proof.Pbkdf2.X86_64.Iterate
 
 open VG VG.X86_64 VG.Impl.Pbkdf2.X86_64
 open VG.Impl.Sha256.X86_64 (at_)
-open VG.Proof.Hmac.X86_64 (bytesAt_length writeBytes_other bytesAt_writeBytes_self bytesAt_writeBytes_sep)
+open VG.Proof.Hmac.Common (bytesAt_length writeBytes_other bytesAt_writeBytes_self bytesAt_writeBytes_sep)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Sha256.X86_64 (contains_offset sub_offset toNat_ofNat_lt ea_at)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_addi wp_mov32i compressBlocks_one callEntry_byte)
@@ -210,7 +210,8 @@ theorem compressBlock_ok {f : Callee} (hf : f.Ok) {s : State} {st sc : Addr}
 open VG.Proof.Sha256.X86_64.Stream.Finalize (writeW_bswap32 flat_length)
 open VG.Proof.Sha256.X86_64.Stream (wp_mov32m wp_bswap32 wp_store32 wp_movm wp_store wp_subi wp_test)
 open VG.Proof.Sha256.X86_64 (ofInt_natCast)
-open VG.Proof.Hmac.X86_64 (ea_off bytesAt_add)
+open VG.Proof.Hmac.X86_64 (ea_off)
+open VG.Proof.Hmac.Common (bytesAt_add)
 open VG.Proof.Sha256.Stream (writeBytes_append writeBytes_nil)
 open VG.Spec.Sha256 (HashValue wordBytes)
 

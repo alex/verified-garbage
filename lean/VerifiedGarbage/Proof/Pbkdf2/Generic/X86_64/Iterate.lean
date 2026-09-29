@@ -12,12 +12,13 @@ open VG.X86_64
 open VG.Impl.Hmac.Generic.X86_64 (Hash copy)
 open VG.Impl.Pbkdf2.Generic.X86_64 (stO tmpO uO xorLoop count2 body prologue iterate)
 open VG.Proof.Hmac.Generic.X86_64
-open VG.Proof.Hmac.Generic.X86_64.Init (off_disj off_disj0 covers_one sub_of_off sub_of_self bytes_keep repr_keep)
-open VG.Proof.Hmac.Generic.X86_64.Finalize (add_zero' bytesAt_take bytesAt_writeBytes_self' xorPad_length)
+open VG.Proof.Hmac.Generic.X86_64.Init (repr_keep)
+open VG.Proof.Hmac.Generic.X86_64.Finalize (add_zero')
 open VG.Proof.Sha256.X86_64 (toNat_ofNat_lt sub_offset contains_offset)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_mov32i wp_addi wp_subi wp_test ofNat_pred ofNat_beq_zero)
-open VG.Proof.Hmac.X86_64 (bytesAt_length writeBytes_at bytesAt_getD')
-open VG.Proof.Hmac.Generic.X86_64 (xorBytes_length')
+open VG.Proof.Hmac.Common (bytesAt_length writeBytes_at bytesAt_getD' xorPad_length)
+open VG.Proof.Hmac.Generic.Common (off_disj off_disj0 covers_one sub_of_off sub_of_self bytes_keep
+  bytesAt_take bytesAt_writeBytes_self' xorBytes_length' inRegions_of_sub)
 open VG.Proof.Sha256.Stream (writeBytes)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad hmacBlockKey)

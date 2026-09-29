@@ -1,8 +1,8 @@
 import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Hash
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Hashes
 import VerifiedGarbage.Proof.Sha1.AArch64.Shared
 import VerifiedGarbage.Proof.Md5.AArch64.Shared
 import VerifiedGarbage.Proof.Sha512.AArch64.Shared
+import VerifiedGarbage.Proof.Hmac.Generic.Common
 
 /-!
 # HMAC over any streaming hash function on AArch64: the hash functions
@@ -18,7 +18,7 @@ namespace VG.Proof.Hmac.Generic.AArch64
 
 open VG.AArch64
 open VG.Impl.Hmac.Generic.AArch64 (Hash)
-open VG.Proof.Hmac.Generic.X86_64 (sha1_repr md5_repr sha512_repr finalHash_length)
+open VG.Proof.Hmac.Generic.Common (sha1_repr md5_repr sha512_repr finalHash_length)
 
 /-! ## SHA-1 -/
 

@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Hmac.Generic.Arm.Save
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Init
 
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: `init`, correct
@@ -16,11 +15,11 @@ namespace VG.Proof.Hmac.Generic.Arm.Init
 open VG.Arm
 open VG.Impl.Hmac.Generic.Arm (Hash scrAt)
 open VG.Proof.Hmac.Generic.Arm
-open VG.Proof.Sha256.X86_64 (contains_offset)
+open VG.Proof.MdStream.Arm (contains_offset)
 open VG.Proof.MdStream.Arm (Upd Fupd wp_mov wp_add wp_cmp wp_ldrSp op2_imm op2_reg sub_offset
   ofNat_beq_zero)
-open VG.Proof.Hmac.Generic.X86_64 (add_ofNat_add bytesAt_prefix_congr inRegions_of_sub K0 K0_length)
-open VG.Proof.Hmac.Generic.X86_64.Init (off_disj off_disj0 sub_of_off sub_of_self bytes_keep take_map_xor)
+open VG.Proof.Hmac.Generic.Common (add_ofNat_add bytesAt_prefix_congr inRegions_of_sub K0 K0_length
+  off_disj off_disj0 sub_of_off sub_of_self bytes_keep take_map_xor)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad blockKey)
 
@@ -404,7 +403,7 @@ theorem repr_keep {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr
 theorem blockKey_eq : blockKey hH.SH.H (bytesAt s₀.mem (State.addr (kp s₀)) (kl s₀)) = K0₀ (H := H) s₀ := by
   have := hp.kl_le
   have hb := hH.hB
-  simp only [blockKey, K0₀, K0, Proof.Hmac.X86_64.bytesAt_length, hb, show ¬ (H.B < kl s₀) by omega,
+  simp only [blockKey, K0₀, K0, Proof.Hmac.Common.bytesAt_length, hb, show ¬ (H.B < kl s₀) by omega,
     ↓reduceIte]
 
 omit hp in

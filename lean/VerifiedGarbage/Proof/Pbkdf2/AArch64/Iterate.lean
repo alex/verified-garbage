@@ -16,7 +16,7 @@ namespace VG.Proof.Pbkdf2.AArch64
 
 open VG VG.AArch64 VG.Impl.Pbkdf2.AArch64
 open VG.Impl.Sha256.AArch64.Stream (saved restore)
-open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep)
+open VG.Proof.Hmac.Common (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Sha256.AArch64 (contains_offset)
 open VG.Proof.MdStream.AArch64 (Upd wp_mov wp_movz wp_addImm wp_ldr wp_str readW_writeW_save

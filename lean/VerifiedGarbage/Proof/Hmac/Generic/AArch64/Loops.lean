@@ -1,14 +1,14 @@
 import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Hash
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Loops
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Common
+import VerifiedGarbage.Proof.Hmac.Generic.Common
 
 /-!
 # HMAC over any streaming hash function on AArch64: the byte loops
 
 Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Hmac/Generic/X86_64/Loops.lean`, whose lemmas on byte lists and
-memory are reused): the byte copy (`copy`), used for states, digests and
-`U`; the exclusive-or of `U` into `T`; and `init`'s loops that write
+(`Proof/Hmac/Generic/X86_64/Loops.lean`, with the lemmas on byte lists and
+memory of `Proof/Hmac/Generic/Common.lean`): the byte copy (`copy`), used for
+states, digests and `U`; the exclusive-or of `U` into `T`; and `init`'s loops that write
 `K₀ ⊕ ipad` and `K₀ ⊕ opad`. Each counts `x24` up from 0, and computes the
 bytes left into `x11`, on which it branches.
 -/
@@ -18,11 +18,11 @@ namespace VG.Proof.Hmac.Generic.AArch64
 open VG.AArch64
 open VG.Impl.Hmac.Generic.AArch64 (Hash copy left)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeW8_apply)
-open VG.Proof.Sha256.X86_64 (toNat_ofNat_lt)
+open VG.Proof.MdStream.AArch64 (toNat_ofNat_lt)
 open VG.Proof.MdStream.AArch64 (Upd Mupd wp_add wp_sub wp_addImm wp_movz wp_ldrb wp_strb
   eval_nonzero eval_zero ofNat_succ)
-open VG.Proof.Hmac.X86_64 (bytesAt_length)
-open VG.Proof.Hmac.Generic.X86_64 (writeBytes_snoc bytesAt_snoc' not_mem_of_disjoint add_ofNat_ne
+open VG.Proof.Hmac.Common (bytesAt_length)
+open VG.Proof.Hmac.Generic.Common (writeBytes_snoc bytesAt_snoc' not_mem_of_disjoint add_ofNat_ne
   add_ofNat_add BufMem buf_write K0 K0_length K0_lt K0_ge xorBytes_snoc xorBytes_length'
   InRegions.right')
 open Spec.Sha256 (bytesAt)
@@ -296,7 +296,7 @@ theorem key_step {P K : Addr} {kl : Nat} {s : State} (hr : LoopRegs H P K kl s) 
     rw [K0_lt hj hl]
     refine h.mem.frame _ fun r hr' hc => ?_
     simp only [List.mem_singleton] at hr'; subst hr'
-    exact hm.disj _ (Proof.Sha256.X86_64.contains_offset (n := 1) (by omega) (by omega)) hc
+    exact hm.disj _ (Proof.MdStream.AArch64.contains_offset (n := 1) (by omega) (by omega)) hc
   refine wp_add fun t₁ u₁ => ?_
   refine wp_ldrb (a := K + BitVec.ofNat 64 j) (by decide)
     (by rw [u₁.gpr, rt.x21, h.x24, BitVec.add_zero])
