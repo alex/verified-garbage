@@ -18,7 +18,7 @@ open VG.Proof.Hmac.Generic.Arm
 open VG.Proof.Hmac.Generic.X86_64 (inRegions_of_sub)
 open VG.Proof.Hmac.Generic.X86_64.Init (off_disj off_disj0 sub_of_off sub_of_self bytes_keep)
 open VG.Proof.Hmac.Generic.X86_64.Finalize (bytesAt_take bytesAt_writeBytes_self' xorPad_length)
-open VG.Proof.Sha256.Arm (contains_offset)
+open VG.Proof.Sha256.X86_64 (contains_offset)
 open VG.Proof.MdStream.Arm (Upd wp_mov wp_add wp_ldrSp op2_imm op2_reg sub_offset)
 open VG.Proof.Hmac.X86_64 (bytesAt_length writeBytes_at bytesAt_getD')
 open Spec.Sha256 (bytesAt)
