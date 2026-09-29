@@ -75,12 +75,17 @@ def kgG : Prog isa :=
 
 def kgA : Prog isa := .seq (.block kgPrologue) kgG
 
+/-- The seed `ρ ‖ j ‖ i` and the arguments of `SampleNTT` for `Â[i, j]`. -/
+def kgSetup (i j : Nat) : List Instr :=
+  [.movz .x .x9 (BitVec.ofNat 16 j) 0, .strb .x9 .x28 (SB + 32), .movz .x .x9 (BitVec.ofNat 16 i) 0,
+    .strb .x9 .x28 (SB + 33)] ++ ptrTo .x0 .x28 SB ++ ptrTo .x1 .x28 (aOff i j) ++ ptrTo .x2 .x28 SS
+
+/-- `SampleNTT`, and its result ANDed into `x24`. -/
+def kgCall : Prog isa :=
+  .seq (.call "vg_mlkem_sample_ntt" sampleNTT) (.block [.logic .and .x .x24 .x24 .x0])
+
 /-- `Â[i, j] = SampleNTT(ρ ‖ j ‖ i)`, and its result ANDed into `x24`. -/
-def kgSample (i j : Nat) : Prog isa :=
-  .seq (.block ([.movz .x .x9 (BitVec.ofNat 16 j) 0, .strb .x9 .x28 (SB + 32),
-      .movz .x .x9 (BitVec.ofNat 16 i) 0, .strb .x9 .x28 (SB + 33)] ++
-      ptrTo .x0 .x28 SB ++ ptrTo .x1 .x28 (aOff i j) ++ ptrTo .x2 .x28 SS))
-    (.seq (.call "vg_mlkem_sample_ntt" sampleNTT) (.block [.logic .and .x .x24 .x24 .x0]))
+def kgSample (i j : Nat) : Prog isa := .seq (.block (kgSetup i j)) kgCall
 
 /-- The nine `SampleNTT`s, row by row. -/
 def kgB : Prog isa :=

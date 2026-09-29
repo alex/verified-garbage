@@ -8,6 +8,7 @@ import VerifiedGarbage.Proof.MlKem.AArch64.Mul
 import VerifiedGarbage.Proof.MlKem.AArch64.NttInv
 import VerifiedGarbage.Proof.MlKem.AArch64.Sample
 import VerifiedGarbage.Proof.MlKem.AArch64.HashProof
+import VerifiedGarbage.Proof.Framework.AArch64.RelCT
 
 /-!
 # ML-KEM-768 on AArch64: calling the primitives
@@ -249,5 +250,50 @@ theorem sample_call {s : State} {sd a w : Addr} (h0 : s.gpr .x0 = sd) (h1 : s.gp
     simp only [Sample.sampleStrong, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem,
       c0, c1] at hpost
     exact hQ s' ⟨hcs, hsp', hrd, hwr, frame3 hf⟩ hpost.1 hpost.2
+
+/-- What a call of `sample_ntt` needs. -/
+structure SampleArgs (s : State) (sd a w : Addr) : Prop where
+  h0 : s.gpr .x0 = sd
+  h1 : s.gpr .x1 = a
+  h2 : s.gpr .x2 = w
+  d₁ : Region.Disjoint ⟨sd, 34⟩ ⟨a, 1024⟩
+  d₂ : Region.Disjoint ⟨sd, 34⟩ ⟨w, 2048⟩
+  d₃ : Region.Disjoint ⟨a, 1024⟩ ⟨w, 2048⟩
+  hsp : 16 ≤ s.sp.toNat
+  k₁ : (stk s).Disjoint ⟨sd, 34⟩
+  k₂ : (stk s).Disjoint ⟨a, 1024⟩
+  k₃ : (stk s).Disjoint ⟨w, 2048⟩
+  hc : Covers [⟨sd, 34⟩, ⟨a, 1024⟩, ⟨w, 2048⟩] (s.rd ++ s.wr)
+  hw : Covers [⟨a, 1024⟩, ⟨w, 2048⟩] s.wr
+
+theorem SampleArgs.pre {s : State} {sd a w : Addr} (h : SampleArgs s sd a w) :
+    Sample.sampleStrong.pre (s.callEntry.withRegions [⟨sd, 34⟩] [⟨a, 1024⟩, ⟨w, 2048⟩]) := by
+  have c0 : s.callEntry.gpr .x0 = sd := (entry s).trans h.h0
+  have c1 : s.callEntry.gpr .x1 = a := (entry s).trans h.h1
+  have c2 : s.callEntry.gpr .x2 = w := (entry s).trans h.h2
+  simp only [Sample.sampleStrong, sampleAArch64, State.withRegions_gpr, State.withRegions_rd,
+    State.withRegions_wr, State.withRegions_sp, State.callEntry_sp, c0, c1, c2]
+  exact ⟨trivial, trivial, h.d₁, h.d₂, h.d₃, h.hsp, h.k₁, h.k₂, h.k₃⟩
+
+/-- A call of `sample_ntt` returns with the stack pointer it was called with. -/
+theorem SampleArgs.sp {s : State} {sd a w : Addr} (h : SampleArgs s sd a w) :
+    WP isa (.call "vg_mlkem_sample_ntt" Impl.MlKem.AArch64.sampleNTT) s fun s' => s'.sp = s.sp :=
+  sample_call h.h0 h.h1 h.h2 h.d₁ h.d₂ h.d₃ h.hsp h.k₁ h.k₂ h.k₃ h.hc h.hw fun _ k _ _ => k.sp
+
+/-- Two calls of `sample_ntt` on the same seed, at the same addresses, leak the same. -/
+theorem sample_ct {P : State → State → Prop} {sd a w : Addr}
+    (hP : ∀ s₁ s₂, P s₁ s₂ → SampleArgs s₁ sd a w ∧ SampleArgs s₂ sd a w ∧
+      bytesAt s₁.mem sd 34 = bytesAt s₂.mem sd 34 ∧ s₁.sp = s₂.sp) :
+    RelCT isa P (.call "vg_mlkem_sample_ntt" Impl.MlKem.AArch64.sampleNTT) fun _ _ => True :=
+  AArch64.RelCT.call Sample.sample_strong Sample.ct_strong [⟨sd, 34⟩] [⟨a, 1024⟩, ⟨w, 2048⟩] fun s₁ s₂ h => by
+    obtain ⟨A₁, A₂, hb, hsp⟩ := hP s₁ s₂ h
+    refine ⟨A₁.pre, A₂.pre, ?_, A₁.hc, A₁.hw, A₂.hc, A₂.hw⟩
+    have c0 : ∀ {u : State}, SampleArgs u sd a w → u.callEntry.gpr .x0 = sd := fun hu => (entry _).trans hu.h0
+    have c1 : ∀ {u : State}, SampleArgs u sd a w → u.callEntry.gpr .x1 = a := fun hu => (entry _).trans hu.h1
+    have c2 : ∀ {u : State}, SampleArgs u sd a w → u.callEntry.gpr .x2 = w := fun hu => (entry _).trans hu.h2
+    simp only [Sample.sampleStrong, sampleAArch64, State.withRegions_gpr, State.withRegions_sp,
+      State.withRegions_mem, State.callEntry_sp, State.callEntry_mem, c0 A₁, c1 A₁, c2 A₁, c0 A₂, c1 A₂,
+      c2 A₂, hsp, hb]
+    exact ⟨trivial, trivial, trivial, trivial, trivial⟩
 
 end VG.Proof.MlKem.AArch64
