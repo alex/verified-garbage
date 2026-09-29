@@ -35,8 +35,7 @@ theorem view_r2 (s : State) (rd wr : List Region) : (view s rd wr).gpr .r2 = s.g
 theorem view_r3 (s : State) (rd wr : List Region) : (view s rd wr).gpr .r3 = s.gpr .r3 := view_gpr' _ _ _ (by decide)
 
 theorem Ctx.buf0 {L : Lay} {s : State} (hc : Ctx L s) : L.buf 0 ∈ s.wr := by
-  show (⟨State.addr (L.ptr 0), L.size 0⟩ : Region) ∈ s.wr
-  rw [hc.sz0]; exact hc.cw
+  exact hc.cw
 
 theorem mem_rd_wr {r : Region} {s : State} (h : r ∈ s.wr) : r ∈ s.rd ++ s.wr := List.mem_append_right _ h
 

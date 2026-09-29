@@ -60,7 +60,7 @@ theorem Ctx.sep00 {L : Lay} {s : State} (hc : Ctx L s) {o l o' l' : Nat} (h₁ :
     (h₂ : o' + l' ≤ 32768) (h : o + l ≤ o' ∨ o' + l' ≤ o) : sepB L.sizes (0, o, l) (0, o', l') = true := by
   have := hc.len; have := hc.sz0
   simp only [sepB, Lay.size] at this ⊢
-  simp only [this, Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq, bne_iff_ne, ne_eq, not_true_eq_false,
+  simp only [Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq, bne_iff_ne, ne_eq, not_true_eq_false,
     false_or]
   omega
 
@@ -68,7 +68,7 @@ theorem Ctx.sep01 {L : Lay} {s : State} (hc : Ctx L s) {o l o' l' : Nat} (h₁ :
     (h₂ : o' + l' ≤ 8) : sepB L.sizes (0, o, l) (1, o', l') = true := by
   have h0 := hc.len; have h1 := hc.sz0; have h2 := hc.sz1
   simp only [Lay.size] at h1 h2
-  simp only [sepB, h1, h2, Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq, bne_iff_ne, ne_eq]
+  simp only [sepB, h2, Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq, bne_iff_ne, ne_eq]
   omega
 
 theorem sepB_symm {sz : List Nat} {a b : Nat × Nat × Nat} (h : sepB sz a b = true) : sepB sz b a = true := by
