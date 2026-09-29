@@ -34,6 +34,11 @@ Modelling choices:
 * Calls (`call`) and returns (`ret`) are near and direct (SDM Vol. 2, "CALL",
   "RET"). The return addresses are the next of the state's `unknowns`,
   which nothing constrains (see `TCB/Code.lean`).
+* `push` and `pop` (of 64-bit registers other than `rsp`) only occur as the
+  push and pop of a frame (see `push`), as a sequence of them. A caller
+  passes arguments on the stack by pushing them, the last first, just
+  before the call: on the callee's entry the first is then at `[rsp + 8]`,
+  above the return address.
 * The SSE registers `xmm0`–`xmm15` are modelled as 128 bits each (SDM Vol. 1
   §10.2.2), and the upper halves (bits 255:128) of the AVX registers
   `ymm0`–`ymm15` that alias them (SDM Vol. 1 §14.1.1) separately. Bits above
@@ -121,6 +126,12 @@ inductive Instr
   | lfence
   /-- `mul r64` (REX.W + F7 /4): the unsigned product `RDX:RAX := RAX * r64`. -/
   | mul (src : Reg)
+  /-- `push r64` (50+rd) for each `r` of `rs`, in order: the push of a frame
+  (see `push`); `rs` must not be empty or contain `rsp` -/
+  | push (rs : List Reg)
+  /-- `pop r64` (58+rd), `k` times: the pop of a frame of `8 * k` bytes (see
+  `pop`); `k > 0`, and `r` is not `rsp` -/
+  | pop (r : Reg) (k : Nat)
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`jcc` suffixes). -/
@@ -220,6 +231,8 @@ def exec : Instr → State → Option State
     if v.extractLsb' 16 16 = 0 then some { s with mxcsr := v } else none
   | .lfence, s => some s
   | .mul r, s => some (execMul r s)
+  -- Only the push and pop of a frame (`push`, `pop`).
+  | .push _, _ | .pop .., _ => none
 
 def addrs : Instr → State → List Addr
   | .mov _ src, s => srcAddrs s src
@@ -246,6 +259,8 @@ def addrs : Instr → State → List Addr
   | .ldmxcsr m, s => [s.ea m]
   | .lfence, _ => []
   | .mul _, _ => []
+  | .push rs, s => (List.range rs.length).map fun i => s.gpr .rsp - BitVec.ofNat 64 (8 * (i + 1))
+  | .pop _ k, s => (List.range k).map fun i => s.gpr .rsp + BitVec.ofNat 64 (8 * i)
 
 def eval : Cond → State → Option Bool
   | .e, s => s.zf
@@ -271,14 +286,59 @@ def ret (s₁ s₂ : State) : Option State :=
     some (s₂.setReg .rsp (s₂.gpr .rsp + 8))
   else none
 
+/-- `push r` for each of `rs`, in order, where `r ≠ rsp`: SDM Vol. 2,
+"PUSH—Push Word, Doubleword, or Quadword Onto the Stack", with a 64-bit
+stack address size and operand size (the default for `PUSH r64` in 64-bit
+mode): `RSP := RSP − 8; Memory[SS:RSP] := SRC; (* push quadword *)`. No
+flags are affected. -/
+def pushRegs (s : State) : List Reg → State
+  | [] => s
+  | r :: rs =>
+    let sp := s.gpr .rsp - 8
+    pushRegs { s.setReg .rsp sp with mem := s.mem.writeW sp (s.gpr r) } rs
+
+/-- `pop r`, `k` times, where `r ≠ rsp`: SDM Vol. 2, "POP—Pop a Value From
+the Stack", with a 64-bit stack address size and operand size (the default
+for `POP r64` in 64-bit mode): `DEST := Memory[SS:RSP]; (* Copy quadword *)
+RSP := RSP + 8;`. No flags are affected. -/
+def popReg (s : State) (r : Reg) : Nat → State
+  | 0 => s
+  | k + 1 =>
+    popReg ((s.setReg r (s.mem.readW (s.gpr .rsp) 64)).setReg .rsp (s.gpr .rsp + 8)) r k
+
+/-- The push of a frame: `push r` for each `r` of `rs` (`pushRegs`). The
+`8 * rs.length` bytes it stores become a writable region, at the head of
+`wr`. Faults if `rs` is empty or contains `rsp`, or if the frame would wrap
+around the address space. -/
+def push : Instr → State → Option State
+  | .push rs, s =>
+    let n := 8 * rs.length
+    if rs ≠ [] ∧ .rsp ∉ rs ∧ n ≤ (s.gpr .rsp).toNat then
+      some { pushRegs s rs with wr := ⟨s.gpr .rsp - BitVec.ofNat 64 n, n⟩ :: s.wr }
+    else none
+  | _, _ => none
+
+/-- The pop of a frame: `pop r`, `k` times (`popReg`), so that `r` holds the
+last quadword of the frame. Faults if `k = 0` or `r` is `rsp`, and unless
+`rsp` and the writable regions are those the push left (`s₁`), and the
+frame, the region at their head, has `8 * k` bytes; it removes the frame. -/
+def pop : Instr → State → State → Option State
+  | .pop r k, s₁, s₂ =>
+    if k ≠ 0 ∧ r ≠ .rsp ∧ s₂.gpr .rsp = s₁.gpr .rsp ∧ s₂.wr = s₁.wr ∧
+        s₁.wr.head? = some ⟨s₁.gpr .rsp, 8 * k⟩ then
+      some { popReg s₂ r k with wr := s₂.wr.tail }
+    else none
+  | _, _, _ => none
+
 /-- The general-purpose register an instruction writes, if it writes exactly
-one: `mul` writes two, `rax` and `rdx`, and stores and SSE instructions none. -/
+one (the pop of a frame also moves `rsp`, as the push does): `mul` writes
+two, `rax` and `rdx`, and stores and SSE instructions none. -/
 def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .mov32 d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
-  | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
+  | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ | .pop d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _
   | .vop _ | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .stmxcsr _ | .ldmxcsr _
-  | .lfence | .mul _ => none
+  | .lfence | .mul _ | .push _ => none
 
 abbrev isa : ISA where
   State := State
@@ -291,11 +351,11 @@ abbrev isa : ISA where
   callAddrs s := [s.gpr .rsp - 8]
   ret := ret
   retAddrs s := [s.gpr .rsp]
-  -- `mul` writes `rax` and `rdx`, never `rsp`.
+  -- Other than as the push and pop of a frame. `mul` writes `rax` and
+  -- `rdx`, never `rsp`.
   writesSp i := i.dst == some .rsp
-  -- No frames are modelled.
-  push _ _ := none
-  pop _ _ _ := none
+  push := push
+  pop := pop
   requires := Instr.requires
 
 end VG.X86_64

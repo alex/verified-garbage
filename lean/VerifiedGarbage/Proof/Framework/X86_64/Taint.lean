@@ -227,6 +227,8 @@ def step (τ : T) : Instr → Option T
   | .ldmxcsr m => if memPub τ m then some τ else none
   | .lfence => some τ
   | .mul r => some (mulStep τ r)
+  -- Frames are not analysed yet.
+  | .push _ | .pop .. => none
 
 def meet (τ₁ τ₂ : T) : T where
   regs := τ₁.regs.inter τ₂.regs
@@ -683,7 +685,8 @@ def dstOf : Instr → Option Reg
   | .mov d _ | .mov32 d _ | .alu _ d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
   | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ | .vop _
-  | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .stmxcsr _ | .ldmxcsr _ | .lfence | .mul _ => none
+  | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .stmxcsr _ | .ldmxcsr _ | .lfence | .mul _
+  | .push _ | .pop .. => none
 
 /-- An SSE instruction on registers changes only the SSE registers. -/
 theorem XOp.exec_eq (op : XOp) (s : State) : op.exec s = { s with xmm := (op.exec s).xmm } := by
@@ -703,6 +706,9 @@ theorem Agree.withXmm {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) (x�
 def clobbers (i : Instr) (r : Reg) : Bool :=
   match i with
   | .mul _ => r == .rax || r == .rdx
+  -- The push and pop of a frame move `rsp`, and the pop loads `d`.
+  | .push _ => r == .rsp
+  | .pop d _ => r == .rsp || r == d
   | _ => dstOf i == some r
 
 /-- Changing only the vector registers, which the analysis does not track. -/
@@ -862,6 +868,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
     addrs i s₁ = addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i with
+  | push | pop => simp only [step, reduceCtorEq] at hs
   | mov d src =>
     simp only [step] at hs
     split at hs <;> [skip; cases hs]
@@ -1296,6 +1303,7 @@ def stepK (τ : T) : Instr → Option T
   | .ldmxcsr m => bif memPub τ m then some τ else none
   | .lfence => some τ
   | .mul r => some (mulStep τ r)
+  | .push _ | .pop .. => none
 
 /-- `l.contains a`, for a known base address. -/
 def memB (a : Reg × Nat × Nat) (l : List (Reg × Nat × Nat)) : Bool :=

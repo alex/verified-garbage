@@ -63,7 +63,7 @@ register). -/
 def dstOf : Instr → Option Reg
   | .add _ d .. | .sub _ d .. | .addImm _ d .. | .subImm _ d .. | .logic _ _ d .. | .ror _ d ..
   | .lsr _ d .. | .lsl _ d .. | .madd _ d .. | .mul _ d .. | .rev32 d _ | .rev d _ | .movz _ d ..
-  | .movk _ d .. | .ldr _ d .. | .ldrb d .. | .pop d | .umov _ d .. => some d
+  | .movk _ d .. | .ldr _ d .. | .ldrb d .. | .ldrSp d _ | .pop d | .umov _ d .. => some d
   | .str .. | .strb .. | .push _ | .vop _ | .ldrq .. | .strq .. => none
 
 section
@@ -118,6 +118,12 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     simp only [exec, Option.map_eq_some_iff] at h ⊢
     obtain ⟨⟨d, x⟩, he, rfl⟩ := h
     exact ⟨(d, x), he, rfl⟩
+  | ldrSp t off =>
+    simp only [exec] at h ⊢
+    split at h <;> [rename_i ho; cases h]
+    obtain ⟨v, hv, rfl⟩ := Option.map_eq_some_iff.mp h
+    simp only [ho, and_self, ite_true, State.withRegions_sp, load_widen hc hv, Option.map_some]
+    rfl
   | push _ | pop _ => simp only [exec, reduceCtorEq] at h
   | _ =>
     simp only [exec] at h ⊢
@@ -167,6 +173,11 @@ theorem exec_regions {i : Instr} (h : exec i s = some s') :
     simp only [exec, Option.map_eq_some_iff] at h
     obtain ⟨⟨_, _⟩, -, rfl⟩ := h
     exact ⟨rfl, rfl, rfl, Frame.refl _ _⟩
+  | ldrSp t off =>
+    simp only [exec] at h
+    split at h <;> [skip; cases h]
+    obtain ⟨v, -, rfl⟩ := Option.map_eq_some_iff.mp h
+    exact ⟨rfl, rfl, rfl, Frame.refl _ _⟩
   | push _ | pop _ => simp only [exec, reduceCtorEq] at h
   | _ =>
     simp only [exec] at h
@@ -208,6 +219,11 @@ theorem exec_gpr {i : Instr} {r : Reg} (hi : dstOf i ≠ some r) (h : exec i s =
     simp only [exec, Option.map_eq_some_iff] at h
     obtain ⟨⟨_, _⟩, -, rfl⟩ := h
     rfl
+  | ldrSp t off =>
+    simp only [exec] at h
+    split at h <;> [skip; cases h]
+    obtain ⟨v, -, rfl⟩ := Option.map_eq_some_iff.mp h
+    exact hw _ _ _ _ fun e => hi (by simp [dstOf, e])
   | push _ | pop _ => simp only [exec, reduceCtorEq] at h
   | _ =>
     simp only [exec] at h

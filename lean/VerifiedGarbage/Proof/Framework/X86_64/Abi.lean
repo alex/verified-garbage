@@ -53,6 +53,28 @@ theorem exec_mxcsr {i : Instr} (hi : loadsMxcsr i = false) {s s' : State} (h : e
     simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; rfl
   | bswap32 | bswap | movImm64 | lfence | mul =>
     simp only [exec, Option.some.injEq] at h; subst h; rfl
+  | push | pop => simp only [exec, reduceCtorEq] at h
+
+theorem pushRegs_mxcsr (s : State) (rs : List Reg) : (pushRegs s rs).mxcsr = s.mxcsr := by
+  induction rs generalizing s with
+  | nil => rfl
+  | cons r rs ih => exact ih _
+
+theorem popReg_mxcsr (s : State) (r : Reg) (k : Nat) : (popReg s r k).mxcsr = s.mxcsr := by
+  induction k generalizing s with
+  | zero => rfl
+  | succ k ih => exact ih _
+
+/-- A frame's push and pop keep MXCSR. -/
+theorem push_mxcsr {i : Instr} {s s₁ : State} (h : isa.push i s = some s₁) : s₁.mxcsr = s.mxcsr := by
+  cases i <;> simp only [isa, push, reduceCtorEq] at h
+  split at h <;> cases h
+  exact pushRegs_mxcsr _ _
+
+theorem pop_mxcsr {j : Instr} {s₁ s₂ s' : State} (h : isa.pop j s₁ s₂ = some s') : s'.mxcsr = s₂.mxcsr := by
+  cases j <;> simp only [isa, pop, reduceCtorEq] at h
+  split at h <;> cases h
+  exact popReg_mxcsr _ _ _
 
 theorem execBlock_mxcsr {is : List Instr} (hc : ∀ i ∈ is, loadsMxcsr i = false)
     {s s' : State} {t : List Leak} (h : execBlock isa is s = some (s', t)) : s'.mxcsr = s.mxcsr := by
@@ -82,7 +104,9 @@ theorem Exec.mxcsr {c : Prog isa} (hc : ∀ i ∈ instrs c, loadsMxcsr i = false
   | iteF _ _ ih => exact ih fun i hi => hc i (List.mem_append_right _ hi)
   | loopExit _ _ ih => exact ih hc
   | loopNext _ _ _ ih₁ ih₂ => rw [ih₂ hc, ih₁ hc]
-  | frame hp => simp only [isa, reduceCtorEq] at hp
+  | frame hp _ hq ih =>
+    rw [pop_mxcsr hq, ih fun i hi => hc i (List.mem_cons_of_mem _ (List.mem_append_left _ hi)),
+      push_mxcsr hp]
   | call hc₁ _ hr ih =>
     simp only [isa, call, Option.some.injEq] at hc₁
     simp only [isa, ret] at hr

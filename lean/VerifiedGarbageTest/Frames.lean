@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.AArch64.Isa
 import VerifiedGarbage.TCB.Arm.Isa
 import VerifiedGarbage.TCB.X86.Isa
+import VerifiedGarbage.TCB.X86_64.Target
 
 /-!
 # Golden tests for the push and pop of frames
@@ -86,5 +87,52 @@ def x86Push : Option X86.State := X86.push (.push [.ecx, .eax]) x86
 #guard (x86Push.bind fun s₁ => X86.pop (.pop .esp 2) s₁ s₁).isNone
 #guard (X86.push (.push [.esp]) x86).isNone && (X86.push (.push []) x86).isNone
 #guard (X86.exec (.push [.eax]) x86).isNone && (X86.exec (.pop .eax 1) x86).isNone
+
+/-! ## x86-64 -/
+
+def x64 : X86_64.State :=
+  { gpr := fun r => if r = .rsp then 0x1000 else if r = .rax then 0xaaaaaaaaaaaaaaaa
+      else if r = .rcx then 0xcccccccccccccccc else 0,
+    cf := none, zf := none, sf := none, of := none, mem := fun _ => 0, rd := [], wr := [⟨0x8000, 8⟩] }
+
+def x64Push : Option X86_64.State := X86_64.push (.push [.rcx, .rax]) x64
+
+-- `push rcx; push rax`: `rax` at the lower address; the 16 bytes become a
+-- writable region at the head of `wr`.
+#guard (x64Push.map fun s => (s.gpr .rsp, s.mem.readW 0xff0 64, s.mem.readW 0xff8 64,
+    s.wr.map (·.base), s.wr.map (·.len))) ==
+  some (0xff0, 0xaaaaaaaaaaaaaaaa, 0xcccccccccccccccc, [0xff0, 0x8000], [16, 8])
+
+-- `pop rdx; pop rdx`: `rdx` holds the last quadword, `rsp` is back and the
+-- frame's region is removed.
+#guard (x64Push.bind fun s₁ => (X86_64.pop (.pop .rdx 2) s₁ s₁).map fun s =>
+    (s.gpr .rsp, s.gpr .rdx, s.wr.map (·.base))) == some (0x1000, 0xcccccccccccccccc, [0x8000])
+
+-- The pop faults unless the frame has the size popped, `rsp` and the regions
+-- are those the push left, and its register is not `rsp`.
+#guard (x64Push.bind fun s₁ => X86_64.pop (.pop .rdx 1) s₁ s₁).isNone
+#guard (x64Push.bind fun s₁ => X86_64.pop (.pop .rdx 2) s₁ (s₁.setReg .rsp (s₁.gpr .rsp + 16))).isNone
+#guard (x64Push.bind fun s₁ => X86_64.pop (.pop .rdx 2) s₁ { s₁ with wr := s₁.wr.tail }).isNone
+#guard (x64Push.bind fun s₁ => X86_64.pop (.pop .rsp 2) s₁ s₁).isNone
+#guard (X86_64.pop (.pop .rdx 1) x64 x64).isNone
+-- The push faults on an empty list, on `rsp`, and if the frame would wrap
+-- around the address space.
+#guard (X86_64.push (.push [.rsp]) x64).isNone && (X86_64.push (.push []) x64).isNone
+#guard (X86_64.push (.push [.rcx, .rax]) (x64.setReg .rsp 8)).isNone
+-- Neither is an instruction of a block.
+#guard (X86_64.exec (.push [.rax]) x64).isNone && (X86_64.exec (.pop .rax 1) x64).isNone
+
+-- Passing two arguments on the stack: pushed the last first, just before the
+-- call, they are the callee's first two stack arguments at `[rsp + 8]` and
+-- `[rsp + 16]` on entry, above the return address, in the region the frame
+-- made readable, which is the callee's argument area.
+def x64Entry : Option X86_64.State := x64Push.bind X86_64.call
+
+#guard (x64Entry.map fun s => (s.gpr .rsp, X86_64.stackArg s 0, X86_64.stackArg s 1)) ==
+  some (0xfe8, 0xaaaaaaaaaaaaaaaa, 0xcccccccccccccccc)
+#guard (x64Entry.map fun s => (X86_64.abi.argArea (List.replicate 8 64) s).map
+    fun (r, w) => (r.base, r.len, w)) == some [(0xff0, 16, false)]
+#guard (x64Entry.map fun s => decide (InRegions (s.rd ++ s.wr) (X86_64.stackArgAddr s 0) 16)) ==
+  some true
 
 end VG.Test.Frames

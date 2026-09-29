@@ -228,6 +228,17 @@ cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
 ```
 
+A primitive with implementations for different CPU features is tested (and
+benchmarked) end to end in each configuration, never through a special API:
+the `cpu-features-env` Cargo feature lets `VG_CPU_FEATURES` restrict the
+features detected (see `src/cpu.rs`), and CI runs each configuration that
+chooses differently (`rust-cpu-features` in `ci.yml`, `CPU_FEATURES` in
+`ci/bench_arches.py`). To test the baseline ISA's implementations:
+
+```sh
+VG_CPU_FEATURES=none WYCHEPROOF_ROOT=/path/to/wycheproof cargo test --features cpu-features-env
+```
+
 Coverage on this platform (CI merges it across all of them; the merge needs
 `pip install -r ci/requirements-coverage.txt`):
 

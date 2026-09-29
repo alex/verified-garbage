@@ -20,6 +20,12 @@ them uses (e.g. `cpu`, `lib`, or `hashes/mod.rs`'s `mod`). Any other change
 it benchmarks (e.g. the benchmarks themselves) runs every benchmark, and
 `modules` is empty. The generated `src/asm/<arch>/mod.rs` only declares the
 modules, so it narrows nothing either way.
+
+An architecture with primitives that choose among implementations by CPU
+feature is benchmarked once with every feature the runner has, and once
+more for each restriction in `CPU_FEATURES` (as `VG_CPU_FEATURES`, see
+src/cpu.rs), so that every implementation is measured. Each entry's
+`cpu-features` is its restriction, empty for none.
 """
 
 import json
@@ -44,6 +50,9 @@ PLATFORMS = {
         "options": "--env RUSTUP_HOME=/root/.rustup",
     },
 }
+
+# The other `VG_CPU_FEATURES` each architecture is benchmarked with.
+CPU_FEATURES = {"x86_64": ["none"]}
 
 SHARED = re.compile(
     r"src/|bench/|Cargo\.(toml|lock)$|ci/bench_(compare|arches)\.py$"
@@ -85,16 +94,25 @@ def arches(changed):
         elif SHARED.match(path):
             for a in PLATFORMS:
                 needed[a] = ALL
-    return [platform(a, needed[a]) for a in PLATFORMS if a in needed]
+    return [p for a in PLATFORMS if a in needed for p in platforms(a, needed[a])]
 
 
-def platform(arch, modules=ALL):
-    return {"arch": arch, **PLATFORMS[arch], "modules": " ".join(sorted(modules or ()))}
+def platforms(arch, modules=ALL):
+    """The matrix entries of `arch`: one per CPU feature configuration."""
+    return [
+        {
+            "arch": arch,
+            **PLATFORMS[arch],
+            "cpu-features": features,
+            "modules": " ".join(sorted(modules or ())),
+        }
+        for features in ["", *CPU_FEATURES.get(arch, [])]
+    ]
 
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["--all"]:
-        platforms = [platform(a) for a in PLATFORMS]
+        matrix = [p for a in PLATFORMS for p in platforms(a)]
     else:
-        platforms = arches(sys.stdin.read().split())
-    print(json.dumps(platforms))
+        matrix = arches(sys.stdin.read().split())
+    print(json.dumps(matrix))
