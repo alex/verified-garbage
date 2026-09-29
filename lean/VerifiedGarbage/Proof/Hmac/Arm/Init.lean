@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Hmac.Arm.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Init
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Init
 import VerifiedGarbage.Proof.Hmac.Arm.Contract
+import Mathlib.Tactic.Set
 
 /-!
 # HMAC-SHA-256 on ARMv7: `init`
@@ -555,7 +556,7 @@ theorem pad_loop_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Pad s₀ (kl
     WP isa padLoop s (Buf s₀ 64) := by
   rw [padLoop_eq]
   refine WP.loop (M := isa) (fun n s => ∃ j, n = 64 - j ∧ kl s₀ ≤ j ∧ j < 64 ∧ Pad s₀ j s) ?_
-    (64 - kl s₀) s ⟨kl s₀, rfl, le_rfl, hk, h⟩
+    (64 - kl s₀) s ⟨kl s₀, rfl, (Nat.le_refl _), hk, h⟩
   rintro n s ⟨j, rfl, hj, hj', hb⟩
   refine WP.mono (pad_step hp hj hj' hb) fun s' ⟨hb', hz'⟩ => ?_
   have hz : isa.eval .ne s' = some (decide (64 - (j + 1) ≠ 0)) := by

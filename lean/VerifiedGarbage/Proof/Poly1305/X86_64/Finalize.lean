@@ -155,7 +155,7 @@ structure ZInv (s₀ : State) (m₁ : Mem) (s₁ : State) (j : Nat) (s : State) 
 theorem zinit_ok {s₀ : State} {m₁ : Mem} (hm : Mem₁ s₀ m₁) {s₁ : State} (h₁ : F0 s₀ m₁ s₁) :
     WP isa (.block [.mov32 .rax (.imm 0), .mov .r12 (.reg .rdx)]) s₁ (ZInv s₀ m₁ s₁ (kf s₀)) := by
   refine wp_mov32i fun s₂ u₂ => wp_mov fun s₃ u₃ => WP.block_nil ?_
-  refine ⟨⟨le_rfl, (kf_lt s₀).le⟩, by rw [u₃.gpr, u₂.other _ (by decide), h₁.rdx], by
+  refine ⟨⟨(Nat.le_refl _), (kf_lt s₀).le⟩, by rw [u₃.gpr, u₂.other _ (by decide), h₁.rdx], by
     rw [u₃.other _ (by decide), u₂.gpr]; rfl, fun r h1 h2 => by rw [u₃.other r h2, u₂.other r h1],
     by rw [u₃.rd, u₂.rd, h₁.rd], by rw [u₃.wr, u₂.wr, h₁.wr],
     by rw [u₃.mem, u₂.mem, h₁.mem]; exact Frame.refl _ _, fun k hk => ?_⟩

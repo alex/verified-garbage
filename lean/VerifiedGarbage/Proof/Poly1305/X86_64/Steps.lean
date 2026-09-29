@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Poly1305.X86_64.Arith
 import VerifiedGarbage.Impl.Poly1305.X86_64
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Poly1305 on x86-64: the steps of a block

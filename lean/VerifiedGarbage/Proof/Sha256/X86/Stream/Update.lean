@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Common
 import VerifiedGarbage.Proof.Sha256.X86.Contract
+import Mathlib.Tactic.Tauto
 
 /-!
 # Streaming SHA-256 on x86 (32-bit): `update`
@@ -825,7 +826,7 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   have hr := rr_lt s₀ c; have ht' := tt_le' s₀ c
   have hxs := xs_length s₀ c
   have hf : Frame [stR s₀] sI.mem mem := by
-    have := write_frame s₀ c sI.mem (tt s₀ c) le_rfl
+    have := write_frame s₀ c sI.mem (tt s₀ c) (Nat.le_refl _)
     rwa [List.take_of_length_le (by omega)] at this
   have word : ∀ (R : Region), R.Disjoint (stR s₀) → R.Contains R.base 4 →
       mem.readW R.base 32 = sI.mem.readW R.base 32 := fun R hR hc =>
@@ -922,7 +923,7 @@ theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
   have hc := hI.c_le
   have htl : tt s₀ c = len s₀ - c := by omega
   obtain ⟨hfr, hsv, ha4, ha16, hst, hby⟩ := copied_facts hp hI
-  refine ⟨⟨⟨le_rfl, h.rd, h.wr, h.ebx, h.esp, ?_, ?_, by rw [h.mem]; exact ha4, by rw [h.mem]; exact ha16,
+  refine ⟨⟨⟨(Nat.le_refl _), h.rd, h.wr, h.ebx, h.esp, ?_, ?_, by rw [h.mem]; exact ha4, by rw [h.mem]; exact ha16,
     by rw [h.mem]; exact hfr, by rw [h.mem]; exact hsv⟩, ?_, fun m hm => ?_⟩, hecx, h.edx⟩
   · rw [h.ebp]; congr 2; omega
   · rw [h.esi]; congr 1; omega

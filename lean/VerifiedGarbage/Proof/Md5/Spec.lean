@@ -1,5 +1,5 @@
-import Mathlib.Tactic.SplitIfs
 import VerifiedGarbage.Spec.Md5
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # MD5: lemmas about the specification

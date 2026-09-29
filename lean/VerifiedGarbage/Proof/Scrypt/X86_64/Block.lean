@@ -301,7 +301,7 @@ theorem finish_step {s₀ : State} (hp : Pre s₀) {R : Vector Word 16} {sB : St
     refine WP.block_cons_iff.mpr ⟨_, store32_exec (hout s' (u.other _ ne.2.2.1.symm) u.wr),
       WP.block_nil (fin _ ?_ ?_ u.rd u.wr (u.other _ ne.2.1.symm) (u.other _ ne.2.2.1.symm)
         (u.other _ ne.2.2.2.symm))⟩
-    · simp only [ea_at, u.other _ ne.2.2.1.symm, h.rdi, u.gpr, u.mem, h.regs n hn12 le_rfl]
+    · simp only [ea_at, u.other _ ne.2.2.1.symm, h.rdi, u.gpr, u.mem, h.regs n hn12 (Nat.le_refl _)]
       simp [bufAt]
     · intro k hk hkn
       exact u.other _ fun e => by have := wreg_inj k hk n hn12 e; omega

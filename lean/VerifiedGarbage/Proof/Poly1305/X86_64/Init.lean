@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.X86_64.Setup
 import VerifiedGarbage.Proof.Poly1305.X86_64.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # Poly1305 on x86-64: `init`

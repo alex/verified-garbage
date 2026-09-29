@@ -1,5 +1,6 @@
 import VerifiedGarbage.Spec.Sha3
 import VerifiedGarbage.Proof.Framework.Mem
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # The SHA-3 sponge: facts about the specification

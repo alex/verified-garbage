@@ -29,7 +29,7 @@ def block96 (x : List Byte) : Block := parseBlock fun t => (x ++ pad96).getD t 0
 def digest (H : HashValue) : List Byte := H.toList.flatMap wordBytes
 
 theorem digest_length (H : HashValue) : (digest H).length = 32 := by
-  simp [digest, wordBytes, List.length_flatMap, Vector.length_toList]
+  simp [digest, wordBytes, List.length_flatMap, List.map_const']
 
 theorem lenBytes96 {m : List Byte} (h : m.length = 96) : lenBytes m = [0, 0, 0, 0, 0, 0, 3, 0] := by
   simp only [lenBytes, h]; decide

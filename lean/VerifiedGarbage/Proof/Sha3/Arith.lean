@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Spec.Sha3.Contract
+import Mathlib.Tactic.Conv
 
 /-!
 # The SHA-3 sponge: arithmetic and bytes, for every target

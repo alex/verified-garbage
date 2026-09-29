@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Framework.Semantics
 import Mathlib.Util.CompileInductive
-import Lean.Elab.Tactic
+import Lean.Elab.Tactic.Basic
+import Lean.Meta.Eval
 
 /-!
 # Constant time by taint tracking

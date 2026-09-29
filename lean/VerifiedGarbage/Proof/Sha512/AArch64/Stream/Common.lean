@@ -2,6 +2,8 @@ import VerifiedGarbage.Proof.Sha512.AArch64.Compress
 import VerifiedGarbage.Proof.Sha512.Stream
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import VerifiedGarbage.Impl.Sha512.AArch64.Stream
+import Mathlib.Tactic.Conv
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # Streaming SHA-512 on AArch64: common lemmas

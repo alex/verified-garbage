@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Common
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Streaming SHA-256 on x86-64: `finalize`
@@ -590,7 +591,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   · simp only [Bool.not_eq_true', decide_eq_false_iff_not, not_lt] at hb
     refine wp_mov32i fun s₁₈ u₁₈ _ _ => WP.block_nil ⟨1, hC₁₇.of_gpr (fun r hr => u₁₈.other r (by
       simp at hr; rcases hr with h | h | h | h | h <;> subst h <;> decide)) u₁₈.mem u₁₈.rd u₁₈.wr,
-      le_rfl, by omega, by rw [u₁₈.other _ (by decide), hr13'], by rw [u₁₈.gpr]; rfl, fun m hm => ?_⟩
+      (Nat.le_refl _), by omega, by rw [u₁₈.other _ (by decide), hr13'], by rw [u₁₈.gpr]; rfl, fun m hm => ?_⟩
     simp only [↓reduceIte]
     rw [hash_two (by rw [← hm.length]; omega), Fin1, u₁₈.mem, hbytes m hm, hstate, hm.1.1,
       ← hm.length, show 64 - (cnt s₀ % 64 + 1) = 63 - cnt s₀ % 64 by omega]
@@ -633,7 +634,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
       gprPreserved s₀ s' ∧ Proof.Sha256.finalizeX86_64.post s₀ s' := by
   have hC := hD.1
   have hfo := out_frame s₀ sD.mem (((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes)
-    (by rw [flat_length _ _ le_rfl])
+    (by rw [flat_length _ _ (Nat.le_refl _)])
   have i : ∀ d : Nat, d + 8 ≤ 160 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
     fun d hd => ⟨scR s₀, by simp [h.rd, h.wr, hp.wr], contains_offset' hd (by omega)⟩
   have sv : ∀ r d, (r, d) ∈ saved → s.mem.readW (scr s₀ + BitVec.ofInt 64 ((d : Nat) : Int)) 64 = s₀.gpr r := by
@@ -668,10 +669,10 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hrsp]
   · have e := bytesAt_writeBytes sD.mem (out s₀) 0 (((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes)
-      (by rw [flat_length _ _ le_rfl]; omega)
+      (by rw [flat_length _ _ (Nat.le_refl _)]; omega)
     have e' : bytesAt (writeBytes sD.mem (out s₀) (((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes))
         (out s₀) 32 = ((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes := by
-      rw [flat_length _ _ le_rfl, show out s₀ + BitVec.ofNat 64 0 = out s₀ by simp,
+      rw [flat_length _ _ (Nat.le_refl _), show out s₀ + BitVec.ofNat 64 0 = out s₀ by simp,
         show bytesAt sD.mem (out s₀) 0 = [] from rfl, List.nil_append] at e
       exact e
     rw [← h.mem] at e'
@@ -755,7 +756,7 @@ theorem correct {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) :
     rcases h with ⟨he, hD⟩ | ⟨he, rfl, hL'⟩
     · exact .inl ⟨he, hD⟩
     · exact .inr ⟨he, 0, by omega, 0, hL'⟩
-  · have := out_all hp hD 8 le_rfl sD ⟨hD.1.rd, hD.1.wr, fun _ _ => rfl, by simp [writeBytes_nil]⟩
+  · have := out_all hp hD 8 (Nat.le_refl _) sD ⟨hD.1.rd, hD.1.wr, fun _ _ => rfl, by simp [writeBytes_nil]⟩
     rw [show 8 - 8 = 0 from rfl, List.drop_zero] at this
     have keeps := fun i hi => List.all_eq_true.mp out_keeps i hi
     simp only [Bool.and_eq_true, Bool.not_eq_true'] at keeps

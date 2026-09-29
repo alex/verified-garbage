@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.ChaCha20.X86_64.Rounds
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Framework.Range
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Contract
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # ChaCha20 block function on x86-64: the whole function
@@ -218,7 +219,7 @@ theorem store_step {p : Addr} {R : CState} {sB : State} (hw : bufR p ∈ sB.wr) 
   have o := out_buf hw' (d := outOff n) (n := 4) (out_lt hn)
   have cout : (outR p).Contains (bufAt p (outOff n)) (32 / 8) :=
     contains_sub _ (by omega) (by simp [outOff]; omega) (by omega)
-  have hr := hs.rest n hn le_rfl
+  have hr := hs.rest n hn (Nat.le_refl _)
   have hrsi := hs.rsi
   /- The new memory is the old one with `R[n]` written to output word `n`. -/
   suffices key : ∀ s', s'.mem = s.mem.writeW (bufAt p (outOff n)) R[n] →
@@ -285,7 +286,7 @@ theorem add_step {p : Addr} {R v : CState} {sB : State} (hw : bufR p ∈ sB.wr) 
   have cout : (outR p).Contains (bufAt p (outOff n)) (32 / 8) :=
     contains_sub _ (by omega) (by simp [outOff]; omega) (by omega)
   have ho := hs.out n hn
-  simp only [lt_irrefl, ite_false] at ho
+  simp only [Nat.lt_irrefl, ite_false] at ho
   have hi := hs.inw n hn
   have hrsi := hs.rsi
   apply WP.of_runBlock
@@ -489,7 +490,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     ⟨fun _ _ => rfl, hrd₁, hwr₁, Frame.refl _ _, fun _ _ h => absurd h (by omega),
       fun _ _ h => absurd h (by omega)⟩
   refine WP.mono (wp_range_flatMap (CI s₀ s₁) (fun k s hk hc => copy_step hp hg₁ hf₁ hk hc)
-    16 le_rfl s₁ hc₀) fun s hc => ?_
+    16 (Nat.le_refl _) s₁ hc₀) fun s hc => ?_
   refine WP.mono (load_ok hp hg₁ hc) fun s₂ ⟨hh₂, hm₂, hrd₂, hwr₂, hrsi₂, hrsp₂⟩ => ?_
   have hw₂ : bufR (buf s₀) ∈ s₂.wr := by rw [hwr₂, hc.wr]; exact hw₀
   refine WP.seq (WP.mono (rounds_ok hh₂ hrsi₂ hw₂ 10) fun s₃ hR => ?_)
@@ -499,7 +500,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     ⟨fun _ _ h => absurd h (by omega), fun j hj _ => hR.holds j hj, Frame.refl _ _,
       hR.rsi.trans hrsi₂, rfl, rfl, rfl⟩
   refine WP.mono (wp_range_flatMap (SI (buf s₀) (Rs s₀) s₃)
-    (fun k s hk hs => store_step hw₃ hk hs) 16 le_rfl s₃ hs₀) fun s₄ hS => ?_
+    (fun k s hk hs => store_step hw₃ hk hs) 16 (Nat.le_refl _) s₃ hs₀) fun s₄ hS => ?_
   have hw₄ : bufR (buf s₀) ∈ s₄.wr := by rw [hS.wr]; exact hw₃
   have hinw : ∀ j (hj : j < 16), s₄.mem.readW (bufAt (buf s₀) (inOff j)) 32 = (V s₀)[j] := by
     intro j hj
@@ -517,7 +518,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     ⟨fun j hj => by simp only [Nat.not_lt_zero, ite_false]; exact hS.out j hj hj, hinw,
       Frame.refl _ _, hS.rsi, rfl, rfl, rfl⟩
   refine WP.mono (wp_range_flatMap (AI (buf s₀) (Rs s₀) (V s₀) s₄)
-    (fun k s hk ha => add_step hw₄ hk ha) 16 le_rfl s₄ ha₀) fun s₅ hA => ?_
+    (fun k s hk ha => add_step hw₄ hk ha) 16 (Nat.le_refl _) s₄ ha₀) fun s₅ hA => ?_
   have hw₅ : bufR (buf s₀) ∈ s₅.wr := by rw [hA.wr]; exact hw₄
   -- Everything since the prologue's stores wrote only `[buf, buf + 144)`.
   have hwork : Frame [workR (buf s₀)] s₁.mem s₅.mem := by

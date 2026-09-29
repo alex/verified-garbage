@@ -119,7 +119,7 @@ theorem saves_ok {s₀ : State} (hin : ∀ k < 6, InRegions s₀.wr (slot (s₀.
       Frame [⟨s₀.gpr .x5, 640⟩] s₀.mem s.mem ∧ Saved (s₀.gpr .x5) s₀.gpr s.mem := by
   rw [save_eq]
   refine WP.mono (wp_range_flatMap (M := isa) (SaveInv s₀)
-    (fun k s hk ⟨hg, hrd, hwr, hsp, hf, hv⟩ => ?_) 6 le_rfl s₀
+    (fun k s hk ⟨hg, hrd, hwr, hsp, hf, hv⟩ => ?_) 6 (Nat.le_refl _) s₀
     ⟨rfl, rfl, rfl, rfl, Frame.refl _ _, fun _ h => absurd h (by omega)⟩)
     fun s ⟨hg, hrd, hwr, hsp, hf, hv⟩ => ⟨hg, hrd, hwr, hsp, hf, hv⟩
   refine wp_str (a := slot (s₀.gpr .x5) k) ⟨by omega, by omega⟩ (by rw [hg])
@@ -166,7 +166,7 @@ theorem restores_ok {s₁ : State} {scr : Addr} (h20 : s₁.gpr .x20 = scr)
   rw [restore_eq]
   refine WP.mono (wp_range_flatMap (M := isa) (fun k s => ResInv scr s₁ k s ∧
       ∀ r, (∀ k < 6, r ≠ sv k) → s.gpr r = s₁.gpr r)
-    (fun k s hk ⟨⟨h20', ax, sp, m, rd, wr, v⟩, o⟩ => ?_) 6 le_rfl s₁
+    (fun k s hk ⟨⟨h20', ax, sp, m, rd, wr, v⟩, o⟩ => ?_) 6 (Nat.le_refl _) s₁
     ⟨⟨fun _ => h20, rfl, rfl, rfl, rfl, rfl, fun _ h => absurd h (by omega)⟩, fun _ _ => rfl⟩)
     fun s ⟨⟨_, ax, sp, m, rd, wr, v⟩, o⟩ => ⟨ax, sp, m, rd, wr, o, fun k hk => ?_⟩
   · have hri := ri_lt k hk

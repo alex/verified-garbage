@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Poly1305.AArch64.Setup
 import VerifiedGarbage.Proof.Poly1305.AArch64.Contract
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Poly1305 on AArch64: `blocks`

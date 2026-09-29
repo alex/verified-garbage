@@ -2,6 +2,8 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Blocks
 import VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
+import Mathlib.Tactic.LinearCombination
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # GHASH with PCLMULQDQ: the whole function

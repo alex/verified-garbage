@@ -168,7 +168,7 @@ theorem Saved.frame {s₀ : State} {rs : List Region} {m m' : Mem} (h : Saved s�
       bv_omega, toNat_ofNat_lt (by omega)]
     omega
   obtain ⟨h1, h2, h3, h4⟩ := h
-  exact ⟨by rw [hf.readW (c 256 le_rfl (by omega)) hd (by decide), h1],
+  exact ⟨by rw [hf.readW (c 256 (Nat.le_refl _) (by omega)) hd (by decide), h1],
     by rw [hf.readW (c 260 (by omega) (by omega)) hd (by decide), h2],
     by rw [hf.readW (c 264 (by omega) (by omega)) hd (by decide), h3],
     by rw [hf.readW (c 268 (by omega) (by omega)) hd (by decide), h4]⟩

@@ -2,6 +2,9 @@ import VerifiedGarbage.Proof.Framework.X86.Inline
 import VerifiedGarbage.Proof.Sha256.X86.Compress
 import VerifiedGarbage.Proof.Sha256.Stream
 import VerifiedGarbage.Impl.Sha256.X86.Stream
+import Mathlib.Tactic.Conv
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.Set
 
 /-!
 # Streaming SHA-256 on x86 (32-bit): common lemmas

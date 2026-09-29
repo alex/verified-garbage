@@ -2,6 +2,9 @@ import VerifiedGarbage.Proof.Sha512.X86_64.Compress
 import VerifiedGarbage.Proof.Sha512.Stream
 import VerifiedGarbage.Proof.Framework.X86_64.Call
 import VerifiedGarbage.Impl.Sha512.X86_64.Stream
+import Mathlib.Tactic.Conv
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Streaming SHA-512 on x86-64: common lemmas

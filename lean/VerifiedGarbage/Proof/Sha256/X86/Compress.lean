@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Sha256.X86.Rounds
 import VerifiedGarbage.Proof.Sha256.X86.Contract
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # SHA-256 compression function on x86 (32-bit): the whole function
@@ -340,7 +341,7 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hesp : s.gpr .esp = 
   rw [load_eq, WP.block_append_iff]
   refine WP.mono h₁ fun s₁ ⟨he₁, hr₁, hm₁, hrd₁, hwr₁⟩ => ?_
   refine WP.mono (ldTo_ok hp he₁ (by rw [hr₁ .esi (by decide), hesi]) (hrd₁.trans hrd)
-    (hwr₁.trans hwr) 8 le_rfl) fun s₂ ⟨hm₂, hr₂, hrd₂, hwr₂⟩ => ?_
+    (hwr₁.trans hwr) 8 (Nat.le_refl _)) fun s₂ ⟨hm₂, hr₂, hrd₂, hwr₂⟩ => ?_
   refine ⟨?_, fun r hr => ?_, by rw [hrd₂, hrd₁], by rw [hwr₂, hwr₁]⟩
   · rw [hm₂, hm₁]
     simp only [copyWords, writeVars, stateAt_get hp _ (show 0 < 8 by decide),
@@ -456,7 +457,7 @@ theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue)
   refine WP.mono h₁ fun s₁ ⟨he₁, hr₁, hm₁, hrd₁, hwr₁⟩ => ?_
   rw [WP.block_append_iff]
   refine WP.mono (updTo_ok hp he₁ (by rw [hr₁ .esi (by decide), hesi]) (hrd₁.trans hrd)
-    (hwr₁.trans hwr) 8 le_rfl) fun s₂ ⟨hm₂, hr₂, hrd₂, hwr₂⟩ => ?_
+    (hwr₁.trans hwr) 8 (Nat.le_refl _)) fun s₂ ⟨hm₂, hr₂, hrd₂, hwr₂⟩ => ?_
   have hr : ∀ r, r ≠ .eax → r ≠ .ebx → s₂.gpr r = s.gpr r := fun r h1 h2 => by
     rw [hr₂ r h2, hr₁ r h1]
   -- `add edi, 64; sub ebp, 1`
@@ -551,7 +552,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     rw [hm₁]; exact vars_writeVars hfits _ _
   refine WP.seq (WP.mono (rounds_ok _ (blk s₀ i) _ (scr s₀) s₁
     (hp.scratch.congr (by rw [hrd₁, hL.rd]) (by rw [hwr₁, hL.wr])) hedi₁ hesi₁
-    (fun t ht => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_blk hi ht) hblk hv₁ 64 le_rfl)
+    (fun t ht => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_blk hi ht) hblk hv₁ 64 (Nat.le_refl _))
     fun s₂ hR => ?_)
   have hst : ∀ r' ∈ [workRegion (scr s₀)], (stR s₀).Disjoint r' := by
     simpa using Region.Disjoint.sub_right hp.st_scr (work_sub _)

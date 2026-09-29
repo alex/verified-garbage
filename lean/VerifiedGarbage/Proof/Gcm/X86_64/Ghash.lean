@@ -603,7 +603,7 @@ theorem setup_ok {s₀ : State} (hp : Pre s₀) :
   have hH : x * φ (s₂.gpr AL ++ s₂.gpr AH) = φ (H₀ s₀) := by rw [hK]; exact x_φ_hInv _
   have hr8₂ : s₂.gpr .r8 = scr s₀ := by rw [hk₂.1 _ (by decide), hg]
   have hwr₂ : s₂.wr = s₀.wr := hk₂.2.2.2.trans hwr
-  refine WP.mono (wp_range_flatMap (EInv s₀ s₂) (entry_step hp hr8₂ hwr₂ hPH) 24 le_rfl s₂
+  refine WP.mono (wp_range_flatMap (EInv s₀ s₂) (entry_step hp hr8₂ hwr₂ hPH) 24 (Nat.le_refl _) s₂
     ⟨⟨fun _ _ => rfl, rfl, rfl⟩, by rw [hk₂.2.1, hm]; exact saveMem_frame,
       by rw [hk₂.2.1, hm]; exact saveMem_saved, fun _ h => absurd h (Nat.not_lt_zero _)⟩)
     fun s₃ ⟨hr₃, hf₃, hsv₃, ht₃⟩ => ?_

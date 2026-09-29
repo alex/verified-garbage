@@ -143,7 +143,7 @@ def SaveInv (s₀ : State) (k : Nat) (s : State) : Prop :=
 theorem saves_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ((List.range 6).flatMap fun k =>
       [.store (at_ .rsi (392 + 8 * k)) ((saved.getD k (.rax, 0)).1)])) s₀ (SaveInv s₀ 6) := by
-  refine wp_range_flatMap (M := isa) (SaveInv s₀) (fun k s hk ⟨hg, hrd, hwr, hf, hv⟩ => ?_) 6 le_rfl s₀
+  refine wp_range_flatMap (M := isa) (SaveInv s₀) (fun k s hk ⟨hg, hrd, hwr, hf, hv⟩ => ?_) 6 (Nat.le_refl _) s₀
     ⟨rfl, rfl, rfl, Frame.refl _ _, fun _ h => absurd h (by omega)⟩
   refine wp_store (a := off s₀ (392 + 8 * k)) (by rw [ea_at, hg])
     (by rw [hwr]; exact hp.off_in (by omega)) fun s' g' m' r' w' => wp_nil ?_
@@ -172,7 +172,7 @@ theorem rcs_ok {s₀ : State} (hp : Pre s₀) (s : State) (hs : RcInv s₀ s.mem
     WP isa (.block ((List.range 24).flatMap fun k =>
       [.movImm64 .rax (RC k), .store (at_ .rsi (200 + 8 * k)) .rax])) s (RcInv s₀ s.mem 24) := by
   refine wp_range_flatMap (M := isa) (RcInv s₀ s.mem) (fun k s hk ⟨hdi, hsi, hsp, hrd, hwr, hf, hv⟩ => ?_)
-    24 le_rfl s hs
+    24 (Nat.le_refl _) s hs
   refine wp_movi64 fun s₁ h₁ => wp_store (a := off s₀ (200 + 8 * k))
     (by rw [ea_at, h₁.other _ (by decide), hsi])
     (by rw [h₁.wr, hwr]; exact hp.off_in (by omega)) fun s' g' m' r' w' => wp_nil ?_
@@ -313,7 +313,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hL : LInv s₀ 24
   have hsi : s.gpr .rsi = scr s₀ := by rw [hL.rsi]; simp [oth]
   have hdi : s.gpr .rdi = st s₀ := by rw [hL.rdi]; simp [cur]
   refine WP.mono (wp_range_flatMap (M := isa) (ResInv s₀ s) (fun k s' hk ⟨si, di, sp, m, rd, wr, v⟩ => ?_) 6
-    le_rfl s ⟨hsi, hdi, hL.rsp, rfl, rfl, rfl, fun _ h => absurd h (by omega)⟩) fun s' ⟨si, di, sp, m, _, _, v⟩ => ?_
+    (Nat.le_refl _) s ⟨hsi, hdi, hL.rsp, rfl, rfl, rfl, fun _ h => absurd h (by omega)⟩) fun s' ⟨si, di, sp, m, _, _, v⟩ => ?_
   · refine wp_movm (a := off s₀ (392 + 8 * k)) (by rw [ea_at, si])
       (by rw [rd, wr, hL.rd, hL.wr]; exact hp.in_all (hp.off_in (by omega))) fun s'' h => wp_nil ?_
     have ne := saved_ne_rsi k hk
