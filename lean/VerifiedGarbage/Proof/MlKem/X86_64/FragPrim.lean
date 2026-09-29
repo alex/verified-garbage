@@ -431,8 +431,8 @@ structure CEH (f out : Ptr) (d : Nat) (s : State) : Prop where
   w : Covers [⟨pa s out, 32 * d⟩] s.wr
 
 theorem ceGlue_ok (f out : Ptr) (d : Nat) (ho : f.2 < 2 ^ 31 ∧ out.2 < 2 ^ 31) (hd : d ≤ 10) (hout : NA out) (s : State) :
-    WP isa (.block (lea .rdi f ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 d))] ++ lea .rdx out ++
-      [.mov32 .rcx (.imm (BitVec.ofNat 32 (32 * d)))])) s fun s1 =>
+    WP isa (.block (lea .rdi f ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 d))] : List Instr) ++ lea .rdx out ++
+      ([.mov32 .rcx (.imm (BitVec.ofNat 32 (32 * d)))] : List Instr))) s fun s1 =>
       ((s1.gpr .rdi = pa s f ∧ s1.gpr .rsi = BitVec.ofNat 64 d ∧ s1.gpr .rdx = pa s out ∧
         s1.gpr .rcx = BitVec.ofNat 64 (32 * d)) ∧ s1.mem = s.mem) ∧ Keep argRegs s s1 := by
   have o1 : out.1 ≠ .rsi := fun e => hout (by rw [e]; decide)
@@ -502,8 +502,8 @@ structure DDH (b f : Ptr) (d : Nat) (s : State) : Prop where
   w : Covers [pR (pa s f)] s.wr
 
 theorem ddGlue_ok (b f : Ptr) (d : Nat) (ho : b.2 < 2 ^ 31 ∧ f.2 < 2 ^ 31) (hd : d ≤ 10) (hf : NA f) (s : State) :
-    WP isa (.block (lea .rdi b ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 (32 * d))), .mov32 .rdx (.imm (BitVec.ofNat 32 d))] ++
-      lea .rcx f)) s fun s1 =>
+    WP isa (.block (lea .rdi b ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 (32 * d))),
+      .mov32 .rdx (.imm (BitVec.ofNat 32 d))] : List Instr) ++ lea .rcx f)) s fun s1 =>
       ((s1.gpr .rdi = pa s b ∧ s1.gpr .rsi = BitVec.ofNat 64 (32 * d) ∧ s1.gpr .rdx = BitVec.ofNat 64 d ∧
         s1.gpr .rcx = pa s f) ∧ s1.mem = s.mem) ∧ Keep argRegs s s1 := by
   have o1 : f.1 ≠ .rsi := fun e => hf (by rw [e]; decide)
