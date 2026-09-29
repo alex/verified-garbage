@@ -185,14 +185,14 @@ theorem kInit_ok (s : State) :
   simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
   simp [hr.1, hr.2]
 
-theorem uprologue_eq : save ++ setup ++ [.mov .r12 (.reg .rsi), .alu .and .r12 (.imm 15),
-    .mov .rsi (.reg .rdx), .alu .test .r12 (.reg .r12)] = save ++ (setup ++ [.mov .r12 (.reg .rsi),
-    .alu .and .r12 (.imm 15), .mov .rsi (.reg .rdx), .alu .test .r12 (.reg .r12)]) := by
+theorem uprologue_eq : save ++ setup ++ ([.mov .r12 (.reg .rsi), .alu .and .r12 (.imm 15),
+    .mov .rsi (.reg .rdx), .alu .test .r12 (.reg .r12)] : List Instr) = save ++ (setup ++ ([.mov .r12 (.reg .rsi),
+    .alu .and .r12 (.imm 15), .mov .rsi (.reg .rdx), .alu .test .r12 (.reg .r12)] : List Instr)) := by
   simp only [List.append_assoc]
 
 theorem uprologue_ok {s₀ : State} (hp : UPre s₀) :
-    WP isa (.block (save ++ setup ++ [.mov .r12 (.reg .rsi), .alu .and .r12 (.imm 15),
-      .mov .rsi (.reg .rdx), .alu .test .r12 (.reg .r12)])) s₀ fun s =>
+    WP isa (.block (save ++ setup ++ ([.mov .r12 (.reg .rsi), .alu .and .r12 (.imm 15),
+      .mov .rsi (.reg .rdx), .alu .test .r12 (.reg .r12)] : List Instr))) s₀ fun s =>
       Pre1 s₀ s ∧ s.gpr .rcx = s₀.gpr .rcx ∧
         s.zf = some (BitVec.ofNat 64 (kb s₀) &&& BitVec.ofNat 64 (kb s₀) == 0) := by
   rw [uprologue_eq]
@@ -625,8 +625,8 @@ theorem storeH_buf (m : Mem) (st : Addr) (h0 h1 h2 : BitVec 64) {n : Nat} (hn : 
   bv_omega
 
 theorem uepilogue_ok {s₀ : State} (hp : UPre s₀) {s : State} (hd : Done s₀ s) :
-    WP isa (.block (reduce ++ [.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
-      .store (at_ .rdi 16) .rbp] ++ restore)) s fun s' =>
+    WP isa (.block (reduce ++ ([.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
+      .store (at_ .rdi 16) .rbp] : List Instr) ++ restore)) s fun s' =>
       gprPreserved s₀ s' ∧ Proof.Poly1305.updateX86_64.post s₀ s' := by
   rw [List.append_assoc]
   refine WP.block_append (WP.mono (reduce_ok s) fun s₁ ⟨hr, k₁⟩ => ?_)

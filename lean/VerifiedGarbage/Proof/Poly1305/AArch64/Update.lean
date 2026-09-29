@@ -166,7 +166,7 @@ theorem Temps.done {s₀ s s' : State} (h : Done s₀ s) (ht : Temps s s') : Don
 /-! ## Prologue -/
 
 theorem uprologue_ok {s₀ : State} (hp : UPre s₀) :
-    WP isa (.block (setup ++ [.movz .x .x9 15 0, .logic .and .x .x9 .x1 .x9])) s₀ (Pre1 s₀) := by
+    WP isa (.block (setup ++ ([.movz .x .x9 15 0, .logic .and .x .x9 .x1 .x9] : List Instr))) s₀ (Pre1 s₀) := by
   refine WP.block_append (WP.mono (setup_ok s₀ hp.wr) fun s₁ h₁ => ?_)
   refine wp_movz fun s₂ u₂ => wp_and fun s₃ u₃ => WP.block_nil ?_
   have g : ∀ r, r ≠ .x9 → s₃.gpr r = s₁.gpr r := fun r h => by rw [u₃.other r h, u₂.other r h]

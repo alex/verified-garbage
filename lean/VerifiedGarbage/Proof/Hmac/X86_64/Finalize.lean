@@ -197,7 +197,7 @@ structure Saved (s₀ s : State) : Prop where
   mem : s.mem = writeBytes s₀.mem (scr s₀ + BitVec.ofNat 64 208) (bytesAt s₀.mem (out s₀) 32)
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block (saveOuter ++ [.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
+    WP isa (.block (saveOuter ++ ([.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)] : List Instr)))
       s₀ (Saved s₀) := by
   unfold saveOuter
   have h0 : out s₀ + BitVec.ofNat 64 0 = out s₀ := by simp
@@ -243,7 +243,7 @@ structure Loaded (s₀ s s' : State) : Prop where
 
 theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s₀.wr)
     (hdi : s.gpr .rdi = inn s₀) (hcx : s.gpr .rcx = scr s₀) :
-    WP isa (.block (loadOuter ++ [.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
+    WP isa (.block (loadOuter ++ ([.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)] : List Instr)))
       s (Loaded s₀ s) := by
   unfold loadOuter
   rw [List.append_assoc]

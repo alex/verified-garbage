@@ -192,8 +192,8 @@ theorem saves_ok {s₀ : State} (hp : Pre s₀) :
         exact this.sep (Region.contains_self _ _) (Region.contains_self _ _)
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block (save .r9 ++ [.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
-      .mov .r13 (.reg .rcx), .mov .r14 (.reg .r8), .mov .r15 (.reg .r9), .alu .test .r14 (.reg .r14)]))
+    WP isa (.block (save .r9 ++ ([.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
+      .mov .r13 (.reg .rcx), .mov .r14 (.reg .r8), .mov .r15 (.reg .r9), .alu .test .r14 (.reg .r14)] : List Instr)))
       s₀ fun s => Inv s₀ 0 s ∧ s.zf = some (decide (len s₀ = 0)) := by
   rw [save_eq, WP.block_append_iff]
   refine WP.mono (saves_ok hp) fun s₁ ⟨g₁, rd₁, wr₁, f₁, v₁⟩ => ?_

@@ -17,8 +17,8 @@ open VG.Spec.ChaCha20 (stateAt keystream)
 
 /-! ## Saving the registers -/
 
-theorem saveMoves_eq : save ++ [.mov .r15 (.reg .rdi), .mov .rbx (.reg .rsi), .mov .rbp (.reg .rdx),
-    .mov .r14 (.reg .rcx), .mov .r13 (.reg .r8)] =
+theorem saveMoves_eq : save ++ ([.mov .r15 (.reg .rdi), .mov .rbx (.reg .rsi), .mov .rbp (.reg .rdx),
+    .mov .r14 (.reg .rcx), .mov .r13 (.reg .r8)] : List Instr) =
     [.store (at_ .rdi 592) .rbx, .store (at_ .rdi 600) .rbp, .store (at_ .rdi 608) .r13,
      .store (at_ .rdi 616) .r14, .store (at_ .rdi 624) .r15,
      .mov .r15 (.reg .rdi), .mov .rbx (.reg .rsi), .mov .rbp (.reg .rdx),
@@ -31,8 +31,8 @@ theorem readW64_off (m : Mem) (p : Addr) (v : BitVec 64) {d e : Nat} (hd : d < 2
 
 set_option simprocs false in
 theorem saveMoves_ok {s₀ : State} (hp : APre s₀) :
-    WP isa (.block (save ++ [.mov .r15 (.reg .rdi), .mov .rbx (.reg .rsi), .mov .rbp (.reg .rdx),
-      .mov .r14 (.reg .rcx), .mov .r13 (.reg .r8)])) s₀ fun s =>
+    WP isa (.block (save ++ ([.mov .r15 (.reg .rdi), .mov .rbx (.reg .rsi), .mov .rbp (.reg .rdx),
+      .mov .r14 (.reg .rcx), .mov .r13 (.reg .r8)] : List Instr))) s₀ fun s =>
       s.gpr .r15 = cx s₀ ∧ s.gpr .rbx = ad s₀ ∧ s.gpr .rbp = s₀.gpr .rdx ∧ s.gpr .r14 = dp s₀ ∧
       s.gpr .r13 = s₀.gpr .r8 ∧ (∀ r, r ≠ .r15 → r ≠ .rbx → r ≠ .rbp → r ≠ .r14 → r ≠ .r13 →
         s.gpr r = s₀.gpr r) ∧ s.rd = s₀.rd ∧ s.wr = s₀.wr ∧
@@ -215,10 +215,10 @@ structure PostP (s₀ : State) (s : State) : Prop where
   poly : Repr s.mem (off (cx s₀) 448) (otk s₀) []
   st : stateAt s.mem (off (cx s₀) 64) = Spec.ChaCha20.initState (K s₀) 0 (N s₀)
 
-theorem B1_eq : save ++ [.mov .r15 (.reg .rdi), .mov .rbx (.reg .rsi), .mov .rbp (.reg .rdx),
-    .mov .r14 (.reg .rcx), .mov .r13 (.reg .r8)] ++ initState ++ ptr .rdi .r15 64 ++ ptr .rsi .r15 128 =
-    (save ++ [.mov .r15 (.reg .rdi), .mov .rbx (.reg .rsi), .mov .rbp (.reg .rdx),
-    .mov .r14 (.reg .rcx), .mov .r13 (.reg .r8)]) ++ (initState ++ (ptr .rdi .r15 64 ++ ptr .rsi .r15 128)) := by
+theorem B1_eq : save ++ ([.mov .r15 (.reg .rdi), .mov .rbx (.reg .rsi), .mov .rbp (.reg .rdx),
+    .mov .r14 (.reg .rcx), .mov .r13 (.reg .r8)] : List Instr) ++ initState ++ ptr .rdi .r15 64 ++ ptr .rsi .r15 128 =
+    (save ++ ([.mov .r15 (.reg .rdi), .mov .rbx (.reg .rsi), .mov .rbp (.reg .rdx),
+    .mov .r14 (.reg .rcx), .mov .r13 (.reg .r8)] : List Instr)) ++ (initState ++ (ptr .rdi .r15 64 ++ ptr .rsi .r15 128)) := by
   simp only [List.append_assoc]
 
 theorem B3_eq : anchor .rsi 128 ++ ptr .rdi .r15 448 ++ ptr .rsi .r15 128 =
@@ -226,8 +226,8 @@ theorem B3_eq : anchor .rsi 128 ++ ptr .rdi .r15 448 ++ ptr .rsi .r15 128 =
   simp only [List.append_assoc]
 
 theorem prologue_eq : prologue =
-    .seq (.block (save ++ [.mov .r15 (.reg .rdi), .mov .rbx (.reg .rsi), .mov .rbp (.reg .rdx),
-      .mov .r14 (.reg .rcx), .mov .r13 (.reg .r8)] ++ initState ++ ptr .rdi .r15 64 ++ ptr .rsi .r15 128))
+    .seq (.block (save ++ ([.mov .r15 (.reg .rdi), .mov .rbx (.reg .rsi), .mov .rbp (.reg .rdx),
+      .mov .r14 (.reg .rcx), .mov .r13 (.reg .r8)] : List Instr) ++ initState ++ ptr .rdi .r15 64 ++ ptr .rsi .r15 128))
     (.seq (.call "vg_chacha20_block" Impl.ChaCha20.X86_64.block)
     (.seq (.block (anchor .rsi 128 ++ ptr .rdi .r15 448 ++ ptr .rsi .r15 128))
     (.seq (.call "vg_poly1305_init" Impl.Poly1305.X86_64.init) (.block (anchor .rdi 448))))) := rfl

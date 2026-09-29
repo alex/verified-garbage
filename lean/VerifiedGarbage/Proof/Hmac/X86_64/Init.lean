@@ -174,9 +174,9 @@ theorem saved_frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Re
   exact (hd r hr).sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block (save .r8 ++ [.mov .rbx (.reg .rdi), .mov .r12 (.reg .rsi), .mov .r15 (.reg .r8),
-      .mov .rbp (.reg .rdx), .mov .r13 (.reg .rcx)] ++ h0 .rbx ++ h0 .r12 ++
-      [.mov32 .r14 (.imm 0), .alu .test .r13 (.reg .r13)])) s₀
+    WP isa (.block (save .r8 ++ ([.mov .rbx (.reg .rdi), .mov .r12 (.reg .rsi), .mov .r15 (.reg .r8),
+      .mov .rbp (.reg .rdx), .mov .r13 (.reg .rcx)] : List Instr) ++ h0 .rbx ++ h0 .r12 ++
+      ([.mov32 .r14 (.imm 0), .alu .test .r13 (.reg .r13)] : List Instr))) s₀
       fun s => Buf s₀ 0 s ∧ s.zf = some (decide (kl s₀ = 0)) := by
   simp only [List.append_assoc]
   refine WP.block_append (WP.mono (save_ok hp) fun s₁ ⟨m₁, g₁, rd₁, wr₁⟩ => ?_)

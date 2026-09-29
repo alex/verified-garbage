@@ -488,10 +488,10 @@ theorem R₀.length {s₀ : State} {m : List Byte} (h : R₀ s₀ m) : cnt s₀ 
   rw [cnt, h.2, BitVec.toNat_ofNat]
   omega
 
-theorem prologue_eq : save .rcx ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),
+theorem prologue_eq : save .rcx ++ ([.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),
       .mov .r12 (.reg .rsi), .mov .r13 (.reg .rsi), .alu .and .r13 (.imm 63),
       .mov32 .rax (.imm 0x80), .store8 bufByte .rax, .alu .add .r13 (.imm 1),
-      .mov32 .r14 (.imm 0), .alu .cmp .r13 (.imm 57)] = [
+      .mov32 .r14 (.imm 0), .alu .cmp .r13 (.imm 57)] : List Instr) = [
     .store (at_ .rcx 112) .rbx, .store (at_ .rcx 120) .rbp, .store (at_ .rcx 128) .r12,
     .store (at_ .rcx 136) .r13, .store (at_ .rcx 144) .r14, .store (at_ .rcx 152) .r15,
     .mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),

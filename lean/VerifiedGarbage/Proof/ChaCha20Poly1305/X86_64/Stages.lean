@@ -219,8 +219,8 @@ theorem stateAt_ctr (m : Mem) (c : Addr) :
 
 set_option simprocs false in
 theorem cryptA_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) :
-    WP isa (.block ([.mov32 .rax (.imm 1), .store32 (at_ .r15 112) .rax] ++ ptr .rdi .r15 64 ++
-      [.mov .rsi (.reg .r14), .mov .rdx (.reg .r13)] ++ ptr .rcx .r15 128)) s fun s' =>
+    WP isa (.block (([.mov32 .rax (.imm 1), .store32 (at_ .r15 112) .rax] : List Instr) ++ ptr .rdi .r15 64 ++
+      ([.mov .rsi (.reg .r14), .mov .rdx (.reg .r13)] : List Instr) ++ ptr .rcx .r15 128)) s fun s' =>
       s'.mem = s.mem.writeW (off (cx s₀) 112) (1 : BitVec 32) ∧ s'.gpr .rdi = off (cx s₀) 64 ∧
       s'.gpr .rsi = dp s₀ ∧ s'.gpr .rdx = s₀.gpr .r8 ∧ s'.gpr .rcx = off (cx s₀) 128 ∧
       (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
@@ -307,7 +307,7 @@ theorem crypt_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s)
 
 set_option simprocs false in
 theorem ptrs_ok (k : Nat) (hk : k < 2 ^ 31) (v : BitVec 32) (s : State) :
-    WP isa (.block (ptr .rdi .r15 448 ++ ptr .rsi .r15 k ++ [.mov32 .rdx (.imm v)])) s fun s' =>
+    WP isa (.block (ptr .rdi .r15 448 ++ ptr .rsi .r15 k ++ ([.mov32 .rdx (.imm v)] : List Instr))) s fun s' =>
       s'.gpr .rdi = off (s.gpr .r15) 448 ∧ s'.gpr .rsi = off (s.gpr .r15) k ∧ s'.gpr .rdx = v.setWidth 64 ∧
       (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.mem = s.mem := by
   apply WP.of_runBlock
@@ -320,7 +320,7 @@ theorem ptrs_ok (k : Nat) (hk : k < 2 ^ 31) (v : BitVec 32) (s : State) :
   simp [this.2.2.1, this.2.2.2.1, this.2.2.2.2]
 
 theorem absorbLengths_eq : absorbLengths =
-    .seq (.block (ptr .rdi .r15 448 ++ ptr .rsi .r15 656 ++ [.mov32 .rdx (.imm 1)]))
+    .seq (.block (ptr .rdi .r15 448 ++ ptr .rsi .r15 656 ++ ([.mov32 .rdx (.imm 1)] : List Instr)))
     (.seq (.call "vg_poly1305_blocks" Impl.Poly1305.X86_64.blocks) (.block (anchor .rdi 448))) := rfl
 
 /-- The lengths block absorbed. -/
@@ -360,7 +360,7 @@ theorem absorbLengths_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s�
 
 set_option simprocs false in
 theorem fptrs_ok (k : Nat) (hk : k < 2 ^ 31) (s : State) :
-    WP isa (.block (ptr .rdi .r15 448 ++ [.mov32 .rsi (.imm 0)] ++ ptr .rdx .r15 k)) s fun s' =>
+    WP isa (.block (ptr .rdi .r15 448 ++ ([.mov32 .rsi (.imm 0)] : List Instr) ++ ptr .rdx .r15 k)) s fun s' =>
       s'.gpr .rdi = off (s.gpr .r15) 448 ∧ s'.gpr .rsi = 0 ∧ s'.gpr .rdx = off (s.gpr .r15) k ∧
       (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.mem = s.mem := by
   apply WP.of_runBlock
@@ -373,7 +373,7 @@ theorem fptrs_ok (k : Nat) (hk : k < 2 ^ 31) (s : State) :
   simp [this.2.2.1, this.2.2.2.1, this.2.2.2.2]
 
 theorem finalizeTo_eq (out : Nat) : finalizeTo out =
-    .seq (.block (ptr .rdi .r15 448 ++ [.mov32 .rsi (.imm 0)] ++ ptr .rdx .r15 out))
+    .seq (.block (ptr .rdi .r15 448 ++ ([.mov32 .rsi (.imm 0)] : List Instr) ++ ptr .rdx .r15 out))
       (.call "vg_poly1305_finalize" Impl.Poly1305.X86_64.finalize) := rfl
 
 /-- The tag written to `ctx[out, out + 16)`. -/

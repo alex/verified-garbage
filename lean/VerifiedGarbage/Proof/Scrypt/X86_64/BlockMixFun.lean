@@ -53,20 +53,20 @@ theorem saveMem_frame (s₀ : State) : Frame [scR s₀] s₀.mem (saveMem s₀) 
     (c 104 (by omega))
 
 theorem prologue_eq : bmPrologue =
-    [.store (at_ .r8 64) .rbx, .store (at_ .r8 72) .rbp, .store (at_ .r8 80) .r12,
-     .store (at_ .r8 88) .r14, .store (at_ .r8 96) .r15, .store (at_ .r8 104) .r13] ++
-    [.mov .r14 (.reg .rsi), .mov .rbx (.reg .rdi), .mov .rbp (.reg .rdx), .mov .r13 (.reg .r8),
+    ([.store (at_ .r8 64) .rbx, .store (at_ .r8 72) .rbp, .store (at_ .r8 80) .r12,
+     .store (at_ .r8 88) .r14, .store (at_ .r8 96) .r15, .store (at_ .r8 104) .r13] : List Instr) ++
+    ([.mov .r14 (.reg .rsi), .mov .rbx (.reg .rdi), .mov .rbp (.reg .rdx), .mov .r13 (.reg .r8),
      .alu .add .rsi (.reg .rsi), .alu .add .rsi (.reg .rsi), .alu .add .rsi (.reg .rsi),
      .alu .add .rsi (.reg .rsi), .alu .add .rsi (.reg .rsi), .alu .add .rsi (.reg .rsi),
      .mov .r12 (.reg .rdx), .alu .add .r12 (.reg .rsi),
      .mov .r15 (.reg .rdi), .alu .add .r15 (.reg .rsi), .alu .add .r15 (.reg .rsi),
-     .alu .sub .r15 (.imm 64)] := rfl
+     .alu .sub .r15 (.imm 64)] : List Instr) := rfl
 
 theorem save_ok {s₀ : State} (hp : Pre s₀) {rest : List Instr} {Q : State → Prop}
     (k : ∀ s₁, s₁.gpr = s₀.gpr → s₁.rd = s₀.rd → s₁.wr = s₀.wr → s₁.mem = saveMem s₀ →
       WP isa (.block rest) s₁ Q) :
-    WP isa (.block ([.store (at_ .r8 64) .rbx, .store (at_ .r8 72) .rbp, .store (at_ .r8 80) .r12,
-      .store (at_ .r8 88) .r14, .store (at_ .r8 96) .r15, .store (at_ .r8 104) .r13] ++ rest))
+    WP isa (.block (([.store (at_ .r8 64) .rbx, .store (at_ .r8 72) .rbp, .store (at_ .r8 80) .r12,
+      .store (at_ .r8 88) .r14, .store (at_ .r8 96) .r15, .store (at_ .r8 104) .r13] : List Instr) ++ rest))
       s₀ Q := by
   have o : ∀ d, d + 8 ≤ 128 → ∀ s : State, s.wr = s₀.wr →
       InRegions s.wr (sc s₀ + BitVec.ofNat 64 d) 8 := fun d hd s hw => by
