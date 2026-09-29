@@ -24,7 +24,7 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-ARCHES = frozenset({"x86_64", "aarch64", "arm", "x86"})
+ARCHES = frozenset({"x86_64", "aarch64", "arm", "x86", "powerpc64"})
 
 INNER_CFG = re.compile(r"^#!\[cfg\((.*?)\)\]$", re.MULTILINE | re.DOTALL)
 BENCH_CFG = re.compile(r"^#\[cfg\(((?!not\().*?)\)\]\npub fn bench\(", re.MULTILINE | re.DOTALL)
