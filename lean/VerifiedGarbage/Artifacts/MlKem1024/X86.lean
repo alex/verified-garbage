@@ -2,6 +2,7 @@ import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.MlKem1024.X86.CompressEncode
 import VerifiedGarbage.Proof.MlKem1024.X86.DecodeDecompress
 import VerifiedGarbage.Proof.MlKem1024.X86.CheckEk
+import VerifiedGarbage.Proof.MlKem1024.X86.KeyGen
 
 /-!
 # ML-KEM-1024 (FIPS 203) on x86
@@ -45,6 +46,14 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem1024.checkEkContract X86.abi 16
     stack := 16
     verified := Proof.MlKem1024.X86.CheckEk.verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.MlKem1024.keyGenApi with
+    target := X86.target
+    doc := Spec.MlKem1024.keyGenApi.doc
+    code := Impl.MlKem1024.X86.keyGen
+    contract := Spec.MlKem1024.keyGenContract X86.abi 88
+    stack := 88
+    verified := Proof.MlKem1024.X86.KeyGen.verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.MlKem1024.X86
