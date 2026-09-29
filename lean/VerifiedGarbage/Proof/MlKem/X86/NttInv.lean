@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.MlKem.X86.Ntt
 
 /-!
-# ML-KEM on x86 (32-bit): `vg_mlkem_ntt_inv`
+# ML-KEM on x86 (32-bit): `vg_mlkem_inv_ntt`
 
 Untrusted: everything here is checked by Lean. The seven layers of
 Algorithm 10 (`nttInv_eq_layers`), each a `layer_piece` (`NttLoop.lean`)

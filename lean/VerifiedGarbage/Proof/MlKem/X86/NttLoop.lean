@@ -11,7 +11,7 @@ Untrusted: everything here is checked by Lean. A layer
 loop of butterflies `body`; this file proves it once for any butterfly that
 computes a function `op` of the polynomial (`Bfly`), with `ebp` moving up
 (`dz = zUp`) or down (`zDown`) the zeta table, from its entry state `s₀`
-(`vg_mlkem_ntt(f, scratch)` or `vg_mlkem_ntt_inv(f, scratch)`, after the
+(`vg_mlkem_ntt(f, scratch)` or `vg_mlkem_inv_ntt(f, scratch)`, after the
 setup that stores the table in `scratch` and `f + 1024` in the argument
 slot of `scratch`).
 

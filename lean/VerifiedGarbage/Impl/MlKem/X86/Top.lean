@@ -104,9 +104,9 @@ def hash2 (sc st wk rate sfx : Nat) (b₁ b₂ o : Buf) : Prog isa :=
 def nttC (sc : Nat) (f s : Buf) : Prog isa :=
   .seq (.block (ptrTo sc .eax f ++ ptrTo sc .ecx s)) (callWith [.ecx, .eax] "vg_mlkem_ntt" ntt)
 
-/-- `f ← NTT⁻¹(f)` (`vg_mlkem_ntt_inv`), with the scratch `s`. -/
+/-- `f ← NTT⁻¹(f)` (`vg_mlkem_inv_ntt`), with the scratch `s`. -/
 def nttInvC (sc : Nat) (f s : Buf) : Prog isa :=
-  .seq (.block (ptrTo sc .eax f ++ ptrTo sc .ecx s)) (callWith [.ecx, .eax] "vg_mlkem_ntt_inv" nttInv)
+  .seq (.block (ptrTo sc .eax f ++ ptrTo sc .ecx s)) (callWith [.ecx, .eax] "vg_mlkem_inv_ntt" nttInv)
 
 /-- `h ← f ×_T g` (`vg_mlkem_multiply_ntts`), with the scratch `s`. -/
 def mulC (sc : Nat) (h f g s : Buf) : Prog isa :=

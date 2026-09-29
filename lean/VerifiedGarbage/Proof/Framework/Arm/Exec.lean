@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.Block
-import VerifiedGarbage.Proof.Framework.X86_64.Bswap
+import VerifiedGarbage.Proof.Framework.Bswap
 import VerifiedGarbage.TCB.Arm.Isa
 
 /-!
@@ -38,7 +38,7 @@ theorem movw_movt (x : BitVec 32) :
 
 theorem rev_readW (m : Mem) (a : Addr) :
     rev (m.readW a 32) = (m a ++ m (a + 1) ++ m (a + 1 + 1) ++ m (a + 1 + 1 + 1) : BitVec 32) :=
-  X86_64.bswap32_readW m a
+  byteRev32_readW m a
 
 theorem exec_sp {i : Instr} {s s' : State} (h : exec i s = some s') : s'.sp = s.sp := by
   cases i <;>

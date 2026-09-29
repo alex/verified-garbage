@@ -1,4 +1,5 @@
-import VerifiedGarbage.Proof.Sha512.X86.Stream.Finalize
+import VerifiedGarbage.Proof.Sha512.X86.Stream.Common
+import Mathlib.Tactic.Tauto
 
 /-!
 # Streaming SHA-512 on x86 (32-bit): `update`
@@ -20,7 +21,6 @@ open VG.Proof.Sha256.X86.Stream (Upd Mupd Fupd wp_mov wp_movi wp_movm wp_movzx8 
   wp_addi wp_sub wp_subi wp_andi wp_cmp wp_cmpi wp_test contains_addr sub_offset frame_bytes addr_add_ofNat
   readW_writeW_addr ofNat_beq_zero sub_ofNat sub_beq ofNat_succ ofNat_pred toNat_ofNat_lt bytesAt_getD
   addr_toNat)
-open VG.Proof.Sha512.X86.Stream.Finalize (stk_eq and127)
 open VG.Proof.Sha512.Stream
 open VG.Spec.Sha512 (HashValue stateAt blockAt compress parseBlock bytesAt)
 open VG.Proof.Sha512 (countX86)
