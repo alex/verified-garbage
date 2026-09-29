@@ -2,4 +2,4 @@ name = "PBKDF2-HMAC-SHA-256"
 family = "KDFs"
 specs = ["Pbkdf2"]
 modules = ["src/pbkdf2.rs"]
-asm = ["pbkdf2"]
+asm = ["pbkdf2_sha256"]

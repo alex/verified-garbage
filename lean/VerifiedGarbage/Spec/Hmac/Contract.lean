@@ -57,7 +57,7 @@ def initSha256Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
 
 /-- `vg_hmac_sha256_init` on every target. -/
 def initSha256Api : Api where
-  module := "hmac"
+  module := "hmac_sha256"
   name := "vg_hmac_sha256_init"
   sig := initSha256Sig
   writeArgs := true
@@ -95,7 +95,7 @@ def finalizeSha256Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M
 
 /-- `vg_hmac_sha256_finalize` on the 64-bit targets. -/
 def finalizeSha256Api : Api where
-  module := "hmac"
+  module := "hmac_sha256"
   name := "vg_hmac_sha256_finalize"
   sig := finalizeSha256Sig
   summary := "Finishes an HMAC-SHA-256 computation: if, for a 64-byte key `K₀` and a text, the \
@@ -129,7 +129,7 @@ def finalizeSha256OutContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contrac
 
 /-- `vg_hmac_sha256_finalize` on the 32-bit targets. -/
 def finalizeSha256OutApi : Api where
-  module := "hmac"
+  module := "hmac_sha256"
   name := "vg_hmac_sha256_finalize"
   sig := finalizeSha256OutSig
   writeArgs := true

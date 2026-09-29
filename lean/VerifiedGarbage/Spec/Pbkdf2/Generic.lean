@@ -64,7 +64,7 @@ def iterateContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
 
 /-- `vg_pbkdf2_hmac_<hash>_iterate` on every target. -/
 def iterateApi : Api where
-  module := "pbkdf2"
+  module := s!"pbkdf2_{I.rust}"
   name := s!"vg_pbkdf2_hmac_{I.rust}_iterate"
   sig := Pbkdf2.iterateSig I.S I.scratch
   summary := s!"Runs `n` steps of PBKDF2-HMAC-{I.alg}'s iteration: if, for a \
