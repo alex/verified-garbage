@@ -16,6 +16,10 @@ include = ["/src", "/LICENSE*", "/README.md"]
 default = ["alloc"]
 # APIs that allocate (scrypt's memory-hard table), through the `alloc` crate.
 alloc = []
+# Lets the `VG_CPU_FEATURES` environment variable restrict the CPU features
+# the library uses (see `src/cpu.rs`), to test and benchmark every
+# implementation on one machine. Reading the environment needs `std`.
+cpu-features-env = []
 
 [dependencies]
 

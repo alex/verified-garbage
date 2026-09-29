@@ -42,18 +42,12 @@ pub trait Pbkdf2Hash: HmacHash {
     #[doc(hidden)]
     fn pbkdf2_iterate(key: &Self::Key, u: &Self::Output, n: u32, t: &mut Self::Output);
     /// Fills `out` with the key derived from `password` and `salt` with
-    /// `iterations` iterations, using only the CPU features in `mask`: block
-    /// by block with the HMAC computation and `Pbkdf2Hash::pbkdf2_iterate`,
-    /// unless the hash has a verified implementation of the whole function.
+    /// `iterations` iterations: block by block with the HMAC computation and
+    /// `Pbkdf2Hash::pbkdf2_iterate`, unless the hash has a verified
+    /// implementation of the whole function.
     #[doc(hidden)]
-    fn pbkdf2_derive(
-        password: &[u8],
-        salt: &[u8],
-        iterations: NonZeroU32,
-        out: &mut [u8],
-        mask: u32,
-    ) {
-        derive_blocks::<Self>(password, salt, iterations, out, mask);
+    fn pbkdf2_derive(password: &[u8], salt: &[u8], iterations: NonZeroU32, out: &mut [u8]) {
+        derive_blocks::<Self>(password, salt, iterations, out);
     }
 }
 
@@ -70,33 +64,18 @@ pub fn pbkdf2_hmac<H: Pbkdf2Hash>(
     iterations: NonZeroU32,
     out: &mut [u8],
 ) {
-    __pbkdf2_hmac_with_features::<H>(password, salt, iterations, out, u32::MAX);
+    H::pbkdf2_derive(password, salt, iterations, out);
 }
 
-/// [`pbkdf2_hmac`], using only the CPU features in `mask` (a set of
-/// `crate::cpu::Features` bits). For testing every implementation on one
-/// CPU.
-#[doc(hidden)]
-pub fn __pbkdf2_hmac_with_features<H: Pbkdf2Hash>(
-    password: &[u8],
-    salt: &[u8],
-    iterations: NonZeroU32,
-    out: &mut [u8],
-    mask: u32,
-) {
-    H::pbkdf2_derive(password, salt, iterations, out, mask);
-}
-
-/// [`__pbkdf2_hmac_with_features`] block by block: `U₁` with the verified
-/// HMAC, the rest of each block's chain with the hash's verified iteration.
+/// [`pbkdf2_hmac`] block by block: `U₁` with the verified HMAC, the rest of
+/// each block's chain with the hash's verified iteration.
 fn derive_blocks<H: Pbkdf2Hash>(
     password: &[u8],
     salt: &[u8],
     iterations: NonZeroU32,
     out: &mut [u8],
-    mask: u32,
 ) {
-    let prf = Hmac::<H>::__with_features(password, mask);
+    let prf = Hmac::<H>::new(password);
     let key = H::pbkdf2_key(&prf);
     for (i, block) in out.chunks_mut(H::OUTPUT_SIZE).enumerate() {
         let index = u32::try_from(i + 1).expect("PBKDF2 derived key too long");

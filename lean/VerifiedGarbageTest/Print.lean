@@ -137,7 +137,8 @@ def sampleA64 : Prog AArch64.isa :=
       .movz .w .x13 0x2f98 0, .movk .w .x13 0x428a 1,
       .ldr .w .x12 .x1 60, .str .w .x12 .x3 4, .ldr .x .x16 .x17 8, .str .x .x20 .x19 16,
       .sub .w .x4 .x5 .x6, .sub .x .x0 .x1 .x30, .rev .x9 .x10,
-      .ldrb .x11 .x20 0, .ldrb .x21 .x22 4095, .strb .x23 .x24 7, .strb .x25 .x26 4095])
+      .ldrb .x11 .x20 0, .ldrb .x21 .x22 4095, .strb .x23 .x24 7, .strb .x25 .x26 4095,
+      .ldrSp .x9 0, .ldrSp .x10 32760])
       (.nonzero .x .x2))
 
 #guard text (AArch64.printer.function sampleA64) == [
@@ -166,6 +167,8 @@ def sampleA64 : Prog AArch64.isa :=
   "ldrb w21, [x22, #4095]",
   "strb w23, [x24, #7]",
   "strb w25, [x26, #4095]",
+  "ldr x9, [sp, #0]",
+  "ldr x10, [sp, #32760]",
   "cbnz x2, 22b",
   "b 21f",
   "20:",
@@ -328,6 +331,13 @@ instructions. -/
 #guard text (X86.printer.function
     (.frame (.push [.ecx, .eax]) (.call "vg_f" (.block [])) (.pop .edx 2) : Prog X86.isa)) == [
   "push ecx", "push eax", "<call vg_f>", "pop edx", "pop edx", "ret"]
+
+-- Pass two arguments on the stack, inside a frame saving `rbx` (x86-64).
+#guard text (printer.function
+    (.frame (.push [.rbx])
+      (.frame (.push [.rcx, .rax]) (.call "vg_f" (.block [])) (.pop .rdx 2)) (.pop .rbx 1) :
+      Prog X86_64.isa)) == [
+  "push rbx", "push rcx", "push rax", "<call vg_f>", "pop rdx", "pop rdx", "pop rbx", "ret"]
 
 #guard Rust.line Arm.printer.call (.text "push {r4, lr}") == "        \"push {{r4, lr}}\",\n"
 

@@ -124,7 +124,11 @@ theorem Exec.frameSp {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa
     have hcb : NoSp body := hc
     rw [(Exec.rdwr h₁).2, Exec.gpr hcb h₁] at f₂
     exact Frame.trans (ih₁ hc hd) f₂
-  | frame hp => simp only [isa, reduceCtorEq] at hp
+  | @frame i _ _ _ _ _ _ _ hp =>
+    -- A frame's push writes `rsp`.
+    have hi := hc i (List.mem_cons_self ..)
+    cases i <;> simp only [isa, push, reduceCtorEq] at hp
+    simp [Taint.clobbers] at hi
   | @call _ b s₀ s₁ s₂ s₃ _ hc₁ hb hr ih =>
     simp only [Code.depth] at hd ⊢
     have e₁ : s₁ = s₀.callEntry := (Option.some.inj ((call_callEntry s₀).symm.trans hc₁)).symm

@@ -5,9 +5,10 @@ Adapted from `process_rust_coverage` in pyca/cryptography's noxfile.py.
 
 Usage: run `cargo test` with `RUSTFLAGS=-Cinstrument-coverage` and
 `LLVM_PROFILE_FILE=<dir>/cov-%p-%m.profraw`, then, from the repository root
-and with the same `RUSTFLAGS`:
+and with the same `RUSTFLAGS` and Cargo feature options (e.g. `--features
+cpu-features-env`, after the directory):
 
-    python3 ci/export_rust_coverage.py <dir>
+    python3 ci/export_rust_coverage.py <dir> [<cargo test options>...]
 
 This writes `<uuid>.lcov` in the current directory, containing only this
 repository's files, with repository-relative `/`-separated paths, so lcov
@@ -24,10 +25,10 @@ import uuid
 EXE = ".exe" if sys.platform == "win32" else ""
 
 
-def test_binaries() -> list[str]:
+def test_binaries(cargo_args: list[str]) -> list[str]:
     # `cargo test` has already built these; this only lists them.
     out = subprocess.run(
-        ["cargo", "test", "--locked", "--no-run", "--message-format=json"],
+        ["cargo", "test", "--locked", "--no-run", "--message-format=json", *cargo_args],
         check=True,
         capture_output=True,
         text=True,
@@ -63,7 +64,7 @@ def relative_records(lcov: str, root: pathlib.Path) -> str:
     return "".join(line + "\n" for line in out)
 
 
-def main(profraw_dir: str) -> None:
+def main(profraw_dir: str, *cargo_args: str) -> None:
     root = pathlib.Path.cwd().resolve()
     libdir = subprocess.run(
         ["rustc", "--print", "target-libdir"],
@@ -81,7 +82,7 @@ def main(profraw_dir: str) -> None:
         check=True,
     )
 
-    first, *rest = test_binaries()
+    first, *rest = test_binaries(list(cargo_args))
     lcov = subprocess.run(
         [
             str(bindir / f"llvm-cov{EXE}"),

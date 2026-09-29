@@ -160,6 +160,8 @@ def Instr.asm : Instr → List String
   | .ldmxcsr m => [s!"ldmxcsr {m.str32}"]
   | .lfence => ["lfence"]
   | .mul r => [s!"mul {r.name}"]
+  | .push rs => rs.map fun r => s!"push {r.name}"
+  | .pop r k => List.replicate k s!"pop {r.name}"
 
 def Cond.name : Cond → String
   | .e => "e" | .ne => "ne" | .b => "b" | .ae => "ae"
