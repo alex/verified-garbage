@@ -18,7 +18,9 @@ The shared contracts give the functions more scratch than these ones use (560
 bytes for `compress`, 608 for `update` and `finalize`, sized for the x86-64
 AVX2 compression function): the per-target contracts are first widened to
 that scratch (`Verified.widen`, the same code running with the same trace and
-result), then moved to the shared ones.
+result; `update`'s also to writable arguments, `Verified.narrowTo`), then
+moved to the shared ones. `update` and `finalize` call the compression
+function, using the 20 bytes of stack below the return address.
 -/
 
 namespace VG.Proof.Sha256.X86.Shared
@@ -40,7 +42,7 @@ def compressWide : Contract X86.isa :=
       (arg s 0).toNat + 32 ≤ 2 ^ 32 ∧ (arg s 1).toNat + 64 * (arg s 2).toNat ≤ 2 ^ 32 ∧
       (arg s 3).toNat + 560 ≤ 2 ^ 32 ∧ (s.gpr .esp).toNat + 20 ≤ 2 ^ 32 }
 
-/-- `updateX86` with 608 bytes of scratch. -/
+/-- `updateX86` with 608 bytes of scratch, and its arguments writable. -/
 def updateWide : Contract X86.isa :=
   { Proof.Sha256.updateX86 with
     pre := fun s =>
@@ -49,12 +51,14 @@ def updateWide : Contract X86.isa :=
       let scratch : Region := ⟨(arg s 5).setWidth 64, 608⟩
       let args : Region := ⟨argAddr s 0, 24⟩
       let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+      let stack : Region := ⟨(s.gpr .esp).setWidth 64 - 20, 20⟩
       s.rd = [data] ∧ s.wr = [state, scratch, args] ∧
       state.Disjoint scratch ∧ args.Disjoint state ∧ args.Disjoint scratch ∧
-      data.Disjoint state ∧ data.Disjoint scratch ∧ data.Disjoint args ∧
-      ret.Disjoint state ∧ ret.Disjoint scratch ∧
+      data.Disjoint state ∧ data.Disjoint scratch ∧
+      ret.Disjoint state ∧ ret.Disjoint scratch ∧ stack.Disjoint state ∧ stack.Disjoint scratch ∧
+      stack.Disjoint data ∧
       (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 3).toNat + (arg s 4).toNat ≤ 2 ^ 32 ∧
-      (arg s 5).toNat + 608 ≤ 2 ^ 32 ∧ (s.gpr .esp).toNat + 28 ≤ 2 ^ 32 }
+      (arg s 5).toNat + 608 ≤ 2 ^ 32 ∧ 20 ≤ (s.gpr .esp).toNat ∧ (s.gpr .esp).toNat + 28 ≤ 2 ^ 32 }
 
 /-- `finalizeX86` with 608 bytes of scratch. -/
 def finalizeWide : Contract X86.isa :=
@@ -65,12 +69,14 @@ def finalizeWide : Contract X86.isa :=
       let scratch : Region := ⟨(arg s 4).setWidth 64, 608⟩
       let args : Region := ⟨argAddr s 0, 20⟩
       let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+      let stack : Region := ⟨(s.gpr .esp).setWidth 64 - 20, 20⟩
       s.rd = [] ∧ s.wr = [state, out, scratch, args] ∧
       state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
       args.Disjoint state ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
       ret.Disjoint state ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧
+      stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch ∧
       (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 3).toNat + 32 ≤ 2 ^ 32 ∧
-      (arg s 4).toNat + 608 ≤ 2 ^ 32 ∧ (s.gpr .esp).toNat + 24 ≤ 2 ^ 32 }
+      (arg s 4).toNat + 608 ≤ 2 ^ 32 ∧ 20 ≤ (s.gpr .esp).toNat ∧ (s.gpr .esp).toNat + 24 ≤ 2 ^ 32 }
 
 theorem pfx {a : Addr} {m n : Nat} (h : Nat.ble m n = true) : Region.Prefix ⟨a, m⟩ ⟨a, n⟩ :=
   ⟨rfl, Nat.le_of_ble_eq_true h⟩
@@ -101,18 +107,38 @@ theorem compressWide_verified (hsat : ∃ s, compressWide.pre s) :
     (fun _ _ _ h => by narrow at h ⊢; exact h)
     (fun _ _ _ _ h => by narrow; exact h) hsat
 
+/-- `update` only reads its arguments. -/
 theorem updateWide_verified (hsat : ∃ s, updateWide.pre s) :
     Verified X86.target Impl.Sha256.X86.Stream.update updateWide :=
-  Verified.widen Proof.Sha256.X86.Stream.Update.update_verified
-    (fun s => [⟨(arg s 0).setWidth 64, 96⟩, ⟨(arg s 5).setWidth 64, 160⟩, ⟨argAddr s 0, 24⟩])
+  Verified.narrowTo Proof.Sha256.X86.Stream.Update.update_verified
+    (fun s => [⟨(arg s 3).setWidth 64, (arg s 4).toNat⟩, ⟨argAddr s 0, 24⟩])
+    (fun s => [⟨(arg s 0).setWidth 64, 96⟩, ⟨(arg s 5).setWidth 64, 160⟩])
     (fun _ h => by
-      obtain ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄⟩ := h
+      obtain ⟨_, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅, h₁₆, h₁₇⟩ := h
       narrow
-      exact ⟨h₁, trivial, h₃.sub_right (sub160 _), h₄, h₅.sub_right (sub160 _), h₆, h₇.sub_right (sub160 _),
-        h₈, h₉, h₁₀.sub_right (sub160 _), h₁₁, h₁₂, le160 h₁₃, h₁₄⟩)
+      exact ⟨trivial, trivial, h₃.sub_right (sub160 _), h₆, h₇.sub_right (sub160 _), h₄,
+        h₅.sub_right (sub160 _), h₈, h₉.sub_right (sub160 _), h₁₀, h₁₁.sub_right (sub160 _), h₁₂, h₁₃, h₁₄,
+        le160 h₁₅, h₁₆, h₁₇⟩)
+    (fun _ h => by
+      obtain ⟨h₁, h₂, _⟩ := h
+      rw [h₁, h₂]
+      refine Covers.of_sub fun r hr => ?_
+      simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl
+      · exact ⟨_, List.mem_append_left _ (List.mem_singleton_self _), 0, by simp, by simp⟩
+      · exact ⟨_, List.mem_append_right _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _
+          (List.mem_singleton_self _))), 0, by simp, by simp⟩
+      · exact ⟨_, List.mem_append_right _ List.mem_cons_self, 0, by simp, by simp⟩
+      · exact ⟨_, List.mem_append_right _ (List.mem_cons_of_mem _ List.mem_cons_self), 0, by simp,
+          by simp⟩)
     (fun _ h => by
       obtain ⟨_, h₂, _⟩ := h
-      rw [h₂]; exact .cons (pfx rfl) (.cons (pfx rfl) (.cons (pfx rfl) .nil)))
+      rw [h₂]
+      refine Covers.of_sub fun r hr => ?_
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl
+      · exact ⟨_, List.mem_cons_self, 0, by simp, by simp⟩
+      · exact ⟨_, List.mem_cons_of_mem _ List.mem_cons_self, 0, by simp, by simp⟩)
     (fun _ _ _ h => by narrow at h ⊢; exact h)
     (fun _ _ _ _ h => by narrow; exact h) hsat
 
@@ -122,10 +148,11 @@ theorem finalizeWide_verified (hsat : ∃ s, finalizeWide.pre s) :
     (fun s => [⟨(arg s 0).setWidth 64, 96⟩, ⟨(arg s 3).setWidth 64, 32⟩,
       ⟨(arg s 4).setWidth 64, 160⟩, ⟨argAddr s 0, 20⟩])
     (fun _ h => by
-      obtain ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅⟩ := h
+      obtain ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅, h₁₆, h₁₇, h₁₈, h₁₉⟩ := h
       narrow
       exact ⟨h₁, trivial, h₃, h₄.sub_right (sub160 _), h₅.sub_right (sub160 _), h₆, h₇,
-        h₈.sub_right (sub160 _), h₉, h₁₀, h₁₁.sub_right (sub160 _), h₁₂, h₁₃, le160 h₁₄, h₁₅⟩)
+        h₈.sub_right (sub160 _), h₉, h₁₀, h₁₁.sub_right (sub160 _), h₁₂, h₁₃, h₁₄.sub_right (sub160 _),
+        h₁₅, h₁₆, le160 h₁₇, h₁₈, h₁₉⟩)
     (fun _ h => by
       obtain ⟨_, h₂, _⟩ := h
       rw [h₂]; exact .cons (pfx rfl) (.cons (pfx rfl) (.cons (pfx rfl) (.cons (pfx rfl) .nil))))
@@ -137,7 +164,8 @@ def compressSat : State := { Proof.Sha256.X86.satState with wr := [⟨0x1000, 32
 
 /-- A state satisfying `updateWide.pre`. -/
 def updateSat : State :=
-  { Proof.Sha256.X86.Stream.Update.sat with wr := [⟨0x1000, 96⟩, ⟨0x3000, 608⟩, ⟨0x4004, 24⟩] }
+  { Proof.Sha256.X86.Stream.Update.sat with
+    rd := [⟨0x2000, 0⟩], wr := [⟨0x1000, 96⟩, ⟨0x3000, 608⟩, ⟨0x4004, 24⟩] }
 
 /-- A state satisfying `finalizeWide.pre`. -/
 def finalizeSat : State :=
@@ -161,24 +189,24 @@ theorem init :
       X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
       [Proof.Sha256.X86.Stream.initSat, Proof.Sha256.X86.Stream.initSatMem, X86.arg, X86.argAddr, Mem.readW, Mem.read] using Proof.Sha256.X86.Stream.initSat)
 
-theorem updateWide_implies : updateWide.Implies (Spec.Sha256.updateContract X86.abi) := by
+theorem updateWide_implies : updateWide.Implies (Spec.Sha256.updateContract X86.abi 20) := by
   contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, updateWide,
     Proof.Sha256.updateX86, Proof.Sha256.countX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
     [updateSat, Proof.Sha256.X86.Stream.Update.sat, Proof.Sha256.X86.Stream.Update.satMem, X86.arg,
       X86.argAddr, Mem.readW, Mem.read] using updateSat
 
 theorem update :
-    Verified X86.target Impl.Sha256.X86.Stream.update (Spec.Sha256.updateContract X86.abi) :=
+    Verified X86.target Impl.Sha256.X86.Stream.update (Spec.Sha256.updateContract X86.abi 20) :=
   (updateWide_verified updateWide_implies.sat_left).of_implies updateWide_implies
 
-theorem finalizeWide_implies : finalizeWide.Implies (Spec.Sha256.finalizeContract X86.abi) := by
+theorem finalizeWide_implies : finalizeWide.Implies (Spec.Sha256.finalizeContract X86.abi 20) := by
   contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig, finalizeWide,
     Proof.Sha256.finalizeX86, Proof.Sha256.countX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
     [finalizeSat, Proof.Sha256.X86.Stream.Finalize.sat, Proof.Sha256.X86.Stream.Finalize.satMem,
       X86.arg, X86.argAddr, Mem.readW, Mem.read] using finalizeSat
 
 theorem finalize :
-    Verified X86.target Impl.Sha256.X86.Stream.finalize (Spec.Sha256.finalizeContract X86.abi) :=
+    Verified X86.target Impl.Sha256.X86.Stream.finalize (Spec.Sha256.finalizeContract X86.abi 20) :=
   (finalizeWide_verified finalizeWide_implies.sat_left).of_implies finalizeWide_implies
 
 end VG.Proof.Sha256.X86.Shared
