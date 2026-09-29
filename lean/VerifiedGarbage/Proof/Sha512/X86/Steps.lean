@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Common
-import VerifiedGarbage.Proof.Sha512.Arm.Word64
+import VerifiedGarbage.Proof.Sha512.Word64
 import VerifiedGarbage.Impl.Sha512.X86
 
 /-!
@@ -10,9 +10,8 @@ for the macros of `VG.Impl.Sha512.X86` (loads and stores of a 64-bit word in
 the scratch buffer, 64-bit additions, `Σ`/`σ`, `Ch` and `Maj`), each proved
 once for any registers and offsets, in continuation-passing style: the rule
 for `x` proves `WP (x ++ rest)` from a proof of `WP rest` for every state `x`
-can end in. The halves of 64-bit values are those of the ARMv7 proof
-(`Proof/Sha512/Arm/Word64.lean`), whose lemmas about them are about bit
-vectors only.
+can end in. The halves of 64-bit values, and the terms of `Σ`/`σ`, are those
+of `Proof/Sha512/Word64.lean`.
 -/
 
 namespace VG.Proof.Sha512.X86
@@ -20,9 +19,8 @@ namespace VG.Proof.Sha512.X86
 open VG VG.X86
 open VG.Impl.Sha512.X86 (at_ sc T Y0 Y1 Z0 Z1 Op Part ld st add64 add64m add64i xorOf sig ch1 chW maj1
   majW loadW expandW roundW)
-open VG.Impl.Sha512.Arm (lo hi)
-open VG.Proof.Sha512.Arm (lo_add hi_add lo_xor hi_xor lo_and hi_and lo_or hi_or lo_append hi_append
-  hi_append_lo evalOps lo_evalOps hi_evalOps)
+open VG.Proof.Sha512.Word64 (lo hi lo_add hi_add lo_xor hi_xor lo_and hi_and lo_or hi_or lo_append
+  hi_append hi_append_lo evalOps lo_evalOps hi_evalOps)
 open VG.Proof.Sha256.X86.Stream (Upd Mupd Fupd WP.cons wp_store wp_bswap wp_shr)
 
 theorem lo_eq (x : BitVec 64) : Impl.Sha512.X86.lo x = lo x := rfl
@@ -243,29 +241,29 @@ def partOk : Part → Bool
   | .shr _ n => 0 < n && n < 32
   | .shl _ n => 0 < n && n < 32
 
-/-- The term, in the terms of the ARMv7 proof. -/
-def _root_.VG.Impl.Sha512.X86.Op.arm : Op → Impl.Sha512.Arm.Op
+/-- The term, as a `Word64.Term`. -/
+def _root_.VG.Impl.Sha512.X86.Op.term : Op → Word64.Term
   | .rotr n => .rotr n
   | .shr n => .shr n
 
-theorem map_lo (L H : BitVec 32) (o : Op) : o.lo.map (partVal L H) = o.arm.loVals L H := by
+theorem map_lo (L H : BitVec 32) (o : Op) : o.lo.map (partVal L H) = o.term.loVals L H := by
   cases o with
-  | rotr n => simp only [Op.lo, Op.arm, Impl.Sha512.Arm.Op.loVals]; split <;> simp [partVal]
-  | shr n => simp [Op.lo, Op.arm, Impl.Sha512.Arm.Op.loVals, partVal]
+  | rotr n => simp only [Op.lo, Op.term, Word64.Term.loVals]; split <;> simp [partVal]
+  | shr n => simp [Op.lo, Op.term, Word64.Term.loVals, partVal]
 
-theorem map_hi (L H : BitVec 32) (o : Op) : o.hi.map (partVal L H) = o.arm.hiVals L H := by
+theorem map_hi (L H : BitVec 32) (o : Op) : o.hi.map (partVal L H) = o.term.hiVals L H := by
   cases o with
-  | rotr n => simp only [Op.hi, Op.arm, Impl.Sha512.Arm.Op.hiVals]; split <;> simp [partVal]
-  | shr n => simp [Op.hi, Op.arm, Impl.Sha512.Arm.Op.hiVals, partVal]
+  | rotr n => simp only [Op.hi, Op.term, Word64.Term.hiVals]; split <;> simp [partVal]
+  | shr n => simp [Op.hi, Op.term, Word64.Term.hiVals, partVal]
 
 theorem map_flatMap_lo (L H : BitVec 32) (ops : List Op) :
-    (ops.flatMap Op.lo).map (partVal L H) = (ops.map Op.arm).flatMap (Impl.Sha512.Arm.Op.loVals L H) := by
+    (ops.flatMap Op.lo).map (partVal L H) = (ops.map Op.term).flatMap (Word64.Term.loVals L H) := by
   induction ops with
   | nil => rfl
   | cons o os ih => rw [List.flatMap_cons, List.map_append, map_lo, ih]; rfl
 
 theorem map_flatMap_hi (L H : BitVec 32) (ops : List Op) :
-    (ops.flatMap Op.hi).map (partVal L H) = (ops.map Op.arm).flatMap (Impl.Sha512.Arm.Op.hiVals L H) := by
+    (ops.flatMap Op.hi).map (partVal L H) = (ops.map Op.term).flatMap (Word64.Term.hiVals L H) := by
   induction ops with
   | nil => rfl
   | cons o os ih => rw [List.flatMap_cons, List.map_append, map_hi, ih]; rfl
@@ -301,7 +299,7 @@ theorem wp_part {d : Reg} {B : BitVec 32} {off N : Nat} {p : Part} (hp : partOk 
 
 theorem foldl_xor_acc (a : BitVec 32) (l : List (BitVec 32)) :
     l.foldl (· ^^^ ·) a = a ^^^ l.foldl (· ^^^ ·) 0 :=
-  VG.Proof.Sha512.Arm.foldl_xor_acc a l
+  Word64.foldl_xor_acc a l
 
 theorem wp_xorRest {d : Reg} {B : BitVec 32} {off N : Nat} (hd : d ≠ .esi) (hdT : d ≠ T)
     (L H : BitVec 32) (ps : List Part) (hp : ∀ p ∈ ps, partOk p = true) :
@@ -355,12 +353,12 @@ theorem Op.hi_ne_nil (o : Op) : o.hi ≠ [] := by
 /-- A list of terms the code can compute. -/
 def OpsOk (ops : List Op) : Prop :=
   ops ≠ [] ∧ (∀ p ∈ ops.flatMap Op.lo, partOk p = true) ∧ (∀ p ∈ ops.flatMap Op.hi, partOk p = true) ∧
-    ∀ o ∈ ops.map Op.arm, Impl.Sha512.Arm.Op.valid o = true
+    ∀ o ∈ ops.map Op.term, Word64.Term.valid o = true
 
 theorem wp_sig {dl dh : Reg} {B : BitVec 32} {off N : Nat} {ops : List Op} (hok : OpsOk ops)
     (hd : dl ≠ dh) (h₁ : dl ≠ .esi) (h₂ : dh ≠ .esi) (h₃ : dl ≠ T) (h₄ : dh ≠ T)
     {s : State} (hb : s.gpr .esi = B) (hA : Acc s.wr B N) (ho : off + 8 ≤ N)
-    (k : ∀ s', Only [dl, dh, T] s s' → Pair s' dl dh (evalOps (rd64 s.mem B off) (ops.map Op.arm)) →
+    (k : ∀ s', Only [dl, dh, T] s s' → Pair s' dl dh (evalOps (rd64 s.mem B off) (ops.map Op.term)) →
       WP isa (.block rest) s' Q) :
     WP isa (.block (sig dl dh off ops ++ rest)) s Q := by
   obtain ⟨hne, hlo, hhi, hv⟩ := hok
@@ -378,17 +376,17 @@ theorem ssig0_ok : OpsOk Impl.Sha512.X86.ssig0 := ⟨by decide, by decide, by de
 theorem ssig1_ok : OpsOk Impl.Sha512.X86.ssig1 := ⟨by decide, by decide, by decide, by decide⟩
 
 theorem bsig0_eq (x : BitVec 64) :
-    Spec.Sha512.bsig0 x = evalOps x (Impl.Sha512.X86.bsig0.map Op.arm) :=
-  VG.Proof.Sha512.Arm.bsig0_eq x
+    Spec.Sha512.bsig0 x = evalOps x (Impl.Sha512.X86.bsig0.map Op.term) :=
+  Word64.bsig0_eq x
 theorem bsig1_eq (x : BitVec 64) :
-    Spec.Sha512.bsig1 x = evalOps x (Impl.Sha512.X86.bsig1.map Op.arm) :=
-  VG.Proof.Sha512.Arm.bsig1_eq x
+    Spec.Sha512.bsig1 x = evalOps x (Impl.Sha512.X86.bsig1.map Op.term) :=
+  Word64.bsig1_eq x
 theorem ssig0_eq (x : BitVec 64) :
-    Spec.Sha512.ssig0 x = evalOps x (Impl.Sha512.X86.ssig0.map Op.arm) :=
-  VG.Proof.Sha512.Arm.ssig0_eq x
+    Spec.Sha512.ssig0 x = evalOps x (Impl.Sha512.X86.ssig0.map Op.term) :=
+  Word64.ssig0_eq x
 theorem ssig1_eq (x : BitVec 64) :
-    Spec.Sha512.ssig1 x = evalOps x (Impl.Sha512.X86.ssig1.map Op.arm) :=
-  VG.Proof.Sha512.Arm.ssig1_eq x
+    Spec.Sha512.ssig1 x = evalOps x (Impl.Sha512.X86.ssig1.map Op.term) :=
+  Word64.ssig1_eq x
 
 end
 

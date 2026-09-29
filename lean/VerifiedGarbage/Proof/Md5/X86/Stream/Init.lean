@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.MdStream.X86.Common
 import VerifiedGarbage.Proof.Md5.Stream
-import VerifiedGarbage.Proof.Md5.AArch64.Compress
+import VerifiedGarbage.Proof.Md5.StateMem
 import VerifiedGarbage.Proof.Md5.X86.Contract
 import VerifiedGarbage.Impl.Md5.X86.Stream
 import Mathlib.Tactic.Set
@@ -60,7 +60,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Md5.initX86.pre s₀) :
     rw [g5 r h, g4 r h, g3 r h, g2 r h, u₁.other r h']
   have ha : ∀ k, k < 4 → addr st (4 * k) = st.setWidth 64 + BitVec.ofNat 64 (4 * k) :=
     fun k hk => addr_eq (by omega)
-  have hm : s5.mem = Proof.Md5.AArch64.writeState s₀.mem (st.setWidth 64) H0 := by
+  have hm : s5.mem = Proof.Md5.StateMem.writeState s₀.mem (st.setWidth 64) H0 := by
     rw [m5, m4, m3, m2, u₁.mem, ha 0 (by omega), ha 1 (by omega), ha 2 (by omega), ha 3 (by omega)]
     rfl
   have hf : Frame [⟨st.setWidth 64, 80⟩] s₀.mem s5.mem := by
@@ -78,7 +78,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Md5.initX86.pre s₀) :
   · exact hf.readW (Region.contains_self _ _) (by simpa using hret) (by decide)
   · show Spec.Md5.Repr s5.mem (st.setWidth 64) []
     rw [hm]
-    exact Proof.Md5.Stream.repr_nil (Proof.Md5.AArch64.stateAt_writeState _ _ _)
+    exact Proof.Md5.Stream.repr_nil (Proof.Md5.StateMem.stateAt_writeState _ _ _)
 
 /-- Memory holding the argument `0x1000` at `0x4004`. -/
 def initSatMem : Mem := fun a => if a = 0x4005 then 0x10 else 0

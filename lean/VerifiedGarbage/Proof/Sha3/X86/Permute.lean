@@ -16,14 +16,13 @@ namespace VG.Proof.Sha3.X86
 
 open VG VG.X86 VG.Impl.Sha3.X86
 open VG.Impl.Sha512.X86 (at_)
-open VG.Impl.Sha512.Arm (lo hi)
 open VG.Spec.Sha3 (stateAt keccakF rnd RC)
 open VG.Proof.Sha512.X86 (Only Wrote rd64 write64 mem_rd Acc rd64_write64_self rd64_write64_ne
   rd64_frame)
 open VG.Proof.Sha256.X86.Stream (Upd Mupd wp_mov wp_movi wp_addi wp_sub wp_cmpi eval_ne sub_beq
   addr_toNat)
 open VG.Proof.Sha3 (outState_eq foldl_succ)
-open VG.Proof.Sha512.Arm (readW64)
+open VG.Proof.Sha512.Word64 (lo hi readW64)
 
 /-! ## Addresses -/
 
