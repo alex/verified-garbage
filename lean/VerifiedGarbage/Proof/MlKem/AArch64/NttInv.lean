@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.MlKem.AArch64.NttFwd
 
 /-!
-# ML-KEM on AArch64: `vg_mlkem_ntt_inv`
+# ML-KEM on AArch64: `vg_mlkem_inv_ntt`
 
 Untrusted: everything here is checked by Lean. As the NTT
 (`NttFwd.lean`), with the inverse butterflies, `len` doubling and the zetas

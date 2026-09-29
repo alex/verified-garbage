@@ -90,7 +90,7 @@ def nttAt (off : Nat) : Prog isa :=
 
 /-- The inverse NTT of the polynomial at `off`. -/
 def nttInvAt (off : Nat) : Prog isa :=
-  .seq (.block (ptrTo .x0 .x28 off ++ ptrTo .x1 .x28 NS)) (.call "vg_mlkem_ntt_inv" nttInv)
+  .seq (.block (ptrTo .x0 .x28 off ++ ptrTo .x1 .x28 NS)) (.call "vg_mlkem_inv_ntt" nttInv)
 
 /-- `h ← f ×_T g`. -/
 def mulAt (h f g : Nat) : Prog isa :=

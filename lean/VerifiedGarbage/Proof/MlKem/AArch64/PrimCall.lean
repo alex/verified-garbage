@@ -44,7 +44,7 @@ theorem cbd2_call {s : State} {b f : Addr} (h0 : s.gpr .x0 = b) (h1 : s.gpr .x1 
       at hpost
     exact hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ hpost
 
-/-- `vg_mlkem_ntt(f, scratch)` or `vg_mlkem_ntt_inv(f, scratch)`. -/
+/-- `vg_mlkem_ntt(f, scratch)` or `vg_mlkem_inv_ntt(f, scratch)`. -/
 theorem inPlace_call {t : Poly → Poly} {c : Prog isa} {name : String}
     (hv : ∀ s, (inPlaceAArch64 t).pre s →
       ∃ tr s', Exec isa c s tr s' ∧ abiPreserved s s' ∧ (inPlaceAArch64 t).post s s')
@@ -76,7 +76,7 @@ theorem nttInv_call {s : State} {f w : Addr} (h0 : s.gpr .x0 = f) (h1 : s.gpr .x
     (hd : Region.Disjoint ⟨f, 1024⟩ ⟨w, 1024⟩) (hr : Reduced s.mem f)
     (hw : Covers [⟨f, 1024⟩, ⟨w, 1024⟩] s.wr) {Q : State → Prop}
     (hQ : ∀ s', Kept [⟨f, 1024⟩, ⟨w, 1024⟩] s s' → PolyIs s'.mem f (nttInv (polyAt s.mem f)) → Q s') :
-    WP isa (.call "vg_mlkem_ntt_inv" Impl.MlKem.AArch64.nttInv) s Q :=
+    WP isa (.call "vg_mlkem_inv_ntt" Impl.MlKem.AArch64.nttInv) s Q :=
   inPlace_call Ntt.correctInv (by decide +kernel) h0 h1 hd hr hw hQ
 
 /-- `vg_mlkem_add(f, g)` or `vg_mlkem_sub(f, g)`. -/
