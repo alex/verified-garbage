@@ -29,12 +29,9 @@ struct Case {
     tag: Hex,
 }
 
-/// Masks that between them select every implementation this CPU can run.
-const MASKS: [u32; 2] = [u32::MAX, 0];
-
 /// Streaming decryption of `c`: the plaintext, if the tag matched.
-fn stream_decrypt(c: &Case, mask: u32) -> Result<Vec<u8>, Error> {
-    let mut d = AesGcmStream::__with_features(&c.key.0, &c.iv.0, Direction::Decrypt, mask)?;
+fn stream_decrypt(c: &Case) -> Result<Vec<u8>, Error> {
+    let mut d = AesGcmStream::new(&c.key.0, &c.iv.0, Direction::Decrypt)?;
     d.update_aad(&c.aad.0)?;
     let mut buf = c.ct.0.clone();
     d.update(&mut buf)?;
@@ -48,12 +45,11 @@ fn aes_gcm() {
     require_vectors!();
     let file = harness::load::<Group, Case>("aes_gcm_test.json");
     let (mut valid, mut invalid) = (0, 0);
-    let cases = file.tests().flat_map(|t| MASKS.map(|m| (t, m)));
-    for ((group, test), mask) in cases {
+    for (group, test) in file.tests() {
         let c = &test.case;
         let id = test.tc_id;
         assert_eq!(group.params.tag_size, 8 * c.tag.0.len(), "tcId {id}");
-        let key = AesGcm::__with_features(&c.key.0, mask).unwrap();
+        let key = AesGcm::new(&c.key.0).unwrap();
         let mut buf = c.ct.0.clone();
         let decrypted = key.decrypt(&c.iv.0, &c.aad.0, &mut buf, &c.tag.0);
         match test.result {
@@ -65,15 +61,13 @@ fn aes_gcm() {
                 assert_eq!(buf, c.ct.0, "tcId {id}");
                 assert_eq!(tag[..], c.tag.0, "tcId {id}");
 
-                let mut e =
-                    AesGcmStream::__with_features(&c.key.0, &c.iv.0, Direction::Encrypt, mask)
-                        .unwrap();
+                let mut e = AesGcmStream::new(&c.key.0, &c.iv.0, Direction::Encrypt).unwrap();
                 e.update_aad(&c.aad.0).unwrap();
                 let mut buf = c.msg.0.clone();
                 e.update(&mut buf).unwrap();
                 assert_eq!(buf, c.ct.0, "tcId {id}");
                 assert_eq!(e.finalize(), Ok(tag), "tcId {id}");
-                assert_eq!(stream_decrypt(c, mask), Ok(c.msg.0.clone()), "tcId {id}");
+                assert_eq!(stream_decrypt(c), Ok(c.msg.0.clone()), "tcId {id}");
                 valid += 1;
             }
             // The file has no acceptable vectors.

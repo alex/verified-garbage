@@ -37,14 +37,13 @@ pub trait HmacHash: HashFunction + sealed::Sealed {
     /// The state of an HMAC computation.
     #[doc(hidden)]
     type State: Clone;
-    /// Starts an HMAC computation with a key of at most `BLOCK_SIZE` bytes,
-    /// using only the CPU features in `mask` (as `__with_features`).
+    /// Starts an HMAC computation with a key of at most `BLOCK_SIZE` bytes.
     ///
     /// # Panics
     ///
     /// If the key is longer than a block.
     #[doc(hidden)]
-    fn hmac_init(key: &[u8], mask: u32) -> Self::State;
+    fn hmac_init(key: &[u8]) -> Self::State;
     /// Absorbs `data`.
     #[doc(hidden)]
     fn hmac_update(state: &mut Self::State, data: &[u8]);
@@ -63,18 +62,10 @@ impl<H: HmacHash> Hmac<H> {
     /// Starts an HMAC computation with `key`, of any length (a key longer
     /// than the block size is hashed first).
     pub fn new(key: &[u8]) -> Self {
-        Self::__with_features(key, u32::MAX)
-    }
-
-    /// Starts an HMAC computation with `key`, using only the CPU features in
-    /// `mask` (a set of `crate::cpu::Features` bits). For testing every
-    /// implementation on one CPU.
-    #[doc(hidden)]
-    pub fn __with_features(key: &[u8], mask: u32) -> Self {
         let state = if key.len() > H::BLOCK_SIZE {
-            H::hmac_init(H::digest(key).as_ref(), mask)
+            H::hmac_init(H::digest(key).as_ref())
         } else {
-            H::hmac_init(key, mask)
+            H::hmac_init(key)
         };
         Hmac { state }
     }
@@ -135,7 +126,7 @@ macro_rules! streaming_hmac {
         impl super::HmacHash for $hash {
             type State = super::StreamingHmacState<$hash, $state>;
 
-            fn hmac_init(key: &[u8], mask: u32) -> Self::State {
+            fn hmac_init(key: &[u8]) -> Self::State {
                 assert!(key.len() <= Self::BLOCK_SIZE);
                 let mut inner = [0; $state];
                 let mut outer = [0; $state];
@@ -157,7 +148,7 @@ macro_rules! streaming_hmac {
                 };
                 // `inner` now represents `K₀ ⊕ ipad`, of a block.
                 super::StreamingHmacState {
-                    inner: $hash::from_state(inner, Self::BLOCK_SIZE as u64, mask),
+                    inner: $hash::from_state(inner, Self::BLOCK_SIZE as u64),
                     outer,
                 }
             }

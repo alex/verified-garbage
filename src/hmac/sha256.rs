@@ -52,13 +52,13 @@ impl sealed::Sealed for Sha256 {}
 impl HmacHash for Sha256 {
     type State = Sha256HmacState;
 
-    fn hmac_init(key: &[u8], mask: u32) -> Sha256HmacState {
+    fn hmac_init(key: &[u8]) -> Sha256HmacState {
         assert!(key.len() <= Self::BLOCK_SIZE);
         let mut state = Sha256HmacState {
             inner: [0; 96],
             outer: [0; 96],
             count: Self::BLOCK_SIZE as u64,
-            backend: Sha256Backend::select(crate::cpu::available(mask)),
+            backend: Sha256Backend::select(crate::cpu::detected()),
         };
         let mut scratch = [0u64; 20];
         // SAFETY: `key.len()` is at most 64; `state.inner` and `state.outer`

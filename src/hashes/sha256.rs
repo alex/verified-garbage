@@ -46,21 +46,17 @@ super::streaming_hash!(
 #[cfg(test)]
 mod tests {
     use super::{Sha256, Sha256Backend};
-    use crate::cpu::{Features, available};
-
-    /// Masks that between them select every implementation this CPU can run.
-    const MASKS: [u32; 2] = [u32::MAX, 0];
+    use crate::cpu::{Features, detected};
 
     /// Every way of splitting a message into two updates gives the same
-    /// digest, for every length around the padding boundaries, with every
-    /// implementation.
+    /// digest, for every length around the padding boundaries.
     #[test]
     fn incremental() {
         let msg: [u8; 200] = core::array::from_fn(|i| (i * 7 + 3) as u8);
         for len in 0..msg.len() {
             let expected = Sha256::digest(&msg[..len]);
-            for (split, mask) in (0..=len).flat_map(|s| MASKS.map(|m| (s, m))) {
-                let mut h = Sha256::__with_features(mask);
+            for split in 0..=len {
+                let mut h = Sha256::new();
                 h.update(&msg[..split]);
                 let copy = h.clone();
                 h.update(&msg[split..len]);
@@ -84,10 +80,6 @@ mod tests {
             #[cfg(not(target_arch = "x86_64"))]
             assert_eq!(backend, Sha256Backend::Scalar);
         }
-        assert_eq!(Sha256::__with_features(0).backend, Sha256Backend::Scalar);
-        assert_eq!(
-            Sha256::new().backend,
-            Sha256Backend::select(available(u32::MAX))
-        );
+        assert_eq!(Sha256::new().backend, Sha256Backend::select(detected()));
     }
 }

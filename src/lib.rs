@@ -12,6 +12,8 @@
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
+#[cfg(feature = "cpu-features-env")]
+extern crate std;
 
 mod asm;
 mod cpu;

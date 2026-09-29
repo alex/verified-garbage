@@ -95,20 +95,17 @@ fn cases(start: &str, stop: &str) -> Vec<Case> {
     out
 }
 
-/// Checks the cases, at once and one byte at a time, with each
-/// implementation this CPU can run.
+/// Checks the cases, at once and one byte at a time.
 #[test]
 fn hmac_md5() {
     for c in cases("2. Test Cases for HMAC-MD5", "3. Test Cases for HMAC-SHA-1") {
         let full = Hmac::<Md5>::mac(&c.key, &c.data);
         assert_eq!(full.as_ref().len(), Md5::OUTPUT_SIZE);
         assert_eq!(&full.as_ref()[..c.mac.len()], &c.mac[..]);
-        for mask in [u32::MAX, 0] {
-            let mut h = Hmac::<Md5>::__with_features(&c.key, mask);
-            for byte in &c.data {
-                h.update(core::slice::from_ref(byte));
-            }
-            assert_eq!(h.finalize().as_ref(), full.as_ref());
+        let mut h = Hmac::<Md5>::new(&c.key);
+        for byte in &c.data {
+            h.update(core::slice::from_ref(byte));
         }
+        assert_eq!(h.finalize().as_ref(), full.as_ref());
     }
 }

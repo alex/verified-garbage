@@ -25,7 +25,7 @@ use crate::arch::aes::{vg_aes_ctr32, vg_aes_expand_key};
 use crate::arch::gcm::vg_ghash;
 #[cfg(target_arch = "x86_64")]
 use crate::arch::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash_pclmul};
-use crate::cpu::{Features, available};
+use crate::cpu::{Features, detected};
 
 /// A 16-byte block.
 type Block = [u8; 16];
@@ -153,14 +153,6 @@ impl AesGcm {
     /// Prepares `key`, which must be 16, 24 or 32 bytes long (AES-128,
     /// AES-192 or AES-256).
     pub fn new(key: &[u8]) -> Result<Self, Error> {
-        Self::__with_features(key, u32::MAX)
-    }
-
-    /// Prepares `key`, using only the CPU features in `mask` (a set of
-    /// `crate::cpu::Features` bits). For testing every implementation; not
-    /// part of the stable API.
-    #[doc(hidden)]
-    pub fn __with_features(key: &[u8], mask: u32) -> Result<Self, Error> {
         if !matches!(key.len(), 16 | 24 | 32) {
             return Err(Error::InvalidKeyLength);
         }
@@ -168,7 +160,7 @@ impl AesGcm {
             schedule: [0; 240],
             rounds: key.len() / 4 + 6,
             h: [0; 16],
-            backend: Backend::select(available(mask)),
+            backend: Backend::select(detected()),
         };
         let mut scratch = [0u64; 64];
         let (key_ptr, schedule) = (key.as_ptr(), &mut k.schedule);
@@ -381,20 +373,7 @@ impl AesGcmStream {
     /// bytes long) and `nonce` (of any nonzero length; 12 bytes is the
     /// recommended one). A nonce must never be used twice with the same key.
     pub fn new(key: &[u8], nonce: &[u8], direction: Direction) -> Result<Self, Error> {
-        Self::__with_features(key, nonce, direction, u32::MAX)
-    }
-
-    /// As [`new`](Self::new), using only the CPU features in `mask` (a set
-    /// of `crate::cpu::Features` bits). For testing every implementation;
-    /// not part of the stable API.
-    #[doc(hidden)]
-    pub fn __with_features(
-        key: &[u8],
-        nonce: &[u8],
-        direction: Direction,
-        mask: u32,
-    ) -> Result<Self, Error> {
-        let key = AesGcm::__with_features(key, mask)?;
+        let key = AesGcm::new(key)?;
         let j0 = key.j0(nonce)?;
         let mut counter = j0;
         let c = u32::from_be_bytes(counter[12..].try_into().unwrap()).wrapping_add(1);
@@ -533,10 +512,7 @@ mod tests {
     use super::{AesGcm, AesGcmStream, Backend, Direction, Error, MAX_AAD, MAX_TEXT, add_len};
     #[cfg(target_arch = "x86_64")]
     use crate::cpu::Features;
-    use crate::cpu::available;
-
-    /// Masks that between them select every implementation this CPU can run.
-    const MASKS: [u32; 2] = [u32::MAX, 0];
+    use crate::cpu::detected;
 
     /// The implementation chosen for each set of features.
     #[test]
@@ -552,25 +528,19 @@ mod tests {
                 assert_eq!(Backend::select(f), Backend::Scalar);
             }
         }
-        assert_eq!(
-            AesGcm::__with_features(&[0; 16], 0).unwrap().backend,
-            Backend::Scalar
-        );
         let best = AesGcm::new(&[0; 16]).unwrap().backend;
-        assert_eq!(best, Backend::select(available(u32::MAX)));
+        assert_eq!(best, Backend::select(detected()));
     }
 
     /// Encryption and decryption are inverse, for every key size, 12-byte
     /// and other nonces, and texts and additional data of whole and partial
-    /// blocks; a truncated tag is accepted and a modified one is not. Every
-    /// implementation gives the same ciphertext and tag.
+    /// blocks; a truncated tag is accepted and a modified one is not.
     #[test]
     fn round_trip() {
         let key: [u8; 32] = core::array::from_fn(|i| i as u8);
         let msg: [u8; 67] = core::array::from_fn(|i| (i as u8).wrapping_mul(7));
-        for (key_len, mask) in [16, 24, 32].into_iter().flat_map(|l| MASKS.map(|m| (l, m))) {
-            let k = AesGcm::__with_features(&key[..key_len], mask).unwrap();
-            let scalar = AesGcm::__with_features(&key[..key_len], 0).unwrap();
+        for key_len in [16, 24, 32] {
+            let k = AesGcm::new(&key[..key_len]).unwrap();
             for nonce_len in [1, 12, 16, 17] {
                 let nonce = &[0x5a; 17][..nonce_len];
                 for len in [0, 1, 16, 31, 64, 67] {
@@ -580,11 +550,6 @@ mod tests {
                     buf.copy_from_slice(msg);
                     let tag = k.encrypt(nonce, aad, buf).unwrap();
                     assert!(len == 0 || buf != msg);
-                    let mut other = [0u8; 67];
-                    let other = &mut other[..len];
-                    other.copy_from_slice(msg);
-                    assert_eq!(scalar.encrypt(nonce, aad, other), Ok(tag));
-                    assert_eq!(other, buf);
                     let mut bad = tag;
                     bad[15] ^= 1;
                     assert_eq!(k.decrypt(nonce, aad, buf, &bad), Err(Error::TagMismatch));
@@ -600,17 +565,11 @@ mod tests {
     /// in both directions.
     #[test]
     fn stream() {
-        for mask in MASKS {
-            stream_with(mask);
-        }
-    }
-
-    fn stream_with(mask: u32) {
         let key = [7u8; 16];
         let nonce = [9u8; 12];
         let aad: [u8; 40] = core::array::from_fn(|i| i as u8);
         let msg: [u8; 50] = core::array::from_fn(|i| (i as u8).wrapping_mul(13));
-        let k = AesGcm::__with_features(&key, mask).unwrap();
+        let k = AesGcm::new(&key).unwrap();
         let mut ct = msg;
         let tag = k.encrypt(&nonce, &aad, &mut ct).unwrap();
         // Every split of one, with the other split in the middle.
@@ -618,8 +577,7 @@ mod tests {
             .map(|a| (a, msg.len() / 2))
             .chain((0..=msg.len()).map(|m| (aad.len() / 2, m)));
         for (a, m) in splits {
-            let mut e =
-                AesGcmStream::__with_features(&key, &nonce, Direction::Encrypt, mask).unwrap();
+            let mut e = AesGcmStream::new(&key, &nonce, Direction::Encrypt).unwrap();
             e.update_aad(&aad[..a]).unwrap();
             e.update_aad(&aad[a..]).unwrap();
             let mut buf = msg;
@@ -629,8 +587,7 @@ mod tests {
             assert_eq!(buf, ct);
             assert_eq!(e.finalize(), Ok(tag));
 
-            let mut d =
-                AesGcmStream::__with_features(&key, &nonce, Direction::Decrypt, mask).unwrap();
+            let mut d = AesGcmStream::new(&key, &nonce, Direction::Decrypt).unwrap();
             d.update_aad(&aad[..a]).unwrap();
             d.update_aad(&aad[a..]).unwrap();
             let (x, y) = buf.split_at_mut(m);
@@ -641,7 +598,7 @@ mod tests {
             assert_eq!(d.finalize(), Ok(tag));
         }
         // A byte at a time.
-        let mut e = AesGcmStream::__with_features(&key, &nonce, Direction::Encrypt, mask).unwrap();
+        let mut e = AesGcmStream::new(&key, &nonce, Direction::Encrypt).unwrap();
         for b in aad.chunks(1) {
             e.update_aad(b).unwrap();
         }
@@ -654,11 +611,11 @@ mod tests {
         // Without text, or without either.
         let mut t = [0u8; 0];
         let tag = k.encrypt(&nonce, &aad[..5], &mut t).unwrap();
-        let mut e = AesGcmStream::__with_features(&key, &nonce, Direction::Encrypt, mask).unwrap();
+        let mut e = AesGcmStream::new(&key, &nonce, Direction::Encrypt).unwrap();
         e.update_aad(&aad[..5]).unwrap();
         assert_eq!(e.finalize(), Ok(tag));
         let tag = k.encrypt(&nonce, &[], &mut t).unwrap();
-        let e = AesGcmStream::__with_features(&key, &nonce, Direction::Encrypt, mask).unwrap();
+        let e = AesGcmStream::new(&key, &nonce, Direction::Encrypt).unwrap();
         assert_eq!(e.finalize(), Ok(tag));
     }
 
