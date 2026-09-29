@@ -44,6 +44,11 @@ theorem Lay.of {rbs wbs : List (Reg × Nat)} {s : State} (small : ∀ b ∈ rbs 
   exact ⟨small, fun b hb b' hb' hne => pairwise_sym (fun _ _ h => h.symm) pw hb hb' (fun e => hne (by rw [e])),
     stk, nw, rd, wr, ret⟩
 
+theorem fa2 {α : Type} {p : α → Prop} {a b : α} (ha : p a) (hb : p b) : ∀ x ∈ [a, b], p x := by
+  intro x hx
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hx
+  rcases hx with rfl | rfl <;> assumption
+
 theorem fa3 {α : Type} {p : α → Prop} {a b c : α} (ha : p a) (hb : p b) (hc : p c) : ∀ x ∈ [a, b, c], p x := by
   intro x hx
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hx
