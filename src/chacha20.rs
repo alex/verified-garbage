@@ -15,6 +15,9 @@
 //! block counter: when word 12 wraps around, word 13 is incremented. This
 //! agrees with RFC 8439, whose counter is only word 12, for the first
 //! 2³² − (initial counter) blocks.
+//!
+//! On x86-64, CPUs with AVX2 run `vg_chacha20_xor_avx2` instead, which has
+//! the same contract and XORs eight blocks at a time.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -23,7 +26,10 @@
     target_arch = "x86"
 ))]
 
+#[cfg(target_arch = "x86_64")]
+use crate::arch::chacha20::{VG_CHACHA20_XOR_AVX2_FEATURES, vg_chacha20_xor_avx2};
 use crate::arch::chacha20::{vg_chacha20_block, vg_chacha20_xor};
+use crate::cpu::{Features, detected};
 
 /// The constants `"expand 32-byte k"` (RFC 8439 §2.3).
 const CONSTANTS: [u32; 4] = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
@@ -47,12 +53,42 @@ fn words<const N: usize>(bytes: &[u8]) -> [u32; N] {
     core::array::from_fn(|i| u32::from_le_bytes(bytes[4 * i..4 * i + 4].try_into().unwrap()))
 }
 
+/// The implementations of `vg_chacha20_xor`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Backend {
+    /// Constant-time scalar code, for the target's baseline ISA.
+    Scalar,
+    /// AVX2, eight blocks at a time.
+    #[cfg(target_arch = "x86_64")]
+    Avx2,
+}
+
+impl Backend {
+    /// The best implementation a CPU with the features `f` can run.
+    #[cfg(target_arch = "x86_64")]
+    fn select(f: Features) -> Backend {
+        if f.contains(Features::of(VG_CHACHA20_XOR_AVX2_FEATURES)) {
+            Backend::Avx2
+        } else {
+            Backend::Scalar
+        }
+    }
+
+    /// The best implementation a CPU with the features `f` can run: there
+    /// is only one here.
+    #[cfg(not(target_arch = "x86_64"))]
+    fn select(_: Features) -> Backend {
+        Backend::Scalar
+    }
+}
+
 /// A ChaCha20 keystream, applied incrementally.
 pub struct ChaCha20 {
     state: [u32; 16],
     keystream: [u8; 64],
     /// How many bytes of `keystream` have been used.
     used: usize,
+    backend: Backend,
 }
 
 impl ChaCha20 {
@@ -71,6 +107,7 @@ impl ChaCha20 {
             state,
             keystream: [0; 64],
             used: 64,
+            backend: Backend::select(detected()),
         };
         c.reset_nonce(nonce);
         c
@@ -124,14 +161,19 @@ impl ChaCha20 {
             let (now, later) = blocks.split_at_mut(64 * n as usize);
             let mut state = self.state;
             let mut buf = [0u32; 80];
+            let f = match self.backend {
+                Backend::Scalar => vg_chacha20_xor,
+                #[cfg(target_arch = "x86_64")]
+                Backend::Avx2 => vg_chacha20_xor_avx2,
+            };
             // SAFETY: `state` is valid for reads and writes of 64 bytes,
             // `now` for reads and writes of `now.len()` bytes and `buf` for
             // reads and writes of 320 bytes; they are distinct objects, so
             // they do not overlap each other, the stack frame of the call
             // (the return address and any arguments on the stack) or the
             // stack below it, and do not wrap around the end of the address
-            // space.
-            unsafe { vg_chacha20_xor(&mut state, now.as_mut_ptr(), now.len(), &mut buf) };
+            // space. The CPU has the features of the implementation selected.
+            unsafe { f(&mut state, now.as_mut_ptr(), now.len(), &mut buf) };
             self.advance(n);
             blocks = later;
         }
@@ -141,7 +183,8 @@ impl ChaCha20 {
 
 #[cfg(test)]
 mod tests {
-    use super::ChaCha20;
+    use super::{Backend, ChaCha20};
+    use crate::cpu::detected;
 
     fn unhex<const N: usize>(s: &str) -> [u8; N] {
         let mut out = [0u8; N];
@@ -222,5 +265,45 @@ mod tests {
         );
         let next = keystream::<64>(&key(), &nonce(0, &unhex("0000000011223344aabbccdd")));
         assert_eq!(ks[64..], next);
+    }
+
+    /// The implementation chosen gives the same keystream as the scalar one,
+    /// for lengths around multiples of eight blocks, in one call and split,
+    /// and across the wrap of word 12.
+    #[test]
+    fn implementations_agree() {
+        const LEN: usize = 8 * 64 * 3 + 64 * 3;
+        for counter in [0, 0xffff_fffc] {
+            let n = nonce(counter, &[5; 12]);
+            let mut expected = [0u8; LEN];
+            let mut scalar = ChaCha20::new(&key(), &n);
+            scalar.backend = Backend::Scalar;
+            scalar.apply_keystream(&mut expected);
+            let mut once = [0u8; LEN];
+            ChaCha20::new(&key(), &n).apply_keystream(&mut once);
+            assert_eq!(once, expected);
+            for split in (0..=LEN).step_by(61) {
+                let mut data = [0u8; LEN];
+                let mut c = ChaCha20::new(&key(), &n);
+                c.apply_keystream(&mut data[..split]);
+                c.apply_keystream(&mut data[split..]);
+                assert_eq!(data, expected);
+            }
+        }
+    }
+
+    /// The implementation chosen for each set of features.
+    #[test]
+    fn select() {
+        let best = ChaCha20::new(&key(), &nonce(0, &[0; 12])).backend;
+        assert_eq!(best, Backend::select(detected()));
+        #[cfg(target_arch = "x86_64")]
+        {
+            use crate::arch::chacha20::VG_CHACHA20_XOR_AVX2_FEATURES;
+            use crate::cpu::Features;
+            let avx2 = Features::of(VG_CHACHA20_XOR_AVX2_FEATURES);
+            assert_eq!(Backend::select(avx2), Backend::Avx2);
+            assert_eq!(Backend::select(Features::of(&["avx"])), Backend::Scalar);
+        }
     }
 }
