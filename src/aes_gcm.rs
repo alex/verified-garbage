@@ -14,7 +14,7 @@
 //! `vg_aes_expand_key_aesni`, `vg_aes_ctr32_aesni` and `vg_ghash_pclmul`
 //! instead, which have the same contracts.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 #[cfg(target_arch = "x86_64")]
 use crate::arch::aes::{

@@ -20,6 +20,7 @@ mod hmac_sha384;
 mod hmac_sha512;
 mod hmac_sha512_224;
 mod hmac_sha512_256;
+mod mlkem768;
 mod pbkdf2;
 mod pbkdf2_sha1;
 mod pbkdf2_sha256;
