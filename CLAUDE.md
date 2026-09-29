@@ -93,9 +93,10 @@ instructions in an ISA model) go in their own PR before either.
    not imply, and its `Api`: its Rust module (the file under
    `src/asm/<target>/`) and name, its signature, its contract's `writeArgs`,
    and its documentation: what it does, and the `# Safety` items but for what
-   the emitter generates (which buffers may not overlap each other, the
-   stack or the arguments on it, and that none wraps around the address
-   space: `Sig.layoutDoc`). Choose
+   the emitter generates (what memory each buffer must be valid for:
+   `Sig.validDoc`; which buffers may not overlap each other, the stack or
+   the arguments on it, and that none wraps around the address space:
+   `Sig.layoutDoc`). Choose
    `pub` honestly: only lengths and pointers are public unless the algorithm
    says otherwise.
 2. `Impl/<Alg>/<Target>.lean`: the code.

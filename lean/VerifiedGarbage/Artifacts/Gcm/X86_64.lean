@@ -41,11 +41,7 @@ def artifacts : List Artifact := [
       Contract: `VG.Spec.Gcm.ghashContract`. Constant time: only the pointers and `n` may \
       affect timing, not `H`, `Y` or the data.\n\n\
       # Safety\n\n\
-      * `h` must be valid for reads of 16 bytes.\n\
-      * `y` must be valid for reads and writes of 16 bytes.\n\
-      * `data` must be valid for reads of `16 * n` bytes.\n\
-      * `scratch` must be valid for reads and writes of 256 bytes; its contents on return \
-      are unspecified."
+      * The contents of `scratch` on return are unspecified."
     code := Impl.Gcm.X86_64.Pclmul.ghash
     contract := Spec.Gcm.ghashContract X86_64.abi
     verified := Proof.Gcm.X86_64.Pclmul.ghash_verified

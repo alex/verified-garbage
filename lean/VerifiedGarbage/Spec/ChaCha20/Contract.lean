@@ -41,9 +41,7 @@ def blockApi : Api where
     Contract: `VG.Spec.ChaCha20.blockContract`. Constant time: only the pointers may affect \
     timing, not the state."
   safety := [
-    "`state` must be valid for reads of 64 bytes.",
-    "`buf` must be valid for reads and writes of 256 bytes. On return its first 64 bytes hold the \
-      result and the rest is unspecified."]
+    "On return the first 64 bytes of `buf` hold the result and the rest is unspecified."]
 
 /-- `vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80])`.
 `state` is left unspecified, and `buf` is working space: 64 bytes more than
@@ -77,10 +75,7 @@ def xorApi : Api where
     Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may \
     affect timing, not the state or the data."
   safety := [
-    "`state` must be valid for reads and writes of 64 bytes; its contents on return are \
-      unspecified.",
-    "`data` must be valid for reads and writes of `len` bytes.",
-    "`buf` must be valid for reads and writes of 320 bytes; its contents on return are \
-      unspecified."]
+    "The contents of `state` on return are unspecified.",
+    "The contents of `buf` on return are unspecified."]
 
 end VG.Spec.ChaCha20

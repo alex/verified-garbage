@@ -10,7 +10,8 @@
 ///
 /// * `state` must be valid for reads and writes of 64 bytes.
 /// * `blocks` must be valid for reads of `128 * n` bytes.
-/// * `scratch` must be valid for reads and writes of 224 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 224 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `blocks` (distinct Rust objects never do).
 /// * None of `state`, `blocks` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -3831,7 +3832,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_compress(state: *mut [u64; 8], bl
 ///
 /// # Safety
 ///
-/// * `state` must be valid for writes of 192 bytes.
+/// * `state` must be valid for reads and writes of 192 bytes.
 /// * `state` must not overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_sha384_init(state: *mut [u8; 192]) {
@@ -3862,7 +3863,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha384_init(state: *mut [u8; 192]) {
 ///
 /// # Safety
 ///
-/// * `state` must be valid for writes of 192 bytes.
+/// * `state` must be valid for reads and writes of 192 bytes.
 /// * `state` must not overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_sha512_init(state: *mut [u8; 192]) {
@@ -3893,7 +3894,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_init(state: *mut [u8; 192]) {
 ///
 /// # Safety
 ///
-/// * `state` must be valid for writes of 192 bytes.
+/// * `state` must be valid for reads and writes of 192 bytes.
 /// * `state` must not overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_sha512_224_init(state: *mut [u8; 192]) {
@@ -3924,7 +3925,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_224_init(state: *mut [u8; 192]) {
 ///
 /// # Safety
 ///
-/// * `state` must be valid for writes of 192 bytes.
+/// * `state` must be valid for reads and writes of 192 bytes.
 /// * `state` must not overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_sha512_256_init(state: *mut [u8; 192]) {
@@ -3957,7 +3958,8 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_256_init(state: *mut [u8; 192]) {
 ///
 /// * `state` must be valid for reads and writes of 192 bytes.
 /// * `data` must be valid for reads of `len` bytes.
-/// * `scratch` must be valid for reads and writes of 272 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 272 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
 /// * None of `state`, `data` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -4082,10 +4084,12 @@ pub(crate) unsafe extern "sysv64" fn vg_sha512_update(state: *mut [u8; 192], cou
 ///
 /// # Safety
 ///
+/// * `state` must be valid for reads and writes of 192 bytes.
+/// * `out` must be valid for reads and writes of 64 bytes.
+/// * `scratch` must be valid for reads and writes of 272 bytes.
 /// * `count` must be the exact length of the message: messages of 2⁶⁴ bytes or more are not supported.
-/// * `state` must be valid for reads and writes of 192 bytes; its contents on return are unspecified.
-/// * `out` must be valid for writes of 64 bytes.
-/// * `scratch` must be valid for reads and writes of 272 bytes; its contents on return are unspecified.
+/// * The contents of `state` on return are unspecified.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
 /// * None of `state`, `out` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]

@@ -122,9 +122,10 @@ def Sig.contract {M : ISA} (A : Abi M) (sig : Sig)
 /-! ## Documenting the obligations `Sig.contract` implies
 
 The emitter adds to each function's `# Safety` section what `Sig.contract`
-requires of where its buffers are (`Sig.layoutDoc`), and a note if it may
-overwrite its arguments (`Sig.layoutNote`), from the same signature, calling
-convention, `writeArgs` and `stack` as its contract (`Artifact.ofSig`). The
+requires of the memory each buffer is valid for (`Sig.validDoc`) and of where
+its buffers are (`Sig.layoutDoc`), and a note if it may overwrite its
+arguments (`Sig.layoutNote`), from the same signature, calling convention,
+`writeArgs` and `stack` as its contract (`Artifact.ofSig`). The
 calling convention names its argument area and reserved memory
 (`Abi.argAreaDoc`, `Abi.reservedDoc`).
 -/
@@ -136,6 +137,26 @@ def Sig.bufNames : List (String × Param) → List (String × Bool)
   | (_, .int ..) :: ps => Sig.bufNames ps
   | (n, .array w ..) :: ps => (n, w) :: Sig.bufNames ps
   | (n, .slice w ..) :: ps => (n, w) :: Sig.bufNames ps
+
+/-- The size in bytes of the buffer a parameter stands for, as the
+documentation states it: that of `Sig.bufs`, a number for an array and
+`` `len` `` or `` `k * len` `` for a slice of `len` elements of `k` bytes;
+`none` for an integer. -/
+def Param.sizeDoc : Param → Option String
+  | .int .. => none
+  | .array _ e n => some s!"{n * e.size}"
+  | .slice _ e len => some (if e.size = 1 then s!"`{len}`" else s!"`{e.size} * {len}`")
+
+/-- The `# Safety` items stating the memory each buffer of `sig` must be
+valid for, in order: the region `Sig.contract` lets the function read
+(every buffer; loads may read the writable regions too) and write (the
+writable buffers), of the size `Sig.bufs` gives it. -/
+def Sig.validDoc (sig : Sig) : List String :=
+  sig.params.filterMap fun (n, p) =>
+    let access := match p with
+      | .array true .. | .slice true .. => "reads and writes"
+      | _ => "reads"
+    p.sizeDoc.map fun size => s!"`{n}` must be valid for {access} of {size} bytes."
 
 /-- `xs` as an English list joined by `conj`: "a", "a or b", "a, b or c". -/
 def englishList (conj : String) : List String → String
@@ -195,8 +216,8 @@ whether its contract lets it overwrite its arguments in memory
 (`Sig.contract`'s `writeArgs`), and its documentation. A registration file
 makes an `Artifact` of it on each target
 (`{ api with target := …, doc := api.doc, … }`), adding any notes on the
-implementation; the emitter adds the obligations that depend on the target
-(`Sig.layoutDoc`). -/
+implementation; the emitter adds the obligations the signature implies
+(`Sig.validDoc`, and `Sig.layoutDoc`, which depends on the target). -/
 structure Api where
   module : String
   name : String
@@ -204,8 +225,9 @@ structure Api where
   writeArgs : Bool := false
   /-- The documentation, up to its `# Safety` section. -/
   summary : String
-  /-- The items of the `# Safety` section, but for those `Sig.layoutDoc`
-  gives. -/
+  /-- The items of the `# Safety` section, but for those `Sig.validDoc` and
+  `Sig.layoutDoc` give (what memory each buffer must be valid for, and where
+  it may be). -/
   safety : List String
 
 /-- The documentation of `api` on a target: its summary, then the paragraphs
@@ -226,8 +248,9 @@ structure Artifact where
   (`Sig.rust`). -/
   sig : Sig
   /-- Documentation for the generated Rust function. With what the emitter
-  adds to it (`Sig.layoutNote` and `Sig.layoutDoc`, which need it to end with
-  its `# Safety` section if they add anything), it must state every
+  adds to it (`Sig.layoutNote`, `Sig.validDoc` and `Sig.layoutDoc`, which
+  need it to end with its `# Safety` section if they add anything, and not
+  to state what they do), it must state every
   requirement of `contract.pre` that the caller is responsible for, and
   anything the contract declares the function may leak (`Sig.contract`'s
   `leak`). -/

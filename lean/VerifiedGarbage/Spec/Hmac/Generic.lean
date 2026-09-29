@@ -181,10 +181,7 @@ def initApi : Api where
     only the pointers and `key_len` may affect timing, not the key."
   safety := [
     s!"`key_len` must be at most {I.S.H.blockSize}.",
-    s!"`inner` and `outer` must each be valid for reads and writes of {I.S.stateBytes} bytes.",
-    "`key` must be valid for reads of `key_len` bytes.",
-    s!"`scratch` must be valid for reads and writes of {8 * I.scratch} bytes; its contents on \
-      return are unspecified."]
+    "The contents of `scratch` on return are unspecified."]
 
 /-- `vg_hmac_<hash>_finalize` on every target. -/
 def finalizeApi : Api where
@@ -198,12 +195,8 @@ def finalizeApi : Api where
     Contract: `VG.Spec.Hmac.Instance.finalizeContract` of `VG.Spec.Hmac.{I.lean}`. Constant \
     time: only the pointers and `count` may affect timing, not the states."
   safety := [
-    s!"`inner` must be valid for reads and writes of {I.S.stateBytes} bytes; its contents on \
-      return are unspecified.",
-    s!"`outer` must be valid for reads of {I.S.stateBytes} bytes.",
-    s!"`out` must be valid for writes of {I.S.digestBytes} bytes.",
-    s!"`scratch` must be valid for reads and writes of {8 * I.scratch} bytes; its contents on \
-      return are unspecified."]
+    "The contents of `inner` on return are unspecified.",
+    "The contents of `scratch` on return are unspecified."]
 
 end Instance
 

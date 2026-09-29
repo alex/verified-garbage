@@ -10,10 +10,12 @@
 ///
 /// # Safety
 ///
-/// * `key_len` must be at most 64.
-/// * `inner` and `outer` must each be valid for reads and writes of 96 bytes.
+/// * `inner` must be valid for reads and writes of 96 bytes.
+/// * `outer` must be valid for reads and writes of 96 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes.
+/// * `key_len` must be at most 64.
+/// * The contents of `scratch` on return are unspecified.
 /// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `key` and `scratch` may overlap the arguments on the stack, overlap the return address on the stack or the 20 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -179,10 +181,12 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha256_init(inner: *mut [u8; 96], outer:
 ///
 /// # Safety
 ///
-/// * `inner` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
+/// * `inner` must be valid for reads and writes of 96 bytes.
 /// * `outer` must be valid for reads of 96 bytes.
-/// * `out` must be valid for writes of 32 bytes.
-/// * `scratch` must be valid for reads and writes of 688 bytes; its contents on return are unspecified.
+/// * `out` must be valid for reads and writes of 32 bytes.
+/// * `scratch` must be valid for reads and writes of 688 bytes.
+/// * The contents of `inner` on return are unspecified.
+/// * The contents of `scratch` on return are unspecified.
 /// * `inner`, `out` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `out` and `scratch` may overlap the arguments on the stack, overlap the return address on the stack or the 20 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]

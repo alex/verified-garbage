@@ -83,9 +83,10 @@ never import proofs.
    `Spec/`.
 5. **Emit** — `Emit.lean` renders the registry into `src/asm/<target>/<module>.rs`,
    adding to each function's `# Safety` section what its contract requires of
-   where its buffers are, which depends on the target's calling convention
-   and the stack it uses (`Sig.layoutDoc`, from the same signature, `stack`
-   and `writeArgs` as the contract, as `Artifact.ofSig` proves).
+   the memory each buffer is valid for (`Sig.validDoc`) and of where its
+   buffers are, which depends on the target's calling convention and the
+   stack it uses (`Sig.layoutDoc`), from the same signature, `stack` and
+   `writeArgs` as the contract, as `Artifact.ofSig` proves.
    CI fails if the checked-in files differ from what Lean generates, so the
    Rust crate contains exactly the verified code.
 

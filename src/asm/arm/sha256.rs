@@ -10,7 +10,8 @@
 ///
 /// * `state` must be valid for reads and writes of 32 bytes.
 /// * `blocks` must be valid for reads of `64 * n` bytes.
-/// * `scratch` must be valid for reads and writes of 560 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 560 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `blocks` (distinct Rust objects never do).
 /// * None of `state`, `blocks` and `scratch` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -2373,7 +2374,7 @@ pub(crate) unsafe extern "C" fn vg_sha256_compress(state: *mut [u32; 8], blocks:
 ///
 /// # Safety
 ///
-/// * `state` must be valid for writes of 96 bytes.
+/// * `state` must be valid for reads and writes of 96 bytes.
 /// * `state` must not wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_sha256_init(state: *mut [u8; 96]) {
@@ -2414,7 +2415,8 @@ pub(crate) unsafe extern "C" fn vg_sha256_init(state: *mut [u8; 96]) {
 ///
 /// * `state` must be valid for reads and writes of 96 bytes.
 /// * `data` must be valid for reads of `len` bytes.
-/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state` and `scratch` must not overlap each other, `data` or the arguments on the stack (distinct Rust objects never do).
 /// * None of `state`, `data` and `scratch` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -2551,9 +2553,11 @@ pub(crate) unsafe extern "C" fn vg_sha256_update(state: *mut [u8; 96], count: u6
 ///
 /// # Safety
 ///
-/// * `state` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
-/// * `out` must be valid for writes of 32 bytes.
-/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
+/// * `state` must be valid for reads and writes of 96 bytes.
+/// * `out` must be valid for reads and writes of 32 bytes.
+/// * `scratch` must be valid for reads and writes of 608 bytes.
+/// * The contents of `state` on return are unspecified.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state`, `out` and `scratch` must not overlap each other or the arguments on the stack (distinct Rust objects never do).
 /// * None of `state`, `out` and `scratch` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
