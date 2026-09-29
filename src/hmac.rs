@@ -121,7 +121,7 @@ impl<H: HmacHash> Hmac<H> {
     }
 
     /// The state of the computation.
-    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+    #[cfg(target_arch = "x86_64")]
     pub(crate) fn state(&self) -> &H::State {
         &self.state
     }
