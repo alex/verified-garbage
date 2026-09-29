@@ -50,10 +50,7 @@ def expandKeyApi : Api where
     affect timing, not the key."
   safety := [
     "`key_len` must be 16, 24 or 32.",
-    "`key` must be valid for reads of `key_len` bytes.",
-    "`schedule` must be valid for reads and writes of 240 bytes; its bytes after the key schedule \
-      are unspecified on return.",
-    "`scratch` must be valid for reads and writes of 512 bytes; its contents on return are \
-      unspecified."]
+    "The bytes of `schedule` after the key schedule are unspecified on return.",
+    "The contents of `scratch` on return are unspecified."]
 
 end VG.Spec.Aes

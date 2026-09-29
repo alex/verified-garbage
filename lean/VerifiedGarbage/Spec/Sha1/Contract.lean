@@ -44,11 +44,7 @@ def compressApi : Api where
     with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
     Contract: `VG.Spec.Sha1.compressContract`. Constant time: only the pointers and `n` may affect \
     timing, not the hash value or the blocks."
-  safety := [
-    "`state` must be valid for reads and writes of 20 bytes.",
-    "`blocks` must be valid for reads of `64 * n` bytes.",
-    "`scratch` must be valid for reads and writes of 112 bytes; its contents on return are \
-      unspecified."]
+  safety := ["The contents of `scratch` on return are unspecified."]
 
 /-- `vg_sha1_init(state: *mut [u8; 84])`. -/
 def initSig : Sig where
@@ -67,7 +63,7 @@ def initApi : Api where
     message.\n\n\
     Contract: `VG.Spec.Sha1.initContract`. The streaming state is the hash value followed by a \
     buffered partial block (`VG.Spec.Sha1.Repr`)."
-  safety := ["`state` must be valid for writes of 84 bytes."]
+  safety := []
 
 /-- `vg_sha1_update(state: *mut [u8; 84], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20])`.
 `count` is public; `scratch` is working space. -/
@@ -96,11 +92,7 @@ def updateApi : Api where
     bytes at `data`.\n\n\
     Contract: `VG.Spec.Sha1.updateContract`. Constant time: only the pointers, `count` and `len` \
     may affect timing, not the state or the data."
-  safety := [
-    "`state` must be valid for reads and writes of 84 bytes.",
-    "`data` must be valid for reads of `len` bytes.",
-    "`scratch` must be valid for reads and writes of 160 bytes; its contents on return are \
-      unspecified."]
+  safety := ["The contents of `scratch` on return are unspecified."]
 
 /-- `vg_sha1_finalize(state: *mut [u8; 84], count: u64, out: *mut [u8; 20], scratch: *mut [u64; 20])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
@@ -129,10 +121,7 @@ def finalizeApi : Api where
     Contract: `VG.Spec.Sha1.finalizeContract`. Constant time: only the pointers and `count` may \
     affect timing, not the state."
   safety := [
-    "`state` must be valid for reads and writes of 84 bytes; its contents on return are \
-      unspecified.",
-    "`out` must be valid for writes of 20 bytes.",
-    "`scratch` must be valid for reads and writes of 160 bytes; its contents on return are \
-      unspecified."]
+    "The contents of `state` on return are unspecified.",
+    "The contents of `scratch` on return are unspecified."]
 
 end VG.Spec.Sha1

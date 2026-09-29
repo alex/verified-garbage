@@ -8,9 +8,11 @@
 ///
 /// # Safety
 ///
-/// * `key` must be valid for reads of 168 bytes, and `u` for reads of 20 bytes.
+/// * `key` must be valid for reads of 168 bytes.
+/// * `u` must be valid for reads of 20 bytes.
 /// * `t` must be valid for reads and writes of 20 bytes.
-/// * `scratch` must be valid for reads and writes of 448 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 448 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
 /// * None of `key`, `u`, `t` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -115,9 +117,11 @@ pub(crate) const VG_PBKDF2_HMAC_SHA1_ITERATE_SHANI_FEATURES: &[&str] = &["sha", 
 ///
 /// # Safety
 ///
-/// * `key` must be valid for reads of 168 bytes, and `u` for reads of 20 bytes.
+/// * `key` must be valid for reads of 168 bytes.
+/// * `u` must be valid for reads of 20 bytes.
 /// * `t` must be valid for reads and writes of 20 bytes.
-/// * `scratch` must be valid for reads and writes of 448 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 448 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
 /// * None of `key`, `u`, `t` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.

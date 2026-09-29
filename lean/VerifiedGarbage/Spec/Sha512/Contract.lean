@@ -45,11 +45,7 @@ def compressApi : Api where
     starting at `blocks`, in order.\n\n\
     Contract: `VG.Spec.Sha512.compressContract`. Constant time: only the pointers and `n` may \
     affect timing, not the hash value or the blocks."
-  safety := [
-    "`state` must be valid for reads and writes of 64 bytes.",
-    "`blocks` must be valid for reads of `128 * n` bytes.",
-    "`scratch` must be valid for reads and writes of 224 bytes; its contents on return are \
-      unspecified."]
+  safety := ["The contents of `scratch` on return are unspecified."]
 
 /-- `vg_<alg>_init(state: *mut [u8; 192])`. -/
 def initSig : Sig where
@@ -73,7 +69,7 @@ def initApi (alg name iv : String) : Api where
     Continue with `vg_sha512_update` and `vg_sha512_finalize`.\n\n\
     Contract: `VG.Spec.Sha512.initContract` for `VG.Spec.Sha512.{iv}`. The streaming state is \
     the hash value followed by a buffered partial block (`VG.Spec.Sha512.Repr`)."
-  safety := ["`state` must be valid for writes of 192 bytes."]
+  safety := []
 
 def init384Api : Api := initApi "SHA-384" "vg_sha384_init" "H0_384"
 def init512Api : Api := initApi "SHA-512" "vg_sha512_init" "H0_512"
@@ -107,11 +103,7 @@ def updateApi : Api where
     represents that message followed by the `len` bytes at `data`.\n\n\
     Contract: `VG.Spec.Sha512.updateContract`. Constant time: only the pointers, `count` and `len` \
     may affect timing, not the state or the data."
-  safety := [
-    "`state` must be valid for reads and writes of 192 bytes.",
-    "`data` must be valid for reads of `len` bytes.",
-    "`scratch` must be valid for reads and writes of 272 bytes; its contents on return are \
-      unspecified."]
+  safety := ["The contents of `scratch` on return are unspecified."]
 
 /-- `vg_sha512_finalize(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 34])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
@@ -146,10 +138,7 @@ def finalizeApi : Api where
   safety := [
     "`count` must be the exact length of the message: messages of 2⁶⁴ bytes or more are not \
       supported.",
-    "`state` must be valid for reads and writes of 192 bytes; its contents on return are \
-      unspecified.",
-    "`out` must be valid for writes of 64 bytes.",
-    "`scratch` must be valid for reads and writes of 272 bytes; its contents on return are \
-      unspecified."]
+    "The contents of `state` on return are unspecified.",
+    "The contents of `scratch` on return are unspecified."]
 
 end VG.Spec.Sha512

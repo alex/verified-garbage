@@ -9,7 +9,8 @@
 /// # Safety
 ///
 /// * `state` must be valid for reads and writes of 200 bytes.
-/// * `scratch` must be valid for reads and writes of 512 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 512 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or the arguments on the stack (distinct Rust objects never do).
 /// * Neither `state` nor `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -1532,10 +1533,11 @@ pub(crate) unsafe extern "C" fn vg_keccak_f1600(state: *mut [u64; 25], scratch: 
 ///
 /// # Safety
 ///
-/// * `rate` must be 72, 104, 136, 144 or 168, and `pos` less than `rate`.
 /// * `state` must be valid for reads and writes of 200 bytes.
 /// * `data` must be valid for reads of `len` bytes.
-/// * `scratch` must be valid for reads and writes of 640 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 640 bytes.
+/// * `rate` must be 72, 104, 136, 144 or 168, and `pos` less than `rate`.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
 /// * None of `state`, `data` and `scratch` may overlap the arguments on the stack, overlap the return address on the stack or the 12 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -1606,9 +1608,10 @@ pub(crate) unsafe extern "C" fn vg_keccak_absorb(state: *mut [u64; 25], rate: us
 ///
 /// # Safety
 ///
-/// * `rate` must be 72, 104, 136, 144 or 168, and `pos` less than `rate`.
 /// * `state` must be valid for reads and writes of 200 bytes.
-/// * `scratch` must be valid for reads and writes of 640 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 640 bytes.
+/// * `rate` must be 72, 104, 136, 144 or 168, and `pos` less than `rate`.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state` and `scratch` must not overlap each other (distinct Rust objects never do).
 /// * Neither `state` nor `scratch` may overlap the arguments on the stack, overlap the return address on the stack or the 12 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -1651,10 +1654,11 @@ pub(crate) unsafe extern "C" fn vg_keccak_pad(state: *mut [u64; 25], rate: usize
 ///
 /// # Safety
 ///
-/// * `rate` must be 72, 104, 136, 144 or 168, and `pos` at most `rate`.
 /// * `state` must be valid for reads and writes of 200 bytes.
-/// * `out` must be valid for writes of `outlen` bytes.
-/// * `scratch` must be valid for reads and writes of 640 bytes; its contents on return are unspecified.
+/// * `out` must be valid for reads and writes of `outlen` bytes.
+/// * `scratch` must be valid for reads and writes of 640 bytes.
+/// * `rate` must be 72, 104, 136, 144 or 168, and `pos` at most `rate`.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
 /// * None of `state`, `out` and `scratch` may overlap the arguments on the stack, overlap the return address on the stack or the 12 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]

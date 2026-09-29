@@ -46,11 +46,8 @@ def artifacts : List Artifact := [
       Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may \
       affect timing, not the state or the data.\n\n\
       # Safety\n\n\
-      * `state` must be valid for reads and writes of 64 bytes; its contents on return are \
-      unspecified.\n\
-      * `data` must be valid for reads and writes of `len` bytes.\n\
-      * `buf` must be valid for reads and writes of 320 bytes; its contents on return are \
-      unspecified."
+      * The contents of `state` on return are unspecified.\n\
+      * The contents of `buf` on return are unspecified."
     code := Impl.ChaCha20.X86_64.Avx2.xor
     contract := Spec.ChaCha20.xorContract X86_64.abi 16
     writeArgs := true
