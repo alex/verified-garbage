@@ -416,6 +416,17 @@ theorem movc_ok {s : State} (c : Reg) {N : Nat} (he : encodable (BitVec.ofNat 32
   show (if r = c then _ else s.gpr r) = s.gpr r
   exact ite_eq_right (fun e : r = c => hx (by rw [e]; exact List.mem_singleton_self _))
 
+theorem flagInit_ok {s : State} :
+    WP isa (.block [.mov .r11 (.imm 1), .mov .r9 (.imm 0)]) s fun s' =>
+      KeptX [.r9, .r11] [] s s' ∧ s'.gpr .r11 = 1 ∧ s'.gpr .r9 = 0 ∧ s'.mem = s.mem := by
+  have e1 : encodable (1 : BitVec 32) = true := by decide
+  have e0 : encodable (0 : BitVec 32) = true := by decide
+  run_block [e1, e0]
+  refine ⟨⟨fun r _ _ hx => ?_, rfl, rfl, rfl, Frame.refl _ _⟩, trivial⟩
+  simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hx
+  show (if r = .r9 then _ else if r = .r11 then _ else s.gpr r) = s.gpr r
+  rw [ite_eq_right hx.1, ite_eq_right hx.2]
+
 theorem rowSum_ok {L : Lay} {transpose : Bool} {ρ : List Byte} {v : Nat → Poly} {i : Nat} {fl : Bool}
     {s₀ : State} (hp : RowPre L ρ v i fl s₀) :
     WP isa (rowSum transpose) s₀ (RowInv L transpose ρ v i fl s₀ 3) := by
@@ -457,42 +468,90 @@ structure DotInv (L : Lay) (a v : Nat → Poly) (s₀ : State) (j : Nat) (s : St
 
 theorem dotW_vec : ∀ j < 6, dotW.all (sep0 (oPoly j) 1024) = true := by decide
 
-theorem dotBody_ok {L : Lay} {a v : Nat → Poly} {s₀ : State} (hc₀ : Ctx L s₀)
+/-- In `dotBody`, after the product. -/
+structure DB (L : Lay) (a v : Nat → Poly) (s₀ : State) (j : Nat) (s : State) : Prop where
+  kx : KeptX [.r10] (L.RL dotW) s₀ s
+  r10 : s.gpr .r10 = BitVec.ofNat 32 j
+  acc : PolyIs s.mem (L.A 0 oAcc) (rowAcc a v j)
+  tmp : PolyIs s.mem (L.A 0 oTmp) (multiplyNTTs (a j) (v j))
+
+/-- In `dotBody`, after the sum. -/
+structure DC (L : Lay) (a v : Nat → Poly) (s₀ : State) (j : Nat) (s : State) : Prop where
+  kx : KeptX [.r10] (L.RL dotW) s₀ s
+  r10 : s.gpr .r10 = BitVec.ofNat 32 j
+  acc : PolyIs s.mem (L.A 0 oAcc) (rowAcc a v (j + 1))
+
+section
+variable {L : Lay} {a v : Nat → Poly} {s₀ : State} (hc₀ : Ctx L s₀)
     (ha : ∀ j < 3, PolyIs s₀.mem (L.A 0 (oPoly j)) (a j)) (hv : ∀ j < 3, PolyIs s₀.mem (L.A 0 (oPoly (3 + j))) (v j))
-    {j : Nat} (hj : j < 3) {s : State} (h : DotInv L a v s₀ j s) :
-    WP isa dotBody s fun s' => DotInv L a v s₀ (j + 1) s' ∧ s'.z = decide (j + 1 = 3) := by
+    {j : Nat} (hj : j < 3) {s : State} (h : DotInv L a v s₀ j s)
+include hc₀ ha hv hj h
+
+omit ha hv in
+theorem dot1_ok : WP isa (.block (ptrTo .r0 .r7 oTmp :: slotAt .r1 .r10 (oPoly 0) ++ slotAt .r2 .r10 (oPoly 3) ++
+      [ptrTo .r3 .r7 oNtt])) s fun s₁ => Only s s₁ ∧ s₁.gpr .r0 = L.ptr 0 + BitVec.ofNat 32 oTmp ∧
+      s₁.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 (oPoly j) ∧ s₁.gpr .r2 = L.ptr 0 + BitVec.ofNat 32 (oPoly (3 + j)) ∧
+      s₁.gpr .r3 = L.ptr 0 + BitVec.ofNat 32 oNtt := by
+  have hc := h.kx.ctx (by decide) hc₀
+  have eo : oPoly (3 + j) = oPoly 3 + 1024 * j := by simp only [oPoly]; omega
+  have eo' : oPoly j = oPoly 0 + 1024 * j := by simp only [oPoly]; try omega
+  refine WP.mono (dotArgs_ok hc.r7 h.r10) fun s₁ ⟨o₁, m0, m1, m2, m3⟩ => ⟨o₁, m0, ?_, ?_, m3⟩
+  · rw [m1, slot_eq _ (by offs), ← eo']
+  · rw [m2, slot_eq _ (by offs), ← eo]
+
+theorem dot2_ok {s₁ : State} (o₁ : Only s s₁) (m0 : s₁.gpr .r0 = L.ptr 0 + BitVec.ofNat 32 oTmp)
+    (m1 : s₁.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 (oPoly j)) (m2 : s₁.gpr .r2 = L.ptr 0 + BitVec.ofNat 32 (oPoly (3 + j)))
+    (m3 : s₁.gpr .r3 = L.ptr 0 + BitVec.ofNat 32 oNtt) : WP isa callMul s₁ (DB L a v s₀ j) := by
   have hL := hc₀.ok
   have hc := h.kx.ctx (by decide) hc₀
   have as : PolyIs s.mem (L.A 0 (oPoly j)) (a j) :=
     Lay.polyIs_keep hL h.kx.frame (hc₀.sepAll0 (by offs) (dotW_vec j (by omega))) (ha j hj)
   have vs : PolyIs s.mem (L.A 0 (oPoly (3 + j))) (v j) :=
     Lay.polyIs_keep hL h.kx.frame (hc₀.sepAll0 (by offs) (dotW_vec (3 + j) (by omega))) (hv j hj)
-  have eo : oPoly (3 + j) = oPoly 3 + 1024 * j := by simp only [oPoly]; omega
-  have eo' : oPoly j = oPoly 0 + 1024 * j := by simp only [oPoly]; try omega
-  refine WP.seq (WP.mono (dotArgs_ok hc.r7 h.r10) fun s₁ ⟨o₁, m0, m1, m2, m3⟩ => ?_)
-  rw [slot_eq _ (by offs), ← eo'] at m1
-  rw [slot_eq _ (by offs), ← eo] at m2
   have hc₁ := hc.only o₁
-  refine WP.seq (mulL hL m0 m1 m2 m3 (hc.sep00 (by offs) (by offs) (by offs)) (hc.sep00 (by offs) (by offs) (by offs))
+  refine mulL hL m0 m1 m2 m3 (hc.sep00 (by offs) (by offs) (by offs)) (hc.sep00 (by offs) (by offs) (by offs))
     (hc.sep00 (by offs) (by offs) (by offs)) (hc.sep00 (by offs) (by offs) (by offs))
     (hc.sep00 (by offs) (by offs) (by offs)) hc₁.buf0 (mem_rd_wr hc₁.buf0) (mem_rd_wr hc₁.buf0) hc₁.buf0
-    (by rw [o₁.mem]; exact as) (by rw [o₁.mem]; exact vs) fun s₂ k₂ p₂ => ?_)
-  have hc₂ := hc₁.kept k₂
-  refine WP.seq (WP.mono (accArgs_ok hc₂.r7 (by decide) (by decide)) fun s₃ ⟨o₃, a0, a1⟩ => ?_)
-  have hc₃ := hc₂.only o₃
-  have acc₃ : PolyIs s₃.mem (L.A 0 oAcc) (rowAcc a v j) := by
-    rw [o₃.mem]
-    refine Lay.polyIs_keep hL k₂.frame (hc.sepAll0 (by decide) (by decide)) ?_
+    (by rw [o₁.mem]; exact as) (by rw [o₁.mem]; exact vs) fun s₂ k₂ p₂ => ⟨?_, ?_, ?_, p₂⟩
+  · exact h.kx.trans ((o₁.x _ _).trans ((k₂.x _).subL hc₀ (by decide)))
+  · rw [k₂.cs .r10 (by decide) (by decide), o₁.cs .r10 (by decide) (by decide), h.r10]
+  · refine Lay.polyIs_keep hL k₂.frame (hc.sepAll0 (by decide) (by decide)) ?_
     rw [o₁.mem]; exact h.acc
-  refine WP.seq (addL hL a0 a1 (hc.sep00 (by decide) (by decide) (by decide)) hc₃.buf0 (mem_rd_wr hc₃.buf0)
-    acc₃ (by rw [o₃.mem]; exact p₂) fun s₄ k₄ p₄ => ?_)
-  have g10 : s₄.gpr .r10 = BitVec.ofNat 32 j := by
-    rw [k₄.cs .r10 (by decide) (by decide), o₃.cs .r10 (by decide) (by decide), k₂.cs .r10 (by decide) (by decide),
-      o₁.cs .r10 (by decide) (by decide), h.r10]
-  refine WP.mono (count_ok (by omega) (by decide) (by decide) g10) fun s' ⟨k', g', z'⟩ => ⟨⟨?_, g', ?_⟩, z'⟩
-  · exact h.kx.trans ((o₁.x _ _).trans (((k₂.x _).subL hc₀ (by decide)).trans ((o₃.x _ _).trans
-      (((k₄.x _).subL hc₀ (by decide)).trans (k'.mono (fun _ h => absurd h List.not_mem_nil))))))
-  · exact polyIs_frame k'.frame (fun _ h => absurd h List.not_mem_nil) p₄
+
+omit ha hv hj h in
+theorem dot3_ok {s₂ : State} (r : DB L a v s₀ j s₂) :
+    WP isa (.block [ptrTo .r0 .r7 oAcc, ptrTo .r1 .r7 oTmp]) s₂ fun s₃ => DB L a v s₀ j s₃ ∧
+      s₃.gpr .r0 = L.ptr 0 + BitVec.ofNat 32 oAcc ∧ s₃.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 oTmp := by
+  have hc := r.kx.ctx (by decide) hc₀
+  exact WP.mono (accArgs_ok hc.r7 (by decide) (by decide)) fun s₃ ⟨o₃, a0, a1⟩ =>
+    ⟨⟨r.kx.trans (o₃.x _ _), by rw [o₃.cs .r10 (by decide) (by decide), r.r10], by rw [o₃.mem]; exact r.acc,
+      by rw [o₃.mem]; exact r.tmp⟩, a0, a1⟩
+
+omit ha hv hj h in
+theorem dot4_ok {s₃ : State} (r : DB L a v s₀ j s₃) (a0 : s₃.gpr .r0 = L.ptr 0 + BitVec.ofNat 32 oAcc)
+    (a1 : s₃.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 oTmp) : WP isa callAdd s₃ (DC L a v s₀ j) := by
+  have hc := r.kx.ctx (by decide) hc₀
+  exact addL hc₀.ok a0 a1 (hc.sep00 (by decide) (by decide) (by decide)) hc.buf0 (mem_rd_wr hc.buf0)
+    r.acc r.tmp fun s₄ k₄ p₄ => ⟨r.kx.trans ((k₄.x _).subL hc₀ (by decide)),
+      by rw [k₄.cs .r10 (by decide) (by decide), r.r10], p₄⟩
+
+omit hc₀ ha hv h in
+theorem dot5_ok {s₄ : State} (r : DC L a v s₀ j s₄) :
+    WP isa (.block (count .r10 3)) s₄ fun s' => DotInv L a v s₀ (j + 1) s' ∧ s'.z = decide (j + 1 = 3) :=
+  WP.mono (count_ok (by omega) (by decide) (by decide) r.r10) fun s' ⟨k', g', z'⟩ =>
+    ⟨⟨r.kx.trans (k'.mono (fun _ h => absurd h List.not_mem_nil)), g',
+      polyIs_frame k'.frame (fun _ h => absurd h List.not_mem_nil) r.acc⟩, z'⟩
+
+end
+
+theorem dotBody_ok {L : Lay} {a v : Nat → Poly} {s₀ : State} (hc₀ : Ctx L s₀)
+    (ha : ∀ j < 3, PolyIs s₀.mem (L.A 0 (oPoly j)) (a j)) (hv : ∀ j < 3, PolyIs s₀.mem (L.A 0 (oPoly (3 + j))) (v j))
+    {j : Nat} (hj : j < 3) {s : State} (h : DotInv L a v s₀ j s) :
+    WP isa dotBody s fun s' => DotInv L a v s₀ (j + 1) s' ∧ s'.z = decide (j + 1 = 3) :=
+  WP.seq (WP.mono (dot1_ok hc₀ hj h) fun _ ⟨o₁, m0, m1, m2, m3⟩ =>
+    WP.seq (WP.mono (dot2_ok hc₀ ha hv hj h o₁ m0 m1 m2 m3) fun _ r₂ =>
+    WP.seq (WP.mono (dot3_ok hc₀ r₂) fun _ ⟨r₃, a0, a1⟩ =>
+    WP.seq (WP.mono (dot4_ok hc₀ r₃ a0 a1) fun _ r₄ => dot5_ok hj r₄))))
 
 theorem dot_ok {L : Lay} {a v : Nat → Poly} {s₀ : State} (hc₀ : Ctx L s₀)
     (ha : ∀ j < 3, PolyIs s₀.mem (L.A 0 (oPoly j)) (a j)) (hv : ∀ j < 3, PolyIs s₀.mem (L.A 0 (oPoly (3 + j))) (v j)) :

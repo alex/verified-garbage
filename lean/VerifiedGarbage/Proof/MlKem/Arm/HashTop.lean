@@ -464,4 +464,10 @@ theorem padArgs_of {L : Lay} {rate : Nat} (hrate : rate ∈ rates) {s₁ : State
   · rw [e2, e0]; exact Lay.disj hL (sepB_symm (hc₁.sep01 (by decide) (by decide)))
   · rw [e2, e1]; exact Lay.disj hL (sepB_symm (hc₁.sep01 (by decide) (by decide)))
 
+/-- The 64 bytes of `G(c)` squeezed at once: both of its outputs. -/
+theorem G_split (c : List Byte) :
+    Spec.Sha3.squeezeFrom 72 (VG.Proof.MlKem.padded 72 Spec.Sha3.sha3Suffix c) 0 64 =
+      (Spec.MlKem.G c).1 ++ (Spec.MlKem.G c).2 := by
+  simp only [Spec.MlKem.G, VG.Proof.MlKem.sha3_512_eq, List.take_append_drop]
+
 end VG.Proof.MlKem.Arm

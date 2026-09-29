@@ -121,7 +121,7 @@ theorem KeptX.subL {L : Lay} {xs : List Reg} {W W' : List (Nat × Nat × Nat)} {
 /-- Arithmetic on the offsets in `scratch`. -/
 macro "offs" : tactic => `(tactic| (
   simp only [oPoly, oPrf, oNtt, oSeed, oSigma, oAcc, oTmp, oAhat, oSample, oK, oKbar, oMsg, oHek, oCt, oWork,
-    oSave, oExtra, oG]; omega))
+    oSave, oExtra, oG, oCin]; omega))
 
 theorem slot_eq (p : BitVec 32) {N off : Nat} (_h : off + 1024 * N < 2 ^ 32) :
     p + BitVec.ofNat 32 N <<< 10 + BitVec.ofNat 32 off = p + BitVec.ofNat 32 (off + 1024 * N) := by

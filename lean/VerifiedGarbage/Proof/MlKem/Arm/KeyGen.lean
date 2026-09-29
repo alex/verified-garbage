@@ -246,10 +246,6 @@ abbrev Z (s₀ : State) : List Byte := bytesAt s₀.mem (State.addr (pSeed s₀)
 
 theorem rate72 : 72 ∈ Spec.Sha3.rates := by decide
 
-theorem G_split (c : List Byte) :
-    Spec.Sha3.squeezeFrom 72 (VG.Proof.MlKem.padded 72 Spec.Sha3.sha3Suffix c) 0 64 = (G c).1 ++ (G c).2 := by
-  simp only [G, VG.Proof.MlKem.sha3_512_eq, List.take_append_drop]
-
 theorem g_ins {s₀ s : State} (hp : Pre s₀) (h : KEnv s₀ s) :
     ∀ p ∈ [(⟨.r4, 0, 32⟩ : Piece), ⟨.r7, oK, 1⟩], PieceOk (lay s₀) kidx s false p := by
   intro p hp'
@@ -481,17 +477,6 @@ theorem kgRow_step {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 3) {s : St
     WP.seq (WP.mono (kr2_ok hi h r₁) fun _ r₂ => WP.seq (WP.mono (kr3_ok hp hi h r₂) fun _ r₃ =>
     WP.seq (WP.mono (kr4_ok hi h r₃) fun _ r₄ => WP.seq (WP.mono (kr5_ok hp hi h r₄) fun _ r₅ =>
       kr6_ok hp hi h r₅)))))
-
-theorem flagInit_ok {s : State} :
-    WP isa (.block [.mov .r11 (.imm 1), .mov .r9 (.imm 0)]) s fun s' =>
-      KeptX [.r9, .r11] [] s s' ∧ s'.gpr .r11 = 1 ∧ s'.gpr .r9 = 0 ∧ s'.mem = s.mem := by
-  have e1 : encodable (1 : BitVec 32) = true := by decide
-  have e0 : encodable (0 : BitVec 32) = true := by decide
-  run_block [e1, e0]
-  refine ⟨⟨fun r _ _ hx => ?_, rfl, rfl, rfl, Frame.refl _ _⟩, trivial⟩
-  simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hx
-  show (if r = .r9 then _ else if r = .r11 then _ else s.gpr r) = s.gpr r
-  rw [ite_eq_right hx.1, ite_eq_right hx.2]
 
 theorem rows_init {s₀ s : State} (hp : Pre s₀) (h : KEnv s₀ s)
     (hr : bytesAt s.mem ((lay s₀).A 0 oSeed) 32 = ρ₀ s₀)

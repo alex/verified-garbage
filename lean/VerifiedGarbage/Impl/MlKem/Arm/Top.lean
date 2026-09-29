@@ -19,8 +19,8 @@ only stack they use is that of their calls' frames (8 bytes).
   `vg_mlkem768_decaps`;
 * `888`: the 64 bytes of `G`, `ρ ‖ σ` or `K ‖ r` (each hash has one output,
   squeezed at once), so `σ` (or `r`) is at `920`, the seed of `PRF`, followed
-  by its counter `N`; `960`: `H(ek)`; `992`: the message `m'` of
-  decapsulation; `1024`: the 128 bytes of a `PRF`; `1152`: the byte `k` of
+  by its counter `N`; `960`: `H(ek)`; `992`: the message: a copy of `m`
+  in encapsulation, `m'` in decapsulation; `1024`: the 128 bytes of a `PRF`; `1152`: the byte `k` of
   `G(d ‖ k)`; `1184`: `K̄`; `1216`: the seed `ρ ‖ j ‖ i` of `SampleNTT`;
 * `2048 + 1024 k` for `k < 14`: polynomials (`oPoly`): `t̂` or `ŝ` (`k < 3`),
   `ŷ`, `û` or `ŝ` of key generation (`3 ≤ k < 6`), `ê` or `e₁`
@@ -28,7 +28,12 @@ only stack they use is that of their calls' frames (8 bytes).
   a sampled entry of `Â` (13);
 * `16384`: the working space of `vg_mlkem_sample_ntt` (2048 bytes);
   `18432`: that of the NTTs and `vg_mlkem_multiply_ntts` (1024 bytes);
-  `19456`: the ciphertext `c'` of decapsulation's re-encryption.
+  `19456`: the ciphertext `c'` of decapsulation's re-encryption; `24576`: a
+  copy of the ciphertext `c` of decapsulation.
+
+The inputs a function only reads may overlap each other (the contracts let
+them), so where a function reads two of them, it first copies one into
+`scratch` (`m` in encapsulation, `c` in decapsulation), and works on the copy.
 
 `hash` computes a SHA-3 or SHAKE function: the Keccak state set to zero,
 each piece of the message absorbed in turn (each from the position the
@@ -68,6 +73,7 @@ abbrev oAhat : Nat := oPoly 13
 abbrev oSample : Nat := 16384
 abbrev oNtt : Nat := 18432
 abbrev oCt : Nat := 19456
+abbrev oCin : Nat := 24576
 
 /-! ## Building blocks -/
 
@@ -277,15 +283,19 @@ def encrypt : Prog isa :=
 
 /-! ## `vg_mlkem768_encaps(ek = r0, m = r1, key = r2, ct = r3, scratch = [sp]) -> r0` -/
 
+/-- After `scratch` loaded into `r12` from the stack. -/
 def encapsSetup : List Instr :=
-  .ldrSp .r12 0 :: saveRegs .r12 oSave ++
+  saveRegs .r12 oSave ++
     ([.str .lr .r12 (oSave + 32), .mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
       .mov .r8 (.reg .r3), .mov .r7 (.reg .r12)] : List Instr)
 
 def encaps : Prog isa :=
+  .seq (.block [.ldrSp .r12 0]) <|
   .seq (.block encapsSetup) <|
+  .seq (copy .r5 0 .r7 oMsg 32) <|
+  .seq (.block [ptrTo .r5 .r7 oMsg]) <|
   .seq (hash 136 0x06 [⟨.r4, 0, 1184⟩] [⟨.r7, oHek, 32⟩]) <|
-  .seq (hash 72 0x06 [⟨.r5, 0, 32⟩, ⟨.r7, oHek, 32⟩] [⟨.r7, oG, 64⟩]) <|
+  .seq (hash 72 0x06 [⟨.r7, oMsg, 32⟩, ⟨.r7, oHek, 32⟩] [⟨.r7, oG, 64⟩]) <|
   .seq (copy .r7 oG .r6 0 32) <|
   .seq encrypt (.block topEnd)
 
@@ -341,6 +351,8 @@ def selBody : List Instr :=
 
 def decaps : Prog isa :=
   .seq (.block decapsSetup) <|
+  .seq (copy .r6 0 .r7 oCin 1088) <|
+  .seq (.block [ptrTo .r6 .r7 oCin]) <|
   .seq decrypt <|
   .seq (hash 72 0x06 [⟨.r7, oMsg, 32⟩, ⟨.r4, 2336, 32⟩] [⟨.r7, oG, 64⟩]) <|
   .seq (hash 136 0x1f [⟨.r4, 2368, 32⟩, ⟨.r6, 0, 1088⟩] [⟨.r7, oKbar, 32⟩]) <|

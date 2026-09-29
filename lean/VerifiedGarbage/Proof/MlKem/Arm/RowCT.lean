@@ -102,4 +102,56 @@ theorem rowSum_ct {transpose : Bool} (hp₁ : RowPre L ρ v₁ i fl₁ s₀₁) 
 
 end
 
+/-! ## `dot` -/
+
+section
+variable {L : Lay} {a₁ v₁ a₂ v₂ : Nat → Poly} {x y : State} (hc₁ : Ctx L x) (hc₂ : Ctx L y)
+    (ha₁ : ∀ j < 3, PolyIs x.mem (L.A 0 (oPoly j)) (a₁ j)) (hv₁ : ∀ j < 3, PolyIs x.mem (L.A 0 (oPoly (3 + j))) (v₁ j))
+    (ha₂ : ∀ j < 3, PolyIs y.mem (L.A 0 (oPoly j)) (a₂ j)) (hv₂ : ∀ j < 3, PolyIs y.mem (L.A 0 (oPoly (3 + j))) (v₂ j))
+include hc₁ hc₂ ha₁ hv₁ ha₂ hv₂
+
+theorem dotBody_ct {j : Nat} (hj : j < 3) :
+    RelCT isa (fun a b => DotInv L a₁ v₁ x j a ∧ DotInv L a₂ v₂ y j b) dotBody fun a b =>
+      (DotInv L a₁ v₁ x (j + 1) a ∧ a.z = decide (j + 1 = 3)) ∧
+      (DotInv L a₂ v₂ y (j + 1) b ∧ b.z = decide (j + 1 = 3)) := by
+  refine relct_wp (RelCT.pointwise fun u w ⟨hu, hw⟩ => ?_) fun a b hab =>
+    ⟨dotBody_ok hc₁ ha₁ hv₁ hj hab.1, dotBody_ok hc₂ ha₂ hv₂ hj hab.2⟩
+  refine RelCT.seq (R := fun (a b : State) =>
+      (Only u a ∧ a.gpr .r0 = L.ptr 0 + BitVec.ofNat 32 oTmp ∧ a.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 (oPoly j) ∧
+        a.gpr .r2 = L.ptr 0 + BitVec.ofNat 32 (oPoly (3 + j)) ∧ a.gpr .r3 = L.ptr 0 + BitVec.ofNat 32 oNtt) ∧
+      (Only w b ∧ b.gpr .r0 = L.ptr 0 + BitVec.ofNat 32 oTmp ∧ b.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 (oPoly j) ∧
+        b.gpr .r2 = L.ptr 0 + BitVec.ofNat 32 (oPoly (3 + j)) ∧ b.gpr .r3 = L.ptr 0 + BitVec.ofNat 32 oNtt))
+    (relct_wp (relct_noMem rfl) fun a b hab => ⟨by rw [hab.1]; exact dot1_ok hc₁ hj hu,
+      by rw [hab.2]; exact dot1_ok hc₂ hj hw⟩) ?_
+  refine RelCT.seq (R := fun (a b : State) => DB L a₁ v₁ x j a ∧ DB L a₂ v₂ y j b)
+    (relct_wp (RelCT.callT mulT (regs4 fun a b hab => ⟨by rw [hab.1.2.1, hab.2.2.1], by rw [hab.1.2.2.1, hab.2.2.2.1],
+      by rw [hab.1.2.2.2.1, hab.2.2.2.2.1], by rw [hab.1.2.2.2.2, hab.2.2.2.2.2]⟩))
+      fun a b ⟨⟨o₁, m0, m1, m2, m3⟩, ⟨o₂, n0, n1, n2, n3⟩⟩ =>
+        ⟨dot2_ok hc₁ ha₁ hv₁ hj hu o₁ m0 m1 m2 m3, dot2_ok hc₂ ha₂ hv₂ hj hw o₂ n0 n1 n2 n3⟩) ?_
+  refine RelCT.seq (R := fun (a b : State) =>
+      (DB L a₁ v₁ x j a ∧ a.gpr .r0 = L.ptr 0 + BitVec.ofNat 32 oAcc ∧ a.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 oTmp) ∧
+      (DB L a₂ v₂ y j b ∧ b.gpr .r0 = L.ptr 0 + BitVec.ofNat 32 oAcc ∧ b.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 oTmp))
+    (relct_wp (relct_noMem rfl) fun a b hab => ⟨dot3_ok hc₁ hab.1, dot3_ok hc₂ hab.2⟩) ?_
+  exact RelCT.seq (R := fun _ _ => True)
+    (RelCT.callT addT (regs2 fun a b hab => ⟨by rw [hab.1.2.1, hab.2.2.1], by rw [hab.1.2.2, hab.2.2.2]⟩))
+    (relct_noMem rfl)
+
+theorem dot_ct : RelCT isa (fun a b => a = x ∧ b = y) dot fun _ _ => True := by
+  let Z : State → State → Prop := fun s₀ s₁ => Kept (L.RL [(0, oAcc, 1024)]) s₀ s₁ ∧ PolyIs s₁.mem (L.A 0 oAcc) zero
+  refine RelCT.seq (R := fun a b => Z x a ∧ Z y b) (relct_wp (taint_prog [.r7] (fun a b hab r hr => by
+      rw [List.mem_singleton] at hr; subst hr; rw [hab.1, hab.2, hc₁.r7, hc₂.r7]) (by taint_decide))
+    fun a b hab => ⟨by rw [hab.1]; exact zeroPoly_ok hc₁ (by decide) (by decide),
+      by rw [hab.2]; exact zeroPoly_ok hc₂ (by decide) (by decide)⟩) ?_
+  have init : ∀ {a v : Nat → Poly} {s₀ : State}, Ctx L s₀ → ∀ s₁, Z s₀ s₁ →
+      WP isa (.block [.mov .r10 (.imm 0)]) s₁ (DotInv L a v s₀ 0) :=
+    fun {a v s₀} hc s₁ ⟨k₁, z₁⟩ => WP.mono (movc_ok .r10 (N := 0) (by decide)) fun s₂ ⟨k₂, g₂, m₂⟩ =>
+      ⟨((k₁.x _).subL hc (by decide)).trans (k₂.mono (fun _ h => absurd h List.not_mem_nil)), g₂,
+        by rw [m₂]; exact z₁⟩
+  refine RelCT.seq (R := fun a b => DotInv L a₁ v₁ x 0 a ∧ DotInv L a₂ v₂ y 0 b)
+    (relct_wp (relct_noMem rfl) fun a b hab => ⟨init hc₁ a hab.1, init hc₂ b hab.2⟩) ?_
+  exact RelCT.mono (relct_loop_ne (N := 3) (by decide) fun j hj => dotBody_ct hc₁ hc₂ ha₁ hv₁ ha₂ hv₂ hj)
+    (fun _ _ h => h) fun _ _ _ => trivial
+
+end
+
 end VG.Proof.MlKem.Arm
