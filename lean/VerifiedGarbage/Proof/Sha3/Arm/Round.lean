@@ -177,7 +177,7 @@ def ColInv (s₀ : State) (K : KState) (k : Nat) (s : State) : Prop :=
 theorem columns_ok {src : Reg} (hsrc : Ptr src) {S : BitVec 32} {K : KState} (s₀ : State)
     (h0 : s₀.gpr src = S) (hR : Reg64 s₀.wr S 200) (hK : Lanes32 s₀.mem S K) :
     WP isa (.block ((List.range 5).flatMap (column src))) s₀ (ColInv s₀ K 5) := by
-  refine wp_range_flatMap (M := isa) (ColInv s₀ K) (fun x s hx ⟨ho, hc⟩ => ?_) 5 le_rfl s₀
+  refine wp_range_flatMap (M := isa) (ColInv s₀ K) (fun x s hx ⟨ho, hc⟩ => ?_) 5 (Nat.le_refl _) s₀
     ⟨Only.refl _ _, fun _ h => absurd h (by omega)⟩
   refine WP.mono (column_ok x hx hsrc (K := K) s (by rw [ho.gpr src (ptr_col src hsrc), h0])
     (by rw [ho.wr]; exact hR) (by rw [ho.mem]; exact hK)) fun s' ⟨o, p⟩ =>
@@ -240,7 +240,7 @@ theorem dcols_ok {dst : Reg} (hdst : Ptr dst) {Dd : BitVec 32} {K : KState} (s�
     (hd : s₀.gpr dst = Dd) (fitD : Dd.toNat + 200 ≤ 2 ^ 32) (hR : Reg64 s₀.wr Dd 200)
     (hc : ∀ x < 5, Pair s₀ (cl x) (ch x) (C K x)) :
     WP isa (.block ((List.range 5).flatMap (dcol dst))) s₀ (DInv s₀ K Dd 5) := by
-  refine wp_range_flatMap (M := isa) (DInv s₀ K Dd) (fun x s hx hI => ?_) 5 le_rfl s₀
+  refine wp_range_flatMap (M := isa) (DInv s₀ K Dd) (fun x s hx hI => ?_) 5 (Nat.le_refl _) s₀
     ⟨fun _ _ => rfl, rfl, rfl, rfl, Frame.refl _ _, fun _ h => absurd h (by omega)⟩
   have hdo := dOff_lt x hx
   refine WP.mono (dcol_ok x hx hdst (K := K) s (by rw [hI.gpr dst (nm2 hdst.T.1.symm hdst.T.2.symm), hd])
@@ -442,7 +442,7 @@ theorem chis_ok (y : Nat) (hy : y < 5) {dst : Reg} (hdst : Ptr dst) {S Dd Sc P :
     WP isa (.block ((List.range 5).flatMap fun x => chi dst x y)) s₀ (ChiInv s₀ K rc Dd y 5) := by
   have fD := E.fitD
   obtain ⟨dT1, dT2⟩ := hdst.T
-  refine wp_range_flatMap (M := isa) (ChiInv s₀ K rc Dd y) (fun x s hx hI => ?_) 5 le_rfl s₀
+  refine wp_range_flatMap (M := isa) (ChiInv s₀ K rc Dd y) (fun x s hx hI => ?_) 5 (Nat.le_refl _) s₀
     ⟨fun _ _ => rfl, rfl, rfl, rfl, Frame.refl _ _, hdl, fun j hj => hl j (by omega)⟩
   have ho : 8 * (x + 5 * y) + 8 ≤ 200 := by omega
   refine WP.mono (chi_ok x y hx hy hdst s (hI.wr ▸ E) (by rw [hI.gpr dst (nm2 dT1.symm dT2.symm), hd])
@@ -472,7 +472,7 @@ theorem laneBs_ok (y : Nat) (hy : y < 5) {src dst : Reg} (hsrc : Ptr src) (hdst 
     (hRS : Reg64 s₀.wr S 200) (hRD : Reg64 s₀.wr Dd 200) (hK : Lanes32 s₀.mem S K)
     (hD : ∀ x < 5, rd64 s₀.mem Dd (dOff x) = D K x) :
     WP isa (.block ((List.range 5).flatMap fun x => laneB src dst x y)) s₀ (BInv s₀ K y 5) := by
-  refine wp_range_flatMap (M := isa) (BInv s₀ K y) (fun x s hx ⟨ho, hc⟩ => ?_) 5 le_rfl s₀
+  refine wp_range_flatMap (M := isa) (BInv s₀ K y) (fun x s hx ⟨ho, hc⟩ => ?_) 5 (Nat.le_refl _) s₀
     ⟨Only.refl _ _, fun _ h => absurd h (by omega)⟩
   refine WP.mono (laneB_ok x y hx hy hsrc hdst (K := K) s (by rw [ho.gpr src (ptr_b src hsrc), h0])
     (by rw [ho.gpr dst (ptr_b dst hdst), hd]) (by rw [ho.wr]; exact hRS) (by rw [ho.wr]; exact hRD)
@@ -503,7 +503,7 @@ theorem planes_ok {src dst : Reg} (hsrc : Ptr src) (hdst : Ptr dst) {S Dd Sc P :
     (hP : s₀.mem.readW (A Sc rcPtr) 32 = P) (hrc : rd64 s₀.mem P 0 = rc) (s : State)
     (hs : PInv s₀ K rc Dd 0 s) :
     WP isa (.block ((List.range 5).flatMap (plane src dst))) s (PInv s₀ K rc Dd 5) := by
-  refine wp_range_flatMap (M := isa) (PInv s₀ K rc Dd) (fun y s hy hI => ?_) 5 le_rfl s hs
+  refine wp_range_flatMap (M := isa) (PInv s₀ K rc Dd) (fun y s hy hI => ?_) 5 (Nat.le_refl _) s hs
   unfold plane
   rw [WP.block_append_iff]
   have E' : Env s.wr S Dd Sc P := hI.wr ▸ E

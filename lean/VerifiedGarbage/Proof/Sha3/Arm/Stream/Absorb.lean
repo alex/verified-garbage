@@ -225,7 +225,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     exact (ofNat_toNat32 _).symm
   · rw [u₈.mem, u₇.mem, show D s₀ 0 = [] by simp [bytesAt], List.append_nil, ← hs]
     exact stateAt_congr fun i hi =>
-      hf.bytes (R := stR s₀) (by simpa using hp.st_scr.sub_right (Region.sub_prefix (le_refl _)))
+      hf.bytes (R := stR s₀) (by simpa using hp.st_scr.sub_right (Region.sub_prefix (Nat.le_refl _)))
         (by simp) hi
   · rw [hz, u₇.gpr, ha]; simp only [sub_imm0]; rw [beq_zero32]
 

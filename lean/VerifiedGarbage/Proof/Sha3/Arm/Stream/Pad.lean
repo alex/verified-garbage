@@ -168,9 +168,9 @@ theorem correct {s₀ : State} (hp : Pre s₀) : WP isa pad s₀ (Post s₀) := 
   refine ⟨fun r hr => ?_, fun msg hR hm => ?_⟩
   · by_cases hl : r = .lr
     · subst hl
-      rw [u''.gpr, readW_hi fC hp.st_scr f' (fun r hr => by simpa using hr) (d := 512) (le_refl _)
+      rw [u''.gpr, readW_hi fC hp.st_scr f' (fun r hr => by simpa using hr) (d := 512) (Nat.le_refl _)
         (by omega), readW_hi fC hp.st_scr hf₁₂ (fun r hr => .inl (List.mem_singleton.mp hr))
-        (d := 512) (le_refl _) (by omega), hm₂, Mem.readW_writeW_self32]
+        (d := 512) (Nat.le_refl _) (by omega), hm₂, Mem.readW_writeW_self32]
     · have ne := keep_ne r hr
       rw [u''.other r hl, cs' r hr hl, k₁₂ r ne.1 ne.2.1 hl ne.2.2]
   · rw [u''.mem, e', hS, Proof.Sha3.repr_iff.mp hR, absorb_pad (by omega) (by omega), ← hm]
