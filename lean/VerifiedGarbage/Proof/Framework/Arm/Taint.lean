@@ -20,12 +20,14 @@ As on x86-64 (`VG.X86_64.Taint`), public slots let public values survive a
 round trip through memory, e.g. registers saved and restored by inlined
 code. They are byte ranges of the writable regions `s.wr` (identified by
 index) that hold the same bytes in both runs. To keep them sound in the
-presence of stores of secrets, the analysis knows the lengths of the writable
-regions (`lens`, whose regions are then pairwise disjoint, the same in both
-runs, and within the 32-bit address space) and which registers hold the base
-address of which region (`bases`). A store through such a register can only
-change bytes of its own region at the store's offset; any other store of a
-secret forgets every slot.
+presence of stores of secrets, the analysis knows lower bounds on the lengths
+of the writable regions (`lens`, whose regions are then pairwise disjoint, the
+same in both runs, and within the 32-bit address space; a bound of `0` means
+the length is unknown, e.g. of a buffer of variable length, and the region has
+no slots) and which registers hold the base address of which region
+(`bases`). A store through such a register, within the bound, can only change
+bytes of its own region at the store's offset; any other store of a secret
+forgets every slot.
 
 The first `args` bytes at `sp` (the stack arguments) are public, the same
 address in both runs, and outside every writable region, so no store changes
@@ -42,7 +44,8 @@ instance : RegIdx Reg := ⟨Reg.ctorIdx, fun {a b} h => by rw [← Reg.ofNat_cto
 structure T where
   regs : RegSet Reg
   flags : Bool
-  /-- The lengths of the writable regions `s.wr`, in order; `[]` if unknown. -/
+  /-- Lower bounds on the lengths of the writable regions `s.wr`, in order
+  (`0` if unknown); `[]` if nothing is known about the regions. -/
   lens : List Nat := []
   /-- `(r, i)`: register `r` holds the base address of writable region `i`. -/
   bases : List (Reg × Nat) := []
@@ -73,7 +76,7 @@ def AgreeRF (regs : RegSet Reg) (flags : Bool) (s₁ s₂ : State) : Prop :=
 /-- What `τ` says about each state on its own. -/
 structure Wf (τ : T) (s : State) : Prop where
   lens : τ.lens ≠ [] →
-    s.wr.map Region.len = τ.lens ∧ s.wr.Pairwise Region.Disjoint ∧
+    List.Forall₂ (fun r l => l ≤ r.len) s.wr τ.lens ∧ s.wr.Pairwise Region.Disjoint ∧
       ∀ r ∈ s.wr, r.base.toNat + r.len ≤ 2 ^ 32
   bases : ∀ p ∈ τ.bases, State.addr (s.gpr p.1) = (region s p.2).base
   args : 0 < τ.argLen →
@@ -294,19 +297,31 @@ theorem addrOf_some {τ : T} {n : Reg} {off i d : Nat} (h : addrOf τ n off = so
 theorem lens_ne {τ : T} {i n : Nat} (h : 0 < n) (hn : n ≤ τ.lens.getD i 0) : τ.lens ≠ [] := by
   rintro h'; simp [h'] at hn; omega
 
+theorem forall₂_length {rs : List Region} {ls : List Nat}
+    (h : List.Forall₂ (fun r l => l ≤ r.len) rs ls) : rs.length = ls.length := by
+  induction h with
+  | nil => rfl
+  | cons _ _ ih => simp [ih]
+
+theorem forall₂_getD {rs : List Region} {ls : List Nat}
+    (h : List.Forall₂ (fun r l => l ≤ r.len) rs ls) (i : Nat) : ls.getD i 0 ≤ (rs.getD i ⟨0, 0⟩).len := by
+  induction h generalizing i with
+  | nil => simp
+  | cons h _ ih => cases i with
+    | zero => exact h
+    | succ i => exact ih i
+
 theorem region_len {τ : T} {s : State} (hw : Wf τ s) (hne : τ.lens ≠ []) (i : Nat) :
-    (region s i).len = τ.lens.getD i 0 := by
-  rw [← (hw.lens hne).1]
-  simp only [region, List.getD_eq_getElem?_getD, List.getElem?_map]
-  cases s.wr[i]? <;> rfl
+    τ.lens.getD i 0 ≤ (region s i).len :=
+  forall₂_getD (hw.lens hne).1 i
 
 theorem region_mem {τ : T} {s : State} (hw : Wf τ s) (hne : τ.lens ≠ []) {i : Nat}
     (hi : 0 < τ.lens.getD i 0) : ∃ h : i < s.wr.length, region s i = s.wr[i] := by
-  have hl := (hw.lens hne).1
+  have hl := forall₂_length (hw.lens hne).1
   have : i < τ.lens.length := by
     by_contra h'
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)] at hi; simp at hi
-  have hi' : i < s.wr.length := by rw [← hl, List.length_map] at this; exact this
+  have hi' : i < s.wr.length := hl ▸ this
   exact ⟨hi', by simp [region, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi']⟩
 
 /-- Region `i` lies within the 32-bit address space. -/
@@ -314,8 +329,10 @@ theorem region_bound {τ : T} {s : State} (hw : Wf τ s) {i : Nat} (hi : 0 < τ.
     (region s i).base.toNat + τ.lens.getD i 0 ≤ 2 ^ 32 := by
   have hne := lens_ne hi le_rfl
   obtain ⟨hi', hr⟩ := region_mem hw hne hi
-  rw [← region_len hw hne i, hr]
-  exact (hw.lens hne).2.2 _ (List.getElem_mem _)
+  have hl := region_len hw hne i
+  have hb := (hw.lens hne).2.2 _ (List.getElem_mem hi')
+  rw [← hr] at hb
+  omega
 
 theorem ea_of_addrOf {τ : T} {s : State} (hw : Wf τ s) {n : Reg} {off i d : Nat}
     (h : addrOf τ n off = some (i, d)) (hd : d < τ.lens.getD i 0) :

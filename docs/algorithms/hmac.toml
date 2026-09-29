@@ -1,5 +1,0 @@
-name = "HMAC-SHA-256"
-family = "MACs"
-specs = ["Hmac"]
-modules = ["src/hmac.rs"]
-asm = ["hmac", "sha256"]

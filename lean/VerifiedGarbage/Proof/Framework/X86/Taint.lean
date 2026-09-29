@@ -19,9 +19,10 @@ from the read-only stack arguments.
 As on x86-64 (`VG.X86_64.Taint`), public slots let public values survive a
 round trip through memory. They are byte ranges of the writable regions
 `s.wr` (identified by index) that hold the same bytes in both runs. To keep
-them sound in the presence of stores of secrets, the analysis knows the
-lengths of the writable regions (`lens`, whose regions are then pairwise
-disjoint, the same in both runs, and within the 32-bit address space) and
+them sound in the presence of stores of secrets, the analysis knows lower
+bounds on the lengths of the writable regions (`lens`, whose regions are then
+pairwise disjoint, the same in both runs, and within the 32-bit address space;
+a bound of `0` means the length is unknown and the region has no slots) and
 which registers point at a known offset before the base address of which
 region (`bases`). A store through such a register can only change bytes of
 its own region at the store's offset; any other store of a secret forgets
@@ -69,7 +70,8 @@ instance : RegIdx Reg := ⟨Reg.ctorIdx, fun {a b} h => by rw [← Reg.ofNat_cto
 structure T where
   regs : RegSet Reg
   flags : Bool
-  /-- The lengths of the writable regions `s.wr`, in order; `[]` if unknown. -/
+  /-- Lower bounds on the lengths of the writable regions `s.wr`, in order (`0` if
+  unknown); `[]` if nothing is known about the regions. -/
   lens : List Nat := []
   /-- `(r, i, k)`: `r + k` is the base address of writable region `i`. -/
   bases : List (Reg × Nat × Nat) := []
@@ -133,7 +135,7 @@ def AgreeRF (regs : RegSet Reg) (flags : Bool) (s₁ s₂ : State) : Prop :=
 /-- What `τ` says about each state on its own. -/
 structure Wf (τ : T) (s : State) : Prop where
   lens : τ.lens ≠ [] →
-    s.wr.map Region.len = τ.lens ∧ s.wr.Pairwise Region.Disjoint ∧
+    List.Forall₂ (fun r l => l ≤ r.len) s.wr τ.lens ∧ s.wr.Pairwise Region.Disjoint ∧
       ∀ r ∈ s.wr, r.base.toNat + r.len ≤ 2 ^ 32
   bases : ∀ p ∈ τ.bases, addr (s.gpr p.1) p.2.2 = (region s p.2.1).base
   wbases : ∀ p ∈ τ.wbases, p.2.1 + 4 ≤ τ.lens.getD p.1 0 ∧
@@ -153,7 +155,7 @@ structure Wf (τ : T) (s : State) : Prop where
 arguments at `esp`. -/
 structure WfEntry (τ : T) (s : State) : Prop where
   lens : τ.lens ≠ [] →
-    s.wr.map Region.len = τ.lens ∧ s.wr.Pairwise Region.Disjoint ∧
+    List.Forall₂ (fun r l => l ≤ r.len) s.wr τ.lens ∧ s.wr.Pairwise Region.Disjoint ∧
       ∀ r ∈ s.wr, r.base.toNat + r.len ≤ 2 ^ 32
   bases : ∀ p ∈ τ.bases, addr (s.gpr p.1) p.2.2 = (region s p.2.1).base
   wbases : ∀ p ∈ τ.wbases, p.2.1 + 4 ≤ τ.lens.getD p.1 0 ∧
@@ -397,11 +399,23 @@ theorem addrOf_some {τ : T} {m : MemOp} {i d : Nat} (h : addrOf τ m = some (i,
 theorem lens_ne {τ : T} {i n : Nat} (h : 0 < n) (hn : n ≤ τ.lens.getD i 0) : τ.lens ≠ [] := by
   rintro h'; simp [h'] at hn; omega
 
+theorem forall₂_length {rs : List Region} {ls : List Nat}
+    (h : List.Forall₂ (fun r l => l ≤ r.len) rs ls) : rs.length = ls.length := by
+  induction h with
+  | nil => rfl
+  | cons _ _ ih => simp [ih]
+
+theorem forall₂_getD {rs : List Region} {ls : List Nat}
+    (h : List.Forall₂ (fun r l => l ≤ r.len) rs ls) (i : Nat) : ls.getD i 0 ≤ (rs.getD i ⟨0, 0⟩).len := by
+  induction h generalizing i with
+  | nil => simp
+  | cons h _ ih => cases i with
+    | zero => exact h
+    | succ i => exact ih i
+
 theorem region_len {τ : T} {s : State} (hw : Wf τ s) (hne : τ.lens ≠ []) (i : Nat) :
-    (region s i).len = τ.lens.getD i 0 := by
-  rw [← (hw.lens hne).1]
-  simp only [region, List.getD_eq_getElem?_getD, List.getElem?_map]
-  cases s.wr[i]? <;> rfl
+    τ.lens.getD i 0 ≤ (region s i).len :=
+  forall₂_getD (hw.lens hne).1 i
 
 theorem region_mem {τ : T} {s : State} (hw : Wf τ s) (hne : τ.lens ≠ []) {i : Nat}
     (hi : 0 < τ.lens.getD i 0) : ∃ h : i < s.wr.length, region s i = s.wr[i] := by
@@ -409,7 +423,7 @@ theorem region_mem {τ : T} {s : State} (hw : Wf τ s) (hne : τ.lens ≠ []) {i
   have : i < τ.lens.length := by
     by_contra h'
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)] at hi; simp at hi
-  have hi' : i < s.wr.length := by rw [← hl, List.length_map] at this; exact this
+  have hi' : i < s.wr.length := by rw [← forall₂_length hl] at this; exact this
   exact ⟨hi', by simp [region, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi']⟩
 
 /-- Region `i` lies within the 32-bit address space. -/
@@ -417,8 +431,10 @@ theorem region_bound {τ : T} {s : State} (hw : Wf τ s) {i : Nat} (hi : 0 < τ.
     (region s i).base.toNat + τ.lens.getD i 0 ≤ 2 ^ 32 := by
   have hne := lens_ne hi le_rfl
   obtain ⟨hi', hr⟩ := region_mem hw hne hi
-  rw [← region_len hw hne i, hr]
-  exact (hw.lens hne).2.2 _ (List.getElem_mem _)
+  have := region_len hw hne i
+  rw [hr] at this ⊢
+  have := (hw.lens hne).2.2 _ (List.getElem_mem hi')
+  omega
 
 /-- `[x + d]`, for `x + k` the base address `b` of a region containing byte `d - k`. -/
 theorem addr_offset {x : BitVec 32} {k d : Nat} {b : Addr} (e : addr x k = b) (hk : k ≤ d)
@@ -1435,7 +1451,8 @@ theorem Wf.byte_mem {τ : T} {s : State} (hw : Wf τ s) {j k : Nat} (hk : k < τ
   have hb := region_bound hw (i := j) (by omega)
   refine ⟨_, List.getElem_mem hj, ?_⟩
   rw [← hr]
-  simp only [Region.Contains, byteAddr, region_len hw hne]
+  have hl := region_len hw hne j
+  simp only [Region.Contains, byteAddr]
   rw [Mem.sub_ofNat_toNat _ (by omega)]
   omega
 
@@ -1841,7 +1858,8 @@ theorem Wf.pop {τ : T} {n : Nat} {stk : List (Option Nat)} (hstk : τ.stk = som
     fun hpos => ?_⟩
   · have hne' : τ.lens ≠ [] := fun h => hne (by simp [h])
     obtain ⟨h₁, h₂, h₃⟩ := hw.lens hne'
-    refine ⟨by simp only [hwr, List.map_tail, h₁], by rw [hwr]; exact h₂.sublist (List.tail_sublist _),
+    refine ⟨by rw [hwr]; exact match s.wr, τ.lens, h₁ with | _, _, .nil => .nil | _, _, .cons _ h => h,
+      by rw [hwr]; exact h₂.sublist (List.tail_sublist _),
       fun q hq => h₃ q (List.mem_of_mem_tail (hwr ▸ hq))⟩
   · rcases List.mem_append.mp hp with hp | hp
     · obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hp
@@ -2105,7 +2123,7 @@ theorem Wf.push (hl : τ.lens ≠ []) : Wf (pushed τ rs) (pushState s rs) := by
   refine ⟨fun _ => ?_, fun p hp => ?_, fun p hp => ?_, fun hpos => ?_, fun p hp => ?_, ?_, hframes,
     fun hpos => ?_⟩
   · obtain ⟨h₁, h₂, h₃⟩ := hw.lens hl
-    refine ⟨by simp [pushed, belowSp, h₁], List.pairwise_cons.mpr ⟨hd, h₂⟩, fun r hr => ?_⟩
+    refine ⟨.cons (by simp [belowSp]) h₁, List.pairwise_cons.mpr ⟨hd, h₂⟩, fun r hr => ?_⟩
     rcases List.mem_cons.mp hr with rfl | hr
     · simp only [belowSp, sub_setWidth hle]
       have := (s.gpr .esp).isLt

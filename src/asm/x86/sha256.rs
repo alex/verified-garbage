@@ -11,7 +11,8 @@
 /// * `state` must be valid for reads and writes of 32 bytes.
 /// * `blocks` must be valid for reads of `64 * n` bytes.
 /// * `scratch` must be valid for reads and writes of 112 bytes; its contents on return are unspecified.
-/// * These three regions must not overlap each other or the stack frame of the call (the return address and the arguments), and none of them may wrap around the end of the address space (no Rust object does).
+/// * `state` and `scratch` must not overlap each other, `blocks` or the arguments on the stack (distinct Rust objects never do).
+/// * None of `state`, `blocks` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_sha256_compress(state: *mut [u32; 8], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14]) {
     core::arch::naked_asm!(
@@ -3369,7 +3370,8 @@ pub(crate) unsafe extern "C" fn vg_sha256_compress(state: *mut [u32; 8], blocks:
 /// # Safety
 ///
 /// * `state` must be valid for writes of 96 bytes.
-/// * It must not overlap the stack frame of the call (the return address and the argument), and must not wrap around the end of the address space (no Rust object does).
+/// * `state` must not overlap the arguments on the stack (distinct Rust objects never do).
+/// * `state` must not overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_sha256_init(state: *mut [u8; 96]) {
     core::arch::naked_asm!(
@@ -3398,14 +3400,15 @@ pub(crate) unsafe extern "C" fn vg_sha256_init(state: *mut [u8; 96]) {
 ///
 /// Contract: `VG.Spec.Sha256.updateContract`. Constant time: only the pointers, `count` and `len` may affect timing, not the state or the data.
 ///
-/// The function overwrites its own arguments on the stack (which the callee owns under cdecl).
+/// The function may overwrite the arguments on the stack, as the calling convention lets it.
 ///
 /// # Safety
 ///
 /// * `state` must be valid for reads and writes of 96 bytes.
 /// * `data` must be valid for reads of `len` bytes.
 /// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
-/// * These three regions must not overlap each other or the stack frame of the call (the return address and the arguments), and none of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
+/// * None of `state`, `data` and `scratch` may overlap the arguments on the stack, overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20]) {
     core::arch::naked_asm!(
@@ -6874,14 +6877,15 @@ pub(crate) unsafe extern "C" fn vg_sha256_update(state: *mut [u8; 96], count: u6
 ///
 /// Contract: `VG.Spec.Sha256.finalizeContract`. Constant time: only the pointers and `count` may affect timing, not the state.
 ///
-/// The function overwrites its own arguments on the stack (which the callee owns under cdecl).
+/// The function may overwrite the arguments on the stack, as the calling convention lets it.
 ///
 /// # Safety
 ///
 /// * `state` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
 /// * `out` must be valid for writes of 32 bytes.
 /// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
-/// * These three regions must not overlap each other or the stack frame of the call (the return address and the arguments), and none of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
+/// * None of `state`, `out` and `scratch` may overlap the arguments on the stack, overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20]) {
     core::arch::naked_asm!(

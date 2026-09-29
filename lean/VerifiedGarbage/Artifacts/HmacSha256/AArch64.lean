@@ -8,30 +8,30 @@ A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
 caller to the contract; check them against the contract's `pre`/`post`. An
 artifact made from a function's `Api` (in `Spec/`, reviewed with the
-contract) takes its signature and most of its `doc` from there: what this
-file adds is the `# Safety` items that depend on the target, and any notes.
+contract) takes them from there, and this file adds only notes on the
+implementation. The emitter adds the `# Safety` items that depend on the
+target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
+against the contract.
 -/
 
-namespace VG.Artifacts.Hmac.AArch64
+namespace VG.Artifacts.HmacSha256.AArch64
 
 def artifacts : List Artifact := [
   { Spec.Hmac.initSha256Api with
     target := AArch64.target
-    doc := Spec.Hmac.initSha256Api.doc ["These four regions must not overlap each other, or the 16 \
-      bytes of stack below the stack pointer, where it saves its return address (distinct Rust \
-      objects never do)."]
+    doc := Spec.Hmac.initSha256Api.doc
     code := Impl.Hmac.AArch64.init
     contract := Spec.Hmac.initSha256Contract AArch64.abi 16
+    stack := 16
     verified := Proof.Hmac.AArch64.Shared.init
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Hmac.finalizeSha256Api with
     target := AArch64.target
-    doc := Spec.Hmac.finalizeSha256Api.doc ["These three regions must not overlap each other, or \
-      the 32 bytes of stack below the stack pointer, where it and its calls of \
-      `vg_sha256_finalize` save their return addresses (distinct Rust objects never do)."]
+    doc := Spec.Hmac.finalizeSha256Api.doc
     code := Impl.Hmac.AArch64.finalize
     contract := Spec.Hmac.finalizeSha256Contract AArch64.abi 32
+    stack := 32
     verified := Proof.Hmac.AArch64.Shared.finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
-end VG.Artifacts.Hmac.AArch64
+end VG.Artifacts.HmacSha256.AArch64

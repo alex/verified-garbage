@@ -28,6 +28,13 @@ for it, so `files` checks that `name` is an artifact of the same target
 whose printed code is exactly that of `body`, for every call, including the
 calls in `body` itself; otherwise nothing is emitted.
 
+The documentation of each function is its `doc`, with what its contract
+requires of where its buffers are added to its `# Safety` section
+(`fullDoc`, `Sig.layoutDoc`): these obligations depend on the target's
+calling convention and on the stack the code uses, and are generated from the
+same signature, calling convention, `writeArgs` and `stack` as the contract
+(`Artifact.ofSig`).
+
 An artifact whose code needs CPU features beyond the target's baseline
 (`Artifact.features`) also gets a last `# Safety` item saying the CPU must
 support them, and a constant listing them, for the Rust that checks for them
@@ -123,6 +130,39 @@ def checkFeatures (a : Artifact) : Except String Unit :=
   featureCheck s!"{a.target.name}: {a.name}" a.doc (a.code.requires a.target.isa.requires)
     a.features
 
+/-- `doc` with the paragraphs `notes` inserted before its `# Safety` section. -/
+def insertNotes (doc : String) : List String → String
+  | [] => doc
+  | notes =>
+    let sep := "\n\n# Safety\n\n"
+    match (doc.splitOn sep).reverse with
+    | safety :: rest@(_ :: _) =>
+      sep.intercalate rest.reverse ++ String.join (notes.map ("\n\n" ++ ·)) ++ sep ++ safety
+    | _ => doc
+
+/-- The documentation of `a` as emitted: its `doc`, with what its signature's
+contract requires of where its buffers are (`Sig.layoutNote` before its
+`# Safety` section, `Sig.layoutDoc` at the end), and the CPU features it
+needs (`featureDoc`). -/
+def fullDoc (a : Artifact) : String :=
+  let A := a.target.abi
+  let items := Sig.layoutDoc A a.sig a.writeArgs a.stack
+  featureDoc (insertNotes a.doc (Sig.layoutNote A a.sig a.writeArgs) ++
+    String.join (items.map ("\n* " ++ ·))) a.features
+
+/-- If the emitter adds anything to the documentation of `a` from its
+signature (`fullDoc`), `doc` ends with its `# Safety` section. -/
+def checkLayout (a : Artifact) : Except String Unit := do
+  let A := a.target.abi
+  if (Sig.layoutDoc A a.sig a.writeArgs a.stack).isEmpty &&
+      (Sig.layoutNote A a.sig a.writeArgs).isEmpty then return
+  let ok := match a.doc.splitOn "\n# " with
+    | [_] => false
+    | parts => parts.getLast!.startsWith "Safety\n"
+  unless ok do
+    throw s!"{a.target.name}: {a.name} has buffers but its doc does not end with its \
+      `# Safety` section"
+
 /-- One artifact as a Rust naked function; `moduleOf` gives the module of
 each function it calls. -/
 def function (a : Artifact) (moduleOf : String → String) : String :=
@@ -131,7 +171,7 @@ def function (a : Artifact) (moduleOf : String → String) : String :=
     (a.features.flatMap P.disableFeature).map .text
   let callees := dedup (body.filterMap fun | .call n => some n | .text _ => none)
   featuresConst a.name a.features ++
-  docComment "" (featureDoc a.doc a.features) ++
+  docComment "" (fullDoc a) ++
   "#[unsafe(naked)]\n" ++
   s!"pub(crate) unsafe extern \"{a.target.rustAbi}\" fn {a.name}{a.sig.rust} " ++ "{\n" ++
   "    core::arch::naked_asm!(\n" ++
@@ -187,7 +227,8 @@ def render (as : List Artifact) (moduleOf : Artifact → String → String) : Li
     modDecls targets cfgOf
   let perTarget (t : String) : List (String × String) :=
     let arts := as.filter (·.target.name == t)
-    let modules := distinct arts (·.module)
+    -- In order of their names, wherever their artifacts come in the list.
+    let modules := (distinct arts (·.module)).mergeSort (· ≤ ·)
     (s!"{t}/mod.rs", header ++ s!"//! Verified functions for `{t}`.\n" ++
       modDecls modules (fun _ => none)) ::
     modules.map fun m =>
@@ -200,12 +241,15 @@ def render (as : List Artifact) (moduleOf : Artifact → String → String) : Li
 /-- The generated files, as paths relative to `src/asm/` and their contents:
 `mod.rs`, and for each target `<target>/mod.rs` and one `<target>/<module>.rs`
 per module; an error if two artifacts of a target have the same name
-(`checkUnique`), a call is not of the code it runs (`checkCalls`) or an
-artifact's features are not those its code requires (`checkFeatures`). -/
+(`checkUnique`), a call is not of the code it runs (`checkCalls`), an
+artifact's features are not those its code requires (`checkFeatures`) or its
+doc has no `# Safety` section at its end for what `fullDoc` adds to it
+(`checkLayout`). -/
 def files (as : List Artifact) : Except String (List (String × String)) := do
   checkUnique as
   as.forM (checkCalls as)
   as.forM checkFeatures
+  as.forM checkLayout
   return render as fun a n => ((callee as a n).map (·.module)).getD ""
 
 end VG.Rust

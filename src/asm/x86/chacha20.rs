@@ -10,7 +10,8 @@
 ///
 /// * `state` must be valid for reads of 64 bytes.
 /// * `buf` must be valid for reads and writes of 256 bytes. On return its first 64 bytes hold the result and the rest is unspecified.
-/// * `buf` must not overlap `state`, the arguments or the return address on the stack, and nothing may wrap around the end of the address space (distinct Rust objects never do).
+/// * `buf` must not overlap `state` or the arguments on the stack (distinct Rust objects never do).
+/// * Neither `state` nor `buf` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64]) {
     core::arch::naked_asm!(
@@ -1706,5 +1707,73 @@ pub(crate) unsafe extern "C" fn vg_chacha20_block(state: *const [u32; 16], buf: 
         "mov esi, DWORD PTR [eax+68]",
         "mov edi, DWORD PTR [eax+72]",
         "ret",
+    )
+}
+
+/// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`, calling `vg_chacha20_block` for each 64 bytes.
+///
+/// Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
+///
+/// The function may overwrite the arguments on the stack, as the calling convention lets it.
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 64 bytes; its contents on return are unspecified.
+/// * `data` must be valid for reads and writes of `len` bytes.
+/// * `buf` must be valid for reads and writes of 320 bytes; its contents on return are unspecified.
+/// * `state`, `data` and `buf` must not overlap each other (distinct Rust objects never do).
+/// * None of `state`, `data` and `buf` may overlap the arguments on the stack, overlap the return address on the stack or the 12 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80]) {
+    core::arch::naked_asm!(
+        "mov eax, DWORD PTR [esp+16]",
+        "mov DWORD PTR [eax+256], ebx",
+        "mov DWORD PTR [eax+260], esi",
+        "mov DWORD PTR [eax+264], edi",
+        "mov DWORD PTR [eax+268], ebp",
+        "mov edi, eax",
+        "mov ebx, DWORD PTR [esp+4]",
+        "mov esi, DWORD PTR [esp+8]",
+        "mov ebp, DWORD PTR [esp+12]",
+        "test ebp, ebp",
+        "je 20f",
+        "22:",
+        "push edi",
+        "push ebx",
+        "call {vg_chacha20_block}",
+        "pop eax",
+        "pop eax",
+        "mov ecx, ebp",
+        "cmp ebp, 64",
+        "jb 23f",
+        "mov ecx, 64",
+        "jmp 24f",
+        "23:",
+        "24:",
+        "mov edx, edi",
+        "25:",
+        "movzx eax, BYTE PTR [esi]",
+        "xor eax, DWORD PTR [edx]",
+        "mov BYTE PTR [esi], al",
+        "add esi, 1",
+        "add edx, 1",
+        "sub ecx, 1",
+        "jne 25b",
+        "mov eax, DWORD PTR [ebx+48]",
+        "add eax, 1",
+        "mov DWORD PTR [ebx+48], eax",
+        "sub edx, edi",
+        "sub ebp, edx",
+        "jne 22b",
+        "jmp 21f",
+        "20:",
+        "21:",
+        "mov eax, edi",
+        "mov ebx, DWORD PTR [eax+256]",
+        "mov esi, DWORD PTR [eax+260]",
+        "mov edi, DWORD PTR [eax+264]",
+        "mov ebp, DWORD PTR [eax+268]",
+        "ret",
+        vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
     )
 }

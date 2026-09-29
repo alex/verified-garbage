@@ -48,7 +48,9 @@ trustworthy. Read `lean/README.md` first.
   with its `family`; any PR
   that adds or removes support for an algorithm on an architecture, or
   optimizes an implementation, reruns the script in the same PR (and after
-  merging main, rather than resolving a conflict in the table by hand).
+  merging main, rather than resolving a conflict in the table by hand). The
+  tables put each architecture's cell on a line of its own, so PRs that
+  change different cells merge without conflicts.
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
 * On x86-64, `pmuludq` and `vpmuludq` may only take secret operands between
@@ -69,9 +71,11 @@ instructions in an ISA model) go in their own PR before either.
    its Rust signature (`Sig`) and its `Contract` on every target, built with
    `Sig.contract` from a postcondition and any precondition the signature does
    not imply, and its `Api`: its Rust module (the file under
-   `src/asm/<target>/`) and name, its signature, and the documentation that
-   holds on every target (what it does, and the `# Safety` items that do not
-   depend on the calling convention or the stack). Choose
+   `src/asm/<target>/`) and name, its signature, its contract's `writeArgs`,
+   and its documentation: what it does, and the `# Safety` items but for what
+   the emitter generates (which buffers may not overlap each other, the
+   stack or the arguments on it, and that none wraps around the address
+   space: `Sig.layoutDoc`). Choose
    `pub` honestly: only lengths and pointers are public unless the algorithm
    says otherwise.
 2. `Impl/<Alg>/<Target>.lean`: the code.
@@ -82,17 +86,22 @@ instructions in an ISA model) go in their own PR before either.
    which defines `VG.Artifacts.<Alg>.<Target>.artifacts` (a new file for a
    new algorithm or target; see `Artifacts/Selftest/X86_64.lean`; never
    `Artifacts.lean`, whose list is empty), made from the function's `Api`:
-   `{ Spec.<Alg>.fooApi with target := …, doc := Spec.<Alg>.fooApi.doc […], … }`,
-   where the `doc` adds the `# Safety` items that depend on the target (what
-   the arguments must not overlap: the return address, arguments on the
-   stack, the stack the code's calls use; wrapping around the address space),
-   and any notes on the implementation. The whole doc must state every caller
-   obligation of the contract. Its `spSafe`
+   `{ Spec.<Alg>.fooApi with target := …, doc := Spec.<Alg>.fooApi.doc, … }`,
+   passing `doc` any notes on the implementation (`(notes := […])`). Set
+   `stack` to the contract's (and `writeArgs`, if the artifact is not made
+   from an `Api`): the default proof of `ofSig` checks both against the
+   contract, and the emitter documents what they imply. Its `spSafe`
    can be the default, `decide +kernel`, which runs in the registration
    file; on ARMv7 and AArch64 `Code.all_of_forall (fun _ => rfl) _` is
    faster. If its code uses instructions outside
    the target's baseline ISA, list the CPU features they require in
    `features` (the emitter rejects anything but the exact set).
+   A function that calls another one with several implementations (e.g.
+   scalar and SHA-NI compression) is proven once for any of them and
+   registered in `Generic/<Iface>/<Target>/<Alg>.lean`, which the emitter
+   applies to every implementation in `Variants/<Iface>/<Target>/` (see
+   `TCB/Emit.lean`). Never list the implementations in the caller: a new
+   implementation is a new variant file, and its callers follow.
 5. Regenerate `src/asm/`, build the public Rust API on top of the primitive,
    and test it against the Wycheproof vectors in `tests/wycheproof/` (set
    `WYCHEPROOF_ROOT` to a checkout of C2SP/wycheproof). Benchmark the new
@@ -108,8 +117,22 @@ should add files, not edit lists that every other PR edits too.
   inner `#![cfg(...)]` after its `//!` docs; the parent only says
   `mod <name>;`. Supporting another architecture changes that one line of
   the algorithm's own file.
+  Tests and benchmarks are gated on exactly the architectures of the
+  library modules they use (`ci/check_arch_gates.py` checks it), so update
+  their `cfg`s with the module's.
+* Import the verified functions from `crate::arch::<module>` (the target's
+  `crate::asm::<target>::<module>`, `src/lib.rs`), once for every
+  architecture, not with a `use` per architecture; only functions a target
+  alone has (e.g. an x86-64 `_shani` variant) take a `#[cfg(target_arch)]`.
 * Tests of one algorithm go in a file of their own (`tests/cavp/<alg>.rs`,
   `tests/wycheproof/<alg>.rs`), declared with one `mod` line.
+* A construction over many hash functions (HMAC, PBKDF2) gets a file per
+  hash everywhere: its `Api`s' `module` is `<family>_<hash>` (so
+  `src/asm/<target>/hmac_sha256.rs`), its registration files are
+  `Artifacts/<Family><Hash>/<Target>.lean`, its Rust implementation is
+  `src/<family>/<hash>.rs` (the generic code stays in `src/<family>/mod.rs`),
+  and its tests, benchmarks and `docs/algorithms/` row are
+  `<family>_<hash>.rs` and `<family>-<hash>.toml`.
 
 ## Keeping proofs fast
 
@@ -195,6 +218,7 @@ against the 200000 budget.
 python3 ci/check_lean_imports.py
 python3 ci/check_lean_speed.py
 python3 ci/check_vectors.py
+python3 ci/check_arch_gates.py
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
 ```
