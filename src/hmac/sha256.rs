@@ -31,6 +31,13 @@ impl super::Hmac<Sha256> {
         key[96..].copy_from_slice(&self.state.outer);
         key
     }
+
+    /// The implementation of SHA-256 this computation runs, chosen for this
+    /// CPU (and the mask it was created with).
+    #[cfg(target_arch = "x86_64")]
+    pub(crate) fn sha256_backend(&self) -> Sha256Backend {
+        self.state.backend
+    }
 }
 
 /// An HMAC-SHA-256 computation: the SHA-256 streaming states for the inner

@@ -15,11 +15,10 @@ The streaming state (96 bytes at `state`) is the hash value followed by a
 * `finalize(state = rdi, count = rsi, out = rdx, scratch = rcx)` pads the
   buffered bytes (one or two blocks), compresses them and writes the digest.
 
-`update` and `finalize` take the compression function they call (a `Callee`):
-`vg_sha256_compress` (`Impl.Sha256.X86_64.compress`) for `vg_sha256_update`
-and `vg_sha256_finalize`, `vg_sha256_compress_shani`
-(`Impl.Sha256.X86_64.ShaNi.compress`) for `vg_sha256_update_shani` and
-`vg_sha256_finalize_shani`. It is called with `scratch` as its scratch space; it
+`update` and `finalize` take the compression function they call (a `Callee`,
+e.g. `vg_sha256_compress` or `vg_sha256_compress_shani`), and are emitted
+once for each implementation (`Generic/Sha256Compress/X86_64/Sha256.lean`).
+It is called with `scratch` as its scratch space; it
 preserves `rbx, rbp, r12–r15`, so our own variables live there across it
 (`rbx` = `state`, `r15` = `scratch`), and our caller's values of those
 registers are saved in `scratch[112..160)`. The call stores its return
@@ -87,12 +86,19 @@ def fill : Prog isa :=
     (.ite .e (.block [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm 32), .mov32 .r13 (.imm 0),
         .mov32 .r14 (.imm 1)]) (.block []))))))
 
-def updateBody (f : Callee) : Prog isa :=
+/-- The first half of an iteration: the next block, if any, is ready at `rsi`
+(`r14` = 1), or all the data is buffered (`r14` = 0). -/
+def updateHead : Prog isa :=
   .seq (.block [.alu .test .r13 (.reg .r13)])
-  (.seq (.ite .e (.seq (.block [.alu .cmp .r12 (.imm 64)]) (.ite .ae (.block direct) fill)) fill)
-  (.seq (.block [.alu .test .r14 (.reg .r14)])
+    (.ite .e (.seq (.block [.alu .cmp .r12 (.imm 64)]) (.ite .ae (.block direct) fill)) fill)
+
+/-- The second half: compress the block if there is one, and loop back if so. -/
+def updateTail (f : Callee) : Prog isa :=
+  .seq (.block [.alu .test .r14 (.reg .r14)])
   (.seq (.ite .ne (compressAt f) (.block []))
-    (.block [.alu .test .r14 (.reg .r14)]))))
+    (.block [.alu .test .r14 (.reg .r14)]))
+
+def updateBody (f : Callee) : Prog isa := .seq updateHead (updateTail f)
 
 def update (f : Callee) : Prog isa :=
   .seq (.block (save .r8 ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .r8), .mov .rbp (.reg .rdx),
@@ -104,7 +110,8 @@ def update (f : Callee) : Prog isa :=
 Registers: `rbp` = `out`, `r12` = `count`, `r13` = bytes in the buffer,
 `r14` = 1 while the block being padded is not the last one. -/
 
-def finalizeBody (f : Callee) : Prog isa :=
+/-- Pad the block, up to the call of the compression function. -/
+def finalizePad : Prog isa :=
   -- Zero the buffer from `r13` to 64, or to 56 in the last block.
   .seq (.block [.mov32 .rax (.imm 64), .alu .test .r14 (.reg .r14)])
   (.seq (.ite .e (.block [.mov32 .rax (.imm 56)]) (.block []))
@@ -115,21 +122,28 @@ def finalizeBody (f : Callee) : Prog isa :=
   (.seq (.block [.alu .test .r14 (.reg .r14)])
   (.seq (.ite .e (.block [.mov .rax (.reg .r12), .alu .add .rax (.reg .rax), .alu .add .rax (.reg .rax),
       .alu .add .rax (.reg .rax), .bswap .rax, .store (at_ .rbx 88) .rax]) (.block []))
-  (.seq (.block [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm 32)])
-  (.seq (compressAt f)
-    (.block [.mov32 .r13 (.imm 0), .alu .sub .r14 (.imm 1)]))))))))
+    (.block [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm 32)]))))))
 
-def finalize (f : Callee) : Prog isa :=
+def finalizeBody (f : Callee) : Prog isa :=
+  .seq finalizePad
+  (.seq (compressAt f)
+    (.block [.mov32 .r13 (.imm 0), .alu .sub .r14 (.imm 1)]))
+
+/-- Save registers, append the `0x80` byte and choose the number of blocks. -/
+def finalizeStart : Prog isa :=
   .seq (.block (save .rcx ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),
       .mov .r12 (.reg .rsi), .mov .r13 (.reg .rsi), .alu .and .r13 (.imm 63),
       -- The `0x80` byte.
       .mov32 .rax (.imm 0x80), .store8 bufByte .rax, .alu .add .r13 (.imm 1),
       -- Two blocks if it leaves fewer than 8 bytes for the length.
       .mov32 .r14 (.imm 0), .alu .cmp .r13 (.imm 57)]))
-  (.seq (.ite .ae (.block [.mov32 .r14 (.imm 1)]) (.block []))
+    (.ite .ae (.block [.mov32 .r14 (.imm 1)]) (.block []))
+
+def finalize (f : Callee) : Prog isa :=
+  .seq finalizeStart
   (.seq (.loop (finalizeBody f) .e)
     (.block ((List.range 8).flatMap (fun k =>
         [.mov32 .rax (.mem (at_ .rbx (4 * k))), .bswap32 .rax, .store32 (at_ .rbp (4 * k)) .rax]) ++
-      restore))))
+      restore)))
 
 end VG.Impl.Sha256.X86_64.Stream
