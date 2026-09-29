@@ -178,7 +178,7 @@ def initτ₀ : VG.X86.Taint.T :=
 
 theorem init_wf₀ {s : State} (hp : IPre s) : VG.X86.Taint.Wf initτ₀ s := by
   have hst := hp.st_fit; have hs := hp.sp_fit
-  refine ⟨fun _ => ⟨by simp [hp.wr, initτ₀], by simp [hp.wr], ?_⟩,
+  refine VG.X86.Taint.Wf.entry rfl rfl ⟨fun _ => ⟨by simp [hp.wr, initτ₀], by simp [hp.wr], ?_⟩,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim,
     fun _ => ⟨hs, ?_⟩, ?_⟩
   · simp only [hp.wr, List.mem_singleton]
@@ -199,7 +199,7 @@ theorem init_agree₀ {s₁ s₂ : State} (h₁ : Proof.Poly1305.initX86.pre s�
   have hp₁ := IPre.of _ h₁; have hp₂ := IPre.of _ h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, init_wf₀ hp₁, init_wf₀ hp₂,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim, fun _ => hesp,
-    fun k h4 hk => argMem_eq hp₁.sp_fit hp₂.sp_fit (fun i hi => ?_) h4 hk⟩
+    fun k h4 hk => (Nat.zero_add k).symm ▸ argMem_eq hp₁.sp_fit hp₂.sp_fit (fun i hi => ?_) h4 hk⟩
   · simp only [initτ₀, RegSet.mem_ofList, List.mem_singleton] at hr
     subst hr; exact hesp
   · rw [hp₁.wr, hp₂.wr]; simp only [stp, a0]
