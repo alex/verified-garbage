@@ -141,7 +141,7 @@ theorem block_call {s₀ s : State} (hp : APre s₀) (h : At s₀ s) (hecx : s.g
   have hk : [Reg.edx, .ecx].length ≤ 5 := by decide
   have fit := h.fit hp hk
   have e := hp.sp_lo
-  refine WP.callWith Proof.ChaCha20.X86.block_verified.1 block_nosp (by simp) (by decide)
+  refine WP.callWith Proof.ChaCha20.X86.block_correct block_nosp (by simp) (by decide)
     (by rw [block_stack, h.esp]; simp only [List.length_cons, List.length_nil]; omega)
     (block_pre hp h hecx hedx) fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   rw [block_stack, h.esp] at f'
@@ -387,7 +387,7 @@ theorem xor_call {s₀ s : State} (hp : APre s₀) (h : At s₀ s) (heax : s.gpr
   have hk : [Reg.esi, .edx, .ecx, .eax].length ≤ 5 := by decide
   have fit := h.fit hp hk
   have e := hp.sp_lo
-  refine WP.callWith Proof.ChaCha20.X86.Xor.xor_verified.1 xor_nosp (by simp) (by decide)
+  refine WP.callWith Proof.ChaCha20.X86.Xor.xor_correct xor_nosp (by simp) (by decide)
     (by rw [xor_stack, h.esp]; simp only [List.length_cons, List.length_nil]; omega)
     (xor_pre hp h heax hecx hedx hesi) fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   rw [xor_stack, h.esp] at f'

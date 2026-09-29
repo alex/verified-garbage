@@ -76,7 +76,7 @@ theorem block_call {s : State} {S B : BitVec 32} (h0 : s.gpr .r0 = S) (h1 : s.gp
     (hQ : ∀ s', Kept [⟨State.addr B, 256⟩] s s' → s'.gpr .r1 = B →
       stateAt s'.mem (State.addr B) = Spec.ChaCha20.block (stateAt s.mem (State.addr S)) → Q s') :
     WP isa (.call "vg_chacha20_block" Impl.ChaCha20.Arm.block) s Q := by
-  refine WP.call (k := Proof.ChaCha20.blockArm) Proof.ChaCha20.Arm.block_verified.1
+  refine WP.call (k := Proof.ChaCha20.blockArm) Proof.ChaCha20.Arm.block_correct
     (rd := [⟨State.addr S, 64⟩]) (wr := [⟨State.addr B, 256⟩]) ?_ hc hw ?_ block_noCalls
   · simp only [Proof.ChaCha20.blockArm, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.callEntry_gpr s (by decide : Reg.r0 ∉ linkRegs),

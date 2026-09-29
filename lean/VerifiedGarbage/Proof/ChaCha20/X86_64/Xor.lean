@@ -10,12 +10,51 @@ import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
 Untrusted: everything here is checked by Lean.
 -/
 
+namespace VG.Proof.ChaCha20
+
+open Spec.ChaCha20 VG.X86_64
+
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+x86-64 contract for
+`vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80])`:
+XORs the first `len` bytes of the keystream of the state at `state` into the
+`len` bytes at `data`.
+
+The code may read and write `state` (64 bytes; its contents on exit are
+unspecified), `data` (`len` bytes) and `buf` (320 bytes of working space).
+They may not overlap each other, the return address on the stack, or the 8
+bytes below it, where the call of the block function stores its return
+address; `data` does not wrap around the end of the address space. The
+pointers and the length are public; the state and the data are secret. -/
+def xorX86_64 : Contract X86_64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .rdi, 64⟩
+    let data : Region := ⟨s.gpr .rsi, (s.gpr .rdx).toNat⟩
+    let buf : Region := ⟨s.gpr .rcx, 320⟩
+    let ret : Region := ⟨s.gpr .rsp, 8⟩
+    let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
+    s.rd = [] ∧ s.wr = [state, data, buf] ∧
+    state.Disjoint data ∧ state.Disjoint buf ∧ data.Disjoint buf ∧
+    ret.Disjoint state ∧ ret.Disjoint data ∧ ret.Disjoint buf ∧
+    stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint buf ∧
+    (s.gpr .rsi).toNat + (s.gpr .rdx).toNat ≤ 2 ^ 64
+  post s s' :=
+    bytesAt s'.mem (s.gpr .rsi) (s.gpr .rdx).toNat =
+      List.zipWith (· ^^^ ·) (bytesAt s.mem (s.gpr .rsi) (s.gpr .rdx).toNat)
+        (keystream (stateAt s.mem (s.gpr .rdi)) (s.gpr .rdx).toNat)
+  pub s₁ s₂ :=
+    s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
+    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .rsp = s₂.gpr .rsp
+
+end VG.Proof.ChaCha20
+
 namespace VG.Proof.ChaCha20.X86_64.Xor
 
 open VG VG.X86_64 VG.Impl.ChaCha20.X86_64.Xor
 open VG.Impl.ChaCha20.X86_64 (at_)
 open VG.Proof.ChaCha20.X86_64 (toNat_ofNat_lt contains_off ea_at ofInt_natCast readW_writeW_off
-  block_verified)
+  block_correct)
 open VG.Spec.ChaCha20 (stateAt keystream serialize bytesAt)
 
 /-- `p + d`, as the code computes it. -/
@@ -247,7 +286,7 @@ theorem call_ok {s₀ : State} (hp : XPre s₀) {j : Nat} {s : State} (h : OInv 
   have hwr : s₁.wr = [stR s₀, dR s₀, bR s₀] := by rw [e₄, h.wr, hp.wr]
   have hrd : s₁.rd = [] := by rw [e₃, h.rd, hp.rd]
   have hstk : below (s₁.gpr .rsp) 8 = stackR s₀ := by rw [hsp]
-  refine WP.call (k := Proof.ChaCha20.blockX86_64) block_verified.1 (block_keeps_reg (by simp [kept]))
+  refine WP.call (k := Proof.ChaCha20.blockX86_64) block_correct (block_keeps_reg (by simp [kept]))
     (by rw [block_depth]; decide) (rd := [stR s₀]) (wr := [b256 s₀]) ?_ ?_ ?_ ?_
   · simp only [Proof.ChaCha20.blockX86_64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.callEntry_rsp, hne _ (by decide : Reg.rdi ≠ .rsp),
@@ -732,15 +771,20 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 64⟩, ⟨0x2000, 0⟩, ⟨0x3000, 320⟩]
 
+theorem xor_correct (s : State) (hs : Proof.ChaCha20.xorX86_64.pre s) :
+    ∃ t s', Exec isa Impl.ChaCha20.X86_64.Xor.xor s t s' ∧ abiPreserved s s' ∧
+      Proof.ChaCha20.xorX86_64.post s s' :=
+  (xor_rsi s hs).imp fun _ ⟨s', he, ha, h, _⟩ => ⟨s', he, ha, h⟩
+
+theorem xor_ct : ConstantTime isa Proof.ChaCha20.xorX86_64.pre Proof.ChaCha20.xorX86_64.pub
+    Impl.ChaCha20.X86_64.Xor.xor :=
+  VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+
 theorem xor_verified :
-    Verified X86_64.target Impl.ChaCha20.X86_64.Xor.xor Proof.ChaCha20.xorX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, ⟨h, -⟩⟩ := correct (XPre.of s hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+    Verified X86_64.target Impl.ChaCha20.X86_64.Xor.xor (Spec.ChaCha20.xorContract X86_64.abi 8) :=
+  Verified.of_correct xor_correct xor_ct
+    (by sig_implies [Spec.ChaCha20.xorContract, Spec.ChaCha20.xorSig, X86_64.abi, X86_64.argRegs,
+      Proof.ChaCha20.xorX86_64]
+      [sat] using sat)
 
 end VG.Proof.ChaCha20.X86_64.Xor

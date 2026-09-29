@@ -169,7 +169,7 @@ theorem block_call {s : State} {S B : Addr} (hx0 : s.gpr .x0 = S) (hx1 : s.gpr .
     {Q : State → Prop}
     (hQ : ∀ s', Kept [⟨B, 256⟩] s s' → stateAt s'.mem B = Spec.ChaCha20.block (stateAt s.mem S) → Q s') :
     WP isa (.call "vg_chacha20_block" Impl.ChaCha20.AArch64.block) s Q := by
-  refine WP.call (k := Proof.ChaCha20.blockAArch64) Proof.ChaCha20.AArch64.block_verified.1
+  refine WP.call (k := Proof.ChaCha20.blockAArch64) Proof.ChaCha20.AArch64.block_correct
     (rd := [⟨S, 64⟩]) (wr := [⟨B, 256⟩]) ?_ hc hw ?_ Proof.ChaCha20.AArch64.Xor.block_noFrames
   · simp only [Proof.ChaCha20.blockAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs),
@@ -196,7 +196,7 @@ theorem xor_call {s : State} {S D B : Addr} {n : Nat} (hx0 : s.gpr .x0 = S) (hx1
     WP isa (.call "vg_chacha20_xor" Impl.ChaCha20.AArch64.Xor.xor) s Q := by
   have hn' : (BitVec.ofNat 64 n).toNat = n := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt hn
-  refine WP.call (k := Proof.ChaCha20.xorAArch64) Proof.ChaCha20.AArch64.Xor.xor_verified.1
+  refine WP.call (k := Proof.ChaCha20.xorAArch64) Proof.ChaCha20.AArch64.Xor.xor_correct
     (rd := []) (wr := [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩]) ?_ hc hw ?_ xor_noFrames
   · simp only [Proof.ChaCha20.xorAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs),

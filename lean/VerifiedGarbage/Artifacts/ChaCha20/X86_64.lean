@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.X86_64.Target
-import VerifiedGarbage.Proof.ChaCha20.X86_64.Shared
+import VerifiedGarbage.Proof.ChaCha20.X86_64.Xor
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
 
 /-!
@@ -23,13 +23,13 @@ def artifacts : List Artifact := [
     doc := Spec.ChaCha20.blockApi.doc
     code := Impl.ChaCha20.X86_64.block
     contract := Spec.ChaCha20.blockContract X86_64.abi
-    verified := Proof.ChaCha20.X86_64.Shared.block },
+    verified := Proof.ChaCha20.X86_64.block_verified },
   { Spec.ChaCha20.xorApi with
     target := X86_64.target
     doc := Spec.ChaCha20.xorApi.doc
     code := Impl.ChaCha20.X86_64.Xor.xor
     contract := Spec.ChaCha20.xorContract X86_64.abi 8
     stack := 8
-    verified := Proof.ChaCha20.X86_64.Shared.xor }]
+    verified := Proof.ChaCha20.X86_64.Xor.xor_verified }]
 
 end VG.Artifacts.ChaCha20.X86_64

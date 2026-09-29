@@ -106,7 +106,7 @@ include ha hb hq
 theorem block_rel :
     RelCT isa (fun x y => Pro2 a x ∧ Pro2 b y)
       (callWith [.edx, .ecx] "vg_chacha20_block" Impl.ChaCha20.X86.block) fun _ _ => True :=
-  RelCT.callWith Proof.ChaCha20.X86.block_verified.1 Proof.ChaCha20.X86.block_verified.2.1 (rdBlk a) (wrBlk a)
+  RelCT.callWith Proof.ChaCha20.X86.block_correct Proof.ChaCha20.X86.block_ct (rdBlk a) (wrBlk a)
     fun x y ⟨hx, hy⟩ => by
       have py := block_pre hb hy.at_ hy.ecx hy.edx
       rw [show rdBlk b = rdBlk a by simp only [rdBlk, sub, cx, CX, E, hq.cx, hq.esp],
@@ -185,7 +185,7 @@ theorem maB_rel {i : Nat} (hi : i + 1 < 5) (hsa : Src a (arg a i) (arg a (i + 1)
 theorem crB_rel :
     RelCT isa (fun x y => CrA a x ∧ CrA b y)
       (callWith [.esi, .edx, .ecx, .eax] "vg_chacha20_xor" Impl.ChaCha20.X86.Xor.xor) fun _ _ => True :=
-  RelCT.callWith Proof.ChaCha20.X86.Xor.xor_verified.1 Proof.ChaCha20.X86.Xor.xor_verified.2.1 [] (wrXor a)
+  RelCT.callWith Proof.ChaCha20.X86.Xor.xor_correct Proof.ChaCha20.X86.Xor.xor_ct [] (wrXor a)
     fun x y ⟨hx, hy⟩ => by
       have py := xor_pre hb hy.inv.at hy.eax hy.ecx hy.edx hy.esi
       rw [show wrXor b = wrXor a by simp only [wrXor, sub, cx, CX, dR, dp, DP, L, LN, E, hq.cx, hq.a3, hq.a4,
