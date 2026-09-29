@@ -2,7 +2,7 @@
 //! MB), encryption with an external IV and decryption, for 128-, 192- and
 //! 256-bit keys.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use verified_garbage::aes_gcm::AesGcm;
 
