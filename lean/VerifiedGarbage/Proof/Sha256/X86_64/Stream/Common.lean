@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Sha256.Stream
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 import VerifiedGarbage.Impl.Sha256.X86_64.Stream
 import Mathlib.Tactic.Conv
-import Mathlib.Tactic.IntervalCases
-import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Streaming SHA-256 on x86-64: common lemmas
@@ -350,9 +348,8 @@ theorem bswap32_bytes' (w : BitVec 32) :
   simp only [List.range_succ, List.range_zero, List.nil_append, List.map_cons, List.map_nil,
     List.cons_append, Spec.Sha256.wordBytes, List.cons.injEq, and_true]
   refine ⟨?_, ?_, ?_, ?_⟩ <;>
-  · apply BitVec.eq_of_getLsbD_eq; intro i hi
-    simp only [bswap32, BitVec.getLsbD_extractLsb', BitVec.getLsbD_append]
-    interval_cases i <;> simp
+  · simp (disch := decide) only [bswap32, Nat.mul_zero, Nat.reduceMul, extractLsb'_append_byte_lo,
+      extractLsb'_append_byte_hi, Nat.reduceSub, BitVec.extractLsb'_eq_self]
 
 theorem bswap64_bytes (x : BitVec 64) :
     (List.range 8).map (fun j => (bswap64 x).extractLsb' (8 * j) 8) =
@@ -360,9 +357,8 @@ theorem bswap64_bytes (x : BitVec 64) :
   simp only [List.range_succ, List.range_zero, List.nil_append, List.map_cons, List.map_nil,
     List.cons_append, List.reverse_cons, List.reverse_nil, List.cons.injEq, and_true]
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-  · apply BitVec.eq_of_getLsbD_eq; intro i hi
-    simp only [bswap64, BitVec.getLsbD_extractLsb', BitVec.getLsbD_append]
-    interval_cases i <;> simp
+  · simp (disch := decide) only [bswap64, Nat.mul_zero, Nat.reduceMul, extractLsb'_append_byte_lo,
+      extractLsb'_append_byte_hi, Nat.reduceSub, BitVec.extractLsb'_eq_self]
 
 /-! ## Lemmas shared by `update` and `finalize` -/
 
@@ -370,7 +366,7 @@ theorem and63 (x : BitVec 64) : x &&& (63#32).signExtend 64 = BitVec.ofNat 64 (x
   rw [show (63#32).signExtend 64 = 63#64 by decide]
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_and, BitVec.toNat_ofNat]
-  rw [show (63 : Nat) % 2 ^ 64 = 2 ^ 6 - 1 by norm_num, Nat.and_two_pow_sub_one_eq_mod]
+  rw [show (63 : Nat) % 2 ^ 64 = 2 ^ 6 - 1 by decide, Nat.and_two_pow_sub_one_eq_mod]
   omega
 
 theorem restore_eq : restore = [

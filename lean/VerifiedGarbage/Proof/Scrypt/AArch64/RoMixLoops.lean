@@ -225,14 +225,14 @@ theorem n_step {s : State} {r e : Nat} (hr : 0 < r) (hlt : r * 2 ^ (e + 1) < 2 ^
     by rw [u₃.sp, u₂.sp, u₁.sp, h.sp], by rw [u₃.mem, u₂.mem, u₁.mem, h.mem],
     fun r' h9 h10 h12 => ?_, by rw [u₃.other _ (by decide), ax], ?_⟩, ?_⟩
   · rw [u₃.other r' h12, u₂.other r' h10, u₁.other r' h9, h.other r' h9 h10 h12]
-  · rw [u₃.other _ (by decide), u₂.gpr, u₁.other _ (by decide), h.x10, ← one_mul (2 ^ k),
-      Proof.Scrypt.X86_64.RoMix.dbl_pow, one_mul]
+  · rw [u₃.other _ (by decide), u₂.gpr, u₁.other _ (by decide), h.x10, ← Nat.one_mul (2 ^ k),
+      Proof.Scrypt.X86_64.RoMix.dbl_pow, Nat.one_mul]
   · rw [u₃.gpr, ax, u₂.other _ (by decide), u₁.other _ (by decide),
       h.other _ (by decide) (by decide) (by decide), h11, bne, sub_beq (by omega) hlt]
     by_cases hh : k + 1 = e + 1
     · simp [hh]
     · have : r * 2 ^ (k + 1) ≠ r * 2 ^ (e + 1) := fun h' =>
-        hh (Nat.pow_right_injective (le_refl 2) (Nat.eq_of_mul_eq_mul_left hr h'))
+        hh ((Nat.pow_right_inj (by decide)).mp (Nat.eq_of_mul_eq_mul_left hr h'))
       simp only [this, decide_false, Bool.not_false, ne_eq, hh, not_false_eq_true, decide_true]
 
 /-- `nLoop` doubles `x9` (from `r`) and `x10` (from 1) until `x9 = x11 = r * 2^(e+1)`. -/

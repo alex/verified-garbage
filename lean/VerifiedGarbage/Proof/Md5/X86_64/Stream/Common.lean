@@ -3,7 +3,6 @@ import VerifiedGarbage.Proof.Md5.Stream
 import VerifiedGarbage.Proof.Framework.X86_64.Call
 import VerifiedGarbage.Impl.Md5.X86_64.Stream
 import Mathlib.Tactic.Conv
-import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Streaming MD5 on x86-64: common lemmas
@@ -243,7 +242,7 @@ theorem and63 (x : BitVec 64) : x &&& (63#32).signExtend 64 = BitVec.ofNat 64 (x
   rw [show (63#32).signExtend 64 = 63#64 by decide]
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_and, BitVec.toNat_ofNat]
-  rw [show (63 : Nat) % 2 ^ 64 = 2 ^ 6 - 1 by norm_num, Nat.and_two_pow_sub_one_eq_mod]
+  rw [show (63 : Nat) % 2 ^ 64 = 2 ^ 6 - 1 by decide, Nat.and_two_pow_sub_one_eq_mod]
   omega
 
 theorem restore_eq : restore = [

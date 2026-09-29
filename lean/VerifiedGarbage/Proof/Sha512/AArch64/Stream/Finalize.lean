@@ -603,7 +603,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
   have hC := hD.1
   have hx19 : s.gpr .x19 = st s₀ := by rw [h.keep _ (by simp), hC.x19]
   have hx21 : s.gpr .x21 = out s₀ := by rw [h.keep _ (by simp), hC.x21]
-  have hP := flat_length (stateAt sD.mem (st s₀)) k hk.le
+  have hP := flat_length (stateAt sD.mem (st s₀)) k (Nat.le_of_lt hk)
   simp only [outW, List.cons_append, List.nil_append]
   refine wp_ldr (a := st s₀ + BitVec.ofNat 64 (8 * k)) (by omega) (by rw [hx19])
     ⟨stR s₀, by simp [h.rd, h.wr, hp.wr], contains_offset (by omega) (by omega)⟩ fun s₁ u₁ => ?_

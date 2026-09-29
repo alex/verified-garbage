@@ -78,7 +78,7 @@ theorem init_correct (iv : HashValue) {s₀ : State} (hp : (Proof.Sha512.initX86
   refine wp_movm (a := addr (s₀.gpr .esp) 4) rfl
     ⟨⟨argAddr s₀ 0, 4⟩, by simp [hrd], Region.contains_self _ _⟩ fun s₁ u₁ => ?_
   refine WP.mono (init_all iv hfit hR ⟨u₁.gpr, fun r h _ => u₁.other r h, u₁.rd, u₁.wr,
-    by rw [u₁.mem]; exact Frame.refl _ _, fun _ h => absurd h (by omega)⟩ 8 le_rfl)
+    by rw [u₁.mem]; exact Frame.refl _ _, fun _ h => absurd h (by omega)⟩ 8 (Nat.le_refl _))
     fun s h => ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
   · refine h.gpr r ?_ ?_ <;>
     · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr

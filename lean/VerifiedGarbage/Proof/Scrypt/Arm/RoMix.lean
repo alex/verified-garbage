@@ -290,7 +290,7 @@ theorem shr_ofNat32 {a : Nat} (n : Nat) (h : a < 2 ^ 32) :
 theorem leNat_bytesAt32_mod (m : Mem) (a : Addr) {e : Nat} (he : e ≤ 32) :
     leNat (bytesAt m a 64) % 2 ^ e = (m.readW a 32).toNat % 2 ^ e := by
   rw [show (64 : Nat) = 4 + 60 from rfl, bytesAt_add', leNat_append, bytesAt_length',
-    show (256 : Nat) ^ 4 = 2 ^ e * 2 ^ (32 - e) by rw [← Nat.pow_add, Nat.add_sub_cancel' he]; rfl,
+    show (256 : Nat) ^ 4 = 2 ^ e * 2 ^ (32 - e) by rw [← Nat.pow_add, Nat.add_sub_cancel' he],
     Nat.mul_assoc, Nat.add_mul_mod_self_left, leNat_bytesAt]
   simp only [Mem.readW, BitVec.toNat_setWidth]
   rw [Nat.mod_eq_of_lt (BitVec.isLt _)]

@@ -771,7 +771,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
   have hst := hp.st_fit; have ho := hp.out_fit
   have hr0 : s.gpr .r0 = st s₀ := by rw [h.keep _ (by simp [keepRegs]), hC.r0]
   have hr6 : s.gpr .r6 = out s₀ := by rw [h.keep _ (by simp [keepRegs]), hC.r6]
-  have hP := flat_length (stateAt sD.mem (stA s₀)) k hk.le
+  have hP := flat_length (stateAt sD.mem (stA s₀)) k (Nat.le_of_lt hk)
   -- The word's halves, unchanged since `Done`.
   have hread : ∀ o, o + 4 ≤ 8 → s.mem.readW (stA s₀ + BitVec.ofNat 64 (8 * k + o)) 32 =
       sD.mem.readW (stA s₀ + BitVec.ofNat 64 (8 * k + o)) 32 := by

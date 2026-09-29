@@ -1,11 +1,9 @@
-import Mathlib.Data.List.Nodup
 import VerifiedGarbage.Proof.Framework.Block
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.AArch64.Exec
 import VerifiedGarbage.Proof.Sha256.Spec
 import VerifiedGarbage.Impl.Sha256.AArch64
-import Mathlib.Tactic.IntervalCases
 
 /-!
 # SHA-256 compression function on AArch64: the message schedule and the rounds
@@ -44,7 +42,7 @@ theorem round_nodup (t : Nat) :
   simp only [var]
   have := Nat.mod_lt t (show 8 > 0 by omega)
   generalize t % 8 = c at *
-  interval_cases c <;> decide
+  revert this; revert c; decide
 
 /-- The round is symbolically executed once, for any registers `a … h`
 (which `round_nodup` says are different from each other and the others). -/
@@ -53,10 +51,10 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word)
     WP isa (.block (round t)) s fun s' =>
       Vars (t + 1) s' (roundKW v (K t) w) ∧
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ ∀ r ∈ pubRegs, s'.gpr r = s.gpr r := by
-  have hd' := List.nodup_reverse.mpr (round_nodup t)
+  have hd' := VG.nodup_reverse (round_nodup t)
   -- The registers the round reads and writes.
   have hs := (List.nodup_append.mp (round_nodup t)).1
-  have hs' := List.nodup_reverse.mpr hs
+  have hs' := VG.nodup_reverse hs
   simp only [Vars, var_succ_zero, var_succ t _ (show 0 < 7 by omega),
     var_succ t _ (show 1 < 7 by omega), var_succ t _ (show 2 < 7 by omega),
     var_succ t _ (show 3 < 7 by omega), var_succ t _ (show 4 < 7 by omega),

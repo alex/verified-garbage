@@ -348,7 +348,7 @@ theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
       u₃.other _ (by decide), u₂.other _ (by decide), u₁.gpr, hbyte, h.mem,
       List.take_add_one, List.getElem?_eq_getElem hj', Option.toList_some,
       writeBytes_snoc _ _ _ _ (by simp only [List.length_take]; omega)]
-    have hl : (List.take j (xs s₀ c)).length = j := by rw [List.length_take, Nat.min_eq_left hj'.le]
+    have hl : (List.take j (xs s₀ c)).length = j := by rw [List.length_take, Nat.min_eq_left (Nat.le_of_lt hj')]
     rw [hl]
     have e : ((List.getD (D s₀) (c + j) 0).setWidth 32).setWidth 8 = List.getD (D s₀) (c + j) 0 := by
       ext i hi; simp
@@ -384,7 +384,7 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   have hr := rr_lt s₀ c; have ht' := tt_le' s₀ c
   have hxs := xs_length s₀ c
   have hf : Frame [stR s₀] sI.mem mem := by
-    have := write_frame s₀ c sI.mem (tt s₀ c) le_rfl
+    have := write_frame s₀ c sI.mem (tt s₀ c) (Nat.le_refl _)
     rwa [List.take_of_length_le (by omega)] at this
   refine ⟨hI.frame.trans (hf.mono (by simp)), fun p hp' => ?_, ?_, ?_⟩
   · have hd : 224 ≤ p.2 ∧ p.2 + 4 ≤ 240 := by
@@ -470,7 +470,7 @@ theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
   obtain ⟨hfr, hsv, hstt, hby⟩ := copied_facts hp hI
   have hmem : s.mem = writeBytes sI.mem (q s₀ c) (xs s₀ c) := by
     rw [h.mem, List.take_of_length_le (by omega)]
-  refine ⟨⟨le_rfl, h.rd, h.wr, h.ebx, h.esp, ?_, ?_, by rw [hmem]; exact hfr,
+  refine ⟨⟨(Nat.le_refl _), h.rd, h.wr, h.ebx, h.esp, ?_, ?_, by rw [hmem]; exact hfr,
     by rw [hmem]; exact hsv⟩, ?_, fun iv m hm => ?_⟩
   · rw [h.esi]; congr 2; omega
   · rw [h.ebp]; congr 1; omega

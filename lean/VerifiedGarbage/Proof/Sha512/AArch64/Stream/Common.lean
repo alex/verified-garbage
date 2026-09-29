@@ -3,7 +3,6 @@ import VerifiedGarbage.Proof.Sha512.Stream
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import VerifiedGarbage.Impl.Sha512.AArch64.Stream
 import Mathlib.Tactic.Conv
-import Mathlib.Tactic.IntervalCases
 
 /-!
 # Streaming SHA-512 on AArch64: common lemmas
@@ -409,8 +408,7 @@ theorem rev64_wordBytes (x : BitVec 64) :
     List.cons_append, List.reverse_cons, List.reverse_nil, List.cons.injEq, and_true,
     Spec.Sha512.wordBytes]
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-  · apply BitVec.eq_of_getLsbD_eq; intro i hi
-    simp only [rev64, BitVec.getLsbD_extractLsb', BitVec.getLsbD_append]
-    interval_cases i <;> simp
+  · simp (disch := decide) only [rev64, Nat.mul_zero, Nat.reduceMul, VG.X86_64.extractLsb'_append_byte_lo,
+      VG.X86_64.extractLsb'_append_byte_hi, Nat.reduceSub, BitVec.extractLsb'_eq_self]
 
 end VG.Proof.Sha512.AArch64.Stream
