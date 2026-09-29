@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Hmac.Generic.X86.Hash
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 import VerifiedGarbage.Proof.Sha512.X86.Stream.Init
 import VerifiedGarbage.Proof.Sha512.X86.Stream.Update
+import VerifiedGarbage.Proof.Sha512.X86.Stream.Finalize
 import VerifiedGarbage.Proof.Sha1.X86.Stream.Init
 import VerifiedGarbage.Proof.Sha1.X86.Stream.Md
 import VerifiedGarbage.Proof.Md5.X86.Stream.Init
