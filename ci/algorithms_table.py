@@ -54,6 +54,8 @@ FEATURES = {
     "aes": "AES-NI",
     "pclmulqdq": "PCLMULQDQ",
     "ssse3": None,
+    "avx2": "AVX2",
+    "avx": None,
 }
 
 CFG = re.compile(r"^#!\[cfg\((.*?)\)\]$", re.MULTILINE | re.DOTALL)
