@@ -23,7 +23,7 @@ namespace VG.Proof.Scrypt.X86_64.RoMix
 
 open VG VG.X86_64 VG.Impl.Scrypt.X86_64
 open VG.Spec.Scrypt (bytesAt blockMix)
-open VG.Proof.Sha1.X86_64.Stream (wp_mov wp_addi wp_add wp_subi)
+open VG.Proof.MdStream.X86_64 (wp_mov wp_addi wp_add wp_subi)
 
 /-! ## What each run knows -/
 
@@ -339,7 +339,7 @@ theorem j_wp {s₀ : State} (hp : Pre s₀) {q : Addr} {s : State}
   have lt := r_lt hp
   have := hp.pos
   unfold jBlock
-  refine Proof.Sha1.X86_64.Stream.wp_movm (a := bP s₀ + BitVec.ofNat 64 (128 * rr s₀ - 64))
+  refine Proof.MdStream.X86_64.wp_movm (a := bP s₀ + BitVec.ofNat 64 (128 * rr s₀ - 64))
     (ea_j hp s h.rbx h.r14)
     (by rw [h.rd, h.wr, hp.rd, hp.wr]
         exact BlockMix.InRegions.of_mem (R := bR s₀) (by simp)

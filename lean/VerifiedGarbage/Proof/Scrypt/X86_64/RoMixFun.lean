@@ -17,7 +17,7 @@ namespace VG.Proof.Scrypt.X86_64.RoMix
 
 open VG VG.X86_64 VG.Impl.Scrypt.X86_64
 open VG.Spec.Scrypt (bytesAt blockMix roMix)
-open VG.Proof.Sha1.X86_64.Stream (wp_mov wp_movm wp_store wp_add wp_addi wp_subi wp_mov32i)
+open VG.Proof.MdStream.X86_64 (wp_mov wp_movm wp_store wp_add wp_addi wp_subi wp_mov32i)
 open VG.Proof.Sha256.Stream (writeBytes)
 
 theorem frame_bytesAt' {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr} {n : Nat}

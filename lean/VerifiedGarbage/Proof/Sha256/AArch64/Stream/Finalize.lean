@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Common
 # Streaming SHA-256 on AArch64: `finalize`
 
 Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 proof (`VG.Proof.Sha256.X86_64.Stream.Finalize`).
+x86-64 proof (`VG.Proof.MdStream.X86_64.Finalize`).
 -/
 
 namespace VG.Proof.Sha256.AArch64.Stream.Finalize

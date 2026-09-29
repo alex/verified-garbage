@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.Md5.AArch64.Stream.Common
 # Streaming MD5 on AArch64: `finalize`
 
 Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 proof (`VG.Proof.Md5.X86_64.Stream.Finalize`).
+x86-64 proof (`VG.Proof.MdStream.X86_64.Finalize`).
 -/
 
 namespace VG.Proof.Md5.AArch64.Stream.Finalize

@@ -1,9 +1,8 @@
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.Inline
 import VerifiedGarbage.Proof.Sha512.X86_64.Compress
-import VerifiedGarbage.Proof.Sha512.X86_64.Stream.Finalize
 import VerifiedGarbage.Proof.Sha512.X86_64.Stream.Init
-import VerifiedGarbage.Proof.Sha512.X86_64.Stream.Update
+import VerifiedGarbage.Proof.Sha512.X86_64.Stream.Md
 import VerifiedGarbage.Spec.Sha512.Contract
 
 /-!
@@ -132,7 +131,8 @@ theorem update :
   have hi : updateWide.Implies (Spec.Sha512.updateContract X86_64.abi 8) := by
     contract_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, updateWide,
       Proof.Sha512.updateX86_64, X86_64.abi, X86_64.argRegs]
-      [updateSat, Proof.Sha512.X86_64.Stream.Update.sat] using updateSat
+      [updateSat, Proof.Sha512.X86_64.Stream.Update.sat,
+        MdStream.X86_64.Update.sat, Impl.Sha512.X86_64.Stream.params] using updateSat
   exact (updateWide_verified hi.sat_left).of_implies hi
 
 theorem finalize :
@@ -140,7 +140,8 @@ theorem finalize :
   have hi : finalizeWide.Implies (Spec.Sha512.finalizeContract X86_64.abi 8) := by
     contract_implies [Spec.Sha512.finalizeContract, Spec.Sha512.finalizeSig, finalizeWide,
       Proof.Sha512.finalizeX86_64, X86_64.abi, X86_64.argRegs]
-      [finalizeSat, Proof.Sha512.X86_64.Stream.Finalize.sat] using finalizeSat
+      [finalizeSat, Proof.Sha512.X86_64.Stream.Finalize.sat,
+        MdStream.X86_64.Finalize.sat, Impl.Sha512.X86_64.Stream.params] using finalizeSat
   exact (finalizeWide_verified hi.sat_left).of_implies hi
 
 end VG.Proof.Sha512.X86_64.Shared

@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.Sha256.X86.Stream.Update
 # Streaming SHA-256 on x86 (32-bit): `finalize`
 
 Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 proof (`VG.Proof.Sha256.X86_64.Stream.Finalize`), with `state` in
+x86-64 proof (`VG.Proof.MdStream.X86_64.Finalize`), with `state` in
 `ebx`, `scratch` in `ebp`, the buffered bytes in `edi`, whether the block
 being padded is not the last in `esi`, and `count` and `out` in
 `scratch[128..140)`. Before each compression, `state` and `scratch` are
