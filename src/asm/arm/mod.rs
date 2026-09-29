@@ -11,6 +11,9 @@ pub(crate) mod hmac_sha256;
 pub(crate) mod pbkdf2_sha256;
 
 #[rustfmt::skip]
+pub(crate) mod poly1305;
+
+#[rustfmt::skip]
 pub(crate) mod scrypt;
 
 #[rustfmt::skip]
