@@ -66,11 +66,8 @@ runs:
       env:
         MODS: ${{ steps.mods.outputs.mods }}
       run: lake build --no-build $MODS
-<<<<<<< HEAD
     # Every job that uses this action saves on a miss; one of them wins, and
     # the others only warn that the key is taken.
-=======
->>>>>>> origin/main
     - name: Save Mathlib and its dependencies
       if: ${{ steps.lake-packages.outputs.cache-hit != 'true' && github.event_name != 'merge_group' }}
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
