@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.MlKem.X86_64.Ntt
 
 /-!
-# ML-KEM on x86-64: `vg_mlkem_ntt_inv`
+# ML-KEM on x86-64: `vg_mlkem_inv_ntt`
 
 Untrusted: everything here is checked by Lean. The butterfly's code does
 what `bflyInv` does (`bflyInv_spec`), so each layer is `nttInvLayer`, the

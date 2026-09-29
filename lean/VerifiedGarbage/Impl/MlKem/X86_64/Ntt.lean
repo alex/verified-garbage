@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Common
 import VerifiedGarbage.Spec.MlKem
 
 /-!
-# ML-KEM on x86-64: `vg_mlkem_ntt` and `vg_mlkem_ntt_inv`
+# ML-KEM on x86-64: `vg_mlkem_ntt` and `vg_mlkem_inv_ntt`
 
 `ntt(f = rdi, scratch = rsi)` and `nttInv(f = rdi, scratch = rsi)`: the
 prologue stores the 128 zetas `ζ^BitRev7(k) mod q` to `scratch` as `u32`s

@@ -15,7 +15,7 @@ namespace VG.Proof.MlKem.X86_64
 open VG VG.X86_64 VG.Impl.MlKem.X86_64
 open VG.Spec.MlKem
 
-/-- `vg_mlkem_ntt(f = rdi, scratch = rsi)` and `vg_mlkem_ntt_inv`: `f`
+/-- `vg_mlkem_ntt(f = rdi, scratch = rsi)` and `vg_mlkem_inv_ntt`: `f`
 becomes `t f`. -/
 def inPlaceK (t : Poly → Poly) : Contract isa where
   pre s :=

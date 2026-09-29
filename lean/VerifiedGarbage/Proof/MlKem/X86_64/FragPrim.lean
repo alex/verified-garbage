@@ -92,7 +92,7 @@ theorem sample_depth : sampleNTT.depth = 2 := by decide +kernel
 
 /-! ## `NTT` and `NTT⁻¹` in place -/
 
-/-- What a call of `vg_mlkem_ntt` or `vg_mlkem_ntt_inv` on `f` needs. -/
+/-- What a call of `vg_mlkem_ntt` or `vg_mlkem_inv_ntt` on `f` needs. -/
 structure IpH (f : Ptr) (s : State) : Prop where
   off : f.2 < 2 ^ 31
   red : Reduced s.mem (pa s f)

@@ -110,7 +110,7 @@ def nttAt (f : Ptr) : Prog isa :=
   .seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call "vg_mlkem_ntt" ntt)
 
 def nttInvAt (f : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call "vg_mlkem_ntt_inv" nttInv)
+  .seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call "vg_mlkem_inv_ntt" nttInv)
 
 def mulAt (h f g : Ptr) : Prog isa :=
   .seq (.block (lea .rdi h ++ lea .rsi f ++ lea .rdx g ++ lea .rcx (sc oSS)))
