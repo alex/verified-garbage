@@ -2,6 +2,10 @@ import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.MlKem.X86_64.AddSub
 import VerifiedGarbage.Proof.MlKem.X86_64.Encode12
 import VerifiedGarbage.Proof.MlKem.X86_64.Decode12
+import VerifiedGarbage.Proof.MlKem.X86_64.Cbd
+import VerifiedGarbage.Proof.MlKem.X86_64.CompressEncode
+import VerifiedGarbage.Proof.MlKem.X86_64.DecodeDecompress
+import VerifiedGarbage.Proof.MlKem.X86_64.CheckEk
 
 /-!
 # ML-KEM (FIPS 203) on x86-64: the polynomial primitives and ML-KEM-768
@@ -42,6 +46,30 @@ def artifacts : List Artifact := [
     doc := Spec.MlKem.decode12Api.doc
     code := Impl.MlKem.X86_64.decode12
     contract := Spec.MlKem.decode12Contract X86_64.abi
-    verified := Proof.MlKem.X86_64.decode12_verified }]
+    verified := Proof.MlKem.X86_64.decode12_verified },
+  { Spec.MlKem.cbd2Api with
+    target := X86_64.target
+    doc := Spec.MlKem.cbd2Api.doc
+    code := Impl.MlKem.X86_64.cbd2
+    contract := Spec.MlKem.cbd2Contract X86_64.abi
+    verified := Proof.MlKem.X86_64.cbd2_verified },
+  { Spec.MlKem.compressEncodeApi with
+    target := X86_64.target
+    doc := Spec.MlKem.compressEncodeApi.doc
+    code := Impl.MlKem.X86_64.compressEncode
+    contract := Spec.MlKem.compressEncodeContract X86_64.abi
+    verified := Proof.MlKem.X86_64.compressEncode_verified },
+  { Spec.MlKem.decodeDecompressApi with
+    target := X86_64.target
+    doc := Spec.MlKem.decodeDecompressApi.doc
+    code := Impl.MlKem.X86_64.decodeDecompress
+    contract := Spec.MlKem.decodeDecompressContract X86_64.abi
+    verified := Proof.MlKem.X86_64.decodeDecompress_verified },
+  { Spec.MlKem.checkEkApi with
+    target := X86_64.target
+    doc := Spec.MlKem.checkEkApi.doc
+    code := Impl.MlKem.X86_64.checkEk
+    contract := Spec.MlKem.checkEkContract X86_64.abi
+    verified := Proof.MlKem.X86_64.checkEk_verified }]
 
 end VG.Artifacts.MlKem.X86_64
