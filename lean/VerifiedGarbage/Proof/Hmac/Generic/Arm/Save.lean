@@ -190,4 +190,30 @@ theorem restore_ok {s : State} {scr : BitVec 32} {L : Nat} (h11 : s.gpr .r11 = s
       simp only [List.mem_cons, List.not_mem_nil, or_false, not_or]; exact ⟨hr.1, hr.2.1, hr.2.2.1,
         hr.2.2.2.1, hr.2.2.2.2.1, hr.2.2.2.2.2.1, hr.2.2.2.2.2.2.1, hr.2.2.2.2.2.2.2.1⟩)]
 
+theorem saved_ne {p : Reg × Nat} (hp : p ∈ H.saved) {r : Reg} (hr : r ∉ savedRegs) : p.1 ≠ r := by
+  rintro rfl
+  simp only [Hash.saved, List.mem_cons, List.not_mem_nil, or_false] at hp
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp at hr
+
+/-- The registers saved from a state that agrees on them. -/
+theorem SavedRegs.of_eq {scr : BitVec 32} {s₀ s₁ : State} {m : Mem} (h : SavedRegs H scr s₁ m)
+    (he : ∀ r ∈ savedRegs, s₁.gpr r = s₀.gpr r) : SavedRegs H scr s₀ m := fun p hp => by
+  rw [h p hp]
+  refine he _ ?_
+  simp only [Hash.saved, List.mem_cons, List.not_mem_nil, or_false] at hp
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp
+
+/-! ## Odds and ends -/
+
+theorem below_eq {s t : State} (h : s.sp = t.sp) : below s = below t := by simp only [below, h]
+
+theorem toNat_addr (a : BitVec 32) : (State.addr a).toNat = a.toNat := by
+  simp only [State.addr, BitVec.toNat_setWidth]
+  exact Nat.mod_eq_of_lt (by have := a.isLt; omega)
+
+theorem covers_one {rs : List Region} {r : Region} (h : r ∈ rs) : Covers [r] rs :=
+  Covers.of_sub fun r' hr' => by
+    simp only [List.mem_singleton] at hr'
+    exact ⟨r, h, 0, by rw [hr']; simp, by rw [hr']; simp⟩
+
 end VG.Proof.Hmac.Generic.Arm
