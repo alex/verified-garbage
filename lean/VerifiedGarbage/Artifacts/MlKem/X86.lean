@@ -8,6 +8,7 @@ import VerifiedGarbage.Proof.MlKem.X86.DecodeDecompress
 import VerifiedGarbage.Proof.MlKem.X86.NttInv
 import VerifiedGarbage.Proof.MlKem.X86.Mul
 import VerifiedGarbage.Proof.MlKem.X86.CheckEk
+import VerifiedGarbage.Proof.MlKem.X86.Sample
 
 /-!
 # ML-KEM (FIPS 203) on x86
@@ -23,6 +24,9 @@ against the contract.
 
 The functions that call no other one save their caller's registers in a
 frame of 16 bytes below the return address (`stack := 16`).
+`vg_mlkem_sample_ntt` also calls the Keccak functions, each in a frame of its
+6 arguments (24 bytes), with the return address and the callee's 12 bytes
+below it (`stack := 56`).
 -/
 
 namespace VG.Artifacts.MlKem.X86
@@ -106,6 +110,13 @@ def artifacts : List Artifact := [
     code := Impl.MlKem.X86.checkEk
     contract := Spec.MlKem.checkEkContract X86.abi 16
     stack := 16
-    verified := Proof.MlKem.X86.CheckEk.verified }]
+    verified := Proof.MlKem.X86.CheckEk.verified },
+  { Spec.MlKem.sampleNTTApi with
+    target := X86.target
+    doc := Spec.MlKem.sampleNTTApi.doc
+    code := Impl.MlKem.X86.sampleNTT
+    contract := Spec.MlKem.sampleNTTContract X86.abi 56
+    stack := 56
+    verified := Proof.MlKem.X86.Sample.verified }]
 
 end VG.Artifacts.MlKem.X86

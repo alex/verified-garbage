@@ -52,6 +52,11 @@ def restore : List Instr :=
 def leaf (body : Prog isa) : Prog isa :=
   .frame (.push saveRegs) (.seq body (.block restore)) (.pop .ebx 4)
 
+/-- A call of `code` (named `name`) with the arguments `rs`, pushed last to
+first in a frame of their own, popped into `eax` when it returns. -/
+def callWith (rs : List Reg) (name : String) (code : Prog isa) : Prog isa :=
+  .frame (.push rs) (.call name code) (.pop .eax rs.length)
+
 /-! ## `add` and `sub` -/
 
 /-- `eax ← (eax + g[i]) mod q`. -/
