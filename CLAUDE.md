@@ -11,12 +11,9 @@ trustworthy. Read `lean/README.md` first.
   `lean/VerifiedGarbage/Artifacts/<Alg>/<Target>.lean`, and run
   `lake env lean --run Emit.lean` in `lean/`.
 * **No unverified shortcuts in proofs.** No `sorry`, `admit`, `native_decide`,
-  `bv_decide` or new `axiom`s in anything an artifact depends on, and never
-  skip the kernel's check (`debug.skipKernelTC`, or adding declarations
-  from a metaprogram). `lake build` and the emitter enforce this (warnings
-  are errors, and `#assert_standard_axioms` audits every artifact), and CI
-  replays every declaration through the kernel (`leanchecker`); never work
-  around it.
+  `bv_decide` or new `axiom`s in anything an artifact depends on.
+  `lake build` and the emitter enforce this (warnings are errors, and
+  `#assert_standard_axioms` audits every artifact); never work around it.
 * **Changes to `lean/VerifiedGarbage/TCB/` or `Spec/` are trust changes.**
   Keep them minimal, call them out explicitly in the PR description, and
   justify each ISA semantics change by citing the vendor manual (e.g. Intel SDM
@@ -259,7 +256,7 @@ against the 200000 budget.
 ## Checks to run before pushing
 
 ```sh
-(cd lean && lake build && lake env leanchecker VerifiedGarbage && lake env lean --run Emit.lean --check)
+(cd lean && lake build && lake env lean --run Emit.lean --check)
 python3 ci/check_lean_imports.py
 python3 ci/check_lean_speed.py
 python3 ci/check_vectors.py

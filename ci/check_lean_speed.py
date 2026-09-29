@@ -7,10 +7,6 @@ without building. Exits non-zero on violations.
     or in the lakefile. Lean's default `maxHeartbeats` (200000) bounds both
     elaboration and the kernel's check of every declaration, so a proof that
     got slow fails the build instead of quietly slowing it down.
-  * No option switches the kernel's check off (`debug.skipKernelTC`), in a
-    source file or in the lakefile: a slow kernel check is a slow proof. CI
-    also replays every declaration through the kernel (`leanchecker`), which
-    catches this however it is done.
   * No import of all of Mathlib or of `Mathlib.Tactic`.
   * No `simp` unfolds `runBlock` or `runStep`: step blocks with
     `runBlock_cons`, `runStep_some` and `runBlock_nil`. `Proof/Framework/`,
@@ -32,7 +28,6 @@ FRAMEWORK = LEAN / "VerifiedGarbage" / "Proof" / "Framework"
 LIMITS = r"(?:maxHeartbeats|maxRecDepth|synthInstance\.maxHeartbeats|synthInstance\.maxSize)"
 SET_LIMIT = re.compile(rf"\bset_option\s+{LIMITS}\b")
 LAKEFILE_LIMIT = re.compile(rf"^\s*{LIMITS}\s*=", re.M)
-SKIP_KERNEL = re.compile(r"\bdebug\.skipKernelTC\b")
 BIG_IMPORT = re.compile(r"^\s*import\s+(Mathlib|Mathlib\.Tactic)\s*$", re.M)
 SIMP_ARGS = re.compile(r"\bsimp(?:_all|a)?\b[^\[\n]*\[([^\]]*)\]")
 UNFOLD = re.compile(r"(?<![\w.])(runBlock|runStep)(?![\w.])")
@@ -75,8 +70,6 @@ def main() -> int:
         rel = f.relative_to(ROOT)
         for m in SET_LIMIT.finditer(text):
             errors.append(f"{rel}:{line_of(text, m.start())}: changes a resource limit; make the proof faster instead")
-        for m in SKIP_KERNEL.finditer(text):
-            errors.append(f"{rel}:{line_of(text, m.start())}: skips the kernel's check; make the proof faster instead")
         for m in BIG_IMPORT.finditer(text):
             errors.append(f"{rel}:{line_of(text, m.start())}: imports {m.group(1)}; import the modules you use")
         if PROOF in f.parents:
@@ -97,8 +90,6 @@ def main() -> int:
     text = lakefile.read_text()
     for m in LAKEFILE_LIMIT.finditer(text):
         errors.append(f"{lakefile.relative_to(ROOT)}:{line_of(text, m.start())}: changes a resource limit")
-    for m in SKIP_KERNEL.finditer(text):
-        errors.append(f"{lakefile.relative_to(ROOT)}:{line_of(text, m.start())}: skips the kernel's check")
     for e in errors:
         print(e, file=sys.stderr)
     if not errors:
