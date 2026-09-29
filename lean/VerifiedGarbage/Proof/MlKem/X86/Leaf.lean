@@ -186,4 +186,72 @@ theorem leaf {body : Prog isa} {B : State → State → Prop} (W : State → Lis
 
 end Piece
 
+/-- Argument `i`, as a leaf addresses it after its push. -/
+theorem P0_argAddr (s₀ : State) (i : Nat) :
+    ((P0 s₀).gpr .esp + BitVec.ofNat 32 (20 + 4 * i)).setWidth 64 = argAddr s₀ i := by
+  rw [P0_esp]; simp only [argAddr, E0]; congr 1; bv_omega
+
+/-- A word of the arguments. -/
+theorem arg_contains {s₀ : State} {n i : Nat} (hi : i < n) (hfit : (E0 s₀).toNat + 4 + 4 * n ≤ 2 ^ 32) :
+    (⟨argAddr s₀ 0, 4 * n⟩ : Region).Contains (argAddr s₀ i) 4 := by
+  simp only [argAddr, Region.Contains, E0] at hfit ⊢
+  bv_omega
+
+/-- The push leaves the arguments. -/
+theorem P0_arg {s₀ : State} (hE : 16 ≤ (E0 s₀).toNat) {n i : Nat} (hi : i < n)
+    (hfit : (E0 s₀).toNat + 4 + 4 * n ≤ 2 ^ 32)
+    (hd : (⟨(E0 s₀).setWidth 64 - 16#64, 16⟩ : Region).Disjoint ⟨argAddr s₀ 0, 4 * n⟩) :
+    (P0 s₀).mem.readW (argAddr s₀ i) 32 = arg s₀ i := by
+  have hf := pushed_frame (rs := saveRegs) (s := s₀) (by decide) (by rw [saveRegs_len]; exact hE)
+  rw [saveRegs_len] at hf
+  refine hf.readW (arg_contains hi hfit) ?_ (by decide)
+  simp only [List.mem_singleton, forall_eq]
+  have e : frameR s₀ = ⟨(E0 s₀).setWidth 64 - 16#64, 16⟩ := by
+    simp only [frameR, below]; rw [Taint.sub_setWidth hE]
+  exact (e ▸ hd).symm
+
+/-- `[esp + 20 + 4i]`, argument `i`, may be read after the push. -/
+theorem P0_argIn {s₀ : State} {n i : Nat} (hi : i < n) (hfit : (E0 s₀).toNat + 4 + 4 * n ≤ 2 ^ 32)
+    (hin : (⟨argAddr s₀ 0, 4 * n⟩ : Region) ∈ s₀.rd ++ s₀.wr) :
+    InRegions ((P0 s₀).rd ++ (P0 s₀).wr) (argAddr s₀ i) 4 := by
+  refine ⟨_, ?_, arg_contains hi hfit⟩
+  rw [pushed_rd, P0_wr]
+  rcases List.mem_append.mp hin with h | h
+  · exact List.mem_append_left _ h
+  · exact List.mem_append_right _ (List.mem_cons_of_mem _ h)
+
+namespace Piece
+
+variable {Pre : State → Prop} {Pub : State → State → Prop}
+
+/-- A leaf whose body is a block and a loop over a block. -/
+theorem leafLoop {init body : List Instr} {N : Nat} (W : State → List Region)
+    (Inv : Nat → State → State → Prop)
+    (hsp : NoSp (.seq (.block init) (.loop (.block body) .ne)))
+    (hE : ∀ s₀, Pre s₀ → 16 ≤ (E0 s₀).toNat ∧ (E0 s₀).toNat + 4 ≤ 2 ^ 32)
+    (hW : ∀ s₀, Pre s₀ → ∀ r ∈ W s₀, (frameR s₀).Disjoint r ∧ (retR s₀).Disjoint r)
+    (hpub : ∀ s₀ s₀', Pre s₀ → Pre s₀' → Pub s₀ s₀' → E0 s₀ = E0 s₀')
+    (hinit : Piece Pre Pub (fun s₀ s => s = P0 s₀) (Inv 0) (.block init))
+    (hloop : Piece Pre Pub (Inv 0) (Inv N) (.loop (.block body) .ne))
+    (hend : ∀ s₀ s, Pre s₀ → Inv N s₀ s → LeafEnd s₀ (W s₀) s) :
+    Piece Pre Pub (fun s₀ s => s = s₀) (fun s₀ s' => LeafPost (Inv N s₀) s₀ s')
+      (Impl.MlKem.X86.leaf (.seq (.block init) (.loop (.block body) .ne))) :=
+  Piece.leaf W hsp hE hW hpub
+    ((Piece.seq hinit hloop).mono (fun _ _ _ h => h) fun s₀ s h₀ h => ⟨hend s₀ s h₀ h, h⟩)
+
+end Piece
+
+/-- A state with `esp = 0x5000`, the given memory and regions: a witness
+that a precondition can hold. -/
+def satState (m : Mem) (rd wr : List Region) : State where
+  gpr r := match r with
+    | .esp => 0x5000 | _ => 0
+  cf := none
+  zf := none
+  sf := none
+  of := none
+  mem := m
+  rd := rd
+  wr := wr
+
 end VG.Proof.MlKem.X86

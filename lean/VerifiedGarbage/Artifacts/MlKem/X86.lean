@@ -1,5 +1,8 @@
 import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.MlKem.X86.AddSub
+import VerifiedGarbage.Proof.MlKem.X86.Encode12
+import VerifiedGarbage.Proof.MlKem.X86.Decode12
+import VerifiedGarbage.Proof.MlKem.X86.Cbd
 
 /-!
 # ML-KEM (FIPS 203) on x86
@@ -33,6 +36,27 @@ def artifacts : List Artifact := [
     code := Impl.MlKem.X86.sub
     contract := Spec.MlKem.subContract X86.abi 16
     stack := 16
-    verified := Proof.MlKem.X86.sub_verified }]
+    verified := Proof.MlKem.X86.sub_verified },
+  { Spec.MlKem.encode12Api with
+    target := X86.target
+    doc := Spec.MlKem.encode12Api.doc
+    code := Impl.MlKem.X86.encode12
+    contract := Spec.MlKem.encode12Contract X86.abi 16
+    stack := 16
+    verified := Proof.MlKem.X86.Encode12.verified },
+  { Spec.MlKem.decode12Api with
+    target := X86.target
+    doc := Spec.MlKem.decode12Api.doc
+    code := Impl.MlKem.X86.decode12
+    contract := Spec.MlKem.decode12Contract X86.abi 16
+    stack := 16
+    verified := Proof.MlKem.X86.Decode12.verified },
+  { Spec.MlKem.cbd2Api with
+    target := X86.target
+    doc := Spec.MlKem.cbd2Api.doc
+    code := Impl.MlKem.X86.cbd2
+    contract := Spec.MlKem.cbd2Contract X86.abi 16
+    stack := 16
+    verified := Proof.MlKem.X86.Cbd.verified }]
 
 end VG.Artifacts.MlKem.X86

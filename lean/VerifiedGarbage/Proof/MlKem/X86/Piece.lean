@@ -121,6 +121,19 @@ theorem loop {body : Prog isa} {cnd : Cond} (Inv : Nat → State → State → P
         · exact RelCT.of_false fun s s' ⟨h1, h2, _⟩ => hk ⟨h1, h2⟩) N
     exact this.mono (fun s s' ⟨a, a'⟩ => ⟨0, (Nat.sub_zero N).symm, hN, a, a'⟩) fun _ _ h => h
 
+/-- A loop of `N ≥ 1` iterations of a block, counting down with `sub ecx, 1`
+(or anything else that leaves the condition `ne` as correctness says),
+whose addresses depend only on the registers `R`. -/
+theorem countLoop {body : List Instr} {N : Nat} (hN : 0 < N) (Inv : Nat → State → State → Prop)
+    (R : List Reg)
+    (hstep : ∀ k < N, ∀ s₀ s, Pre s₀ → Inv k s₀ s → WP isa (.block body) s fun s' =>
+      Inv (k + 1) s₀ s' ∧ isa.eval .ne s' = some (decide (k + 1 < N)))
+    (hR : ∀ k < N, ∀ s₀ s₀' s s', Pre s₀ → Pre s₀' → Pub s₀ s₀' → Inv k s₀ s → Inv k s₀' s' →
+      ∀ r ∈ R, s.gpr r = s'.gpr r)
+    {hc : Taint.Hint VG.X86.Taint.T} (ht : (VG.X86.taint.check (τr R) (.block body) hc).isSome = true) :
+    Piece Pre Pub (Inv 0) (Inv N) (.loop (.block body) .ne) :=
+  Piece.loop Inv hN fun k hk => Piece.taint R (hstep k hk) (hR k hk) ht
+
 /-- A frame around `body`. -/
 theorem frame {A B : State → State → Prop} {rs : List Reg} {r : Reg} {body : Prog isa}
     (hne : rs ≠ []) (hrs : Reg.esp ∉ rs) (hr : r ≠ .esp) (hsp : NoSp body)

@@ -132,7 +132,6 @@ structure MapInv (F : Nat → Nat → Nat) (s₀ : State) (k : Nat) (s : State) 
   frame : Frame [polyRegion (fA s₀)] (P0 s₀).mem s.mem
   f : ∀ i < 256, coeffAt s.mem (fA s₀) i = if i < k then newC F s₀ i else coeffAt s₀.mem (fA s₀) i
 
-theorem polyLen (p : Addr) : (polyRegion p).len ≤ 2 ^ 64 := by show 1024 ≤ 2 ^ 64; decide
 
 namespace AccPre
 variable {s₀ : State} (hp : AccPre s₀)
@@ -305,11 +304,6 @@ theorem map_post {F : Nat → Nat → Nat} {G : Zq → Zq → Zq} (hG : ∀ x y 
   rw [h.f i hi, ite_eq_left hi, vec_zipWith_get _ _ _ hi, hG, polyAt_val hp.f_red hi, polyAt_val hp.g_red hi,
     newC, toNat_ofNat32 (by omega)]
 
-/-- All-zero memory holds a reduced polynomial. -/
-theorem reduced_of_zero {m : Mem} {p : Addr} (h : ∀ k < 1024, m (p + BitVec.ofNat 64 k) = 0) :
-    Reduced m p := fun i hi => by
-  rw [coeffAt_congr (m' := m) (m := fun _ => 0) (fun k hk => h k hk) hi]
-  simp [coeffAt, Mem.readW, Mem.read]
 
 /-- Memory whose argument words (at `0x5004`) hold `0` and `0x400`. -/
 def accSatMem : Mem := fun a => if a = 0x5009 then 4 else 0
