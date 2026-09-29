@@ -3,6 +3,8 @@ import VerifiedGarbage.Proof.MlKem1024.AArch64.CompressEncode
 import VerifiedGarbage.Proof.MlKem1024.AArch64.DecodeDecompress
 import VerifiedGarbage.Proof.MlKem1024.AArch64.CheckEk
 import VerifiedGarbage.Proof.MlKem1024.AArch64.KeyGen
+import VerifiedGarbage.Proof.MlKem1024.AArch64.Encaps
+import VerifiedGarbage.Proof.MlKem1024.AArch64.Decaps
 
 /-!
 # ML-KEM-1024 on AArch64
@@ -48,6 +50,22 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem1024.keyGenContract AArch64.abi 16
     stack := 16
     verified := Proof.MlKem1024.AArch64.KeyGen.keyGen_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem1024.encapsApi with
+    target := AArch64.target
+    doc := Spec.MlKem1024.encapsApi.doc
+    code := Impl.MlKem1024.AArch64.encaps
+    contract := Spec.MlKem1024.encapsContract AArch64.abi 16
+    stack := 16
+    verified := Proof.MlKem1024.AArch64.Encaps.encaps_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem1024.decapsApi with
+    target := AArch64.target
+    doc := Spec.MlKem1024.decapsApi.doc
+    code := Impl.MlKem1024.AArch64.decaps
+    contract := Spec.MlKem1024.decapsContract AArch64.abi 16
+    stack := 16
+    verified := Proof.MlKem1024.AArch64.Decaps.decaps_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.MlKem1024.AArch64
