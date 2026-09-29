@@ -13,7 +13,12 @@
 //! `vg_sha1_update_shani` and `vg_sha1_finalize_shani` instead, which have
 //! the same contracts and call `vg_sha1_compress_shani`.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 #[cfg(target_arch = "x86_64")]
 use crate::arch::sha1::{

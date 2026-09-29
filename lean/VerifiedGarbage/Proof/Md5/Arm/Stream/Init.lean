@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.MdStream.Arm.Common
 import VerifiedGarbage.Proof.Md5.Arm.Compress
 import VerifiedGarbage.Proof.Md5.Stream
 import VerifiedGarbage.Impl.Md5.Arm.Stream
-import VerifiedGarbage.Proof.Md5.AArch64.Compress
+import VerifiedGarbage.Proof.Md5.StateMem
 import VerifiedGarbage.Proof.Md5.Arm.Contract
 
 /-!
@@ -57,7 +57,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Md5.initArm.pre s₀) :
     fun s4 g4 _ _ sp4 m4 => WP.block_nil ?_
   have k4 : ∀ r, r ≠ .r12 → s4.gpr r = s₀.gpr r := fun r h => by
     rw [g4 r h, g3 r h, g2 r h, g1 r h]
-  have hm : s4.mem = Proof.Md5.AArch64.writeState s₀.mem (State.addr (s₀.gpr .r0)) H0 := by
+  have hm : s4.mem = Proof.Md5.StateMem.writeState s₀.mem (State.addr (s₀.gpr .r0)) H0 := by
     rw [m4, m3, m2, m1, k3, k2, k1]
     rfl
   refine ⟨⟨fun r hr => k4 r ?_, by rw [sp4, sp3, sp2, sp1]⟩, ?_⟩
@@ -65,7 +65,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Md5.initArm.pre s₀) :
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
   · show Spec.Md5.Repr s4.mem (State.addr (s₀.gpr .r0)) []
     rw [hm]
-    exact Proof.Md5.Stream.repr_nil (Proof.Md5.AArch64.stateAt_writeState _ _ _)
+    exact Proof.Md5.Stream.repr_nil (Proof.Md5.StateMem.stateAt_writeState _ _ _)
 
 /-- A state satisfying the precondition. -/
 def initSat : State where

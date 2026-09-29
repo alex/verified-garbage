@@ -7,7 +7,12 @@
 //! always run. Test case 5's truncated MAC is compared with the start of the
 //! computed one.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use verified_garbage::hashes::md5::Md5;
 use verified_garbage::hmac::Hmac;

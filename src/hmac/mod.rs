@@ -88,7 +88,12 @@ impl<H: HmacHash> Hmac<H> {
     }
 
     /// The state of the computation.
-    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+    #[cfg(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "arm",
+        target_arch = "x86"
+    ))]
     pub(crate) fn state(&self) -> &H::State {
         &self.state
     }
@@ -98,7 +103,12 @@ impl<H: HmacHash> Hmac<H> {
 /// primitives: the computation of the inner hash, whose message is
 /// `(K₀ ⊕ ipad) ‖ text`, and the streaming state of the outer one, which
 /// represents `K₀ ⊕ opad`.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 #[doc(hidden)]
 #[derive(Clone)]
 pub struct StreamingHmacState<H, const S: usize> {
@@ -122,7 +132,12 @@ pub struct StreamingHmacState<H, const S: usize> {
 /// "Variants and generic callers" in `lean/VerifiedGarbage/TCB/Emit.lean`),
 /// and a test checks that they need no CPU feature the hash's
 /// implementation was not selected for.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 macro_rules! streaming_hmac {
     (
         $hash:ident ($backend:ident) {
@@ -230,5 +245,10 @@ macro_rules! streaming_hmac {
     };
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 use streaming_hmac;

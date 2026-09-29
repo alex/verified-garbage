@@ -15,7 +15,7 @@ namespace VG.Proof.Sha512.X86.Stream
 
 open VG VG.X86 VG.Impl.Sha512.X86.Stream
 open VG.Impl.Sha512.X86 (at_)
-open VG.Impl.Sha512.Arm (lo hi)
+open VG.Proof.Sha512.Word64 (lo hi)
 open VG.Proof.Sha256.X86.Stream (Upd Mupd wp_movi wp_store wp_movm contains_addr)
 open VG.Spec.Sha512 (HashValue stateAt)
 

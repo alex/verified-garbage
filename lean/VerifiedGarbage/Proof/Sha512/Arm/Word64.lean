@@ -1,13 +1,13 @@
-import VerifiedGarbage.Proof.Framework.Mem
-import VerifiedGarbage.Proof.Sha512.Spec
+import VerifiedGarbage.Proof.Sha512.Word64
 import VerifiedGarbage.Impl.Sha512.Arm
 
 /-!
-# 64-bit words as pairs of 32-bit halves
+# 64-bit words as pairs of 32-bit halves, on ARMv7
 
-Untrusted: everything here is checked by Lean. The halves (`lo`, `hi`) of
-sums, bitwise operations, rotations and shifts of 64-bit words, in the form
-the ARMv7 code computes them, and the halves of a 64-bit word in memory.
+Untrusted: everything here is checked by Lean. The lemmas of
+`Proof/Sha512/Word64.lean` about the halves (`lo`, `hi`) of 64-bit words,
+stated for the ARMv7 implementation's `lo` and `hi` (the same functions),
+and the terms of `Σ`/`σ` as the implementation lists them (`Op`).
 -/
 
 namespace VG.Proof.Sha512.Arm
@@ -16,141 +16,57 @@ open VG.Impl.Sha512.Arm (lo hi Op)
 
 /-! ## Halves -/
 
-theorem lo_toNat (x : BitVec 64) : (lo x).toNat = x.toNat % 2 ^ 32 := by
-  simp [lo]
+theorem lo_toNat (x : BitVec 64) : (lo x).toNat = x.toNat % 2 ^ 32 := Word64.lo_toNat x
 
-theorem hi_toNat (x : BitVec 64) : (hi x).toNat = x.toNat / 2 ^ 32 := by
-  simp only [hi, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
-  have := x.isLt
-  omega
+theorem hi_toNat (x : BitVec 64) : (hi x).toNat = x.toNat / 2 ^ 32 := Word64.hi_toNat x
 
 @[simp] theorem lo_zero : lo 0#64 = 0#32 := rfl
 
 @[simp] theorem hi_zero : hi 0#64 = 0#32 := rfl
 
-theorem eq_of_lo_hi {x y : BitVec 64} (h1 : lo x = lo y) (h2 : hi x = hi y) : x = y := by
-  have e1 := congrArg BitVec.toNat h1
-  have e2 := congrArg BitVec.toNat h2
-  rw [lo_toNat, lo_toNat] at e1
-  rw [hi_toNat, hi_toNat] at e2
-  apply BitVec.eq_of_toNat_eq
-  omega
+theorem eq_of_lo_hi {x y : BitVec 64} (h1 : lo x = lo y) (h2 : hi x = hi y) : x = y :=
+  Word64.eq_of_lo_hi h1 h2
 
-theorem hi_append_lo (x : BitVec 64) : hi x ++ lo x = x := by
-  apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_append, ← Nat.shiftLeft_add_eq_or_of_lt (lo x).isLt, Nat.shiftLeft_eq, lo_toNat,
-    hi_toNat]
-  omega
+theorem hi_append_lo (x : BitVec 64) : hi x ++ lo x = x := Word64.hi_append_lo x
 
-theorem lo_append (a b : BitVec 32) : lo (a ++ b) = b := by
-  simp only [lo]; exact BitVec.extractLsb'_append_eq_right
+theorem lo_append (a b : BitVec 32) : lo (a ++ b) = b := Word64.lo_append a b
 
-theorem hi_append (a b : BitVec 32) : hi (a ++ b) = a := by
-  simp only [hi]; exact BitVec.extractLsb'_append_eq_left
+theorem hi_append (a b : BitVec 32) : hi (a ++ b) = a := Word64.hi_append a b
 
-/-- The carry out of the addition of the low halves (as `adds` sets it). -/
-theorem lo_add (x y : BitVec 64) : lo (x + y) = lo x + lo y := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [lo_toNat, BitVec.toNat_add]
-  omega
+theorem lo_add (x y : BitVec 64) : lo (x + y) = lo x + lo y := Word64.lo_add x y
 
 theorem hi_add (x y : BitVec 64) :
-    hi (x + y) = hi x + hi y + (if 2 ^ 32 ≤ (lo x).toNat + (lo y).toNat then 1 else 0) := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [hi_toNat, lo_toNat, BitVec.toNat_add]
-  have := x.isLt; have := y.isLt
-  split <;> simp <;> omega
+    hi (x + y) = hi x + hi y + (if 2 ^ 32 ≤ (lo x).toNat + (lo y).toNat then 1 else 0) :=
+  Word64.hi_add x y
 
-theorem lo_xor (x y : BitVec 64) : lo (x ^^^ y) = lo x ^^^ lo y := by
-  simp [lo, BitVec.extractLsb'_xor]
+theorem lo_xor (x y : BitVec 64) : lo (x ^^^ y) = lo x ^^^ lo y := Word64.lo_xor x y
 
-theorem hi_xor (x y : BitVec 64) : hi (x ^^^ y) = hi x ^^^ hi y := by
-  simp [hi, BitVec.extractLsb'_xor]
+theorem hi_xor (x y : BitVec 64) : hi (x ^^^ y) = hi x ^^^ hi y := Word64.hi_xor x y
 
-theorem lo_and (x y : BitVec 64) : lo (x &&& y) = lo x &&& lo y := by
-  simp [lo, BitVec.extractLsb'_and]
+theorem lo_and (x y : BitVec 64) : lo (x &&& y) = lo x &&& lo y := Word64.lo_and x y
 
-theorem hi_and (x y : BitVec 64) : hi (x &&& y) = hi x &&& hi y := by
-  simp [hi, BitVec.extractLsb'_and]
+theorem hi_and (x y : BitVec 64) : hi (x &&& y) = hi x &&& hi y := Word64.hi_and x y
 
-theorem lo_or (x y : BitVec 64) : lo (x ||| y) = lo x ||| lo y := by
-  simp [lo, BitVec.extractLsb'_or]
+theorem lo_or (x y : BitVec 64) : lo (x ||| y) = lo x ||| lo y := Word64.lo_or x y
 
-theorem hi_or (x y : BitVec 64) : hi (x ||| y) = hi x ||| hi y := by
-  simp [hi, BitVec.extractLsb'_or]
-
-/-! ## Rotations and shifts
-
-The two parts of each half have no bits in common, so their exclusive or is
-their or. -/
+theorem hi_or (x y : BitVec 64) : hi (x ||| y) = hi x ||| hi y := Word64.hi_or x y
 
 theorem lo_rotr {n : Nat} (x : BitVec 64) (h0 : 0 < n) (h : n < 32) :
-    lo (x.rotateRight n) = lo x >>> n ^^^ hi x <<< (32 - n) := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi'
-  simp only [lo, hi, BitVec.getLsbD_extractLsb', BitVec.getLsbD_rotateRight, BitVec.getLsbD_xor,
-    BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft, Nat.mod_eq_of_lt (show n < 64 by omega)]
-  by_cases hc : i < 32 - n
-  · simp [hc, hi', show i < 64 - n by omega, show n + i < 32 by omega]
-  · simp [hi', show i < 64 - n by omega, show ¬ n + i < 32 by omega, show ¬ i < 32 - n by omega,
-      show i - (32 - n) < 32 by omega, show 32 + (i - (32 - n)) = n + i by omega]
+    lo (x.rotateRight n) = lo x >>> n ^^^ hi x <<< (32 - n) := Word64.lo_rotr x h0 h
 
 theorem hi_rotr {n : Nat} (x : BitVec 64) (h0 : 0 < n) (h : n < 32) :
-    hi (x.rotateRight n) = hi x >>> n ^^^ lo x <<< (32 - n) := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi'
-  simp only [lo, hi, BitVec.getLsbD_extractLsb', BitVec.getLsbD_rotateRight, BitVec.getLsbD_xor,
-    BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft, Nat.mod_eq_of_lt (show n < 64 by omega)]
-  by_cases hc : i < 32 - n
-  · simp [hc, hi', show 32 + i < 64 - n by omega, show n + i < 32 by omega,
-      show n + (32 + i) = 32 + (n + i) by omega]
-  · simp [show 32 + i < 64 by omega, hi', show ¬ 32 + i < 64 - n by omega,
-      show ¬ n + i < 32 by omega, show ¬ i < 32 - n by omega, show i - (32 - n) < 32 by omega,
-      show 32 + i - (64 - n) = i - (32 - n) by omega]
+    hi (x.rotateRight n) = hi x >>> n ^^^ lo x <<< (32 - n) := Word64.hi_rotr x h0 h
 
 theorem lo_rotr' {n : Nat} (x : BitVec 64) (h0 : 32 < n) (h : n < 64) :
-    lo (x.rotateRight n) = hi x >>> (n - 32) ^^^ lo x <<< (64 - n) := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi'
-  simp only [lo, hi, BitVec.getLsbD_extractLsb', BitVec.getLsbD_rotateRight, BitVec.getLsbD_xor,
-    BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft, Nat.mod_eq_of_lt h]
-  by_cases hc : i < 64 - n
-  · simp [hc, hi', show n - 32 + i < 32 by omega, show 32 + (n - 32 + i) = n + i by omega]
-  · simp [show i < 64 by omega, hi', hc, show ¬ n - 32 + i < 32 by omega,
-      show i - (64 - n) < 32 by omega]
+    lo (x.rotateRight n) = hi x >>> (n - 32) ^^^ lo x <<< (64 - n) := Word64.lo_rotr' x h0 h
 
 theorem hi_rotr' {n : Nat} (x : BitVec 64) (h0 : 32 < n) (h : n < 64) :
-    hi (x.rotateRight n) = lo x >>> (n - 32) ^^^ hi x <<< (64 - n) := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi'
-  simp only [lo, hi, BitVec.getLsbD_extractLsb', BitVec.getLsbD_rotateRight, BitVec.getLsbD_xor,
-    BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft, Nat.mod_eq_of_lt h]
-  by_cases hc : i < 64 - n
-  · simp [show 32 + i < 64 by omega, hc, hi', show n - 32 + i < 32 by omega,
-      show ¬ 32 + i < 64 - n by omega, show 32 + i - (64 - n) = n - 32 + i by omega]
-  · simp [show 32 + i < 64 by omega, hi', hc, show ¬ n - 32 + i < 32 by omega,
-      show ¬ 32 + i < 64 - n by omega, show i - (64 - n) < 32 by omega,
-      show 32 + i - (64 - n) = 32 + (i - (64 - n)) by omega]
+    hi (x.rotateRight n) = lo x >>> (n - 32) ^^^ hi x <<< (64 - n) := Word64.hi_rotr' x h0 h
 
 theorem lo_shr {n : Nat} (x : BitVec 64) (h0 : 0 < n) (h : n < 32) :
-    lo (x >>> n) = lo x >>> n ^^^ hi x <<< (32 - n) := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi'
-  simp only [lo, hi, BitVec.getLsbD_extractLsb', BitVec.getLsbD_xor,
-    BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft]
-  by_cases hc : i < 32 - n
-  · simp [hc, hi', show n + i < 32 by omega]
-  · simp [hi', hc, show ¬ n + i < 32 by omega, show i - (32 - n) < 32 by omega,
-      show 32 + (i - (32 - n)) = n + i by omega]
+    lo (x >>> n) = lo x >>> n ^^^ hi x <<< (32 - n) := Word64.lo_shr x h0 h
 
-theorem hi_shr (n : Nat) (x : BitVec 64) : hi (x >>> n) = hi x >>> n := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi'
-  simp only [hi, BitVec.getLsbD_extractLsb', BitVec.getLsbD_ushiftRight]
-  by_cases hc : n + i < 32
-  · simp [hi', hc, show n + (32 + i) = 32 + (n + i) by omega]
-  · simp [hi', hc]
-    exact BitVec.getLsbD_of_ge x _ (by omega)
+theorem hi_shr (n : Nat) (x : BitVec 64) : hi (x >>> n) = hi x >>> n := Word64.hi_shr n x
 
 /-! ## The terms of `Σ₀`, `Σ₁`, `σ₀` and `σ₁` -/
 
@@ -177,64 +93,48 @@ def _root_.VG.Impl.Sha512.Arm.Op.hiVals (L H : BitVec 32) : Op → List (BitVec 
   | .rotr n => if n < 32 then [H >>> n, L <<< (32 - n)] else [L >>> (n - 32), H <<< (64 - n)]
   | .shr n => [H >>> n]
 
-theorem _root_.VG.Impl.Sha512.Arm.Op.lo_eval {o : Op} (hv : o.valid = true) (x : BitVec 64) :
-    ((o.loVals (lo x) (hi x)).foldl (· ^^^ ·) 0) = lo (o.eval x) := by
-  cases o with
-  | rotr n =>
-    simp only [Op.valid, Bool.and_eq_true, decide_eq_true_eq, bne_iff_ne, ne_eq] at hv
-    simp only [Op.loVals, Op.eval]
-    split
-    · simp [lo_rotr x hv.1.1 (by omega)]
-    · simp [lo_rotr' x (by omega) hv.1.2]
-  | shr n =>
-    simp only [Op.valid, Bool.and_eq_true, decide_eq_true_eq] at hv
-    simp [Op.loVals, Op.eval, lo_shr x hv.1 hv.2]
+/-- The term, as a `Word64.Term` (whose value, validity and parts are the same). -/
+def _root_.VG.Impl.Sha512.Arm.Op.term : Op → Word64.Term
+  | .rotr n => .rotr n
+  | .shr n => .shr n
 
-theorem _root_.VG.Impl.Sha512.Arm.Op.hi_eval {o : Op} (hv : o.valid = true) (x : BitVec 64) :
-    ((o.hiVals (lo x) (hi x)).foldl (· ^^^ ·) 0) = hi (o.eval x) := by
-  cases o with
-  | rotr n =>
-    simp only [Op.valid, Bool.and_eq_true, decide_eq_true_eq, bne_iff_ne, ne_eq] at hv
-    simp only [Op.hiVals, Op.eval]
-    split
-    · simp [hi_rotr x hv.1.1 (by omega)]
-    · simp [hi_rotr' x (by omega) hv.1.2]
-  | shr n => simp [Op.hiVals, Op.eval, hi_shr]
+theorem evalOps_term (x : BitVec 64) (ops : List Op) :
+    evalOps x ops = Word64.evalOps x (ops.map Op.term) := by
+  have e : (fun a (o : Op) => a ^^^ o.eval x) = fun a o => a ^^^ o.term.eval x :=
+    funext fun _ => funext fun o => by cases o <;> rfl
+  rw [evalOps, Word64.evalOps, List.foldl_map, e]
 
-theorem foldl_xor_acc (a : BitVec 32) (l : List (BitVec 32)) :
-    l.foldl (· ^^^ ·) a = a ^^^ l.foldl (· ^^^ ·) 0 := by
-  induction l generalizing a with
-  | nil => simp
-  | cons b l ih =>
-    simp only [List.foldl_cons]
-    rw [ih, ih (0 ^^^ b)]
-    simp [BitVec.xor_assoc]
+theorem valid_term {ops : List Op} (hv : ∀ o ∈ ops, o.valid = true) :
+    ∀ o ∈ ops.map Op.term, o.valid = true := by
+  intro o ho
+  obtain ⟨o', h', rfl⟩ := List.mem_map.mp ho
+  cases o' <;> exact hv _ h'
+
+theorem flatMap_loVals (L H : BitVec 32) (ops : List Op) :
+    ops.flatMap (Op.loVals L H) = (ops.map Op.term).flatMap (Word64.Term.loVals L H) := by
+  induction ops with
+  | nil => rfl
+  | cons o os ih =>
+    rw [List.flatMap_cons, List.map_cons, List.flatMap_cons, ih]
+    cases o <;> rfl
+
+theorem flatMap_hiVals (L H : BitVec 32) (ops : List Op) :
+    ops.flatMap (Op.hiVals L H) = (ops.map Op.term).flatMap (Word64.Term.hiVals L H) := by
+  induction ops with
+  | nil => rfl
+  | cons o os ih =>
+    rw [List.flatMap_cons, List.map_cons, List.flatMap_cons, ih]
+    cases o <;> rfl
 
 theorem lo_evalOps (x : BitVec 64) (ops : List Op) (hv : ∀ o ∈ ops, o.valid = true) :
     (ops.flatMap (Op.loVals (lo x) (hi x))).foldl (· ^^^ ·) 0 = lo (evalOps x ops) := by
-  suffices ∀ acc : BitVec 64, (ops.flatMap (Op.loVals (lo x) (hi x))).foldl (· ^^^ ·) (lo acc) =
-      lo (ops.foldl (fun a o => a ^^^ o.eval x) acc) by
-    simpa [evalOps, lo_zero] using this 0
-  induction ops with
-  | nil => intro; rfl
-  | cons o os ih =>
-    intro acc
-    rw [List.flatMap_cons, List.foldl_append, List.foldl_cons,
-      foldl_xor_acc (lo acc) (Op.loVals (lo x) (hi x) o), Op.lo_eval (hv o (by simp)), ← lo_xor]
-    exact ih (fun o h => hv o (by simp [h])) _
+  rw [flatMap_loVals, evalOps_term]
+  exact Word64.lo_evalOps x _ (valid_term hv)
 
 theorem hi_evalOps (x : BitVec 64) (ops : List Op) (hv : ∀ o ∈ ops, o.valid = true) :
     (ops.flatMap (Op.hiVals (lo x) (hi x))).foldl (· ^^^ ·) 0 = hi (evalOps x ops) := by
-  suffices ∀ acc : BitVec 64, (ops.flatMap (Op.hiVals (lo x) (hi x))).foldl (· ^^^ ·) (hi acc) =
-      hi (ops.foldl (fun a o => a ^^^ o.eval x) acc) by
-    simpa [evalOps, hi_zero] using this 0
-  induction ops with
-  | nil => intro; rfl
-  | cons o os ih =>
-    intro acc
-    rw [List.flatMap_cons, List.foldl_append, List.foldl_cons,
-      foldl_xor_acc (hi acc) (Op.hiVals (lo x) (hi x) o), Op.hi_eval (hv o (by simp)), ← hi_xor]
-    exact ih (fun o h => hv o (by simp [h])) _
+  rw [flatMap_hiVals, evalOps_term]
+  exact Word64.hi_evalOps x _ (valid_term hv)
 
 theorem bsig0_eq (x : BitVec 64) : Spec.Sha512.bsig0 x = evalOps x Impl.Sha512.Arm.bsig0 := by
   simp [evalOps, Impl.Sha512.Arm.bsig0, Spec.Sha512.bsig0, Op.eval]
@@ -250,39 +150,12 @@ theorem ssig1_eq (x : BitVec 64) : Spec.Sha512.ssig1 x = evalOps x Impl.Sha512.A
 
 /-! ## Words in memory -/
 
-theorem eq_of_bytes32 {x y : BitVec 32}
-    (h : ∀ j < 4, x.extractLsb' (8 * j) 8 = y.extractLsb' (8 * j) 8) : x = y := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi
-  have e := congrArg (fun z : BitVec 8 => z.getLsbD (i % 8)) (h (i / 8) (by omega))
-  simp only [BitVec.getLsbD_extractLsb'] at e
-  simpa [Nat.mod_lt i (show 8 > 0 by omega), show 8 * (i / 8) + i % 8 = i by omega] using e
+theorem readW_lo (m : Mem) (a : Addr) : lo (m.readW a 64) = m.readW a 32 := Word64.readW_lo m a
 
-theorem readW_lo (m : Mem) (a : Addr) : lo (m.readW a 64) = m.readW a 32 := by
-  apply eq_of_bytes32
-  intro j hj
-  rw [← Mem.readW_byte m a hj]
-  have e := Mem.extractLsb'_read m a (n := 8) (j := j) (by omega)
-  simp only [lo, Mem.readW] at e ⊢
-  rw [← e]
-  ext i hi
-  simp [BitVec.getElem_extractLsb']
-  omega
-
-theorem readW_hi (m : Mem) (a : Addr) : hi (m.readW a 64) = m.readW (a + 4) 32 := by
-  apply eq_of_bytes32
-  intro j hj
-  rw [← Mem.readW_byte m (a + 4) hj, show a + 4 + BitVec.ofNat 64 j = a + BitVec.ofNat 64 (4 + j) by
-    rw [BitVec.add_assoc, BitVec.ofNat_add]; rfl]
-  have e := Mem.extractLsb'_read m a (n := 8) (j := 4 + j) (by omega)
-  simp only [hi, Mem.readW] at e ⊢
-  rw [← e]
-  ext i hi
-  simp [BitVec.getElem_extractLsb', show 8 * j + i < 32 by omega,
-    show 32 + (8 * j + i) = 8 * (4 + j) + i by omega]
+theorem readW_hi (m : Mem) (a : Addr) : hi (m.readW a 64) = m.readW (a + 4) 32 := Word64.readW_hi m a
 
 /-- A 64-bit word in memory is its high half at `a + 4` and its low half at `a`. -/
-theorem readW64 (m : Mem) (a : Addr) : m.readW a 64 = m.readW (a + 4) 32 ++ m.readW a 32 := by
-  rw [← readW_lo m a, ← readW_hi m a, hi_append_lo]
+theorem readW64 (m : Mem) (a : Addr) : m.readW a 64 = m.readW (a + 4) 32 ++ m.readW a 32 :=
+  Word64.readW64 m a
 
 end VG.Proof.Sha512.Arm

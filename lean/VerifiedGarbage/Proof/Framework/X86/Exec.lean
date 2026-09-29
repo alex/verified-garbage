@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Framework.Mem
-import VerifiedGarbage.Proof.Framework.X86_64.Bswap
+import VerifiedGarbage.Proof.Framework.Bswap
 import VerifiedGarbage.TCB.X86.Isa
 import VerifiedGarbage.Proof.Framework.Block
 
@@ -29,7 +29,7 @@ theorem addr_eq {x : BitVec 32} {k : Nat} (h : x.toNat + k < 2 ^ 32) :
 
 theorem bswap_readW (m : Mem) (a : Addr) :
     bswap (m.readW a 32) = (m a ++ m (a + 1) ++ m (a + 1 + 1) ++ m (a + 1 + 1 + 1) : BitVec 32) :=
-  X86_64.bswap32_readW m a
+  byteRev32_readW m a
 
 /-! Symbolic execution of a block, one instruction at a time (see `runStep`).
 These are deliberately not proved by `rfl`: `simp` would use an `rfl` lemma

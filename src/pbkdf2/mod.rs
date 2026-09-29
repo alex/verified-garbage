@@ -86,7 +86,12 @@ pub fn pbkdf2_hmac<H: Pbkdf2Hash>(
 /// of the hash does not compile until it is listed here too, and a test
 /// checks that it needs no CPU feature the hash's implementation was not
 /// selected for.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 macro_rules! streaming_pbkdf2 {
     (
         $hash:ident ($backend:ident) {
@@ -169,5 +174,10 @@ macro_rules! streaming_pbkdf2 {
     };
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 use streaming_pbkdf2;
