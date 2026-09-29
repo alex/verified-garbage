@@ -11,25 +11,30 @@ rerun this script instead. Each docs/algorithms/<name>.toml is a row:
   modules  the Rust modules of its public API
   asm      the generated modules, src/asm/<arch>/<asm>.rs, whose functions
            it runs
-  optimized  (optional) further Optimized entries that the code can't show,
-           e.g. "ARM64 (NEON)" for tuning that needs no CPU feature
+  optimized  (optional) notes on optimizations that the code can't show, by
+           Rust architecture name, e.g. { aarch64 = "NEON" } for tuning
+           that needs no CPU feature
   functions  (optional) generated functions that must all be in the `asm`
            modules of an architecture for it to be supported, for an
            algorithm that shares its modules with others (e.g. HMAC-SHA-1
            and HMAC-SHA-256)
 
 * Spec landed: every spec exists.
-* Supported: the architectures in the `target_arch`s of every module's
-  inner `#![cfg(...)]` (so every module must exist and have one), and
-  whose `asm` modules have all the `functions`.
-* Optimized: the architectures where an `asm` module has functions that
-  need CPU features (a generated `_FEATURES` constant), with the features,
-  and then `optimized`.
+* One column per architecture: ✅ if it is in the `target_arch`s of every
+  module's inner `#![cfg(...)]` (so every module must exist and have one)
+  and its `asm` modules have all the `functions`, followed by the CPU
+  features that its `asm` modules' functions need (a generated `_FEATURES`
+  constant) and its `optimized` note, if any.
+
+The table is HTML with every cell on a line of its own, between blank
+lines, so that git merges two PRs that change different cells (say, two
+architectures of one algorithm) without a conflict.
 
 `--check` writes nothing and fails if README.md is not up to date (CI runs
 it).
 """
 
+import html
 import pathlib
 import re
 import sys
@@ -61,15 +66,6 @@ ARCH = re.compile(r'target_arch\s*=\s*"(\w+)"')
 FEATURE_CONST = re.compile(r"_FEATURES: &\[&str\] = &\[(.*?)\];")
 
 
-def arches(names):
-    """A table cell for a set of architectures."""
-    if not names:
-        return "❌"
-    if set(names) == set(ARCHES):
-        return "✅"
-    return ", ".join(ARCHES[a] for a in ARCHES if a in names)
-
-
 def supported(row, errors):
     names = set(ARCHES)
     for module in row["modules"]:
@@ -94,29 +90,36 @@ def has_functions(row, arch):
     return all(re.search(rf"\bfn {f}\(", text) for f in row.get("functions", []))
 
 
-def optimized(row, names):
-    cells = []
-    for arch in ARCHES:
-        if arch not in names:
-            continue
-        features = []
-        for asm in row["asm"]:
-            path = ROOT / "src" / "asm" / arch / f"{asm}.rs"
-            if path.is_file():
-                for m in FEATURE_CONST.finditer(path.read_text()):
-                    features += re.findall(r'"([^"]+)"', m[1])
-        shown = []
-        for f in features:
-            f = FEATURES.get(f, f)
-            if f is not None and f not in shown:
-                shown.append(f)
-        if shown:
-            cells.append(f"{ARCHES[arch]} ({', '.join(shown)})")
-    return ", ".join(cells + row.get("optimized", [])) or "❌"
+def optimized(row, arch):
+    """The CPU features and notes of `row`'s optimizations on `arch`."""
+    features = []
+    for asm in row["asm"]:
+        path = ROOT / "src" / "asm" / arch / f"{asm}.rs"
+        if path.is_file():
+            for m in FEATURE_CONST.finditer(path.read_text()):
+                features += re.findall(r'"([^"]+)"', m[1])
+    shown = []
+    for f in features:
+        f = FEATURES.get(f, f)
+        if f is not None and f not in shown:
+            shown.append(f)
+    note = row.get("optimized", {}).get(arch)
+    return ", ".join(shown) + ("; " if shown and note else "") + (note or "")
+
+
+def cell(text):
+    """A cell's HTML: `code` spans become <code>, the rest is escaped."""
+    parts = html.escape(text, quote=False).split("`")
+    return "".join(f"<code>{p}</code>" if i % 2 else p for i, p in enumerate(parts))
+
+
+def tr(tag, cells):
+    """A table row, with every cell on its own line between blank lines."""
+    return "<tr>\n\n" + "".join(f"<{tag}>{c}</{tag}>\n\n" for c in cells) + "</tr>\n\n"
 
 
 def table(errors):
-    header = "| Algorithm | Spec landed | Supported | Optimized |\n|---|---|---|---|\n"
+    header = tr("th", ["Algorithm", "Spec landed", *ARCHES.values()])
     families = {f: [] for f in FAMILIES}
     for path in sorted(ROWS.glob("*.toml")):
         row = tomllib.loads(path.read_text())
@@ -127,12 +130,20 @@ def table(errors):
         if row["family"] not in families:
             errors.append(f"{path.relative_to(ROOT)}: family must be one of {', '.join(FAMILIES)}")
             continue
+        unknown = set(row.get("optimized", {})) - set(ARCHES)
+        if unknown:
+            errors.append(f"{path.relative_to(ROOT)}: optimized names unknown architectures {sorted(unknown)}")
+            continue
         spec = all((ROOT / "lean/VerifiedGarbage/Spec" / f"{s}.lean").is_file() for s in row["specs"])
         names = supported(row, errors)
-        families[row["family"]].append(
-            f"| {row['name']} | {'✅' if spec else '❌'} | {arches(names)} | {optimized(row, names)} |\n"
-        )
-    return "\n".join(f"### {f}\n\n{header}{''.join(rows)}" for f, rows in families.items() if rows)
+        cells = [row["name"], "✅" if spec else "❌"]
+        for arch in ARCHES:
+            opt = optimized(row, arch) if arch in names else ""
+            cells.append(("✅" if arch in names else "❌") + (f" {opt}" if opt else ""))
+        families[row["family"]].append(tr("td", [cell(c) for c in cells]))
+    return "\n".join(
+        f"### {f}\n\n<table>\n\n{header}{''.join(rows)}</table>\n" for f, rows in families.items() if rows
+    )
 
 
 def main() -> int:
