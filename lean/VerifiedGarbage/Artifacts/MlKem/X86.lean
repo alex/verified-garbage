@@ -9,6 +9,7 @@ import VerifiedGarbage.Proof.MlKem.X86.NttInv
 import VerifiedGarbage.Proof.MlKem.X86.Mul
 import VerifiedGarbage.Proof.MlKem.X86.CheckEk
 import VerifiedGarbage.Proof.MlKem.X86.Sample
+import VerifiedGarbage.Proof.MlKem.X86.KeyGen
 
 /-!
 # ML-KEM (FIPS 203) on x86
@@ -26,7 +27,10 @@ The functions that call no other one save their caller's registers in a
 frame of 16 bytes below the return address (`stack := 16`).
 `vg_mlkem_sample_ntt` also calls the Keccak functions, each in a frame of its
 6 arguments (24 bytes), with the return address and the callee's 12 bytes
-below it (`stack := 56`).
+below it (`stack := 56`). `vg_mlkem768_keygen` saves its caller's registers
+in 16 bytes, and calls `vg_mlkem_sample_ntt` in a frame of its 3 arguments
+(12 bytes), with the return address and the callee's 56 bytes below it
+(`stack := 88`); its other calls use less.
 -/
 
 namespace VG.Artifacts.MlKem.X86
@@ -117,6 +121,13 @@ def artifacts : List Artifact := [
     code := Impl.MlKem.X86.sampleNTT
     contract := Spec.MlKem.sampleNTTContract X86.abi 56
     stack := 56
-    verified := Proof.MlKem.X86.Sample.verified }]
+    verified := Proof.MlKem.X86.Sample.verified },
+  { Spec.MlKem.keyGenApi with
+    target := X86.target
+    doc := Spec.MlKem.keyGenApi.doc
+    code := Impl.MlKem.X86.keyGen
+    contract := Spec.MlKem.keyGenContract X86.abi 88
+    stack := 88
+    verified := Proof.MlKem.X86.KeyGen.verified }]
 
 end VG.Artifacts.MlKem.X86
