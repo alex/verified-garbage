@@ -31,6 +31,8 @@ structure State where
   xmm : XReg → BitVec 128 := fun _ => 0
   /-- Bits 255:128 of each AVX register. -/
   ymmHi : XReg → BitVec 128 := fun _ => 0
+  /-- Bits 511:256 of each AVX-512 register `zmm0`–`zmm15`. -/
+  zmmHi : XReg → BitVec 256 := fun _ => 0
   /-- The SSE control and status register (SDM Vol. 1 §10.2.3). -/
   mxcsr : BitVec 32 := 0x1F80
   mem : Mem
@@ -111,6 +113,14 @@ def load256 (s : State) (a : Addr) : Option (BitVec 256) :=
 def store256 (s : State) (a : Addr) (v : BitVec 256) : Option State :=
   if InRegions s.wr a 32 then some { s with mem := s.mem.writeW a v } else none
 
+/-- Load 64 bytes, faulting if not permitted. -/
+def load512 (s : State) (a : Addr) : Option (BitVec 512) :=
+  if InRegions (s.rd ++ s.wr) a 64 then some (s.mem.readW a 512) else none
+
+/-- Store 64 bytes, faulting if not permitted. -/
+def store512 (s : State) (a : Addr) (v : BitVec 512) : Option State :=
+  if InRegions s.wr a 64 then some { s with mem := s.mem.writeW a v } else none
+
 /-- Lane `i` (bits `128i+127:128i`, for `i` 0 or 1) of an AVX register. -/
 def lane (s : State) (r : XReg) (i : Nat) : BitVec 128 := if i = 0 then s.xmm r else s.ymmHi r
 
@@ -118,12 +128,31 @@ def lane (s : State) (r : XReg) (i : Nat) : BitVec 128 := if i = 0 then s.xmm r 
 def ymm (s : State) (r : XReg) : BitVec 256 := s.ymmHi r ++ s.xmm r
 
 /-- Write a VEX-encoded instruction's result to `r`: lane 0 is `lo`, and
-lane 1 is `hi` for 256-bit operands and 0 for 128-bit ones (SDM Vol. 1
-§14.1.3). -/
+lane 1 is `hi` for 256-bit operands and 0 for 128-bit ones, and bits 511:256
+are zeroed (SDM Vol. 1 §14.1.3: "VEX.128 encoded … the upper bits
+(MAXVL-1:128) of the destination are zeroed"; the SDM Vol. 2 pseudocode of
+each VEX.256 form ends with `DEST[MAXVL-1:256] := 0`). -/
 def setV (s : State) (len : VLen) (r : XReg) (lo hi : BitVec 128) : State :=
   { s with
     xmm := fun r' => if r' = r then lo else s.xmm r'
-    ymmHi := fun r' => if r' = r then (match len with | .l128 => 0 | .l256 => hi) else s.ymmHi r' }
+    ymmHi := fun r' => if r' = r then (match len with | .l128 => 0 | .l256 => hi) else s.ymmHi r'
+    zmmHi := fun r' => if r' = r then 0 else s.zmmHi r' }
+
+/-- Lane `i` (bits `128i+127:128i`, for `i` from 0 to 3) of an AVX-512
+register. -/
+def zlane (s : State) (r : XReg) (i : Nat) : BitVec 128 :=
+  if i < 2 then s.lane r i else (s.zmmHi r).extractLsb' (128 * (i - 2)) 128
+
+/-- The 512 bits of an AVX-512 register. -/
+def zmm (s : State) (r : XReg) : BitVec 512 := s.zmmHi r ++ s.ymm r
+
+/-- Write the result of an EVEX-encoded instruction with 512-bit operands (and
+no masking) to `r`, lanes 0 to 3 from `l0` to `l3`. -/
+def setZ (s : State) (r : XReg) (l0 l1 l2 l3 : BitVec 128) : State :=
+  { s with
+    xmm := fun r' => if r' = r then l0 else s.xmm r'
+    ymmHi := fun r' => if r' = r then l1 else s.ymmHi r'
+    zmmHi := fun r' => if r' = r then l3 ++ l2 else s.zmmHi r' }
 
 /-- Write a 32-bit result, zero-extended to 64 bits (SDM Vol. 1 §3.4.1.1). -/
 def setReg32 (s : State) (r : Reg) (v : BitVec 32) : State := s.setReg r (v.setWidth 64)
