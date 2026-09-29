@@ -463,8 +463,8 @@ theorem advance16_ok (s : State) :
 /-- One whole block of data. -/
 theorem whole_step {s₀ : State} (hp : UPre s₀) {c : Nat} {s : State} (h : Cons s₀ c s)
     (hc : 16 ≤ dl s₀ - c) :
-    WP isa (.block (absorb 1 ++ [.alu .add .rsi (.imm 16), .alu .sub .rcx (.imm 16),
-      .alu .cmp .rcx (.imm 16)])) s fun s' =>
+    WP isa (.block (absorb 1 ++ ([.alu .add .rsi (.imm 16), .alu .sub .rcx (.imm 16),
+      .alu .cmp .rcx (.imm 16)] : List Instr))) s fun s' =>
       Cons s₀ (c + 16) s' ∧ s'.cf = some (decide (dl s₀ - (c + 16) < 16)) := by
   have hdl := dl_lt s₀
   have hq : (R1 s₀).toNat % 4 = 0 := r1_mod _
@@ -511,8 +511,8 @@ theorem whole_step {s₀ : State} (hp : UPre s₀) {c : Nat} {s : State} (h : Co
 /-- The loop over the whole blocks of data. -/
 theorem whole_loop {s₀ : State} (hp : UPre s₀) {c : Nat} {s : State} (h : Cons s₀ c s)
     (hc : 16 ≤ dl s₀ - c) :
-    WP isa (.loop (.block (absorb 1 ++ [.alu .add .rsi (.imm 16), .alu .sub .rcx (.imm 16),
-      .alu .cmp .rcx (.imm 16)])) .ae) s fun s' => ∃ c', Cons s₀ c' s' ∧ dl s₀ - c' < 16 := by
+    WP isa (.loop (.block (absorb 1 ++ ([.alu .add .rsi (.imm 16), .alu .sub .rcx (.imm 16),
+      .alu .cmp .rcx (.imm 16)] : List Instr))) .ae) s fun s' => ∃ c', Cons s₀ c' s' ∧ dl s₀ - c' < 16 := by
   refine WP.loop (M := isa) (fun k s => ∃ c, k = dl s₀ - c ∧ Cons s₀ c s ∧ 16 ≤ dl s₀ - c) ?_ _ s
     ⟨c, rfl, h, hc⟩
   rintro k s ⟨c, rfl, h, hc⟩

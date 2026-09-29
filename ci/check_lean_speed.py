@@ -11,6 +11,10 @@ without building. Exits non-zero on violations.
   * No `simp` unfolds `runBlock` or `runStep`: step blocks with
     `runBlock_cons`, `runStep_some` and `runBlock_nil`. `Proof/Framework/`,
     which proves those lemmas and the generic rules about blocks, is exempt.
+  * In the statement of a theorem in `Proof/`, an instruction-list literal
+    (`[.op …]`) next to `++` has a type ascription (`([.op …] : List Instr)`):
+    `++` elaborates its operands without an expected type, so each `.op`
+    fails and is elaborated again, which cost up to seconds per statement.
 """
 
 import pathlib
@@ -27,10 +31,35 @@ LAKEFILE_LIMIT = re.compile(rf"^\s*{LIMITS}\s*=", re.M)
 BIG_IMPORT = re.compile(r"^\s*import\s+(Mathlib|Mathlib\.Tactic)\s*$", re.M)
 SIMP_ARGS = re.compile(r"\bsimp(?:_all|a)?\b[^\[\n]*\[([^\]]*)\]")
 UNFOLD = re.compile(r"(?<![\w.])(runBlock|runStep)(?![\w.])")
+PROOF = LEAN / "VerifiedGarbage" / "Proof"
+THEOREM = re.compile(r"^(?:private |protected )?(?:theorem|lemma) ", re.M)
+DOT_LIST = re.compile(r"\[\s*\.")
 
 
 def line_of(text: str, pos: int) -> int:
     return text.count("\n", 0, pos) + 1
+
+
+def unascribed_lists(text: str):
+    """Yields the offsets of instruction-list literals in theorem statements
+    that are an operand of `++` without a type ascription."""
+    statements = [(m.start(), text.find(":=", m.end())) for m in THEOREM.finditer(text)]
+    for m in DOT_LIST.finditer(text):
+        i = m.start()
+        if not any(a <= i < b for a, b in statements):
+            continue
+        depth, k = 0, i
+        while k < len(text):
+            depth += {"[": 1, "]": -1}.get(text[k], 0)
+            if depth == 0:
+                break
+            k += 1
+        before, after = text[:i].rstrip(), text[k + 1 :].lstrip()
+        if not (before.endswith("++") or after.startswith("++")):
+            continue
+        if before.endswith("(") and after.startswith(":"):
+            continue
+        yield i
 
 
 def main() -> int:
@@ -43,6 +72,12 @@ def main() -> int:
             errors.append(f"{rel}:{line_of(text, m.start())}: changes a resource limit; make the proof faster instead")
         for m in BIG_IMPORT.finditer(text):
             errors.append(f"{rel}:{line_of(text, m.start())}: imports {m.group(1)}; import the modules you use")
+        if PROOF in f.parents:
+            for i in unascribed_lists(text):
+                errors.append(
+                    f"{rel}:{line_of(text, i)}: instruction list next to `++` in a theorem statement; "
+                    "ascribe it: `([.op …] : List Instr)`"
+                )
         if FRAMEWORK in f.parents:
             continue
         for m in SIMP_ARGS.finditer(text):

@@ -291,8 +291,8 @@ theorem storeRestore_eq : [Instr.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .r
 set_option simprocs false in
 /-- Storing `h` and restoring the callee-saved registers. -/
 theorem storeRestore_ok (s : State) (hw : sR (s.gpr .rdi) ∈ s.wr) :
-    WP isa (.block ([.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
-      .store (at_ .rdi 16) .rbp] ++ restore)) s fun s' =>
+    WP isa (.block (([.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
+      .store (at_ .rdi 16) .rbp] : List Instr) ++ restore)) s fun s' =>
       let m := storeH s.mem (s.gpr .rdi) (s.gpr .r11) (s.gpr .rbx) (s.gpr .rbp)
       s'.mem = m ∧ s'.gpr .rbx = m.readW (off (s.gpr .rdi) 72) 64 ∧
       s'.gpr .rbp = m.readW (off (s.gpr .rdi) 80) 64 ∧ s'.gpr .r12 = m.readW (off (s.gpr .rdi) 88) 64 ∧

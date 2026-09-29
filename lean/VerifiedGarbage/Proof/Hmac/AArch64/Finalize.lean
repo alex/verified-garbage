@@ -195,7 +195,7 @@ theorem Saved.sv26 {s₀ s : State} (h : Saved s₀ s) :
   rw [h.sv_eq (by omega), svMem, Mem.readW_writeW_self64]
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block ([.str .x .x25 .x3 160, .str .x .x26 .x3 168, mov .x25 .x0, mov .x26 .x3] ++ saveOuter ++
+    WP isa (.block (([.str .x .x25 .x3 160, .str .x .x26 .x3 168, mov .x25 .x0, mov .x26 .x3] : List Instr) ++ saveOuter ++
       [mov .x1 .x2, .addImm .x .x2 .x3 176])) s₀ (Saved s₀) := by
   unfold saveOuter
   have h0 : out s₀ + BitVec.ofNat 64 0 = out s₀ := by simp

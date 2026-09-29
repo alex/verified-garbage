@@ -176,6 +176,11 @@ Avoid these patterns (each has cost tens of seconds in one proof):
   on the same index on both sides, split the index into ranges once with
   `omega` and resolve each `if` with
   `simp (disch := omega) only [ite_eq_left, ite_eq_right]`, not `split_ifs`.
+* **Instruction lists under `++`:** in a theorem statement, ascribe each
+  instruction-list literal next to `++`: `.block (absorb 1 ++
+  ([.alu .add .esi (.imm 16)] : List Instr))`, not `absorb 1 ++ [.alu …]`.
+  `++` elaborates its operands without an expected type, so every `.op`
+  fails once and is elaborated again (up to seconds per statement).
 * **Imports:** never import `Mathlib.Tactic` or all of Mathlib, which costs
   seconds in every module that (transitively) imports it: import the
   module of each tactic or lemma you use (e.g. `Mathlib.Tactic.IntervalCases`),

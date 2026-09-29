@@ -447,7 +447,7 @@ theorem data_value {s₀ : State} (hp : UPre s₀) {m : Mem} (hf : Frame [wR (st
 /-- One whole block of data. -/
 theorem whole_step {s₀ : State} (hp : UPre s₀) {c : Nat} {s : State} (h : ConsB s₀ c s)
     (hc : 16 ≤ dl s₀ - c) :
-    WP isa (.block (absorb true ++ [.addImm .x .x1 .x1 16, .subImm .x .x3 .x3 16, .lsr .x .x2 .x3 4])) s
+    WP isa (.block (absorb true ++ ([.addImm .x .x1 .x1 16, .subImm .x .x3 .x3 16, .lsr .x .x2 .x3 4] : List Instr))) s
       fun s' => ConsB s₀ (c + 16) s' ∧ s'.gpr .x2 = BitVec.ofNat 64 ((dl s₀ - (c + 16)) / 16) := by
   have hdl := dl_lt s₀
   have hin : ∀ d : Nat, d + 8 ≤ 16 →
@@ -496,8 +496,8 @@ theorem whole_step {s₀ : State} (hp : UPre s₀) {c : Nat} {s : State} (h : Co
 /-- The loop over the whole blocks of data. -/
 theorem whole_loop {s₀ : State} (hp : UPre s₀) {c : Nat} {s : State} (h : ConsB s₀ c s)
     (hc : 16 ≤ dl s₀ - c) :
-    WP isa (.loop (.block (absorb true ++ [.addImm .x .x1 .x1 16, .subImm .x .x3 .x3 16,
-      .lsr .x .x2 .x3 4])) (.nonzero .x .x2)) s fun s' => ∃ c', ConsB s₀ c' s' ∧ dl s₀ - c' < 16 := by
+    WP isa (.loop (.block (absorb true ++ ([.addImm .x .x1 .x1 16, .subImm .x .x3 .x3 16,
+      .lsr .x .x2 .x3 4] : List Instr))) (.nonzero .x .x2)) s fun s' => ∃ c', ConsB s₀ c' s' ∧ dl s₀ - c' < 16 := by
   have hdl := dl_lt s₀
   refine WP.loop (M := isa) (fun k s => ∃ c, k = dl s₀ - c ∧ ConsB s₀ c s ∧ 16 ≤ dl s₀ - c) ?_ _ s
     ⟨c, rfl, h, hc⟩

@@ -337,8 +337,8 @@ set_option simprocs false in
 /-- Adding `s`, storing the tag and restoring the callee-saved registers. -/
 theorem tagWords_ok (s : State) (hin : sR (s.gpr .rdi) ∈ s.wr) (hout : ⟨s.gpr .rcx, 16⟩ ∈ s.wr)
     (hsep : (sR (s.gpr .rdi)).Disjoint ⟨s.gpr .rcx, 16⟩) :
-    WP isa (.block ([.alu .add .r11 (.mem (at_ .rdi 40)), .alu .adc .rbx (.mem (at_ .rdi 48)),
-      .store (at_ .rcx 0) .r11, .store (at_ .rcx 8) .rbx] ++ restore)) s fun s' =>
+    WP isa (.block (([.alu .add .r11 (.mem (at_ .rdi 40)), .alu .adc .rbx (.mem (at_ .rdi 48)),
+      .store (at_ .rcx 0) .r11, .store (at_ .rcx 8) .rbx] : List Instr) ++ restore)) s fun s' =>
       (s'.mem.readW (off (s.gpr .rcx) 0) 64).toNat + 2 ^ 64 * (s'.mem.readW (off (s.gpr .rcx) 8) 64).toNat =
         ((s.gpr .r11).toNat + (s.mem.readW (off (s.gpr .rdi) 40) 64).toNat +
           2 ^ 64 * ((s.gpr .rbx).toNat + (s.mem.readW (off (s.gpr .rdi) 48) 64).toNat)) % 2 ^ 128 ∧
