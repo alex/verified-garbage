@@ -1,8 +1,7 @@
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Sha256.Arm.Compress
-import VerifiedGarbage.Proof.Sha256.Arm.Stream.Finalize
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Init
-import VerifiedGarbage.Proof.Sha256.Arm.Stream.Update
+import VerifiedGarbage.Proof.Sha256.Arm.Stream.Md
 import VerifiedGarbage.Spec.Sha256.Contract
 
 /-!
@@ -36,7 +35,7 @@ theorem update :
   Proof.Sha256.Arm.Stream.Update.update_verified.of_implies (by
     contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, Proof.Sha256.updateArm,
       Proof.Sha256.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
-      [Proof.Sha256.Arm.Stream.Update.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
+      [Proof.Sha256.Arm.Stream.Update.sat, MdStream.Arm.Update.sat, Impl.Sha256.Arm.Stream.params, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Sha256.Arm.Stream.Update.sat)
 
 theorem finalize :
@@ -45,7 +44,8 @@ theorem finalize :
     contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig,
       Proof.Sha256.finalizeArm, Proof.Sha256.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify,
       Arm.Loc.val, Arm.State.addr]
-      [Proof.Sha256.Arm.Stream.Finalize.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
+      [Proof.Sha256.Arm.Stream.Finalize.sat, MdStream.Arm.Finalize.sat, MdStream.Arm.Finalize.satBase,
+        Impl.Sha256.Arm.Stream.params, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Sha256.Arm.Stream.Finalize.sat)
 
 end VG.Proof.Sha256.Arm.Shared

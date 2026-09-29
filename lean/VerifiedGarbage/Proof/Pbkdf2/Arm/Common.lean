@@ -69,7 +69,8 @@ open VG VG.Arm VG.Impl.Pbkdf2.Arm
 open VG.Impl.Sha256.Arm.Stream (save restore compressAt saved)
 open VG.Impl.Hmac.Arm (cp)
 open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd wp_add wp_ldr wp_str wp_rev op2_imm op2_reg compressAt_ok sub_offset)
+open VG.Proof.MdStream.Arm (Upd Mupd wp_add wp_ldr wp_str wp_rev op2_imm op2_reg sub_offset)
+open VG.Proof.Sha256.Arm.Stream (compressAt_ok)
 open VG.Proof.Sha256.Arm.Stream.Finalize (writeW_rev flat_length)
 open VG.Proof.Hmac.Arm (copy_ok add_off)
 open VG.Proof.Hmac.Arm.Init (wp_eor)
@@ -474,7 +475,7 @@ theorem xor_ok {p3 : BitVec 32} (f3 : p3.toNat + 224 ≤ 2 ^ 32) :
     · intro x h₁ h₂
       rw [hl] at h₂
       have := toNat_ofNat_lt (k := 4 * n) (by omega)
-      have := VG.Proof.Sha256.Arm.Stream.Update.addr_toNat p3
+      have := VG.Proof.MdStream.Arm.addr_toNat p3
       bv_omega
     · omega
     · intro x h₁ h₂

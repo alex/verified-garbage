@@ -110,7 +110,7 @@ namespace VG.Proof.Scrypt.Arm
 open VG VG.Arm VG.Impl.Scrypt.Arm
 open VG.Spec.Scrypt (Word)
 open VG.Proof.Scrypt
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd wp_ldr wp_str wp_add op2_reg)
+open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str wp_add op2_reg)
 open VG.Proof.Hmac.Arm.Init (wp_eor)
 open VG.Proof.Scrypt.X86_64.BlockMix (contains_off)
 

@@ -19,7 +19,7 @@ open VG.Spec.Sha3 (stateAt keccakF rnd RC)
 open VG.Impl.Sha512.Arm (lo hi)
 open VG.Proof.Sha512.Arm (rd64 write64 A A_eq contains_A readW64 rd64_write64_self rd64_write64_ne
   rd64_write64_disj frame_write64 rd64_frame mem_rd wp_movw wp_movt Reg64)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd wp_add wp_sub wp_ldr wp_str wp_cmp op2_reg op2_imm eval_ne
+open VG.Proof.MdStream.Arm (Upd Mupd wp_add wp_sub wp_ldr wp_str wp_cmp op2_reg op2_imm eval_ne
   sub_beq readW_writeW_save)
 open VG.Proof.Sha3 (outState_eq foldl_succ off_disjoint sub_offset add_zero')
 

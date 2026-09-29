@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Scrypt.X86_64.Common
-import VerifiedGarbage.Proof.Md5.AArch64.Stream.Common
+import VerifiedGarbage.Proof.MdStream.AArch64.Common
 import VerifiedGarbage.Impl.Scrypt.AArch64.BlockMix
 import VerifiedGarbage.Spec.Scrypt.Contract
 import VerifiedGarbage.TCB.AArch64.Target
@@ -85,7 +85,7 @@ open VG VG.AArch64 VG.Impl.Scrypt.AArch64
 open VG.Spec.Scrypt (bytesAt blk salsa)
 open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil writeBytes_frame)
-open VG.Proof.Md5.AArch64.Stream (Upd Mupd wp_ldr wp_str)
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_ldr wp_str)
 open VG.Proof.Scrypt.X86_64.BlockMix (sub_off writeW_xor xorBytes_length bytesAt_length
   bytesAt_add bytesAt_writeBytes_sep)
 
@@ -95,13 +95,13 @@ variable {is : List Instr} {s : State} {Q : State → Prop}
 theorem wp_eor {d n m : Reg}
     (k : ∀ s', Upd s s' d (s.gpr n ^^^ s.gpr m) → WP isa (.block is) s' Q) :
     WP isa (.block (.logic .eor .x d n m :: is)) s Q :=
-  Proof.Md5.AArch64.Stream.WP.cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m))
+  Proof.MdStream.AArch64.WP.cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m))
     (by simp [exec, State.read]) (k _ (Upd.write64 _ _ _))
 
 theorem wp_lsl {d n : Reg} {sh : Nat} (h : sh < 64)
     (k : ∀ s', Upd s s' d (s.gpr n <<< sh) → WP isa (.block is) s' Q) :
     WP isa (.block (.lsl .x d n sh :: is)) s Q :=
-  Proof.Md5.AArch64.Stream.WP.cons (s' := s.write .x d (s.gpr n <<< sh))
+  Proof.MdStream.AArch64.WP.cons (s' := s.write .x d (s.gpr n <<< sh))
     (by simp [exec, h, State.read]) (k _ (Upd.write64 _ _ _))
 
 end

@@ -6,7 +6,7 @@ import Mathlib.Tactic.Tauto
 # Streaming SHA-256 on x86 (32-bit): `update`
 
 Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 proof (`VG.Proof.Sha256.X86_64.Stream.Update`), with `state` in `ebx`,
+x86-64 proof (`VG.Proof.MdStream.X86_64.Update`), with `state` in `ebx`,
 `data` in `ebp`, the bytes left in `esi`, the buffered bytes in `edi`, and
 `state` and `scratch` also in the argument words at `[esp + 4]` and
 `[esp + 16]`, which the inlined compression function reads.
