@@ -1,18 +1,21 @@
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Contract
+import VerifiedGarbage.Proof.Sha256.X86_64.Stream.FinalizeCT
 
 /-!
 # HMAC-SHA-256 on x86-64: `finalize`
 
 Untrusted: everything here is checked by Lean. The two SHA-256
-finalizations are the inlined `vg_sha256_finalize`, used as a black box
-through its proof (with the extra fact that it leaves `rdi` and `rcx`
-unchanged).
+finalizations are calls of the streaming finalization over any compression
+function `f` (`Callee.Ok`), used as a black box through its proof (with the
+extra fact that it leaves `rdi` and `rcx` unchanged), so this is proven once
+for every implementation.
 -/
 
 namespace VG.Proof.Hmac.X86_64.Finalize
 
 open VG VG.X86_64 VG.Impl.Hmac.X86_64
+open VG.Impl.Sha256.X86_64.Stream (Callee)
 open VG.Proof.Hmac.X86_64
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame compressList_append)
 open VG.Proof.Sha256.X86_64 (contains_offset toNat_ofNat_lt sub_offset)
@@ -35,7 +38,7 @@ abbrev retR : Region := ⟨s₀.gpr .rsp, 8⟩
 /-- Where the called finalizations may write. -/
 abbrev finW : List Region := [inR s₀, ⟨scr s₀ + 176, 32⟩, ⟨scr s₀, 160⟩]
 /-- Where the calls store their return addresses: ours, and that of the call
-of `vg_sha256_compress` in `vg_sha256_finalize`. -/
+of the compression function in the finalization. -/
 abbrev stkR : Region := below (s₀.gpr .rsp) 16
 
 end
@@ -65,52 +68,61 @@ theorem ret_stk (s₀ : State) : (retR s₀).Disjoint (stkR s₀) := by
 theorem sub_stk₁ (s₀ : State) : Region.Sub ⟨s₀.gpr .rsp - 8, 8⟩ (stkR s₀) := by
   intro a h; simp only [Region.Contains] at h ⊢; bv_omega
 
-/-- The return address of `vg_sha256_finalize`'s call. -/
+/-- The return address of the finalization's call. -/
 theorem sub_stk₂ (s₀ : State) : Region.Sub ⟨s₀.gpr .rsp - 8 - 8, 8⟩ (stkR s₀) := by
   intro a h; simp only [Region.Contains] at h ⊢; bv_omega
 
-/-! ## The inlined finalization -/
+/-! ## The called finalization -/
 
-/-- `vg_sha256_finalize`'s contract, and `rdi` and `rcx` are unchanged. -/
+/-- The finalization's contract, and `rdi` and `rcx` are unchanged. -/
 def finK : Contract isa :=
   { Proof.Sha256.finalizeX86_64 with
     post := fun s s' => Proof.Sha256.finalizeX86_64.post s s' ∧ s'.gpr .rdi = s.gpr .rdi ∧
       s'.gpr .rcx = s.gpr .rcx }
 
-theorem finK_ok : ∀ s, finK.pre s → ∃ t s', Exec isa (Impl.Sha256.X86_64.Stream.finalize .scalar) s t s' ∧
+section
+variable {f : Callee} (hf : f.Ok)
+  (hm : (Impl.Sha256.X86_64.Stream.finalize f).allInstrs (fun i => !loadsMxcsr i) = true)
+
+include hf hm in
+theorem finK_ok : ∀ s, finK.pre s → ∃ t s', Exec isa (Impl.Sha256.X86_64.Stream.finalize f) s t s' ∧
     abiPreserved s s' ∧ finK.post s s' := by
   intro s hs
   obtain ⟨t, s', he, h₁, h₂, h₃, h₄⟩ :=
-    Proof.Sha256.X86_64.Stream.Finalize.correct Proof.Sha256.X86_64.Stream.scalar_ok (Proof.Sha256.X86_64.Stream.Finalize.pre_of hs)
-  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h₁, h₂, h₃, h₄⟩
+    Proof.Sha256.X86_64.Stream.Finalize.correct hf (Proof.Sha256.X86_64.Stream.Finalize.pre_of hs)
+  exact ⟨t, s', he, abiPreserved_of_exec hm he h₁, h₂, h₃, h₄⟩
 
 theorem sub176 (s₀ : State) : Region.Sub ⟨scr s₀ + 176, 32⟩ (scR s₀) :=
   sub_offset (off := 176) (by omega) (by omega)
 
 theorem sub160 (s₀ : State) : Region.Sub ⟨scr s₀, 160⟩ (scR s₀) := Region.sub_prefix (by omega)
 
-theorem finalize_depth : (Impl.Sha256.X86_64.Stream.finalize .scalar).depth = 1 := by decide +kernel
+include hf in
+theorem finalize_depth : (Impl.Sha256.X86_64.Stream.finalize f).depth = 1 := by
+  simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.Sha256.X86_64.Stream.finalizeBody,
+    Impl.Sha256.X86_64.Stream.compressAt, Code.depth, hf.depth]
+  decide +kernel
 
-theorem finalize_nosp : NoSp (Impl.Sha256.X86_64.Stream.finalize .scalar) := by
-  have : ((instrs (Impl.Sha256.X86_64.Stream.finalize .scalar)).all fun i => !Taint.clobbers i .rsp) = true := by
-    rw [← Code.allInstrs_eq]; decide +kernel
+include hf in
+theorem finalize_nosp : NoSp (Impl.Sha256.X86_64.Stream.finalize f) := by
+  have hc : (f.code.allInstrs fun i => !Taint.clobbers i .rsp) = true := by
+    rw [Code.allInstrs_eq]; exact List.all_eq_true.mpr fun i hi => by simp [hf.nosp i hi]
+  have : ((instrs (Impl.Sha256.X86_64.Stream.finalize f)).all fun i => !Taint.clobbers i .rsp) = true := by
+    rw [← Code.allInstrs_eq]
+    simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.Sha256.X86_64.Stream.finalizeBody,
+      Impl.Sha256.X86_64.Stream.compressAt, Code.allInstrs, hc, Bool.true_and]
+    decide +kernel
   intro i hi
   simpa using List.all_eq_true.mp this i hi
 
-/-- The called `vg_sha256_finalize` on the inner state, with its digest at
-`scratch[176..208)` and `scratch[0..160)` as its scratch space. -/
-theorem fin_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
+/-- The call's precondition, narrowed to the regions it is given. -/
+theorem fin_hyps {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
     (hdi : s.gpr .rdi = inn s₀) (hcx : s.gpr .rcx = scr s₀) (hdx : s.gpr .rdx = scr s₀ + 176)
-    (hsp : s.gpr .rsp = s₀.gpr .rsp) {Q : State → Prop}
-    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
-      Frame (finW s₀ ++ [stkR s₀]) s.mem s'.mem →
-      s'.gpr .rdi = inn s₀ → s'.gpr .rcx = scr s₀ →
-      (∀ m, Repr s.mem (inn s₀) m → s.gpr .rsi = BitVec.ofNat 64 m.length →
-        bytesAt s'.mem (scr s₀ + 176) 32 = Spec.Sha256.hash m) → Q s') :
-    WP isa sha256Finalize s Q := by
+    (hsp : s.gpr .rsp = s₀.gpr .rsp) :
+    finK.pre (s.callEntry.withRegions [] (finW s₀)) ∧ Covers ([] ++ finW s₀) (s.rd ++ s.wr) ∧
+      Covers (finW s₀) s.wr := by
   have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
-  refine WP.call (k := finK) finK_ok finalize_nosp (by rw [finalize_depth]; decide)
-    (rd := []) (wr := finW s₀) ?_ ?_ ?_ ?_
+  refine ⟨?_, ?_, ?_⟩
   · refine ⟨rfl, by simp [hne _ (by decide : Reg.rdi ≠ .rsp), hne _ (by decide : Reg.rcx ≠ .rsp),
       hne _ (by decide : Reg.rdx ≠ .rsp), hdi, hcx, hdx], ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
       simp only [State.withRegions_gpr, State.callEntry_rsp, hne _ (by decide : Reg.rdi ≠ .rsp),
@@ -140,15 +152,34 @@ theorem fin_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd)
     · exact ⟨inR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp, 176, rfl, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
-  · intro s' h₁ h₂ h₃ h₄ _ ⟨s₂, hm, hg, hpost, h₅, h₆⟩
-    simp only [Proof.Sha256.finalizeX86_64, State.withRegions_gpr, State.withRegions_mem, hm,
-      hne _ (by decide : Reg.rdi ≠ .rsp), hne _ (by decide : Reg.rcx ≠ .rsp),
-      hne _ (by decide : Reg.rdx ≠ .rsp), hne _ (by decide : Reg.rsi ≠ .rsp), hdi, hdx, hcx] at hpost h₅ h₆
-    rw [finalize_depth, hsp] at h₄
-    refine hQ s' h₁ h₂ h₃ h₄ (by rw [← hg _ (by decide)]; exact h₅) (by rw [← hg _ (by decide)]; exact h₆)
-      fun m hm hl => hpost m (Proof.Sha256.Stream.repr_congr (fun i hi => ?_) hm) hl
-    refine Proof.Sha256.X86_64.Stream.callEntry_byte s (R := inR s₀) ?_ (by simp) hi
-    rw [hsp]; exact hp.stk_i.sub_left (below_sub (by omega) (by omega))
+
+include hf hm in
+/-- The called finalization (`name`) on the inner state, with its digest at
+`scratch[176..208)` and `scratch[0..160)` as its scratch space. -/
+theorem fin_ok (name : String) {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
+    (hdi : s.gpr .rdi = inn s₀) (hcx : s.gpr .rcx = scr s₀) (hdx : s.gpr .rdx = scr s₀ + 176)
+    (hsp : s.gpr .rsp = s₀.gpr .rsp) {Q : State → Prop}
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
+      Frame (finW s₀ ++ [stkR s₀]) s.mem s'.mem →
+      s'.gpr .rdi = inn s₀ → s'.gpr .rcx = scr s₀ →
+      (∀ m, Repr s.mem (inn s₀) m → s.gpr .rsi = BitVec.ofNat 64 m.length →
+        bytesAt s'.mem (scr s₀ + 176) 32 = Spec.Sha256.hash m) → Q s') :
+    WP isa (sha256Finalize f name) s Q := by
+  have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
+  obtain ⟨hpre, hc, hw⟩ := fin_hyps hp hrd hwr hdi hcx hdx hsp
+  refine WP.call (k := finK) (finK_ok hf hm) (finalize_nosp hf) (by rw [finalize_depth hf]; decide)
+    (rd := []) (wr := finW s₀) hpre hc hw ?_
+  intro s' h₁ h₂ h₃ h₄ _ ⟨s₂, hm, hg, hpost, h₅, h₆⟩
+  simp only [Proof.Sha256.finalizeX86_64, State.withRegions_gpr, State.withRegions_mem, hm,
+    hne _ (by decide : Reg.rdi ≠ .rsp), hne _ (by decide : Reg.rcx ≠ .rsp),
+    hne _ (by decide : Reg.rdx ≠ .rsp), hne _ (by decide : Reg.rsi ≠ .rsp), hdi, hdx, hcx] at hpost h₅ h₆
+  rw [finalize_depth hf, hsp] at h₄
+  refine hQ s' h₁ h₂ h₃ h₄ (by rw [← hg _ (by decide)]; exact h₅) (by rw [← hg _ (by decide)]; exact h₆)
+    fun m hm hl => hpost m (Proof.Sha256.Stream.repr_congr (fun i hi => ?_) hm) hl
+  refine Proof.Sha256.X86_64.Stream.callEntry_byte s (R := inR s₀) ?_ (by simp) hi
+  rw [hsp]; exact hp.stk_i.sub_left (below_sub (by omega) (by omega))
+
+end
 
 /-! ## Saving the outer hash value -/
 
@@ -303,17 +334,20 @@ theorem not_finW {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 32) :
   · simp only [Region.Contains]; bv_omega
   · exact fun hc => hp.stk_s _ hc hs
 
-theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256X86_64.post s₀ s' := by
+theorem correct {f : Callee} (hf : f.Ok)
+    (hm : (Impl.Sha256.X86_64.Stream.finalize f).allInstrs (fun i => !loadsMxcsr i) = true) (name : String)
+    {s₀ : State} (hp : Pre s₀) :
+    WP isa (finalize f name) s₀ fun s' =>
+      gprPreserved s₀ s' ∧ Proof.Hmac.finalizeSha256X86_64.post s₀ s' := by
   unfold finalize
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
   have sp₁ := h₁.cs .rsp (by decide)
-  refine WP.seq (fin_ok hp h₁.rd h₁.wr h₁.rdi h₁.rcx h₁.rdx sp₁
+  refine WP.seq (fin_ok hf hm name hp h₁.rd h₁.wr h₁.rdi h₁.rcx h₁.rdx sp₁
     fun s₂ rd₂ wr₂ abi₂ fr₂ di₂ cx₂ post₂ => ?_)
   have sp₂ : s₂.gpr .rsp = s₀.gpr .rsp := (abi₂ .rsp (by decide)).trans sp₁
   refine WP.seq (WP.mono (load_ok hp (s := s₂) (wr₂.trans h₁.wr) di₂ cx₂) fun s₃ h₃ => ?_)
   have sp₃ : s₃.gpr .rsp = s₀.gpr .rsp := (h₃.cs .rsp (by decide)).trans sp₂
-  refine fin_ok hp (h₃.rd.trans (rd₂.trans h₁.rd)) (h₃.wr.trans (wr₂.trans h₁.wr)) h₃.rdi h₃.rcx h₃.rdx sp₃
+  refine fin_ok hf hm name hp (h₃.rd.trans (rd₂.trans h₁.rd)) (h₃.wr.trans (wr₂.trans h₁.wr)) h₃.rdi h₃.rcx h₃.rdx sp₃
     fun s₄ rd₄ wr₄ abi₄ fr₄ _ _ post₄ => ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
   · rw [abi₄ r hr, h₃.cs r hr, abi₂ r hr, h₁.cs r hr]
   · -- The return address.
@@ -354,31 +388,97 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     rw [hd] at this
     simpa [hmacBlockKey, sha256] using this
 
-/-! ## `Verified` -/
+/-! ## Constant time
 
-/-- The initial taint: the arguments are public, and `rdi` and `rcx` point
-at the writable regions. -/
-def τ₀ : X86_64.Taint.T :=
-  { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .rsp], flags := false, lens := [96, 240],
-    bases := [(.rdi, 0, 0), (.rcx, 1, 0)] }
+As for `init`, two runs are related (`RelCT`): correctness determines the
+registers each piece between the calls uses from the public arguments, the
+taint analysis proves each piece constant time, and the calls are constant
+time by the finalization's own proof. -/
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256X86_64.pre s₁)
-    (h₂ : Proof.Hmac.finalizeSha256X86_64.pre s₂) (hpub : Proof.Hmac.finalizeSha256X86_64.pub s₁ s₂) :
-    X86_64.Taint.Agree τ₀ s₁ s₂ := by
-  obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
-  have wf : ∀ s, Proof.Hmac.finalizeSha256X86_64.pre s → X86_64.Taint.Wf τ₀ s := by
-    intro s hs
-    obtain ⟨-, hw, -, hd, -⟩ := hs
-    refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, hd], by simp [hw]⟩, fun p hp => ?_⟩
-    simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rcases hp with rfl | rfl <;> simp [X86_64.Taint.region, hw]
-  refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_,
-    X86_64.Taint.noLo⟩
-  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
-  · rw [h₁.2.1, h₂.2.1, p1, p4]
-  · intro sl h; simp [τ₀] at h
-  · intro sl h; simp [τ₀] at h
+/-- The registers that hold public values across the calls. -/
+structure Base (s₀ s : State) : Prop where
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
+  rdi : s.gpr .rdi = inn s₀
+  rcx : s.gpr .rcx = scr s₀
+  rsp : s.gpr .rsp = s₀.gpr .rsp
+
+/-- Before a call of the finalization, of `v` bytes. -/
+def Args (s₀ : State) (v : BitVec 64) (s : State) : Prop :=
+  Base s₀ s ∧ s.gpr .rdx = scr s₀ + 176 ∧ s.gpr .rsi = v
+
+/-- The public arguments are the same. -/
+structure PubEq (s₀ s₀' : State) : Prop where
+  rdi : s₀.gpr .rdi = s₀'.gpr .rdi
+  rsi : s₀.gpr .rsi = s₀'.gpr .rsi
+  rdx : s₀.gpr .rdx = s₀'.gpr .rdx
+  rcx : s₀.gpr .rcx = s₀'.gpr .rcx
+  rsp : s₀.gpr .rsp = s₀'.gpr .rsp
+
+section
+variable {f : Callee} (hf : f.Ok)
+  (hm : (Impl.Sha256.X86_64.Stream.finalize f).allInstrs (fun i => !loadsMxcsr i) = true) (name : String)
+  {s₀ s₀' : State} (hp : Pre s₀) (hp' : Pre s₀') (hq : PubEq s₀ s₀')
+include hf hm hp hp' hq
+
+/-- A call of the finalization, the same in both runs. -/
+theorem fin_rel {v : BitVec 64} :
+    RelCT isa (fun s s' => Args s₀ v s ∧ Args s₀' v s') (sha256Finalize f name)
+      fun s s' => Base s₀ s ∧ Base s₀' s' := by
+  have ok : ∀ {σ : State}, Pre σ → ∀ {s : State}, Args σ v s → WP isa (sha256Finalize f name) s (Base σ) :=
+    fun {σ} hp {s} h => fin_ok hf hm name hp h.1.rd h.1.wr h.1.rdi h.1.rcx h.2.1 h.1.rsp fun _ rd wr cs _ di cx _ =>
+      ⟨rd.trans h.1.rd, wr.trans h.1.wr, di, cx, (cs _ (by decide)).trans h.1.rsp⟩
+  refine ((RelCT.callEx (finK_ok hf hm)
+    (Proof.Sha256.X86_64.Stream.Finalize.constantTime hf) fun s s' ⟨h, h'⟩ => ?_).wp
+    fun _ _ h => ⟨ok hp h.1, ok hp' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
+  obtain ⟨p, c, w⟩ := fin_hyps hp h.1.rd h.1.wr h.1.rdi h.1.rcx h.2.1 h.1.rsp
+  obtain ⟨p', c', w'⟩ := fin_hyps hp' h'.1.rd h'.1.wr h'.1.rdi h'.1.rcx h'.2.1 h'.1.rsp
+  refine ⟨_, _, _, _, p, p', ?_, c, w, c', w', by rw [h.1.rsp, h'.1.rsp]; exact hq.rsp⟩
+  simp only [finK, Proof.Sha256.finalizeX86_64, State.withRegions_gpr, State.callEntry_rsp,
+    State.callEntry_gpr _ (by decide : Reg.rdi ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.rsi ≠ .rsp),
+    State.callEntry_gpr _ (by decide : Reg.rdx ≠ .rsp), State.callEntry_gpr _ (by decide : Reg.rcx ≠ .rsp)]
+  exact ⟨by rw [h.1.rdi, h'.1.rdi]; exact hq.rdi, by rw [h.2.2, h'.2.2],
+    by rw [h.2.1, h'.2.1, show scr s₀ = scr s₀' from hq.rcx],
+    by rw [h.1.rcx, h'.1.rcx]; exact hq.rcx, by rw [h.1.rsp, h'.1.rsp, hq.rsp]⟩
+
+theorem finalize_rel : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') (finalize f name) fun _ _ => True := by
+  have pro : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀')
+      (.block (saveOuter ++ [.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
+      fun s s' => Args s₀ (s₀.gpr .rdx) s ∧ Args s₀' (s₀.gpr .rdx) s' :=
+    ((RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx, .rsp])
+      (P := fun s s' => s = s₀ ∧ s' = s₀') (fun _ _ ⟨e, e'⟩ => Taint.agree_ofRegs fun r hr => by
+        rw [e, e']
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | rfl | rfl | rfl | rfl
+        · exact hq.rdi
+        · exact hq.rsi
+        · exact hq.rdx
+        · exact hq.rcx
+        · exact hq.rsp) (by taint_decide)).wp (F₁ := Saved s₀) (F₂ := Saved s₀')
+      fun _ _ ⟨e, e'⟩ => by rw [e, e']; exact ⟨prologue_ok hp, prologue_ok hp'⟩).mono (fun _ _ h => h)
+      fun _ _ h => ⟨⟨⟨h.2.1.rd, h.2.1.wr, h.2.1.rdi, h.2.1.rcx, h.2.1.cs _ (by decide)⟩, h.2.1.rdx, h.2.1.rsi⟩,
+        ⟨⟨h.2.2.rd, h.2.2.wr, h.2.2.rdi, h.2.2.rcx, h.2.2.cs _ (by decide)⟩, h.2.2.rdx,
+          by rw [h.2.2.rsi, hq.rdx]⟩⟩
+  have ld : ∀ {σ : State}, Pre σ → ∀ {s : State}, Base σ s →
+      WP isa (.block (loadOuter ++ [.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
+        s (Args σ (BitVec.ofNat 64 (64 + 32))) :=
+    fun {σ} hp {s} h => WP.mono (load_ok hp h.wr h.rdi h.rcx) fun _ l =>
+      ⟨⟨l.rd.trans h.rd, l.wr.trans h.wr, l.rdi, l.rcx, (l.cs _ (by decide)).trans h.rsp⟩, l.rdx, l.rsi⟩
+  have mid : RelCT isa (fun s s' => Base s₀ s ∧ Base s₀' s')
+      (.block (loadOuter ++ [.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
+      fun s s' => Args s₀ (BitVec.ofNat 64 (64 + 32)) s ∧ Args s₀' (BitVec.ofNat 64 (64 + 32)) s' :=
+    ((RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rcx, .rsp])
+      (fun _ _ ⟨h, h'⟩ => Taint.agree_ofRegs fun r hr => by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | rfl | rfl
+        · rw [h.rdi, h'.rdi]; exact hq.rdi
+        · rw [h.rcx, h'.rcx]; exact hq.rcx
+        · rw [h.rsp, h'.rsp]; exact hq.rsp) (by taint_decide)).wp
+      fun _ _ h => ⟨ld hp h.1, ld hp' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
+  exact pro.seq ((fin_rel hf hm name hp hp' hq).seq (mid.seq ((fin_rel hf hm name hp hp' hq).mono
+    (fun _ _ h => h) fun _ _ _ => trivial)))
+
+end
 
 /-- A state satisfying the precondition. -/
 def sat : State where
@@ -392,12 +492,17 @@ def sat : State where
   rd := [⟨0x2000, 96⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 240⟩]
 
-theorem finalize_verified :
-    Verified X86_64.target finalize Proof.Hmac.finalizeSha256X86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+theorem verified_of {f : Callee} (hf : f.Ok)
+    (hm : (Impl.Sha256.X86_64.Stream.finalize f).allInstrs (fun i => !loadsMxcsr i) = true) (name : String) :
+    Verified X86_64.target (finalize f name) Proof.Hmac.finalizeSha256X86_64 := by
+  have hm' : (finalize f name).allInstrs (fun i => !loadsMxcsr i) = true := by
+    simp only [finalize, sha256Finalize, Code.allInstrs, hm, Bool.and_true]
+    decide +kernel
+  refine ⟨fun s hs => ?_, fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂ => ?_, ?_⟩
+  · obtain ⟨t, s', he, h⟩ := correct hf hm name (pre_of hs)
+    exact ⟨t, s', he, abiPreserved_of_exec hm' he h.1, h.2⟩
+  · obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
+    exact (finalize_rel hf hm name (pre_of h₁) (pre_of h₂) ⟨p1, p2, p3, p4, p5⟩ _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
