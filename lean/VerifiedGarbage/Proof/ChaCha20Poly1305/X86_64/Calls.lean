@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.X86_64.Init
 import VerifiedGarbage.Proof.Poly1305.X86_64.Blocks
 import VerifiedGarbage.Proof.Poly1305.X86_64.Finalize
-import VerifiedGarbage.Proof.ChaCha20.X86_64.Xor
+import VerifiedGarbage.Proof.ChaCha20.X86_64.Variant
 import VerifiedGarbage.Proof.ChaCha20Poly1305.Spec
 import VerifiedGarbage.Impl.ChaCha20Poly1305.X86_64
 
@@ -82,16 +82,10 @@ theorem finalize_keeps : ((instrs Impl.Poly1305.X86_64.finalize).all fun i =>
 theorem init_depth : Impl.Poly1305.X86_64.init.depth = 0 := by decide +kernel
 theorem blocks_depth : Impl.Poly1305.X86_64.blocks.depth = 0 := by decide +kernel
 theorem finalize_depth : Impl.Poly1305.X86_64.finalize.depth = 0 := by decide +kernel
-theorem xor_depth : Impl.ChaCha20.X86_64.Xor.xor.depth = 1 := by decide +kernel
 
 theorem keeps_of {c : Prog isa} {p : Instr → Bool} (h : (instrs c).all p = true) {r : Reg}
     (hr : ∀ i, p i = true → Taint.clobbers i r = false) : ∀ i ∈ instrs c, Taint.clobbers i r = false :=
   fun i hi => hr i (List.all_eq_true.mp h i hi)
-
-theorem xor_keeps_rsp : ∀ i ∈ instrs Impl.ChaCha20.X86_64.Xor.xor, Taint.clobbers i .rsp = false := by
-  have : ((instrs Impl.ChaCha20.X86_64.Xor.xor).all fun i => !Taint.clobbers i .rsp) = true := by
-    rw [← Code.allInstrs_eq]; decide +kernel
-  exact keeps_of this fun i h => by simpa using h
 
 theorem and_left {a b : Bool} (h : (!a && !b) = true) : a = false := by simp_all
 theorem and_right {a b : Bool} (h : (!a && !b) = true) : b = false := by simp_all
@@ -218,51 +212,75 @@ theorem block_call {s : State} {S B : Addr} (hrdi : s.gpr .rdi = S) (hrsi : s.gp
 
 /-! ## `vg_chacha20_xor` -/
 
-/-- The contract of `vg_chacha20_xor`, and that it returns with `rsi = buf`. -/
-def xorK : Contract isa where
-  pre := Proof.ChaCha20.xorX86_64.pre
-  post s s' := Proof.ChaCha20.xorX86_64.post s s' ∧ s'.gpr .rsi = s.gpr .rcx
-  pub := Proof.ChaCha20.xorX86_64.pub
+theorem below8_24 (s : State) : Region.Sub (below (s.gpr .rsp) 8) (below (s.gpr .rsp) 24) :=
+  below_sub (by omega) (by omega)
 
-theorem xor_call {s : State} {S D B : Addr} {n : Nat} (hrdi : s.gpr .rdi = S) (hrsi : s.gpr .rsi = D)
+/-- The precondition of the implementation `v` of `vg_chacha20_xor`, called
+with 24 bytes of stack below `rsp`: 8 for its return address, and at most 16
+for its calls. -/
+theorem xor_pre (v : Proof.ChaCha20.X86_64.XorImpl) {s : State} {S D B : Addr} {n : Nat}
+    (hrdi : s.gpr .rdi = S) (hrsi : s.gpr .rsi = D)
     (hrdx : s.gpr .rdx = BitVec.ofNat 64 n) (hrcx : s.gpr .rcx = B) (hn : n < 2 ^ 64)
     (hSD : (⟨S, 64⟩ : Region).Disjoint ⟨D, n⟩) (hSB : (⟨S, 64⟩ : Region).Disjoint ⟨B, 320⟩)
     (hDB : (⟨D, n⟩ : Region).Disjoint ⟨B, 320⟩) (hwrap : D.toNat + n ≤ 2 ^ 64)
-    (hsS : (below (s.gpr .rsp) 16).Disjoint ⟨S, 64⟩) (hsD : (below (s.gpr .rsp) 16).Disjoint ⟨D, n⟩)
-    (hsB : (below (s.gpr .rsp) 16).Disjoint ⟨B, 320⟩)
+    (hsS : (below (s.gpr .rsp) 24).Disjoint ⟨S, 64⟩) (hsD : (below (s.gpr .rsp) 24).Disjoint ⟨D, n⟩)
+    (hsB : (below (s.gpr .rsp) 24).Disjoint ⟨B, 320⟩) :
+    (Proof.ChaCha20.xorStack v.stack).pre (s.callEntry.withRegions [] [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩]) := by
+  have hn' : (BitVec.ofNat 64 n).toNat = n := by
+    rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt hn
+  have hk := v.stack_le
+  have h8 := below8_24 s
+  have hk' : Region.Sub ⟨s.gpr .rsp - 8 - BitVec.ofNat 64 v.stack, v.stack⟩ (below (s.gpr .rsp) 24) := by
+    intro x hx
+    simp only [Region.Contains] at *
+    have : (BitVec.ofNat 64 v.stack).toNat = v.stack := by rw [BitVec.toNat_ofNat]; omega
+    bv_omega
+  simp only [Proof.ChaCha20.xorStack, State.withRegions_gpr, State.withRegions_rd,
+    State.withRegions_wr, State.callEntry_rsp, callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp),
+    callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp),
+    callEntry_gpr' s (by decide : Reg.rcx ≠ .rsp), hrdi, hrsi, hrdx, hrcx, hn']
+  exact ⟨trivial, trivial, hSD, hSB, hDB, hsS.sub_left h8, hsD.sub_left h8, hsB.sub_left h8,
+    hsS.sub_left hk', hsD.sub_left hk', hsB.sub_left hk', hwrap⟩
+
+/-- A call of the implementation `v` of `vg_chacha20_xor` (see `xor_pre`). -/
+theorem xor_call (v : Proof.ChaCha20.X86_64.XorImpl) {s : State} {S D B : Addr} {n : Nat}
+    (hrdi : s.gpr .rdi = S) (hrsi : s.gpr .rsi = D)
+    (hrdx : s.gpr .rdx = BitVec.ofNat 64 n) (hrcx : s.gpr .rcx = B) (hn : n < 2 ^ 64)
+    (hSD : (⟨S, 64⟩ : Region).Disjoint ⟨D, n⟩) (hSB : (⟨S, 64⟩ : Region).Disjoint ⟨B, 320⟩)
+    (hDB : (⟨D, n⟩ : Region).Disjoint ⟨B, 320⟩) (hwrap : D.toNat + n ≤ 2 ^ 64)
+    (hsS : (below (s.gpr .rsp) 24).Disjoint ⟨S, 64⟩) (hsD : (below (s.gpr .rsp) 24).Disjoint ⟨D, n⟩)
+    (hsB : (below (s.gpr .rsp) 24).Disjoint ⟨B, 320⟩)
     (hc : Covers ([] ++ [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩]) (s.rd ++ s.wr))
     (hw : Covers [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩] s.wr)
     {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
-      Frame [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩, below (s.gpr .rsp) 16] s.mem s'.mem → s'.gpr .rsi = B →
+      Frame [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩, below (s.gpr .rsp) 24] s.mem s'.mem → s'.gpr .rsi = B →
       Spec.ChaCha20.bytesAt s'.mem D n =
         List.zipWith (· ^^^ ·) (Spec.ChaCha20.bytesAt s.mem D n) (keystream (stateAt s.mem S) n) → Q s') :
-    WP isa (.call "vg_chacha20_xor" Impl.ChaCha20.X86_64.Xor.xor) s Q := by
+    WP isa (.call v.callee.name v.callee.code) s Q := by
   have hn' : (BitVec.ofNat 64 n).toNat = n := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt hn
-  have h8 : Region.Sub (below (s.gpr .rsp) 8) (below (s.gpr .rsp) 16) := below_sub (by omega) (by omega)
-  have h8' : Region.Sub ⟨s.gpr .rsp - 8 - 8, 8⟩ (below (s.gpr .rsp) 16) := by
-    intro x hx
-    simp only [Region.Contains] at *
-    bv_omega
-  refine WP.call (k := xorK) Proof.ChaCha20.X86_64.Xor.xor_rsi xor_keeps_rsp
-    (by rw [xor_depth]; decide) (rd := []) (wr := [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩]) ?_ hc hw ?_
-  · simp only [xorK, Proof.ChaCha20.xorX86_64, State.withRegions_gpr, State.withRegions_rd,
-      State.withRegions_wr, State.callEntry_rsp, callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp),
-      callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp),
-      callEntry_gpr' s (by decide : Reg.rcx ≠ .rsp), hrdi, hrsi, hrdx, hrcx, hn']
-    exact ⟨trivial, trivial, hSD, hSB, hDB, hsS.sub_left h8, hsD.sub_left h8, hsB.sub_left h8,
-      hsS.sub_left h8', hsD.sub_left h8', hsB.sub_left h8', hwrap⟩
-  · intro s' hrd hwr hcs hf hkeep ⟨s₂, hm₂, hg₂, hpost, hrsi₂⟩
-    rw [xor_depth] at hf
-    refine hQ s' hrd hwr hcs hf ?_ ?_
-    · rw [← hg₂ .rsi (by decide), hrsi₂, State.withRegions_gpr, callEntry_gpr' s (by decide), hrcx]
-    · simp only [Proof.ChaCha20.xorX86_64, State.withRegions_gpr, State.withRegions_mem,
-        callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp),
-        callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp), hrdi, hrsi, hrdx, hn', hm₂] at hpost
-      rw [hpost, bytesAt_eq, bytesAt_frame (callEntry_frame s) (fun r hr => by
-          simp only [List.mem_singleton] at hr; subst hr; exact (hsD.sub_left h8).symm) (by omega),
-        stateAt_frame (callEntry_frame s) (fun r hr => by
-          simp only [List.mem_singleton] at hr; subst hr; exact (hsS.sub_left h8).symm)]
+  have hd := v.depth_le
+  have h8 := below8_24 s
+  refine WP.call (k := Proof.ChaCha20.xorStack v.stack) v.ok v.nosp (by omega)
+    (xor_pre v hrdi hrsi hrdx hrcx hn hSD hSB hDB hwrap hsS hsD hsB) hc hw ?_
+  intro s' hrd hwr hcs hf hkeep ⟨s₂, hm₂, hg₂, hpost, hrsi₂⟩
+  have hf' : Frame [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩, below (s.gpr .rsp) 24] s.mem s'.mem := by
+    refine hf.sub fun r hr => ?_
+    simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl
+    · exact ⟨_, by simp, fun _ h => h⟩
+    · exact ⟨_, by simp, fun _ h => h⟩
+    · exact ⟨_, by simp, fun _ h => h⟩
+    · exact ⟨below (s.gpr .rsp) 24, by simp, below_sub (by omega) (by omega)⟩
+  refine hQ s' hrd hwr hcs hf' ?_ ?_
+  · rw [← hg₂ .rsi (by decide), hrsi₂, State.withRegions_gpr, callEntry_gpr' s (by decide), hrcx]
+  · simp only [Proof.ChaCha20.xorX86_64, State.withRegions_gpr, State.withRegions_mem,
+      callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp),
+      callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp), hrdi, hrsi, hrdx, hn', hm₂] at hpost
+    rw [hpost, bytesAt_eq, bytesAt_frame (callEntry_frame s) (fun r hr => by
+        simp only [List.mem_singleton] at hr; subst hr; exact (hsD.sub_left h8).symm) (by omega),
+      stateAt_frame (callEntry_frame s) (fun r hr => by
+        simp only [List.mem_singleton] at hr; subst hr; exact (hsS.sub_left h8).symm)]
 
 end VG.Proof.ChaCha20Poly1305.X86_64

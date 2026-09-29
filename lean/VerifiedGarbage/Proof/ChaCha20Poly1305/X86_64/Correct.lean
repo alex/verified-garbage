@@ -67,8 +67,8 @@ theorem ret_kept {s₀ : State} (hp : APre s₀) {m₆ m' : Mem} (hi : Frame [wo
   have c : (retR s₀).Contains (s₀.gpr .rsp) (64 / 8) := Region.contains_self _ _
   rw [hf.readW c (by rdisj_all) (by omega), hi.readW c (by rdisj_all) (by omega)]
 
-theorem seal_correct {s₀ : State} (hp : APre s₀) :
-    WP isa «seal» s₀ fun s' => gprPreserved s₀ s' ∧ sealX86_64.post s₀ s' := by
+theorem seal_correct (v : Proof.ChaCha20.X86_64.XorImpl) {s₀ : State} (hp : APre s₀) :
+    WP isa («seal» v.callee) s₀ fun s' => gprPreserved s₀ s' ∧ sealX86_64.post s₀ s' := by
   have hL' := (s₀.gpr .r8).isLt.le
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
   have hA : bytesAt s₁.mem (ad s₀) (AL s₀) = A s₀ :=
@@ -84,7 +84,7 @@ theorem seal_correct {s₀ : State} (hp : APre s₀) :
   have D₃ : bytesAt s₃.mem (dp s₀) (L s₀) = D s₀ := by
     rw [bytesAt_frame f₃ (by rdisj_all) hL', bytesAt_frame f₂ (by rdisj_all) hL',
       bytesAt_frame h₁.fine (by rdisj_all) hL']
-  refine WP.seq (WP.mono (crypt_ok hp i₃ st₃) fun s₄ ⟨i₄, _, f₄, ct₄⟩ => ?_)
+  refine WP.seq (WP.mono (crypt_ok v hp i₃ st₃) fun s₄ ⟨i₄, _, f₄, ct₄⟩ => ?_)
   rw [D₃] at ct₄
   refine WP.seq (WP.mono (macPad_ok hp (p := .r14) (n := .r13) ⟨.inr rfl, .inr rfl⟩ (srcD hp) i₄.r15
     i₄.rsp i₄.rd i₄.wr i₄.r14 (by rw [i₄.r13]; exact hL s₀))
@@ -111,12 +111,12 @@ theorem seal_correct {s₀ : State} (hp : APre s₀) :
   simp only [Spec.ChaCha20Poly1305.encrypt, macData, List.nil_append,
     List.append_assoc, VG.Proof.Poly1305.length_bytesAt, length_encrypt]
 
-theorem open_eq : «open» =
+theorem open_eq (x : Impl.ChaCha20.X86_64.Callee) : «open» x =
     .seq prologue (.seq (macPad .rbx .rbp) (.seq (macPad .r14 .r13) (.seq (.block lengths)
-    (.seq absorbLengths (.seq crypt (.seq (finalizeTo 640) (.block (compare ++ restore)))))))) := rfl
+    (.seq absorbLengths (.seq (crypt x) (.seq (finalizeTo 640) (.block (compare ++ restore)))))))) := rfl
 
-theorem open_correct {s₀ : State} (hp : APre s₀) :
-    WP isa «open» s₀ fun s' => gprPreserved s₀ s' ∧ openX86_64.post s₀ s' := by
+theorem open_correct (v : Proof.ChaCha20.X86_64.XorImpl) {s₀ : State} (hp : APre s₀) :
+    WP isa («open» v.callee) s₀ fun s' => gprPreserved s₀ s' ∧ openX86_64.post s₀ s' := by
   have hL' := (s₀.gpr .r8).isLt.le
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
   have hA : bytesAt s₁.mem (ad s₀) (AL s₀) = A s₀ :=
@@ -137,7 +137,7 @@ theorem open_correct {s₀ : State} (hp : APre s₀) :
   have st₅ : stateAt s₅.mem (off (cx s₀) 64) = Spec.ChaCha20.initState (K s₀) 0 (N s₀) := by
     rw [stateAt_frame f₅ (by rdisj_all), stateAt_frame f₄ (by rdisj_all), stateAt_frame f₃ (by rdisj_all),
       stateAt_frame f₂ (by rdisj_all), h₁.st]
-  refine WP.seq (WP.mono (crypt_ok hp i₅ st₅) fun s₆ ⟨i₆, _, f₆, pt₆⟩ => ?_)
+  refine WP.seq (WP.mono (crypt_ok v hp i₅ st₅) fun s₆ ⟨i₆, _, f₆, pt₆⟩ => ?_)
   refine WP.seq (WP.mono (finalizeTo_ok hp i₆ (out := 640) (.inr ⟨by omega, by omega⟩))
     fun s₇ ⟨cs₇, rd₇, wr₇, rdi₇, rcx₇, f₇, tag₇⟩ => ?_)
   refine WP.block_append (WP.mono (compare_ok hp rcx₇ rdi₇ (by rw [rd₇, i₆.rd]) (by rw [wr₇, i₆.wr]))

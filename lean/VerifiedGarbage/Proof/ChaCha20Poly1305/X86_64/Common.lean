@@ -16,15 +16,16 @@ open Spec.Poly1305 (bytesAt)
 open VG.X86_64 in
 /-- The precondition of both functions: `ctx` (1024 bytes) and `data` may be
 read and written, `aad` read; none of them overlaps another (`aad` may overlap
-nothing writable), the return address or the 16 bytes of stack below it, where
-the calls store their return addresses; nothing wraps around the end of the
-address space. -/
+nothing writable), the return address or the 24 bytes of stack below it, where
+the calls store their return addresses (16 for that of `vg_chacha20_xor` and
+the calls of any of its implementations, see `XorImpl`); nothing wraps around
+the end of the address space. -/
 def preX86_64 (s : X86_64.State) : Prop :=
   let ctx : Region := ⟨s.gpr .rdi, 1024⟩
   let aad : Region := ⟨s.gpr .rsi, (s.gpr .rdx).toNat⟩
   let data : Region := ⟨s.gpr .rcx, (s.gpr .r8).toNat⟩
   let ret : Region := ⟨s.gpr .rsp, 8⟩
-  let stack : Region := ⟨s.gpr .rsp - 16, 16⟩
+  let stack : Region := ⟨s.gpr .rsp - 24, 24⟩
   s.rd = [aad] ∧ s.wr = [ctx, data] ∧
   ctx.Disjoint aad ∧ ctx.Disjoint data ∧ aad.Disjoint data ∧
   ret.Disjoint ctx ∧ ret.Disjoint aad ∧ ret.Disjoint data ∧
@@ -117,7 +118,7 @@ abbrev ctxR : Region := ⟨cx s₀, 1024⟩
 abbrev aR : Region := ⟨ad s₀, AL s₀⟩
 abbrev dR : Region := ⟨dp s₀, L s₀⟩
 abbrev retR : Region := ⟨s₀.gpr .rsp, 8⟩
-abbrev stkR : Region := below (s₀.gpr .rsp) 16
+abbrev stkR : Region := below (s₀.gpr .rsp) 24
 /-- `ctx[k, k + n)`. -/
 abbrev sub (k n : Nat) : Region := ⟨off (cx s₀) k, n⟩
 end
@@ -131,9 +132,9 @@ structure APre (s₀ : State) : Prop where
   ret_c : (retR s₀).Disjoint (ctxR s₀)
   ret_a : (retR s₀).Disjoint (aR s₀)
   ret_d : (retR s₀).Disjoint (dR s₀)
-  stk_c : (⟨s₀.gpr .rsp - 16, 16⟩ : Region).Disjoint (ctxR s₀)
-  stk_a : (⟨s₀.gpr .rsp - 16, 16⟩ : Region).Disjoint (aR s₀)
-  stk_d : (⟨s₀.gpr .rsp - 16, 16⟩ : Region).Disjoint (dR s₀)
+  stk_c : (⟨s₀.gpr .rsp - 24, 24⟩ : Region).Disjoint (ctxR s₀)
+  stk_a : (⟨s₀.gpr .rsp - 24, 24⟩ : Region).Disjoint (aR s₀)
+  stk_d : (⟨s₀.gpr .rsp - 24, 24⟩ : Region).Disjoint (dR s₀)
   wrap_c : (cx s₀).toNat + 1024 ≤ 2 ^ 64
   wrap_a : (ad s₀).toNat + AL s₀ ≤ 2 ^ 64
   wrap_d : (dp s₀).toNat + L s₀ ≤ 2 ^ 64
@@ -142,7 +143,7 @@ theorem APre.of (s₀ : State) (h : preX86_64 s₀) : APre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩
 
-theorem stkR_eq (s₀ : State) : stkR s₀ = ⟨s₀.gpr .rsp - 16, 16⟩ := rfl
+theorem stkR_eq (s₀ : State) : stkR s₀ = ⟨s₀.gpr .rsp - 24, 24⟩ := rfl
 
 /-! ## Regions -/
 
