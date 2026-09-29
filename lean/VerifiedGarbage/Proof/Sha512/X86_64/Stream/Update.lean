@@ -360,7 +360,7 @@ theorem D_getD (s₀ : State) {i : Nat} (hi : i < len s₀) :
 theorem Common.data {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Common s₀ c s) {i : Nat}
     (hi : i < len s₀) : s.mem (dp s₀ + BitVec.ofNat 64 i) = (D s₀).getD i 0 := by
   rw [D_getD s₀ hi]
-  exact h.frame.bytes (R := dR s₀) (by simpa using ⟨hp.d_st, hp.d_scr, hp.stk_d.symm⟩) (len_lt s₀).le hi
+  exact h.frame.bytes (R := dR s₀) (by simpa using ⟨hp.d_st, hp.d_scr, hp.stk_d.symm⟩) (Nat.le_of_lt (len_lt s₀)) hi
 
 theorem sx64 : BitVec.signExtend 64 (128 : BitVec 32) = (128 : BitVec 64) := by decide
 theorem sx1 : BitVec.signExtend 64 (1 : BitVec 32) = (1 : BitVec 64) := by decide
@@ -510,7 +510,7 @@ theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
     rw [u₅.mem, u₄.mem, u₃.mem, m₂, u₁.mem, u₁.gpr, hbyte, h.mem, List.take_add_one,
       List.getElem?_eq_getElem hj', Option.toList_some,
       writeBytes_snoc _ _ _ _ (by simp only [List.length_take]; omega)]
-    have hl : (List.take j (xs s₀ c)).length = j := by rw [List.length_take, Nat.min_eq_left hj'.le]
+    have hl : (List.take j (xs s₀ c)).length = j := by rw [List.length_take, Nat.min_eq_left (Nat.le_of_lt hj')]
     rw [hl, BitVec.setWidth_setWidth_of_le _ (by omega), BitVec.setWidth_eq]
     congr 1
     simp only [xs, List.getElem_take, List.getElem_drop, List.getD_eq_getElem?_getD,

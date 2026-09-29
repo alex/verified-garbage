@@ -372,7 +372,7 @@ structure RcInv (s₀ : State) (k : Nat) (s : State) : Prop where
 theorem rcs_ok {s₀ : State} (hp : Pre s₀) :
     ∀ s, RcInv s₀ 0 s → WP isa (.block ((List.range 24).flatMap rcStore)) s (RcInv s₀ 24) := by
   have fC := hp.fitC
-  refine wp_range_flatMap (M := isa) (RcInv s₀) (fun k s hk hI => ?_) 24 le_rfl
+  refine wp_range_flatMap (M := isa) (RcInv s₀) (fun k s hk hI => ?_) 24 (Nat.le_refl _)
   refine WP.mono (rcStore_ok k hk s (by rw [hI.wr, hI.r1]; exact hp.scr_in (by omega))
     (by rw [hI.wr, hI.r1]; exact hp.scr_in (by omega))) fun s' ⟨g', r', w', p', m'⟩ => ?_
   rw [hI.r1] at m'

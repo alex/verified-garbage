@@ -1,6 +1,5 @@
 import VerifiedGarbage.Proof.ChaCha20.Spec
 import VerifiedGarbage.Proof.Framework.Mem
-import Mathlib.Tactic.IntervalCases
 
 /-!
 # Facts about the ChaCha20 keystream
@@ -70,7 +69,7 @@ theorem serialize_getD (S : CState) {i : Nat} (hi : i < 64) :
   rw [e]; clear e
   generalize S[i / 4] = w
   generalize i % 4 = j at h4 ⊢
-  interval_cases j <;> rfl
+  rcases (by omega : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3) with h | h | h | h <;> subst h <;> rfl
 
 /-- The bytes of a state in memory. -/
 theorem serialize_stateAt (m : Mem) (p : Addr) {i : Nat} (hi : i < 64) :

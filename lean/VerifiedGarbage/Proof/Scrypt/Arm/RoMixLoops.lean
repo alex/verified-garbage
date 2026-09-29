@@ -370,13 +370,13 @@ theorem n_step {s : State} {r e : Nat} (hr : 0 < r) (hlt : r * 2 ^ (e + 1) < 2 ^
     by rw [f₃.sp, u₂.sp, u₁.sp, h.sp], by rw [f₃.mem, u₂.mem, u₁.mem, h.mem],
     fun r' h0 h1 => ?_, by rw [f₃.gpr, ax], ?_⟩, ?_⟩
   · rw [f₃.gpr, u₂.other r' h1, u₁.other r' h0, h.other r' h0 h1]
-  · rw [f₃.gpr, u₂.gpr, u₁.other _ (by decide), h.r1, ← one_mul (2 ^ k), dbl_pow32, one_mul]
+  · rw [f₃.gpr, u₂.gpr, u₁.other _ (by decide), h.r1, ← Nat.one_mul (2 ^ k), dbl_pow32, Nat.one_mul]
   · rw [z₃, ax, u₂.other _ (by decide), u₁.other _ (by decide),
       h.other _ (by decide) (by decide), h2, sub_beq (by omega) hlt]
     by_cases hh : k + 1 = e + 1
     · simp [hh]
     · have : r * 2 ^ (k + 1) ≠ r * 2 ^ (e + 1) := fun h' =>
-        hh (Nat.pow_right_injective (le_refl 2) (Nat.eq_of_mul_eq_mul_left hr h'))
+        hh ((Nat.pow_right_inj (by decide)).mp (Nat.eq_of_mul_eq_mul_left hr h'))
       simp only [this, decide_false, hh]
 
 /-- `nLoop` doubles `r0` (from `r`) and `r1` (from 1) until `r0 = r2 = r * 2^(e+1)`. -/

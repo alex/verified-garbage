@@ -158,7 +158,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   have hsf : stateAt s₈.mem (stA s₀) = S₀ s₀ := by
     rw [u₈.mem, u₇.mem]
     exact stateAt_congr fun i hi =>
-      hf.bytes (R := SR s₀) (by simpa using hp.st_c.sub_right (Region.sub_prefix (le_refl _)))
+      hf.bytes (R := SR s₀) (by simpa using hp.st_c.sub_right (Region.sub_prefix (Nat.le_refl _)))
         (by simp) hi
   refine ⟨{
     i_le := Nat.zero_le _, hi := (by omega), pos_le := hp.pos_le, rd := ?_, wr := ?_, sp := ?_,
@@ -403,7 +403,7 @@ theorem wf₀ {s : State} (h : Proof.Sha3.squeezeArm.pre s) : VG.Arm.Taint.Wf τ
   have hst := hp.st_fit; have hso := hp.o_fit; have hsc := hp.c_fit
   refine ⟨fun _ => ⟨by simp [hp.wr, τ₀], ?_, ?_⟩, ?_, fun _ => ⟨hp.sp_fit, ?_⟩, ?_⟩
   · simp only [hp.wr, List.pairwise_cons, List.mem_cons, List.not_mem_nil, or_false,
-      forall_eq_or_imp, forall_eq, List.Pairwise.nil, and_true, IsEmpty.forall_iff, implies_true]
+      forall_eq_or_imp, forall_eq, List.Pairwise.nil, and_true, false_implies, implies_true]
     exact ⟨⟨hp.st_o, hp.st_c⟩, hp.o_c⟩
   · simp only [hp.wr, List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl) <;> simp only [addr_toNat] <;> omega

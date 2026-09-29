@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Common
-import Mathlib.Tactic.IntervalCases
 
 /-!
 # Streaming SHA-256 on AArch64: `init`
@@ -27,7 +26,13 @@ theorem movzk (x : BitVec 32) :
         BitVec.setWidth 32 (x.extractLsb' 16 16) <<< 16)) = x := by
   apply BitVec.eq_of_getLsbD_eq
   intro i hi
-  interval_cases i <;> simp
+  simp only [BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_setWidth,
+    BitVec.getLsbD_extractLsb', BitVec.ofNat_eq_ofNat, BitVec.getLsbD_ofNat,
+    VG.AArch64.testBit_65535, hi, decide_true, Bool.true_and, Nat.zero_add]
+  rcases (by omega : i < 16 ∨ 16 ≤ i) with h | h <;>
+  simp (disch := omega) only [decide_eq_true, decide_eq_false, Bool.true_and, Bool.false_and,
+    Bool.and_false, Bool.or_false, Bool.false_or, Bool.and_true, Bool.not_true, Bool.not_false]
+  all_goals exact congrArg _ (by omega)
 
 theorem word_ok {x : BitVec 32} {off : Nat} (ho : off % 4 = 0 ∧ off < 16384) {rest : List Instr}
     {s : State} {Q : State → Prop} (hout : InRegions s.wr (s.gpr .x0 + BitVec.ofNat 64 off) 4)

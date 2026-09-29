@@ -793,7 +793,7 @@ theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
     rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem, hv, h.mem, List.take_add_one,
       List.getElem?_eq_getElem hj', Option.toList_some,
       writeBytes_snoc _ _ _ _ (by simp only [List.length_take]; omega)]
-    have hl : (List.take j (xs s₀ c)).length = j := by rw [List.length_take, Nat.min_eq_left hj'.le]
+    have hl : (List.take j (xs s₀ c)).length = j := by rw [List.length_take, Nat.min_eq_left (Nat.le_of_lt hj')]
     rw [hl]
     congr 1
     simp only [xs, List.getElem_take, List.getElem_drop, List.getD_eq_getElem?_getD,

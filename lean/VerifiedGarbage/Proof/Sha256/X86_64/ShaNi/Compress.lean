@@ -1,4 +1,3 @@
-import Mathlib.Data.List.Nodup
 import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbage.Proof.Sha256.X86_64.ShaNi.Spec
 import VerifiedGarbage.Impl.Sha256.X86_64.ShaNi
@@ -64,7 +63,7 @@ theorem schedule_hi (n : Nat) (hn : 4 ≤ n) (s : State) (a b c d : BitVec 128)
       (∀ r, r ≠ msg n → r ≠ .xmm7 → s'.xmm r = s.xmm r) ∧
       s'.gpr = s.gpr ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   have hd := msg_nodup n
-  have hd'' := List.nodup_reverse.mpr hd
+  have hd'' := VG.nodup_reverse hd
   apply WP.of_runBlock
   simp only [schedule, show ¬ n < 4 by omega, ite_false]
   generalize msg n = x₀ at *
@@ -87,7 +86,7 @@ theorem schedule_lo (n : Nat) (hn : n < 4) (s : State)
       (∀ r, r ≠ msg n → s'.xmm r = s.xmm r) ∧
       s'.gpr = s.gpr ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   have hd := msg_nodup n
-  have hd'' := List.nodup_reverse.mpr hd
+  have hd'' := VG.nodup_reverse hd
   apply WP.of_runBlock
   simp only [schedule, hn, ite_true]
   generalize msg n = x₀ at *

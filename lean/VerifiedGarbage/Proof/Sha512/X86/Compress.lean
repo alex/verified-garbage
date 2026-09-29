@@ -444,7 +444,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
   refine movArg_ok hp hL.esp hL.rd fun s₀' u₀ => ?_
   rw [harg_of hp hL.frame] at u₀
   refine WP.mono (loadHs_ok hp u₀.gpr (by rw [u₀.other _ (by decide), hL.esi])
-    (by rw [u₀.wr, hL.wr]) 8 le_rfl) fun s₁ h₁ => ?_
+    (by rw [u₀.wr, hL.wr]) 8 (Nat.le_refl _)) fun s₁ h₁ => ?_
   have g₁ : ∀ r, r ≠ T → r ≠ .ecx → s₁.gpr r = s.gpr r := fun r h1 h2 => by
     rw [h₁.gpr r h1, u₀.other r h2]
   have m₁ : Frame [workR (scr s₀)] s.mem s₁.mem := by rw [← u₀.mem]; exact h₁.frame
@@ -464,7 +464,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     exact raw_block fitB s₀.mem j hj
   have h0 : ∀ k (hk : k < 8), rd64 s₁.mem (scr s₀) (8 * k) = H[k] := fun k hk => by
     rw [h₁.vars k hk, u₀.mem, stateAt_get fitS _ hk]
-  refine WP.seq (WP.mono (rounds_ok c₁ hB hM h0 80 le_rfl) fun s₂ h₂ => ?_)
+  refine WP.seq (WP.mono (rounds_ok c₁ hB hM h0 80 (Nat.le_refl _)) fun s₂ h₂ => ?_)
   have g₂ : ∀ r, r ∉ temps → r ≠ .ecx → s₂.gpr r = s.gpr r := fun r hr h2 => by
     rw [h₂.gpr r hr, g₁ r (fun h => hr (by subst h; decide)) h2]
   have hrd₂ : s₂.rd = s₀.rd := by rw [h₂.rd, h₁.rd, u₀.rd, hL.rd]
@@ -479,7 +479,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
   rw [harg_of hp hframe₂] at u₃
   rw [WP.block_append_iff]
   refine WP.mono (addHs_ok hp u₃.gpr (by rw [u₃.other _ (by decide), g₂ _ (by decide) (by decide), hL.esi])
-    (by rw [u₃.wr, hwr₂]) 8 le_rfl) fun s₄ h₄ => ?_
+    (by rw [u₃.wr, hwr₂]) 8 (Nat.le_refl _)) fun s₄ h₄ => ?_
   have hesi₄ : s₄.gpr .esi = scr s₀ := by
     rw [h₄.gpr _ (by decide), u₃.other _ (by decide), g₂ _ (by decide) (by decide), hL.esi]
   refine advance_ok hesi₄ (hp.ctx hesi₄ (by rw [h₄.wr, u₃.wr, hwr₂])).wV

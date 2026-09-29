@@ -1,6 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.Arm.Rounds
 import VerifiedGarbage.Proof.Sha256.Arm.Contract
-import Mathlib.Tactic.IntervalCases
 
 /-!
 # SHA-256 compression function on ARMv7: the whole function
@@ -226,7 +225,7 @@ theorem stateAt_writeState {s₀ : State} (hp : Pre s₀) (m : Mem) (v : HashVal
   apply stateAt_eq hp
   intro k hk
   simp only [writeState]
-  interval_cases k <;>
+  rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7) with h | h | h | h | h | h | h | h <;> subst h <;>
   simp (config := {decide := true}) only [Mem.readW_writeW_self32, readW_writeW_word hp]
 
 theorem frame_writeState {s₀ : State} (hp : Pre s₀) {m m' : Mem} (h : Frame [stR s₀] m m')
