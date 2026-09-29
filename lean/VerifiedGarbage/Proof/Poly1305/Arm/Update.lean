@@ -1,8 +1,9 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Steps
-import VerifiedGarbage.Proof.Poly1305.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import Mathlib.Tactic.Conv
 import Mathlib.Tactic.Ring.RingNF
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on 32-bit ARM: `update`
@@ -901,17 +902,21 @@ def updateSat : State where
   rd := [⟨0, 0⟩, ⟨0x4000, 12⟩]
   wr := [⟨0x1000, 128⟩, ⟨0, 128⟩]
 
-theorem update_verified : Verified Arm.target update Proof.Poly1305.updateArm := by
-  refine ⟨fun s hs => update_correct (UPre.of s hs), ?_, ?_⟩
-  · exact VG.Taint.constantTime (A := taint) τu (fun _ _ h₁ h₂ hp => agreeu h₁ h₂ hp) (by taint_decide)
-  · have e : ∀ k, stackArg updateSat k = 0 := fun k => by
-      simp [stackArg, updateSat, Mem.readW, Mem.read]
-    refine ⟨updateSat, ?_⟩
-    simp only [Proof.Poly1305.updateArm, e]
-    refine ⟨by simp [updateSat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
-      by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, updateSat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+theorem update_ok (s : State) (hs : Proof.Poly1305.updateArm.pre s) :
+    ∃ t s', Exec isa update s t s' ∧ abiPreserved s s' ∧ Proof.Poly1305.updateArm.post s s' :=
+  update_correct (UPre.of s hs)
+
+theorem update_ct : ConstantTime isa Proof.Poly1305.updateArm.pre Proof.Poly1305.updateArm.pub
+    update := by
+  exact VG.Taint.constantTime (A := taint) τu (fun _ _ h₁ h₂ hp => agreeu h₁ h₂ hp) (by
+      taint_decide)
+
+theorem update_verified :
+    Verified Arm.target Impl.Poly1305.Arm.update (Spec.Poly1305.updateContract Arm.abi) :=
+  Verified.of_correct update_ok update_ct (by
+    sig_implies [Spec.Poly1305.updateContract, Spec.Poly1305.updateSig, Proof.Poly1305.updateArm,
+      Proof.Poly1305.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+      Arm.State.addr] [Proof.Poly1305.Arm.Update.updateSat, Arm.stackArg, Arm.stackArgAddr,
+      Mem.readW, Mem.read] using Proof.Poly1305.Arm.Update.updateSat)
 
 end VG.Proof.Poly1305.Arm.Update

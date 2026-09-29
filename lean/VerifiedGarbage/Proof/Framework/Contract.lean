@@ -1,16 +1,23 @@
 import Mathlib.Tactic.CasesM
 import VerifiedGarbage.Proof.Framework.Mem
-import VerifiedGarbage.TCB.Artifact
+import VerifiedGarbage.Proof.Framework.Sig
 
 /-!
 # Moving a proof from one contract to a stronger one
 
 Untrusted: everything here is checked by Lean.
 
-The proofs are written against per-target contracts (`Proof/<Alg>/<Target>/Contract.lean`);
-the artifacts are emitted with the shared contracts of `Spec/`, built with
-`Sig.contract`. `Contract.Implies k k'` says that `k'` asks no more of the
-code than `k` does, so a proof of `Verified T c k` gives `Verified T c k'`.
+A proof may be written against a contract of its own (which its verified
+callers may also use with `WP.call`), with its facts spelled out for the
+target; the artifact is emitted with the shared contract of `Spec/`, built
+with `Sig.contract`. `Contract.Implies k k'` says that `k'` asks no more of
+the code than `k` does, so a proof of `Verified T c k` gives `Verified T c k'`
+(`Verified.of_implies`), and the correctness and constant time of `c` under
+`k` give `Verified T c k'` (`Verified.of_correct`).
+
+`sig_implies` proves `Contract.Implies k k'` cheaply, with the tactics of
+`Proof/Framework/Sig.lean`; `contract_implies`, which searches with `simp_all`,
+remains for the proofs not moved to it.
 -/
 
 namespace VG
@@ -36,17 +43,16 @@ theorem Verified.of_implies {T : Target} {c : Prog T.isa} {k k' : Contract T.isa
     exact ⟨t, s', he, ha, hk.post s s' hs hp⟩
   · exact hct s₁ s₂ t₁ t₂ s₁' s₂' (hk.pre _ h₁) (hk.pre _ h₂) (hk.pub _ _ h₁ h₂ hp) e₁ e₂
 
-theorem BitVec.toNat_setWidth_32_64 (x : BitVec 32) : (x.setWidth 64).toNat = x.toNat := by
-  simp [BitVec.toNat_setWidth]; omega
-
-theorem BitVec.setWidth_32_64_32 (x : BitVec 32) : (x.setWidth 64).setWidth 32 = x := by
-  simp
-
-theorem BitVec.append_32_inj {a b c d : BitVec 32} (h : a ++ b = c ++ d) : a = c ∧ b = d :=
-  ⟨by have := congrArg (BitVec.extractLsb' 32 32) h
-      rwa [BitVec.extractLsb'_append_eq_left, BitVec.extractLsb'_append_eq_left] at this,
-   by have := congrArg (BitVec.extractLsb' 0 32) h
-      rwa [BitVec.extractLsb'_append_eq_right, BitVec.extractLsb'_append_eq_right] at this⟩
+/-- `Verified` from the correctness and constant time of `c` under a contract
+`k` that `k'` implies: the proofs of a function against the contract its
+verified callers use, moved to its shared contract. -/
+theorem Verified.of_correct {T : Target} {c : Prog T.isa} {k k' : Contract T.isa}
+    (hc : ∀ s, k.pre s → ∃ t s', Exec T.isa c s t s' ∧ T.abiPreserved s s' ∧ k.post s s')
+    (hct : ConstantTime T.isa k.pre k.pub c) (hk : k.Implies k') : Verified T c k' := by
+  refine ⟨fun s hs => ?_, fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hp e₁ e₂ => ?_, hk.sat⟩
+  · obtain ⟨t, s', he, ha, hp⟩ := hc s (hk.pre s hs)
+    exact ⟨t, s', he, ha, hk.post s s' hs hp⟩
+  · exact hct s₁ s₂ t₁ t₂ s₁' s₂' (hk.pre _ h₁) (hk.pre _ h₂) (hk.pub _ _ h₁ h₂ hp) e₁ e₂
 
 theorem Region.disjoint_comm {a b : Region} : a.Disjoint b ↔ b.Disjoint a :=
   ⟨Region.Disjoint.symm, Region.Disjoint.symm⟩
@@ -59,18 +65,6 @@ theorem Region.disjoint_of_le {r₁ r₂ : Region}
   intro a c₁ c₂
   simp only [Region.Contains] at c₁ c₂
   bv_omega
-
-theorem BitVec.setWidth_32_64_inj {a b : BitVec 32} : a.setWidth 64 = b.setWidth 64 ↔ a = b :=
-  ⟨fun h => by simpa using congrArg (BitVec.setWidth 32) h, fun h => h ▸ rfl⟩
-
-theorem BitVec.append_32_iff {a b c d : BitVec 32} : a ++ b = c ++ d ↔ a = c ∧ b = d :=
-  ⟨BitVec.append_32_inj, fun ⟨h₁, h₂⟩ => h₁ ▸ h₂ ▸ rfl⟩
-
-theorem Curry.apply_const {α : Type} (a : α) :
-    ∀ (ws : List ArgWord) (vs : List (BitVec 64)), Curry.apply ws (Curry.const a ws) vs = a
-  | [], _ => rfl
-  | _ :: ws, [] => Curry.apply_const a ws []
-  | _ :: ws, _ :: vs => Curry.apply_const a ws vs
 
 /-! ## Tactics
 
@@ -153,6 +147,7 @@ macro_rules
         | exact Region.disjoint_of_le (by decide) (by decide) (by decide)
         | rfl
         | decide
+        | exact Region.disjoint_of_sep (by decide)
         | (intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega)))
 
 /-- Proves `k.Implies k'` for `k'` built with `Sig.contract`, with the witness
@@ -166,5 +161,105 @@ macro_rules
         post := by implies_post [$ls,*]
         pub := by implies_pub [$ls,*]
         sat := by implies_sat [$ls,*, $ws,*] using $w })
+
+/-- Two regions that do not wrap around the end of the address space, one
+entirely below the other: a check that `decide` evaluates on concrete regions. -/
+def Region.sep (a b : Region) : Bool :=
+  a.base.toNat + a.len ≤ 2 ^ 64 && b.base.toNat + b.len ≤ 2 ^ 64 &&
+    (a.base.toNat + a.len ≤ b.base.toNat || b.base.toNat + b.len ≤ a.base.toNat)
+
+theorem Region.disjoint_of_sep {a b : Region} (h : Region.sep a b = true) : a.Disjoint b := by
+  simp only [Region.sep, Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq] at h
+  intro x h₁ h₂
+  simp only [Region.Contains] at h₁ h₂
+  bv_omega
+
+/-! ## Cheap implications
+
+`sig_implies [ls] [ws] using w` proves `k.Implies k'` for `k'` built with
+`Sig.contract` and `k` (unfolded by `ls`: both contracts, the signature and
+the calling convention) a contract whose precondition is a conjunction of facts
+that each follow from one of `k'`'s (as `sig_pre` evaluates it) by
+`assumption`, by symmetry of `Region.Disjoint` or by `omega`, whose
+postcondition is `k'`'s as `sig_post` evaluates it, and whose public data
+are equalities among `k'`'s. `w` is a state satisfying
+`k'.pre`, and `ws` unfolds what `k'.pre` needs to evaluate on it. Unlike
+`contract_implies`, nothing searches over all hypotheses with `simp`. -/
+
+/-- Splits the conjunction `h` into anonymous hypotheses. -/
+syntax "split_ands_at " ident : tactic
+macro_rules
+  | `(tactic| split_ands_at $h) => `(tactic| repeat (obtain ⟨_, $h:ident⟩ := $h:ident))
+
+/-- Proves `∀ s, k'.pre s → k.pre s` (see `sig_implies`). -/
+syntax "sig_implies_pre " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
+macro_rules
+  | `(tactic| sig_implies_pre [$ls,*]) => `(tactic| (
+      intro s h
+      sig_pre [$ls,*] at h
+      split_ands_at h
+      set_option linter.unusedSimpArgs false in
+      dsimp only [$ls,*]
+      and_intros
+      all_goals first
+        | with_reducible assumption
+        | with_reducible exact Region.Disjoint.symm ‹_›
+        | omega
+        | (simp only [Nat.mul_comm] at *
+           first | with_reducible assumption | with_reducible exact Region.Disjoint.symm ‹_›)
+        | simp only [*, List.mem_cons, List.mem_singleton, true_or, or_true]))
+
+/-- Proves `∀ s s', k'.pre s → k.post s s' → k'.post s s'` (see `sig_implies`). -/
+syntax "sig_implies_post " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
+macro_rules
+  | `(tactic| sig_implies_post [$ls,*]) => `(tactic| (
+      intro s s' _ h
+      sig_post [$ls,*]
+      set_option linter.unusedSimpArgs false in
+      dsimp only [$ls,*] at h
+      exact h))
+
+/-- Proves `∀ s₁ s₂, k'.pre s₁ → k'.pre s₂ → k'.pub s₁ s₂ → k.pub s₁ s₂` (see
+`sig_implies`). -/
+syntax "sig_implies_pub " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
+macro_rules
+  | `(tactic| sig_implies_pub [$ls,*]) => `(tactic| (
+      intro s₁ s₂ _ _ h
+      sig_pub [$ls,*] at h
+      split_ands_at h
+      set_option linter.unusedSimpArgs false in
+      simp only [$ls,*, Nat.forall_lt_succ_right, Nat.not_lt_zero, false_imp_iff, forall_const,
+        true_and]
+      and_intros
+      all_goals with_reducible assumption))
+
+/-- Proves `∃ s, k'.pre s` with the witness `w`, whose facts (`rd`, `wr`,
+bounds) hold by `rfl` or `decide`, and whose disjointness facts follow by
+`bv_omega` once `ws` (e.g. `w` itself) evaluates its regions (see
+`sig_implies`). -/
+syntax "sig_implies_sat " "[" Lean.Parser.Tactic.simpLemma,* "]" " [" Lean.Parser.Tactic.simpLemma,* "]"
+  " using " term : tactic
+macro_rules
+  | `(tactic| sig_implies_sat [$ls,*] [$ws,*] using $w) => `(tactic| (
+      refine ⟨$w, ?_⟩
+      sig_pre [$ls,*]
+      and_intros
+      all_goals first
+        | rfl
+        | decide
+        | exact Region.disjoint_of_sep (by decide)
+        | (intro a h₁ h₂
+           set_option linter.unusedSimpArgs false in
+           simp only [Region.Contains, $ws,*] at h₁ h₂
+           bv_omega)))
+
+syntax "sig_implies " "[" Lean.Parser.Tactic.simpLemma,* "]" " [" Lean.Parser.Tactic.simpLemma,* "]"
+  " using " term : tactic
+macro_rules
+  | `(tactic| sig_implies [$ls,*] [$ws,*] using $w) => `(tactic| exact
+      { pre := by sig_implies_pre [$ls,*]
+        post := by sig_implies_post [$ls,*]
+        pub := by sig_implies_pub [$ls,*]
+        sat := by sig_implies_sat [$ls,*] [$ws,*] using $w })
 
 end VG

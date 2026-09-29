@@ -106,7 +106,7 @@ include ha hb hq
 theorem block_rel :
     RelCT isa (fun x y => Pro2 a x ∧ Pro2 b y)
       (callWith [.edx, .ecx] "vg_chacha20_block" Impl.ChaCha20.X86.block) fun _ _ => True :=
-  RelCT.callWith Proof.ChaCha20.X86.block_verified.1 Proof.ChaCha20.X86.block_verified.2.1 (rdBlk a) (wrBlk a)
+  RelCT.callWith Proof.ChaCha20.X86.block_correct Proof.ChaCha20.X86.block_ct (rdBlk a) (wrBlk a)
     fun x y ⟨hx, hy⟩ => by
       have py := block_pre hb hy.at_ hy.ecx hy.edx
       rw [show rdBlk b = rdBlk a by simp only [rdBlk, sub, cx, CX, E, hq.cx, hq.esp],
@@ -124,7 +124,7 @@ theorem block_rel :
 theorem init_rel :
     RelCT isa (fun x y => Pro4 a x ∧ Pro4 b y)
       (callWith [.ecx, .edx] "vg_poly1305_init" Impl.Poly1305.X86.init) fun _ _ => True :=
-  RelCT.callWith Proof.Poly1305.X86.init_verified.1 Proof.Poly1305.X86.init_verified.2.1 (rdInit a) (wrInit a)
+  RelCT.callWith Proof.Poly1305.X86.init_ok Proof.Poly1305.X86.init_ct (rdInit a) (wrInit a)
     fun x y ⟨hx, hy⟩ => by
       have py := init_pre hb hy.at_ hy.ecx hy.edx
       rw [show rdInit b = rdInit a by simp only [rdInit, sub, cx, CX, E, hq.cx, hq.esp],
@@ -142,7 +142,7 @@ theorem init_rel :
 theorem oneB_rel {k : Nat} (hk : k + 16 ≤ 448 ∨ (576 ≤ k ∧ k + 16 ≤ 1024)) :
     RelCT isa (fun x y => OneA a k x ∧ OneA b k y)
       (callWith [.eax, .ecx, .edx] "vg_poly1305_blocks" Impl.Poly1305.X86.blocks) fun _ _ => True :=
-  RelCT.callWith Proof.Poly1305.X86.blocks_verified.1 Proof.Poly1305.X86.blocks_verified.2.1
+  RelCT.callWith Proof.Poly1305.X86.blocks_ok Proof.Poly1305.X86.blocks_ct
     (rdBlocks a (C32 a k) 1) (wrBlocks a) fun x y ⟨hx, hy⟩ => by
       have py := blocks_pre hb hy.inv.at (n := 1) (by decide) (bsrc_ctx hb hk) hy.edx hy.ecx hy.eax
       rw [show rdBlocks b (C32 b k) 1 = rdBlocks a (C32 a k) 1 by simp only [rdBlocks, E, hq.c32, hq.esp],
@@ -162,7 +162,7 @@ theorem maB_rel {i : Nat} (hi : i + 1 < 5) (hsa : Src a (arg a i) (arg a (i + 1)
     (hsb : Src b (arg b i) (arg b (i + 1)).toNat) :
     RelCT isa (fun x y => MA a i x ∧ MA b i y)
       (callWith [.eax, .ebx, .ecx] "vg_poly1305_blocks" Impl.Poly1305.X86.blocks) fun _ _ => True :=
-  RelCT.callWith Proof.Poly1305.X86.blocks_verified.1 Proof.Poly1305.X86.blocks_verified.2.1
+  RelCT.callWith Proof.Poly1305.X86.blocks_ok Proof.Poly1305.X86.blocks_ct
     (rdBlocks a (arg a i) ((arg a (i + 1)).toNat / 16)) (wrBlocks a) fun x y ⟨hx, hy⟩ => by
       have ei : arg b i = arg a i := hq.args i (by omega)
       have ei' : arg b (i + 1) = arg a (i + 1) := hq.args (i + 1) hi
@@ -185,7 +185,7 @@ theorem maB_rel {i : Nat} (hi : i + 1 < 5) (hsa : Src a (arg a i) (arg a (i + 1)
 theorem crB_rel :
     RelCT isa (fun x y => CrA a x ∧ CrA b y)
       (callWith [.esi, .edx, .ecx, .eax] "vg_chacha20_xor" Impl.ChaCha20.X86.Xor.xor) fun _ _ => True :=
-  RelCT.callWith Proof.ChaCha20.X86.Xor.xor_verified.1 Proof.ChaCha20.X86.Xor.xor_verified.2.1 [] (wrXor a)
+  RelCT.callWith Proof.ChaCha20.X86.Xor.xor_correct Proof.ChaCha20.X86.Xor.xor_ct [] (wrXor a)
     fun x y ⟨hx, hy⟩ => by
       have py := xor_pre hb hy.inv.at hy.eax hy.ecx hy.edx hy.esi
       rw [show wrXor b = wrXor a by simp only [wrXor, sub, cx, CX, dR, dp, DP, L, LN, E, hq.cx, hq.a3, hq.a4,
@@ -205,7 +205,7 @@ theorem crB_rel :
 theorem fiB_rel {out : Nat} (ho : OutOk out) :
     RelCT isa (fun x y => FiA a out x ∧ FiA b out y)
       (callWith finRegs "vg_poly1305_finalize" Impl.Poly1305.X86.finalize) fun _ _ => True :=
-  RelCT.callWith Proof.Poly1305.X86.finalize_verified.1 Proof.Poly1305.X86.finalize_verified.2.1 (rdFin a)
+  RelCT.callWith Proof.Poly1305.X86.finalize_ok Proof.Poly1305.X86.finalize_ct (rdFin a)
     (wrFin a out) fun x y ⟨hx, hy⟩ => by
       have py := finalize_pre hb hy.inv.at ho hy.ebx hy.ecx hy.eax hy.esi
       rw [show rdFin b = rdFin a by simp only [rdFin, E, hq.esp],

@@ -226,4 +226,10 @@ theorem CopyInv.frame {sI : State} {m₀ : Mem} {src : Addr} {j0 n : Nat} (hj0 :
   refine writeBytes_frame _ _ _ ?_
   rw [bufB_eq, hxs]; exact bfR_contains _ hj0
 
+/-- The proof contracts of `update` and `finalize` only need the length
+of the message modulo 16. -/
+theorem count_mod {count : BitVec 64} {n : Nat} (h : count = BitVec.ofNat 64 n) :
+    count.toNat % 16 = n % 16 := by
+  rw [h, BitVec.toNat_ofNat]; omega
+
 end VG.Proof.Poly1305.AArch64

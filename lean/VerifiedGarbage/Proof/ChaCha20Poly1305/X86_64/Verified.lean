@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.ChaCha20Poly1305.X86_64.Correct
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.ChaCha20Poly1305.Contract
 
 /-!
 # ChaCha20-Poly1305 on x86-64: `Verified`
@@ -48,22 +50,70 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 1024⟩, ⟨0x3000, 0⟩]
 
-theorem sat_pre : preX86_64 sat := by
-  refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, sat] at h₁ h₂
-    bv_omega
+theorem seal_ok (s : State) (hs : sealX86_64.pre s) :
+    ∃ t s', Exec isa Impl.ChaCha20Poly1305.X86_64.«seal» s t s' ∧ abiPreserved s s' ∧
+      sealX86_64.post s s' := by
+  obtain ⟨t, s', he, h, hpost⟩ := seal_correct (APre.of s hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h, hpost⟩
 
-theorem seal_verified : Verified X86_64.target Impl.ChaCha20Poly1305.X86_64.«seal» sealX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
-  · obtain ⟨t, s', he, h, hpost⟩ := seal_correct (APre.of s hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h, hpost⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+theorem seal_ct : ConstantTime isa sealX86_64.pre sealX86_64.pub
+    Impl.ChaCha20Poly1305.X86_64.«seal» :=
+  VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
 
-theorem open_verified : Verified X86_64.target Impl.ChaCha20Poly1305.X86_64.«open» openX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
-  · obtain ⟨t, s', he, h, hpost⟩ := open_correct (APre.of s hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h, hpost⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+theorem open_ok (s : State) (hs : openX86_64.pre s) :
+    ∃ t s', Exec isa Impl.ChaCha20Poly1305.X86_64.«open» s t s' ∧ abiPreserved s s' ∧
+      openX86_64.post s s' := by
+  obtain ⟨t, s', he, h, hpost⟩ := open_correct (APre.of s hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h, hpost⟩
+
+theorem open_ct : ConstantTime isa openX86_64.pre openX86_64.pub
+    Impl.ChaCha20Poly1305.X86_64.«open» :=
+  VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+
+theorem seal_verified :
+    Verified X86_64.target Impl.ChaCha20Poly1305.X86_64.«seal»
+      (Spec.ChaCha20Poly1305.sealContract X86_64.abi 16) :=
+  Verified.of_correct seal_ok seal_ct (by
+    sig_implies [Spec.ChaCha20Poly1305.sealContract, Spec.ChaCha20Poly1305.sealSig,
+      Proof.ChaCha20Poly1305.sealX86_64, Proof.ChaCha20Poly1305.preX86_64,
+      Proof.ChaCha20Poly1305.pubX86_64, X86_64.abi, X86_64.argRegs]
+      [Proof.ChaCha20Poly1305.X86_64.sat] using Proof.ChaCha20Poly1305.X86_64.sat)
+
+/-- The postconditions match on `decrypt` through different auxiliary
+functions, so the implication splits on it. -/
+theorem open_verified :
+    Verified X86_64.target Impl.ChaCha20Poly1305.X86_64.«open»
+      (Spec.ChaCha20Poly1305.openContract X86_64.abi 16) :=
+  Verified.of_correct open_ok open_ct
+    { pre := by
+        sig_implies_pre [Spec.ChaCha20Poly1305.openContract, Spec.ChaCha20Poly1305.openSig,
+          Proof.ChaCha20Poly1305.openX86_64, Proof.ChaCha20Poly1305.preX86_64,
+          Proof.ChaCha20Poly1305.pubX86_64, X86_64.abi, X86_64.argRegs]
+      post := by
+        intro s s' _ h
+        sig_eval [Spec.ChaCha20Poly1305.openContract, Spec.ChaCha20Poly1305.openSig, X86_64.abi,
+          X86_64.argRegs]
+        simp only [Proof.ChaCha20Poly1305.openX86_64] at h
+        -- The two `decrypt` terms are equal only up to unfolding numerals.
+        split at h
+        next _ pt e₁ =>
+          split
+          next _ pt' e₂ =>
+            obtain rfl := Option.some.inj (e₁.symm.trans e₂)
+            exact h
+          next _ e₂ => exact absurd (e₁.symm.trans e₂) (by simp)
+        next _ e₁ =>
+          split
+          next _ pt' e₂ => exact absurd (e₁.symm.trans e₂) (by simp)
+          next _ e₂ => exact h
+      pub := by
+        sig_implies_pub [Spec.ChaCha20Poly1305.openContract, Spec.ChaCha20Poly1305.openSig,
+          Proof.ChaCha20Poly1305.openX86_64, Proof.ChaCha20Poly1305.preX86_64,
+          Proof.ChaCha20Poly1305.pubX86_64, X86_64.abi, X86_64.argRegs]
+      sat := by
+        sig_implies_sat [Spec.ChaCha20Poly1305.openContract, Spec.ChaCha20Poly1305.openSig,
+          Proof.ChaCha20Poly1305.openX86_64, Proof.ChaCha20Poly1305.preX86_64,
+          Proof.ChaCha20Poly1305.pubX86_64, X86_64.abi, X86_64.argRegs]
+          [Proof.ChaCha20Poly1305.X86_64.sat] using Proof.ChaCha20Poly1305.X86_64.sat }
 
 end VG.Proof.ChaCha20Poly1305.X86_64

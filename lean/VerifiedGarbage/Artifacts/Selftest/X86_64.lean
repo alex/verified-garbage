@@ -1,6 +1,6 @@
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Impl.Selftest.X86_64
-import VerifiedGarbage.Proof.Selftest.X86_64.Shared
+import VerifiedGarbage.Proof.Selftest.X86_64
 
 /-!
 # The pipeline self-test on x86-64
@@ -26,6 +26,6 @@ def artifacts : List Artifact := [
       Contract: `VG.Spec.Selftest.addContract`. No safety requirements."
     code := Impl.Selftest.X86_64.add
     contract := Spec.Selftest.addContract X86_64.abi
-    verified := Proof.Selftest.X86_64.Shared.add }]
+    verified := Proof.Selftest.X86_64.add_verified }]
 
 end VG.Artifacts.Selftest.X86_64

@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.ChaCha20Poly1305.Arm.Common
-import VerifiedGarbage.Proof.Poly1305.Arm.Shared
+import VerifiedGarbage.Proof.Poly1305.Arm.Init
+import VerifiedGarbage.Proof.Poly1305.Arm.Blocks
+import VerifiedGarbage.Proof.Poly1305.Arm.Finalize
 
 /-!
 # ChaCha20-Poly1305 on ARMv7: the calls
@@ -76,7 +78,7 @@ theorem block_call {s : State} {S B : BitVec 32} (h0 : s.gpr .r0 = S) (h1 : s.gp
     (hQ : ∀ s', Kept [⟨State.addr B, 256⟩] s s' → s'.gpr .r1 = B →
       stateAt s'.mem (State.addr B) = Spec.ChaCha20.block (stateAt s.mem (State.addr S)) → Q s') :
     WP isa (.call "vg_chacha20_block" Impl.ChaCha20.Arm.block) s Q := by
-  refine WP.call (k := Proof.ChaCha20.blockArm) Proof.ChaCha20.Arm.block_verified.1
+  refine WP.call (k := Proof.ChaCha20.blockArm) Proof.ChaCha20.Arm.block_correct
     (rd := [⟨State.addr S, 64⟩]) (wr := [⟨State.addr B, 256⟩]) ?_ hc hw ?_ block_noCalls
   · simp only [Proof.ChaCha20.blockArm, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.callEntry_gpr s (by decide : Reg.r0 ∉ linkRegs),
@@ -138,7 +140,7 @@ theorem init_call {s : State} {P K : BitVec 32} (h0 : s.gpr .r0 = P) (h1 : s.gpr
     (hQ : ∀ s', Kept [⟨State.addr P, 128⟩] s s' → s'.gpr .r0 = P →
       Repr s'.mem (State.addr P) (bytesAt s.mem (State.addr K) 32) [] → Q s') :
     WP isa (.call "vg_poly1305_init" Impl.Poly1305.Arm.init) s Q := by
-  refine WP.call (k := Proof.Poly1305.initArm) Proof.Poly1305.Arm.init_verified.1
+  refine WP.call (k := Proof.Poly1305.initArm) Proof.Poly1305.Arm.init_ok
     (rd := [⟨State.addr K, 32⟩]) (wr := [⟨State.addr P, 128⟩]) ?_ hc hw ?_ init_noCalls
   · simp only [Proof.Poly1305.initArm, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.callEntry_gpr s (by decide : Reg.r0 ∉ linkRegs),
@@ -164,7 +166,7 @@ theorem blocks_call {s : State} {P p : BitVec 32} {n : Nat} (h0 : s.gpr .r0 = P)
     WP isa (.call "vg_poly1305_blocks" Impl.Poly1305.Arm.blocks) s Q := by
   have hn' : (BitVec.ofNat 32 n).toNat = n := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by omega)
-  refine WP.call (k := Proof.Poly1305.blocksArm) Proof.Poly1305.Arm.blocks_verified.1
+  refine WP.call (k := Proof.Poly1305.blocksArm) Proof.Poly1305.Arm.blocks_ok
     (rd := [⟨State.addr p, 16 * n⟩]) (wr := [⟨State.addr P, 128⟩]) ?_ hc hw ?_ blocks_noCalls
   · simp only [Proof.Poly1305.blocksArm, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.callEntry_gpr s (by decide : Reg.r0 ∉ linkRegs),
@@ -301,7 +303,7 @@ theorem finalize_ok {s : State} {P O Sc : BitVec 32} (h : FinArgs s P O Sc) {Q :
   refine WP.frame (rs := [.r1, .r12]) (r := .r1) rfl (by simpa using h.hsp) (by decide) ?_
   have hbw : ∀ r ∈ [⟨State.addr s.sp - 8, 8⟩], (⟨State.addr P, 128⟩ : Region).Disjoint r := by
     intro r hr; simp only [List.mem_singleton] at hr; subst hr; exact h.hbP.symm
-  refine WP.call (k := Proof.Poly1305.finalizeArm) Proof.Poly1305.Arm.Fin.finalize_verified.1
+  refine WP.call (k := Proof.Poly1305.finalizeArm) Proof.Poly1305.Arm.Fin.finalize_ok
     (rd := finRd s) (wr := finWr P O Sc) h.pre h.cov h.covW ?_ finalize_noCalls
   intro s₂ hrd₂ hwr₂ hsp₂ hf hcs _ hpost
   have hcnt : Proof.Poly1305.countArm (finView s P O Sc) = Proof.Poly1305.countArm s := by

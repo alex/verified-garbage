@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.AArch64.Target
-import VerifiedGarbage.Proof.Gcm.AArch64.Shared
+import VerifiedGarbage.Proof.Gcm.AArch64.Ghash
 
 /-!
 # GHASH on AArch64
@@ -24,7 +24,7 @@ def artifacts : List Artifact := [
         branches."])
     code := Impl.Gcm.AArch64.ghash
     contract := Spec.Gcm.ghashContract AArch64.abi
-    verified := Proof.Gcm.AArch64.Shared.ghash
+    verified := Proof.Gcm.AArch64.ghash_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.Gcm.AArch64

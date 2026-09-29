@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.AArch64.Target
-import VerifiedGarbage.Proof.Pbkdf2.Generic.AArch64.Shared
+import VerifiedGarbage.Proof.Pbkdf2.Generic.AArch64.Instances
 
 /-!
 # The PBKDF2-HMAC-MD5 iteration (RFC 8018) on AArch64
@@ -32,6 +32,6 @@ def artifacts : List Artifact := [
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Proof.Pbkdf2.Generic.AArch64.Shared.md5 }]
+    verified := Proof.Pbkdf2.Generic.AArch64.Instances.md5 }]
 
 end VG.Artifacts.Pbkdf2Md5.AArch64

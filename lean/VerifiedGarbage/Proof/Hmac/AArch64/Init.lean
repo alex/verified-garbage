@@ -1,8 +1,9 @@
 import VerifiedGarbage.Proof.Hmac.AArch64.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Init
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Init
-import VerifiedGarbage.Proof.Hmac.AArch64.Contract
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
 # HMAC-SHA-256 on AArch64: `init`
@@ -743,15 +744,22 @@ def sat : State where
   rd := [⟨0x3000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-theorem init_verified : Verified AArch64.target init Proof.Hmac.initSha256AArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) (fun _ _ _ _ hp => agree₀ hp)
-      (by taint_decide)
-  · refine ⟨sat, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, by decide, ?_, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+theorem init_correct (s : State) (hs : Proof.Hmac.initSha256AArch64.pre s) :
+    ∃ t s', Exec isa init s t s' ∧ abiPreserved s s' ∧ Proof.Hmac.initSha256AArch64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
+  exact ⟨t, s', he, h⟩
+
+theorem init_ct : ConstantTime isa Proof.Hmac.initSha256AArch64.pre Proof.Hmac.initSha256AArch64.pub
+    init := by
+  exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4])
+    (fun _ _ _ _ hp => agree₀ hp)
+    (by taint_decide)
+
+theorem init_verified :
+    Verified AArch64.target Impl.Hmac.AArch64.init (Spec.Hmac.initSha256Contract AArch64.abi 16) :=
+  Verified.of_correct init_correct init_ct (by
+    sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig,
+      Proof.Hmac.initSha256AArch64, AArch64.abi, AArch64.argRegs] [Proof.Hmac.AArch64.Init.sat]
+      using Proof.Hmac.AArch64.Init.sat)
 
 end VG.Proof.Hmac.AArch64.Init

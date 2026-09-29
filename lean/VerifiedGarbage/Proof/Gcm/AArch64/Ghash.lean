@@ -1,14 +1,53 @@
 import VerifiedGarbage.Proof.Gcm.AArch64.Step
 import VerifiedGarbage.Proof.Gcm.X86_64.Bits
-import VerifiedGarbage.Proof.Gcm.AArch64.Contract
+import VerifiedGarbage.Spec.Gcm
+import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Gcm.Contract
 
 /-!
 # GHASH on AArch64: the whole function
 
 Untrusted: everything here is checked by Lean.
 -/
+
+namespace VG.Proof.Gcm
+
+open Spec.Gcm
+
+open VG.AArch64 in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+AArch64 contract for
+`vg_ghash(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32])`:
+replaces the block `Y` at `y` with `GHASH_H` continued from `Y` over the `n`
+blocks at `data`, where `H` is the block at `h`.
+
+The code may read `h` (16 bytes) and `data` (`16 * n` bytes), and read and
+write `y` (16 bytes) and `scratch` (256 bytes, whose contents on exit are
+unspecified). `y` and `scratch` may not overlap each other or the other
+buffers. The pointers and `n` are public; `H`, `Y` and the data are
+secret. -/
+def ghashAArch64 : Contract AArch64.isa where
+  pre s :=
+    let h : Region := ⟨s.gpr .x0, 16⟩
+    let y : Region := ⟨s.gpr .x1, 16⟩
+    let data : Region := ⟨s.gpr .x2, 16 * (s.gpr .x3).toNat⟩
+    let scratch : Region := ⟨s.gpr .x4, 256⟩
+    s.rd = [h, data] ∧ s.wr = [y, scratch] ∧
+    h.Disjoint y ∧ h.Disjoint scratch ∧ y.Disjoint data ∧ y.Disjoint scratch ∧
+    data.Disjoint scratch
+  post s s' :=
+    blockAt s'.mem (s.gpr .x1) =
+      ghashFrom (blockAt s.mem (s.gpr .x0)) (blockAt s.mem (s.gpr .x1))
+        (blocksAt s.mem (s.gpr .x2) (s.gpr .x3).toNat)
+  pub s₁ s₂ :=
+    s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
+    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
+
+end VG.Proof.Gcm
 
 namespace VG.Proof.Gcm.AArch64
 
@@ -329,20 +368,25 @@ def satState : State where
   rd := [⟨0x1000, 16⟩, ⟨0x3000, 0⟩]
   wr := [⟨0x2000, 16⟩, ⟨0x4000, 256⟩]
 
+theorem ghash_correct (s : State) (hs : Proof.Gcm.ghashAArch64.pre s) :
+    ∃ t s', Exec isa Impl.Gcm.AArch64.ghash s t s' ∧ abiPreserved s s' ∧
+      Proof.Gcm.ghashAArch64.post s s' := by
+  obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
+  exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
+
+theorem ghash_ct : ConstantTime isa Proof.Gcm.ghashAArch64.pre Proof.Gcm.ghashAArch64.pub
+    Impl.Gcm.AArch64.ghash := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) ?_
+    (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, h5, hsp⟩
+  refine ⟨hsp, fun r hr => ?_⟩
+  simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
+
 theorem ghash_verified :
-    Verified AArch64.target Impl.Gcm.AArch64.ghash Proof.Gcm.ghashAArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) ?_
-      (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, h5, hsp⟩
-    refine ⟨hsp, fun r hr => ?_⟩
-    simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
-  · refine ⟨satState, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, satState] at h₁ h₂
-      bv_omega
+    Verified AArch64.target Impl.Gcm.AArch64.ghash (Spec.Gcm.ghashContract AArch64.abi) :=
+  Verified.of_correct ghash_correct ghash_ct (by
+    sig_implies [Spec.Gcm.ghashContract, Spec.Gcm.ghashSig, Proof.Gcm.ghashAArch64, AArch64.abi,
+      AArch64.argRegs] [Proof.Gcm.AArch64.satState] using Proof.Gcm.AArch64.satState)
 
 end VG.Proof.Gcm.AArch64

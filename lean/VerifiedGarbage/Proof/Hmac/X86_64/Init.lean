@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
-import VerifiedGarbage.Proof.Hmac.X86_64.Contract
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
 # HMAC-SHA-256 on x86-64: `init`
@@ -870,16 +871,34 @@ def sat : State where
   rd := [⟨0x3000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-theorem verified_of {f : Callee} (hf : f.Ok) (hm : (init f).allInstrs (fun i => !loadsMxcsr i) = true) :
-    Verified X86_64.target (init f) Proof.Hmac.initSha256X86_64 := by
-  refine ⟨fun s hs => ?_, fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂ => ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct hf (pre_of hs)
-    exact ⟨t, s', he, abiPreserved_of_exec hm he h.1, h.2⟩
-  · obtain ⟨p1, p2, p3, p4, p5, p6⟩ := hpub
-    exact (init_rel hf (pre_of h₁) (pre_of h₂) ⟨p1, p2, p3, p4, p5, p6⟩ _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
-  · refine ⟨sat, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+theorem init_ok {f : Callee} (hf : f.Ok) (hm : (init f).allInstrs (fun i => !loadsMxcsr i) = true)
+    (s : State) (hs : Proof.Hmac.initSha256X86_64.pre s) :
+    ∃ t s', Exec isa (init f) s t s' ∧ abiPreserved s s' ∧
+      Proof.Hmac.initSha256X86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct hf (pre_of hs)
+  exact ⟨t, s', he, abiPreserved_of_exec hm he h.1, h.2⟩
+
+theorem init_ct {f : Callee} (hf : f.Ok) :
+    ConstantTime isa Proof.Hmac.initSha256X86_64.pre Proof.Hmac.initSha256X86_64.pub (init f) := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂
+  obtain ⟨p1, p2, p3, p4, p5, p6⟩ := hpub
+  exact (init_rel hf (pre_of h₁) (pre_of h₂) ⟨p1, p2, p3, p4, p5, p6⟩ _ _ _ _ _ _ ⟨rfl, rfl⟩
+    e₁ e₂).1
+
+/-- `init`, calling any compression function `f`. -/
+theorem init_verified {f : Callee} (hf : f.Ok)
+    (hm : f.code.allInstrs (fun i => !loadsMxcsr i) = true) :
+    Verified X86_64.target (init f) (Spec.Hmac.initSha256Contract X86_64.abi 8) :=
+  Verified.of_correct (init_ok hf (by
+    simp only [init, Impl.Sha256.X86_64.Stream.compressAt, Code.allInstrs, hm, Bool.true_and,
+      Bool.and_true]
+    decide +kernel)) (init_ct hf) (by
+    sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig,
+      Proof.Hmac.initSha256X86_64, X86_64.abi, X86_64.argRegs] [sat] using sat)
+
+theorem init_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
+    (init f).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [init, Impl.Sha256.X86_64.Stream.compressAt, Code.all, h, Bool.true_and]
+  decide +kernel
 
 end VG.Proof.Hmac.X86_64.Init

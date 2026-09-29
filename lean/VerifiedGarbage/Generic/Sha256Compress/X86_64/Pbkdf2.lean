@@ -1,7 +1,7 @@
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Impl.Pbkdf2.X86_64
-import VerifiedGarbage.Proof.Pbkdf2.X86_64.Shared
 import VerifiedGarbage.Proof.Sha256.X86_64.Variant
+import VerifiedGarbage.Proof.Pbkdf2.X86_64.IterateCT
 
 /-!
 # The PBKDF2-HMAC-SHA-256 iteration (RFC 8018) on x86-64
@@ -28,8 +28,8 @@ def artifacts (v : Proof.Sha256.X86_64.Compress) : List Artifact := [
     code := Impl.Pbkdf2.X86_64.iterate v.callee
     contract := Spec.Pbkdf2.iterateSha256Contract X86_64.abi 8
     stack := 8
-    verified := Proof.Pbkdf2.X86_64.Shared.iterate v.ok v.mxcsr
-    spSafe := Proof.Pbkdf2.X86_64.Shared.iterate_spSafe v.spSafe
+    verified := Proof.Pbkdf2.X86_64.Iterate.iterate_verified v.ok v.mxcsr
+    spSafe := Proof.Pbkdf2.X86_64.Iterate.iterate_spSafe v.spSafe
     features := v.features }]
 
 end VG.Generic.Sha256Compress.X86_64.Pbkdf2

@@ -45,7 +45,7 @@ theorem call_ok {s : State} {st scr : Addr} (hdi : s.gpr .rdi = st) (hsi : s.gpr
       s'.gpr .rdi = st → s'.gpr .rsi = scr → Q s') :
     WP isa (.call "vg_keccak_f1600" permute) s Q := by
   have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
-  refine WP.call (k := Proof.Sha3.permuteX86_64) permute_verified.1 permute_nosp
+  refine WP.call (k := Proof.Sha3.permuteX86_64) permute_correct permute_nosp
     (by rw [permute_depth]; decide) (rd := []) (wr := [⟨st, 200⟩, ⟨scr, 512⟩]) ?_ ?_ hw ?_
   · simp only [Proof.Sha3.permuteX86_64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.callEntry_rsp, hne _ (by decide : Reg.rdi ≠ .rsp),

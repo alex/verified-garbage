@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Scrypt.Arm.BlockMixFun
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Scrypt.Contract
 
 /-!
 # scryptBlockMix on 32-bit ARM: verified
@@ -36,7 +38,7 @@ theorem salsaSpec : SalsaSpec Impl.Scrypt.Arm.salsa := by
   have c1 : s.callEntry.gpr .r1 = sc := (State.callEntry_gpr _ (by decide)).trans hsc
   have hw : Covers [⟨State.addr d, 64⟩, ⟨State.addr sc, 64⟩] s.wr :=
     covers_pair (covers_of_in hind) (covers_of_in hins)
-  refine WP.call (k := Proof.Scrypt.salsaArm) Proof.Scrypt.Arm.salsa_verified.1
+  refine WP.call (k := Proof.Scrypt.salsaArm) Proof.Scrypt.Arm.salsa_correct
     (rd := []) (wr := [⟨State.addr d, 64⟩, ⟨State.addr sc, 64⟩]) ?_ ?_ hw ?_
   · simp only [Proof.Scrypt.salsaArm, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, c0, c1]
@@ -94,20 +96,37 @@ def bmSat : State where
   rd := [⟨0x1000, 128⟩, ⟨0x5000, 4⟩]
   wr := [⟨0x2000, 128⟩, ⟨0x3000, 128⟩]
 
+theorem blockMix_correct (s : State) (hs : Proof.Scrypt.blockMixArm.pre s) :
+    ∃ t s', Exec isa Impl.Scrypt.Arm.blockMix s t s' ∧ abiPreserved s s' ∧
+      Proof.Scrypt.blockMixArm.post s s' := by
+  obtain ⟨t, s', he, h⟩ := BlockMix.correct salsaSpec (pre_of hs)
+  exact ⟨t, s', he, h⟩
+
+theorem blockMix_ct : ConstantTime isa Proof.Scrypt.blockMixArm.pre Proof.Scrypt.blockMixArm.pub
+    Impl.Scrypt.Arm.blockMix := by
+  exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
+    (by taint_decide)
+
 theorem blockMix_verified :
-    Verified Arm.target Impl.Scrypt.Arm.blockMix Proof.Scrypt.blockMixArm := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := BlockMix.correct salsaSpec (pre_of hs)
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
-      (by taint_decide)
-  · have e0 : stackArg bmSat 0 = 0x3000 := by decide
-    refine ⟨bmSat, ?_⟩
-    simp only [Proof.Scrypt.blockMixArm, e0]
-    refine ⟨by simp [bmSat, stackArgAddr]; decide, by decide, ?_, ?_, ?_, ?_, ?_,
-      by decide, by decide, by decide, by decide, rfl, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, bmSat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+    Verified Arm.target Impl.Scrypt.Arm.blockMix (Spec.Scrypt.blockMixContract Arm.abi) :=
+  Verified.of_correct blockMix_correct blockMix_ct
+    { pre := by
+        sig_implies_pre [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
+          Proof.Scrypt.blockMixArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+          Arm.State.addr]
+      post := by
+        sig_implies_post [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
+          Proof.Scrypt.blockMixArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+          Arm.State.addr]
+      pub := by
+        sig_implies_pub [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
+          Proof.Scrypt.blockMixArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+          Arm.State.addr]
+      sat := by
+        implies_sat [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
+          Proof.Scrypt.blockMixArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+          Arm.State.addr,
+          Proof.Scrypt.Arm.BlockMix.bmSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read]
+          using Proof.Scrypt.Arm.BlockMix.bmSat }
 
 end VG.Proof.Scrypt.Arm.BlockMix

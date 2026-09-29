@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Scrypt.AArch64.Common
-import VerifiedGarbage.Proof.Scrypt.AArch64.Contract
 
 /-!
 # scryptBlockMix on AArch64: correctness of the loop

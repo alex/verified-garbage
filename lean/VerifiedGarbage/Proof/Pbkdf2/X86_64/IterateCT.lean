@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Pbkdf2.X86_64.Iterate
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Pbkdf2.Contract
 
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on x86-64: constant time
@@ -261,5 +263,19 @@ theorem constantTime {f : Callee} (hf : f.Ok) :
       (iterate f) := by
   intro s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂
   exact (iterate_rel hf (pre_of h₁) (pre_of h₂) (pubEq_of hpub) _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+
+theorem iterate_verified {f : Callee} (hf : f.Ok)
+    (hm : f.code.allInstrs (fun i => !loadsMxcsr i) = true) :
+    Verified X86_64.target (iterate f) (Spec.Pbkdf2.iterateSha256Contract X86_64.abi 8) :=
+  Verified.of_correct (iterate_ok hf (by
+    simp only [iterate, body, compressBlock, Code.allInstrs, hm, Bool.and_true]
+    decide +kernel)) (constantTime hf) (by
+    sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig,
+      Proof.Pbkdf2.iterateSha256X86_64, X86_64.abi, X86_64.argRegs] [sat] using sat)
+
+theorem iterate_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
+    (iterate f).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [iterate, body, compressBlock, Code.all, h, Bool.and_true]
+  decide +kernel
 
 end VG.Proof.Pbkdf2.X86_64.Iterate

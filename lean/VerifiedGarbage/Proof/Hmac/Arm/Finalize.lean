@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.Arm.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Finalize
-import VerifiedGarbage.Proof.Hmac.Arm.Contract
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
 # HMAC-SHA-256 on ARMv7: `finalize`
@@ -456,19 +457,23 @@ def sat : State where
   rd := [⟨0x2000, 96⟩, ⟨0x5000, 8⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 32⟩, ⟨0x4000, 240⟩]
 
-theorem finalize_verified : Verified Arm.target finalize Proof.Hmac.finalizeSha256Arm := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
-  · have e0 : stackArg sat 0 = 0x3000 := by decide
-    have e1 : stackArg sat 1 = 0x4000 := by decide
-    refine ⟨sat, ?_⟩
-    simp only [Proof.Hmac.finalizeSha256Arm, e0, e1]
-    refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide,
-      by decide, by decide, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+theorem finalize_correct (s : State) (hs : Proof.Hmac.finalizeSha256Arm.pre s) :
+    ∃ t s', Exec isa finalize s t s' ∧ abiPreserved s s' ∧ Proof.Hmac.finalizeSha256Arm.post s s' :=
+      by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  exact ⟨t, s', he, h⟩
+
+theorem finalize_ct : ConstantTime isa Proof.Hmac.finalizeSha256Arm.pre
+    Proof.Hmac.finalizeSha256Arm.pub finalize := by
+  exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
+    (by taint_decide)
+
+theorem finalize_verified :
+    Verified Arm.target Impl.Hmac.Arm.finalize (Spec.Hmac.finalizeSha256OutContract Arm.abi) :=
+  Verified.of_correct finalize_correct finalize_ct (by
+    sig_implies [Spec.Hmac.finalizeSha256OutContract, Spec.Hmac.finalizeSha256OutSig,
+      Proof.Hmac.finalizeSha256Arm, Proof.Sha256.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify,
+      Arm.Loc.val, Arm.State.addr] [Proof.Hmac.Arm.Finalize.sat, Arm.stackArg, Arm.stackArgAddr,
+      Mem.readW, Mem.read] using Proof.Hmac.Arm.Finalize.sat)
 
 end VG.Proof.Hmac.Arm.Finalize
