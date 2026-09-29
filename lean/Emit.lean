@@ -3,9 +3,10 @@ import VerifiedGarbage.TCB.Emit
 /-!
 # The emitter
 
-Renders every artifact (those of `VerifiedGarbage/Artifacts.lean` and of
-each registration file under `VerifiedGarbage/Artifacts/`, see
-`VerifiedGarbage/TCB/Emit.lean`) into Rust, under `src/asm/` of the crate
+Renders every artifact (those of `VerifiedGarbage/Artifacts.lean`, of
+each registration file under `VerifiedGarbage/Artifacts/`, and of each
+generic file under `VerifiedGarbage/Generic/` for each variant under
+`VerifiedGarbage/Variants/`, see `VerifiedGarbage/TCB/Emit.lean`) into Rust, under `src/asm/` of the crate
 (by default `../src/asm`, relative to `lean/`). Run it from `lean/` after
 `lake build` (which checks every proof):
 
@@ -23,7 +24,8 @@ compile Mathlib to native code.)
 def main (args : List String) : IO UInt32 := do
   let driver : System.FilePath := ".lake" / "emit" / "Driver.lean"
   IO.FS.createDirAll ".lake/emit"
-  IO.FS.writeFile driver (VG.Emit.driver (← VG.Emit.registrations))
+  IO.FS.writeFile driver (VG.Emit.driver (← VG.Emit.registrations)
+    (← VG.Emit.grouped VG.Emit.genericDir) (← VG.Emit.grouped VG.Emit.variantDir))
   let lean ← IO.appPath
   let child ← IO.Process.spawn
     { cmd := lean.toString, args := #["--run", driver.toString] ++ args.toArray }
