@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Md5.AArch64.Rounds
 import VerifiedGarbage.Proof.Md5.AArch64.Contract
+import VerifiedGarbage.Proof.Md5.StateMem
 import Mathlib.Tactic.SplitIfs
 
 /-!
@@ -13,49 +14,9 @@ namespace VG.Proof.Md5.AArch64
 open VG VG.AArch64 VG.Impl.Md5.AArch64
 open VG.Spec.Md5 (HashValue Word Block stateAt blockAt compressBlocks compress parseBlock)
 
-/-! ## Addresses and regions -/
-
-theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = n := by
-  rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
-
-theorem contains_offset {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
-    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
-  simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, toNat_ofNat_lt ho]
-  exact h
-
-theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (ho : off < 2 ^ 64) :
-    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := by
-  intro a ha
-  simp only [Region.Contains] at *
-  have : (a - base).toNat ≤ (a - (base + BitVec.ofNat 64 off)).toNat + off := by
-    rw [show a - base = (a - (base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by bv_omega,
-      BitVec.toNat_add, toNat_ofNat_lt ho]
-    exact Nat.mod_le _ _
-  omega
-
-theorem word_sep (p : Addr) {j k : Nat} (hj : j < 4) (hk : k < 4) (h : j ≠ k) :
-    Mem.Sep (p + BitVec.ofNat 64 (4 * j)) 4 (p + BitVec.ofNat 64 (4 * k)) 4 := by
-  intro x hx hy
-  bv_omega
-
-theorem readW_writeW_word (m : Mem) (p : Addr) (v : Word) {j k : Nat} (hj : j < 4) (hk : k < 4)
-    (h : j ≠ k) :
-    (m.writeW (p + BitVec.ofNat 64 (4 * k)) v).readW (p + BitVec.ofNat 64 (4 * j)) 32 =
-    m.readW (p + BitVec.ofNat 64 (4 * j)) 32 :=
-  Mem.readW_writeW_sep (word_sep p hj hk h) (by decide)
-
-theorem stateAt_eq {m : Mem} {p : Addr} {v : HashValue}
-    (h : ∀ k : Nat, (hk : k < 4) → m.readW (p + BitVec.ofNat 64 (4 * k)) 32 = v[k]) :
-    stateAt m p = v := by
-  apply Vector.ext
-  intro k hk
-  simp only [stateAt, Vector.getElem_ofFn]
-  exact h k hk
-
-theorem stateAt_get (m : Mem) (p : Addr) {k : Nat} (hk : k < 4) :
-    (stateAt m p)[k] = m.readW (p + BitVec.ofNat 64 (4 * k)) 32 := by
-  simp only [stateAt, Vector.getElem_ofFn]
+/-! The hash value in memory and offsets into regions (`Proof/Md5/StateMem.lean`). -/
+export VG.Proof.Md5.StateMem (toNat_ofNat_lt contains_offset sub_offset word_sep readW_writeW_word
+  stateAt_eq stateAt_get writeState stateAt_writeState)
 
 /-- A 32-bit load reads four bytes, low-order byte first. -/
 theorem readW_bytes (m : Mem) (a : Addr) :
@@ -195,21 +156,6 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hx0 : s.gpr .x0 = st
   simp only [stateAt_get _ _ (show 0 < 4 by decide), stateAt_get _ _ (show 1 < 4 by decide),
     stateAt_get _ _ (show 2 < 4 by decide), stateAt_get _ _ (show 3 < 4 by decide), movz_movk_w]
   simp (config := {decide := true}) [loadKept, preserved]
-
-/-- Four 32-bit words written to consecutive addresses. -/
-def writeState (m : Mem) (p : Addr) (v : HashValue) : Mem :=
-  ((((m.writeW (p + BitVec.ofNat 64 (4 * 0)) v[0]).writeW
-    (p + BitVec.ofNat 64 (4 * 1)) v[1]).writeW
-    (p + BitVec.ofNat 64 (4 * 2)) v[2]).writeW
-    (p + BitVec.ofNat 64 (4 * 3)) v[3])
-
-set_option simprocs false in
-theorem stateAt_writeState (m : Mem) (p : Addr) (v : HashValue) : stateAt (writeState m p v) p = v := by
-  apply stateAt_eq
-  intro k hk
-  simp only [writeState]
-  rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3) with rfl | rfl | rfl | rfl <;>
-  simp (config := {decide := true}) only [Mem.readW_writeW_self32, readW_writeW_word]
 
 theorem frame_writeState {s₀ : State} {m m' : Mem} (h : Frame [stR s₀] m m') (v : HashValue) :
     Frame [stR s₀] m (writeState m' (st s₀) v) := by

@@ -24,7 +24,7 @@ open VG.Proof.Hmac.Arm (add_off)
 open VG.Proof.Hmac.X86_64 (bytesAt_length)
 open VG.Proof.Hmac.X86_64.Init (bytesAt_snoc repr_block)
 open VG.Proof.Sha256.Stream (writeBytes repr_congr)
-open VG.Proof.Sha256.AArch64 (writeState stateAt_writeState)
+open VG.Proof.Sha256.StateMem (writeState stateAt_writeState)
 open VG.Proof.Sha256.Arm (contains_offset)
 open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_add wp_subs wp_cmp wp_ldrb wp_strb wp_ldrSp
   wp_str op2_imm op2_reg saveMem frame_bytes sub_offset eval_eq eval_ne ofNat_beq_zero sub_ofNat

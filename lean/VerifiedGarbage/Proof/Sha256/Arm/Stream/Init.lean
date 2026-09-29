@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Common
-import VerifiedGarbage.Proof.Sha256.AArch64.Compress
+import VerifiedGarbage.Proof.Sha256.StateMem
 import VerifiedGarbage.Proof.Sha256.Arm.Contract
 
 /-!
@@ -71,7 +71,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha256.initArm.pre s₀) :
     fun s8 g8 _ _ sp8 m8 => WP.block_nil ?_
   have k8 : ∀ r, r ≠ .r12 → s8.gpr r = s₀.gpr r := fun r h => by
     rw [g8 r h, g7 r h, g6 r h, g5 r h, g4 r h, g3 r h, g2 r h, g1 r h]
-  have hm : s8.mem = Proof.Sha256.AArch64.writeState s₀.mem (State.addr (s₀.gpr .r0)) H0 := by
+  have hm : s8.mem = Proof.Sha256.StateMem.writeState s₀.mem (State.addr (s₀.gpr .r0)) H0 := by
     rw [m8, m7, m6, m5, m4, m3, m2, m1, k7, k6, k5, k4, k3, k2, k1]
     rfl
   refine ⟨⟨fun r hr => k8 r ?_, by rw [sp8, sp7, sp6, sp5, sp4, sp3, sp2, sp1]⟩, ?_⟩
@@ -79,7 +79,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha256.initArm.pre s₀) :
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
   · show Spec.Sha256.Repr s8.mem (State.addr (s₀.gpr .r0)) []
     rw [hm]
-    exact Proof.Sha256.Stream.repr_nil (Proof.Sha256.AArch64.stateAt_writeState _ _ _)
+    exact Proof.Sha256.Stream.repr_nil (Proof.Sha256.StateMem.stateAt_writeState _ _ _)
 
 /-- A state satisfying the precondition. -/
 def initSat : State where

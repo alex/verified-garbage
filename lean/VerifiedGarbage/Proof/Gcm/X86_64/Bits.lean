@@ -1,5 +1,6 @@
 import VerifiedGarbage.Impl.Gcm.X86_64
 import VerifiedGarbage.Proof.Framework.X86_64.Bswap
+import VerifiedGarbage.Proof.Gcm.Bits
 import VerifiedGarbage.Proof.Gcm.Spec
 
 /-!
@@ -61,21 +62,7 @@ theorem blockAt_bswap (m : Mem) (p : Addr) :
     e 10 (by omega), e 11 (by omega), e 12 (by omega), e 13 (by omega), e 14 (by omega),
     Spec.Gcm.blockAt, bytesAt_16, ofBytes_16]
 
-theorem getLsbD_bswap64 (a : BitVec 64) (i : Nat) (hi : i < 64) :
-    (X86_64.bswap64 a).getLsbD i = a.getLsbD (8 * (7 - i / 8) + i % 8) := by
-  simp only [X86_64.bswap64]
-  rw [X86_64.getLsbD_cat8]
-  simp only [BitVec.getLsbD_extractLsb']
-  rcases (by omega : i < 8 ∨ (8 ≤ i ∧ i < 16) ∨ (16 ≤ i ∧ i < 24) ∨ (24 ≤ i ∧ i < 32) ∨
-    (32 ≤ i ∧ i < 40) ∨ (40 ≤ i ∧ i < 48) ∨ (48 ≤ i ∧ i < 56) ∨ 56 ≤ i) with
-    h | h | h | h | h | h | h | h <;>
-  simp (disch := omega) only [ite_eq_left, ite_eq_right] <;>
-  (rw [decide_eq_true (by omega), Bool.true_and]; congr 1; omega)
-
-theorem bswap64_bswap64 (a : BitVec 64) : X86_64.bswap64 (X86_64.bswap64 a) = a := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi
-  rw [getLsbD_bswap64 _ _ hi, getLsbD_bswap64 _ _ (by omega)]
-  congr 1; omega
+theorem bswap64_bswap64 (a : BitVec 64) : X86_64.bswap64 (X86_64.bswap64 a) = a :=
+  byteRev64_byteRev64 a
 
 end VG.Proof.Gcm.X86_64
