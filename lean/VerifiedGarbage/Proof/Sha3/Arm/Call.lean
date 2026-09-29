@@ -141,10 +141,10 @@ theorem ofNat32_succ (k : Nat) : BitVec.ofNat 32 k + 1 = BitVec.ofNat 32 (k + 1)
 
 theorem sub_ofNat32 {a b : Nat} (h : b ≤ a) :
     BitVec.ofNat 32 a - BitVec.ofNat 32 b = BitVec.ofNat 32 (a - b) :=
-  VG.Proof.Sha256.Arm.Stream.sub_ofNat h
+  VG.Proof.MdStream.Arm.sub_ofNat h
 
 theorem ofNat32_beq_zero {k : Nat} (h : k < 2 ^ 32) : (BitVec.ofNat 32 k == 0) = decide (k = 0) :=
-  VG.Proof.Sha256.Arm.Stream.ofNat_beq_zero h
+  VG.Proof.MdStream.Arm.ofNat_beq_zero h
 
 theorem sub_beq_zero32 {a : Nat} (ha : a < 2 ^ 32) (y : BitVec 32) :
     (BitVec.ofNat 32 a - y == 0) = decide (a = y.toNat) := by

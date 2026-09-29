@@ -1,4 +1,7 @@
-import VerifiedGarbage.Proof.Sha1.AArch64.Stream.Common
+import VerifiedGarbage.Proof.MdStream.AArch64.Common
+import VerifiedGarbage.Proof.Sha1.AArch64.Compress
+import VerifiedGarbage.Impl.Sha1.AArch64.Stream
+import VerifiedGarbage.Proof.Sha1.Stream
 
 /-!
 # Streaming SHA-1 on AArch64: `init`
@@ -10,6 +13,7 @@ namespace VG.Proof.Sha1.AArch64.Stream
 
 open VG VG.AArch64 VG.Impl.Sha1.AArch64.Stream
 open VG.Proof.Sha1.AArch64 (writeState stateAt_writeState contains_offset)
+open VG.Proof.MdStream.AArch64 (WP.cons)
 open VG.Spec.Sha1 (stateAt H0)
 
 /-- The three instructions storing the 32-bit word `x` at `[x0 + off]`. -/

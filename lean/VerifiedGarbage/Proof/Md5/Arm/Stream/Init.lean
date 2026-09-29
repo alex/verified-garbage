@@ -1,4 +1,7 @@
-import VerifiedGarbage.Proof.Md5.Arm.Stream.Common
+import VerifiedGarbage.Proof.MdStream.Arm.Common
+import VerifiedGarbage.Proof.Md5.Arm.Compress
+import VerifiedGarbage.Proof.Md5.Stream
+import VerifiedGarbage.Impl.Md5.Arm.Stream
 import VerifiedGarbage.Proof.Md5.AArch64.Compress
 import VerifiedGarbage.Proof.Md5.Arm.Contract
 
@@ -12,6 +15,7 @@ namespace VG.Proof.Md5.Arm.Stream
 
 open VG VG.Arm VG.Impl.Md5.Arm.Stream
 open VG.Proof.Md5.Arm (contains_offset)
+open VG.Proof.MdStream.Arm (WP.cons wp_str)
 open VG.Spec.Md5 (stateAt H0)
 
 /-- The three instructions storing the 32-bit word `x` at `[r0 + off]`. -/

@@ -1,8 +1,7 @@
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Sha1.AArch64.Compress
-import VerifiedGarbage.Proof.Sha1.AArch64.Stream.Finalize
 import VerifiedGarbage.Proof.Sha1.AArch64.Stream.Init
-import VerifiedGarbage.Proof.Sha1.AArch64.Stream.Update
+import VerifiedGarbage.Proof.Sha1.AArch64.Stream.Md
 import VerifiedGarbage.Spec.Sha1.Contract
 
 /-!
@@ -35,13 +34,15 @@ theorem update :
   Proof.Sha1.AArch64.Stream.Update.update_verified.of_implies (by
     contract_implies [Spec.Sha1.updateContract, Spec.Sha1.updateSig, Proof.Sha1.updateAArch64,
       AArch64.abi, AArch64.argRegs]
-      [Proof.Sha1.AArch64.Stream.Update.sat] using Proof.Sha1.AArch64.Stream.Update.sat)
+      [Proof.Sha1.AArch64.Stream.Update.sat,
+        MdStream.AArch64.Update.sat, Impl.Sha1.AArch64.Stream.params] using Proof.Sha1.AArch64.Stream.Update.sat)
 
 theorem finalize :
     Verified AArch64.target Impl.Sha1.AArch64.Stream.finalize (Spec.Sha1.finalizeContract AArch64.abi 16) :=
   Proof.Sha1.AArch64.Stream.Finalize.finalize_verified.of_implies (by
     contract_implies [Spec.Sha1.finalizeContract, Spec.Sha1.finalizeSig,
       Proof.Sha1.finalizeAArch64, AArch64.abi, AArch64.argRegs]
-      [Proof.Sha1.AArch64.Stream.Finalize.sat] using Proof.Sha1.AArch64.Stream.Finalize.sat)
+      [Proof.Sha1.AArch64.Stream.Finalize.sat,
+        MdStream.AArch64.Finalize.sat, Impl.Sha1.AArch64.Stream.params] using Proof.Sha1.AArch64.Stream.Finalize.sat)
 
 end VG.Proof.Sha1.AArch64.Shared

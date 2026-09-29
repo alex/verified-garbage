@@ -14,7 +14,7 @@ namespace VG.Proof.Scrypt.AArch64.BlockMix
 open VG VG.AArch64 VG.Impl.Scrypt.AArch64
 open VG.Spec.Scrypt (bytesAt blk blockMix)
 open VG.Proof.Scrypt (yAt xBefore blockMix_eq flatMap_congr)
-open VG.Proof.Md5.AArch64.Stream (Upd Mupd wp_mov wp_add wp_addImm wp_subImm wp_ldr wp_str
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_add wp_addImm wp_subImm wp_ldr wp_str
   eval_nonzero ofNat_beq_zero readW_writeW_save write_frame_bytes)
 open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat InRegions.of_mem frame_bytesAt
   bytesAt_add bytesAt_blocks bytesAt_congr)

@@ -18,9 +18,9 @@ open VG VG.Arm VG.Impl.Pbkdf2.Arm
 open VG.Impl.Sha256.Arm.Stream (saved restore save)
 open VG.Impl.Hmac.Arm (cp)
 open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd wp_mov wp_str wp_ldrSp wp_cmp op2_imm op2_reg save_ok restore_ok
-  saveMem saveMem_saved saveMem_frame saved_bound)
-open VG.Proof.Sha256.Arm.Stream.Update (addr_toNat)
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_str wp_ldrSp wp_cmp op2_imm op2_reg saveMem)
+open VG.Proof.Sha256.Arm.Stream (save_ok restore_ok saveMem_saved saveMem_frame saved_bound)
+open VG.Proof.MdStream.Arm (addr_toNat)
 open VG.Proof.Hmac.Arm (copy_ok)
 open VG.Proof.Hmac.Arm.Init (beq_zero_toNat)
 open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep)

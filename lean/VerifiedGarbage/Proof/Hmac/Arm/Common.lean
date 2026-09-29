@@ -1,4 +1,5 @@
-import VerifiedGarbage.Proof.Sha256.Arm.Stream.Finalize
+import VerifiedGarbage.Proof.Sha256.Arm.Stream.Md
+import VerifiedGarbage.Proof.Sha256.Arm.Stream.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
 import VerifiedGarbage.Impl.Hmac.Arm
 import VerifiedGarbage.Spec.Hmac
@@ -105,7 +106,7 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil)
 open VG.Proof.Hmac.X86_64 (copy_mem)
 open VG.Spec.Sha256 (bytesAt)
 open VG.Impl.Hmac.Arm (cp)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd wp_ldr wp_str)
+open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str)
 
 theorem add_off (p : Addr) (o j : Nat) :
     p + BitVec.ofNat 64 (o + j) = p + BitVec.ofNat 64 o + BitVec.ofNat 64 j := by

@@ -16,7 +16,7 @@ namespace VG.Proof.Scrypt.AArch64.RoMix
 open VG VG.AArch64 VG.Impl.Scrypt.AArch64
 open VG.Spec.Scrypt (bytesAt blockMix roMix)
 open VG.Proof.Sha256.Stream (writeBytes)
-open VG.Proof.Md5.AArch64.Stream (Upd Mupd wp_mov wp_add wp_addImm wp_subImm wp_ldr wp_str wp_movz
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_add wp_addImm wp_subImm wp_ldr wp_str wp_movz
   wp_lsr wp_and readW_writeW_save)
 open VG.Proof.Scrypt.AArch64.BlockMix (wp_lsl)
 open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat toNat_add_ofNat contains_off sub_off
@@ -28,8 +28,8 @@ open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat toNat_add_ofNat c
 theorem wp_madd {is : List Instr} {s : State} {Q : State → Prop} {d n m a : Reg}
     (k : ∀ s', Upd s s' d (s.gpr a + s.gpr n * s.gpr m) → WP isa (.block is) s' Q) :
     WP isa (.block (.madd .x d n m a :: is)) s Q :=
-  Proof.Md5.AArch64.Stream.WP.cons (s' := s.write .x d (s.gpr a + s.gpr n * s.gpr m))
-    (by simp [exec, State.read]) (k _ (Proof.Md5.AArch64.Stream.Upd.write64 _ _ _))
+  Proof.MdStream.AArch64.WP.cons (s' := s.write .x d (s.gpr a + s.gpr n * s.gpr m))
+    (by simp [exec, State.read]) (k _ (Proof.MdStream.AArch64.Upd.write64 _ _ _))
 
 theorem ofNat_toNat' (x : BitVec 64) : x = BitVec.ofNat 64 x.toNat := by
   rw [BitVec.ofNat_toNat, BitVec.setWidth_eq]

@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Sha256.Arm.Stream.Common
+import VerifiedGarbage.Proof.MdStream.Arm.Common
 import VerifiedGarbage.Proof.Sha512.Arm.Word64
 
 /-!
@@ -15,7 +15,7 @@ end in.
 namespace VG.Proof.Sha512.Arm
 
 open VG VG.Arm VG.Impl.Sha512.Arm
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd WP.cons wp_mov wp_and wp_orr wp_ldr wp_str wp_rev op2_reg)
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd WP.cons wp_mov wp_and wp_orr wp_ldr wp_str wp_rev op2_reg)
 
 /-! ## States -/
 

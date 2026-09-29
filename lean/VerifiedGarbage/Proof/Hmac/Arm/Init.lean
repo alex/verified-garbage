@@ -25,10 +25,11 @@ open VG.Proof.Hmac.X86_64.Init (bytesAt_snoc repr_block)
 open VG.Proof.Sha256.Stream (writeBytes repr_congr)
 open VG.Proof.Sha256.AArch64 (writeState stateAt_writeState)
 open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd wp_mov wp_add wp_subs wp_cmp wp_ldrb wp_strb wp_ldrSp
-  wp_str op2_imm op2_reg compressAt_ok saveMem saveMem_saved saveMem_frame save_ok restore_ok frame_bytes
-  sub_offset eval_eq eval_ne ofNat_beq_zero sub_ofNat sub_beq)
-open VG.Proof.Sha256.Arm.Stream.Update (addr_toNat)
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_add wp_subs wp_cmp wp_ldrb wp_strb wp_ldrSp
+  wp_str op2_imm op2_reg saveMem frame_bytes sub_offset eval_eq eval_ne ofNat_beq_zero sub_ofNat
+  sub_beq)
+open VG.Proof.Sha256.Arm.Stream (compressAt_ok saveMem_saved saveMem_frame save_ok restore_ok)
+open VG.Proof.MdStream.Arm (addr_toNat)
 open VG.Spec.Sha256 (bytesAt stateAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
 
@@ -97,7 +98,7 @@ theorem arg_in {s₀ : State} (hp : Pre s₀) : InRegions (s₀.rd ++ s₀.wr) (
 
 /-! ## `H⁽⁰⁾` -/
 
-open VG.Proof.Sha256.Arm.Stream.WP (cons)
+open VG.Proof.MdStream.Arm.WP (cons)
 
 /-- The three instructions storing the 32-bit word `x` at `[b + off]`. -/
 def word (b : Reg) (x : BitVec 32) (off : Nat) : List Instr :=

@@ -21,7 +21,7 @@ open VG.Impl.Sha512.Arm (lo hi ld st sig Op)
 open VG.Proof.Sha512.Arm (Only Wrote Pair rd64 write64 A Reg64 wp_ld wp_st wp_sig wp_eor mem_rd
   A_eq rd64_write64_self rd64_write64_ne frame_write64 contains_A lo_xor hi_xor lo_and hi_and
   lo_rd64 hi_rd64 evalOps)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd wp_mov wp_and wp_ldr wp_str wp_add op2_reg op2_imm)
+open VG.Proof.MdStream.Arm (Upd Mupd wp_mov wp_and wp_ldr wp_str wp_add op2_reg op2_imm)
 open VG.Proof.Sha3 (C D B out outState)
 
 abbrev KState := Spec.Sha3.State

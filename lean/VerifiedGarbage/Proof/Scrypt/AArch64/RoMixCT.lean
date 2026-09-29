@@ -23,7 +23,7 @@ namespace VG.Proof.Scrypt.AArch64.RoMix
 
 open VG VG.AArch64 VG.Impl.Scrypt.AArch64
 open VG.Spec.Scrypt (bytesAt blockMix)
-open VG.Proof.Md5.AArch64.Stream (Upd wp_mov wp_addImm wp_lsr eval_nonzero)
+open VG.Proof.MdStream.AArch64 (Upd wp_mov wp_addImm wp_lsr eval_nonzero)
 open VG.Proof.Scrypt.AArch64.BlockMix (covers_of_in covers_pair)
 open VG.Proof.Scrypt.X86_64.BlockMix (InRegions.right)
 

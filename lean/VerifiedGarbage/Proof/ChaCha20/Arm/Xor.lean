@@ -1,14 +1,14 @@
 import VerifiedGarbage.Proof.ChaCha20.Arm.Block
 import VerifiedGarbage.Proof.ChaCha20.Keystream
 import VerifiedGarbage.Proof.Framework.Arm.Call
-import VerifiedGarbage.Proof.Sha256.Arm.Stream.Common
+import VerifiedGarbage.Proof.MdStream.Arm.Common
 import VerifiedGarbage.Impl.ChaCha20.Arm.Xor
 
 /-!
 # ChaCha20 keystream XOR on ARMv7
 
 Untrusted: everything here is checked by Lean. The per-instruction WP rules
-are those of the streaming SHA-256 proofs (`Proof/Sha256/Arm/Stream/Common.lean`).
+are those of the streaming hash proofs (`Proof/MdStream/Arm/Common.lean`).
 
 The call of the block function goes through its `Verified` proof
 (`WP.call`): it keeps `r1` (which its code never writes) and `r4`–`r11`,
@@ -61,7 +61,7 @@ end VG.Proof.ChaCha20
 namespace VG.Proof.ChaCha20.Arm.Xor
 
 open VG VG.Arm VG.Impl.ChaCha20.Arm.Xor
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd op2_imm op2_reg op2_lsr wp_mov wp_add wp_sub wp_subs
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd op2_imm op2_reg op2_lsr wp_mov wp_add wp_sub wp_subs
   wp_cmp wp_ldr wp_str wp_ldrb wp_strb eval_eq eval_ne ofNat_beq_zero sub_ofNat ofNat_shr)
 open VG.Proof.ChaCha20 (ctr ctr_zero ctr_succ keystream_getD length_keystream bytesAt_xor
   serialize_stateAt)
@@ -74,7 +74,7 @@ theorem wp_eor {is : List Instr} {s : State} {Q : State → Prop} {d n : Reg} {o
     {y : BitVec 32} (ho : o.eval s = some y)
     (k : ∀ s', Upd s s' d (s.gpr n ^^^ y) → WP isa (.block is) s' Q) :
     WP isa (.block (.dp .eor d n o :: is)) s Q :=
-  VG.Proof.Sha256.Arm.Stream.WP.cons (s' := s.setReg d (s.gpr n ^^^ y)) (by simp [exec, ho])
+  VG.Proof.MdStream.Arm.WP.cons (s' := s.setReg d (s.gpr n ^^^ y)) (by simp [exec, ho])
     (k _ (Upd.setReg _ _ _))
 
 theorem imm0 : encodable 0 = true := by decide
