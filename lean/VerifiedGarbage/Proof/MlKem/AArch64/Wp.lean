@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Framework.AArch64.Exec
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import VerifiedGarbage.Proof.Framework.Mem
+import VerifiedGarbage.Impl.MlKem.AArch64.Compress
 
 /-!
 # ML-KEM on AArch64: one instruction at a time
@@ -249,6 +250,19 @@ theorem wp_strb {t n : Reg} {off : Nat} {a : Addr} (ho : off < 4096)
   ext i hi; simp [Size.bits]; try omega
 
 end
+
+/-! ## Constants -/
+
+/-- `movImm d v`: `d ← v`. -/
+theorem wp_movImm {d : Reg} {v : BitVec 64} {is : List Instr} {s : State} {Q : State → Prop}
+    (k : ∀ s', Only [d] s s' → s'.gpr d = v → WP isa (.block is) s' Q) :
+    WP isa (.block (Impl.MlKem.AArch64.movImm d v ++ is)) s Q := by
+  refine WP.cons rfl (WP.cons rfl (WP.cons rfl (WP.cons rfl (k _ ?_ ?_))))
+  · refine ⟨fun r hr => ?_, rfl, rfl, rfl, rfl⟩
+    simp only [List.mem_singleton] at hr
+    simp [State.write, hr]
+  · simp only [State.write, State.read, Size.bits, BitVec.setWidth_eq, ite_true]
+    exact movz_movk64' v
 
 /-! ## Branch conditions -/
 

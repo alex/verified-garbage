@@ -3,6 +3,8 @@ import VerifiedGarbage.Proof.MlKem.AArch64.AddSub
 import VerifiedGarbage.Proof.MlKem.AArch64.Encode12
 import VerifiedGarbage.Proof.MlKem.AArch64.Decode12
 import VerifiedGarbage.Proof.MlKem.AArch64.Cbd2
+import VerifiedGarbage.Proof.MlKem.AArch64.CompressEncode
+import VerifiedGarbage.Proof.MlKem.AArch64.DecodeDecompress
 
 /-!
 # ML-KEM on AArch64
@@ -54,6 +56,20 @@ def artifacts : List Artifact := [
     code := Impl.MlKem.AArch64.cbd2
     contract := Spec.MlKem.cbd2Contract AArch64.abi
     verified := Proof.MlKem.AArch64.Cbd2.cbd2_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem.compressEncodeApi with
+    target := AArch64.target
+    doc := Spec.MlKem.compressEncodeApi.doc
+    code := Impl.MlKem.AArch64.compressEncode
+    contract := Spec.MlKem.compressEncodeContract AArch64.abi
+    verified := Proof.MlKem.AArch64.CE.compressEncode_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem.decodeDecompressApi with
+    target := AArch64.target
+    doc := Spec.MlKem.decodeDecompressApi.doc
+    code := Impl.MlKem.AArch64.decodeDecompress
+    contract := Spec.MlKem.decodeDecompressContract AArch64.abi
+    verified := Proof.MlKem.AArch64.DD.decodeDecompress_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.MlKem.AArch64
