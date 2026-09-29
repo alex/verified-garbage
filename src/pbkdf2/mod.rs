@@ -74,43 +74,91 @@ pub fn pbkdf2_hmac<H: Pbkdf2Hash>(
 /// `VG.Spec.Hmac.Instance.iterateContract` of the hash's `Instance`), given
 /// its streaming state size, the function's working space (in 64-bit words)
 /// and its digest size.
+///
+/// `iterate` is listed for each implementation of the hash, as for
+/// `streaming_hmac!`, and a derivation runs the one of the implementation its
+/// HMAC computation runs: the `match` is exhaustive, so a new implementation
+/// of the hash does not compile until it is listed here too, and a test
+/// checks that it needs no CPU feature the hash's implementation was not
+/// selected for.
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 macro_rules! streaming_pbkdf2 {
     (
-        $hash:ident: $iterate:path,
+        $hash:ident ($backend:ident) {
+            $base:ident => $iterate:path
+            $(, $(#[$attr:meta])* $variant:ident if [$($req:path),*] => $viterate:path)*
+            $(,)?
+        },
         state: $state:literal,
         scratch: $scratch:literal,
         output: $output:literal $(,)?
     ) => {
-        impl super::Pbkdf2Hash for $hash {
-            type Key = [u8; 2 * $state];
+        // The CPU features of each implementation, which `tests` checks.
+        $(
+            $(#[$attr])*
+            const _: &[&[&str]] = &[$($req),*];
+        )*
 
-            fn pbkdf2_key(prf: &crate::hmac::Hmac<Self>) -> [u8; 2 * $state] {
+        /// The streaming states for `K₀ ⊕ ipad` and `K₀ ⊕ opad`, and the
+        /// implementation of the hash the HMAC computation runs.
+        #[doc(hidden)]
+        pub struct Key {
+            states: [u8; 2 * $state],
+            backend: $backend,
+        }
+
+        impl super::Pbkdf2Hash for $hash {
+            type Key = Key;
+
+            fn pbkdf2_key(prf: &crate::hmac::Hmac<Self>) -> Key {
                 let (inner, count) = prf.state().inner.state();
                 debug_assert_eq!(count, Self::BLOCK_SIZE as u64);
-                let mut key = [0; 2 * $state];
-                key[..$state].copy_from_slice(&inner);
-                key[$state..].copy_from_slice(&prf.state().outer);
-                key
+                let mut states = [0; 2 * $state];
+                states[..$state].copy_from_slice(&inner);
+                states[$state..].copy_from_slice(&prf.state().outer);
+                Key { states, backend: prf.state().inner.backend() }
             }
 
-            fn pbkdf2_iterate(
-                key: &[u8; 2 * $state],
-                u: &[u8; $output],
-                n: u32,
-                t: &mut [u8; $output],
-            ) {
+            fn pbkdf2_iterate(key: &Key, u: &[u8; $output], n: u32, t: &mut [u8; $output]) {
+                let iterate = match key.backend {
+                    $backend::$base => $iterate,
+                    $($(#[$attr])* $backend::$variant => $viterate,)*
+                };
                 let mut scratch = [0u64; $scratch];
-                // SAFETY: `key` is valid for reads of both streaming states,
-                // `u` for reads of a digest, `t` for reads and writes of one
-                // and `scratch` for reads and writes of its size; `t` and
-                // `scratch` are distinct objects from each other and the
+                // SAFETY: `key.states` is valid for reads of both streaming
+                // states, `u` for reads of a digest, `t` for reads and writes
+                // of one and `scratch` for reads and writes of its size; `t`
+                // and `scratch` are distinct objects from each other and the
                 // others (`key` and `u` are only read), so none of them
                 // overlaps another written one or the call's stack frame,
                 // and, as Rust objects, none wraps around the address space.
-                // `key` holds the streaming states for `K₀ ⊕ ipad` and
-                // `K₀ ⊕ opad` that the hash's HMAC `init` left.
-                unsafe { $iterate(key, u, n, t, &mut scratch) };
+                // `key.states` holds the streaming states for `K₀ ⊕ ipad` and
+                // `K₀ ⊕ opad` that the hash's HMAC `init` left. `iterate`
+                // needs no CPU feature that `key.backend` was not selected
+                // for (`tests::backend_features`).
+                unsafe { iterate(&key.states, u, n, t, &mut scratch) };
+            }
+        }
+
+        #[cfg(test)]
+        mod tests {
+            #[allow(unused_imports)]
+            use super::*;
+
+            /// Each implementation's `iterate` needs no CPU feature that the
+            /// hash's implementation is not selected for: on every set of
+            /// features that selects it.
+            #[test]
+            fn backend_features() {
+                $(
+                    $(#[$attr])*
+                    for bits in 0..1u32 << $crate::cpu::NAMES.len() {
+                        let f = $crate::cpu::Features(bits);
+                        if $backend::select(f) == $backend::$variant {
+                            assert!(f.contains($crate::cpu::Features::all(&[$($req),*])));
+                        }
+                    }
+                )*
             }
         }
     };

@@ -6,10 +6,12 @@
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use crate::arch::pbkdf2_md5::vg_pbkdf2_hmac_md5_iterate;
-use crate::hashes::md5::Md5;
+use crate::hashes::md5::{Md5, Md5Backend};
 
 super::streaming_pbkdf2!(
-    Md5: vg_pbkdf2_hmac_md5_iterate,
+    Md5 (Md5Backend) {
+        Scalar => vg_pbkdf2_hmac_md5_iterate,
+    },
     state: 80,
     scratch: 48,
     output: 16,

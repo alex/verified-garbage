@@ -7,10 +7,12 @@
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use crate::arch::pbkdf2_sha512_256::vg_pbkdf2_hmac_sha512_256_iterate;
-use crate::hashes::sha512::Sha512_256;
+use crate::hashes::sha512::{Sha512_256, Sha512_256Backend};
 
 super::streaming_pbkdf2!(
-    Sha512_256: vg_pbkdf2_hmac_sha512_256_iterate,
+    Sha512_256 (Sha512_256Backend) {
+        Scalar => vg_pbkdf2_hmac_sha512_256_iterate,
+    },
     state: 192,
     scratch: 96,
     output: 32,

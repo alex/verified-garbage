@@ -21,7 +21,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The features detection knows, by their Rust `target_feature` names: bit
 /// `i` of a [`Features`] is `NAMES[i]`.
-const NAMES: [&str; 8] = [
+pub(crate) const NAMES: [&str; 8] = [
     "ssse3",
     "sha",
     "aes",
