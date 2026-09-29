@@ -31,7 +31,8 @@ pub trait Pbkdf2Hash: HmacHash {
     /// `K₀ ⊕ opad`.
     #[doc(hidden)]
     type Key;
-    /// The keys of an HMAC computation that has not absorbed any data yet.
+    /// The keys of an HMAC computation that has not absorbed any data yet
+    /// (and, if the hash has several implementations, which one it runs).
     #[doc(hidden)]
     fn pbkdf2_key(prf: &Hmac<Self>) -> Self::Key;
     /// Repeats `U ← HMAC (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and
@@ -53,7 +54,21 @@ pub fn pbkdf2_hmac<H: Pbkdf2Hash>(
     iterations: NonZeroU32,
     out: &mut [u8],
 ) {
-    let prf = Hmac::<H>::new(password);
+    __pbkdf2_hmac_with_features::<H>(password, salt, iterations, out, u32::MAX);
+}
+
+/// [`pbkdf2_hmac`], using only the CPU features in `mask` (a set of
+/// `crate::cpu::Features` bits). For testing every implementation on one
+/// CPU.
+#[doc(hidden)]
+pub fn __pbkdf2_hmac_with_features<H: Pbkdf2Hash>(
+    password: &[u8],
+    salt: &[u8],
+    iterations: NonZeroU32,
+    out: &mut [u8],
+    mask: u32,
+) {
+    let prf = Hmac::<H>::__with_features(password, mask);
     let key = H::pbkdf2_key(&prf);
     for (i, block) in out.chunks_mut(H::OUTPUT_SIZE).enumerate() {
         let index = u32::try_from(i + 1).expect("PBKDF2 derived key too long");

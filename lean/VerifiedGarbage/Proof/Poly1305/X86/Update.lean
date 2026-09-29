@@ -604,7 +604,7 @@ theorem uepilogue_ok {s₀ : State} (hp : UPre s₀) {F : Nat → Nat} (hF : Set
   · rw [di₂, hd.keep 31 (by omega) (by decide) (by omega)]
   · rw [bp₂, hd.keep 5 (by omega) (by decide) (by omega)]
   · exact hframe.readW (Region.contains_self _ _) (by simpa using hp.ret_st) (by decide)
-  · obtain ⟨W, rfl, hrep⟩ := buffered_split hfit hbuf hcnt
+  · obtain ⟨W, rfl, hrep⟩ := buffered_split hfit hbuf (count_mod16 hcnt)
     obtain ⟨X, Y, hacc, hX, hY, hXY, hbufY⟩ := hd.done
     have hA := A0_lt hrep
     obtain ⟨hcl, hac⟩ := repr_acc hfit hrep

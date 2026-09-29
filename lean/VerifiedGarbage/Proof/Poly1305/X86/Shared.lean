@@ -40,13 +40,27 @@ theorem update :
       [Proof.Poly1305.X86.updateSat, Proof.Poly1305.X86.updateSatMem, X86.arg, X86.argAddr, Mem.readW,
         Mem.read] using Proof.Poly1305.X86.updateSat)
 
+/-- The per-target contract of `finalize` only needs the length of the
+message modulo 16. -/
 theorem finalize :
     Verified X86.target Impl.Poly1305.X86.finalize (Spec.Poly1305.finalizeContract X86.abi) :=
-  Proof.Poly1305.X86.finalize_verified.of_implies (by
-    contract_implies [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
-      Proof.Poly1305.finalizeX86, Proof.Poly1305.countX86, X86.abi, X86.argSlots, X86.argVal,
-      X86.argBytes]
-      [Proof.Poly1305.X86.finalizeSat, Proof.Poly1305.X86.finalizeSatMem, X86.arg, X86.argAddr,
-        Mem.readW, Mem.read] using Proof.Poly1305.X86.finalizeSat)
+  Proof.Poly1305.X86.finalize_verified.of_implies
+    { pre := by
+        implies_pre [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+          Proof.Poly1305.finalizeX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      post := by
+        intro s s' _ h
+        sig_unfold [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig, X86.abi, X86.argSlots,
+          X86.argVal, X86.argBytes]
+        intro key msg hb hc
+        exact h key msg hb (Proof.Poly1305.X86.count_mod16 hc)
+      pub := by
+        implies_pub [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+          Proof.Poly1305.finalizeX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      sat := by
+        implies_sat [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+          Proof.Poly1305.finalizeX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes,
+          Proof.Poly1305.X86.finalizeSat, Proof.Poly1305.X86.finalizeSatMem, X86.arg, X86.argAddr,
+          Mem.readW, Mem.read] using Proof.Poly1305.X86.finalizeSat }
 
 end VG.Proof.Poly1305.X86.Shared
