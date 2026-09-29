@@ -1,5 +1,4 @@
 import VerifiedGarbage.Spec.Scrypt
-import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # scryptBlockMix, one block at a time
@@ -70,7 +69,7 @@ theorem length_flatMap_const {α β : Type} (l : List α) {f : α → List β} {
     (h : ∀ a, (f a).length = n) : (l.flatMap f).length = n * l.length := by
   induction l with
   | nil => rfl
-  | cons a l ih => simp only [List.flatMap_cons, List.length_append, h, ih, List.length_cons]; ring
+  | cons a l ih => simp only [List.flatMap_cons, List.length_append, h, ih, List.length_cons, Nat.mul_add, Nat.mul_one, Nat.add_comm]
 
 theorem serialize_length (x : Vector Word 16) : (serialize x).length = 64 := by
   rw [serialize, length_flatMap_const _ (n := 4) fun _ => rfl]; simp

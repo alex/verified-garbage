@@ -647,7 +647,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
     (fun d hd₁ hd₂ => ⟨scR s₀, by simp [hI.rd, hI.wr, hp.wr], contains_offset hd₂ (by omega)⟩) s₀.gpr
     hI.saved fun s' hs _ hmem _ _ hsp => ⟨hs, by rw [hsp, hI.sp], fun m hr hc => ?_⟩
   have := hI.repr m ⟨hr, hc⟩
-  rwa [List.take_of_length_le (by rw [D_length]; exact Nat.le_refl _), ← hmem] at this
+  rwa [List.take_of_length_le (by rw [D_length]), ← hmem] at this
 
 /-- No instruction of `updateMain` writes the callee-saved registers it does not save. -/
 theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs updateMain, dstOf i ≠ some r := by

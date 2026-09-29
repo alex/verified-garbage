@@ -663,7 +663,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
   have hst := hp.st_fit; have ho := hp.out_fit
   have hr0 : s.gpr .r0 = st s₀ := by rw [h.keep _ (by simp [keepRegs]), hC.r0]
   have hr6 : s.gpr .r6 = out s₀ := by rw [h.keep _ (by simp [keepRegs]), hC.r6]
-  have hP := flat_length (stateAt sD.mem (stA s₀)) k hk.le
+  have hP := flat_length (stateAt sD.mem (stA s₀)) k (Nat.le_of_lt hk)
   simp only [outW, List.cons_append, List.nil_append]
   refine wp_ldr (a := stA s₀ + BitVec.ofNat 64 (4 * k)) (by omega) (by rw [hr0, addr_off (by omega)])
     ⟨stR s₀, by simp [h.rd, h.wr, hp.wr], contains_offset (by omega) (by omega)⟩ fun s₁ u₁ => ?_

@@ -105,10 +105,10 @@ theorem setup_ok {s₀ : State} (hp : Pre s₀) {s₁ : State} (g : s₁.gpr = s
     rw [ud.other _ (by decide), uc.other _ (by decide), ub.other _ (by decide),
       ua.other _ (by decide), g]
   have e9 : e.gpr .x9 = BitVec.ofNat 64 (64 * rr s₀) := by
-    rw [ue.gpr, x1, shl_eq (by simp; omega), Nat.mul_comm]; rfl
+    rw [ue.gpr, x1, shl_eq (by simp; omega), Nat.mul_comm]
   have g9 : g'.gpr .x9 = BitVec.ofNat 64 (128 * rr s₀) := by
     rw [ug.gpr, uf.other _ (by decide), ue.other _ (by decide), x1, shl_eq (by simp; omega),
-      Nat.mul_comm]; rfl
+      Nat.mul_comm]
   have hm' : i.mem = saveMem s₀ := by
     rw [ui.mem, uh.mem, ug.mem, uf.mem, ue.mem, ud.mem, uc.mem, ub.mem, ua.mem, hm]
   have k : ∀ r, r ≠ .x9 → r ≠ .x19 → r ≠ .x20 → r ≠ .x21 → r ≠ .x22 → r ≠ .x23 → r ≠ .x24 →

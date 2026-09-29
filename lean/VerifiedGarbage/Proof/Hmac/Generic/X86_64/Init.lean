@@ -237,7 +237,7 @@ theorem keys_ok {s₀ : State} (hp : Pre (H := H) sc s₀) : WP isa H.initKeys s
     congr 1
     refine bytesAt_prefix_congr fun i hi => fk.bytes (R := keyR s₀) (by
       simp only [List.mem_singleton]; rintro r rfl; exact (hp.k_s.sub_right (save_sub hp))) (by
-      exact (s₀.gpr .rcx).isLt.le) hi
+      exact Nat.le_of_lt (s₀.gpr .rcx).isLt) hi
   have ft : Frame [saveR H (scr s₀), bufR (H := H) s₀] s₀.mem t.mem :=
     (fk.mono (by simp)).trans (ht.mem.frame.mono (by simp))
   have hg : ∀ r, r ≠ .rax → r ≠ .rcx → r ≠ .r14 → t.gpr r = s₈.gpr r := ht.other

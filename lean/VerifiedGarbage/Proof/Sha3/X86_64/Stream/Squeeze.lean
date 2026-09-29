@@ -249,7 +249,7 @@ theorem permute_ok {s₀ : State} (hp : SPre s₀) {i k : Nat} {s : State} (hI :
     · exact slot_scr s₀ hk
     · rw [hsp]; exact hp.stk_c.symm.sub_left (slot_sub s₀ hk)
   · rw [hst, u₁.mem, hI.state, iterF_succ]
-  · refine Eq.trans (hf.bytes (R := OR s₀) hd (outn_lt s₀).le (by have := hI.i_le; omega : j < outn s₀)) ?_
+  · refine Eq.trans (hf.bytes (R := OR s₀) hd (Nat.le_of_lt (outn_lt s₀)) (by have := hI.i_le; omega : j < outn s₀)) ?_
     rw [u₁.mem]; exact hI.out j hj
 
 theorem store_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI : Inv s₀ i k pos s)
@@ -426,7 +426,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha3.squeezeX86_64.pre s₁)
     intro s hs
     obtain ⟨-, hw, d1, d2, d3, -⟩ := hs
     refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, d1, d2, d3],
-      by simpa [hw] using (s.gpr .r8).isLt.le⟩, fun p hp => ?_⟩
+      by simpa [hw] using (Nat.le_of_lt (s.gpr .r8).isLt)⟩, fun p hp => ?_⟩
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]
   refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_,

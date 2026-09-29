@@ -2,7 +2,6 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Sha512.X86_64.Rounds
 import VerifiedGarbage.Proof.Framework.X86_64.Bswap
 import VerifiedGarbage.Proof.Sha512.X86_64.Contract
-import Mathlib.Tactic.IntervalCases
 
 /-!
 # SHA-512 compression function on x86-64: the whole function
@@ -254,7 +253,7 @@ theorem stateAt_writeState (m : Mem) (p : Addr) (v : HashValue) : stateAt (write
   apply stateAt_eq
   intro k hk
   simp only [writeState]
-  interval_cases k <;>
+  rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7) with h | h | h | h | h | h | h | h <;> subst h <;>
   simp (config := {decide := true}) only [Mem.readW_writeW_self64, readW_writeW_word]
 
 theorem frame_writeState {s₀ : State} {m m' : Mem} (h : Frame [stR s₀] m m') (v : HashValue) :

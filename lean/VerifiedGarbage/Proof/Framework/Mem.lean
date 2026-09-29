@@ -10,7 +10,13 @@ import VerifiedGarbage.TCB.Mem
 Untrusted: everything here is checked by Lean.
 -/
 
+-- `rw` closes goals `a ≤ a`, as it does with Mathlib's `le_refl`.
+attribute [refl] Nat.le_refl
+
 namespace VG
+
+theorem nodup_reverse {α : Type _} {l : List α} (h : l.Nodup) : l.reverse.Nodup :=
+  List.pairwise_reverse.mpr (h.imp fun h e => h e.symm)
 
 namespace Mem
 
