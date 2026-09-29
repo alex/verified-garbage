@@ -137,7 +137,8 @@ def sampleA64 : Prog AArch64.isa :=
       .movz .w .x13 0x2f98 0, .movk .w .x13 0x428a 1,
       .ldr .w .x12 .x1 60, .str .w .x12 .x3 4, .ldr .x .x16 .x17 8, .str .x .x20 .x19 16,
       .sub .w .x4 .x5 .x6, .sub .x .x0 .x1 .x30, .rev .x9 .x10,
-      .ldrb .x11 .x20 0, .ldrb .x21 .x22 4095, .strb .x23 .x24 7, .strb .x25 .x26 4095])
+      .ldrb .x11 .x20 0, .ldrb .x21 .x22 4095, .strb .x23 .x24 7, .strb .x25 .x26 4095,
+      .ldrSp .x9 0, .ldrSp .x10 32760])
       (.nonzero .x .x2))
 
 #guard text (AArch64.printer.function sampleA64) == [
@@ -166,6 +167,8 @@ def sampleA64 : Prog AArch64.isa :=
   "ldrb w21, [x22, #4095]",
   "strb w23, [x24, #7]",
   "strb w25, [x26, #4095]",
+  "ldr x9, [sp, #0]",
+  "ldr x10, [sp, #32760]",
   "cbnz x2, 22b",
   "b 21f",
   "20:",

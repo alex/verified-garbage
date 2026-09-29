@@ -22,9 +22,11 @@ Modelling choices:
   code for Apple platforms*) and Windows points it at the thread's TEB
   (*Overview of ARM64 ABI conventions*), so it may change under a function
   that writes it, and restoring it before returning is not enough.
-* The stack pointer is separate and only the push
-  and pop of a frame (`str`/`ldr` with writeback, see `push`) read or write
-  it (register number 31, SP or the zero register, is never an operand).
+* The stack pointer is separate. Only the push and pop of a frame
+  (`str`/`ldr` with writeback, see `push`) write it, and only they and
+  `ldrSp` (a 64-bit load from `[sp, #off]`, which reads the arguments a
+  caller passed on the stack) read it; register number 31, SP or the zero
+  register, is otherwise never an operand.
   Each operand is a 32-bit (`w`) or a 64-bit (`x`) register; a 32-bit
   result is zero-extended into the 64-bit register (DDI 0487, the pseudocode
   accessor `X[n, width] = value` sets `_R[n] = ZeroExtend(value, 64)`).
@@ -274,6 +276,9 @@ inductive Instr
   /-- `ldr xr, [sp], #16` (LDR (immediate), 64-bit, post-index): the pop of a
   frame of 16 bytes (see `pop`) -/
   | pop (r : Reg)
+  /-- `ldr xt, [sp, #off]` (LDR (immediate), 64-bit, unsigned offset, base
+  register SP: a multiple of 8, less than 32768) -/
+  | ldrSp (t : Reg) (off : Nat)
   /-- An AdvSIMD or cryptographic instruction that writes only a vector register. -/
   | vop (op : VOp)
   /-- `ldr qt, [n, #off]` (LDR (immediate, SIMD&FP), 128-bit, unsigned offset:
@@ -562,6 +567,9 @@ def VOp.eval (s : State) : VOp → Option (VReg × BitVec 128)
   unchanged (`hw < 2` for 32-bit, `hw < 4` for 64-bit);
 * "LDR (immediate)": the loaded value is zero-extended; "STR (immediate)":
   the low `size` bits are stored;
+* "LDR (immediate)" with `n == 31` (`ldrSp`): `address = SP[]`, then as
+  above, `address + offset` with `offset = LSL(imm12, 3)`; `data = Mem[address,
+  8]`; `X[t, 64] = data`;
 * "LDRB (immediate)": `data = Mem[address, 1]; X[t, 32] = ZeroExtend(data,
   32)` (hence zero-extended to 64 bits); "STRB (immediate)": `data = X[t,
   8]; Mem[address, 1] = data`, the low byte of `t`;
@@ -608,6 +616,10 @@ def exec : Instr → State → Option State
     (addr s 1 n off).bind fun a => (s.load a 1).map fun v => s.write .w t (v.setWidth 32)
   | .strb t n off, s =>
     (addr s 1 n off).bind fun a => s.store a 1 ((s.read .w t).setWidth 8)
+  | .ldrSp t off, s =>
+    if off % 8 = 0 ∧ off < 32768 then
+      (s.load (s.sp + BitVec.ofNat 64 off) 8).map fun v => s.write .x t (v.setWidth 64)
+    else none
   | .vop op, s => (op.eval s).map fun (d, x) => s.setV d x
   | .ldrq t n off, s => (addr s 16 n off).bind fun a => (s.load a 16).map fun x => s.setV t x
   | .strq t n off, s => (addr s 16 n off).bind fun a => s.store a 16 (s.v t)
@@ -624,6 +636,7 @@ def addrs : Instr → State → List Addr
   | .strb _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
   | .ldrq _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
   | .strq _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
+  | .ldrSp _ off, s => [s.sp + BitVec.ofNat 64 off]
   | .push _, s => [s.sp - 16]
   | .pop _, s => [s.sp]
   | _, _ => []
@@ -707,8 +720,8 @@ abbrev isa : ISA where
   callAddrs _ := []
   ret := ret
   retAddrs _ := []
-  -- No modelled instruction has the stack pointer as an operand, other than
-  -- the push and pop of a frame.
+  -- No modelled instruction writes the stack pointer, other than the push
+  -- and pop of a frame (`ldrSp` only reads it).
   writesSp _ := false
   push := push
   pop := pop

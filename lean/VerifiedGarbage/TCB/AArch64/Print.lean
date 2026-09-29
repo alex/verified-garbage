@@ -128,6 +128,7 @@ def Instr.asm : Instr → List String
   | .strb t n off => [s!"strb {t.name .w}, [{n.name .x}, #{off}]"]
   | .push r => [s!"str {r.name .x}, [sp, #-16]!"]
   | .pop r => [s!"ldr {r.name .x}, [sp], #16"]
+  | .ldrSp t off => [s!"ldr {t.name .x}, [sp, #{off}]"]
   | .vop op => [op.asm]
   | .ldrq t n off => [s!"ldr {t.q}, [{n.name .x}, #{off}]"]
   | .strq t n off => [s!"str {t.q}, [{n.name .x}, #{off}]"]
