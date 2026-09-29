@@ -29,25 +29,29 @@ def artifacts : List Artifact := [
     doc := Spec.Sha512.init384Api.doc
     code := Impl.Sha512.Arm.Stream.init Spec.Sha512.H0_384
     contract := Spec.Sha512.initContract Arm.abi Spec.Sha512.H0_384
-    verified := Proof.Sha512.Arm.Shared.init Spec.Sha512.H0_384 },
+    verified := Proof.Sha512.Arm.Shared.init Spec.Sha512.H0_384
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha512.init512Api with
     target := Arm.target
     doc := Spec.Sha512.init512Api.doc
     code := Impl.Sha512.Arm.Stream.init Spec.Sha512.H0_512
     contract := Spec.Sha512.initContract Arm.abi Spec.Sha512.H0_512
-    verified := Proof.Sha512.Arm.Shared.init Spec.Sha512.H0_512 },
+    verified := Proof.Sha512.Arm.Shared.init Spec.Sha512.H0_512
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha512.init512_224Api with
     target := Arm.target
     doc := Spec.Sha512.init512_224Api.doc
     code := Impl.Sha512.Arm.Stream.init Spec.Sha512.H0_512_224
     contract := Spec.Sha512.initContract Arm.abi Spec.Sha512.H0_512_224
-    verified := Proof.Sha512.Arm.Shared.init Spec.Sha512.H0_512_224 },
+    verified := Proof.Sha512.Arm.Shared.init Spec.Sha512.H0_512_224
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha512.init512_256Api with
     target := Arm.target
     doc := Spec.Sha512.init512_256Api.doc
     code := Impl.Sha512.Arm.Stream.init Spec.Sha512.H0_512_256
     contract := Spec.Sha512.initContract Arm.abi Spec.Sha512.H0_512_256
-    verified := Proof.Sha512.Arm.Shared.init Spec.Sha512.H0_512_256 },
+    verified := Proof.Sha512.Arm.Shared.init Spec.Sha512.H0_512_256
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha512.updateApi with
     target := Arm.target
     doc := Spec.Sha512.updateApi.doc

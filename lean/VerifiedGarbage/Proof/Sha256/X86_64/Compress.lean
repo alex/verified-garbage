@@ -91,7 +91,7 @@ abbrev nb : Nat := (s₀.gpr .rdx).toNat
 abbrev scr : Addr := s₀.gpr .rcx
 abbrev stR : Region := ⟨st s₀, 32⟩
 abbrev blR : Region := ⟨bp s₀, 64 * nb s₀⟩
-abbrev scrR : Region := ⟨scr s₀, 112⟩
+abbrev scrR : Region := ⟨scr s₀, 560⟩
 abbrev retR : Region := ⟨s₀.gpr .rsp, 8⟩
 abbrev H₀ : HashValue := stateAt s₀.mem (st s₀)
 
@@ -142,11 +142,11 @@ theorem out_slot (j : Nat) : InRegions s₀.wr (slotAddr (scr s₀) j) 4 :=
 
 theorem in_save {d : Nat} (hd : d + 8 ≤ 112) :
     InRegions (s₀.rd ++ s₀.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
-  ⟨scrR s₀, by simp [h.wr], contains_offset' hd (by omega)⟩
+  ⟨scrR s₀, by simp [h.wr], contains_offset' (by omega) (by omega)⟩
 
 theorem out_save {d : Nat} (hd : d + 8 ≤ 112) :
     InRegions s₀.wr (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
-  ⟨scrR s₀, by simp [h.wr], contains_offset' hd (by omega)⟩
+  ⟨scrR s₀, by simp [h.wr], contains_offset' (by omega) (by omega)⟩
 
 theorem blk_contains {i t : Nat} (hi : i < nb s₀) (ht : t < 16) :
     (blR s₀).Contains (blkAddr s₀ i + BitVec.ofInt 64 ((4 * t : Nat) : Int)) 4 := by
@@ -311,8 +311,8 @@ theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (
 
 /-- A saved register's slot `⟨scr + d, 8⟩`. -/
 theorem saveSlot_sub (p : Addr) {d : Nat} (hd : d + 8 ≤ 112) :
-    Region.Sub ⟨p + BitVec.ofInt 64 (d : Int), 8⟩ ⟨p, 112⟩ := by
-  rw [ofInt_natCast]; exact sub_offset hd (by omega)
+    Region.Sub ⟨p + BitVec.ofInt 64 (d : Int), 8⟩ ⟨p, 560⟩ := by
+  rw [ofInt_natCast]; exact sub_offset (by omega) (by omega)
 
 theorem saveSlot_win (p : Addr) {d : Nat} (hd : 64 ≤ d) (hd' : d + 8 ≤ 112) :
     Region.Disjoint ⟨p + BitVec.ofInt 64 (d : Int), 8⟩ (winRegion p) := by
@@ -351,7 +351,7 @@ theorem blk_word {s₀ : State} (i t : Nat) (ht : t < 16) :
     show blkAddr s₀ i + BitVec.ofNat 64 (4 * t + 2) + 1 = blkAddr s₀ i + BitVec.ofNat 64 (4 * t + 3) by
       bv_omega]
 
-theorem win_sub (p : Addr) : Region.Sub (winRegion p) ⟨p, 112⟩ := Region.sub_prefix (by omega)
+theorem win_sub (p : Addr) : Region.Sub (winRegion p) ⟨p, 560⟩ := Region.sub_prefix (by omega)
 
 theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s : State}
     (hL : LInv s₀ i s) :
@@ -472,7 +472,7 @@ theorem saveMem_saved {s₀ : State} : Saved s₀ (saveMem s₀) := by
 theorem saveMem_frame {s₀ : State} : Frame [scrR s₀] s₀.mem (saveMem s₀) := by
   have c : ∀ d : Nat, d + 8 ≤ 112 →
       (scrR s₀).Contains (scr s₀ + BitVec.ofInt 64 (d : Int)) (64 / 8) :=
-    fun d hd => contains_offset' hd (by omega)
+    fun d hd => contains_offset' (by omega) (by omega)
   simp only [saveMem]
   exact (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 64 (by omega))).writeW
     (List.mem_singleton_self _) _ (c 72 (by omega))).writeW (List.mem_singleton_self _) _
@@ -556,7 +556,7 @@ def satState : State where
   of := none
   mem _ := 0
   rd := [⟨0x2000, 0⟩]
-  wr := [⟨0x1000, 32⟩, ⟨0x3000, 112⟩]
+  wr := [⟨0x1000, 32⟩, ⟨0x3000, 560⟩]
 
 theorem compress_verified :
     Verified X86_64.target Impl.Sha256.X86_64.compress Proof.Sha256.compressX86_64 := by

@@ -47,6 +47,27 @@ def xorX86_64 : Contract X86_64.isa where
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
     s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
+/-- `xorX86_64` with `k` bytes of stack below the return address, for an
+implementation whose calls use them, and that returns with `rsi` pointing at
+`buf` (for a caller that recomputes pointers from it): what callers of any
+implementation of `vg_chacha20_xor` rely on (see `Variant.lean`). -/
+def xorStack (k : Nat) : Contract X86_64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .rdi, 64⟩
+    let data : Region := ⟨s.gpr .rsi, (s.gpr .rdx).toNat⟩
+    let buf : Region := ⟨s.gpr .rcx, 320⟩
+    let ret : Region := ⟨s.gpr .rsp, 8⟩
+    let stack : Region := ⟨s.gpr .rsp - BitVec.ofNat 64 k, k⟩
+    s.rd = [] ∧ s.wr = [state, data, buf] ∧
+    state.Disjoint data ∧ state.Disjoint buf ∧ data.Disjoint buf ∧
+    ret.Disjoint state ∧ ret.Disjoint data ∧ ret.Disjoint buf ∧
+    stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint buf ∧
+    (s.gpr .rsi).toNat + (s.gpr .rdx).toNat ≤ 2 ^ 64
+  post s s' := xorX86_64.post s s' ∧ s'.gpr .rsi = s.gpr .rcx
+  pub := xorX86_64.pub
+
+theorem xorStack_pre8 : (xorStack 8).pre = xorX86_64.pre := rfl
+
 end VG.Proof.ChaCha20
 
 namespace VG.Proof.ChaCha20.X86_64.Xor

@@ -14,7 +14,7 @@ namespace VG.Proof.Scrypt.AArch64.RoMix
 
 open VG VG.AArch64 VG.Impl.Scrypt.AArch64
 open VG.Spec.Scrypt (bytesAt blockMix)
-open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat toNat_add_ofNat contains_off sub_off
+open VG.Proof.Scrypt.Memory (toNat_ofNat_lt add_ofNat toNat_add_ofNat contains_off sub_off
   disj_off InRegions.of_mem)
 
 /-! ## What a call of `vg_scrypt_blockmix` does -/

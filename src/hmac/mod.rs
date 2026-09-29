@@ -88,7 +88,12 @@ impl<H: HmacHash> Hmac<H> {
     }
 
     /// The state of the computation.
-    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+    #[cfg(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "arm",
+        target_arch = "x86"
+    ))]
     pub(crate) fn state(&self) -> &H::State {
         &self.state
     }
@@ -98,7 +103,12 @@ impl<H: HmacHash> Hmac<H> {
 /// primitives: the computation of the inner hash, whose message is
 /// `(K₀ ⊕ ipad) ‖ text`, and the streaming state of the outer one, which
 /// represents `K₀ ⊕ opad`.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 #[doc(hidden)]
 #[derive(Clone)]
 pub struct StreamingHmacState<H, const S: usize> {
@@ -113,14 +123,38 @@ pub struct StreamingHmacState<H, const S: usize> {
 /// `Instance`), given its streaming state size, the functions' working space
 /// (in 64-bit words) and its digest size. The text is absorbed by the hash's
 /// own `update`.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+///
+/// `init` and `finalize` are listed for each implementation of the hash (its
+/// backend enum's variants, with the CPU features they need), and a
+/// computation runs those of the implementation its hash was selected for:
+/// the `match` on the backend is exhaustive, so a new implementation of the
+/// hash does not compile until its HMAC functions are listed here too (see
+/// "Variants and generic callers" in `lean/VerifiedGarbage/TCB/Emit.lean`),
+/// and a test checks that they need no CPU feature the hash's
+/// implementation was not selected for.
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 macro_rules! streaming_hmac {
     (
-        $hash:ident: ($init:path, $finalize:path),
+        $hash:ident ($backend:ident) {
+            $base:ident => ($init:path, $finalize:path)
+            $(, $(#[$attr:meta])* $variant:ident if [$($req:path),*] => ($vinit:path, $vfinalize:path))*
+            $(,)?
+        },
         state: $state:literal,
         scratch: $scratch:literal,
         output: $output:literal $(,)?
     ) => {
+        // The CPU features of each implementation, which `tests` checks.
+        $(
+            $(#[$attr])*
+            const _: &[&[&str]] = &[$($req),*];
+        )*
+
         impl super::sealed::Sealed for $hash {}
 
         impl super::HmacHash for $hash {
@@ -128,6 +162,11 @@ macro_rules! streaming_hmac {
 
             fn hmac_init(key: &[u8]) -> Self::State {
                 assert!(key.len() <= Self::BLOCK_SIZE);
+                let backend = $backend::select($crate::cpu::detected());
+                let init = match backend {
+                    $backend::$base => $init,
+                    $($(#[$attr])* $backend::$variant => $vinit,)*
+                };
                 let mut inner = [0; $state];
                 let mut outer = [0; $state];
                 let mut scratch = [0u64; $scratch];
@@ -136,9 +175,10 @@ macro_rules! streaming_hmac {
                 // for reads of `key.len()` bytes and `scratch` for reads and
                 // writes of its size; they are distinct objects, so they do
                 // not overlap each other or the call's stack frame, nor wrap
-                // around the address space.
+                // around the address space. `init` needs no CPU feature that
+                // `backend` was not selected for (`tests::backend_features`).
                 unsafe {
-                    $init(
+                    init(
                         &mut inner,
                         &mut outer,
                         key.as_ptr(),
@@ -148,7 +188,7 @@ macro_rules! streaming_hmac {
                 };
                 // `inner` now represents `K₀ ⊕ ipad`, of a block.
                 super::StreamingHmacState {
-                    inner: $hash::from_state(inner, Self::BLOCK_SIZE as u64),
+                    inner: $hash::from_state(inner, Self::BLOCK_SIZE as u64, backend),
                     outer,
                 }
             }
@@ -158,6 +198,10 @@ macro_rules! streaming_hmac {
             }
 
             fn hmac_finalize(state: Self::State) -> [u8; $output] {
+                let finalize = match state.inner.backend() {
+                    $backend::$base => $finalize,
+                    $($(#[$attr])* $backend::$variant => $vfinalize,)*
+                };
                 let (mut inner, count) = state.inner.state();
                 let mut mac = [0; $output];
                 let mut scratch = [0u64; $scratch];
@@ -169,13 +213,42 @@ macro_rules! streaming_hmac {
                 // address space. `inner` represents `(K₀ ⊕ ipad) ‖ text`, of
                 // `count` bytes (which the hash's `update` keeps below 2⁶⁴,
                 // so the text is shorter than 2⁶⁴ − B bytes), and
-                // `state.outer` represents `K₀ ⊕ opad`.
-                unsafe { $finalize(&mut inner, &state.outer, count, &mut mac, &mut scratch) };
+                // `state.outer` represents `K₀ ⊕ opad`. `finalize` needs no
+                // CPU feature that the hash's implementation was not selected
+                // for (`tests::backend_features`).
+                unsafe { finalize(&mut inner, &state.outer, count, &mut mac, &mut scratch) };
                 mac
+            }
+        }
+
+        #[cfg(test)]
+        mod tests {
+            #[allow(unused_imports)]
+            use super::*;
+
+            /// Each implementation's `init` and `finalize` need no CPU
+            /// feature that the hash's implementation is not selected for:
+            /// on every set of features that selects it.
+            #[test]
+            fn backend_features() {
+                $(
+                    $(#[$attr])*
+                    for bits in 0..1u32 << $crate::cpu::NAMES.len() {
+                        let f = $crate::cpu::Features(bits);
+                        if $backend::select(f) == $backend::$variant {
+                            assert!(f.contains($crate::cpu::Features::all(&[$($req),*])));
+                        }
+                    }
+                )*
             }
         }
     };
 }
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 use streaming_hmac;

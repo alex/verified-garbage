@@ -1,6 +1,11 @@
 //! HMAC-SHA-512 (`MacTest` vectors).
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use verified_garbage::hashes::sha512::Sha512;
 use verified_garbage::hmac::Hmac;

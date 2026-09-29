@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Md
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Common
-import VerifiedGarbage.Proof.Hmac.X86_64.Common
+import VerifiedGarbage.Proof.Hmac.Common
 import VerifiedGarbage.Impl.Hmac.AArch64
 import VerifiedGarbage.Spec.Hmac
 import VerifiedGarbage.Proof.Sha256.AArch64.Contract
@@ -9,8 +9,8 @@ import VerifiedGarbage.Proof.Sha256.AArch64.Contract
 # HMAC-SHA-256 on AArch64: common lemmas
 
 Untrusted: everything here is checked by Lean. Words copied between memory
-regions; the memory lemmas themselves are target-independent and shared with
-x86-64 (`VG.Proof.Hmac.X86_64`).
+regions; the memory lemmas themselves are target-independent and shared by
+every target (`VG.Proof.Hmac.Common`).
 -/
 
 namespace VG.Proof.Hmac
@@ -93,7 +93,7 @@ end VG.Proof.Hmac
 namespace VG.Proof.Hmac.AArch64
 open VG VG.AArch64
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil)
-open VG.Proof.Hmac.X86_64 (copy_mem)
+open VG.Proof.Hmac.Common (copy_mem)
 open VG.Spec.Sha256 (bytesAt)
 open VG.Impl.Hmac.AArch64 (cp32 cp64)
 open VG.Proof.MdStream.AArch64 (Upd Mupd wp_ldr32 wp_str32 wp_ldr wp_str)
@@ -115,7 +115,7 @@ theorem copy32_ok {src dst : Reg} (hs : src ≠ .x9) (hd : dst ≠ .x9) (o₁ o�
   induction n with
   | zero =>
     intro rest s Q _ _ _ k
-    exact k s (fun _ _ => rfl) rfl rfl rfl (by rw [Nat.mul_zero, VG.Proof.Hmac.X86_64.bytesAt_zero, writeBytes_nil])
+    exact k s (fun _ _ => rfl) rfl rfl rfl (by rw [Nat.mul_zero, VG.Proof.Hmac.Common.bytesAt_zero, writeBytes_nil])
   | succ n ih =>
     intro rest s Q hin hout hsep k
     rw [List.range_succ, List.flatMap_append, List.flatMap_singleton, List.append_assoc]
@@ -148,7 +148,7 @@ theorem copy64_ok {src dst : Reg} (hs : src ≠ .x9) (hd : dst ≠ .x9) (o₁ o�
   induction n with
   | zero =>
     intro rest s Q _ _ _ k
-    exact k s (fun _ _ => rfl) rfl rfl rfl (by rw [Nat.mul_zero, VG.Proof.Hmac.X86_64.bytesAt_zero, writeBytes_nil])
+    exact k s (fun _ _ => rfl) rfl rfl rfl (by rw [Nat.mul_zero, VG.Proof.Hmac.Common.bytesAt_zero, writeBytes_nil])
   | succ n ih =>
     intro rest s Q hin hout hsep k
     rw [List.range_succ, List.flatMap_append, List.flatMap_singleton, List.append_assoc]

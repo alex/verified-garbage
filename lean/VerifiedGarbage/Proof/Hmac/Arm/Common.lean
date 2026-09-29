@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Md
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Common
-import VerifiedGarbage.Proof.Hmac.X86_64.Common
+import VerifiedGarbage.Proof.Hmac.Common
 import VerifiedGarbage.Impl.Hmac.Arm
 import VerifiedGarbage.Spec.Hmac
 import VerifiedGarbage.Proof.Sha256.Arm.Contract
@@ -9,8 +9,8 @@ import VerifiedGarbage.Proof.Sha256.Arm.Contract
 # HMAC-SHA-256 on ARMv7: common lemmas
 
 Untrusted: everything here is checked by Lean. Words copied between memory
-regions; the memory lemmas themselves are target-independent and shared with
-x86-64 (`VG.Proof.Hmac.X86_64`).
+regions; the memory lemmas themselves are target-independent and shared by
+every target (`VG.Proof.Hmac.Common`).
 -/
 
 namespace VG.Proof.Hmac
@@ -103,7 +103,7 @@ end VG.Proof.Hmac
 namespace VG.Proof.Hmac.Arm
 open VG VG.Arm
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil)
-open VG.Proof.Hmac.X86_64 (copy_mem)
+open VG.Proof.Hmac.Common (copy_mem)
 open VG.Spec.Sha256 (bytesAt)
 open VG.Impl.Hmac.Arm (cp)
 open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str)
@@ -131,7 +131,7 @@ theorem copy_ok {t src dst : Reg} (hs : src ≠ t) (hd : dst ≠ t) (o₁ o₂ :
   | zero =>
     intro rest s Q _ _ _ _ _ k
     exact k s (fun _ _ => rfl) rfl rfl rfl
-      (by rw [Nat.mul_zero, VG.Proof.Hmac.X86_64.bytesAt_zero, writeBytes_nil])
+      (by rw [Nat.mul_zero, VG.Proof.Hmac.Common.bytesAt_zero, writeBytes_nil])
   | succ n ih =>
     intro rest s Q fs fd hin hout hsep k
     rw [List.range_succ, List.flatMap_append, List.flatMap_singleton, List.append_assoc]

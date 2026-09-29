@@ -1,5 +1,6 @@
 import Mathlib.Data.List.FinRange
 import VerifiedGarbage.Proof.Hmac.X86.Common
+import VerifiedGarbage.Proof.Framework.X86.CallWith
 import VerifiedGarbage.Spec.Hmac
 import VerifiedGarbage.Proof.Sha256.X86.Contract
 import Mathlib.Tactic.IntervalCases
@@ -12,8 +13,9 @@ import VerifiedGarbage.Spec.Hmac.Contract
 Untrusted: everything here is checked by Lean. The inner hash is the code of
 `vg_sha256_finalize` up to writing the digest (`finalizeHash`), run on our
 state with its permissions narrowed to those of `vg_sha256_finalize` and
-reasoned about with that function's own proof (`WP.narrow`); the outer hash
-is one inlined compression of a block laid out at known offsets.
+reasoned about with that function's own proof (`WP.narrowSp`); the outer
+hash is one compression of a block laid out at known offsets. The
+compressions call the compression function, using the 20 bytes below `esp`.
 -/
 
 namespace VG.Proof.Hmac
@@ -35,9 +37,10 @@ The code may read `key` (`key_len` bytes), and read and write the arguments
 (20 bytes above the return address, whose contents on exit are unspecified),
 `inner` and `outer` (96 bytes each) and `scratch` (160 bytes, whose contents
 on exit are unspecified). The writable buffers may not overlap each other,
-the key or the return address, and nothing may wrap around the end of the
-(32-bit) address space. `esp`, the pointers and `key_len` are public; the
-key is secret. -/
+the key, the return address or the 20 bytes of stack below it (where the
+code calls the compression function), and nothing may wrap around the end
+of the (32-bit) address space. `esp`, the pointers and `key_len` are public;
+the key is secret. -/
 def initSha256X86 : Contract X86.isa where
   pre s :=
     let inner : Region := ⟨(arg s 0).setWidth 64, 96⟩
@@ -46,14 +49,16 @@ def initSha256X86 : Contract X86.isa where
     let scratch : Region := ⟨(arg s 4).setWidth 64, 160⟩
     let args : Region := ⟨argAddr s 0, 20⟩
     let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+    let stack : Region := ⟨(s.gpr .esp).setWidth 64 - 20, 20⟩
     (arg s 3).toNat ≤ 64 ∧ s.rd = [key] ∧ s.wr = [inner, outer, scratch, args] ∧
     inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
     args.Disjoint inner ∧ args.Disjoint outer ∧ args.Disjoint scratch ∧
     key.Disjoint inner ∧ key.Disjoint outer ∧ key.Disjoint scratch ∧ key.Disjoint args ∧
     ret.Disjoint inner ∧ ret.Disjoint outer ∧ ret.Disjoint scratch ∧
+    stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint scratch ∧
     (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 1).toNat + 96 ≤ 2 ^ 32 ∧
     (arg s 2).toNat + (arg s 3).toNat ≤ 2 ^ 32 ∧ (arg s 4).toNat + 160 ≤ 2 ^ 32 ∧
-    (s.gpr .esp).toNat + 24 ≤ 2 ^ 32
+    20 ≤ (s.gpr .esp).toNat ∧ (s.gpr .esp).toNat + 24 ≤ 2 ^ 32
   post s s' :=
     let k0 := blockKey sha256 (bytesAt s.mem ((arg s 2).setWidth 64) (arg s 3).toNat)
     Repr s'.mem ((arg s 0).setWidth 64) (xorPad k0 ipad) ∧
@@ -81,9 +86,11 @@ The code may read `outer` (96 bytes), and read and write the arguments (24
 bytes above the return address, whose contents on exit are unspecified),
 `inner` (96 bytes, whose contents on exit are unspecified), `out` (32 bytes)
 and `scratch` (240 bytes, whose contents on exit are unspecified). The
-writable buffers may not overlap each other, `outer` or the return address,
-and nothing may wrap around the end of the (32-bit) address space. `esp`,
-the pointers and `count` are public; the states are secret. -/
+writable buffers may not overlap each other, `outer` or the return address;
+none of the buffers may overlap the 20 bytes of stack below the return
+address (where the code calls the compression function); and nothing may
+wrap around the end of the (32-bit) address space. `esp`, the pointers and
+`count` are public; the states are secret. -/
 def finalizeSha256X86 : Contract X86.isa where
   pre s :=
     let inner : Region := ⟨(arg s 0).setWidth 64, 96⟩
@@ -92,14 +99,16 @@ def finalizeSha256X86 : Contract X86.isa where
     let scratch : Region := ⟨(arg s 5).setWidth 64, 240⟩
     let args : Region := ⟨argAddr s 0, 24⟩
     let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+    let stack : Region := ⟨(s.gpr .esp).setWidth 64 - 20, 20⟩
     s.rd = [outer] ∧ s.wr = [inner, out, scratch, args] ∧
     inner.Disjoint out ∧ inner.Disjoint scratch ∧ out.Disjoint scratch ∧
     args.Disjoint inner ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
     outer.Disjoint inner ∧ outer.Disjoint out ∧ outer.Disjoint scratch ∧ outer.Disjoint args ∧
     ret.Disjoint inner ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧
+    stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint out ∧ stack.Disjoint scratch ∧
     (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 1).toNat + 96 ≤ 2 ^ 32 ∧
     (arg s 4).toNat + 32 ≤ 2 ^ 32 ∧ (arg s 5).toNat + 240 ≤ 2 ^ 32 ∧
-    (s.gpr .esp).toNat + 28 ≤ 2 ^ 32
+    20 ≤ (s.gpr .esp).toNat ∧ (s.gpr .esp).toNat + 28 ≤ 2 ^ 32
   post s s' := ∀ k0 text, k0.length = 64 →
     Repr s.mem ((arg s 0).setWidth 64) (xorPad k0 ipad ++ text) →
     countFinalizeX86 s = BitVec.ofNat 64 (64 + text.length) →
@@ -120,7 +129,7 @@ open VG.Proof.Sha256.X86.Stream
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append repr_congr compressList_append
   hash_one lenBytes rest)
 open VG.Proof.Hmac.X86
-open VG.Proof.Hmac.X86_64 (bytesAt_length)
+open VG.Proof.Hmac.Common (bytesAt_length)
 open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes Repr)
 open VG.Proof.Sha256 (countX86)
 open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
@@ -146,6 +155,7 @@ abbrev outR : Region := ⟨outA s₀, 32⟩
 abbrev scR : Region := ⟨scA s₀, 240⟩
 abbrev argR : Region := ⟨addr (esp₀ s₀) 4, 24⟩
 abbrev retR : Region := ⟨(esp₀ s₀).setWidth 64, 4⟩
+abbrev stkR : Region := below (esp₀ s₀) 20
 
 /-- The regions `vg_sha256_finalize` gets: its state (our inner state), its
 output (ours), the first 160 bytes of our scratch space, and the first 20
@@ -170,15 +180,25 @@ structure Pre (s₀ : State) : Prop where
   ret_in : (retR s₀).Disjoint (inR s₀)
   ret_out : (retR s₀).Disjoint (outR s₀)
   ret_scr : (retR s₀).Disjoint (scR s₀)
+  stk_in : (stkR s₀).Disjoint (inR s₀)
+  stk_ou : (stkR s₀).Disjoint (ouR s₀)
+  stk_out : (stkR s₀).Disjoint (outR s₀)
+  stk_scr : (stkR s₀).Disjoint (scR s₀)
   in_fit : (inn s₀).toNat + 96 ≤ 2 ^ 32
   ou_fit : (ou s₀).toNat + 96 ≤ 2 ^ 32
   out_fit : (out s₀).toNat + 32 ≤ 2 ^ 32
   scr_fit : (scr s₀).toNat + 240 ≤ 2 ^ 32
+  sp_lo : 20 ≤ (esp₀ s₀).toNat
   sp_fit : (esp₀ s₀).toNat + 28 ≤ 2 ^ 32
 
 theorem pre_of {s₀ : State} (h : Proof.Hmac.finalizeSha256X86.pre s₀) : Pre s₀ := by
-  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20⟩ := h
-  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20⟩
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20,
+    h21, h22, h23, h24, h25⟩ := h
+  have e := stk_eq h24
+  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15,
+    by show (below _ _).Disjoint _; rw [e]; exact h16, by show (below _ _).Disjoint _; rw [e]; exact h17,
+    by show (below _ _).Disjoint _; rw [e]; exact h18, by show (below _ _).Disjoint _; rw [e]; exact h19,
+    h20, h21, h22, h23, h24, h25⟩
 
 namespace Pre
 variable {s₀ : State} (hp : Pre s₀)
@@ -234,6 +254,15 @@ theorem ret_a {s₀ : State} (hp : Pre s₀) : (retR s₀).Disjoint (argR s₀) 
   intro a h₁ h₂
   simp only [Region.Contains] at h₁ h₂
   rw [addr_eq (by omega)] at h₂
+  generalize (esp₀ s₀).setWidth 64 = b at *
+  bv_omega
+
+theorem ret_stk {s₀ : State} (hp : Pre s₀) : (retR s₀).Disjoint (stkR s₀) := by
+  have := hp.sp_fit; have := hp.sp_lo
+  intro a h₁ h₂
+  simp only [Region.Contains] at h₁ h₂
+  rw [Taint.sub_setWidth (by omega)] at h₂
+  have hE : ((esp₀ s₀).setWidth 64).toNat = (esp₀ s₀).toNat := addr_toNat _
   generalize (esp₀ s₀).setWidth 64 = b at *
   bv_omega
 
@@ -376,6 +405,10 @@ theorem finalizeHash_eq : finalizeHash = .seq (.block (([.mov .eax (.mem (at_ .e
     (.seq (.ite .ae (.block [.mov .esi (.imm 1)]) (.block []))
       (.loop VG.Impl.Sha256.X86.Stream.finalizeBody .e)) := rfl
 
+theorem finalizeHash_nosp : NoSp finalizeHash := NoSp.of_all (by decide +kernel)
+
+theorem finalizeHash_stack : stackUse finalizeHash = 20 := by decide +kernel
+
 /-- `vg_sha256_finalize` up to writing the digest, from its precondition. -/
 theorem hash_ok {s : State} (hp : SPre s) : WP isa finalizeHash s (SDone s) := by
   rw [finalizeHash_eq, ← VG.Proof.Sha256.X86.Stream.Finalize.seq_assoc]
@@ -405,7 +438,7 @@ theorem narrow_pre {s₀ s : State} (hp : Pre s₀) (h : Pro s₀ s) : SPre (nar
   have a20 : Region.Sub ⟨addr (esp₀ s₀) 4, 20⟩ (argR s₀) := Region.sub_prefix (by omega)
   have fs := hp.scr_fit
   have fsp := hp.sp_fit
-  refine ⟨rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · show finW s₀ = [⟨(arg (narrow s₀ s) 0).setWidth 64, 96⟩, ⟨(arg (narrow s₀ s) 3).setWidth 64, 32⟩,
       ⟨(arg (narrow s₀ s) 4).setWidth 64, 160⟩, ⟨addr (s.gpr .esp) 4, 20⟩]
     rw [a0, a3, a4, sp]
@@ -427,12 +460,20 @@ theorem narrow_pre {s₀ s : State} (hp : Pre s₀) (h : Pro s₀ s) : SPre (nar
     rw [a3, sp]; exact hp.ret_out
   · show Region.Disjoint ⟨(s.gpr .esp).setWidth 64, 4⟩ ⟨(arg (narrow s₀ s) 4).setWidth 64, 160⟩
     rw [a4, sp]; exact hp.ret_scr.sub_right s160
+  · show Region.Disjoint (below (s.gpr .esp) 20) ⟨(arg (narrow s₀ s) 0).setWidth 64, 96⟩
+    rw [a0, sp]; exact hp.stk_in
+  · show Region.Disjoint (below (s.gpr .esp) 20) ⟨(arg (narrow s₀ s) 3).setWidth 64, 32⟩
+    rw [a3, sp]; exact hp.stk_out
+  · show Region.Disjoint (below (s.gpr .esp) 20) ⟨(arg (narrow s₀ s) 4).setWidth 64, 160⟩
+    rw [a4, sp]; exact hp.stk_scr.sub_right s160
   · show (arg (narrow s₀ s) 0).toNat + 96 ≤ 2 ^ 32
     rw [a0]; exact hp.in_fit
   · show (arg (narrow s₀ s) 3).toNat + 32 ≤ 2 ^ 32
     rw [a3]; exact hp.out_fit
   · show (arg (narrow s₀ s) 4).toNat + 160 ≤ 2 ^ 32
     rw [a4]; omega
+  · show 20 ≤ (s.gpr .esp).toNat
+    rw [sp]; exact hp.sp_lo
   · show (s.gpr .esp).toNat + 24 ≤ 2 ^ 32
     rw [sp]; omega
 
@@ -455,13 +496,11 @@ theorem padWords_eq : padWords = [.mov .ecx (.imm 0x80), .store (at_ .ebx 64) .e
   rfl
 
 /-- Memory after the middle block, from `m`: the inner state holds the outer
-hash value and, in its buffer, the inner digest and `padBytes`; and the
-argument words `[esp + 4]` and `[esp + 16]` hold `inner` and `scratch`. -/
+hash value and, in its buffer, the inner digest and `padBytes`. -/
 def midMem (s₀ : State) (m : Mem) : Mem :=
-  ((writeBytes (writeBytes (writeBytes m (inA s₀ + BitVec.ofNat 64 32) (beWords m (inn s₀) 0 8))
+  writeBytes (writeBytes (writeBytes m (inA s₀ + BitVec.ofNat 64 32) (beWords m (inn s₀) 0 8))
       (inA s₀ + BitVec.ofNat 64 0) (bytesAt m (ouA s₀ + BitVec.ofNat 64 0) (4 * 8)))
-      (inA s₀ + BitVec.ofNat 64 64) padBytes).writeW (addr (esp₀ s₀) 4) (inn s₀)).writeW
-    (addr (esp₀ s₀) 16) (scr s₀)
+    (inA s₀ + BitVec.ofNat 64 64) padBytes
 
 /-- Consecutive words written after some bytes. -/
 theorem writeW_after (m : Mem) (q : Addr) (xs : List Byte) (v : BitVec 32) {d : Nat} (hd : d = xs.length)
@@ -491,7 +530,7 @@ structure Mid (s₀ s s' : State) : Prop where
 theorem mid_ok {s₀ s : State} (hp : Pre s₀) (h : MidPre s₀ s) :
     WP isa (.block ((List.range 8).flatMap (bswapWord .ebx .ebx 0 32) ++ .mov .edx (.mem (at_ .ebp 176)) ::
       (List.range 8).flatMap (copyWord .edx .ebx 0 0) ++ padWords ++
-      ([.store (at_ .esp 4) .ebx, .store (at_ .esp 16) .ebp, .mov .eax (.reg .ebx), .alu .add .eax (.imm 32)] : List Instr)))
+      ([.mov .eax (.reg .ebx), .alu .add .eax (.imm 32)] : List Instr)))
       s (Mid s₀ s) := by
   have fi := hp.in_fit
   have fo := hp.ou_fit
@@ -566,27 +605,19 @@ theorem mid_ok {s₀ s : State} (hp : Pre s₀) (h : MidPre s₀ s) :
     rw [u₁₃.other r h, u₁₂.gpr, u₁₁.gpr, u₁₀.gpr, u₉.gpr, u₈.gpr, u₇.gpr, x₆ r h]
   have wr₁₃ : s₁₃.wr = s₀.wr := by rw [u₁₃.wr, u₁₂.wr, u₁₁.wr, u₁₀.wr, u₉.wr, u₈.wr, u₇.wr, wr₆]
   refine wp_store (st _ wr₁₃ x₁₃ 7 (by omega)) (pin _ wr₁₃ 7 (by omega)) fun s₁₄ u₁₄ => ?_
-  -- The argument words and `eax`.
+  -- `eax`.
   have x₁₄ : ∀ r, r ≠ .ecx → s₁₄.gpr r = s₃.gpr r := fun r h => by rw [u₁₄.gpr, x₁₃ r h]
   have wr₁₄ : s₁₄.wr = s₀.wr := by rw [u₁₄.wr, wr₁₃]
   have rd₁₄ : s₁₄.rd = s₀.rd := by
     rw [u₁₄.rd, u₁₃.rd, u₁₂.rd, u₁₁.rd, u₁₀.rd, u₉.rd, u₈.rd, u₇.rd, u₆.rd, u₅.rd, u₄.rd, rd₃']
-  have sp₃ : s₃.gpr .esp = esp₀ s₀ := by rw [g₃ _ (by decide), u₂.other _ (by decide), sp₁]
-  have ebp₃ : s₃.gpr .ebp = scr s₀ := by rw [g₃ _ (by decide), u₂.other _ (by decide), p₁]
-  have ain : ∀ d, 4 ≤ d → d + 4 ≤ 28 → InRegions s₀.wr (addr (esp₀ s₀) d) 4 :=
-    fun d h₁ h₂ => ⟨argR s₀, by simp [hp.wr], hp.arg_in h₁ h₂⟩
-  refine wp_store (a := addr (esp₀ s₀) 4) (by rw [ea_at, x₁₄ _ (by decide), sp₃])
-    (by rw [wr₁₄]; exact ain 4 (by omega) (by omega)) fun s₁₅ u₁₅ => ?_
-  refine wp_store (a := addr (esp₀ s₀) 16) (by rw [ea_at, u₁₅.gpr, x₁₄ _ (by decide), sp₃])
-    (by rw [u₁₅.wr, wr₁₄]; exact ain 16 (by omega) (by omega)) fun s₁₆ u₁₆ => ?_
   refine wp_mov fun s₁₇ u₁₇ => wp_addi fun s₁₈ u₁₈ => WP.block_nil ⟨?_, ?_, fun r h₁ h₂ h₃ => ?_, ?_, ?_⟩
-  · rw [u₁₈.rd, u₁₇.rd, u₁₆.rd, u₁₅.rd, rd₁₄]
-  · rw [u₁₈.wr, u₁₇.wr, u₁₆.wr, u₁₅.wr, wr₁₄]
-  · rw [u₁₈.other r h₁, u₁₇.other r h₁, u₁₆.gpr, u₁₅.gpr, x₁₄ r h₂, g₃ r h₂, u₂.other r h₃, g₁ r h₂]
-  · rw [u₁₈.gpr, u₁₇.gpr, u₁₆.gpr, u₁₅.gpr, x₁₄ _ (by decide), e₃]
+  · rw [u₁₈.rd, u₁₇.rd, rd₁₄]
+  · rw [u₁₈.wr, u₁₇.wr, wr₁₄]
+  · rw [u₁₈.other r h₁, u₁₇.other r h₁, x₁₄ r h₂, g₃ r h₂, u₂.other r h₃, g₁ r h₂]
+  · rw [u₁₈.gpr, u₁₇.gpr, x₁₄ _ (by decide), e₃]
   · have hq : inA s₀ + BitVec.ofNat 64 64 + BitVec.ofNat 64 (4 * 0) = inA s₀ + BitVec.ofNat 64 64 := by simp
     have hl : ∀ xs : List Byte, xs.length ≤ 28 → xs.length + 4 < 2 ^ 64 := fun _ h => by omega
-    rw [u₁₈.mem, u₁₇.mem, u₁₆.mem, u₁₅.gpr, u₁₅.mem, x₁₄ .ebp (by decide), x₁₄ .ebx (by decide), ebp₃, e₃,
+    rw [u₁₈.mem, u₁₇.mem,
       u₁₄.mem, u₁₃.gpr, u₁₃.mem, u₁₂.mem, u₁₁.gpr, u₁₁.mem, u₁₀.gpr, u₁₀.mem, u₉.gpr, u₉.mem,
       u₈.gpr, u₈.mem, u₇.gpr, u₇.mem, u₆.gpr, u₆.mem, u₅.mem, u₄.gpr, u₄.mem, hq, writeW_le _ (inA s₀ + BitVec.ofNat 64 64),
       writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
@@ -596,7 +627,7 @@ theorem mid_ok {s₀ s : State} (hp : Pre s₀) (h : MidPre s₀ s) :
       writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
       writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
       writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
-      m₃, u₂.mem, m₁, VG.Proof.Hmac.X86_64.bytesAt_writeBytes_sep _ _ ?_ (by omega)]
+      m₃, u₂.mem, m₁, VG.Proof.Hmac.Common.bytesAt_writeBytes_sep _ _ ?_ (by omega)]
     · rfl
     · rw [beWords_length]
       exact hp.o_in.sep (contains_offset (by omega) (by omega)) (contains_offset (by omega) (by omega))
@@ -615,7 +646,7 @@ theorem beWords_stateAt (m : Mem) {x : BitVec 32} (hx : x.toNat + 32 ≤ 2 ^ 32)
 
 theorem bytesAt_writeW_sep (m : Mem) {p a : Addr} {n : Nat} (v : BitVec 32) (h : Mem.Sep p n a 4)
     (hn : n < 2 ^ 64) : bytesAt (m.writeW a v) p n = bytesAt m p n := by
-  rw [writeW_le]; exact VG.Proof.Hmac.X86_64.bytesAt_writeBytes_sep _ _ (by rwa [le_length]) hn
+  rw [writeW_le]; exact VG.Proof.Hmac.Common.bytesAt_writeBytes_sep _ _ (by rwa [le_length]) hn
 
 theorem padBytes_length : padBytes.length = 32 := by decide
 
@@ -653,48 +684,34 @@ section
 variable {s₀ : State} (hp : Pre s₀) (m : Mem)
 include hp
 
-/-- An access to the inner state misses the argument words. -/
-theorem in_arg_sep {d n e : Nat} (hd : d + n ≤ 96) (hn : 0 < n) (he₁ : 4 ≤ e) (he : e + 4 ≤ 28) :
-    Mem.Sep (inA s₀ + BitVec.ofNat 64 d) n (addr (esp₀ s₀) e) 4 :=
-  hp.a_in.symm.sep (contains_offset hd (by omega)) (hp.arg_in he₁ he)
-
-theorem midMem_a4 : (midMem s₀ m).readW (addr (esp₀ s₀) 4) 32 = inn s₀ := by
-  have := hp.sp_fit
-  simp only [midMem]
-  rw [readW_writeW_addr _ _ (by omega) (by omega) (by omega), Mem.readW_writeW_self32]
-
 omit hp in
-theorem midMem_a16 : (midMem s₀ m).readW (addr (esp₀ s₀) 16) 32 = scr s₀ := by
-  simp only [midMem]; rw [Mem.readW_writeW_self32]
-
 theorem midMem_frame : Frame [inR s₀, argR s₀] m (midMem s₀ m) := by
   simp only [midMem]
-  refine ((((writeBytes_frame (R := inR s₀) _ _ _ ?_).trans (writeBytes_frame (R := inR s₀) _ _ _ ?_)).trans
-    (writeBytes_frame (R := inR s₀) _ _ _ ?_)).mono (by simp)).writeW (by simp) _
-      (hp.arg_in (d := 4) (by omega) (by omega)) |>.writeW (by simp) _ (hp.arg_in (d := 16) (by omega) (by omega))
+  refine (((writeBytes_frame (R := inR s₀) _ _ _ ?_).trans (writeBytes_frame (R := inR s₀) _ _ _ ?_)).trans
+    (writeBytes_frame (R := inR s₀) _ _ _ ?_)).mono (by simp)
   · rw [beWords_length]; exact contains_offset (by omega) (by omega)
   · rw [bytesAt_length]; exact contains_offset (by omega) (by omega)
   · rw [padBytes_length]; exact contains_offset (by omega) (by omega)
 
+omit hp in
 /-- The inner state holds the outer hash value. -/
 theorem midMem_state : stateAt (midMem s₀ m) (inA s₀) = stateAt m (ouA s₀) := by
   have s0_64 : Mem.Sep (inA s₀ + BitVec.ofNat 64 0) 32 (inA s₀ + BitVec.ofNat 64 64) padBytes.length := by
     rw [padBytes_length]; exact sep_off _ (by omega) (by omega) (by omega)
   have hb : bytesAt (midMem s₀ m) (inA s₀ + BitVec.ofNat 64 0) 32 = bytesAt m (ouA s₀ + BitVec.ofNat 64 0) 32 := by
     simp only [midMem]
-    rw [bytesAt_writeW_sep _ _ (in_arg_sep hp (by omega) (by omega) (by omega) (by omega)) (by omega),
-      bytesAt_writeW_sep _ _ (in_arg_sep hp (by omega) (by omega) (by omega) (by omega)) (by omega),
-      VG.Proof.Hmac.X86_64.bytesAt_writeBytes_sep _ _ s0_64 (by omega)]
-    have := VG.Proof.Hmac.X86_64.bytesAt_writeBytes_self
+    rw [VG.Proof.Hmac.Common.bytesAt_writeBytes_sep _ _ s0_64 (by omega)]
+    have := VG.Proof.Hmac.Common.bytesAt_writeBytes_self
       (writeBytes m (inA s₀ + BitVec.ofNat 64 32) (beWords m (inn s₀) 0 8)) (inA s₀ + BitVec.ofNat 64 0)
       (bytesAt m (ouA s₀ + BitVec.ofNat 64 0) (4 * 8)) (by rw [bytesAt_length]; omega)
     rw [bytesAt_length] at this
     exact this
-  refine VG.Proof.Hmac.X86_64.stateAt_eq_of_bytes fun i hi => ?_
+  refine VG.Proof.Hmac.Common.stateAt_eq_of_bytes fun i hi => ?_
   have h₁ := bytesAt_getD (k := i) hb (by omega)
   rw [show inA s₀ + BitVec.ofNat 64 0 = inA s₀ by simp] at h₁
-  rw [h₁, VG.Proof.Hmac.X86_64.bytesAt_getD' _ _ hi, show ouA s₀ + BitVec.ofNat 64 0 = ouA s₀ by simp]
+  rw [h₁, VG.Proof.Hmac.Common.bytesAt_getD' _ _ hi, show ouA s₀ + BitVec.ofNat 64 0 = ouA s₀ by simp]
 
+omit hp in
 /-- The block after it: the digest, then `padBytes`. -/
 theorem midMem_block :
     bytesAt (midMem s₀ m) (inA s₀ + BitVec.ofNat 64 32) (32 + 32) = beWords m (inn s₀) 0 8 ++ padBytes := by
@@ -704,18 +721,16 @@ theorem midMem_block :
       (bytesAt m (ouA s₀ + BitVec.ofNat 64 0) (4 * 8)).length := by
     rw [bytesAt_length]; exact sep_off _ (by omega) (by omega) (by omega)
   simp only [midMem]
-  rw [bytesAt_writeW_sep _ _ (in_arg_sep hp (by omega) (by omega) (by omega) (by omega)) (by omega),
-    bytesAt_writeW_sep _ _ (in_arg_sep hp (by omega) (by omega) (by omega) (by omega)) (by omega),
-    VG.Proof.Hmac.X86_64.bytesAt_add,
+  rw [VG.Proof.Hmac.Common.bytesAt_add,
     show inA s₀ + BitVec.ofNat 64 32 + BitVec.ofNat 64 32 = inA s₀ + BitVec.ofNat 64 64 by
       rw [BitVec.add_assoc, ← BitVec.ofNat_add]]
   congr 1
-  · rw [VG.Proof.Hmac.X86_64.bytesAt_writeBytes_sep _ _ s32_64 (by omega),
-      VG.Proof.Hmac.X86_64.bytesAt_writeBytes_sep _ _ s32_0 (by omega)]
-    have := VG.Proof.Hmac.X86_64.bytesAt_writeBytes_self m (inA s₀ + BitVec.ofNat 64 32) (beWords m (inn s₀) 0 8)
+  · rw [VG.Proof.Hmac.Common.bytesAt_writeBytes_sep _ _ s32_64 (by omega),
+      VG.Proof.Hmac.Common.bytesAt_writeBytes_sep _ _ s32_0 (by omega)]
+    have := VG.Proof.Hmac.Common.bytesAt_writeBytes_self m (inA s₀ + BitVec.ofNat 64 32) (beWords m (inn s₀) 0 8)
       (by rw [beWords_length]; omega)
     rwa [beWords_length] at this
-  · have := VG.Proof.Hmac.X86_64.bytesAt_writeBytes_self
+  · have := VG.Proof.Hmac.Common.bytesAt_writeBytes_self
       (writeBytes (writeBytes m (inA s₀ + BitVec.ofNat 64 32) (beWords m (inn s₀) 0 8)) (inA s₀ + BitVec.ofNat 64 0)
         (bytesAt m (ouA s₀ + BitVec.ofNat 64 0) (4 * 8))) (inA s₀ + BitVec.ofNat 64 64) padBytes
       (by rw [padBytes_length]; omega)
@@ -730,56 +745,44 @@ theorem blk_eq {s₀ : State} (hp : Pre s₀) : (inn s₀ + 32).setWidth 64 = in
   exact addr_eq (by have := hp.in_fit; omega)
 
 theorem comp_ok {s₀ s : State} (hp : Pre s₀) (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
-    (hsp : s.gpr .esp = esp₀ s₀) (heax : s.gpr .eax = inn s₀ + 32)
-    (h4 : s.mem.readW (addr (esp₀ s₀) 4) 32 = inn s₀) (h16 : s.mem.readW (addr (esp₀ s₀) 16) 32 = scr s₀)
-    {Q : State → Prop}
+    (hsp : s.gpr .esp = esp₀ s₀) (hebx : s.gpr .ebx = inn s₀) (hebp : s.gpr .ebp = scr s₀)
+    (heax : s.gpr .eax = inn s₀ + 32) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
-      Frame [⟨inA s₀, 32⟩, ⟨scA s₀, 112⟩, ⟨addr (esp₀ s₀) 4, 16⟩] s.mem s'.mem →
+      Frame [⟨inA s₀, 32⟩, ⟨scA s₀, 112⟩, stkR s₀] s.mem s'.mem →
       stateAt s'.mem (inA s₀) =
         compress (stateAt s.mem (inA s₀)) (blockAt s.mem (inA s₀ + BitVec.ofNat 64 32)) → Q s') :
-    WP isa compressAt s Q := by
+    WP isa (compressAt .ebx .ebp) s Q := by
   have fi := hp.in_fit
   have fs := hp.scr_fit
   have fsp := hp.sp_fit
   have hb := blk_eq hp
   have s32 : Region.Sub ⟨inA s₀, 32⟩ (inR s₀) := Region.sub_prefix (by omega)
   have s112 : Region.Sub ⟨scA s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
-  have a16 : Region.Sub ⟨addr (esp₀ s₀) 4, 16⟩ (argR s₀) := Region.sub_prefix (by omega)
   have b64 : Region.Sub ⟨(inn s₀ + 32).setWidth 64, 64⟩ (inR s₀) := by rw [hb]; exact sub_offset (by omega) (by omega)
-  rw [← hsp] at h4 h16
-  refine compressAt_ok (st := inn s₀) (scr := scr s₀) (blk := inn s₀ + 32) h4 h16 heax (by rw [hsp]; omega)
+  refine compressAt_ok (st := inn s₀) (scr := scr s₀) (blk := inn s₀ + 32) (E := esp₀ s₀)
+    (by decide) (by decide) (by decide) (by decide) hsp hebx hebp heax hp.sp_lo
     (by omega) (by rw [show (inn s₀ + 32).toNat = (inn s₀).toNat + 32 by
       rw [BitVec.toNat_add]; exact Nat.mod_eq_of_lt (by simp; omega)]; omega) (by omega)
     ((hp.in_scr.sub_left s32).sub_right s112) ?_ ((hp.in_scr.sub_left b64).sub_right s112)
-    (by rw [hsp]; exact (hp.a_in.sub_left a16).sub_right s32)
-    (by rw [hsp]; exact (hp.a_scr.sub_left a16).sub_right s112)
-    (by rw [hsp]; exact hp.ret_in.sub_right s32) (by rw [hsp]; exact hp.ret_scr.sub_right s112)
-    (by rw [hsp]; exact (hp.a_in.sub_left a16).symm.sub_left b64) ?_ ?_ ?_
+    (hp.stk_in.sub_right s32) (hp.stk_scr.sub_right s112) (hp.stk_in.sub_right b64) ?_ ?_ ?_
   · rw [hb]
     intro a h₁ h₂
     simp only [Region.Contains] at h₁ h₂
     have := sep_off (inA s₀) (d := 32) (e := 0) (n := 64) (k := 32) (by omega) (by omega) (by omega) a
       (by omega) (by simp at h₂ ⊢; omega)
     exact this
-  · rw [hsp]
-    apply Covers.of_sub
+  · apply Covers.of_sub
     intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl
-    · exact ⟨inR s₀, by simp [hrd, hwr, hp.wr], 32, hb, by simp⟩
-    · exact ⟨argR s₀, by simp [hrd, hwr, hp.wr], 0, by simp, by simp⟩
-    · exact ⟨inR s₀, by simp [hrd, hwr, hp.wr], 0, by simp, by simp⟩
-    · exact ⟨scR s₀, by simp [hrd, hwr, hp.wr], 0, by simp, by simp⟩
-  · rw [hsp]
-    apply Covers.of_sub
+    subst hr
+    exact ⟨inR s₀, by simp [hrd, hwr, hp.wr], 32, hb, by simp⟩
+  · apply Covers.of_sub
     intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl
+    rcases hr with rfl | rfl
     · exact ⟨inR s₀, by simp [hwr, hp.wr], 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp [hwr, hp.wr], 0, by simp, by simp⟩
-    · exact ⟨argR s₀, by simp [hwr, hp.wr], 0, by simp, by simp⟩
-  · intro s' h₁ h₂ h₃ h₄ _ _ h₇
-    rw [hsp] at h₄
+  · intro s' h₁ h₂ h₃ h₄ h₇
     rw [hb] at h₇
     exact hQ s' h₁ h₂ h₃ h₄ h₇
 
@@ -850,7 +853,7 @@ theorem out_ok {s₀ s : State} (hp : Pre s₀) (hrd : s.rd = s₀.rd) (hwr : s.
 /-! ## Correctness -/
 
 /-- Everything we may write. -/
-abbrev allR (s₀ : State) : List Region := [inR s₀, outR s₀, scR s₀, argR s₀]
+abbrev allR (s₀ : State) : List Region := [inR s₀, outR s₀, scR s₀, argR s₀, stkR s₀]
 
 theorem xorPad_length (k : List Byte) (p : Byte) : (xorPad k p).length = k.length := by simp [xorPad]
 
@@ -881,15 +884,17 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have sp₁ : s₁.gpr .esp = esp₀ s₀ := h₁.gpr _ (by decide) (by decide)
   have s160 : Region.Sub ⟨scA s₀, 160⟩ (scR s₀) := Region.sub_prefix (by omega)
   have a20 : Region.Sub ⟨addr (esp₀ s₀) 4, 20⟩ (argR s₀) := Region.sub_prefix (by omega)
-  have finSub : ∀ r ∈ finW s₀, ∃ r' ∈ allR s₀, Region.Sub r r' := by
+  have finSub : ∀ r ∈ finW s₀ ++ [stkR s₀], ∃ r' ∈ allR s₀, Region.Sub r r' := by
     intro r hr
-    simp only [finW, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl
+    simp only [finW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl | rfl
     · exact ⟨inR s₀, by simp, fun _ h => h⟩
     · exact ⟨outR s₀, by simp, fun _ h => h⟩
     · exact ⟨scR s₀, by simp, s160⟩
     · exact ⟨argR s₀, by simp, a20⟩
-  refine WP.seq (WP.narrow (hash_ok (narrow_pre hp h₁)) ?_ ?_ fun sD rdD wrD frD hD => ?_)
+    · exact ⟨stkR s₀, by simp, fun _ h => h⟩
+  refine WP.seq (WP.narrowSp (hash_ok (narrow_pre hp h₁)) ?_ ?_ finalizeHash_nosp
+    (by rw [finalizeHash_stack, sp₁]; exact hp.sp_lo) fun sD rdD wrD frD hD => ?_)
   · rw [h₁.rd, h₁.wr, hp.rd, hp.wr]
     apply Covers.of_sub
     intro r hr
@@ -908,6 +913,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     · exact ⟨outR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨argR s₀, by simp, 0, by simp, by simp⟩
+  rw [finalizeHash_stack, sp₁] at frD
   obtain ⟨hC, hHash⟩ := hD
   have e3 : VG.Proof.Sha256.X86.Stream.Finalize.out (narrow s₀ s₁) = out s₀ := narrow_arg hp h₁ (by omega)
   have e4 : VG.Proof.Sha256.X86.Stream.Finalize.scr (narrow s₀ s₁) = scr s₀ := narrow_arg hp h₁ (by omega)
@@ -927,11 +933,11 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have rdD' : sD.rd = s₀.rd := rdD.trans h₁.rd
   have wrD' : sD.wr = s₀.wr := wrD.trans h₁.wr
   -- `scratch[176..180)`, where `outer` is, lies outside what `finalizeHash` writes.
-  have w176 : ∀ r ∈ finW s₀, Region.Disjoint ⟨addr (scr s₀) 176, 4⟩ r := by
+  have w176 : ∀ r ∈ finW s₀ ++ [stkR s₀], Region.Disjoint ⟨addr (scr s₀) 176, 4⟩ r := by
     have hs : Region.Sub ⟨addr (scr s₀) 176, 4⟩ (scR s₀) := hp.scr_sub (by omega)
     intro r hr
-    simp only [finW, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl
+    simp only [finW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl | rfl
     · exact (hp.in_scr.symm.sub_left hs)
     · exact (hp.out_scr.symm.sub_left hs)
     · intro a h₁ h₂
@@ -939,19 +945,20 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
       rw [addr_eq (by omega)] at h₁
       bv_omega
     · exact (hp.a_scr.symm.sub_left hs).sub_right a20
+    · exact hp.stk_scr.symm.sub_left hs
   have ouD : sD.mem.readW (addr (scr s₀) 176) 32 = ou s₀ := by
     rw [frD.readW (Region.contains_self _ _) w176 (by decide), h₁.mem, proMem_176 hp]
   refine WP.seq (WP.mono (mid_ok hp ⟨rdD', wrD', ebxD, ebpD, spD, ouD⟩) fun s₃ h₃ => ?_)
   have sp₃ : s₃.gpr .esp = esp₀ s₀ := by rw [h₃.gpr _ (by decide) (by decide) (by decide), spD]
-  refine WP.seq (comp_ok hp h₃.rd h₃.wr sp₃ h₃.eax (by rw [h₃.mem]; exact midMem_a4 hp _)
-    (by rw [h₃.mem]; exact midMem_a16 _) fun s₄ rd₄ wr₄ cs₄ fr₄ st₄ => ?_)
+  refine WP.seq (comp_ok hp h₃.rd h₃.wr sp₃ (by rw [h₃.gpr _ (by decide) (by decide) (by decide), ebxD])
+    (by rw [h₃.gpr _ (by decide) (by decide) (by decide), ebpD]) h₃.eax fun s₄ rd₄ wr₄ cs₄ fr₄ st₄ => ?_)
   -- Words of the scratch space that neither the middle block nor the compression writes.
   have keep : ∀ d, 112 ≤ d → d + 4 ≤ 160 →
       s₄.mem.readW (addr (scr s₀) d) 32 = sD.mem.readW (addr (scr s₀) d) 32 := by
     intro d h₁ h₂
     have hs : Region.Sub ⟨addr (scr s₀) d, 4⟩ (scR s₀) := hp.scr_sub (by omega)
     rw [fr₄.readW (Region.contains_self _ _) ?_ (by decide), h₃.mem,
-      (midMem_frame hp sD.mem).readW (Region.contains_self _ _) ?_ (by decide)]
+      (midMem_frame sD.mem).readW (Region.contains_self _ _) ?_ (by decide)]
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
@@ -965,7 +972,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
         simp only [Region.Contains] at h₁ h₂
         rw [addr_eq (by omega)] at h₁
         bv_omega
-      · exact (hp.a_scr.symm.sub_left hs).sub_right (Region.sub_prefix (by omega))
+      · exact hp.stk_scr.symm.sub_left hs
   have csD : ∀ r ∈ calleeSaved, s₄.gpr r = sD.gpr r := fun r hr => by
     rw [cs₄ r hr, h₃.gpr r ?_ ?_ ?_] <;>
     · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -982,14 +989,14 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   -- Everything written is within our regions.
   have f1 : Frame (allR s₀) s₀.mem s₁.mem := by rw [h₁.mem]; exact (proMem_frame hp).mono (by simp)
   have f2 : Frame (allR s₀) s₁.mem sD.mem := frD.sub finSub
-  have f3 : Frame (allR s₀) sD.mem s₃.mem := by rw [h₃.mem]; exact (midMem_frame hp sD.mem).mono (by simp)
+  have f3 : Frame (allR s₀) sD.mem s₃.mem := by rw [h₃.mem]; exact (midMem_frame sD.mem).mono (by simp)
   have f4 : Frame (allR s₀) s₃.mem s₄.mem := by
     refine fr₄.sub fun r hr => ?_
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
     · exact ⟨inR s₀, by simp, Region.sub_prefix (by omega)⟩
     · exact ⟨scR s₀, by simp, Region.sub_prefix (by omega)⟩
-    · exact ⟨argR s₀, by simp, Region.sub_prefix (by omega)⟩
+    · exact ⟨stkR s₀, by simp, fun _ h => h⟩
   have f5 : Frame (allR s₀) s₄.mem s'.mem := by
     rw [m']
     refine (writeBytes_frame (R := outR s₀) _ _ _ ?_).mono (by simp)
@@ -998,16 +1005,16 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   refine ⟨⟨cs', F.readW (r := retR s₀) (Region.contains_self _ _) ?_ (by decide)⟩, ?_⟩
   · intro r hr
     simp only [allR, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl
-    exacts [hp.ret_in, hp.ret_out, hp.ret_scr, ret_a hp]
+    rcases hr with rfl | rfl | rfl | rfl | rfl
+    exacts [hp.ret_in, hp.ret_out, hp.ret_scr, ret_a hp, ret_stk hp]
   intro k0 text hk hin hcnt hout
   -- The inner digest.
   have e0 : VG.Proof.Sha256.X86.Stream.Finalize.st (narrow s₀ s₁) = inn s₀ := narrow_arg hp h₁ (by omega)
   have oD : ∀ r ∈ allR s₀, (ouR s₀).Disjoint r := by
     intro r hr
     simp only [allR, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl
-    exacts [hp.o_in, hp.o_out, hp.o_scr, hp.o_a]
+    rcases hr with rfl | rfl | rfl | rfl | rfl
+    exacts [hp.o_in, hp.o_out, hp.o_scr, hp.o_a, hp.stk_ou.symm]
   have hR₀ : VG.Proof.Sha256.X86.Stream.Finalize.R₀ (narrow s₀ s₁) (xorPad k0 ipad ++ text) := by
     refine ⟨?_, ?_⟩
     · show Repr s₁.mem ((VG.Proof.Sha256.X86.Stream.Finalize.st (narrow s₀ s₁)).setWidth 64) _
@@ -1030,20 +1037,20 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     rw [hHash _ hR₀, beWords_stateAt _ (by omega), e0A, State.withRegions_mem]
   -- The outer hash value.
   have hou : stateAt s₃.mem (inA s₀) = Spec.Sha256.compressList Spec.Sha256.H0 (xorPad k0 opad) 1 := by
-    rw [h₃.mem, midMem_state hp,
+    rw [h₃.mem, midMem_state,
       VG.Proof.Sha256.Stream.stateAt_congr (mem := s₀.mem) fun i hi =>
         frame_bytes (f1.trans f2) (R := ouR s₀) oD (by simp) (by simp; omega),
       hout.1, xorPad_length, hk]
   -- The block after it.
   have hblk : blockAt s₃.mem (inA s₀ + BitVec.ofNat 64 32) =
       parseBlock fun t => (beWords sD.mem (inn s₀) 0 8 ++ padBytes).getD t 0 := by
-    have hb := midMem_block hp sD.mem
+    have hb := midMem_block (s₀ := s₀) sD.mem
     rw [← h₃.mem] at hb
     exact VG.Proof.Sha256.Stream.parseBlock_congr fun k hk => bytesAt_getD hb (by omega)
   -- The MAC.
   have hmac : bytesAt s'.mem (outA s₀) 32 = beWords s₄.mem (inn s₀) 0 8 := by
     rw [m', show outA s₀ + BitVec.ofNat 64 0 = outA s₀ by simp]
-    have := VG.Proof.Hmac.X86_64.bytesAt_writeBytes_self s₄.mem (outA s₀)
+    have := VG.Proof.Hmac.Common.bytesAt_writeBytes_self s₄.mem (outA s₀)
       (beWords s₄.mem (inn s₀) 0 8) (by rw [beWords_length]; omega)
     rw [beWords_length] at this
     simpa only [Nat.reduceMul] using this
@@ -1060,7 +1067,7 @@ words at offsets 0, 16 and 20 are the base addresses of `inner`, `out` and
 `scratch`. -/
 def τ₀ : VG.X86.Taint.T :=
   { regs := .ofList [.esp], flags := false, lens := [96, 32, 240, 24], bases := [(.esp, 3, 4)],
-    slots := [(3, 0, 24)], wbases := [(3, 0, 0), (3, 16, 1), (3, 20, 2)] }
+    slots := [(3, 0, 24)], wbases := [(3, 0, 0), (3, 16, 1), (3, 20, 2)], room := 20 }
 
 theorem argWord_eq {s : State} (hsp : (s.gpr .esp).toNat + 28 ≤ 2 ^ 32) {k : Nat} (hk : k < 24) :
     addr (s.gpr .esp) 4 + BitVec.ofNat 64 k = argAddr s (k / 4) + BitVec.ofNat 64 (k % 4) := by
@@ -1070,10 +1077,13 @@ theorem argWord_eq {s : State} (hsp : (s.gpr .esp).toNat + 28 ≤ 2 ^ 32) {k : N
     ← BitVec.ofNat_add, ← BitVec.ofNat_add]
   congr 2; omega
 
-theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
+theorem wf₀ {s : State} (h : Proof.Hmac.finalizeSha256X86.pre s) : VG.X86.Taint.Wf τ₀ s := by
+  have hp := pre_of h
   have hi := hp.in_fit; have ho := hp.out_fit; have hsc := hp.scr_fit; have hs := hp.sp_fit
-  refine VG.X86.Taint.Wf.entry rfl rfl ⟨fun _ => ⟨by simp [hp.wr, τ₀], ?_, ?_⟩, ?_, ?_, fun h => absurd h (Nat.lt_irrefl 0),
-    fun _ h => (List.not_mem_nil h).elim⟩
+  have hlo := hp.sp_lo
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, k1, -, k2, k3, -⟩ := h
+  refine VG.X86.Taint.Wf.entryRoom rfl ⟨fun _ => ⟨by simp [hp.wr, τ₀], ?_, ?_⟩, ?_, ?_,
+    fun h => absurd h (Nat.lt_irrefl 0), fun _ h => (List.not_mem_nil h).elim⟩ fun _ => ⟨hlo, ?_⟩
   · simp only [hp.wr, List.pairwise_cons, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp,
       forall_eq, List.Pairwise.nil, and_true]
     exact ⟨⟨hp.in_out, hp.in_scr, hp.a_in.symm⟩, ⟨hp.out_scr, hp.a_out.symm⟩, hp.a_scr.symm, fun _ h => h.elim⟩
@@ -1104,12 +1114,23 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
       show addr (s.mem.readW (addr (esp₀ s) 4 + BitVec.ofNat 64 20) 32) 0 = scA s
       rw [argWord_eq hs (k := 20) (by omega)]
       simp [addr, scr, arg]
+  · simp only [hp.wr, List.mem_cons, List.not_mem_nil, or_false]
+    rintro r (rfl | rfl | rfl | rfl)
+    · exact k1
+    · exact k2
+    · exact k3
+    · intro a h₁ h₂
+      simp only [Region.Contains, τ₀] at h₁ h₂
+      rw [addr_eq (by omega)] at h₂
+      have hE : ((esp₀ s).setWidth 64).toNat = (esp₀ s).toNat := addr_toNat _
+      generalize (esp₀ s).setWidth 64 = b at *
+      bv_omega
 
 theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256X86.pre s₁) (h₂ : Proof.Hmac.finalizeSha256X86.pre s₂)
     (hpub : Proof.Hmac.finalizeSha256X86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, ha⟩ := hpub
   have hp₁ := pre_of h₁; have hp₂ := pre_of h₂
-  refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
+  refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ h₁, wf₀ h₂, ?_, ?_,
     fun h => absurd h (Nat.lt_irrefl 0), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
   · simp only [τ₀, RegSet.mem_ofList, List.mem_singleton] at hr
     subst hr; exact hesp
@@ -1156,18 +1177,82 @@ theorem finalize_ct : ConstantTime isa Proof.Hmac.finalizeSha256X86.pre
     Proof.Hmac.finalizeSha256X86.pub finalize :=
   VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
 
+/-- `finalizeSha256X86` with the 688 bytes of scratch of the shared contract
+(sized for the x86-64 AVX2 compression function), of which the code uses 240. -/
+def finalizeWide : Contract isa :=
+  { Proof.Hmac.finalizeSha256X86 with
+    pre := fun s =>
+      let inner : Region := ⟨(arg s 0).setWidth 64, 96⟩
+      let outer : Region := ⟨(arg s 1).setWidth 64, 96⟩
+      let out : Region := ⟨(arg s 4).setWidth 64, 32⟩
+      let scratch : Region := ⟨(arg s 5).setWidth 64, 688⟩
+      let args : Region := ⟨argAddr s 0, 24⟩
+      let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+      let stack : Region := ⟨(s.gpr .esp).setWidth 64 - 20, 20⟩
+      s.rd = [outer] ∧ s.wr = [inner, out, scratch, args] ∧
+      inner.Disjoint out ∧ inner.Disjoint scratch ∧ out.Disjoint scratch ∧
+      args.Disjoint inner ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
+      outer.Disjoint inner ∧ outer.Disjoint out ∧ outer.Disjoint scratch ∧ outer.Disjoint args ∧
+      ret.Disjoint inner ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧
+      stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint out ∧ stack.Disjoint scratch ∧
+      (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 1).toNat + 96 ≤ 2 ^ 32 ∧
+      (arg s 4).toNat + 32 ≤ 2 ^ 32 ∧ (arg s 5).toNat + 688 ≤ 2 ^ 32 ∧
+      20 ≤ (s.gpr .esp).toNat ∧ (s.gpr .esp).toNat + 28 ≤ 2 ^ 32 }
+
+/-- The regions `finalizeSha256X86` lets the code write. -/
+def narrowWr (s : State) : List Region :=
+  [⟨(arg s 0).setWidth 64, 96⟩, ⟨(arg s 4).setWidth 64, 32⟩, ⟨(arg s 5).setWidth 64, 240⟩,
+    ⟨argAddr s 0, 24⟩]
+
+/-- Rewrites the contracts at a narrowed state (`arg` does not unfold
+cheaply). -/
+local macro "narrow" loc:(Lean.Parser.Tactic.location)? : tactic =>
+  `(tactic| simp only [Proof.Hmac.finalizeSha256X86, Proof.Hmac.countFinalizeX86,
+    VG.Proof.Hmac.X86.Finalize.finalizeWide, VG.Proof.Hmac.X86.Finalize.narrowWr, VG.X86.arg_withRegions, VG.X86.argAddr_withRegions,
+    VG.X86.State.withRegions_gpr, VG.X86.State.withRegions_mem, VG.X86.State.withRegions_rd,
+    VG.X86.State.withRegions_wr] $(loc)?)
+
+theorem finalizeWide_pre (s : State) (h : finalizeWide.pre s) :
+    Proof.Hmac.finalizeSha256X86.pre (s.withRegions s.rd (narrowWr s)) := by
+  obtain ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅, h₁₆, h₁₇, h₁₈, h₁₉,
+    h₂₀, h₂₁, h₂₂, h₂₃, h₂₄, h₂₅⟩ := h
+  narrow
+  exact ⟨h₁, trivial, h₃, h₄.sub_right (Region.sub_of_ble rfl), h₅.sub_right (Region.sub_of_ble rfl),
+    h₆, h₇, h₈.sub_right (Region.sub_of_ble rfl), h₉, h₁₀, h₁₁.sub_right (Region.sub_of_ble rfl), h₁₂,
+    h₁₃, h₁₄, h₁₅.sub_right (Region.sub_of_ble rfl), h₁₆, h₁₇, h₁₈, h₁₉.sub_right (Region.sub_of_ble rfl),
+    h₂₀, h₂₁, h₂₂, Region.end_le_of_ble rfl h₂₃, h₂₄, h₂₅⟩
+
+/-- A state satisfying `finalizeWide.pre`. -/
+def wideSat : State :=
+  { sat with wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 688⟩, ⟨0x4004, 24⟩] }
+
+theorem finalizeWide_implies :
+    finalizeWide.Implies (Spec.Hmac.finalizeSha256OutContract X86.abi 20) := by
+  have a0 : arg wideSat 0 = 0x1000 := by decide
+  have a1 : arg wideSat 1 = 0x1100 := by decide
+  have a4 : arg wideSat 4 = 0x2000 := by decide
+  have a5 : arg wideSat 5 = 0x3000 := by decide
+  have e : argAddr wideSat 0 = 0x4004 := by decide
+  have esp : wideSat.gpr .esp = 0x4000 := rfl
+  sig_implies [Spec.Hmac.finalizeSha256OutContract, Spec.Hmac.finalizeSha256OutSig, finalizeWide,
+    Proof.Hmac.finalizeSha256X86, Proof.Hmac.countFinalizeX86, X86.abi, X86.argSlots, X86.argVal,
+    X86.argBytes]
+    [a0, a1, a4, a5, e, esp] using wideSat
+
+/-- The proof is written against `finalizeSha256X86`, widened to the shared
+contract's scratch. -/
 theorem finalize_verified :
-    Verified X86.target Impl.Hmac.X86.finalize (Spec.Hmac.finalizeSha256OutContract X86.abi) :=
-  Verified.of_correct finalize_correct finalize_ct (by
-    have a0 : arg sat 0 = 0x1000 := by decide
-    have a1 : arg sat 1 = 0x1100 := by decide
-    have a4 : arg sat 4 = 0x2000 := by decide
-    have a5 : arg sat 5 = 0x3000 := by decide
-    have e : argAddr sat 0 = 0x4004 := by decide
-    have esp : sat.gpr .esp = 0x4000 := rfl
-    sig_implies [Spec.Hmac.finalizeSha256OutContract, Spec.Hmac.finalizeSha256OutSig,
-      Proof.Hmac.finalizeSha256X86, Proof.Hmac.countFinalizeX86, X86.abi, X86.argSlots, X86.argVal,
-      X86.argBytes]
-      [a0, a1, a4, a5, e, esp] using Proof.Hmac.X86.Finalize.sat)
+    Verified X86.target Impl.Hmac.X86.finalize (Spec.Hmac.finalizeSha256OutContract X86.abi 20) :=
+  have hsat := finalizeWide_implies.sat_left
+  (Verified.widen (Verified.of_correct finalize_correct finalize_ct
+    (.refl (hsat.elim fun s hs => ⟨_, finalizeWide_pre s hs⟩)))
+    narrowWr finalizeWide_pre
+    (fun _ h => by
+      obtain ⟨_, h₂, _⟩ := h
+      rw [h₂]
+      exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl)
+        (.cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl) .nil))))
+    (fun _ _ _ h => by narrow at h ⊢; exact h)
+    (fun _ _ _ _ h => by narrow; exact h) hsat).of_implies finalizeWide_implies
 
 end VG.Proof.Hmac.X86.Finalize

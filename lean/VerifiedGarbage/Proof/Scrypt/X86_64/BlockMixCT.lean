@@ -24,6 +24,7 @@ namespace VG.Proof.Scrypt.X86_64.BlockMix
 
 open VG VG.X86_64 VG.Impl.Scrypt.X86_64
 open VG.Proof.MdStream.X86_64 (Upd wp_mov wp_addi)
+open VG.Proof.Scrypt.Memory (add_ofNat InRegions.of_mem)
 
 /-! ## What each run knows -/
 

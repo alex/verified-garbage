@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Hmac.Arm.Common
-import VerifiedGarbage.Proof.Hmac.X86_64.Finalize
 import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Proof.Framework.Arm.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
@@ -19,9 +19,8 @@ namespace VG.Proof.Hmac.Arm.Finalize
 
 open VG VG.Arm VG.Impl.Hmac.Arm
 open VG.Proof.Hmac.Arm
-open VG.Proof.Hmac.X86_64 (writeBytes_at writeBytes_other bytesAt_getD' bytesAt_length
-  bytesAt_writeBytes_self bytesAt_writeBytes_sep stateAt_eq_of_bytes)
-open VG.Proof.Hmac.X86_64.Finalize (xorPad_length repr_outer)
+open VG.Proof.Hmac.Common (writeBytes_at writeBytes_other bytesAt_getD' bytesAt_length
+  bytesAt_writeBytes_self bytesAt_writeBytes_sep stateAt_eq_of_bytes xorPad_length repr_outer)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Sha256.Arm (contains_offset)
 open VG.Proof.MdStream.Arm (Upd Mupd wp_mov wp_ldr wp_str wp_ldrSp op2_imm frame_bytes sub_offset)
@@ -465,12 +464,68 @@ theorem finalize_ct : ConstantTime isa Proof.Hmac.finalizeSha256Arm.pre
   exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
     (by taint_decide)
 
+/-- `finalizeSha256Arm` with the 688 bytes of scratch of the shared contract
+(sized for the x86-64 AVX2 compression function), of which the code uses 240. -/
+def finalizeWide : Contract isa :=
+  { Proof.Hmac.finalizeSha256Arm with
+    pre := fun s =>
+      let inner : Region := ⟨State.addr (s.gpr .r0), 96⟩
+      let outer : Region := ⟨State.addr (s.gpr .r1), 96⟩
+      let out : Region := ⟨State.addr (stackArg s 0), 32⟩
+      let scratch : Region := ⟨State.addr (stackArg s 1), 688⟩
+      let args : Region := ⟨stackArgAddr s 0, 8⟩
+      s.rd = [outer, args] ∧ s.wr = [inner, out, scratch] ∧
+      inner.Disjoint out ∧ inner.Disjoint scratch ∧ out.Disjoint scratch ∧
+      outer.Disjoint inner ∧ outer.Disjoint out ∧ outer.Disjoint scratch ∧
+      args.Disjoint inner ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
+      (s.gpr .r0).toNat + 96 ≤ 2 ^ 32 ∧ (s.gpr .r1).toNat + 96 ≤ 2 ^ 32 ∧
+      (stackArg s 0).toNat + 32 ≤ 2 ^ 32 ∧ (stackArg s 1).toNat + 688 ≤ 2 ^ 32 ∧
+      s.sp.toNat + 8 ≤ 2 ^ 32 }
+
+/-- The regions `finalizeSha256Arm` lets the code write. -/
+def narrowWr (s : State) : List Region :=
+  [⟨State.addr (s.gpr .r0), 96⟩, ⟨State.addr (stackArg s 0), 32⟩, ⟨State.addr (stackArg s 1), 240⟩]
+
+/-- Rewrites the contracts at a narrowed state (`stackArg` does not unfold
+cheaply). -/
+local macro "narrow" loc:(Lean.Parser.Tactic.location)? : tactic =>
+  `(tactic| simp only [Proof.Hmac.finalizeSha256Arm, Proof.Sha256.countArm, VG.Proof.Hmac.Arm.Finalize.finalizeWide,
+    VG.Proof.Hmac.Arm.Finalize.narrowWr, VG.Arm.stackArg_withRegions, VG.Arm.stackArgAddr_withRegions,
+    VG.Arm.State.withRegions_gpr, VG.Arm.State.withRegions_sp, VG.Arm.State.withRegions_mem,
+    VG.Arm.State.withRegions_rd, VG.Arm.State.withRegions_wr] $(loc)?)
+
+theorem finalizeWide_pre (s : State) (h : finalizeWide.pre s) :
+    Proof.Hmac.finalizeSha256Arm.pre (s.withRegions s.rd (narrowWr s)) := by
+  obtain ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅, h₁₆⟩ := h
+  narrow
+  exact ⟨h₁, trivial, h₃, h₄.sub_right (Region.sub_of_ble rfl), h₅.sub_right (Region.sub_of_ble rfl),
+    h₆, h₇, h₈.sub_right (Region.sub_of_ble rfl), h₉, h₁₀, h₁₁.sub_right (Region.sub_of_ble rfl), h₁₂,
+    h₁₃, h₁₄, Region.end_le_of_ble rfl h₁₅, h₁₆⟩
+
+/-- A state satisfying `finalizeWide.pre`. -/
+def wideSat : State := { sat with wr := [⟨0x1000, 96⟩, ⟨0x3000, 32⟩, ⟨0x4000, 688⟩] }
+
+theorem finalizeWide_implies :
+    finalizeWide.Implies (Spec.Hmac.finalizeSha256OutContract Arm.abi) := by
+  sig_implies [Spec.Hmac.finalizeSha256OutContract, Spec.Hmac.finalizeSha256OutSig, finalizeWide,
+    Proof.Hmac.finalizeSha256Arm, Proof.Sha256.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify,
+    Arm.Loc.val, Arm.State.addr]
+    [wideSat, sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using wideSat
+
+/-- The proof is written against `finalizeSha256Arm`, widened to the shared
+contract's scratch. -/
 theorem finalize_verified :
     Verified Arm.target Impl.Hmac.Arm.finalize (Spec.Hmac.finalizeSha256OutContract Arm.abi) :=
-  Verified.of_correct finalize_correct finalize_ct (by
-    sig_implies [Spec.Hmac.finalizeSha256OutContract, Spec.Hmac.finalizeSha256OutSig,
-      Proof.Hmac.finalizeSha256Arm, Proof.Sha256.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify,
-      Arm.Loc.val, Arm.State.addr] [Proof.Hmac.Arm.Finalize.sat, Arm.stackArg, Arm.stackArgAddr,
-      Mem.readW, Mem.read] using Proof.Hmac.Arm.Finalize.sat)
+  have hsat := finalizeWide_implies.sat_left
+  (Verified.widen (Verified.of_correct finalize_correct finalize_ct
+    (.refl (hsat.elim fun s hs => ⟨_, finalizeWide_pre s hs⟩)))
+    narrowWr finalizeWide_pre
+    (fun _ h => by
+      obtain ⟨_, h₂, _⟩ := h
+      rw [h₂]
+      exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl)
+        (.cons (Region.prefix_of_ble rfl) .nil)))
+    (fun _ _ _ h => by narrow at h ⊢; exact h)
+    (fun _ _ _ _ h => by narrow; exact h) hsat).of_implies finalizeWide_implies
 
 end VG.Proof.Hmac.Arm.Finalize

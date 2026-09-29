@@ -6,7 +6,12 @@ use criterion::Criterion;
 /// `ci/bench_arches.py`).
 pub const USES: &[&str] = &["sha3"];
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 pub fn bench(c: &mut Criterion) {
     use openssl::hash::MessageDigest;
     use verified_garbage::hashes::sha3::{
@@ -22,12 +27,22 @@ pub fn bench(c: &mut Criterion) {
     xof_group(c, "shake256", Shake256::digest, MessageDigest::shake_256());
 }
 
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm")))]
+#[cfg(not(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+)))]
 pub fn bench(_: &mut Criterion) {}
 
 /// Benchmarks the extendable-output function `vg` against OpenSSL's `md`,
 /// with 32 bytes of output.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 fn xof_group(
     c: &mut Criterion,
     name: &str,

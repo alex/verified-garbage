@@ -1,6 +1,5 @@
 import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Hash
-import VerifiedGarbage.Proof.Hmac.X86_64.Common
-import VerifiedGarbage.Spec.Pbkdf2
+import VerifiedGarbage.Proof.Hmac.Generic.Common
 import Mathlib.Tactic.Set
 
 /-!
@@ -20,7 +19,9 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil writeW8
 open VG.Proof.Sha256.X86_64 (toNat_ofNat_lt ofInt_natCast)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov32i wp_addi wp_cmp wp_cmpi wp_movzx8 wp_store8
   ofNat_succ sub_beq)
-open VG.Proof.Hmac.X86_64 (bytesAt_add bytesAt_length)
+open VG.Proof.Hmac.Common (bytesAt_length)
+open VG.Proof.Hmac.Generic.Common (writeBytes_snoc bytesAt_snoc' xorBytes_snoc xorBytes_length'
+  add_ofNat_add not_mem_of_disjoint InRegions.right' BufMem buf_write K0 K0_length K0_lt K0_ge)
 open Spec.Sha256 (bytesAt)
 
 /-! ## Arithmetic -/
@@ -41,45 +42,6 @@ theorem ea_byteAt (s : State) (b : Reg) (o k : Nat) (h14 : s.gpr .r14 = BitVec.o
     s.ea (byteAt b o) = s.gpr b + BitVec.ofNat 64 o + BitVec.ofNat 64 k := by
   simp only [State.ea, byteAt, h14, ofInt_natCast, show BitVec.ofNat 64 1 = 1 from rfl]
   ac_rfl
-
-/-- A byte written is a one-byte `writeBytes`. -/
-theorem writeW_byte (m : Mem) (a : Addr) (b : Byte) : m.writeW a b = writeBytes m a [b] := by
-  funext x
-  rw [writeW8_apply]
-  simp only [writeBytes, List.length_singleton]
-  by_cases h : x = a
-  · subst h; simp
-  · have : ¬ (x - a).toNat < 1 := fun h' => h (by
-      have : (x - a).toNat = 0 := by omega
-      have := BitVec.eq_of_toNat_eq (x := x - a) (y := 0) (by simpa using this)
-      bv_omega)
-    simp only [h, this, ↓reduceIte]
-
-/-- One more byte written after `k`. -/
-theorem writeBytes_snoc (m : Mem) (q : Addr) (xs : List Byte) (b : Byte) (hl : xs.length + 1 < 2 ^ 64) :
-    (writeBytes m q xs).writeW (q + BitVec.ofNat 64 xs.length) b = writeBytes m q (xs ++ [b]) := by
-  rw [writeW_byte, writeBytes_append _ _ _ _ (by simpa using hl)]
-
-theorem bytesAt_snoc' (m : Mem) (p : Addr) (k : Nat) :
-    bytesAt m p (k + 1) = bytesAt m p k ++ [m (p + BitVec.ofNat 64 k)] := by
-  rw [bytesAt_add]; simp [bytesAt]
-
-/-- Every byte of a sub-region of a region in `rs` is in `rs`. -/
-theorem inRegions_of_sub {rs : List Region} {R : Region} (hR : R ∈ rs) {p : Addr} {n : Nat}
-    (hs : Region.Sub ⟨p, n⟩ R) (hn : n < 2 ^ 64) {k : Nat} (hk : k < n) :
-    InRegions rs (p + BitVec.ofNat 64 k) 1 :=
-  ⟨R, hR, hs _ (Proof.Sha256.X86_64.contains_offset (by omega) (by omega))⟩
-
-/-- A byte of `⟨p, n⟩` is not among the first `k ≤ n` of a disjoint region. -/
-theorem not_mem_of_disjoint {p q : Addr} {n k j : Nat} (hd : Region.Disjoint ⟨p, n⟩ ⟨q, n⟩) (hj : j < n)
-    (hk : k ≤ n) (hn : n < 2 ^ 64) : ¬ ((p + BitVec.ofNat 64 j) - q).toNat < k := fun h =>
-  hd _ (Proof.Sha256.X86_64.contains_offset (base := p) (len := n) (off := j) (n := 1)
-    (by omega) (by omega)) (by
-    show ((p + BitVec.ofNat 64 j) - q).toNat + 1 ≤ n; omega)
-
-theorem InRegions.right' {rd wr : List Region} {a : Addr} {n : Nat} (h : InRegions wr a n) :
-    InRegions (rd ++ wr) a n :=
-  let ⟨r, hr, hc⟩ := h; ⟨r, List.mem_append_right _ hr, hc⟩
 
 /-! ## Counted loops -/
 
@@ -154,18 +116,6 @@ theorem copy_ok {src dst : Reg} (hs : src ≠ .rax ∧ src ≠ .r14) (hd : dst �
   rw [e, show ((s.mem (A + BitVec.ofNat 64 k)).setWidth 64).setWidth 8 = s.mem (A + BitVec.ofNat 64 k) by
     simp, e']
 
-/-! ## Addresses -/
-
-theorem add_ofNat_ne (p : Addr) {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) (h : a ≠ b) :
-    p + BitVec.ofNat 64 a ≠ p + BitVec.ofNat 64 b := fun e =>
-  h (by
-    have := congrArg BitVec.toNat ((BitVec.add_right_inj p).mp e)
-    rwa [toNat_ofNat_lt ha, toNat_ofNat_lt hb] at this)
-
-theorem add_ofNat_add (p : Addr) (a b : Nat) :
-    p + BitVec.ofNat 64 a + BitVec.ofNat 64 b = p + BitVec.ofNat 64 (a + b) := by
-  rw [BitVec.add_assoc, ← BitVec.ofNat_add]
-
 /-! ## The exclusive-or of `U` into `T` -/
 
 section
@@ -201,14 +151,6 @@ structure XorInv (s : State) (U T : Addr) (k : Nat) (t : State) : Prop where
   other : ∀ r, r ≠ .rax → r ≠ .rcx → r ≠ .r14 → t.gpr r = s.gpr r
   r14 : t.gpr .r14 = BitVec.ofNat 64 k
   mem : t.mem = writeBytes s.mem T (Spec.Pbkdf2.xorBytes (bytesAt s.mem T k) (bytesAt s.mem U k))
-
-theorem xorBytes_snoc (a b : List Byte) (x y : Byte) (h : a.length = b.length) :
-    Spec.Pbkdf2.xorBytes (a ++ [x]) (b ++ [y]) = Spec.Pbkdf2.xorBytes a b ++ [x ^^^ y] := by
-  simp [Spec.Pbkdf2.xorBytes, List.zipWith_append h]
-
-theorem xorBytes_length' (a b : List Byte) (h : a.length = b.length) :
-    (Spec.Pbkdf2.xorBytes a b).length = a.length := by
-  simp [Spec.Pbkdf2.xorBytes, h]
 
 /-- `T ← T ⊕ U`, `n` bytes, with `U` at `r15 + uo` and `T` at `r12`. -/
 theorem xor_ok {uo n : Nat} (hn : 0 < n) (hn' : n < 2 ^ 31) {s : State}
@@ -267,49 +209,8 @@ theorem xor_ok {uo n : Nat} (hn : 0 < n) (hn' : n < 2 ^ 31) {s : State}
 /-! ## `init`'s key and pad loops
 
 `K₀ ⊕ ipad` is written at `P` and `K₀ ⊕ opad` at `P + B`, byte by byte: first
-the key's `kl` bytes (read at `K`), then the zeros that pad it to `B`. -/
-
-section
-variable (B : Nat) (P K : Addr) (K0 : List Byte) (m₀ : Mem)
-
-/-- `j` bytes of each block written, and nothing else. -/
-structure BufMem (j : Nat) (m : Mem) : Prop where
-  bufI : bytesAt m P j = (K0.take j).map (· ^^^ Spec.Hmac.ipad)
-  bufO : bytesAt m (P + BitVec.ofNat 64 B) j = (K0.take j).map (· ^^^ Spec.Hmac.opad)
-  frame : Frame [⟨P, 2 * B⟩] m₀ m
-
-end
-
-theorem bytesAt_prefix_congr {m m' : Mem} {p : Addr} {j : Nat} (h : ∀ i < j, m' (p + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i)) :
-    bytesAt m' p j = bytesAt m p j := by
-  simp only [bytesAt]
-  exact List.map_congr_left fun i hi => h i (List.mem_range.mp hi)
-
-theorem buf_write {B : Nat} {P : Addr} {K0 : List Byte} {m₀ : Mem} {j : Nat} {m : Mem}
-    (h : BufMem B P K0 m₀ j m) (hB : B ≤ 128) (hj : j < B) (hl : j < K0.length) :
-    BufMem B P K0 m₀ (j + 1) ((m.writeW (P + BitVec.ofNat 64 j) (K0[j] ^^^ Spec.Hmac.ipad)).writeW
-      (P + BitVec.ofNat 64 B + BitVec.ofNat 64 j) (K0[j] ^^^ Spec.Hmac.opad)) := by
-  have neI : ∀ i < B, P + BitVec.ofNat 64 i ≠ P + BitVec.ofNat 64 B + BitVec.ofNat 64 j := fun i hi => by
-    rw [add_ofNat_add]; exact add_ofNat_ne _ (by omega) (by omega) (by omega)
-  have neO : ∀ i < j, P + BitVec.ofNat 64 B + BitVec.ofNat 64 i ≠ P + BitVec.ofNat 64 j := fun i hi => by
-    rw [add_ofNat_add]; exact add_ofNat_ne _ (by omega) (by omega) (by omega)
-  refine ⟨?_, ?_, ?_⟩
-  · rw [bytesAt_snoc', List.take_succ_eq_append_getElem hl, List.map_append, ← h.bufI]
-    congr 1
-    · refine bytesAt_prefix_congr fun i hi => ?_
-      simp only [writeW8_apply, neI i (by omega),
-        add_ofNat_ne P (a := i) (b := j) (by omega) (by omega) (by omega), ↓reduceIte]
-    · simp only [writeW8_apply, neI j hj, ↓reduceIte, List.map_cons, List.map_nil]
-  · rw [bytesAt_snoc', List.take_succ_eq_append_getElem hl, List.map_append, ← h.bufO]
-    congr 1
-    · refine bytesAt_prefix_congr fun i hi => ?_
-      have e1 : P + BitVec.ofNat 64 B + BitVec.ofNat 64 i ≠ P + BitVec.ofNat 64 B + BitVec.ofNat 64 j := by
-        rw [add_ofNat_add, add_ofNat_add]; exact add_ofNat_ne _ (by omega) (by omega) (by omega)
-      simp only [writeW8_apply, e1, neO i hi, ↓reduceIte]
-    · simp only [writeW8_apply, ↓reduceIte, List.map_cons, List.map_nil]
-  · refine (h.frame.writeW (List.mem_singleton_self _) _ ?_).writeW (List.mem_singleton_self _) _ ?_
-    · exact Proof.Sha256.X86_64.contains_offset (by omega) (by omega)
-    · rw [add_ofNat_add]; exact Proof.Sha256.X86_64.contains_offset (by omega) (by omega)
+the key's `kl` bytes (read at `K`), then the zeros that pad it to `B`
+(`Proof/Hmac/Generic/Common.lean`'s `BufMem`). -/
 
 variable (H : Hash)
 
@@ -323,24 +224,6 @@ theorem LoopRegs.keep {P K : Addr} {kl : Nat} {s t : State} (h : LoopRegs H P K 
     (hk : ∀ r, r ≠ .rax → r ≠ .rcx → r ≠ .r14 → t.gpr r = s.gpr r) : LoopRegs H P K kl t :=
   ⟨by rw [hk _ (by decide) (by decide) (by decide), h.r15], by rw [hk _ (by decide) (by decide) (by decide), h.rbp],
     by rw [hk _ (by decide) (by decide) (by decide), h.r13]⟩
-
-/-- The key: its `kl` bytes at `K`, then zeros up to `B`. -/
-def K0 (m : Mem) (K : Addr) (kl B : Nat) : List Byte := bytesAt m K kl ++ List.replicate (B - kl) 0
-
-theorem K0_length (m : Mem) (K : Addr) {kl B : Nat} (h : kl ≤ B) : (K0 m K kl B).length = B := by
-  simp [K0, bytesAt_length]; omega
-
-theorem K0_lt {m : Mem} {K : Addr} {kl B j : Nat} (hj : j < kl) (h : j < (K0 m K kl B).length) :
-    (K0 m K kl B)[j] = m (K + BitVec.ofNat 64 j) := by
-  simp only [K0]
-  rw [List.getElem_append_left (by rw [bytesAt_length]; exact hj)]
-  simp [bytesAt]
-
-theorem K0_ge {m : Mem} {K : Addr} {kl B j : Nat} (hj : kl ≤ j) (h : j < (K0 m K kl B).length) :
-    (K0 m K kl B)[j] = 0 := by
-  simp only [K0]
-  rw [List.getElem_append_right (by rw [bytesAt_length]; exact hj)]
-  simp
 
 /-- The loops' invariant, from the state `s` they start in. -/
 structure KeyInv (s : State) (P K : Addr) (kl j : Nat) (t : State) : Prop where

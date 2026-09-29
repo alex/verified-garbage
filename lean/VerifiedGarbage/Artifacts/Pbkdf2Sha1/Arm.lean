@@ -1,8 +1,8 @@
-import VerifiedGarbage.TCB.X86_64.Target
-import VerifiedGarbage.Proof.Pbkdf2.Generic.X86_64.Instances
+import VerifiedGarbage.TCB.Arm.Target
+import VerifiedGarbage.Proof.Pbkdf2.Generic.Arm.Instances
 
 /-!
-# The PBKDF2-HMAC-SHA-1 iteration (RFC 8018) on x86-64
+# The PBKDF2-HMAC-SHA-1 iteration (RFC 8018) on ARMv7
 
 A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
@@ -15,23 +15,24 @@ against the contract (after unfolding the `Instance`'s contract to the
 generic one, which is a `Sig.contract`).
 
 The code is the one PBKDF2 iteration for every streaming hash function
-(`Impl/Pbkdf2/Generic/X86_64.lean`), calling SHA-1's verified `update` and
+(`Impl/Pbkdf2/Generic/Arm.lean`), calling SHA-1's verified `update` and
 `finalize`.
 -/
 
-namespace VG.Artifacts.Pbkdf2Sha1.X86_64
+namespace VG.Artifacts.Pbkdf2Sha1.Arm
 
-open VG.Proof.Hmac.Generic.X86_64
+open VG.Proof.Hmac.Generic.Arm
 
 def artifacts : List Artifact := [
   { Spec.Hmac.sha1I.iterateApi with
-    target := X86_64.target
+    target := Arm.target
     doc := Spec.Hmac.sha1I.iterateApi.doc
-    code := Impl.Pbkdf2.Generic.X86_64.iterate sha1H
-    contract := Spec.Hmac.sha1I.iterateContract X86_64.abi 16
+    code := Impl.Pbkdf2.Generic.Arm.iterate sha1H
+    contract := Spec.Hmac.sha1I.iterateContract Arm.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Proof.Pbkdf2.Generic.X86_64.Instances.sha1 }]
+    verified := Proof.Pbkdf2.Generic.Arm.Instances.sha1
+    spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
-end VG.Artifacts.Pbkdf2Sha1.X86_64
+end VG.Artifacts.Pbkdf2Sha1.Arm

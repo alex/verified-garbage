@@ -4,13 +4,20 @@
 //! one PBKDF2 iteration for every streaming hash function, calling
 //! SHA-512/224's verified functions.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use crate::arch::pbkdf2_sha512_224::vg_pbkdf2_hmac_sha512_224_iterate;
-use crate::hashes::sha512::Sha512_224;
+use crate::hashes::sha512::{Sha512_224, Sha512_224Backend};
 
 super::streaming_pbkdf2!(
-    Sha512_224: vg_pbkdf2_hmac_sha512_224_iterate,
+    Sha512_224 (Sha512_224Backend) {
+        Scalar => vg_pbkdf2_hmac_sha512_224_iterate,
+    },
     state: 192,
     scratch: 96,
     output: 28,

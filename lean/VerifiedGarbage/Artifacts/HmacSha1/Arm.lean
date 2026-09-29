@@ -1,8 +1,8 @@
-import VerifiedGarbage.TCB.X86_64.Target
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Instances
+import VerifiedGarbage.TCB.Arm.Target
+import VerifiedGarbage.Proof.Hmac.Generic.Arm.Instances
 
 /-!
-# HMAC-SHA-1 (RFC 2104) on x86-64
+# HMAC-SHA-1 (RFC 2104) on ARMv7
 
 A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
@@ -15,32 +15,34 @@ against the contract (after unfolding the `Instance`'s contract to the
 generic one, which is a `Sig.contract`).
 
 The code is the one HMAC implementation for every streaming hash function
-(`Impl/Hmac/Generic/X86_64.lean`), calling SHA-1's verified `init`, `update`
+(`Impl/Hmac/Generic/Arm.lean`), calling SHA-1's verified `init`, `update`
 and `finalize`.
 -/
 
-namespace VG.Artifacts.HmacSha1.X86_64
+namespace VG.Artifacts.HmacSha1.Arm
 
-open VG.Proof.Hmac.Generic.X86_64
+open VG.Proof.Hmac.Generic.Arm
 
 def artifacts : List Artifact := [
   { Spec.Hmac.sha1I.initApi with
-    target := X86_64.target
+    target := Arm.target
     doc := Spec.Hmac.sha1I.initApi.doc
     code := sha1H.init
-    contract := Spec.Hmac.sha1I.initContract X86_64.abi 16
+    contract := Spec.Hmac.sha1I.initContract Arm.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Instances.sha1_init },
+    verified := Instances.sha1_init
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Hmac.sha1I.finalizeApi with
-    target := X86_64.target
+    target := Arm.target
     doc := Spec.Hmac.sha1I.finalizeApi.doc
     code := sha1H.finalize
-    contract := Spec.Hmac.sha1I.finalizeContract X86_64.abi 16
+    contract := Spec.Hmac.sha1I.finalizeContract Arm.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.finalizeContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Instances.sha1_finalize }]
+    verified := Instances.sha1_finalize
+    spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
-end VG.Artifacts.HmacSha1.X86_64
+end VG.Artifacts.HmacSha1.Arm

@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Scrypt.Arm.Common
+import VerifiedGarbage.Proof.Scrypt.BlockMix
 
 /-!
 # scryptBlockMix on 32-bit ARM: the loop
@@ -18,7 +19,7 @@ open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Scrypt (yAt xBefore yAt_eq xBefore_succ)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.MdStream.Arm (Upd wp_mov wp_add op2_reg op2_imm)
-open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat contains_off sub_off disj_off
+open VG.Proof.Scrypt.Memory (toNat_ofNat_lt add_ofNat contains_off sub_off disj_off
   InRegions.of_mem frame_bytesAt bytesAt_writeBytes_self xorBytes_length bytesAt_length blk_bytesAt)
 
 /-! ## What a call of `vg_salsa20_8` does -/

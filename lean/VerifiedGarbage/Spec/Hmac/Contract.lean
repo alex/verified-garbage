@@ -36,11 +36,11 @@ namespace VG.Spec.Hmac
 
 open Sha256 (Repr bytesAt)
 
-/-- `vg_hmac_sha256_init(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 20])`.
+/-- `vg_hmac_sha256_init(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 76])`.
 `scratch` is working space. -/
 def initSha256Sig : Sig where
   params := [("inner", .array true .u8 96), ("outer", .array true .u8 96),
-    ("key", .slice false .u8 "key_len"), ("scratch", .array true .u64 20)]
+    ("key", .slice false .u8 "key_len"), ("scratch", .array true .u64 76)]
 
 /-- For a key of at most 64 bytes (the SHA-256 block size): makes the
 streaming state at `inner` represent `K₀ ⊕ ipad` and the one at `outer`
@@ -72,15 +72,15 @@ def initSha256Api : Api where
     "`key_len` must be at most 64.",
     "`inner` and `outer` must each be valid for reads and writes of 96 bytes.",
     "`key` must be valid for reads of `key_len` bytes.",
-    "`scratch` must be valid for reads and writes of 160 bytes; its contents on return are \
+    "`scratch` must be valid for reads and writes of 608 bytes; its contents on return are \
       unspecified."]
 
-/-- `vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 30])`,
+/-- `vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 86])`,
 on 64-bit targets. `count` is public; `inner` is left unspecified, and
 `scratch` is working space apart from the MAC. -/
 def finalizeSha256Sig : Sig where
   params := [("inner", .array true .u8 96), ("outer", .array false .u8 96),
-    ("count", .int .u64 true), ("scratch", .array true .u64 30)]
+    ("count", .int .u64 true), ("scratch", .array true .u64 86)]
 
 /-- If, for a 64-byte key `K₀` and a text, the streaming state at `inner`
 represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes (modulo 2⁶⁴), and the one at
@@ -108,15 +108,15 @@ def finalizeSha256Api : Api where
     "`inner` must be valid for reads and writes of 96 bytes; its contents on return are \
       unspecified.",
     "`outer` must be valid for reads of 96 bytes.",
-    "`scratch` must be valid for reads and writes of 240 bytes; its contents on return are \
+    "`scratch` must be valid for reads and writes of 688 bytes; its contents on return are \
       unspecified, apart from the MAC."]
 
-/-- `vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 30])`,
+/-- `vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 86])`,
 on 32-bit targets. `count` is public; `inner` is left unspecified, and
 `scratch` is working space. -/
 def finalizeSha256OutSig : Sig where
   params := [("inner", .array true .u8 96), ("outer", .array false .u8 96),
-    ("count", .int .u64 true), ("out", .array true .u8 32), ("scratch", .array true .u64 30)]
+    ("count", .int .u64 true), ("out", .array true .u8 32), ("scratch", .array true .u64 86)]
 
 /-- As `finalizeSha256Contract`, but writes the MAC to `out`. -/
 def finalizeSha256OutContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
@@ -144,7 +144,7 @@ def finalizeSha256OutApi : Api where
       unspecified.",
     "`outer` must be valid for reads of 96 bytes.",
     "`out` must be valid for writes of 32 bytes.",
-    "`scratch` must be valid for reads and writes of 240 bytes; its contents on return are \
+    "`scratch` must be valid for reads and writes of 688 bytes; its contents on return are \
       unspecified."]
 
 end VG.Spec.Hmac

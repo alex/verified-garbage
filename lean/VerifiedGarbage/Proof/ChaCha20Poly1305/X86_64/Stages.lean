@@ -219,8 +219,7 @@ theorem stateAt_ctr (m : Mem) (c : Addr) :
 
 set_option simprocs false in
 theorem cryptA_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) :
-    WP isa (.block (([.mov32 .rax (.imm 1), .store32 (at_ .r15 112) .rax] : List Instr) ++ ptr .rdi .r15 64 ++
-      ([.mov .rsi (.reg .r14), .mov .rdx (.reg .r13)] : List Instr) ++ ptr .rcx .r15 128)) s fun s' =>
+    WP isa (.block cryptArgs) s fun s' =>
       s'.mem = s.mem.writeW (off (cx s₀) 112) (1 : BitVec 32) ∧ s'.gpr .rdi = off (cx s₀) 64 ∧
       s'.gpr .rsi = dp s₀ ∧ s'.gpr .rdx = s₀.gpr .r8 ∧ s'.gpr .rcx = off (cx s₀) 128 ∧
       (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
@@ -228,8 +227,8 @@ theorem cryptA_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) :
   rw [← h.wr] at o
   simp only [off] at o
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [ptr, List.cons_append, List.nil_append, runBlock_cons, runStep_some,
-    runBlock_nil, exec, ea_at, readSrc, readSrc32, execAlu, arithFlags, State.store32, State.setReg,
+  simp (config := {decide := true}) only [cryptArgs, ptr, List.cons_append, List.nil_append, runBlock_cons,
+    runStep_some, runBlock_nil, exec, ea_at, readSrc, readSrc32, execAlu, arithFlags, State.store32, State.setReg,
     State.setReg32, State.setFlags, h.r15, h.r14, h.r13, o, ite_true, ite_false, Option.map_some,
     Option.bind_some, Option.some.injEq, exists_eq_left', se_ofNat (show 64 < 2 ^ 31 by omega),
     se_ofNat (show 128 < 2 ^ 31 by omega), BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq]
@@ -239,30 +238,78 @@ theorem cryptA_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) :
 
 theorem hL (s₀ : State) : s₀.gpr .r8 = BitVec.ofNat 64 (L s₀) := by simp [L]
 
-/-- The data encrypted (or decrypted) from block counter 1. -/
-theorem crypt_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s)
-    (hst : stateAt s.mem (off (cx s₀) 64) = Spec.ChaCha20.initState (K s₀) 0 (N s₀)) :
-    WP isa crypt s fun s' => Inv s₀ s' ∧ (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧
-      Frame [sub s₀ 64 384, dR s₀, stkR s₀] s.mem s'.mem ∧
-      bytesAt s'.mem (dp s₀) (L s₀) = Spec.ChaCha20.encrypt (K s₀) 1 (N s₀) (bytesAt s.mem (dp s₀) (L s₀)) := by
-  refine WP.seq (WP.mono (cryptA_ok hp h) fun s₁ ⟨m₁, rdi₁, rsi₁, rdx₁, rcx₁, cs₁, rd₁, wr₁⟩ => ?_)
-  have rsp₁ : s₁.gpr .rsp = s₀.gpr .rsp := by rw [cs₁ _ calleeSaved_rsp, h.rsp]
-  have wr₁' : s₁.wr = s₀.wr := by rw [wr₁, h.wr]
-  have hw : Covers [⟨off (cx s₀) 64, 64⟩, ⟨dp s₀, L s₀⟩, ⟨off (cx s₀) 128, 320⟩] s₁.wr := by
-    refine Covers.of_sub fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl
-    · exact ⟨ctxR s₀, by simp [wr₁', hp.wr], 64, by simp [off_eq], by show 64 + 64 ≤ 1024; omega⟩
-    · exact ⟨dR s₀, by simp [wr₁', hp.wr], 0, by simp, by simp⟩
-    · exact ⟨ctxR s₀, by simp [wr₁', hp.wr], 128, by simp [off_eq], by show 128 + 320 ≤ 1024; omega⟩
-  refine WP.seq (xor_call rdi₁ rsi₁ (by rw [rdx₁]; exact hL s₀) rcx₁ (s₀.gpr .r8).isLt
+/-- The arguments of `vg_chacha20_xor`, as `cryptArgs` sets them up. -/
+structure XArgs (s₀ s : State) : Prop where
+  rdi : s.gpr .rdi = off (cx s₀) 64
+  rsi : s.gpr .rsi = dp s₀
+  rdx : s.gpr .rdx = s₀.gpr .r8
+  rcx : s.gpr .rcx = off (cx s₀) 128
+  rsp : s.gpr .rsp = s₀.gpr .rsp
+  r13 : s.gpr .r13 = s₀.gpr .r8
+  r14 : s.gpr .r14 = dp s₀
+  wr : s.wr = s₀.wr
+
+theorem XArgs.of {s₀ s s' : State} (h : Inv s₀ s) (rdi : s'.gpr .rdi = off (cx s₀) 64) (rsi : s'.gpr .rsi = dp s₀)
+    (rdx : s'.gpr .rdx = s₀.gpr .r8) (rcx : s'.gpr .rcx = off (cx s₀) 128)
+    (cs : ∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) (wr : s'.wr = s.wr) : XArgs s₀ s' :=
+  ⟨rdi, rsi, rdx, rcx, by rw [cs _ calleeSaved_rsp, h.rsp], by rw [cs _ (by simp [calleeSaved]), h.r13],
+    by rw [cs _ (by simp [calleeSaved]), h.r14], by rw [wr, h.wr]⟩
+
+theorem cryptArgs_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) :
+    WP isa (.block cryptArgs) s (XArgs s₀) :=
+  WP.mono (cryptA_ok hp h) fun _ ⟨_, rdi, rsi, rdx, rcx, cs, _, wr⟩ => XArgs.of h rdi rsi rdx rcx cs wr
+
+section
+variable {s₀ : State} (hp : APre s₀) {s : State} (h : XArgs s₀ s)
+include hp h
+
+theorem XArgs.hw : Covers [⟨off (cx s₀) 64, 64⟩, ⟨dp s₀, L s₀⟩, ⟨off (cx s₀) 128, 320⟩] s.wr := by
+  refine Covers.of_sub fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl
+  · exact ⟨ctxR s₀, by simp [h.wr, hp.wr], 64, by simp [off_eq], by show 64 + 64 ≤ 1024; omega⟩
+  · exact ⟨dR s₀, by simp [h.wr, hp.wr], 0, by simp, by simp⟩
+  · exact ⟨ctxR s₀, by simp [h.wr, hp.wr], 128, by simp [off_eq], by show 128 + 320 ≤ 1024; omega⟩
+
+/-- The precondition of the implementation `v` of `vg_chacha20_xor`. -/
+theorem XArgs.pre (v : Proof.ChaCha20.X86_64.XorImpl) :
+    (Proof.ChaCha20.xorStack v.stack).pre
+      (s.callEntry.withRegions [] [⟨off (cx s₀) 64, 64⟩, ⟨dp s₀, L s₀⟩, ⟨off (cx s₀) 128, 320⟩]) :=
+  xor_pre v h.rdi h.rsi (by rw [h.rdx]; exact hL s₀) h.rcx (s₀.gpr .r8).isLt
     (hp.c_d.sub_left (sub_ctx s₀ (k := 64) (n := 64) (by omega)))
     (sub_disj s₀ (a := 64) (n := 64) (b := 128) (m := 320) (by omega) (by omega) (by omega))
     (hp.c_d.symm.sub_right (sub_ctx s₀ (k := 128) (n := 320) (by omega))) hp.wrap_d
-    (by rw [rsp₁]; exact hp.stk_sub (by omega)) (by rw [rsp₁]; exact hp.stk_d)
-    (by rw [rsp₁]; exact hp.stk_sub (by omega)) (covers_nil_append (covers_left _ hw)) hw
-    fun s₂ rd₂ wr₂ cs₂ f₂ rsi₂ data₂ => ?_)
-  rw [rsp₁] at f₂
+    (by rw [h.rsp]; exact hp.stk_sub (by omega)) (by rw [h.rsp]; exact hp.stk_d)
+    (by rw [h.rsp]; exact hp.stk_sub (by omega))
+
+/-- The call of the implementation `v` of `vg_chacha20_xor`. -/
+theorem XArgs.call (v : Proof.ChaCha20.X86_64.XorImpl) {Q : State → Prop}
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
+      Frame [⟨off (cx s₀) 64, 64⟩, ⟨dp s₀, L s₀⟩, ⟨off (cx s₀) 128, 320⟩, stkR s₀] s.mem s'.mem →
+      s'.gpr .rsi = off (cx s₀) 128 →
+      Spec.ChaCha20.bytesAt s'.mem (dp s₀) (L s₀) = List.zipWith (· ^^^ ·)
+        (Spec.ChaCha20.bytesAt s.mem (dp s₀) (L s₀)) (keystream (stateAt s.mem (off (cx s₀) 64)) (L s₀)) →
+      Q s') :
+    WP isa (.call v.callee.name v.callee.code) s Q :=
+  xor_call v h.rdi h.rsi (by rw [h.rdx]; exact hL s₀) h.rcx (s₀.gpr .r8).isLt
+    (hp.c_d.sub_left (sub_ctx s₀ (k := 64) (n := 64) (by omega)))
+    (sub_disj s₀ (a := 64) (n := 64) (b := 128) (m := 320) (by omega) (by omega) (by omega))
+    (hp.c_d.symm.sub_right (sub_ctx s₀ (k := 128) (n := 320) (by omega))) hp.wrap_d
+    (by rw [h.rsp]; exact hp.stk_sub (by omega)) (by rw [h.rsp]; exact hp.stk_d)
+    (by rw [h.rsp]; exact hp.stk_sub (by omega)) (covers_nil_append (covers_left _ (h.hw hp))) (h.hw hp)
+    fun s' rd wr cs f rsi data => hQ s' rd wr cs (by rw [h.rsp] at f; exact f) rsi data
+
+end
+
+/-- The data encrypted (or decrypted) from block counter 1, by any
+implementation of `vg_chacha20_xor`. -/
+theorem crypt_ok (v : Proof.ChaCha20.X86_64.XorImpl) {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s)
+    (hst : stateAt s.mem (off (cx s₀) 64) = Spec.ChaCha20.initState (K s₀) 0 (N s₀)) :
+    WP isa (crypt v.callee) s fun s' => Inv s₀ s' ∧ (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧
+      Frame [sub s₀ 64 384, dR s₀, stkR s₀] s.mem s'.mem ∧
+      bytesAt s'.mem (dp s₀) (L s₀) = Spec.ChaCha20.encrypt (K s₀) 1 (N s₀) (bytesAt s.mem (dp s₀) (L s₀)) := by
+  refine WP.seq (WP.mono (cryptA_ok hp h) fun s₁ ⟨m₁, rdi₁, rsi₁, rdx₁, rcx₁, cs₁, rd₁, wr₁⟩ => ?_)
+  refine WP.seq ((XArgs.of h rdi₁ rsi₁ rdx₁ rcx₁ cs₁ wr₁).call hp v fun s₂ rd₂ wr₂ cs₂ f₂ rsi₂ data₂ => ?_)
   refine WP.mono (anchor_ok .rsi (k := 128) (by omega) s₂) fun s₃ ⟨e3, g₃, rd₃, wr₃, m₃⟩ => ?_
   have cs : ∀ r ∈ calleeSaved, s₃.gpr r = s.gpr r := fun r hr => by
     by_cases h15 : r = .r15
