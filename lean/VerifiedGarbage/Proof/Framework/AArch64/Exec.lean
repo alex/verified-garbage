@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Framework.Mem
-import VerifiedGarbage.Proof.Framework.X86_64.Bswap
+import VerifiedGarbage.Proof.Framework.Bswap
 import VerifiedGarbage.TCB.AArch64.Isa
 import VerifiedGarbage.Proof.Framework.Block
 
@@ -97,7 +97,7 @@ theorem movz_movk' (x : BitVec 32) :
 
 theorem rev32_readW (m : Mem) (a : Addr) :
     rev32 (m.readW a 32) = (m a ++ m (a + 1) ++ m (a + 1 + 1) ++ m (a + 1 + 1 + 1) : BitVec 32) :=
-  X86_64.bswap32_readW m a
+  byteRev32_readW m a
 
 theorem exec_ldr_x {s : State} {t n : Reg} {off : Nat} (ho : off % 8 = 0 ∧ off < 32768)
     (h : InRegions (s.rd ++ s.wr) (s.gpr n + BitVec.ofNat 64 off) 8) :
@@ -147,7 +147,7 @@ theorem rev64_readW (m : Mem) (a : Addr) :
     rev64 (m.readW a 64) = (m a ++ m (a + 1) ++ m (a + 1 + 1) ++ m (a + 1 + 1 + 1) ++
       m (a + 1 + 1 + 1 + 1) ++ m (a + 1 + 1 + 1 + 1 + 1) ++ m (a + 1 + 1 + 1 + 1 + 1 + 1) ++
       m (a + 1 + 1 + 1 + 1 + 1 + 1 + 1) : BitVec 64) :=
-  X86_64.bswap64_readW m a
+  byteRev64_readW m a
 
 end VG.AArch64
 

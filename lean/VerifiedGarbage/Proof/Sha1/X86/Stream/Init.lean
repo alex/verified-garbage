@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.MdStream.X86.Common
 import VerifiedGarbage.Proof.Sha1.Stream
-import VerifiedGarbage.Proof.Sha1.AArch64.Compress
+import VerifiedGarbage.Proof.Sha1.StateMem
 import VerifiedGarbage.Proof.Sha1.X86.Contract
 import VerifiedGarbage.Impl.Sha1.X86.Stream
 import Mathlib.Tactic.Set
@@ -61,7 +61,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha1.initX86.pre s₀) :
     rw [g6 r h, g5 r h, g4 r h, g3 r h, g2 r h, u₁.other r h']
   have ha : ∀ k, k < 5 → addr st (4 * k) = st.setWidth 64 + BitVec.ofNat 64 (4 * k) :=
     fun k hk => addr_eq (by omega)
-  have hm : s6.mem = Proof.Sha1.AArch64.writeState s₀.mem (st.setWidth 64) H0 := by
+  have hm : s6.mem = Proof.Sha1.StateMem.writeState s₀.mem (st.setWidth 64) H0 := by
     rw [m6, m5, m4, m3, m2, u₁.mem, ha 0 (by omega), ha 1 (by omega), ha 2 (by omega), ha 3 (by omega),
       ha 4 (by omega)]
     rfl
@@ -81,7 +81,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha1.initX86.pre s₀) :
   · exact hf.readW (Region.contains_self _ _) (by simpa using hret) (by decide)
   · show Spec.Sha1.Repr s6.mem (st.setWidth 64) []
     rw [hm]
-    exact Proof.Sha1.Stream.repr_nil (Proof.Sha1.AArch64.stateAt_writeState _ _ _)
+    exact Proof.Sha1.Stream.repr_nil (Proof.Sha1.StateMem.stateAt_writeState _ _ _)
 
 /-- Memory holding the argument `0x1000` at `0x4004`. -/
 def initSatMem : Mem := fun a => if a = 0x4005 then 0x10 else 0

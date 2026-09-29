@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Common
-import VerifiedGarbage.Proof.Sha256.AArch64.Compress
+import VerifiedGarbage.Proof.Sha256.StateMem
 import VerifiedGarbage.Proof.Sha256.X86.Contract
 import Mathlib.Tactic.Set
 
@@ -62,7 +62,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha256.initX86.pre s₀) :
     rw [g9 r h, g8 r h, g7 r h, g6 r h, g5 r h, g4 r h, g3 r h, g2 r h, u₁.other r h']
   have ha : ∀ k, k < 8 → addr st (4 * k) = st.setWidth 64 + BitVec.ofNat 64 (4 * k) :=
     fun k hk => addr_eq (by omega)
-  have hm : s9.mem = Proof.Sha256.AArch64.writeState s₀.mem (st.setWidth 64) H0 := by
+  have hm : s9.mem = Proof.Sha256.StateMem.writeState s₀.mem (st.setWidth 64) H0 := by
     rw [m9, m8, m7, m6, m5, m4, m3, m2, u₁.mem, ha 0 (by omega), ha 1 (by omega), ha 2 (by omega),
       ha 3 (by omega), ha 4 (by omega), ha 5 (by omega), ha 6 (by omega), ha 7 (by omega)]
     rfl
@@ -84,7 +84,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha256.initX86.pre s₀) :
   · exact hf.readW (Region.contains_self _ _) (by simpa using hret) (by decide)
   · show Spec.Sha256.Repr s9.mem (st.setWidth 64) []
     rw [hm]
-    exact Proof.Sha256.Stream.repr_nil (Proof.Sha256.AArch64.stateAt_writeState _ _ _)
+    exact Proof.Sha256.Stream.repr_nil (Proof.Sha256.StateMem.stateAt_writeState _ _ _)
 
 /-- Memory holding the argument `0x1000` at `0x4004`. -/
 def initSatMem : Mem := fun a => if a = 0x4005 then 0x10 else 0
