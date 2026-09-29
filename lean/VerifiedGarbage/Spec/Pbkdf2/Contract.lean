@@ -30,11 +30,11 @@ namespace VG.Spec.Pbkdf2
 open Sha256 (Repr bytesAt)
 open Hmac (xorPad ipad opad hmacBlockKey sha256)
 
-/-- `vg_pbkdf2_hmac_sha256_iterate(key: *const [u8; 192], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 48])`.
+/-- `vg_pbkdf2_hmac_sha256_iterate(key: *const [u8; 192], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 104])`.
 `n` is public; `scratch` is working space. -/
 def iterateSha256Sig : Sig where
   params := [("key", .array false .u8 192), ("u", .array false .u8 32), ("n", .int .u32 true),
-    ("t", .array true .u8 32), ("scratch", .array true .u64 48)]
+    ("t", .array true .u8 32), ("scratch", .array true .u64 104)]
 
 /-- If, for a 64-byte key `K₀`, the streaming state at `key` represents
 `K₀ ⊕ ipad` and the one at `key + 96` represents `K₀ ⊕ opad`: from the 32
@@ -63,7 +63,7 @@ def iterateSha256Api : Api where
   safety := [
     "`key` must be valid for reads of 192 bytes, and `u` for reads of 32 bytes.",
     "`t` must be valid for reads and writes of 32 bytes.",
-    "`scratch` must be valid for reads and writes of 384 bytes; its contents on return are \
+    "`scratch` must be valid for reads and writes of 832 bytes; its contents on return are \
       unspecified."]
 
 /-- `vg_pbkdf2_hmac_sha256(password: *const u8, password_len: usize, salt: *const u8, salt_len: usize, c: u32, out: *mut u8, out_len: usize, scratch: *mut [u64; 256])`.

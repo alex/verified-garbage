@@ -11,7 +11,7 @@ bytes at `p` into the Poly1305 state (at `ctx`), and zeros to a multiple of
 namespace VG.Proof.ChaCha20Poly1305.Arm
 
 open VG VG.Arm VG.Impl.ChaCha20Poly1305.Arm
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd wp_mov wp_add wp_sub wp_and wp_subs wp_cmp wp_ldr wp_str
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_add wp_sub wp_and wp_subs wp_cmp wp_ldr wp_str
   wp_ldrb wp_strb op2_imm op2_reg op2_lsr eval_eq eval_ne ofNat_beq_zero sub_ofNat ofNat_shr)
 open VG.Proof.ChaCha20.Arm.Xor (writeW8_apply)
 open VG.Proof.ChaCha20.Arm (toNat_ofNat_lt)

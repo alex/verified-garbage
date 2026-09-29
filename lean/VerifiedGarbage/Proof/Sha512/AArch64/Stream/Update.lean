@@ -5,7 +5,7 @@ import Mathlib.Tactic.Tauto
 # Streaming SHA-512 on AArch64: `update`
 
 Untrusted: everything here is checked by Lean. The same structure as the
-x86-128 proof (`VG.Proof.Sha512.X86_64.Stream.Update`); the loop runs while
+x86-64 proof (`VG.Proof.MdStream.X86_64.Update`); the loop runs while
 data is left, so every iteration consumes at least one byte.
 -/
 

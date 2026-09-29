@@ -1,0 +1,194 @@
+// @generated from lean/VerifiedGarbage/Artifacts.lean by lean/Emit.lean. DO NOT EDIT.
+//! Verified `hmac_sha512_224` functions for `arm`.
+#![allow(dead_code)]
+
+/// Starts an HMAC-SHA-512/224 computation with a key of at most 128 bytes: makes the SHA-512/224 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 128 bytes (FIPS 198-1). The text is then absorbed with `vg_sha512_update` on `*inner` (its `count` starting at 128), and the MAC computed with `vg_hmac_sha512_224_finalize`.
+///
+/// Contract: `VG.Spec.Hmac.Instance.initContract` of `VG.Spec.Hmac.sha512_224I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
+///
+/// # Safety
+///
+/// * `key_len` must be at most 128.
+/// * `inner` and `outer` must each be valid for reads and writes of 192 bytes.
+/// * `key` must be valid for reads of `key_len` bytes.
+/// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
+/// * `inner`, `outer` and `scratch` must not overlap each other, `key` or the arguments on the stack (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `key` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_hmac_sha512_224_init(inner: *mut [u8; 192], outer: *mut [u8; 192], key: *const u8, key_len: usize, scratch: *mut [u64; 96]) {
+    core::arch::naked_asm!(
+        "ldr r12, [sp, #0]",
+        "str r4, [r12, #272]",
+        "str r5, [r12, #276]",
+        "str r6, [r12, #280]",
+        "str r7, [r12, #284]",
+        "str r8, [r12, #288]",
+        "str r9, [r12, #292]",
+        "str r10, [r12, #296]",
+        "str lr, [r12, #300]",
+        "str r11, [r12, #304]",
+        "mov r4, r0",
+        "mov r5, r1",
+        "mov r6, r2",
+        "mov r11, r12",
+        "mov r8, #0",
+        "mov r9, r3",
+        "cmp r9, #0",
+        "beq 20f",
+        "22:",
+        "add r2, r6, r8",
+        "ldrb r12, [r2, #0]",
+        "eor r1, r12, #54",
+        "add r2, r11, r8",
+        "strb r1, [r2, #308]",
+        "eor r1, r12, #92",
+        "strb r1, [r2, #436]",
+        "add r8, r8, #1",
+        "subs r9, r9, #1",
+        "bne 22b",
+        "b 21f",
+        "20:",
+        "21:",
+        "movw r9, #128",
+        "subs r9, r9, r8",
+        "beq 23f",
+        "25:",
+        "add r2, r11, r8",
+        "mov r1, #54",
+        "strb r1, [r2, #308]",
+        "mov r1, #92",
+        "strb r1, [r2, #436]",
+        "add r8, r8, #1",
+        "subs r9, r9, #1",
+        "bne 25b",
+        "b 24f",
+        "23:",
+        "24:",
+        "mov r0, r4",
+        "bl {vg_sha512_224_init}",
+        "mov r0, r4",
+        "movw r12, #308",
+        "add r1, r11, r12",
+        "movw r7, #128",
+        "mov r10, r11",
+        "movw r2, #0",
+        "mov r3, #0",
+        "push {{r1, r7, r10, r12}}",
+        "bl {vg_sha512_update}",
+        "ldr r1, [sp], #16",
+        "mov r0, r5",
+        "bl {vg_sha512_224_init}",
+        "mov r0, r5",
+        "movw r12, #436",
+        "add r1, r11, r12",
+        "movw r7, #128",
+        "mov r10, r11",
+        "movw r2, #0",
+        "mov r3, #0",
+        "push {{r1, r7, r10, r12}}",
+        "bl {vg_sha512_update}",
+        "ldr r1, [sp], #16",
+        "ldr r4, [r11, #272]",
+        "ldr r5, [r11, #276]",
+        "ldr r6, [r11, #280]",
+        "ldr r7, [r11, #284]",
+        "ldr r8, [r11, #288]",
+        "ldr r9, [r11, #292]",
+        "ldr r10, [r11, #296]",
+        "ldr lr, [r11, #300]",
+        "ldr r11, [r11, #304]",
+        "bx lr",
+        vg_sha512_224_init = sym super::sha512::vg_sha512_224_init,
+        vg_sha512_update = sym super::sha512::vg_sha512_update,
+    )
+}
+
+/// Finishes an HMAC-SHA-512/224 computation: if, for a 128-byte key `K₀` and a text of fewer than 2⁶⁴ − 128 bytes, the SHA-512/224 streaming state `*inner` represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes, and `*outer` represents `K₀ ⊕ opad`, writes the HMAC-SHA-512/224 of the text under `K₀` (28 bytes) to `*out`.
+///
+/// Contract: `VG.Spec.Hmac.Instance.finalizeContract` of `VG.Spec.Hmac.sha512_224I`. Constant time: only the pointers and `count` may affect timing, not the states.
+///
+/// # Safety
+///
+/// * `inner` must be valid for reads and writes of 192 bytes; its contents on return are unspecified.
+/// * `outer` must be valid for reads of 192 bytes.
+/// * `out` must be valid for writes of 28 bytes.
+/// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
+/// * `inner`, `out` and `scratch` must not overlap each other, `outer` or the arguments on the stack (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `out` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_hmac_sha512_224_finalize(inner: *mut [u8; 192], outer: *const [u8; 192], count: u64, out: *mut [u8; 28], scratch: *mut [u64; 96]) {
+    core::arch::naked_asm!(
+        "ldr r12, [sp, #4]",
+        "str r4, [r12, #272]",
+        "str r5, [r12, #276]",
+        "str r6, [r12, #280]",
+        "str r7, [r12, #284]",
+        "str r8, [r12, #288]",
+        "str r9, [r12, #292]",
+        "str r10, [r12, #296]",
+        "str lr, [r12, #300]",
+        "str r11, [r12, #304]",
+        "mov r4, r0",
+        "mov r5, r1",
+        "ldr r6, [sp, #0]",
+        "mov r11, r12",
+        "mov r0, r4",
+        "movw r12, #308",
+        "add r1, r11, r12",
+        "mov r12, r11",
+        "push {{r1, r12}}",
+        "bl {vg_sha512_finalize}",
+        "ldr r1, [sp], #8",
+        "mov r8, #0",
+        "movw r9, #192",
+        "20:",
+        "add r2, r5, r8",
+        "ldrb r12, [r2, #0]",
+        "add r2, r4, r8",
+        "strb r12, [r2, #0]",
+        "add r8, r8, #1",
+        "subs r9, r9, #1",
+        "bne 20b",
+        "mov r0, r4",
+        "movw r12, #308",
+        "add r1, r11, r12",
+        "movw r7, #28",
+        "mov r10, r11",
+        "movw r2, #128",
+        "mov r3, #0",
+        "push {{r1, r7, r10, r12}}",
+        "bl {vg_sha512_update}",
+        "ldr r1, [sp], #16",
+        "mov r0, r4",
+        "movw r2, #156",
+        "mov r3, #0",
+        "movw r12, #308",
+        "add r1, r11, r12",
+        "mov r12, r11",
+        "push {{r1, r12}}",
+        "bl {vg_sha512_finalize}",
+        "ldr r1, [sp], #8",
+        "mov r8, #0",
+        "movw r9, #28",
+        "21:",
+        "add r2, r11, r8",
+        "ldrb r12, [r2, #308]",
+        "add r2, r6, r8",
+        "strb r12, [r2, #0]",
+        "add r8, r8, #1",
+        "subs r9, r9, #1",
+        "bne 21b",
+        "ldr r4, [r11, #272]",
+        "ldr r5, [r11, #276]",
+        "ldr r6, [r11, #280]",
+        "ldr r7, [r11, #284]",
+        "ldr r8, [r11, #288]",
+        "ldr r9, [r11, #292]",
+        "ldr r10, [r11, #296]",
+        "ldr lr, [r11, #300]",
+        "ldr r11, [r11, #304]",
+        "bx lr",
+        vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
+        vg_sha512_update = sym super::sha512::vg_sha512_update,
+    )
+}

@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
-import VerifiedGarbage.Proof.Sha1.X86_64.Stream.Common
+import VerifiedGarbage.Proof.MdStream.X86_64.Common
 import VerifiedGarbage.Proof.Scrypt.BlockMix
 import VerifiedGarbage.Impl.Scrypt.X86_64.BlockMix
 import VerifiedGarbage.Spec.Scrypt.Contract
@@ -91,7 +91,7 @@ open VG VG.X86_64 VG.Impl.Scrypt.X86_64
 open VG.Spec.Scrypt (bytesAt blk salsa)
 open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil writeBytes_frame)
-open VG.Proof.Sha1.X86_64.Stream (Upd wp_movm wp_store)
+open VG.Proof.MdStream.X86_64 (Upd wp_movm wp_store)
 
 /-! ## Addresses -/
 
@@ -218,7 +218,7 @@ theorem wp_xorm {is : List Instr} {s : State} {Q : State → Prop} {d : Reg} {m 
     (ha : s.ea m = a) (hin : InRegions (s.rd ++ s.wr) a 8)
     (k : ∀ s', Upd s s' d (s.gpr d ^^^ s.mem.readW a 64) → WP isa (.block is) s' Q) :
     WP isa (.block (.alu .xor d (.mem m) :: is)) s Q := by
-  refine Proof.Sha1.X86_64.Stream.WP.cons
+  refine Proof.MdStream.X86_64.WP.cons
     (s' := (arithFlags s (s.gpr d ^^^ s.mem.readW a 64) false false).setReg d _) ?_
     (k _ (Upd.flags _ _ _ _ _ _))
   simp [exec, execAlu, readSrc, State.load64, ha, hin]

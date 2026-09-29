@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Sha256.AArch64.Compress
 import Mathlib.Tactic.IntervalCases
 import Mathlib.Tactic.Set
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.X86.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
@@ -1085,18 +1086,78 @@ theorem init_correct (s : State) (hs : Proof.Hmac.initSha256X86.pre s) :
 theorem init_ct : ConstantTime isa Proof.Hmac.initSha256X86.pre Proof.Hmac.initSha256X86.pub init :=
   VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
 
+/-- `initSha256X86` with the 608 bytes of scratch of the shared contract
+(sized for the x86-64 AVX2 compression function), of which the code uses 160. -/
+def initWide : Contract isa :=
+  { Proof.Hmac.initSha256X86 with
+    pre := fun s =>
+      let inner : Region := ⟨(arg s 0).setWidth 64, 96⟩
+      let outer : Region := ⟨(arg s 1).setWidth 64, 96⟩
+      let key : Region := ⟨(arg s 2).setWidth 64, (arg s 3).toNat⟩
+      let scratch : Region := ⟨(arg s 4).setWidth 64, 608⟩
+      let args : Region := ⟨argAddr s 0, 20⟩
+      let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+      (arg s 3).toNat ≤ 64 ∧ s.rd = [key] ∧ s.wr = [inner, outer, scratch, args] ∧
+      inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
+      args.Disjoint inner ∧ args.Disjoint outer ∧ args.Disjoint scratch ∧
+      key.Disjoint inner ∧ key.Disjoint outer ∧ key.Disjoint scratch ∧ key.Disjoint args ∧
+      ret.Disjoint inner ∧ ret.Disjoint outer ∧ ret.Disjoint scratch ∧
+      (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 1).toNat + 96 ≤ 2 ^ 32 ∧
+      (arg s 2).toNat + (arg s 3).toNat ≤ 2 ^ 32 ∧ (arg s 4).toNat + 608 ≤ 2 ^ 32 ∧
+      (s.gpr .esp).toNat + 24 ≤ 2 ^ 32 }
+
+/-- The regions `initSha256X86` lets the code write. -/
+def narrowWr (s : State) : List Region :=
+  [⟨(arg s 0).setWidth 64, 96⟩, ⟨(arg s 1).setWidth 64, 96⟩, ⟨(arg s 4).setWidth 64, 160⟩,
+    ⟨argAddr s 0, 20⟩]
+
+/-- Rewrites the contracts at a narrowed state (`arg` does not unfold
+cheaply). -/
+local macro "narrow" loc:(Lean.Parser.Tactic.location)? : tactic =>
+  `(tactic| simp only [Proof.Hmac.initSha256X86, VG.Proof.Hmac.X86.Init.initWide, VG.Proof.Hmac.X86.Init.narrowWr, VG.X86.arg_withRegions, VG.X86.argAddr_withRegions,
+    VG.X86.State.withRegions_gpr, VG.X86.State.withRegions_mem, VG.X86.State.withRegions_rd,
+    VG.X86.State.withRegions_wr] $(loc)?)
+
+theorem initWide_pre (s : State) (h : initWide.pre s) :
+    Proof.Hmac.initSha256X86.pre (s.withRegions s.rd (narrowWr s)) := by
+  obtain ⟨h₁, h₂, _, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅, h₁₆, h₁₇, h₁₈, h₁₉,
+    h₂₀, h₂₁⟩ := h
+  narrow
+  exact ⟨h₁, h₂, trivial, h₄, h₅.sub_right (Region.sub_of_ble rfl),
+    h₆.sub_right (Region.sub_of_ble rfl), h₇, h₈, h₉.sub_right (Region.sub_of_ble rfl), h₁₀, h₁₁,
+    h₁₂.sub_right (Region.sub_of_ble rfl), h₁₃, h₁₄, h₁₅, h₁₆.sub_right (Region.sub_of_ble rfl), h₁₇,
+    h₁₈, h₁₉, Region.end_le_of_ble rfl h₂₀, h₂₁⟩
+
+/-- A state satisfying `initWide.pre`. -/
+def wideSat : State :=
+  { sat with wr := [⟨0x1000, 96⟩, ⟨0x1100, 96⟩, ⟨0x3000, 608⟩, ⟨0x4004, 20⟩] }
+
+theorem initWide_implies : initWide.Implies (Spec.Hmac.initSha256Contract X86.abi) := by
+  have a0 : arg wideSat 0 = 0x1000 := by decide
+  have a1 : arg wideSat 1 = 0x1100 := by decide
+  have a2 : arg wideSat 2 = 0x1200 := by decide
+  have a3 : arg wideSat 3 = 0 := by decide
+  have a4 : arg wideSat 4 = 0x3000 := by decide
+  have e : argAddr wideSat 0 = 0x4004 := by decide
+  have esp : wideSat.gpr .esp = 0x4000 := rfl
+  sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig, initWide,
+    Proof.Hmac.initSha256X86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+    [a0, a1, a2, a3, a4, e, esp] using wideSat
+
+/-- The proof is written against `initSha256X86`, widened to the shared
+contract's scratch. -/
 theorem init_verified :
     Verified X86.target Impl.Hmac.X86.init (Spec.Hmac.initSha256Contract X86.abi) :=
-  Verified.of_correct init_correct init_ct (by
-    have a0 : arg sat 0 = 0x1000 := by decide
-    have a1 : arg sat 1 = 0x1100 := by decide
-    have a2 : arg sat 2 = 0x1200 := by decide
-    have a3 : arg sat 3 = 0 := by decide
-    have a4 : arg sat 4 = 0x3000 := by decide
-    have e : argAddr sat 0 = 0x4004 := by decide
-    have esp : sat.gpr .esp = 0x4000 := rfl
-    sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig, Proof.Hmac.initSha256X86,
-      X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-      [a0, a1, a2, a3, a4, e, esp] using Proof.Hmac.X86.Init.sat)
+  have hsat := initWide_implies.sat_left
+  (Verified.widen (Verified.of_correct init_correct init_ct
+    (.refl (hsat.elim fun s hs => ⟨_, initWide_pre s hs⟩)))
+    narrowWr initWide_pre
+    (fun _ h => by
+      obtain ⟨_, _, h₃, _⟩ := h
+      rw [h₃]
+      exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl)
+        (.cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl) .nil))))
+    (fun _ _ _ h => by narrow at h ⊢; exact h)
+    (fun _ _ _ _ h => by narrow; exact h) hsat).of_implies initWide_implies
 
 end VG.Proof.Hmac.X86.Init

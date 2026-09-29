@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.Hmac.X86_64.Init
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Init
 import Mathlib.Tactic.Set
 import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Proof.Framework.Arm.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
@@ -25,10 +26,11 @@ open VG.Proof.Hmac.X86_64.Init (bytesAt_snoc repr_block)
 open VG.Proof.Sha256.Stream (writeBytes repr_congr)
 open VG.Proof.Sha256.AArch64 (writeState stateAt_writeState)
 open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd wp_mov wp_add wp_subs wp_cmp wp_ldrb wp_strb wp_ldrSp
-  wp_str op2_imm op2_reg compressAt_ok saveMem saveMem_saved saveMem_frame save_ok restore_ok frame_bytes
-  sub_offset eval_eq eval_ne ofNat_beq_zero sub_ofNat sub_beq)
-open VG.Proof.Sha256.Arm.Stream.Update (addr_toNat)
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_add wp_subs wp_cmp wp_ldrb wp_strb wp_ldrSp
+  wp_str op2_imm op2_reg saveMem frame_bytes sub_offset eval_eq eval_ne ofNat_beq_zero sub_ofNat
+  sub_beq)
+open VG.Proof.Sha256.Arm.Stream (compressAt_ok saveMem_saved saveMem_frame save_ok restore_ok)
+open VG.Proof.MdStream.Arm (addr_toNat)
 open VG.Spec.Sha256 (bytesAt stateAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
 
@@ -97,7 +99,7 @@ theorem arg_in {s₀ : State} (hp : Pre s₀) : InRegions (s₀.rd ++ s₀.wr) (
 
 /-! ## `H⁽⁰⁾` -/
 
-open VG.Proof.Sha256.Arm.Stream.WP (cons)
+open VG.Proof.MdStream.Arm.WP (cons)
 
 /-- The three instructions storing the 32-bit word `x` at `[b + off]`. -/
 def word (b : Reg) (x : BitVec 32) (off : Nat) : List Instr :=
@@ -834,12 +836,65 @@ theorem init_ct : ConstantTime isa Proof.Hmac.initSha256Arm.pre Proof.Hmac.initS
   exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
     (by taint_decide)
 
+/-- `initSha256Arm` with the 608 bytes of scratch of the shared contract
+(sized for the x86-64 AVX2 compression function), of which the code uses 160. -/
+def initWide : Contract isa :=
+  { Proof.Hmac.initSha256Arm with
+    pre := fun s =>
+      let inner : Region := ⟨State.addr (s.gpr .r0), 96⟩
+      let outer : Region := ⟨State.addr (s.gpr .r1), 96⟩
+      let key : Region := ⟨State.addr (s.gpr .r2), (s.gpr .r3).toNat⟩
+      let scratch : Region := ⟨State.addr (stackArg s 0), 608⟩
+      let args : Region := ⟨stackArgAddr s 0, 4⟩
+      (s.gpr .r3).toNat ≤ 64 ∧ s.rd = [key, args] ∧ s.wr = [inner, outer, scratch] ∧
+      inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
+      key.Disjoint inner ∧ key.Disjoint outer ∧ key.Disjoint scratch ∧
+      args.Disjoint inner ∧ args.Disjoint outer ∧ args.Disjoint scratch ∧
+      (s.gpr .r0).toNat + 96 ≤ 2 ^ 32 ∧ (s.gpr .r1).toNat + 96 ≤ 2 ^ 32 ∧
+      (s.gpr .r2).toNat + (s.gpr .r3).toNat ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + 608 ≤ 2 ^ 32 ∧
+      s.sp.toNat + 4 ≤ 2 ^ 32 }
+
+/-- The regions `initSha256Arm` lets the code write. -/
+def narrowWr (s : State) : List Region :=
+  [⟨State.addr (s.gpr .r0), 96⟩, ⟨State.addr (s.gpr .r1), 96⟩, ⟨State.addr (stackArg s 0), 160⟩]
+
+/-- Rewrites the contracts at a narrowed state (`stackArg` does not unfold
+cheaply). -/
+local macro "narrow" loc:(Lean.Parser.Tactic.location)? : tactic =>
+  `(tactic| simp only [Proof.Hmac.initSha256Arm, VG.Proof.Hmac.Arm.Init.initWide, VG.Proof.Hmac.Arm.Init.narrowWr, VG.Arm.stackArg_withRegions, VG.Arm.stackArgAddr_withRegions,
+    VG.Arm.State.withRegions_gpr, VG.Arm.State.withRegions_sp, VG.Arm.State.withRegions_mem,
+    VG.Arm.State.withRegions_rd, VG.Arm.State.withRegions_wr] $(loc)?)
+
+theorem initWide_pre (s : State) (h : initWide.pre s) :
+    Proof.Hmac.initSha256Arm.pre (s.withRegions s.rd (narrowWr s)) := by
+  obtain ⟨h₁, h₂, _, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅, h₁₆, h₁₇⟩ := h
+  narrow
+  exact ⟨h₁, h₂, trivial, h₄, h₅.sub_right (Region.sub_of_ble rfl),
+    h₆.sub_right (Region.sub_of_ble rfl), h₇, h₈, h₉.sub_right (Region.sub_of_ble rfl), h₁₀, h₁₁,
+    h₁₂.sub_right (Region.sub_of_ble rfl), h₁₃, h₁₄, h₁₅, Region.end_le_of_ble rfl h₁₆, h₁₇⟩
+
+/-- A state satisfying `initWide.pre`. -/
+def wideSat : State := { sat with wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 608⟩] }
+
+theorem initWide_implies : initWide.Implies (Spec.Hmac.initSha256Contract Arm.abi) := by
+  sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig, initWide,
+    Proof.Hmac.initSha256Arm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
+    [wideSat, sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using wideSat
+
+/-- The proof is written against `initSha256Arm`, widened to the shared
+contract's scratch. -/
 theorem init_verified :
     Verified Arm.target Impl.Hmac.Arm.init (Spec.Hmac.initSha256Contract Arm.abi) :=
-  Verified.of_correct init_correct init_ct (by
-    sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig, Proof.Hmac.initSha256Arm,
-      Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
-      [Proof.Hmac.Arm.Init.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using
-      Proof.Hmac.Arm.Init.sat)
+  have hsat := initWide_implies.sat_left
+  (Verified.widen (Verified.of_correct init_correct init_ct
+    (.refl (hsat.elim fun s hs => ⟨_, initWide_pre s hs⟩)))
+    narrowWr initWide_pre
+    (fun _ h => by
+      obtain ⟨_, _, h₃, _⟩ := h
+      rw [h₃]
+      exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl)
+        (.cons (Region.prefix_of_ble rfl) .nil)))
+    (fun _ _ _ h => by narrow at h ⊢; exact h)
+    (fun _ _ _ _ h => by narrow; exact h) hsat).of_implies initWide_implies
 
 end VG.Proof.Hmac.Arm.Init

@@ -11,18 +11,18 @@
 /// * `key_len` must be at most 64.
 /// * `inner` and `outer` must each be valid for reads and writes of 96 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
 /// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `key` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 20]) {
+pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 76]) {
     core::arch::naked_asm!(
-        "mov QWORD PTR [r8+112], rbx",
-        "mov QWORD PTR [r8+120], rbp",
-        "mov QWORD PTR [r8+128], r12",
-        "mov QWORD PTR [r8+136], r13",
-        "mov QWORD PTR [r8+144], r14",
-        "mov QWORD PTR [r8+152], r15",
+        "mov QWORD PTR [r8+560], rbx",
+        "mov QWORD PTR [r8+568], rbp",
+        "mov QWORD PTR [r8+576], r12",
+        "mov QWORD PTR [r8+584], r13",
+        "mov QWORD PTR [r8+592], r14",
+        "mov QWORD PTR [r8+600], r15",
         "mov rbx, rdi",
         "mov r12, rsi",
         "mov r15, r8",
@@ -106,12 +106,12 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init(inner: *mut [u8; 96], o
         "call {vg_sha256_compress}",
         "mov rbx, rdi",
         "mov r15, rcx",
-        "mov rbx, QWORD PTR [r15+112]",
-        "mov rbp, QWORD PTR [r15+120]",
-        "mov r12, QWORD PTR [r15+128]",
-        "mov r13, QWORD PTR [r15+136]",
-        "mov r14, QWORD PTR [r15+144]",
-        "mov r15, QWORD PTR [r15+152]",
+        "mov rbx, QWORD PTR [r15+560]",
+        "mov rbp, QWORD PTR [r15+568]",
+        "mov r12, QWORD PTR [r15+576]",
+        "mov r13, QWORD PTR [r15+584]",
+        "mov r14, QWORD PTR [r15+592]",
+        "mov r15, QWORD PTR [r15+600]",
         "ret",
         vg_sha256_compress = sym super::sha256::vg_sha256_compress,
     )
@@ -125,60 +125,68 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init(inner: *mut [u8; 96], o
 ///
 /// * `inner` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
 /// * `outer` must be valid for reads of 96 bytes.
-/// * `scratch` must be valid for reads and writes of 240 bytes; its contents on return are unspecified, apart from the MAC.
+/// * `scratch` must be valid for reads and writes of 688 bytes; its contents on return are unspecified, apart from the MAC.
 /// * `inner` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
 /// * None of `inner`, `outer` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 30]) {
+pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 86]) {
     core::arch::naked_asm!(
         "mov eax, DWORD PTR [rsi]",
-        "mov DWORD PTR [rcx+208], eax",
+        "mov DWORD PTR [rcx+640], eax",
         "mov eax, DWORD PTR [rsi+4]",
-        "mov DWORD PTR [rcx+212], eax",
+        "mov DWORD PTR [rcx+644], eax",
         "mov eax, DWORD PTR [rsi+8]",
-        "mov DWORD PTR [rcx+216], eax",
+        "mov DWORD PTR [rcx+648], eax",
         "mov eax, DWORD PTR [rsi+12]",
-        "mov DWORD PTR [rcx+220], eax",
+        "mov DWORD PTR [rcx+652], eax",
         "mov eax, DWORD PTR [rsi+16]",
-        "mov DWORD PTR [rcx+224], eax",
+        "mov DWORD PTR [rcx+656], eax",
         "mov eax, DWORD PTR [rsi+20]",
-        "mov DWORD PTR [rcx+228], eax",
+        "mov DWORD PTR [rcx+660], eax",
         "mov eax, DWORD PTR [rsi+24]",
-        "mov DWORD PTR [rcx+232], eax",
+        "mov DWORD PTR [rcx+664], eax",
         "mov eax, DWORD PTR [rsi+28]",
-        "mov DWORD PTR [rcx+236], eax",
+        "mov DWORD PTR [rcx+668], eax",
         "mov rsi, rdx",
         "mov rdx, rcx",
-        "add rdx, 176",
+        "add rdx, 608",
         "call {vg_sha256_finalize}",
-        "mov eax, DWORD PTR [rcx+208]",
+        "mov eax, DWORD PTR [rcx+640]",
         "mov DWORD PTR [rdi], eax",
-        "mov eax, DWORD PTR [rcx+212]",
+        "mov eax, DWORD PTR [rcx+644]",
         "mov DWORD PTR [rdi+4], eax",
-        "mov eax, DWORD PTR [rcx+216]",
+        "mov eax, DWORD PTR [rcx+648]",
         "mov DWORD PTR [rdi+8], eax",
-        "mov eax, DWORD PTR [rcx+220]",
+        "mov eax, DWORD PTR [rcx+652]",
         "mov DWORD PTR [rdi+12], eax",
-        "mov eax, DWORD PTR [rcx+224]",
+        "mov eax, DWORD PTR [rcx+656]",
         "mov DWORD PTR [rdi+16], eax",
-        "mov eax, DWORD PTR [rcx+228]",
+        "mov eax, DWORD PTR [rcx+660]",
         "mov DWORD PTR [rdi+20], eax",
-        "mov eax, DWORD PTR [rcx+232]",
+        "mov eax, DWORD PTR [rcx+664]",
         "mov DWORD PTR [rdi+24], eax",
-        "mov eax, DWORD PTR [rcx+236]",
+        "mov eax, DWORD PTR [rcx+668]",
         "mov DWORD PTR [rdi+28], eax",
-        "mov rax, QWORD PTR [rcx+176]",
+        "mov rax, QWORD PTR [rcx+608]",
         "mov QWORD PTR [rdi+32], rax",
-        "mov rax, QWORD PTR [rcx+184]",
+        "mov rax, QWORD PTR [rcx+616]",
         "mov QWORD PTR [rdi+40], rax",
-        "mov rax, QWORD PTR [rcx+192]",
+        "mov rax, QWORD PTR [rcx+624]",
         "mov QWORD PTR [rdi+48], rax",
-        "mov rax, QWORD PTR [rcx+200]",
+        "mov rax, QWORD PTR [rcx+632]",
         "mov QWORD PTR [rdi+56], rax",
         "mov esi, 96",
         "mov rdx, rcx",
-        "add rdx, 176",
+        "add rdx, 608",
         "call {vg_sha256_finalize}",
+        "mov rax, QWORD PTR [rcx+608]",
+        "mov QWORD PTR [rcx+176], rax",
+        "mov rax, QWORD PTR [rcx+616]",
+        "mov QWORD PTR [rcx+184], rax",
+        "mov rax, QWORD PTR [rcx+624]",
+        "mov QWORD PTR [rcx+192], rax",
+        "mov rax, QWORD PTR [rcx+632]",
+        "mov QWORD PTR [rcx+200], rax",
         "ret",
         vg_sha256_finalize = sym super::sha256::vg_sha256_finalize,
     )
@@ -196,19 +204,19 @@ pub(crate) const VG_HMAC_SHA256_INIT_SHANI_FEATURES: &[&str] = &["sha", "ssse3"]
 /// * `key_len` must be at most 64.
 /// * `inner` and `outer` must each be valid for reads and writes of 96 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 608 bytes; its contents on return are unspecified.
 /// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `key` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init_shani(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 20]) {
+pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init_shani(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 76]) {
     core::arch::naked_asm!(
-        "mov QWORD PTR [r8+112], rbx",
-        "mov QWORD PTR [r8+120], rbp",
-        "mov QWORD PTR [r8+128], r12",
-        "mov QWORD PTR [r8+136], r13",
-        "mov QWORD PTR [r8+144], r14",
-        "mov QWORD PTR [r8+152], r15",
+        "mov QWORD PTR [r8+560], rbx",
+        "mov QWORD PTR [r8+568], rbp",
+        "mov QWORD PTR [r8+576], r12",
+        "mov QWORD PTR [r8+584], r13",
+        "mov QWORD PTR [r8+592], r14",
+        "mov QWORD PTR [r8+600], r15",
         "mov rbx, rdi",
         "mov r12, rsi",
         "mov r15, r8",
@@ -292,12 +300,12 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_init_shani(inner: *mut [u8; 
         "call {vg_sha256_compress_shani}",
         "mov rbx, rdi",
         "mov r15, rcx",
-        "mov rbx, QWORD PTR [r15+112]",
-        "mov rbp, QWORD PTR [r15+120]",
-        "mov r12, QWORD PTR [r15+128]",
-        "mov r13, QWORD PTR [r15+136]",
-        "mov r14, QWORD PTR [r15+144]",
-        "mov r15, QWORD PTR [r15+152]",
+        "mov rbx, QWORD PTR [r15+560]",
+        "mov rbp, QWORD PTR [r15+568]",
+        "mov r12, QWORD PTR [r15+576]",
+        "mov r13, QWORD PTR [r15+584]",
+        "mov r14, QWORD PTR [r15+592]",
+        "mov r15, QWORD PTR [r15+600]",
         "ret",
         vg_sha256_compress_shani = sym super::sha256::vg_sha256_compress_shani,
     )
@@ -314,61 +322,69 @@ pub(crate) const VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES: &[&str] = &["sha", "sss
 ///
 /// * `inner` must be valid for reads and writes of 96 bytes; its contents on return are unspecified.
 /// * `outer` must be valid for reads of 96 bytes.
-/// * `scratch` must be valid for reads and writes of 240 bytes; its contents on return are unspecified, apart from the MAC.
+/// * `scratch` must be valid for reads and writes of 688 bytes; its contents on return are unspecified, apart from the MAC.
 /// * `inner` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
 /// * None of `inner`, `outer` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
 #[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_finalize_shani(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 30]) {
+pub(crate) unsafe extern "sysv64" fn vg_hmac_sha256_finalize_shani(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, scratch: *mut [u64; 86]) {
     core::arch::naked_asm!(
         "mov eax, DWORD PTR [rsi]",
-        "mov DWORD PTR [rcx+208], eax",
+        "mov DWORD PTR [rcx+640], eax",
         "mov eax, DWORD PTR [rsi+4]",
-        "mov DWORD PTR [rcx+212], eax",
+        "mov DWORD PTR [rcx+644], eax",
         "mov eax, DWORD PTR [rsi+8]",
-        "mov DWORD PTR [rcx+216], eax",
+        "mov DWORD PTR [rcx+648], eax",
         "mov eax, DWORD PTR [rsi+12]",
-        "mov DWORD PTR [rcx+220], eax",
+        "mov DWORD PTR [rcx+652], eax",
         "mov eax, DWORD PTR [rsi+16]",
-        "mov DWORD PTR [rcx+224], eax",
+        "mov DWORD PTR [rcx+656], eax",
         "mov eax, DWORD PTR [rsi+20]",
-        "mov DWORD PTR [rcx+228], eax",
+        "mov DWORD PTR [rcx+660], eax",
         "mov eax, DWORD PTR [rsi+24]",
-        "mov DWORD PTR [rcx+232], eax",
+        "mov DWORD PTR [rcx+664], eax",
         "mov eax, DWORD PTR [rsi+28]",
-        "mov DWORD PTR [rcx+236], eax",
+        "mov DWORD PTR [rcx+668], eax",
         "mov rsi, rdx",
         "mov rdx, rcx",
-        "add rdx, 176",
+        "add rdx, 608",
         "call {vg_sha256_finalize_shani}",
-        "mov eax, DWORD PTR [rcx+208]",
+        "mov eax, DWORD PTR [rcx+640]",
         "mov DWORD PTR [rdi], eax",
-        "mov eax, DWORD PTR [rcx+212]",
+        "mov eax, DWORD PTR [rcx+644]",
         "mov DWORD PTR [rdi+4], eax",
-        "mov eax, DWORD PTR [rcx+216]",
+        "mov eax, DWORD PTR [rcx+648]",
         "mov DWORD PTR [rdi+8], eax",
-        "mov eax, DWORD PTR [rcx+220]",
+        "mov eax, DWORD PTR [rcx+652]",
         "mov DWORD PTR [rdi+12], eax",
-        "mov eax, DWORD PTR [rcx+224]",
+        "mov eax, DWORD PTR [rcx+656]",
         "mov DWORD PTR [rdi+16], eax",
-        "mov eax, DWORD PTR [rcx+228]",
+        "mov eax, DWORD PTR [rcx+660]",
         "mov DWORD PTR [rdi+20], eax",
-        "mov eax, DWORD PTR [rcx+232]",
+        "mov eax, DWORD PTR [rcx+664]",
         "mov DWORD PTR [rdi+24], eax",
-        "mov eax, DWORD PTR [rcx+236]",
+        "mov eax, DWORD PTR [rcx+668]",
         "mov DWORD PTR [rdi+28], eax",
-        "mov rax, QWORD PTR [rcx+176]",
+        "mov rax, QWORD PTR [rcx+608]",
         "mov QWORD PTR [rdi+32], rax",
-        "mov rax, QWORD PTR [rcx+184]",
+        "mov rax, QWORD PTR [rcx+616]",
         "mov QWORD PTR [rdi+40], rax",
-        "mov rax, QWORD PTR [rcx+192]",
+        "mov rax, QWORD PTR [rcx+624]",
         "mov QWORD PTR [rdi+48], rax",
-        "mov rax, QWORD PTR [rcx+200]",
+        "mov rax, QWORD PTR [rcx+632]",
         "mov QWORD PTR [rdi+56], rax",
         "mov esi, 96",
         "mov rdx, rcx",
-        "add rdx, 176",
+        "add rdx, 608",
         "call {vg_sha256_finalize_shani}",
+        "mov rax, QWORD PTR [rcx+608]",
+        "mov QWORD PTR [rcx+176], rax",
+        "mov rax, QWORD PTR [rcx+616]",
+        "mov QWORD PTR [rcx+184], rax",
+        "mov rax, QWORD PTR [rcx+624]",
+        "mov QWORD PTR [rcx+192], rax",
+        "mov rax, QWORD PTR [rcx+632]",
+        "mov QWORD PTR [rcx+200], rax",
         "ret",
         vg_sha256_finalize_shani = sym super::sha256::vg_sha256_finalize_shani,
     )

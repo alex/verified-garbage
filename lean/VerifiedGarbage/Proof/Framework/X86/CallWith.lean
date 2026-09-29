@@ -97,12 +97,6 @@ theorem callEntry_arg_eq {rs : List Reg} {s₁ s₂ : State} (hrs : Reg.esp ∉ 
   rw [callEntry_arg h₁ hrs hi, callEntry_arg (hsp ▸ h₁) hrs hi]
   exact hr _ (List.getElem_mem _)
 
-@[simp] theorem arg_withRegions (s : State) (rd wr : List Region) (i : Nat) :
-    arg (s.withRegions rd wr) i = arg s i := rfl
-
-@[simp] theorem argAddr_withRegions (s : State) (rd wr : List Region) (i : Nat) :
-    argAddr (s.withRegions rd wr) i = argAddr s i := rfl
-
 /-! ## A call in a frame of its arguments -/
 
 /-- What a call of `k` with the arguments `rs` pushed needs of the state it is

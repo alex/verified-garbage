@@ -17,7 +17,7 @@ open VG.Spec.Scrypt (bytesAt blk salsa)
 open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Scrypt (yAt xBefore yAt_eq xBefore_succ)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
-open VG.Proof.Sha256.Arm.Stream (Upd wp_mov wp_add op2_reg op2_imm)
+open VG.Proof.MdStream.Arm (Upd wp_mov wp_add op2_reg op2_imm)
 open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat contains_off sub_off disj_off
   InRegions.of_mem frame_bytesAt bytesAt_writeBytes_self xorBytes_length bytesAt_length blk_bytesAt)
 
@@ -469,7 +469,7 @@ theorem regs_ok {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < rr s₀) {s :
   have lt := r_lt hp
   refine wp_mov (op2_reg _ _) fun s₆ u₆ => wp_add (op2_imm (by decide)) fun s₇ u₇ =>
     wp_add (op2_imm (by decide)) fun s₈ u₈ => wp_add (op2_imm (by decide)) fun s₉ u₉ =>
-    Proof.Sha256.Arm.Stream.wp_subs (op2_imm (by decide)) fun s₁₀ u₁₀ z₁₀ => WP.block_nil ?_
+    Proof.MdStream.Arm.wp_subs (op2_imm (by decide)) fun s₁₀ u₁₀ z₁₀ => WP.block_nil ?_
   have m₁₀ : s₁₀.mem = s.mem := by rw [u₁₀.mem, u₉.mem, u₈.mem, u₇.mem, u₆.mem]
   have g : ∀ r, r ≠ .r4 → r ≠ .r5 → r ≠ .r6 → r ≠ .r8 → r ≠ .r9 → s₁₀.gpr r = s.gpr r :=
     fun r h4 h5 h6 h8 h9 => by
@@ -508,7 +508,7 @@ theorem regs_ok {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < rr s₀) {s :
     rfl
   · rw [z₁₀, u₉.other _ (by decide), u₈.other _ (by decide), u₇.other _ (by decide),
       u₆.other _ (by decide), h.r8,
-      ofNat_pred32 (by omega), Proof.Sha256.Arm.Stream.ofNat_beq_zero (by omega)]
+      ofNat_pred32 (by omega), Proof.MdStream.Arm.ofNat_beq_zero (by omega)]
     simp only [decide_eq_decide]
     omega
 

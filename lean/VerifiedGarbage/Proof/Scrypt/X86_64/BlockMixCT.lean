@@ -23,7 +23,7 @@ proof.
 namespace VG.Proof.Scrypt.X86_64.BlockMix
 
 open VG VG.X86_64 VG.Impl.Scrypt.X86_64
-open VG.Proof.Sha1.X86_64.Stream (Upd wp_mov wp_addi)
+open VG.Proof.MdStream.X86_64 (Upd wp_mov wp_addi)
 
 /-! ## What each run knows -/
 

@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.Hmac.X86_64.Init
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Init
 import Mathlib.Tactic.Set
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
@@ -21,9 +22,10 @@ open VG.Proof.Hmac.X86_64 (bytesAt_length)
 open VG.Proof.Hmac.X86_64.Init (bytesAt_snoc repr_block)
 open VG.Proof.Sha256.Stream (writeBytes repr_congr)
 open VG.Proof.Sha256.AArch64 (writeState stateAt_writeState contains_offset sub_offset toNat_ofNat_lt)
-open VG.Proof.Sha256.AArch64.Stream (Upd Mupd wp_mov wp_movz wp_addImm wp_subImm wp_sub wp_add wp_ldrb
-  wp_strb compressAt_ok saveMem saveMem_saved saveMem_frame save_ok restore_ok frame_bytes untouched
-  eval_zero eval_nonzero ofNat_beq_zero sub_ofNat movzk ofNat_succ)
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_movz wp_addImm wp_subImm wp_sub wp_add wp_ldrb
+  wp_strb frame_bytes untouched eval_zero eval_nonzero ofNat_beq_zero sub_ofNat ofNat_succ)
+open VG.Proof.Sha256.AArch64.Stream (compressAt_ok saveMem saveMem_saved saveMem_frame save_ok
+  restore_ok movzk)
 open VG.Spec.Sha256 (bytesAt stateAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
 
@@ -87,7 +89,7 @@ theorem blockKey_eq {s₀ : State} (hp : Pre s₀) :
 
 /-! ## `H⁽⁰⁾` -/
 
-open VG.Proof.Sha256.AArch64.Stream.WP (cons)
+open VG.Proof.MdStream.AArch64.WP (cons)
 
 /-- The three instructions storing the 32-bit word `x` at `[b + off]`. -/
 def word (b : Reg) (x : BitVec 32) (off : Nat) : List Instr :=
@@ -350,7 +352,7 @@ theorem wp_eor {is : List Instr} {s : State} {Q : State → Prop} {d n m : Reg}
     (k : ∀ s', Upd s s' d (s.gpr n ^^^ s.gpr m) → WP isa (.block is) s' Q) :
     WP isa (.block (.logic .eor .x d n m :: is)) s Q :=
   cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m)) (by simp [exec, State.read])
-    (k _ (Proof.Sha256.AArch64.Stream.Upd.write64 _ _ _))
+    (k _ (Proof.MdStream.AArch64.Upd.write64 _ _ _))
 
 theorem xor_byte (b : Byte) (v : BitVec 16) :
     (b.setWidth 64 ^^^ v.setWidth 64).setWidth 8 = b ^^^ v.setWidth 8 := by
@@ -609,7 +611,7 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
     WP isa initMain s₀ fun s' => (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) ∧
       s'.sp = s₀.sp ∧ Proof.Hmac.initSha256AArch64.post s₀ s' := by
   have hkl := hp.kl_le
-  refine WP.mono (Proof.Sha256.AArch64.Stream.WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
+  refine WP.mono (Proof.MdStream.AArch64.WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨fun r hr h30 => ?_, hsp, hpost⟩
   · unfold initMain
     refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
@@ -722,7 +724,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) :
     · have e : bytesAt (inner s₀).mem (s₀.gpr .x2) (s₀.gpr .x3).toNat =
           bytesAt s₀.mem (s₀.gpr .x2) (s₀.gpr .x3).toNat :=
         Proof.Sha256.Stream.bytesAt_congr fun i hi =>
-          Proof.Sha256.AArch64.Stream.write_frame_bytes (R := kR s₀) hs.k (s₀.gpr .x3).isLt hi
+          Proof.MdStream.AArch64.write_frame_bytes (R := kR s₀) hs.k (s₀.gpr .x3).isLt hi
       simpa only [Proof.Hmac.initSha256AArch64, e, State.write] using hpost
 
 /-! ## `Verified` -/
@@ -755,11 +757,52 @@ theorem init_ct : ConstantTime isa Proof.Hmac.initSha256AArch64.pre Proof.Hmac.i
     (fun _ _ _ _ hp => agree₀ hp)
     (by taint_decide)
 
+/-- `initSha256AArch64` with the 608 bytes of scratch of the shared contract
+(sized for the x86-64 AVX2 compression function), of which the code uses 160. -/
+def initWide : Contract isa :=
+  { Proof.Hmac.initSha256AArch64 with
+    pre := fun s =>
+      let inner : Region := ⟨s.gpr .x0, 96⟩
+      let outer : Region := ⟨s.gpr .x1, 96⟩
+      let key : Region := ⟨s.gpr .x2, (s.gpr .x3).toNat⟩
+      let scratch : Region := ⟨s.gpr .x4, 608⟩
+      let stack : Region := ⟨s.sp - 16, 16⟩
+      (s.gpr .x3).toNat ≤ 64 ∧ s.rd = [key] ∧ s.wr = [inner, outer, scratch] ∧
+      inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
+      key.Disjoint inner ∧ key.Disjoint outer ∧ key.Disjoint scratch ∧
+      16 ≤ s.sp.toNat ∧ stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint key ∧
+      stack.Disjoint scratch }
+
+/-- The regions `initSha256AArch64` lets the code write. -/
+def narrowWr (s : State) : List Region := [⟨s.gpr .x0, 96⟩, ⟨s.gpr .x1, 96⟩, ⟨s.gpr .x4, 160⟩]
+
+theorem initWide_pre (s : State) (h : initWide.pre s) :
+    Proof.Hmac.initSha256AArch64.pre (s.withRegions s.rd (narrowWr s)) :=
+  let ⟨h₁, h₂, _, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄⟩ := h
+  ⟨h₁, h₂, rfl, h₄, h₅.sub_right (Region.sub_of_ble rfl), h₆.sub_right (Region.sub_of_ble rfl), h₇,
+    h₈, h₉.sub_right (Region.sub_of_ble rfl), h₁₀, h₁₁, h₁₂, h₁₃,
+    h₁₄.sub_right (Region.sub_of_ble rfl)⟩
+
+/-- A state satisfying `initWide.pre`. -/
+def wideSat : State := { sat with wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 608⟩] }
+
+theorem initWide_implies : initWide.Implies (Spec.Hmac.initSha256Contract AArch64.abi 16) := by
+  sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig, initWide,
+    Proof.Hmac.initSha256AArch64, AArch64.abi, AArch64.argRegs] [wideSat, sat] using wideSat
+
+/-- The proof is written against `initSha256AArch64`, widened to the shared
+contract's scratch. -/
 theorem init_verified :
     Verified AArch64.target Impl.Hmac.AArch64.init (Spec.Hmac.initSha256Contract AArch64.abi 16) :=
-  Verified.of_correct init_correct init_ct (by
-    sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig,
-      Proof.Hmac.initSha256AArch64, AArch64.abi, AArch64.argRegs] [Proof.Hmac.AArch64.Init.sat]
-      using Proof.Hmac.AArch64.Init.sat)
+  have hsat := initWide_implies.sat_left
+  (Verified.widen (Verified.of_correct init_correct init_ct
+    (.refl (hsat.elim fun s hs => ⟨_, initWide_pre s hs⟩)))
+    narrowWr initWide_pre
+    (fun _ h => by
+      obtain ⟨_, _, h₃, _⟩ := h
+      rw [h₃]
+      exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl)
+        (.cons (Region.prefix_of_ble rfl) .nil)))
+    (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat).of_implies initWide_implies
 
 end VG.Proof.Hmac.AArch64.Init

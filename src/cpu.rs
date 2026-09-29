@@ -21,7 +21,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The features detection knows, by their Rust `target_feature` names: bit
 /// `i` of a [`Features`] is `NAMES[i]`.
-const NAMES: [&str; 4] = ["ssse3", "sha", "aes", "pclmulqdq"];
+const NAMES: [&str; 6] = ["ssse3", "sha", "aes", "pclmulqdq", "avx", "avx2"];
 
 /// The bit of a feature detection does not know, which is never detected.
 const UNKNOWN: u32 = 1 << 31;
@@ -108,13 +108,17 @@ fn parse(names: &str) -> Option<u32> {
 }
 
 /// Asks the CPU (Intel SDM Vol. 2A, CPUID: leaf 1 ECX bit 9 is SSSE3, bit 25
-/// AES and bit 1 PCLMULQDQ; leaf 7 sub-leaf 0 EBX bit 29 is SHA; AMD reports
-/// them in the same bits).
+/// AES, bit 1 PCLMULQDQ, bit 27 OSXSAVE and bit 28 AVX; leaf 7 sub-leaf 0 EBX
+/// bit 29 is SHA and bit 5 AVX2; AMD reports them in the same bits). AVX and
+/// AVX2 also need the operating system to save the `ymm` registers: XCR0
+/// bits 1 and 2, read with `xgetbv` only if OSXSAVE says it may be (Intel SDM
+/// Vol. 1, §14.3, "Detection of Intel AVX Instructions").
 #[cfg(target_arch = "x86_64")]
 fn runtime() -> u32 {
-    use core::arch::x86_64::{__cpuid, __cpuid_count};
+    use core::arch::x86_64::{__cpuid, __cpuid_count, _xgetbv};
     // SAFETY: every x86-64 CPU has `cpuid`, and leaves 0 and 1; leaf 7 is
-    // read only if leaf 0 says it exists.
+    // read only if leaf 0 says it exists, and `xgetbv` only if OSXSAVE says
+    // the operating system has enabled it.
     #[allow(unused_unsafe)]
     unsafe {
         let max = __cpuid(0).eax;
@@ -122,12 +126,14 @@ fn runtime() -> u32 {
         let ssse3 = (ecx >> 9) & 1;
         let aes = (ecx >> 25) & 1;
         let pclmulqdq = (ecx >> 1) & 1;
-        let sha = if max >= 7 {
-            (__cpuid_count(7, 0).ebx >> 29) & 1
-        } else {
-            0
-        };
-        ssse3 | (sha << 1) | (aes << 2) | (pclmulqdq << 3)
+        let osxsave = (ecx >> 27) & 1 == 1;
+        let xcr0 = if osxsave { _xgetbv(0) } else { 0 };
+        let ymm = u32::from(xcr0 & 0b110 == 0b110);
+        let avx = (ecx >> 28) & ymm;
+        let ebx = if max >= 7 { __cpuid_count(7, 0).ebx } else { 0 };
+        let sha = (ebx >> 29) & 1;
+        let avx2 = (ebx >> 5) & avx;
+        ssse3 | (sha << 1) | (aes << 2) | (pclmulqdq << 3) | (avx << 4) | (avx2 << 5)
     }
 }
 
@@ -146,6 +152,7 @@ mod tests {
         assert_eq!(Features::of(&[]), Features(0));
         assert_eq!(Features::of(&["sha", "ssse3"]), Features(0b11));
         assert_eq!(Features::of(&["pclmulqdq", "aes"]), Features(0b1100));
+        assert_eq!(Features::of(&["avx", "avx2"]), Features(0b11_0000));
         assert_eq!(Features::of(&["avx512f"]), Features(UNKNOWN));
         assert_eq!(
             Features::all(&[&["sha"], &[], &["ssse3", "sha"]]),
@@ -172,6 +179,7 @@ mod tests {
         assert_eq!(parse("none"), Some(0));
         assert_eq!(parse("sha"), Some(0b10));
         assert_eq!(parse("aes,pclmulqdq,ssse3"), Some(0b1101));
+        assert_eq!(parse("avx,avx2"), Some(0b11_0000));
         for bad in ["avx512f", "aes,", "aes,none", " aes", "AES"] {
             assert_eq!(parse(bad), None, "{bad}");
         }

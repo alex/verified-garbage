@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.AArch64.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Finalize
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
@@ -22,7 +23,7 @@ open VG.Proof.Hmac.X86_64 (writeBytes_at writeBytes_other bytesAt_getD' bytesAt_
 open VG.Proof.Hmac.X86_64.Finalize (xorPad_length repr_outer)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Sha256.AArch64 (contains_offset sub_offset toNat_ofNat_lt)
-open VG.Proof.Sha256.AArch64.Stream (Upd Mupd wp_mov wp_movz wp_addImm wp_str wp_ldr frame_bytes
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_movz wp_addImm wp_str wp_ldr frame_bytes
   write_frame_bytes readW_writeW_save)
 open VG.Spec.Sha256 (bytesAt stateAt Repr)
 open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
@@ -75,10 +76,7 @@ theorem pre_of {s₀ : State} (h : Proof.Hmac.finalizeSha256AArch64.pre s₀) : 
 theorem fin_exec : ∀ s, Proof.Sha256.finalizeAArch64.pre s → ∃ t s',
     Exec isa Impl.Sha256.AArch64.Stream.finalize s t s' ∧ abiPreserved s s' ∧
       Proof.Sha256.finalizeAArch64.post s s' := by
-  intro s hs
-  have h := Proof.Sha256.AArch64.Stream.Finalize.pre_of hs
-  obtain ⟨t, s', he, h₁, h₂⟩ := Proof.Sha256.AArch64.Stream.Finalize.correct h.1 h.2
-  exact ⟨t, s', he, h₁, h₂⟩
+  exact Proof.Sha256.AArch64.Stream.Finalize.finalize_verified.1
 
 theorem fin_fdepth : Impl.Sha256.AArch64.Stream.finalize.fdepth = 1 := by decide +kernel
 
@@ -493,12 +491,49 @@ theorem finalize_ct : ConstantTime isa Proof.Hmac.finalizeSha256AArch64.pre
     (fun _ _ _ _ hp => agree₀ hp)
     (by taint_decide)
 
+/-- `finalizeSha256AArch64` with the 688 bytes of scratch of the shared
+contract (sized for the x86-64 AVX2 compression function), of which the code
+uses 240 (the MAC stays at byte 176). -/
+def finalizeWide : Contract isa :=
+  { Proof.Hmac.finalizeSha256AArch64 with
+    pre := fun s =>
+      let inner : Region := ⟨s.gpr .x0, 96⟩
+      let outer : Region := ⟨s.gpr .x1, 96⟩
+      let scratch : Region := ⟨s.gpr .x3, 688⟩
+      let stack : Region := ⟨s.sp - 32, 32⟩
+      s.rd = [outer] ∧ s.wr = [inner, scratch] ∧
+      inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
+      32 ≤ s.sp.toNat ∧ stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint scratch }
+
+/-- The regions `finalizeSha256AArch64` lets the code write. -/
+def narrowWr (s : State) : List Region := [⟨s.gpr .x0, 96⟩, ⟨s.gpr .x3, 240⟩]
+
+theorem finalizeWide_pre (s : State) (h : finalizeWide.pre s) :
+    Proof.Hmac.finalizeSha256AArch64.pre (s.withRegions s.rd (narrowWr s)) :=
+  let ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉⟩ := h
+  ⟨h₁, rfl, h₃, h₄.sub_right (Region.sub_of_ble rfl), h₅.sub_right (Region.sub_of_ble rfl), h₆, h₇,
+    h₈, h₉.sub_right (Region.sub_of_ble rfl)⟩
+
+/-- A state satisfying `finalizeWide.pre`. -/
+def wideSat : State := { sat with wr := [⟨0x1000, 96⟩, ⟨0x3000, 688⟩] }
+
+theorem finalizeWide_implies :
+    finalizeWide.Implies (Spec.Hmac.finalizeSha256Contract AArch64.abi 32) := by
+  sig_implies [Spec.Hmac.finalizeSha256Contract, Spec.Hmac.finalizeSha256Sig, finalizeWide,
+    Proof.Hmac.finalizeSha256AArch64, AArch64.abi, AArch64.argRegs] [wideSat, sat] using wideSat
+
+/-- The proof is written against `finalizeSha256AArch64`, widened to the
+shared contract's scratch. -/
 theorem finalize_verified :
     Verified AArch64.target Impl.Hmac.AArch64.finalize (Spec.Hmac.finalizeSha256Contract AArch64.abi
       32) :=
-  Verified.of_correct finalize_correct finalize_ct (by
-    sig_implies [Spec.Hmac.finalizeSha256Contract, Spec.Hmac.finalizeSha256Sig,
-      Proof.Hmac.finalizeSha256AArch64, AArch64.abi, AArch64.argRegs]
-      [Proof.Hmac.AArch64.Finalize.sat] using Proof.Hmac.AArch64.Finalize.sat)
+  have hsat := finalizeWide_implies.sat_left
+  (Verified.widen (Verified.of_correct finalize_correct finalize_ct
+    (.refl (hsat.elim fun s hs => ⟨_, finalizeWide_pre s hs⟩)))
+    narrowWr finalizeWide_pre
+    (fun _ h => by
+      obtain ⟨_, h₂, _⟩ := h
+      rw [h₂]; exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl) .nil))
+    (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat).of_implies finalizeWide_implies
 
 end VG.Proof.Hmac.AArch64.Finalize

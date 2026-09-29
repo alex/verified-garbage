@@ -1,4 +1,6 @@
-import VerifiedGarbage.Proof.Sha1.X86_64.Stream.Common
+import VerifiedGarbage.Proof.Sha1.X86_64.Compress
+import VerifiedGarbage.Proof.Sha1.Stream
+import VerifiedGarbage.Impl.Sha1.X86_64.Stream
 
 /-!
 # Streaming SHA-1 on x86-64: `init`

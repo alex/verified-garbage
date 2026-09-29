@@ -13,7 +13,7 @@ open VG.AArch64
 open VG.Impl.Hmac.Generic.AArch64 (Hash copy)
 open VG.Impl.Pbkdf2.Generic.AArch64 (stO tmpO uO xorLoop count2 atSt body prologue main iterate)
 open VG.Impl.Sha256.AArch64.Stream (mov)
-open VG.Proof.Sha256.AArch64.Stream (Upd)
+open VG.Proof.MdStream.AArch64 (Upd)
 open VG.Proof.Hmac.Generic.AArch64
 
 /-- The arguments, once `n` is zero-extended. -/

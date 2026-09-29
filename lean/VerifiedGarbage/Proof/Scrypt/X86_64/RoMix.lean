@@ -14,13 +14,13 @@ works on, and `BlockMixSpec`: what a call of the verified
 namespace VG.Proof.Scrypt.X86_64.RoMix
 
 namespace Stream
-export VG.Proof.Sha1.X86_64.Stream (Upd)
+export VG.Proof.MdStream.X86_64 (Upd)
 end Stream
 
 open VG VG.X86_64 VG.Impl.Scrypt.X86_64
 open VG.Spec.Scrypt (bytesAt blockMix)
 open VG.Proof.Scrypt.X86_64.BlockMix (covers_of_in covers_pair)
-open VG.Proof.Sha1.X86_64.Stream (callEntry_byte)
+open VG.Proof.MdStream.X86_64 (callEntry_byte)
 
 /-! ## What a call of `vg_scrypt_blockmix` does -/
 
@@ -334,7 +334,7 @@ theorem wp_shr {d : Reg} {n : Nat} (h₁ : 1 ≤ n) (h₂ : n ≤ 63)
     (k : ∀ s', Stream.Upd s s' d (s.gpr d >>> n) → s'.zf = some ((s.gpr d >>> n) == 0) →
       WP isa (.block is) s' Q) :
     WP isa (.block (.shift .shr d n :: is)) s Q := by
-  refine Proof.Sha1.X86_64.Stream.WP.cons (s' := (s.setFlags (some ((s.gpr d).getLsbD (n - 1)))
+  refine Proof.MdStream.X86_64.WP.cons (s' := (s.setFlags (some ((s.gpr d).getLsbD (n - 1)))
     (if n = 1 then some (s.gpr d).msb else none) (some ((s.gpr d >>> n) == 0))
     (some (s.gpr d >>> n).msb)).setReg d (s.gpr d >>> n)) ?_ (k _ ?_ rfl)
   · simp [exec, execShift, h₁, h₂]
@@ -344,7 +344,7 @@ theorem wp_shr {d : Reg} {n : Nat} (h₁ : 1 ≤ n) (h₂ : n ≤ 63)
 theorem wp_and {d r : Reg}
     (k : ∀ s', Stream.Upd s s' d (s.gpr d &&& s.gpr r) → WP isa (.block is) s' Q) :
     WP isa (.block (.alu .and d (.reg r) :: is)) s Q :=
-  Proof.Sha1.X86_64.Stream.WP.cons rfl (k _ (VG.Proof.Sha1.X86_64.Stream.Upd.flags _ _ _ _ _ _))
+  Proof.MdStream.X86_64.WP.cons rfl (k _ (VG.Proof.MdStream.X86_64.Upd.flags _ _ _ _ _ _))
 
 end
 

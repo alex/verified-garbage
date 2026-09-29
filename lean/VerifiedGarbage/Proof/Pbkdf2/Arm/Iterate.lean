@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Arm.Body
 import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Proof.Framework.Arm.Inline
 import VerifiedGarbage.Spec.Pbkdf2.Contract
 
 /-!
@@ -18,9 +19,9 @@ open VG VG.Arm VG.Impl.Pbkdf2.Arm
 open VG.Impl.Sha256.Arm.Stream (saved restore save)
 open VG.Impl.Hmac.Arm (cp)
 open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd wp_mov wp_str wp_ldrSp wp_cmp op2_imm op2_reg save_ok restore_ok
-  saveMem saveMem_saved saveMem_frame saved_bound)
-open VG.Proof.Sha256.Arm.Stream.Update (addr_toNat)
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_str wp_ldrSp wp_cmp op2_imm op2_reg saveMem)
+open VG.Proof.Sha256.Arm.Stream (save_ok restore_ok saveMem_saved saveMem_frame saved_bound)
+open VG.Proof.MdStream.Arm (addr_toNat)
 open VG.Proof.Hmac.Arm (copy_ok)
 open VG.Proof.Hmac.Arm.Init (beq_zero_toNat)
 open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep)
@@ -364,12 +365,63 @@ theorem iterate_ct : ConstantTime isa Proof.Pbkdf2.iterateSha256Arm.pre
   exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
     (by taint_decide)
 
+/-- `iterateSha256Arm` with the 832 bytes of scratch of the shared contract
+(sized for the x86-64 AVX2 compression function), of which the code uses 384. -/
+def iterateWide : Contract isa :=
+  { Proof.Pbkdf2.iterateSha256Arm with
+    pre := fun s =>
+      let key : Region := ⟨State.addr (s.gpr .r0), 192⟩
+      let u : Region := ⟨State.addr (s.gpr .r1), 32⟩
+      let t : Region := ⟨State.addr (s.gpr .r3), 32⟩
+      let scratch : Region := ⟨State.addr (stackArg s 0), 832⟩
+      let args : Region := ⟨stackArgAddr s 0, 4⟩
+      s.rd = [key, u, args] ∧ s.wr = [t, scratch] ∧
+      key.Disjoint t ∧ key.Disjoint scratch ∧ u.Disjoint t ∧ u.Disjoint scratch ∧
+      t.Disjoint scratch ∧ args.Disjoint t ∧ args.Disjoint scratch ∧
+      (s.gpr .r0).toNat + 192 ≤ 2 ^ 32 ∧ (s.gpr .r1).toNat + 32 ≤ 2 ^ 32 ∧
+      (s.gpr .r3).toNat + 32 ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + 832 ≤ 2 ^ 32 ∧
+      s.sp.toNat + 4 ≤ 2 ^ 32 }
+
+/-- The regions `iterateSha256Arm` lets the code write. -/
+def narrowWr (s : State) : List Region :=
+  [⟨State.addr (s.gpr .r3), 32⟩, ⟨State.addr (stackArg s 0), 384⟩]
+
+/-- Rewrites the contracts at a narrowed state (`stackArg` does not unfold
+cheaply). -/
+local macro "narrow" loc:(Lean.Parser.Tactic.location)? : tactic =>
+  `(tactic| simp only [Proof.Pbkdf2.iterateSha256Arm, VG.Proof.Pbkdf2.Arm.iterateWide, VG.Proof.Pbkdf2.Arm.narrowWr, VG.Arm.stackArg_withRegions, VG.Arm.stackArgAddr_withRegions,
+    VG.Arm.State.withRegions_gpr, VG.Arm.State.withRegions_sp, VG.Arm.State.withRegions_mem,
+    VG.Arm.State.withRegions_rd, VG.Arm.State.withRegions_wr] $(loc)?)
+
+theorem iterateWide_pre (s : State) (h : iterateWide.pre s) :
+    Proof.Pbkdf2.iterateSha256Arm.pre (s.withRegions s.rd (narrowWr s)) := by
+  obtain ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄⟩ := h
+  narrow
+  exact ⟨h₁, trivial, h₃, h₄.sub_right (Region.sub_of_ble rfl), h₅,
+    h₆.sub_right (Region.sub_of_ble rfl), h₇.sub_right (Region.sub_of_ble rfl), h₈,
+    h₉.sub_right (Region.sub_of_ble rfl), h₁₀, h₁₁, h₁₂, Region.end_le_of_ble rfl h₁₃, h₁₄⟩
+
+/-- A state satisfying `iterateWide.pre`. -/
+def wideSat : State := { sat with wr := [⟨0x3000, 32⟩, ⟨0x4000, 832⟩] }
+
+theorem iterateWide_implies : iterateWide.Implies (Spec.Pbkdf2.iterateSha256Contract Arm.abi) := by
+  sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig, iterateWide,
+    Proof.Pbkdf2.iterateSha256Arm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+    Arm.State.addr] [wideSat, sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read]
+    using wideSat
+
+/-- The proof is written against `iterateSha256Arm`, widened to the shared
+contract's scratch. -/
 theorem iterate_verified :
     Verified Arm.target Impl.Pbkdf2.Arm.iterate (Spec.Pbkdf2.iterateSha256Contract Arm.abi) :=
-  Verified.of_correct iterate_correct iterate_ct (by
-    sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig,
-      Proof.Pbkdf2.iterateSha256Arm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
-      Arm.State.addr] [Proof.Pbkdf2.Arm.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read]
-      using Proof.Pbkdf2.Arm.sat)
+  have hsat := iterateWide_implies.sat_left
+  (Verified.widen (Verified.of_correct iterate_correct iterate_ct
+    (.refl (hsat.elim fun s hs => ⟨_, iterateWide_pre s hs⟩)))
+    narrowWr iterateWide_pre
+    (fun _ h => by
+      obtain ⟨_, h₂, _⟩ := h
+      rw [h₂]; exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl) .nil))
+    (fun _ _ _ h => by narrow at h ⊢; exact h)
+    (fun _ _ _ _ h => by narrow; exact h) hsat).of_implies iterateWide_implies
 
 end VG.Proof.Pbkdf2.Arm

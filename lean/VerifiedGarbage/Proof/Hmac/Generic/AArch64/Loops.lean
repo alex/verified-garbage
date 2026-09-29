@@ -19,7 +19,7 @@ open VG.AArch64
 open VG.Impl.Hmac.Generic.AArch64 (Hash copy left)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeW8_apply)
 open VG.Proof.Sha256.X86_64 (toNat_ofNat_lt)
-open VG.Proof.Sha256.AArch64.Stream (Upd Mupd wp_add wp_sub wp_addImm wp_movz wp_ldrb wp_strb
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_add wp_sub wp_addImm wp_movz wp_ldrb wp_strb
   eval_nonzero eval_zero ofNat_succ)
 open VG.Proof.Hmac.X86_64 (bytesAt_length)
 open VG.Proof.Hmac.Generic.X86_64 (writeBytes_snoc bytesAt_snoc' not_mem_of_disjoint add_ofNat_ne
@@ -35,8 +35,8 @@ variable {is : List Instr} {s : State} {Q : State → Prop}
 theorem wp_eor {d n m : Reg}
     (k : ∀ s', Upd s s' d (s.gpr n ^^^ s.gpr m) → WP isa (.block is) s' Q) :
     WP isa (.block (.logic .eor .x d n m :: is)) s Q :=
-  Proof.Sha256.AArch64.Stream.WP.cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m))
-    (by simp [exec, State.read]) (k _ (Proof.Sha256.AArch64.Stream.Upd.write64 _ _ _))
+  Proof.MdStream.AArch64.WP.cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m))
+    (by simp [exec, State.read]) (k _ (Proof.MdStream.AArch64.Upd.write64 _ _ _))
 
 end
 
@@ -352,7 +352,7 @@ theorem key_ok {P K : Addr} {kl : Nat} {s : State} (hr : LoopRegs H P K kl s) (h
     ⟨rfl, rfl, rfl, fun _ _ => rfl, h24, ⟨by simp [bytesAt], by simp [bytesAt], Frame.refl _ _⟩⟩
   have hz : isa.eval (.zero .x .x22) s = some (decide (kl = 0)) := by
     show VG.AArch64.eval (.zero .x .x22) s = _
-    rw [eval_zero, hr.x22, Proof.Sha256.AArch64.Stream.ofNat_beq_zero (by omega)]
+    rw [eval_zero, hr.x22, Proof.MdStream.AArch64.ofNat_beq_zero (by omega)]
   refine WP.ite (decide (kl = 0)) hz (fun h0 => WP.block_nil ?_) fun h0 => ?_
   · have : kl = 0 := by simpa using h0
     subst this; exact i0
@@ -409,7 +409,7 @@ theorem pad_ok {P K : Addr} {kl : Nat} {s₀ : State} (hr : LoopRegs H P K kl s�
   have hz : isa.eval (.zero .x .x11) t₂ = some (decide (kl = H.B)) := by
     show VG.AArch64.eval (.zero .x .x11) t₂ = _
     rw [eval_zero, u₂.gpr, u₁.gpr, u₁.other _ (by decide), h.x24, left_val hkl (by omega),
-      Proof.Sha256.AArch64.Stream.ofNat_beq_zero (by omega)]
+      Proof.MdStream.AArch64.ofNat_beq_zero (by omega)]
     congr 1; exact decide_eq_decide.mpr (by omega)
   refine WP.ite (decide (kl = H.B)) hz (fun h0 => WP.block_nil ?_) fun h0 => ?_
   · have : kl = H.B := by simpa using h0
