@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.MlKem1024.Arm.Decompress
 import VerifiedGarbage.Proof.MlKem1024.Arm.CheckEk
 import VerifiedGarbage.Proof.MlKem1024.Arm.KeyGenCT
 import VerifiedGarbage.Proof.MlKem1024.Arm.EncapsCT
+import VerifiedGarbage.Proof.MlKem1024.Arm.DecapsCT
 
 /-!
 # ML-KEM-1024 (FIPS 203) on 32-bit ARM
@@ -61,6 +62,17 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem1024.encapsContract Arm.abi 8
     stack := 8
     verified := Proof.MlKem1024.Arm.Encaps.verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem1024.decapsApi with
+    target := Arm.target
+    doc := Spec.MlKem1024.decapsApi.doc
+      (notes := ["The function saves `r4`–`r11`, its return address and `key` in `scratch`, and copies `ct` \
+        into it; the 8 bytes of stack below the stack pointer hold the stack arguments of the SHA-3 functions it \
+        calls."])
+    code := Impl.MlKem1024.Arm.decaps1024
+    contract := Spec.MlKem1024.decapsContract Arm.abi 8
+    stack := 8
+    verified := Proof.MlKem1024.Arm.Decaps.verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.MlKem1024.Arm
