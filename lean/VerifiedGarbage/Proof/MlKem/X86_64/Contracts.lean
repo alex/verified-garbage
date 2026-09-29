@@ -53,6 +53,15 @@ def decode12K : Contract isa where
   post s s' := PolyIs s'.mem (s.gpr .rsi) (decode12 (Spec.Sha3.bytesAt s.mem (s.gpr .rdi) 384))
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
+/-- `vg_mlkem_cbd2(b = rdi, f = rsi)`. -/
+def cbd2K : Contract isa where
+  pre s :=
+    s.rd = [⟨s.gpr .rdi, 128⟩] ∧ s.wr = [pR (s.gpr .rsi)] ∧
+    Region.Disjoint ⟨s.gpr .rdi, 128⟩ (pR (s.gpr .rsi)) ∧ (retR s).Disjoint ⟨s.gpr .rdi, 128⟩ ∧
+    (retR s).Disjoint (pR (s.gpr .rsi))
+  post s s' := PolyIs s'.mem (s.gpr .rsi) (samplePolyCBD 2 (Spec.Sha3.bytesAt s.mem (s.gpr .rdi) 128))
+  pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rsp = s₂.gpr .rsp
+
 /-! ## Satisfiability -/
 
 theorem read_zero (a : Addr) : ∀ n, Mem.read (fun _ => 0) a n = 0
