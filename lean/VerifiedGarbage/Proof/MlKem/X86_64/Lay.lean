@@ -29,9 +29,17 @@ def inB (bs : List (Reg × Nat)) (p : Ptr) (len : Nat) : Bool :=
   | some n => decide (p.2 + len ≤ n)
   | none => false
 
-/-- The `l` bytes at `p` and the `k` bytes at `q` lie within their buffers, apart. -/
+/-- The registers of the buffers the top-level functions write (`scratch`
+and the outputs): a buffer they only read may overlap another such
+buffer, but not one of these. -/
+abbrev wRegs : List Reg := [.rbx, .r12, .r13]
+
+/-- The `l` bytes at `p` and the `k` bytes at `q` lie within their buffers,
+apart: in different buffers, one of them written, or in the same buffer. -/
 def sepB (bs : List (Reg × Nat)) (p : Ptr) (l : Nat) (q : Ptr) (k : Nat) : Bool :=
-  inB bs p l && inB bs q k && (p.1 != q.1 || decide (p.2 + l ≤ q.2) || decide (q.2 + k ≤ p.2))
+  inB bs p l && inB bs q k &&
+    ((p.1 != q.1 && (decide (p.1 ∈ wRegs) || decide (q.1 ∈ wRegs))) ||
+      (p.1 == q.1 && (decide (p.2 + l ≤ q.2) || decide (q.2 + k ≤ p.2))))
 
 theorem lookup_mem : ∀ {bs : List (Reg × Nat)} {r : Reg} {n : Nat}, bs.lookup r = some n → (r, n) ∈ bs
   | [], _, _, h => by simp [List.lookup] at h
@@ -54,10 +62,10 @@ theorem inB_spec {bs : List (Reg × Nat)} {p : Ptr} {l : Nat} (h : inB bs p l = 
   · cases h
 
 theorem sepB_spec {bs : List (Reg × Nat)} {p q : Ptr} {l k : Nat} (h : sepB bs p l q k = true) :
-    inB bs p l = true ∧ inB bs q k = true ∧ (p.1 ≠ q.1 ∨ p.2 + l ≤ q.2 ∨ q.2 + k ≤ p.2) := by
-  simp only [sepB, Bool.and_eq_true, Bool.or_eq_true, bne_iff_ne, ne_eq, decide_eq_true_eq] at h
-  obtain ⟨⟨h1, h2⟩, h3⟩ := h
-  exact ⟨h1, h2, by rcases h3 with (h | h) | h <;> [exact .inl h; exact .inr (.inl h); exact .inr (.inr h)]⟩
+    inB bs p l = true ∧ inB bs q k = true ∧
+      ((p.1 ≠ q.1 ∧ (p.1 ∈ wRegs ∨ q.1 ∈ wRegs)) ∨ (p.1 = q.1 ∧ (p.2 + l ≤ q.2 ∨ q.2 + k ≤ p.2))) := by
+  simp only [sepB, Bool.and_eq_true, Bool.or_eq_true, bne_iff_ne, ne_eq, decide_eq_true_eq, beq_iff_eq] at h
+  exact h.1.1 |> fun h1 => ⟨h1, h.1.2, h.2⟩
 
 /-! ## Regions -/
 
@@ -104,7 +112,7 @@ their registers: small, apart from each other and from the stack, not
 wrapping around, and permitted. -/
 structure Lay (rbs wbs : List (Reg × Nat)) (s : State) : Prop where
   small : ∀ b ∈ rbs ++ wbs, b.2 < 2 ^ 32
-  dj : ∀ b ∈ rbs ++ wbs, ∀ b' ∈ rbs ++ wbs, b.1 ≠ b'.1 →
+  dj : ∀ b ∈ rbs ++ wbs, ∀ b' ∈ rbs ++ wbs, b.1 ≠ b'.1 → (b.1 ∈ wRegs ∨ b'.1 ∈ wRegs) →
     Region.Disjoint ⟨s.gpr b.1, b.2⟩ ⟨s.gpr b'.1, b'.2⟩
   stk : ∀ b ∈ rbs ++ wbs, (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr b.1, b.2⟩
   nw : ∀ b ∈ rbs ++ wbs, (s.gpr b.1).toNat + b.2 ≤ 2 ^ 64
@@ -128,14 +136,13 @@ theorem Lay.disj {p q : Ptr} {l k : Nat} (h : sepB (rbs ++ wbs) p l q k = true) 
   obtain ⟨m, hm, hk⟩ := inB_spec hq
   have sn := L.small _ hn
   have sm := L.small _ hm
-  by_cases e : p.1 = q.1
+  rcases hs with ⟨e, hw⟩ | ⟨e, hs⟩
+  · exact ((L.dj _ hn _ hm e hw).sub_left (sub_offset' hl (by omega))).sub_right (sub_offset' hk (by omega))
   · show Region.Disjoint ⟨s.gpr p.1 + _, l⟩ ⟨s.gpr q.1 + _, k⟩
     rw [← e]
-    rcases hs with hne | h1 | h2
-    · exact absurd e hne
+    rcases hs with h1 | h2
     · exact off_disj h1 (by omega)
     · exact (off_disj h2 (by omega)).symm
-  · exact ((L.dj _ hn _ hm e).sub_left (sub_offset' hl (by omega))).sub_right (sub_offset' hk (by omega))
 
 theorem Lay.stkD {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) :
     (below (s.gpr .rsp) 24).Disjoint ⟨pa s p, l⟩ := by
@@ -206,9 +213,9 @@ theorem PostB.pa {s s' : State} {W : List Region} (hP : PostB s s' W) {p : Ptr} 
 theorem Lay.post {rbs wbs : List (Reg × Nat)} {s s' : State} {W : List Region} (L : Lay rbs wbs s)
     (hP : PostB s s' W) (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) : Lay rbs wbs s' := by
   have e : ∀ b ∈ rbs ++ wbs, s'.gpr b.1 = s.gpr b.1 := fun b hb => hP.bs _ (hcs b hb)
-  refine ⟨L.small, fun b hb b' hb' hne => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_,
+  refine ⟨L.small, fun b hb b' hb' hne hw => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_,
     fun b hb => ?_⟩
-  · rw [e b hb, e b' hb']; exact L.dj b hb b' hb' hne
+  · rw [e b hb, e b' hb']; exact L.dj b hb b' hb' hne hw
   · rw [e b hb, hP.rsp]; exact L.stk b hb
   · rw [e b hb]; exact L.nw b hb
   · rw [e b hb, hP.rd, hP.wr]; exact L.rd b hb

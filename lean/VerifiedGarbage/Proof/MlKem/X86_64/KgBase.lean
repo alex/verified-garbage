@@ -67,12 +67,12 @@ theorem kgLay {s : State} (h : Top kgM σ s) : Lay kgR kgW s := by
     ⟨r, by rw [h.rd, h.wr]; exact hr, Region.contains_self _ _⟩
   refine Lay.of (by decide) (pw4 ?_ ?_ ?_ ?_ ?_ ?_) (fa4 ?_ ?_ ?_ ?_) (fa4 ?_ ?_ ?_ ?_) (fa4 ?_ ?_ ?_ ?_)
     (fa3 ?_ ?_ ?_) (fa4 ?_ ?_ ?_ ?_) <;> simp only [e1, e2, e3, e4, h.rsp, retR]
-  · exact d3
-  · exact d1
-  · exact d2
-  · exact d5.symm
-  · exact d6.symm
-  · exact d4
+  · exact fun _ => d3
+  · exact fun _ => d1
+  · exact fun _ => d2
+  · exact fun _ => d5.symm
+  · exact fun _ => d6.symm
+  · exact fun _ => d4
   exacts [k1, k4, k2, k3, n1, n4, n2, n3,
     mem ⟨σ.gpr .rdi, 64⟩ (by rw [hrd]; simp), mem ⟨σ.gpr .rcx, 32768⟩ (by rw [hwr]; simp),
     mem ⟨σ.gpr .rsi, 1184⟩ (by rw [hwr]; simp), mem ⟨σ.gpr .rdx, 2400⟩ (by rw [hwr]; simp),

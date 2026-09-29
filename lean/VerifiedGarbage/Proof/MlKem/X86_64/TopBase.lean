@@ -35,14 +35,15 @@ theorem pairwise_sym {α : Type} {R : α → α → Prop} (hs : ∀ a b, R a b �
       · exact pairwise_sym hs h.2 ha' hb' hne
 
 theorem Lay.of {rbs wbs : List (Reg × Nat)} {s : State} (small : ∀ b ∈ rbs ++ wbs, b.2 < 2 ^ 32)
-    (pw : (rbs ++ wbs).Pairwise fun b b' => Region.Disjoint ⟨s.gpr b.1, b.2⟩ ⟨s.gpr b'.1, b'.2⟩)
+    (pw : (rbs ++ wbs).Pairwise fun b b' => (b.1 ∈ wRegs ∨ b'.1 ∈ wRegs) →
+      Region.Disjoint ⟨s.gpr b.1, b.2⟩ ⟨s.gpr b'.1, b'.2⟩)
     (stk : ∀ b ∈ rbs ++ wbs, (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr b.1, b.2⟩)
     (nw : ∀ b ∈ rbs ++ wbs, (s.gpr b.1).toNat + b.2 ≤ 2 ^ 64)
     (rd : ∀ b ∈ rbs ++ wbs, InRegions (s.rd ++ s.wr) (s.gpr b.1) b.2)
     (wr : ∀ b ∈ wbs, InRegions s.wr (s.gpr b.1) b.2)
     (ret : ∀ b ∈ rbs ++ wbs, (retR s).Disjoint ⟨s.gpr b.1, b.2⟩) : Lay rbs wbs s := by
-  exact ⟨small, fun b hb b' hb' hne => pairwise_sym (fun _ _ h => h.symm) pw hb hb' (fun e => hne (by rw [e])),
-    stk, nw, rd, wr, ret⟩
+  exact ⟨small, fun b hb b' hb' hne hw => pairwise_sym (fun _ _ h hw => (h hw.symm).symm) pw hb hb'
+    (fun e => hne (by rw [e])) hw, stk, nw, rd, wr, ret⟩
 
 theorem fa2 {α : Type} {p : α → Prop} {a b : α} (ha : p a) (hb : p b) : ∀ x ∈ [a, b], p x := by
   intro x hx

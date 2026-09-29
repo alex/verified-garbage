@@ -4,7 +4,8 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Frag
 # ML-KEM-768 on x86-64: K-PKE.Encrypt, in `vg_mlkem768_encaps` and `vg_mlkem768_decaps`
 
 `K-PKE.Encrypt(ek, m, r)` (FIPS 203 Algorithm 14) with the encryption key
-`ek` at `r14`, the message `m` at `M` and the randomness `r` at `G + 32`
+`ek` at the pointer `E` (`r14` in `vg_mlkem768_encaps`, `rbp + 1152` in
+`vg_mlkem768_decaps`), the message `m` at `M` and the randomness `r` at `G + 32`
 (the second half of `G`'s output) in the working space `scratch` at `rbx`:
 the ciphertext to `CT` in `scratch` (1088 bytes). `r15` is the AND of the
 results of `vg_mlkem_sample_ntt`, as in `vg_mlkem768_keygen`.
@@ -32,7 +33,7 @@ namespace Encrypt
 abbrev rP : Ptr := sc (oG + 32)
 
 /-- `ρ` to `SB`, and `Â`. -/
-def mat : Prog isa := .seq (copy (sc oSB) (.r14, 1152) 32) samples
+def mat (E : Ptr) : Prog isa := .seq (copy (sc oSB) (E.1, E.2 + 1152) 32) samples
 
 /-- `ŷ[j]`. -/
 def y (j : Nat) : Prog isa := .seq (prfCbd rP j (pS j)) (nttAt (pS j))
@@ -43,7 +44,7 @@ def u (i : Nat) : Prog isa :=
     (.seq (addAt (pS 15) (pS 16)) (ceAt (pS 15) 10 (sc (oCT + 320 * i))))))
 
 /-- `t̂[i]`. -/
-def t (i : Nat) : Prog isa := dec12At (.r14, 384 * i) (pS (3 + i))
+def t (E : Ptr) (i : Nat) : Prog isa := dec12At (E.1, E.2 + 384 * i) (pS (3 + i))
 
 /-- `v`, compressed and encoded to the ciphertext. -/
 def v : Prog isa :=
@@ -51,11 +52,11 @@ def v : Prog isa :=
     (.seq (addAt (pS 15) (pS 16)) (.seq (ddAt (sc oM) 1 (pS 16)) (.seq (addAt (pS 15) (pS 16))
       (ceAt (pS 15) 4 (sc (oCT + 960))))))))
 
-def rest : Prog isa := .seq (seqR y 0 3) (.seq (seqR u 0 3) (.seq (seqR t 0 3) v))
+def rest (E : Ptr) : Prog isa := .seq (seqR y 0 3) (.seq (seqR u 0 3) (.seq (seqR (t E) 0 3) v))
 
 end Encrypt
 
 open Encrypt in
-def encrypt : Prog isa := .seq mat (ifOk rest)
+def encrypt (E : Ptr) : Prog isa := .seq (mat E) (ifOk (rest E))
 
 end VG.Impl.MlKem.X86_64
