@@ -144,10 +144,6 @@ theorem Done.regs {s₀ s s' : State} {F : Nat → Nat} (h : Done s₀ F s)
 
 /-! ## Prologue -/
 
-theorem uprologue_eq : setup ++ [.mov .esi (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 8)),
-    .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)] = setup ++ [.mov .esi (.mem (at_ .esp 16)),
-    .mov .edx (.mem (at_ .esp 8)), .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)] := rfl
-
 theorem uprologue_ok {s₀ : State} (hp : UPre s₀) :
     WP isa (.block (setup ++ [.mov .esi (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 8)),
       .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)])) s₀ fun s => ∃ F, SetupF s₀ F ∧
