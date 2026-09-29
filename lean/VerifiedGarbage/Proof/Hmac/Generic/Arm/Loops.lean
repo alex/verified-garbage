@@ -18,7 +18,7 @@ namespace VG.Proof.Hmac.Generic.Arm
 open VG.Arm
 open VG.Impl.Hmac.Generic.Arm (Hash copy)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd WP.cons op2_imm op2_reg wp_mov wp_add wp_subs wp_ldrb wp_strb
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd WP.cons op2_imm op2_reg wp_mov wp_add wp_subs wp_ldrb wp_strb
   eval_ne sub_beq sub_ofNat)
 open VG.Proof.Hmac.X86_64 (bytesAt_length)
 open VG.Proof.Hmac.Generic.X86_64 (writeBytes_snoc bytesAt_snoc' not_mem_of_disjoint xorBytes_snoc xorBytes_length'
@@ -424,7 +424,7 @@ theorem key_ok {scr kp : BitVec 32} {kl : Nat} {s : State} (hr : LoopRegs scr kp
   have hB := hm.hB
   have i0 : KeyInv H s (State.addr scr + BitVec.ofNat 64 H.buf) (State.addr kp) kl 0 s :=
     ⟨rfl, rfl, rfl, fun _ _ => rfl, h8, ⟨by simp [bytesAt], by simp [bytesAt], Frame.refl _ _⟩⟩
-  refine WP.ite (decide (kl = 0)) (by show eval .eq s = _; rw [VG.Proof.Sha256.Arm.Stream.eval_eq, hz])
+  refine WP.ite (decide (kl = 0)) (by show eval .eq s = _; rw [VG.Proof.MdStream.Arm.eval_eq, hz])
     (fun h0 => WP.block_nil ?_) fun h0 => ?_
   · have : kl = 0 := by simpa using h0
     subst this; exact i0
@@ -451,9 +451,9 @@ theorem pad_ok {scr kp : BitVec 32} {kl : Nat} {s₀ : State} (hr : LoopRegs scr
       fun r hr' => by rw [u₂.other r (nm hr' .r9), u₁.other r (nm hr' .r9), h.other r hr'],
       by rw [u₂.other _ (by decide), u₁.other _ (by decide), h.r8], by rw [u₂.mem, u₁.mem]; exact h.mem⟩
   have hz : t₂.z = decide (kl = H.B) := by
-    rw [z₂, e9, VG.Proof.Sha256.Arm.Stream.ofNat_beq_zero (by omega)]
+    rw [z₂, e9, VG.Proof.MdStream.Arm.ofNat_beq_zero (by omega)]
     exact decide_eq_decide.mpr (by omega)
-  refine WP.ite (decide (kl = H.B)) (by show eval .eq t₂ = _; rw [VG.Proof.Sha256.Arm.Stream.eval_eq, hz])
+  refine WP.ite (decide (kl = H.B)) (by show eval .eq t₂ = _; rw [VG.Proof.MdStream.Arm.eval_eq, hz])
     (fun h0 => WP.block_nil ?_) fun h0 => ?_
   · have : kl = H.B := by simpa using h0
     exact this ▸ i0

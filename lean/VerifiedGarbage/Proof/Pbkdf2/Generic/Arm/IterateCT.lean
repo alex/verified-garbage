@@ -14,7 +14,7 @@ namespace VG.Proof.Pbkdf2.Generic.Arm
 open VG.Arm
 open VG.Impl.Hmac.Generic.Arm (Hash copy scrAt)
 open VG.Impl.Pbkdf2.Generic.Arm (stO tmpO uO xorLoop count2 atSt body prologue iterate)
-open VG.Proof.Sha256.Arm.Stream (eval_eq eval_ne)
+open VG.Proof.MdStream.Arm (eval_eq eval_ne)
 open VG.Proof.Hmac.Generic.Arm
 
 /-- The argument registers. -/

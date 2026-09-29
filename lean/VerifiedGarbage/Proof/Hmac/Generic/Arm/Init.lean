@@ -17,7 +17,7 @@ open VG.Arm
 open VG.Impl.Hmac.Generic.Arm (Hash scrAt)
 open VG.Proof.Hmac.Generic.Arm
 open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (Upd Fupd wp_mov wp_add wp_cmp wp_ldrSp op2_imm op2_reg sub_offset
+open VG.Proof.MdStream.Arm (Upd Fupd wp_mov wp_add wp_cmp wp_ldrSp op2_imm op2_reg sub_offset
   ofNat_beq_zero)
 open VG.Proof.Hmac.Generic.X86_64 (add_ofNat_add bytesAt_prefix_congr inRegions_of_sub K0 K0_length)
 open VG.Proof.Hmac.Generic.X86_64.Init (off_disj off_disj0 sub_of_off sub_of_self bytes_keep take_map_xor)

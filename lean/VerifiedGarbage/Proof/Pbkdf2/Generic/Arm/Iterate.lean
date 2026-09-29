@@ -20,7 +20,7 @@ open VG.Proof.Hmac.Generic.Arm.Finalize (add_zero')
 open VG.Proof.Hmac.Generic.X86_64 (inRegions_of_sub xorBytes_length')
 open VG.Proof.Hmac.Generic.X86_64.Init (sub_of_off sub_of_self bytes_keep)
 open VG.Proof.Hmac.Generic.X86_64.Finalize (bytesAt_take bytesAt_writeBytes_self' xorPad_length)
-open VG.Proof.Sha256.Arm.Stream (Upd Fupd wp_mov wp_add wp_subs wp_cmp wp_ldrSp op2_imm op2_reg sub_offset
+open VG.Proof.MdStream.Arm (Upd Fupd wp_mov wp_add wp_subs wp_cmp wp_ldrSp op2_imm op2_reg sub_offset
   ofNat_beq_zero sub_ofNat eval_eq eval_ne)
 open VG.Proof.Hmac.X86_64 (bytesAt_length writeBytes_at bytesAt_getD')
 open VG.Proof.Sha256.Stream (writeBytes)

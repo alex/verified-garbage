@@ -15,7 +15,7 @@ namespace VG.Proof.Hmac.Generic.Arm
 open VG.Arm
 open VG.Impl.Hmac.Generic.Arm (Hash)
 open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (Upd wp_ldr saveMem saveList_ok readW_writeW_save sub_offset)
+open VG.Proof.MdStream.Arm (Upd wp_ldr saveMem saveList_ok readW_writeW_save sub_offset)
 open VG.Proof.Hmac.Generic.X86_64 (InRegions.right' add_ofNat_add)
 
 variable (H : Hash)

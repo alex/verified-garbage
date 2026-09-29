@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Framework.RelCT
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Frame
 import VerifiedGarbage.Proof.Framework.Arm.Taint
-import VerifiedGarbage.Proof.Sha256.Arm.Stream.Common
+import VerifiedGarbage.Proof.MdStream.Arm.Common
 import VerifiedGarbage.Impl.Pbkdf2.Generic.Arm
 
 /-!
@@ -27,7 +27,7 @@ namespace VG.Proof.Hmac.Generic.Arm
 
 open VG.Arm
 open VG.Impl.Hmac.Generic.Arm (Hash)
-open VG.Proof.Sha256.Arm.Stream (Upd WP.cons op2_imm op2_reg)
+open VG.Proof.MdStream.Arm (Upd WP.cons op2_imm op2_reg)
 open Spec.Hmac (StreamingHash)
 open Spec.Sha256 (bytesAt)
 
