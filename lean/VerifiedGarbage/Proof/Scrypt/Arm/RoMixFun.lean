@@ -18,7 +18,7 @@ namespace VG.Proof.Scrypt.Arm.RoMix
 open VG VG.Arm VG.Impl.Scrypt.Arm
 open VG.Spec.Scrypt (bytesAt blockMix roMix)
 open VG.Proof.Sha256.Stream (writeBytes)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd wp_mov wp_add wp_sub wp_and wp_subs wp_ldr wp_str wp_ldrSp
+open VG.Proof.MdStream.Arm (Upd Mupd wp_mov wp_add wp_sub wp_and wp_subs wp_ldr wp_str wp_ldrSp
   op2_reg op2_imm op2_lsl op2_lsr saveMem saveList_ok readW_writeW_save)
 open VG.Proof.Scrypt (vList vList_getD roMix_eq roMixIndices_eq mixLoop_succ_fst mixLoop_succ_snd)
 open VG.Proof.Scrypt.X86_64.BlockMix (add_ofNat contains_off sub_off InRegions.of_mem
@@ -38,9 +38,9 @@ theorem stackArgAddr_eq {s s₀ : State} (h : s.sp = s₀.sp) : stackArgAddr s 0
 
 theorem prologue_eq : rmPrologue =
     .ldrSp .r12 0 :: (rmSaved.map (fun p => Instr.str p.1 .r12 p.2) ++
-      [.mov .r4 (.reg .r0), .mov .r5 (.reg .r2), .mov .r6 (.reg .r12),
+      ([.mov .r4 (.reg .r0), .mov .r5 (.reg .r2), .mov .r6 (.reg .r12),
        .mov .r7 (.shifted .r1 .lsl 7), .mov .r0 (.reg .r1), .mov .r1 (.imm 1),
-       .dp .add .r2 .r3 (.reg .r3)]) := rfl
+       .dp .add .r2 .r3 (.reg .r3)] : List Instr)) := rfl
 
 set_option simprocs false in
 theorem saveMem_saved (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
@@ -765,7 +765,7 @@ theorem loop3_ok {c : Prog isa} (hS : BlockMixSpec c) {s₀ : State} (hp : Pre s
 /-! ## The epilogue -/
 
 theorem epilogue_eq : rmEpilogue =
-    (rmSaved.take 6).map (fun p => Instr.ldr p.1 .r6 p.2) ++ [.ldr .r6 .r6 152] := rfl
+    (rmSaved.take 6).map (fun p => Instr.ldr p.1 .r6 p.2) ++ ([.ldr .r6 .r6 152] : List Instr) := rfl
 
 theorem rmSaved_r6 : ∀ p ∈ rmSaved.take 6, p.1 ≠ .r6 := by decide
 

@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Poly1305.X86.Buffer
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on x86 (32-bit): `finalize`
@@ -70,8 +72,8 @@ structure F0 (s₀ : State) (F : Nat → Nat) (s : State) : Prop extends UCommon
   acc : Acc s₀ [] s.mem
 
 theorem fprologue_ok {s₀ : State} (hp : FPre s₀) :
-    WP isa (.block (setup ++ [.mov .edx (.mem (at_ .esp 8)), .alu .and .edx (.imm 15),
-      .alu .test .edx (.reg .edx)])) s₀ fun s => ∃ F, SetupF s₀ F ∧ F0 s₀ F s ∧
+    WP isa (.block (setup ++ ([.mov .edx (.mem (at_ .esp 8)), .alu .and .edx (.imm 15),
+      .alu .test .edx (.reg .edx)] : List Instr))) s₀ fun s => ∃ F, SetupF s₀ F ∧ F0 s₀ F s ∧
         s.gpr .edx = BitVec.ofNat 32 (kb s₀) ∧
         s.zf = some (BitVec.ofNat 32 (kb s₀) &&& BitVec.ofNat 32 (kb s₀) == 0) := by
   have hfit := hp.st_fit
@@ -550,8 +552,8 @@ theorem fepilogue_ok {s₀ : State} (hp : FPre s₀) {F : Nat → Nat} (hF : Set
 
 /-! ## The whole function -/
 
-theorem finalize_eq : finalize = .seq (.block (setup ++ [.mov .edx (.mem (at_ .esp 8)),
-    .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)]))
+theorem finalize_eq : finalize = .seq (.block (setup ++ ([.mov .edx (.mem (at_ .esp 8)),
+    .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)] : List Instr)))
     (.seq (.ite .e (.block []) lastBlock) (.block (reduce ++ addS ++ restore))) := rfl
 
 theorem finalize_correct {s₀ : State} (hp : FPre s₀) :
@@ -612,21 +614,40 @@ def finalizeSat : State where
   rd := [⟨0x4004, 20⟩]
   wr := [⟨0x1000, 128⟩, ⟨0x2000, 16⟩, ⟨0x3000, 128⟩]
 
-theorem finalizeSat_pre : Proof.Poly1305.finalizeX86.pre finalizeSat := by
-  have a0 : arg finalizeSat 0 = 0x1000 := by decide
-  have a3 : arg finalizeSat 3 = 0x2000 := by decide
-  have a4 : arg finalizeSat 4 = 0x3000 := by decide
-  have e : argAddr finalizeSat 0 = 0x4004 := by decide
-  simp only [Proof.Poly1305.finalizeX86, a0, a3, a4, e]
-  refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, finalizeSat] at h₁ h₂
-    bv_omega
+theorem finalize_ok (s : State) (hs : Proof.Poly1305.finalizeX86.pre s) :
+    ∃ t s', Exec isa finalize s t s' ∧ abiPreserved s s' ∧ Proof.Poly1305.finalizeX86.post s s' :=
+  finalize_correct (FPre.of s hs)
 
-theorem finalize_verified : Verified X86.target finalize Proof.Poly1305.finalizeX86 :=
-  ⟨fun s hs => finalize_correct (FPre.of s hs),
-    VG.Taint.constantTime (A := taint) finalizeτ₀ (fun _ _ h₁ h₂ hp => finalize_agree₀ h₁ h₂ hp)
-      (by taint_decide),
-    ⟨finalizeSat, finalizeSat_pre⟩⟩
+theorem finalize_ct : ConstantTime isa Proof.Poly1305.finalizeX86.pre Proof.Poly1305.finalizeX86.pub
+    finalize :=
+  VG.Taint.constantTime (A := taint) finalizeτ₀ (fun _ _ h₁ h₂ hp => finalize_agree₀ h₁ h₂ hp)
+    (by taint_decide)
+
+/-- The per-target contract of `finalize` only needs the length of the
+message modulo 16. -/
+theorem finalize_verified :
+    Verified X86.target Impl.Poly1305.X86.finalize (Spec.Poly1305.finalizeContract X86.abi) :=
+  Verified.of_correct finalize_ok finalize_ct
+    { pre := by
+        sig_implies_pre [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+          Proof.Poly1305.finalizeX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      post := by
+        intro s s' _ h
+        sig_eval [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig, X86.abi, X86.argSlots,
+          X86.argVal, X86.argBytes]
+        intro key msg hb hc
+        exact h key msg hb (Proof.Poly1305.X86.count_mod16 hc)
+      pub := by
+        sig_implies_pub [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+          Proof.Poly1305.finalizeX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      sat := by
+        have a0 : arg finalizeSat 0 = 0x1000 := by decide
+        have a3 : arg finalizeSat 3 = 0x2000 := by decide
+        have a4 : arg finalizeSat 4 = 0x3000 := by decide
+        have e : argAddr finalizeSat 0 = 0x4004 := by decide
+        have esp : finalizeSat.gpr .esp = 0x4000 := rfl
+        sig_implies_sat [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+          Proof.Poly1305.finalizeX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+          [a0, a3, a4, e, esp] using Proof.Poly1305.X86.finalizeSat }
 
 end VG.Proof.Poly1305.X86

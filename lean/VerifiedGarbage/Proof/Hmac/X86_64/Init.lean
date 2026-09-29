@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
-import VerifiedGarbage.Proof.Hmac.X86_64.Contract
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
 # HMAC-SHA-256 on x86-64: `init`
@@ -19,7 +20,6 @@ open VG.Proof.Sha256.X86_64 (ea_at contains_offset contains_offset' toNat_ofNat_
   writeState stateAt_writeState readW_writeW_save)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_mov32i wp_addi wp_cmp wp_cmpi wp_test wp_movzx8 wp_store8
   CallOk compressAt_ok compressAt_rel ofNat_succ sub_beq ofNat_beq_zero)
-open VG.Proof.Sha256.X86_64.Stream.Update (Saved saveMem saveMem_saved saveMem_frame)
 open VG.Spec.Sha256 (bytesAt stateAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
 
@@ -44,7 +44,37 @@ abbrev stkR : Region := below (s₀.gpr .rsp) 8
 /-- The key, padded with zeros to a block. -/
 def K0 : List Byte := bytesAt s₀.mem (kp s₀) (kl s₀) ++ List.replicate (64 - kl s₀) 0
 
+/-- The caller's callee-saved registers are saved in the scratch space. -/
+def Saved (m : Mem) : Prop :=
+  ∀ p ∈ Impl.Sha256.X86_64.Stream.saved, m.readW (scr s₀ + BitVec.ofInt 64 (p.2 : Int)) 64 = s₀.gpr p.1
+
+/-- The memory after saving them. -/
+def saveMem : Mem :=
+  (((((s₀.mem.writeW (scr s₀ + BitVec.ofInt 64 ((112 : Nat) : Int)) (s₀.gpr .rbx)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((120 : Nat) : Int)) (s₀.gpr .rbp)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((128 : Nat) : Int)) (s₀.gpr .r12)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((136 : Nat) : Int)) (s₀.gpr .r13)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((144 : Nat) : Int)) (s₀.gpr .r14)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((152 : Nat) : Int)) (s₀.gpr .r15)
+
 end
+
+theorem saveMem_saved {s₀ : State} : Saved s₀ (saveMem s₀) := by
+  intro p hp
+  simp only [Impl.Sha256.X86_64.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl <;>
+  simp (config := {decide := true}) only [saveMem, Mem.readW_writeW_self64, readW_writeW_save]
+
+theorem saveMem_frame {s₀ : State} : Frame [scR s₀] s₀.mem (saveMem s₀) := by
+  have c : ∀ d : Nat, d + 8 ≤ 160 →
+      (scR s₀).Contains (scr s₀ + BitVec.ofInt 64 (d : Int)) (64 / 8) :=
+    fun d hd => contains_offset' hd (by omega)
+  simp only [saveMem]
+  exact (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 112 (by omega))).writeW
+    (List.mem_singleton_self _) _ (c 120 (by omega))).writeW (List.mem_singleton_self _) _
+    (c 128 (by omega))).writeW (List.mem_singleton_self _) _ (c 136 (by omega))).writeW
+    (List.mem_singleton_self _) _ (c 144 (by omega)) |>.writeW (List.mem_singleton_self _) _
+    (c 152 (by omega))
 
 structure Pre (s₀ : State) : Prop where
   kl_le : kl s₀ ≤ 64
@@ -174,9 +204,9 @@ theorem saved_frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Re
   exact (hd r hr).sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block (save .r8 ++ [.mov .rbx (.reg .rdi), .mov .r12 (.reg .rsi), .mov .r15 (.reg .r8),
-      .mov .rbp (.reg .rdx), .mov .r13 (.reg .rcx)] ++ h0 .rbx ++ h0 .r12 ++
-      [.mov32 .r14 (.imm 0), .alu .test .r13 (.reg .r13)])) s₀
+    WP isa (.block (save .r8 ++ ([.mov .rbx (.reg .rdi), .mov .r12 (.reg .rsi), .mov .r15 (.reg .r8),
+      .mov .rbp (.reg .rdx), .mov .r13 (.reg .rcx)] : List Instr) ++ h0 .rbx ++ h0 .r12 ++
+      ([.mov32 .r14 (.imm 0), .alu .test .r13 (.reg .r13)] : List Instr))) s₀
       fun s => Buf s₀ 0 s ∧ s.zf = some (decide (kl s₀ = 0)) := by
   simp only [List.append_assoc]
   refine WP.block_append (WP.mono (save_ok hp) fun s₁ ⟨m₁, g₁, rd₁, wr₁⟩ => ?_)
@@ -870,16 +900,34 @@ def sat : State where
   rd := [⟨0x3000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-theorem verified_of {f : Callee} (hf : f.Ok) (hm : (init f).allInstrs (fun i => !loadsMxcsr i) = true) :
-    Verified X86_64.target (init f) Proof.Hmac.initSha256X86_64 := by
-  refine ⟨fun s hs => ?_, fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂ => ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct hf (pre_of hs)
-    exact ⟨t, s', he, abiPreserved_of_exec hm he h.1, h.2⟩
-  · obtain ⟨p1, p2, p3, p4, p5, p6⟩ := hpub
-    exact (init_rel hf (pre_of h₁) (pre_of h₂) ⟨p1, p2, p3, p4, p5, p6⟩ _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
-  · refine ⟨sat, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+theorem init_ok {f : Callee} (hf : f.Ok) (hm : (init f).allInstrs (fun i => !loadsMxcsr i) = true)
+    (s : State) (hs : Proof.Hmac.initSha256X86_64.pre s) :
+    ∃ t s', Exec isa (init f) s t s' ∧ abiPreserved s s' ∧
+      Proof.Hmac.initSha256X86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct hf (pre_of hs)
+  exact ⟨t, s', he, abiPreserved_of_exec hm he h.1, h.2⟩
+
+theorem init_ct {f : Callee} (hf : f.Ok) :
+    ConstantTime isa Proof.Hmac.initSha256X86_64.pre Proof.Hmac.initSha256X86_64.pub (init f) := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂
+  obtain ⟨p1, p2, p3, p4, p5, p6⟩ := hpub
+  exact (init_rel hf (pre_of h₁) (pre_of h₂) ⟨p1, p2, p3, p4, p5, p6⟩ _ _ _ _ _ _ ⟨rfl, rfl⟩
+    e₁ e₂).1
+
+/-- `init`, calling any compression function `f`. -/
+theorem init_verified {f : Callee} (hf : f.Ok)
+    (hm : f.code.allInstrs (fun i => !loadsMxcsr i) = true) :
+    Verified X86_64.target (init f) (Spec.Hmac.initSha256Contract X86_64.abi 8) :=
+  Verified.of_correct (init_ok hf (by
+    simp only [init, Impl.Sha256.X86_64.Stream.compressAt, Code.allInstrs, hm, Bool.true_and,
+      Bool.and_true]
+    decide +kernel)) (init_ct hf) (by
+    sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig,
+      Proof.Hmac.initSha256X86_64, X86_64.abi, X86_64.argRegs] [sat] using sat)
+
+theorem init_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
+    (init f).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [init, Impl.Sha256.X86_64.Stream.compressAt, Code.all, h, Bool.true_and]
+  decide +kernel
 
 end VG.Proof.Hmac.X86_64.Init

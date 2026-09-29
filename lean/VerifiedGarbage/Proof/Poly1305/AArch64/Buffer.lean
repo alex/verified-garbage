@@ -96,7 +96,7 @@ theorem coefIn_of {s : State} (hw : sR (s.gpr .x0) ∈ s.wr) : CoefIn s := fun o
 /-- Absorbing the buffer: its 16 bytes, and `pad · 2¹²⁸`. -/
 theorem absorbBuf_ok (s : State) (pad : Bool) {R : Nat} (hR : R < 2 ^ 128) (hm : s.gpr .x17 = M26)
     (hco : Coefs s.mem (s.gpr .x0) R) (hw : sR (s.gpr .x0) ∈ s.wr) :
-    WP isa (.block ([.addImm .x .x1 .x0 56] ++ absorb pad)) s fun s' =>
+    WP isa (.block (([.addImm .x .x1 .x0 56] : List Instr) ++ absorb pad)) s fun s' =>
       (Bounds s → hv s' % P = ((hv s + (leNum (bytesAt s.mem (off (s.gpr .x0) 56) 16) +
         2 ^ 128 * pad.toNat)) * R) % P ∧ Bounds s') ∧ Keeps (.x1 :: absorbRegs) s s' := by
   refine WP.block_append (wp_addImm (by decide) fun s₁ u₁ => WP.block_nil ?_)
@@ -225,5 +225,11 @@ theorem CopyInv.frame {sI : State} {m₀ : Mem} {src : Addr} {j0 n : Nat} (hj0 :
   rw [h.mem, List.take_of_length_le (by omega)]
   refine writeBytes_frame _ _ _ ?_
   rw [bufB_eq, hxs]; exact bfR_contains _ hj0
+
+/-- The proof contracts of `update` and `finalize` only need the length
+of the message modulo 16. -/
+theorem count_mod {count : BitVec 64} {n : Nat} (h : count = BitVec.ofNat 64 n) :
+    count.toNat % 16 = n % 16 := by
+  rw [h, BitVec.toNat_ofNat]; omega
 
 end VG.Proof.Poly1305.AArch64

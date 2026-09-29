@@ -16,7 +16,7 @@ open VG.Proof.Sha3.Arm (saveA_ok restoreA_ok saveMemA_frame SSaved ssaved_ok sav
   restore_eq call_ok covers_of preserved_cases ofNat32_succ sub_ofNat32 ofNat32_beq_zero sub_beq_zero32
   beq_zero32 ofNat_toNat32 sub_imm0 arg_in argByte_eq addr_toNat)
 open VG.Proof.Sha512.Arm (A A_eq contains_A)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd op2_imm op2_reg wp_mov wp_add wp_subs wp_cmp wp_ldrb
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd op2_imm op2_reg wp_mov wp_add wp_subs wp_cmp wp_ldrb
   wp_strb wp_ldrSp eval_eq eval_ne)
 open VG.Proof.Sha3 (byteOf byteOf_stateAt iterF iterF_succ length_squeezeFrom squeezeFrom_getElem
   squeezeFrom_iterF stateAt_congr writeW8_self writeW8_other div_mod_eq contains_offset sub_offset)
@@ -123,8 +123,8 @@ theorem Inv.of_flags {s₀ : State} {i k pos : Nat} {s s' : State} (h : Inv s₀
 /-! ## The prologue -/
 
 theorem setup_eq : setup = .ldrSp .r12 4 :: (saved.map (fun p => Instr.str p.1 .r12 p.2) ++
-    [.mov .r4 (.reg .r1), .mov .r1 (.reg .r12), .mov .r5 (.reg .r2), .mov .r6 (.reg .r3),
-      .ldrSp .r7 0, .cmp .r7 (.imm 0)]) := rfl
+    ([.mov .r4 (.reg .r1), .mov .r1 (.reg .r12), .mov .r5 (.reg .r2), .mov .r6 (.reg .r3),
+      .ldrSp .r7 0, .cmp .r7 (.imm 0)] : List Instr)) := rfl
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block setup) s₀ fun s => Inv s₀ 0 0 (pos₀ s₀) s ∧ s.z = decide (outn s₀ = 0) := by

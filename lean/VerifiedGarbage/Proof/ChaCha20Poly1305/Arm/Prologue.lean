@@ -11,8 +11,8 @@ the arguments, copying words of the context, the ChaCha20 state for counter
 namespace VG.Proof.ChaCha20Poly1305.Arm
 
 open VG VG.Arm VG.Impl.ChaCha20Poly1305.Arm
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd saveMem saveList_ok save_sep readW_writeW_save
-  wp_mov wp_add wp_ldr wp_str wp_ldrSp op2_imm op2_reg)
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd saveMem saveList_ok save_sep readW_writeW_save wp_mov
+  wp_add wp_ldr wp_str wp_ldrSp op2_imm op2_reg)
 open VG.Proof.ChaCha20.Arm (toNat_ofNat_lt)
 open VG.Spec.Poly1305 (Repr bytesAt mac)
 open VG.Spec.ChaCha20 (stateAt keystream)
@@ -25,12 +25,12 @@ variable {is : List Instr} {s : State} {Q : State → Prop}
 theorem wp_movw {d : Reg} {imm : BitVec 16}
     (k : ∀ s', Upd s s' d (imm.setWidth 32) → WP isa (.block is) s' Q) :
     WP isa (.block (.movw d imm :: is)) s Q :=
-  VG.Proof.Sha256.Arm.Stream.WP.cons rfl (k _ (Upd.setReg _ _ _))
+  VG.Proof.MdStream.Arm.WP.cons rfl (k _ (Upd.setReg _ _ _))
 
 theorem wp_movt {d : Reg} {imm : BitVec 16}
     (k : ∀ s', Upd s s' d (imm ++ (s.gpr d).extractLsb' 0 16 : BitVec 32) → WP isa (.block is) s' Q) :
     WP isa (.block (.movt d imm :: is)) s Q :=
-  VG.Proof.Sha256.Arm.Stream.WP.cons rfl (k _ (Upd.setReg _ _ _))
+  VG.Proof.MdStream.Arm.WP.cons rfl (k _ (Upd.setReg _ _ _))
 
 end
 
@@ -138,7 +138,7 @@ theorem bytesAt_eq_of {m m' : Mem} {p q : Addr} {n : Nat}
   exact h i (by simpa using h₁)
 
 theorem copyWords_step (a b n : Nat) : copyWords a b (n + 1) =
-    copyWords a b n ++ [.ldr .r12 .r7 (a + 4 * n), .str .r12 .r7 (b + 4 * n)] := by
+    copyWords a b n ++ ([.ldr .r12 .r7 (a + 4 * n), .str .r12 .r7 (b + 4 * n)] : List Instr) := by
   simp [copyWords, List.range_succ, List.flatMap_append]
 
 /-- `n` words from `ctx + a` to `ctx + b`. -/

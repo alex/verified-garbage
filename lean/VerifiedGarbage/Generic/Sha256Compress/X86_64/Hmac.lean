@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.X86_64.Target
-import VerifiedGarbage.Proof.Hmac.X86_64.Shared
 import VerifiedGarbage.Proof.Sha256.X86_64.Variant
+import VerifiedGarbage.Proof.Hmac.X86_64.Init
+import VerifiedGarbage.Proof.Hmac.X86_64.Finalize
 
 /-!
 # HMAC-SHA-256 (RFC 2104) on x86-64
@@ -29,8 +30,8 @@ def artifacts (v : Proof.Sha256.X86_64.Compress) : List Artifact := [
     code := Impl.Hmac.X86_64.init v.callee
     contract := Spec.Hmac.initSha256Contract X86_64.abi 8
     stack := 8
-    verified := Proof.Hmac.X86_64.Shared.init v.ok v.mxcsr
-    spSafe := Proof.Hmac.X86_64.Shared.init_spSafe v.spSafe
+    verified := Proof.Hmac.X86_64.Init.init_verified v.ok v.mxcsr
+    spSafe := Proof.Hmac.X86_64.Init.init_spSafe v.spSafe
     features := v.features },
   { Spec.Hmac.finalizeSha256Api with
     name := Spec.Hmac.finalizeSha256Api.name ++ v.suffix
@@ -39,8 +40,8 @@ def artifacts (v : Proof.Sha256.X86_64.Compress) : List Artifact := [
     code := Impl.Hmac.X86_64.finalize v.callee (Spec.Sha256.finalizeApi.name ++ v.suffix)
     contract := Spec.Hmac.finalizeSha256Contract X86_64.abi 16
     stack := 16
-    verified := Proof.Hmac.X86_64.Shared.finalize v.ok v.mxcsr _
-    spSafe := Proof.Hmac.X86_64.Shared.finalize_spSafe v.spSafe _
+    verified := Proof.Hmac.X86_64.Finalize.finalize_verified v.ok v.mxcsr _
+    spSafe := Proof.Hmac.X86_64.Finalize.finalize_spSafe v.spSafe _
     features := v.features }]
 
 end VG.Generic.Sha256Compress.X86_64.Hmac

@@ -1,7 +1,10 @@
 import Mathlib.Data.List.FinRange
 import VerifiedGarbage.Proof.Hmac.X86.Common
-import VerifiedGarbage.Proof.Hmac.X86.Contract
+import VerifiedGarbage.Spec.Hmac
+import VerifiedGarbage.Proof.Sha256.X86.Contract
 import Mathlib.Tactic.IntervalCases
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
 # HMAC-SHA-256 on x86 (32-bit): `finalize`
@@ -12,6 +15,100 @@ state with its permissions narrowed to those of `vg_sha256_finalize` and
 reasoned about with that function's own proof (`WP.narrow`); the outer hash
 is one inlined compression of a block laid out at known offsets.
 -/
+
+namespace VG.Proof.Hmac
+
+open Spec.Hmac
+open Spec.Sha256 (Repr bytesAt)
+
+open VG.X86 in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+x86 (32-bit) contract for
+`vg_hmac_sha256_init(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 20])`,
+whose arguments are on the stack (cdecl), for a key of at most 64 bytes (the
+SHA-256 block size): makes the streaming state at `inner` represent
+`K₀ ⊕ ipad` and the one at `outer` represent `K₀ ⊕ opad`, for the key `K₀`
+made of the `key_len` bytes at `key`.
+
+The code may read `key` (`key_len` bytes), and read and write the arguments
+(20 bytes above the return address, whose contents on exit are unspecified),
+`inner` and `outer` (96 bytes each) and `scratch` (160 bytes, whose contents
+on exit are unspecified). The writable buffers may not overlap each other,
+the key or the return address, and nothing may wrap around the end of the
+(32-bit) address space. `esp`, the pointers and `key_len` are public; the
+key is secret. -/
+def initSha256X86 : Contract X86.isa where
+  pre s :=
+    let inner : Region := ⟨(arg s 0).setWidth 64, 96⟩
+    let outer : Region := ⟨(arg s 1).setWidth 64, 96⟩
+    let key : Region := ⟨(arg s 2).setWidth 64, (arg s 3).toNat⟩
+    let scratch : Region := ⟨(arg s 4).setWidth 64, 160⟩
+    let args : Region := ⟨argAddr s 0, 20⟩
+    let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+    (arg s 3).toNat ≤ 64 ∧ s.rd = [key] ∧ s.wr = [inner, outer, scratch, args] ∧
+    inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
+    args.Disjoint inner ∧ args.Disjoint outer ∧ args.Disjoint scratch ∧
+    key.Disjoint inner ∧ key.Disjoint outer ∧ key.Disjoint scratch ∧ key.Disjoint args ∧
+    ret.Disjoint inner ∧ ret.Disjoint outer ∧ ret.Disjoint scratch ∧
+    (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 1).toNat + 96 ≤ 2 ^ 32 ∧
+    (arg s 2).toNat + (arg s 3).toNat ≤ 2 ^ 32 ∧ (arg s 4).toNat + 160 ≤ 2 ^ 32 ∧
+    (s.gpr .esp).toNat + 24 ≤ 2 ^ 32
+  post s s' :=
+    let k0 := blockKey sha256 (bytesAt s.mem ((arg s 2).setWidth 64) (arg s 3).toNat)
+    Repr s'.mem ((arg s 0).setWidth 64) (xorPad k0 ipad) ∧
+      Repr s'.mem ((arg s 1).setWidth 64) (xorPad k0 opad)
+  pub s₁ s₂ :=
+    s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 5, arg s₁ i = arg s₂ i
+
+open VG.X86 in
+/-- The 64-bit `count` argument of `vg_hmac_sha256_finalize`: its arguments
+2 (the low word) and 3 (the high word). -/
+def countFinalizeX86 (s : X86.State) : BitVec 64 := arg s 3 ++ arg s 2
+
+open VG.X86 in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+x86 (32-bit) contract for
+`vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 30])`,
+whose arguments are on the stack (cdecl: `inner`, `outer`, the low and high
+words of `count`, `out`, `scratch`): if, for a 64-byte key `K₀` and a text,
+the streaming state at `inner` represents `(K₀ ⊕ ipad) ‖ text`, of `count`
+bytes (modulo 2⁶⁴), and the one at `outer` represents `K₀ ⊕ opad`, writes the
+HMAC-SHA-256 of the text under `K₀` to `out`.
+
+The code may read `outer` (96 bytes), and read and write the arguments (24
+bytes above the return address, whose contents on exit are unspecified),
+`inner` (96 bytes, whose contents on exit are unspecified), `out` (32 bytes)
+and `scratch` (240 bytes, whose contents on exit are unspecified). The
+writable buffers may not overlap each other, `outer` or the return address,
+and nothing may wrap around the end of the (32-bit) address space. `esp`,
+the pointers and `count` are public; the states are secret. -/
+def finalizeSha256X86 : Contract X86.isa where
+  pre s :=
+    let inner : Region := ⟨(arg s 0).setWidth 64, 96⟩
+    let outer : Region := ⟨(arg s 1).setWidth 64, 96⟩
+    let out : Region := ⟨(arg s 4).setWidth 64, 32⟩
+    let scratch : Region := ⟨(arg s 5).setWidth 64, 240⟩
+    let args : Region := ⟨argAddr s 0, 24⟩
+    let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+    s.rd = [outer] ∧ s.wr = [inner, out, scratch, args] ∧
+    inner.Disjoint out ∧ inner.Disjoint scratch ∧ out.Disjoint scratch ∧
+    args.Disjoint inner ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
+    outer.Disjoint inner ∧ outer.Disjoint out ∧ outer.Disjoint scratch ∧ outer.Disjoint args ∧
+    ret.Disjoint inner ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧
+    (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 1).toNat + 96 ≤ 2 ^ 32 ∧
+    (arg s 4).toNat + 32 ≤ 2 ^ 32 ∧ (arg s 5).toNat + 240 ≤ 2 ^ 32 ∧
+    (s.gpr .esp).toNat + 28 ≤ 2 ^ 32
+  post s s' := ∀ k0 text, k0.length = 64 →
+    Repr s.mem ((arg s 0).setWidth 64) (xorPad k0 ipad ++ text) →
+    countFinalizeX86 s = BitVec.ofNat 64 (64 + text.length) →
+    Repr s.mem ((arg s 1).setWidth 64) (xorPad k0 opad) →
+    bytesAt s'.mem ((arg s 4).setWidth 64) 32 = hmacBlockKey sha256 k0 text
+  pub s₁ s₂ :=
+    s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 6, arg s₁ i = arg s₂ i
+
+end VG.Proof.Hmac
 
 namespace VG.Proof.Hmac.X86.Finalize
 
@@ -266,16 +363,16 @@ theorem pro_ok {s₀ : State} (hp : Pre s₀) :
 abbrev SPre := VG.Proof.Sha256.X86.Stream.Finalize.Pre
 abbrev SDone := VG.Proof.Sha256.X86.Stream.Finalize.Done
 
-theorem finalizeHash_eq : finalizeHash = .seq (.block ([.mov .eax (.mem (at_ .esp 20))] ++
+theorem finalizeHash_eq : finalizeHash = .seq (.block (([.mov .eax (.mem (at_ .esp 20))] : List Instr) ++
       VG.Impl.Sha256.X86.Stream.save .eax ++
-      [.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)),
+      ([.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)),
        .mov .ecx (.mem (at_ .esp 8)), .store (at_ .ebp 128) .ecx,
        .mov .ecx (.mem (at_ .esp 12)), .store (at_ .ebp 132) .ecx,
        .mov .ecx (.mem (at_ .esp 16)), .store (at_ .ebp 136) .ecx,
        .mov .edi (.mem (at_ .esp 8)), .alu .and .edi (.imm 63),
        .mov .edx (.reg .ebx), .alu .add .edx (.reg .edi), .mov .ecx (.imm 0x80),
        .store8 (at_ .edx 32) .cl, .alu .add .edi (.imm 1),
-       .mov .esi (.imm 0), .alu .cmp .edi (.imm 57)]))
+       .mov .esi (.imm 0), .alu .cmp .edi (.imm 57)] : List Instr)))
     (.seq (.ite .ae (.block [.mov .esi (.imm 1)]) (.block []))
       (.loop VG.Impl.Sha256.X86.Stream.finalizeBody .e)) := rfl
 
@@ -394,7 +491,7 @@ structure Mid (s₀ s s' : State) : Prop where
 theorem mid_ok {s₀ s : State} (hp : Pre s₀) (h : MidPre s₀ s) :
     WP isa (.block ((List.range 8).flatMap (bswapWord .ebx .ebx 0 32) ++ .mov .edx (.mem (at_ .ebp 176)) ::
       (List.range 8).flatMap (copyWord .edx .ebx 0 0) ++ padWords ++
-      [.store (at_ .esp 4) .ebx, .store (at_ .esp 16) .ebp, .mov .eax (.reg .ebx), .alu .add .eax (.imm 32)]))
+      ([.store (at_ .esp 4) .ebx, .store (at_ .esp 16) .ebp, .mov .eax (.reg .ebx), .alu .add .eax (.imm 32)] : List Instr)))
       s (Mid s₀ s) := by
   have fi := hp.in_fit
   have fo := hp.ou_fit
@@ -1049,23 +1146,28 @@ def sat : State where
   rd := [⟨0x1100, 96⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 240⟩, ⟨0x4004, 24⟩]
 
-theorem sat_pre : Proof.Hmac.finalizeSha256X86.pre sat := by
-  have a0 : arg sat 0 = 0x1000 := by decide
-  have a1 : arg sat 1 = 0x1100 := by decide
-  have a4 : arg sat 4 = 0x2000 := by decide
-  have a5 : arg sat 5 = 0x3000 := by decide
-  have e : argAddr sat 0 = 0x4004 := by decide
-  simp only [Proof.Hmac.finalizeSha256X86, a0, a1, a4, a5, e]
-  refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
-    by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, sat] at h₁ h₂
-    bv_omega
+theorem finalize_correct (s : State) (hs : Proof.Hmac.finalizeSha256X86.pre s) :
+    ∃ t s', Exec isa finalize s t s' ∧ abiPreserved s s' ∧
+      Proof.Hmac.finalizeSha256X86.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  exact ⟨t, s', he, h⟩
 
-theorem finalize_verified : Verified X86.target finalize Proof.Hmac.finalizeSha256X86 := by
-  refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+theorem finalize_ct : ConstantTime isa Proof.Hmac.finalizeSha256X86.pre
+    Proof.Hmac.finalizeSha256X86.pub finalize :=
+  VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+
+theorem finalize_verified :
+    Verified X86.target Impl.Hmac.X86.finalize (Spec.Hmac.finalizeSha256OutContract X86.abi) :=
+  Verified.of_correct finalize_correct finalize_ct (by
+    have a0 : arg sat 0 = 0x1000 := by decide
+    have a1 : arg sat 1 = 0x1100 := by decide
+    have a4 : arg sat 4 = 0x2000 := by decide
+    have a5 : arg sat 5 = 0x3000 := by decide
+    have e : argAddr sat 0 = 0x4004 := by decide
+    have esp : sat.gpr .esp = 0x4000 := rfl
+    sig_implies [Spec.Hmac.finalizeSha256OutContract, Spec.Hmac.finalizeSha256OutSig,
+      Proof.Hmac.finalizeSha256X86, Proof.Hmac.countFinalizeX86, X86.abi, X86.argSlots, X86.argVal,
+      X86.argBytes]
+      [a0, a1, a4, a5, e, esp] using Proof.Hmac.X86.Finalize.sat)
 
 end VG.Proof.Hmac.X86.Finalize

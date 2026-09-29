@@ -1,13 +1,49 @@
 import VerifiedGarbage.Proof.ChaCha20.X86.Rounds
 import VerifiedGarbage.Proof.Framework.X86.Taint
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Proof.ChaCha20.X86.Contract
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.ChaCha20.Contract
 
 /-!
 # ChaCha20 block function on x86 (32-bit): the whole function
 
 Untrusted: everything here is checked by Lean.
 -/
+
+namespace VG.Proof.ChaCha20
+
+open Spec.ChaCha20
+
+open VG.X86 in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+x86 (32-bit) contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64])`,
+whose arguments are on the stack (cdecl): writes `block` of the state at
+`state` to the first 16 words of `buf`.
+
+The same function and Rust signature on every target: the code may
+read the two arguments (8 bytes above the return address) and `state` (64
+bytes), and read and write `buf` (256 bytes; its first 64 bytes hold the
+result on exit, and the rest is scratch space whose contents on exit are
+unspecified). `buf` may not overlap `state`, the arguments or the return
+address, and nothing may wrap around the end of the (32-bit) address space.
+`esp` and the arguments (the pointers) are public; the state (key, counter
+and nonce) is secret. -/
+def blockX86 : Contract X86.isa where
+  pre s :=
+    let state : Region := ⟨(arg s 0).setWidth 64, 64⟩
+    let buf : Region := ⟨(arg s 1).setWidth 64, 256⟩
+    let args : Region := ⟨argAddr s 0, 8⟩
+    let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+    s.rd = [state, args] ∧ s.wr = [buf] ∧
+    buf.Disjoint state ∧ args.Disjoint buf ∧ ret.Disjoint buf ∧
+    (arg s 0).toNat + 64 ≤ 2 ^ 32 ∧ (arg s 1).toNat + 256 ≤ 2 ^ 32 ∧
+    (s.gpr .esp).toNat + 12 ≤ 2 ^ 32
+  post s s' :=
+    stateAt s'.mem ((arg s 1).setWidth 64) = block (stateAt s.mem ((arg s 0).setWidth 64))
+  pub s₁ s₂ := s₁.gpr .esp = s₂.gpr .esp ∧ arg s₁ 0 = arg s₂ 0 ∧ arg s₁ 1 = arg s₂ 1
+
+end VG.Proof.ChaCha20
 
 namespace VG.Proof.ChaCha20.X86
 
@@ -381,16 +417,6 @@ def satState : State where
   rd := [⟨0x1000, 64⟩, ⟨0x4004, 8⟩]
   wr := [⟨0x2000, 256⟩]
 
-theorem sat_pre : Proof.ChaCha20.blockX86.pre satState := by
-  have a0 : arg satState 0 = 0x1000 := by decide
-  have a1 : arg satState 1 = 0x2000 := by decide
-  have e : argAddr satState 0 = 0x4004 := by decide
-  simp only [Proof.ChaCha20.blockX86, a0, a1, e]
-  refine ⟨by decide, rfl, ?_, ?_, ?_, by decide, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, satState] at h₁ h₂
-    bv_omega
-
 /-! ## Constant time -/
 
 /-- The initial taint: `esp` is public, and so are the 12 bytes above it (the
@@ -427,10 +453,21 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.ChaCha20.blockX86.pre s₁)
     · exact congrArg _ a0
     · exact congrArg _ a1
 
+theorem block_correct (s : State) (hs : Proof.ChaCha20.blockX86.pre s) :
+    ∃ t s', Exec isa block s t s' ∧ abiPreserved s s' ∧ Proof.ChaCha20.blockX86.post s s' :=
+  correct (pre_of s hs)
+
+theorem block_ct : ConstantTime isa Proof.ChaCha20.blockX86.pre Proof.ChaCha20.blockX86.pub block :=
+  VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hpub => agree₀ h₁ h₂ hpub) (by taint_decide)
+
 theorem block_verified :
-    Verified X86.target Impl.ChaCha20.X86.block Proof.ChaCha20.blockX86 :=
-  ⟨fun s hs => correct (pre_of s hs),
-    VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hpub => agree₀ h₁ h₂ hpub) (by taint_decide),
-    ⟨satState, sat_pre⟩⟩
+    Verified X86.target Impl.ChaCha20.X86.block (Spec.ChaCha20.blockContract X86.abi) :=
+  Verified.of_correct block_correct block_ct (by
+    have a0 : arg satState 0 = 0x1000 := by decide
+    have a1 : arg satState 1 = 0x2000 := by decide
+    have e : argAddr satState 0 = 0x4004 := by decide
+    have esp : satState.gpr .esp = 0x4000 := rfl
+    sig_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, X86.abi, X86.argSlots,
+      X86.argVal, X86.argBytes, Proof.ChaCha20.blockX86] [a0, a1, e, esp] using satState)
 
 end VG.Proof.ChaCha20.X86

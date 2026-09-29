@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.AArch64.Target
-import VerifiedGarbage.Proof.Pbkdf2.Generic.AArch64.Shared
+import VerifiedGarbage.Proof.Pbkdf2.Generic.AArch64.Instances
 
 /-!
 # The PBKDF2-HMAC-SHA-1 iteration (RFC 8018) on AArch64
@@ -32,6 +32,6 @@ def artifacts : List Artifact := [
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Proof.Pbkdf2.Generic.AArch64.Shared.sha1 }]
+    verified := Proof.Pbkdf2.Generic.AArch64.Instances.sha1 }]
 
 end VG.Artifacts.Pbkdf2Sha1.AArch64

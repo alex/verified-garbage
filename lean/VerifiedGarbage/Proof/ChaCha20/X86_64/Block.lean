@@ -2,7 +2,8 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Rounds
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Proof.ChaCha20.X86_64.Contract
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.ChaCha20.Contract
 import Mathlib.Tactic.IntervalCases
 
 /-!
@@ -10,6 +11,31 @@ import Mathlib.Tactic.IntervalCases
 
 Untrusted: everything here is checked by Lean.
 -/
+
+namespace VG.Proof.ChaCha20
+
+open Spec.ChaCha20 VG.X86_64
+
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+x86-64 contract for `vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64])`:
+writes `block` of the state at `state` to the first 16 words of `buf`.
+
+The code may read `state` (64 bytes) and read and write `buf` (256 bytes; its
+first 64 bytes hold the result on exit, and the rest is scratch space whose
+contents on exit are unspecified). `buf` may not overlap `state` or the
+return address on the stack. The pointers are public; the state (key,
+counter and nonce) is secret. -/
+def blockX86_64 : Contract X86_64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .rdi, 64⟩
+    let buf : Region := ⟨s.gpr .rsi, 256⟩
+    let ret : Region := ⟨s.gpr .rsp, 8⟩
+    s.rd = [state] ∧ s.wr = [buf] ∧ buf.Disjoint state ∧ ret.Disjoint buf
+  post s s' := stateAt s'.mem (s.gpr .rsi) = block (stateAt s.mem (s.gpr .rdi))
+  pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi
+
+end VG.Proof.ChaCha20
 
 namespace VG.Proof.ChaCha20.X86_64
 
@@ -561,19 +587,21 @@ def satState : State where
   rd := [⟨0x1000, 64⟩]
   wr := [⟨0x2000, 256⟩]
 
+theorem block_correct (s : State) (hs : Proof.ChaCha20.blockX86_64.pre s) :
+    ∃ t s', Exec isa block s t s' ∧ abiPreserved s s' ∧ Proof.ChaCha20.blockX86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
 theorem block_verified :
-    Verified X86_64.target Impl.ChaCha20.X86_64.block Proof.ChaCha20.blockX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2⟩
-    refine Taint.agree_ofRegs fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl <;> assumption
-  · refine ⟨satState, rfl, rfl, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, satState] at h₁ h₂
-      bv_omega
+    Verified X86_64.target Impl.ChaCha20.X86_64.block (Spec.ChaCha20.blockContract X86_64.abi) := by
+  refine Verified.of_correct block_correct ?_ (by
+    sig_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig, X86_64.abi, X86_64.argRegs,
+      Proof.ChaCha20.blockX86_64]
+      [satState] using satState)
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi]) ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2⟩
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl <;> assumption
 
 end VG.Proof.ChaCha20.X86_64

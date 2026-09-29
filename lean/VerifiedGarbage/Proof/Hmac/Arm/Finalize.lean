@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.Arm.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Finalize
-import VerifiedGarbage.Proof.Hmac.Arm.Contract
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
 # HMAC-SHA-256 on ARMv7: `finalize`
@@ -23,7 +24,7 @@ open VG.Proof.Hmac.X86_64 (writeBytes_at writeBytes_other bytesAt_getD' bytesAt_
 open VG.Proof.Hmac.X86_64.Finalize (xorPad_length repr_outer)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd wp_mov wp_ldr wp_str wp_ldrSp op2_imm frame_bytes sub_offset)
+open VG.Proof.MdStream.Arm (Upd Mupd wp_mov wp_ldr wp_str wp_ldrSp op2_imm frame_bytes sub_offset)
 open VG.Spec.Sha256 (bytesAt stateAt Repr)
 open VG.Proof.Sha256 (countArm)
 open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
@@ -118,10 +119,7 @@ theorem finW_sub (s₀ : State) : ∀ r ∈ finW s₀, ∃ r' ∈ [inR s₀, out
 theorem fin_exec : ∀ s, Proof.Sha256.finalizeArm.pre s → ∃ t s',
     Exec isa Impl.Sha256.Arm.Stream.finalize s t s' ∧ abiPreserved s s' ∧
       Proof.Sha256.finalizeArm.post s s' := by
-  intro s hs
-  obtain ⟨t, s', he, h₁, h₂⟩ :=
-    Proof.Sha256.Arm.Stream.Finalize.correct (Proof.Sha256.Arm.Stream.Finalize.pre_of hs)
-  exact ⟨t, s', he, h₁, h₂⟩
+  exact Proof.Sha256.Arm.Stream.Finalize.finalize_verified.1
 
 theorem r0_ok : ∀ i ∈ instrs Impl.Sha256.Arm.Stream.finalize, dstOf i ≠ some .r0 := by
   have : ((instrs Impl.Sha256.Arm.Stream.finalize).all fun i => dstOf i != some .r0) = true := by
@@ -341,7 +339,7 @@ theorem not_finW {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 32) :
   · exact fun hc => hp.o_s _ hc hs
   · simp only [Region.Contains]
     have : (State.addr (scr s₀)).toNat = (scr s₀).toNat :=
-      Proof.Sha256.Arm.Stream.Update.addr_toNat _
+      Proof.MdStream.Arm.addr_toNat _
     bv_omega
 
 theorem countArm_96 {s : State} (h2 : s.gpr .r2 = 96) (h3 : s.gpr .r3 = 0) :
@@ -408,7 +406,7 @@ theorem wf₀ {s : State} (h : Proof.Hmac.finalizeSha256Arm.pre s) : VG.Arm.Tain
       forall_eq, List.Pairwise.nil, and_true]
     exact ⟨⟨hp.i_o, hp.i_s⟩, hp.o_s, fun _ h => h.elim⟩
   · simp only [hp.wr, List.mem_cons, List.not_mem_nil, or_false]
-    rintro r (rfl | rfl | rfl) <;> simp only [Proof.Sha256.Arm.Stream.Update.addr_toNat] <;> omega
+    rintro r (rfl | rfl | rfl) <;> simp only [Proof.MdStream.Arm.addr_toNat] <;> omega
   · intro p hp'; simp only [τ₀, List.mem_singleton] at hp'; subst hp'; simp [VG.Arm.Taint.region, hp.wr]
   · have e : (⟨State.addr s.sp, 8⟩ : Region) = argR s := by simp [stackArgAddr]
     simp only [τ₀, e, hp.wr, List.mem_cons, List.not_mem_nil, or_false]
@@ -432,8 +430,8 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256Arm.pre s�
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
   · rw [hp₁.wr, hp₂.wr]; simp only [inR, outR, scR, inA, outA, scA, inn, out, scr, p0, a0, a1]
   · simp only [τ₀] at hk
-    rw [Proof.Sha256.Arm.Stream.Finalize.argByte_eq hp₁.sp_fit hk,
-      Proof.Sha256.Arm.Stream.Finalize.argByte_eq hp₂.sp_fit hk,
+    rw [Proof.MdStream.Arm.argByte_eq hp₁.sp_fit hk,
+      Proof.MdStream.Arm.argByte_eq hp₂.sp_fit hk,
       Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)),
       Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega))]
     have : k / 4 = 0 ∨ k / 4 = 1 := by omega
@@ -456,19 +454,23 @@ def sat : State where
   rd := [⟨0x2000, 96⟩, ⟨0x5000, 8⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 32⟩, ⟨0x4000, 240⟩]
 
-theorem finalize_verified : Verified Arm.target finalize Proof.Hmac.finalizeSha256Arm := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
-  · have e0 : stackArg sat 0 = 0x3000 := by decide
-    have e1 : stackArg sat 1 = 0x4000 := by decide
-    refine ⟨sat, ?_⟩
-    simp only [Proof.Hmac.finalizeSha256Arm, e0, e1]
-    refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide,
-      by decide, by decide, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+theorem finalize_correct (s : State) (hs : Proof.Hmac.finalizeSha256Arm.pre s) :
+    ∃ t s', Exec isa finalize s t s' ∧ abiPreserved s s' ∧ Proof.Hmac.finalizeSha256Arm.post s s' :=
+      by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  exact ⟨t, s', he, h⟩
+
+theorem finalize_ct : ConstantTime isa Proof.Hmac.finalizeSha256Arm.pre
+    Proof.Hmac.finalizeSha256Arm.pub finalize := by
+  exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
+    (by taint_decide)
+
+theorem finalize_verified :
+    Verified Arm.target Impl.Hmac.Arm.finalize (Spec.Hmac.finalizeSha256OutContract Arm.abi) :=
+  Verified.of_correct finalize_correct finalize_ct (by
+    sig_implies [Spec.Hmac.finalizeSha256OutContract, Spec.Hmac.finalizeSha256OutSig,
+      Proof.Hmac.finalizeSha256Arm, Proof.Sha256.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify,
+      Arm.Loc.val, Arm.State.addr] [Proof.Hmac.Arm.Finalize.sat, Arm.stackArg, Arm.stackArgAddr,
+      Mem.readW, Mem.read] using Proof.Hmac.Arm.Finalize.sat)
 
 end VG.Proof.Hmac.Arm.Finalize

@@ -209,6 +209,11 @@ def step (τ : T) : Instr → Option T
   | .shift32 _ d _ | .shift _ d _ =>
     some { τ with flags := τ.flags && pub τ d, bases := kill τ d, lo := .empty }
   | .bswap32 d | .bswap d => some { τ with bases := kill τ d, lo := .empty }
+  -- `rorx` changes no flag; `andn` sets them from its result.
+  | .rorx32 d r _ => some { τ with regs := set τ d (pub τ r), bases := kill τ d, lo := .empty }
+  | .andn32 d a b =>
+    let p := pub τ a && pub τ b
+    some { τ with regs := set τ d p, flags := p, bases := kill τ d, lo := .empty }
   | .movImm64 d _ => some { τ with regs := set τ d true, bases := kill τ d, lo := .empty }
   | .movzx8 d m =>
     if memPub τ m then some { τ with regs := set τ d false, bases := kill τ d, lo := .empty } else none
@@ -683,7 +688,7 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {m : 
 one (none for stores and SSE instructions, and for `mul`, which writes two). -/
 def dstOf : Instr → Option Reg
   | .mov d _ | .mov32 d _ | .alu _ d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
-  | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
+  | .rorx32 d .. | .andn32 d .. | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ | .vop _
   | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .stmxcsr _ | .ldmxcsr _ | .lfence | .mul _
   | .push _ | .pop .. => none
@@ -751,6 +756,14 @@ theorem exec_nonstore {i : Instr} {d : Reg} (hd : dstOf i = some d) {s s' : Stat
     · cases h
   case bswap32 =>
     simp only [exec, Option.some.injEq] at h
+    subst h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
+  case rorx32 r n =>
+    simp only [exec, execRorx32] at h
+    split at h
+    · simp only [Option.some.injEq] at h; subst h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
+    · cases h
+  case andn32 a b =>
+    simp only [exec, execAndn32, Option.some.injEq] at h
     subst h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
   case movzx8 m =>
     simp only [exec, Option.map_eq_some_iff] at h
@@ -1076,6 +1089,27 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     by_cases hrd : r = d
     · subst hrd; simp [State.setReg32, State.setReg, ha.rf.1 r hr]
     · simp [State.setReg32, State.setReg, hrd, ha.rf.1 r hr]
+  | rorx32 d r n =>
+    simp only [step, Option.some.injEq] at hs
+    subst hs
+    refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl (fun _ h => h) rfl⟩
+    by_cases hn : 1 ≤ n ∧ n ≤ 31
+    swap; · simp [exec, execRorx32, hn] at e₁
+    simp only [exec, execRorx32, hn, and_self, ite_true, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    exact ⟨regs_set ha.rf.1 fun hp => by rw [ha.reg hp], fun hf => by simpa [State.setReg32] using ha.rf.2 hf⟩
+  | andn32 d a b =>
+    simp only [step, Option.some.injEq] at hs
+    subst hs
+    refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl (fun _ h => h) rfl⟩
+    simp only [exec, execAndn32, State.setReg32, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    have hv : (pub τ a && pub τ b) = true →
+        ~~~((s₁.gpr a).setWidth 32) &&& (s₁.gpr b).setWidth 32 =
+          ~~~((s₂.gpr a).setWidth 32) &&& (s₂.gpr b).setWidth 32 := fun hp => by
+      simp only [Bool.and_eq_true] at hp; rw [ha.reg hp.1, ha.reg hp.2]
+    refine ⟨regs_set (fun r hr => ha.rf.1 r hr) fun hp => by rw [hv hp], fun hp => ?_⟩
+    simp [State.setReg, arithFlags, State.setFlags, hv hp]
   | movzx8 d m =>
     simp only [step] at hs
     split at hs <;> [skip; cases hs]
@@ -1290,6 +1324,10 @@ def stepK (τ : T) : Instr → Option T
   | .shift32 _ d _ | .shift _ d _ =>
     some { τ with flags := τ.flags && pub τ d, bases := killK τ d, lo := .empty }
   | .bswap32 d | .bswap d => some { τ with bases := killK τ d, lo := .empty }
+  | .rorx32 d r _ => some { τ with regs := setK τ d (pub τ r), bases := killK τ d, lo := .empty }
+  | .andn32 d a b =>
+    let p := pub τ a && pub τ b
+    some { τ with regs := setK τ d p, flags := p, bases := killK τ d, lo := .empty }
   | .movImm64 d _ => some { τ with regs := setK τ d true, bases := killK τ d, lo := .empty }
   | .movzx8 d m =>
     bif memPub τ m then some { τ with regs := setK τ d false, bases := killK τ d, lo := .empty } else none

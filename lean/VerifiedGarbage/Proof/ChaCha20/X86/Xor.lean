@@ -20,11 +20,53 @@ calls into the block function. `xor_eax` states that `eax` holds `buf` on
 return.
 -/
 
+namespace VG.Proof.ChaCha20
+
+open Spec.ChaCha20 VG.X86
+
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+x86 (32-bit) contract for
+`vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80])`,
+whose arguments are on the stack (cdecl): XORs the first `len` bytes of the
+keystream of the state at `state` into the `len` bytes at `data`.
+
+The code may read and write the arguments (16 bytes above the return
+address), `state` (64 bytes; its contents on exit are unspecified), `data`
+(`len` bytes) and `buf` (320 bytes of working space). These may not overlap
+each other; the buffers may not overlap the return address or the 12 bytes
+of stack below it, where the calls of the block function store their
+arguments and return address; nothing may wrap around the end of the
+(32-bit) address space. `esp` and the arguments (the pointers and the length)
+are public; the state and the data are secret. -/
+def xorX86 : Contract X86.isa where
+  pre s :=
+    let state : Region := ⟨(arg s 0).setWidth 64, 64⟩
+    let data : Region := ⟨(arg s 1).setWidth 64, (arg s 2).toNat⟩
+    let buf : Region := ⟨(arg s 3).setWidth 64, 320⟩
+    let args : Region := ⟨argAddr s 0, 16⟩
+    let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+    let stack : Region := ⟨(s.gpr .esp).setWidth 64 - 12, 12⟩
+    s.rd = [] ∧ s.wr = [state, data, buf, args] ∧
+    state.Disjoint data ∧ state.Disjoint buf ∧ data.Disjoint buf ∧
+    args.Disjoint state ∧ args.Disjoint data ∧ args.Disjoint buf ∧
+    ret.Disjoint state ∧ ret.Disjoint data ∧ ret.Disjoint buf ∧
+    stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint buf ∧
+    (arg s 0).toNat + 64 ≤ 2 ^ 32 ∧ (arg s 1).toNat + (arg s 2).toNat ≤ 2 ^ 32 ∧
+    (arg s 3).toNat + 320 ≤ 2 ^ 32 ∧ 12 ≤ (s.gpr .esp).toNat ∧ (s.gpr .esp).toNat + 20 ≤ 2 ^ 32
+  post s s' :=
+    bytesAt s'.mem ((arg s 1).setWidth 64) (arg s 2).toNat =
+      List.zipWith (· ^^^ ·) (bytesAt s.mem ((arg s 1).setWidth 64) (arg s 2).toNat)
+        (keystream (stateAt s.mem ((arg s 0).setWidth 64)) (arg s 2).toNat)
+  pub s₁ s₂ := s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 4, arg s₁ i = arg s₂ i
+
+end VG.Proof.ChaCha20
+
 namespace VG.Proof.ChaCha20.X86.Xor
 
 open VG VG.X86 VG.Impl.ChaCha20.X86.Xor
 open VG.Impl.ChaCha20.X86 (at_)
-open VG.Proof.ChaCha20.X86 (contains_off contains_sub toNat_ofNat_lt readW_writeW_off block_verified)
+open VG.Proof.ChaCha20.X86 (contains_off contains_sub toNat_ofNat_lt readW_writeW_off block_correct)
 open VG.Spec.ChaCha20 (stateAt keystream serialize bytesAt)
 
 /-! ## The entry state -/
@@ -488,7 +530,7 @@ theorem call_ok {s₀ : State} (hp : XPre s₀) {j : Nat} {s : State} (h : OInv 
     rw [block_stackUse, pushed_esp, sub_toNat hn, h.esp]
     simp only [List.length_cons, List.length_nil]; omega
   refine WP.frame (rs := [.edi, .ebx]) (r := .eax) (by simp) (by decide) (by decide) hn block_nosp ?_
-  refine WP.call (k := Proof.ChaCha20.blockX86) block_verified.1 block_nosp hd (rd := rdC s₀)
+  refine WP.call (k := Proof.ChaCha20.blockX86) block_correct block_nosp hd (rd := rdC s₀)
     (wr := wrC s₀) (entry_pre hp h.esp h.ebx h.edi) hc hw
     fun s' hrd hwr hcs hf _ ⟨s₂, hm₂, _, hpost⟩ => ?_
   have hsp : s'.gpr .esp = (pushed [.edi, .ebx] s).gpr .esp := hcs .esp (by simp [calleeSaved])
@@ -1049,24 +1091,26 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 64⟩, ⟨0x2000, 0⟩, ⟨0x3000, 320⟩, ⟨0x5004, 16⟩]
 
-theorem sat_pre : Proof.ChaCha20.xorX86.pre sat := by
-  have a0 : arg sat 0 = 0x1000 := by decide
-  have a1 : arg sat 1 = 0x2000 := by decide
-  have a2 : arg sat 2 = 0 := by decide
-  have a3 : arg sat 3 = 0x3000 := by decide
-  have e : argAddr sat 0 = 0x5004 := by decide
-  simp only [Proof.ChaCha20.xorX86, a0, a1, a2, a3, e]
-  refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
-    by decide, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, sat] at h₁ h₂
-    bv_omega
+theorem xor_correct (s : State) (hs : Proof.ChaCha20.xorX86.pre s) :
+    ∃ t s', Exec isa Impl.ChaCha20.X86.Xor.xor s t s' ∧ abiPreserved s s' ∧
+      Proof.ChaCha20.xorX86.post s s' :=
+  (correct (XPre.of s hs)).imp fun _ ⟨s', he, h, _⟩ => ⟨s', he, h⟩
+
+theorem xor_ct : ConstantTime isa Proof.ChaCha20.xorX86.pre Proof.ChaCha20.xorX86.pub
+    Impl.ChaCha20.X86.Xor.xor :=
+  VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
 
 theorem xor_verified :
-    Verified X86.target Impl.ChaCha20.X86.Xor.xor Proof.ChaCha20.xorX86 := by
-  refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
-  · obtain ⟨t, s', he, h, -⟩ := correct (XPre.of s hs)
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+    Verified X86.target Impl.ChaCha20.X86.Xor.xor (Spec.ChaCha20.xorContract X86.abi 12) :=
+  Verified.of_correct xor_correct xor_ct
+    (by
+      have a0 : arg sat 0 = 0x1000 := by decide
+      have a1 : arg sat 1 = 0x2000 := by decide
+      have a2 : arg sat 2 = 0 := by decide
+      have a3 : arg sat 3 = 0x3000 := by decide
+      have e : argAddr sat 0 = 0x5004 := by decide
+      have esp : sat.gpr .esp = 0x5000 := rfl
+      sig_implies [Spec.ChaCha20.xorContract, Spec.ChaCha20.xorSig, X86.abi, X86.argSlots,
+        X86.argVal, X86.argBytes, Proof.ChaCha20.xorX86] [a0, a1, a2, a3, e, esp] using sat)
 
 end VG.Proof.ChaCha20.X86.Xor

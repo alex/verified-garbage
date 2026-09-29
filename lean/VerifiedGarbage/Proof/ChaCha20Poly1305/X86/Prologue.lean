@@ -55,7 +55,7 @@ theorem saveMem_saved (s₀ : State) : Saved s₀ (saveMem s₀) := by
 
 set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : APre s₀) :
-    WP isa (.block (save ++ [.mov .edi (.reg .eax)])) (s₀.setReg .eax (CX s₀)) fun s =>
+    WP isa (.block (save ++ ([.mov .edi (.reg .eax)] : List Instr))) (s₀.setReg .eax (CX s₀)) fun s =>
       s.gpr .edi = CX s₀ ∧ (∀ r, r ≠ .eax → r ≠ .edi → s.gpr r = s₀.gpr r) ∧ s.mem = saveMem s₀ ∧
       s.rd = s₀.rd ∧ s.wr = s₀.wr := by
   have e0 := hp.c64 (k := 592) (by omega); have e1 := hp.c64 (k := 596) (by omega)
@@ -246,12 +246,12 @@ structure PostP (s₀ : State) (s : State) : Prop where
   poly : Repr s.mem (cx s₀ + BitVec.ofNat 64 448) (otk s₀) []
   st : stateAt s.mem (cx s₀ + BitVec.ofNat 64 64) = Spec.ChaCha20.initState (K s₀) 0 (N s₀)
 
-theorem B2_eq : save ++ [.mov .edi (.reg .eax)] ++ initState ++ ptr .ecx .edi 64 ++ ptr .edx .edi 128 =
-    (save ++ [.mov .edi (.reg .eax)]) ++ (initState ++ (ptr .ecx .edi 64 ++ ptr .edx .edi 128)) := by
+theorem B2_eq : save ++ ([.mov .edi (.reg .eax)] : List Instr) ++ initState ++ ptr .ecx .edi 64 ++ ptr .edx .edi 128 =
+    (save ++ ([.mov .edi (.reg .eax)] : List Instr)) ++ (initState ++ (ptr .ecx .edi 64 ++ ptr .edx .edi 128)) := by
   simp only [List.append_assoc]
 
 theorem pro2_ok {s₀ : State} (hp : APre s₀) :
-    WP isa (.block (save ++ [.mov .edi (.reg .eax)] ++ initState ++ ptr .ecx .edi 64 ++ ptr .edx .edi 128))
+    WP isa (.block (save ++ ([.mov .edi (.reg .eax)] : List Instr) ++ initState ++ ptr .ecx .edi 64 ++ ptr .edx .edi 128))
       (s₀.setReg .eax (CX s₀)) (Pro2 s₀) := by
   rw [B2_eq]
   refine WP.block_append (WP.mono (save_ok hp) fun s₁ ⟨e₁, g₁, m₁, rd₁, wr₁⟩ => ?_)
@@ -339,7 +339,7 @@ theorem post_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Pro4 s₀ s) :
 
 theorem prologue_eq : prologue =
     .seq (.block [.mov .eax (.mem (at_ .esp 4))])
-    (.seq (.block (save ++ [.mov .edi (.reg .eax)] ++ initState ++ ptr .ecx .edi 64 ++ ptr .edx .edi 128))
+    (.seq (.block (save ++ ([.mov .edi (.reg .eax)] : List Instr) ++ initState ++ ptr .ecx .edi 64 ++ ptr .edx .edi 128))
     (.seq (callWith [.edx, .ecx] "vg_chacha20_block" Impl.ChaCha20.X86.block)
     (.seq (.block (ptr .ecx .edi 128 ++ ptr .edx .edi 448))
       (callWith [.ecx, .edx] "vg_poly1305_init" Impl.Poly1305.X86.init)))) := rfl

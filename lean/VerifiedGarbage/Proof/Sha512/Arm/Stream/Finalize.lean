@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Common
 # Streaming SHA-512 on ARMv7: `finalize`
 
 Untrusted: everything here is checked by Lean. The structure of the SHA-256
-proof (`VG.Proof.Sha256.Arm.Stream.Finalize`), with `state` in `r0`,
+proof (`VG.Proof.MdStream.Arm.Finalize`), with `state` in `r0`,
 `scratch` in `r3`, `out` in `r6`, the buffered bytes in `r4`, whether the
 block is not the last in `r5`, and `count` saved in the scratch space (with
 our caller's registers).
@@ -15,10 +15,10 @@ namespace VG.Proof.Sha512.Arm.Stream.Finalize
 
 open VG VG.Arm VG.Impl.Sha512.Arm.Stream
 open VG.Impl.Sha512.Arm (lo hi)
-open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd op2_imm op2_reg op2_lsr op2_lsl wp_mov wp_add wp_and wp_orr
-  wp_subs wp_cmp wp_rev wp_ldr wp_str wp_strb wp_ldrSp saveMem saveList_ok readW_writeW_save sub_offset
-  frame_bytes bytesAt_getD eval_eq eval_ne ofNat_beq_zero sub_ofNat sub_beq)
+open VG.Proof.MdStream.Arm (contains_offset)
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd op2_imm op2_reg op2_lsr op2_lsl wp_mov wp_add wp_and
+  wp_orr wp_subs wp_cmp wp_rev wp_ldr wp_str wp_strb wp_ldrSp saveMem saveList_ok readW_writeW_save
+  sub_offset frame_bytes bytesAt_getD eval_eq eval_ne ofNat_beq_zero sub_ofNat sub_beq)
 open VG.Proof.Sha512.Arm (temps)
 open VG.Proof.Sha512.Arm.Stream
 open VG.Proof.Sha512.Arm.Stream.Update (addr_toNat shr7 cmp0)
@@ -618,7 +618,7 @@ def prologue : List Instr :=
    .dp .add .r5 .r4 (.imm 15), .mov .r5 (.shifted .r5 .lsr 7)]
 
 theorem finalize_eq : finalize =
-    .seq (.block ([.ldrSp .r12 4] ++ (stored.map (fun p => Instr.str p.1 .r12 p.2) ++ prologue)))
+    .seq (.block (([.ldrSp .r12 4] : List Instr) ++ (stored.map (fun p => Instr.str p.1 .r12 p.2) ++ prologue)))
     (.seq (.loop finalizeBody .eq) (.block ((List.range 8).flatMap outW ++ restore))) := rfl
 
 theorem argAddr_eq {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 2) :
@@ -637,7 +637,7 @@ theorem arg_sub {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 2) :
   rw [argAddr_eq hp hk]; exact sub_offset (by omega) (by omega)
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block ([.ldrSp .r12 4] ++ (stored.map (fun p => Instr.str p.1 .r12 p.2) ++ prologue))) s₀
+    WP isa (.block (([.ldrSp .r12 4] : List Instr) ++ (stored.map (fun p => Instr.str p.1 .r12 p.2) ++ prologue))) s₀
       fun s => ∃ k, LInv s₀ k (cnt s₀ % 128 + 1) s := by
   have hr : cnt s₀ % 128 < 128 := Nat.mod_lt _ (by omega)
   have hsc := hp.scr_fit; have hst := hp.st_fit

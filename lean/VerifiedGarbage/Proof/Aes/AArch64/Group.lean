@@ -440,7 +440,7 @@ theorem lsrT_ok (s : State) :
     rfl⟩
 
 theorem xorFull_eq : xorFull = xorBlock 0 ++ xorBlock 1 ++ xorBlock 2 ++ xorBlock 3 ++
-    [.addImm .x .x3 .x3 64, .subImm .x .x4 .x4 4] := rfl
+    ([.addImm .x .x3 .x3 64, .subImm .x .x4 .x4 4] : List Instr) := rfl
 
 theorem ofNat_sub_four {x : Nat} (h : 4 ≤ x) : BitVec.ofNat 64 x - 4 = BitVec.ofNat 64 (x - 4) := by
   bv_omega

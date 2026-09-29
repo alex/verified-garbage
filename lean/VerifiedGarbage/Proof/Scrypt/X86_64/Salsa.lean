@@ -1,6 +1,8 @@
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Scrypt.X86_64.Block
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Scrypt.Contract
 
 /-!
 # The Salsa20/8 Core on x86-64: the whole function
@@ -91,19 +93,24 @@ def satState : State where
   rd := []
   wr := [⟨0x1000, 64⟩, ⟨0x2000, 64⟩]
 
+theorem salsa_correct (s : State) (hs : Proof.Scrypt.salsaX86_64.pre s) :
+    ∃ t s', Exec isa Impl.Scrypt.X86_64.salsa s t s' ∧ abiPreserved s s' ∧
+      Proof.Scrypt.salsaX86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
+theorem salsa_ct : ConstantTime isa Proof.Scrypt.salsaX86_64.pre Proof.Scrypt.salsaX86_64.pub
+    Impl.Scrypt.X86_64.salsa := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi]) ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2⟩
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl <;> assumption
+
 theorem salsa_verified :
-    Verified X86_64.target Impl.Scrypt.X86_64.salsa Proof.Scrypt.salsaX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2⟩
-    refine Taint.agree_ofRegs fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl <;> assumption
-  · refine ⟨satState, rfl, rfl, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, satState] at h₁ h₂
-      bv_omega
+    Verified X86_64.target Impl.Scrypt.X86_64.salsa (Spec.Scrypt.salsaContract X86_64.abi) :=
+  Verified.of_correct salsa_correct salsa_ct (by
+    sig_implies [Spec.Scrypt.salsaContract, Spec.Scrypt.salsaSig, Proof.Scrypt.salsaX86_64,
+      X86_64.abi, X86_64.argRegs] [Proof.Scrypt.X86_64.satState] using Proof.Scrypt.X86_64.satState)
 
 end VG.Proof.Scrypt.X86_64

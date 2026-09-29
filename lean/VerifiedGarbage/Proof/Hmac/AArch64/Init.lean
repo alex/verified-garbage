@@ -1,8 +1,9 @@
 import VerifiedGarbage.Proof.Hmac.AArch64.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Init
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Init
-import VerifiedGarbage.Proof.Hmac.AArch64.Contract
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
 # HMAC-SHA-256 on AArch64: `init`
@@ -20,9 +21,10 @@ open VG.Proof.Hmac.X86_64 (bytesAt_length)
 open VG.Proof.Hmac.X86_64.Init (bytesAt_snoc repr_block)
 open VG.Proof.Sha256.Stream (writeBytes repr_congr)
 open VG.Proof.Sha256.AArch64 (writeState stateAt_writeState contains_offset sub_offset toNat_ofNat_lt)
-open VG.Proof.Sha256.AArch64.Stream (Upd Mupd wp_mov wp_movz wp_addImm wp_subImm wp_sub wp_add wp_ldrb
-  wp_strb compressAt_ok saveMem saveMem_saved saveMem_frame save_ok restore_ok frame_bytes untouched
-  eval_zero eval_nonzero ofNat_beq_zero sub_ofNat movzk ofNat_succ)
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_movz wp_addImm wp_subImm wp_sub wp_add wp_ldrb
+  wp_strb frame_bytes untouched eval_zero eval_nonzero ofNat_beq_zero sub_ofNat ofNat_succ)
+open VG.Proof.Sha256.AArch64.Stream (compressAt_ok saveMem saveMem_saved saveMem_frame save_ok
+  restore_ok movzk)
 open VG.Spec.Sha256 (bytesAt stateAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
 
@@ -86,7 +88,7 @@ theorem blockKey_eq {s₀ : State} (hp : Pre s₀) :
 
 /-! ## `H⁽⁰⁾` -/
 
-open VG.Proof.Sha256.AArch64.Stream.WP (cons)
+open VG.Proof.MdStream.AArch64.WP (cons)
 
 /-- The three instructions storing the 32-bit word `x` at `[b + off]`. -/
 def word (b : Reg) (x : BitVec 32) (off : Nat) : List Instr :=
@@ -214,7 +216,7 @@ theorem saved_frame' {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List R
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .x4 ++ [mov .x19 .x0, mov .x20 .x4, mov .x21 .x1, mov .x22 .x2, mov .x23 .x3] ++
-      h0 .x19 ++ h0 .x21 ++ [.movz .x .x14 0x36 0, .movz .x .x15 0x5c 0, .movz .x .x24 0 0])) s₀
+      h0 .x19 ++ h0 .x21 ++ ([.movz .x .x14 0x36 0, .movz .x .x15 0x5c 0, .movz .x .x24 0 0] : List Instr))) s₀
       (Key s₀ 0) := by
   simp only [List.append_assoc]
   refine save_ok (fun d hd₁ hd₂ => ⟨scR s₀, by simp [hp.wr], contains_offset hd₂ (by omega)⟩)
@@ -349,7 +351,7 @@ theorem wp_eor {is : List Instr} {s : State} {Q : State → Prop} {d n m : Reg}
     (k : ∀ s', Upd s s' d (s.gpr n ^^^ s.gpr m) → WP isa (.block is) s' Q) :
     WP isa (.block (.logic .eor .x d n m :: is)) s Q :=
   cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m)) (by simp [exec, State.read])
-    (k _ (Proof.Sha256.AArch64.Stream.Upd.write64 _ _ _))
+    (k _ (Proof.MdStream.AArch64.Upd.write64 _ _ _))
 
 theorem xor_byte (b : Byte) (v : BitVec 16) :
     (b.setWidth 64 ^^^ v.setWidth 64).setWidth 8 = b ^^^ v.setWidth 8 := by
@@ -608,7 +610,7 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
     WP isa initMain s₀ fun s' => (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) ∧
       s'.sp = s₀.sp ∧ Proof.Hmac.initSha256AArch64.post s₀ s' := by
   have hkl := hp.kl_le
-  refine WP.mono (Proof.Sha256.AArch64.Stream.WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
+  refine WP.mono (Proof.MdStream.AArch64.WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨fun r hr h30 => ?_, hsp, hpost⟩
   · unfold initMain
     refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
@@ -721,7 +723,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) :
     · have e : bytesAt (inner s₀).mem (s₀.gpr .x2) (s₀.gpr .x3).toNat =
           bytesAt s₀.mem (s₀.gpr .x2) (s₀.gpr .x3).toNat :=
         Proof.Sha256.Stream.bytesAt_congr fun i hi =>
-          Proof.Sha256.AArch64.Stream.write_frame_bytes (R := kR s₀) hs.k (s₀.gpr .x3).isLt hi
+          Proof.MdStream.AArch64.write_frame_bytes (R := kR s₀) hs.k (s₀.gpr .x3).isLt hi
       simpa only [Proof.Hmac.initSha256AArch64, e, State.write] using hpost
 
 /-! ## `Verified` -/
@@ -743,15 +745,22 @@ def sat : State where
   rd := [⟨0x3000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-theorem init_verified : Verified AArch64.target init Proof.Hmac.initSha256AArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) (fun _ _ _ _ hp => agree₀ hp)
-      (by taint_decide)
-  · refine ⟨sat, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, by decide, ?_, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+theorem init_correct (s : State) (hs : Proof.Hmac.initSha256AArch64.pre s) :
+    ∃ t s', Exec isa init s t s' ∧ abiPreserved s s' ∧ Proof.Hmac.initSha256AArch64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
+  exact ⟨t, s', he, h⟩
+
+theorem init_ct : ConstantTime isa Proof.Hmac.initSha256AArch64.pre Proof.Hmac.initSha256AArch64.pub
+    init := by
+  exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4])
+    (fun _ _ _ _ hp => agree₀ hp)
+    (by taint_decide)
+
+theorem init_verified :
+    Verified AArch64.target Impl.Hmac.AArch64.init (Spec.Hmac.initSha256Contract AArch64.abi 16) :=
+  Verified.of_correct init_correct init_ct (by
+    sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig,
+      Proof.Hmac.initSha256AArch64, AArch64.abi, AArch64.argRegs] [Proof.Hmac.AArch64.Init.sat]
+      using Proof.Hmac.AArch64.Init.sat)
 
 end VG.Proof.Hmac.AArch64.Init

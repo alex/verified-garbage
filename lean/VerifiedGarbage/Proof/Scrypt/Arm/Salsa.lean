@@ -1,9 +1,11 @@
 import VerifiedGarbage.Proof.Scrypt.Spec
-import VerifiedGarbage.Proof.Scrypt.Arm.Contract
+import VerifiedGarbage.Spec.Scrypt.Contract
+import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.Proof.Scrypt.X86_64.Common
 import VerifiedGarbage.Proof.Framework.Range
 import VerifiedGarbage.Proof.Hmac.Arm.Init
 import VerifiedGarbage.Impl.Scrypt.Arm.Salsa
+import VerifiedGarbage.Proof.Framework.Arm.Contract
 
 /-!
 # The Salsa20/8 Core on 32-bit ARM
@@ -14,12 +16,101 @@ addition. Each line of the rounds is proved once, for any indices
 (`line_ok`), and the lines are composed by induction.
 -/
 
+namespace VG.Proof.Scrypt
+
+open Spec.Scrypt
+
+open VG.Arm in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+32-bit ARM contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32; 16])`:
+replaces the 64 bytes at `b` by their Salsa20/8 Core.
+
+The code may read and write `b` (in `r0`) and `scratch` (in `r1`; 64 bytes
+each, the contents of `scratch` on exit unspecified), which may not overlap
+or wrap around the end of the address space. The pointers are public; the
+data is secret. -/
+def salsaArm : Contract Arm.isa where
+  pre s :=
+    let b : Region := ⟨State.addr (s.gpr .r0), 64⟩
+    let scratch : Region := ⟨State.addr (s.gpr .r1), 64⟩
+    s.rd = [] ∧ s.wr = [b, scratch] ∧ b.Disjoint scratch ∧
+    (s.gpr .r0).toNat + 64 ≤ 2 ^ 32 ∧ (s.gpr .r1).toNat + 64 ≤ 2 ^ 32
+  post s s' := bytesAt s'.mem (State.addr (s.gpr .r0)) 64 =
+    salsa (bytesAt s.mem (State.addr (s.gpr .r0)) 64)
+  pub s₁ s₂ := s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1 ∧ s₁.sp = s₂.sp
+
+open VG.Arm in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+32-bit ARM contract for
+`vg_scrypt_blockmix(b = r0, r = r1, y = r2, ry = r3, scratch = [sp])`:
+if `ry = r > 0`, writes scryptBlockMix of the `128 r` bytes at `b` to `y`.
+The code may read `b` and the stack argument, and read and write `y` and
+`scratch` (128 bytes). -/
+def blockMixArm : Contract Arm.isa where
+  pre s :=
+    let r := (s.gpr .r1).toNat
+    let b : Region := ⟨State.addr (s.gpr .r0), r * 128⟩
+    let y : Region := ⟨State.addr (s.gpr .r2), (s.gpr .r3).toNat * 128⟩
+    let scratch : Region := ⟨State.addr (stackArg s 0), 128⟩
+    let args : Region := ⟨stackArgAddr s 0, 4⟩
+    s.rd = [b, args] ∧ s.wr = [y, scratch] ∧
+    y.Disjoint scratch ∧ b.Disjoint y ∧ b.Disjoint scratch ∧ args.Disjoint y ∧
+    args.Disjoint scratch ∧
+    (s.gpr .r0).toNat + r * 128 ≤ 2 ^ 32 ∧ (s.gpr .r2).toNat + (s.gpr .r3).toNat * 128 ≤ 2 ^ 32 ∧
+    (stackArg s 0).toNat + 128 ≤ 2 ^ 32 ∧ s.sp.toNat + 4 ≤ 2 ^ 32 ∧
+    s.gpr .r3 = s.gpr .r1 ∧ 0 < r
+  post s s' := let r := (s.gpr .r1).toNat
+    bytesAt s'.mem (State.addr (s.gpr .r2)) (128 * r) =
+      blockMix r (bytesAt s.mem (State.addr (s.gpr .r0)) (128 * r))
+  pub s₁ s₂ :=
+    s₁.sp = s₂.sp ∧ s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1 ∧
+    s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧ stackArg s₁ 0 = stackArg s₂ 0
+
+open VG.Arm in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+32-bit ARM contract for
+`vg_scrypt_romix(b = r0, r = r1, v = r2, vlen = r3, scratch = [sp], slen = [sp + 4])`:
+if `r > 0`, `vlen = N r` for a power of two `N`, and `slen = r + 2`, replaces
+the `128 r` bytes at `b` by their scryptROMix. The code may read the stack
+arguments, and read and write `b`, `v` and `scratch`. The indices `j` of
+step 3 are public. -/
+def roMixArm : Contract Arm.isa where
+  pre s :=
+    let r := (s.gpr .r1).toNat
+    let b : Region := ⟨State.addr (s.gpr .r0), r * 128⟩
+    let v : Region := ⟨State.addr (s.gpr .r2), (s.gpr .r3).toNat * 128⟩
+    let scratch : Region := ⟨State.addr (stackArg s 0), (stackArg s 1).toNat * 128⟩
+    let args : Region := ⟨stackArgAddr s 0, 8⟩
+    s.rd = [args] ∧ s.wr = [b, v, scratch] ∧
+    b.Disjoint v ∧ b.Disjoint scratch ∧ v.Disjoint scratch ∧
+    args.Disjoint b ∧ args.Disjoint v ∧ args.Disjoint scratch ∧
+    (s.gpr .r0).toNat + r * 128 ≤ 2 ^ 32 ∧ (s.gpr .r2).toNat + (s.gpr .r3).toNat * 128 ≤ 2 ^ 32 ∧
+    (stackArg s 0).toNat + (stackArg s 1).toNat * 128 ≤ 2 ^ 32 ∧ s.sp.toNat + 8 ≤ 2 ^ 32 ∧
+    0 < r ∧ (s.gpr .r3).toNat % r = 0 ∧ ((s.gpr .r3).toNat / r).isPowerOfTwo ∧
+    (stackArg s 1).toNat = r + 2
+  post s s' := let r := (s.gpr .r1).toNat
+    bytesAt s'.mem (State.addr (s.gpr .r0)) (128 * r) =
+      roMix r ((s.gpr .r3).toNat / r) (bytesAt s.mem (State.addr (s.gpr .r0)) (128 * r))
+  pub s₁ s₂ :=
+    s₁.sp = s₂.sp ∧ s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1 ∧
+    s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧ stackArg s₁ 0 = stackArg s₂ 0 ∧
+    stackArg s₁ 1 = stackArg s₂ 1 ∧
+    roMixIndices (s₁.gpr .r1).toNat ((s₁.gpr .r3).toNat / (s₁.gpr .r1).toNat)
+        (bytesAt s₁.mem (State.addr (s₁.gpr .r0)) (128 * (s₁.gpr .r1).toNat)) =
+      roMixIndices (s₂.gpr .r1).toNat ((s₂.gpr .r3).toNat / (s₂.gpr .r1).toNat)
+        (bytesAt s₂.mem (State.addr (s₂.gpr .r0)) (128 * (s₂.gpr .r1).toNat))
+
+end VG.Proof.Scrypt
+
 namespace VG.Proof.Scrypt.Arm
 
 open VG VG.Arm VG.Impl.Scrypt.Arm
 open VG.Spec.Scrypt (Word)
 open VG.Proof.Scrypt
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd wp_ldr wp_str wp_add op2_reg)
+open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str wp_add op2_reg)
 open VG.Proof.Hmac.Arm.Init (wp_eor)
 open VG.Proof.Scrypt.X86_64.BlockMix (contains_off)
 
@@ -340,18 +431,25 @@ def satState : State where
   rd := []
   wr := [⟨0x1000, 64⟩, ⟨0x2000, 64⟩]
 
-theorem salsa_verified : Verified Arm.target Impl.Scrypt.Arm.salsa Proof.Scrypt.salsaArm := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0, .r1]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, _⟩
-    refine Taint.agree_ofRegs fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl <;> assumption
-  · refine ⟨satState, rfl, rfl, ?_, by decide, by decide⟩
-    intro a h₁ h₂
-    simp only [Region.Contains, satState, State.addr] at h₁ h₂
-    bv_omega
+theorem salsa_correct (s : State) (hs : Proof.Scrypt.salsaArm.pre s) :
+    ∃ t s', Exec isa Impl.Scrypt.Arm.salsa s t s' ∧ abiPreserved s s' ∧
+      Proof.Scrypt.salsaArm.post s s' := by
+  obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
+  exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
+
+theorem salsa_ct : ConstantTime isa Proof.Scrypt.salsaArm.pre Proof.Scrypt.salsaArm.pub
+    Impl.Scrypt.Arm.salsa := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0, .r1]) ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, _⟩
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl <;> assumption
+
+theorem salsa_verified :
+    Verified Arm.target Impl.Scrypt.Arm.salsa (Spec.Scrypt.salsaContract Arm.abi) :=
+  Verified.of_correct salsa_correct salsa_ct (by
+    sig_implies [Spec.Scrypt.salsaContract, Spec.Scrypt.salsaSig, Proof.Scrypt.salsaArm, Arm.abi,
+      Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] [Proof.Scrypt.Arm.satState]
+      using Proof.Scrypt.Arm.satState)
 
 end VG.Proof.Scrypt.Arm

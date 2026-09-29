@@ -16,7 +16,7 @@ namespace VG.Proof.Scrypt.AArch64.RoMix
 open VG VG.AArch64 VG.Impl.Scrypt.AArch64
 open VG.Spec.Scrypt (bytesAt blockMix roMix)
 open VG.Proof.Sha256.Stream (writeBytes)
-open VG.Proof.Md5.AArch64.Stream (Upd Mupd wp_mov wp_add wp_addImm wp_subImm wp_ldr wp_str wp_movz
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_add wp_addImm wp_subImm wp_ldr wp_str wp_movz
   wp_lsr wp_and readW_writeW_save)
 open VG.Proof.Scrypt.AArch64.BlockMix (wp_lsl)
 open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat toNat_add_ofNat contains_off sub_off
@@ -28,8 +28,8 @@ open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat toNat_add_ofNat c
 theorem wp_madd {is : List Instr} {s : State} {Q : State → Prop} {d n m a : Reg}
     (k : ∀ s', Upd s s' d (s.gpr a + s.gpr n * s.gpr m) → WP isa (.block is) s' Q) :
     WP isa (.block (.madd .x d n m a :: is)) s Q :=
-  Proof.Md5.AArch64.Stream.WP.cons (s' := s.write .x d (s.gpr a + s.gpr n * s.gpr m))
-    (by simp [exec, State.read]) (k _ (Proof.Md5.AArch64.Stream.Upd.write64 _ _ _))
+  Proof.MdStream.AArch64.WP.cons (s' := s.write .x d (s.gpr a + s.gpr n * s.gpr m))
+    (by simp [exec, State.read]) (k _ (Proof.MdStream.AArch64.Upd.write64 _ _ _))
 
 theorem ofNat_toNat' (x : BitVec 64) : x = BitVec.ofNat 64 x.toNat := by
   rw [BitVec.ofNat_toNat, BitVec.setWidth_eq]
@@ -76,16 +76,16 @@ theorem saveMem_frame (s₀ : State) : Frame [scR s₀] s₀.mem (saveMem s₀) 
     (c 168 (by omega))).writeW (List.mem_singleton_self _) _ (c 176 (by omega))
 
 theorem prologue_eq : rmPrologue =
-    [.str .x .x19 .x4 128, .str .x .x20 .x4 136, .str .x .x22 .x4 144, .str .x .x23 .x4 152,
-     .str .x .x24 .x4 160, .str .x .x30 .x4 168, .str .x .x21 .x4 176] ++
+    ([.str .x .x19 .x4 128, .str .x .x20 .x4 136, .str .x .x22 .x4 144, .str .x .x23 .x4 152,
+     .str .x .x24 .x4 160, .str .x .x30 .x4 168, .str .x .x21 .x4 176] : List Instr) ++
     [mov .x19 .x0, mov .x20 .x2, mov .x21 .x4, .lsl .x .x22 .x1 7,
      mov .x9 .x1, .movz .x .x10 1 0, .add .x .x11 .x3 .x3] := rfl
 
 theorem save_ok {s₀ : State} (hp : Pre s₀) {rest : List Instr} {Q : State → Prop}
     (k : ∀ s₁, s₁.gpr = s₀.gpr → s₁.rd = s₀.rd → s₁.wr = s₀.wr → s₁.sp = s₀.sp →
       s₁.mem = saveMem s₀ → WP isa (.block rest) s₁ Q) :
-    WP isa (.block ([.str .x .x19 .x4 128, .str .x .x20 .x4 136, .str .x .x22 .x4 144,
-      .str .x .x23 .x4 152, .str .x .x24 .x4 160, .str .x .x30 .x4 168, .str .x .x21 .x4 176] ++
+    WP isa (.block (([.str .x .x19 .x4 128, .str .x .x20 .x4 136, .str .x .x22 .x4 144,
+      .str .x .x23 .x4 152, .str .x .x24 .x4 160, .str .x .x30 .x4 168, .str .x .x21 .x4 176] : List Instr) ++
       rest)) s₀ Q := by
   have o : ∀ d, d + 8 ≤ 256 → ∀ s : State, s.wr = s₀.wr →
       InRegions s.wr (sc s₀ + BitVec.ofNat 64 d) 8 := fun d hd s hw => by

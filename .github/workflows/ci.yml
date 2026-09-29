@@ -223,8 +223,8 @@ jobs:
   # implementations by CPU feature (see src/cpu.rs), tested end to end in
   # each configuration that chooses differently, set with `VG_CPU_FEATURES`:
   # every feature beyond x86-64's baseline (the SHA extensions, AES-NI,
-  # PCLMULQDQ and SSSE3), natively where this runner has them and otherwise
-  # under Intel SDE, emulating a CPU that has every one; and none, the
+  # PCLMULQDQ, SSSE3, AVX and AVX2), natively where this runner has them and
+  # otherwise under Intel SDE, emulating a CPU that has every one; and none, the
   # baseline ISA's implementations. Detection is also tested under SDE on a
   # Pentium 4, which no runner is: it has neither feature, nor CPUID leaf 7.
   # The coverage is merged with the rest.
@@ -274,7 +274,7 @@ jobs:
         if: ${{ matrix.cpu-features == '' }}
         run: |
           missing=
-          for f in sha_ni aes pclmulqdq ssse3; do
+          for f in sha_ni aes pclmulqdq ssse3 avx avx2; do
             grep -qw "$f" /proc/cpuinfo || missing="$missing $f"
           done
           echo "This runner lacks:${missing:- nothing}" | tee -a "$GITHUB_STEP_SUMMARY"
@@ -283,7 +283,7 @@ jobs:
           fi
       # Only the tests of what depends on CPU features.
       - name: Test the implementations
-        run: cargo test --locked --features cpu-features-env -- sha256 aes_gcm cpu
+        run: cargo test --locked --features cpu-features-env -- sha256 aes_gcm chacha20 cpu
       - name: Test detection on a Pentium 4 (under SDE)
         if: ${{ matrix.cpu-features == '' }}
         run: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="$RUNNER_TEMP/sde/sde64 -p4p --" cargo test --locked --features cpu-features-env --lib -- cpu

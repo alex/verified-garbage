@@ -1,5 +1,6 @@
 import VerifiedGarbage.TCB.AArch64.Target
-import VerifiedGarbage.Proof.Hmac.AArch64.Shared
+import VerifiedGarbage.Proof.Hmac.AArch64.Finalize
+import VerifiedGarbage.Proof.Hmac.AArch64.Init
 
 /-!
 # HMAC-SHA-256 (RFC 2104) on AArch64
@@ -23,7 +24,7 @@ def artifacts : List Artifact := [
     code := Impl.Hmac.AArch64.init
     contract := Spec.Hmac.initSha256Contract AArch64.abi 16
     stack := 16
-    verified := Proof.Hmac.AArch64.Shared.init
+    verified := Proof.Hmac.AArch64.Init.init_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Hmac.finalizeSha256Api with
     target := AArch64.target
@@ -31,7 +32,7 @@ def artifacts : List Artifact := [
     code := Impl.Hmac.AArch64.finalize
     contract := Spec.Hmac.finalizeSha256Contract AArch64.abi 32
     stack := 32
-    verified := Proof.Hmac.AArch64.Shared.finalize
+    verified := Proof.Hmac.AArch64.Finalize.finalize_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.HmacSha256.AArch64

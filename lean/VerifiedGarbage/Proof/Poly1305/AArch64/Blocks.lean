@@ -1,14 +1,85 @@
 import VerifiedGarbage.Proof.Poly1305.AArch64.Setup
-import VerifiedGarbage.Proof.Poly1305.AArch64.Contract
+import VerifiedGarbage.Spec.Poly1305
+import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import Mathlib.Tactic.NormNum.Basic
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on AArch64: `blocks`
 
 Untrusted: everything here is checked by Lean.
 -/
+
+namespace VG.Proof.Poly1305
+
+open Spec.Poly1305
+
+open VG.AArch64 in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+`vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32])`. -/
+def initAArch64 : Contract AArch64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .x0, 128⟩
+    let key : Region := ⟨s.gpr .x1, 32⟩
+    s.rd = [key] ∧ s.wr = [state] ∧ state.Disjoint key
+  post s s' := Repr s'.mem (s.gpr .x0) (bytesAt s.mem (s.gpr .x1) 32) []
+  pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.sp = s₂.sp
+
+open VG.AArch64 in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+`vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n: usize)`. -/
+def blocksAArch64 : Contract AArch64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .x0, 128⟩
+    let blocks : Region := ⟨s.gpr .x1, 16 * (s.gpr .x2).toNat⟩
+    s.rd = [blocks] ∧ s.wr = [state] ∧ state.Disjoint blocks ∧
+      (s.gpr .x1).toNat + 16 * (s.gpr .x2).toNat ≤ 2 ^ 64
+  post s s' := ∀ key msg, Repr s.mem (s.gpr .x0) key msg →
+    Repr s'.mem (s.gpr .x0) key (msg ++ bytesAt s.mem (s.gpr .x1) (16 * (s.gpr .x2).toNat))
+  pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
+    s₁.sp = s₂.sp
+
+open VG.AArch64 in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+`vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len: usize, …)`:
+only `count mod 16`, the number of bytes buffered, matters. The state must be
+writable, and it may be permitted to write other regions (which it does
+not). -/
+def updateAArch64 : Contract AArch64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .x0, 128⟩
+    let data : Region := ⟨s.gpr .x2, (s.gpr .x3).toNat⟩
+    s.rd = [data] ∧ state ∈ s.wr ∧ state.Disjoint data
+  post s s' := ∀ key msg, Buffered s.mem (s.gpr .x0) key msg →
+    (s.gpr .x1).toNat % 16 = msg.length % 16 →
+    Buffered s'.mem (s.gpr .x0) key (msg ++ bytesAt s.mem (s.gpr .x2) (s.gpr .x3).toNat)
+  pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
+    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp
+
+open VG.AArch64 in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+`vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16], …)`:
+only `count mod 16`, the number of bytes buffered, matters. The state and
+`out` must be writable, and it may be permitted to write other regions
+(which it does not). -/
+def finalizeAArch64 : Contract AArch64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .x0, 128⟩
+    let out : Region := ⟨s.gpr .x2, 16⟩
+    state ∈ s.wr ∧ out ∈ s.wr ∧ state.Disjoint out
+  post s s' := ∀ key msg, Buffered s.mem (s.gpr .x0) key msg →
+    (s.gpr .x1).toNat % 16 = msg.length % 16 → bytesAt s'.mem (s.gpr .x2) 16 = mac key msg
+  pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
+    s₁.sp = s₂.sp
+
+end VG.Proof.Poly1305
 
 namespace VG.Proof.Poly1305.AArch64
 
@@ -356,19 +427,26 @@ def blocksSat : State where
 theorem blocks_untouched : Untouched Impl.Poly1305.AArch64.blocks :=
   Untouched.of_all (by rw [← Code.allInstrs_eq]; decide +kernel)
 
+theorem blocks_ok (s : State) (hs : Proof.Poly1305.blocksAArch64.pre s) :
+    ∃ t s', Exec isa Impl.Poly1305.AArch64.blocks s t s' ∧ abiPreserved s s' ∧
+      Proof.Poly1305.blocksAArch64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := blocks_correct (BPre.of s hs)
+  exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (blocks_untouched r hr) he, Exec.sp he⟩, h⟩
+
+theorem blocks_ct : ConstantTime isa Proof.Poly1305.blocksAArch64.pre
+    Proof.Poly1305.blocksAArch64.pub Impl.Poly1305.AArch64.blocks := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2]) ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, h3, hsp⟩
+  refine ⟨hsp, fun r hr => ?_⟩
+  simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl <;> assumption
+
 theorem blocks_verified :
-    Verified AArch64.target Impl.Poly1305.AArch64.blocks Proof.Poly1305.blocksAArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := blocks_correct (BPre.of s hs)
-    exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (blocks_untouched r hr) he, Exec.sp he⟩, h⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3, hsp⟩
-    refine ⟨hsp, fun r hr => ?_⟩
-    simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl <;> assumption
-  · refine ⟨blocksSat, rfl, rfl, ?_, by decide⟩
-    intro a h₁ h₂
-    simp only [Region.Contains, blocksSat] at h₁ h₂
-    bv_omega
+    Verified AArch64.target Impl.Poly1305.AArch64.blocks (Spec.Poly1305.blocksContract AArch64.abi)
+      :=
+  Verified.of_correct blocks_ok blocks_ct (by
+    sig_implies [Spec.Poly1305.blocksContract, Spec.Poly1305.blocksSig,
+      Proof.Poly1305.blocksAArch64, AArch64.abi, AArch64.argRegs] [Proof.Poly1305.AArch64.blocksSat]
+      using Proof.Poly1305.AArch64.blocksSat)
 
 end VG.Proof.Poly1305.AArch64

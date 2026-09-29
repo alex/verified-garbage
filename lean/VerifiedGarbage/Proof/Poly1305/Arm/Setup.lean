@@ -171,8 +171,8 @@ def rList : List (Reg × Nat × Bool) :=
    (.r8, 104, false), (.r9, 108, false), (.r10, 112, false), (.r11, 116, false), (.r1, 121, true)]
 
 omit hfit in
-theorem setupR_eq : setupR = clampWords ++ zeroY ++ [.dp .add .r1 .r0 (.imm 88)] ++ addWords ++
-    [.mov .r1 (.shifted .r2 .lsr 21)] ++ rList.map (storeI .r0) := rfl
+theorem setupR_eq : setupR = clampWords ++ zeroY ++ ([.dp .add .r1 .r0 (.imm 88)] : List Instr) ++ addWords ++
+    ([.mov .r1 (.shifted .r2 .lsr 21)] : List Instr) ++ rList.map (storeI .r0) := rfl
 
 omit hfit in
 theorem cw_lt (m : Mem) (B : Addr) (i : Nat) : (cw m B i).toNat < 2 ^ 28 := by

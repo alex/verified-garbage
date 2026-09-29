@@ -1,6 +1,8 @@
 import VerifiedGarbage.TCB.X86_64.Target
-import VerifiedGarbage.Proof.ChaCha20.X86_64.Shared
+import VerifiedGarbage.Proof.ChaCha20.X86_64.Xor
+import VerifiedGarbage.Proof.ChaCha20.X86_64.Avx2.Xor
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
+import VerifiedGarbage.Impl.ChaCha20.X86_64.Avx2
 
 /-!
 # The ChaCha20 block function (RFC 8439) on x86-64
@@ -23,13 +25,35 @@ def artifacts : List Artifact := [
     doc := Spec.ChaCha20.blockApi.doc
     code := Impl.ChaCha20.X86_64.block
     contract := Spec.ChaCha20.blockContract X86_64.abi
-    verified := Proof.ChaCha20.X86_64.Shared.block },
+    verified := Proof.ChaCha20.X86_64.block_verified },
   { Spec.ChaCha20.xorApi with
     target := X86_64.target
     doc := Spec.ChaCha20.xorApi.doc
     code := Impl.ChaCha20.X86_64.Xor.xor
     contract := Spec.ChaCha20.xorContract X86_64.abi 8
     stack := 8
-    verified := Proof.ChaCha20.X86_64.Shared.xor }]
+    verified := Proof.ChaCha20.X86_64.Xor.xor_verified },
+  { target := X86_64.target
+    module := "chacha20"
+    name := "vg_chacha20_xor_avx2"
+    sig := Spec.ChaCha20.xorSig
+    doc := "XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` \
+      (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced \
+      by 0, 1, … modulo 2³²) into the `len` bytes at `data`, with AVX2: eight blocks at a time \
+      while at least 512 bytes remain, then `vg_chacha20_xor` for the rest.\n\n\
+      Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may \
+      affect timing, not the state or the data.\n\n\
+      # Safety\n\n\
+      * `state` must be valid for reads and writes of 64 bytes; its contents on return are \
+      unspecified.\n\
+      * `data` must be valid for reads and writes of `len` bytes.\n\
+      * `buf` must be valid for reads and writes of 320 bytes; its contents on return are \
+      unspecified."
+    code := Impl.ChaCha20.X86_64.Avx2.xor
+    contract := Spec.ChaCha20.xorContract X86_64.abi 16
+    writeArgs := true
+    stack := 16
+    verified := Proof.ChaCha20.X86_64.Avx2.xor_verified
+    features := ["avx", "avx2"] }]
 
 end VG.Artifacts.ChaCha20.X86_64

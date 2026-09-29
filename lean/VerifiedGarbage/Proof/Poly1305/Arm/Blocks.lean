@@ -1,7 +1,8 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Regions
-import VerifiedGarbage.Proof.Poly1305.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import Mathlib.Tactic.Ring.RingNF
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on 32-bit ARM: `blocks`
@@ -94,8 +95,8 @@ theorem blks_succ (s₀ : State) (i : Nat) :
 theorem leNum_pad (b : List Byte) (h : b.length = 16) : leNum (b ++ [0x01]) = leNum b + 2 ^ 128 := by
   rw [Poly1305.leNum_append, h]; rfl
 
-theorem body_eq : body = .block ([.ldr .r1 .r0 ptrOff, .dp .add .r2 .r1 (.imm 16), .str .r2 .r0 ptrOff] ++
-    (absorb true ++ [.ldr .r1 .r0 cntOff, .subs .r1 .r1 (.imm 1), .str .r1 .r0 cntOff])) := by
+theorem body_eq : body = .block (([.ldr .r1 .r0 ptrOff, .dp .add .r2 .r1 (.imm 16), .str .r2 .r0 ptrOff] : List Instr) ++
+    (absorb true ++ ([.ldr .r1 .r0 cntOff, .subs .r1 .r1 (.imm 1), .str .r1 .r0 cntOff] : List Instr))) := by
   simp only [body, List.append_assoc]
 
 theorem body_ok {s₀ : State} (hp : BPre s₀) {i : Nat} (hi : i < nb s₀) {s : State} (hL : LInv s₀ i s) :
@@ -262,8 +263,8 @@ end
 theorem blks_zero (s₀ : State) : blks s₀ 0 = [] := by simp [blks, bytesAt]
 
 theorem prologue_ok {s₀ : State} (hp : BPre s₀) :
-    WP isa (.block (saveRegs ++ [.str .r1 .r0 ptrOff, .str .r2 .r0 cntOff] ++ setupR ++ loadAcc ++
-      [.ldr .r1 .r0 cntOff, .cmp .r1 (.imm 0)])) s₀ fun s =>
+    WP isa (.block (saveRegs ++ ([.str .r1 .r0 ptrOff, .str .r2 .r0 cntOff] : List Instr) ++ setupR ++ loadAcc ++
+      ([.ldr .r1 .r0 cntOff, .cmp .r1 (.imm 0)] : List Instr))) s₀ fun s =>
       LInv s₀ 0 s ∧ s.z = (s₀.gpr .r2 == 0) := by
   have hfit := hp.st_fit
   have hw : stR (s₀.gpr .r0) ∈ s₀.wr := by rw [hp.wr]; exact List.mem_singleton_self _
@@ -348,8 +349,8 @@ theorem val_words {L : Nat → Nat} (hL : ∀ j < 9, L j < 2 ^ 13) :
   rw [val_toWords hL, tw0, tw1, tw2, tw3]; omega
 
 theorem epilogue_ok {s₀ : State} (hp : BPre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
-    WP isa (.block (reduce ++ toWords ++ [.str .r3 .r0 0, .str .r5 .r0 4, .str .r7 .r0 8, .str .r10 .r0 12,
-      .str .r1 .r0 16, .mov .r2 (.imm 0), .str .r2 .r0 20] ++ restoreRegs)) s fun s' =>
+    WP isa (.block (reduce ++ toWords ++ ([.str .r3 .r0 0, .str .r5 .r0 4, .str .r7 .r0 8, .str .r10 .r0 12,
+      .str .r1 .r0 16, .mov .r2 (.imm 0), .str .r2 .r0 20] : List Instr) ++ restoreRegs)) s fun s' =>
       abiPreserved s₀ s' ∧ Proof.Poly1305.blocksArm.post s₀ s' := by
   have hfit := hp.st_fit
   obtain ⟨D, hcD, hDb, hDv⟩ := hc.acc
@@ -488,12 +489,22 @@ def blocksSat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 128⟩]
 
-theorem blocks_verified : Verified Arm.target Impl.Poly1305.Arm.blocks Proof.Poly1305.blocksArm := by
-  refine ⟨fun s hs => blocks_correct (BPre.of s hs), ?_, ?_⟩
-  · exact VG.Taint.constantTime (A := taint) τb (fun _ _ h₁ h₂ hp => agreeb h₁ h₂ hp) (by taint_decide)
-  · refine ⟨blocksSat, rfl, rfl, ?_, by decide, by decide⟩
-    intro a h₁ h₂
-    simp only [Region.Contains, blocksSat, State.addr] at h₁ h₂
-    bv_omega
+theorem blocks_ok (s : State) (hs : Proof.Poly1305.blocksArm.pre s) :
+    ∃ t s', Exec isa Impl.Poly1305.Arm.blocks s t s' ∧ abiPreserved s s' ∧
+      Proof.Poly1305.blocksArm.post s s' :=
+  blocks_correct (BPre.of s hs)
+
+theorem blocks_ct : ConstantTime isa Proof.Poly1305.blocksArm.pre Proof.Poly1305.blocksArm.pub
+    Impl.Poly1305.Arm.blocks := by
+  exact VG.Taint.constantTime (A := taint) τb (fun _ _ h₁ h₂ hp => agreeb h₁ h₂ hp) (by
+      taint_decide)
+
+theorem blocks_verified :
+    Verified Arm.target Impl.Poly1305.Arm.blocks (Spec.Poly1305.blocksContract Arm.abi) :=
+  Verified.of_correct blocks_ok blocks_ct (by
+    sig_implies [Spec.Poly1305.blocksContract, Spec.Poly1305.blocksSig, Proof.Poly1305.blocksArm,
+      Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
+      [Proof.Poly1305.Arm.blocksSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using
+      Proof.Poly1305.Arm.blocksSat)
 
 end VG.Proof.Poly1305.Arm

@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.AArch64.Buffer
 import Mathlib.Tactic.NormNum.Basic
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on AArch64: `finalize`
@@ -61,7 +63,7 @@ structure F0 (s₀ : State) (m₁ : Mem) (s : State) : Prop where
   acc : A0 s₀ < P → hv s = A0 s₀ ∧ Bounds s
 
 theorem fprologue_ok {s₀ : State} (hp : FPre s₀) :
-    WP isa (.block ([.addImm .x .x3 .x2 0, .movz .x .x2 15 0, .logic .and .x .x2 .x1 .x2] ++ setup)) s₀
+    WP isa (.block (([.addImm .x .x3 .x2 0, .movz .x .x2 15 0, .logic .and .x .x2 .x1 .x2] : List Instr) ++ setup)) s₀
       fun s => F0 s₀ s.mem s := by
   refine WP.block_append (wp_addImm (by decide) fun s₁ u₁ => wp_movz fun s₂ u₂ => wp_and fun s₃ u₃ =>
     WP.block_nil ?_)
@@ -242,8 +244,8 @@ theorem tail_nil {s₀ : State} (h : kf s₀ = 0) : tail s₀ = [] := by
 theorem lastBlock_eq : lastBlock =
     .seq (.block [.movz .x .x11 0 0, .add .x .x9 .x0 .x2, .movz .x .x10 16 0, .sub .x .x10 .x10 .x2])
       (.seq (.loop (.block zeroBody) (.nonzero .x .x10))
-        (.block ([.movz .x .x11 1 0, .add .x .x9 .x0 .x2, .strb .x11 .x9 56] ++
-          ([.addImm .x .x1 .x0 56] ++ absorb false)))) := rfl
+        (.block (([.movz .x .x11 1 0, .add .x .x9 .x0 .x2, .strb .x11 .x9 56] : List Instr) ++
+          (([.addImm .x .x1 .x0 56] : List Instr) ++ absorb false)))) := rfl
 
 theorem lastBlock_ok {s₀ : State} (hp : FPre s₀) {m₁ : Mem} {s₁ : State} (h₁ : F0 s₀ m₁ s₁)
     (hpos : 0 < kf s₀) : WP isa lastBlock s₁ (Tail s₀ m₁ s₁) := by
@@ -381,7 +383,7 @@ theorem fepilogue_ok {s₀ : State} (hp : FPre s₀) {m₁ : Mem} {s₁ : State}
 /-! ## The whole function -/
 
 theorem finalize_eq : finalize =
-    .seq (.block ([.addImm .x .x3 .x2 0, .movz .x .x2 15 0, .logic .and .x .x2 .x1 .x2] ++ setup))
+    .seq (.block (([.addImm .x .x3 .x2 0, .movz .x .x2 15 0, .logic .and .x .x2 .x1 .x2] : List Instr) ++ setup))
       (.seq (.ite (.zero .x .x2) (.block []) lastBlock) (.block (reduce ++ addS ++ pack ++ storeTag))) := rfl
 
 theorem finalize_correct {s₀ : State} (hp : FPre s₀) :
@@ -411,19 +413,39 @@ def finalizeSat : State where
 theorem finalize_untouched : Untouched Impl.Poly1305.AArch64.finalize :=
   Untouched.of_all (by rw [← Code.allInstrs_eq]; decide +kernel)
 
+theorem finalize_ok (s : State) (hs : Proof.Poly1305.finalizeAArch64.pre s) :
+    ∃ t s', Exec isa Impl.Poly1305.AArch64.finalize s t s' ∧ abiPreserved s s' ∧
+      Proof.Poly1305.finalizeAArch64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := finalize_correct (FPre.of s hs)
+  exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (finalize_untouched r hr) he, Exec.sp he⟩, h⟩
+
+theorem finalize_ct : ConstantTime isa Proof.Poly1305.finalizeAArch64.pre
+    Proof.Poly1305.finalizeAArch64.pub Impl.Poly1305.AArch64.finalize := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2]) ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, h3, hsp⟩
+  refine ⟨hsp, fun r hr => ?_⟩
+  simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl <;> assumption
+
 theorem finalize_verified :
-    Verified AArch64.target Impl.Poly1305.AArch64.finalize Proof.Poly1305.finalizeAArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := finalize_correct (FPre.of s hs)
-    exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (finalize_untouched r hr) he, Exec.sp he⟩, h⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3, hsp⟩
-    refine ⟨hsp, fun r hr => ?_⟩
-    simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl <;> assumption
-  · refine ⟨finalizeSat, List.mem_cons_self, List.mem_cons_of_mem _ List.mem_cons_self, ?_⟩
-    intro a h₁ h₂
-    simp only [Region.Contains, finalizeSat] at h₁ h₂
-    bv_omega
+    Verified AArch64.target Impl.Poly1305.AArch64.finalize (Spec.Poly1305.finalizeContract
+      AArch64.abi) :=
+  Verified.of_correct finalize_ok finalize_ct
+    { pre := by
+        sig_implies_pre [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+          Proof.Poly1305.finalizeAArch64, AArch64.abi, AArch64.argRegs]
+      post := by
+        intro s s' _ h
+        sig_eval [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig, AArch64.abi,
+          AArch64.argRegs]
+        intro key msg hb hc
+        exact h key msg hb (count_mod hc)
+      pub := by
+        sig_implies_pub [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+          Proof.Poly1305.finalizeAArch64, AArch64.abi, AArch64.argRegs]
+      sat := by
+        sig_implies_sat [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig, AArch64.abi,
+          AArch64.argRegs, Proof.Poly1305.AArch64.finalizeSat]
+          [Proof.Poly1305.AArch64.finalizeSat] using Proof.Poly1305.AArch64.finalizeSat }
 
 end VG.Proof.Poly1305.AArch64

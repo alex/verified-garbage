@@ -1,8 +1,9 @@
 import VerifiedGarbage.Proof.Hmac.Arm.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Init
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Init
-import VerifiedGarbage.Proof.Hmac.Arm.Contract
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
 # HMAC-SHA-256 on ARMv7: `init`
@@ -24,10 +25,11 @@ open VG.Proof.Hmac.X86_64.Init (bytesAt_snoc repr_block)
 open VG.Proof.Sha256.Stream (writeBytes repr_congr)
 open VG.Proof.Sha256.AArch64 (writeState stateAt_writeState)
 open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd wp_mov wp_add wp_subs wp_cmp wp_ldrb wp_strb wp_ldrSp
-  wp_str op2_imm op2_reg compressAt_ok saveMem saveMem_saved saveMem_frame save_ok restore_ok frame_bytes
-  sub_offset eval_eq eval_ne ofNat_beq_zero sub_ofNat sub_beq)
-open VG.Proof.Sha256.Arm.Stream.Update (addr_toNat)
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_add wp_subs wp_cmp wp_ldrb wp_strb wp_ldrSp
+  wp_str op2_imm op2_reg saveMem frame_bytes sub_offset eval_eq eval_ne ofNat_beq_zero sub_ofNat
+  sub_beq)
+open VG.Proof.Sha256.Arm.Stream (compressAt_ok saveMem_saved saveMem_frame save_ok restore_ok)
+open VG.Proof.MdStream.Arm (addr_toNat)
 open VG.Spec.Sha256 (bytesAt stateAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
 
@@ -96,7 +98,7 @@ theorem arg_in {s₀ : State} (hp : Pre s₀) : InRegions (s₀.rd ++ s₀.wr) (
 
 /-! ## `H⁽⁰⁾` -/
 
-open VG.Proof.Sha256.Arm.Stream.WP (cons)
+open VG.Proof.MdStream.Arm.WP (cons)
 
 /-- The three instructions storing the 32-bit word `x` at `[b + off]`. -/
 def word (b : Reg) (x : BitVec 32) (off : Nat) : List Instr :=
@@ -236,9 +238,9 @@ theorem beq_zero_toNat (x : BitVec 32) : (x - 0 == 0) = decide (x.toNat = 0) := 
     intro h'; exact h (by rw [h']; rfl)
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block ([.ldrSp .r12 0] ++ save .r12 ++ [.mov .r4 (.reg .r1), .mov .r5 (.reg .r2),
-      .mov .r6 (.reg .r3)] ++ h0 .r0 ++ h0 .r4 ++
-      [.mov .r8 (.imm 0x36), .mov .r9 (.imm 0x5c), .mov .r7 (.imm 0), .cmp .r6 (.imm 0)])) s₀
+    WP isa (.block (([.ldrSp .r12 0] : List Instr) ++ save .r12 ++ ([.mov .r4 (.reg .r1), .mov .r5 (.reg .r2),
+      .mov .r6 (.reg .r3)] : List Instr) ++ h0 .r0 ++ h0 .r4 ++
+      ([.mov .r8 (.imm 0x36), .mov .r9 (.imm 0x5c), .mov .r7 (.imm 0), .cmp .r6 (.imm 0)] : List Instr))) s₀
       (fun s => Key s₀ 0 s ∧ s.z = decide (kl s₀ = 0)) := by
   have hsc := hp.scr_fit; have hin := hp.in_fit; have hou := hp.ou_fit
   simp only [List.append_assoc, List.cons_append, List.nil_append]
@@ -823,18 +825,22 @@ def sat : State where
   rd := [⟨0x3000, 0⟩, ⟨0x5000, 4⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-theorem init_verified : Verified Arm.target init Proof.Hmac.initSha256Arm := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
-  · have e0 : stackArg sat 0 = 0x4000 := by decide
-    refine ⟨sat, ?_⟩
-    simp only [Proof.Hmac.initSha256Arm, e0]
-    refine ⟨by decide, by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-      by decide, by decide, by decide, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+theorem init_correct (s : State) (hs : Proof.Hmac.initSha256Arm.pre s) :
+    ∃ t s', Exec isa init s t s' ∧ abiPreserved s s' ∧ Proof.Hmac.initSha256Arm.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  exact ⟨t, s', he, h⟩
+
+theorem init_ct : ConstantTime isa Proof.Hmac.initSha256Arm.pre Proof.Hmac.initSha256Arm.pub init :=
+    by
+  exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
+    (by taint_decide)
+
+theorem init_verified :
+    Verified Arm.target Impl.Hmac.Arm.init (Spec.Hmac.initSha256Contract Arm.abi) :=
+  Verified.of_correct init_correct init_ct (by
+    sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig, Proof.Hmac.initSha256Arm,
+      Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
+      [Proof.Hmac.Arm.Init.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using
+      Proof.Hmac.Arm.Init.sat)
 
 end VG.Proof.Hmac.Arm.Init

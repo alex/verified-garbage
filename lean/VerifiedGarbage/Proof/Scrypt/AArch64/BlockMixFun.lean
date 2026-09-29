@@ -14,7 +14,7 @@ namespace VG.Proof.Scrypt.AArch64.BlockMix
 open VG VG.AArch64 VG.Impl.Scrypt.AArch64
 open VG.Spec.Scrypt (bytesAt blk blockMix)
 open VG.Proof.Scrypt (yAt xBefore blockMix_eq flatMap_congr)
-open VG.Proof.Md5.AArch64.Stream (Upd Mupd wp_mov wp_add wp_addImm wp_subImm wp_ldr wp_str
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_add wp_addImm wp_subImm wp_ldr wp_str
   eval_nonzero ofNat_beq_zero readW_writeW_save write_frame_bytes)
 open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat InRegions.of_mem frame_bytesAt
   bytesAt_add bytesAt_blocks bytesAt_congr)
@@ -47,8 +47,8 @@ theorem saveMem_frame (s₀ : State) : Frame [scR s₀] s₀.mem (saveMem s₀) 
     (c 104 (by omega))
 
 theorem prologue_eq : bmPrologue =
-    [.str .x .x19 .x4 64, .str .x .x20 .x4 72, .str .x .x21 .x4 80, .str .x .x23 .x4 88,
-     .str .x .x24 .x4 96, .str .x .x22 .x4 104] ++
+    ([.str .x .x19 .x4 64, .str .x .x20 .x4 72, .str .x .x21 .x4 80, .str .x .x23 .x4 88,
+     .str .x .x24 .x4 96, .str .x .x22 .x4 104] : List Instr) ++
     [mov .x23 .x1, mov .x19 .x0, mov .x20 .x2, mov .x22 .x4,
      .lsl .x .x9 .x1 6, .add .x .x21 .x2 .x9,
      .lsl .x .x9 .x1 7, .add .x .x24 .x0 .x9, .subImm .x .x24 .x24 64] := rfl
@@ -56,8 +56,8 @@ theorem prologue_eq : bmPrologue =
 theorem save_ok {s₀ : State} (hp : Pre s₀) {rest : List Instr} {Q : State → Prop}
     (k : ∀ s₁, s₁.gpr = s₀.gpr → s₁.rd = s₀.rd → s₁.wr = s₀.wr → s₁.sp = s₀.sp →
       s₁.mem = saveMem s₀ → WP isa (.block rest) s₁ Q) :
-    WP isa (.block ([.str .x .x19 .x4 64, .str .x .x20 .x4 72, .str .x .x21 .x4 80,
-      .str .x .x23 .x4 88, .str .x .x24 .x4 96, .str .x .x22 .x4 104] ++ rest)) s₀ Q := by
+    WP isa (.block (([.str .x .x19 .x4 64, .str .x .x20 .x4 72, .str .x .x21 .x4 80,
+      .str .x .x23 .x4 88, .str .x .x24 .x4 96, .str .x .x22 .x4 104] : List Instr) ++ rest)) s₀ Q := by
   have o : ∀ d, d + 8 ≤ 128 → ∀ s : State, s.wr = s₀.wr →
       InRegions s.wr (sc s₀ + BitVec.ofNat 64 d) 8 := fun d hd s hw => by
     rw [hw, hp.wr]; exact InRegions.of_mem (by simp) (in_s s₀ hd)

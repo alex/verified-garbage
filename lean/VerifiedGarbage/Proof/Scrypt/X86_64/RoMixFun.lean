@@ -17,7 +17,7 @@ namespace VG.Proof.Scrypt.X86_64.RoMix
 
 open VG VG.X86_64 VG.Impl.Scrypt.X86_64
 open VG.Spec.Scrypt (bytesAt blockMix roMix)
-open VG.Proof.Sha1.X86_64.Stream (wp_mov wp_movm wp_store wp_add wp_addi wp_subi wp_mov32i)
+open VG.Proof.MdStream.X86_64 (wp_mov wp_movm wp_store wp_add wp_addi wp_subi wp_mov32i)
 open VG.Proof.Sha256.Stream (writeBytes)
 
 theorem frame_bytesAt' {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr} {n : Nat}
@@ -53,20 +53,20 @@ theorem saveMem_frame (s₀ : State) : Frame [scR s₀] s₀.mem (saveMem s₀) 
     (c 168 (by omega))
 
 theorem prologue_eq : rmPrologue =
-    [.store (at_ .r8 128) .rbx, .store (at_ .r8 136) .rbp, .store (at_ .r8 144) .r12,
-     .store (at_ .r8 152) .r14, .store (at_ .r8 160) .r15, .store (at_ .r8 168) .r13] ++
-    [.mov .rbx (.reg .rdi), .mov .r12 (.reg .rdx), .mov .r13 (.reg .r8), .mov .r14 (.reg .rsi),
+    ([.store (at_ .r8 128) .rbx, .store (at_ .r8 136) .rbp, .store (at_ .r8 144) .r12,
+     .store (at_ .r8 152) .r14, .store (at_ .r8 160) .r15, .store (at_ .r8 168) .r13] : List Instr) ++
+    ([.mov .rbx (.reg .rdi), .mov .r12 (.reg .rdx), .mov .r13 (.reg .r8), .mov .r14 (.reg .rsi),
      .alu .add .r14 (.reg .r14), .alu .add .r14 (.reg .r14), .alu .add .r14 (.reg .r14),
      .alu .add .r14 (.reg .r14), .alu .add .r14 (.reg .r14), .alu .add .r14 (.reg .r14),
      .alu .add .r14 (.reg .r14),
-     .mov .rax (.reg .rsi), .mov32 .rdx (.imm 1), .alu .add .rcx (.reg .rcx)] := rfl
+     .mov .rax (.reg .rsi), .mov32 .rdx (.imm 1), .alu .add .rcx (.reg .rcx)] : List Instr) := rfl
 
 theorem save_ok {s₀ : State} (hp : Pre s₀) {rest : List Instr} {Q : State → Prop}
     (k : ∀ s₁, s₁.gpr = s₀.gpr → s₁.rd = s₀.rd → s₁.wr = s₀.wr → s₁.mem = saveMem s₀ →
       WP isa (.block rest) s₁ Q) :
-    WP isa (.block ([.store (at_ .r8 128) .rbx, .store (at_ .r8 136) .rbp,
+    WP isa (.block (([.store (at_ .r8 128) .rbx, .store (at_ .r8 136) .rbp,
       .store (at_ .r8 144) .r12, .store (at_ .r8 152) .r14, .store (at_ .r8 160) .r15,
-      .store (at_ .r8 168) .r13] ++ rest)) s₀ Q := by
+      .store (at_ .r8 168) .r13] : List Instr) ++ rest)) s₀ Q := by
   have o : ∀ d, d + 8 ≤ 256 → ∀ s : State, s.wr = s₀.wr →
       InRegions s.wr (sc s₀ + BitVec.ofNat 64 d) 8 := fun d hd s hw => by
     rw [hw, hp.wr]; exact BlockMix.InRegions.of_mem (by simp) (in_s s₀ hd)

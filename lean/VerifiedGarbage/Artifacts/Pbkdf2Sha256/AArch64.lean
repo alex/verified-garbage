@@ -1,6 +1,6 @@
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Impl.Pbkdf2.AArch64
-import VerifiedGarbage.Proof.Pbkdf2.AArch64.Shared
+import VerifiedGarbage.Proof.Pbkdf2.AArch64.Iterate
 
 /-!
 # The PBKDF2-HMAC-SHA-256 iteration (RFC 8018) on AArch64
@@ -24,7 +24,7 @@ def artifacts : List Artifact := [
       (notes := ["The function uses no stack: it saves its return address in `scratch`."])
     code := Impl.Pbkdf2.AArch64.iterate
     contract := Spec.Pbkdf2.iterateSha256Contract AArch64.abi
-    verified := Proof.Pbkdf2.AArch64.Shared.iterate
+    verified := Proof.Pbkdf2.AArch64.iterate_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.Pbkdf2Sha256.AArch64

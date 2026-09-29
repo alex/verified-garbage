@@ -10,12 +10,47 @@ import Mathlib.Tactic.Conv
 Untrusted: everything here is checked by Lean.
 -/
 
+namespace VG.Proof.ChaCha20
+
+open Spec.ChaCha20 VG.AArch64
+
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+AArch64 contract for
+`vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80])`:
+XORs the first `len` bytes of the keystream of the state at `state` into the
+`len` bytes at `data`.
+
+The code may read and write `state` (64 bytes; its contents on exit are
+unspecified), `data` (`len` bytes) and `buf` (320 bytes of working space).
+They may not overlap each other; `data` does not wrap around the end of the
+address space. The return address is in `x30`, not on the stack, and the
+code uses no stack. The pointers and the length are public; the state and
+the data are secret. -/
+def xorAArch64 : Contract AArch64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .x0, 64⟩
+    let data : Region := ⟨s.gpr .x1, (s.gpr .x2).toNat⟩
+    let buf : Region := ⟨s.gpr .x3, 320⟩
+    s.rd = [] ∧ s.wr = [state, data, buf] ∧
+    state.Disjoint data ∧ state.Disjoint buf ∧ data.Disjoint buf ∧
+    (s.gpr .x1).toNat + (s.gpr .x2).toNat ≤ 2 ^ 64
+  post s s' :=
+    bytesAt s'.mem (s.gpr .x1) (s.gpr .x2).toNat =
+      List.zipWith (· ^^^ ·) (bytesAt s.mem (s.gpr .x1) (s.gpr .x2).toNat)
+        (keystream (stateAt s.mem (s.gpr .x0)) (s.gpr .x2).toNat)
+  pub s₁ s₂ :=
+    s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
+    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp
+
+end VG.Proof.ChaCha20
+
 namespace VG.Proof.ChaCha20.AArch64.Xor
 
 open VG VG.AArch64 VG.Impl.ChaCha20.AArch64.Xor
 open VG.Proof.ChaCha20 (ctr ctr_zero ctr_succ keystream_getD length_keystream bytesAt_xor
   serialize_stateAt)
-open VG.Proof.ChaCha20.AArch64 (toNat_ofNat_lt contains_off readW_writeW_out block_verified)
+open VG.Proof.ChaCha20.AArch64 (toNat_ofNat_lt contains_off readW_writeW_out block_correct)
 open VG.Spec.ChaCha20 (stateAt keystream serialize bytesAt)
 
 /-! ## One instruction at a time -/
@@ -422,7 +457,7 @@ theorem call_ok {s₀ : State} (hp : XPre s₀) {j : Nat} {s : State} (h : OInv 
   have c1 : s.callEntry.gpr .x1 = bp s₀ := (State.callEntry_gpr _ (by decide)).trans h.x1
   have hwr : s.wr = [stR s₀, dR s₀, bR s₀] := by rw [h.wr, hp.wr]
   have hrd : s.rd = [] := by rw [h.rd, hp.rd]
-  refine WP.call (k := Proof.ChaCha20.blockAArch64) block_verified.1
+  refine WP.call (k := Proof.ChaCha20.blockAArch64) block_correct
     (rd := [stR s₀]) (wr := [b256 s₀]) ?_ ?_ ?_ ?_ block_noFrames
   · simp only [Proof.ChaCha20.blockAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, c0, c1]
@@ -791,16 +826,21 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 64⟩, ⟨0x2000, 0⟩, ⟨0x3000, 320⟩]
 
+theorem xor_correct (s : State) (hs : Proof.ChaCha20.xorAArch64.pre s) :
+    ∃ t s', Exec isa Impl.ChaCha20.AArch64.Xor.xor s t s' ∧ abiPreserved s s' ∧
+      Proof.ChaCha20.xorAArch64.post s s' :=
+  (correct (XPre.of s hs)).imp fun _ ⟨s', he, ha, hpost, _⟩ => ⟨s', he, ha, hpost⟩
+
+theorem xor_ct : ConstantTime isa Proof.ChaCha20.xorAArch64.pre Proof.ChaCha20.xorAArch64.pub
+    Impl.ChaCha20.AArch64.Xor.xor :=
+  VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3])
+    (fun _ _ _ _ hp => agree₀ hp) (by taint_decide)
+
 theorem xor_verified :
-    Verified AArch64.target Impl.ChaCha20.AArch64.Xor.xor Proof.ChaCha20.xorAArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, ha, hpost, -⟩ := correct (XPre.of s hs)
-    exact ⟨t, s', he, ha, hpost⟩
-  · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3])
-      (fun _ _ _ _ hp => agree₀ hp) (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+    Verified AArch64.target Impl.ChaCha20.AArch64.Xor.xor (Spec.ChaCha20.xorContract AArch64.abi) :=
+  Verified.of_correct xor_correct xor_ct
+    (by sig_implies [Spec.ChaCha20.xorContract, Spec.ChaCha20.xorSig, AArch64.abi, AArch64.argRegs,
+      Proof.ChaCha20.xorAArch64]
+      [sat] using sat)
 
 end VG.Proof.ChaCha20.AArch64.Xor

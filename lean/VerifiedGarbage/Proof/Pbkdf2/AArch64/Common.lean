@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Hmac
-import VerifiedGarbage.Proof.Pbkdf2.AArch64.Contract
+import VerifiedGarbage.Spec.Pbkdf2
+import VerifiedGarbage.Proof.Sha256.AArch64.Contract
 import VerifiedGarbage.Proof.Pbkdf2.X86_64.Iterate
 import VerifiedGarbage.Proof.Hmac.AArch64.Common
 import VerifiedGarbage.Impl.Pbkdf2.AArch64
@@ -17,6 +18,46 @@ The lemmas here are about `main`, which runs once `n` is zero-extended: its
 entry state `s₀` has `n` as the whole of `x2`.
 -/
 
+namespace VG.Proof.Pbkdf2
+
+open Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
+open Spec.Sha256 (Repr bytesAt)
+
+open VG.AArch64 in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+AArch64 contract for
+`vg_pbkdf2_hmac_sha256_iterate(key: *const [u8; 192], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 48])`:
+if, for a 64-byte key `K₀`, the streaming state at `key` represents
+`K₀ ⊕ ipad` and the one at `key + 96` represents `K₀ ⊕ opad`, runs `n` steps
+`U ← HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` from the `U` at `u` and the `T` at
+`t`, leaving the final `T` at `t`.
+
+The code may read `key` (192 bytes) and `u` (32 bytes), and read and write
+`t` (32 bytes) and `scratch` (384 bytes, whose contents on exit are
+unspecified). The written regions may not overlap each other or the read
+ones. The return address is in `x30` and saved in `scratch`, so no stack is
+used. The pointers and `n` are public (`n` only in the low 32 bits of `x2`);
+the key, `U` and `T` are secret. -/
+def iterateSha256AArch64 : Contract isa where
+  pre s :=
+    let key : Region := ⟨s.gpr .x0, 192⟩
+    let u : Region := ⟨s.gpr .x1, 32⟩
+    let t : Region := ⟨s.gpr .x3, 32⟩
+    let scratch : Region := ⟨s.gpr .x4, 384⟩
+    s.rd = [key, u] ∧ s.wr = [t, scratch] ∧
+    key.Disjoint t ∧ key.Disjoint scratch ∧ u.Disjoint t ∧ u.Disjoint scratch ∧ t.Disjoint scratch
+  post s s' := ∀ k0, k0.length = 64 →
+    Repr s.mem (s.gpr .x0) (xorPad k0 ipad) → Repr s.mem (s.gpr .x0 + 96) (xorPad k0 opad) →
+    bytesAt s'.mem (s.gpr .x3) 32 =
+      Spec.Pbkdf2.iterate (hmacBlockKey sha256 k0) ((s.gpr .x2).setWidth 32).toNat
+        (bytesAt s.mem (s.gpr .x1) 32) (bytesAt s.mem (s.gpr .x3) 32)
+  pub s₁ s₂ :=
+    s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ (s₁.gpr .x2).setWidth 32 = (s₂.gpr .x2).setWidth 32 ∧
+    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
+
+end VG.Proof.Pbkdf2
+
 namespace VG.Proof.Pbkdf2.AArch64
 
 open VG VG.AArch64 VG.Impl.Pbkdf2.AArch64
@@ -25,7 +66,8 @@ open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self bytesAt_writeB
 open VG.Proof.Hmac.AArch64 (add_off)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append writeBytes_nil)
 open VG.Proof.Sha256.AArch64 (contains_offset sub_offset toNat_ofNat_lt)
-open VG.Proof.Sha256.AArch64.Stream (Upd Mupd wp_addImm wp_ldr wp_str wp_ldr32 wp_str32 wp_rev32 compressAt_ok)
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_addImm wp_ldr wp_str wp_ldr32 wp_str32 wp_rev32)
+open VG.Proof.Sha256.AArch64.Stream (compressAt_ok)
 open VG.Proof.Sha256.AArch64.Stream.Finalize (writeW_rev32 sw32 flat_length)
 open VG.Proof.Pbkdf2.X86_64.Iterate (frame_bytesAt contains_base off_contains sep_after writeW_xor
   xorBytes_length add_ofNat stateAt_copy)
@@ -321,7 +363,7 @@ theorem digest_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Regs s₀ s) {
 theorem wp_eor {is : List Instr} {s : State} {Q : State → Prop} {d n m : Reg}
     (k : ∀ s', Upd s s' d (s.gpr n ^^^ s.gpr m) → WP isa (.block is) s' Q) :
     WP isa (.block (.logic .eor .x d n m :: is)) s Q :=
-  Proof.Sha256.AArch64.Stream.WP.cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m)) (by simp [exec, State.read])
+  Proof.MdStream.AArch64.WP.cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m)) (by simp [exec, State.read])
     (k _ (Upd.write64 _ _ _))
 
 /-- `T ← T ⊕ U` for the first `n` 64-bit words of `T` at `tp` and `U` at `sc + 192`. -/

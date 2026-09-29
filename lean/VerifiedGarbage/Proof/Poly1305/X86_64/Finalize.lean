@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Poly1305.X86_64.Buffer
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on x86-64: `finalize`
@@ -77,14 +79,14 @@ theorem args_ok (s : State) :
   simp [hr.1, hr.2]
 
 theorem fprologue_eq : [Instr.mov .rcx (.reg .rdx), .mov .rdx (.reg .rsi), .alu .and .rdx (.imm 15)] ++
-    save ++ setup ++ [.alu .test .rdx (.reg .rdx)] =
+    save ++ setup ++ ([.alu .test .rdx (.reg .rdx)] : List Instr) =
     [Instr.mov .rcx (.reg .rdx), .mov .rdx (.reg .rsi), .alu .and .rdx (.imm 15)] ++
-    (save ++ (setup ++ [.alu .test .rdx (.reg .rdx)])) := by
+    (save ++ (setup ++ ([.alu .test .rdx (.reg .rdx)] : List Instr))) := by
   simp only [List.append_assoc]
 
 theorem fprologue_ok {s₀ : State} (hp : FPre s₀) :
-    WP isa (.block ([.mov .rcx (.reg .rdx), .mov .rdx (.reg .rsi), .alu .and .rdx (.imm 15)] ++ save ++
-      setup ++ [.alu .test .rdx (.reg .rdx)])) s₀ fun s =>
+    WP isa (.block (([.mov .rcx (.reg .rdx), .mov .rdx (.reg .rsi), .alu .and .rdx (.imm 15)] : List Instr) ++ save ++
+      setup ++ ([.alu .test .rdx (.reg .rdx)] : List Instr))) s₀ fun s =>
       ∃ m₁, Mem₁ s₀ m₁ ∧ F0 s₀ m₁ s ∧
         s.zf = some (BitVec.ofNat 64 (kf s₀) &&& BitVec.ofNat 64 (kf s₀) == 0) := by
   rw [fprologue_eq]
@@ -337,8 +339,8 @@ set_option simprocs false in
 /-- Adding `s`, storing the tag and restoring the callee-saved registers. -/
 theorem tagWords_ok (s : State) (hin : sR (s.gpr .rdi) ∈ s.wr) (hout : ⟨s.gpr .rcx, 16⟩ ∈ s.wr)
     (hsep : (sR (s.gpr .rdi)).Disjoint ⟨s.gpr .rcx, 16⟩) :
-    WP isa (.block ([.alu .add .r11 (.mem (at_ .rdi 40)), .alu .adc .rbx (.mem (at_ .rdi 48)),
-      .store (at_ .rcx 0) .r11, .store (at_ .rcx 8) .rbx] ++ restore)) s fun s' =>
+    WP isa (.block (([.alu .add .r11 (.mem (at_ .rdi 40)), .alu .adc .rbx (.mem (at_ .rdi 48)),
+      .store (at_ .rcx 0) .r11, .store (at_ .rcx 8) .rbx] : List Instr) ++ restore)) s fun s' =>
       (s'.mem.readW (off (s.gpr .rcx) 0) 64).toNat + 2 ^ 64 * (s'.mem.readW (off (s.gpr .rcx) 8) 64).toNat =
         ((s.gpr .r11).toNat + (s.mem.readW (off (s.gpr .rdi) 40) 64).toNat +
           2 ^ 64 * ((s.gpr .rbx).toNat + (s.mem.readW (off (s.gpr .rdi) 48) 64).toNat)) % 2 ^ 128 ∧
@@ -391,8 +393,8 @@ theorem off_zero (p : Addr) : off p 0 = p := by simp [off]
 
 theorem fepilogue_ok {s₀ : State} (hp : FPre s₀) {m₁ : Mem} (hm : Mem₁ s₀ m₁) {s₁ : State}
     (h₁ : F0 s₀ m₁ s₁) {s : State} (ht : Tail s₀ m₁ s₁ s) :
-    WP isa (.block (reduce ++ [.alu .add .r11 (.mem (at_ .rdi 40)), .alu .adc .rbx (.mem (at_ .rdi 48)),
-      .store (at_ .rcx 0) .r11, .store (at_ .rcx 8) .rbx] ++ restore)) s fun s' =>
+    WP isa (.block (reduce ++ ([.alu .add .r11 (.mem (at_ .rdi 40)), .alu .adc .rbx (.mem (at_ .rdi 48)),
+      .store (at_ .rcx 0) .r11, .store (at_ .rcx 8) .rbx] : List Instr) ++ restore)) s fun s' =>
       gprPreserved s₀ s' ∧ Proof.Poly1305.finalizeX86_64.post s₀ s' := by
   rw [List.append_assoc]
   refine WP.block_append (WP.mono (reduce_ok s) fun s₂ ⟨hr, k₂⟩ => ?_)
@@ -493,19 +495,40 @@ def finalizeSat : State where
   rd := []
   wr := [⟨0x1000, 128⟩, ⟨0x3000, 16⟩, ⟨0x5000, 128⟩]
 
+theorem finalize_ok (s : State) (hs : Proof.Poly1305.finalizeX86_64.pre s) :
+    ∃ t s', Exec isa Impl.Poly1305.X86_64.finalize s t s' ∧ abiPreserved s s' ∧
+      Proof.Poly1305.finalizeX86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := finalize_correct (FPre.of s hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
+theorem finalize_ct : ConstantTime isa Proof.Poly1305.finalizeX86_64.pre
+    Proof.Poly1305.finalizeX86_64.pub Impl.Poly1305.X86_64.finalize := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx]) ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, h3⟩
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl <;> assumption
+
 theorem finalize_verified :
-    Verified X86_64.target Impl.Poly1305.X86_64.finalize Proof.Poly1305.finalizeX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := finalize_correct (FPre.of s hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3⟩
-    refine Taint.agree_ofRegs fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl <;> assumption
-  · refine ⟨finalizeSat, by decide, by decide, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, finalizeSat] at h₁ h₂
-      bv_omega
+    Verified X86_64.target Impl.Poly1305.X86_64.finalize (Spec.Poly1305.finalizeContract X86_64.abi)
+      :=
+  Verified.of_correct finalize_ok finalize_ct
+    { pre := by
+        sig_implies_pre [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+          Proof.Poly1305.finalizeX86_64, X86_64.abi, X86_64.argRegs]
+      post := by
+        intro s s' _ h
+        sig_eval [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig, X86_64.abi,
+            X86_64.argRegs]
+        intro key msg hb hc
+        exact h.2 key msg hb (count_mod hc)
+      pub := by
+        sig_implies_pub [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+          Proof.Poly1305.finalizeX86_64, X86_64.abi, X86_64.argRegs]
+      sat := by
+        sig_implies_sat [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig, X86_64.abi,
+          X86_64.argRegs,
+          Proof.Poly1305.X86_64.finalizeSat]
+          [Proof.Poly1305.X86_64.finalizeSat] using Proof.Poly1305.X86_64.finalizeSat }
 
 end VG.Proof.Poly1305.X86_64

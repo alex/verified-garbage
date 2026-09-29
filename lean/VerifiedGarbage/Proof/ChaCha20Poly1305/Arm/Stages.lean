@@ -11,8 +11,8 @@ comparing tags, and restoring the registers.
 namespace VG.Proof.ChaCha20Poly1305.Arm
 
 open VG VG.Arm VG.Impl.ChaCha20Poly1305.Arm
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd wp_mov wp_add wp_sub wp_and wp_orr wp_ldr wp_str
-  op2_imm op2_reg op2_lsr op2_lsl saveMem restoreList_ok)
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_add wp_sub wp_and wp_orr wp_ldr wp_str op2_imm
+  op2_reg op2_lsr op2_lsl saveMem restoreList_ok)
 open VG.Proof.ChaCha20.Arm.Xor (stateAt_writeW_counter wp_eor)
 open VG.Proof.ChaCha20.Arm (toNat_ofNat_lt)
 open VG.Spec.Poly1305 (Repr bytesAt mac leBytes)

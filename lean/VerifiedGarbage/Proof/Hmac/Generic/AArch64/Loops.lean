@@ -19,7 +19,7 @@ open VG.AArch64
 open VG.Impl.Hmac.Generic.AArch64 (Hash copy left)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeW8_apply)
 open VG.Proof.Sha256.X86_64 (toNat_ofNat_lt)
-open VG.Proof.Sha256.AArch64.Stream (Upd Mupd wp_add wp_sub wp_addImm wp_movz wp_ldrb wp_strb
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_add wp_sub wp_addImm wp_movz wp_ldrb wp_strb
   eval_nonzero eval_zero ofNat_succ)
 open VG.Proof.Hmac.X86_64 (bytesAt_length)
 open VG.Proof.Hmac.Generic.X86_64 (writeBytes_snoc bytesAt_snoc' not_mem_of_disjoint add_ofNat_ne
@@ -35,8 +35,8 @@ variable {is : List Instr} {s : State} {Q : State → Prop}
 theorem wp_eor {d n m : Reg}
     (k : ∀ s', Upd s s' d (s.gpr n ^^^ s.gpr m) → WP isa (.block is) s' Q) :
     WP isa (.block (.logic .eor .x d n m :: is)) s Q :=
-  Proof.Sha256.AArch64.Stream.WP.cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m))
-    (by simp [exec, State.read]) (k _ (Proof.Sha256.AArch64.Stream.Upd.write64 _ _ _))
+  Proof.MdStream.AArch64.WP.cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m))
+    (by simp [exec, State.read]) (k _ (Proof.MdStream.AArch64.Upd.write64 _ _ _))
 
 end
 
@@ -174,8 +174,8 @@ theorem xor_ok {uo n : Nat} (huo : uo < 4096) (hn : 0 < n) (hn' : n < 2 ^ 16) {s
     (houtT : ∀ k < n, InRegions s.wr (s.gpr .x20 + BitVec.ofNat 64 k) 1)
     (hsep : Region.Disjoint ⟨s.gpr .x23 + BitVec.ofNat 64 uo, n⟩ ⟨s.gpr .x20, n⟩) :
     WP isa (.seq (.block [.movz .x .x24 0 0])
-      (.loop (.block ([.add .x .x12 .x23 .x24, .ldrb .x9 .x12 uo, .add .x .x13 .x20 .x24,
-        .ldrb .x10 .x13 0, .logic .eor .x .x9 .x9 .x10, .strb .x9 .x13 0, .addImm .x .x24 .x24 1] ++
+      (.loop (.block (([.add .x .x12 .x23 .x24, .ldrb .x9 .x12 uo, .add .x .x13 .x20 .x24,
+        .ldrb .x10 .x13 0, .logic .eor .x .x9 .x9 .x10, .strb .x9 .x13 0, .addImm .x .x24 .x24 1] : List Instr) ++
         left n)) (.nonzero .x .x11))) s
       fun t => XorInv s (s.gpr .x23 + BitVec.ofNat 64 uo) (s.gpr .x20) n t := by
   set U := s.gpr .x23 + BitVec.ofNat 64 uo
@@ -352,7 +352,7 @@ theorem key_ok {P K : Addr} {kl : Nat} {s : State} (hr : LoopRegs H P K kl s) (h
     ⟨rfl, rfl, rfl, fun _ _ => rfl, h24, ⟨by simp [bytesAt], by simp [bytesAt], Frame.refl _ _⟩⟩
   have hz : isa.eval (.zero .x .x22) s = some (decide (kl = 0)) := by
     show VG.AArch64.eval (.zero .x .x22) s = _
-    rw [eval_zero, hr.x22, Proof.Sha256.AArch64.Stream.ofNat_beq_zero (by omega)]
+    rw [eval_zero, hr.x22, Proof.MdStream.AArch64.ofNat_beq_zero (by omega)]
   refine WP.ite (decide (kl = 0)) hz (fun h0 => WP.block_nil ?_) fun h0 => ?_
   · have : kl = 0 := by simpa using h0
     subst this; exact i0
@@ -361,8 +361,8 @@ theorem key_ok {P K : Addr} {kl : Nat} {s : State} (hr : LoopRegs H P K kl s) (h
 
 theorem pad_step {P K : Addr} {kl : Nat} {s₀ : State} (hr : LoopRegs H P K kl s₀) (hm : LoopMem H P K kl s₀)
     {j : Nat} (hj : kl ≤ j) (hj' : j < H.B) {t : State} (h : KeyInv H s₀ P K kl j t) :
-    WP isa (.block ([.add .x .x12 .x23 .x24, .strb .x14 .x12 H.buf, .strb .x15 .x12 (H.buf + H.B),
-      .addImm .x .x24 .x24 1] ++ left H.B)) t
+    WP isa (.block (([.add .x .x12 .x23 .x24, .strb .x14 .x12 H.buf, .strb .x15 .x12 (H.buf + H.B),
+      .addImm .x .x24 .x24 1] : List Instr) ++ left H.B)) t
       fun t' => KeyInv H s₀ P K kl (j + 1) t' ∧ t'.gpr .x11 = BitVec.ofNat 64 (H.B - (j + 1)) := by
   have hkl := hm.kl_le
   have hB := hm.hB
@@ -409,7 +409,7 @@ theorem pad_ok {P K : Addr} {kl : Nat} {s₀ : State} (hr : LoopRegs H P K kl s�
   have hz : isa.eval (.zero .x .x11) t₂ = some (decide (kl = H.B)) := by
     show VG.AArch64.eval (.zero .x .x11) t₂ = _
     rw [eval_zero, u₂.gpr, u₁.gpr, u₁.other _ (by decide), h.x24, left_val hkl (by omega),
-      Proof.Sha256.AArch64.Stream.ofNat_beq_zero (by omega)]
+      Proof.MdStream.AArch64.ofNat_beq_zero (by omega)]
     congr 1; exact decide_eq_decide.mpr (by omega)
   refine WP.ite (decide (kl = H.B)) hz (fun h0 => WP.block_nil ?_) fun h0 => ?_
   · have : kl = H.B := by simpa using h0

@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.X86_64.Target
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Shared
+import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Instances
 
 /-!
 # HMAC-SHA-384 (RFC 2104) on x86-64
@@ -32,7 +32,7 @@ def artifacts : List Artifact := [
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Shared.sha384_init },
+    verified := Instances.sha384_init },
   { Spec.Hmac.sha384I.finalizeApi with
     target := X86_64.target
     doc := Spec.Hmac.sha384I.finalizeApi.doc
@@ -41,6 +41,6 @@ def artifacts : List Artifact := [
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.finalizeContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Shared.sha384_finalize }]
+    verified := Instances.sha384_finalize }]
 
 end VG.Artifacts.HmacSha384.X86_64

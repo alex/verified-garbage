@@ -29,8 +29,8 @@ end
 
 theorem addBlock_eq (b : Reg) (d : Nat) (pad : BitVec 32) : addBlock b d pad = addWord b d 0 ++
     (addWord b d 1 ++ (addWord b d 2 ++
-    (addWord b d 3 ++ [.mov .eax (.mem (at_ .edi (hOff 4))), .alu .adc .eax (.imm pad),
-      .store (at_ .edi (hOff 4)) .eax]))) := by
+    (addWord b d 3 ++ ([.mov .eax (.mem (at_ .edi (hOff 4))), .alu .adc .eax (.imm pad),
+      .store (at_ .edi (hOff 4)) .eax] : List Instr)))) := by
   simp only [addBlock, List.append_assoc]
 
 theorem asum_lt {f b : Nat → Nat} {pad : Nat} (hf : ∀ k < 5, f k < 2 ^ 32) (hb : ∀ k < 4, b k < 2 ^ 32)
@@ -166,7 +166,7 @@ def dv : Nat → Nat
 end
 
 theorem dsum_eq (k : Nat) : dsum k = (((List.range (nterms k)).map fun i => (i, coef k i)).flatMap
-    fun p => mac p.1 p.2) ++ [.store (at_ .edi (tOff k)) .ebx, .mov .ebx (.reg .ebp), .mov .ebp (.imm 0)] := by
+    fun p => mac p.1 p.2) ++ ([.store (at_ .edi (tOff k)) .ebx, .mov .ebx (.reg .ebp), .mov .ebp (.imm 0)] : List Instr) := by
   rw [dsum, List.flatMap_map]
 
 /-- `dk`, from the accumulator `A` in `ebx:ebp`: its low word stored, and its
@@ -329,13 +329,13 @@ theorem csum_lt {G : Nat → Nat} {d4 : Nat} (hG : ∀ k < 4, G (25 + k) < 2 ^ 3
     · have := hG (k + 1) (by omega); omega
 
 theorem carry_eq : carry =
-    [.mov .eax (.reg .ebx), .shift .shr .eax 2, .mov .ecx (.reg .eax), .alu .add .eax (.reg .eax),
+    ([.mov .eax (.reg .ebx), .shift .shr .eax 2, .mov .ecx (.reg .eax), .alu .add .eax (.reg .eax),
       .alu .add .eax (.reg .eax), .alu .add .eax (.reg .ecx), .alu .and .ebx (.imm 3),
-      .alu .add .eax (.mem (at_ .edi (tOff 0))), .store (at_ .edi (hOff 0)) .eax] ++
-    ([.mov .eax (.mem (at_ .edi (tOff 1))), .alu .adc .eax (.imm 0), .store (at_ .edi (hOff 1)) .eax] ++
-    ([.mov .eax (.mem (at_ .edi (tOff 2))), .alu .adc .eax (.imm 0), .store (at_ .edi (hOff 2)) .eax] ++
-    ([.mov .eax (.mem (at_ .edi (tOff 3))), .alu .adc .eax (.imm 0), .store (at_ .edi (hOff 3)) .eax] ++
-    [.alu .adc .ebx (.imm 0), .store (at_ .edi (hOff 4)) .ebx]))) := rfl
+      .alu .add .eax (.mem (at_ .edi (tOff 0))), .store (at_ .edi (hOff 0)) .eax] : List Instr) ++
+    (([.mov .eax (.mem (at_ .edi (tOff 1))), .alu .adc .eax (.imm 0), .store (at_ .edi (hOff 1)) .eax] : List Instr) ++
+    (([.mov .eax (.mem (at_ .edi (tOff 2))), .alu .adc .eax (.imm 0), .store (at_ .edi (hOff 2)) .eax] : List Instr) ++
+    (([.mov .eax (.mem (at_ .edi (tOff 3))), .alu .adc .eax (.imm 0), .store (at_ .edi (hOff 3)) .eax] : List Instr) ++
+    ([.alu .adc .ebx (.imm 0), .store (at_ .edi (hOff 4)) .ebx] : List Instr)))) := rfl
 
 section
 variable (st : BitVec 32) (s : State) (G : Nat → Nat) (d4 : Nat)

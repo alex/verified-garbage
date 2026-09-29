@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Scrypt.AArch64.Common
-import VerifiedGarbage.Proof.Scrypt.AArch64.Contract
 
 /-!
 # scryptBlockMix on AArch64: correctness of the loop
@@ -21,7 +20,7 @@ open VG.Spec.Scrypt (bytesAt blk salsa)
 open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Scrypt (yAt xBefore yAt_eq xBefore_succ)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
-open VG.Proof.Md5.AArch64.Stream (Upd wp_mov wp_addImm wp_subImm sub_ofNat)
+open VG.Proof.MdStream.AArch64 (Upd wp_mov wp_addImm wp_subImm sub_ofNat)
 open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat toNat_add_ofNat contains_off sub_off
   disj_off InRegions.of_mem frame_bytesAt bytesAt_writeBytes_self xorBytes_length bytesAt_length
   blk_bytesAt)

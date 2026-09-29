@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
-import VerifiedGarbage.Proof.Hmac.X86_64.Contract
-import VerifiedGarbage.Proof.Sha256.X86_64.Stream.FinalizeCT
+import VerifiedGarbage.Proof.Sha256.X86_64.Shared
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
 # HMAC-SHA-256 on x86-64: `finalize`
@@ -99,8 +100,8 @@ theorem sub160 (s₀ : State) : Region.Sub ⟨scr s₀, 160⟩ (scR s₀) := Reg
 
 include hf in
 theorem finalize_depth : (Impl.Sha256.X86_64.Stream.finalize f).depth = 1 := by
-  simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.Sha256.X86_64.Stream.finalizeBody,
-    Impl.Sha256.X86_64.Stream.compressAt, Code.depth, hf.depth]
+  simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
+    Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Code.depth, hf.depth]
   decide +kernel
 
 include hf in
@@ -109,8 +110,8 @@ theorem finalize_nosp : NoSp (Impl.Sha256.X86_64.Stream.finalize f) := by
     rw [Code.allInstrs_eq]; exact List.all_eq_true.mpr fun i hi => by simp [hf.nosp i hi]
   have : ((instrs (Impl.Sha256.X86_64.Stream.finalize f)).all fun i => !Taint.clobbers i .rsp) = true := by
     rw [← Code.allInstrs_eq]
-    simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.Sha256.X86_64.Stream.finalizeBody,
-      Impl.Sha256.X86_64.Stream.compressAt, Code.allInstrs, hc, Bool.true_and]
+    simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
+      Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Code.allInstrs, hc, Bool.true_and]
     decide +kernel
   intro i hi
   simpa using List.all_eq_true.mp this i hi
@@ -197,7 +198,7 @@ structure Saved (s₀ s : State) : Prop where
   mem : s.mem = writeBytes s₀.mem (scr s₀ + BitVec.ofNat 64 208) (bytesAt s₀.mem (out s₀) 32)
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block (saveOuter ++ [.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
+    WP isa (.block (saveOuter ++ ([.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)] : List Instr)))
       s₀ (Saved s₀) := by
   unfold saveOuter
   have h0 : out s₀ + BitVec.ofNat 64 0 = out s₀ := by simp
@@ -243,7 +244,7 @@ structure Loaded (s₀ s s' : State) : Prop where
 
 theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s₀.wr)
     (hdi : s.gpr .rdi = inn s₀) (hcx : s.gpr .rcx = scr s₀) :
-    WP isa (.block (loadOuter ++ [.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
+    WP isa (.block (loadOuter ++ ([.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)] : List Instr)))
       s (Loaded s₀ s) := by
   unfold loadOuter
   rw [List.append_assoc]
@@ -492,20 +493,45 @@ def sat : State where
   rd := [⟨0x2000, 96⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 240⟩]
 
-theorem verified_of {f : Callee} (hf : f.Ok)
-    (hm : (Impl.Sha256.X86_64.Stream.finalize f).allInstrs (fun i => !loadsMxcsr i) = true) (name : String) :
-    Verified X86_64.target (finalize f name) Proof.Hmac.finalizeSha256X86_64 := by
+theorem finalize_ok {f : Callee} (hf : f.Ok)
+    (hm : (Impl.Sha256.X86_64.Stream.finalize f).allInstrs (fun i => !loadsMxcsr i) = true)
+    (name : String) (s : State) (hs : Proof.Hmac.finalizeSha256X86_64.pre s) :
+    ∃ t s', Exec isa (finalize f name) s t s' ∧ abiPreserved s s' ∧
+      Proof.Hmac.finalizeSha256X86_64.post s s' := by
   have hm' : (finalize f name).allInstrs (fun i => !loadsMxcsr i) = true := by
     simp only [finalize, sha256Finalize, Code.allInstrs, hm, Bool.and_true]
     decide +kernel
-  refine ⟨fun s hs => ?_, fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂ => ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct hf hm name (pre_of hs)
-    exact ⟨t, s', he, abiPreserved_of_exec hm' he h.1, h.2⟩
-  · obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
-    exact (finalize_rel hf hm name (pre_of h₁) (pre_of h₂) ⟨p1, p2, p3, p4, p5⟩ _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+  obtain ⟨t, s', he, h⟩ := correct hf hm name (pre_of hs)
+  exact ⟨t, s', he, abiPreserved_of_exec hm' he h.1, h.2⟩
+
+theorem finalize_ct {f : Callee} (hf : f.Ok)
+    (hm : (Impl.Sha256.X86_64.Stream.finalize f).allInstrs (fun i => !loadsMxcsr i) = true)
+    (name : String) :
+    ConstantTime isa Proof.Hmac.finalizeSha256X86_64.pre Proof.Hmac.finalizeSha256X86_64.pub
+      (finalize f name) := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂
+  obtain ⟨p1, p2, p3, p4, p5⟩ := hpub
+  exact (finalize_rel hf hm name (pre_of h₁) (pre_of h₂) ⟨p1, p2, p3, p4, p5⟩ _ _ _ _ _ _ ⟨rfl, rfl⟩
+    e₁ e₂).1
+
+/-- `finalize`, calling the SHA-256 finalization `name` made with any
+compression function `f`. -/
+theorem finalize_verified {f : Callee} (hf : f.Ok)
+    (hm : f.code.allInstrs (fun i => !loadsMxcsr i) = true) (name : String) :
+    Verified X86_64.target (finalize f name) (Spec.Hmac.finalizeSha256Contract X86_64.abi 16) :=
+  have hm' : (Impl.Sha256.X86_64.Stream.finalize f).allInstrs (fun i => !loadsMxcsr i) = true := by
+    simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
+      Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Code.allInstrs, hm, Bool.true_and]
+    decide +kernel
+  Verified.of_correct (finalize_ok hf hm' name) (finalize_ct hf hm' name) (by
+    sig_implies [Spec.Hmac.finalizeSha256Contract, Spec.Hmac.finalizeSha256Sig,
+      Proof.Hmac.finalizeSha256X86_64, X86_64.abi, X86_64.argRegs] [sat] using sat)
+
+theorem finalize_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true)
+    (name : String) :
+    (finalize f name).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [finalize, sha256Finalize, Code.all,
+    Proof.Sha256.X86_64.Shared.finalize_spSafe h, Bool.and_true]
+  decide +kernel
 
 end VG.Proof.Hmac.X86_64.Finalize

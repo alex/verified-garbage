@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Scrypt.Arm.Salsa
-import VerifiedGarbage.Proof.Scrypt.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.RelCT
 import VerifiedGarbage.Impl.Scrypt.Arm.BlockMix
 
@@ -18,7 +17,7 @@ open VG VG.Arm VG.Impl.Scrypt.Arm
 open VG.Spec.Scrypt (bytesAt)
 open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil writeBytes_frame)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd wp_ldr wp_str op2_reg saveMem)
+open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str op2_reg saveMem)
 open VG.Proof.Hmac.Arm.Init (wp_eor)
 open VG.Proof.Scrypt.X86_64.BlockMix (sub_off xorBytes_length bytesAt_length bytesAt_add
   bytesAt_writeBytes_sep)

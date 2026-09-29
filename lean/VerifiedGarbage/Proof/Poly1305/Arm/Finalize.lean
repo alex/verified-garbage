@@ -1,9 +1,10 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Steps
-import VerifiedGarbage.Proof.Poly1305.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import Mathlib.Tactic.Conv
 import Mathlib.Tactic.NormNum.Basic
 import Mathlib.Tactic.Ring.RingNF
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on 32-bit ARM: `finalize`
@@ -180,7 +181,7 @@ structure P1 (s₀ s : State) : Prop extends FC s₀ s where
   z : s.z = decide (kb s₀ = 0)
 
 theorem prologue_ok {s₀ : State} (hp : FPre s₀) :
-    WP isa (.block ([.ldrSp .r12 4] ++ saveScr ++ [.dp .and .r4 .r2 (.imm 15), .cmp .r4 (.imm 0)])) s₀
+    WP isa (.block (([.ldrSp .r12 4] : List Instr) ++ saveScr ++ ([.dp .and .r4 .r2 (.imm 15), .cmp .r4 (.imm 0)] : List Instr))) s₀
       (P1 s₀) := by
   have hsc := hp.sc_fit
   refine wp_arg (i := 1) hp rfl rfl (by omega) rfl fun s₁ u₁ => ?_
@@ -414,7 +415,7 @@ theorem BufHas.frame {s₀ : State} {m m' : Mem} (h : BufHas m (stB s₀) (padde
     (by rw [← off_add]; exact contains_off (by omega) (by omega)) hc
 
 theorem mid_ok {s₀ : State} (hp : FPre s₀) {s : State} (h : F2 s₀ s) :
-    WP isa (.block (.str .r4 .r0 ptrOff :: setupR ++ loadAcc ++ [.ldr .r1 .r0 ptrOff, .cmp .r1 (.imm 0)])) s
+    WP isa (.block (.str .r4 .r0 ptrOff :: setupR ++ loadAcc ++ ([.ldr .r1 .r0 ptrOff, .cmp .r1 (.imm 0)] : List Instr))) s
       (F3 s₀) := by
   have hfit := hp.st_fit
   have hk := kb_lt s₀
@@ -511,9 +512,9 @@ theorem cnt_mod (s₀ : State) : (Proof.Poly1305.countArm s₀).toNat % 16 = kb 
   omega
 
 theorem tag_ok {s₀ : State} (hp : FPre s₀) {s : State} (h : F4 s₀ s) :
-    WP isa (.block (reduce ++ [.str .r1 .r0 d9Off, .dp .add .r1 .r0 (.imm 40)] ++ addWords ++ addTop false ++
+    WP isa (.block (reduce ++ ([.str .r1 .r0 d9Off, .dp .add .r1 .r0 (.imm 40)] : List Instr) ++ addWords ++ addTop false ++
       mask :: (List.range 9).flatMap carryStep ++ toWords ++
-      [.ldrSp .r2 0, .str .r3 .r2 0, .str .r5 .r2 4, .str .r7 .r2 8, .str .r10 .r2 12, .ldrSp .r12 4] ++
+      ([.ldrSp .r2 0, .str .r3 .r2 0, .str .r5 .r2 4, .str .r7 .r2 8, .str .r10 .r2 12, .ldrSp .r12 4] : List Instr) ++
       restoreScr)) s fun s' => abiPreserved s₀ s' ∧ Proof.Poly1305.finalizeArm.post s₀ s' := by
   have hfit := hp.st_fit
   obtain ⟨D, hcD, hDb, hDv⟩ := h.acc.acc
@@ -771,17 +772,21 @@ def finalizeSat : State where
   rd := [⟨0x5000, 8⟩]
   wr := [⟨0x1000, 128⟩, ⟨0x2000, 16⟩, ⟨0x3000, 128⟩]
 
-theorem finalize_verified : Verified Arm.target finalize Proof.Poly1305.finalizeArm := by
-  refine ⟨fun s hs => finalize_correct (FPre.of s hs), ?_, ?_⟩
-  · exact VG.Taint.constantTime (A := taint) τf (fun _ _ h₁ h₂ hp => agreef h₁ h₂ hp) (by taint_decide)
-  · have e0 : stackArg finalizeSat 0 = 0x2000 := by decide
-    have e1 : stackArg finalizeSat 1 = 0x3000 := by decide
-    refine ⟨finalizeSat, ?_⟩
-    simp only [Proof.Poly1305.finalizeArm, e0, e1]
-    refine ⟨by simp [finalizeSat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
-      by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, finalizeSat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+theorem finalize_ok (s : State) (hs : Proof.Poly1305.finalizeArm.pre s) :
+    ∃ t s', Exec isa finalize s t s' ∧ abiPreserved s s' ∧ Proof.Poly1305.finalizeArm.post s s' :=
+  finalize_correct (FPre.of s hs)
+
+theorem finalize_ct : ConstantTime isa Proof.Poly1305.finalizeArm.pre Proof.Poly1305.finalizeArm.pub
+    finalize := by
+  exact VG.Taint.constantTime (A := taint) τf (fun _ _ h₁ h₂ hp => agreef h₁ h₂ hp) (by
+      taint_decide)
+
+theorem finalize_verified :
+    Verified Arm.target Impl.Poly1305.Arm.finalize (Spec.Poly1305.finalizeContract Arm.abi) :=
+  Verified.of_correct finalize_ok finalize_ct (by
+    sig_implies [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+      Proof.Poly1305.finalizeArm, Proof.Poly1305.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify,
+      Arm.Loc.val, Arm.State.addr] [Proof.Poly1305.Arm.Fin.finalizeSat, Arm.stackArg,
+      Arm.stackArgAddr, Mem.readW, Mem.read] using Proof.Poly1305.Arm.Fin.finalizeSat)
 
 end VG.Proof.Poly1305.Arm.Fin

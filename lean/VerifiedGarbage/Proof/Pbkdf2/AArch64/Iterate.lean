@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.AArch64.Body
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Pbkdf2.Contract
 
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on AArch64
@@ -16,8 +18,9 @@ open VG.Impl.Sha256.AArch64.Stream (saved restore)
 open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Sha256.AArch64 (contains_offset)
-open VG.Proof.Sha256.AArch64.Stream (Upd wp_mov wp_movz wp_addImm wp_ldr wp_str save_ok restore_ok saveMem
-  saveMem_saved saveMem_frame readW_writeW_save untouched)
+open VG.Proof.MdStream.AArch64 (Upd wp_mov wp_movz wp_addImm wp_ldr wp_str readW_writeW_save
+  untouched)
+open VG.Proof.Sha256.AArch64.Stream (save_ok restore_ok saveMem saveMem_saved saveMem_frame)
 open VG.Proof.Pbkdf2.X86_64.Iterate (frame_bytesAt contains_base writeW_bytes writeBytes_append' iterate_congr)
 open VG.Spec.Sha256 (bytesAt stateAt Repr)
 open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
@@ -27,7 +30,7 @@ open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
 theorem wp_movz3 {is : List Instr} {s : State} {Q : State → Prop} {d : Reg} {imm : BitVec 16}
     (k : ∀ s', Upd s s' d (imm.setWidth 64 <<< 48) → WP isa (.block is) s' Q) :
     WP isa (.block (.movz .x d imm 3 :: is)) s Q :=
-  Proof.Sha256.AArch64.Stream.WP.cons (s' := s.write .x d (imm.setWidth 64 <<< 48)) (by simp [exec, Size.bits])
+  Proof.MdStream.AArch64.WP.cons (s' := s.write .x d (imm.setWidth 64 <<< 48)) (by simp [exec, Size.bits])
     (k _ (Upd.write64 _ _ _))
 
 /-- The padding into `scratch[224..256)`. -/
@@ -218,7 +221,7 @@ theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs main, dstOf i ≠ s
 
 theorem correctMain {s₀ : State} (hp : Pre s₀) :
     WP isa main s₀ fun s' => abiPreserved s₀ s' ∧ Post s₀ s' := by
-  refine WP.mono (Proof.Sha256.AArch64.Stream.WP.gprs (Q := fun s' => (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧
+  refine WP.mono (Proof.MdStream.AArch64.WP.gprs (Q := fun s' => (∀ p ∈ saved, s'.gpr p.1 = s₀.gpr p.1) ∧
       s'.gpr .x30 = s₀.gpr .x30 ∧ s'.sp = s₀.sp ∧ Post s₀ s') ?_ untouched_ok)
     fun s' ⟨⟨hsv, h30, hsp, hpost⟩, hu⟩ => ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
   · unfold main
@@ -316,12 +319,16 @@ def sat : State where
   rd := [⟨0x1000, 192⟩, ⟨0x2000, 32⟩]
   wr := [⟨0x3000, 32⟩, ⟨0x4000, 384⟩]
 
-theorem iterate_verified : Verified AArch64.target iterate Proof.Pbkdf2.iterateSha256AArch64 := by
-  refine ⟨fun s hs => correct hs,
-    ct_of (τ := VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) (fun _ _ hp => agree₀ hp) (by taint_decide), ?_⟩
-  refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, sat] at h₁ h₂
-    bv_omega
+theorem iterate_ct : ConstantTime isa Proof.Pbkdf2.iterateSha256AArch64.pre
+    Proof.Pbkdf2.iterateSha256AArch64.pub iterate :=
+  ct_of (τ := VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) (fun _ _ hp => agree₀ hp)
+    (by taint_decide)
+
+theorem iterate_verified :
+    Verified AArch64.target Impl.Pbkdf2.AArch64.iterate
+      (Spec.Pbkdf2.iterateSha256Contract AArch64.abi) :=
+  Verified.of_correct (fun _ hs => correct hs) iterate_ct (by
+    sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig,
+      Proof.Pbkdf2.iterateSha256AArch64, AArch64.abi, AArch64.argRegs] [sat] using sat)
 
 end VG.Proof.Pbkdf2.AArch64

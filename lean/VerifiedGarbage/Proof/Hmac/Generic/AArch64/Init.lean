@@ -17,7 +17,7 @@ open VG.AArch64
 open VG.Impl.Hmac.Generic.AArch64 (Hash)
 open VG.Proof.Hmac.Generic.AArch64
 open VG.Proof.Sha256.X86_64 (toNat_ofNat_lt sub_offset contains_offset)
-open VG.Proof.Sha256.AArch64.Stream (Upd wp_mov wp_movz wp_addImm)
+open VG.Proof.MdStream.AArch64 (Upd wp_mov wp_movz wp_addImm)
 open VG.Proof.Hmac.Generic.X86_64 (add_ofNat_add bytesAt_prefix_congr inRegions_of_sub K0 K0_length
   BufMem)
 open VG.Proof.Hmac.Generic.X86_64.Init (off_disj off_disj0 covers_one sub_of_off sub_of_self bytes_keep

@@ -1,7 +1,8 @@
 import VerifiedGarbage.Proof.Sha3.AArch64.Call
-import VerifiedGarbage.Proof.Sha3.AArch64.Contract
 import VerifiedGarbage.Proof.Sha3.SqueezeFrom
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Sha3.Contract
 
 /-!
 # The SHA-3 sponge on AArch64: `squeeze`
@@ -383,15 +384,22 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 200⟩, ⟨0x2000, 16⟩, ⟨0x3000, 640⟩]
 
-theorem squeeze_verified : Verified AArch64.target squeeze Proof.Sha3.squeezeAArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
-      (fun _ _ _ _ hp => agree₀ hp) (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, by decide, ?_, ?_, ?_, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+theorem squeeze_correct (s : State) (hs : Proof.Sha3.squeezeAArch64.pre s) :
+    ∃ t s', Exec isa squeeze s t s' ∧ abiPreserved s s' ∧ Proof.Sha3.squeezeAArch64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
+  exact ⟨t, s', he, h⟩
+
+theorem squeeze_ct : ConstantTime isa Proof.Sha3.squeezeAArch64.pre Proof.Sha3.squeezeAArch64.pub
+    squeeze := by
+  exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
+    (fun _ _ _ _ hp => agree₀ hp) (by taint_decide)
+
+theorem squeeze_verified :
+    Verified AArch64.target Impl.Sha3.AArch64.Stream.squeeze (Spec.Sha3.squeezeContract AArch64.abi
+      16) :=
+  Verified.of_correct squeeze_correct squeeze_ct (by
+    sig_implies [Spec.Sha3.squeezeContract, Spec.Sha3.squeezeSig, Proof.Sha3.squeezeAArch64,
+      AArch64.abi, AArch64.argRegs] [Proof.Sha3.AArch64.Stream.Squeeze.sat] using
+      Proof.Sha3.AArch64.Stream.Squeeze.sat)
 
 end VG.Proof.Sha3.AArch64.Stream.Squeeze

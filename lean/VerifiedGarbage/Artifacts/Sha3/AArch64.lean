@@ -1,5 +1,8 @@
 import VerifiedGarbage.TCB.AArch64.Target
-import VerifiedGarbage.Proof.Sha3.AArch64.Shared
+import VerifiedGarbage.Proof.Sha3.AArch64.Permute
+import VerifiedGarbage.Proof.Sha3.AArch64.Stream.Absorb
+import VerifiedGarbage.Proof.Sha3.AArch64.Stream.Pad
+import VerifiedGarbage.Proof.Sha3.AArch64.Stream.Squeeze
 
 /-!
 # SHA-3 and SHAKE (FIPS 202) on AArch64
@@ -22,7 +25,7 @@ def artifacts : List Artifact := [
     doc := Spec.Sha3.permuteApi.doc
     code := Impl.Sha3.AArch64.permute
     contract := Spec.Sha3.permuteContract AArch64.abi
-    verified := Proof.Sha3.AArch64.Shared.permute
+    verified := Proof.Sha3.AArch64.permute_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha3.absorbApi with
     target := AArch64.target
@@ -30,7 +33,7 @@ def artifacts : List Artifact := [
     code := Impl.Sha3.AArch64.Stream.absorb
     contract := Spec.Sha3.absorbContract AArch64.abi 16
     stack := 16
-    verified := Proof.Sha3.AArch64.Shared.absorb
+    verified := Proof.Sha3.AArch64.Stream.Absorb.absorb_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha3.padApi with
     target := AArch64.target
@@ -38,7 +41,7 @@ def artifacts : List Artifact := [
     code := Impl.Sha3.AArch64.Stream.pad
     contract := Spec.Sha3.padContract AArch64.abi 16
     stack := 16
-    verified := Proof.Sha3.AArch64.Shared.pad
+    verified := Proof.Sha3.AArch64.Stream.Pad.pad_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha3.squeezeApi with
     target := AArch64.target
@@ -46,7 +49,7 @@ def artifacts : List Artifact := [
     code := Impl.Sha3.AArch64.Stream.squeeze
     contract := Spec.Sha3.squeezeContract AArch64.abi 16
     stack := 16
-    verified := Proof.Sha3.AArch64.Shared.squeeze
+    verified := Proof.Sha3.AArch64.Stream.Squeeze.squeeze_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.Sha3.AArch64

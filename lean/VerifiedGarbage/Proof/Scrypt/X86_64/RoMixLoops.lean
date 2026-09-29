@@ -15,7 +15,7 @@ open VG VG.X86_64 VG.Impl.Scrypt.X86_64
 open VG.Spec.Scrypt (bytesAt)
 open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil)
-open VG.Proof.Sha1.X86_64.Stream (Upd wp_movm wp_store wp_add wp_addi wp_subi wp_cmp ofNat_pred
+open VG.Proof.MdStream.X86_64 (Upd wp_movm wp_store wp_add wp_addi wp_subi wp_cmp ofNat_pred
   ofNat_beq_zero sub_beq)
 open VG.Proof.Scrypt.X86_64.BlockMix (ea_at toNat_ofNat_lt add_ofNat sub_off writeW_xor wp_xorm
   bytesAt_add bytesAt_length bytesAt_writeBytes_sep xorBytes_length)
@@ -30,14 +30,14 @@ theorem wp_testi {d : Reg} {v : BitVec 32}
     (k : ∀ s', s'.gpr = s.gpr → s'.mem = s.mem → s'.rd = s.rd → s'.wr = s.wr →
       s'.zf = some (s.gpr d &&& v.signExtend 64 == 0) → WP isa (.block is) s' Q) :
     WP isa (.block (.alu .test d (.imm v) :: is)) s Q :=
-  Proof.Sha1.X86_64.Stream.WP.cons rfl (k _ rfl rfl rfl rfl rfl)
+  Proof.MdStream.X86_64.WP.cons rfl (k _ rfl rfl rfl rfl rfl)
 
 /-- `shr d, 1`. -/
 theorem wp_shr1 {d : Reg}
     (k : ∀ s', Upd s s' d (s.gpr d >>> 1) → s'.zf = some (s.gpr d >>> 1 == 0) →
       WP isa (.block is) s' Q) :
     WP isa (.block (.shift .shr d 1 :: is)) s Q :=
-  Proof.Sha1.X86_64.Stream.WP.cons rfl
+  Proof.MdStream.X86_64.WP.cons rfl
     (k _ ⟨by simp [State.setReg], fun r h => by simp [State.setReg, State.setFlags, h], rfl, rfl, rfl⟩ rfl)
 
 end

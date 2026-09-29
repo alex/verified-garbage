@@ -51,8 +51,9 @@ theorem exec_mxcsr {i : Instr} (hi : loadsMxcsr i = false) {s s' : State} (h : e
   | stmxcsr m => simp only [exec, State.store32] at h; split at h <;> cases h; rfl
   | mov | mov32 | movzx8 | movdquLoad | vbroadcasti128 =>
     simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; rfl
-  | bswap32 | bswap | movImm64 | lfence | mul =>
+  | bswap32 | bswap | movImm64 | lfence | mul | andn32 =>
     simp only [exec, Option.some.injEq] at h; subst h; rfl
+  | rorx32 => simp only [exec, execRorx32] at h; split at h <;> cases h; rfl
   | push | pop => simp only [exec, reduceCtorEq] at h
 
 theorem pushRegs_mxcsr (s : State) (rs : List Reg) : (pushRegs s rs).mxcsr = s.mxcsr := by

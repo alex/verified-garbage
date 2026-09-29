@@ -426,7 +426,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
 
 /-! ## Prologue and epilogue -/
 
-theorem save_eq : save ++ [.alu .test .rdx (.reg .rdx)] = [
+theorem save_eq : save ++ ([.alu .test .rdx (.reg .rdx)] : List Instr) = [
     .store (at_ .rcx 128) .rbx, .store (at_ .rcx 136) .rbp, .store (at_ .rcx 144) .r12,
     .store (at_ .rcx 152) .r13, .store (at_ .rcx 160) .r14, .store (at_ .rcx 168) .r15,
     .alu .test .rdx (.reg .rdx)] := rfl
@@ -446,7 +446,7 @@ def saveMem (s₀ : State) : Mem :=
 
 set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block (save ++ [.alu .test .rdx (.reg .rdx)])) s₀ fun s₁ =>
+    WP isa (.block (save ++ ([.alu .test .rdx (.reg .rdx)] : List Instr))) s₀ fun s₁ =>
       s₁.gpr = s₀.gpr ∧ s₁.rd = s₀.rd ∧ s₁.wr = s₀.wr ∧ s₁.mem = saveMem s₀ ∧
       s₁.zf = some (s₀.gpr .rdx &&& s₀.gpr .rdx == 0) := by
   have o0 := hp.out_save (d := 128) (by omega); have o1 := hp.out_save (d := 136) (by omega)

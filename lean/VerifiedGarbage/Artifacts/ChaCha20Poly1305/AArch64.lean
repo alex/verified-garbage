@@ -1,6 +1,6 @@
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Impl.ChaCha20Poly1305.AArch64
-import VerifiedGarbage.Proof.ChaCha20Poly1305.AArch64.Shared
+import VerifiedGarbage.Proof.ChaCha20Poly1305.AArch64.Verified
 
 /-!
 # ChaCha20-Poly1305 (RFC 8439 §2.8) on AArch64
@@ -24,14 +24,14 @@ def artifacts : List Artifact := [
     doc := Spec.ChaCha20Poly1305.sealApi.doc
     code := Impl.ChaCha20Poly1305.AArch64.«seal»
     contract := Spec.ChaCha20Poly1305.sealContract AArch64.abi
-    verified := Proof.ChaCha20Poly1305.AArch64.Shared.«seal»
+    verified := Proof.ChaCha20Poly1305.AArch64.seal_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.ChaCha20Poly1305.openApi with
     target := AArch64.target
     doc := Spec.ChaCha20Poly1305.openApi.doc
     code := Impl.ChaCha20Poly1305.AArch64.«open»
     contract := Spec.ChaCha20Poly1305.openContract AArch64.abi
-    verified := Proof.ChaCha20Poly1305.AArch64.Shared.«open»
+    verified := Proof.ChaCha20Poly1305.AArch64.open_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.ChaCha20Poly1305.AArch64

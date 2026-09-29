@@ -1,14 +1,14 @@
 import VerifiedGarbage.Proof.ChaCha20.Arm.Block
 import VerifiedGarbage.Proof.ChaCha20.Keystream
 import VerifiedGarbage.Proof.Framework.Arm.Call
-import VerifiedGarbage.Proof.Sha256.Arm.Stream.Common
+import VerifiedGarbage.Proof.MdStream.Arm.Common
 import VerifiedGarbage.Impl.ChaCha20.Arm.Xor
 
 /-!
 # ChaCha20 keystream XOR on ARMv7
 
 Untrusted: everything here is checked by Lean. The per-instruction WP rules
-are those of the streaming SHA-256 proofs (`Proof/Sha256/Arm/Stream/Common.lean`).
+are those of the streaming hash proofs (`Proof/MdStream/Arm/Common.lean`).
 
 The call of the block function goes through its `Verified` proof
 (`WP.call`): it keeps `r1` (which its code never writes) and `r4`–`r11`,
@@ -22,14 +22,50 @@ length) are public slots of `buf`, which needs lower bounds on the lengths
 of all three writable regions, `0` for the data (`τ₀`).
 -/
 
+namespace VG.Proof.ChaCha20
+
+open Spec.ChaCha20 VG.Arm
+
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+32-bit ARM contract for
+`vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80])`:
+XORs the first `len` bytes of the keystream of the state at `state` into the
+`len` bytes at `data`.
+
+The code may read and write `state` (64 bytes; its contents on exit are
+unspecified), `data` (`len` bytes) and `buf` (320 bytes of working space).
+They may not overlap each other, and none may wrap around the end of the
+(32-bit) address space. The return address is in `lr`, not on the stack, and
+the code uses no stack. The pointers and the length are public; the state and
+the data are secret. -/
+def xorArm : Contract Arm.isa where
+  pre s :=
+    let state : Region := ⟨State.addr (s.gpr .r0), 64⟩
+    let data : Region := ⟨State.addr (s.gpr .r1), (s.gpr .r2).toNat⟩
+    let buf : Region := ⟨State.addr (s.gpr .r3), 320⟩
+    s.rd = [] ∧ s.wr = [state, data, buf] ∧
+    state.Disjoint data ∧ state.Disjoint buf ∧ data.Disjoint buf ∧
+    (s.gpr .r0).toNat + 64 ≤ 2 ^ 32 ∧ (s.gpr .r1).toNat + (s.gpr .r2).toNat ≤ 2 ^ 32 ∧
+    (s.gpr .r3).toNat + 320 ≤ 2 ^ 32
+  post s s' :=
+    bytesAt s'.mem (State.addr (s.gpr .r1)) (s.gpr .r2).toNat =
+      List.zipWith (· ^^^ ·) (bytesAt s.mem (State.addr (s.gpr .r1)) (s.gpr .r2).toNat)
+        (keystream (stateAt s.mem (State.addr (s.gpr .r0))) (s.gpr .r2).toNat)
+  pub s₁ s₂ :=
+    s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1 ∧ s₁.gpr .r2 = s₂.gpr .r2 ∧
+    s₁.gpr .r3 = s₂.gpr .r3
+
+end VG.Proof.ChaCha20
+
 namespace VG.Proof.ChaCha20.Arm.Xor
 
 open VG VG.Arm VG.Impl.ChaCha20.Arm.Xor
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd op2_imm op2_reg op2_lsr wp_mov wp_add wp_sub wp_subs
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd op2_imm op2_reg op2_lsr wp_mov wp_add wp_sub wp_subs
   wp_cmp wp_ldr wp_str wp_ldrb wp_strb eval_eq eval_ne ofNat_beq_zero sub_ofNat ofNat_shr)
 open VG.Proof.ChaCha20 (ctr ctr_zero ctr_succ keystream_getD length_keystream bytesAt_xor
   serialize_stateAt)
-open VG.Proof.ChaCha20.Arm (toNat_ofNat_lt contains_off readW_writeW_off block_verified)
+open VG.Proof.ChaCha20.Arm (toNat_ofNat_lt contains_off readW_writeW_off block_correct)
 open VG.Spec.ChaCha20 (stateAt keystream serialize bytesAt)
 
 /-! ## One instruction at a time -/
@@ -38,7 +74,7 @@ theorem wp_eor {is : List Instr} {s : State} {Q : State → Prop} {d n : Reg} {o
     {y : BitVec 32} (ho : o.eval s = some y)
     (k : ∀ s', Upd s s' d (s.gpr n ^^^ y) → WP isa (.block is) s' Q) :
     WP isa (.block (.dp .eor d n o :: is)) s Q :=
-  VG.Proof.Sha256.Arm.Stream.WP.cons (s' := s.setReg d (s.gpr n ^^^ y)) (by simp [exec, ho])
+  VG.Proof.MdStream.Arm.WP.cons (s' := s.setReg d (s.gpr n ^^^ y)) (by simp [exec, ho])
     (k _ (Upd.setReg _ _ _))
 
 theorem imm0 : encodable 0 = true := by decide
@@ -266,15 +302,15 @@ theorem writeW8_apply (m : Mem) (a x : Addr) (v : Byte) :
 
 /-! ## The prologue -/
 
-theorem save_eq : save ++ [.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
-      .mov .r1 (.reg .r3), .cmp .r6 (.imm 0)] =
+theorem save_eq : save ++ ([.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
+      .mov .r1 (.reg .r3), .cmp .r6 (.imm 0)] : List Instr) =
     [.str .r4 .r3 256, .str .r5 .r3 260, .str .r6 .r3 264, .str .lr .r3 268,
       .mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2), .mov .r1 (.reg .r3),
       .cmp .r6 (.imm 0)] := rfl
 
 theorem prologue_ok {s₀ : State} (hp : XPre s₀) :
-    WP isa (.block (save ++ [.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
-      .mov .r1 (.reg .r3), .cmp .r6 (.imm 0)])) s₀ (OInv s₀ 0) := by
+    WP isa (.block (save ++ ([.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
+      .mov .r1 (.reg .r3), .cmp .r6 (.imm 0)] : List Instr))) s₀ (OInv s₀ 0) := by
   rw [save_eq]
   refine wp_str (by decide) (hp.eaB (by omega)) (hp.outB (by omega) rfl) fun s₁ g₁ => ?_
   refine wp_str (by decide) (by rw [g₁.gpr]; exact hp.eaB (by omega))
@@ -349,7 +385,7 @@ theorem call_ok {s₀ : State} (hp : XPre s₀) {j : Nat} {s : State} (h : Inv s
   have c1 : s.callEntry.gpr .r1 = bP s₀ := (State.callEntry_gpr _ (by decide)).trans h.r1
   have hwr : s.wr = [stRg s₀, dRg s₀, bRg s₀] := by rw [h.wr, hp.wr]
   have hrd : s.rd = [] := by rw [h.rd, hp.rd]
-  refine WP.call (k := Proof.ChaCha20.blockArm) block_verified.1
+  refine WP.call (k := Proof.ChaCha20.blockArm) block_correct
     (rd := [stRg s₀]) (wr := [b256 s₀]) ?_ ?_ ?_ ?_
   · simp only [Proof.ChaCha20.blockArm, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, c0, c1]
@@ -687,8 +723,8 @@ theorem epilogue_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j = L
 /-! ## The whole function -/
 
 theorem xor_eq : Impl.ChaCha20.Arm.Xor.xor =
-    .seq (.block (save ++ [.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
-      .mov .r1 (.reg .r3), .cmp .r6 (.imm 0)]))
+    .seq (.block (save ++ ([.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
+      .mov .r1 (.reg .r3), .cmp .r6 (.imm 0)] : List Instr)))
     (.seq (.ite .eq (.block []) (.loop body .ne)) (.block (.mov .r0 (.reg .r4) :: restore))) := rfl
 
 theorem main_ok {s₀ : State} (hp : XPre s₀) : WP isa Impl.ChaCha20.Arm.Xor.xor s₀ (Post s₀) := by
@@ -790,16 +826,21 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 64⟩, ⟨0x2000, 0⟩, ⟨0x3000, 320⟩]
 
+theorem xor_correct (s : State) (hs : Proof.ChaCha20.xorArm.pre s) :
+    ∃ t s', Exec isa Impl.ChaCha20.Arm.Xor.xor s t s' ∧ abiPreserved s s' ∧
+      Proof.ChaCha20.xorArm.post s s' :=
+  (correct (XPre.of s hs)).imp fun _ ⟨s', he, ha, hpost, _⟩ => ⟨s', he, ha, hpost⟩
+
+theorem xor_ct : ConstantTime isa Proof.ChaCha20.xorArm.pre Proof.ChaCha20.xorArm.pub
+    Impl.ChaCha20.Arm.Xor.xor :=
+  VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
+    (by taint_decide)
+
 theorem xor_verified :
-    Verified Arm.target Impl.ChaCha20.Arm.Xor.xor Proof.ChaCha20.xorArm := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, ha, hpost, -⟩ := correct (XPre.of s hs)
-    exact ⟨t, s', he, ha, hpost⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
-      (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, by decide, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat, State.addr] at h₁ h₂
-      bv_omega
+    Verified Arm.target Impl.ChaCha20.Arm.Xor.xor (Spec.ChaCha20.xorContract Arm.abi) :=
+  Verified.of_correct xor_correct xor_ct
+    (by sig_implies [Spec.ChaCha20.xorContract, Spec.ChaCha20.xorSig, Arm.abi, Arm.argRegs,
+      Arm.reduceClassify, Arm.Loc.val, Arm.State.addr, Proof.ChaCha20.xorArm, State.addr]
+      [sat] using sat)
 
 end VG.Proof.ChaCha20.Arm.Xor

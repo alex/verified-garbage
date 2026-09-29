@@ -1,9 +1,12 @@
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Blocks
-import VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Contract
+import VerifiedGarbage.Spec.Gcm
+import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import Mathlib.Tactic.LinearCombination
 import Mathlib.Tactic.Ring.RingNF
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Gcm.Contract
 
 /-!
 # GHASH with PCLMULQDQ: the whole function
@@ -15,6 +18,42 @@ The registers `xmm3`–`xmm6` hold `Tₖ` with `x · Tₖ = Hᵏ` (`k = 1 … 4`
 that `mul(a, Tₖ) = a · Hᵏ`, and `xmm2` holds `Y` after `i` blocks, as a
 block; the memory is not written until the epilogue stores `Y`.
 -/
+
+namespace VG.Proof.Gcm.X86_64.Pclmul
+
+open Spec.Gcm
+
+open VG.X86_64 in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+x86-64 contract for
+`vg_ghash_pclmul(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32])`:
+replaces the block `Y` at `y` with `GHASH_H` continued from `Y` over the `n`
+blocks at `data`, where `H` is the block at `h`.
+
+The code may read `h` (16 bytes) and `data` (`16 * n` bytes), and read and
+write `y` (16 bytes) and `scratch` (256 bytes). `y` and `scratch` may not
+overlap each other, the other buffers, or the return address on the stack.
+The pointers and `n` are public; `H`, `Y` and the data are secret. -/
+def ghashX86_64 : Contract X86_64.isa where
+  pre s :=
+    let h : Region := ⟨s.gpr .rdi, 16⟩
+    let y : Region := ⟨s.gpr .rsi, 16⟩
+    let data : Region := ⟨s.gpr .rdx, 16 * (s.gpr .rcx).toNat⟩
+    let scratch : Region := ⟨s.gpr .r8, 256⟩
+    let ret : Region := ⟨s.gpr .rsp, 8⟩
+    s.rd = [h, data] ∧ s.wr = [y, scratch] ∧
+    h.Disjoint y ∧ h.Disjoint scratch ∧ y.Disjoint data ∧ y.Disjoint scratch ∧
+    data.Disjoint scratch ∧ ret.Disjoint y ∧ ret.Disjoint scratch
+  post s s' :=
+    blockAt s'.mem (s.gpr .rsi) =
+      ghashFrom (blockAt s.mem (s.gpr .rdi)) (blockAt s.mem (s.gpr .rsi))
+        (blocksAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat)
+  pub s₁ s₂ :=
+    s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
+    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8
+
+end VG.Proof.Gcm.X86_64.Pclmul
 
 namespace VG.Proof.Gcm.X86_64.Pclmul
 
@@ -502,20 +541,26 @@ def satState : State where
   rd := [⟨0x1000, 16⟩, ⟨0x3000, 0⟩]
   wr := [⟨0x2000, 16⟩, ⟨0x4000, 256⟩]
 
+theorem ghash_correct (s : State) (hs : ghashX86_64.pre s) :
+    ∃ t s', Exec isa Impl.Gcm.X86_64.Pclmul.ghash s t s' ∧ abiPreserved s s' ∧ ghashX86_64.post s s'
+      := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
+theorem ghash_ct : ConstantTime isa ghashX86_64.pre ghashX86_64.pub Impl.Gcm.X86_64.Pclmul.ghash :=
+    by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx, .r8]) ?_
+    (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, h5⟩
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
+
 theorem ghash_verified :
-    Verified X86_64.target Impl.Gcm.X86_64.Pclmul.ghash ghashX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx, .r8]) ?_
-      (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, h5⟩
-    refine Taint.agree_ofRegs fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
-  · refine ⟨satState, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, satState] at h₁ h₂
-      bv_omega
+    Verified X86_64.target Impl.Gcm.X86_64.Pclmul.ghash (Spec.Gcm.ghashContract X86_64.abi) :=
+  Verified.of_correct ghash_correct ghash_ct (by
+    sig_implies [Spec.Gcm.ghashContract, Spec.Gcm.ghashSig, Proof.Gcm.X86_64.Pclmul.ghashX86_64,
+      X86_64.abi, X86_64.argRegs] [Proof.Gcm.X86_64.Pclmul.satState] using
+      Proof.Gcm.X86_64.Pclmul.satState)
 
 end VG.Proof.Gcm.X86_64.Pclmul

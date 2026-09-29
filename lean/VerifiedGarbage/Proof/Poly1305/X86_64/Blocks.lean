@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.X86_64.Setup
-import VerifiedGarbage.Proof.Poly1305.X86_64.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on x86-64: `blocks`
@@ -237,14 +238,14 @@ theorem test_ok (s : State) (r : Reg) :
     execAlu, arithFlags, State.setFlags, Option.bind_some, Option.some.injEq, exists_eq_left']
   exact ⟨trivial, fun r _ => rfl, rfl, rfl, rfl⟩
 
-theorem prologue_eq : save ++ [.mov .rcx (.reg .rdx)] ++ setup ++ [.alu .test .rcx (.reg .rcx)] =
-    save ++ ([.mov .rcx (.reg .rdx)] ++ (setup ++ [.alu .test .rcx (.reg .rcx)])) := by
+theorem prologue_eq : save ++ ([.mov .rcx (.reg .rdx)] : List Instr) ++ setup ++ ([.alu .test .rcx (.reg .rcx)] : List Instr) =
+    save ++ (([.mov .rcx (.reg .rdx)] : List Instr) ++ (setup ++ ([.alu .test .rcx (.reg .rcx)] : List Instr))) := by
   simp only [List.append_assoc]
 
 theorem blks_zero (s₀ : State) : blks s₀ 0 = [] := by simp [blks, bytesAt]
 
 theorem prologue_ok {s₀ : State} (hp : BPre s₀) :
-    WP isa (.block (save ++ [.mov .rcx (.reg .rdx)] ++ setup ++ [.alu .test .rcx (.reg .rcx)])) s₀
+    WP isa (.block (save ++ ([.mov .rcx (.reg .rdx)] : List Instr) ++ setup ++ ([.alu .test .rcx (.reg .rcx)] : List Instr))) s₀
       fun s => ∃ m₁, Mem₁ s₀ m₁ ∧ Common s₀ m₁ 0 s ∧ s.gpr .rsi = bp s₀ ∧
         s.gpr .rcx = s₀.gpr .rdx ∧ s.zf = some (s₀.gpr .rdx &&& s₀.gpr .rdx == 0) := by
   rw [prologue_eq]
@@ -291,8 +292,8 @@ theorem storeRestore_eq : [Instr.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .r
 set_option simprocs false in
 /-- Storing `h` and restoring the callee-saved registers. -/
 theorem storeRestore_ok (s : State) (hw : sR (s.gpr .rdi) ∈ s.wr) :
-    WP isa (.block ([.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
-      .store (at_ .rdi 16) .rbp] ++ restore)) s fun s' =>
+    WP isa (.block (([.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
+      .store (at_ .rdi 16) .rbp] : List Instr) ++ restore)) s fun s' =>
       let m := storeH s.mem (s.gpr .rdi) (s.gpr .r11) (s.gpr .rbx) (s.gpr .rbp)
       s'.mem = m ∧ s'.gpr .rbx = m.readW (off (s.gpr .rdi) 72) 64 ∧
       s'.gpr .rbp = m.readW (off (s.gpr .rdi) 80) 64 ∧ s'.gpr .r12 = m.readW (off (s.gpr .rdi) 88) 64 ∧
@@ -344,8 +345,8 @@ theorem H2_le {s₀ : State} {key msg : List Byte} (h : Repr s₀.mem (st s₀) 
 
 theorem epilogue_ok {s₀ : State} (hp : BPre s₀) {m₁ : Mem} (hm : Mem₁ s₀ m₁) {s : State}
     (hc : Common s₀ m₁ (nb s₀) s) :
-    WP isa (.block (reduce ++ [.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
-      .store (at_ .rdi 16) .rbp] ++ restore)) s fun s' =>
+    WP isa (.block (reduce ++ ([.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
+      .store (at_ .rdi 16) .rbp] : List Instr) ++ restore)) s fun s' =>
       gprPreserved s₀ s' ∧ Proof.Poly1305.blocksX86_64.post s₀ s' := by
   rw [List.append_assoc]
   refine WP.block_append (WP.mono (reduce_ok s) fun s₁ ⟨hr, k₁⟩ => ?_)
@@ -428,19 +429,25 @@ def blocksSat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 128⟩]
 
+theorem blocks_ok (s : State) (hs : Proof.Poly1305.blocksX86_64.pre s) :
+    ∃ t s', Exec isa Impl.Poly1305.X86_64.blocks s t s' ∧ abiPreserved s s' ∧
+      Proof.Poly1305.blocksX86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := blocks_correct (BPre.of s hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
+theorem blocks_ct : ConstantTime isa Proof.Poly1305.blocksX86_64.pre Proof.Poly1305.blocksX86_64.pub
+    Impl.Poly1305.X86_64.blocks := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx]) ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, h3⟩
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl <;> assumption
+
 theorem blocks_verified :
-    Verified X86_64.target Impl.Poly1305.X86_64.blocks Proof.Poly1305.blocksX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := blocks_correct (BPre.of s hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3⟩
-    refine Taint.agree_ofRegs fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl <;> assumption
-  · refine ⟨blocksSat, rfl, rfl, ?_, ?_, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, blocksSat] at h₁ h₂
-      bv_omega
+    Verified X86_64.target Impl.Poly1305.X86_64.blocks (Spec.Poly1305.blocksContract X86_64.abi) :=
+  Verified.of_correct blocks_ok blocks_ct (by
+    sig_implies [Spec.Poly1305.blocksContract, Spec.Poly1305.blocksSig, Proof.Poly1305.blocksX86_64,
+      X86_64.abi, X86_64.argRegs] [Proof.Poly1305.X86_64.blocksSat] using
+      Proof.Poly1305.X86_64.blocksSat)
 
 end VG.Proof.Poly1305.X86_64

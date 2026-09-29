@@ -1,6 +1,8 @@
 import VerifiedGarbage.Proof.Scrypt.Arm.RoMixFun
 import VerifiedGarbage.Proof.Scrypt.Arm.BlockMixVerified
 import Mathlib.Tactic.DefEqTransformations
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Scrypt.Contract
 
 /-!
 # scryptROMix on 32-bit ARM: verified
@@ -21,7 +23,7 @@ namespace VG.Proof.Scrypt.Arm.RoMix
 
 open VG VG.Arm VG.Impl.Scrypt.Arm
 open VG.Spec.Scrypt (bytesAt blockMix)
-open VG.Proof.Sha256.Arm.Stream (Upd wp_mov wp_add op2_reg op2_imm op2_lsr eval_ne)
+open VG.Proof.MdStream.Arm (Upd wp_mov wp_add op2_reg op2_imm op2_lsr eval_ne)
 open VG.Proof.Scrypt.Arm.BlockMix (covers_of_in)
 open VG.Proof.Scrypt.X86_64.BlockMix (InRegions.right)
 
@@ -90,7 +92,7 @@ theorem blockMixSpec : BlockMixSpec Impl.Scrypt.Arm.blockMix := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by omega)
   obtain ⟨p, c₁, c₂⟩ := bm_pre h0 h1 h2 h3 h4 hr hlt hds hsd hss had has nsrc ndst nscr nsp isrc
     iarg idst iscr
-  refine WP.callCalls (k := Proof.Scrypt.blockMixArm) BlockMix.blockMix_verified.1 p c₁ c₂ ?_
+  refine WP.callCalls (k := Proof.Scrypt.blockMixArm) BlockMix.blockMix_correct p c₁ c₂ ?_
   intro s₂ hrd hwr hsp' hf hcs _ hpost
   simp only [Proof.Scrypt.blockMixArm, State.withRegions_gpr, State.withRegions_mem,
     State.callEntry_mem, State.callEntry_gpr _ (by decide : Reg.r0 ∉ linkRegs),
@@ -235,7 +237,7 @@ theorem call_rel {s₀ s₀' : State} (hp : Pre s₀) (hp' : Pre s₀') (hq : Pu
   have er : rr s₀' = rr s₀ := hq.rr.symm
   have call := RelCT.call (n := "vg_scrypt_blockmix") (P := fun s s' =>
       (KR s₀ bp q s ∧ Args s₀ A s) ∧ (KR s₀' bp' q' s' ∧ Args s₀' A s'))
-    BlockMix.blockMix_verified.1 BlockMix.blockMix_verified.2.1
+    BlockMix.blockMix_correct BlockMix.blockMix_ct
     [⟨State.addr A, 128 * rr s₀⟩, ⟨stackArgAddr s₀ 0, 4⟩]
     [⟨bA s₀, 128 * rr s₀⟩, ⟨scA s₀, 128⟩] fun s s' ⟨⟨h, ha⟩, ⟨h', ha'⟩⟩ => by
       obtain ⟨p₁, c₁, w₁⟩ := call_pre hp hA h ha
@@ -335,13 +337,13 @@ theorem tail_wp {s₀ : State} (hp : Pre s₀) {bp q A : BitVec 32} {s : State} 
     by rw [ud.gpr, ub.other _ (by decide), h1]⟩
 
 theorem x2_wp {s₀ : State} (hp : Pre s₀) {bp q : BitVec 32} {s : State} (h : KR s₀ bp q s) :
-    WP isa (.block ([.mov .r0 (.reg .r9)] ++ bmTail)) s fun s' => KR s₀ bp q s' ∧ Args s₀ bp s' :=
+    WP isa (.block (([.mov .r0 (.reg .r9)] : List Instr) ++ bmTail)) s fun s' => KR s₀ bp q s' ∧ Args s₀ bp s' :=
   wp_mov (op2_reg _ _) fun a ua => tail_wp hp
     (h.keep ua.rd ua.wr ua.sp (fun r hr => ua.other r (kRegs_ne r hr).1)
       (by rw [ua.mem]; exact Frame.refl _ _)) (by rw [ua.gpr, h.r9])
 
 theorem x3_wp {s₀ : State} (hp : Pre s₀) {bp q : BitVec 32} {s : State} (h : KR s₀ bp q s) :
-    WP isa (.block ([.dp .add .r0 .r6 (.imm 192)] ++ bmTail)) s
+    WP isa (.block (([.dp .add .r0 .r6 (.imm 192)] : List Instr) ++ bmTail)) s
       fun s' => KR s₀ bp q s' ∧ Args s₀ (tP32 s₀) s' :=
   wp_add (op2_imm (by decide)) fun a ua => tail_wp hp
     (h.keep ua.rd ua.wr ua.sp (fun r hr => ua.other r (kRegs_ne r hr).1)
@@ -621,30 +623,47 @@ def satState : State where
   rd := [⟨0x5000, 8⟩]
   wr := [⟨0x1000, 128⟩, ⟨0x2000, 128⟩, ⟨0x3000, 384⟩]
 
-theorem roMix_verified : Verified Arm.target Impl.Scrypt.Arm.roMix Proof.Scrypt.roMixArm := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, hk, hsp, hpost⟩ := correct blockMixSpec (pre_of hs)
-    refine ⟨t, s', he, ⟨fun r hr => ?_, hsp⟩, hpost⟩
-    rcases preserved_cases r hr with h | h
-    · obtain ⟨p, hp, rfl⟩ := List.mem_map.mp h
-      exact hk p hp
-    · have hc := others_kept
-      rw [List.all_eq_true] at hc
-      refine Exec.gpr (fun i hi => ?_) he (.inr (by revert h; revert r; decide))
-      have := hc i hi
-      simp only [List.all_eq_true, bne_iff_ne, ne_eq] at this
-      exact this r h
-  · intro s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂
-    exact (roMix_rel (pre_of h₁) (pre_of h₂) (pubEq_of hpub) hpub.2.2.2.2.2.2.2
-      _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
-  · have e0 : stackArg satState 0 = 0x3000 := by decide
-    have e1 : stackArg satState 1 = 3 := by decide
-    refine ⟨satState, ?_⟩
-    simp only [Proof.Scrypt.roMixArm, e0, e1]
-    refine ⟨by simp [satState, stackArgAddr]; decide, by decide, ?_, ?_, ?_, ?_, ?_, ?_,
-      by decide, by decide, by decide, by decide, by decide, by decide, ⟨0, rfl⟩, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, satState, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+theorem roMix_correct (s : State) (hs : Proof.Scrypt.roMixArm.pre s) :
+    ∃ t s', Exec isa Impl.Scrypt.Arm.roMix s t s' ∧ abiPreserved s s' ∧
+      Proof.Scrypt.roMixArm.post s s' := by
+  obtain ⟨t, s', he, hk, hsp, hpost⟩ := correct blockMixSpec (pre_of hs)
+  refine ⟨t, s', he, ⟨fun r hr => ?_, hsp⟩, hpost⟩
+  rcases preserved_cases r hr with h | h
+  · obtain ⟨p, hp, rfl⟩ := List.mem_map.mp h
+    exact hk p hp
+  · have hc := others_kept
+    rw [List.all_eq_true] at hc
+    refine Exec.gpr (fun i hi => ?_) he (.inr (by revert h; revert r; decide))
+    have := hc i hi
+    simp only [List.all_eq_true, bne_iff_ne, ne_eq] at this
+    exact this r h
+
+theorem roMix_ct : ConstantTime isa Proof.Scrypt.roMixArm.pre Proof.Scrypt.roMixArm.pub
+    Impl.Scrypt.Arm.roMix := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂
+  exact (roMix_rel (pre_of h₁) (pre_of h₂) (pubEq_of hpub) hpub.2.2.2.2.2.2.2
+    _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+
+theorem roMix_verified :
+    Verified Arm.target Impl.Scrypt.Arm.roMix (Spec.Scrypt.roMixContract Arm.abi) :=
+  Verified.of_correct roMix_correct roMix_ct
+    { pre := by
+        sig_implies_pre [Spec.Scrypt.roMixContract, Spec.Scrypt.roMixSig,
+          Proof.Scrypt.roMixArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+          Arm.State.addr]
+      post := by
+        sig_implies_post [Spec.Scrypt.roMixContract, Spec.Scrypt.roMixSig,
+          Proof.Scrypt.roMixArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+          Arm.State.addr]
+      pub := by
+        sig_implies_pub [Spec.Scrypt.roMixContract, Spec.Scrypt.roMixSig,
+          Proof.Scrypt.roMixArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+          Arm.State.addr]
+      sat := by
+        implies_sat [Spec.Scrypt.roMixContract, Spec.Scrypt.roMixSig,
+          Proof.Scrypt.roMixArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+          Arm.State.addr,
+          Proof.Scrypt.Arm.RoMix.satState, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read]
+          using Proof.Scrypt.Arm.RoMix.satState }
 
 end VG.Proof.Scrypt.Arm.RoMix

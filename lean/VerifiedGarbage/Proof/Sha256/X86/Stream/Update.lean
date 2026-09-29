@@ -6,7 +6,7 @@ import Mathlib.Tactic.Tauto
 # Streaming SHA-256 on x86 (32-bit): `update`
 
 Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 proof (`VG.Proof.Sha256.X86_64.Stream.Update`), with `state` in `ebx`,
+x86-64 proof (`VG.Proof.MdStream.X86_64.Update`), with `state` in `ebx`,
 `data` in `ebp`, the bytes left in `esi`, the buffered bytes in `edi`, and
 `state` and `scratch` also in the argument words at `[esp + 4]` and
 `[esp + 16]`, which the inlined compression function reads.
@@ -257,10 +257,10 @@ theorem proMem_a16 {s₀ : State} : (proMem s₀).readW (addr (esp₀ s₀) 16) 
   simp only [proMem]; rw [Mem.readW_writeW_self32]
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block ([.mov .eax (.mem (at_ .esp 24))] ++ save .eax ++
-      [.mov .ebx (.mem (at_ .esp 4)), .mov .ebp (.mem (at_ .esp 16)), .mov .esi (.mem (at_ .esp 20)),
+    WP isa (.block (([.mov .eax (.mem (at_ .esp 24))] : List Instr) ++ save .eax ++
+      ([.mov .ebx (.mem (at_ .esp 4)), .mov .ebp (.mem (at_ .esp 16)), .mov .esi (.mem (at_ .esp 20)),
        .mov .edi (.mem (at_ .esp 8)), .alu .and .edi (.imm 63),
-       .store (at_ .esp 4) .ebx, .store (at_ .esp 16) .eax])) s₀ (Inv s₀ 0) := by
+       .store (at_ .esp 4) .ebx, .store (at_ .esp 16) .eax] : List Instr))) s₀ (Inv s₀ 0) := by
   have hsp := hp.sp_fit
   have rin : ∀ d, 4 ≤ d → d + 4 ≤ 28 → InRegions (s₀.rd ++ s₀.wr) (addr (esp₀ s₀) d) 4 :=
     fun d h₁ h₂ => ⟨argR s₀, by simp [hp.wr], hp.arg_in h₁ h₂⟩

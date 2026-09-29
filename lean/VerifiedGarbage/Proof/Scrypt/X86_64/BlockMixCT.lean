@@ -2,6 +2,8 @@ import VerifiedGarbage.Proof.Scrypt.X86_64.BlockMixFun
 import VerifiedGarbage.Proof.Scrypt.X86_64.SalsaCall
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 import Mathlib.Tactic.DefEqTransformations
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Scrypt.Contract
 
 /-!
 # scryptBlockMix on x86-64: constant time
@@ -21,7 +23,7 @@ proof.
 namespace VG.Proof.Scrypt.X86_64.BlockMix
 
 open VG VG.X86_64 VG.Impl.Scrypt.X86_64
-open VG.Proof.Sha1.X86_64.Stream (Upd wp_mov wp_addi)
+open VG.Proof.MdStream.X86_64 (Upd wp_mov wp_addi)
 
 /-! ## What each run knows -/
 
@@ -202,7 +204,7 @@ theorem salsaAt_rel {k : Nat} {bx bx' : Addr} {dR : Reg} (hdR : dR = .rbp ∨ dR
   have call := RelCT.call (n := "vg_salsa20_8") (P := fun s s' =>
       (KR s₀ k bx s ∧ s.gpr .rdi = yP s₀ + BitVec.ofNat 64 o ∧ s.gpr .rsi = sc s₀) ∧
       (KR s₀' k bx' s' ∧ s'.gpr .rdi = yP s₀' + BitVec.ofNat 64 o ∧ s'.gpr .rsi = sc s₀'))
-    salsa_verified.1 salsa_verified.2.1 [] [⟨yP s₀ + BitVec.ofNat 64 o, 64⟩, ⟨sc s₀, 64⟩]
+    salsa_correct salsa_ct [] [⟨yP s₀ + BitVec.ofNat 64 o, 64⟩, ⟨sc s₀, 64⟩]
     fun s s' ⟨⟨h, hd, hs⟩, ⟨h', hd', hs'⟩⟩ => by
       obtain ⟨p₁, c₁, w₁⟩ := call_hyps hp ho hd hs h.rsp h.wr
       obtain ⟨p₂, c₂, w₂⟩ := call_hyps hp' ho' hd' hs' h'.rsp h'.wr
@@ -328,16 +330,33 @@ def satState : State where
   rd := [⟨0x1000, 128⟩]
   wr := [⟨0x2000, 128⟩, ⟨0x3000, 128⟩]
 
+theorem blockMix_correct (s : State) (hs : Proof.Scrypt.blockMixX86_64.pre s) :
+    ∃ t s', Exec isa Impl.Scrypt.X86_64.blockMix s t s' ∧ abiPreserved s s' ∧
+      Proof.Scrypt.blockMixX86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct salsaSpec (pre_of hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
+theorem blockMix_ct : ConstantTime isa Proof.Scrypt.blockMixX86_64.pre
+    Proof.Scrypt.blockMixX86_64.pub Impl.Scrypt.X86_64.blockMix := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂
+  exact (blockMix_rel (pre_of h₁) (pre_of h₂) (pubEq_of hpub) _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+
 theorem blockMix_verified :
-    Verified X86_64.target Impl.Scrypt.X86_64.blockMix Proof.Scrypt.blockMixX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct salsaSpec (pre_of hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · intro s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂
-    exact (blockMix_rel (pre_of h₁) (pre_of h₂) (pubEq_of hpub) _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
-  · refine ⟨satState, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, rfl, by decide⟩
-    all_goals first
-      | (intro a h₁ h₂; simp only [Region.Contains, satState] at h₁ h₂; bv_omega)
-      | decide
+    Verified X86_64.target Impl.Scrypt.X86_64.blockMix (Spec.Scrypt.blockMixContract X86_64.abi 8) :=
+  Verified.of_correct blockMix_correct blockMix_ct
+    { pre := by
+        sig_implies_pre [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
+          Proof.Scrypt.blockMixX86_64, X86_64.abi, X86_64.argRegs]
+      post := by
+        sig_implies_post [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
+          Proof.Scrypt.blockMixX86_64, X86_64.abi, X86_64.argRegs]
+      pub := by
+        sig_implies_pub [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
+          Proof.Scrypt.blockMixX86_64, X86_64.abi, X86_64.argRegs]
+      sat := by
+        sig_implies_sat [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
+          Proof.Scrypt.blockMixX86_64, X86_64.abi, X86_64.argRegs,
+          Proof.Scrypt.X86_64.BlockMix.satState]
+          [Proof.Scrypt.X86_64.BlockMix.satState] using Proof.Scrypt.X86_64.BlockMix.satState }
 
 end VG.Proof.Scrypt.X86_64.BlockMix
