@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Pbkdf2.X86_64.Iterate
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.X86_64.Inline
 import VerifiedGarbage.Spec.Pbkdf2.Contract
 
 /-!
@@ -264,14 +265,55 @@ theorem constantTime {f : Callee} (hf : f.Ok) :
   intro s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂
   exact (iterate_rel hf (pre_of h₁) (pre_of h₂) (pubEq_of hpub) _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
 
+/-- `iterateSha256X86_64` with the 832 bytes of scratch of the shared contract
+(sized for the AVX2 compression function), of which the code uses 384. -/
+def iterateWide : Contract isa :=
+  { Proof.Pbkdf2.iterateSha256X86_64 with
+    pre := fun s =>
+      let key : Region := ⟨s.gpr .rdi, 192⟩
+      let u : Region := ⟨s.gpr .rsi, 32⟩
+      let t : Region := ⟨s.gpr .rcx, 32⟩
+      let scratch : Region := ⟨s.gpr .r8, 832⟩
+      let ret : Region := ⟨s.gpr .rsp, 8⟩
+      let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
+      s.rd = [key, u] ∧ s.wr = [t, scratch] ∧
+      key.Disjoint t ∧ key.Disjoint scratch ∧ u.Disjoint t ∧ u.Disjoint scratch ∧
+      t.Disjoint scratch ∧
+      ret.Disjoint key ∧ ret.Disjoint u ∧ ret.Disjoint t ∧ ret.Disjoint scratch ∧
+      stack.Disjoint key ∧ stack.Disjoint u ∧ stack.Disjoint t ∧ stack.Disjoint scratch }
+
+/-- The regions `iterateSha256X86_64` lets the code write. -/
+def narrowWr (s : State) : List Region := [⟨s.gpr .rcx, 32⟩, ⟨s.gpr .r8, 384⟩]
+
+theorem iterateWide_pre (s : State) (h : iterateWide.pre s) :
+    Proof.Pbkdf2.iterateSha256X86_64.pre (s.withRegions s.rd (narrowWr s)) :=
+  let ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅⟩ := h
+  ⟨h₁, rfl, h₃, h₄.sub_right (Region.sub_of_ble rfl), h₅, h₆.sub_right (Region.sub_of_ble rfl),
+    h₇.sub_right (Region.sub_of_ble rfl), h₈, h₉, h₁₀, h₁₁.sub_right (Region.sub_of_ble rfl), h₁₂,
+    h₁₃, h₁₄, h₁₅.sub_right (Region.sub_of_ble rfl)⟩
+
+/-- A state satisfying `iterateWide.pre`. -/
+def wideSat : State := { sat with wr := [⟨0x3000, 32⟩, ⟨0x4000, 832⟩] }
+
+theorem iterateWide_implies :
+    iterateWide.Implies (Spec.Pbkdf2.iterateSha256Contract X86_64.abi 8) := by
+  sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig, iterateWide,
+    Proof.Pbkdf2.iterateSha256X86_64, X86_64.abi, X86_64.argRegs] [wideSat, sat] using wideSat
+
+/-- `iterate`, calling any compression function `f`. The proof is written
+against `iterateSha256X86_64`, widened to the shared contract's scratch. -/
 theorem iterate_verified {f : Callee} (hf : f.Ok)
     (hm : f.code.allInstrs (fun i => !loadsMxcsr i) = true) :
     Verified X86_64.target (iterate f) (Spec.Pbkdf2.iterateSha256Contract X86_64.abi 8) :=
-  Verified.of_correct (iterate_ok hf (by
+  have hsat := iterateWide_implies.sat_left
+  (Verified.widen (Verified.of_correct (iterate_ok hf (by
     simp only [iterate, body, compressBlock, Code.allInstrs, hm, Bool.and_true]
-    decide +kernel)) (constantTime hf) (by
-    sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig,
-      Proof.Pbkdf2.iterateSha256X86_64, X86_64.abi, X86_64.argRegs] [sat] using sat)
+    decide +kernel)) (constantTime hf) (.refl (hsat.elim fun s hs => ⟨_, iterateWide_pre s hs⟩)))
+    narrowWr iterateWide_pre
+    (fun _ h => by
+      obtain ⟨_, h₂, _⟩ := h
+      rw [h₂]; exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl) .nil))
+    (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat).of_implies iterateWide_implies
 
 theorem iterate_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
     (iterate f).all (fun i => !X86_64.isa.writesSp i) = true := by

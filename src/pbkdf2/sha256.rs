@@ -52,10 +52,10 @@ impl super::Pbkdf2Hash for Sha256 {
         };
         #[cfg(not(target_arch = "x86_64"))]
         let iterate = vg_pbkdf2_hmac_sha256_iterate;
-        let mut scratch = [0u64; 48];
+        let mut scratch = [0u64; 104];
         // SAFETY: `key.states` is valid for reads of 192 bytes, `u` for reads
         // of 32 bytes, `t` for reads and writes of 32 bytes and `scratch` for
-        // reads and writes of 384 bytes; `t` and `scratch` are distinct
+        // reads and writes of 832 bytes; `t` and `scratch` are distinct
         // objects from each other and the others (`key` and `u` are only
         // read), so they do not overlap each other, the stack arguments (on
         // ARMv7) or (on x86-64) the return address and the stack below it,

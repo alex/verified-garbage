@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
 import VerifiedGarbage.Proof.Sha256.X86_64.Shared
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.X86_64.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
@@ -514,8 +515,42 @@ theorem finalize_ct {f : Callee} (hf : f.Ok)
   exact (finalize_rel hf hm name (pre_of h₁) (pre_of h₂) ⟨p1, p2, p3, p4, p5⟩ _ _ _ _ _ _ ⟨rfl, rfl⟩
     e₁ e₂).1
 
+/-- `finalizeSha256X86_64` with the 688 bytes of scratch of the shared
+contract (sized for the AVX2 compression function), of which the code uses
+240 (the MAC stays at byte 176). -/
+def finalizeWide : Contract isa :=
+  { Proof.Hmac.finalizeSha256X86_64 with
+    pre := fun s =>
+      let inner : Region := ⟨s.gpr .rdi, 96⟩
+      let outer : Region := ⟨s.gpr .rsi, 96⟩
+      let scratch : Region := ⟨s.gpr .rcx, 688⟩
+      let ret : Region := ⟨s.gpr .rsp, 8⟩
+      let stack : Region := ⟨s.gpr .rsp - 16, 16⟩
+      s.rd = [outer] ∧ s.wr = [inner, scratch] ∧
+      inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
+      ret.Disjoint inner ∧ ret.Disjoint outer ∧ ret.Disjoint scratch ∧
+      stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint scratch }
+
+/-- The regions `finalizeSha256X86_64` lets the code write. -/
+def narrowWr (s : State) : List Region := [⟨s.gpr .rdi, 96⟩, ⟨s.gpr .rcx, 240⟩]
+
+theorem finalizeWide_pre (s : State) (h : finalizeWide.pre s) :
+    Proof.Hmac.finalizeSha256X86_64.pre (s.withRegions s.rd (narrowWr s)) :=
+  let ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁⟩ := h
+  ⟨h₁, rfl, h₃, h₄.sub_right (Region.sub_of_ble rfl), h₅.sub_right (Region.sub_of_ble rfl), h₆, h₇,
+    h₈.sub_right (Region.sub_of_ble rfl), h₉, h₁₀, h₁₁.sub_right (Region.sub_of_ble rfl)⟩
+
+/-- A state satisfying `finalizeWide.pre`. -/
+def wideSat : State := { sat with wr := [⟨0x1000, 96⟩, ⟨0x3000, 688⟩] }
+
+theorem finalizeWide_implies :
+    finalizeWide.Implies (Spec.Hmac.finalizeSha256Contract X86_64.abi 16) := by
+  sig_implies [Spec.Hmac.finalizeSha256Contract, Spec.Hmac.finalizeSha256Sig, finalizeWide,
+    Proof.Hmac.finalizeSha256X86_64, X86_64.abi, X86_64.argRegs] [wideSat, sat] using wideSat
+
 /-- `finalize`, calling the SHA-256 finalization `name` made with any
-compression function `f`. -/
+compression function `f`. The proof is written against
+`finalizeSha256X86_64`, widened to the shared contract's scratch. -/
 theorem finalize_verified {f : Callee} (hf : f.Ok)
     (hm : f.code.allInstrs (fun i => !loadsMxcsr i) = true) (name : String) :
     Verified X86_64.target (finalize f name) (Spec.Hmac.finalizeSha256Contract X86_64.abi 16) :=
@@ -523,9 +558,14 @@ theorem finalize_verified {f : Callee} (hf : f.Ok)
     simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
       Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Code.allInstrs, hm, Bool.true_and]
     decide +kernel
-  Verified.of_correct (finalize_ok hf hm' name) (finalize_ct hf hm' name) (by
-    sig_implies [Spec.Hmac.finalizeSha256Contract, Spec.Hmac.finalizeSha256Sig,
-      Proof.Hmac.finalizeSha256X86_64, X86_64.abi, X86_64.argRegs] [sat] using sat)
+  have hsat := finalizeWide_implies.sat_left
+  (Verified.widen (Verified.of_correct (finalize_ok hf hm' name) (finalize_ct hf hm' name)
+    (.refl (hsat.elim fun s hs => ⟨_, finalizeWide_pre s hs⟩)))
+    narrowWr finalizeWide_pre
+    (fun _ h => by
+      obtain ⟨_, h₂, _⟩ := h
+      rw [h₂]; exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl) .nil))
+    (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat).of_implies finalizeWide_implies
 
 theorem finalize_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true)
     (name : String) :

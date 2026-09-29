@@ -80,10 +80,10 @@ impl HmacHash for Sha256 {
         };
         #[cfg(not(target_arch = "x86_64"))]
         let init = vg_hmac_sha256_init;
-        let mut scratch = [0u64; 20];
+        let mut scratch = [0u64; 76];
         // SAFETY: `key.len()` is at most 64; `state.inner` and `state.outer`
         // are valid for reads and writes of 96 bytes, `key` for reads of
-        // `key.len()` bytes and `scratch` for reads and writes of 160 bytes;
+        // `key.len()` bytes and `scratch` for reads and writes of 608 bytes;
         // they are distinct objects, so they do not overlap each other or the
         // call's stack frame, nor wrap around the address space. On x86-64,
         // `init` needs the CPU features of `state.backend`, which were
@@ -101,10 +101,10 @@ impl HmacHash for Sha256 {
     }
 
     fn hmac_update(state: &mut Sha256HmacState, data: &[u8]) {
-        let mut scratch = [0u64; 20];
+        let mut scratch = [0u64; 76];
         // SAFETY: `state.inner` is valid for reads and writes of 96 bytes,
         // `data` for reads of `data.len()` bytes and `scratch` for reads and
-        // writes of 160 bytes; they are distinct objects, so they do not
+        // writes of 608 bytes; they are distinct objects, so they do not
         // overlap each other or the call's stack frame, nor wrap around the
         // address space. `state.count` is the length of the message
         // `state.inner` represents, modulo 2⁶⁴. `state.backend` was
@@ -130,10 +130,10 @@ impl HmacHash for Sha256 {
         };
         #[cfg(not(target_arch = "x86_64"))]
         let finalize = vg_hmac_sha256_finalize;
-        let mut scratch = [0u64; 30];
+        let mut scratch = [0u64; 86];
         // SAFETY: `state.inner` is valid for reads and writes of 96 bytes,
         // `state.outer` for reads of 96 bytes and `scratch` for reads and
-        // writes of 240 bytes; they are distinct objects, so they do not
+        // writes of 688 bytes; they are distinct objects, so they do not
         // overlap each other or (on x86-64) the return address. `state.inner`
         // represents `(K₀ ⊕ ipad) ‖ text`, of `state.count` bytes, and
         // `state.outer` represents `K₀ ⊕ opad`. On x86-64, `finalize` needs
@@ -151,10 +151,10 @@ impl HmacHash for Sha256 {
     #[cfg(any(target_arch = "arm", target_arch = "x86"))]
     fn hmac_finalize(mut state: Sha256HmacState) -> [u8; 32] {
         let mut mac = [0u8; 32];
-        let mut scratch = [0u64; 30];
+        let mut scratch = [0u64; 86];
         // SAFETY: `state.inner` is valid for reads and writes of 96 bytes,
         // `state.outer` for reads of 96 bytes, `mac` for writes of 32 bytes
-        // and `scratch` for reads and writes of 240 bytes; they are distinct
+        // and `scratch` for reads and writes of 688 bytes; they are distinct
         // objects, so they do not overlap each other or the call's stack
         // frame, nor wrap around the address space. `state.inner` represents
         // `(K₀ ⊕ ipad) ‖ text`, of `state.count` bytes, and `state.outer`
