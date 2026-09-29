@@ -13,7 +13,7 @@ def variant : Proof.Sha256.X86_64.Compress where
   callee := .scalar
   ok := Proof.Sha256.X86_64.Stream.scalar_ok
   mxcsr := by decide +kernel
-  spSafe := by decide +kernel
+  spSafe := Code.all_of_allInstrs (by decide +kernel)
   suffix := ""
   features := []
 

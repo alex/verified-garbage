@@ -24,13 +24,15 @@ def artifacts : List Artifact := [
     code := Impl.ChaCha20Poly1305.X86_64.«seal»
     contract := Spec.ChaCha20Poly1305.sealContract X86_64.abi 16
     stack := 16
-    verified := Proof.ChaCha20Poly1305.X86_64.seal_verified },
+    verified := Proof.ChaCha20Poly1305.X86_64.seal_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { Spec.ChaCha20Poly1305.openApi with
     target := X86_64.target
     doc := Spec.ChaCha20Poly1305.openApi.doc
     code := Impl.ChaCha20Poly1305.X86_64.«open»
     contract := Spec.ChaCha20Poly1305.openContract X86_64.abi 16
     stack := 16
-    verified := Proof.ChaCha20Poly1305.X86_64.open_verified }]
+    verified := Proof.ChaCha20Poly1305.X86_64.open_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.ChaCha20Poly1305.X86_64
