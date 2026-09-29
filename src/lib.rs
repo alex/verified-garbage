@@ -32,6 +32,33 @@ use asm::x86 as arch;
 #[cfg(target_arch = "x86_64")]
 use asm::x86_64 as arch;
 
+// The ISA models are little-endian, and the contracts assume the pointer
+// width of each architecture's calling convention: the verified assembly is
+// compiled only where both hold (`Rust.cfg`, in
+// `lean/VerifiedGarbage/TCB/Rust.lean`), not on, say, aarch64_be or x32.
+#[cfg(any(
+    all(
+        any(
+            target_arch = "aarch64",
+            target_arch = "arm",
+            target_arch = "x86",
+            target_arch = "x86_64"
+        ),
+        target_endian = "big"
+    ),
+    all(
+        any(target_arch = "aarch64", target_arch = "x86_64"),
+        not(target_pointer_width = "64")
+    ),
+    all(
+        any(target_arch = "arm", target_arch = "x86"),
+        not(target_pointer_width = "32")
+    ),
+))]
+compile_error!(
+    "the verified assembly needs a little-endian target with its architecture's usual pointer width (not, e.g., aarch64_be or x32)"
+);
+
 // The 32-bit x86 model's baseline is i686 with SSE2 (see
 // `lean/VerifiedGarbage/TCB/X86/Isa.lean`): older CPUs' `mul` is not constant
 // time.

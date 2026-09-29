@@ -20,7 +20,11 @@ A naked function has no compiler-generated prologue or epilogue, so the
 machine code that runs is exactly the code that was verified (plus the
 final `ret` from the printer). The functions of each target are collected
 in `src/asm/<target>/`, one file per `module`, compiled only under the
-target's `cfg`.
+target's `cfg` (`Target.rustCfg`), and only where memory is little-endian, as
+every ISA model's is (`TCB/Mem.lean`), and pointers have the width of the
+target's calling convention (`Abi.ptrBits`), which its contracts assume
+(`cfg`): not on, say, `aarch64_be` or x32, whose `target_arch` is also
+`aarch64` or `x86_64`.
 
 A call (`Code.call name body`) is a call instruction whose operand is the
 symbol of the Rust function `name` (a `sym` operand). The model runs `body`
@@ -205,6 +209,13 @@ def checkUnique (as : List Artifact) : Except String Unit :=
     unless (as.filter fun b => b.target.name == a.target.name && b.name == a.name).length == 1 do
       throw s!"{a.target.name}: {a.name} is defined more than once"
 
+/-- The Rust `cfg` predicate under which the functions of target `T` are
+compiled: its `rustCfg`, on a little-endian target (as the ISA models are)
+whose pointers have the width its calling convention and so its contracts
+assume (`Abi.ptrBits`). -/
+def cfg (T : Target) : String :=
+  s!"all({T.rustCfg}, target_endian = \"little\", target_pointer_width = \"{T.abi.ptrBits}\")"
+
 /-- `mod` declarations for generated child modules (never reformatted by rustfmt). -/
 def modDecls (ms : List String) (cfg : String → Option String) : String :=
   String.join (ms.map fun m =>
@@ -216,7 +227,7 @@ def modDecls (ms : List String) (cfg : String → Option String) : String :=
 /-- The generated files, given the module of each function each artifact calls. -/
 def render (as : List Artifact) (moduleOf : Artifact → String → String) : List (String × String) :=
   let targets := distinct as (·.target.name)
-  let cfgOf (t : String) : Option String := (as.find? (·.target.name == t)).map (·.target.rustCfg)
+  let cfgOf (t : String) : Option String := (as.find? (·.target.name == t)).map (cfg ·.target)
   let root :=
     header ++
     "//! Formally verified assembly, emitted from Lean. See `lean/README.md`.\n" ++
