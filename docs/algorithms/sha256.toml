@@ -1,4 +1,5 @@
 name = "SHA-256"
+family = "Hashes"
 specs = ["Sha256"]
 modules = ["src/hashes/sha256.rs"]
 asm = ["sha256"]

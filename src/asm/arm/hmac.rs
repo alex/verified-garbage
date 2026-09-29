@@ -12,7 +12,8 @@
 /// * `inner` and `outer` must each be valid for reads and writes of 96 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
 /// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, and `inner`, `outer` and `scratch` must not overlap the call's stack argument; none of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `inner`, `outer` and `scratch` must not overlap each other, `key` or the arguments on the stack (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `key` and `scratch` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_hmac_sha256_init(inner: *mut [u8; 96], outer: *mut [u8; 96], key: *const u8, key_len: usize, scratch: *mut [u64; 20]) {
     core::arch::naked_asm!(
@@ -143,7 +144,8 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha256_init(inner: *mut [u8; 96], outer:
 /// * `outer` must be valid for reads of 96 bytes.
 /// * `out` must be valid for writes of 32 bytes.
 /// * `scratch` must be valid for reads and writes of 240 bytes; its contents on return are unspecified.
-/// * `inner`, `out` and `scratch` must not overlap each other, `outer` or the call's stack arguments, and none of the four may wrap around the end of the address space (distinct Rust objects never do).
+/// * `inner`, `out` and `scratch` must not overlap each other, `outer` or the arguments on the stack (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `out` and `scratch` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_hmac_sha256_finalize(inner: *mut [u8; 96], outer: *const [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 30]) {
     core::arch::naked_asm!(
