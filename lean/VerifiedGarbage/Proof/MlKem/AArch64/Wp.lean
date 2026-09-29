@@ -135,6 +135,11 @@ theorem wp_addImm {d n : Reg} {imm : Nat} (h : imm < 4096)
     WP isa (.block (.addImm .x d n imm :: is)) s Q :=
   wp_x (by simp [exec, h, State.read]) k
 
+theorem wp_mov {d n : Reg}
+    (k : ∀ s', Only [d] s s' → s'.gpr d = s.gpr n → WP isa (.block is) s' Q) :
+    WP isa (.block (Impl.MlKem.AArch64.mov d n :: is)) s Q :=
+  wp_addImm (by decide) fun s' h e => k s' h (by rw [e]; exact BitVec.add_zero _)
+
 theorem wp_subImm {d n : Reg} {imm : Nat} (h : imm < 4096)
     (k : ∀ s', Only [d] s s' → s'.gpr d = s.gpr n - BitVec.ofNat 64 imm → WP isa (.block is) s' Q) :
     WP isa (.block (.subImm .x d n imm :: is)) s Q :=
