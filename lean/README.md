@@ -23,6 +23,9 @@ VerifiedGarbage/
                     call is of the artifact whose code the model runs for it, and
                     that each artifact declares the CPU features its code needs
     Axioms.lean     `#assert_standard_axioms`
+    Audit.lean      `#assert_no_compiler_overrides` (the compiled code the emitter
+                    runs is what the kernel checked) and `#assert_spec_origin`
+                    (`VG.Spec` definitions are declared in `Spec/`)
     Emit.lean       what is emitted (`Artifacts.lean`, every registration file
                     under `Artifacts/`, and every generic function under `Generic/`
                     for every variant of its interface under `Variants/`), and
@@ -72,7 +75,12 @@ never import proofs.
    gives its calls (`stack`) and any notes on the implementation. An
    `Artifact` cannot be built
    without the proof, and the emitter's `#assert_standard_axioms` rejects
-   `sorry`, `native_decide` and any non-standard axiom anywhere in them.
+   `sorry`, `native_decide` and any non-standard axiom anywhere in them. The
+   emitter runs compiled code, so it also rejects anything that makes the
+   compiler run other code than the definitions the kernel checked, in what
+   it runs (`implemented_by`, `extern`, `export`) or anywhere in the project
+   (`csimp`, `initialize`), and any `VG.Spec` definition declared outside
+   `Spec/`.
 5. **Emit** — `Emit.lean` renders the registry into `src/asm/<target>/<module>.rs`,
    adding to each function's `# Safety` section what its contract requires of
    where its buffers are, which depends on the target's calling convention
@@ -124,6 +132,7 @@ only proven against a spec and TCB that were reviewed and merged beforehand.
 ```sh
 lake exe cache get                  # download prebuilt Mathlib
 lake build                          # check every proof, run the axiom audit and golden tests
+lake env leanchecker VerifiedGarbage  # replay every declaration through the kernel
 lake env lean --run Emit.lean       # regenerate ../src/asm
 lake env lean --run Emit.lean --check
 ```
