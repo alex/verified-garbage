@@ -94,8 +94,8 @@ theorem blks_succ (s₀ : State) (i : Nat) :
 theorem leNum_pad (b : List Byte) (h : b.length = 16) : leNum (b ++ [0x01]) = leNum b + 2 ^ 128 := by
   rw [Poly1305.leNum_append, h]; rfl
 
-theorem body_eq : body = .block ([.ldr .r1 .r0 ptrOff, .dp .add .r2 .r1 (.imm 16), .str .r2 .r0 ptrOff] ++
-    (absorb true ++ [.ldr .r1 .r0 cntOff, .subs .r1 .r1 (.imm 1), .str .r1 .r0 cntOff])) := by
+theorem body_eq : body = .block (([.ldr .r1 .r0 ptrOff, .dp .add .r2 .r1 (.imm 16), .str .r2 .r0 ptrOff] : List Instr) ++
+    (absorb true ++ ([.ldr .r1 .r0 cntOff, .subs .r1 .r1 (.imm 1), .str .r1 .r0 cntOff] : List Instr))) := by
   simp only [body, List.append_assoc]
 
 theorem body_ok {s₀ : State} (hp : BPre s₀) {i : Nat} (hi : i < nb s₀) {s : State} (hL : LInv s₀ i s) :
@@ -262,8 +262,8 @@ end
 theorem blks_zero (s₀ : State) : blks s₀ 0 = [] := by simp [blks, bytesAt]
 
 theorem prologue_ok {s₀ : State} (hp : BPre s₀) :
-    WP isa (.block (saveRegs ++ [.str .r1 .r0 ptrOff, .str .r2 .r0 cntOff] ++ setupR ++ loadAcc ++
-      [.ldr .r1 .r0 cntOff, .cmp .r1 (.imm 0)])) s₀ fun s =>
+    WP isa (.block (saveRegs ++ ([.str .r1 .r0 ptrOff, .str .r2 .r0 cntOff] : List Instr) ++ setupR ++ loadAcc ++
+      ([.ldr .r1 .r0 cntOff, .cmp .r1 (.imm 0)] : List Instr))) s₀ fun s =>
       LInv s₀ 0 s ∧ s.z = (s₀.gpr .r2 == 0) := by
   have hfit := hp.st_fit
   have hw : stR (s₀.gpr .r0) ∈ s₀.wr := by rw [hp.wr]; exact List.mem_singleton_self _
@@ -348,8 +348,8 @@ theorem val_words {L : Nat → Nat} (hL : ∀ j < 9, L j < 2 ^ 13) :
   rw [val_toWords hL, tw0, tw1, tw2, tw3]; omega
 
 theorem epilogue_ok {s₀ : State} (hp : BPre s₀) {s : State} (hc : Common s₀ (nb s₀) s) :
-    WP isa (.block (reduce ++ toWords ++ [.str .r3 .r0 0, .str .r5 .r0 4, .str .r7 .r0 8, .str .r10 .r0 12,
-      .str .r1 .r0 16, .mov .r2 (.imm 0), .str .r2 .r0 20] ++ restoreRegs)) s fun s' =>
+    WP isa (.block (reduce ++ toWords ++ ([.str .r3 .r0 0, .str .r5 .r0 4, .str .r7 .r0 8, .str .r10 .r0 12,
+      .str .r1 .r0 16, .mov .r2 (.imm 0), .str .r2 .r0 20] : List Instr) ++ restoreRegs)) s fun s' =>
       abiPreserved s₀ s' ∧ Proof.Poly1305.blocksArm.post s₀ s' := by
   have hfit := hp.st_fit
   obtain ⟨D, hcD, hDb, hDv⟩ := hc.acc

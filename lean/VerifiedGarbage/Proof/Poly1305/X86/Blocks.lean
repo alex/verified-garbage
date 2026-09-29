@@ -143,8 +143,8 @@ structure BInv (s₀ : State) (F : Nat → Nat) (i : Nat) (s : State) : Prop whe
   acc : A0 s₀ < P → words s.mem (stp s₀) 4 ≤ 4 ∧
     hw5 (words s.mem (stp s₀)) % P = Poly1305.absorbAll (Rn s₀) (A0 s₀) (blks s₀ i) % P
 
-theorem blocks_eq : blocks = .seq (.block (setup ++ [.mov .esi (.mem (at_ .esp 8)),
-    .mov .ecx (.mem (at_ .esp 12)), .alu .test .ecx (.reg .ecx)]))
+theorem blocks_eq : blocks = .seq (.block (setup ++ ([.mov .esi (.mem (at_ .esp 8)),
+    .mov .ecx (.mem (at_ .esp 12)), .alu .test .ecx (.reg .ecx)] : List Instr)))
     (.seq (.ite .e (.block []) (.loop body .ne)) (.block (reduce ++ restore))) := rfl
 
 namespace BPre
@@ -177,8 +177,8 @@ theorem acc_entry {s₀ : State} (hfit : (stp s₀).toNat + 128 ≤ 2 ^ 32) {F :
   rw [show A0 s₀ = hw5 (words s₀.mem (stp s₀)) from hv]
 
 theorem prologue_ok {s₀ : State} (hp : BPre s₀) :
-    WP isa (.block (setup ++ [.mov .esi (.mem (at_ .esp 8)), .mov .ecx (.mem (at_ .esp 12)),
-      .alu .test .ecx (.reg .ecx)])) s₀ fun s => ∃ F, SetupF s₀ F ∧
+    WP isa (.block (setup ++ ([.mov .esi (.mem (at_ .esp 8)), .mov .ecx (.mem (at_ .esp 12)),
+      .alu .test .ecx (.reg .ecx)] : List Instr))) s₀ fun s => ∃ F, SetupF s₀ F ∧
         BInv s₀ F 0 s ∧ s.zf = some (arg s₀ 2 &&& arg s₀ 2 == 0) := by
   have hfit := hp.st_fit
   refine WP.block_append (WP.mono (setup_ok (arg0_eq s₀) (hp.argIn (i := 0) (by omega)) hfit

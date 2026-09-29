@@ -180,7 +180,7 @@ structure P1 (s₀ s : State) : Prop extends FC s₀ s where
   z : s.z = decide (kb s₀ = 0)
 
 theorem prologue_ok {s₀ : State} (hp : FPre s₀) :
-    WP isa (.block ([.ldrSp .r12 4] ++ saveScr ++ [.dp .and .r4 .r2 (.imm 15), .cmp .r4 (.imm 0)])) s₀
+    WP isa (.block (([.ldrSp .r12 4] : List Instr) ++ saveScr ++ ([.dp .and .r4 .r2 (.imm 15), .cmp .r4 (.imm 0)] : List Instr))) s₀
       (P1 s₀) := by
   have hsc := hp.sc_fit
   refine wp_arg (i := 1) hp rfl rfl (by omega) rfl fun s₁ u₁ => ?_
@@ -414,7 +414,7 @@ theorem BufHas.frame {s₀ : State} {m m' : Mem} (h : BufHas m (stB s₀) (padde
     (by rw [← off_add]; exact contains_off (by omega) (by omega)) hc
 
 theorem mid_ok {s₀ : State} (hp : FPre s₀) {s : State} (h : F2 s₀ s) :
-    WP isa (.block (.str .r4 .r0 ptrOff :: setupR ++ loadAcc ++ [.ldr .r1 .r0 ptrOff, .cmp .r1 (.imm 0)])) s
+    WP isa (.block (.str .r4 .r0 ptrOff :: setupR ++ loadAcc ++ ([.ldr .r1 .r0 ptrOff, .cmp .r1 (.imm 0)] : List Instr))) s
       (F3 s₀) := by
   have hfit := hp.st_fit
   have hk := kb_lt s₀
@@ -511,9 +511,9 @@ theorem cnt_mod (s₀ : State) : (Proof.Poly1305.countArm s₀).toNat % 16 = kb 
   omega
 
 theorem tag_ok {s₀ : State} (hp : FPre s₀) {s : State} (h : F4 s₀ s) :
-    WP isa (.block (reduce ++ [.str .r1 .r0 d9Off, .dp .add .r1 .r0 (.imm 40)] ++ addWords ++ addTop false ++
+    WP isa (.block (reduce ++ ([.str .r1 .r0 d9Off, .dp .add .r1 .r0 (.imm 40)] : List Instr) ++ addWords ++ addTop false ++
       mask :: (List.range 9).flatMap carryStep ++ toWords ++
-      [.ldrSp .r2 0, .str .r3 .r2 0, .str .r5 .r2 4, .str .r7 .r2 8, .str .r10 .r2 12, .ldrSp .r12 4] ++
+      ([.ldrSp .r2 0, .str .r3 .r2 0, .str .r5 .r2 4, .str .r7 .r2 8, .str .r10 .r2 12, .ldrSp .r12 4] : List Instr) ++
       restoreScr)) s fun s' => abiPreserved s₀ s' ∧ Proof.Poly1305.finalizeArm.post s₀ s' := by
   have hfit := hp.st_fit
   obtain ⟨D, hcD, hDb, hDv⟩ := h.acc.acc

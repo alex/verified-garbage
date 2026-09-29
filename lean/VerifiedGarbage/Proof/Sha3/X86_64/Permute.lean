@@ -132,7 +132,7 @@ theorem save_eq : saved.map (fun (r, d) => Instr.store (at_ .rsi d) r) =
 theorem prologue_eq : prologue = (List.range 6).flatMap (fun k =>
       [.store (at_ .rsi (392 + 8 * k)) ((saved.getD k (.rax, 0)).1)]) ++
     (List.range 24).flatMap (fun k => [.movImm64 .rax (RC k), .store (at_ .rsi (200 + 8 * k)) .rax]) ++
-    [.mov .rdx (.reg .rsi), .alu .add .rdx (.imm 200), .mov .rcx (.reg .rsi), .alu .add .rcx (.imm 392)] := by
+    ([.mov .rdx (.reg .rsi), .alu .add .rdx (.imm 200), .mov .rcx (.reg .rsi), .alu .add .rcx (.imm 392)] : List Instr) := by
   rw [prologue, save_eq]
 
 /-- During the saves. -/

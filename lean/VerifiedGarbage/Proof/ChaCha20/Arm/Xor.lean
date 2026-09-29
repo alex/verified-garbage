@@ -266,15 +266,15 @@ theorem writeW8_apply (m : Mem) (a x : Addr) (v : Byte) :
 
 /-! ## The prologue -/
 
-theorem save_eq : save ++ [.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
-      .mov .r1 (.reg .r3), .cmp .r6 (.imm 0)] =
+theorem save_eq : save ++ ([.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
+      .mov .r1 (.reg .r3), .cmp .r6 (.imm 0)] : List Instr) =
     [.str .r4 .r3 256, .str .r5 .r3 260, .str .r6 .r3 264, .str .lr .r3 268,
       .mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2), .mov .r1 (.reg .r3),
       .cmp .r6 (.imm 0)] := rfl
 
 theorem prologue_ok {s₀ : State} (hp : XPre s₀) :
-    WP isa (.block (save ++ [.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
-      .mov .r1 (.reg .r3), .cmp .r6 (.imm 0)])) s₀ (OInv s₀ 0) := by
+    WP isa (.block (save ++ ([.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
+      .mov .r1 (.reg .r3), .cmp .r6 (.imm 0)] : List Instr))) s₀ (OInv s₀ 0) := by
   rw [save_eq]
   refine wp_str (by decide) (hp.eaB (by omega)) (hp.outB (by omega) rfl) fun s₁ g₁ => ?_
   refine wp_str (by decide) (by rw [g₁.gpr]; exact hp.eaB (by omega))
@@ -687,8 +687,8 @@ theorem epilogue_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j = L
 /-! ## The whole function -/
 
 theorem xor_eq : Impl.ChaCha20.Arm.Xor.xor =
-    .seq (.block (save ++ [.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
-      .mov .r1 (.reg .r3), .cmp .r6 (.imm 0)]))
+    .seq (.block (save ++ ([.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .mov .r6 (.reg .r2),
+      .mov .r1 (.reg .r3), .cmp .r6 (.imm 0)] : List Instr)))
     (.seq (.ite .eq (.block []) (.loop body .ne)) (.block (.mov .r0 (.reg .r4) :: restore))) := rfl
 
 theorem main_ok {s₀ : State} (hp : XPre s₀) : WP isa Impl.ChaCha20.Arm.Xor.xor s₀ (Post s₀) := by

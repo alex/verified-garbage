@@ -214,7 +214,7 @@ theorem saved_frame' {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List R
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .x4 ++ [mov .x19 .x0, mov .x20 .x4, mov .x21 .x1, mov .x22 .x2, mov .x23 .x3] ++
-      h0 .x19 ++ h0 .x21 ++ [.movz .x .x14 0x36 0, .movz .x .x15 0x5c 0, .movz .x .x24 0 0])) s₀
+      h0 .x19 ++ h0 .x21 ++ ([.movz .x .x14 0x36 0, .movz .x .x15 0x5c 0, .movz .x .x24 0 0] : List Instr))) s₀
       (Key s₀ 0) := by
   simp only [List.append_assoc]
   refine save_ok (fun d hd₁ hd₂ => ⟨scR s₀, by simp [hp.wr], contains_offset hd₂ (by omega)⟩)

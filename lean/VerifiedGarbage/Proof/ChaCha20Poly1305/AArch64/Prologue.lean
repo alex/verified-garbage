@@ -264,12 +264,12 @@ theorem sub1 (s₀ : State) {k n : Nat} (h₁ : 64 ≤ k) (h₂ : k + n ≤ 1024
   simp only [Region.Contains] at *
   bv_omega
 
-theorem block1_eq : save ++ moves ++ initState ++ [.addImm .x .x0 .x21 64, .addImm .x .x1 .x21 128] =
-    (save ++ moves) ++ (initState ++ [.addImm .x .x0 .x21 64, .addImm .x .x1 .x21 128]) := by
+theorem block1_eq : save ++ moves ++ initState ++ ([.addImm .x .x0 .x21 64, .addImm .x .x1 .x21 128] : List Instr) =
+    (save ++ moves) ++ (initState ++ ([.addImm .x .x0 .x21 64, .addImm .x .x1 .x21 128] : List Instr)) := by
   simp only [List.append_assoc]
 
 theorem block1_ok {s₀ : State} (hp : APre s₀) :
-    WP isa (.block (save ++ moves ++ initState ++ [.addImm .x .x0 .x21 64, .addImm .x .x1 .x21 128])) s₀
+    WP isa (.block (save ++ moves ++ initState ++ ([.addImm .x .x0 .x21 64, .addImm .x .x1 .x21 128] : List Instr))) s₀
       (Post1 s₀) := by
   rw [block1_eq]
   refine WP.block_append (WP.mono (WP.withSp (saveMoves_ok hp))

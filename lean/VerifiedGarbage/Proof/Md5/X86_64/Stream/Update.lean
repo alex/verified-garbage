@@ -96,8 +96,8 @@ structure Inv (s₀ : State) (c : Nat) (s : State) : Prop extends Common s₀ c 
 
 /-! ## Prologue and epilogue -/
 
-theorem prologue_eq : save .r8 ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .r8), .mov .rbp (.reg .rdx),
-      .mov .r12 (.reg .rcx), .mov .r13 (.reg .rsi), .alu .and .r13 (.imm 63)] = [
+theorem prologue_eq : save .r8 ++ ([.mov .rbx (.reg .rdi), .mov .r15 (.reg .r8), .mov .rbp (.reg .rdx),
+      .mov .r12 (.reg .rcx), .mov .r13 (.reg .rsi), .alu .and .r13 (.imm 63)] : List Instr) = [
     .store (at_ .r8 64) .rbx, .store (at_ .r8 72) .rbp, .store (at_ .r8 80) .r12,
     .store (at_ .r8 88) .r13, .store (at_ .r8 96) .r14, .store (at_ .r8 104) .r15,
     .mov .rbx (.reg .rdi), .mov .r15 (.reg .r8), .mov .rbp (.reg .rdx),
@@ -151,8 +151,8 @@ theorem inv_zero {s₀ : State} (hp : Pre s₀) {s : State} (hm : s.mem = saveMe
 
 set_option simprocs false in
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block (save .r8 ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .r8), .mov .rbp (.reg .rdx),
-      .mov .r12 (.reg .rcx), .mov .r13 (.reg .rsi), .alu .and .r13 (.imm 63)])) s₀ (Inv s₀ 0) := by
+    WP isa (.block (save .r8 ++ ([.mov .rbx (.reg .rdi), .mov .r15 (.reg .r8), .mov .rbp (.reg .rdx),
+      .mov .r12 (.reg .rcx), .mov .r13 (.reg .rsi), .alu .and .r13 (.imm 63)] : List Instr))) s₀ (Inv s₀ 0) := by
   have o : ∀ d : Nat, d + 8 ≤ 112 → InRegions s₀.wr (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
     fun d hd => ⟨scR s₀, by simp [hp.wr], contains_offset' hd (by omega)⟩
   have o0 := o 64 (by omega); have o1 := o 72 (by omega); have o2 := o 80 (by omega)

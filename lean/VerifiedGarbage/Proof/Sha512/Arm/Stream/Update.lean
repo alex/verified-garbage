@@ -512,7 +512,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
 def prologue : List Instr :=
   [.mov .r3 (.reg .r12), .dp .and .r4 .r2 (.imm 127), .ldrSp .r5 0, .ldrSp .r6 4, .cmp .r6 (.imm 0)]
 
-theorem update_eq : update = .seq (.block ([.ldrSp .r12 8] ++ save .r12 ++ prologue))
+theorem update_eq : update = .seq (.block (([.ldrSp .r12 8] : List Instr) ++ save .r12 ++ prologue))
     (.seq (.ite .eq (.block []) (.loop updateBody .ne)) (.block restore)) := rfl
 
 /-- The stack arguments, word by word. -/
@@ -532,7 +532,7 @@ theorem arg_sub {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 3) :
   rw [argAddr_eq hp hk]; exact sub_offset (by omega) (by omega)
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block ([.ldrSp .r12 8] ++ save .r12 ++ prologue)) s₀
+    WP isa (.block (([.ldrSp .r12 8] : List Instr) ++ save .r12 ++ prologue)) s₀
       fun s => Inv s₀ 0 s ∧ s.z = decide (len s₀ = 0) := by
   have hsc := hp.scr_fit; have hst := hp.st_fit
   simp only [List.cons_append, List.nil_append]

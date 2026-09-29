@@ -70,8 +70,8 @@ structure F0 (s₀ : State) (F : Nat → Nat) (s : State) : Prop extends UCommon
   acc : Acc s₀ [] s.mem
 
 theorem fprologue_ok {s₀ : State} (hp : FPre s₀) :
-    WP isa (.block (setup ++ [.mov .edx (.mem (at_ .esp 8)), .alu .and .edx (.imm 15),
-      .alu .test .edx (.reg .edx)])) s₀ fun s => ∃ F, SetupF s₀ F ∧ F0 s₀ F s ∧
+    WP isa (.block (setup ++ ([.mov .edx (.mem (at_ .esp 8)), .alu .and .edx (.imm 15),
+      .alu .test .edx (.reg .edx)] : List Instr))) s₀ fun s => ∃ F, SetupF s₀ F ∧ F0 s₀ F s ∧
         s.gpr .edx = BitVec.ofNat 32 (kb s₀) ∧
         s.zf = some (BitVec.ofNat 32 (kb s₀) &&& BitVec.ofNat 32 (kb s₀) == 0) := by
   have hfit := hp.st_fit
@@ -550,8 +550,8 @@ theorem fepilogue_ok {s₀ : State} (hp : FPre s₀) {F : Nat → Nat} (hF : Set
 
 /-! ## The whole function -/
 
-theorem finalize_eq : finalize = .seq (.block (setup ++ [.mov .edx (.mem (at_ .esp 8)),
-    .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)]))
+theorem finalize_eq : finalize = .seq (.block (setup ++ ([.mov .edx (.mem (at_ .esp 8)),
+    .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)] : List Instr)))
     (.seq (.ite .e (.block []) lastBlock) (.block (reduce ++ addS ++ restore))) := rfl
 
 theorem finalize_correct {s₀ : State} (hp : FPre s₀) :

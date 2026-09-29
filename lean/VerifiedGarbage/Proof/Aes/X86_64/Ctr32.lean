@@ -304,7 +304,7 @@ theorem keySetup_ok (s : State) :
     rfl
 
 theorem keyDone_ok (s : State) :
-    ∃ s', runBlock isa (keyDone ++ [.alu .test .r8 (.reg .r8)]) s = some s' ∧
+    ∃ s', runBlock isa (keyDone ++ ([.alu .test .r8 (.reg .r8)] : List Instr)) s = some s' ∧
       s'.gpr .rdi = s.gpr .rsi + 64 ∧ s'.zf = some (s.gpr .r8 == 0) ∧
       (∀ r, r ≠ .rdi → s'.gpr r = s.gpr r) ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   refine ⟨_, by simp only [keyDone, movR, List.cons_append, List.nil_append, runBlock_cons,

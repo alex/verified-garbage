@@ -29,16 +29,16 @@ theorem Keeps.mono {rs rs' : List Reg} {s s' : State} (h : Keeps rs s s')
 abbrev absorbRegs : List Reg := [.r11, .rbx, .rbp, .rax, .rdx, .r12, .r13, .r14, .r15]
 
 theorem carry_eq : carry =
-    [.alu .add .r14 (.reg .r13), .alu .adc .r15 (.reg .rax)] ++
-    ([.mov .r11 (.reg .r12), .mov .rbx (.reg .r14), .mov .rbp (.reg .r15),
+    ([.alu .add .r14 (.reg .r13), .alu .adc .r15 (.reg .rax)] : List Instr) ++
+    (([.mov .r11 (.reg .r12), .mov .rbx (.reg .r14), .mov .rbp (.reg .r15),
       .alu .and .rbp (.imm 3), .mov .rax (.reg .r15), .alu .sub .rax (.reg .rbp),
-      .shift .shr .r15 2, .alu .add .rax (.reg .r15)] ++
-    [.alu .add .r11 (.reg .rax), .alu .adc .rbx (.imm 0), .alu .adc .rbp (.imm 0)]) := rfl
+      .shift .shr .r15 2, .alu .add .rax (.reg .r15)] : List Instr) ++
+    ([.alu .add .r11 (.reg .rax), .alu .adc .rbx (.imm 0), .alu .adc .rbp (.imm 0)] : List Instr)) := rfl
 
 theorem absorbAt_eq (b : Reg) (d : Nat) (pad : BitVec 32) : absorbAt b d pad =
     addBlockAt b d pad ++ (mulTo .r12 .r13 .r11 .r8 ++ (mulAdd .r12 .r13 .rbx .r10 ++
     (mulTo .r14 .r15 .r11 .r9 ++ (mulAdd .r14 .r15 .rbx .r8 ++ (mulAdd .r14 .r15 .rbp .r10 ++
-    ([.mov .rax (.reg .rbp), .mul .r8] ++ carry)))))) := by
+    (([.mov .rax (.reg .rbp), .mul .r8] : List Instr) ++ carry)))))) := by
   simp only [absorbAt, products, List.append_assoc]
 
 /-- The accumulator in `r11, rbx, rbp`. -/

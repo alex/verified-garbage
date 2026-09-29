@@ -348,11 +348,11 @@ theorem proMem_buf {s₀ : State} (hp : Pre s₀) : BufMem s₀ 0 (proMem s₀) 
   ⟨proMem_stI hp, proMem_stO, by simp [bytesAt], proMem_saved hp, proMem_frame hp⟩
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block ([.mov .eax (.mem (at_ .esp 20))] ++ save .eax ++
-      [.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)), .mov .esi (.mem (at_ .esp 8))] ++
+    WP isa (.block (([.mov .eax (.mem (at_ .esp 20))] : List Instr) ++ save .eax ++
+      ([.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)), .mov .esi (.mem (at_ .esp 8))] : List Instr) ++
       h0 .ebx ++ h0 .esi ++
-      [.mov .edi (.mem (at_ .esp 12)), .mov .ecx (.mem (at_ .esp 16)), .mov .edx (.reg .ebx),
-       .alu .add .edx (.imm 32), .alu .test .ecx (.reg .ecx)])) s₀
+      ([.mov .edi (.mem (at_ .esp 12)), .mov .ecx (.mem (at_ .esp 16)), .mov .edx (.reg .ebx),
+       .alu .add .edx (.imm 32), .alu .test .ecx (.reg .ecx)] : List Instr))) s₀
       fun s => Key s₀ 0 s ∧ s.zf = some (decide (kl s₀ = 0)) := by
   have hsp := hp.sp_fit
   have rin : ∀ (s : State), s.rd = s₀.rd → s.wr = s₀.wr → ∀ d, 4 ≤ d → d + 4 ≤ 24 →

@@ -123,8 +123,8 @@ theorem Inv.of_flags {s₀ : State} {i k pos : Nat} {s s' : State} (h : Inv s₀
 /-! ## The prologue -/
 
 theorem setup_eq : setup = .ldrSp .r12 4 :: (saved.map (fun p => Instr.str p.1 .r12 p.2) ++
-    [.mov .r4 (.reg .r1), .mov .r1 (.reg .r12), .mov .r5 (.reg .r2), .mov .r6 (.reg .r3),
-      .ldrSp .r7 0, .cmp .r7 (.imm 0)]) := rfl
+    ([.mov .r4 (.reg .r1), .mov .r1 (.reg .r12), .mov .r5 (.reg .r2), .mov .r6 (.reg .r3),
+      .ldrSp .r7 0, .cmp .r7 (.imm 0)] : List Instr)) := rfl
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block setup) s₀ fun s => Inv s₀ 0 0 (pos₀ s₀) s ∧ s.z = decide (outn s₀ = 0) := by

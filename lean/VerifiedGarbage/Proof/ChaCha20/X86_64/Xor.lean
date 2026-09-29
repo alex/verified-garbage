@@ -126,8 +126,8 @@ theorem readW64_off (m : Mem) (p : Addr) (v : BitVec 64) {d e : Nat} (hd : d < 2
 
 /-! ## The prologue -/
 
-theorem save_eq : save ++ [.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
-    .mov .rsi (.reg .rcx), .alu .test .r12 (.reg .r12)] =
+theorem save_eq : save ++ ([.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
+    .mov .rsi (.reg .rcx), .alu .test .r12 (.reg .r12)] : List Instr) =
     [.store (at_ .rcx 256) .rbx, .store (at_ .rcx 264) .rbp, .store (at_ .rcx 272) .r12,
     .mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
     .mov .rsi (.reg .rcx), .alu .test .r12 (.reg .r12)] := rfl
@@ -137,8 +137,8 @@ theorem bR_contains (s₀ : State) {d n : Nat} (h : d + n ≤ 320) : (bR s₀).C
 
 set_option simprocs false in
 theorem prologue_ok {s₀ : State} (hp : XPre s₀) :
-    WP isa (.block (save ++ [.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
-      .mov .rsi (.reg .rcx), .alu .test .r12 (.reg .r12)])) s₀ fun s =>
+    WP isa (.block (save ++ ([.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
+      .mov .rsi (.reg .rcx), .alu .test .r12 (.reg .r12)] : List Instr))) s₀ fun s =>
       OInv s₀ 0 s ∧ s.zf = some (decide (L s₀ = 0)) := by
   have o : ∀ d, d + 8 ≤ 320 → InRegions s₀.wr (off (bp s₀) d) 8 :=
     fun d hd => ⟨_, hp.w_b, bR_contains s₀ hd⟩
@@ -656,8 +656,8 @@ theorem epilogue_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j = L
 /-! ## The whole function -/
 
 theorem xor_eq : Impl.ChaCha20.X86_64.Xor.xor =
-    .seq (.block (save ++ [.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
-      .mov .rsi (.reg .rcx), .alu .test .r12 (.reg .r12)]))
+    .seq (.block (save ++ ([.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rdx),
+      .mov .rsi (.reg .rcx), .alu .test .r12 (.reg .r12)] : List Instr)))
     (.seq (.ite .e (.block []) (.loop body .ne)) (.block restore)) := rfl
 
 theorem correct {s₀ : State} (hp : XPre s₀) :

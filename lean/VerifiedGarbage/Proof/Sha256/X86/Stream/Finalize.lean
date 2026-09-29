@@ -646,15 +646,15 @@ theorem arg_read {s₀ : State} (hp : Pre s₀) {m : Mem} (hf : Frame [scR s₀]
   hf.readW (Region.contains_self _ _) (by simpa using hp.a_scr.sub_left (hp.arg_sub h₁ h₂)) (by decide)
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.seq (.block ([.mov .eax (.mem (at_ .esp 20))] ++ save .eax ++
-      [.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)),
+    WP isa (.seq (.block (([.mov .eax (.mem (at_ .esp 20))] : List Instr) ++ save .eax ++
+      ([.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)),
        .mov .ecx (.mem (at_ .esp 8)), .store (at_ .ebp 128) .ecx,
        .mov .ecx (.mem (at_ .esp 12)), .store (at_ .ebp 132) .ecx,
        .mov .ecx (.mem (at_ .esp 16)), .store (at_ .ebp 136) .ecx,
        .mov .edi (.mem (at_ .esp 8)), .alu .and .edi (.imm 63),
        .mov .edx (.reg .ebx), .alu .add .edx (.reg .edi), .mov .ecx (.imm 0x80),
        .store8 (at_ .edx 32) .cl, .alu .add .edi (.imm 1),
-       .mov .esi (.imm 0), .alu .cmp .edi (.imm 57)]))
+       .mov .esi (.imm 0), .alu .cmp .edi (.imm 57)] : List Instr)))
       (.ite .ae (.block [.mov .esi (.imm 1)]) (.block []))) s₀
       fun s => ∃ k, LInv s₀ k (cnt s₀ % 64 + 1) s := by
   have hsp := hp.sp_fit; have hsc := hp.scr_fit; have hst := hp.st_fit
@@ -822,15 +822,15 @@ def restore4 : List Instr :=
   [.mov .ebx (.mem (at_ .ebp 112)), .mov .esi (.mem (at_ .ebp 116)), .mov .edi (.mem (at_ .ebp 120)),
    .mov .ebp (.mem (at_ .ebp 124))]
 
-theorem finalize_eq : finalize = .seq (.block ([.mov .eax (.mem (at_ .esp 20))] ++ save .eax ++
-      [.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)),
+theorem finalize_eq : finalize = .seq (.block (([.mov .eax (.mem (at_ .esp 20))] : List Instr) ++ save .eax ++
+      ([.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)),
        .mov .ecx (.mem (at_ .esp 8)), .store (at_ .ebp 128) .ecx,
        .mov .ecx (.mem (at_ .esp 12)), .store (at_ .ebp 132) .ecx,
        .mov .ecx (.mem (at_ .esp 16)), .store (at_ .ebp 136) .ecx,
        .mov .edi (.mem (at_ .esp 8)), .alu .and .edi (.imm 63),
        .mov .edx (.reg .ebx), .alu .add .edx (.reg .edi), .mov .ecx (.imm 0x80),
        .store8 (at_ .edx 32) .cl, .alu .add .edi (.imm 1),
-       .mov .esi (.imm 0), .alu .cmp .edi (.imm 57)]))
+       .mov .esi (.imm 0), .alu .cmp .edi (.imm 57)] : List Instr)))
     (.seq (.ite .ae (.block [.mov .esi (.imm 1)]) (.block []))
     (.seq (.loop finalizeBody .e)
       (.block (.mov .eax (.mem (at_ .ebp 136)) :: ((List.range 8).flatMap outW ++ restore4))))) := rfl

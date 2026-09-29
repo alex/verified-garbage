@@ -49,7 +49,7 @@ theorem Src.disj_sub {P : Addr} {len : Nat} {R : Region} (hd : R.Disjoint ⟨P, 
 
 set_option simprocs false in
 theorem macA_ok {p n : Reg} (hr : MacRegs p n) (s : State) :
-    WP isa (.block (ptr .rdi .r15 448 ++ [.mov .rsi (.reg p), .mov .rdx (.reg n), .shift .shr .rdx 4])) s
+    WP isa (.block (ptr .rdi .r15 448 ++ ([.mov .rsi (.reg p), .mov .rdx (.reg n), .shift .shr .rdx 4] : List Instr))) s
       fun s' => s'.gpr .rdi = off (s.gpr .r15) 448 ∧ s'.gpr .rsi = s.gpr p ∧
         s'.gpr .rdx = s.gpr n >>> 4 ∧ (∀ q, q ≠ .rdi → q ≠ .rsi → q ≠ .rdx → s'.gpr q = s.gpr q) ∧
         s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.mem = s.mem := by
@@ -69,7 +69,7 @@ theorem macA_ok {p n : Reg} (hr : MacRegs p n) (s : State) :
 
 set_option simprocs false in
 theorem macC_ok {p n : Reg} (hr : MacRegs p n) (s : State) :
-    WP isa (.block (anchor .rdi 448 ++ [.mov .rdx (.reg n), .alu .and .rdx (.imm 15)])) s
+    WP isa (.block (anchor .rdi 448 ++ ([.mov .rdx (.reg n), .alu .and .rdx (.imm 15)] : List Instr))) s
       fun s' => s'.gpr .r15 = s.gpr .rdi - BitVec.ofNat 64 448 ∧ s'.gpr .rdx = s.gpr n &&& 15 ∧
         s'.zf = some (s.gpr n &&& 15 == 0) ∧
         (∀ q, q ≠ .r15 → q ≠ .rdx → s'.gpr q = s.gpr q) ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.mem = s.mem := by
@@ -234,8 +234,8 @@ theorem padded_bytes {s₀ : State} {m mz : Mem} {Q : Addr} {t : Nat} (ht : t < 
     · rw [List.getElem_append_right (by simp; omega)]
       simp [hk]
 
-theorem padE_eq : ptr .rdi .r15 448 ++ ptr .rsi .r15 576 ++ [.mov32 .rdx (.imm 1)] =
-    ptr .rdi .r15 448 ++ (ptr .rsi .r15 576 ++ [.mov32 .rdx (.imm 1)]) := by simp only [List.append_assoc]
+theorem padE_eq : ptr .rdi .r15 448 ++ ptr .rsi .r15 576 ++ ([.mov32 .rdx (.imm 1)] : List Instr) =
+    ptr .rdi .r15 448 ++ (ptr .rsi .r15 576 ++ ([.mov32 .rdx (.imm 1)] : List Instr)) := by simp only [List.append_assoc]
 
 set_option simprocs false in
 theorem mov32_rdx_ok (v : BitVec 32) (s : State) :
@@ -251,7 +251,7 @@ theorem padTail_eq : padTail =
     .seq (.block [.mov32 .rax (.imm 0), .store (at_ .r15 576) .rax, .store (at_ .r15 584) .rax,
       .mov32 .rcx (.imm 0)])
     (.seq (.loop (.block copyBody) .ne)
-    (.seq (.block (ptr .rdi .r15 448 ++ (ptr .rsi .r15 576 ++ [.mov32 .rdx (.imm 1)])))
+    (.seq (.block (ptr .rdi .r15 448 ++ (ptr .rsi .r15 576 ++ ([.mov32 .rdx (.imm 1)] : List Instr))))
     (.seq (.call "vg_poly1305_blocks" Impl.Poly1305.X86_64.blocks) (.block (anchor .rdi 448))))) := by
   rw [padTail, padE_eq]; rfl
 
