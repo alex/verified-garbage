@@ -39,26 +39,57 @@ def argRegs : List Reg := [.x0, .x1, .x2, .x3, .x4, .x5, .x6, .x7]
 /-! ## The calling convention, for `Sig`
 
 Each integer or pointer argument takes the next of `x0`–`x7`
-(a 32-bit argument in the low half; the upper half is unspecified).
-Arguments on the stack (more than eight) are not modelled. The return
-address is in `x30`, not in memory; the integer result is in `x0`.
+(a 32-bit argument in the low half; the upper half is unspecified). Once
+they are used up, each further argument takes the next 8 bytes of stack, in
+order, the first at `sp` on entry. AAPCS64, "Parameter passing rules":
+stage A sets the next stacked argument address (NSAA) to `sp`; in stage C,
+an integral or pointer argument of at most 8 bytes goes in `x[NGRN]` while
+the next general-purpose register number NGRN is less than 8; otherwise
+NGRN is set to 8, the NSAA is rounded up to the larger of 8 and the
+argument's natural alignment, an argument of less than 8 bytes is given a
+size of 8 bytes, and the argument is copied to memory at the NSAA, which is
+then incremented by its size. Only 64-bit arguments (pointers, `usize`,
+`u64`) are modelled on the stack: Apple's arm64 ABI ("Writing ARM64 code for
+Apple platforms") passes narrower stack arguments in slots of their natural
+size instead, and for 8-byte arguments the two conventions agree. `abi` only
+grants reading the stack arguments, and assumes they do not wrap around the
+end of the address space. The return address is in `x30`, not in memory;
+the integer result is in `x0`.
 -/
+
+/-- The address of the `i`-th (from 0) stack argument, on entry. -/
+def stackArgAddr (s : State) (i : Nat) : Addr := s.sp + BitVec.ofNat 64 (8 * i)
+
+/-- The `i`-th (from 0) stack argument, on entry. -/
+def stackArg (s : State) (i : Nat) : BitVec 64 := s.mem.readW (stackArgAddr s i) 64
 
 def abi : Abi isa where
   ptrBits := 64
   args ws := if ws.length ≤ argRegs.length then
-    some fun s => (argRegs.take ws.length).map s.gpr else none
-  argArea _ _ := []
+    some fun s => (argRegs.take ws.length).map s.gpr
+  else if (ws.drop argRegs.length).all (· = 64) then
+    some fun s => argRegs.map s.gpr ++ (List.range (ws.length - argRegs.length)).map (stackArg s)
+  else none
+  argArea ws s := let n := ws.length - argRegs.length
+    if n = 0 then [] else [(⟨stackArgAddr s 0, 8 * n⟩, false)]
   reserved n s := stackBelow s.sp n
-  -- The stack the function's calls and frames use does not wrap around.
-  wf _ n s := match n with
-    | 0 => True
-    | n => n ≤ s.sp.toNat
+  -- The stack the function's calls and frames use, and its stack arguments,
+  -- do not wrap around.
+  wf ws n s := if ws.length ≤ argRegs.length then
+      match n with
+      | 0 => True
+      | n => n ≤ s.sp.toNat
+    else
+      (match n with
+      | 0 => True
+      | n => n ≤ s.sp.toNat) ∧ s.sp.toNat + 8 * (ws.length - argRegs.length) ≤ 2 ^ 64
   pub s₁ s₂ := s₁.sp = s₂.sp
   mem s := s.mem
   rd s := s.rd
   wr s := s.wr
   ret s := s.gpr .x0
+  argAreaDoc _ := none
+  reservedDoc n := if n = 0 then none else some s!"the {n} bytes of stack below the stack pointer"
 
 abbrev target : Target where
   name := "aarch64"

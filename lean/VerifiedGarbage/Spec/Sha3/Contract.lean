@@ -89,6 +89,7 @@ def absorbApi : Api where
   module := "sha3"
   name := "vg_keccak_absorb"
   sig := absorbSig
+  writeArgs := true
   summary := "Absorbs data into a SHA-3 or SHAKE computation: if the state `*state` represents a \
     message whose length is `pos` modulo `rate` (`VG.Spec.Sha3.Repr`), it then represents that \
     message followed by the `len` bytes at `data`. Returns the position after them, \
@@ -128,6 +129,7 @@ def padApi : Api where
   module := "sha3"
   name := "vg_keccak_pad"
   sig := padSig
+  writeArgs := true
   summary := "Pads a SHA-3 or SHAKE message: if the state `*state` represents a message whose \
     length is `pos` modulo `rate` (`VG.Spec.Sha3.Repr`), it becomes the state after absorbing that \
     message with the domain-separation suffix (the low byte of `suffix`, with the first bit of the \
@@ -171,6 +173,7 @@ def squeezeApi : Api where
   module := "sha3"
   name := "vg_keccak_squeeze"
   sig := squeezeSig
+  writeArgs := true
   summary := "Squeezes output from a padded SHA-3 or SHAKE state: writes to `out` the `outlen` \
     bytes of the output of the sponge with rate `rate` from the state `*state` (FIPS 202 Algorithm \
     8, steps 7 to 10), from byte `pos` of that output on; leaves in `*state` a state, and returns \

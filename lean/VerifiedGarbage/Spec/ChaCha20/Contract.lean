@@ -69,6 +69,7 @@ def xorApi : Api where
   module := "chacha20"
   name := "vg_chacha20_xor"
   sig := xorSig
+  writeArgs := true
   summary := "XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` \
     (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by \
     0, 1, … modulo 2³²) into the `len` bytes at `data`, calling `vg_chacha20_block` for each 64 \

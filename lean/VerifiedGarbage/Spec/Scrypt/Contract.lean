@@ -53,6 +53,7 @@ def salsaApi : Api where
   module := "scrypt"
   name := "vg_salsa20_8"
   sig := salsaSig
+  writeArgs := true
   summary := "The Salsa20/8 Core (RFC 7914 §3): replaces the 64 bytes `*b` by their Salsa20/8 Core \
     (the 16 little-endian words, 8 rounds, then the input added word by word).\n\n\
     Contract: `VG.Spec.Scrypt.salsaContract`. Constant time: only the pointers may affect timing, \
@@ -85,6 +86,7 @@ def blockMixApi : Api where
   module := "scrypt"
   name := "vg_scrypt_blockmix"
   sig := blockMixSig
+  writeArgs := true
   summary := "scryptBlockMix (RFC 7914 §4) with block size parameter `r`: writes scryptBlockMix of \
     the `128 * r` bytes at `b` to the `128 * ry` bytes at `y`. Calls `vg_salsa20_8` for each \
     64-byte block.\n\n\
@@ -127,6 +129,7 @@ def roMixApi : Api where
   module := "scrypt"
   name := "vg_scrypt_romix"
   sig := roMixSig
+  writeArgs := true
   summary := "scryptROMix (RFC 7914 §5) with block size parameter `r` and cost parameter \
     `N = vlen / r`: replaces the `128 * r` bytes at `b` by their scryptROMix. Step 2 writes \
     `V[0], …, V[N - 1]` to `v`. Calls `vg_scrypt_blockmix` for each scryptBlockMix.\n\n\
