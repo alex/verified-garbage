@@ -29,7 +29,7 @@ theorem blockMix :
         intro s h
         sig_unfold [Spec.Scrypt.blockMixContract, Spec.Scrypt.blockMixSig,
           Proof.Scrypt.blockMixX86_64, X86_64.abi, X86_64.argRegs] at h
-        obtain ⟨-, -, -, -, -, hrc, -⟩ := id h
+        obtain ⟨-, -, -, -, -, -, hrc, -⟩ := id h
         rw [hrc] at h
         simp only [Proof.Scrypt.blockMixX86_64]
         rw [hrc]
@@ -53,7 +53,7 @@ theorem roMix :
         intro s h
         sig_unfold [Spec.Scrypt.roMixContract, Spec.Scrypt.roMixSig,
           Proof.Scrypt.roMixX86_64, X86_64.abi, X86_64.argRegs] at h
-        have hr9 := h.2.2.2.2.2.2.2.2
+        have hr9 := h.2.2.2.2.2.2.2.2.2
         simp only [Proof.Scrypt.roMixX86_64]
         rw [hr9] at h ⊢
         and_intros
