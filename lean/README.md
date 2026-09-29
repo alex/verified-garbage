@@ -133,7 +133,6 @@ only proven against a spec and TCB that were reviewed and merged beforehand.
 ```sh
 lake exe cache get                  # download prebuilt Mathlib
 lake build                          # check every proof, run the axiom audit and golden tests
-lake env leanchecker VerifiedGarbage  # replay every declaration through the kernel
 lake env lean --run Emit.lean       # regenerate ../src/asm
 lake env lean --run Emit.lean --check
 ```
