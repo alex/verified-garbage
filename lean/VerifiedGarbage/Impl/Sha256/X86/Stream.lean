@@ -15,13 +15,15 @@ The streaming state (96 bytes at `state`) is the hash value followed by a
 * `finalize(state, count, out, scratch)` pads the buffered bytes (one or two
   blocks), compresses them and writes the digest.
 
-The compression function's code (`Impl.Sha256.X86.compress`) is inlined. It
-reads its arguments `(state, blocks, n, scratch)` from `[esp + 4 .. 20)`, so
-before each compression we write them there, over our own arguments (the
-callee owns them: `VG.Spec.Sha256.updateContract` asks for `writeArgs`). It saves and restores
-`ebx`, `esi`, `edi`, `ebp`, so our own variables live there across it, and
-our caller's values of those registers are saved in `scratch[112..128)`.
-Every address and branch depends only on the pointers, `count` and `len`.
+The compression function is called (`vg_sha256_compress`,
+`Impl.Sha256.X86.compress`) with `scratch[0..112)` as its scratch space.
+Each call pushes its four arguments (`scratch`, `1`, the block and `state`)
+in a frame of its own, popped (into `eax`) when it returns: with the return
+address the call stores, it uses the 20 bytes below `esp`. The compression
+function preserves `ebx`, `esi`, `edi` and `ebp`, so our variables live
+there across it, and our caller's values of those registers are saved in
+`scratch[112..128)`. Every address and branch depends only on `esp`, the
+pointers, `count` and `len`.
 -/
 
 namespace VG.Impl.Sha256.X86.Stream
@@ -43,28 +45,29 @@ def save (b : Reg) : List Instr := saved.map fun (r, d) => .store (at_ b d) r
 /-- Restore them, with `scratch` in `b` (which must not be one of them). -/
 def restore (b : Reg) : List Instr := saved.map fun (r, d) => .mov r (.mem (at_ b d))
 
-/-- Compress the block at `eax`, with `[esp + 4]` and `[esp + 16]` already
-holding the hash value's and the scratch space's addresses. -/
-def compressAt : Prog isa :=
-  .seq (.block [.store (at_ .esp 8) .eax, .mov .ecx (.imm 1), .store (at_ .esp 12) .ecx]) compress
+/-- Compress the block at `eax` into the hash value at `st`, with the scratch
+space at `scr`: a call of `vg_sha256_compress(st, eax, 1, scr)`, its
+arguments pushed last to first. -/
+def compressAt (st scr : Reg) : Prog isa :=
+  .seq (.block [.mov .ecx (.imm 1)])
+    (.frame (.push [scr, .ecx, .eax, st]) (.call "vg_sha256_compress" compress) (.pop .eax 4))
 
 /-! ## `update`
 
 Registers: `ebx` = `state`, `ebp` = `data`, `esi` = bytes of `data` left,
-`edi` = bytes in the buffer; within an iteration, `edx` = `scratch`, `eax` =
-the block to compress and `ecx` = whether to compress it. The argument slots
-hold `state` (`[esp + 4]`) and `scratch` (`[esp + 16]`). -/
+`edi` = bytes in the buffer; within an iteration, `eax` = the block to
+compress and `ecx` = whether to compress it. `scratch` is read from its
+argument slot (`[esp + 24]`) when needed. -/
 
 /-- A whole block straight from `data`. -/
 def direct : List Instr :=
-  [.mov .edx (.mem (at_ .esp 16)), .mov .eax (.reg .ebp), .alu .add .ebp (.imm 64),
+  [.mov .eax (.reg .ebp), .alu .add .ebp (.imm 64),
    .alu .sub .esi (.imm 64), .mov .ecx (.imm 1)]
 
 /-- Copy `min(64 - edi, esi)` bytes of `data` into the buffer; if that fills it,
 compress it. -/
 def fill : Prog isa :=
-  .seq (.block [.mov .edx (.mem (at_ .esp 16)), .mov .eax (.imm 64), .alu .sub .eax (.reg .edi),
-      .alu .cmp .esi (.reg .eax)])
+  .seq (.block [.mov .eax (.imm 64), .alu .sub .eax (.reg .edi), .alu .cmp .esi (.reg .eax)])
   (.seq (.ite .b (.block [.mov .eax (.reg .esi)]) (.block []))
   (.seq (.block [.alu .sub .esi (.reg .eax), .alu .add .edi (.reg .ebx), .alu .test .eax (.reg .eax)])
   (.seq (.ite .e (.block [])
@@ -77,16 +80,16 @@ def fill : Prog isa :=
 def updateBody : Prog isa :=
   .seq (.block [.alu .test .edi (.reg .edi)])
   (.seq (.ite .e (.seq (.block [.alu .cmp .esi (.imm 64)]) (.ite .ae (.block direct) fill)) fill)
-  (.seq (.block [.store (at_ .esp 4) .ebx, .store (at_ .esp 16) .edx, .alu .test .ecx (.reg .ecx)])
-    (.ite .ne (.seq compressAt (.block [.mov .ecx (.imm 1), .alu .test .ecx (.reg .ecx)]))
+  (.seq (.block [.alu .test .ecx (.reg .ecx)])
+    (.ite .ne (.seq (.block [.mov .edx (.mem (at_ .esp 24))])
+        (.seq (compressAt .ebx .edx) (.block [.mov .ecx (.imm 1), .alu .test .ecx (.reg .ecx)])))
       (.block []))))
 
 def update : Prog isa :=
   .seq (.block ([.mov .eax (.mem (at_ .esp 24))] ++ save .eax ++
       [.mov .ebx (.mem (at_ .esp 4)), .mov .ebp (.mem (at_ .esp 16)), .mov .esi (.mem (at_ .esp 20)),
-       .mov .edi (.mem (at_ .esp 8)), .alu .and .edi (.imm 63),
-       .store (at_ .esp 4) .ebx, .store (at_ .esp 16) .eax]))
-    (.seq (.loop updateBody .ne) (.block (.mov .eax (.mem (at_ .esp 16)) :: restore .eax)))
+       .mov .edi (.mem (at_ .esp 8)), .alu .and .edi (.imm 63)]))
+    (.seq (.loop updateBody .ne) (.block (.mov .eax (.mem (at_ .esp 24)) :: restore .eax)))
 
 /-! ## `finalize`
 
@@ -113,9 +116,8 @@ def finalizeBody : Prog isa :=
   -- In the last block, the message length in bits, big-endian.
   (.seq (.block [.alu .test .esi (.reg .esi)])
   (.seq (.ite .e (.block lengthStore) (.block []))
-  (.seq (.block [.mov .eax (.reg .ebx), .alu .add .eax (.imm 32),
-      .store (at_ .esp 4) .ebx, .store (at_ .esp 16) .ebp])
-  (.seq compressAt
+  (.seq (.block [.mov .eax (.reg .ebx), .alu .add .eax (.imm 32)])
+  (.seq (compressAt .ebx .ebp)
     (.block [.mov .edi (.imm 0), .alu .sub .esi (.imm 1)]))))))))
 
 def finalize : Prog isa :=

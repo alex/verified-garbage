@@ -9,13 +9,12 @@ implementations of the compression function and of streaming SHA-256
 (`init`/`update`/`finalize`, on the representation `Repr`), in terms of
 `Spec/Sha256.lean`.
 
-The streaming functions may write their own argument area (cdecl passes the
-arguments in the caller's frame, just above the return address, and the
-callee owns them: GCC and LLVM both overwrite incoming argument slots, e.g.
-for sibling calls, and callers never read them back). This lets `update` and
-`finalize` pass arguments to inlined code that reads them from the stack,
-without moving `esp` below the caller's frame. The return address stays
-read-only.
+The shared contracts let the streaming functions write their own argument
+area (cdecl passes the arguments in the caller's frame, just above the
+return address, and the callee owns them). `update` only reads it, and its
+contract here says so; `finalize` may write it, as HMAC's `finalize`, which
+reuses its code, does. `update` and `finalize` call the compression
+function, using the 20 bytes of stack below the return address.
 -/
 
 namespace VG.Proof.Sha256
@@ -87,12 +86,12 @@ whose arguments are on the stack (cdecl: `state`, the low and high words of
 represents a message `m` of `count` bytes (modulo 2⁶⁴), then afterwards it
 represents `m` followed by the `len` bytes at `data`.
 
-The code may read `data` (`len` bytes), and read and write the arguments (24
-bytes above the return address, whose contents on exit are unspecified),
-`state` (96 bytes) and `scratch` (160 bytes, whose contents on exit are
-unspecified). The writable buffers may not overlap each other, the data or
-the return address, and nothing may wrap around the end of the (32-bit)
-address space. `esp`, the pointers, `count` and `len` are public; the state
+The code may read the arguments (24 bytes above the return address) and
+`data` (`len` bytes), and read and write `state` (96 bytes) and `scratch`
+(160 bytes, whose contents on exit are unspecified). The writable buffers
+may not overlap each other, the data or the arguments; none of them may
+overlap the return address or the 20 bytes of stack below it; and nothing
+may wrap around the end of the (32-bit) address space. `esp`, the pointers, `count` and `len` are public; the state
 and the data are secret. -/
 def updateX86 : Contract X86.isa where
   pre s :=
@@ -101,12 +100,14 @@ def updateX86 : Contract X86.isa where
     let scratch : Region := ⟨(arg s 5).setWidth 64, 160⟩
     let args : Region := ⟨argAddr s 0, 24⟩
     let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
-    s.rd = [data] ∧ s.wr = [state, scratch, args] ∧
-    state.Disjoint scratch ∧ args.Disjoint state ∧ args.Disjoint scratch ∧
-    data.Disjoint state ∧ data.Disjoint scratch ∧ data.Disjoint args ∧
-    ret.Disjoint state ∧ ret.Disjoint scratch ∧
+    let stack : Region := ⟨(s.gpr .esp).setWidth 64 - 20, 20⟩
+    s.rd = [data, args] ∧ s.wr = [state, scratch] ∧
+    state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
+    args.Disjoint state ∧ args.Disjoint scratch ∧
+    ret.Disjoint state ∧ ret.Disjoint scratch ∧ stack.Disjoint state ∧ stack.Disjoint scratch ∧
+    stack.Disjoint data ∧
     (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 3).toNat + (arg s 4).toNat ≤ 2 ^ 32 ∧
-    (arg s 5).toNat + 160 ≤ 2 ^ 32 ∧ (s.gpr .esp).toNat + 28 ≤ 2 ^ 32
+    (arg s 5).toNat + 160 ≤ 2 ^ 32 ∧ 20 ≤ (s.gpr .esp).toNat ∧ (s.gpr .esp).toNat + 28 ≤ 2 ^ 32
   post s s' := ∀ m, Repr s.mem ((arg s 0).setWidth 64) m → countX86 s = BitVec.ofNat 64 m.length →
     Repr s'.mem ((arg s 0).setWidth 64)
       (m ++ bytesAt s.mem ((arg s 3).setWidth 64) (arg s 4).toNat)
@@ -126,8 +127,9 @@ address, whose contents on exit are unspecified), `state` (96 bytes, whose
 contents on exit are unspecified), `out` (32 bytes) and `scratch` (160
 bytes, whose contents on exit are unspecified). These may not overlap each
 other or the return address, and nothing may wrap around the end of the
-(32-bit) address space. `esp`, the pointers and `count` are public; the
-state is secret. -/
+(32-bit) address space, and none but the arguments may overlap the 20 bytes
+of stack below the return address. `esp`, the pointers and `count` are
+public; the state is secret. -/
 def finalizeX86 : Contract X86.isa where
   pre s :=
     let state : Region := ⟨(arg s 0).setWidth 64, 96⟩
@@ -135,12 +137,14 @@ def finalizeX86 : Contract X86.isa where
     let scratch : Region := ⟨(arg s 4).setWidth 64, 160⟩
     let args : Region := ⟨argAddr s 0, 20⟩
     let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+    let stack : Region := ⟨(s.gpr .esp).setWidth 64 - 20, 20⟩
     s.rd = [] ∧ s.wr = [state, out, scratch, args] ∧
     state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
     args.Disjoint state ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
     ret.Disjoint state ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧
+    stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch ∧
     (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 3).toNat + 32 ≤ 2 ^ 32 ∧
-    (arg s 4).toNat + 160 ≤ 2 ^ 32 ∧ (s.gpr .esp).toNat + 24 ≤ 2 ^ 32
+    (arg s 4).toNat + 160 ≤ 2 ^ 32 ∧ 20 ≤ (s.gpr .esp).toNat ∧ (s.gpr .esp).toNat + 24 ≤ 2 ^ 32
   post s s' := ∀ m, Repr s.mem ((arg s 0).setWidth 64) m → countX86 s = BitVec.ofNat 64 m.length →
     bytesAt s'.mem ((arg s 3).setWidth 64) 32 = Spec.Sha256.hash m
   pub s₁ s₂ :=

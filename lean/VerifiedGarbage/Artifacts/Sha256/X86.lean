@@ -33,13 +33,15 @@ def artifacts : List Artifact := [
     target := X86.target
     doc := Spec.Sha256.updateApi.doc
     code := Impl.Sha256.X86.Stream.update
-    contract := Spec.Sha256.updateContract X86.abi
+    contract := Spec.Sha256.updateContract X86.abi 20
+    stack := 20
     verified := Proof.Sha256.X86.Shared.update },
   { Spec.Sha256.finalizeApi with
     target := X86.target
     doc := Spec.Sha256.finalizeApi.doc
     code := Impl.Sha256.X86.Stream.finalize
-    contract := Spec.Sha256.finalizeContract X86.abi
+    contract := Spec.Sha256.finalizeContract X86.abi 20
+    stack := 20
     verified := Proof.Sha256.X86.Shared.finalize }]
 
 end VG.Artifacts.Sha256.X86
