@@ -60,6 +60,9 @@ structure Pre (s₀ : State) : Prop where
   i_s : (inR (H := H) s₀).Disjoint (scR sc s₀)
   o_s : (outR (H := H) s₀).Disjoint (scR sc s₀)
   k_s : (keyR s₀).Disjoint (scR sc s₀)
+  a_i : (argR s₀).Disjoint (inR (H := H) s₀)
+  a_o : (argR s₀).Disjoint (outR (H := H) s₀)
+  a_s : (argR s₀).Disjoint (scR sc s₀)
   b_i : (stkR s₀).Disjoint (inR (H := H) s₀)
   b_o : (stkR s₀).Disjoint (outR (H := H) s₀)
   b_s : (stkR s₀).Disjoint (scR sc s₀)
@@ -68,6 +71,7 @@ structure Pre (s₀ : State) : Prop where
   nk : (kp s₀).toNat + kl s₀ ≤ 2 ^ 32
   nw : (scr s₀).toNat + 8 * sc ≤ 2 ^ 32
   sp16 : 16 ≤ s₀.sp.toNat
+  spf : s₀.sp.toNat + 4 ≤ 2 ^ 32
   fits : H.buf + 2 * H.B ≤ 8 * sc
   hB : H.B ≤ 128
   hW : H.W ≤ 64
@@ -75,11 +79,12 @@ structure Pre (s₀ : State) : Prop where
 
 theorem pre_of {s₀ : State} (h : (initG hH.SH sc).pre s₀) (hfit : H.buf + 2 * H.B ≤ 8 * sc) :
     Pre (H := H) sc s₀ := by
-  obtain ⟨h0, h1, h2, h3, h4, h5, _, _, h8, _, _, _, h12, h13, _, h15, h16, h17, h18, h19, h20, _⟩ := h
+  obtain ⟨h0, h1, h2, h3, h4, h5, _, _, h8, h9, h10, h11, h12, h13, _, h15, h16, h17, h18, h19, h20, h21⟩ := h
   have hS := hH.hS
   have hB := hH.hB
   simp only [hS, hB] at *
-  exact ⟨h0, h1, h2, h3, h4, h5, h8, h12, h13, h15, h16, h17, h18, h19, h20, hfit, hH.hBB, hH.hW, hH.hSB⟩
+  exact ⟨h0, h1, h2, h3, h4, h5, h8, h9, h10, h11, h12, h13, h15, h16, h17, h18, h19, h20, h21, hfit, hH.hBB,
+    hH.hW, hH.hSB⟩
 
 /-! ## The parts of `scratch` -/
 
@@ -270,20 +275,30 @@ theorem kr_after {t s' : State} (hk : KR (H := H) s₀ t) {rs : List Region} (ha
   · exact hs r hr
   · exact hp.b_s.symm.sub_left (save_sub hp)
 
+omit hp in
+theorem initArgs_ok {s : State} (hk : KR (H := H) s₀ s) {st : Reg} {p : BitVec 32} (hs : s.gpr st = p) :
+    WP isa (.block [.mov .r0 (.reg st)]) s fun t => KR (H := H) s₀ t ∧ t.gpr .r0 = p ∧ t.mem = s.mem :=
+  wp_mov (op2_reg _ _) fun _ u₁ => WP.block_nil ⟨kr_mov hk (by decide) u₁, by rw [u₁.gpr, hs], u₁.mem⟩
+
+theorem initCall_ok {t : State} (hk : KR (H := H) s₀ t) {p : BitVec 32} (hd : t.gpr .r0 = p)
+    (hpR : p = inn s₀ ∨ p = out s₀) {Q : State → Prop}
+    (hQ : ∀ s', KR (H := H) s₀ s' → Frame [⟨State.addr p, H.S⟩, stkR s₀] t.mem s'.mem →
+      hH.SH.Repr s'.mem (State.addr p) [] → Q s') :
+    WP isa (.call H.initN H.initC) t Q := by
+  obtain ⟨dS, _, np⟩ := state_disj hp hpR
+  refine init_call hH hd np (by rw [hk.wr]; exact covers_one (state_in hp hpR)) fun s' ha hr => ?_
+  have f := ha.frame
+  rw [below_eq hk.sp] at f
+  exact hQ s' (kr_after hp hk ha (by
+    simp only [List.mem_singleton]; rintro r rfl; exact dS.symm.sub_left (save_sub hp))) f hr
+
 theorem callInit_ok {s : State} (hk : KR (H := H) s₀ s) {st : Reg} {p : BitVec 32} (hs : s.gpr st = p)
     (hpR : p = inn s₀ ∨ p = out s₀) {Q : State → Prop}
     (hQ : ∀ s', KR (H := H) s₀ s' → Frame [⟨State.addr p, H.S⟩, stkR s₀] s.mem s'.mem →
       hH.SH.Repr s'.mem (State.addr p) [] → Q s') :
-    WP isa (H.callInit st) s Q := by
-  obtain ⟨dS, _, np⟩ := state_disj hp hpR
-  refine WP.seq (wp_mov (op2_reg _ _) fun s₁ u₁ => WP.block_nil ?_)
-  have k₁ := kr_mov hk (by decide) u₁
-  refine init_call hH (st := p) (by rw [u₁.gpr, hs]) np (by rw [k₁.wr]; exact covers_one (state_in hp hpR))
-    fun s' ha hr => ?_
-  have f := ha.frame
-  rw [below_eq k₁.sp, u₁.mem] at f
-  exact hQ s' (kr_after hp k₁ ha (by
-    simp only [List.mem_singleton]; rintro r rfl; exact dS.symm.sub_left (save_sub hp))) f hr
+    WP isa (H.callInit st) s Q :=
+  WP.seq (WP.mono (initArgs_ok hk hs) fun _ ⟨k, d, m⟩ =>
+    initCall_ok hH hp k d hpR fun s' k' f r => hQ s' k' (m ▸ f) r)
 
 theorem updArgs_ok {s : State} (hk : KR (H := H) s₀ s) {st : Reg} {p : BitVec 32}
     (hs : s.gpr st = p) (hpR : p = inn s₀ ∨ p = out s₀) {o : Nat} (ho : o = H.buf ∨ o = H.buf + H.B) :

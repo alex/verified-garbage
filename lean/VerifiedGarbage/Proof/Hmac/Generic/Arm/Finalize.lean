@@ -59,6 +59,8 @@ structure Pre (s₀ : State) : Prop where
   o_p : (outerR (H := H) s₀).Disjoint (opR (H := H) s₀)
   o_s : (outerR (H := H) s₀).Disjoint (scR sc s₀)
   p_s : (opR (H := H) s₀).Disjoint (scR sc s₀)
+  a_i : (argR s₀).Disjoint (inR (H := H) s₀)
+  a_p : (argR s₀).Disjoint (opR (H := H) s₀)
   a_s : (argR s₀).Disjoint (scR sc s₀)
   b_i : (stkR s₀).Disjoint (inR (H := H) s₀)
   b_o : (stkR s₀).Disjoint (outerR (H := H) s₀)
@@ -78,11 +80,11 @@ structure Pre (s₀ : State) : Prop where
 
 theorem pre_of {s₀ : State} (h : (finG hH.SH sc).pre s₀) (hfit : H.buf + H.F ≤ 8 * sc) :
     Pre (H := H) sc s₀ := by
-  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, _, _, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20⟩ := h
+  obtain ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20⟩ := h
   have hS := hH.hS
   have hD := hH.hD
   simp only [hS, hD] at *
-  exact ⟨h0, h1, h2, h3, h4, h5, h6, h7, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, hfit,
+  exact ⟨h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, hfit,
     ⟨hH.hB0, hH.hBB⟩, hH.hW, ⟨hH.hS0, hH.hSB⟩, ⟨hH.hD0, hH.hDF, hH.hF⟩⟩
 
 /-! ## The parts of `scratch` -/
