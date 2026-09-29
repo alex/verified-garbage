@@ -1,4 +1,4 @@
-//! PBKDF2 (RFC 8018 §5.2) with HMAC-SHA-256 as the pseudorandom function.
+//! PBKDF2-HMAC-SHA-256 (RFC 8018 §5.2).
 //!
 //! For each block `Tᵢ` of the derived key, `U₁ = HMAC (P, S ‖ INT (i))` is
 //! the verified HMAC-SHA-256 ([`Hmac`]), and the rest of the chain,
@@ -13,11 +13,11 @@
 use core::num::NonZeroU32;
 
 #[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::pbkdf2::vg_pbkdf2_hmac_sha256_iterate;
+use crate::asm::aarch64::pbkdf2_sha256::vg_pbkdf2_hmac_sha256_iterate;
 #[cfg(target_arch = "arm")]
-use crate::asm::arm::pbkdf2::vg_pbkdf2_hmac_sha256_iterate;
+use crate::asm::arm::pbkdf2_sha256::vg_pbkdf2_hmac_sha256_iterate;
 #[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::pbkdf2::vg_pbkdf2_hmac_sha256_iterate;
+use crate::asm::x86_64::pbkdf2_sha256::vg_pbkdf2_hmac_sha256_iterate;
 use crate::hashes::sha256::Sha256;
 use crate::hmac::Hmac;
 

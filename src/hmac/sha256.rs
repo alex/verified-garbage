@@ -1,9 +1,4 @@
-//! HMAC (FIPS 198-1, RFC 2104), for any hash function with a verified HMAC
-//! implementation.
-//!
-//! The construction is the same for every hash function `H` ([`HmacHash`]);
-//! what each one provides is verified assembly for a key of at most one
-//! block. For SHA-256, `vg_hmac_sha256_init`, `vg_sha256_update` and
+//! HMAC-SHA-256: `vg_hmac_sha256_init`, `vg_sha256_update` and
 //! `vg_hmac_sha256_finalize` (contracts `VG.Spec.Hmac.initSha256Contract`,
 //! `VG.Spec.Sha256.updateContract` and `VG.Spec.Hmac.finalizeSha256Contract`,
 //! or `finalizeSha256OutContract` on the 32-bit targets) compute
@@ -11,8 +6,6 @@
 //! (`VG.Spec.Hmac.hmacBlockKey`), keeping the two SHA-256 streaming states.
 //! (`vg_sha256_update` is whichever implementation `Sha256` would use on
 //! this CPU, e.g. `vg_sha256_update_shani`, with the same contract.)
-//! The only unverified step is step 2 of FIPS 198-1 §4: a key longer than a
-//! block is first hashed, with the verified hash function.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -21,91 +14,19 @@
     target_arch = "x86"
 ))]
 
+use super::{HmacHash, sealed};
 #[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
+use crate::asm::aarch64::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 #[cfg(target_arch = "arm")]
-use crate::asm::arm::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
+use crate::asm::arm::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 #[cfg(target_arch = "x86")]
-use crate::asm::x86::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
+use crate::asm::x86::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 #[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
-use crate::hashes::HashFunction;
+use crate::asm::x86_64::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 use crate::hashes::sha256::{Sha256, Sha256Backend};
 
-mod sealed {
-    pub trait Sealed {}
-}
-
-/// A hash function with a verified HMAC implementation.
-///
-/// Its digests must be at most a block long, so that a hashed key is a valid
-/// key for [`HmacHash::hmac_init`].
-pub trait HmacHash: HashFunction + sealed::Sealed {
-    /// The state of an HMAC computation.
-    #[doc(hidden)]
-    type State: Clone;
-    /// Starts an HMAC computation with a key of at most `BLOCK_SIZE` bytes,
-    /// using only the CPU features in `mask` (as `__with_features`).
-    ///
-    /// # Panics
-    ///
-    /// If the key is longer than a block.
-    #[doc(hidden)]
-    fn hmac_init(key: &[u8], mask: u32) -> Self::State;
-    /// Absorbs `data`.
-    #[doc(hidden)]
-    fn hmac_update(state: &mut Self::State, data: &[u8]);
-    /// Returns the MAC.
-    #[doc(hidden)]
-    fn hmac_finalize(state: Self::State) -> Self::Output;
-}
-
-/// An incremental HMAC computation with the hash function `H`.
-#[derive(Clone)]
-pub struct Hmac<H: HmacHash> {
-    state: H::State,
-}
-
-impl<H: HmacHash> Hmac<H> {
-    /// Starts an HMAC computation with `key`, of any length (a key longer
-    /// than the block size is hashed first).
-    pub fn new(key: &[u8]) -> Self {
-        Self::__with_features(key, u32::MAX)
-    }
-
-    /// Starts an HMAC computation with `key`, using only the CPU features in
-    /// `mask` (a set of `crate::cpu::Features` bits). For testing every
-    /// implementation on one CPU.
-    #[doc(hidden)]
-    pub fn __with_features(key: &[u8], mask: u32) -> Self {
-        let state = if key.len() > H::BLOCK_SIZE {
-            H::hmac_init(H::digest(key).as_ref(), mask)
-        } else {
-            H::hmac_init(key, mask)
-        };
-        Hmac { state }
-    }
-
-    /// Absorbs `data`.
-    pub fn update(&mut self, data: &[u8]) {
-        H::hmac_update(&mut self.state, data);
-    }
-
-    /// Returns the MAC of everything absorbed.
-    pub fn finalize(self) -> H::Output {
-        H::hmac_finalize(self.state)
-    }
-
-    /// The MAC of `data` with `key`.
-    pub fn mac(key: &[u8], data: &[u8]) -> H::Output {
-        let mut h = Self::new(key);
-        h.update(data);
-        h.finalize()
-    }
-}
-
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
-impl Hmac<Sha256> {
+impl super::Hmac<Sha256> {
     /// The key's two SHA-256 streaming states, for `K₀ ⊕ ipad` and then
     /// `K₀ ⊕ opad`, as `vg_hmac_sha256_init` left them (the arguments of
     /// `vg_pbkdf2_hmac_sha256_iterate`), for a computation that has not

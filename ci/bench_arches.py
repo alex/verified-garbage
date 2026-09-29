@@ -11,7 +11,9 @@ to other files (e.g. Lean that leaves `src/asm/` as it was) need none.
 
 Each platform's `modules` narrows its benchmarks to those of the modules
 whose own files changed: `src/asm/<arch>/<module>.rs`, or the Rust API's
-`src/<module>.rs` or `src/hashes/<module>.rs` (for every architecture). The
+`src/<module>.rs` or `src/hashes/<module>.rs` (for every architecture), or
+`src/<family>/<hash>.rs`, whose module is `<family>_<hash>` (e.g.
+`src/hmac/sha256.rs` is `hmac_sha256`, as in `src/asm/`). The
 benchmarks decide which of them run (each lists the modules it `USES`, see
 bench/benches/primitives/main.rs), and run everything for a module none of
 them uses (e.g. `cpu`, `lib`, or `hashes/mod.rs`'s `mod`). Any other change
@@ -53,6 +55,7 @@ SHARED = re.compile(
 # on every one.
 ASM = re.compile(r"src/asm/([a-z0-9_]+)/([a-z0-9_]+)\.rs$")
 API = re.compile(r"src/(?:hashes/)?([a-z0-9_]+)\.rs$")
+FAMILY = re.compile(r"src/(?!asm/|hashes/)([a-z0-9_]+)/([a-z0-9_]+)\.rs$")
 
 ALL = None
 
@@ -66,13 +69,19 @@ def arches(changed):
             needed.setdefault(arch, set()).add(module)
 
     for path in changed:
-        asm, api = ASM.match(path), API.match(path)
+        asm, api, family = ASM.match(path), API.match(path), FAMILY.match(path)
         if asm and asm[1] in PLATFORMS:
             if asm[2] != "mod":
                 need(asm[1], asm[2])
         elif api:
             for a in PLATFORMS:
                 need(a, api[1])
+        elif family:
+            # A family's `mod.rs` names a module no benchmark uses, so
+            # every benchmark runs.
+            name = family[1] if family[2] == "mod" else f"{family[1]}_{family[2]}"
+            for a in PLATFORMS:
+                need(a, name)
         elif SHARED.match(path):
             for a in PLATFORMS:
                 needed[a] = ALL

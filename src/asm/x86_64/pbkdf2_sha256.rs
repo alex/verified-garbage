@@ -1,5 +1,5 @@
 // @generated from lean/VerifiedGarbage/Artifacts.lean by lean/Emit.lean. DO NOT EDIT.
-//! Verified `pbkdf2` functions for `x86_64`.
+//! Verified `pbkdf2_sha256` functions for `x86_64`.
 #![allow(dead_code)]
 
 /// Runs `n` steps of PBKDF2-HMAC-SHA-256's iteration: if, for a 64-byte key `K₀`, the SHA-256 streaming state in bytes 0 to 95 of `*key` represents `K₀ ⊕ ipad` and the one in bytes 96 to 191 represents `K₀ ⊕ opad` (as `vg_hmac_sha256_init` leaves them), repeats `U ← HMAC-SHA-256 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).
