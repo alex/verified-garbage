@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.ChaCha20Poly1305.Arm.Correct
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.ChaCha20Poly1305.Contract
 
 /-!
 # ChaCha20-Poly1305 on ARMv7: `Verified`
@@ -224,23 +226,63 @@ def sat : State where
   rd := [⟨0x2000, 0⟩, ⟨0x5000, 4⟩]
   wr := [⟨0x1000, 1024⟩, ⟨0x3000, 0⟩]
 
-theorem sat_pre : preArm sat := by
-  have e0 : stackArg sat 0 = 0 := by decide
-  simp only [preArm, e0]
-  refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
-    by decide, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, sat, stackArgAddr, State.addr] at h₁ h₂
-    bv_omega
-
-theorem seal_verified : Verified Arm.target Impl.ChaCha20Poly1305.Arm.«seal» sealArm := by
-  refine ⟨fun s hs => ?_, seal_ct, ⟨sat, sat_pre⟩⟩
+theorem seal_ok (s : State) (hs : sealArm.pre s) :
+    ∃ t s', Exec isa Impl.ChaCha20Poly1305.Arm.«seal» s t s' ∧ abiPreserved s s' ∧
+      sealArm.post s s' := by
   obtain ⟨t, s', he, h, hpost⟩ := seal_correct (APre.of s hs)
   exact ⟨t, s', he, h, hpost⟩
 
-theorem open_verified : Verified Arm.target Impl.ChaCha20Poly1305.Arm.«open» openArm := by
-  refine ⟨fun s hs => ?_, open_ct, ⟨sat, sat_pre⟩⟩
+theorem open_ok (s : State) (hs : openArm.pre s) :
+    ∃ t s', Exec isa Impl.ChaCha20Poly1305.Arm.«open» s t s' ∧ abiPreserved s s' ∧
+      openArm.post s s' := by
   obtain ⟨t, s', he, h, hpost⟩ := open_correct (APre.of s hs)
   exact ⟨t, s', he, h, hpost⟩
+
+theorem seal_verified :
+    Verified Arm.target Impl.ChaCha20Poly1305.Arm.«seal» (Spec.ChaCha20Poly1305.sealContract Arm.abi 8) :=
+  Verified.of_correct seal_ok seal_ct (by
+    sig_implies [Spec.ChaCha20Poly1305.sealContract, Spec.ChaCha20Poly1305.sealSig,
+      Proof.ChaCha20Poly1305.sealArm, Proof.ChaCha20Poly1305.preArm, Proof.ChaCha20Poly1305.pubArm, Arm.abi,
+      Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
+      [Proof.ChaCha20Poly1305.Arm.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read]
+      using Proof.ChaCha20Poly1305.Arm.sat)
+
+/-- The postconditions match on `decrypt`; the result is the low word of
+`r1:r0`. -/
+theorem open_verified :
+    Verified Arm.target Impl.ChaCha20Poly1305.Arm.«open» (Spec.ChaCha20Poly1305.openContract Arm.abi 8) :=
+  Verified.of_correct open_ok open_ct
+    { pre := by
+        sig_implies_pre [Spec.ChaCha20Poly1305.openContract, Spec.ChaCha20Poly1305.openSig,
+          Proof.ChaCha20Poly1305.openArm, Proof.ChaCha20Poly1305.preArm, Proof.ChaCha20Poly1305.pubArm, Arm.abi,
+          Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
+      post := by
+        intro s s' _ h
+        sig_eval [Spec.ChaCha20Poly1305.openContract, Spec.ChaCha20Poly1305.openSig, Arm.abi,
+          Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
+        simp only [Proof.ChaCha20Poly1305.openArm, Arm.State.addr] at h
+        have e : ∀ x y : BitVec 32, (x ++ y).setWidth 32 = y := fun _ _ => BitVec.setWidth_append_eq_right
+        split at h
+        next _ pt e₁ =>
+          split
+          next _ pt' e₂ =>
+            obtain rfl := Option.some.inj (e₁.symm.trans e₂)
+            exact ⟨(e _ _).trans h.1, h.2⟩
+          next _ e₂ => exact absurd (e₁.symm.trans e₂) (by simp)
+        next _ e₁ =>
+          split
+          next _ pt' e₂ => exact absurd (e₁.symm.trans e₂) (by simp)
+          next _ e₂ => exact (e _ _).trans h
+      pub := by
+        sig_implies_pub [Spec.ChaCha20Poly1305.openContract, Spec.ChaCha20Poly1305.openSig,
+          Proof.ChaCha20Poly1305.openArm, Proof.ChaCha20Poly1305.preArm, Proof.ChaCha20Poly1305.pubArm, Arm.abi,
+          Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
+      sat := by
+        sig_implies_sat [Spec.ChaCha20Poly1305.openContract, Spec.ChaCha20Poly1305.openSig,
+          Proof.ChaCha20Poly1305.openArm, Proof.ChaCha20Poly1305.preArm,
+          Proof.ChaCha20Poly1305.pubArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+          Arm.State.addr]
+          [Proof.ChaCha20Poly1305.Arm.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read]
+          using Proof.ChaCha20Poly1305.Arm.sat }
 
 end VG.Proof.ChaCha20Poly1305.Arm
