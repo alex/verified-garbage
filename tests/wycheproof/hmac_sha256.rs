@@ -8,6 +8,7 @@
 ))]
 
 use verified_garbage::hashes::sha256::Sha256;
+use verified_garbage::hmac::Hmac;
 
 use crate::hmac::check;
 use crate::require_vectors;
@@ -15,5 +16,5 @@ use crate::require_vectors;
 #[test]
 fn hmac_sha256() {
     require_vectors!();
-    check::<Sha256>("hmac_sha256_test.json");
+    check("hmac_sha256_test.json", Hmac::<Sha256>::new);
 }
