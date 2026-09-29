@@ -145,14 +145,14 @@ theorem init_correct {s₀ : State} (hp : IPre s₀) :
     by rw [u₂.other _ (by decide), u₁.other _ (by decide)], fun r a b _ => by rw [u₂.other r b, u₁.other r a],
     by rw [u₂.rd, u₁.rd], by rw [u₂.wr, u₁.wr], by rw [u₂.mem, u₁.mem]; exact Frame.refl _ _,
     fun k hk => absurd hk (by omega)⟩
-  refine WP.block_append (WP.mono (copies_ok hp k₀ 8 le_rfl) fun s₃ k₃ => ?_)
+  refine WP.block_append (WP.mono (copies_ok hp k₀ 8 (Nat.le_refl _)) fun s₃ k₃ => ?_)
   refine wp_movi fun s₄ u₄ _ => ?_
   have z₀ : ZInv s₀ 0 s₄ := ⟨⟨by rw [u₄.other _ (by decide)]; exact k₃.eax,
     by rw [u₄.other _ (by decide)]; exact k₃.ecx, by rw [u₄.other _ (by decide)]; exact k₃.esp,
     fun r a b c => by rw [u₄.other r c]; exact k₃.others r a b c, by rw [u₄.rd]; exact k₃.rd,
     by rw [u₄.wr]; exact k₃.wr, by rw [u₄.mem]; exact k₃.frame, fun k hk => by rw [u₄.mem]; exact k₃.words k hk⟩,
     u₄.gpr, fun k hk => absurd hk (by omega)⟩
-  refine WP.mono (zeros_ok hp z₀ 6 le_rfl) fun s₅ z₅ => ⟨⟨fun r hr => ?_, ?_⟩, ?_, ?_, ?_⟩
+  refine WP.mono (zeros_ok hp z₀ 6 (Nat.le_refl _)) fun s₅ z₅ => ⟨⟨fun r hr => ?_, ?_⟩, ?_, ?_, ?_⟩
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl
     all_goals exact z₅.others _ (by decide) (by decide) (by decide)

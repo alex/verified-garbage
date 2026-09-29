@@ -1,5 +1,6 @@
 import VerifiedGarbage.Spec.Sha1
 import VerifiedGarbage.Proof.Framework.Mem
+import Mathlib.Tactic.Conv
 
 /-!
 # Streaming SHA-1: facts about the specification

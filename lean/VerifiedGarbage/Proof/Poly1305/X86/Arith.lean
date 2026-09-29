@@ -1,5 +1,5 @@
-import Mathlib.Tactic.Ring
 import VerifiedGarbage.Spec.Poly1305
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Poly1305 on x86 (32-bit): the arithmetic in radix `2³²`

@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Poly1305.X86.Steps
+import Mathlib.Tactic.Set
 
 /-!
 # Poly1305 on x86 (32-bit): absorbing a block
@@ -287,7 +288,7 @@ theorem products_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {g : Nat → Na
       rw [u₂.other r hr.2.2.2.2, u₁.other r hr.2.2.2.1], by rw [u₂.rd, u₁.rd], by rw [u₂.wr, u₁.wr]⟩
   have hacc : acc s₂ = 0 := by
     simp only [acc, v]; rw [u₂.gpr, u₂.other _ (by decide), u₁.gpr]; rfl
-  refine WP.block_append (WP.mono (dsums_ok (A₂.ctx hc) A₂.words hacc hb 4 le_rfl)
+  refine WP.block_append (WP.mono (dsums_ok (A₂.ctx hc) A₂.words hacc hb 4 (Nat.le_refl _))
     fun s₃ ⟨A₃, e₃⟩ => ?_)
   have c₃ := (A₂.trans A₃).ctx hc
   refine WP.mono (mac_ok s₃ 4 (rOff 0) (c₃.inRW' (by simp [hOff])) (c₃.inRW' (by simp [rOff])))

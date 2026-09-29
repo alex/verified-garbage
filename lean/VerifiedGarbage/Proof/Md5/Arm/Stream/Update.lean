@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Md5.Arm.Stream.Common
 import VerifiedGarbage.Proof.Md5.Arm.Contract
+import Mathlib.Tactic.Tauto
 
 /-!
 # Streaming MD5 on ARMv7: `update`
@@ -400,7 +401,7 @@ theorem copy_step {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
     rw [u₆.mem, u₅.mem, u₄.mem, g₃.mem, u₂.mem, u₁.mem, u₂.other _ (by decide), u₁.gpr, hbyte, h.mem,
       List.take_add_one, List.getElem?_eq_getElem hj', Option.toList_some,
       writeBytes_snoc _ _ _ _ (by simp only [List.length_take]; omega)]
-    have hl : (List.take j (xs s₀ c)).length = j := by rw [List.length_take, Nat.min_eq_left hj'.le]
+    have hl : (List.take j (xs s₀ c)).length = j := by rw [List.length_take, Nat.min_eq_left (Nat.le_of_lt hj')]
     rw [hl]
     have e : ((List.getD (D s₀) (c + j) 0).setWidth 32).setWidth 8 = List.getD (D s₀) (c + j) 0 := by
       ext i hi; simp
@@ -435,7 +436,7 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   have hr := rr_lt s₀ c; have ht' := tt_le' s₀ c
   have hxs := xs_length s₀ c
   have hf : Frame [stR s₀] sI.mem mem := by
-    have := write_frame s₀ c sI.mem (tt s₀ c) le_rfl
+    have := write_frame s₀ c sI.mem (tt s₀ c) (Nat.le_refl _)
     rwa [List.take_of_length_le (by omega)] at this
   refine ⟨hI.frame.trans (hf.mono (by simp)), fun p hp' => ?_, ?_, ?_⟩
   · rw [← hI.saved p hp']
@@ -502,7 +503,7 @@ theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
   obtain ⟨hfr, hsv, hstt, hby⟩ := copied_facts hp hI
   have hmem : s.mem = writeBytes sI.mem (q s₀ c) (xs s₀ c) := by
     rw [h.mem, List.take_of_length_le (by omega)]
-  refine ⟨⟨⟨le_rfl, h.rd, h.wr, h.r0, h.r3, h.sp, ?_, ?_, by rw [hmem]; exact hfr,
+  refine ⟨⟨⟨(Nat.le_refl _), h.rd, h.wr, h.r0, h.r3, h.sp, ?_, ?_, by rw [hmem]; exact hfr,
     by rw [hmem]; exact hsv⟩, ?_, fun m hm => ?_⟩, h.r7⟩
   · rw [h.r5]; congr 2; omega
   · rw [h.r6]; congr 1; omega
@@ -752,7 +753,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
     · exact hs (.r11, 92) (by simp [saved])
     · exact hs (.lr, 96) (by simp [saved])
   · have := hI.repr m ⟨hr, hc⟩
-    rwa [List.take_of_length_le (by rw [D_length]), ← hmem] at this
+    rwa [List.take_of_length_le (by rw [D_length]; exact Nat.le_refl _), ← hmem] at this
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Md5.updateArm.post s₀ s' := by

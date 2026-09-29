@@ -588,7 +588,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     rw [hm₁₇, hm₁₄, st_add, writeBytes_before _ _ _ (by omega) (by simp; omega), hm₁₂]
     exact saveMem_frame.bytes (R := stR s₀) (by simpa using hp.st_scr) (by simp) (by show i < 80; omega)
   refine WP.ite (!decide (cnt s₀ % 64 + 1 < 57)) (by simp [eval, hcf]) (fun hb => ?_) (fun hb => ?_)
-  · simp only [Bool.not_eq_true', decide_eq_false_iff_not, not_lt] at hb
+  · simp only [Bool.not_eq_true', decide_eq_false_iff_not, Nat.not_lt] at hb
     refine wp_mov32i fun s₁₈ u₁₈ _ _ => WP.block_nil ⟨1, hC₁₇.of_gpr (fun r hr => u₁₈.other r (by
       simp at hr; rcases hr with h | h | h | h | h <;> subst h <;> decide)) u₁₈.mem u₁₈.rd u₁₈.wr,
       (Nat.le_refl _), by omega, by rw [u₁₈.other _ (by decide), hr13'], by rw [u₁₈.gpr]; rfl, fun m hm => ?_⟩

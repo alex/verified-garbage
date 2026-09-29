@@ -1031,7 +1031,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
     rw [cf₂, hI₁.esi, toNat_ofNat_lt (by omega)]; rfl
   refine WP.ite (!decide (len s₀ - c < 64)) (by show s₂.cf.map (!·) = _; rw [hcf]; rfl)
     (fun hb' => ?_) (fun _ => fill_ok hp hI₂)
-  simp only [Bool.not_eq_true', decide_eq_false_iff_not, not_lt] at hb'
+  simp only [Bool.not_eq_true', decide_eq_false_iff_not, Nat.not_lt] at hb'
   exact WP.mono (direct_ok hp hI₂ hb hb') fun s' h => .inl ⟨c + 64, by omega, h⟩
 
 theorem correct {s₀ : State} (hp : Pre s₀) :

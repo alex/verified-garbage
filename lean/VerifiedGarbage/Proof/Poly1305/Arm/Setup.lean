@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Store
 import VerifiedGarbage.Proof.Poly1305.Arm.Absorb
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Poly1305 on 32-bit ARM: saving registers, the limbs of `r`, and loading the accumulator
@@ -51,7 +53,7 @@ theorem restoreRegs_ok {s : State} {g : Reg → BitVec 32} (h0 : s.gpr .r0 = st)
   refine WP.mono (wp_range_flatMap (M := isa)
     (fun n s' => (∀ i < n, s'.gpr (savedReg i) = g (savedReg i)) ∧
       Keeps [.r4, .r5, .r6, .r7, .r8, .r9, .r10, .r11] s s')
-    (fun n s' hn ⟨hl, hk⟩ => ?_) 8 le_rfl s ⟨fun _ h => absurd h (by omega), Keeps.refl _ _⟩)
+    (fun n s' hn ⟨hl, hk⟩ => ?_) 8 (Nat.le_refl _) s ⟨fun _ h => absurd h (by omega), Keeps.refl _ _⟩)
     fun s' h => h
   refine wp_ldr (a := State.addr st + BitVec.ofNat 64 (56 + 4 * n)) (by omega)
     (by rw [hk.gpr _ (by decide), h0]; exact ea hfit (by omega))
@@ -124,7 +126,7 @@ theorem clampWords_ok {s : State} (h0 : s.gpr .r0 = st) (hw : stR st ∈ s.wr) :
   refine WP.mono (wp_range_flatMap (M := isa)
     (fun n s' => (∀ i < n + 1, s'.mem.readW (State.addr st + BitVec.ofNat 64 (88 + 4 * i)) 32 =
       cw s.mem (State.addr st) i) ∧ s'.gpr .r2 = 0x0ffffffc ∧ KeepsF [.r1, .r2] [rR (State.addr st)] s s')
-    (fun n s' hn ⟨hl, hr2, hk⟩ => ?_) 3 le_rfl s7 ⟨fun i hi => by rw [show i = 0 by omega]; exact m7,
+    (fun n s' hn ⟨hl, hr2, hk⟩ => ?_) 3 (Nat.le_refl _) s7 ⟨fun i hi => by rw [show i = 0 by omega]; exact m7,
       m2, k7⟩) fun s' ⟨hl, _, hk⟩ => ⟨hl, hk⟩
   have hs0 : s'.gpr .r0 = st := by rw [hk.gpr _ (by decide), h0]
   refine wp_ldr (a := State.addr st + BitVec.ofNat 64 (24 + 4 * (n + 1))) (by omega)
@@ -157,7 +159,7 @@ theorem zeroY_ok {s : State} :
   refine WP.mono (wp_range_flatMap (M := isa)
     (fun n s' => (∀ k < n, s'.gpr (yr k) = 0) ∧ Keeps yregs s s')
     (fun n s' hn ⟨hz, hk⟩ => wp_mov (op2_imm (by decide)) fun s1 u1 => WP.block_nil ⟨fun k hk' => ?_,
-      hk.trans (u1.keeps (yr_yregs n hn))⟩) 9 le_rfl s ⟨fun _ h => absurd h (by omega), Keeps.refl _ _⟩)
+      hk.trans (u1.keeps (yr_yregs n hn))⟩) 9 (Nat.le_refl _) s ⟨fun _ h => absurd h (by omega), Keeps.refl _ _⟩)
     fun s' h => h
   rcases Nat.lt_succ_iff_lt_or_eq.mp hk' with h' | rfl
   · rw [u1.other _ (fun e => absurd (yr_inj _ (by omega) _ (by omega) e) (by omega))]; exact hz k h'

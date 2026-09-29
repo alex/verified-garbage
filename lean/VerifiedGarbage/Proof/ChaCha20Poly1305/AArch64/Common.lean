@@ -206,7 +206,7 @@ theorem Saved.frame {s₀ : State} {rs : List Region} {m m' : Mem} (h : Saved s�
   have c : ∀ d, 592 ≤ d → d + 8 ≤ 640 → (sub s₀ 592 48).Contains (off (cx s₀) d) (64 / 8) :=
     fun d h₁ h₂ => contains_sub s₀ h₁ h₂ (by omega)
   obtain ⟨h1, h2, h3, h4, h5, h6⟩ := h
-  exact ⟨by rw [hf.readW (c 592 le_rfl (by omega)) hd (by decide), h1],
+  exact ⟨by rw [hf.readW (c 592 (Nat.le_refl _) (by omega)) hd (by decide), h1],
     by rw [hf.readW (c 600 (by omega) (by omega)) hd (by decide), h2],
     by rw [hf.readW (c 608 (by omega) (by omega)) hd (by decide), h3],
     by rw [hf.readW (c 616 (by omega) (by omega)) hd (by decide), h4],

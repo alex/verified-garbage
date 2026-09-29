@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.ChaCha20Poly1305.X86.Calls
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): absorbing padded data
@@ -298,7 +299,7 @@ theorem pd_ok {s₀ : State} (hp : APre s₀) {i : Nat} {s : State} (h : MC s₀
     rw [m₉, u₈.mem, u₇.gpr, u₇.mem, u₆.gpr, u₆.mem, u₅.gpr, u₅.mem, eax₄, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
   have hf : Frame [sub s₀ 576 16] s.mem s₉.mem := by
     rw [hm]
-    exact ((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ le_rfl (by omega) (by omega))).writeW
+    exact ((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ (Nat.le_refl _) (by omega) (by omega))).writeW
       (List.mem_singleton_self _) _ (contains_sub s₀ (by omega) (by omega) (by omega))).writeW
       (List.mem_singleton_self _) _ (contains_sub s₀ (by omega) (by omega) (by omega))).writeW
       (List.mem_singleton_self _) _ (contains_sub s₀ (by omega) (by omega) (by omega))
@@ -503,14 +504,14 @@ theorem padTail_ok {s₀ : State} (hp : APre s₀) {i : Nat} (hs : Src s₀ (arg
   refine WP.seq (WP.mono (pd_ok hp h) fun s₂ ⟨h₂, f₂, z₂⟩ => ?_)
   refine WP.seq (WP.mono (copy_ok hp (by rw [h₂.inv.rd]) (by rw [h₂.inv.wr]) ht (by omega) (cp0 h₂ z₂))
     fun s₃ h₃ => ?_)
-  refine WP.mono (absorbOne_ok hp (copied_inv hp h₂ h₃) (k := 576) (.inr ⟨le_rfl, by omega⟩))
+  refine WP.mono (absorbOne_ok hp (copied_inv hp h₂ h₃) (k := 576) (.inr ⟨(Nat.le_refl _), by omega⟩))
     fun s₄ ⟨i₄, f₄, r₄⟩ => ⟨i₄, ?_, fun key msg hr => ?_⟩
   · refine ((f₂.trans h₃.frame).sub fun r hr => ?_).trans (f₄.sub fun r hr => ?_)
     · simp only [List.mem_singleton] at hr; subst hr
       exact ⟨sub s₀ 448 144, by simp, sub_sub s₀ (by omega) (by omega) (by omega)⟩
     · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
-      · exact ⟨sub s₀ 448 144, by simp, sub_sub s₀ le_rfl (by omega) (by omega)⟩
+      · exact ⟨sub s₀ 448 144, by simp, sub_sub s₀ (Nat.le_refl _) (by omega) (by omega)⟩
       · exact ⟨stkR s₀, by simp, fun _ h => h⟩
   · have f23 : Frame [sub s₀ 576 16] s.mem s₃.mem := f₂.trans h₃.frame
     have := r₄ key msg (Repr.frame f23 (by
@@ -546,7 +547,7 @@ theorem macPad_ok {s₀ : State} (hp : APre s₀) {i : Nat} (hi : i + 1 < 5)
     exact f₂.sub fun r hr => by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
-      · exact ⟨sub s₀ 448 144, by simp, sub_sub s₀ le_rfl (by omega) (by omega)⟩
+      · exact ⟨sub s₀ 448 144, by simp, sub_sub s₀ (Nat.le_refl _) (by omega) (by omega)⟩
       · exact ⟨stkR s₀, by simp, fun _ h => h⟩
   have x_eq : bytesAt s.mem ((arg s₀ i).setWidth 64) (arg s₀ (i + 1)).toNat = bytesAt s.mem ((arg s₀ i).setWidth 64) (16 * ((arg s₀ (i + 1)).toNat / 16)) ++
       bytesAt s.mem ((arg s₀ i).setWidth 64 + BitVec.ofNat 64 (16 * ((arg s₀ (i + 1)).toNat / 16))) ((arg s₀ (i + 1)).toNat % 16) := by

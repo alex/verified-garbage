@@ -798,7 +798,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   have hesi : s₂₂.gpr .esi = 0 := by rw [f₂₂.gpr, u₂₁.gpr]
   refine WP.ite (!decide (cnt s₀ % 64 + 1 < 57)) (by show s₂₂.cf.map (!·) = _; rw [hcf]; rfl)
     (fun hb => ?_) (fun hb => ?_)
-  · simp only [Bool.not_eq_true', decide_eq_false_iff_not, not_lt] at hb
+  · simp only [Bool.not_eq_true', decide_eq_false_iff_not, Nat.not_lt] at hb
     refine wp_movi fun s₂₃ u₂₃ => WP.block_nil ⟨1, hC.of_gpr (fun r hr => u₂₃.other r (regs3 hr).2.2.2.2)
       u₂₃.mem u₂₃.rd u₂₃.wr, (Nat.le_refl _), by omega, by rw [u₂₃.other _ (by decide), edi₂₂], by rw [u₂₃.gpr]; rfl,
       fun m hm => ?_⟩

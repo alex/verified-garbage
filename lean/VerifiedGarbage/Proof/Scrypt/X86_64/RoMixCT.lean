@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Scrypt.X86_64.RoMixFun
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
+import Mathlib.Tactic.DefEqTransformations
 
 /-!
 # scryptROMix on x86-64: constant time, up to the indices `j`

@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Reduce
 import VerifiedGarbage.Proof.Poly1305.Arm.Mul
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # Poly1305 on 32-bit ARM: absorbing a block
@@ -66,7 +67,7 @@ theorem pack_step {H : Nat → Nat} (hH : ∀ k < 10, H k < 2 ^ 16) {s₀ : Stat
   have hne : yr (2 * i) ≠ yr (2 * i + 1) := fun e => absurd (yr_inj _ (by omega) _ (by omega) e) (by omega)
   refine wp_add (op2_lsl (by omega)) fun s1 u1 => ?_
   have hv : (s1.gpr (yr (2 * i))).toNat = H (2 * i) + 2 ^ 16 * H (2 * i + 1) := by
-    have a := hs.cols (2 * i) (by omega) le_rfl
+    have a := hs.cols (2 * i) (by omega) (Nat.le_refl _)
     have b := hs.cols (2 * i + 1) (by omega) (by omega)
     have := hH (2 * i) (by omega); have := hH (2 * i + 1) (by omega)
     rw [u1.gpr, toNat_add_lt (by rw [toNat_shl, a, b]; omega), toNat_shl, a, b]
@@ -91,7 +92,7 @@ theorem pack_ok {H : Nat → Nat} (hH : ∀ k < 10, H k < 2 ^ 16) {s : State} (h
     WP isa (.block pack) s fun s' => HMem H s'.mem (State.addr st) ∧
       KeepsF work [accR (State.addr st)] s s' := by
   refine WP.mono (wp_range_flatMap (M := isa) (PI H st s) (fun i s' hi hs => pack_step hfit hH h0 hw i s'
-    hi hs) 5 le_rfl s ⟨fun _ h => absurd h (by omega), fun k hk _ => hc k hk,
+    hi hs) 5 (Nat.le_refl _) s ⟨fun _ h => absurd h (by omega), fun k hk _ => hc k hk,
       (Keeps.refl _ _).keepsF _⟩) fun s' h => ⟨h.mem, h.keeps⟩
 
 end

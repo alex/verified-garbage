@@ -196,7 +196,7 @@ theorem finArgs {t : State} (hk : KR (H := H) s₀ t) (hdi : t.gpr .rdi = inn s�
         exact Covers.of_sub fun r hr => by
           simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
           rcases hr with rfl | rfl | rfl
-          · exact sub_of_self iR le_rfl
+          · exact sub_of_self iR (Nat.le_refl _)
           · exact sub_of_off sR hp.fits
           · exact sub_of_self (r := scR sc s₀) sR (by show hH.Wb ≤ 8 * sc; omega)
       st_o := hp.i_s.sub_right (t_sub hp)
@@ -318,7 +318,7 @@ theorem updArgs_ok {s : State} (hk : KR (H := H) s₀ s) :
         exact Covers.of_sub fun r hr => by
           simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
           rcases hr with rfl | rfl
-          · exact sub_of_self iR le_rfl
+          · exact sub_of_self iR (Nat.le_refl _)
           · exact sub_of_self (r := scR sc s₀) sR (by show hH.Wb ≤ 8 * sc; omega)
       st_sc := hp.i_s.sub_right (cal_sub hH hp)
       d_st := (hp.i_s.sub_right (fun a h => t_sub hp a (tsub a h))).symm

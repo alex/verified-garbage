@@ -146,7 +146,7 @@ theorem sub_ctx (s₀ : State) {k n : Nat} (h : k + n ≤ 1024) : Region.Sub (su
   have : (x - cx s₀).toNat ≤ (x - (cx s₀ + BitVec.ofNat 64 k)).toNat + k := by
     rw [show x - cx s₀ = (x - (cx s₀ + BitVec.ofNat 64 k)) + BitVec.ofNat 64 k by bv_omega,
       BitVec.toNat_add, BitVec.toNat_ofNat]
-    exact le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
+    exact Nat.le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
   omega
 
 theorem sub_sub (s₀ : State) {a m k n : Nat} (h₁ : a ≤ k) (h₂ : k + n ≤ a + m) (h₃ : a + m ≤ 1024) :
@@ -156,7 +156,7 @@ theorem sub_sub (s₀ : State) {a m k n : Nat} (h₁ : a ≤ k) (h₂ : k + n �
   have e : x - (cx s₀ + BitVec.ofNat 64 a) = (x - (cx s₀ + BitVec.ofNat 64 k)) + BitVec.ofNat 64 (k - a) := by
     rw [show k = a + (k - a) by omega, BitVec.ofNat_add]; bv_omega
   rw [e, BitVec.toNat_add, toNat_ofNat_lt (by omega)]
-  exact le_trans (Nat.add_le_add_right (Nat.mod_le _ _) _) (by omega)
+  exact Nat.le_trans (Nat.add_le_add_right (Nat.mod_le _ _) _) (by omega)
 
 theorem sub_disj (s₀ : State) {a n b m : Nat} (h : a + n ≤ b ∨ b + m ≤ a) (ha : a + n ≤ 1024)
     (hb : b + m ≤ 1024) : (sub s₀ a n).Disjoint (sub s₀ b m) := by
@@ -239,7 +239,7 @@ theorem sub_off (p : Addr) {a n len : Nat} (h : a + n ≤ len) :
   have : (x - p).toNat ≤ (x - (p + BitVec.ofNat 64 a)).toNat + a := by
     rw [show x - p = (x - (p + BitVec.ofNat 64 a)) + BitVec.ofNat 64 a by bv_omega,
       BitVec.toNat_add, BitVec.toNat_ofNat]
-    exact le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
+    exact Nat.le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
   omega
 
 /-- A Poly1305 state outside a frame is unchanged. -/
@@ -271,7 +271,7 @@ theorem Saved.frame {s₀ : State} {rs : List Region} {m m' : Mem} (h : Saved s�
   have c : ∀ d, 592 ≤ d → d + 4 ≤ 608 → (sub s₀ 592 16).Contains (cx s₀ + BitVec.ofNat 64 d) (32 / 8) :=
     fun d h₁ h₂ => contains_sub s₀ h₁ h₂ (by omega)
   obtain ⟨h1, h2, h3, h4⟩ := h
-  exact ⟨by rw [hf.readW (c 592 le_rfl (by omega)) hd (by decide), h1],
+  exact ⟨by rw [hf.readW (c 592 (Nat.le_refl _) (by omega)) hd (by decide), h1],
     by rw [hf.readW (c 596 (by omega) (by omega)) hd (by decide), h2],
     by rw [hf.readW (c 600 (by omega) (by omega)) hd (by decide), h3],
     by rw [hf.readW (c 604 (by omega) (by omega)) hd (by decide), h4]⟩
