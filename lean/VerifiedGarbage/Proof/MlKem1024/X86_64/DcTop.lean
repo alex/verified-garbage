@@ -6,10 +6,10 @@ import VerifiedGarbage.Proof.MlKem1024.X86_64.DcDec
 Untrusted: everything here is checked by Lean. After K-PKE.Decrypt
 (`DcDec.lean`): `G(m' ‖ h)` and `J(z ‖ c)` (`hashes_ok`), K-PKE.Encrypt in
 the context `dcX` (which keeps `K'` and `K̄`), and the choice of the key
-(`sel_ok`). The function returns 1 with `ML-KEM.Decaps_internal(dk, c)` in
+(`select_okD`). The function returns 1 with `ML-KEM.Decaps_internal(dk, c)` in
 `key` if every `SampleNTT` succeeded within 280 iterations (`allOk4`), and 0
-otherwise (`decaps_correct`); it leaks only the pointers and `ρ`
-(`decaps_ct`); so it meets the shared contract (`decaps_verified`).
+otherwise (`decaps1024_correct`); it leaks only the pointers and `ρ`
+(`decaps1024_ct`); so it meets the shared contract (`decaps1024_verified`).
 -/
 
 namespace VG.Proof.MlKem1024.X86_64
@@ -102,7 +102,7 @@ theorem hashes_ok {σ : State} (hp : decaps1024K.pre σ) {s : State} (h : DM σ 
 /-- The end of `K-PKE.Encrypt`. -/
 abbrev EncO (σ s : State) : Prop := Enc4.EOut (dcX σ) (.rbp, 1536) (dcEk σ) (dcM' σ) (dcG σ).2 s
 
-/-- At the end: `r15` as `allOk`, and the key if it is 1. -/
+/-- At the end: `r15` as `allOk4`, and the key if it is 1. -/
 structure DEnd (σ s : State) : Prop where
   dc : DC σ s
   r15 : s.gpr .r15 = if allOk4 (Enc4.rhoE (dcEk σ)) 16 then 1 else 0

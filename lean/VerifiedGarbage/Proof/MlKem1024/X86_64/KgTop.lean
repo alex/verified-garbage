@@ -6,8 +6,8 @@ import VerifiedGarbage.Proof.MlKem1024.X86_64.KgCT
 Untrusted: everything here is checked by Lean. The function, piece by
 piece (`KeyGen4.*_ok`): it returns 1 with `KeyGen_internal(d, z)` in `ek`
 and `dk` if every `SampleNTT` succeeded within 280 iterations (`allOk4`),
-and 0 otherwise (`keyGen_correct`); it leaks only the pointers and `ρ`
-(`keyGen_ct`); so it meets the shared contract (`keyGen_verified`).
+and 0 otherwise (`keyGen1024_correct`); it leaks only the pointers and `ρ`
+(`keyGen1024_ct`); so it meets the shared contract (`keyGen1024_verified`).
 -/
 
 namespace VG.Proof.MlKem1024.X86_64
@@ -31,7 +31,7 @@ theorem KB.flag {σ : State} (hp : keyGen1024K.pre σ) {e : Nat} (he : e ≤ 16)
   have hk : ∀ e < 16, keepB kgB [] (aS4 (e / 4) (e % 4)) 1024 = true := by decide +kernel
   exact L.keepPoly hP.b (hk e' (by omega)) (h.mat e' he' f hf)
 
-/-- At the end: `r15` as `allOk`, and the keys if it is 1. -/
+/-- At the end: `r15` as `allOk4`, and the keys if it is 1. -/
 structure KEnd (σ s : State) : Prop where
   kc : KC σ s
   r15 : s.gpr .r15 = if allOk4 (rhoK σ) 16 then 1 else 0

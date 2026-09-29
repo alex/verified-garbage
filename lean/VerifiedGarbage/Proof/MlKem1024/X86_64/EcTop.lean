@@ -6,8 +6,8 @@ import VerifiedGarbage.Proof.MlKem1024.X86_64.EcBase
 Untrusted: everything here is checked by Lean. The function, piece by
 piece: it returns 1 with `ML-KEM.Encaps_internal(ek, m)` in `key` and `ct`
 if every `SampleNTT` succeeded within 280 iterations (`allOk4`), and 0
-otherwise (`encaps_correct`); it leaks only the pointers and `ρ`
-(`encaps_ct`); so it meets the shared contract (`encaps_verified`).
+otherwise (`encaps1024_correct`); it leaks only the pointers and `ρ`
+(`encaps1024_ct`); so it meets the shared contract (`encaps1024_verified`).
 -/
 
 namespace VG.Proof.MlKem1024.X86_64
@@ -24,7 +24,7 @@ open VG.Impl.MlKem1024.X86_64.Encaps1024
 /-- The end of `K-PKE.Encrypt`. -/
 abbrev EncO (σ s : State) : Prop := Enc4.EOut (ecC σ) (.r14, 0) (ecEk σ) (ecMs σ) (ecG σ).2 s
 
-/-- At the end: `r15` as `allOk`, `K` in `key`, and the ciphertext in `ct` if `r15` is 1. -/
+/-- At the end: `r15` as `allOk4`, `K` in `key`, and the ciphertext in `ct` if `r15` is 1. -/
 structure ECEnd (σ s : State) : Prop where
   ec : EC σ s
   r15 : s.gpr .r15 = if allOk4 (Enc4.rhoE (ecEk σ)) 16 then 1 else 0
