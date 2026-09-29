@@ -66,7 +66,7 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.arches.outputs.matrix) }}
-    name: Compare with base (${{ matrix.arch }})
+    name: Compare with base (${{ matrix.arch }}${{ matrix.cpu-features && format(', VG_CPU_FEATURES={0}', matrix.cpu-features) || '' }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     # With an empty image the job runs directly on the runner.
@@ -77,6 +77,9 @@ jobs:
       # Selects the toolchain without `rustup default`, which refuses 32-bit
       # toolchains on a 64-bit kernel.
       RUSTUP_TOOLCHAIN: stable
+      # Restricts the CPU features the library uses, to benchmark other
+      # implementations (see ci/bench_arches.py); empty restricts nothing.
+      VG_CPU_FEATURES: ${{ matrix.cpu-features }}
     steps:
       - name: Install the amd64 libc for the runner's Node
         if: ${{ matrix.install-amd64-libc }}

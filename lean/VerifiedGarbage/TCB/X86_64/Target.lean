@@ -59,7 +59,9 @@ Pointer": `8n+16(%rbp)` holds "memory argument eightbyte n", which is
 `8n+8(%rsp)` on entry, before the callee pushes `rbp`. A 32-bit argument is
 in the low half of its eightbyte; the upper half is unspecified. `abi` only
 grants reading the stack arguments, and assumes they do not wrap around the
-end of the address space. The integer result is in `rax`.
+end of the address space, nor the stack below `rsp` that the function's calls
+and frames use (a frame's push faults if it would wrap: `Isa.lean`). The
+integer result is in `rax`.
 -/
 
 /-- The address of the `i`-th (from 0) stack argument, on entry. -/
@@ -76,9 +78,17 @@ def abi : Abi isa where
   argArea ws s := let n := ws.length - argRegs.length
     if n = 0 then [] else [(⟨stackArgAddr s 0, 8 * n⟩, false)]
   reserved n s := ⟨s.gpr .rsp, 8⟩ :: stackBelow (s.gpr .rsp) n
-  -- The stack arguments, if any, do not wrap around.
-  wf ws _ s := if ws.length ≤ argRegs.length then True
-    else (s.gpr .rsp).toNat + 8 * (ws.length - argRegs.length + 1) ≤ 2 ^ 64
+  -- The stack the function's calls and frames use, and its stack arguments,
+  -- if any, do not wrap around.
+  wf ws n s := if ws.length ≤ argRegs.length then
+      match n with
+      | 0 => True
+      | n => n ≤ (s.gpr .rsp).toNat
+    else
+      (match n with
+      | 0 => True
+      | n => n ≤ (s.gpr .rsp).toNat) ∧
+      (s.gpr .rsp).toNat + 8 * (ws.length - argRegs.length + 1) ≤ 2 ^ 64
   pub s₁ s₂ := s₁.gpr .rsp = s₂.gpr .rsp
   mem s := s.mem
   rd s := s.rd

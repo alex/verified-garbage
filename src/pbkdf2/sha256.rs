@@ -73,14 +73,8 @@ impl super::Pbkdf2Hash for Sha256 {
     }
 
     #[cfg(target_arch = "x86_64")]
-    fn pbkdf2_derive(
-        password: &[u8],
-        salt: &[u8],
-        iterations: NonZeroU32,
-        out: &mut [u8],
-        mask: u32,
-    ) {
-        let derive = match Sha256Backend::select(crate::cpu::available(mask)) {
+    fn pbkdf2_derive(password: &[u8], salt: &[u8], iterations: NonZeroU32, out: &mut [u8]) {
+        let derive = match Sha256Backend::select(crate::cpu::detected()) {
             Sha256Backend::Scalar => vg_pbkdf2_hmac_sha256,
             Sha256Backend::ShaNi => vg_pbkdf2_hmac_sha256_shani,
         };
@@ -149,35 +143,28 @@ mod tests {
     }
 
     /// The whole verified function derives the same keys as the
-    /// computation block by block that it replaces on x86-64, with and
-    /// without the CPU's features, from a password shorter and one longer
-    /// than a block, for keys of zero, part of one, one and several blocks.
+    /// computation block by block that it replaces on x86-64, with the
+    /// SHA-256 implementation selected for this CPU (CI runs every
+    /// configuration, `VG_CPU_FEATURES`), from a password shorter and one
+    /// longer than a block, for keys of zero, part of one, one and several
+    /// blocks.
     #[test]
     fn whole_matches_blocks() {
         let password = [0x0b; 70];
         let salt = [0x5a; 16];
         let n = NonZeroU32::new(3).unwrap();
-        for mask in [0, u32::MAX] {
-            for password_len in [20, 70] {
-                for len in [0, 20, 32, 70] {
-                    let mut whole = [0u8; 70];
-                    let mut blocks = [0u8; 70];
-                    Sha256::pbkdf2_derive(
-                        &password[..password_len],
-                        &salt,
-                        n,
-                        &mut whole[..len],
-                        mask,
-                    );
-                    super::super::derive_blocks::<Sha256>(
-                        &password[..password_len],
-                        &salt,
-                        n,
-                        &mut blocks[..len],
-                        mask,
-                    );
-                    assert_eq!(whole, blocks);
-                }
+        for password_len in [20, 70] {
+            for len in [0, 20, 32, 70] {
+                let mut whole = [0u8; 70];
+                let mut blocks = [0u8; 70];
+                Sha256::pbkdf2_derive(&password[..password_len], &salt, n, &mut whole[..len]);
+                super::super::derive_blocks::<Sha256>(
+                    &password[..password_len],
+                    &salt,
+                    n,
+                    &mut blocks[..len],
+                );
+                assert_eq!(whole, blocks);
             }
         }
     }
