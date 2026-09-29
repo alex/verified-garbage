@@ -355,7 +355,7 @@ def decaps : Prog isa :=
   .seq (.block [ptrTo .r6 .r7 oCin]) <|
   .seq decrypt <|
   .seq (hash 72 0x06 [⟨.r7, oMsg, 32⟩, ⟨.r4, 2336, 32⟩] [⟨.r7, oG, 64⟩]) <|
-  .seq (hash 136 0x1f [⟨.r4, 2368, 32⟩, ⟨.r6, 0, 1088⟩] [⟨.r7, oKbar, 32⟩]) <|
+  .seq (hash 136 0x1f [⟨.r4, 2368, 32⟩, ⟨.r7, oCin, 1088⟩] [⟨.r7, oKbar, 32⟩]) <|
   .seq (.block [ptrTo .r4 .r4 1152, ptrTo .r5 .r7 oMsg, ptrTo .r8 .r7 oCt]) <|
   .seq encrypt <|
   .seq compare <|

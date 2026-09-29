@@ -20,41 +20,50 @@ open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 open VG.Proof.MlKem.Arm.Sample (taint_block relct_wp)
 
+/-! ## Decoding three polynomials -/
+
+theorem decT1_ok {L : Lay} {i o : Nat} {x s : State} (hc : Ctx L x) (g4 : x.gpr .r4 = L.ptr i + BitVec.ofNat 32 o)
+    {j : Nat} (hj : j < 3) (h : DecInv L i o x j s) :
+    WP isa (.block (at384 .r0 .r4 .r9 ++ slotAt .r1 .r9 (oPoly 0))) s fun s₁ =>
+      s₁.gpr .r0 = L.ptr i + BitVec.ofNat 32 (o + 384 * j) ∧ s₁.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 (oPoly j) := by
+  have hc' := h.kx.ctx (by decide) hc
+  have g4' : s.gpr .r4 = L.ptr i + BitVec.ofNat 32 o := by
+    rw [h.kx.cs .r4 (by decide) (by decide) (by decide), g4]
+  refine WP.mono (decTArgs_ok hc'.r7 g4' h.r9) fun s₁ ⟨_, a0, a1⟩ => ⟨?_, ?_⟩
+  · rw [a0, at384_eq _ (by omega), ptr_add_add32]
+  · rw [a1, slot_eq _ (by offs), show 2048 + 1024 * 0 + 1024 * j = 2048 + 1024 * j by omega]
+
+theorem decT_ctG {L : Lay} {i o : Nat} {x y : State} (hcx : Ctx L x) (hcy : Ctx L y)
+    (g4x : x.gpr .r4 = L.ptr i + BitVec.ofNat 32 o) (g4y : y.gpr .r4 = L.ptr i + BitVec.ofNat 32 o)
+    (hs : sepAll L.sizes (i, o, 1152) [(0, 2048, 3072)] = true) (hrx : L.buf i ∈ x.rd ++ x.wr)
+    (hry : L.buf i ∈ y.rd ++ y.wr) {j : Nat} (hj : j < 3) :
+    RelCT isa (fun a₁ a₂ => DecInv L i o x j a₁ ∧ DecInv L i o y j a₂) decTBody fun a₁ a₂ =>
+      (DecInv L i o x (j + 1) a₁ ∧ a₁.z = decide (j + 1 = 3)) ∧
+      (DecInv L i o y (j + 1) a₂ ∧ a₂.z = decide (j + 1 = 3)) := by
+  refine relct_wp (RelCT.pointwise fun u w ⟨hu, hw⟩ => ?_) fun a₁ a₂ hab =>
+    ⟨decT_step hcx g4x hs hrx hj hab.1, decT_step hcy g4y hs hry hj hab.2⟩
+  refine RelCT.seq (R := fun (a₁ a₂ : State) =>
+      (a₁.gpr .r0 = L.ptr i + BitVec.ofNat 32 (o + 384 * j) ∧ a₁.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 (oPoly j)) ∧
+      (a₂.gpr .r0 = L.ptr i + BitVec.ofNat 32 (o + 384 * j) ∧ a₂.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 (oPoly j)))
+    (relct_wp (relct_noMem rfl) fun a₁ a₂ hab => ⟨by rw [hab.1]; exact decT1_ok hcx g4x hj hu,
+      by rw [hab.2]; exact decT1_ok hcy g4y hj hw⟩) ?_
+  exact RelCT.seq (R := fun _ _ => True)
+    (RelCT.callT decode12T (regs2 fun a₁ a₂ hab => ⟨by rw [hab.1.1, hab.2.1], by rw [hab.1.2, hab.2.2]⟩))
+    (relct_noMem rfl)
+
 section
 variable {L : Lay} {b : EB} {s₀₁ s₀₂ : State} (hp₁ : EncPre L b s₀₁) (hp₂ : EncPre L b s₀₂)
 include hp₁ hp₂
 
 /-! ## `t̂` -/
 
-omit hp₂ in
-theorem decT1_ok {j : Nat} (hj : j < 3) {x s : State} (e : EA L s₀₁ x) (h : DecInv L b.iE b.oE x j s) :
-    WP isa (.block (at384 .r0 .r4 .r9 ++ slotAt .r1 .r9 (oPoly 0))) s fun s₁ =>
-      s₁.gpr .r0 = L.ptr b.iE + BitVec.ofNat 32 (b.oE + 384 * j) ∧
-      s₁.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 (oPoly j) := by
-  obtain ⟨hc, g4, -, -⟩ := dec_pre hp₁ e
-  have hc' := h.kx.ctx (by decide) hc
-  have g4' : s.gpr .r4 = L.ptr b.iE + BitVec.ofNat 32 b.oE := by
-    rw [h.kx.cs .r4 (by decide) (by decide) (by decide), g4]
-  refine WP.mono (decTArgs_ok hc'.r7 g4' h.r9) fun s₁ ⟨_, a0, a1⟩ => ⟨?_, ?_⟩
-  · rw [a0, at384_eq _ (by omega), ptr_add_add32]
-  · rw [a1, slot_eq _ (by offs), show 2048 + 1024 * 0 + 1024 * j = 2048 + 1024 * j by omega]
-
 theorem decT_ct {x y : State} (ex : EA L s₀₁ x) (ey : EA L s₀₂ y) {j : Nat} (hj : j < 3) :
     RelCT isa (fun a₁ a₂ => DecInv L b.iE b.oE x j a₁ ∧ DecInv L b.iE b.oE y j a₂) decTBody fun a b' =>
       (DecInv L b.iE b.oE x (j + 1) a ∧ a.z = decide (j + 1 = 3)) ∧
       (DecInv L b.iE b.oE y (j + 1) b' ∧ b'.z = decide (j + 1 = 3)) := by
   obtain ⟨hcx, g4x, hsx, hrx⟩ := dec_pre hp₁ ex
-  obtain ⟨hcy, g4y, hsy, hry⟩ := dec_pre hp₂ ey
-  refine relct_wp (RelCT.pointwise fun u w ⟨hu, hw⟩ => ?_) fun a b' hab =>
-    ⟨decT_step hcx g4x hsx hrx hj hab.1, decT_step hcy g4y hsy hry hj hab.2⟩
-  refine RelCT.seq (R := fun (a b' : State) =>
-      (a.gpr .r0 = L.ptr b.iE + BitVec.ofNat 32 (b.oE + 384 * j) ∧ a.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 (oPoly j)) ∧
-      (b'.gpr .r0 = L.ptr b.iE + BitVec.ofNat 32 (b.oE + 384 * j) ∧ b'.gpr .r1 = L.ptr 0 + BitVec.ofNat 32 (oPoly j)))
-    (relct_wp (relct_noMem rfl) fun a b' hab => ⟨by rw [hab.1]; exact decT1_ok hp₁ hj ex hu,
-      by rw [hab.2]; exact decT1_ok hp₂ hj ey hw⟩) ?_
-  exact RelCT.seq (R := fun _ _ => True)
-    (RelCT.callT decode12T (regs2 fun a b' hab => ⟨by rw [hab.1.1, hab.2.1], by rw [hab.1.2, hab.2.2]⟩))
-    (relct_noMem rfl)
+  obtain ⟨hcy, g4y, -, hry⟩ := dec_pre hp₂ ey
+  exact decT_ctG hcx hcy g4x g4y hsx hrx hry hj
 
 /-! ## The rows of `u` -/
 
