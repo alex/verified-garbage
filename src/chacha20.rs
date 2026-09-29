@@ -23,14 +23,7 @@
     target_arch = "x86"
 ))]
 
-#[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::chacha20::{vg_chacha20_block, vg_chacha20_xor};
-#[cfg(target_arch = "arm")]
-use crate::asm::arm::chacha20::{vg_chacha20_block, vg_chacha20_xor};
-#[cfg(target_arch = "x86")]
-use crate::asm::x86::chacha20::{vg_chacha20_block, vg_chacha20_xor};
-#[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::chacha20::{vg_chacha20_block, vg_chacha20_xor};
+use crate::arch::chacha20::{vg_chacha20_block, vg_chacha20_xor};
 
 /// The constants `"expand 32-byte k"` (RFC 8439 §2.3).
 const CONSTANTS: [u32; 4] = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
