@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.MlKem1024.AArch64.KemOps
 /-!
 # ML-KEM-1024 on AArch64: the matrix `Â` of `encaps` and `decaps`
 
-Untrusted: everything here is checked by Lean. `Â[i, j]` for the nine
+Untrusted: everything here is checked by Lean. `Â[i, j]` for the sixteen
 `(i, j)` (entry `e = 4i + j`), from the seed `ρ` at `SB`, each with
 `sample_ntt`'s stronger contract: it is reduced, and the result is 1
 exactly when `SampleNTT` with 280 iterations succeeds; `x24` is the AND of

@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.MlKem1024.AArch64.KemCommon
 
 Untrusted: everything here is checked by Lean. Each building block
 (`prfCbd`, `nttAt`, `nttInvAt`, `mulAt`, `addAt`, `subAt`, `ceAt`, `ddAt`,
-`dec12At`): what it needs, what it computes, what it keeps (`KB`, `x24`),
+`dec12At`, and `ceWAt` and `ddWAt` for the widths of ML-KEM-1024): what it needs, what it computes, what it keeps (`KB`, `x24`),
 and the only memory it changes (`Frame`), so that the facts established
 before it survive it.
 -/

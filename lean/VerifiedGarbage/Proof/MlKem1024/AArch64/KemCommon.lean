@@ -12,6 +12,9 @@ the pointers, our caller's registers saved in `scratch`, the other
 callee-saved registers, and the buffers the function only reads. Then the
 region facts the calls need, reduced to arithmetic on offsets, and the
 prologue and epilogue.
+The proofs are ML-KEM-768's (`Proof/MlKem/AArch64/Kem*.lean`, `Encaps.lean`,
+`Decaps*.lean`) for `k = 4`, `d_u = 11` and `d_v = 5`, and ML-KEM-1024's
+sizes and offsets.
 -/
 
 namespace VG.Proof.MlKem1024.AArch64.Kem
@@ -38,7 +41,7 @@ abbrev Layout.sc (L : Layout) : Nat := L.slot 3
 def kA (s₀ : State) (b : Nat) : Addr := s₀.gpr (argReg b)
 
 /-- The arguments' regions `⟨A b, len b⟩` (for `b < nb`) are disjoint if one
-of them is written (`nrd ≤ b`), at most 32 KiB, and apart from the 16 bytes
+of them is written (`nrd ≤ b`), at most 48 KiB, and apart from the 16 bytes
 below `sp`. -/
 structure KArgs (A : Nat → Addr) (ln : Nat → Nat) (nb nrd : Nat) (sp : Addr) : Prop where
   disj : ∀ b < nb, ∀ c < nb, b ≠ c → nrd ≤ b ∨ nrd ≤ c → Region.Disjoint ⟨A b, ln b⟩ ⟨A c, ln c⟩

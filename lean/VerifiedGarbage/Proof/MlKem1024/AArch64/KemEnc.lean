@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.MlKem1024.AArch64.KemB
 # ML-KEM-1024 on AArch64: K-PKE.Encrypt after the matrix
 
 Untrusted: everything here is checked by Lean. `ŷ` (`y_step`), `u` into the
-ciphertext (`u_step`), and `v` into it (`v_ok`), with `r` at `RB`, `m` at
+ciphertext (`u_step`), and `v` into it (`v_part1`, `v_part1b`, `v_part2`), with `r` at `RB`, `m` at
 `MB`, `Â` as the matrix left it, `t̂` decoded from the bytes of `ek` in a
 buffer the function only reads, and the ciphertext in a written buffer
 (`EncArgs`). What each step establishes survives the steps after it
