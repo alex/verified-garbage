@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.MlKem1024.X86_64.DecodeDecompress
 import VerifiedGarbage.Proof.MlKem1024.X86_64.CheckEk
 import VerifiedGarbage.Proof.MlKem1024.X86_64.KgTop
 import VerifiedGarbage.Proof.MlKem1024.X86_64.EcTop
+import VerifiedGarbage.Proof.MlKem1024.X86_64.DcTop
 
 /-!
 # ML-KEM-1024 (FIPS 203) on x86-64
@@ -60,6 +61,16 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem1024.encapsContract X86_64.abi 24
     stack := 24
     verified := Proof.MlKem1024.X86_64.encaps1024_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.MlKem1024.decapsApi with
+    target := X86_64.target
+    doc := Spec.MlKem1024.decapsApi.doc
+      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 24 \
+        bytes of stack below its return address."])
+    code := Impl.MlKem1024.X86_64.decaps1024
+    contract := Spec.MlKem1024.decapsContract X86_64.abi 24
+    stack := 24
+    verified := Proof.MlKem1024.X86_64.decaps1024_verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.MlKem1024.X86_64
