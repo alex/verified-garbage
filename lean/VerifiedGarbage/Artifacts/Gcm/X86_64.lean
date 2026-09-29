@@ -1,6 +1,6 @@
 import VerifiedGarbage.TCB.X86_64.Target
-import VerifiedGarbage.Proof.Gcm.X86_64.Shared
-import VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Shared
+import VerifiedGarbage.Proof.Gcm.X86_64.Ghash
+import VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Ghash
 
 /-!
 # GHASH on x86-64
@@ -28,7 +28,7 @@ def artifacts : List Artifact := [
         and XORs, in GCM's bit-reflected order."])
     code := Impl.Gcm.X86_64.ghash
     contract := Spec.Gcm.ghashContract X86_64.abi
-    verified := Proof.Gcm.X86_64.Shared.ghash },
+    verified := Proof.Gcm.X86_64.ghash_verified },
   { target := X86_64.target
     module := "gcm"
     name := "vg_ghash_pclmul"
@@ -47,7 +47,7 @@ def artifacts : List Artifact := [
       are unspecified."
     code := Impl.Gcm.X86_64.Pclmul.ghash
     contract := Spec.Gcm.ghashContract X86_64.abi
-    verified := Proof.Gcm.X86_64.Pclmul.Shared.ghash
+    verified := Proof.Gcm.X86_64.Pclmul.ghash_verified
     features := ["pclmulqdq", "ssse3"] }]
 
 end VG.Artifacts.Gcm.X86_64
