@@ -7,7 +7,9 @@
 //! hash's verified `vg_pbkdf2_hmac_<hash>_iterate` ([`Pbkdf2Hash`]), from
 //! the streaming states that the HMAC computation starts from.
 //! [`pbkdf2_hmac`] only splits the derived key into blocks and truncates the
-//! last one.
+//! last one, unless the hash has a verified implementation of the whole
+//! function (SHA-256 on x86-64, `vg_pbkdf2_hmac_sha256`), which it then calls
+//! once instead (`Pbkdf2Hash::pbkdf2_derive`).
 
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
@@ -39,6 +41,20 @@ pub trait Pbkdf2Hash: HmacHash {
     /// `T = *t`, leaving the final `T` in `*t`.
     #[doc(hidden)]
     fn pbkdf2_iterate(key: &Self::Key, u: &Self::Output, n: u32, t: &mut Self::Output);
+    /// Fills `out` with the key derived from `password` and `salt` with
+    /// `iterations` iterations, using only the CPU features in `mask`: block
+    /// by block with the HMAC computation and `Pbkdf2Hash::pbkdf2_iterate`,
+    /// unless the hash has a verified implementation of the whole function.
+    #[doc(hidden)]
+    fn pbkdf2_derive(
+        password: &[u8],
+        salt: &[u8],
+        iterations: NonZeroU32,
+        out: &mut [u8],
+        mask: u32,
+    ) {
+        derive_blocks::<Self>(password, salt, iterations, out, mask);
+    }
 }
 
 /// Fills `out` with the key derived from `password` and `salt` with
@@ -62,6 +78,18 @@ pub fn pbkdf2_hmac<H: Pbkdf2Hash>(
 /// CPU.
 #[doc(hidden)]
 pub fn __pbkdf2_hmac_with_features<H: Pbkdf2Hash>(
+    password: &[u8],
+    salt: &[u8],
+    iterations: NonZeroU32,
+    out: &mut [u8],
+    mask: u32,
+) {
+    H::pbkdf2_derive(password, salt, iterations, out, mask);
+}
+
+/// [`__pbkdf2_hmac_with_features`] block by block: `U₁` with the verified
+/// HMAC, the rest of each block's chain with the hash's verified iteration.
+fn derive_blocks<H: Pbkdf2Hash>(
     password: &[u8],
     salt: &[u8],
     iterations: NonZeroU32,

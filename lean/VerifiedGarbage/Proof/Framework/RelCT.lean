@@ -92,6 +92,26 @@ theorem seq {P R Q : M.State → M.State → Prop} {c₁ c₂ : Prog M} (h₁ : 
       obtain ⟨rfl, hq⟩ := h₂ _ _ _ _ _ _ hr b₁ b₂
       exact ⟨rfl, hq⟩
 
+/-- A block run as two blocks, one after the other. -/
+theorem _root_.VG.Exec.block_split {l₁ l₂ : List M.Instr} {s s' : M.State} {t : List Leak}
+    (h : Exec M (.block (l₁ ++ l₂)) s t s') :
+    ∃ t₁ s₁ t₂, Exec M (.block l₁) s t₁ s₁ ∧ Exec M (.block l₂) s₁ t₂ s' ∧ t = t₁ ++ t₂ := by
+  rw [Exec.block_iff, execBlock_append] at h
+  simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff, Prod.mk.injEq] at h
+  obtain ⟨⟨s₁, t₁⟩, h₁, ⟨s₂, t₂⟩, h₂, rfl, rfl⟩ := h
+  exact ⟨t₁, s₁, t₂, .block h₁, .block h₂, rfl⟩
+
+/-- A block proved in two parts, e.g. when the taint analysis needs, for the
+second, a register that correctness determines after the first. -/
+theorem block_append {P R Q : M.State → M.State → Prop} {l₁ l₂ : List M.Instr}
+    (h₁ : RelCT M P (.block l₁) R) (h₂ : RelCT M R (.block l₂) Q) : RelCT M P (.block (l₁ ++ l₂)) Q := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  obtain ⟨a₁, m₁, b₁, x₁, y₁, rfl⟩ := Exec.block_split e₁
+  obtain ⟨a₂, m₂, b₂, x₂, y₂, rfl⟩ := Exec.block_split e₂
+  obtain ⟨rfl, hr⟩ := h₁ _ _ _ _ _ _ hp x₁ x₂
+  obtain ⟨rfl, hq⟩ := h₂ _ _ _ _ _ _ hr y₁ y₂
+  exact ⟨rfl, hq⟩
+
 /-- A branch whose condition agrees in both runs; each branch may assume it
 was taken. -/
 theorem ite {P Q : M.State → M.State → Prop} {c : M.Cond} {t e : Prog M}
