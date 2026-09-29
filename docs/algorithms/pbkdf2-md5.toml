@@ -1,0 +1,5 @@
+name = "PBKDF2-HMAC-MD5"
+family = "KDFs"
+specs = ["Pbkdf2", "Md5"]
+modules = ["src/pbkdf2/md5.rs"]
+asm = ["pbkdf2_md5"]

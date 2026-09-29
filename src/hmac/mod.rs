@@ -17,7 +17,13 @@
 
 use crate::hashes::HashFunction;
 
+mod md5;
+mod sha1;
 mod sha256;
+mod sha384;
+mod sha512;
+mod sha512_224;
+mod sha512_256;
 
 mod sealed {
     pub trait Sealed {}
@@ -89,4 +95,96 @@ impl<H: HmacHash> Hmac<H> {
         h.update(data);
         h.finalize()
     }
+
+    /// The state of the computation.
+    #[cfg(target_arch = "x86_64")]
+    pub(crate) fn state(&self) -> &H::State {
+        &self.state
+    }
 }
+
+/// An HMAC computation with a hash function over verified streaming
+/// primitives: the computation of the inner hash, whose message is
+/// `(K₀ ⊕ ipad) ‖ text`, and the streaming state of the outer one, which
+/// represents `K₀ ⊕ opad`.
+#[cfg(target_arch = "x86_64")]
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct StreamingHmacState<H, const S: usize> {
+    pub(crate) inner: H,
+    pub(crate) outer: [u8; S],
+}
+
+/// Makes a hash function over verified streaming primitives (defined by
+/// `streaming_hash!`) an [`HmacHash`], with its verified
+/// `vg_hmac_<hash>_init` and `vg_hmac_<hash>_finalize` (contracts
+/// `VG.Spec.Hmac.Instance.initContract` and `finalizeContract` of the hash's
+/// `Instance`), given its streaming state size, the functions' working space
+/// (in 64-bit words) and its digest size. The text is absorbed by the hash's
+/// own `update`.
+#[cfg(target_arch = "x86_64")]
+macro_rules! streaming_hmac {
+    (
+        $hash:ident: ($init:path, $finalize:path),
+        state: $state:literal,
+        scratch: $scratch:literal,
+        output: $output:literal $(,)?
+    ) => {
+        impl super::sealed::Sealed for $hash {}
+
+        impl super::HmacHash for $hash {
+            type State = super::StreamingHmacState<$hash, $state>;
+
+            fn hmac_init(key: &[u8], mask: u32) -> Self::State {
+                assert!(key.len() <= Self::BLOCK_SIZE);
+                let mut inner = [0; $state];
+                let mut outer = [0; $state];
+                let mut scratch = [0u64; $scratch];
+                // SAFETY: `key.len()` is at most a block; `inner` and `outer`
+                // are valid for reads and writes of a streaming state, `key`
+                // for reads of `key.len()` bytes and `scratch` for reads and
+                // writes of its size; they are distinct objects, so they do
+                // not overlap each other or the call's stack frame, nor wrap
+                // around the address space.
+                unsafe {
+                    $init(
+                        &mut inner,
+                        &mut outer,
+                        key.as_ptr(),
+                        key.len(),
+                        &mut scratch,
+                    )
+                };
+                // `inner` now represents `K₀ ⊕ ipad`, of a block.
+                super::StreamingHmacState {
+                    inner: $hash::from_state(inner, Self::BLOCK_SIZE as u64, mask),
+                    outer,
+                }
+            }
+
+            fn hmac_update(state: &mut Self::State, data: &[u8]) {
+                state.inner.update(data);
+            }
+
+            fn hmac_finalize(state: Self::State) -> [u8; $output] {
+                let (mut inner, count) = state.inner.state();
+                let mut mac = [0; $output];
+                let mut scratch = [0u64; $scratch];
+                // SAFETY: `inner` is valid for reads and writes of a streaming
+                // state, `state.outer` for reads of one, `mac` for writes of
+                // a digest and `scratch` for reads and writes of its size;
+                // they are distinct objects, so they do not overlap each
+                // other or the call's stack frame, nor wrap around the
+                // address space. `inner` represents `(K₀ ⊕ ipad) ‖ text`, of
+                // `count` bytes (which the hash's `update` keeps below 2⁶⁴,
+                // so the text is shorter than 2⁶⁴ − B bytes), and
+                // `state.outer` represents `K₀ ⊕ opad`.
+                unsafe { $finalize(&mut inner, &state.outer, count, &mut mac, &mut scratch) };
+                mac
+            }
+        }
+    };
+}
+
+#[cfg(target_arch = "x86_64")]
+use streaming_hmac;
