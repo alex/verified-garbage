@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Hmac.Generic.Arm.Contract
 import VerifiedGarbage.Proof.Framework.RelCT
+import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Frame
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Common
@@ -143,15 +144,15 @@ theorem count_movw {t : State} {c : Nat} (hc : c < 2 ^ 16) (h2 : t.gpr .r2 = (Bi
 /-! ## `update`, in its frame -/
 
 /-- What a framed call of `update` needs of the state before its push: the
-state at `st`, `len` bytes of data at `d` and the scratch space at `sc`, in
-`r0`–`r3`; the regions the callee may read and write; that they are
-disjoint as it needs, and from the 16 bytes below the stack pointer; and
-that none of them wraps around. -/
+state at `st` in `r0`, the count in `r2:r3`, and `len` bytes of data at `d`
+and the scratch space at `sc` in `r1`, `r7` and `r10`; the regions the
+callee may read and write; that they are disjoint as it needs, and from the
+16 bytes below the stack pointer; and that none of them wraps around. -/
 structure UpdArgs (s : State) (st d sc : BitVec 32) (len : Nat) : Prop where
   r0 : s.gpr .r0 = st
   r1 : s.gpr .r1 = d
-  r2 : s.gpr .r2 = BitVec.ofNat 32 len
-  r3 : s.gpr .r3 = sc
+  r7 : s.gpr .r7 = BitVec.ofNat 32 len
+  r10 : s.gpr .r10 = sc
   hlen : len < 2 ^ 16
   sp16 : 16 ≤ s.sp.toNat
   cd : Covers [⟨State.addr d, len⟩] (s.rd ++ s.wr)
@@ -167,9 +168,14 @@ structure UpdArgs (s : State) (st d sc : BitVec 32) (len : Nat) : Prop where
   nsc : sc.toNat + hH.Wb ≤ 2 ^ 32
 
 /-- The four words `update`'s frame pushes. -/
-abbrev upd4 : List Reg := [.r1, .r2, .r3, .r12]
+abbrev upd4 : List Reg := [.r1, .r7, .r10, .r12]
 
 theorem e16 : BitVec.ofNat 32 (4 * upd4.length) = 16 := rfl
+
+/-- The regions `update` is given: the data and its stack arguments, the state and the scratch space. -/
+abbrev UpdArgs.rd (sp : BitVec 32) (d : BitVec 32) (len : Nat) : List Region :=
+  [⟨State.addr d, len⟩, ⟨State.addr sp - 16, 12⟩]
+abbrev UpdArgs.wr (st sc : BitVec 32) : List Region := [⟨State.addr st, H.S⟩, ⟨State.addr sc, hH.Wb⟩]
 
 namespace UpdArgs
 variable {hH} {s : State} {st d sc : BitVec 32} {len : Nat} (h : UpdArgs hH s st d sc len)
@@ -188,11 +194,11 @@ theorem a12 : State.addr (s.sp - 16 + 4 + 4 + 4) = State.addr s.sp - 16 + 12 := 
 theorem pmem : (pushed upd4 s).mem =
     (((s.mem.writeW (State.addr s.sp - 16) d).writeW (State.addr s.sp - 16 + 4) (BitVec.ofNat 32 len)).writeW
       (State.addr s.sp - 16 + 8) sc).writeW (State.addr s.sp - 16 + 12) (s.gpr .r12) := by
-  show storeWords s.mem (s.sp - BitVec.ofNat 32 (4 * upd4.length)) [s.gpr .r1, s.gpr .r2, s.gpr .r3, s.gpr .r12] = _
+  show storeWords s.mem (s.sp - BitVec.ofNat 32 (4 * upd4.length)) [s.gpr .r1, s.gpr .r7, s.gpr .r10, s.gpr .r12] = _
   rw [e16]
   show (((s.mem.writeW (State.addr (s.sp - 16)) _).writeW (State.addr (s.sp - 16 + 4)) _).writeW
     (State.addr (s.sp - 16 + 4 + 4)) _).writeW (State.addr (s.sp - 16 + 4 + 4 + 4)) _ = _
-  rw [h.a0, h.a4, h.a8, h.a12, h.r1, h.r2, h.r3]
+  rw [h.a0, h.a4, h.a8, h.a12, h.r1, h.r7, h.r10]
 
 omit h in
 theorem psp : (pushed upd4 s).sp = s.sp - 16 := by rw [pushed_sp, e16]
@@ -236,90 +242,98 @@ theorem fP : Frame [below s] s.mem (pushed upd4 s).mem := by
   · exact hc 8 (by decide)
   · exact hc 12 (by decide)
 
+omit h in
+theorem vsp : ((pushed upd4 s).callEntry.withRegions (rd s.sp d len) (wr hH st sc)).sp = s.sp - 16 := psp
+omit h in
+theorem vmem : ((pushed upd4 s).callEntry.withRegions (rd s.sp d len) (wr hH st sc)).mem = (pushed upd4 s).mem := rfl
+
+theorem hlen' : (BitVec.ofNat 32 len).toNat = len := by rw [BitVec.toNat_ofNat]; have := h.hlen; omega
+
+omit h in
+theorem argsSub : Region.Sub ⟨State.addr s.sp - 16, 12⟩ (below s) := by
+  intro x hx; simp only [Region.Contains] at hx ⊢; omega
+
+theorem pre : (updK H.S hH.Wb hH.SH.Repr).pre ((pushed upd4 s).callEntry.withRegions (rd s.sp d len) (wr hH st sc)) := by
+  simp only [updK, State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr, ce0, pushed_gpr,
+    h.arg0 _ vsp vmem, h.arg1 _ vsp vmem, h.arg2 _ vsp vmem, h.sa0 _ vsp, h.r0, h.hlen']
+  refine ⟨trivial, trivial, h.st_sc, h.d_st, h.d_sc, (h.b_st.sub_left argsSub), (h.b_sc.sub_left argsSub),
+    h.nst, h.nd, h.nsc, ?_⟩
+  rw [vsp]; have := h.sp16; bv_omega
+
+theorem cov : Covers (rd s.sp d len ++ wr hH st sc) ((pushed upd4 s).rd ++ (pushed upd4 s).wr) := by
+  intro x n' ⟨r, hr, hcn⟩
+  simp only [List.mem_append, List.mem_cons, List.mem_nil_iff, or_false] at hr
+  rw [pushed_rd, pushed_wr, e16]
+  rcases hr with (rfl | rfl) | (rfl | rfl)
+  · obtain ⟨r', hr', hc'⟩ := h.cd x n' ⟨_, List.mem_singleton_self _, hcn⟩
+    rcases List.mem_append.mp hr' with hr' | hr'
+    · exact ⟨r', List.mem_append_left _ hr', hc'⟩
+    · exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ hr'), hc'⟩
+  · refine ⟨_, List.mem_append_right _ (List.mem_cons_self ..), ?_⟩
+    rw [h.a0]; simp only [Region.Contains, upd4, List.length_cons, List.length_nil] at hcn ⊢; omega
+  all_goals
+    obtain ⟨r', hr', hc'⟩ := h.cw x n' ⟨_, by simp, hcn⟩
+    exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ hr'), hc'⟩
+
+theorem covW : Covers (wr hH st sc) (pushed upd4 s).wr := by
+  intro x n' hi
+  obtain ⟨r', hr', hc'⟩ := h.cw x n' hi
+  exact ⟨r', by rw [pushed_wr]; exact List.mem_cons_of_mem _ hr', hc'⟩
+
 end UpdArgs
 
-theorem upd_frame {s : State} {st d sc : BitVec 32} {len c : Nat} (h : UpdArgs hH s st d sc len)
-    (hc : c < 2 ^ 16) {Q : State → Prop}
+/-- After a frame of `rs` of `n` bytes around a call that keeps the regions
+and the stack pointer. -/
+theorem after_frame {s s₂ : State} {rs : List Reg} {ws : List Region}
+    (fP : Frame [below s] s.mem (pushed rs s).mem)
+    (hrd : s₂.rd = (pushed rs s).rd) (hwr : s₂.wr = (pushed rs s).wr) (hsp : s₂.sp = (pushed rs s).sp)
+    (hf : Frame ws (pushed rs s).mem s₂.mem) (hcs : ∀ r ∈ preserved, r ≠ .lr → s₂.gpr r = (pushed rs s).gpr r) :
+    After s ws (popped .r1 (4 * rs.length) s₂) := by
+  refine ⟨?_, ?_, ?_, fun r hr hl => ?_, ?_⟩
+  · rw [popped_rd, hrd, pushed_rd]
+  · rw [popped_wr, hwr, pushed_wr]; rfl
+  · rw [popped_sp, hsp, pushed_sp]; exact BitVec.sub_add_cancel _ _
+  · have hr1 : r ≠ .r1 := by rintro rfl; simp [preserved] at hr
+    rw [popped_gpr hr1, hcs r hr hl, pushed_gpr]
+  · rw [popped_mem]
+    exact (frame_app (ws' := ws) fP |>.mono fun r hr => by
+        simp only [List.mem_append, List.mem_singleton] at hr ⊢; tauto).trans (frame_app (ws' := [below s]) hf)
+
+theorem upd_frame {s : State} {st d sc : BitVec 32} {len : Nat} (h : UpdArgs hH s st d sc len)
+    {Q : State → Prop}
     (hQ : ∀ s', After s [⟨State.addr st, H.S⟩, ⟨State.addr sc, hH.Wb⟩] s' →
-      (∀ m, hH.SH.Repr s.mem (State.addr st) m → BitVec.ofNat 64 c = BitVec.ofNat 64 m.length →
+      (∀ m, hH.SH.Repr s.mem (State.addr st) m → count s = BitVec.ofNat 64 m.length →
         hH.SH.Repr s'.mem (State.addr st) (m ++ bytesAt s.mem (State.addr d) len)) → Q s') :
-    WP isa (.frame (.push upd4)
-      (.seq (.block [.movw .r2 (BitVec.ofNat 16 c), .mov .r3 (.imm 0)]) (.call H.updN H.updC))
-      (.pop .r1 16)) s Q := by
+    WP isa (.frame (.push upd4) (.call H.updN H.updC) (.pop .r1 16)) s Q := by
   have h16 := h.sp16
   refine WP.frame (rs := upd4) (r := .r1) rfl (by show 16 ≤ s.sp.toNat; exact h16) (by decide) ?_
-  refine WP.seq (wp_movw fun t₁ u₁ => VG.Proof.Sha256.Arm.Stream.wp_mov (op2_imm (by decide)) fun t₂ u₂ =>
-    WP.block_nil ?_)
-  have tsp : t₂.sp = s.sp - 16 := by rw [u₂.sp, u₁.sp, UpdArgs.psp]
-  have tmem : t₂.mem = (pushed upd4 s).mem := by rw [u₂.mem, u₁.mem]
-  have t0 : t₂.gpr .r0 = st := by rw [u₂.other _ (by decide), u₁.other _ (by decide), pushed_gpr, h.r0]
-  have tc : count t₂ = BitVec.ofNat 64 c := count_movw hc (by rw [u₂.other _ (by decide), u₁.gpr]) u₂.gpr
-  let rd : List Region := [⟨State.addr d, len⟩, ⟨State.addr s.sp - 16, 12⟩]
-  let wr : List Region := [⟨State.addr st, H.S⟩, ⟨State.addr sc, hH.Wb⟩]
-  have vsp : (t₂.callEntry.withRegions rd wr).sp = s.sp - 16 := tsp
-  have vmem : (t₂.callEntry.withRegions rd wr).mem = (pushed upd4 s).mem := tmem
-  have hlen : (BitVec.ofNat 32 len).toNat = len := by rw [BitVec.toNat_ofNat]; have := h.hlen; omega
-  have argsSub : Region.Sub ⟨State.addr s.sp - 16, 12⟩ (below s) := by
-    intro x hx; simp only [Region.Contains] at hx ⊢; omega
-  refine WP.callCalls (k := updK H.S hH.Wb hH.SH.Repr) hH.upd.1 (rd := rd) (wr := wr) ?_ ?_ ?_ ?_ hH.updNF
-  · simp only [updK, State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr, ce0,
-      h.arg0 _ vsp vmem, h.arg1 _ vsp vmem, h.arg2 _ vsp vmem, h.sa0 _ vsp, t0, hlen, rd, wr]
-    refine ⟨trivial, trivial, h.st_sc, h.d_st, h.d_sc, (h.b_st.sub_left argsSub), (h.b_sc.sub_left argsSub),
-      h.nst, h.nd, h.nsc, ?_⟩
-    rw [vsp]; bv_omega
-  · intro x n' ⟨r, hr, hcn⟩
-    simp only [List.mem_append, List.mem_cons, List.mem_nil_iff, or_false, rd, wr] at hr
-    rw [u₂.rd, u₁.rd, u₂.wr, u₁.wr, pushed_rd, pushed_wr, e16]
-    rcases hr with (rfl | rfl) | (rfl | rfl)
-    · obtain ⟨r', hr', hc'⟩ := h.cd x n' ⟨_, List.mem_singleton_self _, hcn⟩
-      rcases List.mem_append.mp hr' with hr' | hr'
-      · exact ⟨r', List.mem_append_left _ hr', hc'⟩
-      · exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ hr'), hc'⟩
-    · refine ⟨_, List.mem_append_right _ (List.mem_cons_self ..), ?_⟩
-      rw [h.a0]; simp only [Region.Contains, upd4, List.length_cons, List.length_nil] at hcn ⊢; omega
-    · obtain ⟨r', hr', hc'⟩ := h.cw x n' ⟨_, by simp, hcn⟩
-      exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ hr'), hc'⟩
-    · obtain ⟨r', hr', hc'⟩ := h.cw x n' ⟨_, by simp, hcn⟩
-      exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ hr'), hc'⟩
-  · intro x n' hi
-    obtain ⟨r', hr', hc'⟩ := h.cw x n' hi
-    exact ⟨r', by rw [u₂.wr, u₁.wr, pushed_wr]; exact List.mem_cons_of_mem _ hr', hc'⟩
-  · intro s₂ hrd hwr hsp hf hcs _ hpost
-    refine hQ _ ⟨?_, ?_, ?_, fun r hr hl => ?_, ?_⟩ fun m hr hcm => ?_
-    · rw [popped_rd, hrd, u₂.rd, u₁.rd, pushed_rd]
-    · rw [popped_wr, hwr, u₂.wr, u₁.wr, pushed_wr]; rfl
-    · rw [popped_sp, hsp, tsp]; exact BitVec.sub_add_cancel _ _
-    · have hr1 : r ≠ .r1 := by rintro rfl; simp [preserved] at hr
-      have hr2 : r ≠ .r2 := by rintro rfl; simp [preserved] at hr
-      have hr3 : r ≠ .r3 := by rintro rfl; simp [preserved] at hr
-      rw [popped_gpr hr1, hcs r hr hl, u₂.other r hr3, u₁.other r hr2, pushed_gpr]
-    · rw [popped_mem]
-      exact (frame_app (ws' := wr) h.fP |>.mono fun r hr => by
-          simp only [List.mem_append, List.mem_singleton, wr] at hr ⊢; tauto).trans
-        (frame_app (ws' := [below s]) (tmem ▸ hf))
-    · have vc : count (t₂.callEntry.withRegions rd wr) = count t₂ := by
-        simp only [count, State.withRegions_gpr, ce2, ce3]
-      simp only [updK, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, ce0, t0, tmem,
-        h.arg0 _ vsp vmem, h.arg1 _ vsp vmem, hlen, vc, tc] at hpost
-      have hs : ∀ r ∈ [below s], (⟨State.addr st, H.S⟩ : Region).Disjoint r := by
-        simp only [List.mem_singleton]; rintro r rfl; exact h.b_st.symm
-      have hr' : hH.SH.Repr (pushed upd4 s).mem (State.addr st) m :=
-        hH.repr _ _ _ _ _ (fun i hi => h.fP.bytes (R := ⟨State.addr st, H.S⟩) hs (by show H.S ≤ 2 ^ 64; have := hH.hSB; omega) hi) hr
-      have hd : bytesAt (pushed upd4 s).mem (State.addr d) len = bytesAt s.mem (State.addr d) len := by
-        simp only [bytesAt]
-        apply List.map_congr_left
-        intro i hi
-        exact h.fP.bytes (R := ⟨State.addr d, len⟩)
-          (by simp only [List.mem_singleton]; rintro r rfl; exact h.b_d.symm) (by show len ≤ 2 ^ 64; have := h.hlen; omega)
-          (List.mem_range.mp hi)
-      rw [popped_mem, ← hd]
-      exact hpost m hr' hcm
+  refine WP.callCalls (k := updK H.S hH.Wb hH.SH.Repr) hH.upd.1 h.pre h.cov h.covW ?_ hH.updNF
+  intro s₂ hrd hwr hsp hf hcs _ hpost
+  have vc : count ((pushed upd4 s).callEntry.withRegions (UpdArgs.rd s.sp d len) (UpdArgs.wr hH st sc)) = count s := by
+    simp only [count, State.withRegions_gpr, ce2, ce3, pushed_gpr]
+  simp only [updK, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, ce0, pushed_gpr, h.r0,
+    h.arg0 _ UpdArgs.vsp UpdArgs.vmem, h.arg1 _ UpdArgs.vsp UpdArgs.vmem, h.hlen', vc] at hpost
+  refine hQ _ (after_frame h.fP hrd hwr hsp hf hcs) fun m hr hcm => ?_
+  have hs : ∀ r ∈ [below s], (⟨State.addr st, H.S⟩ : Region).Disjoint r := by
+    simp only [List.mem_singleton]; rintro r rfl; exact h.b_st.symm
+  have hr' : hH.SH.Repr (pushed upd4 s).mem (State.addr st) m :=
+    hH.repr _ _ _ _ _ (fun i hi => h.fP.bytes (R := ⟨State.addr st, H.S⟩) hs
+      (by show H.S ≤ 2 ^ 64; have := hH.hSB; omega) hi) hr
+  have hd : bytesAt (pushed upd4 s).mem (State.addr d) len = bytesAt s.mem (State.addr d) len := by
+    simp only [bytesAt]
+    apply List.map_congr_left
+    intro i hi
+    exact h.fP.bytes (R := ⟨State.addr d, len⟩)
+      (by simp only [List.mem_singleton]; rintro r rfl; exact h.b_d.symm) (by show len ≤ 2 ^ 64; have := h.hlen; omega)
+      (List.mem_range.mp hi)
+  rw [popped_mem, ← hd]
+  exact hpost m hr' hcm
 
 /-! ## `finalize`, in its frame -/
 
 /-- What a framed call of `finalize` needs of the state before its push:
-the state at `st` in `r0`, and `out` at `o` and the scratch space at `sc` in
-`r1` and `r12`, as for `update`. -/
+the state at `st` in `r0`, the count in `r2:r3`, and `out` at `o` and the
+scratch space at `sc` in `r1` and `r12`, as for `update`. -/
 structure FinArgs (s : State) (st o sc : BitVec 32) : Prop where
   r0 : s.gpr .r0 = st
   r1 : s.gpr .r1 = o
@@ -341,24 +355,10 @@ abbrev fin2 : List Reg := [.r1, .r12]
 
 theorem e8 : BitVec.ofNat 32 (4 * fin2.length) = 8 := rfl
 
-/-- What the block that sets the count leaves, in the frame of `s`: the
-count `C`, and the other registers but `r2` and `r3`. -/
-structure CntOK (s t : State) (C : BitVec 64) : Prop where
-  gpr : ∀ r, r ≠ .r2 → r ≠ .r3 → t.gpr r = s.gpr r
-  cnt : count t = C
-  mem : t.mem = s.mem
-  sp : t.sp = s.sp
-  rd : t.rd = s.rd
-  wr : t.wr = s.wr
-
-theorem cnt_nil (s : State) : WP isa (.block []) s fun t => CntOK s t (count s) :=
-  WP.block_nil ⟨fun _ _ _ => rfl, rfl, rfl, rfl, rfl, rfl⟩
-
-theorem cnt_movw (s : State) {c : Nat} (hc : c < 2 ^ 16) :
-    WP isa (.block [.movw .r2 (BitVec.ofNat 16 c), .mov .r3 (.imm 0)]) s fun t => CntOK s t (BitVec.ofNat 64 c) :=
-  wp_movw fun t₁ u₁ => VG.Proof.Sha256.Arm.Stream.wp_mov (op2_imm (by decide)) fun t₂ u₂ => WP.block_nil
-    ⟨fun r h2 h3 => by rw [u₂.other r h3, u₁.other r h2], count_movw hc (by rw [u₂.other _ (by decide), u₁.gpr]) u₂.gpr,
-      by rw [u₂.mem, u₁.mem], by rw [u₂.sp, u₁.sp], by rw [u₂.rd, u₁.rd], by rw [u₂.wr, u₁.wr]⟩
+/-- The regions `finalize` is given: its stack arguments, the state, `out` and the scratch space. -/
+abbrev FinArgs.rd (sp : BitVec 32) : List Region := [⟨State.addr sp - 8, 8⟩]
+abbrev FinArgs.wr (st o sc : BitVec 32) : List Region :=
+  [⟨State.addr st, H.S⟩, ⟨State.addr o, H.F⟩, ⟨State.addr sc, hH.Wb⟩]
 
 namespace FinArgs
 variable {hH} {s : State} {st o sc : BitVec 32} (h : FinArgs hH s st o sc)
@@ -398,68 +398,156 @@ theorem fP : Frame [below s] s.mem (pushed fin2 s).mem := by
   · simp only [Region.Contains]; bv_omega
   · simp only [Region.Contains]; bv_omega
 
+omit h in
+theorem vsp : ((pushed fin2 s).callEntry.withRegions (rd s.sp) (wr hH st o sc)).sp = s.sp - 8 := psp
+omit h in
+theorem vmem : ((pushed fin2 s).callEntry.withRegions (rd s.sp) (wr hH st o sc)).mem = (pushed fin2 s).mem := rfl
+
+omit h in
+theorem argsSub : Region.Sub ⟨State.addr s.sp - 8, 8⟩ (below s) := by
+  intro x hx; simp only [Region.Contains] at hx ⊢; bv_omega
+
+theorem pre : (finK H.S hH.Wb H.F H.D hH.SH.Repr hH.SH.H.hash).pre
+    ((pushed fin2 s).callEntry.withRegions (rd s.sp) (wr hH st o sc)) := by
+  simp only [finK, State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr, ce0, pushed_gpr,
+    h.arg0 _ vsp vmem, h.arg1 _ vsp vmem, h.sa0 _ vsp, h.r0]
+  refine ⟨trivial, trivial, h.st_o, h.st_sc, h.o_sc, (h.b_st.sub_left argsSub), (h.b_o.sub_left argsSub),
+    (h.b_sc.sub_left argsSub), h.nst, h.no, h.nsc, ?_⟩
+  rw [vsp]; have := h.sp16; bv_omega
+
+theorem cov : Covers (rd s.sp ++ wr hH st o sc) ((pushed fin2 s).rd ++ (pushed fin2 s).wr) := by
+  intro x n' ⟨r, hr, hcn⟩
+  simp only [List.mem_append, List.mem_cons, List.mem_nil_iff, or_false] at hr
+  rw [pushed_rd, pushed_wr, e8]
+  rcases hr with rfl | (rfl | rfl | rfl)
+  · refine ⟨_, List.mem_append_right _ (List.mem_cons_self ..), ?_⟩
+    rw [h.a8]; simp only [Region.Contains, fin2, List.length_cons, List.length_nil] at hcn ⊢; omega
+  all_goals
+    obtain ⟨r', hr', hc'⟩ := h.cw x n' ⟨_, by simp, hcn⟩
+    exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ hr'), hc'⟩
+
+theorem covW : Covers (wr hH st o sc) (pushed fin2 s).wr := by
+  intro x n' hi
+  obtain ⟨r', hr', hc'⟩ := h.cw x n' hi
+  exact ⟨r', by rw [pushed_wr]; exact List.mem_cons_of_mem _ hr', hc'⟩
+
 end FinArgs
 
-theorem fin_frame {s : State} {st o sc : BitVec 32} (h : FinArgs hH s st o sc) {cnt : List Instr} {C : BitVec 64}
-    (hcnt : WP isa (.block cnt) (pushed fin2 s) fun t => CntOK (pushed fin2 s) t C) {Q : State → Prop}
+theorem fin_frame {s : State} {st o sc : BitVec 32} (h : FinArgs hH s st o sc) {Q : State → Prop}
     (hQ : ∀ s', After s [⟨State.addr st, H.S⟩, ⟨State.addr o, H.F⟩, ⟨State.addr sc, hH.Wb⟩] s' →
-      (∀ m, hH.SH.Repr s.mem (State.addr st) m → m.length < 2 ^ 64 → C = BitVec.ofNat 64 m.length →
+      (∀ m, hH.SH.Repr s.mem (State.addr st) m → m.length < 2 ^ 64 → count s = BitVec.ofNat 64 m.length →
         (bytesAt s'.mem (State.addr o) H.F).take H.D = hH.SH.H.hash m) → Q s') :
-    WP isa (.frame (.push fin2) (.seq (.block cnt) (.call H.finN H.finC)) (.pop .r1 8)) s Q := by
+    WP isa (.frame (.push fin2) (.call H.finN H.finC) (.pop .r1 8)) s Q := by
   have h16 := h.sp16
   refine WP.frame (rs := fin2) (r := .r1) rfl (by show 8 ≤ s.sp.toNat; omega) (by decide) ?_
-  refine WP.seq (WP.mono hcnt fun t k => ?_)
-  have tsp : t.sp = s.sp - 8 := by rw [k.sp, FinArgs.psp]
-  have tmem : t.mem = (pushed fin2 s).mem := k.mem
-  have t0 : t.gpr .r0 = st := by rw [k.gpr _ (by decide) (by decide), pushed_gpr, h.r0]
-  let rd : List Region := [⟨State.addr s.sp - 8, 8⟩]
-  let wr : List Region := [⟨State.addr st, H.S⟩, ⟨State.addr o, H.F⟩, ⟨State.addr sc, hH.Wb⟩]
-  have vsp : (t.callEntry.withRegions rd wr).sp = s.sp - 8 := tsp
-  have vmem : (t.callEntry.withRegions rd wr).mem = (pushed fin2 s).mem := tmem
-  have argsSub : Region.Sub ⟨State.addr s.sp - 8, 8⟩ (below s) := by
-    intro x hx; simp only [Region.Contains] at hx ⊢; bv_omega
-  refine WP.callCalls (k := finK H.S hH.Wb H.F H.D hH.SH.Repr hH.SH.H.hash) hH.fin.1 (rd := rd) (wr := wr)
-    ?_ ?_ ?_ ?_ hH.finNF
-  · simp only [finK, State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr, ce0,
-      h.arg0 _ vsp vmem, h.arg1 _ vsp vmem, h.sa0 _ vsp, t0, rd, wr]
-    refine ⟨trivial, trivial, h.st_o, h.st_sc, h.o_sc, (h.b_st.sub_left argsSub), (h.b_o.sub_left argsSub),
-      (h.b_sc.sub_left argsSub), h.nst, h.no, h.nsc, ?_⟩
-    rw [vsp]; bv_omega
-  · intro x n' ⟨r, hr, hcn⟩
-    simp only [List.mem_append, List.mem_cons, List.mem_nil_iff, or_false, rd, wr] at hr
-    rw [k.rd, k.wr, pushed_rd, pushed_wr, e8]
-    rcases hr with rfl | (rfl | rfl | rfl)
-    · refine ⟨_, List.mem_append_right _ (List.mem_cons_self ..), ?_⟩
-      rw [h.a8]; simp only [Region.Contains, fin2, List.length_cons, List.length_nil] at hcn ⊢; omega
-    all_goals
-      obtain ⟨r', hr', hc'⟩ := h.cw x n' ⟨_, by simp, hcn⟩
-      exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ hr'), hc'⟩
-  · intro x n' hi
-    obtain ⟨r', hr', hc'⟩ := h.cw x n' hi
-    exact ⟨r', by rw [k.wr, pushed_wr]; exact List.mem_cons_of_mem _ hr', hc'⟩
-  · intro s₂ hrd hwr hsp hf hcs _ hpost
-    have vc : count (t.callEntry.withRegions rd wr) = C := by
-      rw [← k.cnt]; simp only [count, State.withRegions_gpr, ce2, ce3]
-    simp only [finK, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, ce0, t0, tmem,
-      h.arg0 _ vsp vmem, vc] at hpost
-    refine hQ _ ⟨?_, ?_, ?_, fun r hr hl => ?_, ?_⟩ fun m hr hl hcm => ?_
-    · rw [popped_rd, hrd, k.rd, pushed_rd]
-    · rw [popped_wr, hwr, k.wr, pushed_wr]; rfl
-    · rw [popped_sp, hsp, tsp]; exact BitVec.sub_add_cancel _ _
-    · have hr1 : r ≠ .r1 := by rintro rfl; simp [preserved] at hr
-      have hr2 : r ≠ .r2 := by rintro rfl; simp [preserved] at hr
-      have hr3 : r ≠ .r3 := by rintro rfl; simp [preserved] at hr
-      rw [popped_gpr hr1, hcs r hr hl, k.gpr r hr2 hr3, pushed_gpr]
-    · rw [popped_mem]
-      exact (frame_app (ws' := wr) h.fP |>.mono fun r hr => by
-          simp only [List.mem_append, List.mem_singleton, wr] at hr ⊢; tauto).trans
-        (frame_app (ws' := [below s]) (tmem ▸ hf))
-    · have hs : ∀ r ∈ [below s], (⟨State.addr st, H.S⟩ : Region).Disjoint r := by
-        simp only [List.mem_singleton]; rintro r rfl; exact h.b_st.symm
-      have hr' : hH.SH.Repr (pushed fin2 s).mem (State.addr st) m :=
-        hH.repr _ _ _ _ _ (fun i hi => h.fP.bytes (R := ⟨State.addr st, H.S⟩) hs
-          (by show H.S ≤ 2 ^ 64; have := hH.hSB; omega) hi) hr
-      rw [popped_mem]
-      exact hpost m hr' hl hcm
+  refine WP.callCalls (k := finK H.S hH.Wb H.F H.D hH.SH.Repr hH.SH.H.hash) hH.fin.1 h.pre h.cov h.covW ?_ hH.finNF
+  intro s₂ hrd hwr hsp hf hcs _ hpost
+  have vc : count ((pushed fin2 s).callEntry.withRegions (FinArgs.rd s.sp) (FinArgs.wr hH st o sc)) = count s := by
+    simp only [count, State.withRegions_gpr, ce2, ce3, pushed_gpr]
+  simp only [finK, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, ce0, pushed_gpr, h.r0,
+    h.arg0 _ FinArgs.vsp FinArgs.vmem, vc] at hpost
+  refine hQ _ (after_frame h.fP hrd hwr hsp hf hcs) fun m hr hl hcm => ?_
+  have hs : ∀ r ∈ [below s], (⟨State.addr st, H.S⟩ : Region).Disjoint r := by
+    simp only [List.mem_singleton]; rintro r rfl; exact h.b_st.symm
+  have hr' : hH.SH.Repr (pushed fin2 s).mem (State.addr st) m :=
+    hH.repr _ _ _ _ _ (fun i hi => h.fP.bytes (R := ⟨State.addr st, H.S⟩) hs
+      (by show H.S ≤ 2 ^ 64; have := hH.hSB; omega) hi) hr
+  rw [popped_mem]
+  exact hpost m hr' hl hcm
+
+/-! ## The calls in two runs
+
+A call is constant time when the callee's precondition holds in both runs
+and its public arguments agree (`RelCT.call`); a frame around it, when the
+stack pointer is the same in both (`RelCT.frame`). -/
+
+theorem push_eq {rs : List Reg} {s a : State} (hrs : regList rs = true) (h : isa.push (.push rs) s = some a) :
+    a = pushed rs s := by
+  rw [push_pushed hrs (by
+    simp only [isa, push] at h; split at h <;> [skip; cases h]
+    rename_i hc; exact hc.2)] at h
+  exact (Option.some.inj h).symm
+
+include hH in
+theorem init_rel {P : State → State → Prop} {st : BitVec 32}
+    (h : ∀ s s', P s s' → s.gpr .r0 = st ∧ s'.gpr .r0 = st ∧ st.toNat + H.S ≤ 2 ^ 32 ∧
+      Covers [⟨State.addr st, H.S⟩] s.wr ∧ Covers [⟨State.addr st, H.S⟩] s'.wr) :
+    RelCT isa P (.call H.initN H.initC) fun _ _ => True := by
+  refine RelCT.call hH.init.1 hH.init.2.1 [] [⟨State.addr st, H.S⟩] fun s s' hp => ?_
+  obtain ⟨d, d', hn, c, c'⟩ := h s s' hp
+  refine ⟨⟨rfl, by simp [d], by simpa [d] using hn⟩, ⟨rfl, by simp [d'], by simpa [d'] using hn⟩, ?_,
+    covers_wr c, c, covers_wr c', c'⟩
+  simp only [initK, State.withRegions_gpr, ce0, d, d']
+
+theorem upd_rel {P : State → State → Prop} {sp : BitVec 32} {st d sc : BitVec 32} {len : Nat}
+    (h : ∀ s s', P s s' → UpdArgs hH s st d sc len ∧ UpdArgs hH s' st d sc len ∧ count s = count s' ∧
+      s.sp = sp ∧ s'.sp = sp) :
+    RelCT isa P (.frame (.push upd4) (.call H.updN H.updC) (.pop .r1 16)) fun _ _ => True := by
+  refine RelCT.frame (fun s s' hp => by obtain ⟨-, -, -, e, e'⟩ := h s s' hp; rw [e, e']) ?_
+  refine RelCT.call hH.upd.1 hH.upd.2.1 (UpdArgs.rd sp d len) (UpdArgs.wr hH st sc)
+    fun a b ⟨s, s', hp, pa, pb⟩ => ?_
+  obtain ⟨u, u', hc, e, e'⟩ := h s s' hp
+  rw [push_eq rfl pa, push_eq rfl pb]
+  subst e
+  have v : s'.sp = s.sp := e'
+  have hv' : UpdArgs.rd s.sp d len = UpdArgs.rd s'.sp d len := by rw [v]
+  have t1 : ((pushed upd4 s).callEntry.withRegions (UpdArgs.rd s.sp d len) (UpdArgs.wr hH st sc)).sp =
+    s.sp - 16 := UpdArgs.psp
+  have t2 : ((pushed upd4 s').callEntry.withRegions (UpdArgs.rd s.sp d len) (UpdArgs.wr hH st sc)).sp =
+    s'.sp - 16 := UpdArgs.psp
+  refine ⟨u.pre, hv' ▸ u'.pre, ?_, u.cov, u.covW, hv' ▸ u'.cov, u'.covW⟩
+  obtain ⟨c3, c2⟩ := BitVec.append_32_inj hc
+  simp only [updK]
+  refine ⟨by rw [t1, t2, v], ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [State.withRegions_gpr, ce0, pushed_gpr, u.r0, u'.r0]
+  · simp only [State.withRegions_gpr, ce2, pushed_gpr, c2]
+  · simp only [State.withRegions_gpr, ce3, pushed_gpr, c3]
+  · rw [u.arg0 _ t1 rfl, u'.arg0 _ t2 rfl]
+  · rw [u.arg1 _ t1 rfl, u'.arg1 _ t2 rfl]
+  · rw [u.arg2 _ t1 rfl, u'.arg2 _ t2 rfl]
+
+theorem fin_rel {P : State → State → Prop} {sp : BitVec 32} {st o sc : BitVec 32}
+    (h : ∀ s s', P s s' → FinArgs hH s st o sc ∧ FinArgs hH s' st o sc ∧ count s = count s' ∧
+      s.sp = sp ∧ s'.sp = sp) :
+    RelCT isa P (.frame (.push fin2) (.call H.finN H.finC) (.pop .r1 8)) fun _ _ => True := by
+  refine RelCT.frame (fun s s' hp => by obtain ⟨-, -, -, e, e'⟩ := h s s' hp; rw [e, e']) ?_
+  refine RelCT.call hH.fin.1 hH.fin.2.1 (FinArgs.rd sp) (FinArgs.wr hH st o sc)
+    fun a b ⟨s, s', hp, pa, pb⟩ => ?_
+  obtain ⟨f, f', hc, e, e'⟩ := h s s' hp
+  rw [push_eq rfl pa, push_eq rfl pb]
+  subst e
+  have v : s'.sp = s.sp := e'
+  have hv' : FinArgs.rd s.sp = FinArgs.rd s'.sp := by rw [v]
+  have t1 : ((pushed fin2 s).callEntry.withRegions (FinArgs.rd s.sp) (FinArgs.wr hH st o sc)).sp =
+    s.sp - 8 := FinArgs.psp
+  have t2 : ((pushed fin2 s').callEntry.withRegions (FinArgs.rd s.sp) (FinArgs.wr hH st o sc)).sp =
+    s'.sp - 8 := FinArgs.psp
+  refine ⟨f.pre, hv' ▸ f'.pre, ?_, f.cov, f.covW, hv' ▸ f'.cov, f'.covW⟩
+  obtain ⟨c3, c2⟩ := BitVec.append_32_inj hc
+  simp only [finK]
+  refine ⟨by rw [t1, t2, v], ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [State.withRegions_gpr, ce0, pushed_gpr, f.r0, f'.r0]
+  · simp only [State.withRegions_gpr, ce2, pushed_gpr, c2]
+  · simp only [State.withRegions_gpr, ce3, pushed_gpr, c3]
+  · rw [f.arg0 _ t1 rfl, f'.arg0 _ t2 rfl]
+  · rw [f.arg1 _ t1 rfl, f'.arg1 _ t2 rfl]
+
+/-- Code the taint analysis checks from the registers `rs`, in two runs
+whose single-run facts `F` and `F'` agree on them. -/
+theorem rel_taint {F F' G G' : State → Prop} {c : Prog isa} (rs : List Reg)
+    (hag : ∀ s s', F s → F' s' → ∀ r ∈ rs, s.gpr r = s'.gpr r)
+    (hc : ∃ hc, (VG.Taint.check taint (Taint.ofRegs rs) c hc).isSome = true)
+    (hw : ∀ s, F s → WP isa c s G) (hw' : ∀ s, F' s → WP isa c s G') :
+    RelCT isa (fun s s' => F s ∧ F' s') c fun s s' => G s ∧ G' s' := by
+  obtain ⟨_, hc⟩ := hc
+  exact ((RelCT.taint (A := taint) (Taint.ofRegs rs) (fun s s' h => Taint.agree_ofRegs (hag s s' h.1 h.2)) hc).wp
+    fun s s' h => ⟨hw s h.1, hw' s' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
+
+/-- A call, in two runs each described by `WP`. -/
+theorem rel_wp {F F' G G' : State → Prop} {c : Prog isa}
+    (hct : RelCT isa (fun s s' => F s ∧ F' s') c fun _ _ => True)
+    (hw : ∀ s, F s → WP isa c s G) (hw' : ∀ s, F' s → WP isa c s G') :
+    RelCT isa (fun s s' => F s ∧ F' s') c fun s s' => G s ∧ G' s' :=
+  (hct.wp fun s s' h => ⟨hw s h.1, hw' s' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
 
 end VG.Proof.Hmac.Generic.Arm
