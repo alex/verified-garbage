@@ -22,7 +22,12 @@
 //! reached with probability less than 2⁻²⁶¹; the operation then fails with
 //! [`Error::SampleBound`].
 
-#![cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "x86",
+    target_arch = "aarch64",
+    target_arch = "arm"
+))]
 
 use crate::arch::mlkem768::{
     vg_mlkem768_check_ek, vg_mlkem768_decaps, vg_mlkem768_encaps, vg_mlkem768_keygen,
