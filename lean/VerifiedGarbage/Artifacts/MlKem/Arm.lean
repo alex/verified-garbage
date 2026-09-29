@@ -7,6 +7,7 @@ import VerifiedGarbage.Proof.MlKem.Arm.CheckEk
 import VerifiedGarbage.Proof.MlKem.Arm.CompressEncode
 import VerifiedGarbage.Proof.MlKem.Arm.Decompress
 import VerifiedGarbage.Proof.MlKem.Arm.Mul
+import VerifiedGarbage.Proof.MlKem.Arm.NttInv
 
 /-!
 # ML-KEM (FIPS 203) on 32-bit ARM
@@ -24,6 +25,24 @@ against the contract.
 namespace VG.Artifacts.MlKem.Arm
 
 def artifacts : List Artifact := [
+  { Spec.MlKem.nttApi with
+    target := Arm.target
+    doc := Spec.MlKem.nttApi.doc
+      (notes := ["The function uses no stack: it saves `r4`–`r11` in `scratch`."])
+    code := Impl.MlKem.Arm.ntt
+    contract := Spec.MlKem.nttContract Arm.abi
+    verified := Proof.MlKem.Arm.Ntt.verified
+    ofSig := ⟨_, _, _, by unfold Spec.MlKem.nttContract Spec.MlKem.inPlaceContract; exact rfl⟩
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem.nttInvApi with
+    target := Arm.target
+    doc := Spec.MlKem.nttInvApi.doc
+      (notes := ["The function uses no stack: it saves `r4`–`r11` in `scratch`."])
+    code := Impl.MlKem.Arm.nttInv
+    contract := Spec.MlKem.nttInvContract Arm.abi
+    verified := Proof.MlKem.Arm.NttInv.verified
+    ofSig := ⟨_, _, _, by unfold Spec.MlKem.nttInvContract Spec.MlKem.inPlaceContract; exact rfl⟩
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.MlKem.mulApi with
     target := Arm.target
     doc := Spec.MlKem.mulApi.doc

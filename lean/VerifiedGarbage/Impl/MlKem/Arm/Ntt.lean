@@ -99,7 +99,7 @@ def restoreRegs (b : Reg) (off : Nat) : List Instr :=
 /-- The butterfly on `[r2]` and `[r3]` with the zeta `r7`: `t = ζ·f[j + len]`
 in `r5`, then `f[j + len] = f[j] - t` and `f[j] = f[j] + t`. -/
 def bflyBody : List Instr :=
-  [.ldr .r4 .r2 0, .ldr .r5 .r3 0, .mul .r5 .r5 .r7] ++ reduce .r5 .r6 .r8 ++
+  [.ldr .r4 .r2 0, .ldr .r5 .r3 0, .mul .r5 .r7 .r5] ++ reduce .r5 .r6 .r8 ++
   [.dp .sub .r6 .r4 (.reg .r5)] ++ fixup .r6 .r12 ++ [.str .r6 .r3 0, .dp .add .r4 .r4 (.reg .r5)] ++
   subQ .r4 ++ fixup .r4 .r12 ++
   [.str .r4 .r2 0, .dp .add .r2 .r2 (.imm 4), .dp .add .r3 .r3 (.imm 4), .subs .r11 .r11 (.imm 1)]
@@ -126,7 +126,7 @@ def ntt : Prog isa :=
 `f[j] = f[j] + f[j + len]`, then `f[j + len] = ζ·(f[j + len] - f[j])`. -/
 def ibflyBody : List Instr :=
   [.ldr .r4 .r2 0, .ldr .r5 .r3 0, .dp .add .r6 .r4 (.reg .r5)] ++ subQ .r6 ++ fixup .r6 .r12 ++
-  [.str .r6 .r2 0, .dp .sub .r5 .r5 (.reg .r4)] ++ fixup .r5 .r12 ++ [.mul .r5 .r5 .r7] ++
+  [.str .r6 .r2 0, .dp .sub .r5 .r5 (.reg .r4)] ++ fixup .r5 .r12 ++ [.mul .r5 .r7 .r5] ++
   reduce .r5 .r6 .r8 ++
   [.str .r5 .r3 0, .dp .add .r2 .r2 (.imm 4), .dp .add .r3 .r3 (.imm 4), .subs .r11 .r11 (.imm 1)]
 
