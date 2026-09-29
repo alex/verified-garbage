@@ -122,8 +122,8 @@ def initSat : State where
   wr := [⟨0x1000, 128⟩]
 
 theorem init_ok (s : State) (hs : Proof.Poly1305.initArm.pre s) :
-    ∃ t s', Exec isa Impl.Poly1305.Arm.init s t s' ∧ abiPreserved s s' ∧ Proof.Poly1305.initArm.post
-      s s' := by
+    ∃ t s', Exec isa Impl.Poly1305.Arm.init s t s' ∧ abiPreserved s s' ∧
+      Proof.Poly1305.initArm.post s s' := by
   exact init_correct (IPre.of s hs)
 
 theorem init_ct : ConstantTime isa Proof.Poly1305.initArm.pre Proof.Poly1305.initArm.pub
