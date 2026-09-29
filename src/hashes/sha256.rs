@@ -9,7 +9,9 @@
 //!
 //! On x86-64, CPUs with the SHA extensions (and SSSE3) run
 //! `vg_sha256_update_shani` and `vg_sha256_finalize_shani` instead, which
-//! have the same contracts and call `vg_sha256_compress_shani`.
+//! have the same contracts and call `vg_sha256_compress_shani`; CPUs without
+//! them but with AVX2, BMI1 and BMI2 run `vg_sha256_update_avx2` and
+//! `vg_sha256_finalize_avx2`, which call `vg_sha256_compress_avx2`.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -20,8 +22,9 @@
 
 #[cfg(target_arch = "x86_64")]
 use crate::arch::sha256::{
-    VG_SHA256_FINALIZE_SHANI_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES, vg_sha256_finalize_shani,
-    vg_sha256_update_shani,
+    VG_SHA256_FINALIZE_AVX2_FEATURES, VG_SHA256_FINALIZE_SHANI_FEATURES,
+    VG_SHA256_UPDATE_AVX2_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES, vg_sha256_finalize_avx2,
+    vg_sha256_finalize_shani, vg_sha256_update_avx2, vg_sha256_update_shani,
 };
 use crate::arch::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
 
@@ -39,6 +42,9 @@ super::streaming_hash!(
             #[cfg(target_arch = "x86_64")]
             ShaNi if [VG_SHA256_UPDATE_SHANI_FEATURES, VG_SHA256_FINALIZE_SHANI_FEATURES] =>
                 (vg_sha256_update_shani, vg_sha256_finalize_shani),
+            #[cfg(target_arch = "x86_64")]
+            Avx2 if [VG_SHA256_UPDATE_AVX2_FEATURES, VG_SHA256_FINALIZE_AVX2_FEATURES] =>
+                (vg_sha256_update_avx2, vg_sha256_finalize_avx2),
         },
     }
 );
@@ -73,10 +79,21 @@ mod tests {
     /// The implementation chosen for each set of the features it depends on.
     #[test]
     fn select() {
-        for bits in 0..4 {
+        for bits in 0..256 {
             let backend = Sha256Backend::select(Features(bits));
             #[cfg(target_arch = "x86_64")]
-            assert_eq!(backend == Sha256Backend::ShaNi, bits == 0b11);
+            {
+                let shani = bits & 0b11 == 0b11;
+                let avx2 = bits & 0b1111_0000 == 0b1111_0000;
+                let expected = if shani {
+                    Sha256Backend::ShaNi
+                } else if avx2 {
+                    Sha256Backend::Avx2
+                } else {
+                    Sha256Backend::Scalar
+                };
+                assert_eq!(backend, expected, "{bits:#b}");
+            }
             #[cfg(not(target_arch = "x86_64"))]
             assert_eq!(backend, Sha256Backend::Scalar);
         }
