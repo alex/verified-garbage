@@ -1,0 +1,5 @@
+name = "HMAC-MD5"
+family = "MACs"
+specs = ["Hmac", "Md5"]
+modules = ["src/hmac/md5.rs"]
+asm = ["hmac_md5", "md5"]

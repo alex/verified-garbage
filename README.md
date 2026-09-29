@@ -46,7 +46,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -62,7 +62,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -140,6 +140,38 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <tr>
 
+<td>HMAC-MD5</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>HMAC-SHA-1</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>HMAC-SHA-256</td>
 
 <td>✅</td>
@@ -156,6 +188,70 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <tr>
 
+<td>HMAC-SHA-384</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>HMAC-SHA-512/224</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>HMAC-SHA-512/256</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>HMAC-SHA-512</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>Poly1305</td>
 
 <td>✅</td>
@@ -166,7 +262,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -258,7 +354,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -286,6 +382,38 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <tr>
 
+<td>PBKDF2-HMAC-MD5</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>PBKDF2-HMAC-SHA-1</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>PBKDF2-HMAC-SHA-256</td>
 
 <td>✅</td>
@@ -295,6 +423,70 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 <td>✅</td>
 
 <td>✅</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>PBKDF2-HMAC-SHA-384</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>PBKDF2-HMAC-SHA-512/224</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>PBKDF2-HMAC-SHA-512/256</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>PBKDF2-HMAC-SHA-512</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
 
 <td>❌</td>
 

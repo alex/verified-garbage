@@ -7,7 +7,12 @@
 //! lays out their context (the key, the nonce and the tag) and checks the
 //! length limit.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use crate::arch::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
 
@@ -70,10 +75,10 @@ impl ChaCha20Poly1305 {
         // SAFETY: `ctx` is valid for reads and writes of 1024 bytes, `aad`
         // for reads of `aad.len()` bytes and `data` for reads and writes of
         // `data.len()` bytes; they are distinct objects (`aad` is a shared
-        // borrow and `data` a unique one), so they do not overlap each other,
-        // the return address (on x86-64) or the stack below the stack pointer
-        // (on x86-64 and 32-bit ARM), and do not wrap around the end of the
-        // address space.
+        // borrow and `data` a unique one), so they do not overlap each other
+        // or anything on the stack (the return address, any arguments, and
+        // the stack below the stack pointer the calls use), and do not wrap
+        // around the end of the address space.
         unsafe {
             vg_chacha20_poly1305_seal(
                 &mut ctx,
@@ -176,16 +181,14 @@ mod tests {
         }
     }
 
+    /// `P_MAX` bytes are allowed and one more are not (a 32-bit length is
+    /// always allowed).
     #[test]
     fn length_limit() {
         assert!(!too_long(0));
-        match usize::try_from(P_MAX) {
-            Ok(max) => {
-                assert!(!too_long(max));
-                assert!(too_long(max + 1));
-            }
-            // On a 32-bit target, every length is within the limit.
-            Err(_) => assert!(!too_long(usize::MAX)),
+        assert!(!too_long(usize::try_from(P_MAX).unwrap_or(usize::MAX)));
+        if let Ok(len) = usize::try_from(P_MAX + 1) {
+            assert!(too_long(len));
         }
     }
 }
