@@ -111,6 +111,9 @@ should add files, not edit lists that every other PR edits too.
   inner `#![cfg(...)]` after its `//!` docs; the parent only says
   `mod <name>;`. Supporting another architecture changes that one line of
   the algorithm's own file.
+  Tests and benchmarks are gated on exactly the architectures of the
+  library modules they use (`ci/check_arch_gates.py` checks it), so update
+  their `cfg`s with the module's.
 * Tests of one algorithm go in a file of their own (`tests/cavp/<alg>.rs`,
   `tests/wycheproof/<alg>.rs`), declared with one `mod` line.
 * A construction over many hash functions (HMAC, PBKDF2) gets a file per
@@ -205,6 +208,7 @@ against the 200000 budget.
 python3 ci/check_lean_imports.py
 python3 ci/check_lean_speed.py
 python3 ci/check_vectors.py
+python3 ci/check_arch_gates.py
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
 ```
