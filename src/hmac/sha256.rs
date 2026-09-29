@@ -38,7 +38,7 @@ impl super::Hmac<Sha256> {
     }
 
     /// The implementation of SHA-256 this computation runs, chosen for this
-    /// CPU (and the mask it was created with).
+    /// CPU.
     #[cfg(target_arch = "x86_64")]
     pub(crate) fn sha256_backend(&self) -> Sha256Backend {
         self.state.backend
@@ -65,13 +65,13 @@ impl sealed::Sealed for Sha256 {}
 impl HmacHash for Sha256 {
     type State = Sha256HmacState;
 
-    fn hmac_init(key: &[u8], mask: u32) -> Sha256HmacState {
+    fn hmac_init(key: &[u8]) -> Sha256HmacState {
         assert!(key.len() <= Self::BLOCK_SIZE);
         let mut state = Sha256HmacState {
             inner: [0; 96],
             outer: [0; 96],
             count: Self::BLOCK_SIZE as u64,
-            backend: Sha256Backend::select(crate::cpu::available(mask)),
+            backend: Sha256Backend::select(crate::cpu::detected()),
         };
         #[cfg(target_arch = "x86_64")]
         let init = match state.backend {

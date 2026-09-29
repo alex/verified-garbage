@@ -182,21 +182,13 @@ macro_rules! streaming_hash {
 
             /// Starts a new computation.
             pub fn new() -> Self {
-                Self::__with_features(u32::MAX)
-            }
-
-            /// Starts a new computation, using only the CPU features in
-            /// `mask` (a set of `crate::cpu::Features` bits). For testing
-            /// every implementation on one CPU.
-            #[doc(hidden)]
-            pub fn __with_features(mask: u32) -> Self {
                 let mut state = [0; $state];
                 // SAFETY: `state` is valid for writes of its size, and is a
                 // distinct object from the return address (on x86-64 and x86)
                 // and the argument on the stack (on x86); as a Rust object, it
                 // does not wrap around the end of the address space.
                 unsafe { $init(&mut state) };
-                let backend = $backend::select($crate::cpu::available(mask));
+                let backend = $backend::select($crate::cpu::detected());
                 $name { state, length: 0, backend }
             }
 
@@ -262,13 +254,12 @@ macro_rules! streaming_hash {
             }
 
             /// A computation whose streaming state is `state`, which must
-            /// represent a message of `length` bytes, using only the CPU
-            /// features in `mask` (for HMAC, whose `init` makes such
-            /// states).
+            /// represent a message of `length` bytes (for HMAC, whose
+            /// `init` makes such states).
             #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
             #[allow(dead_code)]
-            pub(crate) fn from_state(state: [u8; $state], length: u64, mask: u32) -> Self {
-                let backend = $backend::select($crate::cpu::available(mask));
+            pub(crate) fn from_state(state: [u8; $state], length: u64) -> Self {
+                let backend = $backend::select($crate::cpu::detected());
                 $name { state, length, backend }
             }
 

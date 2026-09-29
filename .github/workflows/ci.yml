@@ -205,6 +205,7 @@ jobs:
         run: |
           cargo fmt --check
           cargo clippy --all-targets --locked
+          cargo clippy --all-targets --locked --features cpu-features-env
       - run: rustc -vV
       - run: cargo test --locked
       - name: Export coverage
@@ -216,21 +217,28 @@ jobs:
           path: "*.lcov"
           if-no-files-found: error
 
-  # CPU feature detection, and the implementations that need CPU features
-  # beyond x86-64's baseline (the SHA extensions, AES-NI, PCLMULQDQ and
-  # SSSE3), which the `rust`
-  # jobs' runners may lack. Their tests run natively where this runner has
-  # the features, and otherwise under Intel SDE, emulating a CPU that has
-  # every feature. Detection is also tested under SDE on a Pentium 4, which
-  # no runner is: it has neither feature, nor CPUID leaf 7. The coverage is
-  # merged with the rest.
-  rust-sde:
-    name: Rust (CPU features, natively and under Intel SDE)
+  # CPU feature detection, and the primitives that choose among
+  # implementations by CPU feature (see src/cpu.rs), tested end to end in
+  # each configuration that chooses differently, set with `VG_CPU_FEATURES`:
+  # every feature beyond x86-64's baseline (the SHA extensions, AES-NI,
+  # PCLMULQDQ and SSSE3), natively where this runner has them and otherwise
+  # under Intel SDE, emulating a CPU that has every one; and none, the
+  # baseline ISA's implementations. Detection is also tested under SDE on a
+  # Pentium 4, which no runner is: it has neither feature, nor CPUID leaf 7.
+  # The coverage is merged with the rest.
+  rust-cpu-features:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Empty: every feature the CPU has.
+        cpu-features: ["", none]
+    name: Rust (VG_CPU_FEATURES=${{ matrix.cpu-features || 'unset' }})
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: -D warnings -Cinstrument-coverage
       LLVM_PROFILE_FILE: .rust-cov/cov-%p-%m.profraw
       WYCHEPROOF_ROOT: wycheproof
+      VG_CPU_FEATURES: ${{ matrix.cpu-features }}
       SDE_VERSION: 10.13.1-2026-07-28
       SDE_URL: https://downloadmirror.intel.com/924984/sde-external-10.13.1-2026-07-28-lin.tar.xz
       SDE_SHA256: 94e97d623fec54385686e1e7ba65ebc9941748c05ee451423948334892bf2b50
@@ -244,6 +252,7 @@ jobs:
           path: wycheproof
           persist-credentials: false
       - name: Download Intel SDE
+        if: ${{ matrix.cpu-features == '' }}
         run: |
           curl -sSfLo sde.tar.xz "$SDE_URL"
           echo "$SDE_SHA256  sde.tar.xz" | sha256sum -c
@@ -251,6 +260,7 @@ jobs:
           tar -xJf sde.tar.xz -C "$RUNNER_TEMP/sde" --strip-components 1
           rm sde.tar.xz
       - name: Choose where to run the tests of the implementations
+        if: ${{ matrix.cpu-features == '' }}
         run: |
           missing=
           for f in sha_ni aes pclmulqdq ssse3; do
@@ -266,20 +276,21 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       # Only the tests of what depends on CPU features.
-      - name: Test the implementations (under SDE if this runner lacks features)
-        run: cargo test --locked -- sha256 aes_gcm cpu
+      - name: Test the implementations
+        run: cargo test --locked --features cpu-features-env -- sha256 aes_gcm cpu
       - name: Test detection on a Pentium 4 (under SDE)
-        run: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="$RUNNER_TEMP/sde/sde64 -p4p --" cargo test --locked --lib -- cpu
+        if: ${{ matrix.cpu-features == '' }}
+        run: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="$RUNNER_TEMP/sde/sde64 -p4p --" cargo test --locked --features cpu-features-env --lib -- cpu
       - name: Export coverage
-        run: python3 ci/export_rust_coverage.py .rust-cov
+        run: python3 ci/export_rust_coverage.py .rust-cov --features cpu-features-env
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: coverage-data-sde
+          name: coverage-data-cpu-features-${{ strategy.job-index }}
           path: "*.lcov"
           if-no-files-found: error
 
   coverage:
-    needs: [rust, rust-sde]
+    needs: [rust, rust-cpu-features]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -319,7 +330,7 @@ jobs:
   # so the required checks don't have to track every job and matrix entry.
   all-green:
     if: ${{ always() }}
-    needs: [lean, lean-imports, vectors, rust, rust-sde, coverage]
+    needs: [lean, lean-imports, vectors, rust, rust-cpu-features, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Check every job succeeded

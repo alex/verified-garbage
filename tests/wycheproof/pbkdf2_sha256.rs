@@ -3,7 +3,7 @@
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use verified_garbage::hashes::sha256::Sha256;
-use verified_garbage::pbkdf2::{__pbkdf2_hmac_with_features, pbkdf2_hmac, pbkdf2_hmac_sha256};
+use verified_garbage::pbkdf2::{pbkdf2_hmac, pbkdf2_hmac_sha256};
 
 use crate::pbkdf2::check_with;
 use crate::require_vectors;
@@ -13,8 +13,4 @@ fn pbkdf2_hmac_sha256_vectors() {
     require_vectors!();
     check_with("pbkdf2_hmacsha256_test.json", pbkdf2_hmac_sha256);
     check_with("pbkdf2_hmacsha256_test.json", pbkdf2_hmac::<Sha256>);
-    // With the implementation for the baseline ISA too.
-    check_with("pbkdf2_hmacsha256_test.json", |p, s, n, out| {
-        __pbkdf2_hmac_with_features::<Sha256>(p, s, n, out, 0)
-    });
 }

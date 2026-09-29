@@ -76,6 +76,21 @@ def aarch64Stack : AArch64.State :=
   some [1, 2, 3, 4, 5, 6, 7, 8, 0x0807060504030201]
 #guard (AArch64.abi.args (List.replicate 8 64 ++ [32])).isNone
 #guard (AArch64.abi.argArea (List.replicate 9 64) aarch64Stack).map (·.1) == [⟨0x100, 8⟩]
+-- `ldr xt, [sp, #off]` reads the stack arguments where the ABI puts them:
+-- `stackArg s i` at `sp + 8 * i`, within the argument area.
+def aarch64StackRd : AArch64.State :=
+  { aarch64Stack with rd := (AArch64.abi.argArea (List.replicate 9 64) aarch64Stack).map (·.1) }
+#guard (AArch64.exec (.ldrSp .x9 0) aarch64StackRd).map (·.gpr .x9) ==
+  some (AArch64.stackArg aarch64Stack 0)
+#guard (AArch64.exec (.ldrSp .x9 0) aarch64StackRd).map (·.gpr .x9) == some 0x0807060504030201
+#guard AArch64.addrs (.ldrSp .x9 8) aarch64Stack == [0x108]
+-- It faults outside the readable regions, at an offset that is not a
+-- multiple of 8, and at one it cannot encode (`imm12 * 8`, so below 32768).
+#guard (AArch64.exec (.ldrSp .x9 0) aarch64Stack).isNone
+#guard (AArch64.exec (.ldrSp .x9 8) aarch64StackRd).isNone
+#guard (AArch64.exec (.ldrSp .x9 4) { aarch64StackRd with sp := 0xfc }).isNone
+#guard (AArch64.exec (.ldrSp .x9 32760) { aarch64StackRd with sp := 0x100 - 32760 }).isSome
+#guard (AArch64.exec (.ldrSp .x9 32768) { aarch64StackRd with sp := 0x100 - 32768 }).isNone
 #guard AArch64.abi.ret aarch64State == 1
 
 /-! ### Public arguments are public only in the bits of their width

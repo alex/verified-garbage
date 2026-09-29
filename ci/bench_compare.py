@@ -18,6 +18,9 @@ verified-garbage benchmark got slower by more than `--threshold`.
 OpenSSL's code is the same on both sides, so its benchmarks run just once,
 with HEAD's binary, as a reference point for HEAD's times.
 
+`VG_CPU_FEATURES` in the environment (see src/cpu.rs) restricts the CPU
+features both sides use, and is named in the report.
+
 `--modules` runs only the benchmarks of those library modules (see
 `bench_arches.py`).
 """
@@ -165,8 +168,9 @@ def main():
     print("OpenSSL", file=sys.stderr)
     openssl = run(binaries["head"], args.work_dir.resolve() / "openssl", OPENSSL, args)
 
+    cpu_features = os.environ.get("VG_CPU_FEATURES", "")
     lines = [
-        "## Benchmarks",
+        f"## Benchmarks (VG_CPU_FEATURES={cpu_features})" if cpu_features else "## Benchmarks",
         "",
         f"Fastest of {args.rounds} interleaved runs of each side on this runner;"
         f" a slowdown of more than {args.threshold:.0%} fails."

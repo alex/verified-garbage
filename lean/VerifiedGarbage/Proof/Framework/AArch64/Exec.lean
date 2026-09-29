@@ -154,7 +154,12 @@ end VG.AArch64
 namespace VG.AArch64
 
 theorem exec_sp {i : Instr} {s s' : State} (h : exec i s = some s') : s'.sp = s.sp := by
-  cases i <;>
+  cases i
+  case ldrSp =>
+    simp only [exec] at h
+    split at h <;> [skip; cases h]
+    obtain ⟨_, _, rfl⟩ := Option.map_eq_some_iff.mp h; rfl
+  all_goals
   simp only [exec, Option.bind_eq_some_iff, Option.map_eq_some_iff, State.write, State.load,
     State.store] at h <;>
   (repeat' split at h) <;>
