@@ -11,6 +11,7 @@ import VerifiedGarbage.Proof.MlKem.X86_64.NttInv
 import VerifiedGarbage.Proof.MlKem.X86_64.SampleCT
 import VerifiedGarbage.Proof.MlKem.X86_64.KgTop
 import VerifiedGarbage.Proof.MlKem.X86_64.EcTop
+import VerifiedGarbage.Proof.MlKem.X86_64.DcTop
 
 /-!
 # ML-KEM (FIPS 203) on x86-64: the polynomial primitives and ML-KEM-768
@@ -120,6 +121,15 @@ def artifacts : List Artifact := [
     code := Impl.MlKem.X86_64.encaps
     contract := Spec.MlKem.encapsContract X86_64.abi 24
     stack := 24
-    verified := Proof.MlKem.X86_64.encaps_verified }]
+    verified := Proof.MlKem.X86_64.encaps_verified },
+  { Spec.MlKem.decapsApi with
+    target := X86_64.target
+    doc := Spec.MlKem.decapsApi.doc
+      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 24 \
+        bytes of stack below its return address."])
+    code := Impl.MlKem.X86_64.decaps
+    contract := Spec.MlKem.decapsContract X86_64.abi 24
+    stack := 24
+    verified := Proof.MlKem.X86_64.decaps_verified }]
 
 end VG.Artifacts.MlKem.X86_64
