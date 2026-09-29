@@ -45,7 +45,7 @@ def scalar : Compress where
   callee := .scalar
   ok := Stream.scalar_ok
   mxcsr := by decide +kernel
-  spSafe := by decide +kernel
+  spSafe := Code.all_of_allInstrs (by decide +kernel)
   suffix := ""
   features := []
 

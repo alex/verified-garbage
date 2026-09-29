@@ -22,42 +22,49 @@ def artifacts : List Artifact := [
     doc := Spec.Sha512.compressApi.doc
     code := Impl.Sha512.AArch64.compress
     contract := Spec.Sha512.compressContract AArch64.abi
-    verified := Proof.Sha512.AArch64.Shared.compress },
+    verified := Proof.Sha512.AArch64.Shared.compress
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha512.init384Api with
     target := AArch64.target
     doc := Spec.Sha512.init384Api.doc
     code := Impl.Sha512.AArch64.Stream.init Spec.Sha512.H0_384
     contract := Spec.Sha512.initContract AArch64.abi Spec.Sha512.H0_384
-    verified := Proof.Sha512.AArch64.Shared.init Spec.Sha512.H0_384 },
+    verified := Proof.Sha512.AArch64.Shared.init Spec.Sha512.H0_384
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha512.init512Api with
     target := AArch64.target
     doc := Spec.Sha512.init512Api.doc
     code := Impl.Sha512.AArch64.Stream.init Spec.Sha512.H0_512
     contract := Spec.Sha512.initContract AArch64.abi Spec.Sha512.H0_512
-    verified := Proof.Sha512.AArch64.Shared.init Spec.Sha512.H0_512 },
+    verified := Proof.Sha512.AArch64.Shared.init Spec.Sha512.H0_512
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha512.init512_224Api with
     target := AArch64.target
     doc := Spec.Sha512.init512_224Api.doc
     code := Impl.Sha512.AArch64.Stream.init Spec.Sha512.H0_512_224
     contract := Spec.Sha512.initContract AArch64.abi Spec.Sha512.H0_512_224
-    verified := Proof.Sha512.AArch64.Shared.init Spec.Sha512.H0_512_224 },
+    verified := Proof.Sha512.AArch64.Shared.init Spec.Sha512.H0_512_224
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha512.init512_256Api with
     target := AArch64.target
     doc := Spec.Sha512.init512_256Api.doc
     code := Impl.Sha512.AArch64.Stream.init Spec.Sha512.H0_512_256
     contract := Spec.Sha512.initContract AArch64.abi Spec.Sha512.H0_512_256
-    verified := Proof.Sha512.AArch64.Shared.init Spec.Sha512.H0_512_256 },
+    verified := Proof.Sha512.AArch64.Shared.init Spec.Sha512.H0_512_256
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha512.updateApi with
     target := AArch64.target
     doc := Spec.Sha512.updateApi.doc
     code := Impl.Sha512.AArch64.Stream.update
     contract := Spec.Sha512.updateContract AArch64.abi
-    verified := Proof.Sha512.AArch64.Shared.update },
+    verified := Proof.Sha512.AArch64.Shared.update
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Sha512.finalizeApi with
     target := AArch64.target
     doc := Spec.Sha512.finalizeApi.doc
     code := Impl.Sha512.AArch64.Stream.finalize
     contract := Spec.Sha512.finalizeContract AArch64.abi
-    verified := Proof.Sha512.AArch64.Shared.finalize }]
+    verified := Proof.Sha512.AArch64.Shared.finalize
+    spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.Sha512.AArch64

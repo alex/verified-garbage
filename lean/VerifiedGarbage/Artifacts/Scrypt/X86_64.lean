@@ -27,20 +27,23 @@ def artifacts : List Artifact := [
     doc := Spec.Scrypt.salsaApi.doc
     code := Impl.Scrypt.X86_64.salsa
     contract := Spec.Scrypt.salsaContract X86_64.abi
-    verified := Proof.Scrypt.X86_64.salsa_verified },
+    verified := Proof.Scrypt.X86_64.salsa_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { Spec.Scrypt.blockMixApi with
     target := X86_64.target
     doc := Spec.Scrypt.blockMixApi.doc
     code := Impl.Scrypt.X86_64.blockMix
     contract := Spec.Scrypt.blockMixContract X86_64.abi 8
     stack := 8
-    verified := Proof.Scrypt.X86_64.BlockMix.blockMix_verified },
+    verified := Proof.Scrypt.X86_64.BlockMix.blockMix_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { Spec.Scrypt.roMixApi with
     target := X86_64.target
     doc := Spec.Scrypt.roMixApi.doc
     code := Impl.Scrypt.X86_64.roMix
     contract := Spec.Scrypt.roMixContract X86_64.abi 16
     stack := 16
-    verified := Proof.Scrypt.X86_64.RoMix.roMix_verified }]
+    verified := Proof.Scrypt.X86_64.RoMix.roMix_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.Scrypt.X86_64

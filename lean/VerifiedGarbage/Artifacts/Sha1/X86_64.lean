@@ -22,13 +22,15 @@ def artifacts : List Artifact := [
     doc := Spec.Sha1.compressApi.doc
     code := Impl.Sha1.X86_64.compress
     contract := Spec.Sha1.compressContract X86_64.abi
-    verified := Proof.Sha1.X86_64.Shared.compress },
+    verified := Proof.Sha1.X86_64.Shared.compress
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { Spec.Sha1.initApi with
     target := X86_64.target
     doc := Spec.Sha1.initApi.doc
     code := Impl.Sha1.X86_64.Stream.init
     contract := Spec.Sha1.initContract X86_64.abi
-    verified := Proof.Sha1.X86_64.Shared.init },
+    verified := Proof.Sha1.X86_64.Shared.init
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { Spec.Sha1.compressApi with
     name := Spec.Sha1.compressApi.name ++ "_shani"
     target := X86_64.target
@@ -36,6 +38,7 @@ def artifacts : List Artifact := [
     code := Impl.Sha1.X86_64.ShaNi.compress
     contract := Spec.Sha1.compressContract X86_64.abi
     verified := Proof.Sha1.X86_64.Shared.compress_shani
-    features := ["sha", "ssse3"] }]
+    features := ["sha", "ssse3"]
+    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.Sha1.X86_64

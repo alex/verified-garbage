@@ -90,10 +90,11 @@ instructions in an ISA model) go in their own PR before either.
    passing `doc` any notes on the implementation (`(notes := […])`). Set
    `stack` to the contract's (and `writeArgs`, if the artifact is not made
    from an `Api`): the default proof of `ofSig` checks both against the
-   contract, and the emitter documents what they imply. Its `spSafe`
-   can be the default, `decide +kernel`, which runs in the registration
-   file; on ARMv7 and AArch64 `Code.all_of_forall (fun _ => rfl) _` is
-   faster. If its code uses instructions outside
+   contract, and the emitter documents what they imply. Set its `spSafe`
+   to `Code.all_of_forall (fun _ => rfl) _` on ARMv7 and AArch64, which
+   evaluates nothing, and to `Code.all_of_allInstrs (by decide +kernel)`
+   on x86 and x86-64, which runs in the registration file twice as fast as
+   the default, `decide +kernel`. If its code uses instructions outside
    the target's baseline ISA, list the CPU features they require in
    `features` (the emitter rejects anything but the exact set).
    A function that calls another one with several implementations (e.g.

@@ -214,6 +214,15 @@ theorem Code.all_of_forall {I C : Type} {p : I → Bool} (h : ∀ i, p i = true)
     c.all p = true := by
   induction c <;> simp_all [Code.all]
 
+/-- `Code.all p` from `Code.allInstrs p`: for `Artifact.spSafe` on the other
+ISAs, `Code.all_of_allInstrs (by decide +kernel)` has the kernel evaluate the
+faster `Code.allInstrs`. -/
+theorem Code.all_of_allInstrs {I C : Type} {p : I → Bool} {c : Code I C} (h : c.allInstrs p = true) :
+    c.all p = true := by
+  induction c with
+  | block is => induction is <;> simp_all [Code.all, Code.allInstrs]
+  | _ => simp_all [Code.all, Code.allInstrs]
+
 /-- Moving a proof to a contract `k'` whose states permit more than those of
 `k`: each state `s` of `k'` narrows to a state `n s` of `k`, and an execution
 from `n s` gives one from `s` with the same trace, ending in `w s s₁`. -/
