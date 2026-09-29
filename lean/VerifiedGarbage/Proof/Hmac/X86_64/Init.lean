@@ -1,7 +1,6 @@
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
 import Mathlib.Tactic.Set
 import VerifiedGarbage.Proof.Framework.Contract
-import VerifiedGarbage.Proof.Framework.X86_64.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
@@ -37,7 +36,7 @@ abbrev scr : Addr := s₀.gpr .r8
 abbrev inR : Region := ⟨inn s₀, 96⟩
 abbrev outR : Region := ⟨out s₀, 96⟩
 abbrev kR : Region := ⟨kp s₀, kl s₀⟩
-abbrev scR : Region := ⟨scr s₀, 160⟩
+abbrev scR : Region := ⟨scr s₀, 608⟩
 abbrev retR : Region := ⟨s₀.gpr .rsp, 8⟩
 /-- Where the calls of the compression function store their return address. -/
 abbrev stkR : Region := below (s₀.gpr .rsp) 8
@@ -51,12 +50,12 @@ def Saved (m : Mem) : Prop :=
 
 /-- The memory after saving them. -/
 def saveMem : Mem :=
-  (((((s₀.mem.writeW (scr s₀ + BitVec.ofInt 64 ((112 : Nat) : Int)) (s₀.gpr .rbx)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((120 : Nat) : Int)) (s₀.gpr .rbp)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((128 : Nat) : Int)) (s₀.gpr .r12)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((136 : Nat) : Int)) (s₀.gpr .r13)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((144 : Nat) : Int)) (s₀.gpr .r14)).writeW
-    (scr s₀ + BitVec.ofInt 64 ((152 : Nat) : Int)) (s₀.gpr .r15)
+  (((((s₀.mem.writeW (scr s₀ + BitVec.ofInt 64 ((560 : Nat) : Int)) (s₀.gpr .rbx)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((568 : Nat) : Int)) (s₀.gpr .rbp)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((576 : Nat) : Int)) (s₀.gpr .r12)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((584 : Nat) : Int)) (s₀.gpr .r13)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((592 : Nat) : Int)) (s₀.gpr .r14)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((600 : Nat) : Int)) (s₀.gpr .r15)
 
 end
 
@@ -67,15 +66,15 @@ theorem saveMem_saved {s₀ : State} : Saved s₀ (saveMem s₀) := by
   simp (config := {decide := true}) only [saveMem, Mem.readW_writeW_self64, readW_writeW_save]
 
 theorem saveMem_frame {s₀ : State} : Frame [scR s₀] s₀.mem (saveMem s₀) := by
-  have c : ∀ d : Nat, d + 8 ≤ 160 →
+  have c : ∀ d : Nat, d + 8 ≤ 608 →
       (scR s₀).Contains (scr s₀ + BitVec.ofInt 64 (d : Int)) (64 / 8) :=
     fun d hd => contains_offset' hd (by omega)
   simp only [saveMem]
-  exact (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 112 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 120 (by omega))).writeW (List.mem_singleton_self _) _
-    (c 128 (by omega))).writeW (List.mem_singleton_self _) _ (c 136 (by omega))).writeW
-    (List.mem_singleton_self _) _ (c 144 (by omega)) |>.writeW (List.mem_singleton_self _) _
-    (c 152 (by omega))
+  exact (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 560 (by omega))).writeW
+    (List.mem_singleton_self _) _ (c 568 (by omega))).writeW (List.mem_singleton_self _) _
+    (c 576 (by omega))).writeW (List.mem_singleton_self _) _ (c 584 (by omega))).writeW
+    (List.mem_singleton_self _) _ (c 592 (by omega)) |>.writeW (List.mem_singleton_self _) _
+    (c 600 (by omega))
 
 structure Pre (s₀ : State) : Prop where
   kl_le : kl s₀ ≤ 64
@@ -117,10 +116,10 @@ set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .r8)) s₀ fun s =>
       s.mem = saveMem s₀ ∧ s.gpr = s₀.gpr ∧ s.rd = s₀.rd ∧ s.wr = s₀.wr := by
-  have o : ∀ d : Nat, d + 8 ≤ 160 → InRegions s₀.wr (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
+  have o : ∀ d : Nat, d + 8 ≤ 608 → InRegions s₀.wr (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
     fun d hd => ⟨scR s₀, by simp [hp.wr], contains_offset' hd (by omega)⟩
-  have o0 := o 112 (by omega); have o1 := o 120 (by omega); have o2 := o 128 (by omega)
-  have o3 := o 136 (by omega); have o4 := o 144 (by omega); have o5 := o 152 (by omega)
+  have o0 := o 560 (by omega); have o1 := o 568 (by omega); have o2 := o 576 (by omega)
+  have o3 := o 584 (by omega); have o4 := o 592 (by omega); have o5 := o 600 (by omega)
   apply WP.of_runBlock
   simp (config := {decide := true}) only [save, Impl.Sha256.X86_64.Stream.saved, List.map_cons,
     List.map_nil, runBlock_cons, runStep_some, runBlock_nil, exec,
@@ -199,7 +198,7 @@ theorem saved_frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Re
   intro p hp'
   rw [← h p hp']
   simp only [Impl.Sha256.X86_64.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
-  have hd' : 112 ≤ p.2 ∧ p.2 + 8 ≤ 160 := by rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;> simp
+  have hd' : 560 ≤ p.2 ∧ p.2 + 8 ≤ 608 := by rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;> simp
   refine hf.readW (r := ⟨scr s₀ + BitVec.ofInt 64 (p.2 : Int), 8⟩) (Region.contains_self _ _) ?_ (by decide)
   intro r hr
   exact (hd r hr).sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))
@@ -538,9 +537,9 @@ theorem pad_loop_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Pad s₀ (kl
 
 /-! ## The two compressions -/
 
-/-- `Saved` survives a write outside the save area `scratch[112..160)`. -/
+/-- `Saved` survives a write outside the save area `scratch[560..608)`. -/
 theorem saved_frame' {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Region} (hf : Frame rs m m')
-    (hd : ∀ r ∈ rs, Region.Disjoint ⟨scr s₀ + BitVec.ofNat 64 112, 48⟩ r) : Saved s₀ m' := by
+    (hd : ∀ r ∈ rs, Region.Disjoint ⟨scr s₀ + BitVec.ofNat 64 560, 48⟩ r) : Saved s₀ m' := by
   intro p hp'
   rw [← h p hp']
   refine hf.readW (r := ⟨scr s₀ + BitVec.ofInt 64 (p.2 : Int), 8⟩) (Region.contains_self _ _) ?_ (by decide)
@@ -577,10 +576,10 @@ theorem callOk {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s₀ ∨
   obtain ⟨d, dr, hm⟩ := hs
   have e32 : Region.Sub ⟨p, 32⟩ ⟨p, 96⟩ := Region.sub_prefix (by omega)
   have eb : Region.Sub ⟨p + 32, 64⟩ ⟨p, 96⟩ := sub_offset (off := 32) (by omega) (by omega)
-  have e112 : Region.Sub ⟨scr s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
-  refine ⟨hbx, h15, hsi, (d.sub_left e32).sub_right e112, ?_,
-    (d.sub_left eb).sub_right e112, by rw [hsp]; exact dr.sub_right e32,
-    by rw [hsp]; exact hp.stk_s.sub_right e112, by rw [hsp]; exact dr.sub_right eb, ?_, ?_⟩
+  have e560 : Region.Sub ⟨scr s₀, 560⟩ (scR s₀) := Region.sub_prefix (by omega)
+  refine ⟨hbx, h15, hsi, (d.sub_left e32).sub_right e560, ?_,
+    (d.sub_left eb).sub_right e560, by rw [hsp]; exact dr.sub_right e32,
+    by rw [hsp]; exact hp.stk_s.sub_right e560, by rw [hsp]; exact dr.sub_right eb, ?_, ?_⟩
   · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
   · rw [hrd, hwr]
     apply Covers.of_sub
@@ -605,7 +604,7 @@ theorem compress_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {p :
     (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) (hbx : s.gpr .rbx = p) (h15 : s.gpr .r15 = scr s₀)
     (hsi : s.gpr .rsi = p + 32) (hsp : s.gpr .rsp = s₀.gpr .rsp) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
-      Frame [⟨p, 32⟩, ⟨scr s₀, 112⟩, stkR s₀] s.mem s'.mem →
+      Frame [⟨p, 32⟩, ⟨scr s₀, 560⟩, stkR s₀] s.mem s'.mem →
       stateAt s'.mem p = Spec.Sha256.compress (stateAt s.mem p) (Spec.Sha256.blockAt s.mem (p + 32)) →
       Q s') :
     WP isa (compressAt f) s Q :=
@@ -622,7 +621,7 @@ theorem state_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Ad
       hf.bytes (R := ⟨p + 32, 64⟩) (fun r hr => (hd r hr).sub_left (sub_offset (off := 32) (by omega) (by omega)))
         (by simp) hi⟩
 
-theorem save_sub (s₀ : State) : Region.Sub ⟨scr s₀ + BitVec.ofNat 64 112, 48⟩ (scR s₀) :=
+theorem save_sub (s₀ : State) : Region.Sub ⟨scr s₀ + BitVec.ofNat 64 560, 48⟩ (scR s₀) :=
   sub_offset (by omega) (by omega)
 
 set_option simprocs false in
@@ -631,22 +630,22 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s�
     (hfr : Frame [inR s₀, outR s₀, scR s₀, stkR s₀] s₀.mem s.mem)
     (hI : Repr s.mem (inn s₀) (xorPad (K0 s₀) ipad)) (hO : Repr s.mem (out s₀) (xorPad (K0 s₀) opad)) :
     WP isa (.block restore) s fun s' => gprPreserved s₀ s' ∧ Proof.Hmac.initSha256X86_64.post s₀ s' := by
-  have i : ∀ d : Nat, d + 8 ≤ 160 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
+  have i : ∀ d : Nat, d + 8 ≤ 608 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=
     fun d hd => ⟨scR s₀, by simp [hwr, hp.wr], contains_offset' hd (by omega)⟩
-  have i0 := i 112 (by omega); have i1 := i 120 (by omega); have i2 := i 128 (by omega)
-  have i3 := i 136 (by omega); have i4 := i 144 (by omega); have i5 := i 152 (by omega)
-  have g0 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((112 : Nat) : Int)) 64 = s₀.gpr .rbx :=
-    hsv (.rbx, 112) (by simp [Impl.Sha256.X86_64.Stream.saved])
-  have g1 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((120 : Nat) : Int)) 64 = s₀.gpr .rbp :=
-    hsv (.rbp, 120) (by simp [Impl.Sha256.X86_64.Stream.saved])
-  have g2 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((128 : Nat) : Int)) 64 = s₀.gpr .r12 :=
-    hsv (.r12, 128) (by simp [Impl.Sha256.X86_64.Stream.saved])
-  have g3 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((136 : Nat) : Int)) 64 = s₀.gpr .r13 :=
-    hsv (.r13, 136) (by simp [Impl.Sha256.X86_64.Stream.saved])
-  have g4 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((144 : Nat) : Int)) 64 = s₀.gpr .r14 :=
-    hsv (.r14, 144) (by simp [Impl.Sha256.X86_64.Stream.saved])
-  have g5 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((152 : Nat) : Int)) 64 = s₀.gpr .r15 :=
-    hsv (.r15, 152) (by simp [Impl.Sha256.X86_64.Stream.saved])
+  have i0 := i 560 (by omega); have i1 := i 568 (by omega); have i2 := i 576 (by omega)
+  have i3 := i 584 (by omega); have i4 := i 592 (by omega); have i5 := i 600 (by omega)
+  have g0 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((560 : Nat) : Int)) 64 = s₀.gpr .rbx :=
+    hsv (.rbx, 560) (by simp [Impl.Sha256.X86_64.Stream.saved])
+  have g1 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((568 : Nat) : Int)) 64 = s₀.gpr .rbp :=
+    hsv (.rbp, 568) (by simp [Impl.Sha256.X86_64.Stream.saved])
+  have g2 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((576 : Nat) : Int)) 64 = s₀.gpr .r12 :=
+    hsv (.r12, 576) (by simp [Impl.Sha256.X86_64.Stream.saved])
+  have g3 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((584 : Nat) : Int)) 64 = s₀.gpr .r13 :=
+    hsv (.r13, 584) (by simp [Impl.Sha256.X86_64.Stream.saved])
+  have g4 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((592 : Nat) : Int)) 64 = s₀.gpr .r14 :=
+    hsv (.r14, 592) (by simp [Impl.Sha256.X86_64.Stream.saved])
+  have g5 : s.mem.readW (scr s₀ + BitVec.ofInt 64 ((600 : Nat) : Int)) 64 = s₀.gpr .r15 :=
+    hsv (.r15, 600) (by simp [Impl.Sha256.X86_64.Stream.saved])
   have hret : s.mem.readW (s₀.gpr .rsp) 64 = s₀.mem.readW (s₀.gpr .rsp) 64 :=
     hfr.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_i, hp.ret_o, hp.ret_s, ret_stk s₀⟩)
       (by decide)
@@ -723,7 +722,7 @@ theorem correct {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) :
     fun s₉ rd₉ wr₉ cs₉ fr₉ st₉ => ?_)
   have hI₉ : Repr s₉.mem (inn s₀) (xorPad (K0 s₀) ipad) :=
     repr_block h₈.mem.stI bI (by simp [xorPad, K0_length s₀ hp]) st₉
-  have dO : ∀ r ∈ [(⟨inn s₀, 32⟩ : Region), ⟨scr s₀, 112⟩, stkR s₀], Region.Disjoint ⟨out s₀, 96⟩ r := by
+  have dO : ∀ r ∈ [(⟨inn s₀, 32⟩ : Region), ⟨scr s₀, 560⟩, stkR s₀], Region.Disjoint ⟨out s₀, 96⟩ r := by
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl)
     · exact hp.i_o.symm.sub_right (sub32 _)
@@ -899,7 +898,7 @@ def sat : State where
   of := none
   mem _ := 0
   rd := [⟨0x3000, 0⟩]
-  wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
+  wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 608⟩]
 
 theorem init_ok {f : Callee} (hf : f.Ok) (hm : (init f).allInstrs (fun i => !loadsMxcsr i) = true)
     (s : State) (hs : Proof.Hmac.initSha256X86_64.pre s) :
@@ -915,57 +914,16 @@ theorem init_ct {f : Callee} (hf : f.Ok) :
   exact (init_rel hf (pre_of h₁) (pre_of h₂) ⟨p1, p2, p3, p4, p5, p6⟩ _ _ _ _ _ _ ⟨rfl, rfl⟩
     e₁ e₂).1
 
-/-- `initSha256X86_64` with the 608 bytes of scratch of the shared contract
-(sized for the AVX2 compression function), of which the code uses 160. -/
-def initWide : Contract isa :=
-  { Proof.Hmac.initSha256X86_64 with
-    pre := fun s =>
-      let inner : Region := ⟨s.gpr .rdi, 96⟩
-      let outer : Region := ⟨s.gpr .rsi, 96⟩
-      let key : Region := ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩
-      let scratch : Region := ⟨s.gpr .r8, 608⟩
-      let ret : Region := ⟨s.gpr .rsp, 8⟩
-      let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
-      (s.gpr .rcx).toNat ≤ 64 ∧ s.rd = [key] ∧ s.wr = [inner, outer, scratch] ∧
-      inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
-      key.Disjoint inner ∧ key.Disjoint outer ∧ key.Disjoint scratch ∧
-      ret.Disjoint inner ∧ ret.Disjoint outer ∧ ret.Disjoint scratch ∧
-      stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint key ∧ stack.Disjoint scratch }
-
-/-- The regions `initSha256X86_64` lets the code write. -/
-def narrowWr (s : State) : List Region := [⟨s.gpr .rdi, 96⟩, ⟨s.gpr .rsi, 96⟩, ⟨s.gpr .r8, 160⟩]
-
-theorem initWide_pre (s : State) (h : initWide.pre s) :
-    Proof.Hmac.initSha256X86_64.pre (s.withRegions s.rd (narrowWr s)) :=
-  let ⟨h₁, h₂, _, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅, h₁₆⟩ := h
-  ⟨h₁, h₂, rfl, h₄, h₅.sub_right (Region.sub_of_ble rfl), h₆.sub_right (Region.sub_of_ble rfl), h₇,
-    h₈, h₉.sub_right (Region.sub_of_ble rfl), h₁₀, h₁₁, h₁₂.sub_right (Region.sub_of_ble rfl), h₁₃,
-    h₁₄, h₁₅, h₁₆.sub_right (Region.sub_of_ble rfl)⟩
-
-/-- A state satisfying `initWide.pre`. -/
-def wideSat : State := { sat with wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 608⟩] }
-
-theorem initWide_implies : initWide.Implies (Spec.Hmac.initSha256Contract X86_64.abi 8) := by
-  sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig, initWide,
-    Proof.Hmac.initSha256X86_64, X86_64.abi, X86_64.argRegs] [wideSat, sat] using wideSat
-
-/-- `init`, calling any compression function `f`. The proof is written
-against `initSha256X86_64`, widened to the shared contract's scratch. -/
+/-- `init`, calling any compression function `f`. -/
 theorem init_verified {f : Callee} (hf : f.Ok)
     (hm : f.code.allInstrs (fun i => !loadsMxcsr i) = true) :
     Verified X86_64.target (init f) (Spec.Hmac.initSha256Contract X86_64.abi 8) :=
-  have hsat := initWide_implies.sat_left
-  (Verified.widen (Verified.of_correct (init_ok hf (by
+  Verified.of_correct (init_ok hf (by
     simp only [init, Impl.Sha256.X86_64.Stream.compressAt, Code.allInstrs, hm, Bool.true_and,
       Bool.and_true]
-    decide +kernel)) (init_ct hf) (.refl (hsat.elim fun s hs => ⟨_, initWide_pre s hs⟩)))
-    narrowWr initWide_pre
-    (fun _ h => by
-      obtain ⟨_, _, h₃, _⟩ := h
-      rw [h₃]
-      exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl)
-        (.cons (Region.prefix_of_ble rfl) .nil)))
-    (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat).of_implies initWide_implies
+    decide +kernel)) (init_ct hf) (by
+    sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig,
+      Proof.Hmac.initSha256X86_64, X86_64.abi, X86_64.argRegs] [sat] using sat)
 
 theorem init_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
     (init f).all (fun i => !X86_64.isa.writesSp i) = true := by

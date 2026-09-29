@@ -1,7 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.X86_64.Iterate
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 import VerifiedGarbage.Proof.Framework.Contract
-import VerifiedGarbage.Proof.Framework.X86_64.Inline
 import VerifiedGarbage.Spec.Pbkdf2.Contract
 
 /-!
@@ -83,12 +82,12 @@ theorem cmp_wp {f : Callee} (hf : f.Ok) {s : State} (h : St s₀ v s) :
   cmp_ok hf hp h.toRegs fun _ hk _ => ⟨h.toRegs.keep hk, (hk.gpr _ (by simp [kept])).trans h.r13⟩
 
 /-- The arguments of the call of the compression function. -/
-abbrev setup : List Instr := [.mov .rsi (.reg .rcx), .alu .add .rsi (.imm 144), .mov32 .rdx (.imm 1)]
+abbrev setup : List Instr := [.mov .rsi (.reg .rcx), .alu .add .rsi (.imm 592), .mov32 .rdx (.imm 1)]
 
 omit hp in
 theorem setup_wp {s : State} (h : St s₀ v s) :
     WP isa (.block setup) s fun s' =>
-      St s₀ v s' ∧ s'.gpr .rsi = scr s₀ + 144 ∧ s'.gpr .rdx = 1 := by
+      St s₀ v s' ∧ s'.gpr .rsi = scr s₀ + 592 ∧ s'.gpr .rdx = 1 := by
   refine wp_mov fun s₁ u₁ _ _ => wp_addi fun s₂ u₂ => wp_mov32i fun s₃ u₃ _ _ => WP.block_nil ?_
   have o : ∀ r : Reg, r ≠ .rsi → r ≠ .rdx → s₃.gpr r = s.gpr r := fun r h₁ h₂ => by
     rw [u₃.other _ h₂, u₂.other _ h₁, u₁.other _ h₁]
@@ -103,12 +102,12 @@ theorem setup_wp {s : State} (h : St s₀ v s) :
   · rw [u₃.gpr]; rfl
 
 /-- What the call of the compression function needs, with the arguments set up. -/
-theorem call_hyps {s : State} (h : Regs s₀ s) (hsi : s.gpr .rsi = scr s₀ + 144)
+theorem call_hyps {s : State} (h : Regs s₀ s) (hsi : s.gpr .rsi = scr s₀ + 592)
     (hdx : s.gpr .rdx = 1) :
-    Proof.Sha256.compressX86_64.pre (s.callEntry.withRegions [⟨scr s₀ + 144, 64 * 1⟩]
-      [⟨scr s₀ + 112, 32⟩, ⟨scr s₀, 112⟩]) ∧
-    Covers ([⟨scr s₀ + 144, 64 * 1⟩] ++ [⟨scr s₀ + 112, 32⟩, ⟨scr s₀, 112⟩]) (s.rd ++ s.wr) ∧
-    Covers [⟨scr s₀ + 112, 32⟩, ⟨scr s₀, 112⟩] s.wr := by
+    Proof.Sha256.compressX86_64.pre (s.callEntry.withRegions [⟨scr s₀ + 592, 64 * 1⟩]
+      [⟨scr s₀ + 560, 32⟩, ⟨scr s₀, 560⟩]) ∧
+    Covers ([⟨scr s₀ + 592, 64 * 1⟩] ++ [⟨scr s₀ + 560, 32⟩, ⟨scr s₀, 560⟩]) (s.rd ++ s.wr) ∧
+    Covers [⟨scr s₀ + 560, 32⟩, ⟨scr s₀, 560⟩] s.wr := by
   have hsp : below (s.gpr .rsp) 8 = stkR s₀ := by rw [h.rsp]
   have hsc : (scR s₀) ∈ s.wr := by simp [h.wr, hp.wr]
   have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
@@ -118,21 +117,21 @@ theorem call_hyps {s : State} (h : Regs s₀ s) (hsi : s.gpr .rsi = scr s₀ + 1
       hne _ (by decide : Reg.rsi ≠ .rsp), hne _ (by decide : Reg.rdx ≠ .rsp),
       hne _ (by decide : Reg.rcx ≠ .rsp), h.rdi, h.rcx, hsi, hdx,
       show (1 : BitVec 64).toNat = 1 from rfl, Nat.mul_one]
-    refine ⟨by simp, by simp, scr_disj0 s₀ (a := 112) (by omega) (by omega),
-      scr_disj s₀ (a := 144) (b := 112) (by omega) (by omega) (by omega),
-      scr_disj0 s₀ (a := 144) (by omega) (by omega), ?_, ?_⟩
-    · rw [h.rsp]; exact stk_scr hp (a := 112) (by omega)
-    · rw [h.rsp]; simpa using stk_scr hp (a := 0) (m := 112) (by omega)
+    refine ⟨by simp, by simp, scr_disj0 s₀ (a := 560) (by omega) (by omega),
+      scr_disj s₀ (a := 592) (b := 560) (by omega) (by omega) (by omega),
+      scr_disj0 s₀ (a := 592) (by omega) (by omega), ?_, ?_⟩
+    · rw [h.rsp]; exact stk_scr hp (a := 560) (by omega)
+    · rw [h.rsp]; simpa using stk_scr hp (a := 0) (m := 560) (by omega)
   · refine Covers.of_sub fun r hr => ⟨scR s₀, List.mem_append_right _ hsc, ?_⟩
     simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
-    · exact ⟨144, rfl, by simp⟩
-    · exact ⟨112, rfl, by simp⟩
+    · exact ⟨592, rfl, by simp⟩
+    · exact ⟨560, rfl, by simp⟩
     · exact ⟨0, by simp, by simp⟩
   · refine Covers.of_sub fun r hr => ⟨scR s₀, hsc, ?_⟩
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
-    · exact ⟨112, rfl, by simp⟩
+    · exact ⟨560, rfl, by simp⟩
     · exact ⟨0, by simp, by simp⟩
 
 end
@@ -149,15 +148,15 @@ theorem cmp_rel {v : Addr} :
       St s₀ v s ∧ St s₀' v s' := by
   have es : scr s₀' = scr s₀ := hq.r8.symm
   have su : RelCT isa (fun s s' => St s₀ v s ∧ St s₀' v s') (.block setup) fun s s' =>
-      (St s₀ v s ∧ s.gpr .rsi = scr s₀ + 144 ∧ s.gpr .rdx = 1) ∧
-      (St s₀' v s' ∧ s'.gpr .rsi = scr s₀' + 144 ∧ s'.gpr .rdx = 1) :=
+      (St s₀ v s ∧ s.gpr .rsi = scr s₀ + 592 ∧ s.gpr .rdx = 1) ∧
+      (St s₀' v s' ∧ s'.gpr .rsi = scr s₀' + 592 ∧ s'.gpr .rdx = 1) :=
     ((RelCT.taint (A := taint) τS (fun _ _ h => Taint.agree_ofRegs (St.agree hq h.1 h.2))
       (by taint_decide)).wp fun _ _ h => ⟨setup_wp h.1, setup_wp h.2⟩).mono
       (fun _ _ h => h) fun _ _ h => h.2
   have call := RelCT.call (n := f.name) (P := fun s s' =>
-      (St s₀ v s ∧ s.gpr .rsi = scr s₀ + 144 ∧ s.gpr .rdx = 1) ∧
-      (St s₀' v s' ∧ s'.gpr .rsi = scr s₀' + 144 ∧ s'.gpr .rdx = 1))
-    hf.verified hf.ct [⟨scr s₀ + 144, 64 * 1⟩] [⟨scr s₀ + 112, 32⟩, ⟨scr s₀, 112⟩]
+      (St s₀ v s ∧ s.gpr .rsi = scr s₀ + 592 ∧ s.gpr .rdx = 1) ∧
+      (St s₀' v s' ∧ s'.gpr .rsi = scr s₀' + 592 ∧ s'.gpr .rdx = 1))
+    hf.verified hf.ct [⟨scr s₀ + 592, 64 * 1⟩] [⟨scr s₀ + 560, 32⟩, ⟨scr s₀, 560⟩]
     fun s s' ⟨⟨h, hsi, hdx⟩, ⟨h', hsi', hdx'⟩⟩ => by
       obtain ⟨p₁, c₁, w₁⟩ := call_hyps hp h.toRegs hsi hdx
       obtain ⟨p₂, c₂, w₂⟩ := call_hyps hp' h'.toRegs hsi' hdx'
@@ -265,55 +264,14 @@ theorem constantTime {f : Callee} (hf : f.Ok) :
   intro s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂
   exact (iterate_rel hf (pre_of h₁) (pre_of h₂) (pubEq_of hpub) _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
 
-/-- `iterateSha256X86_64` with the 832 bytes of scratch of the shared contract
-(sized for the AVX2 compression function), of which the code uses 384. -/
-def iterateWide : Contract isa :=
-  { Proof.Pbkdf2.iterateSha256X86_64 with
-    pre := fun s =>
-      let key : Region := ⟨s.gpr .rdi, 192⟩
-      let u : Region := ⟨s.gpr .rsi, 32⟩
-      let t : Region := ⟨s.gpr .rcx, 32⟩
-      let scratch : Region := ⟨s.gpr .r8, 832⟩
-      let ret : Region := ⟨s.gpr .rsp, 8⟩
-      let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
-      s.rd = [key, u] ∧ s.wr = [t, scratch] ∧
-      key.Disjoint t ∧ key.Disjoint scratch ∧ u.Disjoint t ∧ u.Disjoint scratch ∧
-      t.Disjoint scratch ∧
-      ret.Disjoint key ∧ ret.Disjoint u ∧ ret.Disjoint t ∧ ret.Disjoint scratch ∧
-      stack.Disjoint key ∧ stack.Disjoint u ∧ stack.Disjoint t ∧ stack.Disjoint scratch }
-
-/-- The regions `iterateSha256X86_64` lets the code write. -/
-def narrowWr (s : State) : List Region := [⟨s.gpr .rcx, 32⟩, ⟨s.gpr .r8, 384⟩]
-
-theorem iterateWide_pre (s : State) (h : iterateWide.pre s) :
-    Proof.Pbkdf2.iterateSha256X86_64.pre (s.withRegions s.rd (narrowWr s)) :=
-  let ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅⟩ := h
-  ⟨h₁, rfl, h₃, h₄.sub_right (Region.sub_of_ble rfl), h₅, h₆.sub_right (Region.sub_of_ble rfl),
-    h₇.sub_right (Region.sub_of_ble rfl), h₈, h₉, h₁₀, h₁₁.sub_right (Region.sub_of_ble rfl), h₁₂,
-    h₁₃, h₁₄, h₁₅.sub_right (Region.sub_of_ble rfl)⟩
-
-/-- A state satisfying `iterateWide.pre`. -/
-def wideSat : State := { sat with wr := [⟨0x3000, 32⟩, ⟨0x4000, 832⟩] }
-
-theorem iterateWide_implies :
-    iterateWide.Implies (Spec.Pbkdf2.iterateSha256Contract X86_64.abi 8) := by
-  sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig, iterateWide,
-    Proof.Pbkdf2.iterateSha256X86_64, X86_64.abi, X86_64.argRegs] [wideSat, sat] using wideSat
-
-/-- `iterate`, calling any compression function `f`. The proof is written
-against `iterateSha256X86_64`, widened to the shared contract's scratch. -/
 theorem iterate_verified {f : Callee} (hf : f.Ok)
     (hm : f.code.allInstrs (fun i => !loadsMxcsr i) = true) :
     Verified X86_64.target (iterate f) (Spec.Pbkdf2.iterateSha256Contract X86_64.abi 8) :=
-  have hsat := iterateWide_implies.sat_left
-  (Verified.widen (Verified.of_correct (iterate_ok hf (by
+  Verified.of_correct (iterate_ok hf (by
     simp only [iterate, body, compressBlock, Code.allInstrs, hm, Bool.and_true]
-    decide +kernel)) (constantTime hf) (.refl (hsat.elim fun s hs => ⟨_, iterateWide_pre s hs⟩)))
-    narrowWr iterateWide_pre
-    (fun _ h => by
-      obtain ⟨_, h₂, _⟩ := h
-      rw [h₂]; exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl) .nil))
-    (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat).of_implies iterateWide_implies
+    decide +kernel)) (constantTime hf) (by
+    sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig,
+      Proof.Pbkdf2.iterateSha256X86_64, X86_64.abi, X86_64.argRegs] [sat] using sat)
 
 theorem iterate_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
     (iterate f).all (fun i => !X86_64.isa.writesSp i) = true := by

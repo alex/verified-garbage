@@ -1,7 +1,6 @@
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
 import VerifiedGarbage.Proof.Sha256.X86_64.Shared
 import VerifiedGarbage.Proof.Framework.Contract
-import VerifiedGarbage.Proof.Framework.X86_64.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
@@ -35,10 +34,10 @@ abbrev out : Addr := s₀.gpr .rsi
 abbrev scr : Addr := s₀.gpr .rcx
 abbrev inR : Region := ⟨inn s₀, 96⟩
 abbrev outR : Region := ⟨out s₀, 96⟩
-abbrev scR : Region := ⟨scr s₀, 240⟩
+abbrev scR : Region := ⟨scr s₀, 688⟩
 abbrev retR : Region := ⟨s₀.gpr .rsp, 8⟩
 /-- Where the called finalizations may write. -/
-abbrev finW : List Region := [inR s₀, ⟨scr s₀ + 176, 32⟩, ⟨scr s₀, 160⟩]
+abbrev finW : List Region := [inR s₀, ⟨scr s₀ + 608, 32⟩, ⟨scr s₀, 608⟩]
 /-- Where the calls store their return addresses: ours, and that of the call
 of the compression function in the finalization. -/
 abbrev stkR : Region := below (s₀.gpr .rsp) 16
@@ -94,10 +93,10 @@ theorem finK_ok : ∀ s, finK.pre s → ∃ t s', Exec isa (Impl.Sha256.X86_64.S
     Proof.Sha256.X86_64.Stream.Finalize.correct hf (Proof.Sha256.X86_64.Stream.Finalize.pre_of hs)
   exact ⟨t, s', he, abiPreserved_of_exec hm he h₁, h₂, h₃, h₄⟩
 
-theorem sub176 (s₀ : State) : Region.Sub ⟨scr s₀ + 176, 32⟩ (scR s₀) :=
-  sub_offset (off := 176) (by omega) (by omega)
+theorem subOut (s₀ : State) : Region.Sub ⟨scr s₀ + 608, 32⟩ (scR s₀) :=
+  sub_offset (off := 608) (by omega) (by omega)
 
-theorem sub160 (s₀ : State) : Region.Sub ⟨scr s₀, 160⟩ (scR s₀) := Region.sub_prefix (by omega)
+theorem subScr (s₀ : State) : Region.Sub ⟨scr s₀, 608⟩ (scR s₀) := Region.sub_prefix (by omega)
 
 include hf in
 theorem finalize_depth : (Impl.Sha256.X86_64.Stream.finalize f).depth = 1 := by
@@ -119,7 +118,7 @@ theorem finalize_nosp : NoSp (Impl.Sha256.X86_64.Stream.finalize f) := by
 
 /-- The call's precondition, narrowed to the regions it is given. -/
 theorem fin_hyps {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
-    (hdi : s.gpr .rdi = inn s₀) (hcx : s.gpr .rcx = scr s₀) (hdx : s.gpr .rdx = scr s₀ + 176)
+    (hdi : s.gpr .rdi = inn s₀) (hcx : s.gpr .rcx = scr s₀) (hdx : s.gpr .rdx = scr s₀ + 608)
     (hsp : s.gpr .rsp = s₀.gpr .rsp) :
     finK.pre (s.callEntry.withRegions [] (finW s₀)) ∧ Covers ([] ++ finW s₀) (s.rd ++ s.wr) ∧
       Covers (finW s₀) s.wr := by
@@ -129,22 +128,22 @@ theorem fin_hyps {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.r
       hne _ (by decide : Reg.rdx ≠ .rsp), hdi, hcx, hdx], ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
       simp only [State.withRegions_gpr, State.callEntry_rsp, hne _ (by decide : Reg.rdi ≠ .rsp),
         hne _ (by decide : Reg.rcx ≠ .rsp), hne _ (by decide : Reg.rdx ≠ .rsp), hdi, hcx, hdx, hsp]
-    · exact hp.i_s.sub_right (sub176 s₀)
-    · exact hp.i_s.sub_right (sub160 s₀)
+    · exact hp.i_s.sub_right (subOut s₀)
+    · exact hp.i_s.sub_right (subScr s₀)
     · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
     · exact (hp.stk_i.sub_left (sub_stk₁ s₀))
-    · exact (hp.stk_s.sub_left (sub_stk₁ s₀)).sub_right (sub176 s₀)
-    · exact (hp.stk_s.sub_left (sub_stk₁ s₀)).sub_right (sub160 s₀)
+    · exact (hp.stk_s.sub_left (sub_stk₁ s₀)).sub_right (subOut s₀)
+    · exact (hp.stk_s.sub_left (sub_stk₁ s₀)).sub_right (subScr s₀)
     · exact (hp.stk_i.sub_left (sub_stk₂ s₀))
-    · exact (hp.stk_s.sub_left (sub_stk₂ s₀)).sub_right (sub176 s₀)
-    · exact (hp.stk_s.sub_left (sub_stk₂ s₀)).sub_right (sub160 s₀)
+    · exact (hp.stk_s.sub_left (sub_stk₂ s₀)).sub_right (subOut s₀)
+    · exact (hp.stk_s.sub_left (sub_stk₂ s₀)).sub_right (subScr s₀)
   · rw [hrd, hwr, hp.rd, hp.wr]
     apply Covers.of_sub
     intro r hr
     simp only [List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
     · exact ⟨inR s₀, by simp, 0, by simp, by simp⟩
-    · exact ⟨scR s₀, by simp, 176, rfl, by simp⟩
+    · exact ⟨scR s₀, by simp, 608, rfl, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
   · rw [hwr, hp.wr]
     apply Covers.of_sub
@@ -152,20 +151,20 @@ theorem fin_hyps {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.r
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
     · exact ⟨inR s₀, by simp, 0, by simp, by simp⟩
-    · exact ⟨scR s₀, by simp, 176, rfl, by simp⟩
+    · exact ⟨scR s₀, by simp, 608, rfl, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
 
 include hf hm in
 /-- The called finalization (`name`) on the inner state, with its digest at
-`scratch[176..208)` and `scratch[0..160)` as its scratch space. -/
+`scratch[608..640)` and `scratch[0..608)` as its scratch space. -/
 theorem fin_ok (name : String) {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr)
-    (hdi : s.gpr .rdi = inn s₀) (hcx : s.gpr .rcx = scr s₀) (hdx : s.gpr .rdx = scr s₀ + 176)
+    (hdi : s.gpr .rdi = inn s₀) (hcx : s.gpr .rcx = scr s₀) (hdx : s.gpr .rdx = scr s₀ + 608)
     (hsp : s.gpr .rsp = s₀.gpr .rsp) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
       Frame (finW s₀ ++ [stkR s₀]) s.mem s'.mem →
       s'.gpr .rdi = inn s₀ → s'.gpr .rcx = scr s₀ →
       (∀ m, Repr s.mem (inn s₀) m → s.gpr .rsi = BitVec.ofNat 64 m.length →
-        bytesAt s'.mem (scr s₀ + 176) 32 = Spec.Sha256.hash m) → Q s') :
+        bytesAt s'.mem (scr s₀ + 608) 32 = Spec.Sha256.hash m) → Q s') :
     WP isa (sha256Finalize f name) s Q := by
   have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
   obtain ⟨hpre, hc, hw⟩ := fin_hyps hp hrd hwr hdi hcx hdx hsp
@@ -185,25 +184,25 @@ end
 
 /-! ## Saving the outer hash value -/
 
-theorem sx176 : BitVec.signExtend 64 (176 : BitVec 32) = (176 : BitVec 64) := by decide
+theorem sx608 : BitVec.signExtend 64 (608 : BitVec 32) = (608 : BitVec 64) := by decide
 
-/-- After the prologue: the outer hash value's bytes are in `scratch[208..240)`. -/
+/-- After the prologue: the outer hash value's bytes are in `scratch[640..672)`. -/
 structure Saved (s₀ s : State) : Prop where
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
   rdi : s.gpr .rdi = inn s₀
   rcx : s.gpr .rcx = scr s₀
   rsi : s.gpr .rsi = s₀.gpr .rdx
-  rdx : s.gpr .rdx = scr s₀ + 176
+  rdx : s.gpr .rdx = scr s₀ + 608
   cs : ∀ r ∈ calleeSaved, s.gpr r = s₀.gpr r
-  mem : s.mem = writeBytes s₀.mem (scr s₀ + BitVec.ofNat 64 208) (bytesAt s₀.mem (out s₀) 32)
+  mem : s.mem = writeBytes s₀.mem (scr s₀ + BitVec.ofNat 64 640) (bytesAt s₀.mem (out s₀) 32)
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block (saveOuter ++ ([.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)] : List Instr)))
+    WP isa (.block (saveOuter ++ ([.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 608)] : List Instr)))
       s₀ (Saved s₀) := by
   unfold saveOuter
   have h0 : out s₀ + BitVec.ofNat 64 0 = out s₀ := by simp
-  refine copy32_ok (by decide) (by decide) 0 208 8 _ s₀ _ (fun k hk => ?_) (fun k hk => ?_) ?_ (by omega)
+  refine copy32_ok (by decide) (by decide) 0 640 8 _ s₀ _ (fun k hk => ?_) (fun k hk => ?_) ?_ (by omega)
     fun s₁ g₁ rd₁ wr₁ m₁ => wp_mov fun s₂ u₂ _ _ => wp_mov fun s₃ u₃ _ _ => wp_addi fun s₄ u₄ =>
       WP.block_nil ⟨?_, ?_, ?_, ?_, ?_, ?_, fun r hr => ?_, ?_⟩
   · rw [h0]
@@ -218,7 +217,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   · rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide), g₁ _ (by decide)]
   · rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide), g₁ _ (by decide)]
   · rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr, g₁ _ (by decide)]
-  · rw [u₄.gpr, u₃.gpr, u₂.other _ (by decide), g₁ _ (by decide), sx176]
+  · rw [u₄.gpr, u₃.gpr, u₂.other _ (by decide), g₁ _ (by decide), sx608]
   · have : r ≠ .rax ∧ r ≠ .rsi ∧ r ≠ .rdx := by
       simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
@@ -230,32 +229,32 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
 theorem sx96 : ((96 : BitVec 32).setWidth 64) = BitVec.ofNat 64 (64 + 32) := by decide
 
 /-- After the middle block, from `s`: the inner state holds the hash value from
-`scratch[208..240)` and, in its buffer, the digest from `scratch[176..208)`. -/
+`scratch[640..672)` and, in its buffer, the digest from `scratch[608..640)`. -/
 structure Loaded (s₀ s s' : State) : Prop where
   rd : s'.rd = s.rd
   wr : s'.wr = s.wr
   rdi : s'.gpr .rdi = inn s₀
   rcx : s'.gpr .rcx = scr s₀
   rsi : s'.gpr .rsi = BitVec.ofNat 64 (64 + 32)
-  rdx : s'.gpr .rdx = scr s₀ + 176
+  rdx : s'.gpr .rdx = scr s₀ + 608
   cs : ∀ r ∈ calleeSaved, s'.gpr r = s.gpr r
-  state : stateAt s'.mem (inn s₀) = stateAt s.mem (scr s₀ + BitVec.ofNat 64 208)
-  buf : bytesAt s'.mem (inn s₀ + 32) 32 = bytesAt s.mem (scr s₀ + 176) 32
+  state : stateAt s'.mem (inn s₀) = stateAt s.mem (scr s₀ + BitVec.ofNat 64 640)
+  buf : bytesAt s'.mem (inn s₀ + 32) 32 = bytesAt s.mem (scr s₀ + 608) 32
   frame : Frame [inR s₀] s.mem s'.mem
 
 theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s₀.wr)
     (hdi : s.gpr .rdi = inn s₀) (hcx : s.gpr .rcx = scr s₀) :
-    WP isa (.block (loadOuter ++ ([.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)] : List Instr)))
+    WP isa (.block (loadOuter ++ ([.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 608)] : List Instr)))
       s (Loaded s₀ s) := by
   unfold loadOuter
   rw [List.append_assoc]
-  have hin : ∀ {o k : Nat}, o + k ≤ 240 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofNat 64 o) k :=
+  have hin : ∀ {o k : Nat}, o + k ≤ 688 → InRegions (s.rd ++ s.wr) (scr s₀ + BitVec.ofNat 64 o) k :=
     fun h => ⟨scR s₀, by simp [hwr, hp.wr], contains_offset h (by omega)⟩
   have hout : ∀ {o k : Nat}, o + k ≤ 96 → InRegions s.wr (inn s₀ + BitVec.ofNat 64 o) k :=
     fun h => ⟨inR s₀, by simp [hwr, hp.wr], contains_offset h (by omega)⟩
   have add : ∀ (p : Addr) (a b : Nat), p + BitVec.ofNat 64 a + BitVec.ofNat 64 b = p + BitVec.ofNat 64 (a + b) :=
     fun p a b => by rw [BitVec.add_assoc, ← BitVec.ofNat_add]
-  refine copy32_ok (src := .rcx) (dst := .rdi) (by decide) (by decide) 208 0 8 _ s _ ?_ ?_ ?_
+  refine copy32_ok (src := .rcx) (dst := .rdi) (by decide) (by decide) 640 0 8 _ s _ ?_ ?_ ?_
     (by omega) fun s₁ g₁ rd₁ wr₁ m₁ => ?_
   · intro k hk; rw [hcx, add]; exact hin (by omega)
   · intro k hk; rw [hdi, add]; exact hout (by omega)
@@ -263,7 +262,7 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s₀.wr
     exact hp.i_s.symm.sep (contains_offset (by omega) (by omega)) (contains_offset (by omega) (by omega))
   have e₁ : s₁.gpr .rcx = scr s₀ := by rw [g₁ _ (by decide), hcx]
   have d₁ : s₁.gpr .rdi = inn s₀ := by rw [g₁ _ (by decide), hdi]
-  refine copy64_ok (src := .rcx) (dst := .rdi) (by decide) (by decide) 176 32 4 _ s₁ _ ?_ ?_ ?_
+  refine copy64_ok (src := .rcx) (dst := .rdi) (by decide) (by decide) 608 32 4 _ s₁ _ ?_ ?_ ?_
     (by omega) fun s₂ g₂ rd₂ wr₂ m₂ => wp_mov32i fun s₃ u₃ _ _ => wp_mov fun s₄ u₄ _ _ =>
       wp_addi fun s₅ u₅ => WP.block_nil ?_
   · intro k hk; rw [e₁, add, rd₁, wr₁]; exact hin (by omega)
@@ -276,17 +275,17 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s₀.wr
   have hm : s₅.mem = s₂.mem := by rw [u₅.mem, u₄.mem, u₃.mem]
   have k₂ : ∀ r, r ≠ .rax → s₂.gpr r = s.gpr r := fun r h => by rw [g₂ r h, g₁ r h]
   -- The bytes of the inner state.
-  have hbuf : bytesAt s₂.mem (inn s₀ + 32) 32 = bytesAt s.mem (scr s₀ + 176) 32 := by
+  have hbuf : bytesAt s₂.mem (inn s₀ + 32) 32 = bytesAt s.mem (scr s₀ + 608) 32 := by
     rw [m₂, show inn s₀ + 32 = inn s₀ + BitVec.ofNat 64 32 from rfl]
     have := bytesAt_writeBytes_self s₁.mem (inn s₀ + BitVec.ofNat 64 32)
-      (bytesAt s₁.mem (scr s₀ + BitVec.ofNat 64 176) (8 * 4)) (by simp [bytesAt])
+      (bytesAt s₁.mem (scr s₀ + BitVec.ofNat 64 608) (8 * 4)) (by simp [bytesAt])
     rw [bytesAt_length] at this
     rw [this, m₁, bytesAt_writeBytes_sep]
     · rfl
     · rw [bytesAt_length]
       exact hp.i_s.symm.sep (contains_offset (by omega) (by omega)) c₀
     · omega
-  have hst : stateAt s₂.mem (inn s₀) = stateAt s.mem (scr s₀ + BitVec.ofNat 64 208) := by
+  have hst : stateAt s₂.mem (inn s₀) = stateAt s.mem (scr s₀ + BitVec.ofNat 64 640) := by
     refine stateAt_eq_of_bytes fun i hi => ?_
     rw [m₂, writeBytes_other _ _ _ (by rw [bytesAt_length]; bv_omega), m₁,
       writeBytes_at _ _ _ (by rw [bytesAt_length]; omega) (by rw [bytesAt_length]; omega),
@@ -301,7 +300,7 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s₀.wr
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), k₂ _ (by decide), hdi]
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), k₂ _ (by decide), hcx]
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, sx96]
-  · rw [u₅.gpr, u₄.gpr, u₃.other _ (by decide), k₂ _ (by decide), hcx, sx176]
+  · rw [u₅.gpr, u₄.gpr, u₃.other _ (by decide), k₂ _ (by decide), hcx, sx608]
   · have : r ≠ .rax ∧ r ≠ .rsi ∧ r ≠ .rdx := by
       simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
@@ -323,10 +322,10 @@ theorem repr_outer {k0 d : List Byte} (hk : k0.length = 64) (hd : d.length = 32)
   · rw [hl, show 96 % 64 = 32 from rfl, show 64 * (96 / 64) = 64 from rfl,
       List.drop_left' (by rw [xorPad_length, hk]), hb]
 
-/-- `scratch[208..240)` is not written by the called finalizations. -/
+/-- `scratch[640..672)` is not written by the called finalizations. -/
 theorem not_finW {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 32) :
-    ∀ r ∈ finW s₀ ++ [stkR s₀], ¬ r.Contains (scr s₀ + BitVec.ofNat 64 208 + BitVec.ofNat 64 i) 1 := by
-  have hs : (scR s₀).Contains (scr s₀ + BitVec.ofNat 64 208 + BitVec.ofNat 64 i) 1 := by
+    ∀ r ∈ finW s₀ ++ [stkR s₀], ¬ r.Contains (scr s₀ + BitVec.ofNat 64 640 + BitVec.ofNat 64 i) 1 := by
+  have hs : (scR s₀).Contains (scr s₀ + BitVec.ofNat 64 640 + BitVec.ofNat 64 i) 1 := by
     rw [BitVec.add_assoc, ← BitVec.ofNat_add]; exact contains_offset (by omega) (by omega)
   intro r hr
   simp only [finW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -349,9 +348,28 @@ theorem correct {f : Callee} (hf : f.Ok)
   have sp₂ : s₂.gpr .rsp = s₀.gpr .rsp := (abi₂ .rsp (by decide)).trans sp₁
   refine WP.seq (WP.mono (load_ok hp (s := s₂) (wr₂.trans h₁.wr) di₂ cx₂) fun s₃ h₃ => ?_)
   have sp₃ : s₃.gpr .rsp = s₀.gpr .rsp := (h₃.cs .rsp (by decide)).trans sp₂
-  refine fin_ok hf hm name hp (h₃.rd.trans (rd₂.trans h₁.rd)) (h₃.wr.trans (wr₂.trans h₁.wr)) h₃.rdi h₃.rcx h₃.rdx sp₃
-    fun s₄ rd₄ wr₄ abi₄ fr₄ _ _ post₄ => ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
-  · rw [abi₄ r hr, h₃.cs r hr, abi₂ r hr, h₁.cs r hr]
+  refine WP.seq (fin_ok hf hm name hp (h₃.rd.trans (rd₂.trans h₁.rd)) (h₃.wr.trans (wr₂.trans h₁.wr))
+    h₃.rdi h₃.rcx h₃.rdx sp₃ fun s₄ rd₄ wr₄ abi₄ fr₄ _ cx₄ post₄ => ?_)
+  -- The MAC, copied to `scratch[176..208)`.
+  have rw₄ : s₄.rd ++ s₄.wr = [outR s₀, inR s₀, scR s₀] := by
+    rw [rd₄, wr₄, h₃.rd, h₃.wr, rd₂, wr₂, h₁.rd, h₁.wr, hp.rd, hp.wr]; rfl
+  have add : ∀ (p : Addr) (a b : Nat), p + BitVec.ofNat 64 a + BitVec.ofNat 64 b = p + BitVec.ofNat 64 (a + b) :=
+    fun p a b => by rw [BitVec.add_assoc, ← BitVec.ofNat_add]
+  show WP isa (.block ((List.range 4).flatMap (cp64 .rcx .rcx 608 176) ++ [])) s₄ _
+  refine copy64_ok (src := .rcx) (dst := .rcx) (by decide) (by decide) 608 176 4 [] s₄ _
+    (fun k hk => ⟨scR s₀, by simp [rw₄], by rw [cx₄, add]; exact contains_offset (by omega) (by omega)⟩)
+    (fun k hk => ⟨scR s₀, by simp [wr₄, h₃.wr, wr₂, h₁.wr, hp.wr],
+      by rw [cx₄, add]; exact contains_offset (by omega) (by omega)⟩)
+    (by rw [cx₄]; intro x h₁ h₂; bv_omega) (by omega) fun s₅ g₅ rd₅ wr₅ m₅ => WP.block_nil ?_
+  rw [cx₄] at m₅
+  have fr₅ : Frame [scR s₀] s₄.mem s₅.mem := by
+    rw [m₅]; refine writeBytes_frame _ _ _ ?_
+    rw [bytesAt_length]; exact contains_offset (by omega) (by omega)
+  refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
+  · have : r ≠ .rax := by
+      simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+    rw [g₅ r this, abi₄ r hr, h₃.cs r hr, abi₂ r hr, h₁.cs r hr]
   · -- The return address.
     have fr₁ : Frame [scR s₀] s₀.mem s₁.mem := by
       rw [h₁.mem]; refine writeBytes_frame _ _ _ ?_
@@ -362,10 +380,11 @@ theorem correct {f : Callee} (hf : f.Ok)
       simp only [finW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl
       · exact hp.ret_i
-      · exact hp.ret_s.sub_right (sub176 s₀)
-      · exact hp.ret_s.sub_right (sub160 s₀)
+      · exact hp.ret_s.sub_right (subOut s₀)
+      · exact hp.ret_s.sub_right (subScr s₀)
       · exact ret_stk s₀
-    rw [fr₄.readW ret dW (by decide), h₃.frame.readW ret (by simpa using hp.ret_i) (by decide),
+    rw [fr₅.readW ret (by simpa using hp.ret_s) (by decide), fr₄.readW ret dW (by decide),
+      h₃.frame.readW ret (by simpa using hp.ret_i) (by decide),
       fr₂.readW ret dW (by decide), fr₁.readW ret (by simpa using hp.ret_s) (by decide)]
   · intro k0 text hk hin hcnt hout
     -- The inner digest.
@@ -379,7 +398,7 @@ theorem correct {f : Callee} (hf : f.Ok)
     -- The outer state.
     have hst : stateAt s₃.mem (inn s₀) = Spec.Sha256.compressList Spec.Sha256.H0 (xorPad k0 opad) 1 := by
       rw [h₃.state]
-      have e : stateAt s₂.mem (scr s₀ + BitVec.ofNat 64 208) = stateAt s₀.mem (out s₀) := by
+      have e : stateAt s₂.mem (scr s₀ + BitVec.ofNat 64 640) = stateAt s₀.mem (out s₀) := by
         refine stateAt_eq_of_bytes fun i hi => ?_
         rw [fr₂ _ (not_finW hp hi), h₁.mem,
           writeBytes_at _ _ _ (by rw [bytesAt_length]; omega) (by rw [bytesAt_length]; omega),
@@ -388,6 +407,13 @@ theorem correct {f : Callee} (hf : f.Ok)
     have hrepr := repr_outer hk (by rw [bytesAt_length]) hst h₃.buf
     have := post₄ _ hrepr (by rw [h₃.rsi, List.length_append, xorPad_length, hk, bytesAt_length])
     rw [hd] at this
+    have hmac : bytesAt s₅.mem (scr s₀ + BitVec.ofNat 64 176) 32 = bytesAt s₄.mem (scr s₀ + 608) 32 := by
+      have := bytesAt_writeBytes_self s₄.mem (scr s₀ + BitVec.ofNat 64 176)
+        (bytesAt s₄.mem (scr s₀ + BitVec.ofNat 64 608) (8 * 4)) (by simp [bytesAt])
+      rw [bytesAt_length] at this
+      rw [m₅]; exact this
+    show bytesAt s₅.mem (scr s₀ + BitVec.ofNat 64 176) 32 = _
+    rw [hmac]
     simpa [hmacBlockKey, sha256] using this
 
 /-! ## Constant time
@@ -407,7 +433,7 @@ structure Base (s₀ s : State) : Prop where
 
 /-- Before a call of the finalization, of `v` bytes. -/
 def Args (s₀ : State) (v : BitVec 64) (s : State) : Prop :=
-  Base s₀ s ∧ s.gpr .rdx = scr s₀ + 176 ∧ s.gpr .rsi = v
+  Base s₀ s ∧ s.gpr .rdx = scr s₀ + 608 ∧ s.gpr .rsi = v
 
 /-- The public arguments are the same. -/
 structure PubEq (s₀ s₀' : State) : Prop where
@@ -445,7 +471,7 @@ theorem fin_rel {v : BitVec 64} :
 
 theorem finalize_rel : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') (finalize f name) fun _ _ => True := by
   have pro : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀')
-      (.block (saveOuter ++ [.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
+      (.block (saveOuter ++ [.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 608)]))
       fun s s' => Args s₀ (s₀.gpr .rdx) s ∧ Args s₀' (s₀.gpr .rdx) s' :=
     ((RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx, .rsp])
       (P := fun s s' => s = s₀ ∧ s' = s₀') (fun _ _ ⟨e, e'⟩ => Taint.agree_ofRegs fun r hr => by
@@ -462,12 +488,12 @@ theorem finalize_rel : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') (finalize
         ⟨⟨h.2.2.rd, h.2.2.wr, h.2.2.rdi, h.2.2.rcx, h.2.2.cs _ (by decide)⟩, h.2.2.rdx,
           by rw [h.2.2.rsi, hq.rdx]⟩⟩
   have ld : ∀ {σ : State}, Pre σ → ∀ {s : State}, Base σ s →
-      WP isa (.block (loadOuter ++ [.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
+      WP isa (.block (loadOuter ++ [.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 608)]))
         s (Args σ (BitVec.ofNat 64 (64 + 32))) :=
     fun {σ} hp {s} h => WP.mono (load_ok hp h.wr h.rdi h.rcx) fun _ l =>
       ⟨⟨l.rd.trans h.rd, l.wr.trans h.wr, l.rdi, l.rcx, (l.cs _ (by decide)).trans h.rsp⟩, l.rdx, l.rsi⟩
   have mid : RelCT isa (fun s s' => Base s₀ s ∧ Base s₀' s')
-      (.block (loadOuter ++ [.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
+      (.block (loadOuter ++ [.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 608)]))
       fun s s' => Args s₀ (BitVec.ofNat 64 (64 + 32)) s ∧ Args s₀' (BitVec.ofNat 64 (64 + 32)) s' :=
     ((RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rcx, .rsp])
       (fun _ _ ⟨h, h'⟩ => Taint.agree_ofRegs fun r hr => by
@@ -477,8 +503,11 @@ theorem finalize_rel : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') (finalize
         · rw [h.rcx, h'.rcx]; exact hq.rcx
         · rw [h.rsp, h'.rsp]; exact hq.rsp) (by taint_decide)).wp
       fun _ _ h => ⟨ld hp h.1, ld hp' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
-  exact pro.seq ((fin_rel hf hm name hp hp' hq).seq (mid.seq ((fin_rel hf hm name hp hp' hq).mono
-    (fun _ _ h => h) fun _ _ _ => trivial)))
+  have mac : RelCT isa (fun s s' => Base s₀ s ∧ Base s₀' s') (.block storeMac) fun _ _ => True :=
+    RelCT.taint (A := taint) (Taint.ofRegs [.rcx]) (fun _ _ ⟨h, h'⟩ => Taint.agree_ofRegs fun r hr => by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      subst hr; rw [h.rcx, h'.rcx]; exact hq.rcx) (by taint_decide)
+  exact pro.seq ((fin_rel hf hm name hp hp' hq).seq (mid.seq ((fin_rel hf hm name hp hp' hq).seq mac)))
 
 end
 
@@ -492,7 +521,7 @@ def sat : State where
   of := none
   mem _ := 0
   rd := [⟨0x2000, 96⟩]
-  wr := [⟨0x1000, 96⟩, ⟨0x3000, 240⟩]
+  wr := [⟨0x1000, 96⟩, ⟨0x3000, 688⟩]
 
 theorem finalize_ok {f : Callee} (hf : f.Ok)
     (hm : (Impl.Sha256.X86_64.Stream.finalize f).allInstrs (fun i => !loadsMxcsr i) = true)
@@ -500,7 +529,7 @@ theorem finalize_ok {f : Callee} (hf : f.Ok)
     ∃ t s', Exec isa (finalize f name) s t s' ∧ abiPreserved s s' ∧
       Proof.Hmac.finalizeSha256X86_64.post s s' := by
   have hm' : (finalize f name).allInstrs (fun i => !loadsMxcsr i) = true := by
-    simp only [finalize, sha256Finalize, Code.allInstrs, hm, Bool.and_true]
+    simp only [finalize, sha256Finalize, Code.allInstrs, hm]
     decide +kernel
   obtain ⟨t, s', he, h⟩ := correct hf hm name (pre_of hs)
   exact ⟨t, s', he, abiPreserved_of_exec hm' he h.1, h.2⟩
@@ -515,42 +544,8 @@ theorem finalize_ct {f : Callee} (hf : f.Ok)
   exact (finalize_rel hf hm name (pre_of h₁) (pre_of h₂) ⟨p1, p2, p3, p4, p5⟩ _ _ _ _ _ _ ⟨rfl, rfl⟩
     e₁ e₂).1
 
-/-- `finalizeSha256X86_64` with the 688 bytes of scratch of the shared
-contract (sized for the AVX2 compression function), of which the code uses
-240 (the MAC stays at byte 176). -/
-def finalizeWide : Contract isa :=
-  { Proof.Hmac.finalizeSha256X86_64 with
-    pre := fun s =>
-      let inner : Region := ⟨s.gpr .rdi, 96⟩
-      let outer : Region := ⟨s.gpr .rsi, 96⟩
-      let scratch : Region := ⟨s.gpr .rcx, 688⟩
-      let ret : Region := ⟨s.gpr .rsp, 8⟩
-      let stack : Region := ⟨s.gpr .rsp - 16, 16⟩
-      s.rd = [outer] ∧ s.wr = [inner, scratch] ∧
-      inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
-      ret.Disjoint inner ∧ ret.Disjoint outer ∧ ret.Disjoint scratch ∧
-      stack.Disjoint inner ∧ stack.Disjoint outer ∧ stack.Disjoint scratch }
-
-/-- The regions `finalizeSha256X86_64` lets the code write. -/
-def narrowWr (s : State) : List Region := [⟨s.gpr .rdi, 96⟩, ⟨s.gpr .rcx, 240⟩]
-
-theorem finalizeWide_pre (s : State) (h : finalizeWide.pre s) :
-    Proof.Hmac.finalizeSha256X86_64.pre (s.withRegions s.rd (narrowWr s)) :=
-  let ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁⟩ := h
-  ⟨h₁, rfl, h₃, h₄.sub_right (Region.sub_of_ble rfl), h₅.sub_right (Region.sub_of_ble rfl), h₆, h₇,
-    h₈.sub_right (Region.sub_of_ble rfl), h₉, h₁₀, h₁₁.sub_right (Region.sub_of_ble rfl)⟩
-
-/-- A state satisfying `finalizeWide.pre`. -/
-def wideSat : State := { sat with wr := [⟨0x1000, 96⟩, ⟨0x3000, 688⟩] }
-
-theorem finalizeWide_implies :
-    finalizeWide.Implies (Spec.Hmac.finalizeSha256Contract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.finalizeSha256Contract, Spec.Hmac.finalizeSha256Sig, finalizeWide,
-    Proof.Hmac.finalizeSha256X86_64, X86_64.abi, X86_64.argRegs] [wideSat, sat] using wideSat
-
 /-- `finalize`, calling the SHA-256 finalization `name` made with any
-compression function `f`. The proof is written against
-`finalizeSha256X86_64`, widened to the shared contract's scratch. -/
+compression function `f`. -/
 theorem finalize_verified {f : Callee} (hf : f.Ok)
     (hm : f.code.allInstrs (fun i => !loadsMxcsr i) = true) (name : String) :
     Verified X86_64.target (finalize f name) (Spec.Hmac.finalizeSha256Contract X86_64.abi 16) :=
@@ -558,20 +553,15 @@ theorem finalize_verified {f : Callee} (hf : f.Ok)
     simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
       Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Code.allInstrs, hm, Bool.true_and]
     decide +kernel
-  have hsat := finalizeWide_implies.sat_left
-  (Verified.widen (Verified.of_correct (finalize_ok hf hm' name) (finalize_ct hf hm' name)
-    (.refl (hsat.elim fun s hs => ⟨_, finalizeWide_pre s hs⟩)))
-    narrowWr finalizeWide_pre
-    (fun _ h => by
-      obtain ⟨_, h₂, _⟩ := h
-      rw [h₂]; exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl) .nil))
-    (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat).of_implies finalizeWide_implies
+  Verified.of_correct (finalize_ok hf hm' name) (finalize_ct hf hm' name) (by
+    sig_implies [Spec.Hmac.finalizeSha256Contract, Spec.Hmac.finalizeSha256Sig,
+      Proof.Hmac.finalizeSha256X86_64, X86_64.abi, X86_64.argRegs] [sat] using sat)
 
 theorem finalize_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true)
     (name : String) :
     (finalize f name).all (fun i => !X86_64.isa.writesSp i) = true := by
   simp only [finalize, sha256Finalize, Code.all,
-    Proof.Sha256.X86_64.Shared.finalize_spSafe h, Bool.and_true]
+    Proof.Sha256.X86_64.Shared.finalize_spSafe h]
   decide +kernel
 
 end VG.Proof.Hmac.X86_64.Finalize
