@@ -59,7 +59,13 @@ theorem left_val {n k : Nat} (hk : k < n) :
 /-- The registers the loops write. -/
 abbrev clob : List Reg := [.r1, .r2, .r8, .r9, .r12]
 
-theorem nm {r : Reg} (h : r ∉ clob) (x : Reg) (hx : x ∈ clob := by decide) : r ≠ x :=
+/-- The registers `copy` writes. -/
+abbrev cclob : List Reg := [.r2, .r8, .r9, .r12]
+
+theorem not_cclob {r : Reg} (h : r ∉ clob) : r ∉ cclob := fun hc =>
+  h (by simp only [List.mem_cons, List.not_mem_nil, or_false] at hc ⊢; tauto)
+
+theorem nm {r : Reg} {l : List Reg} (h : r ∉ l) (x : Reg) (hx : x ∈ l := by decide) : r ≠ x :=
   fun e => h (e ▸ hx)
 
 /-! ## Counted loops -/
@@ -85,7 +91,7 @@ structure CopyInv (s : State) (A B : Addr) (n k : Nat) (t : State) : Prop where
   rd : t.rd = s.rd
   wr : t.wr = s.wr
   sp : t.sp = s.sp
-  other : ∀ r ∉ clob, t.gpr r = s.gpr r
+  other : ∀ r ∉ cclob, t.gpr r = s.gpr r
   r8 : t.gpr .r8 = BitVec.ofNat 32 k
   r9 : t.gpr .r9 = BitVec.ofNat 32 (n - k)
   mem : t.mem = writeBytes s.mem B (bytesAt s.mem A k)
@@ -95,10 +101,10 @@ structure Copied (s : State) (B : Addr) (xs : List Byte) (t : State) : Prop wher
   rd : t.rd = s.rd
   wr : t.wr = s.wr
   sp : t.sp = s.sp
-  other : ∀ r ∉ clob, t.gpr r = s.gpr r
+  other : ∀ r ∉ cclob, t.gpr r = s.gpr r
   mem : t.mem = writeBytes s.mem B xs
 
-theorem copy_ok {src dst : Reg} (hs : src ∉ clob) (hd : dst ∉ clob)
+theorem copy_ok {src dst : Reg} (hs : src ∉ cclob) (hd : dst ∉ cclob)
     {so d n : Nat} (hso : so < 4096) (hdo : d < 4096) (hn : 0 < n) (hn' : n < 2 ^ 16) {s : State}
     (hsw : (s.gpr src).toNat + so + n ≤ 2 ^ 32) (hdw : (s.gpr dst).toNat + d + n ≤ 2 ^ 32)
     (hin : ∀ k < n, InRegions (s.rd ++ s.wr) (State.addr (s.gpr src) + BitVec.ofNat 64 so + BitVec.ofNat 64 k) 1)

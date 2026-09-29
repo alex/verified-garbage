@@ -406,7 +406,7 @@ theorem copy1_ok {s : State} (hk : KR (H := H) s₀ s) :
     (fun k hk' => by rw [hk.r4, add_zero', hk.wr]; exact inRegions_of_sub iR (fun _ h => h) (by omega) hk')
     (by rw [hk.r5, hk.r4, add_zero', add_zero']; exact hp.i_o.symm)) fun t c => ?_
   rw [hk.r4, hk.r5, add_zero', add_zero'] at c
-  refine ⟨hk.keep c.rd c.wr c.sp (fun r hr => c.other r (kregs_clob r hr))
+  refine ⟨hk.keep c.rd c.wr c.sp (fun r hr => c.other r (not_cclob (kregs_clob r hr)))
     (c.mem ▸ Proof.Sha256.Stream.writeBytes_frame _ _ _ (R := inR (H := H) s₀) (by
       rw [bytesAt_length]; exact Region.contains_self _ _)) (by
       simp only [List.mem_singleton]; rintro r rfl; exact hp.i_s.symm.sub_left (save_sub hp)), c.mem⟩
@@ -425,7 +425,7 @@ theorem copy2_ok {s : State} (hk : KR (H := H) s₀ s) :
     (fun k hk' => by rw [hk.r6, add_zero', hk.wr]; exact inRegions_of_sub pR (fun _ h => h) (by omega) hk')
     (by rw [hk.r11, hk.r6, add_zero']; exact hp.p_s.symm.sub_left tsub)) fun t c => ?_
   rw [hk.r6, hk.r11, add_zero'] at c
-  refine ⟨hk.keep c.rd c.wr c.sp (fun r hr => c.other r (kregs_clob r hr))
+  refine ⟨hk.keep c.rd c.wr c.sp (fun r hr => c.other r (not_cclob (kregs_clob r hr)))
     (c.mem ▸ Proof.Sha256.Stream.writeBytes_frame _ _ _ (R := opR (H := H) s₀) (by
       rw [bytesAt_length]; exact Region.contains_self _ _)) (by
       simp only [List.mem_singleton]; rintro r rfl; exact hp.p_s.symm.sub_left (save_sub hp)), c.mem⟩
