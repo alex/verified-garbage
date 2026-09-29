@@ -26,7 +26,7 @@ open VG.Proof.Hmac.Arm (copy_ok)
 open VG.Proof.Hmac.Arm.Init (beq_zero_toNat)
 open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_nil)
-open VG.Proof.Pbkdf2.X86_64.Iterate (frame_bytesAt contains_base writeW_bytes writeBytes_append' iterate_congr
+open VG.Proof.Pbkdf2.Memory (frame_bytesAt contains_base writeW_bytes writeBytes_append' iterate_congr
   add_ofNat)
 open VG.Spec.Sha256 (bytesAt stateAt Repr)
 open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)

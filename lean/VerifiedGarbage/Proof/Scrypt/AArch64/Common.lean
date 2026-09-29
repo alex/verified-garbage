@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Scrypt.X86_64.Common
+import VerifiedGarbage.Proof.Scrypt.Memory
 import VerifiedGarbage.Proof.MdStream.AArch64.Common
 import VerifiedGarbage.Impl.Scrypt.AArch64.BlockMix
 import VerifiedGarbage.Spec.Scrypt.Contract
@@ -8,9 +8,9 @@ import VerifiedGarbage.TCB.AArch64.Target
 # scrypt on AArch64: common lemmas
 
 Untrusted: everything here is checked by Lean. The target-independent lemmas
-about addresses and bytes are those of the x86-64 proof
-(`Proof/Scrypt/X86_64/Common.lean`); here are the weakest-precondition rules
-for the AArch64 forms, and the 64-byte exclusive-or.
+about addresses and bytes are in `Proof/Scrypt/Memory.lean`; here are the
+weakest-precondition rules for the AArch64 forms, and the 64-byte
+exclusive-or.
 -/
 
 namespace VG.Proof.Scrypt
@@ -86,7 +86,7 @@ open VG.Spec.Scrypt (bytesAt blk salsa)
 open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil writeBytes_frame)
 open VG.Proof.MdStream.AArch64 (Upd Mupd wp_ldr wp_str)
-open VG.Proof.Scrypt.X86_64.BlockMix (sub_off writeW_xor xorBytes_length bytesAt_length
+open VG.Proof.Scrypt.Memory (sub_off writeW_xor xorBytes_length bytesAt_length
   bytesAt_add bytesAt_writeBytes_sep)
 
 section

@@ -25,7 +25,7 @@ open VG VG.Arm VG.Impl.Scrypt.Arm
 open VG.Spec.Scrypt (bytesAt blockMix)
 open VG.Proof.MdStream.Arm (Upd wp_mov wp_add op2_reg op2_imm op2_lsr eval_ne)
 open VG.Proof.Scrypt.Arm.BlockMix (covers_of_in)
-open VG.Proof.Scrypt.X86_64.BlockMix (InRegions.right)
+open VG.Proof.Scrypt.Memory (InRegions.right)
 
 /-! ## The call of `vg_scrypt_blockmix` -/
 

@@ -14,7 +14,7 @@ open VG.Impl.Sha256.AArch64.Stream (saved)
 open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self bytesAt_writeBytes_sep)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.MdStream.AArch64 (wp_subImm eval_zero eval_nonzero ofNat_beq_zero ofNat_pred)
-open VG.Proof.Pbkdf2.X86_64.Iterate (frame_bytesAt contains_base blockAt_eq xorBytes_length add_ofNat digest_self)
+open VG.Proof.Pbkdf2.Memory (frame_bytesAt contains_base blockAt_eq xorBytes_length add_ofNat digest_self)
 open VG.Spec.Sha256 (bytesAt stateAt blockAt compress HashValue)
 
 section
