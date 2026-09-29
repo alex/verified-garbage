@@ -13,8 +13,11 @@ rev = "v4.34.1"
 
 [[lean_lib]]
 name = "VerifiedGarbage"
-# Build every file, not only those reachable from `Artifacts.lean`.
-globs = ["VerifiedGarbage.*"]
+# Build every file, not only those reachable from `Artifacts.lean`. There is
+# no root module `VerifiedGarbage`: `leanchecker VerifiedGarbage.Foo` replays
+# every module under `VerifiedGarbage.Foo`, so CI can replay each target's
+# modules on its own (`ci/lean_shards.py`).
+globs = ["VerifiedGarbage.+"]
 
 [[lean_lib]]
 name = "VerifiedGarbageTest"
