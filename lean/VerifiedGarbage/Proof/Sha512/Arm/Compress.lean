@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Sha512.Arm.Rounds
 import VerifiedGarbage.Proof.Sha512.Arm.Contract
+import Mathlib.Tactic.Set
 
 /-!
 # SHA-512 compression function on ARMv7: the whole function
@@ -324,7 +325,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
   have fitB := hp.blk_fit hi
   set H := stateAt s.mem (State.addr (stp s₀)) with hH
   set M := blockAt s₀.mem (State.addr (blkAddr s₀ i)) with hMdef
-  refine WP.seq (WP.mono (load_ok c 8 le_rfl) fun s₁ h₁ => ?_)
+  refine WP.seq (WP.mono (load_ok c 8 (Nat.le_refl _)) fun s₁ h₁ => ?_)
   have c₁ := c.of_eq (h₁.gpr _ (by decide)) (h₁.gpr _ (by decide)) h₁.wr
   have hB : BlkCtx (scp s₀) (blkAddr s₀ i) s₁ :=
     ⟨by rw [h₁.gpr _ (by decide), hL.r4], fitB,
@@ -336,10 +337,10 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     exact raw_block fitB s₀.mem j hj
   have h0 : ∀ k (hk : k < 8), rd64 s₁.mem (scp s₀) (8 * k) = H[k] := fun k hk => by
     rw [h₁.vars k hk, stateAt_get fitS _ hk]
-  refine WP.seq (WP.mono (rounds_ok c₁ hB hM h0 80 le_rfl) fun s₂ h₂ => ?_)
+  refine WP.seq (WP.mono (rounds_ok c₁ hB hM h0 80 (Nat.le_refl _)) fun s₂ h₂ => ?_)
   have c₂ := c₁.of_rinv h₂
   rw [WP.block_append_iff]
-  refine WP.mono (update_ok c₂ 8 le_rfl) fun s₃ h₃ => advance_ok fun s₄ r4₄ r5₄ z₄ g₄ m₄ rd₄ wr₄ => ?_
+  refine WP.mono (update_ok c₂ 8 (Nat.le_refl _)) fun s₃ h₃ => advance_ok fun s₄ r4₄ r5₄ z₄ g₄ m₄ rd₄ wr₄ => ?_
   -- Registers
   have g₃ : ∀ r, r ∉ temps → r ≠ .r4 → r ≠ .r5 → s₄.gpr r = s.gpr r := fun r hr h4 h5 => by
     have e₃ : ∀ r ∈ [Z0, Z1, X0, X1], r ∈ temps := by decide

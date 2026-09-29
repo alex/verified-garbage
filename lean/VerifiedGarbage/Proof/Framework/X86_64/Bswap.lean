@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.TCB.X86_64.Isa
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # `bswap` of a little-endian load is a big-endian load
@@ -16,16 +17,24 @@ theorem getLsbD_cat4 (b0 b1 b2 b3 : BitVec 8) (i : Nat) :
   simp only [BitVec.getLsbD_append]
   split_ifs <;> first | omega | rfl
 
+/-- The low byte of `y ++ a`. -/
+theorem extractLsb'_append_byte_lo {w : Nat} (y : BitVec w) (a : BitVec 8) :
+    (y ++ a).extractLsb' 0 8 = a := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp [BitVec.getLsbD_append, hi]
+
+/-- A byte of `y ++ a` above the low one. -/
+theorem extractLsb'_append_byte_hi {w : Nat} (y : BitVec w) (a : BitVec 8) {k : Nat} (hk : 8 ≤ k) :
+    (y ++ a).extractLsb' k 8 = y.extractLsb' (k - 8) 8 := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [BitVec.getLsbD_extractLsb', BitVec.getLsbD_append, hi, decide_true, Bool.true_and,
+    show ¬k + i < 8 by omega, ite_false]
+  exact congrArg _ (by omega)
+
 theorem bswap32_bytes (b0 b1 b2 b3 : BitVec 8) :
     bswap32 ((0#0 ++ b3 ++ b2 ++ b1 ++ b0).setWidth 32) = (b0 ++ b1 ++ b2 ++ b3 : BitVec 32) := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi
-  have e1 := getLsbD_cat4 b0 b1 b2 b3 i
-  simp only [BitVec.setWidth_eq] at *
-  simp only [bswap32]
-  rw [getLsbD_cat4, e1]
-  simp only [BitVec.getLsbD_extractLsb', BitVec.getLsbD_append, BitVec.getLsbD_zero_length]
-  interval_cases i <;> simp
+  simp (disch := decide) only [bswap32, BitVec.setWidth_eq, extractLsb'_append_byte_hi,
+    extractLsb'_append_byte_lo, Nat.reduceSub]
 
 /-- A 32-bit load followed by `bswap` reads the four bytes big-endian. -/
 theorem bswap32_readW (m : Mem) (a : Addr) :
@@ -49,14 +58,8 @@ theorem getLsbD_cat8 (b0 b1 b2 b3 b4 b5 b6 b7 : BitVec 8) (i : Nat) :
 theorem bswap64_bytes (b0 b1 b2 b3 b4 b5 b6 b7 : BitVec 8) :
     bswap64 ((0#0 ++ b7 ++ b6 ++ b5 ++ b4 ++ b3 ++ b2 ++ b1 ++ b0).setWidth 64) =
       (b0 ++ b1 ++ b2 ++ b3 ++ b4 ++ b5 ++ b6 ++ b7 : BitVec 64) := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi
-  have e1 := getLsbD_cat8 b0 b1 b2 b3 b4 b5 b6 b7 i
-  simp only [BitVec.setWidth_eq] at *
-  simp only [bswap64]
-  rw [getLsbD_cat8, e1]
-  simp only [BitVec.getLsbD_extractLsb', BitVec.getLsbD_append, BitVec.getLsbD_zero_length]
-  interval_cases i <;> simp
+  simp (disch := decide) only [bswap64, BitVec.setWidth_eq, extractLsb'_append_byte_hi,
+    extractLsb'_append_byte_lo, Nat.reduceSub]
 
 /-- A 64-bit load followed by `bswap` reads the eight bytes big-endian. -/
 theorem bswap64_readW (m : Mem) (a : Addr) :

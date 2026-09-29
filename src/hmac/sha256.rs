@@ -5,7 +5,10 @@
 //! `H((K₀ ⊕ opad) ‖ H((K₀ ⊕ ipad) ‖ text))`
 //! (`VG.Spec.Hmac.hmacBlockKey`), keeping the two SHA-256 streaming states.
 //! (`vg_sha256_update` is whichever implementation `Sha256` would use on
-//! this CPU, e.g. `vg_sha256_update_shani`, with the same contract.)
+//! this CPU, e.g. `vg_sha256_update_shani`, with the same contract; on
+//! x86-64, `init` and `finalize` follow it, e.g. `vg_hmac_sha256_init_shani`
+//! and `vg_hmac_sha256_finalize_shani`, the same verified code calling
+//! `vg_sha256_compress_shani`.)
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -15,14 +18,9 @@
 ))]
 
 use super::{HmacHash, sealed};
-#[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
-#[cfg(target_arch = "arm")]
-use crate::asm::arm::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
-#[cfg(target_arch = "x86")]
-use crate::asm::x86::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
+use crate::arch::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 #[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
+use crate::arch::hmac_sha256::{vg_hmac_sha256_finalize_shani, vg_hmac_sha256_init_shani};
 use crate::hashes::sha256::{Sha256, Sha256Backend};
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
@@ -38,6 +36,13 @@ impl super::Hmac<Sha256> {
         key[96..].copy_from_slice(&self.state.outer);
         key
     }
+
+    /// The implementation of SHA-256 this computation runs, chosen for this
+    /// CPU (and the mask it was created with).
+    #[cfg(target_arch = "x86_64")]
+    pub(crate) fn sha256_backend(&self) -> Sha256Backend {
+        self.state.backend
+    }
 }
 
 /// An HMAC-SHA-256 computation: the SHA-256 streaming states for the inner
@@ -50,7 +55,8 @@ pub struct Sha256HmacState {
     outer: [u8; 96],
     /// The length of `(K₀ ⊕ ipad) ‖ text`, in bytes (modulo 2⁶⁴).
     count: u64,
-    /// The implementation of `vg_sha256_update` this CPU runs.
+    /// The implementation of `vg_sha256_update` (and, on x86-64, of `init`
+    /// and `finalize`) this CPU runs.
     backend: Sha256Backend,
 }
 
@@ -67,14 +73,23 @@ impl HmacHash for Sha256 {
             count: Self::BLOCK_SIZE as u64,
             backend: Sha256Backend::select(crate::cpu::available(mask)),
         };
+        #[cfg(target_arch = "x86_64")]
+        let init = match state.backend {
+            Sha256Backend::Scalar => vg_hmac_sha256_init,
+            Sha256Backend::ShaNi => vg_hmac_sha256_init_shani,
+        };
+        #[cfg(not(target_arch = "x86_64"))]
+        let init = vg_hmac_sha256_init;
         let mut scratch = [0u64; 20];
         // SAFETY: `key.len()` is at most 64; `state.inner` and `state.outer`
         // are valid for reads and writes of 96 bytes, `key` for reads of
         // `key.len()` bytes and `scratch` for reads and writes of 160 bytes;
         // they are distinct objects, so they do not overlap each other or the
-        // call's stack frame, nor wrap around the address space.
+        // call's stack frame, nor wrap around the address space. On x86-64,
+        // `init` needs the CPU features of `state.backend`, which were
+        // detected (`tests::shani_features`).
         unsafe {
-            vg_hmac_sha256_init(
+            init(
                 &mut state.inner,
                 &mut state.outer,
                 key.as_ptr(),
@@ -108,16 +123,23 @@ impl HmacHash for Sha256 {
 
     #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
     fn hmac_finalize(mut state: Sha256HmacState) -> [u8; 32] {
+        #[cfg(target_arch = "x86_64")]
+        let finalize = match state.backend {
+            Sha256Backend::Scalar => vg_hmac_sha256_finalize,
+            Sha256Backend::ShaNi => vg_hmac_sha256_finalize_shani,
+        };
+        #[cfg(not(target_arch = "x86_64"))]
+        let finalize = vg_hmac_sha256_finalize;
         let mut scratch = [0u64; 30];
         // SAFETY: `state.inner` is valid for reads and writes of 96 bytes,
         // `state.outer` for reads of 96 bytes and `scratch` for reads and
         // writes of 240 bytes; they are distinct objects, so they do not
         // overlap each other or (on x86-64) the return address. `state.inner`
         // represents `(K₀ ⊕ ipad) ‖ text`, of `state.count` bytes, and
-        // `state.outer` represents `K₀ ⊕ opad`.
-        unsafe {
-            vg_hmac_sha256_finalize(&mut state.inner, &state.outer, state.count, &mut scratch)
-        };
+        // `state.outer` represents `K₀ ⊕ opad`. On x86-64, `finalize` needs
+        // the CPU features of `state.backend`, which were detected
+        // (`tests::shani_features`).
+        unsafe { finalize(&mut state.inner, &state.outer, state.count, &mut scratch) };
         // The MAC is in bytes 176 to 207 of `scratch`.
         let mut mac = [0u8; 32];
         for (out, word) in mac.as_chunks_mut::<8>().0.iter_mut().zip(&scratch[22..26]) {
@@ -147,5 +169,26 @@ impl HmacHash for Sha256 {
             )
         };
         mac
+    }
+}
+
+#[cfg(all(test, target_arch = "x86_64"))]
+mod tests {
+    use crate::arch::hmac_sha256::{
+        VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES, VG_HMAC_SHA256_INIT_SHANI_FEATURES,
+    };
+    use crate::arch::sha256::{VG_SHA256_FINALIZE_SHANI_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES};
+    use crate::cpu::Features;
+
+    /// The SHA-NI `init` and `finalize` need no CPU feature that the SHA-NI
+    /// SHA-256 backend was not selected for.
+    #[test]
+    fn shani_features() {
+        let backend = Features::all(&[
+            VG_SHA256_UPDATE_SHANI_FEATURES,
+            VG_SHA256_FINALIZE_SHANI_FEATURES,
+        ]);
+        assert!(backend.contains(Features::of(VG_HMAC_SHA256_INIT_SHANI_FEATURES)));
+        assert!(backend.contains(Features::of(VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES)));
     }
 }

@@ -1,6 +1,7 @@
 import Mathlib.Data.List.FinRange
 import VerifiedGarbage.Proof.Hmac.X86.Common
 import VerifiedGarbage.Proof.Hmac.X86.Contract
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # HMAC-SHA-256 on x86 (32-bit): `finalize`

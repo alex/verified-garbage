@@ -23,8 +23,10 @@ VerifiedGarbage/
                     call is of the artifact whose code the model runs for it, and
                     that each artifact declares the CPU features its code needs
     Axioms.lean     `#assert_standard_axioms`
-    Emit.lean       what is emitted (`Artifacts.lean` and every registration file
-                    under `Artifacts/`), and writing or checking `src/asm/`
+    Emit.lean       what is emitted (`Artifacts.lean`, every registration file
+                    under `Artifacts/`, and every generic function under `Generic/`
+                    for every variant of its interface under `Variants/`), and
+                    writing or checking `src/asm/`
     X86_64/         ISA model, printer, System V ABI target
   Spec/         Algorithm specifications and contracts (trusted, must be reviewed)
   Impl/         Implementations: `Prog`s over an ISA model (untrusted)
@@ -34,6 +36,10 @@ VerifiedGarbage/
                     constant time by evaluation
   Artifacts/      The registry: one registration file per algorithm and target,
                   each listing the artifacts it emits
+  Variants/       Implementations of an interface that generic callers call: one
+                  file per implementation, `Variants/<Iface>/<Target>/<Name>.lean`
+  Generic/        Callers proven for any variant of an interface, emitted once per
+                  variant: `Generic/<Iface>/<Target>/<Alg>.lean`
   Artifacts.lean  An empty list, which the emitter still reads; add nothing to it
 VerifiedGarbageTest/  Golden tests for the (unverified) printers and calling conventions
 Emit.lean       Renders every artifact into `../src/asm/` (see `TCB/Emit.lean`)

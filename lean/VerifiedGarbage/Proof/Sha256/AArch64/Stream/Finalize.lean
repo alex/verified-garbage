@@ -547,7 +547,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
       (by show i < 96; omega)
   by_cases hb : 57 ≤ cnt s₀ % 64 + 1
   · have hk : (cnt s₀ % 64 + 8) / 64 = 1 := by omega
-    refine ⟨1, hC₁₃, le_rfl, by omega, hr23', by rw [hr24, hk], fun m hm => ?_⟩
+    refine ⟨1, hC₁₃, (Nat.le_refl _), by omega, hr23', by rw [hr24, hk], fun m hm => ?_⟩
     simp only [↓reduceIte]
     rw [hash_two (by rw [← hm.length]; omega), Fin1, hbytes m hm, hstate, hm.1.1,
       ← hm.length, show 64 - (cnt s₀ % 64 + 1) = 63 - cnt s₀ % 64 by omega]
@@ -628,7 +628,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
     (h : Out s₀ sD 8 s) : WP isa (.block restore) s (Post s₀) := by
   have hC := hD.1
   have hfo := out_frame s₀ sD.mem (((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes)
-    (by rw [flat_length _ _ le_rfl])
+    (by rw [flat_length _ _ (Nat.le_refl _)])
   refine restore_ok (scr := scr s₀) (by rw [h.keep _ (by simp), hC.x20])
     (fun d hd₁ hd₂ => ⟨scR s₀, by simp [h.rd, h.wr, hp.wr], contains_offset hd₂ (by omega)⟩) s₀.gpr
     (fun p hp' => ?_) fun s' hs _ hmem _ _ hsp => ⟨hs, by rw [hsp, h.sp, hC.sp], ?_⟩
@@ -640,10 +640,10 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
     exact hp.out_scr.symm.sub_left (saved_sub hp')
   · intro m hr hc
     have e := bytesAt_writeBytes sD.mem (out s₀) 0 (((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes)
-      (by rw [flat_length _ _ le_rfl]; omega)
+      (by rw [flat_length _ _ (Nat.le_refl _)]; omega)
     have e' : bytesAt (writeBytes sD.mem (out s₀) (((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes))
         (out s₀) 32 = ((stateAt sD.mem (st s₀)).toList.take 8).flatMap wordBytes := by
-      rw [flat_length _ _ le_rfl, show out s₀ + BitVec.ofNat 64 0 = out s₀ by simp,
+      rw [flat_length _ _ (Nat.le_refl _), show out s₀ + BitVec.ofNat 64 0 = out s₀ by simp,
         show bytesAt sD.mem (out s₀) 0 = [] from rfl, List.nil_append] at e
       exact e
     rw [← h.mem, ← hmem] at e'
@@ -668,8 +668,8 @@ theorem out_all {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) 
 
 /-- No instruction of `finalizeMain` writes the callee-saved registers it does not save. -/
 theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs finalizeMain, dstOf i ≠ some r := by
-  have : ((instrs finalizeMain).all fun i => untouched.all fun r => dstOf i != some r) = true := by
-    rw [← Code.allInstrs_eq]; decide +kernel
+  have : ((instrs finalizeMain).all fun i => untouched.all fun r => dstOf i != some r) = true :=
+    instrs_keeps (by decide +kernel)
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this
@@ -689,7 +689,7 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
       rcases h with ⟨he, hD⟩ | ⟨he, rfl, hL'⟩
       · exact .inl ⟨he, hD⟩
       · exact .inr ⟨he, 0, by omega, 0, hL'⟩
-    · have := out_all hp hD 8 le_rfl sD ⟨hD.1.rd, hD.1.wr, fun _ _ => rfl, rfl, by simp [writeBytes_nil]⟩
+    · have := out_all hp hD 8 (Nat.le_refl _) sD ⟨hD.1.rd, hD.1.wr, fun _ _ => rfl, rfl, by simp [writeBytes_nil]⟩
       rw [show 8 - 8 = 0 from rfl, List.drop_zero] at this
       exact this
   · simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr

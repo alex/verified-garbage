@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.ChaCha20.AArch64.Block
 import VerifiedGarbage.Proof.ChaCha20.Keystream
 import VerifiedGarbage.Proof.Framework.AArch64.Call
 import VerifiedGarbage.Impl.ChaCha20.AArch64.Xor
+import Mathlib.Tactic.Conv
 
 /-!
 # ChaCha20 keystream XOR on AArch64
@@ -316,7 +317,7 @@ theorem Saved.frame {s₀ : State} {rs : List Region} {m m' : Mem} (h : Saved s�
       bv_omega, toNat_ofNat_lt (by omega)]
     omega
   obtain ⟨h1, h2, h3⟩ := h
-  exact ⟨by rw [hf.readW (c 256 le_rfl (by omega)) hd (by decide), h1],
+  exact ⟨by rw [hf.readW (c 256 (Nat.le_refl _) (by omega)) hd (by decide), h1],
     by rw [hf.readW (c 264 (by omega) (by omega)) hd (by decide), h2],
     by rw [hf.readW (c 272 (by omega) (by omega)) hd (by decide), h3]⟩
 
@@ -743,8 +744,8 @@ def untouched : List Reg := [.x21, .x22, .x23, .x24, .x25, .x26, .x27, .x28, .x2
 
 theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs Impl.ChaCha20.AArch64.Xor.xor, dstOf i ≠ some r := by
   have : ((instrs Impl.ChaCha20.AArch64.Xor.xor).all fun i => untouched.all fun r => dstOf i != some r) =
-      true := by
-    rw [← Code.allInstrs_eq]; decide +kernel
+      true :=
+    instrs_keeps (by decide +kernel)
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this

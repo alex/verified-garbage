@@ -1,6 +1,9 @@
 import VerifiedGarbage.Proof.Gcm.Poly
 import VerifiedGarbage.Proof.Framework.X86_64.Sse
 import VerifiedGarbage.Impl.Gcm.X86_64.Pclmul
+import Mathlib.Tactic.LinearCombination
+import Mathlib.Tactic.Ring.RingNF
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # GHASH with PCLMULQDQ: the arithmetic
@@ -63,7 +66,7 @@ theorem gp_lsb (a : BitVec 64) :
 /-- `pclmulqdq` multiplies polynomials (with the factor `X` of the
 reflected representation). -/
 theorem gp_clmul (a b : BitVec 64) : gp (clmul a b) = X * gp a * gp b := by
-  rw [show clmul a b = clSteps a b 64 from rfl, gp_clSteps a b le_rfl, gp_lsb]
+  rw [show clmul a b = clSteps a b 64 from rfl, gp_clSteps a b (Nat.le_refl _), gp_lsb]
 
 /-! ## Quadwords -/
 

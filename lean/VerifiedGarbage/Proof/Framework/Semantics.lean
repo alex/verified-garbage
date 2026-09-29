@@ -1,11 +1,7 @@
-import Mathlib.Tactic.IntervalCases
-import Mathlib.Tactic.NormNum.Basic
-import Mathlib.Tactic.Ring.Basic
-import Mathlib.Tactic.Tauto
-import Mathlib.Tactic.SplitIfs
-import Mathlib.Tactic.Set
-import Mathlib.Tactic.Use
-import Mathlib.Tactic.ByContra
+import Batteries.Tactic.Init
+import Batteries.Tactic.PermuteGoals
+import Batteries.Tactic.SeqFocus
+import Mathlib.Util.CompileInductive
 import VerifiedGarbage.TCB.Artifact
 
 /-!
@@ -123,7 +119,7 @@ theorem loop {body : Prog M} {c : M.Cond} {Q : M.State → Prop}
         (M.eval c s' = some false ∧ Q s') ∨
         (M.eval c s' = some true ∧ ∃ m < n, Inv m s')))
     (n : Nat) (s : M.State) (hs : Inv n s) : WP M (.loop body c) s Q := by
-  induction n using Nat.strong_induction_on generalizing s with
+  induction n using Nat.strongRecOn generalizing s with
   | _ n ih =>
     obtain ⟨t, s', h1, h2⟩ := hstep n s hs
     rcases h2 with ⟨hc, hq⟩ | ⟨hc, m, hm, hi⟩
@@ -194,9 +190,11 @@ theorem Code.noFrames_of_noCalls {I C : Type} {c : Code I C} (h : c.noCalls = tr
   induction c <;> simp_all [noCalls, noFrames]
 
 /-- `(instrs c).all p`, without building the list of instructions, which is
-much faster for the kernel to evaluate (`decide +kernel`). -/
+much faster for the kernel to evaluate (`decide +kernel`). A block is walked
+with `List.rec`, which the kernel evaluates faster than `List.all` (compiled
+to `brecOn`). -/
 def Code.allInstrs {I C : Type} (p : I → Bool) : Code I C → Bool
-  | .block is => is.all p
+  | .block is => List.rec (motive := fun _ => Bool) true (fun i _ ih => p i && ih) is
   | .seq a b => a.allInstrs p && b.allInstrs p
   | .ite _ t e => t.allInstrs p && e.allInstrs p
   | .loop b _ => b.allInstrs p
@@ -205,7 +203,9 @@ def Code.allInstrs {I C : Type} (p : I → Bool) : Code I C → Bool
 
 theorem Code.allInstrs_eq {I C : Type} (p : I → Bool) (c : Code I C) :
     c.allInstrs p = (instrs c).all p := by
-  induction c <;> simp [allInstrs, instrs, List.all_append, Bool.and_assoc, *]
+  induction c with
+  | block is => induction is <;> simp_all [allInstrs, instrs]
+  | _ => simp [allInstrs, instrs, List.all_append, Bool.and_assoc, *]
 
 /-- `Code.all p` holds of all code when `p` holds of every instruction: for
 `Artifact.spSafe` on the ISAs whose `writesSp` is always `false`, without

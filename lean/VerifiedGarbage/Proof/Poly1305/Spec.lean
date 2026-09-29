@@ -1,6 +1,7 @@
-import Mathlib.Tactic.Ring
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Spec.Poly1305
+import Mathlib.Tactic.NormNum.Basic
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Poly1305: lemmas about the specification
@@ -170,7 +171,7 @@ theorem land_split {a b c d : Nat} (ha : a < 2 ^ 64) (hc : c < 2 ^ 64) :
     (a + 2 ^ 64 * b) &&& (c + 2 ^ 64 * d) = (a &&& c) + 2 ^ 64 * (b &&& d) := by
   apply Nat.eq_of_testBit_eq
   intro i
-  have hac : (a &&& c) < 2 ^ 64 := lt_of_le_of_lt Nat.and_le_left ha
+  have hac : (a &&& c) < 2 ^ 64 := Nat.lt_of_le_of_lt Nat.and_le_left ha
   rw [Nat.testBit_and]
   rw [Nat.add_comm a, Nat.add_comm c, Nat.add_comm (a &&& c)]
   rw [Nat.testBit_two_pow_mul_add _ ha, Nat.testBit_two_pow_mul_add _ hc,

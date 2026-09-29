@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Md5.X86_64.Rounds
 import VerifiedGarbage.Proof.Md5.X86_64.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.Inline
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # MD5 compression function on x86-64: the whole function
@@ -306,7 +307,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     exact blk_word i k hk
   have hrsi₁ : s₁.gpr .rsi = blkAddr s₀ i := (hpub₁ .rsi (by decide)).trans hL.rsi
   refine WP.seq (WP.mono (steps_ok _ (blk s₀ i) _ s₁ hrsi₁
-    (fun k hk => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_blk hi hk) hX hv₁ 64 le_rfl)
+    (fun k hk => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_blk hi hk) hX hv₁ 64 (Nat.le_refl _))
     fun s₂ hR => ?_)
   have hrdi₂ : s₂.gpr .rdi = st s₀ := by
     rw [hR.pub .rdi (by decide), hpub₁ .rdi (by decide), hL.rdi]

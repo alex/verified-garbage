@@ -48,7 +48,7 @@ theorem Covers.of_sub {rs rs' : List Region}
   have : (a - r'.base).toNat ≤ (a - (r'.base + BitVec.ofNat 64 off)).toNat + off := by
     rw [show a - r'.base = (a - (r'.base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by bv_omega,
       BitVec.toNat_add, BitVec.toNat_ofNat]
-    exact le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
+    exact Nat.le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
   omega
 
 /-- A frame's push inserts its region into the writable regions of both
@@ -467,6 +467,32 @@ theorem WP.gprs {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s 
   refine ⟨t, s', he, hq, fun r hr => Exec.gpr (fun i hi => ?_) he (.inl hn)⟩
   have := List.all_eq_true.mp (List.all_eq_true.mp hc i hi) r hr
   simpa using this
+
+/-- Instruction `i` writes none of the registers `rs`: `rs.all fun r => dstOf i != some r`
+(`keeps_ofList`), with one lookup in a `RegSet` instead of a comparison of
+`dstOf i` with every register of `rs`, which the kernel evaluates several
+times faster. -/
+def keeps (rs : RegSet Reg) (i : Instr) : Bool :=
+  match dstOf i with
+  | none => true
+  | some d => !rs.mem d
+
+theorem keeps_ofList (rs : List Reg) (i : Instr) :
+    keeps (RegSet.ofList rs) i = rs.all fun r => dstOf i != some r := by
+  unfold keeps
+  cases dstOf i with
+  | none => simp
+  | some d =>
+    rw [Bool.eq_iff_iff, Bool.not_eq_true', ← Bool.not_eq_true, List.all_eq_true]
+    show ¬d ∈ RegSet.ofList rs ↔ _
+    simp only [RegSet.mem_ofList, bne_iff_ne, ne_eq, Option.some.injEq]
+    exact ⟨fun h r hr e => h (e ▸ hr), fun h hd => h d hd rfl⟩
+
+/-- No instruction of `c` writes any of the registers `rs`, checked by evaluating
+`keeps` on every instruction (`decide +kernel`). -/
+theorem instrs_keeps {c : Prog isa} {rs : List Reg} (h : c.allInstrs (keeps (RegSet.ofList rs)) = true) :
+    ((instrs c).all fun i => rs.all fun r => dstOf i != some r) = true := by
+  rwa [← Code.allInstrs_eq, ← funext (keeps_ofList rs)]
 
 /-- Inlining verified code: from a state `s` in which the code's precondition
 holds once its permissions are narrowed to `rd` and `wr`, the code

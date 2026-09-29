@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Scrypt.AArch64.RoMixFun
 import VerifiedGarbage.Proof.Scrypt.AArch64.BlockMixVerified
 import VerifiedGarbage.Proof.Framework.AArch64.RelCT
+import Mathlib.Tactic.DefEqTransformations
 
 /-!
 # scryptROMix on AArch64: verified

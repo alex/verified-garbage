@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.ChaCha20.Arm.Rounds
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Proof.Framework.Range
 import VerifiedGarbage.Proof.ChaCha20.Arm.Contract
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # ChaCha20 block function on 32-bit ARM: the whole function
@@ -440,7 +441,7 @@ theorem load_ok {s₀ s₁ : State} (hp : Pre s₀) (h₁ : s₁.gpr = s₀.gpr)
     ⟨fun _ _ h => absurd h (by omega), rfl, rfl, rfl, by rw [hc.gpr _ (by decide), h₁]⟩
   have hl : WP isa (.block load) s (LI s₀ s 16) := by
     unfold load
-    exact wp_range_flatMap (M := isa) (LI s₀ s) (fun k s' hk h => load_step hp hc hk h) 16 le_rfl
+    exact wp_range_flatMap (M := isa) (LI s₀ s) (fun k s' hk h => load_step hp hc hk h) 16 (Nat.le_refl _)
       s h0
   refine WP.mono hl fun s' h => ⟨fun k hk => ?_, h.mem, h.rd, h.wr, h.r1⟩
   split
@@ -476,7 +477,7 @@ theorem store_step {s₀ : State} (hp : Pre s₀) {R : CState} {sB : State} (hwB
   have h4 : outOff n < 4096 := by simp only [outOff]; omega
   have cout : (outR (BA s₀)).Contains (BA s₀ + BitVec.ofNat 64 (outOff n)) (32 / 8) :=
     contains_sub _ (by omega) (by simp [outOff]; omega) (by omega)
-  have hr := hs.rest n hn le_rfl
+  have hr := hs.rest n hn (Nat.le_refl _)
   suffices key : ∀ s', s'.mem = s.mem.writeW (BA s₀ + BitVec.ofNat 64 (outOff n)) R[n] →
       (∀ j (hj : j < 16), n < j → inReg 8 j = true → s'.gpr (wreg j) = s.gpr (wreg j)) →
       s'.gpr .r1 = s.gpr .r1 → s'.rd = s.rd → s'.wr = s.wr → SI (BA s₀) R sB (n + 1) s' by
@@ -550,7 +551,7 @@ theorem add_step {s₀ : State} (hp : Pre s₀) {R v : CState} {sB : State} (hwB
   have cout : (outR (BA s₀)).Contains (BA s₀ + BitVec.ofNat 64 (outOff n)) (32 / 8) :=
     contains_sub _ (by omega) (by simp [outOff]; omega) (by omega)
   have ho := hs.out n hn
-  simp only [lt_irrefl, ite_false] at ho
+  simp only [Nat.lt_irrefl, ite_false] at ho
   have hi := hs.inw n hn
   apply WP.of_runBlock
   simp (config := {decide := true}) only [addWord, runBlock_cons,
@@ -600,7 +601,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     ⟨fun _ _ => rfl, hrd₁, hwr₁, Frame.refl _ _, fun _ _ h => absurd h (by omega),
       fun _ _ h => absurd h (by omega)⟩
   refine WP.mono (wp_range_flatMap (M := isa) (CI s₀ s₁)
-    (fun k s hk hc => copy_step hp hg₁ hf₁ hk hc) 16 le_rfl s₁ hc₀) fun s hc => ?_
+    (fun k s hk hc => copy_step hp hg₁ hf₁ hk hc) 16 (Nat.le_refl _) s₁ hc₀) fun s hc => ?_
   refine WP.mono (load_ok hp hg₁ hc) fun s₂ ⟨hh₂, hm₂, hrd₂, hwr₂, hr1₂⟩ => ?_
   have hw₂ : bufR s₀ ∈ s₂.wr := by rw [hwr₂, hc.wr]; exact hw₀
   refine WP.seq (WP.mono (rounds_ok hh₂ (fun off ho => by rw [hr1₂]; exact hp.eaB ho) hw₂ 10)
@@ -611,7 +612,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have hs₀ : SI (BA s₀) (Rs s₀) s₃ 0 s₃ :=
     ⟨fun _ _ h => absurd h (by omega), fun j hj _ => hR.holds j hj, Frame.refl _ _, rfl, rfl, rfl⟩
   refine WP.mono (wp_range_flatMap (M := isa) (SI (BA s₀) (Rs s₀) s₃)
-    (fun k s hk hs => store_step hp hw₃ hr1₃ hk hs) 16 le_rfl s₃ hs₀) fun s₄ hS => ?_
+    (fun k s hk hs => store_step hp hw₃ hr1₃ hk hs) 16 (Nat.le_refl _) s₃ hs₀) fun s₄ hS => ?_
   have hw₄ : bufR s₀ ∈ s₄.wr := by rw [hS.wr]; exact hw₃
   have hr1₄ : s₄.gpr .r1 = buf s₀ := hS.r1.trans hr1₃
   have hinw : ∀ j (hj : j < 16),
@@ -626,7 +627,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     ⟨fun j hj => by simp only [Nat.not_lt_zero, ite_false]; exact hS.out j hj hj, hinw,
       Frame.refl _ _, rfl, rfl, rfl⟩
   refine WP.mono (wp_range_flatMap (M := isa) (AI (BA s₀) (Rs s₀) (V s₀) s₄)
-    (fun k s hk ha => add_step hp hw₄ hr1₄ hk ha) 16 le_rfl s₄ ha₀) fun s₅ hA => ?_
+    (fun k s hk ha => add_step hp hw₄ hr1₄ hk ha) 16 (Nat.le_refl _) s₄ ha₀) fun s₅ hA => ?_
   have hwork : Frame [workR (BA s₀)] s₁.mem s₅.mem := by
     refine (frame_work (a := 64) (len := 80) (by omega) hc.frame).trans ?_
     rw [← hm₂]

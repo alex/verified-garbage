@@ -47,8 +47,12 @@ variable (st : Addr)
 abbrev hR : Region := ⟨st, 24⟩
 /-- The key. -/
 abbrev kR : Region := ⟨off st 24, 32⟩
-/-- The working space. -/
+/-- The working space: the buffer and the saved registers. -/
 abbrev wR : Region := ⟨off st 56, 72⟩
+/-- The buffer. -/
+abbrev bfR : Region := ⟨off st 56, 16⟩
+/-- Where the callee-saved registers are saved. -/
+abbrev svR : Region := ⟨off st 72, 48⟩
 /-- The whole state. -/
 abbrev sR : Region := ⟨st, 128⟩
 end
@@ -80,6 +84,18 @@ theorem wR_contains (st : Addr) {d n : Nat} (h₁ : 56 ≤ d) (h₂ : d + n ≤ 
   rw [show st + BitVec.ofNat 64 d - (st + BitVec.ofNat 64 56) = BitVec.ofNat 64 (d - 56) by bv_omega,
     toNat_ofNat_lt (by omega)]
   omega
+
+theorem svR_contains (st : Addr) {d n : Nat} (h₁ : 72 ≤ d) (h₂ : d + n ≤ 120) :
+    (svR st).Contains (off st d) n := by
+  simp only [Region.Contains, off, ofInt_natCast]
+  rw [show st + BitVec.ofNat 64 d - (st + BitVec.ofNat 64 72) = BitVec.ofNat 64 (d - 72) by bv_omega,
+    toNat_ofNat_lt (by omega)]
+  omega
+
+theorem svR_sub_wR (st : Addr) : Region.Sub (svR st) (wR st) := by
+  intro a ha
+  simp only [Region.Contains, off, ofInt_natCast] at *
+  bv_omega
 
 /-! ## The accumulator and the key as numbers -/
 
@@ -127,7 +143,7 @@ theorem clamp_key (m : Mem) (st : Addr) :
 
 theorem r0_lt (k : BitVec 64) : (k &&& M0).toNat < 2 ^ 60 := by
   rw [BitVec.toNat_and]
-  exact lt_of_le_of_lt Nat.and_le_right (by decide)
+  exact Nat.lt_of_le_of_lt Nat.and_le_right (by decide)
 
 theorem r1_mod (k : BitVec 64) : (k &&& M1).toNat % 4 = 0 := by
   rw [BitVec.toNat_and, show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.and_two_pow_sub_one_eq_mod,
@@ -135,6 +151,6 @@ theorem r1_mod (k : BitVec 64) : (k &&& M1).toNat % 4 = 0 := by
 
 theorem r1_lt (k : BitVec 64) : (k &&& M1).toNat < 2 ^ 60 := by
   rw [BitVec.toNat_and]
-  exact lt_of_le_of_lt Nat.and_le_right (by decide)
+  exact Nat.lt_of_le_of_lt Nat.and_le_right (by decide)
 
 end VG.Proof.Poly1305.X86_64

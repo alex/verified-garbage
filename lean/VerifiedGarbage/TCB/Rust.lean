@@ -227,7 +227,8 @@ def render (as : List Artifact) (moduleOf : Artifact → String → String) : Li
     modDecls targets cfgOf
   let perTarget (t : String) : List (String × String) :=
     let arts := as.filter (·.target.name == t)
-    let modules := distinct arts (·.module)
+    -- In order of their names, wherever their artifacts come in the list.
+    let modules := (distinct arts (·.module)).mergeSort (· ≤ ·)
     (s!"{t}/mod.rs", header ++ s!"//! Verified functions for `{t}`.\n" ++
       modDecls modules (fun _ => none)) ::
     modules.map fun m =>

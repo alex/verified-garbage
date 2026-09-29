@@ -3,6 +3,8 @@ import Mathlib.Algebra.Polynomial.Inductions
 import Mathlib.Algebra.Polynomial.Reverse
 import VerifiedGarbage.Proof.Gcm.Poly
 import VerifiedGarbage.Impl.Gcm.X86_64
+import Mathlib.Tactic.Ring.RingNF
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # Carry-less products from integer products with holes
@@ -376,7 +378,7 @@ theorem lp_prodVal (hv yv : BitVec 64) : lp (prodVal hv yv) = lp hv * lp yv := b
   refine Polynomial.ext fun p => ?_
   by_cases hp : p < 128
   · rw [coeff_lp, getLsbD_prodVal hv yv hp,
-      bit_classSum hv yv (p % 4) (Nat.mod_lt _ (by omega)) hp rfl 8 le_rfl,
+      bit_classSum hv yv (p % 4) (Nat.mod_lt _ (by omega)) hp rfl 8 (Nat.le_refl _),
       coeff_mul_sums (lp_eq_sum_part hv) (lp_eq_sum_cls yv)]
     refine Finset.sum_congr rfl fun t ht => ?_
     rw [Finset.sum_eq_single (jOf (p % 4) t)]

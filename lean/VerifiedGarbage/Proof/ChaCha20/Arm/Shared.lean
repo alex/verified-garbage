@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.ChaCha20.Arm.Block
+import VerifiedGarbage.Proof.ChaCha20.Arm.Xor
 import VerifiedGarbage.Spec.ChaCha20.Contract
 
 /-!
@@ -19,5 +20,12 @@ theorem block : Verified Arm.target Impl.ChaCha20.Arm.block (Spec.ChaCha20.block
       Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
       [Proof.ChaCha20.Arm.satState, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.ChaCha20.Arm.satState)
+
+theorem xor : Verified Arm.target Impl.ChaCha20.Arm.Xor.xor (Spec.ChaCha20.xorContract Arm.abi) :=
+  Proof.ChaCha20.Arm.Xor.xor_verified.of_implies (by
+    contract_implies [Spec.ChaCha20.xorContract, Spec.ChaCha20.xorSig, Proof.ChaCha20.xorArm,
+      Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
+      [Proof.ChaCha20.Arm.Xor.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
+      Mem.read] using Proof.ChaCha20.Arm.Xor.sat)
 
 end VG.Proof.ChaCha20.Arm.Shared

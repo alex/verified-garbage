@@ -313,7 +313,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have hc₀ : CI s₀ 0 s₀ := ⟨k₀, fun j hj => (V_get! _ hj).symm, fun _ _ h => absurd h (by omega)⟩
   have hcopy : WP isa (.block copy) s₀ (CI s₀ 16) := by
     unfold copy
-    exact wp_range_flatMap (M := isa) (CI s₀) (fun k s hk h => copy_step hp hk h) 16 le_rfl s₀ hc₀
+    exact wp_range_flatMap (M := isa) (CI s₀) (fun k s hk h => copy_step hp hk h) 16 (Nat.le_refl _) s₀ hc₀
   refine WP.seq (WP.mono hcopy fun s₁ h₁ => ?_)
   have hr₁ : RI s₀ (V s₀) s₁ := ⟨h₁.keep, h₁.b, fun j hj => h₁.copied j hj hj⟩
   refine WP.seq (WP.mono (rounds_ok hp hr₁ 4) fun s₂ h₂ => ?_)
@@ -321,7 +321,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     ⟨h₂.keep, fun j hj => by rw [ite_neg' (Nat.not_lt_zero j), h₂.b j hj], h₂.holds⟩
   unfold finish
   refine WP.mono (wp_range_flatMap (M := isa) (FI s₀ (Rs s₀)) (fun i s hi h => finish_step hp hi h)
-    16 le_rfl s₂ hF₀) fun s' hF => ⟨fun r hr => ?_, ?_⟩
+    16 (Nat.le_refl _) s₂ hF₀) fun s' hF => ⟨fun r hr => ?_, ?_⟩
   · refine hF.keep.gpr r ?_ ?_ <;> rintro rfl <;> simp [preserved] at hr
   · show Spec.Scrypt.bytesAt s'.mem (bA s₀) 64 =
       Spec.Scrypt.salsa (Spec.Scrypt.bytesAt s₀.mem (bA s₀) 64)

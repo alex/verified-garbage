@@ -622,7 +622,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     exact frame_bytes hframe (R := stR s₀) (by simpa using hp.st_scr) (by simp) (by show i < 96; omega)
   by_cases hb : 57 ≤ cnt s₀ % 64 + 1
   · have hk : (cnt s₀ % 64 + 8) / 64 = 1 := by omega
-    refine ⟨1, hC₁₃, le_rfl, by omega, hr7', by rw [hr8, hk], fun m hm => ?_⟩
+    refine ⟨1, hC₁₃, (Nat.le_refl _), by omega, hr7', by rw [hr8, hk], fun m hm => ?_⟩
     simp only [↓reduceIte]
     rw [hash_two (by rw [← hm.length]; omega), Fin1, hbytes m hm, hstate, hm.1.1,
       ← hm.length, show 64 - (cnt s₀ % 64 + 1) = 63 - cnt s₀ % 64 by omega]
@@ -696,7 +696,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
     (h : Out s₀ sD 8 s) : WP isa (.block restore) s (Post s₀) := by
   have hC := hD.1
   have hfo := out_frame s₀ sD.mem (((stateAt sD.mem (stA s₀)).toList.take 8).flatMap wordBytes)
-    (by rw [flat_length _ _ le_rfl])
+    (by rw [flat_length _ _ (Nat.le_refl _)])
   refine restore_ok (scr := scr s₀) (by rw [h.keep _ (by simp [keepRegs]), hC.r3]) hp.scr_fit
     (fun d hd₁ hd₂ => ⟨scR s₀, by simp [h.rd, h.wr, hp.wr], contains_offset (by omega) (by omega)⟩) s₀.gpr
     (fun p hp' => ?_) fun s' hs ho hmem _ _ hsp =>
@@ -719,10 +719,10 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
     · exact hs (.r11, 140) (by simp [saved])
     · exact hs (.lr, 144) (by simp [saved])
   · have e := bytesAt_writeBytes sD.mem (outA s₀) 0 (((stateAt sD.mem (stA s₀)).toList.take 8).flatMap wordBytes)
-      (by rw [flat_length _ _ le_rfl]; omega)
+      (by rw [flat_length _ _ (Nat.le_refl _)]; omega)
     have e' : bytesAt (writeBytes sD.mem (outA s₀) (((stateAt sD.mem (stA s₀)).toList.take 8).flatMap wordBytes))
         (outA s₀) 32 = ((stateAt sD.mem (stA s₀)).toList.take 8).flatMap wordBytes := by
-      rw [flat_length _ _ le_rfl, show outA s₀ + BitVec.ofNat 64 0 = outA s₀ by simp,
+      rw [flat_length _ _ (Nat.le_refl _), show outA s₀ + BitVec.ofNat 64 0 = outA s₀ by simp,
         show bytesAt sD.mem (outA s₀) 0 = [] from rfl, List.nil_append] at e
       exact e
     rw [← h.mem, ← hmem] at e'
@@ -756,7 +756,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) : WP isa finalize s₀ (Post s₀
     rcases h with ⟨he, hD⟩ | ⟨he, rfl, hL'⟩
     · exact .inl ⟨he, hD⟩
     · exact .inr ⟨he, 0, by omega, 0, hL'⟩
-  · have := out_all hp hD 8 le_rfl sD ⟨hD.1.rd, hD.1.wr, fun _ _ => rfl, rfl, by simp [writeBytes_nil]⟩
+  · have := out_all hp hD 8 (Nat.le_refl _) sD ⟨hD.1.rd, hD.1.wr, fun _ _ => rfl, rfl, by simp [writeBytes_nil]⟩
     rw [show 8 - 8 = 0 from rfl, List.drop_zero] at this
     exact this
 

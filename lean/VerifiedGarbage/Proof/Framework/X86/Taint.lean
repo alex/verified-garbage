@@ -1,8 +1,11 @@
 import VerifiedGarbage.Proof.Framework.Taint
 import VerifiedGarbage.Proof.Framework.RegSet
+import VerifiedGarbage.Proof.Framework.KernelList
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.X86.Exec
 import VerifiedGarbage.TCB.X86.Target
+import Mathlib.Tactic.Set
+import Mathlib.Tactic.Tauto
 
 /-!
 # Taint tracking for x86 (32-bit)
@@ -18,9 +21,10 @@ from the read-only stack arguments.
 As on x86-64 (`VG.X86_64.Taint`), public slots let public values survive a
 round trip through memory. They are byte ranges of the writable regions
 `s.wr` (identified by index) that hold the same bytes in both runs. To keep
-them sound in the presence of stores of secrets, the analysis knows the
-lengths of the writable regions (`lens`, whose regions are then pairwise
-disjoint, the same in both runs, and within the 32-bit address space) and
+them sound in the presence of stores of secrets, the analysis knows lower
+bounds on the lengths of the writable regions (`lens`, whose regions are then
+pairwise disjoint, the same in both runs, and within the 32-bit address space;
+a bound of `0` means the length is unknown and the region has no slots) and
 which registers point at a known offset before the base address of which
 region (`bases`). A store through such a register can only change bytes of
 its own region at the store's offset; any other store of a secret forgets
@@ -68,7 +72,8 @@ instance : RegIdx Reg := ⟨Reg.ctorIdx, fun {a b} h => by rw [← Reg.ofNat_cto
 structure T where
   regs : RegSet Reg
   flags : Bool
-  /-- The lengths of the writable regions `s.wr`, in order; `[]` if unknown. -/
+  /-- Lower bounds on the lengths of the writable regions `s.wr`, in order (`0` if
+  unknown); `[]` if nothing is known about the regions. -/
   lens : List Nat := []
   /-- `(r, i, k)`: `r + k` is the base address of writable region `i`. -/
   bases : List (Reg × Nat × Nat) := []
@@ -132,7 +137,7 @@ def AgreeRF (regs : RegSet Reg) (flags : Bool) (s₁ s₂ : State) : Prop :=
 /-- What `τ` says about each state on its own. -/
 structure Wf (τ : T) (s : State) : Prop where
   lens : τ.lens ≠ [] →
-    s.wr.map Region.len = τ.lens ∧ s.wr.Pairwise Region.Disjoint ∧
+    List.Forall₂ (fun r l => l ≤ r.len) s.wr τ.lens ∧ s.wr.Pairwise Region.Disjoint ∧
       ∀ r ∈ s.wr, r.base.toNat + r.len ≤ 2 ^ 32
   bases : ∀ p ∈ τ.bases, addr (s.gpr p.1) p.2.2 = (region s p.2.1).base
   wbases : ∀ p ∈ τ.wbases, p.2.1 + 4 ≤ τ.lens.getD p.1 0 ∧
@@ -152,7 +157,7 @@ structure Wf (τ : T) (s : State) : Prop where
 arguments at `esp`. -/
 structure WfEntry (τ : T) (s : State) : Prop where
   lens : τ.lens ≠ [] →
-    s.wr.map Region.len = τ.lens ∧ s.wr.Pairwise Region.Disjoint ∧
+    List.Forall₂ (fun r l => l ≤ r.len) s.wr τ.lens ∧ s.wr.Pairwise Region.Disjoint ∧
       ∀ r ∈ s.wr, r.base.toNat + r.len ≤ 2 ^ 32
   bases : ∀ p ∈ τ.bases, addr (s.gpr p.1) p.2.2 = (region s p.2.1).base
   wbases : ∀ p ∈ τ.wbases, p.2.1 + 4 ≤ τ.lens.getD p.1 0 ∧
@@ -396,11 +401,23 @@ theorem addrOf_some {τ : T} {m : MemOp} {i d : Nat} (h : addrOf τ m = some (i,
 theorem lens_ne {τ : T} {i n : Nat} (h : 0 < n) (hn : n ≤ τ.lens.getD i 0) : τ.lens ≠ [] := by
   rintro h'; simp [h'] at hn; omega
 
+theorem forall₂_length {rs : List Region} {ls : List Nat}
+    (h : List.Forall₂ (fun r l => l ≤ r.len) rs ls) : rs.length = ls.length := by
+  induction h with
+  | nil => rfl
+  | cons _ _ ih => simp [ih]
+
+theorem forall₂_getD {rs : List Region} {ls : List Nat}
+    (h : List.Forall₂ (fun r l => l ≤ r.len) rs ls) (i : Nat) : ls.getD i 0 ≤ (rs.getD i ⟨0, 0⟩).len := by
+  induction h generalizing i with
+  | nil => simp
+  | cons h _ ih => cases i with
+    | zero => exact h
+    | succ i => exact ih i
+
 theorem region_len {τ : T} {s : State} (hw : Wf τ s) (hne : τ.lens ≠ []) (i : Nat) :
-    (region s i).len = τ.lens.getD i 0 := by
-  rw [← (hw.lens hne).1]
-  simp only [region, List.getD_eq_getElem?_getD, List.getElem?_map]
-  cases s.wr[i]? <;> rfl
+    τ.lens.getD i 0 ≤ (region s i).len :=
+  forall₂_getD (hw.lens hne).1 i
 
 theorem region_mem {τ : T} {s : State} (hw : Wf τ s) (hne : τ.lens ≠ []) {i : Nat}
     (hi : 0 < τ.lens.getD i 0) : ∃ h : i < s.wr.length, region s i = s.wr[i] := by
@@ -408,16 +425,18 @@ theorem region_mem {τ : T} {s : State} (hw : Wf τ s) (hne : τ.lens ≠ []) {i
   have : i < τ.lens.length := by
     by_contra h'
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)] at hi; simp at hi
-  have hi' : i < s.wr.length := by rw [← hl, List.length_map] at this; exact this
+  have hi' : i < s.wr.length := by rw [← forall₂_length hl] at this; exact this
   exact ⟨hi', by simp [region, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi']⟩
 
 /-- Region `i` lies within the 32-bit address space. -/
 theorem region_bound {τ : T} {s : State} (hw : Wf τ s) {i : Nat} (hi : 0 < τ.lens.getD i 0) :
     (region s i).base.toNat + τ.lens.getD i 0 ≤ 2 ^ 32 := by
-  have hne := lens_ne hi le_rfl
+  have hne := lens_ne hi (Nat.le_refl _)
   obtain ⟨hi', hr⟩ := region_mem hw hne hi
-  rw [← region_len hw hne i, hr]
-  exact (hw.lens hne).2.2 _ (List.getElem_mem _)
+  have := region_len hw hne i
+  rw [hr] at this ⊢
+  have := (hw.lens hne).2.2 _ (List.getElem_mem hi')
+  omega
 
 /-- `[x + d]`, for `x + k` the base address `b` of a region containing byte `d - k`. -/
 theorem addr_offset {x : BitVec 32} {k d : Nat} {b : Addr} (e : addr x k = b) (hk : k ≤ d)
@@ -722,13 +741,13 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {m : 
           · simp only [List.mem_filter, Bool.or_eq_true, bne_iff_ne, decide_eq_true_eq] at hsl
             exact .inr ⟨hsl.1, by tauto⟩
         rcases hsl' with rfl | ⟨h, hsep⟩
-        · have hp : p = true := by split at hsl <;> simp_all
+        · have hp : p = true := by split at hsl <;> simp_all <;> omega
           simp only at hk₁ hk₂
           simp only [e₁, e₂, Mem.write, hv hp]
           have hd : ∀ s : State, byteAddr s i k - byteAddr s i d = BitVec.ofNat 64 (k - d) := by
             intro s; simp only [byteAddr]; bv_omega
           have hlt : (BitVec.ofNat 64 (k - d)).toNat < n := by
-            rw [BitVec.toNat_ofNat]; exact lt_of_le_of_lt (Nat.mod_le _ _) (by omega)
+            rw [BitVec.toNat_ofNat]; exact Nat.lt_of_le_of_lt (Nat.mod_le _ _) (by omega)
           rw [hd, hd]; simp only [hlt, ite_true]
         · by_cases hp : p = true
           · exact same h hp
@@ -1018,7 +1037,7 @@ theorem regBases_ok {τ : T} {s : State} (hw : Wf τ s) {m : MemOp} {r : Reg} :
     ∀ i ∈ regBases τ r, 4 ≤ 32 / 8 ∧
       addr ((s.mem.writeW (s.ea m) (s.gpr r)).readW (s.ea m) 32) 0 = (region s i).base := by
   intro i hi
-  refine ⟨le_rfl, ?_⟩
+  refine ⟨(Nat.le_refl _), ?_⟩
   rw [Mem.readW_writeW_self32]
   simp only [regBases, List.mem_map, List.mem_filter, Bool.and_eq_true, beq_iff_eq] at hi
   obtain ⟨q, ⟨hq, hr, h0⟩, rfl⟩ := hi
@@ -1231,7 +1250,7 @@ theorem meet_left {τ₁ τ₂ : T} {s₁ s₂ : State} (h : Agree τ₁ s₁ s�
   · split <;> simp_all
   · split at hp <;> [rename_i he; cases hp]
     exact ⟨(List.mem_filter.mp hp).1, by simp [he]⟩
-  · split <;> simp_all
+  · split <;> simp_all [Nat.min_le_left]
 
 theorem meet_right {τ₁ τ₂ : T} {s₁ s₂ : State} (h : Agree τ₂ s₁ s₂) : Agree (meet τ₁ τ₂) s₁ s₂ := by
   refine h.mono (fun r h => (RegSet.mem_inter.mp h).2) (fun hf => ?_) ?_
@@ -1246,7 +1265,7 @@ theorem meet_right {τ₁ τ₂ : T} {s₁ s₂ : State} (h : Agree τ₂ s₁ s
   · split <;> simp_all
   · split at hp <;> [rename_i he; cases hp]
     exact ⟨by simpa using (List.mem_filter.mp hp).2, by simp [he]⟩
-  · split <;> simp_all
+  · split <;> simp_all [Nat.min_le_right]
 
 theorem le_sound {τ σ : T} {s₁ s₂ : State} (hle : le τ σ = true) (h : Agree σ s₁ s₂) :
     Agree τ s₁ s₂ := by
@@ -1434,7 +1453,8 @@ theorem Wf.byte_mem {τ : T} {s : State} (hw : Wf τ s) {j k : Nat} (hk : k < τ
   have hb := region_bound hw (i := j) (by omega)
   refine ⟨_, List.getElem_mem hj, ?_⟩
   rw [← hr]
-  simp only [Region.Contains, byteAddr, region_len hw hne]
+  have hl := region_len hw hne j
+  simp only [Region.Contains, byteAddr]
   rw [Mem.sub_ofNat_toNat _ (by omega)]
   omega
 
@@ -1840,7 +1860,8 @@ theorem Wf.pop {τ : T} {n : Nat} {stk : List (Option Nat)} (hstk : τ.stk = som
     fun hpos => ?_⟩
   · have hne' : τ.lens ≠ [] := fun h => hne (by simp [h])
     obtain ⟨h₁, h₂, h₃⟩ := hw.lens hne'
-    refine ⟨by simp only [hwr, List.map_tail, h₁], by rw [hwr]; exact h₂.sublist (List.tail_sublist _),
+    refine ⟨by rw [hwr]; exact match s.wr, τ.lens, h₁ with | _, _, .nil => .nil | _, _, .cons _ h => h,
+      by rw [hwr]; exact h₂.sublist (List.tail_sublist _),
       fun q hq => h₃ q (List.mem_of_mem_tail (hwr ▸ hq))⟩
   · rcases List.mem_append.mp hp with hp | hp
     · obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hp
@@ -2104,7 +2125,7 @@ theorem Wf.push (hl : τ.lens ≠ []) : Wf (pushed τ rs) (pushState s rs) := by
   refine ⟨fun _ => ?_, fun p hp => ?_, fun p hp => ?_, fun hpos => ?_, fun p hp => ?_, ?_, hframes,
     fun hpos => ?_⟩
   · obtain ⟨h₁, h₂, h₃⟩ := hw.lens hl
-    refine ⟨by simp [pushed, belowSp, h₁], List.pairwise_cons.mpr ⟨hd, h₂⟩, fun r hr => ?_⟩
+    refine ⟨.cons (by simp [belowSp]) h₁, List.pairwise_cons.mpr ⟨hd, h₂⟩, fun r hr => ?_⟩
     rcases List.mem_cons.mp hr with rfl | hr
     · simp only [belowSp, sub_setWidth hle]
       have := (s.gpr .esp).isLt
@@ -2229,6 +2250,198 @@ theorem push_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
   · rw [argByte_move hE₁, argByte_move hE₂, hk₁ _ (.inr ⟨t, ht, rfl⟩), hk₂ _ (.inr ⟨t, ht, rfl⟩)]
     exact ha.argMem t h4 ht
 
+/-! ## Evaluation by the kernel
+
+The kernel evaluates `step` and `le` for every instruction and every hint of
+a check (`VG.Taint.check`). `stepK` and `leK` are the same functions written
+with the functions of `VG.KList`, which the kernel evaluates several times
+faster. -/
+
+open VG.KList (any all filter find? map append)
+
+/-- `a == b`, by the registers' indices. -/
+def regEq (a b : Reg) : Bool := Nat.beq a.ctorIdx b.ctorIdx
+
+theorem regEq_eq (a b : Reg) : regEq a b = (a == b) := by
+  rw [regEq, KList.beq_eq, Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq]
+  exact ⟨fun h => RegIdx.idx_inj h, fun h => h ▸ rfl⟩
+
+def killK (τ : T) (d : Reg) : List (Reg × Nat × Nat) := filter (fun p => !regEq p.1 d) τ.bases
+
+def addrOfK (τ : T) (m : MemOp) : Option (Nat × Nat) :=
+  (find? (fun p => regEq p.1 m.base && Nat.ble p.2.2 m.disp) τ.bases).map
+    fun p => (p.2.1, m.disp - p.2.2)
+
+def slotPubK (τ : T) (m : MemOp) (w : Nat) : Bool :=
+  match addrOfK τ m with
+  | some (i, d) =>
+    any τ.slots fun sl => Nat.beq sl.1 i && Nat.ble sl.2.1 d && Nat.ble (d + w) (sl.2.1 + sl.2.2)
+  | none => false
+
+def argPubK (τ : T) (m : MemOp) (w : Nat) : Bool :=
+  regEq m.base .esp && Nat.ble (depth τ.stk + 4) m.disp &&
+    Nat.ble (m.disp + w) (depth τ.stk + τ.argLen)
+
+def srcOkK (τ : T) : Src → Bool
+  | .mem m => pub τ m.base
+  | _ => true
+
+def loadPubK (τ : T) : Src → Bool
+  | .mem m => slotPubK τ m 4 || argPubK τ m 4
+  | _ => false
+
+def loadBasesK (τ : T) (m : MemOp) : List Nat :=
+  append
+    (match addrOfK τ m with
+      | some (j, o) => map (·.2.2) (filter (fun p => Nat.beq p.1 j && Nat.beq p.2.1 o) τ.wbases)
+      | none => [])
+    (bif regEq m.base .esp then
+      map (·.2) (filter (fun p => Nat.beq (depth τ.stk + p.1) m.disp) τ.argBases)
+    else [])
+
+def movBasesK (τ : T) (d : Reg) : Src → List (Reg × Nat × Nat)
+  | .reg r => append (killK τ d) (map (fun p => (d, p.2)) (filter (fun p => regEq p.1 r) τ.bases))
+  | .mem m => append (killK τ d) (map (fun i => (d, i, 0)) (loadBasesK τ m))
+  | .imm _ => killK τ d
+
+def regBasesK (τ : T) (r : Reg) : List Nat :=
+  map (·.2.1) (filter (fun p => regEq p.1 r && Nat.beq p.2.2 0) τ.bases)
+
+def storeSlotsK (τ : T) (m : MemOp) (w : Nat) (p : Bool) : List (Nat × Nat × Nat) :=
+  match addrOfK τ m with
+  | some (i, d) =>
+    bif Nat.ble (d + w) (τ.lens.getD i 0) then
+      let kept := filter (fun sl => p || !Nat.beq sl.1 i || Nat.ble (d + w) sl.2.1 ||
+        Nat.ble (sl.2.1 + sl.2.2) d) τ.slots
+      bif p then (i, d, w) :: kept else kept
+    else bif p then τ.slots else []
+  | none => bif p then τ.slots else []
+
+def storeWbasesK (τ : T) (m : MemOp) (w : Nat) (nb : List Nat) : List (Nat × Nat × Nat) :=
+  match addrOfK τ m with
+  | some (j, d) =>
+    bif Nat.ble (d + w) (τ.lens.getD j 0) then
+      append (filter (fun p => !Nat.beq p.1 j || Nat.ble (d + w) p.2.1 || Nat.ble (p.2.1 + 4) d) τ.wbases)
+        (map (fun i => (j, d, i)) nb)
+    else []
+  | none => []
+
+def storeStepK (τ : T) (m : MemOp) (w : Nat) (p : Bool) (nb : List Nat) : Option T :=
+  bif pub τ m.base then some { τ with slots := storeSlotsK τ m w p, wbases := storeWbasesK τ m w nb }
+  else none
+
+def setK (τ : T) (r : Reg) (p : Bool) : RegSet Reg := bif p then τ.regs.insert r else τ.regs.erase r
+
+def stepK (τ : T) : Instr → Option T
+  | .mov d src =>
+    bif !regEq d .esp && srcOkK τ src then
+      some { τ with regs := setK τ d (srcPub τ src || loadPubK τ src), bases := movBasesK τ d src }
+    else none
+  | .store m r => storeStepK τ m 4 (pub τ r) (regBasesK τ r)
+  | .alu op d src =>
+    bif !regEq d .esp && srcOkK τ src then
+      let p := pub τ d && srcPub τ src && (!usesCarry op || τ.flags)
+      some { τ with regs := bif writes op then setK τ d p else τ.regs, flags := p, bases := killK τ d }
+    else none
+  | .shift _ d _ =>
+    bif !regEq d .esp then some { τ with flags := τ.flags && pub τ d, bases := killK τ d } else none
+  | .bswap d => bif !regEq d .esp then some { τ with bases := killK τ d } else none
+  | .movzx8 d m =>
+    bif !regEq d .esp && pub τ m.base then some { τ with regs := setK τ d false, bases := killK τ d }
+    else none
+  | .store8 m r => storeStepK τ m 1 (pub τ r.reg) []
+  | .mul r => some (mulStep τ r)
+  | .push _ | .pop .. => none
+
+/-- `l.contains a`, for a known base address. -/
+def memB (a : Reg × Nat × Nat) (l : List (Reg × Nat × Nat)) : Bool :=
+  any l fun b => regEq a.1 b.1 && Nat.beq a.2.1 b.2.1 && Nat.beq a.2.2 b.2.2
+
+/-- `l.contains a`, for a slot or a known base-address word. -/
+def mem3 (a : Nat × Nat × Nat) (l : List (Nat × Nat × Nat)) : Bool :=
+  any l fun b => Nat.beq a.1 b.1 && Nat.beq a.2.1 b.2.1 && Nat.beq a.2.2 b.2.2
+
+/-- `l.contains a`, for a known base address among the arguments. -/
+def mem2 (a : Nat × Nat) (l : List (Nat × Nat)) : Bool :=
+  any l fun b => Nat.beq a.1 b.1 && Nat.beq a.2 b.2
+
+def leK (τ σ : T) : Bool :=
+  τ.regs.subset σ.regs && (!τ.flags || σ.flags) && τ.lens == σ.lens &&
+    all τ.bases (memB · σ.bases) && all τ.slots (mem3 · σ.slots) && all τ.wbases (mem3 · σ.wbases) &&
+    Nat.beq τ.argLen σ.argLen && all τ.argBases (mem2 · σ.argBases) && τ.stk == σ.stk &&
+    Nat.ble τ.room σ.room
+
+section
+open KList
+
+theorem killK_eq : killK = kill := by
+  funext τ d; simp only [killK, kill, filter_eq, regEq_eq]; rfl
+
+theorem setK_eq : setK = set := by
+  funext τ r p; simp only [setK, set, Bool.cond_eq_ite]
+
+theorem addrOfK_eq : addrOfK = addrOf := by
+  funext τ m; simp only [addrOfK, addrOf, find?_eq, regEq_eq, ble_eq]
+
+theorem slotPubK_eq : slotPubK = slotPub := by
+  funext τ m w; simp only [slotPubK, slotPub, addrOfK_eq]
+  rcases addrOf τ m with _ | ⟨i, d⟩ <;> simp only [any_eq, beq_eq, ble_eq]
+
+theorem srcOkK_eq : srcOkK = srcOk := by
+  funext τ src; cases src <;> rfl
+
+theorem loadPubK_eq : loadPubK = loadPub := by
+  funext τ src; cases src <;> simp only [loadPubK, loadPub, slotPubK_eq, argPubK, argPub, regEq_eq, ble_eq]
+
+theorem loadBasesK_eq : loadBasesK = loadBases := by
+  funext τ m; simp only [loadBasesK, loadBases, addrOfK_eq, append_eq, regEq_eq, Bool.cond_eq_ite]
+  rcases addrOf τ m with _ | ⟨j, o⟩ <;> simp only [map_eq, filter_eq, beq_eq]
+
+theorem movBasesK_eq : movBasesK = movBases := by
+  funext τ d src
+  cases src <;> simp only [movBasesK, movBases, killK_eq, append_eq, map_eq, filter_eq, regEq_eq, loadBasesK_eq]
+
+theorem regBasesK_eq : regBasesK = regBases := by
+  funext τ r; simp only [regBasesK, regBases, map_eq, filter_eq, regEq_eq, beq_eq]
+
+theorem storeSlotsK_eq : storeSlotsK = storeSlots := by
+  funext τ m w p; simp only [storeSlotsK, storeSlots, addrOfK_eq]
+  rcases addrOf τ m with _ | ⟨i, d⟩ <;> simp only [filter_eq, beq_eq, ble_eq, Bool.cond_eq_ite, decide_eq_true_eq, bne]
+
+theorem storeWbasesK_eq : storeWbasesK = storeWbases := by
+  funext τ m w nb; simp only [storeWbasesK, storeWbases, addrOfK_eq]
+  rcases addrOf τ m with _ | ⟨j, d⟩ <;> simp only [append_eq, map_eq, filter_eq, beq_eq, ble_eq, Bool.cond_eq_ite, decide_eq_true_eq, bne]
+
+theorem storeStepK_eq : storeStepK = storeStep := by
+  funext τ m w p nb; simp only [storeStepK, storeStep, storeSlotsK_eq, storeWbasesK_eq, Bool.cond_eq_ite, memPub]
+  rfl
+
+theorem stepK_eq : stepK = step := by
+  funext τ i
+  cases i <;> simp only [stepK, step, regEq_eq, bne, srcOkK_eq, setK_eq, loadPubK_eq, movBasesK_eq,
+    killK_eq, storeStepK_eq, regBasesK_eq, Bool.cond_eq_ite, memPub]
+  -- `movzx8`: the same up to the instance deciding the condition.
+  rfl
+
+theorem memB_eq (a : Reg × Nat × Nat) (l : List (Reg × Nat × Nat)) : memB a l = l.contains a := by
+  simp only [memB, any_eq, beq_eq, regEq_eq, List.contains_eq_any_beq]
+  congr; funext b; rw [Bool.eq_iff_iff]
+  simp only [Bool.and_eq_true, beq_iff_eq, Prod.ext_iff, and_assoc]
+
+theorem mem3_eq (a : Nat × Nat × Nat) (l : List (Nat × Nat × Nat)) : mem3 a l = l.contains a := by
+  simp only [mem3, any_eq, beq_eq, List.contains_eq_any_beq]
+  congr; funext b; rw [Bool.eq_iff_iff]
+  simp only [Bool.and_eq_true, beq_iff_eq, Prod.ext_iff, and_assoc]
+
+theorem mem2_eq (a : Nat × Nat) (l : List (Nat × Nat)) : mem2 a l = l.contains a := by
+  simp only [mem2, any_eq, beq_eq, List.contains_eq_any_beq]
+  rfl
+
+theorem leK_eq : leK = le := by
+  funext τ σ
+  simp only [leK, le, memB_eq, mem3_eq, mem2_eq, all_eq, beq_eq, ble_eq]
+
+end
 end VG.X86.Taint
 
 namespace VG.X86
@@ -2237,15 +2450,15 @@ namespace VG.X86
 def taint : VG.Taint isa where
   T := Taint.T
   Agree := Taint.Agree
-  step := Taint.step
-  step_sound := Taint.step_sound
+  step := Taint.stepK
+  step_sound ha hs := Taint.step_sound ha (Taint.stepK_eq ▸ hs)
   condPub τ _ := τ.flags
   cond_sound := Taint.cond_sound
   meet := Taint.meet
   meet_left := Taint.meet_left
   meet_right := Taint.meet_right
-  le := Taint.le
-  le_sound := Taint.le_sound
+  le := Taint.leK
+  le_sound h := Taint.le_sound (Taint.leK_eq ▸ h)
   call := Taint.callStep
   call_sound := Taint.call_sound
   ret := Taint.retStep

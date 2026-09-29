@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Sha512.Arm.Steps
+import Mathlib.Tactic.Set
 
 /-!
 # SHA-512 on ARMv7: the message schedule and the rounds

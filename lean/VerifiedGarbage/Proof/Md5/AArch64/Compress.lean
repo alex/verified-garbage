@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Md5.AArch64.Rounds
 import VerifiedGarbage.Proof.Md5.AArch64.Contract
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # MD5 compression function on AArch64: the whole function
@@ -288,7 +289,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     exact blk_word i k hk
   have hx1₁ : s₁.gpr .x1 = blkAddr s₀ i := (hkept₁ .x1 (by decide)).trans hL.x1
   refine WP.seq (WP.mono (steps_ok _ (blk s₀ i) _ s₁ hx1₁ hones₁
-    (fun k hk => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_blk hi hk) hX hv₁ 64 le_rfl)
+    (fun k hk => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_blk hi hk) hX hv₁ 64 (Nat.le_refl _))
     fun s₂ hR => ?_)
   have kept₂ : ∀ r ∈ loadKept, s₂.gpr r = s.gpr r := fun r hr => by
     rw [hR.pub r (loadKept_sub r hr), hkept₁ r hr]

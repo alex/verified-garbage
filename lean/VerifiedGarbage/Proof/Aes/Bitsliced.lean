@@ -1,6 +1,7 @@
 import VerifiedGarbage.Spec.Aes
 import VerifiedGarbage.Proof.Framework.Bitslice.Table
 import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # Bitsliced AES: the layout and the round transformations

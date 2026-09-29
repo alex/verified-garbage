@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Md5.AArch64.Stream.Common
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # Streaming MD5 on AArch64: `init`

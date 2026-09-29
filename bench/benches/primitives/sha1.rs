@@ -6,7 +6,7 @@ use criterion::Criterion;
 /// `ci/bench_arches.py`).
 pub const USES: &[&str] = &["sha1"];
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 pub fn bench(c: &mut Criterion) {
     use openssl::hash::MessageDigest;
     use verified_garbage::hashes::sha1::Sha1;
@@ -15,5 +15,5 @@ pub fn bench(c: &mut Criterion) {
     hash_group(c, "sha1", Sha1::digest, MessageDigest::sha1());
 }
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm")))]
 pub fn bench(_: &mut Criterion) {}

@@ -237,7 +237,7 @@ theorem xor64_full {dR xR sR : Reg} (hd : dR ≠ .rax) (hx : xR ≠ .rax) (hs : 
       s'.mem = writeBytes s.mem d (xorBytes (bytesAt s.mem x 64) (bytesAt s.mem y 64)) →
       WP isa (.block rest) s' Q) :
     WP isa (.block (xor64 dR xR sR ++ rest)) s Q :=
-  xor64_ok hd hx hs hdx hdy 8 le_rfl rest s Q gd gx gy hinx hiny hout k
+  xor64_ok hd hx hs hdx hdy 8 (Nat.le_refl _) rest s Q gd gx gy hinx hiny hout k
 
 theorem sx64 : BitVec.signExtend 64 (64 : BitVec 32) = BitVec.ofNat 64 64 := by decide
 theorem sx1 : BitVec.signExtend 64 (1 : BitVec 32) = (1 : BitVec 64) := by decide

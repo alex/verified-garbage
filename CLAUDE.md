@@ -96,6 +96,12 @@ instructions in an ISA model) go in their own PR before either.
    faster. If its code uses instructions outside
    the target's baseline ISA, list the CPU features they require in
    `features` (the emitter rejects anything but the exact set).
+   A function that calls another one with several implementations (e.g.
+   scalar and SHA-NI compression) is proven once for any of them and
+   registered in `Generic/<Iface>/<Target>/<Alg>.lean`, which the emitter
+   applies to every implementation in `Variants/<Iface>/<Target>/` (see
+   `TCB/Emit.lean`). Never list the implementations in the caller: a new
+   implementation is a new variant file, and its callers follow.
 5. Regenerate `src/asm/`, build the public Rust API on top of the primitive,
    and test it against the Wycheproof vectors in `tests/wycheproof/` (set
    `WYCHEPROOF_ROOT` to a checkout of C2SP/wycheproof). Benchmark the new
@@ -111,6 +117,13 @@ should add files, not edit lists that every other PR edits too.
   inner `#![cfg(...)]` after its `//!` docs; the parent only says
   `mod <name>;`. Supporting another architecture changes that one line of
   the algorithm's own file.
+  Tests and benchmarks are gated on exactly the architectures of the
+  library modules they use (`ci/check_arch_gates.py` checks it), so update
+  their `cfg`s with the module's.
+* Import the verified functions from `crate::arch::<module>` (the target's
+  `crate::asm::<target>::<module>`, `src/lib.rs`), once for every
+  architecture, not with a `use` per architecture; only functions a target
+  alone has (e.g. an x86-64 `_shani` variant) take a `#[cfg(target_arch)]`.
 * Tests of one algorithm go in a file of their own (`tests/cavp/<alg>.rs`,
   `tests/wycheproof/<alg>.rs`), declared with one `mod` line.
 * A construction over many hash functions (HMAC, PBKDF2) gets a file per
@@ -166,7 +179,12 @@ Avoid these patterns (each has cost tens of seconds in one proof):
 * **Imports:** never import `Mathlib.Tactic` or all of Mathlib, which costs
   seconds in every module that (transitively) imports it: import the
   module of each tactic or lemma you use (e.g. `Mathlib.Tactic.IntervalCases`),
-  and prefer core lemmas.
+  and prefer core lemmas. The framework (`Proof/Framework/`) provides no
+  Mathlib tactics, only Batteries' light ones (`by_contra`, `absurd`,
+  `exacts`, `swap`, `<;> [t₁; t₂]`). `IntervalCases`, `NormNum`, `Ring` and
+  `Mathlib.Data.List.*` each add about half a second to every module that
+  imports them, even indirectly: keep them out of modules that many others
+  import (a framework file, an algorithm's `Spec` or `Stream` lemmas).
 * **Properties of every instruction:** prove `(instrs c).all p` with
   `rw [← Code.allInstrs_eq]; decide +kernel`, not `decide +kernel` directly.
 * **Failing unfolding:** `rfl`, `trivial`, `congr 1`, `exact` and `simpa` on
@@ -205,6 +223,7 @@ against the 200000 budget.
 python3 ci/check_lean_imports.py
 python3 ci/check_lean_speed.py
 python3 ci/check_vectors.py
+python3 ci/check_arch_gates.py
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
 ```

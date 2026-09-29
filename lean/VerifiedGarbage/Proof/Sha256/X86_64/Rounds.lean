@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Sha256.Spec
 import VerifiedGarbage.Impl.Sha256.X86_64
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # SHA-256 compression function on x86-64: the message schedule and the rounds

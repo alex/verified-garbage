@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Poly1305.X86_64.Arith
 import VerifiedGarbage.Impl.Poly1305.X86_64
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Poly1305 on x86-64: the steps of a block
@@ -186,22 +187,23 @@ theorem ea_at (s : State) (b : Reg) (d : Nat) :
 abbrev word (m : Mem) (p : Addr) (d : Nat) : Nat := (m.readW (p + BitVec.ofInt 64 (d : Int)) 64).toNat
 
 set_option simprocs false in
-/-- `h += m + pad · 2¹²⁸`. -/
-theorem addBlock_ok (s : State) {pad : BitVec 32} (hpad : pad = 0 ∨ pad = 1)
-    (h0 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofInt 64 ((0 : Nat) : Int)) 8)
-    (h8 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofInt 64 ((8 : Nat) : Int)) 8) :
-    WP isa (.block (addBlock pad)) s fun s' =>
+/-- `h += m + pad · 2¹²⁸` for the block `m` at `b + d`. -/
+theorem addBlockAt_ok (s : State) {b : Reg} (hb : b ≠ .r11) {d : Nat} {pad : BitVec 32}
+    (hpad : pad = 0 ∨ pad = 1)
+    (h0 : InRegions (s.rd ++ s.wr) (s.gpr b + BitVec.ofInt 64 (d : Int)) 8)
+    (h8 : InRegions (s.rd ++ s.wr) (s.gpr b + BitVec.ofInt 64 ((d + 8 : Nat) : Int)) 8) :
+    WP isa (.block (addBlockAt b d pad)) s fun s' =>
       ((s.gpr .r11).toNat + 2 ^ 64 * (s.gpr .rbx).toNat + 2 ^ 128 * (s.gpr .rbp).toNat +
-          (word s.mem (s.gpr .rsi) 0 + 2 ^ 64 * word s.mem (s.gpr .rsi) 8 + 2 ^ 128 * pad.toNat) <
+          (word s.mem (s.gpr b) d + 2 ^ 64 * word s.mem (s.gpr b) (d + 8) + 2 ^ 128 * pad.toNat) <
           2 ^ 192 →
         (s'.gpr .r11).toNat + 2 ^ 64 * (s'.gpr .rbx).toNat + 2 ^ 128 * (s'.gpr .rbp).toNat =
           (s.gpr .r11).toNat + 2 ^ 64 * (s.gpr .rbx).toNat + 2 ^ 128 * (s.gpr .rbp).toNat +
-            (word s.mem (s.gpr .rsi) 0 + 2 ^ 64 * word s.mem (s.gpr .rsi) 8 + 2 ^ 128 * pad.toNat)) ∧
+            (word s.mem (s.gpr b) d + 2 ^ 64 * word s.mem (s.gpr b) (d + 8) + 2 ^ 128 * pad.toNat)) ∧
       Keeps [.r11, .rbx, .rbp] s s' := by
   have hp : (pad.signExtend 64).toNat = pad.toNat := by rcases hpad with rfl | rfl <;> rfl
   apply WP.of_runBlock
-  simp (config := {decide := true}) only [addBlock, runBlock_cons, runStep_some, runBlock_nil, exec,
-    readSrc, execAlu, arithFlags, State.setReg, State.setFlags, State.load64, ea_at, h0, h8,
+  simp (config := {decide := true}) only [addBlockAt, runBlock_cons, runStep_some, runBlock_nil, exec,
+    readSrc, execAlu, arithFlags, State.setReg, State.setFlags, State.load64, ea_at, hb, h0, h8,
     Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left', ite_true, ite_false]
   refine ⟨fun hlt => ?_, fun r hr => ?_, rfl, rfl, rfl⟩
   · simp only [word] at hlt ⊢

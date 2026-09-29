@@ -210,7 +210,7 @@ theorem aes_ok (regs : List XReg) (hnd : regs.Nodup) (h8 : .xmm8 ∉ regs) {nr :
   have hea : s₂.ea (at_ .r10 0) = s₂.gpr .rdi + BitVec.ofInt 64 ((16 * nr : Nat) : Int) := by
     rw [ea_at, hf₂.gpr, hr10, ofInt_natCast, ofInt_natCast]; exact BitVec.add_zero _
   have hK₂ := hK.of_frame hf₂
-  refine WP.mono (keyOp_ok regs .aesenclast _ s₂ hnd h8 (by rw [hea]; exact hK₂.keys nr le_rfl))
+  refine WP.mono (keyOp_ok regs .aesenclast _ s₂ hnd h8 (by rw [hea]; exact hK₂.keys nr (Nat.le_refl _)))
     fun s' ⟨hv, hf'⟩ => ⟨fun b hb => ?_, hf₂.trans hf'⟩
   rw [hv b hb, aesenclast_st _ _ (roundKey w nr) (by
     rw [hea, hK₂.sched]; exact byte_roundKey _ _ (by omega)), hI₂ b hb, cipher_eq]

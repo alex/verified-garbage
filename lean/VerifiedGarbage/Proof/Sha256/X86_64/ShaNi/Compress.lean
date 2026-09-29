@@ -362,7 +362,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     (fun n hn => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact Pre.in_blk16 hp hi hn)
     (fun t ht => by rw [hmem₁]; exact blk_word i t ht)
     (by rw [hx₁ _ (by decide) (by decide), hL.x1]) (by rw [hx₁ _ (by decide) (by decide), hL.x2])
-    16 le_rfl) fun s₂ hR => ?_)
+    16 (Nat.le_refl _)) fun s₂ hR => ?_)
   have k9 : s₂.xmm .xmm9 = abef (compressBlocks (H₀ s₀) s₀.mem (bp s₀) i) := by
     rw [hR.keep .xmm9 (by simp), e9, hL.x1]
   have k10 : s₂.xmm .xmm10 = cdgh (compressBlocks (H₀ s₀) s₀.mem (bp s₀) i) := by

@@ -15,35 +15,38 @@ pub fn bench(c: &mut Criterion) {
 
     use criterion::{BenchmarkId, Throughput};
     use openssl::hash::MessageDigest;
+    use verified_garbage::hashes::sha256::Sha256;
+    use verified_garbage::pbkdf2::{__pbkdf2_hmac_with_features, pbkdf2_hmac_sha256};
 
-    use crate::{OPENSSL, SIZES, VG};
+    use crate::{SIZES, VG};
+
+    crate::pbkdf2_group(
+        c,
+        "pbkdf2-hmac-sha256",
+        pbkdf2_hmac_sha256,
+        MessageDigest::sha256(),
+        32,
+    );
+
+    // The implementation for the baseline ISA (every CPU feature masked
+    // off), which `pbkdf2-hmac-sha256` runs too on CPUs without the SHA
+    // extensions.
     let password = [0x0b; 32];
     let salt = [0x5a; 16];
-    let mut g = c.benchmark_group("pbkdf2-hmac-sha256");
+    let mut g = c.benchmark_group("pbkdf2-hmac-sha256-baseline");
     for iterations in SIZES {
         g.throughput(Throughput::Elements(iterations as u64));
         let mut out = [0u8; 32];
         let n = NonZeroU32::new(iterations as u32).unwrap();
         g.bench_function(BenchmarkId::new(VG, iterations), |b| {
             b.iter(|| {
-                verified_garbage::pbkdf2::pbkdf2_hmac_sha256(
+                __pbkdf2_hmac_with_features::<Sha256>(
                     black_box(&password),
                     black_box(&salt),
                     n,
                     &mut out,
+                    0,
                 )
-            })
-        });
-        g.bench_function(BenchmarkId::new(OPENSSL, iterations), |b| {
-            b.iter(|| {
-                openssl::pkcs5::pbkdf2_hmac(
-                    black_box(&password),
-                    black_box(&salt),
-                    iterations,
-                    MessageDigest::sha256(),
-                    &mut out,
-                )
-                .unwrap()
             })
         });
     }

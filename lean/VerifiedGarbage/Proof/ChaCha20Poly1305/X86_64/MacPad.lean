@@ -32,7 +32,7 @@ theorem contains_off_sub {P : Addr} {a n len w : Nat} {x : Addr} (h : a + n ≤ 
   have : (x - P).toNat ≤ (x - (P + BitVec.ofNat 64 a)).toNat + a := by
     rw [show x - P = (x - (P + BitVec.ofNat 64 a)) + BitVec.ofNat 64 a by bv_omega,
       BitVec.toNat_add, BitVec.toNat_ofNat]
-    exact le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
+    exact Nat.le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
   omega
 
 theorem Src.cov_sub {s₀ : State} {P : Addr} {len : Nat} (hs : Src s₀ P len) {a n : Nat} (h : a + n ≤ len)
@@ -117,11 +117,11 @@ theorem padZ_ok {s₀ : State} (hp : APre s₀) {s : State} (hr15 : s.gpr .r15 =
     readSrc32, State.store64, State.setReg, State.setReg32, hr15, o0, o1, ite_true, ite_false,
     Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨trivial, fun q h₁ h₂ => by simp [h₁, h₂], trivial, trivial, ?_, fun j hj => ?_⟩
-  · exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ le_rfl (by omega) (by omega))
+  · exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ (Nat.le_refl _) (by omega) (by omega))
       |>.writeW (List.mem_singleton_self _) _ (contains_sub s₀ (by omega) (by omega) (by omega))
   · have z : (BitVec.setWidth 64 (0 : BitVec 32)) = 0 := rfl
     simp only [z]
-    rw [VG.Proof.Poly1305.X86_64.writeW64_zero_apply, VG.Proof.Poly1305.X86_64.writeW64_zero_apply]
+    rw [VG.Proof.Poly1305.writeW64_zero_apply, VG.Proof.Poly1305.writeW64_zero_apply]
     have e : ∀ d, d ≤ 576 + j → (off (cx s₀) (576 + j) - (cx s₀ + BitVec.ofInt 64 (d : Int))).toNat = 576 + j - d := by
       intro d hd
       rw [show cx s₀ + BitVec.ofInt 64 (d : Int) = off (cx s₀) d from rfl, off_eq, off_eq,

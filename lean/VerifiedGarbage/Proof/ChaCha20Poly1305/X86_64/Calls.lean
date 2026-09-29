@@ -36,7 +36,7 @@ theorem sub_off (p : Addr) {a n len : Nat} (h : a + n ≤ len) :
   have : (x - p).toNat ≤ (x - (p + BitVec.ofNat 64 a)).toNat + a := by
     rw [show x - p = (x - (p + BitVec.ofNat 64 a)) + BitVec.ofNat 64 a by bv_omega,
       BitVec.toNat_add, BitVec.toNat_ofNat]
-    exact le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
+    exact Nat.le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
   omega
 
 /-- A Poly1305 state outside a frame is unchanged. -/
@@ -74,7 +74,7 @@ theorem blocks_keeps : ((instrs Impl.Poly1305.X86_64.blocks).all fun i =>
   rw [← Code.allInstrs_eq]; decide +kernel
 
 theorem finalize_keeps : ((instrs Impl.Poly1305.X86_64.finalize).all fun i =>
-    !Taint.clobbers i .rdi && !Taint.clobbers i .rcx && !Taint.clobbers i .rsp) = true := by
+    !Taint.clobbers i .rdi && !Taint.clobbers i .rsp) = true := by
   rw [← Code.allInstrs_eq]; decide +kernel
 
 theorem init_depth : Impl.Poly1305.X86_64.init.depth = 0 := by decide +kernel
@@ -157,44 +157,35 @@ theorem blocks_call {s : State} {P p : Addr} {n : Nat} (hrdi : s.gpr .rdi = P) (
 
 /-! ## `vg_poly1305_finalize` -/
 
-theorem finalize_call {s : State} {P T O : Addr} {n : Nat} (hrdi : s.gpr .rdi = P) (hrsi : s.gpr .rsi = T)
-    (hrdx : s.gpr .rdx = BitVec.ofNat 64 n) (hrcx : s.gpr .rcx = O) (hn : n < 16)
-    (hPT : (⟨P, 128⟩ : Region).Disjoint ⟨T, n⟩) (hPO : (⟨P, 128⟩ : Region).Disjoint ⟨O, 16⟩)
-    (hTO : (⟨T, n⟩ : Region).Disjoint ⟨O, 16⟩)
-    (hsP : (below (s.gpr .rsp) 8).Disjoint ⟨P, 128⟩) (hsT : (below (s.gpr .rsp) 8).Disjoint ⟨T, n⟩)
-    (hsO : (below (s.gpr .rsp) 8).Disjoint ⟨O, 16⟩)
-    (hc : Covers ([⟨T, n⟩] ++ [⟨P, 128⟩, ⟨O, 16⟩]) (s.rd ++ s.wr)) (hw : Covers [⟨P, 128⟩, ⟨O, 16⟩] s.wr)
+theorem finalize_call {s : State} {P O : Addr} (hrdi : s.gpr .rdi = P) (hrsi : s.gpr .rsi = 0)
+    (hrdx : s.gpr .rdx = O) (hPO : (⟨P, 128⟩ : Region).Disjoint ⟨O, 16⟩)
+    (hsP : (below (s.gpr .rsp) 8).Disjoint ⟨P, 128⟩) (hsO : (below (s.gpr .rsp) 8).Disjoint ⟨O, 16⟩)
+    (hc : Covers ([] ++ [⟨P, 128⟩, ⟨O, 16⟩]) (s.rd ++ s.wr)) (hw : Covers [⟨P, 128⟩, ⟨O, 16⟩] s.wr)
     {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
       Frame [⟨P, 128⟩, ⟨O, 16⟩, below (s.gpr .rsp) 8] s.mem s'.mem → s'.gpr .rdi = P → s'.gpr .rcx = O →
-      (∀ key msg, Repr s.mem P key msg → bytesAt s'.mem O 16 = mac key (msg ++ bytesAt s.mem T n)) →
-      Q s') :
+      (∀ key msg, Repr s.mem P key msg → bytesAt s'.mem O 16 = mac key msg) → Q s') :
     WP isa (.call "vg_poly1305_finalize" Impl.Poly1305.X86_64.finalize) s Q := by
-  have hn' : (BitVec.ofNat 64 n).toNat = n := by
-    rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by omega)
   have k1 : ∀ i ∈ instrs Impl.Poly1305.X86_64.finalize, Taint.clobbers i .rdi = false :=
-    keeps_of finalize_keeps fun _ h => by simp_all
-  have k2 : ∀ i ∈ instrs Impl.Poly1305.X86_64.finalize, Taint.clobbers i .rcx = false :=
-    keeps_of finalize_keeps fun _ h => by simp_all
+    keeps_of finalize_keeps fun _ h => and_left h
   have k3 : ∀ i ∈ instrs Impl.Poly1305.X86_64.finalize, Taint.clobbers i .rsp = false :=
-    keeps_of finalize_keeps fun _ h => by simp_all
+    keeps_of finalize_keeps fun _ h => and_right h
   refine WP.call (k := Proof.Poly1305.finalizeX86_64) Proof.Poly1305.X86_64.finalize_verified.1
-    k3 (by rw [finalize_depth]; decide) (rd := [⟨T, n⟩]) (wr := [⟨P, 128⟩, ⟨O, 16⟩]) ?_ hc hw ?_
-  · simp only [Proof.Poly1305.finalizeX86_64, State.withRegions_gpr, State.withRegions_rd,
-      State.withRegions_wr, State.callEntry_rsp, callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp),
-      callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp),
-      callEntry_gpr' s (by decide : Reg.rcx ≠ .rsp), hrdi, hrsi, hrdx, hrcx, hn']
-    exact ⟨trivial, trivial, hPT, hPO, hTO, hsP, hsO, hn⟩
-  · intro s' hrd hwr hcs hf hkeep ⟨s₂, hm₂, _, hpost⟩
+    k3 (by rw [finalize_depth]; decide) (rd := []) (wr := [⟨P, 128⟩, ⟨O, 16⟩]) ?_ hc hw ?_
+  · simp only [Proof.Poly1305.finalizeX86_64, State.withRegions_gpr, State.withRegions_wr,
+      State.callEntry_rsp, callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp),
+      callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp), hrdi, hrdx]
+    exact ⟨List.mem_cons_self, List.mem_cons_of_mem _ List.mem_cons_self, hPO, hsP, hsO⟩
+  · intro s' hrd hwr hcs hf hkeep ⟨s₂, hm₂, hg₂, hrcx₂, hpost⟩
     rw [finalize_depth] at hf
-    refine hQ s' hrd hwr hcs hf (by rw [hkeep .rdi k1, hrdi]) (by rw [hkeep .rcx k2, hrcx])
-      fun key msg hr => ?_
-    simp only [Proof.Poly1305.finalizeX86_64, State.withRegions_gpr, State.withRegions_mem,
-      callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp),
-      callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp), callEntry_gpr' s (by decide : Reg.rcx ≠ .rsp), hrdi,
-      hrsi, hrdx, hrcx, hn', hm₂] at hpost
-    have h := hpost key msg (Repr.frame (callEntry_frame s) (h := hr) (by simpa using hsP.symm))
-    rwa [bytesAt_frame (callEntry_frame s) (by simpa using hsT.symm) (by omega)] at h
+    refine hQ s' hrd hwr hcs hf (by rw [hkeep .rdi k1, hrdi]) ?_ fun key msg hr => ?_
+    · rw [← hg₂ .rcx (by decide), hrcx₂, State.withRegions_gpr, callEntry_gpr' s (by decide), hrdx]
+    simp only [State.withRegions_gpr, State.withRegions_mem, callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp),
+      callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp), hrdi,
+      hrsi, hrdx, hm₂] at hpost
+    refine hpost key msg (Proof.Poly1305.Repr.buffered
+      (Repr.frame (callEntry_frame s) (h := hr) (by simpa using hsP.symm))) ?_
+    rw [show (0 : BitVec 64).toNat = 0 from rfl, hr.1]
 
 /-! ## `vg_chacha20_block` -/
 

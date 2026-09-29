@@ -289,7 +289,7 @@ theorem half_ok {c : Prog isa} (hS : SalsaSpec c) {s₀ : State} (hp : Pre s₀)
     WP isa (.block (xor64 dR xR sR)) s fun s' => WP isa (.seq (salsaAt c dR) P) s' Q := by
   have lt := r_lt hp
   rw [← List.append_nil (xor64 dR xR sR)]
-  refine xor64_ok hd hx hs hdx (yb_disj hp ho hob) 8 le_rfl [] s _ gd gx gs hinx
+  refine xor64_ok hd hx hs hdx (yb_disj hp ho hob) 8 (Nat.le_refl _) [] s _ gd gx gs hinx
     (fun i hi => by
       rw [hrd, hwr, add_ofNat]; exact InRegions.of_mem (by simp) (in_b hp (by omega)))
     (fun i hi => by

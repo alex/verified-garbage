@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Common
+import Mathlib.Tactic.Tauto
 
 /-!
 # Streaming SHA-256 on AArch64: `update`
@@ -393,7 +394,7 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   have hr := rr_lt s₀ c; have ht' := tt_le' s₀ c
   have hxs := xs_length s₀ c
   have hf : Frame [stR s₀] sI.mem mem := by
-    have := write_frame s₀ c sI.mem (tt s₀ c) le_rfl
+    have := write_frame s₀ c sI.mem (tt s₀ c) (Nat.le_refl _)
     rwa [List.take_of_length_le (by omega)] at this
   refine ⟨hI.frame.trans (hf.mono (by simp)), fun p hp' => ?_, ?_, ?_⟩
   · rw [← hI.saved p hp']
@@ -458,7 +459,7 @@ theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
   obtain ⟨hfr, hsv, hst, hby⟩ := copied_facts hp hI
   have hmem : s.mem = writeBytes sI.mem (q s₀ c) (xs s₀ c) := by
     rw [h.mem, List.take_of_length_le (by omega)]
-  refine ⟨⟨⟨le_rfl, h.rd, h.wr, h.x19, h.x20, h.sp, ?_, ?_, by rw [hmem]; exact hfr,
+  refine ⟨⟨⟨(Nat.le_refl _), h.rd, h.wr, h.x19, h.x20, h.sp, ?_, ?_, by rw [hmem]; exact hfr,
     by rw [hmem]; exact hsv⟩, ?_, fun m hm => ?_⟩, h.x10⟩
   · rw [h.x21]; congr 2; omega
   · rw [h.x22]; congr 1; omega
@@ -650,8 +651,8 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
 
 /-- No instruction of `updateMain` writes the callee-saved registers it does not save. -/
 theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs updateMain, dstOf i ≠ some r := by
-  have : ((instrs updateMain).all fun i => untouched.all fun r => dstOf i != some r) = true := by
-    rw [← Code.allInstrs_eq]; decide +kernel
+  have : ((instrs updateMain).all fun i => untouched.all fun r => dstOf i != some r) = true :=
+    instrs_keeps (by decide +kernel)
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this

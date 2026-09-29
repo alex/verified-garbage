@@ -1,0 +1,107 @@
+// @generated from lean/VerifiedGarbage/Artifacts.lean by lean/Emit.lean. DO NOT EDIT.
+//! Verified `pbkdf2_md5` functions for `x86_64`.
+#![allow(dead_code)]
+
+/// Runs `n` steps of PBKDF2-HMAC-MD5's iteration: if, for a 64-byte key `K₀`, the MD5 streaming state in bytes 0 to 79 of `*key` represents `K₀ ⊕ ipad` and the one in bytes 80 to 159 represents `K₀ ⊕ opad` (as `vg_hmac_md5_init` leaves them), repeats `U ← HMAC-MD5 (K₀, U)`, `T ← T ⊕ U` `n` times, from `U = *u` and `T = *t`, and leaves the final `T` in `*t` (RFC 8018, step 3 of `F`).
+///
+/// Contract: `VG.Spec.Hmac.Instance.iterateContract` of `VG.Spec.Hmac.md5I`. Constant time: only the pointers and `n` may affect timing, not the key, `U` or `T`.
+///
+/// # Safety
+///
+/// * `key` must be valid for reads of 160 bytes, and `u` for reads of 16 bytes.
+/// * `t` must be valid for reads and writes of 16 bytes.
+/// * `scratch` must be valid for reads and writes of 384 bytes; its contents on return are unspecified.
+/// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
+/// * None of `key`, `u`, `t` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_md5_iterate(key: *const [u8; 160], u: *const [u8; 16], n: u32, t: *mut [u8; 16], scratch: *mut [u64; 48]) {
+    core::arch::naked_asm!(
+        "mov QWORD PTR [r8+112], rbx",
+        "mov QWORD PTR [r8+120], rbp",
+        "mov QWORD PTR [r8+128], r12",
+        "mov QWORD PTR [r8+136], r13",
+        "mov QWORD PTR [r8+144], r14",
+        "mov QWORD PTR [r8+152], r15",
+        "mov r13d, edx",
+        "mov rbx, rdi",
+        "mov r12, rcx",
+        "mov r15, r8",
+        "mov r14d, 0",
+        "20:",
+        "movzx eax, BYTE PTR [rsi+r14*1]",
+        "mov BYTE PTR [r15+r14*1+256], al",
+        "add r14, 1",
+        "cmp r14, 16",
+        "jne 20b",
+        "test r13, r13",
+        "je 21f",
+        "23:",
+        "mov r14d, 0",
+        "24:",
+        "movzx eax, BYTE PTR [rbx+r14*1]",
+        "mov BYTE PTR [r15+r14*1+160], al",
+        "add r14, 1",
+        "cmp r14, 80",
+        "jne 24b",
+        "mov rdi, r15",
+        "add rdi, 160",
+        "mov esi, 64",
+        "mov rdx, r15",
+        "add rdx, 256",
+        "mov ecx, 16",
+        "mov r8, r15",
+        "call {vg_md5_update}",
+        "mov rdi, r15",
+        "add rdi, 160",
+        "mov esi, 80",
+        "mov rdx, r15",
+        "add rdx, 240",
+        "mov rcx, r15",
+        "call {vg_md5_finalize}",
+        "mov r14d, 0",
+        "25:",
+        "movzx eax, BYTE PTR [rbx+r14*1+80]",
+        "mov BYTE PTR [r15+r14*1+160], al",
+        "add r14, 1",
+        "cmp r14, 80",
+        "jne 25b",
+        "mov rdi, r15",
+        "add rdi, 160",
+        "mov esi, 64",
+        "mov rdx, r15",
+        "add rdx, 240",
+        "mov ecx, 16",
+        "mov r8, r15",
+        "call {vg_md5_update}",
+        "mov rdi, r15",
+        "add rdi, 160",
+        "mov esi, 80",
+        "mov rdx, r15",
+        "add rdx, 256",
+        "mov rcx, r15",
+        "call {vg_md5_finalize}",
+        "mov r14d, 0",
+        "26:",
+        "movzx eax, BYTE PTR [r15+r14*1+256]",
+        "movzx ecx, BYTE PTR [r12+r14*1]",
+        "xor eax, ecx",
+        "mov BYTE PTR [r12+r14*1], al",
+        "add r14, 1",
+        "cmp r14, 16",
+        "jne 26b",
+        "sub r13, 1",
+        "jne 23b",
+        "jmp 22f",
+        "21:",
+        "22:",
+        "mov rbx, QWORD PTR [r15+112]",
+        "mov rbp, QWORD PTR [r15+120]",
+        "mov r12, QWORD PTR [r15+128]",
+        "mov r13, QWORD PTR [r15+136]",
+        "mov r14, QWORD PTR [r15+144]",
+        "mov r15, QWORD PTR [r15+152]",
+        "ret",
+        vg_md5_update = sym super::md5::vg_md5_update,
+        vg_md5_finalize = sym super::md5::vg_md5_finalize,
+    )
+}
