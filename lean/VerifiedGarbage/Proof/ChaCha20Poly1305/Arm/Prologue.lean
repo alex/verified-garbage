@@ -138,7 +138,7 @@ theorem bytesAt_eq_of {m m' : Mem} {p q : Addr} {n : Nat}
   exact h i (by simpa using h₁)
 
 theorem copyWords_step (a b n : Nat) : copyWords a b (n + 1) =
-    copyWords a b n ++ [.ldr .r12 .r7 (a + 4 * n), .str .r12 .r7 (b + 4 * n)] := by
+    copyWords a b n ++ ([.ldr .r12 .r7 (a + 4 * n), .str .r12 .r7 (b + 4 * n)] : List Instr) := by
   simp [copyWords, List.range_succ, List.flatMap_append]
 
 /-- `n` words from `ctx + a` to `ctx + b`. -/

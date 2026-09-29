@@ -174,8 +174,8 @@ theorem xor_ok {uo n : Nat} (huo : uo < 4096) (hn : 0 < n) (hn' : n < 2 ^ 16) {s
     (houtT : ∀ k < n, InRegions s.wr (s.gpr .x20 + BitVec.ofNat 64 k) 1)
     (hsep : Region.Disjoint ⟨s.gpr .x23 + BitVec.ofNat 64 uo, n⟩ ⟨s.gpr .x20, n⟩) :
     WP isa (.seq (.block [.movz .x .x24 0 0])
-      (.loop (.block ([.add .x .x12 .x23 .x24, .ldrb .x9 .x12 uo, .add .x .x13 .x20 .x24,
-        .ldrb .x10 .x13 0, .logic .eor .x .x9 .x9 .x10, .strb .x9 .x13 0, .addImm .x .x24 .x24 1] ++
+      (.loop (.block (([.add .x .x12 .x23 .x24, .ldrb .x9 .x12 uo, .add .x .x13 .x20 .x24,
+        .ldrb .x10 .x13 0, .logic .eor .x .x9 .x9 .x10, .strb .x9 .x13 0, .addImm .x .x24 .x24 1] : List Instr) ++
         left n)) (.nonzero .x .x11))) s
       fun t => XorInv s (s.gpr .x23 + BitVec.ofNat 64 uo) (s.gpr .x20) n t := by
   set U := s.gpr .x23 + BitVec.ofNat 64 uo
@@ -361,8 +361,8 @@ theorem key_ok {P K : Addr} {kl : Nat} {s : State} (hr : LoopRegs H P K kl s) (h
 
 theorem pad_step {P K : Addr} {kl : Nat} {s₀ : State} (hr : LoopRegs H P K kl s₀) (hm : LoopMem H P K kl s₀)
     {j : Nat} (hj : kl ≤ j) (hj' : j < H.B) {t : State} (h : KeyInv H s₀ P K kl j t) :
-    WP isa (.block ([.add .x .x12 .x23 .x24, .strb .x14 .x12 H.buf, .strb .x15 .x12 (H.buf + H.B),
-      .addImm .x .x24 .x24 1] ++ left H.B)) t
+    WP isa (.block (([.add .x .x12 .x23 .x24, .strb .x14 .x12 H.buf, .strb .x15 .x12 (H.buf + H.B),
+      .addImm .x .x24 .x24 1] : List Instr) ++ left H.B)) t
       fun t' => KeyInv H s₀ P K kl (j + 1) t' ∧ t'.gpr .x11 = BitVec.ofNat 64 (H.B - (j + 1)) := by
   have hkl := hm.kl_le
   have hB := hm.hB
