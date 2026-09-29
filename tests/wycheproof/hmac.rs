@@ -27,18 +27,22 @@ struct Case {
     tag: Hex,
 }
 
-/// Checks every vector of `name`: a (possibly truncated) tag computed with
-/// the key must equal the expected one exactly when the test is valid.
-pub(crate) fn check<H: HmacHash>(name: &str) {
+/// Checks every vector of `name` with `Hmac<H>`, whose `new` is passed in:
+/// a (possibly truncated) tag computed with the key must equal the expected
+/// one exactly when the test is valid.
+pub(crate) fn check<H: HmacHash>(name: &str, new: fn(&[u8]) -> Hmac<H>) {
     let file = harness::load::<Group, Case>(name);
     for (group, test) in file.tests() {
         let Case { key, msg, tag } = &test.case;
         assert_eq!(key.0.len() * 8, group.params.key_size);
         assert!(group.params.tag_size <= H::OUTPUT_SIZE * 8);
-        // Two ways of computing the MAC: at once, and one byte at a time
-        // with each implementation this CPU can run (the best one, and the
-        // one for the baseline ISA).
+        // Three ways of computing the MAC: at once, in one `update`, and one
+        // byte at a time with each implementation this CPU can run (the best
+        // one, and the one for the baseline ISA).
         let full = Hmac::<H>::mac(&key.0, &msg.0);
+        let mut h = new(&key.0);
+        h.update(&msg.0);
+        assert_eq!(h.finalize().as_ref(), full.as_ref());
         for mask in [u32::MAX, 0] {
             let mut h = Hmac::<H>::__with_features(&key.0, mask);
             for byte in &msg.0 {

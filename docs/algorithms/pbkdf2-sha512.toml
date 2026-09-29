@@ -1,0 +1,5 @@
+name = "PBKDF2-HMAC-SHA-512"
+family = "KDFs"
+specs = ["Pbkdf2", "Sha512"]
+modules = ["src/pbkdf2/sha512.rs"]
+asm = ["pbkdf2_sha512"]

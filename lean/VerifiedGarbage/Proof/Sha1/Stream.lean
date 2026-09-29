@@ -247,6 +247,45 @@ def lenBytes (m : List Byte) : List Byte :=
 
 theorem lenBytes_length (m : List Byte) : (lenBytes m).length = 8 := by simp [lenBytes]
 
+theorem shl3 (hi lo : BitVec 32) : (hi <<< 3 ||| lo >>> 29) ++ lo <<< 3 = (hi ++ lo) <<< 3 := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi'
+  conv_rhs => rw [BitVec.getLsbD_shiftLeft, BitVec.getLsbD_append]
+  rw [BitVec.getLsbD_append]
+  by_cases h1 : i < 32
+  · simp only [h1, ↓reduceIte]; rw [BitVec.getLsbD_shiftLeft]
+    by_cases h3 : i < 3
+    · simp [h3]
+    · simp only [show i - 3 < 32 by omega, ↓reduceIte]; simp [h1, h3, hi']
+  · simp only [h1, ↓reduceIte]; rw [BitVec.getLsbD_or, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_ushiftRight]
+    by_cases h35 : i < 35
+    · simp only [show i - 3 < 32 by omega, ↓reduceIte]; rw [show 29 + (i - 32) = i - 3 by omega]
+      simp [show i - 32 < 3 by omega, show ¬ i < 3 by omega, hi']
+    · simp only [show ¬ i - 3 < 32 by omega, ↓reduceIte]; rw [show i - 3 - 32 = i - 32 - 3 by omega]
+      have : lo.getLsbD (29 + (i - 32)) = false := BitVec.getLsbD_of_ge _ _ (by omega)
+      simp [this, show ¬ i - 32 < 3 by omega, show ¬ i < 3 by omega, show i - 32 < 32 by omega, hi']
+
+theorem bits8 (x : BitVec 64) : BitVec.ofNat 64 (8 * x.toNat) = x <<< 3 := by
+  apply BitVec.eq_of_toNat_eq
+  simp [BitVec.toNat_shiftLeft, Nat.shiftLeft_eq]
+  omega
+
+/-- The message length in bits, big-endian, from the two halves of the byte count. -/
+theorem lenBytes_halves (hi lo : BitVec 32) (m : List Byte) (h : hi ++ lo = BitVec.ofNat 64 m.length) :
+    lenBytes m = Spec.Sha1.wordBytes (hi <<< 3 ||| lo >>> 29) ++ Spec.Sha1.wordBytes (lo <<< 3) := by
+  have hx : BitVec.ofNat 64 (8 * m.length) = (hi <<< 3 ||| lo >>> 29) ++ lo <<< 3 := by
+    rw [shl3, h, ← bits8]
+    apply BitVec.eq_of_toNat_eq
+    simp [Nat.mul_mod]
+  simp only [lenBytes, hx, Spec.Sha1.wordBytes]
+  simp only [List.range_succ, List.range_zero, List.nil_append, List.reverse_cons,
+    List.reverse_nil, List.map_cons, List.map_nil, List.cons_append, List.nil_append]
+  refine List.cons_eq_cons.mpr ⟨?_, List.cons_eq_cons.mpr ⟨?_, List.cons_eq_cons.mpr ⟨?_, List.cons_eq_cons.mpr ⟨?_,
+    List.cons_eq_cons.mpr ⟨?_, List.cons_eq_cons.mpr ⟨?_, List.cons_eq_cons.mpr ⟨?_, List.cons_eq_cons.mpr ⟨?_, rfl⟩⟩⟩⟩⟩⟩⟩⟩ <;>
+  · ext i hi
+    simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_append]
+    split <;> first | omega | (congr 1; omega) | rfl
+
 /-- The bytes after the whole blocks of `m`. -/
 abbrev rest (m : List Byte) : List Byte := m.drop (64 * (m.length / 64))
 
