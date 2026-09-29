@@ -1,5 +1,8 @@
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.MlKem.AArch64.AddSub
+import VerifiedGarbage.Proof.MlKem.AArch64.Encode12
+import VerifiedGarbage.Proof.MlKem.AArch64.Decode12
+import VerifiedGarbage.Proof.MlKem.AArch64.Cbd2
 
 /-!
 # ML-KEM on AArch64
@@ -30,6 +33,27 @@ def artifacts : List Artifact := [
     code := Impl.MlKem.AArch64.sub
     contract := Spec.MlKem.subContract AArch64.abi
     verified := Proof.MlKem.AArch64.sub_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem.encode12Api with
+    target := AArch64.target
+    doc := Spec.MlKem.encode12Api.doc
+    code := Impl.MlKem.AArch64.encode12
+    contract := Spec.MlKem.encode12Contract AArch64.abi
+    verified := Proof.MlKem.AArch64.Encode12.encode12_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem.decode12Api with
+    target := AArch64.target
+    doc := Spec.MlKem.decode12Api.doc
+    code := Impl.MlKem.AArch64.decode12
+    contract := Spec.MlKem.decode12Contract AArch64.abi
+    verified := Proof.MlKem.AArch64.Decode12.decode12_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem.cbd2Api with
+    target := AArch64.target
+    doc := Spec.MlKem.cbd2Api.doc
+    code := Impl.MlKem.AArch64.cbd2
+    contract := Spec.MlKem.cbd2Contract AArch64.abi
+    verified := Proof.MlKem.AArch64.Cbd2.cbd2_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.MlKem.AArch64

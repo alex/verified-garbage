@@ -71,4 +71,85 @@ theorem agree_of {rs : List Reg} {s₁ s₂ : State} (hsp : s₁.sp = s₂.sp)
     VG.AArch64.Taint.Agree (VG.AArch64.Taint.ofRegs rs) s₁ s₂ :=
   ⟨hsp, fun r hr => h r (VG.AArch64.Taint.mem_ofRegs.mp hr)⟩
 
+/-! ## Outputs written in order -/
+
+theorem addr_ne (p : Addr) {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) (h : a ≠ b) :
+    p + BitVec.ofNat 64 a ≠ p + BitVec.ofNat 64 b := by
+  intro e
+  apply h
+  bv_omega
+
+/-- Byte `j` after writing byte `c` of the bytes at `p`. -/
+theorem write8_at (m : Mem) (p : Addr) {j c : Nat} (hj : j < 2 ^ 64) (hc : c < 2 ^ 64) (b : Byte) :
+    m.writeW (p + BitVec.ofNat 64 c) b (p + BitVec.ofNat 64 j) =
+      if j = c then b else m (p + BitVec.ofNat 64 j) := by
+  rw [writeW8_apply]
+  by_cases h : j = c
+  · subst h; simp
+  · rw [ite_eq_right (addr_ne p hj hc h), ite_eq_right h]
+
+/-- The bytes at `p`: the first `t` of them are `L`'s, the others `old`'s. -/
+def BytesUpTo (m : Mem) (p : Addr) (N t : Nat) (L old : Nat → Byte) : Prop :=
+  ∀ j < N, m (p + BitVec.ofNat 64 j) = if j < t then L j else old j
+
+theorem BytesUpTo.zero {m : Mem} {p : Addr} {N : Nat} (L : Nat → Byte) :
+    BytesUpTo m p N 0 L fun j => m (p + BitVec.ofNat 64 j) := fun j _ => by
+  rw [ite_eq_right (Nat.not_lt_zero j)]
+
+/-- Writing byte `t`. -/
+theorem BytesUpTo.write {m : Mem} {p : Addr} {N t : Nat} {L old : Nat → Byte}
+    (h : BytesUpTo m p N t L old) (hN : N < 2 ^ 64) (ht : t < N) {b : Byte} (hb : b = L t) :
+    BytesUpTo (m.writeW (p + BitVec.ofNat 64 t) b) p N (t + 1) L old := fun j hj => by
+  rw [write8_at m p (by omega) (by omega)]
+  by_cases e : j = t
+  · subst e; rw [ite_eq_left rfl, ite_eq_left (by omega), hb]
+  · rw [ite_eq_right e, h j hj]
+    by_cases hjt : j < t
+    · rw [ite_eq_left hjt, ite_eq_left (by omega)]
+    · rw [ite_eq_right hjt, ite_eq_right (by omega)]
+
+/-- All `N` bytes written. -/
+theorem BytesUpTo.eq {m : Mem} {p : Addr} {N : Nat} {L : Nat → Byte} {old : Nat → Byte}
+    (h : BytesUpTo m p N N L old) {xs : List Byte} (hl : xs.length = N)
+    (hx : ∀ j < N, xs[j]! = L j) : Spec.Sha3.bytesAt m p N = xs :=
+  bytesAt_eq! hl fun j hj => by rw [h j hj, ite_eq_left hj, hx j hj]
+
+/-- The coefficients at `p`: the first `t` of them are `G`'s, the others `old`'s. -/
+def CoeffsUpTo (m : Mem) (p : Addr) (t : Nat) (G old : Nat → BitVec 32) : Prop :=
+  ∀ i < 256, coeffAt m p i = if i < t then G i else old i
+
+theorem CoeffsUpTo.zero {m : Mem} {p : Addr} (G : Nat → BitVec 32) :
+    CoeffsUpTo m p 0 G fun i => coeffAt m p i := fun i _ => by
+  rw [ite_eq_right (Nat.not_lt_zero i)]
+
+/-- Writing coefficient `t`. -/
+theorem CoeffsUpTo.write {m : Mem} {p : Addr} {t : Nat} {G old : Nat → BitVec 32}
+    (h : CoeffsUpTo m p t G old) (ht : t < 256) {v : BitVec 32} (hv : v = G t) :
+    CoeffsUpTo (m.writeW (coeffAddr p t) v) p (t + 1) G old := fun i hi => by
+  rw [coeffAt_writeW m p (show i < n from hi) (show t < n from ht)]
+  by_cases e : t = i
+  · subst e; rw [ite_eq_left rfl, ite_eq_left (by omega), hv]
+  · rw [ite_eq_right e, h i hi]
+    by_cases hit : i < t
+    · rw [ite_eq_left hit, ite_eq_left (by omega)]
+    · rw [ite_eq_right hit, ite_eq_right (by omega)]
+
+/-- All 256 coefficients written. -/
+theorem CoeffsUpTo.polyIs {m : Mem} {p : Addr} {G old : Nat → BitVec 32}
+    (h : CoeffsUpTo m p 256 G old) {f : Poly} (hf : ∀ i < 256, G i = BitVec.ofNat 32 (f[i]!).val) :
+    PolyIs m p f :=
+  polyIs_of_coeffAt fun i hi => by rw [h i hi, ite_eq_left hi, hf i hi]
+
+/-- A coefficient of a polynomial in a region the frame does not write. -/
+theorem coeffAt_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr}
+    (hd : ∀ r ∈ rs, (polyRegion p).Disjoint r) {i : Nat} (hi : i < 256) :
+    coeffAt m' p i = coeffAt m p i :=
+  coeffAt_congr (bytes_frame hf hd (by decide)) (show i < n from hi)
+
+/-- A byte of a region the frame does not write. -/
+theorem byte_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr} {len : Nat}
+    (hd : ∀ r ∈ rs, (⟨p, len⟩ : Region).Disjoint r) (hlen : len ≤ 2 ^ 64) {j : Nat} (hj : j < len) :
+    m' (p + BitVec.ofNat 64 j) = m (p + BitVec.ofNat 64 j) :=
+  bytes_frame hf hd hlen j hj
+
 end VG.Proof.MlKem.AArch64
