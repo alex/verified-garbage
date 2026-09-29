@@ -5,15 +5,15 @@ import VerifiedGarbage.Proof.Hmac.Generic.Arm.FinalizeCT
 import VerifiedGarbage.Proof.Hmac.Generic.Arm.Hashes
 
 /-!
-# HMAC over the streaming hash functions on 32-bit ARM: the shared contracts
+# HMAC over the streaming hash functions on 32-bit ARM: the instances
 
 Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Hmac/Generic/AArch64/Shared.lean`): the generic proofs at each hash
+(`Proof/Hmac/Generic/AArch64/Instances.lean`): the generic proofs at each hash
 function of `Hashes.lean`, moved to the shared contracts of
-`Spec/Hmac/Generic.lean`, which the artifacts are emitted with.
+`Spec/Hmac/Generic.lean` (`sig_implies`), which the artifacts are emitted with.
 -/
 
-namespace VG.Proof.Hmac.Generic.Arm.Shared
+namespace VG.Proof.Hmac.Generic.Arm.Instances
 
 open VG.Arm
 open VG.Proof.Hmac.Generic.Arm
@@ -71,13 +71,13 @@ theorem sha1_finChecks : Finalize.Checks sha1H where
   restore := ⟨_, by taint_decide⟩
 
 theorem sha1_initImp : (initG Spec.Hmac.sha1S 56).Implies (Spec.Hmac.sha1I.initContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
+  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.sha1I, Spec.Hmac.sha1S, Spec.Hmac.sha1, initG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [initSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using initSat 84 56
 
 theorem sha1_finImp : (finG Spec.Hmac.sha1S 56).Implies (Spec.Hmac.sha1I.finalizeContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
+  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
     Spec.Hmac.sha1I, Spec.Hmac.sha1S, Spec.Hmac.sha1, finG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [finSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using finSat 84 20 56
@@ -109,13 +109,13 @@ theorem md5_finChecks : Finalize.Checks md5H where
   restore := ⟨_, by taint_decide⟩
 
 theorem md5_initImp : (initG Spec.Hmac.md5S 48).Implies (Spec.Hmac.md5I.initContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
+  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.md5I, Spec.Hmac.md5S, Spec.Hmac.md5, initG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [initSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using initSat 80 48
 
 theorem md5_finImp : (finG Spec.Hmac.md5S 48).Implies (Spec.Hmac.md5I.finalizeContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
+  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
     Spec.Hmac.md5I, Spec.Hmac.md5S, Spec.Hmac.md5, finG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [finSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using finSat 80 16 48
@@ -147,13 +147,13 @@ theorem sha384_finChecks : Finalize.Checks sha384H where
   restore := ⟨_, by taint_decide⟩
 
 theorem sha384_initImp : (initG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.initContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
+  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.sha384I, Spec.Hmac.sha384S, Spec.Hmac.sha384, initG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [initSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using initSat 192 96
 
 theorem sha384_finImp : (finG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.finalizeContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
+  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
     Spec.Hmac.sha384I, Spec.Hmac.sha384S, Spec.Hmac.sha384, finG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [finSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using finSat 192 48 96
@@ -185,13 +185,13 @@ theorem sha512_finChecks : Finalize.Checks sha512H' where
   restore := ⟨_, by taint_decide⟩
 
 theorem sha512_initImp : (initG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.initContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
+  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.sha512I, Spec.Hmac.sha512S, Spec.Hmac.sha512, initG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [initSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using initSat 192 96
 
 theorem sha512_finImp : (finG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.finalizeContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
+  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
     Spec.Hmac.sha512I, Spec.Hmac.sha512S, Spec.Hmac.sha512, finG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [finSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using finSat 192 64 96
@@ -223,13 +223,13 @@ theorem sha512_224_finChecks : Finalize.Checks sha512_224H where
   restore := ⟨_, by taint_decide⟩
 
 theorem sha512_224_initImp : (initG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.initContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
+  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.sha512_224I, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, initG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [initSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using initSat 192 96
 
 theorem sha512_224_finImp : (finG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.finalizeContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
+  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
     Spec.Hmac.sha512_224I, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, finG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [finSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using finSat 192 28 96
@@ -261,13 +261,13 @@ theorem sha512_256_finChecks : Finalize.Checks sha512_256H where
   restore := ⟨_, by taint_decide⟩
 
 theorem sha512_256_initImp : (initG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.initContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
+  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.sha512_256I, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, initG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [initSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using initSat 192 96
 
 theorem sha512_256_finImp : (finG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.finalizeContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
+  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig,
     Spec.Hmac.sha512_256I, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, finG, below, count, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [finSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using finSat 192 32 96
@@ -278,4 +278,4 @@ theorem sha512_256_init : Verified Arm.target sha512_256H.init (Spec.Hmac.sha512
 theorem sha512_256_finalize : Verified Arm.target sha512_256H.finalize (Spec.Hmac.sha512_256I.finalizeContract Arm.abi 16) :=
   (Finalize.verified sha512_256OK sha512_256_finChecks (by decide) sha512_256_finImp.sat_left).of_implies sha512_256_finImp
 
-end VG.Proof.Hmac.Generic.Arm.Shared
+end VG.Proof.Hmac.Generic.Arm.Instances

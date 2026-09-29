@@ -4,16 +4,16 @@ import VerifiedGarbage.Proof.Pbkdf2.Generic.Arm.IterateCT
 import VerifiedGarbage.Proof.Hmac.Generic.Arm.Hashes
 
 /-!
-# PBKDF2-HMAC over the streaming hash functions on 32-bit ARM: the shared contracts
+# PBKDF2-HMAC over the streaming hash functions on 32-bit ARM: the instances
 
 Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Pbkdf2/Generic/AArch64/Shared.lean`): the generic proof
+(`Proof/Pbkdf2/Generic/AArch64/Instances.lean`): the generic proof
 (`IterateCT.lean`) at each hash function of
 `Proof/Hmac/Generic/Arm/Hashes.lean`, moved to the shared contract of
-`Spec/Pbkdf2/Generic.lean`, which the artifacts are emitted with.
+`Spec/Pbkdf2/Generic.lean` (`sig_implies`), which the artifacts are emitted with.
 -/
 
-namespace VG.Proof.Pbkdf2.Generic.Arm.Shared
+namespace VG.Proof.Pbkdf2.Generic.Arm.Instances
 
 open VG.Arm
 open VG.Proof.Hmac.Generic.Arm
@@ -53,7 +53,7 @@ theorem sha1_checks : Checks sha1H where
   restore := ⟨_, by taint_decide⟩
 
 theorem sha1_imp : (iterG Spec.Hmac.sha1S 56).Implies (Spec.Hmac.sha1I.iterateContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
+  sig_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
     Spec.Hmac.sha1I, Spec.Hmac.sha1S, Spec.Hmac.sha1, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [iterSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using iterSat 84 20 56
@@ -80,7 +80,7 @@ theorem md5_checks : Checks md5H where
   restore := ⟨_, by taint_decide⟩
 
 theorem md5_imp : (iterG Spec.Hmac.md5S 48).Implies (Spec.Hmac.md5I.iterateContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
+  sig_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
     Spec.Hmac.md5I, Spec.Hmac.md5S, Spec.Hmac.md5, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [iterSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using iterSat 80 16 48
@@ -107,7 +107,7 @@ theorem sha384_checks : Checks sha384H where
   restore := ⟨_, by taint_decide⟩
 
 theorem sha384_imp : (iterG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.iterateContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
+  sig_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
     Spec.Hmac.sha384I, Spec.Hmac.sha384S, Spec.Hmac.sha384, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [iterSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using iterSat 192 48 96
@@ -134,7 +134,7 @@ theorem sha512_checks : Checks sha512H' where
   restore := ⟨_, by taint_decide⟩
 
 theorem sha512_imp : (iterG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.iterateContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
+  sig_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
     Spec.Hmac.sha512I, Spec.Hmac.sha512S, Spec.Hmac.sha512, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [iterSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using iterSat 192 64 96
@@ -161,7 +161,7 @@ theorem sha512_224_checks : Checks sha512_224H where
   restore := ⟨_, by taint_decide⟩
 
 theorem sha512_224_imp : (iterG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.iterateContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
+  sig_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
     Spec.Hmac.sha512_224I, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [iterSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using iterSat 192 28 96
@@ -188,7 +188,7 @@ theorem sha512_256_checks : Checks sha512_256H where
   restore := ⟨_, by taint_decide⟩
 
 theorem sha512_256_imp : (iterG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.iterateContract Arm.abi 16) := by
-  contract_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
+  sig_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
     Spec.Hmac.sha512_256I, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
     Arm.State.addr]
     [iterSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using iterSat 192 32 96
@@ -197,4 +197,4 @@ theorem sha512_256 : Verified Arm.target (Impl.Pbkdf2.Generic.Arm.iterate sha512
     (Spec.Hmac.sha512_256I.iterateContract Arm.abi 16) :=
   (verified sha512_256OK sha512_256_checks (by decide) sha512_256_imp.sat_left).of_implies sha512_256_imp
 
-end VG.Proof.Pbkdf2.Generic.Arm.Shared
+end VG.Proof.Pbkdf2.Generic.Arm.Instances

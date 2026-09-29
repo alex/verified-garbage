@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.Arm.Target
-import VerifiedGarbage.Proof.Pbkdf2.Generic.Arm.Shared
+import VerifiedGarbage.Proof.Pbkdf2.Generic.Arm.Instances
 
 /-!
 # The PBKDF2-HMAC-SHA-512 iteration (RFC 8018) on ARMv7
@@ -32,6 +32,6 @@ def artifacts : List Artifact := [
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
     writeArgs := true
     stack := 16
-    verified := Proof.Pbkdf2.Generic.Arm.Shared.sha512 }]
+    verified := Proof.Pbkdf2.Generic.Arm.Instances.sha512 }]
 
 end VG.Artifacts.Pbkdf2Sha512.Arm
