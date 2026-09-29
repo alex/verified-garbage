@@ -8,7 +8,7 @@
 //! do not represent, and encapsulation keys that fail the check of FIPS 203
 //! §7.2, which `EncapsulationKey768::from_bytes` rejects.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
 use serde::Deserialize;
 use verified_garbage::hashes::sha3::Sha3_256;
