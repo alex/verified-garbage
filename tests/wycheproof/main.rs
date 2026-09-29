@@ -14,7 +14,8 @@ mod chacha20;
 mod chacha20poly1305;
 mod harness;
 mod hmac;
-mod pbkdf2;
+mod hmac_sha256;
+mod pbkdf2_sha256;
 
 use harness::Fields;
 

@@ -49,7 +49,7 @@ def iterateSha256Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M 
 
 /-- `vg_pbkdf2_hmac_sha256_iterate` on every target. -/
 def iterateSha256Api : Api where
-  module := "pbkdf2"
+  module := "pbkdf2_sha256"
   name := "vg_pbkdf2_hmac_sha256_iterate"
   sig := iterateSha256Sig
   writeArgs := true
