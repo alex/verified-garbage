@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Finalize
-import VerifiedGarbage.Proof.Hmac.X86_64.Common
+import VerifiedGarbage.Proof.Hmac.Common
 import VerifiedGarbage.Impl.Hmac.X86
 
 /-!
@@ -14,7 +14,7 @@ namespace VG.Proof.Hmac.X86
 open VG VG.X86 VG.Impl.Hmac.X86
 open VG.Proof.Sha256.X86.Stream
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil)
-open VG.Proof.Hmac.X86_64 (writeW_readW bytesAt_add bytesAt_writeBytes_sep)
+open VG.Proof.Hmac.Common (writeW_readW bytesAt_add bytesAt_writeBytes_sep)
 open VG.Proof.Sha256.X86.Stream.Finalize (writeW_bswap)
 open VG.Spec.Sha256 (bytesAt wordBytes)
 
@@ -43,7 +43,7 @@ theorem readW_writeBytes_sep (m : Mem) {a q : Addr} (xs : List Byte) (h : Mem.Se
     (writeBytes m q xs).readW a 32 = m.readW a 32 := by
   simp only [Mem.readW]
   congr 1
-  apply VG.Proof.Hmac.X86_64.read_congr₂
+  apply VG.Proof.Hmac.Common.read_congr₂
   intro i hi
   simp only [writeBytes]
   split
@@ -86,7 +86,7 @@ theorem bswapWords_ok {src dst : Reg} (hs : src ≠ .ecx) (hd : dst ≠ .ecx) {x
       rw [m₁, addr_word fx (by omega : n < n + 1)]
       simp only [Mem.readW]
       congr 1
-      apply VG.Proof.Hmac.X86_64.read_congr₂
+      apply VG.Proof.Hmac.Common.read_congr₂
       intro i hi
       simp only [writeBytes]
       split
@@ -131,7 +131,7 @@ theorem copyWords_ok {src dst : Reg} (hs : src ≠ .ecx) (hd : dst ≠ .ecx) {x 
     refine k s₃ (fun r hr => by rw [u₃.gpr, u₂.other r hr, g₁ r hr])
       (by rw [u₃.rd, u₂.rd, rd₁]) (by rw [u₃.wr, u₂.wr, wr₁]) ?_
     rw [u₃.mem, u₂.gpr, u₂.mem, addr_word fx (by omega : n < n + 1), addr_word fy (by omega : n < n + 1), m₁]
-    have := VG.Proof.Hmac.X86_64.copy_mem s.mem (x.setWidth 64 + BitVec.ofNat 64 o₁)
+    have := VG.Proof.Hmac.Common.copy_mem s.mem (x.setWidth 64 + BitVec.ofNat 64 o₁)
       (y.setWidth 64 + BitVec.ofNat 64 o₂) n 4 (by rw [show 4 * n + 4 = 4 * (n + 1) by omega]; exact hsep)
       (by omega)
     simp only [Nat.reduceMul] at this

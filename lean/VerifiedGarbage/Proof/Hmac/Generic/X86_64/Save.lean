@@ -15,6 +15,7 @@ open VG.Impl.Hmac.Generic.X86_64 (Hash)
 open VG.Impl.Sha256.X86_64 (at_)
 open VG.Proof.Sha256.X86_64 (ea_at ofInt_natCast contains_offset toNat_ofNat_lt)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_store wp_movm)
+open VG.Proof.Hmac.Generic.Common (readW_writeW_ne add_ofNat_add InRegions.right')
 
 variable (H : Hash)
 
@@ -51,12 +52,6 @@ theorem slot_disj (scr : Addr) {i j : Nat} (hi : i < 6) (hj : j < 6) (hij : i �
   rw [e j hj] at h₂
   have := (a - scr).isLt
   omega
-
-theorem readW_writeW_ne (m : Mem) {a b : Addr} (v : BitVec 64) (h : Region.Disjoint ⟨a, 8⟩ ⟨b, 8⟩) :
-    (m.writeW b v).readW a 64 = m.readW a 64 :=
-  (Frame.writeW (Frame.refl [⟨b, 8⟩] m) (r := ⟨b, 8⟩) (List.mem_singleton_self _) v
-    (Region.contains_self _ _)).readW (r := ⟨a, 8⟩)
-    (Region.contains_self _ _) (by simpa using h) (by decide)
 
 theorem SavedRegs.frame {scr : Addr} {s₀ : State} {m m' : Mem} (h : SavedRegs H scr s₀ m)
     {rs : List Region} (hf : Frame rs m m') (hd : ∀ r ∈ rs, (saveR H scr).Disjoint r) :

@@ -12,7 +12,7 @@ namespace VG.Proof.Sha512.X86
 open VG VG.X86 VG.Impl.Sha512.X86
 open VG.Spec.Sha512 (HashValue Word Block W stateAt blockAt compress compressBlocks parseBlock)
 open VG.Proof.Sha256.X86.Stream (contains_addr sub_offset Upd Mupd wp_store wp_addi wp_subi)
-open VG.Proof.Sha512.Arm (readW64 lo_append hi_append)
+open VG.Proof.Sha512.Word64 (readW64 lo_append hi_append)
 
 /-! ## Memory -/
 
@@ -331,10 +331,10 @@ theorem addH_ok (k : Nat) (hk : k < 8) {s : State} (hecx : s.gpr .ecx = st s₀)
   have O₄ := (O₂.trans (Only.of_upd u₃)).trans (Only.of_upd u₄)
   have p₄ : Pair s₄ T Z1 (rd64 s.mem (scr s₀) (8 * k) + rd64 s.mem (st s₀) (8 * k)) := by
     refine ⟨?_, ?_⟩
-    · rw [u₄.other _ (by decide), u₃.gpr, p₂.1, O₂.mem, VG.Proof.Sha512.Arm.lo_add]
+    · rw [u₄.other _ (by decide), u₃.gpr, p₂.1, O₂.mem, VG.Proof.Sha512.Word64.lo_add]
       simp only [lo_rd64]
     · rw [u₄.gpr, carry_eq, u₃.other _ (by decide), u₃.mem, O₂.mem, p₂.1, p₂.2,
-        VG.Proof.Sha512.Arm.hi_add]
+        VG.Proof.Sha512.Word64.hi_add]
       simp only [lo_rd64, hi_rd64]
   refine wp_store (ea_of (by rw [O₄.gpr _ (by decide), hecx]) _) (by rw [O₄.wr]; exact hA _ (by omega))
     fun s₅ u₅ => ?_

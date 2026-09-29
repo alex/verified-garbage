@@ -18,6 +18,8 @@ namespace VG.Proof.Hmac.X86_64.Finalize
 open VG VG.X86_64 VG.Impl.Hmac.X86_64
 open VG.Impl.Sha256.X86_64.Stream (Callee)
 open VG.Proof.Hmac.X86_64
+open VG.Proof.Hmac.Common (bytesAt_writeBytes_sep stateAt_eq_of_bytes writeBytes_at writeBytes_other
+  bytesAt_getD' bytesAt_length bytesAt_writeBytes_self xorPad_length repr_outer)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame compressList_append)
 open VG.Proof.Sha256.X86_64 (contains_offset toNat_ofNat_lt sub_offset)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_mov32i wp_addi)
@@ -307,20 +309,6 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hwr : s.wr = s₀.wr
     rw [u₅.other _ this.2.2, u₄.other _ this.2.2, u₃.other _ this.2.1, k₂ _ this.1]
 
 /-! ## Correctness -/
-
-theorem xorPad_length (k : List Byte) (p : Byte) : (xorPad k p).length = k.length := by
-  simp [xorPad]
-
-/-- A state holding the outer hash value and a 32-byte digest represents
-`(K₀ ⊕ opad) ‖ digest`. -/
-theorem repr_outer {k0 d : List Byte} (hk : k0.length = 64) (hd : d.length = 32) {m : Mem} {p : Addr}
-    (hst : stateAt m p = Spec.Sha256.compressList Spec.Sha256.H0 (xorPad k0 opad) 1)
-    (hb : bytesAt m (p + 32) 32 = d) : Repr m p (xorPad k0 opad ++ d) := by
-  have hl : (xorPad k0 opad ++ d).length = 96 := by simp [xorPad_length, hk, hd]
-  refine ⟨?_, ?_⟩
-  · rw [hl, show 96 / 64 = 1 from rfl, compressList_append (by rw [xorPad_length, hk]), hst]
-  · rw [hl, show 96 % 64 = 32 from rfl, show 64 * (96 / 64) = 64 from rfl,
-      List.drop_left' (by rw [xorPad_length, hk]), hb]
 
 /-- `scratch[640..672)` is not written by the called finalizations. -/
 theorem not_finW {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 32) :

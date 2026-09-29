@@ -9,7 +9,12 @@
 //! (`VG.Spec.Md5.Repr`: the MD buffer after its whole blocks, and its
 //! remaining bytes), and pad it and output the digest.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use crate::arch::md5::{vg_md5_finalize, vg_md5_init, vg_md5_update};
 

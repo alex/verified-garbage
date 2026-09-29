@@ -129,7 +129,7 @@ open VG.Proof.Sha256.X86.Stream
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append repr_congr compressList_append
   hash_one lenBytes rest)
 open VG.Proof.Hmac.X86
-open VG.Proof.Hmac.X86_64 (bytesAt_length)
+open VG.Proof.Hmac.Common (bytesAt_length)
 open VG.Spec.Sha256 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes Repr)
 open VG.Proof.Sha256 (countX86)
 open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
@@ -627,7 +627,7 @@ theorem mid_ok {s₀ s : State} (hp : Pre s₀) (h : MidPre s₀ s) :
       writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
       writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
       writeW_after _ _ _ _ (by simp [le_length]) (hl _ (by simp [le_length])),
-      m₃, u₂.mem, m₁, VG.Proof.Hmac.X86_64.bytesAt_writeBytes_sep _ _ ?_ (by omega)]
+      m₃, u₂.mem, m₁, VG.Proof.Hmac.Common.bytesAt_writeBytes_sep _ _ ?_ (by omega)]
     · rfl
     · rw [beWords_length]
       exact hp.o_in.sep (contains_offset (by omega) (by omega)) (contains_offset (by omega) (by omega))
@@ -646,7 +646,7 @@ theorem beWords_stateAt (m : Mem) {x : BitVec 32} (hx : x.toNat + 32 ≤ 2 ^ 32)
 
 theorem bytesAt_writeW_sep (m : Mem) {p a : Addr} {n : Nat} (v : BitVec 32) (h : Mem.Sep p n a 4)
     (hn : n < 2 ^ 64) : bytesAt (m.writeW a v) p n = bytesAt m p n := by
-  rw [writeW_le]; exact VG.Proof.Hmac.X86_64.bytesAt_writeBytes_sep _ _ (by rwa [le_length]) hn
+  rw [writeW_le]; exact VG.Proof.Hmac.Common.bytesAt_writeBytes_sep _ _ (by rwa [le_length]) hn
 
 theorem padBytes_length : padBytes.length = 32 := by decide
 
@@ -700,16 +700,16 @@ theorem midMem_state : stateAt (midMem s₀ m) (inA s₀) = stateAt m (ouA s₀)
     rw [padBytes_length]; exact sep_off _ (by omega) (by omega) (by omega)
   have hb : bytesAt (midMem s₀ m) (inA s₀ + BitVec.ofNat 64 0) 32 = bytesAt m (ouA s₀ + BitVec.ofNat 64 0) 32 := by
     simp only [midMem]
-    rw [VG.Proof.Hmac.X86_64.bytesAt_writeBytes_sep _ _ s0_64 (by omega)]
-    have := VG.Proof.Hmac.X86_64.bytesAt_writeBytes_self
+    rw [VG.Proof.Hmac.Common.bytesAt_writeBytes_sep _ _ s0_64 (by omega)]
+    have := VG.Proof.Hmac.Common.bytesAt_writeBytes_self
       (writeBytes m (inA s₀ + BitVec.ofNat 64 32) (beWords m (inn s₀) 0 8)) (inA s₀ + BitVec.ofNat 64 0)
       (bytesAt m (ouA s₀ + BitVec.ofNat 64 0) (4 * 8)) (by rw [bytesAt_length]; omega)
     rw [bytesAt_length] at this
     exact this
-  refine VG.Proof.Hmac.X86_64.stateAt_eq_of_bytes fun i hi => ?_
+  refine VG.Proof.Hmac.Common.stateAt_eq_of_bytes fun i hi => ?_
   have h₁ := bytesAt_getD (k := i) hb (by omega)
   rw [show inA s₀ + BitVec.ofNat 64 0 = inA s₀ by simp] at h₁
-  rw [h₁, VG.Proof.Hmac.X86_64.bytesAt_getD' _ _ hi, show ouA s₀ + BitVec.ofNat 64 0 = ouA s₀ by simp]
+  rw [h₁, VG.Proof.Hmac.Common.bytesAt_getD' _ _ hi, show ouA s₀ + BitVec.ofNat 64 0 = ouA s₀ by simp]
 
 omit hp in
 /-- The block after it: the digest, then `padBytes`. -/
@@ -721,16 +721,16 @@ theorem midMem_block :
       (bytesAt m (ouA s₀ + BitVec.ofNat 64 0) (4 * 8)).length := by
     rw [bytesAt_length]; exact sep_off _ (by omega) (by omega) (by omega)
   simp only [midMem]
-  rw [VG.Proof.Hmac.X86_64.bytesAt_add,
+  rw [VG.Proof.Hmac.Common.bytesAt_add,
     show inA s₀ + BitVec.ofNat 64 32 + BitVec.ofNat 64 32 = inA s₀ + BitVec.ofNat 64 64 by
       rw [BitVec.add_assoc, ← BitVec.ofNat_add]]
   congr 1
-  · rw [VG.Proof.Hmac.X86_64.bytesAt_writeBytes_sep _ _ s32_64 (by omega),
-      VG.Proof.Hmac.X86_64.bytesAt_writeBytes_sep _ _ s32_0 (by omega)]
-    have := VG.Proof.Hmac.X86_64.bytesAt_writeBytes_self m (inA s₀ + BitVec.ofNat 64 32) (beWords m (inn s₀) 0 8)
+  · rw [VG.Proof.Hmac.Common.bytesAt_writeBytes_sep _ _ s32_64 (by omega),
+      VG.Proof.Hmac.Common.bytesAt_writeBytes_sep _ _ s32_0 (by omega)]
+    have := VG.Proof.Hmac.Common.bytesAt_writeBytes_self m (inA s₀ + BitVec.ofNat 64 32) (beWords m (inn s₀) 0 8)
       (by rw [beWords_length]; omega)
     rwa [beWords_length] at this
-  · have := VG.Proof.Hmac.X86_64.bytesAt_writeBytes_self
+  · have := VG.Proof.Hmac.Common.bytesAt_writeBytes_self
       (writeBytes (writeBytes m (inA s₀ + BitVec.ofNat 64 32) (beWords m (inn s₀) 0 8)) (inA s₀ + BitVec.ofNat 64 0)
         (bytesAt m (ouA s₀ + BitVec.ofNat 64 0) (4 * 8))) (inA s₀ + BitVec.ofNat 64 64) padBytes
       (by rw [padBytes_length]; omega)
@@ -1050,7 +1050,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   -- The MAC.
   have hmac : bytesAt s'.mem (outA s₀) 32 = beWords s₄.mem (inn s₀) 0 8 := by
     rw [m', show outA s₀ + BitVec.ofNat 64 0 = outA s₀ by simp]
-    have := VG.Proof.Hmac.X86_64.bytesAt_writeBytes_self s₄.mem (outA s₀)
+    have := VG.Proof.Hmac.Common.bytesAt_writeBytes_self s₄.mem (outA s₀)
       (beWords s₄.mem (inn s₀) 0 8) (by rw [beWords_length]; omega)
     rw [beWords_length] at this
     simpa only [Nat.reduceMul] using this

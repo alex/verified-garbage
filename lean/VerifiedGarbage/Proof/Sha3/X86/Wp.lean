@@ -17,9 +17,8 @@ namespace VG.Proof.Sha3.X86
 
 open VG VG.X86
 open VG.Impl.Sha512.X86 (at_)
-open VG.Impl.Sha512.Arm (lo hi)
 open VG.Impl.Sha3.X86 (sLo sHi ld2 xor2 st2 rot topMask)
-open VG.Proof.Sha512.Arm (lo_xor hi_xor lo_and hi_and lo_rotr hi_rotr)
+open VG.Proof.Sha512.Word64 (lo hi lo_xor hi_xor lo_and hi_and lo_rotr hi_rotr)
 open VG.Proof.Sha512.X86 (Only Pair rd64 write64 lo_rd64 hi_rd64 readSrc_mem wp_movS wp_xorS wp_andS
   wp_ror ea_of)
 open VG.Proof.Sha256.X86.Stream (Upd Mupd wp_store wp_mov)
@@ -125,7 +124,7 @@ theorem hi_swapIf (sw : Bool) (v : Lane) : hi (swapIf sw v) = half (sHi sw) v :=
 theorem swapIf_xor (sw : Bool) (a b : Lane) : swapIf sw (a ^^^ b) = swapIf sw a ^^^ swapIf sw b := by
   cases sw
   · rfl
-  · apply VG.Proof.Sha512.Arm.eq_of_lo_hi
+  · apply VG.Proof.Sha512.Word64.eq_of_lo_hi
     · simp only [swapIf, ite_true, lo_rot32, lo_xor, hi_xor]
     · simp only [swapIf, ite_true, hi_rot32, lo_xor, hi_xor]
 

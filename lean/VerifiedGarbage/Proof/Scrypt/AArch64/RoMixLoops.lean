@@ -1,13 +1,12 @@
 import VerifiedGarbage.Proof.Scrypt.AArch64.RoMix
-import VerifiedGarbage.Proof.Scrypt.X86_64.RoMixLoops
 
 /-!
 # scryptROMix on AArch64: the small loops
 
 Untrusted: everything here is checked by Lean. The word copy (`copyLoop`),
 the word exclusive-or (`xorLoop`) and the computation of `2 N` by doubling
-(`nLoop`). The memory lemmas are the x86-64 proof's
-(`Proof/Scrypt/X86_64/RoMixLoops.lean`), which are about memory only.
+(`nLoop`). The memory lemmas are shared with the other targets
+(`Proof/Scrypt/Memory.lean`).
 -/
 
 namespace VG.Proof.Scrypt.AArch64.RoMix
@@ -19,7 +18,7 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil)
 open VG.Proof.MdStream.AArch64 (Upd Mupd wp_add wp_sub wp_addImm wp_subImm wp_ldr wp_str
   eval_nonzero ofNat_beq_zero ofNat_pred sub_beq)
 open VG.Proof.Scrypt.AArch64.BlockMix (wp_eor)
-open VG.Proof.Scrypt.X86_64.BlockMix (toNat_ofNat_lt add_ofNat)
+open VG.Proof.Scrypt.Memory (toNat_ofNat_lt add_ofNat)
 
 /-! ## Arithmetic -/
 
@@ -102,7 +101,7 @@ theorem copy_step {s : State} {src dst : Addr} {n : Nat} (hlt : 8 * n < 2 ^ 64)
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, g _ (by decide), h.x9, next_ptr]
   · rw [u₅.other _ (by decide), u₄.gpr, u₃.other _ (by decide), g _ (by decide), h.x10, next_ptr]
   · rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.gpr, u₁.mem, h.mem, Nat.mul_succ]
-    exact Proof.Hmac.X86_64.copy_mem s.mem src dst k 8
+    exact Proof.Scrypt.Memory.copy_mem s.mem src dst k 8
       (hsep.sep (by simp only [Region.Contains, BitVec.sub_self, BitVec.toNat_zero]; omega)
         (by simp only [Region.Contains, BitVec.sub_self, BitVec.toNat_zero]; omega)) (by omega)
   · rw [e11, dec_ne hk (by omega)]
@@ -178,7 +177,7 @@ theorem xor_step {s : State} {x y d : Addr} {n : Nat} (hlt : 8 * n < 2 ^ 64)
       g _ (by decide) (by decide), h.x11, next_ptr]
   · rw [u₈.mem, u₇.mem, u₆.mem, u₅.mem, u₄.mem, u₃.gpr, u₃.mem, u₂.other .x13 (by decide), u₂.gpr,
       u₂.mem, u₁.gpr, u₁.mem, h.mem]
-    exact Proof.Scrypt.X86_64.RoMix.xor_mem s.mem hk hlt hdx hdy
+    exact Proof.Scrypt.Memory.xor_mem s.mem hk hlt hdx hdy
   · rw [e12, dec_ne hk (by omega)]
 
 /-- `xorLoop` writes `[x9] xor [x10]` to `x11`, `8 n` bytes (`x12 = n > 0` words). -/
@@ -218,7 +217,7 @@ theorem n_step {s : State} {r e : Nat} (hr : 0 < r) (hlt : r * 2 ^ (e + 1) < 2 ^
       fun t' => NInv s r (k + 1) t' ∧ (t'.gpr .x12 != 0) = decide (k + 1 ≠ e + 1) := by
   refine wp_add fun t₁ u₁ => wp_add fun t₂ u₂ => wp_sub fun t₃ u₃ => WP.block_nil ?_
   have ax : t₂.gpr .x9 = BitVec.ofNat 64 (r * 2 ^ (k + 1)) := by
-    rw [u₂.other _ (by decide), u₁.gpr, h.x9, Proof.Scrypt.X86_64.RoMix.dbl_pow]
+    rw [u₂.other _ (by decide), u₁.gpr, h.x9, Proof.Scrypt.Memory.dbl_pow]
   have le : r * 2 ^ (k + 1) ≤ r * 2 ^ (e + 1) :=
     Nat.mul_le_mul_left _ (Nat.pow_le_pow_right (by decide) (by omega))
   refine ⟨⟨by rw [u₃.rd, u₂.rd, u₁.rd, h.rd], by rw [u₃.wr, u₂.wr, u₁.wr, h.wr],
@@ -226,7 +225,7 @@ theorem n_step {s : State} {r e : Nat} (hr : 0 < r) (hlt : r * 2 ^ (e + 1) < 2 ^
     fun r' h9 h10 h12 => ?_, by rw [u₃.other _ (by decide), ax], ?_⟩, ?_⟩
   · rw [u₃.other r' h12, u₂.other r' h10, u₁.other r' h9, h.other r' h9 h10 h12]
   · rw [u₃.other _ (by decide), u₂.gpr, u₁.other _ (by decide), h.x10, ← Nat.one_mul (2 ^ k),
-      Proof.Scrypt.X86_64.RoMix.dbl_pow, Nat.one_mul]
+      Proof.Scrypt.Memory.dbl_pow, Nat.one_mul]
   · rw [u₃.gpr, ax, u₂.other _ (by decide), u₁.other _ (by decide),
       h.other _ (by decide) (by decide) (by decide), h11, bne, sub_beq (by omega) hlt]
     by_cases hh : k + 1 = e + 1

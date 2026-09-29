@@ -210,6 +210,13 @@ Avoid these patterns (each has cost tens of seconds in one proof):
   `Mathlib.Data.List.*` each add about half a second to every module that
   imports them, even indirectly: keep them out of modules that many others
   import (a framework file, an algorithm's `Spec` or `Stream` lemmas).
+* **Imports across targets:** a module of one target (a path with a
+  directory of `TCB/`, e.g. `Proof/Sha256/Arm/…`) never imports a module of
+  another target, even for a lemma that mentions no ISA: CI checks each
+  target's proofs in a shard of its own (`ci/lean_shards.py`), which would
+  then check the other target's too. Put what more than one target uses in
+  a target-independent module (`Proof/<Alg>/…`, `Proof/Framework/…`);
+  `ci/check_lean_imports.py` checks it.
 * **Properties of every instruction:** prove `(instrs c).all p` with
   `rw [← Code.allInstrs_eq]; decide +kernel`, not `decide +kernel` directly.
 * **Failing unfolding:** `rfl`, `trivial`, `congr 1`, `exact` and `simpa` on

@@ -1,6 +1,5 @@
 import VerifiedGarbage.Proof.Sha512.X86.Stream.Common
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Finalize
-import VerifiedGarbage.Proof.Sha512.Arm.Stream.Finalize
 
 /-!
 # Streaming SHA-512 on x86 (32-bit): `finalize`
@@ -17,14 +16,13 @@ namespace VG.Proof.Sha512.X86.Stream.Finalize
 
 open VG VG.X86 VG.Impl.Sha512.X86.Stream
 open VG.Impl.Sha512.X86 (at_)
-open VG.Impl.Sha512.Arm (lo hi)
 open VG.Proof.Sha256.X86 (contains_offset)
 open VG.Proof.Sha256.X86.Stream (Upd Mupd Fupd wp_mov wp_movi wp_movm wp_store wp_store8 wp_add wp_addi
   wp_sub wp_subi wp_andi wp_or wp_cmpi wp_test wp_shr wp_bswap contains_addr sub_offset frame_bytes
   addr_add_ofNat readW_writeW_addr ofNat_beq_zero sub_ofNat sub_beq ofNat_succ ofNat_pred toNat_ofNat_lt
   bytesAt_getD addr_toNat)
 open VG.Proof.Sha256.X86.Stream.Finalize (times8)
-open VG.Proof.Sha512.Arm.Stream.Finalize (wordBytes_split lo_shr61 hi_shr61 lo_shl3 hi_shl3)
+open VG.Proof.Sha512.Word64 (lo hi wordBytes_split lo_shr61 hi_shr61 lo_shl3 hi_shl3)
 open VG.Proof.Sha512.Stream
 open VG.Spec.Sha512 (HashValue stateAt blockAt compress parseBlock bytesAt wordBytes)
 open VG.Proof.Sha512 (countX86)
@@ -90,10 +88,6 @@ structure Pre (s₀ : State) : Prop where
   scr_fit : (scr s₀).toNat + 272 ≤ 2 ^ 32
   sp_lo : 20 ≤ (esp₀ s₀).toNat
   sp_fit : (esp₀ s₀).toNat + 24 ≤ 2 ^ 32
-
-/-- The contract's stack region. -/
-theorem stk_eq {E : BitVec 32} (h : 20 ≤ E.toNat) : below E 20 = ⟨E.setWidth 64 - 20, 20⟩ := by
-  simp only [below]; rw [Taint.sub_setWidth h]; rfl
 
 theorem pre_of {s₀ : State} (h : Proof.Sha512.finalizeX86.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19⟩ := h
@@ -364,7 +358,7 @@ theorem lenL_eq {s₀ : State} {iv : HashValue} {m : List Byte} (hm : R₀ s₀ 
     omega
   rw [lenBytes_split m hm.2.1, ← hc, h8, wordBytes_split, wordBytes_split, hi_shr61, lo_shr61, hi_shl3,
     lo_shl3]
-  simp only [countX86, VG.Proof.Sha512.Arm.hi_append, VG.Proof.Sha512.Arm.lo_append, lenL, List.append_assoc]
+  simp only [countX86, Word64.hi_append, Word64.lo_append, lenL, List.append_assoc]
 
 theorem lenL_length (s₀ : State) : (lenL s₀).length = 16 := rfl
 
@@ -587,12 +581,6 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv
     simp only [show ¬ ((0 : Nat) = 1) by decide, ite_false, Fin0, List.append_assoc]
 
 /-! ## Prologue -/
-
-theorem and127 (x : BitVec 32) : x &&& 127 = BitVec.ofNat 32 (x.toNat % 128) := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_and, BitVec.toNat_ofNat]
-  rw [show (127 : BitVec 32).toNat = 2 ^ 7 - 1 from rfl, Nat.and_two_pow_sub_one_eq_mod]
-  omega
 
 /-- The memory after saving our caller's registers. -/
 def saveMem (s₀ : State) : Mem :=

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Hmac
 import VerifiedGarbage.Spec.Pbkdf2
-import VerifiedGarbage.Proof.Pbkdf2.X86_64.Iterate
+import VerifiedGarbage.Proof.Pbkdf2.Memory
 import VerifiedGarbage.Proof.Hmac.X86.Finalize
 import VerifiedGarbage.Impl.Pbkdf2.X86
 
@@ -8,8 +8,8 @@ import VerifiedGarbage.Impl.Pbkdf2.X86
 # PBKDF2-HMAC-SHA-256's iteration on x86 (32-bit): the parts of a step
 
 Untrusted: everything here is checked by Lean. The same structure as the
-ARMv7 proof (`VG.Proof.Pbkdf2.Arm`), whose target-independent memory lemmas
-(from `VG.Proof.Pbkdf2.X86_64.Iterate`) are reused. Each step is two calls
+ARMv7 proof (`VG.Proof.Pbkdf2.Arm`), with the same target-independent memory
+lemmas (`VG.Proof.Pbkdf2.Memory`). Each step is two calls
 of `vg_sha256_compress`, used as a black box through its proof
 (`compressAt_ok`, from the streaming SHA-256 proof), each using the 20 bytes
 below `esp`. The hash value being compressed is `t`, and `T` is kept in
@@ -77,9 +77,9 @@ open VG.Proof.Sha256.X86.Stream (Upd Mupd Fupd wp_mov wp_movi wp_movm wp_store w
   addr_toNat compressAt_ok stk_eq)
 open VG.Proof.Hmac.X86 (copyWords_ok bswapWords_ok)
 open VG.Proof.Hmac.X86.Finalize (beWords_stateAt)
-open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_sep bytesAt_add extractLsb'_read)
+open VG.Proof.Hmac.Common (bytesAt_length bytesAt_writeBytes_sep bytesAt_add extractLsb'_read)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append writeBytes_nil write_eq_writeBytes)
-open VG.Proof.Pbkdf2.X86_64.Iterate (frame_bytesAt contains_base sep_after xorBytes_length add_ofNat
+open VG.Proof.Pbkdf2.Memory (frame_bytesAt contains_base sep_after xorBytes_length add_ofNat
   stateAt_copy)
 open VG.Spec.Sha256 (bytesAt stateAt blockAt compress HashValue wordBytes)
 

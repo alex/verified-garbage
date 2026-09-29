@@ -17,12 +17,11 @@ open VG.Impl.Hmac.Generic.Arm (Hash copy scrAt)
 open VG.Impl.Pbkdf2.Generic.Arm (stO tmpO uO xorLoop count2 atSt body prologue iterate)
 open VG.Proof.Hmac.Generic.Arm
 open VG.Proof.Hmac.Generic.Arm.Finalize (add_zero')
-open VG.Proof.Hmac.Generic.X86_64 (inRegions_of_sub xorBytes_length')
-open VG.Proof.Hmac.Generic.X86_64.Init (sub_of_off sub_of_self bytes_keep)
-open VG.Proof.Hmac.Generic.X86_64.Finalize (bytesAt_take bytesAt_writeBytes_self' xorPad_length)
+open VG.Proof.Hmac.Generic.Common (inRegions_of_sub xorBytes_length' sub_of_off sub_of_self bytes_keep
+  bytesAt_take bytesAt_writeBytes_self')
 open VG.Proof.MdStream.Arm (Upd Fupd wp_mov wp_add wp_subs wp_cmp wp_ldrSp op2_imm op2_reg sub_offset
   ofNat_beq_zero sub_ofNat eval_eq eval_ne)
-open VG.Proof.Hmac.X86_64 (bytesAt_length writeBytes_at bytesAt_getD')
+open VG.Proof.Hmac.Common (bytesAt_length writeBytes_at bytesAt_getD' xorPad_length)
 open VG.Proof.Sha256.Stream (writeBytes)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad hmacBlockKey)
@@ -132,13 +131,13 @@ theorem cal_sub : Region.Sub (calR hH s₀) (scR sc s₀) := by
 /-- The parts of `scratch` do not overlap. -/
 theorem part_disj {a m b n : Nat} (h : a + m ≤ b ∨ b + n ≤ a) (ha : a + m ≤ 8 * sc) (hb : b + n ≤ 8 * sc) :
     Region.Disjoint ⟨SA s₀ a, m⟩ ⟨SA s₀ b, n⟩ :=
-  VG.Proof.Hmac.Generic.X86_64.Init.off_disj _ h (by have := hp.nw; omega) (by have := hp.nw; omega)
+  VG.Proof.Hmac.Generic.Common.off_disj _ h (by have := hp.nw; omega) (by have := hp.nw; omega)
 
 include hH in
 theorem cal_disj {b n : Nat} (h : 8 * H.W ≤ b) (hb : b + n ≤ 8 * sc) :
     (calR hH s₀).Disjoint ⟨SA s₀ b, n⟩ := by
   have := hH.hWb; have := hp.nw
-  exact VG.Proof.Hmac.Generic.X86_64.Init.off_disj0 _ (by omega) (by omega)
+  exact VG.Proof.Hmac.Generic.Common.off_disj0 _ (by omega) (by omega)
 
 end
 

@@ -63,7 +63,7 @@ def inPlaceContract {M : ISA} (A : Abi M) (t : Poly → Poly) (stack : Nat := 0)
 def nttContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   inPlaceContract A ntt stack
 
-/-- `vg_mlkem_ntt_inv(f: *mut [u32; 256], scratch: *mut [u64; 128])`: `NTT⁻¹`
+/-- `vg_mlkem_inv_ntt(f: *mut [u32; 256], scratch: *mut [u64; 128])`: `NTT⁻¹`
 (Algorithm 10) in place. -/
 def nttInvContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   inPlaceContract A nttInv stack
@@ -220,10 +220,12 @@ def nttApi : Api where
     polynomial `*f` (256 coefficients less than `q` = 3329), in place." ++ ctDoc "nttContract"
   safety := [polySafety "f" "reads and writes" true, scratchSafety 1024]
 
-/-- `vg_mlkem_ntt_inv` on every target. -/
+/-- `vg_mlkem_inv_ntt` on every target. (Not `vg_mlkem_ntt_inv`: a function
+named after another with a suffix and the same signature is a variant of it,
+another implementation of its contract, to `ci/check_variants.py`.) -/
 def nttInvApi : Api where
   module := "mlkem"
-  name := "vg_mlkem_ntt_inv"
+  name := "vg_mlkem_inv_ntt"
   sig := inPlaceSig "f"
   writeArgs := true
   summary := "The inverse of the ML-KEM number-theoretic transform, `NTT⁻¹` (FIPS 203 \
