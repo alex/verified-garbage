@@ -165,6 +165,22 @@ theorem Region.sub_prefix {base : Addr} {len len' : Nat} (h : len ≤ len') :
 /-- `r'` extends `r`: the same base, at least as long. -/
 def Region.Prefix (r r' : Region) : Prop := r.base = r'.base ∧ r.len ≤ r'.len
 
+/-- `Region.sub_prefix` for literal lengths (`Nat.ble` evaluates them). -/
+theorem Region.sub_of_ble {a : Addr} {m n : Nat} (h : Nat.ble m n = true) :
+    Region.Sub ⟨a, m⟩ ⟨a, n⟩ :=
+  Region.sub_prefix (Nat.le_of_ble_eq_true h)
+
+/-- A region extends a shorter one at the same base (`Nat.ble` evaluates
+literal lengths). -/
+theorem Region.prefix_of_ble {a : Addr} {m n : Nat} (h : Nat.ble m n = true) :
+    Region.Prefix ⟨a, m⟩ ⟨a, n⟩ :=
+  ⟨rfl, Nat.le_of_ble_eq_true h⟩
+
+/-- A bound on the end of a region bounds the end of a shorter one. -/
+theorem Region.end_le_of_ble {x m n b : Nat} (hmn : Nat.ble m n = true) (h : x + n ≤ b) :
+    x + m ≤ b :=
+  Nat.le_trans (Nat.add_le_add_left (Nat.le_of_ble_eq_true hmn) _) h
+
 /-- Every access that the regions `rs` permit, regions extending them permit. -/
 theorem InRegions.of_prefix {rs rs' : List Region} (h : List.Forall₂ Region.Prefix rs rs')
     {a : Addr} {n : Nat} (ha : InRegions rs a n) : InRegions rs' a n := by

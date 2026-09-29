@@ -1,5 +1,6 @@
 import Mathlib.Data.List.FinRange
 import VerifiedGarbage.Proof.Hmac.X86.Common
+import VerifiedGarbage.Proof.Framework.X86.Inline
 import VerifiedGarbage.Spec.Hmac
 import VerifiedGarbage.Proof.Sha256.X86.Contract
 import Mathlib.Tactic.IntervalCases
@@ -1156,18 +1157,80 @@ theorem finalize_ct : ConstantTime isa Proof.Hmac.finalizeSha256X86.pre
     Proof.Hmac.finalizeSha256X86.pub finalize :=
   VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
 
+/-- `finalizeSha256X86` with the 688 bytes of scratch of the shared contract
+(sized for the x86-64 AVX2 compression function), of which the code uses 240. -/
+def finalizeWide : Contract isa :=
+  { Proof.Hmac.finalizeSha256X86 with
+    pre := fun s =>
+      let inner : Region := ⟨(arg s 0).setWidth 64, 96⟩
+      let outer : Region := ⟨(arg s 1).setWidth 64, 96⟩
+      let out : Region := ⟨(arg s 4).setWidth 64, 32⟩
+      let scratch : Region := ⟨(arg s 5).setWidth 64, 688⟩
+      let args : Region := ⟨argAddr s 0, 24⟩
+      let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
+      s.rd = [outer] ∧ s.wr = [inner, out, scratch, args] ∧
+      inner.Disjoint out ∧ inner.Disjoint scratch ∧ out.Disjoint scratch ∧
+      args.Disjoint inner ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
+      outer.Disjoint inner ∧ outer.Disjoint out ∧ outer.Disjoint scratch ∧ outer.Disjoint args ∧
+      ret.Disjoint inner ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧
+      (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 1).toNat + 96 ≤ 2 ^ 32 ∧
+      (arg s 4).toNat + 32 ≤ 2 ^ 32 ∧ (arg s 5).toNat + 688 ≤ 2 ^ 32 ∧
+      (s.gpr .esp).toNat + 28 ≤ 2 ^ 32 }
+
+/-- The regions `finalizeSha256X86` lets the code write. -/
+def narrowWr (s : State) : List Region :=
+  [⟨(arg s 0).setWidth 64, 96⟩, ⟨(arg s 4).setWidth 64, 32⟩, ⟨(arg s 5).setWidth 64, 240⟩,
+    ⟨argAddr s 0, 24⟩]
+
+/-- Rewrites the contracts at a narrowed state (`arg` does not unfold
+cheaply). -/
+local macro "narrow" loc:(Lean.Parser.Tactic.location)? : tactic =>
+  `(tactic| simp only [Proof.Hmac.finalizeSha256X86, Proof.Hmac.countFinalizeX86,
+    VG.Proof.Hmac.X86.Finalize.finalizeWide, VG.Proof.Hmac.X86.Finalize.narrowWr, VG.X86.arg_withRegions, VG.X86.argAddr_withRegions,
+    VG.X86.State.withRegions_gpr, VG.X86.State.withRegions_mem, VG.X86.State.withRegions_rd,
+    VG.X86.State.withRegions_wr] $(loc)?)
+
+theorem finalizeWide_pre (s : State) (h : finalizeWide.pre s) :
+    Proof.Hmac.finalizeSha256X86.pre (s.withRegions s.rd (narrowWr s)) := by
+  obtain ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁, h₁₂, h₁₃, h₁₄, h₁₅, h₁₆, h₁₇, h₁₈, h₁₉,
+    h₂₀⟩ := h
+  narrow
+  exact ⟨h₁, trivial, h₃, h₄.sub_right (Region.sub_of_ble rfl), h₅.sub_right (Region.sub_of_ble rfl),
+    h₆, h₇, h₈.sub_right (Region.sub_of_ble rfl), h₉, h₁₀, h₁₁.sub_right (Region.sub_of_ble rfl), h₁₂,
+    h₁₃, h₁₄, h₁₅.sub_right (Region.sub_of_ble rfl), h₁₆, h₁₇, h₁₈, Region.end_le_of_ble rfl h₁₉,
+    h₂₀⟩
+
+/-- A state satisfying `finalizeWide.pre`. -/
+def wideSat : State :=
+  { sat with wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 688⟩, ⟨0x4004, 24⟩] }
+
+theorem finalizeWide_implies :
+    finalizeWide.Implies (Spec.Hmac.finalizeSha256OutContract X86.abi) := by
+  have a0 : arg wideSat 0 = 0x1000 := by decide
+  have a1 : arg wideSat 1 = 0x1100 := by decide
+  have a4 : arg wideSat 4 = 0x2000 := by decide
+  have a5 : arg wideSat 5 = 0x3000 := by decide
+  have e : argAddr wideSat 0 = 0x4004 := by decide
+  have esp : wideSat.gpr .esp = 0x4000 := rfl
+  sig_implies [Spec.Hmac.finalizeSha256OutContract, Spec.Hmac.finalizeSha256OutSig, finalizeWide,
+    Proof.Hmac.finalizeSha256X86, Proof.Hmac.countFinalizeX86, X86.abi, X86.argSlots, X86.argVal,
+    X86.argBytes]
+    [a0, a1, a4, a5, e, esp] using wideSat
+
+/-- The proof is written against `finalizeSha256X86`, widened to the shared
+contract's scratch. -/
 theorem finalize_verified :
     Verified X86.target Impl.Hmac.X86.finalize (Spec.Hmac.finalizeSha256OutContract X86.abi) :=
-  Verified.of_correct finalize_correct finalize_ct (by
-    have a0 : arg sat 0 = 0x1000 := by decide
-    have a1 : arg sat 1 = 0x1100 := by decide
-    have a4 : arg sat 4 = 0x2000 := by decide
-    have a5 : arg sat 5 = 0x3000 := by decide
-    have e : argAddr sat 0 = 0x4004 := by decide
-    have esp : sat.gpr .esp = 0x4000 := rfl
-    sig_implies [Spec.Hmac.finalizeSha256OutContract, Spec.Hmac.finalizeSha256OutSig,
-      Proof.Hmac.finalizeSha256X86, Proof.Hmac.countFinalizeX86, X86.abi, X86.argSlots, X86.argVal,
-      X86.argBytes]
-      [a0, a1, a4, a5, e, esp] using Proof.Hmac.X86.Finalize.sat)
+  have hsat := finalizeWide_implies.sat_left
+  (Verified.widen (Verified.of_correct finalize_correct finalize_ct
+    (.refl (hsat.elim fun s hs => ⟨_, finalizeWide_pre s hs⟩)))
+    narrowWr finalizeWide_pre
+    (fun _ h => by
+      obtain ⟨_, h₂, _⟩ := h
+      rw [h₂]
+      exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl)
+        (.cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl) .nil))))
+    (fun _ _ _ h => by narrow at h ⊢; exact h)
+    (fun _ _ _ _ h => by narrow; exact h) hsat).of_implies finalizeWide_implies
 
 end VG.Proof.Hmac.X86.Finalize

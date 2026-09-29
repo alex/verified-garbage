@@ -29,7 +29,7 @@ super::streaming_hash!(
     /// An incremental SHA-256 computation.
     Sha256 {
         state: 96,
-        scratch: 20,
+        scratch: 76,
         block: 64,
         output: 32,
         final_hash: 32,

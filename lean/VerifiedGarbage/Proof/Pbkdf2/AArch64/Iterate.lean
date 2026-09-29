@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.AArch64.Body
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import VerifiedGarbage.Spec.Pbkdf2.Contract
 
 /-!
@@ -324,11 +325,49 @@ theorem iterate_ct : ConstantTime isa Proof.Pbkdf2.iterateSha256AArch64.pre
   ct_of (τ := VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) (fun _ _ hp => agree₀ hp)
     (by taint_decide)
 
+/-- `iterateSha256AArch64` with the 832 bytes of scratch of the shared
+contract (sized for the x86-64 AVX2 compression function), of which the code
+uses 384. -/
+def iterateWide : Contract isa :=
+  { Proof.Pbkdf2.iterateSha256AArch64 with
+    pre := fun s =>
+      let key : Region := ⟨s.gpr .x0, 192⟩
+      let u : Region := ⟨s.gpr .x1, 32⟩
+      let t : Region := ⟨s.gpr .x3, 32⟩
+      let scratch : Region := ⟨s.gpr .x4, 832⟩
+      s.rd = [key, u] ∧ s.wr = [t, scratch] ∧
+      key.Disjoint t ∧ key.Disjoint scratch ∧ u.Disjoint t ∧ u.Disjoint scratch ∧
+      t.Disjoint scratch }
+
+/-- The regions `iterateSha256AArch64` lets the code write. -/
+def narrowWr (s : State) : List Region := [⟨s.gpr .x3, 32⟩, ⟨s.gpr .x4, 384⟩]
+
+theorem iterateWide_pre (s : State) (h : iterateWide.pre s) :
+    Proof.Pbkdf2.iterateSha256AArch64.pre (s.withRegions s.rd (narrowWr s)) :=
+  let ⟨h₁, _, h₃, h₄, h₅, h₆, h₇⟩ := h
+  ⟨h₁, rfl, h₃, h₄.sub_right (Region.sub_of_ble rfl), h₅, h₆.sub_right (Region.sub_of_ble rfl),
+    h₇.sub_right (Region.sub_of_ble rfl)⟩
+
+/-- A state satisfying `iterateWide.pre`. -/
+def wideSat : State := { sat with wr := [⟨0x3000, 32⟩, ⟨0x4000, 832⟩] }
+
+theorem iterateWide_implies :
+    iterateWide.Implies (Spec.Pbkdf2.iterateSha256Contract AArch64.abi) := by
+  sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig, iterateWide,
+    Proof.Pbkdf2.iterateSha256AArch64, AArch64.abi, AArch64.argRegs] [wideSat, sat] using wideSat
+
+/-- The proof is written against `iterateSha256AArch64`, widened to the
+shared contract's scratch. -/
 theorem iterate_verified :
     Verified AArch64.target Impl.Pbkdf2.AArch64.iterate
       (Spec.Pbkdf2.iterateSha256Contract AArch64.abi) :=
-  Verified.of_correct (fun _ hs => correct hs) iterate_ct (by
-    sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig,
-      Proof.Pbkdf2.iterateSha256AArch64, AArch64.abi, AArch64.argRegs] [sat] using sat)
+  have hsat := iterateWide_implies.sat_left
+  (Verified.widen (Verified.of_correct (fun _ hs => correct hs) iterate_ct
+    (.refl (hsat.elim fun s hs => ⟨_, iterateWide_pre s hs⟩)))
+    narrowWr iterateWide_pre
+    (fun _ h => by
+      obtain ⟨_, h₂, _⟩ := h
+      rw [h₂]; exact .cons (Region.prefix_of_ble rfl) (.cons (Region.prefix_of_ble rfl) .nil))
+    (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat).of_implies iterateWide_implies
 
 end VG.Proof.Pbkdf2.AArch64

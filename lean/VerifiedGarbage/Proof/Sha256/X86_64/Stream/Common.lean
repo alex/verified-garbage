@@ -73,14 +73,14 @@ structure CallOk (s : State) (st scr src : Addr) : Prop where
   rbx : s.gpr .rbx = st
   r15 : s.gpr .r15 = scr
   rsi : s.gpr .rsi = src
-  d₁ : Region.Disjoint ⟨st, 32⟩ ⟨scr, 112⟩
+  d₁ : Region.Disjoint ⟨st, 32⟩ ⟨scr, 560⟩
   d₂ : Region.Disjoint ⟨src, 64⟩ ⟨st, 32⟩
-  d₃ : Region.Disjoint ⟨src, 64⟩ ⟨scr, 112⟩
+  d₃ : Region.Disjoint ⟨src, 64⟩ ⟨scr, 560⟩
   d₄ : (below (s.gpr .rsp) 8).Disjoint ⟨st, 32⟩
-  d₅ : (below (s.gpr .rsp) 8).Disjoint ⟨scr, 112⟩
+  d₅ : (below (s.gpr .rsp) 8).Disjoint ⟨scr, 560⟩
   d₆ : (below (s.gpr .rsp) 8).Disjoint ⟨src, 64⟩
-  hc : Covers [⟨src, 64⟩, ⟨st, 32⟩, ⟨scr, 112⟩] (s.rd ++ s.wr)
-  hw : Covers [⟨st, 32⟩, ⟨scr, 112⟩] s.wr
+  hc : Covers [⟨src, 64⟩, ⟨st, 32⟩, ⟨scr, 560⟩] (s.rd ++ s.wr)
+  hw : Covers [⟨st, 32⟩, ⟨scr, 560⟩] s.wr
 
 /-- The arguments of the call, set up from `σ`. -/
 structure Setup (σ s : State) : Prop where
@@ -107,9 +107,9 @@ theorem setup_ok (s : State) :
 
 /-- The call's precondition, narrowed to the regions it is given. -/
 theorem call_hyps {σ s : State} {st scr src : Addr} (h : CallOk σ st scr src) (hs : Setup σ s) :
-    Proof.Sha256.compressX86_64.pre (s.callEntry.withRegions [⟨src, 64 * 1⟩] [⟨st, 32⟩, ⟨scr, 112⟩]) ∧
-    Covers ([⟨src, 64 * 1⟩] ++ [⟨st, 32⟩, ⟨scr, 112⟩]) (s.rd ++ s.wr) ∧
-    Covers [⟨st, 32⟩, ⟨scr, 112⟩] s.wr := by
+    Proof.Sha256.compressX86_64.pre (s.callEntry.withRegions [⟨src, 64 * 1⟩] [⟨st, 32⟩, ⟨scr, 560⟩]) ∧
+    Covers ([⟨src, 64 * 1⟩] ++ [⟨st, 32⟩, ⟨scr, 560⟩]) (s.rd ++ s.wr) ∧
+    Covers [⟨st, 32⟩, ⟨scr, 560⟩] s.wr := by
   have hsp : s.gpr .rsp = σ.gpr .rsp := hs.cs _ (by simp [calleeSaved])
   have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
   refine ⟨?_, ?_, ?_⟩
@@ -126,7 +126,7 @@ space at `r15`, by calling the compression function `f`. -/
 theorem compressAt_ok {f : Callee} (hf : f.Ok) {s : State} {st scr src : Addr}
     (h : CallOk s st scr src) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
-      Frame [⟨st, 32⟩, ⟨scr, 112⟩, below (s.gpr .rsp) 8] s.mem s'.mem →
+      Frame [⟨st, 32⟩, ⟨scr, 560⟩, below (s.gpr .rsp) 8] s.mem s'.mem →
       stateAt s'.mem st = compress (stateAt s.mem st) (blockAt s.mem src) →
       s'.gpr .rdi = st → s'.gpr .rcx = scr → Q s') :
     WP isa (compressAt f) s Q := by
@@ -141,7 +141,7 @@ theorem compressAt_ok {f : Callee} (hf : f.Ok) {s : State} {st scr src : Addr}
   have hne : ∀ r : Reg, r ≠ .rsp → s₁.callEntry.gpr r = s₁.gpr r := fun r h => State.callEntry_gpr _ h
   obtain ⟨hpre, hc, hw⟩ := call_hyps h hs
   refine WP.seq (WP.call (k := Proof.Sha256.compressX86_64) hf.verified hf.nosp (by rw [hf.depth]; decide)
-    (rd := [⟨src, 64 * 1⟩]) (wr := [⟨st, 32⟩, ⟨scr, 112⟩]) hpre hc hw ?_)
+    (rd := [⟨src, 64 * 1⟩]) (wr := [⟨st, 32⟩, ⟨scr, 560⟩]) hpre hc hw ?_)
   intro s₂ hrd hwr hcs hfr hkeep ⟨s₃, hm₃, _, hpost⟩
   have k₁ := hkeep .rdi hf.keeps_rdi
   have k₃ := hkeep .rcx hf.keeps_rcx
@@ -370,8 +370,8 @@ theorem and63 (x : BitVec 64) : x &&& (63#32).signExtend 64 = BitVec.ofNat 64 (x
   omega
 
 theorem restore_eq : restore = [
-    .mov .rbx (.mem (at_ .r15 112)), .mov .rbp (.mem (at_ .r15 120)), .mov .r12 (.mem (at_ .r15 128)),
-    .mov .r13 (.mem (at_ .r15 136)), .mov .r14 (.mem (at_ .r15 144)), .mov .r15 (.mem (at_ .r15 152))] :=
+    .mov .rbx (.mem (at_ .r15 560)), .mov .rbp (.mem (at_ .r15 568)), .mov .r12 (.mem (at_ .r15 576)),
+    .mov .r13 (.mem (at_ .r15 584)), .mov .r14 (.mem (at_ .r15 592)), .mov .r15 (.mem (at_ .r15 600))] :=
   rfl
 
 theorem ofNat_succ (k : Nat) : BitVec.ofNat 64 (k + 1) = BitVec.ofNat 64 k + 1 := by

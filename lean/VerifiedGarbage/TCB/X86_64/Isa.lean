@@ -158,7 +158,8 @@ inductive Cond
 the "CPUID Feature Flag" column of each instruction's opcode table: SSSE3
 for PSHUFB and PALIGNR (`66 0F 38 00 /r`, `66 0F 3A 0F /r ib`), SHA for
 SHA256RNDS2, SHA256MSG1 and SHA256MSG2 (`NP 0F 38 CB /r`, `NP 0F 38 CC /r`,
-`NP 0F 38 CD /r`); AES for AESENC, AESENCLAST, AESDEC, AESDECLAST, AESIMC
+`NP 0F 38 CD /r`) and for SHA1RNDS4, SHA1NEXTE, SHA1MSG1 and SHA1MSG2
+(`NP 0F 3A CC /r ib`, `NP 0F 38 C8 /r`, `NP 0F 38 C9 /r`, `NP 0F 38 CA /r`); AES for AESENC, AESENCLAST, AESDEC, AESDECLAST, AESIMC
 and AESKEYGENASSIST (`66 0F 38 DC /r`, `66 0F 38 DD /r`, `66 0F 38 DE /r`,
 `66 0F 38 DF /r`, `66 0F 38 DB /r`, `66 0F 3A DF /r ib`); PCLMULQDQ for
 PCLMULQDQ (`66 0F 3A 44 /r ib`); SSE2 for MOVQ xmm, r64 (`66 REX.W 0F 6E /r`),
@@ -174,6 +175,8 @@ baseline. BMI2 for RORX (`VEX.LZ.F2.0F3A.W0 F0 /r ib`) and BMI1 for ANDN
 def Instr.requires : Instr → List String
   | .xop (.bin .pshufb ..) | .xop (.palignr ..) => ["ssse3"]
   | .xop (.bin .sha256msg1 ..) | .xop (.bin .sha256msg2 ..) | .xop (.sha256rnds2 ..) => ["sha"]
+  | .xop (.bin .sha1msg1 ..) | .xop (.bin .sha1msg2 ..) | .xop (.bin .sha1nexte ..)
+  | .xop (.sha1rnds4 ..) => ["sha"]
   | .xop (.bin .aesenc ..) | .xop (.bin .aesenclast ..) | .xop (.bin .aesdec ..)
   | .xop (.bin .aesdeclast ..) | .xop (.bin .aesimc ..) | .xop (.aeskeygenassist ..) => ["aes"]
   | .xop (.pclmulqdq ..) => ["pclmulqdq"]

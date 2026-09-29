@@ -35,6 +35,10 @@ structure Contract.Implies {M : ISA} (k k' : Contract M) : Prop where
 theorem Contract.Implies.sat_left {M : ISA} {k k' : Contract M} (h : k.Implies k') : ∃ s, k.pre s :=
   h.sat.elim fun s hs => ⟨s, h.pre s hs⟩
 
+/-- A satisfiable contract implies itself. -/
+theorem Contract.Implies.refl {M : ISA} {k : Contract M} (h : ∃ s, k.pre s) : k.Implies k :=
+  ⟨fun _ h => h, fun _ _ _ h => h, fun _ _ _ _ h => h, h⟩
+
 theorem Verified.of_implies {T : Target} {c : Prog T.isa} {k k' : Contract T.isa}
     (h : Verified T c k) (hk : k.Implies k') : Verified T c k' := by
   obtain ⟨hc, hct, -⟩ := h

@@ -185,10 +185,10 @@ run_cmd do
 /-! ## The generic contracts at SHA-256 -/
 
 example {M : ISA} (A : Abi M) (stack : Nat) :
-    Spec.Hmac.initContract Spec.Hmac.sha256S 20 A stack = Spec.Hmac.initSha256Contract A stack := rfl
+    Spec.Hmac.initContract Spec.Hmac.sha256S 76 A stack = Spec.Hmac.initSha256Contract A stack := rfl
 
 example {M : ISA} (A : Abi M) (stack : Nat) :
-    Spec.Pbkdf2.iterateContract Spec.Hmac.sha256S 48 A stack =
+    Spec.Pbkdf2.iterateContract Spec.Hmac.sha256S 104 A stack =
       Spec.Pbkdf2.iterateSha256Contract A stack := rfl
 
 /-! ## The instances -/
