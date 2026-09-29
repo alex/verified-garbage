@@ -7,7 +7,7 @@
 //! lays out their context (the key, the nonce and the tag) and checks the
 //! length limit.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"))]
 
 use crate::arch::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
 
@@ -175,10 +175,14 @@ mod tests {
         }
     }
 
+    /// `P_MAX` bytes are allowed and one more are not (a 32-bit length is
+    /// always allowed).
     #[test]
     fn length_limit() {
         assert!(!too_long(0));
-        assert!(!too_long(P_MAX as usize));
-        assert!(too_long(P_MAX as usize + 1));
+        assert!(!too_long(usize::try_from(P_MAX).unwrap_or(usize::MAX)));
+        if let Ok(len) = usize::try_from(P_MAX + 1) {
+            assert!(too_long(len));
+        }
     }
 }

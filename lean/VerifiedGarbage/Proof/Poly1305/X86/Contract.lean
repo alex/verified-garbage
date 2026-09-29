@@ -72,7 +72,8 @@ def updateX86 : Contract X86.isa where
 open X86 in
 /-- `vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16], scratch: *mut [u64; 16])`:
 the arguments `state`, the low and high words of `count`, `out` and
-`scratch`. -/
+`scratch`. Only the message's length modulo 16 matters (as on x86-64), so
+a caller whose message is whole blocks may pass `count = 0`. -/
 def finalizeX86 : Contract X86.isa where
   pre s :=
     let state : Region := ⟨(arg s 0).setWidth 64, 128⟩
@@ -85,7 +86,7 @@ def finalizeX86 : Contract X86.isa where
       ret.Disjoint state ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧ (arg s 0).toNat + 128 ≤ 2 ^ 32 ∧
       (arg s 3).toNat + 16 ≤ 2 ^ 32 ∧ (arg s 4).toNat + 128 ≤ 2 ^ 32 ∧ (s.gpr .esp).toNat + 24 ≤ 2 ^ 32
   post s s' := ∀ key msg, Buffered s.mem ((arg s 0).setWidth 64) key msg →
-    countX86 s = BitVec.ofNat 64 msg.length → bytesAt s'.mem ((arg s 3).setWidth 64) 16 = mac key msg
+    (countX86 s).toNat % 16 = msg.length % 16 → bytesAt s'.mem ((arg s 3).setWidth 64) 16 = mac key msg
   pub s₁ s₂ := s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 5, arg s₁ i = arg s₂ i
 
 end VG.Proof.Poly1305

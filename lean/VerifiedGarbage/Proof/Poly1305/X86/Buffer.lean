@@ -105,15 +105,20 @@ end
 
 theorem kb_lt (s₀ : State) : kb s₀ < 16 := Nat.mod_lt _ (by omega)
 
-/-- A state representing a message of `count` bytes: its whole blocks, and the
-bytes buffered. -/
+/-- The length of a message of `count` bytes, modulo 16. -/
+theorem count_mod16 {count : BitVec 64} {n : Nat} (h : count = BitVec.ofNat 64 n) :
+    count.toNat % 16 = n % 16 := by
+  rw [h, BitVec.toNat_ofNat]; omega
+
+/-- A state representing a message of `count` bytes (modulo 16): its whole
+blocks, and the bytes buffered. -/
 theorem buffered_split {s₀ : State} (hfit : (stp s₀).toNat + 128 ≤ 2 ^ 32) {key msg : List Byte}
     (h : Buffered s₀.mem ((stp s₀).setWidth 64) key msg)
-    (hc : Proof.Poly1305.countX86 s₀ = BitVec.ofNat 64 msg.length) :
+    (hc : (Proof.Poly1305.countX86 s₀).toNat % 16 = msg.length % 16) :
     ∃ W, msg = W ++ Bf s₀ ∧ Repr s₀.mem ((stp s₀).setWidth 64) key W := by
   obtain ⟨W, B, rfl, hr, -, hBb⟩ := Buffered.split h
   have hk : kb s₀ = (W ++ B).length % 16 := by
-    rw [kb, ← count_mod, hc, BitVec.toNat_ofNat]; omega
+    rw [kb, ← count_mod, hc]
   refine ⟨W, ?_, hr⟩
   rw [Bf, hk, bq_eq hfit, hBb]
 
