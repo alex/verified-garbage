@@ -31,7 +31,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 | Algorithm | Spec landed | Supported | Optimized |
 |---|---|---|---|
 | HMAC-SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
-| Poly1305 | ✅ | x86-64, ARM64 | ❌ |
+| Poly1305 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 
 ### Ciphers
 
