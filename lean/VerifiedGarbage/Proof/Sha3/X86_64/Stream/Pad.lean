@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Sha3.X86_64.Call
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Sha3.Contract
 
 /-!
 # SHA-3 on x86-64: `pad`
@@ -116,19 +118,25 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 200⟩, ⟨0x3000, 640⟩]
 
-theorem pad_verified : Verified X86_64.target Impl.Sha3.X86_64.Stream.pad Proof.Sha3.padX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct hs
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .r8, .rsp]) ?_
-      (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, h5⟩
-    refine Taint.agree_ofRegs fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+theorem pad_correct (s : State) (hs : Proof.Sha3.padX86_64.pre s) :
+    ∃ t s', Exec isa Impl.Sha3.X86_64.Stream.pad s t s' ∧ abiPreserved s s' ∧
+      Proof.Sha3.padX86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct hs
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
+theorem pad_ct : ConstantTime isa Proof.Sha3.padX86_64.pre Proof.Sha3.padX86_64.pub
+    Impl.Sha3.X86_64.Stream.pad := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .r8, .rsp]) ?_
+    (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, h5⟩
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
+
+theorem pad_verified :
+    Verified X86_64.target Impl.Sha3.X86_64.Stream.pad (Spec.Sha3.padContract X86_64.abi 8) :=
+  Verified.of_correct pad_correct pad_ct (by
+    sig_implies [Spec.Sha3.padContract, Spec.Sha3.padSig, Proof.Sha3.padX86_64, X86_64.abi,
+      X86_64.argRegs] [Proof.Sha3.X86_64.Stream.Pad.sat] using Proof.Sha3.X86_64.Stream.Pad.sat)
 
 end VG.Proof.Sha3.X86_64.Stream.Pad

@@ -2,4 +2,4 @@ name = "ML-KEM-768"
 family = "KEMs"
 specs = ["MlKem"]
 modules = ["src/mlkem768.rs"]
-asm = ["mlkem768"]
+asm = ["mlkem768", "mlkem"]

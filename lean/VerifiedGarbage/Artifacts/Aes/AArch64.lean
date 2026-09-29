@@ -1,5 +1,6 @@
 import VerifiedGarbage.TCB.AArch64.Target
-import VerifiedGarbage.Proof.Aes.AArch64.Shared
+import VerifiedGarbage.Proof.Aes.AArch64.Ctr32
+import VerifiedGarbage.Proof.Aes.AArch64.ExpandKey
 
 /-!
 # AES on AArch64
@@ -24,7 +25,7 @@ def artifacts : List Artifact := [
         `aes_ct64` (Thomas Pornin, MIT licence)."])
     code := Impl.Aes.AArch64.expandKey
     contract := Spec.Aes.expandKeyContract AArch64.abi
-    verified := Proof.Aes.AArch64.Shared.expandKey
+    verified := Proof.Aes.AArch64.expandKey_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Gcm.ctr32Api with
     target := AArch64.target
@@ -33,7 +34,7 @@ def artifacts : List Artifact := [
         `aes_ct64` (Thomas Pornin, MIT licence)."])
     code := Impl.Aes.AArch64.ctr32
     contract := Spec.Gcm.ctr32Contract AArch64.abi
-    verified := Proof.Aes.AArch64.Shared.ctr32
+    verified := Proof.Aes.AArch64.ctr32_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.Aes.AArch64

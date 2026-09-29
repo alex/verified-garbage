@@ -1,13 +1,38 @@
 import VerifiedGarbage.Proof.Scrypt.AArch64.Rounds
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Proof.Scrypt.AArch64.Contract
+import VerifiedGarbage.Spec.Scrypt.Contract
+import VerifiedGarbage.TCB.AArch64.Target
+import VerifiedGarbage.Proof.Framework.Contract
 
 /-!
 # The Salsa20/8 Core on AArch64: the whole function
 
 Untrusted: everything here is checked by Lean.
 -/
+
+namespace VG.Proof.Scrypt
+
+open Spec.Scrypt
+
+open VG.AArch64 in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+AArch64 contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32; 16])`:
+replaces the 64 bytes at `b` by their Salsa20/8 Core.
+
+The code may read and write `b` and `scratch` (64 bytes each; the contents of
+`scratch` on exit are unspecified), which may not overlap. The pointers are
+public; the data is secret. -/
+def salsaAArch64 : Contract AArch64.isa where
+  pre s :=
+    let b : Region := ⟨s.gpr .x0, 64⟩
+    let scratch : Region := ⟨s.gpr .x1, 64⟩
+    s.rd = [] ∧ s.wr = [b, scratch] ∧ b.Disjoint scratch
+  post s s' := bytesAt s'.mem (s.gpr .x0) 64 = salsa (bytesAt s.mem (s.gpr .x0) 64)
+  pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.sp = s₂.sp
+
+end VG.Proof.Scrypt
 
 namespace VG.Proof.Scrypt.AArch64
 
@@ -213,19 +238,25 @@ def satState : State where
   rd := []
   wr := [⟨0x1000, 64⟩, ⟨0x2000, 64⟩]
 
+theorem salsa_correct (s : State) (hs : Proof.Scrypt.salsaAArch64.pre s) :
+    ∃ t s', Exec isa Impl.Scrypt.AArch64.salsa s t s' ∧ abiPreserved s s' ∧
+      Proof.Scrypt.salsaAArch64.post s s' := by
+  obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
+  exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
+
+theorem salsa_ct : ConstantTime isa Proof.Scrypt.salsaAArch64.pre Proof.Scrypt.salsaAArch64.pub
+    Impl.Scrypt.AArch64.salsa := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1]) ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, hsp⟩
+  refine ⟨hsp, fun r hr => ?_⟩
+  simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl <;> assumption
+
 theorem salsa_verified :
-    Verified AArch64.target Impl.Scrypt.AArch64.salsa Proof.Scrypt.salsaAArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, hsp⟩
-    refine ⟨hsp, fun r hr => ?_⟩
-    simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl <;> assumption
-  · refine ⟨satState, rfl, rfl, ?_⟩
-    intro a h₁ h₂
-    simp only [Region.Contains, satState] at h₁ h₂
-    bv_omega
+    Verified AArch64.target Impl.Scrypt.AArch64.salsa (Spec.Scrypt.salsaContract AArch64.abi) :=
+  Verified.of_correct salsa_correct salsa_ct (by
+    sig_implies [Spec.Scrypt.salsaContract, Spec.Scrypt.salsaSig, Proof.Scrypt.salsaAArch64,
+      AArch64.abi, AArch64.argRegs] [Proof.Scrypt.AArch64.satState] using
+      Proof.Scrypt.AArch64.satState)
 
 end VG.Proof.Scrypt.AArch64

@@ -1,7 +1,8 @@
 import VerifiedGarbage.Proof.Poly1305.X86_64.Setup
-import VerifiedGarbage.Proof.Poly1305.X86_64.Contract
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import Mathlib.Tactic.IntervalCases
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on x86-64: `init`
@@ -116,20 +117,26 @@ def initSat : State where
   rd := [⟨0x2000, 32⟩]
   wr := [⟨0x1000, 128⟩]
 
+theorem init_ok (s : State) (hs : Proof.Poly1305.initX86_64.pre s) :
+    ∃ t s', Exec isa Impl.Poly1305.X86_64.init s t s' ∧ abiPreserved s s' ∧
+      Proof.Poly1305.initX86_64.post s s' := by
+  obtain ⟨h1, h2, h3, h4⟩ := hs
+  obtain ⟨t, s', he, h⟩ := init_correct ⟨h1, h2, h3, h4⟩
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
+theorem init_ct : ConstantTime isa Proof.Poly1305.initX86_64.pre Proof.Poly1305.initX86_64.pub
+    Impl.Poly1305.X86_64.init := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi]) ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2⟩
+  refine Taint.agree_ofRegs fun r hr => ?_
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl <;> assumption
+
 theorem init_verified :
-    Verified X86_64.target Impl.Poly1305.X86_64.init Proof.Poly1305.initX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨h1, h2, h3, h4⟩ := hs
-    obtain ⟨t, s', he, h⟩ := init_correct ⟨h1, h2, h3, h4⟩
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2⟩
-    refine Taint.agree_ofRegs fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl <;> assumption
-  · refine ⟨initSat, rfl, rfl, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, initSat] at h₁ h₂
-      bv_omega
+    Verified X86_64.target Impl.Poly1305.X86_64.init (Spec.Poly1305.initContract X86_64.abi) :=
+  Verified.of_correct init_ok init_ct (by
+    sig_implies [Spec.Poly1305.initContract, Spec.Poly1305.initSig, Proof.Poly1305.initX86_64,
+      X86_64.abi, X86_64.argRegs] [Proof.Poly1305.X86_64.initSat] using
+      Proof.Poly1305.X86_64.initSat)
 
 end VG.Proof.Poly1305.X86_64

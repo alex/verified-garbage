@@ -90,6 +90,12 @@ inductive Instr
   | shift32 (op : ShiftOp) (dst : Reg) (count : Nat)
   /-- `bswap r32` -/
   | bswap32 (dst : Reg)
+  /-- `rorx r32, r32, count` (`VEX.LZ.F2.0F3A.W0 F0 /r ib`, BMI2): `src`
+  rotated right, into `dst`, without affecting the flags. Only counts
+  `1 ≤ count ≤ 31` are modelled; any other count faults. -/
+  | rorx32 (dst src : Reg) (count : Nat)
+  /-- `andn r32, r32, r32` (`VEX.LZ.0F38.W0 F2 /r`, BMI1): `dst := ¬src1 ∧ src2`. -/
+  | andn32 (dst src1 src2 : Reg)
   /-- `movzx r32, BYTE PTR [src]`: the byte, zero-extended into the 64-bit register. -/
   | movzx8 (dst : Reg) (src : MemOp)
   /-- `mov BYTE PTR [dst], r8`: the low byte of `src`. -/
@@ -163,7 +169,8 @@ their VEX.256 forms (e.g. `VEX.256.66.0F.WIG FE /r` VPADDD) and for VPBLENDD,
 VPSLLVD/Q, VPSRLVD/Q, VPBROADCASTD/Q, VPERMQ, VPERM2I128, VINSERTI128,
 VEXTRACTI128 and VBROADCASTI128 at any length. LDMXCSR and STMXCSR (SSE,
 `NP 0F AE /2`, `NP 0F AE /3`) and LFENCE (SSE2, `NP 0F AE E8`) are in the
-baseline. -/
+baseline. BMI2 for RORX (`VEX.LZ.F2.0F3A.W0 F0 /r ib`) and BMI1 for ANDN
+(`VEX.LZ.0F38.W0 F2 /r`). -/
 def Instr.requires : Instr → List String
   | .xop (.bin .pshufb ..) | .xop (.palignr ..) => ["ssse3"]
   | .xop (.bin .sha256msg1 ..) | .xop (.bin .sha256msg2 ..) | .xop (.sha256rnds2 ..) => ["sha"]
@@ -178,6 +185,8 @@ def Instr.requires : Instr → List String
   | .vop (.vpblendd ..) | .vop (.vvar ..) | .vop (.vpbroadcastd ..) | .vop (.vpbroadcastq ..)
   | .vop (.vpermq ..) | .vop (.vperm2i128 ..) | .vop (.vinserti128 ..) | .vop (.vextracti128 ..)
   | .vbroadcasti128 .. => ["avx2"]
+  | .rorx32 .. => ["bmi2"]
+  | .andn32 .. => ["bmi1"]
   | _ => []
 
 /-- Semantics of an instruction. The byte forms: SDM Vol. 2, "MOVZX":
@@ -194,6 +203,8 @@ def exec : Instr → State → Option State
   | .alu32 op d src, s => execAlu32 op d src s
   | .shift32 op d n, s => execShift32 op d n s
   | .bswap32 d, s => some (s.setReg32 d (bswap32 ((s.gpr d).setWidth 32)))
+  | .rorx32 d r n, s => execRorx32 d r n s
+  | .andn32 d a b, s => some (execAndn32 d a b s)
   | .movzx8 d m, s => (s.load8 (s.ea m)).map fun v => s.setReg d (v.setWidth 64)
   | .store8 m r, s => s.store8 (s.ea m) ((s.gpr r).setWidth 8)
   | .bswap d, s => some (s.setReg d (bswap64 (s.gpr d)))
@@ -243,6 +254,8 @@ def addrs : Instr → State → List Addr
   | .alu32 _ _ src, s => srcAddrs s src
   | .shift32 .., _ => []
   | .bswap32 _, _ => []
+  | .rorx32 .., _ => []
+  | .andn32 .., _ => []
   | .movzx8 _ m, s => [s.ea m]
   | .store8 m _, s => [s.ea m]
   | .bswap _, _ => []
@@ -335,7 +348,8 @@ one (the pop of a frame also moves `rsp`, as the push does): `mul` writes
 two, `rax` and `rdx`, and stores and SSE instructions none. -/
 def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .mov32 d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
-  | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _ | .pop d _ => some d
+  | .rorx32 d .. | .andn32 d .. | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _
+  | .pop d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _
   | .vop _ | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .stmxcsr _ | .ldmxcsr _
   | .lfence | .mul _ | .push _ => none

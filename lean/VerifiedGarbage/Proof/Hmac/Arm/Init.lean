@@ -1,8 +1,9 @@
 import VerifiedGarbage.Proof.Hmac.Arm.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Init
 import VerifiedGarbage.Proof.Sha256.Arm.Stream.Init
-import VerifiedGarbage.Proof.Hmac.Arm.Contract
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
 # HMAC-SHA-256 on ARMv7: `init`
@@ -823,18 +824,22 @@ def sat : State where
   rd := [⟨0x3000, 0⟩, ⟨0x5000, 4⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-theorem init_verified : Verified Arm.target init Proof.Hmac.initSha256Arm := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
-  · have e0 : stackArg sat 0 = 0x4000 := by decide
-    refine ⟨sat, ?_⟩
-    simp only [Proof.Hmac.initSha256Arm, e0]
-    refine ⟨by decide, by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-      by decide, by decide, by decide, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+theorem init_correct (s : State) (hs : Proof.Hmac.initSha256Arm.pre s) :
+    ∃ t s', Exec isa init s t s' ∧ abiPreserved s s' ∧ Proof.Hmac.initSha256Arm.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  exact ⟨t, s', he, h⟩
+
+theorem init_ct : ConstantTime isa Proof.Hmac.initSha256Arm.pre Proof.Hmac.initSha256Arm.pub init :=
+    by
+  exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
+    (by taint_decide)
+
+theorem init_verified :
+    Verified Arm.target Impl.Hmac.Arm.init (Spec.Hmac.initSha256Contract Arm.abi) :=
+  Verified.of_correct init_correct init_ct (by
+    sig_implies [Spec.Hmac.initSha256Contract, Spec.Hmac.initSha256Sig, Proof.Hmac.initSha256Arm,
+      Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
+      [Proof.Hmac.Arm.Init.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using
+      Proof.Hmac.Arm.Init.sat)
 
 end VG.Proof.Hmac.Arm.Init

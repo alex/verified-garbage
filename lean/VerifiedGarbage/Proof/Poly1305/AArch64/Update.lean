@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.AArch64.Buffer
 import Mathlib.Tactic.NormNum.Basic
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on AArch64: `update`
@@ -660,20 +662,40 @@ def updateSat : State where
 theorem update_untouched : Untouched Impl.Poly1305.AArch64.update :=
   Untouched.of_all (by rw [← Code.allInstrs_eq]; decide +kernel)
 
+theorem update_ok (s : State) (hs : Proof.Poly1305.updateAArch64.pre s) :
+    ∃ t s', Exec isa Impl.Poly1305.AArch64.update s t s' ∧ abiPreserved s s' ∧
+      Proof.Poly1305.updateAArch64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := update_correct (UPre.of s hs)
+  exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (update_untouched r hr) he, Exec.sp he⟩, h⟩
+
+theorem update_ct : ConstantTime isa Proof.Poly1305.updateAArch64.pre
+    Proof.Poly1305.updateAArch64.pub Impl.Poly1305.AArch64.update := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) ?_
+    (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, hsp⟩
+  refine ⟨hsp, fun r hr => ?_⟩
+  simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl <;> assumption
+
 theorem update_verified :
-    Verified AArch64.target Impl.Poly1305.AArch64.update Proof.Poly1305.updateAArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := update_correct (UPre.of s hs)
-    exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (update_untouched r hr) he, Exec.sp he⟩, h⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) ?_
-      (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, hsp⟩
-    refine ⟨hsp, fun r hr => ?_⟩
-    simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl <;> assumption
-  · refine ⟨updateSat, rfl, List.mem_cons_self, ?_⟩
-    intro a h₁ h₂
-    simp only [Region.Contains, updateSat] at h₁ h₂
-    bv_omega
+    Verified AArch64.target Impl.Poly1305.AArch64.update (Spec.Poly1305.updateContract AArch64.abi)
+      :=
+  Verified.of_correct update_ok update_ct
+    { pre := by
+        sig_implies_pre [Spec.Poly1305.updateContract, Spec.Poly1305.updateSig,
+          Proof.Poly1305.updateAArch64, AArch64.abi, AArch64.argRegs]
+      post := by
+        intro s s' _ h
+        sig_eval [Spec.Poly1305.updateContract, Spec.Poly1305.updateSig, AArch64.abi,
+            AArch64.argRegs]
+        intro key msg hb hc
+        exact h key msg hb (count_mod hc)
+      pub := by
+        sig_implies_pub [Spec.Poly1305.updateContract, Spec.Poly1305.updateSig,
+          Proof.Poly1305.updateAArch64, AArch64.abi, AArch64.argRegs]
+      sat := by
+        sig_implies_sat [Spec.Poly1305.updateContract, Spec.Poly1305.updateSig, AArch64.abi,
+          AArch64.argRegs, Proof.Poly1305.AArch64.updateSat]
+          [Proof.Poly1305.AArch64.updateSat] using Proof.Poly1305.AArch64.updateSat }
 
 end VG.Proof.Poly1305.AArch64

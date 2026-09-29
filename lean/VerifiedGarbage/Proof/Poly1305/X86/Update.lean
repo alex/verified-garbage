@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.X86.Buffer
 import Mathlib.Tactic.NormNum.Basic
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on x86 (32-bit): `update`
@@ -696,22 +698,26 @@ def updateSat : State where
   rd := [⟨0x2000, 0⟩, ⟨0x4004, 24⟩]
   wr := [⟨0x1000, 128⟩, ⟨0x3000, 128⟩]
 
-theorem updateSat_pre : Proof.Poly1305.updateX86.pre updateSat := by
-  have a0 : arg updateSat 0 = 0x1000 := by decide
-  have a3 : arg updateSat 3 = 0x2000 := by decide
-  have a4 : arg updateSat 4 = 0 := by decide
-  have a5 : arg updateSat 5 = 0x3000 := by decide
-  have e : argAddr updateSat 0 = 0x4004 := by decide
-  simp only [Proof.Poly1305.updateX86, a0, a3, a4, a5, e]
-  refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, updateSat] at h₁ h₂
-    bv_omega
+theorem update_ok (s : State) (hs : Proof.Poly1305.updateX86.pre s) :
+    ∃ t s', Exec isa update s t s' ∧ abiPreserved s s' ∧ Proof.Poly1305.updateX86.post s s' :=
+  update_correct (UPre.of s hs)
 
-theorem update_verified : Verified X86.target update Proof.Poly1305.updateX86 :=
-  ⟨fun s hs => update_correct (UPre.of s hs),
-    VG.Taint.constantTime (A := taint) updateτ₀ (fun _ _ h₁ h₂ hp => update_agree₀ h₁ h₂ hp)
-      (by taint_decide),
-    ⟨updateSat, updateSat_pre⟩⟩
+theorem update_ct : ConstantTime isa Proof.Poly1305.updateX86.pre Proof.Poly1305.updateX86.pub
+    update :=
+  VG.Taint.constantTime (A := taint) updateτ₀ (fun _ _ h₁ h₂ hp => update_agree₀ h₁ h₂ hp)
+    (by taint_decide)
+
+theorem update_verified :
+    Verified X86.target Impl.Poly1305.X86.update (Spec.Poly1305.updateContract X86.abi) :=
+  Verified.of_correct update_ok update_ct (by
+    have a0 : arg updateSat 0 = 0x1000 := by decide
+    have a3 : arg updateSat 3 = 0x2000 := by decide
+    have a4 : arg updateSat 4 = 0 := by decide
+    have a5 : arg updateSat 5 = 0x3000 := by decide
+    have e : argAddr updateSat 0 = 0x4004 := by decide
+    have esp : updateSat.gpr .esp = 0x4000 := rfl
+    sig_implies [Spec.Poly1305.updateContract, Spec.Poly1305.updateSig, Proof.Poly1305.updateX86,
+      Proof.Poly1305.countX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      [a0, a3, a4, a5, e, esp] using Proof.Poly1305.X86.updateSat)
 
 end VG.Proof.Poly1305.X86

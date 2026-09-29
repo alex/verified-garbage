@@ -41,7 +41,7 @@ theorem covers_pair {rs : List Region} {a b : Region} (ha : Covers [a] rs) (hb :
 theorem salsaSpec : SalsaSpec Impl.Scrypt.X86_64.salsa := by
   intro s d sc hd hsc hds hsd hss _ _ hind hins Q hQ
   have hne : ∀ r : Reg, r ≠ .rsp → s.callEntry.gpr r = s.gpr r := fun r h => State.callEntry_gpr _ h
-  refine WP.call (k := Proof.Scrypt.salsaX86_64) salsa_verified.1 salsa_nosp
+  refine WP.call (k := Proof.Scrypt.salsaX86_64) salsa_correct salsa_nosp
     (by rw [salsa_depth]; decide) (rd := []) (wr := [⟨d, 64⟩, ⟨sc, 64⟩]) ?_ ?_ ?_ ?_
   · simp only [Proof.Scrypt.salsaX86_64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.callEntry_rsp, hne _ (by decide : Reg.rdi ≠ .rsp),

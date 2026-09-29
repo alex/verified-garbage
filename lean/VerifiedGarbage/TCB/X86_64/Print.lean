@@ -143,6 +143,8 @@ def Instr.asm : Instr → List String
   | .alu32 op d s => [s!"{op.name} {d.name32}, {s.str32}"]
   | .shift32 op d n => [s!"{op.name} {d.name32}, {n}"]
   | .bswap32 d => [s!"bswap {d.name32}"]
+  | .rorx32 d r n => [s!"rorx {d.name32}, {r.name32}, {n}"]
+  | .andn32 d a b => [s!"andn {d.name32}, {a.name32}, {b.name32}"]
   | .movzx8 d m => [s!"movzx {d.name32}, {m.str8}"]
   | .store8 m r => [s!"mov {m.str8}, {r.name8}"]
   | .bswap d => [s!"bswap {d.name}"]

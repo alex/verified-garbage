@@ -1,6 +1,8 @@
 import VerifiedGarbage.Proof.Sha3.X86_64.Call
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Framework.Range
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Sha3.Contract
 
 /-!
 # The SHA-3 sponge on x86-64: `absorb`
@@ -491,14 +493,21 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 200⟩, ⟨0x3000, 640⟩]
 
-theorem absorb_verified : Verified X86_64.target absorb Proof.Sha3.absorbX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+theorem absorb_correct (s : State) (hs : Proof.Sha3.absorbX86_64.pre s) :
+    ∃ t s', Exec isa absorb s t s' ∧ abiPreserved s s' ∧ Proof.Sha3.absorbX86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
+theorem absorb_ct : ConstantTime isa Proof.Sha3.absorbX86_64.pre Proof.Sha3.absorbX86_64.pub absorb
+    := by
+  exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
+    (by taint_decide)
+
+theorem absorb_verified :
+    Verified X86_64.target Impl.Sha3.X86_64.Stream.absorb (Spec.Sha3.absorbContract X86_64.abi 8) :=
+  Verified.of_correct absorb_correct absorb_ct (by
+    sig_implies [Spec.Sha3.absorbContract, Spec.Sha3.absorbSig, Proof.Sha3.absorbX86_64, X86_64.abi,
+      X86_64.argRegs] [Proof.Sha3.X86_64.Stream.Absorb.sat] using
+      Proof.Sha3.X86_64.Stream.Absorb.sat)
 
 end VG.Proof.Sha3.X86_64.Stream.Absorb

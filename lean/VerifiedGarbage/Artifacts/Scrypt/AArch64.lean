@@ -2,7 +2,9 @@ import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Impl.Scrypt.AArch64.Salsa
 import VerifiedGarbage.Impl.Scrypt.AArch64.BlockMix
 import VerifiedGarbage.Impl.Scrypt.AArch64.RoMix
-import VerifiedGarbage.Proof.Scrypt.AArch64.Shared
+import VerifiedGarbage.Proof.Scrypt.AArch64.BlockMixVerified
+import VerifiedGarbage.Proof.Scrypt.AArch64.RoMixCT
+import VerifiedGarbage.Proof.Scrypt.AArch64.Salsa
 
 /-!
 # scrypt (RFC 7914): Salsa20/8, scryptBlockMix and scryptROMix on AArch64
@@ -25,7 +27,7 @@ def artifacts : List Artifact := [
     doc := Spec.Scrypt.salsaApi.doc
     code := Impl.Scrypt.AArch64.salsa
     contract := Spec.Scrypt.salsaContract AArch64.abi
-    verified := Proof.Scrypt.AArch64.Shared.salsa
+    verified := Proof.Scrypt.AArch64.salsa_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Scrypt.blockMixApi with
     target := AArch64.target
@@ -33,7 +35,7 @@ def artifacts : List Artifact := [
     code := Impl.Scrypt.AArch64.blockMix
     contract := Spec.Scrypt.blockMixContract AArch64.abi 16
     stack := 16
-    verified := Proof.Scrypt.AArch64.Shared.blockMix
+    verified := Proof.Scrypt.AArch64.BlockMix.blockMix_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Scrypt.roMixApi with
     target := AArch64.target
@@ -41,7 +43,7 @@ def artifacts : List Artifact := [
     code := Impl.Scrypt.AArch64.roMix
     contract := Spec.Scrypt.roMixContract AArch64.abi 16
     stack := 16
-    verified := Proof.Scrypt.AArch64.Shared.roMix
+    verified := Proof.Scrypt.AArch64.RoMix.roMix_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.Scrypt.AArch64

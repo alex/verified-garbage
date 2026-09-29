@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.X86.Target
-import VerifiedGarbage.Proof.Hmac.X86.Shared
+import VerifiedGarbage.Proof.Hmac.X86.Init
 
 /-!
 # HMAC-SHA-256 (RFC 2104) on x86
@@ -22,12 +22,12 @@ def artifacts : List Artifact := [
     doc := Spec.Hmac.initSha256Api.doc
     code := Impl.Hmac.X86.init
     contract := Spec.Hmac.initSha256Contract X86.abi
-    verified := Proof.Hmac.X86.Shared.init },
+    verified := Proof.Hmac.X86.Init.init_verified },
   { Spec.Hmac.finalizeSha256OutApi with
     target := X86.target
     doc := Spec.Hmac.finalizeSha256OutApi.doc
     code := Impl.Hmac.X86.finalize
     contract := Spec.Hmac.finalizeSha256OutContract X86.abi
-    verified := Proof.Hmac.X86.Shared.finalize }]
+    verified := Proof.Hmac.X86.Finalize.finalize_verified }]
 
 end VG.Artifacts.HmacSha256.X86

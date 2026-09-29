@@ -1,6 +1,9 @@
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Impl.Poly1305.X86_64
-import VerifiedGarbage.Proof.Poly1305.X86_64.Shared
+import VerifiedGarbage.Proof.Poly1305.X86_64.Blocks
+import VerifiedGarbage.Proof.Poly1305.X86_64.Finalize
+import VerifiedGarbage.Proof.Poly1305.X86_64.Init
+import VerifiedGarbage.Proof.Poly1305.X86_64.Update
 
 /-!
 # Poly1305 (RFC 8439 §2.5) on x86-64
@@ -23,24 +26,24 @@ def artifacts : List Artifact := [
     doc := Spec.Poly1305.initApi.doc
     code := Impl.Poly1305.X86_64.init
     contract := Spec.Poly1305.initContract X86_64.abi
-    verified := Proof.Poly1305.X86_64.Shared.init },
+    verified := Proof.Poly1305.X86_64.init_verified },
   { Spec.Poly1305.blocksApi with
     target := X86_64.target
     doc := Spec.Poly1305.blocksApi.doc
     code := Impl.Poly1305.X86_64.blocks
     contract := Spec.Poly1305.blocksContract X86_64.abi
-    verified := Proof.Poly1305.X86_64.Shared.blocks },
+    verified := Proof.Poly1305.X86_64.blocks_verified },
   { Spec.Poly1305.updateApi with
     target := X86_64.target
     doc := Spec.Poly1305.updateApi.doc
     code := Impl.Poly1305.X86_64.update
     contract := Spec.Poly1305.updateContract X86_64.abi
-    verified := Proof.Poly1305.X86_64.Shared.update },
+    verified := Proof.Poly1305.X86_64.update_verified },
   { Spec.Poly1305.finalizeApi with
     target := X86_64.target
     doc := Spec.Poly1305.finalizeApi.doc
     code := Impl.Poly1305.X86_64.finalize
     contract := Spec.Poly1305.finalizeContract X86_64.abi
-    verified := Proof.Poly1305.X86_64.Shared.finalize }]
+    verified := Proof.Poly1305.X86_64.finalize_verified }]
 
 end VG.Artifacts.Poly1305.X86_64

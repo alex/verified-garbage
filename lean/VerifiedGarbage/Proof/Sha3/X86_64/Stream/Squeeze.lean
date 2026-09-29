@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Sha3.X86_64.Call
 import VerifiedGarbage.Proof.Sha3.SqueezeFrom
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Sha3.Contract
 
 /-!
 # The SHA-3 sponge on x86-64: `squeeze`
@@ -449,14 +451,21 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 200⟩, ⟨0x2000, 16⟩, ⟨0x3000, 640⟩]
 
-theorem squeeze_verified : Verified X86_64.target squeeze Proof.Sha3.squeezeX86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+theorem squeeze_correct (s : State) (hs : Proof.Sha3.squeezeX86_64.pre s) :
+    ∃ t s', Exec isa squeeze s t s' ∧ abiPreserved s s' ∧ Proof.Sha3.squeezeX86_64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+
+theorem squeeze_ct : ConstantTime isa Proof.Sha3.squeezeX86_64.pre Proof.Sha3.squeezeX86_64.pub
+    squeeze := by
+  exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
+    (by taint_decide)
+
+theorem squeeze_verified :
+    Verified X86_64.target Impl.Sha3.X86_64.Stream.squeeze (Spec.Sha3.squeezeContract X86_64.abi 8) :=
+  Verified.of_correct squeeze_correct squeeze_ct (by
+    sig_implies [Spec.Sha3.squeezeContract, Spec.Sha3.squeezeSig, Proof.Sha3.squeezeX86_64,
+      X86_64.abi, X86_64.argRegs] [Proof.Sha3.X86_64.Stream.Squeeze.sat] using
+      Proof.Sha3.X86_64.Stream.Squeeze.sat)
 
 end VG.Proof.Sha3.X86_64.Stream.Squeeze

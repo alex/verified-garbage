@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Scrypt.X86_64.Common
-import VerifiedGarbage.Proof.Scrypt.X86_64.Contract
 
 /-!
 # scryptBlockMix on x86-64: correctness

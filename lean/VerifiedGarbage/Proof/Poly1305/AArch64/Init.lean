@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Poly1305.AArch64.Blocks
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on AArch64: `init`
@@ -103,20 +105,26 @@ def initSat : State where
 theorem init_untouched : Untouched Impl.Poly1305.AArch64.init :=
   Untouched.of_all (by rw [← Code.allInstrs_eq]; decide +kernel)
 
+theorem init_ok (s : State) (hs : Proof.Poly1305.initAArch64.pre s) :
+    ∃ t s', Exec isa Impl.Poly1305.AArch64.init s t s' ∧ abiPreserved s s' ∧
+      Proof.Poly1305.initAArch64.post s s' := by
+  obtain ⟨h1, h2, h3⟩ := hs
+  obtain ⟨t, s', he, h⟩ := init_correct ⟨h1, h2, h3⟩
+  exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (init_untouched r hr) he, Exec.sp he⟩, h⟩
+
+theorem init_ct : ConstantTime isa Proof.Poly1305.initAArch64.pre Proof.Poly1305.initAArch64.pub
+    Impl.Poly1305.AArch64.init := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1]) ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, hsp⟩
+  refine ⟨hsp, fun r hr => ?_⟩
+  simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl <;> assumption
+
 theorem init_verified :
-    Verified AArch64.target Impl.Poly1305.AArch64.init Proof.Poly1305.initAArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨h1, h2, h3⟩ := hs
-    obtain ⟨t, s', he, h⟩ := init_correct ⟨h1, h2, h3⟩
-    exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (init_untouched r hr) he, Exec.sp he⟩, h⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1]) ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, hsp⟩
-    refine ⟨hsp, fun r hr => ?_⟩
-    simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl <;> assumption
-  · refine ⟨initSat, rfl, rfl, ?_⟩
-    intro a h₁ h₂
-    simp only [Region.Contains, initSat] at h₁ h₂
-    bv_omega
+    Verified AArch64.target Impl.Poly1305.AArch64.init (Spec.Poly1305.initContract AArch64.abi) :=
+  Verified.of_correct init_ok init_ct (by
+    sig_implies [Spec.Poly1305.initContract, Spec.Poly1305.initSig, Proof.Poly1305.initAArch64,
+      AArch64.abi, AArch64.argRegs] [Proof.Poly1305.AArch64.initSat] using
+      Proof.Poly1305.AArch64.initSat)
 
 end VG.Proof.Poly1305.AArch64

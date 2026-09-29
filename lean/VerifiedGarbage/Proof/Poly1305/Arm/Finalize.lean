@@ -1,9 +1,10 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Steps
-import VerifiedGarbage.Proof.Poly1305.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import Mathlib.Tactic.Conv
 import Mathlib.Tactic.NormNum.Basic
 import Mathlib.Tactic.Ring.RingNF
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on 32-bit ARM: `finalize`
@@ -771,17 +772,21 @@ def finalizeSat : State where
   rd := [⟨0x5000, 8⟩]
   wr := [⟨0x1000, 128⟩, ⟨0x2000, 16⟩, ⟨0x3000, 128⟩]
 
-theorem finalize_verified : Verified Arm.target finalize Proof.Poly1305.finalizeArm := by
-  refine ⟨fun s hs => finalize_correct (FPre.of s hs), ?_, ?_⟩
-  · exact VG.Taint.constantTime (A := taint) τf (fun _ _ h₁ h₂ hp => agreef h₁ h₂ hp) (by taint_decide)
-  · have e0 : stackArg finalizeSat 0 = 0x2000 := by decide
-    have e1 : stackArg finalizeSat 1 = 0x3000 := by decide
-    refine ⟨finalizeSat, ?_⟩
-    simp only [Proof.Poly1305.finalizeArm, e0, e1]
-    refine ⟨by simp [finalizeSat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
-      by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, finalizeSat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+theorem finalize_ok (s : State) (hs : Proof.Poly1305.finalizeArm.pre s) :
+    ∃ t s', Exec isa finalize s t s' ∧ abiPreserved s s' ∧ Proof.Poly1305.finalizeArm.post s s' :=
+  finalize_correct (FPre.of s hs)
+
+theorem finalize_ct : ConstantTime isa Proof.Poly1305.finalizeArm.pre Proof.Poly1305.finalizeArm.pub
+    finalize := by
+  exact VG.Taint.constantTime (A := taint) τf (fun _ _ h₁ h₂ hp => agreef h₁ h₂ hp) (by
+      taint_decide)
+
+theorem finalize_verified :
+    Verified Arm.target Impl.Poly1305.Arm.finalize (Spec.Poly1305.finalizeContract Arm.abi) :=
+  Verified.of_correct finalize_ok finalize_ct (by
+    sig_implies [Spec.Poly1305.finalizeContract, Spec.Poly1305.finalizeSig,
+      Proof.Poly1305.finalizeArm, Proof.Poly1305.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify,
+      Arm.Loc.val, Arm.State.addr] [Proof.Poly1305.Arm.Fin.finalizeSat, Arm.stackArg,
+      Arm.stackArgAddr, Mem.readW, Mem.read] using Proof.Poly1305.Arm.Fin.finalizeSat)
 
 end VG.Proof.Poly1305.Arm.Fin

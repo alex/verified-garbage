@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Hmac.AArch64.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Finalize
-import VerifiedGarbage.Proof.Hmac.AArch64.Contract
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Hmac.Contract
 
 /-!
 # HMAC-SHA-256 on AArch64: `finalize`
@@ -480,15 +481,24 @@ def sat : State where
   rd := [⟨0x2000, 96⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 240⟩]
 
-theorem finalize_verified : Verified AArch64.target finalize Proof.Hmac.finalizeSha256AArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) (fun _ _ _ _ hp => agree₀ hp)
-      (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, ?_, ?_, by decide, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+theorem finalize_correct (s : State) (hs : Proof.Hmac.finalizeSha256AArch64.pre s) :
+    ∃ t s', Exec isa finalize s t s' ∧ abiPreserved s s' ∧
+      Proof.Hmac.finalizeSha256AArch64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
+  exact ⟨t, s', he, h⟩
+
+theorem finalize_ct : ConstantTime isa Proof.Hmac.finalizeSha256AArch64.pre
+    Proof.Hmac.finalizeSha256AArch64.pub finalize := by
+  exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3])
+    (fun _ _ _ _ hp => agree₀ hp)
+    (by taint_decide)
+
+theorem finalize_verified :
+    Verified AArch64.target Impl.Hmac.AArch64.finalize (Spec.Hmac.finalizeSha256Contract AArch64.abi
+      32) :=
+  Verified.of_correct finalize_correct finalize_ct (by
+    sig_implies [Spec.Hmac.finalizeSha256Contract, Spec.Hmac.finalizeSha256Sig,
+      Proof.Hmac.finalizeSha256AArch64, AArch64.abi, AArch64.argRegs]
+      [Proof.Hmac.AArch64.Finalize.sat] using Proof.Hmac.AArch64.Finalize.sat)
 
 end VG.Proof.Hmac.AArch64.Finalize

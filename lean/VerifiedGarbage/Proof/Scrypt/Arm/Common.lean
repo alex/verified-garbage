@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Scrypt.Arm.Salsa
-import VerifiedGarbage.Proof.Scrypt.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.RelCT
 import VerifiedGarbage.Impl.Scrypt.Arm.BlockMix
 

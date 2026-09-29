@@ -1,6 +1,6 @@
 import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.Impl.Pbkdf2.Arm
-import VerifiedGarbage.Proof.Pbkdf2.Arm.Shared
+import VerifiedGarbage.Proof.Pbkdf2.Arm.Iterate
 
 /-!
 # The PBKDF2-HMAC-SHA-256 iteration (RFC 8018) on 32-bit ARM
@@ -24,7 +24,7 @@ def artifacts : List Artifact := [
       (notes := ["The function uses no stack: it saves its return address in `scratch`."])
     code := Impl.Pbkdf2.Arm.iterate
     contract := Spec.Pbkdf2.iterateSha256Contract Arm.abi
-    verified := Proof.Pbkdf2.Arm.Shared.iterate
+    verified := Proof.Pbkdf2.Arm.iterate_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.Pbkdf2Sha256.Arm

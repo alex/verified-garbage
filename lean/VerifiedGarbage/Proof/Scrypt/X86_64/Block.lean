@@ -1,12 +1,37 @@
 import VerifiedGarbage.Proof.Scrypt.X86_64.Rounds
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Proof.Scrypt.X86_64.Contract
+import VerifiedGarbage.Spec.Scrypt.Contract
+import VerifiedGarbage.TCB.X86_64.Target
 
 /-!
 # The Salsa20/8 Core on x86-64: loading, finishing, saving and restoring
 
 Untrusted: everything here is checked by Lean.
 -/
+
+namespace VG.Proof.Scrypt
+
+open Spec.Scrypt
+
+open VG.X86_64 in
+/-- The contract the proof is written against (and verified callers use); the
+artifact's is the shared contract of `Spec/`, which implies it.
+x86-64 contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32; 16])`:
+replaces the 64 bytes at `b` by their Salsa20/8 Core.
+
+The code may read and write `b` and `scratch` (64 bytes each; the contents of
+`scratch` on exit are unspecified), which may not overlap each other or the
+return address on the stack. The pointers are public; the data is secret. -/
+def salsaX86_64 : Contract X86_64.isa where
+  pre s :=
+    let b : Region := ⟨s.gpr .rdi, 64⟩
+    let scratch : Region := ⟨s.gpr .rsi, 64⟩
+    let ret : Region := ⟨s.gpr .rsp, 8⟩
+    s.rd = [] ∧ s.wr = [b, scratch] ∧ b.Disjoint scratch ∧ ret.Disjoint b ∧ ret.Disjoint scratch
+  post s s' := bytesAt s'.mem (s.gpr .rdi) 64 = salsa (bytesAt s.mem (s.gpr .rdi) 64)
+  pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi
+
+end VG.Proof.Scrypt
 
 namespace VG.Proof.Scrypt.X86_64
 

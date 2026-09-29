@@ -1,6 +1,8 @@
 import VerifiedGarbage.Impl.Aes.AArch64.ExpandKey
 import VerifiedGarbage.Proof.Aes.AArch64.Ctr32
 import VerifiedGarbage.Proof.Aes.KeyExp
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Aes.Contract
 
 /-!
 # The AES key expansion on AArch64
@@ -874,35 +876,41 @@ def ekSatState : State where
   rd := [⟨0x1000, 16⟩]
   wr := [⟨0x2000, 240⟩, ⟨0x3000, 512⟩]
 
+theorem expandKey_correct (s : State) (hs : Proof.Aes.expandKeyAArch64.pre s) :
+    ∃ t s', Exec isa Impl.Aes.AArch64.expandKey s t s' ∧ abiPreserved s s' ∧
+      Proof.Aes.expandKeyAArch64.post s s' := by
+  obtain ⟨t, s', he, ⟨h₁, h₂⟩, h₃⟩ :=
+    WP.gprs (rs := [.x30]) (ek_correct hs) (by decide +kernel) (by decide +kernel)
+  refine ⟨t, s', he, ⟨fun r hr => ?_, Exec.sp he⟩, h₂⟩
+  simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  · exact h₁ 0 (by omega)
+  · exact h₁ 1 (by omega)
+  · exact h₁ 2 (by omega)
+  · exact h₁ 3 (by omega)
+  · exact h₁ 4 (by omega)
+  · exact h₁ 5 (by omega)
+  · exact h₁ 6 (by omega)
+  · exact h₁ 7 (by omega)
+  · exact h₁ 8 (by omega)
+  · exact h₁ 9 (by omega)
+  · exact h₁ 10 (by omega)
+  · exact h₃ _ (by simp)
+
+theorem expandKey_ct : ConstantTime isa Proof.Aes.expandKeyAArch64.pre
+    Proof.Aes.expandKeyAArch64.pub Impl.Aes.AArch64.expandKey := by
+  refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3])
+    ?_ (by taint_decide)
+  intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, hsp⟩
+  refine ⟨hsp, fun r hr => ?_⟩
+  simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl <;> assumption
+
 theorem expandKey_verified :
-    Verified AArch64.target Impl.Aes.AArch64.expandKey Proof.Aes.expandKeyAArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, ⟨h₁, h₂⟩, h₃⟩ :=
-      WP.gprs (rs := [.x30]) (ek_correct hs) (by decide +kernel) (by decide +kernel)
-    refine ⟨t, s', he, ⟨fun r hr => ?_, Exec.sp he⟩, h₂⟩
-    simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact h₁ 0 (by omega)
-    · exact h₁ 1 (by omega)
-    · exact h₁ 2 (by omega)
-    · exact h₁ 3 (by omega)
-    · exact h₁ 4 (by omega)
-    · exact h₁ 5 (by omega)
-    · exact h₁ 6 (by omega)
-    · exact h₁ 7 (by omega)
-    · exact h₁ 8 (by omega)
-    · exact h₁ 9 (by omega)
-    · exact h₁ 10 (by omega)
-    · exact h₃ _ (by simp)
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3])
-      ?_ (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, hsp⟩
-    refine ⟨hsp, fun r hr => ?_⟩
-    simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl <;> assumption
-  · refine ⟨ekSatState, rfl, rfl, ?_, ?_, ?_, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, ekSatState] at h₁ h₂
-      bv_omega
+    Verified AArch64.target Impl.Aes.AArch64.expandKey (Spec.Aes.expandKeyContract AArch64.abi) :=
+  Verified.of_correct expandKey_correct expandKey_ct (by
+    sig_implies [Spec.Aes.expandKeyContract, Spec.Aes.expandKeySig, Proof.Aes.expandKeyAArch64,
+      AArch64.abi, AArch64.argRegs] [Proof.Aes.AArch64.ekSatState] using
+      Proof.Aes.AArch64.ekSatState)
 
 end VG.Proof.Aes.AArch64

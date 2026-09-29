@@ -1,7 +1,8 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Regions
-import VerifiedGarbage.Proof.Poly1305.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import Mathlib.Tactic.Ring.RingNF
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Poly1305.Contract
 
 /-!
 # Poly1305 on 32-bit ARM: `blocks`
@@ -488,12 +489,22 @@ def blocksSat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 128⟩]
 
-theorem blocks_verified : Verified Arm.target Impl.Poly1305.Arm.blocks Proof.Poly1305.blocksArm := by
-  refine ⟨fun s hs => blocks_correct (BPre.of s hs), ?_, ?_⟩
-  · exact VG.Taint.constantTime (A := taint) τb (fun _ _ h₁ h₂ hp => agreeb h₁ h₂ hp) (by taint_decide)
-  · refine ⟨blocksSat, rfl, rfl, ?_, by decide, by decide⟩
-    intro a h₁ h₂
-    simp only [Region.Contains, blocksSat, State.addr] at h₁ h₂
-    bv_omega
+theorem blocks_ok (s : State) (hs : Proof.Poly1305.blocksArm.pre s) :
+    ∃ t s', Exec isa Impl.Poly1305.Arm.blocks s t s' ∧ abiPreserved s s' ∧
+      Proof.Poly1305.blocksArm.post s s' :=
+  blocks_correct (BPre.of s hs)
+
+theorem blocks_ct : ConstantTime isa Proof.Poly1305.blocksArm.pre Proof.Poly1305.blocksArm.pub
+    Impl.Poly1305.Arm.blocks := by
+  exact VG.Taint.constantTime (A := taint) τb (fun _ _ h₁ h₂ hp => agreeb h₁ h₂ hp) (by
+      taint_decide)
+
+theorem blocks_verified :
+    Verified Arm.target Impl.Poly1305.Arm.blocks (Spec.Poly1305.blocksContract Arm.abi) :=
+  Verified.of_correct blocks_ok blocks_ct (by
+    sig_implies [Spec.Poly1305.blocksContract, Spec.Poly1305.blocksSig, Proof.Poly1305.blocksArm,
+      Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
+      [Proof.Poly1305.Arm.blocksSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read] using
+      Proof.Poly1305.Arm.blocksSat)
 
 end VG.Proof.Poly1305.Arm

@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Sha3.AArch64.Call
-import VerifiedGarbage.Proof.Sha3.AArch64.Contract
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Sha3.Contract
 
 /-!
 # The SHA-3 sponge on AArch64: `pad`
@@ -171,15 +172,21 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 200⟩, ⟨0x3000, 640⟩]
 
-theorem pad_verified : Verified AArch64.target Impl.Sha3.AArch64.Stream.pad Proof.Sha3.padAArch64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x4])
-      (fun _ _ _ _ hp => agree₀ hp) (by taint_decide)
-  · refine ⟨sat, rfl, rfl, ?_, by decide, ?_, ?_, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+theorem pad_correct (s : State) (hs : Proof.Sha3.padAArch64.pre s) :
+    ∃ t s', Exec isa Impl.Sha3.AArch64.Stream.pad s t s' ∧ abiPreserved s s' ∧
+      Proof.Sha3.padAArch64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
+  exact ⟨t, s', he, h⟩
+
+theorem pad_ct : ConstantTime isa Proof.Sha3.padAArch64.pre Proof.Sha3.padAArch64.pub
+    Impl.Sha3.AArch64.Stream.pad := by
+  exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x4])
+    (fun _ _ _ _ hp => agree₀ hp) (by taint_decide)
+
+theorem pad_verified :
+    Verified AArch64.target Impl.Sha3.AArch64.Stream.pad (Spec.Sha3.padContract AArch64.abi 16) :=
+  Verified.of_correct pad_correct pad_ct (by
+    sig_implies [Spec.Sha3.padContract, Spec.Sha3.padSig, Proof.Sha3.padAArch64, AArch64.abi,
+      AArch64.argRegs] [Proof.Sha3.AArch64.Stream.Pad.sat] using Proof.Sha3.AArch64.Stream.Pad.sat)
 
 end VG.Proof.Sha3.AArch64.Stream.Pad

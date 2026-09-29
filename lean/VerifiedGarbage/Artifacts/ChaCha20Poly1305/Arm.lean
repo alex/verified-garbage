@@ -1,6 +1,6 @@
 import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.Impl.ChaCha20Poly1305.Arm
-import VerifiedGarbage.Proof.ChaCha20Poly1305.Arm.Shared
+import VerifiedGarbage.Proof.ChaCha20Poly1305.Arm.Verified
 
 /-!
 # ChaCha20-Poly1305 (RFC 8439 §2.8) on ARMv7
@@ -26,7 +26,7 @@ def artifacts : List Artifact := [
     code := Impl.ChaCha20Poly1305.Arm.«seal»
     contract := Spec.ChaCha20Poly1305.sealContract Arm.abi 8
     stack := 8
-    verified := Proof.ChaCha20Poly1305.Arm.Shared.«seal»
+    verified := Proof.ChaCha20Poly1305.Arm.seal_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.ChaCha20Poly1305.openApi with
     target := Arm.target
@@ -34,7 +34,7 @@ def artifacts : List Artifact := [
     code := Impl.ChaCha20Poly1305.Arm.«open»
     contract := Spec.ChaCha20Poly1305.openContract Arm.abi 8
     stack := 8
-    verified := Proof.ChaCha20Poly1305.Arm.Shared.«open»
+    verified := Proof.ChaCha20Poly1305.Arm.open_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.ChaCha20Poly1305.Arm
