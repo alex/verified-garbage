@@ -57,6 +57,11 @@ first in a frame of their own, popped into `eax` when it returns. -/
 def callWith (rs : List Reg) (name : String) (code : Prog isa) : Prog isa :=
   .frame (.push rs) (.call name code) (.pop .eax rs.length)
 
+/-- `callWith`, but popping the arguments into `ecx`, which keeps the value
+the callee returns in `eax`. -/
+def callRet (rs : List Reg) (name : String) (code : Prog isa) : Prog isa :=
+  .frame (.push rs) (.call name code) (.pop .ecx rs.length)
+
 /-! ## `add` and `sub` -/
 
 /-- `eax ← (eax + g[i]) mod q`. -/
