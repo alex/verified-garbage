@@ -13,7 +13,7 @@
 //! A key must be used to authenticate only one message: the tags of two
 //! messages under the same key reveal enough to forge others.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"))]
 
 use crate::arch::poly1305::{vg_poly1305_finalize, vg_poly1305_init, vg_poly1305_update};
 
