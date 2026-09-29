@@ -76,9 +76,11 @@ def init (f : Callee) : Prog isa :=
 
 `finalize(inner = rdi, outer = rsi, count = rdx, scratch = rcx)`: the MAC is
 left in `scratch[176..208)`. The outer hash value is first copied to
-`scratch[208..240)`; the inner state is finalized into `scratch[176..208)`;
-then the inner state is overwritten with the outer hash value and that
-digest, so that it represents `(K₀ ⊕ opad) ‖ digest`, and finalized again.
+`scratch[640..672)`; the inner state is finalized into `scratch[608..640)`,
+with `scratch[0..608)` as the finalization's scratch space; then the inner
+state is overwritten with the outer hash value and that digest, so that it
+represents `(K₀ ⊕ opad) ‖ digest`, and finalized again, into
+`scratch[608..640)` too, from where the MAC is copied to `scratch[176..208)`.
 Everything after the first finalization is addressed through `rdi` (the
 state) and `rcx` (the scratch space), the only registers the called
 finalization leaves pointing at their regions, which constant time needs;
@@ -92,12 +94,15 @@ def cp32 (src dst : Reg) (o₁ o₂ k : Nat) : List Instr :=
 def cp64 (src dst : Reg) (o₁ o₂ k : Nat) : List Instr :=
   [.mov .rax (.mem (at_ src (o₁ + 8 * k))), .store (at_ dst (o₂ + 8 * k)) .rax]
 
-/-- The outer hash value into `scratch[208..240)`. -/
-def saveOuter : List Instr := (List.range 8).flatMap (cp32 .rsi .rcx 0 208)
+/-- The outer hash value into `scratch[640..672)`. -/
+def saveOuter : List Instr := (List.range 8).flatMap (cp32 .rsi .rcx 0 640)
 
 /-- The outer hash value and the first digest into the inner state. -/
 def loadOuter : List Instr :=
-  (List.range 8).flatMap (cp32 .rcx .rdi 208 0) ++ (List.range 4).flatMap (cp64 .rcx .rdi 176 32)
+  (List.range 8).flatMap (cp32 .rcx .rdi 640 0) ++ (List.range 4).flatMap (cp64 .rcx .rdi 608 32)
+
+/-- The MAC from `scratch[608..640)` into `scratch[176..208)`. -/
+def storeMac : List Instr := (List.range 4).flatMap (cp64 .rcx .rcx 608 176)
 
 /-- The streaming SHA-256 finalization calling `f`, whose symbol is `name`
 (`vg_sha256_finalize` for the scalar compression function). -/
@@ -107,9 +112,10 @@ def sha256Finalize (f : Callee) (name : String) : Prog isa :=
 /-- `finalize`, calling the SHA-256 finalization `name`, which calls the
 compression function `f`. -/
 def finalize (f : Callee) (name : String) : Prog isa :=
-  .seq (.block (saveOuter ++ [.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
+  .seq (.block (saveOuter ++ [.mov .rsi (.reg .rdx), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 608)]))
   (.seq (sha256Finalize f name)
-  (.seq (.block (loadOuter ++ [.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 176)]))
-    (sha256Finalize f name)))
+  (.seq (.block (loadOuter ++ [.mov32 .rsi (.imm 96), .mov .rdx (.reg .rcx), .alu .add .rdx (.imm 608)]))
+  (.seq (sha256Finalize f name)
+    (.block storeMac))))
 
 end VG.Impl.Hmac.X86_64

@@ -21,8 +21,8 @@ The streaming state (96 bytes at `state`) is the hash value followed by a
 `Callee`, e.g. `vg_sha256_compress` or `vg_sha256_compress_shani`), and are
 emitted once for each implementation
 (`Generic/Sha256Compress/X86_64/Sha256.lean`). It is called with
-`scratch[0..112)` as its scratch space; our caller's callee-saved registers
-are saved in `scratch[112..160)`. The length field is big-endian, and so are
+`scratch[0..560)` as its scratch space; our caller's callee-saved registers
+are saved in `scratch[560..608)`. The length field is big-endian, and so are
 the words of the digest. (HMAC-SHA256 calls the compression function and
 saves registers the same way: `saved`, `save`, `restore` and `compressAt`.)
 -/
@@ -45,7 +45,7 @@ def init : Prog isa :=
     [.mov32 .rax (.imm Spec.Sha256.H0[k]!), .store32 (at_ .rdi (4 * k)) .rax])
 
 /-- The callee-saved registers, and where they are saved in `scratch`. -/
-def saved : List (Reg × Nat) := [(.rbx, 112), (.rbp, 120), (.r12, 128), (.r13, 136), (.r14, 144), (.r15, 152)]
+def saved : List (Reg × Nat) := [(.rbx, 560), (.rbp, 568), (.r12, 576), (.r13, 584), (.r14, 592), (.r15, 600)]
 
 /-- Save them, with `scratch` in `b`. -/
 def save (b : Reg) : List Instr := saved.map fun (r, d) => .store (at_ b d) r
@@ -67,7 +67,7 @@ def params : MdStream.X86_64.Params where
   N := 32
   B := 64
   L := 8
-  so := 112
+  so := 560
   len := MdStream.X86_64.len64 88 true
   out := MdStream.X86_64.out32 8 true
 

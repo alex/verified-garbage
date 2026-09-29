@@ -137,7 +137,7 @@ structure Dims (P : Params) : Prop where
   B : P.B = 64 ∨ P.B = 128
   N : 0 < P.N ∧ P.N ≤ 64
   L : 0 < P.L ∧ P.L ≤ 16
-  so : P.so ≤ 256
+  so : P.so ≤ 1024
 
 theorem Dims.mod {P : Params} (hd : Dims P) (n : Nat) : n % 2 ^ 64 % P.B = n % P.B := by
   rcases hd.B with h | h <;> rw [h] <;> omega
