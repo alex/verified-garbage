@@ -54,6 +54,33 @@ theorem wp {P Q : M.State → M.State → Prop} {c : Prog M} {F₁ F₂ : M.Stat
   obtain ⟨-, rfl⟩ := Exec.det e₂ f₂
   exact ⟨ht, hq, g₁, g₂⟩
 
+/-- As `wp`, for a postcondition that also depends on the initial state:
+the final states are related through initial states related by `P`. -/
+theorem wpDep {P Q : M.State → M.State → Prop} {c : Prog M} {F : M.State → M.State → Prop}
+    (h : RelCT M P c Q) (hw : ∀ s₁ s₂, P s₁ s₂ → WP M c s₁ (F s₁) ∧ WP M c s₂ (F s₂)) :
+    RelCT M P c fun s₁' s₂' => Q s₁' s₂' ∧ ∃ σ₁ σ₂, P σ₁ σ₂ ∧ F σ₁ s₁' ∧ F σ₂ s₂' := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  obtain ⟨ht, hq⟩ := h _ _ _ _ _ _ hp e₁ e₂
+  obtain ⟨⟨_, u₁, f₁, g₁⟩, ⟨_, u₂, f₂, g₂⟩⟩ := hw _ _ hp
+  obtain ⟨-, rfl⟩ := Exec.det e₁ f₁
+  obtain ⟨-, rfl⟩ := Exec.det e₂ f₂
+  exact ⟨ht, hq, _, _, hp, g₁, g₂⟩
+
+/-- Two cases, proved separately. -/
+theorem or {P₁ P₂ Q : M.State → M.State → Prop} {c : Prog M} (h₁ : RelCT M P₁ c Q)
+    (h₂ : RelCT M P₂ c Q) : RelCT M (fun s₁ s₂ => P₁ s₁ s₂ ∨ P₂ s₁ s₂) c Q :=
+  fun _ _ _ _ _ _ hp e₁ e₂ => hp.elim (h₁ _ _ _ _ _ _ · e₁ e₂) (h₂ _ _ _ _ _ _ · e₁ e₂)
+
+/-- A family of cases, proved for each. -/
+theorem exists_ {α : Sort _} {P : α → M.State → M.State → Prop} {Q : M.State → M.State → Prop}
+    {c : Prog M} (h : ∀ x, RelCT M (P x) c Q) : RelCT M (fun s₁ s₂ => ∃ x, P x s₁ s₂) c Q :=
+  fun _ _ _ _ _ _ ⟨x, hp⟩ e₁ e₂ => h x _ _ _ _ _ _ hp e₁ e₂
+
+/-- Runs that never start from states related by `P`. -/
+theorem of_false {P Q : M.State → M.State → Prop} {c : Prog M} (h : ∀ s₁ s₂, ¬ P s₁ s₂) :
+    RelCT M P c Q :=
+  fun _ _ _ _ _ _ hp _ _ => absurd hp (h _ _)
+
 theorem seq {P R Q : M.State → M.State → Prop} {c₁ c₂ : Prog M} (h₁ : RelCT M P c₁ R)
     (h₂ : RelCT M R c₂ Q) : RelCT M P (.seq c₁ c₂) Q := by
   intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
@@ -64,6 +91,25 @@ theorem seq {P R Q : M.State → M.State → Prop} {c₁ c₂ : Prog M} (h₁ : 
       obtain ⟨rfl, hr⟩ := h₁ _ _ _ _ _ _ hp a₁ a₂
       obtain ⟨rfl, hq⟩ := h₂ _ _ _ _ _ _ hr b₁ b₂
       exact ⟨rfl, hq⟩
+
+/-- A branch whose condition agrees in both runs; each branch may assume it
+was taken. -/
+theorem ite {P Q : M.State → M.State → Prop} {c : M.Cond} {t e : Prog M}
+    (hc : ∀ s₁ s₂, P s₁ s₂ → M.eval c s₁ = M.eval c s₂)
+    (ht : RelCT M (fun s₁ s₂ => P s₁ s₂ ∧ M.eval c s₁ = some true) t Q)
+    (he : RelCT M (fun s₁ s₂ => P s₁ s₂ ∧ M.eval c s₁ = some false) e Q) :
+    RelCT M P (.ite c t e) Q := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
+  have hce := hc _ _ hp
+  cases e₁ with
+  | iteT c₁ a₁ =>
+    cases e₂ with
+    | iteT _ a₂ => obtain ⟨rfl, hq⟩ := ht _ _ _ _ _ _ ⟨hp, c₁⟩ a₁ a₂; exact ⟨rfl, hq⟩
+    | iteF c₂ _ => rw [hce, c₂] at c₁; cases c₁
+  | iteF c₁ a₁ =>
+    cases e₂ with
+    | iteT c₂ _ => rw [hce, c₂] at c₁; cases c₁
+    | iteF _ a₂ => obtain ⟨rfl, hq⟩ := he _ _ _ _ _ _ ⟨hp, c₁⟩ a₁ a₂; exact ⟨rfl, hq⟩
 
 /-- A loop, with an invariant indexed by a measure that decreases on every
 iteration that loops back; the condition must agree in both runs. -/

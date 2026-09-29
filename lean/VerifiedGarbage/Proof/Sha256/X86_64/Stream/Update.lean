@@ -255,8 +255,9 @@ theorem Inv.congr {s₀ : State} {c : Nat} {s s' : State} (h : Inv s₀ c s) (hg
     r13 := by rw [hg]; exact h.r13
     repr := by rw [hm]; exact h.repr }
 
-theorem Pending.compress_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Pending s₀ c s) :
-    WP isa (compressAt f) s fun s' => Inv s₀ c s' ∧ s'.gpr .r14 = 1 := by
+/-- The call of the compression function's requirements. -/
+theorem Pending.callOk {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Pending s₀ c s) :
+    CallOk s (st s₀) (scr s₀) (s.gpr .rsi) := by
   have e32 : Region.Sub ⟨st s₀, 32⟩ (stR s₀) := Region.sub_prefix (by omega)
   have e112 : Region.Sub ⟨scr s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
   have eSrc : Region.Sub ⟨s.gpr .rsi, 64⟩ (stR s₀) ∨ Region.Sub ⟨s.gpr .rsi, 64⟩ (dR s₀) := by
@@ -264,8 +265,8 @@ theorem Pending.compress_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s�
     · exact .inl (h' ▸ sub_offset (off := 32) (by omega) (by omega))
     · exact .inr (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))
   have hsp := h.rsp
-  refine compressAt_ok hf h.rbx h.r15 rfl ((hp.st_scr.sub_left e32).sub_right e112) ?_ ?_
-    (by rw [hsp]; exact hp.stk_st.sub_right e32) (by rw [hsp]; exact hp.stk_scr.sub_right e112) ?_ ?_ ?_ ?_
+  refine ⟨h.rbx, h.r15, rfl, (hp.st_scr.sub_left e32).sub_right e112, ?_, ?_,
+    by rw [hsp]; exact hp.stk_st.sub_right e32, by rw [hsp]; exact hp.stk_scr.sub_right e112, ?_, ?_, ?_⟩
   · rcases h.src with h' | ⟨c₀, h', hc₀⟩
     · rw [h']; intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
     · exact (hp.d_st.sub_left (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))).sub_right e32
@@ -293,6 +294,13 @@ theorem Pending.compress_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s�
     rcases hr with rfl | rfl
     · exact ⟨stR s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
+
+theorem Pending.compress_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Pending s₀ c s) :
+    WP isa (compressAt f) s fun s' => Inv s₀ c s' ∧ s'.gpr .r14 = 1 := by
+  have e32 : Region.Sub ⟨st s₀, 32⟩ (stR s₀) := Region.sub_prefix (by omega)
+  have e112 : Region.Sub ⟨scr s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
+  have hsp := h.rsp
+  refine compressAt_ok hf (h.callOk hp) ?_
   · intro s' hrd hwr hcs hf hstate _ _
     have cs : ∀ r, r ∈ calleeSaved → s'.gpr r = s.gpr r := hcs
     refine ⟨⟨⟨h.c_le, hrd.trans h.rd, hwr.trans h.wr, by rw [cs _ (by decide)]; exact h.rbx,
@@ -336,8 +344,8 @@ theorem Pending.congr {s₀ : State} {c : Nat} {s s' : State} (h : Pending s₀ 
 back if so. -/
 theorem tail_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
     (h : (∃ c', c < c' ∧ Pending s₀ c' s) ∨ Done s₀ s) :
-    WP isa (.seq (.block [.alu .test .r14 (.reg .r14)])
-      (.seq (.ite .ne (compressAt f) (.block [])) (.block [.alu .test .r14 (.reg .r14)]))) s (Step s₀ c) := by
+    WP isa (updateTail f) s (Step s₀ c) := by
+  unfold updateTail
   refine WP.seq (WP.mono (test_ok .r14) fun s₁ ⟨hg, hm, hrd, hwr, hz⟩ => ?_)
   rcases h with ⟨c', hc, hP⟩ | ⟨hI, h14⟩
   · have hP₁ := hP.congr hg hm hrd hwr
@@ -379,14 +387,14 @@ set_option simprocs false in
 /-- A whole block straight from the data. -/
 theorem direct_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s)
     (hr : (cnt s₀ + c) % 64 = 0) (hl : 64 ≤ len s₀ - c) :
-    WP isa (.block direct) s (Pending s₀ (c + 64)) := by
+    WP isa (.block direct) s fun s' => Pending s₀ (c + 64) s' ∧ s'.gpr .rsi = dp s₀ + BitVec.ofNat 64 c := by
   have hrbp := hI.rbp; have hr12 := hI.r12; have hr13 := hI.r13
   apply WP.of_runBlock
   simp (config := {decide := true}) only [direct, runBlock_cons,
     runStep_some, runBlock_nil, exec, execAlu, readSrc, readSrc32, isa,
     Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
   have hlen := len_lt s₀
-  refine ⟨⟨by omega, hI.rd, hI.wr, ?_, ?_, ?_, ?_, ?_, hI.frame, hI.saved⟩, ?_, ?_, by omega, ?_, ?_⟩ <;>
+  refine ⟨⟨⟨by omega, hI.rd, hI.wr, ?_, ?_, ?_, ?_, ?_, hI.frame, hI.saved⟩, ?_, ?_, by omega, ?_, ?_⟩, ?_⟩ <;>
     simp (config := {decide := true}) only [State.setReg, State.setReg32, arithFlags, State.setFlags,
       ite_false, ite_true, sx64, hrbp, hr12, hr13, hr]
   · exact hI.rbx
@@ -566,7 +574,7 @@ set_option simprocs false in
 theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : Inv s₀ c sI) {s : State}
     (h : Copy s₀ c sI.mem (tt s₀ c) s) (hfull : rr s₀ c + tt s₀ c = 64) :
     WP isa (.block [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm 32), .mov32 .r13 (.imm 0),
-      .mov32 .r14 (.imm 1)]) s (Pending s₀ (c + tt s₀ c)) := by
+      .mov32 .r14 (.imm 1)]) s fun s' => Pending s₀ (c + tt s₀ c) s' ∧ s'.gpr .rsi = st s₀ + 32 := by
   have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c; have hrr := rr_eq s₀ c
   have hxs := xs_length s₀ c
   have hc := hI.c_le
@@ -578,8 +586,10 @@ theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   have g : ∀ r, r ≠ .rsi → r ≠ .r13 → r ≠ .r14 → s₄.gpr r = s.gpr r := fun r h1 h2 h3 => by
     rw [u₄.other r h3, u₃.other r h2, u₂.other r h1, u₁.other r h1]
   have m₄ : s₄.mem = s.mem := by rw [u₄.mem, u₃.mem, u₂.mem, u₁.mem]
-  refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by rw [m₄, hmem]; exact hfr, by rw [m₄, hmem]; exact hsv⟩,
-    by rw [u₄.other _ (by decide), u₃.gpr]; rfl, by rw [u₄.gpr]; rfl, by omega, .inl ?_, ?_⟩
+  have hsi : s₄.gpr .rsi = st s₀ + 32 := by
+    rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr, u₁.gpr, h.rbx]; rfl
+  refine ⟨⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by rw [m₄, hmem]; exact hfr, by rw [m₄, hmem]; exact hsv⟩,
+    by rw [u₄.other _ (by decide), u₃.gpr]; rfl, by rw [u₄.gpr]; rfl, by omega, .inl hsi, ?_⟩, hsi⟩
   · rw [u₄.rd, u₃.rd, u₂.rd, u₁.rd, h.rd]
   · rw [u₄.wr, u₃.wr, u₂.wr, u₁.wr, h.wr]
   · rw [g .rbx (by decide) (by decide) (by decide), h.rbx]
@@ -587,7 +597,6 @@ theorem fill_pending {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   · rw [g .rsp (by decide) (by decide) (by decide), h.rsp]
   · rw [g .rbp (by decide) (by decide) (by decide), h.rbp]
   · rw [g .r12 (by decide) (by decide) (by decide), h.r12, Nat.sub_sub]
-  · rw [u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr, u₁.gpr, h.rbx]; rfl
   · intro m hm mem' hs
     rw [← take_add_data]
     have hmod := length_mid s₀ hm hc
@@ -655,7 +664,7 @@ theorem copy_loop_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   · exact .inr ⟨by simp [eval, hz, hl], _, by omega, j + 1, rfl, by omega, hc'⟩
 
 theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) :
-    WP isa fill s fun s' => (∃ c', c < c' ∧ Pending s₀ c' s') ∨ Done s₀ s' := by
+    WP isa fill s fun s' => (∃ c', c < c' ∧ Pending s₀ c' s' ∧ s'.gpr .rsi = st s₀ + 32) ∨ Done s₀ s' := by
   have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c
   have hrr := rr_eq s₀ c; have htt := tt_eq s₀ c
   have hc := hI.c_le; have hlen := len_lt s₀
@@ -716,29 +725,44 @@ theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   refine WP.ite (decide (rr s₀ c + tt s₀ c = 64)) (by simp [eval, hz₉]) (fun hb => ?_) (fun hb => ?_)
   · simp only [decide_eq_true_eq] at hb
     have hI' : Inv s₀ c s := hI
-    exact WP.mono (fill_pending hp hI' hC₉ hb) fun s' h => .inl ⟨c + tt s₀ c, by omega, h⟩
+    exact WP.mono (fill_pending hp hI' hC₉ hb) fun s' h => .inl ⟨c + tt s₀ c, by omega, h.1, h.2⟩
   · simp only [decide_eq_false_iff_not] at hb
     exact WP.block_nil (.inr (fill_done hp hI hC₉ h14 hb))
 
-theorem body_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
-    (hI : Inv s₀ c s) : WP isa (updateBody f) s (Step s₀ c) := by
+/-- Where the block compressed after absorbing `c` bytes is: in the data if
+the buffer is empty and a whole block remains, otherwise in the buffer. -/
+def srcOf (s₀ : State) (c : Nat) : Addr :=
+  if rr s₀ c = 0 ∧ 64 ≤ len s₀ - c then dp s₀ + BitVec.ofNat 64 c else st s₀ + 32
+
+/-- The first half of an iteration. -/
+theorem head_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) :
+    WP isa updateHead s fun s' =>
+      (∃ c', c < c' ∧ Pending s₀ c' s' ∧ s'.gpr .rsi = srcOf s₀ c) ∨ Done s₀ s' := by
   have hlen := len_lt s₀; have hc := hI.c_le; have hr := rr_lt s₀ c
-  unfold updateBody
+  unfold updateHead
   refine WP.seq (wp_test fun s₁ g₁ m₁ rd₁ wr₁ z₁ => WP.block_nil ?_)
   have hI₁ := hI.of_gpr (fun r _ => by rw [g₁]) m₁ rd₁ wr₁
-  refine WP.seq (WP.mono (Q := fun s' => (∃ c', c < c' ∧ Pending s₀ c' s') ∨ Done s₀ s') ?_
-    fun s' h => tail_ok hf hp h)
   refine WP.ite (decide (rr s₀ c = 0))
     (by rw [show isa.eval .e s₁ = s₁.zf from rfl, z₁, hI.r13, BitVec.and_self, ofNat_beq_zero (by omega)])
-    (fun hb => ?_) (fun _ => fill_ok hp hI₁)
+    (fun hb => ?_) (fun hb => WP.mono (fill_ok hp hI₁) fun _ h => h.imp
+      (fun ⟨c', hc', hP, hs⟩ => ⟨c', hc', hP, by
+        rw [hs, srcOf]; exact (ite_eq_right_iff.mpr fun h => absurd h.1 (by simpa using hb)).symm⟩) id)
   simp only [decide_eq_true_eq] at hb
   refine WP.seq (wp_cmpi fun s₂ g₂ m₂ rd₂ wr₂ cf₂ _ => WP.block_nil ?_)
   have hI₂ := hI₁.of_gpr (fun r _ => by rw [g₂]) m₂ rd₂ wr₂
   have hcf : s₂.cf = some (decide (len s₀ - c < 64)) := by
     rw [cf₂, hI₁.r12, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]; rfl
-  refine WP.ite (!decide (len s₀ - c < 64)) (by simp [eval, hcf]) (fun hb' => ?_) (fun _ => fill_ok hp hI₂)
+  refine WP.ite (!decide (len s₀ - c < 64)) (by simp [eval, hcf]) (fun hb' => ?_) (fun hb' =>
+    WP.mono (fill_ok hp hI₂) fun _ h => h.imp
+      (fun ⟨c', hc', hP, hs⟩ => ⟨c', hc', hP, by
+        rw [hs, srcOf]; exact (ite_eq_right_iff.mpr fun h => absurd h.2 (by simp at hb'; omega)).symm⟩) id)
   simp only [Bool.not_eq_true', decide_eq_false_iff_not, not_lt] at hb'
-  exact WP.mono (direct_ok hp hI₂ hb hb') fun s' h => .inl ⟨c + 64, by omega, h⟩
+  exact WP.mono (direct_ok hp hI₂ hb hb') fun s' h => .inl ⟨c + 64, by omega, h.1, by
+    rw [h.2, srcOf]; exact (ite_eq_left_iff.mpr fun h => absurd ⟨hb, hb'⟩ h).symm⟩
+
+theorem body_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
+    (hI : Inv s₀ c s) : WP isa (updateBody f) s (Step s₀ c) :=
+  WP.seq (WP.mono (head_ok hp hI) fun _ h => tail_ok hf hp (h.imp (fun ⟨c', hc, hP, _⟩ => ⟨c', hc, hP⟩) id))
 
 theorem correct {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) :
     WP isa (update f) s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha256.updateX86_64.post s₀ s' := by
@@ -788,7 +812,7 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x3000, 160⟩]
 
-/-- `update f` is verified if its constant-time analysis passes and it
+/-- `update f` is verified if it is constant time (`UpdateCT.lean`) and
 never loads MXCSR. -/
 theorem verified_of {f : Callee} (hf : f.Ok)
     (hm : (update f).allInstrs (fun i => !loadsMxcsr i) = true)
@@ -801,13 +825,5 @@ theorem verified_of {f : Callee} (hf : f.Ok)
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂
       bv_omega
-
-theorem update_verified : Verified X86_64.target (update .scalar) Proof.Sha256.updateX86_64 :=
-  verified_of scalar_ok (by decide +kernel)
-    (VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide))
-
-theorem update_shani_verified : Verified X86_64.target (update .shani) Proof.Sha256.updateX86_64 :=
-  verified_of shani_ok (by decide +kernel)
-    (VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide))
 
 end VG.Proof.Sha256.X86_64.Stream.Update
