@@ -1,0 +1,74 @@
+name: Set up Lean and Mathlib
+description: >
+  Installs elan (and so the toolchain `lean/lean-toolchain` names) and
+  Mathlib and its dependencies, with the prebuilt files for the modules the
+  proofs import, in `lean/.lake/packages`.
+
+runs:
+  using: composite
+  steps:
+    - name: Install elan
+      shell: bash
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+        echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+    - name: List the modules the proofs import from outside the project
+      id: mods
+      shell: bash
+      working-directory: lean
+      run: |
+        # Every module the Lean files import from outside this project and
+        # Lean itself, as Lean's own parser reads their headers.
+        mods=$(git ls-files '*.lean' | xargs lean --deps-json \
+          | jq -r '.imports[].result.imports[].module
+                   | select(test("^(VerifiedGarbage[A-Za-z]*|Init|Std|Lean)(\\.|$)") | not)' \
+          | sort -u)
+        echo "$mods"
+        echo "mods=$(echo $mods)" >> "$GITHUB_OUTPUT"
+        echo "hash=$(echo "$mods" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+    # Mathlib and its dependencies, with the prebuilt files for those
+    # modules: they change only with the toolchain, the manifest or the
+    # list, so a hit skips the clones, building Mathlib's `cache` tool and
+    # the download.
+    - name: Restore Mathlib and its dependencies
+      id: lake-packages
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: lean/.lake/packages
+        key: lake-packages-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ steps.mods.outputs.hash }}
+    # Lake would clone mathlib4's whole history; a checkout of the pinned
+    # revision is all the build needs, and Lake accepts it as is.
+    - name: Shallow-clone Mathlib
+      if: ${{ steps.lake-packages.outputs.cache-hit != 'true' }}
+      shell: bash
+      working-directory: lean
+      run: |
+        rev=$(jq -r '.packages[] | select(.name == "mathlib") | .rev' lake-manifest.json)
+        git init -q .lake/packages/mathlib
+        cd .lake/packages/mathlib
+        git remote add origin https://github.com/leanprover-community/mathlib4
+        git fetch -q --depth 1 origin "$rev"
+        git checkout -q FETCH_HEAD
+    # `cache get` fetches these modules and what they import, not all of
+    # Mathlib.
+    - name: Fetch the Mathlib build cache for what the proofs import
+      if: ${{ steps.lake-packages.outputs.cache-hit != 'true' }}
+      shell: bash
+      working-directory: lean
+      env:
+        MODS: ${{ steps.mods.outputs.mods }}
+      run: lake exe cache get $MODS
+    # Fail, rather than quietly build part of Mathlib from source, if the
+    # cache left any of them (or what they import) unbuilt.
+    - name: Check Mathlib is built for every import
+      shell: bash
+      working-directory: lean
+      env:
+        MODS: ${{ steps.mods.outputs.mods }}
+      run: lake build --no-build $MODS
+    - name: Save Mathlib and its dependencies
+      if: ${{ steps.lake-packages.outputs.cache-hit != 'true' && github.event_name != 'merge_group' }}
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: lean/.lake/packages
+        key: ${{ steps.lake-packages.outputs.cache-primary-key }}
