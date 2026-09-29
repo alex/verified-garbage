@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Scrypt.Arm.RoMix
-import VerifiedGarbage.Proof.Scrypt.X86_64.RoMixLoops
 
 /-!
 # scryptROMix on 32-bit ARM: the small loops
@@ -20,7 +19,7 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil)
 open VG.Proof.MdStream.Arm (Upd Mupd Fupd wp_mov wp_add wp_and wp_subs wp_cmp wp_ldr wp_str op2_reg
   op2_imm op2_lsr eval_ne ofNat_beq_zero sub_beq)
 open VG.Proof.Hmac.Arm.Init (wp_eor)
-open VG.Proof.Scrypt.X86_64.BlockMix (sub_off bytesAt_add bytesAt_length bytesAt_writeBytes_sep
+open VG.Proof.Scrypt.Memory (sub_off bytesAt_add bytesAt_length bytesAt_writeBytes_sep
   xorBytes_length)
 
 /-! ## Arithmetic -/
@@ -111,7 +110,7 @@ theorem copy_step {s : State} {src dst : BitVec 32} {n : Nat} (hn : n < 2 ^ 32)
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, g _ (by decide), h.r0, next32]
   · rw [u₅.other _ (by decide), u₄.gpr, u₃.other _ (by decide), g _ (by decide), h.r1, next32]
   · rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.gpr, u₁.mem, h.mem, Nat.mul_succ]
-    exact Proof.Hmac.Common.copy_mem s.mem _ _ k 4
+    exact Proof.Scrypt.Memory.copy_mem s.mem _ _ k 4
       (hsep.sep (by simp only [Region.Contains, BitVec.sub_self, BitVec.toNat_zero]; omega)
         (by simp only [Region.Contains, BitVec.sub_self, BitVec.toNat_zero]; omega)) (by omega)
 

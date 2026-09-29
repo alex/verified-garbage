@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Pbkdf2.Hmac
+import VerifiedGarbage.Proof.Pbkdf2.Memory
 import VerifiedGarbage.Spec.Pbkdf2
 import VerifiedGarbage.Proof.Sha256.X86_64.Contract
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
@@ -61,13 +62,14 @@ namespace VG.Proof.Pbkdf2.X86_64.Iterate
 
 open VG VG.X86_64 VG.Impl.Pbkdf2.X86_64
 open VG.Impl.Sha256.X86_64 (at_)
-open VG.Proof.Hmac.Common (bytesAt_length writeBytes_at writeBytes_other bytesAt_getD' stateAt_eq_of_bytes
-  bytesAt_writeBytes_self bytesAt_writeBytes_sep)
+open VG.Proof.Hmac.Common (bytesAt_length writeBytes_other bytesAt_writeBytes_self bytesAt_writeBytes_sep)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame)
 open VG.Proof.Sha256.X86_64 (contains_offset sub_offset toNat_ofNat_lt ea_at)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_addi wp_mov32i compressBlocks_one callEntry_byte)
 open VG.Impl.Sha256.X86_64.Stream (Callee)
 open VG.Spec.Sha256 (bytesAt stateAt blockAt compress Repr)
+open VG.Proof.Pbkdf2.Memory (frame_bytesAt contains_base off_contains sep_after blockAt_eq writeW_xor
+  xorBytes_length add_ofNat stateAt_copy digest_self iterate_congr writeW_bytes writeBytes_append')
 
 /-! ## The precondition -/
 
@@ -209,38 +211,9 @@ open VG.Proof.Sha256.X86_64.Stream.Finalize (writeW_bswap32 flat_length)
 open VG.Proof.Sha256.X86_64.Stream (wp_mov32m wp_bswap32 wp_store32 wp_movm wp_store wp_subi wp_test)
 open VG.Proof.Sha256.X86_64 (ofInt_natCast)
 open VG.Proof.Hmac.X86_64 (ea_off)
-open VG.Proof.Hmac.Common (extractLsb'_read bytesAt_add)
-open VG.Proof.Sha256.Stream (writeBytes_append write_eq_writeBytes writeBytes_nil)
+open VG.Proof.Hmac.Common (bytesAt_add)
+open VG.Proof.Sha256.Stream (writeBytes_append writeBytes_nil)
 open VG.Spec.Sha256 (HashValue wordBytes)
-
-theorem frame_bytesAt {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr} {n : Nat}
-    (hd : ∀ r ∈ rs, Region.Disjoint ⟨p, n⟩ r) (hn : n ≤ 2 ^ 64) : bytesAt m' p n = bytesAt m p n := by
-  simp only [bytesAt]
-  exact List.map_congr_left fun i hi => hf.bytes (R := ⟨p, n⟩) hd hn (List.mem_range.mp hi)
-
-theorem contains_base {a : Addr} {n len : Nat} (h : n ≤ len) : (⟨a, len⟩ : Region).Contains a n := by
-  simp only [Region.Contains, BitVec.sub_self, BitVec.toNat_zero]; omega
-
-theorem off_contains {a x : Addr} {o n len : Nat} (h : (x - (a + BitVec.ofNat 64 o)).toNat < n)
-    (hl : o + n ≤ len) (ho : o < 2 ^ 64) : (⟨a, len⟩ : Region).Contains x 1 :=
-  sub_offset (off := o) (len := n) hl ho x (by simp only [Region.Contains]; omega)
-
-/-- Bytes from `p + a` are not among the first `a` from `p`. -/
-theorem sep_after {p x : Addr} {a n : Nat} (h₁ : (x - (p + BitVec.ofNat 64 a)).toNat < n) (h₂ : (x - p).toNat < a)
-    (ha : a + n < 2 ^ 64) : False := by
-  rw [show x - p = (x - (p + BitVec.ofNat 64 a)) + BitVec.ofNat 64 a by bv_omega, BitVec.toNat_add,
-    toNat_ofNat_lt (by omega), Nat.mod_eq_of_lt (by omega)] at h₂
-  omega
-
-/-- A block of 32 bytes followed by the padding. -/
-theorem blockAt_eq {m : Mem} {p : Addr} (h : bytesAt m (p + 32) 32 = pad96) :
-    blockAt m p = block96 (bytesAt m p 32) := by
-  simp only [Spec.Sha256.blockAt, block96]
-  apply Proof.Sha256.Stream.parseBlock_congr
-  intro k hk
-  have e := bytesAt_add m p 32 32
-  rw [show BitVec.ofNat 64 32 = (32 : Addr) from rfl, h] at e
-  rw [← e, bytesAt_getD' _ _ (by omega : k < 32 + 32)]
 
 /-- The first `n` words of the digest of the hash value at `st` into the
 block at `sc + 592`. -/
@@ -286,23 +259,6 @@ theorem out_ok {st sc : Addr} (hd : Region.Disjoint ⟨st, 32⟩ ⟨sc + 592, 32
     rw [writeBytes_append _ _ _ _ (by rw [hP]; simp [wordBytes]; omega), List.take_add_one,
       List.getElem?_eq_getElem (by simp; omega), Option.toList_some, List.flatMap_append,
       List.flatMap_singleton, Vector.getElem_toList]
-
-theorem writeW_xor (m m' : Mem) (d a b : Addr) :
-    m.writeW d (m'.readW a 64 ^^^ m'.readW b 64) =
-      writeBytes m d (Spec.Pbkdf2.xorBytes (bytesAt m' b 8) (bytesAt m' a 8)) := by
-  simp only [Mem.writeW, Mem.readW]
-  rw [show (64 : Nat) / 8 = 8 from rfl, BitVec.setWidth_eq, BitVec.setWidth_eq, BitVec.setWidth_eq,
-    write_eq_writeBytes]
-  congr 1
-  apply List.ext_getElem (by simp [Spec.Pbkdf2.xorBytes, bytesAt])
-  intro j h₁ h₂
-  simp only [List.length_map, List.length_range] at h₁
-  simp only [Spec.Pbkdf2.xorBytes, bytesAt, List.getElem_map, List.getElem_range, List.getElem_zipWith]
-  rw [BitVec.extractLsb'_xor, extractLsb'_read _ _ h₁, extractLsb'_read _ _ h₁, BitVec.xor_comm]
-
-theorem xorBytes_length (a b : List Byte) (h : a.length = b.length) :
-    (Spec.Pbkdf2.xorBytes a b).length = a.length := by
-  simp [Spec.Pbkdf2.xorBytes, h]
 
 theorem wp_xorm {is : List Instr} {s : State} {Q : State → Prop} {d : Reg} {m : MemOp} {a : Addr}
     (ha : s.ea m = a) (hin : InRegions (s.rd ++ s.wr) a 8)
@@ -365,9 +321,6 @@ theorem xor_ok {tp sc : Addr} (hd : Region.Disjoint ⟨tp, 32⟩ ⟨sc + 592, 32
     · omega
 
 /-! ## Regions -/
-
-theorem add_ofNat (a : Addr) (o j : Nat) : a + BitVec.ofNat 64 o + BitVec.ofNat 64 j = a + BitVec.ofNat 64 (o + j) := by
-  rw [BitVec.add_assoc, ← BitVec.ofNat_add]
 
 theorem InRegions.right {rd wr : List Region} {a : Addr} {n : Nat} (h : InRegions wr a n) :
     InRegions (rd ++ wr) a n := by
@@ -499,14 +452,6 @@ theorem Regs.keep {s₀ s s' : State} (h : Regs s₀ s) (hk : Keep s₀ s s') : 
 theorem Regs.key_bytes {s₀ s : State} (hp : Pre s₀) (h : Regs s₀ s) {i : Nat} (hi : i < 192) :
     s.mem (key s₀ + BitVec.ofNat 64 i) = s₀.mem (key s₀ + BitVec.ofNat 64 i) :=
   h.frame.bytes (R := keyR s₀) (key_disj hp) (by simp) hi
-
-/-- A copied hash value. -/
-theorem stateAt_copy (m m' : Mem) (q p : Addr) :
-    stateAt (writeBytes m q (bytesAt m' p 32)) q = stateAt m' p := by
-  apply stateAt_eq_of_bytes
-  intro i hi
-  rw [writeBytes_at _ _ _ (by rw [bytesAt_length]; exact hi) (by rw [bytesAt_length]; omega),
-    bytesAt_getD' _ _ hi]
 
 /-- Loading the hash value at `key + o` into `scratch[560..592)`. -/
 theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Regs s₀ s) {o : Nat} (ho : o + 32 ≤ 192)
@@ -662,11 +607,6 @@ theorem digest_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Regs s₀ s) {
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     subst hr; exact ⟨scR s₀, by simp, scr_sub s₀ (by omega)⟩)) g' hf m'
 
-theorem digest_self (m : Mem) (q : Addr) (H : HashValue) :
-    bytesAt (writeBytes m q (Pbkdf2.digest H)) q 32 = Pbkdf2.digest H := by
-  have := bytesAt_writeBytes_self m q (Pbkdf2.digest H) (by rw [Pbkdf2.digest_length]; omega)
-  rwa [Pbkdf2.digest_length] at this
-
 theorem body_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {r : Nat} {s : State}
     (h : Inv s₀ (r + 1) s) :
     WP isa (body f) s fun s' => eval .ne s' = some (r != 0) ∧ Inv s₀ r s' := by
@@ -765,18 +705,6 @@ theorem loop_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {n : Nat
 
 /-! ## The result -/
 
-theorem iterate_congr {f g : List Byte → List Byte} (hfg : ∀ u, u.length = 32 → f u = g u)
-    (hg : ∀ u, (g u).length = 32) :
-    ∀ n u t, u.length = 32 → Spec.Pbkdf2.iterate f n u t = Spec.Pbkdf2.iterate g n u t := by
-  intro n
-  induction n with
-  | zero => intro _ _ _; rfl
-  | succ n ih =>
-    intro u t hu
-    simp only [Spec.Pbkdf2.iterate]
-    rw [hfg u hu]
-    exact ih _ _ (hg u)
-
 /-- With the key's streaming states as the contract requires, a step is HMAC-SHA-256. -/
 theorem stepM_eq {s₀ : State} {k0 : List Byte} (hk : k0.length = 64)
     (hi : Repr s₀.mem (key s₀) (Spec.Hmac.xorPad k0 Spec.Hmac.ipad))
@@ -830,15 +758,6 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Inv s₀ 0 s
       (bytesAt_length _ _ _)).symm
 
 /-! ## The prologue -/
-
-theorem writeW_bytes (m : Mem) (a : Addr) {w : Nat} (v : BitVec w) (xs : List Byte)
-    (h : ((List.range (w / 8)).map fun j => (v.setWidth (8 * (w / 8))).extractLsb' (8 * j) 8) = xs) :
-    m.writeW a v = writeBytes m a xs := by
-  rw [Mem.writeW, write_eq_writeBytes, h]
-
-theorem writeBytes_append' (m : Mem) {q q' : Addr} (xs ys : List Byte) (hq : q' = q + BitVec.ofNat 64 xs.length)
-    (h : xs.length + ys.length < 2 ^ 64) : writeBytes (writeBytes m q xs) q' ys = writeBytes m q (xs ++ ys) := by
-  subst hq; exact writeBytes_append m q xs ys h
 
 /-- The padding into `scratch[624..656)`. -/
 theorem padding_ok {s₀ : State} (hp : Pre s₀) {s : State} (hcx : s.gpr .rcx = scr s₀) (hwr : s.wr = s₀.wr)

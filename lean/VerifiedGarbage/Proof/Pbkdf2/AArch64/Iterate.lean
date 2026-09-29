@@ -22,7 +22,7 @@ open VG.Proof.Sha256.AArch64 (contains_offset)
 open VG.Proof.MdStream.AArch64 (Upd wp_mov wp_movz wp_addImm wp_ldr wp_str readW_writeW_save
   untouched)
 open VG.Proof.Sha256.AArch64.Stream (save_ok restore_ok saveMem saveMem_saved saveMem_frame)
-open VG.Proof.Pbkdf2.X86_64.Iterate (frame_bytesAt contains_base writeW_bytes writeBytes_append' iterate_congr)
+open VG.Proof.Pbkdf2.Memory (frame_bytesAt contains_base writeW_bytes writeBytes_append' iterate_congr)
 open VG.Spec.Sha256 (bytesAt stateAt Repr)
 open VG.Spec.Hmac (xorPad ipad opad hmacBlockKey sha256)
 
@@ -113,9 +113,9 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   -- `U` and the padding.
   refine Proof.Hmac.AArch64.copy64_ok (by decide) (by decide) 0 192 4 ⟨rfl, rfl⟩ ⟨by omega, by omega⟩ _ s₇ _
     (fun j hj => by
-      rw [x1₇, rd₇, wr₇, Proof.Pbkdf2.X86_64.Iterate.add_ofNat]
+      rw [x1₇, rd₇, wr₇, Proof.Pbkdf2.Memory.add_ofNat]
       exact ⟨uR s₀, by simp [hp.rd], contains_offset (by omega) (by omega)⟩)
-    (fun j hj => by rw [x20₇, wr₇, Proof.Pbkdf2.X86_64.Iterate.add_ofNat]; exact in_scr hp rfl (by omega)) ?_
+    (fun j hj => by rw [x20₇, wr₇, Proof.Pbkdf2.Memory.add_ofNat]; exact in_scr hp rfl (by omega)) ?_
     fun s₈ g₈ rd₈ wr₈ sp₈ m₈ => ?_
   · rw [x1₇, x20₇]
     exact Region.Disjoint.sep hp.u_s (contains_offset (by omega) (by omega)) (contains_offset (by omega) (by omega))

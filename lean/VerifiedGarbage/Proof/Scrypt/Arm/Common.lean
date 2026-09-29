@@ -6,9 +6,8 @@ import VerifiedGarbage.Impl.Scrypt.Arm.BlockMix
 # scrypt on 32-bit ARM: common lemmas
 
 Untrusted: everything here is checked by Lean. The target-independent lemmas
-about addresses and bytes are those of the x86-64 proof
-(`Proof/Scrypt/X86_64/Common.lean`); here are 32-bit pointers as addresses,
-and the 64-byte exclusive-or.
+about addresses and bytes are in `Proof/Scrypt/Memory.lean`; here are
+32-bit pointers as addresses, and the 64-byte exclusive-or.
 -/
 
 namespace VG.Proof.Scrypt.Arm
@@ -19,7 +18,7 @@ open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil writeBytes_frame)
 open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str op2_reg saveMem)
 open VG.Proof.Hmac.Arm.Init (wp_eor)
-open VG.Proof.Scrypt.X86_64.BlockMix (sub_off xorBytes_length bytesAt_length bytesAt_add
+open VG.Proof.Scrypt.Memory (sub_off xorBytes_length bytesAt_length bytesAt_add
   bytesAt_writeBytes_sep)
 
 /-! ## 32-bit pointers -/
@@ -80,8 +79,7 @@ theorem writeW_xor32 (m m' : Mem) (d a b : Addr) :
   intro j h₁ h₂
   simp only [List.length_map, List.length_range] at h₁
   simp only [xorBytes, bytesAt, List.getElem_map, List.getElem_range, List.getElem_zipWith]
-  rw [BitVec.extractLsb'_xor, Proof.Hmac.Common.extractLsb'_read _ _ h₁,
-    Proof.Hmac.Common.extractLsb'_read _ _ h₁]
+  rw [BitVec.extractLsb'_xor, Mem.extractLsb'_read _ _ h₁, Mem.extractLsb'_read _ _ h₁]
 
 /-! ## The 64-byte exclusive-or -/
 

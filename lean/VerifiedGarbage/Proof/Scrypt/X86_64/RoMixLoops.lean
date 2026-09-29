@@ -17,8 +17,8 @@ open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil)
 open VG.Proof.MdStream.X86_64 (Upd wp_movm wp_store wp_add wp_addi wp_subi wp_cmp ofNat_pred
   ofNat_beq_zero sub_beq)
-open VG.Proof.Scrypt.X86_64.BlockMix (ea_at toNat_ofNat_lt add_ofNat sub_off writeW_xor wp_xorm
-  bytesAt_add bytesAt_length bytesAt_writeBytes_sep xorBytes_length)
+open VG.Proof.Scrypt.X86_64.BlockMix (ea_at wp_xorm)
+open VG.Proof.Scrypt.Memory (toNat_ofNat_lt add_ofNat copy_mem xor_mem dbl_pow)
 
 /-! ## Instructions and arithmetic -/
 
@@ -115,7 +115,7 @@ theorem copy_step {s : State} {src dst : Addr} {n : Nat} (hlt : 8 * n < 2 ^ 64)
   · rw [u₅.other _ (by decide), u₄.gpr, u₃.other _ (by decide), g _ (by decide), h.rsi, next_ptr]
   · rw [u₅.gpr, u₄.other _ (by decide), u₃.other _ (by decide), g _ (by decide), h.rcx, dec_count hk]
   · rw [u₅.mem, u₄.mem, u₃.mem, m₂, u₁.gpr, u₁.mem, h.mem, Nat.mul_succ]
-    exact Proof.Hmac.Common.copy_mem s.mem src dst k 8
+    exact copy_mem s.mem src dst k 8
       (hsep.sep (by simp only [Region.Contains, BitVec.sub_self, BitVec.toNat_zero]; omega)
         (by simp only [Region.Contains, BitVec.sub_self, BitVec.toNat_zero]; omega)) (by omega)
   · rw [z₅, u₄.other _ (by decide), u₃.other _ (by decide), g _ (by decide), h.rcx,
@@ -136,35 +136,6 @@ theorem copyLoop_ok {s : State} {src dst : Addr} {n : Nat} (hn : 0 < n) (hlt : 8
     by rw [hcx, Nat.sub_zero], by rw [Nat.mul_zero]; exact (writeBytes_nil _ _).symm⟩
 
 /-! ## `xorLoop` -/
-
-/-- One more word of `[d] ← [x] xor [y]`. -/
-theorem xor_mem (m : Mem) {d x y : Addr} {n k : Nat} (hk : k < n) (hlt : 8 * n < 2 ^ 64)
-    (hdx : Region.Disjoint ⟨d, 8 * n⟩ ⟨x, 8 * n⟩) (hdy : Region.Disjoint ⟨d, 8 * n⟩ ⟨y, 8 * n⟩) :
-    (writeBytes m d (xorBytes (bytesAt m x (8 * k)) (bytesAt m y (8 * k)))).writeW
-      (d + BitVec.ofNat 64 (8 * k))
-      ((writeBytes m d (xorBytes (bytesAt m x (8 * k)) (bytesAt m y (8 * k)))).readW
-          (x + BitVec.ofNat 64 (8 * k)) 64 ^^^
-        (writeBytes m d (xorBytes (bytesAt m x (8 * k)) (bytesAt m y (8 * k)))).readW
-          (y + BitVec.ofNat 64 (8 * k)) 64) =
-      writeBytes m d (xorBytes (bytesAt m x (8 * (k + 1))) (bytesAt m y (8 * (k + 1)))) := by
-  have hl : (xorBytes (bytesAt m x (8 * k)) (bytesAt m y (8 * k))).length = 8 * k := by
-    rw [xorBytes_length _ _ (by simp [bytesAt]), bytesAt_length]
-  -- The words of `x` and `y` are not in the part of `d` written so far.
-  have sx : Region.Disjoint ⟨x + BitVec.ofNat 64 (8 * k), 8⟩
-      ⟨d, (xorBytes (bytesAt m x (8 * k)) (bytesAt m y (8 * k))).length⟩ := by
-    rw [hl]; exact (hdx.symm.sub_left (sub_off (by omega) (by omega))).sub_right
-      (Region.sub_prefix (by omega))
-  have sy : Region.Disjoint ⟨y + BitVec.ofNat 64 (8 * k), 8⟩
-      ⟨d, (xorBytes (bytesAt m x (8 * k)) (bytesAt m y (8 * k))).length⟩ := by
-    rw [hl]; exact (hdy.symm.sub_left (sub_off (by omega) (by omega))).sub_right
-      (Region.sub_prefix (by omega))
-  rw [writeW_xor, bytesAt_writeBytes_sep _ _ sx (by omega), bytesAt_writeBytes_sep _ _ sy (by omega)]
-  have e := writeBytes_append m d _ (xorBytes (bytesAt m (x + BitVec.ofNat 64 (8 * k)) 8)
-    (bytesAt m (y + BitVec.ofNat 64 (8 * k)) 8))
-    (by rw [hl, xorBytes_length _ _ (by simp [bytesAt]), bytesAt_length]; omega)
-  rw [hl] at e
-  rw [e, Nat.mul_succ, bytesAt_add, bytesAt_add, xorBytes, xorBytes, xorBytes,
-    List.zipWith_append (by simp [bytesAt])]
 
 /-- After `k` words of `xorLoop`. -/
 structure XorInv (s : State) (x y d : Addr) (n k : Nat) (t : State) : Prop where
@@ -331,10 +302,6 @@ structure NInv (s : State) (r : Nat) (k : Nat) (t : State) : Prop where
   other : ∀ r', r' ≠ .rax → r' ≠ .rdx → t.gpr r' = s.gpr r'
   rax : t.gpr .rax = BitVec.ofNat 64 (r * 2 ^ k)
   rdx : t.gpr .rdx = BitVec.ofNat 64 (2 ^ k)
-
-theorem dbl_pow (x k : Nat) : BitVec.ofNat 64 (x * 2 ^ k) + BitVec.ofNat 64 (x * 2 ^ k) =
-    BitVec.ofNat 64 (x * 2 ^ (k + 1)) := by
-  rw [← BitVec.ofNat_add, Nat.pow_succ, ← Nat.mul_assoc, Nat.mul_two]
 
 theorem n_step {s : State} {r e : Nat} (hr : 0 < r) (hlt : r * 2 ^ (e + 1) < 2 ^ 64)
     (hcx : s.gpr .rcx = BitVec.ofNat 64 (r * 2 ^ (e + 1))) {k : Nat} (hk : k < e + 1) {t : State}

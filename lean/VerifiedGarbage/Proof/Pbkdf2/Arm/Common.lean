@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Pbkdf2.Hmac
 import VerifiedGarbage.Spec.Pbkdf2
 import VerifiedGarbage.Proof.Sha256.Arm.Contract
-import VerifiedGarbage.Proof.Pbkdf2.X86_64.Iterate
+import VerifiedGarbage.Proof.Pbkdf2.Memory
 import VerifiedGarbage.Proof.Hmac.Arm.Init
 import VerifiedGarbage.Impl.Pbkdf2.Arm
 
@@ -10,8 +10,8 @@ import VerifiedGarbage.Impl.Pbkdf2.Arm
 
 Untrusted: everything here is checked by Lean. The same structure as the
 x86-64 and AArch64 proofs (`VG.Proof.Pbkdf2.X86_64.Iterate`,
-`VG.Proof.Pbkdf2.AArch64`), whose target-independent memory lemmas are
-reused. Each step is two calls of `vg_sha256_compress`, used as a black box
+`VG.Proof.Pbkdf2.AArch64`), with the same target-independent memory lemmas
+(`VG.Proof.Pbkdf2.Memory`). Each step is two calls of `vg_sha256_compress`, used as a black box
 through its proof (`compressAt_ok`, from the streaming SHA-256 proof). The
 hash value being compressed is `t`, and `T` is kept in `scratch[160..192)`.
 -/
@@ -76,7 +76,7 @@ open VG.Proof.Hmac.Arm (copy_ok add_off)
 open VG.Proof.Hmac.Arm.Init (wp_eor)
 open VG.Proof.Hmac.Common (bytesAt_length bytesAt_writeBytes_sep bytesAt_add extractLsb'_read)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append writeBytes_nil write_eq_writeBytes)
-open VG.Proof.Pbkdf2.X86_64.Iterate (frame_bytesAt contains_base off_contains sep_after xorBytes_length
+open VG.Proof.Pbkdf2.Memory (frame_bytesAt contains_base off_contains sep_after xorBytes_length
   add_ofNat stateAt_copy)
 open VG.Spec.Sha256 (bytesAt stateAt blockAt compress HashValue wordBytes)
 
