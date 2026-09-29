@@ -30,11 +30,17 @@ def artifacts : List Artifact := [
     code := Impl.Poly1305.X86_64.blocks
     contract := Spec.Poly1305.blocksContract X86_64.abi
     verified := Proof.Poly1305.X86_64.Shared.blocks },
-  { Spec.Poly1305.finalizeTailApi with
+  { Spec.Poly1305.updateApi with
     target := X86_64.target
-    doc := Spec.Poly1305.finalizeTailApi.doc
+    doc := Spec.Poly1305.updateApi.doc
+    code := Impl.Poly1305.X86_64.update
+    contract := Spec.Poly1305.updateContract X86_64.abi
+    verified := Proof.Poly1305.X86_64.Shared.update },
+  { Spec.Poly1305.finalizeApi with
+    target := X86_64.target
+    doc := Spec.Poly1305.finalizeApi.doc
     code := Impl.Poly1305.X86_64.finalize
-    contract := Spec.Poly1305.finalizeTailContract X86_64.abi
+    contract := Spec.Poly1305.finalizeContract X86_64.abi
     verified := Proof.Poly1305.X86_64.Shared.finalize }]
 
 end VG.Artifacts.Poly1305.X86_64

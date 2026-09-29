@@ -187,15 +187,15 @@ theorem macs_ok {d : Reg} (L : List (Reg × Nat)) (s : State) (hd : Reg.x14 ≠ 
 
 
 theorem dsum_facts : ∀ k < 5, Reg.x14 ≠ D.getD k .x9 ∧ Reg.x0 ≠ D.getD k .x9 ∧
-    (coef k 0 % 4 = 0 ∧ coef k 0 < 16384) ∧ 56 ≤ coef k 0 ∧ coef k 0 + 4 ≤ 92 ∧
+    (coef k 0 % 4 = 0 ∧ coef k 0 < 16384) ∧ 72 ≤ coef k 0 ∧ coef k 0 + 4 ≤ 108 ∧
     ∀ i < 4, H.getD (i + 1) .x4 ≠ Reg.x14 ∧ H.getD (i + 1) .x4 ≠ D.getD k .x9 ∧
-      (coef k (i + 1) % 4 = 0 ∧ coef k (i + 1) < 16384) ∧ 56 ≤ coef k (i + 1) ∧
-      coef k (i + 1) + 4 ≤ 92 := by
+      (coef k (i + 1) % 4 = 0 ∧ coef k (i + 1) < 16384) ∧ 72 ≤ coef k (i + 1) ∧
+      coef k (i + 1) + 4 ≤ 108 := by
   decide
 
 /-- `dk = Σ hi · coef k i`. -/
 theorem dsum_ok (s : State) {k : Nat} (hk : k < 5)
-    (hc : ∀ off, 56 ≤ off → off + 4 ≤ 92 → InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 off) 4) :
+    (hc : ∀ off, 72 ≤ off → off + 4 ≤ 108 → InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 off) 4) :
     WP isa (.block (dsum k)) s fun s' =>
       v s' (D.getD k .x9) = (v s .x4 * word s (coef k 0) +
         ((List.range 4).map fun i => v s (H.getD (i + 1) .x4) * word s (coef k (i + 1))).sum) % 2 ^ 64 ∧
