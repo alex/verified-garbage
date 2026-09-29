@@ -14,7 +14,7 @@ target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract.
 -/
 
-namespace VG.Artifacts.Hmac.AArch64
+namespace VG.Artifacts.HmacSha256.AArch64
 
 def artifacts : List Artifact := [
   { Spec.Hmac.initSha256Api with
@@ -34,4 +34,4 @@ def artifacts : List Artifact := [
     verified := Proof.Hmac.AArch64.Shared.finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
-end VG.Artifacts.Hmac.AArch64
+end VG.Artifacts.HmacSha256.AArch64

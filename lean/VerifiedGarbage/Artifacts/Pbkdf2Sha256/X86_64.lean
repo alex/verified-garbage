@@ -1,9 +1,9 @@
-import VerifiedGarbage.TCB.AArch64.Target
-import VerifiedGarbage.Impl.Pbkdf2.AArch64
-import VerifiedGarbage.Proof.Pbkdf2.AArch64.Shared
+import VerifiedGarbage.TCB.X86_64.Target
+import VerifiedGarbage.Impl.Pbkdf2.X86_64
+import VerifiedGarbage.Proof.Pbkdf2.X86_64.Shared
 
 /-!
-# The PBKDF2-HMAC-SHA-256 iteration (RFC 8018) on AArch64
+# The PBKDF2-HMAC-SHA-256 iteration (RFC 8018) on x86-64
 
 A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
@@ -15,16 +15,15 @@ target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract.
 -/
 
-namespace VG.Artifacts.Pbkdf2.AArch64
+namespace VG.Artifacts.Pbkdf2Sha256.X86_64
 
 def artifacts : List Artifact := [
   { Spec.Pbkdf2.iterateSha256Api with
-    target := AArch64.target
+    target := X86_64.target
     doc := Spec.Pbkdf2.iterateSha256Api.doc
-      (notes := ["The function uses no stack: it saves its return address in `scratch`."])
-    code := Impl.Pbkdf2.AArch64.iterate
-    contract := Spec.Pbkdf2.iterateSha256Contract AArch64.abi
-    verified := Proof.Pbkdf2.AArch64.Shared.iterate
-    spSafe := Code.all_of_forall (fun _ => rfl) _ }]
+    code := Impl.Pbkdf2.X86_64.iterate
+    contract := Spec.Pbkdf2.iterateSha256Contract X86_64.abi 8
+    stack := 8
+    verified := Proof.Pbkdf2.X86_64.Shared.iterate }]
 
-end VG.Artifacts.Pbkdf2.AArch64
+end VG.Artifacts.Pbkdf2Sha256.X86_64

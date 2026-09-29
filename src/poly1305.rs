@@ -15,12 +15,7 @@
 
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
-#[cfg(target_arch = "aarch64")]
-use crate::asm::aarch64::poly1305::{vg_poly1305_finalize, vg_poly1305_init, vg_poly1305_update};
-#[cfg(target_arch = "arm")]
-use crate::asm::arm::poly1305::{vg_poly1305_finalize, vg_poly1305_init, vg_poly1305_update};
-#[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::poly1305::{vg_poly1305_finalize, vg_poly1305_init, vg_poly1305_update};
+use crate::arch::poly1305::{vg_poly1305_finalize, vg_poly1305_init, vg_poly1305_update};
 
 /// An incremental Poly1305 computation.
 pub struct Poly1305 {
