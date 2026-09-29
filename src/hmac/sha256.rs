@@ -23,7 +23,6 @@ use crate::arch::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 use crate::arch::hmac_sha256::{vg_hmac_sha256_finalize_shani, vg_hmac_sha256_init_shani};
 use crate::hashes::sha256::{Sha256, Sha256Backend};
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 impl super::Hmac<Sha256> {
     /// The key's two SHA-256 streaming states, for `K₀ ⊕ ipad` and then
     /// `K₀ ⊕ opad`, as `vg_hmac_sha256_init` left them (the arguments of
