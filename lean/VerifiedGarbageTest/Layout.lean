@@ -7,10 +7,11 @@ import VerifiedGarbage.TCB.Rust
 /-!
 # Golden tests for the documented obligations of signatures
 
-`Sig.layoutDoc` and `Sig.layoutNote` write, into every function's `# Safety`
-section, what `Sig.contract` requires of where its buffers are, which depends
-on the target's calling convention (`Abi.argAreaDoc`, `Abi.reservedDoc`) and
-on the stack the function uses. These tests pin down the text on each target.
+`Sig.validDoc`, `Sig.layoutDoc` and `Sig.layoutNote` write, into every
+function's `# Safety` section, what `Sig.contract` requires of the memory each
+buffer is valid for and of where its buffers are, which depends on the
+target's calling convention (`Abi.argAreaDoc`, `Abi.reservedDoc`) and on the
+stack the function uses. These tests pin down the text on each target.
 -/
 
 namespace VG.Test.Layout
@@ -102,6 +103,26 @@ def none' : Sig where
 
 #guard Sig.layoutNote X86_64.abi sample true == []
 
+/-! ## The memory each buffer must be valid for -/
+
+#guard Sig.validDoc sample == [
+    "`w` must be valid for reads and writes of 16 bytes.",
+    "`r` must be valid for reads of `len` bytes.",
+    "`x` must be valid for reads and writes of 32 bytes.",
+    "`y` must be valid for reads of 8 bytes."]
+
+/-- Slices of elements of more than one byte, and arrays of arrays. -/
+def wide : Sig where
+  params := [("blocks", .slice false (.array .u8 64) "n"), ("out", .slice true .u32 "len"),
+    ("state", .array true (.array .u64 5) 5)]
+
+#guard Sig.validDoc wide == [
+    "`blocks` must be valid for reads of `64 * n` bytes.",
+    "`out` must be valid for reads and writes of `4 * len` bytes.",
+    "`state` must be valid for reads and writes of 200 bytes."]
+
+#guard Sig.validDoc none' == []
+
 /-! ## Rendering: the note goes before `# Safety` -/
 
 def safeDoc : String := "Does things.\n\n# Safety\n\n* `p` must be valid."
@@ -110,5 +131,14 @@ def safeDoc : String := "Does things.\n\n# Safety\n\n* `p` must be valid."
 #guard Rust.insertNotes safeDoc ["A note."] ==
   "Does things.\n\nA note.\n\n# Safety\n\n* `p` must be valid."
 #guard Rust.insertNotes "No safety section." ["A note."] == "No safety section."
+
+/-! ## Rendering: what each buffer must be valid for comes first in `# Safety` -/
+
+#guard Rust.prependSafety safeDoc [] == safeDoc
+#guard Rust.prependSafety safeDoc ["`q` must be valid.", "`r` must be valid."] ==
+  "Does things.\n\n# Safety\n\n* `q` must be valid.\n* `r` must be valid.\n* `p` must be valid."
+-- A `# Safety` section with no items of its own (`Api.doc` of an `Api` with none).
+#guard Rust.prependSafety "Does things.\n\n# Safety\n\n" ["`q` must be valid."] ==
+  "Does things.\n\n# Safety\n\n* `q` must be valid."
 
 end VG.Test.Layout

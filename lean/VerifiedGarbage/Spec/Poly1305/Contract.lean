@@ -54,9 +54,7 @@ def initApi : Api where
     Contract: `VG.Spec.Poly1305.initContract`. The streaming state is the accumulator followed by \
     the key (`VG.Spec.Poly1305.Repr`). Constant time: only the pointers may affect timing, not the \
     key."
-  safety := [
-    "`state` must be valid for writes of 128 bytes.",
-    "`key` must be valid for reads of 32 bytes."]
+  safety := []
 
 /-- `vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n: usize)`. -/
 def blocksSig : Sig where
@@ -80,9 +78,7 @@ def blocksApi : Api where
     blocks at `blocks`, under the same key.\n\n\
     Contract: `VG.Spec.Poly1305.blocksContract`. Constant time: only the pointers and `n` may \
     affect timing, not the state or the data."
-  safety := [
-    "`state` must be valid for reads and writes of 128 bytes.",
-    "`blocks` must be valid for reads of `16 * n` bytes."]
+  safety := []
 
 /-- `vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 16])`.
 `count` is public; `scratch` is working space. -/
@@ -111,11 +107,7 @@ def updateApi : Api where
     and the message's last bytes that do not fill a block (`VG.Spec.Poly1305.Buffered`). \
     Constant time: only the pointers, `count` and `len` may affect timing, not the state or the \
     data."
-  safety := [
-    "`state` must be valid for reads and writes of 128 bytes.",
-    "`data` must be valid for reads of `len` bytes.",
-    "`scratch` must be valid for reads and writes of 128 bytes; its contents on return are \
-      unspecified."]
+  safety := ["The contents of `scratch` on return are unspecified."]
 
 /-- `vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16], scratch: *mut [u64; 16])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
@@ -144,11 +136,8 @@ def finalizeApi : Api where
     Contract: `VG.Spec.Poly1305.finalizeContract`. Constant time: only the pointers and `count` \
     may affect timing, not the state."
   safety := [
-    "`state` must be valid for reads and writes of 128 bytes; its contents on return are \
-      unspecified.",
-    "`out` must be valid for writes of 16 bytes.",
-    "`scratch` must be valid for reads and writes of 128 bytes; its contents on return are \
-      unspecified."]
+    "The contents of `state` on return are unspecified.",
+    "The contents of `scratch` on return are unspecified."]
 
 /-- The previous `vg_poly1305_finalize(state: *mut [u64; 16], tail: *const u8, len: usize, out: *mut [u8; 16])`.
 `state` is left unspecified. -/
@@ -178,9 +167,6 @@ def finalizeTailApi : Api where
     may affect timing, not the state or the data."
   safety := [
     "`len` must be less than 16.",
-    "`state` must be valid for reads and writes of 128 bytes; its contents on return are \
-      unspecified.",
-    "`tail` must be valid for reads of `len` bytes.",
-    "`out` must be valid for writes of 16 bytes."]
+    "The contents of `state` on return are unspecified."]
 
 end VG.Spec.Poly1305

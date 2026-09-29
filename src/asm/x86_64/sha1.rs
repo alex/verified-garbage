@@ -10,7 +10,8 @@
 ///
 /// * `state` must be valid for reads and writes of 20 bytes.
 /// * `blocks` must be valid for reads of `64 * n` bytes.
-/// * `scratch` must be valid for reads and writes of 112 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 112 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `blocks` (distinct Rust objects never do).
 /// * None of `state`, `blocks` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -1454,7 +1455,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_compress(state: *mut [u32; 5], bloc
 ///
 /// # Safety
 ///
-/// * `state` must be valid for writes of 84 bytes.
+/// * `state` must be valid for reads and writes of 84 bytes.
 /// * `state` must not overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_sha1_init(state: *mut [u8; 84]) {
@@ -1486,7 +1487,8 @@ pub(crate) const VG_SHA1_COMPRESS_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
 ///
 /// * `state` must be valid for reads and writes of 20 bytes.
 /// * `blocks` must be valid for reads of `64 * n` bytes.
-/// * `scratch` must be valid for reads and writes of 112 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 112 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `blocks` (distinct Rust objects never do).
 /// * None of `state`, `blocks` and `scratch` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
@@ -1670,7 +1672,8 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_compress_shani(state: *mut [u32; 5]
 ///
 /// * `state` must be valid for reads and writes of 84 bytes.
 /// * `data` must be valid for reads of `len` bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 160 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
 /// * None of `state`, `data` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -1795,9 +1798,11 @@ pub(crate) unsafe extern "sysv64" fn vg_sha1_update(state: *mut [u8; 84], count:
 ///
 /// # Safety
 ///
-/// * `state` must be valid for reads and writes of 84 bytes; its contents on return are unspecified.
-/// * `out` must be valid for writes of 20 bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `state` must be valid for reads and writes of 84 bytes.
+/// * `out` must be valid for reads and writes of 20 bytes.
+/// * `scratch` must be valid for reads and writes of 160 bytes.
+/// * The contents of `state` on return are unspecified.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
 /// * None of `state`, `out` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -1903,7 +1908,8 @@ pub(crate) const VG_SHA1_UPDATE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
 ///
 /// * `state` must be valid for reads and writes of 84 bytes.
 /// * `data` must be valid for reads of `len` bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `scratch` must be valid for reads and writes of 160 bytes.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
 /// * None of `state`, `data` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
@@ -2032,9 +2038,11 @@ pub(crate) const VG_SHA1_FINALIZE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
 ///
 /// # Safety
 ///
-/// * `state` must be valid for reads and writes of 84 bytes; its contents on return are unspecified.
-/// * `out` must be valid for writes of 20 bytes.
-/// * `scratch` must be valid for reads and writes of 160 bytes; its contents on return are unspecified.
+/// * `state` must be valid for reads and writes of 84 bytes.
+/// * `out` must be valid for reads and writes of 20 bytes.
+/// * `scratch` must be valid for reads and writes of 160 bytes.
+/// * The contents of `state` on return are unspecified.
+/// * The contents of `scratch` on return are unspecified.
 /// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
 /// * None of `state`, `out` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.

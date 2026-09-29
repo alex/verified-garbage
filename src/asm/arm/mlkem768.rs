@@ -10,9 +10,12 @@
 ///
 /// # Safety
 ///
-/// * `seed` must be valid for reads of 64 bytes, and must be random bytes from an approved RBG (FIPS 203 §3.3), or a seed so generated before.
-/// * `ek` must be valid for writes of 1184 bytes and `dk` for writes of 2400 bytes.
-/// * `scratch` must be valid for reads and writes of 32768 bytes. It is working space: on return it holds intermediate values, which the caller must destroy (FIPS 203 §3.3).
+/// * `seed` must be valid for reads of 64 bytes.
+/// * `ek` must be valid for reads and writes of 1184 bytes.
+/// * `dk` must be valid for reads and writes of 2400 bytes.
+/// * `scratch` must be valid for reads and writes of 32768 bytes.
+/// * `seed` must be random bytes from an approved RBG (FIPS 203 §3.3), or a seed so generated before.
+/// * `scratch` is working space: on return it holds intermediate values, which the caller must destroy (FIPS 203 §3.3).
 /// * `ek`, `dk` and `scratch` must not overlap each other or `seed` (distinct Rust objects never do).
 /// * None of `seed`, `ek`, `dk` and `scratch` may overlap the 8 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -419,10 +422,14 @@ pub(crate) unsafe extern "C" fn vg_mlkem768_keygen(seed: *const [u8; 64], ek: *m
 ///
 /// # Safety
 ///
-/// * `ek` must be valid for reads of 1184 bytes, and must have passed `vg_mlkem768_check_ek` (FIPS 203 §7.2).
-/// * `m` must be valid for reads of 32 bytes, and must be fresh random bytes from an approved RBG (FIPS 203 §3.3).
-/// * `key` must be valid for writes of 32 bytes and `ct` for writes of 1088 bytes.
-/// * `scratch` must be valid for reads and writes of 32768 bytes. It is working space: on return it holds intermediate values, which the caller must destroy (FIPS 203 §3.3).
+/// * `ek` must be valid for reads of 1184 bytes.
+/// * `m` must be valid for reads of 32 bytes.
+/// * `key` must be valid for reads and writes of 32 bytes.
+/// * `ct` must be valid for reads and writes of 1088 bytes.
+/// * `scratch` must be valid for reads and writes of 32768 bytes.
+/// * `ek` must have passed `vg_mlkem768_check_ek` (FIPS 203 §7.2).
+/// * `m` must be fresh random bytes from an approved RBG (FIPS 203 §3.3).
+/// * `scratch` is working space: on return it holds intermediate values, which the caller must destroy (FIPS 203 §3.3).
 /// * `key`, `ct` and `scratch` must not overlap each other, `ek`, `m` or the arguments on the stack (distinct Rust objects never do).
 /// * None of `ek`, `m`, `key`, `ct` and `scratch` may overlap the 8 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -957,10 +964,12 @@ pub(crate) unsafe extern "C" fn vg_mlkem768_encaps(ek: *const [u8; 1184], m: *co
 ///
 /// # Safety
 ///
-/// * `dk` must be valid for reads of 2400 bytes, and must have been written by `vg_mlkem768_keygen` (so that it passes the checks of FIPS 203 §7.3).
+/// * `dk` must be valid for reads of 2400 bytes.
 /// * `ct` must be valid for reads of 1088 bytes.
-/// * `key` must be valid for writes of 32 bytes.
-/// * `scratch` must be valid for reads and writes of 32768 bytes. It is working space: on return it holds intermediate values, which the caller must destroy (FIPS 203 §3.3).
+/// * `key` must be valid for reads and writes of 32 bytes.
+/// * `scratch` must be valid for reads and writes of 32768 bytes.
+/// * `dk` must have been written by `vg_mlkem768_keygen` (so that it passes the checks of FIPS 203 §7.3).
+/// * `scratch` is working space: on return it holds intermediate values, which the caller must destroy (FIPS 203 §3.3).
 /// * `key` and `scratch` must not overlap each other, `dk` or `ct` (distinct Rust objects never do).
 /// * None of `dk`, `ct`, `key` and `scratch` may overlap the 8 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
