@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Poly1305.AArch64.Buffer
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Poly1305 on AArch64: `finalize`
@@ -112,7 +113,7 @@ theorem zinit_ok {s₀ : State} {m₁ : Mem} {s₁ : State} (h₁ : F0 s₀ m₁
       (ZInv s₀ m₁ s₁ (kf s₀)) := by
   have hk := kf_lt s₀
   refine wp_movz fun s₂ u₂ => wp_add fun s₃ u₃ => wp_movz fun s₄ u₄ => wp_sub fun s₅ u₅ => WP.block_nil ?_
-  refine ⟨⟨le_rfl, hk.le⟩, ?_, ?_, ?_, fun r h1 h2 h3 => ?_, by rw [u₅.rd, u₄.rd, u₃.rd, u₂.rd, h₁.rd],
+  refine ⟨⟨(Nat.le_refl _), hk.le⟩, ?_, ?_, ?_, fun r h1 h2 h3 => ?_, by rw [u₅.rd, u₄.rd, u₃.rd, u₂.rd, h₁.rd],
     by rw [u₅.wr, u₄.wr, u₃.wr, u₂.wr, h₁.wr],
     (by rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, h₁.mem]; exact Frame.refl _ _), fun k hk' => ?_⟩
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.other _ (by decide),

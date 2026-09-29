@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.X86.Inline
+import Mathlib.Tactic.Set
 
 /-!
 # Calls and frames (x86, 32-bit)
@@ -160,7 +161,7 @@ theorem arg_callEntry {s : State} {j : Nat} (h₁ : 4 ≤ (s.gpr .esp).toNat)
   refine Frame.readW (rs := [below (s.gpr .esp) 4]) (r := ⟨(s.gpr .esp).setWidth 64 +
     BitVec.ofNat 64 (4 * j), 4⟩) ?_ ?_ ?_ (by decide)
   · exact Frame.writeW (Frame.refl _ _) (List.mem_singleton_self _) _
-      (below_top (le_refl 4) h₁ (by decide))
+      (below_top (Nat.le_refl 4) h₁ (by decide))
   · simp only [Region.Contains, Nat.reduceDiv]
     rw [show (s.gpr .esp + BitVec.ofNat 32 (4 * j)).setWidth 64 = _ from
       addr_eq (x := s.gpr .esp) (k := 4 * j) (by omega)]
@@ -226,7 +227,7 @@ theorem Exec.frameSp {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa
     · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
     · simp only [List.mem_singleton] at hr; subst hr
       exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _),
-        below_inner (k := 4) (le_refl _) hd⟩
+        below_inner (k := 4) (Nat.le_refl _) hd⟩
   | @frame i _ b s₀ s₁ s₂ _ _ hp _ hq ih =>
     obtain ⟨rs, rfl, -, hrs, hn, rfl⟩ := push_some hp
     simp only [stackUse, frameBytes] at hd ⊢
@@ -303,7 +304,7 @@ theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
     · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
     · simp only [List.mem_singleton] at hr; subst hr
       exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _),
-        below_inner (k := 4) (le_refl _) hd⟩
+        below_inner (k := 4) (Nat.le_refl _) hd⟩
   · by_cases hrs : r = .esp
     · subst hrs; exact hesp
     · rw [hkeep r hrs, Exec.gpr h he', State.callEntry_gpr _ hrs]

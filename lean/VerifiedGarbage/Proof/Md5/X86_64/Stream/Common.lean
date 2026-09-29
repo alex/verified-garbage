@@ -2,6 +2,8 @@ import VerifiedGarbage.Proof.Md5.X86_64.Compress
 import VerifiedGarbage.Proof.Md5.Stream
 import VerifiedGarbage.Proof.Framework.X86_64.Call
 import VerifiedGarbage.Impl.Md5.X86_64.Stream
+import Mathlib.Tactic.Conv
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Streaming MD5 on x86-64: common lemmas

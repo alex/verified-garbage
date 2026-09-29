@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Md5.Arm.Rounds
 import VerifiedGarbage.Proof.Md5.Arm.Contract
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # MD5 compression function on ARMv7: the whole function
@@ -340,7 +341,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     exact blk_word hp hi ht
   have hr1₁ : s₁.gpr .r1 = blkAddr s₀ i := (hkept₁ .r1 (by decide)).trans hL.r1
   refine WP.seq (WP.mono (steps_ok _ (blk s₀ i) _ s₁ hr1₁ hones₁
-    (fun t ht => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_blk hi ht) hX hv₁ 64 le_rfl)
+    (fun t ht => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_blk hi ht) hX hv₁ 64 (Nat.le_refl _))
     fun s₂ hR => ?_)
   have kept₂ : ∀ r ∈ loadKept, s₂.gpr r = s.gpr r := fun r hr => by
     rw [hR.pub r (by revert r hr; decide), hkept₁ r hr]

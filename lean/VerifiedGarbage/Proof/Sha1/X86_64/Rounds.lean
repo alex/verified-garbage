@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Sha1.Spec
 import VerifiedGarbage.Impl.Sha1.X86_64
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # SHA-1 compression function on x86-64: the message schedule and the rounds

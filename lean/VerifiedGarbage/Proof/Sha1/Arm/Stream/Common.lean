@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Framework.Arm.Call
 import VerifiedGarbage.Proof.Sha1.Arm.Compress
 import VerifiedGarbage.Proof.Sha1.Stream
 import VerifiedGarbage.Impl.Sha1.Arm.Stream
+import Mathlib.Tactic.Conv
 
 /-!
 # Streaming SHA-1 on ARMv7: common lemmas
@@ -385,7 +386,7 @@ theorem sub_beq {a b : Nat} (ha : a < 2 ^ 32) (hb : b < 2 ^ 32) :
 theorem ofNat_shr {a n : Nat} (h : a < 2 ^ 32) : BitVec.ofNat 32 a >>> n = BitVec.ofNat 32 (a / 2 ^ n) := by
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ushiftRight, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h, Nat.shiftRight_eq_div_pow]
-  rw [Nat.mod_eq_of_lt (lt_of_le_of_lt (Nat.div_le_self _ _) h)]
+  rw [Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) h)]
 
 theorem and63 (x : BitVec 32) : x &&& 63 = BitVec.ofNat 32 (x.toNat % 64) := by
   apply BitVec.eq_of_toNat_eq

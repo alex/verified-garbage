@@ -1,5 +1,5 @@
-import Mathlib.Tactic.SplitIfs
 import VerifiedGarbage.Spec.Sha1
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # SHA-1: lemmas about the specification

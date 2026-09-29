@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Framework.AArch64.Exec
 import VerifiedGarbage.Proof.Poly1305.AArch64.Arith
 import VerifiedGarbage.Impl.Poly1305.AArch64
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Poly1305 on AArch64: the steps of the code

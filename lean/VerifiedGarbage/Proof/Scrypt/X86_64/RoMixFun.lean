@@ -1,6 +1,8 @@
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Proof.Scrypt.X86_64.RoMix
 import VerifiedGarbage.Proof.Scrypt.X86_64.RoMixLoops
+import Mathlib.Tactic.Ring.RingNF
+import Mathlib.Tactic.Set
 
 /-!
 # scryptROMix on x86-64: correctness

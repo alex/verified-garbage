@@ -98,7 +98,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {r : Nat} {s : State} (h : Inv s�
   have hpad : ∀ {m : Mem}, Frame (bodyR s₀) s.mem m → bytesAt m (blkA s₀ + 32) 32 = pad96 := by
     intro m hf
     rw [show blkA s₀ + 32 = scA s₀ + BitVec.ofNat 64 224 by bv_omega, ← h.pad]
-    exact frame_bytesAt hf (body_disj hp (o := 224) (n := 32) (.inr le_rfl) (by omega)) (by omega)
+    exact frame_bytesAt hf (body_disj hp (o := 224) (n := 32) (.inr (Nat.le_refl _)) (by omega)) (by omega)
   -- The inner hash.
   refine WP.seq ?_
   refine load_ok hp h.toRegs (o := 0) (by omega) fun s₁ k₁ e₁ => ?_
@@ -122,7 +122,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {r : Nat} {s : State} (h : Inv s�
   -- The digest, `T ← T ⊕ U` and the count.
   have h₇ := h₆.keep k₇
   refine digest_ok hp h₇ fun s₈ h₈ g₈ f₈ m₈ => ?_
-  refine xor_ok (p3 := scr s₀) (by omega) 8 le_rfl _ s₈ _ h₈.r3
+  refine xor_ok (p3 := scr s₀) (by omega) 8 (Nat.le_refl _) _ s₈ _ h₈.r3
     (fun j hj => InRegions.right (by rw [add_ofNat]; exact in_scr hp h₈.wr (a := 192 + 4 * j) (n := 4) (by omega)))
     (fun j hj => by rw [add_ofNat]; exact in_scr hp h₈.wr (a := 160 + 4 * j) (n := 4) (by omega))
     fun s₉ g₉ rd₉ wr₉ sp₉ m₉ => ?_
@@ -165,7 +165,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {r : Nat} {s : State} (h : Inv s�
       (Spec.Pbkdf2.xorBytes (bytesAt s₈.mem (TA s₀) 32) (bytesAt s₈.mem (blkA s₀) 32)).length := by
     rw [xorBytes_length _ _ (by simp [bytesAt]), bytesAt_length]
     exact Region.Disjoint.sep (scr_disj s₀ (a := 192) (m := 32) (b := 160) (n := 32) (by omega) (by omega)
-      (by omega)) (contains_base le_rfl) (contains_base le_rfl)
+      (by omega)) (contains_base (Nat.le_refl _)) (contains_base (Nat.le_refl _))
   have hU₁₀ : bytesAt s₁₀.mem (blkA s₀) 32 = stepM s₀ (bytesAt s.mem (blkA s₀) 32) := by
     rw [u₁₀.mem, m₉, bytesAt_writeBytes_sep _ _ hsep (by omega), hU₈]
   have hT₁₀ : bytesAt s₁₀.mem (TA s₀) 32 =
@@ -181,7 +181,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {r : Nat} {s : State} (h : Inv s�
     cases r <;> rfl
   · rw [u₁₀.gpr, e₁₀]
   · rw [← h.pad]
-    exact frame_bytesAt fb (body_disj hp (o := 224) (n := 32) (.inr le_rfl) (by omega)) (by omega)
+    exact frame_bytesAt fb (body_disj hp (o := 224) (n := 32) (.inr (Nat.le_refl _)) (by omega)) (by omega)
   · rw [h.val, hU₁₀, hT₁₀]; rfl
 
 theorem loop_ok {s₀ : State} (hp : Pre s₀) {n : Nat} {s : State} (h : Inv s₀ n s) (hz : s.z = decide (n = 0)) :

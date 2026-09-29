@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Common
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # Poly1305 on 32-bit ARM: adding the limbs of four words to the columns
@@ -111,7 +112,7 @@ theorem addWords_ok {s₀ : State}
     WP isa (.block addWords) s₀ fun s =>
       (∀ j < 9, s.gpr (yr j) = s₀.gpr (yr j) + wsum (word s₀) 4 j) ∧ s.gpr .r2 = word s₀ 3 ∧
       Keeps (.r2 :: .r12 :: yregs) s₀ s := by
-  refine WP.mono (wp_range_flatMap (M := isa) (WI s₀) (addWord_step hin) 4 le_rfl s₀
+  refine WP.mono (wp_range_flatMap (M := isa) (WI s₀) (addWord_step hin) 4 (Nat.le_refl _) s₀
     ⟨fun j _ => by simp [wsum], fun h => absurd h (by omega), Keeps.refl _ _⟩)
     fun s h => ⟨h.cols, h.r2 (by omega), h.keeps⟩
 

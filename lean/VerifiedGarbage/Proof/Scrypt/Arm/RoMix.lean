@@ -283,7 +283,7 @@ theorem shr_ofNat32 {a : Nat} (n : Nat) (h : a < 2 ^ 32) :
     BitVec.ofNat 32 a >>> n = BitVec.ofNat 32 (a / 2 ^ n) := by
   apply BitVec.eq_of_toNat_eq
   rw [BitVec.toNat_ushiftRight, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h, BitVec.toNat_ofNat,
-    Nat.mod_eq_of_lt (lt_of_le_of_lt (Nat.div_le_self _ _) h), Nat.shiftRight_eq_div_pow]
+    Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) h), Nat.shiftRight_eq_div_pow]
 
 /-! ## `Integerify`, from a 32-bit word -/
 

@@ -181,7 +181,7 @@ theorem steps_ok {x h : Block} {sB : State} {j : Nat} (hj : j < 128 / unroll) {s
   refine WP.mono (wp_range_flatMap (M := isa) (N := unroll)
     (fun k s' => Inner x h sB (unroll * j + k) s' ∧ s'.gpr CNT = s.gpr CNT)
     (fun k s' _ ⟨hs', hc'⟩ => WP.mono (inner_step hs') fun s'' ⟨h₁, h₂⟩ => ⟨h₁, h₂.trans hc'⟩)
-    unroll le_rfl s ⟨hs, rfl⟩) fun s₁ ⟨hs₁, hc₁⟩ => ?_
+    unroll (Nat.le_refl _) s ⟨hs, rfl⟩) fun s₁ ⟨hs₁, hc₁⟩ => ?_
   have e : 128 / unroll - j = (128 / unroll - (j + 1)) + 1 := by
     simp only [unroll] at hj ⊢; omega
   rw [e] at hc

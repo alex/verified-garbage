@@ -267,7 +267,7 @@ theorem add_step {s₀ sB : State} (hp : Pre s₀) (hesi : sB.gpr .esi = bp s₀
   have oB : InRegions s.wr (wordAddr (BA s₀) n) 4 := by rw [ha.wr]; exact hp.out_buf (by omega)
   have hv := hp.read_st ha.fb hn
   have hr := ha.out n hn
-  simp only [lt_irrefl, ite_false] at hr
+  simp only [Nat.lt_irrefl, ite_false] at hr
   apply WP.of_runBlock
   simp (config := {decide := true}) only [addWord, runBlock_cons, runStep_some, runBlock_nil, exec, execAlu, readSrc,
     State.setReg, arithFlags, State.setFlags, State.ea, at_, State.load32, State.store32, hsi, hdi,
@@ -325,7 +325,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     ⟨fun _ _ => rfl, hrd₁, hwr₁, hm₁ ▸ saveMem_frame s₀, Frame.refl _ _,
       fun _ _ h => absurd h (by omega)⟩
   refine WP.mono (wp_range_flatMap (M := isa) (CI s₀ s₁)
-    (fun k s hk hc => copy_step hp hesi₁ hedi₁ hk hc) 16 le_rfl s₁ hc₀) fun s₂ hc => ?_
+    (fun k s hk hc => copy_step hp hesi₁ hedi₁ hk hc) 16 (Nat.le_refl _) s₁ hc₀) fun s₂ hc => ?_
   have hsi₂ : s₂.gpr .esi = bp s₀ := (hc.keep _ (by decide)).trans hesi₁
   have hdi₂ : s₂.gpr .edi = st s₀ := (hc.keep _ (by decide)).trans hedi₁
   have hctx : Ctx (BA s₀) s₂ :=
@@ -338,7 +338,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     ⟨fun j hj => by simp only [Nat.not_lt_zero, ite_false]; exact hR.holds j hj, fun _ _ => rfl,
       hR.rd.trans hc.rd, hR.wr.trans hc.wr, hc.fb.trans (frame_buf hR.frame), Frame.refl _ _⟩
   refine WP.mono (wp_range_flatMap (M := isa) (AI s₀ s₃)
-    (fun k s hk ha => add_step hp (hR.esi.trans hsi₂) (hR.edi.trans hdi₂) hk ha) 16 le_rfl s₃ ha₀)
+    (fun k s hk ha => add_step hp (hR.esi.trans hsi₂) (hR.edi.trans hdi₂) hk ha) 16 (Nat.le_refl _) s₃ ha₀)
     fun s₄ hA => ?_
   have hwork : Frame [workR (BA s₀)] s₁.mem s₄.mem := (hc.fw.trans hR.frame).trans hA.fw
   have hsaved : Saved s₀ s₄.mem := saved_frame (hm₁ ▸ saveMem_saved s₀) hwork

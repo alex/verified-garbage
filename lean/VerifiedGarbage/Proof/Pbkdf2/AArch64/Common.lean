@@ -201,7 +201,7 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Regs s₀ s) {o 
     exact Region.Disjoint.sep hp.k_s (contains_offset (by omega) (by omega)) (contains_offset (by omega) (by omega))
   · rw [m', h.x19, e0]
     refine (writeBytes_frame _ _ _ (R := stR s₀) ?_).mono (by simp)
-    rw [bytesAt_length]; exact contains_base le_rfl
+    rw [bytesAt_length]; exact contains_base (Nat.le_refl _)
   · rw [m', h.x19, h.x21, e0, stateAt_copy]
     apply Proof.Sha256.Stream.stateAt_congr
     intro i hi
@@ -304,7 +304,7 @@ theorem digest_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Regs s₀ s) {
     WP isa (.block (Impl.Pbkdf2.AArch64.digest ++ rest)) s Q := by
   unfold Impl.Pbkdf2.AArch64.digest
   refine out_ok (st := stA s₀) (sc := scr s₀) (scr_disj s₀ (a := 160) (b := 192) (by omega) (by omega)
-    (by omega)) 8 le_rfl rest s Q h.x19 h.x20
+    (by omega)) 8 (Nat.le_refl _) rest s Q h.x19 h.x20
     (fun j hj => InRegions.right (by rw [add_ofNat]; exact in_scr hp h.wr (a := 160 + 4 * j) (n := 4) (by omega)))
     (fun j hj => by rw [add_ofNat]; exact in_scr hp h.wr (a := 192 + 4 * j) (by omega)) fun s' g' rd' wr' sp' m' => ?_
   rw [digest_eq] at m'

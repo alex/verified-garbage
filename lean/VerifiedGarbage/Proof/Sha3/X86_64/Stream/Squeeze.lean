@@ -106,7 +106,7 @@ def SaveInv (s₀ : State) (k : Nat) (s : State) : Prop :=
 theorem saves_ok {s₀ : State} (hp : SPre s₀) :
     WP isa (.block (save .r9)) s₀ (SaveInv s₀ 6) := by
   rw [save_eq]
-  refine wp_range_flatMap (M := isa) (SaveInv s₀) (fun k s hk ⟨hg, hrd, hwr, hf, hv⟩ => ?_) 6 le_rfl s₀
+  refine wp_range_flatMap (M := isa) (SaveInv s₀) (fun k s hk ⟨hg, hrd, hwr, hf, hv⟩ => ?_) 6 (Nat.le_refl _) s₀
     ⟨rfl, rfl, rfl, Frame.refl _ _, fun _ h => absurd h (by omega)⟩
   refine wp_store (a := slot s₀ k) (by rw [ea_at, hg])
     (by rw [hwr, hp.wr]; exact ⟨CR s₀, by simp, contains_offset (by omega) (by omega)⟩) fun s' g' m' r' w' => wp_nil ?_
@@ -352,7 +352,7 @@ theorem epilogue_ok {s₀ : State} (hp : SPre s₀) {k pos : Nat} {s : State} (h
   have hax : s₁.gpr .rax = BitVec.ofNat 64 pos := by rw [u₁.gpr, hI.r12]
   rw [restore_eq]
   refine WP.mono (wp_range_flatMap (M := isa) (ResInv s₀ s₁) (fun k s' hk ⟨si, sp, ax, m, rd, wr, v⟩ => ?_) 6
-    le_rfl s₁ ⟨fun _ => hI₁.r15, hI₁.rsp, rfl, rfl, rfl, rfl, fun _ h => absurd h (by omega)⟩)
+    (Nat.le_refl _) s₁ ⟨fun _ => hI₁.r15, hI₁.rsp, rfl, rfl, rfl, rfl, fun _ h => absurd h (by omega)⟩)
     fun s' ⟨_, sp, ax, m, _, _, v⟩ => ?_
   · refine wp_movm (a := slot s₀ k) (by rw [ea_at, si (by omega)])
       ⟨CR s₀, by simp [rd, wr, hI₁.rd, hI₁.wr, hp.rd, hp.wr], contains_offset (by omega) (by omega)⟩

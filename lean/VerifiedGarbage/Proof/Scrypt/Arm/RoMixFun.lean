@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Scrypt.Arm.RoMixLoops
+import Mathlib.Tactic.Conv
+import Mathlib.Tactic.Set
 
 /-!
 # scryptROMix on 32-bit ARM: correctness

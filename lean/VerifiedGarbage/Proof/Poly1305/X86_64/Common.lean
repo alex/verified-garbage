@@ -143,7 +143,7 @@ theorem clamp_key (m : Mem) (st : Addr) :
 
 theorem r0_lt (k : BitVec 64) : (k &&& M0).toNat < 2 ^ 60 := by
   rw [BitVec.toNat_and]
-  exact lt_of_le_of_lt Nat.and_le_right (by decide)
+  exact Nat.lt_of_le_of_lt Nat.and_le_right (by decide)
 
 theorem r1_mod (k : BitVec 64) : (k &&& M1).toNat % 4 = 0 := by
   rw [BitVec.toNat_and, show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.and_two_pow_sub_one_eq_mod,
@@ -151,6 +151,6 @@ theorem r1_mod (k : BitVec 64) : (k &&& M1).toNat % 4 = 0 := by
 
 theorem r1_lt (k : BitVec 64) : (k &&& M1).toNat < 2 ^ 60 := by
   rw [BitVec.toNat_and]
-  exact lt_of_le_of_lt Nat.and_le_right (by decide)
+  exact Nat.lt_of_le_of_lt Nat.and_le_right (by decide)
 
 end VG.Proof.Poly1305.X86_64

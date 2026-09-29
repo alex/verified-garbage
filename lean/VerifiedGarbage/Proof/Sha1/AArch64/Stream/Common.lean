@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Sha1.AArch64.Compress
 import VerifiedGarbage.Proof.Sha1.Stream
 import VerifiedGarbage.Proof.Framework.AArch64.Call
 import VerifiedGarbage.Impl.Sha1.AArch64.Stream
+import Mathlib.Tactic.Conv
 
 /-!
 # Streaming SHA-1 on AArch64: common lemmas

@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.AArch64.Exec
 import VerifiedGarbage.Proof.Sha1.Spec
 import VerifiedGarbage.Impl.Sha1.AArch64
+import Mathlib.Tactic.SplitIfs
 
 /-!
 # SHA-1 compression function on AArch64: the message schedule and the rounds

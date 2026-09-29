@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Common
 import VerifiedGarbage.Proof.Sha256.AArch64.Compress
 import VerifiedGarbage.Proof.Sha256.X86.Contract
+import Mathlib.Tactic.Set
 
 /-!
 # Streaming SHA-256 on x86 (32-bit): `init`

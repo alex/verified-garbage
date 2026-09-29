@@ -543,7 +543,7 @@ theorem copied_facts {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI :
   have hr := rr_lt s₀ c; have ht' := tt_le' s₀ c
   have hxs := xs_length s₀ c
   have hf : Frame [stR s₀] sI.mem mem := by
-    have := write_frame s₀ c sI.mem (tt s₀ c) le_rfl
+    have := write_frame s₀ c sI.mem (tt s₀ c) (Nat.le_refl _)
     rwa [List.take_of_length_le (by omega)] at this
   refine ⟨hI.frame.trans (hf.mono (by simp)), fun p hp' => ?_, ?_, ?_⟩
   · rw [← hI.saved p hp']
@@ -613,7 +613,7 @@ theorem fill_done {s₀ : State} (hp : Pre s₀) {c : Nat} {sI : State} (hI : In
   obtain ⟨hfr, hsv, hst, hby⟩ := copied_facts hp hI
   have hmem : s.mem = writeBytes sI.mem (q s₀ c) (xs s₀ c) := by
     rw [h.mem, List.take_of_length_le (by omega)]
-  refine ⟨⟨⟨le_rfl, h.rd, h.wr, h.rbx, h.r15, h.rsp, ?_, ?_, by rw [hmem]; exact hfr,
+  refine ⟨⟨⟨(Nat.le_refl _), h.rd, h.wr, h.rbx, h.r15, h.rsp, ?_, ?_, by rw [hmem]; exact hfr,
     by rw [hmem]; exact hsv⟩, ?_, fun m hm => ?_⟩, h14⟩
   · rw [h.rbp]; congr 2; omega
   · rw [h.r12]; congr 1; omega
@@ -737,7 +737,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
   have hcf : s₂.cf = some (decide (len s₀ - c < 64)) := by
     rw [cf₂, hI₁.r12, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]; rfl
   refine WP.ite (!decide (len s₀ - c < 64)) (by simp [eval, hcf]) (fun hb' => ?_) (fun _ => fill_ok hp hI₂)
-  simp only [Bool.not_eq_true', decide_eq_false_iff_not, not_lt] at hb'
+  simp only [Bool.not_eq_true', decide_eq_false_iff_not, Nat.not_lt] at hb'
   exact WP.mono (direct_ok hp hI₂ hb hb') fun s' h => .inl ⟨c + 64, by omega, h⟩
 
 theorem correct {s₀ : State} (hp : Pre s₀) :

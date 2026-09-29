@@ -322,7 +322,7 @@ theorem step_ok (hD : D.Sound R) {e e' : Env α} {s : State} (hok : Ok c s)
     split at h
     · cases h
     rename_i hd
-    simp only [not_or, not_not] at hd
+    simp only [not_or, Classical.not_not] at hd
     obtain ⟨hdb, hde, hsh⟩ := hd
     split at h
     · rename_i a ha
@@ -338,7 +338,7 @@ theorem step_ok (hD : D.Sound R) {e e' : Env α} {s : State} (hok : Ok c s)
     split at h
     · cases h
     rename_i hd
-    simp only [not_or, not_not] at hd
+    simp only [not_or, Classical.not_not] at hd
     obtain ⟨hdb, hde, hsh⟩ := hd
     split at h
     · rename_i a ha
@@ -354,7 +354,7 @@ theorem step_ok (hD : D.Sound R) {e e' : Env α} {s : State} (hok : Ok c s)
     split at h
     · cases h
     rename_i hd
-    simp only [not_or, not_not] at hd
+    simp only [not_or, Classical.not_not] at hd
     obtain ⟨hdb, hde, himm⟩ := hd
     split at h
     · rename_i v hv
@@ -379,7 +379,7 @@ theorem step_ok (hD : D.Sound R) {e e' : Env α} {s : State} (hok : Ok c s)
     split at h
     · cases h
     rename_i hd
-    simp only [not_or, not_not] at hd
+    simp only [not_or, Classical.not_not] at hd
     obtain ⟨hdb, hde, himm⟩ := hd
     split at h
     · rename_i v hv
@@ -394,7 +394,7 @@ theorem step_ok (hD : D.Sound R) {e e' : Env α} {s : State} (hok : Ok c s)
     split at h
     · cases h
     rename_i hd
-    simp only [not_or, not_not] at hd
+    simp only [not_or, Classical.not_not] at hd
     obtain ⟨hdb, hde, hh⟩ := hd
     cases h
     simp only [exec, Size.bits, show 16 * hw' < 64 by omega, ite_true, Option.some.injEq, exists_eq_left']
@@ -405,7 +405,7 @@ theorem step_ok (hD : D.Sound R) {e e' : Env α} {s : State} (hok : Ok c s)
     split at h
     · cases h
     rename_i hd
-    simp only [not_or, not_not] at hd
+    simp only [not_or, Classical.not_not] at hd
     obtain ⟨hdb, hde, hh⟩ := hd
     split at h
     · rename_i v hv

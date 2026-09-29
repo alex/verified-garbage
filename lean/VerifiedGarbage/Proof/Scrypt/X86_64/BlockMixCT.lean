@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Scrypt.X86_64.BlockMixFun
 import VerifiedGarbage.Proof.Scrypt.X86_64.SalsaCall
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
+import Mathlib.Tactic.DefEqTransformations
 
 /-!
 # scryptBlockMix on x86-64: constant time

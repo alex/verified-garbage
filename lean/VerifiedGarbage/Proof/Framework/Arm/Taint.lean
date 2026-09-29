@@ -4,6 +4,8 @@ import VerifiedGarbage.Proof.Framework.KernelList
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.Arm.Exec
 import VerifiedGarbage.TCB.Arm.Target
+import Mathlib.Tactic.Set
+import Mathlib.Tactic.Tauto
 
 /-!
 # Taint tracking for ARMv7
@@ -327,7 +329,7 @@ theorem region_mem {τ : T} {s : State} (hw : Wf τ s) (hne : τ.lens ≠ []) {i
 /-- Region `i` lies within the 32-bit address space. -/
 theorem region_bound {τ : T} {s : State} (hw : Wf τ s) {i : Nat} (hi : 0 < τ.lens.getD i 0) :
     (region s i).base.toNat + τ.lens.getD i 0 ≤ 2 ^ 32 := by
-  have hne := lens_ne hi le_rfl
+  have hne := lens_ne hi (Nat.le_refl _)
   obtain ⟨hi', hr⟩ := region_mem hw hne hi
   have hl := region_len hw hne i
   have hb := (hw.lens hne).2.2 _ (List.getElem_mem hi')
@@ -526,13 +528,13 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {r : 
           · simp only [List.mem_filter, Bool.or_eq_true, bne_iff_ne, decide_eq_true_eq] at hsl
             exact .inr ⟨hsl.1, by tauto⟩
         rcases hsl' with rfl | ⟨h, hsep⟩
-        · have hp : p = true := by split at hsl <;> simp_all
+        · have hp : p = true := by split at hsl <;> simp_all <;> omega
           simp only at hk₁ hk₂
           simp only [e₁, e₂, Mem.write, hv hp]
           have hd : ∀ s : State, byteAddr s i k - byteAddr s i d = BitVec.ofNat 64 (k - d) := by
             intro s; simp only [byteAddr]; bv_omega
           have hlt : (BitVec.ofNat 64 (k - d)).toNat < n := by
-            rw [BitVec.toNat_ofNat]; exact lt_of_le_of_lt (Nat.mod_le _ _) (by omega)
+            rw [BitVec.toNat_ofNat]; exact Nat.lt_of_le_of_lt (Nat.mod_le _ _) (by omega)
           rw [hd, hd]; simp only [hlt, ite_true]
         · by_cases hp : p = true
           · exact same h hp

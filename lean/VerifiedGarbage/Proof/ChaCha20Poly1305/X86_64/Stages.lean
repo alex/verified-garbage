@@ -23,7 +23,7 @@ theorem sub_sub (s₀ : State) {a m k n : Nat} (h₁ : a ≤ k) (h₂ : k + n �
   have e : x - (cx s₀ + BitVec.ofNat 64 a) = (x - (cx s₀ + BitVec.ofNat 64 k)) + BitVec.ofNat 64 (k - a) := by
     rw [show k = a + (k - a) by omega, BitVec.ofNat_add]; bv_omega
   rw [e, BitVec.toNat_add, toNat_ofNat_lt (by omega)]
-  exact le_trans (Nat.add_le_add_right (Nat.mod_le _ _) _) (by omega)
+  exact Nat.le_trans (Nat.add_le_add_right (Nat.mod_le _ _) _) (by omega)
 
 theorem calleeSaved_rsp : Reg.rsp ∈ calleeSaved := by simp [calleeSaved]
 
@@ -85,7 +85,7 @@ theorem lengths_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) 
     State.store64, h.r15, o0, o1, ite_true, Option.some.injEq, exists_eq_left']
   have hf : Frame [sub s₀ 656 16] s.mem ((s.mem.writeW (off (cx s₀) 656) (s.gpr .rbp)).writeW
       (off (cx s₀) 664) (s.gpr .r13)) :=
-    (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ le_rfl (by omega) (by omega))
+    (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ (Nat.le_refl _) (by omega) (by omega))
       |>.writeW (List.mem_singleton_self _) _ (contains_sub s₀ (by omega) (by omega) (by omega))
   refine ⟨h.step (fun _ _ => rfl) rfl rfl hf (fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr; exact sub_work s₀ (by omega) (by omega))
@@ -282,10 +282,10 @@ theorem crypt_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s)
     rw [m₃]
     refine (f1.sub fun r hr => ?_).trans (f₂.sub fun r hr => ?_)
     · simp only [List.mem_singleton] at hr; subst hr
-      exact ⟨sub s₀ 64 384, by simp, sub_sub s₀ le_rfl (by omega) (by omega)⟩
+      exact ⟨sub s₀ 64 384, by simp, sub_sub s₀ (Nat.le_refl _) (by omega) (by omega)⟩
     · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl
-      · exact ⟨sub s₀ 64 384, by simp, sub_sub s₀ le_rfl (by omega) (by omega)⟩
+      · exact ⟨sub s₀ 64 384, by simp, sub_sub s₀ (Nat.le_refl _) (by omega) (by omega)⟩
       · exact ⟨dR s₀, by simp, fun _ h => h⟩
       · exact ⟨sub s₀ 64 384, by simp, sub_sub s₀ (by omega) (by omega) (by omega)⟩
       · exact ⟨stkR s₀, by simp, fun _ h => h⟩

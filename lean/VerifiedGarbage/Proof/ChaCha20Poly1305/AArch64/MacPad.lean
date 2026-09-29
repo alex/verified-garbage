@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.ChaCha20Poly1305.AArch64.Prologue
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # ChaCha20-Poly1305 on AArch64: absorbing padded data
@@ -34,7 +35,7 @@ theorem contains_off_sub {P : Addr} {a n len w : Nat} {x : Addr} (h : a + n ≤ 
   have : (x - P).toNat ≤ (x - (P + BitVec.ofNat 64 a)).toNat + a := by
     rw [show x - P = (x - (P + BitVec.ofNat 64 a)) + BitVec.ofNat 64 a by bv_omega,
       BitVec.toNat_add, BitVec.toNat_ofNat]
-    exact le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
+    exact Nat.le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
   omega
 
 theorem Src.cov_sub {s₀ : State} {P : Addr} {len : Nat} (hs : Src s₀ P len) {a n : Nat} (h : a + n ≤ len)
@@ -152,7 +153,7 @@ theorem padZ_ok {s₀ : State} (hp : APre s₀) {s : State} (hx21 : s.gpr .x21 =
     fun r h₁ h₂ => by rw [u₄.other _ h₂, g₃.gpr, g₂.gpr, u₁.other _ h₁],
     by rw [u₄.rd, g₃.rd, g₂.rd, u₁.rd], by rw [u₄.wr, g₃.wr, g₂.wr, u₁.wr], ?_, fun j hj => ?_⟩
   · rw [hm]
-    exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ le_rfl (by omega) (by omega))
+    exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_sub s₀ (Nat.le_refl _) (by omega) (by omega))
       |>.writeW (List.mem_singleton_self _) _ (contains_sub s₀ (by omega) (by omega) (by omega))
   · rw [hm, VG.Proof.Poly1305.writeW64_zero_apply, VG.Proof.Poly1305.writeW64_zero_apply]
     have e : ∀ d, d ≤ 576 + j → (off (cx s₀) (576 + j) - off (cx s₀) d).toNat = 576 + j - d := by

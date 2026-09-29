@@ -40,7 +40,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have hl₀ : LI s₀ s₁ 0 s₁ :=
     ⟨fun _ _ h => absurd h (by omega), fun _ _ _ h => absurd h (by omega), Frame.refl _ _, hrd₁,
       hwr₁, by rw [hg₁], by rw [hg₁], by rw [hg₁]⟩
-  refine WP.mono (wp_range_flatMap (LI s₀ s₁) (fun k s hk h => load_step hp hf₁ hk h) 16 le_rfl
+  refine WP.mono (wp_range_flatMap (LI s₀ s₁) (fun k s hk h => load_step hp hf₁ hk h) 16 (Nat.le_refl _)
     s₁ hl₀) fun s₂ hL => ?_
   have hri : RI (sp s₀) (V s₀) s₂ s₂ :=
     ⟨fun k hk => hL.regs k hk (by omega), fun k hk h12 => hL.slots k hk h12 hk, Frame.refl _ _,
@@ -55,7 +55,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
       Frame.refl _ _, hR.rd.trans hL.rd, hR.wr.trans hL.wr, hR.rsi, hR.rdi.trans hL.rdi,
       hR.rsp.trans hL.rsp⟩
   refine WP.mono (wp_range_flatMap (FI s₀ _ s₃)
-    (fun k s hk h => finish_step hp (fun k hk h12 => hR.slots k hk h12) hk h) 16 le_rfl s₃ hF₀)
+    (fun k s hk h => finish_step hp (fun k hk h12 => hR.slots k hk h12) hk h) 16 (Nat.le_refl _) s₃ hF₀)
     fun s₄ hF => ?_
   have hsaved : Saved s₀ s₄.mem := saved_frame hp (hm₁ ▸ saveMem_saved s₀) hsc hF.frame
   refine WP.mono (restore_ok hsaved hF.rsi (by rw [hF.wr]; exact hp.hs))

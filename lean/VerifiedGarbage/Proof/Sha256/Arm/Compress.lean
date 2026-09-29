@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Sha256.Arm.Rounds
 import VerifiedGarbage.Proof.Sha256.Arm.Contract
+import Mathlib.Tactic.IntervalCases
 
 /-!
 # SHA-256 compression function on ARMv7: the whole function
@@ -354,7 +355,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     (by rw [hwr₁, hL.wr]; exact hp.out_slot)
     (by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_tmp)
     (by rw [hwr₁, hL.wr]; exact hp.out_tmp)
-    (fun t ht => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_blk hi ht) hblk hv₁ 64 le_rfl)
+    (fun t ht => by rw [hrd₁, hwr₁, hL.rd, hL.wr]; exact hp.in_blk hi ht) hblk hv₁ 64 (Nat.le_refl _))
     fun s₂ hR => ?_)
   have hst : ∀ r' ∈ [workRegion (scr s₀)], (stR s₀).Disjoint r' := by
     simpa using Region.Disjoint.sub_right hp.st_scr (work_sub _)

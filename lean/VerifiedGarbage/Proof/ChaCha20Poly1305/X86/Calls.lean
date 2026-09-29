@@ -399,7 +399,7 @@ theorem xor_call {s₀ s : State} (hp : APre s₀) (h : At s₀ s) (heax : s.gpr
     have m3 : stkR s₀ ∈ [sub s₀ 64 384, dR s₀, stkR s₀] :=
       List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self ..))
     rcases hr with rfl | rfl | rfl | rfl | rfl
-    · exact ⟨_, m1, sub_sub s₀ le_rfl (by omega) (by omega)⟩
+    · exact ⟨_, m1, sub_sub s₀ (Nat.le_refl _) (by omega) (by omega)⟩
     · exact ⟨_, m2, fun _ h => h⟩
     · exact ⟨_, m1, sub_sub s₀ (by omega) (by omega) (by omega)⟩
     · exact ⟨stkR s₀, m3, below_sub (by omega) hp.sp_lo⟩

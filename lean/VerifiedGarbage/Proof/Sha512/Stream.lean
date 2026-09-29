@@ -1,12 +1,3 @@
-import Mathlib.Tactic.IntervalCases
-import Mathlib.Tactic.NormNum.Basic
-import Mathlib.Tactic.Ring.RingNF
-import Mathlib.Data.List.Basic
-import Mathlib.Tactic.Tauto
-import Mathlib.Tactic.SplitIfs
-import Mathlib.Tactic.Set
-import Mathlib.Tactic.Use
-import Mathlib.Tactic.ByContra
 import VerifiedGarbage.Spec.Sha512
 import VerifiedGarbage.Proof.Framework.Mem
 
@@ -55,7 +46,7 @@ theorem compressList_add (H : HashValue) (p : List Byte) (a b : Nat) :
     have : blockOf p (a + b) = blockOf (p.drop (128 * a)) b := by
       funext t
       simp only [blockOf, parseBlock, List.getD_eq_getElem?_getD, List.getElem?_drop]
-      ring_nf
+      simp only [Nat.mul_add, Nat.add_assoc]
     rw [this]
 
 theorem getD_append_left {p q : List Byte} {j : Nat} (h : j < p.length) :
@@ -268,7 +259,7 @@ theorem lenBytes_split (m : List Byte) (h : m.length < 2 ^ 64) :
   · apply BitVec.eq_of_toNat_eq
     simp only [BitVec.extractLsb'_toNat, BitVec.toNat_ushiftRight, BitVec.toNat_ofNat,
       Nat.shiftRight_eq_div_pow]
-    norm_num <;> omega
+    simp only [Nat.reducePow] <;> omega
 
 /-- The bytes after the whole blocks of `m`. -/
 abbrev rest (m : List Byte) : List Byte := m.drop (128 * (m.length / 128))
@@ -323,7 +314,7 @@ theorem hash_two {iv : HashValue} {m : List Byte} (hr : 112 ≤ m.length % 128) 
   have e : rest m ++ [0x80] ++ List.replicate ((239 - m.length % 128) % 128) 0 ++ lenBytes m =
       (rest m ++ [0x80] ++ List.replicate (127 - m.length % 128) 0) ++
         (List.replicate 112 0 ++ lenBytes m) := by
-    rw [show (239 - m.length % 128) % 128 = (127 - m.length % 128) + 112 by omega, List.replicate_add]
+    rw [show (239 - m.length % 128) % 128 = (127 - m.length % 128) + 112 by omega, ← List.replicate_append_replicate]
     simp only [List.append_assoc]
   have hl : (rest m ++ [0x80] ++ List.replicate (127 - m.length % 128) 0).length = 128 := by
     simp only [List.length_append, rest_length, List.length_replicate, List.length_singleton]; omega

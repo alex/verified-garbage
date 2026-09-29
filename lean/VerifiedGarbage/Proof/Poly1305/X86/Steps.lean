@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Framework.X86.Exec
 import VerifiedGarbage.Proof.Poly1305.X86.Arith
 import VerifiedGarbage.Impl.Poly1305.X86
+import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Poly1305 on x86 (32-bit): the steps of the code

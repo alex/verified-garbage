@@ -36,7 +36,7 @@ theorem sub_off (p : Addr) {a n len : Nat} (h : a + n ≤ len) :
   have : (x - p).toNat ≤ (x - (p + BitVec.ofNat 64 a)).toNat + a := by
     rw [show x - p = (x - (p + BitVec.ofNat 64 a)) + BitVec.ofNat 64 a by bv_omega,
       BitVec.toNat_add, BitVec.toNat_ofNat]
-    exact le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
+    exact Nat.le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
   omega
 
 /-- A Poly1305 state outside a frame is unchanged. -/

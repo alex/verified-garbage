@@ -88,7 +88,7 @@ impl<H: HmacHash> Hmac<H> {
     }
 
     /// The state of the computation.
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
     pub(crate) fn state(&self) -> &H::State {
         &self.state
     }
@@ -98,7 +98,7 @@ impl<H: HmacHash> Hmac<H> {
 /// primitives: the computation of the inner hash, whose message is
 /// `(K₀ ⊕ ipad) ‖ text`, and the streaming state of the outer one, which
 /// represents `K₀ ⊕ opad`.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[doc(hidden)]
 #[derive(Clone)]
 pub struct StreamingHmacState<H, const S: usize> {
@@ -113,7 +113,7 @@ pub struct StreamingHmacState<H, const S: usize> {
 /// `Instance`), given its streaming state size, the functions' working space
 /// (in 64-bit words) and its digest size. The text is absorbed by the hash's
 /// own `update`.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 macro_rules! streaming_hmac {
     (
         $hash:ident: ($init:path, $finalize:path),
@@ -177,5 +177,5 @@ macro_rules! streaming_hmac {
     };
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use streaming_hmac;

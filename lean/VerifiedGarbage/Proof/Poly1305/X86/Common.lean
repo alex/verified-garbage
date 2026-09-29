@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.X86.Reduce
 import VerifiedGarbage.Proof.Poly1305.Spec
+import Mathlib.Tactic.NormNum.Basic
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Poly1305 on x86 (32-bit): the state in memory, as the specification sees it
@@ -103,7 +105,7 @@ theorem land_split32 {a b c d : Nat} (ha : a < 2 ^ 32) (hc : c < 2 ^ 32) :
     (a + 2 ^ 32 * b) &&& (c + 2 ^ 32 * d) = (a &&& c) + 2 ^ 32 * (b &&& d) := by
   apply Nat.eq_of_testBit_eq
   intro i
-  have hac : (a &&& c) < 2 ^ 32 := lt_of_le_of_lt Nat.and_le_left ha
+  have hac : (a &&& c) < 2 ^ 32 := Nat.lt_of_le_of_lt Nat.and_le_left ha
   rw [Nat.testBit_and]
   rw [Nat.add_comm a, Nat.add_comm c, Nat.add_comm (a &&& c)]
   rw [Nat.testBit_two_pow_mul_add _ ha, Nat.testBit_two_pow_mul_add _ hc,
@@ -122,10 +124,10 @@ theorem clamp_words4 {k0 k1 k2 k3 : Nat} (h0 : k0 < 2 ^ 32) (h1 : k1 < 2 ^ 32) (
     land_split32 h0 (by norm_num), land_split32 h1 (by norm_num), land_split32 h2 (by norm_num), e]
 
 theorem mask0_lt (k : Nat) : k &&& 0x0fffffff < 2 ^ 28 :=
-  lt_of_le_of_lt Nat.and_le_right (by norm_num)
+  Nat.lt_of_le_of_lt Nat.and_le_right (by norm_num)
 
 theorem mask1_lt (k : Nat) : k &&& 0x0ffffffc < 2 ^ 28 :=
-  lt_of_le_of_lt Nat.and_le_right (by norm_num)
+  Nat.lt_of_le_of_lt Nat.and_le_right (by norm_num)
 
 theorem mask1_mod (k : Nat) : (k &&& 0x0ffffffc) % 4 = 0 := by
   rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.and_two_pow_sub_one_eq_mod, Nat.and_assoc,

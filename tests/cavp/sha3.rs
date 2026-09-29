@@ -3,7 +3,7 @@
 //! SHAKE128 and SHAKE256: the short and long messages, the variable output
 //! lengths, and the Monte Carlo test.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use super::{fields, unhex};
 

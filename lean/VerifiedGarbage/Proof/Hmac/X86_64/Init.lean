@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Contract
+import Mathlib.Tactic.Set
 
 /-!
 # HMAC-SHA-256 on x86-64: `init`
@@ -11,13 +12,13 @@ namespace VG.Proof.Hmac.X86_64.Init
 
 open VG VG.X86_64 VG.Impl.Hmac.X86_64
 open VG.Impl.Sha256.X86_64 (at_)
-open VG.Impl.Sha256.X86_64.Stream (save restore compressAt)
+open VG.Impl.Sha256.X86_64.Stream (Callee save restore compressAt)
 open VG.Proof.Hmac.X86_64
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame repr_congr repr_nil repr_append_block)
 open VG.Proof.Sha256.X86_64 (ea_at contains_offset contains_offset' toNat_ofNat_lt sub_offset ofInt_natCast
   writeState stateAt_writeState readW_writeW_save)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_mov32i wp_addi wp_cmp wp_cmpi wp_test wp_movzx8 wp_store8
-  compressAt_ok ofNat_succ sub_beq ofNat_beq_zero)
+  CallOk compressAt_ok compressAt_rel ofNat_succ sub_beq ofNat_beq_zero)
 open VG.Proof.Sha256.X86_64.Stream.Update (Saved saveMem saveMem_saved saveMem_frame)
 open VG.Spec.Sha256 (bytesAt stateAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
@@ -37,7 +38,7 @@ abbrev outR : Region := ⟨out s₀, 96⟩
 abbrev kR : Region := ⟨kp s₀, kl s₀⟩
 abbrev scR : Region := ⟨scr s₀, 160⟩
 abbrev retR : Region := ⟨s₀.gpr .rsp, 8⟩
-/-- Where the calls of `vg_sha256_compress` store their return address. -/
+/-- Where the calls of the compression function store their return address. -/
 abbrev stkR : Region := below (s₀.gpr .rsp) 8
 
 /-- The key, padded with zeros to a block. -/
@@ -496,7 +497,7 @@ theorem pad_loop_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Pad s₀ (kl
     WP isa padLoop s (Buf s₀ 64) := by
   rw [padLoop_eq]
   refine WP.loop (M := isa) (fun n s => ∃ j, n = 64 - j ∧ kl s₀ ≤ j ∧ j < 64 ∧ Pad s₀ j s) ?_ (64 - kl s₀) s
-    ⟨kl s₀, rfl, le_rfl, hk, h⟩
+    ⟨kl s₀, rfl, (Nat.le_refl _), hk, h⟩
   rintro n s ⟨j, rfl, hj, hj', hb⟩
   refine WP.mono (pad_step hp hj hj' hb) fun s' ⟨hb', hz⟩ => ?_
   by_cases hl : j + 1 = 64
@@ -532,16 +533,12 @@ theorem repr_block {m m' : Mem} {p : Addr} {xs : List Byte} (hst : stateAt m p =
     (by rw [hs, blockAt_eq hb]; simp)
   simpa using this
 
-/-- The inlined compression of the block in the buffer of the state at `p`
-(the inner or the outer one). -/
-theorem compress_ok {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s₀ ∨ p = out s₀) {s : State}
+/-- The call of the compression function on the state at `p` (the inner or
+the outer one) may be made. -/
+theorem callOk {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s₀ ∨ p = out s₀) {s : State}
     (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) (hbx : s.gpr .rbx = p) (h15 : s.gpr .r15 = scr s₀)
-    (hsi : s.gpr .rsi = p + 32) (hsp : s.gpr .rsp = s₀.gpr .rsp) {Q : State → Prop}
-    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
-      Frame [⟨p, 32⟩, ⟨scr s₀, 112⟩, stkR s₀] s.mem s'.mem →
-      stateAt s'.mem p = Spec.Sha256.compress (stateAt s.mem p) (Spec.Sha256.blockAt s.mem (p + 32)) →
-      Q s') :
-    WP isa (compressAt .scalar) s Q := by
+    (hsi : s.gpr .rsi = p + 32) (hsp : s.gpr .rsp = s₀.gpr .rsp) :
+    CallOk s p (scr s₀) (p + 32) := by
   have hs : Region.Disjoint ⟨p, 96⟩ (scR s₀) ∧ Region.Disjoint (stkR s₀) ⟨p, 96⟩ ∧ ⟨p, 96⟩ ∈ s₀.wr := by
     rcases hpR with rfl | rfl
     · exact ⟨hp.i_s, hp.stk_i, by simp [hp.wr]⟩
@@ -550,10 +547,9 @@ theorem compress_ok {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s�
   have e32 : Region.Sub ⟨p, 32⟩ ⟨p, 96⟩ := Region.sub_prefix (by omega)
   have eb : Region.Sub ⟨p + 32, 64⟩ ⟨p, 96⟩ := sub_offset (off := 32) (by omega) (by omega)
   have e112 : Region.Sub ⟨scr s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
-  refine compressAt_ok Proof.Sha256.X86_64.Stream.scalar_ok ⟨hbx, h15, hsi, (d.sub_left e32).sub_right e112, ?_,
+  refine ⟨hbx, h15, hsi, (d.sub_left e32).sub_right e112, ?_,
     (d.sub_left eb).sub_right e112, by rw [hsp]; exact dr.sub_right e32,
     by rw [hsp]; exact hp.stk_s.sub_right e112, by rw [hsp]; exact dr.sub_right eb, ?_, ?_⟩
-    fun s' hrd' hwr' hcs hf hst _ _ => hQ s' hrd' hwr' hcs (by rw [hsp] at hf; exact hf) hst
   · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
   · rw [hrd, hwr]
     apply Covers.of_sub
@@ -570,6 +566,20 @@ theorem compress_ok {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s�
     rcases hr with rfl | rfl
     · exact ⟨⟨p, 96⟩, hm, 0, by simp, by simp⟩
     · exact ⟨scR s₀, by simp [hp.wr], 0, by simp, by simp⟩
+
+/-- The compression of the block in the buffer of the state at `p`
+(the inner or the outer one), by the compression function `f`. -/
+theorem compress_ok {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {p : Addr}
+    (hpR : p = inn s₀ ∨ p = out s₀) {s : State}
+    (hrd : s.rd = s₀.rd) (hwr : s.wr = s₀.wr) (hbx : s.gpr .rbx = p) (h15 : s.gpr .r15 = scr s₀)
+    (hsi : s.gpr .rsi = p + 32) (hsp : s.gpr .rsp = s₀.gpr .rsp) {Q : State → Prop}
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
+      Frame [⟨p, 32⟩, ⟨scr s₀, 112⟩, stkR s₀] s.mem s'.mem →
+      stateAt s'.mem p = Spec.Sha256.compress (stateAt s.mem p) (Spec.Sha256.blockAt s.mem (p + 32)) →
+      Q s') :
+    WP isa (compressAt f) s Q :=
+  compressAt_ok hf (callOk hp hpR hrd hwr hbx h15 hsi hsp)
+    fun s' hrd' hwr' hcs hfr hst _ _ => hQ s' hrd' hwr' hcs (by rw [hsp] at hfr; exact hfr) hst
 
 /-- A state that a write outside it keeps. -/
 theorem state_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : Addr}
@@ -631,10 +641,13 @@ theorem buf_full {s₀ : State} (hp : Pre s₀) {m : Mem} (h : BufMem s₀ 64 m)
   rw [h.bufI, h.bufO, List.take_of_length_le (by rw [K0_length s₀ hp])]
   exact ⟨rfl, rfl⟩
 
-theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa init s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Hmac.initSha256X86_64.post s₀ s' := by
+/-- After `initKeys`: both buffers hold their key blocks, and `rsi` points
+at the inner one. -/
+def Keyed (s₀ s : State) : Prop := Buf s₀ 64 s ∧ s.gpr .rsi = inn s₀ + 32
+
+theorem keys_ok {s₀ : State} (hp : Pre s₀) : WP isa initKeys s₀ (Keyed s₀) := by
   have hkl := hp.kl_le
-  unfold init
+  unfold initKeys
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨h₁, z₁⟩ => ?_)
   -- The key.
   refine WP.seq (WP.mono (Q := Buf s₀ (kl s₀)) ?_ fun s₂ h₂ => ?_)
@@ -661,17 +674,24 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
       (fun hb => pad_loop_ok hp hP ?_)
     · simp only [decide_eq_true_eq] at hb; rw [← hb]; exact hP.toBuf
     · simp only [decide_eq_false_iff_not] at hb; omega
-  obtain ⟨bI, bO⟩ := buf_full hp h₆.mem
+  refine wp_mov fun s₇ u₇ _ _ => wp_addi fun s₈ u₈ => WP.block_nil ⟨?_, ?_⟩
+  · have k₈ : ∀ r, r ≠ .rsi → s₈.gpr r = s₆.gpr r := fun r h => by rw [u₈.other r h, u₇.other r h]
+    exact ⟨h₆.j_le, by rw [u₈.rd, u₇.rd, h₆.rd], by rw [u₈.wr, u₇.wr, h₆.wr],
+      by rw [k₈ _ (by decide), h₆.rbx], by rw [k₈ _ (by decide), h₆.r12], by rw [k₈ _ (by decide), h₆.r15],
+      by rw [k₈ _ (by decide), h₆.rbp], by rw [k₈ _ (by decide), h₆.r13], by rw [k₈ _ (by decide), h₆.r14],
+      by rw [k₈ _ (by decide), h₆.rsp], by rw [u₈.mem, u₇.mem]; exact h₆.mem⟩
+  · rw [u₈.gpr, u₇.gpr, h₆.rbx, sx32]
+
+theorem correct {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) :
+    WP isa (init f) s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Hmac.initSha256X86_64.post s₀ s' := by
+  unfold init
+  refine WP.seq (WP.mono (keys_ok hp) fun s₈ ⟨h₈, si₈⟩ => ?_)
+  obtain ⟨bI, bO⟩ := buf_full hp h₈.mem
   -- The inner block.
-  refine WP.seq (wp_mov fun s₇ u₇ _ _ => wp_addi fun s₈ u₈ => WP.block_nil ?_)
-  have k₈ : ∀ r, r ≠ .rsi → s₈.gpr r = s₆.gpr r := fun r h => by rw [u₈.other r h, u₇.other r h]
-  have m₈ : s₈.mem = s₆.mem := by rw [u₈.mem, u₇.mem]
-  refine WP.seq (compress_ok hp (.inl rfl) (by rw [u₈.rd, u₇.rd, h₆.rd]) (by rw [u₈.wr, u₇.wr, h₆.wr])
-    (by rw [k₈ _ (by decide), h₆.rbx]) (by rw [k₈ _ (by decide), h₆.r15])
-    (by rw [u₈.gpr, u₇.gpr, h₆.rbx, sx32]) (by rw [k₈ _ (by decide), h₆.rsp])
+  refine WP.seq (compress_ok hf hp (.inl rfl) h₈.rd h₈.wr h₈.rbx h₈.r15 si₈ h₈.rsp
     fun s₉ rd₉ wr₉ cs₉ fr₉ st₉ => ?_)
   have hI₉ : Repr s₉.mem (inn s₀) (xorPad (K0 s₀) ipad) :=
-    repr_block (by rw [m₈]; exact h₆.mem.stI) (by rw [m₈]; exact bI) (by simp [xorPad, K0_length s₀ hp]) st₉
+    repr_block h₈.mem.stI bI (by simp [xorPad, K0_length s₀ hp]) st₉
   have dO : ∀ r ∈ [(⟨inn s₀, 32⟩ : Region), ⟨scr s₀, 112⟩, stkR s₀], Region.Disjoint ⟨out s₀, 96⟩ r := by
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl)
@@ -680,14 +700,14 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     · exact hp.stk_o.symm
   obtain ⟨sO₉, bO₉⟩ := state_frame fr₉ dO
   have sv₉ : Saved s₀ s₉.mem := by
-    refine saved_frame' (by rw [m₈]; exact h₆.mem.saved) fr₉ ?_
+    refine saved_frame' h₈.mem.saved fr₉ ?_
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl)
     · exact (hp.i_s.symm.sub_left (save_sub s₀)).sub_right (sub32 _)
     · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
     · exact hp.stk_s.symm.sub_left (save_sub s₀)
   have f₉ : Frame [inR s₀, outR s₀, scR s₀, stkR s₀] s₀.mem s₉.mem := by
-    refine Frame.trans (Frame.mono (m₈ ▸ h₆.mem.frame) (by simp)) (fr₉.sub ?_)
+    refine Frame.trans (Frame.mono h₈.mem.frame (by simp)) (fr₉.sub ?_)
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl)
     · exact ⟨inR s₀, by simp, sub32 _⟩
@@ -698,18 +718,18 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have k₁₂ : ∀ r, r ≠ .rsi → r ≠ .rbx → s₁₂.gpr r = s₉.gpr r := fun r h h' => by
     rw [u₁₂.other r h, u₁₁.other r h, u₁₀.other r h']
   have m₁₂ : s₁₂.mem = s₉.mem := by rw [u₁₂.mem, u₁₁.mem, u₁₀.mem]
-  have r12₉ : s₉.gpr .r12 = out s₀ := by rw [cs₉ _ (by decide), k₈ _ (by decide), h₆.r12]
-  have r15₉ : s₉.gpr .r15 = scr s₀ := by rw [cs₉ _ (by decide), k₈ _ (by decide), h₆.r15]
-  have rsp₉ : s₉.gpr .rsp = s₀.gpr .rsp := by rw [cs₉ _ (by decide), k₈ _ (by decide), h₆.rsp]
-  refine WP.seq (compress_ok hp (.inr rfl) (by rw [u₁₂.rd, u₁₁.rd, u₁₀.rd, rd₉, u₈.rd, u₇.rd, h₆.rd])
-    (by rw [u₁₂.wr, u₁₁.wr, u₁₀.wr, wr₉, u₈.wr, u₇.wr, h₆.wr])
+  have r12₉ : s₉.gpr .r12 = out s₀ := by rw [cs₉ _ (by decide), h₈.r12]
+  have r15₉ : s₉.gpr .r15 = scr s₀ := by rw [cs₉ _ (by decide), h₈.r15]
+  have rsp₉ : s₉.gpr .rsp = s₀.gpr .rsp := by rw [cs₉ _ (by decide), h₈.rsp]
+  refine WP.seq (compress_ok hf hp (.inr rfl) (by rw [u₁₂.rd, u₁₁.rd, u₁₀.rd, rd₉, h₈.rd])
+    (by rw [u₁₂.wr, u₁₁.wr, u₁₀.wr, wr₉, h₈.wr])
     (by rw [u₁₂.other _ (by decide), u₁₁.other _ (by decide), u₁₀.gpr, r12₉])
     (by rw [k₁₂ _ (by decide) (by decide), r15₉])
     (by rw [u₁₂.gpr, u₁₁.gpr, u₁₀.other _ (by decide), r12₉, sx32])
     (by rw [k₁₂ _ (by decide) (by decide), rsp₉])
     fun s₁₃ rd₁₃ wr₁₃ cs₁₃ fr₁₃ st₁₃ => ?_)
   have hO : Repr s₁₃.mem (out s₀) (xorPad (K0 s₀) opad) :=
-    repr_block (by rw [m₁₂, sO₉, m₈]; exact h₆.mem.stO) (by rw [m₁₂, bO₉, m₈]; exact bO)
+    repr_block (by rw [m₁₂, sO₉]; exact h₈.mem.stO) (by rw [m₁₂, bO₉]; exact bO)
       (by simp [xorPad, K0_length s₀ hp]) st₁₃
   have hI : Repr s₁₃.mem (inn s₀) (xorPad (K0 s₀) ipad) := by
     refine repr_congr (fun i hi => fr₁₃.bytes (R := inR s₀) ?_ (by simp) hi) (m₁₂ ▸ hI₉)
@@ -718,7 +738,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     · exact hp.i_o.sub_right (sub32 _)
     · exact hp.i_s.sub_right (Region.sub_prefix (by omega))
     · exact hp.stk_i.symm
-  refine epilogue_ok hp (by rw [wr₁₃, u₁₂.wr, u₁₁.wr, u₁₀.wr, wr₉, u₈.wr, u₇.wr, h₆.wr])
+  refine epilogue_ok hp (by rw [wr₁₃, u₁₂.wr, u₁₁.wr, u₁₀.wr, wr₉, h₈.wr])
     (by rw [cs₁₃ _ (by decide), k₁₂ _ (by decide) (by decide), r15₉])
     (by rw [cs₁₃ _ (by decide), k₁₂ _ (by decide) (by decide), rsp₉]) ?_ ?_ hI hO
   · refine saved_frame' (by rw [m₁₂]; exact sv₉) fr₁₃ ?_
@@ -734,31 +754,109 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     · exact ⟨scR s₀, by simp, Region.sub_prefix (by omega)⟩
     · exact ⟨stkR s₀, by simp, fun _ h => h⟩
 
-/-! ## `Verified` -/
+/-! ## Constant time
 
-/-- The initial taint: the arguments are public, and `rdi`, `rsi` and `r8`
-point at the writable regions. -/
-def τ₀ : X86_64.Taint.T :=
-  { regs := .ofList [.rdi, .rsi, .rdx, .rcx, .r8, .rsp], flags := false, lens := [96, 96, 160],
-    bases := [(.rdi, 0, 0), (.rsi, 1, 0), (.r8, 2, 0)] }
+This holds for any compression function `f` (`Callee.Ok`), so it is proven
+once for every implementation, by relating two runs (`RelCT`), as for the
+streaming SHA-256 functions: correctness determines the registers each piece
+between the calls uses from the public arguments alone, the taint analysis
+proves each such piece constant time, and the calls are constant time by
+`compressAt_rel`. -/
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.initSha256X86_64.pre s₁)
-    (h₂ : Proof.Hmac.initSha256X86_64.pre s₂) (hpub : Proof.Hmac.initSha256X86_64.pub s₁ s₂) :
-    X86_64.Taint.Agree τ₀ s₁ s₂ := by
-  obtain ⟨p1, p2, p3, p4, p5, p6⟩ := hpub
-  have wf : ∀ s, Proof.Hmac.initSha256X86_64.pre s → X86_64.Taint.Wf τ₀ s := by
-    intro s hs
-    obtain ⟨-, -, hw, d1, d2, d3, -⟩ := hs
-    refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, d1, d2, d3], by simp [hw]⟩, fun p hp => ?_⟩
-    simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]
-  refine ⟨⟨fun r hr => ?_, fun h => by cases h⟩, fun _ => ?_, wf _ h₁, wf _ h₂, ?_, ?_,
-    X86_64.Taint.noLo⟩
-  · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> assumption
-  · rw [h₁.2.2.1, h₂.2.2.1, p1, p2, p5]
-  · intro sl h; simp [τ₀] at h
-  · intro sl h; simp [τ₀] at h
+/-- The registers that hold public values across the calls. -/
+structure KR (s₀ s : State) : Prop where
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
+  r12 : s.gpr .r12 = out s₀
+  r15 : s.gpr .r15 = scr s₀
+  rsp : s.gpr .rsp = s₀.gpr .rsp
+
+/-- Before the compression of the state at `p`. -/
+def At (s₀ : State) (p : Addr) (s : State) : Prop := KR s₀ s ∧ s.gpr .rbx = p ∧ s.gpr .rsi = p + 32
+
+/-- The public arguments are the same. -/
+structure PubEq (s₀ s₀' : State) : Prop where
+  rdi : s₀.gpr .rdi = s₀'.gpr .rdi
+  rsi : s₀.gpr .rsi = s₀'.gpr .rsi
+  rdx : s₀.gpr .rdx = s₀'.gpr .rdx
+  rcx : s₀.gpr .rcx = s₀'.gpr .rcx
+  r8 : s₀.gpr .r8 = s₀'.gpr .r8
+  rsp : s₀.gpr .rsp = s₀'.gpr .rsp
+
+theorem keyed_at {s₀ s : State} (h : Keyed s₀ s) : At s₀ (inn s₀) s :=
+  ⟨⟨h.1.rd, h.1.wr, h.1.r12, h.1.r15, h.1.rsp⟩, h.1.rbx, h.2⟩
+
+theorem cmp_kr {f : Callee} (hf : f.Ok) {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s₀ ∨ p = out s₀)
+    {s : State} (h : At s₀ p s) : WP isa (compressAt f) s (KR s₀) :=
+  compress_ok hf hp hpR h.1.rd h.1.wr h.2.1 h.1.r15 h.2.2 h.1.rsp fun _ rd wr cs _ _ =>
+    ⟨rd.trans h.1.rd, wr.trans h.1.wr, (cs _ (by decide)).trans h.1.r12, (cs _ (by decide)).trans h.1.r15,
+      (cs _ (by decide)).trans h.1.rsp⟩
+
+/-- Setting up the outer compression. -/
+theorem mid_ok {s₀ s : State} (h : KR s₀ s) :
+    WP isa (.block [.mov .rbx (.reg .r12), .mov .rsi (.reg .r12), .alu .add .rsi (.imm 32)]) s
+      (At s₀ (out s₀)) :=
+  wp_mov fun s₁ u₁ _ _ => wp_mov fun s₂ u₂ _ _ => wp_addi fun s₃ u₃ => WP.block_nil
+    ⟨⟨by rw [u₃.rd, u₂.rd, u₁.rd, h.rd], by rw [u₃.wr, u₂.wr, u₁.wr, h.wr],
+      by rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), h.r12],
+      by rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), h.r15],
+      by rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), h.rsp]⟩,
+      by rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.gpr, h.r12],
+      by rw [u₃.gpr, u₂.gpr, u₁.other _ (by decide), h.r12, sx32]⟩
+
+section
+variable {f : Callee} (hf : f.Ok) {s₀ s₀' : State} (hp : Pre s₀) (hp' : Pre s₀')
+  (hq : PubEq s₀ s₀')
+include hf hp hp' hq
+
+/-- The compression of the state at `p`, the same in both runs. -/
+theorem cmp_rel {p : Addr} (hpR : p = inn s₀ ∨ p = out s₀) :
+    RelCT isa (fun s s' => At s₀ p s ∧ At s₀' p s') (compressAt f) fun s s' => KR s₀ s ∧ KR s₀' s' := by
+  have hpR' : p = inn s₀' ∨ p = out s₀' := by
+    show p = s₀'.gpr .rdi ∨ p = s₀'.gpr .rsi; rw [← hq.rdi, ← hq.rsi]; exact hpR
+  exact ((compressAt_rel hf fun s s' ⟨⟨k, bx, si⟩, ⟨k', bx', si'⟩⟩ =>
+      ⟨⟨_, _, _, callOk hp hpR k.rd k.wr bx k.r15 si k.rsp⟩,
+        ⟨_, _, _, callOk hp' hpR' k'.rd k'.wr bx' k'.r15 si' k'.rsp⟩,
+        by rw [bx, bx'], by rw [k.r15, k'.r15]; exact hq.r8, by rw [si, si'],
+        by rw [k.rsp, k'.rsp]; exact hq.rsp⟩).wp
+    fun _ _ h => ⟨cmp_kr hf hp hpR h.1, cmp_kr hf hp' hpR' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
+
+theorem init_rel : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') (init f) fun _ _ => True := by
+  have keys : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') initKeys
+      fun s s' => At s₀ (inn s₀) s ∧ At s₀' (inn s₀) s' :=
+    ((RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx, .r8, .rsp])
+      (P := fun s s' => s = s₀ ∧ s' = s₀') (fun _ _ ⟨e, e'⟩ => Taint.agree_ofRegs fun r hr => by
+        rw [e, e']
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | rfl | rfl | rfl | rfl | rfl
+        · exact hq.rdi
+        · exact hq.rsi
+        · exact hq.rdx
+        · exact hq.rcx
+        · exact hq.r8
+        · exact hq.rsp) (c := initKeys) (by taint_decide)).wp
+      fun _ _ ⟨e, e'⟩ => by rw [e, e']; exact ⟨keys_ok hp, keys_ok hp'⟩).mono (fun _ _ h => h)
+      fun _ _ h => ⟨keyed_at h.2.1, by rw [show inn s₀ = inn s₀' from hq.rdi]; exact keyed_at h.2.2⟩
+  have agree : ∀ s s', KR s₀ s → KR s₀' s' → ∀ r ∈ [Reg.r12, .r15, .rsp], s.gpr r = s'.gpr r := by
+    intro s s' h h' r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl
+    · rw [h.r12, h'.r12]; exact hq.rsi
+    · rw [h.r15, h'.r15]; exact hq.r8
+    · rw [h.rsp, h'.rsp]; exact hq.rsp
+  have mid : RelCT isa (fun s s' => KR s₀ s ∧ KR s₀' s')
+      (.block [.mov .rbx (.reg .r12), .mov .rsi (.reg .r12), .alu .add .rsi (.imm 32)])
+      fun s s' => At s₀ (out s₀) s ∧ At s₀' (out s₀) s' :=
+    ((RelCT.taint (A := taint) (Taint.ofRegs [.r12, .r15, .rsp])
+      (fun _ _ h => Taint.agree_ofRegs (agree _ _ h.1 h.2)) (by taint_decide)).wp
+      fun _ _ h => ⟨mid_ok h.1, mid_ok h.2⟩).mono (fun _ _ h => h)
+      fun _ _ h => ⟨h.2.1, by rw [show out s₀ = out s₀' from hq.rsi]; exact h.2.2⟩
+  have epi : RelCT isa (fun s s' => KR s₀ s ∧ KR s₀' s') (.block restore) fun _ _ => True :=
+    RelCT.taint (A := taint) (Taint.ofRegs [.r12, .r15, .rsp])
+      (fun _ _ h => Taint.agree_ofRegs (agree _ _ h.1 h.2)) (by taint_decide)
+  exact keys.seq ((cmp_rel hf hp hp' hq (.inl rfl)).seq (mid.seq ((cmp_rel hf hp hp' hq (.inr rfl)).seq epi)))
+
+end
 
 /-- A state satisfying the precondition (with an empty key). -/
 def sat : State where
@@ -772,11 +870,13 @@ def sat : State where
   rd := [⟨0x3000, 0⟩]
   wr := [⟨0x1000, 96⟩, ⟨0x2000, 96⟩, ⟨0x4000, 160⟩]
 
-theorem init_verified : Verified X86_64.target init Proof.Hmac.initSha256X86_64 := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+theorem verified_of {f : Callee} (hf : f.Ok) (hm : (init f).allInstrs (fun i => !loadsMxcsr i) = true) :
+    Verified X86_64.target (init f) Proof.Hmac.initSha256X86_64 := by
+  refine ⟨fun s hs => ?_, fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂ => ?_, ?_⟩
+  · obtain ⟨t, s', he, h⟩ := correct hf (pre_of hs)
+    exact ⟨t, s', he, abiPreserved_of_exec hm he h.1, h.2⟩
+  · obtain ⟨p1, p2, p3, p4, p5, p6⟩ := hpub
+    exact (init_rel hf (pre_of h₁) (pre_of h₂) ⟨p1, p2, p3, p4, p5, p6⟩ _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
   · refine ⟨sat, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · intro a h₁ h₂
       simp only [Region.Contains, sat] at h₁ h₂

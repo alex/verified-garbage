@@ -173,7 +173,7 @@ def SaveInv (s₀ : State) (k : Nat) (s : State) : Prop :=
 theorem saves_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block ((List.range 6).flatMap fun k =>
       [.store (at_ .r9 (512 + 8 * k)) ((saved.getD k (.rax, 0)).1)])) s₀ (SaveInv s₀ 6) := by
-  refine wp_range_flatMap (M := isa) (SaveInv s₀) (fun k s hk ⟨hg, hrd, hwr, hf, hv⟩ => ?_) 6 le_rfl s₀
+  refine wp_range_flatMap (M := isa) (SaveInv s₀) (fun k s hk ⟨hg, hrd, hwr, hf, hv⟩ => ?_) 6 (Nat.le_refl _) s₀
     ⟨rfl, rfl, rfl, Frame.refl _ _, fun _ h => absurd h (by omega)⟩
   refine wp_store (a := scr s₀ + BitVec.ofNat 64 (512 + 8 * k)) (by rw [ea_at, hg])
     ⟨scR s₀, by simp [hwr, hp.wr], contains_offset (by omega) (by omega)⟩ fun s' g' m' r' w' => wp_nil ?_
@@ -405,7 +405,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
   refine wp_mov fun s₁ u₁ => ?_
   rw [restore_eq]
   refine WP.mono (wp_range_flatMap (M := isa) (ResInv s₀ s₁) (fun k s' hk ⟨r15, ax, sp, m, rd, wr, v⟩ => ?_)
-    6 le_rfl s₁ ⟨fun _ => by rw [u₁.other _ (by decide), hI.r15], rfl, by rw [u₁.other _ (by decide), hI.rsp],
+    6 (Nat.le_refl _) s₁ ⟨fun _ => by rw [u₁.other _ (by decide), hI.r15], rfl, by rw [u₁.other _ (by decide), hI.rsp],
       rfl, rfl, rfl, fun _ h => absurd h (by omega)⟩) fun s' ⟨_, ax, sp, m, _, _, v⟩ => ?_
   · refine wp_movm (a := scr s₀ + BitVec.ofNat 64 (512 + 8 * k)) (by rw [ea_at, r15 hk])
       ⟨scR s₀, by simp [rd, wr, u₁.rd, u₁.wr, hI.wr, hp.wr], contains_offset (by omega) (by omega)⟩

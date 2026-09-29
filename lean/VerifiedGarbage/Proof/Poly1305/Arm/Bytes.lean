@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Poly1305.Spec
 import VerifiedGarbage.Proof.Poly1305.Arm.Setup
+import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Poly1305 on 32-bit ARM: bytes and words in memory
