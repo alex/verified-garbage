@@ -151,7 +151,7 @@ theorem copy_ok {src dst : Reg} (hs : src ∉ cclob) (hd : dst ∉ cclob)
   · have hl : (bytesAt s.mem A k).length = k := bytesAt_length _ _ _
     have v : (t₃.gpr .r12).setWidth 8 = s.mem (A + BitVec.ofNat 64 k) := by
       rw [u₃.other _ (by decide), u₂.gpr, u₁.mem, h.mem]
-      simp only [writeBytes, hl, not_mem_of_disjoint hsep hk (le_of_lt hk) (by omega), ↓reduceIte]
+      simp only [writeBytes, hl, not_mem_of_disjoint hsep hk (Nat.le_of_lt hk) (by omega), ↓reduceIte]
       ext i hi; simp
     have e' := writeBytes_snoc s.mem B (bytesAt s.mem A k) (s.mem (A + BitVec.ofNat 64 k))
       (by rw [hl]; omega)
@@ -200,7 +200,7 @@ theorem xor_ok {uo n : Nat} (huo : uo < 4096) (hn : 0 < n) (hn' : n < 2 ^ 16) {s
   have hl' : (Spec.Pbkdf2.xorBytes (bytesAt s.mem T k) (bytesAt s.mem U k)).length = k := by
     rw [xorBytes_length' _ _ (by simp [bytesAt_length]), hl]
   have rU : t.mem (U + BitVec.ofNat 64 k) = s.mem (U + BitVec.ofNat 64 k) := by
-    rw [h.mem]; simp only [writeBytes, hl', not_mem_of_disjoint hsep hk (le_of_lt hk) (by omega), ↓reduceIte]
+    rw [h.mem]; simp only [writeBytes, hl', not_mem_of_disjoint hsep hk (Nat.le_of_lt hk) (by omega), ↓reduceIte]
   have rT : t.mem (T + BitVec.ofNat 64 k) = s.mem (T + BitVec.ofNat 64 k) := by
     rw [h.mem]
     simp only [writeBytes, hl', show T + BitVec.ofNat 64 k - T = BitVec.ofNat 64 k by bv_omega,
