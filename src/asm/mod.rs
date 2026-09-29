@@ -13,10 +13,10 @@ pub(crate) mod aarch64;
 #[rustfmt::skip]
 pub(crate) mod arm;
 
-#[cfg(target_arch = "x86_64")]
-#[rustfmt::skip]
-pub(crate) mod x86_64;
-
 #[cfg(target_arch = "x86")]
 #[rustfmt::skip]
 pub(crate) mod x86;
+
+#[cfg(target_arch = "x86_64")]
+#[rustfmt::skip]
+pub(crate) mod x86_64;
