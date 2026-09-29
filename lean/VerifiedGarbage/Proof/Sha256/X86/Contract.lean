@@ -91,8 +91,8 @@ The code may read the arguments (24 bytes above the return address) and
 (160 bytes, whose contents on exit are unspecified). The writable buffers
 may not overlap each other, the data or the arguments; none of them may
 overlap the return address or the 20 bytes of stack below it; and nothing
-may wrap around the end of the (32-bit) address space. `esp`, the pointers, `count` and `len` are public; the state
-and the data are secret. -/
+may wrap around the end of the (32-bit) address space. `esp`, the pointers,
+`count` and `len` are public; the state and the data are secret. -/
 def updateX86 : Contract X86.isa where
   pre s :=
     let state : Region := ⟨(arg s 0).setWidth 64, 96⟩
@@ -126,10 +126,10 @@ The code may read and write the arguments (20 bytes above the return
 address, whose contents on exit are unspecified), `state` (96 bytes, whose
 contents on exit are unspecified), `out` (32 bytes) and `scratch` (160
 bytes, whose contents on exit are unspecified). These may not overlap each
-other or the return address, and nothing may wrap around the end of the
-(32-bit) address space, and none but the arguments may overlap the 20 bytes
-of stack below the return address. `esp`, the pointers and `count` are
-public; the state is secret. -/
+other or the return address; none of the buffers may overlap the 20 bytes
+of stack below the return address; and nothing may wrap around the end of
+the (32-bit) address space. `esp`, the pointers and `count` are public; the
+state is secret. -/
 def finalizeX86 : Contract X86.isa where
   pre s :=
     let state : Region := ⟨(arg s 0).setWidth 64, 96⟩
