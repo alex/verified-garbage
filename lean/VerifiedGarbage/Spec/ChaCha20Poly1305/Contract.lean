@@ -83,6 +83,7 @@ def sealApi : Api where
   module := "chacha20poly1305"
   name := "vg_chacha20_poly1305_seal"
   sig := sealSig
+  writeArgs := true
   summary := "ChaCha20-Poly1305 encryption (RFC 8439 §2.8): with the key in bytes 0–31 of `*ctx` \
     and the nonce in bytes 32–43, encrypts the `len` bytes at `data` in place and writes the tag \
     of the ciphertext and the `aad_len` bytes of additional data at `aad` to bytes 48–63 of \
@@ -99,6 +100,7 @@ def openApi : Api where
   module := "chacha20poly1305"
   name := "vg_chacha20_poly1305_open"
   sig := openSig
+  writeArgs := true
   summary := "ChaCha20-Poly1305 decryption (RFC 8439 §2.8): with the key in bytes 0–31 of `*ctx`, \
     the nonce in bytes 32–43 and the received tag in bytes 48–63, returns 1 if the tag is that of \
     the `len` bytes of ciphertext at `data` and the `aad_len` bytes of additional data at `aad`, \
