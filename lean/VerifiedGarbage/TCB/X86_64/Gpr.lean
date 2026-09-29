@@ -5,7 +5,8 @@ import VerifiedGarbage.TCB.X86_64.State
 
 **Trusted.** The semantics of the general-purpose (integer) instructions of
 the x86-64 model in `TCB/X86_64/Isa.lean`: source operands, the ALU
-operations and their flags, shifts, rotates, byte swaps and `mul`.
+operations and their flags, shifts, rotates (including BMI2's `rorx`), BMI1's
+`andn`, byte swaps and `mul`.
 -/
 
 namespace VG.X86_64
@@ -121,6 +122,23 @@ def execShift32 (op : ShiftOp) (dst : Reg) (n : Nat) (s : State) : Option State 
       some ((s.setFlags (some (a.getLsbD (n - 1))) (if n = 1 then some a.msb else none)
         (some (r == 0)) (some r.msb)).setReg32 dst r)
   else none
+
+/-- SDM Vol. 2, "RORX—Rotate Right Logical Without Affecting Flags", for a
+32-bit operand: `y := imm8 AND 1FH; DEST := (SRC >> y) | (SRC << (32 - y))`,
+zero-extended (SDM Vol. 1 §3.4.1.1); "This instruction does not update any
+flags." Only counts `1 ≤ n ≤ 31` are modelled (so the masked count is `n`);
+other counts fault. -/
+def execRorx32 (dst src : Reg) (n : Nat) (s : State) : Option State :=
+  if 1 ≤ n ∧ n ≤ 31 then some (s.setReg32 dst (((s.gpr src).setWidth 32).rotateRight n))
+  else none
+
+/-- SDM Vol. 2, "ANDN—Logical AND NOT", for 32-bit operands: `DEST := (NOT
+SRC1) bitwiseAND SRC2`, zero-extended (SDM Vol. 1 §3.4.1.1); "SF and ZF
+flags are updated based on result. OF and CF flags are cleared. AF and PF
+flags are undefined." (AF and PF are not modelled.) -/
+def execAndn32 (dst src1 src2 : Reg) (s : State) : State :=
+  let r := ~~~((s.gpr src1).setWidth 32) &&& (s.gpr src2).setWidth 32
+  (arithFlags s r false false).setReg32 dst r
 
 /-- SDM Vol. 2, "BSWAP": `DEST[7:0] := TEMP[31:24]; DEST[15:8] := TEMP[23:16];
 DEST[23:16] := TEMP[15:8]; DEST[31:24] := TEMP[7:0]` for a 32-bit operand
