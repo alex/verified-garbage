@@ -48,7 +48,9 @@ trustworthy. Read `lean/README.md` first.
   with its `family`; any PR
   that adds or removes support for an algorithm on an architecture, or
   optimizes an implementation, reruns the script in the same PR (and after
-  merging main, rather than resolving a conflict in the table by hand).
+  merging main, rather than resolving a conflict in the table by hand). The
+  tables put each architecture's cell on a line of its own, so PRs that
+  change different cells merge without conflicts.
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
 * On x86-64, `pmuludq` and `vpmuludq` may only take secret operands between
@@ -109,8 +111,19 @@ should add files, not edit lists that every other PR edits too.
   inner `#![cfg(...)]` after its `//!` docs; the parent only says
   `mod <name>;`. Supporting another architecture changes that one line of
   the algorithm's own file.
+* Import the verified functions from `crate::arch::<module>` (the target's
+  `crate::asm::<target>::<module>`, `src/lib.rs`), once for every
+  architecture, not with a `use` per architecture; only functions a target
+  alone has (e.g. an x86-64 `_shani` variant) take a `#[cfg(target_arch)]`.
 * Tests of one algorithm go in a file of their own (`tests/cavp/<alg>.rs`,
   `tests/wycheproof/<alg>.rs`), declared with one `mod` line.
+* A construction over many hash functions (HMAC, PBKDF2) gets a file per
+  hash everywhere: its `Api`s' `module` is `<family>_<hash>` (so
+  `src/asm/<target>/hmac_sha256.rs`), its registration files are
+  `Artifacts/<Family><Hash>/<Target>.lean`, its Rust implementation is
+  `src/<family>/<hash>.rs` (the generic code stays in `src/<family>/mod.rs`),
+  and its tests, benchmarks and `docs/algorithms/` row are
+  `<family>_<hash>.rs` and `<family>-<hash>.toml`.
 
 ## Keeping proofs fast
 
