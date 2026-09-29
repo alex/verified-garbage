@@ -39,7 +39,11 @@ BEGIN = "<!-- BEGIN ci/algorithms_table.py: edit docs/algorithms/, then run it -
 END = "<!-- END ci/algorithms_table.py -->\n"
 
 # The architectures, in table order: Rust's name and the table's.
-ARCHES = {"x86_64": "x86-64", "aarch64": "ARM64", "arm": "ARMv7", "x86": "x86"}
+ARCHES = {"x86_64": "x86-64", "aarch64": "ARM64", "arm": "ARMv7", "x86": "x86", "powerpc64": "PPC64LE"}
+
+# The directory of an architecture's generated modules, src/asm/<dir>/, where
+# it is not the architecture's name (the verified code is little-endian only).
+ASM_DIRS = {"powerpc64": "powerpc64le"}
 
 # The families, in README order: each has its own table, under a heading.
 FAMILIES = ["Hashes", "MACs", "Ciphers", "AEADs", "KDFs", "KEMs", "Key agreement", "Signatures"]
@@ -90,7 +94,7 @@ def optimized(row, arch):
     """The CPU features and notes of `row`'s optimizations on `arch`."""
     features = []
     for asm in row["asm"]:
-        path = ROOT / "src" / "asm" / arch / f"{asm}.rs"
+        path = ROOT / "src" / "asm" / ASM_DIRS.get(arch, arch) / f"{asm}.rs"
         if path.is_file():
             for m in FEATURE_CONST.finditer(path.read_text()):
                 features += re.findall(r'"([^"]+)"', m[1])
