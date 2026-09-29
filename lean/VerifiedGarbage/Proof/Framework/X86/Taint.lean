@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Framework.Taint
 import VerifiedGarbage.Proof.Framework.RegSet
+import VerifiedGarbage.Proof.Framework.KernelList
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.X86.Exec
 import VerifiedGarbage.TCB.X86.Target
@@ -2229,6 +2230,198 @@ theorem push_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
   · rw [argByte_move hE₁, argByte_move hE₂, hk₁ _ (.inr ⟨t, ht, rfl⟩), hk₂ _ (.inr ⟨t, ht, rfl⟩)]
     exact ha.argMem t h4 ht
 
+/-! ## Evaluation by the kernel
+
+The kernel evaluates `step` and `le` for every instruction and every hint of
+a check (`VG.Taint.check`). `stepK` and `leK` are the same functions written
+with the functions of `VG.KList`, which the kernel evaluates several times
+faster. -/
+
+open VG.KList (any all filter find? map append)
+
+/-- `a == b`, by the registers' indices. -/
+def regEq (a b : Reg) : Bool := Nat.beq a.ctorIdx b.ctorIdx
+
+theorem regEq_eq (a b : Reg) : regEq a b = (a == b) := by
+  rw [regEq, KList.beq_eq, Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq]
+  exact ⟨fun h => RegIdx.idx_inj h, fun h => h ▸ rfl⟩
+
+def killK (τ : T) (d : Reg) : List (Reg × Nat × Nat) := filter (fun p => !regEq p.1 d) τ.bases
+
+def addrOfK (τ : T) (m : MemOp) : Option (Nat × Nat) :=
+  (find? (fun p => regEq p.1 m.base && Nat.ble p.2.2 m.disp) τ.bases).map
+    fun p => (p.2.1, m.disp - p.2.2)
+
+def slotPubK (τ : T) (m : MemOp) (w : Nat) : Bool :=
+  match addrOfK τ m with
+  | some (i, d) =>
+    any τ.slots fun sl => Nat.beq sl.1 i && Nat.ble sl.2.1 d && Nat.ble (d + w) (sl.2.1 + sl.2.2)
+  | none => false
+
+def argPubK (τ : T) (m : MemOp) (w : Nat) : Bool :=
+  regEq m.base .esp && Nat.ble (depth τ.stk + 4) m.disp &&
+    Nat.ble (m.disp + w) (depth τ.stk + τ.argLen)
+
+def srcOkK (τ : T) : Src → Bool
+  | .mem m => pub τ m.base
+  | _ => true
+
+def loadPubK (τ : T) : Src → Bool
+  | .mem m => slotPubK τ m 4 || argPubK τ m 4
+  | _ => false
+
+def loadBasesK (τ : T) (m : MemOp) : List Nat :=
+  append
+    (match addrOfK τ m with
+      | some (j, o) => map (·.2.2) (filter (fun p => Nat.beq p.1 j && Nat.beq p.2.1 o) τ.wbases)
+      | none => [])
+    (bif regEq m.base .esp then
+      map (·.2) (filter (fun p => Nat.beq (depth τ.stk + p.1) m.disp) τ.argBases)
+    else [])
+
+def movBasesK (τ : T) (d : Reg) : Src → List (Reg × Nat × Nat)
+  | .reg r => append (killK τ d) (map (fun p => (d, p.2)) (filter (fun p => regEq p.1 r) τ.bases))
+  | .mem m => append (killK τ d) (map (fun i => (d, i, 0)) (loadBasesK τ m))
+  | .imm _ => killK τ d
+
+def regBasesK (τ : T) (r : Reg) : List Nat :=
+  map (·.2.1) (filter (fun p => regEq p.1 r && Nat.beq p.2.2 0) τ.bases)
+
+def storeSlotsK (τ : T) (m : MemOp) (w : Nat) (p : Bool) : List (Nat × Nat × Nat) :=
+  match addrOfK τ m with
+  | some (i, d) =>
+    bif Nat.ble (d + w) (τ.lens.getD i 0) then
+      let kept := filter (fun sl => p || !Nat.beq sl.1 i || Nat.ble (d + w) sl.2.1 ||
+        Nat.ble (sl.2.1 + sl.2.2) d) τ.slots
+      bif p then (i, d, w) :: kept else kept
+    else bif p then τ.slots else []
+  | none => bif p then τ.slots else []
+
+def storeWbasesK (τ : T) (m : MemOp) (w : Nat) (nb : List Nat) : List (Nat × Nat × Nat) :=
+  match addrOfK τ m with
+  | some (j, d) =>
+    bif Nat.ble (d + w) (τ.lens.getD j 0) then
+      append (filter (fun p => !Nat.beq p.1 j || Nat.ble (d + w) p.2.1 || Nat.ble (p.2.1 + 4) d) τ.wbases)
+        (map (fun i => (j, d, i)) nb)
+    else []
+  | none => []
+
+def storeStepK (τ : T) (m : MemOp) (w : Nat) (p : Bool) (nb : List Nat) : Option T :=
+  bif pub τ m.base then some { τ with slots := storeSlotsK τ m w p, wbases := storeWbasesK τ m w nb }
+  else none
+
+def setK (τ : T) (r : Reg) (p : Bool) : RegSet Reg := bif p then τ.regs.insert r else τ.regs.erase r
+
+def stepK (τ : T) : Instr → Option T
+  | .mov d src =>
+    bif !regEq d .esp && srcOkK τ src then
+      some { τ with regs := setK τ d (srcPub τ src || loadPubK τ src), bases := movBasesK τ d src }
+    else none
+  | .store m r => storeStepK τ m 4 (pub τ r) (regBasesK τ r)
+  | .alu op d src =>
+    bif !regEq d .esp && srcOkK τ src then
+      let p := pub τ d && srcPub τ src && (!usesCarry op || τ.flags)
+      some { τ with regs := bif writes op then setK τ d p else τ.regs, flags := p, bases := killK τ d }
+    else none
+  | .shift _ d _ =>
+    bif !regEq d .esp then some { τ with flags := τ.flags && pub τ d, bases := killK τ d } else none
+  | .bswap d => bif !regEq d .esp then some { τ with bases := killK τ d } else none
+  | .movzx8 d m =>
+    bif !regEq d .esp && pub τ m.base then some { τ with regs := setK τ d false, bases := killK τ d }
+    else none
+  | .store8 m r => storeStepK τ m 1 (pub τ r.reg) []
+  | .mul r => some (mulStep τ r)
+  | .push _ | .pop .. => none
+
+/-- `l.contains a`, for a known base address. -/
+def memB (a : Reg × Nat × Nat) (l : List (Reg × Nat × Nat)) : Bool :=
+  any l fun b => regEq a.1 b.1 && Nat.beq a.2.1 b.2.1 && Nat.beq a.2.2 b.2.2
+
+/-- `l.contains a`, for a slot or a known base-address word. -/
+def mem3 (a : Nat × Nat × Nat) (l : List (Nat × Nat × Nat)) : Bool :=
+  any l fun b => Nat.beq a.1 b.1 && Nat.beq a.2.1 b.2.1 && Nat.beq a.2.2 b.2.2
+
+/-- `l.contains a`, for a known base address among the arguments. -/
+def mem2 (a : Nat × Nat) (l : List (Nat × Nat)) : Bool :=
+  any l fun b => Nat.beq a.1 b.1 && Nat.beq a.2 b.2
+
+def leK (τ σ : T) : Bool :=
+  τ.regs.subset σ.regs && (!τ.flags || σ.flags) && τ.lens == σ.lens &&
+    all τ.bases (memB · σ.bases) && all τ.slots (mem3 · σ.slots) && all τ.wbases (mem3 · σ.wbases) &&
+    Nat.beq τ.argLen σ.argLen && all τ.argBases (mem2 · σ.argBases) && τ.stk == σ.stk &&
+    Nat.ble τ.room σ.room
+
+section
+open KList
+
+theorem killK_eq : killK = kill := by
+  funext τ d; simp only [killK, kill, filter_eq, regEq_eq]; rfl
+
+theorem setK_eq : setK = set := by
+  funext τ r p; simp only [setK, set, Bool.cond_eq_ite]
+
+theorem addrOfK_eq : addrOfK = addrOf := by
+  funext τ m; simp only [addrOfK, addrOf, find?_eq, regEq_eq, ble_eq]
+
+theorem slotPubK_eq : slotPubK = slotPub := by
+  funext τ m w; simp only [slotPubK, slotPub, addrOfK_eq]
+  rcases addrOf τ m with _ | ⟨i, d⟩ <;> simp only [any_eq, beq_eq, ble_eq]
+
+theorem srcOkK_eq : srcOkK = srcOk := by
+  funext τ src; cases src <;> rfl
+
+theorem loadPubK_eq : loadPubK = loadPub := by
+  funext τ src; cases src <;> simp only [loadPubK, loadPub, slotPubK_eq, argPubK, argPub, regEq_eq, ble_eq]
+
+theorem loadBasesK_eq : loadBasesK = loadBases := by
+  funext τ m; simp only [loadBasesK, loadBases, addrOfK_eq, append_eq, regEq_eq, Bool.cond_eq_ite]
+  rcases addrOf τ m with _ | ⟨j, o⟩ <;> simp only [map_eq, filter_eq, beq_eq]
+
+theorem movBasesK_eq : movBasesK = movBases := by
+  funext τ d src
+  cases src <;> simp only [movBasesK, movBases, killK_eq, append_eq, map_eq, filter_eq, regEq_eq, loadBasesK_eq]
+
+theorem regBasesK_eq : regBasesK = regBases := by
+  funext τ r; simp only [regBasesK, regBases, map_eq, filter_eq, regEq_eq, beq_eq]
+
+theorem storeSlotsK_eq : storeSlotsK = storeSlots := by
+  funext τ m w p; simp only [storeSlotsK, storeSlots, addrOfK_eq]
+  rcases addrOf τ m with _ | ⟨i, d⟩ <;> simp only [filter_eq, beq_eq, ble_eq, Bool.cond_eq_ite, decide_eq_true_eq, bne]
+
+theorem storeWbasesK_eq : storeWbasesK = storeWbases := by
+  funext τ m w nb; simp only [storeWbasesK, storeWbases, addrOfK_eq]
+  rcases addrOf τ m with _ | ⟨j, d⟩ <;> simp only [append_eq, map_eq, filter_eq, beq_eq, ble_eq, Bool.cond_eq_ite, decide_eq_true_eq, bne]
+
+theorem storeStepK_eq : storeStepK = storeStep := by
+  funext τ m w p nb; simp only [storeStepK, storeStep, storeSlotsK_eq, storeWbasesK_eq, Bool.cond_eq_ite, memPub]
+  rfl
+
+theorem stepK_eq : stepK = step := by
+  funext τ i
+  cases i <;> simp only [stepK, step, regEq_eq, bne, srcOkK_eq, setK_eq, loadPubK_eq, movBasesK_eq,
+    killK_eq, storeStepK_eq, regBasesK_eq, Bool.cond_eq_ite, memPub]
+  -- `movzx8`: the same up to the instance deciding the condition.
+  rfl
+
+theorem memB_eq (a : Reg × Nat × Nat) (l : List (Reg × Nat × Nat)) : memB a l = l.contains a := by
+  simp only [memB, any_eq, beq_eq, regEq_eq, List.contains_eq_any_beq]
+  congr; funext b; rw [Bool.eq_iff_iff]
+  simp only [Bool.and_eq_true, beq_iff_eq, Prod.ext_iff, and_assoc]
+
+theorem mem3_eq (a : Nat × Nat × Nat) (l : List (Nat × Nat × Nat)) : mem3 a l = l.contains a := by
+  simp only [mem3, any_eq, beq_eq, List.contains_eq_any_beq]
+  congr; funext b; rw [Bool.eq_iff_iff]
+  simp only [Bool.and_eq_true, beq_iff_eq, Prod.ext_iff, and_assoc]
+
+theorem mem2_eq (a : Nat × Nat) (l : List (Nat × Nat)) : mem2 a l = l.contains a := by
+  simp only [mem2, any_eq, beq_eq, List.contains_eq_any_beq]
+  rfl
+
+theorem leK_eq : leK = le := by
+  funext τ σ
+  simp only [leK, le, memB_eq, mem3_eq, mem2_eq, all_eq, beq_eq, ble_eq]
+
+end
 end VG.X86.Taint
 
 namespace VG.X86
@@ -2237,15 +2430,15 @@ namespace VG.X86
 def taint : VG.Taint isa where
   T := Taint.T
   Agree := Taint.Agree
-  step := Taint.step
-  step_sound := Taint.step_sound
+  step := Taint.stepK
+  step_sound ha hs := Taint.step_sound ha (Taint.stepK_eq ▸ hs)
   condPub τ _ := τ.flags
   cond_sound := Taint.cond_sound
   meet := Taint.meet
   meet_left := Taint.meet_left
   meet_right := Taint.meet_right
-  le := Taint.le
-  le_sound := Taint.le_sound
+  le := Taint.leK
+  le_sound h := Taint.le_sound (Taint.leK_eq ▸ h)
   call := Taint.callStep
   call_sound := Taint.call_sound
   ret := Taint.retStep
