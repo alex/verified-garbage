@@ -199,6 +199,8 @@ jobs:
       # filling the cache quota with their own.
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
+          # Share with rust-sde when the toolchain and build environment match.
+          shared-key: rust
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Lint
         if: ${{ matrix.rust == 'stable' }}
@@ -228,6 +230,7 @@ jobs:
     name: Rust (CPU features, natively and under Intel SDE)
     runs-on: ubuntu-latest
     env:
+      RUSTUP_TOOLCHAIN: stable
       RUSTFLAGS: -D warnings -Cinstrument-coverage
       LLVM_PROFILE_FILE: .rust-cov/cov-%p-%m.profraw
       WYCHEPROOF_ROOT: wycheproof
@@ -250,6 +253,14 @@ jobs:
           mkdir "$RUNNER_TEMP/sde"
           tar -xJf sde.tar.xz -C "$RUNNER_TEMP/sde" --strip-components 1
           rm sde.tar.xz
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --component llvm-tools
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: rust
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      # Set the test runner after caching: its temporary path would otherwise
+      # change the cache key, which includes CARGO_* environment variables.
       - name: Choose where to run the tests of the implementations
         run: |
           missing=
@@ -260,11 +271,6 @@ jobs:
           if [ -n "$missing" ]; then
             echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER=$RUNNER_TEMP/sde/sde64 -future --" >> "$GITHUB_ENV"
           fi
-      - name: Install Rust
-        run: rustup toolchain install stable --profile minimal --component llvm-tools
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       # Only the tests of what depends on CPU features.
       - name: Test the implementations (under SDE if this runner lacks features)
         run: cargo test --locked -- sha256 aes_gcm cpu
