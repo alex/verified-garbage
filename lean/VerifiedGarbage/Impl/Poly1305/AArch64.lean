@@ -8,14 +8,17 @@ arithmetic is in radix `2²⁶`, as in poly1305-donna-32: the accumulator `h`
 and the clamped `r` are five 26-bit limbs (`h = h0 + 2²⁶ h1 + … + 2¹⁰⁴ h4`),
 their products are 64-bit `mul`/`madd`, and carries are shifts and masks.
 
-The state (`x0`, 128 bytes, see `VG.Spec.Poly1305.Repr`):
+The state (`x0`, 128 bytes, see `VG.Spec.Poly1305.Buffered`):
 
 * `[0, 24)`: the accumulator `h = w0 + 2⁶⁴ w1 + 2¹²⁸ w2`, fully reduced
   (`h < p`) between calls, in three 64-bit words;
 * `[24, 56)`: the key: `r` (`[24, 40)`) and `s` (`[40, 56)`);
-* `[56, 92)`: the limbs `r0, …, r4` and `s1, …, s4` (`sj = 5 rj`) of the
-  clamped `r`, as 32-bit words, computed on entry;
-* `[96, 112)`: the last block, padded, in `finalize`.
+* `[56, 72)`: the buffer: the message's last bytes that do not fill a block,
+  padded in place in `finalize`;
+* `[72, 108)`: the limbs `r0, …, r4` and `s1, …, s4` (`sj = 5 rj`) of the
+  clamped `r`, as 32-bit words, computed on entry.
+
+`update` and `finalize` do not use their working space (`scratch`).
 
 Registers: `x4`–`x8` hold the limbs of `h`, `x9`–`x13` the sums of products
 `d0, …, d4` (and other limbs in between), `x14`–`x16` are temporaries and
@@ -34,9 +37,10 @@ normalized (except that `h4` may be `2²⁶`), `g = h + 5` is computed with
 carries, and `g - 2¹³⁰` is selected, with a mask and without a branch, if
 `g ≥ 2¹³⁰`. The limbs are then packed into 64-bit words (`pack`).
 
-The only branches are on the block count and the length of the last block,
-and every address is a pointer plus a constant, or plus a count, so only the
-pointers and lengths can affect timing.
+The only branches are on the block count, the number of bytes buffered
+(`count mod 16`) and the lengths, and every address is a pointer plus a
+constant, or plus a count, so only the pointers, `count` and the lengths can
+affect timing.
 -/
 
 namespace VG.Impl.Poly1305.AArch64
@@ -70,8 +74,8 @@ def split : List Instr := [
   .lsr .x .x13 .x15 40]
 
 /-- The offsets of the limbs `rj` and `sj` in the state. -/
-def rOff (j : Nat) : Nat := 56 + 4 * j
-def sOff (j : Nat) : Nat := 72 + 4 * j
+def rOff (j : Nat) : Nat := 72 + 4 * j
+def sOff (j : Nat) : Nat := 88 + 4 * j
 
 /-- `r` clamped, in `x14, x15`. -/
 def clampR : List Instr :=
@@ -203,29 +207,75 @@ def blocks : Prog isa :=
   (.seq (.ite (.zero .x .x2) (.block []) (.loop body (.nonzero .x .x2)))
     (.block (reduce ++ pack ++ storeH)))
 
-/-! ## `finalize(state = x0, tail = x1, len = x2, out = x3)`
+/-! ## `update(state = x0, count = x1, data = x2, len = x3)`
 
-A non-empty tail is copied to `[96, 112)` (by `x9`, counting down `x10`),
-padded with `0x01` and zeros, and absorbed without `pad`. Then `h` is
-reduced, `s` is added (as limbs, with carries), and the low 128 bits of the
-sum are the tag. -/
+With `x9` = the number of bytes in the buffer (`count mod 16`), `x2` = the
+data not yet consumed and `x3` = its length: a non-empty buffer is filled
+from the data (as far as it goes) and, once full, absorbed; then the whole
+blocks of the data are absorbed, and the rest is copied into the buffer. -/
 
-/-- Zero the padded block, and set up the copy. -/
-def zeroBuf : List Instr :=
-  [.movz .x .x11 0 0, .str .x .x11 .x0 96, .str .x .x11 .x0 104, .addImm .x .x9 .x0 96,
-    .addImm .x .x10 .x2 0]
-
+/-- Copies the `x10 > 0` bytes at `x1` to `[x11 + 56]` on, advancing `x1` and `x11`. -/
 def copyBody : List Instr :=
-  [.ldrb .x11 .x1 0, .strb .x11 .x9 0, .addImm .x .x1 .x1 1, .addImm .x .x9 .x9 1,
+  [.ldrb .x12 .x1 0, .strb .x12 .x11 56, .addImm .x .x1 .x1 1, .addImm .x .x11 .x11 1,
     .subImm .x .x10 .x10 1]
 
-def copyLoop : Prog isa := .loop (.block copyBody) (.nonzero .x .x10)
+def copyIn : Prog isa := .loop (.block copyBody) (.nonzero .x .x10)
 
-/-- The `0x01` byte after the tail, and `x1` pointing at the padded block. -/
-def padByte : List Instr := [.movz .x .x11 1 0, .strb .x11 .x9 0, .addImm .x .x1 .x0 96]
+/-- The number of bytes to copy into the buffer, `n = min(16 - x9, x3)`, into
+`x10` (if `x3 < 16`, `x3 < 16 - x9` is the sign of `x3 - (16 - x9)`); then
+`x3 -= n`, the buffer's byte `x9` at `[x11 + 56]`, `x9 += n`, and the data into
+`x1`. -/
+def count : Prog isa :=
+  .seq (.block [.movz .x .x10 16 0, .sub .x .x10 .x10 .x9, .lsr .x .x11 .x3 4])
+  (.seq (.ite (.zero .x .x11)
+      (.seq (.block [.sub .x .x12 .x3 .x10, .lsr .x .x12 .x12 63])
+        (.ite (.zero .x .x12) (.block []) (.block [.addImm .x .x10 .x3 0])))
+      (.block []))
+    (.block [.sub .x .x3 .x3 .x10, .add .x .x11 .x0 .x9, .add .x .x9 .x9 .x10,
+      .addImm .x .x1 .x2 0]))
+
+/-- Fills the buffer with `min(16 - x9, x3)` bytes of the data, and absorbs it
+if that fills it. -/
+def fill : Prog isa :=
+  .seq count
+  (.seq (.ite (.zero .x .x10) (.block []) copyIn)
+  (.seq (.block [.addImm .x .x2 .x1 0, .subImm .x .x12 .x9 16])
+    (.ite (.zero .x .x12) (.block ([.addImm .x .x1 .x0 56] ++ absorb true)) (.block []))))
+
+/-- Absorbs the whole blocks of the data, from `x1`, counting them in `x2`. -/
+def whole : Prog isa :=
+  .seq (.block [.addImm .x .x1 .x2 0, .lsr .x .x2 .x3 4])
+    (.ite (.zero .x .x2) (.block [])
+      (.loop (.block (absorb true ++ [.addImm .x .x1 .x1 16, .subImm .x .x3 .x3 16,
+        .lsr .x .x2 .x3 4])) (.nonzero .x .x2)))
+
+/-- Copies the rest of the data into the (empty) buffer. -/
+def rest : Prog isa :=
+  .ite (.zero .x .x3) (.block [])
+    (.seq (.block [.addImm .x .x10 .x3 0, .addImm .x .x11 .x0 0]) copyIn)
+
+def update : Prog isa :=
+  .seq (.block (setup ++ [.movz .x .x9 15 0, .logic .and .x .x9 .x1 .x9]))
+  (.seq (.ite (.zero .x .x9) (.block []) fill)
+  (.seq whole
+  (.seq rest
+    (.block (reduce ++ pack ++ storeH)))))
+
+/-! ## `finalize(state = x0, count = x1, out = x2)`
+
+`out` is moved to `x3`, and `count mod 16`, the number of bytes in the
+buffer, to `x2`. A non-empty buffer is padded in place with `0x01` and zeros
+and absorbed without `pad`. Then `h` is reduced, `s` is added (as limbs, with
+carries), and the low 128 bits of the sum are the tag. -/
+
+/-- Zeros the buffer from `[x9 + 56]` on, for `x10 > 0` bytes. -/
+def zeroBody : List Instr := [.strb .x11 .x9 56, .addImm .x .x9 .x9 1, .subImm .x .x10 .x10 1]
 
 def lastBlock : Prog isa :=
-  .seq (.block zeroBuf) (.seq copyLoop (.block (padByte ++ absorb false)))
+  .seq (.block [.movz .x .x11 0 0, .add .x .x9 .x0 .x2, .movz .x .x10 16 0, .sub .x .x10 .x10 .x2])
+  (.seq (.loop (.block zeroBody) (.nonzero .x .x10))
+    (.block ([.movz .x .x11 1 0, .add .x .x9 .x0 .x2, .strb .x11 .x9 56, .addImm .x .x1 .x0 56] ++
+      absorb false)))
 
 /-- `h += s`, with the carries propagated up to `h4`. -/
 def addS : List Instr := load2 .x0 40 ++ split ++ addLimbs ++ carryStep .x4 .x4 .x5 ++ normalize
@@ -234,7 +284,7 @@ def addS : List Instr := load2 .x0 40 ++ split ++ addLimbs ++ carryStep .x4 .x4 
 def storeTag : List Instr := [.str .x .x14 .x3 0, .str .x .x15 .x3 8]
 
 def finalize : Prog isa :=
-  .seq (.block setup)
+  .seq (.block ([.addImm .x .x3 .x2 0, .movz .x .x2 15 0, .logic .and .x .x2 .x1 .x2] ++ setup))
   (.seq (.ite (.zero .x .x2) (.block []) lastBlock)
     (.block (reduce ++ addS ++ pack ++ storeTag)))
 

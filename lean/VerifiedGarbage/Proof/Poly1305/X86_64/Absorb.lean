@@ -35,31 +35,32 @@ theorem carry_eq : carry =
       .shift .shr .r15 2, .alu .add .rax (.reg .r15)] ++
     [.alu .add .r11 (.reg .rax), .alu .adc .rbx (.imm 0), .alu .adc .rbp (.imm 0)]) := rfl
 
-theorem absorb_eq (pad : BitVec 32) : absorb pad =
-    addBlock pad ++ (mulTo .r12 .r13 .r11 .r8 ++ (mulAdd .r12 .r13 .rbx .r10 ++
+theorem absorbAt_eq (b : Reg) (d : Nat) (pad : BitVec 32) : absorbAt b d pad =
+    addBlockAt b d pad ++ (mulTo .r12 .r13 .r11 .r8 ++ (mulAdd .r12 .r13 .rbx .r10 ++
     (mulTo .r14 .r15 .r11 .r9 ++ (mulAdd .r14 .r15 .rbx .r8 ++ (mulAdd .r14 .r15 .rbp .r10 ++
     ([.mov .rax (.reg .rbp), .mul .r8] ++ carry)))))) := by
-  simp only [absorb, products, List.append_assoc]
+  simp only [absorbAt, products, List.append_assoc]
 
 /-- The accumulator in `r11, rbx, rbp`. -/
 abbrev hval (s : State) : Nat :=
   (s.gpr .r11).toNat + 2 ^ 64 * (s.gpr .rbx).toNat + 2 ^ 128 * (s.gpr .rbp).toNat
 
-/-- Absorbing the block at `rsi`: from `h` with `h2 ≤ 4`, the clamped `r0, r1 = 4 q`
+/-- Absorbing the block at `b + d`: from `h` with `h2 ≤ 4`, the clamped `r0, r1 = 4 q`
 in `r8, r9` and `s1 = 5 q` in `r10`, the new `h` is congruent to
 `(h + m + pad · 2¹²⁸) r` modulo `p`, and its `h2` is at most 4. -/
-theorem absorb_ok (s : State) {pad : BitVec 32} (hpad : pad = 0 ∨ pad = 1) {q : Nat}
+theorem absorbAt_ok (s : State) {b : Reg} (hb : b ≠ .r11) {d : Nat} {pad : BitVec 32}
+    (hpad : pad = 0 ∨ pad = 1) {q : Nat}
     (hr0 : (s.gpr .r8).toNat < 2 ^ 60) (hr1 : (s.gpr .r9).toNat = 4 * q) (hq : q < 2 ^ 58)
     (hs1 : (s.gpr .r10).toNat = 5 * q)
-    (h0 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofInt 64 ((0 : Nat) : Int)) 8)
-    (h8 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofInt 64 ((8 : Nat) : Int)) 8) :
-    WP isa (.block (absorb pad)) s fun s' =>
+    (h0 : InRegions (s.rd ++ s.wr) (s.gpr b + BitVec.ofInt 64 (d : Int)) 8)
+    (h8 : InRegions (s.rd ++ s.wr) (s.gpr b + BitVec.ofInt 64 ((d + 8 : Nat) : Int)) 8) :
+    WP isa (.block (absorbAt b d pad)) s fun s' =>
       ((s.gpr .rbp).toNat ≤ 4 →
-        hval s' % P = ((hval s + (word s.mem (s.gpr .rsi) 0 + 2 ^ 64 * word s.mem (s.gpr .rsi) 8 +
+        hval s' % P = ((hval s + (word s.mem (s.gpr b) d + 2 ^ 64 * word s.mem (s.gpr b) (d + 8) +
           2 ^ 128 * pad.toNat)) * ((s.gpr .r8).toNat + 2 ^ 64 * (s.gpr .r9).toNat)) % P ∧
         (s'.gpr .rbp).toNat ≤ 4) ∧ Keeps absorbRegs s s' := by
-  rw [absorb_eq, carry_eq]
-  refine WP.block_append (WP.mono (addBlock_ok s hpad h0 h8) fun s₁ ⟨e₁, k₁⟩ => ?_)
+  rw [absorbAt_eq, carry_eq]
+  refine WP.block_append (WP.mono (addBlockAt_ok s hb hpad h0 h8) fun s₁ ⟨e₁, k₁⟩ => ?_)
   refine WP.block_append (WP.mono (mulTo_ok s₁ (by decide) (by decide) (by decide))
     fun s₂ ⟨e₂, k₂⟩ => ?_)
   refine WP.block_append (WP.mono (mulAdd_ok s₂ (by decide) (by decide) (by decide) (by decide)
@@ -77,8 +78,8 @@ theorem absorb_ok (s : State) {pad : BitVec 32} (hpad : pad = 0 ∨ pad = 1) {q 
   refine ⟨fun hh2 => ?_, (k₁.trans ((((((((k₂.trans k₃).trans k₄).trans k₅).trans k₆).trans k₇).trans
     k₈).trans k₉).trans k₁₀)).mono (by decide)⟩
   have hp1 : pad.toNat ≤ 1 := by rcases hpad with rfl | rfl <;> decide
-  have hw0 := (s.mem.readW (s.gpr .rsi + BitVec.ofInt 64 ((0 : Nat) : Int)) 64).isLt
-  have hw8 := (s.mem.readW (s.gpr .rsi + BitVec.ofInt 64 ((8 : Nat) : Int)) 64).isLt
+  have hw0 := (s.mem.readW (s.gpr b + BitVec.ofInt 64 (d : Int)) 64).isLt
+  have hw8 := (s.mem.readW (s.gpr b + BitVec.ofInt 64 ((d + 8 : Nat) : Int)) 64).isLt
   have g0 := (s.gpr .r11).isLt; have g1 := (s.gpr .rbx).isLt
   -- h += m
   have e₁ := e₁ (by simp only [word]; omega)
@@ -153,5 +154,18 @@ theorem absorb_ok (s : State) {pad : BitVec 32} (hpad : pad = 0 ∨ pad = 1) {q 
     a0 a1 a2 hr0 hq e₃ x0 e₆ hu u0 e₁₀ w0 w1
   refine ⟨?_, hb⟩
   rw [hval, m, e₁, hr1]
+
+/-- Absorbing the block at `rsi`. -/
+theorem absorb_ok (s : State) {pad : BitVec 32} (hpad : pad = 0 ∨ pad = 1) {q : Nat}
+    (hr0 : (s.gpr .r8).toNat < 2 ^ 60) (hr1 : (s.gpr .r9).toNat = 4 * q) (hq : q < 2 ^ 58)
+    (hs1 : (s.gpr .r10).toNat = 5 * q)
+    (h0 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofInt 64 ((0 : Nat) : Int)) 8)
+    (h8 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofInt 64 ((8 : Nat) : Int)) 8) :
+    WP isa (.block (absorb pad)) s fun s' =>
+      ((s.gpr .rbp).toNat ≤ 4 →
+        hval s' % P = ((hval s + (word s.mem (s.gpr .rsi) 0 + 2 ^ 64 * word s.mem (s.gpr .rsi) 8 +
+          2 ^ 128 * pad.toNat)) * ((s.gpr .r8).toNat + 2 ^ 64 * (s.gpr .r9).toNat)) % P ∧
+        (s'.gpr .rbp).toNat ≤ 4) ∧ Keeps absorbRegs s s' :=
+  absorbAt_ok s (b := .rsi) (d := 0) (by decide) hpad hr0 hr1 hq hs1 h0 h8
 
 end VG.Proof.Poly1305.X86_64

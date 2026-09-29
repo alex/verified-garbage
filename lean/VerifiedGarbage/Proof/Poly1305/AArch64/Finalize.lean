@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Poly1305.AArch64.Init
+import VerifiedGarbage.Proof.Poly1305.AArch64.Buffer
 
 /-!
 # Poly1305 on AArch64: `finalize`
@@ -9,447 +9,267 @@ Untrusted: everything here is checked by Lean.
 namespace VG.Proof.Poly1305.AArch64
 
 open VG VG.AArch64 VG.Impl.Poly1305.AArch64
-open VG.Spec.Poly1305 (P clamp leNum bytesAt accumulate Repr leBytes mac)
+open VG.Spec.Poly1305 (P clamp leNum bytesAt accumulate Repr Buffered leBytes mac)
 
-/-! ## Bytes in memory -/
-
-theorem write1_apply (m : Mem) (a x : Addr) (v : BitVec (8 * 1)) :
-    m.write a 1 v x = if x = a then v.extractLsb' 0 8 else m x := by
-  simp only [Mem.write]
-  by_cases h : x = a
-  · subst h; simp
-  · have : ¬ (x - a).toNat < 1 := by
-      intro h'
-      apply h
-      have h0 : (x - a).toNat = 0 := by omega
-      have := BitVec.eq_of_toNat_eq (x := x - a) (y := 0) (by rw [h0]; rfl)
-      bv_omega
-    simp only [this, h, ↓reduceIte]
-
-theorem writeW64_zero_apply (m : Mem) (a x : Addr) :
-    (m.writeW a (0 : BitVec 64)) x = if (x - a).toNat < 8 then 0 else m x := by
-  simp only [Mem.writeW, Mem.write]
-  split <;> simp
-
-/-- Byte `k` of the padded block. -/
-abbrev bufB (st : Addr) (k : Nat) : Addr := st + BitVec.ofNat 64 (96 + k)
-
-/-- The padded block's bytes are `f k`. -/
+/-- The buffer's bytes are `f k`. -/
 def BufHas (m : Mem) (st : Addr) (f : Nat → Byte) : Prop := ∀ k < 16, m (bufB st k) = f k
 
-/-- The region of the padded block. -/
-abbrev bufR (st : Addr) : Region := ⟨off st 96, 16⟩
-
-theorem bufR_sub_wR (st : Addr) : Region.Sub (bufR st) (wR st) := by
-  intro a ha
-  simp only [Region.Contains, off] at *
-  bv_omega
-
-theorem bufB_contains (st : Addr) {k : Nat} (hk : k < 16) : (bufR st).Contains (bufB st k) 1 := by
-  simp only [Region.Contains, off]
-  rw [show st + BitVec.ofNat 64 (96 + k) - (st + BitVec.ofNat 64 96) = BitVec.ofNat 64 k by bv_omega,
-    toNat_ofNat_lt (by omega)]
-  omega
-
-theorem bufB_inj (st : Addr) {j k : Nat} (hj : j < 16) (hk : k < 16) (h : bufB st j = bufB st k) :
-    j = k := by
-  have := congrArg BitVec.toNat (show BitVec.ofNat 64 (96 + j) = BitVec.ofNat 64 (96 + k) by
-    simpa [bufB] using h)
-  rw [toNat_ofNat_lt (by omega), toNat_ofNat_lt (by omega)] at this
-  omega
-
-/-- The bytes of the padded block, as read from memory. -/
+/-- The bytes of the buffer, as read from memory. -/
 theorem bytesAt_buf {m : Mem} {st : Addr} {f : Nat → Byte} (h : BufHas m st f) :
-    bytesAt m (off st 96) 16 = (List.range 16).map f := by
+    bytesAt m (off st 56) 16 = (List.range 16).map f := by
   simp only [bytesAt]
   apply List.map_congr_left
   intro k hk
-  have hk := List.mem_range.mp hk
-  rw [← h k hk]
-  congr 1
-  simp only [off, bufB]
-  rw [BitVec.add_assoc, ← BitVec.ofNat_add]
-
-theorem bufB_zero (m : Mem) (st : Addr) {k : Nat} (hk : k < 16) :
-    ((m.writeW (off st 96) (0 : BitVec 64)).writeW (off st 104) (0 : BitVec 64)) (bufB st k) = 0 := by
-  rw [writeW64_zero_apply, writeW64_zero_apply]
-  simp only [off, bufB]
-  by_cases h : 8 ≤ k
-  · have hc : (st + BitVec.ofNat 64 (96 + k) - (st + BitVec.ofNat 64 104)).toNat < 8 := by
-      rw [show st + BitVec.ofNat 64 (96 + k) - (st + BitVec.ofNat 64 104) = BitVec.ofNat 64 (k - 8) by
-        bv_omega, toNat_ofNat_lt (by omega)]
-      omega
-    simp only [hc, ↓reduceIte]
-  · have hc : ¬ (st + BitVec.ofNat 64 (96 + k) - (st + BitVec.ofNat 64 104)).toNat < 8 := by
-      rw [show st + BitVec.ofNat 64 (96 + k) - (st + BitVec.ofNat 64 104) =
-        BitVec.ofNat 64 (2 ^ 64 - 8 + k) by bv_omega, toNat_ofNat_lt (by omega)]
-      omega
-    have hc' : (st + BitVec.ofNat 64 (96 + k) - (st + BitVec.ofNat 64 96)).toNat < 8 := by
-      rw [show st + BitVec.ofNat 64 (96 + k) - (st + BitVec.ofNat 64 96) = BitVec.ofNat 64 k by
-        bv_omega, toNat_ofNat_lt (by omega)]
-      omega
-    simp only [hc, hc', ↓reduceIte]
+  rw [← h k (List.mem_range.mp hk), bufB_eq]
 
 /-! ## The precondition -/
 
 section
 variable (s₀ : State)
-abbrev tp : Addr := s₀.gpr .x1
-abbrev tl : Nat := (s₀.gpr .x2).toNat
-abbrev op : Addr := s₀.gpr .x3
-abbrev tR : Region := ⟨tp s₀, tl s₀⟩
+/-- The number of bytes buffered. -/
+abbrev kf : Nat := (s₀.gpr .x1).toNat % 16
+abbrev op : Addr := s₀.gpr .x2
 abbrev oR : Region := ⟨op s₀, 16⟩
-/-- The message's last bytes. -/
-abbrev tail : List Byte := bytesAt s₀.mem (tp s₀) (tl s₀)
+/-- The bytes buffered. -/
+abbrev tail : List Byte := bytesAt s₀.mem (off (st s₀) 56) (kf s₀)
 end
 
 structure FPre (s₀ : State) : Prop where
-  rd : s₀.rd = [tR s₀]
-  wr : s₀.wr = [sR (st s₀), oR s₀]
-  st_t : (sR (st s₀)).Disjoint (tR s₀)
+  st_in : sR (st s₀) ∈ s₀.wr
+  o_in : oR s₀ ∈ s₀.wr
   st_o : (sR (st s₀)).Disjoint (oR s₀)
-  t_o : (tR s₀).Disjoint (oR s₀)
-  tl_lt : tl s₀ < 16
 
-theorem FPre.of (s₀ : State) (h : Proof.Poly1305.finalizeAArch64.pre s₀) : FPre s₀ := by
-  obtain ⟨h1, h2, h3, h4, h5, h6⟩ := h
-  exact ⟨h1, h2, h3, h4, h5, h6⟩
+theorem FPre.of (s₀ : State) (h : Proof.Poly1305.finalizeAArch64.pre s₀) : FPre s₀ :=
+  ⟨h.1, h.2.1, h.2.2⟩
 
-theorem FPre.in_st {s₀ : State} (hp : FPre s₀) {d n : Nat} (h : d + n ≤ 128) :
-    InRegions s₀.wr (off (st s₀) d) n :=
-  ⟨_, by rw [hp.wr]; exact List.mem_cons_self, contains_off h (by omega)⟩
+theorem kf_lt (s₀ : State) : kf s₀ < 16 := Nat.mod_lt _ (by omega)
 
-/-! ## Copying the last bytes into the padded block -/
+/-! ## Prologue -/
 
-/-- The registers the copy writes. -/
-abbrev copyRegs : List Reg := [.x1, .x9, .x10, .x11]
-
-/-- The copy loop's invariant, before byte `j`, from the state `s₁` after `setup`. -/
-structure CInv (s₀ : State) (m₁ : Mem) (s₁ : State) (j : Nat) (s : State) : Prop where
-  x1 : s.gpr .x1 = tp s₀ + BitVec.ofNat 64 j
-  x9 : s.gpr .x9 = bufB (st s₀) j
-  x10 : s.gpr .x10 = BitVec.ofNat 64 (tl s₀ - j)
-  keep : ∀ r, r ∉ copyRegs → s.gpr r = s₁.gpr r
+/-- The state after the prologue, with the memory `m₁` it leaves. -/
+structure F0 (s₀ : State) (m₁ : Mem) (s : State) : Prop where
+  x0 : s.gpr .x0 = st s₀
+  x2 : s.gpr .x2 = BitVec.ofNat 64 (kf s₀)
+  x3 : s.gpr .x3 = op s₀
+  mask : s.gpr .x17 = M26
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
-  frame : Frame [bufR (st s₀)] m₁ s.mem
-  buf : BufHas s.mem (st s₀) fun k => if k < j then (tail s₀).getD k 0 else 0
+  mem : s.mem = m₁
+  frame : Frame [cR (st s₀)] s₀.mem m₁
+  coefs : Coefs m₁ (st s₀) (Rn s₀)
+  acc : A0 s₀ < P → hv s = A0 s₀ ∧ Bounds s
 
-theorem contains_base {a : Addr} {n len : Nat} (h : n ≤ len) : (⟨a, len⟩ : Region).Contains a n := by
-  simp only [Region.Contains, BitVec.sub_self, BitVec.toNat_zero, Nat.zero_add]; exact h
+theorem fprologue_ok {s₀ : State} (hp : FPre s₀) :
+    WP isa (.block ([.addImm .x .x3 .x2 0, .movz .x .x2 15 0, .logic .and .x .x2 .x1 .x2] ++ setup)) s₀
+      fun s => F0 s₀ s.mem s := by
+  refine WP.block_append (wp_addImm (by decide) fun s₁ u₁ => wp_movz fun s₂ u₂ => wp_and fun s₃ u₃ =>
+    WP.block_nil ?_)
+  have x0₃ : s₃.gpr .x0 = st s₀ := by
+    rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide)]
+  have m₃ : s₃.mem = s₀.mem := by rw [u₃.mem, u₂.mem, u₁.mem]
+  refine WP.mono (setup_ok s₃ (by rw [u₃.wr, u₂.wr, u₁.wr, x0₃]; exact hp.st_in)) fun s h => ?_
+  have hf := h.frame; have hc := h.coefs; have ha := h.acc
+  rw [x0₃, m₃] at hf hc ha
+  exact ⟨by rw [h.gpr .x0 (by decide), x0₃],
+    by rw [h.gpr .x2 (by decide), u₃.gpr, u₂.gpr, u₂.other _ (by decide), u₁.other _ (by decide), and15],
+    by rw [h.gpr .x3 (by decide), u₃.other _ (by decide), u₂.other _ (by decide), u₁.gpr, add_ofNat_zero],
+    h.mask, by rw [h.rd, u₃.rd, u₂.rd, u₁.rd], by rw [h.wr, u₃.wr, u₂.wr, u₁.wr], rfl, hf, hc, ha⟩
 
-theorem exec_movz0 {s : State} {d : Reg} {imm : BitVec 16} :
-    exec (.movz .x d imm 0) s = some (s.write .x d (imm.setWidth 64 <<< (16 * 0))) := by
-  simp [exec, Size.bits]
+/-! ## Padding the buffer in place -/
 
-theorem movz0 : ((0 : BitVec 16).setWidth 64 <<< (16 * 0) : BitVec 64) = 0 := by decide
+/-- The padded block: the buffered bytes, `0x01`, zeros. -/
+def padded (s₀ : State) (k : Nat) : Byte :=
+  if k < kf s₀ then (tail s₀).getD k 0 else if k = kf s₀ then 1 else 0
 
-set_option simprocs false in
-theorem zero_ok {s₀ : State} (hp : FPre s₀) {s₁ : State} (h₁ : Setup s₀ s₁) :
-    WP isa (.block zeroBuf) s₁ (CInv s₀ s₁.mem s₁ 0) := by
-  have x0₁ : s₁.gpr .x0 = st s₀ := h₁.gpr .x0 (by decide)
-  have o1 := hp.in_st (d := 96) (n := 8) (by omega)
-  have o2 := hp.in_st (d := 104) (n := 8) (by omega)
-  rw [← h₁.wr, ← x0₁] at o1 o2
-  simp only [off] at o1 o2
-  apply WP.of_runBlock
-  simp (config := {decide := true}) only [zeroBuf, runBlock_cons, runStep_some, runBlock_nil,
-    exec_str_x (show 96 % 8 = 0 ∧ 96 < 32768 by decide), exec_str_x (show 104 % 8 = 0 ∧ 104 < 32768 by decide),
-    exec_addImm_x (show 96 < 4096 by decide), exec_addImm_x (show 0 < 4096 by decide), exec_movz0,
-    State.read, State.write, Size.bits, BitVec.setWidth_eq, o1, o2, ite_true, ite_false,
-    Option.some.injEq, exists_eq_left', movz0]
-  refine ⟨?_, ?_, ?_, fun r hr => ?_, h₁.rd, h₁.wr, ?_, fun k hk => ?_⟩
-  · simp (config := {decide := true}) only [ite_false]
-    rw [h₁.gpr .x1 (by decide), add_ofNat_zero]
-  · simp (config := {decide := true}) only [ite_true, ite_false]
-    rw [x0₁]
-  · simp (config := {decide := true}) only [ite_true]
-    rw [h₁.gpr .x2 (by decide), add_ofNat_zero]; simp [tl]
-  · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-    simp [hr.2.1, hr.2.2.1, hr.2.2.2]
-  · rw [x0₁]
-    have c96 : (bufR (st s₀)).Contains (off (st s₀) 96) (64 / 8) := contains_base (by decide)
-    have c104 : (bufR (st s₀)).Contains (off (st s₀) 104) (64 / 8) := by
-      simp only [Region.Contains]
-      rw [show st s₀ + BitVec.ofNat 64 104 - (st s₀ + BitVec.ofNat 64 96) = BitVec.ofNat 64 8 by
-        bv_omega, toNat_ofNat_lt (by omega)]
-    dsimp only
-    exact ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ c96).writeW
-      (List.mem_singleton_self _) _ c104
-  · dsimp only
-    rw [x0₁]
-    simp only [Nat.not_lt_zero, ite_false]
-    exact bufB_zero _ _ hk
+/-- The buffered bytes in the memory the prologue leaves. -/
+theorem F0.tail {s₀ : State} {m₁ : Mem} {s₁ : State} (h : F0 s₀ m₁ s₁) {k : Nat} (hk : k < kf s₀) :
+    m₁ (bufB (st s₀) k) = (tail s₀).getD k 0 := by
+  have hkl := kf_lt s₀
+  simp only [bytesAt, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hk,
+    Option.map_some, Option.getD_some]
+  rw [← bufB_eq]
+  refine h.frame _ fun r hr hc => ?_
+  simp only [List.mem_singleton] at hr; subst hr
+  simp only [Region.Contains, off, bufB] at hc
+  bv_omega
 
-theorem read_one (m : Mem) (a : Addr) : (m.read a 1 : BitVec 8) = m a := by
-  simp only [Mem.read]
-  ext i hi
-  rw [BitVec.getElem_append]
-  simp only [show i < 8 by omega, dite_true]
+/-- The zero loop's invariant, before byte `j`, from the state `s₁` after the
+prologue. -/
+structure ZInv (s₀ : State) (m₁ : Mem) (s₁ : State) (j : Nat) (s : State) : Prop where
+  j_le : kf s₀ ≤ j ∧ j ≤ 16
+  x9 : s.gpr .x9 = st s₀ + BitVec.ofNat 64 j
+  x10 : s.gpr .x10 = BitVec.ofNat 64 (16 - j)
+  x11 : s.gpr .x11 = 0
+  keep : ∀ r, r ≠ .x9 → r ≠ .x10 → r ≠ .x11 → s.gpr r = s₁.gpr r
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
+  frame : Frame [bfR (st s₀)] m₁ s.mem
+  buf : BufHas s.mem (st s₀) fun k =>
+    if k < kf s₀ then (tail s₀).getD k 0 else if k < j then 0 else m₁ (bufB (st s₀) k)
 
-theorem exec_ldrb' {s : State} {t n : Reg} {off : Nat} (ho : off < 4096)
-    (hin : InRegions (s.rd ++ s.wr) (s.gpr n + BitVec.ofNat 64 off) 1) :
-    exec (.ldrb t n off) s = some (s.write .w t ((s.mem (s.gpr n + BitVec.ofNat 64 off)).setWidth 32)) := by
-  simp only [exec, addr, Nat.mod_one, true_and, show off < 4096 * 1 by omega, ite_true,
-    Option.bind_some, State.load, hin, Option.map_some]
-  rw [read_one]
+theorem zinit_ok {s₀ : State} {m₁ : Mem} {s₁ : State} (h₁ : F0 s₀ m₁ s₁) :
+    WP isa (.block [.movz .x .x11 0 0, .add .x .x9 .x0 .x2, .movz .x .x10 16 0, .sub .x .x10 .x10 .x2]) s₁
+      (ZInv s₀ m₁ s₁ (kf s₀)) := by
+  have hk := kf_lt s₀
+  refine wp_movz fun s₂ u₂ => wp_add fun s₃ u₃ => wp_movz fun s₄ u₄ => wp_sub fun s₅ u₅ => WP.block_nil ?_
+  refine ⟨⟨le_rfl, hk.le⟩, ?_, ?_, ?_, fun r h1 h2 h3 => ?_, by rw [u₅.rd, u₄.rd, u₃.rd, u₂.rd, h₁.rd],
+    by rw [u₅.wr, u₄.wr, u₃.wr, u₂.wr, h₁.wr],
+    (by rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, h₁.mem]; exact Frame.refl _ _), fun k hk' => ?_⟩
+  · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.other _ (by decide),
+      u₂.other _ (by decide), h₁.x0, h₁.x2]
+  · rw [u₅.gpr, u₄.gpr, u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide), h₁.x2,
+      show (16 : BitVec 16).setWidth 64 = BitVec.ofNat 64 16 by decide, sub_ofNat (by omega)]
+  · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr]; rfl
+  · rw [u₅.other r h2, u₄.other r h2, u₃.other r h1, u₂.other r h3]
+  · rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, h₁.mem]
+    by_cases hkf : k < kf s₀
+    · simp only [hkf, ite_true]; exact h₁.tail hkf
+    · simp only [hkf, ite_false]
 
-theorem exec_strb' {s : State} {t n : Reg} {off : Nat} (ho : off < 4096)
-    (hout : InRegions s.wr (s.gpr n + BitVec.ofNat 64 off) 1) :
-    exec (.strb t n off) s =
-      some { s with mem := s.mem.writeW (s.gpr n + BitVec.ofNat 64 off) ((s.gpr t).setWidth 8) } := by
-  simp only [exec, addr, Nat.mod_one, true_and, show off < 4096 * 1 by omega, ite_true,
-    Option.bind_some, State.store, hout, Mem.writeW, State.read]
-  congr 3
-  ext i hi; simp [Size.bits]; try omega
-
-theorem writeW8_apply (m : Mem) (a x : Addr) (v : Byte) :
-    (m.writeW a v) x = if x = a then v else m x := by
-  simp only [Mem.writeW, Mem.write]
-  by_cases h : x = a
-  · subst h; simp
-  · have : ¬ (x - a).toNat < 8 / 8 := by
-      intro h'
-      apply h
-      have h0 : (x - a).toNat = 0 := by omega
-      have := BitVec.eq_of_toNat_eq (x := x - a) (y := 0) (by rw [h0]; rfl)
-      bv_omega
-    simp only [this, h, ↓reduceIte]
-
-theorem byte_rt (b : Byte) : ((b.setWidth 32).setWidth 64).setWidth 8 = b := by
-  ext i hi; simp
-
-theorem tail_getD {s₀ : State} {j : Nat} (hj : j < tl s₀) :
-    (tail s₀).getD j 0 = s₀.mem (tp s₀ + BitVec.ofNat 64 j) := by
-  simp [tail, bytesAt, hj]
-
-set_option simprocs false in
-theorem copy_step {s₀ : State} (hp : FPre s₀) {s₁ : State} (h₁ : Setup s₀ s₁) {j : Nat}
-    (hj : j < tl s₀) {s : State} (h : CInv s₀ s₁.mem s₁ j s) :
-    WP isa (.block copyBody) s fun s' => CInv s₀ s₁.mem s₁ (j + 1) s' := by
-  have htl := hp.tl_lt
-  have hin1 : InRegions (s.rd ++ s.wr) (s.gpr .x1 + BitVec.ofNat 64 0) 1 := by
-    rw [h.rd, hp.rd, h.x1, add_ofNat_zero]
-    refine ⟨tR s₀, List.mem_append_left _ (List.mem_singleton_self _), contains_off (by omega) (by omega)⟩
-  have hout : InRegions s.wr (s.gpr .x9 + BitVec.ofNat 64 0) 1 := by
-    rw [h.wr, hp.wr, h.x9, add_ofNat_zero]
-    refine ⟨sR (st s₀), List.mem_cons_self, ?_⟩
-    simp only [Region.Contains, bufB]
-    rw [show st s₀ + BitVec.ofNat 64 (96 + j) - st s₀ = BitVec.ofNat 64 (96 + j) by bv_omega,
-      toNat_ofNat_lt (by omega)]
-    omega
-  apply WP.of_runBlock
-  simp (config := {decide := true}) only [copyBody, runBlock_cons, runStep_some,
-    exec_ldrb' (show 0 < 4096 by decide) hin1]
-  rw [exec_strb' (show 0 < 4096 by decide) (by simpa (config := {decide := true}) [State.write] using hout)]
-  simp (config := {decide := true}) only [runStep_some, runBlock_nil, runBlock_cons,
-    exec_addImm_x (show 1 < 4096 by decide), exec_subImm_x (show 1 < 4096 by decide), State.read,
-    State.write, Size.bits, BitVec.setWidth_eq, ite_true, ite_false, Option.some.injEq,
-    exists_eq_left', add_ofNat_zero]
-  -- The byte copied is byte `j` of the tail.
-  have hbyte : s.mem (s.gpr .x1) = (tail s₀).getD j 0 := by
-    rw [tail_getD hj, h.x1]
-    have hf : Frame [cR (st s₀), bufR (st s₀)] s₀.mem s.mem :=
-      (h₁.frame.mono (by simp)).trans (h.frame.mono (by simp))
-    refine hf _ fun r hr hc => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    have ht : (tR s₀).Contains (tp s₀ + BitVec.ofNat 64 j) 1 := contains_off (by omega) (by omega)
-    rcases hr with rfl | rfl
-    · exact hp.st_t _ (cR_sub_sR _ _ hc) ht
-    · exact hp.st_t _ (sub_sR _ (by omega) _ hc) ht
-  refine ⟨?_, ?_, ?_, fun r hr => ?_, h.rd, h.wr, ?_, fun k hk => ?_⟩
-  · dsimp only
-    simp (config := {decide := true}) only [ite_true, ite_false]
-    rw [h.x1, BitVec.add_assoc, ← BitVec.ofNat_add]
-  · dsimp only
-    simp (config := {decide := true}) only [ite_true, ite_false]
-    rw [h.x9, bufB, BitVec.add_assoc, ← BitVec.ofNat_add, Nat.add_assoc]
-  · dsimp only
-    simp (config := {decide := true}) only [ite_true, ite_false]
-    rw [h.x10]
-    bv_omega
-  · dsimp only
-    simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-    simp only [hr.1, hr.2.1, hr.2.2.1, hr.2.2.2, ite_false]
-    exact h.keep r (by simp [hr.1, hr.2.1, hr.2.2.1, hr.2.2.2])
-  · dsimp only
-    rw [h.x9]
-    exact h.frame.writeW (List.mem_singleton_self _) _ (bufB_contains _ (by omega))
-  · dsimp only
-    rw [writeW8_apply, h.x9, byte_rt, hbyte]
+theorem zero_step {s₀ : State} (hp : FPre s₀) {m₁ : Mem} {s₁ : State} {j : Nat}
+    (hj : j < 16) {s : State} (h : ZInv s₀ m₁ s₁ j s) :
+    WP isa (.block zeroBody) s fun s' => ZInv s₀ m₁ s₁ (j + 1) s' := by
+  refine wp_strb (t := .x11) (a := bufB (st s₀) j) (by decide) (by rw [h.x9, bufB_of])
+    (by rw [h.wr]; exact bufB_in hp.st_in hj) fun s₂ m₂ => ?_
+  refine wp_addImm (by decide) fun s₃ u₃ => wp_subImm (by decide) fun s₄ u₄ => WP.block_nil ?_
+  refine ⟨⟨h.j_le.1.trans (Nat.le_succ _), by omega⟩, ?_, ?_, ?_, fun r h1 h2 h3 => ?_,
+    by rw [u₄.rd, u₃.rd, m₂.rd, h.rd], by rw [u₄.wr, u₃.wr, m₂.wr, h.wr], ?_, fun k hk => ?_⟩
+  · rw [u₄.other _ (by decide), u₃.gpr, m₂.gpr, h.x9, BitVec.add_assoc, ← BitVec.ofNat_add]
+  · rw [u₄.gpr, u₃.other _ (by decide), m₂.gpr, h.x10, show BitVec.ofNat 64 1 = 1 from rfl,
+      ofNat_pred (by omega), Nat.sub_sub]
+  · rw [u₄.other _ (by decide), u₃.other _ (by decide), m₂.gpr, h.x11]
+  · rw [u₄.other r h2, u₃.other r h1, m₂.gpr, h.keep r h1 h2 h3]
+  · rw [u₄.mem, u₃.mem, m₂.mem]
+    exact h.frame.writeW (List.mem_singleton_self _) _ (by rw [bufB_eq]; exact bfR_contains _ (by omega))
+  · rw [u₄.mem, u₃.mem, m₂.mem, writeW8_apply]
     by_cases hkj : k = j
     · subst hkj
-      simp only [ite_true, show k < k + 1 by omega]
-    · have hne : bufB (st s₀) k ≠ bufB (st s₀) j := fun he => hkj (bufB_inj _ hk (by omega) he)
-      simp only [hne, ite_false]
+      simp only [ite_true, h.x11, show ¬ k < kf s₀ by have := h.j_le.1; omega,
+        show k < k + 1 by omega, ite_false]
+      rfl
+    · simp only [bufB_ne hk hj hkj, ite_false]
       rw [h.buf k hk]
-      by_cases hk' : k < j
-      · simp [hk', show k < j + 1 by omega]
-      · simp [hk', show ¬ k < j + 1 by omega]
+      by_cases h1 : k < kf s₀
+      · simp only [h1, ite_true]
+      · simp only [h1, ite_false]
+        by_cases h2 : k < j
+        · simp only [h2, ite_true, show k < j + 1 by omega]
+        · simp only [h2, ite_false, show ¬ k < j + 1 by omega]
 
-/-- The padded block: the tail, `0x01`, zeros. -/
-def padded (s₀ : State) (k : Nat) : Byte :=
-  if k < tl s₀ then (tail s₀).getD k 0 else if k = tl s₀ then 1 else 0
+theorem zeroLoop_ok {s₀ : State} (hp : FPre s₀) {m₁ : Mem} {s₁ : State} {s : State}
+    (h : ZInv s₀ m₁ s₁ (kf s₀) s) :
+    WP isa (.loop (.block zeroBody) (.nonzero .x .x10)) s (ZInv s₀ m₁ s₁ 16) := by
+  have hk := kf_lt s₀
+  refine WP.loop (M := isa) (fun n s => ∃ j, n = 16 - j ∧ j < 16 ∧ ZInv s₀ m₁ s₁ j s) ?_ _ s
+    ⟨kf s₀, rfl, hk, h⟩
+  rintro n s ⟨j, rfl, hj, hz⟩
+  refine WP.mono (zero_step hp hj hz) fun s' h' => ?_
+  have hev : isa.eval (.nonzero .x .x10) s' = some (!decide (16 - (j + 1) = 0)) := by
+    rw [eval_nonzero, h'.x10, show (BitVec.ofNat 64 (16 - (j + 1)) != 0) =
+      !(BitVec.ofNat 64 (16 - (j + 1)) == 0) from rfl, ofNat_beq_zero (by omega)]
+  by_cases hl : j + 1 = 16
+  · exact .inl ⟨by rw [hev]; simp [hl], hl ▸ h'⟩
+  · exact .inr ⟨by rw [hev]; simp; omega, _, by omega, j + 1, rfl, by omega, h'⟩
 
-/-- After the `0x01` byte, with `x1` pointing at the padded block. -/
+/-- After the `0x01` byte. -/
 structure PInv (s₀ : State) (m₁ : Mem) (s₁ : State) (s : State) : Prop where
-  x1 : s.gpr .x1 = off (st s₀) 96
-  keep : ∀ r, r ∉ copyRegs → s.gpr r = s₁.gpr r
+  keep : ∀ r, r ≠ .x9 → r ≠ .x10 → r ≠ .x11 → s.gpr r = s₁.gpr r
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
-  frame : Frame [bufR (st s₀)] m₁ s.mem
+  frame : Frame [bfR (st s₀)] m₁ s.mem
   buf : BufHas s.mem (st s₀) (padded s₀)
 
-theorem one_byte : ((((1 : BitVec 16).setWidth 64 <<< (16 * 0) : BitVec 64)).setWidth 8 : Byte) = 1 := by
-  decide
+theorem one_byte : (((1 : BitVec 16).setWidth 64).setWidth 8 : Byte) = 1 := by decide
 
-set_option simprocs false in
-theorem padByte_ok {s₀ : State} (hp : FPre s₀) {s₁ : State} (h₁ : Setup s₀ s₁) {s : State}
-    (h : CInv s₀ s₁.mem s₁ (tl s₀) s) :
-    WP isa (.block padByte) s (PInv s₀ s₁.mem s₁) := by
-  have htl := hp.tl_lt
-  have hout : InRegions s.wr (s.gpr .x9 + BitVec.ofNat 64 0) 1 := by
-    rw [h.wr, hp.wr, h.x9, add_ofNat_zero]
-    refine ⟨sR (st s₀), List.mem_cons_self, ?_⟩
-    simp only [Region.Contains, bufB]
-    rw [show st s₀ + BitVec.ofNat 64 (96 + tl s₀) - st s₀ = BitVec.ofNat 64 (96 + tl s₀) by bv_omega,
-      toNat_ofNat_lt (by omega)]
-    omega
-  have x0 : s.gpr .x0 = st s₀ := by rw [h.keep .x0 (by decide), h₁.gpr .x0 (by decide)]
-  apply WP.of_runBlock
-  simp (config := {decide := true}) only [padByte, runBlock_cons, runStep_some, exec_movz0]
-  rw [exec_strb' (show 0 < 4096 by decide) (by simpa (config := {decide := true}) [State.write] using hout)]
-  simp (config := {decide := true}) only [runStep_some, runBlock_nil, runBlock_cons,
-    exec_addImm_x (show 96 < 4096 by decide), State.read, State.write, Size.bits, BitVec.setWidth_eq,
-    ite_true, ite_false, Option.some.injEq, exists_eq_left', add_ofNat_zero, one_byte]
-  refine ⟨?_, fun r hr => ?_, h.rd, h.wr, ?_, fun k hk => ?_⟩
-  · dsimp only
-    simp (config := {decide := true}) only [ite_true]
-    rw [x0]
-  · dsimp only
-    simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-    simp only [hr.1, hr.2.2.2, ite_false]
-    exact h.keep r (by simp [hr.1, hr.2.1, hr.2.2.1, hr.2.2.2])
-  · dsimp only
-    rw [h.x9]
-    exact h.frame.writeW (List.mem_singleton_self _) _ (bufB_contains _ (by omega))
-  · dsimp only
-    rw [writeW8_apply, h.x9]
-    by_cases hkj : k = tl s₀
+theorem pad1_ok {s₀ : State} (hp : FPre s₀) {m₁ : Mem} {s₁ : State} (h₁ : F0 s₀ m₁ s₁) {s : State}
+    (h : ZInv s₀ m₁ s₁ 16 s) :
+    WP isa (.block [.movz .x .x11 1 0, .add .x .x9 .x0 .x2, .strb .x11 .x9 56]) s (PInv s₀ m₁ s₁) := by
+  have hk := kf_lt s₀
+  refine wp_movz fun s₂ u₂ => wp_add fun s₃ u₃ => ?_
+  have hx9 : s₃.gpr .x9 = st s₀ + BitVec.ofNat 64 (kf s₀) := by
+    rw [u₃.gpr, u₂.other _ (by decide), u₂.other _ (by decide), h.keep _ (by decide) (by decide)
+      (by decide), h.keep _ (by decide) (by decide) (by decide), h₁.x0, h₁.x2]
+  refine wp_strb (t := .x11) (a := bufB (st s₀) (kf s₀)) (by decide) (by rw [hx9, bufB_of])
+    (by rw [u₃.wr, u₂.wr, h.wr]; exact bufB_in hp.st_in hk) fun s₄ m₄ => WP.block_nil ?_
+  refine ⟨fun r h1 h2 h3 => ?_, by rw [m₄.rd, u₃.rd, u₂.rd, h.rd], by rw [m₄.wr, u₃.wr, u₂.wr, h.wr], ?_,
+    fun k hk' => ?_⟩
+  · rw [m₄.gpr, u₃.other r h1, u₂.other r h3, h.keep r h1 h2 h3]
+  · rw [m₄.mem, u₃.mem, u₂.mem]
+    exact h.frame.writeW (List.mem_singleton_self _) _ (by rw [bufB_eq]; exact bfR_contains _ (by omega))
+  · rw [m₄.mem, u₃.mem, u₂.mem, writeW8_apply, u₃.other _ (by decide), u₂.gpr, one_byte]
+    by_cases hkj : k = kf s₀
     · subst hkj
       simp only [ite_true, padded, Nat.lt_irrefl, ite_false]
-    · have hne : bufB (st s₀) k ≠ bufB (st s₀) (tl s₀) := fun he => hkj (bufB_inj _ hk (by omega) he)
-      simp only [hne, ite_false]
-      rw [h.buf k hk]
-      by_cases hk' : k < tl s₀
-      · simp [padded, hk']
-      · simp [padded, hk', hkj]
+    · simp only [bufB_ne hk' hk hkj, ite_false]
+      rw [h.buf k hk']
+      by_cases h1 : k < kf s₀
+      · simp only [h1, ite_true, padded]
+      · simp only [h1, ite_false, hk', ite_true, padded, hkj]
 
-/-- The padded block as a number: the tail with `0x01` appended. -/
-theorem padded_value {s₀ : State} (hp : FPre s₀) {m : Mem} (h : BufHas m (st s₀) (padded s₀)) :
-    w64 m (off (st s₀) 96) 0 + 2 ^ 64 * w64 m (off (st s₀) 96) 8 + 2 ^ 128 * false.toNat =
-      leNum (tail s₀ ++ [0x01]) := by
-  have htl := hp.tl_lt
-  have hl : (List.range 16).map (padded s₀) =
-      (tail s₀ ++ [0x01]) ++ List.replicate (15 - tl s₀) 0 := by
+/-- The padded block as a number: the buffered bytes with `0x01` appended. -/
+theorem padded_value {s₀ : State} {m : Mem} (h : BufHas m (st s₀) (padded s₀)) :
+    leNum (bytesAt m (off (st s₀) 56) 16) + 2 ^ 128 * false.toNat = leNum (tail s₀ ++ [0x01]) := by
+  have hk := kf_lt s₀
+  have hlen : (tail s₀).length = kf s₀ := Poly1305.length_bytesAt _ _ _
+  have hl : (List.range 16).map (padded s₀) = (tail s₀ ++ [0x01]) ++ List.replicate (15 - kf s₀) 0 := by
     apply List.ext_getElem
-    · simp [tail, Poly1305.length_bytesAt]; omega
+    · simp [hlen]; omega
     · intro k h₁ h₂
       simp only [List.getElem_map, List.getElem_range]
-      have hlen : (tail s₀).length = tl s₀ := Poly1305.length_bytesAt _ _ _
-      rcases Nat.lt_trichotomy k (tl s₀) with hk | rfl | hk
+      rcases Nat.lt_trichotomy k (kf s₀) with hk' | rfl | hk'
       · rw [List.getElem_append_left (by simp [hlen]; omega), List.getElem_append_left (by omega)]
-        simp only [padded, hk, ite_true]
-        simp [tail, bytesAt, hk]
+        simp only [padded, hk', ite_true]
+        simp [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (show k < (tail s₀).length by omega)]
       · rw [List.getElem_append_left (by simp [hlen]), List.getElem_append_right (by omega)]
         simp [padded, hlen]
       · rw [List.getElem_append_right (by simp [hlen]; omega)]
-        simp [padded, show ¬ k < tl s₀ by omega, show k ≠ tl s₀ by omega]
-  rw [Bool.toNat_false, Nat.mul_zero, Nat.add_zero, ← leNum_key, bytesAt_buf h, hl,
-    Poly1305.leNum_append _ (List.replicate _ _), Poly1305.leNum_replicate_zero, Nat.mul_zero,
-    Nat.add_zero]
+        simp [padded, show ¬ k < kf s₀ by omega, show k ≠ kf s₀ by omega]
+  rw [Bool.toNat_false, Nat.mul_zero, Nat.add_zero, bytesAt_buf h, hl,
+    Poly1305.leNum_append _ (List.replicate _ _), Poly1305.leNum_replicate_zero, Nat.mul_zero, Nat.add_zero]
 
-theorem coef_facts : ∀ k < 5, ∀ i < 5, 56 ≤ coef k i ∧ coef k i + 4 ≤ 92 := by decide
-
-/-- The coefficients are unchanged by writes to the padded block. -/
-theorem Coefs.frame {m m' : Mem} {st : Addr} {R : Nat} (h : Coefs m st R) (hf : Frame [bufR st] m m') :
-    Coefs m' st R := by
-  intro k hk i hi
-  obtain ⟨c₁, c₂⟩ := coef_facts k hk i hi
-  rw [← h k hk i hi]
-  refine congrArg BitVec.toNat (hf.readW (r := ⟨off st (coef k i), 4⟩) (Region.contains_self _ _) ?_
-    (by decide))
-  simp only [List.mem_singleton, forall_eq]
-  intro a h₁ h₂
-  simp only [Region.Contains, off] at h₁ h₂
-  bv_omega
-
-/-- After the last bytes (if any) are absorbed. -/
+/-- After the buffered bytes (if any) are absorbed. -/
 structure Tail (s₀ : State) (m₁ : Mem) (s₁ : State) (s : State) : Prop where
   keep : ∀ r ∈ [Reg.x0, .x3, .x17], s.gpr r = s₁.gpr r
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
-  frame : Frame [bufR (st s₀)] m₁ s.mem
+  frame : Frame [bfR (st s₀)] m₁ s.mem
   acc : A0 s₀ < P → hv s % P = Poly1305.absorbAll (Rn s₀) (A0 s₀) (tail s₀) % P ∧ Bounds s
 
-theorem tail_nil {s₀ : State} (h : tl s₀ = 0) : tail s₀ = [] := by
+theorem tail_nil {s₀ : State} (h : kf s₀ = 0) : tail s₀ = [] := by
   simp [tail, bytesAt, h]
 
-theorem lastBlock_ok {s₀ : State} (hp : FPre s₀) {s₁ : State} (h₁ : Setup s₀ s₁)
-    (hpos : 0 < tl s₀) : WP isa lastBlock s₁ (Tail s₀ s₁.mem s₁) := by
-  have htl := hp.tl_lt
-  refine WP.seq (WP.mono (zero_ok hp h₁) fun s₂ h₂ => ?_)
-  refine WP.seq (WP.mono (Q := CInv s₀ s₁.mem s₁ (tl s₀)) ?_ fun s₃ h₃ => ?_)
-  · -- The copy loop.
-    let Inv : Nat → State → Prop := fun n s => ∃ j, n = tl s₀ - j ∧ j < tl s₀ ∧ CInv s₀ s₁.mem s₁ j s
-    have hstep : ∀ n s, Inv n s → WP isa (.block copyBody) s (fun s' =>
-        (eval (.nonzero .x .x10) s' = some false ∧ CInv s₀ s₁.mem s₁ (tl s₀) s') ∨
-        (eval (.nonzero .x .x10) s' = some true ∧ ∃ n' < n, Inv n' s')) := by
-      rintro n s ⟨j, rfl, hj, h⟩
-      refine WP.mono (copy_step hp h₁ hj h) fun s' h' => ?_
-      have hev : eval (.nonzero .x .x10) s' = some (BitVec.ofNat 64 (tl s₀ - (j + 1)) != 0) := by
-        simp only [eval, State.read, Size.bits, BitVec.setWidth_eq, h'.x10]
-      by_cases hl : j + 1 = tl s₀
-      · exact .inl ⟨by rw [hev, hl]; simp, hl ▸ h'⟩
-      · have h0 : BitVec.ofNat 64 (tl s₀ - (j + 1)) ≠ 0 := by
-          intro h0
-          have h0' := congrArg BitVec.toNat h0
-          rw [toNat_ofNat_lt (by omega)] at h0'
-          simp at h0'; omega
-        exact .inr ⟨by rw [hev]; simpa using h0, tl s₀ - (j + 1), by omega, j + 1, rfl, by omega, h'⟩
-    exact WP.loop (M := isa) Inv hstep (tl s₀) s₂ ⟨0, by simp, hpos, h₂⟩
-  · -- The `0x01` byte, and the block.
-    refine WP.block_append (WP.mono (padByte_ok hp h₁ h₃) fun s₄ h₄ => ?_)
-    have g : ∀ r, r ∉ copyRegs → s₄.gpr r = s₁.gpr r := h₄.keep
-    have x0₄ : s₄.gpr .x0 = st s₀ := by rw [g .x0 (by decide), h₁.gpr .x0 (by decide)]
-    have hin : ∀ d : Nat, d + 8 ≤ 16 →
-        InRegions (s₄.rd ++ s₄.wr) (s₄.gpr .x1 + BitVec.ofNat 64 d) 8 := by
-      intro d hd
-      rw [h₄.rd, h₄.wr, h₄.x1, ← off, off_off]
-      exact ⟨_, List.mem_append_right _ (by rw [hp.wr]; exact List.mem_cons_self),
-        contains_off (by omega) (by omega)⟩
-    have hco : Coefs s₄.mem (s₄.gpr .x0) (Rn s₀) := by
-      rw [x0₄]; exact h₁.coefs.frame h₄.frame
-    have hc : CoefIn s₄ := fun off h₁' h₂' => by
-      rw [h₄.rd, h₄.wr, x0₄, hp.wr]
-      exact ⟨_, List.mem_append_right _ List.mem_cons_self, contains_off (by omega) (by omega)⟩
-    have hab := absorb_ok s₄ false (Rk_lt _ _) (by rw [g .x17 (by decide)]; exact h₁.mask) hco hc
-      (hin 0 (by omega)) (hin (0 + 8) (by omega))
-    refine WP.mono hab fun s₅ ⟨ha, k₅⟩ => ?_
-    refine ⟨fun r hr => ?_, by rw [k₅.2.2.1, h₄.rd], by rw [k₅.2.2.2, h₄.wr],
-      by rw [k₅.2.1]; exact h₄.frame, fun hA => ?_⟩
-    · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl <;> rw [k₅.gpr', g _ (by decide)]
-    · have e₄ : ∀ r ∈ [Reg.x4, .x5, .x6, .x7, .x8], s₄.gpr r = s₁.gpr r := fun r hr => g r (by
-        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢
-        rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide)
-      obtain ⟨hv₄, hb₄⟩ := bounds_eq e₄
-      obtain ⟨hv₁, hb₁⟩ := h₁.acc hA
-      obtain ⟨hv, hb⟩ := ha (hb₄ hb₁)
-      refine ⟨?_, hb⟩
-      have hlen : (tail s₀).length = tl s₀ := Poly1305.length_bytesAt _ _ _
-      rw [hv, hv₄, hv₁, h₄.x1, padded_value hp h₄.buf,
-        Poly1305.absorbAll_block (by omega) (by omega), Nat.mod_mod, Nat.mul_comm]
+theorem lastBlock_eq : lastBlock =
+    .seq (.block [.movz .x .x11 0 0, .add .x .x9 .x0 .x2, .movz .x .x10 16 0, .sub .x .x10 .x10 .x2])
+      (.seq (.loop (.block zeroBody) (.nonzero .x .x10))
+        (.block ([.movz .x .x11 1 0, .add .x .x9 .x0 .x2, .strb .x11 .x9 56] ++
+          ([.addImm .x .x1 .x0 56] ++ absorb false)))) := rfl
+
+theorem lastBlock_ok {s₀ : State} (hp : FPre s₀) {m₁ : Mem} {s₁ : State} (h₁ : F0 s₀ m₁ s₁)
+    (hpos : 0 < kf s₀) : WP isa lastBlock s₁ (Tail s₀ m₁ s₁) := by
+  have hk := kf_lt s₀
+  rw [lastBlock_eq]
+  refine WP.seq (WP.mono (zinit_ok h₁) fun s₂ h₂ => ?_)
+  refine WP.seq (WP.mono (zeroLoop_ok hp h₂) fun s₃ h₃ => ?_)
+  refine WP.block_append (WP.mono (pad1_ok hp h₁ h₃) fun s₄ h₄ => ?_)
+  have g : ∀ r, r ≠ .x9 → r ≠ .x10 → r ≠ .x11 → s₄.gpr r = s₁.gpr r := h₄.keep
+  have x0₄ : s₄.gpr .x0 = st s₀ := by rw [g .x0 (by decide) (by decide) (by decide), h₁.x0]
+  have hco : Coefs s₄.mem (s₄.gpr .x0) (Rn s₀) := by
+    rw [x0₄]; exact h₁.coefs.frame h₄.frame
+  refine WP.mono (absorbBuf_ok s₄ false (Rk_lt _ _)
+    (by rw [g .x17 (by decide) (by decide) (by decide)]; exact h₁.mask) hco
+    (by rw [h₄.wr, x0₄]; exact hp.st_in)) fun s₅ ⟨ha, k₅⟩ => ?_
+  refine ⟨fun r hr => ?_, by rw [k₅.2.2.1, h₄.rd], by rw [k₅.2.2.2, h₄.wr],
+    by rw [k₅.2.1]; exact h₄.frame, fun hA => ?_⟩
+  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl <;> rw [k₅.gpr', g _ (by decide) (by decide) (by decide)]
+  · obtain ⟨hv₄, hb₄⟩ := bounds_eq (s := s₁) (s' := s₄) (fun r hr => g r (by revert hr; decide +revert)
+      (by revert hr; decide +revert) (by revert hr; decide +revert))
+    obtain ⟨hv₁, hb₁⟩ := h₁.acc hA
+    obtain ⟨hv, hb⟩ := ha (hb₄ hb₁)
+    refine ⟨?_, hb⟩
+    have hlen : (tail s₀).length = kf s₀ := Poly1305.length_bytesAt _ _ _
+    rw [hv, hv₄, hv₁, x0₄, padded_value h₄.buf, Poly1305.absorbAll_block (by omega) (by omega),
+      Nat.mod_mod, Nat.mul_comm]
 
 /-! ## Epilogue -/
 
@@ -481,27 +301,27 @@ theorem fepi_eq : reduce ++ addS ++ pack ++ storeTag = reduce ++ (load2 .x0 40 +
   simp only [addS, List.append_assoc]
 
 /-- A key word, unchanged since entry. -/
-theorem key_word {s₀ : State} {m : Mem} (hf : Frame [cR (st s₀), bufR (st s₀)] s₀.mem m) {d : Nat}
+theorem key_word {s₀ : State} {m : Mem} (hf : Frame [cR (st s₀), bfR (st s₀)] s₀.mem m) {d : Nat}
     (h₁ : 24 ≤ d) (h₂ : d + 8 ≤ 56) : m.readW (off (st s₀) d) 64 = s₀.mem.readW (off (st s₀) d) 64 := by
   refine hf.readW (r := ⟨off (st s₀) d, 8⟩) (Region.contains_self _ _) ?_ (by decide)
   simp only [List.mem_cons, List.not_mem_nil, or_false]
   rintro r (rfl | rfl) <;> intro a h₁ h₂ <;> simp only [Region.Contains, off] at h₁ h₂ <;> bv_omega
 
-theorem fepilogue_ok {s₀ : State} (hp : FPre s₀) {s₁ : State} (h₁ : Setup s₀ s₁) {s : State}
-    (ht : Tail s₀ s₁.mem s₁ s) :
+theorem fepilogue_ok {s₀ : State} (hp : FPre s₀) {m₁ : Mem} {s₁ : State} (h₁ : F0 s₀ m₁ s₁) {s : State}
+    (ht : Tail s₀ m₁ s₁ s) :
     WP isa (.block (reduce ++ addS ++ pack ++ storeTag)) s fun s' =>
       Proof.Poly1305.finalizeAArch64.post s₀ s' := by
   have hm : s.gpr .x17 = M26 := by rw [ht.keep .x17 (by simp)]; exact h₁.mask
-  have x0 : s.gpr .x0 = st s₀ := by rw [ht.keep .x0 (by simp), h₁.gpr .x0 (by decide)]
-  have x3 : s.gpr .x3 = op s₀ := by rw [ht.keep .x3 (by simp), h₁.gpr .x3 (by decide)]
-  have hf : Frame [cR (st s₀), bufR (st s₀)] s₀.mem s.mem :=
+  have x0 : s.gpr .x0 = st s₀ := by rw [ht.keep .x0 (by simp), h₁.x0]
+  have x3 : s.gpr .x3 = op s₀ := by rw [ht.keep .x3 (by simp), h₁.x3]
+  have hf : Frame [cR (st s₀), bfR (st s₀)] s₀.mem s.mem :=
     (h₁.frame.mono (by simp)).trans (ht.frame.mono (by simp))
   rw [fepi_eq]
   refine WP.block_append (WP.mono (reduce_ok s hm) fun s₂ ⟨hr, k₂⟩ => ?_)
   have hin : ∀ d, d + 8 ≤ 128 → InRegions (s₂.rd ++ s₂.wr) (s₂.gpr .x0 + BitVec.ofNat 64 d) 8 := by
     intro d hd
-    rw [k₂.2.2.1, k₂.2.2.2, k₂.gpr', ht.rd, ht.wr, x0, hp.wr]
-    exact ⟨_, List.mem_append_right _ List.mem_cons_self, contains_off hd (by omega)⟩
+    rw [k₂.2.2.1, k₂.2.2.2, k₂.gpr', ht.rd, ht.wr, x0]
+    exact ⟨_, List.mem_append_right _ hp.st_in, contains_off hd (by omega)⟩
   refine WP.block_append (WP.mono (load2_ok s₂ (n := .x0) (off := 40) (by decide) (by decide)
     (by decide) (hin 40 (by omega)) (hin (40 + 8) (by omega))) fun s₃ ⟨l₁, l₂, k₃⟩ => ?_)
   refine WP.block_append (WP.mono (split_ok s₃ (by rw [k₃.gpr', k₂.gpr']; exact hm))
@@ -511,9 +331,13 @@ theorem fepilogue_ok {s₀ : State} (hp : FPre s₀) {s₁ : State} (h₁ : Setu
   refine WP.block_append (WP.mono (pack_ok s₅) fun s₆ ⟨hq, k₆⟩ => ?_)
   have k₂₆ := (((k₂.trans k₃).trans k₄).trans k₅).trans k₆
   refine WP.mono (storeTag_ok s₆ (by
-    rw [k₂₆.2.2.2, k₂₆.gpr', ht.wr, x3, hp.wr]; exact List.mem_cons_of_mem _ List.mem_cons_self))
+    rw [k₂₆.2.2.2, k₂₆.gpr', ht.wr, x3]; exact hp.o_in))
     fun s₇ ⟨t0, t8, _⟩ => ?_
-  intro key msg hrep
+  intro key msg hbuf hcnt
+  obtain ⟨W, B, rfl, hrep, hBl, hBb⟩ := Buffered.split hbuf
+  have hk : kf s₀ = (W ++ B).length % 16 := hcnt
+  have htail : tail s₀ = B := by rw [tail, hk, off_56]; exact hBb
+  rw [← htail]
   have hA := A0_lt hrep
   obtain ⟨hv₀, hb⟩ := ht.acc hA
   obtain ⟨hN, n0, n1, n2, n3, n4⟩ := hr hb
@@ -555,32 +379,33 @@ theorem fepilogue_ok {s₀ : State} (hp : FPre s₀) {s₁ : State} (h₁ : Setu
 
 /-! ## The whole function -/
 
+theorem finalize_eq : finalize =
+    .seq (.block ([.addImm .x .x3 .x2 0, .movz .x .x2 15 0, .logic .and .x .x2 .x1 .x2] ++ setup))
+      (.seq (.ite (.zero .x .x2) (.block []) lastBlock) (.block (reduce ++ addS ++ pack ++ storeTag))) := rfl
+
 theorem finalize_correct {s₀ : State} (hp : FPre s₀) :
     WP isa finalize s₀ (Proof.Poly1305.finalizeAArch64.post s₀) := by
-  refine WP.seq (WP.mono (setup_ok s₀ (by rw [hp.wr]; exact List.mem_cons_self)) fun s₁ h₁ => ?_)
+  rw [finalize_eq]
+  refine WP.seq (WP.mono (fprologue_ok hp) fun s₁ h₁ => ?_)
   refine WP.seq (WP.mono (Q := Tail s₀ s₁.mem s₁) ?_ fun s₂ h₂ => fepilogue_ok hp h₁ h₂)
-  have x2₁ : s₁.gpr .x2 = s₀.gpr .x2 := h₁.gpr .x2 (by decide)
-  refine WP.ite (s₁.read .x .x2 == 0) rfl (fun h => ?_) (fun h => ?_)
-  · have h0 : tl s₀ = 0 := by
-      simp only [State.read, Size.bits, BitVec.setWidth_eq, x2₁, beq_iff_eq] at h
-      simp [tl, h]
+  refine WP.ite (decide (kf s₀ = 0))
+    (by rw [eval_zero, h₁.x2, ofNat_beq_zero (by have := kf_lt s₀; omega)]) (fun h => ?_) (fun h => ?_)
+  · simp only [decide_eq_true_eq] at h
     refine WP.block_nil (M := isa) ⟨fun r _ => rfl, h₁.rd, h₁.wr, Frame.refl _ _, fun hA => ?_⟩
     obtain ⟨e, b⟩ := h₁.acc hA
     refine ⟨?_, b⟩
-    rw [tail_nil h0, Poly1305.absorbAll_nil, e]
-  · have hpos : 0 < tl s₀ := by
-      simp only [State.read, Size.bits, BitVec.setWidth_eq, x2₁, beq_eq_false_iff_ne, ne_eq] at h
-      exact Nat.pos_of_ne_zero fun h' => h (BitVec.eq_of_toNat_eq (by simpa using h'))
-    exact lastBlock_ok hp h₁ hpos
+    rw [tail_nil h, Poly1305.absorbAll_nil, e]
+  · simp only [decide_eq_false_iff_not] at h
+    exact lastBlock_ok hp h₁ (Nat.pos_of_ne_zero h)
 
-/-- A state satisfying the precondition (with no tail). -/
+/-- A state satisfying the precondition (with 128 bytes of working space at `x3`). -/
 def finalizeSat : State where
   gpr r := match r with
-    | .x0 => 0x1000 | .x1 => 0x2000 | .x3 => 0x3000 | _ => 0
+    | .x0 => 0x1000 | .x2 => 0x3000 | .x3 => 0x5000 | _ => 0
   sp := 0x4000
   mem _ := 0
-  rd := [⟨0x2000, 0⟩]
-  wr := [⟨0x1000, 128⟩, ⟨0x3000, 16⟩]
+  rd := []
+  wr := [⟨0x1000, 128⟩, ⟨0x3000, 16⟩, ⟨0x5000, 128⟩]
 
 theorem finalize_untouched : Untouched Impl.Poly1305.AArch64.finalize :=
   Untouched.of_all (by rw [← Code.allInstrs_eq]; decide +kernel)
@@ -590,15 +415,14 @@ theorem finalize_verified :
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := finalize_correct (FPre.of s hs)
     exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (finalize_untouched r hr) he, Exec.sp he⟩, h⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) ?_
-      (by taint_decide)
-    intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, hsp⟩
+  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2]) ?_ (by taint_decide)
+    intro s₁ s₂ _ _ ⟨h1, h2, h3, hsp⟩
     refine ⟨hsp, fun r hr => ?_⟩
     simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl <;> assumption
-  · refine ⟨finalizeSat, rfl, rfl, ?_, ?_, ?_, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, finalizeSat] at h₁ h₂
-      bv_omega
+    rcases hr with rfl | rfl | rfl <;> assumption
+  · refine ⟨finalizeSat, List.mem_cons_self, List.mem_cons_of_mem _ List.mem_cons_self, ?_⟩
+    intro a h₁ h₂
+    simp only [Region.Contains, finalizeSat] at h₁ h₂
+    bv_omega
 
 end VG.Proof.Poly1305.AArch64
