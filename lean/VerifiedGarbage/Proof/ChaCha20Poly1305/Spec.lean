@@ -19,8 +19,8 @@ theorem readW32 (m : Mem) (a : Addr) :
     m.readW a 32 = (m (a + 3) ++ m (a + 2) ++ m (a + 1) ++ m a : BitVec 32) := by
   apply BitVec.eq_of_getLsbD_eq
   intro i hi
-  have e1 : a + 1 + 1 = a + 2 := by bv_omega
-  have e3 : a + 2 + 1 = a + 3 := by bv_omega
+  have e1 : a + 1 + 1 = a + 2 := by rw [BitVec.add_assoc]; rfl
+  have e3 : a + 2 + 1 = a + 3 := by rw [BitVec.add_assoc]; rfl
   simp only [Mem.readW, Mem.read, BitVec.getLsbD_setWidth, BitVec.getLsbD_append, e1, e3]
   have : i - 8 - 8 - 8 < 8 := by omega
   simp [this, hi]
@@ -64,5 +64,27 @@ theorem encrypt_eq (key nonce : List Byte) (c : Word) (m : List Byte) :
     rfl
   simp only [keystream, e, zipWith_take]
   rfl
+
+/-- What `decrypt` returning a plaintext means. (Split the goal on `decrypt`
+as it appears there and use these, rather than unfolding `decrypt` or
+rewriting it with other arguments: the kernel, comparing two `match`es on
+`decrypt` whose arguments are equal but not syntactically, evaluates the
+tag comparison on the bytes in memory.) -/
+theorem decrypt_eq_some {key nonce aad ct tag pt : List Byte}
+    (h : Spec.ChaCha20Poly1305.decrypt key nonce aad ct tag = some pt) :
+    Spec.Poly1305.mac (polyKeyGen key nonce) (macData aad ct) = tag ∧ pt = Spec.ChaCha20.encrypt key 1 nonce ct := by
+  unfold Spec.ChaCha20Poly1305.decrypt at h
+  split at h
+  · exact ⟨‹_›, (Option.some.inj h).symm⟩
+  · exact absurd h (by simp)
+
+/-- What `decrypt` returning `none` means. -/
+theorem decrypt_eq_none {key nonce aad ct tag : List Byte}
+    (h : Spec.ChaCha20Poly1305.decrypt key nonce aad ct tag = none) :
+    Spec.Poly1305.mac (polyKeyGen key nonce) (macData aad ct) ≠ tag := by
+  unfold Spec.ChaCha20Poly1305.decrypt at h
+  split at h
+  · exact absurd h (by simp)
+  · assumption
 
 end VG.Proof.ChaCha20Poly1305

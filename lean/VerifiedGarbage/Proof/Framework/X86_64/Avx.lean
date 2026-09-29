@@ -250,7 +250,7 @@ theorem readW_writeW_inside (m : Mem) (a : Addr) {w : Nat} (v : BitVec w) {k n :
   rw [getLsbD_read _ _ (by omega)]
   simp only [Mem.writeW, Mem.write]
   rw [show a + BitVec.ofNat 64 k + BitVec.ofNat 64 (i / 8) - a = BitVec.ofNat 64 (k + i / 8) by
-    rw [BitVec.ofNat_add]; bv_omega]
+    rw [BitVec.add_assoc, ← BitVec.ofNat_add, Offset.add_sub_cancel_left]]
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   simp only [show k + i / 8 < w / 8 by omega, ite_true, BitVec.getLsbD_extractLsb',
     BitVec.getLsbD_setWidth]
@@ -264,7 +264,9 @@ theorem readW_writeW_off (m : Mem) (p : Addr) {w' : Nat} (v : BitVec w') {d e n 
       m.readW (p + BitVec.ofNat 64 d) (8 * n) := by
   refine Mem.readW_writeW_sep (fun x hx hy => ?_) (by omega)
   rw [show 8 * n / 8 = n by omega] at hx
-  bv_omega
+  simp only [Offset.sub_add_eq, Offset.toNat_sub_ofNat] at hx hy
+  have := (x - p).isLt
+  omega
 
 theorem readW_8 (m : Mem) (a : Addr) : m.readW a 8 = m a := by
   simp only [Mem.readW, Mem.read]

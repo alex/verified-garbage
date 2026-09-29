@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Sha256.X86_64.Avx2.Groups
+import VerifiedGarbage.Proof.Sha256.X86_64.Avx2.Lit
 import VerifiedGarbage.Proof.Sha256.X86_64.ShaNi.Compress
 
 /-!
@@ -317,8 +318,9 @@ theorem slot_sub (p : Addr) {d n : Nat} (hd : d + n ≤ 560) :
 theorem saveSlot_w (p : Addr) {d : Nat} (hd : 512 ≤ d) (hd' : d + 8 ≤ 560) :
     Region.Disjoint ⟨p + BitVec.ofInt 64 (d : Int), 8⟩ (wRegion p) := by
   intro a h₁ h₂
-  simp only [Region.Contains, ofInt_natCast] at h₁ h₂
-  bv_omega
+  simp only [Region.Contains, ofInt_natCast, Offset.sub_add_eq, Offset.toNat_sub_ofNat] at h₁ h₂
+  have := (a - p).isLt
+  omega
 
 theorem saved_frame {s₀ : State} (hp : Pre s₀) {m m' : Mem} (h : Saved s₀ m)
     (hf : Frame [wRegion (scr s₀)] m m' ∨ Frame [stR s₀] m m') : Saved s₀ m' := by
@@ -387,7 +389,12 @@ theorem sub_one_eq {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) :
   generalize nb s₀ - i = n at *
   by_cases h : n = 1
   · subst h; decide
-  · have h' : BitVec.ofNat 64 n - 1 ≠ 0 := by bv_omega
+  · have h' : BitVec.ofNat 64 n - 1 ≠ 0 := by
+      rw [show (1 : BitVec 64) = BitVec.ofNat 64 1 from rfl, Offset.ofNat_sub_ofNat h1]
+      intro h0
+      have := congrArg BitVec.toNat h0
+      rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)] at this
+      exact h (by have h2 : n - 1 = 0 := this; omega)
     rw [beq_eq_false_iff_ne.mpr h', beq_eq_false_iff_ne.mpr h]
 
 theorem blk_read {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {m m' : Mem}
@@ -424,7 +431,8 @@ theorem first_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s 
       rw [hb, beq_eq_false_iff_ne] at h
       rw [e15, h15₁, hL.rsi]
       simp only [nxt, h, ↓reduceIte, blkAddr]
-      bv_omega
+      rw [BitVec.add_assoc, show (64 : BitVec 64) = BitVec.ofNat 64 64 from rfl, ← BitVec.ofNat_add,
+      show 64 * (i + 1) = 64 * i + 64 by omega]
   obtain ⟨hm₂, hrd₂, hwr₂, -, hx₂, hy₂⟩ := hk₂
   have pub₂ : ∀ r ∈ pubRegs, s₂.gpr r = s.gpr r := fun r hr => hg₂ r (pub_ne15 hr)
   have hrsi₂ : s₂.gpr .rsi = blkAddr s₀ i := (pub₂ .rsi (by decide)).trans hL.rsi
@@ -553,10 +561,13 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
   · rw [beq_iff_eq] at h
     refine WP.mono (adv_common hM.toCommon 64 1) fun s₂ ⟨hc, he, hrsi, hrdx⟩ => ?_
     have hrdx' : s₁.gpr .rdx - BitVec.signExtend 64 (1 : BitVec 32) = BitVec.ofNat 64 (nb s₀ - (i + 1)) := by
-      rw [hM.rdx, e1]; bv_omega
+      rw [hM.rdx, e1, show (1 : BitVec 64) = BitVec.ofNat 64 1 from rfl,
+        Offset.ofNat_sub_ofNat (by omega), Nat.sub_sub]
     rw [hrdx'] at he hrdx
     refine exit_or_next hp (by omega) (by omega) hc ?_ hrdx he
-    rw [hrsi, hM.rsi, e64]; simp only [blkAddr]; bv_omega
+    rw [hrsi, hM.rsi, e64]; simp only [blkAddr]
+    rw [BitVec.add_assoc, show (64 : BitVec 64) = BitVec.ofNat 64 64 from rfl, ← BitVec.ofNat_add,
+      show 64 * (i + 1) = 64 * i + 64 by omega]
   · rw [beq_eq_false_iff_ne] at h
     have hnx : nxt s₀ i = i + 1 := by simp only [nxt, h, ↓reduceIte]
     have hw := hM.wmem
@@ -594,10 +605,13 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
       · rw [Masks, hx₄, hy₄, hx₃, hy₃, hx₂, hy₂]; exact hM.masks
     refine WP.mono (adv_common hc₄ 128 2) fun s₅ ⟨hc, he, hrsi, hrdx⟩ => ?_
     have hrdx' : s₄.gpr .rdx - BitVec.signExtend 64 (2 : BitVec 32) = BitVec.ofNat 64 (nb s₀ - (i + 2)) := by
-      rw [pub₄' .rdx (by decide), hM.rdx, e2]; bv_omega
+      rw [pub₄' .rdx (by decide), hM.rdx, e2, show (2 : BitVec 64) = BitVec.ofNat 64 2 from rfl,
+        Offset.ofNat_sub_ofNat (by omega), Nat.sub_sub]
     rw [hrdx'] at he hrdx
     refine exit_or_next hp (by omega) (by omega) hc ?_ hrdx he
-    rw [hrsi, pub₄' .rsi (by decide), hM.rsi, e128]; simp only [blkAddr]; bv_omega
+    rw [hrsi, pub₄' .rsi (by decide), hM.rsi, e128]; simp only [blkAddr]
+    rw [BitVec.add_assoc, show (128 : BitVec 64) = BitVec.ofNat 64 128 from rfl, ← BitVec.ofNat_add,
+      show 64 * (i + 2) = 64 * i + 128 by omega]
 
 /-! ## The prologue and the epilogue -/
 
@@ -697,7 +711,7 @@ theorem compress_verified :
     Verified X86_64.target Impl.Sha256.X86_64.Avx2.compress Proof.Sha256.compressX86_64 := by
   refine ⟨fun s hs => ?_, ?_, (Proof.Sha256.X86_64.compress_verified).2.2⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of s hs)
-    exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+    exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he h.1, h.2⟩
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx, .rcx]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ ⟨h1, h2, h3, h4⟩
     refine Taint.agree_ofRegs fun r hr => ?_

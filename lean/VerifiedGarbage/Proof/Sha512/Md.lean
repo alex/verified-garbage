@@ -43,15 +43,9 @@ def md : MdStream.Md 128 64 16 where
 words `count >> 61` and `8 count mod 2⁶⁴`, big-endian. -/
 theorem lenOf_split (x : BitVec 64) :
     md.lenOf x = wordBytes (x >>> 61) ++ wordBytes (BitVec.ofNat 64 (8 * x.toNat)) := by
-  have hx := x.isLt
-  simp only [md, lenField, wordBytes, List.range_succ, List.range_zero, List.nil_append,
-    List.reverse_cons, List.reverse_nil, List.map_cons, List.map_nil, List.cons_append, List.nil_append]
-  simp only [List.cons.injEq, and_true]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-  · apply BitVec.eq_of_toNat_eq
-    simp only [BitVec.extractLsb'_toNat, BitVec.toNat_ushiftRight, BitVec.toNat_ofNat,
-      Nat.shiftRight_eq_div_pow]
-    simp only [Nat.reducePow] at * <;> omega
+  have e := Stream.lenN_split x.toNat x.isLt
+  rw [BitVec.ofNat_toNat, BitVec.setWidth_eq] at e
+  exact e
 
 theorem repr_iff {iv : HashValue} {mem : Mem} {p : Addr} {m : List Byte} :
     Repr iv mem p m ↔ md.Repr iv mem p m := Iff.rfl

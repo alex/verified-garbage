@@ -210,8 +210,7 @@ theorem verified :
       Arm.reduceClassify, Arm.Loc.val] at h
     exact ⟨h.2.1, h.2.2⟩
   · refine ⟨satState, ?_⟩
-    sig_pre [Spec.MlKem.decode12Contract, Spec.MlKem.decode12Sig, Arm.abi, Arm.argRegs,
+    sig_sat_check [Spec.MlKem.decode12Contract, Spec.MlKem.decode12Sig, Arm.abi, Arm.argRegs,
       Arm.reduceClassify, Arm.Loc.val]
-    exact ⟨by decide, rfl, rfl, Region.disjoint_of_sep (by decide), by decide, by decide⟩
 
 end VG.Proof.MlKem.Arm.Decode12

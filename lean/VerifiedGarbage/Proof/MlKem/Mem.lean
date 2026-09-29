@@ -1,6 +1,8 @@
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Spec.MlKem.Poly
 import VerifiedGarbage.Proof.MlKem.Arith
+import VerifiedGarbage.Proof.Framework.Offset
+import VerifiedGarbage.Proof.Framework.WriteBytes
 
 /-!
 # ML-KEM: polynomials and bytes in memory, for every target
@@ -28,18 +30,11 @@ theorem coeffAt_eq (m : Mem) (p : Addr) (i : Nat) : coeffAt m p i = m.readW (coe
 abbrev polyRegion (p : Addr) : Region := ⟨p, 1024⟩
 
 theorem coeff_contains (p : Addr) {i : Nat} (hi : i < n) : (polyRegion p).Contains (coeffAddr p i) 4 := by
-  simp only [Region.Contains, coeffAddr]
-  rw [show p + BitVec.ofNat 64 (4 * i) - p = BitVec.ofNat 64 (4 * i) by bv_omega, BitVec.toNat_ofNat,
-    Nat.mod_eq_of_lt (by rw [n_eq] at hi; omega)]
-  rw [n_eq] at hi
-  omega
+  rw [n_eq] at hi; exact Offset.contains_base p (by omega) (by omega)
 
 theorem coeff_sep (p : Addr) {i j : Nat} (hi : i < n) (hj : j < n) (h : i ≠ j) :
     Mem.Sep (coeffAddr p i) 4 (coeffAddr p j) 4 := by
-  rw [n_eq] at hi hj
-  intro x hx hy
-  simp only [coeffAddr] at hx hy
-  bv_omega
+  rw [n_eq] at hi hj; exact Offset.sep p (by omega) (by omega) (by omega)
 
 theorem coeffAt_writeW_self (m : Mem) (p : Addr) (i : Nat) (v : BitVec 32) :
     coeffAt (m.writeW (coeffAddr p i) v) p i = v :=
@@ -221,16 +216,7 @@ theorem bytesAt_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : 
     bytesAt m' p len = bytesAt m p len :=
   bytesAt_congr (bytes_frame hf hd hlen)
 
-theorem writeW8_apply (m : Mem) (a x : Addr) (b : Byte) :
-    m.writeW a b x = if x = a then b else m x := by
-  simp only [Mem.writeW, Mem.write]
-  by_cases h : x = a
-  · subst h
-    simp only [BitVec.sub_self, BitVec.toNat_zero, Nat.mul_zero, ite_true]
-    ext i hi
-    simp
-  · have : ¬ (x - a).toNat < 8 / 8 := by bv_omega
-    simp only [this, h, ite_false]
+export VG.WriteBytes (writeW8_apply)
 
 /-- Writing byte `i` of the bytes at `p`. -/
 theorem bytesAt_writeW8 (m : Mem) (p : Addr) {i len : Nat} (hi : i < len) (hlen : len ≤ 2 ^ 64)

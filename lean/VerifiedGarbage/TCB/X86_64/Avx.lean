@@ -146,7 +146,7 @@ Vol. 2 (no flags are affected; `VEX.128` versions zero `DEST[MAXVL-1:128]`):
   := SRC1[127:0]; 1: DEST[127:0] := SRC1[255:128]; DEST[MAXVL-1:128] := 0`.
 * VMOVQ xmm, r64: `DEST[63:0] := SRC[63:0]; DEST[MAXVL-1:64] := 0`.
 * VZEROUPPER: in 64-bit mode, `YMM0[MAXVL-1:128] := 0` … `YMM15[MAXVL-1:128]
-  := 0`. -/
+  := 0` (bits 255:128 and 511:256 of each). -/
 def VOp.exec : VOp → State → State
   | .vbin op len d a b, s =>
     s.setV len d (op.sse.eval (s.lane a 0) (s.lane b 0)) (op.sse.eval (s.lane a 1) (s.lane b 1))
@@ -177,6 +177,6 @@ def VOp.exec : VOp → State → State
     else s.setV .l256 d (s.xmm b) (s.lane a 1)
   | .vextracti128 d r n, s => s.setV .l128 d (s.lane r (if n.getLsbD 0 then 1 else 0)) 0
   | .vmovq d r, s => s.setV .l128 d ((0 : BitVec 64) ++ s.gpr r) 0
-  | .vzeroupper, s => { s with ymmHi := fun _ => 0 }
+  | .vzeroupper, s => { s with ymmHi := fun _ => 0, zmmHi := fun _ => 0 }
 
 end VG.X86_64

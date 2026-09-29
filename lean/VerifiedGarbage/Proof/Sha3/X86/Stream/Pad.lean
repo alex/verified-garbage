@@ -1,4 +1,5 @@
-import VerifiedGarbage.Proof.Sha3.X86.Stream.Common
+import VerifiedGarbage.Proof.Sha3.X86.Permute
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # The SHA-3 sponge on x86 (32-bit): `pad`
@@ -214,7 +215,7 @@ theorem bytes_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block padBytes) s₀ 
       u₇.other .eax (by decide), u₆.other .ecx (by decide), c₅, a₆]
     have h72 : 72 ≤ (arg s₀ 1).toNat := hr₀
     show _ = _ + BitVec.ofNat 32 ((arg s₀ 1).toNat - 1)
-    bv_omega
+    exact Offset.add_sub_one32 _ _ (by omega)
   have hpB : addr (s₁₄.gpr .edx) 0 = stA s₀ + BitVec.ofNat 64 (rt s₀ - 1) := by
     rw [d₁₄]; exact ptr_addr (by omega)
   have w₁₄ : s₁₄.wr = s₀.wr := by rw [u₁₄.wr, u₁₃.wr, u₁₂.wr, u₁₁.wr, u₁₀.wr, u₉.wr, w₈]
@@ -410,12 +411,10 @@ theorem sat_pre : Proof.Sha3.padX86.pre sat := by
   simp only [Proof.Sha3.padX86, a0, a1, a2, a4, e]
   refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide, by decide,
     by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, sat] at h₁ h₂
-    bv_omega
+  · exact Region.disjoint_of_sep (by decide)
 
 theorem pad_verified : Verified X86.target pad Proof.Sha3.padX86 := by
   refine ⟨fun s hs => correct (pre_of hs), ?_, ⟨sat, sat_pre⟩⟩
-  exact VG.Taint.constantTime (A := VG.X86.taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+  exact VG.Taint.constantTime (A := VG.X86.taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide_weak VG.Proof.Sha3.X86.dropRC)
 
 end VG.Proof.Sha3.X86.Stream.Pad

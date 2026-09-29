@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.Md5.X86.Contract
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Md5.X86.Compress
 import VerifiedGarbage.Impl.Md5.X86.Stream
+import VerifiedGarbage.Proof.Md5.X86.Lit
 
 /-!
 # Streaming MD5 on x86 (32-bit): `update` and `finalize`

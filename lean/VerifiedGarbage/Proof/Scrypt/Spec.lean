@@ -13,9 +13,8 @@ open VG.Spec.Scrypt (Word step wordLE serialize bytesAt)
 
 theorem rotateLeft_eq (x : Word) {k : Nat} (hk : 0 < k) (hk' : k < 32) :
     x.rotateLeft k = x.rotateRight (32 - k) := by
-  ext i hi
-  simp only [BitVec.getElem_rotateLeft, BitVec.getElem_rotateRight]
-  split <;> split <;> (try congr 1) <;> omega
+  rw [BitVec.rotateLeft_def, BitVec.rotateRight_def, Nat.mod_eq_of_lt hk', Nat.mod_eq_of_lt (by omega),
+    show 32 - (32 - k) = k by omega, BitVec.or_comm]
 
 /-! ## Lines with `Nat` indices -/
 
@@ -49,7 +48,8 @@ theorem bytesAt_getD (m : Mem) (p : Addr) {n i : Nat} (hi : i < n) :
 theorem readW32_eq (m : Mem) (a : Addr) :
     m.readW a 32 = m (a + 3) ++ m (a + 2) ++ m (a + 1) ++ m a := by
   simp only [Mem.readW, Mem.read]
-  rw [show a + 1 + 1 + 1 = a + 3 by bv_omega, show a + 1 + 1 = a + 2 by bv_omega]
+  rw [show a + 1 + 1 + 1 = a + 3 by rw [BitVec.add_assoc, BitVec.add_assoc]; rfl,
+    show a + 1 + 1 = a + 2 by rw [BitVec.add_assoc]; rfl]
   ext i hi
   simp only [← BitVec.getLsbD_eq_getElem]
   simp only [BitVec.getLsbD_setWidth, BitVec.getLsbD_append, hi, decide_true, Bool.true_and]
@@ -66,9 +66,12 @@ theorem wordLE_bytesAt (m : Mem) (p : Addr) {n j : Nat} (hj : 4 * j + 4 ≤ n) :
     wordLE (bytesAt m p n) j = m.readW (p + BitVec.ofNat 64 (4 * j)) 32 := by
   rw [wordLE, bytesAt_getD _ _ (by omega), bytesAt_getD _ _ (by omega),
     bytesAt_getD _ _ (by omega), bytesAt_getD _ _ (by omega), readW32_eq]
-  rw [show p + BitVec.ofNat 64 (4 * j + 3) = p + BitVec.ofNat 64 (4 * j) + 3 by bv_omega,
-    show p + BitVec.ofNat 64 (4 * j + 2) = p + BitVec.ofNat 64 (4 * j) + 2 by bv_omega,
-    show p + BitVec.ofNat 64 (4 * j + 1) = p + BitVec.ofNat 64 (4 * j) + 1 by bv_omega]
+  rw [show p + BitVec.ofNat 64 (4 * j + 3) = p + BitVec.ofNat 64 (4 * j) + 3 by
+      rw [BitVec.add_assoc, BitVec.ofNat_add]; rfl,
+    show p + BitVec.ofNat 64 (4 * j + 2) = p + BitVec.ofNat 64 (4 * j) + 2 by
+      rw [BitVec.add_assoc, BitVec.ofNat_add]; rfl,
+    show p + BitVec.ofNat 64 (4 * j + 1) = p + BitVec.ofNat 64 (4 * j) + 1 by
+      rw [BitVec.add_assoc, BitVec.ofNat_add]; rfl]
 
 theorem range_mul4 (g : Nat → Byte) : ∀ n, (List.range (4 * n)).map g =
     (List.range n).flatMap fun j => [g (4 * j), g (4 * j + 1), g (4 * j + 2), g (4 * j + 3)]
@@ -104,7 +107,7 @@ theorem bytesAt_eq_serialize (m : Mem) (p : Addr) (x : Vector Word 16)
   have e : ∀ i < 4, m (p + BitVec.ofNat 64 (4 * j + i)) = x[j].extractLsb' (8 * i) 8 := by
     intro i hi
     rw [← h j hj', show p + BitVec.ofNat 64 (4 * j + i) = p + BitVec.ofNat 64 (4 * j) +
-      BitVec.ofNat 64 i by bv_omega]
+      BitVec.ofNat 64 i by rw [BitVec.add_assoc, BitVec.ofNat_add]]
     exact Mem.readW_byte _ _ hi
   simp only [getElem!_pos x j hj']
   rw [← e 1 (by omega), ← e 2 (by omega), ← e 3 (by omega), ← e 0 (by omega)]

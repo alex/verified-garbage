@@ -1,7 +1,8 @@
-import VerifiedGarbage.Proof.Sha3.X86_64.Call
-import VerifiedGarbage.Proof.Sha3.SqueezeFrom
+import VerifiedGarbage.Proof.Sha3.X86_64.Permute
+import VerifiedGarbage.Proof.Sha3.Stream
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Sha3.Contract
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # The SHA-3 sponge on x86-64: `squeeze`
@@ -83,8 +84,7 @@ theorem slot_sub (s₀ : State) {k : Nat} (hk : k < 6) : Region.Sub ⟨slot s₀
   sub_offset (by omega) (by omega)
 
 theorem slot_scr (s₀ : State) {k : Nat} (hk : k < 6) :
-    Region.Disjoint ⟨slot s₀ k, 8⟩ ⟨scrp s₀, 512⟩ := by
-  intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+    Region.Disjoint ⟨slot s₀ k, 8⟩ ⟨scrp s₀, 512⟩ := Offset.disjoint_base _ (by omega) (by omega)
 
 theorem Saved.frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Region} (hf : Frame rs m m')
     (hd : ∀ k < 6, ∀ r ∈ rs, Region.Disjoint ⟨slot s₀ k, 8⟩ r) : Saved s₀ m' := fun k hk => by
@@ -302,7 +302,7 @@ theorem store_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI
     · subst e
       obtain ⟨d, m⟩ := div_mod_eq (k := k) hr0 hlt
       rw [writeW8_self, hI.hi, d, m]
-    · rw [writeW8_other _ _ (by intro h'; apply e; bv_omega)]
+    · rw [writeW8_other _ _ (Offset.add_ofNat_ne _ (by omega) (by omega) e)]
       exact hI.out j (by omega)
   · rw [hz₅, u₄.other _ (by decide), u₃.other _ (by decide), g₂, u₁.other _ (by decide), hI.r14, sx1,
       ofNat_pred (by omega), beq_zero, toNat_ofNat_lt (by omega), Nat.sub_sub]
@@ -459,7 +459,7 @@ theorem squeeze_correct (s : State) (hs : Proof.Sha3.squeezeX86_64.pre s) :
 theorem squeeze_ct : ConstantTime isa Proof.Sha3.squeezeX86_64.pre Proof.Sha3.squeezeX86_64.pub
     squeeze := by
   exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
-    (by taint_decide)
+    (by taint_decide_weak VG.Proof.Sha3.X86_64.dropRC)
 
 theorem squeeze_verified :
     Verified X86_64.target Impl.Sha3.X86_64.Stream.squeeze (Spec.Sha3.squeezeContract X86_64.abi 8) :=

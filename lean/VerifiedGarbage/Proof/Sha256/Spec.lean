@@ -1,5 +1,5 @@
 import VerifiedGarbage.Spec.Sha256
-import Mathlib.Tactic.SplitIfs
+import VerifiedGarbage.Proof.Framework.GetElem
 
 /-!
 # SHA-256: lemmas about the specification
@@ -57,6 +57,20 @@ def roundKW (v : HashValue) (k w : Word) : HashValue :=
   let T₂ := bsig0 a + maj a b c
   #v[T₁ + T₂, a, b, c, d + T₁, e, f, g]
 
+/-! The words of `roundKW`, for rewriting without unfolding the vector literal. -/
+section
+variable (v : HashValue) (k w : Word)
+theorem roundKW_0 : (roundKW v k w)[0] =
+    v[7] + bsig1 v[4] + ch v[4] v[5] v[6] + k + w + (bsig0 v[0] + maj v[0] v[1] v[2]) := rfl
+theorem roundKW_1 : (roundKW v k w)[1] = v[0] := rfl
+theorem roundKW_2 : (roundKW v k w)[2] = v[1] := rfl
+theorem roundKW_3 : (roundKW v k w)[3] = v[2] := rfl
+theorem roundKW_4 : (roundKW v k w)[4] = v[3] + (v[7] + bsig1 v[4] + ch v[4] v[5] v[6] + k + w) := rfl
+theorem roundKW_5 : (roundKW v k w)[5] = v[4] := rfl
+theorem roundKW_6 : (roundKW v k w)[6] = v[5] := rfl
+theorem roundKW_7 : (roundKW v k w)[7] = v[6] := rfl
+end
+
 theorem round_eq (M : Block) (v : HashValue) (t : Nat) :
     round M v t = roundKW v (K t) (W M t) := rfl
 
@@ -76,11 +90,22 @@ theorem add_ac {n : Nat} : (∀ a b c : BitVec n, a + b + c = a + (b + c)) ∧
     (∀ a b : BitVec n, a + b = b + a) ∧ (∀ a b c : BitVec n, a + (b + c) = b + (a + c)) :=
   ⟨BitVec.add_assoc, BitVec.add_comm, add_left_comm⟩
 
-theorem rotateRight_rotateRight (x : Word) {a b : Nat} (hab : a + b < 32) :
+/-- Bit `i` of a rotated word. -/
+theorem getLsbD_rotateRight (x : Word) (r : Nat) {i : Nat} (hi : i < 32) :
+    (x.rotateRight r).getLsbD i = x.getLsbD ((i + r) % 32) := by
+  rw [BitVec.getLsbD_rotateRight]
+  have := Nat.mod_lt r (show 32 > 0 by decide)
+  split
+  · exact congrArg x.getLsbD (by omega)
+  · rw [decide_eq_true hi, Bool.true_and]; exact congrArg x.getLsbD (by omega)
+
+theorem rotateRight_rotateRight (x : Word) {a b : Nat} :
     (x.rotateRight a).rotateRight b = x.rotateRight (a + b) := by
-  ext i hi
-  simp only [BitVec.getElem_rotateRight]
-  split_ifs <;> first | omega | (congr 1; omega)
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  rw [getLsbD_rotateRight _ _ hi, getLsbD_rotateRight _ _ (Nat.mod_lt _ (by decide)),
+    getLsbD_rotateRight _ _ hi]
+  exact congrArg x.getLsbD (by omega)
 
 theorem ch_eq (x y z : Word) : ch x y z = (y ^^^ z) &&& x ^^^ z := by
   ext i; simp only [ch, BitVec.getElem_xor, BitVec.getElem_and, BitVec.getElem_not]
@@ -92,26 +117,27 @@ theorem maj_eq (x y z : Word) : maj x y z = (x ||| y) &&& z ||| x &&& y := by
 
 theorem bsig0_eq (x : Word) :
     bsig0 x = x.rotateRight 2 ^^^ x.rotateRight 13 ^^^ (x.rotateRight 13).rotateRight 9 := by
-  rw [rotateRight_rotateRight x (by omega)]; rfl
+  rw [rotateRight_rotateRight x]; rfl
 
 theorem bsig1_eq (x : Word) :
     bsig1 x = x.rotateRight 6 ^^^ x.rotateRight 11 ^^^ (x.rotateRight 11).rotateRight 14 := by
-  rw [rotateRight_rotateRight x (by omega)]; rfl
+  rw [rotateRight_rotateRight x]; rfl
 
 theorem rotateRight_xor (x y : Word) (n : Nat) :
     (x ^^^ y).rotateRight n = x.rotateRight n ^^^ y.rotateRight n := by
-  ext i hi
-  simp only [BitVec.getElem_rotateRight, BitVec.getElem_xor]
-  split_ifs <;> rfl
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  rw [BitVec.getLsbD_xor, getLsbD_rotateRight _ _ hi, getLsbD_rotateRight _ _ hi,
+    getLsbD_rotateRight _ _ hi, BitVec.getLsbD_xor]
 
 theorem ssig0_eq (x : Word) :
     ssig0 x = (x.rotateRight 11 ^^^ x).rotateRight 7 ^^^ x >>> 3 := by
-  rw [rotateRight_xor, rotateRight_rotateRight x (by omega), BitVec.xor_comm (x.rotateRight (11 + 7))]
+  rw [rotateRight_xor, rotateRight_rotateRight x, BitVec.xor_comm (x.rotateRight (11 + 7))]
   rfl
 
 theorem ssig1_eq (x : Word) :
     ssig1 x = (x.rotateRight 2 ^^^ x).rotateRight 17 ^^^ x >>> 10 := by
-  rw [rotateRight_xor, rotateRight_rotateRight x (by omega), BitVec.xor_comm (x.rotateRight (2 + 17))]
+  rw [rotateRight_xor, rotateRight_rotateRight x, BitVec.xor_comm (x.rotateRight (2 + 17))]
   rfl
 
 end VG.Proof.Sha256

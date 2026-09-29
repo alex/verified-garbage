@@ -1,5 +1,6 @@
 import VerifiedGarbage.Spec.Sha1
 import Mathlib.Tactic.SplitIfs
+import VerifiedGarbage.Proof.Framework.GetElem
 
 /-!
 # SHA-1: lemmas about the specification

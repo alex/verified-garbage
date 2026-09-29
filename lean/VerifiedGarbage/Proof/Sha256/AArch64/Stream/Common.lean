@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.MdStream.AArch64.Common
 import VerifiedGarbage.Proof.Sha256.AArch64.Compress
 import VerifiedGarbage.Proof.Sha256.Stream
 import VerifiedGarbage.Impl.Sha256.AArch64.Stream
+import VerifiedGarbage.Proof.Sha256.AArch64.Lit
 
 /-!
 # SHA-256 on AArch64: calling the compression function

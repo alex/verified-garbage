@@ -265,10 +265,16 @@ theorem verified (hd : Dims P) (ht : Taints P) {name : String} {code : Prog isa}
   refine ⟨fun s hs => ?_, constantTime hd ht hf, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct hd hf (pre_of hs)
     exact ⟨t, s', he, abiPreserved_of_exec hm he h.1, h.2⟩
-  · refine ⟨sat P, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+  · refine ⟨sat P, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    all_goals try simp only [sat]
+    · exact Offset.disjoint_of_le (by simp <;> omega) (by simp <;> omega)
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact Offset.disjoint_of_le (by simp) (by simp <;> omega)
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
 
 end
 

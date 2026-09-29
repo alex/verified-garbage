@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Proof.Framework.Arm.Exec
 import VerifiedGarbage.Proof.Md5.Spec
 import VerifiedGarbage.Impl.Md5.Arm
+import VerifiedGarbage.Proof.Framework.Arm.RegUpd
 
 /-!
 # MD5 compression function on ARMv7: the 64 operations
@@ -67,7 +68,7 @@ theorem fn_ok (r : Nat) (hr : r < 4) (b c d : Reg) (hb : b ≠ T0) (hc : c ≠ T
   apply WP.of_runBlock
   rcases (by omega : r = 0 ∨ r = 1 ∨ r = 2 ∨ r = 3) with rfl | rfl | rfl | rfl <;>
   simp (config := {decide := true}) only [fn, T0, Ones, runBlock_cons, runStep_some,
-    runBlock_nil, exec, Op2.eval, isa, State.setReg, ite_true, ite_false, hb, hc, hd,
+    runBlock_nil, exec, Op2.eval, isa, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, ite_true, ite_false, hb, hc, hd,
     h₁, h₂, h₃, h₄, Option.map_some, Option.some.injEq, exists_eq_left'] <;>
   refine ⟨?_, fun x hx => by simp [hx], trivial⟩
   · rw [show roundFn 0 = F from rfl, F_eq]
@@ -107,7 +108,7 @@ theorem tail_ok (a b : Reg) (k : Nat) (hk : k < 16) (T : Word) (n : Nat) (hn : 1
   simp only [T0, T1] at h₃ ha₁ ha₁' hb₁ ⊢
   apply WP.of_runBlock
   simp (config := {decide := true}) only [tailI, T0, T1, runBlock_cons, runStep_some,
-    runBlock_nil, exec, Op2.eval, isa, State.setReg, State.load32, ho, hn, ite_true, ite_false,
+    runBlock_nil, exec, Op2.eval, isa, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, State.load32, ho, hn, ite_true, ite_false,
     ha₁, ha₁', hb₁, hba, hax', h₁, h₂, h₃, hr1, hin, hx, and_self,
     Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨by rw [movw_movt], fun r hr hr' => by simp [hr, hr'], trivial⟩

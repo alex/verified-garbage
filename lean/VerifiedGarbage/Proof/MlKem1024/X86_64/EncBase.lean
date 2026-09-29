@@ -86,7 +86,7 @@ theorem sampE_step {C : Ctx rbs wbs} {E : Ptr} {ek m r : List Byte} {e : Nat} (h
   refine WP.mono (sampP_ok L C.bs (by omega) (by omega) hij) fun s' ⟨hP, h15, hres⟩ => ⟨hP, ?_⟩
   refine ⟨h.i.keep hP hkc, by rw [L.keepBytes hP kB]; exact h.sb, ?_, fun e' he' f hf => ?_⟩
   · rw [h15, h.sb, and_acc h.r15]
-    exact if_congr allOk4_succ.symm rfl rfl
+    exact ite_congr (propext allOk4_succ.symm) (fun _ => rfl) (fun _ => rfl)
   · rcases (by omega : e' < e ∨ e' = e) with he' | rfl
     · exact L.keepPoly hP (kA e' he') (h.mat e' he' f hf)
     · rw [hP.pa rbx_bases]

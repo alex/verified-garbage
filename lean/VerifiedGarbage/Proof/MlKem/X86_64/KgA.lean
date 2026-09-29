@@ -51,7 +51,7 @@ theorem aHat_eq {ρ : List Byte} (h : allOk ρ 9) {i j : Nat} (hi : i < 3) (hj :
 theorem not_allOk {ρ : List Byte} (h : ¬ allOk ρ 9) :
     ∃ i < 3, ∃ j < 3, sampleNTT minIterations (matSeed ρ i j) = none := by
   unfold allOk at h
-  simp only [not_forall] at h
+  simp only [Classical.not_forall] at h
   obtain ⟨e, he, hs⟩ := h
   refine ⟨e / 3, by omega, e % 3, by omega, ?_⟩
   cases e' : sampleNTT minIterations (matSeed ρ (e / 3) (e % 3)) with
@@ -143,7 +143,7 @@ theorem sample_step {σ : State} (hp : keyGenK.pre σ) {e : Nat} (he : e < 9) {s
   refine ⟨⟨h.a.kc.step hp hP hkc, by rw [L.keepBytes hP kG]; exact h.a.rho, by rw [L.keepBytes hP kS]; exact h.a.sig,
     by rw [L.keepBytes hP kB]; exact h.a.sb⟩, ?_, fun e' he' f hf => ?_⟩
   · rw [h15, h.a.sb, and_acc h.r15]
-    exact if_congr allOk_succ.symm rfl rfl
+    exact ite_congr (propext allOk_succ.symm) (fun _ => rfl) (fun _ => rfl)
   · rcases (by omega : e' < e ∨ e' = e) with he' | rfl
     · exact L.keepPoly hP (kA e' he') (h.mat e' he' f hf)
     · rw [hP.pa rbx_bases]

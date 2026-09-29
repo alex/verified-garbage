@@ -23,14 +23,14 @@ def artifacts : List Artifact := [
     code := Impl.Sha256.X86.compress
     contract := Spec.Sha256.compressContract X86.abi
     verified := Proof.Sha256.X86.Shared.compress
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha256.initApi with
     target := X86.target
     doc := Spec.Sha256.initApi.doc
     code := Impl.Sha256.X86.Stream.init
     contract := Spec.Sha256.initContract X86.abi
     verified := Proof.Sha256.X86.Shared.init
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha256.updateApi with
     target := X86.target
     doc := Spec.Sha256.updateApi.doc
@@ -38,7 +38,7 @@ def artifacts : List Artifact := [
     contract := Spec.Sha256.updateContract X86.abi 20
     stack := 20
     verified := Proof.Sha256.X86.Shared.update
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha256.finalizeApi with
     target := X86.target
     doc := Spec.Sha256.finalizeApi.doc
@@ -46,6 +46,6 @@ def artifacts : List Artifact := [
     contract := Spec.Sha256.finalizeContract X86.abi 20
     stack := 20
     verified := Proof.Sha256.X86.Shared.finalize
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Sha256.X86

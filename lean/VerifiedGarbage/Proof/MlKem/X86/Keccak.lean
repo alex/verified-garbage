@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.MlKem.X86.Common
 import VerifiedGarbage.Proof.Sha3.X86.Stream.Absorb
 import VerifiedGarbage.Proof.Sha3.X86.Stream.Pad
 import VerifiedGarbage.Proof.Sha3.X86.Stream.Squeeze
-import VerifiedGarbage.Proof.Sha3.X86.Call
+import VerifiedGarbage.Proof.Sha3.X86.Permute
 import VerifiedGarbage.Impl.MlKem.X86.Basic
 
 /-!

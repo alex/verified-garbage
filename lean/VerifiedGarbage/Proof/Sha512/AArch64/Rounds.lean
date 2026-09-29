@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Framework.Block
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.AArch64.Exec
+import VerifiedGarbage.Proof.Framework.AArch64.RegUpd
 import VerifiedGarbage.Proof.Sha512.Spec
 import VerifiedGarbage.Impl.Sha512.AArch64
 
@@ -37,23 +38,34 @@ theorem var_succ_zero (t : Nat) : var (t + 1) 0 = var t 7 := by
 
 /-- The registers of a round are all different. -/
 theorem round_nodup (t : Nat) :
-    ([var t 0, var t 1, var t 2, var t 3, var t 4, var t 5, var t 6, var t 7, T0, T1, T2, T3] ++
-      pubRegs).Nodup := by
+    [var t 0, var t 1, var t 2, var t 3, var t 4, var t 5, var t 6, var t 7, T0, T1, T2, T3].Nodup := by
   simp only [var]
   have := Nat.mod_lt t (show 8 > 0 by omega)
   generalize t % 8 = c at *
   revert this; revert c; decide
 
+theorem var_mem (t k : Nat) : var t k ∈ work := by
+  unfold var List.getD
+  cases h : work[(k + 8 - t % 8) % 8]?
+  · simp [work]
+  · exact List.mem_of_getElem? h
+
+theorem var_not_pub (t k : Nat) : var t k ∉ pubRegs :=
+  fun h => (by decide : ∀ r ∈ work, r ∉ pubRegs) _ (var_mem t k) h
+
+theorem pub_ne : ∀ r ∈ pubRegs, r ≠ T0 ∧ r ≠ T1 ∧ r ≠ T2 ∧ r ≠ T3 := by decide
+
 /-- The round is symbolically executed once, for any registers `a … h`
-(which `round_nodup` says are different from each other and the others). -/
+(which `round_nodup` says are different from each other and the temporaries). -/
 theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word)
     (hv : Vars t s v) (hw : s.gpr T0 = w) :
     WP isa (.block (round t)) s fun s' =>
       Vars (t + 1) s' (roundKW v (K t) w) ∧
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ ∀ r ∈ pubRegs, s'.gpr r = s.gpr r := by
-  have hd' := VG.nodup_reverse (round_nodup t)
+  have p3 := var_not_pub t 3
+  have p7 := var_not_pub t 7
   -- The registers the round reads and writes.
-  have hs := (List.nodup_append.mp (round_nodup t)).1
+  have hs := round_nodup t
   have hs' := VG.nodup_reverse hs
   simp only [Vars, var_succ_zero, var_succ t _ (show 0 < 7 by omega),
     var_succ t _ (show 1 < 7 by omega), var_succ t _ (show 2 < 7 by omega),
@@ -72,20 +84,24 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word)
   generalize var t 7 = h at *
   simp only [T0, T1, T2, T3, pubRegs, List.nodup_cons, List.mem_cons, List.not_mem_nil,
     List.reverse_cons, List.reverse_nil, List.nil_append, List.cons_append, or_false, not_or,
-    List.nodup_nil, and_true] at hs hs' hd' hw ⊢
+    List.nodup_nil, and_true] at hs hs' hw ⊢
   simp (config := {decide := true}) only [runBlock_cons, runStep_some,
-    runBlock_nil, exec, isa, State.read, State.write, Size.bits,
-    ite_true, ite_false, hs, hs', h0, h1, h2, h3, h4, h5, h6, h7, hw,
+    runBlock_nil, exec, isa, State.read, RegUpd.gpr_write, RegUpd.mem_write, RegUpd.rd_write,
+    RegUpd.wr_write, Size.bits, ite_true, ite_false, hs, hs', h0, h1, h2, h3, h4, h5, h6, h7, hw,
     BitVec.setWidth_eq, Option.some.injEq, exists_eq_left']
   refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, trivial, trivial, trivial, fun r hr => ?_⟩
   rotate_right
-  · rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
-      rfl | rfl | rfl | rfl <;> simp [hd']
+  · have hr' : r ∈ pubRegs := by
+      simpa only [pubRegs, List.mem_cons, List.not_mem_nil, or_false] using hr
+    obtain ⟨-, n1, n2, -⟩ := pub_ne r hr'
+    have nh : r ≠ h := fun e => p7 (e ▸ hr')
+    have nd : r ≠ d := fun e => p3 (e ▸ hr')
+    simp only [T1, T2] at n1 n2
+    simp only [nh, nd, n1, n2, ite_false]
   all_goals
-    simp (config := {failIfUnchanged := false}) only [roundKW, bsig1, ch_eq, bsig0, maj_eq,
-      movz_movk64', Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero,
-      List.getElem_cons_succ] <;>
-    simp (config := {failIfUnchanged := false}) only [BitVec.add_assoc]
+    simp (config := {failIfUnchanged := false}) only [roundKW_0, roundKW_1, roundKW_2, roundKW_3,
+      roundKW_4, roundKW_5, roundKW_6, roundKW_7, bsig1, ch_eq, bsig0, maj_eq, movz_movk64',
+      BitVec.add_assoc]
 
 theorem slot_ok (j : Nat) : slot j % 8 = 0 ∧ slot j < 32768 := by
   simp only [slot]; omega
@@ -114,7 +130,7 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
     simp only [Impl.Sha512.AArch64.schedule, ht, ite_true, T0, T1, T2, T3]
     simp (config := {decide := true}) only [runBlock_cons, runStep_some,
       runBlock_nil, exec_ldr_x ho, exec_str_x (slot_ok _),
-      exec_rev, isa, State.read, State.write, Size.bits, hx1, hx3, hi, hout, ite_true,
+      exec_rev, isa, State.read, RegUpd.gpr_write, RegUpd.mem_write, RegUpd.rd_write, RegUpd.wr_write, Size.bits, hx1, hx3, hi, hout, ite_true,
       ite_false, BitVec.setWidth_eq, hb,
       Option.some.injEq, exists_eq_left']
     refine ⟨trivial, trivial, trivial, trivial, fun r h0 _ _ _ => ?_⟩
@@ -132,19 +148,13 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
     simp (config := {decide := true}) only [runBlock_cons, runStep_some,
       runBlock_nil, exec_ldr_x (slot_ok _),
       exec_str_x (slot_ok _), exec_add, exec_logic, exec_ror_x, exec_lsr_x, isa, State.read,
-      State.write, Size.bits, hx3, hin, hout, ite_true, ite_false,
+      RegUpd.gpr_write, RegUpd.mem_write, RegUpd.rd_write, RegUpd.wr_write, Size.bits, hx3, hin, hout, ite_true, ite_false,
       BitVec.setWidth_eq, e2, e7, e15, e16, Option.some.injEq, exists_eq_left']
     have hW := W_ge M (t := t) (by omega)
     refine ⟨by rw [hW]; rfl, by rw [hW]; rfl, trivial, trivial, fun r h0 h1 h2 h3 => ?_⟩
     simp [h0, h1, h2, h3]
 
 /-! ## The 80 rounds -/
-
-theorem var_mem (t k : Nat) : var t k ∈ work := by
-  unfold var List.getD
-  cases h : work[(k + 8 - t % 8) % 8]?
-  · simp [work]
-  · exact List.mem_of_getElem? h
 
 theorem work_ne' : ∀ r ∈ work, r ≠ T0 ∧ r ≠ T1 ∧ r ≠ T2 ∧ r ≠ T3 := by decide
 

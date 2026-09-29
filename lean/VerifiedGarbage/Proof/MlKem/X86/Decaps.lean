@@ -169,19 +169,9 @@ theorem verified : Verified X86.target Impl.MlKem.X86.decaps (decapsContract X86
     have r := post hp hfin
     rw [dk_eq, ct_eq, addr0, addr0, addr0] at r
     exact r
-  · obtain ⟨st, hst⟩ : ∃ st, st = satState satMem [⟨0, 2400⟩, ⟨0x1000, 1088⟩]
-        [⟨0x2000, 32⟩, ⟨0x10000, 32768⟩, ⟨0x5004, 16⟩] := ⟨_, rfl⟩
-    have a0 : arg st 0 = 0 := by rw [hst]; decide
-    have a1 : arg st 1 = 0x1000 := by rw [hst]; decide
-    have a2 : arg st 2 = 0x2000 := by rw [hst]; decide
-    have a3 : arg st 3 = 0x10000 := by rw [hst]; decide
-    have e : argAddr st 0 = 0x5004 := by rw [hst]; decide
-    have esp : st.gpr .esp = 0x5000 := by rw [hst]; rfl
+  · let st := satState satMem [⟨0, 2400⟩, ⟨0x1000, 1088⟩]
+      [⟨0x2000, 32⟩, ⟨0x10000, 32768⟩, ⟨0x5004, 16⟩]
     refine ⟨st, ?_⟩
-    sig_pre [decapsContract, decapsSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [a0, a1, a2, a3, e, esp]
-    refine ⟨by decide, by decide, by rw [hst]; rfl, by rw [hst]; rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-      ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
-    exact Region.disjoint_of_sep (by decide)
+    sig_sat_check [decapsContract, decapsSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
 
 end VG.Proof.MlKem.X86.Decaps

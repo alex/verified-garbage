@@ -23,14 +23,14 @@ def artifacts : List Artifact := [
     code := Impl.Sha256.X86_64.compress
     contract := Spec.Sha256.compressContract X86_64.abi
     verified := Proof.Sha256.X86_64.Shared.compress
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha256.initApi with
     target := X86_64.target
     doc := Spec.Sha256.initApi.doc
     code := Impl.Sha256.X86_64.Stream.init
     contract := Spec.Sha256.initContract X86_64.abi
     verified := Proof.Sha256.X86_64.Shared.init
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha256.compressApi with
     name := "vg_sha256_compress_shani"
     target := X86_64.target
@@ -40,7 +40,7 @@ def artifacts : List Artifact := [
     contract := Spec.Sha256.compressContract X86_64.abi
     verified := Proof.Sha256.X86_64.Shared.compress_shani
     features := ["sha", "ssse3"]
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha256.compressApi with
     name := "vg_sha256_compress_avx2"
     target := X86_64.target
@@ -51,6 +51,6 @@ def artifacts : List Artifact := [
     contract := Spec.Sha256.compressContract X86_64.abi
     verified := Proof.Sha256.X86_64.Shared.compress_avx2
     features := ["avx", "avx2", "bmi1", "bmi2"]
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Sha256.X86_64

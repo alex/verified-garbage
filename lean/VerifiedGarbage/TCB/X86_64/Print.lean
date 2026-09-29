@@ -62,6 +62,11 @@ def XReg.vname (r : XReg) : VLen → String
 
 def MemOp.str256 (m : MemOp) : String := s!"YMMWORD PTR {m.addr}"
 
+def MemOp.str512 (m : MemOp) : String := s!"ZMMWORD PTR {m.addr}"
+
+/-- The name of the AVX-512 register whose low 128 bits are `r`. -/
+def XReg.zname (r : XReg) : String := "z" ++ (r.name.drop 1).toString
+
 /-- A memory operand of a VEX vector length. -/
 def MemOp.strV (m : MemOp) : VLen → String
   | .l128 => m.str128
@@ -118,6 +123,17 @@ def VOp.asm : VOp → String
   | .vmovq d r => s!"vmovq {d.name}, {r.name}"
   | .vzeroupper => "vzeroupper"
 
+def ZBinOp.name : ZBinOp → String
+  | .vpaddd => "vpaddd" | .vpxord => "vpxord"
+  | .vpunpckldq => "vpunpckldq" | .vpunpckhdq => "vpunpckhdq"
+  | .vpunpcklqdq => "vpunpcklqdq" | .vpunpckhqdq => "vpunpckhqdq"
+
+def ZOp.asm : ZOp → String
+  | .zbin op d a b => s!"{op.name} {d.zname}, {a.zname}, {b.zname}"
+  | .vprold d r n => s!"vprold {d.zname}, {r.zname}, {n.toNat}"
+  | .vpshufd d r o => s!"vpshufd {d.zname}, {r.zname}, {o.toNat}"
+  | .vshufi32x4 d a b n => s!"vshufi32x4 {d.zname}, {a.zname}, {b.zname}, {n.toNat}"
+
 def Src.str : Src → String
   | .reg r => r.name
   | .imm v => toString v.toInt
@@ -160,6 +176,10 @@ def Instr.asm : Instr → List String
   | .vmovdquLoad l d m => [s!"vmovdqu {d.vname l}, {m.strV l}"]
   | .vmovdquStore l m r => [s!"vmovdqu {m.strV l}, {r.vname l}"]
   | .vbroadcasti128 d m => [s!"vbroadcasti128 {d.yname}, {m.str128}"]
+  | .zop op => [op.asm]
+  | .vmovdqu32Load d m => [s!"vmovdqu32 {d.zname}, {m.str512}"]
+  | .vmovdqu32Store m r => [s!"vmovdqu32 {m.str512}, {r.zname}"]
+  | .vbroadcasti32x4 d m => [s!"vbroadcasti32x4 {d.zname}, {m.str128}"]
   | .stmxcsr m => [s!"stmxcsr {m.str32}"]
   | .ldmxcsr m => [s!"ldmxcsr {m.str32}"]
   | .lfence => ["lfence"]

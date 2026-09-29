@@ -69,6 +69,15 @@ def hw4 (g : Nat) (v : HashValue) (w0 w1 w2 w3 : Word) : HashValue :=
 theorem hw4_e (g : Nat) (v : HashValue) (w0 w1 w2 w3 : Word) :
     (hw4 g v w0 w1 w2 w3)[4] = v[0].rotateLeft 30 := rfl
 
+section
+variable (g : Nat) (v : HashValue) (w : Word)
+theorem hw_0 : (hw g v w)[0] = sha1F g v[1] v[2] v[3] + v[0].rotateLeft 5 + w + v[4] + sha1K g := rfl
+theorem hw_1 : (hw g v w)[1] = v[0] := rfl
+theorem hw_2 : (hw g v w)[2] = v[1].rotateLeft 30 := rfl
+theorem hw_3 : (hw g v w)[3] = v[2] := rfl
+theorem hw_4 : (hw g v w)[4] = v[3] := rfl
+end
+
 theorem imm_eq {g : Nat} (hg : g < 4) : ((BitVec.ofNat 8 g).extractLsb' 0 2).toNat = g := by
   rcases (by omega : g = 0 ∨ g = 1 ∨ g = 2 ∨ g = 3) with rfl | rfl | rfl | rfl <;> rfl
 
@@ -77,9 +86,8 @@ its source and `W₁ … W₃` below. -/
 theorem rnds4_eq (v : HashValue) {g : Nat} (hg : g < 4) (w0 w1 w2 w3 : Word) :
     sha1Rnds4 (abcd v) (ofDwords w3 w2 w1 (w0 + v[4])) (BitVec.ofNat 8 g) =
       abcd (hw4 g v w0 w1 w2 w3) := by
-  simp only [sha1Rnds4, imm_eq hg, abcd, hw4, hw, dword_ofDwords_0, dword_ofDwords_1, dword_ofDwords_2,
-    dword_ofDwords_3, Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero,
-    List.getElem_cons_succ, ← BitVec.add_assoc]
+  simp only [sha1Rnds4, imm_eq hg, abcd, hw4, hw_0, hw_1, hw_2, hw_3, hw_4, dword_ofDwords_0,
+    dword_ofDwords_1, dword_ofDwords_2, dword_ofDwords_3, ← BitVec.add_assoc]
 
 /-! ## The value added to the first message word -/
 

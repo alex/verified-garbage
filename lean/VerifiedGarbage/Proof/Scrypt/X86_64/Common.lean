@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Scrypt.Memory
 import VerifiedGarbage.Impl.Scrypt.X86_64.BlockMix
 import VerifiedGarbage.Spec.Scrypt.Contract
 import VerifiedGarbage.TCB.X86_64.Target
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # scrypt on x86-64: common lemmas

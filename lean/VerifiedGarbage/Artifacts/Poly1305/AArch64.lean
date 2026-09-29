@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Poly1305.AArch64.Blocks
 import VerifiedGarbage.Proof.Poly1305.AArch64.Finalize
 import VerifiedGarbage.Proof.Poly1305.AArch64.Init
 import VerifiedGarbage.Proof.Poly1305.AArch64.Update
+import VerifiedGarbage.Proof.Poly1305.AArch64.Lit
 
 /-!
 # Poly1305 (RFC 8439 §2.5) on AArch64

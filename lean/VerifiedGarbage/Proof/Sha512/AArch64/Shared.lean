@@ -10,7 +10,7 @@ import VerifiedGarbage.Spec.Sha512.Contract
 # Sha512 on AArch64: the shared contracts
 
 Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha512/AArch64/Contract.lean`); these theorems move
+per-target contracts (`Proof/Sha512/AArch64/Compress.lean`); these theorems move
 them to the shared contracts of `Spec/Sha512/Contract.lean`, which the
 artifacts are emitted with.
 
@@ -100,7 +100,7 @@ def finalizeSat : State :=
 theorem compress :
     Verified AArch64.target Impl.Sha512.AArch64.compress (Spec.Sha512.compressContract AArch64.abi) := by
   have hi : compressWide.Implies (Spec.Sha512.compressContract AArch64.abi) := by
-    contract_implies [Spec.Sha512.compressContract, Spec.Sha512.compressSig, compressWide,
+    sig_implies [Spec.Sha512.compressContract, Spec.Sha512.compressSig, compressWide,
       Proof.Sha512.compressAArch64, AArch64.abi, AArch64.argRegs]
       [compressSat, Proof.Sha512.AArch64.satState] using compressSat
   exact (compressWide_verified hi.sat_left).of_implies hi
@@ -115,7 +115,7 @@ theorem init (iv : Spec.Sha512.HashValue) :
 theorem update :
     Verified AArch64.target Impl.Sha512.AArch64.Stream.update (Spec.Sha512.updateContract AArch64.abi) := by
   have hi : updateWide.Implies (Spec.Sha512.updateContract AArch64.abi) := by
-    contract_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, updateWide,
+    sig_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, updateWide,
       Proof.Sha512.updateAArch64, AArch64.abi, AArch64.argRegs]
       [updateSat, Proof.Sha512.AArch64.Stream.Update.sat] using updateSat
   exact (updateWide_verified hi.sat_left).of_implies hi
@@ -123,7 +123,7 @@ theorem update :
 theorem finalize :
     Verified AArch64.target Impl.Sha512.AArch64.Stream.finalize (Spec.Sha512.finalizeContract AArch64.abi) := by
   have hi : finalizeWide.Implies (Spec.Sha512.finalizeContract AArch64.abi) := by
-    contract_implies [Spec.Sha512.finalizeContract, Spec.Sha512.finalizeSig, finalizeWide,
+    sig_implies [Spec.Sha512.finalizeContract, Spec.Sha512.finalizeSig, finalizeWide,
       Proof.Sha512.finalizeAArch64, AArch64.abi, AArch64.argRegs]
       [finalizeSat, Proof.Sha512.AArch64.Stream.Finalize.sat] using finalizeSat
   exact (finalizeWide_verified hi.sat_left).of_implies hi

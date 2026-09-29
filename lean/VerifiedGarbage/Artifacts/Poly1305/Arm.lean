@@ -3,6 +3,7 @@ import VerifiedGarbage.Impl.Poly1305.Arm
 import VerifiedGarbage.Proof.Poly1305.Arm.Init
 import VerifiedGarbage.Proof.Poly1305.Arm.Update
 import VerifiedGarbage.Proof.Poly1305.Arm.Finalize
+import VerifiedGarbage.Proof.Poly1305.Arm.Lit
 
 /-!
 # Poly1305 (RFC 8439 §2.5) on 32-bit ARM

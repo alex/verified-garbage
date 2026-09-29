@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Sha3.Arm.Call
+import VerifiedGarbage.Proof.Sha3.Arm.Permute
 
 /-!
 # The SHA-3 sponge on ARMv7: `absorb`
@@ -471,15 +471,13 @@ theorem absorb_verified : Verified Arm.target absorb Proof.Sha3.absorbArm := by
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
   · exact VG.Taint.constantTime (A := VG.Arm.taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
-      (by taint_decide)
+      (by taint_decide_weak VG.Proof.Sha3.Arm.dropRC)
   · have e : ∀ k, stackArg sat k = 0 := fun k => by
       simp [stackArg, sat, Mem.readW, Mem.read]
     refine ⟨sat, ?_⟩
     simp only [Proof.Sha3.absorbArm, e]
     refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
       by decide, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+    · exact Region.disjoint_of_sep (by decide)
 
 end VG.Proof.Sha3.Arm.Stream.Absorb

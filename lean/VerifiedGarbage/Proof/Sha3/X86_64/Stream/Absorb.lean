@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Sha3.X86_64.Call
+import VerifiedGarbage.Proof.Sha3.X86_64.Permute
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Framework.Range
 import VerifiedGarbage.Proof.Framework.Contract
@@ -308,7 +308,7 @@ theorem body_block {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) 
       sub_beq (by omega) (by omega)]
   · refine stateAt_xorByte (by omega) ?_ fun i hi hij => ?_
     · rw [hm₈, writeW8_apply, ite_eq_left_of_eq_true _ _ (eq_true rfl), BitVec.xor_comm]
-    · rw [hm₈, writeW8_apply, ite_eq_right_of_eq_false _ _ (eq_false fun e => hij (by bv_omega))]
+    · rw [hm₈, writeW8_apply, ite_eq_right_of_eq_false _ _ (eq_false (VG.Proof.Sha3.ne_of_lt200 hi (by omega) hij))]
 
 /-- The rest of the body, from after the block. -/
 theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) {s : State} (hI : Inv s₀ c s) :
@@ -501,7 +501,7 @@ theorem absorb_correct (s : State) (hs : Proof.Sha3.absorbX86_64.pre s) :
 theorem absorb_ct : ConstantTime isa Proof.Sha3.absorbX86_64.pre Proof.Sha3.absorbX86_64.pub absorb
     := by
   exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
-    (by taint_decide)
+    (by taint_decide_weak VG.Proof.Sha3.X86_64.dropRC)
 
 theorem absorb_verified :
     Verified X86_64.target Impl.Sha3.X86_64.Stream.absorb (Spec.Sha3.absorbContract X86_64.abi 8) :=

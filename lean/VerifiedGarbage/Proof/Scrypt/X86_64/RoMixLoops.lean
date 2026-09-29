@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Scrypt.X86_64.Common
 import VerifiedGarbage.Impl.Scrypt.X86_64.RoMix
+import VerifiedGarbage.Proof.Scrypt.X86_64.Lit
 
 /-!
 # scryptROMix on x86-64: the small loops
@@ -236,7 +237,7 @@ theorem mul_sum (d r : BitVec 64) (m : Nat) :
       d + BitVec.ofNat 64 m * r := by
   have e : BitVec.ofNat 64 m = BitVec.ofNat 64 (m / 2) + BitVec.ofNat 64 (m / 2) +
       BitVec.ofNat 64 (m % 2) := by
-    rw [← BitVec.ofNat_add, ← BitVec.ofNat_add]; congr 1; omega
+    rw [← BitVec.ofNat_add, ← BitVec.ofNat_add]; exact congrArg (BitVec.ofNat _) (by omega)
   by_cases h : m % 2 = 1
   · simp only [h, ↓reduceIte]
     rw [e, h, show BitVec.ofNat 64 1 = 1 from rfl]; grind

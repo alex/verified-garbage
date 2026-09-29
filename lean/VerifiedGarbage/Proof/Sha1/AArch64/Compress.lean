@@ -1,5 +1,9 @@
 import VerifiedGarbage.Proof.Sha1.AArch64.Rounds
-import VerifiedGarbage.Proof.Sha1.AArch64.Contract
+import VerifiedGarbage.Proof.Framework.AArch64.RegUpd
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Sha1
+import VerifiedGarbage.TCB.AArch64.Target
+import VerifiedGarbage.Proof.Framework.Offset
 import VerifiedGarbage.Proof.Sha1.StateMem
 
 /-!
@@ -7,6 +11,113 @@ import VerifiedGarbage.Proof.Sha1.StateMem
 
 Untrusted: everything here is checked by Lean.
 -/
+
+/-!
+## SHA-1: the AArch64 contract
+
+**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the AArch64
+implementations of the compression function and the streaming interface, in
+terms of `Spec/Sha1.lean`.
+
+The return address is in the link register `x30`, which the target's
+calling convention requires to be preserved (`VG.AArch64.abiPreserved`), not
+on the stack, so unlike on x86-64 no region needs to be kept disjoint from it.
+-/
+
+namespace VG.Proof.Sha1
+
+open Spec.Sha1
+
+open VG.AArch64 in
+/-- AArch64 contract for
+`vg_sha1_compress(state: *mut [u32; 5], blocks: *const [u8; 64], n: usize, scratch: *mut [u64; 14])`:
+updates the hash value at `state` with the `n` 64-byte blocks at `blocks`.
+
+The code may read `blocks` (`64 * n` bytes) and read and write `state`
+(20 bytes) and `scratch` (112 bytes, whose contents on exit are unspecified).
+These may not overlap each other. The pointers and `n` are public; the hash
+value and the blocks are secret. -/
+def compressAArch64 : Contract AArch64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .x0, 20⟩
+    let blocks : Region := ⟨s.gpr .x1, 64 * (s.gpr .x2).toNat⟩
+    let scratch : Region := ⟨s.gpr .x3, 112⟩
+    s.rd = [blocks] ∧ s.wr = [state, scratch] ∧
+    state.Disjoint scratch ∧ blocks.Disjoint state ∧ blocks.Disjoint scratch
+  post s s' :=
+    stateAt s'.mem (s.gpr .x0) =
+      compressBlocks (stateAt s.mem (s.gpr .x0)) s.mem (s.gpr .x1) (s.gpr .x2).toNat
+  pub s₁ s₂ :=
+    s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧
+    s₁.gpr .x2 = s₂.gpr .x2 ∧ s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp
+
+open VG.AArch64 in
+/-- AArch64 contract for `vg_sha1_init(state: *mut [u8; 84])`: makes the
+streaming state at `state` represent the empty message.
+
+The code may write `state` (84 bytes). The pointer is public. -/
+def initAArch64 : Contract AArch64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .x0, 84⟩
+    s.rd = [] ∧ s.wr = [state]
+  post s s' := Repr s'.mem (s.gpr .x0) []
+  pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.sp = s₂.sp
+
+open VG.AArch64 in
+/-- AArch64 contract for
+`vg_sha1_update(state: *mut [u8; 84], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20])`:
+if the streaming state at `state` represents a message `m` of `count` bytes
+(modulo 2⁶⁴), then afterwards it represents `m` followed by the `len` bytes at
+`data`.
+
+The code may read `data` (`len` bytes) and read and write `state` (84
+bytes) and `scratch` (160 bytes, whose contents on exit are unspecified).
+These may not overlap each other, nor the 16 bytes below the stack pointer
+(the frame saving `x30`), which do not wrap around. The pointers, `count` and
+`len` are public; the state and the data are secret. -/
+def updateAArch64 : Contract AArch64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .x0, 84⟩
+    let data : Region := ⟨s.gpr .x2, (s.gpr .x3).toNat⟩
+    let scratch : Region := ⟨s.gpr .x4, 160⟩
+    let stack : Region := ⟨s.sp - 16, 16⟩
+    s.rd = [data] ∧ s.wr = [state, scratch] ∧
+    state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
+    16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint scratch
+  post s s' := ∀ m, Repr s.mem (s.gpr .x0) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
+    Repr s'.mem (s.gpr .x0) (m ++ bytesAt s.mem (s.gpr .x2) (s.gpr .x3).toNat)
+  pub s₁ s₂ :=
+    s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
+    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
+
+open VG.AArch64 in
+/-- AArch64 contract for
+`vg_sha1_finalize(state: *mut [u8; 84], count: u64, out: *mut [u8; 20], scratch: *mut [u64; 20])`:
+if the streaming state at `state` represents a message `m` of `count` bytes
+(modulo 2⁶⁴), writes the SHA-1 digest of `m` to `out`.
+
+The code may read and write `state` (84 bytes, whose contents on exit are
+unspecified), `out` (20 bytes) and `scratch` (160 bytes, whose contents on
+exit are unspecified). These may not overlap each other, nor the 16 bytes
+below the stack pointer (the frame saving `x30`), which do not wrap around.
+The pointers and `count` are public; the state is secret. -/
+def finalizeAArch64 : Contract AArch64.isa where
+  pre s :=
+    let state : Region := ⟨s.gpr .x0, 84⟩
+    let out : Region := ⟨s.gpr .x2, 20⟩
+    let scratch : Region := ⟨s.gpr .x3, 160⟩
+    let stack : Region := ⟨s.sp - 16, 16⟩
+    s.rd = [] ∧ s.wr = [state, out, scratch] ∧
+    state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
+    16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch
+  post s s' := ∀ m, Repr s.mem (s.gpr .x0) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
+    bytesAt s'.mem (s.gpr .x2) 20 = Spec.Sha1.hash m
+  pub s₁ s₂ :=
+    s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
+    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp
+
+end VG.Proof.Sha1
+
 
 namespace VG.Proof.Sha1.AArch64
 
@@ -140,7 +251,7 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hx0 : s.gpr .x0 = st
   apply WP.of_runBlock
   rw [load_eq]
   simp (config := {decide := true}) only [vars0, runBlock_cons, runStep_some,
-    runBlock_nil, exec_ldr_w, isa, State.write, hx0,
+    runBlock_nil, exec_ldr_w, isa, RegUpd.gpr_write, RegUpd.mem_write, RegUpd.rd_write, RegUpd.wr_write, hx0,
     h0, h1, h2, h3, h4, ite_true, ite_false, Option.some.injEq,
     exists_eq_left']
   simp only [stateAt_get _ _ (show 0 < 5 by decide), stateAt_get _ _ (show 1 < 5 by decide),
@@ -181,7 +292,7 @@ theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (
   apply WP.of_runBlock
   rw [update_eq]
   simp (config := {decide := true}) only [runBlock_cons, runStep_some,
-    runBlock_nil, exec_ldr_w, exec_str_w, exec_add, exec_addImm_x, exec_subImm_x, State.read, State.write, Size.bits, hx0,
+    runBlock_nil, exec_ldr_w, exec_str_w, exec_add, exec_addImm_x, exec_subImm_x, State.read, RegUpd.gpr_write, RegUpd.mem_write, RegUpd.rd_write, RegUpd.wr_write, Size.bits, hx0,
     i0, i1, i2, i3, i4, o0, o1, o2, o3, o4,
     m0, m1, m2, m3, m4, v0, v1, v2, v3, v4, ite_true, ite_false,
     BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq,
@@ -331,8 +442,6 @@ theorem compress_verified :
     simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
   · refine ⟨satState, rfl, rfl, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, satState] at h₁ h₂
-      bv_omega
+    exact Region.disjoint_of_sep (by decide)
 
 end VG.Proof.Sha1.AArch64

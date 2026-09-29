@@ -44,7 +44,7 @@ theorem aHat4_eq {ρ : List Byte} (h : allOk4 ρ 16) {i j : Nat} (hi : i < 4) (h
 theorem not_allOk4 {ρ : List Byte} (h : ¬ allOk4 ρ 16) :
     ∃ i < 4, ∃ j < 4, sampleNTT minIterations (matSeed ρ i j) = none := by
   unfold allOk4 at h
-  simp only [not_forall] at h
+  simp only [Classical.not_forall] at h
   obtain ⟨e, he, hs⟩ := h
   refine ⟨e / 4, by omega, e % 4, by omega, ?_⟩
   cases e' : sampleNTT minIterations (matSeed ρ (e / 4) (e % 4)) with
@@ -135,7 +135,7 @@ theorem sample_step {σ : State} (hp : keyGen1024K.pre σ) {e : Nat} (he : e < 1
   refine ⟨⟨h.a.kc.step hp hP hkc, by rw [L.keepBytes hP kG]; exact h.a.rho, by rw [L.keepBytes hP kS]; exact h.a.sig,
     by rw [L.keepBytes hP kB]; exact h.a.sb⟩, ?_, fun e' he' f hf => ?_⟩
   · rw [h15, h.a.sb, and_acc h.r15]
-    exact if_congr allOk4_succ.symm rfl rfl
+    exact ite_congr (propext allOk4_succ.symm) (fun _ => rfl) (fun _ => rfl)
   · rcases (by omega : e' < e ∨ e' = e) with he' | rfl
     · exact L.keepPoly hP (kA e' he') (h.mat e' he' f hf)
     · rw [hP.pa rbx_bases]

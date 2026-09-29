@@ -4,7 +4,6 @@ import VerifiedGarbage.Proof.Framework.KernelList
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.Arm.Exec
 import VerifiedGarbage.TCB.Arm.Target
-import Mathlib.Tactic.Set
 import Mathlib.Tactic.Tauto
 
 /-!
@@ -399,24 +398,16 @@ theorem write_other {τ : T} {s : State} (hw : Wf τ s) {i d n j k : Nat} (hn : 
   by_cases hji : j = i
   · subst hji
     have hsep := hsep.resolve_left (· rfl)
-    have h : byteAddr s j k - byteAddr s j d = BitVec.ofNat 64 k - BitVec.ofNat 64 d := by
-      simp only [byteAddr]; bv_omega
-    rw [h, BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := k) (by omega),
-      Nat.mod_eq_of_lt (a := d) (by omega)] at hlt
-    rcases hsep with hsep | hsep
-    · rw [Nat.mod_eq_of_lt (by omega)] at hlt; omega
-    · rw [show 2 ^ 64 - d + k = (k - d) + 2 ^ 64 by omega, Nat.add_mod_right,
-        Nat.mod_eq_of_lt (by omega)] at hlt
-      omega
+    have h : byteAddr s j k - byteAddr s j d = BitVec.ofNat 64 k - BitVec.ofNat 64 d :=
+      Offset.add_sub_add_left _ _ _
+    exact Offset.not_lt_sub_ofNat hsep (by omega) hn (by omega) (h ▸ hlt)
   · have hA : (region s i).Contains (byteAddr s i d) n := by
       simp only [Region.Contains, byteAddr]
-      rw [show (region s i).base + BitVec.ofNat 64 d - (region s i).base = BitVec.ofNat 64 d by
-        bv_omega, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+      rw [Offset.add_sub_cancel_left, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
       omega
     have hX : (region s j).Contains (byteAddr s j k) 1 := by
       simp only [Region.Contains, byteAddr]
-      rw [show (region s j).base + BitVec.ofNat 64 k - (region s j).base = BitVec.ofNat 64 k by
-        bv_omega, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+      rw [Offset.add_sub_cancel_left, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
       omega
     have hXi := hA.byte hlt
     rw [List.pairwise_iff_getElem] at hdisj
@@ -451,7 +442,7 @@ theorem write_arg {τ : T} {s : State} (hw : Wf τ s) {A : Addr} {n : Nat} (hA :
   intro hlt
   refine hd r hr _ ?_ (hc.byte hlt)
   simp only [Region.Contains, argByte]
-  rw [show State.addr s.sp + BitVec.ofNat 64 k - State.addr s.sp = BitVec.ofNat 64 k by bv_omega,
+  rw [Offset.add_sub_cancel_left,
     BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   omega
 
@@ -474,7 +465,7 @@ theorem Wf.store {τ : T} {s : State} (hw : Wf τ s) {A : Addr} {n : Nat} (hA : 
     refine ⟨hp, ?_⟩
     simp only [region] at he ⊢
     rw [← he]
-    congr 1
+    refine congrArg State.addr ?_
     refine Mem.readW_congr fun k hk => ?_
     rw [argWord hw hp]
     exact write_arg hw hA V (by omega)
@@ -518,21 +509,21 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {r : 
       · rename_i hfit
         have e₁ := ea_of_addrOf ha.wf₁ had (by omega)
         have e₂ := ea_of_addrOf ha.wf₂ had (by omega)
-        have hsl' : sl = (i, d, n) ∨ (sl ∈ τ.slots ∧
+        have hsl' : (p = true ∧ sl = (i, d, n)) ∨ (sl ∈ τ.slots ∧
             (p = true ∨ sl.1 ≠ i ∨ d + n ≤ sl.2.1 ∨ sl.2.1 + sl.2.2 ≤ d)) := by
           split at hsl
-          · rcases List.mem_cons.mp hsl with h | h
-            · exact .inl h
-            · simp only [List.mem_filter, Bool.or_eq_true, bne_iff_ne, decide_eq_true_eq] at h
-              exact .inr ⟨h.1, by tauto⟩
-          · simp only [List.mem_filter, Bool.or_eq_true, bne_iff_ne, decide_eq_true_eq] at hsl
-            exact .inr ⟨hsl.1, by tauto⟩
-        rcases hsl' with rfl | ⟨h, hsep⟩
-        · have hp : p = true := by split at hsl <;> simp_all <;> omega
-          simp only at hk₁ hk₂
+          · rename_i hp
+            rcases List.mem_cons.mp hsl with h | h
+            · exact .inl ⟨hp, h⟩
+            · simp only [List.mem_filter, Bool.or_eq_true, bne_iff_ne, decide_eq_true_eq, or_assoc] at h
+              exact .inr h
+          · simp only [List.mem_filter, Bool.or_eq_true, bne_iff_ne, decide_eq_true_eq, or_assoc] at hsl
+            exact .inr hsl
+        rcases hsl' with ⟨hp, rfl⟩ | ⟨h, hsep⟩
+        · simp only at hk₁ hk₂
           simp only [e₁, e₂, Mem.write, hv hp]
-          have hd : ∀ s : State, byteAddr s i k - byteAddr s i d = BitVec.ofNat 64 (k - d) := by
-            intro s; simp only [byteAddr]; bv_omega
+          have hd : ∀ s : State, byteAddr s i k - byteAddr s i d = BitVec.ofNat 64 (k - d) :=
+            fun s => (Offset.add_sub_add_left _ _ _).trans (Offset.ofNat_sub_ofNat (by omega))
           have hlt : (BitVec.ofNat 64 (k - d)).toNat < n := by
             rw [BitVec.toNat_ofNat]; exact Nat.lt_of_le_of_lt (Nat.mod_le _ _) (by omega)
           rw [hd, hd]; simp only [hlt, ite_true]

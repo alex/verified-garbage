@@ -4,6 +4,8 @@ import VerifiedGarbage.Proof.Sha256.Stream
 import VerifiedGarbage.Impl.Sha256.X86.Stream
 import Mathlib.Tactic.Conv
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Sha256.X86.Lit
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # Streaming SHA-256 on x86 (32-bit): common lemmas
@@ -22,15 +24,8 @@ open VG.Spec.Sha256 (HashValue stateAt blockAt compressBlocks compress parseBloc
 
 /-! ## Regions -/
 
-theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (ho : off < 2 ^ 64) :
-    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := by
-  intro a ha
-  simp only [Region.Contains] at *
-  have : (a - base).toNat ≤ (a - (base + BitVec.ofNat 64 off)).toNat + off := by
-    rw [show a - base = (a - (base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by bv_omega,
-      BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ho]
-    exact Nat.mod_le _ _
-  omega
+theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (_ho : off < 2 ^ 64) :
+    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := Offset.sub_base base h
 
 theorem frame_bytes {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {R : Region}
     (hd : ∀ r ∈ rs, R.Disjoint r) (hR : R.len ≤ 2 ^ 64) {i : Nat} (hi : i < R.len) :

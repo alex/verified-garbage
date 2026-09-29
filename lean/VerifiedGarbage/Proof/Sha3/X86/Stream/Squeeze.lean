@@ -1,5 +1,6 @@
-import VerifiedGarbage.Proof.Sha3.X86.Stream.Common
-import VerifiedGarbage.Proof.Sha3.SqueezeFrom
+import VerifiedGarbage.Proof.Sha3.X86.Permute
+import VerifiedGarbage.Proof.Sha3.Stream
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # The SHA-3 sponge on x86 (32-bit): `squeeze`
@@ -497,7 +498,7 @@ theorem store_ok {s₀ : State} (hp : Pre s₀) {i k pos : Nat} {s : State} (hI 
     · subst e
       obtain ⟨d, m⟩ := div_mod_eq (k := k) hr₀ hlt
       rw [writeW8_self, hI.hi, d, m]
-    · rw [writeW8_other _ _ (by intro h'; apply e; bv_omega)]
+    · rw [writeW8_other _ _ (Offset.add_ofNat_ne _ (by omega) (by omega) e)]
       exact hI.out j (by omega)
   · rw [z₉, u₈.other _ (by decide), u₇.gpr, u₆.gpr, u₅.other _ (by decide), u₄.gpr,
       u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), hI.edi,
@@ -707,12 +708,10 @@ theorem sat_pre : Proof.Sha3.squeezeX86.pre sat := by
   simp only [Proof.Sha3.squeezeX86, a0, a1, a2, a3, a4, a5, e]
   refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
     by decide, by decide, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, sat] at h₁ h₂
-    bv_omega
+  · exact Region.disjoint_of_sep (by decide)
 
 theorem squeeze_verified : Verified X86.target squeeze Proof.Sha3.squeezeX86 := by
   refine ⟨fun s hs => correct (pre_of hs), ?_, ⟨sat, sat_pre⟩⟩
-  exact VG.Taint.constantTime (A := VG.X86.taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+  exact VG.Taint.constantTime (A := VG.X86.taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide_weak VG.Proof.Sha3.X86.dropRC)
 
 end VG.Proof.Sha3.X86.Stream.Squeeze
