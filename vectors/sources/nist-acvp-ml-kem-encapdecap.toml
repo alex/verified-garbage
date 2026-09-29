@@ -1,0 +1,5 @@
+name = "NIST ACVP ML-KEM encapDecap test vectors (FIPS 203): the internalProjection.json of ML-KEM-encapDecap-FIPS203, which has each test case's inputs and expected results"
+directories = ["nist-acvp/ML-KEM-encapDecap-FIPS203"]
+url = "https://raw.githubusercontent.com/usnistgov/ACVP-Server/975de31eb83d87039ec88934fdc47d8c312b892d/gen-val/json-files/ML-KEM-encapDecap-FIPS203/internalProjection.json"
+sha256 = "a556952ce869bb89c3a3196a701dad89647c193a34c86eafb61a9d710d5b810f"
+retrieved = 2026-09-29
