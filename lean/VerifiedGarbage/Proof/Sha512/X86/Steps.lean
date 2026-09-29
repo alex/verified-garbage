@@ -309,7 +309,7 @@ theorem wp_xorRest {d : Reg} {B : BitVec 32} {off N : Nat} (hd : d ≠ .esi) (hd
     s.mem.readW (addr B off) 32 = L → s.mem.readW (addr B (off + 4)) 32 = H → s.gpr d = acc →
     (∀ s', Only [d, T] s s' → s'.gpr d = (ps.map (partVal L H)).foldl (· ^^^ ·) acc →
       WP isa (.block rest) s' Q) →
-    WP isa (.block ((ps.flatMap fun p => p.load T off ++ [.alu .xor d (.reg T)]) ++ rest)) s Q := by
+    WP isa (.block ((ps.flatMap fun p => p.load T off ++ ([.alu .xor d (.reg T)] : List Instr)) ++ rest)) s Q := by
   induction ps with
   | nil => intro s acc _ _ _ _ _ hd k; exact k s (Only.refl _ _) hd
   | cons p ps ih =>
