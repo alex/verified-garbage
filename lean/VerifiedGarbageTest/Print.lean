@@ -329,6 +329,13 @@ instructions. -/
     (.frame (.push [.ecx, .eax]) (.call "vg_f" (.block [])) (.pop .edx 2) : Prog X86.isa)) == [
   "push ecx", "push eax", "<call vg_f>", "pop edx", "pop edx", "ret"]
 
+-- Pass two arguments on the stack, inside a frame saving `rbx` (x86-64).
+#guard text (printer.function
+    (.frame (.push [.rbx])
+      (.frame (.push [.rcx, .rax]) (.call "vg_f" (.block [])) (.pop .rdx 2)) (.pop .rbx 1) :
+      Prog X86_64.isa)) == [
+  "push rbx", "push rcx", "push rax", "<call vg_f>", "pop rdx", "pop rdx", "pop rbx", "ret"]
+
 #guard Rust.line Arm.printer.call (.text "push {r4, lr}") == "        \"push {{r4, lr}}\",\n"
 
 /-! ## CPU features
