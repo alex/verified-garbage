@@ -1,8 +1,8 @@
-import VerifiedGarbage.TCB.X86.Target
-import VerifiedGarbage.Proof.Hmac.X86.Shared
+import VerifiedGarbage.TCB.Arm.Target
+import VerifiedGarbage.Proof.Hmac.Arm.Shared
 
 /-!
-# HMAC-SHA-256 (RFC 2104) on x86
+# HMAC-SHA-256 (RFC 2104) on ARMv7
 
 A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
@@ -14,20 +14,22 @@ target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract.
 -/
 
-namespace VG.Artifacts.Hmac.X86
+namespace VG.Artifacts.HmacSha256.Arm
 
 def artifacts : List Artifact := [
   { Spec.Hmac.initSha256Api with
-    target := X86.target
+    target := Arm.target
     doc := Spec.Hmac.initSha256Api.doc
-    code := Impl.Hmac.X86.init
-    contract := Spec.Hmac.initSha256Contract X86.abi
-    verified := Proof.Hmac.X86.Shared.init },
+    code := Impl.Hmac.Arm.init
+    contract := Spec.Hmac.initSha256Contract Arm.abi
+    verified := Proof.Hmac.Arm.Shared.init
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Hmac.finalizeSha256OutApi with
-    target := X86.target
+    target := Arm.target
     doc := Spec.Hmac.finalizeSha256OutApi.doc
-    code := Impl.Hmac.X86.finalize
-    contract := Spec.Hmac.finalizeSha256OutContract X86.abi
-    verified := Proof.Hmac.X86.Shared.finalize }]
+    code := Impl.Hmac.Arm.finalize
+    contract := Spec.Hmac.finalizeSha256OutContract Arm.abi
+    verified := Proof.Hmac.Arm.Shared.finalize
+    spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
-end VG.Artifacts.Hmac.X86
+end VG.Artifacts.HmacSha256.Arm

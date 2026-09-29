@@ -1,4 +1,4 @@
-//! PBKDF2 (RFC 8018 §5.2) with HMAC-SHA-256 as the pseudorandom function.
+//! PBKDF2-HMAC-SHA-256 (RFC 8018 §5.2).
 //!
 //! For each block `Tᵢ` of the derived key, `U₁ = HMAC (P, S ‖ INT (i))` is
 //! the verified HMAC-SHA-256 ([`Hmac`]), and the rest of the chain,
