@@ -335,13 +335,13 @@ theorem tail_wp {s₀ : State} (hp : Pre s₀) {bp q A : BitVec 32} {s : State} 
     by rw [ud.gpr, ub.other _ (by decide), h1]⟩
 
 theorem x2_wp {s₀ : State} (hp : Pre s₀) {bp q : BitVec 32} {s : State} (h : KR s₀ bp q s) :
-    WP isa (.block ([.mov .r0 (.reg .r9)] ++ bmTail)) s fun s' => KR s₀ bp q s' ∧ Args s₀ bp s' :=
+    WP isa (.block (([.mov .r0 (.reg .r9)] : List Instr) ++ bmTail)) s fun s' => KR s₀ bp q s' ∧ Args s₀ bp s' :=
   wp_mov (op2_reg _ _) fun a ua => tail_wp hp
     (h.keep ua.rd ua.wr ua.sp (fun r hr => ua.other r (kRegs_ne r hr).1)
       (by rw [ua.mem]; exact Frame.refl _ _)) (by rw [ua.gpr, h.r9])
 
 theorem x3_wp {s₀ : State} (hp : Pre s₀) {bp q : BitVec 32} {s : State} (h : KR s₀ bp q s) :
-    WP isa (.block ([.dp .add .r0 .r6 (.imm 192)] ++ bmTail)) s
+    WP isa (.block (([.dp .add .r0 .r6 (.imm 192)] : List Instr) ++ bmTail)) s
       fun s' => KR s₀ bp q s' ∧ Args s₀ (tP32 s₀) s' :=
   wp_add (op2_imm (by decide)) fun a ua => tail_wp hp
     (h.keep ua.rd ua.wr ua.sp (fun r hr => ua.other r (kRegs_ne r hr).1)

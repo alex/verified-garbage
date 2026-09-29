@@ -146,8 +146,8 @@ theorem Done.regs {s₀ s s' : State} {F : Nat → Nat} (h : Done s₀ F s)
 /-! ## Prologue -/
 
 theorem uprologue_ok {s₀ : State} (hp : UPre s₀) :
-    WP isa (.block (setup ++ [.mov .esi (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 8)),
-      .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)])) s₀ fun s => ∃ F, SetupF s₀ F ∧
+    WP isa (.block (setup ++ ([.mov .esi (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 8)),
+      .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)] : List Instr))) s₀ fun s => ∃ F, SetupF s₀ F ∧
         Pre1 s₀ F s ∧ s.gpr .edx = BitVec.ofNat 32 (kb s₀) ∧
         s.zf = some (BitVec.ofNat 32 (kb s₀) &&& BitVec.ofNat 32 (kb s₀) == 0) := by
   have hfit := hp.st_fit
@@ -443,7 +443,7 @@ theorem Pos.whole {s₀ s : State} {F : Nat → Nat} (h : (∃ c, Cons s₀ F c 
 /-- One whole block of data. -/
 theorem whole_step {s₀ : State} (hp : UPre s₀) {F : Nat → Nat} (hF : SetupF s₀ F) {c : Nat} {s : State}
     (h : Cons s₀ F c s) (hc : 16 ≤ dl s₀ - c) :
-    WP isa (.block (absorb 1 ++ [.alu .add .esi (.imm 16)] ++ left ++ [.alu .cmp .eax (.imm 16)])) s fun s' =>
+    WP isa (.block (absorb 1 ++ ([.alu .add .esi (.imm 16)] : List Instr) ++ left ++ ([.alu .cmp .eax (.imm 16)] : List Instr))) s fun s' =>
       Cons s₀ F (c + 16) s' ∧ s'.cf = some (decide (dl s₀ - (c + 16) < 16)) := by
   have hfit := hp.st_fit
   rw [show absorb 1 ++ [.alu .add .esi (.imm 16)] ++ left ++ [.alu .cmp .eax (.imm 16)] =
@@ -484,7 +484,7 @@ theorem whole_step {s₀ : State} (hp : UPre s₀) {F : Nat → Nat} (hF : Setup
 /-- The loop over the whole blocks of data. -/
 theorem whole_loop {s₀ : State} (hp : UPre s₀) {F : Nat → Nat} (hF : SetupF s₀ F) {c : Nat} {s : State}
     (h : Cons s₀ F c s) (hc : 16 ≤ dl s₀ - c) :
-    WP isa (.loop (.block (absorb 1 ++ [.alu .add .esi (.imm 16)] ++ left ++ [.alu .cmp .eax (.imm 16)])) .ae) s
+    WP isa (.loop (.block (absorb 1 ++ ([.alu .add .esi (.imm 16)] : List Instr) ++ left ++ ([.alu .cmp .eax (.imm 16)] : List Instr))) .ae) s
       fun s' => ∃ c', Cons s₀ F c' s' ∧ dl s₀ - c' < 16 := by
   refine WP.loop (M := isa) (fun k s => ∃ c, k = dl s₀ - c ∧ Cons s₀ F c s ∧ 16 ≤ dl s₀ - c) ?_ _ s
     ⟨c, rfl, h, hc⟩
@@ -627,8 +627,8 @@ theorem uepilogue_ok {s₀ : State} (hp : UPre s₀) {F : Nat → Nat} (hF : Set
 
 /-! ## The whole function -/
 
-theorem update_eq : update = .seq (.block (setup ++ [.mov .esi (.mem (at_ .esp 16)),
-    .mov .edx (.mem (at_ .esp 8)), .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)]))
+theorem update_eq : update = .seq (.block (setup ++ ([.mov .esi (.mem (at_ .esp 16)),
+    .mov .edx (.mem (at_ .esp 8)), .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)] : List Instr)))
     (.seq (.ite .e (.block []) fill) (.seq whole (.seq rest (.block (reduce ++ restore))))) := rfl
 
 /-- Nothing buffered: nothing of the data is consumed yet. -/

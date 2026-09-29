@@ -389,7 +389,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
 
 /-! ## Prologue and epilogue -/
 
-theorem save_eq : save ++ [.cmp .r2 (.imm 0)] = [
+theorem save_eq : save ++ ([.cmp .r2 (.imm 0)] : List Instr) = [
     .str .r4 .r3 0, .str .r5 .r3 4, .str .r6 .r3 8, .str .r7 .r3 12, .str .r8 .r3 16,
     .str .r9 .r3 20, .cmp .r2 (.imm 0)] := rfl
 
@@ -405,7 +405,7 @@ def saveMem (s₀ : State) : Mem :=
 
 set_option simprocs false in
 theorem save_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block (save ++ [.cmp .r2 (.imm 0)])) s₀ fun s₁ =>
+    WP isa (.block (save ++ ([.cmp .r2 (.imm 0)] : List Instr))) s₀ fun s₁ =>
       s₁.gpr = s₀.gpr ∧ s₁.rd = s₀.rd ∧ s₁.wr = s₀.wr ∧ s₁.mem = saveMem s₀ ∧
       s₁.z = (s₀.gpr .r2 - 0 == 0) := by
   have o0 := hp.out_save (d := 0) (by omega); have o1 := hp.out_save (d := 4) (by omega)

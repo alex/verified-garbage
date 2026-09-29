@@ -29,12 +29,12 @@ theorem gsum_lt {f : Nat → Nat} (hf : ∀ k < 5, f k < 2 ^ 32) : ∀ k < 5, gs
   | succ k ih => have := ih (by omega); have := hf (k + 1) hk; simp only [gsum]; omega
 
 theorem plus5_eq : plus5 =
-    [.mov .eax (.mem (at_ .edi (hOff 0))), .alu .add .eax (.imm 5), .store (at_ .edi (tOff 0)) .eax] ++
-    ([.mov .eax (.mem (at_ .edi (hOff 1))), .alu .adc .eax (.imm 0), .store (at_ .edi (tOff 1)) .eax] ++
-    ([.mov .eax (.mem (at_ .edi (hOff 2))), .alu .adc .eax (.imm 0), .store (at_ .edi (tOff 2)) .eax] ++
-    ([.mov .eax (.mem (at_ .edi (hOff 3))), .alu .adc .eax (.imm 0), .store (at_ .edi (tOff 3)) .eax] ++
-    [.mov .eax (.mem (at_ .edi (hOff 4))), .alu .adc .eax (.imm 0), .mov .edx (.reg .eax),
-      .shift .shr .eax 2, .mov .ebp (.imm 0), .alu .sub .ebp (.reg .eax)]))) := rfl
+    ([.mov .eax (.mem (at_ .edi (hOff 0))), .alu .add .eax (.imm 5), .store (at_ .edi (tOff 0)) .eax] : List Instr) ++
+    (([.mov .eax (.mem (at_ .edi (hOff 1))), .alu .adc .eax (.imm 0), .store (at_ .edi (tOff 1)) .eax] : List Instr) ++
+    (([.mov .eax (.mem (at_ .edi (hOff 2))), .alu .adc .eax (.imm 0), .store (at_ .edi (tOff 2)) .eax] : List Instr) ++
+    (([.mov .eax (.mem (at_ .edi (hOff 3))), .alu .adc .eax (.imm 0), .store (at_ .edi (tOff 3)) .eax] : List Instr) ++
+    ([.mov .eax (.mem (at_ .edi (hOff 4))), .alu .adc .eax (.imm 0), .mov .edx (.reg .eax),
+      .shift .shr .eax 2, .mov .ebp (.imm 0), .alu .sub .ebp (.reg .eax)] : List Instr)))) := rfl
 
 section
 variable (st : BitVec 32) (s : State) (f : Nat → Nat)

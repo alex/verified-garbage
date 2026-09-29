@@ -149,7 +149,7 @@ theorem loop_ok {c : Prog isa} (hS : SalsaSpec c) {s₀ : State} (hp : Pre s₀)
 /-! ## The epilogue -/
 
 theorem epilogue_eq : bmEpilogue =
-    (bmSaved.take 6).map (fun p => Instr.ldr p.1 .r7 p.2) ++ [.ldr .r7 .r7 88] := rfl
+    (bmSaved.take 6).map (fun p => Instr.ldr p.1 .r7 p.2) ++ ([.ldr .r7 .r7 88] : List Instr) := rfl
 
 theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Inv s₀ (rr s₀) s) :
     WP isa (.block bmEpilogue) s fun s' => s'.mem = s.mem ∧ s'.sp = s.sp ∧

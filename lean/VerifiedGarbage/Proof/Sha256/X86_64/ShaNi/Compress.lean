@@ -253,7 +253,7 @@ theorem stateAt_hi (m : Mem) (p : Addr) {j : Nat} (hj : j < 4) :
 theorem load_ok (s : State)
     (hlo : InRegions (s.rd ++ s.wr) (s.gpr .rdi + BitVec.ofInt 64 ((0 : Nat) : Int)) 16)
     (hhi : InRegions (s.rd ++ s.wr) (s.gpr .rdi + BitVec.ofInt 64 ((16 : Nat) : Int)) 16) :
-    WP isa (.block (load ++ [.alu .test .rdx (.reg .rdx)])) s fun s' =>
+    WP isa (.block (load ++ ([.alu .test .rdx (.reg .rdx)] : List Instr))) s fun s' =>
       s'.xmm .xmm1 = abef (stateAt s.mem (s.gpr .rdi)) ∧
       s'.xmm .xmm2 = cdgh (stateAt s.mem (s.gpr .rdi)) ∧
       s'.xmm .xmm8 = bswapMask ∧

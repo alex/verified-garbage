@@ -229,7 +229,7 @@ def ldTo (j : Nat) : List Instr := (List.range j).flatMap ld
 theorem ldTo_succ (j : Nat) : ldTo (j + 1) = ldTo j ++ ld j := by
   simp [ldTo, List.range_succ, List.flatMap_append]
 
-theorem load_eq : load = [.mov .eax (.mem ⟨.esp, 4⟩)] ++ ldTo 8 := by
+theorem load_eq : load = ([.mov .eax (.mem ⟨.esp, 4⟩)] : List Instr) ++ ldTo 8 := by
   decide
 
 /-- Word `k` of the update: `state[k] := var k + state[k]`. -/
@@ -243,7 +243,7 @@ def updTo (j : Nat) : List Instr := (List.range j).flatMap upd
 theorem updTo_succ (j : Nat) : updTo (j + 1) = updTo j ++ upd j := by
   simp [updTo, List.range_succ, List.flatMap_append]
 
-theorem update_eq : update ++ advance = [.mov .eax (.mem ⟨.esp, 4⟩)] ++ (updTo 8 ++ advance) := by
+theorem update_eq : update ++ advance = ([.mov .eax (.mem ⟨.esp, 4⟩)] : List Instr) ++ (updTo 8 ++ advance) := by
   decide
 
 theorem vars0 (scr : BitVec 32) (m : Mem) (v : HashValue) : Vars 0 scr m v ↔

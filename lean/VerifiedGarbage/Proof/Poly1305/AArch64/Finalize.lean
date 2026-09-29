@@ -61,7 +61,7 @@ structure F0 (s₀ : State) (m₁ : Mem) (s : State) : Prop where
   acc : A0 s₀ < P → hv s = A0 s₀ ∧ Bounds s
 
 theorem fprologue_ok {s₀ : State} (hp : FPre s₀) :
-    WP isa (.block ([.addImm .x .x3 .x2 0, .movz .x .x2 15 0, .logic .and .x .x2 .x1 .x2] ++ setup)) s₀
+    WP isa (.block (([.addImm .x .x3 .x2 0, .movz .x .x2 15 0, .logic .and .x .x2 .x1 .x2] : List Instr) ++ setup)) s₀
       fun s => F0 s₀ s.mem s := by
   refine WP.block_append (wp_addImm (by decide) fun s₁ u₁ => wp_movz fun s₂ u₂ => wp_and fun s₃ u₃ =>
     WP.block_nil ?_)
@@ -242,8 +242,8 @@ theorem tail_nil {s₀ : State} (h : kf s₀ = 0) : tail s₀ = [] := by
 theorem lastBlock_eq : lastBlock =
     .seq (.block [.movz .x .x11 0 0, .add .x .x9 .x0 .x2, .movz .x .x10 16 0, .sub .x .x10 .x10 .x2])
       (.seq (.loop (.block zeroBody) (.nonzero .x .x10))
-        (.block ([.movz .x .x11 1 0, .add .x .x9 .x0 .x2, .strb .x11 .x9 56] ++
-          ([.addImm .x .x1 .x0 56] ++ absorb false)))) := rfl
+        (.block (([.movz .x .x11 1 0, .add .x .x9 .x0 .x2, .strb .x11 .x9 56] : List Instr) ++
+          (([.addImm .x .x1 .x0 56] : List Instr) ++ absorb false)))) := rfl
 
 theorem lastBlock_ok {s₀ : State} (hp : FPre s₀) {m₁ : Mem} {s₁ : State} (h₁ : F0 s₀ m₁ s₁)
     (hpos : 0 < kf s₀) : WP isa lastBlock s₁ (Tail s₀ m₁ s₁) := by
@@ -381,7 +381,7 @@ theorem fepilogue_ok {s₀ : State} (hp : FPre s₀) {m₁ : Mem} {s₁ : State}
 /-! ## The whole function -/
 
 theorem finalize_eq : finalize =
-    .seq (.block ([.addImm .x .x3 .x2 0, .movz .x .x2 15 0, .logic .and .x .x2 .x1 .x2] ++ setup))
+    .seq (.block (([.addImm .x .x3 .x2 0, .movz .x .x2 15 0, .logic .and .x .x2 .x1 .x2] : List Instr) ++ setup))
       (.seq (.ite (.zero .x .x2) (.block []) lastBlock) (.block (reduce ++ addS ++ pack ++ storeTag))) := rfl
 
 theorem finalize_correct {s₀ : State} (hp : FPre s₀) :

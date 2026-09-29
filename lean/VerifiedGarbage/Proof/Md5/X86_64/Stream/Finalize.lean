@@ -468,10 +468,10 @@ theorem R₀.length {s₀ : State} {m : List Byte} (h : R₀ s₀ m) : cnt s₀ 
   rw [cnt, h.2, BitVec.toNat_ofNat]
   omega
 
-theorem prologue_eq : save .rcx ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),
+theorem prologue_eq : save .rcx ++ ([.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),
       .mov .r12 (.reg .rsi), .mov .r13 (.reg .rsi), .alu .and .r13 (.imm 63),
       .mov32 .rax (.imm 0x80), .store8 bufByte .rax, .alu .add .r13 (.imm 1),
-      .mov32 .r14 (.imm 0), .alu .cmp .r13 (.imm 57)] = [
+      .mov32 .r14 (.imm 0), .alu .cmp .r13 (.imm 57)] : List Instr) = [
     .store (at_ .rcx 64) .rbx, .store (at_ .rcx 72) .rbp, .store (at_ .rcx 80) .r12,
     .store (at_ .rcx 88) .r13, .store (at_ .rcx 96) .r14, .store (at_ .rcx 104) .r15,
     .mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),
@@ -480,10 +480,10 @@ theorem prologue_eq : save .rcx ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx)
     .mov32 .r14 (.imm 0), .alu .cmp .r13 (.imm 57)] := rfl
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.seq (.block (save .rcx ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),
+    WP isa (.seq (.block (save .rcx ++ ([.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),
       .mov .r12 (.reg .rsi), .mov .r13 (.reg .rsi), .alu .and .r13 (.imm 63),
       .mov32 .rax (.imm 0x80), .store8 bufByte .rax, .alu .add .r13 (.imm 1),
-      .mov32 .r14 (.imm 0), .alu .cmp .r13 (.imm 57)]))
+      .mov32 .r14 (.imm 0), .alu .cmp .r13 (.imm 57)] : List Instr)))
       (.ite .ae (.block [.mov32 .r14 (.imm 1)]) (.block []))) s₀
       fun s => ∃ k, LInv s₀ k (cnt s₀ % 64 + 1) s := by
   have o : ∀ d : Nat, d + 8 ≤ 112 → InRegions s₀.wr (scr s₀ + BitVec.ofInt 64 (d : Int)) 8 :=

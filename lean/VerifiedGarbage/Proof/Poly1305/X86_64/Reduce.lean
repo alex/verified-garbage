@@ -19,13 +19,13 @@ theorem select_one (x y : BitVec 64) : x ^^^ ((y ^^^ x) &&& ((0 : BitVec 64) - 1
     ← BitVec.xor_assoc, BitVec.xor_self, BitVec.zero_xor]
 
 theorem reduce_eq : reduce =
-    [.mov .rax (.reg .r11), .alu .add .rax (.imm 5), .mov .rdx (.reg .rbx), .alu .adc .rdx (.imm 0),
-      .mov .r12 (.reg .rbp), .alu .adc .r12 (.imm 0)] ++
-    ([.mov .r13 (.reg .r12), .shift .shr .r13 2, .mov32 .r14 (.imm 0), .alu .sub .r14 (.reg .r13),
-      .alu .and .r12 (.imm 3)] ++
-    [.alu .xor .rax (.reg .r11), .alu .and .rax (.reg .r14), .alu .xor .r11 (.reg .rax),
+    ([.mov .rax (.reg .r11), .alu .add .rax (.imm 5), .mov .rdx (.reg .rbx), .alu .adc .rdx (.imm 0),
+      .mov .r12 (.reg .rbp), .alu .adc .r12 (.imm 0)] : List Instr) ++
+    (([.mov .r13 (.reg .r12), .shift .shr .r13 2, .mov32 .r14 (.imm 0), .alu .sub .r14 (.reg .r13),
+      .alu .and .r12 (.imm 3)] : List Instr) ++
+    ([.alu .xor .rax (.reg .r11), .alu .and .rax (.reg .r14), .alu .xor .r11 (.reg .rax),
       .alu .xor .rdx (.reg .rbx), .alu .and .rdx (.reg .r14), .alu .xor .rbx (.reg .rdx),
-      .alu .xor .r12 (.reg .rbp), .alu .and .r12 (.reg .r14), .alu .xor .rbp (.reg .r12)]) := rfl
+      .alu .xor .r12 (.reg .rbp), .alu .and .r12 (.reg .r14), .alu .xor .rbp (.reg .r12)] : List Instr)) := rfl
 
 set_option simprocs false in
 /-- `g = h + 5` into `rax, rdx, r12`. -/

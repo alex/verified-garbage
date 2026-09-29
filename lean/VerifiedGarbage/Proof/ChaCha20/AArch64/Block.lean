@@ -240,8 +240,8 @@ theorem block_post {p : Addr} {m : Mem} {R v : CState}
   simp only [stateAt, Vector.getElem_ofFn, Vector.getElem_zipWith]
   exact h j hj
 
-theorem finish_split : finish = ([.str .w .x2 .x1 0] ++ (List.range 15).flatMap (fun i => addWord (i + 1))) ++
-    [.ldr .w .x2 .x0 0, .ldr .w .x3 .x1 0, .add .w .x2 .x3 .x2, .str .w .x2 .x1 0] := by
+theorem finish_split : finish = (([.str .w .x2 .x1 0] : List Instr) ++ (List.range 15).flatMap (fun i => addWord (i + 1))) ++
+    ([.ldr .w .x2 .x0 0, .ldr .w .x3 .x1 0, .add .w .x2 .x3 .x2, .str .w .x2 .x1 0] : List Instr) := by
   unfold finish; rfl
 
 theorem correct {s₀ : State} (hp : Pre s₀) :

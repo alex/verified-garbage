@@ -236,9 +236,9 @@ theorem beq_zero_toNat (x : BitVec 32) : (x - 0 == 0) = decide (x.toNat = 0) := 
     intro h'; exact h (by rw [h']; rfl)
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (.block ([.ldrSp .r12 0] ++ save .r12 ++ [.mov .r4 (.reg .r1), .mov .r5 (.reg .r2),
-      .mov .r6 (.reg .r3)] ++ h0 .r0 ++ h0 .r4 ++
-      [.mov .r8 (.imm 0x36), .mov .r9 (.imm 0x5c), .mov .r7 (.imm 0), .cmp .r6 (.imm 0)])) s₀
+    WP isa (.block (([.ldrSp .r12 0] : List Instr) ++ save .r12 ++ ([.mov .r4 (.reg .r1), .mov .r5 (.reg .r2),
+      .mov .r6 (.reg .r3)] : List Instr) ++ h0 .r0 ++ h0 .r4 ++
+      ([.mov .r8 (.imm 0x36), .mov .r9 (.imm 0x5c), .mov .r7 (.imm 0), .cmp .r6 (.imm 0)] : List Instr))) s₀
       (fun s => Key s₀ 0 s ∧ s.z = decide (kl s₀ = 0)) := by
   have hsc := hp.scr_fit; have hin := hp.in_fit; have hou := hp.ou_fit
   simp only [List.append_assoc, List.cons_append, List.nil_append]

@@ -266,16 +266,16 @@ theorem pro_ok {s₀ : State} (hp : Pre s₀) :
 abbrev SPre := VG.Proof.Sha256.X86.Stream.Finalize.Pre
 abbrev SDone := VG.Proof.Sha256.X86.Stream.Finalize.Done
 
-theorem finalizeHash_eq : finalizeHash = .seq (.block ([.mov .eax (.mem (at_ .esp 20))] ++
+theorem finalizeHash_eq : finalizeHash = .seq (.block (([.mov .eax (.mem (at_ .esp 20))] : List Instr) ++
       VG.Impl.Sha256.X86.Stream.save .eax ++
-      [.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)),
+      ([.mov .ebp (.reg .eax), .mov .ebx (.mem (at_ .esp 4)),
        .mov .ecx (.mem (at_ .esp 8)), .store (at_ .ebp 128) .ecx,
        .mov .ecx (.mem (at_ .esp 12)), .store (at_ .ebp 132) .ecx,
        .mov .ecx (.mem (at_ .esp 16)), .store (at_ .ebp 136) .ecx,
        .mov .edi (.mem (at_ .esp 8)), .alu .and .edi (.imm 63),
        .mov .edx (.reg .ebx), .alu .add .edx (.reg .edi), .mov .ecx (.imm 0x80),
        .store8 (at_ .edx 32) .cl, .alu .add .edi (.imm 1),
-       .mov .esi (.imm 0), .alu .cmp .edi (.imm 57)]))
+       .mov .esi (.imm 0), .alu .cmp .edi (.imm 57)] : List Instr)))
     (.seq (.ite .ae (.block [.mov .esi (.imm 1)]) (.block []))
       (.loop VG.Impl.Sha256.X86.Stream.finalizeBody .e)) := rfl
 
@@ -394,7 +394,7 @@ structure Mid (s₀ s s' : State) : Prop where
 theorem mid_ok {s₀ s : State} (hp : Pre s₀) (h : MidPre s₀ s) :
     WP isa (.block ((List.range 8).flatMap (bswapWord .ebx .ebx 0 32) ++ .mov .edx (.mem (at_ .ebp 176)) ::
       (List.range 8).flatMap (copyWord .edx .ebx 0 0) ++ padWords ++
-      [.store (at_ .esp 4) .ebx, .store (at_ .esp 16) .ebp, .mov .eax (.reg .ebx), .alu .add .eax (.imm 32)]))
+      ([.store (at_ .esp 4) .ebx, .store (at_ .esp 16) .ebp, .mov .eax (.reg .ebx), .alu .add .eax (.imm 32)] : List Instr)))
       s (Mid s₀ s) := by
   have fi := hp.in_fit
   have fo := hp.ou_fit

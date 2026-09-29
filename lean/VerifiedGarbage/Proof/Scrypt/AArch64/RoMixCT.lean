@@ -313,7 +313,7 @@ theorem x2_wp {s₀ : State} (hp : Pre s₀) {bp q : Addr} {s : State} (h : KR s
     (h.keep ua.rd ua.wr ua.sp fun r hr => ua.other r (kRegs_ne r hr).1) (by rw [ua.gpr, h.x24])
 
 theorem x3_wp {s₀ : State} (hp : Pre s₀) {bp q : Addr} {s : State} (h : KR s₀ bp q s) :
-    WP isa (.block ([.addImm .x .x0 .x21 192] ++ bmTail)) s
+    WP isa (.block (([.addImm .x .x0 .x21 192] : List Instr) ++ bmTail)) s
       fun s' => KR s₀ bp q s' ∧ Args s₀ (tP s₀) s' :=
   wp_addImm (by decide) fun a ua => tail_wp hp
     (h.keep ua.rd ua.wr ua.sp fun r hr => ua.other r (kRegs_ne r hr).1) (by rw [ua.gpr, h.x21])

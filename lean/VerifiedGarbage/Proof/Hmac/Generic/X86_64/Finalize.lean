@@ -279,9 +279,9 @@ theorem finCall_ok {t : State} (hk : KR (H := H) s₀ t) (ha : FinArgs hH t (inn
       · exact (stk_ret (s₀ := s₀)).symm
 
 theorem updArgs_ok {s : State} (hk : KR (H := H) s₀ s) :
-    WP isa (.block ([.mov .rdi (.reg .rbx)] ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 H.B))] ++
+    WP isa (.block (([.mov .rdi (.reg .rbx)] : List Instr) ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 H.B))] : List Instr) ++
       VG.Impl.Hmac.Generic.X86_64.scr .rdx H.buf ++
-      [.mov32 .rcx (.imm (BitVec.ofNat 32 H.D)), .mov .r8 (.reg .r15)])) s fun t =>
+      ([.mov32 .rcx (.imm (BitVec.ofNat 32 H.D)), .mov .r8 (.reg .r15)] : List Instr))) s fun t =>
         KR (H := H) s₀ t ∧ UpdArgs hH t (inn s₀) (T (H := H) s₀) (scr s₀) H.D ∧
         t.gpr .rsi = BitVec.ofNat 64 H.B ∧ t.mem = s.mem := by
   have hf := hp.fits; have hW := hp.hW; have hB := hp.hB; have hD := hp.hD; have hwb := hH.hWb

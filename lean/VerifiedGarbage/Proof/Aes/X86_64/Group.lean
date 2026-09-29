@@ -426,7 +426,7 @@ theorem clear_ok (s : State) :
   exact ⟨by simp, fun r h => by simp [h], trivial, trivial, trivial⟩
 
 theorem xorFull_eq : xorFull = xorBlock 0 ++ xorBlock 1 ++ xorBlock 2 ++ xorBlock 3 ++
-    [.alu .add .rdx (.imm 64), .alu .sub .r8 (.imm 4)] := rfl
+    ([.alu .add .rdx (.imm 64), .alu .sub .r8 (.imm 4)] : List Instr) := rfl
 
 theorem ofNat_sub_four {x : Nat} (h : 4 ≤ x) : BitVec.ofNat 64 x - 4 = BitVec.ofNat 64 (x - 4) := by
   bv_omega
