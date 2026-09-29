@@ -626,7 +626,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
     (h : Out s₀ sD 4 s) : WP isa (.block restore) s (Post s₀) := by
   have hC := hD.1
   have hfo := out_frame s₀ sD.mem (((stateAt sD.mem (st s₀)).toList.take 4).flatMap wordBytes)
-    (by rw [flat_length _ _ (Nat.le_refl _)]; exact Nat.le_refl _)
+    (by rw [flat_length _ _ (Nat.le_refl _)])
   refine restore_ok (scr := scr s₀) (by rw [h.keep _ (by simp), hC.x20])
     (fun d hd₁ hd₂ => ⟨scR s₀, by simp [h.rd, h.wr, hp.wr], contains_offset hd₂ (by omega)⟩) s₀.gpr
     (fun p hp' => ?_) fun s' hs _ hmem _ _ hsp => ⟨hs, by rw [hsp, h.sp, hC.sp], ?_⟩

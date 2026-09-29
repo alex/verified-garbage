@@ -3,7 +3,6 @@ import VerifiedGarbage.Proof.Sha256.X86.Compress
 import VerifiedGarbage.Proof.Sha256.Stream
 import VerifiedGarbage.Impl.Sha256.X86.Stream
 import Mathlib.Tactic.Conv
-import Mathlib.Tactic.IntervalCases
 import Mathlib.Tactic.Set
 
 /-!
@@ -407,8 +406,7 @@ theorem bswap_bytes (w : BitVec 32) :
   simp only [List.range_succ, List.range_zero, List.nil_append, List.map_cons, List.map_nil,
     List.cons_append, Spec.Sha256.wordBytes, List.cons.injEq, and_true]
   refine ⟨?_, ?_, ?_, ?_⟩ <;>
-  · apply BitVec.eq_of_getLsbD_eq; intro i hi
-    simp only [bswap, BitVec.getLsbD_extractLsb', BitVec.getLsbD_append]
-    interval_cases i <;> simp
+  · simp (disch := decide) only [bswap, Nat.mul_zero, Nat.reduceMul, VG.X86_64.extractLsb'_append_byte_lo,
+      VG.X86_64.extractLsb'_append_byte_hi, Nat.reduceSub, BitVec.extractLsb'_eq_self]
 
 end VG.Proof.Sha256.X86.Stream

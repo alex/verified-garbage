@@ -753,7 +753,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
     · exact hs (.r11, 92) (by simp [saved])
     · exact hs (.lr, 96) (by simp [saved])
   · have := hI.repr m ⟨hr, hc⟩
-    rwa [List.take_of_length_le (by rw [D_length]; exact Nat.le_refl _), ← hmem] at this
+    rwa [List.take_of_length_le (by rw [D_length]), ← hmem] at this
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Md5.updateArm.post s₀ s' := by

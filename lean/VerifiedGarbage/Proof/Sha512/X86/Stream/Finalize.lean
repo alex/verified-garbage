@@ -742,9 +742,9 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   have hesi : s₁₅.gpr .esi = 0 := by rw [f₁₅.gpr, u₁₄.gpr]
   refine WP.ite (!decide (cnt s₀ % 128 + 1 < 113)) (by show s₁₅.cf.map (!·) = _; rw [hcf]; rfl)
     (fun hb => ?_) (fun hb => ?_)
-  · simp only [Bool.not_eq_true', decide_eq_false_iff_not, not_lt] at hb
+  · simp only [Bool.not_eq_true', decide_eq_false_iff_not, Nat.not_lt] at hb
     refine wp_movi fun s₁₆ u₁₆ => WP.block_nil ⟨1, hC.of_gpr (fun r hr => u₁₆.other r (regs2 hr).2.2.2.2)
-      u₁₆.mem u₁₆.rd u₁₆.wr, le_rfl, by omega, by rw [u₁₆.other _ (by decide), edi₁₅], by rw [u₁₆.gpr]; rfl,
+      u₁₆.mem u₁₆.rd u₁₆.wr, (Nat.le_refl _), by omega, by rw [u₁₆.other _ (by decide), edi₁₅], by rw [u₁₆.gpr]; rfl,
       fun iv m hm => ?_⟩
     simp only [↓reduceIte]
     rw [hash_two (by rw [← hm.length]; omega), Fin1, u₁₆.mem, hbytes iv m hm, hst', hm.1.1,
@@ -785,7 +785,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
   have hC := hD.1
   have hst := hp.st_fit; have ho := hp.out_fit
   have hebx : s.gpr .ebx = st s₀ := by rw [h.keep _ (by simp), hC.ebx]
-  have hP := flat_length (stateAt sD.mem (stA s₀)) k hk.le
+  have hP := flat_length (stateAt sD.mem (stA s₀)) k (Nat.le_of_lt hk)
   have hin : ∀ o, o + 4 ≤ 8 → InRegions (s.rd ++ s.wr) (addr (st s₀) (8 * k + o)) 4 := fun o ho' =>
     ⟨stR s₀, by simp [h.rd, h.wr, hp.wr], contains_addr (by omega) (by omega) hst⟩
   -- The word's halves, unchanged since `Done`.
@@ -851,7 +851,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
   have hC := hD.1
   have hsc := hp.scr_fit
   have hfo := out_frame s₀ sD.mem (((stateAt sD.mem (stA s₀)).toList.take 8).flatMap wordBytes)
-    (by rw [flat_length _ _ le_rfl])
+    (by rw [flat_length _ _ (Nat.le_refl _)])
   have hesp : s.gpr .esp = esp₀ s₀ := by rw [h.keep _ (by simp), hC.esp]
   have rin : ∀ d, d + 4 ≤ 272 → InRegions (s.rd ++ s.wr) (addr (scr s₀) d) 4 :=
     fun d hd => ⟨scR s₀, by simp [h.rd, h.wr, hp.wr], hp.scr_in hd⟩
@@ -903,10 +903,10 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ 
     rcases hr with rfl | rfl | rfl
     exacts [hp.ret_st, hp.ret_scr, hp.ret_stk]
   · have e := bytesAt_writeBytes sD.mem (outA s₀) 0 (((stateAt sD.mem (stA s₀)).toList.take 8).flatMap wordBytes)
-      (by rw [flat_length _ _ le_rfl]; omega)
+      (by rw [flat_length _ _ (Nat.le_refl _)]; omega)
     have e' : bytesAt (writeBytes sD.mem (outA s₀) (((stateAt sD.mem (stA s₀)).toList.take 8).flatMap wordBytes))
         (outA s₀) 64 = ((stateAt sD.mem (stA s₀)).toList.take 8).flatMap wordBytes := by
-      rw [flat_length _ _ le_rfl, show outA s₀ + BitVec.ofNat 64 0 = outA s₀ by simp,
+      rw [flat_length _ _ (Nat.le_refl _), show outA s₀ + BitVec.ofNat 64 0 = outA s₀ by simp,
         show bytesAt sD.mem (outA s₀) 0 = [] from rfl, List.nil_append] at e
       exact e
     rw [← h.mem, ← hm₄] at e'
@@ -944,7 +944,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) : WP isa finalize s₀ (Post s₀
   · have hC := hD.1
     refine wp_movm (a := addr (esp₀ s₀) 16) (by rw [ea_at, hC.esp]) (hC.argIn hp (by omega) (by omega))
       fun s₁ u₁ => ?_
-    have := out_all hp hD 8 le_rfl s₁ ⟨by rw [u₁.rd, hC.rd], by rw [u₁.wr, hC.wr],
+    have := out_all hp hD 8 (Nat.le_refl _) s₁ ⟨by rw [u₁.rd, hC.rd], by rw [u₁.wr, hC.wr],
       fun r hr => u₁.other r (regs2 hr).1, by rw [u₁.gpr, hC.arg hp (by omega) (by omega)]; rfl,
       by simp [u₁.mem, writeBytes_nil]⟩
     rw [show 8 - 8 = 0 from rfl, List.drop_zero] at this

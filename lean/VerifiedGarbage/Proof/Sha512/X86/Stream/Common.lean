@@ -184,7 +184,7 @@ theorem compressCall_ok {s : State} {st scr E : BitVec 32}
         ?_
       · simp only [List.mem_singleton] at hr; subst hr
         exact ⟨below E 20, by simp, by rw [hesp]; simpa [args] using below16⟩
-      · rw [h20]; exact below_top (k := 20) le_rfl hE (by omega)
+      · rw [h20]; exact below_top (k := 20) (Nat.le_refl _) hE (by omega)
     have hst : stateAt sE.mem (st.setWidth 64) = stateAt s.mem (st.setWidth 64) :=
       Proof.Sha512.Stream.stateAt_congr fun i hi =>
         hFe.bytes (R := ⟨st.setWidth 64, 192⟩) (by simpa using dS.symm) (by simp) (show _ < 192 by omega)

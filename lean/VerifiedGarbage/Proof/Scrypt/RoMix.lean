@@ -109,7 +109,7 @@ theorem leNat_bytesAt (m : Mem) (a : Addr) (n : Nat) :
 theorem leNat_bytesAt64_mod (m : Mem) (a : Addr) {e : Nat} (he : e ≤ 64) :
     leNat (bytesAt m a 64) % 2 ^ e = (m.readW a 64).toNat % 2 ^ e := by
   rw [show (64 : Nat) = 8 + 56 from rfl, bytesAt_add', leNat_append, bytesAt_length',
-    show (256 : Nat) ^ 8 = 2 ^ e * 2 ^ (64 - e) by rw [← Nat.pow_add, Nat.add_sub_cancel' he]; rfl,
+    show (256 : Nat) ^ 8 = 2 ^ e * 2 ^ (64 - e) by rw [← Nat.pow_add, Nat.add_sub_cancel' he],
     Nat.mul_assoc, Nat.add_mul_mod_self_left, leNat_bytesAt]
   simp only [Mem.readW, BitVec.toNat_setWidth]
   rw [Nat.mod_eq_of_lt (BitVec.isLt _)]

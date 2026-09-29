@@ -432,7 +432,7 @@ theorem macPad_ok {s₀ : State} (hp : APre s₀) {p n : Reg} (hr : MacRegs p n)
   refine WP.seq (WP.mono (macA_ok hr s) fun s₁ ⟨r1₁, r2₁, k₁⟩ => ?_)
   have i₁ := h.step0 k₁
   refine WP.seq (WP.mono (absorb_ok hp i₁ (p := P) (n := len / 16) (by rw [r1₁, hP])
-    (by rw [r2₁, hn, ofNat_shr hlt]; rfl) (by omega)
+    (by rw [r2₁, hn, ofNat_shr hlt]) (by omega)
     ((hcP.sub_left (sub_ctx s₀ (by omega))).sub_right (Region.sub_prefix hk)) (by have := hs.fit; omega)
     (fun a w ⟨r, hr', hc⟩ => by
       simp only [List.mem_singleton] at hr'; subst hr'

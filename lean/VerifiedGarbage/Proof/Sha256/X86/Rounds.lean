@@ -4,7 +4,6 @@ import VerifiedGarbage.Proof.Framework.X86.Taint
 import VerifiedGarbage.Proof.Framework.X86.Exec
 import VerifiedGarbage.Proof.Sha256.Spec
 import VerifiedGarbage.Impl.Sha256.X86
-import Mathlib.Tactic.IntervalCases
 
 /-!
 # SHA-256 compression function on x86 (32-bit): the message schedule and the rounds
@@ -69,7 +68,7 @@ theorem round_sep (t : Nat) :
   simp only [var]
   have := Nat.mod_lt t (show 8 > 0 by omega)
   generalize t % 8 = c at *
-  interval_cases c <;> decide
+  revert this; revert c; decide
 
 /-- The round is symbolically executed once, for any offsets `a … h` of the
 working variables (which `round_sep` says are in separate words). -/
@@ -100,7 +99,7 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 
   generalize var t 6 = g at *
   generalize var t 7 = h at *
   simp only [List.pairwise_cons, List.mem_cons, List.not_mem_nil,
-    forall_eq_or_imp, IsEmpty.forall_iff, implies_true, List.Pairwise.nil, and_true, or_false,
+    forall_eq_or_imp, false_implies, implies_true, List.Pairwise.nil, and_true, or_false,
     forall_eq] at hsep
   simp (config := {decide := true}) only
     [hsep, runBlock_cons, runBlock_nil, runStep_some, exec, execAlu, execShift, readSrc, ea_at, sc,

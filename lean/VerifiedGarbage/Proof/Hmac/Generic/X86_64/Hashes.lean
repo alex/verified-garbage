@@ -213,7 +213,7 @@ def sha512FamOK (SH : Spec.Hmac.StreamingHash) (D : Nat) (initN : String) (iv : 
 
 theorem finalHash_length (iv : Spec.Sha512.HashValue) (m : List Byte) :
     (Spec.Sha512.finalHash iv m).length = 64 := by
-  simp [Spec.Sha512.finalHash, Spec.Sha512.wordBytes]
+  simp [Spec.Sha512.finalHash, Spec.Sha512.wordBytes, List.map_const']
 
 def sha384H : Hash := sha512H 48 "vg_sha384_init" Spec.Sha512.H0_384
 def sha512H' : Hash := sha512H 64 "vg_sha512_init" Spec.Sha512.H0_512
@@ -224,7 +224,7 @@ def sha384OK : HashOK sha384H := sha512FamOK Spec.Hmac.sha384S 48 "vg_sha384_ini
   rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
   (by decide +kernel) (nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel))
 def sha512OK : HashOK sha512H' := sha512FamOK Spec.Hmac.sha512S 64 "vg_sha512_init" Spec.Sha512.H0_512
-  rfl rfl rfl rfl (fun m => (List.take_of_length_le (finalHash_length _ m).le).symm) (by decide) (by decide)
+  rfl rfl rfl rfl (fun m => (List.take_of_length_le (Nat.le_of_eq (finalHash_length _ m))).symm) (by decide) (by decide)
   (by decide +kernel) (nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel))
 def sha512_224OK : HashOK sha512_224H := sha512FamOK Spec.Hmac.sha512_224S 28 "vg_sha512_224_init"
   Spec.Sha512.H0_512_224 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)

@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Sha1.X86_64.Stream.Common
-import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Streaming SHA-1 on x86-64: `finalize`
@@ -567,7 +566,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
       show BitVec.signExtend 64 (1 : BitVec 32) = 1 by decide, ← ofNat_succ,
       show BitVec.signExtend 64 (57 : BitVec 32) = BitVec.ofNat 64 57 by decide,
       BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := cnt s₀ % 64 + 1) (by omega),
-      Nat.mod_eq_of_lt (a := 57) (by norm_num)]
+      Nat.mod_eq_of_lt (a := 57) (by decide)]
   -- The facts about the buffer.
   have hbytes : ∀ m, R₀ s₀ m → bytesAt s₁₇.mem (st s₀ + 20) (cnt s₀ % 64 + 1) =
       rest m ++ [0x80] := by
@@ -689,7 +688,7 @@ theorem out_step {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD)
   have hC := hD.1
   have hrbx : s.gpr .rbx = st s₀ := by rw [h.keep _ (by simp), hC.rbx]
   have hrbp : s.gpr .rbp = out s₀ := by rw [h.keep _ (by simp), hC.rbp]
-  have hP := flat_length (stateAt sD.mem (st s₀)) k hk.le
+  have hP := flat_length (stateAt sD.mem (st s₀)) k (Nat.le_of_lt hk)
   refine wp_mov32m (a := st s₀ + BitVec.ofInt 64 ((4 * k : Nat) : Int)) (by simp [State.ea, at_, hrbx])
     ⟨stR s₀, by simp [h.rd, h.wr, hp.wr], contains_offset' (by omega) (by omega)⟩ fun s₁ u₁ => ?_
   refine wp_bswap32 fun s₂ u₂ => wp_store32 (a := out s₀ + BitVec.ofInt 64 ((4 * k : Nat) : Int))

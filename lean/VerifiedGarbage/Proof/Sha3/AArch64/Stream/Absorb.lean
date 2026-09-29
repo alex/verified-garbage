@@ -131,7 +131,7 @@ theorem Common.after_call {s₀ : State} (hp : Pre s₀) {c : Nat} {s s' : State
 /-- The data is unchanged. -/
 theorem Common.data {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Common s₀ c s) {i : Nat}
     (hi : i < len s₀) : s.mem (dp s₀ + BitVec.ofNat 64 i) = s₀.mem (dp s₀ + BitVec.ofNat 64 i) :=
-  h.frame.bytes (R := dR s₀) (by simpa using ⟨hp.d_st, hp.d_scr⟩) (len_lt s₀).le hi
+  h.frame.bytes (R := dR s₀) (by simpa using ⟨hp.d_st, hp.d_scr⟩) (Nat.le_of_lt (len_lt s₀)) hi
 
 /-! ## The prologue -/
 

@@ -182,7 +182,7 @@ theorem permute_ok {s₀ : State} (hp : SPre s₀) {i k : Nat} {s : State} (hI :
     exact hI.frame.trans hfs
   · exact Saved.permute (by rw [u₁.mem]; exact hI.saved) hp.st_c hf
   · rw [hst, u₁.mem, hI.state, iterF_succ]
-  · refine Eq.trans (hf.bytes (R := OR s₀) hd (outn_lt s₀).le (by have := hI.i_le; omega : j < outn s₀)) ?_
+  · refine Eq.trans (hf.bytes (R := OR s₀) hd (Nat.le_of_lt (outn_lt s₀)) (by have := hI.i_le; omega : j < outn s₀)) ?_
     rw [u₁.mem]; exact hI.out j hj
 
 theorem store_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI : Inv s₀ i k pos s)

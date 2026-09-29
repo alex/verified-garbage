@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Md5.X86_64.Stream.Common
-import Mathlib.Tactic.NormNum.Basic
 
 /-!
 # Streaming MD5 on x86-64: `finalize`
@@ -567,7 +566,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
       show BitVec.signExtend 64 (1 : BitVec 32) = 1 by decide, ← ofNat_succ,
       show BitVec.signExtend 64 (57 : BitVec 32) = BitVec.ofNat 64 57 by decide,
       BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := cnt s₀ % 64 + 1) (by omega),
-      Nat.mod_eq_of_lt (a := 57) (by norm_num)]
+      Nat.mod_eq_of_lt (a := 57) (by decide)]
   -- The facts about the buffer.
   have hbytes : ∀ m, R₀ s₀ m → bytesAt s₁₇.mem (st s₀ + 16) (cnt s₀ % 64 + 1) =
       rest m ++ [0x80] := by

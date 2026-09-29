@@ -235,7 +235,7 @@ theorem keys_ok {s₀ : State} (hp : Pre (H := H) sc s₀) : WP isa H.initKeys s
     congr 1
     refine bytesAt_prefix_congr fun i hi => fk.bytes (R := keyR s₀) (by
       simp only [List.mem_singleton]; rintro r rfl; exact (hp.k_s.sub_right (save_sub hp))) (by
-      exact (s₀.gpr .x3).isLt.le) hi
+      exact Nat.le_of_lt (s₀.gpr .x3).isLt) hi
   have hg : ∀ r ∉ clob, t.gpr r = s₉.gpr r := ht.other
   refine ⟨⟨by rw [ht.rd, hrd], by rw [ht.wr, hwr], by rw [ht.sp, hsp],
     by rw [hg _ (by decide), h19], by rw [hg _ (by decide), h20], by rw [hg _ (by decide), h23],
@@ -347,7 +347,7 @@ theorem updArgs_ok {s : State} (hk : KR (H := H) s₀ s) {st : Reg} {p : Addr}
         exact Covers.of_sub fun r hr => by
           simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
           rcases hr with rfl | rfl
-          · exact sub_of_self (r := ⟨p, H.S⟩) (state_in hp hpR) le_rfl
+          · exact sub_of_self (r := ⟨p, H.S⟩) (state_in hp hpR) (Nat.le_refl _)
           · exact sub_of_self (r := scR sc s₀) (by rw [hp.wr]; simp) (by
               have := hH.hWb; show hH.Wb ≤ 8 * sc; omega)
       st_sc := dS.sub_right (cal_sub hH hp)

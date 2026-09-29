@@ -1,6 +1,5 @@
 import VerifiedGarbage.Spec.Sha3
 import VerifiedGarbage.Proof.Framework.Mem
-import Mathlib.Tactic.IntervalCases
 
 /-!
 # The SHA-3 sponge: facts about the specification
@@ -68,7 +67,9 @@ theorem extractLsb'_byte (y : Byte) : y.extractLsb' 0 8 = y := by
 theorem extractLsb'_laneOfBytes (b : Nat → Byte) {k : Nat} (hk : k < 8) :
     (laneOfBytes b).extractLsb' (8 * k) 8 = b k := by
   unfold laneOfBytes
-  interval_cases k <;> simp (disch := omega) only [extractLsb'_append_hi, extractLsb'_append_lo,
+  rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7) with
+    h | h | h | h | h | h | h | h <;> subst h <;>
+  simp (disch := omega) only [extractLsb'_append_hi, extractLsb'_append_lo,
     extractLsb'_byte, Nat.reduceMul, Nat.reduceSub]
 
 theorem byteOf_xorBytes (A : State) (bs : List Byte) {j : Nat} (hj : j < 200) :

@@ -1,11 +1,9 @@
-import Mathlib.Data.List.Nodup
 import VerifiedGarbage.Proof.Framework.Block
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Proof.Framework.Arm.Exec
 import VerifiedGarbage.Proof.Sha256.Spec
 import VerifiedGarbage.Impl.Sha256.Arm
-import Mathlib.Tactic.IntervalCases
 
 /-!
 # SHA-256 compression function on ARMv7: the message schedule and the rounds
@@ -45,7 +43,7 @@ theorem round_nodup (t : Nat) :
   simp only [var]
   have := Nat.mod_lt t (show 8 > 0 by omega)
   generalize t % 8 = c at *
-  interval_cases c <;> decide
+  revert this; revert c; decide
 
 /-- The round is symbolically executed once, for any registers `a … h`
 (which `round_nodup` says are different from each other and the others). -/
@@ -57,7 +55,7 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ ∀ r ∈ pubRegs, s'.gpr r = s.gpr r := by
   have hs : slot t < 4096 := by simp only [slot]; omega
   have hd := round_nodup t
-  have hd' := List.nodup_reverse.mpr hd
+  have hd' := VG.nodup_reverse hd
   simp only [slotAddr] at hin hw
   simp only [Vars, var_succ_zero, var_succ t _ (show 0 < 7 by omega),
     var_succ t _ (show 1 < 7 by omega), var_succ t _ (show 2 < 7 by omega),
