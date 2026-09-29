@@ -96,6 +96,12 @@ instructions in an ISA model) go in their own PR before either.
    faster. If its code uses instructions outside
    the target's baseline ISA, list the CPU features they require in
    `features` (the emitter rejects anything but the exact set).
+   A function that calls another one with several implementations (e.g.
+   scalar and SHA-NI compression) is proven once for any of them and
+   registered in `Generic/<Iface>/<Target>/<Alg>.lean`, which the emitter
+   applies to every implementation in `Variants/<Iface>/<Target>/` (see
+   `TCB/Emit.lean`). Never list the implementations in the caller: a new
+   implementation is a new variant file, and its callers follow.
 5. Regenerate `src/asm/`, build the public Rust API on top of the primitive,
    and test it against the Wycheproof vectors in `tests/wycheproof/` (set
    `WYCHEPROOF_ROOT` to a checkout of C2SP/wycheproof). Benchmark the new
