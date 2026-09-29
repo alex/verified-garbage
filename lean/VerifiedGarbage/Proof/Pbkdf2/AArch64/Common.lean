@@ -66,7 +66,8 @@ open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_self bytesAt_writeB
 open VG.Proof.Hmac.AArch64 (add_off)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append writeBytes_nil)
 open VG.Proof.Sha256.AArch64 (contains_offset sub_offset toNat_ofNat_lt)
-open VG.Proof.Sha256.AArch64.Stream (Upd Mupd wp_addImm wp_ldr wp_str wp_ldr32 wp_str32 wp_rev32 compressAt_ok)
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_addImm wp_ldr wp_str wp_ldr32 wp_str32 wp_rev32)
+open VG.Proof.Sha256.AArch64.Stream (compressAt_ok)
 open VG.Proof.Sha256.AArch64.Stream.Finalize (writeW_rev32 sw32 flat_length)
 open VG.Proof.Pbkdf2.X86_64.Iterate (frame_bytesAt contains_base off_contains sep_after writeW_xor
   xorBytes_length add_ofNat stateAt_copy)
@@ -362,7 +363,7 @@ theorem digest_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Regs s₀ s) {
 theorem wp_eor {is : List Instr} {s : State} {Q : State → Prop} {d n m : Reg}
     (k : ∀ s', Upd s s' d (s.gpr n ^^^ s.gpr m) → WP isa (.block is) s' Q) :
     WP isa (.block (.logic .eor .x d n m :: is)) s Q :=
-  Proof.Sha256.AArch64.Stream.WP.cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m)) (by simp [exec, State.read])
+  Proof.MdStream.AArch64.WP.cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m)) (by simp [exec, State.read])
     (k _ (Upd.write64 _ _ _))
 
 /-- `T ← T ⊕ U` for the first `n` 64-bit words of `T` at `tp` and `U` at `sc + 192`. -/

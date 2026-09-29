@@ -11,8 +11,8 @@ the streaming proofs, and arithmetic on 32-bit values.
 namespace VG.Proof.Sha512.Arm.Stream
 
 open VG VG.Arm VG.Impl.Sha512.Arm.Stream
-open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd saveMem saveList_ok restoreList_ok readW_writeW_save
+open VG.Proof.MdStream.Arm (contains_offset)
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd saveMem saveList_ok restoreList_ok readW_writeW_save
   sub_offset wp_add wp_mov op2_imm)
 open VG.Proof.Sha512.Arm (temps)
 open VG.Proof.Sha512.Arm.Compress (compress_verified)

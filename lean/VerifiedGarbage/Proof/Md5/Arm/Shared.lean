@@ -1,8 +1,7 @@
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Md5.Arm.Compress
-import VerifiedGarbage.Proof.Md5.Arm.Stream.Finalize
 import VerifiedGarbage.Proof.Md5.Arm.Stream.Init
-import VerifiedGarbage.Proof.Md5.Arm.Stream.Update
+import VerifiedGarbage.Proof.Md5.Arm.Stream.Md
 import VerifiedGarbage.Spec.Md5.Contract
 
 /-!
@@ -36,7 +35,7 @@ theorem update :
   Proof.Md5.Arm.Stream.Update.update_verified.of_implies (by
     contract_implies [Spec.Md5.updateContract, Spec.Md5.updateSig, Proof.Md5.updateArm,
       Proof.Md5.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
-      [Proof.Md5.Arm.Stream.Update.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
+      [Proof.Md5.Arm.Stream.Update.sat, MdStream.Arm.Update.sat, Impl.Md5.Arm.Stream.params, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Md5.Arm.Stream.Update.sat)
 
 theorem finalize :
@@ -45,7 +44,8 @@ theorem finalize :
     contract_implies [Spec.Md5.finalizeContract, Spec.Md5.finalizeSig,
       Proof.Md5.finalizeArm, Proof.Md5.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify,
       Arm.Loc.val, Arm.State.addr]
-      [Proof.Md5.Arm.Stream.Finalize.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
+      [Proof.Md5.Arm.Stream.Finalize.sat, MdStream.Arm.Finalize.sat, MdStream.Arm.Finalize.satBase,
+        Impl.Md5.Arm.Stream.params, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Md5.Arm.Stream.Finalize.sat)
 
 end VG.Proof.Md5.Arm.Shared

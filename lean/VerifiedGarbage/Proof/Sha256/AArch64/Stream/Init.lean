@@ -10,6 +10,7 @@ namespace VG.Proof.Sha256.AArch64.Stream
 
 open VG VG.AArch64 VG.Impl.Sha256.AArch64.Stream
 open VG.Proof.Sha256.AArch64 (writeState stateAt_writeState contains_offset)
+open VG.Proof.MdStream.AArch64 (WP.cons)
 open VG.Spec.Sha256 (stateAt H0)
 
 /-- The three instructions storing the 32-bit word `x` at `[x0 + off]`. -/

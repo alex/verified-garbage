@@ -5,7 +5,7 @@ import Mathlib.Tactic.Tauto
 # Streaming SHA-512 on ARMv7: `update`
 
 Untrusted: everything here is checked by Lean. The structure of the SHA-256
-proof (`VG.Proof.Sha256.Arm.Stream.Update`), with `state` in `r0`, `scratch`
+proof (`VG.Proof.MdStream.Arm.Update`), with `state` in `r0`, `scratch`
 in `r3`, `data` in `r5`, the bytes left in `r6` and the buffered bytes in
 `r4`; every block goes through the buffer, which is compressed as soon as it
 is full.
@@ -14,10 +14,10 @@ is full.
 namespace VG.Proof.Sha512.Arm.Stream.Update
 
 open VG VG.Arm VG.Impl.Sha512.Arm.Stream
-open VG.Proof.Sha256.Arm (contains_offset)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd Fupd op2_imm op2_reg op2_lsr wp_mov wp_add wp_sub wp_and
-  wp_subs wp_cmp wp_ldrb wp_strb wp_ldrSp saveMem sub_offset frame_bytes bytesAt_getD eval_eq eval_ne
-  ofNat_beq_zero sub_ofNat sub_beq ofNat_shr)
+open VG.Proof.MdStream.Arm (contains_offset)
+open VG.Proof.MdStream.Arm (Upd Mupd Fupd op2_imm op2_reg op2_lsr wp_mov wp_add wp_sub wp_and
+  wp_subs wp_cmp wp_ldrb wp_strb wp_ldrSp saveMem sub_offset frame_bytes bytesAt_getD eval_eq
+  eval_ne ofNat_beq_zero sub_ofNat sub_beq ofNat_shr)
 open VG.Proof.Sha512.Arm (temps)
 open VG.Proof.Sha512.Arm.Stream
 open VG.Proof.Sha512.Stream
@@ -590,7 +590,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
     hI.saved fun s' hs ho hmem _ _ hsp =>
       ⟨⟨preserved_saved hs, by rw [hsp, hI.sp]⟩, fun iv m hr hc => ?_⟩
   have := hI.repr iv m ⟨hr, hc⟩
-  rwa [List.take_of_length_le (by rw [D_length]), ← hmem] at this
+  rwa [List.take_of_length_le (Nat.le_of_eq (D_length s₀)), ← hmem] at this
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.updateArm.post s₀ s' := by

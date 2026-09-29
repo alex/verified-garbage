@@ -12,6 +12,7 @@ namespace VG.Proof.Sha256.Arm.Stream
 
 open VG VG.Arm VG.Impl.Sha256.Arm.Stream
 open VG.Proof.Sha256.Arm (contains_offset)
+open VG.Proof.MdStream.Arm (WP.cons wp_str)
 open VG.Spec.Sha256 (stateAt H0)
 
 /-- The three instructions storing the 32-bit word `x` at `[r0 + off]`. -/

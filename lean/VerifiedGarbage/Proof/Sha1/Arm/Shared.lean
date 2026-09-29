@@ -1,8 +1,7 @@
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Sha1.Arm.Compress
-import VerifiedGarbage.Proof.Sha1.Arm.Stream.Finalize
 import VerifiedGarbage.Proof.Sha1.Arm.Stream.Init
-import VerifiedGarbage.Proof.Sha1.Arm.Stream.Update
+import VerifiedGarbage.Proof.Sha1.Arm.Stream.Md
 import VerifiedGarbage.Spec.Sha1.Contract
 
 /-!
@@ -36,7 +35,7 @@ theorem update :
   Proof.Sha1.Arm.Stream.Update.update_verified.of_implies (by
     contract_implies [Spec.Sha1.updateContract, Spec.Sha1.updateSig, Proof.Sha1.updateArm,
       Proof.Sha1.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
-      [Proof.Sha1.Arm.Stream.Update.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
+      [Proof.Sha1.Arm.Stream.Update.sat, MdStream.Arm.Update.sat, Impl.Sha1.Arm.Stream.params, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Sha1.Arm.Stream.Update.sat)
 
 theorem finalize :
@@ -45,7 +44,8 @@ theorem finalize :
     contract_implies [Spec.Sha1.finalizeContract, Spec.Sha1.finalizeSig,
       Proof.Sha1.finalizeArm, Proof.Sha1.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify,
       Arm.Loc.val, Arm.State.addr]
-      [Proof.Sha1.Arm.Stream.Finalize.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
+      [Proof.Sha1.Arm.Stream.Finalize.sat, MdStream.Arm.Finalize.sat, MdStream.Arm.Finalize.satBase,
+        Impl.Sha1.Arm.Stream.params, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Sha1.Arm.Stream.Finalize.sat)
 
 end VG.Proof.Sha1.Arm.Shared

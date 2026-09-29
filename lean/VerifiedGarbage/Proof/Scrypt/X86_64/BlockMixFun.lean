@@ -14,7 +14,7 @@ namespace VG.Proof.Scrypt.X86_64.BlockMix
 open VG VG.X86_64 VG.Impl.Scrypt.X86_64
 open VG.Spec.Scrypt (bytesAt blk blockMix)
 open VG.Proof.Scrypt (yAt xBefore blockMix_eq flatMap_congr)
-open VG.Proof.Sha1.X86_64.Stream (Upd wp_mov wp_movm wp_store wp_add wp_subi)
+open VG.Proof.MdStream.X86_64 (Upd wp_mov wp_movm wp_store wp_add wp_subi)
 
 /-! ## The prologue -/
 

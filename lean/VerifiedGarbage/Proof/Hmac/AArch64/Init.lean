@@ -21,9 +21,10 @@ open VG.Proof.Hmac.X86_64 (bytesAt_length)
 open VG.Proof.Hmac.X86_64.Init (bytesAt_snoc repr_block)
 open VG.Proof.Sha256.Stream (writeBytes repr_congr)
 open VG.Proof.Sha256.AArch64 (writeState stateAt_writeState contains_offset sub_offset toNat_ofNat_lt)
-open VG.Proof.Sha256.AArch64.Stream (Upd Mupd wp_mov wp_movz wp_addImm wp_subImm wp_sub wp_add wp_ldrb
-  wp_strb compressAt_ok saveMem saveMem_saved saveMem_frame save_ok restore_ok frame_bytes untouched
-  eval_zero eval_nonzero ofNat_beq_zero sub_ofNat movzk ofNat_succ)
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_movz wp_addImm wp_subImm wp_sub wp_add wp_ldrb
+  wp_strb frame_bytes untouched eval_zero eval_nonzero ofNat_beq_zero sub_ofNat ofNat_succ)
+open VG.Proof.Sha256.AArch64.Stream (compressAt_ok saveMem saveMem_saved saveMem_frame save_ok
+  restore_ok movzk)
 open VG.Spec.Sha256 (bytesAt stateAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
 
@@ -87,7 +88,7 @@ theorem blockKey_eq {s₀ : State} (hp : Pre s₀) :
 
 /-! ## `H⁽⁰⁾` -/
 
-open VG.Proof.Sha256.AArch64.Stream.WP (cons)
+open VG.Proof.MdStream.AArch64.WP (cons)
 
 /-- The three instructions storing the 32-bit word `x` at `[b + off]`. -/
 def word (b : Reg) (x : BitVec 32) (off : Nat) : List Instr :=
@@ -350,7 +351,7 @@ theorem wp_eor {is : List Instr} {s : State} {Q : State → Prop} {d n m : Reg}
     (k : ∀ s', Upd s s' d (s.gpr n ^^^ s.gpr m) → WP isa (.block is) s' Q) :
     WP isa (.block (.logic .eor .x d n m :: is)) s Q :=
   cons (s' := s.write .x d (s.gpr n ^^^ s.gpr m)) (by simp [exec, State.read])
-    (k _ (Proof.Sha256.AArch64.Stream.Upd.write64 _ _ _))
+    (k _ (Proof.MdStream.AArch64.Upd.write64 _ _ _))
 
 theorem xor_byte (b : Byte) (v : BitVec 16) :
     (b.setWidth 64 ^^^ v.setWidth 64).setWidth 8 = b ^^^ v.setWidth 8 := by
@@ -609,7 +610,7 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
     WP isa initMain s₀ fun s' => (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) ∧
       s'.sp = s₀.sp ∧ Proof.Hmac.initSha256AArch64.post s₀ s' := by
   have hkl := hp.kl_le
-  refine WP.mono (Proof.Sha256.AArch64.Stream.WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
+  refine WP.mono (Proof.MdStream.AArch64.WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨fun r hr h30 => ?_, hsp, hpost⟩
   · unfold initMain
     refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
@@ -722,7 +723,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) :
     · have e : bytesAt (inner s₀).mem (s₀.gpr .x2) (s₀.gpr .x3).toNat =
           bytesAt s₀.mem (s₀.gpr .x2) (s₀.gpr .x3).toNat :=
         Proof.Sha256.Stream.bytesAt_congr fun i hi =>
-          Proof.Sha256.AArch64.Stream.write_frame_bytes (R := kR s₀) hs.k (s₀.gpr .x3).isLt hi
+          Proof.MdStream.AArch64.write_frame_bytes (R := kR s₀) hs.k (s₀.gpr .x3).isLt hi
       simpa only [Proof.Hmac.initSha256AArch64, e, State.write] using hpost
 
 /-! ## `Verified` -/

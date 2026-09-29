@@ -20,7 +20,6 @@ open VG.Proof.Sha256.X86_64 (ea_at contains_offset contains_offset' toNat_ofNat_
   writeState stateAt_writeState readW_writeW_save)
 open VG.Proof.Sha256.X86_64.Stream (Upd wp_mov wp_mov32i wp_addi wp_cmp wp_cmpi wp_test wp_movzx8 wp_store8
   CallOk compressAt_ok compressAt_rel ofNat_succ sub_beq ofNat_beq_zero)
-open VG.Proof.Sha256.X86_64.Stream.Update (Saved saveMem saveMem_saved saveMem_frame)
 open VG.Spec.Sha256 (bytesAt stateAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
 
@@ -45,7 +44,37 @@ abbrev stkR : Region := below (s₀.gpr .rsp) 8
 /-- The key, padded with zeros to a block. -/
 def K0 : List Byte := bytesAt s₀.mem (kp s₀) (kl s₀) ++ List.replicate (64 - kl s₀) 0
 
+/-- The caller's callee-saved registers are saved in the scratch space. -/
+def Saved (m : Mem) : Prop :=
+  ∀ p ∈ Impl.Sha256.X86_64.Stream.saved, m.readW (scr s₀ + BitVec.ofInt 64 (p.2 : Int)) 64 = s₀.gpr p.1
+
+/-- The memory after saving them. -/
+def saveMem : Mem :=
+  (((((s₀.mem.writeW (scr s₀ + BitVec.ofInt 64 ((112 : Nat) : Int)) (s₀.gpr .rbx)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((120 : Nat) : Int)) (s₀.gpr .rbp)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((128 : Nat) : Int)) (s₀.gpr .r12)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((136 : Nat) : Int)) (s₀.gpr .r13)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((144 : Nat) : Int)) (s₀.gpr .r14)).writeW
+    (scr s₀ + BitVec.ofInt 64 ((152 : Nat) : Int)) (s₀.gpr .r15)
+
 end
+
+theorem saveMem_saved {s₀ : State} : Saved s₀ (saveMem s₀) := by
+  intro p hp
+  simp only [Impl.Sha256.X86_64.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl <;>
+  simp (config := {decide := true}) only [saveMem, Mem.readW_writeW_self64, readW_writeW_save]
+
+theorem saveMem_frame {s₀ : State} : Frame [scR s₀] s₀.mem (saveMem s₀) := by
+  have c : ∀ d : Nat, d + 8 ≤ 160 →
+      (scR s₀).Contains (scr s₀ + BitVec.ofInt 64 (d : Int)) (64 / 8) :=
+    fun d hd => contains_offset' hd (by omega)
+  simp only [saveMem]
+  exact (((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 112 (by omega))).writeW
+    (List.mem_singleton_self _) _ (c 120 (by omega))).writeW (List.mem_singleton_self _) _
+    (c 128 (by omega))).writeW (List.mem_singleton_self _) _ (c 136 (by omega))).writeW
+    (List.mem_singleton_self _) _ (c 144 (by omega)) |>.writeW (List.mem_singleton_self _) _
+    (c 152 (by omega))
 
 structure Pre (s₀ : State) : Prop where
   kl_le : kl s₀ ≤ 64

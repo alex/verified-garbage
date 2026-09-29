@@ -1,4 +1,5 @@
-import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Finalize
+import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Md
+import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Common
 import VerifiedGarbage.Proof.Hmac.X86_64.Common
 import VerifiedGarbage.Impl.Hmac.AArch64
 import VerifiedGarbage.Spec.Hmac
@@ -95,7 +96,7 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil)
 open VG.Proof.Hmac.X86_64 (copy_mem)
 open VG.Spec.Sha256 (bytesAt)
 open VG.Impl.Hmac.AArch64 (cp32 cp64)
-open VG.Proof.Sha256.AArch64.Stream (Upd Mupd wp_ldr32 wp_str32 wp_ldr wp_str)
+open VG.Proof.MdStream.AArch64 (Upd Mupd wp_ldr32 wp_str32 wp_ldr wp_str)
 
 theorem add_off (p : Addr) (o j : Nat) :
     p + BitVec.ofNat 64 (o + j) = p + BitVec.ofNat 64 o + BitVec.ofNat 64 j := by

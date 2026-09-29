@@ -22,7 +22,7 @@ open VG.Proof.Hmac.Generic.X86_64 (inRegions_of_sub xorBytes_length')
 open VG.Proof.Hmac.Generic.X86_64.Init (sub_of_off sub_of_self bytes_keep)
 open VG.Proof.Hmac.Generic.X86_64.Finalize (bytesAt_take bytesAt_writeBytes_self' xorPad_length)
 open VG.Proof.Sha256.X86_64 (toNat_ofNat_lt sub_offset)
-open VG.Proof.Sha256.AArch64.Stream (Upd wp_mov wp_movz wp_addImm wp_subImm eval_zero eval_nonzero
+open VG.Proof.MdStream.AArch64 (Upd wp_mov wp_movz wp_addImm wp_subImm eval_zero eval_nonzero
   ofNat_beq_zero)
 open VG.Proof.Hmac.X86_64 (bytesAt_length writeBytes_at bytesAt_getD')
 open VG.Proof.Sha256.Stream (writeBytes)
@@ -568,7 +568,7 @@ theorem zx32 (x : BitVec 64) :
 omit hp in
 /-- The first instruction zero-extends `n`. -/
 theorem zext_ok : WP isa (.block [.addImm .w .x2 .x2 0]) s₀ fun s => Upd s₀ s .x2 (BitVec.ofNat 64 (nn s₀)) :=
-  Proof.Sha256.AArch64.Stream.WP.cons (s' := s₀.write .w .x2 ((s₀.gpr .x2).setWidth 32 + BitVec.ofNat 32 0))
+  Proof.MdStream.AArch64.WP.cons (s' := s₀.write .w .x2 ((s₀.gpr .x2).setWidth 32 + BitVec.ofNat 32 0))
     (by simp [exec, State.read]) (WP.block_nil (by
       have u := Upd.write s₀ .w .x2 ((s₀.gpr .x2).setWidth 32 + BitVec.ofNat 32 0)
       exact ⟨by rw [u.gpr]; exact zx32 _, u.other, u.mem, u.rd, u.wr, u.sp⟩))

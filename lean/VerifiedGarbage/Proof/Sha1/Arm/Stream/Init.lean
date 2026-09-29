@@ -1,4 +1,7 @@
-import VerifiedGarbage.Proof.Sha1.Arm.Stream.Common
+import VerifiedGarbage.Proof.MdStream.Arm.Common
+import VerifiedGarbage.Proof.Sha1.Arm.Compress
+import VerifiedGarbage.Proof.Sha1.Stream
+import VerifiedGarbage.Impl.Sha1.Arm.Stream
 import VerifiedGarbage.Proof.Sha1.AArch64.Compress
 import VerifiedGarbage.Proof.Sha1.Arm.Contract
 
@@ -12,6 +15,7 @@ namespace VG.Proof.Sha1.Arm.Stream
 
 open VG VG.Arm VG.Impl.Sha1.Arm.Stream
 open VG.Proof.Sha1.Arm (contains_offset)
+open VG.Proof.MdStream.Arm (WP.cons wp_str)
 open VG.Spec.Sha1 (stateAt H0)
 
 /-- The three instructions storing the 32-bit word `x` at `[r0 + off]`. -/

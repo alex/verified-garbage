@@ -1,8 +1,7 @@
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Md5.X86_64.Compress
-import VerifiedGarbage.Proof.Md5.X86_64.Stream.Finalize
 import VerifiedGarbage.Proof.Md5.X86_64.Stream.Init
-import VerifiedGarbage.Proof.Md5.X86_64.Stream.Update
+import VerifiedGarbage.Proof.Md5.X86_64.Stream.Md
 import VerifiedGarbage.Spec.Md5.Contract
 
 /-!
@@ -35,13 +34,15 @@ theorem update :
   Proof.Md5.X86_64.Stream.Update.update_verified.of_implies (by
     contract_implies [Spec.Md5.updateContract, Spec.Md5.updateSig, Proof.Md5.updateX86_64,
       X86_64.abi, X86_64.argRegs]
-      [Proof.Md5.X86_64.Stream.Update.sat] using Proof.Md5.X86_64.Stream.Update.sat)
+      [Proof.Md5.X86_64.Stream.Update.sat,
+        MdStream.X86_64.Update.sat, Impl.Md5.X86_64.Stream.params] using Proof.Md5.X86_64.Stream.Update.sat)
 
 theorem finalize :
     Verified X86_64.target Impl.Md5.X86_64.Stream.finalize (Spec.Md5.finalizeContract X86_64.abi 8) :=
   Proof.Md5.X86_64.Stream.Finalize.finalize_verified.of_implies (by
     contract_implies [Spec.Md5.finalizeContract, Spec.Md5.finalizeSig,
       Proof.Md5.finalizeX86_64, X86_64.abi, X86_64.argRegs]
-      [Proof.Md5.X86_64.Stream.Finalize.sat] using Proof.Md5.X86_64.Stream.Finalize.sat)
+      [Proof.Md5.X86_64.Stream.Finalize.sat,
+        MdStream.X86_64.Finalize.sat, Impl.Md5.X86_64.Stream.params] using Proof.Md5.X86_64.Stream.Finalize.sat)
 
 end VG.Proof.Md5.X86_64.Shared

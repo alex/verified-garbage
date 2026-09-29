@@ -14,7 +14,7 @@ open VG VG.Arm VG.Impl.Sha3.Arm.Stream
 open VG.Proof.Sha3.Arm (call_ok covers_of readW_hi xor_setWidth32' ofNat_toNat32 argByte_eq
   addr_toNat)
 open VG.Proof.Sha512.Arm (A contains_A)
-open VG.Proof.Sha256.Arm.Stream (Upd Mupd op2_imm op2_reg wp_mov wp_add wp_sub wp_ldr wp_str wp_ldrb
+open VG.Proof.MdStream.Arm (Upd Mupd op2_imm op2_reg wp_mov wp_add wp_sub wp_ldr wp_str wp_ldrb
   wp_strb wp_ldrSp)
 open VG.Proof.Sha512.Arm (wp_eor)
 open VG.Proof.Sha3 (Rep xorByte stateAt_xorByte stateAt_congr writeW8_apply contains_offset ne_of_lt200

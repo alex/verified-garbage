@@ -1,8 +1,7 @@
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Sha256.AArch64.Compress
-import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Finalize
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Init
-import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Update
+import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Md
 import VerifiedGarbage.Spec.Sha256.Contract
 
 /-!
@@ -35,13 +34,15 @@ theorem update :
   Proof.Sha256.AArch64.Stream.Update.update_verified.of_implies (by
     contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, Proof.Sha256.updateAArch64,
       AArch64.abi, AArch64.argRegs]
-      [Proof.Sha256.AArch64.Stream.Update.sat] using Proof.Sha256.AArch64.Stream.Update.sat)
+      [Proof.Sha256.AArch64.Stream.Update.sat,
+        MdStream.AArch64.Update.sat, Impl.Sha256.AArch64.Stream.params] using Proof.Sha256.AArch64.Stream.Update.sat)
 
 theorem finalize :
     Verified AArch64.target Impl.Sha256.AArch64.Stream.finalize (Spec.Sha256.finalizeContract AArch64.abi 16) :=
   Proof.Sha256.AArch64.Stream.Finalize.finalize_verified.of_implies (by
     contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig,
       Proof.Sha256.finalizeAArch64, AArch64.abi, AArch64.argRegs]
-      [Proof.Sha256.AArch64.Stream.Finalize.sat] using Proof.Sha256.AArch64.Stream.Finalize.sat)
+      [Proof.Sha256.AArch64.Stream.Finalize.sat,
+        MdStream.AArch64.Finalize.sat, Impl.Sha256.AArch64.Stream.params] using Proof.Sha256.AArch64.Stream.Finalize.sat)
 
 end VG.Proof.Sha256.AArch64.Shared
