@@ -17,8 +17,8 @@ For each of ML-KEM-512, ML-KEM-768 and ML-KEM-1024: the first vector of
 `ML-KEM.KeyGen_internal`, the first valid ciphertext of
 `ML-KEM.Decaps_internal` (which re-encrypts the decrypted message, and so
 checks K-PKE.Encrypt too), and every vector of the encapsulation key check,
-which include keys that fail it. For ML-KEM-768, the parameter set
-implemented in assembly, also the first vector of `ML-KEM.Encaps_internal`
+which include keys that fail it. For ML-KEM-768 and ML-KEM-1024, the
+parameter sets with contracts, also the first vector of `ML-KEM.Encaps_internal`
 and the first modified ciphertext of `ML-KEM.Decaps_internal` (an implicit
 rejection). The decapsulation key check has no spec (see
 `Spec/MlKem.lean`), so its vectors are skipped. (Only these are checked
