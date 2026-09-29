@@ -28,7 +28,8 @@ def artifacts : List Artifact := [
         and XORs, in GCM's bit-reflected order."])
     code := Impl.Gcm.X86_64.ghash
     contract := Spec.Gcm.ghashContract X86_64.abi
-    verified := Proof.Gcm.X86_64.ghash_verified },
+    verified := Proof.Gcm.X86_64.ghash_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { target := X86_64.target
     module := "gcm"
     name := "vg_ghash_pclmul"
@@ -48,6 +49,7 @@ def artifacts : List Artifact := [
     code := Impl.Gcm.X86_64.Pclmul.ghash
     contract := Spec.Gcm.ghashContract X86_64.abi
     verified := Proof.Gcm.X86_64.Pclmul.ghash_verified
-    features := ["pclmulqdq", "ssse3"] }]
+    features := ["pclmulqdq", "ssse3"]
+    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.Gcm.X86_64
