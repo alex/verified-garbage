@@ -36,6 +36,16 @@ theorem R.sub {A : Nat → Addr} {b o l len : Nat} (h : o + l ≤ len) :
     exact Nat.le_trans (Nat.mod_le _ _) (Nat.add_le_add_left (Nat.mod_le _ _) _)
   omega
 
+theorem sub_offset' {p : Addr} {k n len : Nat} (h : k + n ≤ len) :
+    Region.Sub ⟨p + BitVec.ofNat 64 k, n⟩ ⟨p, len⟩ :=
+  R.sub (A := fun _ => p) (b := 0) h
+
+theorem R.sub2 {A : Nat → Addr} {b o l o' l' : Nat} (h₁ : o' ≤ o) (h₂ : o + l ≤ o' + l') :
+    Region.Sub (R A b o l) (R A b o' l') := by
+  have e : R A b o l = ⟨A b + BitVec.ofNat 64 o' + BitVec.ofNat 64 (o - o'), l⟩ := by
+    simp only [R, ptr_add, Nat.add_sub_cancel' h₁]
+  rw [e]; exact sub_offset' (by omega)
+
 theorem R.disj {A : Nat → Addr} {L : Nat → Nat} {nb : Nat} {sp : Addr} (h : ArgsOk A L nb sp)
     {b₁ o₁ l₁ b₂ o₂ l₂ : Nat} (hb₁ : b₁ < nb) (hb₂ : b₂ < nb) (f₁ : o₁ + l₁ ≤ L b₁)
     (f₂ : o₂ + l₂ ≤ L b₂) (hs : b₁ ≠ b₂ ∨ o₁ + l₁ ≤ o₂ ∨ o₂ + l₂ ≤ o₁) :

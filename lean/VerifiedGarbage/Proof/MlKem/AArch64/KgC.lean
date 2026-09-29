@@ -43,7 +43,8 @@ abbrev cnW (s₀ : State) (off : Nat) : List Region :=
 theorem cbdNtt_ok {s₀ : State} (hp : Pre s₀) {N off : Nat} (hN : N < 256) (ho : PolyOff off) {s : State}
     (hk : KB s₀ s) (hs : bytesAt s.mem (kA s₀ 3 + BitVec.ofNat 64 SG) 32 = kgSigma (dB s₀)) :
     WP isa (kgCbdNtt N off) s fun s' => KB s₀ s' ∧ Frame (cnW s₀ off) s.mem s'.mem ∧
-      PolyIs s'.mem (kA s₀ 3 + BitVec.ofNat 64 off) (ntt (cbd (kgSigma (dB s₀)) N)) := by
+      PolyIs s'.mem (kA s₀ 3 + BitVec.ofNat 64 off) (ntt (cbd (kgSigma (dB s₀)) N)) ∧
+      s'.gpr .x24 = s.gpr .x24 := by
   have e : ∀ {u : State}, KB s₀ u → ∀ o, u.gpr .x28 + BitVec.ofNat 64 o = kA s₀ 3 + BitVec.ofNat 64 o :=
     fun hu o => by rw [hu.x28]
   obtain ⟨ho1, ho2⟩ := ho
@@ -136,6 +137,111 @@ theorem cbdNtt_ok {s₀ : State} (hp : Pre s₀) {N off : Nat} (hN : N < 256) (h
   have pv : polyAt s₈.mem (kA s₀ 3 + BitVec.ofNat 64 off) = cbd (kgSigma (dB s₀)) N := by
     rw [m₈]; exact p₆.2
   rw [pv] at p₉
-  exact ⟨kb₉, F₁.trans (F₂.trans (F₃.trans F₄)), p₉⟩
+  refine ⟨kb₉, F₁.trans (F₂.trans (F₃.trans F₄)), p₉, ?_⟩
+  rw [k₉.cs _ (by decide) (by decide), h₈.get .x24, h₇.get .x24, k₆.cs _ (by decide) (by decide),
+    h₅.get .x24, h₄.get .x24, k₃.cs _ (by decide) (by decide), h₂.gpr, h₁.get .x24]
+
+/-- `ByteEncode₁₂` of the polynomial at `off` into bytes `[o, o + 384)` of `ek`
+(`b = 1`) or `dk` (`b = 2`). -/
+theorem enc_ok {s₀ : State} (hp : Pre s₀) {off b o : Nat} (ho : PolyOff off) (hb : b = 1 ∨ b = 2)
+    (fo : o + 384 ≤ kL b) {s : State} (hk : KB s₀ s) (hr : Reduced s.mem (kA s₀ 3 + BitVec.ofNat 64 off)) :
+    WP isa (kgEnc off (breg b) o) s fun s' => KB s₀ s' ∧ Frame [R (kA s₀) b o 384] s.mem s'.mem ∧
+      bytesAt s'.mem (kA s₀ b + BitVec.ofNat 64 o) 384 = encode12 (polyAt s.mem (kA s₀ 3 + BitVec.ofNat 64 off)) ∧
+      s'.gpr .x24 = s.gpr .x24 := by
+  obtain ⟨ho1, ho2⟩ := ho
+  have ho1' : 4128 ≤ off := ho1
+  have ho2' : off + 1024 ≤ 19488 := ho2
+  have hb4 : b < 4 := by omega
+  have fo3 : off + 1024 ≤ kL 3 := by simp only [kL]; omega
+  have hol : o < 65536 := by rcases hb with rfl | rfl <;> simp only [kL] at fo <;> omega
+  have hx : Reg.x1 ≠ breg b := by rcases hb with rfl | rfl <;> decide
+  have hx0 : breg b ≠ Reg.x0 := by rcases hb with rfl | rfl <;> decide
+  refine WP.seq (wp_ptrTo (by decide) (by omega) fun s₁ h₁ e₁ => wp_ptrTo' hx hol fun s₂ h₂ e₂ => ?_)
+  have kb₂ := hk.block (h₁.trans h₂).keep (by rw [h₂.mem, h₁.mem]) (by decide)
+  have m₂ : s₂.mem = s.mem := by rw [h₂.mem, h₁.mem]
+  refine encode12_call (f := kA s₀ 3 + BitVec.ofNat 64 off) (o := kA s₀ b + BitVec.ofNat 64 o)
+    (by rw [h₂.get .x0, e₁, hk.x28]) (by rw [e₂, h₁.get (breg b) (by simpa using hx0), hk.breg hb4])
+    (R.disj hp.args (b₁ := 3) (o₁ := off) (l₁ := 1024) (by decide) hb4 fo3 fo (by omega))
+    (by rw [m₂]; exact hr)
+    (covers_cons (cov_r hp kb₂ (b := 3) (by decide) fo3) (cov_r hp kb₂ hb4 fo)) (cov_w hp kb₂ ⟨by omega, hb4⟩ fo)
+    fun s₃ k₃ p₃ => ?_
+  refine ⟨kb₂.call k₃ fun r hr => by
+      rw [List.mem_singleton.mp hr]; exact kb_disj hp hb4 fo (by omega) (by omega), by rw [← m₂]; exact k₃.frame,
+    by rw [p₃, m₂], by rw [k₃.cs _ (by decide) (by decide), h₂.get .x24, h₁.get .x24]⟩
+
+/-- `h ← f ×_T g`, for polynomials in `scratch`. -/
+theorem mul_ok {s₀ : State} (hp : Pre s₀) {h f g : Nat} (hh : PolyOff h) (hf : PolyOff f) (hg : PolyOff g)
+    (d₁ : h + 1024 ≤ f ∨ f + 1024 ≤ h) (d₂ : h + 1024 ≤ g ∨ g + 1024 ≤ h) {s : State} (hk : KB s₀ s)
+    (rf : Reduced s.mem (kA s₀ 3 + BitVec.ofNat 64 f)) (rg : Reduced s.mem (kA s₀ 3 + BitVec.ofNat 64 g)) :
+    WP isa (kgMul h f g) s fun s' => KB s₀ s' ∧ Frame [R (kA s₀) 3 h 1024, R (kA s₀) 3 NS 1024] s.mem s'.mem ∧
+      PolyIs s'.mem (kA s₀ 3 + BitVec.ofNat 64 h)
+        (multiplyNTTs (polyAt s.mem (kA s₀ 3 + BitVec.ofNat 64 f)) (polyAt s.mem (kA s₀ 3 + BitVec.ofNat 64 g))) ∧
+      s'.gpr .x24 = s.gpr .x24 := by
+  obtain ⟨hh1, hh2⟩ := hh
+  obtain ⟨hf1, hf2⟩ := hf
+  obtain ⟨hg1, hg2⟩ := hg
+  simp only [AH, SV] at hh1 hh2 hf1 hf2 hg1 hg2
+  have fh : h + 1024 ≤ kL 3 := by simp only [kL]; omega
+  have ff : f + 1024 ≤ kL 3 := by simp only [kL]; omega
+  have fg : g + 1024 ≤ kL 3 := by simp only [kL]; omega
+  rw [kgMul, List.append_assoc, List.append_assoc]
+  refine WP.seq (wp_ptrTo (by decide) (by omega) fun s₁ h₁ e₁ => wp_ptrTo (by decide) (by omega)
+    fun s₂ h₂ e₂ => wp_ptrTo (by decide) (by omega) fun s₃ h₃ e₃ => wp_ptrTo' (by decide) (by decide)
+    fun s₄ h₄ e₄ => ?_)
+  have kb₄ := hk.block (((h₁.trans h₂).trans h₃).trans h₄).keep (by rw [h₄.mem, h₃.mem, h₂.mem, h₁.mem])
+    (by decide)
+  have m₄ : s₄.mem = s.mem := by rw [h₄.mem, h₃.mem, h₂.mem, h₁.mem]
+  have c28 : ∀ {u : State}, Only [.x0] s u ∨ Only [.x1] s u ∨ True → True := fun _ => trivial
+  refine mul_call (h := kA s₀ 3 + BitVec.ofNat 64 h) (f := kA s₀ 3 + BitVec.ofNat 64 f)
+    (g := kA s₀ 3 + BitVec.ofNat 64 g) (w := kA s₀ 3 + BitVec.ofNat 64 NS)
+    (by rw [h₄.get .x0, h₃.get .x0, h₂.get .x0, e₁, hk.x28])
+    (by rw [h₄.get .x1, h₃.get .x1, e₂, h₁.get .x28, hk.x28])
+    (by rw [h₄.get .x2, e₃, h₂.get .x28, h₁.get .x28, hk.x28])
+    (by rw [e₄, h₃.get .x28, h₂.get .x28, h₁.get .x28, hk.x28])
+    (R.disj hp.args (by decide) (by decide) fh ff (by omega))
+    (R.disj hp.args (by decide) (by decide) fh fg (by omega))
+    (R.disj hp.args (by decide) (by decide) fh (by decide) (by simp only [NS]; omega))
+    (R.disj hp.args (by decide) (by decide) ff (by decide) (by simp only [NS]; omega))
+    (R.disj hp.args (by decide) (by decide) fg (by decide) (by simp only [NS]; omega))
+    (by rw [m₄]; exact rf) (by rw [m₄]; exact rg)
+    (covers_cons (cov_r hp kb₄ (b := 3) (by decide) ff) (covers_cons (cov_r hp kb₄ (b := 3) (by decide) fg)
+      (covers_cons (cov_r hp kb₄ (b := 3) (by decide) fh) (cov_r hp kb₄ (b := 3) (o := NS) (l := 1024)
+        (by decide) (by decide)))))
+    (covers_cons (cov_w hp kb₄ (b := 3) (by decide) fh) (cov_w hp kb₄ (b := 3) (o := NS) (l := 1024)
+      (by decide) (by decide)))
+    fun s₅ k₅ p₅ => ?_
+  refine ⟨kb₄.call k₅ fun r hr => by
+      rcases mem2' hr with rfl | rfl
+      · exact kb_disj hp (by decide) fh (by simp only [SV]; omega) (by decide)
+      · exact kb_disj hp (by decide) (by decide) (by decide) (by decide),
+    by rw [← m₄]; exact k₅.frame, by rw [← m₄]; exact p₅,
+    by rw [k₅.cs _ (by decide) (by decide), h₄.get .x24, h₃.get .x24, h₂.get .x24, h₁.get .x24]⟩
+
+/-- `f ← f + g`, for polynomials in `scratch`. -/
+theorem add_ok {s₀ : State} (hp : Pre s₀) {f g : Nat} (hf : PolyOff f) (hg : PolyOff g)
+    (d : f + 1024 ≤ g ∨ g + 1024 ≤ f) {s : State} (hk : KB s₀ s)
+    (rf : Reduced s.mem (kA s₀ 3 + BitVec.ofNat 64 f)) (rg : Reduced s.mem (kA s₀ 3 + BitVec.ofNat 64 g)) :
+    WP isa (kgAdd f g) s fun s' => KB s₀ s' ∧ Frame [R (kA s₀) 3 f 1024] s.mem s'.mem ∧
+      PolyIs s'.mem (kA s₀ 3 + BitVec.ofNat 64 f)
+        (add (polyAt s.mem (kA s₀ 3 + BitVec.ofNat 64 f)) (polyAt s.mem (kA s₀ 3 + BitVec.ofNat 64 g))) ∧
+      s'.gpr .x24 = s.gpr .x24 := by
+  obtain ⟨hf1, hf2⟩ := hf
+  obtain ⟨hg1, hg2⟩ := hg
+  simp only [AH, SV] at hf1 hf2 hg1 hg2
+  have ff : f + 1024 ≤ kL 3 := by simp only [kL]; omega
+  have fg : g + 1024 ≤ kL 3 := by simp only [kL]; omega
+  refine WP.seq (wp_ptrTo (by decide) (by omega) fun s₁ h₁ e₁ => wp_ptrTo' (by decide) (by omega)
+    fun s₂ h₂ e₂ => ?_)
+  have kb₂ := hk.block (h₁.trans h₂).keep (by rw [h₂.mem, h₁.mem]) (by decide)
+  have m₂ : s₂.mem = s.mem := by rw [h₂.mem, h₁.mem]
+  refine add_call (f := kA s₀ 3 + BitVec.ofNat 64 f) (g := kA s₀ 3 + BitVec.ofNat 64 g)
+    (by rw [h₂.get .x0, e₁, hk.x28]) (by rw [e₂, h₁.get .x28, hk.x28])
+    (R.disj hp.args (by decide) (by decide) ff fg (by omega)) (by rw [m₂]; exact rf) (by rw [m₂]; exact rg)
+    (covers_cons (cov_r hp kb₂ (b := 3) (by decide) fg) (cov_r hp kb₂ (b := 3) (by decide) ff))
+    (cov_w hp kb₂ (b := 3) (by decide) ff) fun s₃ k₃ p₃ => ?_
+  refine ⟨kb₂.call k₃ fun r hr => by
+      rw [List.mem_singleton.mp hr]; exact kb_disj hp (by decide) ff (by simp only [SV]; omega) (by decide),
+    by rw [← m₂]; exact k₃.frame, by rw [← m₂]; exact p₃,
+    by rw [k₃.cs _ (by decide) (by decide), h₂.get .x24, h₁.get .x24]⟩
 
 end VG.Proof.MlKem.AArch64.KeyGen

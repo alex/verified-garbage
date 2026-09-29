@@ -151,6 +151,24 @@ theorem mem4 {α : Type} {a b c d x : α} (h : x ∈ [a, b, c, d]) : x = a ∨ x
   · exact .inl h
   · exact .inr (mem3 h)
 
+theorem mem5 {α : Type} {a b c d e x : α} (h : x ∈ [a, b, c, d, e]) :
+    x = a ∨ x = b ∨ x = c ∨ x = d ∨ x = e := by
+  rcases List.mem_cons.mp h with h | h
+  · exact .inl h
+  · exact .inr (mem4 h)
+
+theorem mem6 {α : Type} {a b c d e f x : α} (h : x ∈ [a, b, c, d, e, f]) :
+    x = a ∨ x = b ∨ x = c ∨ x = d ∨ x = e ∨ x = f := by
+  rcases List.mem_cons.mp h with h | h
+  · exact .inl h
+  · exact .inr (mem5 h)
+
+theorem mem7 {α : Type} {a b c d e f g x : α} (h : x ∈ [a, b, c, d, e, f, g]) :
+    x = a ∨ x = b ∨ x = c ∨ x = d ∨ x = e ∨ x = f ∨ x = g := by
+  rcases List.mem_cons.mp h with h | h
+  · exact .inl h
+  · exact .inr (mem6 h)
+
 theorem covers_one {R : Region} {rs : List Region} (h : R ∈ rs) : Covers [R] rs := fun _ _ hi => by
   obtain ⟨r, hr, hc⟩ := hi
   rw [List.mem_singleton.mp hr] at hc
