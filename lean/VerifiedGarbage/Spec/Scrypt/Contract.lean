@@ -194,6 +194,7 @@ def scryptApi : Api where
   module := "scrypt"
   name := "vg_scrypt"
   sig := scryptSig
+  writeArgs := true
   summary := "scrypt (RFC 7914 §6) with block size parameter `r`, cost parameter `N = vlen / r` \
     and parallelization parameter `p = blen / r`: writes the `out_len`-byte key derived from the \
     `password_len` bytes at `password` and the `salt_len` bytes at `salt` to `out`. Calls \

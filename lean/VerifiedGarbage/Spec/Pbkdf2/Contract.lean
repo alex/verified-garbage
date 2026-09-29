@@ -93,6 +93,7 @@ def pbkdf2Sha256Api : Api where
   module := "pbkdf2"
   name := "vg_pbkdf2_hmac_sha256"
   sig := pbkdf2Sha256Sig
+  writeArgs := true
   summary := "PBKDF2-HMAC-SHA-256 (RFC 8018 §5.2, with HMAC-SHA-256 as the pseudorandom \
     function): writes the `out_len`-byte key derived from the `password_len` bytes at `password` \
     and the `salt_len` bytes at `salt` with `c` iterations to `out`. Calls the verified SHA-256 \
