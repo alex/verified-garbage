@@ -105,14 +105,24 @@ theorem movq_const (c : BitVec 128) :
   exact congrArg _ (by omega)
 
 
+/-- Bit `r` of block `k` of `x ++ y`, blocks being `n` bits wide. -/
+theorem getLsbD_append_block {w n : Nat} (x : BitVec w) (y : BitVec n) (k : Nat) {r : Nat} (hr : r < n) :
+    (x ++ y).getLsbD (n * k + r) = if k = 0 then y.getLsbD r else x.getLsbD (n * (k - 1) + r) := by
+  rw [BitVec.getLsbD_append]
+  by_cases hk : k = 0
+  · subst hk; simp [hr]
+  · have h : n ≤ n * k := Nat.le_mul_of_pos_right n (by omega)
+    simp only [hk, show ¬ n * k + r < n by omega, ↓reduceIte]
+    exact congrArg _ (by rw [Nat.mul_sub_one, Nat.sub_add_comm h])
+
 theorem getLsbD_ofBytes (f : Nat → BitVec 8) {k r : Nat} (hk : k < 16) (hr : r < 8) :
     (ofBytes f).getLsbD (8 * k + r) = (f k).getLsbD r := by
+  simp only [ofBytes, getLsbD_append_block _ _ _ hr]
   rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨
     k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 ∨ k = 15) with
     h | h | h | h | h | h | h | h | h | h | h | h | h | h | h | h <;> subst h <;>
-  simp only [ofBytes, BitVec.getLsbD_append] <;>
-  simp (disch := omega) only [ite_eq_left, ite_eq_right] <;>
-  exact congrArg _ (by omega)
+  simp only [↓reduceIte, Nat.reduceSub, Nat.reduceEqDiff, Nat.mul_zero, Nat.zero_add]
+
 theorem pshufb_bswap_bytes (a : BitVec 128) :
     XBinOp.eval .pshufb a 0x0c0d0e0f08090a0b0405060700010203#128 =
       ofBytes fun j => byte a (4 * (j / 4) + 3 - j % 4) := by
@@ -125,6 +135,23 @@ theorem getLsbD_bswap32 (x : BitVec 32) (i : Nat) :
   rcases (by omega : i < 8 ∨ (8 ≤ i ∧ i < 16) ∨ (16 ≤ i ∧ i < 24) ∨ 24 ≤ i) with h | h | h | h <;>
   simp (disch := omega) only [ite_eq_left, ite_eq_right, decide_eq_true, Bool.true_and, Nat.zero_add]
 
+theorem getLsbD_ofDwords_block (a b c d : BitVec 32) {q s : Nat} (hq : q < 4) (hs : s < 32) :
+    (ofDwords a b c d).getLsbD (32 * q + s) =
+      if q = 0 then a.getLsbD s else if q = 1 then b.getLsbD s else if q = 2 then c.getLsbD s
+      else d.getLsbD s := by
+  simp only [ofDwords, getLsbD_append_block _ _ _ hs]
+  rcases (by omega : q = 0 ∨ q = 1 ∨ q = 2 ∨ q = 3) with h | h | h | h <;> subst h <;>
+  simp only [↓reduceIte, Nat.reduceSub, Nat.reduceEqDiff, Nat.mul_zero, Nat.zero_add]
+
+theorem getLsbD_bswap32_block (x : BitVec 32) {j r : Nat} (hj : j < 4) (hr : r < 8) :
+    (bswap32 x).getLsbD (8 * j + r) =
+      if j = 0 then x.getLsbD (24 + r) else if j = 1 then x.getLsbD (16 + r)
+      else if j = 2 then x.getLsbD (8 + r) else x.getLsbD r := by
+  simp only [bswap32, getLsbD_append_block _ _ _ hr]
+  rcases (by omega : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3) with h | h | h | h <;> subst h <;>
+  simp (disch := omega) only [↓reduceIte, Nat.reduceSub, Nat.reduceEqDiff, Nat.mul_zero, Nat.zero_add,
+    BitVec.getLsbD_extractLsb', decide_eq_true, Bool.true_and]
+
 theorem pshufb_bswap (a : BitVec 128) :
     XBinOp.eval .pshufb a 0x0c0d0e0f08090a0b0405060700010203#128 =
       ofDwords (bswap32 (dword a 0)) (bswap32 (dword a 1)) (bswap32 (dword a 2)) (bswap32 (dword a 3)) := by
@@ -132,13 +159,15 @@ theorem pshufb_bswap (a : BitVec 128) :
   apply BitVec.eq_of_getLsbD_eq; intro i hi
   obtain ⟨k, r, hk, hr, rfl⟩ : ∃ k r, k < 16 ∧ r < 8 ∧ i = 8 * k + r :=
     ⟨i / 8, i % 8, by omega, by omega, by omega⟩
-  rw [getLsbD_ofBytes _ hk hr]
-  simp only [byte, BitVec.getLsbD_extractLsb', getLsbD_ofDwords, getLsbD_bswap32, getLsbD_dword]
+  rw [getLsbD_ofBytes _ hk hr, show 8 * k + r = 32 * (k / 4) + (8 * (k % 4) + r) by omega,
+    getLsbD_ofDwords_block _ _ _ _ (by omega) (by omega)]
+  simp only [getLsbD_bswap32_block _ (Nat.mod_lt k (by decide : 4 > 0)) hr]
   rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 ∨
     k = 10 ∨ k = 11 ∨ k = 12 ∨ k = 13 ∨ k = 14 ∨ k = 15) with
     h | h | h | h | h | h | h | h | h | h | h | h | h | h | h | h <;> subst h <;>
-  simp (disch := omega) only [ite_eq_left, ite_eq_right, decide_eq_true, Bool.true_and] <;>
-  exact congrArg _ (by omega)
+  simp (disch := omega) only [↓reduceIte, Nat.reduceSub, Nat.reduceDiv, Nat.reduceMod, Nat.reduceEqDiff,
+    Nat.reduceAdd, Nat.reduceMul, ← Nat.add_assoc, byte, dword, BitVec.getLsbD_extractLsb',
+    decide_eq_true, Bool.true_and]
 
 theorem getLsbD_read (m : Mem) (a : Addr) {n i : Nat} (hi : i < 8 * n) :
     (m.read a n).getLsbD i = (m (a + BitVec.ofNat 64 (i / 8))).getLsbD (i % 8) := by

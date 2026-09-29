@@ -1,4 +1,5 @@
-//! HMAC (`MacTest` vectors).
+//! HMAC (`MacTest` vectors): the checks every hash function's tests
+//! (`hmac_<hash>.rs`) run.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -8,11 +9,9 @@
 ))]
 
 use serde::Deserialize;
-use verified_garbage::hashes::sha256::Sha256;
 use verified_garbage::hmac::{Hmac, HmacHash};
 
 use crate::harness::{self, Expectation, Hex};
-use crate::require_vectors;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,7 +29,7 @@ struct Case {
 
 /// Checks every vector of `name`: a (possibly truncated) tag computed with
 /// the key must equal the expected one exactly when the test is valid.
-fn check<H: HmacHash>(name: &str) {
+pub(crate) fn check<H: HmacHash>(name: &str) {
     let file = harness::load::<Group, Case>(name);
     for (group, test) in file.tests() {
         let Case { key, msg, tag } = &test.case;
@@ -55,10 +54,4 @@ fn check<H: HmacHash>(name: &str) {
             assert_ne!(computed, &tag.0[..], "tcId {}", test.tc_id);
         }
     }
-}
-
-#[test]
-fn hmac_sha256() {
-    require_vectors!();
-    check::<Sha256>("hmac_sha256_test.json");
 }

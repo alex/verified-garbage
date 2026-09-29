@@ -51,6 +51,26 @@ def ctr32Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
         blockAt m' counter = Nat.repeat inc32 n.toNat (blockAt m counter))
     (stack := stack)
 
+/-- `vg_aes_ctr32` on every target. -/
+def ctr32Api : Api where
+  module := "aes"
+  name := "vg_aes_ctr32"
+  sig := ctr32Sig
+  summary := "AES counter mode with GCM's 32-bit increment (NIST SP 800-38D §6.5, on whole \
+    blocks): XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` \
+    is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in \
+    `*counter`. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first \
+    `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.\n\n\
+    Contract: `VG.Spec.Gcm.ctr32Contract`. Constant time: only the pointers, `rounds` and `n` may \
+    affect timing, not the key schedule, the counter block or the data."
+  safety := [
+    "`rounds` must be 10, 12 or 14.",
+    "`schedule` must be valid for reads of 240 bytes.",
+    "`counter` must be valid for reads and writes of 16 bytes.",
+    "`data` must be valid for reads and writes of `16 * n` bytes.",
+    "`scratch` must be valid for reads and writes of 2048 bytes; its contents on return are \
+      unspecified."]
+
 /-- `vg_ghash(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32])`.
 `scratch` is working space. -/
 def ghashSig : Sig where
@@ -64,5 +84,23 @@ def ghashContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   ghashSig.contract A (post := fun h y data n _scratch m m' _ =>
     blockAt m' y = ghashFrom (blockAt m h) (blockAt m y) (blocksAt m data n.toNat))
     (stack := stack)
+
+/-- `vg_ghash` on every target. -/
+def ghashApi : Api where
+  module := "gcm"
+  name := "vg_ghash"
+  sig := ghashSig
+  summary := "GHASH (NIST SP 800-38D §6.4) continued over whole blocks: with the hash subkey `H` \
+    the block at `h`, replaces the block `Y` at `*y` with `Yₙ`, where `Y₀ = Y` and \
+    `Yᵢ = (Yᵢ₋₁ ⊕ Xᵢ) • H` for the `n` 16-byte blocks `X₁ … Xₙ` starting at `data` (blocks \
+    big-endian, `•` the multiplication of §6.3).\n\n\
+    Contract: `VG.Spec.Gcm.ghashContract`. Constant time: only the pointers and `n` may affect \
+    timing, not `H`, `Y` or the data."
+  safety := [
+    "`h` must be valid for reads of 16 bytes.",
+    "`y` must be valid for reads and writes of 16 bytes.",
+    "`data` must be valid for reads of `16 * n` bytes.",
+    "`scratch` must be valid for reads and writes of 256 bytes; its contents on return are \
+      unspecified."]
 
 end VG.Spec.Gcm

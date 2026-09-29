@@ -26,8 +26,9 @@ def asum : Nat → Nat
   | k + 1 => f (k + 1) + (if k + 1 = 4 then pad else b (k + 1)) + asum k / 2 ^ 32
 end
 
-theorem addBlock_eq (pad : BitVec 32) : addBlock pad = addWord 0 ++ (addWord 1 ++ (addWord 2 ++
-    (addWord 3 ++ [.mov .eax (.mem (at_ .edi (hOff 4))), .alu .adc .eax (.imm pad),
+theorem addBlock_eq (b : Reg) (d : Nat) (pad : BitVec 32) : addBlock b d pad = addWord b d 0 ++
+    (addWord b d 1 ++ (addWord b d 2 ++
+    (addWord b d 3 ++ [.mov .eax (.mem (at_ .edi (hOff 4))), .alu .adc .eax (.imm pad),
       .store (at_ .edi (hOff 4)) .eax]))) := by
   simp only [addBlock, List.append_assoc]
 
@@ -63,31 +64,42 @@ def AddInv (i : Nat) (s' : State) : Prop :=
     s'.cf = some (decide (2 ^ 32 ≤ asum f (bw bp s) pad.toNat (i - 1)))
 end
 
-/-- The hypotheses of `addBlock_ok`. -/
-structure AddPre (st bp : BitVec 32) (s : State) (f : Nat → Nat) : Prop where
+/-- The hypotheses of `addBlock_ok`: the block at `b + d` is at `bp`, outside
+the state or in its buffer (words 14 to 17). -/
+structure AddPre (st bp : BitVec 32) (b : Reg) (d : Nat) (s : State) (f : Nat → Nat) : Prop where
   ctx : Ctx st s
   words : Words s.mem st f
-  esi : s.gpr .esi = bp
+  base : b ≠ .eax
+  ea : ∀ k < 4, addr (s.gpr b) (d + 4 * k) = addr bp (4 * k)
   rd : ∀ k < 4, InRegions (s.rd ++ s.wr) (addr bp (4 * k)) 4
-  disj : ∀ k < 4, (sub bp (4 * k) 4).Disjoint (sR st)
+  disj : ∀ k < 4, (sub bp (4 * k) 4).Disjoint (sR st) ∨ addr bp (4 * k) = addr st (4 * (14 + k))
 
-theorem addFirst_ok {st bp : BitVec 32} {s : State} {f : Nat → Nat} (hp : AddPre st bp s f)
-    (pad : BitVec 32) : WP isa (.block (addWord 0)) s (AddInv st bp s f pad 1) := by
-  refine WP.mono (addWord_ok hp.ctx hp.words hp.esi (i := 0) (by omega) (.inl ⟨rfl, rfl⟩)
-    (hp.rd 0 (by omega))) fun s₁ ⟨A₁, c₁⟩ => ⟨A₁.congr fun k _ => ?_, by rw [c₁]; rfl⟩
+theorem addFirst_ok {st bp : BitVec 32} {b : Reg} {d : Nat} {s : State} {f : Nat → Nat}
+    (hp : AddPre st bp b d s f) (pad : BitVec 32) :
+    WP isa (.block (addWord b d 0)) s (AddInv st bp s f pad 1) := by
+  refine WP.mono (addWord_ok hp.ctx hp.words hp.base (i := 0) (by omega) (hp.ea 0 (by omega))
+    (.inl ⟨rfl, rfl⟩) (hp.rd 0 (by omega))) fun s₁ ⟨A₁, c₁⟩ => ⟨A₁.congr fun k _ => ?_, by rw [c₁]; rfl⟩
   by_cases e : k = 0
   · subst e; simp [upd, asum, bw]
   · simp [upd, e]
 
-theorem addStep_ok {st bp : BitVec 32} {s : State} {f : Nat → Nat} (hp : AddPre st bp s f)
-    (pad : BitVec 32) {i : Nat} (hi : 1 ≤ i ∧ i < 4) {s' : State} (h : AddInv st bp s f pad i s') :
-    WP isa (.block (addWord i)) s' (AddInv st bp s f pad (i + 1)) := by
+theorem addStep_ok {st bp : BitVec 32} {b : Reg} {d : Nat} {s : State} {f : Nat → Nat}
+    (hp : AddPre st bp b d s f) (pad : BitVec 32) {i : Nat} (hi : 1 ≤ i ∧ i < 4) {s' : State}
+    (h : AddInv st bp s f pad i s') :
+    WP isa (.block (addWord b d i)) s' (AddInv st bp s f pad (i + 1)) := by
   obtain ⟨A, c⟩ := h
-  have hb : bw bp s' i = bw bp s i := by simp only [bw, wv]; rw [A.wd (hp.disj i (by omega))]
+  have hb : bw bp s' i = bw bp s i := by
+    rcases hp.disj i (by omega) with hd | he
+    · simp only [bw, wv]; rw [A.wd hd]
+    · simp only [bw, wv, wd]
+      rw [he, show (s'.mem.readW (addr st (4 * (14 + i))) 32).toNat = _ from A.words (14 + i) (by omega),
+        show (s.mem.readW (addr st (4 * (14 + i))) 32).toNat = _ from hp.words (14 + i) (by omega),
+        ite_eq_right (by omega)]
   have hlt := asum_lt (f := f) (b := bw bp s) (pad := pad.toNat) (fun k hk => hp.words.lt (by omega))
     (fun k _ => BitVec.isLt _) pad.isLt
-  refine WP.mono (addWord_ok (bp := bp) (A.ctx hp.ctx) A.words (by rw [A.gpr _ (by decide), hp.esi])
-    (i := i) (by omega) (.inr ⟨by omega, c⟩) (by rw [A.rd, A.wr]; exact hp.rd i (by omega)))
+  refine WP.mono (addWord_ok (bp := bp) (A.ctx hp.ctx) A.words hp.base (i := i) (by omega)
+    (by rw [A.gpr _ (by simpa using hp.base)]; exact hp.ea i (by omega)) (.inr ⟨by omega, c⟩)
+    (by rw [A.rd, A.wr]; exact hp.rd i (by omega)))
     fun s₁ ⟨A₁, c₁⟩ => ⟨(A.trans A₁).mono (rs' := [.eax]) |>.congr fun k _ => ?_, ?_⟩
   · rw [show bw bp s' i = wv s'.mem bp (4 * i) from rfl] at hb
     by_cases e : k = i
@@ -106,10 +118,10 @@ theorem addStep_ok {st bp : BitVec 32} {s : State} {f : Nat → Nat} (hp : AddPr
     obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by omega⟩
     simp only [asum, show j + 1 ≠ 4 by omega, ite_false, Nat.add_sub_cancel]
 
-/-- `h += m + pad · 2¹²⁸` for the block `m` at `esi`: the words `asum mod 2³²`. -/
-theorem addBlock_ok {st bp : BitVec 32} {s : State} {f : Nat → Nat} (hp : AddPre st bp s f)
-    (pad : BitVec 32) :
-    WP isa (.block (addBlock pad)) s fun s' =>
+/-- `h += m + pad · 2¹²⁸` for the block `m` at `b + d`: the words `asum mod 2³²`. -/
+theorem addBlock_ok {st bp : BitVec 32} {b : Reg} {d : Nat} {s : State} {f : Nat → Nat}
+    (hp : AddPre st bp b d s f) (pad : BitVec 32) :
+    WP isa (.block (addBlock b d pad)) s fun s' =>
       After st s s' (fun k => if k < 5 then asum f (bw bp s) pad.toNat k % 2 ^ 32 else f k) [.eax] := by
   have hlt := asum_lt (f := f) (b := bw bp s) (pad := pad.toNat) (fun k hk => hp.words.lt (by omega))
     (fun k _ => BitVec.isLt _) pad.isLt
@@ -134,12 +146,12 @@ theorem addBlock_ok {st bp : BitVec 32} {s : State} {f : Nat → Nat} (hp : AddP
 /-! ## The sums of products -/
 
 /-- The word index of the coefficient of `hi` in `dk` (`coef k i = 4 * cidx k i`). -/
-def cidx (k i : Nat) : Nat := if i ≤ k then 14 + (k - i) else 17 + (k + 4 - i)
+def cidx (k i : Nat) : Nat := if i ≤ k then 18 + (k - i) else 21 + (k + 4 - i)
 
 theorem coef_eq (k i : Nat) : coef k i = 4 * cidx k i := by
   simp only [coef, cidx, rOff, sOff]; split <;> omega
 
-theorem cidx_lt : ∀ k < 4, ∀ i < 5, cidx k i < 32 ∧ 14 ≤ cidx k i ∧ cidx k i < 21 := by decide
+theorem cidx_lt : ∀ k < 4, ∀ i < 5, cidx k i < 32 ∧ 18 ≤ cidx k i ∧ cidx k i < 25 := by decide
 
 section
 variable (g : Nat → Nat)
@@ -161,7 +173,7 @@ high word as the new accumulator. -/
 theorem dsum_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {g : Nat → Nat} (hw : Words s.mem st g)
     {k : Nat} (hk : k < 4) (hb : acc s + dterm g k < 2 ^ 64) :
     WP isa (.block (dsum k)) s fun s' =>
-      After st s s' (upd g (21 + k) ((acc s + dterm g k) % 2 ^ 32)) [.eax, .ecx, .edx, .ebx, .ebp] ∧
+      After st s s' (upd g (25 + k) ((acc s + dterm g k) % 2 ^ 32)) [.eax, .ecx, .edx, .ebx, .ebp] ∧
       acc s' = (acc s + dterm g k) / 2 ^ 32 := by
   have hfit := hc.fit
   rw [dsum_eq]
@@ -195,7 +207,7 @@ theorem dsum_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {g : Nat → Nat} (
   refine wp_store (a := addr st (tOff k)) (by rw [ea_at, edi₁])
     (by rw [k₁.2.2.2]; exact hc.inW (by simp only [tOff]; omega) (by omega)) fun s₂ u₂ => ?_
   refine wp_mov fun s₃ u₃ _ => wp_movi fun s₄ u₄ _ => WP.block_nil ⟨⟨?_, ?_, fun r hr => ?_, ?_, ?_⟩, ?_⟩
-  · rw [u₄.mem, u₃.mem, u₂.mem, k₁.2.1, show tOff k = 4 * (21 + k) by simp only [tOff]; omega]
+  · rw [u₄.mem, u₃.mem, u₂.mem, k₁.2.1, show tOff k = 4 * (25 + k) by simp only [tOff]; omega]
     rw [← hebx]
     exact hw.write hfit (by omega) _
   · rw [u₄.mem, u₃.mem, u₂.mem, k₁.2.1]
@@ -212,7 +224,7 @@ theorem dsum_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {g : Nat → Nat} (
     simp only [v]; omega
 
 
-theorem dterm_congr {g g' : Nat → Nat} (h : ∀ i < 21, g i = g' i) {k : Nat} (hk : k < 4) :
+theorem dterm_congr {g g' : Nat → Nat} (h : ∀ i < 25, g i = g' i) {k : Nat} (hk : k < 4) :
     dterm g k = dterm g' k := by
   simp only [dterm]
   congr 1
@@ -224,7 +236,7 @@ theorem dterm_congr {g g' : Nat → Nat} (h : ∀ i < 21, g i = g' i) {k : Nat} 
 
 /-- The words after `n` of the sums of products: `tk = dk mod 2³²`. -/
 def dwords (g : Nat → Nat) (n : Nat) : Nat → Nat :=
-  fun k => if 21 ≤ k ∧ k < 21 + n then dv g (k - 21) % 2 ^ 32 else g k
+  fun k => if 25 ≤ k ∧ k < 25 + n then dv g (k - 25) % 2 ^ 32 else g k
 
 theorem dsums_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {g : Nat → Nat} (hw : Words s.mem st g)
     (hacc : acc s = 0) (hb : ∀ k < 4, dv g k < 2 ^ 64) :
@@ -250,10 +262,10 @@ theorem dsums_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {g : Nat → Nat} 
       fun s₂ ⟨A₂, e₂⟩ => ⟨(A₁.trans A₂).mono.congr fun k _ => ?_, by rw [e₂, hv]; simp⟩
     rw [hv]
     simp only [upd, dwords]
-    by_cases e : k = 21 + n
+    by_cases e : k = 25 + n
     · subst e; simp
     · rw [ite_eq_right e]
-      by_cases e' : 21 ≤ k ∧ k < 21 + n
+      by_cases e' : 25 ≤ k ∧ k < 25 + n
       · rw [ite_eq_left e', ite_eq_left ⟨e'.1, by omega⟩]
       · rw [ite_eq_right e', ite_eq_right (by omega)]
 
@@ -263,10 +275,10 @@ theorem products_eq : products = .mov .ebx (.imm 0) :: .mov .ebp (.imm 0) ::
 
 /-- The sums of products: `t0, …, t3` stored, and `d4` in `ebx`. -/
 theorem products_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {g : Nat → Nat} (hw : Words s.mem st g)
-    (hb : ∀ k < 4, dv g k < 2 ^ 64) (h4 : dv g 3 / 2 ^ 32 + g 4 * g 14 < 2 ^ 32) :
+    (hb : ∀ k < 4, dv g k < 2 ^ 64) (h4 : dv g 3 / 2 ^ 32 + g 4 * g 18 < 2 ^ 32) :
     WP isa (.block products) s fun s' =>
       After st s s' (dwords g 4) [.eax, .ecx, .edx, .ebx, .ebp] ∧
-      v s' .ebx = dv g 3 / 2 ^ 32 + g 4 * g 14 := by
+      v s' .ebx = dv g 3 / 2 ^ 32 + g 4 * g 18 := by
   rw [products_eq]
   refine wp_movi fun s₁ u₁ _ => wp_movi fun s₂ u₂ _ => ?_
   have A₂ : After st s s₂ g [.eax, .ecx, .edx, .ebx, .ebp] :=
@@ -285,8 +297,8 @@ theorem products_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {g : Nat → Na
       by rw [k₄.2.2.2, A₃.wr, A₂.wr]⟩
   · have w4 : wv s₃.mem (s₃.gpr .edi) (hOff 4) = g 4 := by
       rw [c₃.edi, show hOff 4 = 4 * 4 from rfl, A₃.words 4 (by omega)]; simp [dwords]
-    have w14 : wv s₃.mem (s₃.gpr .edi) (rOff 0) = g 14 := by
-      rw [c₃.edi, show rOff 0 = 4 * 14 from rfl, A₃.words 14 (by omega)]; simp [dwords]
+    have w14 : wv s₃.mem (s₃.gpr .edi) (rOff 0) = g 18 := by
+      rw [c₃.edi, show rOff 0 = 4 * 18 from rfl, A₃.words 18 (by omega)]; simp [dwords]
     rw [w4, w14, show acc s₃ = dv g 3 / 2 ^ 32 by rw [e₃]; rfl] at e₄
     have e₄ := e₄ (by omega)
     simp only [acc, v] at e₄ ⊢
@@ -299,11 +311,11 @@ section
 variable (G : Nat → Nat) (d4 : Nat)
 /-- The sums of `5 ⌊d4 / 4⌋ + t` and `2¹²⁸ (d4 mod 4)`, with the carries. -/
 def csum : Nat → Nat
-  | 0 => 5 * (d4 / 4) + G 21
-  | k + 1 => (if k + 1 = 4 then d4 % 4 else G (21 + (k + 1))) + csum k / 2 ^ 32
+  | 0 => 5 * (d4 / 4) + G 25
+  | k + 1 => (if k + 1 = 4 then d4 % 4 else G (25 + (k + 1))) + csum k / 2 ^ 32
 end
 
-theorem csum_lt {G : Nat → Nat} {d4 : Nat} (hG : ∀ k < 4, G (21 + k) < 2 ^ 32)
+theorem csum_lt {G : Nat → Nat} {d4 : Nat} (hG : ∀ k < 4, G (25 + k) < 2 ^ 32)
     (he : 5 * (d4 / 4) < 2 ^ 32) : ∀ k < 5, csum G d4 k < 2 ^ 33 := by
   intro k hk
   induction k with
@@ -370,7 +382,7 @@ theorem carryHead_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {G : Nat → N
     rw [← hd4]
   refine wp_addx (readSrc_mem (a := addr st (tOff 0)) (by rw [ea_at, edi₇])
     (by rw [rd₇, wr₇]; exact hc.inRW (by simp [tOff]) (by omega))) fun s₈ u₈ c₈ => ?_
-  have t0 : (s₇.mem.readW (addr st (tOff 0)) 32).toNat = G 21 := by rw [mem₇]; exact hw 21 (by omega)
+  have t0 : (s₇.mem.readW (addr st (tOff 0)) 32).toNat = G 25 := by rw [mem₇]; exact hw 25 (by omega)
   refine wp_store (a := addr st (4 * 0)) (by rw [ea_at, u₈.other _ (by decide), edi₇]; rfl)
     (by rw [u₈.wr, wr₇]; exact hc.inW (by omega) (by omega)) fun s₉ u₉ => WP.block_nil ⟨⟨?_, ?_,
       fun r hr => ?_, by rw [u₉.rd, u₈.rd, rd₇], by rw [u₉.wr, u₈.wr, wr₇]⟩, ?_, ?_⟩
@@ -396,13 +408,13 @@ theorem carryStep_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {G : Nat → N
       .store (at_ .edi (hOff i)) .eax]) s' (CInv st s G d4 (i + 1)) := by
   obtain ⟨A, c, b⟩ := h
   have hlt := csum_lt (G := G) (d4 := d4) (fun k hk => hw.lt (by omega)) he
-  refine WP.mono (los_ok (A.ctx hc) A.words (j := 21 + i) (j' := i) (by simp only [tOff]; omega) rfl
+  refine WP.mono (los_ok (A.ctx hc) A.words (j := 25 + i) (j' := i) (by simp only [tOff]; omega) rfl
     (by omega) (by omega) (.inr ⟨rfl, c⟩) (src_imm 0)) fun s₁ ⟨A₁, c₁⟩ =>
       ⟨(A.trans A₁).mono.congr fun k _ => ?_, ?_, ?_⟩
   · simp only [upd]
     by_cases e : k = i
     · subst e
-      simp only [ite_true, show ¬ 21 + k < k by omega, ite_false, show k < k + 1 by omega]
+      simp only [ite_true, show ¬ 25 + k < k by omega, ite_false, show k < k + 1 by omega]
       rw [show (0 : BitVec 32).toNat = 0 from rfl, Nat.add_zero, carry_dec (hlt (k - 1) (by omega))]
       obtain ⟨j, rfl⟩ : ∃ j, k = j + 1 := ⟨k - 1, by omega⟩
       simp only [csum, show j + 1 ≠ 4 by omega, ite_false, Nat.add_sub_cancel]
@@ -411,7 +423,7 @@ theorem carryStep_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {G : Nat → N
       · simp [e', show k < i + 1 by omega]
       · simp [e', show ¬ k < i + 1 by omega]
   · rw [c₁]
-    simp only [show i + 1 - 1 = i by omega, show ¬ 21 + i < i by omega, ite_false]
+    simp only [show i + 1 - 1 = i by omega, show ¬ 25 + i < i by omega, ite_false]
     rw [show (0 : BitVec 32).toNat = 0 from rfl, Nat.add_zero, carry_dec (hlt (i - 1) (by omega))]
     obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by omega⟩
     simp only [csum, show j + 1 ≠ 4 by omega, ite_false, Nat.add_sub_cancel]
@@ -460,54 +472,56 @@ theorem carry_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {G : Nat → Nat}
 
 /-- The clamped `r` in the state's words: `r0`, `rj = 4 qj` and `sj = 5 qj`. -/
 structure Coefs (f : Nat → Nat) (r0 q1 q2 q3 : Nat) : Prop where
-  e14 : f 14 = r0
-  e15 : f 15 = 4 * q1
-  e16 : f 16 = 4 * q2
-  e17 : f 17 = 4 * q3
-  e18 : f 18 = 5 * q1
-  e19 : f 19 = 5 * q2
-  e20 : f 20 = 5 * q3
+  r0e : f 18 = r0
+  r1e : f 19 = 4 * q1
+  r2e : f 20 = 4 * q2
+  r3e : f 21 = 4 * q3
+  s1e : f 22 = 5 * q1
+  s2e : f 23 = 5 * q2
+  s3e : f 24 = 5 * q3
   r0_lt : r0 < 2 ^ 28
   q1_lt : q1 < 2 ^ 26
   q2_lt : q2 < 2 ^ 26
   q3_lt : q3 < 2 ^ 26
 
 theorem Coefs.congr {f g : Nat → Nat} {r0 q1 q2 q3 : Nat} (h : Coefs f r0 q1 q2 q3)
-    (he : ∀ k, 14 ≤ k → k < 21 → g k = f k) : Coefs g r0 q1 q2 q3 :=
-  ⟨(he 14 (by omega) (by omega)).trans h.e14, (he 15 (by omega) (by omega)).trans h.e15,
-    (he 16 (by omega) (by omega)).trans h.e16, (he 17 (by omega) (by omega)).trans h.e17,
-    (he 18 (by omega) (by omega)).trans h.e18, (he 19 (by omega) (by omega)).trans h.e19,
-    (he 20 (by omega) (by omega)).trans h.e20, h.r0_lt, h.q1_lt, h.q2_lt, h.q3_lt⟩
+    (he : ∀ k, 18 ≤ k → k < 25 → g k = f k) : Coefs g r0 q1 q2 q3 :=
+  ⟨(he 18 (by omega) (by omega)).trans h.r0e, (he 19 (by omega) (by omega)).trans h.r1e,
+    (he 20 (by omega) (by omega)).trans h.r2e, (he 21 (by omega) (by omega)).trans h.r3e,
+    (he 22 (by omega) (by omega)).trans h.s1e, (he 23 (by omega) (by omega)).trans h.s2e,
+    (he 24 (by omega) (by omega)).trans h.s3e, h.r0_lt, h.q1_lt, h.q2_lt, h.q3_lt⟩
 
 section
 variable (g : Nat → Nat)
-theorem dterm0 : dterm g 0 = g 0 * g 14 + (g 1 * g 20 + (g 2 * g 19 + (g 3 * g 18 + 0))) := rfl
+theorem dterm0 : dterm g 0 = g 0 * g 18 + (g 1 * g 24 + (g 2 * g 23 + (g 3 * g 22 + 0))) := rfl
 theorem dterm1 : dterm g 1 =
-    g 0 * g 15 + (g 1 * g 14 + (g 2 * g 20 + (g 3 * g 19 + (g 4 * g 18 + 0)))) := rfl
+    g 0 * g 19 + (g 1 * g 18 + (g 2 * g 24 + (g 3 * g 23 + (g 4 * g 22 + 0)))) := rfl
 theorem dterm2 : dterm g 2 =
-    g 0 * g 16 + (g 1 * g 15 + (g 2 * g 14 + (g 3 * g 20 + (g 4 * g 19 + 0)))) := rfl
+    g 0 * g 20 + (g 1 * g 19 + (g 2 * g 18 + (g 3 * g 24 + (g 4 * g 23 + 0)))) := rfl
 theorem dterm3 : dterm g 3 =
-    g 0 * g 17 + (g 1 * g 16 + (g 2 * g 15 + (g 3 * g 14 + (g 4 * g 20 + 0)))) := rfl
+    g 0 * g 21 + (g 1 * g 20 + (g 2 * g 19 + (g 3 * g 18 + (g 4 * g 24 + 0)))) := rfl
 end
 
 /-- `h` in the state's words. -/
 abbrev hw5 (f : Nat → Nat) : Nat := val5 (f 0) (f 1) (f 2) (f 3) (f 4)
 
-theorem absorb_eq (pad : BitVec 32) : absorb pad = addBlock pad ++ (products ++ carry) := by
-  simp only [absorb, List.append_assoc]
+theorem absorbAt_eq (b : Reg) (d : Nat) (pad : BitVec 32) :
+    absorbAt b d pad = addBlock b d pad ++ (products ++ carry) := by
+  simp only [absorbAt, List.append_assoc]
 
-/-- Absorbing the block at `esi`: from `h` with `h4 ≤ 4`, the new `h` is
+/-- Absorbing the block at `b + d`: from `h` with `h4 ≤ 4`, the new `h` is
 congruent to `(h + m + pad · 2¹²⁸) r` modulo `p`, and its `h4` is at most 4. -/
-theorem absorb_ok {st bp : BitVec 32} {s : State} {f : Nat → Nat} (hp : AddPre st bp s f)
+theorem absorb_ok {st bp : BitVec 32} {b : Reg} {d : Nat} {s : State} {f : Nat → Nat}
+    (hp : AddPre st bp b d s f)
     {r0 q1 q2 q3 : Nat} (hco : Coefs f r0 q1 q2 q3) (hh4 : f 4 ≤ 4) (pad : BitVec 32)
     (hpad : pad.toNat ≤ 1) :
-    WP isa (.block (absorb pad)) s fun s' => ∃ g, After st s s' g [.eax, .ecx, .edx, .ebx, .ebp] ∧
-      (∀ k, 5 ≤ k → k < 21 → g k = f k) ∧ (∀ k, 25 ≤ k → g k = f k) ∧
+    WP isa (.block (absorbAt b d pad)) s fun s' => ∃ g, After st s s' g [.eax, .ecx, .edx, .ebx, .ebp] ∧
+      (∀ k, 5 ≤ k → k < 25 → g k = f k) ∧ (∀ k, 29 ≤ k → g k = f k) ∧
       hw5 g % P = ((hw5 f + (bw bp s 0 + 2 ^ 32 * bw bp s 1 + 2 ^ 64 * bw bp s 2 + 2 ^ 96 * bw bp s 3 +
         2 ^ 128 * pad.toNat)) * rval r0 q1 q2 q3) % P ∧ g 4 ≤ 4 := by
   have hc := hp.ctx
   have hf : ∀ k < 32, f k < 2 ^ 32 := fun k hk => hp.words.lt hk
-  rw [absorb_eq]
+  rw [absorbAt_eq]
   refine WP.block_append (WP.mono (addBlock_ok hp pad) fun s₁ A₁ => ?_)
   -- The words of `h + m`.
   set a : Nat → Nat := fun k => if k < 5 then asum f (bw bp s) pad.toNat k % 2 ^ 32 else f k with ha
@@ -525,21 +539,21 @@ theorem absorb_ok {st bp : BitVec 32} {s : State} {f : Nat → Nat} (hp : AddPre
     simp only [ha]; rw [ite_eq_left (by omega)]; exact Nat.mod_lt _ (by omega)
   obtain ⟨b0, b1, b2, b3, b4, b5, hW⟩ := absorb_arith (a0 := a 0) (a1 := a 1) (a2 := a 2) (a3 := a 3)
     (a4 := a 4) (r0 := r0) (q1 := q1) (q2 := q2) (q3 := q3) (d0 := dv a 0) (d1 := dv a 1) (d2 := dv a 2)
-    (d3 := dv a 3) (d4 := dv a 3 / 2 ^ 32 + a 4 * a 14) (ha' 0 (by omega)) (ha' 1 (by omega))
+    (d3 := dv a 3) (d4 := dv a 3 / 2 ^ 32 + a 4 * a 18) (ha' 0 (by omega)) (ha' 1 (by omega))
     (ha' 2 (by omega)) (ha' 3 (by omega)) ha4 hco.r0_lt hco.q1_lt hco.q2_lt hco.q3_lt
-    (by rw [show dv a 0 = dterm a 0 from rfl, dterm0, hco₁.e14, hco₁.e18, hco₁.e19, hco₁.e20, Nat.zero_add])
-    (by rw [show dv a 1 = dv a 0 / 2 ^ 32 + dterm a 1 from rfl, dterm1, hco₁.e14, hco₁.e15, hco₁.e18, hco₁.e19, hco₁.e20])
-    (by rw [show dv a 2 = dv a 1 / 2 ^ 32 + dterm a 2 from rfl, dterm2, hco₁.e14, hco₁.e15, hco₁.e16, hco₁.e19, hco₁.e20])
-    (by rw [show dv a 3 = dv a 2 / 2 ^ 32 + dterm a 3 from rfl, dterm3, hco₁.e14, hco₁.e15, hco₁.e16, hco₁.e17, hco₁.e20])
-    (by simp only [hco₁.e14])
+    (by rw [show dv a 0 = dterm a 0 from rfl, dterm0, hco₁.r0e, hco₁.s1e, hco₁.s2e, hco₁.s3e, Nat.zero_add])
+    (by rw [show dv a 1 = dv a 0 / 2 ^ 32 + dterm a 1 from rfl, dterm1, hco₁.r0e, hco₁.r1e, hco₁.s1e, hco₁.s2e, hco₁.s3e])
+    (by rw [show dv a 2 = dv a 1 / 2 ^ 32 + dterm a 2 from rfl, dterm2, hco₁.r0e, hco₁.r1e, hco₁.r2e, hco₁.s2e, hco₁.s3e])
+    (by rw [show dv a 3 = dv a 2 / 2 ^ 32 + dterm a 3 from rfl, dterm3, hco₁.r0e, hco₁.r1e, hco₁.r2e, hco₁.r3e, hco₁.s3e])
+    (by simp only [hco₁.r0e])
   have hb : ∀ k < 4, dv a k < 2 ^ 64 := fun k hk => by
     obtain rfl | rfl | rfl | rfl : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 := by omega
     exacts [b0, b1, b2, b3]
   refine WP.block_append (WP.mono (products_ok (A₁.ctx hc) A₁.words hb b4) fun s₂ ⟨A₂, e₂⟩ => ?_)
   -- The carries.
   refine WP.mono (carry_ok ((A₁.trans A₂).ctx hc) A₂.words e₂ b5) fun s₃ A₃ => ?_
-  set d4 := dv a 3 / 2 ^ 32 + a 4 * a 14
-  have hG : ∀ k < 4, dwords a 4 (21 + k) = dv a k % 2 ^ 32 := fun k hk => by
+  set d4 := dv a 3 / 2 ^ 32 + a 4 * a 18
+  have hG : ∀ k < 4, dwords a 4 (25 + k) = dv a k % 2 ^ 32 := fun k hk => by
     simp only [dwords]; rw [ite_eq_left (by omega)]; congr 2; omega
   obtain ⟨hu, hu4⟩ := carry_arith (t0 := dv a 0 % 2 ^ 32) (t1 := dv a 1 % 2 ^ 32) (t2 := dv a 2 % 2 ^ 32)
     (t3 := dv a 3 % 2 ^ 32) (d4 := d4) (e := 5 * (d4 / 4))

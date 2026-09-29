@@ -24,8 +24,9 @@ The context (1024 bytes, see `VG.Spec.ChaCha20Poly1305.sealContract`):
 `vg_chacha20_xor` never writes; `rbx` and `rbp` hold the additional data and
 its length, which are only needed before the call of `vg_chacha20_xor`. The
 lengths block is stored before that call. After the call of
-`vg_poly1305_finalize` only its arguments `rdi` (the Poly1305 state) and
-`rcx` (the tag) are used, to compare the tags and to restore the registers.
+`vg_poly1305_finalize` only `rdi` (its argument, the Poly1305 state) and `rcx`
+(which it returns set to its argument `out`, the tag) are used, to compare the
+tags and to restore the registers.
 
 After each call, `r15` is recomputed from a pointer argument the callee never
 writes (`rsi`, into the context, for the ChaCha20 functions; `rdi` for the
@@ -116,9 +117,10 @@ def absorbLengths : Prog isa :=
   (.seq (.call "vg_poly1305_blocks" Impl.Poly1305.X86_64.blocks)
     (.block (anchor .rdi 448)))
 
-/-- The tag written to `r15 + out`. -/
+/-- The tag written to `r15 + out`: the message is whole blocks, so its
+length (`count`) is 0 modulo 16, and nothing is buffered. -/
 def finalizeTo (out : Nat) : Prog isa :=
-  .seq (.block (ptr .rdi .r15 448 ++ ptr .rsi .r15 656 ++ [.mov32 .rdx (.imm 0)] ++ ptr .rcx .r15 out))
+  .seq (.block (ptr .rdi .r15 448 ++ [.mov32 .rsi (.imm 0)] ++ ptr .rdx .r15 out))
     (.call "vg_poly1305_finalize" Impl.Poly1305.X86_64.finalize)
 
 def «seal» : Prog isa :=

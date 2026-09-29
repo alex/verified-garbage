@@ -121,7 +121,7 @@ theorem padZ_ok {s₀ : State} (hp : APre s₀) {s : State} (hr15 : s.gpr .r15 =
       |>.writeW (List.mem_singleton_self _) _ (contains_sub s₀ (by omega) (by omega) (by omega))
   · have z : (BitVec.setWidth 64 (0 : BitVec 32)) = 0 := rfl
     simp only [z]
-    rw [VG.Proof.Poly1305.X86_64.writeW64_zero_apply, VG.Proof.Poly1305.X86_64.writeW64_zero_apply]
+    rw [VG.Proof.Poly1305.writeW64_zero_apply, VG.Proof.Poly1305.writeW64_zero_apply]
     have e : ∀ d, d ≤ 576 + j → (off (cx s₀) (576 + j) - (cx s₀ + BitVec.ofInt 64 (d : Int))).toNat = 576 + j - d := by
       intro d hd
       rw [show cx s₀ + BitVec.ofInt 64 (d : Int) = off (cx s₀) d from rfl, off_eq, off_eq,

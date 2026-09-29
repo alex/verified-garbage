@@ -16,35 +16,320 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <!-- BEGIN ci/algorithms_table.py: edit docs/algorithms/, then run it -->
 
-| Algorithm | Spec landed | Supported | Optimized |
-|---|---|---|---|
-| AES-GCM (128-, 192- and 256-bit keys) | ✅ | x86-64, ARM64 | x86-64 (AES-NI, PCLMULQDQ), x86-64 (GHASH with `mul`) |
-| ChaCha20 | ✅ | ✅ | ❌ |
-| ChaCha20-Poly1305 | ✅ | x86-64, x86 | ❌ |
-| HMAC-SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
-| MD5 | ✅ | x86-64, ARM64 | ❌ |
-| PBKDF2-HMAC-SHA-256 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
-| Poly1305 | ✅ | x86-64, x86 | ❌ |
-| scrypt | ✅ | x86-64, ARM64 | ❌ |
-| SHA-1 | ✅ | x86-64, ARM64 | ❌ |
-| SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
-| SHA3-224, SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256 | ✅ | x86-64, ARM64 | ❌ |
-| SHA-384, SHA-512, SHA-512/224, SHA-512/256 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
+### Hashes
+
+<table>
+
+<tr>
+
+<th>Algorithm</th>
+
+<th>Spec landed</th>
+
+<th>x86-64</th>
+
+<th>ARM64</th>
+
+<th>ARMv7</th>
+
+<th>x86</th>
+
+</tr>
+
+<tr>
+
+<td>MD5</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>SHA-1</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>SHA-256</td>
+
+<td>✅</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+</tr>
+
+<tr>
+
+<td>SHA3-224, SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>SHA-384, SHA-512, SHA-512/224, SHA-512/256</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+</tr>
+
+</table>
+
+### MACs
+
+<table>
+
+<tr>
+
+<th>Algorithm</th>
+
+<th>Spec landed</th>
+
+<th>x86-64</th>
+
+<th>ARM64</th>
+
+<th>ARMv7</th>
+
+<th>x86</th>
+
+</tr>
+
+<tr>
+
+<td>HMAC-SHA-256</td>
+
+<td>✅</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+</tr>
+
+<tr>
+
+<td>Poly1305</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>✅</td>
+
+</tr>
+
+</table>
+
+### Ciphers
+
+<table>
+
+<tr>
+
+<th>Algorithm</th>
+
+<th>Spec landed</th>
+
+<th>x86-64</th>
+
+<th>ARM64</th>
+
+<th>ARMv7</th>
+
+<th>x86</th>
+
+</tr>
+
+<tr>
+
+<td>ChaCha20</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+</tr>
+
+</table>
+
+### AEADs
+
+<table>
+
+<tr>
+
+<th>Algorithm</th>
+
+<th>Spec landed</th>
+
+<th>x86-64</th>
+
+<th>ARM64</th>
+
+<th>ARMv7</th>
+
+<th>x86</th>
+
+</tr>
+
+<tr>
+
+<td>AES-GCM (128-, 192- and 256-bit keys)</td>
+
+<td>✅</td>
+
+<td>✅ AES-NI, PCLMULQDQ; GHASH with <code>mul</code></td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>ChaCha20-Poly1305</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+</table>
+
+### KDFs
+
+<table>
+
+<tr>
+
+<th>Algorithm</th>
+
+<th>Spec landed</th>
+
+<th>x86-64</th>
+
+<th>ARM64</th>
+
+<th>ARMv7</th>
+
+<th>x86</th>
+
+</tr>
+
+<tr>
+
+<td>PBKDF2-HMAC-SHA-256</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>scrypt</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+</tr>
+
+</table>
 
 <!-- END ci/algorithms_table.py -->
 
-The table is generated from the code by `ci/algorithms_table.py`.
+The tables are generated from the code by `ci/algorithms_table.py`.
 
 * **Spec landed**: the algorithm's specification, transcribed from its
   standard, is in `lean/VerifiedGarbage/Spec/`.
-* **Supported**: verified assembly and a public Rust API exist on these
-  architectures (✅: x86, x86-64, ARMv7 and ARM64; PPC64le is not started
-  yet).
-* **Optimized**: the implementations have been tuned for performance (e.g.
-  with SHA-NI or NEON) on these architectures. Where that needs CPU features
-  beyond the architecture's baseline, the features are detected at run time,
-  and CPUs without them run the straightforward scalar code that every
-  other implementation is.
+* **x86-64**, **ARM64**, **ARMv7**, **x86**: ✅ when verified assembly and a
+  public Rust API exist on that architecture (PPC64le is not started yet),
+  followed by how it has been optimized, if it has (e.g. with SHA-NI or
+  NEON). Where an optimization needs CPU features beyond the architecture's
+  baseline, the features are detected at run time, and CPUs without them
+  run the straightforward scalar code that every other implementation is.
 
 Our goal is to implement all the cryptographic algorithms that are used by the Python pyca/cryptography library.
 

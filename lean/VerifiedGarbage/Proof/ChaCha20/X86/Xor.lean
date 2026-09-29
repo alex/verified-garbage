@@ -15,9 +15,9 @@ frame holding its two arguments (`WP.frame`), and the block function's own
 `Verified` proof gives its effect (`WP.call`); the frame and the return
 address are in the 12 bytes of stack below `esp` that the contract reserves.
 
-The x86 taint analysis does not follow calls or frames, so constant time
-relates the two runs piece by piece (`rel`): see "Constant time" below.
-`xor_eax` states that `eax` holds `buf` on return.
+Constant time is the taint analysis's, which follows the frames and the
+calls into the block function. `xor_eax` states that `eax` holds `buf` on
+return.
 -/
 
 namespace VG.Proof.ChaCha20.X86.Xor
@@ -114,8 +114,6 @@ namespace XPre
 variable {s₀ : State} (hp : XPre s₀)
 include hp
 
-theorem w_st : stR s₀ ∈ s₀.wr := by simp [hp.wr]
-theorem w_d : dR s₀ ∈ s₀.wr := by simp [hp.wr]
 theorem w_b : bR s₀ ∈ s₀.wr := by simp [hp.wr]
 
 theorem eaS {d : Nat} (hd : d < 64) : addr (ST s₀) d = st s₀ + BitVec.ofNat 64 d :=
@@ -124,15 +122,8 @@ theorem eaS {d : Nat} (hd : d < 64) : addr (ST s₀) d = st s₀ + BitVec.ofNat 
 theorem eaB {d : Nat} (hd : d < 320) : addr (BP s₀) d = bp s₀ + BitVec.ofNat 64 d :=
   addr_eq (by have := hp.b_fit; omega)
 
-theorem eaD {d : Nat} (hd : d < L s₀) : addr (DP s₀) d = dp s₀ + BitVec.ofNat 64 d :=
-  addr_eq (by have := hp.d_fit; omega)
-
 theorem eaE {d : Nat} (hd : d < 20) : addr (E s₀) d = (E s₀).setWidth 64 + BitVec.ofNat 64 d :=
   addr_eq (by have := hp.sp_hi; omega)
-
-theorem in_b {d n : Nat} (h : d + n ≤ 320) (rs : List Region) :
-    InRegions (rs ++ s₀.wr) (bp s₀ + BitVec.ofNat 64 d) n :=
-  ⟨bR s₀, by simp [hp.wr], contains_off h (by omega)⟩
 
 theorem out_b {d n : Nat} (h : d + n ≤ 320) : InRegions s₀.wr (bp s₀ + BitVec.ofNat 64 d) n :=
   ⟨bR s₀, hp.w_b, contains_off h (by omega)⟩
@@ -337,9 +328,6 @@ theorem entry_esp (s : State) :
     (entry s).gpr .esp = s.gpr .esp - BitVec.ofNat 32 8 - 4 := by
   simp only [entry, State.callEntry_esp, pushed_esp]; rfl
 
-theorem entry_gpr (s : State) {r : Reg} (h : r ≠ .esp) : (entry s).gpr r = s.gpr r := by
-  simp only [entry, State.callEntry_gpr _ h, pushed_gpr _ _ h]
-
 theorem entry_mem (s : State) :
     (entry s).mem = ((s.mem.writeW ((s.gpr .esp - 4).setWidth 64) (s.gpr .edi)).writeW
       ((s.gpr .esp - 4 - 4).setWidth 64) (s.gpr .ebx)).writeW
@@ -442,7 +430,8 @@ theorem pushed_wr_eq {s₀ : State} (hp : XPre s₀) {s : State} (hE : s.gpr .es
     (pushed [.edi, .ebx] s).wr = fR s₀ :: s.wr := by
   have hlo := hp.sp_lo
   rw [pushed_wr, hE]
-  simp only [List.length_cons, List.length_nil]
+  show below (E s₀) 8 :: s.wr = _
+  simp only [below]
   rw [setWidth_sub (by omega)]; rfl
 
 theorem call_covers {s₀ : State} (hp : XPre s₀) {s : State} (hE : s.gpr .esp = E s₀)
@@ -459,18 +448,63 @@ theorem call_covers {s₀ : State} (hp : XPre s₀) {s : State} (hE : s.gpr .esp
   · simp only [List.mem_singleton] at hr; subst hr
     exact ⟨bR s₀, by simp, 0, by simp, show 0 + 256 ≤ 320 by omega⟩
 
+/-! ### The frame's pop -/
+
+theorem popped_esp (r : Reg) (k : Nat) (s : State) :
+    (popped r k s).gpr .esp = s.gpr .esp + BitVec.ofNat 32 (4 * k) := (popReg_eq s r k).2.2.1
+
+theorem popped_gpr (r : Reg) (k : Nat) (s : State) {q : Reg} (h₁ : q ≠ .esp) (h₂ : q ≠ r) :
+    (popped r k s).gpr q = s.gpr q := (popReg_eq s r k).2.2.2 q h₁ h₂
+
+theorem popped_rd (r : Reg) (k : Nat) (s : State) : (popped r k s).rd = s.rd := (popReg_eq s r k).1
+
+theorem popped_wr (r : Reg) (k : Nat) (s : State) : (popped r k s).wr = s.wr.tail := rfl
+
+theorem popped_mem (r : Reg) (k : Nat) (s : State) : (popped r k s).mem = s.mem :=
+  (popReg_rest s r k).1
+
+/-! ### The call -/
+
+theorem block_nosp : NoSp Impl.ChaCha20.X86.block := by
+  have : ((instrs Impl.ChaCha20.X86.block).all fun i => !Taint.clobbers i .esp) = true := by
+    rw [← Code.allInstrs_eq]; decide +kernel
+  intro i hi
+  simpa using List.all_eq_true.mp this i hi
+
+theorem block_stackUse : stackUse Impl.ChaCha20.X86.block = 0 := by decide +kernel
+
+theorem stackR_eq {s₀ : State} (hp : XPre s₀) : stackR s₀ = below (E s₀) 12 := by
+  simp only [stackR, below]
+  rw [setWidth_sub hp.sp_lo]
+  rfl
+
 theorem call_ok {s₀ : State} (hp : XPre s₀) {j : Nat} {s : State} (h : OInv s₀ j s) :
     WP isa callBlock s (AInv s₀ j) := by
   have hlo := hp.sp_lo
   obtain ⟨hc, hw⟩ := call_covers hp h.esp h.rd h.wr
-  refine WP.frame (rs := [.edi, .ebx]) (r := .eax) (k := 2) (by simp) (by decide)
-    (by rw [h.esp]; simp only [List.length_cons, List.length_nil]; omega) rfl (by decide) ?_
-  refine WP.call (k := Proof.ChaCha20.blockX86) block_verified.1 (rd := rdC s₀) (wr := wrC s₀)
-    (entry_pre hp h.esp h.ebx h.edi) hc hw fun s' hrd hwr hcs hf ⟨s₂, hm₂, _, hpost⟩ => ?_
+  have hn : 4 * [Reg.edi, .ebx].length ≤ (s.gpr .esp).toNat := by
+    rw [h.esp]; simp only [List.length_cons, List.length_nil]; omega
+  have hd : stackUse Impl.ChaCha20.X86.block + 4 ≤ ((pushed [.edi, .ebx] s).gpr .esp).toNat := by
+    rw [block_stackUse, pushed_esp, sub_toNat hn, h.esp]
+    simp only [List.length_cons, List.length_nil]; omega
+  refine WP.frame (rs := [.edi, .ebx]) (r := .eax) (by simp) (by decide) (by decide) hn block_nosp ?_
+  refine WP.call (k := Proof.ChaCha20.blockX86) block_verified.1 block_nosp hd (rd := rdC s₀)
+    (wr := wrC s₀) (entry_pre hp h.esp h.ebx h.edi) hc hw
+    fun s' hrd hwr hcs hf _ ⟨s₂, hm₂, _, hpost⟩ => ?_
   have hsp : s'.gpr .esp = (pushed [.edi, .ebx] s).gpr .esp := hcs .esp (by simp [calleeSaved])
-  refine ⟨hsp, ?_⟩
-  have hF : Frame [b256 s₀, stackR s₀] s.mem s'.mem :=
-    ((entry_frame hp h.esp).mono (by simp)).trans (hf.mono (by simp))
+  -- The frame, the return address and the block function's writes.
+  have hF : Frame [b256 s₀, stackR s₀] s.mem s'.mem := by
+    rw [stackR_eq hp]
+    refine (Frame.sub (pushed_frame (by decide) hn) fun r hr => ?_).trans (Frame.sub hf fun r hr => ?_)
+    · simp only [List.mem_singleton] at hr; subst hr
+      exact ⟨below (E s₀) 12, by simp, by rw [h.esp]; exact below_sub (by decide) hlo⟩
+    · simp only [wrC, block_stackUse, List.cons_append, List.nil_append, List.mem_cons,
+        List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl
+      · exact ⟨b256 s₀, by simp, fun _ h => h⟩
+      · refine ⟨below (E s₀) 12, by simp, ?_⟩
+        rw [pushed_esp, h.esp]
+        exact below_inner (by decide) hlo
   have hd : ∀ R : Region, R.Disjoint (b256 s₀) → R.Disjoint (stackR s₀) →
       ∀ r ∈ [b256 s₀, stackR s₀], R.Disjoint r := by
     intro R h₁ h₂ r hr
@@ -478,7 +512,7 @@ theorem call_ok {s₀ : State} (hp : XPre s₀) {j : Nat} {s : State} (h : OInv 
     rcases hr with rfl | rfl <;> assumption
   have hst : stateAt s'.mem (st s₀) = stateAt s.mem (st s₀) :=
     stateAt_frame hF (hd _ (hp.st_b.sub_right (b256_sub s₀)) hp.stk_st.symm)
-  have g : ∀ r ∈ calleeSaved, r ≠ .esp → r ≠ .eax → (popped .eax 2 s').gpr r = s.gpr r := by
+  have g : ∀ r ∈ calleeSaved, r ≠ .esp → r ≠ .eax → (popped .eax [Reg.edi, .ebx].length s').gpr r = s.gpr r := by
     intro r hr h₁ h₂
     rw [popped_gpr _ _ _ h₁ h₂, hcs r hr, pushed_gpr _ _ h₁]
   have e0 : arg ((entry s).withRegions (rdC s₀) (wrC s₀)) 0 = ST s₀ := entry_arg0 hp h.esp h.ebx
@@ -904,167 +938,99 @@ theorem xor_eax (s : State) (hs : Proof.ChaCha20.xorX86.pre s) :
 
 /-! ## Constant time
 
-The taint analysis does not analyse calls or frames on x86, so the two runs
-are related piece by piece (`RelCT`): the taint analysis proves the pieces
-without calls constant time, from what the correctness proof says the
-registers hold in each run; the call of the block function is constant time
-by the block function's own proof (`RelCT.call`), in a frame whose push and
-pop depend only on `esp` (`RelCT.frame`). -/
+The taint analysis follows the frames and the calls into the block function.
+On entry it knows `esp` and where the writable regions are: `state`, the data
+(whose length varies), `buf` and the arguments, which are public and at
+`esp + 4`, and whose words 0 and 3 are the base addresses of `state` and
+`buf`; and that the 12 bytes below `esp` are free for the frames and the
+return addresses of the calls. -/
 
-/-- A taint state in which only the registers `rs` are public. -/
-def τr (rs : List Reg) : X86.Taint.T := { regs := .ofList rs, flags := false }
+def τ₀ : VG.X86.Taint.T :=
+  { regs := .ofList [.esp], flags := false, lens := [64, 0, 320, 16], bases := [(.esp, 3, 4)],
+    slots := [(3, 0, 16)], wbases := [(3, 0, 0), (3, 12, 2)], room := 12 }
 
-theorem agree_regs {rs : List Reg} {x y : State} (h : ∀ r ∈ rs, x.gpr r = y.gpr r) :
-    X86.Taint.Agree (τr rs) x y := by
-  have wf : ∀ s : State, X86.Taint.Wf (τr rs) s := fun _ =>
-    ⟨fun h => absurd rfl h, fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim,
-      fun h => absurd h (Nat.lt_irrefl 0), fun _ h => (List.not_mem_nil h).elim⟩
-  exact ⟨⟨fun r hr => h r (by simpa [τr, RegSet.mem_ofList] using hr), fun h => nomatch h⟩,
-    fun h => absurd rfl h, wf x, wf y, fun _ h => (List.not_mem_nil h).elim,
-    fun _ h => (List.not_mem_nil h).elim, fun h => absurd h (Nat.lt_irrefl 0),
-    fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
+theorem setWidth_toNat (x : BitVec 32) : (x.setWidth 64).toNat = x.toNat := by
+  simp only [BitVec.toNat_setWidth]; exact Nat.mod_eq_of_lt (by have := x.isLt; omega)
 
-/-- Two entry states that agree on the public data. -/
-structure Pub (a b : State) : Prop where
-  esp : E a = E b
-  st : ST a = ST b
-  dp : DP a = DP b
-  ln : LN a = LN b
-  bp : BP a = BP b
+theorem argWord_eq {s : State} (hsp : (s.gpr .esp).toNat + 20 ≤ 2 ^ 32) {k : Nat} (hk : k < 16) :
+    addr (s.gpr .esp) 4 + BitVec.ofNat 64 k = argAddr s (k / 4) + BitVec.ofNat 64 (k % 4) := by
+  simp only [argAddr]
+  rw [show (s.gpr .esp + BitVec.ofNat 32 (4 + 4 * (k / 4))).setWidth 64 = addr (s.gpr .esp) (4 + 4 * (k / 4))
+    from rfl, addr_eq (by omega), addr_eq (by omega), BitVec.add_assoc, BitVec.add_assoc,
+    ← BitVec.ofNat_add, ← BitVec.ofNat_add]
+  congr 2; omega
 
-theorem Pub.of {a b : State} (h : Proof.ChaCha20.xorX86.pub a b) : Pub a b :=
-  ⟨h.1, h.2 0 (by omega), h.2 1 (by omega), h.2 2 (by omega), h.2 3 (by omega)⟩
+theorem wf₀ {s : State} (hp : XPre s) : VG.X86.Taint.Wf τ₀ s := by
+  have hst := hp.st_fit; have hd := hp.d_fit; have hb := hp.b_fit
+  have hs : (s.gpr .esp).toNat + 20 ≤ 2 ^ 32 := hp.sp_hi
+  have hlo : 12 ≤ (s.gpr .esp).toNat := hp.sp_lo
+  refine VG.X86.Taint.Wf.entryRoom rfl ⟨fun _ => ⟨?_, ?_, ?_⟩, ?_, ?_, fun h => absurd h (Nat.lt_irrefl 0),
+    fun _ h => (List.not_mem_nil h).elim⟩ fun _ => ⟨hlo, ?_⟩
+  · rw [hp.wr]
+    exact .cons (Nat.le_refl _) (.cons (Nat.zero_le _) (.cons (Nat.le_refl _) (.cons (Nat.le_refl _) .nil)))
+  · simp only [hp.wr, List.pairwise_cons, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp,
+      forall_eq, List.Pairwise.nil, and_true]
+    exact ⟨⟨hp.st_d, hp.st_b, hp.a_st.symm⟩, ⟨hp.d_b, hp.a_d.symm⟩, hp.a_b.symm, fun _ h => h.elim⟩
+  · simp only [hp.wr, List.mem_cons, List.not_mem_nil, or_false]
+    rintro r (rfl | rfl | rfl | rfl)
+    · simp only [st, setWidth_toNat]; omega
+    · simp only [dp, setWidth_toNat]; omega
+    · simp only [bp, setWidth_toNat]; omega
+    · show (addr (s.gpr .esp) 4).toNat + 16 ≤ 2 ^ 32
+      rw [addr_eq (by omega), BitVec.toNat_add, setWidth_toNat, BitVec.toNat_ofNat]; omega
+  · intro p hp'
+    simp only [τ₀, List.mem_singleton] at hp'
+    subst hp'
+    show addr (s.gpr .esp) 4 = (VG.X86.Taint.region s 3).base
+    rw [VG.X86.Taint.region, hp.wr]; rfl
+  · intro p hp'
+    simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp'
+    rcases hp' with rfl | rfl
+    · refine ⟨by decide, ?_⟩
+      simp only [VG.X86.Taint.byteAddr, VG.X86.Taint.region, hp.wr]
+      show addr (s.mem.readW (addr (s.gpr .esp) 4 + BitVec.ofNat 64 0) 32) 0 = st s
+      simp [addr, st, ST, arg, argAddr]
+    · refine ⟨by decide, ?_⟩
+      simp only [VG.X86.Taint.byteAddr, VG.X86.Taint.region, hp.wr]
+      show addr (s.mem.readW (addr (s.gpr .esp) 4 + BitVec.ofNat 64 12) 32) 0 = bp s
+      rw [argWord_eq hs (k := 12) (by omega)]
+      simp [addr, bp, BP, arg]
+  · simp only [hp.wr, List.mem_cons, List.not_mem_nil, or_false]
+    rintro r (rfl | rfl | rfl | rfl)
+    · exact hp.stk_st
+    · exact hp.stk_d
+    · exact hp.stk_b
+    · intro x h₁ h₂
+      simp only [Region.Contains, τ₀] at h₁ h₂
+      rw [show argAddr s 0 = addr (s.gpr .esp) 4 from rfl, addr_eq (by omega)] at h₂
+      have := (s.gpr .esp).isLt
+      have hE := setWidth_toNat (s.gpr .esp)
+      generalize (s.gpr .esp).setWidth 64 = E at *
+      bv_omega
 
-section
-variable {a b : State} (hq : Pub a b)
-include hq
-
-theorem Pub.eqL : L a = L b := by simp only [L, hq.ln]
-theorem Pub.eqP (j : Nat) : P a j = P b j := by simp only [P, hq.eqL]
-
-theorem Pub.oinv {j : Nat} {x y : State} (hx : OInv a j x) (hy : OInv b j y) :
-    ∀ r ∈ [Reg.ebx, .esi, .edi, .ebp, .esp], x.gpr r = y.gpr r := by
-  intro r hr
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl
-  · rw [hx.ebx, hy.ebx, hq.st]
-  · rw [hx.esi, hy.esi, hq.dp, hq.eqP]
-  · rw [hx.edi, hy.edi, hq.bp]
-  · rw [hx.ebp, hy.ebp, hq.eqL, hq.eqP]
-  · rw [hx.esp, hy.esp, hq.esp]
-
-theorem Pub.eqRdC : rdC a = rdC b := by
-  show [(⟨(ST a).setWidth 64, 64⟩ : Region), ⟨(E a).setWidth 64 - 8, 8⟩] =
-    [(⟨(ST b).setWidth 64, 64⟩ : Region), ⟨(E b).setWidth 64 - 8, 8⟩]
-  rw [hq.st, hq.esp]
-
-theorem Pub.eqWrC : wrC a = wrC b := by
-  show [(⟨(BP a).setWidth 64, 256⟩ : Region)] = [(⟨(BP b).setWidth 64, 256⟩ : Region)]
-  rw [hq.bp]
-
-end
-
-theorem relct_nil {P Q : State → State → Prop} (h : ∀ x y, P x y → Q x y) :
-    RelCT isa P (.block []) Q := by
-  intro x y t₁ t₂ x' y' hp e₁ e₂
-  cases e₁ with
-  | block h₁ =>
-    cases e₂ with
-    | block h₂ =>
-      simp only [execBlock, Option.some.injEq, Prod.mk.injEq] at h₁ h₂
-      obtain ⟨rfl, rfl⟩ := h₁; obtain ⟨rfl, rfl⟩ := h₂
-      exact ⟨rfl, h _ _ hp⟩
-
-theorem call_rel {a b : State} (ha : XPre a) (hb : XPre b) (hq : Pub a b) {j : Nat} :
-    RelCT isa (fun x y => OInv a j x ∧ OInv b j y) callBlock fun x y => AInv a j x ∧ AInv b j y := by
-  refine RelCT.mono (RelCT.wp (F₁ := AInv a j) (F₂ := AInv b j) (RelCT.frame
-    (fun x y ⟨hx, hy⟩ => by rw [hx.esp, hy.esp, hq.esp])
-    (RelCT.call block_verified.1 block_verified.2.1 (rdC a) (wrC a) ?_))
-    fun x y ⟨hx, hy⟩ => ⟨call_ok ha hx, call_ok hb hy⟩) (fun _ _ h => h) fun _ _ h => h.2
-  rintro _ _ ⟨x, y, ⟨hx, hy⟩, rfl, rfl⟩
-  obtain ⟨cx, wx⟩ := call_covers ha hx.esp hx.rd hx.wr
-  obtain ⟨cy, wy⟩ := call_covers hb hy.esp hy.rd hy.wr
-  have py := entry_pre hb hy.esp hy.ebx hy.edi
-  rw [← hq.eqRdC, ← hq.eqWrC] at cy py
-  rw [← hq.eqWrC] at wy
-  refine ⟨entry_pre ha hx.esp hx.ebx hx.edi, py, ⟨?_, ?_, ?_⟩, cx, wx, cy, wy, ?_⟩
-  · show (entry x).gpr .esp = (entry y).gpr .esp
-    rw [entry_esp, entry_esp, hx.esp, hy.esp, hq.esp]
-  · show arg (entry x) 0 = arg (entry y) 0
-    rw [entry_arg0 ha hx.esp hx.ebx, entry_arg0 hb hy.esp hy.ebx, hq.st]
-  · show arg (entry x) 1 = arg (entry y) 1
-    rw [entry_arg1 ha hx.esp hx.edi, entry_arg1 hb hy.esp hy.edi, hq.bp]
-  · rw [pushed_esp, pushed_esp, hx.esp, hy.esp, hq.esp]
-
-theorem body_rel {a b : State} (ha : XPre a) (hb : XPre b) (hq : Pub a b) {j : Nat}
-    (hj : P a j < L a) :
-    RelCT isa (fun x y => OInv a j x ∧ OInv b j y) body fun x y =>
-      (OInv a (j + 1) x ∧ x.zf = some (decide (L a - P a (j + 1) = 0))) ∧
-      (OInv b (j + 1) y ∧ y.zf = some (decide (L b - P b (j + 1) = 0))) := by
-  have hj' : P b j < L b := by rw [← hq.eqP, ← hq.eqL]; exact hj
-  refine RelCT.seq (call_rel ha hb hq) (RelCT.mono (RelCT.wp (RelCT.taint (A := taint)
-    (τr [.ebx, .esi, .edi, .ebp, .esp])
-    (fun x y ⟨hx, hy⟩ => agree_regs (hq.oinv hx.toOInv hy.toOInv)) (by taint_decide))
-    fun x y ⟨hx, hy⟩ => ⟨rest_ok ha hj hx, rest_ok hb hj' hy⟩) (fun _ _ h => h) fun _ _ h => h.2)
-
-theorem loop_rel {a b : State} (ha : XPre a) (hb : XPre b) (hq : Pub a b) (n : Nat) :
-    RelCT isa (fun x y => ∃ j, n = L a - P a j ∧ P a j < L a ∧ OInv a j x ∧ OInv b j y)
-      (.loop body .ne) fun x y => ∃ j, P a j = L a ∧ OInv a j x ∧ OInv b j y := by
-  refine RelCT.loop (M := isa) (fun n (x y : State) => ∃ j, n = L a - P a j ∧ P a j < L a ∧ OInv a j x ∧ OInv b j y)
-    (fun n => ?_) n
-  intro x y t₁ t₂ x' y' ⟨j, hn, hj, hx, hy⟩ e₁ e₂
-  obtain ⟨ht, ⟨hx', hzx⟩, ⟨hy', hzy⟩⟩ := body_rel ha hb hq hj x y t₁ t₂ x' y' ⟨hx, hy⟩ e₁ e₂
-  rw [← hq.eqL, ← hq.eqP] at hzy
-  have hP := P_succ hj
-  have hle : P a (j + 1) ≤ L a := P_le a (j + 1)
-  have hC : 0 < C a j := by simp only [C]; omega
-  refine ⟨ht, by simp only [eval, hzx, hzy], fun hf => ⟨j + 1, ?_, hx', hy'⟩, fun ht' => ?_⟩
-  · simp only [eval, hzx, Option.map_some, Option.some.injEq, Bool.not_eq_eq_eq_not, Bool.not_false,
-      decide_eq_true_eq] at hf
-    omega
-  · simp only [eval, hzx, Option.map_some, Option.some.injEq, Bool.not_eq_eq_eq_not, Bool.not_true,
-      decide_eq_false_iff_not] at ht'
-    exact ⟨L a - P a (j + 1), by omega, j + 1, rfl, by omega, hx', hy'⟩
-
-theorem rel {a b : State} (ha : XPre a) (hb : XPre b) (hq : Pub a b) :
-    RelCT isa (fun x y => x = a ∧ y = b) Impl.ChaCha20.X86.Xor.xor fun _ _ => True := by
-  rw [xor_eq]
-  refine RelCT.seq (R := fun (x y : State) => x = a.setReg .eax (BP a) ∧ y = b.setReg .eax (BP b))
-    (RelCT.mono (RelCT.wp (F₁ := fun x => x = a.setReg .eax (BP a))
-      (F₂ := fun y => y = b.setReg .eax (BP b)) (RelCT.taint (A := taint) (τr [.esp])
-        (fun x y ⟨hx, hy⟩ => agree_regs fun r hr => by
-          simp only [List.mem_singleton] at hr; subst hr hx hy; exact hq.esp) (by taint_decide))
-      fun x y ⟨hx, hy⟩ => by subst hx hy; exact ⟨load_buf_ok ha, load_buf_ok hb⟩)
-      (fun _ _ h => h) fun _ _ h => h.2) ?_
-  refine RelCT.seq (R := fun (x y : State) => (OInv a 0 x ∧ x.zf = some (decide (L a = 0))) ∧
-      (OInv b 0 y ∧ y.zf = some (decide (L b = 0))))
-    (RelCT.mono (RelCT.wp (RelCT.taint (A := taint) (τr [.eax, .esp])
-        (fun x y ⟨hx, hy⟩ => agree_regs fun r hr => by
-          simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-          subst hx hy
-          rcases hr with rfl | rfl
-          · simp only [State.setReg, ite_true]; exact hq.bp
-          · exact hq.esp) (by taint_decide))
-      fun x y ⟨hx, hy⟩ => by subst hx hy; exact ⟨prologue_ok ha, prologue_ok hb⟩)
-      (fun _ _ h => h) fun _ _ h => h.2) ?_
-  refine RelCT.seq (R := fun (x y : State) => ∃ j, P a j = L a ∧ OInv a j x ∧ OInv b j y) ?_
-    (RelCT.taint (A := taint) (τr [.edi, .esp]) (fun x y ⟨j, _, hx, hy⟩ => agree_regs fun r hr =>
-      hq.oinv hx hy r (by simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; tauto))
-      (by taint_decide))
-  refine RelCT.ite (fun x y ⟨⟨_, hzx⟩, ⟨_, hzy⟩⟩ => by simp only [eval, hzx, hzy, hq.eqL])
-    (relct_nil fun x y ⟨⟨⟨hx, hzx⟩, ⟨hy, _⟩⟩, he⟩ => ⟨0, ?_, hx, hy⟩)
-    (RelCT.mono (loop_rel ha hb hq (L a)) (fun x y ⟨⟨⟨hx, hzx⟩, ⟨hy, _⟩⟩, he⟩ => ⟨0, ?_, ?_, hx, hy⟩)
-      fun _ _ h => h)
-  · simp only [eval, hzx, Option.some.injEq, decide_eq_true_eq] at he
-    simp [P, he]
-  · simp [P]
-  · simp only [eval, hzx, Option.some.injEq, decide_eq_false_iff_not] at he
-    simp only [P]; omega
-
-theorem ct : ConstantTime isa Proof.ChaCha20.xorX86.pre Proof.ChaCha20.xorX86.pub
-    Impl.ChaCha20.X86.Xor.xor :=
-  fun _ _ _ _ _ _ h₁ h₂ hp e₁ e₂ =>
-    (rel (XPre.of _ h₁) (XPre.of _ h₂) (Pub.of hp) _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.ChaCha20.xorX86.pre s₁) (h₂ : Proof.ChaCha20.xorX86.pre s₂)
+    (hpub : Proof.ChaCha20.xorX86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
+  obtain ⟨hesp, ha⟩ := hpub
+  have hp₁ := XPre.of _ h₁; have hp₂ := XPre.of _ h₂
+  refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂, ?_, ?_,
+    fun h => absurd h (Nat.lt_irrefl 0), fun _ _ h => absurd h (Nat.not_lt_zero _)⟩
+  · simp only [τ₀, RegSet.mem_ofList, List.mem_singleton] at hr
+    subst hr; exact hesp
+  · rw [hp₁.wr, hp₂.wr]
+    simp only [stR, dR, bR, aR, st, dp, bp, L, ST, DP, LN, BP, argAddr, ha 0 (by omega),
+      ha 1 (by omega), ha 2 (by omega), ha 3 (by omega), hesp]
+  · intro sl hsl
+    simp only [τ₀, List.mem_singleton] at hsl
+    subst hsl; decide
+  · intro sl hsl k _ hk
+    simp only [τ₀, List.mem_singleton] at hsl
+    subst hsl
+    simp only [Nat.zero_add] at hk
+    simp only [VG.X86.Taint.byteAddr, VG.X86.Taint.region, hp₁.wr, hp₂.wr]
+    show s₁.mem (addr (s₁.gpr .esp) 4 + BitVec.ofNat 64 k) = s₂.mem (addr (s₂.gpr .esp) 4 + BitVec.ofNat 64 k)
+    rw [argWord_eq hp₁.sp_hi hk, argWord_eq hp₂.sp_hi hk,
+      Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)), Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega))]
+    exact congrArg _ (ha _ (by omega))
 
 /-- Memory whose four argument slots (at `0x5004`) hold `0x1000`, `0x2000`,
 `0` and `0x3000`. -/
@@ -1098,8 +1064,9 @@ theorem sat_pre : Proof.ChaCha20.xorX86.pre sat := by
 
 theorem xor_verified :
     Verified X86.target Impl.ChaCha20.X86.Xor.xor Proof.ChaCha20.xorX86 := by
-  refine ⟨fun s hs => ?_, ct, ⟨sat, sat_pre⟩⟩
-  obtain ⟨t, s', he, h, -⟩ := correct (XPre.of s hs)
-  exact ⟨t, s', he, h⟩
+  refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩
+  · obtain ⟨t, s', he, h, -⟩ := correct (XPre.of s hs)
+    exact ⟨t, s', he, h⟩
+  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
 
 end VG.Proof.ChaCha20.X86.Xor

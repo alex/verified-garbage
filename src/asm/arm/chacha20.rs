@@ -10,7 +10,8 @@
 ///
 /// * `state` must be valid for reads of 64 bytes.
 /// * `buf` must be valid for reads and writes of 256 bytes. On return its first 64 bytes hold the result and the rest is unspecified.
-/// * `buf` must not overlap `state`, and neither may wrap around the end of the address space (no Rust object does).
+/// * `buf` must not overlap `state` (distinct Rust objects never do).
+/// * Neither `state` nor `buf` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64]) {
     core::arch::naked_asm!(
@@ -1284,5 +1285,69 @@ pub(crate) unsafe extern "C" fn vg_chacha20_block(state: *const [u32; 16], buf: 
         "ldr r11, [r1, #172]",
         "ldr lr, [r1, #176]",
         "bx lr",
+    )
+}
+
+/// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`, calling `vg_chacha20_block` for each 64 bytes.
+///
+/// Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 64 bytes; its contents on return are unspecified.
+/// * `data` must be valid for reads and writes of `len` bytes.
+/// * `buf` must be valid for reads and writes of 320 bytes; its contents on return are unspecified.
+/// * `state`, `data` and `buf` must not overlap each other (distinct Rust objects never do).
+/// * None of `state`, `data` and `buf` may wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80]) {
+    core::arch::naked_asm!(
+        "str r4, [r3, #256]",
+        "str r5, [r3, #260]",
+        "str r6, [r3, #264]",
+        "str lr, [r3, #268]",
+        "mov r4, r0",
+        "mov r5, r1",
+        "mov r6, r2",
+        "mov r1, r3",
+        "cmp r6, #0",
+        "beq 20f",
+        "22:",
+        "mov r0, r4",
+        "bl {vg_chacha20_block}",
+        "lsr r2, r6, #6",
+        "cmp r2, #0",
+        "beq 23f",
+        "mov r2, #64",
+        "b 24f",
+        "23:",
+        "mov r2, r6",
+        "24:",
+        "sub r6, r6, r2",
+        "mov r3, r1",
+        "25:",
+        "ldrb r0, [r5, #0]",
+        "ldrb r12, [r3, #0]",
+        "eor r0, r0, r12",
+        "strb r0, [r5, #0]",
+        "add r5, r5, #1",
+        "add r3, r3, #1",
+        "subs r2, r2, #1",
+        "bne 25b",
+        "ldr r0, [r4, #48]",
+        "add r0, r0, #1",
+        "str r0, [r4, #48]",
+        "cmp r6, #0",
+        "bne 22b",
+        "b 21f",
+        "20:",
+        "21:",
+        "mov r0, r4",
+        "ldr r4, [r1, #256]",
+        "ldr r5, [r1, #260]",
+        "ldr r6, [r1, #264]",
+        "ldr lr, [r1, #268]",
+        "bx lr",
+        vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
     )
 }

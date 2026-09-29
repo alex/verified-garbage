@@ -998,7 +998,7 @@ def τ₀ : VG.X86.Taint.T :=
 
 theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
   have hi := hp.in_fit; have ho := hp.ou_fit; have hsc := hp.scr_fit; have hs := hp.sp_fit
-  refine ⟨fun _ => ⟨by simp [hp.wr, τ₀], ?_, ?_⟩, ?_, ?_, fun h => absurd h (Nat.lt_irrefl 0),
+  refine VG.X86.Taint.Wf.entry rfl rfl ⟨fun _ => ⟨by simp [hp.wr, τ₀], ?_, ?_⟩, ?_, ?_, fun h => absurd h (Nat.lt_irrefl 0),
     fun _ h => (List.not_mem_nil h).elim⟩
   · simp only [hp.wr, List.pairwise_cons, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp,
       forall_eq, List.Pairwise.nil, and_true]

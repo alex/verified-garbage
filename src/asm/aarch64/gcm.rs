@@ -2,9 +2,11 @@
 //! Verified `gcm` functions for `aarch64`.
 #![allow(dead_code)]
 
-/// GHASH (NIST SP 800-38D §6.4) continued over whole blocks: with the hash subkey `H` the block at `h`, replaces the block `Y` at `*y` with `Yₙ`, where `Y₀ = Y` and `Yᵢ = (Yᵢ₋₁ ⊕ Xᵢ) • H` for the `n` 16-byte blocks `X₁ … Xₙ` starting at `data` (blocks big-endian, `•` the multiplication of §6.3, computed bit by bit as its Algorithm 1 does, with masks instead of branches).
+/// GHASH (NIST SP 800-38D §6.4) continued over whole blocks: with the hash subkey `H` the block at `h`, replaces the block `Y` at `*y` with `Yₙ`, where `Y₀ = Y` and `Yᵢ = (Yᵢ₋₁ ⊕ Xᵢ) • H` for the `n` 16-byte blocks `X₁ … Xₙ` starting at `data` (blocks big-endian, `•` the multiplication of §6.3).
 ///
 /// Contract: `VG.Spec.Gcm.ghashContract`. Constant time: only the pointers and `n` may affect timing, not `H`, `Y` or the data.
+///
+/// `•` is computed bit by bit as Algorithm 1 of §6.3 does, with masks instead of branches.
 ///
 /// # Safety
 ///
@@ -12,7 +14,8 @@
 /// * `y` must be valid for reads and writes of 16 bytes.
 /// * `data` must be valid for reads of `16 * n` bytes.
 /// * `scratch` must be valid for reads and writes of 256 bytes; its contents on return are unspecified.
-/// * `y` and `scratch` must not overlap each other, `h` or `data` (`h` and `data` may overlap), and none of the four regions may wrap around the end of the address space (distinct Rust objects never do).
+/// * `y` and `scratch` must not overlap each other, `h` or `data` (distinct Rust objects never do).
+/// * None of `h`, `y`, `data` and `scratch` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_ghash(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32]) {
     core::arch::naked_asm!(

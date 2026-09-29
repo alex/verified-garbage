@@ -125,7 +125,7 @@ theorem fin_exec : ∀ s, Proof.Sha256.finalizeArm.pre s → ∃ t s',
 
 theorem r0_ok : ∀ i ∈ instrs Impl.Sha256.Arm.Stream.finalize, dstOf i ≠ some .r0 := by
   have : ((instrs Impl.Sha256.Arm.Stream.finalize).all fun i => dstOf i != some .r0) = true := by
-    decide +kernel
+    rw [← Code.allInstrs_eq]; decide +kernel
   intro i hi
   simpa using List.all_eq_true.mp this i hi
 

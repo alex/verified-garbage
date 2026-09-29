@@ -67,7 +67,7 @@ structure LInv (s₀ : State) (m₁ : Mem) (i : Nat) (s : State) : Prop extends 
 
 /-- The memory the prologue leaves. -/
 structure Mem₁ (s₀ : State) (m₁ : Mem) : Prop where
-  frame : Frame [wR (st s₀)] s₀.mem m₁
+  frame : Frame [svR (st s₀)] s₀.mem m₁
   saved : Saved (st s₀) s₀ m₁
 
 namespace BPre
@@ -104,6 +104,10 @@ end BPre
 theorem Mem₁.frame_sR {s₀ : State} {m₁ : Mem} (h : Mem₁ s₀ m₁) : Frame [sR (st s₀)] s₀.mem m₁ :=
   h.frame.sub fun r hr => ⟨sR (st s₀), List.mem_singleton_self _, by
     simp only [List.mem_singleton] at hr; subst hr; exact sub_sR _ (by omega)⟩
+
+theorem Mem₁.frame_wR {s₀ : State} {m₁ : Mem} (h : Mem₁ s₀ m₁) : Frame [wR (st s₀)] s₀.mem m₁ :=
+  h.frame.sub fun r hr => ⟨wR (st s₀), List.mem_singleton_self _, by
+    simp only [List.mem_singleton] at hr; subst hr; exact svR_sub_wR _⟩
 
 /-- A word of the accumulator or the key, which the prologue does not change. -/
 theorem Mem₁.readW_low {s₀ : State} {m₁ : Mem} (h : Mem₁ s₀ m₁) {d : Nat} (hd : d + 8 ≤ 56) :
@@ -280,9 +284,9 @@ def storeH (m : Mem) (st : Addr) (h0 h1 h2 : BitVec 64) : Mem :=
 
 theorem storeRestore_eq : [Instr.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
     .store (at_ .rdi 16) .rbp] ++ restore = [.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
-    .store (at_ .rdi 16) .rbp, .mov .rbx (.mem (at_ .rdi 56)), .mov .rbp (.mem (at_ .rdi 64)),
-    .mov .r12 (.mem (at_ .rdi 72)), .mov .r13 (.mem (at_ .rdi 80)), .mov .r14 (.mem (at_ .rdi 88)),
-    .mov .r15 (.mem (at_ .rdi 96))] := rfl
+    .store (at_ .rdi 16) .rbp, .mov .rbx (.mem (at_ .rdi 72)), .mov .rbp (.mem (at_ .rdi 80)),
+    .mov .r12 (.mem (at_ .rdi 88)), .mov .r13 (.mem (at_ .rdi 96)), .mov .r14 (.mem (at_ .rdi 104)),
+    .mov .r15 (.mem (at_ .rdi 112))] := rfl
 
 set_option simprocs false in
 /-- Storing `h` and restoring the callee-saved registers. -/
@@ -290,17 +294,17 @@ theorem storeRestore_ok (s : State) (hw : sR (s.gpr .rdi) ∈ s.wr) :
     WP isa (.block ([.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
       .store (at_ .rdi 16) .rbp] ++ restore)) s fun s' =>
       let m := storeH s.mem (s.gpr .rdi) (s.gpr .r11) (s.gpr .rbx) (s.gpr .rbp)
-      s'.mem = m ∧ s'.gpr .rbx = m.readW (off (s.gpr .rdi) 56) 64 ∧
-      s'.gpr .rbp = m.readW (off (s.gpr .rdi) 64) 64 ∧ s'.gpr .r12 = m.readW (off (s.gpr .rdi) 72) 64 ∧
-      s'.gpr .r13 = m.readW (off (s.gpr .rdi) 80) 64 ∧ s'.gpr .r14 = m.readW (off (s.gpr .rdi) 88) 64 ∧
-      s'.gpr .r15 = m.readW (off (s.gpr .rdi) 96) 64 ∧ s'.gpr .rsp = s.gpr .rsp := by
+      s'.mem = m ∧ s'.gpr .rbx = m.readW (off (s.gpr .rdi) 72) 64 ∧
+      s'.gpr .rbp = m.readW (off (s.gpr .rdi) 80) 64 ∧ s'.gpr .r12 = m.readW (off (s.gpr .rdi) 88) 64 ∧
+      s'.gpr .r13 = m.readW (off (s.gpr .rdi) 96) 64 ∧ s'.gpr .r14 = m.readW (off (s.gpr .rdi) 104) 64 ∧
+      s'.gpr .r15 = m.readW (off (s.gpr .rdi) 112) 64 ∧ s'.gpr .rsp = s.gpr .rsp := by
   have o : ∀ d, d + 8 ≤ 128 → InRegions s.wr (off (s.gpr .rdi) d) 8 :=
     fun d hd => ⟨_, hw, contains_off hd (by omega)⟩
   have i : ∀ d, d + 8 ≤ 128 → InRegions (s.rd ++ s.wr) (off (s.gpr .rdi) d) 8 :=
     fun d hd => ⟨_, List.mem_append_right _ hw, contains_off hd (by omega)⟩
   have o0 := o 0 (by omega); have o8 := o 8 (by omega); have o16 := o 16 (by omega)
-  have i0 := i 56 (by omega); have i1 := i 64 (by omega); have i2 := i 72 (by omega)
-  have i3 := i 80 (by omega); have i4 := i 88 (by omega); have i5 := i 96 (by omega)
+  have i0 := i 72 (by omega); have i1 := i 80 (by omega); have i2 := i 88 (by omega)
+  have i3 := i 96 (by omega); have i4 := i 104 (by omega); have i5 := i 112 (by omega)
   simp only [off] at o0 o8 o16 i0 i1 i2 i3 i4 i5
   apply WP.of_runBlock
   rw [storeRestore_eq]
@@ -352,7 +356,7 @@ theorem epilogue_ok {s₀ : State} (hp : BPre s₀) {m₁ : Mem} (hm : Mem₁ s�
   rw [rdi₁, k₁.2.1, hc.mem] at m₂ g1 g2 g3 g4 g5 g6
   obtain ⟨sv1, sv2, sv3, sv4, sv5, sv6⟩ := hm.saved
   have hf : Frame [hR (st s₀), wR (st s₀)] s₀.mem s₂.mem := by
-    rw [m₂]; exact storeH_frame (hm.frame.mono (by simp)) _ _ _
+    rw [m₂]; exact storeH_frame (hm.frame_wR.mono (by simp)) _ _ _
   refine ⟨⟨fun r hr => ?_, ?_⟩, fun key msg hrep => ?_⟩
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl
