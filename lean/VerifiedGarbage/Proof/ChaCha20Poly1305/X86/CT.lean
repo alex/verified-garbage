@@ -1,19 +1,24 @@
 import VerifiedGarbage.Proof.ChaCha20Poly1305.X86.Correct
+import VerifiedGarbage.Proof.Framework.X86.RelCT
 
 /-!
 # ChaCha20-Poly1305 on x86 (32-bit): constant time
 
 Untrusted: everything here is checked by Lean.
 
-The x86 taint analysis does not analyse calls or frames, so the two runs
-are related piece by piece (`RelCT`), as for `vg_chacha20_xor`: the taint
-analysis proves each straight-line piece and the copy loop constant time
-(`taintRel`), from the registers that the correctness proof says hold the
-same public values in both runs (the pointers, the lengths and `esp`); each
-call of a verified function in a frame of its arguments is constant time by
-the callee's own proof (`RelCT.callWith`), its arguments being public; the
-branch on the length of the tail is on a public value (`RelCT.ite`). What
-each run satisfies between the pieces comes from the correctness proof
+The x86 taint analysis follows calls and frames, but not through these
+functions: every callee is passed pointers into the middle of the context,
+which the analysis cannot place in a region, so their stores of secrets
+make it forget every public value kept in memory, the stack arguments among
+them, and the callee-saved registers the callees restore from memory. So the
+two runs are related piece by piece (`RelCT`): the taint analysis proves
+each straight-line piece and the copy loop constant time (`taintRel`), from
+the registers that the correctness proof says hold the same public values in
+both runs (the pointers, the lengths and `esp`); each call of a verified
+function in a frame of its arguments is constant time by the callee's own
+proof (`RelCT.callWith`), its arguments being public; the branch on the
+length of the tail is on a public value (`RelCT.ite`). What each run
+satisfies between the pieces comes from the correctness proof
 (`RelCT.post`).
 -/
 
@@ -21,7 +26,6 @@ namespace VG.Proof.ChaCha20Poly1305.X86
 
 open VG VG.X86 VG.Impl.ChaCha20Poly1305.X86
 open VG.Impl.ChaCha20.X86 (at_)
-open VG.Proof.ChaCha20.X86.Xor (τr agree_regs relct_nil)
 
 /-! ## Tools -/
 
@@ -114,7 +118,7 @@ theorem block_rel :
         rcases hr with rfl | rfl
         · rw [hx.edx, hy.edx, hq.c32]
         · rw [hx.ecx, hy.ecx, hq.c32])
-      exact ⟨fit, block_pre ha hx.at_ hx.ecx hx.edx, py, hq.at_ hx.at_ hy.at_, p.1, p.2 0 (by decide),
+      exact ⟨block_pre ha hx.at_ hx.ecx hx.edx, py, hq.at_ hx.at_ hy.at_, p.1, p.2 0 (by decide),
         p.2 1 (by decide)⟩
 
 theorem init_rel :
@@ -132,7 +136,7 @@ theorem init_rel :
         rcases hr with rfl | rfl
         · rw [hx.ecx, hy.ecx, hq.c32]
         · rw [hx.edx, hy.edx, hq.c32])
-      exact ⟨fit, init_pre ha hx.at_ hx.ecx hx.edx, py, hq.at_ hx.at_ hy.at_, p.1, p.2 0 (by decide),
+      exact ⟨init_pre ha hx.at_ hx.ecx hx.edx, py, hq.at_ hx.at_ hy.at_, p.1, p.2 0 (by decide),
         p.2 1 (by decide)⟩
 
 theorem oneB_rel {k : Nat} (hk : k + 16 ≤ 448 ∨ (576 ≤ k ∧ k + 16 ≤ 1024)) :
@@ -151,7 +155,7 @@ theorem oneB_rel {k : Nat} (hk : k + 16 ≤ 448 ∨ (576 ≤ k ∧ k + 16 ≤ 10
         · rw [hx.eax, hy.eax]
         · rw [hx.ecx, hy.ecx, hq.c32]
         · rw [hx.edx, hy.edx, hq.c32])
-      exact ⟨fit, blocks_pre ha hx.inv.at (n := 1) (by decide) (bsrc_ctx ha hk) hx.edx hx.ecx hx.eax, py,
+      exact ⟨blocks_pre ha hx.inv.at (n := 1) (by decide) (bsrc_ctx ha hk) hx.edx hx.ecx hx.eax, py,
         hq.at_ hx.inv.at hy.inv.at, p.1, p.2 0 (by decide), p.2 1 (by decide), p.2 2 (by decide)⟩
 
 theorem maB_rel {i : Nat} (hi : i + 1 < 5) (hsa : Src a (arg a i) (arg a (i + 1)).toNat)
@@ -175,7 +179,7 @@ theorem maB_rel {i : Nat} (hi : i + 1 < 5) (hsa : Src a (arg a i) (arg a (i + 1)
           · rw [hx.eax, hy.eax, ei']
           · rw [hx.ebx, hy.ebx, ei]
           · rw [hx.ecx, hy.ecx, hq.c32])
-      exact ⟨fit, blocks_pre ha hx.inv.at (by decide) (hsa.bsrc (Nat.mul_div_le _ _)) hx.ecx hx.ebx hx.eax, py,
+      exact ⟨blocks_pre ha hx.inv.at (by decide) (hsa.bsrc (Nat.mul_div_le _ _)) hx.ecx hx.ebx hx.eax, py,
         hq.at_ hx.inv.at hy.inv.at, p.1, p.2 0 (by decide), p.2 1 (by decide), p.2 2 (by decide)⟩
 
 theorem crB_rel :
@@ -195,28 +199,29 @@ theorem crB_rel :
         · rw [hx.edx, hy.edx]; exact hq.a4.symm
         · rw [hx.ecx, hy.ecx]; exact hq.a3.symm
         · rw [hx.eax, hy.eax, hq.c32])
-      exact ⟨fit, xor_pre ha hx.inv.at hx.eax hx.ecx hx.edx hx.esi, py, hq.at_ hx.inv.at hy.inv.at, p.1,
+      exact ⟨xor_pre ha hx.inv.at hx.eax hx.ecx hx.edx hx.esi, py, hq.at_ hx.inv.at hy.inv.at, p.1,
         fun i hi => p.2 i hi⟩
 
 theorem fiB_rel {out : Nat} (ho : OutOk out) :
     RelCT isa (fun x y => FiA a out x ∧ FiA b out y)
-      (callWith [.ecx, .eax, .edx, .esi] "vg_poly1305_finalize" Impl.Poly1305.X86.finalize) fun _ _ => True :=
+      (callWith finRegs "vg_poly1305_finalize" Impl.Poly1305.X86.finalize) fun _ _ => True :=
   RelCT.callWith Proof.Poly1305.X86.finalize_verified.1 Proof.Poly1305.X86.finalize_verified.2.1 (rdFin a)
     (wrFin a out) fun x y ⟨hx, hy⟩ => by
-      have py := finalize_pre hb hy.inv.at ho hy.ecx hy.eax hy.edx hy.esi
-      rw [show rdFin b = rdFin a by simp only [rdFin, sub, cx, CX, E, hq.cx, hq.esp],
+      have py := finalize_pre hb hy.inv.at ho hy.ebx hy.ecx hy.eax hy.esi
+      rw [show rdFin b = rdFin a by simp only [rdFin, E, hq.esp],
         show wrFin b out = wrFin a out by simp only [wrFin, sub, cx, CX, hq.cx]] at py
-      have fit := hx.inv.at.fit ha (rs := [.ecx, .eax, .edx, .esi]) (by decide)
+      have fit := hx.inv.at.fit ha (rs := finRegs) (by decide)
       have p := entry_pub (rdFin a) (wrFin a out) (by decide) fit (hq.at_ hx.inv.at hy.inv.at) (by
         intro r hr
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-        rcases hr with rfl | rfl | rfl | rfl
+        rcases hr with rfl | rfl | rfl | rfl | rfl
+        · rw [hx.ebx, hy.ebx, hq.c32]
         · rw [hx.ecx, hy.ecx, hq.c32]
         · rw [hx.eax, hy.eax]
-        · rw [hx.edx, hy.edx, hq.c32]
+        · rw [hx.eax, hy.eax]
         · rw [hx.esi, hy.esi, hq.c32])
-      exact ⟨fit, finalize_pre ha hx.inv.at ho hx.ecx hx.eax hx.edx hx.esi, py, hq.at_ hx.inv.at hy.inv.at, p.1,
-        p.2 0 (by decide), p.2 1 (by decide), p.2 2 (by decide), p.2 3 (by decide)⟩
+      exact ⟨finalize_pre ha hx.inv.at ho hx.ebx hx.ecx hx.eax hx.esi, py, hq.at_ hx.inv.at hy.inv.at, p.1,
+        fun i hi => p.2 i hi⟩
 
 /-! ## The parts -/
 
@@ -320,7 +325,7 @@ theorem macPad_rel {i : Nat} (hi : i = 1 ∨ i = 3) (hsa : Src a (arg a i) (arg 
         · exact hq.at_ hx.inv.at hy.inv.at) (by taint_decide))
       fun x y ⟨hx, hy⟩ => ⟨WP.mono (maC_ok hx) fun _ h => h.1, WP.mono (maC_ok hy) fun _ h => h.1⟩) ?_
   refine RelCT.ite (fun x y ⟨hx, hy⟩ => by simp only [eval, hx.zf, hy.zf, ei'])
-    (relct_nil fun _ _ _ => trivial) fun x y t₁ t₂ x' y' ⟨⟨hx, hy⟩, he⟩ e₁ e₂ => ?_
+    (RelCT.nil fun _ _ _ => trivial) fun x y t₁ t₂ x' y' ⟨⟨hx, hy⟩, he⟩ e₁ e₂ => ?_
   have h0 : (arg a (i + 1)).toNat % 16 ≠ 0 := by
     intro h0; simp [eval, hx.zf, h0] at he
   exact padTail_rel ha hb hq hsa hsb hi' h0 x y t₁ t₂ x' y' ⟨hx, hy⟩ e₁ e₂

@@ -10,8 +10,9 @@ per-target contracts (`Proof/ChaCha20Poly1305/X86/Contract.lean`); these
 theorems move them to the shared contracts of
 `Spec/ChaCha20Poly1305/Contract.lean`, which the artifacts are emitted with.
 The functions' calls use the 32 bytes of stack below the return address: a
-frame of up to four arguments and a return address, and, for
-`vg_chacha20_xor`, the 12 bytes its own calls use.
+frame of arguments and a return address (24 bytes for
+`vg_poly1305_finalize`'s five words), and, below `vg_chacha20_xor`'s 20, the
+12 bytes its own calls use.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.X86.Shared

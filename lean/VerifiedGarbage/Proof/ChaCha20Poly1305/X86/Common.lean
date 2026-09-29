@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.ChaCha20Poly1305.X86.Contract
 import VerifiedGarbage.Proof.ChaCha20Poly1305.Spec
 import VerifiedGarbage.Proof.ChaCha20.X86.Block
-import VerifiedGarbage.Proof.Framework.X86.Stack
+import VerifiedGarbage.Proof.Framework.X86.CallWith
 import VerifiedGarbage.Impl.ChaCha20Poly1305.X86
 
 /-!
@@ -76,7 +76,9 @@ structure APre (s₀ : State) : Prop where
 
 theorem APre.of (s₀ : State) (h : preX86 s₀) : APre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19⟩ := h
-  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19⟩
+  have e : stkR s₀ = ⟨(E s₀).setWidth 64 - 32, 32⟩ := by
+    simp only [stkR, below]; rw [Taint.sub_setWidth h18]; rfl
+  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, e ▸ h12, e ▸ h13, e ▸ h14, h15, h16, h17, h18, h19⟩
 
 /-! ## Addresses -/
 
@@ -125,9 +127,12 @@ theorem APre.in_arg {i : Nat} (hi : i < 5) : InRegions (s₀.rd ++ s₀.wr) (arg
 
 theorem APre.E64 {n : Nat} (hn : n ≤ 32) :
     (E s₀ - BitVec.ofNat 32 n).setWidth 64 = (E s₀).setWidth 64 - BitVec.ofNat 64 n :=
-  setWidth_sub32 (by have := hp.sp_lo; omega)
+  Taint.sub_setWidth (by have := hp.sp_lo; omega)
 
 end
+
+theorem toNat_setWidth64 (x : BitVec 32) : (x.setWidth 64).toNat = x.toNat := by
+  simp [BitVec.toNat_setWidth]; omega
 
 theorem ea_esp (s : State) (d : Nat) : s.ea (at_ .esp d) = addr (s.gpr .esp) d := rfl
 
@@ -167,7 +172,7 @@ theorem contains_sub (s₀ : State) {k n a w : Nat} (h₁ : k ≤ a) (h₂ : a +
   omega
 
 theorem stk_below (s₀ : State) {n : Nat} (hn : n ≤ 32) (hp : APre s₀) :
-    Region.Sub (below (E s₀) n) (stkR s₀) := below_mono hn hp.sp_lo
+    Region.Sub (below (E s₀) n) (stkR s₀) := below_sub hn hp.sp_lo
 
 section
 variable {s₀ : State} (hp : APre s₀)
@@ -198,6 +203,7 @@ theorem APre.g_stk : (argR s₀).Disjoint (stkR s₀) := by
   simp only [E] at h₁ h₂ ⊢
   intro x hx hy
   simp only [Region.Contains, argAddr] at hx hy
+  rw [Taint.sub_setWidth h₁] at hy
   rw [show s₀.gpr .esp + BitVec.ofNat 32 (4 + 4 * 0) = s₀.gpr .esp + BitVec.ofNat 32 4 from rfl,
     add_setWidth (by omega)] at hx
   have hE : ((s₀.gpr .esp).setWidth 64).toNat = (s₀.gpr .esp).toNat := toNat_setWidth64 _
@@ -209,6 +215,7 @@ theorem APre.ret_stk : (retR s₀).Disjoint (stkR s₀) := by
   simp only [E] at h₁ ⊢
   intro x hx hy
   simp only [Region.Contains] at hx hy
+  rw [Taint.sub_setWidth h₁] at hy
   have hE : ((s₀.gpr .esp).setWidth 64).toNat = (s₀.gpr .esp).toNat := toNat_setWidth64 _
   generalize (s₀.gpr .esp).setWidth 64 = e at hx hy hE
   bv_omega

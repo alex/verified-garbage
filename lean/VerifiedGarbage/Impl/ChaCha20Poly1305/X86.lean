@@ -19,15 +19,17 @@ The context (1024 bytes, see `VG.Spec.ChaCha20Poly1305.sealContract`):
 * `[576, 592)`: the padded last block of the additional data or the data;
 * `[592, 608)`: our caller's `ebx, esi, edi, ebp`;
 * `[640, 656)`: the tag computed by `open`;
-* `[656, 672)`: the lengths block.
+* `[656, 672)`: the lengths block;
+* `[672, 800)`: the working space of `vg_poly1305_finalize`.
 
 `edi` holds the context throughout: the callees are cdecl, so they preserve
 it. Every other argument is loaded from its slot on the stack when it is
 needed (the stack arguments are never written). Each call pushes its
 arguments in a frame of its own (`callWith`), popped into `eax` when it
-returns: with its return address, a call uses at most 20 bytes below `esp`,
-and `vg_chacha20_xor` 12 more below its own return address, so the functions
-use 32 bytes of stack below their return address.
+returns: with its return address, a call uses at most 24 bytes below `esp`
+(`vg_poly1305_finalize`, with five words of arguments), and
+`vg_chacha20_xor` 20, and 12 more below its own return address, so the
+functions use 32 bytes of stack below their return address.
 
 Only the pointers and the lengths can affect timing: the branches are on the
 lengths, and the tags are compared without a branch.
@@ -117,10 +119,12 @@ def crypt : Prog isa :=
     [.mov .ecx (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 20))] ++ ptr .esi .edi 128))
     (callWith [.esi, .edx, .ecx, .eax] "vg_chacha20_xor" Impl.ChaCha20.X86.Xor.xor)
 
-/-- The tag written to `edi + out`. -/
+/-- The tag written to `edi + out`: the message is whole blocks, so its
+length (`count`, both of whose words are `eax`) is 0 modulo 16, and nothing
+is buffered. -/
 def finalizeTo (out : Nat) : Prog isa :=
-  .seq (.block (ptr .ecx .edi out ++ [.mov .eax (.imm 0)] ++ ptr .edx .edi 656 ++ ptr .esi .edi 448))
-    (callWith [.ecx, .eax, .edx, .esi] "vg_poly1305_finalize" Impl.Poly1305.X86.finalize)
+  .seq (.block (ptr .ebx .edi 672 ++ ptr .ecx .edi out ++ [.mov .eax (.imm 0)] ++ ptr .esi .edi 448))
+    (callWith [.ebx, .ecx, .eax, .eax, .esi] "vg_poly1305_finalize" Impl.Poly1305.X86.finalize)
 
 def «seal» : Prog isa :=
   .seq prologue

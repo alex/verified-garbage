@@ -51,7 +51,7 @@ theorem hL (s₀ : State) : L s₀ ≤ 2 ^ 64 := by have := (LN s₀).isLt; simp
 
 /-- The return address is unchanged. -/
 theorem ret_kept {s₀ : State} (hp : APre s₀) {m₆ m' : Mem} (hi : Frame [workR s₀, dR s₀, stkR s₀] s₀.mem m₆)
-    {out : Nat} (ho : OutOk out) (hf : Frame [sub s₀ 448 128, sub s₀ out 16, stkR s₀] m₆ m') :
+    {out : Nat} (ho : OutOk out) (hf : Frame [sub s₀ 448 128, sub s₀ out 16, sub s₀ 672 128, stkR s₀] m₆ m') :
     m'.readW ((E s₀).setWidth 64) 32 = s₀.mem.readW ((E s₀).setWidth 64) 32 := by
   unfold OutOk at ho
   have c : (retR s₀).Contains ((E s₀).setWidth 64) (32 / 8) := Region.contains_self _ _

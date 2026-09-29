@@ -9,10 +9,7 @@
 
 #![cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 
-#[cfg(target_arch = "x86")]
-use crate::asm::x86::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
-#[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
+use crate::arch::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
 
 /// The largest plaintext RFC 8439 allows (`P_MAX`, §2.8): 2³² − 1 blocks of
 /// 64 bytes, as the block counter starts at 1.

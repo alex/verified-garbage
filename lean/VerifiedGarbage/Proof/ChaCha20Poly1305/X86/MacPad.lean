@@ -16,9 +16,22 @@ open VG VG.X86 VG.Impl.ChaCha20Poly1305.X86
 open VG.Impl.ChaCha20.X86 (at_)
 open VG.Proof.ChaCha20.X86 (contains_off toNat_ofNat_lt)
 open VG.Proof.Poly1305.X86 (wp_movm wp_store wp_movzx8 wp_store8 wp_addx wp_subx wp_movi wp_mov wp_andx
-  wp_shr Upd Mupd readSrc_imm readSrc_reg writeW8_apply writeW32_zero_apply add_ofNat_one addr_zero_add)
+  wp_shr Upd Mupd readSrc_imm readSrc_reg)
+open VG.Proof.Poly1305 (writeW8_apply)
 open VG.Spec.Poly1305 (Repr bytesAt mac)
 open VG.Spec.ChaCha20Poly1305 (pad16)
+
+theorem writeW32_zero_apply (m : Mem) (a x : Addr) :
+    (m.writeW a (0 : BitVec 32)) x = if (x - a).toNat < 4 then 0 else m x := by
+  simp only [Mem.writeW, Mem.write]
+  split <;> simp
+
+theorem addr_zero_add (x : BitVec 32) (j : Nat) : addr (x + BitVec.ofNat 32 j) 0 = addr x j := by
+  simp [addr]
+
+theorem add_ofNat_one (x : BitVec 32) (j : Nat) :
+    x + BitVec.ofNat 32 j + 1 = x + BitVec.ofNat 32 (j + 1) := by
+  rw [BitVec.add_assoc, show (1 : BitVec 32) = BitVec.ofNat 32 1 from rfl, ← BitVec.ofNat_add]
 
 /-! ## Frames within the working space -/
 

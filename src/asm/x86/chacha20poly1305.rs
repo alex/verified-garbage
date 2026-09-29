@@ -4,14 +4,17 @@
 
 /// ChaCha20-Poly1305 encryption (RFC 8439 §2.8): with the key in bytes 0–31 of `*ctx` and the nonce in bytes 32–43, encrypts the `len` bytes at `data` in place and writes the tag of the ciphertext and the `aad_len` bytes of additional data at `aad` to bytes 48–63 of `*ctx`. The rest of `*ctx` is working space, unspecified on return. Composed of calls of `vg_chacha20_block`, `vg_chacha20_xor` and the Poly1305 functions.
 ///
-/// Contract: `VG.Spec.ChaCha20Poly1305.sealContract`. Constant time: only the pointers and the lengths may affect timing, not the key, the nonce or the data. The block counter wraps around beyond 2³²-1 blocks of data (RFC 8439's `P_MAX`), which the caller must not exceed for the construction to be secure. The function may overwrite its own arguments on the stack (which the callee owns under cdecl).
+/// Contract: `VG.Spec.ChaCha20Poly1305.sealContract`. Constant time: only the pointers and the lengths may affect timing, not the key, the nonce or the data. The block counter wraps around beyond 2³²-1 blocks of data (RFC 8439's `P_MAX`), which the caller must not exceed for the construction to be secure.
+///
+/// The function may overwrite the arguments on the stack, as the calling convention lets it.
 ///
 /// # Safety
 ///
 /// * `ctx` must be valid for reads and writes of 1024 bytes.
 /// * `aad` must be valid for reads of `aad_len` bytes.
 /// * `data` must be valid for reads and writes of `len` bytes.
-/// * `ctx` and `data` must not overlap each other, `aad`, the stack frame of the call (the return address and the arguments), or the 32 bytes of stack below the return address, where its calls store their arguments and return addresses; nor may `aad`. None of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `ctx` and `data` must not overlap each other or `aad` (distinct Rust objects never do).
+/// * None of `ctx`, `aad` and `data` may overlap the arguments on the stack, overlap the return address on the stack or the 32 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_chacha20_poly1305_seal(ctx: *mut [u64; 128], aad: *const u8, aad_len: usize, data: *mut u8, len: usize) {
     core::arch::naked_asm!(
@@ -203,18 +206,20 @@ pub(crate) unsafe extern "C" fn vg_chacha20_poly1305_seal(ctx: *mut [u64; 128], 
         "pop eax",
         "pop eax",
         "pop eax",
+        "mov ebx, edi",
+        "add ebx, 672",
         "mov ecx, edi",
         "add ecx, 48",
         "mov eax, 0",
-        "mov edx, edi",
-        "add edx, 656",
         "mov esi, edi",
         "add esi, 448",
+        "push ebx",
         "push ecx",
         "push eax",
-        "push edx",
+        "push eax",
         "push esi",
         "call {vg_poly1305_finalize}",
+        "pop eax",
         "pop eax",
         "pop eax",
         "pop eax",
@@ -234,14 +239,17 @@ pub(crate) unsafe extern "C" fn vg_chacha20_poly1305_seal(ctx: *mut [u64; 128], 
 
 /// ChaCha20-Poly1305 decryption (RFC 8439 §2.8): with the key in bytes 0–31 of `*ctx`, the nonce in bytes 32–43 and the received tag in bytes 48–63, returns 1 if the tag is that of the `len` bytes of ciphertext at `data` and the `aad_len` bytes of additional data at `aad`, having decrypted the ciphertext in place; otherwise returns 0, and the bytes at `data` are unspecified (they must not be used). The rest of `*ctx` is working space, unspecified on return. The tags are compared without a branch.
 ///
-/// Contract: `VG.Spec.ChaCha20Poly1305.openContract`. Constant time: only the pointers and the lengths may affect timing, not the key, the nonce, the tag or the data. The function may overwrite its own arguments on the stack (which the callee owns under cdecl).
+/// Contract: `VG.Spec.ChaCha20Poly1305.openContract`. Constant time: only the pointers and the lengths may affect timing, not the key, the nonce, the tag or the data.
+///
+/// The function may overwrite the arguments on the stack, as the calling convention lets it.
 ///
 /// # Safety
 ///
 /// * `ctx` must be valid for reads and writes of 1024 bytes.
 /// * `aad` must be valid for reads of `aad_len` bytes.
 /// * `data` must be valid for reads and writes of `len` bytes.
-/// * `ctx` and `data` must not overlap each other, `aad`, the stack frame of the call (the return address and the arguments), or the 32 bytes of stack below the return address, where its calls store their arguments and return addresses; nor may `aad`. None of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `ctx` and `data` must not overlap each other or `aad` (distinct Rust objects never do).
+/// * None of `ctx`, `aad` and `data` may overlap the arguments on the stack, overlap the return address on the stack or the 32 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_chacha20_poly1305_open(ctx: *mut [u64; 128], aad: *const u8, aad_len: usize, data: *mut u8, len: usize) -> u32 {
     core::arch::naked_asm!(
@@ -433,18 +441,20 @@ pub(crate) unsafe extern "C" fn vg_chacha20_poly1305_open(ctx: *mut [u64; 128], 
         "pop eax",
         "pop eax",
         "pop eax",
+        "mov ebx, edi",
+        "add ebx, 672",
         "mov ecx, edi",
         "add ecx, 640",
         "mov eax, 0",
-        "mov edx, edi",
-        "add edx, 656",
         "mov esi, edi",
         "add esi, 448",
+        "push ebx",
         "push ecx",
         "push eax",
-        "push edx",
+        "push eax",
         "push esi",
         "call {vg_poly1305_finalize}",
+        "pop eax",
         "pop eax",
         "pop eax",
         "pop eax",

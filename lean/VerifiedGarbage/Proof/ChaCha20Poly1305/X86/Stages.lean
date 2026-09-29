@@ -213,34 +213,36 @@ theorem crypt_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) :
 /-- Ready to call `vg_poly1305_finalize`. -/
 structure FiA (s₀ : State) (out : Nat) (s : State) : Prop where
   inv : Inv s₀ s
+  ebx : s.gpr .ebx = C32 s₀ 672
   ecx : s.gpr .ecx = C32 s₀ out
   eax : s.gpr .eax = 0
-  edx : s.gpr .edx = C32 s₀ 656
   esi : s.gpr .esi = C32 s₀ 448
 
 theorem fiA_ok {s₀ : State} {s : State} (h : Inv s₀ s) (out : Nat) :
-    WP isa (.block (ptr .ecx .edi out ++ [.mov .eax (.imm 0)] ++ ptr .edx .edi 656 ++ ptr .esi .edi 448)) s
+    WP isa (.block (ptr .ebx .edi 672 ++ ptr .ecx .edi out ++ [.mov .eax (.imm 0)] ++ ptr .esi .edi 448)) s
       fun s' => FiA s₀ out s' ∧ s'.mem = s.mem := by
-  rw [show (ptr .ecx .edi out ++ [.mov .eax (.imm 0)] ++ ptr .edx .edi 656 ++ ptr .esi .edi 448 : List Instr) =
-    ptr .ecx .edi out ++ (.mov .eax (.imm 0) :: (ptr .edx .edi 656 ++ ptr .esi .edi 448)) by simp]
-  refine WP.block_append (WP.mono (ptr_ok .ecx .edi out s) fun s₁ ⟨e₁, g₁, rd₁, wr₁, m₁⟩ => ?_)
-  refine wp_movi fun s₂ u₂ _ => ?_
-  refine WP.block_append (WP.mono (ptr_ok .edx .edi 656 s₂) fun s₃ ⟨e₃, g₃, rd₃, wr₃, m₃⟩ => ?_)
+  rw [show (ptr .ebx .edi 672 ++ ptr .ecx .edi out ++ [.mov .eax (.imm 0)] ++ ptr .esi .edi 448 : List Instr) =
+    ptr .ebx .edi 672 ++ (ptr .ecx .edi out ++ (.mov .eax (.imm 0) :: ptr .esi .edi 448)) by simp]
+  refine WP.block_append (WP.mono (ptr_ok .ebx .edi 672 s) fun s₁ ⟨e₁, g₁, rd₁, wr₁, m₁⟩ => ?_)
+  refine WP.block_append (WP.mono (ptr_ok .ecx .edi out s₁) fun s₂ ⟨e₂, g₂, rd₂, wr₂, m₂⟩ => ?_)
+  refine wp_movi fun s₃ u₃ _ => ?_
   refine WP.mono (ptr_ok .esi .edi 448 s₃) fun s₄ ⟨e₄, g₄, rd₄, wr₄, m₄⟩ => ?_
-  have edi₂ : s₂.gpr .edi = CX s₀ := by rw [u₂.other _ (by decide), g₁ _ (by decide), h.edi]
-  have mm : s₄.mem = s.mem := by rw [m₄, m₃, u₂.mem, m₁]
-  refine ⟨⟨h.step (by rw [g₄ _ (by decide), g₃ _ (by decide), edi₂, h.edi])
-    (by rw [g₄ _ (by decide), g₃ _ (by decide), u₂.other _ (by decide), g₁ _ (by decide)])
-    (by rw [rd₄, rd₃, u₂.rd, rd₁]) (by rw [wr₄, wr₃, u₂.wr, wr₁]) (rs := [])
+  have edi₁ : s₁.gpr .edi = CX s₀ := by rw [g₁ _ (by decide), h.edi]
+  have edi₂ : s₂.gpr .edi = CX s₀ := by rw [g₂ _ (by decide), edi₁]
+  have edi₃ : s₃.gpr .edi = CX s₀ := by rw [u₃.other _ (by decide), edi₂]
+  have mm : s₄.mem = s.mem := by rw [m₄, u₃.mem, m₂, m₁]
+  refine ⟨⟨h.step (by rw [g₄ _ (by decide), edi₃, h.edi])
+    (by rw [g₄ _ (by decide), u₃.other _ (by decide), g₂ _ (by decide), g₁ _ (by decide)])
+    (by rw [rd₄, u₃.rd, rd₂, rd₁]) (by rw [wr₄, u₃.wr, wr₂, wr₁]) (rs := [])
     (by rw [mm]; exact Frame.refl _ _) (by simp) (by simp), ?_, ?_, ?_, ?_⟩, mm⟩
-  · rw [g₄ _ (by decide), g₃ _ (by decide), u₂.other _ (by decide), e₁, h.edi]
-  · rw [g₄ _ (by decide), g₃ _ (by decide), u₂.gpr]
-  · rw [g₄ _ (by decide), e₃, edi₂]
-  · rw [e₄, g₃ _ (by decide), edi₂]
+  · rw [g₄ _ (by decide), u₃.other _ (by decide), g₂ _ (by decide), e₁, h.edi]
+  · rw [g₄ _ (by decide), u₃.other _ (by decide), e₂, edi₁]
+  · rw [g₄ _ (by decide), u₃.gpr]
+  · rw [e₄, edi₃]
 
 theorem finalizeTo_eq (out : Nat) : finalizeTo out =
-    .seq (.block (ptr .ecx .edi out ++ [.mov .eax (.imm 0)] ++ ptr .edx .edi 656 ++ ptr .esi .edi 448))
-      (callWith [.ecx, .eax, .edx, .esi] "vg_poly1305_finalize" Impl.Poly1305.X86.finalize) := rfl
+    .seq (.block (ptr .ebx .edi 672 ++ ptr .ecx .edi out ++ [.mov .eax (.imm 0)] ++ ptr .esi .edi 448))
+      (callWith finRegs "vg_poly1305_finalize" Impl.Poly1305.X86.finalize) := rfl
 
 /-- What the tag's computation keeps: enough to restore the registers. -/
 structure Fin (s₀ s : State) : Prop where
@@ -251,21 +253,23 @@ structure Fin (s₀ s : State) : Prop where
 theorem Inv.fin {s₀ s : State} (h : Inv s₀ s) : Fin s₀ s := ⟨h.at, h.edi, h.saved⟩
 
 theorem fiB_ok {s₀ : State} (hp : APre s₀) {out : Nat} (ho : OutOk out) {s : State} (h : FiA s₀ out s) :
-    WP isa (callWith [.ecx, .eax, .edx, .esi] "vg_poly1305_finalize" Impl.Poly1305.X86.finalize) s fun s' =>
-      Fin s₀ s' ∧ Frame [sub s₀ 448 128, sub s₀ out 16, stkR s₀] s.mem s'.mem ∧
+    WP isa (callWith finRegs "vg_poly1305_finalize" Impl.Poly1305.X86.finalize) s fun s' =>
+      Fin s₀ s' ∧ Frame [sub s₀ 448 128, sub s₀ out 16, sub s₀ 672 128, stkR s₀] s.mem s'.mem ∧
       ∀ key msg, Repr s.mem (cx s₀ + BitVec.ofNat 64 448) key msg →
         bytesAt s'.mem (cx s₀ + BitVec.ofNat 64 out) 16 = mac key msg := by
-  refine finalize_call hp h.inv.at ho h.ecx h.eax h.edx h.esi fun s' at' cs' f' t' =>
+  refine finalize_call hp h.inv.at ho h.ebx h.ecx h.eax h.esi fun s' at' cs' f' t' =>
     ⟨⟨at', by rw [cs' .edi (by simp [calleeSaved]), h.inv.edi], h.inv.saved.frame f' fun r hr => ?_⟩, f', t'⟩
   unfold OutOk at ho
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl
+  rcases hr with rfl | rfl | rfl | rfl
+  · exact sub_disj s₀ (by omega) (by omega) (by omega)
   · exact sub_disj s₀ (by omega) (by omega) (by omega)
   · exact sub_disj s₀ (by omega) (by omega) (by omega)
   · exact (hp.stk_sub (by omega)).symm
 
 theorem finalizeTo_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) {out : Nat} (ho : OutOk out) :
-    WP isa (finalizeTo out) s fun s' => Fin s₀ s' ∧ Frame [sub s₀ 448 128, sub s₀ out 16, stkR s₀] s.mem s'.mem ∧
+    WP isa (finalizeTo out) s fun s' => Fin s₀ s' ∧
+      Frame [sub s₀ 448 128, sub s₀ out 16, sub s₀ 672 128, stkR s₀] s.mem s'.mem ∧
       ∀ key msg, Repr s.mem (cx s₀ + BitVec.ofNat 64 448) key msg →
         bytesAt s'.mem (cx s₀ + BitVec.ofNat 64 out) 16 = mac key msg := by
   rw [finalizeTo_eq]
