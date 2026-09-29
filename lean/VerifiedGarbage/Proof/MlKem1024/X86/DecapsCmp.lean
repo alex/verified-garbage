@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.MlKem.X86.CheckEk
 /-!
 # ML-KEM-1024 on x86 (32-bit): the implicit rejection in `vg_mlkem1024_decaps`
 
-Untrusted: everything here is checked by Lean. `cmpC` compares `ct` with
-`c'` (at `eC`) without branching on them: `ebx` is the OR of the XORs of
+Untrusted: everything here is checked by Lean. `cmp4C` compares `ct` with
+`c'` (at `e4C`) without branching on them: `ebx` is the OR of the XORs of
 their bytes (`accB`), then all ones if it is 0 and zero otherwise (`sub`,
 `sbb`), which is all ones exactly when `ct = c'` (`eq_iff_foldl_or_xor`):
-`cmp_piece`. `selC` writes `K̄ ^ ((K' ^ K̄) & mask)` byte by byte into `key`
+`cmp_piece`. `sel4C` writes `K̄ ^ ((K' ^ K̄) & mask)` byte by byte into `key`
 (`sel_piece`): `K'` if the mask is all ones, and `K̄` if it is zero.
 -/
 

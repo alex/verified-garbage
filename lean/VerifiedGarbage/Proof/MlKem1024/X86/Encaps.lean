@@ -5,15 +5,16 @@ import VerifiedGarbage.Spec.MlKem.Contract1024
 /-!
 # ML-KEM-1024 on x86 (32-bit): `vg_mlkem1024_encaps`
 
-Untrusted: everything here is checked by Lean. The layout of the arguments
-(`Y`: `ek`, `m`, `key`, `ct`, `scratch`, and the 88 bytes of stack), which the
+Untrusted: everything here is checked by Lean. The proof of
+`vg_mlkem768_encaps` (`Proof/MlKem/X86/Encaps.lean`) for `k = 4`. The layout of
+the arguments (`Y`: `ek`, `m`, `key`, `ct`, `scratch`, and the 88 bytes of stack), which the
 contract's precondition implies (`pre_of`); the public data, `ρ` (`pub_of`).
 `ek` and `m` are copied into `scratch`, `H(ek)` and `G(m ‖ H(ek))` hashed
 (`start_piece`), the ciphertext computed (`Enc.encrypt_piece`), and `K` and
 the ciphertext copied out (`fin_piece`). If every `SampleNTT` succeeded,
 K-PKE.Encrypt succeeds with the matrix sampled within one bound on their
-iterations (`kpkeEncrypt768_some`); if one failed within `minIterations`,
-it fails with that bound (`kpkeEncrypt768_none`).
+iterations (`kpkeEncrypt1024_some`); if one failed within `minIterations`,
+it fails with that bound (`kpkeEncrypt1024_none`).
 -/
 
 namespace VG.Proof.MlKem1024.X86.Encaps
@@ -179,7 +180,7 @@ structure F2 (s₀ s : State) : Prop extends F1 s₀ s where
   ct : Enc.accE Y s₀ s = 1 →
     bytesAt s.mem (Buf.addr s₀ ⟨3, 0, 1568⟩) 1568 = ct1024 (Enc.aE I s₀) (Encaps.ek s₀) (msg s₀) (Enc.rE I s₀)
 
-/-- After `eACC` is loaded, to be returned. -/
+/-- After `e4ACC` is loaded, to be returned. -/
 structure Fin (s₀ s : State) : Prop extends F2 s₀ s where
   eax : s.gpr .eax = Enc.accE Y s₀ s
 

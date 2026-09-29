@@ -5,8 +5,9 @@ import VerifiedGarbage.Spec.MlKem.Contract1024
 /-!
 # ML-KEM-1024 on x86 (32-bit): the setting of `vg_mlkem1024_decaps`
 
-Untrusted: everything here is checked by Lean. The layout of the arguments
-(`Y`: `dk`, `ct`, `key`, `scratch`, and the 88 bytes of stack), which the
+Untrusted: everything here is checked by Lean. The proof of
+`vg_mlkem768_decaps` (`Proof/MlKem/X86/Decaps*.lean`) for `k = 4`. The layout of
+the arguments (`Y`: `dk`, `ct`, `key`, `scratch`, and the 88 bytes of stack), which the
 contract's precondition implies (`pre_of`); the public data, `ρ`
 (`pub_of`), which is that of the encapsulation key in `dk` (`rho_eq`); and
 the values the body computes: `m'` (`mD`), and the inputs of the

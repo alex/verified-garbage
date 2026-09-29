@@ -7,8 +7,8 @@ Untrusted: everything here is checked by Lean. The end of row `i`
 (`row_piece`): `u[i] = NTT⁻¹(Â^⊺[i] ∘ ŷ) + e₁[i]`, compressed into the
 ciphertext. Then `v` (`v_piece`): the products `t̂[j] ×_T ŷ[j]`, with `t̂[j]`
 decoded from `ek` (`term0_piece`, `term_piece`), summed, `NTT⁻¹`, `e₂` and `μ`
-added, and `v` compressed into the ciphertext. `encrypt` takes the inputs
-(`Base`) to `Done` (`encrypt_piece`): if `eACC` is 1, the ciphertext is
+added, and `v` compressed into the ciphertext. `encrypt4` takes the inputs
+(`Base`) to `Done` (`encrypt_piece`): if `e4ACC` is 1, the ciphertext is
 K-PKE.Encrypt's for the matrix `aE` sampled (`ct_eq`), each of whose entries
 was sampled within some bound (`samples`); if 0, one sample failed within
 `minIterations`.
@@ -250,7 +250,7 @@ theorem v_piece (hS : SOK Y) {I : Inp} :
 
 /-! ## K-PKE.Encrypt -/
 
-/-- `encrypt`, from its inputs. -/
+/-- `encrypt4`, from its inputs. -/
 theorem encrypt_piece (hS : SOK Y) {I : Inp} (hρ : RhoPub Y lk I) :
     Piece (TPre Y) (TPub Y lk) (Base Y I) (Done Y I) (encrypt4 Y.sc) :=
   ys_piece hS <| .seq (Piece.mono (row_piece hS hρ 0 (by decide) (by sc_taint) (by sc_taint) (by sc_taint))

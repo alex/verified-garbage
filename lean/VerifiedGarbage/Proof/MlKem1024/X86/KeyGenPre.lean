@@ -7,8 +7,9 @@ import VerifiedGarbage.Spec.MlKem.Contract1024
 /-!
 # ML-KEM-1024 on x86 (32-bit): the setting of `vg_mlkem1024_keygen`
 
-Untrusted: everything here is checked by Lean. The layout of the arguments
-(`Y`: `seed`, `ek`, `dk`, `scratch`, and the 88 bytes of stack), which the
+Untrusted: everything here is checked by Lean. The proof of
+`vg_mlkem768_keygen` (`Proof/MlKem/X86/KeyGen*.lean`) for `k = 4`. The layout of
+the arguments (`Y`: `seed`, `ek`, `dk`, `scratch`, and the 88 bytes of stack), which the
 contract's precondition implies (`pre_of`); the public data, which includes
 `ρ` (`pub_of`); and `d`, `z` and the values the body computes from them.
 -/

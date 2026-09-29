@@ -3,14 +3,14 @@ import VerifiedGarbage.Proof.MlKem1024.X86.EncY
 /-!
 # ML-KEM-1024 on x86 (32-bit): `u` in K-PKE.Encrypt
 
-Untrusted: everything here is checked by Lean. Row `i` (`encRow i`): each
+Untrusted: everything here is checked by Lean. Row `i` (`enc4Row i`): each
 entry `Â[j, i]` is sampled from `ρ ‖ i ‖ j`, masked by the value
-`vg_mlkem_sample_ntt` returned, which is ANDed into `eACC` (`sample_piece`),
+`vg_mlkem_sample_ntt` returned, which is ANDed into `e4ACC` (`sample_piece`),
 and multiplied by `ŷ[j]` into `u[i]` (`entry0_piece`, `entry_piece`); then
 `NTT⁻¹`, `e₁[i]` added, and `u[i]` compressed into the ciphertext
 (`row_piece`).
 
-`B k e` is what holds after `k` entries and `e` rows: `eACC` is 0 or 1; if 1,
+`B k e` is what holds after `k` entries and `e` rows: `e4ACC` is 0 or 1; if 1,
 the first `k` samples succeeded, and the first `e` rows of the ciphertext
 are those of K-PKE.Encrypt for the matrix `aE` they sampled; if 0, one of the
 sixteen samples failed within `minIterations` iterations. The seeds are
@@ -59,7 +59,7 @@ structure B (Y : Lay) (I : Inp) (k e : Nat) (s₀ s : State) : Prop extends Base
 /-- Whether `bs` is apart from the inputs and `ŷ`. -/
 def safeS (Y : Lay) (bs : List Buf) : Bool := inApart Y bs && (List.range 4).all fun j => Y.apart (bY Y.sc j) bs
 
-/-- Whether `bs` is also apart from `eACC` and the rows of the ciphertext. -/
+/-- Whether `bs` is also apart from `e4ACC` and the rows of the ciphertext. -/
 def safe (Y : Lay) (bs : List Buf) : Bool :=
   Y.apart (bACC Y.sc) bs && safeS Y bs && (List.range 4).all fun i => Y.apart (bCU Y.sc i) bs
 
@@ -135,7 +135,7 @@ structure S3 (Y : Lay) (I : Inp) (i j : Nat) (s₀ s : State) : Prop extends R Y
   out : Outcome (fun iters => sampleNTT iters (matSeed (ρE I s₀) j i)) (s.gpr .eax)
     (polyAt s.mem (Buf.addr s₀ (bA Y.sc)))
 
-/-- After it is masked, and `eACC` updated. -/
+/-- After it is masked, and `e4ACC` updated. -/
 structure S4 (Y : Lay) (I : Inp) (i j : Nat) (s₀ s : State) : Prop extends B Y I (4 * i + j + 1) i s₀ s where
   u : 0 < j → Reduced s.mem (Buf.addr s₀ (bU Y.sc)) ∧
     (accE Y s₀ s = 1 → polyAt s.mem (Buf.addr s₀ (bU Y.sc)) = partU I s₀ i j)

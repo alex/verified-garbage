@@ -10,8 +10,8 @@ Untrusted: everything here is checked by Lean. `m'` is decrypted
 `c` and `c'` compared and `K'` or `K̄` selected into `key` (`DecapsCmp.lean`)
 without branching (`fin_piece`). If every `SampleNTT` succeeded, K-PKE.Encrypt
 succeeds with the matrix sampled within one bound on their iterations
-(`kpkeEncrypt768_some`); if one failed within `minIterations`, it fails with
-that bound (`kpkeEncrypt768_none`).
+(`kpkeEncrypt1024_some`); if one failed within `minIterations`, it fails with
+that bound (`kpkeEncrypt1024_none`).
 -/
 
 namespace VG.Proof.MlKem1024.X86.Decaps
@@ -74,7 +74,7 @@ structure J3 (s₀ s : State) : Prop extends Enc.Done Y I s₀ s where
   key : bytesAt s.mem (Buf.addr s₀ bKey) 32 =
     if ct s₀ = bytesAt s.mem (Buf.addr s₀ bC) 1568 then (krD s₀).take 32 else kbar s₀
 
-/-- After `eACC` is loaded, to be returned. -/
+/-- After `e4ACC` is loaded, to be returned. -/
 structure Fin (s₀ s : State) : Prop extends J3 s₀ s where
   eax : s.gpr .eax = Enc.accE Y s₀ s
 
