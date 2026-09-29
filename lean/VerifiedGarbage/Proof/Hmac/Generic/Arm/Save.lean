@@ -136,7 +136,7 @@ def saved8 : List (Reg × Nat) :=
     (.r9, 8 * H.W + 20), (.r10, 8 * H.W + 24), (.lr, 8 * H.W + 28)]
 
 theorem restore_eq :
-    H.restore = (saved8 H).map (fun p => Instr.ldr p.1 .r11 p.2) ++ [.ldr .r11 .r11 (8 * H.W + 32)] := rfl
+    H.restore = (saved8 H).map (fun p => Instr.ldr p.1 .r11 p.2) ++ ([.ldr .r11 .r11 (8 * H.W + 32)] : List Instr) := rfl
 
 theorem saved8_fst : (saved8 H).map Prod.fst = [.r4, .r5, .r6, .r7, .r8, .r9, .r10, .lr] := rfl
 
