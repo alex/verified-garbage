@@ -4,7 +4,12 @@
 //! and `tests/rfc2202/`), and the others too, so these tests always run. A
 //! module here for each hash function.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 mod md5;
 mod sha1;

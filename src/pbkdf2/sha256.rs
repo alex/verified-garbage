@@ -13,7 +13,12 @@
 //! verified code calling `vg_sha256_compress_shani`, with the same contract;
 //! likewise `vg_pbkdf2_hmac_sha256_iterate_avx2` with AVX2.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use core::num::NonZeroU32;
 
@@ -62,8 +67,8 @@ impl super::Pbkdf2Hash for Sha256 {
         // reads and writes of 832 bytes; `t` and `scratch` are distinct
         // objects from each other and the others (`key` and `u` are only
         // read), so they do not overlap each other, the stack arguments (on
-        // ARMv7) or (on x86-64) the return address and the stack below it,
-        // nor wrap around the address space. `key.states` holds the
+        // ARMv7 and x86), the return address and the stack below it (on
+        // x86-64 and x86), nor wrap around the address space. `key.states` holds the
         // streaming states for `K₀ ⊕ ipad` and `K₀ ⊕ opad` that
         // `vg_hmac_sha256_init` left. On x86-64, `iterate` needs the CPU
         // features of the SHA-256 implementation the HMAC computation was
