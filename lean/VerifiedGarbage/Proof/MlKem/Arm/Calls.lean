@@ -109,7 +109,7 @@ theorem mulL {L : Lay} {s : State} (hL : L.Ok) {ih oh jf of kg og ls os : Nat}
   refine mul_call a fun s' hk hp => hQ s' (by simp only [mulWr, eh, es] at hk; exact hk) ?_
   rw [eh, ef, eg, hf.2, hg.2] at hp; exact hp
 
-/-! ## `vg_mlkem_ntt`, `vg_mlkem_ntt_inv` -/
+/-! ## `vg_mlkem_ntt`, `vg_mlkem_inv_ntt` -/
 
 def kNtt : Contract isa := mkK Ntt.Pre (fun s₀ s => PolyIs s.mem (Ntt.F s₀) (ntt (Ntt.P s₀))) (regsEq [.r0, .r1])
 

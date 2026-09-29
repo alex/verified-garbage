@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.MlKem.Arm.Ntt
 
 /-!
-# ML-KEM on 32-bit ARM: `vg_mlkem_ntt_inv`
+# ML-KEM on 32-bit ARM: `vg_mlkem_inv_ntt`
 
 Untrusted: everything here is checked by Lean. As `vg_mlkem_ntt`
 (`Proof/MlKem/Arm/Ntt.lean`, whose setup facts and environment it shares):

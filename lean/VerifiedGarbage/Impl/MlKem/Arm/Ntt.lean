@@ -25,7 +25,7 @@ calls, so `lr` is never written, and they use no stack.
   `zetas[1]`); for each block, its zeta in `r7`, and `len` butterflies on
   `r2 = f + 4j` and `r3 = f + 4(j + len)`, counted by `r11`; the next block
   starts where the butterflies left `r3`, until `r2 = r0`.
-* `vg_mlkem_ntt_inv(f = r0, scratch = r1)`: the same for Algorithm 10, with
+* `vg_mlkem_inv_ntt(f = r0, scratch = r1)`: the same for Algorithm 10, with
   `r10` from 8 (doubled, until it is 1024), the zetas from `zetas[127]`
   down, and the inverse butterflies; then every coefficient times 3303.
 * `vg_mlkem_multiply_ntts(h = r0, f = r1, g = r2, scratch = r3)`: for each

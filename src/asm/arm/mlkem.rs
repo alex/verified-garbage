@@ -528,7 +528,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem_ntt(f: *mut [u32; 256], scratch: *mut [
 /// * `f` and `scratch` must not overlap each other (distinct Rust objects never do).
 /// * Neither `f` nor `scratch` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_mlkem_ntt_inv(f: *mut [u32; 256], scratch: *mut [u64; 128]) {
+pub(crate) unsafe extern "C" fn vg_mlkem_inv_ntt(f: *mut [u32; 256], scratch: *mut [u64; 128]) {
     core::arch::naked_asm!(
         "str r4, [r1, #512]",
         "str r5, [r1, #516]",
