@@ -743,8 +743,8 @@ def untouched : List Reg := [.x21, .x22, .x23, .x24, .x25, .x26, .x27, .x28, .x2
 
 theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs Impl.ChaCha20.AArch64.Xor.xor, dstOf i ≠ some r := by
   have : ((instrs Impl.ChaCha20.AArch64.Xor.xor).all fun i => untouched.all fun r => dstOf i != some r) =
-      true := by
-    rw [← Code.allInstrs_eq]; decide +kernel
+      true :=
+    instrs_keeps (by decide +kernel)
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this

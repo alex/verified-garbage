@@ -650,8 +650,8 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
 
 /-- No instruction of `updateMain` writes the callee-saved registers it does not save. -/
 theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs updateMain, dstOf i ≠ some r := by
-  have : ((instrs updateMain).all fun i => untouched.all fun r => dstOf i != some r) = true := by
-    rw [← Code.allInstrs_eq]; decide +kernel
+  have : ((instrs updateMain).all fun i => untouched.all fun r => dstOf i != some r) = true :=
+    instrs_keeps (by decide +kernel)
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this
