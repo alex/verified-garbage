@@ -8,7 +8,12 @@
 //! verified code calling `vg_sha1_update_shani` and `vg_sha1_finalize_shani`,
 //! with the same contract.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use crate::arch::pbkdf2_sha1::vg_pbkdf2_hmac_sha1_iterate;
 #[cfg(target_arch = "x86_64")]

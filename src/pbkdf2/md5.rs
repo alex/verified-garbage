@@ -3,7 +3,12 @@
 //! PBKDF2 iteration for every streaming hash function, calling MD5's verified
 //! functions.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use crate::arch::pbkdf2_md5::vg_pbkdf2_hmac_md5_iterate;
 use crate::hashes::md5::{Md5, Md5Backend};
