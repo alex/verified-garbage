@@ -103,7 +103,8 @@ abbrev target : Target where
   isa := isa
   printer := printer
   abiPreserved := abiPreserved
-  rustCfg := "target_arch = \"x86_64\""
+  -- x32 targets (`x86_64-unknown-linux-gnux32`) have 32-bit pointers.
+  rustCfg := "all(target_arch = \"x86_64\", target_pointer_width = \"64\")"
   rustAbi := "sysv64"
   abi := abi
 

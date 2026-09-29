@@ -43,7 +43,11 @@ structure Target where
   returns, relating the entry state to the exit state (callee-saved
   registers and the stack pointer restored, return address intact). -/
   abiPreserved : isa.State → isa.State → Prop
-  /-- The Rust `cfg` predicate under which this target's functions are compiled. -/
+  /-- The Rust `cfg` predicate under which this target's functions are
+  compiled. It must exclude every configuration of the architecture that the
+  model does not describe: memory is little-endian in every ISA model
+  (`TCB/Mem.lean`), and pointers have `abi`'s width (`Abi.ptrBits`), which
+  the contracts assume. -/
   rustCfg : String
   /-- The Rust ABI string of the generated functions (e.g. `sysv64`). -/
   rustAbi : String
