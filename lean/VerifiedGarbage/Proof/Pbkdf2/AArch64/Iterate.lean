@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.AArch64.Body
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Spec.Pbkdf2.Contract
 
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on AArch64
@@ -316,12 +318,16 @@ def sat : State where
   rd := [⟨0x1000, 192⟩, ⟨0x2000, 32⟩]
   wr := [⟨0x3000, 32⟩, ⟨0x4000, 384⟩]
 
-theorem iterate_verified : Verified AArch64.target iterate Proof.Pbkdf2.iterateSha256AArch64 := by
-  refine ⟨fun s hs => correct hs,
-    ct_of (τ := VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) (fun _ _ hp => agree₀ hp) (by taint_decide), ?_⟩
-  refine ⟨sat, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, sat] at h₁ h₂
-    bv_omega
+theorem iterate_ct : ConstantTime isa Proof.Pbkdf2.iterateSha256AArch64.pre
+    Proof.Pbkdf2.iterateSha256AArch64.pub iterate :=
+  ct_of (τ := VG.AArch64.Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) (fun _ _ hp => agree₀ hp)
+    (by taint_decide)
+
+theorem iterate_verified :
+    Verified AArch64.target Impl.Pbkdf2.AArch64.iterate
+      (Spec.Pbkdf2.iterateSha256Contract AArch64.abi) :=
+  Verified.of_correct (fun _ hs => correct hs) iterate_ct (by
+    sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig,
+      Proof.Pbkdf2.iterateSha256AArch64, AArch64.abi, AArch64.argRegs] [sat] using sat)
 
 end VG.Proof.Pbkdf2.AArch64

@@ -1,4 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Arm.Body
+import VerifiedGarbage.Proof.Framework.Arm.Contract
+import VerifiedGarbage.Spec.Pbkdf2.Contract
 
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on ARMv7
@@ -351,18 +353,23 @@ def sat : State where
   rd := [⟨0x1000, 192⟩, ⟨0x2000, 32⟩, ⟨0x5000, 4⟩]
   wr := [⟨0x3000, 32⟩, ⟨0x4000, 384⟩]
 
-theorem iterate_verified : Verified Arm.target iterate Proof.Pbkdf2.iterateSha256Arm := by
-  refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-    exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
-  · have e0 : stackArg sat 0 = 0x4000 := by decide
-    refine ⟨sat, ?_⟩
-    simp only [Proof.Pbkdf2.iterateSha256Arm, e0]
-    refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-      by decide, by decide, by decide, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+theorem iterate_correct (s : State) (hs : Proof.Pbkdf2.iterateSha256Arm.pre s) :
+    ∃ t s', Exec isa iterate s t s' ∧ abiPreserved s s' ∧ Proof.Pbkdf2.iterateSha256Arm.post s s' :=
+      by
+  obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  exact ⟨t, s', he, h⟩
+
+theorem iterate_ct : ConstantTime isa Proof.Pbkdf2.iterateSha256Arm.pre
+    Proof.Pbkdf2.iterateSha256Arm.pub iterate := by
+  exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
+    (by taint_decide)
+
+theorem iterate_verified :
+    Verified Arm.target Impl.Pbkdf2.Arm.iterate (Spec.Pbkdf2.iterateSha256Contract Arm.abi) :=
+  Verified.of_correct iterate_correct iterate_ct (by
+    sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig,
+      Proof.Pbkdf2.iterateSha256Arm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val,
+      Arm.State.addr] [Proof.Pbkdf2.Arm.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW, Mem.read]
+      using Proof.Pbkdf2.Arm.sat)
 
 end VG.Proof.Pbkdf2.Arm
