@@ -1297,7 +1297,8 @@ pub(crate) unsafe extern "C" fn vg_chacha20_block(state: *const [u32; 16], buf: 
 /// * `state` must be valid for reads and writes of 64 bytes; its contents on return are unspecified.
 /// * `data` must be valid for reads and writes of `len` bytes.
 /// * `buf` must be valid for reads and writes of 320 bytes; its contents on return are unspecified.
-/// * These three regions must not overlap each other, and none of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `state`, `data` and `buf` must not overlap each other (distinct Rust objects never do).
+/// * None of `state`, `data` and `buf` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80]) {
     core::arch::naked_asm!(
