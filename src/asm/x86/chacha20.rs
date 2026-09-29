@@ -9,7 +9,8 @@
 /// # Safety
 ///
 /// * `state` must be valid for reads of 64 bytes.
-/// * `buf` must be valid for reads and writes of 256 bytes. On return its first 64 bytes hold the result and the rest is unspecified.
+/// * `buf` must be valid for reads and writes of 256 bytes.
+/// * On return the first 64 bytes of `buf` hold the result and the rest is unspecified.
 /// * `buf` must not overlap `state` or the arguments on the stack (distinct Rust objects never do).
 /// * Neither `state` nor `buf` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -1718,9 +1719,11 @@ pub(crate) unsafe extern "C" fn vg_chacha20_block(state: *const [u32; 16], buf: 
 ///
 /// # Safety
 ///
-/// * `state` must be valid for reads and writes of 64 bytes; its contents on return are unspecified.
+/// * `state` must be valid for reads and writes of 64 bytes.
 /// * `data` must be valid for reads and writes of `len` bytes.
-/// * `buf` must be valid for reads and writes of 320 bytes; its contents on return are unspecified.
+/// * `buf` must be valid for reads and writes of 320 bytes.
+/// * The contents of `state` on return are unspecified.
+/// * The contents of `buf` on return are unspecified.
 /// * `state`, `data` and `buf` must not overlap each other (distinct Rust objects never do).
 /// * None of `state`, `data` and `buf` may overlap the arguments on the stack, overlap the return address on the stack or the 12 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]

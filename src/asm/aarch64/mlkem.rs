@@ -8,8 +8,10 @@
 ///
 /// # Safety
 ///
-/// * `f` must be valid for reads and writes of 1024 bytes, and each of its 256 `u32`s must be less than 3329.
-/// * `g` must be valid for reads of 1024 bytes, and each of its 256 `u32`s must be less than 3329.
+/// * `f` must be valid for reads and writes of 1024 bytes.
+/// * `g` must be valid for reads of 1024 bytes.
+/// * Each of the 256 `u32`s of `f` must be less than 3329.
+/// * Each of the 256 `u32`s of `g` must be less than 3329.
 /// * `f` must not overlap `g` (distinct Rust objects never do).
 /// * Neither `f` nor `g` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -39,8 +41,10 @@ pub(crate) unsafe extern "C" fn vg_mlkem_add(f: *mut [u32; 256], g: *const [u32;
 ///
 /// # Safety
 ///
-/// * `f` must be valid for reads and writes of 1024 bytes, and each of its 256 `u32`s must be less than 3329.
-/// * `g` must be valid for reads of 1024 bytes, and each of its 256 `u32`s must be less than 3329.
+/// * `f` must be valid for reads and writes of 1024 bytes.
+/// * `g` must be valid for reads of 1024 bytes.
+/// * Each of the 256 `u32`s of `f` must be less than 3329.
+/// * Each of the 256 `u32`s of `g` must be less than 3329.
 /// * `f` must not overlap `g` (distinct Rust objects never do).
 /// * Neither `f` nor `g` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -71,8 +75,9 @@ pub(crate) unsafe extern "C" fn vg_mlkem_sub(f: *mut [u32; 256], g: *const [u32;
 ///
 /// # Safety
 ///
-/// * `f` must be valid for reads of 1024 bytes, and each of its 256 `u32`s must be less than 3329.
-/// * `out` must be valid for writes of 384 bytes.
+/// * `f` must be valid for reads of 1024 bytes.
+/// * `out` must be valid for reads and writes of 384 bytes.
+/// * Each of the 256 `u32`s of `f` must be less than 3329.
 /// * `out` must not overlap `f` (distinct Rust objects never do).
 /// * Neither `f` nor `out` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -104,7 +109,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem_encode12(f: *const [u32; 256], out: *mu
 /// # Safety
 ///
 /// * `b` must be valid for reads of 384 bytes.
-/// * `f` must be valid for writes of 1024 bytes.
+/// * `f` must be valid for reads and writes of 1024 bytes.
 /// * `f` must not overlap `b` (distinct Rust objects never do).
 /// * Neither `b` nor `f` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -146,7 +151,7 @@ pub(crate) unsafe extern "C" fn vg_mlkem_decode12(b: *const [u8; 384], f: *mut [
 /// # Safety
 ///
 /// * `b` must be valid for reads of 128 bytes.
-/// * `f` must be valid for writes of 1024 bytes.
+/// * `f` must be valid for reads and writes of 1024 bytes.
 /// * `f` must not overlap `b` (distinct Rust objects never do).
 /// * Neither `b` nor `f` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -194,9 +199,10 @@ pub(crate) unsafe extern "C" fn vg_mlkem_cbd2(b: *const [u8; 128], f: *mut [u32;
 ///
 /// # Safety
 ///
+/// * `f` must be valid for reads of 1024 bytes.
+/// * `out` must be valid for reads and writes of `len` bytes.
 /// * `d` must be 1, 4 or 10, and `len` must be `32 * d`.
-/// * `f` must be valid for reads of 1024 bytes, and each of its 256 `u32`s must be less than 3329.
-/// * `out` must be valid for writes of `len` bytes.
+/// * Each of the 256 `u32`s of `f` must be less than 3329.
 /// * `out` must not overlap `f` (distinct Rust objects never do).
 /// * Neither `f` nor `out` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -392,9 +398,9 @@ pub(crate) unsafe extern "C" fn vg_mlkem_compress_encode(f: *const [u32; 256], d
 ///
 /// # Safety
 ///
-/// * `d` must be 1, 4 or 10, and `len` must be `32 * d`.
 /// * `b` must be valid for reads of `len` bytes.
-/// * `f` must be valid for writes of 1024 bytes.
+/// * `f` must be valid for reads and writes of 1024 bytes.
+/// * `d` must be 1, 4 or 10, and `len` must be `32 * d`.
 /// * `f` must not overlap `b` (distinct Rust objects never do).
 /// * Neither `b` nor `f` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -583,10 +589,13 @@ pub(crate) unsafe extern "C" fn vg_mlkem_decode_decompress(b: *const u8, len: us
 ///
 /// # Safety
 ///
-/// * `h` must be valid for writes of 1024 bytes.
-/// * `f` must be valid for reads of 1024 bytes, and each of its 256 `u32`s must be less than 3329.
-/// * `g` must be valid for reads of 1024 bytes, and each of its 256 `u32`s must be less than 3329.
-/// * `scratch` must be valid for reads and writes of 1024 bytes. It is working space: on return it may hold intermediate values, which the caller must destroy (FIPS 203 §3.3).
+/// * `h` must be valid for reads and writes of 1024 bytes.
+/// * `f` must be valid for reads of 1024 bytes.
+/// * `g` must be valid for reads of 1024 bytes.
+/// * `scratch` must be valid for reads and writes of 1024 bytes.
+/// * Each of the 256 `u32`s of `f` must be less than 3329.
+/// * Each of the 256 `u32`s of `g` must be less than 3329.
+/// * `scratch` is working space: on return it may hold intermediate values, which the caller must destroy (FIPS 203 §3.3).
 /// * `h` and `scratch` must not overlap each other, `f` or `g` (distinct Rust objects never do).
 /// * None of `h`, `f`, `g` and `scratch` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -904,8 +913,10 @@ pub(crate) unsafe extern "C" fn vg_mlkem_multiply_ntts(h: *mut [u32; 256], f: *c
 ///
 /// # Safety
 ///
-/// * `f` must be valid for reads and writes of 1024 bytes, and each of its 256 `u32`s must be less than 3329.
-/// * `scratch` must be valid for reads and writes of 1024 bytes. It is working space: on return it may hold intermediate values, which the caller must destroy (FIPS 203 §3.3).
+/// * `f` must be valid for reads and writes of 1024 bytes.
+/// * `scratch` must be valid for reads and writes of 1024 bytes.
+/// * Each of the 256 `u32`s of `f` must be less than 3329.
+/// * `scratch` is working space: on return it may hold intermediate values, which the caller must destroy (FIPS 203 §3.3).
 /// * `f` and `scratch` must not overlap each other (distinct Rust objects never do).
 /// * Neither `f` nor `scratch` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -1228,8 +1239,10 @@ pub(crate) unsafe extern "C" fn vg_mlkem_ntt(f: *mut [u32; 256], scratch: *mut [
 ///
 /// # Safety
 ///
-/// * `f` must be valid for reads and writes of 1024 bytes, and each of its 256 `u32`s must be less than 3329.
-/// * `scratch` must be valid for reads and writes of 1024 bytes. It is working space: on return it may hold intermediate values, which the caller must destroy (FIPS 203 §3.3).
+/// * `f` must be valid for reads and writes of 1024 bytes.
+/// * `scratch` must be valid for reads and writes of 1024 bytes.
+/// * Each of the 256 `u32`s of `f` must be less than 3329.
+/// * `scratch` is working space: on return it may hold intermediate values, which the caller must destroy (FIPS 203 §3.3).
 /// * `f` and `scratch` must not overlap each other (distinct Rust objects never do).
 /// * Neither `f` nor `scratch` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
@@ -1570,8 +1583,9 @@ pub(crate) unsafe extern "C" fn vg_mlkem_inv_ntt(f: *mut [u32; 256], scratch: *m
 /// # Safety
 ///
 /// * `seed` must be valid for reads of 34 bytes.
-/// * `a` must be valid for writes of 1024 bytes.
-/// * `scratch` must be valid for reads and writes of 2048 bytes. It is working space: on return it may hold intermediate values, which the caller must destroy (FIPS 203 §3.3).
+/// * `a` must be valid for reads and writes of 1024 bytes.
+/// * `scratch` must be valid for reads and writes of 2048 bytes.
+/// * `scratch` is working space: on return it may hold intermediate values, which the caller must destroy (FIPS 203 §3.3).
 /// * `a` and `scratch` must not overlap each other or `seed` (distinct Rust objects never do).
 /// * None of `seed`, `a` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]

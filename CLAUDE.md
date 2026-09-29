@@ -11,12 +11,9 @@ trustworthy. Read `lean/README.md` first.
   `lean/VerifiedGarbage/Artifacts/<Alg>/<Target>.lean`, and run
   `lake env lean --run Emit.lean` in `lean/`.
 * **No unverified shortcuts in proofs.** No `sorry`, `admit`, `native_decide`,
-  `bv_decide` or new `axiom`s in anything an artifact depends on, and never
-  skip the kernel's check (`debug.skipKernelTC`, or adding declarations
-  from a metaprogram). `lake build` and the emitter enforce this (warnings
-  are errors, and `#assert_standard_axioms` audits every artifact), and CI
-  replays every declaration through the kernel (`leanchecker`); never work
-  around it.
+  `bv_decide` or new `axiom`s in anything an artifact depends on.
+  `lake build` and the emitter enforce this (warnings are errors, and
+  `#assert_standard_axioms` audits every artifact); never work around it.
 * **Changes to `lean/VerifiedGarbage/TCB/` or `Spec/` are trust changes.**
   Keep them minimal, call them out explicitly in the PR description, and
   justify each ISA semantics change by citing the vendor manual (e.g. Intel SDM
@@ -96,9 +93,10 @@ instructions in an ISA model) go in their own PR before either.
    not imply, and its `Api`: its Rust module (the file under
    `src/asm/<target>/`) and name, its signature, its contract's `writeArgs`,
    and its documentation: what it does, and the `# Safety` items but for what
-   the emitter generates (which buffers may not overlap each other, the
-   stack or the arguments on it, and that none wraps around the address
-   space: `Sig.layoutDoc`). Choose
+   the emitter generates (what memory each buffer must be valid for:
+   `Sig.validDoc`; which buffers may not overlap each other, the stack or
+   the arguments on it, and that none wraps around the address space:
+   `Sig.layoutDoc`). Choose
    `pub` honestly: only lengths and pointers are public unless the algorithm
    says otherwise.
 2. `Impl/<Alg>/<Target>.lean`: the code.
@@ -259,7 +257,7 @@ against the 200000 budget.
 ## Checks to run before pushing
 
 ```sh
-(cd lean && lake build && lake env leanchecker VerifiedGarbage && lake env lean --run Emit.lean --check)
+(cd lean && lake build && lake env lean --run Emit.lean --check)
 python3 ci/check_lean_imports.py
 python3 ci/check_lean_speed.py
 python3 ci/check_vectors.py

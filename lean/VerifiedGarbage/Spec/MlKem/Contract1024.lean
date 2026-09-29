@@ -165,8 +165,8 @@ private def outcomeDoc : String :=
 
 /-- What the documentation says of the working space. -/
 private def scratchSafety : String :=
-  "`scratch` must be valid for reads and writes of 49152 bytes. It is working space: on return \
-    it holds intermediate values, which the caller must destroy (FIPS 203 §3.3)."
+  "`scratch` is working space: on return it holds intermediate values, which the caller must \
+    destroy (FIPS 203 §3.3)."
 
 /-- `vg_mlkem1024_compress_encode` on every target. -/
 def compressEncodeApi : Api where
@@ -180,9 +180,7 @@ def compressEncodeApi : Api where
     Contract: `VG.Spec.MlKem1024.compressEncodeContract`. Constant time: only the pointers, `d` \
     and `len` may affect timing, not the data."
   safety := ["`d` must be 5 or 11, and `len` must be `32 * d`.",
-    "`f` must be valid for reads of 1024 bytes, and each of its 256 `u32`s must be less than \
-      3329.",
-    "`out` must be valid for writes of `len` bytes."]
+    "Each of the 256 `u32`s of `f` must be less than 3329."]
 
 /-- `vg_mlkem1024_decode_decompress` on every target. -/
 def decodeDecompressApi : Api where
@@ -195,9 +193,7 @@ def decodeDecompressApi : Api where
     decompressed, to `*f` (each less than `q` = 3329).\n\n\
     Contract: `VG.Spec.MlKem1024.decodeDecompressContract`. Constant time: only the pointers, \
     `d` and `len` may affect timing, not the data."
-  safety := ["`d` must be 5 or 11, and `len` must be `32 * d`.",
-    "`b` must be valid for reads of `len` bytes.",
-    "`f` must be valid for writes of 1024 bytes."]
+  safety := ["`d` must be 5 or 11, and `len` must be `32 * d`."]
 
 /-- `vg_mlkem1024_keygen` on every target. -/
 def keyGenApi : Api where
@@ -212,9 +208,8 @@ def keyGenApi : Api where
     on the pointers and on `ρ` (the last 32 bytes of the encapsulation key), but not on \
     anything else of the seed or the keys."
   safety := [
-    "`seed` must be valid for reads of 64 bytes, and must be random bytes from an approved RBG \
-      (FIPS 203 §3.3), or a seed so generated before.",
-    "`ek` must be valid for writes of 1568 bytes and `dk` for writes of 3168 bytes.",
+    "`seed` must be random bytes from an approved RBG (FIPS 203 §3.3), or a seed so generated \
+      before.",
     scratchSafety]
 
 /-- `vg_mlkem1024_check_ek` on every target. -/
@@ -228,7 +223,7 @@ def checkEkApi : Api where
     `vg_mlkem1024_encaps`.\n\n\
     Contract: `VG.Spec.MlKem1024.checkEkContract`. Constant time: only the pointer may affect \
     timing."
-  safety := ["`ek` must be valid for reads of 1568 bytes."]
+  safety := []
 
 /-- `vg_mlkem1024_encaps` on every target. -/
 def encapsApi : Api where
@@ -243,11 +238,8 @@ def encapsApi : Api where
     on the pointers and on `ρ` (the last 32 bytes of `*ek`), but not on anything else of the \
     key, on the randomness or on the outputs."
   safety := [
-    "`ek` must be valid for reads of 1568 bytes, and must have passed `vg_mlkem1024_check_ek` \
-      (FIPS 203 §7.2).",
-    "`m` must be valid for reads of 32 bytes, and must be fresh random bytes from an approved \
-      RBG (FIPS 203 §3.3).",
-    "`key` must be valid for writes of 32 bytes and `ct` for writes of 1568 bytes.",
+    "`ek` must have passed `vg_mlkem1024_check_ek` (FIPS 203 §7.2).",
+    "`m` must be fresh random bytes from an approved RBG (FIPS 203 §3.3).",
     scratchSafety]
 
 /-- `vg_mlkem1024_decaps` on every target. -/
@@ -264,10 +256,8 @@ def decapsApi : Api where
     on the pointers and on `ρ` (bytes 3072–3103 of `*dk`), but not on anything else of the key, \
     on the ciphertext, or on whether it was rejected."
   safety := [
-    "`dk` must be valid for reads of 3168 bytes, and must have been written by \
-      `vg_mlkem1024_keygen` (so that it passes the checks of FIPS 203 §7.3).",
-    "`ct` must be valid for reads of 1568 bytes.",
-    "`key` must be valid for writes of 32 bytes.",
+    "`dk` must have been written by `vg_mlkem1024_keygen` (so that it passes the checks of \
+      FIPS 203 §7.3).",
     scratchSafety]
 
 end VG.Spec.MlKem1024

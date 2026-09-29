@@ -61,9 +61,7 @@ def salsaApi : Api where
     Contract: `VG.Spec.Scrypt.salsaContract`. Constant time: only the pointers may affect timing, \
     not the data."
   safety := [
-    "`b` must be valid for reads and writes of 64 bytes.",
-    "`scratch` must be valid for reads and writes of 64 bytes. It is working space: its contents \
-      on return are unspecified."]
+    "`scratch` is working space: its contents on return are unspecified."]
 
 /-- `vg_scrypt_blockmix(b: *const [u8; 128], r: usize, y: *mut [u8; 128], ry: usize, scratch: *mut [u32; 32])`.
 `b` and `y` are the input and the output, of `r` and `ry` 128-byte chunks;
@@ -96,10 +94,7 @@ def blockMixApi : Api where
     affect timing, not the data."
   safety := [
     "`ry` must equal `r`, and `r` must be positive.",
-    "`b` must be valid for reads of `128 * r` bytes, and `y` for reads and writes of `128 * ry` \
-      bytes.",
-    "`scratch` must be valid for reads and writes of 128 bytes. It is working space: its contents \
-      on return are unspecified."]
+    "`scratch` is working space: its contents on return are unspecified."]
 
 /-- `vg_scrypt_romix(b: *mut [u8; 128], r: usize, v: *mut [u8; 128], vlen: usize, scratch: *mut [u8; 128], slen: usize)`.
 `b` holds `B`, of `r` 128-byte chunks; `v`, of `vlen = N * r` chunks, is
@@ -142,9 +137,7 @@ def roMixApi : Api where
   safety := [
     "`r` must be positive, `vlen` must be `N * r` for a power of two `N`, and `slen` must be \
       `r + 2`.",
-    "`b` must be valid for reads and writes of `128 * r` bytes, `v` of `128 * vlen` bytes and \
-      `scratch` of `128 * slen` bytes. `v` and `scratch` are working space: their contents on \
-      return are unspecified."]
+    "`v` and `scratch` are working space: their contents on return are unspecified."]
 
 /-- `vg_scrypt(password: *const u8, password_len: usize, salt: *const u8, salt_len: usize, r: usize, b: *mut [u8; 128], blen: usize, v: *mut [u8; 128], vlen: usize, scratch: *mut [u8; 128], slen: usize, out: *mut u8, out_len: usize)`.
 The block size parameter `r` and the lengths are public. `b`, of
@@ -209,10 +202,6 @@ def scryptApi : Api where
       RFC 7914 §6 accepts (`N` a power of two greater than 1 and less than `2^(16 r)`, \
       `0 < p ≤ (2^32 - 1) * 32 / (128 r)`, `0 < out_len ≤ (2^32 - 1) * 32`), and `slen` must be \
       `r + 16`.",
-    "`password` must be valid for reads of `password_len` bytes, and `salt` for reads of \
-      `salt_len` bytes.",
-    "`b` must be valid for reads and writes of `128 * blen` bytes, `v` of `128 * vlen` bytes, \
-      `scratch` of `128 * slen` bytes and `out` of `out_len` bytes. `b`, `v` and `scratch` are \
-      working space: their contents on return are unspecified."]
+    "`b`, `v` and `scratch` are working space: their contents on return are unspecified."]
 
 end VG.Spec.Scrypt

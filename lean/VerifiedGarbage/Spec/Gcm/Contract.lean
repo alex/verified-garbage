@@ -65,11 +65,7 @@ def ctr32Api : Api where
     affect timing, not the key schedule, the counter block or the data."
   safety := [
     "`rounds` must be 10, 12 or 14.",
-    "`schedule` must be valid for reads of 240 bytes.",
-    "`counter` must be valid for reads and writes of 16 bytes.",
-    "`data` must be valid for reads and writes of `16 * n` bytes.",
-    "`scratch` must be valid for reads and writes of 2048 bytes; its contents on return are \
-      unspecified."]
+    "The contents of `scratch` on return are unspecified."]
 
 /-- `vg_ghash(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32])`.
 `scratch` is working space. -/
@@ -96,11 +92,6 @@ def ghashApi : Api where
     big-endian, `•` the multiplication of §6.3).\n\n\
     Contract: `VG.Spec.Gcm.ghashContract`. Constant time: only the pointers and `n` may affect \
     timing, not `H`, `Y` or the data."
-  safety := [
-    "`h` must be valid for reads of 16 bytes.",
-    "`y` must be valid for reads and writes of 16 bytes.",
-    "`data` must be valid for reads of `16 * n` bytes.",
-    "`scratch` must be valid for reads and writes of 256 bytes; its contents on return are \
-      unspecified."]
+  safety := ["The contents of `scratch` on return are unspecified."]
 
 end VG.Spec.Gcm
