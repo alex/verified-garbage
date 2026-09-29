@@ -111,6 +111,9 @@ should add files, not edit lists that every other PR edits too.
   inner `#![cfg(...)]` after its `//!` docs; the parent only says
   `mod <name>;`. Supporting another architecture changes that one line of
   the algorithm's own file.
+  Tests and benchmarks are gated on exactly the architectures of the
+  library modules they use (`ci/check_arch_gates.py` checks it), so update
+  their `cfg`s with the module's.
 * Import the verified functions from `crate::arch::<module>` (the target's
   `crate::asm::<target>::<module>`, `src/lib.rs`), once for every
   architecture, not with a `use` per architecture; only functions a target
@@ -209,6 +212,7 @@ against the 200000 budget.
 python3 ci/check_lean_imports.py
 python3 ci/check_lean_speed.py
 python3 ci/check_vectors.py
+python3 ci/check_arch_gates.py
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
 ```
