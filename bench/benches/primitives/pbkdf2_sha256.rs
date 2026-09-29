@@ -1,4 +1,4 @@
-//! PBKDF2.
+//! PBKDF2-HMAC-SHA-256.
 
 use criterion::Criterion;
 

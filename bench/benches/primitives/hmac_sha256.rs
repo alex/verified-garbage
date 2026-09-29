@@ -1,4 +1,4 @@
-//! HMAC.
+//! HMAC-SHA-256.
 
 use std::hint::black_box;
 
