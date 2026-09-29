@@ -13,7 +13,12 @@
 //! A key must be used to authenticate only one message: the tags of two
 //! messages under the same key reveal enough to forge others.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use crate::arch::poly1305::{vg_poly1305_finalize, vg_poly1305_init, vg_poly1305_update};
 
@@ -36,8 +41,8 @@ impl Poly1305 {
         let mut state = [0; 16];
         // SAFETY: `state` is valid for writes of 128 bytes and `key` for
         // reads of 32 bytes; they are distinct objects, so they do not overlap
-        // each other or the return address (on x86-64), and do not wrap
-        // around the end of the address space.
+        // each other or anything on the stack (the return address and any
+        // arguments), and do not wrap around the end of the address space.
         unsafe { vg_poly1305_init(&mut state, key) };
         Poly1305 { state, count: 0 }
     }
@@ -47,10 +52,10 @@ impl Poly1305 {
         let mut scratch = [0u64; 16];
         // SAFETY: `self.state` and `scratch` are valid for reads and writes of
         // 128 bytes and `data` for reads of `data.len()` bytes; they are
-        // distinct objects, so they do not overlap each other, the return
-        // address (on x86-64) or the arguments on the stack (on 32-bit ARM),
-        // and do not wrap around the end of the address space. `self.state`
-        // represents a message of `self.count` bytes, modulo 2⁶⁴.
+        // distinct objects, so they do not overlap each other or anything on
+        // the stack (the return address and any arguments), and do not wrap
+        // around the end of the address space. `self.state` represents a
+        // message of `self.count` bytes, modulo 2⁶⁴.
         unsafe {
             vg_poly1305_update(
                 &mut self.state,
@@ -69,10 +74,10 @@ impl Poly1305 {
         let mut scratch = [0u64; 16];
         // SAFETY: `self.state` and `scratch` are valid for reads and writes of
         // 128 bytes and `tag` for writes of 16 bytes; they are distinct
-        // objects, so they do not overlap each other, the return address (on
-        // x86-64) or the arguments on the stack (on 32-bit ARM), and do not
-        // wrap around the end of the address space. `self.state` represents a
-        // message of `self.count` bytes, modulo 2⁶⁴.
+        // objects, so they do not overlap each other or anything on the stack
+        // (the return address and any arguments), and do not wrap around the
+        // end of the address space. `self.state` represents a message of
+        // `self.count` bytes, modulo 2⁶⁴.
         unsafe { vg_poly1305_finalize(&mut self.state, self.count, &mut tag, &mut scratch) };
         tag
     }
