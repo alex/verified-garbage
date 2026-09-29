@@ -1,4 +1,5 @@
 import VerifiedGarbage.Impl.MlKem.AArch64.Sample
+import VerifiedGarbage.Impl.MlKem.AArch64.Encode
 
 /-!
 # ML-KEM-768 on AArch64: building blocks of the top-level functions

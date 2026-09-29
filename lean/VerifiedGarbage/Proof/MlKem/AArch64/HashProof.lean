@@ -64,6 +64,13 @@ theorem wp_ptrTo {d b : Reg} {off : Nat} (hd : d ≠ b) (ho : off < 65536) {is :
     rw [toNat_imm, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
     omega
 
+/-- `ptrTo` at the end of a block. -/
+theorem wp_ptrTo' {d b : Reg} {off : Nat} (hd : d ≠ b) (ho : off < 65536) {s : State} {Q : State → Prop}
+    (k : ∀ s', Only [d] s s' → s'.gpr d = s.gpr b + BitVec.ofNat 64 off → Q s') :
+    WP isa (.block (ptrTo d b off)) s Q := by
+  rw [← List.append_nil (ptrTo d b off)]
+  exact wp_ptrTo hd ho fun s' h e => wp_nil (k s' h e)
+
 theorem wp_pos (first : Bool) {is : List Instr} {s : State} {Q : State → Prop}
     (k : ∀ s', Only [.x2] s s' → (s'.gpr .x2).toNat = (if first then 0 else (s.gpr .x0).toNat) →
       WP isa (.block is) s' Q) :
@@ -138,6 +145,11 @@ theorem mem3 {α : Type} {a b c x : α} (h : x ∈ [a, b, c]) : x = a ∨ x = b 
   rcases List.mem_cons.mp h with h | h
   · exact .inr (.inl h)
   · exact .inr (.inr (List.mem_singleton.mp h))
+
+theorem mem4 {α : Type} {a b c d x : α} (h : x ∈ [a, b, c, d]) : x = a ∨ x = b ∨ x = c ∨ x = d := by
+  rcases List.mem_cons.mp h with h | h
+  · exact .inl h
+  · exact .inr (mem3 h)
 
 theorem covers_one {R : Region} {rs : List Region} (h : R ∈ rs) : Covers [R] rs := fun _ _ hi => by
   obtain ⟨r, hr, hc⟩ := hi
