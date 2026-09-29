@@ -8,6 +8,7 @@ import VerifiedGarbage.Proof.MlKem.AArch64.DecodeDecompress
 import VerifiedGarbage.Proof.MlKem.AArch64.CheckEk
 import VerifiedGarbage.Proof.MlKem.AArch64.Mul
 import VerifiedGarbage.Proof.MlKem.AArch64.NttInv
+import VerifiedGarbage.Proof.MlKem.AArch64.Sample
 
 /-!
 # ML-KEM on AArch64
@@ -103,6 +104,14 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem.nttInvContract AArch64.abi
     verified := Proof.MlKem.AArch64.Ntt.ntt_inv_verified
     ofSig := ⟨_, _, _, by unfold Spec.MlKem.nttInvContract Spec.MlKem.inPlaceContract; rfl⟩
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.MlKem.sampleNTTApi with
+    target := AArch64.target
+    doc := Spec.MlKem.sampleNTTApi.doc
+    code := Impl.MlKem.AArch64.sampleNTT
+    contract := Spec.MlKem.sampleNTTContract AArch64.abi 16
+    stack := 16
+    verified := Proof.MlKem.AArch64.Sample.sample_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.MlKem.AArch64
