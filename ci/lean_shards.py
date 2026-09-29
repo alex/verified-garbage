@@ -19,18 +19,9 @@ without changing CI.
   lean_shards.py outputs SHARD   of the paths on stdin (files under
                                  `lean/.lake/build/`, relative to it), those
                                  that are outputs of SHARD's modules
-  lean_shards.py replay SHARD    the modules whose declarations SHARD replays
-                                 through the kernel (`leanchecker`), one per
-                                 line; `replay merge`, those the final job does
 
 Every module (every file the lakefile's libraries build) is in exactly one
 shard, so the shards' outputs together are the whole build.
-
-`leanchecker M` replays `M` and every module whose name starts with `M.`, so
-a module with a descendant in another shard (`VerifiedGarbage.Artifacts`,
-over every target's registration files) is replayed, with its descendants,
-by the final job, which has the whole build; each shard replays the rest of
-its modules. Every module is replayed exactly once.
 """
 
 import json
@@ -38,9 +29,9 @@ import pathlib
 import sys
 
 LEAN = pathlib.Path(__file__).resolve().parent.parent / "lean"
-# The libraries of `lean/lakefile.toml`: `VerifiedGarbage.+` and
-# `VerifiedGarbageTest.+` (every module under each, but not a root module).
-LIBRARIES = ["VerifiedGarbage", "VerifiedGarbageTest"]
+# The libraries of `lean/lakefile.toml`: `VerifiedGarbage.*` (the root module
+# and every module under it) and `VerifiedGarbageTest.+` (every module under it).
+LIBRARIES = {"VerifiedGarbage": True, "VerifiedGarbageTest": False}
 COMMON = "common"
 
 
@@ -50,25 +41,15 @@ def target_names() -> list[str]:
 
 def modules() -> list[str]:
     mods = []
-    for lib in LIBRARIES:
+    for lib, root in LIBRARIES.items():
+        if root and (LEAN / f"{lib}.lean").is_file():
+            mods.append(lib)
         mods += [".".join(f.relative_to(LEAN).with_suffix("").parts) for f in (LEAN / lib).rglob("*.lean")]
     return sorted(mods)
 
 
 def shard_of(module: str, names: list[str]) -> str:
     return next((part for part in module.split(".") if part in names), COMMON)
-
-
-def replay_groups(mods: list[str], names: list[str]) -> dict[str, list[str]]:
-    """The modules each shard (and `merge`, the final job) passes to
-    `leanchecker`: each covers itself and its descendants."""
-    cross = [m for m in mods if any(d.startswith(m + ".") and shard_of(d, names) != shard_of(m, names) for d in mods)]
-    tops = [m for m in cross if not any(m.startswith(c + ".") for c in cross)]
-    groups: dict[str, list[str]] = {"merge": tops}
-    for m in mods:
-        if not any(m == t or m.startswith(t + ".") for t in tops):
-            groups.setdefault(shard_of(m, names), []).append(m)
-    return groups
 
 
 def module_of_output(path: str) -> str:
@@ -86,13 +67,10 @@ def main(args: list[str]) -> int:
     if args == ["list"]:
         print(json.dumps(shards))
         return 0
-    if len(args) == 2 and args[0] == "replay" and args[1] in [*shards, "merge"]:
-        for m in replay_groups(modules(), names).get(args[1], []):
-            print(m)
-        return 0
     if len(args) == 2 and args[0] in ("targets", "outputs") and args[1] in shards:
         if args[0] == "targets":
-            # `+`: a module, never a package or library of the same name.
+            # `+`: the module, not the package or library of the same name
+            # (`VerifiedGarbage` is all three).
             for m in modules():
                 if shard_of(m, names) == args[1]:
                     print(f"+{m}")
