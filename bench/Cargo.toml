@@ -11,7 +11,9 @@ publish = false
 [workspace]
 
 [dependencies]
-verified-garbage = { path = ".." }
+# `VG_CPU_FEATURES` chooses the implementations benchmarked (see
+# `src/cpu.rs` and `ci/bench_arches.py`).
+verified-garbage = { path = "..", features = ["cpu-features-env"] }
 
 [dev-dependencies]
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }

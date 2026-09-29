@@ -61,19 +61,6 @@ pub(crate) fn hash_group<const N: usize>(
     g.finish();
 }
 
-/// Benchmarks the hash `vg` alone.
-pub(crate) fn vg_group<const N: usize>(c: &mut Criterion, name: &str, vg: fn(&[u8]) -> [u8; N]) {
-    let mut g = c.benchmark_group(name);
-    for size in SIZES {
-        g.throughput(Throughput::Bytes(size as u64));
-        let data = vec![0x5a; size];
-        g.bench_function(BenchmarkId::new(VG, size), |b| {
-            b.iter(|| vg(black_box(&data)))
-        });
-    }
-    g.finish();
-}
-
 /// Benchmarks HMAC with the hash of `vg` and `md` (32-byte key) against
 /// OpenSSL's.
 pub(crate) fn hmac_group<O>(
