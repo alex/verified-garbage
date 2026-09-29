@@ -74,7 +74,7 @@ open VG.Proof.Sha256.Arm.Stream (compressAt_ok)
 open VG.Proof.Sha256.Arm.Stream.Finalize (writeW_rev flat_length)
 open VG.Proof.Hmac.Arm (copy_ok add_off)
 open VG.Proof.Hmac.Arm.Init (wp_eor)
-open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_sep bytesAt_add extractLsb'_read)
+open VG.Proof.Hmac.Common (bytesAt_length bytesAt_writeBytes_sep bytesAt_add extractLsb'_read)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append writeBytes_nil write_eq_writeBytes)
 open VG.Proof.Pbkdf2.Memory (frame_bytesAt contains_base off_contains sep_after xorBytes_length
   add_ofNat stateAt_copy)

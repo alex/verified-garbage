@@ -1,6 +1,4 @@
 import VerifiedGarbage.Proof.Hmac.X86.Finalize
-import VerifiedGarbage.Proof.Hmac.X86_64.Init
-import VerifiedGarbage.Proof.Sha256.AArch64.Compress
 import Mathlib.Tactic.IntervalCases
 import Mathlib.Tactic.Set
 import VerifiedGarbage.Proof.Framework.Contract
@@ -17,7 +15,7 @@ a byte at a time (invariant `Buf`: `j` bytes written, `edx` at byte `j`),
 the outer buffer is computed from it a word at a time (`xorWords_ok`), and
 each buffer is compressed by calling the compression function
 (`compBuf_ok`, via `compressAt_ok`, using the 20 bytes below `esp`), after which each state represents its
-block (`X86_64.Init.repr_block`).
+block (`Common.repr_block`).
 -/
 
 namespace VG.Proof.Hmac.X86.Init
@@ -29,7 +27,7 @@ open VG.Proof.Sha256.X86 (contains_offset)
 open VG.Proof.Sha256.X86.Stream
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append repr_congr)
 open VG.Proof.Hmac.X86
-open VG.Proof.Hmac.X86_64 (bytesAt_length)
+open VG.Proof.Hmac.Common (bytesAt_length writeState stateAt_writeState)
 open VG.Spec.Sha256 (HashValue stateAt blockAt compress bytesAt Repr H0)
 open VG.Spec.Hmac (xorPad ipad opad blockKey sha256)
 
@@ -223,7 +221,7 @@ def saveMem (s₀ : State) : Mem :=
 
 /-- And after storing `H⁽⁰⁾` in both states. -/
 def proMem (s₀ : State) : Mem :=
-  Proof.Sha256.AArch64.writeState (Proof.Sha256.AArch64.writeState (saveMem s₀) (inA s₀) H0) (ouA s₀) H0
+  writeState (writeState (saveMem s₀) (inA s₀) H0) (ouA s₀) H0
 
 theorem saveMem_frame {s₀ : State} (hp : Pre s₀) : Frame [scR s₀] s₀.mem (saveMem s₀) := by
   have c : ∀ d, d + 4 ≤ 160 → (scR s₀).Contains (addr (scr s₀) d) (32 / 8) := fun d hd => hp.scr_in hd (by omega)
@@ -249,10 +247,10 @@ theorem saveMem_saved {s₀ : State} (hp : Pre s₀) : Saved s₀ (saveMem s₀)
 
 /-- Writing a hash value stays within its 32 bytes. -/
 theorem writeState_frame (m : Mem) (p : Addr) (v : HashValue) :
-    Frame [⟨p, 32⟩] m (Proof.Sha256.AArch64.writeState m p v) := by
+    Frame [⟨p, 32⟩] m (writeState m p v) := by
   have c : ∀ k, k < 8 → (⟨p, 32⟩ : Region).Contains (p + BitVec.ofNat 64 (4 * k)) (32 / 8) :=
     fun k hk => contains_offset (by omega) (by omega)
-  unfold Proof.Sha256.AArch64.writeState
+  unfold writeState
   exact ((((((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (c 0 (by omega))).writeW
     (List.mem_singleton_self _) _ (c 1 (by omega))).writeW (List.mem_singleton_self _) _
     (c 2 (by omega))).writeW (List.mem_singleton_self _) _ (c 3 (by omega))).writeW
@@ -279,12 +277,12 @@ theorem proMem_saved {s₀ : State} (hp : Pre s₀) : Saved s₀ (proMem s₀) :
 
 theorem proMem_stI {s₀ : State} (hp : Pre s₀) : stateAt (proMem s₀) (inA s₀) = H0 := by
   refine (Proof.Sha256.Stream.stateAt_congr fun i hi => ?_).trans
-    (Proof.Sha256.AArch64.stateAt_writeState (saveMem s₀) _ _)
+    (stateAt_writeState (saveMem s₀) _ _)
   exact frame_bytes (writeState_frame _ _ _) (R := ⟨inA s₀, 32⟩)
     (by simpa using (hp.i_o.sub_left (sub32 _)).sub_right (sub32 _)) (by simp) hi
 
 theorem proMem_stO {s₀ : State} : stateAt (proMem s₀) (ouA s₀) = H0 :=
-  Proof.Sha256.AArch64.stateAt_writeState _ _ _
+  stateAt_writeState _ _ _
 
 /-- Reading an argument word from memory that differs only in `inner`, `outer` and `scratch`. -/
 theorem arg_frame {s₀ : State} (hp : Pre s₀) {m : Mem} (hf : Frame [inR s₀, ouR s₀, scR s₀] s₀.mem m)
@@ -313,7 +311,7 @@ theorem wordB_ok {b : Reg} (hb : b ≠ .ecx) {x : BitVec 32} {k : Nat} {rest : L
 theorem h0_ok {b : Reg} (hb : b ≠ .ecx) {st : BitVec 32} (hfit : st.toNat + 32 ≤ 2 ^ 32) {rest : List Instr}
     {s : State} {Q : State → Prop} (hst : s.gpr b = st) (hout : ∀ k < 8, InRegions s.wr (addr st (4 * k)) 4)
     (kk : ∀ s', (∀ r, r ≠ .ecx → s'.gpr r = s.gpr r) → s'.rd = s.rd → s'.wr = s.wr →
-      s'.mem = Proof.Sha256.AArch64.writeState s.mem (st.setWidth 64) H0 → WP isa (.block rest) s' Q) :
+      s'.mem = writeState s.mem (st.setWidth 64) H0 → WP isa (.block rest) s' Q) :
     WP isa (.block (h0 b ++ rest)) s Q := by
   rw [h0_eq]
   simp only [List.append_assoc]
@@ -509,7 +507,7 @@ theorem buf_write {s₀ : State} (hp : Pre s₀) {j : Nat} {m : Mem} (h : BufMem
   refine ⟨?_, ?_, ?_, saved_frame h.saved F ?_, h.frame.trans (F.sub ?_)⟩
   · rw [st _ self, h.stI]
   · rw [st _ ((hp.i_o.symm.sub_left (sub32 _)).sub_right sI), h.stO]
-  · rw [VG.Proof.Hmac.X86_64.Init.bytesAt_snoc _ _ (by omega), h.buf, List.take_succ_eq_append_getElem hl,
+  · rw [VG.Proof.Hmac.Common.bytesAt_snoc _ _ (by omega), h.buf, List.take_succ_eq_append_getElem hl,
       List.map_append]
     rfl
   · intro d h₁ h₂ r hr
@@ -697,7 +695,7 @@ theorem xorWords_ok {x y : BitVec 32} (n : Nat) : ∀ (rest : List Instr) (s : S
     rw [hl] at e
     rw [u₄.mem, u₃.gpr, u₂.gpr, u₃.mem, u₂.mem, m₁, addr_word fx (by omega : n < n + 1),
       addr_word fy (by omega : n < n + 1), readW_writeBytes_sep _ _ hsep', writeW_xor, e,
-      show 4 * (n + 1) = 4 * n + 4 by omega, VG.Proof.Hmac.X86_64.bytesAt_add, List.map_append]
+      show 4 * (n + 1) = 4 * n + 4 by omega, VG.Proof.Hmac.Common.bytesAt_add, List.map_append]
 
 /-- `K₀ ⊕ ipad ⊕ 0x6a = K₀ ⊕ opad`. -/
 theorem xorPad_6a (k : List Byte) : (xorPad k ipad).map (· ^^^ 0x6a) = xorPad k opad := by
@@ -887,7 +885,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     bv_omega
   have bO₈ : bytesAt s₈.mem (ouA s₀ + 32) 64 = xorPad (K0 s₀) opad := by
     rw [m₈, ← hob']
-    have := VG.Proof.Hmac.X86_64.bytesAt_writeBytes_self s₇.mem (ouA s₀ + BitVec.ofNat 64 32) ob (by omega)
+    have := VG.Proof.Hmac.Common.bytesAt_writeBytes_self s₇.mem (ouA s₀ + BitVec.ofNat 64 32) ob (by omega)
     rw [hobl] at this
     exact this
   have sv₈ : Saved s₀ s₈.mem := saved_frame h₇.mem.saved F₈ fun d h₁ h₂ r hr => by
@@ -900,7 +898,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     (by rw [wr₈, h₇.wr]) (by rw [g₈ _ (by decide), h₇.ebx]) (by rw [g₈ _ (by decide), h₇.ebp])
     (by rw [g₈ _ (by decide), h₇.esp]) fun s₉ rd₉ wr₉ cs₉ fr₉ st₉ => ?_)
   have hI₉ : Repr s₉.mem (inA s₀) (xorPad (K0 s₀) ipad) :=
-    VG.Proof.Hmac.X86_64.Init.repr_block stI₈ bI₈ (by simp [xorPad, K0_length s₀ hp]) st₉
+    VG.Proof.Hmac.Common.repr_block stI₈ bI₈ (by simp [xorPad, K0_length s₀ hp]) st₉
   have dO : ∀ r ∈ [(⟨inA s₀, 32⟩ : Region), ⟨scA s₀, 112⟩, stkR s₀], Region.Disjoint (ouR s₀) r := by
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl)
@@ -935,7 +933,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     (by rw [cs₉' _ (by decide), h₇.esi]) (by rw [cs₉' _ (by decide), h₇.ebp])
     (by rw [cs₉' _ (by decide), h₇.esp]) fun s₁₀ rd₁₀ wr₁₀ cs₁₀ fr₁₀ st₁₀ => ?_)
   have hO : Repr s₁₀.mem (ouA s₀) (xorPad (K0 s₀) opad) :=
-    VG.Proof.Hmac.X86_64.Init.repr_block stO₉ bO₉ (by simp [xorPad, K0_length s₀ hp]) st₁₀
+    VG.Proof.Hmac.Common.repr_block stO₉ bO₉ (by simp [xorPad, K0_length s₀ hp]) st₁₀
   have hI : Repr s₁₀.mem (inA s₀) (xorPad (K0 s₀) ipad) := by
     refine repr_congr (fun i hi => frame_bytes fr₁₀ (R := inR s₀) ?_ (by simp) hi) hI₉
     simp only [List.mem_cons, List.not_mem_nil, or_false]

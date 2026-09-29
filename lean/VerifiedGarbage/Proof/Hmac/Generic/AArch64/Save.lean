@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Loops
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Save
 
 /-!
 # HMAC over any streaming hash function on AArch64: our caller's registers
@@ -15,9 +14,9 @@ namespace VG.Proof.Hmac.Generic.AArch64
 
 open VG.AArch64
 open VG.Impl.Hmac.Generic.AArch64 (Hash)
-open VG.Proof.Sha256.X86_64 (contains_offset toNat_ofNat_lt)
+open VG.Proof.MdStream.AArch64 (contains_offset toNat_ofNat_lt)
 open VG.Proof.MdStream.AArch64 (Upd Mupd wp_str wp_ldr)
-open VG.Proof.Hmac.Generic.X86_64 (readW_writeW_ne add_ofNat_add InRegions.right')
+open VG.Proof.Hmac.Generic.Common (readW_writeW_ne add_ofNat_add InRegions.right')
 
 variable (H : Hash)
 
@@ -43,7 +42,7 @@ structure SavedRegs (scr : Addr) (s₀ : State) (m : Mem) : Prop where
 theorem slot_sub (scr : Addr) {i : Nat} (hi : i < 7) :
     Region.Sub ⟨slot H scr i, 8⟩ (saveR H scr) := by
   rw [slot, ← add_ofNat_add]
-  exact Proof.Sha256.X86_64.sub_offset (by omega) (by omega)
+  exact Proof.MdStream.AArch64.sub_offset (by omega) (by omega)
 
 theorem slot_disj (scr : Addr) {i j : Nat} (hi : i < 7) (hj : j < 7) (hij : i ≠ j) (hW : H.W ≤ 64) :
     Region.Disjoint ⟨slot H scr i, 8⟩ ⟨slot H scr j, 8⟩ := by

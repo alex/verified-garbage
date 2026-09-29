@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Hmac.AArch64.Common
-import VerifiedGarbage.Proof.Hmac.X86_64.Init
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Init
 import Mathlib.Tactic.Set
 import VerifiedGarbage.Proof.Framework.Contract
@@ -18,8 +17,7 @@ namespace VG.Proof.Hmac.AArch64.Init
 
 open VG VG.AArch64 VG.Impl.Hmac.AArch64
 open VG.Impl.Sha256.AArch64.Stream (mov save restore compressAt saved)
-open VG.Proof.Hmac.X86_64 (bytesAt_length)
-open VG.Proof.Hmac.X86_64.Init (bytesAt_snoc repr_block)
+open VG.Proof.Hmac.Common (bytesAt_length bytesAt_snoc repr_block)
 open VG.Proof.Sha256.Stream (writeBytes repr_congr)
 open VG.Proof.Sha256.AArch64 (writeState stateAt_writeState contains_offset sub_offset toNat_ofNat_lt)
 open VG.Proof.MdStream.AArch64 (Upd Mupd wp_mov wp_movz wp_addImm wp_subImm wp_sub wp_add wp_ldrb

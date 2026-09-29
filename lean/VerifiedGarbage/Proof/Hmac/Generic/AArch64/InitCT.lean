@@ -17,7 +17,7 @@ open VG.AArch64
 open VG.Impl.Hmac.Generic.AArch64 (Hash)
 open VG.Impl.Sha256.AArch64.Stream (mov)
 open VG.Proof.Hmac.Generic.AArch64
-open VG.Proof.Hmac.Generic.X86_64.Init (covers_one)
+open VG.Proof.Hmac.Generic.Common (covers_one)
 
 /-- The registers `KR` fixes that the code between the calls uses. -/
 abbrev pubRegs : List Reg := [.x19, .x20, .x23]

@@ -77,7 +77,7 @@ open VG.Proof.Sha256.X86.Stream (Upd Mupd Fupd wp_mov wp_movi wp_movm wp_store w
   addr_toNat compressAt_ok stk_eq)
 open VG.Proof.Hmac.X86 (copyWords_ok bswapWords_ok)
 open VG.Proof.Hmac.X86.Finalize (beWords_stateAt)
-open VG.Proof.Hmac.X86_64 (bytesAt_length bytesAt_writeBytes_sep bytesAt_add extractLsb'_read)
+open VG.Proof.Hmac.Common (bytesAt_length bytesAt_writeBytes_sep bytesAt_add extractLsb'_read)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_frame writeBytes_append writeBytes_nil write_eq_writeBytes)
 open VG.Proof.Pbkdf2.Memory (frame_bytesAt contains_base sep_after xorBytes_length add_ofNat
   stateAt_copy)
