@@ -9,7 +9,12 @@ pub const USES: &[&str] = &["aes_gcm", "aes", "gcm"];
 /// One-shot AES-GCM encryption and decryption (setup included), and
 /// streaming encryption, with a 16-byte key, a 12-byte nonce and 16 bytes of
 /// additional data.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 pub fn bench(c: &mut Criterion) {
     use std::hint::black_box;
 
@@ -119,5 +124,10 @@ pub fn bench(c: &mut Criterion) {
     }
 }
 
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm")))]
+#[cfg(not(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+)))]
 pub fn bench(_: &mut Criterion) {}

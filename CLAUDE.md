@@ -66,6 +66,11 @@ trustworthy. Read `lean/README.md` first.
   merging main, rather than resolving a conflict in the table by hand). The
   tables put each architecture's cell on a line of its own, so PRs that
   change different cells merge without conflicts.
+* The emitter runs compiled code, so it must be what the kernel checked:
+  nothing the artifacts or the emitter use may carry `implemented_by`,
+  `extern` or `export`, and nothing in `lean/VerifiedGarbage/` may declare a
+  `csimp` theorem or an `initialize`. Only `Spec/` declares definitions in
+  the namespace `VG.Spec`. The emitter refuses both (`TCB/Audit.lean`).
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
 * On x86-64, `pmuludq` and `vpmuludq` may only take secret operands between
