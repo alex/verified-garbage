@@ -84,8 +84,13 @@ compiles it for `hint`. -/
 def checkBlock (τ : A.T) (is : List M.Instr) : Option A.T :=
   List.rec (motive := fun _ => A.T → Option A.T) some (fun i _ ih τ => (A.step τ i).bind ih) is τ
 
-/-- How many instructions of a block `check` analyses between hints. -/
-def chunk : Nat := 64
+/-- How many instructions of a block `check` analyses between hints. Every
+hint makes the kernel evaluate the whole analysis there, to compare it with the
+hint (`le`), and the kernel checks the hint itself: fewer hints are faster
+(256 rather than 64 takes a third off the check of the fully unrolled SHA-512
+on x86). Between hints the analysis is evaluated lazily, so a block without
+any hints can exhaust the kernel's recursion depth. -/
+def chunk : Nat := 256
 
 /-- The analysis of a block, weakened to `mids` after every `chunk` instructions. -/
 def checkChunks : A.T → List M.Instr → List A.T → Option A.T
