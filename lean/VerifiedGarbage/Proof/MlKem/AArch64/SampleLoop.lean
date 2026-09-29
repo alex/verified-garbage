@@ -5,11 +5,12 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Sample
 /-!
 # ML-KEM on AArch64: the loop of `SampleNTT`
 
-Untrusted: everything here is checked by Lean. The 280 iterations of
-`sampleLoop` on the SHAKE128 output `xofByte B` at `bP` compute
-`sampleAfter [] (xofByte B) 280` (`Proof/MlKem/Sample.lean`) into `a`,
-which starts as zeros, and return whether it has 256 coefficients
-(`loop_ok`). The loop reads only the output, and writes only `a`.
+Untrusted: everything here is checked by Lean. `N` iterations of the
+loop of `SampleNTT` on the SHAKE128 output `xofByte B` at `bP` compute
+`sampleAfter [] (xofByte B) N` (`Proof/MlKem/Sample.lean`) into `a`, which
+starts as zeros (`iters_ok`); after 280 of them, `sampleLoop` returns
+whether it has 256 coefficients (`loop_ok`). The loop reads only the
+output, and writes only `a`.
 -/
 
 namespace VG.Proof.MlKem.AArch64.Sample
@@ -17,20 +18,22 @@ namespace VG.Proof.MlKem.AArch64.Sample
 open VG VG.AArch64 VG.Impl.MlKem.AArch64 VG.Proof.MlKem.AArch64
 open VG.Spec.MlKem
 
-/-- What the loop needs of the state it starts in: the output of SHAKE128
-of `B` at `bP`, which it may read; zeros at `aP`, which it may write. -/
-structure LPre (B : List Byte) (bP aP : Addr) (s : State) : Prop where
-  buf : ∀ p < 840, s.mem (bP + BitVec.ofNat 64 p) = xofByte B p
-  inb : ∀ p < 840, InRegions (s.rd ++ s.wr) (bP + BitVec.ofNat 64 p) 1
+/-- What `N` iterations of the loop need of the state they start in: the
+first `3N` bytes of the output of SHAKE128 of `B` at `bP`, which they may
+read; zeros at `aP`, which they may write. -/
+structure LPre (N : Nat) (B : List Byte) (bP aP : Addr) (s : State) : Prop where
+  buf : ∀ p < 3 * N, s.mem (bP + BitVec.ofNat 64 p) = xofByte B p
+  inb : ∀ p < 3 * N, InRegions (s.rd ++ s.wr) (bP + BitVec.ofNat 64 p) 1
   ina : ∀ i < 256, InRegions s.wr (coeffAddr aP i) 4
-  disj : (⟨bP, 840⟩ : Region).Disjoint (polyRegion aP)
+  disj : (⟨bP, 3 * N⟩ : Region).Disjoint (polyRegion aP)
   zero : ∀ i < 256, coeffAt s.mem aP i = 0
   x2 : s.gpr .x2 = bP
   x3 : s.gpr .x3 = aP
   x4 : (s.gpr .x4).toNat = 256
-  x5 : (s.gpr .x5).toNat = 280
+  x5 : (s.gpr .x5).toNat = N
   x9 : (s.gpr .x9).toNat = q
   x10 : (s.gpr .x10).toNat = 15
+  bound : N ≤ 280
 
 /-- Coefficient `i` of the list `L`, as stored. -/
 def cv (L : List Zq) (i : Nat) : BitVec 32 := BitVec.ofNat 32 (L.getD i 0).val
@@ -135,12 +138,12 @@ abbrev LA (B : List Byte) (t : Nat) : List Zq := sampleAfter [] (xofByte B) t
 /-- The registers the loop changes. -/
 abbrev lRegs : List Reg := [.x2, .x3, .x4, .x5, .x6, .x7, .x8, .x11, .x12, .x13, .x14]
 
-/-- After `t` iterations. -/
-structure Inv (B : List Byte) (bP aP : Addr) (s₀ : State) (t : Nat) (u : State) : Prop where
+/-- After `t` of `N` iterations. -/
+structure Inv (N : Nat) (B : List Byte) (bP aP : Addr) (s₀ : State) (t : Nat) (u : State) : Prop where
   acc : Acc aP s₀ (LA B t) u
   keep : Keep lRegs s₀ u
   x2 : u.gpr .x2 = bP + BitVec.ofNat 64 (3 * t)
-  x5 : (u.gpr .x5).toNat = 280 - t
+  x5 : (u.gpr .x5).toNat = N - t
   x10 : (u.gpr .x10).toNat = 15
 
 theorem sampleStepCap_eq (L : List Zq) (c₀ c₁ c₂ : Byte) (hL : L.length ≠ n) :
@@ -160,17 +163,17 @@ theorem acc_keep {aP : Addr} {s₀ : State} {L : List Zq} {u u' : State} (h : Ac
     by rw [hm]; exact h.frame⟩
 
 /-- The candidates of chunk `t`. -/
-theorem chunk_ok {B : List Byte} {bP aP : Addr} {s₀ : State} (hp : LPre B bP aP s₀) {t : Nat}
-    (ht : t < 280) {u : State} (h : Inv B bP aP s₀ t u) :
+theorem chunk_ok {N : Nat} {B : List Byte} {bP aP : Addr} {s₀ : State} (hp : LPre N B bP aP s₀)
+    {t : Nat} (ht : t < N) {u : State} (h : Inv N B bP aP s₀ t u) :
     WP isa (.block sampleChunk) u fun u' => Acc aP s₀ (LA B t) u' ∧
       Keep [.x2, .x5, .x6, .x7, .x8, .x11, .x12, .x13] u u' ∧
-      u'.gpr .x2 = bP + BitVec.ofNat 64 (3 * (t + 1)) ∧ (u'.gpr .x5).toNat = 280 - (t + 1) ∧
+      u'.gpr .x2 = bP + BitVec.ofNat 64 (3 * (t + 1)) ∧ (u'.gpr .x5).toNat = N - (t + 1) ∧
       (u'.gpr .x11).toNat = d₁ B t ∧ (u'.gpr .x12).toNat = d₂ B t := by
-  have hin : ∀ p < 840, InRegions (u.rd ++ u.wr) (bP + BitVec.ofNat 64 p) 1 := fun p hp' => by
+  have hin : ∀ p < 3 * N, InRegions (u.rd ++ u.wr) (bP + BitVec.ofNat 64 p) 1 := fun p hp' => by
     rw [h.acc.rd, h.acc.wr]; exact hp.inb p hp'
-  have hb : ∀ p < 840, (u.mem (bP + BitVec.ofNat 64 p)).toNat = (xofByte B p).toNat := fun p hp' => by
+  have hb : ∀ p < 3 * N, (u.mem (bP + BitVec.ofNat 64 p)).toNat = (xofByte B p).toNat := fun p hp' => by
     rw [byte_frame h.acc.frame (fun r hr => by
-      simp only [List.mem_singleton] at hr; subst hr; exact hp.disj) (by decide) hp', hp.buf p hp']
+      simp only [List.mem_singleton] at hr; subst hr; exact hp.disj) (by have := hp.bound; omega) hp', hp.buf p hp']
   have a : ∀ r, u.gpr .x2 + BitVec.ofNat 64 r = bP + BitVec.ofNat 64 (3 * t + r) := fun r => by
     rw [h.x2, ptr_add]
   refine wp_ldrb (a := bP + BitVec.ofNat 64 (3 * t + 0)) (by decide) (a 0) (hin _ (by omega))
@@ -201,7 +204,7 @@ theorem chunk_ok {B : List Byte} {bP aP : Addr} {s₀ : State} (hp : LPre B bP a
     m₁₁, k₁₁.mono (by decide), ?_, ?_, ?_, ?_⟩
   · rw [h₁₁.get .x2, h₁₀.get .x2, h₉.get .x2, h₈.get .x2, h₇.get .x2, h₆.get .x2, h₅.get .x2, e₄,
       h₃.get .x2, h₂.get .x2, h₁.get .x2, h.x2, ptr_add, show 3 * t + 3 = 3 * (t + 1) by omega]
-  · have c5 : (u₄.gpr .x5).toNat = 280 - t := by
+  · have c5 : (u₄.gpr .x5).toNat = N - t := by
       rw [h₄.get .x5, h₃.get .x5, h₂.get .x5, h₁.get .x5, h.x5]
     rw [h₁₁.get .x5, h₁₀.get .x5, h₉.get .x5, h₈.get .x5, h₇.get .x5, h₆.get .x5, e₅,
       toNat_sub_n (by rw [c5]; simp; omega), c5]
@@ -263,13 +266,13 @@ theorem tail_ok {aP : Addr} {s₀ : State} (hina : ∀ i < 256, InRegions s₀.w
     · rw [ite_eq_right (fun hc => hd hc.1)]; rw [ite_eq_right hd] at a₃; exact a₃
 
 /-- One iteration. -/
-theorem body_ok {B : List Byte} {bP aP : Addr} {s₀ : State} (hp : LPre B bP aP s₀) {t : Nat}
-    (ht : t < 280) {u : State} (h : Inv B bP aP s₀ t u) :
+theorem body_ok {N : Nat} {B : List Byte} {bP aP : Addr} {s₀ : State} (hp : LPre N B bP aP s₀)
+    {t : Nat} (ht : t < N) {u : State} (h : Inv N B bP aP s₀ t u) :
     WP isa sampleBody u fun u' =>
-      Inv B bP aP s₀ (t + 1) u' ∧ ((u'.gpr .x5).toNat ≠ 0 ↔ t + 1 ≠ 280) := by
+      Inv N B bP aP s₀ (t + 1) u' ∧ ((u'.gpr .x5).toNat ≠ 0 ↔ t + 1 ≠ N) := by
   refine WP.seq (WP.mono (chunk_ok hp ht h) fun u₁ ⟨a₁, k₁, x2₁, x5₁, x11₁, x12₁⟩ =>
     WP.mono (tail_ok hp.ina a₁ x11₁ x12₁) fun u' ⟨a', k'⟩ => ?_)
-  have x5' : (u'.gpr .x5).toNat = 280 - (t + 1) := by rw [k'.get .x5, x5₁]
+  have x5' : (u'.gpr .x5).toNat = N - (t + 1) := by rw [k'.get .x5, x5₁]
   refine ⟨⟨a', ((h.keep.trans k₁).trans k').mono (by decide), by rw [k'.get .x2, x2₁], x5',
     by rw [k'.get .x10, k₁.get .x10, h.x10]⟩, by rw [x5']; omega⟩
 
@@ -297,17 +300,22 @@ theorem reduced_of_coeffs {m : Mem} {p : Addr} {L : List Zq} (h : CoeffsUpTo m p
   · show (0 : BitVec 32).toNat < q
     decide
 
-theorem loop_ok {B : List Byte} {bP aP : Addr} {s₀ : State} (hp : LPre B bP aP s₀) :
-    WP isa sampleLoop s₀ fun u => Keep (.x0 :: lRegs) s₀ u ∧ Frame [polyRegion aP] s₀.mem u.mem ∧
-      Res B aP u := by
+/-- The `N` iterations. -/
+theorem iters_ok {N : Nat} (hN : 0 < N) {B : List Byte} {bP aP : Addr} {s₀ : State}
+    (hp : LPre N B bP aP s₀) :
+    WP isa (.loop sampleBody (.nonzero .x .x5)) s₀ (Inv N B bP aP s₀ N) := by
   have l0 : (LA B 0).length = 0 := rfl
-  have i₀ : Inv B bP aP s₀ 0 s₀ := by
+  have i₀ : Inv N B bP aP s₀ 0 s₀ := by
     refine ⟨⟨rfl, rfl, rfl, by rw [l0]; omega, by rw [hp.x3, l0, coeffAddr, Nat.mul_zero, ptr_zero],
       by rw [hp.x4, l0], hp.x9, fun i hi => ?_, Frame.refl _ _⟩, Keep.refl _ _,
-      by rw [hp.x2, Nat.mul_zero, ptr_zero], by rw [hp.x5], hp.x10⟩
+      by rw [hp.x2, Nat.mul_zero, ptr_zero], by rw [hp.x5, Nat.sub_zero], hp.x10⟩
     rw [hp.zero i hi, l0, ite_eq_right (Nat.not_lt_zero i)]
-  refine WP.seq (WP.mono (count_loop (by decide) (Inv B bP aP s₀) (fun t ht u h => body_ok hp ht h) i₀)
-    fun u h => ?_)
+  exact count_loop hN (Inv N B bP aP s₀) (fun t ht u h => body_ok hp ht h) i₀
+
+theorem loop_ok {B : List Byte} {bP aP : Addr} {s₀ : State} (hp : LPre 280 B bP aP s₀) :
+    WP isa sampleLoop s₀ fun u => Keep (.x0 :: lRegs) s₀ u ∧ Frame [polyRegion aP] s₀.mem u.mem ∧
+      Res B aP u := by
+  refine WP.seq (WP.mono (iters_ok (by decide) hp) fun u h => ?_)
   refine wp_subImm (by decide) fun u₁ h₁ e₁ => wp_lsr (by decide) fun u₂ h₂ e₂ => wp_nil ?_
   have hL := h.acc.len
   have c4 := h.acc.x4
