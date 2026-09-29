@@ -3,7 +3,8 @@ import VerifiedGarbage.TCB.X86.Isa
 /-!
 # Poly1305: x86 (32-bit) implementation
 
-Every argument is on the stack (cdecl): `[esp + 4]`, `[esp + 8]`, … on entry.
+Every argument is on the stack (cdecl): `[esp + 4]`, `[esp + 8]`, … on entry,
+and no code here moves `esp`, so they stay there.
 
 The arithmetic is in radix `2³²`, as in OpenSSL's 32-bit x86 code without
 SSE2: the accumulator `h = h0 + 2³² h1 + 2⁶⁴ h2 + 2⁹⁶ h3 + 2¹²⁸ h4` is five
@@ -14,30 +15,36 @@ of weight `2^(32 (i + j))` with `i + j ≥ 4` and `j ≥ 1` is folded into weigh
 `2^(32 (i + j - 4))` as `hi sj`, where `sj = rj + rj / 4 = 5 rj / 4` (as
 `2¹²⁸ rj = 2¹³⁰ (rj / 4) ≡ 5 (rj / 4)` modulo `p = 2¹³⁰ - 5`).
 
-The state (`state`, 128 bytes, see `VG.Spec.Poly1305.Repr`):
+The state (`state`, 128 bytes, see `VG.Spec.Poly1305.Buffered`):
 
 * `[0, 24)`: the accumulator: `h` in `[0, 20)`, fully reduced (`h < p`)
-  between calls, and a zero word;
+  between calls, and a word that is zero between calls and holds the saved
+  `ebp` during one;
 * `[24, 56)`: the key: `r` (`[24, 40)`) and `s` (`[40, 56)`);
-* `[56, 72)`: the clamped `r0, …, r3`, and `[72, 84)`: `s1, s2, s3`,
+* `[56, 72)`: the buffer: the message's last bytes that do not fill a block,
+  padded in place in `finalize`;
+* `[72, 88)`: the clamped `r0, …, r3`, and `[88, 100)`: `s1, s2, s3`,
   computed on entry;
-* `[84, 100)`: the low words of a product, and of `h + 5`;
-* `[100, 116)`: the saved `ebx, esi, edi, ebp`;
-* `[116, 120)`: the number of blocks left, in `blocks`.
+* `[100, 116)`: the low words of a product, and of `h + 5`;
+* `[116, 128)`: the saved `ebx, esi, edi`.
 
-`edi` holds `state`. A block (at `esi`) is added to `h` in place; then each
-`dk = Σ hi · c(k, i)` (`c` being an `rj` or an `sj`) is summed into `ebx`
-(low word) and `ebp`, starting from the carry out of `d(k-1)`, one product
-`eax · ecx` at a time, and its low word stored. `d4 = h4 r0` (plus the carry)
-fits a word; its bits from 2 up are folded, times 5, into the bottom
-(`5 ⌊d4 / 4⌋`, which fits a word too). Between blocks, `h4 ≤ 4`.
+`update` and `finalize` do not need their `scratch`.
+
+`edi` holds `state`. A block (at `esi`, or the buffer) is added to `h` in
+place; then each `dk = Σ hi · c(k, i)` (`c` being an `rj` or an `sj`) is
+summed into `ebx` (low word) and `ebp`, starting from the carry out of
+`d(k-1)`, one product `eax · ecx` at a time, and its low word stored.
+`d4 = h4 r0` (plus the carry) fits a word; its bits from 2 up are folded,
+times 5, into the bottom (`5 ⌊d4 / 4⌋`, which fits a word too). Between
+blocks, `h4 ≤ 4`.
 
 Before `h` is stored, it is reduced fully: `h + 5 - 2¹³⁰` (`h - p`) is
 selected, with a mask and without a branch, if `h + 5 ≥ 2¹³⁰`.
 
-The only branches are on the block count and the length of the last block,
-and every address is `esp`, a pointer or a pointer plus a constant or a
-count, so only the pointers and lengths can affect timing.
+The only branches are on the block count, `count mod 16` (the number of
+bytes buffered) and the lengths, and every address is `esp`, a pointer or a
+pointer plus a constant, a count or `count mod 16`, so only the pointers,
+`count` and the lengths can affect timing.
 -/
 
 namespace VG.Impl.Poly1305.X86
@@ -50,13 +57,11 @@ def at_ (b : Reg) (d : Nat) : MemOp := { base := b, disp := d }
 
 /-- `hi`, `rj`, `sj` and the low words `tk` of a product. -/
 def hOff (i : Nat) : Nat := 4 * i
-def rOff (j : Nat) : Nat := 56 + 4 * j
-def sOff (j : Nat) : Nat := 68 + 4 * j
-def tOff (k : Nat) : Nat := 84 + 4 * k
+def rOff (j : Nat) : Nat := 72 + 4 * j
+def sOff (j : Nat) : Nat := 84 + 4 * j
+def tOff (k : Nat) : Nat := 100 + 4 * k
 /-- Where the callee-saved registers are saved. -/
-def saved : List (Reg × Nat) := [(.ebx, 100), (.esi, 104), (.edi, 108), (.ebp, 112)]
-/-- The number of blocks left. -/
-def cntOff : Nat := 116
+def saved : List (Reg × Nat) := [(.ebx, 116), (.esi, 120), (.edi, 124), (.ebp, 20)]
 
 /-! ## `init(state, key)` -/
 
@@ -65,14 +70,16 @@ def init : Prog isa := .block (
   (List.range 8).flatMap (fun j => [.mov .edx (.mem (at_ .ecx (4 * j))), .store (at_ .eax (24 + 4 * j)) .edx]) ++
   [.mov .edx (.imm 0)] ++ (List.range 6).map fun j => .store (at_ .eax (4 * j)) .edx)
 
-/-! ## Common parts of `blocks` and `finalize` -/
+/-! ## Common parts -/
 
 /-- `state` into `edi`, saving `ebx, esi, edi, ebp` in it (via `eax`). -/
 def save : List Instr :=
   .mov .eax (.mem (at_ .esp 4)) :: saved.map (fun (r, d) => .store (at_ .eax d) r) ++ [.mov .edi (.reg .eax)]
 
-/-- Restore them (via `eax`, from `edi`). -/
-def restore : List Instr := .mov .eax (.reg .edi) :: saved.map fun (r, d) => .mov r (.mem (at_ .eax d))
+/-- Restore them (via `eax`, from `edi`), and zero the word that held `ebp`. -/
+def restore : List Instr :=
+  .mov .eax (.reg .edi) :: saved.map (fun (r, d) => .mov r (.mem (at_ .eax d))) ++
+    [.mov .ecx (.imm 0), .store (at_ .eax 20) .ecx]
 
 /-- `r0` clamped. -/
 def clamp0 : List Instr :=
@@ -84,20 +91,20 @@ def clampS (j : Nat) : List Instr :=
     .store (at_ .edi (rOff j)) .eax, .mov .ecx (.reg .eax), .shift .shr .ecx 2,
     .alu .add .eax (.reg .ecx), .store (at_ .edi (sOff j)) .eax]
 
-/-- Everything `blocks` and `finalize` do first. -/
+/-- Everything each function but `init` does first. -/
 def setup : List Instr := save ++ clamp0 ++ clampS 1 ++ clampS 2 ++ clampS 3
 
 /-! ## Absorbing a block -/
 
-/-- Word `i` of `h` plus word `i` of the block at `esi`, with the carry in
+/-- Word `i` of `h` plus word `i` of the block at `b + d`, with the carry in
 unless `i = 0`. -/
-def addWord (i : Nat) : List Instr :=
-  [.mov .eax (.mem (at_ .edi (hOff i))), .alu (if i = 0 then .add else .adc) .eax (.mem (at_ .esi (4 * i))),
+def addWord (b : Reg) (d i : Nat) : List Instr :=
+  [.mov .eax (.mem (at_ .edi (hOff i))), .alu (if i = 0 then .add else .adc) .eax (.mem (at_ b (d + 4 * i))),
     .store (at_ .edi (hOff i)) .eax]
 
-/-- `h += m + pad · 2¹²⁸` for the block `m` at `esi`. -/
-def addBlock (pad : BitVec 32) : List Instr :=
-  addWord 0 ++ addWord 1 ++ addWord 2 ++ addWord 3 ++
+/-- `h += m + pad · 2¹²⁸` for the block `m` at `b + d`. -/
+def addBlock (b : Reg) (d : Nat) (pad : BitVec 32) : List Instr :=
+  addWord b d 0 ++ addWord b d 1 ++ addWord b d 2 ++ addWord b d 3 ++
   [.mov .eax (.mem (at_ .edi (hOff 4))), .alu .adc .eax (.imm pad), .store (at_ .edi (hOff 4)) .eax]
 
 /-- `ebx:ebp += hi · c`, the coefficient `c` at `[edi + off]`. -/
@@ -131,10 +138,13 @@ def carry : List Instr :=
     .store (at_ .edi (hOff (k + 1))) .eax]) ++
   [.alu .adc .ebx (.imm 0), .store (at_ .edi (hOff 4)) .ebx]
 
-/-- Absorbing the block at `esi`, with `pad = 1` for a whole block (the
+/-- Absorbing the block at `b + d`, with `pad = 1` for a whole block (the
 `0x01` byte appended to it is `2¹²⁸`) and `pad = 0` for a padded last block
 (whose `0x01` byte is inside it). -/
-def absorb (pad : BitVec 32) : List Instr := addBlock pad ++ products ++ carry
+def absorbAt (b : Reg) (d : Nat) (pad : BitVec 32) : List Instr := addBlock b d pad ++ products ++ carry
+
+/-- Absorbing the block at `esi`. -/
+def absorb (pad : BitVec 32) : List Instr := absorbAt .esi 0 pad
 
 /-! ## The final reduction -/
 
@@ -161,38 +171,99 @@ def selectTop : List Instr :=
 def reduce : List Instr :=
   plus5 ++ (List.range 4).flatMap selectWord ++ selectTop
 
-/-! ## `blocks(state, blocks, n)` -/
+/-! ## `blocks(state, blocks, n)`
+
+`esi` walks the blocks; the loop ends where it reaches `blocks + 16 n`,
+recomputed from the arguments after each block. -/
+
+/-- `blocks + 16 n`, compared with `esi`. -/
+def atEnd : List Instr :=
+  [.mov .eax (.mem (at_ .esp 12)), .alu .add .eax (.reg .eax), .alu .add .eax (.reg .eax),
+    .alu .add .eax (.reg .eax), .alu .add .eax (.reg .eax), .mov .ecx (.mem (at_ .esp 8)),
+    .alu .add .eax (.reg .ecx), .alu .cmp .eax (.reg .esi)]
 
 def body : Prog isa :=
-  .block (absorb 1 ++ [.alu .add .esi (.imm 16), .mov .ecx (.mem (at_ .edi cntOff)),
-    .alu .sub .ecx (.imm 1), .store (at_ .edi cntOff) .ecx])
+  .block (absorb 1 ++ [.alu .add .esi (.imm 16)] ++ atEnd)
 
 def blocks : Prog isa :=
   .seq (.block (setup ++ [.mov .esi (.mem (at_ .esp 8)), .mov .ecx (.mem (at_ .esp 12)),
-    .store (at_ .edi cntOff) .ecx, .alu .test .ecx (.reg .ecx)]))
+    .alu .test .ecx (.reg .ecx)]))
   (.seq (.ite .e (.block []) (.loop body .ne))
-    (.block (reduce ++ [.mov .eax (.imm 0), .store (at_ .edi 20) .eax] ++ restore)))
+    (.block (reduce ++ restore)))
 
-/-! ## `finalize(state, tail, len, out)`
+/-! ## `update(state, count, data, len, scratch)`
 
-A non-empty tail is copied to `out` (by `ebx`, counting down `ecx`), padded
-with `0x01` and zeros, and absorbed from there with `pad = 0`. Then `h` is
-reduced and `s` added modulo `2¹²⁸`, into `out`. -/
+With `esi` = the data not yet consumed (from `data = [esp + 16]`), whose
+length is `data + len - esi` (`len = [esp + 20]`), recomputed when needed,
+and `edx` = the number of bytes in the buffer (`count mod 16`, from `count`'s
+low word `[esp + 8]`): a non-empty buffer is filled from the data (as far as
+it goes) and, once full, absorbed; then the whole blocks of the data are
+absorbed, and the rest is copied into the buffer. -/
 
-def zeroOut : List Instr :=
-  [.mov .ebx (.mem (at_ .esp 16)), .mov .eax (.imm 0), .store (at_ .ebx 0) .eax,
-    .store (at_ .ebx 4) .eax, .store (at_ .ebx 8) .eax, .store (at_ .ebx 12) .eax,
-    .mov .esi (.mem (at_ .esp 8)), .mov .ecx (.mem (at_ .esp 12))]
+/-- The length of the data not yet consumed, `data + len - esi`, into `eax`
+(via `ecx`). -/
+def left : List Instr :=
+  [.mov .eax (.mem (at_ .esp 16)), .mov .ecx (.mem (at_ .esp 20)), .alu .add .eax (.reg .ecx),
+    .alu .sub .eax (.reg .esi)]
 
-def copyLoop : Prog isa :=
-  .loop (.block [.movzx8 .eax (at_ .esi 0), .store8 (at_ .ebx 0) .al, .alu .add .esi (.imm 1),
-    .alu .add .ebx (.imm 1), .alu .sub .ecx (.imm 1)]) .ne
+/-- Copies the `eax > 0` bytes at `esi` to `edx + 56`, advancing `esi` and
+`edx`. -/
+def copyIn : Prog isa :=
+  .loop (.block [.movzx8 .ecx (at_ .esi 0), .store8 (at_ .edx 56) .cl, .alu .add .esi (.imm 1),
+    .alu .add .edx (.imm 1), .alu .sub .eax (.imm 1)]) .ne
+
+/-- The number of bytes to copy into the buffer, `min(16 - edx, len)`, into
+`eax`, and `edx` made the address `state + edx`. -/
+def count : Prog isa :=
+  .seq (.block [.mov .eax (.imm 16), .alu .sub .eax (.reg .edx), .mov .ecx (.mem (at_ .esp 20)),
+    .alu .cmp .ecx (.reg .eax)])
+  (.seq (.ite .b (.block [.mov .eax (.reg .ecx)]) (.block []))
+    (.block [.alu .add .edx (.reg .edi), .alu .test .eax (.reg .eax)]))
+
+/-- Fills the buffer with `min(16 - edx, len)` bytes of the data, and absorbs
+it if that fills it. -/
+def fill : Prog isa :=
+  .seq count
+  (.seq (.ite .e (.block []) copyIn)
+  (.seq (.block [.alu .sub .edx (.reg .edi), .alu .cmp .edx (.imm 16)])
+    (.ite .e (.block (absorbAt .edi 56 1)) (.block []))))
+
+/-- Absorbs the whole blocks of the data. -/
+def whole : Prog isa :=
+  .seq (.block (left ++ [.alu .cmp .eax (.imm 16)]))
+    (.ite .b (.block [])
+      (.loop (.block (absorb 1 ++ [.alu .add .esi (.imm 16)] ++ left ++ [.alu .cmp .eax (.imm 16)])) .ae))
+
+/-- Copies the rest of the data into the (empty) buffer. -/
+def rest : Prog isa :=
+  .seq (.block (left ++ [.alu .test .eax (.reg .eax)]))
+    (.ite .e (.block []) (.seq (.block [.mov .edx (.reg .edi)]) copyIn))
+
+def update : Prog isa :=
+  .seq (.block (setup ++ [.mov .esi (.mem (at_ .esp 16)), .mov .edx (.mem (at_ .esp 8)),
+    .alu .and .edx (.imm 15), .alu .test .edx (.reg .edx)]))
+  (.seq (.ite .e (.block []) fill)
+  (.seq whole
+  (.seq rest
+    (.block (reduce ++ restore)))))
+
+/-! ## `finalize(state, count, out, scratch)`
+
+`edx` = `count mod 16`, the number of bytes in the buffer. A non-empty
+buffer is padded in place with zeros and then the `0x01` byte, and absorbed
+with `pad = 0`. Then `h` is reduced and `s` added modulo `2¹²⁸`, into
+`out = [esp + 16]`. -/
+
+/-- Zeros the buffer from byte `edx < 16` on, at `ecx + 56 = state + edx + 56`. -/
+def zeroLoop : Prog isa :=
+  .loop (.block [.store8 (at_ .ecx 56) .al, .alu .add .ecx (.imm 1), .alu .add .edx (.imm 1),
+    .alu .cmp .edx (.imm 16)]) .ne
 
 def lastBlock : Prog isa :=
-  .seq (.block zeroOut)
-  (.seq copyLoop
-    (.block ([.mov .eax (.imm 1), .store8 (at_ .ebx 0) .al, .mov .esi (.mem (at_ .esp 16))] ++
-      absorb 0)))
+  .seq (.block [.mov .eax (.imm 0), .mov .ecx (.reg .edx), .alu .add .ecx (.reg .edi)])
+  (.seq zeroLoop
+    (.block ([.mov .eax (.imm 1), .mov .ecx (.mem (at_ .esp 8)), .alu .and .ecx (.imm 15),
+      .alu .add .ecx (.reg .edi), .store8 (at_ .ecx 56) .al] ++ absorbAt .edi 56 0)))
 
 /-- The tag, `h + s` modulo `2¹²⁸`, into `out`. -/
 def addS : List Instr :=
@@ -201,7 +272,8 @@ def addS : List Instr :=
     .alu (if k = 0 then .add else .adc) .eax (.mem (at_ .edi (40 + 4 * k))), .store (at_ .esi (4 * k)) .eax]
 
 def finalize : Prog isa :=
-  .seq (.block (setup ++ [.mov .ecx (.mem (at_ .esp 12)), .alu .test .ecx (.reg .ecx)]))
+  .seq (.block (setup ++ [.mov .edx (.mem (at_ .esp 8)), .alu .and .edx (.imm 15),
+    .alu .test .edx (.reg .edx)]))
   (.seq (.ite .e (.block []) lastBlock)
     (.block (reduce ++ addS ++ restore)))
 

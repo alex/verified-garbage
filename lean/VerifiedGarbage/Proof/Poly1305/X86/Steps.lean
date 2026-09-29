@@ -310,6 +310,15 @@ theorem wp_subx {d : Reg} {src : Src} {x : BitVec 32} (hx : readSrc s src = some
     (subOverflow (s.gpr d) x (s.gpr d - x)) _) rfl)
   simp only [exec, execAlu, hx, Option.bind_some]
 
+/-- `cmp d, src` for a source of value `x`: ZF and CF of `d - x`. -/
+theorem wp_cmpx {d : Reg} {src : Src} {x : BitVec 32} (hx : readSrc s src = some x)
+    (k : ∀ s', Keeps [] s s' → s'.zf = some (s.gpr d - x == 0) →
+      s'.cf = some (decide ((s.gpr d).toNat < x.toNat)) → WP isa (.block is) s' Q) :
+    WP isa (.block (.alu .cmp d src :: is)) s Q := by
+  refine WP.cons ?_ (k (arithFlags s (s.gpr d - x) (decide ((s.gpr d).toNat < x.toNat))
+    (subOverflow (s.gpr d) x (s.gpr d - x))) ⟨fun _ _ => rfl, rfl, rfl, rfl⟩ rfl rfl)
+  simp only [exec, execAlu, hx, Option.bind_some]
+
 theorem wp_test {d : Reg}
     (k : ∀ s', Keeps [] s s' → s'.zf = some (s.gpr d &&& s.gpr d == 0) → WP isa (.block is) s' Q) :
     WP isa (.block (.alu .test d (.reg d) :: is)) s Q :=
@@ -456,30 +465,30 @@ theorem los_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {f : Nat → Nat} (h
 
 /-! ## Adding a block -/
 
-/-- A word of the block at `esi` as a source, in any state that differs only in `eax`. -/
-theorem src_blk {s : State} {bp : BitVec 32} (hesi : s.gpr .esi = bp) {d : Nat}
-    (hin : InRegions (s.rd ++ s.wr) (addr bp d) 4) :
-    ∀ s' y, Upd s s' .eax y → readSrc s' (.mem (at_ .esi d)) = some (s.mem.readW (addr bp d) 32) := by
+/-- A word of the block at `b + d` as a source, in any state that differs only in `eax`. -/
+theorem src_blk {s : State} {b : Reg} (hb : b ≠ .eax) {d : Nat} {a : Addr} (hea : addr (s.gpr b) d = a)
+    (hin : InRegions (s.rd ++ s.wr) a 4) :
+    ∀ s' y, Upd s s' .eax y → readSrc s' (.mem (at_ b d)) = some (s.mem.readW a 32) := by
   intro s' y u
-  rw [readSrc_mem (a := addr bp d) (by rw [ea_at, u.other _ (by decide), hesi])
-    (by rw [u.rd, u.wr]; exact hin), u.mem]
+  rw [readSrc_mem (a := a) (by rw [ea_at, u.other _ hb, hea]) (by rw [u.rd, u.wr]; exact hin), u.mem]
 
 theorem src_imm {s : State} (w : BitVec 32) :
     ∀ s' y, Upd s s' .eax y → readSrc s' (.imm w) = some w := fun _ _ _ => rfl
 
-/-- Word `i` of the block at `esi` added to word `i` of `h`, with the carry in
-unless `i = 0`. -/
+/-- Word `i` of the block at `b + d` (word `i` at `bp`) added to word `i` of
+`h`, with the carry in unless `i = 0`. -/
 theorem addWord_ok {st bp : BitVec 32} {s : State} (hc : Ctx st s) {f : Nat → Nat}
-    (hw : Words s.mem st f) (hesi : s.gpr .esi = bp) {i : Nat} (hi : i < 4) {cin : Bool}
+    (hw : Words s.mem st f) {b : Reg} (hb : b ≠ .eax) {d i : Nat} (hi : i < 4)
+    (hea : addr (s.gpr b) (d + 4 * i) = addr bp (4 * i)) {cin : Bool}
     (hop : (i = 0 ∧ cin = false) ∨ (i ≠ 0 ∧ s.cf = some cin))
     (hin : InRegions (s.rd ++ s.wr) (addr bp (4 * i)) 4) :
-    WP isa (.block (addWord i)) s fun s' =>
+    WP isa (.block (addWord b d i)) s fun s' =>
       After st s s' (upd f i ((f i + wv s.mem bp (4 * i) + cin.toNat) % 2 ^ 32)) [.eax] ∧
       s'.cf = some (decide (2 ^ 32 ≤ f i + wv s.mem bp (4 * i) + cin.toNat)) :=
   los_ok hc hw rfl rfl (by omega) (by omega)
     (by rcases hop with ⟨rfl, rfl⟩ | ⟨h, h'⟩
         · exact .inl ⟨rfl, rfl⟩
         · exact .inr ⟨by simp [h], h'⟩)
-    (src_blk hesi hin)
+    (src_blk hb hea hin)
 
 end VG.Proof.Poly1305.X86

@@ -39,7 +39,7 @@ section
 variable (st : BitVec 32) (s : State) (f : Nat → Nat)
 /-- After the words of `g` below `i`. -/
 def GInv (i : Nat) (s' : State) : Prop :=
-  After st s s' (fun k => if 21 ≤ k ∧ k < 21 + i then gsum f (k - 21) % 2 ^ 32 else f k) [.eax] ∧
+  After st s s' (fun k => if 25 ≤ k ∧ k < 25 + i then gsum f (k - 25) % 2 ^ 32 else f k) [.eax] ∧
     s'.cf = some (decide (2 ^ 32 ≤ gsum f (i - 1)))
 end
 
@@ -49,23 +49,23 @@ theorem plus5Step_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {f : Nat → N
       .store (at_ .edi (tOff i)) .eax]) s' (GInv st s f (i + 1)) := by
   obtain ⟨A, c⟩ := h
   have hlt := gsum_lt (f := f) (fun k hk => hw.lt (by omega))
-  refine WP.mono (los_ok (A.ctx hc) A.words (j := i) (j' := 21 + i) rfl (by simp only [tOff]; omega)
+  refine WP.mono (los_ok (A.ctx hc) A.words (j := i) (j' := 25 + i) rfl (by simp only [tOff]; omega)
     (by omega) (by omega) (.inr ⟨rfl, c⟩) (src_imm 0)) fun s₁ ⟨A₁, c₁⟩ =>
       ⟨(A.trans A₁).mono.congr fun k _ => ?_, ?_⟩
   · simp only [upd]
-    rw [ite_eq_right (show ¬ (21 ≤ i ∧ i < 21 + i) by omega),
+    rw [ite_eq_right (show ¬ (25 ≤ i ∧ i < 25 + i) by omega),
       show (0 : BitVec 32).toNat = 0 from rfl, Nat.add_zero, carry_dec (hlt (i - 1) (by omega))]
-    by_cases e : k = 21 + i
+    by_cases e : k = 25 + i
     · subst e
       rw [ite_eq_left rfl, ite_eq_left ⟨by omega, by omega⟩]
       obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by omega⟩
-      simp only [gsum, show 21 + (j + 1) - 21 = j + 1 by omega, Nat.add_sub_cancel]
+      simp only [gsum, show 25 + (j + 1) - 25 = j + 1 by omega, Nat.add_sub_cancel]
     · rw [ite_eq_right e]
-      by_cases e' : 21 ≤ k ∧ k < 21 + i
+      by_cases e' : 25 ≤ k ∧ k < 25 + i
       · rw [ite_eq_left e', ite_eq_left ⟨e'.1, by omega⟩]
       · rw [ite_eq_right e', ite_eq_right (by omega)]
   · rw [c₁]
-    simp only [show i + 1 - 1 = i by omega, show ¬ (21 ≤ i ∧ i < 21 + i) by omega, ite_false]
+    simp only [show i + 1 - 1 = i by omega, show ¬ (25 ≤ i ∧ i < 25 + i) by omega, ite_false]
     rw [show (0 : BitVec 32).toNat = 0 from rfl, Nat.add_zero, carry_dec (hlt (i - 1) (by omega))]
     obtain ⟨j, rfl⟩ : ∃ j, i = j + 1 := ⟨i - 1, by omega⟩
     simp only [gsum, Nat.add_sub_cancel]
@@ -76,18 +76,18 @@ mask `-⌊g4 / 4⌋` in `ebp`. -/
 theorem plus5_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {f : Nat → Nat}
     (hw : Words s.mem st f) :
     WP isa (.block plus5) s fun s' =>
-      After st s s' (fun k => if 21 ≤ k ∧ k < 25 then gsum f (k - 21) % 2 ^ 32 else f k)
+      After st s s' (fun k => if 25 ≤ k ∧ k < 29 then gsum f (k - 25) % 2 ^ 32 else f k)
         [.eax, .edx, .ebp] ∧
       v s' .edx = (f 4 + gsum f 3 / 2 ^ 32) % 2 ^ 32 ∧
       s'.gpr .ebp = 0 - (s'.gpr .edx >>> 2) := by
   have hlt := gsum_lt (f := f) (fun k hk => hw.lt (by omega))
   rw [plus5_eq]
-  refine WP.block_append (WP.mono (los_ok hc hw (j := 0) (j' := 21) rfl rfl (by omega) (by omega)
+  refine WP.block_append (WP.mono (los_ok hc hw (j := 0) (j' := 25) rfl rfl (by omega) (by omega)
     (.inl ⟨rfl, rfl⟩) (src_imm 5)) fun s₁ ⟨A₁, c₁⟩ => ?_)
   have h₁ : GInv st s f 1 s₁ := ⟨A₁.congr fun k _ => ?_, by rw [c₁]; rfl⟩
   rotate_left
   · simp only [upd]
-    by_cases e : k = 21
+    by_cases e : k = 25
     · subst e; simp [gsum]
     · rw [ite_eq_right e, ite_eq_right (by omega)]
   refine WP.block_append (WP.mono (plus5Step_ok hc hw (i := 1) (by omega) h₁) fun s₂ h₂ => ?_)
@@ -134,12 +134,12 @@ theorem select_mask (x y : BitVec 32) (b : Bool) :
 theorem selectWord_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {f : Nat → Nat}
     (hw : Words s.mem st f) {k : Nat} (hk : k < 4) {b : Bool} (hm : s.gpr .ebp = maskOf b) :
     WP isa (.block (selectWord k)) s fun s' =>
-      After st s s' (upd f k (if b then f (21 + k) else f k)) [.eax, .ecx] := by
+      After st s s' (upd f k (if b then f (25 + k) else f k)) [.eax, .ecx] := by
   have hfit := hc.fit
   refine wp_movm (a := addr st (4 * k)) (by rw [ea_at, hc.edi]; rfl) (hc.inRW (by omega) (by omega))
     fun s₁ u₁ _ => ?_
-  have ht : tOff k = 4 * (21 + k) := by simp only [tOff]; omega
-  refine wp_movm (a := addr st (4 * (21 + k))) (by rw [ea_at, u₁.other .edi (by decide), hc.edi, ht])
+  have ht : tOff k = 4 * (25 + k) := by simp only [tOff]; omega
+  refine wp_movm (a := addr st (4 * (25 + k))) (by rw [ea_at, u₁.other .edi (by decide), hc.edi, ht])
     (by rw [u₁.rd, u₁.wr]; exact hc.inRW (by omega) (by omega)) fun s₂ u₂ _ => ?_
   refine wp_xorx (readSrc_reg _ _) fun s₃ u₃ => wp_andx (readSrc_reg _ _) fun s₄ u₄ => ?_
   refine wp_xorx (readSrc_reg _ _) fun s₅ u₅ => ?_
@@ -157,7 +157,7 @@ theorem selectWord_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {f : Nat → 
     · rw [u₅.gpr, u₄.other .eax (by decide), u₄.gpr, u₃.other .eax (by decide),
         u₃.other .ebp (by decide), u₃.gpr, u₂.gpr, u₂.other .eax (by decide), u₂.other .ebp (by decide),
         u₁.gpr, u₁.other .ebp (by decide), hm, u₁.mem, select_mask, hw.readW (k := k) (by omega),
-        hw.readW (k := 21 + k) (by omega)]
+        hw.readW (k := 25 + k) (by omega)]
     · rfl
   · rw [u₆.mem, mem₅]; exact frame_write (Frame.refl _ _) hfit (by omega) _
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
@@ -166,9 +166,9 @@ theorem selectWord_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {f : Nat → 
   · rw [u₆.wr, u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr]
 
 
-/-- The low words selected, from the words `f` (`h` and, at `21 + k`, `g`). -/
+/-- The low words selected, from the words `f` (`h` and, at `25 + k`, `g`). -/
 def selWords (f : Nat → Nat) (b : Bool) (n : Nat) : Nat → Nat :=
-  fun k => if k < n then (if b then f (21 + k) else f k) else f k
+  fun k => if k < n then (if b then f (25 + k) else f k) else f k
 
 theorem selects_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {f : Nat → Nat}
     (hw : Words s.mem st f) {b : Bool} (hm : s.gpr .ebp = maskOf b) :
@@ -185,7 +185,7 @@ theorem selects_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {f : Nat → Nat
       (by rw [A₁.gpr _ (by decide)]; exact hm)) fun s₂ A₂ => (A₁.trans A₂).mono.congr fun k _ => ?_
     by_cases e : k = n
     · subst e
-      simp only [upd, selWords, ite_true, show ¬ 21 + k < k by omega, show ¬ k < k by omega,
+      simp only [upd, selWords, ite_true, show ¬ 25 + k < k by omega, show ¬ k < k by omega,
         ite_false, show k < k + 1 by omega]
     · simp only [upd, selWords, e, ite_false]
       by_cases e' : k < n
@@ -239,13 +239,13 @@ theorem mask_of {g4 : Nat} (hg : g4 ≤ 5) (x : BitVec 32) (hx : x.toNat = g4) :
 theorem reduce_ok {st : BitVec 32} {s : State} (hc : Ctx st s) {f : Nat → Nat}
     (hw : Words s.mem st f) (h4 : f 4 ≤ 4) :
     WP isa (.block reduce) s fun s' => ∃ g, After st s s' g [.eax, .ecx, .edx, .ebp] ∧
-      (∀ k, 5 ≤ k → k < 21 → g k = f k) ∧ (∀ k, 25 ≤ k → g k = f k) ∧
+      (∀ k, 5 ≤ k → k < 25 → g k = f k) ∧ (∀ k, 29 ≤ k → g k = f k) ∧
       hw5 g = hw5 f % P ∧ g 4 < 4 := by
   have hf : ∀ k < 32, f k < 2 ^ 32 := fun k hk => hw.lt hk
   rw [reduce_eq]
   refine WP.block_append (WP.mono (plus5_ok hc hw) fun s₁ ⟨A₁, e₁, m₁⟩ => ?_)
   -- The mask.
-  set G : Nat → Nat := fun k => if 21 ≤ k ∧ k < 25 then gsum f (k - 21) % 2 ^ 32 else f k with hG
+  set G : Nat → Nat := fun k => if 25 ≤ k ∧ k < 29 then gsum f (k - 25) % 2 ^ 32 else f k with hG
   set g4 := (f 4 + gsum f 3 / 2 ^ 32) % 2 ^ 32
   have hlt := gsum_lt (f := f) (fun k hk => hf k (by omega))
   have hg4 : g4 ≤ 5 := by
