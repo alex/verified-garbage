@@ -33,6 +33,6 @@ def artifacts : List Artifact := [
     writeArgs := true
     stack := 48
     verified := Proof.Pbkdf2.Generic.X86.Instances.md5
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Pbkdf2Md5.X86

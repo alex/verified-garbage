@@ -1,8 +1,9 @@
 import VerifiedGarbage.Proof.Poly1305.Spec
 import VerifiedGarbage.Proof.Poly1305.Arm.Setup
-import Mathlib.Tactic.Ring.RingNF
 import VerifiedGarbage.Spec.Poly1305
 import VerifiedGarbage.TCB.Arm.Target
+import VerifiedGarbage.Proof.Framework.PowLit
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # Poly1305 on 32-bit ARM: bytes and words in memory
@@ -12,6 +13,8 @@ Untrusted: everything here is checked by Lean. Byte strings in memory as
 the clamped `r` of a stored key as limbs (`val_rlimb`), and regions of the
 state.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305
 
@@ -138,7 +141,7 @@ theorem leNum_bytesAt_words (m : Mem) (p : Addr) : ∀ n,
     leNum (bytesAt m p (4 * n)) = rsum (fun j => 2 ^ (32 * j) * (m.readW (p + BitVec.ofNat 64 (4 * j)) 32).toNat) n
   | 0 => by simp [bytesAt, rsum, Spec.Poly1305.leNum]
   | n + 1 => by
-    rw [show 4 * (n + 1) = 4 * n + 4 by ring, Poly1305.bytesAt_add, Poly1305.leNum_append,
+    rw [show 4 * (n + 1) = 4 * n + 4 by omega, Poly1305.bytesAt_add, Poly1305.leNum_append,
       Poly1305.length_bytesAt, leNum_bytesAt_4, leNum_bytesAt_words m p n, rsum,
       show (256 : Nat) ^ (4 * n) = 2 ^ (32 * n) by rw [Nat.pow_mul, Nat.pow_mul]]
 
@@ -147,8 +150,8 @@ theorem leNum_bytesAt_16 (m : Mem) (p : Addr) :
       2 ^ 32 * (m.readW (p + BitVec.ofNat 64 4) 32).toNat + 2 ^ 64 * (m.readW (p + BitVec.ofNat 64 8) 32).toNat +
       2 ^ 96 * (m.readW (p + BitVec.ofNat 64 12) 32).toNat := by
   rw [show 16 = 4 * 4 from rfl, leNum_bytesAt_words]
-  simp only [rsum]
-  ring
+  simp only [rsum, Nat.reduceMul]
+  omega
 
 theorem leNum_bytesAt_24 (m : Mem) (p : Addr) :
     leNum (bytesAt m p 24) = (m.readW (p + BitVec.ofNat 64 0) 32).toNat +
@@ -157,8 +160,8 @@ theorem leNum_bytesAt_24 (m : Mem) (p : Addr) :
       2 ^ 128 * (m.readW (p + BitVec.ofNat 64 16) 32).toNat +
       2 ^ 160 * (m.readW (p + BitVec.ofNat 64 20) 32).toNat := by
   rw [show 24 = 4 * 6 from rfl, leNum_bytesAt_words]
-  simp only [rsum]
-  ring
+  simp only [rsum, Nat.reduceMul]
+  omega
 
 /-! ## The stored key -/
 
@@ -202,7 +205,7 @@ theorem sub_base (p : Addr) {a len len' : Nat} (h : a + len ≤ len') (h' : len'
     Region.Sub ⟨p + BitVec.ofNat 64 a, len⟩ ⟨p, len'⟩ := by
   intro x hx
   simp only [Region.Contains] at *
-  rw [show x - p = (x - (p + BitVec.ofNat 64 a)) + BitVec.ofNat 64 a by bv_omega, BitVec.toNat_add,
+  rw [show x - p = (x - (p + BitVec.ofNat 64 a)) + BitVec.ofNat 64 a by bv_omega_using [], BitVec.toNat_add,
     BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := a) (by omega), Nat.mod_eq_of_lt (by omega)]
   omega
 

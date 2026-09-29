@@ -277,7 +277,7 @@ theorem compress_buf (hd : Dims P) {name : String} {code : Prog isa} (hf : Calle
   have ha : State.addr (st s₀ + BitVec.ofNat 32 P.N) = buf P s₀ := addr_off (by omega)
   have eb : Region.Sub ⟨buf P s₀, 64⟩ (stR P s₀) := sub_offset (by omega) (by omega)
   have d₂ : Region.Disjoint ⟨State.addr (st s₀ + BitVec.ofNat 32 P.N), 64⟩ ⟨stA s₀, P.N⟩ := by
-    rw [ha]; intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+    rw [ha]; exact Offset.disjoint_base _ (Nat.le_refl _) (by omega)
   have d₃ : Region.Disjoint ⟨State.addr (st s₀ + BitVec.ofNat 32 P.N), 64⟩ ⟨scA s₀, P.so⟩ := by
     rw [ha]; exact (hp.st_scr.sub_left eb).sub_right eso
   refine compressAt_ok hf hC.r0 hC.r3 hr1 (by omega) (by rw [BitVec.toNat_add, BitVec.toNat_ofNat]; omega)
@@ -769,12 +769,10 @@ theorem verified {P : Params} {H : Md 64 P.N 8} (hd : Dims P) (hs : Shape H) {na
     have e1 : stackArg (sat P) 1 = 0x3000 := by show stackArg satBase 1 = _; decide
     refine ⟨sat P, ?_⟩
     simp only [finK, e0, e1]
-    refine ⟨?_, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-    all_goals first
-      | (simp [sat, satBase, stackArgAddr, State.addr]; done)
-      | (simp [sat, satBase]; omega)
-      | (intro a h₁ h₂
-         simp only [Region.Contains, sat, satBase, stackArgAddr, State.addr] at h₁ h₂
-         bv_omega)
+    refine ⟨by simp [sat, satBase, stackArgAddr, State.addr], rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    all_goals try simp only [sat, satBase, stackArgAddr, State.addr]
+    iterate 3 exact Offset.disjoint_of_le (by simp <;> omega) (by simp <;> omega)
+    iterate 3 exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    all_goals simp <;> omega
 
 end VG.Proof.MdStream.Arm.Finalize

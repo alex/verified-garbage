@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Sha512.Arm.Stream.Common
 import Mathlib.Tactic.Tauto
+import VerifiedGarbage.Proof.Framework.Contract
 
 /-!
 # Streaming SHA-512 on ARMv7: `update`
@@ -691,8 +692,6 @@ theorem update_verified : Verified Arm.target update Proof.Sha512.updateArm := b
     simp only [Proof.Sha512.updateArm, e]
     refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
       by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+    exact Region.disjoint_of_sep (by decide)
 
 end VG.Proof.Sha512.Arm.Stream.Update

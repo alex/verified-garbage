@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Framework.Semantics
 import Mathlib.Util.CompileInductive
 import Lean.Elab.Tactic.Basic
 import Lean.Meta.Eval
+import VerifiedGarbage.Proof.Framework.Lit
 
 /-!
 # Constant time by taint tracking
@@ -215,41 +216,62 @@ theorem checkChunks_sound {ms : List A.T} {is : List M.Instr} {τ τ' : A.T}
 theorem check_sound {c : Prog M} {τ τ' : A.T} {hc : Hint A.T} {s₁ s₂ s₁' s₂' : M.State}
     {t₁ t₂ : List Leak} (h : A.check τ c hc = some τ') (ha : A.Agree τ s₁ s₂)
     (e₁ : Exec M c s₁ t₁ s₁') (e₂ : Exec M c s₂ t₂ s₂') : t₁ = t₂ ∧ A.Agree τ' s₁' s₂' := by
+  -- `check` reduces by evaluation on each pair of constructors: no equation lemmas (whose
+  -- generation, for its catch-all case, costs seconds) are needed.
   induction e₁ generalizing τ τ' hc s₂ t₂ s₂' with
   | block h₁ =>
-    cases hc <;> simp only [check, reduceCtorEq] at h
-    cases e₂ with
-    | block h₂ => exact checkChunks_sound h ha h₁ h₂
-  | seq _ _ ih₁ ih₂ =>
-    cases hc <;> simp only [check, reduceCtorEq] at h
-    cases e₂ with
-    | seq a b =>
-      simp only [Option.bind_eq_some_iff] at h
-      obtain ⟨τ₁, h₁, h₂⟩ := h
-      split at h₂ <;> [rename_i hle; cases h₂]
-      obtain ⟨rfl, ha₁⟩ := ih₁ h₁ ha a
-      obtain ⟨rfl, ha₂⟩ := ih₂ h₂ (A.le_sound hle ha₁) b
-      exact ⟨rfl, ha₂⟩
-  | iteT hc' _ ih =>
-    cases hc <;> simp only [check, reduceCtorEq] at h
-    split at h <;> [rename_i hp; cases h]
-    simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
-    obtain ⟨τ₁, h₁, τ₂, _, rfl⟩ := h
-    cases e₂ with
-    | iteT _ b => obtain ⟨rfl, hq⟩ := ih h₁ ha b; exact ⟨rfl, A.meet_left hq⟩
-    | iteF hc'' _ => rw [← A.cond_sound ha hp, hc'] at hc''; cases hc''
-  | iteF hc' _ ih =>
-    cases hc <;> simp only [check, reduceCtorEq] at h
-    split at h <;> [rename_i hp; cases h]
-    simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
-    obtain ⟨τ₁, _, τ₂, h₂, rfl⟩ := h
-    cases e₂ with
-    | iteT hc'' _ => rw [← A.cond_sound ha hp, hc'] at hc''; cases hc''
-    | iteF _ b => obtain ⟨rfl, hq⟩ := ih h₂ ha b; exact ⟨rfl, A.meet_right hq⟩
-  | loopExit _ hc' ih =>
+    cases hc with
+    | block ms =>
+      have h : A.checkChunks τ _ ms = some τ' := h
+      cases e₂ with
+      | block h₂ => exact checkChunks_sound h ha h₁ h₂
+    | _ => have h' : (none : Option A.T) = some τ' := h; cases h'
+  | @seq c₁ c₂ _ _ _ _ _ _ _ ih₁ ih₂ =>
+    cases hc with
+    | seq mid g₁ g₂ =>
+      have h : ((A.check τ c₁ g₁).bind fun τ' => if A.le mid τ' then A.check mid c₂ g₂ else none) =
+        some τ' := h
+      cases e₂ with
+      | seq a b =>
+        simp only [Option.bind_eq_some_iff] at h
+        obtain ⟨τ₁, h₁, h₂⟩ := h
+        split at h₂ <;> [rename_i hle; cases h₂]
+        obtain ⟨rfl, ha₁⟩ := ih₁ h₁ ha a
+        obtain ⟨rfl, ha₂⟩ := ih₂ h₂ (A.le_sound hle ha₁) b
+        exact ⟨rfl, ha₂⟩
+    | _ => have h' : (none : Option A.T) = some τ' := h; cases h'
+  | @iteT cnd t e _ _ _ hc' _ ih =>
+    cases hc with
+    | ite g₁ g₂ =>
+      have h : (if A.condPub τ cnd then
+          (A.check τ t g₁).bind fun τ₁ => (A.check τ e g₂).map fun τ₂ => A.meet τ₁ τ₂
+        else none) = some τ' := h
+      split at h <;> [rename_i hp; cases h]
+      simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+      obtain ⟨τ₁, h₁, τ₂, _, rfl⟩ := h
+      cases e₂ with
+      | iteT _ b => obtain ⟨rfl, hq⟩ := ih h₁ ha b; exact ⟨rfl, A.meet_left hq⟩
+      | iteF hc'' _ => rw [← A.cond_sound ha hp, hc'] at hc''; cases hc''
+    | _ => have h' : (none : Option A.T) = some τ' := h; cases h'
+  | @iteF cnd t e _ _ _ hc' _ ih =>
+    cases hc with
+    | ite g₁ g₂ =>
+      have h : (if A.condPub τ cnd then
+          (A.check τ t g₁).bind fun τ₁ => (A.check τ e g₂).map fun τ₂ => A.meet τ₁ τ₂
+        else none) = some τ' := h
+      split at h <;> [rename_i hp; cases h]
+      simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+      obtain ⟨τ₁, _, τ₂, h₂, rfl⟩ := h
+      cases e₂ with
+      | iteT hc'' _ => rw [← A.cond_sound ha hp, hc'] at hc''; cases hc''
+      | iteF _ b => obtain ⟨rfl, hq⟩ := ih h₂ ha b; exact ⟨rfl, A.meet_right hq⟩
+    | _ => have h' : (none : Option A.T) = some τ' := h; cases h'
+  | @loopExit body c _ _ _ _ hc' ih =>
     cases hc with
     | loop σ hb =>
-      simp only [check] at h
+      have h : (if A.le σ τ then
+          (A.check σ body hb).bind fun σ' => if A.le σ σ' && A.condPub σ' c then some σ' else none
+        else none) = some τ' := h
       split at h <;> [rename_i hστ; cases h]
       simp only [Option.bind_eq_some_iff] at h
       obtain ⟨σ', hb', h'⟩ := h
@@ -262,11 +284,13 @@ theorem check_sound {c : Prog M} {τ τ' : A.T} {hc : Hint A.T} {s₁ s₂ s₁'
       | loopNext a hc'' _ =>
         obtain ⟨_, ha₁⟩ := ih hb' hσ a
         rw [← A.cond_sound ha₁ hl.2, hc'] at hc''; cases hc''
-    | _ => simp only [check, reduceCtorEq] at h
+    | _ => have h' : (none : Option A.T) = some τ' := h; cases h'
   | @loopNext body c _ _ _ _ _ _ hc' _ ih₁ ih₂ =>
     cases hc with
     | loop σ hb =>
-      simp only [check] at h
+      have h : (if A.le σ τ then
+          (A.check σ body hb).bind fun σ' => if A.le σ σ' && A.condPub σ' c then some σ' else none
+        else none) = some τ' := h
       split at h <;> [rename_i hστ; cases h]
       simp only [Option.bind_eq_some_iff] at h
       obtain ⟨σ', hb', h'⟩ := h
@@ -281,14 +305,18 @@ theorem check_sound {c : Prog M} {τ τ' : A.T} {hc : Hint A.T} {s₁ s₂ s₁'
       | loopNext a _ b =>
         obtain ⟨rfl, ha₁⟩ := ih₁ hb' hσ a
         have hloop : A.check τ' (.loop body c) (.loop σ hb) = some τ' := by
-          simp only [check, hl.1, hl.2, hb', Option.bind_some, Bool.and_self, ite_true]
+          show (if A.le σ τ' then
+            (A.check σ body hb).bind fun σ' => if A.le σ σ' && A.condPub σ' c then some σ' else none
+            else none) = some τ'
+          simp only [hl.1, hl.2, hb', Option.bind_some, Bool.and_self, ite_true]
         obtain ⟨rfl, ha₂⟩ := ih₂ hloop ha₁ b
         exact ⟨rfl, ha₂⟩
-    | _ => simp only [check, reduceCtorEq] at h
-  | call hc₁ _ hr ih =>
+    | _ => have h' : (none : Option A.T) = some τ' := h; cases h'
+  | @call _ body _ _ _ _ _ hc₁ _ hr ih =>
     cases hc with
     | call hb =>
-      simp only [check, Option.bind_eq_some_iff] at h
+      have h : ((A.call τ).bind fun τ₁ => (A.check τ₁ body hb).bind A.ret) = some τ' := h
+      simp only [Option.bind_eq_some_iff] at h
       obtain ⟨τ₁, h₁, τ₂, h₂, h₃⟩ := h
       cases e₂ with
       | call hc₂ b hr₂ =>
@@ -296,11 +324,13 @@ theorem check_sound {c : Prog M} {τ τ' : A.T} {hc : Hint A.T} {s₁ s₂ s₁'
         obtain ⟨rfl, ha₂⟩ := ih h₂ ha₁' b
         obtain ⟨ha₃, ha₃'⟩ := A.ret_sound ha₂ h₃ hr hr₂
         exact ⟨by rw [ha₁, ha₃], ha₃'⟩
-    | _ => simp only [check, reduceCtorEq] at h
-  | frame hp₁ _ hq ih =>
+    | _ => have h' : (none : Option A.T) = some τ' := h; cases h'
+  | @frame i j body _ _ _ _ _ hp₁ _ hq ih =>
     cases hc with
     | frame hb =>
-      simp only [check, Option.bind_eq_some_iff] at h
+      have h : ((A.push τ i).bind fun τ₁ => (A.check τ₁ body hb).bind fun τ₂ => A.pop τ₂ j) =
+        some τ' := h
+      simp only [Option.bind_eq_some_iff] at h
       obtain ⟨τ₁, h₁, τ₂, h₂, h₃⟩ := h
       cases e₂ with
       | frame hp₂ b hq₂ =>
@@ -308,7 +338,7 @@ theorem check_sound {c : Prog M} {τ τ' : A.T} {hc : Hint A.T} {s₁ s₂ s₁'
         obtain ⟨rfl, ha₂⟩ := ih h₂ ha₁' b
         obtain ⟨ha₃, ha₃'⟩ := A.pop_sound ha₂ h₃ hq hq₂
         exact ⟨by rw [ha₁, ha₃], ha₃'⟩
-    | _ => simp only [check, reduceCtorEq] at h
+    | _ => have h' : (none : Option A.T) = some τ' := h; cases h'
 
 /-- A successful check proves constant time, for any `Pub` under which the
 initial states agree on what the initial taint says is public. -/
@@ -319,27 +349,61 @@ theorem constantTime {Pre : M.State → Prop} {Pub : M.State → M.State → Pro
   obtain ⟨τ', hc⟩ := Option.isSome_iff_exists.mp h
   exact (check_sound hc (hpub _ _ h₁ h₂ hp) e₁ e₂).1
 
+/-- Apply `f` to every taint of a hint. -/
+def Hint.map {T U : Type} (f : T → U) : Hint T → Hint U
+  | .block ms => .block (ms.map f)
+  | .seq m h₁ h₂ => .seq (f m) (h₁.map f) (h₂.map f)
+  | .ite h₁ h₂ => .ite (h₁.map f) (h₂.map f)
+  | .loop i h => .loop (f i) (h.map f)
+  | .call h => .call (h.map f)
+  | .frame h => .frame (h.map f)
+
 end Taint
 
 open Lean Meta Elab Tactic in
+/-- `taint_decide`, with the taints of the hint weakened by `w`, if given. -/
+def taintDecide (name : String) (w : Option Term) : TacticM Unit := do
+  let g ← getMainGoal
+  let some (_, lhs, _) := (← instantiateMVars (← g.getType)).eq?
+    | throwError "{name}: the goal is not an equation about `Taint.check A τ c h`"
+  let some chk := lhs.find? (·.isAppOfArity ``Taint.check 5)
+    | throwError "{name}: the goal is not an equation about `Taint.check A τ c h`"
+  let args := chk.getAppArgs
+  let (m, a, τ, c, h) := (args[0]!, args[1]!, args[2]!, args[3]!, args[4]!)
+  let tT ← whnfD (mkApp2 (mkConst ``Taint.T) m a)
+  let hty := mkApp (mkConst ``Taint.Hint) tT
+  let inst ← synthInstance (mkApp (mkConst ``ToExpr [0]) hty)
+  let mut hint := mkApp4 (mkConst ``Taint.hintOf) m a τ c
+  if let some w := w then
+    unless h.isMVar do throwError "{name}: the hint is already given"
+    let wv ← Term.elabTermEnsuringType w (← mkArrow tT tT)
+    Term.synthesizeSyntheticMVarsNoPostponing
+    hint := mkApp4 (mkConst ``Taint.Hint.map) tT tT (← instantiateMVars wv) hint
+  let hv ← unsafe evalExpr Expr (mkConst ``Expr) (mkApp3 (mkConst ``ToExpr.toExpr [0]) hty inst hint)
+  if h.isMVar then h.mvarId!.assign hv
+  -- The kernel evaluates the literal of any code that has one (`materialize_code`).
+  evalTactic (← `(tactic| lit_decide))
+
 /-- Proves `(Taint.check A τ c ?hint).isSome = true`, or any decidable
 equation whose left side contains `Taint.check A τ c ?hint` (e.g. a property of
 the resulting taint): computes the hint (`Taint.hintOf`, in compiled code) and
-then has the kernel evaluate the goal. The domain `A.T` needs a `ToExpr`
+then has the kernel evaluate the goal, with each code constant that has a
+literal (`materialize_code`) rewritten to it. The domain `A.T` needs a `ToExpr`
 instance. -/
-elab "taint_decide" : tactic => do
-  let g ← getMainGoal
-  let some (_, lhs, _) := (← instantiateMVars (← g.getType)).eq?
-    | throwError "taint_decide: the goal is not an equation about `Taint.check A τ c h`"
-  let some chk := lhs.find? (·.isAppOfArity ``Taint.check 5)
-    | throwError "taint_decide: the goal is not an equation about `Taint.check A τ c h`"
-  let args := chk.getAppArgs
-  let (m, a, τ, c, h) := (args[0]!, args[1]!, args[2]!, args[3]!, args[4]!)
-  let hty := mkApp (mkConst ``Taint.Hint) (← whnfD (mkApp2 (mkConst ``Taint.T) m a))
-  let inst ← synthInstance (mkApp (mkConst ``ToExpr [0]) hty)
-  let hv ← unsafe evalExpr Expr (mkConst ``Expr)
-    (mkApp3 (mkConst ``ToExpr.toExpr [0]) hty inst (mkApp4 (mkConst ``Taint.hintOf) m a τ c))
-  if h.isMVar then h.mvarId!.assign hv
-  evalTactic (← `(tactic| decide +kernel))
+elab "taint_decide" : tactic => taintDecide "taint_decide" none
+
+/-- `taint_decide`, with the taints of the hint weakened by `w : A.T → A.T`
+(computed in compiled code, like the hint).
+
+`Taint.check` accepts any hint whose taints are at most what the analysis
+computes (`le`): at every `chunk` instructions of a block, between the parts
+of a `seq` and at every loop, the analysis continues from the hint's taint.
+So a hint may forget public facts that the rest of the code never uses. The
+kernel is a slow evaluator, and the cost of each instruction grows with the
+size of the taint (e.g. the x86 analysis's list of public memory slots, which
+a table of constants stored on the stack fills), so forgetting them can make
+the kernel's check several times faster. Nothing about `w` needs to be sound:
+a hint it weakens too much only makes the check fail. -/
+elab "taint_decide_weak " w:term : tactic => taintDecide "taint_decide_weak" (some w)
 
 end VG

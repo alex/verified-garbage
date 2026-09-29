@@ -3,6 +3,8 @@ import Batteries.Tactic.PermuteGoals
 import Batteries.Tactic.SeqFocus
 import Batteries.Data.List.Basic
 import VerifiedGarbage.TCB.Mem
+import VerifiedGarbage.Proof.Framework.AddrArith
+import VerifiedGarbage.Proof.Framework.GetElem
 
 /-!
 # Memory: reads after writes, regions, frames
@@ -31,7 +33,7 @@ theorem read_congr {m m' : Mem} {a : Addr} {n : Nat}
     simp only [BitVec.add_zero] at h0
     rw [h0, ih fun i hi => ?_]
     have := h (i + 1) (by omega)
-    rwa [show a + BitVec.ofNat 64 (i + 1) = a + 1 + BitVec.ofNat 64 i by bv_omega] at this
+    rwa [Offset.add_ofNat_succ] at this
 
 theorem readW_congr {m m' : Mem} {a : Addr} {w : Nat}
     (h : ∀ i < w / 8, m (a + BitVec.ofNat 64 i) = m' (a + BitVec.ofNat 64 i)) :
@@ -48,7 +50,7 @@ def Sep (a : Addr) (n : Nat) (b : Addr) (k : Nat) : Prop :=
 
 theorem sub_ofNat_toNat (a : Addr) {i : Nat} (hi : i < 2 ^ 64) :
     (a + BitVec.ofNat 64 i - a).toNat = i := by
-  rw [show a + BitVec.ofNat 64 i - a = BitVec.ofNat 64 i by bv_omega, BitVec.toNat_ofNat]
+  rw [Offset.add_sub_cancel_left, BitVec.toNat_ofNat]
   exact Nat.mod_eq_of_lt hi
 
 theorem read_write_sep {m : Mem} {a b : Addr} {n k : Nat} {v : BitVec (8 * k)} (h : Sep a n b k)
@@ -69,7 +71,7 @@ theorem read_eq_of_bytes {m : Mem} {a : Addr} {n : Nat} {v : BitVec (8 * n)}
     have hv : ∀ i < n, m (a + 1 + BitVec.ofNat 64 i) =
         (v.extractLsb' 8 (8 * n)).extractLsb' (8 * i) 8 := by
       intro i hi
-      rw [show a + 1 + BitVec.ofNat 64 i = a + BitVec.ofNat 64 (i + 1) by bv_omega, h (i + 1) (by omega)]
+      rw [← Offset.add_ofNat_succ, h (i + 1) (by omega)]
       ext j hj
       simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_extractLsb']
       simp only [show 8 * i + j < 8 * n by omega, decide_true, Bool.true_and]
@@ -106,7 +108,7 @@ theorem extractLsb'_read (m : Mem) (a : Addr) {n j : Nat} (hj : j < n) :
       simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_append]
       simp [hi]
     | succ j =>
-      rw [show a + BitVec.ofNat 64 (j + 1) = a + 1 + BitVec.ofNat 64 j by bv_omega,
+      rw [Offset.add_ofNat_succ,
         ← ih (a := a + 1) (by omega)]
       ext i hi
       simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_append,
@@ -136,7 +138,7 @@ theorem Contains.byte {r : Region} {b x : Addr} {n : Nat} (h : r.Contains b n)
     (hx : (x - b).toNat < n) : r.Contains x 1 := by
   unfold Contains at *
   have : (x - r.base).toNat ≤ (x - b).toNat + (b - r.base).toNat := by
-    rw [show x - r.base = (x - b) + (b - r.base) by bv_omega, BitVec.toNat_add]
+    rw [← Offset.sub_add_sub_cancel x b r.base, BitVec.toNat_add]
     exact Nat.mod_le _ _
   omega
 
@@ -261,7 +263,7 @@ theorem bytes {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {R : Region}
     m' (R.base + BitVec.ofNat 64 i) = m (R.base + BitVec.ofNat 64 i) := by
   refine hf _ fun r hr hc => hd r hr _ ?_ hc
   simp only [Region.Contains]
-  rw [show R.base + BitVec.ofNat 64 i - R.base = BitVec.ofNat 64 i by bv_omega, BitVec.toNat_ofNat,
+  rw [Offset.add_sub_cancel_left, BitVec.toNat_ofNat,
     Nat.mod_eq_of_lt (by omega)]
   omega
 

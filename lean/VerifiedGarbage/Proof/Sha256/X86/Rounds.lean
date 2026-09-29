@@ -2,8 +2,10 @@ import VerifiedGarbage.Proof.Framework.Block
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.X86.Taint
 import VerifiedGarbage.Proof.Framework.X86.Exec
+import VerifiedGarbage.Proof.Framework.X86.RegUpd
 import VerifiedGarbage.Proof.Sha256.Spec
 import VerifiedGarbage.Impl.Sha256.X86
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # SHA-256 compression function on x86 (32-bit): the message schedule and the rounds
@@ -37,10 +39,8 @@ structure Scratch (s : State) (scr : BitVec 32) : Prop where
 
 theorem scr_sep {scr : BitVec 32} (h : scr.toNat + 112 ≤ 2 ^ 32) {d e : Nat} (hd : d + 4 ≤ 112)
     (he : e + 4 ≤ 112) (hde : d + 4 ≤ e ∨ e + 4 ≤ d) : Mem.Sep (addr scr e) 4 (addr scr d) 4 := by
-  intro x hx hy
-  rw [addr_eq (by omega)] at hx hy
-  generalize scr.setWidth 64 = a at *
-  bv_omega
+  rw [addr_eq (by omega), addr_eq (by omega)]
+  exact Offset.sep _ (by omega) (by omega) (by omega)
 
 /-- Reading `[scr + e]` after writing `[scr + d]`. -/
 theorem readW_writeW_scr {scr : BitVec 32} (h : scr.toNat + 112 ≤ 2 ^ 32) (m : Mem) (x : Word)
@@ -101,15 +101,24 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 
   simp only [List.pairwise_cons, List.mem_cons, List.not_mem_nil,
     forall_eq_or_imp, false_implies, implies_true, List.Pairwise.nil, and_true, or_false,
     forall_eq] at hsep
-  simp (config := {decide := true}) only
+  simp only
     [hsep, runBlock_cons, runBlock_nil, runStep_some, exec, execAlu, execShift, readSrc, ea_at, sc,
-    State.setReg, arithFlags, State.setFlags, State.load32, State.store32, ite_true, ite_false,
+    RegUpd.gpr_setReg_self, RegUpd.gpr_setReg_of_ne, RegUpd.mem_setReg, RegUpd.rd_setReg,
+    RegUpd.wr_setReg, RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags,
+    RegUpd.wr_arithFlags, RegUpd.gpr_setFlags, RegUpd.mem_setFlags, RegUpd.rd_setFlags,
+    RegUpd.wr_setFlags, Nat.reduceLeDiff, Nat.reduceEqDiff, and_self, not_false_eq_true,
+    reduceCtorEq,
+    State.load32, State.store32, ite_true, ite_false,
     hesi, hin, hout, hs, hrw, Mem.readW_writeW_self32, h0, h1, h2, h3, h4, h5, h6, h7, hw,
     Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ⟨_, _, rfl⟩, trivial, trivial, by simp [pubRegs]⟩ <;>
-  simp (config := {failIfUnchanged := false}) only [roundKW, bsig1_eq, ch_eq, bsig0_eq, maj_eq,
-    Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero, List.getElem_cons_succ]
-  simp only [BitVec.add_assoc]
+  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ⟨_, _, rfl⟩, trivial, trivial, fun r hr => ?_⟩
+  rotate_right
+  · simp only [pubRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl <;>
+      simp only [RegUpd.gpr_setReg_of_ne, RegUpd.gpr_arithFlags, RegUpd.gpr_setFlags,
+        not_false_eq_true, reduceCtorEq]
+  all_goals
+    simp (config := {failIfUnchanged := false}) only [roundKW_0, roundKW_1, roundKW_2, roundKW_3, roundKW_4, roundKW_5, roundKW_6, roundKW_7, bsig1_eq, ch_eq, bsig0_eq, maj_eq, BitVec.add_assoc]
 
 theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32) (hS : Scratch s scr)
     (hedi : s.gpr .edi = bp) (hesi : s.gpr .esi = scr)
@@ -128,11 +137,15 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32) (hS :
   · have hi := hbin ht
     have hb := hblk ht
     simp only [Impl.Sha256.X86.schedule, ht, ite_true]
-    simp (config := {decide := true}) only [runBlock_cons, runBlock_nil, runStep_some, exec, readSrc,
-      ea_at, State.setReg,
-      State.load32, State.store32, hedi, hesi, hi, hout, ite_true, ite_false, hb,
+    simp only [runBlock_cons, runBlock_nil, runStep_some, exec, readSrc,
+      ea_at, RegUpd.gpr_setReg_self, RegUpd.gpr_setReg_of_ne, RegUpd.mem_setReg, RegUpd.rd_setReg,
+      RegUpd.wr_setReg, not_false_eq_true, reduceCtorEq,
+      State.load32, State.store32, hedi, hesi, hi, hout, ite_true, hb,
       Option.map_some, Option.some.injEq, exists_eq_left']
-    refine ⟨trivial, trivial, trivial, by simp [pubRegs]⟩
+    refine ⟨trivial, trivial, trivial, fun r hr => ?_⟩
+    simp only [pubRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl <;>
+      simp only [RegUpd.gpr_setReg_of_ne, not_false_eq_true, reduceCtorEq]
   · have hw := hwin (by omega)
     have e2 := hw (t - 2) (by omega) (by omega)
     have e7 := hw (t - 7) (by omega) (by omega)
@@ -143,12 +156,21 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32) (hS :
     rw [show slot (t - 15) = slot (t + 1) by simp only [slot]; omega] at e15
     rw [show slot (t - 16) = slot t by simp only [slot]; omega] at e16
     simp only [Impl.Sha256.X86.schedule, ht, ite_false, sc]
-    simp (config := {decide := true}) only [runBlock_cons, runBlock_nil, runStep_some, exec, execAlu,
-    execShift, readSrc, ea_at,
-      State.setReg, arithFlags, State.setFlags, State.load32, State.store32, hesi, hin, hout,
+    simp only [runBlock_cons, runBlock_nil, runStep_some, exec, execAlu,
+      execShift, readSrc, ea_at, RegUpd.gpr_setReg_self, RegUpd.gpr_setReg_of_ne, RegUpd.mem_setReg,
+      RegUpd.rd_setReg,
+      RegUpd.wr_setReg, RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags,
+      RegUpd.wr_arithFlags, RegUpd.gpr_setFlags, RegUpd.mem_setFlags, RegUpd.rd_setFlags,
+      RegUpd.wr_setFlags, Nat.reduceLeDiff, Nat.reduceEqDiff, and_self,
+      not_false_eq_true, reduceCtorEq, State.load32, State.store32, hesi, hin, hout,
       ite_true, ite_false, e2, e7, e15, e16, Option.bind_some, Option.map_some, Option.some.injEq,
       exists_eq_left']
-    refine ⟨?_, trivial, trivial, by simp [pubRegs]⟩
+    refine ⟨?_, trivial, trivial, fun r hr => ?_⟩
+    rotate_right
+    · simp only [pubRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl <;>
+        simp only [RegUpd.gpr_setReg_of_ne, RegUpd.gpr_arithFlags, RegUpd.gpr_setFlags,
+          not_false_eq_true, reduceCtorEq]
     rw [W_ge M (t := t) (by omega), ssig1_eq, ssig0_eq]
 
 /-! ## The 64 rounds -/
@@ -157,11 +179,7 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32) (hS :
 abbrev workRegion (scr : BitVec 32) : Region := ⟨scr.setWidth 64, 96⟩
 
 theorem contains_offset {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
-    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
-  simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, BitVec.toNat_ofNat,
-    Nat.mod_eq_of_lt ho]
-  exact h
+    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := Offset.contains_base base h ho
 
 theorem work_contains {scr : BitVec 32} (h : scr.toNat + 112 ≤ 2 ^ 32) {d : Nat} (hd : d + 4 ≤ 96) :
     (workRegion scr).Contains (addr scr d) (32 / 8) := by

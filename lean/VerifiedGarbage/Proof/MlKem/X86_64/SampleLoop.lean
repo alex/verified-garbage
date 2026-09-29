@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.MlKem.X86_64.Sample
 import VerifiedGarbage.Proof.MlKem.X86_64.Bytes
 import VerifiedGarbage.Proof.MlKem.X86_64.Contracts
-import VerifiedGarbage.Proof.MlKem.Sample
+import VerifiedGarbage.Proof.MlKem.KPke
 
 /-!
 # ML-KEM on x86-64: the loop of `vg_mlkem_sample_ntt`

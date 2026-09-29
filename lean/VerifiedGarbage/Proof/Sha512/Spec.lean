@@ -1,5 +1,6 @@
 import VerifiedGarbage.Spec.Sha512
 import Mathlib.Tactic.SplitIfs
+import VerifiedGarbage.Proof.Framework.GetElem
 
 /-!
 # SHA-512: lemmas about the specification
@@ -57,6 +58,23 @@ def roundKW (v : HashValue) (k w : Word) : HashValue :=
   let T₂ := bsig0 a + maj a b c
   #v[T₁ + T₂, a, b, c, d + T₁, e, f, g]
 
+section
+variable (v : HashValue) (k w : Word)
+
+/-! The words of `roundKW`, for rewriting the symbolic results of a round. -/
+
+theorem roundKW_0 : (roundKW v k w)[0] =
+    v[7] + bsig1 v[4] + ch v[4] v[5] v[6] + k + w + (bsig0 v[0] + maj v[0] v[1] v[2]) := rfl
+theorem roundKW_1 : (roundKW v k w)[1] = v[0] := rfl
+theorem roundKW_2 : (roundKW v k w)[2] = v[1] := rfl
+theorem roundKW_3 : (roundKW v k w)[3] = v[2] := rfl
+theorem roundKW_4 : (roundKW v k w)[4] = v[3] + (v[7] + bsig1 v[4] + ch v[4] v[5] v[6] + k + w) := rfl
+theorem roundKW_5 : (roundKW v k w)[5] = v[4] := rfl
+theorem roundKW_6 : (roundKW v k w)[6] = v[5] := rfl
+theorem roundKW_7 : (roundKW v k w)[7] = v[6] := rfl
+
+end
+
 theorem round_eq (M : Block) (v : HashValue) (t : Nat) :
     round M v t = roundKW v (K t) (W M t) := rfl
 
@@ -79,8 +97,9 @@ theorem add_ac {n : Nat} : (∀ a b c : BitVec n, a + b + c = a + (b + c)) ∧
 theorem rotateRight_rotateRight (x : Word) {a b : Nat} (hab : a + b < 64) :
     (x.rotateRight a).rotateRight b = x.rotateRight (a + b) := by
   ext i hi
-  simp only [BitVec.getElem_rotateRight]
-  split_ifs <;> first | omega | (congr 1; omega)
+  simp only [BitVec.getElem_rotateRight, Nat.mod_eq_of_lt (show a < 64 by omega),
+    Nat.mod_eq_of_lt (show b < 64 by omega), Nat.mod_eq_of_lt hab]
+  split_ifs <;> first | (exfalso; omega) | (congr 1; omega)
 
 theorem ch_eq (x y z : Word) : ch x y z = (y ^^^ z) &&& x ^^^ z := by
   ext i; simp only [ch, BitVec.getElem_xor, BitVec.getElem_and, BitVec.getElem_not]

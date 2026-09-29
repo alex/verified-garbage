@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.MlKem.X86.Keccak
 import VerifiedGarbage.Proof.MlKem.X86.Leaf
-import VerifiedGarbage.Proof.MlKem.Sample
+import VerifiedGarbage.Proof.MlKem.KPke
 import VerifiedGarbage.Impl.MlKem.X86.Sample
 import VerifiedGarbage.Spec.MlKem.Poly
 import VerifiedGarbage.TCB.X86.Target

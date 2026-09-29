@@ -4,6 +4,8 @@ import Mathlib.Tactic.Set
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
+import VerifiedGarbage.Proof.Framework.Offset
+import Mathlib.Tactic.ClearExcept
 
 /-!
 # HMAC-SHA-256 on ARMv7: `init`
@@ -221,7 +223,7 @@ theorem saved_frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Re
   refine (hd r hr).sub_left ?_
   simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
   rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
-  · intro a ha; simp only [Region.Contains] at *; bv_omega
+    exact Offset.sub _ (by decide) (by decide)
 
 /-- `Saved` survives a write outside the scratch space. -/
 theorem saved_frame' {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Region} (hf : Frame rs m m')
@@ -601,7 +603,7 @@ theorem compress_ok {s₀ : State} (hp : Pre s₀) {p : BitVec 32} (hpR : p = in
   refine compressAt_ok (st := p) (scr := scr s₀) (src := p + 32) h0 h3 h1 (by omega) (by omega) (by omega)
     ((d.sub_left e32).sub_right e112) ?_ (by rw [ea]; exact (d.sub_left eb).sub_right e112) ?_ ?_
     fun s' h₁ h₂ h₃ h₄ h₅ h₆ h₇ h₈ => hQ s' h₁ h₂ h₃ h₄ h₅ h₆ h₇ (by rw [h₈, ea])
-  · rw [ea]; intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+  · rw [ea]; intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; clear * - h₁ h₂; bv_omega
   · rw [hrd, hwr, ea]
     apply Covers.of_sub
     intro r hr
@@ -726,7 +728,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) : WP isa init s₀ (Post s₀) :=
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl)
     · exact (hp.i_s.symm.sub_left (save_sub s₀)).sub_right (sub32 _)
-    · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+    · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; clear * - h₁ h₂; bv_omega
   -- The outer block.
   refine WP.seq (wp_mov (op2_reg _ _) fun s₁₀ u₁₀ => wp_add (op2_imm (by decide)) fun s₁₁ u₁₁ =>
     WP.block_nil ?_)
@@ -755,7 +757,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) : WP isa init s₀ (Post s₀) :=
   simp only [List.mem_cons, List.not_mem_nil, or_false]
   rintro r (rfl | rfl)
   · exact (hp.o_s.symm.sub_left (save_sub s₀)).sub_right (sub32 _)
-  · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+  · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; clear * - h₁ h₂; bv_omega
 
 /-! ## `Verified` -/
 
@@ -801,7 +803,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.initSha256Arm.pre s₁)
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ h₁, wf₀ h₂,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim, fun _ => psp, fun k hk => ?_⟩
   · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl <;> assumption
+    rcases hr with rfl | rfl | rfl | rfl <;> with_reducible assumption
   · rw [hp₁.wr, hp₂.wr]; simp only [inR, ouR, scR, inA, ouA, scA, inn, ou, scr, p0, p1, a0]
   · simp only [τ₀] at hk
     rw [argByte_eq, argByte_eq, Mem.readW_byte s₁.mem _ hk,

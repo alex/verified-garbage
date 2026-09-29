@@ -176,11 +176,11 @@ def arkG (j p : Nat) : List Nat := [32 * j + p, 32 * (8 + j) + p]
 
 open VG.Arm.Straight in
 theorem xorBits_map (W : Nat → BitVec 32) (l : List (Nat × Nat)) (hl : ∀ wt ∈ l, wt.2 < 32) :
-    xorBits W (l.map fun wt => 32 * wt.1 + wt.2) = termsXor W l := by
+    Arm.Straight.xorBits W (l.map fun wt => 32 * wt.1 + wt.2) = termsXor W l := by
   induction l with
   | nil => rfl
   | cons wt l ih =>
-    simp only [List.map_cons, xorBits_cons, termsXor, List.foldr_cons] at ih ⊢
-    rw [bitOf_word _ _ _ (hl wt (by simp)), ih fun v hv => hl v (by simp [hv])]
+    simp only [List.map_cons, Arm.Straight.xorBits_cons, termsXor, List.foldr_cons] at ih ⊢
+    rw [Arm.Straight.bitOf_word _ _ _ (hl wt (by simp)), ih fun v hv => hl v (by simp [hv])]
 
 end VG.Proof.Aes.Arm

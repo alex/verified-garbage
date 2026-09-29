@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.Hmac.X86.Common
 import VerifiedGarbage.Proof.Framework.X86.CallWith
 import VerifiedGarbage.Spec.Hmac
 import VerifiedGarbage.Proof.Sha256.X86.Contract
-import Mathlib.Tactic.IntervalCases
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Hmac.Contract
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # HMAC-SHA-256 on x86 (32-bit): `finalize`
@@ -293,7 +293,7 @@ theorem proMem_arg {s₀ : State} (hp : Pre s₀) (i : Nat) (hi : i < 5) :
   have s176 : ∀ d, 4 ≤ d → d + 4 ≤ 28 →
       (s₀.mem.writeW (addr (scr s₀) 176) (ou s₀)).readW (addr (esp₀ s₀) d) 32 = s₀.mem.readW (addr (esp₀ s₀) d) 32 :=
     fun d h₁ h₂ => Mem.readW_writeW_sep (hp.arg_scr_sep h₁ h₂ (by omega)) (by decide)
-  interval_cases i <;> simp only [proMem, List.getD_cons_zero, List.getD_cons_succ]
+  rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4) with rfl | rfl | rfl | rfl | rfl <;> simp only [proMem, List.getD_cons_zero, List.getD_cons_succ]
   · rw [w _ _ 4 20 (by omega) (by omega) (by omega) (by omega) (by omega),
       w _ _ 4 16 (by omega) (by omega) (by omega) (by omega) (by omega),
       w _ _ 4 12 (by omega) (by omega) (by omega) (by omega) (by omega),
@@ -651,34 +651,7 @@ theorem bytesAt_writeW_sep (m : Mem) {p a : Addr} {n : Nat} (v : BitVec 32) (h :
 theorem padBytes_length : padBytes.length = 32 := by decide
 
 theorem sep_off (b : Addr) {d e n k : Nat} (h : d + n ≤ e ∨ e + k ≤ d) (hd : d + n < 2 ^ 32) (he : e + k < 2 ^ 32) :
-    Mem.Sep (b + BitVec.ofNat 64 d) n (b + BitVec.ofNat 64 e) k := by
-  intro x hx hy
-  have e₁ : x - (b + BitVec.ofNat 64 d) = x - b - BitVec.ofNat 64 d := by bv_omega
-  have e₂ : x - (b + BitVec.ofNat 64 e) = x - b - BitVec.ofNat 64 e := by bv_omega
-  rw [e₁] at hx; rw [e₂] at hy
-  generalize x - b = y at hx hy
-  rw [BitVec.toNat_sub, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := d) (by omega)] at hx
-  rw [BitVec.toNat_sub, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := e) (by omega)] at hy
-  have := y.isLt
-  rcases h with h | h
-  · by_cases hy' : e ≤ y.toNat
-    · rw [show 2 ^ 64 - e + y.toNat = 2 ^ 64 + (y.toNat - e) by omega, Nat.add_mod_left,
-        Nat.mod_eq_of_lt (by omega)] at hy
-      by_cases hx' : d ≤ y.toNat
-      · rw [show 2 ^ 64 - d + y.toNat = 2 ^ 64 + (y.toNat - d) by omega, Nat.add_mod_left,
-          Nat.mod_eq_of_lt (by omega)] at hx
-        omega
-      · rw [Nat.mod_eq_of_lt (by omega)] at hx; omega
-    · rw [Nat.mod_eq_of_lt (by omega)] at hy; omega
-  · by_cases hx' : d ≤ y.toNat
-    · rw [show 2 ^ 64 - d + y.toNat = 2 ^ 64 + (y.toNat - d) by omega, Nat.add_mod_left,
-        Nat.mod_eq_of_lt (by omega)] at hx
-      by_cases hy' : e ≤ y.toNat
-      · rw [show 2 ^ 64 - e + y.toNat = 2 ^ 64 + (y.toNat - e) by omega, Nat.add_mod_left,
-          Nat.mod_eq_of_lt (by omega)] at hy
-        omega
-      · rw [Nat.mod_eq_of_lt (by omega)] at hy; omega
-    · rw [Nat.mod_eq_of_lt (by omega)] at hx; omega
+    Mem.Sep (b + BitVec.ofNat 64 d) n (b + BitVec.ofNat 64 e) k := Offset.sep b h (by omega) (by omega)
 
 section
 variable {s₀ : State} (hp : Pre s₀) (m : Mem)

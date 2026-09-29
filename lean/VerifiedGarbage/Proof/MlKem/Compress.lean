@@ -32,32 +32,39 @@ def compressAdd : Nat := 262080
 theorem mem_compressWidths {d : Nat} (hd : d ∈ compressWidths) : d = 1 ∨ d = 4 ∨ d = 10 := by
   simpa [compressWidths] using hd
 
-private theorem compress1' : ∀ a < 53, ∀ b < 64,
-    roundDiv (2 ^ 1 * (64 * a + b)) 3329 % 2 ^ 1 = ((64 * a + b) * 315 + 262080) / 2 ^ 19 % 2 ^ 1 := by
-  decide +kernel
+/-- `p x` for every `x < n`, as a `Nat.rec` over `Nat.beq`, which the kernel
+evaluates much faster than the `Decidable` instance of a bounded `∀`. -/
+private def allBelow (n : Nat) (p : Nat → Bool) : Bool := Nat.rec true (fun i ih => p i && ih) n
+
+private theorem allBelow_spec {n : Nat} {p : Nat → Bool} (h : allBelow n p = true) :
+    ∀ x < n, p x = true := by
+  induction n with
+  | zero => intro x hx; omega
+  | succ n ih =>
+    simp only [allBelow, Bool.and_eq_true] at h
+    intro x hx
+    rcases Nat.lt_succ_iff_lt_or_eq.mp hx with hx | rfl
+    · exact ih h.2 x hx
+    · exact h.1
+
+/-- The compress formula for width `d` and multiplier `m`, on every `x < q`. -/
+private theorem compress_formula {d m : Nat}
+    (h : allBelow 3329 (fun x => Nat.beq (roundDiv (2 ^ d * x) 3329 % 2 ^ d)
+      ((x * m + 262080) / 2 ^ 19 % 2 ^ d)) = true) (x : Nat) (hx : x < 3329) :
+    roundDiv (2 ^ d * x) 3329 % 2 ^ d = (x * m + 262080) / 2 ^ 19 % 2 ^ d :=
+  Nat.eq_of_beq_eq_true (allBelow_spec h x hx)
 
 private theorem compress1 (x : Nat) (hx : x < 3329) :
-    roundDiv (2 ^ 1 * x) 3329 % 2 ^ 1 = (x * 315 + 262080) / 2 ^ 19 % 2 ^ 1 := by
-  have := compress1' (x / 64) (by omega) (x % 64) (Nat.mod_lt _ (by decide))
-  rwa [Nat.div_add_mod] at this
-
-private theorem compress4' : ∀ a < 53, ∀ b < 64,
-    roundDiv (2 ^ 4 * (64 * a + b)) 3329 % 2 ^ 4 = ((64 * a + b) * 2520 + 262080) / 2 ^ 19 % 2 ^ 4 := by
-  decide +kernel
+    roundDiv (2 ^ 1 * x) 3329 % 2 ^ 1 = (x * 315 + 262080) / 2 ^ 19 % 2 ^ 1 :=
+  compress_formula (by decide +kernel) x hx
 
 private theorem compress4 (x : Nat) (hx : x < 3329) :
-    roundDiv (2 ^ 4 * x) 3329 % 2 ^ 4 = (x * 2520 + 262080) / 2 ^ 19 % 2 ^ 4 := by
-  have := compress4' (x / 64) (by omega) (x % 64) (Nat.mod_lt _ (by decide))
-  rwa [Nat.div_add_mod] at this
-
-private theorem compress10' : ∀ a < 53, ∀ b < 64,
-    roundDiv (2 ^ 10 * (64 * a + b)) 3329 % 2 ^ 10 = ((64 * a + b) * 161271 + 262080) / 2 ^ 19 % 2 ^ 10 := by
-  decide +kernel
+    roundDiv (2 ^ 4 * x) 3329 % 2 ^ 4 = (x * 2520 + 262080) / 2 ^ 19 % 2 ^ 4 :=
+  compress_formula (by decide +kernel) x hx
 
 private theorem compress10 (x : Nat) (hx : x < 3329) :
-    roundDiv (2 ^ 10 * x) 3329 % 2 ^ 10 = (x * 161271 + 262080) / 2 ^ 19 % 2 ^ 10 := by
-  have := compress10' (x / 64) (by omega) (x % 64) (Nat.mod_lt _ (by decide))
-  rwa [Nat.div_add_mod] at this
+    roundDiv (2 ^ 10 * x) 3329 % 2 ^ 10 = (x * 161271 + 262080) / 2 ^ 19 % 2 ^ 10 :=
+  compress_formula (by decide +kernel) x hx
 
 /-- `Compress_d(x)` with a multiplication, an addition and a shift, for `d`
 in `compressWidths`. -/

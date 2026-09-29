@@ -1,7 +1,6 @@
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Spec.Poly1305
-import Mathlib.Tactic.NormNum.Basic
-import Mathlib.Tactic.Ring.RingNF
+import VerifiedGarbage.Proof.Framework.PowLit
 
 /-!
 # Poly1305: lemmas about the specification
@@ -12,6 +11,8 @@ memory, the accumulator of a message extended by whole blocks or a last
 block, and the tag.
 -/
 
+open VG.PowLit
+
 namespace VG.Proof.Poly1305
 
 open VG.Spec.Poly1305
@@ -21,7 +22,9 @@ open VG.Spec.Poly1305
 theorem leNum_append (a b : List Byte) : leNum (a ++ b) = leNum a + 256 ^ a.length * leNum b := by
   induction a with
   | nil => simp [leNum]
-  | cons x xs ih => simp only [List.cons_append, leNum, ih, List.length_cons, Nat.pow_succ]; ring
+  | cons x xs ih =>
+    simp only [List.cons_append, leNum, ih, List.length_cons, Nat.pow_succ, Nat.mul_add,
+      Nat.add_assoc, Nat.mul_comm _ 256, Nat.mul_assoc]
 
 theorem leNum_lt (a : List Byte) : leNum a < 256 ^ a.length := by
   induction a with
@@ -66,8 +69,7 @@ theorem leNum_bytesAt_read (m : Mem) (p : Addr) (n : Nat) :
   | zero => simp [bytesAt, leNum, Mem.read]
   | succ n ih =>
     rw [bytesAt_succ, leNum, ih, Mem.read, BitVec.toNat_append]
-    rw [← Nat.shiftLeft_add_eq_or_of_lt (m p).isLt, Nat.shiftLeft_eq]
-    ring
+    rw [← Nat.shiftLeft_add_eq_or_of_lt (m p).isLt, Nat.shiftLeft_eq, Nat.add_comm, Nat.mul_comm]
 
 theorem leNum_bytesAt_64 (m : Mem) (p : Addr) : leNum (bytesAt m p 8) = (m.readW p 64).toNat := by
   rw [leNum_bytesAt_read]
@@ -80,15 +82,14 @@ theorem leNum_bytesAt_24 (m : Mem) (p : Addr) :
   rw [show 24 = 8 + (8 + 8) from rfl, bytesAt_add, bytesAt_add, leNum_append, leNum_append,
     length_bytesAt, length_bytesAt, leNum_bytesAt_64, leNum_bytesAt_64, leNum_bytesAt_64,
     BitVec.add_assoc]
-  norm_num
-  ring_nf
-  rfl
+  show (m.readW p 64).toNat + 256 ^ 8 * ((m.readW (p + 8) 64).toNat +
+    256 ^ 8 * (m.readW (p + 16) 64).toNat) = _
+  omega
 
 theorem leNum_bytesAt_16 (m : Mem) (p : Addr) :
     leNum (bytesAt m p 16) = (m.readW p 64).toNat + 2 ^ 64 * (m.readW (p + 8) 64).toNat := by
   rw [show 16 = 8 + 8 from rfl, bytesAt_add, leNum_append, length_bytesAt, leNum_bytesAt_64,
     leNum_bytesAt_64]
-  norm_num
   rfl
 
 /-! ## The accumulator -/
@@ -183,8 +184,8 @@ theorem clamp_words (k0 k1 : BitVec 64) :
     clamp (k0.toNat + 2 ^ 64 * k1.toNat) =
       (k0 &&& 0x0ffffffc0fffffff).toNat + 2 ^ 64 * (k1 &&& 0x0ffffffc0ffffffc).toNat := by
   rw [clamp, show (0x0ffffffc0ffffffc0ffffffc0fffffff : Nat) =
-    0x0ffffffc0fffffff + 2 ^ 64 * 0x0ffffffc0ffffffc by norm_num,
-    land_split k0.isLt (by norm_num), BitVec.toNat_and, BitVec.toNat_and]
+    0x0ffffffc0fffffff + 2 ^ 64 * 0x0ffffffc0ffffffc from rfl,
+    land_split k0.isLt (by decide), BitVec.toNat_and, BitVec.toNat_and]
   rfl
 
 /-! ## The tag -/
@@ -206,8 +207,8 @@ theorem leBytes_mod (n x : Nat) : leBytes n (x % 256 ^ n) = leBytes n x := by
   simp only [BitVec.toNat_ofNat]
   rw [show 256 ^ n = 256 ^ i * 256 ^ (n - i) by rw [← Nat.pow_add]; congr 1; omega,
     Nat.mod_mul_right_div_self, Nat.mod_mod_of_dvd]
-  rw [show (2 : Nat) ^ 8 = 256 by norm_num]
-  exact dvd_pow_self 256 (by omega)
+  rw [show (2 : Nat) ^ 8 = 256 from rfl]
+  exact ⟨256 ^ (n - i - 1), by rw [← Nat.pow_succ']; congr 1; omega⟩
 
 theorem leBytes_succ (n x : Nat) : leBytes (n + 1) x = BitVec.ofNat 8 x :: leBytes n (x / 256) := by
   rw [Nat.add_comm, leBytes_add, Nat.pow_one]; simp [leBytes]
@@ -241,6 +242,6 @@ theorem bytesAt_leBytes_16 (m : Mem) (p : Addr) (x : Nat)
     (h₁ : (m.readW (p + BitVec.ofNat 64 8) 64).toNat = x / 2 ^ 64 % 2 ^ 64) :
     bytesAt m p 16 = leBytes 16 x := by
   rw [show 16 = 8 + 8 from rfl, bytesAt_add, bytesAt_leBytes_64, bytesAt_leBytes_64, h₀, h₁,
-    leBytes_add, show (2 : Nat) ^ 64 = 256 ^ 8 by norm_num, leBytes_mod, leBytes_mod]
+    leBytes_add, show (2 : Nat) ^ 64 = 256 ^ 8 from rfl, leBytes_mod, leBytes_mod]
 
 end VG.Proof.Poly1305

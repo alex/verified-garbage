@@ -443,8 +443,13 @@ theorem verified : Verified Arm.target Impl.MlKem.Arm.ntt (Spec.MlKem.nttContrac
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl <;> assumption
   · refine ⟨satState, ?_⟩
-    sig_pre [Spec.MlKem.nttContract, Spec.MlKem.inPlaceContract, Spec.MlKem.inPlaceSig, Arm.abi,
-      Arm.argRegs, Arm.reduceClassify, Arm.Loc.val]
-    exact ⟨by decide, rfl, rfl, Region.disjoint_of_sep (by decide), by decide, by decide, reduced_zero _⟩
+    sig_apply_check
+    · decide +kernel
+    · sig_reduce [Spec.MlKem.nttContract, Spec.MlKem.inPlaceContract, Spec.MlKem.inPlaceSig, Arm.abi,
+        Arm.argRegs, Arm.Loc.val]
+      sig_and_intros
+      all_goals first
+        | trivial
+        | exact reduced_zero _
 
 end VG.Proof.MlKem.Arm.Ntt

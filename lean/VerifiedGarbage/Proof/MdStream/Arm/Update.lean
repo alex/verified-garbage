@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.MdStream.Arm.Common
-import Mathlib.Tactic.Tauto
 
 /-!
 # Streaming Merkle–Damgård hash functions on ARMv7: `update`
@@ -150,7 +149,7 @@ theorem Inv.of_gpr {s₀ : State} {c : Nat} {s s' : State} (h : Inv H s₀ c s)
     (hg : ∀ r ∈ [Reg.r0, .r3, .r5, .r6, .lr, .r4], s'.gpr r = s.gpr r)
     (hm : s'.mem = s.mem) (hrd : s'.rd = s.rd) (hwr : s'.wr = s.wr) (hsp : s'.sp = s.sp) :
     Inv H s₀ c s' :=
-  { h.toCommon.of_gpr (fun r hr => hg r (by simp at hr ⊢; tauto)) hm hrd hwr hsp with
+  { h.toCommon.of_gpr (fun r hr => hg r (List.mem_append_left [_] hr)) hm hrd hwr hsp with
     r4 := by rw [hg _ (by simp)]; exact h.r4
     repr := by rw [hm]; exact h.repr }
 
@@ -222,7 +221,7 @@ theorem Pending.compress_ok (hd : Dims P) {name : String} {code : Prog isa} (hf 
       have hs : Region.Sub ⟨State.addr (s.gpr .r1), 64⟩ (stR P s₀) := ha ▸ sub_offset (by omega) (by omega)
       refine ⟨by rw [h', BitVec.toNat_add, BitVec.toNat_ofNat]; omega,
         ⟨stR P s₀, by simp, P.N, ha, by simp⟩, ?_, (hp.st_scr.sub_left hs).sub_right eso⟩
-      rw [ha]; intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+      rw [ha]; exact Offset.disjoint_base _ (Nat.le_refl _) (by omega)
     · have ha : State.addr (s.gpr .r1) = dA s₀ + BitVec.ofNat 64 c₀ := by rw [h', addr_off (by omega)]
       have hs : Region.Sub ⟨State.addr (s.gpr .r1), 64⟩ (dR s₀) := ha ▸ sub_offset (by omega) (by omega)
       refine ⟨by rw [h', BitVec.toNat_add, BitVec.toNat_ofNat]; omega, ⟨dR s₀, by simp, c₀, ha, hc₀⟩,
@@ -235,7 +234,9 @@ theorem Pending.compress_ok (hd : Dims P) {name : String} {code : Prog isa} (hf 
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
     · obtain ⟨R, hR, off, ha, hl⟩ := hsub
-      exact ⟨R, by simp at hR ⊢; tauto, off, ha, hl⟩
+      refine ⟨R, ?_, off, ha, hl⟩
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hR
+      rcases hR with rfl | rfl <;> simp
     · exact ⟨stR P s₀, by simp, 0, by simp, by simp⟩
     · exact ⟨scR P s₀, by simp, 0, by simp, by simp⟩
   · rw [h.wr, hp.wr]
@@ -870,12 +871,11 @@ theorem verified {P : Params} {H : Md 64 P.N 8} (hd : Dims P) {name : String} {c
       simp [stackArg, sat, Mem.readW, Mem.read]
     refine ⟨sat P, ?_⟩
     simp only [updK, e]
-    refine ⟨?_, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-    all_goals first
-      | (simp [sat, stackArgAddr, State.addr]; done)
-      | (simp [sat, BitVec.toNat_ofNat]; omega)
-      | (intro a h₁ h₂
-         simp only [Region.Contains, sat, stackArgAddr, State.addr] at h₁ h₂
-         bv_omega)
+    refine ⟨by simp [sat, stackArgAddr, State.addr], rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    all_goals try simp only [sat, stackArgAddr, State.addr]
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp <;> omega)).symm
+    iterate 2 exact Offset.disjoint_of_le (by simp) (by simp <;> omega)
+    iterate 2 exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    all_goals simp <;> omega
 
 end VG.Proof.MdStream.Arm.Update

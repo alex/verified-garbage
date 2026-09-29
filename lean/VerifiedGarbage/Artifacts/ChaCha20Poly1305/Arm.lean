@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.Impl.ChaCha20Poly1305.Arm
 import VerifiedGarbage.Proof.ChaCha20Poly1305.Arm.Verified
+import VerifiedGarbage.Proof.ChaCha20Poly1305.Arm.Lit
 
 /-!
 # ChaCha20-Poly1305 (RFC 8439 §2.8) on ARMv7

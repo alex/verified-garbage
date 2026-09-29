@@ -6,7 +6,7 @@
 //! encapsulation gives, and of those ciphertexts changed, which it must
 //! reject implicitly (with the key `J(z ‖ c)`).
 
-#![cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"))]
 
 use serde::Deserialize;
 use verified_garbage::hashes::sha3::{Sha3_256, Shake256};

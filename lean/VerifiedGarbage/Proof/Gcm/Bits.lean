@@ -19,10 +19,20 @@ theorem getLsbD_cat8 (b0 b1 b2 b3 b4 b5 b6 b7 : BitVec 8) (i : Nat) :
       else if i < 56 then b1.getLsbD (i - 48) else b0.getLsbD (i - 56) := by
   simp only [BitVec.getLsbD_append]
   simp only [Nat.sub_sub, Nat.reduceAdd]
-  rcases (by omega : i < 8 ∨ (8 ≤ i ∧ i < 16) ∨ (16 ≤ i ∧ i < 24) ∨ (24 ≤ i ∧ i < 32) ∨
-    (32 ≤ i ∧ i < 40) ∨ (40 ≤ i ∧ i < 48) ∨ (48 ≤ i ∧ i < 56) ∨ 56 ≤ i) with
-    h | h | h | h | h | h | h | h <;>
-  simp (disch := omega) only [ite_eq_left, ite_eq_right]
+  by_cases h8 : i < 8; · simp only [h8, ite_true]
+  by_cases h16 : i < 16; · simp only [h8, h16, ite_true, ite_false, show i - 8 < 8 by omega]
+  by_cases h24 : i < 24
+  · simp only [h8, h16, h24, ite_true, ite_false, show ¬ i - 8 < 8 by omega,
+      show i - 16 < 8 by omega]
+  simp only [h8, h16, h24, ite_false, show ¬ i - 8 < 8 by omega, show ¬ i - 16 < 8 by omega]
+  by_cases h32 : i < 32; · simp only [h32, ite_true, show i - 24 < 8 by omega]
+  simp only [h32, ite_false, show ¬ i - 24 < 8 by omega]
+  by_cases h40 : i < 40; · simp only [h40, ite_true, show i - 32 < 8 by omega]
+  simp only [h40, ite_false, show ¬ i - 32 < 8 by omega]
+  by_cases h48 : i < 48; · simp only [h48, ite_true, show i - 40 < 8 by omega]
+  simp only [h48, ite_false, show ¬ i - 40 < 8 by omega]
+  by_cases h56 : i < 56; · simp only [h56, ite_true, show i - 48 < 8 by omega]
+  simp only [h56, ite_false, show ¬ i - 48 < 8 by omega]
 
 theorem getLsbD_byteRev64 (a : BitVec 64) (i : Nat) (hi : i < 64) :
     (byteRev64 a).getLsbD i = a.getLsbD (8 * (7 - i / 8) + i % 8) := by

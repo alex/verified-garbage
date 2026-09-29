@@ -1,5 +1,6 @@
-import VerifiedGarbage.Proof.Sha3.Arm.Call
-import VerifiedGarbage.Proof.Sha3.SqueezeFrom
+import VerifiedGarbage.Proof.Sha3.Arm.Permute
+import VerifiedGarbage.Proof.Sha3.Stream
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # The SHA-3 sponge on ARMv7: `squeeze`
@@ -303,7 +304,7 @@ theorem store_ok {s₀ : State} (hp : Pre s₀) {i k pos : Nat} {s : State} (hI 
     · subst e
       obtain ⟨d, m⟩ := div_mod_eq (k := k) hr0 hlt
       rw [writeW8_self, hI.hi, d, m]
-    · rw [writeW8_other _ _ (by intro h'; apply e; bv_omega)]
+    · rw [writeW8_other _ _ (Offset.add_ofNat_ne _ (by omega) (by omega) e)]
       exact hI.out j (by omega)
 
 /-- The whole body. -/
@@ -456,15 +457,13 @@ theorem squeeze_verified : Verified Arm.target squeeze Proof.Sha3.squeezeArm := 
   · obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of hs)
     exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
   · exact VG.Taint.constantTime (A := VG.Arm.taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
-      (by taint_decide)
+      (by taint_decide_weak VG.Proof.Sha3.Arm.dropRC)
   · have e : ∀ k, stackArg sat k = 0 := fun k => by
       simp [stackArg, sat, Mem.readW, Mem.read]
     refine ⟨sat, ?_⟩
     simp only [Proof.Sha3.squeezeArm, e]
     refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
       by decide, by decide, by decide, by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+    · exact Region.disjoint_of_sep (by decide)
 
 end VG.Proof.Sha3.Arm.Stream.Squeeze

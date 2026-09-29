@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.Sha1.X86.Contract
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Sha1.X86.Compress
 import VerifiedGarbage.Impl.Sha1.X86.Stream
+import VerifiedGarbage.Proof.Sha1.X86.Lit
 
 /-!
 # Streaming SHA-1 on x86 (32-bit): `update` and `finalize`

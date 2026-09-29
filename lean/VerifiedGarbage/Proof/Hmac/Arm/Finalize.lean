@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Hmac.Arm.Common
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # HMAC-SHA-256 on ARMv7: `finalize`
@@ -219,7 +220,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block saveOuter) s
         (w := 32) (Region.contains_self _ _) ?_ (by decide), u₂.mem, u₁.other _ (by decide)]
       · exact Mem.readW_writeW_self32 _ _ _
       · simp only [List.mem_singleton]; rintro r rfl
-        intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+        off_disj
     · rw [u₄.other r h2, g₃ r h2, u₂.gpr, u₁.other r hr]
   · rw [u₄.mem]
     exact fr₂.trans (fw.sub fun r hr => by
@@ -426,7 +427,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256Arm.pre s�
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ h₁, wf₀ h₂,
     fun _ h => (List.not_mem_nil h).elim, fun _ h => (List.not_mem_nil h).elim, fun _ => psp, fun k hk => ?_⟩
   · simp only [τ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl <;> assumption
+    rcases hr with rfl | rfl | rfl | rfl <;> with_reducible assumption
   · rw [hp₁.wr, hp₂.wr]; simp only [inR, outR, scR, inA, outA, scA, inn, out, scr, p0, a0, a1]
   · simp only [τ₀] at hk
     rw [Proof.MdStream.Arm.argByte_eq hp₁.sp_fit hk,

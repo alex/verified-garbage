@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Sha512.Arm.Stream.Update
+import VerifiedGarbage.Proof.Framework.Contract
 
 /-!
 # Streaming SHA-512 on ARMv7: `finalize`
@@ -937,8 +938,6 @@ theorem finalize_verified : Verified Arm.target finalize Proof.Sha512.finalizeAr
     simp only [Proof.Sha512.finalizeArm, e0, e1]
     refine ⟨by simp [sat, stackArgAddr]; decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide,
       by decide⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat, stackArgAddr, State.addr] at h₁ h₂
-      bv_omega
+    exact Region.disjoint_of_sep (by decide)
 
 end VG.Proof.Sha512.Arm.Stream.Finalize

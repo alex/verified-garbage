@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.MlKem.AArch64.KeccakCall
-import VerifiedGarbage.Proof.MlKem.Hash
+import VerifiedGarbage.Proof.MlKem.KPke
 import VerifiedGarbage.Proof.MlKem.Mem
 import VerifiedGarbage.Impl.MlKem.AArch64.Top
 

@@ -87,16 +87,7 @@ theorem verified : Verified X86.target Impl.MlKem.X86.sampleNTT (sampleNTTContra
       refine ⟨fun h => absurd (congrArg BitVec.toNat h) (by show ¬ (0 = 1); decide), outcome_of_min (.inr ⟨rfl, ?_⟩)⟩
       exact sampleNTT_none (by rw [n_eq]; exact e)
   · let st := satState satMem [⟨0, 34⟩] [⟨0x100, 1024⟩, ⟨0x1000, 2048⟩, ⟨0x5004, 12⟩]
-    have a0 : arg st 0 = 0 := by decide
-    have a1 : arg st 1 = 0x100 := by decide
-    have a2 : arg st 2 = 0x1000 := by decide
-    have e : argAddr st 0 = 0x5004 := by decide
-    have esp : st.gpr .esp = 0x5000 := rfl
     refine ⟨st, ?_⟩
-    sig_pre [sampleNTTContract, sampleNTTSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [a0, a1, a2, e, esp]
-    refine ⟨by decide, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide,
-      by decide, by decide⟩ <;>
-    exact Region.disjoint_of_sep (by decide)
+    sig_sat_check [sampleNTTContract, sampleNTTSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
 
 end VG.Proof.MlKem.X86.Sample

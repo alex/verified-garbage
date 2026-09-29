@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Sha3.Spec
 import VerifiedGarbage.Proof.Framework.Mem
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # Keccak-f[1600]: states in memory, for every target
@@ -20,34 +21,18 @@ theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = 
   rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
 
 theorem contains_offset {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
-    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
-  simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, toNat_ofNat_lt ho]
-  exact h
+    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := Offset.contains_base base h ho
 
-theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (ho : off < 2 ^ 64) :
-    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := by
-  intro a ha
-  simp only [Region.Contains] at *
-  have : (a - base).toNat ≤ (a - (base + BitVec.ofNat 64 off)).toNat + off := by
-    rw [show a - base = (a - (base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by bv_omega,
-      BitVec.toNat_add, toNat_ofNat_lt ho]
-    exact Nat.mod_le _ _
-  omega
+theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (_ho : off < 2 ^ 64) :
+    Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := Offset.sub_base base h
 
 /-- Two runs of bytes at offsets of the same base. -/
 theorem off_disjoint (p : Addr) {a n b k : Nat} (ha : a + n ≤ 2 ^ 32) (hb : b + k ≤ 2 ^ 32)
     (h : a + n ≤ b ∨ b + k ≤ a) :
-    Region.Disjoint ⟨p + BitVec.ofNat 64 a, n⟩ ⟨p + BitVec.ofNat 64 b, k⟩ := by
-  intro x h₁ h₂
-  simp only [Region.Contains] at h₁ h₂
-  bv_omega
+    Region.Disjoint ⟨p + BitVec.ofNat 64 a, n⟩ ⟨p + BitVec.ofNat 64 b, k⟩ := Offset.disjoint p h (by omega) (by omega)
 
-theorem off_sub (p : Addr) {a n b k : Nat} (hb : b + k ≤ 2 ^ 32) (h₁ : b ≤ a) (h₂ : a + n ≤ b + k) :
-    Region.Sub ⟨p + BitVec.ofNat 64 a, n⟩ ⟨p + BitVec.ofNat 64 b, k⟩ := by
-  intro x hx
-  simp only [Region.Contains] at hx ⊢
-  bv_omega
+theorem off_sub (p : Addr) {a n b k : Nat} (_hb : b + k ≤ 2 ^ 32) (h₁ : b ≤ a) (h₂ : a + n ≤ b + k) :
+    Region.Sub ⟨p + BitVec.ofNat 64 a, n⟩ ⟨p + BitVec.ofNat 64 b, k⟩ := Offset.sub p h₁ h₂
 
 theorem add_zero' (p : Addr) : p + BitVec.ofNat 64 0 = p := by simp
 

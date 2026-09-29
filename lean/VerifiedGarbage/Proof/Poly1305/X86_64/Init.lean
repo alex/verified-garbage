@@ -1,6 +1,5 @@
 import VerifiedGarbage.Proof.Poly1305.X86_64.Setup
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
-import Mathlib.Tactic.IntervalCases
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
 
@@ -77,8 +76,8 @@ theorem initMem_frame (m : Mem) (st key : Addr) : Frame [sR st] m (initMem m st 
 theorem initMem_word (m : Mem) (st key : Addr) {j : Nat} (hj : j < 4) :
     (initMem m st key).readW (off st (24 + 8 * j)) 64 = m.readW (off key (8 * j)) 64 := by
   simp only [initMem]
-  interval_cases j <;>
-  simp (config := {decide := true}) only [Nat.mul_zero, Nat.add_zero, Nat.mul_one,
+  obtain rfl | rfl | rfl | rfl : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3 := by omega
+  all_goals simp (config := {decide := true}) only [Nat.mul_zero, Nat.add_zero, Nat.mul_one,
     Mem.readW_writeW_self64, readW_writeW_off]
 
 theorem initMem_acc (m : Mem) (st key : Addr) {d : Nat} (hd : d < 24) (h8 : d % 8 = 0) :

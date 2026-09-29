@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.Impl.Pbkdf2.Arm
 import VerifiedGarbage.Proof.Pbkdf2.Arm.Iterate
+import VerifiedGarbage.Proof.Pbkdf2.Arm.Lit
 
 /-!
 # The PBKDF2-HMAC-SHA-256 iteration (RFC 8018) on 32-bit ARM

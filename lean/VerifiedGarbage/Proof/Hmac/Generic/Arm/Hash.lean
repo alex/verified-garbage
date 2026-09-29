@@ -1,10 +1,179 @@
-import VerifiedGarbage.Proof.Hmac.Generic.Arm.Contract
+import VerifiedGarbage.Spec.Pbkdf2.Generic
+import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.Proof.Framework.RelCT
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Frame
 import VerifiedGarbage.Proof.Framework.Arm.Taint
 import VerifiedGarbage.Proof.MdStream.Arm.Common
 import VerifiedGarbage.Impl.Pbkdf2.Generic.Arm
+import VerifiedGarbage.Proof.Framework.Offset
+
+/-!
+# HMAC and PBKDF2-HMAC over any streaming hash function: the 32-bit ARM contracts
+
+**Untrusted**: the contracts the proofs are written against, as on x86-64
+and AArch64 (`Proof/Hmac/Generic/AArch64/Hash.lean`).
+
+* `initK`, `updK` and `finK` are the 32-bit ARM contracts of a hash
+  function's streaming `init`, `update` and `finalize` (`Proof.Sha1.initArm`
+  and the others), with the sizes and the representation of the streaming
+  state as parameters. Under AAPCS `count` is in `r2:r3`, and `update`'s
+  `data`, `len` and `scratch` and `finalize`'s `out` and `scratch` are
+  stack arguments.
+* `initG`, `finG` and `iterG` are those of our functions, which push up to
+  16 bytes of stack (the stack arguments of the functions they call), which
+  no buffer overlaps; the artifacts are emitted with the shared contracts of
+  `Spec/Hmac/Generic.lean` and `Spec/Pbkdf2/Generic.lean`, which imply them
+  (`Contract.Implies`).
+-/
+
+namespace VG.Proof.Hmac.Generic.Arm
+
+open VG.Arm
+open Spec.Hmac (StreamingHash xorPad ipad opad blockKey hmacBlockKey)
+open Spec.Sha256 (bytesAt)
+
+/-- The 16 bytes below the stack pointer. -/
+abbrev below (s : State) : Region := ⟨State.addr s.sp - 16, 16⟩
+
+/-- The 64-bit `count` argument, in `r2:r3` (AAPCS: the low word in `r2`). -/
+def count (s : State) : BitVec 64 := s.gpr .r3 ++ s.gpr .r2
+
+/-! ## The functions we call -/
+
+/-- `init(state)`: makes the `S`-byte streaming state at `state` represent the
+empty message. -/
+def initK (S : Nat) (R : Mem → Addr → List Byte → Prop) : Contract isa where
+  pre s :=
+    s.rd = [] ∧ s.wr = [⟨State.addr (s.gpr .r0), S⟩] ∧ (s.gpr .r0).toNat + S ≤ 2 ^ 32
+  post s s' := R s'.mem (State.addr (s.gpr .r0)) []
+  pub s₁ s₂ := s₁.gpr .r0 = s₂.gpr .r0
+
+/-- `update(state, count, data, len, scratch)`, with `Wb` bytes of scratch
+space. -/
+def updK (S Wb : Nat) (R : Mem → Addr → List Byte → Prop) : Contract isa where
+  pre s :=
+    let state : Region := ⟨State.addr (s.gpr .r0), S⟩
+    let data : Region := ⟨State.addr (stackArg s 0), (stackArg s 1).toNat⟩
+    let scratch : Region := ⟨State.addr (stackArg s 2), Wb⟩
+    let args : Region := ⟨stackArgAddr s 0, 12⟩
+    s.rd = [data, args] ∧ s.wr = [state, scratch] ∧
+    state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
+    args.Disjoint state ∧ args.Disjoint scratch ∧
+    (s.gpr .r0).toNat + S ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + (stackArg s 1).toNat ≤ 2 ^ 32 ∧
+    (stackArg s 2).toNat + Wb ≤ 2 ^ 32 ∧ s.sp.toNat + 12 ≤ 2 ^ 32
+  post s s' := ∀ m, R s.mem (State.addr (s.gpr .r0)) m → count s = BitVec.ofNat 64 m.length →
+    R s'.mem (State.addr (s.gpr .r0)) (m ++ bytesAt s.mem (State.addr (stackArg s 0)) (stackArg s 1).toNat)
+  pub s₁ s₂ :=
+    s₁.sp = s₂.sp ∧ s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧
+    stackArg s₁ 0 = stackArg s₂ 0 ∧ stackArg s₁ 1 = stackArg s₂ 1 ∧ stackArg s₁ 2 = stackArg s₂ 2
+
+/-- `finalize(state, count, out, scratch)`, writing `F` bytes whose first
+`D` are the digest `hash m`, for a message of fewer than 2⁶⁴ bytes. -/
+def finK (S Wb F D : Nat) (R : Mem → Addr → List Byte → Prop) (hash : List Byte → List Byte) :
+    Contract isa where
+  pre s :=
+    let state : Region := ⟨State.addr (s.gpr .r0), S⟩
+    let out : Region := ⟨State.addr (stackArg s 0), F⟩
+    let scratch : Region := ⟨State.addr (stackArg s 1), Wb⟩
+    let args : Region := ⟨stackArgAddr s 0, 8⟩
+    s.rd = [args] ∧ s.wr = [state, out, scratch] ∧
+    state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
+    args.Disjoint state ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
+    (s.gpr .r0).toNat + S ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + F ≤ 2 ^ 32 ∧
+    (stackArg s 1).toNat + Wb ≤ 2 ^ 32 ∧ s.sp.toNat + 8 ≤ 2 ^ 32
+  post s s' := ∀ m, R s.mem (State.addr (s.gpr .r0)) m → m.length < 2 ^ 64 →
+    count s = BitVec.ofNat 64 m.length → (bytesAt s'.mem (State.addr (stackArg s 0)) F).take D = hash m
+  pub s₁ s₂ :=
+    s₁.sp = s₂.sp ∧ s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧
+    stackArg s₁ 0 = stackArg s₂ 0 ∧ stackArg s₁ 1 = stackArg s₂ 1
+
+/-! ## Our functions
+
+`S` is a streaming hash function and `W` the number of 64-bit words of
+scratch space. -/
+
+variable (S : StreamingHash) (W : Nat)
+
+/-- `init(inner, outer, key, key_len, scratch)`: `VG.Spec.Hmac.initContract`. -/
+def initG : Contract isa where
+  pre s :=
+    let inner : Region := ⟨State.addr (s.gpr .r0), S.stateBytes⟩
+    let outer : Region := ⟨State.addr (s.gpr .r1), S.stateBytes⟩
+    let key : Region := ⟨State.addr (s.gpr .r2), (s.gpr .r3).toNat⟩
+    let scratch : Region := ⟨State.addr (stackArg s 0), 8 * W⟩
+    let args : Region := ⟨stackArgAddr s 0, 4⟩
+    (s.gpr .r3).toNat ≤ S.H.blockSize ∧ s.rd = [key, args] ∧ s.wr = [inner, outer, scratch] ∧
+    inner.Disjoint outer ∧ inner.Disjoint scratch ∧ outer.Disjoint scratch ∧
+    key.Disjoint inner ∧ key.Disjoint outer ∧ key.Disjoint scratch ∧
+    args.Disjoint inner ∧ args.Disjoint outer ∧ args.Disjoint scratch ∧
+    (below s).Disjoint inner ∧ (below s).Disjoint outer ∧ (below s).Disjoint key ∧
+    (below s).Disjoint scratch ∧
+    (s.gpr .r0).toNat + S.stateBytes ≤ 2 ^ 32 ∧ (s.gpr .r1).toNat + S.stateBytes ≤ 2 ^ 32 ∧
+    (s.gpr .r2).toNat + (s.gpr .r3).toNat ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + 8 * W ≤ 2 ^ 32 ∧
+    16 ≤ s.sp.toNat ∧ s.sp.toNat + 4 ≤ 2 ^ 32
+  post s s' :=
+    let k0 := blockKey S.H (bytesAt s.mem (State.addr (s.gpr .r2)) (s.gpr .r3).toNat)
+    S.Repr s'.mem (State.addr (s.gpr .r0)) (xorPad k0 ipad) ∧
+      S.Repr s'.mem (State.addr (s.gpr .r1)) (xorPad k0 opad)
+  pub s₁ s₂ :=
+    s₁.sp = s₂.sp ∧ s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1 ∧
+    s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧ stackArg s₁ 0 = stackArg s₂ 0
+
+/-- `finalize(inner, outer, count, out, scratch)`: `VG.Spec.Hmac.finalizeContract`. -/
+def finG : Contract isa where
+  pre s :=
+    let inner : Region := ⟨State.addr (s.gpr .r0), S.stateBytes⟩
+    let outer : Region := ⟨State.addr (s.gpr .r1), S.stateBytes⟩
+    let out : Region := ⟨State.addr (stackArg s 0), S.digestBytes⟩
+    let scratch : Region := ⟨State.addr (stackArg s 1), 8 * W⟩
+    let args : Region := ⟨stackArgAddr s 0, 8⟩
+    s.rd = [outer, args] ∧ s.wr = [inner, out, scratch] ∧
+    inner.Disjoint outer ∧ inner.Disjoint out ∧ inner.Disjoint scratch ∧
+    outer.Disjoint out ∧ outer.Disjoint scratch ∧ out.Disjoint scratch ∧
+    args.Disjoint inner ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
+    (below s).Disjoint inner ∧ (below s).Disjoint outer ∧ (below s).Disjoint out ∧
+    (below s).Disjoint scratch ∧
+    (s.gpr .r0).toNat + S.stateBytes ≤ 2 ^ 32 ∧ (s.gpr .r1).toNat + S.stateBytes ≤ 2 ^ 32 ∧
+    (stackArg s 0).toNat + S.digestBytes ≤ 2 ^ 32 ∧ (stackArg s 1).toNat + 8 * W ≤ 2 ^ 32 ∧
+    16 ≤ s.sp.toNat ∧ s.sp.toNat + 8 ≤ 2 ^ 32
+  post s s' := ∀ k0 text, k0.length = S.H.blockSize → k0.length + text.length < 2 ^ 64 →
+    S.Repr s.mem (State.addr (s.gpr .r0)) (xorPad k0 ipad ++ text) →
+    count s = BitVec.ofNat 64 (S.H.blockSize + text.length) →
+    S.Repr s.mem (State.addr (s.gpr .r1)) (xorPad k0 opad) →
+    bytesAt s'.mem (State.addr (stackArg s 0)) S.digestBytes = hmacBlockKey S.H k0 text
+  pub s₁ s₂ :=
+    s₁.sp = s₂.sp ∧ s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1 ∧
+    s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧
+    stackArg s₁ 0 = stackArg s₂ 0 ∧ stackArg s₁ 1 = stackArg s₂ 1
+
+/-- `iterate(key, u, n, t, scratch)`: `VG.Spec.Pbkdf2.iterateContract`. -/
+def iterG : Contract isa where
+  pre s :=
+    let key : Region := ⟨State.addr (s.gpr .r0), 2 * S.stateBytes⟩
+    let u : Region := ⟨State.addr (s.gpr .r1), S.digestBytes⟩
+    let t : Region := ⟨State.addr (s.gpr .r3), S.digestBytes⟩
+    let scratch : Region := ⟨State.addr (stackArg s 0), 8 * W⟩
+    let args : Region := ⟨stackArgAddr s 0, 4⟩
+    s.rd = [key, u, args] ∧ s.wr = [t, scratch] ∧
+    key.Disjoint t ∧ key.Disjoint scratch ∧ u.Disjoint t ∧ u.Disjoint scratch ∧ t.Disjoint scratch ∧
+    args.Disjoint t ∧ args.Disjoint scratch ∧
+    (below s).Disjoint key ∧ (below s).Disjoint u ∧ (below s).Disjoint t ∧ (below s).Disjoint scratch ∧
+    (s.gpr .r0).toNat + 2 * S.stateBytes ≤ 2 ^ 32 ∧ (s.gpr .r1).toNat + S.digestBytes ≤ 2 ^ 32 ∧
+    (s.gpr .r3).toNat + S.digestBytes ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + 8 * W ≤ 2 ^ 32 ∧
+    16 ≤ s.sp.toNat ∧ s.sp.toNat + 4 ≤ 2 ^ 32
+  post s s' := ∀ k0, k0.length = S.H.blockSize →
+    S.Repr s.mem (State.addr (s.gpr .r0)) (xorPad k0 ipad) →
+    S.Repr s.mem (State.addr (s.gpr .r0) + BitVec.ofNat 64 S.stateBytes) (xorPad k0 opad) →
+    bytesAt s'.mem (State.addr (s.gpr .r3)) S.digestBytes =
+      Spec.Pbkdf2.iterate (hmacBlockKey S.H k0) (s.gpr .r2).toNat
+        (bytesAt s.mem (State.addr (s.gpr .r1)) S.digestBytes)
+        (bytesAt s.mem (State.addr (s.gpr .r3)) S.digestBytes)
+  pub s₁ s₂ :=
+    s₁.sp = s₂.sp ∧ s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r1 = s₂.gpr .r1 ∧
+    s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧ stackArg s₁ 0 = stackArg s₂ 0
+
+end VG.Proof.Hmac.Generic.Arm
 
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: the functions we call
@@ -109,28 +278,43 @@ theorem init_call {s : State} {st : BitVec 32} (h0 : s.gpr .r0 = st) (hn : st.to
 A frame of `n` bytes (8 or 16) stores its words below the stack pointer, in
 `below s`, where the callee finds its stack arguments. -/
 
-section Frames
-variable {s : State} (h16 : 16 ≤ s.sp.toNat)
-include h16
+/-- `x - k + i` (for `i ≤ k ≤ x`) widened to 64 bits. -/
+theorem addr_sub_add {x : BitVec 32} {k i : Nat} (hk : k ≤ x.toNat) (hi : i ≤ k) :
+    State.addr (x - BitVec.ofNat 32 k + BitVec.ofNat 32 i) =
+      State.addr x - BitVec.ofNat 64 k + BitVec.ofNat 64 i := by
+  apply BitVec.eq_of_toNat_eq
+  have := x.isLt
+  simp only [State.addr, BitVec.toNat_setWidth, BitVec.toNat_add, BitVec.toNat_sub, BitVec.toNat_ofNat]
+  rw [Nat.mod_eq_of_lt (a := k) (by omega), Nat.mod_eq_of_lt (a := i) (by omega),
+    Nat.mod_eq_of_lt (a := k) (by omega), Nat.mod_eq_of_lt (a := i) (by omega),
+    Nat.mod_eq_of_lt (a := x.toNat) (by omega),
+    show 2 ^ 32 - k + x.toNat = 2 ^ 32 + (x.toNat - k) by omega, Nat.add_mod_left,
+    show 2 ^ 64 - k + x.toNat = 2 ^ 64 + (x.toNat - k) by omega, Nat.add_mod_left]
+  omega
 
-theorem addr_sub {k : Nat} (hk : k ≤ 16) :
-    State.addr (s.sp - BitVec.ofNat 32 k) = State.addr s.sp - BitVec.ofNat 64 k := by
-  simp only [State.addr]; bv_omega
+/-- `x - k` (for `k ≤ x`) widened to 64 bits. -/
+theorem addr_sub {x : BitVec 32} {k : Nat} (hk : k ≤ x.toNat) :
+    State.addr (x - BitVec.ofNat 32 k) = State.addr x - BitVec.ofNat 64 k := by
+  apply BitVec.eq_of_toNat_eq
+  have := x.isLt
+  simp only [State.addr, BitVec.toNat_setWidth, BitVec.toNat_sub, BitVec.toNat_ofNat]
+  rw [Nat.mod_eq_of_lt (a := k) (by omega), Nat.mod_eq_of_lt (a := k) (by omega),
+    Nat.mod_eq_of_lt (a := x.toNat) (by omega),
+    show 2 ^ 32 - k + x.toNat = 2 ^ 32 + (x.toNat - k) by omega, Nat.add_mod_left,
+    show 2 ^ 64 - k + x.toNat = 2 ^ 64 + (x.toNat - k) by omega, Nat.add_mod_left]
+  omega
 
-theorem addr_off {k i : Nat} (hk : k ≤ 16) (hi : i < k) :
-    State.addr (s.sp - BitVec.ofNat 32 k + BitVec.ofNat 32 i) =
-      State.addr s.sp - BitVec.ofNat 64 k + BitVec.ofNat 64 i := by
-  simp only [State.addr]; bv_omega
+/-- Bytes at two offsets from a base that do not overlap. -/
+theorem sep_off (b : Addr) {d e n k : Nat} (h : d + n ≤ e ∨ e + k ≤ d) (hd : d + n < 2 ^ 32)
+    (he : e + k < 2 ^ 32) : Mem.Sep (b + BitVec.ofNat 64 d) n (b + BitVec.ofNat 64 e) k := Offset.sep b h (by omega) (by omega)
 
-omit h16 in
-/-- The bytes `[k, k + n)` below the stack pointer are in `below s`. -/
-theorem sub_below {k o n : Nat} (hk : k ≤ 16) (h : o + n ≤ k) :
-    Region.Sub ⟨State.addr s.sp - BitVec.ofNat 64 k + BitVec.ofNat 64 o, n⟩ (below s) := by
-  intro x hx
-  simp only [Region.Contains] at hx ⊢
-  bv_omega
+/-- Bytes at a base and at an offset from it that do not overlap. -/
+theorem sep_base_off (b : Addr) {e n k : Nat} (h : n ≤ e) (he : e + k < 2 ^ 32) :
+    Mem.Sep b n (b + BitVec.ofNat 64 e) k := Offset.sep_base b h (by omega)
 
-end Frames
+/-- Bytes at an offset from a region's base, in it. -/
+theorem contains_off (b : Addr) {len d n : Nat} (h : d + n ≤ len) (hl : len < 2 ^ 64) :
+    Region.Contains ⟨b, len⟩ (b + BitVec.ofNat 64 d) n := Offset.contains_base b h (by omega)
 
 /-- A 16-bit count in `r2:r3`. -/
 theorem count_movw {t : State} {c : Nat} (hc : c < 2 ^ 16) (h2 : t.gpr .r2 = (BitVec.ofNat 16 c).setWidth 32)
@@ -181,19 +365,18 @@ namespace UpdArgs
 variable {hH} {s : State} {st d sc : BitVec 32} {len : Nat} (h : UpdArgs hH s st d sc len)
 include h
 
-theorem a0 : State.addr (s.sp - 16) = State.addr s.sp - 16 := by
-  have := h.sp16; simp only [State.addr]; bv_omega
-theorem a4 : State.addr (s.sp - 16 + 4) = State.addr s.sp - 16 + 4 := by
-  have := h.sp16; simp only [State.addr]; bv_omega
-theorem a8 : State.addr (s.sp - 16 + 4 + 4) = State.addr s.sp - 16 + 8 := by
-  have := h.sp16; simp only [State.addr]; bv_omega
-theorem a12 : State.addr (s.sp - 16 + 4 + 4 + 4) = State.addr s.sp - 16 + 12 := by
-  have := h.sp16; simp only [State.addr]; bv_omega
+theorem a0 : State.addr (s.sp - 16) = State.addr s.sp - 16 := addr_sub h.sp16
+theorem a4 : State.addr (s.sp - 16 + 4) = State.addr s.sp - 16 + BitVec.ofNat 64 4 := addr_sub_add h.sp16 (by decide)
+theorem a8 : State.addr (s.sp - 16 + 4 + 4) = State.addr s.sp - 16 + BitVec.ofNat 64 8 := by
+  rw [BitVec.add_assoc]; exact addr_sub_add (k := 16) (i := 8) h.sp16 (by decide)
+theorem a12 : State.addr (s.sp - 16 + 4 + 4 + 4) = State.addr s.sp - 16 + BitVec.ofNat 64 12 := by
+  rw [BitVec.add_assoc, BitVec.add_assoc]; exact addr_sub_add (k := 16) (i := 12) h.sp16 (by decide)
 
 /-- The memory after the push. -/
 theorem pmem : (pushed upd4 s).mem =
-    (((s.mem.writeW (State.addr s.sp - 16) d).writeW (State.addr s.sp - 16 + 4) (BitVec.ofNat 32 len)).writeW
-      (State.addr s.sp - 16 + 8) sc).writeW (State.addr s.sp - 16 + 12) (s.gpr .r12) := by
+    (((s.mem.writeW (State.addr s.sp - 16) d).writeW (State.addr s.sp - 16 + BitVec.ofNat 64 4)
+      (BitVec.ofNat 32 len)).writeW (State.addr s.sp - 16 + BitVec.ofNat 64 8) sc).writeW
+      (State.addr s.sp - 16 + BitVec.ofNat 64 12) (s.gpr .r12) := by
   show storeWords s.mem (s.sp - BitVec.ofNat 32 (4 * upd4.length)) [s.gpr .r1, s.gpr .r7, s.gpr .r10, s.gpr .r12] = _
   rw [e16]
   show (((s.mem.writeW (State.addr (s.sp - 16)) _).writeW (State.addr (s.sp - 16 + 4)) _).writeW
@@ -206,35 +389,33 @@ theorem psp : (pushed upd4 s).sp = s.sp - 16 := by rw [pushed_sp, e16]
 /-- The stack arguments, in a state whose memory and stack pointer are those after the push. -/
 theorem sa (T : State) (ht : T.sp = s.sp - 16) (i : Nat) (hi : i < 4) :
     stackArgAddr T i = State.addr s.sp - 16 + BitVec.ofNat 64 (4 * i) := by
-  have := h.sp16
-  simp only [stackArgAddr, ht, State.addr]
-  have : 4 * i < 16 := by omega
-  bv_omega
+  simp only [stackArgAddr, ht]
+  exact addr_sub_add (k := 16) h.sp16 (by omega)
 
 theorem sa0 (T : State) (ht : T.sp = s.sp - 16) : stackArgAddr T 0 = State.addr s.sp - 16 := by
   rw [h.sa T ht 0 (by decide)]; exact BitVec.add_zero _
 
 theorem arg0 (T : State) (ht : T.sp = s.sp - 16) (hm : T.mem = (pushed upd4 s).mem) : stackArg T 0 = d := by
-  rw [stackArg, h.sa T ht 0 (by decide), hm, h.pmem, Mem.readW_writeW_sep (fun x h₁ h₂ => by bv_omega) (by decide),
-    Mem.readW_writeW_sep (fun x h₁ h₂ => by bv_omega) (by decide),
-    Mem.readW_writeW_sep (fun x h₁ h₂ => by bv_omega) (by decide), show 4 * 0 = 0 from rfl, BitVec.add_zero,
+  rw [stackArg, h.sa T ht 0 (by decide), hm, h.pmem, Mem.readW_writeW_sep (sep_off _ (by decide) (by decide) (by decide)) (by decide),
+    Mem.readW_writeW_sep (sep_off _ (by decide) (by decide) (by decide)) (by decide),
+    Mem.readW_writeW_sep (sep_off _ (by decide) (by decide) (by decide)) (by decide), show 4 * 0 = 0 from rfl, BitVec.add_zero,
     Mem.readW_writeW_self32]
 
 theorem arg1 (T : State) (ht : T.sp = s.sp - 16) (hm : T.mem = (pushed upd4 s).mem) :
     stackArg T 1 = BitVec.ofNat 32 len := by
-  rw [stackArg, h.sa T ht 1 (by decide), hm, h.pmem, Mem.readW_writeW_sep (fun x h₁ h₂ => by bv_omega) (by decide),
-    Mem.readW_writeW_sep (fun x h₁ h₂ => by bv_omega) (by decide), show BitVec.ofNat 64 (4 * 1) = 4 from rfl,
+  rw [stackArg, h.sa T ht 1 (by decide), hm, h.pmem, Mem.readW_writeW_sep (sep_off _ (by decide) (by decide) (by decide)) (by decide),
+    Mem.readW_writeW_sep (sep_off _ (by decide) (by decide) (by decide)) (by decide), show 4 * 1 = 4 from rfl,
     Mem.readW_writeW_self32]
 
 theorem arg2 (T : State) (ht : T.sp = s.sp - 16) (hm : T.mem = (pushed upd4 s).mem) : stackArg T 2 = sc := by
-  rw [stackArg, h.sa T ht 2 (by decide), hm, h.pmem, Mem.readW_writeW_sep (fun x h₁ h₂ => by bv_omega) (by decide),
-    show BitVec.ofNat 64 (4 * 2) = 8 from rfl, Mem.readW_writeW_self32]
+  rw [stackArg, h.sa T ht 2 (by decide), hm, h.pmem, Mem.readW_writeW_sep (sep_off _ (by decide) (by decide) (by decide)) (by decide),
+    show 4 * 2 = 8 from rfl, Mem.readW_writeW_self32]
 
 /-- The push writes only below the stack pointer. -/
 theorem fP : Frame [below s] s.mem (pushed upd4 s).mem := by
   rw [h.pmem]
   have hc : ∀ k, k + 4 ≤ 16 → (below s).Contains (State.addr s.sp - 16 + BitVec.ofNat 64 k) (32 / 8) := by
-    intro k hk; simp only [Region.Contains]; bv_omega
+    intro k hk; exact contains_off _ (by omega) (by decide)
   refine ((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ ?_).writeW (List.mem_singleton_self _) _ ?_).writeW
     (List.mem_singleton_self _) _ ?_).writeW (List.mem_singleton_self _) _ ?_
   · simpa using hc 0 (by decide)
@@ -364,13 +545,12 @@ namespace FinArgs
 variable {hH} {s : State} {st o sc : BitVec 32} (h : FinArgs hH s st o sc)
 include h
 
-theorem a8 : State.addr (s.sp - 8) = State.addr s.sp - 8 := by
-  have := h.sp16; simp only [State.addr]; bv_omega
-theorem a4 : State.addr (s.sp - 8 + 4) = State.addr s.sp - 8 + 4 := by
-  have := h.sp16; simp only [State.addr]; bv_omega
+theorem a8 : State.addr (s.sp - 8) = State.addr s.sp - 8 := addr_sub (k := 8) (by have := h.sp16; omega)
+theorem a4 : State.addr (s.sp - 8 + 4) = State.addr s.sp - 8 + BitVec.ofNat 64 4 :=
+  addr_sub_add (k := 8) (i := 4) (by have := h.sp16; omega) (by decide)
 
 theorem pmem : (pushed fin2 s).mem =
-    (s.mem.writeW (State.addr s.sp - 8) o).writeW (State.addr s.sp - 8 + 4) sc := by
+    (s.mem.writeW (State.addr s.sp - 8) o).writeW (State.addr s.sp - 8 + BitVec.ofNat 64 4) sc := by
   show storeWords s.mem (s.sp - BitVec.ofNat 32 (4 * fin2.length)) [s.gpr .r1, s.gpr .r12] = _
   rw [e8]
   show (s.mem.writeW (State.addr (s.sp - 8)) _).writeW (State.addr (s.sp - 8 + 4)) _ = _
@@ -380,13 +560,14 @@ omit h in
 theorem psp : (pushed fin2 s).sp = s.sp - 8 := by rw [pushed_sp, e8]
 
 theorem sa0 (T : State) (ht : T.sp = s.sp - 8) : stackArgAddr T 0 = State.addr s.sp - 8 := by
-  have := h.sp16; simp only [stackArgAddr, ht, State.addr]; bv_omega
+  simp only [stackArgAddr, ht]
+  rw [BitVec.add_zero]; exact h.a8
 
-theorem sa1 (T : State) (ht : T.sp = s.sp - 8) : stackArgAddr T 1 = State.addr s.sp - 8 + 4 := by
-  have := h.sp16; simp only [stackArgAddr, ht, State.addr]; bv_omega
+theorem sa1 (T : State) (ht : T.sp = s.sp - 8) : stackArgAddr T 1 = State.addr s.sp - 8 + BitVec.ofNat 64 4 := by
+  simp only [stackArgAddr, ht]; exact h.a4
 
 theorem arg0 (T : State) (ht : T.sp = s.sp - 8) (hm : T.mem = (pushed fin2 s).mem) : stackArg T 0 = o := by
-  rw [stackArg, h.sa0 T ht, hm, h.pmem, Mem.readW_writeW_sep (fun x h₁ h₂ => by bv_omega) (by decide),
+  rw [stackArg, h.sa0 T ht, hm, h.pmem, Mem.readW_writeW_sep (sep_base_off _ (by decide) (by decide)) (by decide),
     Mem.readW_writeW_self32]
 
 theorem arg1 (T : State) (ht : T.sp = s.sp - 8) (hm : T.mem = (pushed fin2 s).mem) : stackArg T 1 = sc := by

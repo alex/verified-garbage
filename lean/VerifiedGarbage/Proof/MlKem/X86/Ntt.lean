@@ -112,19 +112,18 @@ theorem verified : Verified X86.target Impl.MlKem.X86.ntt (nttContract X86.abi 1
     rw [hm, ntt_eq_layers]
     exact hinv.mem.poly
   · let st := satState satMem [] [⟨0, 1024⟩, ⟨0x400, 1024⟩, ⟨0x5004, 8⟩]
-    have a0 : arg st 0 = 0 := by decide
-    have a1 : arg st 1 = 0x400 := by decide
-    have e : argAddr st 0 = 0x5004 := by decide
-    have esp : st.gpr .esp = 0x5000 := rfl
     refine ⟨st, ?_⟩
-    sig_pre [nttContract, inPlaceContract, inPlaceSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [a0, a1, e, esp]
-    refine ⟨by decide, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide,
-      reduced_below (fun a ha => ?_) 0 (by decide)⟩
-    all_goals first
-      | exact Region.disjoint_of_sep (by decide)
-      | (show satMem a = 0
-         simp only [satMem]
-         rw [ite_eq_right_iff.mpr fun h => absurd (congrArg BitVec.toNat h) (by simp; omega)])
+    sig_apply_check
+    · decide +kernel
+    · sig_reduce [nttContract, inPlaceContract, inPlaceSig, X86.abi, X86.argSlots, X86.argVal,
+        X86.argBytes]
+      sig_and_intros
+      all_goals first
+        | trivial
+        | (rw [show BitVec.setWidth 64 (arg st 0) = BitVec.ofNat 64 0 by decide]
+           refine reduced_below (fun a ha => ?_) 0 (by decide)
+           simp only [satMem]
+           rw [ite_eq_right_iff.mpr fun h => absurd (congrArg BitVec.toNat h) (by simp; omega)])
+        | decide +kernel
 
 end VG.Proof.MlKem.X86.NttFwd

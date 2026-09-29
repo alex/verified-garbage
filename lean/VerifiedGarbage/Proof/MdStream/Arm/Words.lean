@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MdStream.Arm.Common
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # Streaming Merkle–Damgård hash functions on ARMv7: length fields and digests
@@ -16,18 +17,41 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil write_eq_writeBytes write
 
 /-! ## Byte order -/
 
+/-- The bytes of a byte-reversed word, one by one. -/
+theorem rev_byte_0 (x : BitVec 32) : (rev x).extractLsb' 0 8 = x.extractLsb' 24 8 := by
+  unfold rev
+  rw [BitVec.extractLsb'_append_eq_of_add_le (v := 24) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev_byte_1 (x : BitVec 32) : (rev x).extractLsb' 8 8 = x.extractLsb' 16 8 := by
+  unfold rev
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 24) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_add_le (v := 16) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev_byte_2 (x : BitVec 32) : (rev x).extractLsb' 16 8 = x.extractLsb' 8 8 := by
+  unfold rev
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 24) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 16) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_add_le (v := 8) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+theorem rev_byte_3 (x : BitVec 32) : (rev x).extractLsb' 24 8 = x.extractLsb' 0 8 := by
+  unfold rev
+  rw [BitVec.extractLsb'_append_eq_of_le (v := 24) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 16) (w := 8) (by decide),
+    BitVec.extractLsb'_append_eq_of_le (v := 8) (w := 8) (by decide)]
+  exact BitVec.extractLsb'_eq_self
+
+
 theorem bytes32_store (be : Bool) (x : BitVec 32) :
     (List.range 4).map (fun j => (if be then rev x else x).extractLsb' (8 * j) 8) = bytes32 be x := by
   cases be
-  · simp [bytes32, List.range_succ]
+  · rfl
   · simp only [bytes32, ite_true, List.range_succ, List.range_zero, List.nil_append, List.map_cons,
-      List.map_nil, List.cons_append, List.cons.injEq, and_true]
-    refine ⟨?_, ?_, ?_, ?_⟩ <;>
-    · refine byte_ext fun i hi => ?_
-      rcases i with _ | _ | _ | _ | _ | _ | _ | _ | i
-      all_goals first
-        | exact absurd hi (by omega)
-        | (simp only [rev, BitVec.getLsbD_extractLsb', BitVec.getLsbD_append]; simp)
+      List.map_nil, List.cons_append, Nat.reduceMul, rev_byte_0, rev_byte_1, rev_byte_2,
+      rev_byte_3]
+
 
 theorem writeW32 (m : Mem) (a : Addr) (be : Bool) (x : BitVec 32) :
     m.writeW a (if be then rev x else x) = writeBytes m a (bytes32 be x) := by
@@ -39,30 +63,23 @@ theorem writeW_le (m : Mem) (a : Addr) (x : BitVec 32) :
 theorem writeW_be (m : Mem) (a : Addr) (x : BitVec 32) :
     m.writeW a (rev x) = writeBytes m a (bytes32 true x) := writeW32 m a true x
 
+theorem halves_lo (hi lo : BitVec 32) {s : Nat} (h : s + 8 ≤ 32) :
+    (hi ++ lo : BitVec 64).extractLsb' s 8 = lo.extractLsb' s 8 :=
+  BitVec.extractLsb'_append_eq_of_add_le (v := 32) (w := 32) h
+
+theorem halves_hi (hi lo : BitVec 32) {s : Nat} (h : 32 ≤ s) :
+    (hi ++ lo : BitVec 64).extractLsb' s 8 = hi.extractLsb' (s - 32) 8 :=
+  BitVec.extractLsb'_append_eq_of_le (v := 32) (w := 32) h
+
 /-- A 64-bit word's bytes are its halves'. -/
 theorem bytes64_halves (be : Bool) (hi lo : BitVec 32) :
     bytes64 be (hi ++ lo) =
       if be then bytes32 true hi ++ bytes32 true lo else bytes32 false lo ++ bytes32 false hi := by
-  cases be
-  · simp only [bytes64, bytes32, Bool.false_eq_true, ite_false, List.range_succ, List.range_zero,
-      List.nil_append, List.map_cons, List.map_nil, List.cons_append, List.cons.injEq, and_true]
-    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    · refine byte_ext fun i hi => ?_
-      rcases i with _ | _ | _ | _ | _ | _ | _ | _ | i
-      all_goals first
-        | exact absurd hi (by omega)
-        | (simp only [BitVec.getLsbD_extractLsb', BitVec.getLsbD_append]; simp)
-  · simp only [bytes64, bytes32, ite_true, List.range_succ, List.range_zero, List.nil_append,
-      List.map_cons, List.map_nil, List.cons_append, List.reverse_cons, List.reverse_nil,
-      List.cons.injEq, and_true]
-    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    · refine byte_ext fun i hi => ?_
-      rcases i with _ | _ | _ | _ | _ | _ | _ | _ | i
-      all_goals first
-        | exact absurd hi (by omega)
-        | (simp only [BitVec.getLsbD_extractLsb', BitVec.getLsbD_append]; simp)
+  cases be <;>
+  simp (disch := decide) only [bytes64, bytes32, Bool.false_eq_true, ite_false, ite_true, List.range_succ,
+    List.range_zero, List.nil_append, List.map_cons, List.map_nil, List.cons_append, List.reverse_cons,
+    List.reverse_nil, Nat.reduceMul, halves_lo, halves_hi, Nat.reduceSub]
 
-/-! ## Regions -/
 
 theorem InRegions.offset {rs : List Region} {a : Addr} {n off m : Nat} (h : InRegions rs a n)
     (hm : off + m ≤ n) (hn : n < 2 ^ 64) : InRegions rs (a + BitVec.ofNat 64 off) m := by
@@ -70,7 +87,7 @@ theorem InRegions.offset {rs : List Region} {a : Addr} {n off m : Nat} (h : InRe
   refine ⟨R, hR, ?_⟩
   simp only [Region.Contains] at *
   have : (a + BitVec.ofNat 64 off - R.base).toNat ≤ (a - R.base).toNat + off := by
-    rw [show a + BitVec.ofNat 64 off - R.base = (a - R.base) + BitVec.ofNat 64 off by bv_omega,
+    rw [Offset.add_sub_comm,
       BitVec.toNat_add, toNat_ofNat_lt (by omega)]
     exact Nat.mod_le _ _
   omega

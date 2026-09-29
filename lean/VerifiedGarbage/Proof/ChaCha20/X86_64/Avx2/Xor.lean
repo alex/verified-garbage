@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Avx2.Finish
-import VerifiedGarbage.Proof.ChaCha20.X86_64.Avx2.Consts
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Xor
+import VerifiedGarbage.Proof.Framework.Offset
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # ChaCha20 keystream XOR on x86-64 with AVX2
@@ -123,11 +124,11 @@ theorem next_ok {s₀ : State} (hp : APre s₀) {t : Nat} (hge : 512 ≤ eL s₀
       s'.gpr .rsi = edp s₀ + BitVec.ofNat 64 (512 * (t + 1)) ∧
       s'.gpr .rdx = BitVec.ofNat 64 (eL s₀ - 512 * (t + 1)) ∧
       (∀ r, r ≠ .rax → r ≠ .rsi → r ≠ .rdx → s'.gpr r = s.gpr r) ∧
-      stateAt s'.mem (est s₀) = (stateAt s.mem (est s₀)).set 12 ((stateAt s.mem (est s₀))[12] + 8) ∧
+      stateAt s'.mem (est s₀) = (stateAt s.mem (est s₀)).set 12 ((stateAt s.mem (est s₀))[12]'(by decide) + 8) (by decide) ∧
       Frame [stR (est s₀)] s.mem s'.mem ∧
       s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.cf = some (decide (eL s₀ - 512 * (t + 1) < 512)) := by
   have hL := eL_lt s₀
-  have c₁ : (stR (est s₀)).Contains (Xor.off (est s₀) 48) 4 := contains_off (by omega) (by omega)
+  have c₁ : (stR (est s₀)).Contains (Xor.off (est s₀) 48) 4 := contains_off (by lit_omega) (by lit_omega)
   have i₁ : InRegions (s.rd ++ s.wr) (Xor.off (est s₀) 48) 4 :=
     ⟨stR (est s₀), by simp [hrd, hwr, hp.rd, hp.wr], c₁⟩
   have o₁ : InRegions s.wr (Xor.off (est s₀) 48) 4 := ⟨stR (est s₀), by simp [hwr, hp.wr], c₁⟩
@@ -138,16 +139,20 @@ theorem next_ok {s₀ : State} (hp : APre s₀) {t : Nat} (hge : 512 ≤ eL s₀
     State.load32, State.store32, State.setReg, State.setReg32, State.setFlags, hrdi, i₁, o₁, ite_true,
     ite_false, Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left',
     BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq]
-  have hv : s.mem.readW (est s₀ + BitVec.ofInt 64 ((48 : Nat) : Int)) 32 = (stateAt s.mem (est s₀))[12] := by
+  have hv : s.mem.readW (est s₀ + BitVec.ofInt 64 ((48 : Nat) : Int)) 32 = (stateAt s.mem (est s₀))[12]'(by decide) := by
     simp [stateAt]
   have hfs : Frame [stR (est s₀)] s.mem (s.mem.writeW (Xor.off (est s₀) 48)
-      ((stateAt s.mem (est s₀))[12] + 8)) :=
+      ((stateAt s.mem (est s₀))[12]'(by decide) + 8)) :=
     (Frame.refl _ _).writeW (List.mem_singleton_self _) _ c₁
-  have hrdx' : (s.gpr .rdx).toNat = eL s₀ - 512 * t := by rw [hrdx, toNat_ofNat_lt (by omega)]
+  have hrdx' : (s.gpr .rdx).toNat = eL s₀ - 512 * t := by rw [hrdx, toNat_ofNat_lt (by lit_omega)]
   have se : BitVec.signExtend 64 (512 : BitVec 32) = 512 := by decide
-  have e : (s.gpr .rdx - 512).toNat = eL s₀ - 512 * (t + 1) := by rw [hrdx]; bv_omega
+  have e' : s.gpr .rdx - 512 = BitVec.ofNat 64 (eL s₀ - 512 * (t + 1)) := by
+    rw [hrdx, show (512 : BitVec 64) = BitVec.ofNat 64 512 from rfl, Offset.ofNat_sub_ofNat (by lit_omega),
+      show eL s₀ - 512 * t - 512 = eL s₀ - 512 * (t + 1) by omega]
+  have e : (s.gpr .rdx - 512).toNat = eL s₀ - 512 * (t + 1) := by
+    rw [e', toNat_ofNat_lt (by lit_omega)]
   rw [hv, se]
-  refine ⟨by rw [hrsi]; bv_omega, by rw [hrdx]; bv_omega, fun r h₁ h₂ h₃ => by simp [h₁, h₂, h₃],
+  refine ⟨by rw [hrsi]; exact (Offset.add_add _ _ 512).trans (by rw [Nat.mul_succ]), by rw [← e', hrdx], fun r h₁ h₂ h₃ => by simp [h₁, h₂, h₃],
     Xor.stateAt_writeW_counter _ _ _, hfs, trivial, trivial, ?_⟩
   rw [e]; rfl
 
@@ -157,25 +162,26 @@ section
 variable {s₀ : State} {t : Nat}
 
 theorem win_sub (hw : 512 * t + 512 ≤ eL s₀) :
-    Region.Sub (dR5 (edp s₀ + BitVec.ofNat 64 (512 * t))) (edR s₀) := by
-  have hL := eL_lt s₀
-  intro x hx; simp only [Region.Contains] at *; bv_omega
+    Region.Sub (dR5 (edp s₀ + BitVec.ofNat 64 (512 * t))) (edR s₀) :=
+  Offset.sub_base _ hw
 
 theorem dwin {ws : List Region} (hd : edR s₀ ∈ ws) (hw : 512 * t + 512 ≤ eL s₀) :
     DWin ws (edp s₀ + BitVec.ofNat 64 (512 * t)) := by
   have hL := eL_lt s₀
   intro off n h
   refine ⟨edR s₀, hd, ?_⟩
-  simp only [Region.Contains]; bv_omega
+  rw [Offset.add_add]; exact Offset.contains_base _ (by lit_omega) (by lit_omega)
 
 theorem in_dR {k : Nat} (hk : k < eL s₀) : (edR s₀).Contains (edp s₀ + BitVec.ofNat 64 k) 1 :=
-  Xor.contains_ofNat (by omega) (by have := eL_lt s₀; omega)
+  Xor.contains_ofNat (by lit_omega) (by have := eL_lt s₀; omega)
 
 theorem out_win (hw : 512 * t + 512 ≤ eL s₀) {k : Nat} (hk : k < eL s₀)
     (ho : k < 512 * t ∨ 512 * t + 512 ≤ k) :
     ¬ (dR5 (edp s₀ + BitVec.ofNat 64 (512 * t))).Contains (edp s₀ + BitVec.ofNat 64 k) 1 := by
   have hL := eL_lt s₀
-  simp only [Region.Contains]; bv_omega
+  simp only [Region.Contains]
+  rw [Offset.sub_toNat' _ (by lit_omega) (by lit_omega)]
+  split <;> omega
 
 end
 
@@ -185,10 +191,10 @@ theorem Consts.frame {m m' : Mem} {buf : Addr} (h : Consts m buf) {rs : List Reg
       m'.readW (buf + BitVec.ofNat 64 d) 256 = m.readW (buf + BitVec.ofNat 64 d) 256 :=
     fun d h₁ h₂ => hf.readW (hiR_contains buf h₁ h₂) hd (by decide)
   refine ⟨?_, ?_, ⟨?_, ?_⟩, incs_frame h.inc hf hd⟩
-  · rw [e 128 (by omega) (by omega)]; exact h.lo16
-  · rw [e 128 (by omega) (by omega)]; exact h.hi16
-  · rw [e 160 (by omega) (by omega)]; exact h.m8.1
-  · rw [e 160 (by omega) (by omega)]; exact h.m8.2
+  · rw [e 128 (by lit_omega) (by lit_omega)]; exact h.lo16
+  · rw [e 128 (by lit_omega) (by lit_omega)]; exact h.hi16
+  · rw [e 160 (by lit_omega) (by lit_omega)]; exact h.m8.1
+  · rw [e 160 (by lit_omega) (by lit_omega)]; exact h.m8.2
 
 theorem plus_block (S : CState) (j : Nat) :
     plus (fun j => Nat.repeat Spec.ChaCha20.innerBlock 10 (ctr S j)) S j =
@@ -267,12 +273,12 @@ theorem body_ok {s₀ : State} (hp : APre s₀) {t : Nat} (hge : 512 ≤ eL s₀
     · have ea : edp s₀ + BitVec.ofNat 64 k =
           edp s₀ + BitVec.ofNat 64 (512 * t) + BitVec.ofNat 64 (k - 512 * t) := by
         rw [add_ofNat, Nat.add_sub_cancel' hin.1]
-      have x₃ := d₃ (k - 512 * t) (by omega)
+      have x₃ := d₃ (k - 512 * t) (by lit_omega)
       rw [← ea] at x₃
       rw [f₄ _ (by simpa using n_st), x₃, F₂ _ (by simpa using n_sl), h.data k hk,
         ite_eq_right (by omega : ¬ k < 512 * t), ite_eq_left (by omega : k < 512 * (t + 1)), hS₂,
         plus_block, h.cnt, ks_shift _ hk hin.1]
-    · have n_w := out_win hw hk (by omega)
+    · have n_w := out_win hw hk (by lit_omega)
       rw [FA _ (by
           intro r hr
           simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -336,13 +342,13 @@ theorem prologue_ok {s₀ : State} (hp : APre s₀) :
 /-! ## The rest, by `vg_chacha20_xor` -/
 
 theorem xor_keeps : ((instrs Impl.ChaCha20.X86_64.Xor.xor).all fun i => !Taint.clobbers i .rsp) = true := by
-  rw [← Code.allInstrs_eq]; decide +kernel
+  rw [← Code.allInstrs_eq]; lit_decide
 
 theorem xor_nosp : NoSp Impl.ChaCha20.X86_64.Xor.xor := by
   intro i hi
   simpa using List.all_eq_true.mp xor_keeps i hi
 
-theorem xor_depth : Impl.ChaCha20.X86_64.Xor.xor.depth = 1 := by decide +kernel
+theorem xor_depth : Impl.ChaCha20.X86_64.Xor.xor.depth = 1 := by lit_decide
 
 /-- Byte `k` of data XORed with `ks`. -/
 theorem bytes_of_bytesAt {m m' : Mem} {p : Addr} {n : Nat} {ks : List Byte} (hks : ks.length = n)
@@ -361,23 +367,25 @@ variable {s₀ : State} {t : Nat}
 /-- The data left for `vg_chacha20_xor`. -/
 abbrev tR (s₀ : State) (t : Nat) : Region := ⟨edp s₀ + BitVec.ofNat 64 (512 * t), eL s₀ - 512 * t⟩
 
-theorem tail_sub (ht : 512 * t ≤ eL s₀) : Region.Sub (tR s₀ t) (edR s₀) := by
-  have hL := eL_lt s₀
-  intro x hx; simp only [Region.Contains] at *; bv_omega
+theorem tail_sub (ht : 512 * t ≤ eL s₀) : Region.Sub (tR s₀ t) (edR s₀) :=
+  Offset.sub_base _ (by lit_omega)
 
 theorem not_tail {k : Nat} (hk : k < 512 * t) (ht : 512 * t ≤ eL s₀) :
     ¬ (tR s₀ t).Contains (edp s₀ + BitVec.ofNat 64 k) 1 := by
   have hL := eL_lt s₀
-  simp only [Region.Contains]; bv_omega
+  simp only [Region.Contains]
+  rw [Offset.sub_toNat' _ (by lit_omega) (by lit_omega)]
+  split <;> omega
 
-theorem stk_ret (s₀ : State) : Region.Sub ⟨s₀.gpr .rsp - 8, 8⟩ (estk s₀) := by
-  intro x hx; simp only [Region.Contains] at *; bv_omega
+theorem stk_ret (s₀ : State) : Region.Sub ⟨s₀.gpr .rsp - 8, 8⟩ (estk s₀) :=
+  Offset.sub_below _ (a := 8) (b := 16) (by decide) (by decide)
 
 theorem stk_stk (s₀ : State) : Region.Sub ⟨s₀.gpr .rsp - 8 - 8, 8⟩ (estk s₀) := by
-  intro x hx; simp only [Region.Contains] at *; bv_omega
+  rw [BitVec.sub_sub]; exact Offset.sub_below _ (a := 16) (b := 16) (by decide) (by decide)
 
 theorem ret_stk (s₀ : State) : (eret s₀).Disjoint (estk s₀) := by
-  intro x h₁ h₂; simp only [Region.Contains] at *; bv_omega
+  have := Offset.disjoint_base (s₀.gpr .rsp - BitVec.ofNat 64 16) (d := 16) (n := 8) (k := 16) (by decide) (by decide)
+  rwa [BitVec.sub_add_cancel] at this
 
 end
 
@@ -398,7 +406,7 @@ theorem tail_ok {s₀ : State} (hp : APre s₀) {t : Nat} (hlt : eL s₀ - 512 *
   refine WP.seq (WP.mono (vz_ok s) fun s₁ ⟨g₁, m₁, rd₁, wr₁⟩ => ?_)
   have hsp : s₁.gpr .rsp = s₀.gpr .rsp := by rw [g₁]; exact h.keep .rsp (by simp [calleeSaved])
   have hne : ∀ r : Reg, r ≠ .rsp → s₁.callEntry.gpr r = s₁.gpr r := fun r h => State.callEntry_gpr _ h
-  have hn : (BitVec.ofNat 64 (eL s₀ - 512 * t)).toNat = eL s₀ - 512 * t := toNat_ofNat_lt (by omega)
+  have hn : (BitVec.ofNat 64 (eL s₀ - 512 * t)).toNat = eL s₀ - 512 * t := toNat_ofNat_lt (by lit_omega)
   have hwr : s₁.wr = frR s₀ := by rw [wr₁, h.wr, hp.wr]
   have hrd : s₁.rd = [] := by rw [rd₁, h.rd, hp.rd]
   refine WP.call (k := xorStack 8) Xor.xor_rsi xor_nosp (by rw [xor_depth]; decide)
@@ -435,12 +443,12 @@ theorem tail_ok {s₀ : State} (hp : APre s₀) {t : Nat} (hlt : eL s₀ - 512 *
       rw [State.callEntry_mem]
       exact Xor.stateAt_frame (rs := [estk s₀])
         ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (by
-          rw [hsp]; exact below_call _ (by omega) (by omega)))
+          rw [hsp]; exact below_call _ (by lit_omega) (by lit_omega)))
         (by simpa using hp.stk_st.symm)
     have Fce : Frame [estk s₀] s₁.mem s₁.callEntry.mem := by
       rw [State.callEntry_mem]
       exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (by
-        rw [hsp]; exact below_call _ (by omega) (by omega))
+        rw [hsp]; exact below_call _ (by lit_omega) (by lit_omega))
     simp only [xorX86_64, State.withRegions_gpr, State.withRegions_mem,
       hne _ (by decide : Reg.rdi ≠ .rsp), hne _ (by decide : Reg.rsi ≠ .rsp),
       hne _ (by decide : Reg.rdx ≠ .rsp), g₁, h.rdi, h.rsi, h.rdx, hce, hm₃, m₁, h.cnt] at hpost
@@ -485,11 +493,11 @@ theorem tail_ok {s₀ : State} (hp : APre s₀) {t : Nat} (hlt : eL s₀ - 512 *
           · exact n_sk), m₁, h.data k hk, ite_eq_left hk']
       · have ea : edp s₀ + BitVec.ofNat 64 k =
             edp s₀ + BitVec.ofNat 64 (512 * t) + BitVec.ofNat 64 (k - 512 * t) := by
-          rw [add_ofNat, Nat.add_sub_cancel' (by omega)]
-        have x := bytes_of_bytesAt (length_keystream _ _) hpost (k := k - 512 * t) (by omega)
+          rw [add_ofNat, Nat.add_sub_cancel' (by lit_omega)]
+        have x := bytes_of_bytesAt (length_keystream _ _) hpost (k := k - 512 * t) (by lit_omega)
         rw [← ea, Fce _ (by simpa using n_sk), m₁, h.data k hk2, ite_eq_right hk',
-          keystream_getD _ (by omega)] at x
-        rw [x, ks_shift _ hk2 (t := t) (by omega)]
+          keystream_getD _ (by lit_omega)] at x
+        rw [x, ks_shift _ hk2 (t := t) (by lit_omega)]
 
 /-! ## The whole function -/
 
@@ -535,7 +543,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : xorAvx2X86_64.pre s₁) (h₂ : xor
   have wf : ∀ s, xorAvx2X86_64.pre s → X86_64.Taint.Wf τ₀ s := by
     intro s hs
     obtain ⟨-, hw, d1, d2, d3, -⟩ := hs
-    refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, d1, d2, d3], by simp [hw, (s.gpr .rdx).isLt.le]⟩,
+    refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, d1, d2, d3], by simp [hw, Nat.le_of_lt (s.gpr .rdx).isLt]⟩,
       fun p hp => ?_⟩
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]
@@ -565,7 +573,7 @@ theorem xor_rsi (s : State) (hs : xorAvx2X86_64.pre s) :
     ∃ t s', Exec isa Impl.ChaCha20.X86_64.Avx2.xor s t s' ∧ abiPreserved s s' ∧
       (xorAvx2X86_64.post s s' ∧ s'.gpr .rsi = s.gpr .rcx) := by
   obtain ⟨t, s', he, ⟨h, hpost⟩, hr⟩ := correct (APre.of s hs)
-  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h, hpost, hr⟩
+  exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he h, hpost, hr⟩
 
 theorem xor_correct (s : State) (hs : xorAvx2X86_64.pre s) :
     ∃ t s', Exec isa Impl.ChaCha20.X86_64.Avx2.xor s t s' ∧ abiPreserved s s' ∧

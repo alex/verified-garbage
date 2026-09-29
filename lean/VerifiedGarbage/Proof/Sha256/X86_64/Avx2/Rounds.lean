@@ -1,7 +1,9 @@
 import VerifiedGarbage.Proof.Framework.X86_64.Exec
+import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Sha256.Spec
 import VerifiedGarbage.Impl.Sha256.X86_64.Avx2
+import VerifiedGarbage.Proof.Sha256.X86_64.Avx2.Lit
 
 /-!
 # SHA-256 with AVX2 on x86-64: one round
@@ -47,7 +49,7 @@ theorem round_nodup (t : Nat) :
   have h8 := Nat.mod_lt t (show 8 > 0 by omega)
   rw [show t % 2 = t % 8 % 2 by omega]
   generalize t % 8 = c at *
-  revert h8; revert c; decide
+  revert h8; revert c; decide +kernel
 
 theorem ch_add (e f g : Word) : ch e f g = (e &&& f) + (~~~e &&& g) := by
   rw [BitVec.add_eq_or_of_and_eq_zero]
@@ -98,7 +100,10 @@ theorem round_ok (j t : Nat) (s : State) (v : HashValue) (w : Word)
     List.nodup_nil, and_true] at hd hd' ⊢
   simp (config := {decide := true}) only [runBlock_cons, runStep_some,
     runBlock_nil, exec, execAlu32, execRorx32, execAndn32, readSrc32, State.ea,
-    isa, State.load32, State.setReg32, State.setReg, arithFlags, State.setFlags, ite_true, ite_false,
+    isa, State.load32, State.setReg32, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg,
+    RegUpd.wr_setReg, RegUpd.xmm_setReg, RegUpd.ymmHi_setReg, arithFlags, RegUpd.gpr_setFlags,
+    RegUpd.mem_setFlags, RegUpd.rd_setFlags, RegUpd.wr_setFlags, RegUpd.xmm_setFlags,
+    RegUpd.ymmHi_setFlags, ite_true, ite_false,
     hd, hd', h0, h1, h2, h3, h4, h5, h6, h7, hc, hin, hw, BitVec.setWidth_setWidth_of_le,
     BitVec.setWidth_eq, and_self, Option.bind_some, Option.map_some, Option.some.injEq,
     exists_eq_left']

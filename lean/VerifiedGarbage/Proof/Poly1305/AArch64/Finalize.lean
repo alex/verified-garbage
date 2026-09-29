@@ -1,13 +1,15 @@
 import VerifiedGarbage.Proof.Poly1305.AArch64.Buffer
-import Mathlib.Tactic.NormNum.Basic
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
 
 /-!
 # Poly1305 on AArch64: `finalize`
 
 Untrusted: everything here is checked by Lean.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305.AArch64
 
@@ -115,7 +117,7 @@ theorem zinit_ok {s₀ : State} {m₁ : Mem} {s₁ : State} (h₁ : F0 s₀ m₁
       (ZInv s₀ m₁ s₁ (kf s₀)) := by
   have hk := kf_lt s₀
   refine wp_movz fun s₂ u₂ => wp_add fun s₃ u₃ => wp_movz fun s₄ u₄ => wp_sub fun s₅ u₅ => WP.block_nil ?_
-  refine ⟨⟨(Nat.le_refl _), hk.le⟩, ?_, ?_, ?_, fun r h1 h2 h3 => ?_, by rw [u₅.rd, u₄.rd, u₃.rd, u₂.rd, h₁.rd],
+  refine ⟨⟨(Nat.le_refl _), Nat.le_of_lt hk⟩, ?_, ?_, ?_, fun r h1 h2 h3 => ?_, by rw [u₅.rd, u₄.rd, u₃.rd, u₂.rd, h₁.rd],
     by rw [u₅.wr, u₄.wr, u₃.wr, u₂.wr, h₁.wr],
     (by rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, h₁.mem]; exact Frame.refl _ _), fun k hk' => ?_⟩
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.other _ (by decide),
@@ -135,7 +137,7 @@ theorem zero_step {s₀ : State} (hp : FPre s₀) {m₁ : Mem} {s₁ : State} {j
   refine wp_strb (t := .x11) (a := bufB (st s₀) j) (by decide) (by rw [h.x9, bufB_of])
     (by rw [h.wr]; exact bufB_in hp.st_in hj) fun s₂ m₂ => ?_
   refine wp_addImm (by decide) fun s₃ u₃ => wp_subImm (by decide) fun s₄ u₄ => WP.block_nil ?_
-  refine ⟨⟨h.j_le.1.trans (Nat.le_succ _), by omega⟩, ?_, ?_, ?_, fun r h1 h2 h3 => ?_,
+  refine ⟨⟨Nat.le_trans h.j_le.1 (Nat.le_succ _), by omega⟩, ?_, ?_, ?_, fun r h1 h2 h3 => ?_,
     by rw [u₄.rd, u₃.rd, m₂.rd, h.rd], by rw [u₄.wr, u₃.wr, m₂.wr, h.wr], ?_, fun k hk => ?_⟩
   · rw [u₄.other _ (by decide), u₃.gpr, m₂.gpr, h.x9, BitVec.add_assoc, ← BitVec.ofNat_add]
   · rw [u₄.gpr, u₃.other _ (by decide), m₂.gpr, h.x10, show BitVec.ofNat 64 1 = 1 from rfl,
@@ -360,11 +362,11 @@ theorem fepilogue_ok {s₀ : State} (hp : FPre s₀) {m₁ : Mem} {s₁ : State}
   have hSlt : v s₃ .x14 + 2 ^ 64 * v s₃ .x15 < 2 ^ 128 := by
     have := (s₃.gpr .x14).isLt; have := (s₃.gpr .x15).isLt; simp only [v]; omega
   have hsum := ha (by omega) (by omega) (by omega) (by omega) (by omega)
-    (by rw [m0]; exact lt_trans (lim_lt _ (by omega)) (by norm_num))
-    (by rw [m1]; exact lt_trans (lim_lt _ (by omega)) (by norm_num))
-    (by rw [m2]; exact lt_trans (lim_lt _ (by omega)) (by norm_num))
-    (by rw [m3]; exact lt_trans (lim_lt _ (by omega)) (by norm_num))
-    (by rw [m4]; exact lt_trans (lim4_lt hSlt) (by norm_num))
+    (by rw [m0]; exact Nat.lt_trans (lim_lt _ (by omega)) (by decide))
+    (by rw [m1]; exact Nat.lt_trans (lim_lt _ (by omega)) (by decide))
+    (by rw [m2]; exact Nat.lt_trans (lim_lt _ (by omega)) (by decide))
+    (by rw [m3]; exact Nat.lt_trans (lim_lt _ (by omega)) (by decide))
+    (by rw [m4]; exact Nat.lt_trans (lim4_lt hSlt) (by decide))
   obtain ⟨hV, b0, b1, b2, b3, -⟩ := hsum
   rw [m0, m1, m2, m3, m4, val5_lim, hS, hN, hv₀,
     Nat.mod_eq_of_lt (Poly1305.absorbAll_lt hA _)] at hV

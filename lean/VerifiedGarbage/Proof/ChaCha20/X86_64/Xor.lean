@@ -3,6 +3,9 @@ import VerifiedGarbage.Proof.ChaCha20.Keystream
 import VerifiedGarbage.Proof.Framework.X86_64.Call
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Xor
+import VerifiedGarbage.Proof.Framework.Offset
+import VerifiedGarbage.Proof.ChaCha20.X86_64.Lit
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # ChaCha20 keystream XOR on x86-64
@@ -164,7 +167,7 @@ theorem stateAt_writeW_counter (m : Mem) (p : Addr) (v : BitVec 32) :
     simp only [ite_true]
     exact Mem.readW_writeW_self32 _ _ _
   · simp only [h, ite_false]
-    exact readW_writeW_off m p v (Or.inl rfl) (by omega) (by omega) (by omega)
+    exact readW_writeW_off m p v (Or.inl rfl) (by lit_omega) (by lit_omega) (by lit_omega)
 
 theorem contains_ofNat {b : Addr} {len d n : Nat} (h : d + n ≤ len) (hd : d < 2 ^ 64) :
     (⟨b, len⟩ : Region).Contains (b + BitVec.ofNat 64 d) n := by
@@ -177,12 +180,12 @@ theorem stateAt_frame {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {p : 
   apply Vector.ext
   intro i hi
   simp only [stateAt, Vector.getElem_ofFn]
-  exact hf.readW (contains_ofNat (by omega) (by omega)) hd (by decide)
+  exact hf.readW (contains_ofNat (by lit_omega) (by lit_omega)) hd (by decide)
 
 theorem readW64_off (m : Mem) (p : Addr) (v : BitVec 64) {d e : Nat} (hd : d < 2 ^ 32)
     (he : e < 2 ^ 32) (h : d + 8 ≤ e ∨ e + 8 ≤ d) :
     (m.writeW (off p e) v).readW (off p d) 64 = m.readW (off p d) 64 :=
-  Mem.readW_writeW_sep (VG.Proof.ChaCha20.X86_64.off_sep p hd he (by omega) (by omega) h) (by decide)
+  Mem.readW_writeW_sep (VG.Proof.ChaCha20.X86_64.off_sep p hd he (by lit_omega) (by lit_omega) h) (by decide)
 
 /-! ## The prologue -/
 
@@ -193,7 +196,7 @@ theorem save_eq : save ++ ([.mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .
     .mov .rsi (.reg .rcx), .alu .test .r12 (.reg .r12)] := rfl
 
 theorem bR_contains (s₀ : State) {d n : Nat} (h : d + n ≤ 320) : (bR s₀).Contains (off (bp s₀) d) n :=
-  contains_off h (by omega)
+  contains_off h (by lit_omega)
 
 set_option simprocs false in
 theorem prologue_ok {s₀ : State} (hp : XPre s₀) :
@@ -202,7 +205,7 @@ theorem prologue_ok {s₀ : State} (hp : XPre s₀) :
       OInv s₀ 0 s ∧ s.zf = some (decide (L s₀ = 0)) := by
   have o : ∀ d, d + 8 ≤ 320 → InRegions s₀.wr (off (bp s₀) d) 8 :=
     fun d hd => ⟨_, hp.w_b, bR_contains s₀ hd⟩
-  have o0 := o 256 (by omega); have o1 := o 264 (by omega); have o2 := o 272 (by omega)
+  have o0 := o 256 (by lit_omega); have o1 := o 264 (by lit_omega); have o2 := o 272 (by lit_omega)
   simp only [off] at o0 o1 o2
   apply WP.of_runBlock
   rw [save_eq]
@@ -211,9 +214,9 @@ theorem prologue_ok {s₀ : State} (hp : XPre s₀) :
     ite_false, Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
   have hf : Frame [bR s₀] s₀.mem (((s₀.mem.writeW (off (bp s₀) 256) (s₀.gpr .rbx)).writeW
       (off (bp s₀) 264) (s₀.gpr .rbp)).writeW (off (bp s₀) 272) (s₀.gpr .r12)) :=
-    (((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (bR_contains s₀ (by omega))).writeW
-      (List.mem_singleton_self _) _ (bR_contains s₀ (by omega))).writeW
-      (List.mem_singleton_self _) _ (bR_contains s₀ (by omega))
+    (((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (bR_contains s₀ (by lit_omega))).writeW
+      (List.mem_singleton_self _) _ (bR_contains s₀ (by lit_omega))).writeW
+      (List.mem_singleton_self _) _ (bR_contains s₀ (by lit_omega))
   refine ⟨⟨by simp (config := {decide := true}), by simp (config := {decide := true}) [P],
     by simp (config := {decide := true}) [P], by simp (config := {decide := true}), fun r hr => ?_, rfl,
     rfl, ?_, fun k hk => ?_, ?_, hf.mono (by simp)⟩, ?_⟩
@@ -221,11 +224,11 @@ theorem prologue_ok {s₀ : State} (hp : XPre s₀) :
     rcases hr with rfl | rfl | rfl | rfl <;> simp (config := {decide := true})
   · rw [stateAt_frame hf (by simpa using hp.st_b), ctr_zero]
   · simp only [P, Nat.mul_zero, Nat.zero_min, Nat.not_lt_zero, ite_false]
-    exact hf.bytes (R := dR s₀) (by simpa using hp.d_b) (s₀.gpr .rdx).isLt.le hk
+    exact hf.bytes (R := dR s₀) (by simpa using hp.d_b) (Nat.le_of_lt (s₀.gpr .rdx).isLt) hk
   · refine ⟨?_, ?_, ?_⟩
-    · rw [readW64_off _ _ _ (by omega) (by omega) (by omega),
-        readW64_off _ _ _ (by omega) (by omega) (by omega), Mem.readW_writeW_self64]
-    · rw [readW64_off _ _ _ (by omega) (by omega) (by omega), Mem.readW_writeW_self64]
+    · rw [readW64_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega),
+        readW64_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega), Mem.readW_writeW_self64]
+    · rw [readW64_off _ _ _ (by lit_omega) (by lit_omega) (by lit_omega), Mem.readW_writeW_self64]
     · rw [Mem.readW_writeW_self64]
   · simp only [BitVec.and_self, L]
     by_cases h : (s₀.gpr .rdx).toNat = 0
@@ -241,28 +244,24 @@ abbrev b256 (s₀ : State) : Region := ⟨bp s₀, 256⟩
 abbrev savR (s₀ : State) : Region := ⟨off (bp s₀) 256, 24⟩
 
 theorem savR_sub (s₀ : State) : Region.Sub (savR s₀) (bR s₀) := by
-  intro a ha
-  simp only [Region.Contains] at *
-  bv_omega
+  simp only [savR, off, ofInt_natCast]
+  exact Offset.sub_base _ (by lit_omega)
 
 theorem savR_b256 (s₀ : State) : (savR s₀).Disjoint (b256 s₀) := by
-  intro a h₁ h₂
-  simp only [Region.Contains] at *
-  bv_omega
+  simp only [savR, off, ofInt_natCast]
+  exact Offset.disjoint_base _ (by lit_omega) (by lit_omega)
 
 /-- The saved registers survive a frame that does not touch them. -/
 theorem Saved.frame {s₀ : State} {rs : List Region} {m m' : Mem} (h : Saved s₀ m)
     (hf : Frame rs m m') (hd : ∀ r ∈ rs, (savR s₀).Disjoint r) : Saved s₀ m' := by
   have c : ∀ d, 256 ≤ d → d + 8 ≤ 280 → (savR s₀).Contains (off (bp s₀) d) (64 / 8) := by
     intro d h₁ h₂
-    simp only [Region.Contains, off, ofInt_natCast]
-    rw [show bp s₀ + BitVec.ofNat 64 d - (bp s₀ + BitVec.ofNat 64 256) = BitVec.ofNat 64 (d - 256) by
-      bv_omega, toNat_ofNat_lt (by omega)]
-    omega
+    simp only [savR, off, ofInt_natCast]
+    exact Offset.contains _ h₁ (by lit_omega) (by lit_omega)
   obtain ⟨h1, h2, h3⟩ := h
-  exact ⟨by rw [hf.readW (c 256 (Nat.le_refl _) (by omega)) hd (by decide), h1],
-    by rw [hf.readW (c 264 (by omega) (by omega)) hd (by decide), h2],
-    by rw [hf.readW (c 272 (by omega) (by omega)) hd (by decide), h3]⟩
+  exact ⟨by rw [hf.readW (c 256 (Nat.le_refl _) (by lit_omega)) hd (by decide), h1],
+    by rw [hf.readW (c 264 (by lit_omega) (by lit_omega)) hd (by decide), h2],
+    by rw [hf.readW (c 272 (by lit_omega) (by lit_omega)) hd (by decide), h3]⟩
 
 /-! ## Calling the block function -/
 
@@ -271,7 +270,7 @@ def kept : List Reg := [.rsi, .rsp]
 
 theorem block_keeps : ((instrs Impl.ChaCha20.X86_64.block).all fun i =>
     kept.all fun r => !Taint.clobbers i r) = true := by
-  rw [← Code.allInstrs_eq]; decide +kernel
+  rw [← Code.allInstrs_eq]; lit_decide
 
 theorem block_keeps_reg {r : Reg} (hr : r ∈ kept) :
     ∀ i ∈ instrs Impl.ChaCha20.X86_64.block, Taint.clobbers i r = false := by
@@ -279,10 +278,10 @@ theorem block_keeps_reg {r : Reg} (hr : r ∈ kept) :
   have := List.all_eq_true.mp (List.all_eq_true.mp block_keeps i hi) r hr
   simpa using this
 
-theorem block_depth : Impl.ChaCha20.X86_64.block.depth = 0 := by decide +kernel
+theorem block_depth : Impl.ChaCha20.X86_64.block.depth = 0 := by lit_decide
 
 
-theorem b256_sub (s₀ : State) : Region.Sub (b256 s₀) (bR s₀) := Region.sub_prefix (by omega)
+theorem b256_sub (s₀ : State) : Region.Sub (b256 s₀) (bR s₀) := Region.sub_prefix (by lit_omega)
 
 /-- After the block function: `buf` holds block `j`'s keystream. -/
 structure AInv (s₀ : State) (j : Nat) (s : State) : Prop extends OInv s₀ j s where
@@ -347,7 +346,7 @@ theorem call_ok {s₀ : State} (hp : XPre s₀) {j : Nat} {s : State} (h : OInv 
       rw [g r hr'.1 hr'.2]
       exact h.keep r hr
     · rw [hf.bytes (R := dR s₀) (hd _ (hp.d_b.sub_right (b256_sub s₀)) hp.stk_d.symm)
-        (s₀.gpr .rdx).isLt.le hk, e₅]
+        (Nat.le_of_lt (s₀.gpr .rdx).isLt) hk, e₅]
       exact h.data k hk
     · rw [e₅] at hf
       exact h.saved.frame hf (hd _ (savR_b256 s₀) (hp.stk_b.symm.sub_left (savR_sub s₀)))
@@ -361,7 +360,7 @@ theorem call_ok {s₀ : State} (hp : XPre s₀) {j : Nat} {s : State} (h : OInv 
         rw [State.callEntry_mem]
         exact stateAt_frame (rs := [stackR s₀])
           ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (by
-            rw [← hstk]; exact below_call _ (by omega) (by omega)))
+            rw [← hstk]; exact below_call _ (by lit_omega) (by lit_omega)))
           (by simpa using hp.stk_st.symm)
       simp only [Proof.ChaCha20.blockX86_64, State.withRegions_gpr, State.withRegions_mem,
         hne _ (by decide : Reg.rdi ≠ .rsp), hne _ (by decide : Reg.rsi ≠ .rsp), e₁, hrsi, hm₃, hce,
@@ -463,7 +462,7 @@ theorem writeW8_apply (m : Mem) (a x : Addr) (v : Byte) :
       apply h
       have h0 : (x - a).toNat = 0 := by omega
       have := BitVec.eq_of_toNat_eq (x := x - a) (y := 0) (by rw [h0]; rfl)
-      bv_omega
+      rw [← BitVec.sub_add_cancel x a, this]; exact BitVec.zero_add a
     simp only [this, h, ↓reduceIte]
 
 theorem xor_setWidth (a b : Byte) : (a.setWidth 64 ^^^ b.setWidth 64).setWidth 8 = a ^^^ b := by
@@ -479,7 +478,7 @@ theorem data_ne {s₀ : State} {k k' : Nat} (hk : k < L s₀) (hk' : k' < L s₀
   have e : BitVec.ofNat 64 k' = BitVec.ofNat 64 k := by
     have e := congrArg (· - dp s₀) he; simpa using e
   have := congrArg BitVec.toNat e
-  rw [toNat_ofNat_lt (by omega), toNat_ofNat_lt (by omega)] at this
+  rw [toNat_ofNat_lt (by lit_omega), toNat_ofNat_lt (by lit_omega)] at this
   exact h this
 
 /-- Byte `k` of the data, before or after block `j`: `P j = 64 j` while blocks remain. -/
@@ -490,7 +489,7 @@ theorem ks_eq {s₀ : State} {j i : Nat} (hj : P s₀ j < L s₀) (hi : i < C s�
     (KS s₀).getD (P s₀ j + i) 0 = (serialize (Spec.ChaCha20.block (ctr (S0 s₀) j))).getD i 0 := by
   have hP := P_eq hj
   have hC : C s₀ j = min 64 (L s₀ - P s₀ j) := rfl
-  rw [KS, keystream_getD _ (by omega), hP, show (64 * j + i) / 64 = j by omega,
+  rw [KS, keystream_getD _ (by lit_omega), hP, show (64 * j + i) / 64 = j by omega,
     show (64 * j + i) % 64 = i by omega]
 
 set_option simprocs false in
@@ -499,15 +498,15 @@ theorem xor_step {s₀ : State} (hp : XPre s₀) {j i : Nat} (hj : P s₀ j < L 
     WP isa (.block xorBody) s fun s' =>
       IInv s₀ j (i + 1) s' ∧ s'.zf = some (decide (i + 1 = C s₀ j)) := by
   have hL := L_lt s₀
-  have hC : C s₀ j = min 64 (L s₀ - P s₀ j) := rfl
-  have hk : P s₀ j + i < L s₀ := by omega
+  have hk : P s₀ j + i < L s₀ := by have hC : C s₀ j = min 64 (L s₀ - P s₀ j) := rfl; omega
+  have hC64 : C s₀ j ≤ 64 := Nat.min_le_left _ _
   have ea₁ : dp s₀ + BitVec.ofNat 64 (P s₀ j) + BitVec.ofNat 64 i * BitVec.ofNat 64 1 +
       BitVec.ofInt 64 0 = dp s₀ + BitVec.ofNat 64 (P s₀ j + i) := by
     rw [BitVec.mul_one, BitVec.ofNat_add]; simp [BitVec.add_assoc]
   have ea₂ : bp s₀ + BitVec.ofNat 64 i * BitVec.ofNat 64 1 + BitVec.ofInt 64 0 =
       bp s₀ + BitVec.ofNat 64 i := by simp
-  have cd : (dR s₀).Contains (dp s₀ + BitVec.ofNat 64 (P s₀ j + i)) 1 := contains_ofNat (by omega) (by omega)
-  have cb : (bR s₀).Contains (bp s₀ + BitVec.ofNat 64 i) 1 := contains_ofNat (by omega) (by omega)
+  have cd : (dR s₀).Contains (dp s₀ + BitVec.ofNat 64 (P s₀ j + i)) 1 := contains_ofNat (by lit_omega) (by lit_omega)
+  have cb : (bR s₀).Contains (bp s₀ + BitVec.ofNat 64 i) 1 := contains_ofNat (by lit_omega) (by lit_omega)
   have i₁ : InRegions (s.rd ++ s.wr) (dp s₀ + BitVec.ofNat 64 (P s₀ j + i)) 1 :=
     ⟨dR s₀, by simp [h.rd, h.wr, hp.rd, hp.wr], cd⟩
   have i₂ : InRegions (s.rd ++ s.wr) (bp s₀ + BitVec.ofNat 64 i) 1 :=
@@ -522,7 +521,7 @@ theorem xor_step {s₀ : State} (hp : XPre s₀) {j i : Nat} (hj : P s₀ j < L 
   have hd : s.mem (dp s₀ + BitVec.ofNat 64 (P s₀ j + i)) = D0 s₀ (P s₀ j + i) := by
     rw [h.data _ hk]; simp
   have hks : s.mem (bp s₀ + BitVec.ofNat 64 i) = (KS s₀).getD (P s₀ j + i) 0 := by
-    rw [h.ks i (by omega), ks_eq hj hi]
+    rw [h.ks i (by lit_omega), ks_eq hj hi]
   rw [hd, hks, xor_setWidth]
   have hfd : Frame [dR s₀] s.mem (s.mem.writeW (dp s₀ + BitVec.ofNat 64 (P s₀ j + i))
       (D0 s₀ (P s₀ j + i) ^^^ (KS s₀).getD (P s₀ j + i) 0)) :=
@@ -549,18 +548,9 @@ theorem xor_step {s₀ : State} (hp : XPre s₀) {j i : Nat} (hj : P s₀ j < L 
   · dsimp only; rw [hfd.bytes (R := bR s₀) (by simpa using hp.d_b.symm) (show 320 ≤ 2 ^ 64 by omega)
       (show t < 320 by omega)]
     exact h.ks t ht
-  · rw [h.rdx]
-    by_cases he : i + 1 = C s₀ j
-    · rw [← he, BitVec.ofNat_add]; simp
-    · have : BitVec.ofNat 64 i + 1 - BitVec.ofNat 64 (C s₀ j) ≠ 0 := by
-        intro h0
-        have e : BitVec.ofNat 64 (i + 1) = BitVec.ofNat 64 (C s₀ j) := by
-          rw [BitVec.ofNat_add]; bv_omega
-        have := congrArg BitVec.toNat e
-        rw [toNat_ofNat_lt (by omega), toNat_ofNat_lt (by omega)] at this
-        exact he this
-      simp only [he, decide_false, beq_eq_false_iff_ne, ne_eq]
-      exact this
+  · rw [h.rdx, ← Offset.ofNat_sub_ofNat_beq (x := i + 1) (y := C s₀ j) (by lit_omega) (by lit_omega),
+      BitVec.ofNat_add]
+    rfl
 
 /-! ## The end of a block -/
 
@@ -578,8 +568,9 @@ theorem next_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j < L s�
       OInv s₀ (j + 1) s' ∧ s'.zf = some (decide (L s₀ - P s₀ (j + 1) = 0)) := by
   have hL := L_lt s₀
   have hP := P_succ hj
-  have hC : C s₀ j = min 64 (L s₀ - P s₀ j) := rfl
-  have c₁ : (stR s₀).Contains (off (st s₀) 48) 4 := contains_off (by omega) (by omega)
+  have hC64 : C s₀ j ≤ 64 := Nat.min_le_left _ _
+  have hCL : C s₀ j ≤ L s₀ - P s₀ j := Nat.min_le_right _ _
+  have c₁ : (stR s₀).Contains (off (st s₀) 48) 4 := contains_off (by lit_omega) (by lit_omega)
   have i₁ : InRegions (s.rd ++ s.wr) (off (st s₀) 48) 4 := ⟨stR s₀, by simp [h.rd, h.wr, hp.rd, hp.wr], c₁⟩
   have o₁ : InRegions s.wr (off (st s₀) 48) 4 := ⟨stR s₀, by simp [h.wr, hp.wr], c₁⟩
   simp only [off] at i₁ o₁
@@ -589,13 +580,13 @@ theorem next_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j < L s�
     State.setReg, State.setReg32, State.setFlags, h.rbx, i₁, o₁, ite_true, ite_false, Option.map_some,
     Option.bind_some, Option.some.injEq, exists_eq_left', BitVec.setWidth_setWidth_of_le,
     BitVec.setWidth_eq]
-  have hv : s.mem.readW (st s₀ + BitVec.ofInt 64 ((48 : Nat) : Int)) 32 = (ctr (S0 s₀) j)[12] := by
+  have hv : s.mem.readW (st s₀ + BitVec.ofInt 64 ((48 : Nat) : Int)) 32 = (ctr (S0 s₀) j)[12]'(by decide) := by
     rw [← h.cnt]; simp [stateAt]
   simp only [hv]
-  have hfs : Frame [stR s₀] s.mem (s.mem.writeW (off (st s₀) 48) ((ctr (S0 s₀) j)[12] + 1)) :=
+  have hfs : Frame [stR s₀] s.mem (s.mem.writeW (off (st s₀) 48) ((ctr (S0 s₀) j)[12]'(by decide) + 1)) :=
     (Frame.refl _ _).writeW (List.mem_singleton_self _) _ c₁
-  have hr12 : (s.gpr .r12).toNat = L s₀ - P s₀ j := by rw [h.r12, toNat_ofNat_lt (by omega)]
-  have hrdx : (s.gpr .rdx).toNat = C s₀ j := by rw [h.rdx, toNat_ofNat_lt (by omega)]
+  have hr12 : (s.gpr .r12).toNat = L s₀ - P s₀ j := by rw [h.r12, toNat_ofNat_lt (by lit_omega)]
+  have hrdx : (s.gpr .rdx).toNat = C s₀ j := by rw [h.rdx, toNat_ofNat_lt (by lit_omega)]
   refine ⟨⟨by simp (config := {decide := true}) [h.rbx], ?_, ?_, by simp (config := {decide := true}) [h.rsi],
     fun r hr => ?_, h.rd, h.wr, ?_, fun k hk => ?_, ?_, ?_⟩, ?_⟩
   · simp (config := {decide := true}) only [ite_true, ite_false, h.rbp, h.rdx, hP, BitVec.ofNat_add,
@@ -603,7 +594,7 @@ theorem next_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j < L s�
   · simp (config := {decide := true}) only [ite_true, ite_false]
     apply BitVec.eq_of_toNat_eq
     rw [BitVec.toNat_sub_of_le (by rw [BitVec.le_def, hr12, hrdx]; omega), hr12, hrdx,
-      toNat_ofNat_lt (by omega)]
+      toNat_ofNat_lt (by lit_omega)]
     omega
   · have hr' : r ≠ .r12 ∧ r ≠ .rbp ∧ r ≠ .rax := by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -611,20 +602,12 @@ theorem next_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j < L s�
     simp only [hr'.1, hr'.2.1, hr'.2.2, ite_false]; exact h.keep r hr
   · dsimp only; rw [stateAt_writeW_counter, h.cnt, ctr_succ]
   · dsimp only
-    rw [hfs.bytes (R := dR s₀) (by simpa using hp.st_d.symm) (L_lt s₀).le hk, h.data k hk, hP]
+    rw [hfs.bytes (R := dR s₀) (by simpa using hp.st_d.symm) (Nat.le_of_lt (L_lt s₀)) hk, h.data k hk, hP]
   · exact h.saved.frame hfs (by simpa using (hp.st_b.sub_right (savR_sub s₀)).symm)
   · exact h.frame.writeW (by simp) _ c₁
   · have hz : (s.gpr .r12 - s.gpr .rdx == 0) = decide (L s₀ - P s₀ j - C s₀ j = 0) := by
-      rw [h.r12, h.rdx]
-      by_cases he : L s₀ - P s₀ j - C s₀ j = 0
-      · simp only [he, decide_true, beq_iff_eq]
-        rw [show L s₀ - P s₀ j = C s₀ j by omega]; simp
-      · simp only [he, decide_false, beq_eq_false_iff_ne, ne_eq]
-        intro h0
-        have e : BitVec.ofNat 64 (L s₀ - P s₀ j) = BitVec.ofNat 64 (C s₀ j) := by bv_omega
-        have := congrArg BitVec.toNat e
-        rw [toNat_ofNat_lt (by omega), toNat_ofNat_lt (by omega)] at this
-        omega
+      rw [h.r12, h.rdx, Offset.ofNat_sub_ofNat_beq (by lit_omega) (by lit_omega)]
+      exact decide_eq_decide.mpr (by lit_omega)
     rw [hz, hP, Nat.sub_sub]
 
 /-! ## A whole block -/
@@ -676,9 +659,8 @@ theorem restore_eq : restore =
   rfl
 
 theorem ret_stack (s₀ : State) : (retR s₀).Disjoint (stackR s₀) := by
-  intro a h₁ h₂
-  simp only [Region.Contains] at h₁ h₂
-  bv_omega
+  have := Offset.disjoint_base (s₀.gpr .rsp - BitVec.ofNat 64 8) (d := 8) (n := 8) (k := 8) (by decide) (by decide)
+  rwa [BitVec.sub_add_cancel] at this
 
 set_option simprocs false in
 theorem epilogue_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j = L s₀) {s : State}
@@ -687,7 +669,7 @@ theorem epilogue_ok {s₀ : State} (hp : XPre s₀) {j : Nat} (hj : P s₀ j = L
       (gprPreserved s₀ s' ∧ Proof.ChaCha20.xorX86_64.post s₀ s') ∧ s'.gpr .rsi = bp s₀ := by
   have i : ∀ d, d + 8 ≤ 320 → InRegions (s.rd ++ s.wr) (off (bp s₀) d) 8 :=
     fun d hd => ⟨bR s₀, by simp [h.rd, h.wr, hp.rd, hp.wr], bR_contains s₀ hd⟩
-  have i0 := i 256 (by omega); have i1 := i 264 (by omega); have i2 := i 272 (by omega)
+  have i0 := i 256 (by lit_omega); have i1 := i 264 (by lit_omega); have i2 := i 272 (by lit_omega)
   simp only [off] at i0 i1 i2
   obtain ⟨sv1, sv2, sv3⟩ := h.saved
   simp only [off] at sv1 sv2 sv3
@@ -751,7 +733,7 @@ theorem xor_rsi (s : State) (hs : Proof.ChaCha20.xorX86_64.pre s) :
     ∃ t s', Exec isa Impl.ChaCha20.X86_64.Xor.xor s t s' ∧ abiPreserved s s' ∧
       (Proof.ChaCha20.xorX86_64.post s s' ∧ s'.gpr .rsi = s.gpr .rcx) := by
   obtain ⟨t, s', he, ⟨h, hr⟩⟩ := correct (XPre.of s hs)
-  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2, hr⟩
+  exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he h.1, h.2, hr⟩
 
 /-! ## Constant time -/
 
@@ -768,7 +750,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.ChaCha20.xorX86_64.pre s₁)
   have wf : ∀ s, Proof.ChaCha20.xorX86_64.pre s → X86_64.Taint.Wf τ₀ s := by
     intro s hs
     obtain ⟨-, hw, d1, d2, d3, -⟩ := hs
-    refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, d1, d2, d3], by simp [hw, (s.gpr .rdx).isLt.le]⟩,
+    refine ⟨fun _ => ⟨by simp [hw, τ₀], by simp [hw, d1, d2, d3], by simp [hw, Nat.le_of_lt (s.gpr .rdx).isLt]⟩,
       fun p hp => ?_⟩
     simp only [τ₀, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with rfl | rfl | rfl <;> simp [X86_64.Taint.region, hw]

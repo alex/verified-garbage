@@ -9,7 +9,7 @@ import VerifiedGarbage.Spec.Sha512.Contract
 # Sha512 on Arm: the shared contracts
 
 Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha512/Arm/Contract.lean`); these theorems move
+per-target contracts (`Proof/Sha512/Arm/Compress.lean`); these theorems move
 them to the shared contracts of `Spec/Sha512/Contract.lean`, which the
 artifacts are emitted with.
 -/
@@ -19,7 +19,7 @@ namespace VG.Proof.Sha512.Arm.Shared
 theorem compress :
     Verified Arm.target Impl.Sha512.Arm.compress (Spec.Sha512.compressContract Arm.abi) :=
   Proof.Sha512.Arm.Compress.compress_verified.of_implies (by
-    contract_implies [Spec.Sha512.compressContract, Spec.Sha512.compressSig,
+    sig_implies [Spec.Sha512.compressContract, Spec.Sha512.compressSig,
       Proof.Sha512.compressArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
       [Proof.Sha512.Arm.Compress.satState, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Sha512.Arm.Compress.satState)
@@ -35,7 +35,7 @@ theorem init (iv : Spec.Sha512.HashValue) :
 theorem update :
     Verified Arm.target Impl.Sha512.Arm.Stream.update (Spec.Sha512.updateContract Arm.abi) :=
   Proof.Sha512.Arm.Stream.Update.update_verified.of_implies (by
-    contract_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, Proof.Sha512.updateArm,
+    sig_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, Proof.Sha512.updateArm,
       Proof.Sha512.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
       [Proof.Sha512.Arm.Stream.Update.sat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Sha512.Arm.Stream.Update.sat)

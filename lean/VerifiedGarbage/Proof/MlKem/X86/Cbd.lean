@@ -292,13 +292,6 @@ theorem verified : Verified X86.target Impl.MlKem.X86.cbd2 (cbd2Contract X86.abi
     rw [hm]
     exact polyIs_of_coeffAt fun i hi => hinv.coef i (by rw [n_eq] at hi; omega)
   · let st := satState satMem [⟨0, 128⟩] [⟨0x400, 1024⟩, ⟨0x5004, 8⟩]
-    have a0 : arg st 0 = 0 := by decide
-    have a1 : arg st 1 = 0x400 := by decide
-    have e : argAddr st 0 = 0x5004 := by decide
-    have esp : st.gpr .esp = 0x5000 := rfl
     refine ⟨st, ?_⟩
-    sig_pre [cbd2Contract, cbd2Sig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [a0, a1, e, esp]
-    refine ⟨by decide, by decide, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide⟩ <;>
-    exact Region.disjoint_of_sep (by decide)
+    sig_sat_check [cbd2Contract, cbd2Sig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
 end VG.Proof.MlKem.X86.Cbd

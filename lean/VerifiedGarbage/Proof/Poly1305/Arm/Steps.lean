@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Blocks
 import VerifiedGarbage.Proof.Poly1305.Stream
-import Mathlib.Tactic.NormNum.Basic
+import VerifiedGarbage.Proof.Framework.PowLit
 
 /-!
 # Poly1305 on 32-bit ARM: the steps of `update` and `finalize`
@@ -13,6 +13,8 @@ any blocks (`body_gen`), and reducing and storing the accumulator
 and restored from `scratch` (`saveScr_ok`, `restoreScr_ok`), and bytes are
 copied into the buffer, bytes 56–71 of the state (`copy_ok`).
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305.Arm
 
@@ -122,7 +124,7 @@ theorem body_gen {R : Nat → Nat} (hR : ∀ i < 10, R i < 2 ^ 13) {A : Nat} {X 
   have hblk : bytesAt s₃.mem (State.addr p) 16 = bytesAt s.mem (State.addr p) 16 :=
     bytesAt_frame f₃ (fun r hr => by
       simp only [offR, List.map_cons, List.map_nil, List.mem_singleton] at hr; subst hr; exact hd)
-      (by norm_num)
+      (by decide)
   rw [← List.append_nil [Instr.ldr .r1 .r0 cntOff, .subs .r1 .r1 (.imm 1), .str .r1 .r0 cntOff]]
   refine WP.append (absorbAcc_ok hfit hR hX hA₃ (a := State.addr p)
     (fun j hj => by rw [hp₃]; exact addr_add (by omega))
@@ -282,8 +284,8 @@ theorem restoreScr_ok {s : State} {g : Reg → BitVec 32} (h12 : s.gpr .r12 = sc
     (hs : SavedS (State.addr sc) g s.mem) :
     WP isa (.block restoreScr) s fun s' => (∀ i < 8, s'.gpr (savedReg i) = g (savedReg i)) ∧
       Keeps [.r4, .r5, .r6, .r7, .r8, .r9, .r10, .r11] s s' := by
-  have hsr : ∀ i < 8, savedReg i ∈ [Reg.r4, .r5, .r6, .r7, .r8, .r9, .r10, .r11] := by decide
-  have hinj : ∀ i < 8, ∀ j < 8, savedReg i = savedReg j → i = j := by decide
+  have hsr : ∀ i < 8, savedReg i ∈ [Reg.r4, .r5, .r6, .r7, .r8, .r9, .r10, .r11] := by decide +kernel
+  have hinj : ∀ i < 8, ∀ j < 8, savedReg i = savedReg j → i = j := by decide +kernel
   refine WP.mono (wp_range_flatMap (M := isa)
     (fun n s' => (∀ i < n, s'.gpr (savedReg i) = g (savedReg i)) ∧
       Keeps [.r4, .r5, .r6, .r7, .r8, .r9, .r10, .r11] s s')

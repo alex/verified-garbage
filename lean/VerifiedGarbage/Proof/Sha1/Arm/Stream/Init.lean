@@ -3,7 +3,6 @@ import VerifiedGarbage.Proof.Sha1.Arm.Compress
 import VerifiedGarbage.Proof.Sha1.Stream
 import VerifiedGarbage.Impl.Sha1.Arm.Stream
 import VerifiedGarbage.Proof.Sha1.StateMem
-import VerifiedGarbage.Proof.Sha1.Arm.Contract
 
 /-!
 # Streaming SHA-1 on ARMv7: `init`

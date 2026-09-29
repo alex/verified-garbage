@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.MlKem.AArch64.Common
-import VerifiedGarbage.Proof.MlKem.Sample
+import VerifiedGarbage.Proof.MlKem.KPke
 import VerifiedGarbage.Impl.MlKem.AArch64.Sample
 
 /-!

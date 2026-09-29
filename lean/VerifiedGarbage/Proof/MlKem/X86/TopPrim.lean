@@ -76,11 +76,13 @@ theorem inPlace_call {t : Poly → Poly} {nm : String} {c : Prog isa}
       · exact .inr (Buf.withinW hp hS' (Lay.okW_iff.mp hS).2 h.wr)
       · exact .inl (by rw [h.esp])
     refine ⟨h, ?_, cv.1, cv.2⟩
+    -- The callee's entry state stays opaque to `sig_pre`, which would unfold it.
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e
     sig_pre [inPlaceContract, inPlaceSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr, State.withRegions_mem,
-      arg_withRegions, argAddr_withRegions, a0, a1, eA, eSp]
+    subst he
+    simp only [arg_withRegions, argAddr_withRegions, a0, a1, eA, eSp]
     refine ⟨by rw [sub_toNat (by omega)]; omega, by rw [sub_toNat (by omega)]; have := (E1 s₀).isLt; omega,
-      trivial, trivial, Buf.disj hp hF' hS' dFS, rF₁, rS₁, rF₂, rS₂, rA₂, rF₃, rS₃, rA₃,
+      trivial, Buf.disj hp hF' hS' dFS, rF₁, rS₁, rF₂, rS₂, rA₂, rF₃, rS₃, rA₃,
       Buf.fit hp hF', Buf.fit hp hS', ?_⟩
     refine reduced_frame ef (fun r hr => ?_) hred
     rw [List.mem_singleton] at hr; subst hr; rw [h.esp]
@@ -96,8 +98,11 @@ theorem inPlace_call {t : Poly → Poly} {nm : String} {c : Prog isa}
     have fit : 4 * [Reg.ecx, Reg.eax].length + 4 ≤ (s.gpr .esp).toNat := by
       have := ctx_E hp h (N := 28) (by omega); simp only [List.length_cons, List.length_nil]; omega
     refine ⟨rfl, by simp only [Buf.rgn, hq.ptr hF', hq.ptr hS', hq.E1], ?_⟩
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e
+    generalize he' : (pushed [.ecx, .eax] s').callEntry = e'
     sig_pub [inPlaceContract, inPlaceSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_gpr, arg_withRegions, callEntry_esp', hsp]
+    subst he he'
+    simp only [arg_withRegions, callEntry_esp', hsp]
     exact ⟨trivial, callEntry_arg_eq (by decide) fit hsp hr (by decide),
       callEntry_arg_eq (by decide) fit hsp hr (by decide)⟩
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -113,8 +118,10 @@ theorem inPlace_call {t : Poly → Poly} {nm : String} {c : Prog isa}
       rw [callEntry_arg fit (by decide) (by decide)]; exact hax
     have hE' : 28 ≤ (E1 s₀).toNat := by rw [← h.esp]; exact ctx_E hp h (N := 28) (by omega)
     have bF := Buf.stkD hp hF' (N := 4 * 2 + 4 + 16) (by omega)
+    generalize he : (pushed [.ecx, .eax] s).callEntry = e at post
     sig_post [inPlaceContract, inPlaceSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at post
-    simp only [arg_withRegions, State.withRegions_mem, a0, m₂] at post
+    subst he
+    simp only [arg_withRegions, a0, m₂] at post
     rw [polyAt_frame (callEntry_frame fit (by decide)) (fun r hr => by
       rw [List.mem_singleton] at hr; subst hr; rw [h.esp]
       exact (bF.sub_left (below_sub (by simp) hE')).symm)] at post
@@ -197,9 +204,11 @@ theorem mul_call (oa oo fa fo ga go sa so : Nat)
       · exact .inr (Buf.withinW hp hS' (Lay.okW_iff.mp hS).2 h.wr)
       · exact .inl (by rw [h.esp])
     refine ⟨h, ?_, cv.1, cv.2⟩
+    -- The callee's entry state stays opaque to `sig_pre`, which would unfold it.
+    generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e
     sig_pre [mulContract, mulSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr, State.withRegions_mem,
-      arg_withRegions, argAddr_withRegions, a0, a1, a2, a3, eA, eSp]
+    subst he
+    simp only [arg_withRegions, argAddr_withRegions, a0, a1, a2, a3, eA, eSp]
     have ek := @ent_keep Y s₀ s hp h [.edi, .edx, .ecx, .eax] (by decide) (by simp; omega)
     refine ⟨by rw [sub_toNat (by omega)]; omega, by rw [sub_toNat (by omega)]; have := (E1 s₀).isLt; omega,
       trivial, trivial, Buf.disj hp hH' hF' dHF, Buf.disj hp hH' hG' dHG, Buf.disj hp hH' hS' dHS, rH₁,
@@ -219,8 +228,11 @@ theorem mul_call (oa oo fa fo ga go sa so : Nat)
     have fit : 4 * [Reg.edi, Reg.edx, Reg.ecx, Reg.eax].length + 4 ≤ (s.gpr .esp).toNat := by
       have := ctx_E hp h (N := 36) (by omega); simp only [List.length_cons, List.length_nil]; omega
     refine ⟨by simp only [Buf.rgn, hq.ptr hF', hq.ptr hG'], by simp only [Buf.rgn, hq.ptr hH', hq.ptr hS', hq.E1], ?_⟩
+    generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e
+    generalize he' : (pushed [.edi, .edx, .ecx, .eax] s').callEntry = e'
     sig_pub [mulContract, mulSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_gpr, arg_withRegions, callEntry_esp', hsp]
+    subst he he'
+    simp only [arg_withRegions, callEntry_esp', hsp]
     exact ⟨trivial, callEntry_arg_eq (by decide) fit hsp hr (by decide),
       callEntry_arg_eq (by decide) fit hsp hr (by decide), callEntry_arg_eq (by decide) fit hsp hr (by decide),
       callEntry_arg_eq (by decide) fit hsp hr (by decide)⟩
@@ -235,8 +247,10 @@ theorem mul_call (oa oo fa fo ga go sa so : Nat)
     have a2 : arg (pushed [.edi, .edx, .ecx, .eax] s).callEntry 2 = Buf.ptr s₀ ⟨ga, go, 1024⟩ := by
       rw [callEntry_arg fit (by decide) (by decide)]; exact hdx
     have ek := @ent_keep Y s₀ s hp h [.edi, .edx, .ecx, .eax] (by decide) (by simp; omega)
+    generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e at post
     sig_post [mulContract, mulSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at post
-    simp only [arg_withRegions, State.withRegions_mem, a0, a1, a2, m₂] at post
+    subst he
+    simp only [arg_withRegions, a0, a1, a2, m₂] at post
     rw [polyAt_congr (ek hF'), polyAt_congr (ek hG')] at post
     exact hQ s₀ s s' hp ha h' e₃ (fr_conv hp (a := 16) (N := 36) (by omega) (by omega)
       (by rw [mul_stack] at fr; exact fr)) post

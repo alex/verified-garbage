@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Sha3.AArch64.Call
+import VerifiedGarbage.Proof.Sha3.AArch64.Permute
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Sha3.Contract
@@ -244,7 +244,7 @@ theorem body_block {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) 
       ← u₉.other .x21 (by decide), h22, h21, sub_beq_zero (by omega)]
   · refine stateAt_xorByte (by omega) ?_ fun i hi hij => ?_
     · rw [hm₉, writeW8_apply, ite_eq_left_of_eq_true _ _ (eq_true rfl), BitVec.xor_comm]
-    · rw [hm₉, writeW8_apply, ite_eq_right_of_eq_false _ _ (eq_false fun e => hij (by bv_omega))]
+    · rw [hm₉, writeW8_apply, ite_eq_right_of_eq_false _ _ (eq_false (VG.Proof.Sha3.ne_of_lt200 hi (by omega) hij))]
 
 /-- The whole body. -/
 theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) {s : State} (hI : Inv s₀ c s) :

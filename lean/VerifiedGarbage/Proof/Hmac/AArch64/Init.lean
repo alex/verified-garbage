@@ -1,9 +1,11 @@
+import Mathlib.Tactic.ClearExcept
 import VerifiedGarbage.Proof.Hmac.AArch64.Common
 import VerifiedGarbage.Proof.Sha256.AArch64.Stream.Init
 import Mathlib.Tactic.Set
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # HMAC-SHA-256 on AArch64: `init`
@@ -206,7 +208,7 @@ theorem saved_frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Re
   refine (hd r hr).sub_left ?_
   simp only [saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
   rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;>
-  · intro a ha; simp only [Region.Contains] at *; bv_omega
+    exact Offset.sub _ (by decide) (by decide)
 
 /-- `Saved` survives a write outside the scratch space. -/
 theorem saved_frame' {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Region} (hf : Frame rs m m')
@@ -545,7 +547,7 @@ theorem compress_ok {s₀ : State} (hp : Pre s₀) {p : Addr} (hpR : p = inn s�
   have e112 : Region.Sub ⟨scr s₀, 112⟩ (scR s₀) := Region.sub_prefix (by omega)
   refine compressAt_ok h19 h20 h1 ((d.sub_left e32).sub_right e112) ?_ ((d.sub_left eb).sub_right e112)
     ?_ ?_ hQ
-  · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+  · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; clear * - h₁ h₂; bv_omega
   · rw [hrd, hwr]
     apply Covers.of_sub
     intro r hr
@@ -657,7 +659,7 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
       simp only [List.mem_cons, List.not_mem_nil, or_false]
       rintro r (rfl | rfl)
       · exact (hp.i_s.symm.sub_left (save_sub s₀)).sub_right (sub32 _)
-      · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+      · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; clear * - h₁ h₂; bv_omega
     -- The outer block.
     refine WP.seq (wp_mov fun s₉ u₉ => wp_addImm (by omega) fun s₁₀ u₁₀ => WP.block_nil ?_)
     have x21₈ : s₈.gpr .x21 = out s₀ := by
@@ -688,7 +690,7 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl)
     · exact (hp.o_s.symm.sub_left (save_sub s₀)).sub_right (sub32 _)
-    · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+    · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; clear * - h₁ h₂; bv_omega
   · simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
     · exact hsv (.x19, 112) (by simp [saved])
@@ -733,7 +735,7 @@ theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Hmac.initSha256AArch64.pub s�
   obtain ⟨p1, p2, p3, p4, p5, hsp⟩ := hpub
   refine ⟨hsp, fun r hr => ?_⟩
   simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl <;> assumption
+  rcases hr with rfl | rfl | rfl | rfl | rfl <;> with_reducible assumption
 
 /-- A state satisfying the precondition (with an empty key). -/
 def sat : State where

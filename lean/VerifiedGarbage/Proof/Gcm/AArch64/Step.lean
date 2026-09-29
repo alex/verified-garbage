@@ -2,6 +2,8 @@ import VerifiedGarbage.Impl.Gcm.AArch64
 import VerifiedGarbage.Proof.Framework.AArch64.Exec
 import VerifiedGarbage.Proof.Framework.Range
 import VerifiedGarbage.Proof.Gcm.Spec
+import VerifiedGarbage.Proof.Framework.PowLit
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # GHASH on AArch64: one step of Algorithm 1
@@ -10,6 +12,8 @@ Untrusted: everything here is checked by Lean. What the instructions of a
 step (`Impl.Gcm.AArch64.step`) compute on the two halves of a 128-bit value,
 stated on the whole value, and the 128 steps.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Gcm.AArch64
 
@@ -192,7 +196,7 @@ theorem steps_ok {x h : Block} {sB : State} {j : Nat} (hj : j < 128 / unroll) {s
     ite_true, hc₁, hc, Option.some.injEq, exists_eq_left']
   have hlt : 128 / unroll - (j + 1) < 2 ^ 64 := by simp only [unroll]; omega
   generalize 128 / unroll - (j + 1) = c at hlt ⊢
-  have e2 : BitVec.ofNat 64 (c + 1) - BitVec.ofNat 64 1 = BitVec.ofNat 64 c := by bv_omega
+  have e2 : BitVec.ofNat 64 (c + 1) - BitVec.ofNat 64 1 = BitVec.ofNat 64 c := by bv_omega_using []
   rw [e2]
   refine ⟨?_, rfl⟩
   rw [Nat.mul_succ]

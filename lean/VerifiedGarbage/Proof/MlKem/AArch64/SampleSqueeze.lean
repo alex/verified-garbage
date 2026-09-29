@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.MlKem.AArch64.SampleLoop
 import VerifiedGarbage.Proof.MlKem.AArch64.KeccakCall
-import VerifiedGarbage.Proof.MlKem.Hash
+import VerifiedGarbage.Proof.MlKem.KPke
 
 /-!
 # ML-KEM on AArch64: `SampleNTT` up to its loop

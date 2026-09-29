@@ -23,35 +23,35 @@ def artifacts : List Artifact := [
     code := Impl.Sha512.X86_64.compress
     contract := Spec.Sha512.compressContract X86_64.abi
     verified := Proof.Sha512.X86_64.Shared.compress
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha512.init384Api with
     target := X86_64.target
     doc := Spec.Sha512.init384Api.doc
     code := Impl.Sha512.X86_64.Stream.init Spec.Sha512.H0_384
     contract := Spec.Sha512.initContract X86_64.abi Spec.Sha512.H0_384
     verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_384
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha512.init512Api with
     target := X86_64.target
     doc := Spec.Sha512.init512Api.doc
     code := Impl.Sha512.X86_64.Stream.init Spec.Sha512.H0_512
     contract := Spec.Sha512.initContract X86_64.abi Spec.Sha512.H0_512
     verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_512
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha512.init512_224Api with
     target := X86_64.target
     doc := Spec.Sha512.init512_224Api.doc
     code := Impl.Sha512.X86_64.Stream.init Spec.Sha512.H0_512_224
     contract := Spec.Sha512.initContract X86_64.abi Spec.Sha512.H0_512_224
     verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_512_224
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha512.init512_256Api with
     target := X86_64.target
     doc := Spec.Sha512.init512_256Api.doc
     code := Impl.Sha512.X86_64.Stream.init Spec.Sha512.H0_512_256
     contract := Spec.Sha512.initContract X86_64.abi Spec.Sha512.H0_512_256
     verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_512_256
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha512.updateApi with
     target := X86_64.target
     doc := Spec.Sha512.updateApi.doc
@@ -59,7 +59,7 @@ def artifacts : List Artifact := [
     contract := Spec.Sha512.updateContract X86_64.abi 8
     stack := 8
     verified := Proof.Sha512.X86_64.Shared.update
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Sha512.finalizeApi with
     target := X86_64.target
     doc := Spec.Sha512.finalizeApi.doc
@@ -67,6 +67,6 @@ def artifacts : List Artifact := [
     contract := Spec.Sha512.finalizeContract X86_64.abi 8
     stack := 8
     verified := Proof.Sha512.X86_64.Shared.finalize
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Sha512.X86_64

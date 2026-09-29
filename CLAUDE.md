@@ -115,7 +115,8 @@ instructions in an ISA model) go in their own PR before either.
    to `Code.all_of_forall (fun _ => rfl) _` on ARMv7 and AArch64, which
    evaluates nothing, and to `Code.all_of_allInstrs (by decide +kernel)`
    on x86 and x86-64, which runs in the registration file twice as fast as
-   the default, `decide +kernel`. If its code uses instructions outside
+   the default, `decide +kernel` (`by lit_decide` if the code has a literal:
+   see "Code the kernel evaluates" below). If its code uses instructions outside
    the target's baseline ISA, list the CPU features they require in
    `features` (the emitter rejects anything but the exact set).
    A function that calls another one with several implementations (e.g.
@@ -225,6 +226,44 @@ Avoid these patterns (each has cost tens of seconds in one proof):
   `ci/check_lean_imports.py` checks it.
 * **Properties of every instruction:** prove `(instrs c).all p` with
   `rw [← Code.allInstrs_eq]; decide +kernel`, not `decide +kernel` directly.
+* **Code the kernel evaluates:** code built by functions (unrolled
+  compression functions, and the functions calling them) is rebuilt by the
+  kernel in every check that evaluates it (constant time, `spSafe`, …), in
+  every module. Give it a literal: `materialize_code foo`
+  (`Proof/Framework/Lit.lean`), in a `Lit.lean` next to its proofs, defines
+  `foo.lit` and checks `foo.lit_eq` once; then `taint_decide` and
+  `lit_decide` (not `decide +kernel`) evaluate the literal, and the
+  registration file's `spSafe := Code.all_of_allInstrs (by lit_decide)`.
+* **Register reads after writes:** in symbolic execution never unfold
+  `State.setReg` (`write`, `setFlags`, `arithFlags`, `setV`): the registers
+  become a function that `simp` re-simplifies under a binder at every
+  instruction, quadratic in the block's length. Read through the writes
+  with `Proof/Framework/<ISA>/RegUpd.lean`: `gpr_setReg` (an `if`, decided
+  for literal registers) or `gpr_setReg_self` and `gpr_setReg_of_ne` (for
+  variables), and `mem_setReg`, `gpr_setFlags`, … for the other fields.
+* **Addresses at offsets:** don't prove that ranges at `p + BitVec.ofNat 64 d`
+  are separate, disjoint or contained, or their distances, with `bv_omega`
+  (a second or more each, and a large term for the kernel): use `VG.Offset`
+  (`Proof/Framework/Offset.lean`: `sep`, `disjoint`, `sub`, `contains_base`,
+  …), whose hypotheses are about the offsets alone, closed by `omega` or,
+  for literals, `decide`. Its identities (`add_add`, `add_sub_cancel_left`,
+  `ofNat_sub_ofNat`, `sub_sub_eq`, …) are in `AddrArith.lean`, which `Mem`
+  imports. A local lemma for a family's own ranges is one application of
+  one of these, never a proof of its own.
+* **`omega` in a large context:** `omega` and `bv_omega` look at every
+  hypothesis, a tenth of a second or more each call in a long proof about
+  states. Clear what they cannot use: `omega_arith`, `bv_omega_arith`
+  (arithmetic hypotheses only) or `omega_using [h₁, …]`,
+  `bv_omega_using [h₁, …]` (those facts only), `Proof/Framework/Omega.lean`.
+* **Index bounds:** `xs[i]` proves `i < xs.length` with `get_elem_tactic`,
+  whose core rules rewrite every hypothesis and run `omega`.
+  `Proof/Framework/GetElem.lean` (which `Mem` imports) tries `decide`
+  first, for literal indices; for any other index give the bound, `xs[i]'h`.
+* **Satisfiability witnesses:** the regions of a concrete witness state are
+  disjoint by `Region.disjoint_of_sep (by decide)`, not `bv_omega`.
+* **`assumption` among facts about states:** `assumption` tries every
+  hypothesis at default transparency, unfolding states and registers before
+  each failed match; use `with_reducible assumption`, or name the hypothesis.
 * **Failing unfolding:** `rfl`, `trivial`, `congr 1`, `exact` and `simpa` on
   goals about symbolic memory or hash values can unfold definitions (down
   to `BitVec` internals) for seconds before failing or succeeding. Close
@@ -246,6 +285,16 @@ To find what is slow, profile one file per declaration (time under
 ```sh
 lake env lean -DElab.async=false -Dtrace.profiler=true -Dtrace.profiler.threshold=1000 \
   VerifiedGarbage/Proof/….lean
+```
+
+To compare two versions of a file, count its instructions, which (unlike
+time) do not depend on the load of the machine; pass the lakefile's options,
+as `lake build` does (it turns off Mathlib's style and tactic-analysis
+linters, 5–8% of the build: never turn them back on in a module):
+
+```sh
+opts=$(grep -oE "^weak\.[A-Za-z_.]+ = (true|false)" lakefile.toml | sed -E 's/ = /=/; s/^/-D/' | tr '\n' ' ')
+perf stat -e instructions:u -x, lake env lean $opts VerifiedGarbage/Proof/….lean
 ```
 
 `set_option diagnostics true in` before a slow theorem lists the

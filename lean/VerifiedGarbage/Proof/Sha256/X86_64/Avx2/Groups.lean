@@ -56,7 +56,7 @@ theorem dword_quad (M : Block) (k : Nat) {q : Nat} (hq : q < 4) : dword (quad M 
 theorem wSlot_ea (s : State) (j t : Nat) :
     s.ea (wSlot j t) = wAddr (s.gpr .rcx) (t / 4) + BitVec.ofNat 64 (16 * j + 4 * (t % 4)) := by
   simp only [State.ea, wSlot, at_, wAddr, ofInt_natCast]
-  bv_omega
+  rw [BitVec.add_assoc, ← BitVec.ofNat_add, Nat.add_assoc]
 
 theorem in_scr {s : State} {scr : Addr} (hR : (⟨scr, 560⟩ : Region) ∈ s.wr) {d n : Nat} (hd : d + n ≤ 560) :
     InRegions s.wr (scr + BitVec.ofInt 64 (d : Int)) n :=

@@ -1,10 +1,9 @@
 import VerifiedGarbage.Proof.Poly1305.Arm.Steps
 import VerifiedGarbage.Proof.Framework.Arm.Taint
-import Mathlib.Tactic.Conv
-import Mathlib.Tactic.NormNum.Basic
-import Mathlib.Tactic.Ring.RingNF
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # Poly1305 on 32-bit ARM: `finalize`
@@ -18,6 +17,8 @@ carried and stored modulo `2¹²⁸` in `out` (`tag_ok`). Until then (`FC`),
 only the state's working space, the buffer, the accumulator and `scratch`
 change.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305.Arm.Fin
 
@@ -236,13 +237,13 @@ theorem zinit_ok {s₀ s₁ : State} (h₁ : P1 s₀ s₁) :
   have hk := kb_lt s₀
   refine wp_mov (op2_imm (by decide)) fun s₂ u₂ => wp_add (op2_reg _ _) fun s₃ u₃ =>
     wp_mov (op2_imm (by decide)) fun s₄ u₄ => wp_sub (op2_reg _ _) fun s₅ u₅ => WP.block_nil ?_
-  refine ⟨⟨(Nat.le_refl _), hk.le⟩, ?_, ?_, ?_, ⟨fun r hr => ?_, ?_, ?_, ?_, ?_⟩, fun k hk' => ?_⟩
+  refine ⟨⟨(Nat.le_refl _), Nat.le_of_lt hk⟩, ?_, ?_, ?_, ⟨fun r hr => ?_, ?_, ?_, ?_, ?_⟩, fun k hk' => ?_⟩
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.other .r0 (by decide),
       u₂.other .r4 (by decide), h₁.r0, h₁.r4]
   · rw [u₅.gpr, u₄.gpr, u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide), h₁.r4,
       show (16 : BitVec 32) = BitVec.ofNat 32 16 from rfl]
-    conv_lhs => rw [show 16 = (16 - kb s₀) + kb s₀ by omega, BitVec.ofNat_add]
-    rw [BitVec.add_sub_cancel]
+    rw [show BitVec.ofNat 32 16 = BitVec.ofNat 32 (16 - kb s₀) + BitVec.ofNat 32 (kb s₀) by
+      rw [← BitVec.ofNat_add, Nat.sub_add_cancel (by omega)], BitVec.add_sub_cancel]
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr]
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     rw [u₅.other _ hr.2.1, u₄.other _ hr.2.1, u₃.other _ hr.1, u₂.other _ hr.2.2]
@@ -266,7 +267,7 @@ theorem zero_step {s₀ : State} (hp : FPre s₀) {s₁ : State} (h₁ : P1 s₀
     rw [u₄.gpr, u₃.other _ (by decide), m₂.gpr, h.r5, show 16 - j = (16 - (j + 1)) + 1 by omega,
       BitVec.ofNat_add]
     exact BitVec.add_sub_cancel _ _
-  refine ⟨⟨⟨h.j_le.1.trans (Nat.le_succ _), by omega⟩, ?_, hr5, ?_, ⟨fun r hr => ?_, ?_, ?_, ?_, ?_⟩,
+  refine ⟨⟨⟨Nat.le_trans h.j_le.1 (Nat.le_succ _), by omega⟩, ?_, hr5, ?_, ⟨fun r hr => ?_, ?_, ?_, ?_, ?_⟩,
     fun k hk => ?_⟩, ?_⟩
   · rw [u₄.other _ (by decide), u₃.gpr, m₂.gpr, h.r1, add_ofNat_one]
   · rw [u₄.other _ (by decide), u₃.other _ (by decide), m₂.gpr, h.r12]
@@ -667,7 +668,7 @@ theorem tag_ok {s₀ : State} (hp : FPre s₀) {s : State} (h : F4 s₀ s) :
       rw [val_toWords hL]; rfl
     have hvs : val (carryN (sumL D w) 0 9) = val (redL D) + (w 0 + 2 ^ 32 * w 1 + 2 ^ 64 * w 2 + 2 ^ 96 * w 3) := by
       rw [val_carryN _ 0 9 (by omega), ← val_mlimb (hw4 0) (hw4 1) (hw4 2) (hw4 3)]
-      simp only [val, sumL]; ring
+      simp only [val, sumL]; omega_using []
     -- The key.
     rw [← hkey, take_bytesAt _ _ (by omega), ← val_rlimb] at hacc
     have hlt : leNum (bytesAt s₀.mem (stB s₀) 24) < P := by rw [hacc]; exact Poly1305.accumulate_lt _ _
@@ -688,11 +689,11 @@ theorem tag_ok {s₀ : State} (hp : FPre s₀) {s : State} (h : F4 s₀ s) :
         (Poly1305.absorbAll (Rn s₀) (A0 s₀) (Bf s₀) + (w 0 + 2 ^ 32 * w 1 + 2 ^ 64 * w 2 + 2 ^ 96 * w 3)) %
           256 ^ 16 := by
       rw [hvL, hDv, Nat.mod_eq_of_lt hlt'] at hvs
-      rw [show (256 : Nat) ^ 16 = 2 ^ 128 by norm_num]
+      rw [show (256 : Nat) ^ 16 = 2 ^ 128 from rfl]
       have b0 := (s₉.gpr .r3).isLt; have b1 := (s₉.gpr .r5).isLt; have b2 := (s₉.gpr .r7).isLt
       have b3 := (s₉.gpr .r10).isLt
       rw [e3] at b0; rw [e5] at b1; rw [e7] at b2; rw [e10] at b3
-      omega
+      omega_using [hv, hvs, b0, b1, b2, b3]
     rw [key, Poly1305.leBytes_mod]
 
 /-! ## The whole function -/

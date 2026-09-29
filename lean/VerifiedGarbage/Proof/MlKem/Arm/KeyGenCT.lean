@@ -258,12 +258,7 @@ theorem verified : Verified Arm.target Impl.MlKem.Arm.keygen (Spec.MlKem.keyGenC
       (List.map_inj_right (fun x y (e : x.toNat = y.toNat) => BitVec.eq_of_toNat_eq e)).mp hl
     exact (all_ct ⟨pre_of h₁, pre_of h₂, hsp, h0, h1, h2, h3, hr⟩ s₁ s₂ t₁ t₂ s₁' s₂' ⟨rfl, rfl⟩ e₁ e₂).1
   · refine ⟨satState, ?_⟩
-    sig_pre [Spec.MlKem.keyGenContract, Spec.MlKem.keyGenSig, Arm.abi, Arm.argRegs,
+    sig_sat_check [Spec.MlKem.keyGenContract, Spec.MlKem.keyGenSig, Arm.abi, Arm.argRegs,
       Arm.reduceClassify, Arm.Loc.val]
-    exact ⟨by decide, by decide, rfl, rfl, Region.disjoint_of_sep (by decide), Region.disjoint_of_sep (by decide),
-      Region.disjoint_of_sep (by decide), Region.disjoint_of_sep (by decide), Region.disjoint_of_sep (by decide),
-      Region.disjoint_of_sep (by decide), Region.disjoint_of_sep (by decide), Region.disjoint_of_sep (by decide),
-      Region.disjoint_of_sep (by decide), Region.disjoint_of_sep (by decide), by decide, by decide, by decide,
-      by decide⟩
 
 end VG.Proof.MlKem.Arm.KeyGen

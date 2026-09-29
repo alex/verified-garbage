@@ -84,7 +84,7 @@ theorem copy_mem (m : Mem) (A B : Addr) (n w : Nat)
   · intro x hx hy
     simp only [bytesAt, List.length_map, List.length_range] at hy
     apply hsep x _ (by omega)
-    rw [show x - A = (x - (A + BitVec.ofNat 64 (w * n))) + BitVec.ofNat 64 (w * n) by bv_omega,
+    rw [show x - A = (x - (A + BitVec.ofNat 64 (w * n))) + BitVec.ofNat 64 (w * n) by rw [← BitVec.sub_sub, BitVec.sub_add_cancel],
       BitVec.toNat_add, toNat_ofNat_lt (by omega)]
     have := Nat.mod_le ((x - (A + BitVec.ofNat 64 (w * n))).toNat + w * n) (2 ^ 64)
     omega
@@ -111,7 +111,7 @@ theorem stateAt_eq_of_bytes {m m' : Mem} {p q : Addr}
   apply Vector.ext
   intro j hj
   simp only [stateAt, Vector.getElem_ofFn, Mem.readW]
-  congr 1
+  refine congrArg (BitVec.setWidth _) ?_
   refine read_congr₂ fun i hi => ?_
   have := h (4 * j + i) (by omega)
   rwa [show p + BitVec.ofNat 64 (4 * j + i) = p + BitVec.ofNat 64 (4 * j) + BitVec.ofNat 64 i by

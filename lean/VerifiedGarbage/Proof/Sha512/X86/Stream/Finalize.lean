@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Sha512.X86.Stream.Common
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Finalize
+import VerifiedGarbage.Proof.Framework.Contract
 
 /-!
 # Streaming SHA-512 on x86 (32-bit): `finalize`
@@ -1016,9 +1017,7 @@ theorem sat_pre : Proof.Sha512.finalizeX86.pre sat := by
   simp only [Proof.Sha512.finalizeX86, a0, a3, a4, e]
   refine ⟨rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide,
     by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, sat] at h₁ h₂
-    bv_omega
+  exact Region.disjoint_of_sep (by decide)
 
 theorem finalize_verified : Verified X86.target finalize Proof.Sha512.finalizeX86 := by
   refine ⟨fun s hs => ?_, ?_, ⟨sat, sat_pre⟩⟩

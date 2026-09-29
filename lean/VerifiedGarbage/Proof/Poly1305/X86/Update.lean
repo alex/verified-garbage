@@ -1,13 +1,16 @@
 import VerifiedGarbage.Proof.Poly1305.X86.Buffer
-import Mathlib.Tactic.NormNum.Basic
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # Poly1305 on x86 (32-bit): `update`
 
 Untrusted: everything here is checked by Lean.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305.X86
 
@@ -74,7 +77,7 @@ theorem dR_contains {i n : Nat} (h : i + n ≤ dl s₀) :
     (dR s₀).Contains ((dp s₀).setWidth 64 + BitVec.ofNat 64 i) n := by
   have := hp.d_fit
   simp only [Region.Contains]
-  rw [show (dp s₀).setWidth 64 + BitVec.ofNat 64 i - (dp s₀).setWidth 64 = BitVec.ofNat 64 i by bv_omega,
+  rw [show (dp s₀).setWidth 64 + BitVec.ofNat 64 i - (dp s₀).setWidth 64 = BitVec.ofNat 64 i by bv_omega_using [],
     BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   exact h
 
@@ -389,7 +392,7 @@ theorem data_value {m : Mem} (hf : Frame [sR (stp s₀)] s₀.mem m) {c : Nat} (
   rw [Poly1305.leNum_append, Poly1305.length_bytesAt, leNum_bytesAt_16, ← hw 0 (by omega),
     ← hw 1 (by omega), ← hw 2 (by omega), ← hw 3 (by omega)]
   simp only [blkv, Spec.Poly1305.leNum]
-  norm_num
+  rfl
 
 end UPre
 

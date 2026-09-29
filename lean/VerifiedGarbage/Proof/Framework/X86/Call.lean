@@ -52,15 +52,14 @@ theorem sub_toNat {sp : BitVec 32} {k : Nat} (h : k ≤ sp.toNat) :
 /-- The `a` bytes below `sp - k` are among the `b` bytes below `sp`. -/
 theorem below_inner {sp : BitVec 32} {a b k : Nat} (h : a + k ≤ b) (hb : b ≤ sp.toNat) :
     Region.Sub (below (sp - BitVec.ofNat 32 k) a) (below sp b) := by
-  intro x hx
-  simp only [Region.Contains] at hx ⊢
   have hk : a ≤ (sp - BitVec.ofNat 32 k).toNat := by rw [sub_toNat (by omega)]; omega
-  rw [Taint.sub_setWidth hk, Taint.sub_setWidth (by omega)] at *
   have := sp.isLt
-  have hE : (sp.setWidth 64).toNat = sp.toNat := by
-    simp only [BitVec.toNat_setWidth]; exact Nat.mod_eq_of_lt (by omega)
-  generalize sp.setWidth 64 = E at *
-  bv_omega
+  show Region.Sub ⟨(sp - BitVec.ofNat 32 k - BitVec.ofNat 32 a).setWidth 64, a⟩
+    ⟨(sp - BitVec.ofNat 32 b).setWidth 64, b⟩
+  rw [Taint.sub_setWidth hk, Taint.sub_setWidth hb, Taint.sub_setWidth (m := k) (by omega),
+    BitVec.sub_sub, ← BitVec.ofNat_add]
+  exact fun x hx => Offset.below_mono _ (a := k + a) (by omega) (by omega) x
+    (Region.sub_prefix (by omega) x hx)
 
 theorem below_sub {sp : BitVec 32} {a b : Nat} (h : a ≤ b) (hb : b ≤ sp.toNat) :
     Region.Sub (below sp a) (below sp b) := by
@@ -71,12 +70,10 @@ theorem below_sub {sp : BitVec 32} {a b : Nat} (h : a ≤ b) (hb : b ≤ sp.toNa
 theorem below_top {sp : BitVec 32} {k b n : Nat} (h : k ≤ b) (hb : b ≤ sp.toNat) (hn : n ≤ k) :
     (below sp b).Contains ((sp - BitVec.ofNat 32 k).setWidth 64) n := by
   simp only [Region.Contains]
-  rw [Taint.sub_setWidth (by omega), Taint.sub_setWidth (by omega)]
   have := sp.isLt
-  have hE : (sp.setWidth 64).toNat = sp.toNat := by
-    simp only [BitVec.toNat_setWidth]; exact Nat.mod_eq_of_lt (by omega)
-  generalize sp.setWidth 64 = E at *
-  bv_omega
+  rw [Taint.sub_setWidth (by omega), Taint.sub_setWidth (by omega), Offset.sub_ofNat_sub_sub_ofNat _ h,
+    BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+  omega
 
 theorem Frame.below_mono {wr : List Region} {sp : BitVec 32} {a b : Nat} {m m' : Mem}
     (h : Frame (wr ++ [below sp a]) m m') (hab : a ≤ b) (hb : b ≤ sp.toNat) :
@@ -150,9 +147,8 @@ theorem pushed_word {rs : List Reg} {s : State} (hrs : .esp ∉ rs)
 theorem argAddr_callEntry (s : State) (j : Nat) :
     argAddr s.callEntry j = (s.gpr .esp + BitVec.ofNat 32 (4 * j)).setWidth 64 := by
   simp only [argAddr, State.callEntry_esp]
-  congr 1
-  rw [show 4 + 4 * j = 4 * j + 4 by omega, BitVec.ofNat_add]
-  bv_omega
+  rw [show 4 + 4 * j = 4 * j + 4 by omega, BitVec.ofNat_add, BitVec.add_comm (BitVec.ofNat 32 (4 * j)),
+    ← BitVec.add_assoc, show (4 : BitVec 32) = BitVec.ofNat 32 4 from rfl, BitVec.sub_add_cancel]
 
 theorem arg_callEntry {s : State} {j : Nat} (h₁ : 4 ≤ (s.gpr .esp).toNat)
     (h₂ : (s.gpr .esp).toNat + 4 * j + 4 ≤ 2 ^ 32) :
@@ -170,11 +166,7 @@ theorem arg_callEntry {s : State} {j : Nat} (h₁ : 4 ≤ (s.gpr .esp).toNat)
     rintro r rfl x hx hx'
     simp only [Region.Contains] at hx hx'
     rw [Taint.sub_setWidth h₁] at hx'
-    have := (s.gpr .esp).isLt
-    have hE : ((s.gpr .esp).setWidth 64).toNat = (s.gpr .esp).toNat := by
-      simp only [BitVec.toNat_setWidth]; exact Nat.mod_eq_of_lt (by omega)
-    generalize (s.gpr .esp).setWidth 64 = E at *
-    bv_omega
+    exact Offset.disjoint_below_above _ (m := 4) (a := 4 * j) (l := 4) (by omega) x hx' hx
 
 /-- Code that never writes `esp` changes memory only within the regions it
 may write, and within the `stackUse` bytes below `esp` (its calls' return
@@ -218,7 +210,7 @@ theorem Exec.frameSp {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa
     have f₀ : Frame (s₀.wr ++ [below (s₀.gpr .esp) (stackUse b + 4)]) s₀.mem s₀.callEntry.mem :=
       Frame.writeW (Frame.refl _ _) (List.mem_append_right _ (List.mem_singleton_self _)) _
         (below_top (k := 4) (by omega) hd (by decide))
-    have e4 : (s₀.gpr .esp - 4).toNat = (s₀.gpr .esp).toNat - 4 := by bv_omega
+    have e4 : (s₀.gpr .esp - 4).toNat = (s₀.gpr .esp).toNat - 4 := sub_toNat (k := 4) (by omega)
     have f₁ := ih hc (by rw [State.callEntry_esp, e4]; omega)
     simp only [State.callEntry_wr, State.callEntry_esp] at f₁
     rw [hm]
@@ -268,7 +260,7 @@ theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre
   obtain ⟨hr, hwr⟩ := Exec.rdwr he
   simp only [State.withRegions_rd, State.withRegions_wr] at hr hwr
-  have e4 : (s.gpr .esp - 4).toNat = (s.gpr .esp).toNat - 4 := by bv_omega
+  have e4 : (s.gpr .esp - 4).toNat = (s.gpr .esp).toNat - 4 := sub_toNat (k := 4) (by omega)
   have hf := Exec.frameSp he hsp (by
     simp only [State.withRegions_gpr, State.callEntry_esp, e4]; omega)
   simp only [State.withRegions_wr, State.withRegions_gpr, State.withRegions_mem,
@@ -276,7 +268,8 @@ theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
   have he' := Exec.widen he (rd := s.rd) (wr := s.wr) (by simpa using hc) (by simpa using hw)
   simp only [State.withRegions_withRegions] at he'
   rw [show s.callEntry.withRegions s.rd s.wr = s.callEntry from rfl] at he'
-  set s₂ := s₁.withRegions s.rd s.wr with hs₂
+  let s₂ := s₁.withRegions s.rd s.wr
+  have hs₂ : s₂ = s₁.withRegions s.rd s.wr := rfl
   have hsp₂ : s₂.gpr .esp = s.gpr .esp - 4 := by
     rw [hs₂, State.withRegions_gpr, habi.1 .esp (by simp [calleeSaved])]; simp
   have hret : isa.ret s.callEntry s₂ = some (s₂.setReg .esp (s₂.gpr .esp + 4)) := by

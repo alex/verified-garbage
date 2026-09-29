@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Hmac.Common
 import VerifiedGarbage.Impl.Hmac.AArch64
 import VerifiedGarbage.Spec.Hmac
 import VerifiedGarbage.Proof.Sha256.AArch64.Contract
+import VerifiedGarbage.Proof.Hmac.AArch64.Lit
 
 /-!
 # HMAC-SHA-256 on AArch64: common lemmas

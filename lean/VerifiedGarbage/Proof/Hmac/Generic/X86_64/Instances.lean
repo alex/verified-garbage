@@ -1,13 +1,343 @@
-import VerifiedGarbage.Proof.Framework.Contract
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.InitCT
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.FinalizeCT
+import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Init
+import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Lit
+import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Finalize
+import VerifiedGarbage.Proof.Hmac.Generic.Implies
 import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Hashes
+
+/-!
+# HMAC over any streaming hash function on x86-64: `init`, constant time
+
+Untrusted: everything here is checked by Lean. As for scryptROMix
+(`Proof/Scrypt/X86_64/RoMixCT.lean`), two runs are related (`RelCT`):
+correctness determines the registers `KR` fixes from the public arguments,
+so they agree between the calls, where the taint analysis checks each piece
+of code (`Checks`, evaluated for each hash function, since the code depends
+on its sizes); the calls are constant time by the callees' own proofs.
+-/
+
+namespace VG.Proof.Hmac.Generic.X86_64.Init
+
+open VG.X86_64
+open VG.Impl.Hmac.Generic.X86_64 (Hash)
+open VG.Proof.Hmac.Generic.X86_64
+
+/-- The registers `KR` fixes. -/
+abbrev kregs : List Reg := [.rbx, .r12, .r15, .rsp]
+
+/-- The argument registers. -/
+abbrev args : List Reg := [.rdi, .rsi, .rdx, .rcx, .r8, .rsp]
+
+/-- The block that sets up a call of `update` from `st`, at offset `o`. -/
+abbrev updBlock (H : Hash) (st : Reg) (o : Nat) : List Instr :=
+  [.mov .rdi (.reg st)] ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 0))] ++
+    VG.Impl.Hmac.Generic.X86_64.scr .rdx o ++ [.mov32 .rcx (.imm (BitVec.ofNat 32 H.B)), .mov .r8 (.reg .r15)]
+
+/-- The taint checks of the pieces of `init` between its calls. -/
+structure Checks (H : Hash) : Prop where
+  keys : ∃ hc, (Taint.check taint (Taint.ofRegs args) H.initKeys hc).isSome = true
+  argI : ∀ st ∈ [Reg.rbx, .r12], ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block [.mov .rdi (.reg st)]) hc).isSome = true
+  argU₁ : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block (updBlock H .rbx H.buf)) hc).isSome = true
+  argU₂ : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block (updBlock H .r12 (H.buf + H.B))) hc).isSome = true
+  restore : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block H.restore) hc).isSome = true
+
+/-- The public arguments are the same. -/
+structure PubEq (s₀ s₀' : State) : Prop where
+  rdi : s₀.gpr .rdi = s₀'.gpr .rdi
+  rsi : s₀.gpr .rsi = s₀'.gpr .rsi
+  rdx : s₀.gpr .rdx = s₀'.gpr .rdx
+  rcx : s₀.gpr .rcx = s₀'.gpr .rcx
+  r8 : s₀.gpr .r8 = s₀'.gpr .r8
+  rsp : s₀.gpr .rsp = s₀'.gpr .rsp
+
+variable {H : Hash} (hH : HashOK H) {sc : Nat} (hc : Checks H)
+variable {s₀ s₀' : State} (hp : Pre (H := H) sc s₀) (hp' : Pre (H := H) sc s₀') (hq : PubEq s₀ s₀')
+
+theorem kr_agree {s s' : State} (hq : PubEq s₀ s₀') (h : KR (H := H) s₀ s) (h' : KR (H := H) s₀' s') :
+    ∀ r ∈ kregs, s.gpr r = s'.gpr r := by
+  intro r hr
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl
+  · rw [h.rbx, h'.rbx, inn, inn, hq.rdi]
+  · rw [h.r12, h'.r12, out, out, hq.rsi]
+  · rw [h.r15, h'.r15, scr, scr, hq.r8]
+  · rw [h.rsp, h'.rsp, hq.rsp]
+
+include hH hc hp hp' hq
+
+/-- A call of `init` on the state in `st` (`rbx` for `inner`, `r12` for `outer`). -/
+theorem callInit_rel {st : Reg} (hst : st = .rbx ∨ st = .r12) :
+    RelCT isa (fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s') (H.callInit st)
+      fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s' := by
+  -- The state's address, the same in both runs.
+  let p : Addr := if st = .rbx then inn s₀ else out s₀
+  have hpR : p = inn s₀ ∨ p = out s₀ := by by_cases h : st = .rbx <;> simp [p, h]
+  have hpR' : p = inn s₀' ∨ p = out s₀' := by
+    show p = s₀'.gpr .rdi ∨ p = s₀'.gpr .rsi; rw [← hq.rdi, ← hq.rsi]; exact hpR
+  have hs : ∀ {t : State}, KR (H := H) s₀ t → t.gpr st = p := fun h => by
+    rcases hst with rfl | rfl
+    · simp [p, h.rbx]
+    · simp [p, h.r12]
+  have hs' : ∀ {t : State}, KR (H := H) s₀' t → t.gpr st = p := fun h => by
+    rcases hst with rfl | rfl
+    · simp [p, h.rbx, hq.rdi]
+    · simp [p, h.r12, hq.rsi]
+  have ha : RelCT isa (fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s') (.block [.mov .rdi (.reg st)])
+      fun s s' => (KR (H := H) s₀ s ∧ s.gpr .rdi = p ∧ True) ∧ (KR (H := H) s₀' s' ∧ s'.gpr .rdi = p ∧ True) :=
+    rel_taint kregs (fun _ _ h h' => kr_agree hq h h') (hc.argI st (by rcases hst with rfl | rfl <;> simp))
+      (fun _ h => WP.mono (initArgs_ok h (hs h)) fun _ ⟨k, d, _⟩ => ⟨k, d, trivial⟩)
+      (fun _ h => WP.mono (initArgs_ok h (hs' h)) fun _ ⟨k, d, _⟩ => ⟨k, d, trivial⟩)
+  refine ha.seq (rel_wp (F := fun s => KR (H := H) s₀ s ∧ s.gpr .rdi = p ∧ True)
+    (F' := fun s => KR (H := H) s₀' s ∧ s.gpr .rdi = p ∧ True)
+    (init_rel hH (st := p) fun s s' h => ?_)
+    (fun _ ⟨k, d, _⟩ => initCall_ok hH hp k d hpR fun _ k' _ _ => k')
+    (fun _ ⟨k, d, _⟩ => initCall_ok hH hp' k d hpR' fun _ k' _ _ => k'))
+  obtain ⟨⟨k, d, _⟩, ⟨k', d', _⟩⟩ := h
+  obtain ⟨c, sk⟩ := initCall_args hp k hpR
+  obtain ⟨c', sk'⟩ := initCall_args hp' k' hpR'
+  exact ⟨d, d', c, c', sk, sk', by rw [k.rsp, k'.rsp, hq.rsp]⟩
+
+omit hc in
+/-- A call of `update` on the state in `st`, with the bytes at `scratch + o`. -/
+theorem callUpd_rel {st : Reg} (hst : st = .rbx ∨ st = .r12) {o : Nat} (ho : o = H.buf ∨ o = H.buf + H.B)
+    (hck : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block (updBlock H st o)) hc).isSome = true) :
+    RelCT isa (fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s') (H.callUpd [.mov .rdi (.reg st)] 0 o H.B)
+      fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s' := by
+  let p : Addr := if st = .rbx then inn s₀ else out s₀
+  have hpR : p = inn s₀ ∨ p = out s₀ := by by_cases h : st = .rbx <;> simp [p, h]
+  have hpR' : p = inn s₀' ∨ p = out s₀' := by
+    show p = s₀'.gpr .rdi ∨ p = s₀'.gpr .rsi; rw [← hq.rdi, ← hq.rsi]; exact hpR
+  have hs : ∀ {t : State}, KR (H := H) s₀ t → t.gpr st = p := fun h => by
+    rcases hst with rfl | rfl
+    · simp [p, h.rbx]
+    · simp [p, h.r12]
+  have hs' : ∀ {t : State}, KR (H := H) s₀' t → t.gpr st = p := fun h => by
+    rcases hst with rfl | rfl
+    · simp [p, h.rbx, hq.rdi]
+    · simp [p, h.r12, hq.rsi]
+  have e8 : dO s₀' o = dO s₀ o := by rw [dO, dO, scr, scr, hq.r8]
+  have e8' : scr s₀' = scr s₀ := hq.r8.symm
+  have ha : RelCT isa (fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s') (.block (updBlock H st o))
+      fun s s' => (KR (H := H) s₀ s ∧ UpdArgs hH s p (dO s₀ o) (scr s₀) H.B ∧ s.gpr .rsi = 0) ∧
+        (KR (H := H) s₀' s' ∧ UpdArgs hH s' p (dO s₀ o) (scr s₀) H.B ∧ s'.gpr .rsi = 0) :=
+    rel_taint kregs (fun _ _ h h' => kr_agree hq h h') hck
+      (fun _ h => WP.mono (updArgs_ok hH hp h hst (hs h) hpR ho) fun _ ⟨k, a, si, _⟩ => ⟨k, a, si⟩)
+      (fun _ h => WP.mono (updArgs_ok hH hp' h hst (hs' h) hpR' ho) fun _ ⟨k, a, si, _⟩ =>
+        ⟨k, e8 ▸ e8' ▸ a, si⟩)
+  refine ha.seq (rel_wp (F := fun s => KR (H := H) s₀ s ∧ UpdArgs hH s p (dO s₀ o) (scr s₀) H.B ∧ s.gpr .rsi = 0)
+    (F' := fun s => KR (H := H) s₀' s ∧ UpdArgs hH s p (dO s₀ o) (scr s₀) H.B ∧ s.gpr .rsi = 0)
+    (upd_rel hH (st := p) (d := dO s₀ o) (sc := scr s₀) (len := H.B)
+    fun s s' ⟨⟨k, a, si⟩, ⟨k', a', si'⟩⟩ => ⟨a, a', by rw [si, si'], by rw [k.rsp, k'.rsp, hq.rsp]⟩)
+    (fun _ ⟨k, a, si⟩ => updCall_ok hH hp k hpR a si fun _ k' _ _ => k')
+    (fun _ ⟨k, a, si⟩ => updCall_ok hH hp' k hpR' (e8'.symm ▸ a) si fun _ k' _ _ => k'))
+
+theorem ct : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') H.init fun _ _ => True := by
+  have keys : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') H.initKeys
+      fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s' :=
+    rel_taint args (fun s s' e e' r hr => by
+        subst e e'
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | rfl | rfl | rfl | rfl | rfl
+        · exact hq.rdi
+        · exact hq.rsi
+        · exact hq.rdx
+        · exact hq.rcx
+        · exact hq.r8
+        · exact hq.rsp) hc.keys
+      (fun _ e => by subst e; exact WP.mono (keys_ok sc hp) fun _ h => h.kr)
+      (fun _ e => by subst e; exact WP.mono (keys_ok sc hp') fun _ h => h.kr)
+  obtain ⟨_, hr⟩ := hc.restore
+  have restore : RelCT isa (fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s') (.block H.restore)
+      fun _ _ => True :=
+    RelCT.taint (A := taint) (Taint.ofRegs kregs)
+      (fun _ _ h => Taint.agree_ofRegs (kr_agree hq h.1 h.2)) hr
+  exact keys.seq ((callInit_rel hH hc hp hp' hq (.inl rfl)).seq
+    ((callUpd_rel hH hp hp' hq (.inl rfl) (.inl rfl) hc.argU₁).seq
+    ((callInit_rel hH hc hp hp' hq (.inr rfl)).seq
+    ((callUpd_rel hH hp hp' hq (.inr rfl) (.inr rfl) hc.argU₂).seq restore))))
+
+end VG.Proof.Hmac.Generic.X86_64.Init
+
+namespace VG.Proof.Hmac.Generic.X86_64.Init
+
+open VG.X86_64
+open VG.Impl.Hmac.Generic.X86_64 (Hash)
+
+/-- `init` is verified against `initG`, given the taint checks and the facts
+about its code that the kernel checks for each hash function. -/
+theorem verified {H : Hash} (hH : HashOK H) {sc : Nat} (hc : Checks H)
+    (hfit : H.buf + 2 * H.B ≤ 8 * sc) (hmx : H.init.allInstrs (fun i => !loadsMxcsr i) = true)
+    (hsat : ∃ s, (initG hH.SH sc).pre s) :
+    Verified X86_64.target H.init (initG hH.SH sc) := by
+  refine ⟨fun s hs => ?_, fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂ => ?_, hsat⟩
+  · obtain ⟨t, s', he, hg, hpost⟩ := correct hH (pre_of hH sc hs hfit)
+    exact ⟨t, s', he, abiPreserved_of_exec hmx he hg, hpost⟩
+  · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hpub
+    exact (ct hH hc (pre_of hH sc h₁ hfit) (pre_of hH sc h₂ hfit) ⟨h1, h2, h3, h4, h5, h6⟩
+      _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+
+end VG.Proof.Hmac.Generic.X86_64.Init
+
+/-!
+# HMAC over any streaming hash function on x86-64: `finalize`, constant time
+
+Untrusted: everything here is checked by Lean. As for `init` (above).
+-/
+
+namespace VG.Proof.Hmac.Generic.X86_64.Finalize
+
+open VG.X86_64
+open VG.Impl.Hmac.Generic.X86_64 (Hash copy)
+open VG.Proof.Hmac.Generic.X86_64
+open VG.Proof.Hmac.Generic.X86_64.Init (PubEq args)
+
+/-- The block that sets up the first call of `finalize`. -/
+abbrev fin1Block (H : Hash) : List Instr :=
+  [] ++ [.mov .rsi (.reg .rdx)] ++ VG.Impl.Hmac.Generic.X86_64.scr .rdx H.buf ++ [.mov .rcx (.reg .r15)]
+
+/-- The block that sets up the second call of `finalize`. -/
+abbrev fin2Block (H : Hash) : List Instr :=
+  [.mov .rdi (.reg .rbx)] ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 (H.B + H.D)))] ++
+    VG.Impl.Hmac.Generic.X86_64.scr .rdx H.buf ++ [.mov .rcx (.reg .r15)]
+
+/-- The block that sets up the call of `update`. -/
+abbrev updBlock (H : Hash) : List Instr :=
+  [.mov .rdi (.reg .rbx)] ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 H.B))] ++
+    VG.Impl.Hmac.Generic.X86_64.scr .rdx H.buf ++ [.mov32 .rcx (.imm (BitVec.ofNat 32 H.D)), .mov .r8 (.reg .r15)]
+
+/-- The taint checks of the pieces of `finalize` between its calls. -/
+structure Checks (H : Hash) : Prop where
+  pro : ∃ hc, (Taint.check taint (Taint.ofRegs args) (.block H.finPrologue) hc).isSome = true
+  fin1 : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block (fin1Block H)) hc).isSome = true
+  copy1 : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (copy .r12 0 .rbx 0 H.S) hc).isSome = true
+  upd : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block (updBlock H)) hc).isSome = true
+  fin2 : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block (fin2Block H)) hc).isSome = true
+  copy2 : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (copy .r15 H.buf .r13 0 H.D) hc).isSome = true
+  restore : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block H.restore) hc).isSome = true
+
+variable {H : Hash} (hH : HashOK H) {sc : Nat} (hc : Checks H)
+variable {s₀ s₀' : State} (hp : Pre (H := H) sc s₀) (hp' : Pre (H := H) sc s₀') (hq : PubEq s₀ s₀')
+
+theorem kr_agree {s s' : State} (hq : PubEq s₀ s₀') (h : KR (H := H) s₀ s) (h' : KR (H := H) s₀' s') :
+    ∀ r ∈ kregs, s.gpr r = s'.gpr r := by
+  intro r hr
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl | rfl
+  · rw [h.rbx, h'.rbx, inn, inn, hq.rdi]
+  · rw [h.r12, h'.r12, outer, outer, hq.rsi]
+  · rw [h.r13, h'.r13, op, op, hq.rcx]
+  · rw [h.r15, h'.r15, scr, scr, hq.r8]
+  · rw [h.rsp, h'.rsp, hq.rsp]
+
+include hH hp hp' hq
+
+omit hH hp hp' in
+theorem eqs : inn s₀' = inn s₀ ∧ T (H := H) s₀' = T (H := H) s₀ ∧ scr s₀' = scr s₀ :=
+  ⟨hq.rdi.symm, by show s₀'.gpr .r8 + _ = s₀.gpr .r8 + _; rw [hq.r8], hq.r8.symm⟩
+
+omit hH in
+/-- A piece of code between calls that keeps `KR`. -/
+theorem kr_rel {c : Prog isa} (hck : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) c hc).isSome = true)
+    (hw : ∀ {t₀ : State}, Pre (H := H) sc t₀ → ∀ s, KR (H := H) t₀ s → WP isa c s (KR (H := H) t₀)) :
+    RelCT isa (fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s') c
+      fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s' :=
+  rel_taint kregs (fun _ _ h h' => kr_agree hq h h') hck (hw hp) (hw hp')
+
+/-- A call of `finalize` from a block that sets up its arguments. -/
+theorem fin_rel' {blk : List Instr} {c : BitVec 64} {F F' : State → Prop}
+    (hck : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block blk) hc).isSome = true)
+    (hag : ∀ s s', F s → F' s' → ∀ r ∈ kregs, s.gpr r = s'.gpr r)
+    (hb : ∀ s, F s → WP isa (.block blk) s fun t => KR (H := H) s₀ t ∧
+      FinArgs hH t (inn s₀) (T (H := H) s₀) (scr s₀) ∧ t.gpr .rsi = c ∧ t.mem = s.mem)
+    (hb' : ∀ s, F' s → WP isa (.block blk) s fun t => KR (H := H) s₀' t ∧
+      FinArgs hH t (inn s₀') (T (H := H) s₀') (scr s₀') ∧ t.gpr .rsi = c ∧ t.mem = s.mem) :
+    RelCT isa (fun s s' => F s ∧ F' s') (.seq (.block blk) (.call H.finN H.finC))
+      fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s' := by
+  obtain ⟨e1, e2, e3⟩ := eqs hq
+  have ha := rel_taint (G := fun t => KR (H := H) s₀ t ∧ FinArgs hH t (inn s₀) (T (H := H) s₀) (scr s₀) ∧
+      t.gpr .rsi = c)
+    (G' := fun t => KR (H := H) s₀' t ∧ FinArgs hH t (inn s₀) (T (H := H) s₀) (scr s₀) ∧ t.gpr .rsi = c)
+    kregs hag hck (fun s h => WP.mono (hb s h) fun _ ⟨k, a, si, _⟩ => ⟨k, a, si⟩)
+    (fun s h => WP.mono (hb' s h) fun _ ⟨k, a, si, _⟩ => ⟨k, e1 ▸ e2 ▸ e3 ▸ a, si⟩)
+  refine ha.seq (rel_wp (fin_rel hH (st := inn s₀) (o := T (H := H) s₀) (sc := scr s₀)
+    fun s s' ⟨⟨k, a, si⟩, ⟨k', a', si'⟩⟩ => ⟨a, a', by rw [si, si'], by rw [k.rsp, k'.rsp, hq.rsp]⟩)
+    (fun _ ⟨k, a, _⟩ => finCall_ok hH hp k a fun _ k' _ _ => k')
+    (fun _ ⟨k, a, _⟩ => finCall_ok hH hp' k (e1.symm ▸ e2.symm ▸ e3.symm ▸ a) fun _ k' _ _ => k'))
+
+theorem ct (hc : Checks H) : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') H.finalize fun _ _ => True := by
+  obtain ⟨e1, e2, e3⟩ := eqs hq
+  have pro : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') (.block H.finPrologue)
+      fun s s' => (KR (H := H) s₀ s ∧ s.gpr .rdi = inn s₀ ∧ s.gpr .rdx = s₀.gpr .rdx) ∧
+        (KR (H := H) s₀' s' ∧ s'.gpr .rdi = inn s₀' ∧ s'.gpr .rdx = s₀'.gpr .rdx) :=
+    rel_taint args (fun s s' e e' r hr => by
+        rw [e, e']
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | rfl | rfl | rfl | rfl | rfl
+        · exact hq.rdi
+        · exact hq.rsi
+        · exact hq.rdx
+        · exact hq.rcx
+        · exact hq.r8
+        · exact hq.rsp) hc.pro
+      (fun _ e => by rw [e]; exact WP.mono (pro_ok hp) fun _ ⟨k, d, x, _⟩ => ⟨k, d, x⟩)
+      (fun _ e => by rw [e]; exact WP.mono (pro_ok hp') fun _ ⟨k, d, x, _⟩ => ⟨k, d, x⟩)
+  have fin1 := fin_rel' hH hp hp' hq (c := s₀.gpr .rdx)
+    (F := fun s => KR (H := H) s₀ s ∧ s.gpr .rdi = inn s₀ ∧ s.gpr .rdx = s₀.gpr .rdx)
+    (F' := fun s => KR (H := H) s₀' s ∧ s.gpr .rdi = inn s₀' ∧ s.gpr .rdx = s₀'.gpr .rdx) hc.fin1
+    (fun _ _ h h' => kr_agree hq h.1 h'.1)
+    (fun s ⟨k, d, x⟩ => fin1Args_ok hH hp k d x)
+    (fun s ⟨k, d, x⟩ => WP.mono (fin1Args_ok hH hp' k d x) fun _ ⟨k, a, si, m⟩ => ⟨k, a, si.trans hq.rdx.symm, m⟩)
+  have fin2 := fin_rel' hH hp hp' hq (c := BitVec.ofNat 64 (H.B + H.D)) (F := KR (H := H) s₀)
+    (F' := KR (H := H) s₀') hc.fin2
+    (fun _ _ h h' => kr_agree hq h h')
+    (fun s k => fin2Args_ok hH hp k) (fun s k => fin2Args_ok hH hp' k)
+  have upd : RelCT isa (fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s')
+      (H.callUpd [.mov .rdi (.reg .rbx)] H.B H.buf H.D) fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s' := by
+    have ha := rel_taint (G := fun t => KR (H := H) s₀ t ∧
+        UpdArgs hH t (inn s₀) (T (H := H) s₀) (scr s₀) H.D ∧ t.gpr .rsi = BitVec.ofNat 64 H.B)
+      (G' := fun t => KR (H := H) s₀' t ∧
+        UpdArgs hH t (inn s₀) (T (H := H) s₀) (scr s₀) H.D ∧ t.gpr .rsi = BitVec.ofNat 64 H.B)
+      kregs (fun _ _ h h' => kr_agree hq h h') hc.upd
+      (fun s h => WP.mono (updArgs_ok hH hp h) fun _ ⟨k, a, si, _⟩ => ⟨k, a, si⟩)
+      (fun s h => WP.mono (updArgs_ok hH hp' h) fun _ ⟨k, a, si, _⟩ => ⟨k, e1 ▸ e2 ▸ e3 ▸ a, si⟩)
+    exact ha.seq (rel_wp (upd_rel hH (st := inn s₀) (d := T (H := H) s₀) (sc := scr s₀) (len := H.D)
+      fun s s' ⟨⟨k, a, si⟩, ⟨k', a', si'⟩⟩ => ⟨a, a', by rw [si, si'], by rw [k.rsp, k'.rsp, hq.rsp]⟩)
+      (fun _ ⟨k, a, _⟩ => updCall_ok hH hp k a fun _ k' _ _ => k')
+      (fun _ ⟨k, a, _⟩ => updCall_ok hH hp' k (e1.symm ▸ e2.symm ▸ e3.symm ▸ a) fun _ k' _ _ => k'))
+  have c1 := kr_rel hp hp' hq hc.copy1 fun hp s k => WP.mono (copy1_ok hp k) fun _ h => h.1
+  have c2 := kr_rel hp hp' hq hc.copy2 fun hp s k => WP.mono (copy2_ok hp k) fun _ h => h.1
+  obtain ⟨_, hr⟩ := hc.restore
+  have restore : RelCT isa (fun s s' => KR (H := H) s₀ s ∧ KR (H := H) s₀' s') (.block H.restore)
+      fun _ _ => True :=
+    RelCT.taint (A := taint) (Taint.ofRegs kregs) (fun _ _ h => Taint.agree_ofRegs (kr_agree hq h.1 h.2)) hr
+  exact pro.seq (fin1.seq (c1.seq (upd.seq (fin2.seq (c2.seq restore)))))
+
+end VG.Proof.Hmac.Generic.X86_64.Finalize
+
+namespace VG.Proof.Hmac.Generic.X86_64.Finalize
+
+open VG.X86_64
+open VG.Impl.Hmac.Generic.X86_64 (Hash)
+
+/-- `finalize` is verified against `finG`, given the taint checks and the
+facts about its code that the kernel checks for each hash function. -/
+theorem verified {H : Hash} (hH : HashOK H) {sc : Nat} (hc : Checks H)
+    (hfit : H.buf + H.F ≤ 8 * sc) (hmx : H.finalize.allInstrs (fun i => !loadsMxcsr i) = true)
+    (hsat : ∃ s, (finG hH.SH sc).pre s) :
+    Verified X86_64.target H.finalize (finG hH.SH sc) := by
+  refine ⟨fun s hs => ?_, fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂ => ?_, hsat⟩
+  · obtain ⟨t, s', he, hg, hpost⟩ := correct hH (pre_of hH sc hs hfit)
+    exact ⟨t, s', he, abiPreserved_of_exec hmx he hg, hpost⟩
+  · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hpub
+    exact (ct hH (pre_of hH sc h₁ hfit) (pre_of hH sc h₂ hfit) ⟨h1, h2, h3, h4, h5, h6⟩ hc
+      _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+
+end VG.Proof.Hmac.Generic.X86_64.Finalize
 
 /-!
 # HMAC over the streaming hash functions on x86-64: the instances
 
 Untrusted: everything here is checked by Lean. The generic proofs
-(`InitCT.lean`, `FinalizeCT.lean`) at each hash function of `Hashes.lean`:
+(above) at each hash function of `Hashes.lean`:
 the kernel checks the pieces of code between calls with the taint analysis,
 and that the code never loads MXCSR, and the proofs move to the shared
 contracts of `Spec/Hmac/Generic.lean` (`sig_implies`), which the artifacts are
@@ -49,6 +379,20 @@ def finSat (S D sc : Nat) : State where
   rd := [⟨0x20000, S⟩]
   wr := [⟨0x10000, S⟩, ⟨0x30000, D⟩, ⟨0x40000, 8 * sc⟩]
 
+/-- `initG` implies the shared contract for any hash function and scratch space
+(`generic_implies`), given that the shared contract is satisfiable. -/
+theorem initImp (S : Spec.Hmac.StreamingHash) (W : Nat) (h : ∃ s, (Spec.Hmac.initContract S W X86_64.abi 16).pre s) :
+    (initG S W).Implies (Spec.Hmac.initContract S W X86_64.abi 16) := by
+  generic_implies [
+    Spec.Hmac.initContract, Spec.Hmac.initSig, initG, X86_64.abi, X86_64.argRegs] using h
+
+/-- `finG` implies the shared contract for any hash function and scratch space
+(`generic_implies`), given that the shared contract is satisfiable. -/
+theorem finImp (S : Spec.Hmac.StreamingHash) (W : Nat) (h : ∃ s, (Spec.Hmac.finalizeContract S W X86_64.abi 16).pre s) :
+    (finG S W).Implies (Spec.Hmac.finalizeContract S W X86_64.abi 16) := by
+  generic_implies [
+    Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, finG, X86_64.abi, X86_64.argRegs] using h
+
 /-! ## SHA-1 -/
 
 theorem sha1_initChecks₀ : Init.Checks (sha1H .scalar) where
@@ -69,16 +413,13 @@ theorem sha1_finChecks₀ : Finalize.Checks (sha1H .scalar) where
   copy2 := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha1_initImp : (initG Spec.Hmac.sha1S 56).Implies (Spec.Hmac.sha1I.initContract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
-    Spec.Hmac.sha1I, Spec.Hmac.sha1S, Spec.Hmac.sha1, initG, X86_64.abi, X86_64.argRegs]
-    [initSat] using initSat 84 56
+theorem sha1_initImp : (initG Spec.Hmac.sha1S 56).Implies (Spec.Hmac.sha1I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha1S 56 (by
+    inst_sat [Spec.Hmac.initContract, Spec.Hmac.initSig, Spec.Hmac.sha1S, Spec.Hmac.sha1, initG, X86_64.abi, X86_64.argRegs] using initSat 84 56)
 
-theorem sha1_finImp : (finG Spec.Hmac.sha1S 56).Implies (Spec.Hmac.sha1I.finalizeContract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract,
-    Spec.Hmac.finalizeSig, Spec.Hmac.sha1I, Spec.Hmac.sha1S, Spec.Hmac.sha1, finG, X86_64.abi,
-    X86_64.argRegs]
-    [finSat] using finSat 84 20 56
+theorem sha1_finImp : (finG Spec.Hmac.sha1S 56).Implies (Spec.Hmac.sha1I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha1S 56 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha1S, Spec.Hmac.sha1, finG, X86_64.abi, X86_64.argRegs] using finSat 84 20 56)
 
 /-- The checks do not look at the functions `init` and `finalize` call, so
 they hold for every implementation `v` of the compression function. -/
@@ -155,16 +496,13 @@ theorem md5_finChecks : Finalize.Checks md5H where
   copy2 := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem md5_initImp : (initG Spec.Hmac.md5S 48).Implies (Spec.Hmac.md5I.initContract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
-    Spec.Hmac.md5I, Spec.Hmac.md5S, Spec.Hmac.md5, initG, X86_64.abi, X86_64.argRegs]
-    [initSat] using initSat 80 48
+theorem md5_initImp : (initG Spec.Hmac.md5S 48).Implies (Spec.Hmac.md5I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.md5S 48 (by
+    inst_sat [Spec.Hmac.initContract, Spec.Hmac.initSig, Spec.Hmac.md5S, Spec.Hmac.md5, initG, X86_64.abi, X86_64.argRegs] using initSat 80 48)
 
-theorem md5_finImp : (finG Spec.Hmac.md5S 48).Implies (Spec.Hmac.md5I.finalizeContract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract,
-    Spec.Hmac.finalizeSig, Spec.Hmac.md5I, Spec.Hmac.md5S, Spec.Hmac.md5, finG, X86_64.abi,
-    X86_64.argRegs]
-    [finSat] using finSat 80 16 48
+theorem md5_finImp : (finG Spec.Hmac.md5S 48).Implies (Spec.Hmac.md5I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.md5S 48 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.md5S, Spec.Hmac.md5, finG, X86_64.abi, X86_64.argRegs] using finSat 80 16 48)
 
 theorem md5_init : Verified X86_64.target md5H.init (Spec.Hmac.md5I.initContract X86_64.abi 16) :=
   (Init.verified md5OK md5_initChecks (by decide) (by decide +kernel) md5_initImp.sat_left).of_implies
@@ -194,16 +532,13 @@ theorem sha384_finChecks : Finalize.Checks sha384H where
   copy2 := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha384_initImp : (initG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.initContract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
-    Spec.Hmac.sha384I, Spec.Hmac.sha384S, Spec.Hmac.sha384, initG, X86_64.abi, X86_64.argRegs]
-    [initSat] using initSat 192 96
+theorem sha384_initImp : (initG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha384S 96 (by
+    inst_sat [Spec.Hmac.initContract, Spec.Hmac.initSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, initG, X86_64.abi, X86_64.argRegs] using initSat 192 96)
 
-theorem sha384_finImp : (finG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.finalizeContract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract,
-    Spec.Hmac.finalizeSig, Spec.Hmac.sha384I, Spec.Hmac.sha384S, Spec.Hmac.sha384, finG, X86_64.abi,
-    X86_64.argRegs]
-    [finSat] using finSat 192 48 96
+theorem sha384_finImp : (finG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha384S 96 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, finG, X86_64.abi, X86_64.argRegs] using finSat 192 48 96)
 
 theorem sha384_init : Verified X86_64.target sha384H.init (Spec.Hmac.sha384I.initContract X86_64.abi 16) :=
   (Init.verified sha384OK sha384_initChecks (by decide) (by decide +kernel) sha384_initImp.sat_left).of_implies
@@ -233,16 +568,13 @@ theorem sha512_finChecks : Finalize.Checks sha512H' where
   copy2 := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha512_initImp : (initG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.initContract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
-    Spec.Hmac.sha512I, Spec.Hmac.sha512S, Spec.Hmac.sha512, initG, X86_64.abi, X86_64.argRegs]
-    [initSat] using initSat 192 96
+theorem sha512_initImp : (initG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha512S 96
+    sha384_initImp.sat
 
-theorem sha512_finImp : (finG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.finalizeContract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract,
-    Spec.Hmac.finalizeSig, Spec.Hmac.sha512I, Spec.Hmac.sha512S, Spec.Hmac.sha512, finG, X86_64.abi,
-    X86_64.argRegs]
-    [finSat] using finSat 192 64 96
+theorem sha512_finImp : (finG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha512S 96 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, finG, X86_64.abi, X86_64.argRegs] using finSat 192 64 96)
 
 theorem sha512_init : Verified X86_64.target sha512H'.init (Spec.Hmac.sha512I.initContract X86_64.abi 16) :=
   (Init.verified sha512OK sha512_initChecks (by decide) (by decide +kernel) sha512_initImp.sat_left).of_implies
@@ -272,17 +604,13 @@ theorem sha512_224_finChecks : Finalize.Checks sha512_224H where
   copy2 := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha512_224_initImp : (initG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.initContract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
-    Spec.Hmac.sha512_224I, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, initG, X86_64.abi,
-    X86_64.argRegs]
-    [initSat] using initSat 192 96
+theorem sha512_224_initImp : (initG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha512_224S 96
+    sha384_initImp.sat
 
-theorem sha512_224_finImp : (finG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.finalizeContract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract,
-    Spec.Hmac.finalizeSig, Spec.Hmac.sha512_224I, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, finG,
-    X86_64.abi, X86_64.argRegs]
-    [finSat] using finSat 192 28 96
+theorem sha512_224_finImp : (finG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha512_224S 96 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, finG, X86_64.abi, X86_64.argRegs] using finSat 192 28 96)
 
 theorem sha512_224_init : Verified X86_64.target sha512_224H.init (Spec.Hmac.sha512_224I.initContract X86_64.abi 16) :=
   (Init.verified sha512_224OK sha512_224_initChecks (by decide) (by decide +kernel) sha512_224_initImp.sat_left).of_implies
@@ -312,17 +640,13 @@ theorem sha512_256_finChecks : Finalize.Checks sha512_256H where
   copy2 := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha512_256_initImp : (initG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.initContract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.Instance.initContract, Spec.Hmac.initContract, Spec.Hmac.initSig,
-    Spec.Hmac.sha512_256I, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, initG, X86_64.abi,
-    X86_64.argRegs]
-    [initSat] using initSat 192 96
+theorem sha512_256_initImp : (initG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha512_256S 96
+    sha384_initImp.sat
 
-theorem sha512_256_finImp : (finG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.finalizeContract X86_64.abi 16) := by
-  sig_implies [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.finalizeContract,
-    Spec.Hmac.finalizeSig, Spec.Hmac.sha512_256I, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, finG,
-    X86_64.abi, X86_64.argRegs]
-    [finSat] using finSat 192 32 96
+theorem sha512_256_finImp : (finG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha512_256S 96 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, finG, X86_64.abi, X86_64.argRegs] using finSat 192 32 96)
 
 theorem sha512_256_init : Verified X86_64.target sha512_256H.init (Spec.Hmac.sha512_256I.initContract X86_64.abi 16) :=
   (Init.verified sha512_256OK sha512_256_initChecks (by decide) (by decide +kernel) sha512_256_initImp.sat_left).of_implies

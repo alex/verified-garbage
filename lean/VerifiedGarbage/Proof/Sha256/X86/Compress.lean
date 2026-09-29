@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Sha256.X86.Rounds
 import VerifiedGarbage.Proof.Sha256.X86.Contract
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # SHA-256 compression function on x86 (32-bit): the whole function
@@ -100,9 +101,7 @@ theorem arg_contains {d : Nat} (hd : 4 ≤ d) (hd' : d + 4 ≤ 20) :
   rw [show (esp₀ s₀ + BitVec.ofNat 32 (4 + 4 * 0)).setWidth 64 = addr (esp₀ s₀) 4 from rfl,
     h.argAddr_eq (by omega), h.argAddr_eq (by omega)]
   have := h.esp_fits
-  generalize (esp₀ s₀).setWidth 64 = a
-  rw [show a + BitVec.ofNat 64 d - (a + BitVec.ofNat 64 4) = BitVec.ofNat 64 (d - 4) by bv_omega,
-    BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+  rw [Offset.add_sub_add _ hd, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   omega
 
 theorem in_arg {d : Nat} (hd : 4 ≤ d) (hd' : d + 4 ≤ 20) :
@@ -111,14 +110,12 @@ theorem in_arg {d : Nat} (hd : 4 ≤ d) (hd' : d + 4 ≤ 20) :
 
 /-- An argument slot is inside the argument region. -/
 theorem arg_sub {i : Nat} (hi : i < 4) : Region.Sub ⟨argAddr s₀ i, 4⟩ (argR s₀) := by
-  intro a ha
-  simp only [Region.Contains, argAddr] at ha ⊢
+  simp only [argR, argAddr]
   rw [show (esp₀ s₀ + BitVec.ofNat 32 (4 + 4 * 0)).setWidth 64 = addr (esp₀ s₀) 4 from rfl,
-    h.argAddr_eq (by omega)]
-  rw [show (s₀.gpr .esp + BitVec.ofNat 32 (4 + 4 * i)).setWidth 64 = addr (esp₀ s₀) (4 + 4 * i)
-    from rfl, h.argAddr_eq (by omega)] at ha
-  generalize (esp₀ s₀).setWidth 64 = b at *
-  bv_omega
+    h.argAddr_eq (by omega),
+    show (s₀.gpr .esp + BitVec.ofNat 32 (4 + 4 * i)).setWidth 64 = addr (esp₀ s₀) (4 + 4 * i)
+    from rfl, h.argAddr_eq (by omega)]
+  exact Offset.sub _ (by omega) (by omega)
 
 /-- The arguments are unchanged while only the state and the scratch buffer are written. -/
 theorem arg_frame {m : Mem} (hf : Frame [stR s₀, scrR s₀] s₀.mem m) {i : Nat} (hi : i < 4) :
@@ -131,7 +128,7 @@ theorem blk_contains {i t : Nat} (hi : i < nb s₀) (ht : t < 16) :
     (blR s₀).Contains (addr (blkAddr s₀ i) (4 * t)) 4 := by
   have := h.blk_fits
   rw [h.blkAddr_eq hi ht, show (bp s₀).setWidth 64 + BitVec.ofNat 64 (64 * i) + BitVec.ofNat 64 (4 * t) =
-    (bp s₀).setWidth 64 + BitVec.ofNat 64 (64 * i + 4 * t) by bv_omega]
+    (bp s₀).setWidth 64 + BitVec.ofNat 64 (64 * i + 4 * t) from Offset.add_add _ _ _]
   exact contains_offset (by omega) (by omega)
 
 theorem in_blk {i t : Nat} (hi : i < nb s₀) (ht : t < 16) :
@@ -142,10 +139,8 @@ end Pre
 
 theorem st_sep {s₀ : State} (hp : Pre s₀) {d e : Nat} (hd : d + 4 ≤ 32) (he : e + 4 ≤ 32)
     (hde : d + 4 ≤ e ∨ e + 4 ≤ d) : Mem.Sep (addr (st s₀) d) 4 (addr (st s₀) e) 4 := by
-  intro x hx hy
-  rw [addr_eq (by have := hp.st_fits; omega)] at hx hy
-  generalize (st s₀).setWidth 64 = a at *
-  bv_omega
+  rw [addr_eq (by have := hp.st_fits; omega), addr_eq (by have := hp.st_fits; omega)]
+  exact Offset.sep _ hde (by omega) (by omega)
 
 /-- Reading the hash value at offset `d` after writing it at offset `e`. -/
 theorem readW_writeW_st {s₀ : State} (hp : Pre s₀) (m : Mem) (v : Word) {d e : Nat}
@@ -468,14 +463,14 @@ theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue)
   · rw [hm₂, hm₁]
     rw [vars0] at hv
     obtain ⟨v0, v1, v2, v3, v4, v5, v6, v7⟩ := hv
-    have m0 : s.mem.readW (addr (st s₀) 0) 32 = H[0] := hH 0 (by decide)
-    have m1 : s.mem.readW (addr (st s₀) 4) 32 = H[1] := hH 1 (by decide)
-    have m2 : s.mem.readW (addr (st s₀) 8) 32 = H[2] := hH 2 (by decide)
-    have m3 : s.mem.readW (addr (st s₀) 12) 32 = H[3] := hH 3 (by decide)
-    have m4 : s.mem.readW (addr (st s₀) 16) 32 = H[4] := hH 4 (by decide)
-    have m5 : s.mem.readW (addr (st s₀) 20) 32 = H[5] := hH 5 (by decide)
-    have m6 : s.mem.readW (addr (st s₀) 24) 32 = H[6] := hH 6 (by decide)
-    have m7 : s.mem.readW (addr (st s₀) 28) 32 = H[7] := hH 7 (by decide)
+    have m0 : s.mem.readW (addr (st s₀) 0) 32 = H[0]'(by decide) := hH 0 (by decide)
+    have m1 : s.mem.readW (addr (st s₀) 4) 32 = H[1]'(by decide) := hH 1 (by decide)
+    have m2 : s.mem.readW (addr (st s₀) 8) 32 = H[2]'(by decide) := hH 2 (by decide)
+    have m3 : s.mem.readW (addr (st s₀) 12) 32 = H[3]'(by decide) := hH 3 (by decide)
+    have m4 : s.mem.readW (addr (st s₀) 16) 32 = H[4]'(by decide) := hH 4 (by decide)
+    have m5 : s.mem.readW (addr (st s₀) 20) 32 = H[5]'(by decide) := hH 5 (by decide)
+    have m6 : s.mem.readW (addr (st s₀) 24) 32 = H[6]'(by decide) := hH 6 (by decide)
+    have m7 : s.mem.readW (addr (st s₀) 28) 32 = H[7]'(by decide) := hH 7 (by decide)
     simp only [writeWords, writeState, Nat.reduceMul, Nat.reduceAdd, v0, v1, v2, v3, v4, v5, v6,
       v7, m0, m1, m2, m3, m4, m5, m6, m7, Vector.getElem_zipWith]
   all_goals simp (config := {decide := true}) [hr]
@@ -490,18 +485,13 @@ theorem saved_frame {s₀ : State} (hp : Pre s₀) {m m' : Mem} (h : Saved s₀ 
     rcases hf with hf | hf
     · refine hf.readW hc ?_ (by decide)
       simp only [List.mem_singleton, forall_eq]
-      intro a h₁ h₂
-      simp only [Region.Contains] at h₁ h₂
-      rw [hp.scr_eq (by omega)] at h₁
-      generalize (scr s₀).setWidth 64 = b at *
-      bv_omega
+      rw [hp.scr_eq (by omega)]
+      exact Offset.disjoint_base _ (by omega) (by omega)
     · refine hf.readW hc ?_ (by decide)
       simp only [List.mem_singleton, forall_eq]
-      refine Region.Disjoint.sub_left hp.st_scr.symm fun a ha => ?_
-      simp only [Region.Contains] at ha ⊢
-      rw [hp.scr_eq (by omega)] at ha
-      generalize (scr s₀).setWidth 64 = b at *
-      bv_omega
+      refine Region.Disjoint.sub_left hp.st_scr.symm ?_
+      rw [hp.scr_eq (by omega)]
+      exact Offset.sub_base _ (by omega)
   obtain ⟨h1, h2, h3, h4⟩ := h
   exact ⟨(key 96 (by omega) (by omega)).trans h1, (key 100 (by omega) (by omega)).trans h2,
     (key 104 (by omega) (by omega)).trans h3, (key 108 (by omega) (by omega)).trans h4⟩
@@ -516,9 +506,9 @@ theorem blk_word {s₀ : State} (hp : Pre s₀) {i t : Nat} (hi : i < nb s₀) (
   rw [hp.blkAddr_eq hi ht, W_lt _ ht, bswap_readW]
   simp only [blk, blockAt, parseBlock]
   generalize (bp s₀).setWidth 64 + BitVec.ofNat 64 (64 * i) = a
-  rw [show a + BitVec.ofNat 64 (4 * t) + 1 = a + BitVec.ofNat 64 (4 * t + 1) by bv_omega,
-    show a + BitVec.ofNat 64 (4 * t + 1) + 1 = a + BitVec.ofNat 64 (4 * t + 2) by bv_omega,
-    show a + BitVec.ofNat 64 (4 * t + 2) + 1 = a + BitVec.ofNat 64 (4 * t + 3) by bv_omega]
+  rw [show a + BitVec.ofNat 64 (4 * t) + 1 = a + BitVec.ofNat 64 (4 * t + 1) from Offset.add_add _ _ 1,
+    show a + BitVec.ofNat 64 (4 * t + 1) + 1 = a + BitVec.ofNat 64 (4 * t + 2) from Offset.add_add _ _ 1,
+    show a + BitVec.ofNat 64 (4 * t + 2) + 1 = a + BitVec.ofNat 64 (4 * t + 3) from Offset.add_add _ _ 1]
 
 theorem work_sub (p : BitVec 32) : Region.Sub (workRegion p) ⟨p.setWidth 64, 112⟩ :=
   Region.sub_prefix (by omega)
@@ -569,8 +559,8 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
   obtain ⟨hm₃, hedi₃, hebp₃, hz₃, hesi₃, hesp₃, hrd₃, hwr₃⟩ := h₃
   have hnb : nb s₀ < 2 ^ 32 := (arg s₀ 2).isLt
   have hebp : s₂.gpr .ebp - 1 = BitVec.ofNat 32 (nb s₀ - (i + 1)) := by
-    rw [pub₂ .ebp (by decide), hL.ebp]
-    bv_omega
+    rw [pub₂ .ebp (by decide), hL.ebp, show (1 : BitVec 32) = BitVec.ofNat 32 1 from rfl,
+      Offset.ofNat_sub_ofNat (by omega), Nat.sub_sub]
   have hframe : Frame [stR s₀, scrR s₀] s₀.mem s₃.mem := by
     refine hframe₂.trans ?_
     rw [hm₃]
@@ -600,8 +590,8 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
       exact hne h'
     refine ⟨by rw [hev]; simpa using h0, by omega, { hcommon _ rfl with edi := ?_, ebp := ?_ }⟩
     · rw [hedi₃, pub₂ .edi (by decide), hL.edi]
-      simp only [blkAddr]
-      bv_omega
+      exact (Offset.add_add _ _ 64).trans
+        (congrArg (bp s₀ + ·) (congrArg (BitVec.ofNat _) (by omega)))
     · rw [hebp₃, hebp]
 
 /-! ## Prologue and epilogue -/
@@ -642,9 +632,12 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) :
   apply WP.of_runBlock
   rw [prologue_eq]
   simp (config := {decide := true}) (disch := decide) only [runBlock_cons,
-    runBlock_nil, runStep_some, exec, execAlu, readSrc, ea_mk, State.setReg, arithFlags,
-    State.setFlags, State.load32, State.store32, i8, i12, i16, a8, a12, a16, hout, hsa, ite_true,
-    ite_false, Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+    runBlock_nil, runStep_some, exec, execAlu, readSrc, ea_mk, RegUpd.gpr_setReg_self,
+    RegUpd.gpr_setReg_of_ne, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, RegUpd.zf_setReg,
+    RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags, RegUpd.wr_arithFlags,
+    RegUpd.zf_arithFlags,
+    State.load32, State.store32, i8, i12, i16, a8, a12, a16, hout, hsa, ite_true,
+    Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> trivial
 
 theorem saveMem_saved {s₀ : State} (hp : Pre s₀) : Saved s₀ (saveMem s₀) := by
@@ -685,12 +678,15 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 
   apply WP.of_runBlock
   rw [epilogue_eq]
   simp (config := {decide := true}) (disch := decide) only [runBlock_cons,
-    runBlock_nil, runStep_some, exec, readSrc, ea_mk, State.setReg, State.load32, hesi, hin,
-    g0, g1, g2, g3, ite_true, ite_false, Option.map_some, Option.some.injEq,
+    runBlock_nil, runStep_some, exec, readSrc, ea_mk,
+    RegUpd.gpr_setReg_of_ne,
+    RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, State.load32, hesi, hin,
+    g0, g1, g2, g3, ite_true, Option.map_some, Option.some.injEq,
     exists_eq_left']
   refine ⟨fun r hr => ?_, trivial⟩
   simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hesp]
+  rcases hr with rfl | rfl | rfl | rfl | rfl <;>
+    simp (config := {decide := true}) only [RegUpd.gpr_setReg_self, RegUpd.gpr_setReg_of_ne, hesp]
 
 /-! ## The whole function -/
 
@@ -751,9 +747,9 @@ theorem sat_pre : Proof.Sha256.compressX86.pre satState := by
   have e : argAddr satState 0 = 0x4004 := by decide
   simp only [Proof.Sha256.compressX86, a0, a1, a2, a3, e]
   refine ⟨by decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, satState] at h₁ h₂
-    bv_omega
+  first
+  | exact Offset.disjoint_of_le (by decide) (by decide)
+  | exact Region.Disjoint.symm (Offset.disjoint_of_le (by decide) (by decide))
 
 /-- The taint analysis starts with the stack arguments public, and the words
 holding `state` and `scratch` known to be the base addresses of the writable

@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MdStream.X86_64.Common
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # Streaming Merkle–Damgård hash functions on x86-64: `finalize`
@@ -80,7 +81,9 @@ theorem pre_of {P : Params} {H : Md P.B P.N P.L} {s₀ : State} (h : (finK H).pr
 
 /-- The return address and the 8 bytes below it. -/
 theorem ret_stk (s₀ : State) : (retR s₀).Disjoint (stkR s₀) := by
-  intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+  have := Offset.disjoint_base (s₀.gpr .rsp - BitVec.ofNat 64 8) (d := 8) (n := 8) (k := 8)
+    (Nat.le_refl _) (by omega)
+  rwa [BitVec.sub_add_cancel] at this
 
 /-! ## Invariants -/
 
@@ -224,7 +227,7 @@ theorem Common.callOk (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {s : State}
   refine ⟨hC.rbx, hC.r15, hrsi, (hp.st_scr.sub_left eN).sub_right eso, ?_,
     (hp.st_scr.sub_left eb).sub_right eso, by rw [hsp]; exact hp.stk_st.sub_right eN,
     by rw [hsp]; exact hp.stk_scr.sub_right eso, by rw [hsp]; exact hp.stk_st.sub_right eb, ?_, ?_⟩
-  · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+  · exact Offset.disjoint_base _ (Nat.le_refl _) (by omega)
   · rw [hC.rd, hC.wr, hp.rd, hp.wr]
     apply Covers.of_sub
     intro r hr
@@ -273,7 +276,7 @@ theorem compress_buf (hd : Dims P) {name : String} {code : Prog isa} (hf : Calle
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
     rcases hr' with rfl | rfl | rfl
     · exact (hp.st_scr.symm.sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))).sub_right eN
-    · intro a h₁ h₂; simp only [Region.Contains, ofInt_natCast] at h₁ h₂; bv_omega
+    · rw [ofInt_natCast]; exact Offset.disjoint_base _ hd'.1 (by omega)
     · rw [hsp]
       exact hp.stk_scr.symm.sub_left (by rw [ofInt_natCast]; exact sub_offset (by omega) (by omega))
 
@@ -706,10 +709,17 @@ theorem verified_of (hd : Dims P) (hs : Shape H) {name : String} {code : Prog is
   refine ⟨fun s hs' => ?_, hct, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct hd hs hf (pre_of hs')
     exact ⟨t, s', he, abiPreserved_of_exec hm he h.1, h.2.1⟩
-  · refine ⟨sat P, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    · intro a h₁ h₂
-      simp only [Region.Contains, sat] at h₁ h₂
-      bv_omega
+  · refine ⟨sat P, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    all_goals try simp only [sat]
+    · exact Offset.disjoint_of_le (by simp <;> omega) (by simp <;> omega)
+    · exact Offset.disjoint_of_le (by simp <;> omega) (by simp <;> omega)
+    · exact Offset.disjoint_of_le (by simp <;> omega) (by simp <;> omega)
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
+    · exact (Offset.disjoint_of_le (by simp <;> omega) (by simp)).symm
 
 end
 

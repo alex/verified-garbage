@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbage.Proof.Sha256.X86_64.ShaNi.Spec
 import VerifiedGarbage.Impl.Sha256.X86_64.ShaNi
 import VerifiedGarbage.Proof.Sha256.X86_64.Compress
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # SHA-256 compression function on x86-64 with the SHA extensions
@@ -50,10 +51,14 @@ theorem rounds4_ok (n : Nat) (s : State) (v : HashValue) (q : BitVec 128)
   simp only [List.nodup_cons, List.mem_cons, List.not_mem_nil, or_false, not_or,
     List.nodup_nil, and_true] at hd
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
-    isa, State.setXmm, State.setReg, ite_true, ite_false, hd, h1, h2, hq, movq_const,
+    isa, RegUpd.xmm_setXmm_self, RegUpd.xmm_setXmm_of_ne, RegUpd.gpr_setXmm, RegUpd.mem_setXmm,
+    RegUpd.rd_setXmm, RegUpd.wr_setXmm, RegUpd.gpr_setReg_self,
+    RegUpd.xmm_setReg, RegUpd.mem_setReg,
+    RegUpd.rd_setReg, RegUpd.wr_setReg, not_false_eq_true, reduceCtorEq, hd, h1, h2, hq, movq_const,
     Option.some.injEq, exists_eq_left']
-  refine ⟨trivial, trivial, fun r h0 h1 h2 h11 => by simp [h0, h1, h2, h11], fun r hr => by simp [hr],
-    trivial⟩
+  refine ⟨trivial, trivial, fun r h0 h1 h2 h11 => ?_, fun r hr => ?_, trivial⟩
+  · simp only [RegUpd.xmm_setXmm_of_ne, RegUpd.xmm_setReg, h0, h1, h2, h11, not_false_eq_true]
+  · simp only [RegUpd.gpr_setXmm, RegUpd.gpr_setReg_of_ne, hr, not_false_eq_true]
 
 theorem schedule_hi (n : Nat) (hn : 4 ≤ n) (s : State) (a b c d : BitVec 128)
     (ha : s.xmm (msg n) = a) (hb : s.xmm (msg (n + 1)) = b) (hc : s.xmm (msg (n + 2)) = c)
@@ -74,9 +79,12 @@ theorem schedule_hi (n : Nat) (hn : 4 ≤ n) (s : State) (a b c d : BitVec 128)
     List.nodup_nil, and_true, List.reverse_cons, List.reverse_nil, List.nil_append,
     List.cons_append] at hd hd''
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
-    isa, State.setXmm, ite_true, ite_false, hd, hd'', ha, hb, hc, hd', eval_movdqa, eval_sha256msg2,
+    isa, RegUpd.xmm_setXmm_self, RegUpd.xmm_setXmm_of_ne, RegUpd.gpr_setXmm, RegUpd.mem_setXmm,
+    RegUpd.rd_setXmm, RegUpd.wr_setXmm, not_false_eq_true, hd, hd'', ha, hb, hc, hd',
+    eval_movdqa, eval_sha256msg2,
     Option.some.injEq, exists_eq_left']
-  exact ⟨trivial, fun r h0 h7 => by simp [h0, h7], trivial⟩
+  exact ⟨trivial, fun r h0 h7 => by
+    simp only [RegUpd.xmm_setXmm_of_ne, h0, h7, not_false_eq_true], trivial⟩
 
 theorem schedule_lo (n : Nat) (hn : n < 4) (s : State)
     (hin : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofInt 64 ((16 * n : Nat) : Int)) 16) :
@@ -94,9 +102,11 @@ theorem schedule_lo (n : Nat) (hn : n < 4) (s : State)
     List.nodup_nil, and_true, List.reverse_cons, List.reverse_nil, List.nil_append,
     List.cons_append] at hd hd''
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
-    isa, State.setXmm, State.load128, ea_at, hin, ite_true, ite_false, hd'',
+    isa, RegUpd.xmm_setXmm_self, RegUpd.xmm_setXmm_of_ne, RegUpd.gpr_setXmm, RegUpd.mem_setXmm,
+    RegUpd.rd_setXmm, RegUpd.wr_setXmm, not_false_eq_true, State.load128, ea_at, hin,
+    ite_true, hd'',
     Option.map_some, Option.some.injEq, exists_eq_left']
-  exact ⟨trivial, fun r h0 => by simp [h0], trivial⟩
+  exact ⟨trivial, fun r h0 => by simp only [RegUpd.xmm_setXmm_of_ne, h0, not_false_eq_true], trivial⟩
 
 /-- `msg k` for the three registers other than `msg n` that hold schedule words. -/
 theorem msg_ne (n k : Nat) (h₁ : k < n) (h₂ : n ≤ k + 3) : msg k ≠ msg n := by
@@ -173,7 +183,7 @@ theorem load_quad (M : Block) (m : Mem) (bp : Addr) {n : Nat} (hn : n < 4)
     rw [dword_readW _ _ hj, ← hblk (4 * n + j) (by omega)]
     refine congrArg (fun a => bswap32 (m.readW a 32)) ?_
     simp only [ofInt_natCast']
-    bv_omega
+    exact Offset.add_add_eq _ (by omega)
   rw [e 0 (by omega), e 1 (by omega), e 2 (by omega), e 3 (by omega)]
   rfl
 
@@ -247,7 +257,7 @@ theorem stateAt_hi (m : Mem) (p : Addr) {j : Nat} (hj : j < 4) :
   simp only [stateAt, Vector.getElem_ofFn]
   refine congrArg (fun a => m.readW a 32) ?_
   simp only [ofInt_natCast']
-  bv_omega
+  exact Offset.add_add_eq _ (by omega)
 
 /-- The hash value, loaded as `ABEF` and `CDGH`. -/
 theorem load_ok (s : State)
@@ -283,12 +293,13 @@ theorem stateAt_store (m : Mem) (p : Addr) (x y : BitVec 128) :
   intro j hj
   simp only [stateAt, Vector.getElem_ofFn, ofInt_natCast']
   by_cases hlo : j < 4
-  · rw [Mem.readW_writeW_sep (fun a h₁ h₂ => by bv_omega) (by decide),
-      show p + BitVec.ofNat 64 (4 * j) = p + BitVec.ofNat 64 0 + BitVec.ofNat 64 (4 * j) by bv_omega,
+  · rw [Mem.readW_writeW_sep (Offset.sep p (by omega) (by omega) (by omega)) (by decide),
+      show p + BitVec.ofNat 64 (4 * j) = p + BitVec.ofNat 64 0 + BitVec.ofNat 64 (4 * j) from
+        (Offset.add_add_eq _ (by omega)).symm,
       readW_writeW128 _ _ _ hlo]
     rcases (by omega : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3) with rfl | rfl | rfl | rfl <;> rfl
-  · rw [show p + BitVec.ofNat 64 (4 * j) = p + BitVec.ofNat 64 16 + BitVec.ofNat 64 (4 * (j - 4)) by
-        bv_omega, readW_writeW128 _ _ _ (by omega)]
+  · rw [show p + BitVec.ofNat 64 (4 * j) = p + BitVec.ofNat 64 16 + BitVec.ofNat 64 (4 * (j - 4)) from
+        (Offset.add_add_eq _ (by omega)).symm, readW_writeW128 _ _ _ (by omega)]
     rcases (by omega : j = 4 ∨ j = 5 ∨ j = 6 ∨ j = 7) with rfl | rfl | rfl | rfl <;> rfl
 
 /-- `ABEF` and `CDGH`, stored back as the hash value. -/
@@ -323,7 +334,7 @@ theorem Pre.in_blk16 {s₀ : State} (hp : Pre s₀) {i n : Nat} (hi : i < nb s�
   have := hp.nb_lt
   refine ⟨blR s₀, by simp [hp.rd], ?_⟩
   rw [ofInt_natCast', show blkAddr s₀ i + BitVec.ofNat 64 (16 * n) =
-    bp s₀ + BitVec.ofNat 64 (64 * i + 16 * n) by simp only [blkAddr]; bv_omega]
+    bp s₀ + BitVec.ofNat 64 (64 * i + 16 * n) from Offset.add_add _ _ _]
   exact contains_offset (by omega) (by omega)
 
 /-- What holds between blocks, after `i` of them. -/
@@ -390,8 +401,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
   have g₂ : ∀ r, r ≠ .rax → s₂.gpr r = s.gpr r := fun r hr => by rw [hR.gpr r hr, hg₁]
   have hrdx : s₂.gpr .rdx - 1 = BitVec.ofNat 64 (nb s₀ - (i + 1)) := by
     rw [g₂ .rdx (by decide), hL.rdx]
-    have := (s₀.gpr .rdx).isLt
-    bv_omega
+    rw [show (1 : BitVec 64) = BitVec.ofNat 64 1 from rfl, Offset.ofNat_sub_ofNat (by omega), Nat.sub_sub]
   have hcommon : Common s₀ (i + 1) s₃ :=
     ⟨f1, f2, fun r ha hs hd => by rw [fg r hs hd, g₂ r ha, hL.gpr r ha hs hd],
       by rw [fm, hR.mem, hmem₁], by rw [frd, hR.rd, hrd₁, hL.rd], by rw [fwr, hR.wr, hwr₁, hL.wr]⟩
@@ -414,8 +424,8 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
       simpa using h0
     · rw [f8, hR.keep .xmm8 (by simp), hx₁ _ (by decide) (by decide), hL.x8]
     · rw [frsi, g₂ .rsi (by decide), hL.rsi]
-      simp only [blkAddr]
-      bv_omega
+      exact (Offset.add_add _ _ 64).trans
+        (congrArg (bp s₀ + ·) (congrArg (BitVec.ofNat 64) (by omega)))
     · rw [frdx, hrdx]
 
 /-! ## The whole function -/

@@ -25,6 +25,6 @@ def artifacts : List Artifact := [
     code := Impl.Gcm.X86.ghash
     contract := Spec.Gcm.ghashContract X86.abi
     verified := Proof.Gcm.X86.ghash_verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Gcm.X86

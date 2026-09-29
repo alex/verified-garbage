@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.Proof.ChaCha20.Arm.Xor
 import VerifiedGarbage.Impl.ChaCha20.Arm.Xor
+import VerifiedGarbage.Proof.ChaCha20.Arm.Lit
 
 /-!
 # The ChaCha20 block function (RFC 8439) on ARMv7

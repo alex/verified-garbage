@@ -2,15 +2,18 @@ import VerifiedGarbage.Proof.Poly1305.X86.Run
 import VerifiedGarbage.Spec.Poly1305
 import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.Framework.X86.Taint
-import Mathlib.Tactic.NormNum.Basic
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
+import VerifiedGarbage.Proof.Framework.PowLit
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # Poly1305 on x86 (32-bit): `blocks`
 
 Untrusted: everything here is checked by Lean.
 -/
+
+open VG.PowLit
 
 namespace VG.Proof.Poly1305
 
@@ -323,7 +326,7 @@ theorem blk_contains {bp : BitVec 32} {n i d : Nat} (hfit : bp.toNat + 16 * n �
   rw [blk_addr hfit hi hd]
   simp only [Region.Contains]
   rw [show bp.setWidth 64 + BitVec.ofNat 64 (16 * i + d) - bp.setWidth 64 = BitVec.ofNat 64 (16 * i + d) by
-    bv_omega, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+    bv_omega_using [], BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   omega
 
 theorem blk_sub {bp : BitVec 32} {n i d : Nat} (hfit : bp.toNat + 16 * n ≤ 2 ^ 32) (hi : i < n)
@@ -334,7 +337,7 @@ theorem blk_sub {bp : BitVec 32} {n i d : Nat} (hfit : bp.toNat + 16 * n ≤ 2 ^
   have : (a - bp.setWidth 64).toNat ≤ (a - addr (bp + BitVec.ofNat 32 (16 * i)) d).toNat +
       (addr (bp + BitVec.ofNat 32 (16 * i)) d - bp.setWidth 64).toNat := by
     rw [show a - bp.setWidth 64 = (a - addr (bp + BitVec.ofNat 32 (16 * i)) d) +
-      (addr (bp + BitVec.ofNat 32 (16 * i)) d - bp.setWidth 64) by bv_omega, BitVec.toNat_add]
+      (addr (bp + BitVec.ofNat 32 (16 * i)) d - bp.setWidth 64) by bv_omega_using [], BitVec.toNat_add]
     exact Nat.mod_le _ _
   omega
 
@@ -364,7 +367,7 @@ theorem block_value {m : Mem} (hf : Frame [sR (stp s₀)] s₀.mem m) {i : Nat} 
   rw [Poly1305.leNum_append, Poly1305.length_bytesAt, leNum_bytesAt_16, ← hw 0 (by omega),
     ← hw 1 (by omega), ← hw 2 (by omega), ← hw 3 (by omega)]
   simp only [blkv, Spec.Poly1305.leNum]
-  norm_num
+  rfl
 
 end BPre
 

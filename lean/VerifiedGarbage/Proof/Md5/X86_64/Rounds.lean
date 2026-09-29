@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Md5.Spec
 import VerifiedGarbage.Impl.Md5.X86_64
+import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
 
 /-!
 # MD5 compression function on x86-64: the 64 operations
@@ -68,7 +69,7 @@ theorem fn_ok (r : Nat) (hr : r < 4) (b c d : Reg) (hb : b ≠ T0) (hc : c ≠ T
   rcases (by omega : r = 0 ∨ r = 1 ∨ r = 2 ∨ r = 3) with rfl | rfl | rfl | rfl <;>
   simp (config := {decide := true}) only [fn, T0, runBlock_cons, runStep_some,
     runBlock_nil, exec, execAlu32, readSrc32,
-    isa, State.setReg32, State.setReg, arithFlags, State.setFlags, ite_true, ite_false, hb, hc, hd,
+    isa, State.setReg32, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, arithFlags, RegUpd.gpr_setFlags, RegUpd.mem_setFlags, RegUpd.rd_setFlags, RegUpd.wr_setFlags, ite_true, ite_false, hb, hc, hd,
     h₁, h₂, h₃, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq,
     Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left'] <;>
   refine ⟨?_, fun x hx => by simp [hx], trivial⟩
@@ -106,7 +107,7 @@ theorem tail_ok (a b : Reg) (k : Nat) (T : Word) (n : Nat) (hn₁ : 1 ≤ n) (hn
   apply WP.of_runBlock
   simp (config := {decide := true}) only [tailI, T0, runBlock_cons, runStep_some,
     runBlock_nil, exec, execAlu32, execShift32, readSrc32, State.ea, State.load32, at_,
-    isa, State.setReg32, State.setReg, arithFlags, State.setFlags, ite_true, ite_false, hsi', hba,
+    isa, State.setReg32, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, arithFlags, RegUpd.gpr_setFlags, RegUpd.mem_setFlags, RegUpd.rd_setFlags, RegUpd.wr_setFlags, ite_true, ite_false, hsi', hba,
     hn₁, hn₂, and_self, h₁, h₂, h₃, hrsi, hin, hx, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq,
     Option.bind_some, Option.some.injEq, exists_eq_left']
   exact ⟨trivial, fun r hr => by simp [hr], trivial⟩

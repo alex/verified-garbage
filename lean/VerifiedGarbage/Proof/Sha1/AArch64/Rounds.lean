@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.Framework.AArch64.Exec
 import VerifiedGarbage.Proof.Sha1.Spec
 import VerifiedGarbage.Impl.Sha1.AArch64
 import Mathlib.Tactic.SplitIfs
+import VerifiedGarbage.Proof.Framework.AArch64.RegUpd
 
 /-!
 # SHA-1 compression function on AArch64: the message schedule and the rounds
@@ -81,7 +82,7 @@ theorem fcode_ok (g : Fn) (b c d : Reg) (s : State) (x y z : Word)
   apply WP.of_runBlock
   cases g <;>
   simp (config := {decide := true}) only [fcode, T1, T2, runBlock_cons, runStep_some,
-    runBlock_nil, exec_logic, isa, State.read, State.write, Size.bits,
+    runBlock_nil, exec_logic, isa, State.read, RegUpd.gpr_write, RegUpd.mem_write, RegUpd.rd_write, RegUpd.wr_write, Size.bits,
     ite_true, ite_false, b1, c1, d1, hb, hc, hd,
     BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq, Option.some.injEq, exists_eq_left'] <;>
   refine ⟨rfl, fun r h1 h2 => by simp [h1, h2], ?_⟩ <;> trivial
@@ -101,7 +102,7 @@ theorem sum_ok (t : Nat) (a b e : Reg) (s : State) (x y z fv w : Word)
   simp only [T0, T1, T2] at e2 b1 b2 hf hw ⊢
   apply WP.of_runBlock
   simp (config := {decide := true}) only [sum, T0, T1, T2, runBlock_cons, runStep_some,
-    runBlock_nil, exec, isa, State.read, State.write, Size.bits,
+    runBlock_nil, exec, isa, State.read, RegUpd.gpr_write, RegUpd.mem_write, RegUpd.rd_write, RegUpd.wr_write, Size.bits,
     ite_true, ite_false, e2, b1, b2, hbe, heb, ha, hb, he, hf, hw, movz_movk',
     BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq, Option.some.injEq, exists_eq_left']
   exact ⟨trivial, trivial, fun r h1 h2 h3 h4 => by simp [h1, h2, h3, h4], trivial⟩
@@ -179,7 +180,7 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
     simp only [Impl.Sha1.AArch64.schedule, ht, ite_true, T0, T1, T2]
     simp (config := {decide := true}) only [runBlock_cons, runStep_some,
       runBlock_nil, exec_ldr_w ho, exec_str_w (slot_ok _),
-      exec_rev32, isa, State.read, State.write, Size.bits, hx1, hx3, hi, hout, ite_true,
+      exec_rev32, isa, State.read, RegUpd.gpr_write, RegUpd.mem_write, RegUpd.rd_write, RegUpd.wr_write, Size.bits, hx1, hx3, hi, hout, ite_true,
       ite_false, BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq, hb,
       Option.some.injEq, exists_eq_left']
     refine ⟨trivial, trivial, trivial, trivial, fun r h0 _ _ => ?_⟩
@@ -197,7 +198,7 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : Addr)
     simp (config := {decide := true}) only [runBlock_cons, runStep_some,
       runBlock_nil, exec_ldr_w (slot_ok _),
       exec_str_w (slot_ok _), exec_logic, exec_ror_w, isa, State.read,
-      State.write, Size.bits, hx3, hin, hout, ite_true, ite_false, BitVec.setWidth_setWidth_of_le,
+      RegUpd.gpr_write, RegUpd.mem_write, RegUpd.rd_write, RegUpd.wr_write, Size.bits, hx3, hin, hout, ite_true, ite_false, BitVec.setWidth_setWidth_of_le,
       BitVec.setWidth_eq, e3, e8, e14, e16, Option.some.injEq, exists_eq_left']
     have hW := W_ge M (t := t) (by omega)
     rw [rotl1] at hW

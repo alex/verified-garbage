@@ -1,8 +1,9 @@
 import VerifiedGarbage.Proof.Framework.X86.Taint
 import VerifiedGarbage.Proof.Sha512.X86.Compress
-import VerifiedGarbage.Proof.Sha512.X86.Contract
 import VerifiedGarbage.Proof.Sha512.Stream
 import VerifiedGarbage.Impl.Sha512.X86.Stream
+import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Sha512.X86.Lit
 
 /-!
 # Streaming SHA-512 on x86 (32-bit): `init`
@@ -107,9 +108,7 @@ theorem initSat_pre (iv : HashValue) : (Proof.Sha512.initX86 iv).pre initSat := 
   have e : argAddr initSat 0 = 0x4004 := by decide
   simp only [Proof.Sha512.initX86, a0, e]
   refine ⟨rfl, rfl, ?_, ?_, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, initSat] at h₁ h₂
-    bv_omega
+  exact Region.disjoint_of_sep (by decide)
 
 /-- The initial taint: the argument is public, and the word holding `state`
 is the base address of the writable region. -/
