@@ -13,10 +13,15 @@ rerun this script instead. Each docs/algorithms/<name>.toml is a row:
            it runs
   optimized  (optional) further Optimized entries that the code can't show,
            e.g. "ARM64 (NEON)" for tuning that needs no CPU feature
+  functions  (optional) generated functions that must all be in the `asm`
+           modules of an architecture for it to be supported, for an
+           algorithm that shares its modules with others (e.g. HMAC-SHA-1
+           and HMAC-SHA-256)
 
 * Spec landed: every spec exists.
 * Supported: the architectures in the `target_arch`s of every module's
-  inner `#![cfg(...)]` (so every module must exist and have one).
+  inner `#![cfg(...)]` (so every module must exist and have one), and
+  whose `asm` modules have all the `functions`.
 * Optimized: the architectures where an `asm` module has functions that
   need CPU features (a generated `_FEATURES` constant), with the features,
   and then `optimized`.
@@ -76,7 +81,17 @@ def supported(row, errors):
             errors.append(f"{module}: no inner #![cfg(...)] naming its architectures")
             return set()
         names &= set(ARCH.findall(cfg[1]))
-    return names
+    return {a for a in names if has_functions(row, a)}
+
+
+def has_functions(row, arch):
+    """Whether the `asm` modules on `arch` define all the row's `functions`."""
+    text = ""
+    for asm in row["asm"]:
+        path = ROOT / "src" / "asm" / arch / f"{asm}.rs"
+        if path.is_file():
+            text += path.read_text()
+    return all(re.search(rf"\bfn {f}\(", text) for f in row.get("functions", []))
 
 
 def optimized(row, names):

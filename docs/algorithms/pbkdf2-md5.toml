@@ -1,0 +1,6 @@
+name = "PBKDF2-HMAC-MD5"
+family = "KDFs"
+specs = ["Pbkdf2/Generic", "Md5"]
+modules = ["src/pbkdf2.rs", "src/hashes/md5.rs"]
+asm = ["pbkdf2", "hmac", "md5"]
+functions = ["vg_pbkdf2_hmac_md5_iterate", "vg_hmac_md5_init", "vg_hmac_md5_finalize"]

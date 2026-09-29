@@ -11,6 +11,12 @@
 //! (`VG.Spec.Hmac.hmacBlockKey`), keeping the two SHA-256 streaming states.
 //! (`vg_sha256_update` is whichever implementation `Sha256` would use on
 //! this CPU, e.g. `vg_sha256_update_shani`, with the same contract.)
+//! On x86-64, SHA-1, MD5, SHA-384, SHA-512, SHA-512/224 and SHA-512/256 are
+//! also HMAC hash functions: `vg_hmac_<hash>_init` and
+//! `vg_hmac_<hash>_finalize` (contracts `VG.Spec.Hmac.Instance.initContract`
+//! and `finalizeContract` of that hash's `Instance`, e.g.
+//! `VG.Spec.Hmac.sha384I`) call that hash's verified streaming functions,
+//! and the text is absorbed by its `update` (`StreamingHmacState`).
 //! The only unverified step is step 2 of FIPS 198-1 §4: a key longer than a
 //! block is first hashed, with the verified hash function.
 
@@ -28,9 +34,20 @@ use crate::asm::arm::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 #[cfg(target_arch = "x86")]
 use crate::asm::x86::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 #[cfg(target_arch = "x86_64")]
-use crate::asm::x86_64::hmac::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
+use crate::asm::x86_64::hmac::{
+    vg_hmac_md5_finalize, vg_hmac_md5_init, vg_hmac_sha1_finalize, vg_hmac_sha1_init,
+    vg_hmac_sha256_finalize, vg_hmac_sha256_init, vg_hmac_sha384_finalize, vg_hmac_sha384_init,
+    vg_hmac_sha512_224_finalize, vg_hmac_sha512_224_init, vg_hmac_sha512_256_finalize,
+    vg_hmac_sha512_256_init, vg_hmac_sha512_finalize, vg_hmac_sha512_init,
+};
 use crate::hashes::HashFunction;
 use crate::hashes::sha256::{Sha256, Sha256Backend};
+#[cfg(target_arch = "x86_64")]
+use crate::hashes::{
+    md5::Md5,
+    sha1::Sha1,
+    sha512::{Sha384, Sha512, Sha512_224, Sha512_256},
+};
 
 mod sealed {
     pub trait Sealed {}
@@ -101,6 +118,12 @@ impl<H: HmacHash> Hmac<H> {
         let mut h = Self::new(key);
         h.update(data);
         h.finalize()
+    }
+
+    /// The state of the computation.
+    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+    pub(crate) fn state(&self) -> &H::State {
+        &self.state
     }
 }
 
@@ -227,4 +250,78 @@ impl HmacHash for Sha256 {
         };
         mac
     }
+}
+
+/// An HMAC computation with a hash function over verified streaming
+/// primitives: the computation of the inner hash, whose message is
+/// `(K₀ ⊕ ipad) ‖ text`, and the streaming state of the outer one, which
+/// represents `K₀ ⊕ opad`.
+#[cfg(target_arch = "x86_64")]
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct StreamingHmacState<H, const S: usize> {
+    pub(crate) inner: H,
+    pub(crate) outer: [u8; S],
+}
+
+/// Makes each hash function an [`HmacHash`] with its verified
+/// `vg_hmac_<hash>_init` and `vg_hmac_<hash>_finalize`, given its streaming
+/// state size, its working space (in 64-bit words) and its digest size.
+#[cfg(target_arch = "x86_64")]
+macro_rules! streaming_hmac {
+    ($($hash:ident: ($init:path, $finalize:path), state: $state:literal, scratch: $scratch:literal, output: $output:literal;)*) => {$(
+        impl sealed::Sealed for $hash {}
+
+        impl HmacHash for $hash {
+            type State = StreamingHmacState<$hash, $state>;
+
+            fn hmac_init(key: &[u8], mask: u32) -> Self::State {
+                assert!(key.len() <= Self::BLOCK_SIZE);
+                let mut inner = [0; $state];
+                let mut outer = [0; $state];
+                let mut scratch = [0u64; $scratch];
+                // SAFETY: `key.len()` is at most a block; `inner` and `outer`
+                // are valid for reads and writes of a streaming state, `key`
+                // for reads of `key.len()` bytes and `scratch` for reads and
+                // writes of its size; they are distinct objects, so they do
+                // not overlap each other or the call's stack frame.
+                unsafe { $init(&mut inner, &mut outer, key.as_ptr(), key.len(), &mut scratch) };
+                // `inner` now represents `K₀ ⊕ ipad`, of a block.
+                StreamingHmacState {
+                    inner: $hash::from_state(inner, Self::BLOCK_SIZE as u64, mask),
+                    outer,
+                }
+            }
+
+            fn hmac_update(state: &mut Self::State, data: &[u8]) {
+                state.inner.update(data);
+            }
+
+            fn hmac_finalize(state: Self::State) -> [u8; $output] {
+                let (mut inner, count) = state.inner.state();
+                let mut mac = [0; $output];
+                let mut scratch = [0u64; $scratch];
+                // SAFETY: `inner` is valid for reads and writes of a streaming
+                // state, `state.outer` for reads of one, `mac` for writes of
+                // a digest and `scratch` for reads and writes of its size;
+                // they are distinct objects, so they do not overlap each
+                // other or the call's stack frame. `inner` represents
+                // `(K₀ ⊕ ipad) ‖ text`, of `count` bytes (which the hash's
+                // `update` keeps below 2⁶⁴, so the text is shorter than
+                // 2⁶⁴ − B bytes), and `state.outer` represents `K₀ ⊕ opad`.
+                unsafe { $finalize(&mut inner, &state.outer, count, &mut mac, &mut scratch) };
+                mac
+            }
+        }
+    )*};
+}
+
+#[cfg(target_arch = "x86_64")]
+streaming_hmac! {
+    Sha1: (vg_hmac_sha1_init, vg_hmac_sha1_finalize), state: 84, scratch: 56, output: 20;
+    Md5: (vg_hmac_md5_init, vg_hmac_md5_finalize), state: 80, scratch: 48, output: 16;
+    Sha384: (vg_hmac_sha384_init, vg_hmac_sha384_finalize), state: 192, scratch: 96, output: 48;
+    Sha512: (vg_hmac_sha512_init, vg_hmac_sha512_finalize), state: 192, scratch: 96, output: 64;
+    Sha512_224: (vg_hmac_sha512_224_init, vg_hmac_sha512_224_finalize), state: 192, scratch: 96, output: 28;
+    Sha512_256: (vg_hmac_sha512_256_init, vg_hmac_sha512_256_finalize), state: 192, scratch: 96, output: 32;
 }

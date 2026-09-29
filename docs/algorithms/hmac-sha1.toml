@@ -1,0 +1,6 @@
+name = "HMAC-SHA-1"
+family = "MACs"
+specs = ["Hmac/Generic", "Sha1"]
+modules = ["src/hmac.rs", "src/hashes/sha1.rs"]
+asm = ["hmac", "sha1"]
+functions = ["vg_hmac_sha1_init", "vg_hmac_sha1_finalize"]

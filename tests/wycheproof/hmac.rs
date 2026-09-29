@@ -62,3 +62,42 @@ fn hmac_sha256() {
     require_vectors!();
     check::<Sha256>("hmac_sha256_test.json");
 }
+
+#[cfg(target_arch = "x86_64")]
+mod streaming {
+    use verified_garbage::hashes::sha1::Sha1;
+    use verified_garbage::hashes::sha512::{Sha384, Sha512, Sha512_224, Sha512_256};
+
+    use super::check;
+    use crate::require_vectors;
+
+    #[test]
+    fn hmac_sha1() {
+        require_vectors!();
+        check::<Sha1>("hmac_sha1_test.json");
+    }
+
+    #[test]
+    fn hmac_sha384() {
+        require_vectors!();
+        check::<Sha384>("hmac_sha384_test.json");
+    }
+
+    #[test]
+    fn hmac_sha512() {
+        require_vectors!();
+        check::<Sha512>("hmac_sha512_test.json");
+    }
+
+    #[test]
+    fn hmac_sha512_224() {
+        require_vectors!();
+        check::<Sha512_224>("hmac_sha512_224_test.json");
+    }
+
+    #[test]
+    fn hmac_sha512_256() {
+        require_vectors!();
+        check::<Sha512_256>("hmac_sha512_256_test.json");
+    }
+}

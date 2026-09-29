@@ -31,36 +31,42 @@ def artifacts : List Artifact := [
     doc := Spec.Hmac.sha1I.iterateApi.doc overlap
     code := Impl.Pbkdf2.Generic.X86_64.iterate sha1H
     contract := Spec.Hmac.sha1I.iterateContract X86_64.abi 16
+    stack := 16
     verified := Proof.Pbkdf2.Generic.X86_64.Shared.sha1 },
   { Spec.Hmac.md5I.iterateApi with
     target := X86_64.target
     doc := Spec.Hmac.md5I.iterateApi.doc overlap
     code := Impl.Pbkdf2.Generic.X86_64.iterate md5H
     contract := Spec.Hmac.md5I.iterateContract X86_64.abi 16
+    stack := 16
     verified := Proof.Pbkdf2.Generic.X86_64.Shared.md5 },
   { Spec.Hmac.sha384I.iterateApi with
     target := X86_64.target
     doc := Spec.Hmac.sha384I.iterateApi.doc overlap
     code := Impl.Pbkdf2.Generic.X86_64.iterate sha384H
     contract := Spec.Hmac.sha384I.iterateContract X86_64.abi 16
+    stack := 16
     verified := Proof.Pbkdf2.Generic.X86_64.Shared.sha384 },
   { Spec.Hmac.sha512I.iterateApi with
     target := X86_64.target
     doc := Spec.Hmac.sha512I.iterateApi.doc overlap
     code := Impl.Pbkdf2.Generic.X86_64.iterate sha512H'
     contract := Spec.Hmac.sha512I.iterateContract X86_64.abi 16
+    stack := 16
     verified := Proof.Pbkdf2.Generic.X86_64.Shared.sha512 },
   { Spec.Hmac.sha512_224I.iterateApi with
     target := X86_64.target
     doc := Spec.Hmac.sha512_224I.iterateApi.doc overlap
     code := Impl.Pbkdf2.Generic.X86_64.iterate sha512_224H
     contract := Spec.Hmac.sha512_224I.iterateContract X86_64.abi 16
+    stack := 16
     verified := Proof.Pbkdf2.Generic.X86_64.Shared.sha512_224 },
   { Spec.Hmac.sha512_256I.iterateApi with
     target := X86_64.target
     doc := Spec.Hmac.sha512_256I.iterateApi.doc overlap
     code := Impl.Pbkdf2.Generic.X86_64.iterate sha512_256H
     contract := Spec.Hmac.sha512_256I.iterateContract X86_64.abi 16
+    stack := 16
     verified := Proof.Pbkdf2.Generic.X86_64.Shared.sha512_256 }]
 
 end VG.Artifacts.Pbkdf2.Generic.X86_64

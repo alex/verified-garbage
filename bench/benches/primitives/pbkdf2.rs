@@ -4,10 +4,11 @@ use criterion::Criterion;
 
 /// The library modules whose code these benchmarks run (see
 /// `ci/bench_arches.py`): this one and those it calls.
-pub const USES: &[&str] = &["pbkdf2", "hmac", "sha256"];
+pub const USES: &[&str] = &["pbkdf2", "hmac", "sha256", "sha1", "sha512"];
 
-/// PBKDF2-HMAC-SHA-256 of a 32-byte key (one block), with the sizes as the
-/// iteration counts.
+/// PBKDF2-HMAC-SHA-256 (and, on x86-64, PBKDF2 with HMAC-SHA-1 and
+/// HMAC-SHA-512) of a 32-byte password, deriving one block (a digest), with
+/// the sizes as the iteration counts.
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 pub fn bench(c: &mut Criterion) {
     use std::hint::black_box;
@@ -48,6 +49,51 @@ pub fn bench(c: &mut Criterion) {
         });
     }
     g.finish();
+
+    #[cfg(target_arch = "x86_64")]
+    {
+        use verified_garbage::hashes::sha1::Sha1;
+        use verified_garbage::hashes::sha512::Sha512;
+        use verified_garbage::pbkdf2::pbkdf2_hmac;
+
+        for (name, derive, md, len) in [
+            (
+                "pbkdf2-hmac-sha1",
+                pbkdf2_hmac::<Sha1> as fn(&[u8], &[u8], NonZeroU32, &mut [u8]),
+                MessageDigest::sha1(),
+                20,
+            ),
+            (
+                "pbkdf2-hmac-sha512",
+                pbkdf2_hmac::<Sha512>,
+                MessageDigest::sha512(),
+                64,
+            ),
+        ] {
+            let mut g = c.benchmark_group(name);
+            for iterations in SIZES {
+                g.throughput(Throughput::Elements(iterations as u64));
+                let mut out = vec![0u8; len];
+                let n = NonZeroU32::new(iterations as u32).unwrap();
+                g.bench_function(BenchmarkId::new(VG, iterations), |b| {
+                    b.iter(|| derive(black_box(&password), black_box(&salt), n, &mut out))
+                });
+                g.bench_function(BenchmarkId::new(OPENSSL, iterations), |b| {
+                    b.iter(|| {
+                        openssl::pkcs5::pbkdf2_hmac(
+                            black_box(&password),
+                            black_box(&salt),
+                            iterations,
+                            md,
+                            &mut out,
+                        )
+                        .unwrap()
+                    })
+                });
+            }
+            g.finish();
+        }
+    }
 }
 
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm")))]

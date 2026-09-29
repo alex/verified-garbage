@@ -30,6 +30,9 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 | Algorithm | Spec landed | Supported | Optimized |
 |---|---|---|---|
+| HMAC-MD5 | ✅ | x86-64 | ❌ |
+| HMAC-SHA-1 | ✅ | x86-64 | ❌ |
+| HMAC-SHA-384, HMAC-SHA-512, HMAC-SHA-512/224, HMAC-SHA-512/256 | ✅ | x86-64 | ❌ |
 | HMAC-SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
 | Poly1305 | ✅ | x86-64, ARM64 | ❌ |
 
@@ -50,6 +53,9 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 | Algorithm | Spec landed | Supported | Optimized |
 |---|---|---|---|
+| PBKDF2-HMAC-MD5 | ✅ | x86-64 | ❌ |
+| PBKDF2-HMAC-SHA-1 | ✅ | x86-64 | ❌ |
+| PBKDF2-HMAC-SHA-384, PBKDF2-HMAC-SHA-512, PBKDF2-HMAC-SHA-512/224, PBKDF2-HMAC-SHA-512/256 | ✅ | x86-64 | ❌ |
 | PBKDF2-HMAC-SHA-256 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 | scrypt | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 
