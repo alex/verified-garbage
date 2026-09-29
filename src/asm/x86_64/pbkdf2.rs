@@ -11,7 +11,8 @@
 /// * `key` must be valid for reads of 168 bytes, and `u` for reads of 20 bytes.
 /// * `t` must be valid for reads and writes of 20 bytes.
 /// * `scratch` must be valid for reads and writes of 448 bytes; its contents on return are unspecified.
-/// * `t` and `scratch` must not overlap each other, `key` or `u`, and none of the four regions may overlap the return address on the stack or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
+/// * None of `key`, `u`, `t` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha1_iterate(key: *const [u8; 168], u: *const [u8; 20], n: u32, t: *mut [u8; 20], scratch: *mut [u64; 56]) {
     core::arch::naked_asm!(
@@ -114,7 +115,8 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha1_iterate(key: *const [u8
 /// * `key` must be valid for reads of 160 bytes, and `u` for reads of 16 bytes.
 /// * `t` must be valid for reads and writes of 16 bytes.
 /// * `scratch` must be valid for reads and writes of 384 bytes; its contents on return are unspecified.
-/// * `t` and `scratch` must not overlap each other, `key` or `u`, and none of the four regions may overlap the return address on the stack or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
+/// * None of `key`, `u`, `t` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_md5_iterate(key: *const [u8; 160], u: *const [u8; 16], n: u32, t: *mut [u8; 16], scratch: *mut [u64; 48]) {
     core::arch::naked_asm!(
@@ -217,7 +219,8 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_md5_iterate(key: *const [u8;
 /// * `key` must be valid for reads of 384 bytes, and `u` for reads of 48 bytes.
 /// * `t` must be valid for reads and writes of 48 bytes.
 /// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
-/// * `t` and `scratch` must not overlap each other, `key` or `u`, and none of the four regions may overlap the return address on the stack or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
+/// * None of `key`, `u`, `t` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha384_iterate(key: *const [u8; 384], u: *const [u8; 48], n: u32, t: *mut [u8; 48], scratch: *mut [u64; 96]) {
     core::arch::naked_asm!(
@@ -320,7 +323,8 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha384_iterate(key: *const [
 /// * `key` must be valid for reads of 384 bytes, and `u` for reads of 64 bytes.
 /// * `t` must be valid for reads and writes of 64 bytes.
 /// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
-/// * `t` and `scratch` must not overlap each other, `key` or `u`, and none of the four regions may overlap the return address on the stack or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
+/// * None of `key`, `u`, `t` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha512_iterate(key: *const [u8; 384], u: *const [u8; 64], n: u32, t: *mut [u8; 64], scratch: *mut [u64; 96]) {
     core::arch::naked_asm!(
@@ -423,7 +427,8 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha512_iterate(key: *const [
 /// * `key` must be valid for reads of 384 bytes, and `u` for reads of 28 bytes.
 /// * `t` must be valid for reads and writes of 28 bytes.
 /// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
-/// * `t` and `scratch` must not overlap each other, `key` or `u`, and none of the four regions may overlap the return address on the stack or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
+/// * None of `key`, `u`, `t` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha512_224_iterate(key: *const [u8; 384], u: *const [u8; 28], n: u32, t: *mut [u8; 28], scratch: *mut [u64; 96]) {
     core::arch::naked_asm!(
@@ -526,7 +531,8 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha512_224_iterate(key: *con
 /// * `key` must be valid for reads of 384 bytes, and `u` for reads of 32 bytes.
 /// * `t` must be valid for reads and writes of 32 bytes.
 /// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
-/// * `t` and `scratch` must not overlap each other, `key` or `u`, and none of the four regions may overlap the return address on the stack or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `t` and `scratch` must not overlap each other, `key` or `u` (distinct Rust objects never do).
+/// * None of `key`, `u`, `t` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha512_256_iterate(key: *const [u8; 384], u: *const [u8; 32], n: u32, t: *mut [u8; 32], scratch: *mut [u64; 96]) {
     core::arch::naked_asm!(

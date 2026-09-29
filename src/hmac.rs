@@ -284,7 +284,8 @@ macro_rules! streaming_hmac {
                 // are valid for reads and writes of a streaming state, `key`
                 // for reads of `key.len()` bytes and `scratch` for reads and
                 // writes of its size; they are distinct objects, so they do
-                // not overlap each other or the call's stack frame.
+                // not overlap each other or the call's stack frame, nor wrap
+                // around the address space.
                 unsafe { $init(&mut inner, &mut outer, key.as_ptr(), key.len(), &mut scratch) };
                 // `inner` now represents `K₀ ⊕ ipad`, of a block.
                 StreamingHmacState {
@@ -305,10 +306,11 @@ macro_rules! streaming_hmac {
                 // state, `state.outer` for reads of one, `mac` for writes of
                 // a digest and `scratch` for reads and writes of its size;
                 // they are distinct objects, so they do not overlap each
-                // other or the call's stack frame. `inner` represents
-                // `(K₀ ⊕ ipad) ‖ text`, of `count` bytes (which the hash's
-                // `update` keeps below 2⁶⁴, so the text is shorter than
-                // 2⁶⁴ − B bytes), and `state.outer` represents `K₀ ⊕ opad`.
+                // other or the call's stack frame, nor wrap around the
+                // address space. `inner` represents `(K₀ ⊕ ipad) ‖ text`, of
+                // `count` bytes (which the hash's `update` keeps below 2⁶⁴,
+                // so the text is shorter than 2⁶⁴ − B bytes), and
+                // `state.outer` represents `K₀ ⊕ opad`.
                 unsafe { $finalize(&mut inner, &state.outer, count, &mut mac, &mut scratch) };
                 mac
             }

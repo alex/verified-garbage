@@ -12,7 +12,8 @@
 /// * `inner` and `outer` must each be valid for reads and writes of 84 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
 /// * `scratch` must be valid for reads and writes of 448 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `key` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_sha1_init(inner: *mut [u8; 84], outer: *mut [u8; 84], key: *const u8, key_len: usize, scratch: *mut [u64; 56]) {
     core::arch::naked_asm!(
@@ -96,7 +97,8 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha1_init(inner: *mut [u8; 84], out
 /// * `outer` must be valid for reads of 84 bytes.
 /// * `out` must be valid for writes of 20 bytes.
 /// * `scratch` must be valid for reads and writes of 448 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `inner`, `out` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `out` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_sha1_finalize(inner: *mut [u8; 84], outer: *const [u8; 84], count: u64, out: *mut [u8; 20], scratch: *mut [u64; 56]) {
     core::arch::naked_asm!(
@@ -164,7 +166,8 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha1_finalize(inner: *mut [u8; 84],
 /// * `inner` and `outer` must each be valid for reads and writes of 80 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
 /// * `scratch` must be valid for reads and writes of 384 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `key` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_md5_init(inner: *mut [u8; 80], outer: *mut [u8; 80], key: *const u8, key_len: usize, scratch: *mut [u64; 48]) {
     core::arch::naked_asm!(
@@ -248,7 +251,8 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_md5_init(inner: *mut [u8; 80], oute
 /// * `outer` must be valid for reads of 80 bytes.
 /// * `out` must be valid for writes of 16 bytes.
 /// * `scratch` must be valid for reads and writes of 384 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `inner`, `out` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `out` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_md5_finalize(inner: *mut [u8; 80], outer: *const [u8; 80], count: u64, out: *mut [u8; 16], scratch: *mut [u64; 48]) {
     core::arch::naked_asm!(
@@ -316,7 +320,8 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_md5_finalize(inner: *mut [u8; 80], 
 /// * `inner` and `outer` must each be valid for reads and writes of 192 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
 /// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `key` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_sha384_init(inner: *mut [u8; 192], outer: *mut [u8; 192], key: *const u8, key_len: usize, scratch: *mut [u64; 96]) {
     core::arch::naked_asm!(
@@ -400,7 +405,8 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha384_init(inner: *mut [u8; 192], 
 /// * `outer` must be valid for reads of 192 bytes.
 /// * `out` must be valid for writes of 48 bytes.
 /// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `inner`, `out` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `out` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_sha384_finalize(inner: *mut [u8; 192], outer: *const [u8; 192], count: u64, out: *mut [u8; 48], scratch: *mut [u64; 96]) {
     core::arch::naked_asm!(
@@ -468,7 +474,8 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha384_finalize(inner: *mut [u8; 19
 /// * `inner` and `outer` must each be valid for reads and writes of 192 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
 /// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `key` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_init(inner: *mut [u8; 192], outer: *mut [u8; 192], key: *const u8, key_len: usize, scratch: *mut [u64; 96]) {
     core::arch::naked_asm!(
@@ -552,7 +559,8 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_init(inner: *mut [u8; 192], 
 /// * `outer` must be valid for reads of 192 bytes.
 /// * `out` must be valid for writes of 64 bytes.
 /// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `inner`, `out` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `out` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_finalize(inner: *mut [u8; 192], outer: *const [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 96]) {
     core::arch::naked_asm!(
@@ -620,7 +628,8 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_finalize(inner: *mut [u8; 19
 /// * `inner` and `outer` must each be valid for reads and writes of 192 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
 /// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `key` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_224_init(inner: *mut [u8; 192], outer: *mut [u8; 192], key: *const u8, key_len: usize, scratch: *mut [u64; 96]) {
     core::arch::naked_asm!(
@@ -704,7 +713,8 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_224_init(inner: *mut [u8; 19
 /// * `outer` must be valid for reads of 192 bytes.
 /// * `out` must be valid for writes of 28 bytes.
 /// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `inner`, `out` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `out` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_224_finalize(inner: *mut [u8; 192], outer: *const [u8; 192], count: u64, out: *mut [u8; 28], scratch: *mut [u64; 96]) {
     core::arch::naked_asm!(
@@ -772,7 +782,8 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_224_finalize(inner: *mut [u8
 /// * `inner` and `outer` must each be valid for reads and writes of 192 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
 /// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `key` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_256_init(inner: *mut [u8; 192], outer: *mut [u8; 192], key: *const u8, key_len: usize, scratch: *mut [u64; 96]) {
     core::arch::naked_asm!(
@@ -856,7 +867,8 @@ pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_256_init(inner: *mut [u8; 19
 /// * `outer` must be valid for reads of 192 bytes.
 /// * `out` must be valid for writes of 32 bytes.
 /// * `scratch` must be valid for reads and writes of 768 bytes; its contents on return are unspecified.
-/// * These four regions must not overlap each other, the return address on the stack, or the 16 bytes of stack below it, where its calls, and theirs, store their return addresses (distinct Rust objects never do).
+/// * `inner`, `out` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `out` and `scratch` may overlap the return address on the stack or the 16 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_hmac_sha512_256_finalize(inner: *mut [u8; 192], outer: *const [u8; 192], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 96]) {
     core::arch::naked_asm!(

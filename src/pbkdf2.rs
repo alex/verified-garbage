@@ -63,7 +63,8 @@ impl Pbkdf2Hash for Sha256 {
         // and writes of 384 bytes; `t` and `scratch` are distinct objects
         // from each other and the others (`key` and `u` are only read), so
         // they do not overlap each other, the stack arguments (on ARMv7) or
-        // (on x86-64) the return address and the stack below it. `key` holds
+        // (on x86-64) the return address and the stack below it, nor wrap
+        // around the address space. `key` holds
         // the streaming states for `K₀ ⊕ ipad` and `K₀ ⊕ opad` that
         // `vg_hmac_sha256_init` left.
         unsafe { vg_pbkdf2_hmac_sha256_iterate(key, u, n, t, &mut scratch) };
@@ -95,7 +96,8 @@ macro_rules! streaming_pbkdf2 {
                 // and `scratch` for reads and writes of its size; `t` and
                 // `scratch` are distinct objects from each other and the
                 // others (`key` and `u` are only read), so none of them
-                // overlaps another written one or the call's stack frame.
+                // overlaps another written one or the call's stack frame,
+                // and, as Rust objects, none wraps around the address space.
                 // `key` holds the streaming states for `K₀ ⊕ ipad` and
                 // `K₀ ⊕ opad` that the hash's HMAC `init` left.
                 unsafe { $iterate(key, u, n, t, &mut scratch) };
