@@ -351,10 +351,11 @@ theorem rcs_ok {s₀ : State} (hp : Pre s₀) (s₁ : State) (hW : s₁.gpr .edi
     · rw [rd64_write64_ne _ _ (by omega) (by omega) (by omega)]
       exact hI.rcs j (by omega)
 
-theorem prologue_eq : prologue = [.mov .eax (.mem (at_ .esp 8)), .mov .ecx (.mem (at_ .esp 4)),
+theorem prologue_eq : prologue = ([.mov .eax (.mem (at_ .esp 8)), .mov .ecx (.mem (at_ .esp 4)),
     .store (at_ .eax 392) .esi, .store (at_ .eax 396) .edi, .store (at_ .eax 400) .ebp,
-    .mov .edi (.reg .eax), .mov .esi (.reg .ecx)] ++
-    ((List.range 24).flatMap rcStore ++ [.mov .ebp (.reg .edi), .alu .add .ebp (.imm 200)]) := rfl
+    .mov .edi (.reg .eax), .mov .esi (.reg .ecx)] : List Instr) ++
+    ((List.range 24).flatMap rcStore ++
+      ([.mov .ebp (.reg .edi), .alu .add .ebp (.imm 200)] : List Instr)) := rfl
 
 theorem arg_in {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 2) :
     InRegions (s₀.rd ++ s₀.wr) (addr (s₀.gpr .esp) (4 + 4 * i)) 4 := by
