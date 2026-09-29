@@ -46,6 +46,8 @@ def step (τ : T) : Instr → Option T
   | .movz _ d _ _ => some (set τ d true)
   | .movk _ d _ _ => some (set τ d (pub τ d))
   | .ldr _ t n _ | .ldrb t n _ => if pub τ n then some (set τ t false) else none
+  -- The stack pointer is public, and memory secret.
+  | .ldrSp t _ => some (set τ t false)
   | .str _ _ n _ | .strb _ n _ => if pub τ n then some τ else none
   | .vop _ => some τ
   | .ldrq _ n _ | .strq _ n _ => if pub τ n then some τ else none
@@ -190,6 +192,14 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     simp only [exec, Option.bind_eq_some_iff, Option.map_eq_some_iff] at e₁ e₂
     obtain ⟨a₁, -, v₁, -, rfl⟩ := e₁; obtain ⟨a₂, -, v₂, -, rfl⟩ := e₂
     exact ha.write .w t fun h => by cases h
+  | ldrSp t off =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    refine ⟨by simp [addrs, ha.1], ?_⟩
+    simp only [exec] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    rename_i h; simp only [h, and_self, ite_true, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨v₁, -, rfl⟩ := e₁; obtain ⟨v₂, -, rfl⟩ := e₂
+    exact ha.write .x t fun h => by cases h
   | strb t n off =>
     simp only [step] at hs
     split at hs <;> [skip; cases hs]
