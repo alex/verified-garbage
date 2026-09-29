@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Block
+import VerifiedGarbage.Proof.ChaCha20.AArch64.Xor
 import VerifiedGarbage.Spec.ChaCha20.Contract
 
 /-!
@@ -19,5 +20,12 @@ theorem block :
     contract_implies [Spec.ChaCha20.blockContract, Spec.ChaCha20.blockSig,
       Proof.ChaCha20.blockAArch64, AArch64.abi, AArch64.argRegs]
       [Proof.ChaCha20.AArch64.satState] using Proof.ChaCha20.AArch64.satState)
+
+theorem xor :
+    Verified AArch64.target Impl.ChaCha20.AArch64.Xor.xor (Spec.ChaCha20.xorContract AArch64.abi) :=
+  Proof.ChaCha20.AArch64.Xor.xor_verified.of_implies (by
+    contract_implies [Spec.ChaCha20.xorContract, Spec.ChaCha20.xorSig,
+      Proof.ChaCha20.xorAArch64, AArch64.abi, AArch64.argRegs]
+      [Proof.ChaCha20.AArch64.Xor.sat] using Proof.ChaCha20.AArch64.Xor.sat)
 
 end VG.Proof.ChaCha20.AArch64.Shared

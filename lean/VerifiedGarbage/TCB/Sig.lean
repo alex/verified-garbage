@@ -152,6 +152,13 @@ structure Abi (M : ISA) where
   /-- The register(s) an integer result is returned in, as 64 bits: a
   narrower result is in the low bits. -/
   ret : M.State → BitVec 64
+  /-- How documentation names `argArea ws`, for arguments of the widths
+  `ws`: `none` if it is empty on every state; otherwise its name and
+  whether it is writable (the flag `argArea` gives each of its regions). -/
+  argAreaDoc : List Nat → Option (String × Bool)
+  /-- How documentation names `reserved n`: `none` if it is empty on every
+  state. -/
+  reservedDoc : Nat → Option String
 
 /-- The `n` bytes below the stack pointer `sp`, if any. -/
 def stackBelow (sp : Addr) : Nat → List Region

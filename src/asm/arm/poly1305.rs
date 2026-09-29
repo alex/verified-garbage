@@ -10,7 +10,8 @@
 ///
 /// * `state` must be valid for writes of 128 bytes.
 /// * `key` must be valid for reads of 32 bytes.
-/// * These two regions must not overlap each other, and neither may wrap around the end of the address space (distinct Rust objects never do).
+/// * `state` must not overlap `key` (distinct Rust objects never do).
+/// * Neither `state` nor `key` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_poly1305_init(state: *mut [u64; 16], key: *const [u8; 32]) {
     core::arch::naked_asm!(
@@ -49,7 +50,8 @@ pub(crate) unsafe extern "C" fn vg_poly1305_init(state: *mut [u64; 16], key: *co
 ///
 /// * `state` must be valid for reads and writes of 128 bytes.
 /// * `blocks` must be valid for reads of `16 * n` bytes.
-/// * These two regions must not overlap each other, and neither may wrap around the end of the address space (distinct Rust objects never do).
+/// * `state` must not overlap `blocks` (distinct Rust objects never do).
+/// * Neither `state` nor `blocks` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_poly1305_blocks(state: *mut [u64; 16], blocks: *const [u8; 16], n: usize) {
     core::arch::naked_asm!(
@@ -695,7 +697,7 @@ pub(crate) unsafe extern "C" fn vg_poly1305_blocks(state: *mut [u64; 16], blocks
 
 /// Finishes a Poly1305 computation: if the streaming state `*state` represents a message under a key, writes the tag of that message followed by the `len` bytes at `tail`, under that key, to `*out`.
 ///
-/// Contract: `VG.Spec.Poly1305.finalizeContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
+/// Contract: `VG.Spec.Poly1305.finalizeTailContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
 ///
 /// # Safety
 ///
@@ -703,7 +705,8 @@ pub(crate) unsafe extern "C" fn vg_poly1305_blocks(state: *mut [u64; 16], blocks
 /// * `state` must be valid for reads and writes of 128 bytes; its contents on return are unspecified.
 /// * `tail` must be valid for reads of `len` bytes.
 /// * `out` must be valid for writes of 16 bytes.
-/// * These three regions must not overlap each other, and none of them may wrap around the end of the address space (distinct Rust objects never do).
+/// * `state` and `out` must not overlap each other or `tail` (distinct Rust objects never do).
+/// * None of `state`, `tail` and `out` may wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "C" fn vg_poly1305_finalize(state: *mut [u64; 16], tail: *const u8, len: usize, out: *mut [u8; 16]) {
     core::arch::naked_asm!(

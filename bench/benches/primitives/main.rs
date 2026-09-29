@@ -14,7 +14,9 @@ use std::hint::black_box;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use openssl::hash::{MessageDigest, hash};
 
+mod aes_gcm;
 mod chacha20;
+mod chacha20poly1305;
 mod hmac;
 mod md5;
 mod pbkdf2;
@@ -68,7 +70,9 @@ pub(crate) fn vg_group<const N: usize>(c: &mut Criterion, name: &str, vg: fn(&[u
 type Bench = (&'static [&'static str], fn(&mut Criterion));
 
 const BENCHES: &[Bench] = &[
+    (aes_gcm::USES, aes_gcm::bench),
     (chacha20::USES, chacha20::bench),
+    (chacha20poly1305::USES, chacha20poly1305::bench),
     (hmac::USES, hmac::bench),
     (md5::USES, md5::bench),
     (pbkdf2::USES, pbkdf2::bench),

@@ -59,6 +59,8 @@ def abi : Abi isa where
   rd s := s.rd
   wr s := s.wr
   ret s := s.gpr .x0
+  argAreaDoc _ := none
+  reservedDoc n := if n = 0 then none else some s!"the {n} bytes of stack below the stack pointer"
 
 abbrev target : Target where
   name := "aarch64"

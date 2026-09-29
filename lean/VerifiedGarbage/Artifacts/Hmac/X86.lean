@@ -1,0 +1,33 @@
+import VerifiedGarbage.TCB.X86.Target
+import VerifiedGarbage.Proof.Hmac.X86.Shared
+
+/-!
+# HMAC-SHA-256 (RFC 2104) on x86
+
+A registration file (see `TCB/Emit.lean`): the artifacts it lists are
+emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
+caller to the contract; check them against the contract's `pre`/`post`. An
+artifact made from a function's `Api` (in `Spec/`, reviewed with the
+contract) takes them from there, and this file adds only notes on the
+implementation. The emitter adds the `# Safety` items that depend on the
+target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
+against the contract.
+-/
+
+namespace VG.Artifacts.Hmac.X86
+
+def artifacts : List Artifact := [
+  { Spec.Hmac.initSha256Api with
+    target := X86.target
+    doc := Spec.Hmac.initSha256Api.doc
+    code := Impl.Hmac.X86.init
+    contract := Spec.Hmac.initSha256Contract X86.abi
+    verified := Proof.Hmac.X86.Shared.init },
+  { Spec.Hmac.finalizeSha256OutApi with
+    target := X86.target
+    doc := Spec.Hmac.finalizeSha256OutApi.doc
+    code := Impl.Hmac.X86.finalize
+    contract := Spec.Hmac.finalizeSha256OutContract X86.abi
+    verified := Proof.Hmac.X86.Shared.finalize }]
+
+end VG.Artifacts.Hmac.X86

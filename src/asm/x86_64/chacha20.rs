@@ -10,7 +10,8 @@
 ///
 /// * `state` must be valid for reads of 64 bytes.
 /// * `buf` must be valid for reads and writes of 256 bytes. On return its first 64 bytes hold the result and the rest is unspecified.
-/// * `buf` must not overlap `state`, nor the return address on the stack (distinct Rust objects never do).
+/// * `buf` must not overlap `state` (distinct Rust objects never do).
+/// * Neither `state` nor `buf` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_chacha20_block(state: *const [u32; 16], buf: *mut [u32; 64]) {
     core::arch::naked_asm!(
@@ -1181,5 +1182,64 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_block(state: *const [u32; 16], 
         "mov r14, QWORD PTR [rsi+176]",
         "mov r15, QWORD PTR [rsi+184]",
         "ret",
+    )
+}
+
+/// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`, calling `vg_chacha20_block` for each 64 bytes.
+///
+/// Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 64 bytes; its contents on return are unspecified.
+/// * `data` must be valid for reads and writes of `len` bytes.
+/// * `buf` must be valid for reads and writes of 320 bytes; its contents on return are unspecified.
+/// * `state`, `data` and `buf` must not overlap each other (distinct Rust objects never do).
+/// * None of `state`, `data` and `buf` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor(state: *mut [u32; 16], data: *mut u8, len: usize, buf: *mut [u32; 80]) {
+    core::arch::naked_asm!(
+        "mov QWORD PTR [rcx+256], rbx",
+        "mov QWORD PTR [rcx+264], rbp",
+        "mov QWORD PTR [rcx+272], r12",
+        "mov rbx, rdi",
+        "mov rbp, rsi",
+        "mov r12, rdx",
+        "mov rsi, rcx",
+        "test r12, r12",
+        "je 20f",
+        "22:",
+        "mov rdi, rbx",
+        "call {vg_chacha20_block}",
+        "mov rdx, r12",
+        "cmp r12, 64",
+        "jb 23f",
+        "mov edx, 64",
+        "jmp 24f",
+        "23:",
+        "24:",
+        "mov ecx, 0",
+        "25:",
+        "movzx eax, BYTE PTR [rbp+rcx*1]",
+        "movzx r8d, BYTE PTR [rsi+rcx*1]",
+        "xor rax, r8",
+        "mov BYTE PTR [rbp+rcx*1], al",
+        "add rcx, 1",
+        "cmp rcx, rdx",
+        "jne 25b",
+        "mov eax, DWORD PTR [rbx+48]",
+        "add eax, 1",
+        "mov DWORD PTR [rbx+48], eax",
+        "add rbp, rdx",
+        "sub r12, rdx",
+        "jne 22b",
+        "jmp 21f",
+        "20:",
+        "21:",
+        "mov rbx, QWORD PTR [rsi+256]",
+        "mov rbp, QWORD PTR [rsi+264]",
+        "mov r12, QWORD PTR [rsi+272]",
+        "ret",
+        vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
     )
 }

@@ -16,24 +16,46 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <!-- BEGIN ci/algorithms_table.py: edit docs/algorithms/, then run it -->
 
+### Hashes
+
 | Algorithm | Spec landed | Supported | Optimized |
 |---|---|---|---|
-| AES-GCM (128-, 192- and 256-bit keys) | ✅ | ❌ | ❌ |
-| ChaCha20 | ✅ | ✅ | ❌ |
-| ChaCha20-Poly1305 | ✅ | ❌ | ❌ |
-| HMAC-SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
 | MD5 | ✅ | x86-64, ARM64 | ❌ |
-| PBKDF2-HMAC-SHA-256 | ✅ | x86-64, ARM64 | ❌ |
-| Poly1305 | ✅ | x86-64, ARMv7 | ❌ |
-| scrypt | ✅ | x86-64, ARM64 | ❌ |
 | SHA-1 | ✅ | x86-64, ARM64 | ❌ |
 | SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
 | SHA3-224, SHA3-256, SHA3-384, SHA3-512, SHAKE128, SHAKE256 | ✅ | x86-64, ARM64 | ❌ |
 | SHA-384, SHA-512, SHA-512/224, SHA-512/256 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
 
+### MACs
+
+| Algorithm | Spec landed | Supported | Optimized |
+|---|---|---|---|
+| HMAC-SHA-256 | ✅ | ✅ | x86-64 (SHA extensions) |
+| Poly1305 | ✅ | x86-64, ARM64 | ❌ |
+
+### Ciphers
+
+| Algorithm | Spec landed | Supported | Optimized |
+|---|---|---|---|
+| ChaCha20 | ✅ | ✅ | ❌ |
+
+### AEADs
+
+| Algorithm | Spec landed | Supported | Optimized |
+|---|---|---|---|
+| AES-GCM (128-, 192- and 256-bit keys) | ✅ | x86-64, ARM64 | x86-64 (AES-NI, PCLMULQDQ), x86-64 (GHASH with `mul`) |
+| ChaCha20-Poly1305 | ✅ | x86-64 | ❌ |
+
+### KDFs
+
+| Algorithm | Spec landed | Supported | Optimized |
+|---|---|---|---|
+| PBKDF2-HMAC-SHA-256 | ✅ | x86-64, ARM64, ARMv7 | ❌ |
+| scrypt | ✅ | x86-64, ARM64, ARMv7 | ❌ |
+
 <!-- END ci/algorithms_table.py -->
 
-The table is generated from the code by `ci/algorithms_table.py`.
+The tables are generated from the code by `ci/algorithms_table.py`.
 
 * **Spec landed**: the algorithm's specification, transcribed from its
   standard, is in `lean/VerifiedGarbage/Spec/`.
@@ -72,7 +94,7 @@ WYCHEPROOF_ROOT=$PWD/wycheproof cargo test   # without it, the Wycheproof tests 
 cd lean
 lake exe cache get                   # prebuilt Mathlib
 lake build                           # check all proofs
-lake env lean --run Emit.lean        # regenerate src/asm/ after changing Artifacts.lean
+lake env lean --run Emit.lean        # regenerate src/asm/ after changing lean/VerifiedGarbage/Artifacts/
 ```
 
 To benchmark against OpenSSL (through rust-openssl; needs its headers), and
