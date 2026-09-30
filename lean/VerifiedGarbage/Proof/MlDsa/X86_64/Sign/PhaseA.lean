@@ -123,37 +123,63 @@ theorem Fam.of_eq {s s' : State} (hm : s'.mem = s.mem) (hb : s'.gpr .rbx = s.gpr
     {f : Nat → Poly} (h : Fam s b m f) : Fam s' b m f := fun j hj => by
   simp only [Pl, pa, hm, hb]; exact h j hj
 
-theorem sampleE_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : State} {e : Nat}
-    (he : eChk p e = true) {s : State} (h : IA p D σ e s) : WP isa (sampleE P p e) s (IA p D σ (e + 1)) := by
-  obtain ⟨c1, c2, c3, c0, w1, w2, k1, k2, k3, k12, f1, f2, f3, hc, hj, hi⟩ := eChk_spec he
+/-- The two bytes of the seed of entry `e`. -/
+abbrev blkE (p : Params) (e : Nat) : List Instr := setB (sc (oRS + 32)) (e % p.ℓ) ++ setB (sc (oRS + 33)) (e / p.ℓ)
+
+theorem blkE_ok {D : Nat} {p : Params} {σ : State} {e : Nat} (he : eChk p e = true) {s : State}
+    (h : IA p D σ e s) : WP isa (.block (blkE p e)) s fun s' =>
+      (IA p D σ e s' ∧ bytesAt s'.mem (pa s' (sc oRS)) 34 = seedE p σ e) ∧ s'.gpr .r15 = s.gpr .r15 := by
+  obtain ⟨c1, c2, _, _, w1, w2, k1, k2, _, k12, f1, f2, _, _, hj, hi⟩ := eChk_spec he
   have L := h.st.lay
-  unfold sampleE
-  rw [aP_eq]
-  refine WP.seq ?_
   rw [WP.block_append_iff]
   refine WP.mono (setB_okB L (by decide) hj w1) fun s1 ⟨hP1, hcs1, hm1⟩ => ?_
   have S1 := h.st.step hP1 c1
   refine WP.mono (setB_okB S1.lay (by decide) hi w2) fun s2 ⟨hP2, hcs2, hm2⟩ => ?_
   have S2 := S1.step hP2 c2
-  have hseed : bytesAt s2.mem (pa s2 (sc oRS)) 34 = seedE p σ e := by
-    refine seed34 ((S1.lay.keepBytes hP2 k2).trans ((L.keepBytes hP1 k1).trans h.rs)) ?_ ?_
-    · rw [pa_sc_add, S1.lay.keepBytes hP2 k12, hm1, hP1.pa (by decide)]; exact bytes1_write _ _ _
-    · rw [pa_sc_add, hm2, hP2.pa (by decide)]; exact bytes1_write _ _ _
-  refine WP.seq (WP.mono (rejCall_ok hP S2.lay hc) fun s3 ⟨hP3, hcs3, hred, hout, hmax⟩ => ?_)
-  rw [hseed] at hout hmax
-  have S3 := S2.step hP3 c3
-  refine WP.mono (and15_ok s3) fun s4 ⟨h15, hm4, k4⟩ => ?_
-  have hP4 : PPostB D s3 s4 [] := (postB15 k4 hm4 _).1
-  have e15 : s3.gpr .r15 = s.gpr .r15 := by
-    rw [hcs3 _ (by decide), hcs2 _ (by decide), hcs1 _ (by decide)]
-  rw [e15] at h15
+  have e15 : s2.gpr .r15 = s.gpr .r15 := by rw [hcs2 _ (by decide), hcs1 _ (by decide)]
+  have hrs : bytesAt s2.mem (pa s2 (sc oRS)) 32 = rhoOf p σ :=
+    (S1.lay.keepBytes hP2 k2).trans ((L.keepBytes hP1 k1).trans h.rs)
+  refine ⟨⟨⟨S2, hrs, e15 ▸ h.r01, fun h1 => ?_, fun h0 => h.bad (e15 ▸ h0)⟩, seed34 hrs ?_ ?_⟩, e15⟩
+  · obtain ⟨ok, fam⟩ := h.ok (e15 ▸ h1)
+    exact ⟨ok, Fam.keep S1.lay hP2 f2 (Fam.keep L hP1 f1 fam)⟩
+  · rw [pa_sc_add, S1.lay.keepBytes hP2 k12, hm1, hP1.pa (by decide)]; exact bytes1_write _ _ _
+  · rw [pa_sc_add, hm2, hP2.pa (by decide)]; exact bytes1_write _ _ _
+
+/-- What the call of entry `e` leaves. -/
+def CallE (D : Nat) (a : Ptr) (x : List Byte) (s s' : State) : Prop :=
+  PPostB D s s' [(a, 1024), (sc oPS, 2048)] ∧ (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧
+    ((s'.gpr .rax).setWidth 32 = 1 → Reduced s'.mem (pa s a)) ∧
+    Outcome (fun b => rejNTTPoly b.rejNTT x) ((s'.gpr .rax).setWidth 32) (polyAt s'.mem (pa s a)) ∧
+    ((s'.gpr .rax).setWidth 32 = 1 → (rejNTTPoly maxBounds.rejNTT x).isSome)
+
+/-- Entry `e`'s call is done. -/
+def JE (p : Params) (D : Nat) (e : Nat) (σ s : State) : Prop :=
+  ∃ s₀, IA p D σ e s₀ ∧ CallE D (pS (aBase p + e)) (seedE p σ e) s₀ s
+
+theorem callE_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : State} {e : Nat}
+    (he : eChk p e = true) {s : State} (h : IA p D σ e s) (hs : bytesAt s.mem (pa s (sc oRS)) 34 = seedE p σ e) :
+    WP isa (callP "vg_mldsa_rej_ntt_poly" P.rejNTT [.ptr (sc oRS), .ptr (pS (aBase p + e)), .ptr (sc oPS)]) s
+      (JE p D e σ) := by
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, hc, _, _⟩ := eChk_spec he
+  refine WP.mono (rejCall_ok hP h.st.lay hc) fun s' ⟨hP3, hcs3, hred, hout, hmax⟩ => ⟨s, h, hP3, hcs3, hred, ?_, ?_⟩
+  · rw [← hs]; exact hout
+  · rw [← hs]; exact hmax
+
+theorem andE_ok {D : Nat} {p : Params} {σ : State} {e : Nat} (he : eChk p e = true) {s : State}
+    (h : JE p D e σ s) : WP isa (.block [.alu32 .and .r15 (.reg .rax)]) s (IA p D σ (e + 1)) := by
+  obtain ⟨_, _, c3, c0, _, _, _, _, k3, _, _, _, f3, _, _, _⟩ := eChk_spec he
+  obtain ⟨s₀, h, hP3, hcs3, hred, hout, hmax⟩ := h
+  have S3 := h.st.step hP3 c3
+  refine WP.mono (and15_ok s) fun s4 ⟨h15, hm4, k4⟩ => ?_
+  have hP4 : PPostB D s s4 [] := (postB15 k4 hm4 _).1
+  rw [hcs3 _ (by decide)] at h15
   have hr := outcome01 hout
-  have hb4 : s4.gpr .rbx = s2.gpr .rbx := by rw [hP4.bs _ (by decide), hP3.bs _ (by decide)]
+  have hb4 : s4.gpr .rbx = s₀.gpr .rbx := by rw [hP4.bs _ (by decide), hP3.bs _ (by decide)]
   refine ⟨S3.step hP4 c0, ?_, ?_, fun h1 => ?_, fun h0 => ?_⟩
-  · rw [hm4, hP4.pa (by decide), S2.lay.keepBytes hP3 k3, S1.lay.keepBytes hP2 k2, L.keepBytes hP1 k1, h.rs]
+  · rw [hm4, hP4.pa (by decide), h.st.lay.keepBytes hP3 k3, h.rs]
   · rw [h15]
     rcases h.r01 with e0 | e0 <;> rcases hr with e1 | e1 <;> rw [e0, e1] <;> decide
-  · have hs : s.gpr .r15 = 1 ∧ (s3.gpr .rax).setWidth 32 = 1 := by
+  · have hs : s₀.gpr .r15 = 1 ∧ (s.gpr .rax).setWidth 32 = 1 := by
       rw [h15] at h1
       rcases h.r01 with e0 | e0 <;> rcases hr with e1 | e1 <;> rw [e0, e1] at h1 <;>
         first | exact ⟨e0, e1⟩ | exact absurd h1 (by decide)
@@ -162,10 +188,9 @@ theorem sampleE_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : S
     refine ⟨fun e' he' => ?_, Fam.snoc ?_ ?_⟩
     · rcases (by omega : e' < e ∨ e' = e) with he' | rfl
       exacts [ok1 e' he', hm]
-    · exact Fam.of_eq hm4 (hP4.bs _ (by decide))
-        (Fam.keep S2.lay hP3 f3 (Fam.keep S1.lay hP2 f2 (Fam.keep L hP1 f1 fam)))
+    · exact Fam.of_eq hm4 (hP4.bs _ (by decide)) (Fam.keep h.st.lay hP3 f3 fam)
     · show PolyIs s4.mem (pa s4 (pS (aBase p + e))) (aVal p σ e)
-      rw [hm4, show pa s4 (pS (aBase p + e)) = pa s2 (pS (aBase p + e)) by simp only [pa, hb4]]
+      rw [hm4, show pa s4 (pS (aBase p + e)) = pa s₀ (pS (aBase p + e)) by simp only [pa, hb4]]
       exact ⟨hred hs.2, rej_val hout hs.2 hm⟩
   · rw [h15] at h0
     rcases h.r01 with e0 | e0
@@ -176,6 +201,17 @@ theorem sampleE_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : S
       · rcases hout with ⟨h1, _⟩ | ⟨_, hn⟩
         · rw [e1] at h1; cases h1
         · exact ⟨e, by omega, hn⟩
+
+theorem sampleE_eq (P : Prims) (p : Params) (e : Nat) : sampleE P p e = .seq (.block (blkE p e))
+    (.seq (callP "vg_mldsa_rej_ntt_poly" P.rejNTT [.ptr (sc oRS), .ptr (pS (aBase p + e)), .ptr (sc oPS)])
+      (.block [.alu32 .and .r15 (.reg .rax)])) := by
+  unfold sampleE rejAt; rw [aP_eq]
+
+theorem sampleE_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : State} {e : Nat}
+    (he : eChk p e = true) {s : State} (h : IA p D σ e s) : WP isa (sampleE P p e) s (IA p D σ (e + 1)) := by
+  rw [sampleE_eq]
+  exact WP.seq (WP.mono (blkE_ok he h) fun s1 ⟨⟨h1, hs1⟩, _⟩ =>
+    WP.seq (WP.mono (callE_ok hP he h1 hs1) fun s2 h2 => andE_ok he h2))
 
 /-! ## The matrix -/
 
