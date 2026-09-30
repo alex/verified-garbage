@@ -5,7 +5,7 @@
 //! the test binary, so these tests always run. Each value is the line of 64
 //! hex digits after its label; page breaks and prose are skipped.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 
 use verified_garbage::x25519::{BASE_POINT, PrivateKey, x25519};
 
