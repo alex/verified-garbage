@@ -7,40 +7,40 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (Keeps)
 
-structure PowersInv (s₀ : State) (base : Addr) (o count n : Nat) (s : State) : Prop where
+structure PowersInv (s₀ : State) (base : Addr) (o count n : Nat) (batch : Bool) (s : State) : Prop where
   positive : 0 < n
   bound : n ≤ count
   scratch : Scratch s base
   counter : s.gpr .rbx = BitVec.ofNat 64 (count - n)
-  value : point (env s.mem base) 0 1 2 3 = powerPoint (point (env s₀.mem base) 0 1 2 3) (16 * (count - n))
+  value : point (env s.mem base) 0 1 2 3 = powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * (count - n))
   table : ∀ j < count - n, tablePoint s.mem base (o + 128 * j) =
-    powerPoint (point (env s₀.mem base) 0 1 2 3) (16 * j)
+    powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * j)
   high : ∀ i : Slot, 16 ≤ i.val → env s.mem base i = env s₀.mem base i
   keep : PowersKeep base o (128 * count) s₀ s
 
-theorem powersLoop_ok {s₀ : State} {base : Addr} (hs : Scratch s₀ base)
+theorem powersLoop_ok (batch : Bool) {s₀ : State} {base : Addr} (hs : Scratch s₀ base)
     (o count : Nat) (hlo : 768 ≤ o) (hbound : o + 128 * count ≤ 8192)
     (hn0 : 0 < count) (hn : count ≤ 32) (hc : s₀.gpr .rbx = 0)
     (hd : env s₀.mem base 16 = Spec.Ed25519.d) :
-    WP isa (.loop (powersBody o count) .ne) s₀ fun t =>
+    WP isa (.loop (powersBody o count batch) .ne) s₀ fun t =>
       (∀ j < count, tablePoint t.mem base (o + 128 * j) =
-        powerPoint (point (env s₀.mem base) 0 1 2 3) (16 * j)) ∧
-      point (env t.mem base) 0 1 2 3 = powerPoint (point (env s₀.mem base) 0 1 2 3) (16 * count) ∧
+        powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * j)) ∧
+      point (env t.mem base) 0 1 2 3 = powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * count) ∧
       (∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s₀.mem base i) ∧
       PowersKeep base o (128 * count) s₀ t := by
-  apply WP.loop (PowersInv s₀ base o count) (n := count)
+  apply WP.loop (fun n => PowersInv s₀ base o count n batch) (n := count)
   · intro n s hi
     obtain ⟨k, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by have := hi.positive; omega : n ≠ 0)
     have hk : k < count := by have := hi.bound; omega
-    refine WP.mono (powersBody_ok hi.scratch o (count - (k + 1)) count hlo hbound (by omega) hn
+    refine WP.mono (powersBody_ok batch hi.scratch o (count - (k + 1)) count hlo hbound (by omega) hn
       hi.counter ((hi.high 16 (by decide)).trans hd)) fun t ⟨htc, htz, htt, htv, hthi, htk⟩ => ?_
     have hstep : count - (k + 1) + 1 = count - k := by omega
     have hv : point (env t.mem base) 0 1 2 3 =
-        powerPoint (point (env s₀.mem base) 0 1 2 3) (16 * (count - k)) := by
+        powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * (count - k)) := by
       rw [htv, hi.value, ← powerPoint_add]
-      exact congrArg (powerPoint _) (by omega)
+      exact congrArg (powerPoint _) (by cases batch <;> simp only [powerStride, Bool.false_eq_true, ite_true, ite_false] <;> omega)
     have ht : ∀ j < count - k, tablePoint t.mem base (o + 128 * j) =
-        powerPoint (point (env s₀.mem base) 0 1 2 3) (16 * j) := by
+        powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * j) := by
       intro j hj
       by_cases h : j < count - (k + 1)
       · rw [htk.mem.point (by omega) (Or.inl (by omega)) (by omega), hi.table j h]
@@ -70,18 +70,18 @@ theorem powersInit_ok (s : State) :
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   simp only [RegUpd.gpr_setReg, hr, ite_false]
 
-theorem pointPowers_ok {s : State} {base : Addr} (hs : Scratch s base)
+theorem pointPowers_ok (batch : Bool) {s : State} {base : Addr} (hs : Scratch s base)
     (o count : Nat) (hlo : 768 ≤ o) (hbound : o + 128 * count ≤ 8192)
     (hn0 : 0 < count) (hn : count ≤ 32) (hd : env s.mem base 16 = Spec.Ed25519.d) :
-    WP isa (pointPowers o count) s fun t =>
+    WP isa (pointPowers o count batch) s fun t =>
       (∀ j < count, tablePoint t.mem base (o + 128 * j) =
-        powerPoint (point (env s.mem base) 0 1 2 3) (16 * j)) ∧
-      point (env t.mem base) 0 1 2 3 = powerPoint (point (env s.mem base) 0 1 2 3) (16 * count) ∧
+        powerPoint (point (env s.mem base) 0 1 2 3) (powerStride batch * j)) ∧
+      point (env t.mem base) 0 1 2 3 = powerPoint (point (env s.mem base) 0 1 2 3) (powerStride batch * count) ∧
       (∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i) ∧
       PowersKeep base o (128 * count) s t := by
   rw [pointPowers]
   refine WP.seq (WP.mono (powersInit_ok s) fun t ⟨hc, hk⟩ => ?_)
-  refine WP.mono (powersLoop_ok (hs.of_keeps hk (by decide)) o count hlo hbound hn0 hn hc
+  refine WP.mono (powersLoop_ok batch (hs.of_keeps hk (by decide)) o count hlo hbound hn0 hn hc
     (by rw [hk.2.1]; exact hd)) fun u ⟨ht, hv, hh, hu⟩ => ?_
   have hkeep : PowersKeep base o (128 * count) s t := ⟨fun r hr _ _ => hk.1 r (by simpa using hr),
     hk.2.2.1, hk.2.2.2, by rw [hk.2.1]; exact TableFrame.refl _ _ _ _⟩

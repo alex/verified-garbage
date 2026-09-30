@@ -6,7 +6,7 @@ import VerifiedGarbage.Proof.Framework.X86_64.Inline
 namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
-open VG.Proof.X25519.X86_64 (Scr Keeps)
+open VG.Proof.X25519.X86_64 (Scr Keeps clob Outside)
 
 structure Scratch (s : State) (base : Addr) : Prop where
   rdi : s.gpr .rdi = base
@@ -55,5 +55,27 @@ theorem copyFieldWide_ok {s : State} {base : Addr} (hs : Scratch s base) (o a : 
   field_lift hs (copyField o a) (fun e => Function.update e o (e a)) (fun _ h => by
     refine WP.mono (copyField_op h o a) fun t ⟨hk, hv⟩ => ?_
     exact ⟨op_keep hk, by rw [env_update o hk.mem, hv]; rfl⟩)
+
+structure RbxKeep (base : Addr) (s t : State) : Prop where
+  gpr : ∀ r, r ∉ clob → r ≠ .rbx → t.gpr r = s.gpr r
+  rd : t.rd = s.rd
+  wr : t.wr = s.wr
+  mem : Outside base 64 704 s.mem t.mem
+
+theorem RbxKeep.scratch {base : Addr} {s t : State} (h : RbxKeep base s t) (hs : Scratch s base) :
+    Scratch t base := ⟨(h.gpr _ (by decide) (by decide)).trans hs.rdi, h.wr ▸ hs.wr, hs.nowrap⟩
+
+theorem RbxKeep.trans {base : Addr} {s t u : State}
+    (h : RbxKeep base s t) (k : RbxKeep base t u) : RbxKeep base s u :=
+  ⟨fun r hr hb => (k.gpr r hr hb).trans (h.gpr r hr hb), k.rd.trans h.rd,
+    k.wr.trans h.wr, h.mem.trans k.mem⟩
+
+theorem RbxKeep.of_keeps {base : Addr} {s t : State} {rs : List Reg}
+    (h : Keeps rs s t) (hrs : ∀ r ∈ rs, r = .rbx ∨ r ∈ Proof.X25519.X86_64.clob) : RbxKeep base s t := by
+  refine ⟨fun r hr hb => h.1 r (fun hm => ?_), h.2.2.1, h.2.2.2, ?_⟩
+  · rcases hrs r hm with h | h
+    · exact hb h
+    · exact hr h
+  · rw [h.2.1]; exact Proof.X25519.X86_64.Outside.refl _ _ _ _
 
 end VG.Proof.Ed25519.X86_64
