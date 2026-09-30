@@ -39,11 +39,12 @@ def verifyLhs : Prog isa :=
 def verifyCombine : List Instr :=
   copyPointToQ ++ pointTableRead 7552 ++ pointAdd ++ copyPointToQ ++ pointTableRead 7680
 
-def verifyRhs : Prog isa :=
+def verifyRhsPrepare : Prog isa :=
   .seq (.block [.mov .rsi (.mem (sc 7952))])
     (.seq (.block (pointTableRead 7424))
-      (.seq (pointFromScalar 32)
-        (.seq (.block verifyCombine) pointEqual)))
+      (.seq (pointFromScalar 32) (.block verifyCombine)))
+
+def verifyRhs : Prog isa := .seq verifyRhsPrepare pointEqual
 
 def verifyEquationPoints : Prog isa := .seq verifyLhs verifyRhs
 

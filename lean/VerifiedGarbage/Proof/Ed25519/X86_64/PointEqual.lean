@@ -7,7 +7,7 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
-private theorem equalOps_eval (e : Env) :
+theorem equalOps_eval (e : Env) :
     evalOps pointEqualOps e 8 = e 0 * e 6 ∧ evalOps pointEqualOps e 9 = e 4 * e 2 ∧
     evalOps pointEqualOps e 10 = e 1 * e 6 ∧ evalOps pointEqualOps e 11 = e 5 * e 2 := by
   exact ⟨rfl, rfl, rfl, rfl⟩

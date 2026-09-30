@@ -9,9 +9,17 @@
 
 use crate::arch::ed25519::{
     vg_ed25519_scalar_base, vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce,
+    vg_ed25519_verify_equation,
 };
 use crate::hashes::sha512::Sha512;
 use crate::mlkem768::zeroize;
+
+/// Why signature verification failed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Error {
+    /// The signature has the wrong length, a noncanonical encoding, or an invalid equation.
+    InvalidSignature,
+}
 
 /// An encoded Ed25519 public key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -28,6 +36,33 @@ impl VerifyingKey {
     /// The encoded public key.
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.bytes
+    }
+
+    /// Verify a pure Ed25519 signature (RFC 8032 §5.1.7).
+    ///
+    /// Public keys and signatures must use canonical encodings, and the
+    /// signature scalar must be less than the subgroup order. This checks
+    /// the uncofactored equation using the full SHA-512 challenge. It does
+    /// not impose an additional subgroup or small-order rejection policy.
+    /// Verification timing may depend on the public key, message, and signature.
+    pub fn verify(&self, message: &[u8], signature: &[u8]) -> Result<(), Error> {
+        let signature: &[u8; 64] = signature.try_into().map_err(|_| Error::InvalidSignature)?;
+        let mut hash = Sha512::new();
+        hash.update(&signature[..32]);
+        hash.update(&self.bytes);
+        hash.update(message);
+        let challenge = hash.finalize();
+        let mut scratch = [0u64; 1024];
+        // SAFETY: the input arrays are live for their declared sizes, and
+        // scratch is a distinct writable object. None wraps the address space.
+        let valid =
+            unsafe { vg_ed25519_verify_equation(&self.bytes, signature, &challenge, &mut scratch) };
+        zeroize(&mut scratch);
+        if valid == 1 {
+            Ok(())
+        } else {
+            Err(Error::InvalidSignature)
+        }
     }
 }
 

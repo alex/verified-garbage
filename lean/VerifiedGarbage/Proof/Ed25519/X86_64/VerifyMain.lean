@@ -32,12 +32,16 @@ theorem verifyBytes_frame {m m' : Mem} {base p : Addr} {n : Nat}
   intro i hi
   exact hf.bytes (R := ⟨p, n⟩) (by simpa only [List.mem_singleton, forall_eq]) hn (List.mem_range.mp hi)
 
-theorem verify_correct {s : State} (hs : verifyLocal.pre s) :
-    WP isa verifyEquation s fun t => gprPreserved s t ∧ verifyLocal.post s t := by
+structure VerifyStarted (s t : State) : Prop where
+  context : VerifyContext t (s.gpr .rcx) (s.gpr .rdi) (s.gpr .rsi) (s.gpr .rdx)
+  saved : Saved (s.gpr .rcx) s.gpr t.mem
+  frame : Frame [⟨s.gpr .rcx, 8192⟩] s.mem t.mem
+  rsp : t.gpr .rsp = s.gpr .rsp
+
+theorem verifySetup_state_ok {s : State} (hs : verifyLocal.pre s) :
+    WP isa (.block verifySetup) s (VerifyStarted s) := by
   obtain ⟨hr, hw, hpk, hsig, hchallenge, hret, hn⟩ := hs
   have hws : (⟨s.gpr .rcx, 8192⟩ : Region) ∈ s.wr := by rw [hw]; exact List.mem_singleton_self _
-  rw [verifyEquation]
-  apply WP.seq
   rw [verifySetup, List.append_assoc, WP.block_append_iff]
   refine WP.mono (verifyPrepare_ok s) fun a ⟨ach, asc, ka⟩ => ?_
   rw [WP.block_append_iff]
@@ -81,6 +85,19 @@ theorem verify_correct {s : State} (hs : verifyLocal.pre s) :
       rw [show off (off (s.gpr .rsi) 32) i = off (s.gpr .rsi) (32 + i) from Offset.add_add ..]
       exact farScratch hsig (by omega) (by decide)
     · intro i hi; exact farScratch hchallenge hi (by decide)
+  exact ⟨hc, sv, fm, by rw [gc _ (by decide), gb, ka.1 _ (by decide)]⟩
+
+theorem verify_correct {s : State} (hs : verifyLocal.pre s) :
+    WP isa verifyEquation s fun t => gprPreserved s t ∧ verifyLocal.post s t := by
+  have hpk := hs.2.2.1
+  have hsig := hs.2.2.2.1
+  have hchallenge := hs.2.2.2.2.1
+  have hret := hs.2.2.2.2.2.1
+  rw [verifyEquation]
+  refine WP.seq (WP.mono (verifySetup_state_ok hs) fun c hc0 => ?_)
+  have hc := hc0.context
+  have sv := hc0.saved
+  have fm := hc0.frame
   refine WP.seq (WP.mono (verifyBody_ok hc) fun d ⟨kd, dv⟩ => ?_)
   have md := tableFrame_work kd.mem (by decide) (by decide)
   have svd := sv.outside md (by decide)
@@ -95,7 +112,7 @@ theorem verify_correct {s : State} (hs : verifyLocal.pre s) :
     · exact tr (.rbx, 0) (by decide)
     · exact tr (.rbp, 8) (by decide)
     · rw [gt _ (by decide), ke.1 _ (by decide), kd.gpr _ (by decide) (by decide) (by decide),
-        gc _ (by decide), gb, ka.1 _ (by decide)]
+        hc0.rsp]
     · exact tr (.r12, 16) (by decide)
     · exact tr (.r13, 24) (by decide)
     · exact tr (.r14, 32) (by decide)

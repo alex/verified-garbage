@@ -2,7 +2,7 @@
 
 #![cfg(target_arch = "x86_64")]
 
-use verified_garbage::ed25519::{SigningKey, VerifyingKey};
+use verified_garbage::ed25519::{Error, SigningKey, VerifyingKey};
 
 const TEXT: &str = include_str!("../../vectors/rfc8032/rfc8032.txt");
 
@@ -47,6 +47,13 @@ fn ed25519_vectors() {
         assert_eq!(key.verifying_key(), &VerifyingKey::from_bytes(&public));
         assert_eq!(key.sign(&message), signature);
         assert_eq!(key.clone().sign(&message), signature);
+        assert_eq!(key.verifying_key().verify(&message, &signature), Ok(()));
+        let mut changed_message = message.clone();
+        changed_message.push(0);
+        assert_eq!(
+            key.verifying_key().verify(&changed_message, &signature),
+            Err(Error::InvalidSignature)
+        );
         assert_eq!(format!("{key:?}"), "SigningKey { .. }");
         count += 1;
     }

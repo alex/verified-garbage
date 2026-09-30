@@ -18,6 +18,18 @@ materialize_code negateBlock := (.block (fieldCode [.const 5 0, .sub 0 5 0]) : P
 materialize_code rootAdjustBlock :=
   (.block (fieldCode [.const 18 Spec.Ed25519.sqrtM1, .mul 0 0 18]) : Prog isa)
 materialize_code successBlock := (.block recoverSuccess : Prog isa)
+materialize_code pointEqualFirst := (.block (fieldCode pointEqualOps ++ fieldEqual 8 9) : Prog isa)
+materialize_code pointEqualSecond := (.block (fieldEqual 10 11) : Prog isa)
+materialize_code verifyWriteA := (.block (pointTableWrite 7424) : Prog isa)
+materialize_code verifyWriteR := (.block (pointTableWrite 7552) : Prog isa)
+materialize_code verifyWriteLhs := (.block (pointTableWrite 7680) : Prog isa)
+materialize_code verifyReadA := (.block (pointTableRead 7424) : Prog isa)
+materialize_code verifyCombineBlock := (.block verifyCombine : Prog isa)
+materialize_code verifyBasePoint := (.block (constPoint Spec.Ed25519.basePoint) : Prog isa)
+materialize_code verifySetupBlock := (.block verifySetup : Prog isa)
+materialize_code verifyScalarTail := (.block (loadScalarWords ++ scalarSubtract) : Prog isa)
+materialize_code verifyFinishBlock :=
+  (.block (([.mov .rdx (.reg .rdi)] : List Instr) ++ scalarRestore) : Prog isa)
 materialize_code pointMultiplyInit32 := pointMultiplyInit 32
 materialize_code scalarPrepare16 :=
   (.seq (scalarBits 32) (.block (constField 16 Spec.Ed25519.d)) : Prog isa)
