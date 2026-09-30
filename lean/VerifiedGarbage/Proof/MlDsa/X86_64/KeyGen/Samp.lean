@@ -14,7 +14,7 @@ fails within the least bounds (`Good`).
 namespace VG.Proof.MlDsa.X86_64.KeyGen
 
 open VG VG.X86_64 VG.Proof.MlKem.X86_64
-open VG.Impl.MlKem.X86_64 (Ptr sc setB)
+open VG.Impl.MlKem.X86_64 (Ptr sc setB seqR)
 open VG.Impl.MlDsa.X86_64.KeyGen
 open VG.Spec.MlDsa (Params keyGenSeeds integerToBytes Poly IPoly Bounds minBounds rejNTTPoly rejBoundedPoly
   keyGenInternal toRq polyAt coeffAt Reduced PolyIs)
@@ -248,5 +248,168 @@ theorem expA_tr {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {e : N
       (by lay) (by lay) (by lay) (by lay) (by lay) hP.rejNtt (show Reg.rbx ∈ kgRegs by decide) (show Reg.rbx ∈ kgRegs by decide))
       fun x y h => ⟨ok x h.1.sx, ok y h.1.sy⟩)
     (mask_tr (j := e) (by omega) fun x y h => h.regs .rbx (by decide))
+
+/-! ## An entry of `s₁ ‖ s₂` -/
+
+theorem seedS_eq (ρ' : List Byte) {r : Nat} (hr : r < 256) : seedS ρ' r = ρ' ++ [BitVec.ofNat 8 r, 0] := by
+  simp only [seedS, Proof.MlDsa.KeyGen.integerToBytes_two hr]
+
+theorem eta_of {p : Params} (hF : PFacts p) : p.η = 2 ∨ p.η = 4 := by
+  rcases hF.eta with ⟨h, _⟩ | ⟨h, _⟩
+  exacts [.inl h, .inr h]
+
+/-- The seed of `RejBoundedPoly`, once its index is set. -/
+theorem sbSeed {p : Params} {s s' : State} (L : Lay kgR (kgW p) s) {r : Nat} (hr : r < 256)
+    (hP : PPost s s' [(sc (oSB + 64), 1)]) (hb : bytesAt s'.mem (pa s (sc (oSB + 64))) 1 = [BitVec.ofNat 8 r])
+    {ρ' : List Byte} (h64 : bytesAt s.mem (pa s (sc oSB)) 64 = ρ') (h65 : bytesAt s.mem (pa s (sc (oSB + 65))) 1 = [0]) :
+    bytesAt s'.mem (pa s' (sc oSB)) 66 = seedS ρ' r := by
+  have k64 := L.keepBytes hP.b (p := sc oSB) (l := 64) (by lay)
+  have k65 := L.keepBytes hP.b (p := sc (oSB + 65)) (l := 1) (by lay)
+  rw [hP.pa rbx_cs] at k64 k65 ⊢
+  rw [show 66 = 64 + 1 + 1 from rfl, Proof.MlKem.bytesAt_add, Proof.MlKem.bytesAt_add, k64, h64,
+    show pa s (sc oSB) + BitVec.ofNat 64 64 = pa s (sc (oSB + 64)) from off_add _ _ _, hb,
+    show pa s (sc oSB) + BitVec.ofNat 64 (64 + 1) = pa s (sc (oSB + 65)) from off_add _ _ _, k65, h65, seedS_eq _ hr,
+    List.append_assoc]
+  rfl
+
+theorem expS_ok {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ)
+    {r : Nat} (hr : r < p.ℓ + p.k) {s : State} (h : KSamp p σ (p.k * p.ℓ) r s) :
+    WP isa (expS P p r) s (KSamp p σ (p.k * p.ℓ) (r + 1)) := by
+  have hkl := hF.kl; have hl := hF.l; have hk := hF.k
+  have L := h.k1.kc.lay hF hp
+  unfold expS
+  refine WP.seq (WP.mono (WP.mx (noLd_spec (by rfl)) (setB_okL L (p := sc (oSB + 64)) (v := r) (by decide) (by omega)
+    (by lay))) fun s₁ ⟨⟨hP₁, hb₁⟩, hx₁⟩ => ?_)
+  have h₁ : KSamp p σ (p.k * p.ℓ) r s₁ := by
+    refine h.keep hF hp hP₁.b hx₁ ?_ (fun e' he' => ?_) (fun r' hr' => ?_) (hP₁.cs .r15 (by decide))
+    · layk
+    · layk
+    · layk
+  have S₁ := h₁.k1.kc.site hF hp
+  have hseed := sbSeed L (by omega) hP₁ hb₁ h.k1.sb h.k1.z
+  refine WP.seq (WP.mono (rejBAt_ok (sd := sc oSB) (a := sP p r) (eta_of hF) (sc_ok _ (by decide))
+    (sc_ok _ (by simp only [oP]; omega)) (by lay) (by lay) (by lay) (by lay) (by lay) hP.rejBounded S₁)
+    fun s₂ ⟨hP₂, hx₂, hred, hout⟩ => ?_)
+  rw [hseed] at hout
+  have hP₂' : PPostB s₁ s₂ [(sP p r, 1024), (sc VG.Impl.MlKem.X86_64.oSS, 2048)] := hP₂.b
+  have L₂ := S₁.lay.post hP₂' (kgB_bases p)
+  have hr01 := outcome_01 hout
+  refine WP.mono (mask_ok L₂ (a := sP p r) (sc_ok _ (by simp only [oP]; omega)) (show Reg.rbx ≠ .r15 by decide)
+    (by lay) hr01) fun s₃ ⟨hP₃, hx₃, h15, hco⟩ => ?_
+  have hP₃' : PPostB s₂ s₃ [(sP p r, 1024)] := hP₃
+  have hP₁₃ := PPostB.app hP₂' hP₃' (sc1_bases _ _)
+  have L₁ := S₁.lay
+  have e₂ : pa s₂ (sP p r) = pa s₁ (sP p r) := hP₂'.pa rbx_bases
+  have e₃ : pa s₃ (sP p r) = pa s₂ (sP p r) := hP₃'.pa rbx_bases
+  rw [e₂] at hco
+  obtain ⟨A, S, hA, hS, hG⟩ := h₁.ex
+  have h15₂ : s₂.gpr .r15 = s₁.gpr .r15 := hP₂.cs .r15 (by decide)
+  rw [h15₂, r15_and (good_01 hG) hr01] at h15
+  have k1 := h₁.k1.step hF hp hP₁₃ (hx₃.trans hx₂) (by layk)
+  have kA : ∀ e' < p.k * p.ℓ, PolyIs s₃.mem (pa s₃ (aP e')) (A e') := fun e' he' =>
+    polyIs_frame' L₁ hP₁₃ (by layk) (hA e' he')
+  have kS : ∀ r' < r, PolyIs s₃.mem (pa s₃ (sP p r')) (toRq (S r')) ∧ Small p.η (S r') := fun r' hr' =>
+    ⟨polyIs_frame' L₁ hP₁₃ (by layk) (hS r' hr').1, (hS r' hr').2⟩
+  by_cases ho : (s₂.gpr .rax).setWidth 32 = 1
+  · -- The sampler succeeded.
+    obtain ⟨b', hb'⟩ : ∃ b' : Bounds, (rejBoundedPoly p.η b'.rejBounded (seedS (rho'Of p σ) r)).map toRq =
+        some (polyAt s₂.mem (pa s₁ (sP p r))) := by
+      rcases hout with ⟨_, h⟩ | ⟨h, _⟩
+      · exact h
+      · rw [h] at ho; exact absurd ho (by decide)
+    obtain ⟨x, hx, htx⟩ := Option.map_eq_some_iff.mp hb'
+    refine ⟨k1, A, fun r' => if r' = r then x else S r', kA, fun r' hr' => ?_, ?_⟩
+    · dsimp only
+      rcases (by omega : r' < r ∨ r' = r) with hr' | rfl
+      · rw [ifn (by omega)]; exact kS r' hr'
+      · rw [ifp rfl, e₃, e₂, htx, ← (masked_one ho hco).1]
+        exact ⟨⟨(masked_one ho hco).2 (hred ho), rfl⟩, Proof.MlDsa.KeyGen.rejBoundedPoly_range hx⟩
+    · rw [h15]
+      rcases hG with ⟨h1, b, hbA, hbS⟩ | ⟨h0, hn⟩
+      · refine .inl ⟨by rw [ifp ⟨h1, ho⟩], bmax b b', fun e' he' =>
+          Proof.MlDsa.KeyGen.rejNTTPoly_mono (Proof.MlDsa.KeyGen.Bounds.le_max_left b b').rejNTT (hbA e' he'),
+          fun r' hr' => ?_⟩
+        dsimp only
+        rcases (by omega : r' < r ∨ r' = r) with hr' | rfl
+        · rw [ifn (by omega)]
+          exact Proof.MlDsa.KeyGen.rejBoundedPoly_mono (Proof.MlDsa.KeyGen.Bounds.le_max_left b b').rejBounded
+            (hbS r' hr')
+        · rw [ifp rfl]
+          exact Proof.MlDsa.KeyGen.rejBoundedPoly_mono (Proof.MlDsa.KeyGen.Bounds.le_max_right b b').rejBounded hx
+      · rw [ifn (fun h => by rw [h.1] at h0; exact absurd h0 (by decide))]
+        exact .inr ⟨rfl, hn⟩
+  · -- It failed: the polynomial is zero.
+    have hn : rejBoundedPoly p.η minBounds.rejBounded (seedS (rho'Of p σ) r) = none := by
+      rcases hout with ⟨h, _⟩ | ⟨_, h⟩
+      · exact absurd h ho
+      · exact Option.map_eq_none_iff.mp h
+    refine ⟨k1, A, fun r' => if r' = r then Vector.replicate 256 0 else S r', kA, fun r' hr' => ?_, ?_⟩
+    · dsimp only
+      rcases (by omega : r' < r ∨ r' = r) with hr' | rfl
+      · rw [ifn (by omega)]; exact kS r' hr'
+      · rw [ifp rfl, e₃, e₂]
+        exact ⟨masked_zero ho hco, small_zero _⟩
+    · rw [h15, ifn (fun h => ho h.2)]
+      exact .inr ⟨rfl, Proof.MlDsa.KeyGen.keyGenInternal_none_S hr hn⟩
+
+theorem setS_taint : ∀ v < 16, (taint.check (X86_64.Taint.ofRegs [.rbx]) (.block (setB (sc (oSB + 64)) v))
+    (.block [])).isSome = true := by decide +kernel
+
+theorem expS_tr {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {r : Nat} (hr : r < p.ℓ + p.k) :
+    RelCT isa (R p (KSamp p · (p.k * p.ℓ) r)) (expS P p r) fun _ _ => True := by
+  have hkl := hF.kl; have hl := hF.l; have hk := hF.k
+  refine rel_of (Q := fun x y => Two p x y ∧ ∃ ρ₁ ρ₂ : List Byte, bytesAt x.mem (pa x (sc oSB)) 64 = ρ₁ ∧
+      bytesAt x.mem (pa x (sc (oSB + 65))) 1 = [0] ∧ bytesAt y.mem (pa y (sc oSB)) 64 = ρ₂ ∧
+      bytesAt y.mem (pa y (sc (oSB + 65))) 1 = [0] ∧
+      Spec.MlDsa.rejBoundedLeak p.η (seedS ρ₁ r) = Spec.MlDsa.rejBoundedLeak p.η (seedS ρ₂ r))
+    ?_ fun _ _ _ _ p₁ p₂ pub h₁ h₂ => ⟨kc_two hF p₁ p₂ pub h₁.k1.kc h₂.k1.kc, _, _, h₁.k1.sb, h₁.k1.z, h₂.k1.sb,
+      h₂.k1.z, rej_pub pub hr⟩
+  unfold expS
+  let F := fun (x x' : State) => (∃ W, PostB x x' W) ∧ ∀ ρ' : List Byte, bytesAt x.mem (pa x (sc oSB)) 64 = ρ' →
+    bytesAt x.mem (pa x (sc (oSB + 65))) 1 = [0] → bytesAt x'.mem (pa x' (sc oSB)) 66 = seedS ρ' r
+  have hF1 : ∀ x, Site p x → WP isa (.block (setB (sc (oSB + 64)) r)) x (F x) := fun x S =>
+    WP.mono (WP.mx (noLd_spec (by rfl)) (setB_okL S.lay (p := sc (oSB + 64)) (v := r) (by decide) (by omega)
+      (by lay))) fun x' ⟨⟨hP₁, hb⟩, _⟩ => ⟨⟨_, hP₁.b⟩, fun _ h64 h65 => sbSeed S.lay (by omega) hP₁ hb h64 h65⟩
+  refine RelCT.seq (RelCT.postDep (taintRel [.rbx] (fun x y h => two_rbx h.1) (setS_taint _ (by omega)))
+    (F := F) (fun x y h => ⟨hF1 x h.1.sx, hF1 y h.1.sy⟩)
+    (Q := fun x y => Two p x y ∧ Spec.MlDsa.rejBoundedLeak p.η (bytesAt x.mem (pa x (sc oSB)) 66) =
+      Spec.MlDsa.rejBoundedLeak p.η (bytesAt y.mem (pa y (sc oSB)) 66))
+    fun x y x' y' ⟨T, _, _, a1, a2, a3, a4, a5⟩ ⟨⟨_, hx⟩, bx⟩ ⟨⟨_, hy⟩, by'⟩ =>
+      ⟨T.post hx hy, by rw [bx _ a1 a2, by' _ a3 a4, a5]⟩) ?_
+  have ok := fun x (S : Site p x) => WP.mono (rejBAt_ok (sd := sc oSB) (a := sP p r) (eta_of hF) (sc_ok _ (by decide))
+    (sc_ok _ (by simp only [oP]; omega)) (by lay) (by lay) (by lay) (by lay) (by lay) hP.rejBounded S)
+    fun _ h => (⟨_, h.1.b⟩ : ∃ W, PostB x _ W)
+  exact RelCT.seq (RelCT.two (fun _ _ h => h.1) (rejBAt_tr (eta_of hF) (sc_ok _ (by decide))
+      (sc_ok _ (by simp only [oP]; omega)) (by lay) (by lay) (by lay) (by lay) (by lay) hP.rejBounded
+      (show Reg.rbx ∈ kgRegs by decide) (show Reg.rbx ∈ kgRegs by decide))
+      fun x y h => ⟨ok x h.1.sx, ok y h.1.sy⟩)
+    (mask_tr (j := p.k * p.ℓ + r) (by omega) fun x y h => h.regs .rbx (by decide))
+
+/-! ## The pieces -/
+
+theorem expA_piece {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {e : Nat} (he : e < p.k * p.ℓ) :
+    Piece p (KSamp p · e 0) (KSamp p · (e + 1) 0) (expA P p e) :=
+  ⟨fun _ _ hp h => expA_ok hP hF hp he h, expA_tr hP hF he⟩
+
+theorem expS_piece {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {r : Nat} (hr : r < p.ℓ + p.k) :
+    Piece p (KSamp p · (p.k * p.ℓ) r) (KSamp p · (p.k * p.ℓ) (r + 1)) (expS P p r) :=
+  ⟨fun _ _ hp h => expS_ok hP hF hp hr h, expS_tr hP hF hr⟩
+
+theorem KSamp.zero {p : Params} {σ s : State} (h : K1 p σ s) (h15 : s.gpr .r15 = 1) : KSamp p σ 0 0 s :=
+  ⟨h, fun _ => Vector.replicate 256 0, fun _ => Vector.replicate 256 0, fun _ h => absurd h (Nat.not_lt_zero _),
+    fun _ h => absurd h (Nat.not_lt_zero _),
+    .inl ⟨h15, ⟨0, 0, 0, 0⟩, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩⟩
+
+/-- Both samplers. -/
+theorem samp_piece {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) :
+    Piece p (fun σ s => K1 p σ s ∧ s.gpr .r15 = 1) (fun σ s => KSamp p σ (p.k * p.ℓ) (p.ℓ + p.k) s)
+      (.seq (seqR (expA P p) 0 (p.k * p.ℓ)) (seqR (expS P p) 0 (p.ℓ + p.k))) := by
+  refine Piece.seq (J := fun σ s => KSamp p σ (p.k * p.ℓ) 0 s) ?_ ?_
+  · refine Piece.mono (Piece.seqR (I := fun e σ s => KSamp p σ e 0 s) (p.k * p.ℓ) 0
+      fun e _ he => expA_piece hP hF (by omega)) (fun σ s _ h => KSamp.zero h.1 h.2) fun σ s _ h => ?_
+    simpa using h
+  · refine Piece.mono (Piece.seqR (I := fun r σ s => KSamp p σ (p.k * p.ℓ) r s) (p.ℓ + p.k) 0
+      fun r _ hr => expS_piece hP hF (by omega)) (fun _ _ _ h => h) fun σ s _ h => ?_
+    simpa using h
 
 end VG.Proof.MlDsa.X86_64.KeyGen
