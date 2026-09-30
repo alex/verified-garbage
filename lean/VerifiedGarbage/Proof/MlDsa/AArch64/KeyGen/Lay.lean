@@ -110,12 +110,17 @@ theorem kgLay {p : Params} (hF : PFacts p) {S : Nat} {σ s : State}
   · simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false]
     rintro b (rfl | rfl | rfl | rfl) <;> simp
 
+theorem kgOk (p : Params) : LayOk (kgR ++ kgW p) := by
+  intro b hb
+  simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hb
+  rcases hb with rfl | rfl | rfl | rfl <;> simp
+
 /-! ## Checks of pointers, by `omega` -/
 
-theorem inB_x25 (p : Params) (o l : Nat) : inB (kgR ++ kgW p) (.x25, o) l = decide (o + l ≤ 32) := rfl
-theorem inB_x28 (p : Params) (o l : Nat) : inB (kgR ++ kgW p) (.x28, o) l = decide (o + l ≤ scrLen p) := rfl
-theorem inB_x26 (p : Params) (o l : Nat) : inB (kgR ++ kgW p) (.x26, o) l = decide (o + l ≤ p.pkLen) := rfl
-theorem inB_x27 (p : Params) (o l : Nat) : inB (kgR ++ kgW p) (.x27, o) l = decide (o + l ≤ p.skLen) := rfl
+theorem inB_x25 (p : Params) (o l : Nat) : inB ((Reg.x25, 32) :: kgW p) (.x25, o) l = decide (o + l ≤ 32) := rfl
+theorem inB_x28 (p : Params) (o l : Nat) : inB ((Reg.x25, 32) :: kgW p) (.x28, o) l = decide (o + l ≤ scrLen p) := rfl
+theorem inB_x26 (p : Params) (o l : Nat) : inB ((Reg.x25, 32) :: kgW p) (.x26, o) l = decide (o + l ≤ p.pkLen) := rfl
+theorem inB_x27 (p : Params) (o l : Nat) : inB ((Reg.x25, 32) :: kgW p) (.x27, o) l = decide (o + l ≤ p.skLen) := rfl
 theorem inB_x28W (p : Params) (o l : Nat) : inB (kgW p) (.x28, o) l = decide (o + l ≤ scrLen p) := rfl
 theorem inB_x26W (p : Params) (o l : Nat) : inB (kgW p) (.x26, o) l = decide (o + l ≤ p.pkLen) := rfl
 theorem inB_x27W (p : Params) (o l : Nat) : inB (kgW p) (.x27, o) l = decide (o + l ≤ p.skLen) := rfl
@@ -147,7 +152,8 @@ macro_rules
         VG.Proof.MlDsa.AArch64.KeyGen.inB_x25, VG.Proof.MlDsa.AArch64.KeyGen.inB_x26,
         VG.Proof.MlDsa.AArch64.KeyGen.inB_x27, VG.Proof.MlDsa.AArch64.KeyGen.inB_x28,
         VG.Proof.MlDsa.AArch64.KeyGen.inB_x26W, VG.Proof.MlDsa.AArch64.KeyGen.inB_x27W,
-        VG.Proof.MlDsa.AArch64.KeyGen.inB_x28W, List.all_cons, List.all_nil,
+        VG.Proof.MlDsa.AArch64.KeyGen.inB_x28W, List.all_cons, List.all_nil, List.cons_append, List.nil_append,
+        List.all_append, Bool.and_self,
         Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq, Bool.and_true, Bool.true_and, true_and, and_true,
         ↓reduceIte, Bool.false_eq_true, $ls,*]
       set_option linter.unusedSimpArgs false in

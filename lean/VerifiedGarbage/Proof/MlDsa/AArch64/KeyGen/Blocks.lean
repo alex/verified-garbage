@@ -203,4 +203,26 @@ theorem copyP_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S 
     (n9 _ (L.ptrBs i1)) (n9 _ (L.ptrBs i2)) hso hdo (L.disj hsep) rfl rfl (L.cR i1) (L.cW hw))
     fun s' ⟨k, f, b⟩ => ⟨postB_of_keep k (by decide) f, k, b⟩
 
+/-! ## After a sampler -/
+
+/-- The result `w0` of a sampler ANDed into `x24`, and its output masked with it. -/
+theorem tail_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {a : Ptr}
+    (hw : inB wbs a 1024 = true) (hin : inB (rbs ++ wbs) a 1024 = true)
+    (hr : (s.gpr .x0).setWidth 32 = 0 ∨ (s.gpr .x0).setWidth 32 = 1) :
+    WP isa (.seq (.block and24) (mask a)) s fun s' => PPostB S s s' [(a, 1024)] ∧
+      s'.gpr .x24 = ((s.gpr .x24).setWidth 32 &&& (s.gpr .x0).setWidth 32).setWidth 64 ∧
+      ∀ i < 256, coeffAt s'.mem (pa s a) i = if (s.gpr .x0).setWidth 32 = 1 then coeffAt s.mem (pa s a) i else 0 := by
+  refine WP.seq (WP.mono (and24_ok s) fun s₁ ⟨o₁, e₁⟩ => ?_)
+  have P₁ : PostB S s s₁ [] := postB_of_keep o₁.keep (by decide) (by rw [o₁.mem]; exact Frame.refl _ _)
+  have L₁ := L.post P₁
+  have x0 : s₁.gpr .x0 = s.gpr .x0 := o₁.get .x0
+  rw [← x0] at hr
+  refine WP.mono (mask_ok L₁ hw hin hr) fun s' ⟨P', k', hc⟩ => ⟨?_, by rw [k'.get .x24, e₁], ?_⟩
+  · refine PostB.trans P₁ ?_ (fun _ h => absurd h List.not_mem_nil) fun _ h => h
+    have e : ([(a, 1024)] : List (Ptr × Nat)).map (toR s₁) = [(a, 1024)].map (toR s) :=
+      map_toR_post P₁ (fun w hw => by rw [List.mem_singleton.mp hw]; exact L.ptrBs hin)
+    rw [← e]; exact P'
+  · intro i hi
+    rw [← P₁.pa (L.ptrBs hin), hc i hi, x0, o₁.mem]
+
 end VG.Proof.MlDsa.AArch64.KeyGen
