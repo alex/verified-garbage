@@ -81,9 +81,8 @@ theorem pair_write {m : Mem} {base : Addr} {x y n j : Nat} (hx : Slot x) (hy : S
       apply congrArg BitVec.toNat
       exact Mem.readW_writeW_sep (Offset.sep base (by omega) (by omega) (by omega)) (by decide)
 
-/-- Swap all sixteen limbs under the mask, preserving all other bytes. -/
+/-- Swap all twenty-eight limbs under the mask, preserving all other bytes. -/
 theorem cswap_ok {s : State} {base : Addr} (hs : Scr s base) {x y : Nat} (hx : Slot x) (hy : Slot y)
-
     (hxy : x + 112 ≤ y ∨ y + 112 ≤ x) {sw : Bool} (hc : s.gpr .r5 = mask sw) :
     WP isa (.block (cswap x y)) s fun t =>
       (∀ i < 28, limbs t.mem base x i = if sw then limbs s.mem base y i else limbs s.mem base x i) ∧
