@@ -183,4 +183,24 @@ theorem mask_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S r
       omega
   · rw [hc j hj, Proof.MlDsa.KeyGen.ifp hj, x8, and_mask hr]
 
+/-! ## Copies of 32 bytes -/
+
+/-- The 32 bytes at `src` can be copied to `dst`. -/
+def copyChk (rbs wbs : List (Reg × Nat)) (dst src : Ptr) : Bool :=
+  decide (src.2 % 8 = 0 ∧ src.2 + 32 ≤ 32768) && decide (dst.2 % 8 = 0 ∧ dst.2 + 32 ≤ 32768) &&
+    sepB rbs wbs src 32 dst 32 && inB wbs dst 32
+
+theorem copyP_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {dst src : Ptr}
+    (hc : copyChk rbs wbs dst src = true) :
+    WP isa (.block (Impl.MlKem.AArch64.copy32 src.1 src.2 dst.1 dst.2)) s fun s' =>
+      PPostB S s s' [(dst, 32)] ∧ Keep [.x9] s s' ∧ bytesAt s'.mem (pa s dst) 32 = bytesAt s.mem (pa s src) 32 := by
+  simp only [copyChk, Bool.and_eq_true, decide_eq_true_eq] at hc
+  obtain ⟨⟨⟨hso, hdo⟩, hsep⟩, hw⟩ := hc
+  have i1 := (sepB_spec hsep).1
+  have i2 := (sepB_spec hsep).2.1
+  have n9 : ∀ r ∈ bases, r ≠ .x9 := by decide
+  refine WP.mono (Proof.MlKem.AArch64.KeyGen.copy_ok (S := s.gpr src.1) (D := s.gpr dst.1)
+    (n9 _ (L.ptrBs i1)) (n9 _ (L.ptrBs i2)) hso hdo (L.disj hsep) rfl rfl (L.cR i1) (L.cW hw))
+    fun s' ⟨k, f, b⟩ => ⟨postB_of_keep k (by decide) f, k, b⟩
+
 end VG.Proof.MlDsa.AArch64.KeyGen
