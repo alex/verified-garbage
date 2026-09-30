@@ -25,7 +25,7 @@ namespace VG.Proof.MlDsa.AArch64.Verify
 
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
 open VG.Proof.MlDsa.AArch64.KeyGen
-open VG.Spec.MlDsa (Params scratchWords mlDsa44 mlDsa65 mlDsa87 q gamma2s ballParams simpleBitPackBounds bitlen)
+open VG.Spec.MlDsa (Params mlDsa44 mlDsa65 mlDsa87 q gamma2s ballParams simpleBitPackBounds bitlen)
 open VG.Spec.Sha3 (bytesAt)
 
 /-! ## The parameter sets -/
@@ -53,12 +53,6 @@ theorem vfacts {p : Params} (hp : p = mlDsa44 ∨ p = mlDsa65 ∨ p = mlDsa87) :
     exact ⟨by simp, by decide, by decide, by decide, by decide, by decide, by decide, by decide,
       ⟨by decide, by decide, by decide⟩, by decide, ⟨by decide, by decide, by decide, by decide⟩, by decide,
       ⟨by decide, by decide, by decide⟩, by decide, by decide⟩
-
-/-- The size of `scratch`, in bytes. -/
-abbrev scrLen (p : Params) : Nat := scratchWords p * 8
-
-theorem scr_eq (p : Params) : scrLen p = 1024 * (p.k * p.ℓ + 4 * p.k + 3 * p.ℓ + 32) := by
-  simp only [scrLen, scratchWords]; omega
 
 theorem VFacts.small {p : Params} (hF : VFacts p) : scrLen p < 2 ^ 32 ∧ p.pkLen < 2 ^ 32 ∧ p.sigLen < 2 ^ 32 := by
   have hk := hF.k; have hl := hF.l; have hkl := hF.kl; have := hF.zl; have := hF.ct; have := hF.om
