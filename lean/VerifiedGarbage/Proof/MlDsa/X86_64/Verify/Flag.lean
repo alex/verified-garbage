@@ -22,6 +22,11 @@ open VG.Spec.Sha3 (bytesAt)
 /-- 1 if `p`, 0 otherwise. -/
 def flag (p : Prop) [Decidable p] : BitVec 64 := if p then 1 else 0
 
+theorem flag_congr {p q : Prop} [Decidable p] [Decidable q] (h : p ↔ q) : flag p = flag q := by
+  unfold flag; by_cases hp : p
+  · rw [ifp hp, ifp (h.mp hp)]
+  · rw [ifn hp, ifn (fun hq => hp (h.mpr hq))]
+
 theorem and15_ok (s : State) :
     WP isa (.block and15) s fun s' =>
       (s'.gpr .r15 = BitVec.setWidth 64 ((s.gpr .r15).setWidth 32 &&& (s.gpr .rax).setWidth 32) ∧ s'.mem = s.mem) ∧

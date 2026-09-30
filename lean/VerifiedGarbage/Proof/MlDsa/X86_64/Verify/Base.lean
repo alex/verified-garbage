@@ -367,6 +367,16 @@ theorem PPostB.mono {s s' : State} {ws ws' : List (Ptr × Nat)} (h : PPostB s s'
 def keepB (bs : List (Reg × Nat)) (ws : List (Ptr × Nat)) (p : Ptr) (l : Nat) : Bool :=
   decide (p.1 ∈ bases) && inB bs p l && ws.all fun w => sepB bs p l w.1 w.2
 
+theorem keepB_nil {bs : List (Reg × Nat)} {ws : List (Ptr × Nat)} {p : Ptr} {l : Nat}
+    (hc : keepB bs ws p l = true) : keepB bs [] p l = true := by
+  simp only [keepB, Bool.and_eq_true, List.all_nil, and_true] at hc ⊢
+  exact hc.1
+
+theorem keepB_nil_of {bs : List (Reg × Nat)} {p : Ptr} {l : Nat} (hb : p.1 ∈ bases) (h : inB bs p l = true) :
+    keepB bs [] p l = true := by
+  simp only [keepB, Bool.and_eq_true, List.all_nil, and_true, decide_eq_true_eq]
+  exact ⟨hb, h⟩
+
 theorem keepB_bs {bs : List (Reg × Nat)} {ws : List (Ptr × Nat)} {p : Ptr} {l : Nat}
     (hc : keepB bs ws p l = true) : p.1 ∈ bases := by
   simp only [keepB, Bool.and_eq_true, decide_eq_true_eq] at hc

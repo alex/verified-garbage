@@ -356,6 +356,9 @@ abbrev huArgs (y : Ptr) (len omega : Nat) (h : Ptr) (hlen : Nat) : List (Reg × 
 def HuPar (len omega hlen : Nat) : Prop :=
   (omega, len - omega) ∈ hintParams ∧ omega ≤ len ∧ hlen = 256 * (len - omega)
 
+instance (len omega hlen : Nat) : Decidable (HuPar len omega hlen) :=
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+
 theorem hu_small {len omega hlen : Nat} (h : HuPar len omega hlen) :
     len < 2 ^ 31 ∧ omega < 2 ^ 31 ∧ hlen < 2 ^ 31 := by
   obtain ⟨hp, hl, hh⟩ := h

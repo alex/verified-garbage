@@ -135,6 +135,8 @@ def tChk (p : Params) (ws : List (Ptr × Nat)) : Bool :=
   (List.range 6).all (fun k => keepB (vB p) ws (sc (oSV + 8 * k)) 8) && ws.all (fun w => inB (vB p) w.1 w.2) &&
     keepB (vB p) ws (.rbp, 0) p.pkLen && keepB (vB p) ws (.r12, 0) 64 && keepB (vB p) ws (.r13, 0) p.sigLen
 
+theorem tChk_nil : ∀ p ∈ params, tChk p [] = true := by decide
+
 theorem T.step {p : Params} (hp : p ∈ params) {σ s s' : State} (hv : VPre p σ) (h : T p σ s)
     {ws : List (Ptr × Nat)} (hP : PPostB s s' ws) (hc : tChk p ws = true) : T p σ s' := by
   have L := h.lay hp hv
