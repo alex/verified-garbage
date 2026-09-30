@@ -109,6 +109,18 @@ theorem fieldCode_ok (ops : List FieldOp) {s : State} {base : Addr} (hs : Scr s 
     refine WP.mono (ih (ht.scr hs)) fun u ⟨hu, eu⟩ => ?_
     exact ⟨ht.trans hu, by rw [eu, et]; rfl⟩
 
+theorem constField_ok {s : State} {base : Addr} (hs : Scr s base) (o : Slot) (v : Spec.X25519.Fe) :
+    WP isa (.block (constField o v)) s fun t =>
+      Keep base s t ∧ env t.mem base = Function.update (env s.mem base) o v := by
+  refine WP.mono (constField_op hs o v) fun t ⟨hk, hv⟩ => ?_
+  exact ⟨op_keep hk, by rw [env_update o hk.mem, hv]⟩
+
+theorem copyField_ok {s : State} {base : Addr} (hs : Scr s base) (o a : Slot) :
+    WP isa (.block (copyField o a)) s fun t =>
+      Keep base s t ∧ env t.mem base = Function.update (env s.mem base) o (env s.mem base a) := by
+  refine WP.mono (copyField_op hs o a) fun t ⟨hk, hv⟩ => ?_
+  exact ⟨op_keep hk, by rw [env_update o hk.mem, hv]; rfl⟩
+
 /-- Coordinates in four consecutive slots. -/
 def point (e : Env) (x y z t : Slot) : Spec.Ed25519.Point := ⟨e x, e y, e z, e t⟩
 
