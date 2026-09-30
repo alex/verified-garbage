@@ -75,19 +75,29 @@ theorem Fam.congr {s₀ : State} {m : Mem} {b n : Nat} {f g : Nat → Poly} (h :
 def Out (p : Params) (lo hi : Nat) (c : Buf) : Prop :=
   (Y p).ok c = true ∧ (c.arg = SC → c.off + c.len ≤ lo ∨ hi ≤ c.off)
 
+/-- The slots of `ŝ₁`, `ŝ₂` and `t̂₀`. -/
+abbrev s1B (p : Params) : Nat := 5 + 2 * p.k + 2 * p.ℓ
+abbrev s2B (p : Params) : Nat := 5 + 2 * p.k + 3 * p.ℓ
+abbrev t0B (p : Params) : Nat := 5 + 3 * p.k + 3 * p.ℓ
+
+/-- A write apart from all of the families. -/
+def OutK (p : Params) (n1 n2 n0 : Nat) (c : Buf) : Prop :=
+  Out p (oP (aBase p)) (oP (nS p)) c ∧ Out p (oP (s1B p)) (oP (s1B p + n1)) c ∧
+    Out p (oP (s2B p)) (oP (s2B p + n2)) c ∧ Out p (oP (t0B p)) (oP (t0B p + n0)) c
+
 /-- The facts of `PS p` that the offsets need, in the context. -/
 macro "ofs" : tactic => do
   let ps := Lean.mkIdent `ps
   `(tactic| (
   have _ := ($ps).hk; have _ := ($ps).hl; have _ := ($ps).hscr; have _ := ($ps).hsigLen; have _ := ($ps).hskLen
   have _ := ($ps).hcLen; have _ := ($ps).hzLen; have _ := ($ps).hw1; have _ := ($ps).hω
-  try simp only [nS, aBase] at *
+  try simp only [nS, aBase, s1B, s2B, t0B] at *
   set_option linter.unusedSimpArgs false in
   simp only [Lay.apart, Lay.okW_iff, Lay.ok_iff, Lay.sep_iff, List.all_cons, List.all_nil, Bool.and_true,
     Bool.and_eq_true, List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true,
     true_and, ne_eq, not_true_eq_false, false_and, or_false, true_or, or_true, Out, In,
     Y_n, Y_alen0, Y_alen1, Y_alen2, Y_alen3, Y_alen4, Y_awr0, Y_awr1, Y_awr2, Y_awr3, Y_awr4,
-    oP, SC, oPS, oRS, oHIN, oMS, oCT, oW1, oST, oWK, oOK, oCNT, oKAP, oONES, skS1, skS2, skT0, sigZ, sigH, aBase]
+    oP, SC, oPS, oRS, oHIN, oMS, oCT, oW1, oST, oWK, oOK, oCNT, oKAP, oONES, skS1, skS2, skT0, sigZ, sigH, aBase, s1B, s2B, t0B, OutK]
   omega))
 
 /-! ## Slots -/
