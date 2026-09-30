@@ -6,7 +6,7 @@ import VerifiedGarbage.Proof.Framework.AArch64.Inline
 Untrusted: everything here is checked by Lean.
 
 A call (`bl`) stores nothing in memory: it leaves unknown values in `x30`
-(the return address), `x16` and `x17` (`State.callEntry`). `WP.call` runs a
+(the return address), `x16`, `x17` and PSTATE.C (`State.callEntry`). `WP.call` runs a
 call of verified code from the callee's `Verified` proof, as `WP.inline` does
 for inlined code; the callee may have calls of its own, but no frames.
 
@@ -19,13 +19,14 @@ frame proven without the frame's region.
 namespace VG.AArch64
 
 /-- The state a called function starts in: `x30`, `x16` and `x17` hold the
-next three unknown values. -/
+next three unknown values, and a bit of the fourth supplies PSTATE.C. -/
 def State.callEntry (s : State) : State :=
   { s with
     gpr := fun r =>
       if r = .x30 then s.unknowns 0 else if r = .x16 then s.unknowns 1
       else if r = .x17 then s.unknowns 2 else s.gpr r
-    unknowns := fun n => s.unknowns (n + 3) }
+    c := (s.unknowns 3).getLsbD 0
+    unknowns := fun n => s.unknowns (n + 4) }
 
 theorem call_callEntry (s : State) : isa.call s = some s.callEntry := rfl
 
