@@ -11,10 +11,12 @@
 //!
 //! The 16-byte nonce is the initial block counter (4 bytes, little-endian)
 //! followed by the 12-byte RFC 8439 nonce, i.e. state words 12–15. As in
-//! OpenSSL (and the original ChaCha), words 12 and 13 together are a 64-bit
-//! block counter: when word 12 wraps around, word 13 is incremented. This
-//! agrees with RFC 8439, whose counter is only word 12, for the first
-//! 2³² − (initial counter) blocks.
+//! RFC 8439 (and pyca/cryptography), the block counter is word 12 alone, so
+//! a keystream starting at block counter `c` is 2³² − `c` blocks long:
+//! applying more of it panics, rather than wrapping the counter around or
+//! carrying it into word 13, the first word of the nonce, as OpenSSL does
+//! (the keystream past that point would be another nonce's, e.g. after
+//! 64 bytes from `c = 0xffffffff`).
 //!
 //! On x86-64, CPUs with AVX-512F run `vg_chacha20_xor_avx512` instead, which
 //! has the same contract and XORs sixteen blocks at a time, and other CPUs
@@ -111,6 +113,10 @@ pub struct ChaCha20 {
     keystream: [u8; 64],
     /// How many bytes of `keystream` have been used.
     used: usize,
+    /// How many bytes of keystream are left before the block counter would
+    /// wrap around: those left in `keystream` and in the blocks from the
+    /// counter in word 12 to the last one, `0xffffffff`.
+    remaining: u64,
     backend: Backend,
 }
 
@@ -130,6 +136,7 @@ impl ChaCha20 {
             state,
             keystream: [0; 64],
             used: 64,
+            remaining: 0,
             backend: Backend::select(detected()),
         };
         c.reset_nonce(nonce);
@@ -140,22 +147,34 @@ impl ChaCha20 {
     pub fn reset_nonce(&mut self, nonce: &[u8; 16]) {
         self.state[12..].copy_from_slice(&words::<4>(nonce));
         self.used = 64;
+        self.remaining = 64 * ((1 << 32) - u64::from(self.state[12]));
     }
 
     /// XORs the next `data.len()` bytes of the keystream into `data`
     /// (encrypting or decrypting it).
+    ///
+    /// # Panics
+    ///
+    /// If the keystream is not that long: if the block counter would pass
+    /// `0xffffffff`, i.e. if more than 64 × (2³² − `c`) bytes in all would
+    /// have been applied since the nonce (with initial block counter `c`) was
+    /// set. `data` is then left unchanged.
     pub fn apply_keystream(&mut self, data: &mut [u8]) {
+        self.remaining = self
+            .remaining
+            .checked_sub(data.len() as u64)
+            .expect("ChaCha20 block counter would overflow");
         let (head, rest) = data.split_at_mut((64 - self.used).min(data.len()));
         self.xor_bytes(head);
         let rest = self.xor_blocks(rest);
         self.xor_bytes(rest);
     }
 
-    /// Advances the 64-bit block counter in words 12 and 13 by `n`.
+    /// Advances the block counter in word 12 by `n`. `remaining` keeps it
+    /// from passing `0xffffffff` (it wraps around to 0 only after the last
+    /// block, and is not used again).
     fn advance(&mut self, n: u64) {
-        let counter = (u64::from(self.state[13]) << 32 | u64::from(self.state[12])).wrapping_add(n);
-        self.state[12] = counter as u32;
-        self.state[13] = (counter >> 32) as u32;
+        self.state[12] = self.state[12].wrapping_add(n as u32);
     }
 
     /// XORs the keystream into `data` a byte at a time, from the buffered
@@ -175,13 +194,10 @@ impl ChaCha20 {
     /// XORs the keystream into the whole blocks at the start of `data`, from
     /// the current counter (no block may be buffered), and returns the rest.
     fn xor_blocks<'a>(&mut self, data: &'a mut [u8]) -> &'a mut [u8] {
-        let (mut blocks, rest) = data.split_at_mut(data.len() / 64 * 64);
-        while !blocks.is_empty() {
-            // `vg_chacha20_xor`'s counter is word 12 alone: stop where it
-            // wraps, so that the carry into word 13 is ours.
-            let before_wrap = (1 << 32) - u64::from(self.state[12]);
-            let n = ((blocks.len() / 64) as u64).min(before_wrap);
-            let (now, later) = blocks.split_at_mut(64 * n as usize);
+        let (blocks, rest) = data.split_at_mut(data.len() / 64 * 64);
+        if !blocks.is_empty() {
+            // `remaining` (checked by `apply_keystream`) keeps the blocks
+            // within those left before word 12 wraps around.
             let mut state = self.state;
             let mut buf = [0u32; 80];
             let f = match self.backend {
@@ -192,15 +208,14 @@ impl ChaCha20 {
                 Backend::Avx512 => vg_chacha20_xor_avx512,
             };
             // SAFETY: `state` is valid for reads and writes of 64 bytes,
-            // `now` for reads and writes of `now.len()` bytes and `buf` for
+            // `blocks` for reads and writes of `blocks.len()` bytes and `buf` for
             // reads and writes of 320 bytes; they are distinct objects, so
             // they do not overlap each other, the stack frame of the call
             // (the return address and any arguments on the stack) or the
             // stack below it, and do not wrap around the end of the address
             // space. The CPU has the features of the implementation selected.
-            unsafe { f(&mut state, now.as_mut_ptr(), now.len(), &mut buf) };
-            self.advance(n);
-            blocks = later;
+            unsafe { f(&mut state, blocks.as_mut_ptr(), blocks.len(), &mut buf) };
+            self.advance((blocks.len() / 64) as u64);
         }
         rest
     }
@@ -273,33 +288,67 @@ mod tests {
         assert_eq!(data, keystream::<100>(&key(), &n2));
     }
 
-    /// The block counter carries from word 12 into word 13, and wraps around
-    /// (modulo 2⁶⁴) without touching words 14 and 15.
+    /// The keystream from block counter 0xffffffff is one block long,
+    /// however it is applied, and `reset_nonce` starts a new one.
     #[test]
-    fn counter_carry() {
-        let ks = keystream::<128>(
-            &key(),
-            &nonce(0xffff_ffff, &unhex("0900000011223344aabbccdd")),
-        );
-        let next = keystream::<64>(&key(), &nonce(0, &unhex("0a00000011223344aabbccdd")));
-        assert_eq!(ks[64..], next);
+    fn last_block() {
+        let n = nonce(0xffff_ffff, &unhex("0900000011223344aabbccdd"));
+        let ks = keystream::<64>(&key(), &n);
+        let mut c = ChaCha20::new(&key(), &n);
+        let mut data = [0u8; 64];
+        c.apply_keystream(&mut data[..10]);
+        c.apply_keystream(&mut data[10..]);
+        c.apply_keystream(&mut []);
+        assert_eq!(data, ks);
+        c.reset_nonce(&n);
+        let mut data = [0u8; 64];
+        c.apply_keystream(&mut data);
+        assert_eq!(data, ks);
+    }
 
-        let ks = keystream::<128>(
-            &key(),
-            &nonce(0xffff_ffff, &unhex("ffffffff11223344aabbccdd")),
-        );
-        let next = keystream::<64>(&key(), &nonce(0, &unhex("0000000011223344aabbccdd")));
-        assert_eq!(ks[64..], next);
+    /// Applies `first` bytes of the keystream from block counter `counter`
+    /// and then `then` more, which the tests below make too many.
+    fn overflow(counter: u32, first: usize, then: usize) {
+        let mut c = ChaCha20::new(&key(), &nonce(counter, &[4; 12]));
+        let mut data = [0u8; 192];
+        c.apply_keystream(&mut data[..first]);
+        c.apply_keystream(&mut data[..then]);
+    }
+
+    /// Applying keystream past block counter 0xffffffff panics: in whole
+    /// blocks, byte by byte, and after part of the last block.
+    #[test]
+    #[should_panic(expected = "ChaCha20 block counter would overflow")]
+    fn overflow_whole_blocks() {
+        overflow(0xffff_fffe, 0, 64 * 3);
+    }
+
+    #[test]
+    #[should_panic(expected = "ChaCha20 block counter would overflow")]
+    fn overflow_after_blocks() {
+        overflow(0xffff_fffe, 64, 64 * 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "ChaCha20 block counter would overflow")]
+    fn overflow_one_byte() {
+        overflow(0xffff_ffff, 64, 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "ChaCha20 block counter would overflow")]
+    fn overflow_partial_block() {
+        overflow(0xffff_ffff, 10, 55);
     }
 
     /// The implementation chosen gives the same keystream as the scalar one,
     /// for lengths around multiples of eight and sixteen blocks, in one call
     /// and split,
-    /// and across the wrap of word 12.
+    /// and up to the last block counter.
     #[test]
     fn implementations_agree() {
         const LEN: usize = 16 * 64 * 2 + 64 * 3;
-        for counter in [0, 0xffff_fffc] {
+        for counter in [0, 0u32.wrapping_sub((LEN / 64) as u32)] {
             let n = nonce(counter, &[5; 12]);
             let mut expected = [0u8; LEN];
             let mut scalar = ChaCha20::new(&key(), &n);
