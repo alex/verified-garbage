@@ -6,10 +6,11 @@ import VerifiedGarbage.Spec.MlDsa.Poly
 Untrusted: everything here is checked by Lean. The spec's `hintBitPack` and
 `hintBitUnpack` (Algorithms 20 and 21) are nested `for` loops in `Id`, the
 second with early returns. Here they are restated as folds of one step per
-coefficient (`hintBitPack_eq`, `hintBitUnpack_eq`), which an implementation
-follows iteration by iteration; and the index of `HintBitPack` is the number
-of 1s before the current coefficient, at most the number of 1s of the hint
-(`hpIdx_lt`), so it stays below `ω`.
+coefficient (`hintBitPack_eq`, `hintBitUnpack_eq`; the latter's `optFold`
+stops at the first failed check), which an implementation follows iteration
+by iteration; and the index of `HintBitPack` is the number of 1s before the
+current coefficient, at most the number of 1s of the hint (`hpIdx_lt`), so
+it stays below `ω`.
 -/
 
 namespace VG.Proof.MlDsa.Pack

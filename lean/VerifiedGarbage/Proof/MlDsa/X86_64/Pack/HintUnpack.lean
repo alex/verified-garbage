@@ -244,7 +244,8 @@ include hp in
 theorem first_ok {i bound first : Nat} (hi : i < uk s₀) (hfb : first < bound) (hbω : bound ≤ uω s₀)
     {hA : Array (Vector Bool n)} {s : State} (hP : PCom s₀ i bound s) (hax : s.gpr .rax = BitVec.ofNat 64 first)
     (hh : HArr s₀ s.mem hA) :
-    WP isa (.block ([.movzx8 .rsi (atIdx .rdi .rax)] ++ hbuSet ++ [.alu .cmp .rax (.reg .r11)])) s fun s' =>
+    WP isa (.block (([.movzx8 .rsi (atIdx .rdi .rax)] : List Instr) ++ hbuSet ++
+      ([.alu .cmp .rax (.reg .r11)] : List Instr))) s fun s' =>
       PCom s₀ i bound s' ∧ s'.gpr .rax = BitVec.ofNat 64 (first + 1) ∧
         HArr s₀ s'.mem (huSet i ((uY s₀).getD first 0).toNat hA) ∧
         s'.cf = some (decide (first + 1 < bound)) ∧ Keep [.r8, .rax, .rsi] s s' := by
@@ -561,6 +562,334 @@ theorem upoly_ok {i : Nat} (hi : i < uk s₀) {s : State} (hI : OInv s₀ i s) :
           | none => exact id
           | some st => obtain ⟨hA', idx'⟩ := st; exact fun ⟨h1, h2, h3⟩ => ⟨h2, by omega, h3⟩
 
+/-! ## The bytes after the last index -/
+
+theorem trailLoad_ok (s : State) (hin : InRegions (s.rd ++ s.wr) (s.gpr .rdi + s.gpr .rax) 1) :
+    WP isa (.block [.movzx8 .r8 (atIdx .rdi .rax), .alu32 .cmp .r8 (.imm 0)]) s fun s' =>
+      (s'.zf = some (BitVec.setWidth 32 (BitVec.setWidth 64 (s.mem (s.gpr .rdi + s.gpr .rax))) - 0 == 0) ∧
+        s'.mem = s.mem) ∧ Keep [.r8] s s' := by
+  refine WP.keep _ ?_ (by decide)
+  xrun [ea_idx, hin]
+
+theorem incRax_ok (s : State) :
+    WP isa (.block [.alu .add .rax (.imm 1)]) s fun s' =>
+      (s'.gpr .rax = s.gpr .rax + 1 ∧ s'.mem = s.mem) ∧ Keep [.rax] s s' := by
+  refine WP.keep _ ?_ (by decide)
+  xrun
+
+theorem byte_ne_zero (b : Byte) :
+    (BitVec.setWidth 32 (BitVec.setWidth 64 b) - 0 == 0) = decide (b = 0) := by
+  rw [VG.Proof.MlKem.X86_64.sub_beq_zero32]
+  simp only [decide_eq_decide]
+  constructor
+  · intro h
+    have h1 := congrArg BitVec.toNat h
+    have h2 := b.isLt
+    simp only [BitVec.toNat_setWidth] at h1
+    rw [show (0 : BitVec 32).toNat = 0 from rfl] at h1
+    apply BitVec.eq_of_toNat_eq
+    rw [show (0 : Byte).toNat = 0 from rfl]
+    omega
+  · intro h; rw [h]; rfl
+
+include hp in
+/-- The bytes from the index `idx` up to `ω`. -/
+theorem trail_ok {idx : Nat} (hidx : idx ≤ uω s₀) {s : State} (hc : UCom s₀ s)
+    (hax : s.gpr .rax = BitVec.ofNat 64 idx) :
+    WP isa hbuTrail s fun s' => UCom s₀ s' ∧ s'.mem = s.mem ∧
+      (match optFold (huTrail (uY s₀)) (List.range' idx (uω s₀ - idx)) () with
+        | some _ => s'.gpr .rax = BitVec.ofNat 64 (uω s₀)
+        | none => s'.gpr .rax = 256) ∧ Keep [.rax, .r8] s s' := by
+  obtain ⟨hk4, hk8, hω80, hsum, hr8⟩ := up_facts hp
+  have hrd := hp.1
+  have e1 : uLen s₀ = (s₀.gpr .rsi).toNat := rfl
+  have hl := (s₀.gpr .rsi).isLt
+  have hωeq : uω s₀ = (s₀.gpr .rdx).toNat % 2 ^ 32 := by simp [uω, dArg]
+  unfold hbuTrail
+  refine WP.seq (WP.mono (cmpReg_ok .rax .rdx s) fun s₁ ⟨⟨cf₁, m₁⟩, k₁⟩ => ?_)
+  have hc₁ : UCom s₀ s₁ := hc.of_keep k₁ (by decide) (by decide) (by rw [m₁]; exact Frame.refl _ _)
+  rw [hax, hc.rdx, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega),
+    Nat.mod_eq_of_lt (by omega)] at cf₁
+  refine WP.ite (M := isa) _ (show isa.eval .b s₁ = _ from cf₁) (fun hlt => ?_) (fun hge => ?_)
+  · have hlt : idx < uω s₀ := by simpa using hlt
+    refine WP.loop (M := isa) (fun m s' => ∃ u, m = uω s₀ - idx - u ∧ idx + u < uω s₀ ∧
+        optFold (huTrail (uY s₀)) (List.range' idx u) () = some () ∧ s'.gpr .rax = BitVec.ofNat 64 (idx + u) ∧
+        UCom s₀ s' ∧ s'.mem = s.mem ∧ Keep [.rax, .r8] s s')
+      (fun m s' ⟨u, hm, hu, hF, hax', hc', hm', hk'⟩ => ?_) _ s₁
+      ⟨0, rfl, by omega, rfl, by rw [k₁.gpr (by decide), hax]; rfl, hc₁, m₁, k₁.mono (by decide)⟩
+    refine WP.seq (WP.mono (trailLoad_ok s' (by
+        rw [hc'.rd, hc'.wr, hrd, hc'.rdi, hax']
+        exact ⟨_, List.mem_append_left _ (List.mem_singleton_self _), Offset.contains_base _ (by omega) (by omega)⟩))
+      fun s₂ ⟨⟨z₂, m₂⟩, k₂⟩ => ?_)
+    have hbyte : s'.mem (s'.gpr .rdi + s'.gpr .rax) = (uY s₀).getD (idx + u) 0 := by
+      rw [hc'.rdi, hax']; exact yByte hp hc' (by omega)
+    rw [hbyte, byte_ne_zero] at z₂
+    have hc₂ : UCom s₀ s₂ := hc'.of_keep k₂ (by decide) (by decide) (by rw [m₂]; exact Frame.refl _ _)
+    have hF1 : optFold (huTrail (uY s₀)) (List.range' idx (u + 1)) () =
+        huTrail (uY s₀) () (idx + u) := by rw [optFold_range'_succ, hF]; rfl
+    refine WP.seq ?_
+    refine WP.ite (M := isa) _ (show Option.map _ s₂.zf = _ by rw [z₂]; rfl) (fun hne => ?_) (fun heq => ?_)
+    · -- A nonzero byte: fail.
+      have hne : (uY s₀).getD (idx + u) 0 ≠ 0 := by simpa using hne
+      have hn : optFold (huTrail (uY s₀)) (List.range' idx (uω s₀ - idx)) () = none :=
+        optFold_range'_none _ _ (show u + 1 ≤ uω s₀ - idx by omega) (by rw [hF1, huTrail, ite_pos' hne])
+      refine WP.mono (hbuFail_ok s₂) fun s₃ ⟨⟨ax₃, m₃⟩, k₃⟩ => ?_
+      refine WP.mono (cmpReg_ok .rax .rdx s₃) fun s₄ ⟨⟨cf₄, m₄⟩, k₄⟩ => .inl ⟨?_, ⟨hc₂.of_keep (k₃.trans k₄) (by decide)
+        (by decide) (by rw [m₄, m₃]; exact Frame.refl _ _), by rw [m₄, m₃, m₂, hm'], ?_,
+        (((hk'.trans k₂).trans k₃).trans k₄).mono (by decide)⟩⟩
+      · show s₄.cf = _
+        rw [cf₄, ax₃, k₃.gpr (by decide), hc₂.rdx, show (256 : BitVec 64).toNat = 256 from rfl, BitVec.toNat_ofNat,
+          Nat.mod_eq_of_lt (by omega)]
+        exact congrArg some (decide_eq_false (by omega))
+      · rw [hn]; exact (k₄.gpr (by decide)).trans ax₃
+    · -- A zero byte: next.
+      have heq : (uY s₀).getD (idx + u) 0 = 0 := by simpa using heq
+      have hF2 : optFold (huTrail (uY s₀)) (List.range' idx (u + 1)) () = some () := by
+        rw [hF1, huTrail, ite_neg' (by simpa using heq)]
+      refine WP.mono (incRax_ok s₂) fun s₃ ⟨⟨ax₃, m₃⟩, k₃⟩ => ?_
+      have ax₃' : s₃.gpr .rax = BitVec.ofNat 64 (idx + (u + 1)) := by
+        rw [ax₃, k₂.gpr (by decide), hax', ofNat_succ64, Nat.add_assoc]
+      refine WP.mono (cmpReg_ok .rax .rdx s₃) fun s₄ ⟨⟨cf₄, m₄⟩, k₄⟩ => ?_
+      have hc₄ : UCom s₀ s₄ := hc₂.of_keep (k₃.trans k₄) (by decide) (by decide) (by rw [m₄, m₃]; exact Frame.refl _ _)
+      rw [ax₃', k₃.gpr (by decide), hc₂.rdx, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega),
+        Nat.mod_eq_of_lt (by omega)] at cf₄
+      have ax₄ : s₄.gpr .rax = BitVec.ofNat 64 (idx + (u + 1)) := (k₄.gpr (by decide)).trans ax₃'
+      by_cases e : idx + (u + 1) < uω s₀
+      · exact .inr ⟨by show s₄.cf = _; rw [cf₄, decide_eq_true e], _, by omega, u + 1, rfl, e, hF2, ax₄, hc₄,
+          by rw [m₄, m₃, m₂, hm'], (((hk'.trans k₂).trans k₃).trans k₄).mono (by decide)⟩
+      · refine .inl ⟨by show s₄.cf = _; rw [cf₄, decide_eq_false e], hc₄, by rw [m₄, m₃, m₂, hm'], ?_,
+          (((hk'.trans k₂).trans k₃).trans k₄).mono (by decide)⟩
+        rw [show uω s₀ - idx = u + 1 by omega, hF2]
+        rw [ax₄, show idx + (u + 1) = uω s₀ by omega]
+  · -- `idx = ω`: nothing.
+    have hge : ¬ idx < uω s₀ := by simpa using hge
+    refine WP.block_nil ⟨hc₁, m₁, ?_, k₁.mono (by decide)⟩
+    rw [show uω s₀ - idx = 0 by omega]
+    simp only [List.range'_zero, optFold]
+    rw [k₁.gpr (by decide), hax, show idx = uω s₀ by omega]
+
+include hp in
+theorem trail_fail {s : State} (hc : UCom s₀ s) (hax : s.gpr .rax = 256) :
+    WP isa hbuTrail s fun s' => UCom s₀ s' ∧ s'.mem = s.mem ∧ s'.gpr .rax = 256 ∧ Keep [.rax, .r8] s s' := by
+  obtain ⟨-, -, hω80, -, -⟩ := up_facts hp
+  have hωeq : uω s₀ = (s₀.gpr .rdx).toNat % 2 ^ 32 := by simp [uω, dArg]
+  unfold hbuTrail
+  refine WP.seq (WP.mono (cmpReg_ok .rax .rdx s) fun s₁ ⟨⟨cf₁, m₁⟩, k₁⟩ => ?_)
+  rw [hax, hc.rdx, BitVec.toNat_ofNat, show (256 : BitVec 64).toNat = 256 from rfl, Nat.mod_eq_of_lt (by omega)] at cf₁
+  refine WP.ite (M := isa) false (by show s₁.cf = _; rw [cf₁]; exact congrArg some (decide_eq_false (by omega)))
+    (fun h => by cases h) fun _ => WP.block_nil ⟨hc.of_keep k₁ (by decide) (by decide) (by rw [m₁]; exact Frame.refl _ _),
+      m₁, (k₁.gpr (by decide)).trans hax, k₁.mono (by decide)⟩
+
+/-! ## The function -/
+
+theorem hbuSetup_ok (s : State) :
+    WP isa (.block [.mov .r9 (.reg .rdi), .alu .add .r9 (.reg .rdx), .mov .r10 (.reg .rsi), .alu .sub .r10 (.reg .rdx)])
+      s fun s' => (s'.gpr .r9 = s.gpr .rdi + s.gpr .rdx ∧ s'.gpr .r10 = s.gpr .rsi - s.gpr .rdx ∧ s'.mem = s.mem) ∧
+        Keep [.r9, .r10] s s' := by
+  refine WP.keep _ ?_ (by decide)
+  xrun
+
+theorem hbuRet_ok (s : State) :
+    WP isa (.block hbuRet) s fun s' =>
+      (BitVec.setWidth 32 (s'.gpr .rax) = if (s.gpr .rdx).toNat < (s.gpr .rax).toNat then 0 else 1) ∧ s'.mem = s.mem := by
+  unfold hbuRet
+  xrun
+  split
+  · rename_i h; rw [decide_eq_true h]; rfl
+  · rename_i h; rw [decide_eq_false h]; rfl
+
+include hp in
+/-- The polynomials. -/
+theorem hbuMain_ok {s : State} (hc : UCom s₀ s) (hax : s.gpr .rax = 0)
+    (hz : ∀ t < (s₀.gpr .r8).toNat, coeffAt s.mem (s₀.gpr .rcx) t = 0) (hcx : s.gpr .rcx = s₀.gpr .rcx)
+    (hsi : s.gpr .rsi = s₀.gpr .rsi) :
+    WP isa hbuMain s fun s' => OInv s₀ (uk s₀) s' ∧ Keep [.rax, .rcx, .rsi, .r8, .r9, .r10, .r11] s s' := by
+  obtain ⟨hk4, hk8, hω80, hsum, hr8⟩ := up_facts hp
+  have e1 : uLen s₀ = (s₀.gpr .rsi).toNat := rfl
+  have e2 : uk s₀ = (s₀.gpr .rsi).toNat - uω s₀ := rfl
+  have hωeq : uω s₀ = (s₀.gpr .rdx).toNat % 2 ^ 32 := by simp [uω, dArg]
+  unfold hbuMain
+  refine WP.seq (WP.mono (hbuSetup_ok s) fun s₁ ⟨⟨r9₁, r10₁, m₁⟩, k₁⟩ => ?_)
+  refine WP.mono (wp_countdown (cnt := .r10) (N := uk s₀) (by omega) (by omega)
+    (fun i s' => OInv s₀ i s' ∧ Keep [.rax, .rcx, .rsi, .r8, .r9, .r10, .r11] s s')
+    (fun i hi s' ⟨hI, hk⟩ _ => WP.mono (upoly_ok hp hi hI) fun s'' ⟨hI', h10, hz', hk'⟩ =>
+      ⟨⟨hI', (hk.trans hk').mono (by decide)⟩, h10, hz'⟩)
+    (fun s' h => h) (s := s₁) ⟨⟨hc.of_keep k₁ (by decide) (by decide) (by rw [m₁]; exact Frame.refl _ _), ?_, ?_, ?_⟩,
+      k₁.mono (by decide)⟩ ?_) fun s' h => h
+  · rw [r9₁, hc.rdi, hc.rdx]; rfl
+  · rw [k₁.gpr (by decide), hcx]; simp
+  · show SRel s₀ (some (Array.replicate (uk s₀) noHint, 0)) s₁
+    exact ⟨by rw [k₁.gpr (by decide), hax]; rfl, Nat.zero_le _, by rw [m₁]; exact harr_zero hp hz⟩
+  · rw [r10₁, hsi, hc.rdx]
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
+    have := (s₀.gpr .rsi).isLt
+    omega
+
+/-- The hint of the spec, from the words. -/
+theorem harr_hintIs {m : Mem} {hA : Array (Vector Bool n)} (hh : HArr s₀ m hA) :
+    HintIs m (s₀.gpr .rcx) (uk s₀) hA.toList := by
+  refine ⟨by rw [Array.length_toList, hh.1], fun i hi j hj => ?_⟩
+  rw [hh.2 i hi j hj]
+  congr 3
+  rw [List.getD_eq_getElem?_getD, Array.getElem?_toList, ← Array.getD_eq_getD_getElem?]
+
+include hp in
+theorem hbu_wp :
+    WP isa Impl.MlDsa.X86_64.Pack.hintBitUnpack s₀ fun s' =>
+      hintBitUnpackK.post s₀ s' ∧ Frame [uR s₀] s₀.mem s'.mem := by
+  obtain ⟨hk4, hk8, hω80, hsum, hr8⟩ := up_facts hp
+  have hωeq : uω s₀ = (s₀.gpr .rdx).toNat % 2 ^ 32 := by simp [uω, dArg]
+  unfold Impl.MlDsa.X86_64.Pack.hintBitUnpack
+  refine WP.seq (WP.mono (hbuZero_ok hp) fun s₁ ⟨hz₁, hf₁, ax₁, dx₁, k₁⟩ => ?_)
+  refine WP.seq (WP.mono (hbuMain_ok hp (s := s₁) ⟨k₁.gpr (by decide), dx₁, k₁.2.1, k₁.2.2, hf₁⟩ ax₁ hz₁
+    (k₁.gpr (by decide)) (k₁.gpr (by decide))) fun s₂ ⟨hI, k₂⟩ => ?_)
+  -- The spec, as folds.
+  show WP isa _ s₂ fun s' => (match hintBitUnpack (uω s₀) (uk s₀) (bytesAt s₀.mem (s₀.gpr .rdi) (s₀.gpr .rsi).toNat) with
+    | some hint => BitVec.setWidth 32 (s'.gpr .rax) = 1 ∧ HintIs s'.mem (s₀.gpr .rcx) (uk s₀) hint
+    | none => BitVec.setWidth 32 (s'.gpr .rax) = 0) ∧ Frame [uR s₀] s₀.mem s'.mem
+  rw [hintBitUnpack_eq]
+  have hst := hI.st
+  cases hS : huS s₀ (uk s₀) with
+  | none =>
+    rw [hS] at hst
+    rw [show optFold (huPoly (uω s₀) (bytesAt s₀.mem (s₀.gpr .rdi) (s₀.gpr .rsi).toNat).toArray)
+      (List.range (uk s₀)) (Array.replicate (uk s₀) noHint, 0) = none from hS]
+    refine WP.seq (WP.mono (trail_fail hp hI.com hst) fun s₃ ⟨hc₃, m₃, ax₃, k₃⟩ => ?_)
+    refine WP.mono (hbuRet_ok s₃) fun s₄ ⟨ax₄, m₄⟩ => ⟨?_, by rw [m₄, m₃]; exact hI.com.frame⟩
+    rw [ax₄, ax₃, hc₃.rdx, BitVec.toNat_ofNat, show (256 : BitVec 64).toNat = 256 from rfl, Nat.mod_eq_of_lt (by omega),
+      ite_pos' (by omega)]
+  | some st =>
+    obtain ⟨hA, idx⟩ := st
+    rw [hS] at hst
+    obtain ⟨hax, hidx, hh⟩ := hst
+    rw [show optFold (huPoly (uω s₀) (bytesAt s₀.mem (s₀.gpr .rdi) (s₀.gpr .rsi).toNat).toArray)
+      (List.range (uk s₀)) (Array.replicate (uk s₀) noHint, 0) = some (hA, idx) from hS]
+    refine WP.seq (WP.mono (trail_ok hp hidx hI.com hax) fun s₃ ⟨hc₃, m₃, hr₃, k₃⟩ => ?_)
+    refine WP.mono (hbuRet_ok s₃) fun s₄ ⟨ax₄, m₄⟩ => ⟨?_, by rw [m₄, m₃]; exact hI.com.frame⟩
+    dsimp only
+    revert hr₃
+    cases optFold (huTrail (uY s₀)) (List.range' idx (uω s₀ - idx)) () with
+    | none =>
+      intro hr₃
+      rw [ax₄, hr₃, hc₃.rdx, BitVec.toNat_ofNat, show (256 : BitVec 64).toNat = 256 from rfl,
+        Nat.mod_eq_of_lt (by omega), ite_pos' (by omega)]
+      rfl
+    | some _ =>
+      intro hr₃
+      refine ⟨?_, by rw [m₄, m₃]; exact harr_hintIs hh⟩
+      rw [ax₄, hr₃, hc₃.rdx, ite_neg' (Nat.lt_irrefl _)]
+
 end
+
+theorem hintBitUnpack_correct (s : State) (hs : hintBitUnpackK.pre s) :
+    ∃ t s', Exec isa Impl.MlDsa.X86_64.Pack.hintBitUnpack s t s' ∧ abiPreserved s s' ∧ hintBitUnpackK.post s s' := by
+  obtain ⟨t, s', he, ⟨hb, hf⟩, hk⟩ := WP.keep (c := Impl.MlDsa.X86_64.Pack.hintBitUnpack)
+    [.rax, .rcx, .rdx, .rsi, .r8, .r9, .r10, .r11] (hbu_wp hs) (by decide)
+  exact ⟨t, s', he, abiPreserved_of_exec (by decide) he (gprPreserved_of hk (by decide) hf
+    (by simpa using hs.2.2.2.2.1)), hb⟩
+
+/-! ## Constant time -/
+
+/-- A byte of the words of a region of zero words. -/
+theorem byte_of_zero_words {m : Mem} {p : Addr} {N : Nat} (hz : ∀ t < N, coeffAt m p t = 0) {a : Addr}
+    (ha : (⟨p, N * 4⟩ : Region).Contains a 1) : m a = 0 := by
+  simp only [Region.Contains] at ha
+  have ht : (a - p).toNat % 4 < 4 := Nat.mod_lt _ (by decide)
+  have ea : a = coeffAddr p ((a - p).toNat / 4) + BitVec.ofNat 64 ((a - p).toNat % 4) := by
+    rw [coeffAddr, BitVec.add_assoc, BitVec.ofNat_add_ofNat, Nat.div_add_mod, BitVec.ofNat_toNat,
+      BitVec.setWidth_eq, BitVec.add_comm, BitVec.sub_add_cancel]
+  rw [ea, Mem.readW_byte m (coeffAddr p _) ht, ← coeffAt_eq, hz _ (by omega)]
+  simp
+
+theorem map_toNat_inj : ∀ {b₁ b₂ : List Byte}, b₁.map (·.toNat) = b₂.map (·.toNat) → b₁ = b₂
+  | [], [], _ => rfl
+  | _ :: _, _ :: _, h => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    rw [BitVec.eq_of_toNat_eq h.1, map_toNat_inj h.2]
+  | [], _ :: _, h => by simp at h
+  | _ :: _, [], h => by simp at h
+
+/-- The taint of the loops: the pointers, the lengths, `ω` and the index. -/
+abbrev hbuTaint : X86_64.Taint.T := X86_64.Taint.ofRegs [.rdi, .rsi, .rdx, .rcx, .r8, .rax]
+
+theorem hintBitUnpack_ct :
+    ConstantTime isa hintBitUnpackK.pre hintBitUnpackK.pub Impl.MlDsa.X86_64.Pack.hintBitUnpack := by
+  refine RelCT.constantTime (Q := fun _ _ => True) ?_
+  refine RelCT.seq (R := MAgree hbuTaint) ?_ (RelCT.taint (A := memTaint) hbuTaint (fun _ _ h => h) (by taint_decide))
+  refine Proof.MlKem.X86_64.RelCT.postDep
+    (RelCT.taint (A := taint) (regsLo [.rdi, .rsi, .rcx, .r8, .rsp] [.rdx])
+      (fun _ _ ⟨_, _, hp⟩ => agree_regsLo (fun r hr => by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | rfl | rfl | rfl | rfl
+        exacts [hp.1, hp.2.1, hp.2.2.1, hp.2.2.2.1, hp.2.2.2.2.1])
+        fun r hr => by simp only [List.mem_cons, List.not_mem_nil, or_false] at hr; subst hr; exact hp.2.2.2.2.2.1)
+      (by taint_decide))
+    (fun x y ⟨hx, hy, _⟩ => ⟨hbuZero_ok hx, hbuZero_ok hy⟩) fun x y x' y' ⟨hx, hy, hp⟩ fx fy => ?_
+  obtain ⟨hz₁, hf₁, ax₁, dx₁, k₁⟩ := fx
+  obtain ⟨hz₂, hf₂, ax₂, dx₂, k₂⟩ := fy
+  obtain ⟨di, si, ci, r8, -, dx, hleak⟩ := hp
+  have hdx : dArg x .rdx = dArg y .rdx := by unfold dArg; rw [dx]
+  have hrd : x'.rd = y'.rd := by rw [k₁.2.1, k₂.2.1, hx.1, hy.1, di, si]
+  have hwr : x'.wr = y'.wr := by rw [k₁.2.2, k₂.2.2, hx.2.1, hy.2.1, ci, r8]
+  refine ⟨X86_64.Taint.agree_ofRegs fun r hr => ?_, hrd, hwr, fun a ha => ?_⟩
+  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl
+    · rw [k₁.gpr (by decide), k₂.gpr (by decide), di]
+    · rw [k₁.gpr (by decide), k₂.gpr (by decide), si]
+    · rw [dx₁, dx₂]; exact congrArg _ hdx
+    · rw [k₁.gpr (by decide), k₂.gpr (by decide), ci]
+    · rw [k₁.gpr (by decide), k₂.gpr (by decide), r8]
+    · rw [ax₁, ax₂]
+  · rw [k₁.2.1, k₁.2.2, hx.1, hx.2.1] at ha
+    obtain ⟨r, hr, hc⟩ := ha
+    simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl
+    · -- `y`: as on entry, where the runs agree.
+      have hdis : ∀ r ∈ [uR x], ¬ r.Contains a 1 := by
+        intro r hr hc'; simp only [List.mem_singleton] at hr; subst hr; exact hx.2.2.1 a hc hc'
+      rw [hf₁ a hdis, hf₂ a (fun r hr hc' => by
+        simp only [List.mem_singleton] at hr; subst hr
+        simp only [uR, ← ci, ← r8] at hc'
+        exact hx.2.2.1 a hc hc')]
+      have hlt : (a - x.gpr .rdi).toNat < (x.gpr .rsi).toNat := by simp only [Region.Contains] at hc; omega
+      have ea : a = x.gpr .rdi + BitVec.ofNat 64 (a - x.gpr .rdi).toNat := by
+        rw [BitVec.ofNat_toNat, BitVec.setWidth_eq, BitVec.add_comm, BitVec.sub_add_cancel]
+      have hb : bytesAt x.mem (x.gpr .rdi) (x.gpr .rsi).toNat = bytesAt y.mem (x.gpr .rdi) (x.gpr .rsi).toNat := by
+        have hl2 := hleak
+        rw [← di, ← si] at hl2
+        exact map_toNat_inj hl2
+      have h₁ := congrArg (·.getD (a - x.gpr .rdi).toNat 0) hb
+      rw [bytesAt_getD _ _ hlt, bytesAt_getD _ _ hlt, ← ea] at h₁
+      exact h₁
+    · -- `h`: zeros.
+      rw [byte_of_zero_words hz₁ hc, byte_of_zero_words hz₂ (by rw [← ci, ← r8]; exact hc)]
+
+/-- A state satisfying the precondition. -/
+def hintBitUnpackSat : State where
+  gpr r := match r with
+    | .rdi => 0x1000 | .rsi => 84 | .rdx => 80 | .rcx => 0x3000 | .r8 => 1024 | .rsp => 0x8000 | _ => 0
+  cf := none
+  zf := none
+  sf := none
+  of := none
+  mem _ := 0
+  rd := [⟨0x1000, 84⟩]
+  wr := [⟨0x3000, 4096⟩]
+
+theorem hintBitUnpack_verified :
+    Verified X86_64.target Impl.MlDsa.X86_64.Pack.hintBitUnpack (hintBitUnpackContract X86_64.abi) :=
+  Verified.of_correct hintBitUnpack_correct hintBitUnpack_ct
+    { pre := by sig_implies_pre [hintBitUnpackContract, hintBitUnpackSig, hintBitUnpackK, X86_64.abi, X86_64.argRegs]
+      post := by sig_implies_post [hintBitUnpackContract, hintBitUnpackSig, hintBitUnpackK, X86_64.abi, X86_64.argRegs]
+      pub := by sig_implies_pub [hintBitUnpackContract, hintBitUnpackSig, hintBitUnpackK, X86_64.abi, X86_64.argRegs]
+      sat := by
+        refine ⟨hintBitUnpackSat, ?_⟩
+        sig_pre [hintBitUnpackContract, hintBitUnpackSig, X86_64.abi, X86_64.argRegs]
+        and_intros
+        all_goals first
+          | rfl
+          | exact Region.disjoint_of_sep (by decide)
+          | decide }
 
 end VG.Proof.MlDsa.X86_64.Pack

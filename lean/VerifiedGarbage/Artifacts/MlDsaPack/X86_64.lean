@@ -1,6 +1,6 @@
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.MlDsa.X86_64.Pack.Unpack
-import VerifiedGarbage.Proof.MlDsa.X86_64.Pack.HintPack
+import VerifiedGarbage.Proof.MlDsa.X86_64.Pack.HintUnpack
 
 /-!
 # ML-DSA (FIPS 204) on x86-64: the encodings
@@ -52,6 +52,13 @@ def artifacts : List Artifact := [
     code := Impl.MlDsa.X86_64.Pack.hintBitPack
     contract := Spec.MlDsa.hintBitPackContract X86_64.abi
     verified := Proof.MlDsa.X86_64.Pack.hintBitPack_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.MlDsa.hintBitUnpackApi with
+    target := X86_64.target
+    doc := Spec.MlDsa.hintBitUnpackApi.doc
+    code := Impl.MlDsa.X86_64.Pack.hintBitUnpack
+    contract := Spec.MlDsa.hintBitUnpackContract X86_64.abi
+    verified := Proof.MlDsa.X86_64.Pack.hintBitUnpack_verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.MlDsaPack.X86_64
