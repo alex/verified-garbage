@@ -206,7 +206,7 @@ theorem byte_ok {x h : Block} {y : BitVec 32} {sB : State} (hB : Bytes x y sB) {
   have ha : State.addr (s.gpr XP + BitVec.ofNat 32 0) = State.addr y + BitVec.ofNat 64 j := by
     rw [hs.xp, BitVec.add_zero, addr_add (by omega)]
   have hin : InRegions (s.rd ++ s.wr) (State.addr y + BitVec.ofNat 64 j) 1 := by
-    rw [hs.rd, hs.wr, ← addr_add (by omega)]; exact Straight.in_off hB.inr hfit (by omega) (by omega)
+    rw [hs.rd, hs.wr, ← addr_add (by omega)]; exact Straight.in_off hB.inr hfit (by omega) (by decide)
   refine wp_ldrb (by decide) ha hin fun s₁ u₁ => ?_
   refine wp_eor (op2_imm (by decide)) fun s₂ u₂ => wp_mov (op2_lsl (by decide)) fun s₃ u₃ =>
     wp_add (op2_imm (by decide)) fun s₄ u₄ => WP.block_nil ?_

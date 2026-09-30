@@ -45,7 +45,9 @@ theorem _root_.VG.Impl.Sha256.X86_64.Stream.Callee.Ok.of_verified {f : Callee} (
   exact ⟨hv, hct, fun i hi => (h i hi).2, hd, fun i hi => (h i hi).1.1, fun i hi => (h i hi).1.2⟩
 
 theorem scalar_ok : Callee.scalar.Ok :=
-  .of_verified compress_verified.1 compress_verified.2.1 (by rw [← Code.allInstrs_eq]; decide +kernel) (by decide +kernel)
+  .of_verified compress_verified.1 compress_verified.2.1
+    (by change (instrs Impl.Sha256.X86_64.compress).all _ = true; rw [← Code.allInstrs_eq]; lit_decide)
+    (by change Impl.Sha256.X86_64.compress.depth = 0; lit_decide)
 
 theorem shani_ok : Callee.shani.Ok :=
   .of_verified Proof.Sha256.X86_64.ShaNi.compress_verified.1

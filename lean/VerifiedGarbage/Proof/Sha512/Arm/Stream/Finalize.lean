@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Sha512.Arm.Stream.Update
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.RelCTAssoc
 
 /-!
 # Streaming SHA-512 on ARMv7: `finalize`
@@ -283,6 +284,10 @@ theorem zero_ok {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI
 
 /-! ## One block -/
 
+/-- What the call of the compression function needs. -/
+theorem Common.atPre {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s₀ s) : AtPre (st s₀) (scr s₀) s :=
+  ⟨hC.r0, hC.r3, by simp [hC.wr, hp.wr], by simp [hC.wr, hp.wr]⟩
+
 /-- The call of the compression function on the buffer. -/
 theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s₀ s) {Q : State → Prop}
     (hQ : ∀ s', Common s₀ s' → (∀ r, r ∉ temps → r ≠ .lr → s'.gpr r = s.gpr r) →
@@ -290,8 +295,7 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
     WP isa compressAt s Q := by
   have hsc := hp.scr_fit
   have e64 : Region.Sub ⟨scA s₀, 224⟩ (scR s₀) := Region.sub_prefix (by omega)
-  refine compressBuf_ok hC.r0 hC.r3 hp.st_fit hp.scr_fit hp.st_scr (by simp [hC.wr, hp.wr])
-    (by simp [hC.wr, hp.wr]) fun s' hrd hwr hg hsp hf hst => hQ s' ⟨hrd.trans hC.rd, hwr.trans hC.wr,
+  refine compressBuf_ok hp.st_fit hp.scr_fit hp.st_scr (hC.atPre hp) fun s' hrd hwr hg hsp hf hst => hQ s' ⟨hrd.trans hC.rd, hwr.trans hC.wr,
       by rw [hg _ (by decide) (by decide), hC.r0], by rw [hg _ (by decide) (by decide), hC.r3],
       by rw [hg _ (by decide) (by decide), hC.r6], hsp.trans hC.sp, hC.frame.trans (hf.sub fun r hr => ?_),
       fun p hp' => ?_⟩ hg hst
@@ -306,7 +310,7 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
     rcases hr' with rfl | rfl
     · exact hp.st_scr.symm.sub_left (stored_sub hp')
     · have := stored_bound p hp'
-      intro a h₁ h₂; simp only [Region.Contains, scA] at h₁ h₂; bv_omega
+      exact Offset.disjoint_base _ (by omega) (by omega)
 
 /-! ## The message length -/
 
@@ -426,23 +430,38 @@ def tailP : Prog isa :=
   (.seq (.ite .eq (.block lenW) (.block []))
   (.seq compressAt (.block [.mov .r4 (.imm 0), .subs .r5 .r5 (.imm 1)])))
 
-theorem body_eq : finalizeBody =
+/-- The loop's body up to `T`: zeroing the rest of the block. -/
+def padded (T : Prog isa) : Prog isa :=
     .seq (.block [.mov .r9 (.imm 128), .cmp .r5 (.imm 0)])
     (.seq (.ite .eq (.block [.mov .r9 (.imm 112)]) (.block []))
     (.seq (.block [.mov .r12 (.imm 0), .subs .r9 .r9 (.reg .r4)])
-    (.seq (.ite .eq (.block []) (.loop (.block zeroBody) .ne)) tailP))) := rfl
+    (.seq (.ite .eq (.block []) (.loop (.block zeroBody) .ne)) T)))
+
+theorem body_eq : finalizeBody = padded tailP := rfl
+
+def bodyEnd : List Instr := [.mov .r4 (.imm 0), .subs .r5 .r5 (.imm 1)]
+
+/-- The loop's body before the call of the compression function. -/
+def bodyPre : Prog isa :=
+  .seq (.seq (.seq (.seq (.seq (.block [.mov .r9 (.imm 128), .cmp .r5 (.imm 0)])
+    (.ite .eq (.block [.mov .r9 (.imm 112)]) (.block [])))
+    (.block [.mov .r12 (.imm 0), .subs .r9 .r9 (.reg .r4)]))
+    (.ite .eq (.block []) (.loop (.block zeroBody) .ne)))
+    (.block [.cmp .r5 (.imm 0)]))
+    (.ite .eq (.block lenW) (.block []))
 
 /-- Zeroing the rest of the block, up to the length or its end. -/
-theorem pad_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) {Q : State → Prop}
+theorem pad_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) {T : Prog isa}
+    {Q : State → Prop}
     (hQ : ∀ s', Common s₀ s' → s'.gpr .r5 = BitVec.ofNat 32 k →
       stateAt s'.mem (stA s₀) = stateAt s.mem (stA s₀) →
       bytesAt s'.mem (stA s₀ + 64) (112 + 16 * k) =
         bytesAt s.mem (stA s₀ + 64) n ++ List.replicate (112 + 16 * k - n) 0 →
-      WP isa tailP s' Q) :
-    WP isa finalizeBody s Q := by
+      WP isa T s' Q) :
+    WP isa (padded T) s Q := by
   have hk := h.k_le; have hn := h.n_le; have hst := hp.st_fit
   have hC := h.toCommon
-  rw [body_eq]
+  unfold padded
   -- `r9 := 128` or `112`: the end of the zeros.
   refine WP.seq (wp_mov (op2_imm (by decide)) fun s₁ u₁ => wp_cmp (op2_imm (by decide)) fun s₂ f₂ z₂ =>
     WP.block_nil ?_)
@@ -495,20 +514,25 @@ theorem pad_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv 
   · rw [hZ₆.mem, ← bytesAt_writeBytes _ _ _ _ (by simp only [List.length_replicate]; omega)]
     congr 1; simp only [List.length_replicate]; omega
 
-/-- The length, if this is the last block, and the compression. -/
-theorem tail_ok {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k ≤ 1) {s : State} (hC : Common s₀ s)
-    (h5 : s.gpr .r5 = BitVec.ofNat 32 k) {H : HashValue} {B : List Byte}
-    (hst : stateAt s.mem (stA s₀) = H) (hby : bytesAt s.mem (stA s₀ + 64) (112 + 16 * k) = B) :
-    WP isa tailP s fun s' => Common s₀ s' ∧ VG.Arm.eval .eq s' = some (decide (k = 1)) ∧
+/-- What the end of the loop's body leaves: the length, if this is the last
+block, and the compression. -/
+def TailPost (s₀ : State) (k : Nat) (H : HashValue) (B : List Byte) (s' : State) : Prop :=
+  Common s₀ s' ∧ VG.Arm.eval .eq s' = some (decide (k = 1)) ∧
       s'.gpr .r4 = 0 ∧ s'.gpr .r5 = BitVec.ofNat 32 k - 1 ∧
       ∀ iv m, R₀ s₀ iv m → stateAt s'.mem (stA s₀) =
-        compress H (parseBlock fun t => (B ++ if k = 1 then [] else lenBytes m).getD t 0) := by
+        compress H (parseBlock fun t => (B ++ if k = 1 then [] else lenBytes m).getD t 0)
+
+/-- The length, if this is the last block, and the compression. -/
+theorem tailPre_ok {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k ≤ 1) {s : State} (hC : Common s₀ s)
+    (h5 : s.gpr .r5 = BitVec.ofNat 32 k) {H : HashValue} {B : List Byte}
+    (hst : stateAt s.mem (stA s₀) = H) (hby : bytesAt s.mem (stA s₀ + 64) (112 + 16 * k) = B) :
+    WP isa (.seq (.block [.cmp .r5 (.imm 0)]) (.ite .eq (.block lenW) (.block []))) s fun s₂ =>
+      Common s₀ s₂ ∧ WP isa (.seq compressAt (.block bodyEnd)) s₂ (TailPost s₀ k H B) := by
   have hst' := hp.st_fit
-  unfold tailP
   refine WP.seq (wp_cmp (op2_imm (by decide)) fun s₁ f₁ z₁ => WP.block_nil ?_)
   have hC₁ := hC.of_flags f₁
   have hz₁ : s₁.z = decide (k = 0) := by rw [z₁, h5, cmp0 (by omega)]
-  refine WP.seq (WP.mono (Q := fun (s₂ : State) => Common s₀ s₂ ∧ s₂.gpr .r5 = BitVec.ofNat 32 k ∧
+  refine (WP.mono (Q := fun (s₂ : State) => Common s₀ s₂ ∧ s₂.gpr .r5 = BitVec.ofNat 32 k ∧
       stateAt s₂.mem (stA s₀) = H ∧
       ∀ iv m, R₀ s₀ iv m → bytesAt s₂.mem (stA s₀ + 64) 128 = B ++ if k = 1 then [] else lenBytes m) ?_
     fun s₂ ⟨hC₂, h5₂, hst₂, hby₂⟩ => ?_)
@@ -533,7 +557,7 @@ theorem tail_ok {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k ≤ 1) {s : Sta
       rw [show 112 + 16 * 1 = 128 from rfl] at hby
       exact WP.block_nil ⟨hC₁, by rw [f₁.gpr, h5], by rw [f₁.mem, hst], fun iv m _ => by rw [f₁.mem, hby]; simp⟩
   -- Compress the block.
-  refine WP.seq (compress_buf hp hC₂ fun s₃ hC₃ g₃ hst₃ => ?_)
+  refine ⟨hC₂, WP.seq (compress_buf hp hC₂ fun s₃ hC₃ g₃ hst₃ => ?_)⟩
   refine wp_mov (op2_imm (by decide)) fun s₄ u₄ => wp_subs (op2_imm (by decide)) fun s₅ u₅ z₅ =>
     WP.block_nil ?_
   have h5₃ : s₃.gpr .r5 = BitVec.ofNat 32 k := by rw [g₃ _ (by decide) (by decide), h5₂]
@@ -545,15 +569,21 @@ theorem tail_ok {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k ≤ 1) {s : Sta
   · rw [u₅.mem, u₄.mem, hst₃, hst₂]
     exact congrArg (compress H) (parseBlock_congr fun t ht => bytesAt_getD (hby₂ iv m hm) ht)
 
+theorem tail_ok {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k ≤ 1) {s : State} (hC : Common s₀ s)
+    (h5 : s.gpr .r5 = BitVec.ofNat 32 k) {H : HashValue} {B : List Byte}
+    (hst : stateAt s.mem (stA s₀) = H) (hby : bytesAt s.mem (stA s₀ + 64) (112 + 16 * k) = B) :
+    WP isa tailP s (TailPost s₀ k H B) :=
+  WP.assoc (WP.seq (WP.mono (tailPre_ok hp hk hC h5 hst hby) fun _ h => h.2))
+
 /-- The loop's postcondition for one iteration. -/
 def Step (s₀ : State) (k : Nat) (s : State) : Prop :=
-  (VG.Arm.eval .eq s = some false ∧ Done s₀ s) ∨ (VG.Arm.eval .eq s = some true ∧ k = 1 ∧ LInv s₀ 0 0 s)
+  (VG.Arm.eval .eq s = some false ∧ k = 0 ∧ Done s₀ s) ∨ (VG.Arm.eval .eq s = some true ∧ k = 1 ∧ LInv s₀ 0 0 s)
 
-theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
-    WP isa finalizeBody s (Step s₀ k) := by
+theorem step_of {s₀ : State} {k n : Nat} {s : State} (h : LInv s₀ k n s) {s' : State}
+    (ht : TailPost s₀ k (stateAt s.mem (stA s₀))
+      (bytesAt s.mem (stA s₀ + 64) n ++ List.replicate (112 + 16 * k - n) 0) s') : Step s₀ k s' := by
   have hk := h.k_le; have hn := h.n_le
-  refine pad_ok hp h fun s₁ hC₁ h5₁ hst₁ hby₁ =>
-    WP.mono (tail_ok hp hk hC₁ h5₁ hst₁ hby₁) fun s' ⟨hC', he, h4, h5, hst'⟩ => ?_
+  obtain ⟨hC', he, h4, h5, hst'⟩ := ht
   by_cases hk1 : k = 1
   · subst hk1
     refine .inr ⟨by rw [he]; rfl, rfl, ⟨hC', by omega, by omega, by rw [h4]; rfl, by rw [h5]; rfl,
@@ -564,9 +594,20 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv
     rfl
   · have hk0 : k = 0 := by omega
     subst hk0
-    refine .inl ⟨by rw [he]; rfl, hC', fun iv m hm => ?_⟩
+    refine .inl ⟨by rw [he]; rfl, rfl, hC', fun iv m hm => ?_⟩
     rw [h.hash iv m hm, hst' iv m hm]
     simp only [show ¬ ((0 : Nat) = 1) by decide, ite_false, Fin0, Nat.mul_zero, Nat.add_zero]
+
+theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
+    WP isa finalizeBody s (Step s₀ k) :=
+  pad_ok hp h fun _ hC₁ h5₁ hst₁ hby₁ =>
+    WP.mono (tail_ok hp h.k_le hC₁ h5₁ hst₁ hby₁) fun _ ht => step_of h ht
+
+theorem pre_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
+    WP isa bodyPre s fun s' => Common s₀ s' ∧ WP isa (.seq compressAt (.block bodyEnd)) s' (Step s₀ k) := by
+  unfold bodyPre
+  exact WP.assoc' (WP.assoc' (WP.assoc' (WP.assoc' (pad_ok hp h fun _ hC₁ h5₁ hst₁ hby₁ =>
+    WP.mono (tailPre_ok hp h.k_le hC₁ h5₁ hst₁ hby₁) fun _ h' => ⟨h'.1, WP.mono h'.2 fun _ ht => step_of h ht⟩))))
 
 /-! ## Prologue -/
 
@@ -579,6 +620,9 @@ theorem saveMem_stored (m : Mem) (B : Addr) (g : Reg → BitVec 32) :
   rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
   simp (config := {decide := true}) only [stored, saved, List.cons_append, List.nil_append, saveMem,
     Mem.readW_writeW_self32, readW_writeW_save]
+
+/-- Whether the prologue pads two blocks. -/
+def kOf (s₀ : State) : Nat := (cnt s₀ % 128 + 16) / 128
 
 /-- The prologue after saving. -/
 def prologue : List Instr :=
@@ -607,7 +651,7 @@ theorem arg_sub {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 2) :
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (([.ldrSp .r12 4] : List Instr) ++ (stored.map (fun p => Instr.str p.1 .r12 p.2) ++ prologue))) s₀
-      fun s => ∃ k, LInv s₀ k (cnt s₀ % 128 + 1) s := by
+      fun s => ∃ k, k = kOf s₀ ∧ LInv s₀ k (cnt s₀ % 128 + 1) s := by
   have hr : cnt s₀ % 128 < 128 := Nat.mod_lt _ (by omega)
   have hsc := hp.scr_fit; have hst := hp.st_fit
   rw [List.singleton_append]
@@ -699,12 +743,12 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     exact frame_bytes hframe (R := stR s₀) (by simpa using hp.st_scr) (by simp) (by show i < 192; omega)
   by_cases hb : 112 ≤ cnt s₀ % 128
   · have hk : (cnt s₀ % 128 + 16) / 128 = 1 := by omega
-    refine ⟨1, hC₁₁, (Nat.le_refl _), by omega, hr4', by rw [hr5, hk], fun iv m hm => ?_⟩
+    refine ⟨1, hk.symm, hC₁₁, (Nat.le_refl _), by omega, hr4', by rw [hr5, hk], fun iv m hm => ?_⟩
     simp only [↓reduceIte]
     rw [hash_two (by rw [← hm.length]; omega), Fin1, hbytes iv m hm, hstate, hm.1.1,
       ← hm.length, show 128 - (cnt s₀ % 128 + 1) = 127 - cnt s₀ % 128 by omega]
   · have hk : (cnt s₀ % 128 + 16) / 128 = 0 := by omega
-    refine ⟨0, hC₁₁, by omega, by omega, hr4', by rw [hr5, hk], fun iv m hm => ?_⟩
+    refine ⟨0, hk.symm, hC₁₁, by omega, by omega, hr4', by rw [hr5, hk], fun iv m hm => ?_⟩
     simp only [show ((0 : Nat) = 1) = False by decide, ite_false]
     rw [hash_one (by rw [← hm.length]; omega), Fin0, hbytes iv m hm, hstate, hm.1.1,
       ← hm.length, show 112 - (cnt s₀ % 128 + 1) = 111 - cnt s₀ % 128 by omega]
@@ -848,12 +892,12 @@ theorem out_all {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) 
 
 theorem correct {s₀ : State} (hp : Pre s₀) : WP isa finalize s₀ (Post s₀) := by
   rw [finalize_eq]
-  refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨k, hL⟩ => ?_)
+  refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨k, _, hL⟩ => ?_)
   refine WP.seq (WP.mono (Q := Done s₀) ?_ fun sD hD => ?_)
   · refine WP.loop (M := isa) (fun i s => ∃ n, LInv s₀ i n s) ?_ k s₁ ⟨_, hL⟩
     rintro i s ⟨n, hL⟩
     refine WP.mono (body_ok hp hL) fun s' h => ?_
-    rcases h with ⟨he, hD⟩ | ⟨he, rfl, hL'⟩
+    rcases h with ⟨he, -, hD⟩ | ⟨he, rfl, hL'⟩
     · exact .inl ⟨he, hD⟩
     · exact .inr ⟨he, 0, by omega, 0, hL'⟩
   · have := out_all hp hD 8 (Nat.le_refl _) sD ⟨hD.1.rd, hD.1.wr, fun _ _ => rfl, rfl, by simp [writeBytes_nil]⟩
@@ -927,11 +971,108 @@ def sat : State where
   rd := [⟨0x5000, 8⟩]
   wr := [⟨0x1000, 192⟩, ⟨0x2000, 64⟩, ⟨0x3000, 272⟩]
 
+/-! ## Constant time, by relating two runs
+
+The prologue is checked by the taint analysis from the initial taint; in the
+loop, the code before the call of the compression function from the
+registers that hold our variables, the call by the compression function's
+contract (`compressAt_rel`); the epilogue from the pointers. Whether a
+second block is padded depends only on `count`, so both runs go through the
+loop the same number of times, with the same registers. -/
+
+section CT
+variable {s₀ s₀' : State} (hp : Pre s₀) (hp' : Pre s₀') (hpub : Proof.Sha512.finalizeArm.pub s₀ s₀')
+
+include hpub
+
+theorem cnt_eq : cnt s₀ = cnt s₀' := by
+  obtain ⟨-, -, p2, p3, -, -⟩ := hpub
+  simp only [cnt, countArm, p2, p3]
+
+theorem LInv.agree {k n : Nat} {s s' : State} (h : LInv s₀ k n s) (h' : LInv s₀' k n s') :
+    ∀ r ∈ [Reg.r0, .r3, .r4, .r5], s.gpr r = s'.gpr r := by
+  obtain ⟨-, p0, -, -, -, a1⟩ := hpub
+  intro r hr
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  rcases hr with rfl | rfl | rfl | rfl
+  · rw [h.r0, h'.r0]; exact p0
+  · rw [h.r3, h'.r3]; exact a1
+  · rw [h.r4, h'.r4]
+  · rw [h.r5, h'.r5]
+
+include hp hp'
+
+theorem body_rel {k n : Nat} :
+    RelCT isa (fun s₁ s₂ => LInv s₀ k n s₁ ∧ LInv s₀' k n s₂) finalizeBody
+      fun s₁ s₂ => Step s₀ k s₁ ∧ Step s₀' k s₂ := by
+  have p0 := hpub.2.1
+  have a1 := hpub.2.2.2.2.2
+  have pre : RelCT isa (fun s₁ s₂ => LInv s₀ k n s₁ ∧ LInv s₀' k n s₂) bodyPre fun s₁ s₂ =>
+      (Common s₀ s₁ ∧ WP isa (.seq compressAt (.block bodyEnd)) s₁ (Step s₀ k)) ∧
+      (Common s₀' s₂ ∧ WP isa (.seq compressAt (.block bodyEnd)) s₂ (Step s₀' k)) :=
+    ((RelCT.taint (A := taint) (Taint.ofRegs [.r0, .r3, .r4, .r5])
+      (fun _ _ h => Taint.agree_ofRegs (LInv.agree hpub h.1 h.2)) (c := bodyPre) (by taint_decide)).wp
+      fun _ _ h => ⟨pre_ok hp h.1, pre_ok hp' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
+  have cmp : RelCT isa (fun s₁ s₂ =>
+        (Common s₀ s₁ ∧ WP isa (.seq compressAt (.block bodyEnd)) s₁ (Step s₀ k)) ∧
+        (Common s₀' s₂ ∧ WP isa (.seq compressAt (.block bodyEnd)) s₂ (Step s₀' k)))
+      compressAt fun s₁ s₂ => WP isa (.block bodyEnd) s₁ (Step s₀ k) ∧
+        WP isa (.block bodyEnd) s₂ (Step s₀' k) :=
+    (((compressAt_rel hp.st_fit hp.scr_fit hp.st_scr).mono
+      (fun _ _ h => ⟨h.1.1.atPre hp, by have := h.2.1.atPre hp'; rwa [st, scr, ← p0, ← a1] at this⟩)
+      fun _ _ h => h).wp fun _ _ h => ⟨WP.seq_iff.mp h.1.2, WP.seq_iff.mp h.2.2⟩).mono
+      (fun _ _ h => h) fun _ _ h => h.2
+  have fin : RelCT isa (fun s₁ s₂ => WP isa (.block bodyEnd) s₁ (Step s₀ k) ∧
+        WP isa (.block bodyEnd) s₂ (Step s₀' k)) (.block bodyEnd)
+      fun s₁ s₂ => Step s₀ k s₁ ∧ Step s₀' k s₂ :=
+    ((RelCT.taint (A := taint) (Taint.ofRegs []) (fun _ _ _ => Taint.agree_ofRegs (by simp))
+      (c := .block bodyEnd) (by taint_decide)).wp fun _ _ h => h).mono (fun _ _ h => h) fun _ _ h => h.2
+  exact RelCT.assoc (RelCT.assoc (RelCT.assoc (RelCT.assoc (RelCT.assoc (pre.seq (cmp.seq fin))))))
+
+theorem finalize_rel (h₀ : Proof.Sha512.finalizeArm.pre s₀) (h₀' : Proof.Sha512.finalizeArm.pre s₀') :
+    RelCT isa (fun s₁ s₂ => s₁ = s₀ ∧ s₂ = s₀') finalize fun _ _ => True := by
+  have ek : kOf s₀' = kOf s₀ := by simp only [kOf, cnt_eq hpub]
+  have pro : RelCT isa (fun s₁ s₂ => s₁ = s₀ ∧ s₂ = s₀')
+      (.block (([.ldrSp .r12 4] : List Instr) ++ (stored.map (fun p => Instr.str p.1 .r12 p.2) ++ prologue)))
+      fun s₁ s₂ => ∃ n, LInv s₀ (kOf s₀) n s₁ ∧ LInv s₀' (kOf s₀) n s₂ :=
+    ((RelCT.taint (A := taint) τ₀ (fun _ _ ⟨e, e'⟩ => by rw [e, e']; exact agree₀ h₀ h₀' hpub)
+      (c := .block (([.ldrSp .r12 4] : List Instr) ++ (stored.map (fun p => Instr.str p.1 .r12 p.2) ++ prologue)))
+      (by taint_decide)).wp
+      (F₁ := fun s => ∃ k, k = kOf s₀ ∧ LInv s₀ k (cnt s₀ % 128 + 1) s)
+      (F₂ := fun s => ∃ k, k = kOf s₀' ∧ LInv s₀' k (cnt s₀' % 128 + 1) s)
+      fun _ _ ⟨e, e'⟩ => by rw [e, e']; exact ⟨prologue_ok hp, prologue_ok hp'⟩).mono (fun _ _ h => h)
+      fun _ _ ⟨_, ⟨k, hk, L⟩, ⟨k', hk', L'⟩⟩ => ⟨_, hk ▸ L, by rw [cnt_eq hpub, ← ek, ← hk']; exact L'⟩
+  have lp := RelCT.loop (M := isa) (body := finalizeBody) (c := .eq)
+    (Q := fun s₁ s₂ => Done s₀ s₁ ∧ Done s₀' s₂)
+    (fun m s₁ s₂ => ∃ n, LInv s₀ m n s₁ ∧ LInv s₀' m n s₂) (fun m => RelCT.exists_ fun n =>
+      (body_rel hp hp' hpub).mono (fun _ _ h => h) fun s₁ s₂ ⟨h₁, h₂⟩ => by
+        rcases h₁ with ⟨z₁, rfl, D₁⟩ | ⟨z₁, rfl, L₁⟩ <;>
+          rcases h₂ with ⟨z₂, h0, D₂⟩ | ⟨z₂, h1, L₂⟩
+        · exact ⟨z₁.trans z₂.symm, fun _ => ⟨D₁, D₂⟩, fun h => absurd (z₁.symm.trans h) (by simp)⟩
+        · cases h1
+        · cases h0
+        · exact ⟨z₁.trans z₂.symm, fun h => absurd (z₁.symm.trans h) (by simp),
+            fun _ => ⟨0, by omega, 0, L₁, L₂⟩⟩) (kOf s₀)
+  obtain ⟨-, p0, -, -, a0, a1⟩ := hpub
+  have epi : RelCT isa (fun s₁ s₂ => Done s₀ s₁ ∧ Done s₀' s₂)
+      (.block ((List.range 8).flatMap outW ++ restore)) fun _ _ => True :=
+    RelCT.taint (A := taint) (Taint.ofRegs [.r0, .r3, .r6]) (fun _ _ h => Taint.agree_ofRegs fun r hr => by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl
+      · rw [h.1.1.r0, h.2.1.r0]; exact p0
+      · rw [h.1.1.r3, h.2.1.r3]; exact a1
+      · rw [h.1.1.r6, h.2.1.r6]; exact a0) (by taint_decide)
+  rw [finalize_eq]
+  exact pro.seq (lp.seq epi)
+
+end CT
+
 theorem finalize_verified : Verified Arm.target finalize Proof.Sha512.finalizeArm := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
   · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
     exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
+  · intro s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hpub e₁ e₂
+    exact (finalize_rel (pre_of h₁) (pre_of h₂) hpub h₁ h₂ _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
   · have e0 : stackArg sat 0 = 0x2000 := by decide
     have e1 : stackArg sat 1 = 0x3000 := by decide
     refine ⟨sat, ?_⟩

@@ -3,6 +3,7 @@ import VerifiedGarbage.Impl.Hmac.X86_64
 import VerifiedGarbage.Spec.Hmac
 import VerifiedGarbage.Proof.Sha256.X86_64.Contract
 import VerifiedGarbage.Proof.Hmac.Common
+import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
 # HMAC-SHA-256 on x86-64: common lemmas
@@ -122,18 +123,18 @@ theorem copy32_ok {src dst : Reg} (hs : src ≠ .rax) (hd : dst ≠ .rax) (o₁ 
   | succ n ih =>
     intro rest s Q hin hout hsep hlt k
     rw [List.range_succ, List.flatMap_append, List.flatMap_singleton, List.append_assoc]
-    refine ih _ s Q (fun j hj => hin j (by omega)) (fun j hj => hout j (by omega))
-      (fun x hx hy => hsep x (by omega) (by omega)) (by omega) fun s₁ g₁ rd₁ wr₁ m₁ => ?_
+    refine ih _ s Q (fun j hj => hin j (by omega_nat)) (fun j hj => hout j (by omega_nat))
+      (fun x hx hy => hsep x (by omega_nat) (by omega_nat)) (by omega_nat) fun s₁ g₁ rd₁ wr₁ m₁ => ?_
     simp only [cp32, List.cons_append, List.nil_append]
     refine wp_mov32m (a := s.gpr src + BitVec.ofNat 64 o₁ + BitVec.ofNat 64 (4 * n))
-      (by rw [ea_off, g₁ _ hs]) (by rw [rd₁, wr₁]; exact hin n (by omega)) fun s₂ u₂ => ?_
+      (by rw [ea_off, g₁ _ hs]) (by rw [rd₁, wr₁]; exact hin n (by omega_nat)) fun s₂ u₂ => ?_
     refine wp_store32 (a := s.gpr dst + BitVec.ofNat 64 o₂ + BitVec.ofNat 64 (4 * n))
-      (by rw [ea_off, u₂.other _ hd, g₁ _ hd]) (by rw [u₂.wr, wr₁]; exact hout n (by omega))
+      (by rw [ea_off, u₂.other _ hd, g₁ _ hd]) (by rw [u₂.wr, wr₁]; exact hout n (by omega_nat))
       fun s₃ g₃ m₃ rd₃ wr₃ => k s₃ (fun r hr => by rw [g₃, u₂.other r hr, g₁ r hr])
         (by rw [rd₃, u₂.rd, rd₁]) (by rw [wr₃, u₂.wr, wr₁]) ?_
     rw [m₃, u₂.gpr, u₂.mem, m₁, BitVec.setWidth_setWidth_of_le _ (by decide), BitVec.setWidth_eq,
       Nat.mul_succ]
-    exact copy_mem s.mem _ _ n 4 (by rwa [← Nat.mul_succ]) (by omega)
+    exact copy_mem s.mem _ _ n 4 (by rwa [← Nat.mul_succ]) (by omega_nat)
 
 theorem copy64_ok {src dst : Reg} (hs : src ≠ .rax) (hd : dst ≠ .rax) (o₁ o₂ : Nat) (n : Nat) :
     ∀ (rest : List Instr) (s : State) (Q : State → Prop),
@@ -152,16 +153,16 @@ theorem copy64_ok {src dst : Reg} (hs : src ≠ .rax) (hd : dst ≠ .rax) (o₁ 
   | succ n ih =>
     intro rest s Q hin hout hsep hlt k
     rw [List.range_succ, List.flatMap_append, List.flatMap_singleton, List.append_assoc]
-    refine ih _ s Q (fun j hj => hin j (by omega)) (fun j hj => hout j (by omega))
-      (fun x hx hy => hsep x (by omega) (by omega)) (by omega) fun s₁ g₁ rd₁ wr₁ m₁ => ?_
+    refine ih _ s Q (fun j hj => hin j (by omega_nat)) (fun j hj => hout j (by omega_nat))
+      (fun x hx hy => hsep x (by omega_nat) (by omega_nat)) (by omega_nat) fun s₁ g₁ rd₁ wr₁ m₁ => ?_
     simp only [cp64, List.cons_append, List.nil_append]
     refine wp_movm (a := s.gpr src + BitVec.ofNat 64 o₁ + BitVec.ofNat 64 (8 * n))
-      (by rw [ea_off, g₁ _ hs]) (by rw [rd₁, wr₁]; exact hin n (by omega)) fun s₂ u₂ => ?_
+      (by rw [ea_off, g₁ _ hs]) (by rw [rd₁, wr₁]; exact hin n (by omega_nat)) fun s₂ u₂ => ?_
     refine wp_store (a := s.gpr dst + BitVec.ofNat 64 o₂ + BitVec.ofNat 64 (8 * n))
-      (by rw [ea_off, u₂.other _ hd, g₁ _ hd]) (by rw [u₂.wr, wr₁]; exact hout n (by omega))
+      (by rw [ea_off, u₂.other _ hd, g₁ _ hd]) (by rw [u₂.wr, wr₁]; exact hout n (by omega_nat))
       fun s₃ g₃ m₃ rd₃ wr₃ => k s₃ (fun r hr => by rw [g₃, u₂.other r hr, g₁ r hr])
         (by rw [rd₃, u₂.rd, rd₁]) (by rw [wr₃, u₂.wr, wr₁]) ?_
     rw [m₃, u₂.gpr, u₂.mem, m₁, Nat.mul_succ]
-    exact copy_mem s.mem _ _ n 8 (by rwa [← Nat.mul_succ]) (by omega)
+    exact copy_mem s.mem _ _ n 8 (by rwa [← Nat.mul_succ]) (by omega_nat)
 
 end VG.Proof.Hmac.X86_64

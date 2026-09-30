@@ -16,6 +16,7 @@ of its callers.
 namespace VG
 
 materialize_code Impl.Hmac.X86.init
+materialize_code Impl.Hmac.X86.finalizeHash
 materialize_code Impl.Hmac.X86.finalize
 
 end VG

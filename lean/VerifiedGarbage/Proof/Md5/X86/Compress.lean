@@ -1,7 +1,183 @@
-import VerifiedGarbage.Proof.Md5.X86.Rounds
+import VerifiedGarbage.Proof.Framework.X86.RegUpd
+import VerifiedGarbage.Proof.Framework.Mem
+import VerifiedGarbage.Proof.Framework.X86.Exec
+import VerifiedGarbage.Proof.Framework.X86.Taint
+import VerifiedGarbage.Proof.Md5.Spec
+import VerifiedGarbage.Impl.Md5.X86
 import VerifiedGarbage.Proof.Md5.X86.Lit
 import VerifiedGarbage.Proof.Md5.X86.Contract
+import VerifiedGarbage.Proof.Framework.Offset
+import VerifiedGarbage.Proof.Framework.Contract
 import Mathlib.Tactic.SplitIfs
+
+/-!
+# MD5 compression function on x86 (32-bit): the 64 operations
+
+Untrusted: everything here is checked by Lean. Each operation is the
+auxiliary function of its round, symbolically executed once per round
+(`fn_ok`), followed by the additions and the rotation, symbolically executed
+once for all operations (`tail_ok`).
+-/
+
+namespace VG.Proof.Md5.X86
+
+open VG VG.X86 VG.Impl.Md5.X86
+open VG.Spec.Md5 (HashValue Word Block ks Ts roundFn F G H I)
+
+/-- The words `v` are in the registers of operation `t`. -/
+def Vars (t : Nat) (s : State) (v : HashValue) : Prop :=
+  s.gpr (var t 0) = v[0] ∧ s.gpr (var t 1) = v[1] ∧ s.gpr (var t 2) = v[2] ∧ s.gpr (var t 3) = v[3]
+
+/-- The block pointer, the count and `esp`: never written by the operations. -/
+def pubRegs : List Reg := [.esi, .ebp, .esp]
+
+/-- The words move one register along each operation. -/
+theorem var_succ (t k : Nat) (hk : k < 3) : var (t + 1) (k + 1) = var t k := by
+  simp only [var]; congr 1; omega
+
+theorem var_succ_zero (t : Nat) : var (t + 1) 0 = var t 3 := by
+  simp only [var]; congr 1; omega
+
+theorem var_mem (t k : Nat) : var t k ∈ work := by
+  unfold var List.getD
+  cases h : work[(k + 4 - t % 4) % 4]?
+  · simp [work]
+  · exact List.mem_of_getElem? h
+
+theorem work_ne {r : Reg} (h : r ∈ work) : r ≠ T0 ∧ ∀ p ∈ pubRegs, r ≠ p := by
+  simp only [work, List.mem_cons, List.not_mem_nil, or_false] at h
+  rcases h with rfl | rfl | rfl | rfl <;> decide
+
+theorem var_ne_T0 (t k : Nat) : var t k ≠ T0 := (work_ne (var_mem t k)).1
+
+theorem var_ne_pub (t k : Nat) {p : Reg} (hp : p ∈ pubRegs) : var t k ≠ p :=
+  (work_ne (var_mem t k)).2 p hp
+
+theorem var_ne_aux : ∀ c < 4, ∀ i < 4, ∀ j < 4, i ≠ j →
+    work.getD ((i + 4 - c) % 4) .eax ≠ work.getD ((j + 4 - c) % 4) .eax := by decide
+
+/-- The registers of an operation are all different. -/
+theorem var_ne (t : Nat) {i j : Nat} (hi : i < 4) (hj : j < 4) (h : i ≠ j) : var t i ≠ var t j :=
+  var_ne_aux (t % 4) (Nat.mod_lt _ (by omega)) i hi j hj h
+
+/-! ## The auxiliary functions -/
+
+theorem fn_ok (r : Nat) (hr : r < 4) (b c d : Reg) (hb : b ≠ T0) (hc : c ≠ T0) (hd : d ≠ T0)
+    (s : State) (vb vc vd : Word) (h₁ : s.gpr b = vb) (h₂ : s.gpr c = vc) (h₃ : s.gpr d = vd) :
+    WP isa (.block (fn r b c d)) s fun s' =>
+      s'.gpr T0 = roundFn r vb vc vd ∧ (∀ x, x ≠ T0 → s'.gpr x = s.gpr x) ∧
+      s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+  simp only [T0] at hb hc hd ⊢
+  apply WP.of_runBlock
+  rcases (by omega : r = 0 ∨ r = 1 ∨ r = 2 ∨ r = 3) with rfl | rfl | rfl | rfl <;>
+  simp (config := {decide := true}) only [fn, T0, runBlock_cons, runStep_some,
+    runBlock_nil, exec, execAlu, readSrc,
+    isa, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags, RegUpd.wr_arithFlags, ite_true, ite_false, hb, hc, hd,
+    h₁, h₂, h₃, Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left'] <;>
+  refine ⟨?_, fun x hx => by simp [hx], trivial⟩
+  · rw [show roundFn 0 = F from rfl, F_eq]
+  · rw [show roundFn 1 = G from rfl, G_eq]
+  · rfl
+  · rw [show roundFn 3 = I from rfl, I_eq]
+
+/-! ## The rest of an operation -/
+
+/-- The instructions of an operation after the auxiliary function. -/
+def tailI (a b : Reg) (k : Nat) (T : Word) (n : Nat) : List Instr := [
+  .alu .add a (.reg T0),
+  .alu .add a (.mem (at_ .esi (4 * k))),
+  .alu .add a (.imm T),
+  .shift .ror a n,
+  .alu .add a (.reg b)]
+
+theorem step_split (t : Nat) :
+    step t = fn (t / 16) (var t 1) (var t 2) (var t 3) ++
+      tailI (var t 0) (var t 1) (ks.getD t 0) (Ts.getD t 0) (32 - Proof.Md5.rot t) := rfl
+
+theorem tail_ok (a b : Reg) (k : Nat) (T : Word) (n : Nat) (hn₁ : 1 ≤ n) (hn₂ : n ≤ 31)
+    (hab : a ≠ b) (hsi : a ≠ .esi) (s : State) (va vb f x : Word) (bp : BitVec 32)
+    (h₁ : s.gpr a = va) (h₂ : s.gpr b = vb) (h₃ : s.gpr T0 = f)
+    (hesi : s.gpr .esi = bp) (hin : InRegions (s.rd ++ s.wr) (addr bp (4 * k)) 4)
+    (hx : s.mem.readW (addr bp (4 * k)) 32 = x) :
+    WP isa (.block (tailI a b k T n)) s fun s' =>
+      s'.gpr a = (va + f + x + T).rotateRight n + vb ∧
+      (∀ r, r ≠ a → s'.gpr r = s.gpr r) ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+  have hsi' : Reg.esi ≠ a := fun h => hsi h.symm
+  have hba : b ≠ a := fun h => hab h.symm
+  simp only [T0] at h₃
+  apply WP.of_runBlock
+  simp (config := {decide := true}) only [tailI, T0, runBlock_cons, runStep_some,
+    runBlock_nil, exec, execAlu, execShift, readSrc, ea_mk, State.load32, at_,
+    isa, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, RegUpd.zf_setReg, RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags, RegUpd.wr_arithFlags, RegUpd.zf_arithFlags, RegUpd.gpr_setFlags, RegUpd.mem_setFlags, RegUpd.rd_setFlags, RegUpd.wr_setFlags, ite_true, ite_false, hsi', hba,
+    hn₁, hn₂, and_self, h₁, h₂, h₃, hesi, hin, hx,
+    Option.bind_some, Option.some.injEq, exists_eq_left']
+  exact ⟨trivial, fun r hr => by simp [hr], trivial⟩
+
+/-! ## One operation -/
+
+/-- The operation is symbolically executed once per round for the auxiliary
+function and once for the rest, for any registers `a … d`. -/
+theorem step_ok (t : Nat) (ht : t < 64) (s : State) (v : HashValue) (X : Block) (bp : BitVec 32)
+    (hv : Vars t s v) (hesi : s.gpr .esi = bp)
+    (hin : ∀ k < 16, InRegions (s.rd ++ s.wr) (addr bp (4 * k)) 4)
+    (hX : ∀ k (hk : k < 16), s.mem.readW (addr bp (4 * k)) 32 = X ⟨k, hk⟩) :
+    WP isa (.block (step t)) s fun s' =>
+      Vars (t + 1) s' (Spec.Md5.step X v t) ∧
+      s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ ∀ r ∈ pubRegs, s'.gpr r = s.gpr r := by
+  obtain ⟨h0, h1, h2, h3⟩ := hv
+  have hk := ks_lt t ht
+  have hr := rot_range t ht
+  rw [step_split, WP.block_append_iff]
+  refine WP.mono (fn_ok (t / 16) (by omega) _ _ _ (var_ne_T0 t 1) (var_ne_T0 t 2) (var_ne_T0 t 3) s
+    v[1] v[2] v[3] h1 h2 h3) fun s₁ ⟨f₁, e₁, m₁, rd₁, wr₁⟩ => ?_
+  have e : ∀ k, s₁.gpr (var t k) = s.gpr (var t k) := fun k => e₁ _ (var_ne_T0 t k)
+  refine WP.mono (tail_ok (var t 0) (var t 1) (ks.getD t 0) (Ts.getD t 0) (32 - rot t) (by omega)
+    (by omega) (var_ne t (by omega) (by omega) (by omega))
+    (var_ne_pub t 0 (by simp [pubRegs])) s₁ v[0] v[1] (roundFn (t / 16) v[1] v[2] v[3]) (X ⟨ks.getD t 0, hk⟩) bp
+    (by rw [e]; exact h0) (by rw [e]; exact h1) f₁ (by rw [e₁ _ (by decide)]; exact hesi)
+    (by rw [rd₁, wr₁]; exact hin _ hk) (by rw [m₁]; exact hX _ hk))
+    fun s₂ ⟨a₂, e₂, m₂, rd₂, wr₂⟩ => ?_
+  have g : ∀ r, r ≠ var t 0 → r ≠ T0 → s₂.gpr r = s.gpr r := fun r h h' => by rw [e₂ r h, e₁ r h']
+  refine ⟨?_, by rw [m₂, m₁], by rw [rd₂, rd₁], by rw [wr₂, wr₁], fun r hr =>
+    g r (fun h => var_ne_pub t 0 hr h.symm) (fun h => by subst h; simp [pubRegs, T0] at hr)⟩
+  rw [step_eq X v ht]
+  simp only [Vars, var_succ_zero, var_succ t _ (show 0 < 3 by omega),
+    var_succ t _ (show 1 < 3 by omega), var_succ t _ (show 2 < 3 by omega), stepKX,
+    Vector.getElem_mk, List.getElem_toArray, List.getElem_cons_zero, List.getElem_cons_succ]
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · rw [g _ (var_ne t (by omega) (by omega) (by omega)) (var_ne_T0 t 3), h3]
+  · rw [a₂, rotateLeft_eq _ hr.1 hr.2, BitVec.add_comm (v[1])]
+  · rw [g _ (var_ne t (by omega) (by omega) (by omega)) (var_ne_T0 t 1), h1]
+  · rw [g _ (var_ne t (by omega) (by omega) (by omega)) (var_ne_T0 t 2), h2]
+
+/-! ## The 64 operations -/
+
+/-- Invariant, relative to the state `sB` at the start of the operations. -/
+structure RInv (H : HashValue) (X : Block) (sB : State) (t : Nat) (s : State) : Prop where
+  vars : Vars t s (Spec.Md5.steps H X t)
+  pub : ∀ r ∈ pubRegs, s.gpr r = sB.gpr r
+  rd : s.rd = sB.rd
+  wr : s.wr = sB.wr
+  mem : s.mem = sB.mem
+
+theorem steps_ok (H : HashValue) (X : Block) (bp : BitVec 32) (sB : State) (hesi : sB.gpr .esi = bp)
+    (hin : ∀ k < 16, InRegions (sB.rd ++ sB.wr) (addr bp (4 * k)) 4)
+    (hX : ∀ k (hk : k < 16), sB.mem.readW (addr bp (4 * k)) 32 = X ⟨k, hk⟩)
+    (h0 : Vars 0 sB H) :
+    ∀ t ≤ 64, WP isa (steps t) sB (RInv H X sB t) := by
+  intro t ht
+  induction t with
+  | zero => exact WP.block_nil (M := isa) ⟨h0, fun _ _ => rfl, rfl, rfl, rfl⟩
+  | succ t ih =>
+    refine WP.seq (WP.mono (ih (by omega)) fun s hs => ?_)
+    have hs_esi : s.gpr .esi = bp := (hs.pub .esi (by decide)).trans hesi
+    refine WP.mono (step_ok t (by omega) s _ X bp hs.vars hs_esi (by rw [hs.rd, hs.wr]; exact hin)
+      (by rw [hs.mem]; exact hX)) fun s' ⟨hv, hm, hrd, hwr, hp⟩ => ?_
+    refine ⟨?_, fun r hr => by rw [hp r hr, hs.pub r hr], by rw [hrd, hs.rd], by rw [hwr, hs.wr],
+      by rw [hm, hs.mem]⟩
+    rw [Proof.Md5.steps_succ]; exact hv
+
+end VG.Proof.Md5.X86
 
 /-!
 # MD5 compression function on x86 (32-bit): the whole function
@@ -17,25 +193,12 @@ open VG.Spec.Md5 (HashValue Word Block stateAt blockAt compressBlocks compress p
 theorem ea_at (s : State) (b : Reg) (d : Nat) : s.ea (at_ b d) = addr (s.gpr b) d := rfl
 
 theorem contains_offset {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
-    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
-  simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, BitVec.toNat_ofNat,
-    Nat.mod_eq_of_lt ho]
-  exact h
+    (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n :=
+  Offset.contains_base base h ho
 
 theorem contains_sub {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64)
     {a : Addr} (ha : a = base + BitVec.ofNat 64 off) : (⟨base, len⟩ : Region).Contains a n := by
   subst ha; exact contains_offset h ho
-
-/-- A 32-bit load reads four bytes, low-order byte first. -/
-theorem readW_bytes (m : Mem) (a : Addr) :
-    m.readW a 32 = (m (a + 1 + 1 + 1) ++ m (a + 1 + 1) ++ m (a + 1) ++ m a : BitVec 32) := by
-  show (0#0 ++ m (a + 1 + 1 + 1) ++ m (a + 1 + 1) ++ m (a + 1) ++ m a).setWidth 32 = _
-  simp only [BitVec.setWidth_eq]
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi
-  simp only [BitVec.getLsbD_append, BitVec.getLsbD_zero_length]
-  split_ifs <;> first | omega | rfl
 
 /-! ## The precondition -/
 
@@ -116,14 +279,9 @@ theorem out_scr {d : Nat} (hd : d + 4 ≤ 64) : InRegions s₀.wr (addr (scr s�
 
 theorem arg_contains {d : Nat} (hd : 4 ≤ d) (hd' : d + 4 ≤ 20) :
     (argR s₀).Contains (addr (esp₀ s₀) d) 4 := by
-  simp only [Region.Contains, argAddr]
-  rw [show (esp₀ s₀ + BitVec.ofNat 32 (4 + 4 * 0)).setWidth 64 = addr (esp₀ s₀) 4 from rfl,
-    h.argAddr_eq (by omega), h.argAddr_eq (by omega)]
-  have := h.esp_fits
-  generalize (esp₀ s₀).setWidth 64 = a
-  rw [show a + BitVec.ofNat 64 d - (a + BitVec.ofNat 64 4) = BitVec.ofNat 64 (d - 4) by bv_omega,
-    BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
-  omega
+  show (⟨addr (esp₀ s₀) 4, 16⟩ : Region).Contains _ _
+  rw [h.argAddr_eq (by omega), h.argAddr_eq (by omega)]
+  exact Offset.contains _ hd (by omega) (by omega)
 
 theorem in_arg {d : Nat} (hd : 4 ≤ d) (hd' : d + 4 ≤ 20) :
     InRegions (s₀.rd ++ s₀.wr) (addr (esp₀ s₀) d) 4 :=
@@ -131,14 +289,9 @@ theorem in_arg {d : Nat} (hd : 4 ≤ d) (hd' : d + 4 ≤ 20) :
 
 /-- An argument slot is inside the argument region. -/
 theorem arg_sub {i : Nat} (hi : i < 4) : Region.Sub ⟨argAddr s₀ i, 4⟩ (argR s₀) := by
-  intro a ha
-  simp only [Region.Contains, argAddr] at ha ⊢
-  rw [show (esp₀ s₀ + BitVec.ofNat 32 (4 + 4 * 0)).setWidth 64 = addr (esp₀ s₀) 4 from rfl,
-    h.argAddr_eq (by omega)]
-  rw [show (s₀.gpr .esp + BitVec.ofNat 32 (4 + 4 * i)).setWidth 64 = addr (esp₀ s₀) (4 + 4 * i)
-    from rfl, h.argAddr_eq (by omega)] at ha
-  generalize (esp₀ s₀).setWidth 64 = b at *
-  bv_omega
+  show Region.Sub ⟨addr (esp₀ s₀) (4 + 4 * i), 4⟩ ⟨addr (esp₀ s₀) 4, 16⟩
+  rw [h.argAddr_eq (by omega), h.argAddr_eq (by omega)]
+  exact Offset.sub _ (by omega) (by omega)
 
 /-- The arguments are unchanged while only the state and the scratch buffer are written. -/
 theorem arg_frame {m : Mem} (hf : Frame [stR s₀, scrR s₀] s₀.mem m) {i : Nat} (hi : i < 4) :
@@ -150,8 +303,7 @@ theorem arg_frame {m : Mem} (hf : Frame [stR s₀, scrR s₀] s₀.mem m) {i : N
 theorem blk_contains {i t : Nat} (hi : i < nb s₀) (ht : t < 16) :
     (blR s₀).Contains (addr (blkAddr s₀ i) (4 * t)) 4 := by
   have := h.blk_fits
-  rw [h.blkAddr_eq hi ht, show (bp s₀).setWidth 64 + BitVec.ofNat 64 (64 * i) + BitVec.ofNat 64 (4 * t) =
-    (bp s₀).setWidth 64 + BitVec.ofNat 64 (64 * i + 4 * t) by bv_omega]
+  rw [h.blkAddr_eq hi ht, BitVec.add_assoc, BitVec.ofNat_add_ofNat]
   exact contains_offset (by omega) (by omega)
 
 theorem in_blk {i t : Nat} (hi : i < nb s₀) (ht : t < 16) :
@@ -162,10 +314,9 @@ end Pre
 
 theorem st_sep {s₀ : State} (hp : Pre s₀) {d e : Nat} (hd : d + 4 ≤ 16) (he : e + 4 ≤ 16)
     (hde : d + 4 ≤ e ∨ e + 4 ≤ d) : Mem.Sep (addr (st s₀) d) 4 (addr (st s₀) e) 4 := by
-  intro x hx hy
-  rw [addr_eq (by have := hp.st_fits; omega)] at hx hy
-  generalize (st s₀).setWidth 64 = a at *
-  bv_omega
+  have := hp.st_fits
+  rw [addr_eq (by omega), addr_eq (by omega)]
+  exact Offset.sep _ hde (by omega) (by omega)
 
 /-- Reading the MD buffer at offset `d` after writing it at offset `e`. -/
 theorem readW_writeW_st {s₀ : State} (hp : Pre s₀) (m : Mem) (v : Word) {d e : Nat}
@@ -251,7 +402,7 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hesp : s.gpr .esp = 
   rw [load_eq]
   simp (config := {decide := true}) only [vars0, runBlock_cons, runStep_some,
     runBlock_nil, exec, readSrc, isa, ea_mk,
-    State.load32, State.setReg, hesp, ia, harg, h0, h1, h2, h3, ite_true, ite_false,
+    State.load32, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, hesp, ia, harg, h0, h1, h2, h3, ite_true, ite_false,
     Option.map_some, Option.some.injEq, exists_eq_left']
   simp only [stateAt_get hp _ (show 0 < 4 by decide), stateAt_get hp _ (show 1 < 4 by decide),
     stateAt_get hp _ (show 2 < 4 by decide), stateAt_get hp _ (show 3 < 4 by decide), stAddr]
@@ -310,8 +461,8 @@ theorem update_ok {s₀ : State} (hp : Pre s₀) {s : State} (V H : HashValue) (
   rw [update_eq]
   simp (config := {decide := true}) only [runBlock_cons, runStep_some,
     runBlock_nil, exec, execAlu, readSrc,
-    isa, ea_mk, State.load32, State.store32, State.setReg, arithFlags,
-    State.setFlags, hesp, ia, harg, i0, i1, i2, i3, o0, o1, o2, o3,
+    isa, ea_mk, State.load32, State.store32, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, RegUpd.zf_setReg, RegUpd.cf_setReg, RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags, RegUpd.wr_arithFlags, RegUpd.zf_arithFlags, RegUpd.cf_arithFlags,
+    hesp, ia, harg, i0, i1, i2, i3, o0, o1, o2, o3,
     m0, m1, m2, m3, v0, v1, v2, v3, ite_true, ite_false,
     Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
   refine ⟨?_, trivial⟩
@@ -325,11 +476,7 @@ theorem compressBlocks_succ (H : HashValue) (m : Mem) (p : Addr) (i : Nat) :
 theorem blk_word {s₀ : State} (hp : Pre s₀) {i t : Nat} (hi : i < nb s₀) (ht : t < 16) :
     s₀.mem.readW (addr (blkAddr s₀ i) (4 * t)) 32 = blk s₀ i ⟨t, ht⟩ := by
   rw [hp.blkAddr_eq hi ht, readW_bytes]
-  simp only [blk, blockAt, parseBlock]
-  generalize (bp s₀).setWidth 64 + BitVec.ofNat 64 (64 * i) = a
-  rw [show a + BitVec.ofNat 64 (4 * t) + 1 = a + BitVec.ofNat 64 (4 * t + 1) by bv_omega,
-    show a + BitVec.ofNat 64 (4 * t + 1) + 1 = a + BitVec.ofNat 64 (4 * t + 2) by bv_omega,
-    show a + BitVec.ofNat 64 (4 * t + 2) + 1 = a + BitVec.ofNat 64 (4 * t + 3) by bv_omega]
+  simp only [blk, blockAt, parseBlock, Offset.add_ofNat_add_one, Nat.add_assoc, Nat.reduceAdd]
 
 theorem harg_of {s₀ : State} (hp : Pre s₀) {m : Mem} (hf : Frame [stR s₀, scrR s₀] s₀.mem m) :
     m.readW (addr (esp₀ s₀) 4) 32 = st s₀ :=
@@ -342,11 +489,9 @@ theorem saved_frame {s₀ : State} (hp : Pre s₀) {m m' : Mem} (h : Saved s₀ 
     intro d hd
     refine hf.readW (Region.contains_self _ _) ?_ (by decide)
     simp only [List.mem_singleton, forall_eq]
-    refine Region.Disjoint.sub_left hp.st_scr.symm fun a ha => ?_
-    simp only [Region.Contains] at ha ⊢
-    rw [hp.scr_eq (by omega)] at ha
-    generalize (scr s₀).setWidth 64 = b at *
-    bv_omega
+    refine Region.Disjoint.sub_left hp.st_scr.symm ?_
+    rw [hp.scr_eq (by omega)]
+    exact Offset.sub_base _ (by omega)
   obtain ⟨h1, h2, h3, h4⟩ := h
   exact ⟨(key 0 (by omega)).trans h1, (key 4 (by omega)).trans h2, (key 8 (by omega)).trans h3,
     (key 12 (by omega)).trans h4⟩
@@ -376,8 +521,8 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
   obtain ⟨hm₃, hesi₃, hebp₃, hz₃, hesp₃, hrd₃, hwr₃⟩ := h₃
   have hnb : nb s₀ < 2 ^ 32 := (arg s₀ 2).isLt
   have hebp : s₂.gpr .ebp - 1 = BitVec.ofNat 32 (nb s₀ - (i + 1)) := by
-    rw [pub₂ .ebp (by decide), hL.ebp]
-    bv_omega
+    rw [pub₂ .ebp (by decide), hL.ebp, show (1 : BitVec 32) = BitVec.ofNat 32 1 from rfl,
+      Offset.ofNat_sub_ofNat (by omega), Nat.sub_sub]
   have hfw : Frame [stR s₀] s.mem s₃.mem := by
     rw [hm₃, hm₂]; exact frame_writeState hp (Frame.refl _ _) _
   have hframe : Frame [stR s₀, scrR s₀] s₀.mem s₃.mem :=
@@ -404,7 +549,8 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     refine ⟨by rw [hev]; simpa using h0, by omega, { hcommon _ rfl with esi := ?_, ebp := ?_ }⟩
     · rw [hesi₃, pub₂ .esi (by decide), hL.esi]
       simp only [blkAddr]
-      bv_omega
+      rw [BitVec.add_assoc, show (64 : BitVec 32) = BitVec.ofNat 32 64 from rfl, BitVec.ofNat_add_ofNat]
+      rfl
     · rw [hebp₃, hebp]
 
 /-! ## Prologue and epilogue -/
@@ -425,10 +571,8 @@ theorem readW_writeW_scr_arg {s₀ : State} (hp : Pre s₀) (m : Mem) (v : Word)
 
 theorem scr_sep {s₀ : State} (hp : Pre s₀) {d e : Nat} (hd : d + 4 ≤ 64) (he : e + 4 ≤ 64)
     (hde : d + 4 ≤ e ∨ e + 4 ≤ d) : Mem.Sep (addr (scr s₀) e) 4 (addr (scr s₀) d) 4 := by
-  intro x hx hy
-  rw [hp.scr_eq (by omega)] at hx hy
-  generalize (scr s₀).setWidth 64 = a at *
-  bv_omega
+  rw [hp.scr_eq (by omega), hp.scr_eq (by omega)]
+  exact Offset.sep _ hde.symm (by omega) (by omega)
 
 /-- Reading `[scr + e]` after writing `[scr + d]`. -/
 theorem readW_writeW_scr {s₀ : State} (hp : Pre s₀) (m : Mem) (x : Word)
@@ -457,8 +601,8 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) :
   apply WP.of_runBlock
   rw [prologue_eq]
   simp (config := {decide := true}) (disch := decide) only [runBlock_cons,
-    runBlock_nil, runStep_some, exec, execAlu, readSrc, ea_mk, State.setReg, arithFlags,
-    State.setFlags, State.load32, State.store32, i8, i12, i16, a8, a12, a16, hout, hsa, ite_true,
+    runBlock_nil, runStep_some, exec, execAlu, readSrc, ea_mk, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, RegUpd.zf_setReg, RegUpd.cf_setReg, RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags, RegUpd.wr_arithFlags, RegUpd.zf_arithFlags,
+    State.load32, State.store32, i8, i12, i16, a8, a12, a16, hout, hsa, ite_true,
     ite_false, Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> trivial
 
@@ -502,7 +646,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 
   apply WP.of_runBlock
   rw [epilogue_eq]
   simp (config := {decide := true}) (disch := decide) only [runBlock_cons,
-    runBlock_nil, runStep_some, exec, readSrc, ea_mk, State.setReg, State.load32, hesp, ia, harg, hin,
+    runBlock_nil, runStep_some, exec, readSrc, ea_mk, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, State.load32, hesp, ia, harg, hin,
     g0, g1, g2, g3, ite_true, ite_false, Option.map_some, Option.some.injEq,
     exists_eq_left']
   refine ⟨fun r hr => ?_, trivial⟩
@@ -568,9 +712,7 @@ theorem sat_pre : Proof.Md5.compressX86.pre satState := by
   have e : argAddr satState 0 = 0x4004 := by decide
   simp only [Proof.Md5.compressX86, a0, a1, a2, a3, e]
   refine ⟨by decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, satState] at h₁ h₂
-    bv_omega
+  exact Region.disjoint_of_sep (by decide)
 
 /-- The taint analysis starts with the stack arguments public, and the words
 holding `state` and `scratch` known to be the base addresses of the writable

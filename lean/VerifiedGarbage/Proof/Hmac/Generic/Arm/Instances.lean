@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.Hmac.Generic.Arm.Finalize
 import VerifiedGarbage.Proof.Hmac.Generic.Implies
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Hmac.Generic.Arm.Hashes
+import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: `init`, constant time
@@ -27,8 +28,8 @@ abbrev args : List Reg := [.r0, .r1, .r2, .r3]
 
 /-- The block that sets up a call of `update` from `st`, at offset `o`. -/
 abbrev updBlock (H : Hash) (st : Reg) (o : Nat) : List Instr :=
-  [.mov .r0 (.reg st)] ++ scrAt .r1 o ++ [.movw .r7 (BitVec.ofNat 16 H.B), .mov .r10 (.reg .r11),
-    .movw .r2 (BitVec.ofNat 16 0), .mov .r3 (.imm 0)]
+  ([.mov .r0 (.reg st)] : List Instr) ++ scrAt .r1 o ++ ([.movw .r7 (BitVec.ofNat 16 H.B), .mov .r10 (.reg .r11),
+    .movw .r2 (BitVec.ofNat 16 0), .mov .r3 (.imm 0)] : List Instr)
 
 /-- The taint checks of the pieces of `init` between its calls. -/
 structure Checks (H : Hash) : Prop where
@@ -147,7 +148,7 @@ theorem ct : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') H.init fun _ _ => T
     rel_agree (argTaint args 4) (fun s s' e e' => by
         subst e e'
         refine agree_argTaint (fun r hr => ?_) hq.sp (args_wf hp) (args_wf hp')
-          (argMem_of (j := 1) hq.sp hp.spf fun i hi => by rw [show i = 0 by omega]; exact hq.a0)
+          (argMem_of (j := 1) hq.sp hp.spf fun i hi => by rw [show i = 0 by omega_nat]; exact hq.a0)
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
         rcases hr with rfl | rfl | rfl | rfl
         · exact hq.r0
@@ -205,17 +206,17 @@ abbrev pubRegs : List Reg := [.r4, .r5, .r6, .r11]
 
 /-- The block that sets up the first call of `finalize`. -/
 abbrev fin1Block (H : Hash) : List Instr :=
-  [.mov .r0 (.reg .r4)] ++ [] ++ scrAt .r1 H.buf ++ [.mov .r12 (.reg .r11)]
+  ([.mov .r0 (.reg .r4)] : List Instr) ++ [] ++ scrAt .r1 H.buf ++ ([.mov .r12 (.reg .r11)] : List Instr)
 
 /-- The block that sets up the second call of `finalize`. -/
 abbrev fin2Block (H : Hash) : List Instr :=
-  [.mov .r0 (.reg .r4)] ++ [.movw .r2 (BitVec.ofNat 16 (H.B + H.D)), .mov .r3 (.imm 0)] ++
-    scrAt .r1 H.buf ++ [.mov .r12 (.reg .r11)]
+  ([.mov .r0 (.reg .r4)] : List Instr) ++ ([.movw .r2 (BitVec.ofNat 16 (H.B + H.D)), .mov .r3 (.imm 0)] : List Instr) ++
+    scrAt .r1 H.buf ++ ([.mov .r12 (.reg .r11)] : List Instr)
 
 /-- The block that sets up the call of `update`. -/
 abbrev updBlock (H : Hash) : List Instr :=
-  [.mov .r0 (.reg .r4)] ++ scrAt .r1 H.buf ++ [.movw .r7 (BitVec.ofNat 16 H.D), .mov .r10 (.reg .r11),
-    .movw .r2 (BitVec.ofNat 16 H.B), .mov .r3 (.imm 0)]
+  ([.mov .r0 (.reg .r4)] : List Instr) ++ scrAt .r1 H.buf ++ ([.movw .r7 (BitVec.ofNat 16 H.D), .mov .r10 (.reg .r11),
+    .movw .r2 (BitVec.ofNat 16 H.B), .mov .r3 (.imm 0)] : List Instr)
 
 /-- The taint checks of the pieces of `finalize` between its calls. -/
 structure Checks (H : Hash) : Prop where
@@ -226,6 +227,18 @@ structure Checks (H : Hash) : Prop where
   fin2 : ∃ hc, (VG.Taint.check taint (Taint.ofRegs pubRegs) (.block (fin2Block H)) hc).isSome = true
   copy2 : ∃ hc, (VG.Taint.check taint (Taint.ofRegs pubRegs) (copy .r11 H.buf .r6 0 H.D) hc).isSome = true
   restore : ∃ hc, (VG.Taint.check taint (Taint.ofRegs pubRegs) (.block H.restore) hc).isSome = true
+
+/-- The checks of the parts of `finalize` that do not depend on the size of
+the digest carry over to a hash function of the same sizes but that one. -/
+theorem Checks.of_sizes {H H' : Hash} (hB : H.B = H'.B) (hS : H.S = H'.S) (hW : H.W = H'.W) (h : Checks H)
+    (upd : ∃ hc, (VG.Taint.check taint (Taint.ofRegs pubRegs) (.block (updBlock H')) hc).isSome = true)
+    (fin2 : ∃ hc, (VG.Taint.check taint (Taint.ofRegs pubRegs) (.block (fin2Block H')) hc).isSome = true)
+    (copy2 : ∃ hc, (VG.Taint.check taint (Taint.ofRegs pubRegs) (copy .r11 H'.buf .r6 0 H'.D) hc).isSome = true) :
+    Checks H' := by
+  obtain ⟨B, S, D, F, W, iN, iC, uN, uC, fN, fC⟩ := H
+  obtain ⟨B', S', D', F', W', iN', iC', uN', uC', fN', fC'⟩ := H'
+  dsimp only at hB hS hW; subst hB hS hW
+  exact ⟨h.pro, h.fin1, h.copy1, upd, fin2, copy2, h.restore⟩
 
 /-- The public arguments are the same. -/
 structure PubEq (s₀ s₀' : State) : Prop where
@@ -305,7 +318,7 @@ theorem ct (hc : Checks H) : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') H.f
         rw [e, e']
         refine agree_argTaint (fun r hr => ?_) hq.sp (args_wf hp) (args_wf hp')
           (argMem_of (j := 2) hq.sp hp.spf fun i hi => by
-            rcases (show i = 0 ∨ i = 1 by omega) with rfl | rfl
+            rcases (show i = 0 ∨ i = 1 by omega_nat) with rfl | rfl
             · exact hq.a0
             · exact hq.a1)
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -499,6 +512,14 @@ theorem md5_init : Verified Arm.target md5H.init (Spec.Hmac.md5I.initContract Ar
 theorem md5_finalize : Verified Arm.target md5H.finalize (Spec.Hmac.md5I.finalizeContract Arm.abi 16) :=
   (Finalize.verified md5OK md5_finChecks (by decide) md5_finImp.sat_left).of_implies md5_finImp
 
+/-- `Init.Checks` looks at the sizes of a hash function but its digest's. -/
+theorem Init.Checks.of_eq {H H' : Impl.Hmac.Generic.Arm.Hash} (hB : H.B = H'.B) (hS : H.S = H'.S)
+    (hW : H.W = H'.W) (h : Init.Checks H) : Init.Checks H' := by
+  obtain ⟨B, S, D, F, W, iN, iC, uN, uC, fN, fC⟩ := H
+  obtain ⟨B', S', D', F', W', iN', iC', uN', uC', fN', fC'⟩ := H'
+  dsimp only at hB hS hW; subst hB hS hW
+  exact ⟨h.keys, h.argI, h.argU₁, h.argU₂, h.restore⟩
+
 /-! ## SHA-384 -/
 
 theorem sha384_initChecks : Init.Checks sha384H where
@@ -535,23 +556,12 @@ theorem sha384_finalize : Verified Arm.target sha384H.finalize (Spec.Hmac.sha384
 
 /-! ## SHA-512 -/
 
-theorem sha512_initChecks : Init.Checks sha512H' where
-  keys := ⟨_, by taint_decide⟩
-  argI := by
-    simp only [List.mem_cons, List.not_mem_nil, or_false]
-    rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
-  argU₁ := ⟨_, by taint_decide⟩
-  argU₂ := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
+theorem sha512_initChecks : Init.Checks sha512H' :=
+  Init.Checks.of_eq (H := sha384H) rfl rfl rfl sha384_initChecks
 
-theorem sha512_finChecks : Finalize.Checks sha512H' where
-  pro := ⟨_, by taint_decide⟩
-  fin1 := ⟨_, by taint_decide⟩
-  copy1 := ⟨_, by taint_decide⟩
-  upd := ⟨_, by taint_decide⟩
-  fin2 := ⟨_, by taint_decide⟩
-  copy2 := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
+theorem sha512_finChecks : Finalize.Checks sha512H' :=
+  Finalize.Checks.of_sizes (H := sha384H) rfl rfl rfl sha384_finChecks ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
+    ⟨_, by taint_decide⟩
 
 theorem sha512_initImp : (initG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.initContract Arm.abi 16) :=
   initImp Spec.Hmac.sha512S 96
@@ -569,23 +579,12 @@ theorem sha512_finalize : Verified Arm.target sha512H'.finalize (Spec.Hmac.sha51
 
 /-! ## SHA-512/224 -/
 
-theorem sha512_224_initChecks : Init.Checks sha512_224H where
-  keys := ⟨_, by taint_decide⟩
-  argI := by
-    simp only [List.mem_cons, List.not_mem_nil, or_false]
-    rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
-  argU₁ := ⟨_, by taint_decide⟩
-  argU₂ := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
+theorem sha512_224_initChecks : Init.Checks sha512_224H :=
+  Init.Checks.of_eq (H := sha384H) rfl rfl rfl sha384_initChecks
 
-theorem sha512_224_finChecks : Finalize.Checks sha512_224H where
-  pro := ⟨_, by taint_decide⟩
-  fin1 := ⟨_, by taint_decide⟩
-  copy1 := ⟨_, by taint_decide⟩
-  upd := ⟨_, by taint_decide⟩
-  fin2 := ⟨_, by taint_decide⟩
-  copy2 := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
+theorem sha512_224_finChecks : Finalize.Checks sha512_224H :=
+  Finalize.Checks.of_sizes (H := sha384H) rfl rfl rfl sha384_finChecks ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
+    ⟨_, by taint_decide⟩
 
 theorem sha512_224_initImp : (initG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.initContract Arm.abi 16) :=
   initImp Spec.Hmac.sha512_224S 96
@@ -603,23 +602,12 @@ theorem sha512_224_finalize : Verified Arm.target sha512_224H.finalize (Spec.Hma
 
 /-! ## SHA-512/256 -/
 
-theorem sha512_256_initChecks : Init.Checks sha512_256H where
-  keys := ⟨_, by taint_decide⟩
-  argI := by
-    simp only [List.mem_cons, List.not_mem_nil, or_false]
-    rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
-  argU₁ := ⟨_, by taint_decide⟩
-  argU₂ := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
+theorem sha512_256_initChecks : Init.Checks sha512_256H :=
+  Init.Checks.of_eq (H := sha384H) rfl rfl rfl sha384_initChecks
 
-theorem sha512_256_finChecks : Finalize.Checks sha512_256H where
-  pro := ⟨_, by taint_decide⟩
-  fin1 := ⟨_, by taint_decide⟩
-  copy1 := ⟨_, by taint_decide⟩
-  upd := ⟨_, by taint_decide⟩
-  fin2 := ⟨_, by taint_decide⟩
-  copy2 := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
+theorem sha512_256_finChecks : Finalize.Checks sha512_256H :=
+  Finalize.Checks.of_sizes (H := sha384H) rfl rfl rfl sha384_finChecks ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
+    ⟨_, by taint_decide⟩
 
 theorem sha512_256_initImp : (initG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.initContract Arm.abi 16) :=
   initImp Spec.Hmac.sha512_256S 96

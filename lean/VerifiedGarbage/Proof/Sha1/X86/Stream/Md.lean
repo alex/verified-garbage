@@ -36,7 +36,7 @@ theorem shape : Shape (P := params) md where
     rw [m, digest_eq]
 
 theorem callee : CalleeOk (P := params) md Impl.Sha1.X86.compress :=
-  ⟨compress_verified.1, NoSp.of_all (by decide +kernel), by decide +kernel⟩
+  ⟨compress_verified.1, NoSp.of_all (by lit_decide), by lit_decide⟩
 
 namespace Update
 

@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.KernelRfl
 import VerifiedGarbage.Proof.Sha512.X86_64.Compress
 import VerifiedGarbage.Proof.Sha512.Stream
 import VerifiedGarbage.Impl.Sha512.X86_64.Stream
@@ -80,28 +81,21 @@ def initSat : State where
 /-- The hint for `init 0`, which is also one for `init iv`. -/
 abbrev initHint : VG.Taint.Hint taint.T := VG.Taint.hintOf taint (Taint.ofRegs [.rdi]) (init 0)
 
-/-- The taint check never looks at an immediate, so its result on `init iv`
-is its result on `init 0`, which is decided. -/
+/-- The taint check never looks at an immediate, so the kernel evaluates it on
+`init iv` for any `iv`. -/
 theorem init_check (iv : HashValue) :
     (taint.check (Taint.ofRegs [.rdi]) (init iv) initHint).isSome = true := by
-  have h : (taint.check (Taint.ofRegs [.rdi]) (init 0) initHint).isSome = true := by decide +kernel
-  rw [show taint.check (Taint.ofRegs [.rdi]) (init iv) initHint =
-    taint.check (Taint.ofRegs [.rdi]) (init 0) initHint from rfl]
-  exact h
+  kernel_rfl
 
 theorem init_verified (iv : HashValue) :
     Verified X86_64.target (init iv) (Proof.Sha512.initX86_64 iv) := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl, ?_⟩⟩
   · obtain ⟨t, s', he, h⟩ := init_correct iv hs
     refine ⟨t, s', he, abiPreserved_of_exec ?_ he h.1, h.2⟩
-    rw [show (init iv).allInstrs (fun i => !loadsMxcsr i) =
-      (init 0).allInstrs (fun i => !loadsMxcsr i) from rfl]
-    decide +kernel
+    kernel_rfl
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi]) ?_ (init_check iv)
     intro s₁ s₂ _ _ h
     exact Taint.agree_ofRegs fun r hr => by simp at hr; subst hr; exact h
-  · intro a h₁ h₂
-    simp only [Region.Contains, initSat] at h₁ h₂
-    bv_omega
+  · exact Region.disjoint_of_sep (by decide)
 
 end VG.Proof.Sha512.X86_64.Stream

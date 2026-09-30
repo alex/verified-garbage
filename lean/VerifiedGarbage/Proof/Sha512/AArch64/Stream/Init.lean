@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.KernelRfl
 import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Common
 
 /-!
@@ -90,14 +91,11 @@ def initSat : State where
 /-- The hint for `init 0`, which is also one for `init iv`. -/
 abbrev initHint : VG.Taint.Hint taint.T := VG.Taint.hintOf taint (Taint.ofRegs [.x0]) (init 0)
 
-/-- The taint check never looks at an immediate, so its result on `init iv`
-is its result on `init 0`, which is decided. -/
+/-- The taint check never looks at an immediate, so the kernel evaluates it on
+`init iv` for any `iv`. -/
 theorem init_check (iv : HashValue) :
     (taint.check (Taint.ofRegs [.x0]) (init iv) initHint).isSome = true := by
-  have h : (taint.check (Taint.ofRegs [.x0]) (init 0) initHint).isSome = true := by taint_decide
-  rw [show taint.check (Taint.ofRegs [.x0]) (init iv) initHint =
-    taint.check (Taint.ofRegs [.x0]) (init 0) initHint from rfl]
-  exact h
+  kernel_rfl
 
 theorem init_verified (iv : HashValue) :
     Verified AArch64.target (init iv) (Proof.Sha512.initAArch64 iv) := by

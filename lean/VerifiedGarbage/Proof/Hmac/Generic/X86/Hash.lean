@@ -1,9 +1,11 @@
 import VerifiedGarbage.Proof.Hmac.Generic.X86.Contract
+import VerifiedGarbage.Proof.Framework.OffsetBelow
 import VerifiedGarbage.Proof.Framework.RelCT
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.X86.RelCT
 import VerifiedGarbage.Proof.Sha256.X86.Stream.Common
 import VerifiedGarbage.Impl.Pbkdf2.Generic.X86
+import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
 # HMAC over any streaming hash function on x86 (32-bit): the functions we call
@@ -90,28 +92,16 @@ include hE
 /-- `n` bytes at `k ≥ n` below `E` are in `below E 48`. -/
 theorem stk_sub {k n : Nat} (hn : n ≤ k) (hk : k ≤ 48) :
     Region.Sub ⟨(E - BitVec.ofNat 32 k).setWidth 64, n⟩ (below E 48) := by
-  intro a ha
-  simp only [Region.Contains] at ha ⊢
-  rw [Taint.sub_setWidth (by omega)] at ha
-  rw [Taint.sub_setWidth (by omega)]
-  have := E.isLt
-  have hE' : (E.setWidth 64).toNat = E.toNat := by
-    simp only [BitVec.toNat_setWidth]; exact Nat.mod_eq_of_lt (by omega)
-  generalize E.setWidth 64 = B at *
-  bv_omega
+  unfold below
+  rw [Taint.sub_setWidth (by omega_nat), Taint.sub_setWidth (by omega_nat)]
+  exact Offset.sub_below _ hk (by omega)
 
 /-- The `n` bytes below `E - k`, as a contract writes them, are in `below E 48`. -/
 theorem stk_sub' {k n : Nat} (h : k + n ≤ 48) :
     Region.Sub ⟨(E - BitVec.ofNat 32 k).setWidth 64 - BitVec.ofNat 64 n, n⟩ (below E 48) := by
-  intro a ha
-  simp only [Region.Contains] at ha ⊢
-  rw [Taint.sub_setWidth (by omega)] at ha
-  rw [Taint.sub_setWidth (by omega)]
-  have := E.isLt
-  have hE' : (E.setWidth 64).toNat = E.toNat := by
-    simp only [BitVec.toNat_setWidth]; exact Nat.mod_eq_of_lt (by omega)
-  generalize E.setWidth 64 = B at *
-  bv_omega
+  unfold below
+  rw [Taint.sub_setWidth (by omega_nat), Taint.sub_setWidth (by omega_nat), Offset.sub_sub_ofNat]
+  exact Offset.sub_below _ (by omega) (by omega)
 
 end Stack
 
@@ -126,7 +116,7 @@ theorem zero_append_ofNat {n : Nat} (h : n < 2 ^ 32) :
   apply BitVec.eq_of_toNat_eq
   have z : (0 : BitVec 32).toNat = 0 := rfl
   simp only [BitVec.toNat_append, BitVec.toNat_ofNat, z, Nat.zero_shiftLeft, Nat.zero_or]
-  omega
+  omega_nat
 
 /-- After a framed call, from what `WP.callWith` gives. -/
 theorem after_of {s s' : State} {ws : List Region} {n : Nat} (h48 : 48 ≤ (s.gpr .esp).toNat) (hn : n ≤ 48)
@@ -158,7 +148,7 @@ namespace InitArgs
 variable {s : State} {r : Reg} {st : BitVec 32} (h : InitArgs (H := H) s r st)
 include h
 
-theorem fit : 4 * [r].length + 4 ≤ (s.gpr .esp).toNat := by have := h.sp48; simp only [List.length_cons, List.length_nil]; omega
+theorem fit : 4 * [r].length + 4 ≤ (s.gpr .esp).toNat := by have := h.sp48; simp only [List.length_cons, List.length_nil]; omega_nat
 theorem nesp : Reg.esp ∉ [r] := by simp [Ne.symm h.hr]
 
 theorem a0 : arg (pushed [r] s).callEntry 0 = st := by
@@ -170,9 +160,9 @@ theorem callPre : CallPre (initK H.S hH.SH.Repr) [r] (InitArgs.rd (s.gpr .esp)) 
   refine ⟨?_, ?_, ?_⟩
   · simp only [initK, State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr, arg_withRegions,
       argAddr_withRegions, h.a0, callEntry_argAddr0, callEntry_esp', List.length_cons, List.length_nil]
-    refine ⟨trivial, trivial, h.b_st.sub_left (below_sub (by omega) e), ?_, h.nst, ?_⟩
-    · exact h.b_st.sub_left (stk_sub e (by omega) (by omega))
-    · rw [sub_toNat (by omega)]; have := (s.gpr .esp).isLt; omega
+    refine ⟨trivial, trivial, h.b_st.sub_left (below_sub (by omega_nat) e), ?_, h.nst, ?_⟩
+    · exact h.b_st.sub_left (stk_sub e (by omega_nat) (by omega_nat))
+    · rw [sub_toNat (by omega_nat)]; have := (s.gpr .esp).isLt; omega_nat
   · intro a n ⟨q, hq, hc⟩
     simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl
@@ -191,8 +181,8 @@ theorem init_frame {s : State} {r : Reg} {st : BitVec 32} (h : InitArgs (H := H)
   have e := h.sp48
   have su := hH.initSU
   refine WP.callWith hH.init.1 hH.initSp (by simp) h.nesp
-    (by simp only [List.length_cons, List.length_nil]; omega) (h.callPre hH) fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
-  refine hQ s' (after_of e (by simp only [List.length_cons, List.length_nil]; omega) rd' wr' cs' f') ?_
+    (by simp only [List.length_cons, List.length_nil]; omega_nat) (h.callPre hH) fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
+  refine hQ s' (after_of e (by simp only [List.length_cons, List.length_nil]; omega_nat) rd' wr' cs' f') ?_
   simp only [initK, arg_withRegions, h.a0] at post
   rw [← m₂]; exact post
 
@@ -241,7 +231,7 @@ variable {hH} {s : State} {lo r : Reg} {st d sc c : BitVec 32} {len : Nat}
 include h
 
 theorem fit : 4 * (upd6 lo r).length + 4 ≤ (s.gpr .esp).toNat := by
-  have := h.sp48; simp only [List.length_cons, List.length_nil]; omega
+  have := h.sp48; simp only [List.length_cons, List.length_nil]; omega_nat
 theorem nesp : Reg.esp ∉ upd6 lo r := by simp [Ne.symm h.hr, Ne.symm h.hl]
 
 theorem a0 : arg (pushed (upd6 lo r) s).callEntry 0 = st := by
@@ -260,7 +250,7 @@ theorem a5 : arg (pushed (upd6 lo r) s).callEntry 5 = sc := by
 theorem count_eq : count (pushed (upd6 lo r) s).callEntry = (0 : BitVec 32) ++ c := by
   rw [count, h.a1, h.a2]
 
-theorem hlen' : (BitVec.ofNat 32 len).toNat = len := by rw [BitVec.toNat_ofNat]; have := h.hlen; omega
+theorem hlen' : (BitVec.ofNat 32 len).toNat = len := by rw [BitVec.toNat_ofNat]; have := h.hlen; omega_nat
 
 theorem callPre : CallPre (updK H.S hH.Wb hH.SH.Repr) (upd6 lo r) (UpdArgs.rd (s.gpr .esp) d len) (UpdArgs.wr hH st sc) s := by
   have e := h.sp48
@@ -270,16 +260,16 @@ theorem callPre : CallPre (updK H.S hH.Wb hH.SH.Repr) (upd6 lo r) (UpdArgs.rd (s
       argAddr_withRegions, h.a0, h.a3, h.a4, h.a5, h.hlen', callEntry_argAddr0, callEntry_esp', upd6,
       List.length_cons, List.length_nil]
     have sA : Region.Sub ⟨(s.gpr .esp - BitVec.ofNat 32 (4 * 6)).setWidth 64, 24⟩ (stk s) :=
-      stk_sub e (by omega) (by omega)
+      stk_sub e (by omega_nat) (by omega_nat)
     have sR : Region.Sub ⟨(s.gpr .esp - BitVec.ofNat 32 (4 * 6 + 4)).setWidth 64, 4⟩ (stk s) :=
-      stk_sub e (by omega) (by omega)
+      stk_sub e (by omega_nat) (by omega_nat)
     have sK : Region.Sub ⟨(s.gpr .esp - BitVec.ofNat 32 (4 * 6 + 4)).setWidth 64 - 20, 20⟩ (stk s) :=
-      stk_sub' (n := 20) e (by omega)
+      stk_sub' (n := 20) e (by omega_nat)
     refine ⟨trivial, trivial, h.st_sc, h.d_st, h.d_sc, h.b_st.sub_left sA, h.b_sc.sub_left sA,
       h.b_st.sub_left sR, h.b_sc.sub_left sR, h.b_st.sub_left sK, h.b_sc.sub_left sK, h.b_d.sub_left sK,
       h.nst, h.nd, h.nsc, ?_, ?_⟩
-    · rw [sub_toNat (by omega)]; omega
-    · rw [sub_toNat (by omega)]; have := (s.gpr .esp).isLt; omega
+    · rw [sub_toNat (by omega_nat)]; omega_nat
+    · rw [sub_toNat (by omega_nat)]; have := (s.gpr .esp).isLt; omega_nat
   · intro a n ⟨q, hq, hc⟩
     simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl | rfl | rfl
@@ -299,7 +289,7 @@ theorem callPre : CallPre (updK H.S hH.Wb hH.SH.Repr) (upd6 lo r) (UpdArgs.rd (s
 theorem entry_frame : Frame [stk s] s.mem (pushed (upd6 lo r) s).callEntry.mem :=
   (callEntry_frame h.fit h.nesp).sub fun q hq => by
     simp only [List.mem_singleton] at hq; subst hq
-    exact ⟨_, List.mem_singleton_self _, below_sub (by simp only [List.length_cons, List.length_nil]; omega) h.sp48⟩
+    exact ⟨_, List.mem_singleton_self _, below_sub (by simp only [List.length_cons, List.length_nil]; omega_nat) h.sp48⟩
 
 end UpdArgs
 
@@ -312,21 +302,21 @@ theorem upd_frame {s : State} {lo r : Reg} {st d sc c : BitVec 32} {len : Nat}
   have e := h.sp48
   have su := hH.updSU
   refine WP.callWith hH.upd.1 hH.updSp (by simp) h.nesp
-    (by simp only [List.length_cons, List.length_nil]; omega) h.callPre fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
-  refine hQ s' (after_of e (by simp only [List.length_cons, List.length_nil]; omega) rd' wr' cs' f') fun m hr hc => ?_
+    (by simp only [List.length_cons, List.length_nil]; omega_nat) h.callPre fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
+  refine hQ s' (after_of e (by simp only [List.length_cons, List.length_nil]; omega_nat) rd' wr' cs' f') fun m hr hc => ?_
   simp only [updK, arg_withRegions, State.withRegions_mem, h.a0, h.a3, h.a4, h.hlen'] at post
   have fE := h.entry_frame
   have hs : ∀ q ∈ [stk s], (⟨st.setWidth 64, H.S⟩ : Region).Disjoint q := by
     simp only [List.mem_singleton]; rintro q rfl; exact h.b_st.symm
   have hr' : hH.SH.Repr (pushed (upd6 lo r) s).callEntry.mem (st.setWidth 64) m :=
     hH.repr _ _ _ _ _ (fun i hi => fE.bytes (R := ⟨st.setWidth 64, H.S⟩) hs
-      (by show H.S ≤ 2 ^ 64; have := hH.hSB; omega) hi) hr
+      (by show H.S ≤ 2 ^ 64; have := hH.hSB; omega_nat) hi) hr
   have hd : bytesAt (pushed (upd6 lo r) s).callEntry.mem (d.setWidth 64) len = bytesAt s.mem (d.setWidth 64) len := by
     simp only [bytesAt]
     apply List.map_congr_left
     intro i hi
     exact fE.bytes (R := ⟨d.setWidth 64, len⟩)
-      (by simp only [List.mem_singleton]; rintro q rfl; exact h.b_d.symm) (by show len ≤ 2 ^ 64; have := h.hlen; omega)
+      (by simp only [List.mem_singleton]; rintro q rfl; exact h.b_d.symm) (by show len ≤ 2 ^ 64; have := h.hlen; omega_nat)
       (List.mem_range.mp hi)
   rw [← m₂, ← hd]
   exact post m hr' (by rw [count_withRegions, h.count_eq]; exact hc)
@@ -368,7 +358,7 @@ variable {hH} {s : State} {r : Reg} {st o sc lo hi : BitVec 32} (h : FinArgs hH 
 include h
 
 theorem fit : 4 * (fin5 r).length + 4 ≤ (s.gpr .esp).toNat := by
-  have := h.sp48; simp only [List.length_cons, List.length_nil]; omega
+  have := h.sp48; simp only [List.length_cons, List.length_nil]; omega_nat
 theorem nesp : Reg.esp ∉ fin5 r := by simp [Ne.symm h.hr]
 
 theorem a0 : arg (pushed (fin5 r) s).callEntry 0 = st := by
@@ -394,16 +384,16 @@ theorem callPre : CallPre (finK H.S hH.Wb H.F H.D hH.SH.Repr hH.SH.H.hash) (fin5
       argAddr_withRegions, h.a0, h.a3, h.a4, callEntry_argAddr0, callEntry_esp', fin5,
       List.length_cons, List.length_nil]
     have sA : Region.Sub ⟨(s.gpr .esp - BitVec.ofNat 32 (4 * 5)).setWidth 64, 20⟩ (stk s) :=
-      stk_sub e (by omega) (by omega)
+      stk_sub e (by omega_nat) (by omega_nat)
     have sR : Region.Sub ⟨(s.gpr .esp - BitVec.ofNat 32 (4 * 5 + 4)).setWidth 64, 4⟩ (stk s) :=
-      stk_sub e (by omega) (by omega)
+      stk_sub e (by omega_nat) (by omega_nat)
     have sK : Region.Sub ⟨(s.gpr .esp - BitVec.ofNat 32 (4 * 5 + 4)).setWidth 64 - 20, 20⟩ (stk s) :=
-      stk_sub' (n := 20) e (by omega)
+      stk_sub' (n := 20) e (by omega_nat)
     refine ⟨trivial, trivial, h.st_o, h.st_sc, h.o_sc, h.b_st.sub_left sA, h.b_o.sub_left sA,
       h.b_sc.sub_left sA, h.b_st.sub_left sR, h.b_o.sub_left sR, h.b_sc.sub_left sR,
       h.b_st.sub_left sK, h.b_o.sub_left sK, h.b_sc.sub_left sK, h.nst, h.no, h.nsc, ?_, ?_⟩
-    · rw [sub_toNat (by omega)]; omega
-    · rw [sub_toNat (by omega)]; have := (s.gpr .esp).isLt; omega
+    · rw [sub_toNat (by omega_nat)]; omega_nat
+    · rw [sub_toNat (by omega_nat)]; have := (s.gpr .esp).isLt; omega_nat
   · intro a n ⟨q, hq, hc⟩
     simp only [List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl | rfl | rfl
@@ -425,7 +415,7 @@ theorem callPre : CallPre (finK H.S hH.Wb H.F H.D hH.SH.Repr hH.SH.H.hash) (fin5
 theorem entry_frame : Frame [stk s] s.mem (pushed (fin5 r) s).callEntry.mem :=
   (callEntry_frame h.fit h.nesp).sub fun q hq => by
     simp only [List.mem_singleton] at hq; subst hq
-    exact ⟨_, List.mem_singleton_self _, below_sub (by simp only [List.length_cons, List.length_nil]; omega) h.sp48⟩
+    exact ⟨_, List.mem_singleton_self _, below_sub (by simp only [List.length_cons, List.length_nil]; omega_nat) h.sp48⟩
 
 end FinArgs
 
@@ -438,7 +428,7 @@ theorem fin_frame {s : State} {r : Reg} {st o sc lo hi : BitVec 32} (h : FinArgs
   have e := h.sp48
   have su := hH.finSU
   refine WP.callWith hH.fin.1 hH.finSp (by simp) h.nesp
-    (by simp only [List.length_cons, List.length_nil]; omega) h.callPre fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
+    (by simp only [List.length_cons, List.length_nil]; omega_nat) h.callPre fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   have n5 : (fin5 r).length = 5 := rfl
   rw [n5] at f'
   have f'' : Frame ([⟨st.setWidth 64, H.S⟩, ⟨o.setWidth 64, H.F⟩, ⟨sc.setWidth 64, hH.Wb⟩] ++
@@ -450,10 +440,10 @@ theorem fin_frame {s : State} {r : Reg} {st o sc lo hi : BitVec 32} (h : FinArgs
       · exact ⟨_, List.mem_cons_of_mem _ List.mem_cons_self, fun _ h => h⟩
       · exact ⟨_, List.mem_cons_of_mem _ (List.mem_cons_of_mem _ List.mem_cons_self), fun _ h => h⟩
       · exact ⟨_, List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ List.mem_cons_self)),
-          below_sub (by omega) (by omega)⟩
+          below_sub (by omega_nat) (by omega_nat)⟩
       · exact ⟨_, List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ List.mem_cons_self)),
           fun _ h => h⟩
-  refine hQ s' (after_of e (by omega) rd' wr' cs' f'')
+  refine hQ s' (after_of e (by omega_nat) rd' wr' cs' f'')
     fun m hr hl hc => ?_
   simp only [finK, arg_withRegions, State.withRegions_mem, h.a0, h.a3] at post
   have fE := h.entry_frame
@@ -461,7 +451,7 @@ theorem fin_frame {s : State} {r : Reg} {st o sc lo hi : BitVec 32} (h : FinArgs
     simp only [List.mem_singleton]; rintro q rfl; exact h.b_st.symm
   have hr' : hH.SH.Repr (pushed (fin5 r) s).callEntry.mem (st.setWidth 64) m :=
     hH.repr _ _ _ _ _ (fun i hi => fE.bytes (R := ⟨st.setWidth 64, H.S⟩) hs
-      (by show H.S ≤ 2 ^ 64; have := hH.hSB; omega) hi) hr
+      (by show H.S ≤ 2 ^ 64; have := hH.hSB; omega_nat) hi) hr
   rw [← m₂]
   exact post m hr' hl (by rw [count_withRegions, h.count_eq]; exact hc)
 
@@ -498,7 +488,7 @@ theorem upd_rel {P : State → State → Prop} {sp : BitVec 32} {lo r : Reg} {st
   refine ⟨c₁, c₂, e.trans e'.symm, ?_, fun i hi => ?_⟩
   · simp only [State.withRegions_gpr, callEntry_esp', e, e']
   · simp only [arg_withRegions]
-    rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5) with rfl | rfl | rfl | rfl | rfl | rfl
+    rcases (by omega_nat : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5) with rfl | rfl | rfl | rfl | rfl | rfl
     · rw [a.a0, a'.a0]
     · rw [a.a1, a'.a1]
     · rw [a.a2, a'.a2]
@@ -519,7 +509,7 @@ theorem fin_rel {P : State → State → Prop} {sp : BitVec 32} {r : Reg} {st o 
   refine ⟨c₁, c₂, e.trans e'.symm, ?_, fun i hi => ?_⟩
   · simp only [State.withRegions_gpr, callEntry_esp', e, e']
   · simp only [arg_withRegions]
-    rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4) with rfl | rfl | rfl | rfl | rfl
+    rcases (by omega_nat : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4) with rfl | rfl | rfl | rfl | rfl
     · rw [a.a0, a'.a0]
     · rw [a.a1, a'.a1]
     · rw [a.a2, a'.a2]
@@ -561,8 +551,8 @@ theorem agree_argTaint {rs : List Reg} {k : Nat} {s₁ s₂ : State} (h : ∀ r 
   · simp only [argTaint] at hj
     rw [show VG.X86.Taint.depth (argTaint rs (4 + 4 * k)).stk = 0 from rfl, Nat.zero_add]
     rw [VG.X86.Taint.argByte_eq hw₁.1 h4 hj, VG.X86.Taint.argByte_eq hw₂.1 h4 hj,
-      Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)), Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega))]
-    exact congrArg _ (hm _ (by omega))
+      Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega_nat)), Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega_nat))]
+    exact congrArg _ (hm _ (by omega_nat))
 
 /-- Code the taint analysis checks from `τ`, in two runs whose single-run
 facts `F` and `F'` make them agree on it. -/

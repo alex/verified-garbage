@@ -1,15 +1,487 @@
+import VerifiedGarbage.Proof.Gcm.Poly
+import VerifiedGarbage.Proof.Framework.X86_64.Sse
+import VerifiedGarbage.Impl.Gcm.X86_64.Pclmul
+import Mathlib.Tactic.LinearCombination
+import Mathlib.Tactic.Ring.RingNF
+import Mathlib.Tactic.SplitIfs
+import VerifiedGarbage.Proof.Framework.PowLit
+import VerifiedGarbage.Proof.Gcm.X86_64.Rev
+import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
-import VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Blocks
 import VerifiedGarbage.Spec.Gcm
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.Framework.X86_64.Taint
-import Mathlib.Tactic.LinearCombination
-import Mathlib.Tactic.Ring.RingNF
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Gcm.Contract
-import VerifiedGarbage.Proof.Framework.PowLit
 import VerifiedGarbage.Proof.Framework.Omega
 import VerifiedGarbage.Proof.Framework.Offset
+
+-- Formerly the module `VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Blocks`.
+section
+
+section
+
+/-!
+# GHASH with PCLMULQDQ: the arithmetic
+
+Untrusted: everything here is checked by Lean. What the instructions of
+`Impl.Gcm.X86_64.Pclmul` compute, in the ring `Q` of `Proof/Gcm/Poly.lean`:
+
+* `pclmulqdq` multiplies polynomials (`gp_clmul`), so the four of `acc`
+  compute `x · a · b` as a 256-bit value (`Prod.val_prod`);
+* `reduce` maps a 256-bit value to a block of the same class
+  (`φ_reduce`);
+* `hInv` computes `H · x⁻¹` (`x_φ_hInv`).
+-/
+
+open VG.PowLit
+
+namespace VG.Proof.Gcm.X86_64.Pclmul
+
+open Polynomial
+open VG.X86_64 VG.Proof.Gcm.Poly
+open VG.Impl.Gcm.X86_64.Pclmul (poly xInv)
+
+/-! ## Carry-less multiplication -/
+
+theorem gp_shl (b : BitVec 64) {j : Nat} (hj : j < 64) :
+    gp ((b.setWidth 128) <<< j) = X ^ (64 - j) * gp b := by
+  ext d
+  rw [coeff_gp, coeff_X_pow_mul', coeff_gp, BitVec.getMsbD_shiftLeft, BitVec.getMsbD_setWidth]
+  by_cases h : 64 - j ≤ d
+  · simp only [h, ite_true, decide_eq_true (show 128 - 64 ≤ d + j by omega), Bool.true_and]
+    exact congrArg _ (congrArg _ (by omega))
+  · simp only [h, ite_false, decide_eq_false (show ¬ 128 - 64 ≤ d + j by omega), Bool.false_and]; rfl
+
+/-- The first `k` steps of `clmul`. -/
+def clSteps (a b : BitVec 64) (k : Nat) : BitVec 128 :=
+  (List.range k).foldl (fun acc j => if a.getLsbD j then acc ^^^ (b.setWidth 128 <<< j) else acc) 0
+
+theorem gp_clSteps (a b : BitVec 64) {k : Nat} (hk : k ≤ 64) :
+    gp (clSteps a b k) =
+      X * (∑ i ∈ Finset.range k, if a.getLsbD i then X ^ (63 - i) else 0) * gp b := by
+  induction k with
+  | zero => simp only [clSteps, BitVec.ofNat_eq_ofNat, List.range_zero, List.foldl_nil, gp_zero', Finset.range_zero, Finset.sum_empty, mul_zero, zero_mul]
+  | succ k ih =>
+    have e : clSteps a b (k + 1) =
+        if a.getLsbD k then clSteps a b k ^^^ (b.setWidth 128 <<< k) else clSteps a b k := by
+      simp only [clSteps, List.range_succ, List.foldl_append, List.foldl_cons, List.foldl_nil]
+    rw [e, Finset.sum_range_succ]
+    split_ifs
+    · rw [gp_xor, ih (by omega), gp_shl b (by omega),
+        show 64 - k = 63 - k + 1 by omega, pow_succ]
+      ring
+    · rw [ih (by omega)]; ring
+
+theorem gp_lsb (a : BitVec 64) :
+    (∑ i ∈ Finset.range 64, if a.getLsbD i then (X : P) ^ (63 - i) else 0) = gp a := by
+  rw [gp, ← Finset.sum_range_reflect]
+  refine Finset.sum_congr rfl fun i hi => ?_
+  rw [Finset.mem_range] at hi
+  rw [BitVec.getMsbD_eq_getLsbD, decide_eq_true (by omega), Bool.true_and,
+    show 64 - 1 - i = 63 - i by omega, show 63 - (64 - 1 - i) = i by omega]
+
+/-- `pclmulqdq` multiplies polynomials (with the factor `X` of the
+reflected representation). -/
+theorem gp_clmul (a b : BitVec 64) : gp (clmul a b) = X * gp a * gp b := by
+  rw [show clmul a b = clSteps a b 64 from rfl, gp_clSteps a b (Nat.le_refl _), gp_lsb]
+
+/-! ## Quadwords -/
+
+theorem qwords (v : BitVec 128) : v = qword v 1 ++ qword v 0 := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [qword, BitVec.getLsbD_append, BitVec.getLsbD_extractLsb']
+  by_cases h : i < 64
+  · simp only [h, ↓reduceIte, decide_true, mul_zero, zero_add, Bool.true_and]
+  · simp only [h, ite_false, decide_eq_true (show i - 64 < 64 by omega), Bool.true_and]
+    exact congrArg _ (by omega)
+
+theorem gp_qwords (v : BitVec 128) : gp v = gp (qword v 1) + X ^ 64 * gp (qword v 0) := by
+  conv => lhs; rw [qwords v]
+  rw [gp_append]
+
+theorem φ_qwords (v : BitVec 128) :
+    φ v = AdjoinRoot.mk g (gp (qword v 1)) + x ^ 64 * AdjoinRoot.mk g (gp (qword v 0)) := by
+  rw [φ, gp_qwords]; simp only [map_add, map_mul, map_pow, AdjoinRoot.mk_X]
+
+/-- The class of a 64-bit polynomial. -/
+noncomputable def ψ (q : BitVec 64) : Q := AdjoinRoot.mk g (gp q)
+
+theorem φ_clmul (a b : BitVec 64) : φ (clmul a b) = x * ψ a * ψ b := by
+  simp only [φ, ψ, gp_clmul, map_mul, AdjoinRoot.mk_X]
+
+theorem φ_q (v : BitVec 128) : φ v = ψ (qword v 1) + x ^ 64 * ψ (qword v 0) := φ_qwords v
+
+/-! ## The product of two blocks, as 256 bits -/
+
+/-- A 256-bit carry-less product, as its `lo`, `mid` and `hi` parts. -/
+structure Prod where
+  lo : BitVec 128
+  mid : BitVec 128
+  hi : BitVec 128
+
+namespace Prod
+
+/-- Its class: `hi` holds the low powers. -/
+noncomputable def val (p : Prod) : Q := φ p.hi + x ^ 64 * φ p.mid + x ^ 128 * φ p.lo
+
+def xor (p q : Prod) : Prod := ⟨p.lo ^^^ q.lo, p.mid ^^^ q.mid, p.hi ^^^ q.hi⟩
+
+/-- The four products of `acc`, added to `p`. -/
+def acc (p : Prod) (a b : BitVec 128) : Prod :=
+  ⟨p.lo ^^^ pclmul a b 0x00,
+   p.mid ^^^ pclmul a b 0x01 ^^^ pclmul a b 0x10,
+   p.hi ^^^ pclmul a b 0x11⟩
+
+def zero : Prod := ⟨0, 0, 0⟩
+
+theorem val_zero : zero.val = 0 := by simp only [val, zero, BitVec.ofNat_eq_ofNat, φ_zero', mul_zero, add_zero]
+
+theorem val_acc (p : Prod) (a b : BitVec 128) : (p.acc a b).val = p.val + x * φ a * φ b := by
+  simp only [acc, val, φ_xor]
+  simp only [pclmul, show (0x00 : BitVec 8).getLsbD 0 = false from rfl,
+    show (0x00 : BitVec 8).getLsbD 4 = false from rfl, show (0x01 : BitVec 8).getLsbD 0 = true from rfl,
+    show (0x01 : BitVec 8).getLsbD 4 = false from rfl, show (0x10 : BitVec 8).getLsbD 0 = false from rfl,
+    show (0x10 : BitVec 8).getLsbD 4 = true from rfl, show (0x11 : BitVec 8).getLsbD 0 = true from rfl,
+    show (0x11 : BitVec 8).getLsbD 4 = true from rfl, ite_true, Bool.false_eq_true, ite_false,
+    φ_clmul, φ_q a, φ_q b]
+  ring
+
+end Prod
+
+/-! ## The reduction -/
+
+theorem shr64 (v : BitVec 128) : v >>> 64 = 0#64 ++ qword v 1 := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [qword, BitVec.getLsbD_append, BitVec.getLsbD_extractLsb', BitVec.getLsbD_ushiftRight]
+  by_cases h : i < 64
+  · simp only [h, ite_true, decide_true, Bool.true_and]
+  · simp only [h, ite_false, BitVec.getLsbD_zero]
+    exact BitVec.getLsbD_of_ge _ _ (by omega)
+
+theorem shl64 (v : BitVec 128) : v <<< 64 = qword v 0 ++ 0#64 := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [qword, BitVec.getLsbD_append, BitVec.getLsbD_extractLsb', BitVec.getLsbD_shiftLeft]
+  by_cases h : i < 64
+  · simp only [h, decide_true, Bool.not_true, Bool.and_false, Bool.false_and, ↓reduceIte, BitVec.getLsbD_eq_getElem, BitVec.getElem_zero]
+  · simp only [h, ite_false, decide_false, Bool.not_false, Bool.true_and, Nat.mul_zero, Nat.zero_add,
+      decide_eq_true (show i - 64 < 64 by omega), decide_eq_true hi, Bool.and_true]
+
+theorem φ_shr64 (v : BitVec 128) : φ (v >>> 64) = x ^ 64 * ψ (qword v 1) := by
+  rw [φ, shr64, gp_append, gp_zero']; simp only [zero_add, map_mul, map_pow, AdjoinRoot.mk_X, ψ]
+
+theorem φ_shl64 (v : BitVec 128) : φ (v <<< 64) = ψ (qword v 0) := by
+  rw [φ, shl64, gp_append, gp_zero']; simp only [mul_zero, add_zero, ψ]
+
+theorem ψ_c : ψ (qword poly 1) = 1 + x + x ^ 6 := by
+  have hb : ∀ d < 64, (qword poly 1).getMsbD d = (d = 0 || d = 1 || d = 6) := by decide +kernel
+  have h : gp (qword poly 1) = 1 + X + X ^ 6 := by
+    ext d
+    rw [coeff_gp]
+    simp only [coeff_add, coeff_X_pow, coeff_X, coeff_one]
+    by_cases hd : d < 64
+    · rw [hb d hd]
+      rcases (by omega : d = 0 ∨ d = 1 ∨ d = 6 ∨ (d ≠ 0 ∧ d ≠ 1 ∧ d ≠ 6)) with
+        rfl | rfl | rfl | ⟨h0, h1, h6⟩
+      · decide
+      · decide
+      · decide
+      · simp only [bit, h0, decide_false, h1, Bool.or_self, h6, Bool.false_eq_true, ↓reduceIte, show (1 : Nat) ≠ d from fun h => h1 h.symm, add_zero]
+    · have e : (qword poly 1).getMsbD d = false := by simp only [BitVec.getMsbD, Nat.add_one_sub_one, Bool.and_eq_false_imp, decide_eq_true_eq]; omega
+      rw [e]
+      simp only [bit, Bool.false_eq_true, ↓reduceIte, show d ≠ 0 by omega, show (1 : Nat) ≠ d by omega, add_zero, show d ≠ 6 by omega]
+  simp only [ψ, h, map_add, map_one, AdjoinRoot.mk_X, map_pow]
+
+theorem shufDwords_4e (a : BitVec 128) : shufDwords a 0x4e = qword a 0 ++ qword a 1 := by
+  rw [show shufDwords a 0x4e = ofDwords (dword a 2) (dword a 3) (dword a 0) (dword a 1) from rfl]
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [getLsbD_ofDwords, getLsbD_dword, qword, BitVec.getLsbD_append, BitVec.getLsbD_extractLsb']
+  rcases (by omega : i < 32 ∨ (32 ≤ i ∧ i < 64) ∨ (64 ≤ i ∧ i < 96) ∨ 96 ≤ i) with h | h | h | h <;>
+  simp (disch := omega) only [ite_eq_left, ite_eq_right, decide_eq_true, Bool.true_and] <;>
+  exact congrArg _ (by omega)
+
+/-- One step of the reduction: `swap(v) ⊕ clmul(v₀, c)`. -/
+def fold (v : BitVec 128) : BitVec 128 := shufDwords v 0x4e ^^^ pclmul v poly 0x10
+
+theorem φ_fold (v : BitVec 128) : φ (fold v) = x ^ 64 * φ v := by
+  have e1 : φ (shufDwords v 0x4e) = ψ (qword v 0) + x ^ 64 * ψ (qword v 1) := by
+    rw [shufDwords_4e, φ, gp_append]; simp only [map_add, map_mul, map_pow, AdjoinRoot.mk_X, ψ]
+  have e2 : pclmul v poly 0x10 = clmul (qword v 0) (qword poly 1) := rfl
+  rw [fold, φ_xor, e1, e2, φ_clmul, ψ_c, φ_q v]
+  linear_combination (-ψ (qword v 0)) * x128
+
+/-- The block `reduce` computes from a product. -/
+def reduce (p : Prod) : BitVec 128 :=
+  (p.hi ^^^ p.mid >>> 64) ^^^ fold (fold (p.lo ^^^ p.mid <<< 64))
+
+theorem φ_reduce (p : Prod) : φ (reduce p) = p.val := by
+  simp only [reduce, φ_xor, φ_fold, φ_shr64, φ_shl64, Prod.val, φ_q p.mid]
+  ring
+
+/-! ## `H · x⁻¹` -/
+
+theorem shl1 (h : BitVec 128) :
+    XShiftOp.eval .psllq h 1 ||| XShiftOp.eval .pslldq (XShiftOp.eval .psrlq h 63) 8 = h <<< 1 := by
+  have e1 : XShiftOp.eval .psllq h 1 = (qword h 1 <<< 1) ++ (qword h 0 <<< 1) := rfl
+  have e2 : XShiftOp.eval .psrlq h 63 = (qword h 1 >>> 63) ++ (qword h 0 >>> 63) := rfl
+  have e3 : ∀ y, XShiftOp.eval .pslldq y 8 = y <<< 64 := fun _ => rfl
+  rw [e1, e2, e3]
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [BitVec.getLsbD_or, BitVec.getLsbD_append, BitVec.getLsbD_shiftLeft,
+    BitVec.getLsbD_ushiftRight, qword, BitVec.getLsbD_extractLsb']
+  rcases (by omega : i = 0 ∨ (1 ≤ i ∧ i < 64) ∨ i = 64 ∨ 64 < i) with h | h | h | h
+  · subst h; simp only [Nat.ofNat_pos, ↓reduceIte, decide_true, Order.lt_one_iff, Bool.not_true, Bool.and_false, zero_tsub, mul_zero, add_zero, BitVec.getLsbD_eq_getElem, Bool.true_and, Bool.false_and, Nat.lt_add_one, zero_add, Nat.reduceLT, Bool.or_self]
+  · simp (disch := omega) only [ite_eq_left, decide_eq_true, decide_eq_false, Bool.true_and,
+      Bool.not_false, Bool.false_and, Bool.or_false, Bool.and_false, Bool.and_true, Bool.not_true]
+    exact congrArg _ (by omega)
+  · subst h; simp
+  · simp (disch := omega) only [ite_eq_left, ite_eq_right, decide_eq_true, decide_eq_false,
+      Bool.true_and, Bool.not_false, Bool.false_and, Bool.or_false, Bool.and_false, Bool.and_true,
+      Bool.not_true]
+    exact congrArg _ (by omega)
+
+theorem shr31 (y : BitVec 32) : y >>> 31 = if y.msb then 1#32 else 0#32 := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_ushiftRight, BitVec.msb_eq_decide]
+  have := y.isLt
+  split_ifs with h
+  · simp only [Nat.add_one_sub_one, Nat.reducePow, decide_eq_true_eq] at h; simp only [Nat.shiftRight_eq_div_pow, Nat.reducePow, BitVec.toNat_ofNat, Nat.one_mod]; omega
+  · simp only [Nat.add_one_sub_one, Nat.reducePow, decide_eq_true_eq, not_le] at h; simp only [Nat.shiftRight_eq_div_pow, Nat.reducePow, BitVec.toNat_ofNat, Nat.zero_mod, Nat.div_eq_zero_iff, OfNat.ofNat_ne_zero, false_or, gt_iff_lt]; omega
+
+theorem msb_dword3 (h : BitVec 128) : dword h 3 >>> 31 = if h.getMsbD 0 then 1#32 else 0#32 := by
+  have e : (dword h 3).msb = h.getMsbD 0 := by
+    simp only [BitVec.msb_eq_getLsbD_last, getLsbD_dword, BitVec.getMsbD]; rfl
+  rw [shr31, e]
+
+/-- The mask of `hInv`: `x⁻¹` if the bit shifted out of `h` is 1, else 0. -/
+theorem mask_eq (h : BitVec 128) :
+    XBinOp.eval .pandn (XBinOp.eval .paddd (XShiftOp.eval .psrld (shufDwords h 0xff) 31)
+      (XBinOp.eval .punpcklqdq ((0 : BitVec 64) ++ (0xffffffffffffffff : BitVec 64))
+        ((0 : BitVec 64) ++ (0xffffffffffffffff : BitVec 64)))) xInv =
+      if h.getMsbD 0 then xInv else 0 := by
+  have e0 : shufDwords h 0xff = ofDwords (dword h 3) (dword h 3) (dword h 3) (dword h 3) := rfl
+  have e1 : ∀ a, XShiftOp.eval .psrld a 31 =
+      ofDwords (dword a 0 >>> 31) (dword a 1 >>> 31) (dword a 2 >>> 31) (dword a 3 >>> 31) :=
+    fun _ => rfl
+  have e2 : XBinOp.eval .punpcklqdq ((0 : BitVec 64) ++ (0xffffffffffffffff : BitVec 64))
+      ((0 : BitVec 64) ++ (0xffffffffffffffff : BitVec 64)) = ofDwords (-1) (-1) (-1) (-1) := by rfl
+  rw [e0, e1, e2]
+  simp only [dword_ofDwords_0, dword_ofDwords_1, dword_ofDwords_2, dword_ofDwords_3, msb_dword3]
+  split_ifs
+  · simp only [XBinOp.eval, dword_ofDwords_0, dword_ofDwords_1, dword_ofDwords_2, dword_ofDwords_3,
+      show (1#32 : BitVec 32) + -1 = 0 by rfl, show ofDwords 0 0 0 0 = 0 by rfl]
+    rfl
+  · simp only [XBinOp.eval, dword_ofDwords_0, dword_ofDwords_1, dword_ofDwords_2, dword_ofDwords_3,
+      show (0#32 : BitVec 32) + -1 = -1 by rfl,
+      show ~~~ofDwords (-1) (-1) (-1) (-1) = 0 by rfl]
+    rfl
+
+theorem gp_xInv : gp xInv = 1 + X + X ^ 6 + X ^ 127 := by
+  have hb : ∀ d < 128, xInv.getMsbD d = (d = 0 || d = 1 || d = 6 || d = 127) := by decide +kernel
+  ext d
+  rw [coeff_gp]
+  simp only [coeff_add, coeff_X_pow, coeff_X, coeff_one]
+  by_cases hd : d < 128
+  · rw [hb d hd]
+    rcases (by omega : d = 0 ∨ d = 1 ∨ d = 6 ∨ d = 127 ∨ (d ≠ 0 ∧ d ≠ 1 ∧ d ≠ 6 ∧ d ≠ 127)) with
+      rfl | rfl | rfl | rfl | ⟨h0, h1, h6, h7⟩
+    · decide
+    · decide
+    · decide
+    · decide
+    · simp only [bit, h0, decide_false, h1, Bool.or_self, h6, h7, Bool.false_eq_true, ↓reduceIte, show (1 : Nat) ≠ d from fun h => h1 h.symm, add_zero]
+  · have e : xInv.getMsbD d = false := by simp only [BitVec.getMsbD, Nat.add_one_sub_one, Bool.and_eq_false_imp, decide_eq_true_eq]; omega
+    rw [e]
+    simp only [bit, Bool.false_eq_true, ↓reduceIte, show d ≠ 0 by omega, show (1 : Nat) ≠ d by omega, add_zero, show d ≠ 6 by omega, show d ≠ 127 by omega]
+
+theorem x_φ_xInv : x * φ xInv = 1 := by
+  simp only [φ, gp_xInv, map_add, map_one, map_pow, AdjoinRoot.mk_X]
+  linear_combination x128 + (x + x ^ 2 + x ^ 7) * two_Q
+
+theorem gp_shl1 (h : BitVec 128) : X * gp (h <<< 1) + C (bit (h.getMsbD 0)) = gp h := by
+  ext d
+  rw [coeff_add, coeff_C, coeff_gp]
+  rcases d with _ | d
+  · simp only [mul_coeff_zero, coeff_X_zero, zero_mul, ↓reduceIte, zero_add]
+  · rw [coeff_X_mul, coeff_gp, BitVec.getMsbD_shiftLeft]; simp only [Nat.add_eq_zero_iff, one_ne_zero, and_false, ↓reduceIte, add_zero]
+
+/-- `hInv`'s result is `H · x⁻¹`. -/
+theorem x_φ_hInv (h : BitVec 128) :
+    x * φ ((h <<< 1) ^^^ (if h.getMsbD 0 then xInv else 0)) = φ h := by
+  have e := congrArg (AdjoinRoot.mk g) (gp_shl1 h)
+  simp only [map_add, map_mul, AdjoinRoot.mk_X, AdjoinRoot.mk_C] at e
+  rw [φ_xor, mul_add]
+  change x * AdjoinRoot.mk g (gp (h <<< 1)) + _ = AdjoinRoot.mk g (gp h)
+  rw [← e]
+  split_ifs with hb
+  · rw [x_φ_xInv, hb]; simp only [bit, ↓reduceIte, map_one]
+  · rw [φ_zero, Bool.not_eq_true] at *; rw [hb]; simp only [mul_zero, add_zero, bit, Bool.false_eq_true, ↓reduceIte, map_zero]
+
+end VG.Proof.Gcm.X86_64.Pclmul
+
+end
+
+/-!
+# GHASH with PCLMULQDQ: the instruction groups
+
+Untrusted: everything here is checked by Lean. What each group of
+instructions of `Impl.Gcm.X86_64.Pclmul` does to the state, each proved by
+one symbolic execution for any registers it is used with.
+-/
+
+namespace VG.Proof.Gcm.X86_64.Pclmul
+
+open VG.X86_64 VG.Proof.Gcm.Poly
+open VG.Impl.Gcm.X86_64.Pclmul (at_ poly xInv)
+
+theorem ea_at (s : State) (b : Reg) (d : Nat) :
+    s.ea (at_ b d) = s.gpr b + BitVec.ofInt 64 (d : Int) := rfl
+
+theorem eval_pxor (a b : BitVec 128) : XBinOp.eval .pxor a b = a ^^^ b := rfl
+
+theorem psrldq8 (v : BitVec 128) : XShiftOp.eval .psrldq v 8 = v >>> 64 := rfl
+
+theorem pslldq8 (v : BitVec 128) : XShiftOp.eval .pslldq v 8 = v <<< 64 := rfl
+
+theorem rev_eq : Impl.Gcm.X86_64.Pclmul.revMask = revMask := rfl
+
+/-- `s'` differs from `s` at most in `rax` and the SSE registers `rs`. -/
+structure Only (rs : List XReg) (s s' : State) : Prop where
+  gpr : ∀ r, r ≠ .rax → s'.gpr r = s.gpr r
+  mem : s'.mem = s.mem
+  rd : s'.rd = s.rd
+  wr : s'.wr = s.wr
+  xmm : ∀ r, r ∉ rs → s'.xmm r = s.xmm r
+
+theorem Only.trans {rs rs' : List XReg} {s s' s'' : State} (h : Only rs s s') (h' : Only rs' s' s'') :
+    Only (rs ++ rs') s s'' :=
+  ⟨fun r hr => (h'.gpr r hr).trans (h.gpr r hr), h'.mem.trans h.mem, h'.rd.trans h.rd,
+    h'.wr.trans h.wr, fun r hr => by
+      simp only [List.mem_append, not_or] at hr
+      exact (h'.xmm r hr.2).trans (h.xmm r hr.1)⟩
+
+theorem Only.weaken {rs rs' : List XReg} {s s' : State} (h : Only rs s s') (hs : ∀ r ∈ rs, r ∈ rs') :
+    Only rs' s s' :=
+  ⟨h.gpr, h.mem, h.rd, h.wr, fun r hr => h.xmm r fun h' => hr (hs r h')⟩
+
+/-- The product registers. -/
+def prod (s : State) : Prod := ⟨s.xmm .xmm8, s.xmm .xmm9, s.xmm .xmm10⟩
+
+theorem zero_ok (s : State) :
+    WP isa (.block Impl.Gcm.X86_64.Pclmul.zero) s fun s' =>
+      prod s' = Prod.zero ∧ Only [.xmm8, .xmm9, .xmm10] s s' := by
+  apply WP.of_runBlock
+  simp only [Impl.Gcm.X86_64.Pclmul.zero]
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
+    isa, State.setXmm, ite_false, eval_pxor, BitVec.xor_self, Option.some.injEq,
+    exists_eq_left']
+  refine ⟨rfl, fun r _ => rfl, rfl, rfl, rfl, fun r hr => ?_⟩
+  simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+  simp only [hr.1, hr.2.1, hr.2.2, ite_false]
+
+theorem acc_ok (a b : XReg) (s : State) (ha8 : a ≠ .xmm8) (ha9 : a ≠ .xmm9) (ha10 : a ≠ .xmm10)
+    (ha11 : a ≠ .xmm11) (hb8 : b ≠ .xmm8) (hb9 : b ≠ .xmm9) (hb10 : b ≠ .xmm10) (hb11 : b ≠ .xmm11) :
+    WP isa (.block (Impl.Gcm.X86_64.Pclmul.acc a b)) s fun s' =>
+      prod s' = (prod s).acc (s.xmm a) (s.xmm b) ∧ Only [.xmm8, .xmm9, .xmm10, .xmm11] s s' := by
+  apply WP.of_runBlock
+  simp only [Impl.Gcm.X86_64.Pclmul.acc]
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
+    isa, State.setXmm, ite_true, ite_false, eval_pxor, eval_movdqa, ha8, ha9, ha10, ha11, hb8, hb9,
+    hb10, hb11, Option.some.injEq, exists_eq_left']
+  refine ⟨?_, fun r _ => rfl, rfl, rfl, rfl, fun r hr => ?_⟩
+  · simp only [prod, Prod.acc, ite_true, ite_false, reduceCtorEq]
+  · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+    simp only [hr.1, hr.2.1, hr.2.2.1, hr.2.2.2, ite_false]
+
+theorem reduce_ok (d : XReg) (s : State) (hd8 : d ≠ .xmm8) (hd9 : d ≠ .xmm9) (hd10 : d ≠ .xmm10)
+    (hd11 : d ≠ .xmm11) (h1 : s.xmm .xmm1 = poly) :
+    WP isa (.block (Impl.Gcm.X86_64.Pclmul.reduce d)) s fun s' =>
+      s'.xmm d = reduce (prod s) ∧ Only [.xmm8, .xmm9, .xmm10, .xmm11, d] s s' := by
+  apply WP.of_runBlock
+  simp only [Impl.Gcm.X86_64.Pclmul.reduce, Impl.Gcm.X86_64.Pclmul.fold, List.cons_append,
+    List.nil_append]
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
+    isa, State.setXmm, ite_true, ite_false, eval_pxor, eval_movdqa, hd8, hd9, hd10, hd11, h1,
+    Ne.symm hd8,
+    Option.some.injEq, exists_eq_left']
+  refine ⟨?_, fun r _ => rfl, rfl, rfl, rfl, fun r hr => ?_⟩
+  · simp only [psrldq8, pslldq8]; rfl
+  · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+    simp only [hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2, ite_false]
+
+/-- `d ← mul(a, b)`, a block of class `x · a · b`. -/
+theorem mul_ok (d a b : XReg) (s : State) (ha8 : a ≠ .xmm8) (ha9 : a ≠ .xmm9) (ha10 : a ≠ .xmm10)
+    (ha11 : a ≠ .xmm11) (hb8 : b ≠ .xmm8) (hb9 : b ≠ .xmm9) (hb10 : b ≠ .xmm10) (hb11 : b ≠ .xmm11)
+    (hd8 : d ≠ .xmm8) (hd9 : d ≠ .xmm9) (hd10 : d ≠ .xmm10) (hd11 : d ≠ .xmm11)
+    (h1 : s.xmm .xmm1 = poly) :
+    WP isa (.block (Impl.Gcm.X86_64.Pclmul.mul d a b)) s fun s' =>
+      φ (s'.xmm d) = x * φ (s.xmm a) * φ (s.xmm b) ∧
+      Only [.xmm8, .xmm9, .xmm10, .xmm11, d] s s' := by
+  rw [Impl.Gcm.X86_64.Pclmul.mul, WP.block_append_iff, WP.block_append_iff]
+  refine WP.mono (zero_ok s) fun s₁ ⟨p₁, o₁⟩ => ?_
+  refine WP.mono (acc_ok a b s₁ ha8 ha9 ha10 ha11 hb8 hb9 hb10 hb11) fun s₂ ⟨p₂, o₂⟩ => ?_
+  have e1 : s₂.xmm .xmm1 = poly := by rw [o₂.xmm _ (by decide), o₁.xmm _ (by decide), h1]
+  refine WP.mono (reduce_ok d s₂ hd8 hd9 hd10 hd11 e1) fun s₃ ⟨p₃, o₃⟩ => ⟨?_, ?_⟩
+  · rw [p₃, φ_reduce, p₂, p₁, Prod.val_acc, Prod.val_zero, zero_add,
+      o₁.xmm a (by simp only [List.mem_cons, ha8, ha9, ha10, List.not_mem_nil, or_self, not_false_eq_true]), o₁.xmm b (by simp only [List.mem_cons, hb8, hb9, hb10, List.not_mem_nil, or_self, not_false_eq_true])]
+  · exact (o₁.trans (o₂.trans o₃)).weaken fun r hr => by
+      simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢
+      rcases hr with (h | h | h) | (h | h | h | h) | (h | h | h | h | h) <;> simp [h]
+
+/-- A block, loaded from `[b + d]` into `x` and byte-reversed. -/
+theorem ldrev_ok (x : XReg) (b : Reg) (d : Nat) (s : State) (hx : x ≠ .xmm0)
+    (h0 : s.xmm .xmm0 = revMask)
+    (hin : InRegions (s.rd ++ s.wr) (s.gpr b + BitVec.ofInt 64 (d : Int)) 16) :
+    WP isa (.block [.movdquLoad x (at_ b d), .xop (.bin .pshufb x .xmm0)]) s fun s' =>
+      s'.xmm x = Spec.Gcm.blockAt s.mem (s.gpr b + BitVec.ofInt 64 (d : Int)) ∧ Only [x] s s' := by
+  apply WP.of_runBlock
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
+    isa, State.setXmm, State.load128, ea_at, hin, ite_true, ite_false, Ne.symm hx, h0,
+    Option.map_some, Option.some.injEq, exists_eq_left']
+  refine ⟨?_, fun r _ => rfl, rfl, rfl, rfl, fun r hr => ?_⟩
+  · rw [blockAt_eq]
+  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    simp only [hr, ite_false]
+
+/-- A 128-bit constant into `x`. -/
+theorem const_ok (x : XReg) (c : BitVec 128) (s : State) (hx : x ≠ .xmm12) :
+    WP isa (.block (Impl.Gcm.X86_64.Pclmul.const x c)) s fun s' =>
+      s'.xmm x = c ∧ Only [x, .xmm12] s s' := by
+  apply WP.of_runBlock
+  simp only [Impl.Gcm.X86_64.Pclmul.const]
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
+    isa, State.setXmm, State.setReg, ite_true, ite_false, hx, movq_const, Option.some.injEq,
+    exists_eq_left']
+  refine ⟨trivial, fun r hr => by simp only [hr, ↓reduceIte], rfl, rfl, rfl, fun r hr => ?_⟩
+  simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+  simp only [hr.1, hr.2, ite_false]
+
+/-- `H' = H · x⁻¹` into `xmm3`, from `H` in `xmm7`. -/
+theorem hInv_ok (s : State) :
+    WP isa (.block Impl.Gcm.X86_64.Pclmul.hInv) s fun s' =>
+      x * φ (s'.xmm .xmm3) = φ (s.xmm .xmm7) ∧
+      Only [.xmm3, .xmm11, .xmm12, .xmm13, .xmm14] s s' := by
+  apply WP.of_runBlock
+  simp only [Impl.Gcm.X86_64.Pclmul.hInv, Impl.Gcm.X86_64.Pclmul.const, List.cons_append,
+    List.nil_append]
+  simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
+    isa, State.setXmm, State.setReg, ite_true, ite_false, movq_const, eval_movdqa, eval_pxor,
+    Option.some.injEq, exists_eq_left']
+  refine ⟨?_, fun r hr => by simp only [hr, ↓reduceIte], rfl, rfl, rfl, fun r hr => ?_⟩
+  · rw [show XBinOp.eval .por (XShiftOp.eval .psllq (s.xmm .xmm7) 1)
+        (XShiftOp.eval .pslldq (XShiftOp.eval .psrlq (s.xmm .xmm7) 63) 8) =
+        XShiftOp.eval .psllq (s.xmm .xmm7) 1 |||
+          XShiftOp.eval .pslldq (XShiftOp.eval .psrlq (s.xmm .xmm7) 63) 8 from rfl,
+      shl1, mask_eq, x_φ_hInv]
+  · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+    simp only [hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2, ite_false]
+
+end VG.Proof.Gcm.X86_64.Pclmul
+
+end
+
+-- Formerly the module `VerifiedGarbage.Proof.Gcm.X86_64.Pclmul.Ghash`.
+section
 
 /-!
 # GHASH with PCLMULQDQ: the whole function
@@ -85,7 +557,7 @@ theorem step1 (H Y X₁ T₁ : Block) (h₁ : x * φ T₁ = φ H) :
 /-! ## Addresses and regions -/
 
 theorem ofInt_natCast (n : Nat) : BitVec.ofInt 64 (n : Int) = BitVec.ofNat 64 n := by
-  apply BitVec.eq_of_toInt_eq; simp
+  apply BitVec.eq_of_toInt_eq; simp only [BitVec.ofInt_natCast]
 
 theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = n := by
   rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
@@ -143,25 +615,25 @@ include h
 /-- The blocks fit in the address space (or they could not be disjoint from `y`). -/
 theorem nb_lt : 16 * nb s₀ < 2 ^ 64 := by
   by_contra hn
-  refine h.y_d (yp s₀) (by simp [Region.Contains]) ?_
+  refine h.y_d (yp s₀) (by simp only [Region.Contains, BitVec.sub_self, BitVec.toNat_ofNat, Nat.reducePow, Nat.zero_mod, zero_add, Nat.one_le_ofNat]) ?_
   simp only [Region.Contains]
   have := (yp s₀ - dp s₀).isLt
   omega
 
 theorem in_h : InRegions (s₀.rd ++ s₀.wr) (hA s₀ + BitVec.ofInt 64 ((0 : Nat) : Int)) 16 :=
-  ⟨hR s₀, by simp [h.rd], by rw [ofInt_natCast]; exact contains_offset (by omega) (by omega)⟩
+  ⟨hR s₀, by simp only [h.rd, List.cons_append, List.nil_append, List.mem_cons, Region.mk.injEq, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, left_eq_mul₀, true_or], by rw [ofInt_natCast]; exact contains_offset (by decide) (by decide)⟩
 
 theorem in_y : InRegions (s₀.rd ++ s₀.wr) (yp s₀ + BitVec.ofInt 64 ((0 : Nat) : Int)) 16 :=
-  ⟨yR s₀, by simp [h.wr], by rw [ofInt_natCast]; exact contains_offset (by omega) (by omega)⟩
+  ⟨yR s₀, by simp only [h.wr, List.mem_append, List.mem_cons, Region.mk.injEq, Nat.reduceEqDiff, and_false, List.not_mem_nil, or_self, or_false, or_true], by rw [ofInt_natCast]; exact contains_offset (by decide) (by decide)⟩
 
 theorem out_y : InRegions s₀.wr (yp s₀ + BitVec.ofInt 64 ((0 : Nat) : Int)) 16 :=
-  ⟨yR s₀, by simp [h.wr], by rw [ofInt_natCast]; exact contains_offset (by omega) (by omega)⟩
+  ⟨yR s₀, by simp only [h.wr, List.mem_cons, Region.mk.injEq, Nat.reduceEqDiff, and_false, List.not_mem_nil, or_self, or_false], by rw [ofInt_natCast]; exact contains_offset (by decide) (by decide)⟩
 
 /-- Block `i + j` is in the data. -/
 theorem in_blk {i j : Nat} (hij : i + j < nb s₀) :
     InRegions (s₀.rd ++ s₀.wr) (blkAddr s₀ i + BitVec.ofInt 64 ((16 * j : Nat) : Int)) 16 := by
   have := h.nb_lt
-  refine ⟨dR s₀, by simp [h.rd], ?_⟩
+  refine ⟨dR s₀, by simp only [h.rd, List.cons_append, List.nil_append, List.mem_cons, Region.mk.injEq, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, mul_eq_left₀, true_or, or_true], ?_⟩
   rw [addr_add, ← Nat.mul_add]
   exact contains_offset (by omega) (by omega)
 
@@ -234,7 +706,7 @@ theorem tail4_ok (s : State) :
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, execAlu,
     readSrc, arithFlags, State.setFlags, isa, State.setReg, ite_true, ite_false, e64, e4,
     Option.bind_some, Option.some.injEq, exists_eq_left']
-  exact ⟨trivial, trivial, rfl, fun r h1 h2 => by simp [h1, h2], trivial⟩
+  exact ⟨trivial, trivial, rfl, fun r h1 h2 => by simp only [h2, ↓reduceIte, h1], trivial⟩
 
 theorem tail1_ok (s : State) :
     WP isa (.block [.alu .add .rdx (.imm 16), .alu .sub .rcx (.imm 1)]) s
@@ -248,7 +720,7 @@ theorem tail1_ok (s : State) :
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, execAlu,
     readSrc, arithFlags, State.setFlags, isa, State.setReg, ite_true, ite_false, e16, e1,
     Option.bind_some, Option.some.injEq, exists_eq_left']
-  exact ⟨trivial, trivial, trivial, fun r h1 h2 => by simp [h1, h2], trivial⟩
+  exact ⟨trivial, trivial, trivial, fun r h1 h2 => by simp only [h2, ↓reduceIte, h1], trivial⟩
 
 /-! ## The bodies -/
 
@@ -310,7 +782,7 @@ theorem body4_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i + 4 ≤ nb s�
     exact ofNat_sub_ofNat (k := 4) (by omega) (by have := (s₀.gpr .rcx).isLt; omega)
   have kx : ∀ r, r ≠ .xmm2 → r ≠ .xmm7 → r ≠ .xmm8 → r ≠ .xmm9 → r ≠ .xmm10 → r ≠ .xmm11 →
       s'.xmm r = s.xmm r := fun r h2 h7 h8 h9 h10 h11 => by
-    rw [fx, o₁₁₁.xmm r (by simp [h2, h7, h8, h9, h10, h11])]
+    rw [fx, o₁₁₁.xmm r (by simp only [List.cons_append, List.nil_append, List.mem_cons, h8, h9, h10, h7, h11, h2, List.not_mem_nil, or_self, not_false_eq_true])]
   refine ⟨⟨by omega, by rw [kx _ (by decide) (by decide) (by decide) (by decide) (by decide)
       (by decide), hI.x0], by rw [kx _ (by decide) (by decide) (by decide) (by decide) (by decide)
       (by decide), hI.x1], by rw [kx _ (by decide) (by decide) (by decide) (by decide) (by decide)
@@ -337,7 +809,7 @@ theorem beq_ofNat_zero {k : Nat} (hk : k < 2 ^ 64) : (BitVec.ofNat 64 k == 0) = 
   · subst h; rfl
   · have : BitVec.ofNat 64 k ≠ 0 := fun e => h (by
       have := congrArg BitVec.toNat e; rwa [toNat_ofNat_lt hk] at this)
-    rw [beq_eq_false_iff_ne.mpr this]; simp [h]
+    rw [beq_eq_false_iff_ne.mpr this]; simp only [h, decide_false]
 
 theorem body1_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s : State}
     (hI : Inv s₀ i s) :
@@ -370,7 +842,7 @@ theorem body1_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s 
     exact ofNat_sub_ofNat (k := 1) (by omega) (by have := (s₀.gpr .rcx).isLt; omega)
   have kx : ∀ r, r ≠ .xmm2 → r ≠ .xmm7 → r ≠ .xmm8 → r ≠ .xmm9 → r ≠ .xmm10 → r ≠ .xmm11 →
       s'.xmm r = s.xmm r := fun r h2 h7 h8 h9 h10 h11 => by
-    rw [fx, o₁₅.xmm r (by simp [h2, h7, h8, h9, h10, h11])]
+    rw [fx, o₁₅.xmm r (by simp only [List.cons_append, List.nil_append, List.mem_cons, h8, h9, h10, h7, h11, h2, List.not_mem_nil, or_self, not_false_eq_true])]
   refine ⟨⟨by omega, by rw [kx _ (by decide) (by decide) (by decide) (by decide) (by decide)
       (by decide), hI.x0], by rw [kx _ (by decide) (by decide) (by decide) (by decide) (by decide)
       (by decide), hI.x1], by rw [kx _ (by decide) (by decide) (by decide) (by decide) (by decide)
@@ -456,8 +928,8 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     by rw [(o₆.trans (o₇.trans oy)).xmm _ (by decide), hH2],
     by rw [(o₇.trans oy).xmm _ (by decide), hH3], by rw [oy.xmm _ (by decide), hH4],
     by rw [ly, o₁₇.mem, o₁₇.gpr _ (by decide), add_zero', ghashFrom_blocksAt_zero],
-    fun r ha _ _ => O.gpr r ha, by rw [O.gpr _ (by decide)]; simp [blkAddr],
-    by rw [O.gpr _ (by decide)]; simp [nb], O.mem, O.rd, O.wr⟩, by rw [fcf, o₁₇.gpr _ (by decide)]⟩
+    fun r ha _ _ => O.gpr r ha, by rw [O.gpr _ (by decide)]; simp only [blkAddr, mul_zero, BitVec.add_zero],
+    by rw [O.gpr _ (by decide)]; simp only [nb, tsub_zero, BitVec.ofNat_toNat, BitVec.setWidth_eq], O.mem, O.rd, O.wr⟩, by rw [fcf, o₁₇.gpr _ (by decide)]⟩
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (nb s₀) s) :
     WP isa (.block epilogue) s fun s' => gprPreserved s₀ s' ∧ ghashX86_64.post s₀ s' := by
@@ -497,7 +969,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have hn := hp.nb_lt
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨hI₁, hcf⟩ => ?_)
   refine WP.seq (WP.mono (Q := fun s => ∃ i, nb s₀ - i < 4 ∧ Inv s₀ i s) ?_ fun s₂ ⟨i, hi, hI₂⟩ => ?_)
-  · refine WP.ite (decide (nb s₀ < 4)) (by simp [eval, hcf]) (fun h => ?_) (fun h => ?_)
+  · refine WP.ite (decide (nb s₀ < 4)) (by simp only [eval, hcf]) (fun h => ?_) (fun h => ?_)
     · exact WP.block_nil ⟨0, by simpa using h, hI₁⟩
     · let Inv4 : Nat → State → Prop := fun m s => ∃ i, m = nb s₀ - i ∧ i + 4 ≤ nb s₀ ∧ Inv s₀ i s
       have hstep : ∀ m s, Inv4 m s → WP isa (.block body4) s (fun s' =>
@@ -506,13 +978,13 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
         rintro m s ⟨i, rfl, hi, hI⟩
         refine WP.mono (body4_ok hp hi hI) fun s' ⟨hI', hcf'⟩ => ?_
         by_cases hlt : nb s₀ - (i + 4) < 4
-        · exact .inl ⟨by simp [eval, hcf', hlt], i + 4, hlt, hI'⟩
-        · exact .inr ⟨by simp [eval, hcf', hlt], nb s₀ - (i + 4), by omega, i + 4, rfl, by omega, hI'⟩
+        · exact .inl ⟨by simp only [eval, hcf', hlt, decide_true, Option.map_some, Bool.not_true], i + 4, hlt, hI'⟩
+        · exact .inr ⟨by simp only [eval, hcf', hlt, decide_false, Option.map_some, Bool.not_false], nb s₀ - (i + 4), by omega, i + 4, rfl, by omega, hI'⟩
       exact WP.loop (M := isa) Inv4 hstep (nb s₀) s₁ ⟨0, rfl, by simpa using h, hI₁⟩
   refine WP.seq (WP.mono (test_ok hp hI₂) fun s₃ ⟨hI₃, hzf⟩ => ?_)
   refine WP.seq (WP.mono (Q := Inv s₀ (nb s₀)) ?_ fun s₄ hI₄ => epilogue_ok hp hI₄)
-  refine WP.ite (decide (nb s₀ - i = 0)) (by simp [eval, hzf]) (fun h => ?_) (fun h => ?_)
-  · have : i = nb s₀ := by have := hI₃.le; simp at h; omega
+  refine WP.ite (decide (nb s₀ - i = 0)) (by simp only [eval, hzf]) (fun h => ?_) (fun h => ?_)
+  · have : i = nb s₀ := by have := hI₃.le; simp only [decide_eq_true_eq] at h; omega
     exact WP.block_nil (this ▸ hI₃)
   · let Inv1 : Nat → State → Prop := fun m s => ∃ i, m = nb s₀ - i ∧ i < nb s₀ ∧ Inv s₀ i s
     have hstep : ∀ m s, Inv1 m s → WP isa (.block body1) s (fun s' =>
@@ -522,9 +994,9 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
       refine WP.mono (body1_ok hp hi hI) fun s' ⟨hI', hzf'⟩ => ?_
       by_cases hlast : nb s₀ - (i + 1) = 0
       · have : i + 1 = nb s₀ := by omega
-        exact .inl ⟨by simp [eval, hzf', hlast], this ▸ hI'⟩
-      · exact .inr ⟨by simp [eval, hzf', hlast], nb s₀ - (i + 1), by omega, i + 1, rfl, by omega, hI'⟩
-    have hlt : i < nb s₀ := by have := hI₃.le; simp at h; omega
+        exact .inl ⟨by simp only [eval, hzf', hlast, decide_true, Option.map_some, Bool.not_true], this ▸ hI'⟩
+      · exact .inr ⟨by simp only [eval, hzf', hlast, decide_false, Option.map_some, Bool.not_false], nb s₀ - (i + 1), by omega, i + 1, rfl, by omega, hI'⟩
+    have hlt : i < nb s₀ := by have := hI₃.le; simp only [decide_eq_false_iff_not] at h; omega
     exact WP.loop (M := isa) Inv1 hstep (nb s₀ - i) s₃ ⟨i, rfl, hlt, hI₃⟩
 
 /-- A state satisfying the precondition (with no blocks). -/
@@ -562,3 +1034,5 @@ theorem ghash_verified :
       Proof.Gcm.X86_64.Pclmul.satState)
 
 end VG.Proof.Gcm.X86_64.Pclmul
+
+end

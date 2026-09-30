@@ -72,7 +72,7 @@ theorem shr1 {n : Nat} (x : BitVec n) (y p : BitVec 32) (hp : p.getLsbD 0 = x.ge
   by_cases h1 : i < 32
   · rw [ite_eq_left h1, carry_bit p h1]
     by_cases h2 : i = 31
-    · subst h2; simp only [BitVec.getLsbD_of_ge y 32 (by omega)]; simpa using hp
+    · subst h2; simp only [BitVec.getLsbD_of_ge y 32 (by decide)]; simpa using hp
     · simp [h2, show 1 + i < 32 by omega]
   · rw [ite_eq_right h1, ite_eq_right (show ¬ 1 + i < 32 by omega)]
     congr 1; omega
@@ -123,7 +123,7 @@ theorem msb_xw (x : Block) {w k : Nat} (hw : w < 4) (hk : k < 32) :
     ((xw x w) <<< k).msb = x.getMsbD (32 * w + k) := by
   rw [BitVec.msb_eq_getLsbD_last, BitVec.getLsbD_shiftLeft, xw, BitVec.getLsbD_extractLsb',
     BitVec.getMsbD]
-  simp only [show 32 - 1 < 32 by omega, decide_true, Bool.true_and, show ¬ 32 - 1 < k by omega,
+  simp only [show 32 - 1 < 32 by decide, decide_true, Bool.true_and, show ¬ 32 - 1 < k by omega,
     decide_false, Bool.not_false, show 32 * w + k < 128 by omega, show 32 - 1 - k < 32 by omega]
   congr 1; omega
 
@@ -157,10 +157,10 @@ theorem head_wp (hb : s.gpr .edi = B) (fit : B.toNat + 256 ≤ 2 ^ 32) (hw : reg
       (∀ r, r ≠ .esi → r ≠ .ebp → s'.gpr r = s.gpr r) → s'.rd = s.rd → s'.wr = s.wr → P s') :
     WP isa (.block [.mov .esi (.mem (at_ .edi 0)), .alu .add .esi (.reg .esi), .store (at_ .edi 0) .esi,
       .alu .sbb .ebp (.reg .ebp)]) s P := by
-  refine wp_ldm hb (in_rd (in_reg hw fit (by omega) (by decide))) fun s₁ u₁ => ?_
+  refine wp_ldm hb (in_rd (in_reg hw fit (by decide) (by decide))) fun s₁ u₁ => ?_
   refine wp_add fun s₂ u₂ c₂ => ?_
   refine wp_stm (B := B) (by rw [u₂.other _ (by decide), u₁.other _ (by decide)]; exact hb)
-    (by rw [u₂.wr, u₁.wr]; exact in_reg hw fit (by omega) (by decide)) fun s₃ u₃ => ?_
+    (by rw [u₂.wr, u₁.wr]; exact in_reg hw fit (by decide) (by decide)) fun s₃ u₃ => ?_
   have c₃ : s₃.cf = some (s.mem.readW (addr B 0) 32).msb := by
     rw [u₃.cf, c₂, u₁.gpr, add_self_carry]
   refine wp_sbb_self c₃ fun s₄ u₄ => WP.block_nil ?_
@@ -248,17 +248,17 @@ theorem step_ok (hb : s.gpr .edi = B) (fit : B.toNat + 256 ≤ 2 ^ 32) (hw : reg
   repeat rw [WP.block_append_iff (M := isa)]
   refine head_wp hb fit hw fun s₁ m₁ e₁ g₁ rd₁ wr₁ => ?_
   have b₁ : s₁.gpr .edi = B := (g₁ _ (by decide) (by decide)).trans hb
-  refine zUpd_wp 0 (by omega) b₁ fit (wr₁ ▸ hw) fun s₂ m₂ g₂ rd₂ wr₂ => ?_
+  refine zUpd_wp 0 (by decide) b₁ fit (wr₁ ▸ hw) fun s₂ m₂ g₂ rd₂ wr₂ => ?_
   have b₂ : s₂.gpr .edi = B := (g₂ _ (by decide)).trans b₁
-  refine zUpd_wp 1 (by omega) b₂ fit (wr₂ ▸ wr₁ ▸ hw) fun s₃ m₃ g₃ rd₃ wr₃ => ?_
+  refine zUpd_wp 1 (by decide) b₂ fit (wr₂ ▸ wr₁ ▸ hw) fun s₃ m₃ g₃ rd₃ wr₃ => ?_
   have b₃ : s₃.gpr .edi = B := (g₃ _ (by decide)).trans b₂
-  refine zUpd_wp 2 (by omega) b₃ fit (wr₃ ▸ wr₂ ▸ wr₁ ▸ hw) fun s₄ m₄ g₄ rd₄ wr₄ => ?_
+  refine zUpd_wp 2 (by decide) b₃ fit (wr₃ ▸ wr₂ ▸ wr₁ ▸ hw) fun s₄ m₄ g₄ rd₄ wr₄ => ?_
   have b₄ : s₄.gpr .edi = B := (g₄ _ (by decide)).trans b₃
-  refine zUpd_wp 3 (by omega) b₄ fit (wr₄ ▸ wr₃ ▸ wr₂ ▸ wr₁ ▸ hw) fun s₅ m₅ g₅ rd₅ wr₅ => ?_
+  refine zUpd_wp 3 (by decide) b₄ fit (wr₄ ▸ wr₃ ▸ wr₂ ▸ wr₁ ▸ hw) fun s₅ m₅ g₅ rd₅ wr₅ => ?_
   refine mid_wp fun s₆ edx₆ ebp₆ g₆ m₆ rd₆ wr₆ => ?_
-  refine vCarry_wp 2 (by omega) fun s₇ edx₇ ecx₇ g₇ m₇ rd₇ wr₇ => ?_
-  refine vCarry_wp 1 (by omega) fun s₈ ecx₈ ebx₈ g₈ m₈ rd₈ wr₈ => ?_
-  refine vCarry_wp 0 (by omega) fun s₉ ebx₉ eax₉ g₉ m₉ rd₉ wr₉ => ?_
+  refine vCarry_wp 2 (by decide) fun s₇ edx₇ ecx₇ g₇ m₇ rd₇ wr₇ => ?_
+  refine vCarry_wp 1 (by decide) fun s₈ ecx₈ ebx₈ g₈ m₈ rd₈ wr₈ => ?_
+  refine vCarry_wp 0 (by decide) fun s₉ ebx₉ eax₉ g₉ m₉ rd₉ wr₉ => ?_
   refine tail_wp fun s₁₀ eax₁₀ g₁₀ m₁₀ rd₁₀ wr₁₀ => ?_
   -- The registers through the updates of `Z`.
   have g₅ : ∀ r, r ≠ .esi → r ≠ .ebp → s₅.gpr r = s.gpr r := fun r h1 h2 => by
@@ -319,9 +319,9 @@ theorem step_ok (hb : s.gpr .edi = B) (fit : B.toNat + 256 ≤ 2 ^ 32) (hw : reg
     have h0 : (⟨addr B 0, 4⟩ : Region) ∈ stepRegions B := List.mem_cons_self ..
     have hz : (⟨addr B 16, 16⟩ : Region) ∈ stepRegions B := by simp
     have c : ∀ k < 4, (⟨addr B 16, 16⟩ : Region).Contains (addr B (zOff k)) (32 / 8) := fun k hk =>
-      part_contains fit (by omega) (by simp only [zOff]; omega) (by simp only [zOff]; omega) (by decide)
-    exact (((((Frame.refl _ _).writeW h0 _ (Region.contains_self _ _)).writeW hz _ (c 0 (by omega))).writeW
-      hz _ (c 1 (by omega))).writeW hz _ (c 2 (by omega))).writeW hz _ (c 3 (by omega))
+      part_contains fit (by decide) (by simp only [zOff]; omega) (by simp only [zOff]; omega) (by decide)
+    exact (((((Frame.refl _ _).writeW h0 _ (Region.contains_self _ _)).writeW hz _ (c 0 (by decide))).writeW
+      hz _ (c 1 (by decide))).writeW hz _ (c 2 (by decide))).writeW hz _ (c 3 (by decide))
 
 end
 
@@ -362,8 +362,8 @@ theorem Inner.stepFrame {w k : Nat} {s : State} (hi : Inner x h B sB w k s) {o :
   intro r hr
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl
-  · exact part_disj hi.fit ho (by omega) (.inr (by omega))
-  · exact part_disj hi.fit ho (by omega) (by omega)
+  · exact part_disj hi.fit ho (by decide) (.inr (by omega))
+  · exact part_disj hi.fit ho (by decide) (by omega)
 
 theorem inner_step {w k : Nat} (hw : w < 4) (hk : k < 32) {s : State} (hi : Inner x h B sB w k s) :
     WP isa (.block step) s fun s' => Inner x h B sB w (k + 1) s' ∧
@@ -382,8 +382,8 @@ theorem inner_step {w k : Nat} (hw : w < 4) (hk : k < 32) {s : State} (hi : Inne
       (by simp only [wcOff]; omega) (.inr (by simp only [wcOff]; omega))) (by decide), hi.wc]
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
-    · exact ⟨reg32 B 32, by simp, part_sub_reg (N := 32) (by omega) (by omega)⟩
-    · exact ⟨reg32 B 32, by simp, part_sub_reg (N := 32) (by omega) (by omega)⟩
+    · exact ⟨reg32 B 32, by simp, part_sub_reg (N := 32) (by omega) (by decide)⟩
+    · exact ⟨reg32 B 32, by simp, part_sub_reg (N := 32) (by omega) (by decide)⟩
   · exact f.readW (Region.contains_self _ _) (hi.stepFrame (by simp only [scOff]; omega)
       (by simp only [scOff]; omega) (.inr (by simp only [scOff]; omega))) (by decide)
 
@@ -444,7 +444,7 @@ theorem stepsLoop_ok {w : Nat} (hw : w < 4) {s : State} (hi : Inner x h B sB w 0
   refine WP.loop (M := isa) (fun m s => ∃ j, m = 4 - j ∧ j < 4 ∧ Inner x h B sB w (8 * j) s ∧
       s.mem.readW (addr B scOff) 32 = BitVec.ofNat 32 (4 - j))
     (fun m s ⟨j, hm, hj, hs, hc⟩ => WP.mono (steps_ok hw hj hs hc) fun s' ⟨hs', hc', z⟩ => ?_) _ s
-    ⟨0, rfl, by omega, hi, hc⟩
+    ⟨0, rfl, by decide, hi, hc⟩
   by_cases hl : j + 1 = 4
   · refine .inl ⟨by simp [X86.eval, z, hl], ?_⟩
     rw [hl] at hs'; exact hs'
@@ -463,21 +463,21 @@ theorem nextWord_ok {w : Nat} (hw : w < 4) {s : State} (hi : Inner x h B sB w 32
   have hin : ∀ (t : State), t.wr = s.wr → ∀ o, o + 4 ≤ 256 → InRegions t.wr (addr B o) 4 :=
     fun t ht o ho => by rw [ht, hi.wr]; exact in_reg hi.scr fit ho (by decide)
   rw [nextWord_eq]
-  refine wp_ldm hi.edi (in_rd (hin _ rfl 4 (by omega))) fun s₁ u₁ => ?_
+  refine wp_ldm hi.edi (in_rd (hin _ rfl 4 (by decide))) fun s₁ u₁ => ?_
   have e₁ : s₁.gpr .edi = B := by rw [u₁.other _ (by decide)]; exact hi.edi
-  refine wp_stm e₁ (hin _ u₁.wr 0 (by omega)) fun s₂ u₂ => ?_
-  refine wp_ldm (by rw [u₂.gpr]; exact e₁) (in_rd (hin _ (by rw [u₂.wr, u₁.wr]) 8 (by omega))) fun s₃ u₃ => ?_
+  refine wp_stm e₁ (hin _ u₁.wr 0 (by decide)) fun s₂ u₂ => ?_
+  refine wp_ldm (by rw [u₂.gpr]; exact e₁) (in_rd (hin _ (by rw [u₂.wr, u₁.wr]) 8 (by decide))) fun s₃ u₃ => ?_
   have e₃ : s₃.gpr .edi = B := by rw [u₃.other _ (by decide), u₂.gpr]; exact e₁
-  refine wp_stm e₃ (hin _ (by rw [u₃.wr, u₂.wr, u₁.wr]) 4 (by omega)) fun s₄ u₄ => ?_
-  refine wp_ldm (by rw [u₄.gpr]; exact e₃) (in_rd (hin _ (by rw [u₄.wr, u₃.wr, u₂.wr, u₁.wr]) 12 (by omega)))
+  refine wp_stm e₃ (hin _ (by rw [u₃.wr, u₂.wr, u₁.wr]) 4 (by decide)) fun s₄ u₄ => ?_
+  refine wp_ldm (by rw [u₄.gpr]; exact e₃) (in_rd (hin _ (by rw [u₄.wr, u₃.wr, u₂.wr, u₁.wr]) 12 (by decide)))
     fun s₅ u₅ => ?_
   have e₅ : s₅.gpr .edi = B := by rw [u₅.other _ (by decide), u₄.gpr]; exact e₃
   have w₅ : s₅.wr = s.wr := by rw [u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr]
-  refine wp_stm e₅ (hin _ w₅ 8 (by omega)) fun s₆ u₆ => ?_
-  refine wp_ldm (by rw [u₆.gpr]; exact e₅) (in_rd (hin _ (by rw [u₆.wr, w₅]) 56 (by omega))) fun s₇ u₇ => ?_
+  refine wp_stm e₅ (hin _ w₅ 8 (by decide)) fun s₆ u₆ => ?_
+  refine wp_ldm (by rw [u₆.gpr]; exact e₅) (in_rd (hin _ (by rw [u₆.wr, w₅]) 56 (by decide))) fun s₇ u₇ => ?_
   refine wp_subi fun s₈ u₈ _ z₈ => ?_
   refine wp_stm (B := B) (by rw [u₈.other _ (by decide), u₇.other _ (by decide), u₆.gpr]; exact e₅)
-    (hin _ (by rw [u₈.wr, u₇.wr, u₆.wr, w₅]) 56 (by omega)) fun s₉ u₉ => WP.block_nil ?_
+    (hin _ (by rw [u₈.wr, u₇.wr, u₆.wr, w₅]) 56 (by decide)) fun s₉ u₉ => WP.block_nil ?_
   let m := s.mem
   let M := (((m.writeW (addr B 0) (m.readW (addr B 4) 32)).writeW (addr B 4) (m.readW (addr B 8) 32)).writeW
     (addr B 8) (m.readW (addr B 12) 32)).writeW (addr B 56) (m.readW (addr B 56) 32 - 1)
@@ -508,9 +508,9 @@ theorem nextWord_ok {w : Nat} (hw : w < 4) {s : State} (hi : Inner x h B sB w 32
     rw [m₉]
     have h32 : reg32 B 32 ∈ mRegions B := List.mem_cons_self ..
     have hwc : (⟨addr B wcOff, 8⟩ : Region) ∈ mRegions B := by simp
-    exact (((hi.frame.writeW h32 _ (reg_contains (by omega) (by omega) (by decide))).writeW h32 _
-      (reg_contains (by omega) (by omega) (by decide))).writeW h32 _
-      (reg_contains (by omega) (by omega) (by decide))).writeW hwc _
+    exact (((hi.frame.writeW h32 _ (reg_contains (by omega) (by decide) (by decide))).writeW h32 _
+      (reg_contains (by omega) (by decide) (by decide))).writeW h32 _
+      (reg_contains (by omega) (by decide) (by decide))).writeW hwc _
       (part_contains fit (by simp only [wcOff]; omega) (by simp only [wcOff]; omega)
         (by simp only [wcOff]; omega) (by decide))
   have edi₉ : s₉.gpr .edi = B := (g₉ _ (by decide)).trans hi.edi
@@ -523,13 +523,13 @@ theorem nextWord_ok {w : Nat} (hw : w < 4) {s : State} (hi : Inner x h B sB w 32
   · refine .inl ⟨by rw [zf]; simp; omega, by omega, fit, hi.scr, zv, ?_, fun j h1 h2 => ?_, wc, edi₉, esp₉, rd₉, wr₉, fr⟩
     · rw [m₉, BitVec.shiftLeft_zero]
       simp (disch := decide) only [M, rd_wr_ne fit', Mem.readW_writeW_self32]
-      exact hi.xs 1 (by omega) (by omega)
+      exact hi.xs 1 (by decide) (by omega)
     · rw [m₉]
       rcases (by omega : j = 1 ∨ j = 2) with rfl | rfl
       · simp (disch := decide) only [M, rd_wr_ne fit', Mem.readW_writeW_self32, Nat.reduceMul]
-        rw [hi.xs 2 (by omega) (by omega)]
+        rw [hi.xs 2 (by decide) (by omega)]
       · simp (disch := decide) only [M, rd_wr_ne fit', Mem.readW_writeW_self32, Nat.reduceMul]
-        rw [hi.xs 3 (by omega) (by omega)]
+        rw [hi.xs 3 (by decide) (by omega)]
 
 /-- A word of `X`: 32 steps. -/
 theorem word_ok {w : Nat} (hw : w < 4) {s : State} (hi : Inner x h B sB w 0 s) :
@@ -549,7 +549,7 @@ theorem word_ok {w : Nat} (hw : w < 4) {s : State} (hi : Inner x h B sB w 0 s) :
 /-- The four words: all 128 steps. -/
 theorem mul_ok {s : State} (hi : Inner x h B sB 0 0 s) : WP isa (.loop word .ne) s (MDone x h B sB) := by
   refine WP.loop (M := isa) (fun m s => ∃ w, m = 4 - w ∧ w < 4 ∧ Inner x h B sB w 0 s)
-    (fun m s ⟨w, hm, hw, hs⟩ => WP.mono (word_ok hw hs) fun s' hr => ?_) _ s ⟨0, rfl, by omega, hi⟩
+    (fun m s ⟨w, hm, hw, hs⟩ => WP.mono (word_ok hw hs) fun s' hr => ?_) _ s ⟨0, rfl, by decide, hi⟩
   rcases hr with ⟨z, hl, d⟩ | ⟨z, d⟩
   · exact .inr ⟨by simp [X86.eval, z], _, by omega, w + 1, rfl, hl, d⟩
   · exact .inl ⟨by simp [X86.eval, z], d⟩

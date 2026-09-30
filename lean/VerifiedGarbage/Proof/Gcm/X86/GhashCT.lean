@@ -143,11 +143,11 @@ theorem gh_agree₀ {s₁ s₂ : State} (h₁ : Proof.Gcm.ghashX86.pre s₁) (h�
   · simp only [ghτ₀, RegSet.mem_ofList, List.mem_cons, List.not_mem_nil, or_false] at hr
     subst hr; exact hesp
   · rw [hp₁.wr, hp₂.wr]
-    simp only [yR, sR, yP, sP, ha 1 (by omega), ha 4 (by omega)]
+    simp only [yR, sR, yP, sP, ha 1 (by decide), ha 4 (by decide)]
   · simp only [ghτ₀] at hk
     rw [show VG.X86.Taint.depth ghτ₀.stk = 0 from rfl, Nat.zero_add]
     rw [VG.X86.Taint.argByte_eq (n := 24) hp₁.fSp h4 hk, VG.X86.Taint.argByte_eq (n := 24) hp₂.fSp h4 hk,
-      Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)), Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega))]
+      Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by decide)), Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by decide))]
     exact congrArg _ (ha _ (by omega))
 
 theorem ghash_ct : ConstantTime isa Proof.Gcm.ghashX86.pre Proof.Gcm.ghashX86.pub Impl.Gcm.X86.ghash :=

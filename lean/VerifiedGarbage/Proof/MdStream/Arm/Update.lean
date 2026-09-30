@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MdStream.Arm.Common
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # Streaming Merkle–Damgård hash functions on ARMv7: `update`
@@ -262,13 +263,7 @@ theorem Pending.compress_ok (hd : Dims P) {name : String} {code : Prog isa} (hf 
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
       rcases hr' with rfl | rfl
       · exact (hp.st_scr.symm.sub_left (saved_sub hd hp')).sub_right eN
-      · have hA : (scA s₀).toNat = (scr s₀).toNat := addr_toNat _
-        have hB : (scA s₀ + BitVec.ofNat 64 p.2).toNat = (scr s₀).toNat + p.2 := by
-          rw [BitVec.toNat_add, hA, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega),
-            Nat.mod_eq_of_lt (by omega)]
-        intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂
-        rw [BitVec.toNat_sub, hB] at h₁; rw [BitVec.toNat_sub, hA] at h₂
-        have := a.isLt; omega
+      · exact Offset.disjoint_base _ this.1 (by omega_using [this.2, hd.so.2])
     · rw [hcs _ (by decide) (by decide), h.r4, h.mod]; rfl
 
 /-! ## A whole block straight from the data -/
@@ -276,7 +271,7 @@ theorem Pending.compress_ok (hd : Dims P) {name : String} {code : Prog isa} (hf 
 theorem direct_ok {s₀ : State} (hp : Pre P s₀) {c : Nat} {s : State} (hI : Inv H s₀ c s)
     (hr : (cnt s₀ + c) % 64 = 0) (hl : 64 ≤ len s₀ - c) :
     WP isa (.block direct) s (Pending H s₀ (c + 64)) := by
-  have hlen := len_lt s₀; have hd := hp.d_fit
+  have hd := hp.d_fit
   unfold direct
   refine wp_mov (op2_reg _ _) fun s₁ u₁ => wp_add (op2_imm (by decide)) fun s₂ u₂ =>
     wp_sub (op2_imm (by decide)) fun s₃ u₃ => wp_mov (op2_imm (by decide)) fun s₄ u₄ => WP.block_nil ?_
@@ -379,7 +374,7 @@ theorem copy_step (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {sI :
     {j : Nat} (hj : j < tt s₀ c) {s : State} (h : Copy P s₀ c sI.mem j s) :
     WP isa (.block (copyBody P)) s fun s' =>
       Copy P s₀ c sI.mem (j + 1) s' ∧ s'.z = (BitVec.ofNat 32 (tt s₀ c - (j + 1)) == 0) := by
-  have hlen := len_lt s₀; have hdf := hp.d_fit
+  have hdf := hp.d_fit
   have hc := hI.c_le
   have hr := rr_lt s₀ c
   have ht := tt_le s₀ c; have ht' := tt_le' s₀ c
@@ -484,7 +479,7 @@ theorem fill_pending (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {s
     {s : State} (h : Copy P s₀ c sI.mem (tt s₀ c) s) (hfull : rr s₀ c + tt s₀ c = 64) :
     WP isa (.block [.dp .add .r1 .r0 (.imm (BitVec.ofNat 32 P.N)), .mov .r4 (.imm 0), .mov .r7 (.imm 1)]) s
       (Pending H s₀ (c + tt s₀ c)) := by
-  have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c
+  have ht' := tt_le' s₀ c
   have hrr := rr_eq s₀ c; have htt := tt_eq s₀ c
   have hxs := xs_length s₀ c
   have hc := hI.c_le
@@ -492,7 +487,7 @@ theorem fill_pending (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {s
   have := hd.N
   obtain ⟨hfr, hsv, hstt, hby⟩ := copied_facts hd hp hI
   have hmem : s.mem = writeBytes sI.mem (q P s₀ c) (xs s₀ c) := by
-    rw [h.mem, List.take_of_length_le (by omega)]
+    rw [h.mem, List.take_of_length_le (by omega_using [hxs])]
   refine wp_add (op2_imm hd.enc) fun s₁ u₁ => wp_mov (op2_imm (by decide)) fun s₂ u₂ =>
     wp_mov (op2_imm (by decide)) fun s₃ u₃ => WP.block_nil ?_
   have g : ∀ r, r ≠ .r1 → r ≠ .r4 → r ≠ .r7 → s₃.gpr r = s.gpr r := fun r h1 h2 h3 => by
@@ -523,21 +518,21 @@ theorem fill_pending (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {s
 /-- All the data fits in the buffer. -/
 theorem fill_done (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {sI : State} (hI : Inv H s₀ c sI)
     {s : State} (h : Copy P s₀ c sI.mem (tt s₀ c) s) (hnf : rr s₀ c + tt s₀ c ≠ 64) : Done H s₀ s := by
-  have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c
+  have hr := rr_lt s₀ c; have ht' := tt_le' s₀ c
   have hrr := rr_eq s₀ c; have htt := tt_eq s₀ c
   have hxs := xs_length s₀ c
   have hc := hI.c_le
   have htl : tt s₀ c = len s₀ - c := by omega
   obtain ⟨hfr, hsv, hstt, hby⟩ := copied_facts hd hp hI
   have hmem : s.mem = writeBytes sI.mem (q P s₀ c) (xs s₀ c) := by
-    rw [h.mem, List.take_of_length_le (by omega)]
+    rw [h.mem, List.take_of_length_le (by omega_using [hxs])]
   refine ⟨⟨⟨(Nat.le_refl _), h.rd, h.wr, h.r0, h.r3, h.sp, ?_, ?_, by rw [hmem]; exact hfr,
     by rw [hmem]; exact hsv⟩, ?_, fun iv m hm => ?_⟩, h.r7⟩
-  · rw [h.r5]; congr 2; omega
-  · rw [h.r6]; congr 1; omega
-  · rw [h.r4]; congr 1; omega
+  · rw [h.r5]; congr 2; omega_using [htl, hc]
+  · rw [h.r6]; congr 1; omega_using [htl]
+  · rw [h.r4]; congr 1; omega_using [htl, hc, hrr, hr, ht', hnf]
   · have hmod := length_mid s₀ hm hc
-    rw [show len s₀ = c + tt s₀ c by omega, ← take_add_data]
+    rw [show len s₀ = c + tt s₀ c by omega_using [htl, hc], ← take_add_data]
     refine H.repr_append_buf (hI.repr iv m hm) (by rw [hmod, hxs]; omega) (by rw [hmem, hstt]) ?_
     rw [hmod, hxs, hmem, hby]
     have hb := (hI.repr iv m hm).2
@@ -560,9 +555,9 @@ theorem fill_eq : fill P =
 theorem fill_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {s : State} (hI : Inv H s₀ c s)
     (hcl : c < len s₀) (h7 : s.gpr .r7 = 0) :
     WP isa (fill P) s fun s' => (∃ c', c < c' ∧ Pending H s₀ c' s') ∨ Done H s₀ s' := by
-  have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c
+  have ht' := tt_le' s₀ c
   have hrr := rr_eq s₀ c; have htt := tt_eq s₀ c
-  have hc := hI.c_le; have hlen := len_lt s₀
+  have hlen := len_lt s₀
   rw [fill_eq]
   -- `r8 := 64 - r; r12 := len >> 6`
   refine WP.seq (wp_mov (op2_imm (by decide)) fun s₁ u₁ => wp_sub (op2_reg _ _) fun s₂ u₂ =>
@@ -634,7 +629,7 @@ theorem fill_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {s : St
 theorem body_ok (hd : Dims P) {name : String} {code : Prog isa} (hf : CalleeOk H code) {s₀ : State}
     (hp : Pre P s₀) {c : Nat} {s : State} (hI : Inv H s₀ c s) (hcl : c < len s₀) :
     WP isa (updateBody P name code) s fun s' => ∃ c', c < c' ∧ Inv H s₀ c' s' ∧ s'.z = decide (len s₀ - c' = 0) := by
-  have hlen := len_lt s₀; have hc := hI.c_le; have hr := rr_lt s₀ c
+  have hlen := len_lt s₀; have hr := rr_lt s₀ c
   unfold updateBody
   refine WP.seq (wp_mov (op2_imm (by decide)) fun s₁ u₁ => wp_cmp (op2_imm (by decide)) fun s₂ f₂ z₂ =>
     WP.block_nil ?_)
@@ -709,7 +704,7 @@ theorem arg_sub {s₀ : State} (hp : Pre P s₀) {k : Nat} (hk : k < 3) :
 theorem prologue_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) :
     WP isa (.block (([.ldrSp .r12 8] : List Instr) ++ save P .r12 ++ prologue)) s₀
       fun s => Inv H s₀ 0 s ∧ s.z = decide (len s₀ = 0) := by
-  have hsc := hp.scr_fit; have hst := hp.st_fit; have := hd.so; have := hd.N
+  have hsc := hp.scr_fit; have := hd.so; have := hd.N
   simp only [List.cons_append, List.nil_append]
   refine wp_ldrSp (a := stackArgAddr s₀ 2) (by decide) rfl (arg_in hp (by decide)) fun s₁ u₁ => ?_
   have h12 : s₁.gpr .r12 = scr s₀ := u₁.gpr
