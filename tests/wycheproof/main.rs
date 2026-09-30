@@ -20,6 +20,10 @@ mod hmac_sha384;
 mod hmac_sha512;
 mod hmac_sha512_224;
 mod hmac_sha512_256;
+mod mldsa;
+mod mldsa44;
+mod mldsa65;
+mod mldsa87;
 mod mlkem1024;
 mod mlkem768;
 mod pbkdf2;
@@ -27,6 +31,7 @@ mod pbkdf2_sha1;
 mod pbkdf2_sha256;
 mod pbkdf2_sha384;
 mod pbkdf2_sha512;
+mod x25519;
 
 use harness::Fields;
 

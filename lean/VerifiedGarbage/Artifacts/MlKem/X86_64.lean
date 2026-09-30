@@ -32,6 +32,9 @@ def artifacts : List Artifact := [
   { Spec.MlKem.nttApi with
     target := X86_64.target
     doc := Spec.MlKem.nttApi.doc
+      (notes := ["The function computes on eight coefficients at a time in SSE2 registers. It sets MXCSR \
+        to `0x1FBF` around its multiplications (Intel's mitigation of MXCSR-configuration-dependent \
+        timing) and loads the caller's MXCSR back before returning."])
     code := Impl.MlKem.X86_64.ntt
     contract := Spec.MlKem.nttContract X86_64.abi
     verified := Proof.MlKem.X86_64.ntt_verified
@@ -40,6 +43,9 @@ def artifacts : List Artifact := [
   { Spec.MlKem.nttInvApi with
     target := X86_64.target
     doc := Spec.MlKem.nttInvApi.doc
+      (notes := ["The function computes on eight coefficients at a time in SSE2 registers. It sets MXCSR \
+        to `0x1FBF` around its multiplications (Intel's mitigation of MXCSR-configuration-dependent \
+        timing) and loads the caller's MXCSR back before returning."])
     code := Impl.MlKem.X86_64.nttInv
     contract := Spec.MlKem.nttInvContract X86_64.abi
     verified := Proof.MlKem.X86_64.nttInv_verified
@@ -62,6 +68,9 @@ def artifacts : List Artifact := [
   { Spec.MlKem.mulApi with
     target := X86_64.target
     doc := Spec.MlKem.mulApi.doc
+      (notes := ["The function computes on eight pairs of coefficients at a time in SSE2 registers. It sets \
+        MXCSR to `0x1FBF` around its multiplications (Intel's mitigation of MXCSR-configuration-dependent \
+        timing) and loads the caller's MXCSR back before returning."])
     code := Impl.MlKem.X86_64.multiplyNTTs
     contract := Spec.MlKem.mulContract X86_64.abi
     verified := Proof.MlKem.X86_64.mul_verified

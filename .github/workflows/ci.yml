@@ -247,30 +247,45 @@ jobs:
           if-no-files-found: error
 
   # CPU feature detection, and the primitives that choose among
-  # implementations by CPU feature (see src/cpu.rs), tested end to end in
-  # each configuration that chooses differently, set with `VG_CPU_FEATURES`:
-  # every feature beyond x86-64's baseline (the SHA extensions, AES-NI,
-  # PCLMULQDQ, SSSE3, AVX, AVX2, BMI1, BMI2 and AVX-512F), natively where this
-  # runner has them and otherwise under Intel SDE, emulating a CPU that has
-  # every one; AVX, AVX2, BMI1 and BMI2 alone (SHA-256 without the SHA
-  # extensions, ChaCha20 with AVX2 rather than AVX-512F);
-  # and none, the baseline ISA's implementations. Detection is also tested under SDE on a
-  # Pentium 4, which no runner is: it has neither feature, nor CPUID leaf 7.
-  # The coverage is merged with the rest.
+  # implementations by CPU feature (see src/cpu.rs), tested end to end on
+  # CPUs with different features: this runner's, natively, and CPUs that
+  # Intel SDE presents through CPUID, emulating what this runner lacks. Each
+  # SDE chip is one without the SHA extensions, whose code SDE runs tens of
+  # times slower than a runner that has them (#274), so that code only runs
+  # natively:
+  # * `skx` (Skylake-SP): AVX-512F, so ChaCha20 with AVX-512F, and SHA-256
+  #   and SHA-512 with AVX2;
+  # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F, so ChaCha20 with AVX2
+  #   even where this runner has AVX-512F;
+  # * `p4p` (Pentium 4): nothing beyond x86-64's baseline, not even CPUID
+  #   leaf 7, so the baseline ISA's implementations everywhere;
+  # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
+  #   runner has. It also has the SHA extensions, so only SHA-512's tests
+  #   (and detection's) run there.
+  # And natively on an ARM64 runner, whose AES and PMULL extensions
+  # `cpu-features-env` detects at run time (without it, AArch64 detection is
+  # at compile time, which the `rust` job tests).
+  # The coverage is merged with the rest, which checks that every
+  # implementation was chosen on one of them.
   rust-cpu-features:
     strategy:
       fail-fast: false
       matrix:
-        # Empty: every feature the CPU has.
-        cpu-features: ["", "avx,avx2,bmi1,bmi2", none]
-    name: Rust (VG_CPU_FEATURES=${{ matrix.cpu-features || 'unset' }})
-    runs-on: ubuntu-latest
+        chip: [native, skx, hsw, p4p]
+        tests: [sha1 sha256 sha384 sha512 aes_gcm chacha20 cpu]
+        include:
+          - chip: arl
+            tests: sha384 sha512 cpu
+          - chip: native
+            os: ubuntu-24.04-arm
+            tests: aes_gcm cpu
+    name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     env:
       RUSTUP_TOOLCHAIN: stable
       RUSTFLAGS: -D warnings -Cinstrument-coverage
       LLVM_PROFILE_FILE: .rust-cov/cov-%p-%m.profraw
       WYCHEPROOF_ROOT: wycheproof
-      VG_CPU_FEATURES: ${{ matrix.cpu-features }}
       SDE_VERSION: 10.13.1-2026-07-28
       SDE_URL: https://downloadmirror.intel.com/924984/sde-external-10.13.1-2026-07-28-lin.tar.xz
       SDE_SHA256: 94e97d623fec54385686e1e7ba65ebc9941748c05ee451423948334892bf2b50
@@ -283,8 +298,17 @@ jobs:
           repository: C2SP/wycheproof
           path: wycheproof
           persist-credentials: false
+      - name: This runner's CPU
+        run: |
+          if [ "$(uname -m)" = aarch64 ]; then
+            grep -m1 Features /proc/cpuinfo | tr ' ' '\n' | grep -xE 'aes|pmull' | tr '\n' ' '
+          else
+            grep -m1 'model name' /proc/cpuinfo
+            grep -m1 flags /proc/cpuinfo | tr ' ' '\n' \
+              | grep -xE 'ssse3|sha_ni|aes|pclmulqdq|avx|avx2|bmi1|bmi2|avx512f|sha512' | tr '\n' ' '
+          fi
       - name: Download Intel SDE
-        if: ${{ matrix.cpu-features != 'none' }}
+        if: ${{ matrix.chip != 'native' }}
         run: |
           curl -sSfLo sde.tar.xz "$SDE_URL"
           echo "$SDE_SHA256  sde.tar.xz" | sha256sum -c
@@ -299,23 +323,16 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       # Set the test runner after caching: its temporary path would otherwise
       # change the cache key, which includes CARGO_* environment variables.
-      - name: Choose where to run the tests of the implementations
-        if: ${{ matrix.cpu-features != 'none' }}
-        run: |
-          missing=
-          for f in sha_ni aes pclmulqdq ssse3 avx avx2 bmi1 bmi2 avx512f; do
-            grep -qw "$f" /proc/cpuinfo || missing="$missing $f"
-          done
-          echo "This runner lacks:${missing:- nothing}" | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ -n "$missing" ]; then
-            echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER=$RUNNER_TEMP/sde/sde64 -future --" >> "$GITHUB_ENV"
-          fi
+      - name: Run the tests under SDE
+        if: ${{ matrix.chip != 'native' }}
+        run: echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER=$RUNNER_TEMP/sde/sde64 -$CHIP --" >> "$GITHUB_ENV"
+        env:
+          CHIP: ${{ matrix.chip }}
       # Only the tests of what depends on CPU features.
       - name: Test the implementations
-        run: cargo test --locked --features cpu-features-env -- sha1 sha256 aes_gcm chacha20 cpu
-      - name: Test detection on a Pentium 4 (under SDE)
-        if: ${{ matrix.cpu-features == '' }}
-        run: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER="$RUNNER_TEMP/sde/sde64 -p4p --" cargo test --locked --features cpu-features-env --lib -- cpu
+        run: cargo test --locked --features cpu-features-env -- $TESTS
+        env:
+          TESTS: ${{ matrix.tests }}
       - name: Export coverage
         run: python3 ci/export_rust_coverage.py .rust-cov --features cpu-features-env
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -1,5 +1,4 @@
 import VerifiedGarbage.Impl.MdStream.X86_64
-import VerifiedGarbage.Impl.Hmac.X86_64
 
 /-!
 # PBKDF2-HMAC's iteration over a Merkle–Damgård hash function: x86-64 implementation
@@ -34,7 +33,9 @@ namespace VG.Impl.Pbkdf2.X86_64
 
 open VG.X86_64
 open VG.Impl.MdStream.X86_64 (Params at_ save restore compressAt)
-open VG.Impl.Hmac.X86_64 (cp32)
+/-- Copying 32-bit word `k` from `[src + o₁]` to `[dst + o₂]`. -/
+def cp32 (src dst : Reg) (o₁ o₂ k : Nat) : List Instr :=
+  [.mov32 .rax (.mem (at_ src (o₁ + 4 * k))), .store32 (at_ dst (o₂ + 4 * k)) .rax]
 
 variable (P : Params) (D : Nat)
 

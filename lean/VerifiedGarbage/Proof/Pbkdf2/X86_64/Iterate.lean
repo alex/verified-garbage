@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Pbkdf2.MdStep
 import VerifiedGarbage.Proof.Pbkdf2.Memory
 import VerifiedGarbage.Proof.MdStream.X86_64.Words
-import VerifiedGarbage.Proof.Hmac.X86_64.Common
+import VerifiedGarbage.Proof.Pbkdf2.X86_64.Copy
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 import VerifiedGarbage.Impl.Pbkdf2.X86_64
 
@@ -30,7 +30,6 @@ open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeBytes_frame writeByt
 open VG.Proof.Hmac.Common (bytesAt_add bytesAt_length bytesAt_writeBytes_sep bytesAt_writeBytes_self
   writeBytes_at bytesAt_getD')
 open VG.Proof.Hmac.Generic.Common (bytesAt_take bytesAt_writeBytes_self')
-open VG.Proof.Hmac.X86_64 (copy32_ok ea_off)
 open VG.Spec.Hmac (StreamingHash xorPad ipad opad hmacBlockKey)
 
 /-! ## The contract -/
@@ -136,7 +135,7 @@ section
 variable {P : Params} {D W : Nat} (hz : Sizes P D W) {s₀ : State} (hp : Pre P D W s₀)
 include hz
 
-theorem so_le : P.so ≤ 1024 := hz.dims.so
+theorem so_le : P.so ≤ 2048 := hz.dims.so
 theorem N_le : P.N ≤ 64 := hz.dims.N.2
 theorem B_le : P.B ≤ 128 := by rcases hz.dims.B with h | h <;> omega
 theorem B_ge : 64 ≤ P.B := by rcases hz.dims.B with h | h <;> omega
@@ -815,7 +814,7 @@ theorem setup_ok {rest : List Instr} {Q : State → Prop} (k : ∀ s, Setup P D 
 /-- Writing `U`, the padding and the length field into the block. -/
 theorem fill_ok {H : Md P.B P.N P.L} (hs : Shape H) (hok : H.lenOk (P.B + D)) {s : State}
     (h : Setup P D W s₀ s) :
-    WP isa (.block ((List.range (D / 4)).flatMap (Impl.Hmac.X86_64.cp32 .rsi .rbp 0 0) ++
+    WP isa (.block ((List.range (D / 4)).flatMap (Impl.Pbkdf2.X86_64.cp32 .rsi .rbp 0 0) ++
       padFrom D (P.B - P.L) ++ ([.mov32 .r12 (.imm (BitVec.ofNat 32 (P.B + D)))] : List Instr) ++ P.len ++
       ([.mov .r12 (.reg .rdi), .alu .test .r14 (.reg .r14)] : List Instr))) s
       fun s' => Inv P D W H s₀ (nn s₀) s' ∧ s'.zf = some (decide (nn s₀ = 0)) := by
@@ -909,7 +908,7 @@ theorem fill_ok {H : Md P.B P.N P.L} (hs : Shape H) (hok : H.lenOk (P.B + D)) {s
     rw [z₆, r14₅, BitVec.and_self, ofNat_beq_zero (by have := ((s₀.gpr .rdx).setWidth 32).isLt; simp [nn]; omega)]
 theorem prologue_ok {H : Md P.B P.N P.L} (hs : Shape H) (hok : H.lenOk (P.B + D)) :
     WP isa (.block (prologue P D)) s₀ fun s => Inv P D W H s₀ (nn s₀) s ∧ s.zf = some (decide (nn s₀ = 0)) := by
-  have := setup_ok hz hp (rest := (List.range (D / 4)).flatMap (Impl.Hmac.X86_64.cp32 .rsi .rbp 0 0) ++
+  have := setup_ok hz hp (rest := (List.range (D / 4)).flatMap (Impl.Pbkdf2.X86_64.cp32 .rsi .rbp 0 0) ++
     padFrom D (P.B - P.L) ++ [.mov32 .r12 (.imm (BitVec.ofNat 32 (P.B + D)))] ++ P.len ++
     [.mov .r12 (.reg .rdi), .alu .test .r14 (.reg .r14)]) fun s h => fill_ok hz hp hs hok h
   unfold prologue

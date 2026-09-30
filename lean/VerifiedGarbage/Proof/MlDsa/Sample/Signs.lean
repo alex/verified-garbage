@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MlDsa.Sample.Word
+import VerifiedGarbage.Proof.MlDsa.Sample.LeNat
 
 /-!
 # ML-DSA: the sign bits of `SampleInBall` in two 32-bit words
@@ -31,16 +32,6 @@ theorem rotr_small32 (x : BitVec 32) {n : Nat} (h0 : 0 < n) (h : n < 32) (hx : x
 
 theorem and_one_toNat (x : BitVec 32) : (x &&& 1).toNat = x.toNat % 2 := by
   rw [BitVec.toNat_and, show (1 : BitVec 32).toNat = 1 from rfl, Nat.and_one_is_mod]
-
-theorem leNat_lt : ∀ (v : List Byte), leNat v < 2 ^ (8 * v.length)
-  | [] => by simp [leNat]
-  | c :: v => by
-    have ih := leNat_lt v
-    have hc := c.isLt
-    rw [leNat, List.length_cons, show 8 * (v.length + 1) = 8 * v.length + 8 by omega, Nat.pow_add]
-    generalize 2 ^ (8 * v.length) = P at ih ⊢
-    rw [show (2 : Nat) ^ 8 = 256 from rfl] at hc ⊢
-    omega
 
 /-- The high word shifted right by one bit. -/
 theorem signs_shift_hi {S : Nat} (hS : S < 2 ^ 64) (t : Nat) :

@@ -21,13 +21,15 @@ implementation calls.
 
 namespace VG.Spec.Sha512
 
-/-- `vg_sha512_compress(state: *mut [u64; 8], blocks: *const [u8; 128], n: usize, scratch: *mut [u64; 28])`.
-`scratch` is working space: 224 bytes, enough for every target (the 32-bit
-ones need the most, keeping the message schedule, the working variables and
-spilled arguments and registers in it). -/
+/-- `vg_sha512_compress(state: *mut [u64; 8], blocks: *const [u8; 128], n: usize, scratch: *mut [u64; 166])`.
+`scratch` is working space, sized for the tightest target: x86-64 with AVX2
+keeps the message schedules of two blocks in it (1280 bytes), and saves six
+callee-saved registers. The other SHA-512 functions, and the HMAC and PBKDF2
+functions of the SHA-512 family, pass theirs to it, so theirs have room for
+it and for what they keep across its calls. -/
 def compressSig : Sig where
   params := [("state", .array true .u64 8), ("blocks", .slice false (.array .u8 128) "n"),
-    ("scratch", .array true .u64 28)]
+    ("scratch", .array true .u64 166)]
 
 /-- Updates the hash value at `state` with the `n` 128-byte blocks at
 `blocks`. The hash value and the blocks are secret. -/
@@ -76,12 +78,13 @@ def init512Api : Api := initApi "SHA-512" "vg_sha512_init" "H0_512"
 def init512_224Api : Api := initApi "SHA-512/224" "vg_sha512_224_init" "H0_512_224"
 def init512_256Api : Api := initApi "SHA-512/256" "vg_sha512_256_init" "H0_512_256"
 
-/-- `vg_sha512_update(state: *mut [u8; 192], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 34])`.
-`count` is public; `scratch` is working space: 272 bytes, room for the
-compression function's scratch (`compressSig`) and the function's own spills. -/
+/-- `vg_sha512_update(state: *mut [u8; 192], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 172])`.
+`count` is public; `scratch` is working space: 1376 bytes, room for the
+compression function's scratch (`compressSig`, 1328 bytes) and the
+function's own spills (48 bytes: six saved registers). -/
 def updateSig : Sig where
   params := [("state", .array true .u8 192), ("count", .int .u64 true),
-    ("data", .slice false .u8 "len"), ("scratch", .array true .u64 34)]
+    ("data", .slice false .u8 "len"), ("scratch", .array true .u64 172)]
 
 /-- If the streaming state at `state` represents a message `msg` of `count`
 bytes (modulo 2⁶⁴), hashed from any initial hash value, then afterwards it
@@ -105,12 +108,12 @@ def updateApi : Api where
     may affect timing, not the state or the data."
   safety := ["The contents of `scratch` on return are unspecified."]
 
-/-- `vg_sha512_finalize(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 34])`.
+/-- `vg_sha512_finalize(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 172])`.
 `count` is public; `state` is left unspecified, and `scratch` is working
-space: 272 bytes, as for `updateSig`. -/
+space: 1376 bytes, as for `updateSig`. -/
 def finalizeSig : Sig where
   params := [("state", .array true .u8 192), ("count", .int .u64 true),
-    ("out", .array true .u8 64), ("scratch", .array true .u64 34)]
+    ("out", .array true .u8 64), ("scratch", .array true .u64 172)]
 
 /-- If the streaming state at `state` represents a message `msg` of `count`
 bytes, fewer than 2⁶⁴, hashed from the initial hash value `iv`, writes the

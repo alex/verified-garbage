@@ -1,0 +1,5 @@
+name = "RC2-CBC"
+family = "Ciphers"
+specs = ["Rc2"]
+modules = ["src/rc2_cbc.rs"]
+asm = ["rc2"]

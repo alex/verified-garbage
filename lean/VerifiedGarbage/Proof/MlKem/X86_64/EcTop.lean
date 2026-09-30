@@ -82,7 +82,7 @@ theorem encaps_correct (σ : State) (hp : encapsK.pre σ) :
         WP.seq (WP.mono (out_ok h₃) fun s₄ h₄ =>
           WP.mono (topEpi_ok h₄.ec.top (h₄.hin hp)) fun s₅ ⟨hr, hg, hm⟩ =>
             (⟨hg, post_of h₄ hr hm⟩ : gprPreserved σ s₅ ∧ encapsK.post σ s₅)))))
-  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he hF.1, hF.2⟩
+  exact ⟨t, s', he, abiPreserved_of_ctl (by decide +kernel) he hF.1, hF.2⟩
 
 /-! ## Constant time -/
 
