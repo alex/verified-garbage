@@ -95,7 +95,8 @@ def ArgWord.bits (ptrBits : Nat) : ArgWord → Nat | .addr => ptrBits | .int n =
 as a bit vector of its width. -/
 abbrev ArgWord.Ty : ArgWord → Type | .addr => Addr | .int n => BitVec n
 
-/-- The value of an argument from its zero-extended 64-bit form. -/
+/-- The value of an argument from the 64 bits `Abi.args` gives for it: an
+integer narrower than 64 bits is their low bits, whatever the others are. -/
 def ArgWord.ofRaw : (w : ArgWord) → BitVec 64 → w.Ty | .addr, v => v | .int n, v => v.setWidth n
 
 /-- The machine-level arguments a parameter is passed as. -/
@@ -128,8 +129,11 @@ structure Abi (M : ISA) where
   /-- Pointer width. -/
   ptrBits : Nat
   /-- For arguments of the given widths (in bits), in order: their values on
-  entry, zero-extended to 64 bits; `none` if the convention passes them in a
-  way that is not modelled. -/
+  entry, as 64 bits, of which an argument narrower than 64 bits is the low
+  bits (`ArgWord.ofRaw`); the other bits are not necessarily zero (x86-64
+  and AArch64 give the whole register, whose upper bits the convention
+  leaves unspecified); `none` if the convention passes them in a way that
+  is not modelled. -/
   args : List Nat → Option (M.State → List (BitVec 64))
   /-- The memory holding the arguments passed in memory (if any), and whether
   the convention lets the callee write it (which a contract may decline). -/

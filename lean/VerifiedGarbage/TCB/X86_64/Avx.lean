@@ -58,7 +58,10 @@ inductive VOp
   | vzeroupper
   /-- `vsha512rnds2 ymm1, ymm2, xmm3` (`VEX.256.F2.0F38.W0 CB /r`, SHA512):
   two SHA-512 rounds, with `C, D, G, H` in `ymm1` (`dst`), `A, B, E, F` in
-  `ymm2` (`src1`) and `Wₜ + Kₜ` for the two rounds in `xmm3` (`src2`). -/
+  `ymm2` (`src1`) and `Wₜ + Kₜ` for the two rounds in `xmm3` (`src2`).
+  Intel's list of data-operand-independent-timing instructions does not
+  list this nor `vsha512msg1` and `vsha512msg2`: their constant time is an
+  assumption (see `Isa.lean`). -/
   | vsha512rnds2 (dst src1 src2 : XReg)
   /-- `vsha512msg1 ymm1, xmm2` (`VEX.256.F2.0F38.W0 CC /r`, SHA512): the
   `σ₀` part of the next four message words. -/

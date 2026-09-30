@@ -32,6 +32,25 @@ Modelling choices:
   their data operands ("Data Operand Independent Timing Instruction Set
   Architecture (ISA) Guidance", which lists `MUL`), and so are BMI2's `mulx`
   and ADX's `adcx` and `adox` (it lists `MULX`, `ADCX` and `ADOX`).
+* Assumed, not proven: the model's instructions take a time independent of
+  their data operands on every processor that runs this code. Intel's
+  guidance, the only vendor statement the model cites, is narrower. It
+  covers Intel Core and Atom processors only, not those of other vendors
+  (AMD, VIA, Zhaoxin), which document no such list. On Intel Core
+  processors from Ice Lake and Intel Atom processors from Gracemont on,
+  which enumerate DOITM, it holds only while the DOITM bit
+  (IA32_UARCH_MISC_CTL[0], MSR 1B01H) is set; the bit resets to 0 and only
+  privileged software can set it, so user code (and so this library)
+  cannot, and runs with it clear unless the operating system sets it
+  ("Data Operand Independent Timing ISA Guidance", "DOITM";
+  https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/best-practices/data-operand-independent-timing-isa-guidance.html).
+  And Intel's list of the instructions it covers ("Data Operand Independent
+  Timing Instructions", updated 2/23/2026;
+  https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/resources/data-operand-independent-timing-instructions.html)
+  does not list `VSHA512RNDS2`, `VSHA512MSG1` or `VSHA512MSG2` (`Avx.lean`),
+  which take secret data in `vg_sha512_compress_shani`: that they, like
+  the `SHA1*` and `SHA256*` instructions it does list, take a time
+  independent of their data is an assumption no vendor statement covers.
 * Calls (`call`) and returns (`ret`) are near and direct (SDM Vol. 2, "CALL",
   "RET"). The return addresses are the next of the state's `unknowns`,
   which nothing constrains (see `TCB/Code.lean`).
@@ -60,7 +79,14 @@ Modelling choices:
   `ldmxcsr` and `stmxcsr` access: no other modelled instruction reads or
   writes it (integer instructions raise no SIMD floating-point exceptions).
   Its control bits (15:6) are callee-saved (see `Target.lean`). `lfence`
-  has no architectural effect, so the model treats it as a no-op.
+  has no architectural effect, so the model treats it as a no-op. As in
+  the SDM, bits 31:16 are reserved: `ldmxcsr` of a value with any of them
+  set faults. AMD processors with misaligned SSE mode define bit 17 as the
+  control bit MM, "Misaligned Exception Mask" (AMD64 Architecture
+  Programmer's Manual Vol. 1, "MXCSR Register"), which the model does not
+  know, so code that saves and restores MXCSR clears bits 31:16 of the
+  value it restores (`and r32, 65535`): a caller's MM = 1 would be cleared
+  on return. Nothing is known to set it.
 * MXCSR-configuration-dependent timing (MCDT): on some Intel processors,
   the multiplies of the model but `mul` and `mulx` (`pmuludq`, `vpmuludq`,
   `pmullw`, `vpmullw`, `pmulhw` and `vpmulhw`), although on Intel's DOIT
