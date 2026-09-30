@@ -17,7 +17,7 @@ namespace VG.Proof.MlDsa.X86.Sign
 open VG VG.X86
 open VG.Impl.MlKem.X86 (Buf at_)
 open VG.Impl.MlDsa.X86.Sign
-open VG.Proof.MlKem.X86 (Piece Only)
+open VG.Proof.MlKem.X86 (Piece Only P0)
 open VG.Proof.MlKem.X86.Top
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -126,5 +126,72 @@ theorem rest_piece (F : PrimsOk P) (ps : PS p) :
     refine ⟨c, fn.run, by rw [scw, m, ← scw]; exact fn.ok, fun hs hq => ?_, fn.none⟩
     simp only [lastB, decide_eq_true fn.run.1, hs, decide_eq_true hq] at hb
     cases hb
+
+/-- What the rest leaves is `Sign_internal`'s outcome. -/
+theorem rest_outcome {F : PrimsOk P} (ps : PS p) {s₀ s : State} (h : RD p F s₀ s) :
+    Outcome (fun b => signMu p b (skOf p s₀) (muOf s₀) (rndOf s₀)) (scw s₀ s oOK)
+      (bytesAt s.mem (Buf.addr s₀ (bSig 0 p.sigLen)) p.sigLen) := by
+  have hg := h.run.1
+  have hA := expandA_good hg
+  have hNI := NI_good hg
+  have hpos := NI_pos (p := p) F s₀
+  have hlt := h.run.lt
+  have hc := h.run.cont
+  cases hs : F.ballF p.τ (CTv p s₀ (p.ℓ * (NI p F s₀ - 1)))
+  · refine .inr ⟨by rw [h.ok, hs, Bool.false_and]; rfl, signMu_min_L hA ?_⟩
+    exact loopV_none_ball ps.hok F.ballMax hc (h.none hs)
+  · by_cases hq : passS p (NI p F s₀ - 1) s₀
+    · refine .inl ⟨by rw [h.ok, hs, decide_eq_true hq]; rfl, maxBounds, ?_⟩
+      rw [h.sig hs hq, ← sigOf_eq]
+      exact signMu_some hA (loopV_pass ps.hok F.ballMax (by show _ < 1000; omega) hc hs hq)
+    · refine .inr ⟨by rw [h.ok, hs, decide_eq_false hq]; rfl, signMu_min_L hA ?_⟩
+      have hcu : contS p F (NI p F s₀ - 1) s₀ = true := by
+        simp only [contS, contV, Bool.and_eq_true, Bool.not_eq_true', decide_eq_false_iff_not]
+        exact ⟨hs, hq⟩
+      have hn : NI p F s₀ - 1 + 1 < NI p F s₀ ↔ contS p F (NI p F s₀ - 1) s₀ = true ∧ NI p F s₀ - 1 + 1 < 814 := by
+        rw [hNI]; exact nIt_next _ (by have : NI p F s₀ - 1 < NI p F s₀ := by omega
+                                       rw [hNI] at this; exact this)
+      have hu : NI p F s₀ - 1 = 813 := by
+        by_contra hne
+        exact absurd (hn.mpr ⟨hcu, by omega⟩) (by omega)
+      refine loopV_none_exh ps.hok F.ballMax fun j hj => ?_
+      rcases (by omega : j < NI p F s₀ - 1 ∨ j = NI p F s₀ - 1) with hj' | rfl
+      · exact hc j hj'
+      · exact hcu
+
+/-! ## The body -/
+
+/-- What signing returns, and leaves in `sig`, from the initial state `s₀`. -/
+def Done (p : Params) (s₀ s : State) : Prop :=
+  Outcome (fun b => signMu p b (skOf p s₀) (muOf s₀) (rndOf s₀)) (s.gpr .eax)
+    (bytesAt s.mem (Buf.addr s₀ (bSig 0 p.sigLen)) p.sigLen)
+
+theorem ldsc_tt : (VG.X86.taint.check (τr [.esp]) (.block [.mov .esi (.mem (at_ .esp (20 + 4 * SC)))])
+    (VG.X86.taint.hintOf (τr [.esp]) (.block [.mov .esi (.mem (at_ .esp (20 + 4 * SC)))]))).isSome = true := by
+  taint_decide
+
+/-- The body of `vg_mldsa*_sign`. -/
+theorem body_piece (F : PrimsOk P) (ps : PS p) :
+    SP p (fun s₀ s => s = P0 s₀) (fun s₀ s => Ctx (Y p) s₀ s ∧ Done p s₀ s) (body P p) := by
+  unfold body
+  refine Piece.seq (lift (ldsc_piece (Y := Y p) (lk := lk0) ldsc_tt)) ?_
+  refine Piece.seq (B := fun s₀ s => Ctx (Y p) s₀ s ∧ scw s₀ s oOK = 1)
+    (blk_piece (fun _ _ _ h => h) (fun s₀ s hp h => ?_) rfl) ?_
+  · rw [← List.append_nil (st32 oOK 1)]
+    exact wp_st32 hp h (sc_ok ps (by decide) (by decide)) 1 fun s' c' _ v => WP.block_nil_iff.mpr ⟨c', v⟩
+  refine Piece.seq (expandA_piece F ps) ?_
+  refine Piece.seq (B := fun s₀ s => Ctx (Y p) s₀ s ∧ Outcome (fun b => signMu p b (skOf p s₀) (muOf s₀) (rndOf s₀))
+      (scw s₀ s oOK) (bytesAt s.mem (Buf.addr s₀ (bSig 0 p.sigLen)) p.sigLen))
+    (okIte_piece (sc_ok' ps (by decide) (by decide)) (fun s₀ => okE p F.rejF s₀ (p.k * p.ℓ))
+      (fun _ _ _ h => ⟨h.ctx, h.ok⟩) (fun _ _ _ _ hq => okE_eq ps hq _)
+      ((rest_piece F ps).mono (fun _ _ _ h => h) fun _ _ _ h => ⟨h.ctx, rest_outcome ps h⟩)
+      (nil_piece fun s₀ s _ h => ?_)) ?_
+  · obtain ⟨⟨s', ia, c, m⟩, hb⟩ := h
+    refine ⟨c, .inr ⟨by rw [scw, m, ← scw, ia.ok, hb]; rfl, signMu_min_A (ia.bad hb)⟩⟩
+  refine blk_piece (fun _ _ _ h => h.1) (fun s₀ s hp h => wp_ldsc hp h.1 (sc_ok' ps (by decide) (by decide))
+    fun s' o' v' => WP.block_nil_iff.mpr ⟨h.1.only o' (by simp) (by simp), ?_⟩) rfl
+  unfold Done
+  rw [v', o'.mem]
+  exact h.2
 
 end VG.Proof.MlDsa.X86.Sign
