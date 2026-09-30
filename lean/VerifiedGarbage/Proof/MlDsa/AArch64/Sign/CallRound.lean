@@ -42,12 +42,12 @@ theorem norm_pre {bound : Nat} (hr : Reduced s.mem (pa s f)) {s1 : State} (h1 : 
 
 end
 
-theorem normAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.normLt (normLtContract AArch64.abi S))
+theorem normAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.normLt (normLtContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {f : Ptr} (hc : inB (rbs ++ wbs) f 1024 = true)
     {bound : Nat} (hb : bound < 2 ^ 32) (hr : Reduced s.mem (pa s f)) :
     WP isa (callAt "vg_mldsa_norm_lt" P.normLt (normArgs f bound)) s fun s' => PPostB S s s' [] ∧ s'.gpr .x24 = s.gpr .x24 ∧
       (s'.gpr .x0).setWidth 32 = if normRq [polyAt s.mem (pa s f)] < bound then 1 else 0 := by
-  refine WP.mono (callAt_ok hS C (norm_args L.ok bound hc) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine WP.mono (callAtK_ok hS C (norm_args L.ok bound hc) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => norm_pre L hc hr h1) (norm_cov L hc).1 (norm_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [normLtContract, normLtSig, AArch64.abi, VG.AArch64.argRegs] at hq
@@ -55,14 +55,14 @@ theorem normAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.norm
   simp only [Arg.val, imm32 hb] at hq
   exact hq
 
-theorem normAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.normLt (normLtContract AArch64.abi S))
+theorem normAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.normLt (normLtContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {f : Ptr} (hc : inB (rbs ++ wbs) f 1024 = true)
     {bound : Nat} {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧ Reduced x.mem (pa x f) ∧ Reduced y.mem (pa y f) ∧
       SameB x y) :
     RelCT isa Q (callAt "vg_mldsa_norm_lt" P.normLt (normArgs f bound)) fun _ _ => True := by
   have hb : f.1 ∈ bases := ptr_bs hB hc
-  refine callAt_tr C (norm_args hB bound hc) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAtK_tr C (norm_args hB bound hc) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, rx, ry, e⟩ := hQ x y hp
   refine ⟨_, _, norm_pre Lx hc rx h1, ?_, ?_, (norm_cov Lx hc).1, (norm_cov Lx hc).2, ?_, (norm_cov Ly hc).2⟩

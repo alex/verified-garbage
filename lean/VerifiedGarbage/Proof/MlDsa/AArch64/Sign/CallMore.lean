@@ -11,7 +11,7 @@ key generation does not: `vg_mldsa_expand_mask_poly`, `vg_mldsa_high_bits`,
 Signing branches on the results of the two samplers, so it needs them to be
 the same in two runs whose samplers' public data agree: a callee whose
 result is public in its own runs (`RetPub`) returns the same in both
-(`RelCT.callRet`, `callAt_trRet`). And its leakage is stated for
+(`RelCT.callRet`, `callAtK_trRet`). And its leakage is stated for
 `maxBounds`, so it needs that a sampler succeeds only if the algorithm
 finishes within them: a fact of each run of the callee added to its
 postcondition (`withPost`, `CalleeOk.withPost`).
@@ -76,7 +76,7 @@ theorem RelCT.callRet {n : String} {c : Prog isa} {k : Contract isa}
 
 /-- The trace of the moves then a call whose result is public: the same
 trace, and the same result, in both runs. -/
-theorem callAt_trRet {S : Nat} {n : String} {c : Prog isa} {k : Contract isa} (C : CalleeOk S c k)
+theorem callAtK_trRet {S : Nat} {n : String} {c : Prog isa} {k : Contract isa} (C : CalleeOk S c k)
     (hr : RetPub k c) {as : List (Reg × Arg)} (hok : ∀ a ∈ as, a.2.Ok ∧ a.1 ∈ argRegs) (hnd : (as.map (·.1)).Nodup)
     {P : State → State → Prop}
     (hP : ∀ x y x1 y1, P x y → Args as x x1 → Args as y y1 → ∃ rd wr : List Region,
@@ -110,7 +110,7 @@ theorem CalleeOk.withPost {S : Nat} {c : Prog isa} {k : Contract isa} (C : Calle
   ⟨fun s hs => let ⟨t, s', e, a, p⟩ := C.correct s hs; ⟨t, s', e, a, p, hx s t s' hs e⟩, C.ct, C.fd⟩
 
 /-- A sampler's call leaves the result `w0` public in two runs whose seeds agree. -/
-theorem rejNttAt_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContract AArch64.abi S))
+theorem rejNttAtK_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContract AArch64.abi S))
     (hr : RetPub (rejNTTContract AArch64.abi S) P.rejNTT)
     {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {seed a ss : Ptr} (hc : rejNttChk rbs wbs seed a ss = true)
     {Q : State → State → Prop}
@@ -122,7 +122,7 @@ theorem rejNttAt_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTCon
   simp only [rejNttChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
   have hb : seed.1 ∈ bases ∧ a.1 ∈ bases ∧ ss.1 ∈ bases := ⟨ptr_bs hB c4, ptr_bs hB c5, ptr_bs hB c6⟩
-  refine callAt_trRet C hr (rejNtt_args hB c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAtK_trRet C hr (rejNtt_args hB c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, hsd, e⟩ := hQ x y hp
   refine ⟨_, _, rejNtt_pre Lx hc h1, ?_, ?_, (rejNtt_cov Lx hc).1, (rejNtt_cov Lx hc).2, ?_, ?_⟩
@@ -135,7 +135,7 @@ theorem rejNttAt_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTCon
   · rw [e.pa hb.1, e.pa hb.2.1, e.pa hb.2.2]; exact (rejNtt_cov Ly hc).1
   · rw [e.pa hb.2.1, e.pa hb.2.2]; exact (rejNtt_cov Ly hc).2
 
-theorem ballAt_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.ball (sampleInBallContract AArch64.abi S))
+theorem ballAtK_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.ball (sampleInBallContract AArch64.abi S))
     (hr : RetPub (sampleInBallContract AArch64.abi S) P.ball)
     {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {ct c ss : Ptr} {len : Nat}
     (hc : ballChk rbs wbs ct len c ss = true) {tau : Nat} (ht : (len, tau) ∈ ballParams) {Q : State → State → Prop}
@@ -149,7 +149,7 @@ theorem ballAt_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.ball (sampleInBallC
   simp only [ballChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
   have hb : ct.1 ∈ bases ∧ c.1 ∈ bases ∧ ss.1 ∈ bases := ⟨ptr_bs hB c4, ptr_bs hB c5, ptr_bs hB c6⟩
-  refine callAt_trRet C hr (ball_args hB len tau c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAtK_trRet C hr (ball_args hB len tau c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, hsd, e⟩ := hQ x y hp
   refine ⟨_, _, ball_pre Lx hc ht h1, ?_, ?_, (ball_cov Lx hc).1, (ball_cov Lx hc).2, ?_, ?_⟩
@@ -205,7 +205,7 @@ theorem mask_args {bs : List (Reg × Nat)} (L : LayOk bs) {seed a ss : Ptr} (γ 
   exact ⟨⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨trivial, by decide⟩, ⟨ptr_ok (ptr_bs L c5), by decide⟩,
     ⟨ptr_ok (ptr_bs L c6), by decide⟩⟩
 
-theorem maskAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
+theorem maskAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
     (C : CalleeOk S P.expandMask (expandMaskContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {seed a ss : Ptr}
     (hc : maskChk rbs wbs seed a ss = true) {γ : Nat} (hγ : γ = 2 ^ 17 ∨ γ = 2 ^ 19) :
@@ -216,7 +216,7 @@ theorem maskAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
   have hc' := hc
   simp only [maskChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
-  refine WP.mono (callAt_ok hS C (mask_args L.ok γ c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine WP.mono (callAtK_ok hS C (mask_args L.ok γ c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => mask_pre L hc hγ h1) (mask_cov L hc).1 (mask_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [expandMaskContract, expandMaskSig, AArch64.abi, VG.AArch64.argRegs] at hq
@@ -225,7 +225,7 @@ theorem maskAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
   rw [imm32 (by omega)] at hq
   exact hq
 
-theorem maskAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.expandMask (expandMaskContract AArch64.abi S))
+theorem maskAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.expandMask (expandMaskContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {seed a ss : Ptr} (hc : maskChk rbs wbs seed a ss = true)
     {γ : Nat} (hγ : γ = 2 ^ 17 ∨ γ = 2 ^ 19) {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧ SameB x y) :
@@ -234,7 +234,7 @@ theorem maskAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.expandMask (expandMask
   simp only [maskChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
   have hb : seed.1 ∈ bases ∧ a.1 ∈ bases ∧ ss.1 ∈ bases := ⟨ptr_bs hB c4, ptr_bs hB c5, ptr_bs hB c6⟩
-  refine callAt_tr C (mask_args hB γ c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAtK_tr C (mask_args hB γ c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, e⟩ := hQ x y hp
   refine ⟨_, _, mask_pre Lx hc hγ h1, ?_, ?_, (mask_cov Lx hc).1, (mask_cov Lx hc).2, ?_, ?_⟩
@@ -286,13 +286,13 @@ theorem bits_pre {Q : Nat → Poly → Mem → Addr → Prop} {g2 : Nat} (hg : g
 
 end
 
-theorem bitsAt_ok {S : Nat} (hS : S < 2 ^ 64) {Q : Nat → Poly → Mem → Addr → Prop} {n : String} {c : Prog isa}
+theorem bitsAtK_ok {S : Nat} (hS : S < 2 ^ 64) {Q : Nat → Poly → Mem → Addr → Prop} {n : String} {c : Prog isa}
     (C : CalleeOk S c (bitsC Q S)) {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {r out : Ptr}
     (hc : rwChk rbs wbs r 1024 out 1024 = true) {g2 : Nat} (hg : g2 ∈ gamma2s) (hr : Reduced s.mem (pa s r)) :
     WP isa (callAt n c (bitsArgs r g2 out)) s fun s' => PPostB S s s' [(out, 1024)] ∧ s'.gpr .x24 = s.gpr .x24 ∧
       Q g2 (polyAt s.mem (pa s r)) s'.mem (pa s out) := by
   obtain ⟨_, c2, c3⟩ := rw_parts hc
-  refine WP.mono (callAt_ok hS C (bits_args L.ok g2 c2 c3) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine WP.mono (callAtK_ok hS C (bits_args L.ok g2 c2 c3) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => bits_pre L hc hg hr h1) (rw_cov L hc).1 (rw_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [bitsSig, AArch64.abi, VG.AArch64.argRegs] at hq
@@ -300,7 +300,7 @@ theorem bitsAt_ok {S : Nat} (hS : S < 2 ^ 64) {Q : Nat → Poly → Mem → Addr
   simp only [Arg.val, imm32 (gamma2_lt hg)] at hq
   exact hq
 
-theorem bitsAt_tr {S : Nat} {Q : Nat → Poly → Mem → Addr → Prop} {n : String} {c : Prog isa}
+theorem bitsAtK_tr {S : Nat} {Q : Nat → Poly → Mem → Addr → Prop} {n : String} {c : Prog isa}
     (C : CalleeOk S c (bitsC Q S)) {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {r out : Ptr}
     (hc : rwChk rbs wbs r 1024 out 1024 = true) {g2 : Nat} (hg : g2 ∈ gamma2s) {R : State → State → Prop}
     (hR : ∀ x y, R x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧ Reduced x.mem (pa x r) ∧ Reduced y.mem (pa y r) ∧
@@ -308,7 +308,7 @@ theorem bitsAt_tr {S : Nat} {Q : Nat → Poly → Mem → Addr → Prop} {n : St
     RelCT isa R (callAt n c (bitsArgs r g2 out)) fun _ _ => True := by
   obtain ⟨_, c2, c3⟩ := rw_parts hc
   have hb : r.1 ∈ bases ∧ out.1 ∈ bases := ⟨ptr_bs hB c2, ptr_bs hB c3⟩
-  refine callAt_tr C (bits_args hB g2 c2 c3) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAtK_tr C (bits_args hB g2 c2 c3) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, rx, ry, e⟩ := hR x y hp
   refine ⟨_, _, bits_pre Lx hc hg rx h1, ?_, ?_, (rw_cov Lx hc).1, (rw_cov Lx hc).2, ?_, ?_⟩
@@ -360,7 +360,7 @@ theorem hint_pre {g2 : Nat} (hg : g2 ∈ gamma2s) (hz : Reduced s.mem (pa s z)) 
 
 end
 
-theorem hintAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.makeHint (makeHintContract AArch64.abi S))
+theorem hintAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.makeHint (makeHintContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {z r h : Ptr} (hc : hintChk rbs wbs z r h = true)
     {g2 : Nat} (hg : g2 ∈ gamma2s) (hz : Reduced s.mem (pa s z)) (hr : Reduced s.mem (pa s r)) :
     WP isa (callAt "vg_mldsa_make_hint" P.makeHint (hintArgs z r g2 h)) s fun s' =>
@@ -371,7 +371,7 @@ theorem hintAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.make
   have hc' := hc
   simp only [hintChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨⟨_, _⟩, c3⟩, c4⟩, c5⟩, _⟩ := hc'
-  refine WP.mono (callAt_ok hS C (hint_args L.ok g2 c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine WP.mono (callAtK_ok hS C (hint_args L.ok g2 c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => hint_pre L hc hg hz hr h1) (hint_cov L hc).1 (hint_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [makeHintContract, makeHintSig, AArch64.abi, VG.AArch64.argRegs] at hq
@@ -379,7 +379,7 @@ theorem hintAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.make
   simp only [Arg.val, imm32 (gamma2_lt hg)] at hq
   exact hq
 
-theorem hintAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.makeHint (makeHintContract AArch64.abi S))
+theorem hintAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.makeHint (makeHintContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {z r h : Ptr} (hc : hintChk rbs wbs z r h = true)
     {g2 : Nat} (hg : g2 ∈ gamma2s) {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧ (Reduced x.mem (pa x z) ∧ Reduced x.mem (pa x r)) ∧
@@ -389,7 +389,7 @@ theorem hintAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.makeHint (makeHintCont
   simp only [hintChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨⟨_, _⟩, c3⟩, c4⟩, c5⟩, _⟩ := hc'
   have hb : z.1 ∈ bases ∧ r.1 ∈ bases ∧ h.1 ∈ bases := ⟨ptr_bs hB c3, ptr_bs hB c4, ptr_bs hB c5⟩
-  refine callAt_tr C (hint_args hB g2 c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAtK_tr C (hint_args hB g2 c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, rx, ry, e⟩ := hQ x y hp
   refine ⟨_, _, hint_pre Lx hc hg rx.1 rx.2 h1, ?_, ?_, (hint_cov Lx hc).1, (hint_cov Lx hc).2, ?_, ?_⟩
@@ -440,7 +440,7 @@ theorem hbp_pre (hb : HbpOk hlen omega len) (hn : hintOnes (hintAt s.mem (pa s h
 
 end
 
-theorem hbpAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
+theorem hbpAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
     (C : CalleeOk S P.hintBitPack (hintBitPackContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {h y : Ptr} {hlen omega len : Nat}
     (hc : rwChk rbs wbs h (hlen * 4) y len = true) (hb : HbpOk hlen omega len)
@@ -450,7 +450,7 @@ theorem hbpAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
       bytesAt s'.mem (pa s y) len = hintBitPack omega (len - omega) (hintAt s.mem (pa s h) (len - omega)) := by
   obtain ⟨_, c2, c3⟩ := rw_parts hc
   have l1 := hb.hlt.1; have l2 := hb.hlt.2.1; have l3 := hb.hlt.2.2
-  refine WP.mono (callAt_ok hS C (hbp_args L.ok hlen omega len c2 c3)
+  refine WP.mono (callAtK_ok hS C (hbp_args L.ok hlen omega len c2 c3)
     (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => hbp_pre L hc hb hn h1) (rw_cov L hc).1 (rw_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
@@ -459,7 +459,7 @@ theorem hbpAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
   simp only [Arg.val, imm32 l2, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show len < 2 ^ 64 by omega)] at hq
   exact hq
 
-theorem hbpAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.hintBitPack (hintBitPackContract AArch64.abi S))
+theorem hbpAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.hintBitPack (hintBitPackContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {h y : Ptr} {hlen omega len : Nat}
     (hc : rwChk rbs wbs h (hlen * 4) y len = true) (hb : HbpOk hlen omega len) {Q : State → State → Prop}
     (hQ : ∀ x y', Q x y' → Lay S rbs wbs x ∧ Lay S rbs wbs y' ∧
@@ -471,7 +471,7 @@ theorem hbpAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.hintBitPack (hintBitPac
   obtain ⟨_, c2, c3⟩ := rw_parts hc
   have l1 := hb.hlt.1; have l2 := hb.hlt.2.1; have l3 := hb.hlt.2.2
   have hbs : h.1 ∈ bases ∧ y.1 ∈ bases := ⟨ptr_bs hB c2, ptr_bs hB c3⟩
-  refine callAt_tr C (hbp_args hB hlen omega len c2 c3) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAtK_tr C (hbp_args hB hlen omega len c2 c3) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y' x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, nx, ny, hl, e⟩ := hQ x y' hp
   refine ⟨_, _, hbp_pre Lx hc hb nx h1, ?_, ?_, (rw_cov Lx hc).1, (rw_cov Lx hc).2, ?_, ?_⟩

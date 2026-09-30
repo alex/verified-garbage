@@ -51,7 +51,7 @@ theorem ip_pre {t : Poly → Poly} (hr : Reduced s.mem (pa s f)) {s1 : State} (h
 
 end
 
-theorem ipAt_ok {S : Nat} (hS : S < 2 ^ 64) {t : Poly → Poly} {n : String} {c : Prog isa}
+theorem ipAtK_ok {S : Nat} (hS : S < 2 ^ 64) {t : Poly → Poly} {n : String} {c : Prog isa}
     (C : CalleeOk S c (inPlaceContract AArch64.abi t S)) {rbs wbs : List (Reg × Nat)} {s : State}
     (L : Lay S rbs wbs s) {f ss : Ptr} (hc : ipChk rbs wbs f ss = true) (hr : Reduced s.mem (pa s f)) :
     WP isa (callAt n c (ipArgs f ss)) s fun s' => PPostB S s s' [(f, 1024), (ss, 1024)] ∧
@@ -59,13 +59,13 @@ theorem ipAt_ok {S : Nat} (hS : S < 2 ^ 64) {t : Poly → Poly} {n : String} {c 
   have hc' := hc
   simp only [ipChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨_, c2⟩, c3⟩, _⟩, _⟩ := hc'
-  refine WP.mono (callAt_ok hS C (ip_args L.ok c2 c3) (by simp only [List.map_cons, List.map_nil]; decide) (fun s1 h1 => ip_pre L hc hr h1)
+  refine WP.mono (callAtK_ok hS C (ip_args L.ok c2 c3) (by simp only [List.map_cons, List.map_nil]; decide) (fun s1 h1 => ip_pre L hc hr h1)
     (ip_cov L hc).1 (ip_cov L hc).2) fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [inPlaceContract, inPlaceSig, AArch64.abi, VG.AArch64.argRegs] at hq
   rw [Args.r0 h1, Args.mem h1] at hq
   exact hq
 
-theorem ipAt_tr {S : Nat} {t : Poly → Poly} {n : String} {c : Prog isa}
+theorem ipAtK_tr {S : Nat} {t : Poly → Poly} {n : String} {c : Prog isa}
     (C : CalleeOk S c (inPlaceContract AArch64.abi t S)) {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs))
     {f ss : Ptr} (hc : ipChk rbs wbs f ss = true) {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧ Reduced x.mem (pa x f) ∧ Reduced y.mem (pa y f) ∧
@@ -74,7 +74,7 @@ theorem ipAt_tr {S : Nat} {t : Poly → Poly} {n : String} {c : Prog isa}
   have hc' := hc
   simp only [ipChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨_, c2⟩, c3⟩, _⟩, _⟩ := hc'
-  refine callAt_tr C (ip_args hB c2 c3) (by simp only [List.map_cons, List.map_nil]; decide) fun x y x1 y1 hp h1 h2 => ?_
+  refine callAtK_tr C (ip_args hB c2 c3) (by simp only [List.map_cons, List.map_nil]; decide) fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, rx, ry, e⟩ := hQ x y hp
   refine ⟨[], [⟨pa x f, 1024⟩, ⟨pa x ss, 1024⟩], ip_pre Lx hc rx h1, ?_, ?_, (ip_cov Lx hc).1, (ip_cov Lx hc).2,
     by rw [e.pa (ptr_bs hB c2), e.pa (ptr_bs hB c3)]; exact (ip_cov Ly hc).1,
@@ -136,7 +136,7 @@ theorem mulAdd_pre (hh : Reduced s.mem (pa s h)) (hf : Reduced s.mem (pa s f)) (
 
 end
 
-theorem mulAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.mul (mulContract AArch64.abi S))
+theorem mulAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.mul (mulContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {h f g : Ptr} (hc : mulChk rbs wbs h f g = true)
     (hf : Reduced s.mem (pa s f)) (hg : Reduced s.mem (pa s g)) :
     WP isa (mulAt P h f g) s fun s' => PPostB S s s' [(h, 1024)] ∧ s'.gpr .x24 = s.gpr .x24 ∧
@@ -144,13 +144,13 @@ theorem mulAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.mul (
   have hc' := hc
   simp only [mulChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨⟨_, _⟩, c3⟩, c4⟩, c5⟩, _⟩ := hc'
-  refine WP.mono (callAt_ok hS C (mul_args L.ok c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide) (fun s1 h1 => mul_pre L hc hf hg h1)
+  refine WP.mono (callAtK_ok hS C (mul_args L.ok c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide) (fun s1 h1 => mul_pre L hc hf hg h1)
     (mul_cov L hc).1 (mul_cov L hc).2) fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [mulContract, mulSig, AArch64.abi, VG.AArch64.argRegs] at hq
   rw [Args.r0 h1, Args.r1 h1, Args.r2 h1, Args.mem h1] at hq
   exact hq
 
-theorem mulAddAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.mulAdd (mulAddContract AArch64.abi S))
+theorem mulAddAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.mulAdd (mulAddContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {h f g : Ptr} (hc : mulChk rbs wbs h f g = true)
     (hh : Reduced s.mem (pa s h)) (hf : Reduced s.mem (pa s f)) (hg : Reduced s.mem (pa s g)) :
     WP isa (mulAddAt P h f g) s fun s' => PPostB S s s' [(h, 1024)] ∧ s'.gpr .x24 = s.gpr .x24 ∧
@@ -158,7 +158,7 @@ theorem mulAddAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.mu
   have hc' := hc
   simp only [mulChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨⟨_, _⟩, c3⟩, c4⟩, c5⟩, _⟩ := hc'
-  refine WP.mono (callAt_ok hS C (mul_args L.ok c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide) (fun s1 h1 => mulAdd_pre L hc hh hf hg h1)
+  refine WP.mono (callAtK_ok hS C (mul_args L.ok c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide) (fun s1 h1 => mulAdd_pre L hc hh hf hg h1)
     (mul_cov L hc).1 (mul_cov L hc).2) fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [mulAddContract, mulSig, AArch64.abi, VG.AArch64.argRegs] at hq
   rw [Args.r0 h1, Args.r1 h1, Args.r2 h1, Args.mem h1] at hq
@@ -171,7 +171,7 @@ theorem mul_pub {x y x1 y1 : State} {h f g : Ptr} (hb : h.1 ∈ bases ∧ f.1 �
   simp only [Arg.val]
   exact ⟨e.2, e.pa hb.1, e.pa hb.2.1, e.pa hb.2.2⟩
 
-theorem mulAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.mul (mulContract AArch64.abi S))
+theorem mulAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.mul (mulContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {h f g : Ptr} (hc : mulChk rbs wbs h f g = true)
     {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧ (Reduced x.mem (pa x f) ∧ Reduced x.mem (pa x g)) ∧
@@ -181,7 +181,7 @@ theorem mulAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.mul (mulContract AArch6
   simp only [mulChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨⟨_, _⟩, c3⟩, c4⟩, c5⟩, _⟩ := hc'
   have hb : h.1 ∈ bases ∧ f.1 ∈ bases ∧ g.1 ∈ bases := ⟨ptr_bs hB c3, ptr_bs hB c4, ptr_bs hB c5⟩
-  refine callAt_tr C (mul_args hB c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide) fun x y x1 y1 hp h1 h2 => ?_
+  refine callAtK_tr C (mul_args hB c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide) fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, rx, ry, e⟩ := hQ x y hp
   refine ⟨_, _, mul_pre Lx hc rx.1 rx.2 h1, ?_, ?_, (mul_cov Lx hc).1, (mul_cov Lx hc).2, ?_, ?_⟩
   · rw [e.pa hb.1, e.pa hb.2.1, e.pa hb.2.2]; exact mul_pre Ly hc ry.1 ry.2 h2
@@ -190,7 +190,7 @@ theorem mulAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.mul (mulContract AArch6
   · rw [e.pa hb.1, e.pa hb.2.1, e.pa hb.2.2]; exact (mul_cov Ly hc).1
   · rw [e.pa hb.1]; exact (mul_cov Ly hc).2
 
-theorem mulAddAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.mulAdd (mulAddContract AArch64.abi S))
+theorem mulAddAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.mulAdd (mulAddContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {h f g : Ptr} (hc : mulChk rbs wbs h f g = true)
     {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧
@@ -201,7 +201,7 @@ theorem mulAddAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.mulAdd (mulAddContra
   simp only [mulChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨⟨_, _⟩, c3⟩, c4⟩, c5⟩, _⟩ := hc'
   have hb : h.1 ∈ bases ∧ f.1 ∈ bases ∧ g.1 ∈ bases := ⟨ptr_bs hB c3, ptr_bs hB c4, ptr_bs hB c5⟩
-  refine callAt_tr C (mul_args hB c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide) fun x y x1 y1 hp h1 h2 => ?_
+  refine callAtK_tr C (mul_args hB c3 c4 c5) (by simp only [List.map_cons, List.map_nil]; decide) fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, rx, ry, e⟩ := hQ x y hp
   refine ⟨_, _, mulAdd_pre Lx hc rx.1 rx.2.1 rx.2.2 h1, ?_, ?_, (mul_cov Lx hc).1, (mul_cov Lx hc).2, ?_, ?_⟩
   · rw [e.pa hb.1, e.pa hb.2.1, e.pa hb.2.2]; exact mulAdd_pre Ly hc ry.1 ry.2.1 ry.2.2 h2
@@ -247,7 +247,7 @@ theorem acc_pre {op : Poly → Poly → Poly} (hf : Reduced s.mem (pa s f)) (hg 
 
 end
 
-theorem accAt_ok {S : Nat} (hS : S < 2 ^ 64) {op : Poly → Poly → Poly} {n : String} {c : Prog isa}
+theorem accAtK_ok {S : Nat} (hS : S < 2 ^ 64) {op : Poly → Poly → Poly} {n : String} {c : Prog isa}
     (C : CalleeOk S c (accSig.contract AArch64.abi (pre := fun f g m => Reduced m f ∧ Reduced m g)
       (post := fun f g m m' _ => PolyIs m' f (op (polyAt m f) (polyAt m g))) (writeArgs := true) (stack := S)))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {f g : Ptr} (hc : accChk rbs wbs f g = true)
@@ -257,13 +257,13 @@ theorem accAt_ok {S : Nat} (hS : S < 2 ^ 64) {op : Poly → Poly → Poly} {n : 
   have hc' := hc
   simp only [accChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨_, c2⟩, c3⟩, _⟩ := hc'
-  refine WP.mono (callAt_ok hS C (acc_args L.ok c2 c3) (by simp only [List.map_cons, List.map_nil]; decide) (fun s1 h1 => acc_pre L hc hf hg h1)
+  refine WP.mono (callAtK_ok hS C (acc_args L.ok c2 c3) (by simp only [List.map_cons, List.map_nil]; decide) (fun s1 h1 => acc_pre L hc hf hg h1)
     (acc_cov L hc).1 (acc_cov L hc).2) fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [accSig, AArch64.abi, VG.AArch64.argRegs] at hq
   rw [Args.r0 h1, Args.r1 h1, Args.mem h1] at hq
   exact hq
 
-theorem accAt_tr {S : Nat} {op : Poly → Poly → Poly} {n : String} {c : Prog isa}
+theorem accAtK_tr {S : Nat} {op : Poly → Poly → Poly} {n : String} {c : Prog isa}
     (C : CalleeOk S c (accSig.contract AArch64.abi (pre := fun f g m => Reduced m f ∧ Reduced m g)
       (post := fun f g m m' _ => PolyIs m' f (op (polyAt m f) (polyAt m g))) (writeArgs := true) (stack := S)))
     {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {f g : Ptr} (hc : accChk rbs wbs f g = true)
@@ -275,7 +275,7 @@ theorem accAt_tr {S : Nat} {op : Poly → Poly → Poly} {n : String} {c : Prog 
   simp only [accChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨_, c2⟩, c3⟩, _⟩ := hc'
   have hb : f.1 ∈ bases ∧ g.1 ∈ bases := ⟨ptr_bs hB c2, ptr_bs hB c3⟩
-  refine callAt_tr C (acc_args hB c2 c3) (by simp only [List.map_cons, List.map_nil]; decide) fun x y x1 y1 hp h1 h2 => ?_
+  refine callAtK_tr C (acc_args hB c2 c3) (by simp only [List.map_cons, List.map_nil]; decide) fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, rx, ry, e⟩ := hQ x y hp
   refine ⟨_, _, acc_pre Lx hc rx.1 rx.2 h1, ?_, ?_, (acc_cov Lx hc).1, (acc_cov Lx hc).2, ?_, ?_⟩
   · rw [e.pa hb.1, e.pa hb.2]; exact acc_pre Ly hc ry.1 ry.2 h2

@@ -7,11 +7,11 @@ import VerifiedGarbage.Proof.Framework.Sig
 # ML-DSA on AArch64: calls
 
 Untrusted: everything here is checked by Lean. A call of verified code,
-with the moves of its arguments before it (`callAt_ok`), leaves the
+with the moves of its arguments before it (`callAtK_ok`), leaves the
 permissions, the stack pointer and the callee-saved registers but `x30` as
 they were, and changes memory only within the buffers it writes and the `S`
 bytes of stack below the stack pointer (`Post`); two runs whose callee's
-preconditions hold and whose public data agree leak the same (`callAt_tr`).
+preconditions hold and whose public data agree leak the same (`callAtK_tr`).
 
 A callee (`CalleeOk S`) is correct and constant time under its contract
 with a stack of `S` bytes, and its frames use at most those `S` bytes; one
@@ -141,7 +141,7 @@ theorem CalleeOk.of_verified {S : Nat} (hS : S < 2 ^ 64) {c : Prog isa} {sig : S
 
 /-! ## Calls -/
 
-theorem callAt_ok {S : Nat} (hS : S < 2 ^ 64) {n : String} {c : Prog isa} {k : Contract isa}
+theorem callAtK_ok {S : Nat} (hS : S < 2 ^ 64) {n : String} {c : Prog isa} {k : Contract isa}
     (C : CalleeOk S c k) {as : List (Reg × Arg)} (hok : ∀ a ∈ as, a.2.Ok ∧ a.1 ∈ argRegs)
     (hnd : (as.map (·.1)).Nodup) {s : State} {rd wr : List Region}
     (hpre : ∀ s1, Args as s s1 → k.pre (s1.callEntry.withRegions rd wr))
@@ -159,7 +159,7 @@ theorem callAt_ok {S : Nat} (hS : S < 2 ^ 64) {n : String} {c : Prog isa} {k : C
 
 /-- The trace of the moves then a call, from two runs whose callee's
 preconditions hold and whose callee's public data agree. -/
-theorem callAt_tr {S : Nat} {n : String} {c : Prog isa} {k : Contract isa} (C : CalleeOk S c k)
+theorem callAtK_tr {S : Nat} {n : String} {c : Prog isa} {k : Contract isa} (C : CalleeOk S c k)
     {as : List (Reg × Arg)} (hok : ∀ a ∈ as, a.2.Ok ∧ a.1 ∈ argRegs) (hnd : (as.map (·.1)).Nodup)
     {P : State → State → Prop}
     (hP : ∀ x y x1 y1, P x y → Args as x x1 → Args as y y1 → ∃ rd wr : List Region,

@@ -54,7 +54,7 @@ theorem rejNtt_args {bs : List (Reg × Nat)} (L : LayOk bs) {seed a ss : Ptr} (c
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
   exact ⟨⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨ptr_ok (ptr_bs L c5), by decide⟩, ⟨ptr_ok (ptr_bs L c6), by decide⟩⟩
 
-theorem rejNttAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContract AArch64.abi S))
+theorem rejNttAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {seed a ss : Ptr}
     (hc : rejNttChk rbs wbs seed a ss = true) :
     WP isa (callAt "vg_mldsa_rej_ntt_poly" P.rejNTT (rejNttArgs seed a ss)) s fun s' => PPostB S s s' [(a, 1024), (ss, 2048)] ∧ s'.gpr .x24 = s.gpr .x24 ∧
@@ -64,14 +64,14 @@ theorem rejNttAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.re
   have hc' := hc
   simp only [rejNttChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
-  refine WP.mono (callAt_ok hS C (rejNtt_args L.ok c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine WP.mono (callAtK_ok hS C (rejNtt_args L.ok c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => rejNtt_pre L hc h1) (rejNtt_cov L hc).1 (rejNtt_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [rejNTTContract, rejNTTSig, AArch64.abi, VG.AArch64.argRegs] at hq
   rw [Args.r0 h1, Args.r1 h1, Args.mem h1] at hq
   exact hq
 
-theorem rejNttAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContract AArch64.abi S))
+theorem rejNttAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {seed a ss : Ptr} (hc : rejNttChk rbs wbs seed a ss = true)
     {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧
@@ -81,7 +81,7 @@ theorem rejNttAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContra
   simp only [rejNttChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
   have hb : seed.1 ∈ bases ∧ a.1 ∈ bases ∧ ss.1 ∈ bases := ⟨ptr_bs hB c4, ptr_bs hB c5, ptr_bs hB c6⟩
-  refine callAt_tr C (rejNtt_args hB c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAtK_tr C (rejNtt_args hB c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, hsd, e⟩ := hQ x y hp
   refine ⟨_, _, rejNtt_pre Lx hc h1, ?_, ?_, (rejNtt_cov Lx hc).1, (rejNtt_cov Lx hc).2, ?_, ?_⟩
@@ -139,7 +139,7 @@ theorem ball_args {bs : List (Reg × Nat)} (L : LayOk bs) {ct c ss : Ptr} (len t
   exact ⟨⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
     ⟨ptr_ok (ptr_bs L c5), by decide⟩, ⟨ptr_ok (ptr_bs L c6), by decide⟩⟩
 
-theorem ballAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.ball (sampleInBallContract AArch64.abi S))
+theorem ballAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.ball (sampleInBallContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {ct c ss : Ptr} {len : Nat}
     (hc : ballChk rbs wbs ct len c ss = true) {tau : Nat} (ht : (len, tau) ∈ ballParams) :
     WP isa (callAt "vg_mldsa_sample_in_ball" P.ball (ballArgs ct len tau c ss)) s fun s' => PPostB S s s' [(c, 1024), (ss, 2048)] ∧
@@ -152,7 +152,7 @@ theorem ballAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.ball
   have hc' := hc
   simp only [ballChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
-  refine WP.mono (callAt_ok hS C (ball_args L.ok len tau c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine WP.mono (callAtK_ok hS C (ball_args L.ok len tau c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => ball_pre L hc ht h1) (ball_cov L hc).1 (ball_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [sampleInBallContract, sampleInBallSig, AArch64.abi, VG.AArch64.argRegs] at hq
@@ -161,7 +161,7 @@ theorem ballAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.ball
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega), imm32 hl.2] at hq
   exact hq
 
-theorem ballAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.ball (sampleInBallContract AArch64.abi S))
+theorem ballAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.ball (sampleInBallContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {ct c ss : Ptr} {len : Nat}
     (hc : ballChk rbs wbs ct len c ss = true) {tau : Nat} (ht : (len, tau) ∈ ballParams) {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧
@@ -173,7 +173,7 @@ theorem ballAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.ball (sampleInBallCont
   simp only [ballChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
   have hb : ct.1 ∈ bases ∧ c.1 ∈ bases ∧ ss.1 ∈ bases := ⟨ptr_bs hB c4, ptr_bs hB c5, ptr_bs hB c6⟩
-  refine callAt_tr C (ball_args hB len tau c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAtK_tr C (ball_args hB len tau c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, hsd, e⟩ := hQ x y hp
   refine ⟨_, _, ball_pre Lx hc ht h1, ?_, ?_, (ball_cov Lx hc).1, (ball_cov Lx hc).2, ?_, ?_⟩
