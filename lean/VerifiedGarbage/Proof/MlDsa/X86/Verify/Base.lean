@@ -55,7 +55,7 @@ structure VFacts (p : Params) : Prop where
   kl : 4 ≤ p.k * p.ℓ ∧ p.k * p.ℓ ≤ 56
   ct : 32 ≤ p.ctildeLen ∧ p.ctildeLen ≤ 64
   lz : 576 ≤ lenZ p ∧ lenZ p ≤ 640
-  w1 : 128 ≤ w1Len p ∧ p.k * w1Len p ≤ 1024
+  w1 : 128 ≤ w1Len p ∧ 512 ≤ p.k * w1Len p ∧ p.k * w1Len p ≤ 1024
   scr : 8192 + 1024 * (20 + 8 * p.k) ≤ scratchWords p * 8
   pk : p.pkLen = 32 + 320 * p.k
   sig : p.sigLen = p.ctildeLen + lenZ p * p.ℓ + p.ω + p.k

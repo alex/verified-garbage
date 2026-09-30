@@ -194,8 +194,8 @@ theorem cmpAnd_piece (hsc : Y.sc = vS) {a b : Buf} (hc : Y.okW (accB Y) = true) 
     (t₁ : (VG.X86.taint.check (τr [.esp, .esi]) (.block (ptrTo Y.sc .edi a ++ ptrTo Y.sc .ebp b ++
       ([.mov .ecx (.imm (BitVec.ofNat 32 a.len)), .mov .edx (.imm 0)] : List Instr))) h₁).isSome = true)
     (t₂ : (VG.X86.taint.check (τr [.edi, .ebp, .ecx]) (.loop (.block Impl.MlDsa.X86.Verify.cmpBody) .ne) h₂).isSome = true)
-    (t₃ : (VG.X86.taint.check (τr [.esi]) (.block ([.alu .sub .edx (.imm 1), .alu .sbb .eax (.reg .eax)] ++ accAnd))
-      h₃).isSome = true)
+    (t₃ : (VG.X86.taint.check (τr [.esi])
+      (.block (([.alu .sub .edx (.imm 1), .alu .sbb .eax (.reg .eax)] : List Instr) ++ accAnd)) h₃).isSome = true)
     (hA : ∀ s₀ s, TPre Y s₀ → A s₀ s → Ctx Y s₀ s)
     (hQ : ∀ s₀ s s', TPre Y s₀ → A s₀ s → Ctx Y s₀ s' →
       s'.mem = s.mem.writeW (Buf.addr s₀ (accB Y)) (s.mem.readW (Buf.addr s₀ (accB Y)) 32 &&&
