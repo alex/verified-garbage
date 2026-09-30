@@ -55,6 +55,7 @@ FEATURES = {
     "aes": "AES-NI",
     "pclmulqdq": "PCLMULQDQ",
     "ssse3": None,
+    "avx512f": "AVX-512F",
     "avx2": "AVX2",
     "avx": None,
     "bmi1": "BMI1",

@@ -109,7 +109,7 @@ theorem Ctx.subL {L : Lay} {s : State} (hc : Ctx L s) {W W' : List (Nat × Nat �
   refine ⟨L.R i b l', List.mem_map.mpr ⟨_, hw', rfl⟩, Lay.R_sub_R hc.ok ?_ h₁ h₂ ?_⟩
   · have := hc.len; rcases h₃ with ⟨e, -⟩ | ⟨e, -⟩ <;> subst e <;> omega
   · rcases h₃ with ⟨e, h⟩ | ⟨e, h⟩ <;> subst e
-    · rw [hc.sz0]; exact h
+    · exact Nat.le_trans h hc.sz0
     · rw [hc.sz1]; exact h
 
 theorem KeptX.subL {L : Lay} {xs : List Reg} {W W' : List (Nat × Nat × Nat)} {s₀ s s' : State} (hc : Ctx L s₀)

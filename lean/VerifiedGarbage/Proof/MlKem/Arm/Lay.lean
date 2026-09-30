@@ -184,17 +184,18 @@ theorem Only.of_gpr {s : State} (g : Reg → BitVec 32) (h : ∀ r ∈ preserved
 
 /-! ## The setting of the parts -/
 
-/-- `s` runs a part of a top-level function: `scratch` (buffer 0, 32768
-bytes, writable) in `r7`, and the 8 bytes below the stack pointer (buffer 1). -/
+/-- `s` runs a part of a top-level function: `scratch` (buffer 0, writable,
+of which the parts use the first 32768 bytes) in `r7`, and the 8 bytes
+below the stack pointer (buffer 1). -/
 structure Ctx (L : Lay) (s : State) : Prop where
   ok : L.Ok
-  sz0 : L.size 0 = 32768
+  sz0 : 32768 ≤ L.size 0
   sz1 : L.size 1 = 8
   len : 2 ≤ L.sizes.length
   r7 : s.gpr .r7 = L.ptr 0
   sp8 : 8 ≤ s.sp.toNat
   sp : L.ptr 1 = s.sp - BitVec.ofNat 32 8
-  cw : (⟨State.addr (L.ptr 0), 32768⟩ : Region) ∈ s.wr
+  cw : (⟨State.addr (L.ptr 0), L.size 0⟩ : Region) ∈ s.wr
 
 theorem Ctx.bel {L : Lay} {s : State} (h : Ctx L s) : below s 8 = L.R 1 0 8 := by
   simp only [Lay.R, h.sp, addr_sub h.sp8, add_ofNat_zero]
@@ -207,22 +208,22 @@ theorem Ctx.only {L : Lay} {s s' : State} (h : Ctx L s) (hk : Only s s') : Ctx L
 
 /-- A part of `scratch` the state may write. -/
 theorem Ctx.cs {L : Lay} {s : State} (h : Ctx L s) {o l : Nat} (hl : o + l ≤ 32768) :
-    Covers [L.R 0 o l] s.wr := Lay.covers (by rw [h.sz0]; exact h.cw) (by rw [h.sz0]; exact hl)
+    Covers [L.R 0 o l] s.wr := Lay.covers h.cw (Nat.le_trans hl h.sz0)
 
 theorem Ctx.addr {L : Lay} {s : State} (h : Ctx L s) {o : Nat} (ho : o < 32768) :
     State.addr (L.ptr 0 + BitVec.ofNat 32 o) = State.addr (L.ptr 0) + BitVec.ofNat 64 o :=
-  Lay.addr_off h.ok (by have := h.len; omega) (by rw [h.sz0]; exact ho)
+  Lay.addr_off h.ok (by have := h.len; omega) (Nat.lt_of_lt_of_le ho h.sz0)
 
 theorem Ctx.regAo {L : Lay} {s : State} (h : Ctx L s) {o : Nat} (ho : o < 32768) (l : Nat) :
     regA (L.ptr 0 + BitVec.ofNat 32 o) l = L.R 0 o l :=
-  Lay.regA_off h.ok (by have := h.len; omega) (by rw [h.sz0]; exact ho)
+  Lay.regA_off h.ok (by have := h.len; omega) (Nat.lt_of_lt_of_le ho h.sz0)
 
 theorem Ctx.fit {L : Lay} {s : State} (h : Ctx L s) : (L.ptr 0).toNat + 32768 ≤ 2 ^ 32 := by
-  have := h.ok.fit 0 (by have := h.len; omega); rwa [h.sz0] at this
+  have := h.ok.fit 0 (by have := h.len; omega); have := h.sz0; omega
 
 theorem Ctx.fitO {L : Lay} {s : State} (h : Ctx L s) {o l : Nat} (hl : o + l ≤ 32768) (hl0 : 0 < l) :
     (L.ptr 0 + BitVec.ofNat 32 o).toNat + l ≤ 2 ^ 32 :=
-  Lay.fit_off h.ok (by have := h.len; omega) (by rw [h.sz0]; exact hl) hl0
+  Lay.fit_off h.ok (by have := h.len; omega) (Nat.le_trans hl h.sz0) hl0
 
 theorem Ctx.disj {L : Lay} {s : State} (h : Ctx L s) {a b : Nat × Nat × Nat} (hs : sepB L.sizes a b = true) :
     (L.R a.1 a.2.1 a.2.2).Disjoint (L.R b.1 b.2.1 b.2.2) := Lay.disj h.ok hs
