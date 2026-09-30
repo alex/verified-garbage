@@ -25,7 +25,7 @@ same layout leak the same (`…At_tr`).
 namespace VG.Proof.MlDsa.Arm.Sign
 
 open VG VG.Arm VG.Impl.MlDsa.Arm.Sign
-open VG.Proof.MlKem.Arm (push2_frame addr_sub setWidth_append32)
+open VG.Proof.MlKem.Arm (push2_frame push2_arg addr_sub setWidth_append32)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
@@ -138,6 +138,16 @@ theorem Ent.conj {bs : List (Ptr × Nat)} (h : ∀ b ∈ bs, inB (rbs ++ wbs) b.
 
 end
 
+/-- The stack of a callee, apart from the regions `bs`. -/
+theorem conj_stk {sp : BitVec 32} {S : Nat} (bs : List Region) (h : ∀ B ∈ bs, (belowA sp S).Disjoint B) :
+    Sig.conj ((List.map (fun r => bs.map fun B => r.Disjoint B) (stackBelow (State.addr sp) S)).flatten) := by
+  cases S with
+  | zero => exact trivial
+  | succ S =>
+    simp only [stackBelow, List.map_cons, List.map_nil, List.flatten_cons, List.flatten_nil, List.append_nil]
+    rw [Sig.conj_map]
+    exact h
+
 theorem wf0 {S : Nat} {sp : BitVec 32} (h : S ≤ sp.toNat) :
     (match (generalizing := false) S with | 0 => sp.toNat ≤ 2 ^ 32 | n => n ≤ sp.toNat ∧ sp.toNat ≤ 2 ^ 32) := by
   have := sp.isLt
@@ -178,6 +188,60 @@ theorem ent_S {D S : Nat} {rbs wbs : List (Reg × Nat)} {s s1 : State} (L : Lay 
     have hd := (L.stkD h).sub_left (belowA_sub (show 8 ≤ D by omega))
     intro hc
     refine hd _ (by rw [← k.sp]; exact hc) (Offset.contains_base _ (by omega) (by have := L.nwp h; omega))
+
+/-! ## The stack argument of a call with a frame -/
+
+section
+variable {D : Nat} {rbs wbs : List (Reg × Nat)} {s s1 : State} (L : Lay D rbs wbs s) (k : Keep argRegs s s1)
+include L k
+
+/-- The address and value of the stack argument, in the callee's entry state. -/
+theorem stk_arg (hD : 8 ≤ D) (rd wr : List Region) :
+    stackArgAddr ((pushed [.r12, .lr] s1).callEntry.withRegions rd wr) 0 = State.addr s.sp - BitVec.ofNat 64 8 ∧
+      stackArg ((pushed [.r12, .lr] s1).callEntry.withRegions rd wr) 0 = s1.gpr .r12 := by
+  have h8 : 8 ≤ s1.sp.toNat := by rw [k.sp]; have := L.sp; omega
+  obtain ⟨a0, a1, -⟩ := push2_arg (t := (pushed [.r12, .lr] s1).callEntry.withRegions rd wr) h8 rfl rfl
+  rw [← k.sp]; exact ⟨a0, a1⟩
+
+/-- The regions a callee with a frame of stack arguments is given, in the
+state after the push. -/
+theorem cov_S (hD : 8 ≤ D) {rd wr : List Region} (hc : Covers rd (s.rd ++ s.wr)) (hw : Covers wr s.wr) :
+    Covers ((rd ++ [argR s]) ++ wr) ((pushed [.r12, .lr] s1).rd ++ (pushed [.r12, .lr] s1).wr) ∧
+      Covers wr (pushed [.r12, .lr] s1).wr := by
+  have h8 : 8 ≤ s1.sp.toNat := by rw [k.sp]; have := L.sp; omega
+  have hwp : (pushed [.r12, .lr] s1).wr = belowA s.sp 8 :: s.wr := by
+    rw [VG.Arm.pushed_wr, frame8 h8, k.wr, k.sp]
+  rw [VG.Arm.pushed_rd, hwp, k.rd]
+  refine ⟨fun x m hx => ?_, fun x m hx => ?_⟩
+  · rcases (by simpa only [InRegions, List.mem_append, or_assoc] using hx : ∃ r, (r ∈ rd ∨ r ∈ [argR s] ∨ r ∈ wr) ∧
+      r.Contains x m) with ⟨r, (hr | hr | hr), hcr⟩
+    · obtain ⟨r', hr', hc'⟩ := hc x m ⟨r, hr, hcr⟩
+      rcases List.mem_append.mp hr' with h | h
+      · exact ⟨r', List.mem_append_left _ h, hc'⟩
+      · exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ h), hc'⟩
+    · simp only [List.mem_singleton] at hr; subst hr
+      exact ⟨_, List.mem_append_right _ (List.mem_cons_self ..), argR_contains hcr⟩
+    · obtain ⟨r', hr', hc'⟩ := hw x m ⟨r, hr, hcr⟩
+      exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ hr'), hc'⟩
+  · obtain ⟨r', hr', hc'⟩ := hw x m hx
+    exact ⟨r', List.mem_cons_of_mem _ hr', hc'⟩
+
+omit k in
+/-- The stack argument lies apart from the buffers. -/
+theorem argR_disj (hD : 8 ≤ D) {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) :
+    (argR s).Disjoint ⟨pa s p, l⟩ :=
+  (L.stkD h).sub_left fun x hx => belowA_sub hD x (argR_sub s x hx)
+
+omit k in
+/-- The stack argument lies above the callee's stack. -/
+theorem argR_stk {S : Nat} (hS : S + 8 ≤ D) : (belowA (s.sp - BitVec.ofNat 32 8) S).Disjoint (argR s) := by
+  have h8 : 8 ≤ s.sp.toNat := by have := L.sp; omega
+  have := L.sp; have := s.sp.isLt
+  simp only [belowA, argR]
+  rw [addr_sub h8]
+  exact (Offset.base_disjoint_below _ (by omega)).symm
+
+end
 
 /-! ## Registers of the entry state -/
 
