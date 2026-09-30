@@ -63,7 +63,8 @@ Modelling choices:
   has no architectural effect, so the model treats it as a no-op.
 * MXCSR-configuration-dependent timing (MCDT): on some Intel processors,
   the multiplies of the model but `mul` and `mulx` (`pmuludq`, `vpmuludq`,
-  `pmullw`, `vpmullw`, `pmulhw` and `vpmulhw`), although on Intel's DOIT
+  `pmullw`, `vpmullw`, `pmulhw`, `vpmulhw`, `vpmadd52luq` and
+  `vpmadd52huq`), although on Intel's DOIT
   list, may take up to a cycle longer to retire for specific data values
   unless MXCSR holds `0x1FBF` (Intel, "MXCSR Configuration Dependent Timing", and
   its list of the instructions affected, "MCDT Data Operand Independent
@@ -215,7 +216,11 @@ VPUNPCKLDQ, VPUNPCKHDQ, VPUNPCKLQDQ and VPUNPCKHQDQ (`EVEX.512.66.0F.W0 62
 ib`), VMOVDQU32 (`EVEX.512.F3.0F.W0 6F /r`, `EVEX.512.F3.0F.W0 7F /r`) and
 VBROADCASTI32X4 (`EVEX.512.66.0F38.W0 5A /r`). SHA512 for VSHA512RNDS2,
 VSHA512MSG1 and VSHA512MSG2 (`VEX.256.F2.0F38.W0 CB /r`, `VEX.256.F2.0F38.W0
-CC /r`, `VEX.256.F2.0F38.W0 CD /r`). -/
+CC /r`, `VEX.256.F2.0F38.W0 CD /r`). AVX512_IFMA and AVX512VL for the
+EVEX.128 and EVEX.256 forms of VPMADD52LUQ and VPMADD52HUQ
+(`EVEX.256.66.0F38.W1 B4 /r`, `EVEX.256.66.0F38.W1 B5 /r`; the SDM's
+"CPUID Feature Flag" column lists both, AVX512VL for the vector lengths
+below 512 bits). -/
 def Instr.requires : Instr → List String
   | .xop (.bin .pshufb ..) | .xop (.palignr ..) => ["ssse3"]
   | .xop (.bin .sha256msg1 ..) | .xop (.bin .sha256msg2 ..) | .xop (.sha256rnds2 ..) => ["sha"]
@@ -237,6 +242,7 @@ def Instr.requires : Instr → List String
   | .andn32 .. | .andn .. => ["bmi1"]
   | .zop _ | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. => ["avx512f"]
   | .vop (.vsha512rnds2 ..) | .vop (.vsha512msg1 ..) | .vop (.vsha512msg2 ..) => ["sha512"]
+  | .vop (.vpmadd52luq ..) | .vop (.vpmadd52huq ..) => ["avx512ifma", "avx512vl"]
   | _ => []
 
 /-- Semantics of an instruction. The byte forms: SDM Vol. 2, "MOVZX":
