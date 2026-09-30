@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.Lay
-import VerifiedGarbage.Proof.MlDsa.KeyGen.Masked
+import VerifiedGarbage.Proof.MlDsa.KeyGen.Mask32
 import VerifiedGarbage.Proof.MlDsa.KeyGen.Rest
 import VerifiedGarbage.Proof.Framework.KernelRfl
 

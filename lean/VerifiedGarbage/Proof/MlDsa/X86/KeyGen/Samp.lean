@@ -202,7 +202,7 @@ theorem expS_piece {r : Nat} (hr : r < p.ℓ + p.k) :
     · dsimp only
       rcases (by omega : r' < r ∨ r' = r) with hr' | rfl
       · rw [ifn (by omega)]; exact kS' r' hr'
-      · rw [ifp rfl]; exact ⟨(m0 e0), Proof.MlDsa.KeyGen.small_zero _⟩
+      · rw [ifp rfl]; exact ⟨(m0 e0), Proof.MlDsa.KeyGen.zeroI_small _⟩
     · rw [ea, e0]
       exact .inr ⟨BitVec.and_zero, Proof.MlDsa.KeyGen.keyGenInternal_none_S hr hn⟩
   · -- It succeeded.

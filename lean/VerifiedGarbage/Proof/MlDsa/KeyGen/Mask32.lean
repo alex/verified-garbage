@@ -42,7 +42,7 @@ theorem masked {m m' : Mem} {p : Addr} {r : BitVec 32} (hr : r = 0 ∨ r = 1)
       fun e => absurd e (by decide)⟩
     simp only [polyAt, Vector.getElem_ofFn, h' i hi]
 
-theorem small_zero (η : Nat) : ∀ c ∈ zeroI.toList, -(η : Int) ≤ c ∧ c ≤ η := fun c hc => by
+theorem zeroI_small (η : Nat) : ∀ c ∈ zeroI.toList, -(η : Int) ≤ c ∧ c ≤ η := fun c hc => by
   rw [Vector.mem_toList_iff, Vector.mem_replicate] at hc
   rw [hc.2]; omega
 
