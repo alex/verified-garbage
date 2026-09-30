@@ -13,7 +13,7 @@ import VerifiedGarbage.Proof.Pbkdf2.Arm.Lit
 # PBKDF2-HMAC-SHA-256's iteration on ARMv7: the parts of a step
 
 Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 and AArch64 proofs (`VG.Proof.Pbkdf2.X86_64.Iterate`,
+x86-64 and AArch64 proofs (`Proof/Pbkdf2/X86_64/Iterate.lean`,
 `VG.Proof.Pbkdf2.AArch64`), with the same target-independent memory lemmas
 (`VG.Proof.Pbkdf2.Memory`). Each step is two calls of `vg_sha256_compress`, used as a black box
 through its proof (`compressAt_ok`, from the streaming SHA-256 proof). The
