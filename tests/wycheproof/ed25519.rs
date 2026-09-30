@@ -41,12 +41,8 @@ fn ed25519_test() {
         } else {
             Err(Error::InvalidSignature)
         };
-        assert_eq!(
-            key.verify(&test.case.msg.0, &test.case.sig.0),
-            expected,
-            "tcId {}",
-            test.tc_id
-        );
+        let actual = key.verify(&test.case.msg.0, &test.case.sig.0);
+        assert_eq!(actual, expected, "tcId {}", test.tc_id);
         checked += 1;
     }
     assert!(checked > 0);
