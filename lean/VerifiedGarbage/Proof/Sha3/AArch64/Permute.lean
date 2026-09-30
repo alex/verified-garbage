@@ -109,6 +109,18 @@ theorem wp_and {d n m : Reg}
   WP.cons (s' := s.write .x d (s.gpr n &&& s.gpr m)) (by simp [exec, State.read])
     (k _ (Upd.write64 _ _ _))
 
+theorem wp_orr {d n m : Reg}
+    (k : ∀ s', Upd s s' d (s.gpr n ||| s.gpr m) → WP isa (.block is) s' Q) :
+    WP isa (.block (.logic .orr .x d n m :: is)) s Q :=
+  WP.cons (s' := s.write .x d (s.gpr n ||| s.gpr m)) (by simp [exec, State.read])
+    (k _ (Upd.write64 _ _ _))
+
+theorem wp_lsr {d n : Reg} {sh : Nat} (h : sh < 64)
+    (k : ∀ s', Upd s s' d (s.gpr n >>> sh) → WP isa (.block is) s' Q) :
+    WP isa (.block (.lsr .x d n sh :: is)) s Q :=
+  WP.cons (s' := s.write .x d (s.gpr n >>> sh)) (by simp [exec, h, State.read])
+    (k _ (Upd.write64 _ _ _))
+
 theorem wp_eor {d n m : Reg}
     (k : ∀ s', Upd s s' d (s.gpr n ^^^ s.gpr m) → WP isa (.block is) s' Q) :
     WP isa (.block (.logic .eor .x d n m :: is)) s Q :=
