@@ -137,7 +137,8 @@ theorem update {f : Callee} (hf : f.Ok)
     Verified X86_64.target (Impl.Sha256.X86_64.Stream.update f) (Spec.Sha256.updateContract X86_64.abi 8) :=
   (Proof.Sha256.X86_64.Stream.Update.verified_of hf (by
     simp only [Impl.Sha256.X86_64.Stream.update, Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody,
-      Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressAt, Code.allInstrs, hm,
+      Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressWith,
+      Code.allInstrs, hm,
       Bool.true_and]
     decide +kernel)).of_implies (by
     contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, Proof.Sha256.updateX86_64,
@@ -149,7 +150,7 @@ open VG.Impl.Sha256.X86_64.Stream (Callee) in
 theorem update_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
     (Impl.Sha256.X86_64.Stream.update f).all (fun i => !X86_64.isa.writesSp i) = true := by
   simp only [Impl.Sha256.X86_64.Stream.update, Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody,
-    Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressAt, Code.all, h,
+    Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressWith, Code.all, h,
     Bool.true_and]
   decide +kernel
 
@@ -161,7 +162,8 @@ theorem finalize {f : Callee} (hf : f.Ok)
       (Spec.Sha256.finalizeContract X86_64.abi 8) :=
   (Proof.Sha256.X86_64.Stream.Finalize.verified_of hf (by
     simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
-      Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Code.allInstrs, hm, Bool.true_and]
+      Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith,
+      Code.allInstrs, hm, Bool.true_and]
     decide +kernel)).of_implies (by
     contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig,
       Proof.Sha256.finalizeX86_64, X86_64.abi, X86_64.argRegs]
@@ -172,7 +174,8 @@ open VG.Impl.Sha256.X86_64.Stream (Callee) in
 theorem finalize_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
     (Impl.Sha256.X86_64.Stream.finalize f).all (fun i => !X86_64.isa.writesSp i) = true := by
   simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
-    Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Code.all, h, Bool.true_and]
+    Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith,
+    Code.all, h, Bool.true_and]
   decide +kernel
 
 end VG.Proof.Sha256.X86_64.Shared

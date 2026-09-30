@@ -106,7 +106,8 @@ theorem subScr (s₀ : State) : Region.Sub ⟨scr s₀, 608⟩ (scR s₀) := Reg
 include hf in
 theorem finalize_depth : (Impl.Sha256.X86_64.Stream.finalize f).depth = 1 := by
   simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
-    Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Code.depth, hf.depth]
+    Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith,
+    Code.depth, hf.depth]
   decide +kernel
 
 include hf in
@@ -116,7 +117,8 @@ theorem finalize_nosp : NoSp (Impl.Sha256.X86_64.Stream.finalize f) := by
   have : ((instrs (Impl.Sha256.X86_64.Stream.finalize f)).all fun i => !Taint.clobbers i .rsp) = true := by
     rw [← Code.allInstrs_eq]
     simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
-      Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Code.allInstrs, hc, Bool.true_and]
+      Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith,
+      Code.allInstrs, hc, Bool.true_and]
     decide +kernel
   intro i hi
   simpa using List.all_eq_true.mp this i hi
@@ -546,7 +548,8 @@ theorem finalize_verified {f : Callee} (hf : f.Ok)
     Verified X86_64.target (finalize f name) (Spec.Hmac.finalizeSha256Contract X86_64.abi 16) :=
   have hm' : (Impl.Sha256.X86_64.Stream.finalize f).allInstrs (fun i => !loadsMxcsr i) = true := by
     simp only [Impl.Sha256.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
-      Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Code.allInstrs, hm, Bool.true_and]
+      Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith,
+      Code.allInstrs, hm, Bool.true_and]
     decide +kernel
   Verified.of_correct (finalize_ok hf hm' name) (finalize_ct hf hm' name) (by
     sig_implies [Spec.Hmac.finalizeSha256Contract, Spec.Hmac.finalizeSha256Sig,

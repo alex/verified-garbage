@@ -13,8 +13,9 @@ The streaming state (`N + B` bytes at `state`) is the hash value (`N` bytes)
 followed by a `B`-byte buffer.
 
 * `update(state = rdi, count = rsi, data = rdx, len = rcx, scratch = r8)`
-  processes one block per iteration: straight from `data` while the buffer is
-  empty and a whole block remains, otherwise by copying bytes into the buffer,
+  compresses, in each iteration, every whole block left in `data` with one
+  call if the buffer is empty (so that implementations that process several
+  blocks at once can), and otherwise copies bytes into the buffer,
   compressing it once it is full.
 * `finalize(state = rdi, count = rsi, out = rdx, scratch = rcx)` pads the
   buffered bytes (one or two blocks), compresses them and writes the digest.
@@ -66,25 +67,33 @@ def restore : List Instr := (saved P).map fun (r, d) => .mov r (.mem (at_ .r15 d
 /-- `[rbx + r13 + N]`: byte `r13` of the buffer. -/
 def bufByte : MemOp := { base := .rbx, index := some .r13, scale := 1, disp := P.N }
 
-/-- Compress the block at `rsi` into the hash value at `rbx`, with scratch
+/-- Compress the blocks at `rsi` into the hash value at `rbx`, with scratch
 space `r15`, by calling the compression function `name` (whose code is
-`code`). (`rbx` and `r15` are copied back from `rdi` and `rcx`, which the
-compression function keeps, only for the constant-time analysis, which
-tracks which registers hold the base address of a region through registers
-but not through memory.) -/
-def compressAt (name : String) (code : Prog isa) : Prog isa :=
-  .seq (.block [.mov .rdi (.reg .rbx), .mov32 .rdx (.imm 1), .mov .rcx (.reg .r15)])
+`code`), after `n` sets their number in `rdx`. (`rbx` and `r15` are copied
+back from `rdi` and `rcx`, which the compression function keeps, only for the
+constant-time analysis, which tracks which registers hold the base address
+of a region through registers but not through memory.) -/
+def compressWith (n : Instr) (name : String) (code : Prog isa) : Prog isa :=
+  .seq (.block [.mov .rdi (.reg .rbx), n, .mov .rcx (.reg .r15)])
     (.seq (.call name code) (.block [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx)]))
+
+/-- Compress one block. -/
+def compressAt : String → Prog isa → Prog isa := compressWith (.mov32 .rdx (.imm 1))
+
+/-- Compress `r14` blocks. -/
+def compressN : String → Prog isa → Prog isa := compressWith (.mov .rdx (.reg .r14))
 
 /-! ## `update`
 
 Registers: `rbp` = `data`, `r12` = bytes of `data` left, `r13` = bytes in the
-buffer, `r14` = whether this iteration compresses a block. -/
+buffer, `r14` = the number of blocks this iteration compresses. -/
 
-/-- A whole block straight from `data`. -/
+/-- Every whole block left, straight from `data`: `r12 - r12 mod B` bytes,
+`(r12 - r12 mod B) >> log₂ B` blocks. -/
 def direct : List Instr :=
-  [.mov .rsi (.reg .rbp), .alu .add .rbp (.imm (BitVec.ofNat 32 P.B)),
-    .alu .sub .r12 (.imm (BitVec.ofNat 32 P.B)), .mov32 .r14 (.imm 1)]
+  [.mov .rsi (.reg .rbp), .mov .rax (.reg .r12), .alu .and .rax (.imm (BitVec.ofNat 32 (P.B - 1))),
+    .mov .r14 (.reg .r12), .alu .sub .r14 (.reg .rax), .alu .add .rbp (.reg .r14), .mov .r12 (.reg .rax),
+    .shift .shr .r14 (Nat.log2 P.B)]
 
 /-- The loop copying bytes of `data` into the buffer. -/
 def copyLoop : Prog isa :=
@@ -109,10 +118,11 @@ def updateHead : Prog isa :=
     (.ite .e (.seq (.block [.alu .cmp .r12 (.imm (BitVec.ofNat 32 P.B))]) (.ite .ae (.block (direct P)) (fill P)))
       (fill P))
 
-/-- The second half: compress the block if there is one, and loop back if so. -/
+/-- The second half: compress the blocks if there are any, and loop back if
+so. -/
 def updateTail (name : String) (code : Prog isa) : Prog isa :=
   .seq (.block [.alu .test .r14 (.reg .r14)])
-  (.seq (.ite .ne (compressAt name code) (.block []))
+  (.seq (.ite .ne (compressN name code) (.block []))
     (.block [.alu .test .r14 (.reg .r14)]))
 
 def updateBody (name : String) (code : Prog isa) : Prog isa :=
