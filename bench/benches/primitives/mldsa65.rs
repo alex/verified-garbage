@@ -36,7 +36,11 @@ pub fn bench(c: &mut Criterion) {
     g.finish();
     let mut g = c.benchmark_group("mldsa65_verify");
     g.bench_function(BenchmarkId::new(VG, 64), |b| {
-        b.iter(|| key.verifying_key().verify(black_box(&msg), b"", &sig).unwrap())
+        b.iter(|| {
+            key.verifying_key()
+                .verify(black_box(&msg), b"", &sig)
+                .unwrap()
+        })
     });
     g.finish();
 }
