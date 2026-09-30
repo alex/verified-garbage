@@ -1,6 +1,6 @@
 //! ML-KEM-1024: key generation from a seed, an encapsulation key from its
-//! bytes (which checks it, and on x86-64 expands it), encapsulation and
-//! decapsulation.
+//! bytes (which checks it), its expansion, encapsulation (to the key and to
+//! the expanded key) and decapsulation.
 //!
 //! OpenSSL implements ML-KEM from version 3.5, which the runners' OpenSSL
 //! (3.0) predates, and rust-openssl has no encapsulation API, so there is
@@ -42,9 +42,20 @@ pub fn bench(c: &mut Criterion) {
         b.iter(|| EncapsulationKey1024::from_bytes(black_box(&ek_bytes)).unwrap())
     });
     g.finish();
+    let mut g = c.benchmark_group("mlkem1024_ek_expand");
+    g.bench_function(BenchmarkId::new(VG, 17984), |b| {
+        b.iter(|| black_box(ek).expand().unwrap())
+    });
+    g.finish();
     let mut g = c.benchmark_group("mlkem1024_encaps");
     g.bench_function(BenchmarkId::new(VG, 1568 + 32), |b| {
         b.iter(|| black_box(ek).encapsulate().unwrap())
+    });
+    g.finish();
+    let ekx = ek.expand().unwrap();
+    let mut g = c.benchmark_group("mlkem1024_encaps_expanded");
+    g.bench_function(BenchmarkId::new(VG, 1568 + 32), |b| {
+        b.iter(|| black_box(&ekx).encapsulate().unwrap())
     });
     g.finish();
     let mut g = c.benchmark_group("mlkem1024_decaps");

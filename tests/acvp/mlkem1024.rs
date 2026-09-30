@@ -123,6 +123,9 @@ fn encapsulation() {
         let (k, c) = ek.encapsulate_internal(&array(&v.m)).unwrap();
         assert_eq!(k[..], unhex(&v.k));
         assert_eq!(c[..], unhex(&v.c));
+        let ekx = ek.expand().unwrap();
+        assert_eq!(ekx.encapsulation_key(), &ek);
+        assert_eq!(ekx.encapsulate_internal(&array(&v.m)).unwrap(), (k, c));
     }
 }
 
@@ -158,6 +161,9 @@ fn decapsulation() {
         let ek = dk.encapsulation_key();
         let (k, c) = ek.encapsulate_internal(&array(&e.m)).unwrap();
         assert_eq!(dk.decapsulate(&c).unwrap(), k);
+        let ekx = dk.expanded_encapsulation_key();
+        assert_eq!(ekx, &ek.expand().unwrap());
+        assert_eq!(ekx.encapsulate_internal(&array(&e.m)).unwrap(), (k, c));
         for i in [0, 500, 1567] {
             let mut bad = c;
             bad[i] ^= 1 << (i % 8);
@@ -181,6 +187,12 @@ fn round_trip() {
     assert_ne!(c1, c2);
     assert_eq!(dk.decapsulate(&c1).unwrap(), k1);
     assert_eq!(dk.decapsulate(&c2).unwrap(), k2);
+    let (k3, c3) = copy.expand().unwrap().encapsulate().unwrap();
+    assert_eq!(dk.decapsulate(&c3).unwrap(), k3);
     assert_eq!(format!("{copy:?}"), "EncapsulationKey1024 { .. }");
+    assert_eq!(
+        format!("{:?}", dk.expanded_encapsulation_key()),
+        "ExpandedEncapsulationKey1024 { .. }"
+    );
     assert_eq!(format!("{dk:?}"), "DecapsulationKey1024 { .. }");
 }

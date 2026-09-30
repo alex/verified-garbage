@@ -78,9 +78,12 @@ fn encaps() {
             <[u8; 1568]>::try_from(&c.ek.0[..]).map(|ek| EncapsulationKey1024::from_bytes(&ek));
         match test.result {
             Expectation::Valid => {
-                let (k, ct) = key.unwrap().unwrap().encapsulate_internal(&m).unwrap();
+                let key = key.unwrap().unwrap();
+                let (k, ct) = key.encapsulate_internal(&m).unwrap();
                 assert_eq!(k[..], c.k.0, "tcId {}", test.tc_id);
                 assert_eq!(ct[..], c.c.0, "tcId {}", test.tc_id);
+                let expanded = key.expand().unwrap().encapsulate_internal(&m).unwrap();
+                assert_eq!(expanded, (k, ct), "tcId {}", test.tc_id);
             }
             _ => {
                 assert_eq!(test.result, Expectation::Invalid, "tcId {}", test.tc_id);
