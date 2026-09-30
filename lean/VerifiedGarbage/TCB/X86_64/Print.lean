@@ -79,12 +79,16 @@ def XBinOp.name : XBinOp → String
   | .pshufb => "pshufb" | .sha256msg1 => "sha256msg1" | .sha256msg2 => "sha256msg2"
   | .sha1msg1 => "sha1msg1" | .sha1msg2 => "sha1msg2" | .sha1nexte => "sha1nexte"
   | .pand => "pand" | .pandn => "pandn" | .paddq => "paddq" | .pmuludq => "pmuludq"
+  | .paddw => "paddw" | .psubw => "psubw" | .psubd => "psubd" | .pmullw => "pmullw"
+  | .pmulhw => "pmulhw" | .packssdw => "packssdw" | .punpcklwd => "punpcklwd"
+  | .punpckhwd => "punpckhwd"
   | .aesenc => "aesenc" | .aesenclast => "aesenclast" | .aesdec => "aesdec"
   | .aesdeclast => "aesdeclast" | .aesimc => "aesimc"
 
 def XShiftOp.name : XShiftOp → String
   | .pslld => "pslld" | .psrld => "psrld" | .psllq => "psllq" | .psrlq => "psrlq"
-  | .pslldq => "pslldq" | .psrldq => "psrldq"
+  | .pslldq => "pslldq" | .psrldq => "psrldq" | .psllw => "psllw" | .psrlw => "psrlw"
+  | .psraw => "psraw" | .psrad => "psrad"
 
 def XOp.asm : XOp → String
   | .bin op d r => s!"{op.name} {d.name}, {r.name}"
@@ -102,6 +106,9 @@ def VBinOp.name : VBinOp → String
   | .vpand => "vpand" | .vpandn => "vpandn" | .vpshufb => "vpshufb" | .vpmuludq => "vpmuludq"
   | .vpunpckldq => "vpunpckldq" | .vpunpckhdq => "vpunpckhdq"
   | .vpunpcklqdq => "vpunpcklqdq" | .vpunpckhqdq => "vpunpckhqdq"
+  | .vpaddw => "vpaddw" | .vpsubw => "vpsubw" | .vpsubd => "vpsubd" | .vpmullw => "vpmullw"
+  | .vpmulhw => "vpmulhw" | .vpackssdw => "vpackssdw" | .vpunpcklwd => "vpunpcklwd"
+  | .vpunpckhwd => "vpunpckhwd"
 
 def VVarOp.name : VVarOp → String
   | .vpsllvd => "vpsllvd" | .vpsrlvd => "vpsrlvd" | .vpsllvq => "vpsllvq" | .vpsrlvq => "vpsrlvq"

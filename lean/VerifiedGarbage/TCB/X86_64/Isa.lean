@@ -61,12 +61,15 @@ Modelling choices:
   Its control bits (15:6) are callee-saved (see `Target.lean`). `lfence`
   has no architectural effect, so the model treats it as a no-op.
 * MXCSR-configuration-dependent timing (MCDT): on some Intel processors,
-  `pmuludq` and `vpmuludq`, although on Intel's DOIT list, may take up to a
-  cycle longer to retire for specific data values unless MXCSR holds
-  `0x1FBF` (Intel, "MXCSR Configuration Dependent Timing"; the processors
-  that enumerate `MCDT_NO`, CPUID.(EAX=7H,ECX=2):EDX[5], are not affected).
-  The leakage model does not see this, so code must only give these two
-  instructions secret operands between Intel's prologue and epilogue:
+  the multiplies of the model but `mul` (`pmuludq`, `vpmuludq`, `pmullw`,
+  `vpmullw`, `pmulhw` and `vpmulhw`), although on Intel's DOIT list, may
+  take up to a cycle longer to retire for specific data values unless
+  MXCSR holds `0x1FBF` (Intel, "MXCSR Configuration Dependent Timing", and
+  its list of the instructions affected, "MCDT Data Operand Independent
+  Timing Instructions"; the processors that enumerate `MCDT_NO`,
+  CPUID.(EAX=7H,ECX=2):EDX[5], are not affected). The leakage model does
+  not see this, so code must only give these instructions secret operands
+  between Intel's prologue and epilogue:
   `stmxcsr` (save the caller's MXCSR), `ldmxcsr` of `0x1FBF`, `lfence`, then
   the code that uses them, then `lfence` and `ldmxcsr` of the saved value.
   Reviewers of an implementation check this; `lfence` and the MXCSR
