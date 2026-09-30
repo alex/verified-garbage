@@ -7,7 +7,7 @@
 //! any other: [`PrivateKey::diffie_hellman`] rejects exactly the all-zero
 //! shared secrets.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "arm"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "arm"))]
 
 use serde::Deserialize;
 use verified_garbage::x25519::{Error, PrivateKey, x25519};
