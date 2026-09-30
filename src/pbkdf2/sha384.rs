@@ -14,11 +14,17 @@
 ))]
 
 use crate::arch::pbkdf2_sha384::vg_pbkdf2_hmac_sha384_iterate;
+#[cfg(target_arch = "x86_64")]
+use crate::arch::pbkdf2_sha384::{
+    VG_PBKDF2_HMAC_SHA384_ITERATE_AVX2_FEATURES, vg_pbkdf2_hmac_sha384_iterate_avx2,
+};
 use crate::hashes::sha512::{Sha384, Sha384Backend};
 
 super::streaming_pbkdf2!(
     Sha384 (Sha384Backend) {
         Scalar => vg_pbkdf2_hmac_sha384_iterate,
+        #[cfg(target_arch = "x86_64")]
+        Avx2 if [VG_PBKDF2_HMAC_SHA384_ITERATE_AVX2_FEATURES] => vg_pbkdf2_hmac_sha384_iterate_avx2,
     },
     state: 192,
     scratch: 234,
