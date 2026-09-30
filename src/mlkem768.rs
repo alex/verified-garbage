@@ -22,10 +22,17 @@
 //! reached with probability less than 2⁻²⁶¹; the operation then fails with
 //! [`Error::SampleBound`].
 //!
-//! On x86-64, key generation, encapsulation and decapsulation have an
-//! instance for each implementation of `vg_mlkem_sample_ntt4`, which samples
-//! four entries of the matrix at once, and each operation calls the best one
-//! the CPU can run ([`Backend`]).
+//! On x86-64, an encapsulation key is kept expanded: with `H(ek)` and the
+//! matrix `Â` that encapsulation and decapsulation sample from it, computed
+//! once (by `vg_mlkem768_keygen_expanded` or `vg_mlkem768_expand_ek`,
+//! contracts `VG.Spec.MlKem.keyGenExpandedContract` and `expandEkContract`),
+//! so that encapsulation and decapsulation (`vg_mlkem768_encaps_expanded`
+//! and `vg_mlkem768_decaps_expanded`) sample nothing: they compute the same
+//! functions of FIPS 203 in about half and three quarters of the time, and
+//! cannot fail. Key generation and key expansion have an instance for each
+//! implementation of `vg_mlkem_sample_ntt4`, which samples four entries of
+//! the matrix at once, and each operation calls the best one the CPU can run
+//! ([`Backend`]).
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -34,15 +41,15 @@
     target_arch = "arm"
 ))]
 
+use crate::arch::mlkem768::vg_mlkem768_check_ek;
 #[cfg(target_arch = "x86_64")]
 use crate::arch::mlkem768::{
-    VG_MLKEM768_DECAPS_AVX2_FEATURES, VG_MLKEM768_ENCAPS_AVX2_FEATURES,
-    VG_MLKEM768_KEYGEN_AVX2_FEATURES, vg_mlkem768_decaps_avx2, vg_mlkem768_encaps_avx2,
-    vg_mlkem768_keygen_avx2,
+    VG_MLKEM768_EXPAND_EK_AVX2_FEATURES, VG_MLKEM768_KEYGEN_EXPANDED_AVX2_FEATURES,
+    vg_mlkem768_decaps_expanded, vg_mlkem768_encaps_expanded, vg_mlkem768_expand_ek,
+    vg_mlkem768_expand_ek_avx2, vg_mlkem768_keygen_expanded, vg_mlkem768_keygen_expanded_avx2,
 };
-use crate::arch::mlkem768::{
-    vg_mlkem768_check_ek, vg_mlkem768_decaps, vg_mlkem768_encaps, vg_mlkem768_keygen,
-};
+#[cfg(not(target_arch = "x86_64"))]
+use crate::arch::mlkem768::{vg_mlkem768_decaps, vg_mlkem768_encaps, vg_mlkem768_keygen};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::mlkem1024::{
     VG_MLKEM1024_DECAPS_AVX2_FEATURES, VG_MLKEM1024_ENCAPS_AVX2_FEATURES,
@@ -63,9 +70,9 @@ pub enum Error {
     Randomness,
 }
 
-/// The implementations of `vg_mlkem_sample_ntt4`, which key generation,
-/// encapsulation and decapsulation (of ML-KEM-768 and ML-KEM-1024) follow:
-/// each has an instance calling each of them.
+/// The implementations of `vg_mlkem_sample_ntt4`, which the functions that
+/// sample the matrix (of ML-KEM-768 and ML-KEM-1024) follow: each has an
+/// instance calling each of them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Backend {
     /// The target's baseline ISA (on x86-64, `SampleNTT` on one seed at a
@@ -82,9 +89,8 @@ impl Backend {
     #[cfg(target_arch = "x86_64")]
     pub(crate) fn select() -> Backend {
         if detected().contains(Features::all(&[
-            VG_MLKEM768_KEYGEN_AVX2_FEATURES,
-            VG_MLKEM768_ENCAPS_AVX2_FEATURES,
-            VG_MLKEM768_DECAPS_AVX2_FEATURES,
+            VG_MLKEM768_KEYGEN_EXPANDED_AVX2_FEATURES,
+            VG_MLKEM768_EXPAND_EK_AVX2_FEATURES,
             VG_MLKEM1024_KEYGEN_AVX2_FEATURES,
             VG_MLKEM1024_ENCAPS_AVX2_FEATURES,
             VG_MLKEM1024_DECAPS_AVX2_FEATURES,
@@ -114,10 +120,21 @@ pub(crate) fn zeroize<T: Copy + Default>(x: &mut [T]) {
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 }
 
+/// The bytes an encapsulation key is kept as: on x86-64, its expanded key
+/// (the key, `H(ek)` and `Â`; see `VG.Spec.MlKem.ExpandedEk`), and elsewhere
+/// the key itself.
+#[cfg(target_arch = "x86_64")]
+const KEPT: usize = 10432;
+#[cfg(not(target_arch = "x86_64"))]
+const KEPT: usize = 1184;
+
 /// An ML-KEM-768 encapsulation key, which passed the check of FIPS 203 §7.2.
 #[derive(Clone, PartialEq, Eq)]
 pub struct EncapsulationKey768 {
-    bytes: [u8; 1184],
+    /// The key, and on x86-64 the rest of its expanded key (written by
+    /// `vg_mlkem768_keygen_expanded` or `vg_mlkem768_expand_ek`, in a call
+    /// that returned 1).
+    bytes: [u8; KEPT],
 }
 
 impl core::fmt::Debug for EncapsulationKey768 {
@@ -137,21 +154,56 @@ impl EncapsulationKey768 {
 
     /// The encapsulation key `bytes`, if it passes the encapsulation key
     /// check of FIPS 203 §7.2 (every integer it encodes is less than `q`);
-    /// [`Error::InvalidKey`] otherwise.
+    /// [`Error::InvalidKey`] otherwise. On x86-64, this expands the key,
+    /// sampling the matrix `Â` of its `ρ`, which fails with
+    /// [`Error::SampleBound`] with probability less than 2⁻²⁶¹.
     pub fn from_bytes(bytes: &[u8; 1184]) -> Result<Self, Error> {
         // SAFETY: `bytes` is valid for reads of 1184 bytes, and a Rust
         // object, so it does not overlap the stack or wrap around the end of
         // the address space.
-        if unsafe { vg_mlkem768_check_ek(bytes) } == 1 {
-            Ok(EncapsulationKey768 { bytes: *bytes })
-        } else {
-            Err(Error::InvalidKey)
+        if unsafe { vg_mlkem768_check_ek(bytes) } != 1 {
+            return Err(Error::InvalidKey);
         }
+        Self::expand(bytes)
+    }
+
+    /// The key `bytes`, which passed `vg_mlkem768_check_ek`, expanded.
+    #[cfg(target_arch = "x86_64")]
+    fn expand(bytes: &[u8; 1184]) -> Result<Self, Error> {
+        let mut key = EncapsulationKey768 { bytes: [0; KEPT] };
+        let mut scratch: Scratch = [0; 4096];
+        // SAFETY: `bytes`, `key.bytes` and `scratch` are valid for reads
+        // (and, for the last two, writes) of their sizes; they are distinct
+        // Rust objects, so they do not overlap each other or the stack, or
+        // wrap around the end of the address space. `bytes` passed
+        // `vg_mlkem768_check_ek`. `Backend::select` chose AVX2 only if the
+        // CPU has `VG_MLKEM768_EXPAND_EK_AVX2_FEATURES`.
+        let r = unsafe {
+            match Backend::select() {
+                Backend::Scalar => vg_mlkem768_expand_ek(bytes, &mut key.bytes, &mut scratch),
+                Backend::Avx2 => vg_mlkem768_expand_ek_avx2(bytes, &mut key.bytes, &mut scratch),
+            }
+        };
+        zeroize(&mut scratch);
+        if r != 1 {
+            // `SampleNTT` reaches its bound with probability less than 2^-261.
+            // NO-COVERAGE-START
+            return Err(Error::SampleBound);
+            // NO-COVERAGE-END
+        }
+        Ok(key)
+    }
+
+    /// The key `bytes`, which passed `vg_mlkem768_check_ek`.
+    #[cfg(not(target_arch = "x86_64"))]
+    fn expand(bytes: &[u8; 1184]) -> Result<Self, Error> {
+        Ok(EncapsulationKey768 { bytes: *bytes })
     }
 
     /// The bytes of the key.
     pub fn as_bytes(&self) -> &[u8; 1184] {
-        &self.bytes
+        // `KEPT` is at least 1184.
+        self.bytes.first_chunk().unwrap()
     }
 
     /// `ML-KEM.Encaps` (FIPS 203 Algorithm 20): a shared secret key and its
@@ -174,6 +226,7 @@ impl EncapsulationKey768 {
     /// function only for testing; `m` must otherwise be fresh random bytes
     /// from an approved RBG, which [`encapsulate`](Self::encapsulate) draws.
     #[doc(hidden)]
+    #[cfg(target_arch = "x86_64")]
     pub fn encapsulate_internal(&self, m: &[u8; 32]) -> Result<([u8; 32], [u8; 1088]), Error> {
         let mut key = [0u8; 32];
         let mut ct = [0u8; 1088];
@@ -182,16 +235,34 @@ impl EncapsulationKey768 {
         // reads (and, for the last three, writes) of their sizes; they are
         // distinct Rust objects, so they do not overlap each other or the
         // stack, or wrap around the end of the address space. `self.bytes`
-        // passed `vg_mlkem768_check_ek`. `Backend::select` chose AVX2 only
-        // if the CPU has `VG_MLKEM768_ENCAPS_AVX2_FEATURES`.
+        // was written by `vg_mlkem768_keygen_expanded` or by
+        // `vg_mlkem768_expand_ek` from a key that passed
+        // `vg_mlkem768_check_ek`, in a call that returned 1 (or an instance
+        // of them).
+        unsafe { vg_mlkem768_encaps_expanded(&self.bytes, m, &mut key, &mut ct, &mut scratch) };
+        zeroize(&mut scratch);
+        Ok((key, ct))
+    }
+
+    /// `ML-KEM.Encaps_internal(ek, m)` (FIPS 203 Algorithm 17), with the
+    /// randomness `m`: for known-answer tests only. FIPS 203 §6 allows this
+    /// function only for testing; `m` must otherwise be fresh random bytes
+    /// from an approved RBG, which [`encapsulate`](Self::encapsulate) draws.
+    #[doc(hidden)]
+    #[cfg(not(target_arch = "x86_64"))]
+    pub fn encapsulate_internal(&self, m: &[u8; 32]) -> Result<([u8; 32], [u8; 1088]), Error> {
+        let mut key = [0u8; 32];
+        let mut ct = [0u8; 1088];
+        let mut scratch: Scratch = [0; 4096];
+        // SAFETY: `self.bytes`, `m`, `key`, `ct` and `scratch` are valid for
+        // reads (and, for the last three, writes) of their sizes; they are
+        // distinct Rust objects, so they do not overlap each other or the
+        // stack, or wrap around the end of the address space. `self.bytes`
+        // passed `vg_mlkem768_check_ek`.
         let r = unsafe {
             match Backend::select() {
                 Backend::Scalar => {
                     vg_mlkem768_encaps(&self.bytes, m, &mut key, &mut ct, &mut scratch)
-                }
-                #[cfg(target_arch = "x86_64")]
-                Backend::Avx2 => {
-                    vg_mlkem768_encaps_avx2(&self.bytes, m, &mut key, &mut ct, &mut scratch)
                 }
             }
         };
@@ -242,7 +313,7 @@ impl DecapsulationKey768 {
     pub fn from_seed(seed: &[u8; 64]) -> Result<Self, Error> {
         let mut key = DecapsulationKey768 {
             seed: *seed,
-            ek: EncapsulationKey768 { bytes: [0; 1184] },
+            ek: EncapsulationKey768 { bytes: [0; KEPT] },
             dk: [0; 2400],
         };
         let mut scratch: Scratch = [0; 4096];
@@ -251,15 +322,27 @@ impl DecapsulationKey768 {
         // are distinct Rust objects, so they do not overlap each other or
         // the stack, or wrap around the end of the address space.
         // `Backend::select` chose AVX2 only if the CPU has
-        // `VG_MLKEM768_KEYGEN_AVX2_FEATURES`.
+        // `VG_MLKEM768_KEYGEN_EXPANDED_AVX2_FEATURES`.
+        #[cfg(target_arch = "x86_64")]
+        let r = unsafe {
+            match Backend::select() {
+                Backend::Scalar => {
+                    vg_mlkem768_keygen_expanded(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
+                }
+                Backend::Avx2 => vg_mlkem768_keygen_expanded_avx2(
+                    seed,
+                    &mut key.ek.bytes,
+                    &mut key.dk,
+                    &mut scratch,
+                ),
+            }
+        };
+        // SAFETY: as above.
+        #[cfg(not(target_arch = "x86_64"))]
         let r = unsafe {
             match Backend::select() {
                 Backend::Scalar => {
                     vg_mlkem768_keygen(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
-                }
-                #[cfg(target_arch = "x86_64")]
-                Backend::Avx2 => {
-                    vg_mlkem768_keygen_avx2(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
                 }
             }
         };
@@ -288,6 +371,30 @@ impl DecapsulationKey768 {
     /// ciphertext `ct`, which is the implicit rejection key `J(z ‖ ct)` if
     /// `ct` is not a ciphertext of this key (in constant time: nothing
     /// tells whether it was rejected).
+    #[cfg(target_arch = "x86_64")]
+    pub fn decapsulate(&self, ct: &[u8; 1088]) -> Result<[u8; 32], Error> {
+        let mut key = [0u8; 32];
+        let mut scratch: Scratch = [0; 4096];
+        // SAFETY: `self.dk`, `self.ek.bytes`, `ct`, `key` and `scratch` are
+        // valid for reads (and, for the last two, writes) of their sizes;
+        // they are Rust objects, the last two distinct from the others, so
+        // they do not overlap each other (but for the first three, which
+        // only the function reads) or the stack, or wrap around the end of
+        // the address space. `self.dk` and `self.ek.bytes` were written by
+        // `vg_mlkem768_keygen_expanded` (or an instance of it) in a call that
+        // returned 1.
+        unsafe {
+            vg_mlkem768_decaps_expanded(&self.dk, &self.ek.bytes, ct, &mut key, &mut scratch)
+        };
+        zeroize(&mut scratch);
+        Ok(key)
+    }
+
+    /// `ML-KEM.Decaps` (FIPS 203 Algorithm 21): the shared secret key of the
+    /// ciphertext `ct`, which is the implicit rejection key `J(z ‖ ct)` if
+    /// `ct` is not a ciphertext of this key (in constant time: nothing
+    /// tells whether it was rejected).
+    #[cfg(not(target_arch = "x86_64"))]
     pub fn decapsulate(&self, ct: &[u8; 1088]) -> Result<[u8; 32], Error> {
         let mut key = [0u8; 32];
         let mut scratch: Scratch = [0; 4096];
@@ -295,13 +402,10 @@ impl DecapsulationKey768 {
         // (and, for the last two, writes) of their sizes; they are distinct
         // Rust objects, so they do not overlap each other or the stack, or
         // wrap around the end of the address space. `self.dk` was written by
-        // `vg_mlkem768_keygen` (or an instance of it). `Backend::select`
-        // chose AVX2 only if the CPU has `VG_MLKEM768_DECAPS_AVX2_FEATURES`.
+        // `vg_mlkem768_keygen`.
         let r = unsafe {
             match Backend::select() {
                 Backend::Scalar => vg_mlkem768_decaps(&self.dk, ct, &mut key, &mut scratch),
-                #[cfg(target_arch = "x86_64")]
-                Backend::Avx2 => vg_mlkem768_decaps_avx2(&self.dk, ct, &mut key, &mut scratch),
             }
         };
         zeroize(&mut scratch);

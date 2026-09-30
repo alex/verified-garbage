@@ -13,7 +13,7 @@ contract) takes them from there, and this file adds only notes on the
 implementation. The emitter adds the `# Safety` items that depend on the
 target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract. The functions that sample `Â` (`keygen_expanded`,
-`expand_ek`) are in `Generic/MlKemSample4/X86_64/MlKem768Expanded.lean`.
+`expand_ek`) are in `Generic/MlKemSample4/X86_64/MlKem768.lean`.
 -/
 
 namespace VG.Artifacts.MlKemExpanded.X86_64

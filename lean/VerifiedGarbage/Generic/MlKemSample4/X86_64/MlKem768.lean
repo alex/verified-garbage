@@ -1,16 +1,20 @@
 import VerifiedGarbage.TCB.X86_64.Target
-import VerifiedGarbage.Proof.MlKem.X86_64.KgTop
-import VerifiedGarbage.Proof.MlKem.X86_64.EcTop
-import VerifiedGarbage.Proof.MlKem.X86_64.DcTop
+import VerifiedGarbage.Proof.MlKem.X86_64.KgXVerified
+import VerifiedGarbage.Proof.MlKem.X86_64.XeXVerified
 
 /-!
-# ML-KEM-768 (FIPS 203) on x86-64: key generation, encapsulation and decapsulation
+# ML-KEM-768 (FIPS 203) on x86-64: key generation and key expansion, with expanded keys
 
 A generic file (see `TCB/Emit.lean`): the artifacts it lists, which sample
 the matrix `Â` four entries at a time with an implementation `v` of
 `vg_mlkem_sample_ntt4`, are emitted once for each implementation
 (`Variants/MlKemSample4/X86_64/`), named with its suffix (e.g.
-`vg_mlkem768_keygen_avx2`), and need its CPU features. **Review note**:
+`vg_mlkem768_keygen_expanded_avx2`), and need its CPU features. The
+functions that take an expanded key sample nothing
+(`Artifacts/MlKemExpanded/X86_64.lean`); the Rust code uses them in place
+of `vg_mlkem768_keygen`, `vg_mlkem768_encaps` and `vg_mlkem768_decaps`,
+which are therefore not emitted on x86-64 (their proofs remain, and those of
+the expanded functions build on them). **Review note**:
 `sig` and `doc` are trusted, as they tie the Rust caller to the contract;
 check them against the contract's `pre`/`post`. An artifact made from a
 function's `Api` (in `Spec/`, reviewed with the contract) takes them from
@@ -30,34 +34,24 @@ def notes (v : Sample4Impl) : List String :=
     v.callee.name ++ "`."]
 
 def artifacts (v : Sample4Impl) : List Artifact := [
-  { Spec.MlKem.keyGenApi with
-    name := Spec.MlKem.keyGenApi.name ++ v.suffix
+  { Spec.MlKem.keyGenExpandedApi with
+    name := Spec.MlKem.keyGenExpandedApi.name ++ v.suffix
     target := X86_64.target
-    doc := Spec.MlKem.keyGenApi.doc (notes := notes v)
-    code := Impl.MlKem.X86_64.keyGen v.callee
-    contract := Spec.MlKem.keyGenContract X86_64.abi 32
+    doc := Spec.MlKem.keyGenExpandedApi.doc (notes := notes v)
+    code := Impl.MlKem.X86_64.keyGenX v.callee
+    contract := Spec.MlKem.keyGenExpandedContract X86_64.abi 32
     stack := 32
-    verified := Proof.MlKem.X86_64.keyGen_verified v
+    verified := Proof.MlKem.X86_64.keyGenX_verified v
     spSafe := by s4_sp v
     features := v.features },
-  { Spec.MlKem.encapsApi with
-    name := Spec.MlKem.encapsApi.name ++ v.suffix
+  { Spec.MlKem.expandEkApi with
+    name := Spec.MlKem.expandEkApi.name ++ v.suffix
     target := X86_64.target
-    doc := Spec.MlKem.encapsApi.doc (notes := notes v)
-    code := Impl.MlKem.X86_64.encaps v.callee
-    contract := Spec.MlKem.encapsContract X86_64.abi 32
+    doc := Spec.MlKem.expandEkApi.doc (notes := notes v)
+    code := Impl.MlKem.X86_64.expandEk v.callee
+    contract := Spec.MlKem.expandEkContract X86_64.abi 32
     stack := 32
-    verified := Proof.MlKem.X86_64.encaps_verified v
-    spSafe := by s4_sp v
-    features := v.features },
-  { Spec.MlKem.decapsApi with
-    name := Spec.MlKem.decapsApi.name ++ v.suffix
-    target := X86_64.target
-    doc := Spec.MlKem.decapsApi.doc (notes := notes v)
-    code := Impl.MlKem.X86_64.decaps v.callee
-    contract := Spec.MlKem.decapsContract X86_64.abi 32
-    stack := 32
-    verified := Proof.MlKem.X86_64.decaps_verified v
+    verified := Proof.MlKem.X86_64.expandEk_verified v
     spSafe := by s4_sp v
     features := v.features }]
 
