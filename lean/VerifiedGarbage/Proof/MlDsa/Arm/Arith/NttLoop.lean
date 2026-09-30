@@ -114,8 +114,8 @@ theorem bflys_ok {p : BitVec 32} (hp : p.toNat + 1024 ≤ 2 ^ 32) {len start : N
 omit hb in
 theorem blkPre_ok (len : Nat) (hl : len ≤ 128) (op : DpOp) (hop : op = .add ∨ op = .sub) (s : State)
     {x : BitVec 32} (h1 : s.gpr .r1 = x) (hi : InRegions (s.rd ++ s.wr) (State.addr (x + BitVec.ofNat 32 0)) 4) :
-    WP isa (.block ([.ldr .r8 .r1 0] ++ zPieces .r8 ++
-      [.dp op .r1 .r1 (.imm 4), .mov .r3 (.imm (BitVec.ofNat 32 len))])) s fun s' =>
+    WP isa (.block (([.ldr .r8 .r1 0] : List Instr) ++ zPieces .r8 ++
+      ([.dp op .r1 .r1 (.imm 4), .mov .r3 (.imm (BitVec.ofNat 32 len))] : List Instr))) s fun s' =>
       s'.gpr .r5 = s.mem.readW (State.addr (x + BitVec.ofNat 32 0)) 32 >>> 14 ∧
       s'.gpr .r6 = s.mem.readW (State.addr (x + BitVec.ofNat 32 0)) 32 <<< 18 >>> 25 ∧
       s'.gpr .r7 = s.mem.readW (State.addr (x + BitVec.ofNat 32 0)) 32 <<< 25 >>> 25 ∧

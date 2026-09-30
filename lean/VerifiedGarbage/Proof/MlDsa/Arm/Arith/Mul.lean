@@ -31,7 +31,7 @@ theorem Keep.trans {s₁ s₂ s₃ : State} (h₁ : Keep s₁ s₂) (h₂ : Keep
 theorem head_ok {s : State} {y w : BitVec 32} (h1 : s.gpr .r1 = y) (h2 : s.gpr .r2 = w)
     (iF : InRegions (s.rd ++ s.wr) (State.addr (y + BitVec.ofNat 32 0)) 4)
     (iG : InRegions (s.rd ++ s.wr) (State.addr (w + BitVec.ofNat 32 0)) 4) :
-    WP isa (.block ([.ldr .r12 .r1 0] ++ zPieces .r12 ++ [.ldr .r8 .r2 0])) s fun s' =>
+    WP isa (.block (([.ldr .r12 .r1 0] : List Instr) ++ zPieces .r12 ++ ([.ldr .r8 .r2 0] : List Instr))) s fun s' =>
       s'.gpr .r5 = s.mem.readW (State.addr (y + BitVec.ofNat 32 0)) 32 >>> 14 ∧
       s'.gpr .r6 = s.mem.readW (State.addr (y + BitVec.ofNat 32 0)) 32 <<< 18 >>> 25 ∧
       s'.gpr .r7 = s.mem.readW (State.addr (y + BitVec.ofNat 32 0)) 32 <<< 25 >>> 25 ∧
@@ -54,12 +54,13 @@ variable {s : State} {x y w c p : BitVec 32} (h0 : s.gpr .r0 = x) (h1 : s.gpr .r
   (oH : InRegions s.wr (State.addr (x + BitVec.ofNat 32 0)) 4)
 include h0 h1 h2 h3 h4 h9 oH
 
-theorem tail_ok : WP isa (.block (csub .r9 .r12 .r4 ++ [.str .r9 .r0 0] ++ step3)) s (Step s x y w c (bcsub p)) := by
+theorem tail_ok :
+    WP isa (.block (csub .r9 .r12 .r4 ++ ([.str .r9 .r0 0] : List Instr) ++ step3)) s (Step s x y w c (bcsub p)) := by
   run_block [csub, fixup, step3, Step, Keep, bcsub, bfix, h0, h1, h2, h3, h4, h9, oH]
 
 theorem tailAdd_ok (iH : InRegions (s.rd ++ s.wr) (State.addr (x + BitVec.ofNat 32 0)) 4) :
-    WP isa (.block ([.ldr .r8 .r0 0, .dp .add .r9 .r9 (.reg .r8)] ++ red .r9 .r12 .r4 ++
-      csub .r9 .r12 .r4 ++ [.str .r9 .r0 0] ++ step3)) s
+    WP isa (.block (([.ldr .r8 .r0 0, .dp .add .r9 .r9 (.reg .r8)] : List Instr) ++ red .r9 .r12 .r4 ++
+      csub .r9 .r12 .r4 ++ ([.str .r9 .r0 0] : List Instr) ++ step3)) s
       (Step s x y w c (bcsub (bred (p + s.mem.readW (State.addr (x + BitVec.ofNat 32 0)) 32)))) := by
   run_block [red, csub, fixup, step3, Step, Keep, bcsub, bfix, bred, h0, h1, h2, h3, h4, h9, oH, iH]
 
@@ -233,7 +234,8 @@ theorem inv_step {out : Nat → BitVec 32} {s₀ : State} (hp : Pre s₀) {i : N
 theorem loop_ok {out : Nat → BitVec 32} {s₀ : State} {body : List Instr}
     (hb : ∀ i < 256, ∀ s, Inv out s₀ i s → WP isa (.block body) s fun s' =>
       Inv out s₀ (i + 1) s' ∧ s'.z = decide (i + 1 = 256)) :
-    WP isa (.seq (.block (loadQ .r4 ++ [.mov .r3 (.imm 256)])) (.loop (.block body) .ne)) s₀ (Inv out s₀ 256) := by
+    WP isa (.seq (.block (loadQ .r4 ++ ([.mov .r3 (.imm 256)] : List Instr))) (.loop (.block body) .ne)) s₀
+      (Inv out s₀ 256) := by
   refine WP.seq (WP.of_runBlock ?_)
   refine ⟨_, by simp only [loadQ, List.cons_append, List.nil_append, runBlock_cons, runStep_some,
     exec, Op2.eval, isa]; rfl,

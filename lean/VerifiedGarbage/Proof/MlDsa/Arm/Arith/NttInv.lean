@@ -62,7 +62,7 @@ theorem chain_inv : ChainInv 255 nttInvLens := by simp only [nttInvLens, ChainIn
 def scaleRest : List Instr :=
   csub .r9 .r12 .r4 ++ [.str .r9 .r0 0, .dp .add .r0 .r0 (.imm 4), .subs .r3 .r3 (.imm 1)]
 
-theorem scale_split : scaleBody = [.ldr .r8 .r0 0] ++ (mulz .r9 .r8 .r12 ++ scaleRest) := by
+theorem scale_split : scaleBody = ([.ldr .r8 .r0 0] : List Instr) ++ (mulz .r9 .r8 .r12 ++ scaleRest) := by
   simp only [scaleBody, scaleRest, List.append_assoc, List.cons_append, List.nil_append]
 
 section

@@ -93,7 +93,7 @@ def bflyRest (len : Nat) : List Instr :=
     [.str .r8 .r0 0, .dp .add .r0 .r0 (.imm 4), .subs .r3 .r3 (.imm 1)]
 
 theorem bfly_split (len : Nat) :
-    Impl.MlDsa.Arm.Arith.bfly len = [.ldr .r8 .r0 (4 * len)] ++ (mulz .r9 .r8 .r12 ++ bflyRest len) := by
+    Impl.MlDsa.Arm.Arith.bfly len = ([.ldr .r8 .r0 (4 * len)] : List Instr) ++ (mulz .r9 .r8 .r12 ++ bflyRest len) := by
   simp only [Impl.MlDsa.Arm.Arith.bfly, bflyRest, List.append_assoc, List.cons_append, List.nil_append]
 
 section

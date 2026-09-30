@@ -122,7 +122,7 @@ theorem lays_ok {s₁ : State} (hp : PreB s₁) :
 /-- The table `tab` to `scratch`, `q` to `r4`, and `r1` at entry `k`. -/
 theorem pro_ok {s : State} (hp : PreB s) (tab : Nat → Nat) (ht : ∀ k < 256, tab k < q) (d : BitVec 32) (k : Nat)
     (hd : BitVec.ofNat 32 (4 * k) = d) (he : encodable d = true) :
-    WP isa (.block (storeTab tab 256 ++ loadQ .r4 ++ [.dp .add .r1 .r1 (.imm d)])) s
+    WP isa (.block (storeTab tab 256 ++ loadQ .r4 ++ ([.dp .add .r1 .r1 (.imm d)] : List Instr))) s
       (LI tab s (polyAt s.mem (F s)) k) := by
   rw [List.append_assoc, WP.block_append_iff]
   refine WP.mono (storeTab_ok tab ht s (zB := ps s) rfl hp.fitS hp.wS) fun s₁ ⟨ht₁, hf₁, k₁⟩ => ?_
