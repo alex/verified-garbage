@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.MlDsa.Pack.Hint
 import VerifiedGarbage.Proof.MlDsa.Pack.Mem
+import VerifiedGarbage.Proof.MlDsa.Pack.HintMem
 
 /-!
 # ML-DSA: `HintBitPack` and `HintBitUnpack` in memory, for every target
@@ -18,18 +19,6 @@ namespace VG.Proof.MlDsa.Pack
 
 open VG.Spec.MlDsa
 
-theorem mem_hintParams {ω k : Nat} (h : (ω, k) ∈ hintParams) : 4 ≤ k ∧ k ≤ 8 ∧ ω ≤ 80 := by
-  simp only [hintParams, List.mem_cons, Prod.mk.injEq, List.not_mem_nil, or_false] at h
-  omega
-
-/-- Coefficient `j` of polynomial `i` of the hint at `p`. -/
-theorem hintAt_get {m : Mem} {p : Addr} {k i j : Nat} (hi : i < k) (hj : j < n) :
-    ((hintAt m p k).getD i noHint)[j]! = decide (coeffAt m p (256 * i + j) ≠ 0) := by
-  rw [hintAt, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi, Option.map_some,
-    Option.getD_some, getElem!_pos _ j hj, Vector.getElem_ofFn]
-
-theorem hintAt_length (m : Mem) (p : Addr) (k : Nat) : (hintAt m p k).length = k := by simp [hintAt]
-
 /-- The hint is a function of its words. -/
 theorem hintAt_congr {m m' : Mem} {p : Addr} {k : Nat}
     (h : ∀ t < 256 * k, coeffAt m p t = coeffAt m' p t) : hintAt m p k = hintAt m' p k := by
@@ -45,15 +34,6 @@ theorem coeffAt_of_leak {m m' : Mem} {p : Addr} {N : Nat}
     (h : (List.range N).map (fun i => (coeffAt m p i).toNat) = (List.range N).map (fun i => (coeffAt m' p i).toNat)) :
     ∀ t < N, coeffAt m p t = coeffAt m' p t := fun t ht =>
   BitVec.eq_of_toNat_eq (List.map_inj_left.mp h t (List.mem_range.mpr ht))
-
-/-- Lists of bytes with the same numbers are equal. -/
-theorem map_toNat_inj : ∀ {b₁ b₂ : List Byte}, b₁.map (·.toNat) = b₂.map (·.toNat) → b₁ = b₂
-  | [], [], _ => rfl
-  | _ :: _, _ :: _, h => by
-    simp only [List.map_cons, List.cons.injEq] at h
-    rw [BitVec.eq_of_toNat_eq h.1, map_toNat_inj h.2]
-  | [], _ :: _, h => by simp at h
-  | _ :: _, [], h => by simp at h
 
 /-! ## Memory of zeros -/
 
@@ -72,13 +52,6 @@ theorem coeffAt_zero (p : Addr) (i : Nat) : coeffAt (fun _ => 0) p i = 0 := by
   rfl
 
 theorem coeffAt_zero' (p : Addr) (i : Nat) : coeffAt (fun _ => 0#8) p i = 0#32 := coeffAt_zero p i
-
-theorem filter_false : ((Vector.ofFn fun _ : Fin n => false).toList.filter id) = [] := by
-  rw [List.filter_eq_nil_iff]; intro a ha; simp at ha; simp [ha]
-
-theorem sum_zero : ∀ l : List Nat, (l.map fun _ => 0).sum = 0
-  | [] => rfl
-  | _ :: l => by rw [List.map_cons, List.sum_cons, sum_zero l]
 
 /-- A hint of zero words has no 1s. -/
 theorem hintOnes_of_zero {m : Mem} {p : Addr} {k : Nat} (h : ∀ t < 256 * k, coeffAt m p t = 0) :
