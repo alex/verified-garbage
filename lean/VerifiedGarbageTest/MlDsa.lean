@@ -21,7 +21,8 @@ formats the message with its context string), deterministic and hedged; and
 of signature verification, in each such test group, the first vector of
 each reason a signature is valid or not. The contracts' leakage functions
 are checked on the same vectors: signing's (`signLeak`) starts with `ρ` and
-ends with the hint of the signature. HashML-DSA has no spec, so its
+ends with the hint of the signature, each iteration's `c̃` tagged with
+whether it was rejected. HashML-DSA has no spec, so its
 test groups are skipped. (Only these are checked here; the Rust tests run
 the implementation on every vector.)
 -/
@@ -132,9 +133,14 @@ def check (name : String) : CommandElabM Unit := do
     -- What the contract lets signing leak ends with the hint of the signature.
     let some h := (sigDecode g.params σ).2.2 | throw "the signature's hint is malformed"
     let leak := signLeak g.params sk μ rnd
-    unless leak.take 32 == leakBytes (sk.take 32) &&
-        leak.drop (leak.length - 256 * g.params.k) == h.flatMap (·.toList.map Bool.toNat) &&
-        (leak.length - 32 - 256 * g.params.k) % g.params.ctildeLen == 0 do
+    -- `ρ`, then each iteration's `c̃` and 0 (rejected), then the last one's
+    -- `c̃`, 1 and hint.
+    let hint := h.flatMap (·.toList.map Bool.toNat)
+    let iters := (leak.length - 32 - hint.length) / (g.params.ctildeLen + 1)
+    unless leak.take 32 == leakBytes (sk.take 32) && leak.drop (leak.length - hint.length) == hint &&
+        32 + iters * (g.params.ctildeLen + 1) + hint.length == leak.length &&
+        (List.range iters).all (fun i =>
+          leak.getD (32 + (i + 1) * (g.params.ctildeLen + 1) - 1) 2 == if i + 1 = iters then 1 else 0) do
       throw "signLeak is wrong"
   checkGroups name "ML-DSA-sigVer-FIPS204" fun g => do
     if g.preHash == "preHash" then return
