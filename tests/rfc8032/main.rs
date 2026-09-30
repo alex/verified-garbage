@@ -1,6 +1,6 @@
 //! Pure Ed25519 known-answer tests from the vendored RFC 8032, section 7.1.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
 use verified_garbage::ed25519::{Error, SigningKey, VerifyingKey};
 
