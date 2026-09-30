@@ -89,6 +89,85 @@ theorem stepRR {I J E E' Q₀ F : State → State → Prop} {c : Prog isa}
 
 end
 
+/-! ## Runs related through their entry states -/
+
+/-- Two runs, each satisfying `I` from its entry state, the entry states related by `E`. -/
+def RS (p : Params) (D : Nat) (E I : State → State → Prop) (x y : State) : Prop :=
+  ∃ σ₁ σ₂, (signK p D).pre σ₁ ∧ (signK p D).pre σ₂ ∧ (signK p D).pub σ₁ σ₂ ∧ E σ₁ σ₂ ∧ I σ₁ x ∧ I σ₂ y
+
+section
+variable {p : Params} {D : Nat}
+
+theorem lrel_of {σ₁ σ₂ x y : State} (hpub : (signK p D).pub σ₁ σ₂) (S₁ : St p D σ₁ x) (S₂ : St p D σ₂ y) :
+    LRel D (sgR p) (sgW p) x y := by
+  obtain ⟨h1, h2, h3, h4, h5, h6, _⟩ := hpub
+  refine ⟨S₁.lay, S₂.lay, fun b hb => ?_, by rw [S₁.top.rsp, S₂.top.rsp, h6]⟩
+  have r₁ := S₁.top.regs
+  have r₂ := S₂.top.regs
+  simp only [sgR, sgW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hb
+  rcases hb with rfl | rfl | rfl | rfl | rfl
+  · rw [r₁ (.rbp, .rdi) (by decide), r₂ (.rbp, .rdi) (by decide), h1]
+  · rw [r₁ (.r12, .rsi) (by decide), r₂ (.r12, .rsi) (by decide), h2]
+  · rw [r₁ (.r13, .rdx) (by decide), r₂ (.r13, .rdx) (by decide), h3]
+  · rw [r₁ (.rbx, .r8) (by decide), r₂ (.rbx, .r8) (by decide), h5]
+  · rw [r₁ (.r14, .rcx) (by decide), r₂ (.r14, .rcx) (by decide), h4]
+
+theorem RS.lrel {E I : State → State → Prop} (hI : ∀ σ s, I σ s → St p D σ s) {x y : State}
+    (h : RS p D E I x y) : LRel D (sgR p) (sgW p) x y := by
+  obtain ⟨σ₁, σ₂, _, _, hpub, _, i₁, i₂⟩ := h
+  exact lrel_of hpub (hI _ _ i₁) (hI _ _ i₂)
+
+theorem RS.mono {E I E' I' : State → State → Prop} {x y : State} (h : RS p D E I x y)
+    (hE : ∀ σ₁ σ₂, E σ₁ σ₂ → E' σ₁ σ₂) (hI : ∀ σ s, I σ s → I' σ s) : RS p D E' I' x y := by
+  obtain ⟨σ₁, σ₂, p₁, p₂, hpub, e, i₁, i₂⟩ := h
+  exact ⟨σ₁, σ₂, p₁, p₂, hpub, hE _ _ e, hI _ _ i₁, hI _ _ i₂⟩
+
+/-- A piece that leaks the same from two runs in the layout that satisfy `T`, and takes each run from
+`I` to `J`. -/
+theorem liftL {E I J : State → State → Prop} {T : State → Prop} {c : Prog isa}
+    (hI : ∀ σ s, I σ s → St p D σ s ∧ T s) (hw : ∀ σ s, (signK p D).pre σ → I σ s → WP isa c s (J σ))
+    (ht : RelCT isa (fun x y => LRel D (sgR p) (sgW p) x y ∧ T x ∧ T y) c fun _ _ => True) :
+    RelCT isa (RS p D E I) c (RS p D E J) := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hr e₁ e₂
+  obtain ⟨σ₁, σ₂, p₁, p₂, hpub, he, i₁, i₂⟩ := hr
+  obtain ⟨ht', -⟩ := ht _ _ _ _ _ _ ⟨lrel_of hpub (hI _ _ i₁).1 (hI _ _ i₂).1, (hI _ _ i₁).2, (hI _ _ i₂).2⟩ e₁ e₂
+  obtain ⟨_, u₁, f₁, g₁⟩ := hw σ₁ s₁ p₁ i₁
+  obtain ⟨_, u₂, f₂, g₂⟩ := hw σ₂ s₂ p₂ i₂
+  obtain ⟨-, rfl⟩ := Exec.det e₁ f₁
+  obtain ⟨-, rfl⟩ := Exec.det e₂ f₂
+  exact ⟨ht', σ₁, σ₂, p₁, p₂, hpub, he, g₁, g₂⟩
+
+/-- `liftL`, with a leakage proof from any relation the runs satisfy. -/
+theorem liftR {E I J : State → State → Prop} {c : Prog isa}
+    (hw : ∀ σ s, (signK p D).pre σ → I σ s → WP isa c s (J σ))
+    (ht : RelCT isa (RS p D E I) c fun _ _ => True) : RelCT isa (RS p D E I) c (RS p D E J) := by
+  intro s₁ s₂ t₁ t₂ s₁' s₂' hr e₁ e₂
+  obtain ⟨ht', -⟩ := ht _ _ _ _ _ _ hr e₁ e₂
+  obtain ⟨σ₁, σ₂, p₁, p₂, hpub, he, i₁, i₂⟩ := hr
+  obtain ⟨_, u₁, f₁, g₁⟩ := hw σ₁ s₁ p₁ i₁
+  obtain ⟨_, u₂, f₂, g₂⟩ := hw σ₂ s₂ p₂ i₂
+  obtain ⟨-, rfl⟩ := Exec.det e₁ f₁
+  obtain ⟨-, rfl⟩ := Exec.det e₂ f₂
+  exact ⟨ht', σ₁, σ₂, p₁, p₂, hpub, he, g₁, g₂⟩
+
+/-- Two pieces in sequence, from two runs in the layout that satisfy `I` (what the first piece needs),
+each piece leaving the layout. -/
+theorem seqL {c₁ c₂ : Prog isa} {I J : State → Prop} {Q : State → State → Prop}
+    (h₁ : RelCT isa (fun x y => LRel D (sgR p) (sgW p) x y ∧ I x ∧ I y) c₁ fun _ _ => True)
+    (w₁ : ∀ x, Lay D (sgR p) (sgW p) x → I x → WP isa c₁ x fun x' => (∃ W, PostB D x x' W) ∧ J x')
+    (h₂ : RelCT isa (fun x y => LRel D (sgR p) (sgW p) x y ∧ J x ∧ J y) c₂ Q) :
+    RelCT isa (fun x y => LRel D (sgR p) (sgW p) x y ∧ I x ∧ I y) (.seq c₁ c₂) Q :=
+  RelCT.seq (VG.Proof.MlKem.X86_64.RelCT.postDep h₁ (F := fun x x' => (∃ W, PostB D x x' W) ∧ J x')
+    (fun x y h => ⟨w₁ x h.1.lx h.2.1, w₁ y h.1.ly h.2.2⟩)
+    fun _ _ _ _ h ⟨⟨_, hx⟩, jx⟩ ⟨⟨_, hy⟩, jy⟩ => ⟨h.1.post (sgB_bases p) hx hy, jx, jy⟩) h₂
+
+theorem trL_mono {c : Prog isa} {I I' : State → Prop}
+    (h : RelCT isa (fun x y => LRel D (sgR p) (sgW p) x y ∧ I x ∧ I y) c fun _ _ => True) (hI : ∀ s, I' s → I s) :
+    RelCT isa (fun x y => LRel D (sgR p) (sgW p) x y ∧ I' x ∧ I' y) c fun _ _ => True :=
+  RelCT.mono h (fun _ _ h => ⟨h.1, hI _ h.2.1, hI _ h.2.2⟩) fun _ _ h => h
+
+end
+
 /-! ## `ρ` -/
 
 theorem signLeakT_head (p : Params) (sk μ rnd : List Byte) :
