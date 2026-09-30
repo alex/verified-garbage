@@ -157,7 +157,7 @@ structure KR (s₀ : State) (m : Nat) (s : State) : Prop where
   frame : Frame [tR (H := H) s₀, scR sc s₀, stkR s₀] s₀.mem s.mem
 
 /-- The registers `KR` fixes. -/
-abbrev kregs : List Reg := [.x19, .x20, .x22, .x23, .x25, .x26, .x27, .x28, .x29]
+abbrev kregs : List Reg := [.x19, .x20, .x22, .x23, .x25, .x26, .x27, .x28]
 
 theorem untouched_kregs : ∀ r ∈ untouched, r ∈ kregs := by decide
 theorem kregs_pres : ∀ r ∈ kregs, r ∈ preserved ∧ r ≠ .x30 := by decide

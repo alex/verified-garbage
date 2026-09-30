@@ -13,7 +13,7 @@ Descriptions"); when adding an instruction, cite the section whose
 pseudocode it transcribes.
 
 Modelling choices:
-* Registers are `x0`–`x17` and `x19`–`x30`. `x18` is not modelled, so no
+* Registers are `x0`–`x17`, `x19`–`x28` and `x30`. `x18` is not modelled, so no
   code can use it: it is the platform register (AAPCS64 §6.1.1, "r18 …
   The Platform Register, if needed; otherwise a temporary register", and
   "software developers creating platform-independent code are advised to
@@ -22,6 +22,14 @@ Modelling choices:
   code for Apple platforms*) and Windows points it at the thread's TEB
   (*Overview of ARM64 ABI conventions*), so it may change under a function
   that writes it, and restoring it before returning is not enough.
+* `x29` is not modelled either: the portable target keeps the inherited
+  frame pointer intact throughout execution. AAPCS64 section 6.4.6 delegates
+  frame-chain requirements to the platform; Apple requires `x29` to always
+  address a valid frame record, even when a leaf function omits its own
+  record (*Writing ARM64 code for Apple platforms*, "Respect the purpose of
+  specific CPU registers"). Saving and restoring an arbitrary temporary in
+  `x29` would not satisfy that requirement.
+  https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms
 * The stack pointer is separate. Only the push and pop of a frame
   (`str`/`ldr` with writeback, see `push`) write it, and only they and
   `ldrSp` (a 64-bit load from `[sp, #off]`, which reads the arguments a
@@ -85,7 +93,7 @@ namespace VG.AArch64
 
 inductive Reg
   | x0 | x1 | x2 | x3 | x4 | x5 | x6 | x7 | x8 | x9 | x10 | x11 | x12 | x13 | x14 | x15
-  | x16 | x17 | x19 | x20 | x21 | x22 | x23 | x24 | x25 | x26 | x27 | x28 | x29 | x30
+  | x16 | x17 | x19 | x20 | x21 | x22 | x23 | x24 | x25 | x26 | x27 | x28 | x30
   deriving DecidableEq, Repr, Inhabited
 
 /-- The SIMD and floating-point registers, other than `v8`–`v15` (see above). -/

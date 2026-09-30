@@ -1854,11 +1854,11 @@ theorem pubEq_of {s₁ s₂ : State} (h : Proof.Scrypt.roMixAArch64.pub s₁ s�
 /-- No instruction of ROMix, or of the functions it calls, writes `x25`–`x29`. -/
 theorem others_kept :
     (instrs Impl.Scrypt.AArch64.roMix).all
-      (fun i => [Reg.x25, .x26, .x27, .x28, .x29].all fun r => dstOf i != some r) = true := by
+      (fun i => [Reg.x25, .x26, .x27, .x28].all fun r => dstOf i != some r) = true := by
   rw [← Code.allInstrs_eq]; decide +kernel
 
 theorem preserved_cases :
-    ∀ r ∈ preserved, r ∈ rmSaved.map Prod.fst ∨ r ∈ [Reg.x25, .x26, .x27, .x28, .x29] := by
+    ∀ r ∈ preserved, r ∈ rmSaved.map Prod.fst ∨ r ∈ [Reg.x25, .x26, .x27, .x28] := by
   decide
 
 /-- A state satisfying the precondition. -/
