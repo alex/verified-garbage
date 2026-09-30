@@ -7,7 +7,8 @@ import VerifiedGarbage.Proof.ChaCha20Poly1305.X86_64.Verified
 A generic file (see `TCB/Emit.lean`): the artifacts it lists, calling an
 implementation `v` of `vg_chacha20_xor`, are emitted once for each
 implementation (`Variants/ChaCha20Xor/X86_64/`), named with its suffix (e.g.
-`vg_chacha20_poly1305_seal_avx2`), and need its CPU features. **Review
+`vg_chacha20_poly1305_seal_avx2`), and need its CPU features and those of
+the implementation of `vg_poly1305_blocks` it comes with (`XorImpl.poly`). **Review
 note**: `sig` and `doc` are trusted, as they tie the Rust caller to the
 contract; check them against the contract's `pre`/`post`. An artifact made
 from a function's `Api` (in `Spec/`, reviewed with the contract) takes them
@@ -23,30 +24,36 @@ namespace VG.Generic.ChaCha20Xor.X86_64.ChaCha20Poly1305
 
 open VG.Proof.ChaCha20Poly1305.X86_64
 
-/-- Which implementation of `vg_chacha20_xor` an instance calls. -/
+/-- Which implementations of `vg_chacha20_xor` and `vg_poly1305_blocks` an
+instance calls. -/
 def xorNote (v : Proof.ChaCha20.X86_64.XorImpl) : String :=
-  "This implementation encrypts with `" ++ v.callee.name ++ "`."
+  "This implementation encrypts with `" ++ v.callee.name ++ "` and authenticates with `" ++
+    v.poly.name ++ "`."
+
+/-- The CPU features an instance requires: those of both implementations. -/
+def features (v : Proof.ChaCha20.X86_64.XorImpl) : List String :=
+  (v.features ++ v.poly.features).eraseDups
 
 def artifacts (v : Proof.ChaCha20.X86_64.XorImpl) : List Artifact := [
   { Spec.ChaCha20Poly1305.sealApi with
     name := Spec.ChaCha20Poly1305.sealApi.name ++ v.suffix
     target := X86_64.target
     doc := Spec.ChaCha20Poly1305.sealApi.doc (notes := [xorNote v])
-    code := Impl.ChaCha20Poly1305.X86_64.«seal» v.callee
+    code := Impl.ChaCha20Poly1305.X86_64.«seal» v.callee v.poly
     contract := Spec.ChaCha20Poly1305.sealContract X86_64.abi 24
     stack := 24
     verified := seal_verified v
     spSafe := seal_spSafe v
-    features := v.features },
+    features := features v },
   { Spec.ChaCha20Poly1305.openApi with
     name := Spec.ChaCha20Poly1305.openApi.name ++ v.suffix
     target := X86_64.target
     doc := Spec.ChaCha20Poly1305.openApi.doc (notes := [xorNote v])
-    code := Impl.ChaCha20Poly1305.X86_64.«open» v.callee
+    code := Impl.ChaCha20Poly1305.X86_64.«open» v.callee v.poly
     contract := Spec.ChaCha20Poly1305.openContract X86_64.abi 24
     stack := 24
     verified := open_verified v
     spSafe := open_spSafe v
-    features := v.features }]
+    features := features v }]
 
 end VG.Generic.ChaCha20Xor.X86_64.ChaCha20Poly1305

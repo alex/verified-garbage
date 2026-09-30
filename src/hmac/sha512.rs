@@ -13,14 +13,22 @@
     target_arch = "x86"
 ))]
 
+#[cfg(target_arch = "x86_64")]
+use crate::arch::hmac_sha512::{
+    VG_HMAC_SHA512_FINALIZE_AVX2_FEATURES, VG_HMAC_SHA512_INIT_AVX2_FEATURES,
+    vg_hmac_sha512_finalize_avx2, vg_hmac_sha512_init_avx2,
+};
 use crate::arch::hmac_sha512::{vg_hmac_sha512_finalize, vg_hmac_sha512_init};
 use crate::hashes::sha512::{Sha512, Sha512Backend};
 
 super::streaming_hmac!(
     Sha512 (Sha512Backend) {
         Scalar => (vg_hmac_sha512_init, vg_hmac_sha512_finalize),
+        #[cfg(target_arch = "x86_64")]
+        Avx2 if [VG_HMAC_SHA512_INIT_AVX2_FEATURES, VG_HMAC_SHA512_FINALIZE_AVX2_FEATURES] =>
+            (vg_hmac_sha512_init_avx2, vg_hmac_sha512_finalize_avx2),
     },
     state: 192,
-    scratch: 96,
+    scratch: 234,
     output: 64,
 );

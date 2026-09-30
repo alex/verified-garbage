@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Pbkdf2.X86_64.Lit
 import VerifiedGarbage.Proof.Sha1.X86_64.Variant
 import VerifiedGarbage.Proof.Sha256.X86_64.Variant
 import VerifiedGarbage.Proof.Md5.X86_64.Stream.Md
-import VerifiedGarbage.Proof.Sha512.X86_64.Stream.Md
+import VerifiedGarbage.Proof.Sha512.X86_64.Variant
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 import VerifiedGarbage.Spec.Pbkdf2.Contract
 
@@ -14,9 +14,10 @@ Untrusted: everything here is checked by Lean. The generic proof
 (`Iterate.lean`, `IterateCT.lean`) at every hash function whose streaming
 code is the generic one of `Impl/MdStream/X86_64.lean` (MD5, SHA-1, SHA-256
 and the SHA-512 family), moved to the shared contracts of `Spec/`, which the
-artifacts are emitted with. For SHA-1 and SHA-256, it holds for every
-implementation `v` of the compression function (a variant of `Sha1Compress`
-or `Sha256Compress`): the checks do not look into the compression function.
+artifacts are emitted with. For SHA-1, SHA-256 and the SHA-512 family, it
+holds for every implementation `v` of the compression function (a variant of
+`Sha1Compress`, `Sha256Compress` or `Sha512Compress`): the checks do not look
+into the compression function.
 -/
 
 namespace VG.Proof.Pbkdf2.X86_64.Instances
@@ -162,8 +163,8 @@ final hash value, from its initial hash value `iv`. -/
 theorem sha512Fam_ok (S : Spec.Hmac.StreamingHash) (D : Nat) (iv : Spec.Sha512.HashValue)
     (hB : S.H.blockSize = 128) (hS : S.stateBytes = 192) (hD : S.digestBytes = D)
     (hR : S.Repr = Spec.Sha512.Repr iv) (hh : ∀ m, S.H.hash m = (Spec.Sha512.finalHash iv m).take D)
-    (hsz : Sizes Impl.Sha512.X86_64.Stream.params D 96) :
-    HashOk Impl.Sha512.X86_64.Stream.params D 96 S Proof.Sha512.md iv where
+    (hsz : Sizes Impl.Sha512.X86_64.Stream.params D 234) :
+    HashOk Impl.Sha512.X86_64.Stream.params D 234 S Proof.Sha512.md iv where
   sizes := hsz
   shape := Proof.Sha512.X86_64.Stream.shape
   reloc := sha512_reloc
@@ -172,7 +173,7 @@ theorem sha512Fam_ok (S : Spec.Hmac.StreamingHash) (D : Nat) (iv : Spec.Sha512.H
     by have := hsz.pad; simp [Impl.Sha512.X86_64.Stream.params] at this ⊢; omega⟩
 
 theorem sha512Fam_sizes {D : Nat} (h₁ : D % 4 = 0) (h₂ : 0 < D) (h₃ : D ≤ 64) :
-    Sizes Impl.Sha512.X86_64.Stream.params D 96 :=
+    Sizes Impl.Sha512.X86_64.Stream.params D 234 :=
   ⟨Proof.Sha512.X86_64.Stream.dims, by decide, h₁, by decide, h₂, h₃, by decide,
     by simp [Impl.Sha512.X86_64.Stream.params]; omega, by decide, by decide⟩
 
@@ -192,59 +193,113 @@ theorem sha512_256_checks : Checks Impl.Sha512.X86_64.Stream.params 32 :=
   ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
     ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
 
-theorem sha384_imp : (iterK Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.iterateContract X86_64.abi 8) :=
-  iterImp Spec.Hmac.sha384S 96 (by
+theorem sha384_imp : (iterK Spec.Hmac.sha384S 234).Implies (Spec.Hmac.sha384I.iterateContract X86_64.abi 8) :=
+  iterImp Spec.Hmac.sha384S 234 (by
     inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha384S, Spec.Hmac.sha384,
-      X86_64.abi, X86_64.argRegs] using iterSat 192 48 96)
+      X86_64.abi, X86_64.argRegs] using iterSat 192 48 234)
 
-theorem sha512_imp : (iterK Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.iterateContract X86_64.abi 8) :=
-  iterImp Spec.Hmac.sha512S 96 (by
+theorem sha512_imp : (iterK Spec.Hmac.sha512S 234).Implies (Spec.Hmac.sha512I.iterateContract X86_64.abi 8) :=
+  iterImp Spec.Hmac.sha512S 234 (by
     inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512S, Spec.Hmac.sha512,
-      X86_64.abi, X86_64.argRegs] using iterSat 192 64 96)
+      X86_64.abi, X86_64.argRegs] using iterSat 192 64 234)
 
 theorem sha512_224_imp :
-    (iterK Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.iterateContract X86_64.abi 8) :=
-  iterImp Spec.Hmac.sha512_224S 96 (by
+    (iterK Spec.Hmac.sha512_224S 234).Implies (Spec.Hmac.sha512_224I.iterateContract X86_64.abi 8) :=
+  iterImp Spec.Hmac.sha512_224S 234 (by
     inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224,
-      X86_64.abi, X86_64.argRegs] using iterSat 192 28 96)
+      X86_64.abi, X86_64.argRegs] using iterSat 192 28 234)
 
 theorem sha512_256_imp :
-    (iterK Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.iterateContract X86_64.abi 8) :=
-  iterImp Spec.Hmac.sha512_256S 96 (by
+    (iterK Spec.Hmac.sha512_256S 234).Implies (Spec.Hmac.sha512_256I.iterateContract X86_64.abi 8) :=
+  iterImp Spec.Hmac.sha512_256S 234 (by
     inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256,
-      X86_64.abi, X86_64.argRegs] using iterSat 192 32 96)
+      X86_64.abi, X86_64.argRegs] using iterSat 192 32 234)
 
-theorem sha384 :
-    Verified X86_64.target
-      (iterate Impl.Sha512.X86_64.Stream.params 48 "vg_sha512_compress" Impl.Sha512.X86_64.compress)
-      (Spec.Hmac.sha384I.iterateContract X86_64.abi 8) :=
+/-- The iteration with a `D`-byte digest, calling the implementation `v` of
+the compression function. -/
+abbrev sha512FamIterate (v : Proof.Sha512.X86_64.Compress) (D : Nat) : Prog isa :=
+  iterate Impl.Sha512.X86_64.Stream.params D v.callee.name v.callee.code
+
+abbrev sha384Iterate (v : Proof.Sha512.X86_64.Compress) : Prog isa := sha512FamIterate v 48
+abbrev sha512Iterate (v : Proof.Sha512.X86_64.Compress) : Prog isa := sha512FamIterate v 64
+abbrev sha512_224Iterate (v : Proof.Sha512.X86_64.Compress) : Prog isa := sha512FamIterate v 28
+abbrev sha512_256Iterate (v : Proof.Sha512.X86_64.Compress) : Prog isa := sha512FamIterate v 32
+
+theorem sha384_mx (v : Proof.Sha512.X86_64.Compress) :
+    (sha384Iterate v).allInstrs (fun i => !loadsMxcsr i) = true := by
+  simp only [sha384Iterate, sha512FamIterate, iterate, Impl.Pbkdf2.X86_64.body, Impl.Pbkdf2.X86_64.compressBlock,
+    Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith, Code.allInstrs, v.mxcsr, Bool.and_true,
+    Bool.true_and]
+  decide +kernel
+
+theorem sha384_sp (v : Proof.Sha512.X86_64.Compress) :
+    (sha384Iterate v).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [sha384Iterate, sha512FamIterate, iterate, Impl.Pbkdf2.X86_64.body, Impl.Pbkdf2.X86_64.compressBlock,
+    Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith, Code.all, v.spSafe, Bool.true_and]
+  decide +kernel
+
+theorem sha512_mx (v : Proof.Sha512.X86_64.Compress) :
+    (sha512Iterate v).allInstrs (fun i => !loadsMxcsr i) = true := by
+  simp only [sha512Iterate, sha512FamIterate, iterate, Impl.Pbkdf2.X86_64.body, Impl.Pbkdf2.X86_64.compressBlock,
+    Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith, Code.allInstrs, v.mxcsr, Bool.and_true,
+    Bool.true_and]
+  decide +kernel
+
+theorem sha512_sp (v : Proof.Sha512.X86_64.Compress) :
+    (sha512Iterate v).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [sha512Iterate, sha512FamIterate, iterate, Impl.Pbkdf2.X86_64.body, Impl.Pbkdf2.X86_64.compressBlock,
+    Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith, Code.all, v.spSafe, Bool.true_and]
+  decide +kernel
+
+theorem sha512_224_mx (v : Proof.Sha512.X86_64.Compress) :
+    (sha512_224Iterate v).allInstrs (fun i => !loadsMxcsr i) = true := by
+  simp only [sha512_224Iterate, sha512FamIterate, iterate, Impl.Pbkdf2.X86_64.body, Impl.Pbkdf2.X86_64.compressBlock,
+    Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith, Code.allInstrs, v.mxcsr, Bool.and_true,
+    Bool.true_and]
+  decide +kernel
+
+theorem sha512_224_sp (v : Proof.Sha512.X86_64.Compress) :
+    (sha512_224Iterate v).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [sha512_224Iterate, sha512FamIterate, iterate, Impl.Pbkdf2.X86_64.body, Impl.Pbkdf2.X86_64.compressBlock,
+    Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith, Code.all, v.spSafe, Bool.true_and]
+  decide +kernel
+
+theorem sha512_256_mx (v : Proof.Sha512.X86_64.Compress) :
+    (sha512_256Iterate v).allInstrs (fun i => !loadsMxcsr i) = true := by
+  simp only [sha512_256Iterate, sha512FamIterate, iterate, Impl.Pbkdf2.X86_64.body, Impl.Pbkdf2.X86_64.compressBlock,
+    Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith, Code.allInstrs, v.mxcsr, Bool.and_true,
+    Bool.true_and]
+  decide +kernel
+
+theorem sha512_256_sp (v : Proof.Sha512.X86_64.Compress) :
+    (sha512_256Iterate v).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [sha512_256Iterate, sha512FamIterate, iterate, Impl.Pbkdf2.X86_64.body, Impl.Pbkdf2.X86_64.compressBlock,
+    Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith, Code.all, v.spSafe, Bool.true_and]
+  decide +kernel
+
+theorem sha384 (v : Proof.Sha512.X86_64.Compress) :
+    Verified X86_64.target (sha384Iterate v) (Spec.Hmac.sha384I.iterateContract X86_64.abi 8) :=
   (verified (sha512Fam_ok Spec.Hmac.sha384S 48 Spec.Sha512.H0_384 rfl rfl rfl rfl (fun _ => rfl)
-    (sha512Fam_sizes (by decide) (by decide) (by decide))) sha384_checks (name := "vg_sha512_compress") Proof.Sha512.X86_64.Stream.callee
-    (by lit_decide) sha384_imp.sat_left).of_implies sha384_imp
+    (sha512Fam_sizes (by decide) (by decide) (by decide))) sha384_checks v.ok
+    (sha384_mx v) sha384_imp.sat_left).of_implies sha384_imp
 
-theorem sha512 :
-    Verified X86_64.target
-      (iterate Impl.Sha512.X86_64.Stream.params 64 "vg_sha512_compress" Impl.Sha512.X86_64.compress)
-      (Spec.Hmac.sha512I.iterateContract X86_64.abi 8) :=
+theorem sha512 (v : Proof.Sha512.X86_64.Compress) :
+    Verified X86_64.target (sha512Iterate v) (Spec.Hmac.sha512I.iterateContract X86_64.abi 8) :=
   (verified (sha512Fam_ok Spec.Hmac.sha512S 64 Spec.Sha512.H0_512 rfl rfl rfl rfl
     (fun m => (List.take_of_length_le (Nat.le_of_eq (Proof.Hmac.Generic.Common.finalHash_length _ m))).symm)
-    (sha512Fam_sizes (by decide) (by decide) (by decide))) sha512_checks (name := "vg_sha512_compress") Proof.Sha512.X86_64.Stream.callee
-    (by lit_decide) sha512_imp.sat_left).of_implies sha512_imp
+    (sha512Fam_sizes (by decide) (by decide) (by decide))) sha512_checks v.ok
+    (sha512_mx v) sha512_imp.sat_left).of_implies sha512_imp
 
-theorem sha512_224 :
-    Verified X86_64.target
-      (iterate Impl.Sha512.X86_64.Stream.params 28 "vg_sha512_compress" Impl.Sha512.X86_64.compress)
-      (Spec.Hmac.sha512_224I.iterateContract X86_64.abi 8) :=
+theorem sha512_224 (v : Proof.Sha512.X86_64.Compress) :
+    Verified X86_64.target (sha512_224Iterate v) (Spec.Hmac.sha512_224I.iterateContract X86_64.abi 8) :=
   (verified (sha512Fam_ok Spec.Hmac.sha512_224S 28 Spec.Sha512.H0_512_224 rfl rfl rfl rfl (fun _ => rfl)
-    (sha512Fam_sizes (by decide) (by decide) (by decide))) sha512_224_checks (name := "vg_sha512_compress") Proof.Sha512.X86_64.Stream.callee
-    (by lit_decide) sha512_224_imp.sat_left).of_implies sha512_224_imp
+    (sha512Fam_sizes (by decide) (by decide) (by decide))) sha512_224_checks v.ok
+    (sha512_224_mx v) sha512_224_imp.sat_left).of_implies sha512_224_imp
 
-theorem sha512_256 :
-    Verified X86_64.target
-      (iterate Impl.Sha512.X86_64.Stream.params 32 "vg_sha512_compress" Impl.Sha512.X86_64.compress)
-      (Spec.Hmac.sha512_256I.iterateContract X86_64.abi 8) :=
+theorem sha512_256 (v : Proof.Sha512.X86_64.Compress) :
+    Verified X86_64.target (sha512_256Iterate v) (Spec.Hmac.sha512_256I.iterateContract X86_64.abi 8) :=
   (verified (sha512Fam_ok Spec.Hmac.sha512_256S 32 Spec.Sha512.H0_512_256 rfl rfl rfl rfl (fun _ => rfl)
-    (sha512Fam_sizes (by decide) (by decide) (by decide))) sha512_256_checks (name := "vg_sha512_compress") Proof.Sha512.X86_64.Stream.callee
-    (by lit_decide) sha512_256_imp.sat_left).of_implies sha512_256_imp
+    (sha512Fam_sizes (by decide) (by decide) (by decide))) sha512_256_checks v.ok
+    (sha512_256_mx v) sha512_256_imp.sat_left).of_implies sha512_256_imp
 
 end VG.Proof.Pbkdf2.X86_64.Instances

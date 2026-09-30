@@ -67,6 +67,7 @@ pub mod mlkem768;
 pub mod pbkdf2;
 pub mod poly1305;
 pub mod scrypt;
+pub mod x25519;
 
 #[cfg(test)]
 mod tests {
