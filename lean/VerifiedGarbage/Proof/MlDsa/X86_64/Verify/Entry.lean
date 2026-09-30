@@ -145,6 +145,11 @@ theorem Args.r4 {r r1 r2 r3 r4 : Reg} {a a1 a2 a3 a4 : Arg} {as : List (Reg × A
   h.1.1 _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _
     (List.mem_cons_self ..)))))
 
+theorem Args.r5 {r r1 r2 r3 r4 r5 : Reg} {a a1 a2 a3 a4 a5 : Arg} {as : List (Reg × Arg)} {s s1 : State}
+    (h : Args ((r5, a5) :: (r4, a4) :: (r3, a3) :: (r2, a2) :: (r1, a1) :: (r, a) :: as) s s1) : s1.gpr r = a.val s :=
+  h.1.1 _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _
+    (List.mem_cons_of_mem _ (List.mem_cons_self ..))))))
+
 theorem Args.rsp {as : List (Reg × Arg)} {s s1 : State} (h : Args as s s1) : s1.gpr .rsp = s.gpr .rsp :=
   h.2.gpr (by decide)
 
@@ -153,6 +158,12 @@ theorem imm32 {v : Nat} (h : v < 2 ^ 32) : (BitVec.setWidth 32 (BitVec.ofNat 64 
 
 theorem imm64 {v : Nat} (h : v < 2 ^ 64) : (BitVec.ofNat 64 v).toNat = v := by
   simp only [BitVec.toNat_ofNat]; omega
+
+/-- Two states whose layout registers and stack pointer agree. -/
+def SameB (x y : State) : Prop := (∀ r ∈ bases, x.gpr r = y.gpr r) ∧ x.gpr .rsp = y.gpr .rsp
+
+theorem SameB.pa {x y : State} (h : SameB x y) {p : Ptr} (hp : p.1 ∈ bases) : pa x p = pa y p := by
+  simp only [VG.Proof.MlDsa.X86_64.Verify.pa, h.1 _ hp]
 
 /-- The buffers of a layout: small, in the registers `bases`. -/
 def LayOk (bs : List (Reg × Nat)) : Prop := ∀ b ∈ bs, b.2 < 2 ^ 31 ∧ b.1 ∈ bases

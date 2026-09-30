@@ -17,12 +17,6 @@ open VG.Proof.MlKem.X86_64
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
 
-/-- Two states whose layout registers and stack pointer agree. -/
-def SameB (x y : State) : Prop := (∀ r ∈ bases, x.gpr r = y.gpr r) ∧ x.gpr .rsp = y.gpr .rsp
-
-theorem SameB.pa {x y : State} (h : SameB x y) {p : Ptr} (hp : p.1 ∈ bases) : pa x p = pa y p := by
-  simp only [VG.Proof.MlDsa.X86_64.Verify.pa, h.1 _ hp]
-
 def ipChk (bs : List (Reg × Nat)) (wbs : List (Reg × Nat)) (f : Ptr) : Bool :=
   sepB bs f 1024 (sc oSS) 1024 && inB bs f 1024 && inB bs (sc oSS) 1024 && inB wbs f 1024 && inB wbs (sc oSS) 1024
 

@@ -345,6 +345,23 @@ abbrev toR (s : State) (w : Ptr × Nat) : Region := ⟨pa s w.1, w.2⟩
 /-- `PostB`, with the regions written given as pointers. -/
 abbrev PPostB (s s' : State) (ws : List (Ptr × Nat)) : Prop := PostB s s' (ws.map (toR s))
 
+theorem map_toR_post {s s' : State} {W : List Region} (hP : PostB s s' W) {ws : List (Ptr × Nat)}
+    (h : ∀ w ∈ ws, w.1.1 ∈ bases) : ws.map (toR s') = ws.map (toR s) :=
+  List.map_congr_left fun w hw => by simp only [toR, hP.pa (h w hw)]
+
+theorem PPostB.trans {s s₁ s₂ : State} {ws₁ ws₂ ws : List (Ptr × Nat)} (h₁ : PPostB s s₁ ws₁)
+    (h₂ : PPostB s₁ s₂ ws₂) (hcs : ∀ w ∈ ws₂, w.1.1 ∈ bases) (hw₁ : ∀ w ∈ ws₁, w ∈ ws)
+    (hw₂ : ∀ w ∈ ws₂, w ∈ ws) : PPostB s s₂ ws := by
+  have h₂' : PostB s₁ s₂ (ws₂.map (toR s)) := by rw [← map_toR_post h₁ hcs]; exact h₂
+  refine PostB.trans h₁ h₂' (fun r hr => ?_) fun r hr => ?_
+  · obtain ⟨w, hw, rfl⟩ := List.mem_map.mp hr; exact List.mem_map_of_mem (hw₁ w hw)
+  · obtain ⟨w, hw, rfl⟩ := List.mem_map.mp hr; exact List.mem_map_of_mem (hw₂ w hw)
+
+theorem PPostB.mono {s s' : State} {ws ws' : List (Ptr × Nat)} (h : PPostB s s' ws) (hw : ∀ w ∈ ws, w ∈ ws') :
+    PPostB s s' ws' :=
+  PostB.trans (PostB.refl s []) h (fun _ h => absurd h List.not_mem_nil) fun r hr => by
+    obtain ⟨w, hw', rfl⟩ := List.mem_map.mp hr; exact List.mem_map_of_mem (hw w hw')
+
 /-- The `l` bytes at `p` lie in the layout, apart from the regions `ws`, and
 `p`'s register is one of `bases`. -/
 def keepB (bs : List (Reg × Nat)) (ws : List (Ptr × Nat)) (p : Ptr) (l : Nat) : Bool :=
