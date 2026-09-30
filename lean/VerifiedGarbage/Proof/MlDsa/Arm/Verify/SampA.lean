@@ -192,6 +192,94 @@ theorem aOne_ok {r c : Nat} (hr : r < p.k) (hc : c < p.ℓ) {σ s : State} (h : 
       · exact absurd h1 hq'
       · exact ⟨r, c, hc, by omega, hn⟩
 
+/-! ## Constant time -/
+
+omit hP hF hS in
+theorem vsetB2_taint : ∀ v < 8, ∀ w < 8, (VG.Arm.taint.check (Taint.ofRegs [.r7])
+    (.block (setB (sc (oSB + 32)) v ++ setB (sc (oSB + 33)) w)) (.block [])).isSome = true := by decide +kernel
+
+omit hP hF hS in
+/-- The check is the same for every offset: its hint is computed once. -/
+theorem vAndMask_taint : ∀ j < 128, (VG.Arm.taint.check (Taint.ofRegs [.r7]) (.seq (.block and11) (mask (sc (oP j))))
+    (VG.Taint.hintOf VG.Arm.taint (Taint.ofRegs [.r7]) (.seq (.block and11) (mask (sc 0))))).isSome = true := by
+  decide +kernel
+
+theorem aOne_two {r c : Nat} (hr : r < p.k) (hc : c < p.ℓ) (σ : State) :
+    RelCT isa (fun x y => Two (vlay p STK σ) vWb STK x y ∧
+      bytesAt x.mem ((vlay p STK σ).A 0 oSB) 32 = bytesAt y.mem ((vlay p STK σ).A 0 oSB) 32) (aOne P (8 * r + c))
+      fun _ _ => True := by
+  have hk := hF.k; have hl := hF.l
+  unfold aOne sampled
+  have e8 : (8 * r + c) % 8 = c := by omega
+  have e8' : (8 * r + c) / 8 = r := by omega
+  rw [e8, e8']
+  let F := fun (x x' : State) => (∃ rs, Kept rs x x') ∧
+    bytesAt x'.mem ((vlay p STK σ).A 0 oSB) 34 = bytesAt x.mem ((vlay p STK σ).A 0 oSB) 32 ++
+      [BitVec.ofNat 8 c, BitVec.ofNat 8 r]
+  have hF1 : ∀ x, Site (vlay p STK σ) vWb STK x →
+      WP isa (.block (setB (sc (oSB + 32)) c ++ setB (sc (oSB + 33)) r)) x (F x) := fun x hs =>
+    WP.block_append (WP.mono (setB_ok hs (q := sc (oSB + 32)) ⟨rfl, by vsep hF⟩ (by decide) (by decide) c)
+      fun s₁ ⟨k₁, b₁⟩ => WP.mono (setB_ok (hs.kept k₁) (q := sc (oSB + 33)) ⟨rfl, by vsep hF⟩
+        (by decide) (by decide) r) fun s₂ ⟨k₂, b₂⟩ => ⟨⟨_, (k₁.monoL (W' := [tri (sc (oSB + 32)) 1,
+          tri (sc (oSB + 33)) 1]) (by simp)).trans (k₂.monoL (by simp))⟩, by
+        have hL := hs.ok
+        have b₁' := bytes_keepW hL k₂.frame (i := 0) (o := oSB + 32) (l := 1) (by vsep hF) (by decide) (by decide)
+        have b₀ := (bytes_keepW hL k₂.frame (i := 0) (o := oSB) (l := 32) (by vsep hF) (by decide) (by decide)).trans
+          (bytes_keepW hL k₁.frame (i := 0) (o := oSB) (l := 32) (by vsep hF) (by decide) (by decide))
+        rw [show (34 : Nat) = 32 + 1 + 1 from rfl, Proof.MlKem.bytesAt_add, Proof.MlKem.bytesAt_add, b₀,
+          add_ofNat_add, add_ofNat_add, List.append_assoc]
+        refine congrArg _ ?_
+        have e1 : bytesAt s₂.mem ((vlay p STK σ).A 0 (oSB + 32)) 1 = [BitVec.ofNat 8 c] := b₁'.trans b₁
+        have e2 : bytesAt s₂.mem ((vlay p STK σ).A 0 (oSB + 32 + 1)) 1 = [BitVec.ofNat 8 r] := b₂
+        rw [e1, e2]; rfl⟩)
+  refine RelCT.seq ((RelCT.wpDep (M := isa) (P := fun x y => Two (vlay p STK σ) vWb STK x y ∧
+      bytesAt x.mem ((vlay p STK σ).A 0 oSB) 32 = bytesAt y.mem ((vlay p STK σ).A 0 oSB) 32)
+    (taint7 (fun _ _ h => h.1) (vsetB2_taint _ (by omega) _ (by omega))) (F := F)
+    fun x y h => ⟨hF1 x h.1.1, hF1 y h.1.2.1⟩).mono (fun _ _ h => h)
+      (Q' := fun (x y : State) => Two (vlay p STK σ) vWb STK x y ∧
+        bytesAt x.mem ((vlay p STK σ).A 0 oSB) 34 = bytesAt y.mem ((vlay p STK σ).A 0 oSB) 34)
+      fun x' y' ⟨_, x, y, ⟨T, e32⟩, ⟨⟨_, kx⟩, bx⟩, ⟨⟨_, ky⟩, by'⟩⟩ =>
+        ⟨⟨T.1.kept kx, T.2.1.kept ky, by rw [kx.sp, ky.sp]; exact T.2.2⟩, by rw [bx, by', e32]⟩) ?_
+  have ok := fun x (hs : Site (vlay p STK σ) vWb STK x) =>
+    rn_ok hP.rejNtt hs (by omega) (name := "vg_mldsa_rej_ntt_poly") (rn_m hF (σ := σ) hr hc)
+      (Q := fun x' => ∃ rs, Kept rs x x') fun _ k _ _ => ⟨_, k⟩
+  refine RelCT.seq (VG.Proof.MlDsa.Arm.KeyGen.RelCT.two (fun _ _ h => h.1) (rn_tr hP.rejNtt (by omega) (rn_m hF hr hc)
+      fun x y h => ⟨h.1.1, h.1.2.1, h.1.2.2, h.2⟩) fun x hs => ok x hs) ?_
+  exact taint7 (fun _ _ h => h) (vAndMask_taint _ (by omega))
+
+theorem aOne_piece {r c : Nat} (hr : r < p.k) (hc : c < p.ℓ) :
+    VPiece p STK (VS p STK r c) (VS p STK r (c + 1)) (aOne P (8 * r + c)) :=
+  ⟨fun _ _ _ h => aOne_ok hP hF hS hr hc h,
+    rel_of (Q := fun x y => ∃ σ, Two (vlay p STK σ) vWb STK x y ∧
+      bytesAt x.mem ((vlay p STK σ).A 0 oSB) 32 = bytesAt y.mem ((vlay p STK σ).A 0 oSB) 32)
+      (RelCT.exists_ fun σ => aOne_two hP hF hS hr hc σ) fun σ₁ _ _ _ _ _ pub h₁ h₂ =>
+        ⟨σ₁, vc_twoL pub h₁.vb.vc h₂.vb.vc, by rw [h₁.rho, vlay_pub pub, h₂.rho, pub.2.2.2.2.2.1]⟩⟩
+
+/-! ## The rows -/
+
+omit hP hF hS in
+theorem VS.next {r : Nat} {σ s : State} (h : VS p STK r p.ℓ σ s) : VS p STK (r + 1) 0 σ s := by
+  have e : ∀ r' s', s' < p.ℓ → (Dn (r + 1) 0 r' s' ↔ Dn r p.ℓ r' s') := fun r' s' hs => by
+    simp only [Dn]; omega
+  obtain ⟨q, hq, hok, hbad⟩ := h.ok
+  exact ⟨h.vb, h.rho, fun r' s' hs hd => h.red r' s' hs ((e r' s' hs).mp hd),
+    ⟨q, hq, fun hq' r' s' hs hd => hok hq' r' s' hs ((e r' s' hs).mp hd),
+      fun hq' => let ⟨r', s', hs, hd, hn⟩ := hbad hq'; ⟨r', s', hs, (e r' s' hs).mpr hd, hn⟩⟩⟩
+
+theorem aRow_piece {r : Nat} (hr : r < p.k) : VPiece p STK (VS p STK r 0) (VS p STK (r + 1) 0) (aRow P p r) := by
+  have hl := hF.l
+  unfold aRow
+  refine Piece.mono (Piece.seqR (I := fun e σ s => VS p STK r (e - 8 * r) σ s) p.ℓ (8 * r)
+    fun e h1 h2 => ?_) (fun σ s _ h => by simpa using h) fun σ s _ h => VS.next (by simpa using h)
+  have := aOne_piece hP hF hS hr (c := e - 8 * r) (by omega)
+  rw [show 8 * r + (e - 8 * r) = e by omega, show e - 8 * r + 1 = e + 1 - 8 * r by omega] at this
+  exact this
+
+theorem rows_piece : VPiece p STK (VS p STK 0 0) (VS p STK p.k 0) (seqR (aRow P p) 0 p.k) := by
+  refine Piece.mono (Piece.seqR (I := fun r => VS p STK r 0) p.k 0 fun r _ hr => aRow_piece hP hF hS (by omega))
+    (fun _ _ _ h => h) fun σ s _ h => ?_
+  simpa using h
+
 end
 
 end VG.Proof.MlDsa.Arm.Verify
