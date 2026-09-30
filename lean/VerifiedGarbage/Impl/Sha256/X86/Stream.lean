@@ -1,4 +1,5 @@
 import VerifiedGarbage.Impl.Sha256.X86
+import VerifiedGarbage.Impl.MdStream.X86
 
 /-!
 # Streaming SHA-256: x86 (32-bit) implementation
@@ -8,18 +9,19 @@ The streaming state (96 bytes at `state`) is the hash value followed by a
 (cdecl).
 
 * `init(state)` stores `H⁽⁰⁾`.
-* `update(state, count, data, len, scratch)` processes one block per
-  iteration: straight from `data` while the buffer is empty and a whole block
-  remains, otherwise by copying bytes into the buffer, compressing it once it
-  is full.
+* `update(state, count, data, len, scratch)` is the generic streaming code
+  (`Impl/MdStream/X86.lean`): it compresses every whole block left in `data`
+  with one call if the buffer is empty, and otherwise copies bytes into the
+  buffer, compressing it once it is full.
 * `finalize(state, count, out, scratch)` pads the buffered bytes (one or two
   blocks), compresses them and writes the digest.
 
 The compression function is called (`vg_sha256_compress`,
 `Impl.Sha256.X86.compress`) with `scratch[0..112)` as its scratch space.
-Each call pushes its four arguments (`scratch`, `1`, the block and `state`)
-in a frame of its own, popped (into `eax`) when it returns: with the return
-address the call stores, it uses the 20 bytes below `esp`. The compression
+Each call pushes its four arguments (`scratch`, the number of blocks, the
+blocks and `state`) in a frame of its own, popped (into `eax`) when it
+returns: with the return address the call stores, it uses the 20 bytes below
+`esp`. The compression
 function preserves `ebx`, `esi`, `edi` and `ebp`, so our variables live
 there across it, and our caller's values of those registers are saved in
 `scratch[112..128)`. Every address and branch depends only on `esp`, the
@@ -54,42 +56,16 @@ def compressAt (st scr : Reg) : Prog isa :=
 
 /-! ## `update`
 
-Registers: `ebx` = `state`, `ebp` = `data`, `esi` = bytes of `data` left,
-`edi` = bytes in the buffer; within an iteration, `eax` = the block to
-compress and `ecx` = whether to compress it. `scratch` is read from its
-argument slot (`[esp + 24]`) when needed. -/
+The generic streaming code (`Impl/MdStream/X86.lean`). -/
 
-/-- A whole block straight from `data`. -/
-def direct : List Instr :=
-  [.mov .eax (.reg .ebp), .alu .add .ebp (.imm 64),
-   .alu .sub .esi (.imm 64), .mov .ecx (.imm 1)]
+/-- SHA-256's sizes, length field and digest in the generic streaming code. -/
+def params : MdStream.X86.Params where
+  N := 32
+  so := 112
+  len := MdStream.X86.len64 112 88 true
+  out := MdStream.X86.out32 8 true
 
-/-- Copy `min(64 - edi, esi)` bytes of `data` into the buffer; if that fills it,
-compress it. -/
-def fill : Prog isa :=
-  .seq (.block [.mov .eax (.imm 64), .alu .sub .eax (.reg .edi), .alu .cmp .esi (.reg .eax)])
-  (.seq (.ite .b (.block [.mov .eax (.reg .esi)]) (.block []))
-  (.seq (.block [.alu .sub .esi (.reg .eax), .alu .add .edi (.reg .ebx), .alu .test .eax (.reg .eax)])
-  (.seq (.ite .e (.block [])
-      (.loop (.block [.movzx8 .ecx (at_ .ebp 0), .store8 (at_ .edi 32) .cl,
-        .alu .add .ebp (.imm 1), .alu .add .edi (.imm 1), .alu .sub .eax (.imm 1)]) .ne))
-  (.seq (.block [.alu .sub .edi (.reg .ebx), .mov .ecx (.imm 0), .alu .cmp .edi (.imm 64)])
-    (.ite .e (.block [.mov .eax (.reg .ebx), .alu .add .eax (.imm 32), .mov .edi (.imm 0),
-        .mov .ecx (.imm 1)]) (.block []))))))
-
-def updateBody : Prog isa :=
-  .seq (.block [.alu .test .edi (.reg .edi)])
-  (.seq (.ite .e (.seq (.block [.alu .cmp .esi (.imm 64)]) (.ite .ae (.block direct) fill)) fill)
-  (.seq (.block [.alu .test .ecx (.reg .ecx)])
-    (.ite .ne (.seq (.block [.mov .edx (.mem (at_ .esp 24))])
-        (.seq (compressAt .ebx .edx) (.block [.mov .ecx (.imm 1), .alu .test .ecx (.reg .ecx)])))
-      (.block []))))
-
-def update : Prog isa :=
-  .seq (.block ([.mov .eax (.mem (at_ .esp 24))] ++ save .eax ++
-      [.mov .ebx (.mem (at_ .esp 4)), .mov .ebp (.mem (at_ .esp 16)), .mov .esi (.mem (at_ .esp 20)),
-       .mov .edi (.mem (at_ .esp 8)), .alu .and .edi (.imm 63)]))
-    (.seq (.loop updateBody .ne) (.block (.mov .eax (.mem (at_ .esp 24)) :: restore .eax)))
+def update : Prog isa := MdStream.X86.update params "vg_sha256_compress" compress
 
 /-! ## `finalize`
 
