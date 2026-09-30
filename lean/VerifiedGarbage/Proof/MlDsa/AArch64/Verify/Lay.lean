@@ -47,12 +47,13 @@ structure VFacts (p : Params) : Prop where
   sbp : SbpOk (w1Max p) (w1Len p)
   w1 : p.k * w1Len p ≤ 1024
   g2 : p.γ₂ ∈ gamma2s ∧ w1Max p = (q - 1) / (2 * p.γ₂) - 1
+  wl : w1Len p = 192 ∨ w1Len p = 128
 
 theorem vfacts {p : Params} (hp : p = mlDsa44 ∨ p = mlDsa65 ∨ p = mlDsa87) : VFacts p := by
   rcases hp with rfl | rfl | rfl <;>
     exact ⟨by simp, by decide, by decide, by decide, by decide, by decide, by decide, by decide,
       ⟨by decide, by decide, by decide⟩, by decide, ⟨by decide, by decide, by decide, by decide⟩, by decide,
-      ⟨by decide, by decide, by decide⟩, by decide, by decide⟩
+      ⟨by decide, by decide, by decide⟩, by decide, by decide, by decide⟩
 
 theorem VFacts.small {p : Params} (hF : VFacts p) : scrLen p < 2 ^ 32 ∧ p.pkLen < 2 ^ 32 ∧ p.sigLen < 2 ^ 32 := by
   have hk := hF.k; have hl := hF.l; have hkl := hF.kl; have := hF.zl; have := hF.ct; have := hF.om
