@@ -9,8 +9,10 @@
 //!
 //! They are emitted once for each implementation of `vg_chacha20_xor`, and
 //! the one called is that of the implementation `ChaCha20` selects
-//! (`crate::chacha20::Backend`): on x86-64, CPUs with AVX2 run
-//! `vg_chacha20_poly1305_seal_avx2` and `vg_chacha20_poly1305_open_avx2`.
+//! (`crate::chacha20::Backend`): on x86-64, CPUs with AVX-512F run
+//! `vg_chacha20_poly1305_seal_avx512` and `vg_chacha20_poly1305_open_avx512`,
+//! and other CPUs with AVX2 `vg_chacha20_poly1305_seal_avx2` and
+//! `vg_chacha20_poly1305_open_avx2`.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -22,7 +24,8 @@
 use crate::arch::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::chacha20poly1305::{
-    vg_chacha20_poly1305_open_avx2, vg_chacha20_poly1305_seal_avx2,
+    vg_chacha20_poly1305_open_avx2, vg_chacha20_poly1305_open_avx512,
+    vg_chacha20_poly1305_seal_avx2, vg_chacha20_poly1305_seal_avx512,
 };
 use crate::chacha20::Backend;
 use crate::cpu::detected;
@@ -92,6 +95,8 @@ impl ChaCha20Poly1305 {
             Backend::Scalar => vg_chacha20_poly1305_seal,
             #[cfg(target_arch = "x86_64")]
             Backend::Avx2 => vg_chacha20_poly1305_seal_avx2,
+            #[cfg(target_arch = "x86_64")]
+            Backend::Avx512 => vg_chacha20_poly1305_seal_avx512,
         };
         // SAFETY: `ctx` is valid for reads and writes of 1024 bytes, `aad`
         // for reads of `aad.len()` bytes and `data` for reads and writes of
@@ -136,6 +141,8 @@ impl ChaCha20Poly1305 {
             Backend::Scalar => vg_chacha20_poly1305_open,
             #[cfg(target_arch = "x86_64")]
             Backend::Avx2 => vg_chacha20_poly1305_open_avx2,
+            #[cfg(target_arch = "x86_64")]
+            Backend::Avx512 => vg_chacha20_poly1305_open_avx512,
         };
         // SAFETY: as in `encrypt_in_place`.
         let ok = unsafe {
@@ -231,8 +238,8 @@ mod tests {
         assert_eq!(best.backend, Backend::select(detected()));
         let nonce = [9; 12];
         let aad = [4; 20];
-        for len in [0, 63, 64, 65, 511, 512, 513, 1000] {
-            let msg: [u8; 1000] = core::array::from_fn(|i| (i * 31) as u8);
+        for len in [0, 63, 64, 65, 511, 512, 513, 1000, 1023, 1024, 1025, 2100] {
+            let msg: [u8; 2100] = core::array::from_fn(|i| (i * 31) as u8);
             let mut a = msg;
             let mut b = msg;
             let tag = scalar.encrypt_in_place(&nonce, &aad, &mut a[..len]);
@@ -256,9 +263,12 @@ mod tests {
     #[cfg(target_arch = "x86_64")]
     #[test]
     fn features() {
-        use crate::arch::chacha20::VG_CHACHA20_XOR_AVX2_FEATURES;
+        use crate::arch::chacha20::{
+            VG_CHACHA20_XOR_AVX2_FEATURES, VG_CHACHA20_XOR_AVX512_FEATURES,
+        };
         use crate::arch::chacha20poly1305::{
-            VG_CHACHA20_POLY1305_OPEN_AVX2_FEATURES, VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES,
+            VG_CHACHA20_POLY1305_OPEN_AVX2_FEATURES, VG_CHACHA20_POLY1305_OPEN_AVX512_FEATURES,
+            VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES, VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES,
         };
         assert_eq!(
             VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES,
@@ -267,6 +277,14 @@ mod tests {
         assert_eq!(
             VG_CHACHA20_POLY1305_OPEN_AVX2_FEATURES,
             VG_CHACHA20_XOR_AVX2_FEATURES
+        );
+        assert_eq!(
+            VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES,
+            VG_CHACHA20_XOR_AVX512_FEATURES
+        );
+        assert_eq!(
+            VG_CHACHA20_POLY1305_OPEN_AVX512_FEATURES,
+            VG_CHACHA20_XOR_AVX512_FEATURES
         );
     }
 }
