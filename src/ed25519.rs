@@ -5,7 +5,7 @@
 //! contracts in `VG.Spec.Ed25519`. Rust composes those primitives and clears
 //! secret temporary values.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"))]
 
 use crate::arch::ed25519::{
     vg_ed25519_scalar_base, vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce,
