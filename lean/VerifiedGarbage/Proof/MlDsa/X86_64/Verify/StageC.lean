@@ -175,35 +175,55 @@ theorem PPostB.accR {p : Params} {r : Nat} {s s₁ s₂ : State} {ws : List (Ptr
 theorem pa_rbx {s s' : State} {W : List Region} (hP : PostB s s' W) (o : Nat) : pa s' (.rbx, o) = pa s (.rbx, o) :=
   hP.pa (show Reg.rbx ∈ bases by decide)
 
-theorem dot_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ)
-    {h : List (Vector Bool n)} {A' : Nat → Nat → Poly} {Q : Prop} [Decidable Q] {cH : Poly}
-    {r : Nat} (hr : r < p.k) {s : State} (hs : SC p h A' Q p.ℓ cH r σ s) :
-    WP isa (dot P p r) s fun s' => PPostB s s' [(pW, 1024)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
-      PolyIs s'.mem (pa s pW) (dotAcc p (vSig p σ) A' r p.ℓ) := by
+/-- After `Σ_{s < j} Â[r, s] ẑ[s]`, from `s₀`. -/
+def DI (p : Params) (σ : State) (A' : Nat → Nat → Poly) (r j : Nat) (s₀ st : State) : Prop :=
+  PPostB s₀ st [(pW, 1024)] ∧ st.gpr .r15 = s₀.gpr .r15 ∧ PolyIs st.mem (pa s₀ pW) (dotAcc p (vSig p σ) A' r j)
+
+theorem SC.zHat {p : Params} {h : List (Vector Bool n)} {A' : Nat → Nat → Poly} {Q : Prop} [Decidable Q]
+    {cH : Poly} {r : Nat} {σ s : State} (hs : SC p h A' Q p.ℓ cH r σ s) {c : Nat} (hc : c < p.ℓ) :
+    PolyIs s.mem (pa s (pZ c)) (zHat p (vSig p σ) c) := by
+  have := hs.z c hc; rwa [ifp hc] at this
+
+section Dot
+variable {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ)
+  {h : List (Vector Bool n)} {A' : Nat → Nat → Poly} {Q : Prop} [Decidable Q] {cH : Poly}
+  {r : Nat} (hr : r < p.k) {s₀ : State} (hs : SC p h A' Q p.ℓ cH r σ s₀)
+include C hp hv hr hs
+
+theorem dotFirst_ok : WP isa (mulAt P pW (pA r 0) (pZ 0)) s₀ (DI p σ A' r 1 s₀) := by
+  have R := rowC hp hr
+  refine WP.mono (mulAt_ok C.mul (hs.t.lay hp hv) (R.mul 0 R.l1) (hs.a r hr 0 R.l1).1 (hs.zHat R.l1).1)
+    fun s₁ ⟨hP₁, e₁, hq₁⟩ => ⟨hP₁, e₁, ?_⟩
+  rw [(hs.a r hr 0 R.l1).2, (hs.zHat R.l1).2] at hq₁
+  simp only [dotAcc, add_zero_left]
+  exact hq₁
+
+theorem dotStep_ok {k : Nat} (hk' : k < p.ℓ) {st : State} (hd : DI p σ A' r k s₀ st) :
+    WP isa (mulAddAt P pW (pA r k) (pZ k)) st (DI p σ A' r (k + 1) s₀) := by
   have R := rowC hp hr
   have L := hs.t.lay hp hv
   obtain ⟨_, _, hZ, hA⟩ := keepC_spec R.keep
-  have hz : ∀ c < p.ℓ, PolyIs s.mem (pa s (pZ c)) (zHat p (vSig p σ) c) := fun c hc => by
-    have := hs.z c hc; rwa [ifp hc] at this
-  have mW := (wsR_mem p r).1
+  obtain ⟨hP, e, hW⟩ := hd
+  have H := hP.mono (sub1 (wsR_mem p r).1)
+  have ew : pa st pW = pa s₀ pW := pa_rbx hP _
+  have hz : k ≠ 100 := by have := kl_le p hp; omega
+  refine WP.mono (mulAddAt_ok C.mulAdd (L.post hP) (R.mul k hk') (by rw [ew]; exact hW.1)
+    (L.keepRed H (hA r hr k hk') (hs.a r hr k hk').1) (L.keepRed H (hZ k hk' hz) (hs.zHat hk').1))
+    fun s' ⟨hP', e', hq'⟩ => ?_
+  rw [ew, hW.2, L.keepPolyAt H (hA r hr k hk'), (hs.a r hr k hk').2, L.keepPolyAt H (hZ k hk' hz),
+    (hs.zHat hk').2] at hq'
+  exact ⟨hP.trans hP' (fun w hw => by rw [List.mem_singleton.mp hw]; decide) (fun _ h => h) (fun _ h => h),
+    e'.trans e, hq'⟩
+
+theorem dot_ok : WP isa (dot P p r) s₀ (DI p σ A' r p.ℓ s₀) := by
+  have R := rowC hp hr
   unfold dot
-  refine WP.seq (WP.mono (mulAt_ok C.mul L (R.mul 0 R.l1) (hs.a r hr 0 R.l1).1 (hz 0 R.l1).1)
-    fun s₁ ⟨hP₁, e₁, hq₁⟩ => ?_)
-  rw [(hs.a r hr 0 R.l1).2, (hz 0 R.l1).2] at hq₁
-  refine WP.mono (seqR_ok (I := fun j st => PPostB s st [(pW, 1024)] ∧ st.gpr .r15 = s.gpr .r15 ∧
-    PolyIs st.mem (pa s pW) (dotAcc p (vSig p σ) A' r j)) (p.ℓ - 1) 1 (fun k hk hk' st ⟨hP, e, hW⟩ => ?_) s₁
-    ⟨hP₁, e₁, by simp only [dotAcc, add_zero_left]; exact hq₁⟩) fun st hst => ?_
-  · have hk'' : k < p.ℓ := by omega
-    have H := hP.mono (sub1 mW)
-    have ew : pa st pW = pa s pW := pa_rbx hP _
-    refine WP.mono (mulAddAt_ok C.mulAdd (L.post hP) (R.mul k hk'') (by rw [ew]; exact hW.1)
-      (L.keepRed H (hA r hr k hk'') (hs.a r hr k hk'').1)
-      (L.keepRed H (hZ k hk'' (by have := kl_le p hp; omega)) (hz k hk'').1)) fun s' ⟨hP', e', hq'⟩ => ?_
-    rw [ew, hW.2, L.keepPolyAt H (hA r hr k hk''), (hs.a r hr k hk'').2,
-      L.keepPolyAt H (hZ k hk'' (by have := kl_le p hp; omega)), (hz k hk'').2] at hq'
-    exact ⟨hP.trans hP' (fun w hw => by rw [List.mem_singleton.mp hw]; decide) (fun _ h => h) (fun _ h => h), e'.trans e, hq'⟩
-  · rw [show 1 + (p.ℓ - 1) = p.ℓ by have := R.l1; omega] at hst
-    exact hst
+  refine WP.seq (WP.mono (dotFirst_ok C hp hv hr hs) fun s₁ h₁ => ?_)
+  have := seqR_ok (I := fun j => DI p σ A' r j s₀) (p.ℓ - 1) 1
+    (fun k _ hk' st hd => dotStep_ok C hp hv hr hs (by omega) hd) s₁ h₁
+  rwa [show 1 + (p.ℓ - 1) = p.ℓ by have := R.l1; omega] at this
+
+end Dot
 
 theorem keepB_sub {bs : List (Reg × Nat)} {ws ws' : List (Ptr × Nat)} {q : Ptr} {l : Nat} (h : keepB bs ws q l = true)
     (hw : ∀ w ∈ ws', w ∈ ws) : keepB bs ws' q l = true := by
@@ -249,9 +269,13 @@ variable {P : Prims} (C : PrimsOk P) (hp : p ∈ params) (hv : VPre p σ) {Q : P
   {s₀ : State} (hs : SC p h A' Q p.ℓ cH r σ s₀)
 include C hp hv hr hs
 
+omit C hp hv hr hs in
+theorem DI.rf1 {s : State} (hd : DI p σ A' r p.ℓ s₀ s) : RF1 p σ A' r s₀ s :=
+  let ⟨hP, e, hq⟩ := hd
+  ⟨⟨hP.mono (sub1 (wsR_mem p r).1), e⟩, by rw [pa_rbx hP]; exact hq⟩
+
 theorem row0_ok : WP isa (dot P p r) s₀ (RF1 p σ A' r s₀) :=
-  WP.mono (dot_ok C hp hv hr hs) fun s ⟨hP, e, hq⟩ =>
-    ⟨⟨hP.mono (sub1 (wsR_mem p r).1), e⟩, by rw [pa_rbx hP]; exact hq⟩
+  WP.mono (dot_ok C hp hv hr hs) fun _ hd => DI.rf1 hd
 
 theorem row1_ok {s : State} (hf : RF1 p σ A' r s₀ s) :
     WP isa (unpackT1At P (.rbp, 32 + 320 * r) pT) s (RF2 p σ A' r s₀) := by
