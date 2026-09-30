@@ -161,11 +161,8 @@ macro_rules! mldsa_tests {
                 pk.verify(b"message", &long, &sig),
                 Err(Error::ContextTooLong)
             );
-            assert_eq!(
-                $VerifyingKey::from_bytes(pk.as_bytes()),
-                pk.clone(),
-                "a public key is its bytes"
-            );
+            // A public key is its bytes.
+            assert_eq!($VerifyingKey::from_bytes(pk.as_bytes()), pk.clone());
             assert!(format!("{key:?}").starts_with(stringify!($SigningKey)));
             assert!(format!("{pk:?}").starts_with(stringify!($VerifyingKey)));
         }

@@ -136,7 +136,7 @@ section
 variable {P : Params} {D W : Nat} (hz : Sizes P D W) {s₀ : State} (hp : Pre P D W s₀)
 include hz
 
-theorem so_le : P.so ≤ 1024 := hz.dims.so
+theorem so_le : P.so ≤ 2048 := hz.dims.so
 theorem N_le : P.N ≤ 64 := hz.dims.N.2
 theorem B_le : P.B ≤ 128 := by rcases hz.dims.B with h | h <;> omega
 theorem B_ge : 64 ≤ P.B := by rcases hz.dims.B with h | h <;> omega

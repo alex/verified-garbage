@@ -1,0 +1,5 @@
+name = "X448"
+family = "Key agreement"
+specs = ["X448"]
+modules = ["src/x448.rs"]
+asm = ["x448"]
