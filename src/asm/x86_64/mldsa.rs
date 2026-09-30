@@ -837,3 +837,54 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_unpack_t1(v: *const [u8; 320], f: 
         "ret",
     )
 }
+
+/// `HintBitPack` (FIPS 204 Algorithm 20): writes the encoding of the hint of `k = len - omega` polynomials of 256 coefficients at `h` (a coefficient is 1 if it is not 0) to the `len = omega + k` bytes at `y`.
+///
+/// Contract: `VG.Spec.MlDsa.hintBitPackContract`. Not constant time in the hint: timing may depend on the pointers, `hlen`, `omega`, `len` and the hint at `h` (which the signature it encodes reveals), but not on anything else.
+///
+/// # Safety
+///
+/// * `h` must be valid for reads of `4 * hlen` bytes.
+/// * `y` must be valid for reads and writes of `len` bytes.
+/// * `(omega, len - omega)` must be `(80, 4)`, `(55, 6)` or `(75, 8)`, and `hlen` must be `256 * (len - omega)`.
+/// * The hint at `h` must have at most `omega` coefficients that are not 0.
+/// * `y` must not overlap `h` (distinct Rust objects never do).
+/// * Neither `h` nor `y` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_mldsa_hint_bit_pack(h: *const u32, hlen: usize, omega: u32, y: *mut u8, len: usize) {
+    core::arch::naked_asm!(
+        "mov edx, edx",
+        "mov eax, 0",
+        "mov r9, rcx",
+        "mov r10, r8",
+        "20:",
+        "mov BYTE PTR [r9], al",
+        "add r9, 1",
+        "sub r10, 1",
+        "jne 20b",
+        "mov r9, rcx",
+        "add r9, rdx",
+        "mov r10, r8",
+        "sub r10, rdx",
+        "21:",
+        "mov r11d, 0",
+        "22:",
+        "mov esi, DWORD PTR [rdi]",
+        "cmp esi, 0",
+        "jne 23f",
+        "jmp 24f",
+        "23:",
+        "mov BYTE PTR [rcx+rax*1], r11b",
+        "add rax, 1",
+        "24:",
+        "add rdi, 4",
+        "add r11, 1",
+        "cmp r11d, 256",
+        "jne 22b",
+        "mov BYTE PTR [r9], al",
+        "add r9, 1",
+        "sub r10, 1",
+        "jne 21b",
+        "ret",
+    )
+}

@@ -138,4 +138,12 @@ theorem hpIdx_lt {h : List (Vector Bool n)} {k i j : Nat} (hk : h.length = k) (h
   unfold onesBefore
   omega
 
+/-- The index after polynomial `i` is at most the number of 1s. -/
+theorem onesBefore_n_le {h : List (Vector Bool n)} {k i : Nat} (hk : h.length = k) (hi : i < k) :
+    onesBefore h i n ≤ hintOnes h := by
+  rw [hintOnes_eq hk]
+  unfold onesBefore
+  rw [← sum_range_succ (fun t => count (h.getD t noHint) n)]
+  exact sum_range_mono _ (by omega)
+
 end VG.Proof.MlDsa.Pack
