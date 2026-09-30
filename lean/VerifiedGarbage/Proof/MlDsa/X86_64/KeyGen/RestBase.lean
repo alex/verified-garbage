@@ -56,11 +56,8 @@ macro_rules
   | `(tactic| krchk $hF) => `(tactic| (
       have := ($hF).k; have := ($hF).l; have := ($hF).kl
       rcases ($hF).eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;>
-      exact ⟨by layk [($hF).pk, ($hF).sk, hlen], fun _ _ => by layk [($hF).pk, ($hF).sk, hlen],
-        fun _ _ => by layk [($hF).pk, ($hF).sk, hlen], fun _ _ => by layk [($hF).pk, ($hF).sk, hlen],
-        by layk [($hF).pk, ($hF).sk, hlen], by layk [($hF).pk, ($hF).sk, hlen], by layk [($hF).pk, ($hF).sk, hlen],
-        fun _ _ => by layk [($hF).pk, ($hF).sk, hlen],
-        fun _ _ => ⟨by layk [($hF).pk, ($hF).sk, hlen], by layk [($hF).pk, ($hF).sk, hlen]⟩⟩))
+      refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> intros <;> (try refine ⟨?_, ?_⟩) <;>
+      layk [($hF).pk, ($hF).sk, hlen]))
 
 theorem KR.keep {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ) {A : Nat → Poly} {S : Nat → IPoly}
     {R : BitVec 64} {np nj nr : Nat} {s s' : State} (h : KR p σ A S R np nj nr s) {ws : List (Ptr × Nat)}
