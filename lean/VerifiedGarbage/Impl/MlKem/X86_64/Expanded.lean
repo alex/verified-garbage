@@ -16,9 +16,8 @@ at a time) in place of sampling and hashing:
 * `keyGenX`: `vg_mlkem768_keygen` (with `ekx` in `r12`, where it writes
   `ek`), then `H(ek)` (which it writes to `dk`) and `Â` to `ekx`;
 * `expandEk(ek = rdi, ekx = rsi, scratch = rdx) -> eax`: `ek` to `ekx`,
-  `H(ek)` to `ekx`, `ρ` to `SB`, `Â` sampled as in `vg_mlkem768_keygen`,
-  and copied to `ekx`; it keeps `scratch` in `rbx`, `ek` in `rbp` and `ekx`
-  in `r12`;
+  `H(ek)` to `ekx`, `Â` sampled as in `vg_mlkem768_encaps`, and copied to
+  `ekx`; it keeps `scratch` in `rbx`, `ek` in `rbp` and `ekx` in `r12`;
 * `encapsX`: `vg_mlkem768_encaps` (with `ekx` in `r14`, where `ek` is),
   with `H(ek)` copied from `ekx` rather than computed, and `Â` copied to
   the working space rather than sampled;
@@ -65,17 +64,17 @@ namespace ExpandEk
 
 def pro : List Instr := topPro .rdx [(.rbp, .rdi), (.r12, .rsi)]
 
-/-- `ek` and `H(ek)` to `ekx`, and `ρ` to `SB`. -/
+/-- `ek` and `H(ek)` to `ekx`. -/
 def hash : Prog isa :=
-  .seq (copy16 (.r12, 0) (.rbp, 0) 74) (.seq (hashAt [((.rbp, 0), 1184)] 136 6 (.r12, oXH) 32)
-    (copy (sc oSB) (.rbp, 1152) 32))
+  .seq (copy16 (.r12, 0) (.rbp, 0) 74) (hashAt [((.rbp, 0), 1184)] 136 6 (.r12, oXH) 32)
 
 end ExpandEk
 
 open ExpandEk in
-/-- `vg_mlkem768_expand_ek(ek = rdi, ekx = rsi, scratch = rdx) -> eax`. -/
+/-- `vg_mlkem768_expand_ek(ek = rdi, ekx = rsi, scratch = rdx) -> eax`: `Â` as
+`vg_mlkem768_encaps` samples it (`Encrypt.mat`). -/
 def expandEk (c : Callee4) : Prog isa :=
-  .seq (.block pro) (.seq hash (.seq (samples c) (.seq (ifOk (matOut .r12)) (.block topEpi))))
+  .seq (.block pro) (.seq hash (.seq (Encrypt.mat c (.rbp, 0)) (.seq (ifOk (matOut .r12)) (.block topEpi))))
 
 namespace EncapsX
 
