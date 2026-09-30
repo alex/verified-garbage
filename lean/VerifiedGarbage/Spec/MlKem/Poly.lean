@@ -122,6 +122,33 @@ def sampleNTTContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (stack := stack)
     (leak := some fun seed _a _scratch m => (bytesAt m seed 34).map (·.toNat))
 
+/-- `vg_mlkem_sample_ntt4(seeds: *const [u8; 136], a: *mut [u32; 1024], scratch: *mut [u64; 1024]) -> u32`. -/
+def sampleNTT4Sig : Sig where
+  params := [("seeds", .array false .u8 136), ("a", .array true .u32 1024),
+    ("scratch", .array true .u64 1024)]
+  ret := some .u32
+
+/-- Seed `k` of four at `seeds`: the 34 bytes from byte `34 k`. -/
+def seed4 (m : Mem) (seeds : Addr) (k : Nat) : List Byte := bytesAt m (seeds + BitVec.ofNat 64 (34 * k)) 34
+
+/-- Polynomial `k` of four at `a`: from byte `1024 k`. -/
+def poly4 (a : Addr) (k : Nat) : Addr := a + BitVec.ofNat 64 (1024 * k)
+
+/-- `SampleNTT` four times: with the four 34-byte seeds `B₀, …, B₃` at
+`seeds` (`seed4`), writes `SampleNTT(Bₖ)` (Algorithm 7) to the polynomial at
+`a + 1024 k` (`poly4`), reduced, for each `k`, and returns 1; or returns 0
+if the loop of `SampleNTT` reaches its bound (`minIterations`) for one of
+them, and `a` is unspecified. May leak the seeds. -/
+def sampleNTT4Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
+  sampleNTT4Sig.contract A
+    (post := fun seeds a _scratch m m' r =>
+      (r = 1 → ∀ k < 4, Reduced m' (poly4 a k)) ∧
+        ((r = 1 ∧ ∀ k < 4, ∃ iters, sampleNTT iters (seed4 m seeds k) = some (polyAt m' (poly4 a k))) ∨
+          (r = 0 ∧ ∃ k < 4, sampleNTT minIterations (seed4 m seeds k) = none)))
+    (writeArgs := true)
+    (stack := stack)
+    (leak := some fun seeds _a _scratch m => (bytesAt m seeds 136).map (·.toNat))
+
 /-- `vg_mlkem_cbd2(b: *const [u8; 128], f: *mut [u32; 256])`. -/
 def cbd2Sig : Sig where
   params := [("b", .array false .u8 128), ("f", .array true .u32 256)]
@@ -277,6 +304,25 @@ def sampleNTTApi : Api where
     unspecified, and the caller must destroy it and treat the operation as failed.\n\n\
     Contract: `VG.Spec.MlKem.sampleNTTContract`. Not constant time in the seed: timing may \
     depend on the pointer and on `*seed` (public in ML-KEM: the seed `ρ` of the matrix and two \
+    indices), but not on anything else."
+  safety := [scratchSafety]
+
+/-- `vg_mlkem_sample_ntt4` on every target. -/
+def sampleNTT4Api : Api where
+  module := "mlkem"
+  name := "vg_mlkem_sample_ntt4"
+  sig := sampleNTT4Sig
+  writeArgs := true
+  summary := "`SampleNTT` (FIPS 203 Algorithm 7) four times: for each `k` < 4, writes the element of \
+    `T_q` sampled from the SHAKE128 output of the 34 bytes of `*seeds` from byte `34 k` to the \
+    256 coefficients of `*a` from coefficient `256 k` (each less than `q` = 3329), and returns 1. \
+    Returns 0 if the loop reaches its bound for one of them, which is at least 280 iterations \
+    (FIPS 203 Appendix B; this happens with probability less than 2^-261 for each): `*a` is \
+    then unspecified, and the caller must destroy it and treat the operation as failed. The \
+    four are independent, so an implementation may compute them together (e.g. four SHAKE128 \
+    instances at once in vector registers).\n\n\
+    Contract: `VG.Spec.MlKem.sampleNTT4Contract`. Not constant time in the seeds: timing may \
+    depend on the pointer and on `*seeds` (public in ML-KEM: the seed `ρ` of the matrix and \
     indices), but not on anything else."
   safety := [scratchSafety]
 

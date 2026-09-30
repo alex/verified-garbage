@@ -262,6 +262,9 @@ jobs:
   # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
   #   runner has. It also has the SHA extensions, so only SHA-512's tests
   #   (and detection's) run there.
+  # And natively on an ARM64 runner, whose AES and PMULL extensions
+  # `cpu-features-env` detects at run time (without it, AArch64 detection is
+  # at compile time, which the `rust` job tests).
   # The coverage is merged with the rest, which checks that every
   # implementation was chosen on one of them.
   rust-cpu-features:
@@ -273,8 +276,11 @@ jobs:
         include:
           - chip: arl
             tests: sha384 sha512 cpu
-    name: Rust (${{ matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
-    runs-on: ubuntu-latest
+          - chip: native
+            os: ubuntu-24.04-arm
+            tests: aes_gcm cpu
+    name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     env:
       RUSTUP_TOOLCHAIN: stable
       RUSTFLAGS: -D warnings -Cinstrument-coverage
@@ -294,9 +300,13 @@ jobs:
           persist-credentials: false
       - name: This runner's CPU
         run: |
-          grep -m1 'model name' /proc/cpuinfo
-          grep -m1 flags /proc/cpuinfo | tr ' ' '\n' \
-            | grep -xE 'ssse3|sha_ni|aes|pclmulqdq|avx|avx2|bmi1|bmi2|avx512f|sha512' | tr '\n' ' '
+          if [ "$(uname -m)" = aarch64 ]; then
+            grep -m1 Features /proc/cpuinfo | tr ' ' '\n' | grep -xE 'aes|pmull' | tr '\n' ' '
+          else
+            grep -m1 'model name' /proc/cpuinfo
+            grep -m1 flags /proc/cpuinfo | tr ' ' '\n' \
+              | grep -xE 'ssse3|sha_ni|aes|pclmulqdq|avx|avx2|bmi1|bmi2|avx512f|sha512' | tr '\n' ' '
+          fi
       - name: Download Intel SDE
         if: ${{ matrix.chip != 'native' }}
         run: |
