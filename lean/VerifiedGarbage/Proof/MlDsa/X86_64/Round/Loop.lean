@@ -146,7 +146,7 @@ theorem loop_ok {s₀ : State} {ins outs fixed clob : List Reg} {body : List Ins
     {J : Nat → State → Prop} (hL : Layout s₀ ins outs) (hfix : ∀ r ∈ fixed, r ∉ clob) (hcx : .rcx ∈ clob)
     (hJ : ∀ s, s.gpr .rcx = BitVec.ofNat 64 256 → s.mem = s₀.mem → Keep [.rcx] s₀ s → J 0 s)
     (hbody : ∀ i < 256, ∀ s, Inv s₀ fixed outs V J i s → s.gpr .rcx = BitVec.ofNat 64 (256 - i) →
-      WP isa (.block (body ++ [.alu .sub .rcx (.imm 1)])) s fun s' =>
+      WP isa (.block (body ++ ([.alu .sub .rcx (.imm 1)] : List Instr))) s fun s' =>
         (s'.mem = writes s.mem (outs.map fun o => (coeffAddr (s₀.gpr o) (255 - i), V o (255 - i))) ∧
           s'.gpr .rcx = s.gpr .rcx - 1 ∧ s'.zf = some (s.gpr .rcx - 1 == 0) ∧ J (i + 1) s') ∧
         Keep clob s s') :

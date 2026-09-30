@@ -22,7 +22,7 @@ def nlV (x : BitVec 32) (B : BitVec 64) : BitVec 64 :=
   BitVec.setWidth 64 x - B ||| BitVec.setWidth 64 qImm - BitVec.setWidth 64 x - B
 
 theorem nlBody_ok (s : State) (h1 : InRegions (s.rd ++ s.wr) (cfAddr (s.gpr .rdi) (s.gpr .rcx)) 4) :
-    WP isa (.block (nlBody ++ [.alu .sub .rcx (.imm 1)])) s fun s' =>
+    WP isa (.block (nlBody ++ ([.alu .sub .rcx (.imm 1)] : List Instr))) s fun s' =>
       (s'.mem = s.mem ∧ s'.gpr .r9 = s.gpr .r9 &&& nlV (s.mem.readW (cfAddr (s.gpr .rdi) (s.gpr .rcx)) 32) (s.gpr .rsi) ∧
         s'.gpr .rcx = s.gpr .rcx - 1 ∧ s'.zf = some (s.gpr .rcx - 1 == 0)) ∧
       Keep [.rax, .rdx, .r9, .rcx] s s' := by

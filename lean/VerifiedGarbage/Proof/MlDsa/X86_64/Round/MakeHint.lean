@@ -27,7 +27,7 @@ theorem mhBody_ok {g : Nat} (hg : g = g32 ∨ g = g88) (s : State)
     (h1 : InRegions (s.rd ++ s.wr) (cfAddr (s.gpr .rdi) (s.gpr .rcx)) 4)
     (h1' : InRegions (s.rd ++ s.wr) (cfAddr (s.gpr .rsi) (s.gpr .rcx)) 4)
     (h2 : InRegions s.wr (cfAddr (s.gpr .r10) (s.gpr .rcx)) 4) :
-    WP isa (.block (mhBody g ++ [.alu .sub .rcx (.imm 1)])) s fun s' =>
+    WP isa (.block (mhBody g ++ ([.alu .sub .rcx (.imm 1)] : List Instr))) s fun s' =>
       (s'.mem = s.mem.writeW (cfAddr (s.gpr .r10) (s.gpr .rcx))
           (BitVec.setWidth 32 (mhB g (s.mem.readW (cfAddr (s.gpr .rdi) (s.gpr .rcx)) 32)
             (s.mem.readW (cfAddr (s.gpr .rsi) (s.gpr .rcx)) 32))) ∧
@@ -81,7 +81,7 @@ theorem mhB_toNat {g : Nat} (h : g ∈ gamma2s) {z r : BitVec 32} (hz : z.toNat 
 /-! ## The function -/
 
 theorem mhPrologue_ok (s : State) :
-    WP isa (.block (gammaCmp .rdx ++ [.mov .r10 (.reg .rcx), .mov32 .r9 (.imm 0)])) s fun s' =>
+    WP isa (.block (gammaCmp .rdx ++ ([.mov .r10 (.reg .rcx), .mov32 .r9 (.imm 0)] : List Instr))) s fun s' =>
       (s'.gpr .r10 = s.gpr .rcx ∧ s'.gpr .r9 = 0 ∧
         s'.zf = some (BitVec.setWidth 32 (s.gpr .rdx) - BitVec.ofNat 32 g32 == 0) ∧ s'.mem = s.mem) ∧
       Keep [.rdx, .r10, .r9] s s' := by

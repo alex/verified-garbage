@@ -36,7 +36,7 @@ theorem uhBody_ok {g : Nat} (hg : g = g32 ∨ g = g88) (s : State)
     (h1 : InRegions (s.rd ++ s.wr) (cfAddr (s.gpr .rdi) (s.gpr .rcx)) 4)
     (h1' : InRegions (s.rd ++ s.wr) (cfAddr (s.gpr .rsi) (s.gpr .rcx)) 4)
     (h2 : InRegions s.wr (cfAddr (s.gpr .r10) (s.gpr .rcx)) 4) :
-    WP isa (.block (uhBody g ++ [.alu .sub .rcx (.imm 1)])) s fun s' =>
+    WP isa (.block (uhBody g ++ ([.alu .sub .rcx (.imm 1)] : List Instr))) s fun s' =>
       (s'.mem = s.mem.writeW (cfAddr (s.gpr .r10) (s.gpr .rcx))
           (uhS g (s.mem.readW (cfAddr (s.gpr .rdi) (s.gpr .rcx)) 32) (s.mem.readW (cfAddr (s.gpr .rsi) (s.gpr .rcx)) 32)) ∧
         s'.gpr .rcx = s.gpr .rcx - 1 ∧ s'.zf = some (s.gpr .rcx - 1 == 0)) ∧

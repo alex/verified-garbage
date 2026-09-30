@@ -30,7 +30,7 @@ def lbS (g : Nat) (x : BitVec 32) : BitVec 32 :=
 
 theorem hbBody_ok {g : Nat} (hg : g = g32 ∨ g = g88) (s : State) (h1 : InRegions (s.rd ++ s.wr) (cfAddr (s.gpr .rdi) (s.gpr .rcx)) 4)
     (h2 : InRegions s.wr (cfAddr (s.gpr .r10) (s.gpr .rcx)) 4) :
-    WP isa (.block (hbBody g ++ [.alu .sub .rcx (.imm 1)])) s fun s' =>
+    WP isa (.block (hbBody g ++ ([.alu .sub .rcx (.imm 1)] : List Instr))) s fun s' =>
       (s'.mem = s.mem.writeW (cfAddr (s.gpr .r10) (s.gpr .rcx))
           (hbS g (s.mem.readW (cfAddr (s.gpr .rdi) (s.gpr .rcx)) 32)) ∧
         s'.gpr .rcx = s.gpr .rcx - 1 ∧ s'.zf = some (s.gpr .rcx - 1 == 0)) ∧
@@ -42,7 +42,7 @@ theorem hbBody_ok {g : Nat} (hg : g = g32 ∨ g = g88) (s : State) (h1 : InRegio
 
 theorem lbBody_ok {g : Nat} (hg : g = g32 ∨ g = g88) (s : State) (h1 : InRegions (s.rd ++ s.wr) (cfAddr (s.gpr .rdi) (s.gpr .rcx)) 4)
     (h2 : InRegions s.wr (cfAddr (s.gpr .r10) (s.gpr .rcx)) 4) :
-    WP isa (.block (lbBody g ++ [.alu .sub .rcx (.imm 1)])) s fun s' =>
+    WP isa (.block (lbBody g ++ ([.alu .sub .rcx (.imm 1)] : List Instr))) s fun s' =>
       (s'.mem = s.mem.writeW (cfAddr (s.gpr .r10) (s.gpr .rcx))
           (lbS g (s.mem.readW (cfAddr (s.gpr .rdi) (s.gpr .rcx)) 32)) ∧
         s'.gpr .rcx = s.gpr .rcx - 1 ∧ s'.zf = some (s.gpr .rcx - 1 == 0)) ∧
@@ -99,11 +99,11 @@ theorem bits_ok {body : Nat → List Instr} {F : Nat → List (BitVec 32) → Bi
     (hfix : ∀ r ∈ [Reg.r10, .rdi], r ∉ clob) (hcx : .rcx ∈ clob)
     (hbody : ∀ g, (g = g32 ∨ g = g88) → ∀ s, (∀ p ∈ [Reg.rdi], InRegions (s.rd ++ s.wr) (cfAddr (s.gpr p) (s.gpr .rcx)) 4) →
       InRegions s.wr (cfAddr (s.gpr .r10) (s.gpr .rcx)) 4 →
-      WP isa (.block (body g ++ [.alu .sub .rcx (.imm 1)])) s fun s' =>
+      WP isa (.block (body g ++ ([.alu .sub .rcx (.imm 1)] : List Instr))) s fun s' =>
         (s'.mem = s.mem.writeW (cfAddr (s.gpr .r10) (s.gpr .rcx))
             (F g ([Reg.rdi].map fun p => s.mem.readW (cfAddr (s.gpr p) (s.gpr .rcx)) 32)) ∧
           s'.gpr .rcx = s.gpr .rcx - 1 ∧ s'.zf = some (s.gpr .rcx - 1 == 0)) ∧ Keep clob s s') :
-    WP isa (.seq (.block (gammaCmp .rsi ++ [.mov .r10 (.reg .rdx)])) (.ite .e (mapLoop (body g32)) (mapLoop (body g88))))
+    WP isa (.seq (.block (gammaCmp .rsi ++ ([.mov .r10 (.reg .rdx)] : List Instr))) (.ite .e (mapLoop (body g32)) (mapLoop (body g88))))
       s₀ fun s' =>
         (∀ k < 256, coeffAt s'.mem (s₀.gpr .rdx) k = F (arg32 s₀ .rsi) [coeffAt s₀.mem (s₀.gpr .rdi) k]) ∧
           Frame [pR (s₀.gpr .rdx)] s₀.mem s'.mem :=
