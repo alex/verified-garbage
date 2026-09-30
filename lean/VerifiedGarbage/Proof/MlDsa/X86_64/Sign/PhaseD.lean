@@ -75,6 +75,8 @@ theorem ID.step {p : Params} {D : Nat} {σ s s' : State} {a b c : Nat} (h : ID p
 
 theorem pS_bases (j : Nat) : (pS j).1 ∈ bases := List.mem_cons_self ..
 
+theorem sc_bases (o : Nat) : (sc o).1 ∈ bases := List.mem_cons_self ..
+
 theorem pa_add (s : State) (r : Reg) (a b : Nat) : pa s (r, a) + BitVec.ofNat 64 b = pa s (r, a + b) :=
   VG.Proof.MlKem.X86_64.off_add _ _ _
 
