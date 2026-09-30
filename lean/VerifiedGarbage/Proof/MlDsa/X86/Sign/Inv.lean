@@ -95,6 +95,13 @@ def OutK (p : Params) (n1 n2 n0 : Nat) (c : Buf) : Prop :=
 def OutI (p : Params) (c : Buf) : Prop :=
   OutK p p.ℓ p.k p.k c ∧ Out p oCNT (oKAP + 4) c ∧ Out p oMS (oMS + 64) c
 
+/-- A write that the checks of an iteration may do, with `nh` polynomials of
+the hint made: apart from what `OutI` keeps, `ĉ`, `c̃`, `y`, `w`, the hint,
+`OK` and `ONES`. -/
+def OutC (p : Params) (nh : Nat) (c : Buf) : Prop :=
+  OutI p c ∧ Out p (oP 0) (oP 1) c ∧ Out p oCT (oCT + 64) c ∧ Out p (oP (yB p)) (oP (wB p + p.k)) c ∧
+    Out p (oP 5) (oP (5 + nh)) c ∧ Out p oOK (oOK + 4) c ∧ Out p oONES (oONES + 4) c
+
 theorem PS.w1pos {p : Params} (ps : PS p) : 0 < p.k * w1Len p :=
   Nat.mul_pos (by have := ps.hk; omega) (by rcases ps.hw1Len with h | h <;> omega)
 
@@ -110,7 +117,7 @@ macro "ofs" : tactic => do
     Bool.and_eq_true, List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true,
     true_and, ne_eq, not_true_eq_false, false_and, or_false, true_or, or_true, Out, In,
     Y_n, Y_alen0, Y_alen1, Y_alen2, Y_alen3, Y_alen4, Y_awr0, Y_awr1, Y_awr2, Y_awr3, Y_awr4,
-    oP, SC, oPS, oRS, oHIN, oMS, oCT, oW1, oST, oWK, oOK, oCNT, oKAP, oONES, skS1, skS2, skT0, sigZ, sigH, aBase, s1B, s2B, t0B, OutK, OutI, yB, yhB, wB, bMu, bRnd, bSk, bSig]
+    oP, SC, oPS, oRS, oHIN, oMS, oCT, oW1, oST, oWK, oOK, oCNT, oKAP, oONES, skS1, skS2, skT0, sigZ, sigH, aBase, s1B, s2B, t0B, OutK, OutI, OutC, yB, yhB, wB, bMu, bRnd, bSk, bSig]
   omega))
 
 /-! ## Slots -/
