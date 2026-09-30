@@ -1004,9 +1004,12 @@ namespace Taint
 /-- Whether a call leaves `r` unchanged (all but `lr` and `r12`). -/
 def callKeeps (r : Reg) : Bool := r != .lr && r != .r12
 
-/-- A call leaves unknown values in `lr` and `r12`. -/
+/-- A call leaves unknown values in `lr`, `r12` and the condition flags. -/
 def callStep (τ : T) : T :=
-  { τ with regs := (τ.regs.erase .lr).erase .r12, bases := τ.bases.filter (callKeeps ·.1) }
+  { τ with
+    regs := (τ.regs.erase .lr).erase .r12
+    flags := false
+    bases := τ.bases.filter (callKeeps ·.1) }
 
 theorem call_gpr {s s' : State} (e : isa.call s = some s') {r : Reg} (h : callKeeps r = true) :
     s'.gpr r = s.gpr r := by
@@ -1021,7 +1024,7 @@ theorem call_sound {τ τ' : T} {s₁ s₂ s₁' s₂' : State} (ha : Agree τ s
   have hr₁ := e₁; have hr₂ := e₂
   simp only [isa, call, Option.some.injEq] at hr₁ hr₂
   subst hr₁ hr₂
-  refine ⟨rfl, ha.keep ⟨fun r hr => ?_, ha.rf.2⟩ rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
+  refine ⟨rfl, ha.keep ⟨fun r hr => ?_, by simp [callStep]⟩ rfl rfl rfl rfl rfl rfl rfl rfl rfl rfl
     (fun p hp => ?_) (fun p hp => ?_)⟩
   · simp only [callStep, RegSet.mem_erase] at hr
     obtain ⟨h12, hlr, hr⟩ := hr
