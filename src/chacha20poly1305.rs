@@ -31,6 +31,7 @@ use crate::arch::chacha20poly1305::{
 use crate::arch::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
 use crate::chacha20::Backend;
 use crate::cpu::{Features, detected};
+use crate::zeroize::zeroize;
 
 /// The best implementation a CPU with the features `f` can run (`open`'s
 /// instances need the same features as `seal`'s, see the tests).
@@ -69,6 +70,13 @@ pub struct ChaCha20Poly1305 {
     /// The implementations of `vg_chacha20_xor` and `vg_poly1305_blocks` the
     /// functions called call.
     backend: Backend,
+}
+
+impl Drop for ChaCha20Poly1305 {
+    /// Wipes the key.
+    fn drop(&mut self) {
+        zeroize(&mut self.key);
+    }
 }
 
 impl ChaCha20Poly1305 {

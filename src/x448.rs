@@ -13,7 +13,7 @@
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
 use crate::arch::x448::vg_x448;
-use crate::mlkem768::zeroize;
+use crate::zeroize::zeroize;
 
 /// Why an operation failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

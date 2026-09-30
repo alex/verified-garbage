@@ -12,7 +12,7 @@ use crate::arch::ed25519::{
     vg_ed25519_verify_equation,
 };
 use crate::hashes::sha512::Sha512;
-use crate::mlkem768::zeroize;
+use crate::zeroize::zeroize;
 
 /// Why signature verification failed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
