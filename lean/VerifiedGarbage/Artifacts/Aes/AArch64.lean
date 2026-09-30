@@ -2,6 +2,7 @@ import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.Aes.AArch64.Ctr32
 import VerifiedGarbage.Proof.Aes.AArch64.ExpandKey
 import VerifiedGarbage.Proof.Aes.AArch64.Aese.Ctr32
+import VerifiedGarbage.Proof.Aes.AArch64.Aese.ExpandKey
 
 /-!
 # AES on AArch64
@@ -39,6 +40,26 @@ def artifacts : List Artifact := [
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { target := AArch64.target
     module := "aes"
+    name := "vg_aes_expand_key_aes"
+    sig := Spec.Aes.expandKeySig
+    doc := "AES key expansion (FIPS 197 §5.2), with the Armv8 Cryptographic Extension (AESE): \
+      writes the key schedule of the `key_len`-byte key at `key` (AES-128, AES-192 or AES-256) \
+      to the first `16 (Nr + 1)` bytes of `schedule`, where `Nr = key_len / 4 + 6`: the words \
+      `w[0] … w[4 Nr + 3]` in order, each as its 4 bytes. One word at a time, with AESE for \
+      `SUBWORD`.\n\n\
+      Contract: `VG.Spec.Aes.expandKeyContract`. Constant time: only the pointers and `key_len` \
+      may affect timing, not the key.\n\n\
+      # Safety\n\n\
+      * `key_len` must be 16, 24 or 32.\n\
+      * The bytes of `schedule` after the first `16 (Nr + 1)` are unspecified on return.\n\
+      * The contents of `scratch` on return are unspecified."
+    code := Impl.Aes.AArch64.Aese.expandKey
+    contract := Spec.Aes.expandKeyContract AArch64.abi
+    verified := Proof.Aes.AArch64.Aese.Key.expandKey_verified
+    features := ["aes"]
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { target := AArch64.target
+    module := "aes"
     name := "vg_aes_ctr32_aes"
     sig := Spec.Gcm.ctr32Sig
     doc := "AES in GCM's counter mode (SP 800-38D §6.5, with `inc₃₂`), with the Armv8 \
@@ -46,8 +67,8 @@ def artifacts : List Artifact := [
       16-byte blocks at `data`, where `CB₁` is the block at `counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, \
       and leaves `inc₃₂ⁿ(CB₁)` at `counter`. `CIPH_K` is AES with `rounds` rounds and the key \
       schedule in the first `16 (rounds + 1)` bytes of `schedule` (as `vg_aes_expand_key` \
-      writes it). The round keys stay in registers; eight blocks at a time, then one at a \
-      time.\n\n\
+      or `vg_aes_expand_key_aes` writes it). The round keys stay in registers; eight blocks at \
+      a time, then one at a time.\n\n\
       Contract: `VG.Spec.Gcm.ctr32Contract`. Constant time: only the pointers, `rounds` and \
       `n` may affect timing, not the key schedule, the counter block or the data.\n\n\
       # Safety\n\n\

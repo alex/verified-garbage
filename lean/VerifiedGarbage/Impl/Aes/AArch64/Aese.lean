@@ -1,13 +1,30 @@
+import VerifiedGarbage.Spec.Aes
 import VerifiedGarbage.TCB.AArch64.Isa
 
 /-!
-# AES with the Armv8 Cryptographic Extension: GCM's counter mode
+# AES with the Armv8 Cryptographic Extension: key expansion and GCM's counter mode
 
-`vg_aes_ctr32_aes(schedule = x0, rounds = x1, counter = x2, data = x3, n = x4, scratch = x5)`,
-with the contract of `vg_aes_ctr32` (`Spec.Gcm.ctr32Contract`), for CPUs with
-FEAT_AES. It does not use `scratch`, and writes no callee-saved register.
-Every branch and every address depends only on the pointers and the public
-lengths (`rounds`, `n`).
+Two functions, for CPUs with FEAT_AES:
+
+* `vg_aes_expand_key_aes(key = x0, key_len = x1, schedule = x2, scratch = x3)`, with the
+  contract of `vg_aes_expand_key` (`Spec.Aes.expandKeyContract`).
+* `vg_aes_ctr32_aes(schedule = x0, rounds = x1, counter = x2, data = x3, n = x4, scratch = x5)`,
+  with the contract of `vg_aes_ctr32` (`Spec.Gcm.ctr32Contract`).
+
+Neither uses `scratch` or writes a callee-saved register. Every branch and
+every address depends only on the pointers and the public lengths
+(`key_len`, `rounds`, `n`).
+
+## Key expansion
+
+Word by word, in 32-bit registers (the word's bytes, least significant
+first), straight-line for each key length: word `w[i]` is in register
+`wreg Nk i` (`i mod Nk` of eight registers), where `w[i − Nk]` was, and is
+stored as soon as it is computed. `SubWord(w)` is `aese` of `w` in all four
+columns with a zero round key (`ShiftRows` then moves no byte to another
+value), and `RotWord` is a rotation right by 8.
+
+## Counter mode
 
 A vector register holds an AES state as its 16 bytes in memory order, as the
 cryptographic instructions read it. `aese b, k` is `SubBytes(ShiftRows(b ⊕ k))`
@@ -106,5 +123,39 @@ def ctr32 : Prog isa :=
     (.seq (.ite (.zero .x .x13) (.block []) (.loop body8 (.nonzero .x .x13)))
       (.seq (.ite (.zero .x .x4) (.block []) (.loop body1 (.nonzero .x .x4)))
         (.block ctrStore)))
+
+/-! ## Key expansion -/
+
+/-- The registers of the last `Nk` words. -/
+def wregs : List Reg := [.x4, .x5, .x6, .x7, .x8, .x11, .x12, .x13]
+
+/-- The register of word `i`. -/
+def wreg (nk i : Nat) : Reg := wregs.getD (i % nk) .x4
+
+/-- The round constant `Rcon[j]`'s first byte, `x^(j−1)` (FIPS 197 §5.2). -/
+def rc (j : Nat) : BitVec 8 := Nat.repeat Spec.Aes.xtimes (j - 1) 1
+
+/-- `w9 ← SubWord(p)`, with `v0` zero. -/
+def subW (p : Reg) : List Instr := [.vop (.dup .s4 .v1 p), .vop (.aese .v1 .v0), .umov .w .x9 .v1 0]
+
+/-- Word `i` of the schedule: loaded from the key for `i < Nk`, otherwise
+`w[i − Nk] ⊕ temp`; then stored. -/
+def word (nk i : Nat) : List Instr :=
+  let r := wreg nk i
+  let p := wreg nk (i - 1)
+  (if i < nk then [.ldr .w r .x0 (4 * i)]
+   else if i % nk = 0 then
+     subW p ++ [.ror .w .x9 .x9 8, .movz .w .x10 ((rc (i / nk)).setWidth 16) 0,
+       .logic .eor .w .x9 .x9 .x10, .logic .eor .w r r .x9]
+   else if nk > 6 ∧ i % nk = 4 then subW p ++ [.logic .eor .w r r .x9]
+   else [.logic .eor .w r r p]) ++ [.str .w r .x2 (4 * i)]
+
+/-- The `4 (Nk + 7)` words of the schedule of an `Nk`-word key. -/
+def expandN (nk : Nat) : List Instr := (List.range (4 * (nk + 7))).flatMap (word nk)
+
+def expandKey : Prog isa :=
+  .seq (.block [.vop (.movi0 .v0), .subImm .x .x9 .x1 24, .subImm .x .x10 .x1 32])
+    (.ite (.zero .x .x9) (.block (expandN 6))
+      (.ite (.zero .x .x10) (.block (expandN 8)) (.block (expandN 4))))
 
 end VG.Impl.Aes.AArch64.Aese
