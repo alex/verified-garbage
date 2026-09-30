@@ -31,8 +31,8 @@ structure Sample4Impl where
   nosp : NoSp callee.code
   /-- Its calls are at most three deep. -/
   depth_le : callee.code.depth ≤ 3
-  /-- It never loads MXCSR. -/
-  mxcsr : callee.code.allInstrs (fun i => !loadsMxcsr i) = true
+  /-- It keeps MXCSR's control bits. -/
+  mxcsr : ctlOk callee.code = true
   spSafe : callee.code.all (fun i => !isa.writesSp i) = true
   /-- What the names of its callers' instances end with (e.g. `_avx2`;
   nothing for the baseline implementation). -/
@@ -67,5 +67,27 @@ def avx2 : Sample4Impl where
   features := ["avx", "avx2"]
 
 end Sample4Impl
+
+theorem ctlOk_seq {a b : Prog isa} (ha : ctlOk a = true) (hb : ctlOk b = true) : ctlOk (.seq a b) = true := by
+  simp only [ctlOk, ha, hb, Bool.and_self, Bool.or_true]
+
+theorem ctlOk_call {n : String} {c : Prog isa} (h : ctlOk c = true) : ctlOk (.call n c) = true := h
+
+theorem all_call {p : Instr → Bool} {n : String} {c : Prog isa} (h : c.all p = true) :
+    (Code.call n c : Prog isa).all p = true := h
+
+theorem all_seq {p : Instr → Bool} {a b : Prog isa} (ha : a.all p = true) (hb : b.all p = true) :
+    (Code.seq a b : Prog isa).all p = true := by
+  simp only [Code.all, ha, hb, Bool.and_self]
+
+/-- `ctlOk` of code that calls the implementation `v`: evaluated by the
+kernel but for the calls of `v`. -/
+macro "s4_ctl " v:term : tactic =>
+  `(tactic| repeat (first | decide +kernel | apply ctlOk_seq | (apply ctlOk_call; exact ($v).mxcsr)))
+
+/-- That code that calls the implementation `v` never writes the stack pointer. -/
+macro "s4_sp " v:term : tactic =>
+  `(tactic| repeat (first | exact Code.all_of_allInstrs (by decide +kernel) | apply all_seq |
+    (apply all_call; exact ($v).spSafe)))
 
 end VG.Proof.MlKem.X86_64
