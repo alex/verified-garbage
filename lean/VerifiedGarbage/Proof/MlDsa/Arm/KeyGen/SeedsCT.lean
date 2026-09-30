@@ -19,9 +19,13 @@ open VG.Spec.MlDsa (Params)
 /-- Two runs whose entry states have the same layout. -/
 def KTwo (p : Params) (STK : Nat) (x y : State) : Prop := ∃ σ, Two (lay p STK σ) kWb STK x y
 
+theorem kc_twoL {p : Params} {STK : Nat} {σ₁ σ₂ x y : State} (pub : kgPub p σ₁ σ₂) (h₁ : KC p STK σ₁ x)
+    (h₂ : KC p STK σ₂ y) : Two (lay p STK σ₁) kWb STK x y :=
+  ⟨h₁.site, lay_pub pub ▸ h₂.site, by rw [h₁.sp, h₂.sp, pub.1]⟩
+
 theorem kc_two {p : Params} {STK : Nat} {σ₁ σ₂ x y : State} (pub : kgPub p σ₁ σ₂) (h₁ : KC p STK σ₁ x)
     (h₂ : KC p STK σ₂ y) : KTwo p STK x y :=
-  ⟨σ₁, h₁.site, lay_pub pub ▸ h₂.site, by rw [h₁.sp, h₂.sp, pub.1]⟩
+  ⟨σ₁, kc_twoL pub h₁ h₂⟩
 
 /-- A part that leaks the same in two runs in every layout of key generation. -/
 theorem ktwo {p : Params} {STK : Nat} {c : Prog isa} (h : ∀ σ, RelCT isa (Two (lay p STK σ) kWb STK) c fun _ _ => True) :
