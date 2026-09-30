@@ -56,7 +56,7 @@ end
 /-! ## Zeroing the state -/
 
 theorem kzero_ok (s : State) (hw : Covers [⟨pa s (sc 0), 200⟩] s.wr) :
-    WP isa (.block kzero) s fun s' => PPostB s s' [(sc 0, 200)] ∧ stateAt s'.mem (pa s (sc 0)) = Spec.Sha3.zero := by
+    WP isa (.block kzero) s fun s' => PPostB s s' [(sc 0, 200)] ∧ s'.gpr .r15 = s.gpr .r15 ∧ stateAt s'.mem (pa s (sc 0)) = Spec.Sha3.zero := by
   rw [kzero, ← List.singleton_append, WP.block_append_iff]
   refine WP.mono (WP.keep [.rax] (Q := fun s1 => s1.mem = s.mem ∧ s1.gpr .rax = 0) (by xrun) (by decide))
     fun s1 ⟨⟨hm, hax⟩, k1⟩ => ?_
@@ -65,16 +65,20 @@ theorem kzero_ok (s : State) (hw : Covers [⟨pa s (sc 0), 200⟩] s.wr) :
   · rw [k1.2.2, hbx]
     exact hw _ _ ⟨_, List.mem_singleton_self _, contains_offset' (by omega) (by omega)⟩
   · rw [hbx] at hz hf
-    exact ⟨postB_of_keep (k1.trans k2) (by decide) (by rw [← hm]; exact hf), hz⟩
+    exact ⟨postB_of_keep (k1.trans k2) (by decide) (by rw [← hm]; exact hf), (k1.trans k2).gpr (by decide), hz⟩
 
 /-! ## The calls -/
+
+theorem r15_call {s s1 s' : State} {as : List (Reg × Arg)} (h1 : Args as s s1)
+    (hcs : ∀ r ∈ calleeSaved, s'.gpr r = s1.gpr r) : s'.gpr .r15 = s.gpr .r15 :=
+  (hcs _ (by decide)).trans (h1.2.gpr (by decide))
 
 abbrev kabsArgs (src : Ptr) (len rate pos : Nat) : List (Reg × Arg) :=
   [(.rdi, .ptr (sc 0)), (.rsi, .imm rate), (.rdx, .imm pos), (.rcx, .ptr src), (.r8, .imm len), (.r9, .ptr (sc 200))]
 
 theorem kabs_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) (hk : kChk (rbs ++ wbs) wbs = true)
     {src : Ptr} {len pos : Nat} (hp : pieceChk (rbs ++ wbs) src len = true) (hpos : pos < 136) :
-    WP isa (kabs src len 136 pos) s fun s' => PPostB s s' [(sc 0, 200), (sc 200, 640)] ∧
+    WP isa (kabs src len 136 pos) s fun s' => PPostB s s' [(sc 0, 200), (sc 200, 640)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       ∀ msg, Repr s.mem (pa s (sc 0)) 136 msg → pos = msg.length % 136 →
         Repr s'.mem (pa s (sc 0)) 136 (msg ++ bytesAt s.mem (pa s src) len) := by
   obtain ⟨d1, k1, k2, w1, w2⟩ := kChk_spec L hk
@@ -105,7 +109,8 @@ theorem kabs_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) (h
     simp only [bases, List.mem_cons, List.not_mem_nil, or_false] at hr
     rw [hcs r (by rcases hr with rfl | rfl | rfl | rfl <;> decide),
       h1.2.gpr (by rcases hr with rfl | rfl | rfl | rfl <;> decide)]
-  refine ⟨⟨hrd.trans h1.2.2.1, hwr.trans h1.2.2.2, hb, by rw [hcs _ (by decide), hsp], ?_⟩, fun msg hm hpo => ?_⟩
+  refine ⟨⟨hrd.trans h1.2.2.1, hwr.trans h1.2.2.2, hb, by rw [hcs _ (by decide), hsp], ?_⟩, r15_call h1 hcs,
+    fun msg hm hpo => ?_⟩
   · have f1 : Frame ([⟨pa s (sc 0), 200⟩, ⟨pa s (sc 200), 640⟩] ++ [below (s.gpr .rsp) 16]) s.mem s'.mem := by
       rw [← h1.1.2, ← hsp]; exact hf
     exact Frame.below_mono (a := 16) (b := 24) f1 (by omega) (by omega)
@@ -127,7 +132,7 @@ theorem postB_call {s s1 s' : State} {as : List (Reg × Arg)} (h1 : Args as s s1
 
 theorem kpad_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) (hk : kChk (rbs ++ wbs) wbs = true)
     {pos : Nat} (hpos : pos < 136) :
-    WP isa (kpad 136 pos 0x1f) s fun s' => PPostB s s' [(sc 0, 200), (sc 200, 640)] ∧
+    WP isa (kpad 136 pos 0x1f) s fun s' => PPostB s s' [(sc 0, 200), (sc 200, 640)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       ∀ msg, Repr s.mem (pa s (sc 0)) 136 msg → pos = msg.length % 136 →
         stateAt s'.mem (pa s (sc 0)) = Spec.Sha3.absorb 136 (Spec.Sha3.pad 136 Spec.Sha3.shakeSuffix msg) := by
   obtain ⟨d1, k1, k2, w1, w2⟩ := kChk_spec L hk
@@ -147,7 +152,7 @@ theorem kpad_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) (h
     fun h => by rw [hsp]; exact h.sub_left (below_sub (by omega) (by omega))
   refine pad_call ⟨h1.r0, h1.r1, h1.r2, h1.r4, by decide, hpos, d1, kk k1, kk k2⟩
     (by rw [h1.2.2.1, h1.2.2.2]; exact covers_append covers_nil (covers_wr (covers_cons w1 w2)))
-    (by rw [h1.2.2.2]; exact covers_cons w1 w2) (fun s' hrd hwr hcs hf hR => ⟨postB_call h1 hrd hwr hcs ?_, ?_⟩)
+    (by rw [h1.2.2.2]; exact covers_cons w1 w2) (fun s' hrd hwr hcs hf hR => ⟨postB_call h1 hrd hwr hcs ?_, r15_call h1 hcs, ?_⟩)
   · rw [← h1.1.2, ← hsp]; exact hf
   · intro msg hm hpo
     rw [← h1.1.2] at hm
@@ -161,7 +166,7 @@ abbrev ksqzArgs (rate : Nat) (dst : Ptr) (len : Nat) : List (Reg × Arg) :=
 
 theorem ksqz_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) (hk : kChk (rbs ++ wbs) wbs = true)
     {out : Ptr} {len : Nat} (ho : outChk (rbs ++ wbs) wbs out len = true) :
-    WP isa (ksqz 136 out len) s fun s' => PPostB s s' [(sc 0, 200), (out, len), (sc 200, 640)] ∧
+    WP isa (ksqz 136 out len) s fun s' => PPostB s s' [(sc 0, 200), (out, len), (sc 200, 640)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       bytesAt s'.mem (pa s out) len = squeezeFrom 136 (stateAt s.mem (pa s (sc 0))) 0 len := by
   obtain ⟨d1, k1, k2, w1, w2⟩ := kChk_spec L hk
   simp only [outChk, Bool.and_eq_true] at ho
@@ -185,7 +190,7 @@ theorem ksqz_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) (h
   refine squeeze_call ⟨h1.r0, h1.r1, h1.r2, h1.r3, h1.r4, h1.r5, by decide, by decide, by omega, (L.disj o1).symm, d1,
     L.disj o2, kk k1, kk (L.stkD o3), kk k2⟩
     (by rw [h1.2.2.1, h1.2.2.2]; exact covers_append covers_nil (covers_wr (covers_cons w1 (covers_cons (L.cW o4) w2))))
-    (by rw [h1.2.2.2]; exact covers_cons w1 (covers_cons (L.cW o4) w2)) (fun s' hrd hwr hcs hf hR => ⟨postB_call h1 hrd hwr hcs ?_, ?_⟩)
+    (by rw [h1.2.2.2]; exact covers_cons w1 (covers_cons (L.cW o4) w2)) (fun s' hrd hwr hcs hf hR => ⟨postB_call h1 hrd hwr hcs ?_, r15_call h1 hcs, ?_⟩)
   · rw [← h1.1.2, ← hsp]; exact hf
   · simp only [Arg.val] at hR
     rw [hR, h1.1.2]
@@ -202,26 +207,26 @@ theorem repr_nil {mem : Mem} {p : Addr} {rate : Nat} (h : stateAt mem p = Spec.S
 
 theorem hash2_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {a b out : Ptr} {la lb len : Nat}
     (hc : hashChk (rbs ++ wbs) wbs a la b lb out len = true) :
-    WP isa (hash2 a la b lb out len) s fun s' => PPostB s s' [(sc 0, 200), (sc 200, 640), (out, len)] ∧
+    WP isa (hash2 a la b lb out len) s fun s' => PPostB s s' [(sc 0, 200), (sc 200, 640), (out, len)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       bytesAt s'.mem (pa s out) len = H (bytesAt s.mem (pa s a) la ++ bytesAt s.mem (pa s b) lb) len := by
   simp only [hashChk, Bool.and_eq_true, decide_eq_true_eq] at hc
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨hk, pa'⟩, pb⟩, ho⟩, ka⟩, kb⟩, kb'⟩, hla⟩, hla0⟩ := hc
   obtain ⟨_, _, _, w0, _⟩ := kChk_spec L hk
   unfold hash2
-  refine WP.seq (WP.mono (kzero_ok s w0) fun s₁ ⟨hP₁, hz⟩ => ?_)
+  refine WP.seq (WP.mono (kzero_ok s w0) fun s₁ ⟨hP₁, f₁, hz⟩ => ?_)
   have L₁ := L.post hP₁
   have e1 : pa s₁ (sc 0) = pa s (sc 0) := hP₁.pa (by decide)
-  refine WP.seq (WP.mono (kabs_ok L₁ hk pa' (pos := 0) (by decide)) fun s₂ ⟨hP₂, hR₂⟩ => ?_)
+  refine WP.seq (WP.mono (kabs_ok L₁ hk pa' (pos := 0) (by decide)) fun s₂ ⟨hP₂, f₂, hR₂⟩ => ?_)
   have L₂ := L₁.post hP₂
   have e2 : pa s₂ (sc 0) = pa s₁ (sc 0) := hP₂.pa (by decide)
   have hR₂' := hR₂ [] (by rw [e1]; exact repr_nil hz) rfl
   rw [List.nil_append, L.keepBytes hP₁ ka] at hR₂'
-  refine WP.seq (WP.mono (kabs_ok L₂ hk pb (pos := la % 136) (Nat.mod_lt _ (by decide))) fun s₃ ⟨hP₃, hR₃⟩ => ?_)
+  refine WP.seq (WP.mono (kabs_ok L₂ hk pb (pos := la % 136) (Nat.mod_lt _ (by decide))) fun s₃ ⟨hP₃, f₃, hR₃⟩ => ?_)
   have L₃ := L₂.post hP₃
   have e3 : pa s₃ (sc 0) = pa s₂ (sc 0) := hP₃.pa (by decide)
   have hR₃' := hR₃ _ (by rw [e2]; exact hR₂') (by rw [Proof.MlKem.bytesAt_length])
   rw [L₁.keepBytes hP₂ kb', L.keepBytes hP₁ kb] at hR₃'
-  refine WP.seq (WP.mono (kpad_ok L₃ hk (pos := (la + lb) % 136) (Nat.mod_lt _ (by decide))) fun s₄ ⟨hP₄, hS₄⟩ => ?_)
+  refine WP.seq (WP.mono (kpad_ok L₃ hk (pos := (la + lb) % 136) (Nat.mod_lt _ (by decide))) fun s₄ ⟨hP₄, f₄, hS₄⟩ => ?_)
   have L₄ := L₃.post hP₄
   have e4 : pa s₄ (sc 0) = pa s₃ (sc 0) := hP₄.pa (by decide)
   have hS := hS₄ _ (by rw [e3]; exact hR₃') (by rw [List.length_append, Proof.MlKem.bytesAt_length,
@@ -229,9 +234,8 @@ theorem hash2_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {
   have hob : out.1 ∈ bases := by
     simp only [outChk, Bool.and_eq_true] at ho; exact ptr_bs L.ok ho.1.2
   have eo : pa s₄ out = pa s out := by rw [hP₄.pa hob, hP₃.pa hob, hP₂.pa hob, hP₁.pa hob]
-  refine WP.mono (ksqz_ok L₄ hk ho) fun s₅ ⟨hP₅, h₅⟩ => ⟨?_, ?_⟩
-  · 
-    refine PPostB.trans (PPostB.trans (PPostB.trans (PPostB.trans hP₁ hP₂ (ws := [(sc 0, 200), (sc 200, 640)])
+  refine WP.mono (ksqz_ok L₄ hk ho) fun s₅ ⟨hP₅, f₅, h₅⟩ => ⟨?_, by rw [f₅, f₄, f₃, f₂, f₁], ?_⟩
+  · refine PPostB.trans (PPostB.trans (PPostB.trans (PPostB.trans hP₁ hP₂ (ws := [(sc 0, 200), (sc 200, 640)])
       (by decide) (by simp) (by simp)) hP₃ (by decide) (fun w hw => hw) (fun w hw => hw)) hP₄ (by decide)
       (fun w hw => hw) (fun w hw => hw)) hP₅ ?_ (by simp) (by simp)
     simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
