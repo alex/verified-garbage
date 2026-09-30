@@ -5,12 +5,15 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Sym
 
 Untrusted: everything here is checked by Lean. The limbs the code computes
 stay far below `2⁶⁴`, so its additions, products and shifts never wrap.
-`Q.bnd` bounds each term from bounds on the registers it starts from, and
-`Q.nc` is its value as a number, with the reductions modulo `2⁶⁴` (and to
-the low doubleword, for products) left out where the bounds show they do
-nothing. `nc_ok` proves both; the kernel evaluates the bounds of concrete
-terms, so the number a block computes is `nc` of its term, which unfolds to
-the arithmetic of `Limbs26` by definition.
+`Q.bnd` bounds each term from bounds on the registers it starts from,
+`Q.ok` checks that its additions and left shifts do not wrap under those
+bounds, and `Q.nat` is its value as a number, with the reductions modulo
+`2⁶⁴` (and to the low doubleword, for products) left out. `nat_ok` proves
+that a term is `Q.nat` and within `Q.bnd` where the kernel evaluates `Q.ok`
+of concrete terms to `true`, so the number a block computes is `nat` of its
+term, which unfolds to the arithmetic of `Limbs26` by definition. `Q.natw`
+is the value with every reduction kept, which `natw_ok` proves exact for any
+term, for the blocks that shift bits out on purpose.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx2

@@ -23,8 +23,9 @@ def storeV : List Instr := [
   srl (dreg 3) (hreg 4) 24,
   v .vpunpcklqdq tP (dreg 1) (dreg 2)]
 
-theorem storeH_eq : storeH = storeV ++ ([.vmovdquStore .l128 (at_ .rdi 0) tP] ++
-    ([v .vpunpcklqdq tP (dreg 2) (dreg 3)] ++ [.vmovdquStore .l128 (at_ .rdi 8) tP])) := rfl
+theorem storeH_eq : storeH = storeV ++ (([.vmovdquStore .l128 (at_ .rdi 0) tP] : List Instr) ++
+    (([v .vpunpcklqdq tP (dreg 2) (dreg 3)] : List Instr) ++
+      ([.vmovdquStore .l128 (at_ .rdi 8) tP] : List Instr))) := rfl
 
 def svS : Sym := (Sym.init.run false storeV).get (by decide +kernel)
 theorem svS_eq : Sym.init.run false storeV = some svS := (Option.some_get _).symm

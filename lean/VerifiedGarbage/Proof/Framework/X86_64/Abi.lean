@@ -133,4 +133,13 @@ theorem abiPreserved_of_exec {c : Prog isa} (hc : c.allInstrs (fun i => !loadsMx
   rw [Code.allInstrs_eq, List.all_eq_true] at hc
   exact ⟨h.1, h.2, by rw [Exec.mxcsr (fun i hi => by simpa using hc i hi) he]⟩
 
+/-- `WP.mono`, knowing that code that never loads MXCSR keeps it (the kernel
+checks `hc` by evaluating the code). -/
+theorem WP.mono_mx {c : Prog isa} (hc : c.allInstrs (fun i => !loadsMxcsr i) = true) {s : State}
+    {Q R : State → Prop} (h : WP isa c s Q) (hq : ∀ s', Q s' → s'.mxcsr = s.mxcsr → R s') :
+    WP isa c s R := by
+  rw [Code.allInstrs_eq, List.all_eq_true] at hc
+  obtain ⟨t, s', he, hQ⟩ := h
+  exact ⟨t, s', he, hq s' hQ (Exec.mxcsr (fun i hi => by simpa using hc i hi) he)⟩
+
 end VG.X86_64
