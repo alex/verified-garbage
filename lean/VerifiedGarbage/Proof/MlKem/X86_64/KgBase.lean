@@ -17,7 +17,7 @@ open VG VG.X86_64 VG.Impl.MlKem.X86_64
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- `vg_mlkem768_keygen(seed = rdi, ek = rsi, dk = rdx, scratch = rcx) -> eax`, with 24 bytes of stack. -/
+/-- `vg_mlkem768_keygen(seed = rdi, ek = rsi, dk = rdx, scratch = rcx) -> eax`, with 32 bytes of stack. -/
 def keyGenK : Contract isa where
   pre s :=
     s.rd = [⟨s.gpr .rdi, 64⟩] ∧ s.wr = [⟨s.gpr .rsi, 1184⟩, ⟨s.gpr .rdx, 2400⟩, ⟨s.gpr .rcx, 32768⟩] ∧
@@ -26,8 +26,8 @@ def keyGenK : Contract isa where
     Region.Disjoint ⟨s.gpr .rsi, 1184⟩ ⟨s.gpr .rcx, 32768⟩ ∧ Region.Disjoint ⟨s.gpr .rdx, 2400⟩ ⟨s.gpr .rcx, 32768⟩ ∧
     (retR s).Disjoint ⟨s.gpr .rdi, 64⟩ ∧ (retR s).Disjoint ⟨s.gpr .rsi, 1184⟩ ∧
     (retR s).Disjoint ⟨s.gpr .rdx, 2400⟩ ∧ (retR s).Disjoint ⟨s.gpr .rcx, 32768⟩ ∧
-    (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .rdi, 64⟩ ∧ (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .rsi, 1184⟩ ∧
-    (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .rdx, 2400⟩ ∧ (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .rcx, 32768⟩ ∧
+    (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .rdi, 64⟩ ∧ (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .rsi, 1184⟩ ∧
+    (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .rdx, 2400⟩ ∧ (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .rcx, 32768⟩ ∧
     (s.gpr .rdi).toNat + 64 ≤ 2 ^ 64 ∧ (s.gpr .rsi).toNat + 1184 ≤ 2 ^ 64 ∧
     (s.gpr .rdx).toNat + 2400 ≤ 2 ^ 64 ∧ (s.gpr .rcx).toNat + 32768 ≤ 2 ^ 64
   post s s' :=

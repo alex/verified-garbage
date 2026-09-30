@@ -164,7 +164,7 @@ def keyGenSat (p : Params) : State where
   wr := [⟨0x2000, p.pkLen⟩, ⟨0x4000, p.skLen⟩, ⟨0x10000, scrLen p⟩]
 
 theorem keyGen_implies (p : Params) (hp : p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDsa.mlDsa65 ∨ p = Spec.MlDsa.mlDsa87) :
-    (kgK p).Implies (Spec.MlDsa.keyGenContract p X86_64.abi 24) :=
+    (kgK p).Implies (Spec.MlDsa.keyGenContract p X86_64.abi 32) :=
   { pre := by sig_implies_pre [Spec.MlDsa.keyGenContract, Spec.MlDsa.keyGenSig, kgK, X86_64.abi, VG.X86_64.argRegs]
     post := by sig_implies_post [Spec.MlDsa.keyGenContract, Spec.MlDsa.keyGenSig, kgK, X86_64.abi, VG.X86_64.argRegs]
     pub := by
@@ -192,7 +192,7 @@ open VG.Impl.MlDsa.X86_64.KeyGen (Prims keyGen)
 verified implementations `P` of the primitives it calls. -/
 theorem keyGen_verified {P : Prims} (hP : PrimsOk P) (p : Spec.MlDsa.Params)
     (hp : p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDsa.mlDsa65 ∨ p = Spec.MlDsa.mlDsa87) :
-    Verified X86_64.target (keyGen P p) (Spec.MlDsa.keyGenContract p X86_64.abi 24) :=
+    Verified X86_64.target (keyGen P p) (Spec.MlDsa.keyGenContract p X86_64.abi 32) :=
   Verified.of_correct (keyGen_correct hP (pfacts hp)) (keyGen_ct hP (pfacts hp)) (keyGen_implies p hp)
 
 end VG.Proof.MlDsa.X86_64.KeyGen

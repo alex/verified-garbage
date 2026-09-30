@@ -1,13 +1,14 @@
 import VerifiedGarbage.Proof.MlKem1024.X86_64.KgBase
+import VerifiedGarbage.Proof.MlKem.X86_64.FragS4
 
 /-!
 # ML-KEM-1024 on x86-64: `vg_mlkem1024_keygen`, `G` and the matrix
 
 Untrusted: everything here is checked by Lean. `(ρ, σ) = G(d ‖ 4)` to `G`,
 and `ρ` to `SB` (`gRho_ok`); then `Â[i, j] = SampleNTT(ρ ‖ j ‖ i)` for the
-sixteen entries `e = 4i + j` (`samples_ok`), with `r15` the AND of the
-results: 1 exactly when all of them succeed within 280 iterations
-(`allOk4`).
+sixteen entries `e = 4i + j` (`samples_ok`), four at a time with
+`vg_mlkem_sample_ntt4` (`quad_step`), with `r15` the AND of the results: 1
+exactly when all of them succeed within 280 iterations (`allOk4`).
 -/
 
 namespace VG.Proof.MlKem1024.X86_64
@@ -23,14 +24,17 @@ def allOk4 (ρ : List Byte) (e : Nat) : Prop :=
 
 instance (ρ : List Byte) (e : Nat) : Decidable (allOk4 ρ e) := by unfold allOk4; infer_instance
 
-theorem allOk4_succ {ρ : List Byte} {e : Nat} :
-    allOk4 ρ (e + 1) ↔ allOk4 ρ e ∧ (sampleNTT minIterations (matSeed ρ (e / 4) (e % 4))).isSome := by
+theorem allOk4_add4 {ρ : List Byte} {e : Nat} :
+    allOk4 ρ (e + 4) ↔ allOk4 ρ e ∧ ((List.range 4).all fun k =>
+      (sampleNTT minIterations (matSeed ρ ((e + k) / 4) ((e + k) % 4))).isSome) = true := by
+  simp only [List.all_eq_true, List.mem_range]
   constructor
-  · intro h; exact ⟨fun e' he => h e' (by omega), h e (by omega)⟩
-  · rintro ⟨h, hk⟩ e' he
-    rcases (by omega : e' < e ∨ e' = e) with he | rfl
-    · exact h e' he
-    · exact hk
+  · intro h; exact ⟨fun e' he => h e' (by omega), fun k hk => h (e + k) (by omega)⟩
+  · rintro ⟨h, h4⟩ e' he
+    rcases (by omega : e' < e ∨ e ≤ e') with he' | he'
+    · exact h e' he'
+    · have := h4 (e' - e) (by omega)
+      rwa [Nat.add_sub_cancel' he'] at this
 
 theorem aHat4_eq {ρ : List Byte} (h : allOk4 ρ 16) {i j : Nat} (hi : i < 4) (hj : j < 4) :
     sampleNTT minIterations (matSeed ρ i j) = some (aHat ρ i j) := by
@@ -109,40 +113,49 @@ structure KB (e : Nat) (σ s : State) : Prop where
   mat : ∀ e' < e, ∀ f, sampleNTT minIterations (matSeed (kgRho1024 (kgD σ)) (e' / 4) (e' % 4)) = some f →
     PolyIs s.mem (pa s (aS4 (e' / 4) (e' % 4))) f
 
-/-- What entry `e` of `Â` writes. -/
-abbrev ijW4 (e : Nat) : List (Ptr × Nat) :=
-  [(sc (oSB + 32), 1)] ++ [(sc (oSB + 33), 1)] ++ [(aS4 (e / 4) (e % 4), 1024), (sc oSS, 2048)]
+/-- What entries `e, …, e + 3` of `Â` write. -/
+abbrev qW4 (e : Nat) : List (Ptr × Nat) := quadW (oP (17 + e)) (oP 35)
 
-def kbChk (e : Nat) : Bool :=
-  ijChk kgB kgW (aS4 (e / 4) (e % 4)) && kcChk (ijW4 e) && keepB kgB (ijW4 e) (sc oG) 32 &&
-    keepB kgB (ijW4 e) sigP 32 && keepB kgB (ijW4 e) (sc oSB) 32 &&
-    (List.range e).all fun e' => keepB kgB (ijW4 e) (aS4 (e' / 4) (e' % 4)) 1024
+def kqChk (e : Nat) : Bool :=
+  quadChk kgB kgW (oP (17 + e)) (oP 35) && kcChk (qW4 e) && keepB kgB (qW4 e) (sc oG) 32 &&
+    keepB kgB (qW4 e) sigP 32 && keepB kgB (qW4 e) (sc oSB) 32 &&
+    (List.range e).all fun e' => keepB kgB (qW4 e) (aS4 (e' / 4) (e' % 4)) 1024
 
-theorem kbChk_all : ∀ e < 16, kbChk e = true := by decide +kernel
+theorem kqChk_all : kqChk 0 = true ∧ kqChk 4 = true ∧ kqChk 8 = true ∧ kqChk 12 = true := by decide
+
+/-- Entry `e` of `Â`, as polynomial `17 + e`. -/
+theorem aS4_eq (e : Nat) : aS4 (e / 4) (e % 4) = sc (oP (17 + e)) := by
+  simp only [aS4, pS, oP]
+  congr 1
+  omega
 
 theorem KB.zero {σ s : State} (h : KA σ s) (h15 : s.gpr .r15 = 1) : KB 0 σ s :=
   ⟨h, by rw [h15, ifp (show allOk4 (kgRho1024 (kgD σ)) 0 from fun _ h => absurd h (Nat.not_lt_zero _))],
     fun _ h => absurd h (Nat.not_lt_zero _)⟩
 
-theorem sample_step {σ : State} (hp : keyGen1024K.pre σ) {e : Nat} (he : e < 16) {s : State} (h : KB e σ s) :
-    WP isa (sampleIJ4 (e / 4) (e % 4)) s (KB (e + 1) σ) := by
-  have hc := kbChk_all e he
-  simp only [kbChk, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hc
-  obtain ⟨⟨⟨⟨⟨hij, hkc⟩, kG⟩, kS⟩, kB⟩, kA⟩ := hc
+theorem quad_step (v : Sample4Impl) {σ : State} (hp : keyGen1024K.pre σ) {e : Nat} (hc : kqChk e = true)
+    (he : e + 4 ≤ 16) {s : State} (h : KB e σ s) :
+    WP isa (quad v.callee 4 e (sc (oP (17 + e))) (pS 35)) s (KB (e + 4) σ) := by
+  simp only [kqChk, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hc
+  obtain ⟨⟨⟨⟨⟨hq, hkc⟩, kG⟩, kS⟩, kB⟩, kA⟩ := hc
   have L := h.a.kc.lay hp
-  unfold sampleIJ4
-  refine WP.mono (sampP_ok L kgB_bases (by omega) (by omega) hij) fun s' ⟨hP, h15, hres⟩ => ?_
+  refine WP.mono (quad_ok v L kgB_bases (by omega) hq) fun s' ⟨hP, h15, hres⟩ => ?_
   refine ⟨⟨h.a.kc.step hp hP hkc, by rw [L.keepBytes hP kG]; exact h.a.rho, by rw [L.keepBytes hP kS]; exact h.a.sig,
     by rw [L.keepBytes hP kB]; exact h.a.sb⟩, ?_, fun e' he' f hf => ?_⟩
   · rw [h15, h.a.sb, and_acc h.r15]
-    exact ite_congr (propext allOk4_succ.symm) (fun _ => rfl) (fun _ => rfl)
-  · rcases (by omega : e' < e ∨ e' = e) with he' | rfl
-    · exact L.keepPoly hP (kA e' he') (h.mat e' he' f hf)
-    · rw [hP.pa rbx_bases]
-      exact hres f (by rw [h.a.sb]; exact hf)
+    exact ite_congr (propext allOk4_add4.symm) (fun _ => rfl) (fun _ => rfl)
+  · rcases (by omega : e' < e ∨ e ≤ e') with he'' | he''
+    · exact L.keepPoly hP (kA e' he'') (h.mat e' he'' f hf)
+    · have := hres (e' - e) (by omega) f (by rw [h.a.sb, Nat.add_sub_cancel' he'']; exact hf)
+      rw [hP.pa rbx_bases, aS4_eq]
+      rwa [show oP (17 + e) + 1024 * (e' - e) = oP (17 + e') by simp only [oP]; omega] at this
 
-theorem samples_ok {σ : State} (hp : keyGen1024K.pre σ) {s : State} (h : KB 0 σ s) : WP isa samples4 s (KB 16 σ) :=
-  seqR_ok (I := fun e => KB e σ) 16 0 (fun e _ he s hs => sample_step hp (by omega) hs) s h
+theorem samples_ok (v : Sample4Impl) {σ : State} (hp : keyGen1024K.pre σ) {s : State} (h : KB 0 σ s) :
+    WP isa (samples4 v.callee) s (KB 16 σ) :=
+  WP.seq (WP.mono (quad_step v hp kqChk_all.1 (by decide) h) fun _ h₁ =>
+    WP.seq (WP.mono (quad_step v hp kqChk_all.2.1 (by decide) h₁) fun _ h₂ =>
+      WP.seq (WP.mono (quad_step v hp kqChk_all.2.2.1 (by decide) h₂) fun _ h₃ =>
+        quad_step v hp kqChk_all.2.2.2 (by decide) h₃)))
 
 end KeyGen4
 

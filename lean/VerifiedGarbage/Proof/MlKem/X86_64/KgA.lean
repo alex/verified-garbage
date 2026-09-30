@@ -1,12 +1,15 @@
 import VerifiedGarbage.Proof.MlKem.X86_64.KgBase
+import VerifiedGarbage.Proof.MlKem.X86_64.FragS4
 
 /-!
 # ML-KEM-768 on x86-64: `vg_mlkem768_keygen`, `G` and the matrix
 
 Untrusted: everything here is checked by Lean. `(ρ, σ) = G(d ‖ 3)` to `G`,
 and `ρ` to `SB` (`gRho_ok`); then `Â[i, j] = SampleNTT(ρ ‖ j ‖ i)` for the
-nine entries `e = 3i + j` (`samples_ok`), with `r15` the AND of the results:
-1 exactly when all of them succeed within 280 iterations (`allOk`).
+nine entries `e = 3i + j` (`samples_ok`), four at a time with
+`vg_mlkem_sample_ntt4` (`quad_step`) and the last on its own, with `r15` the
+AND of the results: 1 exactly when all of them succeed within 280
+iterations (`allOk`).
 -/
 
 namespace VG.Proof.MlKem.X86_64
@@ -29,6 +32,18 @@ theorem allOk_succ {ρ : List Byte} {e : Nat} :
     rcases (by omega : e' < e ∨ e' = e) with he | rfl
     · exact h e' he
     · exact hk
+
+theorem allOk_add4 {ρ : List Byte} {e : Nat} :
+    allOk ρ (e + 4) ↔ allOk ρ e ∧ ((List.range 4).all fun k =>
+      (sampleNTT minIterations (matSeed ρ ((e + k) / 3) ((e + k) % 3))).isSome) = true := by
+  simp only [List.all_eq_true, List.mem_range]
+  constructor
+  · intro h; exact ⟨fun e' he => h e' (by omega), fun k hk => h (e + k) (by omega)⟩
+  · rintro ⟨h, h4⟩ e' he
+    rcases (by omega : e' < e ∨ e ≤ e') with he' | he'
+    · exact h e' he'
+    · have := h4 (e' - e) (by omega)
+      rwa [Nat.add_sub_cancel' he'] at this
 
 /-- `r15` after one more `SampleNTT`. -/
 theorem and_acc {r : BitVec 64} {p q : Prop} [Decidable p] [Decidable q] (hr : r = if p then 1 else 0) :
@@ -149,8 +164,43 @@ theorem sample_step {σ : State} (hp : keyGenK.pre σ) {e : Nat} (he : e < 9) {s
     · rw [hP.pa rbx_bases]
       exact hres f (by rw [h.a.sb]; exact hf)
 
-theorem samples_ok {σ : State} (hp : keyGenK.pre σ) {s : State} (h : KB 0 σ s) : WP isa samples s (KB 9 σ) :=
-  seqR_ok (I := fun e => KB e σ) 9 0 (fun e _ he s hs => sample_step hp (by omega) hs) s h
+/-- What entries `e, …, e + 3` of `Â` write. -/
+abbrev qW (e : Nat) : List (Ptr × Nat) := quadW (oP (6 + e)) (oP 17)
+
+def kqChk (e : Nat) : Bool :=
+  quadChk kgB kgW (oP (6 + e)) (oP 17) && kcChk (qW e) && keepB kgB (qW e) (sc oG) 32 &&
+    keepB kgB (qW e) sigP 32 && keepB kgB (qW e) (sc oSB) 32 &&
+    (List.range e).all fun e' => keepB kgB (qW e) (aS (e' / 3) (e' % 3)) 1024
+
+theorem kqChk_all : kqChk 0 = true ∧ kqChk 4 = true := by decide
+
+/-- Entry `e` of `Â`, as polynomial `6 + e`. -/
+theorem aS_eq (e : Nat) : aS (e / 3) (e % 3) = sc (oP (6 + e)) := by
+  simp only [aS, pS, oP]
+  congr 1
+  omega
+
+theorem quad_step (v : Sample4Impl) {σ : State} (hp : keyGenK.pre σ) {e : Nat} (hc : kqChk e = true)
+    (he : e + 4 ≤ 9) {s : State} (h : KB e σ s) :
+    WP isa (quad v.callee 3 e (sc (oP (6 + e))) (pS 17)) s (KB (e + 4) σ) := by
+  simp only [kqChk, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hc
+  obtain ⟨⟨⟨⟨⟨hq, hkc⟩, kG⟩, kS⟩, kB⟩, kA⟩ := hc
+  have L := h.a.kc.lay hp
+  refine WP.mono (quad_ok v L kgB_bases (by omega) hq) fun s' ⟨hP, h15, hres⟩ => ?_
+  refine ⟨⟨h.a.kc.step hp hP hkc, by rw [L.keepBytes hP kG]; exact h.a.rho, by rw [L.keepBytes hP kS]; exact h.a.sig,
+    by rw [L.keepBytes hP kB]; exact h.a.sb⟩, ?_, fun e' he' f hf => ?_⟩
+  · rw [h15, h.a.sb, and_acc h.r15]
+    exact ite_congr (propext allOk_add4.symm) (fun _ => rfl) (fun _ => rfl)
+  · rcases (by omega : e' < e ∨ e ≤ e') with he'' | he''
+    · exact L.keepPoly hP (kA e' he'') (h.mat e' he'' f hf)
+    · have := hres (e' - e) (by omega) f (by rw [h.a.sb, Nat.add_sub_cancel' he'']; exact hf)
+      rw [hP.pa rbx_bases, aS_eq]
+      rwa [show oP (6 + e) + 1024 * (e' - e) = oP (6 + e') by simp only [oP]; omega] at this
+
+theorem samples_ok (v : Sample4Impl) {σ : State} (hp : keyGenK.pre σ) {s : State} (h : KB 0 σ s) :
+    WP isa (samples v.callee) s (KB 9 σ) :=
+  WP.seq (WP.mono (quad_step v hp kqChk_all.1 (by decide) h) fun _ h₁ =>
+    WP.seq (WP.mono (quad_step v hp kqChk_all.2 (by decide) h₁) fun _ h₂ => sample_step hp (by decide) h₂))
 
 end KeyGen
 

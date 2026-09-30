@@ -33,7 +33,7 @@ namespace Encrypt
 abbrev rP : Ptr := sc (oG + 32)
 
 /-- `ρ` to `SB`, and `Â`. -/
-def mat (E : Ptr) : Prog isa := .seq (copy (sc oSB) (E.1, E.2 + 1152) 32) samples
+def mat (c : Callee4) (E : Ptr) : Prog isa := .seq (copy (sc oSB) (E.1, E.2 + 1152) 32) (samples c)
 
 /-- `ŷ[j]`. -/
 def y (j : Nat) : Prog isa := .seq (prfCbd rP j (pS j)) (nttAt (pS j))
@@ -57,6 +57,6 @@ def rest (E : Ptr) : Prog isa := .seq (seqR y 0 3) (.seq (seqR u 0 3) (.seq (seq
 end Encrypt
 
 open Encrypt in
-def encrypt (E : Ptr) : Prog isa := .seq (mat E) (ifOk (rest E))
+def encrypt (c : Callee4) (E : Ptr) : Prog isa := .seq (mat c E) (ifOk (rest E))
 
 end VG.Impl.MlKem.X86_64

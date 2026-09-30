@@ -109,7 +109,7 @@ theorem SampH.of {a : Ptr} (hc : sampChk (rbs ++ wbs) wbs a = true) : SampH a s 
 
 theorem kChk_spec (hc : kChk (rbs ++ wbs) wbs = true) :
     Region.Disjoint ⟨pa s (sc 0), 200⟩ ⟨pa s (sc 200), 640⟩ ∧
-    (below (s.gpr .rsp) 24).Disjoint ⟨pa s (sc 0), 200⟩ ∧ (below (s.gpr .rsp) 24).Disjoint ⟨pa s (sc 200), 640⟩ ∧
+    (below (s.gpr .rsp) 32).Disjoint ⟨pa s (sc 0), 200⟩ ∧ (below (s.gpr .rsp) 32).Disjoint ⟨pa s (sc 200), 640⟩ ∧
     Covers [⟨pa s (sc 0), 200⟩] (s.rd ++ s.wr) ∧ Covers [⟨pa s (sc 200), 640⟩] (s.rd ++ s.wr) ∧
     Covers [⟨pa s (sc 0), 200⟩] s.wr ∧ Covers [⟨pa s (sc 200), 640⟩] s.wr := by
   simp only [kChk, wrOk, rdOk, Bool.and_eq_true, decide_eq_true_eq] at hc

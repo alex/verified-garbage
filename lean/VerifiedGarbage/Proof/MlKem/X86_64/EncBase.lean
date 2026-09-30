@@ -107,16 +107,49 @@ theorem sampE_step {C : Ctx rbs wbs} {E : Ptr} {ek m r : List Byte} {e : Nat} (h
     · rw [hP.pa rbx_bases]
       exact hres f (by rw [h.sb]; exact hf)
 
-theorem mat_ok {C : Ctx rbs wbs} {E : Ptr} (hc₁ : matChk (rbs ++ wbs) wbs C.chk E = true)
-    (hc₂ : ∀ e < 9, sampEChk (rbs ++ wbs) wbs C.chk E e = true) {ek m r : List Byte} {s : State}
-    (h : EIn C E ek m r s) (h15 : s.gpr .r15 = 1) : WP isa (mat E) s (EB C E ek m r 9) := by
+/-- Entries `e, …, e + 3` of `Â`. -/
+def quadEChk (bs wbs : List (Reg × Nat)) (chk : List (Ptr × Nat) → Bool) (E : Ptr) (e : Nat) : Bool :=
+  quadChk bs wbs (oP (6 + e)) (oP 17) && inKeep bs chk E (KeyGen.qW e) && keepB bs (KeyGen.qW e) (sc oSB) 32 &&
+    (List.range e).all fun e' => keepB bs (KeyGen.qW e) (aS (e' / 3) (e' % 3)) 1024
+
+theorem quadE_step (v : Sample4Impl) {C : Ctx rbs wbs} {E : Ptr} {ek m r : List Byte} {e : Nat} (he : e + 4 ≤ 9)
+    (hc : quadEChk (rbs ++ wbs) wbs C.chk E e = true) {s : State} (h : EB C E ek m r e s) :
+    WP isa (quad v.callee 3 e (sc (oP (6 + e))) (pS 17)) s fun s' =>
+      PPostB s s' (KeyGen.qW e) ∧ EB C E ek m r (e + 4) s' := by
+  simp only [quadEChk, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hc
+  obtain ⟨⟨⟨hq, hkc⟩, kB⟩, kA⟩ := hc
+  have L := C.lay h.i.out
+  refine WP.mono (quad_ok v L C.bs (by omega) hq) fun s' ⟨hP, h15, hres⟩ => ⟨hP, ?_⟩
+  refine ⟨h.i.keep hP hkc, by rw [L.keepBytes hP kB]; exact h.sb, ?_, fun e' he' f hf => ?_⟩
+  · rw [h15, h.sb, and_acc h.r15]
+    exact ite_congr (propext allOk_add4.symm) (fun _ => rfl) (fun _ => rfl)
+  · rcases (by omega : e' < e ∨ e ≤ e') with he'' | he''
+    · exact L.keepPoly hP (kA e' he'') (h.mat e' he'' f hf)
+    · have := hres (e' - e) (by omega) f (by rw [h.sb, Nat.add_sub_cancel' he'']; exact hf)
+      rw [hP.pa rbx_bases, KeyGen.aS_eq]
+      rwa [show oP (6 + e) + 1024 * (e' - e) = oP (6 + e') by simp only [oP]; omega] at this
+
+/-- The checks of the entries of `Â`: four, four and one. -/
+structure SampChks (bs wbs : List (Reg × Nat)) (chk : List (Ptr × Nat) → Bool) (E : Ptr) : Prop where
+  q0 : quadEChk bs wbs chk E 0 = true
+  q4 : quadEChk bs wbs chk E 4 = true
+  s8 : sampEChk bs wbs chk E 8 = true
+
+theorem samples_ok (v : Sample4Impl) {C : Ctx rbs wbs} {E : Ptr} (hc : SampChks (rbs ++ wbs) wbs C.chk E)
+    {ek m r : List Byte} {s : State} (h : EB C E ek m r 0 s) : WP isa (samples v.callee) s (EB C E ek m r 9) :=
+  WP.seq (WP.mono (quadE_step v (by decide) hc.q0 h) fun _ h₁ =>
+    WP.seq (WP.mono (quadE_step v (by decide) hc.q4 h₁.2) fun _ h₂ =>
+      WP.mono (sampE_step (e := 8) (by decide) hc.s8 h₂.2) fun _ h => h.2))
+
+theorem mat_ok (v : Sample4Impl) {C : Ctx rbs wbs} {E : Ptr} (hc₁ : matChk (rbs ++ wbs) wbs C.chk E = true)
+    (hc₂ : SampChks (rbs ++ wbs) wbs C.chk E) {ek m r : List Byte} {s : State}
+    (h : EIn C E ek m r s) (h15 : s.gpr .r15 = 1) : WP isa (mat v.callee E) s (EB C E ek m r 9) := by
   simp only [matChk, Bool.and_eq_true, decide_eq_true_eq] at hc₁
   have L := C.lay h.out
   unfold mat
   refine WP.seq (WP.mono (copy_okL L hc₁.1.2 hc₁.1.1) fun s₁ ⟨hP₁, hb₁⟩ => ?_)
   have h₁ := h.keep hP₁.b hc₁.2
-  refine seqR_ok (I := fun e => EB C E ek m r e) 9 0 (fun e _ he s hs =>
-    WP.mono (sampE_step (by omega) (hc₂ e (by omega)) hs) fun _ h => h.2) s₁
+  refine samples_ok v hc₂
     ⟨h₁, ?_, by rw [hP₁.cs .r15 (by decide), h15, ifp (show allOk (rhoE ek) 0 from fun _ h => absurd h (Nat.not_lt_zero _))],
       fun _ h => absurd h (Nat.not_lt_zero _)⟩
   rw [show pa s₁ (sc oSB) = pa s (sc oSB) from hP₁.pa rbx_cs, hb₁]
@@ -142,11 +175,23 @@ theorem sampE_tr {C : Ctx rbs wbs} {E : Ptr} {ρ : List Byte} {e : Nat} (he : e 
 abbrev EIρ (C : Ctx rbs wbs) (E : Ptr) (ρ : List Byte) (s : State) : Prop :=
   ∃ ek m r, rhoE ek = ρ ∧ EIn C E ek m r s ∧ s.gpr .r15 = 1
 
-theorem mat_tr {C : Ctx rbs wbs} {E : Ptr} (hc₁ : matChk (rbs ++ wbs) wbs C.chk E = true)
-    (hc₂ : ∀ e < 9, sampEChk (rbs ++ wbs) wbs C.chk E e = true) {h : VG.Taint.Hint X86_64.Taint.T}
+theorem quadE_tr (v : Sample4Impl) {C : Ctx rbs wbs} {E : Ptr} {ρ : List Byte} {e : Nat} (he : e + 4 ≤ 9)
+    (hc : quadEChk (rbs ++ wbs) wbs C.chk E e = true) :
+    RelCT isa (fun x y => LRel rbs wbs x y ∧ EBρ C E ρ e x ∧ EBρ C E ρ e y) (quad v.callee 3 e (sc (oP (6 + e))) (pS 17))
+      (fun x y => LRel rbs wbs x y ∧ EBρ C E ρ (e + 4) x ∧ EBρ C E ρ (e + 4) y) := by
+  have hc' := hc
+  simp only [quadEChk, Bool.and_eq_true] at hc'
+  refine RelCT.stepL C.bs (RelCT.mono (quad_tr (ρ := ρ) v C.bs (by omega) (fun k hk => ⟨by omega, by omega⟩)
+      hc'.1.1.1)
+    (fun x y ⟨hl, ⟨_, _, _, e₁, h₁⟩, ⟨_, _, _, e₂, h₂⟩⟩ => ⟨hl, ⟨by rw [h₁.sb, e₁], fun _ h => absurd h (Nat.not_lt_zero _)⟩,
+      ⟨by rw [h₂.sb, e₂], fun _ h => absurd h (Nat.not_lt_zero _)⟩⟩) fun _ _ h => h)
+    fun x ⟨ek, m, r, eρ, hx⟩ => WP.mono (quadE_step v he hc hx) fun x' hx' => ⟨⟨_, hx'.1⟩, ek, m, r, eρ, hx'.2⟩
+
+theorem mat_tr (v : Sample4Impl) {C : Ctx rbs wbs} {E : Ptr} (hc₁ : matChk (rbs ++ wbs) wbs C.chk E = true)
+    (hc₂ : SampChks (rbs ++ wbs) wbs C.chk E) {h : VG.Taint.Hint X86_64.Taint.T}
     (ht : (taint.check (X86_64.Taint.ofRegs [.rbx, E.1]) (copy (sc oSB) (E.1, E.2 + 1152) 32) h).isSome = true)
     {ρ : List Byte} :
-    RelCT isa (fun x y => LRel rbs wbs x y ∧ EIρ C E ρ x ∧ EIρ C E ρ y) (mat E)
+    RelCT isa (fun x y => LRel rbs wbs x y ∧ EIρ C E ρ x ∧ EIρ C E ρ y) (mat v.callee E)
       (fun x y => LRel rbs wbs x y ∧ EBρ C E ρ 9 x ∧ EBρ C E ρ 9 y) := by
   have hc₁' := hc₁
   simp only [matChk, copyChk, wrOk, rdOk, Bool.and_eq_true] at hc₁'
@@ -155,8 +200,8 @@ theorem mat_tr {C : Ctx rbs wbs} {E : Ptr} (hc₁ : matChk (rbs ++ wbs) wbs C.ch
   unfold mat
   refine RelCT.seq (RelCT.stepL (J := EBρ C E ρ 0) C.bs (taintRel [.rbx, E.1] (fun x y h =>
       fa2 (h.1.eq hin₁) (h.1.eq (p := (E.1, E.2 + 1152)) hin₂)) ht) fun x ⟨ek, m, r, eρ, hx, h15⟩ => ?_)
-    (seqR_tr (R := fun e => fun x y => LRel rbs wbs x y ∧ EBρ C E ρ e x ∧ EBρ C E ρ e y) 9 0
-      fun e _ he => sampE_tr (by omega) (hc₂ e (by omega)))
+    (RelCT.seq (quadE_tr v (by decide) hc₂.q0) (RelCT.seq (quadE_tr v (by decide) hc₂.q4)
+      (sampE_tr (e := 8) (by decide) hc₂.s8)))
   simp only [matChk, Bool.and_eq_true, decide_eq_true_eq] at hc₁
   have L := C.lay hx.out
   refine WP.mono (copy_okL L hc₁.1.2 hc₁.1.1) fun x₁ ⟨hP₁, hb₁⟩ => ⟨⟨_, hP₁.b⟩, ek, m, r, eρ, ?_⟩

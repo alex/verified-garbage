@@ -114,7 +114,7 @@ structure Lay (rbs wbs : List (Reg × Nat)) (s : State) : Prop where
   small : ∀ b ∈ rbs ++ wbs, b.2 < 2 ^ 32
   dj : ∀ b ∈ rbs ++ wbs, ∀ b' ∈ rbs ++ wbs, b.1 ≠ b'.1 → (b.1 ∈ wRegs ∨ b'.1 ∈ wRegs) →
     Region.Disjoint ⟨s.gpr b.1, b.2⟩ ⟨s.gpr b'.1, b'.2⟩
-  stk : ∀ b ∈ rbs ++ wbs, (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr b.1, b.2⟩
+  stk : ∀ b ∈ rbs ++ wbs, (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr b.1, b.2⟩
   nw : ∀ b ∈ rbs ++ wbs, (s.gpr b.1).toNat + b.2 ≤ 2 ^ 64
   rd : ∀ b ∈ rbs ++ wbs, InRegions (s.rd ++ s.wr) (s.gpr b.1) b.2
   wr : ∀ b ∈ wbs, InRegions s.wr (s.gpr b.1) b.2
@@ -145,7 +145,7 @@ theorem Lay.disj {p q : Ptr} {l k : Nat} (h : sepB (rbs ++ wbs) p l q k = true) 
     · exact (off_disj h2 (by omega)).symm
 
 theorem Lay.stkD {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) :
-    (below (s.gpr .rsp) 24).Disjoint ⟨pa s p, l⟩ := by
+    (below (s.gpr .rsp) 32).Disjoint ⟨pa s p, l⟩ := by
   obtain ⟨n, hn, hsub⟩ := L.sub h
   exact (L.stk _ hn).sub_right hsub
 
@@ -187,7 +187,7 @@ structure PostB (s s' : State) (W : List Region) : Prop where
   wr : s'.wr = s.wr
   bs : ∀ r ∈ bases, s'.gpr r = s.gpr r
   rsp : s'.gpr .rsp = s.gpr .rsp
-  frame : Frame (W ++ [below (s.gpr .rsp) 24]) s.mem s'.mem
+  frame : Frame (W ++ [below (s.gpr .rsp) 32]) s.mem s'.mem
 
 theorem Post.b {s s' : State} {W : List Region} (h : Post s s' W) : PostB s s' W :=
   ⟨h.rd, h.wr, fun r hr => h.cs r (by
@@ -228,7 +228,7 @@ variable {rbs wbs : List (Reg × Nat)} {s s' : State} (L : Lay rbs wbs s) {ws : 
 include L
 
 theorem Lay.fdisj (hc : keepB (rbs ++ wbs) ws p l = true) :
-    ∀ r ∈ ws.map (toR s) ++ [below (s.gpr .rsp) 24], Region.Disjoint ⟨pa s p, l⟩ r := by
+    ∀ r ∈ ws.map (toR s) ++ [below (s.gpr .rsp) 32], Region.Disjoint ⟨pa s p, l⟩ r := by
   simp only [keepB, Bool.and_eq_true, List.all_eq_true] at hc
   obtain ⟨⟨_, hin⟩, hall⟩ := hc
   intro r hr
@@ -269,7 +269,7 @@ theorem Lay.keepW (hP : PPostB s s' ws) (hc : keepB (rbs ++ wbs) ws p 8 = true) 
 
 end
 
-theorem ret_below24 (sp : Addr) : Region.Disjoint ⟨sp, 8⟩ (below sp 24) := by
+theorem ret_below32 (sp : Addr) : Region.Disjoint ⟨sp, 8⟩ (below sp 32) := by
   intro x h₁ h₂
   simp only [Region.Contains] at h₁ h₂
   bv_omega
@@ -284,6 +284,6 @@ theorem Lay.keepRet {rbs wbs : List (Reg × Nat)} {s s' : State} (L : Lay rbs wb
     obtain ⟨n, hn, hsub⟩ := L.sub (hin w hw)
     exact (L.ret _ hn).sub_right hsub
   · rw [List.mem_singleton] at hr; subst hr
-    exact ret_below24 _
+    exact ret_below32 _
 
 end VG.Proof.MlKem.X86_64
