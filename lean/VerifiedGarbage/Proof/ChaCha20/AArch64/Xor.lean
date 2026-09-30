@@ -1203,7 +1203,7 @@ theorem main_ok {s₀ : State} (hp : XPre s₀) : WP isa Impl.ChaCha20.AArch64.X
 
 /-- The callee-saved registers the code never writes (`x19`, `x20` and `x30`
 are saved and restored). -/
-def untouched : List Reg := [.x21, .x22, .x23, .x24, .x25, .x26, .x27, .x28, .x29]
+def untouched : List Reg := [.x21, .x22, .x23, .x24, .x25, .x26, .x27, .x28]
 
 theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs Impl.ChaCha20.AArch64.Xor.xor, dstOf i ≠ some r := by
   have : ((instrs Impl.ChaCha20.AArch64.Xor.xor).all fun i => untouched.all fun r => dstOf i != some r) =

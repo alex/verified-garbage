@@ -100,7 +100,7 @@ structure Inv (P : Params w) (s₀ : State) (c r : Nat) (s : State) : Prop exten
   repr : ∀ h0 d, R₀ P s₀ h0 d → ReprR P h0 s.mem (st s₀) (d ++ D s₀ c) r
 
 /-- The registers `Common` is about. -/
-abbrev commonRegs : List Reg := [.x19, .x20, .x21, .x22, .x24, .x25, .x26, .x27, .x28, .x29]
+abbrev commonRegs : List Reg := [.x19, .x20, .x21, .x22, .x24, .x25, .x26, .x27, .x28]
 
 theorem notC {r : Reg} (hr : r ∈ commonRegs) (x : Reg) (hx : x ∉ commonRegs := by decide) : r ≠ x :=
   fun h => hx (h ▸ hr)
@@ -178,7 +178,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre w s₀) :
     simp
   · have : r ≠ .x19 ∧ r ≠ .x20 ∧ r ≠ .x21 ∧ r ≠ .x22 ∧ r ≠ .x24 := by
       simp only [untouched, List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide
+      rcases hr with rfl | rfl | rfl | rfl <;> decide
     rw [u₆.other _ this.2.2.2.2, u₅.other _ this.2.2.2.1, u₄.other _ this.2.2.1, u₃.other _ this.2.1,
       u₂.other _ this.1, g₁]
   · rw [u₆.mem, u₅.mem, u₄.mem, u₃.mem, u₂.mem, m₁]

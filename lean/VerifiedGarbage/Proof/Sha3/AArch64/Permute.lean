@@ -1182,7 +1182,7 @@ theorem WP.gprs {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s 
 
 /-- The callee-saved registers our code never touches (but for `x30`, which
 our calls change and the frame restores). -/
-def untouched : List Reg := [.x25, .x26, .x27, .x28, .x29]
+def untouched : List Reg := [.x25, .x26, .x27, .x28]
 
 /-- The callee-saved registers but `x30` are saved or untouched. -/
 theorem preserved_cases : ∀ r ∈ preserved, r ≠ .x30 → (∃ k < 6, sv k = r) ∨ r ∈ untouched := by

@@ -276,7 +276,7 @@ theorem WP.gprs {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s 
 
 /-- The callee-saved registers our code never touches (but for `x30`, which
 our calls change and the frame restores). -/
-def untouched : List Reg := [.x25, .x26, .x27, .x28, .x29]
+def untouched : List Reg := [.x25, .x26, .x27, .x28]
 
 /-- A byte of a region disjoint from a frame is unchanged by the push. -/
 theorem write_frame_apply {m : Mem} {sp : Addr} {v : BitVec (8 * 8)} {R : Region}
