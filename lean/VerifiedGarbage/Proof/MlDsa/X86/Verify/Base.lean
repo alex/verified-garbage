@@ -149,7 +149,8 @@ parameter set `hF : VFacts p` and those in the context. -/
 syntax "lv " term:max : tactic
 macro_rules
   | `(tactic| lv $hF) => `(tactic| (
-      try simp only [Bool.and_eq_true, VG.Proof.MlDsa.X86.Verify.accB, VG.Proof.MlDsa.X86.Verify.YV_sc]
+      try simp only [Bool.and_eq_true, VG.Proof.MlDsa.X86.Verify.accB, VG.Proof.MlDsa.X86.Verify.YV_sc,
+        VG.Proof.MlDsa.X86.KeyGen.chk3]
       try and_intros
       repeat' (first
         | with_reducible apply VG.Proof.MlDsa.X86.Verify.apart_cons'
