@@ -49,7 +49,7 @@ theorem sample4_post {s s' : State} (h : sample4K.post s s') :
     obtain ⟨k, hk, hk'⟩ := hall
     exact ⟨k, hk, Option.not_isSome_iff_eq_none.mp hk'⟩
 
-theorem sample4_verified : Verified X86_64.target Impl.MlKem.X86_64.Sample4.sampleNTT4
+theorem sample4_verified : Verified X86_64.target Impl.MlKem.X86_64.Sample4.sampleNTT4Avx2
     (Spec.MlKem.sampleNTT4Contract X86_64.abi 24) :=
   Verified.of_correct S4.correct S4.ct
     { pre := by sig_implies_pre [Spec.MlKem.sampleNTT4Contract, Spec.MlKem.sampleNTT4Sig, sample4K, X86_64.abi,

@@ -2,10 +2,13 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Sample
 import VerifiedGarbage.Impl.Sha3.X86_64.X4
 
 /-!
-# ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`
+# ML-KEM on x86-64: `vg_mlkem_sample_ntt4` and `vg_mlkem_sample_ntt4_avx2`
 
 `sampleNTT4(seeds = rdi, a = rsi, scratch = rdx) -> eax` runs `SampleNTT`
-on the four seeds at once: the four SHAKE128 instances in the four 64-bit
+on four seeds. The baseline implementation (`sampleNTT4`) calls
+`vg_mlkem_sample_ntt` on each, with the prologue and epilogue below and its
+scratch space from byte 6144 of `scratch`. The one for AVX2
+(`sampleNTT4Avx2`) runs the four at once: the four SHAKE128 instances in the four 64-bit
 elements of `ymm` registers (`Impl/Sha3/X86_64/X4.lean`). It keeps
 `scratch` in `rbx`, `seeds` in `r12`, `a` in `r13` and the AND of the
 results in `r14`, and saves their caller's values and `rbp`'s in
@@ -112,9 +115,22 @@ def epi : List Instr :=
     ((List.range 4).map fun k => .mov (saved.getD (4 - k) .rbx) (.mem (at_ .rbx (oSave + 8 * (4 - k))))) ++
     [.mov .rbx (.mem (at_ .rbx oSave))]
 
-def sampleNTT4 : Prog isa :=
+/-- `vg_mlkem_sample_ntt4_avx2`. -/
+def sampleNTT4Avx2 : Prog isa :=
   .seq (.block (pro ++ rcTable .rbx (oRc / 32) ++ absorb4))
     (.seq (squeeze4 0) (.seq (squeeze4 1) (.seq (squeeze4 2)
       (.seq (parse 0) (.seq (parse 1) (.seq (parse 2) (.seq (parse 3) (.block epi))))))))
+
+/-- `vg_mlkem_sample_ntt` on seed `k`, and `r14 ← r14 ∧ result`. -/
+def callK (k : Nat) : Prog isa :=
+  .seq (.block [.mov .rdi (.reg .r12), .alu .add .rdi (.imm (BitVec.ofNat 32 (34 * k))),
+      .mov .rsi (.reg .r13), .alu .add .rsi (.imm (BitVec.ofNat 32 (1024 * k))), .mov .rdx (.reg .rbx),
+      .alu .add .rdx (.imm (BitVec.ofNat 32 oScalar))])
+    (.seq (.call "vg_mlkem_sample_ntt" sampleNTT) (.block [.alu32 .and .r14 (.reg .rax)]))
+
+/-- `vg_mlkem_sample_ntt4`: `vg_mlkem_sample_ntt` on each seed, with the
+prologue and epilogue of `vg_mlkem_sample_ntt4_avx2`. -/
+def sampleNTT4 : Prog isa :=
+  .seq (.block pro) (.seq (callK 0) (.seq (callK 1) (.seq (callK 2) (.seq (callK 3) (.block epi)))))
 
 end VG.Impl.MlKem.X86_64.Sample4

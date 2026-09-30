@@ -146,9 +146,12 @@ theorem setup_ct {K : Nat} (hK : K < 4) {hc : VG.Taint.Hint X86_64.Taint.T}
 
 /-! ## The fallbacks -/
 
-theorem call_ct {K : Nat} (hK : K < 4) : RelCT isa (R4 fun σ s => ArgI σ K s)
-    (.call "vg_mlkem_sample_ntt" sampleNTT) (R4 fun σ s => CallI σ K s) :=
-  relInv (fun σ s hp h => callK_ok (pre_of hp) hK h) (RelCT.callEx sample_correct sample_ct
+/-- The call of `vg_mlkem_sample_ntt` on seed `K`, with `X σ` of the memory, which its writes keep. -/
+theorem call_ct {X : State → Mem → Prop} {K : Nat} (hK : K < 4)
+    (hX : ∀ σ, sample4K.pre σ → ∀ m m', Frame (cWr σ K ++ [stkR σ]) m m' → X σ m → X σ m') :
+    RelCT isa (R4 fun σ s => ArgI (X σ) σ K s) (.call "vg_mlkem_sample_ntt" sampleNTT)
+      (R4 fun σ s => CallI (X σ) σ K s) :=
+  relInv (fun σ s hp h => callK_ok (pre_of hp) hK (hX σ hp) h) (RelCT.callEx sample_correct sample_ct
     fun s₁ s₂ ⟨σ₁, σ₂, p₁, p₂, hq, h₁, h₂⟩ => by
       have hsp : s₁.gpr .rsp = s₂.gpr .rsp := by rw [h₁.pinv.env.rsp, h₂.pinv.env.rsp, pub_sp hq]
       refine ⟨_, _, _, _, argK_pre (pre_of p₁) hK h₁, argK_pre (pre_of p₂) hK h₂, ?_,
@@ -162,6 +165,28 @@ theorem call_ct {K : Nat} (hK : K < 4) : RelCT isa (R4 fun σ s => ArgI σ K s)
         seed_bytes (pre_of p₁) hK h₁.pinv.env.frame, seed_bytes (pre_of p₂) hK h₂.pinv.env.frame, pub_B hq hK]
       simp only [pub_sd hq, pub_aP hq, at', pub_scr hq, hsp, and_self])
 
+/-- The arguments of the call on seed `K`, given their taint analysis. -/
+theorem args_ct {X : State → Mem → Prop} {K : Nat} (hK : K < 4) {hc : VG.Taint.Hint X86_64.Taint.T}
+    (c : (taint.check (X86_64.Taint.ofRegs [.r12, .r13, .rbx])
+      (.block [.mov .rdi (.reg .r12), .alu .add .rdi (.imm (BitVec.ofNat 32 (34 * K))),
+        .mov .rsi (.reg .r13), .alu .add .rsi (.imm (BitVec.ofNat 32 (1024 * K))), .mov .rdx (.reg .rbx),
+        .alu .add .rdx (.imm (BitVec.ofNat 32 oScalar))]) hc).isSome = true) :
+    RelCT isa (R4 fun σ s => PC (X σ) σ K s)
+      (.block [.mov .rdi (.reg .r12), .alu .add .rdi (.imm (BitVec.ofNat 32 (34 * K))),
+        .mov .rsi (.reg .r13), .alu .add .rsi (.imm (BitVec.ofNat 32 (1024 * K))), .mov .rdx (.reg .rbx),
+        .alu .add .rdx (.imm (BitVec.ofNat 32 oScalar))]) (R4 fun σ s => ArgI (X σ) σ K s) :=
+  relInv (fun σ s _ h => argsK_ok hK h) (taintRel [.r12, .r13, .rbx] (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ r hr => by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl
+    · rw [h₁.env.r12, h₂.env.r12, pub_sd hq]
+    · rw [h₁.env.r13, h₂.env.r13, pub_aP hq]
+    · exact env_rbx hq h₁.env h₂.env) c)
+
+theorem and_ct {X : State → Mem → Prop} {K : Nat} :
+    RelCT isa (R4 fun σ s => CallI (X σ) σ K s) (.block [.alu32 .and .r14 (.reg .rax)])
+      (R4 fun σ s => PC (X σ) σ (K + 1) s) :=
+  relInv (fun σ s _ h => andK_ok h) (taintRel [] SampleNtt.nil_regs (by taint_decide))
+
 /-- The check of `j` and the call, given the taint analysis of the call's arguments. -/
 theorem fallback_ct {K : Nat} (hK : K < 4) {hc : VG.Taint.Hint X86_64.Taint.T}
     (c : (taint.check (X86_64.Taint.ofRegs [.r12, .r13, .rbx])
@@ -173,15 +198,9 @@ theorem fallback_ct {K : Nat} (hK : K < 4) {hc : VG.Taint.Hint X86_64.Taint.T}
   refine RelCT.seq (relInv (I' := fun σ s => MI σ K s) (fun σ s _ h => cmpK_ok h)
     (taintRel [] SampleNtt.nil_regs (by taint_decide))) (RelCT.ite (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ => by
       show x.cf = y.cf; rw [h₁.cf, h₂.cf, pub_Lt hq hK]) ?_ ?_)
-  · refine RelCT.mono (P := R4 fun σ s => MI σ K s) (RelCT.seq (relInv (I' := fun σ s => ArgI σ K s)
-      (fun σ s _ h => argsK_ok hK h.pinv) (taintRel [.r12, .r13, .rbx] (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ r hr => by
-        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-        rcases hr with rfl | rfl | rfl
-        · rw [h₁.pinv.env.r12, h₂.pinv.env.r12, pub_sd hq]
-        · rw [h₁.pinv.env.r13, h₂.pinv.env.r13, pub_aP hq]
-        · exact env_rbx hq h₁.pinv.env h₂.pinv.env) c))
-      (RelCT.seq (call_ct hK) (relInv (I' := fun σ s => PInv σ (K + 1) s) (fun σ s _ h => andK_ok h)
-        (taintRel [] SampleNtt.nil_regs (by taint_decide))))) (fun _ _ h => h.1) fun _ _ h => h
+  · refine RelCT.mono (P := R4 fun σ s => PInv σ K s)
+      (RelCT.seq (args_ct (X := BufOK) hK c) (RelCT.seq (call_ct hK fun σ hp => bufOK_call (pre_of hp) hK) and_ct))
+      (fun _ _ ⟨⟨σ₁, σ₂, p₁, p₂, hq, h₁, h₂⟩, _⟩ => ⟨σ₁, σ₂, p₁, p₂, hq, h₁.pinv, h₂.pinv⟩) fun _ _ h => h
   · refine RelCT.mono (P := R4 fun σ s => MI σ K s ∧ s.cf = some false)
       (relInv (I' := fun σ s => PInv σ (K + 1) s) (fun σ s _ h => WP.block_nil (skipK_ok hK h.1 h.2))
         (taintRel [] SampleNtt.nil_regs (by taint_decide)))
@@ -205,7 +224,7 @@ theorem parse_ct {K : Nat} (hK : K < 4) {h₁ h₂ : VG.Taint.Hint X86_64.Taint.
 theorem pinv0 {σ s : State} (h : SqInv σ 3 s) : PInv σ 0 s :=
   ⟨h.env, fun k hk p hp' => h.buf k hk p (by omega), by rw [h.r14]; rfl, fun _ h _ _ => absurd h (by omega)⟩
 
-theorem ct : ConstantTime isa sample4K.pre sample4K.pub Impl.MlKem.X86_64.Sample4.sampleNTT4 := by
+theorem ct : ConstantTime isa sample4K.pre sample4K.pub Impl.MlKem.X86_64.Sample4.sampleNTT4Avx2 := by
   refine relStart (Q := fun _ _ => True) (RelCT.seq start_ct (RelCT.seq sq0_ct
     (RelCT.seq (sq_ct 1 (by decide) (by taint_decide)) (RelCT.seq (sq_ct 2 (by decide) (by taint_decide)) ?_))))
   refine RelCT.seq (RelCT.mono (parse_ct (K := 0) (by decide) (by taint_decide) (by taint_decide))

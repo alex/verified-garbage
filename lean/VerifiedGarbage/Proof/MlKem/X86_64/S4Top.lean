@@ -39,7 +39,7 @@ theorem epi_eq : epi = [.mov32 .rax (.reg .r14), .mov .r14 (.mem (at_ .rbx 4416)
     .mov .r12 (.mem (at_ .rbx 4400)), .mov .rbp (.mem (at_ .rbx 4392)), .mov .rbx (.mem (at_ .rbx 4384))] := rfl
 
 /-- The return value, and the callee-saved registers restored. -/
-theorem end_ok {s : State} (h : PInv σ 4 s) :
+theorem end_ok {X : Mem → Prop} {s : State} (h : PC X σ 4 s) :
     WP isa (.block epi) s fun s' => sample4K.post σ s' ∧ gprPreserved σ s' := by
   have hin : ∀ i < 5, InRegions (s.rd ++ s.wr) (scr σ + BitVec.ofNat 64 (oSave + 8 * i)) 8 := fun i hi =>
     in_scr' hp h.env.rd h.env.wr (by simp only [oSave]; omega)
@@ -90,7 +90,7 @@ theorem squeezes_ok {s : State} (h : SqInv σ 0 s) :
 end
 
 theorem correct (σ : State) (hs : sample4K.pre σ) :
-    ∃ t s', Exec isa Impl.MlKem.X86_64.Sample4.sampleNTT4 σ t s' ∧ abiPreserved σ s' ∧ sample4K.post σ s' := by
+    ∃ t s', Exec isa Impl.MlKem.X86_64.Sample4.sampleNTT4Avx2 σ t s' ∧ abiPreserved σ s' ∧ sample4K.post σ s' := by
   have hp := pre_of hs
   obtain ⟨t, s', he, hF⟩ := WP.seq (WP.mono (start_ok hp) fun _ h => squeezes_ok hp h)
   exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he hF.2, hF.1⟩
