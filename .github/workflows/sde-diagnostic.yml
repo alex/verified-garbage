@@ -1,0 +1,71 @@
+# Temporary: measure what Intel SDE emulates on the GitHub-hosted runner
+# (https://github.com/pyca/verified-garbage/issues/274). Not for merging.
+name: SDE diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  sde:
+    strategy:
+      fail-fast: false
+      matrix:
+        run: [1, 2]
+    name: SDE diagnostic (${{ matrix.run }})
+    runs-on: ubuntu-latest
+    env:
+      SDE_URL: https://downloadmirror.intel.com/924984/sde-external-10.13.1-2026-07-28-lin.tar.xz
+      SDE_SHA256: 94e97d623fec54385686e1e7ba65ebc9941748c05ee451423948334892bf2b50
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The CPU
+        run: |
+          lscpu
+          grep -m1 flags /proc/cpuinfo | tr ' ' '\n' | grep -xE 'sse4_2|ssse3|sha_ni|aes|pclmulqdq|avx|avx2|bmi1|bmi2|avx512f' | tr '\n' ' '
+      - name: Download Intel SDE
+        run: |
+          curl -sSfLo sde.tar.xz "$SDE_URL"
+          echo "$SDE_SHA256  sde.tar.xz" | sha256sum -c
+          mkdir "$RUNNER_TEMP/sde"
+          tar -xJf sde.tar.xz -C "$RUNNER_TEMP/sde" --strip-components 1
+      - name: Build the tests
+        run: |
+          rustup toolchain install stable --profile minimal
+          cargo test --locked --features cpu-features-env --test cavp --no-run 2>&1 | tee build.log
+          grep -o 'target/debug/deps/cavp-[0-9a-f]*' build.log | head -1 > bin.txt
+      - name: Time the SHA tests under each configuration
+        run: |
+          B=$(cat bin.txt)
+          SDE="$RUNNER_TEMP/sde/sde64"
+          t() { # label, VG_CPU_FEATURES, command...
+            local label=$1 feat=$2; shift 2
+            local s=$(date +%s.%N)
+            if VG_CPU_FEATURES=$feat timeout 600 "$@" >out.txt 2>&1; then r=ok; else r="FAIL($?)"; fi
+            printf '%-45s %-22s %8.2fs %s\n' "$label" "${feat:-all}" "$(echo "$(date +%s.%N) - $s" | bc)" "$r" | tee -a "$GITHUB_STEP_SUMMARY"
+            [ "$r" = ok ] || tail -5 out.txt
+          }
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          for test in sha1::monte_carlo sha256::monte_carlo; do
+            for feat in none sha,ssse3 avx,avx2,bmi1,bmi2; do
+              case "$test/$feat" in sha1::*/avx,*) continue;; esac
+              t "$test native" "$feat" "$B" --exact "$test"
+              t "$test sde -future" "$feat" "$SDE" -future -- "$B" --exact "$test"
+              t "$test sde -future -sync_avx512_state 0" "$feat" "$SDE" -future -sync_avx512_state 0 -- "$B" --exact "$test"
+              t "$test sde -icx" "$feat" "$SDE" -icx -- "$B" --exact "$test"
+              t "$test sde -spr" "$feat" "$SDE" -spr -- "$B" --exact "$test"
+              t "$test sde (host chip)" "$feat" "$SDE" -- "$B" --exact "$test"
+              t "$test sde -use_host_cpuid" "$feat" "$SDE" -use_host_cpuid -- "$B" --exact "$test"
+              t "$test sde -future -update_cpuid_from_host 0" "$feat" "$SDE" -future -update_cpuid_from_host 0 -- "$B" --exact "$test"
+            done
+          done
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: Instruction mix of the SHA-NI SHA-1 test under -future
+        run: |
+          B=$(cat bin.txt)
+          VG_CPU_FEATURES=sha,ssse3 "$RUNNER_TEMP/sde/sde64" -future -mix -omix mix.txt -- "$B" --exact sha1::monte_carlo
+          grep -n -i -m40 'emu\|isa-ext-SHA\|isa-set-SHA' mix.txt || true
