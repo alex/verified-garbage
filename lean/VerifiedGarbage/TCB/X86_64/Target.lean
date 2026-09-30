@@ -103,8 +103,13 @@ abbrev target : Target where
   isa := isa
   printer := printer
   abiPreserved := abiPreserved
-  -- x32 targets (`x86_64-unknown-linux-gnux32`) have 32-bit pointers.
-  rustCfg := "all(target_arch = \"x86_64\", target_pointer_width = \"64\")"
+  -- x32 targets (`x86_64-unknown-linux-gnux32`) have 32-bit pointers. The
+  -- model's baseline includes SSE2 (see `Instr.requires`), which
+  -- `x86_64-unknown-none` and `x86_64-unknown-uefi` turn off; there the Rust
+  -- caller would also not save the SSE registers, of which UEFI's convention
+  -- (the Microsoft x64 one) makes `xmm6`–`xmm15` callee-saved.
+  rustCfg := "all(target_arch = \"x86_64\", target_pointer_width = \"64\", \
+    target_feature = \"sse2\")"
   rustAbi := "sysv64"
   abi := abi
 

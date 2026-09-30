@@ -114,8 +114,19 @@ abbrev target : Target where
   isa := isa
   printer := printer
   abiPreserved := abiPreserved
-  -- `armeb` targets are big-endian.
-  rustCfg := "all(target_arch = \"arm\", target_endian = \"little\")"
+  -- `armeb` targets are big-endian. Apple's 32-bit ARM targets do not use AAPCS:
+  -- `armv7s-apple-ios` uses APCS, where a 64-bit argument takes the next two
+  -- registers (`r1:r2` after one word) rather than an even pair (`r2:r3`,
+  -- AAPCS §6.5, "Parameter Passing", rule C.3), and `armv7k-apple-watchos` uses
+  -- AAPCS16, Apple's variant of AAPCS, which the model has not been checked
+  -- against. The ARMv4T–ARMv6 targets (`armv5te-*`, `arm-*`, …)
+  -- are not ARMv7, which the model describes, but Rust has no stable `cfg` for
+  -- the architecture version (its ARM target features, `v7` included, are
+  -- unstable, and `cfg` does not report them on stable): they are kept out only
+  -- because some functions use `movw`, which is new in ARMv7 (and ARMv6T2), so
+  -- the crate does not assemble for them.
+  rustCfg := "all(target_arch = \"arm\", target_endian = \"little\", \
+    not(target_vendor = \"apple\"))"
   rustAbi := "C"
   abi := abi
 

@@ -102,9 +102,10 @@ abbrev target : Target where
   printer := printer
   abiPreserved := abiPreserved
   -- `aarch64_be` targets are big-endian, and ILP32 ones (`aarch64-unknown-linux-gnu_ilp32`)
-  -- have 32-bit pointers.
+  -- have 32-bit pointers. The model's baseline includes AdvSIMD (NEON: see
+  -- `Instr.requires`), which `aarch64-unknown-none-softfloat` turns off.
   rustCfg := "all(target_arch = \"aarch64\", target_endian = \"little\", \
-    target_pointer_width = \"64\")"
+    target_pointer_width = \"64\", target_feature = \"neon\")"
   rustAbi := "C"
   abi := abi
 

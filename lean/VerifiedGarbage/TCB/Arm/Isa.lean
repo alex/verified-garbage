@@ -29,6 +29,18 @@ Modelling choices:
   addresses of `Mem`. Memory accesses must lie within the state's permitted
   regions: loads within `rd ++ wr`, stores within `wr`; otherwise the
   instruction faults. Memory is little-endian.
+* Word loads and stores (`ldr`, `str`) need no alignment, and the code does
+  them on byte buffers at any address. ARMv7 supports unaligned `LDR` and
+  `STR` when alignment checking is off (`SCTLR.A` = 0 on ARMv7-A and -R: DDI
+  0406C A3.2.1, "Unaligned data access"; `CCR.UNALIGN_TRP` = 0 on ARMv7-M:
+  DDI 0403E A3.2.1, "Alignment behavior") and the memory is Normal memory;
+  an unaligned access to Device or Strongly-ordered memory faults, and with
+  the MMU off every data access is Strongly-ordered (DDI 0406C B3.2.1).
+  Linux, Android and the other hosted targets run user code that way. A
+  bare-metal program (e.g. on `armv7a-none-eabi`, which Rust builds with
+  `+strict-align` for this reason) must turn alignment checking off and run
+  the code with the MMU on, over Normal memory. Otherwise an unaligned access
+  faults: the program stops, but no result is wrong.
 * Instructions whose timing depends on their operands (e.g. `sdiv`, `udiv`)
   must never be added: the constant-time leakage model assumes they do not
   exist. ARMv7 makes no architectural promise about multiply timing (it has
@@ -162,11 +174,13 @@ def setReg (s : State) (r : Reg) (x : BitVec 32) : State :=
 /-- The 64-bit address of a 32-bit address. -/
 def addr (a : BitVec 32) : Addr := a.setWidth 64
 
-/-- Load 4 bytes, faulting if not permitted. -/
+/-- Load 4 bytes, faulting if not permitted. The address need not be aligned
+(see "Word loads and stores" above). -/
 def load32 (s : State) (a : Addr) : Option (BitVec 32) :=
   if InRegions (s.rd ++ s.wr) a 4 then some (s.mem.readW a 32) else none
 
-/-- Store 4 bytes, faulting if not permitted. -/
+/-- Store 4 bytes, faulting if not permitted. The address need not be aligned
+(see "Word loads and stores" above). -/
 def store32 (s : State) (a : Addr) (x : BitVec 32) : Option State :=
   if InRegions s.wr a 4 then some { s with mem := s.mem.writeW a x } else none
 
