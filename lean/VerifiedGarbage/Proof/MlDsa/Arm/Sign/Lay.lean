@@ -210,6 +210,13 @@ theorem Lay.lenlt {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) : l < 2 
   have := L.small _ hn
   simp only at this; omega
 
+/-- `Lay.pa32`, for a buffer written. -/
+theorem Lay.pa32W {p : Ptr} {l : Nat} (h : inB wbs p l = true) (hl : 0 < l) :
+    State.addr (s.gpr p.1 + BitVec.ofNat 32 p.2) = pa s p := by
+  obtain ⟨n, hn, hl'⟩ := inB_spec h
+  have := L.nw _ (List.mem_append_right _ hn)
+  exact addr_add (by simp only at this; omega)
+
 theorem Lay.iR {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) : InRegions (s.rd ++ s.wr) (pa s p) l := by
   obtain ⟨n, hn, hl⟩ := inB_spec h
   exact inRegions_sub (L.rd (p.1, n) hn) hl (by have := L.small _ hn; omega)
