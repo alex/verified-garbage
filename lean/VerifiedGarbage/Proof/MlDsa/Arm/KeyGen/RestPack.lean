@@ -67,7 +67,7 @@ include hP hF hS
 /-! ## `BitPack` of `s₁ ‖ s₂` -/
 
 omit hP hS in
-theorem packS_m {r : Nat} (hr : r < p.ℓ + p.k) :
+theorem packS_m {σ : State} {r : Nat} (hr : r < p.ℓ + p.k) :
     BpOk (lay p STK σ) kWb (sP p r) p.η p.η (.r6, 128 + lenS p * r) (lenS p) := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   rcases hF.eta with ⟨_, hlen⟩ | ⟨_, hlen⟩ <;>
@@ -113,7 +113,7 @@ theorem packS_piece {r : Nat} (hr : r < p.ℓ + p.k) :
 /-! ## `NTT` of `s₁` -/
 
 omit hP hS in
-theorem nttS_m {j : Nat} (hj : j < p.ℓ) : PtrIn (lay p STK σ) (sP p j) 1024 ∧ PtrIn (lay p STK σ) (sc oSS) 1024 ∧
+theorem nttS_m {σ : State} {j : Nat} (hj : j < p.ℓ) : PtrIn (lay p STK σ) (sP p j) 1024 ∧ PtrIn (lay p STK σ) (sc oSS) 1024 ∧
     sepB (lay p STK σ).sizes (tri (sP p j) 1024) (tri (sc oSS) 1024) = true := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   exact ⟨⟨sc_ok _, by lsep hF⟩, ⟨sc_ok _, by lsep hF⟩, by lsep hF⟩
