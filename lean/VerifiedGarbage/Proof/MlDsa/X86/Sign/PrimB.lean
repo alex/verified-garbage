@@ -97,8 +97,7 @@ theorem rej_piece {F : List Byte → Bool} {nm : String} {c : Prog isa} (hv : Ve
     generalize he : (pushed (argPush 3) s₁).callEntry = e at a0 a1 a2 eSp key ⊢
     generalize he' : (pushed (argPush 3) s₁').callEntry = e' at a0' a1' a2' eSp' key ⊢
     sig_pub [rejK, withRet, rejNTTContract, rejNTTSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [arg_withRegions, a0, a1, a2, a0', a1', a2', eSp, eSp', e₁, e₂, e₃, hq.t.E1, and_self, key,
-      true_and]
+    simp only [arg_withRegions, a0, a1, a2, a0', a1', a2', eSp, eSp', e₁, e₂, e₃, hq.t.E1, and_self, key]
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
     · exact Buf.inW hp hR' (Lay.okW_iff.mp hR).2

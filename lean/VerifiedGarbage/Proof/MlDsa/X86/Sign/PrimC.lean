@@ -204,7 +204,7 @@ theorem norm_piece {nm : String} {c : Prog isa} (hv : Verified X86.target c (nor
     generalize he : (pushed (argPush 2) s₁).callEntry = e at a0 a1 eA eSp ⊢
     sig_pre [normLtContract, normLtSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
     subst he
-    simp only [arg_withRegions, argAddr_withRegions, a0, a1, eA, eSp]
+    simp only [arg_withRegions, argAddr_withRegions, a0, eA, eSp]
     refine ⟨by rw [sub_toNat (by omega)]; omega, by rw [sub_toNat (by omega)]; have := (E1 s₀).isLt; omega,
       rfl, rF₂, rA₂, rF₃, rA₃, Buf.fit hp hc, ?_⟩
     exact reduced_congr (ent_bytes hp h (n := 2) (by decide) hc) (m ▸ (hA s₀ s hp ha).2)

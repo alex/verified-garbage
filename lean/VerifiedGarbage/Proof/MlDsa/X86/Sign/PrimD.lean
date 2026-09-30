@@ -377,7 +377,7 @@ theorem hbp_piece {nm : String} {c : Prog isa} (hv : Verified X86.target c (hint
     generalize he : (pushed (argPush 5) s₁).callEntry = e at a0 a1 a2 a3 a4 post
     sig_post [hintBitPackContract, hintBitPackSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at post
     subst he
-    simp only [arg_withRegions, a0, a1, a2, a3, a4, m₂, wl, kl, ll, ek] at post
+    simp only [arg_withRegions, a0, a2, a3, a4, m₂, wl, ll, ek] at post
     rw [hintAt_congr (ent_bytes hp h (n := 5) (by decide) hH), m] at post
     exact hQ s₀ s s' hp ha h' (fr80 (by decide) (by have := ok.stk; omega) hp (m ▸ fr)) post
 

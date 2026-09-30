@@ -80,7 +80,7 @@ theorem inPlace_piece {t : Poly → Poly} {nm : String} {c : Prog isa}
     generalize he : (pushed (argPush 2) s₁).callEntry = e at a0 a1 eSp ⊢
     generalize he' : (pushed (argPush 2) s₁').callEntry = e' at a0' a1' eSp' ⊢
     sig_pub [inPlaceContract, inPlaceSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [arg_withRegions, State.withRegions_gpr, a0, a1, a0', a1', eSp, eSp', e₁, e₂, hq.t.E1]
+    simp only [arg_withRegions, a0, a1, a0', a1', eSp, eSp', e₁, e₂, hq.t.E1]
     exact ⟨trivial, trivial, trivial⟩
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl
