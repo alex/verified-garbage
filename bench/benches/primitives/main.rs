@@ -17,6 +17,8 @@ use openssl::pkey::PKey;
 use openssl::sign::Signer;
 
 mod aes_gcm;
+mod blake2b;
+mod blake2s;
 mod chacha20;
 mod chacha20poly1305;
 mod hmac_md5;
@@ -40,6 +42,7 @@ mod sha256;
 mod sha3;
 mod sha512;
 mod x25519;
+mod x448;
 
 const SIZES: [usize; 3] = [64, 1024, 16384];
 
@@ -142,6 +145,8 @@ type Bench = (&'static [&'static str], fn(&mut Criterion));
 
 const BENCHES: &[Bench] = &[
     (aes_gcm::USES, aes_gcm::bench),
+    (blake2b::USES, blake2b::bench),
+    (blake2s::USES, blake2s::bench),
     (chacha20::USES, chacha20::bench),
     (chacha20poly1305::USES, chacha20poly1305::bench),
     (hmac_md5::USES, hmac_md5::bench),
@@ -165,6 +170,7 @@ const BENCHES: &[Bench] = &[
     (sha3::USES, sha3::bench),
     (sha512::USES, sha512::bench),
     (x25519::USES, x25519::bench),
+    (x448::USES, x448::bench),
 ];
 
 /// Runs the benchmarks that use any of the modules in `$VG_BENCH_MODULES`

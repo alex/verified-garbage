@@ -33,28 +33,14 @@ theorem WP.all {c : Prog isa} {s : State} {α : Sort _} {Pre : α → Prop} {Q :
 
 /-! ## A try -/
 
-theorem traceTry (r : Reg)
-    {h1 : VG.Taint.Hint X86_64.Taint.T}
-    (c1 : (taint.check (X86_64.Taint.ofRegs []) (.block [.alu32 .cmp r (.imm qImm)]) h1).isSome = true)
-    {h2 : VG.Taint.Hint X86_64.Taint.T}
-    (c2 : (taint.check (X86_64.Taint.ofRegs [.rbp, .rdi]) (.block [.store32 aJ r, .alu .add .rdi (.imm 1)])
-      h2).isSome = true)
-    {h3 : VG.Taint.Hint X86_64.Taint.T} (c3 : (taint.check (X86_64.Taint.ofRegs []) (.block []) h3).isSome = true) :
+theorem traceTry (r : Reg) {h : VG.Taint.Hint X86_64.Taint.T}
+    (c : (taint.check (X86_64.Taint.ofRegs [.rbp, .rdi]) (.block (snTry r)) h).isSome = true) :
     RelCT isa (fun s₁ s₂ => s₁.gpr .rbp = s₂.gpr .rbp ∧ s₁.gpr .rdi = s₂.gpr .rdi ∧
-      (s₁.gpr r).setWidth 32 = (s₂.gpr r).setWidth 32) (snTry r) fun _ _ => True := by
-  refine RelCT.seq (R := fun (s₁ s₂ : State) => s₁.cf = s₂.cf ∧ s₁.gpr .rbp = s₂.gpr .rbp ∧ s₁.gpr .rdi = s₂.gpr .rdi)
-    (RelCT.postDep (F := fun (x x' : State) => x'.cf = some (decide (((x.gpr r).setWidth 32).toNat < 3329)) ∧
-        x'.gpr = x.gpr)
-      (taintRel [] (fun _ _ _ _ h => absurd h List.not_mem_nil) c1)
-      (fun x y _ => ⟨WP.mono (snTryCmp_ok r x) fun _ h => ⟨h.1, h.2.2.1⟩,
-        WP.mono (snTryCmp_ok r y) fun _ h => ⟨h.1, h.2.2.1⟩⟩)
-      fun x y x' y' ⟨e1, e2, e3⟩ ⟨f1, g1⟩ ⟨f2, g2⟩ => ⟨by rw [f1, f2, e3], by rw [g1, g2, e1], by rw [g1, g2, e2]⟩) ?_
-  exact RelCT.ite (fun x y h => h.1)
-    (taintRel [.rbp, .rdi] (fun x y h r hr => by
-      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl
-      exacts [h.1.2.1, h.1.2.2]) c2)
-    (taintRel [] (fun _ _ _ _ h => absurd h List.not_mem_nil) c3)
+      (s₁.gpr r).setWidth 32 = (s₂.gpr r).setWidth 32) (.block (snTry r)) fun _ _ => True :=
+  taintRel [.rbp, .rdi] (fun x y h r hr => by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl
+    exacts [h.1, h.2.1]) c
 
 /-- The hypotheses of `snTry_ok`. -/
 structure TryPre (s : State) (aP : Addr) (L : List Zq) : Prop where
@@ -71,12 +57,14 @@ theorem tryL_len (L : List Zq) (d : Nat) : (tryL L d).length ≤ L.length + 1 :=
   unfold tryL; split <;> simp
 
 theorem snTry_all (r : Reg) (s : State) (hne : ∃ aP L, TryPre s aP L) :
-    WP isa (snTry r) s fun s' => ∀ aP L, TryPre s aP L →
+    WP isa (.block (snTry r)) s fun s' => ∀ aP L, TryPre s aP L →
       s'.gpr .rdi = BitVec.ofNat 64 (tryL L ((s.gpr r).setWidth 32).toNat).length ∧
-      Stored s'.mem aP (tryL L ((s.gpr r).setWidth 32).toNat) ∧ Frame [pR aP] s.mem s'.mem ∧ Keep [.rdi] s s' := by
+      Stored s'.mem aP (tryL L ((s.gpr r).setWidth 32).toNat) ∧ Frame [pR aP] s.mem s'.mem ∧
+        Keep [.rdi, r] s s' := by
   have := WP.all (Pre := fun p : Addr × List Zq => TryPre s p.1 p.2)
     (Q := fun p s' => s'.gpr .rdi = BitVec.ofNat 64 (tryL p.2 ((s.gpr r).setWidth 32).toNat).length ∧
-      Stored s'.mem p.1 (tryL p.2 ((s.gpr r).setWidth 32).toNat) ∧ Frame [pR p.1] s.mem s'.mem ∧ Keep [.rdi] s s')
+      Stored s'.mem p.1 (tryL p.2 ((s.gpr r).setWidth 32).toNat) ∧ Frame [pR p.1] s.mem s'.mem ∧
+        Keep [.rdi, r] s s')
     (fun p h => snTry_ok r s h.rbp h.rdi h.len h.wr h.st) (by obtain ⟨aP, L, h⟩ := hne; exact ⟨(aP, L), h⟩)
   exact WP.mono this fun s' h aP L hp => h (aP, L) hp
 
@@ -115,12 +103,13 @@ def R4 (s₁ s₂ : State) : Prop :=
 theorem ofNat64_toNat' {j : Nat} (h : j ≤ 256) : (BitVec.ofNat 64 j).toNat = j := by
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
 
-theorem tailTry_ct : RelCT isa R4 (.ite .b (snTry .r8) (.block [])) fun s₁ s₂ => s₁.gpr .rcx = s₂.gpr .rcx := by
+theorem tailTry_ct : RelCT isa R4 (.ite .b (.block (snTry .r8)) (.block [])) fun s₁ s₂ => s₁.gpr .rcx = s₂.gpr .rcx := by
   refine RelCT.ite (fun x y ⟨aP, L, _, _, _, _, c1, c2⟩ => by show x.cf = y.cf; rw [c1, c2]) ?_ ?_
   · refine RelCT.postDep (F := fun (x x' : State) => ∀ aP L, TryPre x aP L →
         x'.gpr .rdi = BitVec.ofNat 64 (tryL L ((x.gpr .r8).setWidth 32).toNat).length ∧
-        Stored x'.mem aP (tryL L ((x.gpr .r8).setWidth 32).toNat) ∧ Frame [pR aP] x.mem x'.mem ∧ Keep [.rdi] x x')
-      (RelCT.mono (traceTry .r8 (by taint_decide) (by taint_decide) (by taint_decide)) (fun x y h => by
+        Stored x'.mem aP (tryL L ((x.gpr .r8).setWidth 32).toNat) ∧ Frame [pR aP] x.mem x'.mem ∧
+          Keep [.rdi, .r8] x x')
+      (RelCT.mono (traceTry .r8 (by taint_decide)) (fun x y h => by
         obtain ⟨⟨aP, L, p1, p2, e8, _, _, _⟩, _⟩ := h
         exact ⟨by rw [p1.rbp, p2.rbp], by rw [p1.rdi, p2.rdi], by rw [e8]⟩) fun _ _ h => h) ?_ ?_
     · intro x y ⟨⟨aP, L, p1, p2, _, _, c1, _⟩, hb⟩
@@ -154,15 +143,16 @@ theorem cmp256_ct : RelCT isa R3 (.block [.alu .cmp .rdi (.imm 256)]) R4 :=
       exact ⟨aP, L, q1, q2, by rw [f1.2.2.1, f2.2.2.1, e8], by rw [f1.2.2.1, f2.2.2.1, ecx], c1, c2⟩
 
 theorem mid_ct : RelCT isa R1
-    (.ite .b (.seq (snTry .r9) (.seq (.block [.alu .cmp .rdi (.imm 256)]) (.ite .b (snTry .r8) (.block []))))
+    (.ite .b (.seq (.block (snTry .r9)) (.seq (.block [.alu .cmp .rdi (.imm 256)]) (.ite .b (.block (snTry .r8)) (.block []))))
       (.block [])) fun s₁ s₂ => s₁.gpr .rcx = s₂.gpr .rcx := by
   refine RelCT.ite (fun x y ⟨aP, L, p1, p2, _⟩ => by
       show x.cf = y.cf; rw [p1.cf, p2.cf, p1.rdi, p2.rdi]) ?_ ?_
   · refine RelCT.seq (R := R3) ?_ (RelCT.seq cmp256_ct tailTry_ct)
     refine RelCT.postDep (F := fun (x x' : State) => ∀ aP L, TryPre x aP L →
         x'.gpr .rdi = BitVec.ofNat 64 (tryL L ((x.gpr .r9).setWidth 32).toNat).length ∧
-        Stored x'.mem aP (tryL L ((x.gpr .r9).setWidth 32).toNat) ∧ Frame [pR aP] x.mem x'.mem ∧ Keep [.rdi] x x')
-      (RelCT.mono (traceTry .r9 (by taint_decide) (by taint_decide) (by taint_decide)) (fun x y h => by
+        Stored x'.mem aP (tryL L ((x.gpr .r9).setWidth 32).toNat) ∧ Frame [pR aP] x.mem x'.mem ∧
+          Keep [.rdi, .r9] x x')
+      (RelCT.mono (traceTry .r9 (by taint_decide)) (fun x y h => by
         obtain ⟨⟨aP, L, p1, p2, e9, _, _⟩, _⟩ := h
         exact ⟨by rw [p1.rbp, p2.rbp], by rw [p1.rdi, p2.rdi], by rw [e9]⟩) fun _ _ h => h) ?_ ?_
     · intro x y ⟨⟨aP, L, p1, p2, _⟩, hb⟩

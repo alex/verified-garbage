@@ -14,8 +14,8 @@ target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract.
 
 `update` and `finalize`, which call the compression function, are emitted
-once for each implementation of it
-(`Generic/Sha512Compress/X86_64/Sha512.lean`).
+once for each implementation of it, by SHA-512's variants of `MdHash`
+(`Variants/MdHash/X86_64/Sha512*.lean`, `Generic/MdHash/X86_64/Stream.lean`).
 -/
 
 namespace VG.Artifacts.Sha512.X86_64

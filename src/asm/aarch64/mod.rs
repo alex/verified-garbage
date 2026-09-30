@@ -5,6 +5,12 @@
 pub(crate) mod aes;
 
 #[rustfmt::skip]
+pub(crate) mod blake2b;
+
+#[rustfmt::skip]
+pub(crate) mod blake2s;
+
+#[rustfmt::skip]
 pub(crate) mod chacha20;
 
 #[rustfmt::skip]
@@ -39,6 +45,15 @@ pub(crate) mod md5;
 
 #[rustfmt::skip]
 pub(crate) mod mldsa;
+
+#[rustfmt::skip]
+pub(crate) mod mldsa44;
+
+#[rustfmt::skip]
+pub(crate) mod mldsa65;
+
+#[rustfmt::skip]
+pub(crate) mod mldsa87;
 
 #[rustfmt::skip]
 pub(crate) mod mlkem;
