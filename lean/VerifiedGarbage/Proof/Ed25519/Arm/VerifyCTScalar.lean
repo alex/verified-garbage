@@ -9,7 +9,7 @@ theorem verifyScalar_ct (b pk sig challenge : BitVec 32) :
     CT (fun s t => VerifyContext b pk sig challenge s ∧ VerifyContext b pk sig challenge t)
       (.block verifyScalar) (fun _ _ => True) := by
   have head : CT (fun s t => VerifyContext b pk sig challenge s ∧ VerifyContext b pk sig challenge t)
-      (.block (loadHeader 8132 ++ [.dp .add .r12 .r12 (.imm 32)]))
+      (.block (loadHeader 8132 ++ ([.dp .add .r12 .r12 (.imm 32)] : List Instr)))
       (fun s t => (s.gpr .r0 = b ∧ s.gpr .r12 = sig + 32) ∧ (t.gpr .r0 = b ∧ t.gpr .r12 = sig + 32)) := by
     apply ctBoth
     · apply ctRegs [.r0] _ (by taint_decide)
@@ -23,7 +23,7 @@ theorem verifyScalar_ct (b pk sig challenge : BitVec 32) :
       refine WP.mono (addInput32_ok u) fun t ⟨tr, _, tp⟩ => ?_
       exact ⟨(tr.gpr _ (by decide)).trans ((ur.gpr _ (by decide)).trans hc.ctx.r0), by rw [tp, up, hc.sigHeader]⟩
   have tail : CT (fun s t => (s.gpr .r0 = b ∧ s.gpr .r12 = sig + 32) ∧ (t.gpr .r0 = b ∧ t.gpr .r12 = sig + 32))
-      (.block (unpackField SR 0 ++ scalarCompare ++ [.cmp .r5 (.imm 0)])) (fun _ _ => True) := by
+      (.block (unpackField SR 0 ++ scalarCompare ++ ([.cmp .r5 (.imm 0)] : List Instr))) (fun _ _ => True) := by
     apply ctRegs [.r0, .r12] _ (by taint_decide)
     intro s t h r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr

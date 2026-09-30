@@ -13,7 +13,7 @@ theorem fromCTPre_keep {b ptr : BitVec 32} {count : Nat} {s t : State}
 theorem verifyLoadScalar_ct (b pk sig challenge : BitVec 32) :
     CT (fun s t => (VerifyContext b pk sig challenge s ∧ AllLim s.mem b) ∧
       (VerifyContext b pk sig challenge t ∧ AllLim t.mem b))
-      (.block (loadHeader 8132 ++ [.dp .add .r12 .r12 (.imm 32)]))
+      (.block (loadHeader 8132 ++ ([.dp .add .r12 .r12 (.imm 32)] : List Instr)))
       (fun s t => FromCTPre b (sig + 32) 16 s ∧ FromCTPre b (sig + 32) 16 t) := by
   apply ctBoth
   · apply ctRegs [.r0] _ (by taint_decide)
