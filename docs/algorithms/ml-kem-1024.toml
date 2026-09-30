@@ -3,4 +3,4 @@ family = "KEMs"
 specs = ["MlKem"]
 modules = ["src/mlkem1024.rs"]
 asm = ["mlkem1024", "mlkem"]
-optimized = { x86_64 = "SSE2 polynomial arithmetic" }
+optimized = { x86_64 = "SSE2 polynomial arithmetic", aarch64 = "NEON polynomial arithmetic" }
