@@ -15,7 +15,7 @@ namespace VG.X86_64
 inductive XBinOp
   | movdqa | paddd | pxor | por | punpckldq | punpckhdq | punpcklqdq | punpckhqdq
   | pshufb | sha256msg1 | sha256msg2 | sha1msg1 | sha1msg2 | sha1nexte
-  | pand | pandn | paddq | pmuludq
+  | pand | pandn | paddq | psubq | pmuludq
   | paddw | psubw | psubd | pmullw | pmulhw | packssdw | punpcklwd | punpckhwd
   | aesenc | aesenclast | aesdec | aesdeclast | aesimc
   deriving DecidableEq, Repr
@@ -276,7 +276,8 @@ bits above 127 unmodified; no flags are affected):
   SRC2[31:0]`.
 * PAND: `DEST := DEST AND SRC`. PANDN: `DEST := NOT(DEST) AND SRC`.
 * PADDQ: `DEST[63:0] := DEST[63:0] + SRC[63:0]; DEST[127:64] :=
-  DEST[127:64] + SRC[127:64]` (wrapping).
+  DEST[127:64] + SRC[127:64]` (wrapping). PSUBQ: `DEST[63:0] := DEST[63:0]
+  − SRC[63:0]; DEST[127:64] := DEST[127:64] − SRC[127:64]` (wrapping).
 * PMULUDQ: `DEST[63:0] := DEST[31:0] * SRC[31:0]; DEST[127:64] :=
   DEST[95:64] * SRC[95:64]` (unsigned, full 64-bit products).
 * PADDW: `DEST[15:0] := DEST[15:0] + SRC[15:0]`, and likewise for words
@@ -338,6 +339,7 @@ def XBinOp.eval : XBinOp → BitVec 128 → BitVec 128 → BitVec 128
   | .pand, a, b => a &&& b
   | .pandn, a, b => ~~~a &&& b
   | .paddq, a, b => (qword a 1 + qword b 1) ++ (qword a 0 + qword b 0)
+  | .psubq, a, b => (qword a 1 - qword b 1) ++ (qword a 0 - qword b 0)
   | .pmuludq, a, b =>
     ((dword a 2).setWidth 64 * (dword b 2).setWidth 64) ++
       ((dword a 0).setWidth 64 * (dword b 0).setWidth 64)

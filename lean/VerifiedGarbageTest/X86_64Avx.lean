@@ -1,7 +1,7 @@
 import VerifiedGarbage.TCB.X86_64.Print
 
 /-!
-# Semantics tests for the x86-64 AVX and AVX2 instructions
+# Semantics tests for the x86-64 AVX, AVX2 and AVX512_IFMA (`ymm`) instructions
 
 Each expected value was computed on an x86-64 CPU, by the same instruction
 through its intrinsic (`_mm256_add_epi32`, `_mm256_permute2x128_si256`,
@@ -70,6 +70,28 @@ def bin (op : VBinOp) (len : VLen := .l256) : BitVec 256 := run (.vbin op len .x
 #guard bin .vpackssdw == 0x7fff8000800080007fff7fff80008000ffff80007fff7fff80007fff80007fff#256
 #guard bin .vpunpcklwd == 0xdead8796beefa5b4cafec3d2babee1f07ffffedcffffba981234765456783210#256
 #guard bin .vpunpckhwd == 0x01230f1e45672d3c89ab4b5acdef6978ffff89abffffcdef8000012300004567#256
+#guard bin .vpsubq == 0x0dfae7d4c1ae9b89a8e8e6c4f8d4273289abcdef812345677edcba99641fdb98#256
+#guard bin .vpsubq .l128 == 0x0000000000000000000000000000000089abcdef812345677edcba99641fdb98#256
+
+/-! `vpmadd52luq` and `vpmadd52huq` (`_mm256_madd52lo_epu64`,
+`_mm256_madd52hi_epu64`, and `_mm_…` for `.l128`, on an Emerald Rapids Xeon), into the all-ones `ymm5`
+(so the sums wrap), into a source, and with sources of 52 ones (whose
+product's low 52 bits are 1 and high 52 bits `2⁵² - 2`). -/
+
+#guard run (.vpmadd52luq .l256 .xmm5 .xmm0 .xmm1) == 0x000502bf6b058f07000413041acc101f000e5d4c7fffffff000c71c70b88d77f#256
+#guard run (.vpmadd52huq .l256 .xmm5 .xmm0 .xmm1) == 0x0002e5fa1f559cf30005b5f64142cb3e000bcdeea2b3cd5c000cba97b9263968#256
+#guard run (.vpmadd52luq .l128 .xmm5 .xmm0 .xmm1) == 0x00000000000000000000000000000000000e5d4c7fffffff000c71c70b88d77f#256
+#guard run (.vpmadd52huq .l128 .xmm5 .xmm0 .xmm1) == 0x00000000000000000000000000000000000bcdeea2b3cd5c000cba97b9263968#256
+#guard run (.vpmadd52huq .l256 .xmm5 .xmm0 .xmm0) == 0x000c8fa967e94bab0002c2fbbb1f464c0008b5832bffd93c000a2064cfea3c4d#256
+#guard ((VOp.vpmadd52luq .l256 .xmm0 .xmm0 .xmm1).exec s).ymm .xmm0 == 0x0f232ffbb65ff880879ab8b8de9ef21089ba2b3b81234567fee92c5f81dd0990#256
+#guard ((VOp.vpmadd52huq .l256 .xmm1 .xmm0 .xmm1).exec s).ymm .xmm1 == 0x01262b61a9016ae3deb374e60c4185fd000bcdee22b3cd5d800cba96cb5a8fe1#256
+
+/-- `s` with `2⁵² - 1` in every quadword of `ymm6`. -/
+def s52 : State := (VOp.vpbroadcastq .l256 .xmm6 .xmm6).exec
+  ((VOp.vmovq .xmm6 .rax).exec { s with gpr := fun _ => 0x000fffffffffffff })
+
+#guard ((VOp.vpmadd52huq .l256 .xmm5 .xmm6 .xmm6).exec s52).ymm .xmm5 == 0x000ffffffffffffd000ffffffffffffd000ffffffffffffd000ffffffffffffd#256
+#guard ((VOp.vpmadd52luq .l256 .xmm5 .xmm6 .xmm6).exec s52).ymm .xmm5 == 0
 
 /-- `ymm5` after `op ymm5, ymm0, n`. -/
 def shift (op : XShiftOp) (n : BitVec 8) : BitVec 256 := run (.vshift op .l256 .xmm5 .xmm0 n)
@@ -168,6 +190,9 @@ def M : BitVec 256 := s.mem.readW 0x100 256
 #guard printer.instr (.vop (.vshift .psraw .l256 .xmm6 .xmm7 15)) == ["vpsraw ymm6, ymm7, 15"]
 #guard printer.instr (.vop (.vshift .psrad .l128 .xmm6 .xmm7 31)) == ["vpsrad xmm6, xmm7, 31"]
 #guard printer.instr (.vop (.vbin .vpmulhw .l256 .xmm1 .xmm2 .xmm3)) == ["vpmulhw ymm1, ymm2, ymm3"]
+#guard printer.instr (.vop (.vbin .vpsubq .l256 .xmm1 .xmm2 .xmm3)) == ["vpsubq ymm1, ymm2, ymm3"]
+#guard printer.instr (.vop (.vpmadd52luq .l256 .xmm1 .xmm2 .xmm15)) == ["vpmadd52luq ymm1, ymm2, ymm15"]
+#guard printer.instr (.vop (.vpmadd52huq .l128 .xmm1 .xmm2 .xmm3)) == ["vpmadd52huq xmm1, xmm2, xmm3"]
 #guard printer.instr (.vop (.vbin .vpackssdw .l256 .xmm1 .xmm2 .xmm3)) ==
   ["vpackssdw ymm1, ymm2, ymm3"]
 #guard printer.instr (.vop (.vpshufd .l256 .xmm8 .xmm9 147)) == ["vpshufd ymm8, ymm9, 147"]
@@ -202,6 +227,9 @@ def M : BitVec 256 := s.mem.readW 0x100 256
 #guard isa.requires (.vop (.vshift .pslld .l128 .xmm0 .xmm1 1)) == ["avx"]
 #guard isa.requires (.vop (.vbin .vpmullw .l256 .xmm0 .xmm1 .xmm2)) == ["avx2"]
 #guard isa.requires (.vop (.vbin .vpmullw .l128 .xmm0 .xmm1 .xmm2)) == ["avx"]
+#guard isa.requires (.vop (.vbin .vpsubq .l256 .xmm0 .xmm1 .xmm2)) == ["avx2"]
+#guard isa.requires (.vop (.vpmadd52luq .l256 .xmm0 .xmm1 .xmm2)) == ["avx512ifma", "avx512vl"]
+#guard isa.requires (.vop (.vpmadd52huq .l128 .xmm0 .xmm1 .xmm2)) == ["avx512ifma", "avx512vl"]
 #guard isa.requires (.vop (.vshift .psraw .l256 .xmm0 .xmm1 1)) == ["avx2"]
 #guard isa.requires (.vop (.vpshufd .l256 .xmm0 .xmm1 1)) == ["avx2"]
 #guard isa.requires (.vop (.vpalignr .l128 .xmm0 .xmm1 .xmm2 1)) == ["avx"]
