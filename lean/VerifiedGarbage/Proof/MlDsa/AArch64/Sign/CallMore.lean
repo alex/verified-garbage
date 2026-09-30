@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.CallPack
 # ML-DSA signing on AArch64: calls of the other primitives
 
 Untrusted: everything here is checked by Lean. As `CallSample.lean`,
-`CallRound.lean` and `CallPack.lean`, for the primitives signing calls and
-key generation does not: `vg_mldsa_expand_mask_poly`, `vg_mldsa_high_bits`,
+`CallRound.lean` and `CallPack.lean`, for the other primitives signing
+calls: `vg_mldsa_expand_mask_poly`, `vg_mldsa_high_bits`,
 `vg_mldsa_low_bits`, `vg_mldsa_make_hint` and `vg_mldsa_hint_bit_pack`.
 
 Signing branches on the results of the two samplers, so it needs them to be
