@@ -473,4 +473,52 @@ def bytesAt (o : Nat) : BitVec 128 :=
 #guard isa.requires (.umov .x .x0 .v1 0) == []
 #guard !isa.writesSp (.vop (.add .s4 .v0 .v1 .v2))
 
+/-! ## MUL, MLA, MLS, SQDMULH and UMIN
+
+These expected values were computed on Arm hardware (an Apple M1 Max), by
+the same instructions as the printer prints them (checked below), in inline
+assembly that loaded `v0`–`v3` from the inputs above and stored `v0`
+afterwards, as for the others. -/
+
+#guard vrun 0 (.mul .v0 .v1 .v2) == some 0xd7189c2499ca8d543140b3d627f99d7c#128
+#guard vrun 0 (.mul .v0 .v0 .v1) == some 0xa20096a6a398e46c4409c415ec31ee73#128
+#guard vrun 0 (.mla .v0 .v1 .v2) == some 0x1ed6f167804ed35fbdebb02fd7f2b3df#128
+#guard vrun 0 (.mla .v0 .v0 .v1) == some 0xe9beebe98a1d2a77d0b4c06e9c2b04d6#128
+#guard vrun 0 (.mls .v0 .v1 .v2) == some 0x70a5b91f4cb9b8b75b6a488387ff78e7#128
+#guard vrun 0 (.mls .v0 .v0 .v1) == some 0xa5bdbe9d42eb619f48a13844c3c727f0#128
+#guard vrun 0 (.sqdmulh .v0 .v1 .v2) == some 0xf7fdf0a50694fed3e8ca22b2fae8a606#128
+#guard vrun 0 (.sqdmulh .v0 .v0 .v1) == some 0xe84ab5030c6c935130db57ee31d1afb3#128
+#guard vrun 0 (.sqdmulh .v0 .v3 .v1) == some 0xf61120c3fa24cdcbf9386307f2e5c349#128
+#guard vrun 0 (.umin .v0 .v1 .v2) == some 0x183bb3b2c1984cc436ca734e082da43c#128
+#guard vrun 0 (.umin .v0 .v0 .v1) == some 0x47be5543c1984cc48caafc59aff91663#128
+#guard vrun 1 (.mul .v0 .v1 .v2) == some 0xc326ee680238eb5a6339840e84ba74b0#128
+#guard vrun 1 (.mul .v0 .v0 .v1) == some 0x17e1da4008209732028605aaec95b9fc#128
+#guard vrun 1 (.mla .v0 .v1 .v2) == some 0x1911c980f90ac370ad0c434c7528331f#128
+#guard vrun 1 (.mla .v0 .v0 .v1) == some 0x6dccb558fef26f484c58c4e8dd03786b#128
+#guard vrun 1 (.mls .v0 .v1 .v2) == some 0x92c3ecb0f498ecbce6993b306bb349bf#128
+#guard vrun 1 (.mls .v0 .v0 .v1) == some 0x3e0900d8eeb140e4474cb99403d80473#128
+#guard vrun 1 (.sqdmulh .v0 .v1 .v2) == some 0xefcb909f131dbd4c0cde241efc11b83f#128
+#guard vrun 1 (.sqdmulh .v0 .v0 .v1) == some 0xe74428bafc2e06dec869d5f0fa9d487b#128
+#guard vrun 1 (.sqdmulh .v0 .v3 .v1) == some 0xf83261050643c64dffffeb9f079f67c3#128
+#guard vrun 1 (.umin .v0 .v1 .v2) == some 0x384a612f2df0168e9f9eb90b2c4563c4#128
+#guard vrun 1 (.umin .v0 .v0 .v1) == some 0x55eadb183543c96b49d2bf3e2c4563c4#128
+
+/-- `v0` after `sqdmulh v0.4s, v1.4s, v2.4s` with `v1 = x` and `v2 = y`. -/
+def sqd (x y : BitVec 128) : Option (BitVec 128) :=
+  (exec (.vop (.sqdmulh .v0 .v1 .v2)) { s 0 with v := fun r => if r = .v1 then x else if r = .v2 then y
+    else 0 }).map (·.v .v0)
+
+-- `-2 ^ 31` times `-1`, `-2 ^ 31 + 1`, `1` and `2 ^ 31 - 1` (on the M1 Max, as above).
+#guard sqd 0x80000000800000008000000080000000#128 0x7fffffff0000000180000001ffffffff#128 ==
+  some 0x80000001ffffffff7fffffff00000001#128
+-- `-2 ^ 31` times `-2 ^ 31` saturates, and the model faults.
+#guard sqd 0x80000000800000008000000080000000#128 0x00000001000000018000000000000001#128 == none
+
+#guard printer.instr (.vop (.mul .v0 .v1 .v2)) == ["mul v0.4s, v1.4s, v2.4s"]
+#guard printer.instr (.vop (.mla .v0 .v1 .v2)) == ["mla v0.4s, v1.4s, v2.4s"]
+#guard printer.instr (.vop (.mls .v0 .v1 .v2)) == ["mls v0.4s, v1.4s, v2.4s"]
+#guard printer.instr (.vop (.sqdmulh .v0 .v1 .v2)) == ["sqdmulh v0.4s, v1.4s, v2.4s"]
+#guard printer.instr (.vop (.umin .v0 .v1 .v2)) == ["umin v0.4s, v1.4s, v2.4s"]
+#guard isa.requires (.vop (.sqdmulh .v0 .v1 .v2)) == []
+
 end VG.Test.AArch64Simd
