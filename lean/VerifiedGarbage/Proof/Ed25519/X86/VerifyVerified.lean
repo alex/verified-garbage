@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86.VerifyNarrow
 import VerifiedGarbage.Proof.Ed25519.X86.VerifyLit
+import VerifiedGarbage.Proof.Ed25519.X86.VerifyMain
+import VerifiedGarbage.Proof.Ed25519.X86.VerifyCT
 
 /-! Untrusted: transfer the verifier from its framed local contract to the reviewed ABI. -/
 namespace VG.Proof.Ed25519.X86
@@ -19,5 +21,9 @@ theorem verify_verified_of_correct
     simpa only [verifyWide, verifyLocal, arg_withRegions, State.withRegions_mem, State.withRegions_gpr] using h
   · intro s t _ _ h
     simpa only [verifyWide, verifyLocal, arg_withRegions, State.withRegions_gpr, State.withRegions_mem] using h
+
+theorem verify_verified : Verified X86.target verifyEquation
+    (Spec.Ed25519.verifyEquationContract X86.abi) :=
+  verify_verified_of_correct (fun _ h => verify_correct h) verify_ct
 
 end VG.Proof.Ed25519.X86
