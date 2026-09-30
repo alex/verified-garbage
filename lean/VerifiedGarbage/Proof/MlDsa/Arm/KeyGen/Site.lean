@@ -39,11 +39,41 @@ abbrev tri (q : Ptr) (l : Nat) : Nat × Nat × Nat := (ix q.1, q.2, l)
 /-- The address of the pointer `q`. -/
 abbrev lpa (L : Lay) (q : Ptr) : Addr := L.A (ix q.1) q.2
 
+/-- The buffers fit in the address space, and a buffer of `Wb` (written, or
+the stack) is apart from every other: buffers only read may overlap each
+other. -/
+structure OkW (L : Lay) (Wb : List Nat) : Prop where
+  fit : ∀ i < L.sizes.length, (L.ptr i).toNat + L.size i ≤ 2 ^ 32
+  disj : ∀ i < L.sizes.length, ∀ j < L.sizes.length, i ≠ j → (i ∈ Wb ∨ j ∈ Wb) →
+    (⟨State.addr (L.ptr i), L.size i⟩ : Region).Disjoint ⟨State.addr (L.ptr j), L.size j⟩
+
+theorem OkW.ok {L : Lay} {Wb : List Nat} (h : OkW L Wb) (hall : ∀ i < L.sizes.length, i ∈ Wb) : L.Ok :=
+  ⟨h.fit, fun i hi j hj hij => h.disj i hi j hj hij (.inl (hall i hi))⟩
+
+/-- Two regions apart, one of them in a buffer of `Wb` (or both in the same). -/
+theorem disjW {L : Lay} {Wb : List Nat} (hL : OkW L Wb) {i o l j o' l' : Nat}
+    (h : sepB L.sizes (i, o, l) (j, o', l') = true) (hw : i ∈ Wb ∨ j ∈ Wb) :
+    (L.R i o l).Disjoint (L.R j o' l') := by
+  simp only [sepB, Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq, bne_iff_ne, ne_eq] at h
+  obtain ⟨⟨⟨⟨ha, hb⟩, hla⟩, hlb⟩, hs⟩ := h
+  by_cases e : i = j
+  · subst e
+    have hf : (L.ptr i).toNat + L.sizes.getD i 0 ≤ 2 ^ 32 := hL.fit i ha
+    have hs' : o + l ≤ o' ∨ o' + l' ≤ o := by
+      rcases hs with (hs | hs) | hs
+      · exact absurd rfl hs
+      · exact .inl hs
+      · exact .inr hs
+    exact region_disj_off hs' hla hlb (addr_fit _ (by omega))
+  · exact ((hL.disj _ ha _ hb e hw).sub_left (Lay.R_sub hla)).sub_right (Lay.R_sub hlb)
+
 /-- A state where the parts of a top-level function run, with `STK` bytes of
-stack. -/
-structure Site (L : Lay) (STK : Nat) (s : State) : Prop where
-  ok : L.Ok
+stack, and the buffers `Wb` written (and the stack). -/
+structure Site (L : Lay) (Wb : List Nat) (STK : Nat) (s : State) : Prop where
+  ok : OkW L Wb
   len : L.sizes.length = 5
+  w0 : 0 ∈ Wb
+  w1 : 1 ∈ Wb
   sz0 : 32768 ≤ L.size 0
   sz1 : L.size 1 = STK
   p1 : L.ptr 1 = s.sp - BitVec.ofNat 32 STK
@@ -53,18 +83,19 @@ structure Site (L : Lay) (STK : Nat) (s : State) : Prop where
   r4 : s.gpr .r4 = L.ptr 2
   r5 : s.gpr .r5 = L.ptr 3
   r6 : s.gpr .r6 = L.ptr 4
-  cw : L.buf 0 ∈ s.wr
+  cw : ∀ i ∈ Wb, i ≠ 1 → L.buf i ∈ s.wr
+  cr : ∀ i < 5, i ≠ 1 → L.buf i ∈ s.rd ++ s.wr
 
-theorem Site.kept {L : Lay} {STK : Nat} {s s' : State} (h : Site L STK s) {rs : List Region} (hk : Kept rs s s') :
-    Site L STK s' :=
-  ⟨h.ok, h.len, h.sz0, h.sz1, by rw [hk.sp]; exact h.p1, h.s8, by rw [hk.sp]; exact h.spk,
+theorem Site.kept {L : Lay} {Wb : List Nat} {STK : Nat} {s s' : State} (h : Site L Wb STK s) {rs : List Region}
+    (hk : Kept rs s s') : Site L Wb STK s' :=
+  ⟨h.ok, h.len, h.w0, h.w1, h.sz0, h.sz1, by rw [hk.sp]; exact h.p1, h.s8, by rw [hk.sp]; exact h.spk,
     by rw [hk.cs .r7 (by decide) (by decide), h.r7], by rw [hk.cs .r4 (by decide) (by decide), h.r4],
     by rw [hk.cs .r5 (by decide) (by decide), h.r5], by rw [hk.cs .r6 (by decide) (by decide), h.r6],
-    by rw [hk.wr]; exact h.cw⟩
+    by rw [hk.wr]; exact h.cw, by rw [hk.wr, hk.rd]; exact h.cr⟩
 
 /-- A register of the layout holds the pointer to its buffer. -/
-theorem Site.base {L : Lay} {STK : Nat} {s : State} (h : Site L STK s) {r : Reg} (hr : argOk (.ptr (r, 0)) = true) :
-    s.gpr r = L.ptr (ix r) := by
+theorem Site.base {L : Lay} {Wb : List Nat} {STK : Nat} {s : State} (h : Site L Wb STK s) {r : Reg}
+    (hr : argOk (.ptr (r, 0)) = true) : s.gpr r = L.ptr (ix r) := by
   simp only [argOk, Bool.or_eq_true, beq_iff_eq] at hr
   rcases hr with ((rfl | rfl) | rfl) | rfl
   exacts [h.r4, h.r5, h.r6, h.r7]
@@ -86,7 +117,7 @@ theorem inB_sep {sz : List Nat} {w : Nat × Nat × Nat} (h : inB sz w = true) {o
   exact ⟨⟨⟨⟨h2, h1⟩, h3⟩, hs⟩, .inl (.inl h1')⟩
 
 section
-variable {L : Lay} {STK : Nat} {s : State} (h : Site L STK s)
+variable {L : Lay} {Wb : List Nat} {STK : Nat} {s : State} (h : Site L Wb STK s)
 include h
 
 /-- The value of a pointer argument. -/
@@ -99,7 +130,12 @@ theorem Site.addr {q : Ptr} {l : Nat} (hb : inB L.sizes (tri q l) = true) (hl : 
     State.addr (L.ptr (ix q.1) + BitVec.ofNat 32 q.2) = lpa L q ∧
       (L.ptr (ix q.1) + BitVec.ofNat 32 q.2).toNat + l ≤ 2 ^ 32 := by
   obtain ⟨-, h2, h3⟩ := inB_bounds hb
-  exact Lay.ptr_ok h.ok ⟨h2, h3⟩ hl
+  dsimp only [tri] at h2 h3
+  have hf := h.ok.fit _ h2
+  simp only [Lay.size] at hf
+  refine ⟨addr_add (by omega), ?_⟩
+  rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := q.2) (by omega), Nat.mod_eq_of_lt (by omega)]
+  omega
 
 /-- The stack below the stack pointer, as buffer 1. -/
 theorem Site.belowSub {n : Nat} (hn : n ≤ STK) : Region.Sub (VG.Proof.MlKem.Arm.below s n) (L.R 1 0 STK) := by
@@ -115,7 +151,7 @@ theorem Site.belowSub {n : Nat} (hn : n ≤ STK) : Region.Sub (VG.Proof.MlKem.Ar
 theorem Site.stkD {w : Nat × Nat × Nat} (hb : inB L.sizes w = true) {n : Nat} (hn : n ≤ STK) :
     (L.R w.1 w.2.1 w.2.2).Disjoint (VG.Proof.MlKem.Arm.below s n) := by
   have hsep := inB_sep hb (o := 0) (l := STK) (by rw [← h.sz1]; simp [Lay.size]) (by rw [h.len]; decide)
-  exact (Lay.disj h.ok hsep).sub_right (h.belowSub hn)
+  exact (disjW h.ok hsep (.inr h.w1)).sub_right (h.belowSub hn)
 
 omit h in
 /-- Covers of a buffer the state may write. -/
@@ -134,7 +170,7 @@ end
 /-! ## Changes of the stack -/
 
 /-- What a call changes below the stack pointer is in buffer 1. -/
-theorem Site.kept_stk {L : Lay} {STK : Nat} {s s' : State} (h : Site L STK s) {W : List (Nat × Nat × Nat)}
+theorem Site.kept_stk {L : Lay} {Wb : List Nat} {STK : Nat} {s s' : State} (h : Site L Wb STK s) {W : List (Nat × Nat × Nat)}
     {rs : List Region} (hrs : ∀ r ∈ rs, ∃ w ∈ W, Region.Sub r (L.R w.1 w.2.1 w.2.2)) {n : Nat} (hn : n ≤ STK)
     (hk : Kept (rs ++ [VG.Proof.MlKem.Arm.below s n]) s s') : Kept (L.RL (W ++ [(1, 0, STK)])) s s' :=
   ⟨hk.cs, hk.sp, hk.rd, hk.wr, hk.frame.sub fun r hr => by
@@ -156,7 +192,7 @@ def hashLay (L : Lay) (s : State) : Lay :=
 theorem hashLay_ptr (L : Lay) (s : State) {i : Nat} (hi : i ≠ 1) : (hashLay L s).ptr i = L.ptr i := by
   simp only [hashLay, hi, ite_false]
 
-theorem hashLay_sizes {L : Lay} {STK : Nat} {s : State} (h : Site L STK s) :
+theorem hashLay_sizes {L : Lay} {Wb : List Nat} {STK : Nat} {s : State} (h : Site L Wb STK s) :
     (hashLay L s).sizes = L.sizes.set 1 8 := by
   have := h.len
   match hL : L.sizes, this with
@@ -169,11 +205,12 @@ theorem hashLay_R (L : Lay) (s : State) {i : Nat} (hi : i ≠ 1) (o l : Nat) : (
   simp only [Lay.R, hashLay_ptr L s hi]
 
 section
-variable {L : Lay} {STK : Nat} {s : State} (h : Site L STK s)
-include h
+variable {L : Lay} {Wb : List Nat} {STK : Nat} {s : State} (h : Site L Wb STK s)
+  (hall : ∀ i < 5, i ∈ Wb)
+include h hall
 
 theorem hashLay_ok : (hashLay L s).Ok := by
-  have hL := h.ok
+  have hL := h.ok.ok fun i hi => hall i (by rw [h.len] at hi; exact hi)
   have e8 : (⟨State.addr (s.sp - BitVec.ofNat 32 8), 8⟩ : Region) = VG.Proof.MlKem.Arm.below s 8 := by
     rw [addr_sub (Nat.le_trans h.s8 h.spk)]
   have hsub : Region.Sub ⟨State.addr (s.sp - BitVec.ofNat 32 8), 8⟩ (L.buf 1) := by
@@ -204,9 +241,10 @@ theorem hashLay_ok : (hashLay L s).Ok := by
       · rw [bi i hi ei, bi j hj ej]; exact hL.disj i (by omega) j (by omega) hij
 
 theorem Site.ctx : Ctx (hashLay L s) s :=
-  ⟨hashLay_ok h, by rw [hashLay_size s (by decide) (by decide)]; exact h.sz0, rfl, by simp [hashLay],
+  ⟨hashLay_ok h hall, by rw [hashLay_size s (by decide) (by decide)]; exact h.sz0, rfl, by simp [hashLay],
     by rw [h.r7]; rfl, Nat.le_trans h.s8 h.spk, by simp [hashLay],
-    by rw [show (⟨State.addr ((hashLay L s).ptr 0), (hashLay L s).size 0⟩ : Region) = L.buf 0 from rfl]; exact h.cw⟩
+    by rw [show (⟨State.addr ((hashLay L s).ptr 0), (hashLay L s).size 0⟩ : Region) = L.buf 0 from rfl]
+       exact h.cw 0 h.w0 (by decide)⟩
 
 end
 
