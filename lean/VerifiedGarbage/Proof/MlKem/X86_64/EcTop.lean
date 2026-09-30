@@ -74,15 +74,15 @@ theorem post_of {σ s : State} (h : ECEnd σ s) {s' : State}
 end Encaps
 
 open Encaps in
-theorem encaps_correct (σ : State) (hp : encapsK.pre σ) :
-    ∃ t s', Exec isa Impl.MlKem.X86_64.encaps σ t s' ∧ abiPreserved σ s' ∧ encapsK.post σ s' := by
+theorem encaps_correct (v : Sample4Impl) (σ : State) (hp : encapsK.pre σ) :
+    ∃ t s', Exec isa (Impl.MlKem.X86_64.encaps v.callee) σ t s' ∧ abiPreserved σ s' ∧ encapsK.post σ s' := by
   obtain ⟨t, s', he, hF⟩ := WP.seq (WP.mono (pro_ok hp) fun s₁ ⟨h₁, h15⟩ =>
     WP.seq (WP.mono (hashes_ok hp h₁ h15) fun s₂ h₂ =>
-      WP.seq (WP.mono (Enc.encrypt_ok (C := ecC σ) ecEncChk h₂.1 h₂.2) fun s₃ h₃ =>
+      WP.seq (WP.mono (Enc.encrypt_ok v (C := ecC σ) ecEncChk h₂.1 h₂.2) fun s₃ h₃ =>
         WP.seq (WP.mono (out_ok h₃) fun s₄ h₄ =>
           WP.mono (topEpi_ok h₄.ec.top (h₄.hin hp)) fun s₅ ⟨hr, hg, hm⟩ =>
             (⟨hg, post_of h₄ hr hm⟩ : gprPreserved σ s₅ ∧ encapsK.post σ s₅)))))
-  exact ⟨t, s', he, abiPreserved_of_ctl (by decide +kernel) he hF.1, hF.2⟩
+  exact ⟨t, s', he, abiPreserved_of_ctl (by s4_ctl v) he hF.1, hF.2⟩
 
 /-! ## Constant time -/
 
@@ -137,10 +137,10 @@ theorem copyRho_taint : (taint.check (X86_64.Taint.ofRegs [.rbx, .r14]) (copy (s
     (Taint.hintOf taint (X86_64.Taint.ofRegs [.rbx, .r14]) (copy (sc oSB) (.r14, 0 + 1152) 32))).isSome = true := by
   taint_decide
 
-theorem encrypt_tr : RelCT isa (R EncI) (encrypt (.r14, 0)) fun _ _ => True := by
+theorem encrypt_tr (v : Sample4Impl) : RelCT isa (R EncI) (encrypt v.callee (.r14, 0)) fun _ _ => True := by
   refine RelCT.mono (RelCT.exists_ (P := fun ρ x y => LRel ecR ecW x y ∧ Enc.EIρ ecCA (.r14, 0) ρ x ∧
       Enc.EIρ ecCA (.r14, 0) ρ y) (Q := fun _ _ => True) fun ρ =>
-      RelCT.mono (Enc.encrypt_tr (C := ecCA) ecEncChk copyRho_taint (ρ := ρ)) (fun _ _ h => h)
+      RelCT.mono (Enc.encrypt_tr v (C := ecCA) ecEncChk copyRho_taint (ρ := ρ)) (fun _ _ h => h)
         fun _ _ _ => trivial) ?_ fun _ _ _ => trivial
   rintro x y ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩
   have i₁ : Enc.EIρ ecCA (.r14, 0) (Enc.rhoE (ecEk σ₁)) x := ⟨_, _, _, rfl, EIn.any h₁.1, h₁.2⟩
@@ -168,14 +168,15 @@ theorem epi_tr : RelCT isa (R ECEnd) (.block topEpi) fun _ _ => True :=
 end Encaps
 
 open Encaps in
-theorem encaps_ct : ConstantTime isa encapsK.pre encapsK.pub Impl.MlKem.X86_64.encaps := by
+theorem encaps_ct (v : Sample4Impl) :
+    ConstantTime isa encapsK.pre encapsK.pub (Impl.MlKem.X86_64.encaps v.callee) := by
   refine relStart (Q := fun _ _ => True) ?_
   unfold Impl.MlKem.X86_64.encaps
   refine RelCT.seq (relInv (I' := fun σ s => EC σ s ∧ s.gpr .r15 = 1)
     (fun σ s hp hs => by subst hs; exact pro_ok hp) pro_tr) ?_
   refine RelCT.seq (relInv (I' := EncI) (fun σ s hp hs => hashes_ok hp hs.1 hs.2) hashes_tr) ?_
-  refine RelCT.seq (relInv (I' := EncO) (fun σ s _ hs => Enc.encrypt_ok (C := ecC σ) ecEncChk hs.1 hs.2)
-    encrypt_tr) ?_
+  refine RelCT.seq (relInv (I' := EncO) (fun σ s _ hs => Enc.encrypt_ok v (C := ecC σ) ecEncChk hs.1 hs.2)
+    (encrypt_tr v)) ?_
   refine RelCT.seq (relInv (I' := ECEnd) (fun σ s _ hs => out_ok hs) out_tr) ?_
   exact RelCT.mono epi_tr (fun _ _ h => h) fun _ _ _ => trivial
 
@@ -192,9 +193,9 @@ def encapsSat : State where
   rd := [⟨0x1000, 1184⟩, ⟨0x2000, 32⟩]
   wr := [⟨0x3000, 32⟩, ⟨0x4000, 1088⟩, ⟨0x10000, 32768⟩]
 
-theorem encaps_verified :
-    Verified X86_64.target Impl.MlKem.X86_64.encaps (Spec.MlKem.encapsContract X86_64.abi 32) :=
-  Verified.of_correct encaps_correct encaps_ct
+theorem encaps_verified (v : Sample4Impl) :
+    Verified X86_64.target (Impl.MlKem.X86_64.encaps v.callee) (Spec.MlKem.encapsContract X86_64.abi 32) :=
+  Verified.of_correct (encaps_correct v) (encaps_ct v)
     { pre := by sig_implies_pre [Spec.MlKem.encapsContract, Spec.MlKem.encapsSig, encapsK, X86_64.abi,
         VG.X86_64.argRegs]
       post := by sig_implies_post [Spec.MlKem.encapsContract, Spec.MlKem.encapsSig, encapsK, X86_64.abi,
