@@ -92,6 +92,30 @@ def copy (dst src : Ptr) (n : Nat) : Prog isa :=
     (.loop (.block [.movzx8 .rax (at_ .rsi 0), .store8 (at_ .rdi 0) .rax, .alu .add .rdi (.imm 1),
       .alu .add .rsi (.imm 1), .alu .sub .rcx (.imm 1)]) .ne)
 
+/-! ## Calls
+
+A call's arguments are pointers or immediates (`Arg`), moved into the
+argument registers `rdi, rsi, rdx, rcx, r8, r9` in order (`setArgs`). -/
+
+/-- An argument: a pointer, or an immediate. -/
+inductive Arg
+  | ptr (p : Ptr)
+  | imm (v : Nat)
+
+/-- Move the argument `a` into `d`. -/
+def Arg.mov (d : Reg) : Arg → List Instr
+  | .ptr p => lea d p
+  | .imm v => movi d v
+
+/-- The argument registers, in order. -/
+abbrev argRegs6 : List Reg := [.rdi, .rsi, .rdx, .rcx, .r8, .r9]
+
+/-- Move the arguments into their registers. -/
+def setArgs (as : List Arg) : List Instr := (argRegs6.zip as).flatMap fun (d, a) => a.mov d
+
+/-- A call of `c`, named `name`, with the arguments `as`. -/
+def callP (name : String) (c : Prog isa) (as : List Arg) : Prog isa := .seq (.block (setArgs as)) (.call name c)
+
 /-! ## The sponge -/
 
 /-- The 25 lanes at `b + off`, zeroed (with `rax = 0`). -/
@@ -102,21 +126,17 @@ def kzero : List Instr := .mov32 .rax (.imm 0) :: zeroSt .rbx 0
 
 /-- Absorb the `len` bytes at `src`, at position `pos` of the block of `rate` bytes. -/
 def kabs (src : Ptr) (len rate pos : Nat) : Prog isa :=
-  .seq (.block (lea .rdi (sc 0) ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 rate)), .mov32 .rdx (.imm (BitVec.ofNat 32 pos))] ++
-      lea .rcx src ++ [.mov32 .r8 (.imm (BitVec.ofNat 32 len))] ++ lea .r9 (sc 200)))
-    (.call "vg_keccak_absorb" Impl.Sha3.X86_64.Stream.absorb)
+  callP "vg_keccak_absorb" Impl.Sha3.X86_64.Stream.absorb
+    [.ptr (sc 0), .imm rate, .imm pos, .ptr src, .imm len, .ptr (sc 200)]
 
 /-- Pad, at position `pos`, with the suffix `suffix`. -/
 def kpad (rate pos suffix : Nat) : Prog isa :=
-  .seq (.block (lea .rdi (sc 0) ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 rate)), .mov32 .rdx (.imm (BitVec.ofNat 32 pos)),
-      .mov32 .rcx (.imm (BitVec.ofNat 32 suffix))] ++ lea .r8 (sc 200)))
-    (.call "vg_keccak_pad" Impl.Sha3.X86_64.Stream.pad)
+  callP "vg_keccak_pad" Impl.Sha3.X86_64.Stream.pad [.ptr (sc 0), .imm rate, .imm pos, .imm suffix, .ptr (sc 200)]
 
 /-- Squeeze `len` bytes from position 0 to `dst`. -/
 def ksqz (rate : Nat) (dst : Ptr) (len : Nat) : Prog isa :=
-  .seq (.block (lea .rdi (sc 0) ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 rate)), .mov32 .rdx (.imm 0)] ++
-      lea .rcx dst ++ [.mov32 .r8 (.imm (BitVec.ofNat 32 len))] ++ lea .r9 (sc 200)))
-    (.call "vg_keccak_squeeze" Impl.Sha3.X86_64.Stream.squeeze)
+  callP "vg_keccak_squeeze" Impl.Sha3.X86_64.Stream.squeeze
+    [.ptr (sc 0), .imm rate, .imm 0, .ptr dst, .imm len, .ptr (sc 200)]
 
 /-- Absorb the pieces `ps`, from position `pos` of the block. -/
 def absAll (rate : Nat) : List (Ptr × Nat) → Nat → Prog isa
@@ -145,69 +165,57 @@ Each takes its working space (if any) at `PS`. -/
 section
 variable (P : Prims)
 
-def nttAt (f : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi f ++ lea .rsi (sc oPS))) (.call "vg_mldsa_ntt" P.ntt)
+def nttAt (f : Ptr) : Prog isa := callP "vg_mldsa_ntt" P.ntt [.ptr f, .ptr (sc oPS)]
 
-def invNttAt (f : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi f ++ lea .rsi (sc oPS))) (.call "vg_mldsa_inv_ntt" P.invNtt)
+def invNttAt (f : Ptr) : Prog isa := callP "vg_mldsa_inv_ntt" P.invNtt [.ptr f, .ptr (sc oPS)]
 
-def mulAt (h f g : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi h ++ lea .rsi f ++ lea .rdx g)) (.call "vg_mldsa_multiply_ntt" P.mul)
+def mulAt (h f g : Ptr) : Prog isa := callP "vg_mldsa_multiply_ntt" P.mul [.ptr h, .ptr f, .ptr g]
 
-def mulAddAt (h f g : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi h ++ lea .rsi f ++ lea .rdx g)) (.call "vg_mldsa_multiply_add_ntt" P.mulAdd)
+def mulAddAt (h f g : Ptr) : Prog isa := callP "vg_mldsa_multiply_add_ntt" P.mulAdd [.ptr h, .ptr f, .ptr g]
 
-def addAt (f g : Ptr) : Prog isa := .seq (.block (lea .rdi f ++ lea .rsi g)) (.call "vg_mldsa_add" P.add)
+def addAt (f g : Ptr) : Prog isa := callP "vg_mldsa_add" P.add [.ptr f, .ptr g]
 
-def subAt (f g : Ptr) : Prog isa := .seq (.block (lea .rdi f ++ lea .rsi g)) (.call "vg_mldsa_sub" P.sub)
+def subAt (f g : Ptr) : Prog isa := callP "vg_mldsa_sub" P.sub [.ptr f, .ptr g]
 
 /-- `RejNTTPoly` of the seed at `RS` to `a`, and `r15 ← r15 ∧ result`. -/
 def rejAt (a : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi (sc oRS) ++ lea .rsi a ++ lea .rdx (sc oPS)))
-    (.seq (.call "vg_mldsa_rej_ntt_poly" P.rejNTT) (.block [.alu32 .and .r15 (.reg .rax)]))
+  .seq (callP "vg_mldsa_rej_ntt_poly" P.rejNTT [.ptr (sc oRS), .ptr a, .ptr (sc oPS)])
+    (.block [.alu32 .and .r15 (.reg .rax)])
 
 /-- A polynomial of `ExpandMask` from the seed at `MS` to `a`. -/
 def maskAt (gamma1 : Nat) (a : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi (sc oMS) ++ movi .rsi gamma1 ++ lea .rdx a ++ lea .rcx (sc oPS)))
-    (.call "vg_mldsa_expand_mask_poly" P.expandMask)
+  callP "vg_mldsa_expand_mask_poly" P.expandMask [.ptr (sc oMS), .imm gamma1, .ptr a, .ptr (sc oPS)]
 
 /-- `SampleInBall` of the `len` bytes at `CT` to `c`. -/
 def ballAt (len tau : Nat) (c : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi (sc oCT) ++ movi .rsi len ++ movi .rdx tau ++ lea .rcx c ++ lea .r8 (sc oPS)))
-    (.call "vg_mldsa_sample_in_ball" P.ball)
+  callP "vg_mldsa_sample_in_ball" P.ball [.ptr (sc oCT), .imm len, .imm tau, .ptr c, .ptr (sc oPS)]
 
 def highBitsAt (r : Ptr) (gamma2 : Nat) (out : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi r ++ movi .rsi gamma2 ++ lea .rdx out)) (.call "vg_mldsa_high_bits" P.highBits)
+  callP "vg_mldsa_high_bits" P.highBits [.ptr r, .imm gamma2, .ptr out]
 
 def lowBitsAt (r : Ptr) (gamma2 : Nat) (out : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi r ++ movi .rsi gamma2 ++ lea .rdx out)) (.call "vg_mldsa_low_bits" P.lowBits)
+  callP "vg_mldsa_low_bits" P.lowBits [.ptr r, .imm gamma2, .ptr out]
 
 /-- `‖f‖∞ < bound`, and `r15 ← r15 ∧ result`. -/
 def normAt (f : Ptr) (bound : Nat) : Prog isa :=
-  .seq (.block (lea .rdi f ++ movi .rsi bound))
-    (.seq (.call "vg_mldsa_norm_lt" P.normLt) (.block [.alu32 .and .r15 (.reg .rax)]))
+  .seq (callP "vg_mldsa_norm_lt" P.normLt [.ptr f, .imm bound]) (.block [.alu32 .and .r15 (.reg .rax)])
 
 /-- `MakeHint` of `z` and `r` to `h`, and the number of 1s added to `ONES`. -/
 def makeHintAt (z r : Ptr) (gamma2 : Nat) (h : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi z ++ lea .rsi r ++ movi .rdx gamma2 ++ lea .rcx h))
-    (.seq (.call "vg_mldsa_make_hint" P.makeHint)
-      (.block [.mov32 .rcx (.mem (at_ .rbx oONES)), .alu32 .add .rcx (.reg .rax), .store (at_ .rbx oONES) .rcx]))
+  .seq (callP "vg_mldsa_make_hint" P.makeHint [.ptr z, .ptr r, .imm gamma2, .ptr h])
+    (.block [.mov32 .rcx (.mem (at_ .rbx oONES)), .alu32 .add .rcx (.reg .rax), .store (at_ .rbx oONES) .rcx])
 
 def simpleBitPackAt (f : Ptr) (b : Nat) (out : Ptr) (len : Nat) : Prog isa :=
-  .seq (.block (lea .rdi f ++ movi .rsi b ++ lea .rdx out ++ movi .rcx len))
-    (.call "vg_mldsa_simple_bit_pack" P.simpleBitPack)
+  callP "vg_mldsa_simple_bit_pack" P.simpleBitPack [.ptr f, .imm b, .ptr out, .imm len]
 
 def bitPackAt (f : Ptr) (a b : Nat) (out : Ptr) (len : Nat) : Prog isa :=
-  .seq (.block (lea .rdi f ++ movi .rsi a ++ movi .rdx b ++ lea .rcx out ++ movi .r8 len))
-    (.call "vg_mldsa_bit_pack" P.bitPack)
+  callP "vg_mldsa_bit_pack" P.bitPack [.ptr f, .imm a, .imm b, .ptr out, .imm len]
 
 def bitUnpackAt (v : Ptr) (len a b : Nat) (f : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi v ++ movi .rsi len ++ movi .rdx a ++ movi .rcx b ++ lea .r8 f))
-    (.call "vg_mldsa_bit_unpack" P.bitUnpack)
+  callP "vg_mldsa_bit_unpack" P.bitUnpack [.ptr v, .imm len, .imm a, .imm b, .ptr f]
 
 def hintBitPackAt (h : Ptr) (hlen omega : Nat) (y : Ptr) (len : Nat) : Prog isa :=
-  .seq (.block (lea .rdi h ++ movi .rsi hlen ++ movi .rdx omega ++ lea .rcx y ++ movi .r8 len))
-    (.call "vg_mldsa_hint_bit_pack" P.hintBitPack)
+  callP "vg_mldsa_hint_bit_pack" P.hintBitPack [.ptr h, .imm hlen, .imm omega, .ptr y, .imm len]
 
 end
 
