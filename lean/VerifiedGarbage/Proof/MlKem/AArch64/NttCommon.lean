@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MlKem.AArch64.Barrett
+import VerifiedGarbage.Proof.MlKem.AArch64.NttVec
 
 /-!
 # ML-KEM on AArch64: what the NTT and its inverse share
@@ -56,16 +57,19 @@ structure St (s₀ : State) (s : State) : Prop where
   wr : s.wr = s₀.wr
   sp : s.sp = s₀.sp
   x0 : s.gpr .x0 = fP s₀
-  x9 : (s.gpr .x9).toNat = q
-  x10 : (s.gpr .x10).toNat = 1290167
+  vc : VConsts s
   tab : ∀ k < 128, s.mem.readW (sP s₀ + BitVec.ofNat 64 (4 * k)) 32 =
     BitVec.ofNat 32 (zetaTable.getD k 0)
 
 theorem St.keep {s₀ s s' : State} (h : St s₀ s) {rs : List Reg} (hk : Keep rs s s')
-    (hm : s'.mem = s.mem) (h0 : Reg.x0 ∉ rs := by decide) (h9 : Reg.x9 ∉ rs := by decide)
-    (h10 : Reg.x10 ∉ rs := by decide) : St s₀ s' :=
+    (hm : s'.mem = s.mem) (hv : s'.v = s.v) (h0 : Reg.x0 ∉ rs := by decide) : St s₀ s' :=
   ⟨by rw [hk.rd, h.rd], by rw [hk.wr, h.wr], by rw [hk.sp, h.sp], by rw [hk.get .x0 h0, h.x0],
-    by rw [hk.get .x9 h9, h.x9], by rw [hk.get .x10 h10, h.x10], fun k hk' => by rw [hm]; exact h.tab k hk'⟩
+    ⟨by rw [hv]; exact h.vc.q, by rw [hv]; exact h.vc.m⟩, fun k hk' => by rw [hm]; exact h.tab k hk'⟩
+
+theorem St.vchg {s₀ s s' : State} (h : St s₀ s) {rs : List VReg} (hc : VChg rs s s')
+    (h16 : VReg.v16 ∉ rs := by decide) (h17 : VReg.v17 ∉ rs := by decide) : St s₀ s' :=
+  ⟨by rw [hc.rd, h.rd], by rw [hc.wr, h.wr], by rw [hc.sp, h.sp], by rw [hc.gpr, h.x0],
+    h.vc.chg hc h16 h17, fun k hk' => by rw [hc.mem]; exact h.tab k hk'⟩
 
 theorem Pre.in_f {s₀ s : State} (hp : Pre s₀) (h : St s₀ s) {i : Nat} (hi : i < 256) :
     InRegions s.wr (coeffAddr (fP s₀) i) 4 := by
@@ -114,5 +118,25 @@ theorem zeta_load {s₀ s : State} (h : St s₀ s) {k : Nat} (hk : k < 128) :
     ((s.mem.readW (sP s₀ + BitVec.ofNat 64 (4 * k)) 32).setWidth 64).toNat = (zeta k).val := by
   rw [toNat_readW32, h.tab k hk, BitVec.toNat_ofNat, Nat.mod_eq_of_lt
     (by have := zetaTable_lt k hk; have : q = 3329 := rfl; omega), zetaTable_zeta hk]
+
+/-- `vconsts`: `q` and `M` in `x9`, `x10` and the lanes of `v16`, `v17`. -/
+theorem vconsts_ok (s : State) :
+    WP isa (.block vconsts) s fun s' => Keep [.x9, .x10] s s' ∧ s'.mem = s.mem ∧ VConsts s' ∧
+      ∀ r, r ≠ .v16 → r ≠ .v17 → s'.v r = s.v r := by
+  show WP isa (.block ((.movz .x .x9 3329 0 :: movImm .x10 645083) ++
+    [.vop (.dup .s4 .v16 .x9), .vop (.dup .s4 .v17 .x10)])) s _
+  refine wp_scalar (by decide) (P := fun s₂ => Keep [.x9, .x10] s s₂ ∧ s₂.mem = s.mem ∧
+      (s₂.gpr .x9).toNat = 3329 ∧ (s₂.gpr .x10).toNat = 645083)
+    (wp_movz fun s₁ h₁ e₁ => by
+      rw [← List.append_nil (movImm _ _)]
+      exact wp_movImm fun s₂ h₂ e₂ => wp_nil ⟨(h₁.keep.trans h₂.keep).mono, by rw [h₂.mem, h₁.mem],
+        by rw [h₂.get .x9, e₁]; rfl, by rw [e₂]; rfl⟩) fun s₂ ⟨k₂, m₂, e9, e10⟩ hv₂ => ?_
+  refine wp_vop (d := .v16) rfl fun s₃ h₃ => wp_vop (d := .v17) rfl fun s₄ h₄ => wp_nil ?_
+  refine ⟨(k₂.trans (h₃.keep.trans h₄.keep)).mono, by rw [h₄.mem, h₃.mem, m₂], ⟨?_, ?_⟩,
+    fun r h16 h17 => by rw [h₄.get r h17, h₃.get r h16, hv₂]⟩
+  · rw [h₄.get .v16, h₃.v]
+    exact lanes_dup.congr fun _ _ => by rw [BitVec.toNat_setWidth, e9]
+  · rw [h₄.v, h₃.gpr]
+    exact lanes_dup.congr fun _ _ => by rw [BitVec.toNat_setWidth, e10]
 
 end VG.Proof.MlKem.AArch64.Ntt
