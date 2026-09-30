@@ -1,12 +1,13 @@
 //! PBKDF2-HMAC-SHA-1: the iteration is `vg_pbkdf2_hmac_sha1_iterate` (contract
-//! `VG.Spec.Hmac.Instance.iterateContract` of `VG.Spec.Hmac.sha1I`), the one
-//! PBKDF2 iteration for every streaming hash function, calling SHA-1's verified
-//! functions.
+//! `VG.Spec.Hmac.Instance.iterateContract` of `VG.Spec.Hmac.sha1I`). On x86-64
+//! it is the one iteration for every hash function whose streaming code is the
+//! generic one, calling SHA-1's verified compression function directly, twice
+//! per step; on the other targets, the one iteration for every streaming hash
+//! function, calling SHA-1's verified streaming functions.
 //!
 //! It follows the implementation of SHA-1 the HMAC computation runs: on x86-64
 //! with the SHA extensions, `vg_pbkdf2_hmac_sha1_iterate_shani`, the same
-//! verified code calling `vg_sha1_update_shani` and `vg_sha1_finalize_shani`,
-//! with the same contract.
+//! verified code calling `vg_sha1_compress_shani`, with the same contract.
 
 #![cfg(any(
     target_arch = "x86_64",
