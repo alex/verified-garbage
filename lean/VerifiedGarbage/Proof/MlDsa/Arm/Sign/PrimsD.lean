@@ -52,7 +52,7 @@ theorem bpArgs_ok {f out : Ptr} {a b len : Nat} (b1 : f.1 ∈ bases) (b2 : out.1
     [Arg.ptr f, .imm a, .imm b, .ptr out, .imm len].all Arg.ok = true := by
   simp [Arg.ok, b1, b2]
 
-theorem bpPre {S : Nat} {s E : State} (En : EntS D rbs wbs s S E (BitVec.ofNat 32 len)) {f out : Ptr} {a b : Nat}
+theorem bpPre {S len : Nat} {s E : State} (En : EntS D rbs wbs s S E (BitVec.ofNat 32 len)) {f out : Ptr} {a b : Nat}
     (hp : (a, b) ∈ bitPackParams) (hl : len = 32 * bitlen (a + b)) (hc : rwChk (rbs ++ wbs) wbs f 1024 out len = true)
     (g0 : E.gpr .r0 = s.gpr f.1 + BitVec.ofNat 32 f.2) (g1 : E.gpr .r1 = BitVec.ofNat 32 a)
     (g2 : E.gpr .r2 = BitVec.ofNat 32 b) (g3 : E.gpr .r3 = s.gpr out.1 + BitVec.ofNat 32 out.2)
