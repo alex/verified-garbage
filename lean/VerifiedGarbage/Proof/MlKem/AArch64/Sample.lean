@@ -65,7 +65,7 @@ structure FastPost (s₀ u : State) : Prop where
   mid : MidA s₀ u
   len : (LA (Bs s₀) 168).length ≤ 256
   x4 : (u.gpr .x4).toNat = 256 - (LA (Bs s₀) 168).length
-  coeffs : CoeffsUpTo u.mem (aP s₀) (LA (Bs s₀) 168).length (cv (LA (Bs s₀) 168)) fun _ => 0
+  coeffs : Coeffs u.mem (aP s₀) (LA (Bs s₀) 168)
 
 theorem fastLoop_ok {s₀ : State} (hp : Pre s₀) {u : State} (hl : LPre 168 (Bs s₀) (So s₀ 0) (aP s₀) u)
     (hm : MidA s₀ u) : WP isa (.loop sampleBody (.nonzero .x .x5)) u (FastPost s₀) :=
@@ -83,7 +83,7 @@ theorem done_ok {s₀ : State} (hp : Pre s₀) {u : State} (h : FastPost s₀ u)
   have m₁ : MidA s₀ u₁ := MidA.keep hp h.mid h₁.keep (by rw [h₁.mem]; exact Frame.refl _ _)
   refine WP.mono (restore_ok hp m₁ (P := fun v => v.gpr .x0 = 1 ∧ v.mem = u.mem)
     fun v hk hm => ⟨by rw [hk.get .x0, e₁]; rfl, by rw [hm, h₁.mem]⟩) fun s' ⟨⟨h0, hm⟩, hfin⟩ => ?_
-  have hc := h.coeffs
+  have hc := h.coeffs.full hf
   rw [hf] at hc
   refine ⟨⟨hfin.cs, hfin.sp⟩, ?_, .inl ⟨h0, ?_⟩⟩
   · rw [hm]; exact reduced_of_coeffs (L := LA (Bs s₀) 168) (by rw [hf]; exact hc)
