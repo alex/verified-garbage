@@ -88,7 +88,7 @@ def dot (r : Nat) : Prog isa :=
 /-- Row `r` of `w′`, `w′₁`, packed to `B`. -/
 def row (r : Nat) : Prog isa :=
   .seq (dot P p r) (.seq (unpackT1At P (.rbp, 32 + 320 * r) pT) (.seq (nttAt P pT)
-    (.seq (mulAt P pT2 pT pC) (.seq (subAt P pW pT2) (.seq (invNttAt P pW)
+    (.seq (mulAt P pT2 pC pT) (.seq (subAt P pW pT2) (.seq (invNttAt P pW)
       (.seq (useHintAt P (pH r) pW p.γ₂ pW1) (sbpAt P pW1 (w1Max p) (sc (oB + w1Len p * r)) (w1Len p))))))))
 
 /-- The NTTs of `z` and `c`, the rows, the hash and the comparison. -/
