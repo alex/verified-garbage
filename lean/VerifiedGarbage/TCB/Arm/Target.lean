@@ -117,7 +117,7 @@ abbrev target : Target where
   -- `armeb` targets are big-endian. Apple's 32-bit ARM targets do not use AAPCS:
   -- `armv7s-apple-ios` uses APCS, where a 64-bit argument takes the next two
   -- registers (`r1:r2` after one word) rather than an even pair (`r2:r3`,
-  -- AAPCS §6.5, "Parameter Passing", rule C.3), and `armv7k-apple-watchos` uses
+  -- AAPCS §5.5, "Parameter Passing", rule C.3), and `armv7k-apple-watchos` uses
   -- AAPCS16, Apple's variant of AAPCS, which the model has not been checked
   -- against. The ARMv4T–ARMv6 targets (`armv5te-*`, `arm-*`, …)
   -- are not ARMv7, which the model describes, but Rust has no stable `cfg` for

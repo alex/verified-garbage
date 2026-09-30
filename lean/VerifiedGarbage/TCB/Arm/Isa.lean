@@ -31,16 +31,18 @@ Modelling choices:
   instruction faults. Memory is little-endian.
 * Word loads and stores (`ldr`, `str`) need no alignment, and the code does
   them on byte buffers at any address. ARMv7 supports unaligned `LDR` and
-  `STR` when alignment checking is off (`SCTLR.A` = 0 on ARMv7-A and -R: DDI
-  0406C A3.2.1, "Unaligned data access"; `CCR.UNALIGN_TRP` = 0 on ARMv7-M:
-  DDI 0403E A3.2.1, "Alignment behavior") and the memory is Normal memory;
-  an unaligned access to Device or Strongly-ordered memory faults, and with
-  the MMU off every data access is Strongly-ordered (DDI 0406C B3.2.1).
-  Linux, Android and the other hosted targets run user code that way. A
-  bare-metal program (e.g. on `armv7a-none-eabi`, which Rust builds with
-  `+strict-align` for this reason) must turn alignment checking off and run
-  the code with the MMU on, over Normal memory. Otherwise an unaligned access
-  faults: the program stops, but no result is wrong.
+  `STR` to Normal memory when alignment checking is off (`SCTLR.A` = 0 on
+  ARMv7-A and -R: DDI 0406C.d A3.2.1, "Unaligned data access", Table A3-1;
+  `CCR.UNALIGN_TRP` = 0 on ARMv7-M: DDI 0403E.b A3.2.1, "Alignment
+  behavior"). An unaligned access to Device or Strongly-ordered memory is not
+  permitted: it faults, or without the Virtualization Extensions is
+  UNPREDICTABLE (DDI 0406C.d A3.2.2); and with the stage 1 MMU disabled every
+  data access is Strongly-ordered (DDI 0406C.d B3.2.1). Linux, Android and
+  the other hosted targets run user code with alignment checking off over
+  Normal memory. A bare-metal program (e.g. on `armv7a-none-eabi`, which
+  Rust builds with `+strict-align` for this reason) must do the same: turn
+  alignment checking off and run the code with the MMU on, with every buffer
+  it passes in Normal memory. The model does not describe any other setting.
 * Instructions whose timing depends on their operands (e.g. `sdiv`, `udiv`)
   must never be added: the constant-time leakage model assumes they do not
   exist. ARMv7 makes no architectural promise about multiply timing (it has

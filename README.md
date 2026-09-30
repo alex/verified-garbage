@@ -24,7 +24,8 @@ yours to keep:
 * ARMv7 code does word loads and stores at unaligned addresses. Hosted
   targets allow them; bare-metal code (e.g. `armv7a-none-eabi*`, built
   `+strict-align`) must turn off alignment checking and run with the MMU
-  on, over Normal memory, or an unaligned access faults.
+  on, with its buffers in Normal memory: otherwise an unaligned access
+  faults or, on some cores, is UNPREDICTABLE.
 * Only ARMv7 and later are supported on 32-bit ARM; older targets
   (`arm-*`, `armv5te-*`, …) are rejected only because the code does not
   assemble for them.
