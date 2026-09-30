@@ -1,4 +1,5 @@
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Avx2
+import VerifiedGarbage.Impl.ChaCha20.X86_64.Avx512
 
 /-!
 # The implementations of `vg_chacha20_xor` on x86-64
@@ -19,5 +20,6 @@ structure Callee where
 
 def Callee.scalar : Callee := ⟨"vg_chacha20_xor", Xor.xor⟩
 def Callee.avx2 : Callee := ⟨"vg_chacha20_xor_avx2", Avx2.xor⟩
+def Callee.avx512 : Callee := ⟨"vg_chacha20_xor_avx512", Avx512.xor⟩
 
 end VG.Impl.ChaCha20.X86_64

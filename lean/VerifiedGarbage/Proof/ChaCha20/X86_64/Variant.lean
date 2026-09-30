@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Avx2.Xor
+import VerifiedGarbage.Proof.ChaCha20.X86_64.Avx512.Xor
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Callee
 
 /-!
@@ -90,6 +91,32 @@ def avx2 : XorImpl where
   spSafe := Code.all_of_allInstrs (by lit_decide)
   suffix := "_avx2"
   features := ["avx", "avx2"]
+
+theorem avx512_ok : ∀ s, (xorStack 16).pre s → ∃ t s', Exec isa Impl.ChaCha20.X86_64.Callee.avx512.code s t s' ∧
+    abiPreserved s s' ∧ (xorStack 16).post s s' :=
+  fun s hs => Avx512.xor_rsi s hs
+
+theorem avx512_ct : ConstantTime isa (xorStack 16).pre (xorStack 16).pub Impl.ChaCha20.X86_64.Callee.avx512.code :=
+  Avx512.xor_ct
+
+theorem avx512_nosp : NoSp Impl.ChaCha20.X86_64.Callee.avx512.code := by
+  have : ((instrs Impl.ChaCha20.X86_64.Callee.avx512.code).all fun i => !Taint.clobbers i .rsp) = true := by
+    rw [← Code.allInstrs_eq]; decide +kernel
+  exact fun i hi => by simpa using List.all_eq_true.mp this i hi
+
+/-- The AVX-512 implementation, `vg_chacha20_xor_avx512`. -/
+def avx512 : XorImpl where
+  callee := .avx512
+  stack := 16
+  stack_le := by decide
+  depth_le := by decide +kernel
+  ok := avx512_ok
+  ct := avx512_ct
+  nosp := avx512_nosp
+  mxcsr := by decide +kernel
+  spSafe := Code.all_of_allInstrs (by lit_decide)
+  suffix := "_avx512"
+  features := ["avx", "avx512f"]
 
 end XorImpl
 

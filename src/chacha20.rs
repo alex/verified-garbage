@@ -16,8 +16,9 @@
 //! agrees with RFC 8439, whose counter is only word 12, for the first
 //! 2³² − (initial counter) blocks.
 //!
-//! On x86-64, CPUs with AVX2 run `vg_chacha20_xor_avx2` instead, which has
-//! the same contract and XORs eight blocks at a time.
+//! On x86-64, CPUs with AVX-512F run `vg_chacha20_xor_avx512` instead, which
+//! has the same contract and XORs sixteen blocks at a time, and other CPUs
+//! with AVX2 run `vg_chacha20_xor_avx2`, which XORs eight.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -27,7 +28,10 @@
 ))]
 
 #[cfg(target_arch = "x86_64")]
-use crate::arch::chacha20::{VG_CHACHA20_XOR_AVX2_FEATURES, vg_chacha20_xor_avx2};
+use crate::arch::chacha20::{
+    VG_CHACHA20_XOR_AVX2_FEATURES, VG_CHACHA20_XOR_AVX512_FEATURES, vg_chacha20_xor_avx2,
+    vg_chacha20_xor_avx512,
+};
 use crate::arch::chacha20::{vg_chacha20_block, vg_chacha20_xor};
 use crate::cpu::{Features, detected};
 
@@ -62,13 +66,18 @@ pub(crate) enum Backend {
     /// AVX2, eight blocks at a time.
     #[cfg(target_arch = "x86_64")]
     Avx2,
+    /// AVX-512F, sixteen blocks at a time.
+    #[cfg(target_arch = "x86_64")]
+    Avx512,
 }
 
 impl Backend {
     /// The best implementation a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
     pub(crate) fn select(f: Features) -> Backend {
-        if f.contains(Features::of(VG_CHACHA20_XOR_AVX2_FEATURES)) {
+        if f.contains(Features::of(VG_CHACHA20_XOR_AVX512_FEATURES)) {
+            Backend::Avx512
+        } else if f.contains(Features::of(VG_CHACHA20_XOR_AVX2_FEATURES)) {
             Backend::Avx2
         } else {
             Backend::Scalar
@@ -166,6 +175,8 @@ impl ChaCha20 {
                 Backend::Scalar => vg_chacha20_xor,
                 #[cfg(target_arch = "x86_64")]
                 Backend::Avx2 => vg_chacha20_xor_avx2,
+                #[cfg(target_arch = "x86_64")]
+                Backend::Avx512 => vg_chacha20_xor_avx512,
             };
             // SAFETY: `state` is valid for reads and writes of 64 bytes,
             // `now` for reads and writes of `now.len()` bytes and `buf` for
@@ -269,11 +280,12 @@ mod tests {
     }
 
     /// The implementation chosen gives the same keystream as the scalar one,
-    /// for lengths around multiples of eight blocks, in one call and split,
+    /// for lengths around multiples of eight and sixteen blocks, in one call
+    /// and split,
     /// and across the wrap of word 12.
     #[test]
     fn implementations_agree() {
-        const LEN: usize = 8 * 64 * 3 + 64 * 3;
+        const LEN: usize = 16 * 64 * 2 + 64 * 3;
         for counter in [0, 0xffff_fffc] {
             let n = nonce(counter, &[5; 12]);
             let mut expected = [0u8; LEN];
@@ -300,10 +312,21 @@ mod tests {
         assert_eq!(best, Backend::select(detected()));
         #[cfg(target_arch = "x86_64")]
         {
-            use crate::arch::chacha20::VG_CHACHA20_XOR_AVX2_FEATURES;
+            use crate::arch::chacha20::{
+                VG_CHACHA20_XOR_AVX2_FEATURES, VG_CHACHA20_XOR_AVX512_FEATURES,
+            };
             use crate::cpu::Features;
             let avx2 = Features::of(VG_CHACHA20_XOR_AVX2_FEATURES);
+            let avx512 = Features::of(VG_CHACHA20_XOR_AVX512_FEATURES);
             assert_eq!(Backend::select(avx2), Backend::Avx2);
+            assert_eq!(Backend::select(avx512), Backend::Avx512);
+            assert_eq!(
+                Backend::select(Features::all(&[
+                    VG_CHACHA20_XOR_AVX2_FEATURES,
+                    VG_CHACHA20_XOR_AVX512_FEATURES
+                ])),
+                Backend::Avx512
+            );
             assert_eq!(Backend::select(Features::of(&["avx"])), Backend::Scalar);
         }
     }
