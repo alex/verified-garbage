@@ -6,7 +6,8 @@ import VerifiedGarbage.Proof.MlKem.X86_64.FragS
 
 Untrusted: everything here is checked by Lean. What `copy16` does
 (`copy16_ok`), and in a layout (`copy16_okL`), with the checks of a copy of
-`16 n` bytes (`copyChk`).
+`16 n` bytes (`copyChk`). A layout of shorter buffers at the same registers
+(`Lay.mono`).
 -/
 
 namespace VG.Proof.MlKem.X86_64
@@ -96,5 +97,35 @@ theorem copy16_okL {s : State} (L : Lay rbs wbs s) {dst src : Ptr} {n : Nat} (hs
     fun s' ⟨hb, hf, k⟩ => ⟨post_of_keep k (by decide) hf, hb⟩
 
 end
+
+/-- A layout of buffers at the same registers, each no longer (and each written one written). -/
+theorem Lay.mono {rbs wbs rbs' wbs' : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
+    (hm : ∀ b ∈ rbs' ++ wbs', ∃ c ∈ rbs ++ wbs, c.1 = b.1 ∧ b.2 ≤ c.2)
+    (hw : ∀ b ∈ wbs', ∃ c ∈ wbs, c.1 = b.1 ∧ b.2 ≤ c.2) : Lay rbs' wbs' s := by
+  refine ⟨fun b hb => ?_, fun b hb b' hb' hne hwr => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_,
+    fun b hb => ?_, fun b hb => ?_⟩
+  · obtain ⟨c, hc, _, hl⟩ := hm b hb
+    have := L.small c hc; omega
+  · obtain ⟨c, hc, e, hl⟩ := hm b hb
+    obtain ⟨c', hc', e', hl'⟩ := hm b' hb'
+    have := L.dj c hc c' hc' (by rw [e, e']; exact hne) (by rw [e, e']; exact hwr)
+    rw [e, e'] at this
+    exact (this.sub_left (Region.sub_prefix hl)).sub_right (Region.sub_prefix hl')
+  · obtain ⟨c, hc, e, hl⟩ := hm b hb
+    have := L.stk c hc; rw [e] at this
+    exact this.sub_right (Region.sub_prefix hl)
+  · obtain ⟨c, hc, e, hl⟩ := hm b hb
+    have := L.nw c hc; rw [e] at this; omega
+  · obtain ⟨c, hc, e, hl⟩ := hm b hb
+    obtain ⟨r, hr, hcr⟩ := L.rd c hc
+    rw [e] at hcr
+    exact ⟨r, hr, by simp only [Region.Contains] at hcr ⊢; omega⟩
+  · obtain ⟨c, hc, e, hl⟩ := hw b hb
+    obtain ⟨r, hr, hcr⟩ := L.wr c hc
+    rw [e] at hcr
+    exact ⟨r, hr, by simp only [Region.Contains] at hcr ⊢; omega⟩
+  · obtain ⟨c, hc, e, hl⟩ := hm b hb
+    have := L.ret c hc; rw [e] at this
+    exact this.sub_right (Region.sub_prefix hl)
 
 end VG.Proof.MlKem.X86_64
