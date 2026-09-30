@@ -118,4 +118,26 @@ theorem expandMask_getElem (ρ : List Byte) {γ : Nat} (hγ : γ = 2 ^ 17 ∨ γ
         have := Nat.mul_le_mul_right (emC γ) (show i + 1 ≤ 256 by omega); rw [Nat.add_mul] at this; omega
       omega)]
 
+/-! ## The sign bits of `SampleInBall` -/
+
+/-- Bit `k` of the sign bits: bit `k` of the first 8 bytes of the output, as
+a little-endian integer. -/
+theorem signs_getD (X : List Byte) (k : Nat) :
+    (signs X).getD k false = (leNat (X.take 8)).testBit k := by
+  rw [signs, bytesToBits_getD_testBit]
+
+theorem bStep_ge {τ : Nat} {h : Array Bool} (st : IPoly × Nat) (j : Byte) : st.2 ≤ (bStep τ h st j).2 := by
+  unfold bStep; split
+  · split <;> simp
+  · exact Nat.le_refl _
+
+theorem bFold_ge {τ : Nat} {h : Array Bool} : ∀ (st : IPoly × Nat) (L : List Byte), st.2 ≤ (bFold τ h st L).2
+  | st, j :: L => by rw [bFold]; exact Nat.le_trans (bStep_ge st j) (bFold_ge _ L)
+  | _, [] => Nat.le_refl _
+
+/-- Coefficient `k` after setting coefficient `i`. -/
+theorem ipoly_set!_get (c : IPoly) {k : Nat} (i : Nat) (hk : k < n) (x : Int) :
+    (c.set! i x)[k]! = if i = k then x else c[k]! := by
+  rw [getElem!_pos _ k hk, getElem!_pos _ k hk, Vector.getElem_set!]
+
 end VG.Proof.MlDsa.Sample
