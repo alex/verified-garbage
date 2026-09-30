@@ -93,16 +93,16 @@ end
 def t1Hat (pk : List Byte) (r : Nat) : Poly := ntt ((vT1 pk r).map fun c => ofInt (c * 2 ^ d : Nat))
 
 section
-variable (p : Params) (pk σ : List Byte) (A : Nat → Nat → Poly) (c : IPoly)
+variable (p : Params) (pk σ : List Byte) (A : Nat → Nat → Poly) (ch : Poly)
 
-/-- Row `r` of `w′`. -/
+/-- Row `r` of `w′`, with `ĉ = ch`. -/
 def wRow (r : Nat) : Poly :=
-  nttInv (sub (dotAcc p σ A r p.ℓ) (multiplyNTT (ntt (toRq c)) (t1Hat pk r)))
+  nttInv (sub (dotAcc p σ A r p.ℓ) (multiplyNTT ch (t1Hat pk r)))
 
 /-- Row `r` of `w′₁`, with the hint `h`. -/
 def w1Row (h : List (Vector Bool n)) (r : Nat) : Vector Nat n :=
   Vector.zipWith (fun hj wj => (useHint p.γ₂ hj wj).toNat) (h.getD r (Vector.replicate n false))
-    (wRow p pk σ A c r)
+    (wRow p pk σ A ch r)
 
 end
 
@@ -137,7 +137,7 @@ theorem verifyMu_rows (p : Params) (b : Bounds) (pk μ σ : List Byte) {h : List
     (hc : sampleInBall p.τ b.ball (vCt p σ) = some c) :
     verifyMu p b pk μ σ = some (decide (normR ((List.range p.ℓ).map (vZ p σ)) < p.γ₁ - p.β) &&
       vCt p σ == H (μ ++ (List.range p.k).flatMap fun r =>
-        simpleBitPack (w1Row p pk σ A c h r) ((q - 1) / (2 * p.γ₂) - 1)) p.ctildeLen) := by
+        simpleBitPack (w1Row p pk σ A (ntt (toRq c)) h r) ((q - 1) / (2 * p.γ₂) - 1)) p.ctildeLen) := by
   have eA : expandA p b (vRho pk) = some ((List.range p.k).map fun r => (List.range p.ℓ).map (A r)) :=
     mapM_range fun r hr => mapM_range fun s hs => hA r hr s hs
   unfold verifyMu
