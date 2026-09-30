@@ -55,25 +55,25 @@ def mapLoop (body : List Instr) : Prog isa :=
 /-! ## `Decompose` -/
 
 /-- The multiplier `M`. -/
-def hbMul (g : Nat) : Nat := if g = 261888 then 1025 else 11275
+def dMul (g : Nat) : Nat := if g = 261888 then 1025 else 11275
 
 /-- The shift `S`. -/
-def hbShift (g : Nat) : Nat := if g = 261888 then 22 else 24
+def dShift (g : Nat) : Nat := if g = 261888 then 22 else 24
 
 /-- `2^(S-1)`. -/
-def hbAdd (g : Nat) : Nat := if g = 261888 then 2 ^ 21 else 2 ^ 23
+def dAdd (g : Nat) : Nat := if g = 261888 then 2 ^ 21 else 2 ^ 23
 
 /-- `m = (q - 1)/(2γ₂)`. -/
-def hbM (g : Nat) : Nat := if g = 261888 then 16 else 44
+def dMod (g : Nat) : Nat := if g = 261888 then 16 else 44
 
 /-- `rax ← f` for `a = rax`. Uses `r8` and `rdx`. -/
 def hbRaw (g : Nat) : List Instr :=
-  [.alu .add .rax (.imm 127), .shift .shr .rax 7, .mov32 .r8 (.imm (BitVec.ofNat 32 (hbMul g))), .mul .r8,
-    .alu .add .rax (.imm (BitVec.ofNat 32 (hbAdd g))), .shift .shr .rax (hbShift g)]
+  [.alu .add .rax (.imm 127), .shift .shr .rax 7, .mov32 .r8 (.imm (BitVec.ofNat 32 (dMul g))), .mul .r8,
+    .alu .add .rax (.imm (BitVec.ofNat 32 (dAdd g))), .shift .shr .rax (dShift g)]
 
 /-- `rax ← r₁ = f mod m` for `a = rax`. Uses `r8` and `rdx`. -/
 def hb (g : Nat) : List Instr :=
-  hbRaw g ++ condAdd .rax (.imm (BitVec.ofNat 32 (hbM g))) .r8 (BitVec.ofNat 32 (hbM g))
+  hbRaw g ++ condAdd .rax (.imm (BitVec.ofNat 32 (dMod g))) .r8 (BitVec.ofNat 32 (dMod g))
 
 /-- The values of `γ₂`: `(q - 1)/32` and `(q - 1)/88`. -/
 def g32 : Nat := 261888
@@ -128,9 +128,9 @@ def uhBody (g : Nat) : List Instr :=
     [.mov .r9 (.reg .rax), .mov32 .r8 (.imm (BitVec.ofNat 32 (2 * g))), .mul .r8, .alu .sub .rax (.reg .r11),
       .alu .sbb .rax (.reg .rax), .alu .and .rax (.imm 2), .alu .sub .rax (.imm 1),
       .mov32 .r11 (.mem (cf .rdi)), .mov32 .r8 (.imm 0), .alu .sub .r8 (.reg .r11), .alu .sbb .r8 (.reg .r8),
-      .alu .and .rax (.reg .r8), .alu .add .rax (.reg .r9), .alu .add .rax (.imm (BitVec.ofNat 32 (hbM g)))] ++
-    condAdd .rax (.imm (BitVec.ofNat 32 (hbM g))) .r8 (BitVec.ofNat 32 (hbM g)) ++
-    condAdd .rax (.imm (BitVec.ofNat 32 (hbM g))) .r8 (BitVec.ofNat 32 (hbM g)) ++
+      .alu .and .rax (.reg .r8), .alu .add .rax (.reg .r9), .alu .add .rax (.imm (BitVec.ofNat 32 (dMod g)))] ++
+    condAdd .rax (.imm (BitVec.ofNat 32 (dMod g))) .r8 (BitVec.ofNat 32 (dMod g)) ++
+    condAdd .rax (.imm (BitVec.ofNat 32 (dMod g))) .r8 (BitVec.ofNat 32 (dMod g)) ++
     [.store32 (cf .r10) .rax]
 
 def useHint : Prog isa :=
