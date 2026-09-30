@@ -451,18 +451,6 @@ def SO (i : Nat) : BitVec 32 := BitVec.ofNat 32 (R[i]!).val
 
 end
 
-theorem CoeffsUpTo.write16 {m : Mem} {p : Addr} {t : Nat} {G old : Nat → BitVec 32}
-    (h : CoeffsUpTo m p t G old) (ht : t + 4 ≤ 256) {x : BitVec 128}
-    (hx : ∀ e < 4, vword x e = G (t + e)) : CoeffsUpTo (m.write (coeffAddr p t) 16 x) p (t + 4) G old :=
-  fun i hi => by
-    rw [coeffAt_write16 _ _ ht _ hi, h i hi]
-    by_cases c : t ≤ i ∧ i < t + 4
-    · rw [ite_eq_left c, ite_eq_left (by omega), hx _ (by omega), show t + (i - t) = i by omega]
-    · rw [ite_eq_right c]
-      by_cases c' : i < t
-      · rw [ite_eq_left c', ite_eq_left (by omega)]
-      · rw [ite_eq_right c', ite_eq_right (by omega)]
-
 /-- After `k` vectors scaled. -/
 structure SInv (s₀ : State) (R : Poly) (k : Nat) (u : State) : Prop where
   st : St s₀ u

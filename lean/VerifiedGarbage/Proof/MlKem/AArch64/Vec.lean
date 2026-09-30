@@ -230,6 +230,32 @@ theorem vword_rev64s (x : BitVec 128) {e : Nat} (he : e < 4) :
   lane_tac e i
   all_goals (repeat' split) <;> simp_all <;> (congr 1; omega)
 
+theorem vword_uzp1_s4 (x y : BitVec 128) {e : Nat} (he : e < 4) :
+    vword (VPermOp.eval .uzp1 .s4 x y) e = if e < 2 then vword x (2 * e) else vword y (2 * (e - 2)) := by
+  ext i hi
+  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, vword, ofVWords, BitVec.getElem_extractLsb']
+  lane_tac e i
+
+theorem vword_uzp2_s4 (x y : BitVec 128) {e : Nat} (he : e < 4) :
+    vword (VPermOp.eval .uzp2 .s4 x y) e =
+      if e < 2 then vword x (2 * e + 1) else vword y (2 * (e - 2) + 1) := by
+  ext i hi
+  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, vword, ofVWords, BitVec.getElem_extractLsb']
+  lane_tac e i
+
+theorem vword_zip1_s4' (x y : BitVec 128) {e : Nat} (he : e < 4) :
+    vword (VPermOp.eval .zip1 .s4 x y) e = if e % 2 = 0 then vword x (e / 2) else vword y (e / 2) := by
+  ext i hi
+  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, vword, ofVWords, BitVec.getElem_extractLsb']
+  lane_tac e i
+
+theorem vword_zip2_s4 (x y : BitVec 128) {e : Nat} (he : e < 4) :
+    vword (VPermOp.eval .zip2 .s4 x y) e =
+      if e % 2 = 0 then vword x (2 + e / 2) else vword y (2 + e / 2) := by
+  ext i hi
+  simp only [VPermOp.eval, VArr.lanes, VArr.ofLanes, vword, ofVWords, BitVec.getElem_extractLsb']
+  lane_tac e i
+
 set_option linter.unusedSimpArgs true
 
 theorem vword_dup_s4 (w : BitVec 32) {e : Nat} (he : e < 4) : vword (ofVWords w w w w) e = w := by
@@ -407,6 +433,12 @@ theorem lanes_mls {a x y : BitVec 128} {h f g : Nat → Nat} (ha : Lanes a h) (h
   fun e he => by
     rw [vword_mapWords3 _ _ _ _ he, BitVec.toNat_sub, BitVec.toNat_mul, ha e he, hx e he, hy e he]
 
+theorem lanes_mla {a x y : BitVec 128} {h f g : Nat → Nat} (ha : Lanes a h) (hx : Lanes x f)
+    (hy : Lanes y g) :
+    Lanes (mapWords3 (fun a x y => a + x * y) a x y) fun e => (h e + f e * g e % 2 ^ 32) % 2 ^ 32 :=
+  fun e he => by
+    rw [vword_mapWords3 _ _ _ _ he, BitVec.toNat_add, BitVec.toNat_mul, ha e he, hx e he, hy e he]
+
 theorem lanes_dup {w : BitVec 32} : Lanes (ofVWords w w w w) fun _ => w.toNat := fun e he => by
   rw [vword_dup_s4 w he]
 
@@ -482,12 +514,13 @@ section
 variable {rest : List Instr} {s : State} {Q : State → Prop}
 
 /-- `vcsub d t`: `d mod q`, for lanes less than `2q`. -/
-theorem vcsub_ok {d t : VReg} (hdt : d ≠ t := by decide) (hc : VConsts s) {f : Nat → Nat}
+theorem vcsub_ok {d t : VReg} (hdt : d ≠ t := by decide) (hq : Lanes (s.v .v16) fun _ => 3329)
+    {f : Nat → Nat}
     (hf : Lanes (s.v d) f) (hlt : ∀ e < 4, f e < 2 * 3329)
     (k : ∀ s', VChg [t, d] s s' → Lanes (s'.v d) (fun e => f e % 3329) → WP isa (.block rest) s' Q) :
     WP isa (.block (vcsub d t ++ rest)) s Q := by
   refine wp_vop (d := t) rfl fun s₁ h₁ => wp_vop (d := d) rfl fun s₂ h₂ => k s₂ (h₁.chg.trans h₂.chg) ?_
-  have l₁ := lanes_sub hf hc.q
+  have l₁ := lanes_sub hf hq
   rw [← h₁.v] at l₁
   rw [h₂.v]
   refine (lanes_umin (by rw [h₁.get d hdt]; exact hf) l₁).congr fun e he => ?_
@@ -522,7 +555,7 @@ theorem vmulq_ok {d z t : VReg} (hdt : d ≠ t := by decide)
   have hb : ∀ e < 4, f e * g e * 645083 / 2 ^ 31 * 3329 ≤ f e * g e ∧
       f e * g e < f e * g e * 645083 / 2 ^ 31 * 3329 + 2 * 3329 := fun e he =>
     barrett_nat (by have := hfg e he; omega)
-  refine vcsub_ok hdt c₃ (f := fun e => f e * g e - f e * g e * 645083 / 2 ^ 31 * 3329)
+  refine vcsub_ok hdt c₃.q (f := fun e => f e * g e - f e * g e * 645083 / 2 ^ 31 * 3329)
     (l₃.congr fun e he => ?_) (fun e he => ?_) fun s₄ h₄ l₄ =>
     k s₄ (((h₁.chg.trans h₂.chg).trans h₃.chg).trans h₄) (l₄.congr fun e he => ?_)
   · show _ = f e * g e - f e * g e * 645083 / 2 ^ 31 * 3329
@@ -554,7 +587,7 @@ theorem vbfly_ok {z : VReg} (hc : VConsts s) {A B Z : Nat → Nat} (hA : Lanes (
   have a₁ : Lanes (s₁.v .v0) A := by rw [h₁.get .v0]; exact hA
   have l₂ := lanes_add a₁ l₁
   rw [← h₂.v] at l₂
-  refine vcsub_ok (by decide) (c₁.chg h₂.chg) (f := fun e => (A e + B e * Z e % 3329) % 2 ^ 32) l₂ (fun e he => ?_) fun s₃ h₃ l₃ => ?_
+  refine vcsub_ok (by decide) (c₁.chg h₂.chg).q (f := fun e => (A e + B e * Z e % 3329) % 2 ^ 32) l₂ (fun e he => ?_) fun s₃ h₃ l₃ => ?_
   · have := hA' e he; have := t₁ e he; omega
   refine wp_vop (d := .v3) rfl fun s₄ h₄ => wp_vop (d := .v4) rfl fun s₅ h₅ => wp_vop (d := .v1) rfl
     fun s₆ h₆ => ?_
@@ -596,7 +629,7 @@ theorem vibfly_ok {z : VReg} (hz : z ∉ [VReg.v0, .v1, .v2, .v3, .v4, .v16, .v1
   refine wp_vop (d := .v2) rfl fun s₁ h₁ => ?_
   have l₁ := lanes_add hA hB
   rw [← h₁.v] at l₁
-  refine vcsub_ok (by decide) (hc.chg h₁.chg) (f := fun e => (A e + B e) % 2 ^ 32) l₁ (fun e he => ?_) fun s₂ h₂ l₂ => ?_
+  refine vcsub_ok (by decide) (hc.chg h₁.chg).q (f := fun e => (A e + B e) % 2 ^ 32) l₁ (fun e he => ?_) fun s₂ h₂ l₂ => ?_
   · have := hA' e he; have := hB' e he; omega
   have c₂ := hc.chg (h₁.chg.trans h₂)
   refine wp_vop (d := .v1) rfl fun s₃ h₃ => wp_vop (d := .v3) rfl fun s₄ h₄ => wp_vop (d := .v1) rfl
@@ -629,6 +662,38 @@ theorem vibfly_ok {z : VReg} (hz : z ∉ [VReg.v0, .v1, .v2, .v3, .v4, .v16, .v1
           show (A e + B e) % 2 ^ 32 % 3329 = _
           have := hA' e he; have := hB' e he
           rw [Nat.mod_eq_of_lt (show A e + B e < 2 ^ 32 by omega)]) l₆
+
+/-- `sqdmulh t, d, M; mls d, t, q`: Barrett reduction of lanes `x < 2³¹`, to
+`x - ⌊x · M / 2³¹⌋ · q`, which is less than `2q` and congruent to `x`. -/
+theorem vbar_ok {d t : VReg} (hdt : d ≠ t := by decide) (ht16 : t ≠ .v16 := by decide)
+    (ht17 : t ≠ .v17 := by decide) (hc : VConsts s) {f : Nat → Nat} (hf : Lanes (s.v d) f)
+    (hlt : ∀ e < 4, f e < 2 ^ 31)
+    (k : ∀ s', VChg [t, d] s s' →
+      Lanes (s'.v d) (fun e => f e - f e * 645083 / 2 ^ 31 * 3329) →
+      (∀ e < 4, f e - f e * 645083 / 2 ^ 31 * 3329 < 2 * 3329 ∧
+        (f e - f e * 645083 / 2 ^ 31 * 3329) % 3329 = f e % 3329) → WP isa (.block rest) s' Q) :
+    WP isa (.block (.vop (.sqdmulh t d .v17) :: .vop (.mls d t .v16) :: rest)) s Q := by
+  obtain ⟨x₁, e₁, l₁⟩ := eval_sqdmulh (d := t) hf hc.m hlt (fun _ _ => by decide)
+  refine wp_vop e₁ fun s₁ h₁ => ?_
+  have c₁ := hc.chg h₁.chg (by simpa using ht16.symm) (by simpa using ht17.symm)
+  refine wp_vop (d := d) rfl fun s₂ h₂ => ?_
+  have a₁ : Lanes (s₁.v d) f := by rw [h₁.get d hdt]; exact hf
+  have b₁ : Lanes (s₁.v t) fun e => f e * 645083 / 2 ^ 31 := by rw [h₁.v]; exact l₁
+  have l₂ := lanes_mls a₁ b₁ c₁.q
+  rw [← h₂.v] at l₂
+  have hb : ∀ e < 4, f e * 645083 / 2 ^ 31 * 3329 ≤ f e ∧
+      f e < f e * 645083 / 2 ^ 31 * 3329 + 2 * 3329 := fun e he => barrett_nat (hlt e he)
+  refine k s₂ (h₁.chg.trans h₂.chg) (l₂.congr fun e he => ?_) fun e he => ⟨?_, ?_⟩
+  · show _ = f e - f e * 645083 / 2 ^ 31 * 3329
+    have := hb e he
+    have : f e * 645083 / 2 ^ 31 * 3329 % 2 ^ 32 = f e * 645083 / 2 ^ 31 * 3329 :=
+      Nat.mod_eq_of_lt (by have := hlt e he; omega)
+    have := hlt e he
+    omega
+  · have := hb e he; omega
+  · have hb' := (hb e he).1
+    rw [Nat.mul_comm] at hb'
+    rw [Nat.mul_comm _ 3329, Nat.sub_mul_mod hb']
 
 end
 
