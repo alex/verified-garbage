@@ -14,12 +14,25 @@
     target_arch = "x86"
 ))]
 
+#[cfg(target_arch = "x86_64")]
+use crate::arch::hmac_sha512_224::{
+    VG_HMAC_SHA512_224_FINALIZE_AVX2_FEATURES, VG_HMAC_SHA512_224_FINALIZE_SHANI_FEATURES,
+    VG_HMAC_SHA512_224_INIT_AVX2_FEATURES, VG_HMAC_SHA512_224_INIT_SHANI_FEATURES,
+    vg_hmac_sha512_224_finalize_avx2, vg_hmac_sha512_224_finalize_shani,
+    vg_hmac_sha512_224_init_avx2, vg_hmac_sha512_224_init_shani,
+};
 use crate::arch::hmac_sha512_224::{vg_hmac_sha512_224_finalize, vg_hmac_sha512_224_init};
 use crate::hashes::sha512::{Sha512_224, Sha512_224Backend};
 
 super::streaming_hmac!(
     Sha512_224 (Sha512_224Backend) {
         Scalar => (vg_hmac_sha512_224_init, vg_hmac_sha512_224_finalize),
+        #[cfg(target_arch = "x86_64")]
+        ShaNi if [VG_HMAC_SHA512_224_INIT_SHANI_FEATURES, VG_HMAC_SHA512_224_FINALIZE_SHANI_FEATURES] =>
+            (vg_hmac_sha512_224_init_shani, vg_hmac_sha512_224_finalize_shani),
+        #[cfg(target_arch = "x86_64")]
+        Avx2 if [VG_HMAC_SHA512_224_INIT_AVX2_FEATURES, VG_HMAC_SHA512_224_FINALIZE_AVX2_FEATURES] =>
+            (vg_hmac_sha512_224_init_avx2, vg_hmac_sha512_224_finalize_avx2),
     },
     state: 192,
     scratch: 234,

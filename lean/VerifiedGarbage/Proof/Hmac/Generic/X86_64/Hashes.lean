@@ -162,7 +162,7 @@ compression function (named with its suffix, as
 `Generic/Sha512Compress/X86_64/Sha512.lean` emits them). -/
 def sha512H (v : Proof.Sha512.X86_64.Compress) (D : Nat) (initN : String) (iv : Spec.Sha512.HashValue) :
     Hash :=
-  ⟨128, 192, D, 64, 34, initN, Impl.Sha512.X86_64.Stream.init iv, "vg_sha512_update" ++ v.suffix,
+  ⟨128, 192, D, 64, 172, initN, Impl.Sha512.X86_64.Stream.init iv, "vg_sha512_update" ++ v.suffix,
     Impl.Sha512.X86_64.Stream.update v.callee, "vg_sha512_finalize" ++ v.suffix,
     Impl.Sha512.X86_64.Stream.finalize v.callee⟩
 
@@ -182,7 +182,7 @@ theorem sha512H_B : (sha512H v D n iv).B = 128 := rfl
 theorem sha512H_S : (sha512H v D n iv).S = 192 := rfl
 theorem sha512H_D : (sha512H v D n iv).D = D := rfl
 theorem sha512H_F : (sha512H v D n iv).F = 64 := rfl
-theorem sha512H_buf : (sha512H v D n iv).buf = 320 := rfl
+theorem sha512H_buf : (sha512H v D n iv).buf = 1424 := rfl
 theorem sha512H_initC : (sha512H v D n iv).initC = Impl.Sha512.X86_64.Stream.init iv := rfl
 
 /- These are rewrites, not definitional lemmas: `simp` then adds their proofs,
@@ -211,7 +211,7 @@ def sha512FamOK (v : Proof.Sha512.X86_64.Compress) (SH : Spec.Hmac.StreamingHash
     (hID : (Impl.Sha512.X86_64.Stream.init iv).depth ≤ 1) (hISp : NoSp (Impl.Sha512.X86_64.Stream.init iv)) :
     HashOK (sha512H v D initN iv) where
   SH := SH
-  Wb := 224
+  Wb := 1376
   hS := hS
   hD := hD
   hB := hB
@@ -222,8 +222,8 @@ def sha512FamOK (v : Proof.Sha512.X86_64.Compress) (SH : Spec.Hmac.StreamingHash
   hSB := show 192 ≤ 256 by decide
   hB0 := show 0 < 128 by decide
   hBB := Nat.le_refl 128
-  hWb := show 224 ≤ 8 * 34 by decide
-  hW := show 34 ≤ 64 by decide
+  hWb := show 1376 ≤ 8 * 172 by decide
+  hW := show 172 ≤ 256 by decide
   repr := hR ▸ sha512_repr iv
   init := hR ▸ Proof.Sha512.X86_64.Stream.init_verified iv
   upd := hR ▸ v.update_verified.of_implies

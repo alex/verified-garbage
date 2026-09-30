@@ -3,3 +3,4 @@ family = "KEMs"
 specs = ["MlKem"]
 modules = ["src/mlkem1024.rs"]
 asm = ["mlkem1024", "mlkem"]
+optimized = { x86_64 = "SSE2 NTT" }
