@@ -37,7 +37,8 @@ theorem stepPre_ok {s : State} {base : Addr} (hs : Scr s base) {t : Nat} (ht : t
     WP isa (.block stepPre) s fun s' =>
       s'.gpr .rbx = BitVec.ofNat 64 t ∧ s'.gpr .rcx = mask (decide (sw0 ^^^ kt = 1)) ∧
       (∀ r, r ∉ [.rbx, .rax, .rdx, .rcx] → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
-      s'.mem = s.mem.writeW (off base SWAP) (BitVec.ofNat 64 kt) := by
+      s'.mem = s.mem.writeW (off base SWAP) (BitVec.ofNat 64 kt) ∧ s'.xmm = s.xmm ∧
+      s'.ymmHi = s.ymmHi := by
   have hb' : s.gpr .rbx - (1 : BitVec 32).signExtend 64 = BitVec.ofNat 64 t := by
     have e1 : (1 : BitVec 32).signExtend 64 = BitVec.ofNat 64 1 := by decide
     rw [hb, e1, BitVec.ofNat_add, BitVec.add_sub_cancel]
@@ -64,7 +65,7 @@ theorem stepPre_ok {s : State} {base : Addr} (hs : Scr s base) {t : Nat} (ht : t
   have ek : BitVec.setWidth 64 (BitVec.ofNat 8 kt) = BitVec.ofNat 64 kt := by
     rcases (by omega : kt = 0 ∨ kt = 1) with rfl | rfl <;> rfl
   refine ⟨trivial, by rw [e0]; exact mask_xor sw0 hsw kt hk, fun r hr => ?_, trivial, trivial,
-    by rw [ek]⟩
+    by rw [ek], rfl, rfl⟩
   simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
   simp only [hr.1, hr.2.1, hr.2.2.1, hr.2.2.2, ite_false]
 
@@ -227,7 +228,7 @@ theorem step_ok {s₀ s : State} {base : Addr} {k : Nat} {u : Spec.X25519.Fe} {n
   rw [step_eq, WP.block_append_iff]
   refine WP.mono (stepPre_ok hs hn hi.rbx (by have := bit_le k n; omega)
     (by have := ladderAfter_swap_le k u (n := n + 1) (by omega); omega) hbit hi.swap)
-    fun s1 ⟨b1, m1, g1, rd1, wr1, mem1⟩ => ?_
+    fun s1 ⟨b1, m1, g1, rd1, wr1, mem1, _, _⟩ => ?_
   have hs1 : Scr s1 base := ⟨(g1 _ (by decide)).trans hs.rdi, wr1 ▸ hs.wr, hs.nowrap⟩
   have o8 : Outside base 640 8 s.mem s1.mem := by
     rw [mem1]; exact writeW_outside _ _ _ (by omega)
@@ -306,5 +307,47 @@ theorem ladder_ok {s₀ s : State} {base : Addr} {k : Nat} {u : Spec.X25519.Fe}
       State.setReg32, Option.some.injEq, exists_eq_left', RegUpd.gpr_setReg_self]
     exact ⟨rfl, fun r hr => by simp only [RegUpd.gpr_setReg, hr, ite_false], rfl, rfl, rfl⟩)
     fun s' ⟨h1, h2, h3, h4, h5⟩ => loop_ok hf hbits 255 s' (by omega) (by omega) (hi s' h1 h2 h3 h4 h5))
+
+/-- What a ladder leaves (`ladder`'s, or `vg_x25519_ifma`'s): the slots
+`x2, z2, x3, z3` (3–6) and the word `swap` hold the ladder's final state,
+and since its start (`s₀`) nothing else changed but the registers `clob` and
+`rbx`, and the bytes `[64, 2216)`. -/
+structure LPost (base : Addr) (k : Nat) (u : Spec.X25519.Fe) (s₀ s : State) : Prop where
+  scr : Scr s base
+  gpr : ∀ r, r ∉ clob → r ≠ .rbx → s.gpr r = s₀.gpr r
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
+  mem : Outside base 64 2152 s₀.mem s.mem
+  x2 : E s.mem base 3 = (ladderAfter k u 0).x2
+  z2 : E s.mem base 4 = (ladderAfter k u 0).z2
+  x3 : E s.mem base 5 = (ladderAfter k u 0).x3
+  z3 : E s.mem base 6 = (ladderAfter k u 0).z3
+  swap : word s.mem base SWAP = BitVec.ofNat 64 (ladderAfter k u 0).swap
+
+theorem LInv.post {base : Addr} {k : Nat} {u : Spec.X25519.Fe} {s₀ s : State} (h : LInv base k u s₀ s 0) :
+    LPost base k u s₀ s :=
+  ⟨h.scr, h.gpr, h.rd, h.wr, h.mem.mono (by decide) (by decide), h.x2, h.z2, h.x3, h.z3, h.swap⟩
+
+/-- What a ladder starts from: the bits of `k` in `BITS`, `x1 = u` and the
+ladder's first state in the slots 2–6, and `swap = 0`. -/
+structure LPre (base : Addr) (k : Nat) (u : Spec.X25519.Fe) (s : State) : Prop where
+  scr : Scr s base
+  bits : ∀ t < 255, s.mem (off base (BITS + t)) = BitVec.ofNat 8 (bit k t)
+  x1 : E s.mem base 2 = u
+  x2 : E s.mem base 3 = 1
+  z2 : E s.mem base 4 = 0
+  x3 : E s.mem base 5 = u
+  z3 : E s.mem base 6 = 1
+  swap : word s.mem base SWAP = 0
+
+include hf in
+/-- `ladder`, as a ladder: from `LPre` to `LPost`. -/
+theorem ladder_post {s : State} {base : Addr} {k : Nat} {u : Spec.X25519.Fe} (h : LPre base k u s) :
+    WP isa (ladder fld) s (LPost base k u s) :=
+  WP.mono (ladder_ok hf h.bits fun s' hb g m rd wr => ⟨⟨by rw [g _ (by decide)]; exact h.scr.rdi,
+      by rw [wr]; exact h.scr.wr, h.scr.nowrap⟩, fun r _ hr => g r hr, hb, rd, wr,
+      by rw [m]; exact Outside.refl _ _ _ _, by rw [m, h.x1], by rw [m, h.x2]; rfl, by rw [m, h.z2]; rfl,
+      by rw [m, h.x3]; rfl, by rw [m, h.z3]; rfl, by rw [m, h.swap]; rfl⟩)
+    fun _ hl => hl.post
 
 end VG.Proof.X25519.X86_64

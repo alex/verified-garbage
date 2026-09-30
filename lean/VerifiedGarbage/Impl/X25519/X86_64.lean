@@ -351,10 +351,15 @@ def lastSwap : List Instr :=
   [.mov .rdx (.mem (sc SWAP)), .mov32 .rcx (.imm 0), .alu .sub .rcx (.reg .rdx)] ++
   cswap X2 X3 ++ cswap Z2 Z3
 
-/-- X25519 with the field multiplications `F`. -/
-def x25519With (F : Field) : Prog isa :=
-  .seq (.block setup) <| .seq bits <| .seq (.block [.mov .rsi (.reg .r12)]) <| .seq (ladder F) <|
+/-- X25519 with the ladder `lad` (which leaves the ladder's final state in the
+working space as `ladder` does) and the field multiplications `F` for the
+inversion. -/
+def x25519Of (F : Field) (lad : Prog isa) : Prog isa :=
+  .seq (.block setup) <| .seq bits <| .seq (.block [.mov .rsi (.reg .r12)]) <| .seq lad <|
     .seq (.block lastSwap) <| .seq (invert F) (.block (finish F))
+
+/-- X25519 with the field multiplications `F`. -/
+def x25519With (F : Field) : Prog isa := x25519Of F (ladder F)
 
 def x25519 : Prog isa := x25519With baseline
 
