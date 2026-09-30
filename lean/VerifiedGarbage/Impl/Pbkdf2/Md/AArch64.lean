@@ -158,57 +158,91 @@ def intO : Nat := H.hkO + H.P.N
 our caller's registers where we do, at `sv`. -/
 def hh : Impl.Hmac.Generic.AArch64.Hash := { H.stream with W := H.W }
 
-/-- Save our caller's registers (with `scratch` in `x4`, `c` kept in `x10`),
-keep `out`, `c - 1` and `out_len`, and set up ours. -/
-def entry : List Instr :=
-  [mov .x10 .x4, mov .x4 .x7] ++ H.hh.save ++
-    [mov .x23 .x4, .str .x .x5 .x23 H.outO, .subImm .w .x9 .x10 1, .str .x .x9 .x23 H.cO,
-      .str .x .x6 .x23 H.olO, mov .x19 .x0, mov .x20 .x1, mov .x21 .x2, mov .x22 .x3]
+/-- Keep `c` in `x10`, and `scratch` in `x4`, where `hh.save` wants it. -/
+def entryPre : List Instr := [mov .x10 .x4, mov .x4 .x7]
+
+/-- Keep `out`, `c - 1` and `out_len`, and set up our registers. -/
+def entryPost : List Instr :=
+  [mov .x23 .x4, .str .x .x5 .x23 H.outO, .subImm .w .x9 .x10 1, .str .x .x9 .x23 H.cO,
+    .str .x .x6 .x23 H.olO, mov .x19 .x0, mov .x20 .x1, mov .x21 .x2, mov .x22 .x3]
+
+/-- Save our caller's registers, keep `out`, `c - 1` and `out_len`, and set
+up ours. -/
+def entry : List Instr := entryPre ++ H.hh.save ++ H.entryPost
+
+/-- `init`'s argument: the working state. -/
+def hkInit : List Instr := [.addImm .x .x0 .x23 H.stWO]
+
+/-- `update`'s arguments: the working state and the password. -/
+def hkUpd : List Instr := [.addImm .x .x0 .x23 H.stWO, .movz .x .x1 0 0, mov .x2 .x19, mov .x3 .x20, mov .x4 .x23]
+
+/-- `finalize`'s arguments: the working state, and the digest into `scratch`. -/
+def hkFin : List Instr := [.addImm .x .x0 .x23 H.stWO, mov .x1 .x20, .addImm .x .x2 .x23 H.hkO, mov .x3 .x23]
+
+/-- The digest as the key. -/
+def hkKey : List Instr := [.addImm .x .x2 .x23 H.hkO, .movz .x .x3 (BitVec.ofNat 16 H.D) 0]
 
 /-- A password longer than a block: its digest, into `scratch`, is the key. -/
 def hashKey : Prog isa :=
-  .seq (.block [.addImm .x .x0 .x23 H.stWO])
+  .seq (.block H.hkInit)
   (.seq (.call H.initN H.initC)
-  (.seq (.block [.addImm .x .x0 .x23 H.stWO, .movz .x .x1 0 0, mov .x2 .x19, mov .x3 .x20, mov .x4 .x23])
+  (.seq (.block H.hkUpd)
   (.seq (.call H.updN H.updC)
-  (.seq (.block [.addImm .x .x0 .x23 H.stWO, mov .x1 .x20, .addImm .x .x2 .x23 H.hkO, mov .x3 .x23])
+  (.seq (.block H.hkFin)
   (.seq (.call H.finN H.finC)
-    (.block [.addImm .x .x2 .x23 H.hkO, .movz .x .x3 (BitVec.ofNat 16 H.D) 0]))))))
+    (.block H.hkKey))))))
 
 /-- The password as the key. -/
-def short : Prog isa := .block [mov .x2 .x19, mov .x3 .x20]
+def short : List Instr := [mov .x2 .x19, mov .x3 .x20]
+
+/-- `password_len >> log₂ B`, zero if the password is shorter than a block. -/
+def keyShr : List Instr := [.lsr .x .x9 .x20 (Nat.log2 H.P.B)]
+
+/-- `password_len - B`, zero if the password is a block. -/
+def keySub : List Instr := [.subImm .x .x9 .x20 H.P.B]
 
 /-- The key (at `x2`, `x3` bytes): the password if it is at most a block
 (`password_len >> log₂ B = 0`, or `password_len = B`), otherwise its
 digest. -/
 def key : Prog isa :=
-  .seq (.block [.lsr .x .x9 .x20 (Nat.log2 H.P.B)])
-    (.ite (.zero .x .x9) short
-      (.seq (.block [.subImm .x .x9 .x20 H.P.B]) (.ite (.zero .x .x9) short H.hashKey)))
+  .seq (.block H.keyShr)
+    (.ite (.zero .x .x9) (.block short)
+      (.seq (.block H.keySub) (.ite (.zero .x .x9) (.block short) H.hashKey)))
+
+/-- HMAC's `init`'s arguments: its two states, the key (already in `x2` and
+`x3`) and `scratch`. -/
+def initArgs : List Instr := [.addImm .x .x0 .x23 H.st0O, .addImm .x .x1 .x23 H.st1O, mov .x4 .x23]
+
+/-- The inner state copied, and `update`'s arguments: the copy and the salt. -/
+def saltArgs : List Instr :=
+  copy32 .x23 H.st0O .x23 H.stSO (H.S / 4) ++
+    [.addImm .x .x0 .x23 H.stSO, .movz .x .x1 (BitVec.ofNat 16 H.P.B) 0, mov .x2 .x21, mov .x3 .x22,
+      mov .x4 .x23]
 
 /-- HMAC's states for the key, then the inner one after the salt. -/
 def setup : Prog isa :=
-  .seq (.block [.addImm .x .x0 .x23 H.st0O, .addImm .x .x1 .x23 H.st1O, mov .x4 .x23])
+  .seq (.block H.initArgs)
   (.seq (.call H.hmacInitN H.hmacInit)
-  (.seq (.block (copy32 .x23 H.st0O .x23 H.stSO (H.S / 4)))
-  (.seq (.block [.addImm .x .x0 .x23 H.stSO, .movz .x .x1 (BitVec.ofNat 16 H.P.B) 0, mov .x2 .x21,
-      mov .x3 .x22, mov .x4 .x23])
-    (.call H.updN H.updC))))
+  (.seq (.block H.saltArgs)
+    (.call H.updN H.updC)))
 
 /-- The registers of the loop over the blocks of the output. -/
 def loopRegs : List Instr :=
   [mov .x20 .x22, .ldr .x .x22 .x23 H.outO, .ldr .x .x21 .x23 H.olO, .movz .x .x19 1 0]
 
-/-- The loop copying `x11` bytes of `T` to `x22`. -/
+/-- The loop copying `x11` bytes of `T` to `x22`: `x24` counts the bytes
+copied, `x11` those left. -/
 def outLoop : Prog isa :=
   .seq (.block [.movz .x .x24 0 0])
     (.loop (.block [.add .x .x12 .x23 .x24, .ldrb .x9 .x12 H.tO, .add .x .x13 .x22 .x24, .strb .x9 .x13 0,
-      .addImm .x .x24 .x24 1, .sub .x .x10 .x11 .x24]) (.nonzero .x .x10))
+      .addImm .x .x24 .x24 1, .subImm .x .x11 .x11 1]) (.nonzero .x .x11))
 
-/-- `INT (i)`, and `update`'s arguments: the working state and `INT (i)`. -/
+/-- The salted inner state copied to the working state, `INT (i)`, and `update`'s
+arguments: the working state and `INT (i)`. -/
 def intArgs : List Instr :=
-  [.rev32 .x9 .x19, .str .w .x9 .x23 H.intO, .addImm .x .x0 .x23 H.stWO, .addImm .x .x1 .x20 H.P.B,
-    .addImm .x .x2 .x23 H.intO, .movz .x .x3 4 0, mov .x4 .x23]
+  copy32 .x23 H.stSO .x23 H.stWO (H.S / 4) ++
+    [.rev32 .x9 .x19, .str .w .x9 .x23 H.intO, .addImm .x .x0 .x23 H.stWO, .addImm .x .x1 .x20 H.P.B,
+      .addImm .x .x2 .x23 H.intO, .movz .x .x3 4 0, mov .x4 .x23]
 
 /-- HMAC's `finalize`'s arguments: the working state, the outer state, the
 bytes absorbed and `U`. -/
@@ -216,10 +250,12 @@ def finArgs : List Instr :=
   [.addImm .x .x0 .x23 H.stWO, .addImm .x .x1 .x23 H.st1O, .addImm .x .x2 .x20 (H.P.B + 4),
     .addImm .x .x3 .x23 H.uO, mov .x4 .x23]
 
-/-- `iterate`'s arguments: the key's states, `U`, `c - 1` and `T`. -/
+/-- `U` copied to `T`, and `iterate`'s arguments: the key's states, `U`, `c - 1` and
+`T`. -/
 def iterArgs : List Instr :=
-  [.addImm .x .x0 .x23 H.st0O, .addImm .x .x1 .x23 H.uO, .ldr .x .x2 .x23 H.cO, .addImm .x .x3 .x23 H.tO,
-    mov .x4 .x23]
+  copy32 .x23 H.uO .x23 H.tO (H.D / 4) ++
+    [.addImm .x .x0 .x23 H.st0O, .addImm .x .x1 .x23 H.uO, .ldr .x .x2 .x23 H.cO, .addImm .x .x3 .x23 H.tO,
+      mov .x4 .x23]
 
 /-- The bytes of `T` the output still needs: `min (x21, D)`, from the sign of
 `x21 - D` (`x21` is below 2⁶³). -/
@@ -227,22 +263,21 @@ def outLen : Prog isa :=
   .seq (.block [.movz .x .x11 (BitVec.ofNat 16 H.D) 0, .subImm .x .x9 .x21 H.D, .lsr .x .x9 .x9 63])
     (.ite (.zero .x .x9) (.block []) (.block [mov .x11 .x21]))
 
-/-- The next block's number, where its bytes go, and how many are left. -/
-def advance : List Instr := [.add .x .x22 .x22 .x11, .addImm .x .x19 .x19 1, .sub .x .x21 .x21 .x11]
+/-- The next block's number, where its bytes go, and how many are left
+(`x24` bytes were copied). -/
+def advance : List Instr := [.add .x .x22 .x22 .x24, .addImm .x .x19 .x19 1, .sub .x .x21 .x21 .x24]
 
 /-- One block of the output. -/
 def block : Prog isa :=
-  .seq (.block (copy32 .x23 H.stSO .x23 H.stWO (H.S / 4)))
-  (.seq (.block H.intArgs)
+  .seq (.block H.intArgs)
   (.seq (.call H.updN H.updC)
   (.seq (.block H.finArgs)
   (.seq (.call H.hmacFinN H.hmacFin)
-  (.seq (.block (copy32 .x23 H.uO .x23 H.tO (H.D / 4)))
   (.seq (.block H.iterArgs)
   (.seq (.call H.iterN H.iterate)
   (.seq H.outLen
   (.seq H.outLoop
-    (.block advance))))))))))
+    (.block advance))))))))
 
 /-- Restoring our caller's registers and our return address. -/
 def exit : List Instr := H.hh.restore

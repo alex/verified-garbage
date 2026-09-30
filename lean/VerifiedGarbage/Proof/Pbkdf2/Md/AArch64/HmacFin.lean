@@ -166,7 +166,7 @@ theorem out_ok {s : State} (hk : KR (H := H.stream) s₀ s) :
   have hL : 8 * H.stream.W + 56 ≤ 8 * sc := by
     have : H.stream.buf = 8 * H.stream.W + 56 := rfl
     omega
-  exact WP.mono (restore_ok H.stream k₁.x23 hp.hW k₁.saved (by rw [k₁.wr]; exact sR) hL)
+  exact WP.mono (restore_ok H.stream k₁.x23 (Nat.le_trans hp.hW (by decide)) k₁.saved (by rw [k₁.wr]; exact sR) hL)
     fun s' ⟨hm, _, _, hsp, hg, ho⟩ => ⟨s₁, k₁, m₁, hm, hsp, hg, ho⟩
 
 /-! ## Correctness -/
