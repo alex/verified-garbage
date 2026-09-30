@@ -13,8 +13,9 @@ The streaming state (`N + 64` bytes at `state`) is the hash value (`N`
 bytes) followed by a 64-byte buffer.
 
 * `update(state = x0, count = x1, data = x2, len = x3, scratch = x4)`
-  processes one block per iteration: straight from `data` while the buffer is
-  empty and a whole block remains, otherwise by copying bytes into the buffer,
+  compresses, in each iteration, every whole block left in `data` with one
+  call if the buffer is empty (so that implementations that process several
+  blocks at once can), and otherwise copies bytes into the buffer,
   compressing it once it is full.
 * `finalize(state = x0, count = x1, out = x2, scratch = x3)` pads the
   buffered bytes (one or two blocks), compresses them and writes the digest.
@@ -69,22 +70,30 @@ def restore : List Instr :=
   [.ldr .x .x19 .x20 P.so, .ldr .x .x21 .x20 (P.so + 16), .ldr .x .x22 .x20 (P.so + 24),
     .ldr .x .x23 .x20 (P.so + 32), .ldr .x .x24 .x20 (P.so + 40), .ldr .x .x20 .x20 (P.so + 8)]
 
-/-- Compress the block at `x1` into the hash value at `x19`, with scratch
+/-- Compress the blocks at `x1` into the hash value at `x19`, with scratch
 space `x20`, by calling the compression function `name` (whose code is
-`code`). -/
-def compressAt (name : String) (code : Prog isa) : Prog isa :=
-  .seq (.block [mov .x0 .x19, .movz .x .x2 1 0, mov .x3 .x20]) (.call name code)
+`code`), after `n` sets their number in `x2`. -/
+def compressWith (n : Instr) (name : String) (code : Prog isa) : Prog isa :=
+  .seq (.block [mov .x0 .x19, n, mov .x3 .x20]) (.call name code)
+
+/-- Compress one block. -/
+def compressAt : String → Prog isa → Prog isa := compressWith (.movz .x .x2 1 0)
+
+/-- Compress `x10` blocks. -/
+def compressN : String → Prog isa → Prog isa := compressWith (mov .x2 .x10)
 
 /-! ## `update`
 
 Registers: `x21` = `data`, `x22` = bytes of `data` left, `x23` = bytes in the
-buffer (`r`), `x10` = whether this iteration compresses a block (at `x1`).
+buffer (`r`), `x10` = the number of blocks this iteration compresses (at
+`x1`).
 The loop runs while `x22 ≠ 0`, so each iteration starts with `x22 ≥ 1` and
 `x23 < 64`. -/
 
-/-- A whole block straight from `data`. -/
+/-- Every whole block left, straight from `data`: `len >> 6` blocks,
+`(len >> 6) << 6` bytes. -/
 def direct : List Instr :=
-  [mov .x1 .x21, .addImm .x .x21 .x21 64, .subImm .x .x22 .x22 64, .movz .x .x10 1 0]
+  [mov .x1 .x21, .lsr .x .x10 .x22 6, .lsl .x .x9 .x10 6, .add .x .x21 .x21 .x9, .sub .x .x22 .x22 .x9]
 
 /-- The copy loop's body. -/
 def copyBody : List Instr :=
@@ -112,7 +121,7 @@ def updateBody (name : String) (code : Prog isa) : Prog isa :=
   (.seq (.ite (.zero .x .x23)
       (.seq (.block [.lsr .x .x9 .x22 6]) (.ite (.zero .x .x9) (fill P) (.block direct)))
       (fill P))
-    (.ite (.zero .x .x10) (.block []) (compressAt name code)))
+    (.ite (.zero .x .x10) (.block []) (compressN name code)))
 
 /-- Save registers and set up ours. -/
 def updateStart : List Instr :=

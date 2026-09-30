@@ -13,10 +13,10 @@ algorithm as on x86-64 (`VG.Impl.MdStream.X86_64`).
 The streaming state (`N + 64` bytes at `state`) is the hash value (`N`
 bytes) followed by a 64-byte buffer. Every argument is on the stack (cdecl).
 
-* `update(state, count, data, len, scratch)` processes one block per
-  iteration: straight from `data` while the buffer is empty and a whole block
-  remains, otherwise by copying bytes into the buffer, compressing it once it
-  is full.
+* `update(state, count, data, len, scratch)` compresses, in each iteration,
+  every whole block left in `data` with one call if the buffer is empty (so
+  that implementations that process several blocks at once can), and
+  otherwise copies bytes into the buffer, compressing it once it is full.
 * `finalize(state, count, out, scratch)` pads the buffered bytes (one or two
   blocks), compresses them and writes the digest.
 
@@ -64,24 +64,31 @@ def save (b : Reg) : List Instr := (saved P).map fun (r, d) => .store (at_ b d) 
 /-- Restore them, with `scratch` in `b` (restored last if it is one of them). -/
 def restore (b : Reg) : List Instr := (saved P).map fun (r, d) => .mov r (.mem (at_ b d))
 
-/-- Compress the block at `eax` into the hash value at `st`, with the scratch
-space at `scr`: a call of `compress(st, eax, 1, scr)`, its arguments pushed
-last to first. -/
-def compressAt (name : String) (code : Prog isa) (st scr : Reg) : Prog isa :=
-  .seq (.block [.mov .ecx (.imm 1)])
-    (.frame (.push [scr, .ecx, .eax, st]) (.call name code) (.pop .eax 4))
+/-- Compress the `ecx` blocks at `eax` into the hash value at `st`, with the
+scratch space at `scr`, after `n` (which sets `ecx`): a call of
+`compress(st, eax, ecx, scr)`, its arguments pushed last to first. -/
+def compressWith (n : List Instr) (name : String) (code : Prog isa) (st scr : Reg) : Prog isa :=
+  .seq (.block n) (.frame (.push [scr, .ecx, .eax, st]) (.call name code) (.pop .eax 4))
+
+/-- Compress one block. -/
+def compressAt : String → Prog isa → Reg → Reg → Prog isa := compressWith [.mov .ecx (.imm 1)]
+
+/-- Compress `ecx` blocks. -/
+def compressN : String → Prog isa → Reg → Reg → Prog isa := compressWith []
 
 /-! ## `update`
 
 Registers: `ebx` = `state`, `ebp` = `data`, `esi` = bytes of `data` left,
 `edi` = bytes in the buffer; within an iteration, `eax` = the block to
-compress and `ecx` = whether to compress it. `scratch` is read from its
+compress and `ecx` = the number of blocks to compress there. `scratch` is read from its
 argument slot (`[esp + 24]`) when needed. -/
 
-/-- A whole block straight from `data`. -/
+/-- Every whole block left, straight from `data`: `esi - (esi & 63)` bytes,
+`(esi - (esi & 63)) >> 6` blocks. -/
 def direct : List Instr :=
-  [.mov .eax (.reg .ebp), .alu .add .ebp (.imm 64),
-   .alu .sub .esi (.imm 64), .mov .ecx (.imm 1)]
+  [.mov .eax (.reg .ebp), .mov .ecx (.reg .esi), .alu .and .ecx (.imm 63), .mov .edx (.reg .esi),
+   .alu .sub .edx (.reg .ecx), .alu .add .ebp (.reg .edx), .mov .esi (.reg .ecx), .mov .ecx (.reg .edx),
+   .shift .shr .ecx 6]
 
 /-- Copy `min(64 - edi, esi)` bytes of `data` into the buffer; if that fills it,
 compress it. -/
@@ -101,7 +108,7 @@ def updateBody (name : String) (code : Prog isa) : Prog isa :=
   (.seq (.ite .e (.seq (.block [.alu .cmp .esi (.imm 64)]) (.ite .ae (.block direct) (fill P))) (fill P))
   (.seq (.block [.alu .test .ecx (.reg .ecx)])
     (.ite .ne (.seq (.block [.mov .edx (.mem (at_ .esp 24))])
-        (.seq (compressAt name code .ebx .edx) (.block [.mov .ecx (.imm 1), .alu .test .ecx (.reg .ecx)])))
+        (.seq (compressN name code .ebx .edx) (.block [.mov .ecx (.imm 1), .alu .test .ecx (.reg .ecx)])))
       (.block []))))
 
 def update (name : String) (code : Prog isa) : Prog isa :=
