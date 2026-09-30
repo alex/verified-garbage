@@ -66,7 +66,7 @@ structure Pre (s₀ : State) : Prop where
   nw : (scr s₀).toNat + 8 * sc ≤ 2 ^ 64
   fits : H.buf + H.F ≤ 8 * sc
   hB : 0 < H.B ∧ H.B ≤ 128
-  hW : H.W ≤ 64
+  hW : H.W ≤ 256
   hS : 0 < H.S ∧ H.S ≤ 256
   hD : 0 < H.D ∧ H.D ≤ H.F ∧ H.F ≤ 64
 

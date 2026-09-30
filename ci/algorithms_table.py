@@ -52,6 +52,7 @@ FAMILIES = ["Hashes", "MACs", "Ciphers", "AEADs", "KDFs", "KEMs", "Key agreement
 # with another.
 FEATURES = {
     "sha": "SHA extensions",
+    "sha512": "SHA512",
     "aes": "AES-NI",
     "pclmulqdq": "PCLMULQDQ",
     "ssse3": None,

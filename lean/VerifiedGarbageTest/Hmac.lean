@@ -3,6 +3,7 @@ import VerifiedGarbage.Spec.Hmac.Contract
 import VerifiedGarbage.Spec.Hmac.Generic
 import VerifiedGarbage.Spec.Pbkdf2.Contract
 import VerifiedGarbage.Spec.Pbkdf2.Generic
+import VerifiedGarbage.Spec.Sha256.Contract
 import VerifiedGarbage.Spec.Sha1.Contract
 import VerifiedGarbage.Spec.Md5.Contract
 import VerifiedGarbage.Spec.Sha512.Contract
@@ -24,9 +25,11 @@ the start of the computed one. (RFC 4231's HMAC-SHA-224 results are skipped:
 there is no SHA-224 spec.)
 
 It also checks that the generic contracts of `Spec/Hmac/Generic.lean` and
-`Spec/Pbkdf2/Generic.lean`, at SHA-256, are the HMAC-SHA-256 ones, and that
-each `Instance` names its own record and its hash's `update` function, and
-has at least that function's working space.
+`Spec/Pbkdf2/Generic.lean`, at SHA-256, are the HMAC-SHA-256 ones where they
+have the same working space (`init` at 76 words, and the iteration, also at
+`sha256I`), that `sha256I`'s functions have the names and modules of the
+existing SHA-256 ones, and that each `Instance` names its own record and its
+hash's `update` function, and has at least that function's working space.
 -/
 
 namespace VG.Test.Hmac
@@ -191,12 +194,29 @@ example {M : ISA} (A : Abi M) (stack : Nat) :
     Spec.Pbkdf2.iterateContract Spec.Hmac.sha256S 104 A stack =
       Spec.Pbkdf2.iterateSha256Contract A stack := rfl
 
+example {M : ISA} (A : Abi M) (stack : Nat) :
+    Spec.Hmac.sha256I.iterateContract A stack = Spec.Pbkdf2.iterateSha256Contract A stack := rfl
+
+open Spec.Hmac in
+run_cmd do
+  -- `sha256I`'s functions have the names and modules of the existing ones.
+  for (a, b) in [(sha256I.initApi, initSha256Api), (sha256I.finalizeApi, finalizeSha256Api),
+      (sha256I.iterateApi, Spec.Pbkdf2.iterateSha256Api)] do
+    unless a.name == b.name && a.module == b.module do
+      throwError "{a.module}::{a.name} is not {b.module}::{b.name}"
+  unless sha256I.pbkdf2Api.name == "vg_pbkdf2_hmac_sha256" &&
+      sha256I.pbkdf2Api.module == "pbkdf2_sha256" do
+    throwError "{sha256I.pbkdf2Api.module}::{sha256I.pbkdf2Api.name}"
+
+example : Spec.Pbkdf2.pbkdf2Hmac Spec.Hmac.sha256S = Spec.Pbkdf2.pbkdf2HmacSha256 := rfl
+
 /-! ## The instances -/
 
 open Spec.Hmac in
 /-- Each instance, with its Lean name and the `Api` of its hash's `update`. -/
 def instances : List (Spec.Hmac.Instance × String × Api) :=
-  [(sha1I, "sha1I", Spec.Sha1.updateApi), (md5I, "md5I", Spec.Md5.updateApi),
+  [(sha256I, "sha256I", Spec.Sha256.updateApi),
+    (sha1I, "sha1I", Spec.Sha1.updateApi), (md5I, "md5I", Spec.Md5.updateApi),
     (sha384I, "sha384I", Spec.Sha512.updateApi), (sha512I, "sha512I", Spec.Sha512.updateApi),
     (sha512_224I, "sha512_224I", Spec.Sha512.updateApi),
     (sha512_256I, "sha512_256I", Spec.Sha512.updateApi)]
@@ -215,7 +235,7 @@ run_cmd do
     let some w := scratchWords update.sig | throwError "{update.name} has no working space"
     unless w ≤ I.scratch do throwError "{lean}: {update.name} needs {w} words of working space"
   let names := instances.flatMap fun (I, _, _) =>
-    [I.initApi.name, I.finalizeApi.name, I.iterateApi.name]
+    [I.initApi.name, I.finalizeApi.name, I.iterateApi.name, I.pbkdf2Api.name]
   unless names.eraseDups.length == names.length do throwError "duplicate names: {names}"
 
 end VG.Test.Hmac
