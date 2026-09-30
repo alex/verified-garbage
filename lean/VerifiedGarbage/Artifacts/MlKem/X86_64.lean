@@ -128,31 +128,31 @@ def artifacts : List Artifact := [
   { Spec.MlKem.keyGenApi with
     target := X86_64.target
     doc := Spec.MlKem.keyGenApi.doc
-      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 24 \
+      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 32 \
         bytes of stack below its return address."])
     code := Impl.MlKem.X86_64.keyGen
-    contract := Spec.MlKem.keyGenContract X86_64.abi 24
-    stack := 24
+    contract := Spec.MlKem.keyGenContract X86_64.abi 32
+    stack := 32
     verified := Proof.MlKem.X86_64.keyGen_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.MlKem.encapsApi with
     target := X86_64.target
     doc := Spec.MlKem.encapsApi.doc
-      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 24 \
+      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 32 \
         bytes of stack below its return address."])
     code := Impl.MlKem.X86_64.encaps
-    contract := Spec.MlKem.encapsContract X86_64.abi 24
-    stack := 24
+    contract := Spec.MlKem.encapsContract X86_64.abi 32
+    stack := 32
     verified := Proof.MlKem.X86_64.encaps_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.MlKem.decapsApi with
     target := X86_64.target
     doc := Spec.MlKem.decapsApi.doc
-      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 24 \
+      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 32 \
         bytes of stack below its return address."])
     code := Impl.MlKem.X86_64.decaps
-    contract := Spec.MlKem.decapsContract X86_64.abi 24
-    stack := 24
+    contract := Spec.MlKem.decapsContract X86_64.abi 32
+    stack := 32
     verified := Proof.MlKem.X86_64.decaps_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 

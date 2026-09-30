@@ -45,31 +45,31 @@ def artifacts : List Artifact := [
   { Spec.MlKem1024.keyGenApi with
     target := X86_64.target
     doc := Spec.MlKem1024.keyGenApi.doc
-      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 24 \
+      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 32 \
         bytes of stack below its return address."])
     code := Impl.MlKem1024.X86_64.keyGen1024
-    contract := Spec.MlKem1024.keyGenContract X86_64.abi 24
-    stack := 24
+    contract := Spec.MlKem1024.keyGenContract X86_64.abi 32
+    stack := 32
     verified := Proof.MlKem1024.X86_64.keyGen1024_verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { Spec.MlKem1024.encapsApi with
     target := X86_64.target
     doc := Spec.MlKem1024.encapsApi.doc
-      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 24 \
+      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 32 \
         bytes of stack below its return address."])
     code := Impl.MlKem1024.X86_64.encaps1024
-    contract := Spec.MlKem1024.encapsContract X86_64.abi 24
-    stack := 24
+    contract := Spec.MlKem1024.encapsContract X86_64.abi 32
+    stack := 32
     verified := Proof.MlKem1024.X86_64.encaps1024_verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { Spec.MlKem1024.decapsApi with
     target := X86_64.target
     doc := Spec.MlKem1024.decapsApi.doc
-      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 24 \
+      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 32 \
         bytes of stack below its return address."])
     code := Impl.MlKem1024.X86_64.decaps1024
-    contract := Spec.MlKem1024.decapsContract X86_64.abi 24
-    stack := 24
+    contract := Spec.MlKem1024.decapsContract X86_64.abi 32
+    stack := 32
     verified := Proof.MlKem1024.X86_64.decaps1024_verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 

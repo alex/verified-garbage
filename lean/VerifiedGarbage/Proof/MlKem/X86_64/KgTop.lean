@@ -202,7 +202,7 @@ def keyGenSat : State where
   wr := [⟨0x2000, 1184⟩, ⟨0x3000, 2400⟩, ⟨0x10000, 32768⟩]
 
 theorem keyGen_verified :
-    Verified X86_64.target Impl.MlKem.X86_64.keyGen (Spec.MlKem.keyGenContract X86_64.abi 24) :=
+    Verified X86_64.target Impl.MlKem.X86_64.keyGen (Spec.MlKem.keyGenContract X86_64.abi 32) :=
   Verified.of_correct keyGen_correct keyGen_ct
     { pre := by sig_implies_pre [Spec.MlKem.keyGenContract, Spec.MlKem.keyGenSig, keyGenK, X86_64.abi,
         VG.X86_64.argRegs]

@@ -38,8 +38,8 @@ structure CEH4 (f out : Ptr) (d : Nat) (s : State) : Prop where
   dw : d ∈ Spec.MlKem1024.compressWidths
   red : Reduced s.mem (pa s f)
   dj : Region.Disjoint (pR (pa s f)) ⟨pa s out, 32 * d⟩
-  kF : (below (s.gpr .rsp) 24).Disjoint (pR (pa s f))
-  kO : (below (s.gpr .rsp) 24).Disjoint ⟨pa s out, 32 * d⟩
+  kF : (below (s.gpr .rsp) 32).Disjoint (pR (pa s f))
+  kO : (below (s.gpr .rsp) 32).Disjoint ⟨pa s out, 32 * d⟩
   c : Covers ([pR (pa s f)] ++ [⟨pa s out, 32 * d⟩]) (s.rd ++ s.wr)
   w : Covers [⟨pa s out, 32 * d⟩] s.wr
 
@@ -112,8 +112,8 @@ structure DDH4 (b f : Ptr) (d : Nat) (s : State) : Prop where
   off : b.2 < 2 ^ 31 ∧ f.2 < 2 ^ 31
   dw : d ∈ Spec.MlKem1024.compressWidths
   dj : Region.Disjoint ⟨pa s b, 32 * d⟩ (pR (pa s f))
-  kB : (below (s.gpr .rsp) 24).Disjoint ⟨pa s b, 32 * d⟩
-  kF : (below (s.gpr .rsp) 24).Disjoint (pR (pa s f))
+  kB : (below (s.gpr .rsp) 32).Disjoint ⟨pa s b, 32 * d⟩
+  kF : (below (s.gpr .rsp) 32).Disjoint (pR (pa s f))
   c : Covers ([⟨pa s b, 32 * d⟩] ++ [pR (pa s f)]) (s.rd ++ s.wr)
   w : Covers [pR (pa s f)] s.wr
 

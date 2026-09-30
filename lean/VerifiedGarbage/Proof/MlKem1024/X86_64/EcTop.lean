@@ -194,7 +194,7 @@ def encaps1024Sat : State where
   wr := [⟨0x3000, 32⟩, ⟨0x4000, 1568⟩, ⟨0x10000, 49152⟩]
 
 theorem encaps1024_verified :
-    Verified X86_64.target encaps1024 (Spec.MlKem1024.encapsContract X86_64.abi 24) :=
+    Verified X86_64.target encaps1024 (Spec.MlKem1024.encapsContract X86_64.abi 32) :=
   Verified.of_correct encaps1024_correct encaps1024_ct
     { pre := by sig_implies_pre [Spec.MlKem1024.encapsContract, Spec.MlKem1024.encapsSig, encaps1024K, X86_64.abi,
         VG.X86_64.argRegs]
