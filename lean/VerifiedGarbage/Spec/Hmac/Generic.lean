@@ -153,21 +153,25 @@ def sha1I : Instance := ⟨sha1S, "SHA-1", "sha1", "sha1I", "vg_sha1_update", 56
 /-- MD5: `vg_md5_update` needs 14 words of working space. -/
 def md5I : Instance := ⟨md5S, "MD5", "md5", "md5I", "vg_md5_update", 48⟩
 
-/-- SHA-384: `vg_sha512_update` needs 34 words of working space. -/
+/-- SHA-384: `vg_sha512_update` needs 172 words of working space; 62 more
+are left for the HMAC and PBKDF2 functions' own registers and buffers
+(AArch64's PBKDF2 iteration, which keeps the most, uses 47: its caller's
+registers and its return address, a streaming state and two final hash
+values). -/
 def sha384I : Instance :=
-  ⟨sha384S, "SHA-384", "sha384", "sha384I", "vg_sha512_update", 96⟩
+  ⟨sha384S, "SHA-384", "sha384", "sha384I", "vg_sha512_update", 234⟩
 
 /-- SHA-512: as SHA-384. -/
 def sha512I : Instance :=
-  ⟨sha512S, "SHA-512", "sha512", "sha512I", "vg_sha512_update", 96⟩
+  ⟨sha512S, "SHA-512", "sha512", "sha512I", "vg_sha512_update", 234⟩
 
 /-- SHA-512/224: as SHA-384. -/
 def sha512_224I : Instance :=
-  ⟨sha512_224S, "SHA-512/224", "sha512_224", "sha512_224I", "vg_sha512_update", 96⟩
+  ⟨sha512_224S, "SHA-512/224", "sha512_224", "sha512_224I", "vg_sha512_update", 234⟩
 
 /-- SHA-512/256: as SHA-384. -/
 def sha512_256I : Instance :=
-  ⟨sha512_256S, "SHA-512/256", "sha512_256", "sha512_256I", "vg_sha512_update", 96⟩
+  ⟨sha512_256S, "SHA-512/256", "sha512_256", "sha512_256I", "vg_sha512_update", 234⟩
 
 namespace Instance
 

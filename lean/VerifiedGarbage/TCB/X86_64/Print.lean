@@ -79,12 +79,16 @@ def XBinOp.name : XBinOp → String
   | .pshufb => "pshufb" | .sha256msg1 => "sha256msg1" | .sha256msg2 => "sha256msg2"
   | .sha1msg1 => "sha1msg1" | .sha1msg2 => "sha1msg2" | .sha1nexte => "sha1nexte"
   | .pand => "pand" | .pandn => "pandn" | .paddq => "paddq" | .pmuludq => "pmuludq"
+  | .paddw => "paddw" | .psubw => "psubw" | .psubd => "psubd" | .pmullw => "pmullw"
+  | .pmulhw => "pmulhw" | .packssdw => "packssdw" | .punpcklwd => "punpcklwd"
+  | .punpckhwd => "punpckhwd"
   | .aesenc => "aesenc" | .aesenclast => "aesenclast" | .aesdec => "aesdec"
   | .aesdeclast => "aesdeclast" | .aesimc => "aesimc"
 
 def XShiftOp.name : XShiftOp → String
   | .pslld => "pslld" | .psrld => "psrld" | .psllq => "psllq" | .psrlq => "psrlq"
-  | .pslldq => "pslldq" | .psrldq => "psrldq"
+  | .pslldq => "pslldq" | .psrldq => "psrldq" | .psllw => "psllw" | .psrlw => "psrlw"
+  | .psraw => "psraw" | .psrad => "psrad"
 
 def XOp.asm : XOp → String
   | .bin op d r => s!"{op.name} {d.name}, {r.name}"
@@ -102,6 +106,9 @@ def VBinOp.name : VBinOp → String
   | .vpand => "vpand" | .vpandn => "vpandn" | .vpshufb => "vpshufb" | .vpmuludq => "vpmuludq"
   | .vpunpckldq => "vpunpckldq" | .vpunpckhdq => "vpunpckhdq"
   | .vpunpcklqdq => "vpunpcklqdq" | .vpunpckhqdq => "vpunpckhqdq"
+  | .vpaddw => "vpaddw" | .vpsubw => "vpsubw" | .vpsubd => "vpsubd" | .vpmullw => "vpmullw"
+  | .vpmulhw => "vpmulhw" | .vpackssdw => "vpackssdw" | .vpunpcklwd => "vpunpcklwd"
+  | .vpunpckhwd => "vpunpckhwd"
 
 def VVarOp.name : VVarOp → String
   | .vpsllvd => "vpsllvd" | .vpsrlvd => "vpsrlvd" | .vpsllvq => "vpsllvq" | .vpsrlvq => "vpsrlvq"
@@ -122,6 +129,9 @@ def VOp.asm : VOp → String
   | .vextracti128 d r n => s!"vextracti128 {d.name}, {r.yname}, {n.toNat}"
   | .vmovq d r => s!"vmovq {d.name}, {r.name}"
   | .vzeroupper => "vzeroupper"
+  | .vsha512rnds2 d a b => s!"vsha512rnds2 {d.yname}, {a.yname}, {b.name}"
+  | .vsha512msg1 d r => s!"vsha512msg1 {d.yname}, {r.name}"
+  | .vsha512msg2 d r => s!"vsha512msg2 {d.yname}, {r.yname}"
 
 def ZBinOp.name : ZBinOp → String
   | .vpaddd => "vpaddd" | .vpxord => "vpxord"
@@ -163,6 +173,8 @@ def Instr.asm : Instr → List String
   | .bswap32 d => [s!"bswap {d.name32}"]
   | .rorx32 d r n => [s!"rorx {d.name32}, {r.name32}, {n}"]
   | .andn32 d a b => [s!"andn {d.name32}, {a.name32}, {b.name32}"]
+  | .rorx d r n => [s!"rorx {d.name}, {r.name}, {n}"]
+  | .andn d a b => [s!"andn {d.name}, {a.name}, {b.name}"]
   | .movzx8 d m => [s!"movzx {d.name32}, {m.str8}"]
   | .store8 m r => [s!"mov {m.str8}, {r.name8}"]
   | .bswap d => [s!"bswap {d.name}"]
