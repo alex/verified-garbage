@@ -62,6 +62,22 @@ theorem shr3_beq {n : Nat} (hn : n < 2 ^ 64) : (BitVec.ofNat 64 n >>> 3 == 0) = 
       omega
     rw [beq_eq_false_iff_ne.mpr e, decide_eq_false h]
 
+theorem shr_beq {n : Nat} (s : Nat) (hn : n < 2 ^ 64) :
+    (BitVec.ofNat 64 n >>> s == 0) = decide (n < 2 ^ s) := by
+  have h : (BitVec.ofNat 64 n >>> s).toNat = n / 2 ^ s := by
+    rw [BitVec.toNat_ushiftRight, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hn, Nat.shiftRight_eq_div_pow]
+  by_cases hlt : n < 2 ^ s
+  · have e : BitVec.ofNat 64 n >>> s = 0 :=
+      BitVec.eq_of_toNat_eq (by rw [h]; exact Nat.div_eq_of_lt hlt)
+    rw [e, decide_eq_true hlt]; rfl
+  · have e : BitVec.ofNat 64 n >>> s ≠ 0 := fun e => by
+      have h' := congrArg BitVec.toNat e
+      rw [h] at h'
+      have h0 : n / 2 ^ s = 0 := h'
+      have := Nat.div_pos (Nat.le_of_not_lt hlt) (Nat.two_pow_pos s)
+      omega
+    rw [beq_eq_false_iff_ne.mpr e, decide_eq_false hlt]
+
 theorem shr3_bne {n : Nat} (hn : n < 2 ^ 64) : (BitVec.ofNat 64 n >>> 3 != 0) = decide (8 ≤ n) := by
   rw [bne, shr3_beq hn]
   by_cases h : n < 8
@@ -100,6 +116,24 @@ structure Inv (s₀ : State) (K i : Nat) (s : State) : Prop where
   mem : s.mem = s₀.mem
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
+
+/-- The invariant does not depend on `x6`. -/
+theorem Inv.of_x6 {s₀ : State} {K i : Nat} {s s' : State} (hI : Inv s₀ K i s)
+    (hg : ∀ r, r ≠ .x6 → s'.gpr r = s.gpr r) (hv : s'.v = s.v) (hm : s'.mem = s.mem)
+    (hrd : s'.rd = s.rd) (hwr : s'.wr = s.wr) : Inv s₀ K i s' where
+  le := hI.le
+  c := by rw [hv, hI.c]
+  t k hk hkK := by rw [hv, hI.t k hk hkK]
+  sw k hk hkK := by rw [hv, hI.sw k hk hkK]
+  y := by rw [hv, hI.y]
+  x0 := by rw [hg .x0 (by decide), hI.x0]
+  x1 := by rw [hg .x1 (by decide), hI.x1]
+  x2 := by rw [hg .x2 (by decide), hI.x2]
+  x3 := by rw [hg .x3 (by decide), hI.x3]
+  x5 := by rw [hg .x5 (by decide), hg .x3 (by decide), hI.x5]
+  mem := by rw [hm, hI.mem]
+  rd := by rw [hrd, hI.rd]
+  wr := by rw [hwr, hI.wr]
 
 /-! ## The powers -/
 
@@ -293,7 +327,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
       g₄ .x1 (by decide) (by decide) (by decide)]
         exact ⟨yR s₀, by simp [hp.wr], contains_offset (by decide) (by decide)⟩))
     fun s₅ ⟨l₅, o₅⟩ => ?_
-  refine WP.mono (lsr_ok s₅) fun s' ⟨f5, fg, fv, fm, frd, fwr⟩ => ?_
+  refine WP.mono (lsr_ok .x5 .x3 3 (by decide) s₅) fun s' ⟨f5, fg, fv, fm, frd, fwr⟩ => ?_
   have g : ∀ r, r ≠ .x5 → r ≠ .x6 → r ≠ .x7 → s'.gpr r = s₀.gpr r := fun r h5 h6 h7 => by
     rw [fg r h5, o₅.gpr, g₄ r h5 h6 h7]
   have O : VOnly ([tReg 1] ++ [Y]) s₃ s₅ := o₄.trans o₅
@@ -343,41 +377,23 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {K : Nat} {s : State} (hI : I
 
 /-! ## The whole function -/
 
-theorem loops_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa Impl.Gcm.AArch64.Pmull.ghash s₀ fun s' => Proof.Gcm.ghashAArch64.post s₀ s' := by
+theorem WP.seq_assoc {a b c : Prog isa} {s : State} {Q : State → Prop}
+    (h : WP isa (.seq a b) s fun s' => WP isa c s' Q) : WP isa (.seq a (.seq b c)) s Q := by
+  rw [WP.seq_iff] at h
+  exact WP.seq (WP.mono h fun _ h' => WP.seq h')
+
+/-- The remaining blocks, one at a time. -/
+theorem ones_ok {s₀ : State} (hp : Pre s₀) {K i : Nat} (hK1 : 1 ≤ K) (hK8 : K ≤ 8) {s : State}
+    (hI : Inv s₀ K i s) :
+    WP isa (.ite (.zero .x .x3) (.block [])
+      (.loop (.block (Impl.Gcm.AArch64.Pmull.body 1)) (.nonzero .x .x3))) s (Inv s₀ K (nb s₀)) := by
   have hn := hp.nb_lt
-  refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI₁ => ?_)
-  refine WP.seq (WP.mono (Q := fun s => ∃ K i, 1 ≤ K ∧ K ≤ 8 ∧ nb s₀ - i < 8 ∧ Inv s₀ K i s) ?_
-    fun s₂ ⟨K, i, hK1, hK8, hi8, hI₂⟩ => ?_)
-  · have hev : eval (.zero .x .x5) s₁ = some (decide (nb s₀ < 8)) := by
-      simp only [eval, State.read, Size.bits, BitVec.setWidth_eq, hI₁.x5, hI₁.x3, Nat.sub_zero,
-        shr3_beq (show nb s₀ < 2 ^ 64 by omega)]
-    refine WP.ite _ hev (fun h => WP.block_nil ⟨1, 0, le_rfl, by decide,
-      by simp only [decide_eq_true_eq] at h; omega, hI₁⟩) (fun h => ?_)
-    simp only [decide_eq_false_iff_not, Nat.not_lt] at h
-    refine WP.seq (WP.mono (powers_ok hI₁) fun s₃ hI₃ => ?_)
-    let Inv8 : Nat → State → Prop := fun m s => ∃ i, m = nb s₀ - i ∧ i + 8 ≤ nb s₀ ∧ Inv s₀ 8 i s
-    have hstep : ∀ m s, Inv8 m s → WP isa (.block (Impl.Gcm.AArch64.Pmull.body 8)) s (fun s' =>
-        (eval (.nonzero .x .x5) s' = some false ∧
-          ∃ K i, 1 ≤ K ∧ K ≤ 8 ∧ nb s₀ - i < 8 ∧ Inv s₀ K i s') ∨
-        (eval (.nonzero .x .x5) s' = some true ∧ ∃ m' < m, Inv8 m' s')) := by
-      rintro m s ⟨i, rfl, hi, hI⟩
-      refine WP.mono (body_ok hp (by decide) le_rfl le_rfl hi hI) fun s' hI' => ?_
-      have hev : eval (.nonzero .x .x5) s' = some (decide (8 ≤ nb s₀ - (i + 8))) := by
-        simp only [eval, State.read, Size.bits, BitVec.setWidth_eq, hI'.x5, hI'.x3,
-          shr3_bne (show nb s₀ - (i + 8) < 2 ^ 64 by omega)]
-      by_cases h8 : 8 ≤ nb s₀ - (i + 8)
-      · exact .inr ⟨by rw [hev, decide_eq_true h8], nb s₀ - (i + 8), by omega, i + 8, rfl,
-          by omega, hI'⟩
-      · exact .inl ⟨by rw [hev, decide_eq_false h8], 8, i + 8, by decide, le_rfl, by omega, hI'⟩
-    exact WP.loop (M := isa) Inv8 hstep (nb s₀) s₃ ⟨0, rfl, by omega, hI₃⟩
-  refine WP.seq (WP.mono (Q := Inv s₀ K (nb s₀)) ?_ fun s₄ hI₄ => epilogue_ok hp hI₄)
-  have hev : eval (.zero .x .x3) s₂ = some (decide (nb s₀ - i = 0)) := by
-    simp only [eval, State.read, Size.bits, BitVec.setWidth_eq, hI₂.x3,
+  have hev : eval (.zero .x .x3) s = some (decide (nb s₀ - i = 0)) := by
+    simp only [eval, State.read, Size.bits, BitVec.setWidth_eq, hI.x3,
       ofNat_beq (show nb s₀ - i < 2 ^ 64 by omega)]
   refine WP.ite _ hev (fun h => ?_) (fun h => ?_)
-  · have : i = nb s₀ := by have := hI₂.le; simp only [decide_eq_true_eq] at h; omega
-    exact WP.block_nil (this ▸ hI₂)
+  · have : i = nb s₀ := by have := hI.le; simp only [decide_eq_true_eq] at h; omega
+    exact WP.block_nil (this ▸ hI)
   · let Inv1 : Nat → State → Prop := fun m s => ∃ i, m = nb s₀ - i ∧ i < nb s₀ ∧ Inv s₀ K i s
     have hstep : ∀ m s, Inv1 m s → WP isa (.block (Impl.Gcm.AArch64.Pmull.body 1)) s (fun s' =>
         (eval (.nonzero .x .x3) s' = some false ∧ Inv s₀ K (nb s₀) s') ∨
@@ -392,8 +408,75 @@ theorem loops_ok {s₀ : State} (hp : Pre s₀) :
         exact .inl ⟨by rw [hev, decide_eq_false (not_not.mpr hlast)], this ▸ hI'⟩
       · exact .inr ⟨by rw [hev, decide_eq_true hlast], nb s₀ - (i + 1), by omega, i + 1, rfl,
           by omega, hI'⟩
-    have hlt : i < nb s₀ := by have := hI₂.le; simp only [decide_eq_false_iff_not] at h; omega
-    exact WP.loop (M := isa) Inv1 hstep (nb s₀ - i) s₂ ⟨i, rfl, hlt, hI₂⟩
+    have hlt : i < nb s₀ := by have := hI.le; simp only [decide_eq_false_iff_not] at h; omega
+    exact WP.loop (M := isa) Inv1 hstep (nb s₀ - i) s ⟨i, rfl, hlt, hI⟩
+
+/-- `k` blocks if bit `sh` of the remaining count (less than `2 ^ (sh + 1)`) is
+set, with `k = 2 ^ sh`. -/
+theorem bit_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (sh k : Nat) (hk : k = 2 ^ sh) (hk1 : 1 ≤ k)
+    (hk8 : k ≤ 8) (hsh : sh < 64) (hi : nb s₀ - i < 2 * k) {s : State} (hI : Inv s₀ 8 i s) :
+    WP isa (.seq (.block [.lsr .x .x6 .x3 sh])
+      (.ite (.zero .x .x6) (.block []) (.block (Impl.Gcm.AArch64.Pmull.body k)))) s
+      (fun s' => ∃ i', nb s₀ - i' < k ∧ Inv s₀ 8 i' s') := by
+  have hn := hp.nb_lt
+  refine WP.seq (WP.mono (lsr_ok .x6 .x3 sh hsh s) fun s₁ ⟨f6, fg, fv, fm, frd, fwr⟩ => ?_)
+  have hI₁ := hI.of_x6 fg fv fm frd fwr
+  have hev : eval (.zero .x .x6) s₁ = some (decide (nb s₀ - i < k)) := by
+    simp only [eval, State.read, Size.bits, BitVec.setWidth_eq, f6, hI.x3,
+      shr_beq sh (show nb s₀ - i < 2 ^ 64 by omega), hk]
+  refine WP.ite _ hev (fun h => WP.block_nil ⟨i, by simpa using h, hI₁⟩) (fun h => ?_)
+  simp only [decide_eq_false_iff_not, Nat.not_lt] at h
+  exact WP.mono (body_ok hp hk1 hk8 le_rfl (by omega) hI₁) fun s' h' => ⟨i + k, by omega, h'⟩
+
+/-- The last `n mod 8` blocks, once the powers are computed. -/
+theorem tail_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : nb s₀ - i < 8) {s : State}
+    (hI : Inv s₀ 8 i s) :
+    WP isa Impl.Gcm.AArch64.Pmull.tail s (Inv s₀ 8 (nb s₀)) := by
+  have hn := hp.nb_lt
+  unfold Impl.Gcm.AArch64.Pmull.tail
+  refine WP.seq_assoc (WP.mono (bit_ok hp 2 4 rfl (by decide) (by decide) (by decide) (by omega) hI)
+    fun s₁ ⟨i₁, hi₁, hI₁⟩ => ?_)
+  refine WP.seq_assoc (WP.mono (bit_ok hp 1 2 rfl (by decide) (by decide) (by decide) (by omega)
+    hI₁) fun s₂ ⟨i₂, hi₂, hI₂⟩ => ?_)
+  have hev : eval (.zero .x .x3) s₂ = some (decide (nb s₀ - i₂ = 0)) := by
+    simp only [eval, State.read, Size.bits, BitVec.setWidth_eq, hI₂.x3,
+      ofNat_beq (show nb s₀ - i₂ < 2 ^ 64 by omega)]
+  refine WP.ite _ hev (fun h => ?_) (fun h => ?_)
+  · have : i₂ = nb s₀ := by have := hI₂.le; simp only [decide_eq_true_eq] at h; omega
+    exact WP.block_nil (this ▸ hI₂)
+  · simp only [decide_eq_false_iff_not] at h
+    have : i₂ + 1 = nb s₀ := by omega
+    exact this ▸ body_ok hp le_rfl (by decide) le_rfl (by omega) hI₂
+
+theorem loops_ok {s₀ : State} (hp : Pre s₀) :
+    WP isa Impl.Gcm.AArch64.Pmull.ghash s₀ fun s' => Proof.Gcm.ghashAArch64.post s₀ s' := by
+  have hn := hp.nb_lt
+  refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI₁ => ?_)
+  refine WP.seq (WP.mono (Q := fun s => ∃ K, Inv s₀ K (nb s₀) s) ?_
+    fun s₂ ⟨K, hI₂⟩ => epilogue_ok hp hI₂)
+  have hev : eval (.zero .x .x5) s₁ = some (decide (nb s₀ < 8)) := by
+    simp only [eval, State.read, Size.bits, BitVec.setWidth_eq, hI₁.x5, hI₁.x3, Nat.sub_zero,
+      shr3_beq (show nb s₀ < 2 ^ 64 by omega)]
+  refine WP.ite _ hev (fun _ => WP.mono (ones_ok hp le_rfl (by decide) hI₁) fun s h => ⟨1, h⟩)
+    (fun h => ?_)
+  simp only [decide_eq_false_iff_not, Nat.not_lt] at h
+  refine WP.seq (WP.mono (powers_ok hI₁) fun s₃ hI₃ => ?_)
+  refine WP.seq (WP.mono (Q := fun s => ∃ i, nb s₀ - i < 8 ∧ Inv s₀ 8 i s) ?_
+    fun s₄ ⟨i, hi, hI₄⟩ => WP.mono (tail_ok hp hi hI₄) fun s h => ⟨8, h⟩)
+  let Inv8 : Nat → State → Prop := fun m s => ∃ i, m = nb s₀ - i ∧ i + 8 ≤ nb s₀ ∧ Inv s₀ 8 i s
+  have hstep : ∀ m s, Inv8 m s → WP isa (.block (Impl.Gcm.AArch64.Pmull.body 8)) s (fun s' =>
+      (eval (.nonzero .x .x5) s' = some false ∧ ∃ i, nb s₀ - i < 8 ∧ Inv s₀ 8 i s') ∨
+      (eval (.nonzero .x .x5) s' = some true ∧ ∃ m' < m, Inv8 m' s')) := by
+    rintro m s ⟨i, rfl, hi, hI⟩
+    refine WP.mono (body_ok hp (by decide) le_rfl le_rfl hi hI) fun s' hI' => ?_
+    have hev : eval (.nonzero .x .x5) s' = some (decide (8 ≤ nb s₀ - (i + 8))) := by
+      simp only [eval, State.read, Size.bits, BitVec.setWidth_eq, hI'.x5, hI'.x3,
+        shr3_bne (show nb s₀ - (i + 8) < 2 ^ 64 by omega)]
+    by_cases h8 : 8 ≤ nb s₀ - (i + 8)
+    · exact .inr ⟨by rw [hev, decide_eq_true h8], nb s₀ - (i + 8), by omega, i + 8, rfl,
+        by omega, hI'⟩
+    · exact .inl ⟨by rw [hev, decide_eq_false h8], i + 8, by omega, hI'⟩
+  exact WP.loop (M := isa) Inv8 hstep (nb s₀) s₃ ⟨0, rfl, by omega, hI₃⟩
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa Impl.Gcm.AArch64.Pmull.ghash s₀ fun s' =>

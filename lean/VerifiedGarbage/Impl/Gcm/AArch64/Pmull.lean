@@ -31,7 +31,8 @@ swapped. In the bit-reflected representation of SP 800-38D:
   `Y ← mul(Y ⊕ X₁, H'⁸) ⊕ mul(X₂, H'⁷) ⊕ … ⊕ mul(X₈, H')`, reducing the sum of
   the eight products once, and adding the product of `Y ⊕ X₁` last so that
   only it and the reduction wait for the previous `Y`; the remaining blocks go
-  one at a time.
+  four, two and one at a time (with one reduction each), or, if there are
+  fewer than eight blocks in all, one at a time.
 * `Y` is kept as loaded (its halves swapped), and stored with `rev64`.
 
 Only caller-saved registers are used (`x5`–`x7`, `v0`–`v7`, `v16`–`v31`),
@@ -137,11 +138,18 @@ def body (k : Nat) : List Instr :=
 
 def epilogue : List Instr := [.vop (.rev .rev64b Y Y), .strq Y .x1 0]
 
+/-- The last `n mod 8` blocks, once the powers are computed: four, two and one
+at a time, as the bits of `n` say. -/
+def tail : Prog isa :=
+  .seq (.block [.lsr .x .x6 .x3 2]) (.seq (.ite (.zero .x .x6) (.block []) (.block (body 4)))
+    (.seq (.block [.lsr .x .x6 .x3 1]) (.seq (.ite (.zero .x .x6) (.block []) (.block (body 2)))
+      (.ite (.zero .x .x3) (.block []) (.block (body 1))))))
+
 def ghash : Prog isa :=
   .seq (.block prologue)
-    (.seq (.ite (.zero .x .x5) (.block [])
-        (.seq (.block powers) (.loop (.block (body 8)) (.nonzero .x .x5))))
-      (.seq (.ite (.zero .x .x3) (.block []) (.loop (.block (body 1)) (.nonzero .x .x3)))
-        (.block epilogue)))
+    (.seq (.ite (.zero .x .x5)
+        (.ite (.zero .x .x3) (.block []) (.loop (.block (body 1)) (.nonzero .x .x3)))
+        (.seq (.block powers) (.seq (.loop (.block (body 8)) (.nonzero .x .x5)) tail)))
+      (.block epilogue))
 
 end VG.Impl.Gcm.AArch64.Pmull

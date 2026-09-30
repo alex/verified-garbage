@@ -305,10 +305,9 @@ theorem exec_subImm {d n : Reg} {imm : Nat} (h : imm < 4096) (s : State) :
     exec (.subImm .x d n imm) s = some (s.write .x d (s.gpr n - BitVec.ofNat 64 imm)) := by
   simp only [exec, h, ite_true, State.read, Size.bits, BitVec.setWidth_eq]
 
-theorem exec_lsr3 (d n : Reg) (s : State) :
-    exec (.lsr .x d n 3) s = some (s.write .x d (s.gpr n >>> 3)) := by
-  simp only [exec, Size.bits, show 3 < 64 from by decide, ite_true, State.read,
-    BitVec.setWidth_eq]
+theorem exec_lsr {d n : Reg} {sh : Nat} (h : sh < 64) (s : State) :
+    exec (.lsr .x d n sh) s = some (s.write .x d (s.gpr n >>> sh)) := by
+  simp only [exec, Size.bits, h, ite_true, State.read, BitVec.setWidth_eq]
 
 /-- Past `k` blocks. -/
 theorem advance_ok (k : Nat) (hk : 16 * k < 4096) (s : State) :
@@ -319,19 +318,20 @@ theorem advance_ok (k : Nat) (hk : 16 * k < 4096) (s : State) :
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   apply WP.of_runBlock
   simp only [Impl.Gcm.AArch64.Pmull.advance, runBlock_cons, runStep_some, runBlock_nil,
-    exec_addImm hk, exec_subImm (show k < 4096 by omega), exec_lsr3, gpr_write_x, ite_true,
+    exec_addImm hk, exec_subImm (show k < 4096 by omega), exec_lsr (show 3 < 64 by decide),
+    gpr_write_x, ite_true,
     ite_false, reduceCtorEq, Option.some.injEq, exists_eq_left']
   exact ⟨trivial, trivial, trivial, fun r h2 h3 h5 => by simp only [h2, h3, h5, ite_false], rfl, rfl, rfl, rfl⟩
 
-/-- `lsr x5, x3, #3`. -/
-theorem lsr_ok (s : State) :
-    WP isa (.block [.lsr .x .x5 .x3 3]) s fun s' =>
-      s'.gpr .x5 = s.gpr .x3 >>> 3 ∧ (∀ r, r ≠ .x5 → s'.gpr r = s.gpr r) ∧ s'.v = s.v ∧
+/-- `lsr d, n, #sh`. -/
+theorem lsr_ok (d n : Reg) (sh : Nat) (hsh : sh < 64) (s : State) :
+    WP isa (.block [.lsr .x d n sh]) s fun s' =>
+      s'.gpr d = s.gpr n >>> sh ∧ (∀ r, r ≠ d → s'.gpr r = s.gpr r) ∧ s'.v = s.v ∧
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   apply WP.of_runBlock
-  simp only [runBlock_cons, runStep_some, runBlock_nil, exec_lsr3, gpr_write_x, ite_true,
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec_lsr hsh, gpr_write_x, ite_true,
     Option.some.injEq, exists_eq_left']
-  exact ⟨trivial, fun r h5 => by simp only [h5, ite_false], rfl, rfl, rfl, rfl⟩
+  exact ⟨trivial, fun r h => by simp only [h, ite_false], rfl, rfl, rfl, rfl⟩
 
 /-! ## The registers of the powers -/
 
