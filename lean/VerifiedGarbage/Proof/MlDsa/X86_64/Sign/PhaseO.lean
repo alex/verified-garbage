@@ -111,47 +111,79 @@ theorem oChk_ok {p : Params} (h : Ok3 p) : oChk p = true := by
 abbrev sigV (p : Params) (σ : State) (κ : Nat) : List Byte :=
   sigOf p (CTv p σ κ, (List.range p.ℓ).map (Zv p σ κ), (List.range p.k).map (Hv p σ κ))
 
-theorem output_ok {P : Prims} {D : Nat} (hPO : PrimsOk P D) {p : Params} (hc : oChk p = true) {σ : State} {κ : Nat}
-    {s : State} (hk : IK p D σ s) (hct : bytesAt s.mem (pa s (sc oCT)) (cLen p) = CTv p σ κ)
-    (hz : Fam s (yBase p) p.ℓ (Zv p σ κ)) (hh : HFam s 5 p.k (Hv p σ κ)) (hpass : PassV p σ κ)
-    (h15 : s.gpr .r15 = 1) :
-    WP isa (output P p) s fun s' => IK p D σ s' ∧ bytesAt s'.mem (pa s' (.r14, 0)) p.sigLen = sigV p σ κ ∧
-      s'.gpr .r15 = 1 := by
+section
+variable {P : Prims} {D : Nat} (hPO : PrimsOk P D) {p : Params} (hc : oChk p = true) {σ : State} {κ : Nat}
+include hc
+
+omit hPO in
+theorem outCopy_ok {s : State} (hk : IK p D σ s) (hct : bytesAt s.mem (pa s (sc oCT)) (cLen p) = CTv p σ κ)
+    (hz : Fam s (yBase p) p.ℓ (Zv p σ κ)) (hh : HFam s 5 p.k (Hv p σ κ)) (h15 : s.gpr .r15 = 1) :
+    WP isa (copy (.r14, 0) (sc oCT) (cLen p)) s fun s1 =>
+      OS p D σ κ 0 s1 ∧ ∀ f, HFam s 5 p.k f → HFam s1 5 p.k f := by
   simp only [oChk, Bool.and_eq_true, List.all_eq_true, List.mem_range, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨cc, c0⟩, cz⟩, ch⟩, hhp⟩, hbp⟩, hzl⟩, hsl⟩, ci⟩, ck⟩ := hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨cc, c0⟩, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩ := hc
   have L := hk.d.im.st.lay
-  unfold output
-  refine WP.seq (WP.mono (copy_okB L cc) fun s1 ⟨hP1, hcs1, hb1⟩ => ?_)
-  have O0 : OS p D σ κ 0 s1 := by
-    simp only [ofam, Bool.and_eq_true] at c0
-    refine ⟨hk.step hP1 c0.1.1, Fam.keep L hP1 c0.1.2 hz, HFam.keep L hP1 c0.2 hh, ?_,
-      by rw [hcs1 _ (by decide), h15]⟩
-    rw [Nat.mul_zero, Nat.add_zero, hP1.pa (by decide), hb1, hct]
-    simp [zEnc]
-  refine WP.seq (WP.mono (seqR_ok (I := fun r => OS p D σ κ r) p.ℓ 0 (fun r _ hr s h => ?_) s1 O0) fun s2 h2 => ?_)
-  · obtain ⟨⟨c1, c2⟩, c3⟩ := cz r (by omega)
-    have Lh := h.k.d.im.st.lay
-    have hzr := h.z r (by omega)
-    refine WP.mono (bpAt_ok hPO Lh hbp hzl c1 hzr.1 (inRange_of_norm hzr (hpass.1 r (by omega)) (Nat.sub_le _ _)))
-      fun s' ⟨hP', hcs', hb'⟩ => ?_
-    have O' := h.step hP' c2 c3 (hcs' _ (by decide))
-    refine ⟨O'.k, O'.z, O'.h, ?_, O'.r15⟩
-    rw [Nat.mul_succ, ← Nat.add_assoc, VG.Proof.MlKem.bytesAt_add, O'.sig, pa_add, Nat.zero_add,
-      hP'.pa (r14_bases _), hb', hzr.2, zEnc, zEnc, List.range_succ, List.flatMap_append, List.flatMap_singleton,
-      List.append_assoc]
-  rw [Nat.zero_add] at h2
+  refine WP.mono (copy_okB L cc) fun s1 ⟨hP1, hcs1, hb1⟩ => ?_
+  simp only [ofam, Bool.and_eq_true] at c0
+  refine ⟨⟨hk.step hP1 c0.1.1, Fam.keep L hP1 c0.1.2 hz, HFam.keep L hP1 c0.2 hh, ?_,
+    by rw [hcs1 _ (by decide), h15]⟩, fun f h => HFam.keep L hP1 c0.2 h⟩
+  rw [Nat.mul_zero, Nat.add_zero, hP1.pa (by decide), hb1, hct]
+  simp [zEnc]
+
+include hPO in
+theorem packZ_ok {r : Nat} (hr : r < p.ℓ) {s : State} (h : OS p D σ κ r s) (hpass : PassV p σ κ) :
+    WP isa (packZ P p r) s fun s' => OS p D σ κ (r + 1) s' ∧ ∀ f, HFam s 5 p.k f → HFam s' 5 p.k f := by
+  simp only [oChk, Bool.and_eq_true, List.all_eq_true, List.mem_range, decide_eq_true_eq] at hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨-, -⟩, cz⟩, -⟩, -⟩, hbp⟩, hzl⟩, -⟩, -⟩, -⟩ := hc
+  obtain ⟨⟨c1, c2⟩, c3⟩ := cz r hr
+  have Lh := h.k.d.im.st.lay
+  have hzr := h.z r hr
+  refine WP.mono (bpAt_ok hPO Lh hbp hzl c1 hzr.1 (inRange_of_norm hzr (hpass.1 r hr) (Nat.sub_le _ _)))
+    fun s' ⟨hP', hcs', hb'⟩ => ?_
+  have O' := h.step hP' c2 c3 (hcs' _ (by decide))
+  have c2' := c2
+  simp only [ofam, Bool.and_eq_true] at c2'
+  refine ⟨⟨O'.k, O'.z, O'.h, ?_, O'.r15⟩, fun f hf => HFam.keep Lh hP' c2'.2 hf⟩
+  rw [Nat.mul_succ, ← Nat.add_assoc, VG.Proof.MlKem.bytesAt_add, O'.sig, pa_add, Nat.zero_add,
+    hP'.pa (r14_bases _), hb', hzr.2, zEnc, zEnc, List.range_succ, List.flatMap_append, List.flatMap_singleton,
+    List.append_assoc]
+
+omit hc in
+theorem hones_ok {s : State} (h : OS p D σ κ p.ℓ s) (hpass : PassV p σ κ) :
+    hintOnes (hintAt s.mem (pa s (Impl.MlDsa.X86_64.Sign.hP 0)) p.k) ≤ p.ω := by
+  rw [hintAt_of (f := Hv p σ κ) fun i hi => by
+      have := h.h i hi; rwa [pS_hint] at this,
+    hintOnes_map]
+  exact hpass.2.2.2
+
+include hPO in
+theorem hpack_ok {s : State} (h2 : OS p D σ κ p.ℓ s) (hpass : PassV p σ κ) :
+    WP isa (hintBitPackAt P (Impl.MlDsa.X86_64.Sign.hP 0) (256 * p.k) p.ω (.r14, sigH p) (p.ω + p.k)) s fun s' =>
+      IK p D σ s' ∧ bytesAt s'.mem (pa s' (.r14, 0)) p.sigLen = sigV p σ κ ∧ s'.gpr .r15 = 1 := by
+  simp only [oChk, Bool.and_eq_true, List.all_eq_true, List.mem_range, decide_eq_true_eq] at hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨-, -⟩, -⟩, ch⟩, hhp⟩, -⟩, -⟩, hsl⟩, ci⟩, ck⟩ := hc
   have L2 := h2.k.d.im.st.lay
-  have hones : hintOnes (hintAt s2.mem (pa s2 (hP 0)) p.k) ≤ p.ω := by
-    rw [hintAt_of (f := Hv p σ κ) fun i hi => by
-        have := h2.h i hi; rwa [pS_hint] at this,
-      hintOnes_map]
-    exact hpass.2.2.2
-  refine WP.mono (hbpAt_ok hPO L2 hhp ch hones) fun s3 ⟨hP3, hcs3, hb3⟩ =>
+  refine WP.mono (hbpAt_ok hPO L2 hhp ch (hones_ok h2 hpass)) fun s3 ⟨hP3, hcs3, hb3⟩ =>
     ⟨h2.k.step hP3 ci, ?_, by rw [hcs3 _ (by decide), h2.r15]⟩
   rw [hsl, VG.Proof.MlKem.bytesAt_add, L2.keepBytes hP3 ck, h2.sig, hP3.pa (by decide), pa_add, Nat.zero_add,
     show cLen p + zLen p * p.ℓ = sigH p from rfl, hb3, hintAt_of (f := Hv p σ κ) fun i hi => by
         have := h2.h i hi; rwa [pS_hint] at this]
   simp only [sigV, sigOf, sigEncode, zEnc, List.map_map, List.flatMap_map]
   rfl
+
+include hPO in
+theorem output_ok {s : State} (hk : IK p D σ s) (hct : bytesAt s.mem (pa s (sc oCT)) (cLen p) = CTv p σ κ)
+    (hz : Fam s (yBase p) p.ℓ (Zv p σ κ)) (hh : HFam s 5 p.k (Hv p σ κ)) (hpass : PassV p σ κ)
+    (h15 : s.gpr .r15 = 1) :
+    WP isa (output P p) s fun s' => IK p D σ s' ∧ bytesAt s'.mem (pa s' (.r14, 0)) p.sigLen = sigV p σ κ ∧
+      s'.gpr .r15 = 1 := by
+  unfold output
+  refine WP.seq (WP.mono (outCopy_ok hc hk hct hz hh h15) fun s1 h1 => ?_)
+  refine WP.seq (WP.mono (seqR_ok (I := fun r => OS p D σ κ r) p.ℓ 0
+    (fun r _ hr s h => WP.mono (packZ_ok hPO hc (by omega) h hpass) fun _ h => h.1) s1 h1.1) fun s2 h2 => ?_)
+  rw [Nat.zero_add] at h2
+  exact hpack_ok hPO hc h2 hpass
+
+end
 
 end VG.Proof.MlDsa.X86_64.Sign
