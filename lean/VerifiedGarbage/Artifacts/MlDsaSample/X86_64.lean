@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.Framework.Lit
 import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNttCT
+import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejBoundedCT
 
 /-!
 # ML-DSA (FIPS 204) on x86-64: the sampling primitives
@@ -28,6 +29,16 @@ def artifacts : List Artifact := [
     contract := Spec.MlDsa.rejNTTContract X86_64.abi 16
     stack := 16
     verified := Proof.MlDsa.X86_64.Sample.rejNTT_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.MlDsa.rejBoundedApi with
+    target := X86_64.target
+    doc := Spec.MlDsa.rejBoundedApi.doc (notes := ["It squeezes 544 bytes of SHAKE256 output (4 blocks) and \
+      runs the loop of `RejBoundedPoly` over them. The coefficient of an accepted half-byte is computed \
+      without a branch or a table, so only whether each half-byte is accepted affects timing."])
+    code := Impl.MlDsa.X86_64.Sample.rejBounded
+    contract := Spec.MlDsa.rejBoundedContract X86_64.abi 16
+    stack := 16
+    verified := Proof.MlDsa.X86_64.Sample.rejBounded_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.MlDsaSample.X86_64
