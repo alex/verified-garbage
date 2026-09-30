@@ -125,12 +125,17 @@ def freeze (a : Nat) : List Instr :=
   [.movz .w .x10 0 0, .movz .w .x11 19 0] ++ const64 .x2 low63 ++
     loads a .x4 .x5 .x6 .x7 ++ freezeFold ++ freezeCandidate ++ select4
 
+def swapWord (a b : Reg) : List Instr :=
+  [.logic .eor .x .x8 a b, .logic .and .x .x8 .x8 .x3,
+    .logic .eor .x a a .x8, .logic .eor .x b b .x8]
+
+def swapWords : List Instr :=
+  [(Reg.x4, Reg.x21), (.x5, .x22), (.x6, .x23), (.x7, .x24)].flatMap fun (a, b) => swapWord a b
+
 /-- Swap two field elements if x3 is all ones, leaving them if it is zero. -/
 def cswap (x y : Nat) : List Instr :=
   loads x .x4 .x5 .x6 .x7 ++ loads y .x21 .x22 .x23 .x24 ++
-    ([(Reg.x4, Reg.x21), (.x5, .x22), (.x6, .x23), (.x7, .x24)].flatMap fun (a, b) =>
-      [.logic .eor .x .x8 a b, .logic .and .x .x8 .x8 .x3,
-        .logic .eor .x a a .x8, .logic .eor .x b b .x8]) ++
+    swapWords ++
     store4 x ++ stores y .x21 .x22 .x23 .x24
 
 end VG.Impl.Ed25519.AArch64
