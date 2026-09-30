@@ -118,6 +118,12 @@ theorem ret_val (ω x : Nat) (hω : ω ≤ 80) (hx : x < 2 ^ 31) :
     toNat_ofNat32 (by omega), toNat_ofNat32 (by omega)]
   split <;> rfl
 
+theorem fail_val {s₀ : State} (hp : UPre s₀) : (1 : BitVec 32) - ((uW s₀ - 256) >>> 31) = 0 := by
+  obtain ⟨-, -, -, hω80, -, -⟩ := ufacts hp
+  have e := ret_val (uω s₀) 256 hω80 (by decide)
+  rw [ite_pos' (by omega), BitVec.ofNat_toNat, BitVec.setWidth_eq] at e
+  exact e
+
 /-- The body of the frame: the result, the reloads of `r5`–`r7`, and the word
 the pop reloads into `r4`. -/
 theorem body_ok {s₀ : State} (hp : UPre s₀) :
@@ -160,8 +166,8 @@ theorem body_ok {s₀ : State} (hp : UPre s₀) :
       (List.range (uk s₀)) (Array.replicate (uk s₀) noHint, 0) = none from hS]
     refine WP.mono (trail_fail hp hcb hst) fun sc ⟨hcc, _, r1c⟩ => ⟨hcc, ?_⟩
     show _ = 0
-    rw [hcc.r2, r1c, show (256 : BitVec 32) = BitVec.ofNat 32 256 from rfl, ret_val _ _ hω80 (by decide),
-      ite_pos' (by omega)]
+    rw [hcc.r2, r1c]
+    exact fail_val hp
   | some st =>
     obtain ⟨hA', idx⟩ := st
     rw [hS] at hst
@@ -175,8 +181,8 @@ theorem body_ok {s₀ : State} (hp : UPre s₀) :
     | none =>
       intro r1c
       show _ = 0
-      rw [hcc.r2, r1c, show (256 : BitVec 32) = BitVec.ofNat 32 256 from rfl, ret_val _ _ hω80 (by decide),
-        ite_pos' (by omega)]
+      rw [hcc.r2, r1c]
+      exact fail_val hp
     | some _ =>
       intro r1c
       refine ⟨?_, by rw [mc]; exact harr_hintIs hh⟩
