@@ -11,7 +11,9 @@
 //!
 //! On x86-64, CPUs with the SHA extensions (and SSSE3) run
 //! `vg_sha1_update_shani` and `vg_sha1_finalize_shani` instead, which have
-//! the same contracts and call `vg_sha1_compress_shani`.
+//! the same contracts and call `vg_sha1_compress_shani`. On AArch64, the
+//! `sha2` feature group enables the `_sha2` variants using SHA1C/P/M/H and
+//! SHA1SU0/SHA1SU1. It follows the same dispatch mechanism as AES.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -20,6 +22,11 @@
     target_arch = "x86"
 ))]
 
+#[cfg(target_arch = "aarch64")]
+use crate::arch::sha1::{
+    VG_SHA1_FINALIZE_SHA2_FEATURES, VG_SHA1_UPDATE_SHA2_FEATURES, vg_sha1_finalize_sha2,
+    vg_sha1_update_sha2,
+};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::sha1::{
     VG_SHA1_FINALIZE_SHANI_FEATURES, VG_SHA1_UPDATE_SHANI_FEATURES, vg_sha1_finalize_shani,
@@ -38,6 +45,9 @@ super::streaming_hash!(
         init: vg_sha1_init,
         backends: Sha1Backend {
             Scalar => (vg_sha1_update, vg_sha1_finalize),
+            #[cfg(target_arch = "aarch64")]
+            Sha2 if [VG_SHA1_UPDATE_SHA2_FEATURES, VG_SHA1_FINALIZE_SHA2_FEATURES] =>
+                (vg_sha1_update_sha2, vg_sha1_finalize_sha2),
             #[cfg(target_arch = "x86_64")]
             ShaNi if [VG_SHA1_UPDATE_SHANI_FEATURES, VG_SHA1_FINALIZE_SHANI_FEATURES] =>
                 (vg_sha1_update_shani, vg_sha1_finalize_shani),
@@ -75,11 +85,20 @@ mod tests {
     /// The implementation chosen for each set of the features it depends on.
     #[test]
     fn select() {
-        for bits in 0..4 {
+        for bits in 0..(1 << crate::cpu::NAMES.len()) {
             let backend = Sha1Backend::select(Features(bits));
             #[cfg(target_arch = "x86_64")]
-            assert_eq!(backend == Sha1Backend::ShaNi, bits == 0b11);
-            #[cfg(not(target_arch = "x86_64"))]
+            assert_eq!(backend == Sha1Backend::ShaNi, bits & 0b11 == 0b11);
+            #[cfg(target_arch = "aarch64")]
+            {
+                let expected = if Features(bits).contains(Features::of(&["sha2"])) {
+                    Sha1Backend::Sha2
+                } else {
+                    Sha1Backend::Scalar
+                };
+                assert_eq!(backend, expected, "{bits:#b}");
+            }
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
             assert_eq!(backend, Sha1Backend::Scalar);
         }
         assert_eq!(Sha1::new().backend, Sha1Backend::select(detected()));
