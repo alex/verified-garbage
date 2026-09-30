@@ -157,7 +157,7 @@ theorem Top.step {D : Nat} {σ s s' : State} {rbs wbs : List (Reg × Nat)} (h : 
 
 /-! ## The prologue -/
 
-theorem pro_eq : pro = [.ldrSp .r12 0] ++ Impl.MlKem.Arm.saveRegs .r12 oSV ++
+theorem pro_eq : pro = ([.ldrSp .r12 0] : List Instr) ++ Impl.MlKem.Arm.saveRegs .r12 oSV ++
     ([.str .lr .r12 (oSV + 32), .mov .r7 (.reg .r12), .mov .r4 (.reg .r0), .mov .r5 (.reg .r1),
       .mov .r6 (.reg .r2), .mov .r8 (.reg .r3), .mov .r11 (.imm 1)] : List Instr) := rfl
 
