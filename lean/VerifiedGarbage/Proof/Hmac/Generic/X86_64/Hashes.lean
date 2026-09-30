@@ -4,14 +4,16 @@ import VerifiedGarbage.Proof.Sha1.X86_64.Shared
 import VerifiedGarbage.Proof.Sha1.X86_64.Variant
 import VerifiedGarbage.Proof.Md5.X86_64.Shared
 import VerifiedGarbage.Proof.Sha512.X86_64.Shared
+import VerifiedGarbage.Proof.Sha512.X86_64.Variant
 
 /-!
 # HMAC over any streaming hash function on x86-64: the hash functions
 
 Untrusted: everything here is checked by Lean. `HashOK` for SHA-1, MD5 and
-the SHA-512 family, from their own proofs; for SHA-1, for each implementation
-`v` of its compression function (see `Proof/Sha1/X86_64/Variant.lean`), whose
-`update` and `finalize` its HMAC and PBKDF2 then call.
+the SHA-512 family, from their own proofs; for SHA-1 and the SHA-512 family,
+for each implementation `v` of their compression function (see
+`Proof/Sha1/X86_64/Variant.lean` and `Proof/Sha512/X86_64/Variant.lean`),
+whose `update` and `finalize` their HMAC then calls.
 -/
 
 namespace VG.Proof.Hmac.Generic.X86_64
@@ -154,26 +156,60 @@ def md5OK : HashOK md5H where
 
 /-! ## The SHA-512 family -/
 
-/-- The SHA-512 family member with initial hash value `iv` and a `D`-byte digest. -/
-def sha512H (D : Nat) (initN : String) (iv : Spec.Sha512.HashValue) : Hash :=
-  ⟨128, 192, D, 64, 34, initN, Impl.Sha512.X86_64.Stream.init iv, "vg_sha512_update",
-    Impl.Sha512.X86_64.Stream.update, "vg_sha512_finalize", Impl.Sha512.X86_64.Stream.finalize⟩
+/-- The SHA-512 family member with initial hash value `iv` and a `D`-byte
+digest, with `update` and `finalize` calling the implementation `v` of the
+compression function (named with its suffix, as
+`Generic/Sha512Compress/X86_64/Sha512.lean` emits them). -/
+def sha512H (v : Proof.Sha512.X86_64.Compress) (D : Nat) (initN : String) (iv : Spec.Sha512.HashValue) :
+    Hash :=
+  ⟨128, 192, D, 64, 34, initN, Impl.Sha512.X86_64.Stream.init iv, "vg_sha512_update" ++ v.suffix,
+    Impl.Sha512.X86_64.Stream.update v.callee, "vg_sha512_finalize" ++ v.suffix,
+    Impl.Sha512.X86_64.Stream.finalize v.callee⟩
 
-theorem sha512_upd_depth : Impl.Sha512.X86_64.Stream.update.depth ≤ 1 := by lit_decide
-theorem sha512_fin_depth : Impl.Sha512.X86_64.Stream.finalize.depth ≤ 1 := by lit_decide
-theorem sha512_upd_sp : NoSp Impl.Sha512.X86_64.Stream.update :=
-  nosp_of (by rw [← Code.allInstrs_eq]; lit_decide)
-theorem sha512_fin_sp : NoSp Impl.Sha512.X86_64.Stream.finalize :=
-  nosp_of (by rw [← Code.allInstrs_eq]; lit_decide)
+def sha384H (v : Proof.Sha512.X86_64.Compress) : Hash := sha512H v 48 "vg_sha384_init" Spec.Sha512.H0_384
+def sha512H' (v : Proof.Sha512.X86_64.Compress) : Hash := sha512H v 64 "vg_sha512_init" Spec.Sha512.H0_512
+def sha512_224H (v : Proof.Sha512.X86_64.Compress) : Hash :=
+  sha512H v 28 "vg_sha512_224_init" Spec.Sha512.H0_512_224
+def sha512_256H (v : Proof.Sha512.X86_64.Compress) : Hash :=
+  sha512H v 32 "vg_sha512_256_init" Spec.Sha512.H0_512_256
+
+section
+variable (v : Proof.Sha512.X86_64.Compress) (D : Nat) (n : String) (iv : Spec.Sha512.HashValue)
+
+/-- The parts of `sha512H v D n iv` that do not depend on `v`, as numbers or
+as those of the scalar SHA-384 instance, which the kernel can evaluate. -/
+theorem sha512H_B : (sha512H v D n iv).B = 128 := rfl
+theorem sha512H_S : (sha512H v D n iv).S = 192 := rfl
+theorem sha512H_D : (sha512H v D n iv).D = D := rfl
+theorem sha512H_F : (sha512H v D n iv).F = 64 := rfl
+theorem sha512H_buf : (sha512H v D n iv).buf = 320 := rfl
+theorem sha512H_initC : (sha512H v D n iv).initC = Impl.Sha512.X86_64.Stream.init iv := rfl
+
+/- These are rewrites, not definitional lemmas: `simp` then adds their proofs,
+rather than leaving the kernel to unfold `sha512H v D n iv` against
+`sha384H .scalar`. -/
+theorem sha512H_initKeys : (sha512H v D n iv).initKeys = (sha384H .scalar).initKeys :=
+  Hash.initKeys_congr rfl rfl
+theorem sha512H_finPrologue : (sha512H v D n iv).finPrologue = (sha384H .scalar).finPrologue :=
+  Hash.finPrologue_congr rfl
+theorem sha512H_save : (sha512H v D n iv).save = (sha384H .scalar).save := Hash.save_congr rfl
+theorem sha512H_restore : (sha512H v D n iv).restore = (sha384H .scalar).restore := Hash.restore_congr rfl
+
+theorem sha512H_updC : (sha512H v D n iv).updC = Impl.Sha512.X86_64.Stream.update v.callee := rfl
+theorem sha512H_finC : (sha512H v D n iv).finC = Impl.Sha512.X86_64.Stream.finalize v.callee := rfl
+
+end
 
 /-- `HashOK` for a member of the SHA-512 family, whose digest is the first
-`D` bytes of the final hash value. -/
-def sha512FamOK (SH : Spec.Hmac.StreamingHash) (D : Nat) (initN : String) (iv : Spec.Sha512.HashValue)
+`D` bytes of the final hash value, for any implementation `v` of the
+compression function. -/
+def sha512FamOK (v : Proof.Sha512.X86_64.Compress) (SH : Spec.Hmac.StreamingHash) (D : Nat) (initN : String)
+    (iv : Spec.Sha512.HashValue)
     (hS : SH.stateBytes = 192) (hD : SH.digestBytes = D) (hB : SH.H.blockSize = 128)
     (hR : SH.Repr = Spec.Sha512.Repr iv)
     (hh : ∀ m, SH.H.hash m = (Spec.Sha512.finalHash iv m).take D) (hD0 : 0 < D) (hD64 : D ≤ 64)
     (hID : (Impl.Sha512.X86_64.Stream.init iv).depth ≤ 1) (hISp : NoSp (Impl.Sha512.X86_64.Stream.init iv)) :
-    HashOK (sha512H D initN iv) where
+    HashOK (sha512H v D initN iv) where
   SH := SH
   Wb := 224
   hS := hS
@@ -190,41 +226,41 @@ def sha512FamOK (SH : Spec.Hmac.StreamingHash) (D : Nat) (initN : String) (iv : 
   hW := show 34 ≤ 64 by decide
   repr := hR ▸ sha512_repr iv
   init := hR ▸ Proof.Sha512.X86_64.Stream.init_verified iv
-  upd := hR ▸ Proof.Sha512.X86_64.Stream.Update.update_verified.of_implies
+  upd := hR ▸ v.update_verified.of_implies
     { pre := fun _ h => h
       post := fun _ _ _ h m hr hc => h iv m hr hc
       pub := fun _ _ _ _ h => h
-      sat := Proof.Sha512.X86_64.Stream.Update.update_verified.2.2 }
-  fin := Proof.Sha512.X86_64.Stream.Finalize.finalize_verified.of_implies
+      sat := v.update_verified.2.2 }
+  fin := v.finalize_verified.of_implies
     { pre := fun _ h => h
       post := fun s s' _ h m hr hl hc => by
         show List.take D (Spec.Sha512.bytesAt s'.mem _ 64) = _
         rw [hh, h iv m (hR ▸ hr) hl hc]
       pub := fun _ _ _ _ h => h
-      sat := Proof.Sha512.X86_64.Stream.Finalize.finalize_verified.2.2 }
+      sat := v.finalize_verified.2.2 }
   initDepth := hID
-  updDepth := sha512_upd_depth
-  finDepth := sha512_fin_depth
+  updDepth := Nat.le_of_eq v.update_depth
+  finDepth := Nat.le_of_eq v.finalize_depth
   initSp := hISp
-  updSp := sha512_upd_sp
-  finSp := sha512_fin_sp
+  updSp := v.update_nosp
+  finSp := v.finalize_nosp
 
-def sha384H : Hash := sha512H 48 "vg_sha384_init" Spec.Sha512.H0_384
-def sha512H' : Hash := sha512H 64 "vg_sha512_init" Spec.Sha512.H0_512
-def sha512_224H : Hash := sha512H 28 "vg_sha512_224_init" Spec.Sha512.H0_512_224
-def sha512_256H : Hash := sha512H 32 "vg_sha512_256_init" Spec.Sha512.H0_512_256
-
-def sha384OK : HashOK sha384H := sha512FamOK Spec.Hmac.sha384S 48 "vg_sha384_init" Spec.Sha512.H0_384
-  rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
-  (by lit_decide) (nosp_of (by rw [← Code.allInstrs_eq]; lit_decide))
-def sha512OK : HashOK sha512H' := sha512FamOK Spec.Hmac.sha512S 64 "vg_sha512_init" Spec.Sha512.H0_512
-  rfl rfl rfl rfl (fun m => (List.take_of_length_le (Nat.le_of_eq (finalHash_length _ m))).symm) (by decide) (by decide)
-  (by lit_decide) (nosp_of (by rw [← Code.allInstrs_eq]; lit_decide))
-def sha512_224OK : HashOK sha512_224H := sha512FamOK Spec.Hmac.sha512_224S 28 "vg_sha512_224_init"
-  Spec.Sha512.H0_512_224 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
-  (by lit_decide) (nosp_of (by rw [← Code.allInstrs_eq]; lit_decide))
-def sha512_256OK : HashOK sha512_256H := sha512FamOK Spec.Hmac.sha512_256S 32 "vg_sha512_256_init"
-  Spec.Sha512.H0_512_256 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
-  (by lit_decide) (nosp_of (by rw [← Code.allInstrs_eq]; lit_decide))
+def sha384OK (v : Proof.Sha512.X86_64.Compress) : HashOK (sha384H v) :=
+  sha512FamOK v Spec.Hmac.sha384S 48 "vg_sha384_init" Spec.Sha512.H0_384
+    rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
+    (by lit_decide) (nosp_of (by rw [← Code.allInstrs_eq]; lit_decide))
+def sha512OK (v : Proof.Sha512.X86_64.Compress) : HashOK (sha512H' v) :=
+  sha512FamOK v Spec.Hmac.sha512S 64 "vg_sha512_init" Spec.Sha512.H0_512
+    rfl rfl rfl rfl (fun m => (List.take_of_length_le (Nat.le_of_eq (finalHash_length _ m))).symm)
+    (by decide) (by decide)
+    (by lit_decide) (nosp_of (by rw [← Code.allInstrs_eq]; lit_decide))
+def sha512_224OK (v : Proof.Sha512.X86_64.Compress) : HashOK (sha512_224H v) :=
+  sha512FamOK v Spec.Hmac.sha512_224S 28 "vg_sha512_224_init" Spec.Sha512.H0_512_224
+    rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
+    (by lit_decide) (nosp_of (by rw [← Code.allInstrs_eq]; lit_decide))
+def sha512_256OK (v : Proof.Sha512.X86_64.Compress) : HashOK (sha512_256H v) :=
+  sha512FamOK v Spec.Hmac.sha512_256S 32 "vg_sha512_256_init" Spec.Sha512.H0_512_256
+    rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
+    (by lit_decide) (nosp_of (by rw [← Code.allInstrs_eq]; lit_decide))
 
 end VG.Proof.Hmac.Generic.X86_64

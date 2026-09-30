@@ -11,7 +11,8 @@ import VerifiedGarbage.Spec.Sha512.Contract
 Untrusted: everything here is checked by Lean. The proofs are written against
 per-target contracts (`Proof/Sha512/X86_64/Compress.lean`); these theorems move
 them to the shared contracts of `Spec/Sha512/Contract.lean`, which the
-artifacts are emitted with.
+artifacts are emitted with. `update` and `finalize` hold for any
+implementation `f` of the compression function.
 
 The shared contracts give the functions more scratch than these ones use (1328
 bytes for `compress`, 1376 for `update` and `finalize`, sized for the x86-64
@@ -78,9 +79,9 @@ theorem compressWide_verified (hsat : ∃ s, compressWide.pre s) :
     (fun _ ⟨_, h₂, _⟩ => h₂ ▸ .cons (pfx rfl) (.cons (pfx rfl) .nil))
     (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat
 
-theorem updateWide_verified (hsat : ∃ s, updateWide.pre s) :
-    Verified X86_64.target Impl.Sha512.X86_64.Stream.update updateWide :=
-  Verified.widen Proof.Sha512.X86_64.Stream.Update.update_verified
+theorem updateWide_verified {c : Prog X86_64.isa} (hv : Verified X86_64.target c Proof.Sha512.updateX86_64)
+    (hsat : ∃ s, updateWide.pre s) : Verified X86_64.target c updateWide :=
+  Verified.widen hv
     (fun s => [⟨s.gpr .rdi, 192⟩, ⟨s.gpr .r8, 224⟩])
     (fun _ ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀⟩ =>
       ⟨h₁, rfl, h₃.sub_right (sub224 _), h₄, h₅.sub_right (sub224 _), h₆, h₇.sub_right (sub224 _),
@@ -88,9 +89,9 @@ theorem updateWide_verified (hsat : ∃ s, updateWide.pre s) :
     (fun _ ⟨_, h₂, _⟩ => h₂ ▸ .cons (pfx rfl) (.cons (pfx rfl) .nil))
     (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat
 
-theorem finalizeWide_verified (hsat : ∃ s, finalizeWide.pre s) :
-    Verified X86_64.target Impl.Sha512.X86_64.Stream.finalize finalizeWide :=
-  Verified.widen Proof.Sha512.X86_64.Stream.Finalize.finalize_verified
+theorem finalizeWide_verified {c : Prog X86_64.isa} (hv : Verified X86_64.target c Proof.Sha512.finalizeX86_64)
+    (hsat : ∃ s, finalizeWide.pre s) : Verified X86_64.target c finalizeWide :=
+  Verified.widen hv
     (fun s => [⟨s.gpr .rdi, 192⟩, ⟨s.gpr .rdx, 64⟩, ⟨s.gpr .rcx, 224⟩])
     (fun _ ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, h₁₁⟩ =>
       ⟨h₁, rfl, h₃, h₄.sub_right (sub224 _), h₅.sub_right (sub224 _), h₆, h₇,
@@ -126,22 +127,55 @@ theorem init (iv : Spec.Sha512.HashValue) :
       X86_64.abi, X86_64.argRegs]
       [Proof.Sha512.X86_64.Stream.initSat] using Proof.Sha512.X86_64.Stream.initSat)
 
-theorem update :
-    Verified X86_64.target Impl.Sha512.X86_64.Stream.update (Spec.Sha512.updateContract X86_64.abi 8) := by
-  have hi : updateWide.Implies (Spec.Sha512.updateContract X86_64.abi 8) := by
-    sig_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, updateWide,
-      Proof.Sha512.updateX86_64, X86_64.abi, X86_64.argRegs]
-      [updateSat, Proof.Sha512.X86_64.Stream.Update.sat,
-        MdStream.X86_64.Update.sat, Impl.Sha512.X86_64.Stream.params] using updateSat
-  exact (updateWide_verified hi.sat_left).of_implies hi
+theorem updateImplies : updateWide.Implies (Spec.Sha512.updateContract X86_64.abi 8) := by
+  sig_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, updateWide,
+    Proof.Sha512.updateX86_64, X86_64.abi, X86_64.argRegs]
+    [updateSat, Proof.Sha512.X86_64.Stream.Update.sat,
+      MdStream.X86_64.Update.sat, Impl.Sha512.X86_64.Stream.params] using updateSat
 
-theorem finalize :
-    Verified X86_64.target Impl.Sha512.X86_64.Stream.finalize (Spec.Sha512.finalizeContract X86_64.abi 8) := by
-  have hi : finalizeWide.Implies (Spec.Sha512.finalizeContract X86_64.abi 8) := by
-    sig_implies [Spec.Sha512.finalizeContract, Spec.Sha512.finalizeSig, finalizeWide,
-      Proof.Sha512.finalizeX86_64, X86_64.abi, X86_64.argRegs]
-      [finalizeSat, Proof.Sha512.X86_64.Stream.Finalize.sat,
-        MdStream.X86_64.Finalize.sat, Impl.Sha512.X86_64.Stream.params] using finalizeSat
-  exact (finalizeWide_verified hi.sat_left).of_implies hi
+theorem finalizeImplies : finalizeWide.Implies (Spec.Sha512.finalizeContract X86_64.abi 8) := by
+  sig_implies [Spec.Sha512.finalizeContract, Spec.Sha512.finalizeSig, finalizeWide,
+    Proof.Sha512.finalizeX86_64, X86_64.abi, X86_64.argRegs]
+    [finalizeSat, Proof.Sha512.X86_64.Stream.Finalize.sat,
+      MdStream.X86_64.Finalize.sat, Impl.Sha512.X86_64.Stream.params] using finalizeSat
+
+open VG.Impl.Sha512.X86_64.Stream (Callee) in
+/-- `update`, for any compression function `f` (see `Variant.lean`). -/
+theorem update {f : Callee} (hf : MdStream.X86_64.CalleeOk (P := Stream.params) md f.code)
+    (hm : f.code.allInstrs (fun i => !X86_64.loadsMxcsr i) = true) :
+    Verified X86_64.target (Impl.Sha512.X86_64.Stream.update f) (Spec.Sha512.updateContract X86_64.abi 8) :=
+  (updateWide_verified (Proof.Sha512.X86_64.Stream.Update.verified_of hf (by
+    simp only [Impl.Sha512.X86_64.Stream.update, Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody,
+      Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressWith,
+      Code.allInstrs, hm, Bool.true_and]
+    decide +kernel)) updateImplies.sat_left).of_implies updateImplies
+
+open VG.Impl.Sha512.X86_64.Stream (Callee) in
+theorem update_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
+    (Impl.Sha512.X86_64.Stream.update f).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [Impl.Sha512.X86_64.Stream.update, Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody,
+    Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressWith, Code.all, h,
+    Bool.true_and]
+  decide +kernel
+
+open VG.Impl.Sha512.X86_64.Stream (Callee) in
+/-- `finalize`, for any compression function `f` (see `Variant.lean`). -/
+theorem finalize {f : Callee} (hf : MdStream.X86_64.CalleeOk (P := Stream.params) md f.code)
+    (hm : f.code.allInstrs (fun i => !X86_64.loadsMxcsr i) = true) :
+    Verified X86_64.target (Impl.Sha512.X86_64.Stream.finalize f)
+      (Spec.Sha512.finalizeContract X86_64.abi 8) :=
+  (finalizeWide_verified (Proof.Sha512.X86_64.Stream.Finalize.verified_of hf (by
+    simp only [Impl.Sha512.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
+      Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith,
+      Code.allInstrs, hm, Bool.true_and]
+    decide +kernel)) finalizeImplies.sat_left).of_implies finalizeImplies
+
+open VG.Impl.Sha512.X86_64.Stream (Callee) in
+theorem finalize_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
+    (Impl.Sha512.X86_64.Stream.finalize f).all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [Impl.Sha512.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
+    Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith,
+    Code.all, h, Bool.true_and]
+  decide +kernel
 
 end VG.Proof.Sha512.X86_64.Shared
