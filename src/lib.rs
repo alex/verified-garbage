@@ -73,6 +73,7 @@ pub mod pbkdf2;
 pub mod poly1305;
 pub mod scrypt;
 pub mod x25519;
+pub mod x448;
 
 #[cfg(test)]
 mod tests {

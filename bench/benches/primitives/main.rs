@@ -42,6 +42,7 @@ mod sha256;
 mod sha3;
 mod sha512;
 mod x25519;
+mod x448;
 
 const SIZES: [usize; 3] = [64, 1024, 16384];
 
@@ -169,6 +170,7 @@ const BENCHES: &[Bench] = &[
     (sha3::USES, sha3::bench),
     (sha512::USES, sha512::bench),
     (x25519::USES, x25519::bench),
+    (x448::USES, x448::bench),
 ];
 
 /// Runs the benchmarks that use any of the modules in `$VG_BENCH_MODULES`
