@@ -400,16 +400,20 @@ theorem KSamp.zero {p : Params} {σ s : State} (h : K1 p σ s) (h15 : s.gpr .r15
     fun _ h => absurd h (Nat.not_lt_zero _),
     .inl ⟨h15, ⟨0, 0, 0, 0⟩, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩⟩
 
-/-- Both samplers. -/
-theorem samp_piece {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) :
-    Piece p (fun σ s => K1 p σ s ∧ s.gpr .r15 = 1) (fun σ s => KSamp p σ (p.k * p.ℓ) (p.ℓ + p.k) s)
-      (.seq (seqR (expA P p) 0 (p.k * p.ℓ)) (seqR (expS P p) 0 (p.ℓ + p.k))) := by
-  refine Piece.seq (J := fun σ s => KSamp p σ (p.k * p.ℓ) 0 s) ?_ ?_
-  · refine Piece.mono (Piece.seqR (I := fun e σ s => KSamp p σ e 0 s) (p.k * p.ℓ) 0
-      fun e _ he => expA_piece hP hF (by omega)) (fun σ s _ h => KSamp.zero h.1 h.2) fun σ s _ h => ?_
-    simpa using h
-  · refine Piece.mono (Piece.seqR (I := fun r σ s => KSamp p σ (p.k * p.ℓ) r s) (p.ℓ + p.k) 0
-      fun r _ hr => expS_piece hP hF (by omega)) (fun _ _ _ h => h) fun σ s _ h => ?_
-    simpa using h
+/-- The entries of `Â`. -/
+theorem sampA_piece {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) :
+    Piece p (fun σ s => K1 p σ s ∧ s.gpr .r15 = 1) (fun σ s => KSamp p σ (p.k * p.ℓ) 0 s)
+      (seqR (expA P p) 0 (p.k * p.ℓ)) := by
+  refine Piece.mono (Piece.seqR (I := fun e σ s => KSamp p σ e 0 s) (p.k * p.ℓ) 0
+    fun e _ he => expA_piece hP hF (by omega)) (fun σ s _ h => KSamp.zero h.1 h.2) fun σ s _ h => ?_
+  simpa using h
+
+/-- The entries of `s₁ ‖ s₂`. -/
+theorem sampS_piece {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) :
+    Piece p (fun σ s => KSamp p σ (p.k * p.ℓ) 0 s) (fun σ s => KSamp p σ (p.k * p.ℓ) (p.ℓ + p.k) s)
+      (seqR (expS P p) 0 (p.ℓ + p.k)) := by
+  refine Piece.mono (Piece.seqR (I := fun r σ s => KSamp p σ (p.k * p.ℓ) r s) (p.ℓ + p.k) 0
+    fun r _ hr => expS_piece hP hF (by omega)) (fun _ _ _ h => h) fun σ s _ h => ?_
+  simpa using h
 
 end VG.Proof.MlDsa.X86_64.KeyGen

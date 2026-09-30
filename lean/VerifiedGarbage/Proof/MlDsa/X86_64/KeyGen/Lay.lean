@@ -37,7 +37,7 @@ theorem pfacts {p : Params} (hp : p = mlDsa44 ∨ p = mlDsa65 ∨ p = mlDsa87) :
 /-! ## The contract -/
 
 /-- The size of `scratch`, in bytes. -/
-abbrev scrLen (p : Params) : Nat := 8 * scratchWords p
+abbrev scrLen (p : Params) : Nat := scratchWords p * 8
 
 /-- `vg_mldsa*_keygen(seed = rdi, pk = rsi, sk = rdx, scratch = rcx) -> eax`, with 24 bytes of stack. -/
 def kgK (p : Params) : Contract isa where
