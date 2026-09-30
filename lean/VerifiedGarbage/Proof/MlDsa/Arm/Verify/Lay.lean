@@ -36,7 +36,7 @@ structure VFacts (p : Params) : Prop where
   lz : (lenZ p = 576 ∨ lenZ p = 640)
   om : 55 ≤ p.ω ∧ p.ω ≤ 80
   w1 : p.k * w1Len p ≤ 1024 ∧ 0 < p.k * w1Len p ∧ encodable (BitVec.ofNat 32 (p.k * w1Len p)) = true
-  w1l : w1Len p = 128 ∨ w1Len p = 192
+  w1l : w1Len p = 128 ∨ (w1Len p = 192 ∧ p.k ≤ 5)
   scr : 8192 + 1024 * (20 + 8 * p.k) ≤ scrLen p ∧ scrLen p < 2 ^ 32
   hp : (p.ω, p.k) ∈ Spec.MlDsa.hintParams
   bu : (p.γ₁ - 1, p.γ₁) ∈ Spec.MlDsa.bitPackParams ∧ lenZ p = 32 * Spec.MlDsa.bitlen (p.γ₁ - 1 + p.γ₁) ∧

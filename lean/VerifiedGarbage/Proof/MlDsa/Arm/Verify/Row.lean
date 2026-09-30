@@ -332,7 +332,7 @@ theorem uh_piece :
 omit hP hS in
 theorem sbpW_m {σ : State} : SbpOk (vlay p STK σ) vWb pW1 (w1Max p) (sc (oB + w1Len p * r)) (w1Len p) := by
   have hk := hF.k
-  rcases hF.w1l with e | e <;>
+  rcases hF.w1l with e | ⟨e, _⟩ <;>
   exact ⟨⟨rfl, by vsep hF⟩, ⟨rfl, by vsep hF [e]⟩, show ix Reg.r7 ∈ vWb by decide, by vsep hF [e],
     hF.sbp.1, hF.sbp.2.1⟩
 
@@ -355,7 +355,7 @@ theorem sbpW_piece :
     refine sbp_ok hP.simpleBitPack hk5.vc.site (by omega) (sbpW_m hF hr) (w1_bound hF hw) fun s' k' hb =>
       ⟨A', cc, h, R, ?_⟩
     have hk' := hk5.keep hF k' (by k5chk hF)
-    refine ⟨hk'.vc, hk'.hh, hk'.hint, hk'.a, hk'.z, hk'.c, fun r' hr' => ?_, hk'.r11⟩
+    refine ⟨hk'.vc, hk'.hh, hk'.hint, hk'.a, hk'.z, hk'.c, fun r' hr' => ?_, hk'.r11, hk'.gd⟩
     rcases (by omega : r' < r ∨ r' = r) with hr' | rfl
     · exact hk'.rows r' hr'
     · show bytesAt s'.mem (lpa (vlay p STK σ) (sc (oB + w1Len p * r'))) (w1Len p) = _

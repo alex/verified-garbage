@@ -22,6 +22,18 @@ open VG.Proof.MlDsa.Verify (vZ zHat w1Row)
 open VG.Proof.MlDsa.KeyGen (ifp ifn)
 open VG.Spec.Sha3 (bytesAt)
 
+/-- What the samplers give, with `R` their result: `A'` and `cc` those of the
+standard for some bounds if `R` is 1, and a sampler failing within the least
+bounds if 0. -/
+def Gd (p : Params) (σ : State) (A' : Nat → Nat → Spec.MlDsa.Poly) (cc : Spec.MlDsa.Poly) (R : BitVec 32) : Prop :=
+  ∃ q : Bool, R = flag q ∧
+    (q = true → (∀ r < p.k, ∀ s' < p.ℓ, ∃ b : Nat,
+      Spec.MlDsa.rejNTTPoly b (Proof.MlDsa.Verify.aSeed (pkOf p σ) r s') = some (A' r s')) ∧
+      ∃ b : Nat, (Spec.MlDsa.sampleInBall p.τ b (Proof.MlDsa.Verify.vCt p (sgOf p σ))).map toRq = some cc) ∧
+    (q = false → (∃ r < p.k, ∃ s' < p.ℓ, Spec.MlDsa.rejNTTPoly Spec.MlDsa.minBounds.rejNTT
+      (Proof.MlDsa.Verify.aSeed (pkOf p σ) r s') = none) ∨
+      Spec.MlDsa.sampleInBall p.τ Spec.MlDsa.minBounds.ball (Proof.MlDsa.Verify.vCt p (sgOf p σ)) = none)
+
 /-- After the samplers: `w′₁` from `A'` and `cc`, so far. -/
 structure KC5 (p : Params) (STK : Nat) (σ : State) (A' : Nat → Nat → Spec.MlDsa.Poly) (cc : Spec.MlDsa.Poly)
     (h : List (Vector Bool Spec.MlDsa.n)) (R : BitVec 32) (nz : Nat) (nc : Bool) (nr : Nat) (s : State) : Prop where
@@ -35,6 +47,7 @@ structure KC5 (p : Params) (STK : Nat) (σ : State) (A' : Nat → Nat → Spec.M
   rows : ∀ r < nr, bytesAt s.mem ((vlay p STK σ).A 0 (oB + w1Len p * r)) (w1Len p) =
     simpleBitPack (w1Row p (pkOf p σ) (sgOf p σ) A' (ntt cc) h r) (w1Max p)
   r11 : s.gpr .r11 = R
+  gd : Gd p σ A' cc R
 
 /-- A part that writes `W` keeps what `KC5` says of the polynomials it does not write. -/
 structure K5Chk (p : Params) (STK : Nat) (nr : Nat) (W : List (Nat × Nat × Nat)) : Prop where
@@ -49,7 +62,7 @@ structure K5Chk (p : Params) (STK : Nat) (nr : Nat) (W : List (Nat × Nat × Nat
 syntax "k5chk " term:max : tactic
 macro_rules
   | `(tactic| k5chk $hF) => `(tactic| (
-      rcases ($hF).w1l with hw1 | hw1 <;>
+      rcases ($hF).w1l with hw1 | ⟨hw1, _⟩ <;>
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> intros <;> vsep $hF [vcChk, hw1]))
 
 theorem KC5.keep {p : Params} (hF : VFacts p) {STK : Nat} {σ : State} {A' : Nat → Nat → Spec.MlDsa.Poly}
@@ -57,13 +70,13 @@ theorem KC5.keep {p : Params} (hF : VFacts p) {STK : Nat} {σ : State} {A' : Nat
     {s s' : State} (hk5 : KC5 p STK σ A' cc h R nz nc nr s) {W : List (Nat × Nat × Nat)}
     (hk : Kept ((vlay p STK σ).RL W) s s') (hc : K5Chk p STK nr W) : KC5 p STK σ A' cc h R nz nc nr s' := by
   have hL := hk5.vc.site.ok
-  have hle : w1Len p ≤ 2 ^ 64 := by rcases hF.w1l with e | e <;> omega
+  have hle : w1Len p ≤ 2 ^ 64 := by rcases hF.w1l with e | ⟨e, _⟩ <;> omega
   exact ⟨hk5.vc.keep hk hc.vc, hk5.hh, hintIs_keepW hL hk.frame hc.hint (by decide) (by have := hF.k; omega) hk5.hint,
     fun r hr s' hs' => polyIs_keepW hL hk.frame (hc.a r hr s' hs') (by decide) rfl (hk5.a r hr s' hs'),
     fun i hi => polyIs_keepW hL hk.frame (hc.z i hi) (by decide) rfl (hk5.z i hi),
     polyIs_keepW hL hk.frame hc.c (by decide) rfl hk5.c,
     fun r hr => by rw [bytes_keepW hL hk.frame (hc.rows r hr) (by decide) hle]; exact hk5.rows r hr,
-    (hk.cs .r11 (by decide) (by decide)).trans hk5.r11⟩
+    (hk.cs .r11 (by decide) (by decide)).trans hk5.r11, hk5.gd⟩
 
 /-- The states of `compute` with `nz`, `nc` and `nr`, for some `A'`, `cc`, `h` and `R`. -/
 abbrev KX (p : Params) (STK : Nat) (nz : Nat) (nc : Bool) (nr : Nat) (σ s : State) : Prop :=
@@ -89,7 +102,7 @@ theorem nttZ_ok {j : Nat} (hj : j < p.ℓ) {σ : State} {A' cc h R} {s : State}
     hintIs_keepW hL k'.frame (by vsep hF) (by decide) (by omega) hk5.hint,
     fun r hr s' hs' => polyIs_keepW hL k'.frame (by vsep hF) (by decide) rfl (hk5.a r hr s' hs'),
     fun i hi => ?_, polyIs_keepW hL k'.frame (by vsep hF) (by decide) rfl hk5.c,
-    fun _ h => absurd h (Nat.not_lt_zero _), (k'.cs .r11 (by decide) (by decide)).trans hk5.r11⟩
+    fun _ h => absurd h (Nat.not_lt_zero _), (k'.cs .r11 (by decide) (by decide)).trans hk5.r11, hk5.gd⟩
   by_cases e : i = j
   · subst e
     rw [ifp (Nat.lt_succ_self _)]
@@ -129,7 +142,7 @@ theorem nttC_ok {σ : State} {A' cc h R} {s : State} (hk5 : KC5 p STK σ A' cc h
     hintIs_keepW hL k'.frame (by vsep hF) (by decide) (by omega) hk5.hint,
     fun r hr s' hs' => polyIs_keepW hL k'.frame (by vsep hF) (by decide) rfl (hk5.a r hr s' hs'),
     fun i hi => polyIs_keepW hL k'.frame (by vsep hF) (by decide) rfl (hk5.z i hi), ?_,
-    fun _ h => absurd h (Nat.not_lt_zero _), (k'.cs .r11 (by decide) (by decide)).trans hk5.r11⟩
+    fun _ h => absurd h (Nat.not_lt_zero _), (k'.cs .r11 (by decide) (by decide)).trans hk5.r11, hk5.gd⟩
   show PolyIs s'.mem (lpa (vlay p STK σ) pC) _
   have e2 : polyAt s.mem (lpa (vlay p STK σ) pC) = cc := hk5.c.2
   rw [e2] at hb
