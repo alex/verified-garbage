@@ -22,9 +22,11 @@ caller-saved (AAPCS64 §6.1.2), so `abiPreserved` says nothing about them.
 The low 64 bits of `v8`–`v15` are callee-saved, and the model does not have
 those registers (see `TCB/AArch64/Isa.lean`), so no code can modify them.
 
-Not modelled: the condition flags (never modified), FPCR and FPSR (no
-modelled instruction reads or writes them) and memory below `sp` (never
-granted to a function).
+PSTATE.C is modelled but is not callee-saved: NZCV is undefined on entry
+to and return from a public interface (AAPCS64 §6.1.1). N, Z and V are not
+observable by modelled instructions. FPCR and FPSR are not modelled (no
+modelled instruction reads or writes them), nor is memory below `sp`
+(never granted to a function).
 -/
 
 namespace VG.AArch64

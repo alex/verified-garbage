@@ -30,5 +30,22 @@ theorem mem_write (sz : Size) (r : Reg) (v : BitVec sz.bits) : (s.write sz r v).
 theorem rd_write (sz : Size) (r : Reg) (v : BitVec sz.bits) : (s.write sz r v).rd = s.rd := rfl
 theorem wr_write (sz : Size) (r : Reg) (v : BitVec sz.bits) : (s.write sz r v).wr = s.wr := rfl
 theorem sp_write (sz : Size) (r : Reg) (v : BitVec sz.bits) : (s.write sz r v).sp = s.sp := rfl
+theorem c_write (sz : Size) (r : Reg) (v : BitVec sz.bits) : (s.write sz r v).c = s.c := rfl
+
+theorem gpr_addWithCarry (sz : Size) (d : Reg) (a b : BitVec sz.bits) (c : Bool) (r : Reg) :
+    (s.addWithCarry sz d a b c).gpr r =
+      if r = d then (a + b + BitVec.ofNat sz.bits c.toNat).setWidth 64 else s.gpr r := rfl
+
+theorem c_addWithCarry (sz : Size) (d : Reg) (a b : BitVec sz.bits) (c : Bool) :
+    (s.addWithCarry sz d a b c).c = decide (2 ^ sz.bits ≤ a.toNat + b.toNat + c.toNat) := rfl
+
+theorem mem_addWithCarry (sz : Size) (d : Reg) (a b : BitVec sz.bits) (c : Bool) :
+    (s.addWithCarry sz d a b c).mem = s.mem := rfl
+theorem rd_addWithCarry (sz : Size) (d : Reg) (a b : BitVec sz.bits) (c : Bool) :
+    (s.addWithCarry sz d a b c).rd = s.rd := rfl
+theorem wr_addWithCarry (sz : Size) (d : Reg) (a b : BitVec sz.bits) (c : Bool) :
+    (s.addWithCarry sz d a b c).wr = s.wr := rfl
+theorem sp_addWithCarry (sz : Size) (d : Reg) (a b : BitVec sz.bits) (c : Bool) :
+    (s.addWithCarry sz d a b c).sp = s.sp := rfl
 
 end VG.AArch64.RegUpd
