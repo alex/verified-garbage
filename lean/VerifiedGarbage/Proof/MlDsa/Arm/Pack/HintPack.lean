@@ -414,54 +414,99 @@ theorem ldr5_ok {s : State} (ia : InRegions (s.rd ++ s.wr) (State.addr (s.sp + B
 theorem frameR2 {s : State} (h : 8 ≤ s.sp.toNat) :
     frameR s [.r4, .r5] = ⟨State.addr s.sp - BitVec.ofNat 64 8, 8⟩ := frameR_eq [.r4, .r5] h
 
-/-- The whole function: `y`, and the registers it saves and restores. -/
-theorem correct {s₀ : State} (hp : PPre s₀) :
-    WP isa Impl.MlDsa.Arm.Pack.hintBitPack s₀ fun s' => s'.gpr .r4 = s₀.gpr .r4 ∧ s'.gpr .r5 = s₀.gpr .r5 ∧ s'.sp = s₀.sp ∧
-      bytesAt s'.mem (State.addr (pY s₀)) (pLen s₀) = Spec.MlDsa.hintBitPack (pω s₀) (pk s₀) (pHint s₀) := by
-  obtain ⟨hk4, hk8, hω55, hω80, hsum, hL88⟩ := pfacts hp
+/-- The state the body runs from. -/
+abbrev P1 (s₀ : State) : State := pushed [.r4, .r5] (s₀.setReg .r12 (pL s₀))
+
+/-- The state after zeroing `y`. -/
+def ZP (s₀ a : State) : Prop :=
+  a.gpr .r0 = pH s₀ ∧ a.gpr .r1 = BitVec.ofNat 32 (pk s₀) ∧ a.gpr .r2 = pW s₀ ∧ a.gpr .r3 = pY s₀ ∧
+    bytesAt a.mem (State.addr (pY s₀)) (pLen s₀) = List.replicate (pLen s₀) 0 ∧ Frame [yR s₀] (P1 s₀).mem a.mem ∧
+    a.rd = (P1 s₀).rd ∧ a.wr = (P1 s₀).wr ∧ a.sp = (P1 s₀).sp
+
+section
+variable {s₀ : State} (hp : PPre s₀)
+include hp
+
+theorem hsp8 : 4 * [Reg.r4, Reg.r5].length ≤ (s₀.setReg .r12 (pL s₀)).sp.toNat := hp.sp
+
+theorem hfr : frameR (s₀.setReg .r12 (pL s₀)) [.r4, .r5] = ⟨State.addr s₀.sp - BitVec.ofNat 64 8, 8⟩ :=
+  frameR2 (s := s₀.setReg .r12 (pL s₀)) hp.sp
+
+theorem zeroP_ok : WP isa hbpZero (P1 s₀) (ZP s₀) :=
+  zero_ok hp rfl rfl rfl rfl (by simp [RegUpd.wr_setReg, hp.wr])
+
+/-- The body changes memory only in the frame and `y`. -/
+theorem zp_frame {a : State} (hz : ZP s₀ a) :
+    Frame [⟨State.addr s₀.sp - BitVec.ofNat 64 8, 8⟩, yR s₀] s₀.mem a.mem := by
+  have hpf := pushed_frame [.r4, .r5] (hsp8 hp)
+  rw [hfr hp] at hpf
+  exact (hpf.mono (by simp)).trans (hz.2.2.2.2.2.1.mono (by simp))
+
+theorem zp_hint {a : State} (hz : ZP s₀ a) :
+    ∀ t < 256 * pk s₀, coeffAt a.mem (State.addr (pH s₀)) t = coeffAt s₀.mem (State.addr (pH s₀)) t := by
+  intro t ht
   have fH := hp.fitH
   have hl := hp.hlen
+  rw [coeffAt_eq, coeffAt_eq]
+  exact (zp_frame hp hz).readW (r := hR s₀) (Offset.contains_base _ (by omega) (by omega)) (fun r hr => by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl
+    · exact hp.b_h.symm
+    · exact hp.d_hy) (by decide)
+
+theorem mainPre_of {a : State} (hz : ZP s₀ a) {rd wr : List Region} (hr : hR s₀ ∈ rd) (hw : yR s₀ ∈ wr) :
+    MainPre s₀ (a.withRegions rd wr) := ⟨hr, hw, zp_hint hp (a := a) hz⟩
+
+end
+
+/-- The body of the frame: `y`, the reload of `r5`, and the word the pop reloads into `r4`. -/
+theorem body_ok {s₀ : State} (hp : PPre s₀) :
+    WP isa hintBitPackBody (P1 s₀) fun s₂ => s₂.sp = (P1 s₀).sp ∧ s₂.gpr .r5 = s₀.gpr .r5 ∧
+      s₂.mem.readW (State.addr s₂.sp) 32 = s₀.gpr .r4 ∧
+      bytesAt s₂.mem (State.addr (pY s₀)) (pLen s₀) = Spec.MlDsa.hintBitPack (pω s₀) (pk s₀) (pHint s₀) := by
+  have hsp8 := hsp8 hp
+  unfold hintBitPackBody
+  refine WP.seq (WP.mono (zeroP_ok hp) fun sa hz => ?_)
+  obtain ⟨a0, a1, a2, a3, az, af, ard, awr, asp⟩ := id hz
+  have hA : MainPre s₀ sa := by
+    have := mainPre_of hp hz (rd := sa.rd) (wr := sa.wr)
+      (by rw [ard]; simp [RegUpd.rd_setReg, hp.rd]) (by rw [awr]; simp [RegUpd.wr_setReg, hp.wr])
+    rwa [State.withRegions_self] at this
+  refine WP.seq (WP.mono (main_ok hp hA a0 a1 a2 a3 az) fun sb ⟨by', bf, brd, bwr, bsp⟩ => ?_)
+  have hfb : Frame [yR s₀] (P1 s₀).mem sb.mem := af.trans bf
+  have hdy : ∀ r ∈ [yR s₀], (frameR (s₀.setReg .r12 (pL s₀)) [.r4, .r5]).Disjoint r := fun r hr => by
+    rw [List.mem_singleton] at hr; subst hr; rw [hfr hp]; exact hp.b_y
+  have hsb : sb.sp = (P1 s₀).sp := by rw [bsp, asp]
+  refine WP.mono (ldr5_ok (by
+      rw [bwr, awr, pushed_wr, hsb]
+      exact ⟨_, List.mem_append_right _ (List.mem_cons_self ..),
+        frameR_contains [.r4, .r5] (s := s₀.setReg .r12 (pL s₀)) hsp8 (i := 1) (by decide)⟩))
+    fun s₂ e₂ => ?_
+  subst e₂
+  refine ⟨hsb, ?_, ?_, by' ⟩
+  · simp only [RegUpd.gpr_setReg_self]
+    rw [hsb, frame_saved [.r4, .r5] (s := s₀.setReg .r12 (pL s₀)) hsp8 hfb hdy (i := 1) (by decide)]
+    rfl
+  · simp only [RegUpd.mem_setReg, RegUpd.sp_setReg]
+    rw [hsb, show State.addr (P1 s₀).sp = State.addr ((P1 s₀).sp + BitVec.ofNat 32 (4 * 0)) by simp,
+      frame_saved [.r4, .r5] (s := s₀.setReg .r12 (pL s₀)) hsp8 hfb hdy (i := 0) (by decide)]
+    rfl
+
+/-- The whole function: `y`, and the registers it saves and restores (the
+others it never writes). -/
+theorem correct {s₀ : State} (hp : PPre s₀) :
+    WP isa Impl.MlDsa.Arm.Pack.hintBitPack s₀ fun s' => s'.gpr .r4 = s₀.gpr .r4 ∧ s'.gpr .r5 = s₀.gpr .r5 ∧
+      s'.gpr .lr = s₀.gpr .lr ∧ s'.sp = s₀.sp ∧
+      bytesAt s'.mem (State.addr (pY s₀)) (pLen s₀) = Spec.MlDsa.hintBitPack (pω s₀) (pk s₀) (pHint s₀) := by
   unfold Impl.MlDsa.Arm.Pack.hintBitPack
   refine WP.seq (WP.mono (entry_ok (s := s₀) (by
     rw [hp.rd]; exact ⟨argR s₀, by simp, Region.contains_self _ _⟩)) fun s₁ e₁ => ?_)
   subst e₁
-  have hsp8 : 4 * [Reg.r4, Reg.r5].length ≤ s₀.sp.toNat := hp.sp
-  have hfr : frameR (s₀.setReg .r12 (pL s₀)) [.r4, .r5] = ⟨State.addr s₀.sp - BitVec.ofNat 64 8, 8⟩ :=
-    frameR2 (s := s₀.setReg .r12 (pL s₀)) hp.sp
-  have hpf := pushed_frame [.r4, .r5] (s := s₀.setReg .r12 (pL s₀)) hsp8
-  refine WP.frame (rs := [.r4, .r5]) (r := .r4) rfl hsp8 (by decide) ?_
-  unfold hintBitPackBody
-  refine WP.seq (WP.mono (zero_ok hp (s := pushed [.r4, .r5] (s₀.setReg .r12 (pL s₀))) rfl rfl rfl rfl
-      (by simp [RegUpd.wr_setReg, hp.wr]))
-    fun sa ⟨a0, a1, a2, a3, az, af, ard, awr, asp⟩ => ?_)
-  have hA : MainPre s₀ sa := ⟨by rw [ard]; simp [RegUpd.rd_setReg, hp.rd], by rw [awr]; simp [RegUpd.wr_setReg, hp.wr], fun t ht => by
-    rw [coeffAt_eq, coeffAt_eq, af.readW (r := hR s₀) (Offset.contains_base _ (by omega) (by omega))
-      (fun r hr => by rw [List.mem_singleton] at hr; subst hr; exact hp.d_hy) (by decide),
-      hpf.readW (r := hR s₀) (Offset.contains_base _ (by omega) (by omega))
-      (fun r hr => by rw [List.mem_singleton] at hr; subst hr; rw [hfr]; exact hp.b_h.symm) (by decide)]; rfl⟩
-  refine WP.seq (WP.mono (main_ok hp hA a0 a1 a2 a3 az) fun sb ⟨by', bf, brd, bwr, bsp⟩ => ?_)
-  have hfb : Frame [yR s₀] (pushed [.r4, .r5] (s₀.setReg .r12 (pL s₀))).mem sb.mem := af.trans bf
-  have hdy : ∀ r ∈ [yR s₀], (frameR (s₀.setReg .r12 (pL s₀)) [.r4, .r5]).Disjoint r := fun r hr => by
-    rw [List.mem_singleton] at hr; subst hr; rw [hfr]; exact hp.b_y
-  have hsb : sb.sp = (pushed [.r4, .r5] (s₀.setReg .r12 (pL s₀))).sp := by rw [bsp, asp]
-  refine WP.mono (ldr5_ok (by
-      rw [bwr, awr, pushed_wr, hsb]
-      exact ⟨_, List.mem_append_right _ (List.mem_cons_self ..), frameR_contains [.r4, .r5] (s := s₀.setReg .r12 (pL s₀)) hsp8 (i := 1) (by decide)⟩))
-    fun s₂ e₂ => ?_
-  subst e₂
-  refine ⟨?_, ?_, ?_, ?_⟩
-  · simp only [popped, State.setReg, ite_true]
-    rw [hsb, show State.addr ((pushed [.r4, .r5] (s₀.setReg .r12 (pL s₀))).sp) =
-      State.addr ((pushed [.r4, .r5] (s₀.setReg .r12 (pL s₀))).sp + BitVec.ofNat 32 (4 * 0)) by simp,
-      frame_saved [.r4, .r5] (s := s₀.setReg .r12 (pL s₀)) hsp8 hfb hdy (i := 0) (by decide)]
-    rfl
-  · rw [popped_gpr (by decide)]
-    simp only [State.setReg, ite_true]
-    rw [hsb, frame_saved [.r4, .r5] (s := s₀.setReg .r12 (pL s₀)) hsp8 hfb hdy (i := 1) (by decide)]
-    rfl
-  · simp only [popped_sp, State.setReg, hsb, pushed_sp]
+  refine WP.frame (rs := [.r4, .r5]) (r := .r4) rfl (hsp8 hp) (by decide)
+    (WP.mono (WP.gpr (body_ok hp) (r := .lr) (by decide)) fun s₂ ⟨⟨hsp, h5, h4, hy⟩, hlr⟩ => ?_)
+  refine ⟨?_, by rw [popped_gpr (by decide), h5], by rw [popped_gpr (by decide), hlr]; rfl, ?_, hy⟩
+  · simp only [popped, State.setReg, ite_true]; exact h4
+  · simp only [popped_sp, hsp, P1, pushed_sp]
     exact BitVec.sub_add_cancel _ _
-  · simp only [popped_mem, State.setReg]
-    exact by'
 
 end VG.Proof.MlDsa.Arm.Pack.Hint

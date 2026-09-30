@@ -168,24 +168,23 @@ theorem push_eq {rs : List Reg} {s a : State} (h : isa.push (.push rs) s = some 
 the taint analysis with `rs` public, from states that agree on `rs` and
 the stack pointer. -/
 theorem frame4_ct {body : Prog isa} (rs : List Reg) {hc : VG.Taint.Hint VG.Arm.taint.T}
-    (h : (VG.Arm.taint.check (Taint.ofRegs rs) body hc).isSome = true) {s₁ s₂ : State}
-    (hsp : s₁.sp = s₂.sp) (hr : ∀ r ∈ rs, s₁.gpr r = s₂.gpr r) {t₁ t₂ : List Leak} {s₁' s₂' : State}
-    (e₁ : Exec isa (.frame (.push [.r4]) body (.pop .r4 4)) s₁ t₁ s₁')
-    (e₂ : Exec isa (.frame (.push [.r4]) body (.pop .r4 4)) s₂ t₂ s₂') : t₁ = t₂ :=
-  (RelCT.frame (P := fun a b => a = s₁ ∧ b = s₂) (fun a b h => by rw [h.1, h.2]; exact hsp)
-    (RelCT.taint (A := VG.Arm.taint) (Taint.ofRegs rs) (fun a b ⟨x₁, x₂, ⟨hx₁, hx₂⟩, pa, pb⟩ => by
-      rw [push_eq pa, push_eq pb, hx₁, hx₂]
-      exact Taint.agree_ofRegs fun r h => by rw [pushed_gpr, pushed_gpr]; exact hr r h) h)
-    _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
+    (h : (VG.Arm.taint.check (Taint.ofRegs rs) body hc).isSome = true) {P : State → State → Prop}
+    (hsp : ∀ a b, P a b → a.sp = b.sp) (hr : ∀ a b, P a b → ∀ r ∈ rs, a.gpr r = b.gpr r) :
+    RelCT isa P (.frame (.push [.r4]) body (.pop .r4 4)) fun _ _ => True :=
+  RelCT.frame hsp (RelCT.taint (A := VG.Arm.taint) (Taint.ofRegs rs) (fun a b ⟨x₁, x₂, hx, pa, pb⟩ => by
+      rw [push_eq pa, push_eq pb]
+      exact Taint.agree_ofRegs fun r h' => by rw [pushed_gpr, pushed_gpr]; exact hr _ _ hx r h') h)
 
 theorem bitPack_ct :
     ConstantTime isa (bitPackContract Arm.abi 4).pre (bitPackContract Arm.abi 4).pub Impl.MlDsa.Arm.Pack.bitPack := by
   intro s₁ s₂ t₁ t₂ s₁' s₂' _ _ hpub e₁ e₂
   sig_pub [bitPackContract, bitPackSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at hpub
   obtain ⟨hsp, h0, h1, h2, h3, -⟩ := hpub
-  exact frame4_ct [.r0, .r1, .r2, .r3] (by taint_decide) hsp (fun r hr => by
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl <;> assumption) e₁ e₂
+  exact (frame4_ct [.r0, .r1, .r2, .r3] (by taint_decide) (P := fun a b => a = s₁ ∧ b = s₂)
+    (fun a b h => by rw [h.1, h.2]; exact hsp) (fun a b h r hr => by
+      rw [h.1, h.2]
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl <;> assumption) _ _ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂).1
 
 /-! ## `Verified` -/
 

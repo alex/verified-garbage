@@ -77,7 +77,6 @@ theorem movN_ok (r : Reg) (N : Nat) (hN : encodable (BitVec.ofNat 32 N) = true) 
       (s'.gpr r = BitVec.ofNat 32 N ∧ s'.mem = s.mem) ∧ Keep [r] s s' := by
   refine WP.keep _ ?_ (by simp [writesOnly, dstOf])
   run_block [hN, and_true]
-  done
 
 /-! ## Packing -/
 

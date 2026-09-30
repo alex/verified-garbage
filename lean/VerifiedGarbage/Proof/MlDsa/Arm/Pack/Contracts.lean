@@ -71,6 +71,7 @@ structure BuPre (s : State) : Prop where
   rd : s.rd = [⟨State.addr (s.gpr .r0), (s.gpr .r1).toNat⟩, ⟨stackArgAddr s 0, 4⟩]
   wr : s.wr = [polyRegion (State.addr (stackArg s 0))]
   disj : Region.Disjoint ⟨State.addr (s.gpr .r0), (s.gpr .r1).toNat⟩ (polyRegion (State.addr (stackArg s 0)))
+  bV : (below4 s).Disjoint ⟨State.addr (s.gpr .r0), (s.gpr .r1).toNat⟩
   bP : (below4 s).Disjoint (polyRegion (State.addr (stackArg s 0)))
   fitV : (s.gpr .r0).toNat + (s.gpr .r1).toNat ≤ 2 ^ 32
   fitP : (stackArg s 0).toNat + 1024 ≤ 2 ^ 32
@@ -79,8 +80,8 @@ structure BuPre (s : State) : Prop where
 
 theorem BuPre.of {s : State} (h : (bitUnpackContract Arm.abi 4).pre s) : BuPre s := by
   sig_pre [bitUnpackContract, bitUnpackSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at h
-  obtain ⟨h0, -, h1, h2, h3, -, -, h6, -, h7, h8, h9, h10⟩ := h
-  exact ⟨h0, h1, h2, h3, h6, h7, h8, h9, h10⟩
+  obtain ⟨h0, -, h1, h2, h3, -, h5, h6, -, h7, h8, h9, h10⟩ := h
+  exact ⟨h0, h1, h2, h3, h5, h6, h7, h8, h9, h10⟩
 
 /-- `vg_mldsa_unpack_t1(v = r0, f = r1)`. -/
 structure T1Pre (s : State) : Prop where
