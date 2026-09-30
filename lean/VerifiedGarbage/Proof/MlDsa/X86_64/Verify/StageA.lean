@@ -223,28 +223,29 @@ def sChk (p : Params) : Bool :=
 
 theorem sChk_all : ∀ p ∈ params, sChk p = true := by decide
 
-theorem samples_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ)
+theorem copyRho_ok {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ)
     {h : List (Vector Bool n)} {s : State} (hs : S2 p h p.ℓ σ s) (h15 : s.gpr .r15 = flag True) :
-    WP isa (samples P p) s (S4 p h σ) := by
+    WP isa (copy (sc oSB) (.rbp, 0) 32) s (S3 p h 0 0 σ) := by
   have hc := sChk_all p hp
   simp only [sChk, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range] at hc
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨c1, c2⟩, c3⟩, c4⟩, c5⟩, c6⟩, c7⟩, c8⟩, c9⟩, c10⟩, c11⟩ := hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨c1, c2⟩, c3⟩, c4⟩, _⟩, _⟩, _⟩, _⟩, _⟩, _⟩, _⟩ := hc
   obtain ⟨t3, h3, z3⟩ := keepChk_spec c3
-  obtain ⟨t8, h8, z8⟩ := keepChk_spec c8
   have L := hs.t.lay hp hv
-  unfold samples
-  refine WP.seq (WP.mono (copy_ok L (by decide) c1 c2) fun s₁ ⟨hP₁, h15₁, hcp⟩ => ?_)
+  refine WP.mono (copy_ok L (by decide) c1 c2) fun s₁ ⟨hP₁, h15₁, hcp⟩ => ?_
   have t₁ := hs.t.step hp hv hP₁ t3
-  have L₁ := t₁.lay hp hv
-  have s₁3 : S3 p h 0 0 σ s₁ := by
-    refine ⟨t₁, L.keepHint hP₁ h3 hs.hint, fun i hi => L.keepPoly hP₁ (z3 i hi) (hs.z i hi), ?_,
-      fun r' _ c' _ hd => absurd hd (by unfold Done; omega), true, by rw [h15₁, h15]; exact flag_congr (by simp),
-      fun _ r' _ c' _ hd => absurd hd (by unfold Done; omega), fun hq => absurd hq (by simp)⟩
-    rw [hP₁.pa (show Reg.rbx ∈ bases by decide), hcp, hs.t.pkSlice c4, List.drop_zero]
-    rfl
-  refine WP.seq (WP.mono (seqR_ok (I := fun r => S3 p h r 0 σ) p.k 0 (fun r _ hr st hst => aRow_ok C hp hv
-    (by omega) hst) s₁ s₁3) fun s₂ hs₂ => ?_)
-  rw [Nat.zero_add] at hs₂
+  refine ⟨t₁, L.keepHint hP₁ h3 hs.hint, fun i hi => L.keepPoly hP₁ (z3 i hi) (hs.z i hi), ?_,
+    fun r' _ c' _ hd => absurd hd (by unfold Done; omega), true, by rw [h15₁, h15]; exact flag_congr (by simp),
+    fun _ r' _ c' _ hd => absurd hd (by unfold Done; omega), fun hq => absurd hq (by simp)⟩
+  rw [hP₁.pa (show Reg.rbx ∈ bases by decide), hcp, hs.t.pkSlice c4, List.drop_zero]
+  rfl
+
+theorem ballStage_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ)
+    {h : List (Vector Bool n)} {s₂ : State} (hs₂ : S3 p h p.k 0 σ s₂) :
+    WP isa (sampled (ballAt P (.r13, 0) p.ctildeLen p.τ pC) pC) s₂ (S4 p h σ) := by
+  have hc := sChk_all p hp
+  simp only [sChk, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range] at hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨_, _⟩, _⟩, _⟩, c5⟩, c6⟩, c7⟩, c8⟩, c9⟩, c10⟩, c11⟩ := hc
+  obtain ⟨t8, h8, z8⟩ := keepChk_spec c8
   have L₂ := hs₂.t.lay hp hv
   obtain ⟨q, h15₂, hok, hbad⟩ := hs₂.ok
   refine WP.mono (sampled_ok L₂ c9 c10 h15₂ (List.mem_cons_self ..)
@@ -273,5 +274,15 @@ theorem samples_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) 
         · rw [h1] at hq; cases hq
         · exact h0
       exact .inr (hs0 h0)
+
+theorem samples_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ)
+    {h : List (Vector Bool n)} {s : State} (hs : S2 p h p.ℓ σ s) (h15 : s.gpr .r15 = flag True) :
+    WP isa (samples P p) s (S4 p h σ) := by
+  unfold samples
+  refine WP.seq (WP.mono (copyRho_ok hp hv hs h15) fun s₁ s₁3 => ?_)
+  refine WP.seq (WP.mono (seqR_ok (I := fun r => S3 p h r 0 σ) p.k 0 (fun r _ hr st hst => aRow_ok C hp hv
+    (by omega) hst) s₁ s₁3) fun s₂ hs₂ => ?_)
+  rw [Nat.zero_add] at hs₂
+  exact ballStage_ok C hp hv hs₂
 
 end VG.Proof.MlDsa.X86_64.Verify

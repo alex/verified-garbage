@@ -374,14 +374,33 @@ abbrev w1Enc (p : Params) (σ : State) (h : List (Vector Bool n)) (A' : Nat → 
     List Byte :=
   (List.range p.k).flatMap fun r => simpleBitPack (w1Row p (vPk p σ) (vSig p σ) A' cH h r) (w1Max p)
 
+theorem tail_ok {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ)
+    {h : List (Vector Bool n)} {A' : Nat → Nat → Poly} {Q : Prop} [Decidable Q] {cH : Poly}
+    {s₃ : State} (hs₃ : SC p h A' Q p.ℓ cH p.k σ s₃) :
+    WP isa (.seq (hash2 (.r12, 0) 64 (sc oB) (p.k * w1Len p) (sc oCT) p.ctildeLen)
+      (cmpAnd (sc oCT) (.r13, 0) p.ctildeLen)) s₃ fun s' => T p σ s' ∧
+      s'.gpr .r15 = flag (Q ∧ H (vMu σ ++ w1Enc p σ h A' cH) p.ctildeLen = vCt p (vSig p σ)) := by
+  have hc := compChk_all p hp
+  simp only [compChk, Bool.and_eq_true, decide_eq_true_eq] at hc
+  obtain ⟨⟨⟨⟨⟨c1, c2⟩, c3⟩, c4⟩, c5⟩, c6⟩ := hc
+  have L₃ := hs₃.t.lay hp hv
+  have hB : bytesAt s₃.mem (pa s₃ (sc oB)) (p.k * w1Len p) = w1Enc p σ h A' cH :=
+    bytesAt_rows p.k fun r hr => by rw [← row_pa]; exact hs₃.rows r hr
+  refine WP.seq (WP.mono (hash2_ok L₃ c1) fun s₄ ⟨hP₄, f₄, hq₄⟩ => ?_)
+  rw [hB, hs₃.t.mu] at hq₄
+  have t₄ := hs₃.t.step hp hv hP₄ c2
+  have L₄ := t₄.lay hp hv
+  refine WP.mono (cmpAnd_ok L₄ c5 c3 c4 (P := Q) (by rw [f₄]; exact hs₃.r15)) fun s₅ ⟨hP₅, f₅⟩ => ⟨t₄.step hp hv hP₅
+    (tChk_nil p hp), ?_⟩
+  rw [f₅, show pa s₄ (sc oCT) = pa s₃ (sc oCT) from pa_rbx hP₄ _, hq₄,
+    t₄.sigSlice (by omega : 0 + p.ctildeLen ≤ p.sigLen), List.drop_zero]
+  exact flag_congr (and_congr_right fun _ => Iff.rfl)
+
 theorem compute_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ)
     {h : List (Vector Bool n)} {A' : Nat → Nat → Poly} {Q : Prop} [Decidable Q] {cH : Poly}
     {s : State} (hs : SC p h A' Q 0 cH 0 σ s) :
     WP isa (compute P p) s fun s' => T p σ s' ∧
       s'.gpr .r15 = flag (Q ∧ H (vMu σ ++ w1Enc p σ h A' (ntt cH)) p.ctildeLen = vCt p (vSig p σ)) := by
-  have hc := compChk_all p hp
-  simp only [compChk, Bool.and_eq_true, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨⟨⟨c1, c2⟩, c3⟩, c4⟩, c5⟩, c6⟩ := hc
   unfold compute
   refine WP.seq (WP.mono (seqR_ok (I := fun i => SC p h A' Q i cH 0 σ) p.ℓ 0
     (fun i _ hi st hst => nttZ_ok C hp hv (by omega) hst) s hs) fun s₁ hs₁ => ?_)
@@ -390,16 +409,6 @@ theorem compute_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) 
   refine WP.seq (WP.mono (seqR_ok (I := fun r => SC p h A' Q p.ℓ (ntt cH) r σ) p.k 0
     (fun r _ hr st hst => row_ok C hp hv (by omega) hst) s₂ hs₂) fun s₃ hs₃ => ?_)
   rw [Nat.zero_add] at hs₃
-  have L₃ := hs₃.t.lay hp hv
-  have hB : bytesAt s₃.mem (pa s₃ (sc oB)) (p.k * w1Len p) = w1Enc p σ h A' (ntt cH) :=
-    bytesAt_rows p.k fun r hr => by rw [← row_pa]; exact hs₃.rows r hr
-  refine WP.seq (WP.mono (hash2_ok L₃ c1) fun s₄ ⟨hP₄, f₄, hq₄⟩ => ?_)
-  rw [hB, hs₃.t.mu] at hq₄
-  have t₄ := hs₃.t.step hp hv hP₄ c2
-  have L₄ := t₄.lay hp hv
-  refine WP.mono (cmpAnd_ok L₄ c5 c3 c4 (P := Q) (by rw [f₄]; exact hs₃.r15)) fun s₅ ⟨hP₅, f₅⟩ => ⟨t₄.step hp hv hP₅
-    (tChk_nil p hp), ?_⟩
-  rw [f₅, show pa s₄ (sc oCT) = pa s₃ (sc oCT) from pa_rbx hP₄ _, hq₄, t₄.sigSlice (by omega : 0 + p.ctildeLen ≤ p.sigLen), List.drop_zero]
-  exact flag_congr (and_congr_right fun _ => Iff.rfl)
+  exact tail_ok hp hv hs₃
 
 end VG.Proof.MlDsa.X86_64.Verify

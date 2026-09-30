@@ -48,16 +48,20 @@ theorem S2.flag {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ) {
   exact ⟨hs.t.step hp hv hP (tChk_nil p hp), L.keepHint hP kh hs.hint,
     fun i hi => L.keepPoly hP (kz i (by omega)) (hs.z i hi), by rw [e]; exact hs.r15⟩
 
+theorem S4.toSC {p : Params} {h : List (Vector Bool n)} {σ s : State} (hs : S4 p h σ s) {q : Bool}
+    (h15 : s.gpr .r15 = flag (q = true)) :
+    SC p h (fun r c => polyAt s.mem (pa s (pA r c))) (q = true) 0 (polyAt s.mem (pa s pC)) 0 σ s :=
+  ⟨hs.t, hs.hint, fun r hr c hc => ⟨hs.red r hr c hc, rfl⟩,
+    fun i hi => by rw [iteN (Nat.not_lt_zero _)]; exact hs.z i hi, ⟨hs.redC, rfl⟩,
+    fun _ h => absurd h (Nat.not_lt_zero _), h15⟩
+
 /-- After the norms: the samplers, the rows, the hash and the comparison. -/
 theorem cs_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ)
     {h : List (Vector Bool n)} (hh : vHint p (vSig p σ) = some h)
     (hn : ∀ i < p.ℓ, normRq [toRq (vZ p (vSig p σ) i)] < p.γ₁ - p.β) {s : State} (hs : S4 p h σ s) :
     WP isa (compute P p) s (Fin p σ) := by
   obtain ⟨q, h15, hok, hbad⟩ := hs.ok
-  have hSC : SC p h (fun r c => polyAt s.mem (pa s (pA r c))) (q = true) 0 (polyAt s.mem (pa s pC)) 0 σ s :=
-    ⟨hs.t, hs.hint, fun r hr c hc => ⟨hs.red r hr c hc, rfl⟩,
-      fun i hi => by rw [iteN (Nat.not_lt_zero _)]; exact hs.z i hi, ⟨hs.redC, rfl⟩,
-      fun _ h => absurd h (Nat.not_lt_zero _), h15⟩
+  have hSC := hs.toSC h15
   refine WP.mono (compute_ok C hp hv hSC) fun s' ⟨ht, h15'⟩ => ⟨ht, ?_⟩
   cases q with
   | false =>
