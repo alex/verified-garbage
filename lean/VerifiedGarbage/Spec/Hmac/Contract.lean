@@ -26,6 +26,12 @@ inlined SHA-256 finalizations. On the 32-bit targets it writes the MAC
 through an `out` pointer (`finalizeSha256OutContract`), so that its arguments
 are those of `vg_sha256_finalize` with `outer` inserted after `inner`.
 
+These contracts are SHA-256's alone, for its existing implementations:
+`VG.Spec.Hmac.sha256I`'s generic ones (`Spec/Hmac/Generic.lean`), as every
+hash function's, give `init` more working space and have `finalize` write
+the MAC to `out` on every target. They are removed once SHA-256 is
+implemented through `sha256I` on every target.
+
 `init` and `finalize` take the number of bytes of stack below the stack pointer that
 an implementation's calls use (`stack`, see `Sig.contract`), 0 for one that
 makes no call: it depends on the target, and on which functions the
