@@ -1,5 +1,6 @@
 import VerifiedGarbage.Impl.Sha512.X86_64
 import VerifiedGarbage.Impl.Sha512.X86_64.Avx2
+import VerifiedGarbage.Impl.Sha512.X86_64.ShaNi
 import VerifiedGarbage.Impl.MdStream.X86_64
 
 /-!
@@ -42,6 +43,7 @@ structure Callee where
 
 def Callee.scalar : Callee := ⟨"vg_sha512_compress", compress⟩
 def Callee.avx2 : Callee := ⟨"vg_sha512_compress_avx2", Avx2.compress⟩
+def Callee.shani : Callee := ⟨"vg_sha512_compress_shani", ShaNi.compress⟩
 
 def init (iv : Spec.Sha512.HashValue) : Prog isa :=
   .block ((List.range 8).flatMap fun k => [.movImm64 .rax iv[k]!, .store (at_ .rdi (8 * k)) .rax])

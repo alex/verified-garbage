@@ -6,6 +6,7 @@ import VerifiedGarbage.Proof.MdStream.X86_64.Words
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Sha512.X86_64.Wide
 import VerifiedGarbage.Proof.Sha512.X86_64.Avx2.Compress
+import VerifiedGarbage.Proof.Sha512.X86_64.ShaNi.Compress
 import VerifiedGarbage.Impl.Sha512.X86_64.Stream
 import VerifiedGarbage.Proof.Sha512.X86_64.Lit
 
@@ -69,7 +70,7 @@ Untrusted: everything here is checked by Lean. `update` and `finalize` are
 the generic streaming code (`Impl/MdStream/X86_64.lean`), so they are
 verified by the generic proofs (`Proof/MdStream/X86_64/`) for the SHA-512
 family's instance (above), for any implementation `f` of the compression
-function (`CalleeOk`: `scalar_ok`, `avx2_ok`), given what the family's own pieces do:
+function (`CalleeOk`: `scalar_ok`, `avx2_ok`, `shani_ok`), given what the family's own pieces do:
 its length field and digest (`shape`) and that the taint analysis accepts
 its code between the calls (`taints`).
 -/
@@ -153,6 +154,11 @@ theorem avx2_ok : CalleeOk (P := params) md Callee.avx2.code :=
   .of_verified Avx2.compress_verified.1 Avx2.compress_verified.2.1
     (by change (instrs Impl.Sha512.X86_64.Avx2.compress).all _ = true; rw [← Code.allInstrs_eq]; lit_decide)
     (by change Impl.Sha512.X86_64.Avx2.compress.depth = 0; lit_decide)
+
+theorem shani_ok : CalleeOk (P := params) md Callee.shani.code :=
+  .of_verified ShaNi.compressWide_verified.1 ShaNi.compressWide_verified.2.1
+    (by change (instrs Impl.Sha512.X86_64.ShaNi.compress).all _ = true; rw [← Code.allInstrs_eq]; lit_decide)
+    (by change Impl.Sha512.X86_64.ShaNi.compress.depth = 0; lit_decide)
 
 namespace Update
 

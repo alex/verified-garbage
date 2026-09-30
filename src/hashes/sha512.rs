@@ -10,9 +10,11 @@
 //! state and differ only in their initial hash value and in how much of the
 //! final hash value is their digest.
 //!
-//! On x86-64, CPUs with AVX2, BMI1 and BMI2 run `vg_sha512_update_avx2` and
-//! `vg_sha512_finalize_avx2` instead, which have the same contracts and call
-//! `vg_sha512_compress_avx2`.
+//! On x86-64, CPUs with the SHA512 extension (and AVX2) run
+//! `vg_sha512_update_shani` and `vg_sha512_finalize_shani` instead, which have
+//! the same contracts and call `vg_sha512_compress_shani`; CPUs without it but
+//! with AVX2, BMI1 and BMI2 run `vg_sha512_update_avx2` and
+//! `vg_sha512_finalize_avx2`, which call `vg_sha512_compress_avx2`.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -23,8 +25,9 @@
 
 #[cfg(target_arch = "x86_64")]
 use crate::arch::sha512::{
-    VG_SHA512_FINALIZE_AVX2_FEATURES, VG_SHA512_UPDATE_AVX2_FEATURES, vg_sha512_finalize_avx2,
-    vg_sha512_update_avx2,
+    VG_SHA512_FINALIZE_AVX2_FEATURES, VG_SHA512_FINALIZE_SHANI_FEATURES,
+    VG_SHA512_UPDATE_AVX2_FEATURES, VG_SHA512_UPDATE_SHANI_FEATURES, vg_sha512_finalize_avx2,
+    vg_sha512_finalize_shani, vg_sha512_update_avx2, vg_sha512_update_shani,
 };
 use crate::arch::sha512::{
     vg_sha384_init, vg_sha512_224_init, vg_sha512_256_init, vg_sha512_finalize, vg_sha512_init,
@@ -43,6 +46,9 @@ super::streaming_hash!(
         backends: Sha384Backend {
             Scalar => (vg_sha512_update, vg_sha512_finalize),
             #[cfg(target_arch = "x86_64")]
+            ShaNi if [VG_SHA512_UPDATE_SHANI_FEATURES, VG_SHA512_FINALIZE_SHANI_FEATURES] =>
+                (vg_sha512_update_shani, vg_sha512_finalize_shani),
+            #[cfg(target_arch = "x86_64")]
             Avx2 if [VG_SHA512_UPDATE_AVX2_FEATURES, VG_SHA512_FINALIZE_AVX2_FEATURES] =>
                 (vg_sha512_update_avx2, vg_sha512_finalize_avx2),
         },
@@ -59,6 +65,9 @@ super::streaming_hash!(
         init: vg_sha512_init,
         backends: Sha512Backend {
             Scalar => (vg_sha512_update, vg_sha512_finalize),
+            #[cfg(target_arch = "x86_64")]
+            ShaNi if [VG_SHA512_UPDATE_SHANI_FEATURES, VG_SHA512_FINALIZE_SHANI_FEATURES] =>
+                (vg_sha512_update_shani, vg_sha512_finalize_shani),
             #[cfg(target_arch = "x86_64")]
             Avx2 if [VG_SHA512_UPDATE_AVX2_FEATURES, VG_SHA512_FINALIZE_AVX2_FEATURES] =>
                 (vg_sha512_update_avx2, vg_sha512_finalize_avx2),
@@ -77,6 +86,9 @@ super::streaming_hash!(
         backends: Sha512_224Backend {
             Scalar => (vg_sha512_update, vg_sha512_finalize),
             #[cfg(target_arch = "x86_64")]
+            ShaNi if [VG_SHA512_UPDATE_SHANI_FEATURES, VG_SHA512_FINALIZE_SHANI_FEATURES] =>
+                (vg_sha512_update_shani, vg_sha512_finalize_shani),
+            #[cfg(target_arch = "x86_64")]
             Avx2 if [VG_SHA512_UPDATE_AVX2_FEATURES, VG_SHA512_FINALIZE_AVX2_FEATURES] =>
                 (vg_sha512_update_avx2, vg_sha512_finalize_avx2),
         },
@@ -93,6 +105,9 @@ super::streaming_hash!(
         init: vg_sha512_256_init,
         backends: Sha512_256Backend {
             Scalar => (vg_sha512_update, vg_sha512_finalize),
+            #[cfg(target_arch = "x86_64")]
+            ShaNi if [VG_SHA512_UPDATE_SHANI_FEATURES, VG_SHA512_FINALIZE_SHANI_FEATURES] =>
+                (vg_sha512_update_shani, vg_sha512_finalize_shani),
             #[cfg(target_arch = "x86_64")]
             Avx2 if [VG_SHA512_UPDATE_AVX2_FEATURES, VG_SHA512_FINALIZE_AVX2_FEATURES] =>
                 (vg_sha512_update_avx2, vg_sha512_finalize_avx2),
@@ -134,42 +149,29 @@ mod tests {
     /// the same for the four functions.
     #[test]
     fn select() {
-        for bits in 0..512 {
+        for bits in 0..1024 {
             let f = Features(bits);
             let backend = Sha512Backend::select(f);
             #[cfg(target_arch = "x86_64")]
             {
+                // AVX, AVX2 and SHA512; AVX, AVX2, BMI1 and BMI2.
+                let shani = bits & 0b10_0011_0000 == 0b10_0011_0000;
                 let avx2 = bits & 0b1111_0000 == 0b1111_0000;
-                let expected = if avx2 {
-                    Sha512Backend::Avx2
-                } else {
-                    Sha512Backend::Scalar
-                };
-                assert_eq!(backend, expected, "{bits:#b}");
-                assert_eq!(
-                    Sha384Backend::select(f),
-                    if avx2 {
-                        Sha384Backend::Avx2
-                    } else {
-                        Sha384Backend::Scalar
-                    }
-                );
-                assert_eq!(
-                    Sha512_224Backend::select(f),
-                    if avx2 {
-                        Sha512_224Backend::Avx2
-                    } else {
-                        Sha512_224Backend::Scalar
-                    }
-                );
-                assert_eq!(
-                    Sha512_256Backend::select(f),
-                    if avx2 {
-                        Sha512_256Backend::Avx2
-                    } else {
-                        Sha512_256Backend::Scalar
-                    }
-                );
+                macro_rules! expected {
+                    ($backend:ident) => {
+                        if shani {
+                            $backend::ShaNi
+                        } else if avx2 {
+                            $backend::Avx2
+                        } else {
+                            $backend::Scalar
+                        }
+                    };
+                }
+                assert_eq!(backend, expected!(Sha512Backend), "{bits:#b}");
+                assert_eq!(Sha384Backend::select(f), expected!(Sha384Backend));
+                assert_eq!(Sha512_224Backend::select(f), expected!(Sha512_224Backend));
+                assert_eq!(Sha512_256Backend::select(f), expected!(Sha512_256Backend));
             }
             #[cfg(not(target_arch = "x86_64"))]
             {
