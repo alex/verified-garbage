@@ -21,8 +21,16 @@ verified streaming functions of `H`, serves every hash function.
 
 An `Instance` is a hash function as the Rust interface has it: the names of
 its functions `vg_hmac_<hash>_init` and `vg_hmac_<hash>_finalize` (and
-`vg_pbkdf2_hmac_<hash>_iterate`, `Spec/Pbkdf2/Generic.lean`), their working
-space, and their documentation (`Instance.initApi`, `Instance.finalizeApi`).
+`vg_pbkdf2_hmac_<hash>_iterate` and `vg_pbkdf2_hmac_<hash>`,
+`Spec/Pbkdf2/Generic.lean`), their working space, and their documentation
+(`Instance.initApi`, `Instance.finalizeApi`). Every hash function, SHA-256
+included, is an `Instance`, and a new one needs nothing else.
+
+SHA-256's functions also have contracts of their own
+(`Spec/Hmac/Contract.lean`), which its existing implementations are proven
+against: `vg_hmac_sha256_init`'s has less working space than `sha256I`'s,
+and `vg_hmac_sha256_finalize`'s leaves the MAC in `scratch` on the 64-bit
+targets. They are removed once `sha256I` is implemented on every target.
 
 `A` is the target's calling convention. The signatures fix where the
 arguments are, the memory each function may access, disjointness, and that
@@ -117,13 +125,14 @@ def finalizeContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
 /-! ## The functions in the Rust interface -/
 
 /-- A streaming hash function's HMAC functions in the Rust interface (and
-its PBKDF2 function, `VG.Spec.Pbkdf2.iterateApi`): the hash function, its
-name (`SHA-1`), the name that stands for it in the Rust names
-(`vg_hmac_sha1_init`), the Lean name of this record (for the
-documentation), the Rust name of its streaming `update` function, which
-the documentation points the caller to, and the number of
-64-bit words of working space of each function, which leaves room for the
-working space of the functions it calls and for its own spills. -/
+its PBKDF2 functions, `Instance.iterateApi` and `Instance.pbkdf2Api`): the
+hash function, its name (`SHA-1`), the name that stands for it in the Rust
+names (`vg_hmac_sha1_init`), the Lean name of this record (for the
+documentation), the Rust name of its streaming `update` function, which the
+documentation points the caller to, and the number of 64-bit words of
+working space of each HMAC function and of the PBKDF2 iteration, which
+leaves room for the working space of the functions it calls and for its own
+spills (the whole of PBKDF2 has more, `Instance.pbkdf2Scratch`). -/
 structure Instance where
   S : StreamingHash
   alg : String
@@ -132,27 +141,37 @@ structure Instance where
   update : String
   scratch : Nat
 
+/-- SHA-256: `vg_sha256_update` needs 76 words of working space. (104 words
+are also the working space of the existing `vg_pbkdf2_hmac_sha256_iterate`,
+whose contract is `sha256I`'s.) -/
+def sha256I : Instance :=
+  ⟨sha256S, "SHA-256", "sha256", "sha256I", "vg_sha256_update", 104⟩
+
 /-- SHA-1: `vg_sha1_update` needs 20 words of working space. -/
 def sha1I : Instance := ⟨sha1S, "SHA-1", "sha1", "sha1I", "vg_sha1_update", 56⟩
 
 /-- MD5: `vg_md5_update` needs 14 words of working space. -/
 def md5I : Instance := ⟨md5S, "MD5", "md5", "md5I", "vg_md5_update", 48⟩
 
-/-- SHA-384: `vg_sha512_update` needs 34 words of working space. -/
+/-- SHA-384: `vg_sha512_update` needs 172 words of working space; 62 more
+are left for the HMAC and PBKDF2 functions' own registers and buffers
+(AArch64's PBKDF2 iteration, which keeps the most, uses 47: its caller's
+registers and its return address, a streaming state and two final hash
+values). -/
 def sha384I : Instance :=
-  ⟨sha384S, "SHA-384", "sha384", "sha384I", "vg_sha512_update", 96⟩
+  ⟨sha384S, "SHA-384", "sha384", "sha384I", "vg_sha512_update", 234⟩
 
 /-- SHA-512: as SHA-384. -/
 def sha512I : Instance :=
-  ⟨sha512S, "SHA-512", "sha512", "sha512I", "vg_sha512_update", 96⟩
+  ⟨sha512S, "SHA-512", "sha512", "sha512I", "vg_sha512_update", 234⟩
 
 /-- SHA-512/224: as SHA-384. -/
 def sha512_224I : Instance :=
-  ⟨sha512_224S, "SHA-512/224", "sha512_224", "sha512_224I", "vg_sha512_update", 96⟩
+  ⟨sha512_224S, "SHA-512/224", "sha512_224", "sha512_224I", "vg_sha512_update", 234⟩
 
 /-- SHA-512/256: as SHA-384. -/
 def sha512_256I : Instance :=
-  ⟨sha512_256S, "SHA-512/256", "sha512_256", "sha512_256I", "vg_sha512_update", 96⟩
+  ⟨sha512_256S, "SHA-512/256", "sha512_256", "sha512_256I", "vg_sha512_update", 234⟩
 
 namespace Instance
 

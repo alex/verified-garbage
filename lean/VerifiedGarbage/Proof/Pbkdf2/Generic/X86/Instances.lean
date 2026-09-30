@@ -121,12 +121,12 @@ theorem sha384_checks : Checks sha384H where
   xor := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha384_imp : (iterW Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.iterateContract X86.abi 48) := by
-  obtain ⟨a0, a1, a2, a3, a4, e, esp⟩ := iterSat_args 192 48 96
+theorem sha384_imp : (iterW Spec.Hmac.sha384S 234).Implies (Spec.Hmac.sha384I.iterateContract X86.abi 48) := by
+  obtain ⟨a0, a1, a2, a3, a4, e, esp⟩ := iterSat_args 192 48 234
   sig_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
     Spec.Hmac.sha384I, Spec.Hmac.sha384S, Spec.Hmac.sha384, iterW, iterG, X86.abi, X86.argSlots, X86.argVal,
     X86.argBytes]
-    [a0, a1, a2, a3, a4, e, esp, iterSat] using iterSat 192 48 96
+    [a0, a1, a2, a3, a4, e, esp, iterSat] using iterSat 192 48 234
 
 theorem sha384 : Verified X86.target (Impl.Pbkdf2.Generic.X86.iterate sha384H)
     (Spec.Hmac.sha384I.iterateContract X86.abi 48) :=
@@ -149,12 +149,12 @@ theorem sha512_checks : Checks sha512H' where
   xor := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha512_imp : (iterW Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.iterateContract X86.abi 48) := by
-  obtain ⟨a0, a1, a2, a3, a4, e, esp⟩ := iterSat_args 192 64 96
+theorem sha512_imp : (iterW Spec.Hmac.sha512S 234).Implies (Spec.Hmac.sha512I.iterateContract X86.abi 48) := by
+  obtain ⟨a0, a1, a2, a3, a4, e, esp⟩ := iterSat_args 192 64 234
   sig_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
     Spec.Hmac.sha512I, Spec.Hmac.sha512S, Spec.Hmac.sha512, iterW, iterG, X86.abi, X86.argSlots, X86.argVal,
     X86.argBytes]
-    [a0, a1, a2, a3, a4, e, esp, iterSat] using iterSat 192 64 96
+    [a0, a1, a2, a3, a4, e, esp, iterSat] using iterSat 192 64 234
 
 theorem sha512 : Verified X86.target (Impl.Pbkdf2.Generic.X86.iterate sha512H')
     (Spec.Hmac.sha512I.iterateContract X86.abi 48) :=
@@ -177,12 +177,12 @@ theorem sha512_224_checks : Checks sha512_224H where
   xor := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha512_224_imp : (iterW Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.iterateContract X86.abi 48) := by
-  obtain ⟨a0, a1, a2, a3, a4, e, esp⟩ := iterSat_args 192 28 96
+theorem sha512_224_imp : (iterW Spec.Hmac.sha512_224S 234).Implies (Spec.Hmac.sha512_224I.iterateContract X86.abi 48) := by
+  obtain ⟨a0, a1, a2, a3, a4, e, esp⟩ := iterSat_args 192 28 234
   sig_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
     Spec.Hmac.sha512_224I, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, iterW, iterG, X86.abi, X86.argSlots, X86.argVal,
     X86.argBytes]
-    [a0, a1, a2, a3, a4, e, esp, iterSat] using iterSat 192 28 96
+    [a0, a1, a2, a3, a4, e, esp, iterSat] using iterSat 192 28 234
 
 theorem sha512_224 : Verified X86.target (Impl.Pbkdf2.Generic.X86.iterate sha512_224H)
     (Spec.Hmac.sha512_224I.iterateContract X86.abi 48) :=
@@ -205,12 +205,12 @@ theorem sha512_256_checks : Checks sha512_256H where
   xor := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha512_256_imp : (iterW Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.iterateContract X86.abi 48) := by
-  obtain ⟨a0, a1, a2, a3, a4, e, esp⟩ := iterSat_args 192 32 96
+theorem sha512_256_imp : (iterW Spec.Hmac.sha512_256S 234).Implies (Spec.Hmac.sha512_256I.iterateContract X86.abi 48) := by
+  obtain ⟨a0, a1, a2, a3, a4, e, esp⟩ := iterSat_args 192 32 234
   sig_implies [Spec.Hmac.Instance.iterateContract, Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig,
     Spec.Hmac.sha512_256I, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, iterW, iterG, X86.abi, X86.argSlots, X86.argVal,
     X86.argBytes]
-    [a0, a1, a2, a3, a4, e, esp, iterSat] using iterSat 192 32 96
+    [a0, a1, a2, a3, a4, e, esp, iterSat] using iterSat 192 32 234
 
 theorem sha512_256 : Verified X86.target (Impl.Pbkdf2.Generic.X86.iterate sha512_256H)
     (Spec.Hmac.sha512_256I.iterateContract X86.abi 48) :=
