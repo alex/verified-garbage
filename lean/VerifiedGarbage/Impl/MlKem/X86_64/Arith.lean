@@ -1,33 +1,46 @@
-import VerifiedGarbage.Impl.MlKem.X86_64.Common
+import VerifiedGarbage.Impl.MlKem.X86_64.Vec
 
 /-!
 # ML-KEM on x86-64: `vg_mlkem_add` and `vg_mlkem_sub`
 
-`add(f = rdi, g = rsi)` and `sub(f = rdi, g = rsi)` run over the 256
-coefficients with `rdi` and `rsi` pointing at coefficient `i` of `f` and
-`g`, and `rcx = 256 - i` counting down: `f[i] + g[i]` (for `sub`,
-`f[i] + q - g[i]`), less than `2q`, is reduced with `csubQ` and stored to
-`f[i]`. Every address and branch depends only on the pointers.
+`add(f = rdi, g = rsi)` and `sub(f = rdi, g = rsi)` compute on four
+coefficients at a time, as the doublewords of SSE2 registers, with `q` in
+each doubleword of `xmm15` (`dconsts`). They run over the 64 groups of four
+with `rdi` and `rsi` pointing at the group of `f` and of `g`, and `rcx`
+counting down. `add` computes `f[i] + g[i] - q`, in `[-q, q)`, and `sub`
+`f[i] - g[i]`, in `(-q, q)`, and adds `q` to the negative ones (`dcadd`)
+before storing them to `f`. There are no multiplications. Every address and
+branch depends only on the pointers.
 -/
 
 namespace VG.Impl.MlKem.X86_64
 
 open VG.X86_64
 
+/-- `q` in each doubleword of `xmm15`. -/
+def dconsts : List Instr :=
+  [.mov32 .rax (.imm 3329), .xop (.movq .xmm15 .rax), .xop (.pshufd .xmm15 .xmm15 0)]
+
+/-- `d + q` in the doublewords of `d` that are negative, and `d` in the
+others, with a temporary `t`: `d >>ₐ 31` is all ones exactly when `d` is
+negative. -/
+def dcadd (d t : XReg) : List Instr :=
+  [xmov t d, .xop (.shift .psrad t 31), xb .pand t .xmm15, xb .paddd d t]
+
 /-- Advance the two pointers and count down. -/
-def step2 : List Instr :=
-  [.alu .add .rdi (.imm 4), .alu .add .rsi (.imm 4), .alu .sub .rcx (.imm 1)]
+def dstep : List Instr :=
+  [.alu .add .rdi (.imm 16), .alu .add .rsi (.imm 16), .alu .sub .rcx (.imm 1)]
 
 def addBody : List Instr :=
-  [.mov32 .rax (.mem (at_ .rdi 0)), .alu32 .add .rax (.mem (at_ .rsi 0))] ++ csubQ .rax .rdx ++
-    [.store32 (at_ .rdi 0) .rax] ++ step2
+  [.movdquLoad .xmm0 (at_ .rdi 0), .movdquLoad .xmm1 (at_ .rsi 0), xb .paddd .xmm0 .xmm1,
+    xb .psubd .xmm0 .xmm15] ++ dcadd .xmm0 .xmm1 ++ [.movdquStore (at_ .rdi 0) .xmm0] ++ dstep
 
 def subBody : List Instr :=
-  [.mov32 .rax (.mem (at_ .rdi 0)), .alu32 .add .rax (.imm qImm), .alu32 .sub .rax (.mem (at_ .rsi 0))] ++
-    csubQ .rax .rdx ++ [.store32 (at_ .rdi 0) .rax] ++ step2
+  [.movdquLoad .xmm0 (at_ .rdi 0), .movdquLoad .xmm1 (at_ .rsi 0), xb .psubd .xmm0 .xmm1] ++
+    dcadd .xmm0 .xmm1 ++ [.movdquStore (at_ .rdi 0) .xmm0] ++ dstep
 
-def add : Prog isa := .seq (.block [.mov32 .rcx (.imm 256)]) (.loop (.block addBody) .ne)
+def add : Prog isa := .seq (.block (dconsts ++ [.mov32 .rcx (.imm 64)])) (.loop (.block addBody) .ne)
 
-def sub : Prog isa := .seq (.block [.mov32 .rcx (.imm 256)]) (.loop (.block subBody) .ne)
+def sub : Prog isa := .seq (.block (dconsts ++ [.mov32 .rcx (.imm 64)])) (.loop (.block subBody) .ne)
 
 end VG.Impl.MlKem.X86_64

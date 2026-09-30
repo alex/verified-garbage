@@ -1,0 +1,5 @@
+name = "RFC 7693, The BLAKE2 Cryptographic Hash and Message Authentication Code (MAC) (examples in Appendices A and B, self-test in Appendix E)"
+directories = ["rfc7693"]
+url = "https://www.rfc-editor.org/rfc/rfc7693.txt"
+sha256 = "c943754888364fe29bbd0bb3c71c6658ef392371497eaa4a9d9dde015b0721e5"
+retrieved = 2026-09-30
