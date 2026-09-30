@@ -30,6 +30,8 @@ open VG.Spec.MlDsa
 open VG.Proof.MlKem (digits digits_bit sum_bits ofNat8_mod getElem?_flatMap_const length_flatMap_const
   digits_chunk mod_pow_div_mod map_bytes_lt)
 
+theorem t1Max_eq : t1Max = 1023 := by decide
+
 /-! ## Packing -/
 
 /-- The bits of the `d`-bit fields of `L`. -/
