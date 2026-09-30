@@ -137,4 +137,7 @@ theorem word_punpckhqdq (hi : i < 8) :
 
 end
 
+theorem pxor_self (a : BitVec 128) : XBinOp.eval .pxor a a = 0 := by
+  simp [XBinOp.eval]
+
 end VG.X86_64
