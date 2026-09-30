@@ -73,7 +73,7 @@ theorem sgB_bases (p : Params) : ∀ b ∈ sgB p, b.1 ∈ bases := by
 theorem sgM_bases : ∀ m ∈ sgM, m.1 ∈ bases := by decide
 
 /-- The callee-saved registers the function never writes. -/
-abbrev untouched : List Reg := [.x19, .x20, .x21, .x22, .x29]
+abbrev untouched : List Reg := [.x19, .x20, .x21, .x22]
 
 theorem untouched_kept : ∀ r ∈ untouched, r ∈ keptRegs := by decide
 

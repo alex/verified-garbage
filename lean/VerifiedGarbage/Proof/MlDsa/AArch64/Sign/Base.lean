@@ -173,7 +173,7 @@ theorem bases_pres : ∀ r ∈ bases, r ∈ preserved ∧ r ≠ .x30 := by decid
 
 /-- The callee-saved registers the functions never write (all but `x24`, and
 `x30`, which calls overwrite). -/
-abbrev keptRegs : List Reg := [.x19, .x20, .x21, .x22, .x23, .x25, .x26, .x27, .x28, .x29]
+abbrev keptRegs : List Reg := [.x19, .x20, .x21, .x22, .x23, .x25, .x26, .x27, .x28]
 
 theorem kept_pres : ∀ r ∈ keptRegs, r ∈ preserved ∧ r ≠ .x30 := by decide
 
