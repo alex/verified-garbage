@@ -75,9 +75,22 @@ impl Backend {
     /// The best implementation a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
     pub(crate) fn select(f: Features) -> Backend {
-        if f.contains(Features::of(VG_CHACHA20_XOR_AVX512_FEATURES)) {
+        Backend::select_for(
+            f,
+            VG_CHACHA20_XOR_AVX512_FEATURES,
+            VG_CHACHA20_XOR_AVX2_FEATURES,
+        )
+    }
+
+    /// The best implementation a CPU with the features `f` can run, for
+    /// functions whose instances for AVX-512 and AVX2 need the features
+    /// `avx512` and `avx2` (ChaCha20-Poly1305's, which also call Poly1305
+    /// with AVX2, need more than `vg_chacha20_xor`'s).
+    #[cfg(target_arch = "x86_64")]
+    pub(crate) fn select_for(f: Features, avx512: &[&str], avx2: &[&str]) -> Backend {
+        if f.contains(Features::of(avx512)) {
             Backend::Avx512
-        } else if f.contains(Features::of(VG_CHACHA20_XOR_AVX2_FEATURES)) {
+        } else if f.contains(Features::of(avx2)) {
             Backend::Avx2
         } else {
             Backend::Scalar
