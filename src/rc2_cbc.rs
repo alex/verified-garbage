@@ -5,7 +5,7 @@
 //! This wrapper validates parameters and buffers partial blocks between
 //! updates. Finalization rejects a trailing partial block.
 
-#![cfg(all(target_arch = "x86_64", feature = "alloc"))]
+#![cfg(all(any(target_arch = "x86_64", target_arch = "arm"), feature = "alloc"))]
 
 use alloc::vec::Vec;
 
