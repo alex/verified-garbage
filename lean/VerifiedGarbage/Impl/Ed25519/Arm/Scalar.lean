@@ -31,6 +31,10 @@ def scalarBit (j : Nat) : List Instr :=
     pass .r0 SD scalarSubtractSrc ++
     [.mov .r9 (.imm 0), .dp .sub .r9 .r9 (.reg .r5)] ++ cswap SR SD
 
+/-- Carry-out r5 is zero exactly when the unreduced scalar in SR is below L. -/
+def scalarCompare : List Instr :=
+  [.movw .r6 65535, .mov .r5 (.imm 1)] ++ pass .r0 SD scalarSubtractSrc
+
 def scalarRead : List Instr :=
   [.dp .sub .r10 .r10 (.imm 1), .dp .add .r2 .r12 (.reg .r10), .ldrb .r11 .r2 0]
 

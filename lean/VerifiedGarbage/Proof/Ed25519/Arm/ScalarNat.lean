@@ -55,6 +55,16 @@ theorem scalarSubtract_facts {f : Nat → Nat} (hf : val16 f 16 < 2 * L) :
       rw [ho] at hv; omega
     rw [heq, Nat.add_mod_right, Nat.mod_eq_of_lt (by omega)]
 
+theorem scalarCompare_carry {f : Nat → Nat} (hf : val16 f 16 < 2 ^ 256) :
+    chain (fun k => f k + scalarComplement k) 1 16 = if val16 f 16 < L then 0 else 1 := by
+  have hv := chain_val (fun k => f k + scalarComplement k) 1 16
+  rw [val16_add] at hv
+  have hc := scalarComplement_val
+  have hl := order_pos
+  have hout := val16_lt (f := out (fun k => f k + scalarComplement k) 1) (n := 16)
+    fun _ _ => out_lt _ _ _
+  split <;> omega
+
 /-- Consume the low n bits of a word, in descending order. -/
 def scalarConsumeBits (v n r : Nat) : Nat :=
   (List.range n).reverse.foldl (fun a j => (2 * a + v / 2 ^ j % 2) % L) r
