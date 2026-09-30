@@ -84,6 +84,13 @@ fn derive_blocks<H: HmacHash, K>(
     }
 }
 
+/// Checks that PBKDF2 can derive `len` bytes from blocks of `block` bytes:
+/// at most 2³² − 1 blocks ("derived key too long" in RFC 8018).
+#[cfg(target_arch = "x86_64")]
+fn check_len(len: usize, block: usize) {
+    u32::try_from(len.div_ceil(block)).expect("PBKDF2 derived key too long");
+}
+
 /// On the targets other than x86-64, makes a hash function with a streaming
 /// HMAC (`crate::hmac`'s `streaming_hmac!`) a [`Pbkdf2Hash`], with its
 /// verified `vg_pbkdf2_hmac_<hash>_iterate` (contract
@@ -229,10 +236,7 @@ macro_rules! whole_pbkdf2 {
                 iterations: core::num::NonZeroU32,
                 out: &mut [u8],
             ) {
-                assert!(
-                    out.len() as u64 <= u64::from(u32::MAX) * $output,
-                    "PBKDF2 derived key too long"
-                );
+                super::check_len(out.len(), $output);
                 let pbkdf2 = match $backend::select($crate::cpu::detected()) {
                     $backend::$base => $pbkdf2,
                     $($backend::$variant => $vpbkdf2,)*
