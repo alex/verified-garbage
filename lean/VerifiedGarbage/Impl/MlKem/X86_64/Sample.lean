@@ -18,9 +18,11 @@ the 34 bytes of the seed with `vg_keccak_absorb` (rate 168), pads it with
 `vg_keccak_squeeze`, and loops `n` times, with `rsi` at the 3 bytes of the
 iteration, `rdi` = `j`, the number of coefficients sampled, and `rcx`
 counting down: while `j < 256`, each of the two 12-bit values `d₁`, `d₂`
-of the 3 bytes (in `r9` and `r8`) that is less than `q` is stored to
-`a[j]` (at `rbp + 4 rdi`), and `j` incremented (`d₂` only if `j < 256`
-still).
+of the 3 bytes (in `r9` and `r8`) is stored to `a[j]` (at `rbp + 4 rdi`),
+and `j` incremented by the carry of its comparison with `q`, 1 if it is
+less than `q` (`d₂` only if `j < 256` still). A value not counted is
+overwritten by the next, or lies past the coefficients sampled; without a
+branch on each value, the loop does not mispredict one in five of them.
 
 The function runs `snSample 168`, which samples 256 coefficients but for
 about one seed in 120 (168 iterations sample 273 values less than `q` on
@@ -71,14 +73,14 @@ def snLoad : List Instr :=
     .alu32 .and .r9 (.imm 15), .shift32 .ror .r9 24, .alu32 .add .r9 (.reg .rax), .shift32 .shr .rdx 4,
     .shift32 .ror .r8 28, .alu32 .add .r8 (.reg .rdx), .alu .cmp .rdi (.imm 256)]
 
-/-- Store the value in `r` to `a[j]` if it is less than `q`. -/
-def snTry (r : Reg) : Prog isa :=
-  .seq (.block [.alu32 .cmp r (.imm qImm)])
-    (.ite .b (.block [.store32 aJ r, .alu .add .rdi (.imm 1)]) (.block []))
+/-- Store the value in `r` to `a[j]`, and count it (add 1 to `j`) if it is
+less than `q`: CF of the comparison. A value not counted is overwritten by
+the next one. -/
+def snTry (r : Reg) : List Instr := [.store32 aJ r, .alu32 .cmp r (.imm qImm), .alu .adc .rdi (.imm 0)]
 
 def snBody : Prog isa :=
   .seq (.block snLoad)
-    (.seq (.ite .b (.seq (snTry .r9) (.seq (.block [.alu .cmp .rdi (.imm 256)]) (.ite .b (snTry .r8) (.block []))))
+    (.seq (.ite .b (.seq (.block (snTry .r9)) (.seq (.block [.alu .cmp .rdi (.imm 256)]) (.ite .b (.block (snTry .r8)) (.block []))))
         (.block []))
       (.block [.alu .add .rsi (.imm 3), .alu .sub .rcx (.imm 1)]))
 

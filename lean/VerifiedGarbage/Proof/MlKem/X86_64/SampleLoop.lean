@@ -79,19 +79,6 @@ theorem ea_aJ (s : State) {aP : Addr} {j : Nat} (hbp : s.gpr .rbp = aP) (hdi : s
   simp only [BitVec.toNat_mul, BitVec.toNat_ofNat]
   omega
 
-theorem snTryCmp_ok (r : Reg) (s : State) :
-    WP isa (.block [.alu32 .cmp r (.imm qImm)]) s fun s' =>
-      s'.cf = some (decide (((s.gpr r).setWidth 32).toNat < 3329)) ∧ s'.mem = s.mem ∧ s'.gpr = s.gpr ∧
-        s'.rd = s.rd ∧ s'.wr = s.wr := by
-  xrun [qImm_toNat]
-  rfl
-
-theorem snTryStore_ok (r : Reg) (s : State) {a : Addr} (ha : s.ea aJ = a) (hw : InRegions s.wr a 4) :
-    WP isa (.block [.store32 aJ r, .alu .add .rdi (.imm 1)]) s fun s' =>
-      (s'.mem = s.mem.writeW a ((s.gpr r).setWidth 32) ∧ s'.gpr .rdi = s.gpr .rdi + 1) ∧ Keep [.rdi] s s' := by
-  refine WP.keep _ ?_ (by rfl)
-  xrun [ha, hw]
-
 theorem stored_snoc {m : Mem} {aP : Addr} {L : List Zq} (h : Stored m aP L) (hL : L.length < 256) {v : BitVec 32}
     (hv : v.toNat < q) : Stored (m.writeW (coeffAddr aP L.length) v) aP (L ++ [ofNat v.toNat]) := by
   intro k hk
@@ -111,34 +98,46 @@ theorem ofNat64_succ {j : Nat} (_h : j + 1 < 2 ^ 64) : BitVec.ofNat 64 j + 1 = B
   rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat, show (1 : BitVec 64).toNat = 1 from rfl]
   omega
 
-/-- Store the value of `r` to `a[j]` if it is less than `q`. -/
+theorem sx0 : BitVec.signExtend 64 (0 : BitVec 32) = 0 := by decide
+
+/-- A write past the coefficients keeps them. -/
+theorem stored_write {m : Mem} {aP : Addr} {L : List Zq} (h : Stored m aP L) (hL : L.length < 256) (v : BitVec 32) :
+    Stored (m.writeW (coeffAddr aP L.length) v) aP L := by
+  intro k hk
+  rw [coeffAt_writeW _ _ (show k < 256 by omega) hL, ifn (by omega)]
+  exact h k hk
+
+/-- Store the value of `r` to `a[j]`, and count it if it is less than `q`. -/
 theorem snTry_ok (r : Reg) (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .rbp = aP)
     (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length < 256) (hw : pR aP ∈ s.wr)
     (hst : Stored s.mem aP L) :
-    WP isa (snTry r) s fun s' =>
+    WP isa (.block (snTry r)) s fun s' =>
       s'.gpr .rdi = BitVec.ofNat 64 (if ((s.gpr r).setWidth 32).toNat < q
         then L ++ [ofNat ((s.gpr r).setWidth 32).toNat] else L).length ∧
       Stored s'.mem aP (if ((s.gpr r).setWidth 32).toNat < q
         then L ++ [ofNat ((s.gpr r).setWidth 32).toNat] else L) ∧
-      Frame [pR aP] s.mem s'.mem ∧ Keep [.rdi] s s' := by
-  refine WP.seq (WP.mono (snTryCmp_ok r s) fun s1 ⟨hc, hm, hg, hrd, hwr⟩ => ?_)
-  have k1 : Keep [] s s1 := ⟨fun r _ => by rw [hg], hrd, hwr⟩
-  have hr : s1.gpr r = s.gpr r := by rw [hg]
-  refine WP.ite (decide (((s.gpr r).setWidth 32).toNat < q)) hc (fun hb => ?_) (fun hb => ?_)
-  · simp only [decide_eq_true_eq] at hb
-    simp only [hb, ite_true]
-    refine WP.mono (snTryStore_ok r s1 (ea_aJ s1 (aP := aP) (by rw [k1.gpr (by simp), hbp]) (by rw [k1.gpr (by simp), hdi]) hL)
-      (by rw [k1.2.2]; exact ⟨_, hw, coeff_contains _ hL⟩)) fun s2 ⟨⟨hm2, hdi2⟩, k2⟩ => ⟨?_, ?_, ?_, ?_⟩
-    · rw [hdi2, k1.gpr (by simp), hdi, List.length_append, List.length_singleton]
-      exact ofNat64_succ (by omega)
-    · rw [hm2, hm, hr]; exact stored_snoc hst hL hb
-    · rw [hm2, hm]; exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (coeff_contains _ hL)
-    · exact (k1.trans k2).mono (by simp)
-  · simp only [decide_eq_false_iff_not] at hb
-    simp only [hb, ite_false]
-    refine WP.block_nil ⟨by rw [k1.gpr (by simp), hdi], by rw [hm]; exact hst, by rw [hm]; exact Frame.refl _ _,
-      k1.mono (by simp)⟩
-
+      Frame [pR aP] s.mem s'.mem ∧ Keep [.rdi, r] s s' := by
+  have ha := ea_aJ s hbp hdi hL
+  have hin : InRegions s.wr (coeffAddr aP L.length) 4 := ⟨_, hw, coeff_contains _ hL⟩
+  refine WP.mono (WP.keep [.rdi, r] (Q := fun s' =>
+      s'.mem = s.mem.writeW (coeffAddr aP L.length) ((s.gpr r).setWidth 32) ∧
+      s'.gpr .rdi = s.gpr .rdi + BitVec.setWidth 64 (BitVec.ofBool (decide (((s.gpr r).setWidth 32).toNat < 3329))))
+    (by unfold snTry; xrun [ha, hin, qImm_toNat, sx0]; exact congrArg (· + _) (BitVec.add_zero _))
+    (by cases r <;> decide))
+    fun s' ⟨⟨hm, hdi'⟩, k⟩ => ?_
+  have hf : Frame [pR aP] s.mem s'.mem := by
+    rw [hm]; exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (coeff_contains _ hL)
+  by_cases hb : ((s.gpr r).setWidth 32).toNat < q
+  · have hb' : ((s.gpr r).setWidth 32).toNat < 3329 := by rw [q_eq] at hb; exact hb
+    rw [ifp hb]
+    refine ⟨?_, by rw [hm]; exact stored_snoc hst hL hb, hf, k⟩
+    rw [hdi', hdi, decide_eq_true hb', List.length_append, List.length_singleton]
+    exact ofNat64_succ (by omega)
+  · have hb' : ¬ ((s.gpr r).setWidth 32).toNat < 3329 := by rw [q_eq] at hb; exact hb
+    rw [ifn hb]
+    refine ⟨?_, by rw [hm]; exact stored_write hst hL _, hf, k⟩
+    rw [hdi', hdi, decide_eq_false hb']
+    exact BitVec.add_zero _
 
 /-! ## An iteration -/
 
@@ -166,11 +165,11 @@ def midL (L : List Zq) (d1 d2 : Nat) : List Zq := if L.length < 256 then stepD L
 theorem snMid_ok (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .rbp = aP)
     (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : pR aP ∈ s.wr)
     (hst : Stored s.mem aP L) (hcf : s.cf = some (decide ((s.gpr .rdi).toNat < 256))) :
-    WP isa (.ite .b (.seq (snTry .r9) (.seq (.block [.alu .cmp .rdi (.imm 256)]) (.ite .b (snTry .r8) (.block []))))
+    WP isa (.ite .b (.seq (.block (snTry .r9)) (.seq (.block [.alu .cmp .rdi (.imm 256)]) (.ite .b (.block (snTry .r8)) (.block []))))
         (.block [])) s fun s' =>
       s'.gpr .rdi = BitVec.ofNat 64 (midL L ((s.gpr .r9).setWidth 32).toNat ((s.gpr .r8).setWidth 32).toNat).length ∧
         Stored s'.mem aP (midL L ((s.gpr .r9).setWidth 32).toNat ((s.gpr .r8).setWidth 32).toNat) ∧
-        Frame [pR aP] s.mem s'.mem ∧ Keep [.rdi] s s' := by
+        Frame [pR aP] s.mem s'.mem ∧ Keep [.rdi, .r9, .r8] s s' := by
   have hl : (s.gpr .rdi).toNat = L.length := by rw [hdi, ofNat64_toNat (by omega)]
   refine WP.ite (decide (L.length < 256)) (by rw [← hl]; exact hcf) (fun hb => ?_) (fun hb => ?_)
   · simp only [decide_eq_true_eq] at hb
