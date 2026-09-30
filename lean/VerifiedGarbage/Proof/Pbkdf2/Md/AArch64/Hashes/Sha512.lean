@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Sha512.AArch64.Variant
 import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Variant
 import VerifiedGarbage.Proof.Pbkdf2.AArch64.Sha512
 import VerifiedGarbage.Proof.Sha512.AArch64.Shared
@@ -23,6 +24,7 @@ functions they call, are checked once for each member (`coreOK`).
 namespace VG.Proof.Pbkdf2.Md.AArch64.Sha512
 
 open VG.AArch64
+open VG.Proof.Sha512.AArch64 (Compress)
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
 open VG.Proof.Hmac.Generic.AArch64 (updK finK)
 open VG.Proof.Hmac.Generic.AArch64.Instances (initSat finSat)
@@ -30,21 +32,21 @@ open Spec.Sha512 (H0_384 H0_512 H0_512_224 H0_512_256)
 
 /-- The member of the SHA-512 family of instance `I`, with a `D`-byte digest,
 initial hash value `iv` and streaming `init` named `initN`. -/
-def hash (I : Spec.Hmac.Instance) (D : Nat) (initN : String) (iv : Spec.Sha512.HashValue) : Hash where
+def hash (v : Compress) (I : Spec.Hmac.Instance) (D : Nat) (initN : String) (iv : Spec.Sha512.HashValue) : Hash where
   P := Impl.Pbkdf2.AArch64.sha512
   D := D
   W := I.scratch
-  compN := Spec.Sha512.compressApi.name
-  compC := Impl.Sha512.AArch64.compress
+  compN := v.name
+  compC := v.code
   initN := initN
   initC := Impl.Sha512.AArch64.Stream.init iv
-  updN := Spec.Sha512.updateApi.name
-  updC := Impl.Sha512.AArch64.Stream.update
-  finN := Spec.Sha512.finalizeApi.name
-  finC := Impl.Sha512.AArch64.Stream.finalize
-  hmacInitN := I.initApi.name
-  hmacFinN := I.finalizeApi.name
-  iterN := I.iterateApi.name
+  updN := Spec.Sha512.updateApi.name ++ v.suffix
+  updC := v.update
+  finN := Spec.Sha512.finalizeApi.name ++ v.suffix
+  finC := v.finalize
+  hmacInitN := I.initApi.name ++ v.suffix
+  hmacFinN := I.finalizeApi.name ++ v.suffix
+  iterN := I.iterateApi.name ++ v.suffix
 
 /-- A member of the family without the functions it calls. -/
 def coreH (D : Nat) : Hash :=
@@ -74,9 +76,6 @@ theorem coreOK (D : Nat) (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) : CoreOK
 
 /-- The initial hash values of the family. -/
 abbrev IVs (iv : Spec.Sha512.HashValue) : Prop := iv = H0_384 ∨ iv = H0_512 ∨ iv = H0_512_224 ∨ iv = H0_512_256
-
-theorem update_depth : Impl.Sha512.AArch64.Stream.update.fdepth ≤ 1 := by decide +kernel
-theorem finalize_depth : Impl.Sha512.AArch64.Stream.finalize.fdepth ≤ 1 := by decide +kernel
 
 /-- A state satisfying `updK`'s precondition at the family's sizes. -/
 def updSat : State where
@@ -108,6 +107,7 @@ theorem fin_sat (R : Mem → Addr → List Byte → Prop) (hash : List Byte → 
     exact Region.disjoint_of_sep (by decide)
 
 section
+variable (v : Compress)
 variable {I : Spec.Hmac.Instance} {D : Nat} {initN : String} {iv : Spec.Sha512.HashValue}
 
 /-- The streaming functions of the member of instance `I`, verified against
@@ -116,7 +116,7 @@ def streamOK (hR : I.S.Repr = Spec.Sha512.Repr iv)
     (hh : ∀ m, I.S.H.hash m = (Spec.Sha512.finalHash iv m).take D)
     (hB : I.S.H.blockSize = 128) (hS : I.S.stateBytes = 192) (hDs : I.S.digestBytes = D)
     (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) (hiv : IVs iv) :
-    Hmac.Generic.AArch64.HashOK (hash I D initN iv).stream where
+    Hmac.Generic.AArch64.HashOK (hash v I D initN iv).stream where
   SH := I.S
   Wb := 224
   hS := hS
@@ -133,12 +133,12 @@ def streamOK (hR : I.S.Repr = Spec.Sha512.Repr iv)
   hW := by show (Impl.Pbkdf2.AArch64.sha512.so + 48) / 8 ≤ 64; decide
   repr := hR ▸ Hmac.Generic.Common.sha512_repr iv
   init := hR ▸ Proof.Sha512.AArch64.Stream.init_verified iv
-  upd := hR ▸ Proof.Sha512.AArch64.Stream.Update.update_verified.of_implies
+  upd := hR ▸ v.update_verified.of_implies
     { pre := fun _ ⟨a, b, c, d, e, _⟩ => ⟨a, b, c, d, e⟩
       post := fun _ _ _ h m hr hc => h iv m hr hc
       pub := fun _ _ _ _ h => h
       sat := upd_sat _ }
-  fin := Proof.Sha512.AArch64.Stream.Finalize.finalize_verified.of_implies
+  fin := v.finalize_verified.of_implies
     { pre := fun _ ⟨a, b, c, d, e, _⟩ => ⟨a, b, c, d, e⟩
       post := fun s s' _ h m hr hl hc => by
         show List.take D (Spec.Sha512.bytesAt s'.mem _ 64) = _
@@ -148,8 +148,8 @@ def streamOK (hR : I.S.Repr = Spec.Sha512.Repr iv)
   initDepth := by
     show (Impl.Sha512.AArch64.Stream.init iv).fdepth ≤ 1
     rcases hiv with rfl | rfl | rfl | rfl <;> decide +kernel
-  updDepth := update_depth
-  finDepth := finalize_depth
+  updDepth := by show v.update.fdepth ≤ 1; rw [show v.update.fdepth = 0 from v.updateDepth]; decide
+  finDepth := by show v.finalize.fdepth ≤ 1; rw [show v.finalize.fdepth = 0 from v.finalizeDepth]; decide
 
 /-- `HashOK` for the member of instance `I`, whose specification is the
 family's from `iv`, with its digest the first `D` bytes. -/
@@ -157,18 +157,17 @@ def ok (hR : I.S.Repr = Spec.Sha512.Repr iv)
     (hh : ∀ m, I.S.H.hash m = (Spec.Sha512.finalHash iv m).take D)
     (hB : I.S.H.blockSize = 128) (hS : I.S.stateBytes = 192) (hDs : I.S.digestBytes = D)
     (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) (hW : I.scratch = 234) (hiv : IVs iv) :
-    HashOK (hash I D initN iv) where
+    HashOK (hash v I D initN iv) where
   md := Proof.Sha512.md
   shape := Pbkdf2.AArch64.sha512_shape
-  comp := ⟨Proof.Sha512.AArch64.compress_verified.1, Proof.Sha512.AArch64.compress_verified.2.1,
-    by show Impl.Sha512.AArch64.compress.noFrames = true; lit_decide⟩
+  comp := ⟨v.verified.1, v.verified.2.1, v.noFrames⟩
   reloc m m' p q h := by
     apply Vector.ext
     intro j hj
     simp only [Proof.Sha512.md, Spec.Sha512.stateAt, Vector.getElem_ofFn]
     exact Hmac.Generic.Common.readW_reloc (n := 64) h (by omega)
   lenOk _ h := h
-  stream := streamOK hR hh hB hS hDs hD hiv
+  stream := streamOK v hR hh hB hS hDs hD hiv
   iv := iv
   repr _ _ _ := by show I.S.Repr _ _ _ ↔ _; rw [hR]; exact Proof.Sha512.repr_iff
   hash := hh
@@ -182,6 +181,28 @@ def ok (hR : I.S.Repr = Spec.Sha512.Repr iv)
   W := by show I.scratch ≤ 256; omega
 
 end
+
+/-- Streaming wrappers shared by all four digest sizes. The SHA-512 member
+emits them once per backend through `MdHash`; the other members call them. -/
+def stream (v : Compress) : List Artifact := [
+  { Spec.Sha512.updateApi with
+    name := Spec.Sha512.updateApi.name ++ v.suffix
+    target := AArch64.target
+    doc := Spec.Sha512.updateApi.doc
+    code := v.update
+    contract := Spec.Sha512.updateContract AArch64.abi
+    verified := Proof.Sha512.AArch64.Shared.update_of v.update_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _
+    features := v.features },
+  { Spec.Sha512.finalizeApi with
+    name := Spec.Sha512.finalizeApi.name ++ v.suffix
+    target := AArch64.target
+    doc := Spec.Sha512.finalizeApi.doc
+    code := v.finalize
+    contract := Spec.Sha512.finalizeContract AArch64.abi
+    verified := Proof.Sha512.AArch64.Shared.finalize_of v.finalize_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _
+    features := v.features }]
 
 /-! ## SHA-384 -/
 
@@ -206,10 +227,10 @@ theorem sha384_satP : ∃ s, (Spec.Hmac.sha384I.pbkdf2Contract AArch64.abi 16).p
 theorem sha384_coreOK : CoreOK (coreH 48) := coreOK 48 (Or.inr (Or.inr (Or.inl rfl)))
 
 /-- SHA-384 with its compression function. -/
-def sha384 : MdHash :=
-  MdHash.of (H := hash Spec.Hmac.sha384I 48 Spec.Sha512.init384Api.name H0_384)
-    (ok rfl (fun _ => rfl) rfl rfl rfl (Or.inr (Or.inr (Or.inl rfl))) rfl (Or.inl rfl)) sha384_coreOK rfl rfl
-    sha384_satI sha384_satF sha384_satT sha384_satP "" []
+def sha384 (v : Compress) : MdHash :=
+  MdHash.of (H := hash v Spec.Hmac.sha384I 48 Spec.Sha512.init384Api.name H0_384)
+    (ok v rfl (fun _ => rfl) rfl rfl rfl (Or.inr (Or.inr (Or.inl rfl))) rfl (Or.inl rfl)) sha384_coreOK rfl rfl
+    sha384_satI sha384_satF sha384_satT sha384_satP v.suffix v.features
 
 /-! ## SHA-512 -/
 
@@ -234,10 +255,10 @@ theorem sha512_satP : ∃ s, (Spec.Hmac.sha512I.pbkdf2Contract AArch64.abi 16).p
 theorem sha512_coreOK : CoreOK (coreH 64) := coreOK 64 (Or.inr (Or.inr (Or.inr rfl)))
 
 /-- SHA-512 with its compression function. -/
-def sha512 : MdHash :=
-  MdHash.of (H := hash Spec.Hmac.sha512I 64 Spec.Sha512.init512Api.name H0_512)
-    (ok rfl (fun m => (List.take_of_length_le (Nat.le_of_eq (Hmac.Generic.Common.finalHash_length _ m))).symm) rfl rfl rfl (Or.inr (Or.inr (Or.inr rfl))) rfl (Or.inr (Or.inl rfl))) sha512_coreOK rfl rfl
-    sha512_satI sha512_satF sha512_satT sha512_satP "" []
+def sha512 (v : Compress) : MdHash :=
+  MdHash.of (H := hash v Spec.Hmac.sha512I 64 Spec.Sha512.init512Api.name H0_512)
+    (ok v rfl (fun m => (List.take_of_length_le (Nat.le_of_eq (Hmac.Generic.Common.finalHash_length _ m))).symm) rfl rfl rfl (Or.inr (Or.inr (Or.inr rfl))) rfl (Or.inr (Or.inl rfl))) sha512_coreOK rfl rfl
+    sha512_satI sha512_satF sha512_satT sha512_satP v.suffix v.features (stream v)
 
 /-! ## SHA-512/224 -/
 
@@ -262,10 +283,10 @@ theorem sha512_224_satP : ∃ s, (Spec.Hmac.sha512_224I.pbkdf2Contract AArch64.a
 theorem sha512_224_coreOK : CoreOK (coreH 28) := coreOK 28 (Or.inl rfl)
 
 /-- SHA-512/224 with its compression function. -/
-def sha512_224 : MdHash :=
-  MdHash.of (H := hash Spec.Hmac.sha512_224I 28 Spec.Sha512.init512_224Api.name H0_512_224)
-    (ok rfl (fun _ => rfl) rfl rfl rfl (Or.inl rfl) rfl (Or.inr (Or.inr (Or.inl rfl)))) sha512_224_coreOK rfl rfl
-    sha512_224_satI sha512_224_satF sha512_224_satT sha512_224_satP "" []
+def sha512_224 (v : Compress) : MdHash :=
+  MdHash.of (H := hash v Spec.Hmac.sha512_224I 28 Spec.Sha512.init512_224Api.name H0_512_224)
+    (ok v rfl (fun _ => rfl) rfl rfl rfl (Or.inl rfl) rfl (Or.inr (Or.inr (Or.inl rfl)))) sha512_224_coreOK rfl rfl
+    sha512_224_satI sha512_224_satF sha512_224_satT sha512_224_satP v.suffix v.features
 
 /-! ## SHA-512/256 -/
 
@@ -290,9 +311,9 @@ theorem sha512_256_satP : ∃ s, (Spec.Hmac.sha512_256I.pbkdf2Contract AArch64.a
 theorem sha512_256_coreOK : CoreOK (coreH 32) := coreOK 32 (Or.inr (Or.inl rfl))
 
 /-- SHA-512/256 with its compression function. -/
-def sha512_256 : MdHash :=
-  MdHash.of (H := hash Spec.Hmac.sha512_256I 32 Spec.Sha512.init512_256Api.name H0_512_256)
-    (ok rfl (fun _ => rfl) rfl rfl rfl (Or.inr (Or.inl rfl)) rfl (Or.inr (Or.inr (Or.inr rfl)))) sha512_256_coreOK rfl rfl
-    sha512_256_satI sha512_256_satF sha512_256_satT sha512_256_satP "" []
+def sha512_256 (v : Compress) : MdHash :=
+  MdHash.of (H := hash v Spec.Hmac.sha512_256I 32 Spec.Sha512.init512_256Api.name H0_512_256)
+    (ok v rfl (fun _ => rfl) rfl rfl rfl (Or.inr (Or.inl rfl)) rfl (Or.inr (Or.inr (Or.inr rfl)))) sha512_256_coreOK rfl rfl
+    sha512_256_satI sha512_256_satF sha512_256_satT sha512_256_satP v.suffix v.features
 
 end VG.Proof.Pbkdf2.Md.AArch64.Sha512

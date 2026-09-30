@@ -150,15 +150,16 @@ theorem take_add_data (s₀ : State) (c t : Nat) (m : List Byte) :
 
 /-! ## Compressing a pending block -/
 
-theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Pending s₀ c s) :
-    WP isa compressAt s (Inv s₀ c) := by
+theorem Pending.compress_ok {code : Prog isa}
+    (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true) {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Pending s₀ c s) :
+    WP isa (compressAtWith code) s (Inv s₀ c) := by
   have e32 : Region.Sub ⟨st s₀, 64⟩ (stR s₀) := Region.sub_prefix (by omega)
   have e112 : Region.Sub ⟨scr s₀, 176⟩ (scR s₀) := Region.sub_prefix (by omega)
   have eSrc : Region.Sub ⟨s.gpr .x1, 128⟩ (stR s₀) ∨ Region.Sub ⟨s.gpr .x1, 128⟩ (dR s₀) := by
     rcases h.src with h' | ⟨c₀, h', hc₀⟩
     · exact .inl (h' ▸ sub_offset (off := 64) (by omega) (by omega))
     · exact .inr (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))
-  refine compressAt_ok h.x19 h.x20 rfl ((hp.st_scr.sub_left e32).sub_right e112) ?_ ?_ ?_ ?_ ?_
+  refine compressAt_ok_of hcode hno h.x19 h.x20 rfl ((hp.st_scr.sub_left e32).sub_right e112) ?_ ?_ ?_ ?_ ?_
   · rcases h.src with h' | ⟨c₀, h', hc₀⟩
     · rw [h']; exact Offset.disjoint_base (d := 64) _ (by omega) (by omega)
     · exact (hp.d_st.sub_left (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))).sub_right e32
@@ -550,15 +551,16 @@ theorem fill_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
 
 /-! ## One iteration -/
 
-theorem body_eq : updateBody =
+theorem body_eq (code : Prog isa) : updateBodyWith code =
     .seq (.block [.movz .x .x10 0 0])
     (.seq (.ite (.zero .x .x23)
         (.seq (.block [.lsr .x .x9 .x22 7]) (.ite (.zero .x .x9) fill (.block direct)))
         fill)
-      (.ite (.zero .x .x10) (.block []) compressAt)) := rfl
+      (.ite (.zero .x .x10) (.block []) (compressAtWith code))) := rfl
 
-theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) (hcl : c < len s₀) :
-    WP isa updateBody s fun s' => ∃ c', c < c' ∧ Inv s₀ c' s' := by
+theorem body_ok {code : Prog isa}
+    (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true) {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s₀ c s) (hcl : c < len s₀) :
+    WP isa (updateBodyWith code) s fun s' => ∃ c', c < c' ∧ Inv s₀ c' s' := by
   have hlen := len_lt s₀; have hc := hI.c_le; have hr := rr_lt s₀ c
   have ne : ∀ r ∈ [Reg.x19, .x20, .x21, .x22, .x23], r ≠ .x10 ∧ r ≠ .x9 := by decide
   rw [body_eq]
@@ -582,7 +584,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
     exact WP.mono (direct_ok hp hI₂ hb (by omega)) fun s' h => .inl ⟨c + 128, by omega, h⟩
   · rcases h with ⟨c', hc', hP⟩ | ⟨hD, h10⟩
     · refine WP.ite false (by show VG.AArch64.eval (.zero .x .x10) s' = _; rw [eval_zero, hP.x10]; rfl)
-        (fun h => by cases h) fun _ => WP.mono (hP.compress_ok hp) fun s'' h => ⟨c', hc', h⟩
+        (fun h => by cases h) fun _ => WP.mono (hP.compress_ok hcode hno hp) fun s'' h => ⟨c', hc', h⟩
     · refine WP.ite true (by show VG.AArch64.eval (.zero .x .x10) s' = _; rw [eval_zero, h10]; rfl)
         (fun _ => WP.block_nil ⟨len s₀, hcl, hD⟩) fun h => by cases h
 
@@ -592,8 +594,8 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (hI : Inv s
 def prologue : List Instr :=
   [mov .x19 .x0, mov .x20 .x4, mov .x21 .x2, mov .x22 .x3, .movz .x .x9 127 0, .logic .and .x .x23 .x1 .x9]
 
-theorem update_eq : update = .seq (.block (save .x4 ++ prologue))
-    (.seq (.ite (.zero .x .x22) (.block []) (.loop updateBody (.nonzero .x .x22))) (.block restore)) := rfl
+theorem update_eq (code : Prog isa) : updateWith code = .seq (.block (save .x4 ++ prologue))
+    (.seq (.ite (.zero .x .x22) (.block []) (.loop (updateBodyWith code) (.nonzero .x .x22))) (.block restore)) := rfl
 
 theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     WP isa (.block (save .x4 ++ prologue)) s₀ (Inv s₀ 0) := by
@@ -639,17 +641,21 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
   rwa [List.take_of_length_le (by rw [D_length]), ← hmem] at this
 
 /-- No instruction of `update` writes the callee-saved registers it does not save. -/
-theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs update, dstOf i ≠ some r := by
-  have : ((instrs update).all fun i => untouched.all fun r => dstOf i != some r) = true :=
-    instrs_keeps (by lit_decide)
+theorem untouched_ok_of {code : Prog isa}
+    (hkeep : ((instrs (updateWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true) : ∀ r ∈ untouched, ∀ i ∈ instrs (updateWith code), dstOf i ≠ some r := by
+  have : ((instrs (updateWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true :=
+    hkeep
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this
 
-theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa update s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.updateAArch64.post s₀ s' := by
+theorem correct_of {code : Prog isa}
+    (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true)
+    (hkeep : ((instrs (updateWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true) {s₀ : State} (hp : Pre s₀) :
+    WP isa (updateWith code) s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.updateAArch64.post s₀ s' := by
   have hlen := len_lt s₀
-  refine WP.mono (WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
+  refine WP.mono (WP.gprs (Q := Post s₀) (hn := by
+    simp only [updateWith, updateBodyWith, compressAtWith, fill, Code.noCalls, hno, Bool.and_self]) ?_ (untouched_ok_of hkeep)) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
   · rw [update_eq]
     refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI => ?_)
@@ -664,7 +670,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
       refine WP.loop (M := isa) (fun n s => ∃ c, n = len s₀ - c ∧ c < len s₀ ∧ Inv s₀ c s) ?_ (len s₀) s₁
         ⟨0, rfl, by omega, hI⟩
       rintro n s ⟨c, rfl, hcl, hI⟩
-      refine WP.mono (body_ok hp hI hcl) fun s' ⟨c', hc, hI'⟩ => ?_
+      refine WP.mono (body_ok hcode hno hp hI hcl) fun s' ⟨c', hc, hI'⟩ => ?_
       have hc' := hI'.c_le
       have hz : isa.eval (.nonzero .x .x22) s' = some (decide (len s₀ - c' ≠ 0)) := by
         show VG.AArch64.eval (.nonzero .x .x22) s' = _
@@ -700,13 +706,21 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 192⟩, ⟨0x3000, 224⟩]
 
-theorem update_verified : Verified AArch64.target update Proof.Sha512.updateAArch64 := by
+theorem update_verified_of {code : Prog isa}
+    (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true)
+    (hkeep : ((instrs (updateWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true)
+    (hct : ConstantTime isa Proof.Sha512.updateAArch64.pre Proof.Sha512.updateAArch64.pub (updateWith code)) :
+    Verified AArch64.target (updateWith code) Proof.Sha512.updateAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  · obtain ⟨t, s', he, h⟩ := correct_of hcode hno hkeep (pre_of hs)
     exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) (fun _ _ _ _ hp => agree₀ hp)
-      (by taint_decide)
+  · exact hct
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_⟩ <;>
     exact Region.disjoint_of_sep (by decide)
+
+theorem update_verified : Verified AArch64.target update Proof.Sha512.updateAArch64 := by
+  apply update_verified_of Proof.Sha512.AArch64.compress_verified (by lit_decide) (instrs_keeps (by lit_decide))
+  exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) (fun _ _ _ _ hp => agree₀ hp)
+      (by taint_decide)
 
 end VG.Proof.Sha512.AArch64.Stream.Update

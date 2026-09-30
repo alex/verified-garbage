@@ -213,15 +213,16 @@ theorem zero_ok {s₀ : State} (hp : Pre s₀) {sI : State} (hC : Common s₀ sI
 /-! ## One block -/
 
 /-- The inlined compression of the buffer. -/
-theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s₀ s)
+theorem compress_buf {code : Prog isa}
+    (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true) {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s₀ s)
     (hx1 : s.gpr .x1 = st s₀ + 64) {Q : State → Prop}
     (hQ : ∀ s', Common s₀ s' → (∀ r ∈ preserved, s'.gpr r = s.gpr r) →
       stateAt s'.mem (st s₀) = compress (stateAt s.mem (st s₀)) (blockAt s.mem (st s₀ + 64)) → Q s') :
-    WP isa compressAt s Q := by
+    WP isa (compressAtWith code) s Q := by
   have e32 : Region.Sub ⟨st s₀, 64⟩ (stR s₀) := Region.sub_prefix (by omega)
   have e112 : Region.Sub ⟨scr s₀, 176⟩ (scR s₀) := Region.sub_prefix (by omega)
   have eb : Region.Sub ⟨st s₀ + 64, 128⟩ (stR s₀) := sub_offset (off := 64) (by omega) (by omega)
-  refine compressAt_ok hC.x19 hC.x20 hx1 ((hp.st_scr.sub_left e32).sub_right e112) ?_
+  refine compressAt_ok_of hcode hno hC.x19 hC.x20 hx1 ((hp.st_scr.sub_left e32).sub_right e112) ?_
     ((hp.st_scr.sub_left eb).sub_right e112) ?_ ?_ fun s' hrd hwr hcs hsp hf hstate =>
       hQ s' ?_ hcs hstate
   · exact Offset.disjoint_base (d := 64) _ (by omega) (by omega)
@@ -274,7 +275,7 @@ def Step (s₀ : State) (k : Nat) (s : State) : Prop :=
   (eval (.zero .x .x24) s = some false ∧ Done s₀ s) ∨
     (eval (.zero .x .x24) s = some true ∧ k = 1 ∧ LInv s₀ 0 0 s)
 
-theorem body_eq : finalizeBody =
+theorem body_eq (code : Prog isa) : finalizeBodyWith code =
     .seq (.block [.movz .x .x11 128 0])
     (.seq (.ite (.zero .x .x24) (.block [.movz .x .x11 112 0]) (.block []))
     (.seq (.block [.movz .x .x9 0 0, .sub .x .x11 .x11 .x23])
@@ -285,10 +286,11 @@ theorem body_eq : finalizeBody =
           .str .x .x9 .x19 184])
         (.block []))
     (.seq (.block [.addImm .x .x1 .x19 64])
-    (.seq compressAt (.block [.movz .x .x23 0 0, .subImm .x .x24 .x24 1]))))))) := rfl
+    (.seq (compressAtWith code) (.block [.movz .x .x23 0 0, .subImm .x .x24 .x24 1]))))))) := rfl
 
-theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
-    WP isa finalizeBody s (Step s₀ k) := by
+theorem body_ok {code : Prog isa}
+    (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true) {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv s₀ k n s) :
+    WP isa (finalizeBodyWith code) s (Step s₀ k) := by
   have hk := h.k_le; have hn := h.n_le
   have hC := h.toCommon
   rw [body_eq]
@@ -416,7 +418,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {k n : Nat} {s : State} (h : LInv
       have : r ≠ .x1 := by simp at hr; rcases hr with h | h | h | h <;> subst h <;> decide
       rw [u₉.other r this]) u₉.mem u₉.rd u₉.wr u₉.sp
   have hx1 : s₉.gpr .x1 = st s₀ + 64 := by rw [u₉.gpr, hC₈.x19]; rfl
-  refine WP.seq (compress_buf hp hC₉ hx1 fun s₁₁ hC₁₁ cs₁₁ hst₁₁ => ?_)
+  refine WP.seq (compress_buf hcode hno hp hC₉ hx1 fun s₁₁ hC₁₁ cs₁₁ hst₁₁ => ?_)
   have h24₁₁ : s₁₁.gpr .x24 = BitVec.ofNat 64 k := by
     rw [cs₁₁ _ (by decide), u₉.other _ (by decide), h24₈]
   have hblk : ∀ iv m, R₀ s₀ iv m → blockAt s₉.mem (st s₀ + 64) = parseBlock fun t =>
@@ -463,8 +465,8 @@ def prologue : List Instr :=
     .movz .x .x9 0x80 0, .add .x .x12 .x19 .x23, .strb .x9 .x12 64, .addImm .x .x23 .x23 1,
     .addImm .x .x24 .x23 15, .lsr .x .x24 .x24 7]
 
-theorem finalize_eq : finalize = .seq (.block (save .x3 ++ prologue))
-    (.seq (.loop finalizeBody (.zero .x .x24))
+theorem finalize_eq (code : Prog isa) : finalizeWith code = .seq (.block (save .x3 ++ prologue))
+    (.seq (.loop (finalizeBodyWith code) (.zero .x .x24))
       (.block ((List.range 8).flatMap (fun k =>
         [.ldr .x .x9 .x19 (8 * k), .rev .x9 .x9, .str .x .x9 .x21 (8 * k)]) ++ restore))) := rfl
 
@@ -675,23 +677,27 @@ theorem out_all {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) 
     exact ih (by omega) s' (by rwa [show 8 - (j + 1) + 1 = 8 - j by omega] at h')
 
 /-- No instruction of `finalize` writes the callee-saved registers it does not save. -/
-theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs finalize, dstOf i ≠ some r := by
-  have : ((instrs finalize).all fun i => untouched.all fun r => dstOf i != some r) = true :=
-    instrs_keeps (by lit_decide)
+theorem untouched_ok_of {code : Prog isa}
+    (hkeep : ((instrs (finalizeWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true) : ∀ r ∈ untouched, ∀ i ∈ instrs (finalizeWith code), dstOf i ≠ some r := by
+  have : ((instrs (finalizeWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true :=
+    hkeep
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this
 
-theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa finalize s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.finalizeAArch64.post s₀ s' := by
-  refine WP.mono (WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
+theorem correct_of {code : Prog isa}
+    (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true)
+    (hkeep : ((instrs (finalizeWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true) {s₀ : State} (hp : Pre s₀) :
+    WP isa (finalizeWith code) s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.finalizeAArch64.post s₀ s' := by
+  refine WP.mono (WP.gprs (Q := Post s₀) (hn := by
+    simp only [finalizeWith, finalizeBodyWith, compressAtWith, Code.noCalls, hno, Bool.and_self]) ?_ (untouched_ok_of hkeep)) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
   · rw [finalize_eq]
     refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨k, hL⟩ => ?_)
     refine WP.seq (WP.mono (Q := Done s₀) ?_ fun sD hD => ?_)
     · refine WP.loop (M := isa) (fun i s => ∃ n, LInv s₀ i n s) ?_ k s₁ ⟨_, hL⟩
       rintro i s ⟨n, hL⟩
-      refine WP.mono (body_ok hp hL) fun s' h => ?_
+      refine WP.mono (body_ok hcode hno hp hL) fun s' h => ?_
       rcases h with ⟨he, hD⟩ | ⟨he, rfl, hL'⟩
       · exact .inl ⟨he, hD⟩
       · exact .inr ⟨he, 0, by omega, 0, hL'⟩
@@ -725,13 +731,21 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 192⟩, ⟨0x2000, 64⟩, ⟨0x3000, 224⟩]
 
-theorem finalize_verified : Verified AArch64.target finalize Proof.Sha512.finalizeAArch64 := by
+theorem finalize_verified_of {code : Prog isa}
+    (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true)
+    (hkeep : ((instrs (finalizeWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true)
+    (hct : ConstantTime isa Proof.Sha512.finalizeAArch64.pre Proof.Sha512.finalizeAArch64.pub (finalizeWith code)) :
+    Verified AArch64.target (finalizeWith code) Proof.Sha512.finalizeAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
+  · obtain ⟨t, s', he, h⟩ := correct_of hcode hno hkeep (pre_of hs)
     exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) (fun _ _ _ _ hp => agree₀ hp)
-      (by taint_decide)
+  · exact hct
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_⟩ <;>
     exact Region.disjoint_of_sep (by decide)
+
+theorem finalize_verified : Verified AArch64.target finalize Proof.Sha512.finalizeAArch64 := by
+  apply finalize_verified_of Proof.Sha512.AArch64.compress_verified (by lit_decide) (instrs_keeps (by lit_decide))
+  exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) (fun _ _ _ _ hp => agree₀ hp)
+      (by taint_decide)
 
 end VG.Proof.Sha512.AArch64.Stream.Finalize

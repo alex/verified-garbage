@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Sha512.AArch64.Sha3Backend
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.Sha512.AArch64.Shared
 
@@ -52,19 +53,14 @@ def artifacts : List Artifact := [
     contract := Spec.Sha512.initContract AArch64.abi Spec.Sha512.H0_512_256
     verified := Proof.Sha512.AArch64.Shared.init Spec.Sha512.H0_512_256
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.Sha512.updateApi with
+  { Spec.Sha512.compressApi with
+    name := "vg_sha512_compress_sha3"
     target := AArch64.target
-    doc := Spec.Sha512.updateApi.doc
-    code := Impl.Sha512.AArch64.Stream.update
-    contract := Spec.Sha512.updateContract AArch64.abi
-    verified := Proof.Sha512.AArch64.Shared.update
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.Sha512.finalizeApi with
-    target := AArch64.target
-    doc := Spec.Sha512.finalizeApi.doc
-    code := Impl.Sha512.AArch64.Stream.finalize
-    contract := Spec.Sha512.finalizeContract AArch64.abi
-    verified := Proof.Sha512.AArch64.Shared.finalize
-    spSafe := Code.all_of_forall (fun _ => rfl) _ }]
+    doc := Spec.Sha512.compressApi.doc
+    code := Impl.Sha512.AArch64.Sha3.compress
+    contract := Spec.Sha512.compressContract AArch64.abi
+    verified := Proof.Sha512.AArch64.Shared.compress_of Proof.Sha512.AArch64.Sha3.compress_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _
+    features := ["sha3"] }]
 
 end VG.Artifacts.Sha512.AArch64
