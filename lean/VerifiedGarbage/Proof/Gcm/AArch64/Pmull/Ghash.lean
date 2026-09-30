@@ -24,7 +24,7 @@ loaded; the memory is not written until the epilogue stores `Y`.
 namespace VG.Proof.Gcm.AArch64.Pmull
 
 open VG VG.AArch64 VG.Proof.Gcm VG.Proof.Gcm.Poly
-open VG.Impl.Gcm.AArch64.Pmull (LO MID HI A T C Z Y tReg sReg poly)
+open VG.Impl.Gcm.AArch64.Pmull (LO MID HI A T C Y tReg sReg poly)
 open VG.Spec.Gcm (Block blockAt blocksAt ghashFrom mul)
 
 /-! ## `Y` and the blocks -/
@@ -89,7 +89,6 @@ theorem free_A : Free A := by unfold Free; decide
 structure Inv (s₀ : State) (K i : Nat) (s : State) : Prop where
   le : i ≤ nb s₀
   c : s.v C = ofVDwords poly poly
-  z : s.v Z = 0
   t : ∀ k, 1 ≤ k → k ≤ K → x * φ (s.v (tReg k)) = φ (H₀ s₀) ^ k
   sw : ∀ k, 1 ≤ k → k ≤ K → s.v (sReg k) = ext8 (s.v (tReg k)) (s.v (tReg k))
   y : ρ (s.v Y) = φ (Ys s₀ i)
@@ -121,7 +120,7 @@ theorem pow_ok {s₀ : State} {K i j n : Nat} (hi : 1 ≤ i) (hiK : i ≤ K) (hj
     WP isa (.block (Impl.Gcm.AArch64.Pmull.pow (K + 1) i j)) s (Inv s₀ (K + 1) n) := by
   rw [Impl.Gcm.AArch64.Pmull.pow, WP.block_append_iff]
   refine WP.mono (mul_ok (tReg (K + 1)) (sReg i) (sReg j) (tReg j) s (sReg_free _) (sReg_free _)
-    (tReg_free _) (hI.sw j hj hjK) hI.c hI.z) fun s₁ ⟨m₁, o₁⟩ => ?_
+    (tReg_free _) (hI.sw j hj hjK) hI.c) fun s₁ ⟨m₁, o₁⟩ => ?_
   refine WP.mono (swap_ok (sReg (K + 1)) (tReg (K + 1)) s₁) fun s' ⟨w, o₂⟩ => ?_
   have O := o₁.trans o₂
   have kv : ∀ r, r ∉ [LO, MID, HI, T] → r ≠ tReg (K + 1) → r ≠ sReg (K + 1) → s'.v r = s.v r :=
@@ -133,7 +132,7 @@ theorem pow_ok {s₀ : State} {K i j n : Nat} (hi : 1 ≤ i) (hiK : i ≤ K) (hj
   have sold : ∀ k, 1 ≤ k → k ≤ K → s'.v (sReg k) = s.v (sReg k) := fun k hk hkK =>
     kv _ (sReg_nmem' k) (fun e => tReg_ne_sReg _ _ e.symm) (sReg_ne hk (by omega) (by omega) hK (by omega))
   refine ⟨hI.le, by rw [kv C (by decide) (ne_tReg _) (ne_sReg _), hI.c],
-    by rw [kv Z (by decide) (ne_tReg _) (ne_sReg _), hI.z], fun k hk hkK => ?_, fun k hk hkK => ?_,
+    fun k hk hkK => ?_, fun k hk hkK => ?_,
     by rw [kv Y (by decide) (ne_tReg _) (ne_sReg _), hI.y], by rw [O.gpr, hI.x0],
     by rw [O.gpr, hI.x1], by rw [O.gpr, hI.x2], by rw [O.gpr, hI.x3], by rw [O.gpr, hI.x5],
     by rw [O.mem, hI.mem], by rw [O.rd, hI.rd], by rw [O.wr, hI.wr]⟩
@@ -171,9 +170,13 @@ theorem powers_ok {s₀ : State} {n : Nat} {s : State} (hI : Inv s₀ 1 n s) :
 
 /-! ## The blocks -/
 
-/-- After the first block of `k` and `j` more, from `sB`. -/
+/-- After `j` blocks of `k` from the second on, from `sB`: with the first
+block's product, which is added last, the product is `Y` after `j + 1` blocks
+times `Hᵏ⁻¹⁻ʲ`. -/
 def BI (s₀ sB : State) (k i j : Nat) (s : State) : Prop :=
-  (prod s).val = φ (Ys s₀ (i + 1 + j)) * φ (H₀ s₀) ^ (k - 1 - j) ∧ VOnly [LO, MID, HI, A, T] sB s
+  (prod s).val + (φ (Ys s₀ i) + φ (blockAt s₀.mem (blkAddr s₀ i))) * φ (H₀ s₀) ^ k =
+      φ (Ys s₀ (i + 1 + j)) * φ (H₀ s₀) ^ (k - 1 - j) ∧
+    VOnly [LO, MID, HI, A, T] sB s
 
 theorem blk_ok {s₀ : State} (hp : Pre s₀) {K k i j : Nat} (hkK : k ≤ K) (hK : K ≤ 8)
     (hj : j + 1 < k) (hi : i + k ≤ nb s₀) {sB s : State} (hI : Inv s₀ K i sB)
@@ -197,9 +200,9 @@ theorem blk_ok {s₀ : State} (hp : Pre s₀) {K k i j : Nat} (hkK : k ≤ K) (h
       show i + (j + 1) = i + 1 + j by omega]
   have e : φ (H₀ s₀) ^ (k - 1 - j) = φ (H₀ s₀) ^ (k - 1 - (j + 1)) * φ (H₀ s₀) := by
     rw [← pow_succ]; exact congrArg _ (by omega)
-  rw [p₂, hs, Prod.val_acc, o₁.prod (by decide) (by decide) (by decide), hv, l₁, ha,
+  rw [p₂, hs, Prod.val_acc, o₁.prod (by decide) (by decide) (by decide), l₁, ha,
     show i + 1 + (j + 1) = (i + 1 + j) + 1 by omega, φ_Ys_succ]
-  linear_combination (φ (Ys s₀ (i + 1 + j)) + φ (blockAt s₀.mem (blkAddr s₀ (i + 1 + j)))) * e +
+  linear_combination hv + (φ (Ys s₀ (i + 1 + j)) + φ (blockAt s₀.mem (blkAddr s₀ (i + 1 + j)))) * e +
     φ (blockAt s₀.mem (blkAddr s₀ (i + 1 + j))) * ht
 
 theorem body_ok {s₀ : State} (hp : Pre s₀) {K k i : Nat} (hk : 1 ≤ k) (hkK : k ≤ K) (hK : K ≤ 8)
@@ -209,54 +212,61 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {K k i : Nat} (hk : 1 ≤ k) (hkK
   simp only [Impl.Gcm.AArch64.Pmull.body, List.append_assoc]
   rw [WP.block_append_iff]
   refine WP.mono (zero_ok s) fun s₁ ⟨p₁, o₁⟩ => ?_
-  rw [WP.block_append_iff]
-  refine WP.mono (ldrev_ok A .x2 (16 * 0) s₁ rfl (by decide)
-    (by rw [o₁.rd, o₁.wr, o₁.gpr, hI.rd, hI.wr, hI.x2]; exact in_blk16 hp (by omega)))
-    fun s₂ ⟨l₂, o₂⟩ => ?_
-  rw [WP.block_append_iff]
-  refine WP.mono (eor_ok A A Y s₂) fun s₃ ⟨e₃, o₃⟩ => ?_
-  rw [WP.block_append_iff]
-  refine WP.mono (acc_ok A (sReg k) (tReg k) s₃ free_A (sReg_free _) (tReg_free _))
-    fun s₄ ⟨p₄, o₄⟩ => ?_
-  have o₁₃ := o₁.trans (o₂.trans o₃)
-  have b₀ : BI s₀ s k i 0 s₄ := by
-    refine ⟨?_, (o₁₃.trans o₄).weaken⟩
-    have hs : s₃.v (sReg k) = ext8 (s₃.v (tReg k)) (s₃.v (tReg k)) := by
-      rw [o₁₃.v _ (sReg_nmem' _), o₁₃.v _ (tReg_nmem' _), hI.sw _ hk hkK]
-    have ht : x * φ (s₃.v (tReg k)) = φ (H₀ s₀) ^ k := by
-      rw [o₁₃.v _ (tReg_nmem' _), hI.t _ hk hkK]
-    have hy : ρ (s₂.v Y) = φ (Ys s₀ i) := by
-      rw [(o₁.trans o₂).v Y (by decide), hI.y]
-    have ha : blockAt s₁.mem (s₁.gpr .x2 + BitVec.ofNat 64 (16 * 0)) = blockAt s₀.mem (blkAddr s₀ i) := by
-      rw [o₁.mem, o₁.gpr, hI.mem, hI.x2, Nat.mul_zero, add_ofNat_zero]
+  have b₀ : BI s₀ s k i 0 s₁ := by
+    refine ⟨?_, o₁.weaken⟩
     have e : φ (H₀ s₀) ^ k = φ (H₀ s₀) ^ (k - 1 - 0) * φ (H₀ s₀) := by
       rw [← pow_succ]; exact congrArg _ (by omega)
-    rw [p₄, hs, Prod.val_acc, (o₂.trans o₃).prod (by decide) (by decide) (by decide), p₁,
-      Prod.val_zero, e₃, ρ_xor, l₂, hy, ha, Nat.add_zero, φ_Ys_succ]
-    linear_combination (φ (Ys s₀ i) + φ (blockAt s₀.mem (blkAddr s₀ i))) * (ht.trans e)
+    rw [p₁, Prod.val_zero, zero_add, Nat.add_zero, φ_Ys_succ]
+    linear_combination (φ (Ys s₀ i) + φ (blockAt s₀.mem (blkAddr s₀ i))) * e
   rw [WP.block_append_iff]
   refine WP.mono (wp_range_flatMap (M := isa) (N := k - 1) (BI s₀ s k i)
-    (fun j s' hj hB => blk_ok hp hkK hK (by omega) hi hI hB) (k - 1) (Nat.le_refl _) s₄ b₀)
-    fun s₅ ⟨p₅, o₅⟩ => ?_
+    (fun j s' hj hB => blk_ok hp hkK hK (by omega) hi hI hB) (k - 1) (Nat.le_refl _) s₁ b₀)
+    fun s₂ ⟨p₂, o₂⟩ => ?_
   rw [WP.block_append_iff]
-  refine WP.mono (reduce_ok Y s₅ (by rw [o₅.v C (by decide), hI.c])
-    (by rw [o₅.v Z (by decide), hI.z])) fun s₆ ⟨r₆, o₆⟩ => ?_
+  refine WP.mono (ldrev_ok A .x2 (16 * 0) s₂ rfl (by decide)
+    (by rw [o₂.rd, o₂.wr, o₂.gpr, hI.rd, hI.wr, hI.x2]; exact in_blk16 hp (by omega)))
+    fun s₃ ⟨l₃, o₃⟩ => ?_
+  rw [WP.block_append_iff]
+  refine WP.mono (eor_ok A A Y s₃) fun s₄ ⟨e₄, o₄⟩ => ?_
+  rw [WP.block_append_iff]
+  refine WP.mono (acc_ok A (sReg k) (tReg k) s₄ free_A (sReg_free _) (tReg_free _))
+    fun s₅ ⟨p₅, o₅⟩ => ?_
+  have o₂₄ := o₂.trans (o₃.trans o₄)
+  have hv : (prod s₅).val = φ (Ys s₀ (i + k)) := by
+    have hs : s₄.v (sReg k) = ext8 (s₄.v (tReg k)) (s₄.v (tReg k)) := by
+      rw [o₂₄.v _ (sReg_nmem' _), o₂₄.v _ (tReg_nmem' _), hI.sw _ hk hkK]
+    have ht : x * φ (s₄.v (tReg k)) = φ (H₀ s₀) ^ k := by
+      rw [o₂₄.v _ (tReg_nmem' _), hI.t _ hk hkK]
+    have hy : ρ (s₃.v Y) = φ (Ys s₀ i) := by
+      rw [(o₂.trans o₃).v Y (by decide), hI.y]
+    have ha : blockAt s₂.mem (s₂.gpr .x2 + BitVec.ofNat 64 (16 * 0)) =
+        blockAt s₀.mem (blkAddr s₀ i) := by
+      rw [o₂.mem, o₂.gpr, hI.mem, hI.x2, Nat.mul_zero, add_ofNat_zero]
+    rw [p₅, hs, Prod.val_acc, (o₃.trans o₄).prod (by decide) (by decide) (by decide), e₄, ρ_xor,
+      l₃, hy, ha]
+    have e := p₂
+    rw [show i + 1 + (k - 1) = i + k by omega, show k - 1 - (k - 1) = 0 by omega, pow_zero,
+      mul_one] at e
+    linear_combination e + (φ (blockAt s₀.mem (blkAddr s₀ i)) + φ (Ys s₀ i)) * ht
+  rw [WP.block_append_iff]
+  refine WP.mono (reduce_ok Y s₅ (by rw [(o₂₄.trans o₅).v C (by decide), hI.c]))
+    fun s₆ ⟨r₆, o₆⟩ => ?_
   rw [WP.block_append_iff]
   refine WP.mono (swap_ok Y Y s₆) fun s₇ ⟨w₇, o₇⟩ => ?_
   refine WP.mono (advance_ok k (by omega) s₇)
     fun s' ⟨f2, f3, f5, fg, fv, fm, frd, fwr⟩ => ?_
-  have O : VOnly [LO, MID, HI, A, T, Y] s s₇ := (o₅.trans (o₆.trans o₇)).weaken
+  have O : VOnly [LO, MID, HI, A, T, Y] s s₇ :=
+    (o₂.trans ((o₃.trans (o₄.trans o₅)).trans (o₆.trans o₇))).weaken
   have kv : ∀ r, r ∉ [LO, MID, HI, A, T, Y] → s'.v r = s.v r := fun r h => by rw [fv, O.v r h]
   have kg : ∀ r, r ≠ .x2 → r ≠ .x3 → r ≠ .x5 → s'.gpr r = s.gpr r := fun r h2 h3 h5 => by
     rw [fg r h2 h3 h5, O.gpr]
-  refine ⟨by omega, by rw [kv C (by decide), hI.c], by rw [kv Z (by decide), hI.z],
+  refine ⟨by omega, by rw [kv C (by decide), hI.c],
     fun m hm hmK => by rw [kv _ (tReg_nmem' _), hI.t m hm hmK],
     fun m hm hmK => by rw [kv _ (sReg_nmem' _), kv _ (tReg_nmem' _), hI.sw m hm hmK], ?_,
     by rw [kg .x0 (by decide) (by decide) (by decide), hI.x0],
     by rw [kg .x1 (by decide) (by decide) (by decide), hI.x1], ?_, ?_, f5,
     by rw [fm, O.mem, hI.mem], by rw [frd, O.rd, hI.rd], by rw [fwr, O.wr, hI.wr]⟩
-  · rw [fv, w₇, ρ_ext8_self, r₆, φ_reduce, p₅, show i + 1 + (k - 1) = i + k by omega,
-      show k - 1 - (k - 1) = 0 by omega, pow_zero, mul_one]
+  · rw [fv, w₇, ρ_ext8_self, r₆, φ_reduce, hv]
   · rw [f2, O.gpr, hI.x2, blkAddr, blkAddr, Offset.add_add, ← Nat.mul_add]
   · rw [f3, O.gpr, hI.x3, Offset.ofNat_sub_ofNat (by omega), Nat.sub_sub]
 
@@ -269,10 +279,10 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   refine WP.mono (ldrev_ok A .x0 0 s₀ rfl (by decide)
     ⟨hR s₀, by simp [hp.rd], contains_offset (by decide) (by decide)⟩) fun s₁ ⟨l₁, o₁⟩ => ?_
   rw [WP.block_append_iff]
-  refine WP.mono (consts_ok s₁) fun s₂ ⟨c₂, z₂, t₂, w₂, kv₂, kg₂, m₂, rd₂, wr₂⟩ => ?_
+  refine WP.mono (consts_ok s₁) fun s₂ ⟨c₂, t₂, w₂, kv₂, kg₂, m₂, rd₂, wr₂⟩ => ?_
   rw [WP.block_append_iff]
   refine WP.mono (mul_ok (tReg 1) A (sReg 2) (tReg 2) s₂ free_A (sReg_free _) (tReg_free _)
-    (by rw [w₂, t₂]) c₂ z₂) fun s₃ ⟨m₃, o₃⟩ => ?_
+    (by rw [w₂, t₂]) c₂) fun s₃ ⟨m₃, o₃⟩ => ?_
   rw [WP.block_append_iff]
   refine WP.mono (swap_ok (sReg 1) (tReg 1) s₃) fun s₄ ⟨w₄, o₄⟩ => ?_
   have g₄ : ∀ r, r ≠ .x5 → r ≠ .x6 → r ≠ .x7 → s₄.gpr r = s₀.gpr r := fun r h5 h6 h7 => by
@@ -292,8 +302,8 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     rw [fv, O.v _ (by
       simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false, not_or]
       exact ⟨tReg_ne_sReg _ _, (ne_tReg (r := Y) 1).symm⟩)]
-  have hA₂ : s₂.v A = s₁.v A := kv₂ A (by decide) (by decide) (ne_tReg 2) (ne_sReg 2)
-  refine ⟨Nat.zero_le _, ?_, ?_, fun k hk hk1 => ?_, fun k hk hk1 => ?_, ?_,
+  have hA₂ : s₂.v A = s₁.v A := kv₂ A (by decide) (ne_tReg 2) (ne_sReg 2)
+  refine ⟨Nat.zero_le _, ?_, fun k hk hk1 => ?_, fun k hk hk1 => ?_, ?_,
     by rw [g .x0 (by decide) (by decide) (by decide)],
     by rw [g .x1 (by decide) (by decide) (by decide)],
     by rw [g .x2 (by decide) (by decide) (by decide)]; simp [blkAddr],
@@ -307,13 +317,6 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
       simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false, not_or]
       exact ⟨ne_sReg 1, by decide⟩
     rw [fv, O.v C h', o₃.v C h, c₂]
-  · have h : Z ∉ [LO, MID, HI, T, tReg 1] := by
-      simp only [List.mem_cons, List.not_mem_nil, or_false, not_or]
-      exact ⟨by decide, by decide, by decide, by decide, ne_tReg 1⟩
-    have h' : Z ∉ [sReg 1] ++ [Y] := by
-      simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false, not_or]
-      exact ⟨ne_sReg 1, by decide⟩
-    rw [fv, O.v Z h', o₃.v Z h, z₂]
   · obtain rfl : k = 1 := by omega
     rw [t₁, m₃, hA₂, l₁, t₂, add_ofNat_zero]
     linear_combination φ (H₀ s₀) * x2_φ_xInv2

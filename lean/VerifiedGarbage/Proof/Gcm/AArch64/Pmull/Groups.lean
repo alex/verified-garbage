@@ -15,7 +15,7 @@ and a store of a block are in `Q`.
 namespace VG.Proof.Gcm.AArch64.Pmull
 
 open VG VG.AArch64 VG.Proof.Gcm.Poly
-open VG.Impl.Gcm.AArch64.Pmull (LO MID HI A T C Z Y tReg sReg poly)
+open VG.Impl.Gcm.AArch64.Pmull (LO MID HI A T C Y tReg sReg poly)
 
 /-! ## Loads and stores of blocks -/
 
@@ -159,24 +159,24 @@ theorem acc_ok (a sk t : VReg) (s : State) (ha : Free a) (hs : Free sk) (ht : Fr
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     simp only [v_setV, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2, ite_false]
 
-theorem reduce_ok (d : VReg) (s : State) (hc : s.v C = ofVDwords poly poly) (hz : s.v Z = 0) :
+theorem reduce_ok (d : VReg) (s : State) (hc : s.v C = ofVDwords poly poly) :
     WP isa (.block (Impl.Gcm.AArch64.Pmull.reduce d)) s fun s' =>
-      s'.v d = reduce (prod s) ∧ VOnly [LO, HI, T, d] s s' := by
+      s'.v d = reduce (prod s) ∧ VOnly [LO, MID, T, d] s s' := by
   have hc0 : vdword (ofVDwords poly poly) 0 = poly := vdword_append_0 _ _
   apply WP.of_runBlock
   simp only [Impl.Gcm.AArch64.Pmull.reduce, Impl.Gcm.AArch64.Pmull.fold, List.cons_append,
     List.nil_append, runBlock_cons, runStep_some, runBlock_nil, exec_pmull0, exec_eor, exec_ext8,
-    Option.some.injEq, exists_eq_left']
+    Option.some.injEq, exists_eq_left', v_setV, ite_true, ite_false, reduceCtorEq, hc]
   refine ⟨?_, ⟨fun r hr => ?_, by simp only [gpr_setV], by simp only [mem_setV], by simp only [rd_setV],
     by simp only [wr_setV], by simp only [sp_setV]⟩⟩
-  · simp only [v_setV, ite_true, ite_false, reduceCtorEq, hc, hz, hc0]
+  · simp only [hc0]
     rfl
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     simp only [v_setV, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2, ite_false]
 
 /-- `d ← mul(a, t)`, a block of class `x · a · t` (`a` as loaded). -/
 theorem mul_ok (d a sk t : VReg) (s : State) (ha : Free a) (hs : Free sk) (ht : Free t)
-    (hst : s.v sk = ext8 (s.v t) (s.v t)) (hc : s.v C = ofVDwords poly poly) (hz : s.v Z = 0) :
+    (hst : s.v sk = ext8 (s.v t) (s.v t)) (hc : s.v C = ofVDwords poly poly) :
     WP isa (.block (Impl.Gcm.AArch64.Pmull.mul d a sk t)) s fun s' =>
       φ (s'.v d) = x * ρ (s.v a) * φ (s.v t) ∧ VOnly [LO, MID, HI, T, d] s s' := by
   rw [Impl.Gcm.AArch64.Pmull.mul, WP.block_append_iff, WP.block_append_iff]
@@ -184,8 +184,8 @@ theorem mul_ok (d a sk t : VReg) (s : State) (ha : Free a) (hs : Free sk) (ht : 
   refine WP.mono (acc_ok a sk t s₁ ha hs ht) fun s₂ ⟨p₂, o₂⟩ => ?_
   have k : ∀ r, r ≠ .v3 → r ≠ .v4 → r ≠ .v5 → r ≠ .v7 → s₂.v r = s.v r := fun r h3 h4 h5 h7 => by
     rw [o₂.v r (by simp [h3, h4, h5, h7]), o₁.v r (by simp [h3, h4, h5])]
-  refine WP.mono (reduce_ok d s₂ (by rw [k C (by decide) (by decide) (by decide) (by decide), hc])
-    (by rw [k Z (by decide) (by decide) (by decide) (by decide), hz])) fun s₃ ⟨p₃, o₃⟩ => ⟨?_, ?_⟩
+  refine WP.mono (reduce_ok d s₂ (by rw [k C (by decide) (by decide) (by decide) (by decide), hc]))
+    fun s₃ ⟨p₃, o₃⟩ => ⟨?_, ?_⟩
   · rw [p₃, φ_reduce, p₂, p₁, o₁.v a (by simp [ha.1, ha.2.1, ha.2.2.1]),
       o₁.v sk (by simp [hs.1, hs.2.1, hs.2.2.1]), o₁.v t (by simp [ht.1, ht.2.1, ht.2.2.1]), hst,
       Prod.val_acc, Prod.val_zero, zero_add]
@@ -280,21 +280,21 @@ theorem gpr_write_x (s : State) (d : Reg) (w : BitVec 64) (r : Reg) :
 /-- The reduction constant, zero, and `x⁻²` in both orders. -/
 theorem consts_ok (s : State) :
     WP isa (.block Impl.Gcm.AArch64.Pmull.consts) s fun s' =>
-      s'.v C = ofVDwords poly poly ∧ s'.v Z = 0 ∧ s'.v (tReg 2) = xInv2 ∧
+      s'.v C = ofVDwords poly poly ∧ s'.v (tReg 2) = xInv2 ∧
       s'.v (sReg 2) = ext8 xInv2 xInv2 ∧
-      (∀ r, r ≠ C → r ≠ Z → r ≠ tReg 2 → r ≠ sReg 2 → s'.v r = s.v r) ∧
+      (∀ r, r ≠ C → r ≠ tReg 2 → r ≠ sReg 2 → s'.v r = s.v r) ∧
       (∀ r, r ≠ .x5 → r ≠ .x6 → r ≠ .x7 → s'.gpr r = s.gpr r) ∧
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   apply WP.of_runBlock
   simp only [Impl.Gcm.AArch64.Pmull.consts, tReg, sReg, runBlock_cons, runStep_some, runBlock_nil,
     exec_movz_x (show 16 * 3 < 64 by decide), exec_movz_x (show 16 * 0 < 64 by decide),
-    exec_dup_d2, exec_movi0, exec_ins_d2 (show 0 < 2 by decide), exec_ins_d2 (show 1 < 2 by decide),
+    exec_dup_d2, exec_ins_d2 (show 0 < 2 by decide), exec_ins_d2 (show 1 < 2 by decide),
     v_setV, gpr_setV, v_write, gpr_write_x, ite_true, ite_false, reduceCtorEq,
     Option.some.injEq, exists_eq_left', setLane_pair, mem_setV, rd_setV, wr_setV, mem_write,
     rd_write, wr_write, and_true]
-  refine ⟨by decide, trivial, by decide, by rw [ext8_eq]; decide, fun r hc hz ht hs => ?_,
+  refine ⟨by decide, by decide, by rw [ext8_eq]; decide, fun r hc ht hs => ?_,
     fun r h5 h6 h7 => ?_⟩
-  · simp only [hc, hz, ht, hs, ite_false]
+  · simp only [hc, ht, hs, ite_false]
   · simp only [h5, h6, h7, ite_false]
 
 theorem exec_addImm {d n : Reg} {imm : Nat} (h : imm < 4096) (s : State) :
@@ -342,25 +342,25 @@ theorem sReg_free (k : Nat) : Free (sReg k) := by
   unfold sReg Free; split <;> decide
 
 /-- The registers of the powers are not those of a block's arithmetic or the constants. -/
-theorem tReg_nmem (k : Nat) : tReg k ∉ [LO, MID, HI, A, T, Y, C, Z] := by
+theorem tReg_nmem (k : Nat) : tReg k ∉ [LO, MID, HI, A, T, Y, C] := by
   unfold tReg; split <;> decide
 
-theorem sReg_nmem (k : Nat) : sReg k ∉ [LO, MID, HI, A, T, Y, C, Z] := by
+theorem sReg_nmem (k : Nat) : sReg k ∉ [LO, MID, HI, A, T, Y, C] := by
   unfold sReg; split <;> decide
 
 theorem tReg_nmem' {rs : List VReg} (k : Nat)
-    (hs : ∀ r ∈ rs, r ∈ [LO, MID, HI, A, T, Y, C, Z] := by decide) : tReg k ∉ rs :=
+    (hs : ∀ r ∈ rs, r ∈ [LO, MID, HI, A, T, Y, C] := by decide) : tReg k ∉ rs :=
   fun h => tReg_nmem k (hs _ h)
 
 theorem sReg_nmem' {rs : List VReg} (k : Nat)
-    (hs : ∀ r ∈ rs, r ∈ [LO, MID, HI, A, T, Y, C, Z] := by decide) : sReg k ∉ rs :=
+    (hs : ∀ r ∈ rs, r ∈ [LO, MID, HI, A, T, Y, C] := by decide) : sReg k ∉ rs :=
   fun h => sReg_nmem k (hs _ h)
 
-theorem ne_tReg {r : VReg} (k : Nat) (h : r ∈ [LO, MID, HI, A, T, Y, C, Z] := by decide) :
+theorem ne_tReg {r : VReg} (k : Nat) (h : r ∈ [LO, MID, HI, A, T, Y, C] := by decide) :
     r ≠ tReg k :=
   fun e => tReg_nmem k (e ▸ h)
 
-theorem ne_sReg {r : VReg} (k : Nat) (h : r ∈ [LO, MID, HI, A, T, Y, C, Z] := by decide) :
+theorem ne_sReg {r : VReg} (k : Nat) (h : r ∈ [LO, MID, HI, A, T, Y, C] := by decide) :
     r ≠ sReg k :=
   fun e => sReg_nmem k (e ▸ h)
 

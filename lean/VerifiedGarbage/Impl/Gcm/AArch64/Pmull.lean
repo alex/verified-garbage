@@ -18,16 +18,19 @@ swapped. In the bit-reflected representation of SP 800-38D:
   bits `hi : mid : lo` (`hi` holding the low powers): `pmull a, s` and
   `pmull2 a, s` give `hi` and `lo`, and `pmull a, t` and `pmull2 a, t` the
   two halves of `mid`;
-* the product is reduced into 128 bits with two `pmull` by the constant
-  `0xc2 · 2⁵⁶` (`x + x² + x⁷`, reflected) and two swaps of the halves
-  (`ext #8`), so that `mul(a, t) = x · a · t` in GF(2¹²⁸);
+* the product is reduced into 128 bits as `hi ⊕ fold(mid ⊕ fold(lo))`, where
+  `fold(r)`, the halves of `r` swapped (`ext #8`) plus the `pmull` of its low
+  half by the constant `0xc2 · 2⁵⁶` (`x + x² + x⁷`, reflected), is of the
+  class of `x⁶⁴ · r`, so that `mul(a, t) = x · a · t` in GF(2¹²⁸);
 * to cancel the factor `x`, the hash subkey is used as `H' = H · x⁻¹ =
   mul(H, x⁻²)`, `x⁻²` a constant;
 * `H'ᵏ = mul(H'ⁱ, H'ʲ) = Hᵏ · x⁻¹` (`i + j = k`) for `k = 2 … 8` are
   computed once per call when there are at least eight blocks, and kept in
   registers, as they are and with their halves swapped; eight blocks at a time
   `Y ← mul(Y ⊕ X₁, H'⁸) ⊕ mul(X₂, H'⁷) ⊕ … ⊕ mul(X₈, H')`, reducing the sum of
-  the eight products once; the remaining blocks go one at a time.
+  the eight products once, and adding the product of `Y ⊕ X₁` last so that
+  only it and the reduction wait for the previous `Y`; the remaining blocks go
+  one at a time.
 * `Y` is kept as loaded (its halves swapped), and stored with `rev64`.
 
 Only caller-saved registers are used (`x5`–`x7`, `v0`–`v7`, `v16`–`v31`),
@@ -39,14 +42,13 @@ namespace VG.Impl.Gcm.AArch64.Pmull
 
 open VG.AArch64
 
-/-! Registers: `v0` `Y`, `v1` the reduction constant in both halves, `v2`
-zero, `v3`–`v5` the product (`lo`, `mid`, `hi`), `v6` a block, `v7` a
+/-! Registers: `v0` `Y`, `v1` the reduction constant in both halves,
+`v3`–`v5` the product (`lo`, `mid`, `hi`), `v6` a block, `v7` a
 temporary, `v16`–`v23` `H'`–`H'⁸`, `v24`–`v31` the same with their halves
 swapped. -/
 
 abbrev Y : VReg := .v0
 abbrev C : VReg := .v1
-abbrev Z : VReg := .v2
 abbrev LO : VReg := .v3
 abbrev MID : VReg := .v4
 abbrev HI : VReg := .v5
@@ -79,15 +81,13 @@ def acc (a s t : VReg) : List Instr :=
    .vop (.pmull false T a t), .vop (.logic .eor MID MID T),
    .vop (.pmull true T a t), .vop (.logic .eor MID MID T)]
 
-/-- One step of the reduction of `lo`: `lo ← swap(lo) ⊕ pmull(lo₀, 0xc2 · 2⁵⁶)`. -/
-def fold : List Instr :=
-  [.vop (.pmull false T LO C), .vop (.ext LO LO LO 8), .vop (.logic .eor LO LO T)]
+/-- `r ← swap(r) ⊕ pmull(r₀, 0xc2 · 2⁵⁶)`, of the class of `x⁶⁴ · r`. -/
+def fold (r : VReg) : List Instr :=
+  [.vop (.pmull false T r C), .vop (.ext r r r 8), .vop (.logic .eor r r T)]
 
-/-- The product, reduced, into `d`. -/
+/-- The product, reduced, into `d`: `hi ⊕ fold(mid ⊕ fold(lo))`. -/
 def reduce (d : VReg) : List Instr :=
-  [.vop (.ext T Z MID 8), .vop (.logic .eor LO LO T),
-   .vop (.ext T MID Z 8), .vop (.logic .eor HI HI T)] ++ fold ++ fold ++
-  [.vop (.logic .eor d HI LO)]
+  fold LO ++ [.vop (.logic .eor MID MID LO)] ++ fold MID ++ [.vop (.logic .eor d HI MID)]
 
 /-- `d ← mul(a, t)`, `a` as loaded, `s` the halves of `t` swapped. -/
 def mul (d a s t : VReg) : List Instr := zero ++ acc a s t ++ reduce d
@@ -102,10 +102,10 @@ def load (j : Nat) : List Instr := loadRev A .x2 (16 * j)
 def pow (k i j : Nat) : List Instr :=
   mul (tReg k) (sReg i) (sReg j) (tReg j) ++ [.vop (.ext (sReg k) (tReg k) (tReg k) 8)]
 
-/-- The reduction constant in both halves of `v1`, zero in `v2`, and `x⁻²` in
+/-- The reduction constant in both halves of `v1`, and `x⁻²` in
 `v17` and, its halves swapped, in `v25`. -/
 def consts : List Instr :=
-  [.movz .x .x5 0xc200 3, .vop (.dup .d2 C .x5), .vop (.movi0 Z),
+  [.movz .x .x5 0xc200 3, .vop (.dup .d2 C .x5),
    .movz .x .x6 3 0, .movz .x .x7 0x4600 3,
    .vop (.ins .d2 (tReg 2) 0 .x6), .vop (.ins .d2 (tReg 2) 1 .x7),
    .vop (.ins .d2 (sReg 2) 0 .x7), .vop (.ins .d2 (sReg 2) 1 .x6)]
@@ -126,10 +126,12 @@ def blk (k j : Nat) : List Instr := load (j + 1) ++ acc A (sReg (k - 1 - j)) (tR
 def advance (k : Nat) : List Instr :=
   [.addImm .x .x2 .x2 (16 * k), .subImm .x .x3 .x3 k, .lsr .x .x5 .x3 3]
 
-/-- `k` blocks (`k` = 1 or 8), then the pointer and the counts. -/
+/-- `k` blocks (`k` = 1 or 8), then the pointer and the counts. The first
+block, which `Y` is added to, goes last, so that only its products and the
+reduction wait for the previous `Y`. -/
 def body (k : Nat) : List Instr :=
-  zero ++ load 0 ++ [.vop (.logic .eor A A Y)] ++ acc A (sReg k) (tReg k) ++
-  (List.range (k - 1)).flatMap (blk k) ++ reduce Y ++ [.vop (.ext Y Y Y 8)] ++ advance k
+  zero ++ (List.range (k - 1)).flatMap (blk k) ++ load 0 ++ [.vop (.logic .eor A A Y)] ++
+  acc A (sReg k) (tReg k) ++ reduce Y ++ [.vop (.ext Y Y Y 8)] ++ advance k
 
 def epilogue : List Instr := [.vop (.rev .rev64b Y Y), .strq Y .x1 0]
 

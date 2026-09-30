@@ -81,8 +81,6 @@ theorem φ_polyMul (a b : BitVec 64) : φ (polyMul a b) = x * ψ a * ψ b := by
 theorem ψ_xor (a b : BitVec 64) : ψ (a ^^^ b) = ψ a + ψ b := by
   simp only [ψ, gp_xor, map_add]
 
-theorem ψ_zero : ψ 0 = 0 := by simp only [ψ, gp_zero, map_zero]
-
 theorem φ_append (a b : BitVec 64) : φ (a ++ b) = ψ a + x ^ 64 * ψ b := by
   simp only [φ, ψ, gp_append, map_add, map_mul, map_pow, AdjoinRoot.mk_X]
 
@@ -106,10 +104,6 @@ theorem vdword_append_1 (a b : BitVec 64) : vdword (a ++ b) 1 = a := by
 
 theorem vdword_xor (a b : BitVec 128) (e : Nat) : vdword (a ^^^ b) e = vdword a e ^^^ vdword b e := by
   simp only [vdword, BitVec.extractLsb'_xor]
-
-theorem vdword_zero (e : Nat) : vdword 0 e = 0 := by
-  apply BitVec.eq_of_getLsbD_eq; intro i hi
-  simp [vdword]
 
 theorem φ_v (v : BitVec 128) : φ v = ψ (vdword v 1) + x ^ 64 * ψ (vdword v 0) := by
   conv => lhs; rw [vdwords v]
@@ -214,11 +208,10 @@ theorem φ_fold (v : BitVec 128) : φ (fold v) = x ^ 64 * φ v := by
   linear_combination (-ψ (vdword v 0)) * x128
 
 /-- The block `reduce` computes from a product. -/
-def reduce (p : Prod) : BitVec 128 :=
-  (p.hi ^^^ ext8 p.mid 0) ^^^ fold (fold (p.lo ^^^ ext8 0 p.mid))
+def reduce (p : Prod) : BitVec 128 := p.hi ^^^ fold (p.mid ^^^ fold p.lo)
 
 theorem φ_reduce (p : Prod) : φ (reduce p) = p.val := by
-  simp only [reduce, φ_xor, φ_fold, φ_ext8, vdword_zero, ψ_zero, Prod.val, φ_v p.mid]
+  simp only [reduce, φ_xor, φ_fold, Prod.val]
   ring
 
 /-! ## `x⁻²` -/
