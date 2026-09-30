@@ -175,6 +175,12 @@ theorem block_nomem_tr {is : List Instr} (h : ∀ i ∈ is, ∀ s, isa.addrs i s
   rw [Exec.block_iff] at e₁ e₂
   exact ⟨(execBlock_nomem h e₁).trans (execBlock_nomem h e₂).symm, trivial⟩
 
+/-- A relation of the final states from facts each run proves of its own. -/
+theorem postDep {P Q : State → State → Prop} {c : Prog isa} {F : State → State → Prop}
+    (h : RelCT isa P c fun _ _ => True) (hw : ∀ x y, P x y → WP isa c x (F x) ∧ WP isa c y (F y))
+    (hQ : ∀ x y x' y', P x y → F x x' → F y y' → Q x' y') : RelCT isa P c Q :=
+  RelCT.mono (RelCT.wpDep h hw) (fun _ _ h => h) fun _ _ ⟨_, _, _, hp, f₁, f₂⟩ => hQ _ _ _ _ hp f₁ f₂
+
 /-! ## Callees -/
 
 /-- Code verified against the contract `k S` for a stack of `S` bytes, that

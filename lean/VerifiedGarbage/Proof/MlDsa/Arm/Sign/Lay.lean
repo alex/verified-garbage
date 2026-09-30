@@ -253,6 +253,31 @@ abbrev PPostB (D : Nat) (s s' : State) (ws : List (Ptr × Nat)) : Prop := PostB 
 def keepB (bs : List (Reg × Nat)) (ws : List (Ptr × Nat)) (p : Ptr) (l : Nat) : Bool :=
   decide (p.1 ∈ bases) && inB bs p l && ws.all fun w => sepB bs p l w.1 w.2
 
+theorem inB_sub {bs : List (Reg × Nat)} {r : Reg} {o L o' l : Nat} (h : inB bs (r, o) L = true)
+    (h2 : o' + l ≤ o + L) : inB bs (r, o') l = true := by
+  unfold inB at h ⊢
+  split at h
+  · rename_i n hn
+    simp only [hn, decide_eq_true_eq] at h ⊢
+    omega
+  · cases h
+
+theorem sepB_sub {bs : List (Reg × Nat)} {r : Reg} {o L o' l : Nat} {q : Ptr} {k : Nat}
+    (h : sepB bs (r, o) L q k = true) (h1 : o ≤ o') (h2 : o' + l ≤ o + L) : sepB bs (r, o') l q k = true := by
+  unfold sepB at h ⊢
+  simp only [Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq] at h ⊢
+  obtain ⟨⟨hp, hq⟩, hs⟩ := h
+  refine ⟨⟨inB_sub hp h2, hq⟩, ?_⟩
+  rcases hs with hs | ⟨he, hs⟩
+  · exact .inl hs
+  · exact .inr ⟨he, by omega⟩
+
+theorem keepB_sub {bs : List (Reg × Nat)} {ws : List (Ptr × Nat)} {r : Reg} {o L o' l : Nat}
+    (h : keepB bs ws (r, o) L = true) (h1 : o ≤ o') (h2 : o' + l ≤ o + L) : keepB bs ws (r, o') l = true := by
+  unfold keepB at h ⊢
+  simp only [Bool.and_eq_true, List.all_eq_true] at h ⊢
+  exact ⟨⟨h.1.1, inB_sub h.1.2 h2⟩, fun w hw => sepB_sub (h.2 w hw) h1 h2⟩
+
 theorem PostB.pa {D : Nat} {s s' : State} {W : List Region} (hP : PostB D s s' W) {p : Ptr} (h : p.1 ∈ bases) :
     pa s' p = pa s p := by
   simp only [VG.Proof.MlDsa.Arm.Sign.pa, hP.bs _ h]
