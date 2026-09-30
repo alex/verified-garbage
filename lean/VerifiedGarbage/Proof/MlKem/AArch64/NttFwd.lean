@@ -26,14 +26,6 @@ theorem Pre.in16' {s₀ s : State} (hp : Pre s₀) (h : St s₀ s) {j : Nat} (hj
     InRegions (s.rd ++ s.wr) (coeffAddr (fP s₀) j) 16 := by
   rw [h.rd, hp.rd]; exact hp.in16 h hj
 
-theorem frame16 {m m' : Mem} {p : Addr} (hf : Frame [polyRegion p] m m') {j : Nat} (hj : j + 4 ≤ 256)
-    (x : BitVec 128) : Frame [polyRegion p] m (m'.write (coeffAddr p j) 16 x) :=
-  hf.write (n := 16) (List.mem_singleton_self _) x (contains_off (by omega) (by decide))
-
-theorem coeffAddr_step (p : Addr) (a : Nat) :
-    coeffAddr p a + BitVec.ofNat 64 16 = coeffAddr p (a + 4) := by
-  rw [coeffAddr, coeffAddr, ptr_add, show 4 * a + 16 = 4 * (a + 4) by omega]
-
 /-- After two stores into the polynomial at `f`, the facts that hold throughout. -/
 theorem St.store2 {s₀ : State} (hp : Pre s₀) {w w' : State} (h : St s₀ w) (hk : Keep [] w w')
     (hv : w'.v = w.v) {j j' : Nat} (hj : j + 4 ≤ 256) (hj' : j' + 4 ≤ 256) {x y : BitVec 128}
