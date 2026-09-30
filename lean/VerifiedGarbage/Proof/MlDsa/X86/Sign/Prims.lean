@@ -76,6 +76,13 @@ structure PrimsOk (P : Prims) where
   ok : ∀ c ∈ [P.ntt, P.invNtt, P.mul, P.mulAdd, P.add, P.sub, P.rejNTT, P.expandMask, P.ball, P.highBits,
     P.lowBits, P.normLt, P.makeHint, P.simpleBitPack, P.bitPack, P.bitUnpack, P.hintBitPack], COk c
 
+/-- The returned `u32` is the low word, `eax`, of the returned pair. -/
+theorem sw32 (a b : BitVec 32) : (a ++ b).setWidth 32 = b := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_setWidth, BitVec.toNat_append, Nat.shiftLeft_eq, Nat.mul_comm,
+    ← Nat.two_pow_add_eq_or_of_lt b.isLt]
+  omega
+
 /-! ## Frames -/
 
 /-- The frame of a call: its buffers, its arguments and its stack, within `FR s₀ bs 80`. -/

@@ -96,6 +96,20 @@ theorem stk_W {p : Params} {s₀ : State} (hp : TPre (Y p) s₀) {N : Nat} (hN :
     ∃ r' ∈ W (Y p) s₀, Region.Sub (below (E1 s₀) N) r' :=
   ⟨cR (Y p) s₀, TPre.cW, stk_sub hp hN (by show 80 + 16 ≤ 96; omega)⟩
 
+/-- The callee's regions, within the caller's, for a callee that only reads its arguments. -/
+theorem covers_ro {s : State} {n : Nat} {rd : List Region}
+    (hrd : ∀ r ∈ rd, r = below (s.gpr .esp) (4 * n) ∨ VG.Proof.MlKem.X86.Within r (s.rd ++ s.wr)) :
+    Covers (rd ++ []) (s.rd ++ below (s.gpr .esp) (4 * n) :: s.wr) ∧
+      Covers [] (below (s.gpr .esp) (4 * n) :: s.wr) := by
+  refine ⟨Covers.of_sub fun r hr => ?_, Covers.of_sub fun r hr => absurd hr List.not_mem_nil⟩
+  rw [List.append_nil] at hr
+  rcases hrd r hr with rfl | ⟨r', h', o, hb, hl⟩
+  · exact ⟨_, List.mem_append_right _ (List.mem_cons_self ..), 0, by simp, by simp⟩
+  · refine ⟨r', ?_, o, hb, hl⟩
+    rcases List.mem_append.mp h' with h' | h'
+    · exact List.mem_append_left _ h'
+    · exact List.mem_append_right _ (List.mem_cons_of_mem _ h')
+
 /-! ## Calls -/
 
 section
