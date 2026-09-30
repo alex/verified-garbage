@@ -20,7 +20,7 @@ The streaming state (84 bytes at `state`) is the hash value followed by a
 `Impl/MdStream/X86_64.lean`. They take the compression function they call (a
 `Callee`, e.g. `vg_sha1_compress` or `vg_sha1_compress_shani`), and are
 emitted once for each implementation
-(`Generic/Sha1Compress/X86_64/Sha1.lean`). It is called with
+(`Generic/MdHash/X86_64/Stream.lean`). It is called with
 `scratch[0..112)` as its scratch space; our caller's callee-saved registers
 are saved in `scratch[112..160)`. The length field is big-endian, and so are
 the words of the digest.

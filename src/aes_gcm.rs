@@ -12,7 +12,9 @@
 //!
 //! On x86-64, CPUs with AES-NI, PCLMULQDQ and SSSE3 run
 //! `vg_aes_expand_key_aesni`, `vg_aes_ctr32_aesni` and `vg_ghash_pclmul`
-//! instead, which have the same contracts.
+//! instead, which have the same contracts; on AArch64, CPUs with the AES and
+//! PMULL extensions run `vg_aes_expand_key_aes`, `vg_aes_ctr32_aes` and
+//! `vg_ghash_pmull`.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -21,6 +23,11 @@
     target_arch = "x86"
 ))]
 
+#[cfg(target_arch = "aarch64")]
+use crate::arch::aes::{
+    VG_AES_CTR32_AES_FEATURES, VG_AES_EXPAND_KEY_AES_FEATURES, vg_aes_ctr32_aes,
+    vg_aes_expand_key_aes,
+};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::aes::{
     VG_AES_CTR32_AESNI_FEATURES, VG_AES_EXPAND_KEY_AESNI_FEATURES, vg_aes_ctr32_aesni,
@@ -30,6 +37,8 @@ use crate::arch::aes::{vg_aes_ctr32, vg_aes_expand_key};
 use crate::arch::gcm::vg_ghash;
 #[cfg(target_arch = "x86_64")]
 use crate::arch::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash_pclmul};
+#[cfg(target_arch = "aarch64")]
+use crate::arch::gcm::{VG_GHASH_PMULL_FEATURES, vg_ghash_pmull};
 use crate::cpu::{Features, detected};
 
 /// A 16-byte block.
@@ -126,6 +135,9 @@ enum Backend {
     /// AES-NI and PCLMULQDQ.
     #[cfg(target_arch = "x86_64")]
     AesNi,
+    /// The AES and PMULL extensions.
+    #[cfg(target_arch = "aarch64")]
+    ArmCrypto,
 }
 
 impl Backend {
@@ -143,9 +155,23 @@ impl Backend {
         }
     }
 
+    /// The best implementation a CPU with the features `f` can run.
+    #[cfg(target_arch = "aarch64")]
+    fn select(f: Features) -> Backend {
+        if f.contains(Features::all(&[
+            VG_AES_EXPAND_KEY_AES_FEATURES,
+            VG_AES_CTR32_AES_FEATURES,
+            VG_GHASH_PMULL_FEATURES,
+        ])) {
+            Backend::ArmCrypto
+        } else {
+            Backend::Scalar
+        }
+    }
+
     /// The best implementation a CPU with the features `f` can run: there
     /// is only one here.
-    #[cfg(not(target_arch = "x86_64"))]
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
     fn select(_: Features) -> Backend {
         Backend::Scalar
     }
@@ -181,6 +207,10 @@ impl AesGcm {
                 Backend::AesNi => {
                     vg_aes_expand_key_aesni(key_ptr, key.len(), schedule, &mut scratch)
                 }
+                #[cfg(target_arch = "aarch64")]
+                Backend::ArmCrypto => {
+                    vg_aes_expand_key_aes(key_ptr, key.len(), schedule, &mut scratch)
+                }
             }
         };
         // H = CIPH_K(0^128): the keystream of a zero block.
@@ -198,6 +228,8 @@ impl AesGcm {
             Backend::Scalar => vg_aes_ctr32,
             #[cfg(target_arch = "x86_64")]
             Backend::AesNi => vg_aes_ctr32_aesni,
+            #[cfg(target_arch = "aarch64")]
+            Backend::ArmCrypto => vg_aes_ctr32_aes,
         };
         // SAFETY: `self.schedule` holds the key schedule for `self.rounds`
         // (10, 12 or 14) rounds, written by key expansion (every
@@ -228,6 +260,8 @@ impl AesGcm {
             Backend::Scalar => vg_ghash,
             #[cfg(target_arch = "x86_64")]
             Backend::AesNi => vg_ghash_pclmul,
+            #[cfg(target_arch = "aarch64")]
+            Backend::ArmCrypto => vg_ghash_pmull,
         };
         // SAFETY: `self.h` is valid for reads of 16 bytes, `y` for reads and
         // writes of 16, `blocks` for reads of `16 * blocks.len()` and
@@ -515,7 +549,7 @@ impl AesGcmStream {
 #[cfg(test)]
 mod tests {
     use super::{AesGcm, AesGcmStream, Backend, Direction, Error, MAX_AAD, MAX_TEXT, add_len};
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
     use crate::cpu::Features;
     use crate::cpu::detected;
 
@@ -532,6 +566,11 @@ mod tests {
             ] {
                 assert_eq!(Backend::select(f), Backend::Scalar);
             }
+        }
+        #[cfg(target_arch = "aarch64")]
+        {
+            assert_eq!(Backend::select(Features::of(&["aes"])), Backend::ArmCrypto);
+            assert_eq!(Backend::select(Features(0)), Backend::Scalar);
         }
         let best = AesGcm::new(&[0; 16]).unwrap().backend;
         assert_eq!(best, Backend::select(detected()));
