@@ -634,78 +634,110 @@ theorem passV_iff {p : Params} {σ : State} {κ : Nat} :
       PassV p σ κ :=
   ⟨fun ⟨⟨⟨a, b⟩, c⟩, d⟩ => ⟨a, b, c, Nat.le_of_lt_succ d⟩, fun ⟨a, b, c, d⟩ => ⟨⟨⟨a, b⟩, c⟩, Nat.lt_succ_of_le d⟩⟩
 
-theorem checks_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : ksChk p = true) {σ : State} {t : Nat}
-    {s : State} (h : KA p D σ t s) :
-    WP isa (checks P p) s fun s' => EP p D σ t s' ∨ EF p D σ t s' := by
+theorem ksChk_spec {p : Params} (hc : ksChk p = true) : ∀ {Q : Prop}, (ipChk (sgB p) (sgW p) cP = true →
+    icwChk p [(cP, 1024), (sc oPS, 1024)] p.k = true →
+    keepB (sgB p) [(cP, 1024), (sc oPS, 1024)] (sc oCT) (cLen p) = true → inB (sgW p) (sc oONES) 8 = true →
+    kbChk p [(sc oONES, 8)] = true → famChk (sgB p) [(sc oONES, 8)] (yBase p) p.ℓ = true →
+    famChk (sgB p) [(sc oONES, 8)] (wBase p) p.k = true →
+    (∀ r < p.ℓ, zChk p r = true) → (∀ i < p.k, rChk p i = true) → (∀ i < p.k, hChk2 p i = true) →
+    inB (sgB p) (sc oONES) 4 = true → inB (sgW p) (sc oCNT) 8 = true → inB (sgW p) (sc oKAP) 8 = true →
+    kbChk p [] = true → famChk (sgB p) [(sc oCNT, 8)] (yBase p) p.ℓ = true →
+    famChk (sgB p) [(sc oCNT, 8)] 5 p.k = true → famChk (sgB p) [] (yBase p) p.ℓ = true →
+    famChk (sgB p) [] 5 p.k = true → ikChk p [(sc oCNT, 8)] = true → ikChk p [(sc oKAP, 8)] = true →
+    keepB (sgB p) [(sc oKAP, 8)] (sc oCNT) 8 = true → keepB (sgB p) [(sc oCNT, 8)] (sc oCT) (cLen p) = true →
+    p.ω + 1 < 2 ^ 31 → p.ℓ < 2 ^ 31 → 256 * p.k < 2 ^ 32 → 0 < p.ℓ → famChk (sgB p) [] (wBase p) p.k = true →
+    inB (sgB p) (sc oKAP) 8 = true → Q) → Q := by
+  intro Q k
   simp only [ksChk, Bool.and_eq_true, List.all_eq_true, List.mem_range, decide_eq_true_eq] at hc
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨c1, c2⟩, c3⟩, c4⟩, c5⟩, c6⟩, c7⟩, hz⟩, hr⟩, hh⟩, c8⟩, c9⟩, c10⟩, c13⟩, c14⟩, c15⟩, c16⟩, c17⟩, c18⟩, c19⟩, c20⟩, c21⟩, hω⟩, hl⟩, hk⟩, hl0⟩, c22⟩, c23⟩ := hc
+  exact k c1 c2 c3 c4 c5 c6 c7 hz hr hh c8 c9 c10 c13 c14 c15 c16 c17 c18 c19 c20 c21 hω hl hk hl0 c22 c23
+
+/-- The checks, after `ĉ = NTT(c)`. -/
+structure KN (p : Params) (D : Nat) (σ : State) (t : Nat) (s : State) : Prop where
+  b : KB p D σ t s
+  y : Fam s (yBase p) p.ℓ (Yv p σ (p.ℓ * t))
+  w : Fam s (wBase p) p.k (Wv p σ (p.ℓ * t))
+
+theorem cntt_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : ksChk p = true) {σ : State} {t : Nat}
+    {s : State} (h : KA p D σ t s) : WP isa (nttAt P cP) s (KN p D σ t) := by
+  refine ksChk_spec hc fun c1 c2 c3 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => ?_
   have L := h.c.l.st.lay
-  unfold checks
-  -- `ĉ = NTT(c)`
-  refine WP.seq (WP.mono (ipAt_ok (t := ntt) hP.ntt L c1 h.cc.1) fun s1 ⟨hP1, hcs1, hq1⟩ => ?_)
+  refine WP.mono (ipAt_ok (t := ntt) hP.ntt L c1 h.cc.1) fun s1 ⟨hP1, hcs1, hq1⟩ => ?_
   rw [h.cc.2] at hq1
   have I1 := h.c.step hP1 c2
-  have B1 : KB p D σ t s1 := ⟨I1.l, by rw [L.keepBytes hP1 c3, h.ct], by
-    show PolyIs _ _ _; rw [hP1.pa (by decide)]; exact hq1, h.some⟩
-  have L1 := B1.l.st.lay
-  -- `r15 ← 1`, `ONES ← 0`
-  refine WP.seq ?_
+  exact ⟨⟨I1.l, by rw [L.keepBytes hP1 c3, h.ct], by
+    show PolyIs _ _ _; rw [hP1.pa (by decide)]; exact hq1, h.some⟩, I1.y, I1.w⟩
+
+/-- `r15 ← 1`, `ONES ← 0`. -/
+abbrev kInit : List Instr := [.mov32 .r15 (.imm 1)] ++ setQ (sc oONES) 0
+
+theorem kInit_ok {D : Nat} {p : Params} (hc : ksChk p = true) {σ : State} {t : Nat} {s : State}
+    (h : KN p D σ t s) : WP isa (.block kInit) s (IZ p D σ t 0) := by
+  refine ksChk_spec hc fun _ _ _ c4 c5 c6 c7 _ _ _ _ _ _ c13 _ _ c16 _ _ _ _ _ _ _ _ _ c22 _ => ?_
+  have L1 := h.b.l.st.lay
   rw [WP.block_append_iff]
-  refine WP.mono (WP.keep [.r15] (Q := fun s' => s'.mem = s1.mem ∧ s'.gpr .r15 = 1) (by xrun) (by decide))
+  refine WP.mono (WP.keep [.r15] (Q := fun s' => s'.mem = s.mem ∧ s'.gpr .r15 = 1) (by xrun) (by decide))
     fun s2 ⟨⟨hm2, h152⟩, k2⟩ => ?_
-  have hP2 : PPostB D s1 s2 [] := (postB15 k2 hm2 _).1
-  have B2 := B1.step hP2 c13
+  have hP2 : PPostB D s s2 [] := (postB15 k2 hm2 _).1
+  have B2 := h.b.step hP2 c13
   have L2 := B2.l.st.lay
   refine WP.mono (setQ_okB L2 (by decide) (by decide) c4) fun s3 ⟨hP3, hcs3, hm3⟩ => ?_
-  have y3 := Fam.keep L2 hP3 c6 (Fam.keep L1 hP2 c16 I1.y)
-  have I3 : IZ p D σ t 0 s3 := ⟨⟨B2.step hP3 c5, fun _ h => absurd h (Nat.not_lt_zero _),
-    y3.zero,
-    Fam.keep L2 hP3 c7 (Fam.keep L1 hP2 c22 I1.w), by rw [hP3.pa (by decide), hm3, Mem.readW_writeW_self64]; rfl⟩,
+  have y3 := Fam.keep L2 hP3 c6 (Fam.keep L1 hP2 c16 h.y)
+  exact ⟨⟨B2.step hP3 c5, fun _ h => absurd h (Nat.not_lt_zero _), y3.zero,
+    Fam.keep L2 hP3 c7 (Fam.keep L1 hP2 c22 h.w), by rw [hP3.pa (by decide), hm3, Mem.readW_writeW_self64]; rfl⟩,
     by rw [hcs3 _ (by decide), h152]; exact (bit_one.mpr fun _ h => absurd h (Nat.not_lt_zero _)).symm⟩
-  -- `z`
-  refine WP.seq (WP.mono (seqR_ok (I := fun r => IZ p D σ t r) p.ℓ 0 (fun r _ hr s hs => zR_ok hP (hz r (by omega)) hs)
-    s3 I3) fun s4 hs4 => ?_)
-  rw [Nat.zero_add] at hs4
-  have I4 : IR p D σ t 0 s4 := ⟨⟨hs4.1.b, hs4.1.z, fun _ h => absurd h (Nat.not_lt_zero _),
-    hs4.1.w.zero, hs4.1.ones⟩,
-    by rw [hs4.2]; exact bit_congr ⟨fun h => ⟨h, fun _ h => absurd h (Nat.not_lt_zero _)⟩, fun h => h.1⟩⟩
-  -- `r₀`
-  refine WP.seq (WP.mono (seqR_ok (I := fun i => IR p D σ t i) p.k 0 (fun i _ hi s hs => r0R_ok hP (hr i (by omega)) hs)
-    s4 I4) fun s5 hs5 => ?_)
-  rw [Nat.zero_add] at hs5
-  have I5 : IH p D σ t 0 s5 := ⟨⟨hs5.1.b, hs5.1.z, fun _ h => absurd h (Nat.not_lt_zero _),
-    hs5.1.w'.zero, fun _ h => absurd h (Nat.not_lt_zero _),
-    by rw [hs5.1.ones]; rfl⟩,
-    by rw [hs5.2]; exact bit_congr ⟨fun h => ⟨h, fun _ h => absurd h (Nat.not_lt_zero _)⟩, fun h => h.1⟩⟩
-  -- `ct₀` and `h`
-  refine WP.seq (WP.mono (seqR_ok (I := fun i => IH p D σ t i) p.k 0 (fun i _ hi s hs => hR_ok hP (hh i (by omega)) hs)
-    s5 I5) fun s6 hs6 => ?_)
-  rw [Nat.zero_add] at hs6
-  obtain ⟨J6, h156⟩ := hs6
+
+theorem IZ.ir {p : Params} {D : Nat} {σ : State} {t : Nat} {s : State} (h : IZ p D σ t p.ℓ s) : IR p D σ t 0 s :=
+  ⟨⟨h.1.b, h.1.z, fun _ h => absurd h (Nat.not_lt_zero _), h.1.w.zero, h.1.ones⟩,
+    by rw [h.2]; exact bit_congr ⟨fun h => ⟨h, fun _ h => absurd h (Nat.not_lt_zero _)⟩, fun h => h.1⟩⟩
+
+theorem IR.ih {p : Params} {D : Nat} {σ : State} {t : Nat} {s : State} (h : IR p D σ t p.k s) : IH p D σ t 0 s :=
+  ⟨⟨h.1.b, h.1.z, fun _ h => absurd h (Nat.not_lt_zero _), h.1.w'.zero, fun _ h => absurd h (Nat.not_lt_zero _),
+    by rw [h.1.ones]; rfl⟩,
+    by rw [h.2]; exact bit_congr ⟨fun h => ⟨h, fun _ h => absurd h (Nat.not_lt_zero _)⟩, fun h => h.1⟩⟩
+
+/-- The checks done: whether the iteration passes in `r15`. -/
+structure KO (p : Params) (D : Nat) (σ : State) (t : Nat) (s : State) : Prop where
+  b : KB p D σ t s
+  z : Fam s (yBase p) p.ℓ (Zv p σ (p.ℓ * t))
+  h : HFam s 5 p.k (Hv p σ (p.ℓ * t))
+  r15 : s.gpr .r15 = bit (PassV p σ (p.ℓ * t))
+
+theorem onesOk_ok {D : Nat} {p : Params} (hc : ksChk p = true) {σ : State} {t : Nat} {s : State}
+    (h : IH p D σ t p.k s) : WP isa (.block (onesOk p)) s (KO p D σ t) := by
+  refine ksChk_spec hc fun _ _ _ _ _ _ _ _ _ _ c8 _ _ c13 _ _ c16 c17 _ _ _ _ hω _ hk _ _ _ => ?_
+  obtain ⟨J6, h156⟩ := h
   have L6 := J6.b.l.st.lay
-  -- `ONES ≤ ω`
   have hS := onesSum_le (Hv p σ (p.ℓ * t)) p.k
-  refine WP.seq (WP.mono (onesOk_run p hω s6 (L6.iR c8)) fun s7 ⟨⟨h157, hm7⟩, k7⟩ => ?_)
+  refine WP.mono (onesOk_run p hω s (L6.iR c8)) fun s7 ⟨⟨h157, hm7⟩, k7⟩ => ?_
   rw [ones32 J6.ones, sign_bit (by omega) (by omega), h156, bit_and', bit_congr passV_iff] at h157
-  have hP7 : PPostB D s6 s7 [] := ⟨k7.2.1, k7.2.2, fun r hr => k7.gpr (by
+  have hP7 : PPostB D s s7 [] := ⟨k7.2.1, k7.2.2, fun r hr => k7.gpr (by
       simp only [bases, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide), k7.gpr (by decide),
       by rw [hm7]; exact Frame.refl _ _⟩
-  have B7 := J6.b.step hP7 c13
-  have z7 := Fam.keep L6 hP7 c16 J6.z
-  have h7 := HFam.keep L6 hP7 c17 J6.h
+  exact ⟨J6.b.step hP7 c13, Fam.keep L6 hP7 c16 J6.z, HFam.keep L6 hP7 c17 J6.h, h157⟩
+
+/-- `κ ← κ + ℓ`. -/
+abbrev kapAdd (p : Params) : List Instr := [.mov .rax (.mem (VG.Impl.MlKem.X86_64.at_ .rbx oKAP)),
+  .alu .add .rax (.imm (BitVec.ofNat 32 p.ℓ)), .store (VG.Impl.MlKem.X86_64.at_ .rbx oKAP) .rax]
+
+theorem kBranch_ok {D : Nat} {p : Params} (hc : ksChk p = true) {σ : State} {t : Nat} {s : State}
+    (h : KO p D σ t s) :
+    WP isa (ifOkElse (.block (setQ (sc oCNT) 1)) (.block (kapAdd p))) s fun s' => EP p D σ t s' ∨ EF p D σ t s' := by
+  refine ksChk_spec hc fun _ _ _ _ _ _ _ _ _ _ _ c9 c10 c13 c14 c15 c16 c17 c18 c19 c20 c21 _ hl _ _ _ c23 => ?_
+  have B7 := h.b
   have L7 := B7.l.st.lay
   refine ifOkElse_ok (D := D) (fun s8 hP8 hcs8 hm8 hne => ?_) fun s8 hP8 hcs8 hm8 he => ?_
-  · rw [h157] at hne
+  · rw [h.r15] at hne
     have hpass := bit_ne.mp hne
     have B8 := B7.step hP8 c13
     have L8 := B8.l.st.lay
     refine WP.mono (setQ_okB L8 (by decide) (by decide) c9) fun s9 ⟨hP9, hcs9, hm9⟩ => ?_
     exact .inl ⟨B8.l.k.step hP9 c18, by rw [L8.keepBytes hP9 c21, B8.ct],
-      Fam.keep L8 hP9 c14 (Fam.keep L7 hP8 c16 z7), HFam.keep L8 hP9 c15 (HFam.keep L7 hP8 c17 h7), B8.some,
-      hpass, by rw [hcs9 _ (by decide), hcs8 _ (by decide), h157]; exact bit_one.mpr hpass,
+      Fam.keep L8 hP9 c14 (Fam.keep L7 hP8 c16 h.z), HFam.keep L8 hP9 c15 (HFam.keep L7 hP8 c17 h.h), B8.some,
+      hpass, by rw [hcs9 _ (by decide), hcs8 _ (by decide), h.r15]; exact bit_one.mpr hpass,
       by rw [hP9.pa (by decide), hm9, Mem.readW_writeW_self64]; rfl, B8.l.t_lt, B8.l.rej⟩
-  · rw [h157] at he
+  · rw [h.r15] at he
     have hfail : ¬ PassV p σ (p.ℓ * t) := fun hp => (bit_ne.mpr hp) he
     have B8 := B7.step hP8 c13
     have L8 := B8.l.st.lay
@@ -715,8 +747,26 @@ theorem checks_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : ks
     obtain ⟨hP9, hcs9⟩ := postB_of_keep (D := D) k9 (by decide) hf
     have hP9' : PPostB D s8 s9 [(sc oKAP, 8)] := hP9
     refine .inr ⟨B8.l.k.step hP9' c19, ?_, by rw [L8.keepW hP9' c20, B8.l.cnt], B8.some, hfail,
-      by rw [hcs9 _ (by decide), hcs8 _ (by decide), h157]; exact bit_zero.mpr hfail, B8.l.t_lt, B8.l.rej⟩
+      by rw [hcs9 _ (by decide), hcs8 _ (by decide), h.r15]; exact bit_zero.mpr hfail, B8.l.t_lt, B8.l.rej⟩
     rw [hP9'.pa (by decide), hm9, Mem.readW_writeW_self64, B8.l.kap, ofNat64_add, Nat.mul_succ]
+
+theorem checks_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : ksChk p = true) {σ : State} {t : Nat}
+    {s : State} (h : KA p D σ t s) :
+    WP isa (checks P p) s fun s' => EP p D σ t s' ∨ EF p D σ t s' := by
+  refine ksChk_spec hc fun _ _ _ _ _ _ _ hz hr hh _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ => ?_
+  unfold checks
+  refine WP.seq (WP.mono (cntt_ok hP hc h) fun s1 h1 => ?_)
+  refine WP.seq (WP.mono (kInit_ok hc h1) fun s3 I3 => ?_)
+  refine WP.seq (WP.mono (seqR_ok (I := fun r => IZ p D σ t r) p.ℓ 0 (fun r _ hr s hs => zR_ok hP (hz r (by omega)) hs)
+    s3 I3) fun s4 hs4 => ?_)
+  rw [Nat.zero_add] at hs4
+  refine WP.seq (WP.mono (seqR_ok (I := fun i => IR p D σ t i) p.k 0 (fun i _ hi s hs => r0R_ok hP (hr i (by omega)) hs)
+    s4 hs4.ir) fun s5 hs5 => ?_)
+  rw [Nat.zero_add] at hs5
+  refine WP.seq (WP.mono (seqR_ok (I := fun i => IH p D σ t i) p.k 0 (fun i _ hi s hs => hR_ok hP (hh i (by omega)) hs)
+    s5 hs5.ih) fun s6 hs6 => ?_)
+  rw [Nat.zero_add] at hs6
+  exact WP.seq (WP.mono (onesOk_ok hc hs6) fun s7 h7 => kBranch_ok hc h7)
 
 theorem ksChk_ok {p : Params} (h : Ok3 p) : ksChk p = true := by
   rcases h with rfl | rfl | rfl <;> decide
