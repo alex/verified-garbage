@@ -194,6 +194,11 @@ theorem Lay.pa32 {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) (hl : 0 <
     State.addr (s.gpr p.1 + BitVec.ofNat 32 p.2) = pa s p :=
   addr_add (by have := L.nwp h; omega)
 
+/-- `Lay.pa32`, as the contracts state addresses. -/
+theorem Lay.w {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) (hl : 0 < l) :
+    BitVec.setWidth 64 (s.gpr p.1 + BitVec.ofNat 32 p.2) = pa s p :=
+  L.pa32 h hl
+
 theorem Lay.fit {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) (hl : 0 < l) :
     (s.gpr p.1 + BitVec.ofNat 32 p.2).toNat + l ≤ 2 ^ 32 := by
   have := L.nwp h

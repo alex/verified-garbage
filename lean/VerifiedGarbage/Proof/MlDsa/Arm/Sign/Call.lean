@@ -280,13 +280,13 @@ theorem callS_ok {D : Nat} {n : String} {c : Prog isa} {k : Contract isa}
     (hsu : 8 + stackUse c ≤ D) {as : List Arg} (ha : as.all Arg.ok = true) {s : State} (hsp : D ≤ s.sp.toNat)
     {rd wr : List Region}
     (hpre : ∀ s1, ArgsIn as s s1 → Keep argRegs s s1 →
-      k.pre ((pushed [.r12, .lr] s1).callEntry.withRegions rd (wr ++ [argR s])))
+      k.pre ((pushed [.r12, .lr] s1).callEntry.withRegions (rd ++ [argR s]) wr))
     (hc : Covers rd (s.rd ++ s.wr)) (hw : Covers wr s.wr) :
     WP isa (callS n c as) s fun s' => PostB D s s' wr ∧ CS s s' ∧
       ∃ s1, ArgsIn as s s1 ∧ Keep argRegs s s1 ∧ ∃ s₂ : State, s₂.mem = s'.mem ∧
         (∀ r, r ≠ .r12 → s₂.gpr r = s'.gpr r) ∧
-        k.post ((pushed [.r12, .lr] s1).callEntry.withRegions rd (wr ++ [argR s]))
-          (s₂.withRegions rd (wr ++ [argR s])) := by
+        k.post ((pushed [.r12, .lr] s1).callEntry.withRegions (rd ++ [argR s]) wr)
+          (s₂.withRegions (rd ++ [argR s]) wr) := by
   have h8 : 8 ≤ s.sp.toNat := by omega
   refine WP.seq (WP.mono (setArgs_ok as ha s) fun s1 ⟨hA, k1⟩ => ?_)
   have h8' : 8 ≤ s1.sp.toNat := by rw [k1.sp]; exact h8
@@ -295,23 +295,19 @@ theorem callS_ok {D : Nat} {n : String} {c : Prog isa} {k : Contract isa}
     rw [VG.Arm.pushed_wr, frame8 h8', k1.wr, k1.sp]
   refine WP.callF hv (hpre s1 hA k1) (fun x m hx => ?_) (fun x m hx => ?_) ?_ fun s₂ hrd hwr hsp₂ hf hcs hpost => ?_
   · rw [VG.Arm.pushed_rd, hwp, k1.rd]
-    rcases (by simpa only [InRegions, List.mem_append] using hx : ∃ r, (r ∈ rd ∨ r ∈ wr ∨ r ∈ [argR s]) ∧
+    rcases (by simpa only [InRegions, List.mem_append, or_assoc] using hx : ∃ r, (r ∈ rd ∨ r ∈ [argR s] ∨ r ∈ wr) ∧
       r.Contains x m) with ⟨r, (hr | hr | hr), hcr⟩
     · obtain ⟨r', hr', hc'⟩ := hc x m ⟨r, hr, hcr⟩
       rcases List.mem_append.mp hr' with h | h
       · exact ⟨r', List.mem_append_left _ h, hc'⟩
       · exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ h), hc'⟩
-    · obtain ⟨r', hr', hc'⟩ := hw x m ⟨r, hr, hcr⟩
-      exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ hr'), hc'⟩
     · simp only [List.mem_singleton] at hr; subst hr
       exact ⟨_, List.mem_append_right _ (List.mem_cons_self ..), argR_contains hcr⟩
-  · rw [hwp]
-    rcases (by simpa only [InRegions, List.mem_append] using hx : ∃ r, (r ∈ wr ∨ r ∈ [argR s]) ∧
-      r.Contains x m) with ⟨r, (hr | hr), hcr⟩
     · obtain ⟨r', hr', hc'⟩ := hw x m ⟨r, hr, hcr⟩
-      exact ⟨r', List.mem_cons_of_mem _ hr', hc'⟩
-    · simp only [List.mem_singleton] at hr; subst hr
-      exact ⟨_, List.mem_cons_self .., argR_contains hcr⟩
+      exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ hr'), hc'⟩
+  · rw [hwp]
+    obtain ⟨r', hr', hc'⟩ := hw x m hx
+    exact ⟨r', List.mem_cons_of_mem _ hr', hc'⟩
   · rw [VG.Arm.pushed_sp, k1.sp, show BitVec.ofNat 32 (4 * [Reg.r12, Reg.lr].length) = BitVec.ofNat 32 8 from rfl,
       sp_sub8 h8]; omega
   · have hcs₂ : CS s s₂ := fun r hr hl => by rw [hcs r hr hl, VG.Arm.pushed_gpr]; exact k1.cs r hr hl
@@ -332,10 +328,8 @@ theorem callS_ok {D : Nat} {n : String} {c : Prog isa} {k : Contract isa}
       rw [k1.sp]
       exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), belowA_sub (by omega)⟩
     · simp only [List.mem_append, List.mem_singleton] at hr
-      rcases hr with (hr | rfl) | rfl
+      rcases hr with hr | rfl
       · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
-      · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _),
-          fun x h => belowA_sub (by omega) x (argR_sub s x h)⟩
       · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _),
           fun x h => belowA_sub (show 8 + stackUse c ≤ D by omega) x (belowA_push hsu' x h)⟩
 
