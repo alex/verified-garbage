@@ -55,11 +55,11 @@ end
 theorem ipAt_ok {t : Poly → Poly} {n : String} {c : Prog isa} (C : CalleeOk c (inPlaceContract X86_64.abi t 16))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {f : Ptr} (hc : ipChk (rbs ++ wbs) wbs f = true)
     (hr : Reduced s.mem (pa s f)) :
-    WP isa (callAt n c (ipArgs f)) s fun s' => PPostB s s' [(f, 1024), (sc oSS, 1024)] ∧
+    WP isa (callAt n c (ipArgs f)) s fun s' => PPostB s s' [(f, 1024), (sc oSS, 1024)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       PolyIs s'.mem (pa s f) (t (polyAt s.mem (pa s f))) := by
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (ip_args L.ok hc) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => ip_pre L hc hr h1) (ip_cov L hc).1 (ip_cov L hc).2)
-    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, ?_⟩
+    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   have g1 : s1.gpr .rdi = pa s f := h1.r0
   have c2 : inB (rbs ++ wbs) f 1024 = true := by
     simp only [ipChk, Bool.and_eq_true] at hc; exact hc.1.1.1.2
@@ -143,11 +143,11 @@ end
 theorem mulAt_ok {P : Prims} (C : CalleeOk P.mul (mulContract X86_64.abi 16)) {rbs wbs : List (Reg × Nat)}
     {s : State} (L : Lay rbs wbs s) {h f g : Ptr} (hc : mulChk (rbs ++ wbs) wbs h f g = true)
     (hf : Reduced s.mem (pa s f)) (hg : Reduced s.mem (pa s g)) :
-    WP isa (mulAt P h f g) s fun s' => PPostB s s' [(h, 1024)] ∧
+    WP isa (mulAt P h f g) s fun s' => PPostB s s' [(h, 1024)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       PolyIs s'.mem (pa s h) (multiplyNTT (polyAt s.mem (pa s f)) (polyAt s.mem (pa s g))) := by
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (mul_args L.ok hc) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => mul_pre L hc hf hg h1) (mul_cov L hc).1 (mul_cov L hc).2)
-    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, ?_⟩
+    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   simp only [mulChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨_, c4⟩, c5⟩, _⟩ := hc
   sig_post [mulContract, mulSig, X86_64.abi, VG.X86_64.argRegs] at hq
@@ -159,11 +159,11 @@ theorem mulAt_ok {P : Prims} (C : CalleeOk P.mul (mulContract X86_64.abi 16)) {r
 theorem mulAddAt_ok {P : Prims} (C : CalleeOk P.mulAdd (mulAddContract X86_64.abi 16)) {rbs wbs : List (Reg × Nat)}
     {s : State} (L : Lay rbs wbs s) {h f g : Ptr} (hc : mulChk (rbs ++ wbs) wbs h f g = true)
     (hh : Reduced s.mem (pa s h)) (hf : Reduced s.mem (pa s f)) (hg : Reduced s.mem (pa s g)) :
-    WP isa (mulAddAt P h f g) s fun s' => PPostB s s' [(h, 1024)] ∧
+    WP isa (mulAddAt P h f g) s fun s' => PPostB s s' [(h, 1024)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       PolyIs s'.mem (pa s h) (add (polyAt s.mem (pa s h)) (multiplyNTT (polyAt s.mem (pa s f)) (polyAt s.mem (pa s g)))) := by
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (mul_args L.ok hc) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => mulAdd_pre L hc hh hf hg h1) (mul_cov L hc).1 (mul_cov L hc).2)
-    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, ?_⟩
+    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   simp only [mulChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨_, c3⟩, c4⟩, c5⟩, _⟩ := hc
   sig_post [mulAddContract, mulSig, X86_64.abi, VG.X86_64.argRegs] at hq
@@ -255,11 +255,11 @@ end
 theorem subAt_ok {P : Prims} (C : CalleeOk P.sub (subContract X86_64.abi 16)) {rbs wbs : List (Reg × Nat)}
     {s : State} (L : Lay rbs wbs s) {f g : Ptr} (hc : subChk (rbs ++ wbs) wbs f g = true)
     (hf : Reduced s.mem (pa s f)) (hg : Reduced s.mem (pa s g)) :
-    WP isa (subAt P f g) s fun s' => PPostB s s' [(f, 1024)] ∧
+    WP isa (subAt P f g) s fun s' => PPostB s s' [(f, 1024)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       PolyIs s'.mem (pa s f) (sub (polyAt s.mem (pa s f)) (polyAt s.mem (pa s g))) := by
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (sub_args L.ok hc) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => sub_pre L hc hf hg h1) (sub_cov L hc).1 (sub_cov L hc).2)
-    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, ?_⟩
+    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   simp only [subChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨_, c2⟩, c3⟩, _⟩ := hc
   sig_post [subContract, accSig, X86_64.abi, VG.X86_64.argRegs] at hq

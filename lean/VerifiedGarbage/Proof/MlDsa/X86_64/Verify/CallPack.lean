@@ -65,13 +65,13 @@ end
 theorem useHintAt_ok {P : Prims} (C : CalleeOk P.useHint (useHintContract X86_64.abi 16)) {rbs wbs : List (Reg × Nat)}
     {s : State} (L : Lay rbs wbs s) {h r out : Ptr} {g2 : Nat} (hg : g2 ∈ gamma2s)
     (hc : uhChk (rbs ++ wbs) wbs h r out = true) (hr : Reduced s.mem (pa s r)) :
-    WP isa (useHintAt P h r g2 out) s fun s' => PPostB s s' [(out, 1024)] ∧
+    WP isa (useHintAt P h r g2 out) s fun s' => PPostB s s' [(out, 1024)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       NatPolyIs s'.mem (pa s out) (Vector.zipWith (fun hj rj => (useHint g2 hj rj).toNat)
         ((hintAt s.mem (pa s h) 1).headD (Vector.replicate n false)) (polyAt s.mem (pa s r))) := by
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (uh_args L.ok hg hc)
     (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => uh_pre L hc hg hr h1) (uh_cov L hc).1 (uh_cov L hc).2)
-    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, ?_⟩
+    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   have hc' := hc
   simp only [uhChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨_, c3⟩, c4⟩, _⟩, _⟩ := hc'
@@ -151,13 +151,13 @@ theorem sbpAt_ok {P : Prims} (C : CalleeOk P.simpleBitPack (simpleBitPackContrac
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {f out : Ptr} {b len : Nat}
     (hb : b ∈ simpleBitPackBounds) (hl : len = 32 * bitlen b) (hc : sbpChk (rbs ++ wbs) wbs f out len = true)
     (hf : ∀ i < n, (coeffAt s.mem (pa s f) i).toNat ≤ b) :
-    WP isa (sbpAt P f b out len) s fun s' => PPostB s s' [(out, len)] ∧
+    WP isa (sbpAt P f b out len) s fun s' => PPostB s s' [(out, len)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       bytesAt s'.mem (pa s out) len = simpleBitPack (natPolyAt s.mem (pa s f)) b := by
   have hs := sbp_small hb hl
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (sbp_args L.ok hb hl hc)
     (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => sbp_pre L hc hb hl hf h1) (sbp_cov L hc).1 (sbp_cov L hc).2)
-    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, ?_⟩
+    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   have hc' := hc
   simp only [sbpChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨_, c2⟩, _⟩, _⟩ := hc'
@@ -239,13 +239,13 @@ end
 theorem bitUnpackAt_ok {P : Prims} (C : CalleeOk P.bitUnpack (bitUnpackContract X86_64.abi 16))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {v f : Ptr} {len a b : Nat}
     (hab : (a, b) ∈ bitPackParams) (hl : len = 32 * bitlen (a + b)) (hc : buChk (rbs ++ wbs) wbs v len f = true) :
-    WP isa (bitUnpackAt P v len a b f) s fun s' => PPostB s s' [(f, 1024)] ∧
+    WP isa (bitUnpackAt P v len a b f) s fun s' => PPostB s s' [(f, 1024)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       PolyIs s'.mem (pa s f) (toRq (bitUnpack (bytesAt s.mem (pa s v) len) a b)) := by
   have hs := bu_small hab hl
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (bu_args L.ok hab hl hc)
     (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => bu_pre L hc hab hl h1) (bu_cov L hc).1 (bu_cov L hc).2)
-    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, ?_⟩
+    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   have hc' := hc
   simp only [buChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨_, c2⟩, _⟩, _⟩ := hc'
@@ -311,13 +311,13 @@ end
 
 theorem unpackT1At_ok {P : Prims} (C : CalleeOk P.unpackT1 (unpackT1Contract X86_64.abi 16))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {v f : Ptr} (hc : t1Chk (rbs ++ wbs) wbs v f = true) :
-    WP isa (unpackT1At P v f) s fun s' => PPostB s s' [(f, 1024)] ∧
+    WP isa (unpackT1At P v f) s fun s' => PPostB s s' [(f, 1024)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       PolyIs s'.mem (pa s f) ((simpleBitUnpack (bytesAt s.mem (pa s v) 320) t1Max).map
         fun c => ofInt (c * 2 ^ d : Nat)) := by
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (t1_args L.ok hc)
     (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => t1_pre L hc h1) (t1_cov L hc).1 (t1_cov L hc).2)
-    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, ?_⟩
+    fun s' ⟨hP, s1, h1, s₂, hm, _, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   have hc' := hc
   simp only [t1Chk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨_, c2⟩, _⟩, _⟩ := hc'
@@ -400,7 +400,7 @@ end
 theorem hintUnpackAt_ok {P : Prims} (C : CalleeOk P.hintUnpack (hintBitUnpackContract X86_64.abi 16))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {y h : Ptr} {len omega hlen : Nat}
     (hp : HuPar len omega hlen) (hc : huChk (rbs ++ wbs) wbs y len h hlen = true) :
-    WP isa (hintUnpackAt P y len omega h hlen) s fun s' => PPostB s s' [(h, hlen * 4)] ∧
+    WP isa (hintUnpackAt P y len omega h hlen) s fun s' => PPostB s s' [(h, hlen * 4)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       match hintBitUnpack omega (len - omega) (bytesAt s.mem (pa s y) len) with
       | some hint => res s' = 1 ∧ HintIs s'.mem (pa s h) (len - omega) hint
       | none => res s' = 0 := by
@@ -408,7 +408,7 @@ theorem hintUnpackAt_ok {P : Prims} (C : CalleeOk P.hintUnpack (hintBitUnpackCon
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (hu_args L.ok hp hc)
     (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => hu_pre L hc hp h1) (hu_cov L hc).1 (hu_cov L hc).2)
-    fun s' ⟨hP, s1, h1, s₂, hm, hg, hq⟩ => ⟨hP.b, ?_⟩
+    fun s' ⟨hP, s1, h1, s₂, hm, hg, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   have hc' := hc
   simp only [huChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨_, c2⟩, _⟩, _⟩ := hc'
@@ -461,12 +461,12 @@ theorem nl_pre {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {f 
 theorem normLtAt_ok {P : Prims} (C : CalleeOk P.normLt (normLtContract X86_64.abi 16))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {f : Ptr} {bound : Nat} (hb : bound < 2 ^ 31)
     (hc : nlChk (rbs ++ wbs) f = true) (hr : Reduced s.mem (pa s f)) :
-    WP isa (normLtAt P f bound) s fun s' => PPostB s s' [] ∧
+    WP isa (normLtAt P f bound) s fun s' => PPostB s s' [] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       res s' = if normRq [polyAt s.mem (pa s f)] < bound then 1 else 0 := by
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (nl_args L.ok hb hc)
     (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => nl_pre L hc hr h1) (covers_append (L.cR hc) covers_nil) covers_nil)
-    fun s' ⟨hP, s1, h1, s₂, hm, hg, hq⟩ => ⟨hP.b, ?_⟩
+    fun s' ⟨hP, s1, h1, s₂, hm, hg, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   sig_post [normLtContract, normLtSig, X86_64.abi, VG.X86_64.argRegs] at hq
   rw [h1.r0, h1.r1, h1.rsp, h1.1.2, hg _ (by decide)] at hq
   simp only [Arg.val, imm32 (show bound < 2 ^ 32 by omega), L.wpolyAt hc] at hq

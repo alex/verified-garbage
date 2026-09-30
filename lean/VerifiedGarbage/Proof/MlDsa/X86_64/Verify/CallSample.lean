@@ -63,12 +63,12 @@ end
 
 theorem rejNttAt_ok {P : Prims} (C : CalleeOk P.rejNtt (rejNTTContract X86_64.abi 16)) {rbs wbs : List (Reg × Nat)}
     {s : State} (L : Lay rbs wbs s) {a : Ptr} (hc : rejChk (rbs ++ wbs) wbs a = true) :
-    WP isa (rejNttAt P a) s fun s' => PPostB s s' [(a, 1024), (sc oSS, 2048)] ∧
+    WP isa (rejNttAt P a) s fun s' => PPostB s s' [(a, 1024), (sc oSS, 2048)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       (res s' = 1 → Reduced s'.mem (pa s a)) ∧
       Outcome (fun b => rejNTTPoly b.rejNTT (bytesAt s.mem (pa s (sc oSB)) 34)) (res s') (polyAt s'.mem (pa s a)) := by
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (rej_args L.ok hc) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => rej_pre L hc h1) (rej_cov L hc).1 (rej_cov L hc).2)
-    fun s' ⟨hP, s1, h1, s₂, hm, hg, hq⟩ => ⟨hP.b, ?_⟩
+    fun s' ⟨hP, s1, h1, s₂, hm, hg, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   simp only [rejChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨_, c4⟩, _⟩, _⟩, _⟩, _⟩ := hc
   sig_post [rejNTTContract, rejNTTSig, X86_64.abi, VG.X86_64.argRegs] at hq
@@ -147,14 +147,14 @@ end
 theorem ballAt_ok {P : Prims} (C : CalleeOk P.ball (sampleInBallContract X86_64.abi 16)) {rbs wbs : List (Reg × Nat)}
     {s : State} (L : Lay rbs wbs s) {ct c : Ptr} {len tau : Nat} (hp : (len, tau) ∈ ballParams)
     (hc : ballChk (rbs ++ wbs) wbs ct len c = true) :
-    WP isa (ballAt P ct len tau c) s fun s' => PPostB s s' [(c, 1024), (sc oSS, 2048)] ∧
+    WP isa (ballAt P ct len tau c) s fun s' => PPostB s s' [(c, 1024), (sc oSS, 2048)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       (res s' = 1 → Reduced s'.mem (pa s c)) ∧
       Outcome (fun b => (sampleInBall tau b.ball (bytesAt s.mem (pa s ct) len)).map toRq) (res s')
         (polyAt s'.mem (pa s c)) := by
   refine WP.mono (callAt_ok C.correct C.nosp C.depth (ball_args L.ok hp hc)
     (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => ball_pre L hp hc h1) (ball_cov L hc).1 (ball_cov L hc).2)
-    fun s' ⟨hP, s1, h1, s₂, hm, hg, hq⟩ => ⟨hP.b, ?_⟩
+    fun s' ⟨hP, s1, h1, s₂, hm, hg, hq⟩ => ⟨hP.b, hP.cs .r15 (by decide), ?_⟩
   have hc' := hc
   simp only [ballChk, Bool.and_eq_true] at hc'
   obtain ⟨⟨⟨⟨⟨_, c4⟩, _⟩, _⟩, _⟩, _⟩ := hc'
