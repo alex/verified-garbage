@@ -50,9 +50,9 @@ structure OkW (L : Lay) (Wb : List Nat) : Prop where
 theorem OkW.ok {L : Lay} {Wb : List Nat} (h : OkW L Wb) (hall : ∀ i < L.sizes.length, i ∈ Wb) : L.Ok :=
   ⟨h.fit, fun i hi j hj hij => h.disj i hi j hj hij (.inl (hall i hi))⟩
 
-/-- Two regions apart, one of them in a buffer of `Wb` (or both in the same). -/
-theorem disjW {L : Lay} {Wb : List Nat} (hL : OkW L Wb) {i o l j o' l' : Nat}
-    (h : sepB L.sizes (i, o, l) (j, o', l') = true) (hw : i ∈ Wb ∨ j ∈ Wb) :
+/-- Two regions apart, one of them in a buffer of `Wb`, or both in the same. -/
+theorem disjW' {L : Lay} {Wb : List Nat} (hL : OkW L Wb) {i o l j o' l' : Nat}
+    (h : sepB L.sizes (i, o, l) (j, o', l') = true) (hw : i ∈ Wb ∨ j ∈ Wb ∨ i = j) :
     (L.R i o l).Disjoint (L.R j o' l') := by
   simp only [sepB, Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq, bne_iff_ne, ne_eq] at h
   obtain ⟨⟨⟨⟨ha, hb⟩, hla⟩, hlb⟩, hs⟩ := h
@@ -65,7 +65,14 @@ theorem disjW {L : Lay} {Wb : List Nat} (hL : OkW L Wb) {i o l j o' l' : Nat}
       · exact .inl hs
       · exact .inr hs
     exact region_disj_off hs' hla hlb (addr_fit _ (by omega))
-  · exact ((hL.disj _ ha _ hb e hw).sub_left (Lay.R_sub hla)).sub_right (Lay.R_sub hlb)
+  · have hw' : i ∈ Wb ∨ j ∈ Wb := by rcases hw with h | h | h; exacts [.inl h, .inr h, absurd h e]
+    exact ((hL.disj _ ha _ hb e hw').sub_left (Lay.R_sub hla)).sub_right (Lay.R_sub hlb)
+
+/-- Two regions apart, one of them in a buffer of `Wb`. -/
+theorem disjW {L : Lay} {Wb : List Nat} (hL : OkW L Wb) {i o l j o' l' : Nat}
+    (h : sepB L.sizes (i, o, l) (j, o', l') = true) (hw : i ∈ Wb ∨ j ∈ Wb) :
+    (L.R i o l).Disjoint (L.R j o' l') :=
+  disjW' hL h (hw.elim .inl fun h => .inr (.inl h))
 
 /-- A state where the parts of a top-level function run, with `STK` bytes of
 stack, and the buffers `Wb` written (and the stack). -/
@@ -184,33 +191,42 @@ theorem Site.kept_stk {L : Lay} {Wb : List Nat} {STK : Nat} {s s' : State} (h : 
 /-! ## The sponge -/
 
 /-- The layout with buffer 1 the 8 bytes below the stack pointer, as ML-KEM's
-sponge routine (`hash_ok`) takes it. -/
-def hashLay (L : Lay) (s : State) : Lay :=
+sponge routine (`hash_ok`) takes it, and of the arguments only those `K`
+says (the others empty, so that the buffers are pairwise disjoint). -/
+def hashLay (L : Lay) (s : State) (K : Nat → Bool) : Lay :=
   ⟨fun i => if i = 1 then s.sp - BitVec.ofNat 32 8 else L.ptr i,
-    [L.size 0, 8, L.size 2, L.size 3, L.size 4]⟩
+    [L.size 0, 8, if K 2 then L.size 2 else 0, if K 3 then L.size 3 else 0, if K 4 then L.size 4 else 0]⟩
 
-theorem hashLay_ptr (L : Lay) (s : State) {i : Nat} (hi : i ≠ 1) : (hashLay L s).ptr i = L.ptr i := by
+theorem hashLay_ptr (L : Lay) (s : State) (K : Nat → Bool) {i : Nat} (hi : i ≠ 1) :
+    (hashLay L s K).ptr i = L.ptr i := by
   simp only [hashLay, hi, ite_false]
 
-theorem hashLay_sizes {L : Lay} {Wb : List Nat} {STK : Nat} {s : State} (h : Site L Wb STK s) :
-    (hashLay L s).sizes = L.sizes.set 1 8 := by
-  have := h.len
-  match hL : L.sizes, this with
-  | [a, b, c, d, e], _ => simp [hashLay, Lay.size, hL]
+theorem hashLay_R (L : Lay) (s : State) (K : Nat → Bool) {i : Nat} (hi : i ≠ 1) (o l : Nat) :
+    (hashLay L s K).R i o l = L.R i o l := by
+  simp only [Lay.R, hashLay_ptr L s K hi]
 
-theorem hashLay_size {L : Lay} (s : State) {i : Nat} (hi : i ≠ 1) (hi5 : i < 5) : (hashLay L s).size i = L.size i := by
-  rcases (by omega : i = 0 ∨ i = 2 ∨ i = 3 ∨ i = 4) with rfl | rfl | rfl | rfl <;> rfl
+theorem hashLay_size_le (L : Lay) (s : State) (K : Nat → Bool) {i : Nat} (hi : i ≠ 1) (hi5 : i < 5) :
+    (hashLay L s K).size i ≤ L.size i := by
+  rcases (by omega : i = 0 ∨ i = 2 ∨ i = 3 ∨ i = 4) with rfl | rfl | rfl | rfl
+  · exact Nat.le_refl _
+  all_goals (show (if _ then _ else 0) ≤ _; split <;> omega)
 
-theorem hashLay_R (L : Lay) (s : State) {i : Nat} (hi : i ≠ 1) (o l : Nat) : (hashLay L s).R i o l = L.R i o l := by
-  simp only [Lay.R, hashLay_ptr L s hi]
+theorem hashLay_size (L : Lay) (s : State) {K : Nat → Bool} {i : Nat} (hi : i ≠ 1) (hK : i = 0 ∨ K i = true)
+    (hi5 : i < 5) : (hashLay L s K).size i = L.size i := by
+  rcases (by omega : i = 0 ∨ i = 2 ∨ i = 3 ∨ i = 4) with rfl | rfl | rfl | rfl
+  · rfl
+  all_goals
+    rcases hK with h | h
+    · omega
+    · show (if _ then _ else 0) = _; rw [ite_eq_left h]
 
 section
-variable {L : Lay} {Wb : List Nat} {STK : Nat} {s : State} (h : Site L Wb STK s)
-  (hall : ∀ i < 5, i ∈ Wb)
-include h hall
+variable {L : Lay} {Wb : List Nat} {STK : Nat} {s : State} (h : Site L Wb STK s) {K : Nat → Bool}
+  (hK : ∀ i < 5, ∀ j < 5, i ≠ j → 2 ≤ i → 2 ≤ j → K i = true → K j = true → i ∈ Wb ∨ j ∈ Wb)
+include h hK
 
-theorem hashLay_ok : (hashLay L s).Ok := by
-  have hL := h.ok.ok fun i hi => hall i (by rw [h.len] at hi; exact hi)
+theorem hashLay_ok : (hashLay L s K).Ok := by
+  have hL := h.ok
   have e8 : (⟨State.addr (s.sp - BitVec.ofNat 32 8), 8⟩ : Region) = VG.Proof.MlKem.Arm.below s 8 := by
     rw [addr_sub (Nat.le_trans h.s8 h.spk)]
   have hsub : Region.Sub ⟨State.addr (s.sp - BitVec.ofNat 32 8), 8⟩ (L.buf 1) := by
@@ -218,32 +234,69 @@ theorem hashLay_ok : (hashLay L s).Ok := by
       rw [h.sz1]; simp only [Lay.R, add_ofNat_zero]]
     exact h.belowSub h.s8
   have hl5 := h.len
+  have bi : ∀ k, k < 5 → k ≠ 1 → Region.Sub ⟨State.addr ((hashLay L s K).ptr k), (hashLay L s K).size k⟩
+      (L.buf k) := fun k hk hk1 => by
+    rw [hashLay_ptr L s K hk1]
+    intro x hx
+    have := hashLay_size_le L s K hk1 hk
+    simp only [Region.Contains] at hx ⊢
+    omega
+  have b1 : (⟨State.addr ((hashLay L s K).ptr 1), (hashLay L s K).size 1⟩ : Region) =
+      ⟨State.addr (s.sp - BitVec.ofNat 32 8), 8⟩ := rfl
   refine ⟨fun i hi => ?_, fun i hi j hj hij => ?_⟩
   · simp only [hashLay, List.length_cons, List.length_nil] at hi
     by_cases e : i = 1
     · subst e
       show (s.sp - BitVec.ofNat 32 8).toNat + 8 ≤ 2 ^ 32
       have := h.s8; have := h.spk; have := s.sp.isLt; bv_omega
-    · rw [hashLay_size s e hi]; simp only [hashLay_ptr L s e]; exact hL.fit i (by omega)
+    · have := hashLay_size_le L s K e (by omega)
+      simp only [hashLay_ptr L s K e]
+      exact Nat.le_trans (Nat.add_le_add_left this _) (hL.fit i (by omega))
   · simp only [hashLay, List.length_cons, List.length_nil] at hi hj
-    have bi : ∀ k, k < 5 → k ≠ 1 → (⟨State.addr ((hashLay L s).ptr k), (hashLay L s).size k⟩ : Region) = L.buf k :=
-      fun k hk hk1 => by rw [hashLay_ptr L s hk1, hashLay_size s hk1 hk]
-    have b1 : (⟨State.addr ((hashLay L s).ptr 1), (hashLay L s).size 1⟩ : Region) =
-        ⟨State.addr (s.sp - BitVec.ofNat 32 8), 8⟩ := rfl
+    -- an empty buffer is apart from every other
+    by_cases z : (hashLay L s K).size i = 0 ∨ (hashLay L s K).size j = 0
+    · intro x hx hy
+      rcases z with z | z
+      · simp only [Region.Contains, z] at hx; omega
+      · simp only [Region.Contains, z] at hy; omega
+    have hKi : i ≤ 1 ∨ K i = true := by
+      rcases (by omega : i ≤ 1 ∨ 2 ≤ i) with h' | h'
+      · exact .inl h'
+      · refine .inr ?_
+        by_contra hc
+        rw [Bool.not_eq_true] at hc
+        rcases (by omega : i = 2 ∨ i = 3 ∨ i = 4) with rfl | rfl | rfl <;>
+          exact z (.inl (by show (if _ then _ else 0) = 0; rw [ite_eq_right (by simp [hc])]))
+    have hKj : j ≤ 1 ∨ K j = true := by
+      rcases (by omega : j ≤ 1 ∨ 2 ≤ j) with h' | h'
+      · exact .inl h'
+      · refine .inr ?_
+        by_contra hc
+        rw [Bool.not_eq_true] at hc
+        rcases (by omega : j = 2 ∨ j = 3 ∨ j = 4) with rfl | rfl | rfl <;>
+          exact z (.inr (by show (if _ then _ else 0) = 0; rw [ite_eq_right (by simp [hc])]))
+    have hw : i ∈ Wb ∨ j ∈ Wb := by
+      rcases (by omega : i = 0 ∨ i = 1 ∨ 2 ≤ i) with rfl | rfl | h'
+      · exact .inl h.w0
+      · exact .inl h.w1
+      rcases (by omega : j = 0 ∨ j = 1 ∨ 2 ≤ j) with rfl | rfl | h''
+      · exact .inr h.w0
+      · exact .inr h.w1
+      exact hK i hi j hj hij h' h'' (hKi.resolve_left (by omega)) (hKj.resolve_left (by omega))
     by_cases ei : i = 1
     · subst ei
-      rw [b1, bi j hj (Ne.symm hij)]
-      exact (hL.disj 1 (by omega) j (by omega) hij).sub_left hsub
+      rw [b1]
+      exact (hL.disj 1 (by omega) j (by omega) hij hw).sub_left hsub |>.sub_right (bi j hj (Ne.symm hij))
     · by_cases ej : j = 1
       · subst ej
-        rw [b1, bi i hi ei]
-        exact (hL.disj i (by omega) 1 (by omega) hij).sub_right hsub
-      · rw [bi i hi ei, bi j hj ej]; exact hL.disj i (by omega) j (by omega) hij
+        rw [b1]
+        exact ((hL.disj i (by omega) 1 (by omega) hij hw).sub_right hsub).sub_left (bi i hi ei)
+      · exact ((hL.disj i (by omega) j (by omega) hij hw).sub_left (bi i hi ei)).sub_right (bi j hj ej)
 
-theorem Site.ctx : Ctx (hashLay L s) s :=
-  ⟨hashLay_ok h hall, by rw [hashLay_size s (by decide) (by decide)]; exact h.sz0, rfl, by simp [hashLay],
+theorem Site.ctx : Ctx (hashLay L s K) s :=
+  ⟨hashLay_ok h hK, by rw [hashLay_size L s (by decide) (.inl rfl) (by decide)]; exact h.sz0, rfl, by simp [hashLay],
     by rw [h.r7]; rfl, Nat.le_trans h.s8 h.spk, by simp [hashLay],
-    by rw [show (⟨State.addr ((hashLay L s).ptr 0), (hashLay L s).size 0⟩ : Region) = L.buf 0 from rfl]
+    by rw [show (⟨State.addr ((hashLay L s K).ptr 0), (hashLay L s K).size 0⟩ : Region) = L.buf 0 from rfl]
        exact h.cw 0 h.w0 (by decide)⟩
 
 end
