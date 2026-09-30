@@ -11,6 +11,8 @@
 //! `VG.Spec.Hmac.Instance.iterateContract`), the one PBKDF2 iteration for every
 //! streaming hash function, calling SHA-1's verified streaming functions.
 
+//! On AArch64, the `_sha2` variants follow SHA-1 hardware dispatch.
+
 #![cfg(any(
     target_arch = "x86_64",
     target_arch = "aarch64",
@@ -22,6 +24,8 @@
 use crate::arch::pbkdf2_sha1::vg_pbkdf2_hmac_sha1;
 #[cfg(any(target_arch = "arm", target_arch = "x86"))]
 use crate::arch::pbkdf2_sha1::vg_pbkdf2_hmac_sha1_iterate;
+#[cfg(target_arch = "aarch64")]
+use crate::arch::pbkdf2_sha1::{VG_PBKDF2_HMAC_SHA1_SHA2_FEATURES, vg_pbkdf2_hmac_sha1_sha2};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::pbkdf2_sha1::{VG_PBKDF2_HMAC_SHA1_SHANI_FEATURES, vg_pbkdf2_hmac_sha1_shani};
 use crate::hashes::sha1::{Sha1, Sha1Backend};
@@ -40,6 +44,9 @@ super::streaming_pbkdf2!(
 super::whole_pbkdf2!(
     Sha1 (Sha1Backend) {
         Scalar => vg_pbkdf2_hmac_sha1,
+        #[cfg(target_arch = "aarch64")]
+        Sha2 if [VG_PBKDF2_HMAC_SHA1_SHA2_FEATURES] =>
+            vg_pbkdf2_hmac_sha1_sha2,
         #[cfg(target_arch = "x86_64")]
         ShaNi if [VG_PBKDF2_HMAC_SHA1_SHANI_FEATURES] => vg_pbkdf2_hmac_sha1_shani,
     },

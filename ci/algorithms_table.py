@@ -65,7 +65,7 @@ FEATURES = {
 
 # Names that differ on one architecture: AArch64's `aes` (Rust's name for
 # FEAT_AES with FEAT_PMULL) is not AES-NI.
-ARCH_FEATURES = {"aarch64": {"aes": "AES, PMULL", "sha2": "SHA-2", "sha3": "SHA-3"}}
+ARCH_FEATURES = {"aarch64": {"aes": "AES, PMULL", "sha2": "SHA extensions", "sha3": "SHA-3"}}
 
 CFG = re.compile(r"^#!\[cfg\((.*?)\)\]$", re.MULTILINE | re.DOTALL)
 ARCH = re.compile(r'target_arch\s*=\s*"(\w+)"')
