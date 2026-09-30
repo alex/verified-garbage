@@ -115,6 +115,10 @@ def LogicOp.name : LogicOp → String
 def Instr.asm : Instr → List String
   | .add sz d n m => [s!"add {d.name sz}, {n.name sz}, {m.name sz}"]
   | .sub sz d n m => [s!"sub {d.name sz}, {n.name sz}, {m.name sz}"]
+  | .adds sz d n m => [s!"adds {d.name sz}, {n.name sz}, {m.name sz}"]
+  | .adcs sz d n m => [s!"adcs {d.name sz}, {n.name sz}, {m.name sz}"]
+  | .subs sz d n m => [s!"subs {d.name sz}, {n.name sz}, {m.name sz}"]
+  | .sbcs sz d n m => [s!"sbcs {d.name sz}, {n.name sz}, {m.name sz}"]
   | .addImm sz d n imm => [s!"add {d.name sz}, {n.name sz}, #{imm}"]
   | .subImm sz d n imm => [s!"sub {d.name sz}, {n.name sz}, #{imm}"]
   | .logic op sz d n m => [s!"{op.name} {d.name sz}, {n.name sz}, {m.name sz}"]
@@ -123,6 +127,7 @@ def Instr.asm : Instr → List String
   | .lsl sz d n sh => [s!"lsl {d.name sz}, {n.name sz}, #{sh}"]
   | .madd sz d n m a => [s!"madd {d.name sz}, {n.name sz}, {m.name sz}, {a.name sz}"]
   | .mul sz d n m => [s!"mul {d.name sz}, {n.name sz}, {m.name sz}"]
+  | .umulh d n m => [s!"umulh {d.name .x}, {n.name .x}, {m.name .x}"]
   | .rev32 d n => [s!"rev {d.name .w}, {n.name .w}"]
   | .rev d n => [s!"rev {d.name .x}, {n.name .x}"]
   | .movz sz d imm hw => [s!"movz {d.name sz}, #{imm.toNat}, lsl #{16 * hw}"]
