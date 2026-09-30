@@ -79,11 +79,12 @@ fn encaps() {
         match test.result {
             Expectation::Valid => {
                 let key = key.unwrap().unwrap();
-                let (k, ct) = key.encapsulate_internal(&m).unwrap();
-                assert_eq!(k[..], c.k.0, "tcId {}", test.tc_id);
-                assert_eq!(ct[..], c.c.0, "tcId {}", test.tc_id);
-                let expanded = key.expand().unwrap().encapsulate_internal(&m).unwrap();
-                assert_eq!(expanded, (k, ct), "tcId {}", test.tc_id);
+                // The key alone, then expanded (on x86-64).
+                for _ in 0..2 {
+                    let (k, ct) = key.encapsulate_internal(&m).unwrap();
+                    assert_eq!(k[..], c.k.0, "tcId {}", test.tc_id);
+                    assert_eq!(ct[..], c.c.0, "tcId {}", test.tc_id);
+                }
             }
             _ => {
                 assert_eq!(test.result, Expectation::Invalid, "tcId {}", test.tc_id);

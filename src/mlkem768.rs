@@ -275,6 +275,9 @@ impl EncapsulationKey768 {
     /// The encapsulation key `bytes`, if it passes the encapsulation key
     /// check of FIPS 203 §7.2 (every integer it encodes is less than `q`);
     /// [`Error::InvalidKey`] otherwise.
+    // Inlined, so that the key (with its expanded key's buffer) is built
+    // where the caller keeps it rather than copied there.
+    #[inline]
     pub fn from_bytes(bytes: &[u8; 1184]) -> Result<Self, Error> {
         // SAFETY: `bytes` is valid for reads of 1184 bytes, and a Rust
         // object, so it does not overlap the stack or wrap around the end of
