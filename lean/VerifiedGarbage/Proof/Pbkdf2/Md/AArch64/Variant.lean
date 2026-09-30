@@ -41,6 +41,8 @@ structure MdHash where
   /-- The CPU features its compression function requires, which the
   functions built on it require too. -/
   features : List String
+  /-- Streaming artifacts supplied by a compression backend. -/
+  stream : List Artifact := []
 
 namespace MdHash
 
@@ -83,7 +85,7 @@ def MdHash.of {H : Hash} {I : Spec.Hmac.Instance} (hH : HashOK H) (C : CoreOK (c
     (hsF : ∃ s, (I.finalizeContract AArch64.abi 16).pre s)
     (hsT : ∃ s, (I.iterateContract AArch64.abi).pre s)
     (hsP : ∃ s, (I.pbkdf2Contract AArch64.abi 16).pre s)
-    (suffix : String) (features : List String) : MdHash where
+    (suffix : String) (features : List String) (stream : List Artifact := []) : MdHash where
   H := H
   I := I
   hmacInit := MdHash.hmacInit_of hH C hSH hW hsI
@@ -92,5 +94,6 @@ def MdHash.of {H : Hash} {I : Spec.Hmac.Instance} (hH : HashOK H) (C : CoreOK (c
   pbkdf2 := MdHash.pbkdf2_of hH C hSH hW hsI hsF hsT hsP
   suffix := suffix
   features := features
+  stream := stream
 
 end VG.Proof.Pbkdf2.Md.AArch64

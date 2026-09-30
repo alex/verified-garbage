@@ -63,17 +63,17 @@ theorem pfx {a : Addr} {m n : Nat} (h : Nat.ble m n = true) : Region.Prefix ⟨a
 theorem sub112 (a : Addr) : Region.Sub ⟨a, 112⟩ ⟨a, 560⟩ := Region.sub_prefix (by decide)
 theorem sub160 (a : Addr) : Region.Sub ⟨a, 160⟩ ⟨a, 608⟩ := Region.sub_prefix (by decide)
 
-theorem compressWide_verified (hsat : ∃ s, compressWide.pre s) :
-    Verified AArch64.target Impl.Sha256.AArch64.compress compressWide :=
-  Verified.widen Proof.Sha256.AArch64.compress_verified
+theorem compressWide_of {code : Prog isa} (hv : Verified AArch64.target code Proof.Sha256.compressAArch64) (hsat : ∃ s, compressWide.pre s) :
+    Verified AArch64.target code compressWide :=
+  Verified.widen hv
     (fun s => [⟨s.gpr .x0, 32⟩, ⟨s.gpr .x3, 112⟩])
     (fun _ ⟨h₁, _, h₃, h₄, h₅⟩ => ⟨h₁, rfl, h₃.sub_right (sub112 _), h₄, h₅.sub_right (sub112 _)⟩)
     (fun _ ⟨_, h₂, _⟩ => h₂ ▸ .cons (pfx rfl) (.cons (pfx rfl) .nil))
     (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat
 
-theorem updateWide_verified (hsat : ∃ s, updateWide.pre s) :
-    Verified AArch64.target Impl.Sha256.AArch64.Stream.update updateWide :=
-  Verified.widen Proof.Sha256.AArch64.Stream.Update.update_verified
+theorem updateWide_of {code : Prog isa} (hv : Verified AArch64.target code Proof.Sha256.updateAArch64) (hsat : ∃ s, updateWide.pre s) :
+    Verified AArch64.target code updateWide :=
+  Verified.widen hv
     (fun s => [⟨s.gpr .x0, 96⟩, ⟨s.gpr .x4, 160⟩])
     (fun _ ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉⟩ =>
       ⟨h₁, rfl, h₃.sub_right (sub160 _), h₄, h₅.sub_right (sub160 _), h₆, h₇, h₈,
@@ -81,9 +81,9 @@ theorem updateWide_verified (hsat : ∃ s, updateWide.pre s) :
     (fun _ ⟨_, h₂, _⟩ => h₂ ▸ .cons (pfx rfl) (.cons (pfx rfl) .nil))
     (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat
 
-theorem finalizeWide_verified (hsat : ∃ s, finalizeWide.pre s) :
-    Verified AArch64.target Impl.Sha256.AArch64.Stream.finalize finalizeWide :=
-  Verified.widen Proof.Sha256.AArch64.Stream.Finalize.finalize_verified
+theorem finalizeWide_of {code : Prog isa} (hv : Verified AArch64.target code Proof.Sha256.finalizeAArch64) (hsat : ∃ s, finalizeWide.pre s) :
+    Verified AArch64.target code finalizeWide :=
+  Verified.widen hv
     (fun s => [⟨s.gpr .x0, 96⟩, ⟨s.gpr .x2, 32⟩, ⟨s.gpr .x3, 160⟩])
     (fun _ ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉⟩ =>
       ⟨h₁, rfl, h₃, h₄.sub_right (sub160 _), h₅.sub_right (sub160 _), h₆, h₇, h₈,
@@ -102,13 +102,13 @@ def updateSat : State :=
 def finalizeSat : State :=
   { Proof.Sha256.AArch64.Stream.Finalize.sat with wr := [⟨0x1000, 96⟩, ⟨0x2000, 32⟩, ⟨0x3000, 608⟩] }
 
-theorem compress :
-    Verified AArch64.target Impl.Sha256.AArch64.compress (Spec.Sha256.compressContract AArch64.abi) := by
+theorem compress_of {code : Prog isa} (hv : Verified AArch64.target code Proof.Sha256.compressAArch64) :
+    Verified AArch64.target code (Spec.Sha256.compressContract AArch64.abi) := by
   have hi : compressWide.Implies (Spec.Sha256.compressContract AArch64.abi) := by
     contract_implies [Spec.Sha256.compressContract, Spec.Sha256.compressSig, compressWide,
       Proof.Sha256.compressAArch64, AArch64.abi, AArch64.argRegs]
       [compressSat, Proof.Sha256.AArch64.satState] using compressSat
-  exact (compressWide_verified hi.sat_left).of_implies hi
+  exact (compressWide_of hv hi.sat_left).of_implies hi
 
 theorem init :
     Verified AArch64.target Impl.Sha256.AArch64.Stream.init (Spec.Sha256.initContract AArch64.abi) :=
@@ -117,22 +117,34 @@ theorem init :
       AArch64.abi, AArch64.argRegs]
       [Proof.Sha256.AArch64.Stream.initSat] using Proof.Sha256.AArch64.Stream.initSat)
 
-theorem update :
-    Verified AArch64.target Impl.Sha256.AArch64.Stream.update (Spec.Sha256.updateContract AArch64.abi 16) := by
+theorem update_of {code : Prog isa} (hv : Verified AArch64.target code Proof.Sha256.updateAArch64) :
+    Verified AArch64.target code (Spec.Sha256.updateContract AArch64.abi 16) := by
   have hi : updateWide.Implies (Spec.Sha256.updateContract AArch64.abi 16) := by
     contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, updateWide,
       Proof.Sha256.updateAArch64, AArch64.abi, AArch64.argRegs]
       [updateSat, Proof.Sha256.AArch64.Stream.Update.sat, MdStream.AArch64.Update.sat,
         Impl.Sha256.AArch64.Stream.params] using updateSat
-  exact (updateWide_verified hi.sat_left).of_implies hi
+  exact (updateWide_of hv hi.sat_left).of_implies hi
 
-theorem finalize :
-    Verified AArch64.target Impl.Sha256.AArch64.Stream.finalize (Spec.Sha256.finalizeContract AArch64.abi 16) := by
+theorem finalize_of {code : Prog isa} (hv : Verified AArch64.target code Proof.Sha256.finalizeAArch64) :
+    Verified AArch64.target code (Spec.Sha256.finalizeContract AArch64.abi 16) := by
   have hi : finalizeWide.Implies (Spec.Sha256.finalizeContract AArch64.abi 16) := by
     contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig, finalizeWide,
       Proof.Sha256.finalizeAArch64, AArch64.abi, AArch64.argRegs]
       [finalizeSat, Proof.Sha256.AArch64.Stream.Finalize.sat, MdStream.AArch64.Finalize.sat,
         Impl.Sha256.AArch64.Stream.params] using finalizeSat
-  exact (finalizeWide_verified hi.sat_left).of_implies hi
+  exact (finalizeWide_of hv hi.sat_left).of_implies hi
+
+theorem compress :
+    Verified AArch64.target Impl.Sha256.AArch64.compress (Spec.Sha256.compressContract AArch64.abi) :=
+  compress_of Proof.Sha256.AArch64.compress_verified
+
+theorem update :
+    Verified AArch64.target Impl.Sha256.AArch64.Stream.update (Spec.Sha256.updateContract AArch64.abi 16) :=
+  update_of Proof.Sha256.AArch64.Stream.Update.update_verified
+
+theorem finalize :
+    Verified AArch64.target Impl.Sha256.AArch64.Stream.finalize (Spec.Sha256.finalizeContract AArch64.abi 16) :=
+  finalize_of Proof.Sha256.AArch64.Stream.Finalize.finalize_verified
 
 end VG.Proof.Sha256.AArch64.Shared
