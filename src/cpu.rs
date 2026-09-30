@@ -4,9 +4,11 @@
 //! checks which CPU features those need, and the emitter lists them in a
 //! generated `<NAME>_FEATURES` constant next to the function (and in its
 //! `# Safety` section): the function may only be called on a CPU that has
-//! all of them. They are detected once, with `cpuid`. Each object that can
-//! use such a function chooses its implementation when it is created, from
-//! the features detected.
+//! all of them. They are detected once: with `cpuid` on x86-64; on AArch64,
+//! by asking the operating system with the `cpu-features-env` feature (which
+//! links `std`), and otherwise from the target features the code was
+//! compiled for. Each object that can use such a function chooses its
+//! implementation when it is created, from the features detected.
 //!
 //! With the `cpu-features-env` Cargo feature, the environment variable
 //! `VG_CPU_FEATURES` restricts the features detected, so that tests and
@@ -43,7 +45,10 @@ pub(crate) struct Features(pub(crate) u32);
 
 impl Features {
     /// The features named in `names` (a generated `_FEATURES` constant).
-    #[cfg_attr(not(target_arch = "x86_64"), allow(dead_code))]
+    #[cfg_attr(
+        not(any(target_arch = "x86_64", target_arch = "aarch64")),
+        allow(dead_code)
+    )]
     pub(crate) fn of(names: &[&str]) -> Features {
         Features(names.iter().fold(0, |acc, n| {
             acc | NAMES
@@ -54,8 +59,11 @@ impl Features {
     }
 
     /// The features named in any of `lists`.
-    // Only the x86-64 artifacts need features so far.
-    #[cfg_attr(not(target_arch = "x86_64"), allow(dead_code))]
+    // Only the x86-64 and AArch64 artifacts need features so far.
+    #[cfg_attr(
+        not(any(target_arch = "x86_64", target_arch = "aarch64")),
+        allow(dead_code)
+    )]
     pub(crate) fn all(lists: &[&[&str]]) -> Features {
         Features(
             lists
@@ -65,7 +73,10 @@ impl Features {
     }
 
     /// Whether every feature of `other` is in `self`.
-    #[cfg_attr(not(target_arch = "x86_64"), allow(dead_code))]
+    #[cfg_attr(
+        not(any(target_arch = "x86_64", target_arch = "aarch64")),
+        allow(dead_code)
+    )]
     pub(crate) fn contains(self, other: Features) -> bool {
         self.0 & other.0 == other.0
     }
@@ -179,8 +190,30 @@ fn runtime() -> u32 {
     }
 }
 
+/// On AArch64, `aes`: FEAT_AES and FEAT_PMULL (Rust's `aes` target feature
+/// covers both).
+#[cfg(target_arch = "aarch64")]
+fn runtime() -> u32 {
+    u32::from(aarch64_aes()) * Features::of(&["aes"]).0
+}
+
+/// Whether the CPU has FEAT_AES and FEAT_PMULL, asked of the operating
+/// system through `std`, which the `cpu-features-env` feature links.
+#[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+fn aarch64_aes() -> bool {
+    std::arch::is_aarch64_feature_detected!("aes")
+}
+
+/// Whether the compiler was told every CPU running this code has FEAT_AES
+/// and FEAT_PMULL (as `aarch64-apple-darwin` and `-C target-feature=+aes`
+/// do): without `std`, this `no_std` crate cannot ask the operating system.
+#[cfg(all(target_arch = "aarch64", not(feature = "cpu-features-env")))]
+fn aarch64_aes() -> bool {
+    cfg!(target_feature = "aes")
+}
+
 /// No features are detected on the other targets yet.
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn runtime() -> u32 {
     0
 }
