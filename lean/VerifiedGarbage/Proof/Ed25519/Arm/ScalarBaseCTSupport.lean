@@ -45,4 +45,18 @@ theorem ctBlockAppend {P R Q : State → State → Prop} {xs ys : List Instr}
     exact .seq (.block ha) (.block hb')
   exact RelCT.seq hx hy _ _ _ _ _ _ hp (splitRun ex) (splitRun ey)
 
+theorem ctSeqAssoc {P Q : State → State → Prop} {a b c : Prog isa}
+    (h : CT P (.seq (.seq a b) c) Q) : CT P (.seq a (.seq b c)) Q := by
+  intro x y tx ty u v hp ex ey
+  cases ex with
+  | seq ea ex =>
+    cases ex with
+    | seq eb ec =>
+      cases ey with
+      | seq fa ey =>
+        cases ey with
+        | seq fb fc =>
+          obtain ⟨ht, hq⟩ := h _ _ _ _ _ _ hp (Exec.seq (Exec.seq ea eb) ec) (Exec.seq (Exec.seq fa fb) fc)
+          exact ⟨by simpa only [List.append_assoc] using ht, hq⟩
+
 end VG.Proof.Ed25519.Arm
