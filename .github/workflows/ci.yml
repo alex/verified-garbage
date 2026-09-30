@@ -278,7 +278,7 @@ jobs:
             tests: sha384 sha512 cpu
           - chip: native
             os: ubuntu-24.04-arm
-            tests: aes_gcm cpu
+            tests: aes_gcm sha256 scrypt cpu
     name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     env:

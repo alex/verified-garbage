@@ -23,7 +23,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The features detection knows, by their Rust `target_feature` names: bit
 /// `i` of a [`Features`] is `NAMES[i]`.
-pub(crate) const NAMES: [&str; 10] = [
+pub(crate) const NAMES: [&str; 12] = [
     "ssse3",
     "sha",
     "aes",
@@ -34,6 +34,8 @@ pub(crate) const NAMES: [&str; 10] = [
     "bmi2",
     "avx512f",
     "sha512",
+    "sha2",
+    "sha3",
 ];
 
 /// The bit of a feature detection does not know, which is never detected.
@@ -190,11 +192,14 @@ fn runtime() -> u32 {
     }
 }
 
-/// On AArch64, `aes`: FEAT_AES and FEAT_PMULL (Rust's `aes` target feature
-/// covers both).
+/// AArch64 feature groups, using the same Rust names as the generated
+/// artifacts: `aes` covers FEAT_AES and FEAT_PMULL, `sha2` covers FEAT_SHA1
+/// and FEAT_SHA256, and `sha3` covers FEAT_SHA512 and FEAT_SHA3.
 #[cfg(target_arch = "aarch64")]
 fn runtime() -> u32 {
-    u32::from(aarch64_aes()) * Features::of(&["aes"]).0
+    (u32::from(aarch64_aes()) * Features::of(&["aes"]).0)
+        | (u32::from(aarch64_sha2()) * Features::of(&["sha2"]).0)
+        | (u32::from(aarch64_sha3()) * Features::of(&["sha3"]).0)
 }
 
 /// Whether the CPU has FEAT_AES and FEAT_PMULL, asked of the operating
@@ -210,6 +215,30 @@ fn aarch64_aes() -> bool {
 #[cfg(all(target_arch = "aarch64", not(feature = "cpu-features-env")))]
 fn aarch64_aes() -> bool {
     cfg!(target_feature = "aes")
+}
+
+/// Whether both SHA-1 and SHA-256 instructions are available.
+#[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+fn aarch64_sha2() -> bool {
+    std::arch::is_aarch64_feature_detected!("sha2")
+}
+
+/// Without `std`, use only features guaranteed by the compilation target.
+#[cfg(all(target_arch = "aarch64", not(feature = "cpu-features-env")))]
+fn aarch64_sha2() -> bool {
+    cfg!(target_feature = "sha2")
+}
+
+/// Whether both SHA-512 and SHA-3 instructions are available.
+#[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+fn aarch64_sha3() -> bool {
+    std::arch::is_aarch64_feature_detected!("sha3")
+}
+
+/// Without `std`, use only features guaranteed by the compilation target.
+#[cfg(all(target_arch = "aarch64", not(feature = "cpu-features-env")))]
+fn aarch64_sha3() -> bool {
+    cfg!(target_feature = "sha3")
 }
 
 /// No features are detected on the other targets yet.
@@ -235,6 +264,8 @@ mod tests {
             Features(0b10_0011_0000)
         );
         assert_eq!(Features::of(&["avx512bw"]), Features(UNKNOWN));
+        assert_eq!(Features::of(&["sha2"]), Features(1 << 10));
+        assert_eq!(Features::of(&["sha3"]), Features(1 << 11));
         assert_eq!(
             Features::all(&[&["sha"], &[], &["ssse3", "sha"]]),
             Features(0b11)
@@ -264,6 +295,9 @@ mod tests {
         assert_eq!(parse("bmi1,bmi2"), Some(0b1100_0000));
         assert_eq!(parse("avx512f"), Some(0b1_0000_0000));
         assert_eq!(parse("sha512"), Some(0b10_0000_0000));
+        assert_eq!(parse("sha2"), Some(1 << 10));
+        assert_eq!(parse("sha3"), Some(1 << 11));
+        assert_eq!(parse("sha2,sha3"), Some((1 << 10) | (1 << 11)));
         for bad in ["avx512bw", "aes,", "aes,none", " aes", "AES"] {
             assert_eq!(parse(bad), None, "{bad}");
         }

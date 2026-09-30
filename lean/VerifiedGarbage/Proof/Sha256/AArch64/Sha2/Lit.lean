@@ -1,0 +1,8 @@
+import VerifiedGarbage.Impl.Sha256.AArch64.Sha2
+import VerifiedGarbage.Proof.Framework.AArch64.Lit
+
+namespace VG.Impl.Sha256.AArch64.Sha2
+
+materialize_code compress
+
+end VG.Impl.Sha256.AArch64.Sha2

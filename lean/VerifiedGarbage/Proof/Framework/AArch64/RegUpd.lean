@@ -48,4 +48,21 @@ theorem wr_addWithCarry (sz : Size) (d : Reg) (a b : BitVec sz.bits) (c : Bool) 
 theorem sp_addWithCarry (sz : Size) (d : Reg) (a b : BitVec sz.bits) (c : Bool) :
     (s.addWithCarry sz d a b c).sp = s.sp := rfl
 
+theorem v_write (sz : Size) (r : Reg) (x : BitVec sz.bits) : (s.write sz r x).v = s.v := rfl
+
+theorem v_setV (d : VReg) (x : BitVec 128) (r : VReg) :
+    (s.setV d x).v r = if r = d then x else s.v r := rfl
+
+theorem v_setV_self (r : VReg) (x : BitVec 128) : (s.setV r x).v r = x := by
+  simp [State.setV]
+
+theorem v_setV_of_ne {r r' : VReg} (x : BitVec 128) (h : r' ≠ r) :
+    (s.setV r x).v r' = s.v r' := by simp [State.setV, h]
+
+theorem gpr_setV (r : VReg) (x : BitVec 128) : (s.setV r x).gpr = s.gpr := rfl
+theorem mem_setV (r : VReg) (x : BitVec 128) : (s.setV r x).mem = s.mem := rfl
+theorem rd_setV (r : VReg) (x : BitVec 128) : (s.setV r x).rd = s.rd := rfl
+theorem wr_setV (r : VReg) (x : BitVec 128) : (s.setV r x).wr = s.wr := rfl
+theorem sp_setV (r : VReg) (x : BitVec 128) : (s.setV r x).sp = s.sp := rfl
+
 end VG.AArch64.RegUpd
