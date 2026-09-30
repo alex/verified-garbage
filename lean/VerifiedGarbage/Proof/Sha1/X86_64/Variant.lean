@@ -6,11 +6,11 @@ import VerifiedGarbage.Proof.Sha1.X86_64.Stream.Md
 Untrusted: everything here is checked by Lean.
 
 A `Compress` is what a function that calls the compression function needs
-of it, so that its proof holds for every implementation: each is a variant
-of the interface `Sha1Compress` on x86-64
-(`Variants/Sha1Compress/X86_64/`), and each caller (in
-`Generic/Sha1Compress/X86_64/`) is emitted once for each of them (see
-`TCB/Emit.lean`). The streaming functions made with any of them are
+of it, so that its proof holds for every implementation: each makes
+SHA-1 a variant of the interface `MdHash` on x86-64
+(`Variants/MdHash/X86_64/Sha1*.lean`, `Proof/Pbkdf2/Md/X86_64/Hashes/Sha1.lean`),
+and each function built on it (in `Generic/MdHash/X86_64/`) is emitted once
+for each of them (see `TCB/Emit.lean`). The streaming functions made with any of them are
 verified (`Compress.update_verified`, `Compress.finalize_verified`), and have
 what callers of those need (their call depth, that they keep `rsp` and never
 load MXCSR), so that a caller of them is proven once for every
@@ -40,7 +40,7 @@ structure Compress where
 namespace Compress
 
 /-- The scalar implementation, `vg_sha1_compress`, in the baseline ISA
-(`Variants/Sha1Compress/X86_64/Scalar.lean`). -/
+(`Variants/MdHash/X86_64/Sha1.lean`). -/
 def scalar : Compress where
   callee := .scalar
   ok := Stream.scalar_ok

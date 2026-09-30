@@ -427,7 +427,7 @@ theorem slot_sub (scr : Addr) {i : Nat} (hi : i < 6) :
   rw [slot, ← add_ofNat_add]
   exact Proof.Sha256.X86_64.sub_offset (by omega_nat) (by omega_nat)
 
-theorem slot_disj (scr : Addr) {i j : Nat} (hi : i < 6) (hj : j < 6) (hij : i ≠ j) (hW : H.W ≤ 64) :
+theorem slot_disj (scr : Addr) {i j : Nat} (hi : i < 6) (hj : j < 6) (hij : i ≠ j) (hW : H.W ≤ 128) :
     Region.Disjoint ⟨slot H scr i, 8⟩ ⟨slot H scr j, 8⟩ := by
   intro a h₁ h₂
   simp only [Region.Contains, slot] at h₁ h₂
@@ -451,11 +451,11 @@ theorem ea_slot (s : State) (b : Reg) (scr : Addr) (hb : s.gpr b = scr) (i : Nat
   rw [ea_at, ofInt_natCast, hb]
 
 theorem slot_in {rs : List Region} {scr : Addr} {L : Nat} (h : ⟨scr, L⟩ ∈ rs) (hL : 8 * H.W + 48 ≤ L)
-    (hW : H.W ≤ 64) {i : Nat} (hi : i < 6) : InRegions rs (slot H scr i) 8 :=
+    (hW : H.W ≤ 128) {i : Nat} (hi : i < 6) : InRegions rs (slot H scr i) 8 :=
   ⟨_, h, contains_offset (by omega_nat) (by omega_nat)⟩
 
 /-- Saving the registers, with `scratch` in `r8`. -/
-theorem save_ok {s : State} {scr : Addr} {L : Nat} (h8 : s.gpr .r8 = scr) (hW : H.W ≤ 64)
+theorem save_ok {s : State} {scr : Addr} {L : Nat} (h8 : s.gpr .r8 = scr) (hW : H.W ≤ 128)
     (hsc : ⟨scr, L⟩ ∈ s.wr) (hL : 8 * H.W + 48 ≤ L) {rest : List Instr} {Q : State → Prop}
     (k : ∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr → Frame [saveR H scr] s.mem s'.mem →
       SavedRegs H scr s s'.mem → WP isa (.block rest) s' Q) :
@@ -506,7 +506,7 @@ theorem save_ok {s : State} {scr : Addr} {L : Nat} (h8 : s.gpr .r8 = scr) (hW : 
     · rw [Mem.readW_writeW_self64]
 
 /-- Loading them back, with `scratch` in `r15` (loaded last). -/
-theorem restore_ok {s : State} {scr : Addr} {L : Nat} (h15 : s.gpr .r15 = scr) (hW : H.W ≤ 64) {s₀ : State}
+theorem restore_ok {s : State} {scr : Addr} {L : Nat} (h15 : s.gpr .r15 = scr) (hW : H.W ≤ 128) {s₀ : State}
     (hs : SavedRegs H scr s₀ s.mem) (hsc : ⟨scr, L⟩ ∈ s.wr) (hL : 8 * H.W + 48 ≤ L) :
     WP isa (.block H.restore) s fun s' => s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
       (∀ r ∈ [Reg.rbx, .rbp, .r12, .r13, .r14, .r15], s'.gpr r = s₀.gpr r) ∧
@@ -617,7 +617,7 @@ structure Pre (s₀ : State) : Prop where
   nw : (scr s₀).toNat + 8 * sc ≤ 2 ^ 64
   fits : H.buf + 2 * H.B ≤ 8 * sc
   hB : H.B ≤ 128
-  hW : H.W ≤ 64
+  hW : H.W ≤ 128
   hS : H.S ≤ 256
 
 theorem pre_of {s₀ : State} (h : (initG hH.SH sc).pre s₀) (hfit : H.buf + 2 * H.B ≤ 8 * sc) :

@@ -4,7 +4,7 @@ import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.Framework.RelCT
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Common
-import VerifiedGarbage.Impl.Pbkdf2.Generic.X86_64
+import VerifiedGarbage.Impl.Hmac.Generic.X86_64
 import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
@@ -194,7 +194,7 @@ structure HashOK (H : Hash) where
   hB0 : 0 < H.B
   hBB : H.B ≤ 128
   hWb : Wb ≤ 8 * H.W
-  hW : H.W ≤ 64
+  hW : H.W ≤ 128
   /-- The representation depends only on the state's bytes. -/
   repr : ∀ (m m' : Mem) (p q : Addr) (msg : List Byte),
     (∀ i < H.S, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i)) →

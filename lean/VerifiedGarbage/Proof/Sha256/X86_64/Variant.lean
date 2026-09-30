@@ -6,11 +6,11 @@ import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Common
 Untrusted: everything here is checked by Lean.
 
 A `Compress` is what a function that calls the compression function needs
-of it, so that its proof holds for every implementation: each is a variant
-of the interface `Sha256Compress` on x86-64
-(`Variants/Sha256Compress/X86_64/`), and each caller (in
-`Generic/Sha256Compress/X86_64/`) is emitted once for each of them (see
-`TCB/Emit.lean`).
+of it, so that its proof holds for every implementation: each makes
+SHA-256 a variant of the interface `MdHash` on x86-64
+(`Variants/MdHash/X86_64/Sha256*.lean`, `Proof/Pbkdf2/Md/X86_64/Hashes/Sha256.lean`),
+and each function built on it (in `Generic/MdHash/X86_64/`) is emitted once
+for each of them (see `TCB/Emit.lean`).
 -/
 
 namespace VG.Proof.Sha256.X86_64
