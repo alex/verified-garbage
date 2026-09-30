@@ -2,16 +2,16 @@
 //! `vg_hmac_sha256_finalize` compute `H((K₀ ⊕ opad) ‖ H((K₀ ⊕ ipad) ‖ text))`
 //! (`VG.Spec.Hmac.hmacBlockKey`), keeping the two SHA-256 streaming states.
 //!
-//! On x86-64, `init` and `finalize` (contracts
+//! On x86-64 and AArch64, `init` and `finalize` (contracts
 //! `VG.Spec.Hmac.Instance.initContract` and `finalizeContract` of
 //! `VG.Spec.Hmac.sha256I`) are the one HMAC implementation for every
-//! streaming hash function, calling SHA-256's verified functions, and follow
-//! the implementation of SHA-256 that `Sha256` runs on this CPU: e.g.
-//! `vg_hmac_sha256_init_shani` and `vg_hmac_sha256_finalize_shani`, the same
-//! verified code calling `vg_sha256_update_shani` and
+//! streaming hash function, calling SHA-256's verified functions. On x86-64,
+//! they follow the implementation of SHA-256 that `Sha256` runs on this CPU:
+//! e.g. `vg_hmac_sha256_init_shani` and `vg_hmac_sha256_finalize_shani`, the
+//! same verified code calling `vg_sha256_update_shani` and
 //! `vg_sha256_finalize_shani`, or the `_avx2` ones.
 //!
-//! On the other targets, their contracts are `VG.Spec.Hmac.initSha256Contract`
+//! On ARMv7 and x86, their contracts are `VG.Spec.Hmac.initSha256Contract`
 //! and `VG.Spec.Hmac.finalizeSha256Contract` (or `finalizeSha256OutContract`
 //! on the 32-bit targets), with `VG.Spec.Sha256.updateContract`.
 
@@ -22,7 +22,7 @@
     target_arch = "x86"
 ))]
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 use super::{HmacHash, sealed};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::hmac_sha256::{
@@ -34,12 +34,14 @@ use crate::arch::hmac_sha256::{
 use crate::arch::hmac_sha256::{vg_hmac_sha256_finalize, vg_hmac_sha256_init};
 use crate::hashes::sha256::{Sha256, Sha256Backend};
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 super::streaming_hmac!(
     Sha256 (Sha256Backend) {
         Scalar => (vg_hmac_sha256_init, vg_hmac_sha256_finalize),
+        #[cfg(target_arch = "x86_64")]
         ShaNi if [VG_HMAC_SHA256_INIT_SHANI_FEATURES, VG_HMAC_SHA256_FINALIZE_SHANI_FEATURES] =>
             (vg_hmac_sha256_init_shani, vg_hmac_sha256_finalize_shani),
+        #[cfg(target_arch = "x86_64")]
         Avx2 if [VG_HMAC_SHA256_INIT_AVX2_FEATURES, VG_HMAC_SHA256_FINALIZE_AVX2_FEATURES] =>
             (vg_hmac_sha256_init_avx2, vg_hmac_sha256_finalize_avx2),
     },
@@ -48,7 +50,7 @@ super::streaming_hmac!(
     output: 32,
 );
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 impl super::Hmac<Sha256> {
     /// The key's two SHA-256 streaming states, for `K₀ ⊕ ipad` and then
     /// `K₀ ⊕ opad`, as `vg_hmac_sha256_init` left them (the arguments of
@@ -66,7 +68,7 @@ impl super::Hmac<Sha256> {
 /// An HMAC-SHA-256 computation: the SHA-256 streaming states for the inner
 /// hash, which represents `(K₀ ⊕ ipad) ‖ text`, and the outer one, which
 /// represents `K₀ ⊕ opad`, and the length of the inner message.
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 #[doc(hidden)]
 #[derive(Clone)]
 pub struct Sha256HmacState {
@@ -78,10 +80,10 @@ pub struct Sha256HmacState {
     backend: Sha256Backend,
 }
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 impl sealed::Sealed for Sha256 {}
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 impl HmacHash for Sha256 {
     type State = Sha256HmacState;
 
@@ -132,26 +134,6 @@ impl HmacHash for Sha256 {
         state.count = state.count.wrapping_add(data.len() as u64);
     }
 
-    #[cfg(target_arch = "aarch64")]
-    fn hmac_finalize(mut state: Sha256HmacState) -> [u8; 32] {
-        let mut scratch = [0u64; 86];
-        // SAFETY: `state.inner` is valid for reads and writes of 96 bytes,
-        // `state.outer` for reads of 96 bytes and `scratch` for reads and
-        // writes of 688 bytes; they are distinct objects, so they do not
-        // overlap each other. `state.inner` represents `(K₀ ⊕ ipad) ‖ text`,
-        // of `state.count` bytes, and `state.outer` represents `K₀ ⊕ opad`.
-        unsafe {
-            vg_hmac_sha256_finalize(&mut state.inner, &state.outer, state.count, &mut scratch)
-        };
-        // The MAC is in bytes 176 to 207 of `scratch`.
-        let mut mac = [0u8; 32];
-        for (out, word) in mac.as_chunks_mut::<8>().0.iter_mut().zip(&scratch[22..26]) {
-            *out = word.to_ne_bytes();
-        }
-        mac
-    }
-
-    #[cfg(any(target_arch = "arm", target_arch = "x86"))]
     fn hmac_finalize(mut state: Sha256HmacState) -> [u8; 32] {
         let mut mac = [0u8; 32];
         let mut scratch = [0u64; 86];

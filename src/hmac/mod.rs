@@ -89,7 +89,7 @@ impl<H: HmacHash> Hmac<H> {
 
     /// The state of the computation (for PBKDF2's iteration, on the targets
     /// where it runs under Rust's loop).
-    #[cfg(any(target_arch = "aarch64", target_arch = "arm", target_arch = "x86"))]
+    #[cfg(any(target_arch = "arm", target_arch = "x86"))]
     pub(crate) fn state(&self) -> &H::State {
         &self.state
     }

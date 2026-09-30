@@ -1,7 +1,7 @@
 //! PBKDF2 (RFC 8018 §5.2), with HMAC as the pseudorandom function: a module
 //! here for each hash function with a verified implementation.
 //!
-//! On x86-64, [`pbkdf2_hmac`] is one call of the hash's verified
+//! On x86-64 and AArch64, [`pbkdf2_hmac`] is one call of the hash's verified
 //! `vg_pbkdf2_hmac_<hash>`, which derives the whole key. On the other
 //! targets, for each block `Tᵢ` of the derived key, `U₁ = HMAC (P, S ‖ INT (i))`
 //! is the verified HMAC (`Hmac`), and the rest of the chain,
@@ -19,7 +19,7 @@
 
 use core::num::NonZeroU32;
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 use crate::hmac::Hmac;
 use crate::hmac::HmacHash;
 
@@ -61,7 +61,7 @@ pub fn pbkdf2_hmac<H: Pbkdf2Hash>(
 /// [`Hmac`], and the rest of its chain with `iterate`, from the HMAC key's
 /// streaming states `key` (`key` of the computation that has not absorbed
 /// any data yet).
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 fn derive_blocks<H: HmacHash, K>(
     password: &[u8],
     salt: &[u8],
@@ -86,12 +86,12 @@ fn derive_blocks<H: HmacHash, K>(
 
 /// Checks that PBKDF2 can derive `len` bytes from blocks of `block` bytes:
 /// at most 2³² − 1 blocks ("derived key too long" in RFC 8018).
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn check_len(len: usize, block: usize) {
     u32::try_from(len.div_ceil(block)).expect("PBKDF2 derived key too long");
 }
 
-/// On the targets other than x86-64, makes a hash function with a streaming
+/// On ARMv7 and x86, makes a hash function with a streaming
 /// HMAC (`crate::hmac`'s `streaming_hmac!`) a [`Pbkdf2Hash`], with its
 /// verified `vg_pbkdf2_hmac_<hash>_iterate` (contract
 /// `VG.Spec.Hmac.Instance.iterateContract` of the hash's `Instance`) under
@@ -104,7 +104,7 @@ fn check_len(len: usize, block: usize) {
 /// of the hash does not compile until it is listed here too, and a test
 /// checks that it needs no CPU feature the hash's implementation was not
 /// selected for.
-#[cfg(any(target_arch = "aarch64", target_arch = "arm", target_arch = "x86"))]
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 macro_rules! streaming_pbkdf2 {
     (
         $hash:ident ($backend:ident) {
@@ -197,10 +197,10 @@ macro_rules! streaming_pbkdf2 {
     };
 }
 
-#[cfg(any(target_arch = "aarch64", target_arch = "arm", target_arch = "x86"))]
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 use streaming_pbkdf2;
 
-/// On x86-64, makes a hash function a [`Pbkdf2Hash`] with its verified
+/// On x86-64 and AArch64, makes a hash function a [`Pbkdf2Hash`] with its verified
 /// `vg_pbkdf2_hmac_<hash>` (contract `VG.Spec.Hmac.Instance.pbkdf2Contract`
 /// of the hash's `Instance`), which derives the whole key, given the
 /// function's working space (in 64-bit words) and the digest size.
@@ -213,12 +213,12 @@ use streaming_pbkdf2;
 /// (see "Variants and generic callers" in
 /// `lean/VerifiedGarbage/TCB/Emit.lean`), and a test checks that it needs no
 /// CPU feature the hash's implementation was not selected for.
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 macro_rules! whole_pbkdf2 {
     (
         $hash:ident ($backend:ident) {
             $base:ident => $pbkdf2:path
-            $(, $variant:ident if [$($req:path),*] => $vpbkdf2:path)*
+            $(, $(#[$attr:meta])* $variant:ident if [$($req:path),*] => $vpbkdf2:path)*
             $(,)?
         },
         scratch: $scratch:literal,
@@ -226,6 +226,7 @@ macro_rules! whole_pbkdf2 {
     ) => {
         // The CPU features of each implementation, which `tests` checks.
         $(
+            $(#[$attr])*
             const _: &[&[&str]] = &[$($req),*];
         )*
 
@@ -239,7 +240,7 @@ macro_rules! whole_pbkdf2 {
                 super::check_len(out.len(), $output);
                 let pbkdf2 = match $backend::select($crate::cpu::detected()) {
                     $backend::$base => $pbkdf2,
-                    $($backend::$variant => $vpbkdf2,)*
+                    $($(#[$attr])* $backend::$variant => $vpbkdf2,)*
                 };
                 let mut scratch = [0u64; $scratch];
                 // SAFETY: `iterations` is positive and `out.len()` at most
@@ -279,6 +280,7 @@ macro_rules! whole_pbkdf2 {
             #[test]
             fn backend_features() {
                 $(
+                    $(#[$attr])*
                     for bits in 0..1u32 << $crate::cpu::NAMES.len() {
                         let f = $crate::cpu::Features(bits);
                         if $backend::select(f) == $backend::$variant {
@@ -291,5 +293,5 @@ macro_rules! whole_pbkdf2 {
     };
 }
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use whole_pbkdf2;
