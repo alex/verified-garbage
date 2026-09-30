@@ -5,7 +5,7 @@ use criterion::Criterion;
 /// The library modules whose code these benchmarks run.
 pub const USES: &[&str] = &["rc2_cbc"];
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_arch = "arm"))]
 pub fn bench(c: &mut Criterion) {
     use std::hint::black_box;
 
@@ -69,5 +69,5 @@ pub fn bench(c: &mut Criterion) {
     }
 }
 
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "arm")))]
 pub fn bench(_: &mut Criterion) {}
