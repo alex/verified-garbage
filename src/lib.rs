@@ -62,11 +62,16 @@ pub mod chacha20;
 pub mod chacha20poly1305;
 pub mod hashes;
 pub mod hmac;
+pub mod mldsa44;
+pub mod mldsa65;
+pub mod mldsa87;
+mod mldsa_common;
 pub mod mlkem1024;
 pub mod mlkem768;
 pub mod pbkdf2;
 pub mod poly1305;
 pub mod scrypt;
+pub mod x25519;
 
 #[cfg(test)]
 mod tests {

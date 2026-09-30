@@ -1,0 +1,5 @@
+name = "BLAKE2s"
+family = "Hashes"
+specs = ["Blake2"]
+modules = ["src/hashes/blake2s.rs"]
+asm = ["blake2s"]

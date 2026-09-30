@@ -73,10 +73,11 @@ trustworthy. Read `lean/README.md` first.
   the namespace `VG.Spec`. The emitter refuses both (`TCB/Audit.lean`).
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
-* On x86-64, `pmuludq` and `vpmuludq` may only take secret operands between
-  Intel's MXCSR prologue and epilogue (`stmxcsr`, `ldmxcsr` of `0x1FBF`,
-  `lfence`, … `lfence`, `ldmxcsr` of the saved value), which the proofs do
-  not check: see "MCDT" in `lean/VerifiedGarbage/TCB/X86_64/Isa.lean`.
+* On x86-64, `pmuludq`, `pmullw`, `pmulhw` and their VEX forms may only take
+  secret operands between Intel's MXCSR prologue and epilogue (`stmxcsr`,
+  `ldmxcsr` of `0x1FBF`, `lfence`, … `lfence`, `ldmxcsr` of the saved
+  value), which the proofs do not check: see "MCDT" in
+  `lean/VerifiedGarbage/TCB/X86_64/Isa.lean`.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
   `Proof/`. `Spec/` and `Impl/` never import `Proof/`.
 
@@ -319,9 +320,12 @@ WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
 A primitive with implementations for different CPU features is tested (and
 benchmarked) end to end in each configuration, never through a special API:
 the `cpu-features-env` Cargo feature lets `VG_CPU_FEATURES` restrict the
-features detected (see `src/cpu.rs`), and CI runs each configuration that
-chooses differently (`rust-cpu-features` in `ci.yml`, `CPU_FEATURES` in
-`ci/bench_arches.py`). To test the baseline ISA's implementations:
+features detected (see `src/cpu.rs`). CI tests each configuration that
+chooses differently on a CPU that has those features: the runner's, or one
+Intel SDE presents (`rust-cpu-features` in `ci.yml`; its SDE chips lack the
+SHA extensions, whose code SDE runs very slowly); and benchmarks each with
+`VG_CPU_FEATURES` (`CPU_FEATURES` in `ci/bench_arches.py`). To test the
+baseline ISA's implementations:
 
 ```sh
 VG_CPU_FEATURES=none WYCHEPROOF_ROOT=/path/to/wycheproof cargo test --features cpu-features-env

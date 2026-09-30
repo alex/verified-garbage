@@ -53,9 +53,10 @@ theorem exec_mxcsr {i : Instr} (hi : loadsMxcsr i = false) {s s' : State} (h : e
   | zop op => simp only [exec, Option.some.injEq] at h; subst h; rw [Taint.ZOp.exec_eq op s]
   | mov | mov32 | movzx8 | movdquLoad | vbroadcasti128 | vmovdqu32Load | vbroadcasti32x4 =>
     simp only [exec, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; rfl
-  | bswap32 | bswap | movImm64 | lfence | mul | andn32 =>
+  | bswap32 | bswap | movImm64 | lfence | mul | andn32 | andn =>
     simp only [exec, Option.some.injEq] at h; subst h; rfl
   | rorx32 => simp only [exec, execRorx32] at h; split at h <;> cases h; rfl
+  | rorx => simp only [exec, execRorx] at h; split at h <;> cases h; rfl
   | push | pop => simp only [exec, reduceCtorEq] at h
 
 theorem pushRegs_mxcsr (s : State) (rs : List Reg) : (pushRegs s rs).mxcsr = s.mxcsr := by
@@ -132,5 +133,14 @@ theorem abiPreserved_of_exec {c : Prog isa} (hc : c.allInstrs (fun i => !loadsMx
     abiPreserved s s' := by
   rw [Code.allInstrs_eq, List.all_eq_true] at hc
   exact ⟨h.1, h.2, by rw [Exec.mxcsr (fun i hi => by simpa using hc i hi) he]⟩
+
+/-- `WP.mono`, knowing that code that never loads MXCSR keeps it (the kernel
+checks `hc` by evaluating the code). -/
+theorem WP.mono_mx {c : Prog isa} (hc : c.allInstrs (fun i => !loadsMxcsr i) = true) {s : State}
+    {Q R : State → Prop} (h : WP isa c s Q) (hq : ∀ s', Q s' → s'.mxcsr = s.mxcsr → R s') :
+    WP isa c s R := by
+  rw [Code.allInstrs_eq, List.all_eq_true] at hc
+  obtain ⟨t, s', he, hQ⟩ := h
+  exact ⟨t, s', he, hq s' hQ (Exec.mxcsr (fun i hi => by simpa using hc i hi) he)⟩
 
 end VG.X86_64

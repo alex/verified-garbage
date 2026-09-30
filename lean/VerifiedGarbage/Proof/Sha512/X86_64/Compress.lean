@@ -288,13 +288,13 @@ def initX86_64 (iv : HashValue) : Contract X86_64.isa where
 
 open VG.X86_64 in
 /-- x86-64 contract for
-`vg_sha512_update(state: *mut [u8; 192], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 28])`:
+`vg_sha512_update(state: *mut [u8; 192], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 172])`:
 if the streaming state at `state` represents a message `m` of `count` bytes
 (modulo 2⁶⁴), hashed from any initial hash value, then afterwards it
 represents `m` followed by the `len` bytes at `data`, from the same one.
 
 The code may read `data` (`len` bytes) and read and write `state` (192
-bytes) and `scratch` (224 bytes, whose contents on exit are unspecified).
+bytes) and `scratch` (1376 bytes, whose contents on exit are unspecified).
 These may not overlap each other, nor the return address on the stack, nor
 the 8 bytes below it (where the call of `vg_sha512_compress` stores its
 return address).
@@ -304,7 +304,7 @@ def updateX86_64 : Contract X86_64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .rdi, 192⟩
     let data : Region := ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩
-    let scratch : Region := ⟨s.gpr .r8, 224⟩
+    let scratch : Region := ⟨s.gpr .r8, 1376⟩
     let ret : Region := ⟨s.gpr .rsp, 8⟩
     let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
     s.rd = [data] ∧ s.wr = [state, scratch] ∧
@@ -319,7 +319,7 @@ def updateX86_64 : Contract X86_64.isa where
 
 open VG.X86_64 in
 /-- x86-64 contract for
-`vg_sha512_finalize(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 28])`:
+`vg_sha512_finalize(state: *mut [u8; 192], count: u64, out: *mut [u8; 64], scratch: *mut [u64; 172])`:
 if the streaming state at `state` represents a message `m` of `count` bytes,
 fewer than 2⁶⁴, hashed from the initial hash value `iv`, writes the final
 hash value `H⁽ᴺ⁾` of `m` from `iv` (64 bytes; `finalHash iv m`) to `out`. The
@@ -327,7 +327,7 @@ digest of SHA-384, SHA-512/224 or SHA-512/256 is its first 48, 28 or 32
 bytes.
 
 The code may read and write `state` (192 bytes, whose contents on exit are
-unspecified), `out` (64 bytes) and `scratch` (224 bytes, whose contents on
+unspecified), `out` (64 bytes) and `scratch` (1376 bytes, whose contents on
 exit are unspecified). These may not overlap each other, nor the return
 address on the stack, nor the 8 bytes below it (where the call of
 `vg_sha512_compress` stores its return address). The pointers and `count`
@@ -336,7 +336,7 @@ def finalizeX86_64 : Contract X86_64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .rdi, 192⟩
     let out : Region := ⟨s.gpr .rdx, 64⟩
-    let scratch : Region := ⟨s.gpr .rcx, 224⟩
+    let scratch : Region := ⟨s.gpr .rcx, 1376⟩
     let ret : Region := ⟨s.gpr .rsp, 8⟩
     let stack : Region := ⟨s.gpr .rsp - 8, 8⟩
     s.rd = [] ∧ s.wr = [state, out, scratch] ∧

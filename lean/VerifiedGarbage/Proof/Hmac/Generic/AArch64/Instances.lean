@@ -494,13 +494,13 @@ theorem sha384_finChecks : Finalize.Checks sha384H where
   copy2 := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha384_initImp : (initG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.initContract AArch64.abi 16) :=
-  initImp Spec.Hmac.sha384S 96 (by
-    inst_sat [Spec.Hmac.initContract, Spec.Hmac.initSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, initG, stk, AArch64.abi, AArch64.argRegs] using initSat 192 96)
+theorem sha384_initImp : (initG Spec.Hmac.sha384S 234).Implies (Spec.Hmac.sha384I.initContract AArch64.abi 16) :=
+  initImp Spec.Hmac.sha384S 234 (by
+    inst_sat [Spec.Hmac.initContract, Spec.Hmac.initSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, initG, stk, AArch64.abi, AArch64.argRegs] using initSat 192 234)
 
-theorem sha384_finImp : (finG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.finalizeContract AArch64.abi 16) :=
-  finImp Spec.Hmac.sha384S 96 (by
-    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, finG, stk, AArch64.abi, AArch64.argRegs] using finSat 192 48 96)
+theorem sha384_finImp : (finG Spec.Hmac.sha384S 234).Implies (Spec.Hmac.sha384I.finalizeContract AArch64.abi 16) :=
+  finImp Spec.Hmac.sha384S 234 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, finG, stk, AArch64.abi, AArch64.argRegs] using finSat 192 48 234)
 
 theorem sha384_init : Verified AArch64.target sha384H.init (Spec.Hmac.sha384I.initContract AArch64.abi 16) :=
   (Init.verified sha384OK sha384_initChecks (by decide) sha384_initImp.sat_left).of_implies sha384_initImp
@@ -517,13 +517,13 @@ theorem sha512_finChecks : Finalize.Checks sha512H' :=
   Finalize.Checks.of_sizes (H := sha384H) rfl rfl rfl sha384_finChecks ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
     ⟨_, by taint_decide⟩
 
-theorem sha512_initImp : (initG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.initContract AArch64.abi 16) :=
-  initImp Spec.Hmac.sha512S 96
+theorem sha512_initImp : (initG Spec.Hmac.sha512S 234).Implies (Spec.Hmac.sha512I.initContract AArch64.abi 16) :=
+  initImp Spec.Hmac.sha512S 234
     sha384_initImp.sat
 
-theorem sha512_finImp : (finG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.finalizeContract AArch64.abi 16) :=
-  finImp Spec.Hmac.sha512S 96 (by
-    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, finG, stk, AArch64.abi, AArch64.argRegs] using finSat 192 64 96)
+theorem sha512_finImp : (finG Spec.Hmac.sha512S 234).Implies (Spec.Hmac.sha512I.finalizeContract AArch64.abi 16) :=
+  finImp Spec.Hmac.sha512S 234 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, finG, stk, AArch64.abi, AArch64.argRegs] using finSat 192 64 234)
 
 theorem sha512_init : Verified AArch64.target sha512H'.init (Spec.Hmac.sha512I.initContract AArch64.abi 16) :=
   (Init.verified sha512OK sha512_initChecks (by decide) sha512_initImp.sat_left).of_implies sha512_initImp
@@ -540,13 +540,13 @@ theorem sha512_224_finChecks : Finalize.Checks sha512_224H :=
   Finalize.Checks.of_sizes (H := sha384H) rfl rfl rfl sha384_finChecks ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
     ⟨_, by taint_decide⟩
 
-theorem sha512_224_initImp : (initG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.initContract AArch64.abi 16) :=
-  initImp Spec.Hmac.sha512_224S 96
+theorem sha512_224_initImp : (initG Spec.Hmac.sha512_224S 234).Implies (Spec.Hmac.sha512_224I.initContract AArch64.abi 16) :=
+  initImp Spec.Hmac.sha512_224S 234
     sha384_initImp.sat
 
-theorem sha512_224_finImp : (finG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.finalizeContract AArch64.abi 16) :=
-  finImp Spec.Hmac.sha512_224S 96 (by
-    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, finG, stk, AArch64.abi, AArch64.argRegs] using finSat 192 28 96)
+theorem sha512_224_finImp : (finG Spec.Hmac.sha512_224S 234).Implies (Spec.Hmac.sha512_224I.finalizeContract AArch64.abi 16) :=
+  finImp Spec.Hmac.sha512_224S 234 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, finG, stk, AArch64.abi, AArch64.argRegs] using finSat 192 28 234)
 
 theorem sha512_224_init : Verified AArch64.target sha512_224H.init (Spec.Hmac.sha512_224I.initContract AArch64.abi 16) :=
   (Init.verified sha512_224OK sha512_224_initChecks (by decide) sha512_224_initImp.sat_left).of_implies sha512_224_initImp
@@ -563,13 +563,13 @@ theorem sha512_256_finChecks : Finalize.Checks sha512_256H :=
   Finalize.Checks.of_sizes (H := sha384H) rfl rfl rfl sha384_finChecks ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
     ⟨_, by taint_decide⟩
 
-theorem sha512_256_initImp : (initG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.initContract AArch64.abi 16) :=
-  initImp Spec.Hmac.sha512_256S 96
+theorem sha512_256_initImp : (initG Spec.Hmac.sha512_256S 234).Implies (Spec.Hmac.sha512_256I.initContract AArch64.abi 16) :=
+  initImp Spec.Hmac.sha512_256S 234
     sha384_initImp.sat
 
-theorem sha512_256_finImp : (finG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.finalizeContract AArch64.abi 16) :=
-  finImp Spec.Hmac.sha512_256S 96 (by
-    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, finG, stk, AArch64.abi, AArch64.argRegs] using finSat 192 32 96)
+theorem sha512_256_finImp : (finG Spec.Hmac.sha512_256S 234).Implies (Spec.Hmac.sha512_256I.finalizeContract AArch64.abi 16) :=
+  finImp Spec.Hmac.sha512_256S 234 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, finG, stk, AArch64.abi, AArch64.argRegs] using finSat 192 32 234)
 
 theorem sha512_256_init : Verified AArch64.target sha512_256H.init (Spec.Hmac.sha512_256I.initContract AArch64.abi 16) :=
   (Init.verified sha512_256OK sha512_256_initChecks (by decide) sha512_256_initImp.sat_left).of_implies sha512_256_initImp

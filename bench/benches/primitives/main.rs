@@ -25,6 +25,9 @@ mod hmac_sha256;
 mod hmac_sha384;
 mod hmac_sha512;
 mod md5;
+mod mldsa44;
+mod mldsa65;
+mod mldsa87;
 mod mlkem1024;
 mod mlkem768;
 mod pbkdf2_sha1;
@@ -36,6 +39,7 @@ mod sha1;
 mod sha256;
 mod sha3;
 mod sha512;
+mod x25519;
 
 const SIZES: [usize; 3] = [64, 1024, 16384];
 
@@ -146,6 +150,9 @@ const BENCHES: &[Bench] = &[
     (hmac_sha384::USES, hmac_sha384::bench),
     (hmac_sha512::USES, hmac_sha512::bench),
     (md5::USES, md5::bench),
+    (mldsa44::USES, mldsa44::bench),
+    (mldsa65::USES, mldsa65::bench),
+    (mldsa87::USES, mldsa87::bench),
     (mlkem1024::USES, mlkem1024::bench),
     (mlkem768::USES, mlkem768::bench),
     (pbkdf2_sha1::USES, pbkdf2_sha1::bench),
@@ -157,6 +164,7 @@ const BENCHES: &[Bench] = &[
     (sha256::USES, sha256::bench),
     (sha3::USES, sha3::bench),
     (sha512::USES, sha512::bench),
+    (x25519::USES, x25519::bench),
 ];
 
 /// Runs the benchmarks that use any of the modules in `$VG_BENCH_MODULES`
