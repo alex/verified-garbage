@@ -333,27 +333,29 @@ theorem zmTab_lt (k : Nat) : zmTab k < 65536 := by
 theorem zmTab_eq (k : Nat) : zmTab k = (zeta k).val * 65536 % 3329 := by
   rw [zmTab, zeta, val_pow, Nat.mod_mul_mod]; rfl
 
-/-- The table, stored at `scratch` (`rsi`), through `r9`. -/
-theorem wordTab_ok {sP : Addr} {s : State} (hsi : s.gpr .rsi = sP) (hw : pR sP ∈ s.wr) :
-    WP isa (.block (wordTab zmTab 128 .rsi 0)) s fun s' => T16 s'.mem sP ∧
+/-- A table of 128 words `t k`, stored at `sP` (in `r`), through `r9`. -/
+theorem wordTab_gen (t : Nat → Nat) (ht : ∀ k, t k < 65536) {r : Reg} (hr : r ≠ .r9) {sP : Addr} {s : State}
+    (hsi : s.gpr r = sP) (hw : pR sP ∈ s.wr) :
+    WP isa (.block (wordTab t 128 r 0)) s fun s' => (∀ k < 128, (wordAt s'.mem sP k).toNat = t k) ∧
       Frame [⟨sP, 256⟩] s.mem s'.mem ∧ Keep [.r9] s s' ∧ s'.mxcsr = s.mxcsr ∧ s'.xmm = s.xmm := by
   refine WP.mono (wp_range_flatMap (M := isa) (N := 32) (fun i w =>
-      (∀ k < 4 * i, (wordAt w.mem sP k).toNat = zmTab k) ∧ Frame [⟨sP, 256⟩] s.mem w.mem ∧
+      (∀ k < 4 * i, (wordAt w.mem sP k).toNat = t k) ∧ Frame [⟨sP, 256⟩] s.mem w.mem ∧
         Keep [.r9] s w ∧ w.mxcsr = s.mxcsr ∧ w.xmm = s.xmm)
     (fun i w hi ⟨hT, hf, hk, hm, hx⟩ => ?_) 32 (Nat.le_refl _) s
     ⟨fun _ h => absurd h (by omega), Frame.refl _ _, Keep.refl _ _, rfl, rfl⟩)
-    fun w ⟨hT, hf, hk, hm, hx⟩ => ⟨fun k hk' => by rw [hT k (by omega), zmTab_eq], hf, hk, hm, hx⟩
-  have hsi' : w.gpr .rsi = sP := by rw [hk.gpr (by decide), hsi]
+    fun w ⟨hT, hf, hk, hm, hx⟩ => ⟨fun k hk' => hT k (by omega), hf, hk, hm, hx⟩
+  have hsi' : w.gpr r = sP := by
+    rw [hk.gpr (by simp only [List.mem_singleton]; exact hr), hsi]
   have w0 : InRegions w.wr (sP + BitVec.ofNat 64 (0 + 8 * i)) 8 :=
     ⟨_, by rw [hk.2.2]; exact hw, Offset.contains_base sP (by omega) (by omega)⟩
-  have hV : ∀ e < 4, ((BitVec.ofNat 64 (zmTab (4 * i) + 2 ^ 16 * zmTab (4 * i + 1) +
-      2 ^ 32 * zmTab (4 * i + 2) + 2 ^ 48 * zmTab (4 * i + 3))).extractLsb' (16 * e) 16).toNat =
-        zmTab (4 * i + e) := fun e he => by
-    rw [quad_word (zmTab_lt _) (zmTab_lt _) (zmTab_lt _) (zmTab_lt _) he]
+  have hV : ∀ e < 4, ((BitVec.ofNat 64 (t (4 * i) + 2 ^ 16 * t (4 * i + 1) +
+      2 ^ 32 * t (4 * i + 2) + 2 ^ 48 * t (4 * i + 3))).extractLsb' (16 * e) 16).toNat =
+        t (4 * i + e) := fun e he => by
+    rw [quad_word (ht _) (ht _) (ht _) (ht _) he]
     rcases (by omega : e = 0 ∨ e = 1 ∨ e = 2 ∨ e = 3) with rfl | rfl | rfl | rfl <;> rfl
-  vrunm [hsi', w0]
-  generalize BitVec.ofNat 64 (zmTab (4 * i) + 2 ^ 16 * zmTab (4 * i + 1) +
-      2 ^ 32 * zmTab (4 * i + 2) + 2 ^ 48 * zmTab (4 * i + 3)) = V at hV ⊢
+  vrunm [hsi', w0, hr]
+  generalize BitVec.ofNat 64 (t (4 * i) + 2 ^ 16 * t (4 * i + 1) +
+      2 ^ 32 * t (4 * i + 2) + 2 ^ 48 * t (4 * i + 3)) = V at hV ⊢
   refine ⟨fun k hk' => ?_, hf.writeW (List.mem_singleton_self _) _
       (Offset.contains_base sP (by omega) (by omega)),
     ⟨fun r hr => ?_, hk.2.1, hk.2.2⟩, hm, hx⟩
@@ -367,5 +369,12 @@ theorem wordTab_ok {sP : Addr} {s : State} (hsi : s.gpr .rsi = sP) (hw : pR sP �
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     simp only [RegUpd.gpr_setReg, hr, ite_false]
     exact hk.1 r (by simp [hr])
+
+/-- The table of zetas, stored at `scratch` (`rsi`), through `r9`. -/
+theorem wordTab_ok {sP : Addr} {s : State} (hsi : s.gpr .rsi = sP) (hw : pR sP ∈ s.wr) :
+    WP isa (.block (wordTab zmTab 128 .rsi 0)) s fun s' => T16 s'.mem sP ∧
+      Frame [⟨sP, 256⟩] s.mem s'.mem ∧ Keep [.r9] s s' ∧ s'.mxcsr = s.mxcsr ∧ s'.xmm = s.xmm :=
+  WP.mono (wordTab_gen zmTab zmTab_lt (by decide) hsi hw) fun _ ⟨hT, rest⟩ =>
+    ⟨fun k hk => by rw [hT k hk, zmTab_eq], rest⟩
 
 end VG.Proof.MlKem.X86_64
