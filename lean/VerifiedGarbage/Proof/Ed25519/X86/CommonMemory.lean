@@ -96,10 +96,10 @@ theorem restore_eq : restore = [.mov .eax (.reg .edi), .mov .ebx (.mem (at_ .eax
     .mov .ebp (.mem (at_ .eax 12)), .mov .edi (.mem (at_ .eax 8))] := rfl
 
 /-- The saved registers restored. -/
-theorem abiRestore_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
+theorem abiRestore_regs_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
     WP isa (.block restore) s fun s' => s'.mem = s.mem ∧ s'.gpr .esp = s.gpr .esp ∧
       s'.gpr .ebx = wd s.mem x 0 ∧ s'.gpr .esi = wd s.mem x 4 ∧ s'.gpr .ebp = wd s.mem x 12 ∧
-      s'.gpr .edi = wd s.mem x 8 := by
+      s'.gpr .edi = wd s.mem x 8 ∧ s'.gpr .edx = s.gpr .edx ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   rw [restore_eq]
   refine Wp.wp_mov fun s₁ u₁ => ?_
   have ea : s₁.gpr .eax = x := by rw [u₁.gpr, hc.edi]
@@ -115,11 +115,22 @@ theorem abiRestore_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
     fun s₅ u₅ => WP.block_nil ?_
   refine ⟨by rw [u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem],
     by rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), u₂.other _ (by decide),
-      u₁.other _ (by decide)], ?_, ?_, ?_, ?_⟩
+      u₁.other _ (by decide)], ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide), u₂.gpr, u₁.mem]
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.mem, u₁.mem]
   · rw [u₅.other _ (by decide), u₄.gpr, u₃.mem, u₂.mem, u₁.mem]
   · rw [u₅.gpr, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
+
+  · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.other _ (by decide),
+      u₂.other _ (by decide), u₁.other _ (by decide)]
+  · rw [u₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd]
+  · rw [u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr]
+
+theorem abiRestore_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
+    WP isa (.block restore) s fun s' => s'.mem = s.mem ∧ s'.gpr .esp = s.gpr .esp ∧
+      s'.gpr .ebx = wd s.mem x 0 ∧ s'.gpr .esi = wd s.mem x 4 ∧ s'.gpr .ebp = wd s.mem x 12 ∧
+      s'.gpr .edi = wd s.mem x 8 :=
+  WP.mono (abiRestore_regs_ok hc) fun _ h => ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.1, h.2.2.2.2.1, h.2.2.2.2.2.1⟩
 
 theorem loadArg_ok {s₀ s : State} {scidx argc i : Nat} (hp : ScratchPre s₀ scidx argc)
     (h : Saved s₀ (arg s₀ scidx) s) (hi : i < argc) :
