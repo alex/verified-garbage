@@ -393,6 +393,42 @@ theorem setOk (hτ : tau σ ≤ 256) {t : Nat} (ht : t < 264) {s : State} (h : T
       · subst eik; rw [ifT rfl, ifT rfl, ← coeffAt_eq, l.st _ (by omega)]
       · rw [ifF eik, ifF eik]; exact l.st k hk
 
+omit hp in
+/-- `M2` when iteration `t` changes nothing. -/
+theorem M2.of_same {t : Nat} {s : State} (l : BAt σ t s) (hst : St σ (t + 1) = St σ t) : M2 σ t s :=
+  ⟨l.env, l.out, l.r0, by rw [hst]; exact l.r2, by rw [hst]; exact l.sg, l.r3, by rw [hst]; exact l.st⟩
+
+theorem tryB (hτ : tau σ ≤ 256) {t : Nat} (ht : t < 264) {s : State} (h : T1 σ t s) :
+    WP isa (.ite .eq bSet (.block [])) s (M2 σ t) := by
+  refine WP.ite s.z rfl (fun e => setOk hp hτ ht h e) (fun e => ?_)
+  have hj : (St σ t).2 < (Xb σ t).toNat := by
+    have := h.z; rw [e] at this; exact Nat.lt_of_not_le (of_decide_eq_false this.symm)
+  have hst := St_succ σ ht
+  rw [bStep, ifT h.lt, ifT hj] at hst
+  exact WP.block_nil (M2.of_same h.bat hst)
+
+theorem pieceB (hτ : tau σ ≤ 256) {t : Nat} (ht : t < 264) {s : State} (h : M1 σ t s) :
+    WP isa (.ite .eq (.block []) bTry) s (M2 σ t) := by
+  refine WP.ite s.z rfl (fun e => ?_) (fun e => WP.seq (WP.mono (tryA hp ht h e) fun _ h1 => tryB hp hτ ht h1))
+  have hl : (St σ t).2 = 256 := by
+    have := h.z; rw [e] at this; simp at this; have := St_le σ t; omega
+  exact WP.block_nil (M2.of_same h.bat (by rw [St_succ σ ht, bStep_full hl]))
+
+omit hp in
+theorem pieceC {t : Nat} (ht : t < 264) {s : State} (h : M2 σ t s) :
+    WP isa (.block (step 1)) s fun s' => BAt σ (t + 1) s' ∧ s'.z = decide (t + 1 = 264) := by
+  refine WP.mono (step_ok s (k := 1) (by decide)) fun s' ⟨r0, r3, z, g, m, rd, wr, sp⟩ =>
+    ⟨⟨h.env.same m (g _ (by decide) (by decide)) (g _ (by decide) (by decide)) rd wr sp, by rw [m]; exact h.out,
+      by rw [r0, h.r0, ptr_add_add32, Nat.add_assoc], by rw [g _ (by decide) (by decide)]; exact h.r2,
+      by show _ = _; rw [g _ (by decide) (by decide), g _ (by decide) (by decide)]; exact h.sg,
+      by rw [r3, h.r3]; exact count_sub (k := 1) ht, by rw [m]; exact h.st⟩, ?_⟩
+  rw [z, h.r3]; exact count_z (k := 1) ht (by decide) (by decide)
+
+/-- An iteration. -/
+theorem body_ok (hτ : tau σ ≤ 256) {t : Nat} (ht : t < 264) {s : State} (h : BAt σ t s) :
+    WP isa bBody s fun s' => BAt σ (t + 1) s' ∧ s'.z = decide (t + 1 = 264) :=
+  WP.seq (WP.mono (pieceA h) fun _ h1 => WP.seq (WP.mono (pieceB hp hτ ht h1) fun _ h2 => pieceC ht h2))
+
 end
 
 end VG.Proof.MlDsa.Arm.Sample.Ball

@@ -51,6 +51,7 @@ structure LD (P : Sp) (σ : State) (X : List Byte) (t : Nat) (L : List Zq) (s : 
 /-- After the high half-byte: in `r9`, and `Z` set iff `j ≥ 256`. -/
 structure HI (P : Sp) (σ : State) (X : List Byte) (t : Nat) (L : List Zq) (s : State) : Prop where
   base : Base P σ X t L s
+  r8 : s.gpr .r8 = BitVec.setWidth 32 (zAt X t)
   r9 : s.gpr .r9 = BitVec.ofNat 32 ((zAt X t).toNat / 16)
   z : s.z = decide (256 ≤ L.length)
 
@@ -105,8 +106,9 @@ theorem hi_ok {P : Sp} {σ : State} {X : List Byte} {t : Nat} {L : List Zq} {s :
   have b1 : Base P σ X t L (s.setReg .r9 (BitVec.ofNat 32 ((zAt X t).toNat / 16))) :=
     h.regs (fun r _ h9 _ _ => RegUpd.gpr_setReg_of_ne _ _ h9) rfl rfl rfl rfl
   refine WP.mono (jFull_ok _ b1.r2 (lt31 b1.len)) fun s2 ⟨hz, hg2, hm2, hrd2, hwr2, hsp2⟩ =>
-    ⟨b1.regs (fun r _ _ _ h11 => hg2 r h11) hm2 hrd2 hwr2 hsp2, ?_, hz⟩
-  rw [hg2 .r9 (by decide), RegUpd.gpr_setReg_self]
+    ⟨b1.regs (fun r _ _ _ h11 => hg2 r h11) hm2 hrd2 hwr2 hsp2, ?_, ?_, hz⟩
+  · rw [hg2 .r8 (by decide), RegUpd.gpr_setReg_of_ne _ _ (by decide), h8]
+  · rw [hg2 .r9 (by decide), RegUpd.gpr_setReg_self]
 
 /-- The coefficients after an iteration's tries, from the byte `z`. -/
 theorem rbStep_eq (η : Nat) (L : List Zq) (z : Byte) :
