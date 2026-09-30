@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.MlDsa.KeyGen.Rest
 import VerifiedGarbage.Proof.MlDsa.KeyGen.Leak
+import VerifiedGarbage.Proof.MlDsa.KeyGen.Masked
 
 /-!
 # ML-DSA key generation: the result of the samplers, for every target
@@ -19,13 +20,6 @@ namespace VG.Proof.MlDsa.KeyGen
 
 open VG.Spec.MlDsa
 
-/-- The coefficients of `x` are in `[-η, η]`. -/
-def Small (η : Nat) (x : IPoly) : Prop := ∀ c ∈ x.toList, -(η : Int) ≤ c ∧ c ≤ η
-
-theorem small_zero (η : Nat) : Small η (Vector.replicate 256 0) := fun c hc => by
-  rw [Vector.mem_toList_iff, Vector.mem_replicate] at hc
-  rw [hc.2]; omega
-
 /-- The AND of the results so far, after the first `e` entries of `Â` and `r`
 of `s₁ ‖ s₂` of key generation from `ξ`. -/
 def Good (p : Params) (ξ : List Byte) (e r : Nat) (A : Nat → Poly) (S : Nat → IPoly) (v : BitVec 32) : Prop :=
@@ -41,11 +35,6 @@ theorem good_01 {p : Params} {ξ : List Byte} {e r : Nat} {A : Nat → Poly} {S 
 
 theorem good_zero (p : Params) (ξ : List Byte) (A : Nat → Poly) (S : Nat → IPoly) : Good p ξ 0 0 A S 1 :=
   .inl ⟨rfl, ⟨0, 0, 0, 0⟩, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩
-
-theorem outcome_01 {α : Type} {f : Bounds → Option α} {r : BitVec 32} {out : α}
-    (h : Outcome f r out) : r = 0 ∨ r = 1 := by
-  rcases h with ⟨h, _⟩ | ⟨h, _⟩
-  exacts [.inr h, .inl h]
 
 theorem and_01 {v r : BitVec 32} (hv : v = 0 ∨ v = 1) (hr : r = 0 ∨ r = 1) :
     v &&& r = if v = 1 ∧ r = 1 then 1 else 0 := by
@@ -132,25 +121,5 @@ theorem outcome_keyGen {p : Params} {ξ : List Byte} {A : Nat → Poly} {S : Nat
   · exact .inr ⟨rfl, hn⟩
 
 /-! ## A masked polynomial -/
-
-theorem polyAt_coeff {m m' : Mem} {q : Addr} (h : ∀ i < 256, coeffAt m' q i = coeffAt m q i) :
-    polyAt m' q = polyAt m q :=
-  Vector.ext fun i hi => by simp only [polyAt, Vector.getElem_ofFn, h i hi]
-
-/-- Kept if the sampler succeeded. -/
-theorem masked_one {m m' : Mem} {q : Addr} {r : BitVec 32} (hr : r = 1)
-    (h : ∀ i < 256, coeffAt m' q i = if r = 1 then coeffAt m q i else 0) :
-    polyAt m' q = polyAt m q ∧ (Reduced m q → Reduced m' q) := by
-  have h' : ∀ i < 256, coeffAt m' q i = coeffAt m q i := fun i hi => by rw [h i hi, ifp hr]
-  exact ⟨polyAt_coeff h', fun hq i hi => by rw [h' i hi]; exact hq i hi⟩
-
-/-- Zero if it failed. -/
-theorem masked_zero {m m' : Mem} {q : Addr} {r : BitVec 32} (hr : r ≠ 1)
-    (h : ∀ i < 256, coeffAt m' q i = if r = 1 then coeffAt m q i else 0) :
-    PolyIs m' q (toRq (Vector.replicate 256 0)) := by
-  have h' : ∀ i < 256, coeffAt m' q i = 0 := fun i hi => by rw [h i hi, ifn hr]
-  refine ⟨fun i hi => by rw [h' i hi]; decide, Vector.ext fun i hi => ?_⟩
-  simp only [polyAt, Vector.getElem_ofFn, h' i hi, toRq, Vector.getElem_map, Vector.getElem_replicate]
-  rfl
 
 end VG.Proof.MlDsa.KeyGen
