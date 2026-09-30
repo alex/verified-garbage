@@ -167,7 +167,7 @@ theorem decaps1024_correct (σ : State) (hp : decaps1024K.pre σ) :
           WP.seq (WP.mono (select_okD h₄) fun s₅ h₅ =>
             WP.mono (topEpi_ok h₅.dc.top (h₅.hin hp)) fun s₆ ⟨hr, hg, hm⟩ =>
               (⟨hg, post_of h₅ hr hm⟩ : gprPreserved σ s₆ ∧ decaps1024K.post σ s₆))))))
-  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he hF.1, hF.2⟩
+  exact ⟨t, s', he, abiPreserved_of_ctl (by decide +kernel) he hF.1, hF.2⟩
 
 /-! ## Constant time -/
 
