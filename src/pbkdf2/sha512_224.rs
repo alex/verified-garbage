@@ -25,7 +25,8 @@ use crate::arch::pbkdf2_sha512_224::vg_pbkdf2_hmac_sha512_224;
 use crate::arch::pbkdf2_sha512_224::vg_pbkdf2_hmac_sha512_224_iterate;
 #[cfg(target_arch = "x86_64")]
 use crate::arch::pbkdf2_sha512_224::{
-    VG_PBKDF2_HMAC_SHA512_224_SHANI_FEATURES, VG_PBKDF2_HMAC_SHA512_224_AVX2_FEATURES, vg_pbkdf2_hmac_sha512_224_shani, vg_pbkdf2_hmac_sha512_224_avx2,
+    VG_PBKDF2_HMAC_SHA512_224_AVX2_FEATURES, VG_PBKDF2_HMAC_SHA512_224_SHANI_FEATURES,
+    vg_pbkdf2_hmac_sha512_224_avx2, vg_pbkdf2_hmac_sha512_224_shani,
 };
 use crate::hashes::sha512::{Sha512_224, Sha512_224Backend};
 

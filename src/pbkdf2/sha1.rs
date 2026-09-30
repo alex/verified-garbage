@@ -23,9 +23,7 @@ use crate::arch::pbkdf2_sha1::vg_pbkdf2_hmac_sha1;
 #[cfg(any(target_arch = "arm", target_arch = "x86"))]
 use crate::arch::pbkdf2_sha1::vg_pbkdf2_hmac_sha1_iterate;
 #[cfg(target_arch = "x86_64")]
-use crate::arch::pbkdf2_sha1::{
-    VG_PBKDF2_HMAC_SHA1_SHANI_FEATURES, vg_pbkdf2_hmac_sha1_shani,
-};
+use crate::arch::pbkdf2_sha1::{VG_PBKDF2_HMAC_SHA1_SHANI_FEATURES, vg_pbkdf2_hmac_sha1_shani};
 use crate::hashes::sha1::{Sha1, Sha1Backend};
 
 #[cfg(any(target_arch = "arm", target_arch = "x86"))]
