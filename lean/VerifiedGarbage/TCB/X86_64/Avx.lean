@@ -15,6 +15,7 @@ each 128-bit lane as the legacy SSE instruction does on its destination
 inductive VBinOp
   | vpaddd | vpaddq | vpxor | vpor | vpand | vpandn | vpshufb | vpmuludq
   | vpunpckldq | vpunpckhdq | vpunpcklqdq | vpunpckhqdq
+  | vpaddw | vpsubw | vpsubd | vpmullw | vpmulhw | vpackssdw | vpunpcklwd | vpunpckhwd
   deriving DecidableEq, Repr
 
 /-- AVX2 shifts of each element by the count in the corresponding element
@@ -66,16 +67,21 @@ into `DEST[127:0]`, then of `SRC1[255:128]` and `SRC2[255:128]` into
 `DEST[255:128]`); `VEX.128` versions compute lane 0 only and zero the rest. -/
 
 /-- The legacy SSE instruction whose operation `op` applies to each lane:
-VPADDD, VPADDQ, VPXOR, VPOR, VPAND, VPANDN, VPSHUFB, VPMULUDQ and
-VPUNPCK{L,H}{DQ,QDQ} are, lane by lane, PADDD, PADDQ, PXOR, POR, PAND,
-PANDN, PSHUFB, PMULUDQ and PUNPCK{L,H}{DQ,QDQ} (SDM Vol. 2, each
-instruction's "VEX.256 encoded version" pseudocode, with `SRC1` in place of
-the destination). -/
+VPADDD, VPADDQ, VPXOR, VPOR, VPAND, VPANDN, VPSHUFB, VPMULUDQ,
+VPUNPCK{L,H}{DQ,QDQ}, VPADDW, VPSUBW, VPSUBD, VPMULLW, VPMULHW, VPACKSSDW
+and VPUNPCK{L,H}WD are, lane by lane, PADDD, PADDQ, PXOR, POR, PAND, PANDN,
+PSHUFB, PMULUDQ, PUNPCK{L,H}{DQ,QDQ}, PADDW, PSUBW, PSUBD, PMULLW, PMULHW,
+PACKSSDW and PUNPCK{L,H}WD (SDM Vol. 2, each instruction's "VEX.256 encoded
+version" pseudocode, with `SRC1` in place of the destination; VPACKSSDW
+and VPUNPCK{L,H}WD pack and interleave within each 128-bit lane). -/
 def VBinOp.sse : VBinOp → XBinOp
   | .vpaddd => .paddd | .vpaddq => .paddq | .vpxor => .pxor | .vpor => .por
   | .vpand => .pand | .vpandn => .pandn | .vpshufb => .pshufb | .vpmuludq => .pmuludq
   | .vpunpckldq => .punpckldq | .vpunpckhdq => .punpckhdq
   | .vpunpcklqdq => .punpcklqdq | .vpunpckhqdq => .punpckhqdq
+  | .vpaddw => .paddw | .vpsubw => .psubw | .vpsubd => .psubd | .vpmullw => .pmullw
+  | .vpmulhw => .pmulhw | .vpackssdw => .packssdw | .vpunpcklwd => .punpcklwd
+  | .vpunpckhwd => .punpckhwd
 
 /-- SDM Vol. 2, "VPBLENDD", for one lane (`imm` holding that lane's four
 selector bits): `IF (imm8[i]) THEN DEST[32i+31:32i] := SRC2[32i+31:32i]
@@ -127,9 +133,10 @@ def perm2Lanes (a b : Nat → BitVec 128) (sel : BitVec 8) (j : Nat) : BitVec 12
 /-- Semantics of an AVX instruction that writes only vector registers. SDM
 Vol. 2 (no flags are affected; `VEX.128` versions zero `DEST[MAXVL-1:128]`):
 
-* The lane-wise instructions: see `VBinOp.sse`, `XShiftOp.eval` (VPSLLD,
-  VPSRLD, VPSLLQ, VPSRLQ, VPSLLDQ and VPSRLDQ with an immediate count, each
-  lane as the legacy SSE form on `SRC`), `shufDwords` (VPSHUFD, each lane
+* The lane-wise instructions: see `VBinOp.sse`, `XShiftOp.eval` (VPSLLW,
+  VPSRLW, VPSRAW, VPSLLD, VPSRLD, VPSRAD, VPSLLQ, VPSRLQ, VPSLLDQ and
+  VPSRLDQ with an immediate count, each lane as the legacy SSE form on
+  `SRC`), `shufDwords` (VPSHUFD, each lane
   with the same `imm8`), `alignRight` (VPALIGNR: `temp1[255:0] :=
   ((SRC1[127:0] << 128) OR SRC2[127:0]) >> (imm8*8)`, and likewise for
   bits 255:128), `blendDwords` (VPBLENDD, lane `j` selected by

@@ -73,10 +73,11 @@ trustworthy. Read `lean/README.md` first.
   the namespace `VG.Spec`. The emitter refuses both (`TCB/Audit.lean`).
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
-* On x86-64, `pmuludq` and `vpmuludq` may only take secret operands between
-  Intel's MXCSR prologue and epilogue (`stmxcsr`, `ldmxcsr` of `0x1FBF`,
-  `lfence`, … `lfence`, `ldmxcsr` of the saved value), which the proofs do
-  not check: see "MCDT" in `lean/VerifiedGarbage/TCB/X86_64/Isa.lean`.
+* On x86-64, `pmuludq`, `pmullw`, `pmulhw` and their VEX forms may only take
+  secret operands between Intel's MXCSR prologue and epilogue (`stmxcsr`,
+  `ldmxcsr` of `0x1FBF`, `lfence`, … `lfence`, `ldmxcsr` of the saved
+  value), which the proofs do not check: see "MCDT" in
+  `lean/VerifiedGarbage/TCB/X86_64/Isa.lean`.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
   `Proof/`. `Spec/` and `Impl/` never import `Proof/`.
 
