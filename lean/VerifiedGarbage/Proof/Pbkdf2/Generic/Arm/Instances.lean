@@ -1098,9 +1098,9 @@ theorem sha384_checks : Checks sha384H where
   xor := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha384_imp : (iterG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.iterateContract Arm.abi 16) :=
-  iterImp Spec.Hmac.sha384S 96 (by
-    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using iterSat 192 48 96)
+theorem sha384_imp : (iterG Spec.Hmac.sha384S 234).Implies (Spec.Hmac.sha384I.iterateContract Arm.abi 16) :=
+  iterImp Spec.Hmac.sha384S 234 (by
+    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using iterSat 192 48 234)
 
 theorem sha384 : Verified Arm.target (Impl.Pbkdf2.Generic.Arm.iterate sha384H)
     (Spec.Hmac.sha384I.iterateContract Arm.abi 16) :=
@@ -1123,9 +1123,9 @@ theorem sha512_checks : Checks sha512H' where
   xor := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha512_imp : (iterG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.iterateContract Arm.abi 16) :=
-  iterImp Spec.Hmac.sha512S 96 (by
-    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using iterSat 192 64 96)
+theorem sha512_imp : (iterG Spec.Hmac.sha512S 234).Implies (Spec.Hmac.sha512I.iterateContract Arm.abi 16) :=
+  iterImp Spec.Hmac.sha512S 234 (by
+    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using iterSat 192 64 234)
 
 theorem sha512 : Verified Arm.target (Impl.Pbkdf2.Generic.Arm.iterate sha512H')
     (Spec.Hmac.sha512I.iterateContract Arm.abi 16) :=
@@ -1148,9 +1148,9 @@ theorem sha512_224_checks : Checks sha512_224H where
   xor := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha512_224_imp : (iterG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.iterateContract Arm.abi 16) :=
-  iterImp Spec.Hmac.sha512_224S 96 (by
-    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using iterSat 192 28 96)
+theorem sha512_224_imp : (iterG Spec.Hmac.sha512_224S 234).Implies (Spec.Hmac.sha512_224I.iterateContract Arm.abi 16) :=
+  iterImp Spec.Hmac.sha512_224S 234 (by
+    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using iterSat 192 28 234)
 
 theorem sha512_224 : Verified Arm.target (Impl.Pbkdf2.Generic.Arm.iterate sha512_224H)
     (Spec.Hmac.sha512_224I.iterateContract Arm.abi 16) :=
@@ -1173,9 +1173,9 @@ theorem sha512_256_checks : Checks sha512_256H where
   xor := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha512_256_imp : (iterG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.iterateContract Arm.abi 16) :=
-  iterImp Spec.Hmac.sha512_256S 96 (by
-    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using iterSat 192 32 96)
+theorem sha512_256_imp : (iterG Spec.Hmac.sha512_256S 234).Implies (Spec.Hmac.sha512_256I.iterateContract Arm.abi 16) :=
+  iterImp Spec.Hmac.sha512_256S 234 (by
+    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, iterG, below, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr] using iterSat 192 32 234)
 
 theorem sha512_256 : Verified Arm.target (Impl.Pbkdf2.Generic.Arm.iterate sha512_256H)
     (Spec.Hmac.sha512_256I.iterateContract Arm.abi 16) :=
