@@ -154,7 +154,7 @@ macro_rules
       simp (config := { decide := true }) only [sepB, sepAll, inB, lay_sizes, List.getD_cons_zero,
         List.getD_cons_succ, List.length_cons, List.length_nil, List.all_cons, List.all_nil, tri, ix,
         Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq, bne_iff_ne, ne_eq, Bool.and_true, Bool.true_and,
-        true_and, and_true, oP, oSS, oKL, oHX, oSA, oSB, oT0, $ls,*]
+        true_and, and_true, true_or, or_true, Nat.zero_add, oP, oSS, oKL, oHX, oSA, oSB, oT0, $ls,*]
       and_intros <;> omega_arith))
 
 end VG.Proof.MlDsa.Arm.KeyGen

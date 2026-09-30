@@ -121,6 +121,58 @@ theorem hashS {K : Nat → Bool}
     simp only [Lay.pb, hashLay_ptr L s K (ix_ne1 _)] at this
     exact this
 
+/-- A piece of the sponge, in a buffer of the layout. -/
+theorem pieceS {K : Nat → Bool} {w : Bool} {p : Piece} (hb : argOk (.ptr (p.base, 0)) = true)
+    (hoe : encodable (BitVec.ofNat 32 p.off) = true) (hle : encodable (BitVec.ofNat 32 p.len) = true)
+    (hpos : 0 < p.len) (hlt : p.off + p.len < 2 ^ 32)
+    (hsep : sepAll (hashLay L s K).sizes (ix p.base, p.off, p.len) kRegs = true)
+    (hK : ix p.base = 0 ∨ K (ix p.base) = true) (hw : w = true → ix p.base ∈ Wb) :
+    PieceOk (hashLay L s K) ix s w p := by
+  have hi5 : ix p.base < 5 := by
+    simp only [argOk, Bool.or_eq_true, beq_iff_eq] at hb
+    rcases hb with ((h | h) | h) | h <;> rw [h] <;> decide
+  have e := hashLay_size L s (ix_ne1 p.base) hK hi5
+  refine ⟨base_pres hb, by rw [hashLay_ptr L s K (ix_ne1 _)]; exact hs.base hb, hoe, hle, hpos, hlt, hsep, ?_⟩
+  rw [hashLay_ptr L s K (ix_ne1 _), e]
+  cases w with
+  | true => exact hs.cw _ (hw rfl) (ix_ne1 _)
+  | false => exact hs.cr _ hi5 (ix_ne1 _)
+
+end
+
+/-! ## What a part keeps -/
+
+section
+variable {L : Lay} {Wb : List Nat} (hL : OkW L Wb) {W : List (Nat × Nat × Nat)} {m m' : Mem}
+  (hf : Frame (L.RL W) m m') {i o l : Nat} (h : sepAll L.sizes (i, o, l) W = true) (hw : i ∈ Wb)
+include hL hf h hw
+
+omit hf in
+theorem keepD : ∀ r ∈ L.RL W, (L.R i o l).Disjoint r := fun r hr => by
+  obtain ⟨w, hw', rfl⟩ := List.mem_map.mp hr
+  exact disjW hL (List.all_eq_true.mp h w hw') (.inl hw)
+
+theorem bytes_keepW (hl : l ≤ 2 ^ 64) : bytesAt m' (L.A i o) l = bytesAt m (L.A i o) l :=
+  Proof.MlKem.bytesAt_frame hf (keepD hL h hw) hl
+
+section
+variable (hl : l = 1024)
+include hl
+
+theorem polyIs_keepW {f : Spec.MlDsa.Poly} (hp : Spec.MlDsa.PolyIs m (L.A i o) f) : Spec.MlDsa.PolyIs m' (L.A i o) f :=
+  Proof.MlDsa.Verify.polyIs_frame hf (fun r hr => by have := keepD hL h hw r hr; subst hl; exact this) hp
+
+theorem reduced_keepW (hp : Spec.MlDsa.Reduced m (L.A i o)) : Spec.MlDsa.Reduced m' (L.A i o) :=
+  Proof.MlDsa.Verify.reduced_frame hf (fun r hr => by have := keepD hL h hw r hr; subst hl; exact this) hp
+
+theorem polyAt_keepW : Spec.MlDsa.polyAt m' (L.A i o) = Spec.MlDsa.polyAt m (L.A i o) :=
+  Proof.MlDsa.Verify.polyAt_frame hf (fun r hr => by have := keepD hL h hw r hr; subst hl; exact this)
+
+theorem natPolyAt_keepW : Spec.MlDsa.natPolyAt m' (L.A i o) = Spec.MlDsa.natPolyAt m (L.A i o) :=
+  Proof.MlDsa.Verify.natPolyAt_frame hf (fun r hr => by have := keepD hL h hw r hr; subst hl; exact this)
+
+end
+
 end
 
 end VG.Proof.MlDsa.Arm.KeyGen
