@@ -2,6 +2,7 @@ import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.Framework.Lit
 import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNttCT
 import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejBoundedCT
+import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.ExpandMask
 
 /-!
 # ML-DSA (FIPS 204) on x86-64: the sampling primitives
@@ -39,6 +40,15 @@ def artifacts : List Artifact := [
     contract := Spec.MlDsa.rejBoundedContract X86_64.abi 16
     stack := 16
     verified := Proof.MlDsa.X86_64.Sample.rejBounded_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.MlDsa.expandMaskApi with
+    target := X86_64.target
+    doc := Spec.MlDsa.expandMaskApi.doc (notes := ["It squeezes 640 bytes of SHAKE256 output (5 blocks, \
+      which hold the 576 or 640 bytes it unpacks) and unpacks four coefficients at a time."])
+    code := Impl.MlDsa.X86_64.Sample.expandMask
+    contract := Spec.MlDsa.expandMaskContract X86_64.abi 16
+    stack := 16
+    verified := Proof.MlDsa.X86_64.Sample.expandMask_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.MlDsaSample.X86_64
