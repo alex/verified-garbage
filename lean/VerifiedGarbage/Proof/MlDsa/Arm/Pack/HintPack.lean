@@ -401,11 +401,6 @@ theorem main_ok {s₀ : State} (hp : PPre s₀) {sA : State} (hA : MainPre s₀ 
 
 /-! ## The function -/
 
-theorem entry_ok {s : State} (ia : InRegions (s.rd ++ s.wr) (State.addr (s.sp + BitVec.ofNat 32 0)) 4) :
-    WP isa (.block [.ldrSp .r12 0]) s fun s' =>
-      s' = s.setReg .r12 (s.mem.readW (State.addr (s.sp + BitVec.ofNat 32 0)) 32) := by
-  run_block [ia]
-
 theorem ldr5_ok {s : State} (ia : InRegions (s.rd ++ s.wr) (State.addr (s.sp + BitVec.ofNat 32 4)) 4) :
     WP isa (.block [.ldrSp .r5 4]) s fun s' =>
       s' = s.setReg .r5 (s.mem.readW (State.addr (s.sp + BitVec.ofNat 32 4)) 32) := by

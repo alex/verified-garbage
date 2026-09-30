@@ -162,7 +162,7 @@ theorem sgn_word (b : Bool) :
 theorem and1_beq (x : BitVec 32) : ((x &&& 1) - 0 == 0) = decide (x.toNat % 2 = 0) := by
   have h1 : (x &&& 1).toNat = x.toNat % 2 := by
     rw [BitVec.toNat_and, show (1 : BitVec 32).toNat = 2 ^ 1 - 1 from rfl, Nat.and_two_pow_sub_one_eq_mod]
-  rw [BitVec.sub_zero]
+  rw [show (x &&& 1) - 0 = x &&& 1 from BitVec.sub_zero _]
   by_cases h : x.toNat % 2 = 0
   · rw [decide_eq_true h, beq_iff_eq]; exact BitVec.eq_of_toNat_eq (by rw [h1, h]; rfl)
   · rw [decide_eq_false h, beq_eq_false_iff_ne]
@@ -172,7 +172,7 @@ theorem and1_beq (x : BitVec 32) : ((x &&& 1) - 0 == 0) = decide (x.toNat % 2 = 
 theorem shr_or (x y : BitVec 32) :
     (x >>> 1 ||| y <<< 31).toNat = x.toNat / 2 + 2 ^ 31 * (y.toNat % 2) := by
   have hx : (x >>> 1).toNat = x.toNat / 2 := by
-    rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]; rfl
+    rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]
   have hy : (y <<< 31).toNat = 2 ^ 31 * (y.toNat % 2) := by
     rw [BitVec.toNat_shiftLeft, Nat.shiftLeft_eq]; omega
   rw [BitVec.toNat_or, hx, hy, Nat.or_comm, ← Nat.two_pow_add_eq_or_of_lt (by have := x.isLt; omega), Nat.add_comm]
@@ -188,7 +188,7 @@ theorem bSet1_ok (s : State) {A B : Addr} (hA : State.addr (s.gpr .r5 + s.gpr .r
         s'.sp = s.sp := by
   have hA' : State.addr (s.gpr .r5 + s.gpr .r8 <<< 2 + 0) = A := hA
   have hB' : State.addr (s.gpr .r5 + s.gpr .r2 <<< 2 + 0) = B := hB
-  run_block [hA', hB', hr, hw, and1_beq, and_self, and_true, true_and]
+  run_block [hA, hB, hA', hB', hr, hw, and1_beq, and_self, and_true, true_and]
   exact fun r h10 h11 h12 => by simp [h10, h11, h12]
 
 /-- The word of the sign, from `Z` = the sign bit is 0. -/
@@ -200,11 +200,11 @@ theorem bSign_ok (s : State) (b : Bool) (hz : s.z = !b) :
   · have hb : b = false := by rw [hz] at e; simpa using e
     subst hb
     run_block [and_self, and_true, true_and]
-    exact ⟨rfl, fun r h => by simp [h]⟩
+    exact fun r h => by simp [h]
   · have hb : b = true := by rw [hz] at e; simpa using e
     subst hb
     run_block [and_self, and_true, true_and]
-    exact ⟨rfl, fun r h => by simp [h]⟩
+    exact fun r h => by simp [h]
 
 theorem bSet3_ok (s : State) {A : Addr} (hA : State.addr (s.gpr .r10 + BitVec.ofNat 32 0) = A)
     (hw : InRegions s.wr A 4) :
@@ -216,5 +216,183 @@ theorem bSet3_ok (s : State) {A : Addr} (hA : State.addr (s.gpr .r10 + BitVec.of
         s'.sp = s.sp := by
   run_block [hA, hw, and_self, and_true, true_and]
   exact fun r h1 h2 h4 => by simp [h1, h2, h4]
+
+/-! ## An iteration -/
+
+/-- Byte `t` after the sign bits. -/
+abbrev Xb (σ : State) (t : Nat) : Byte := (X σ).getD (8 + t) 0
+
+theorem take_succ' (L : List Byte) {i : Nat} (h : i < L.length) : L.take (i + 1) = L.take i ++ [L.getD i 0] := by
+  rw [List.take_add_one, List.getElem?_eq_getElem h, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h]
+  rfl
+
+theorem St_succ (σ : State) {t : Nat} (ht : t < 264) :
+    St σ (t + 1) = bStep (tau σ) (signs (X σ)) (St σ t) (Xb σ t) := by
+  simp only [St]
+  rw [take_succ' _ (by rw [List.length_drop, X_length]; omega), bFold_snoc, List.getD_eq_getElem?_getD,
+    List.getElem?_drop, ← List.getD_eq_getElem?_getD]
+
+/-- At the start of iteration `t`. -/
+structure BAt (σ : State) (t : Nat) (s : State) : Prop where
+  env : Env (spOf σ) σ s
+  out : bytesAt s.mem ((spOf σ).at' 840) 272 = X σ
+  r0 : s.gpr .r0 = stackArg σ 0 + BitVec.ofNat 32 (848 + t)
+  r2 : s.gpr .r2 = BitVec.ofNat 32 (St σ t).2
+  sg : Sg σ (St σ t).2 s
+  r3 : s.gpr .r3 = BitVec.ofNat 32 (1 * (264 - t))
+  st : CStored s.mem (spOf σ).A (St σ t).1
+
+/-- `BAt` after code that writes no memory and keeps `r0`–`r6`. -/
+theorem BAt.same {σ s s' : State} {t : Nat} (h : BAt σ t s) (hm : s'.mem = s.mem)
+    (g : ∀ r ∈ [Reg.r0, .r1, .r2, .r3, .r4, .r5, .r6], s'.gpr r = s.gpr r) (rd : s'.rd = s.rd)
+    (wr : s'.wr = s.wr) (sp : s'.sp = s.sp) : BAt σ t s' :=
+  ⟨h.env.same hm (g .r5 (by simp)) (g .r6 (by simp)) rd wr sp, by rw [hm]; exact h.out,
+    (g .r0 (by simp)).trans h.r0, (g .r2 (by simp)).trans h.r2,
+    by show _ = _; rw [g .r1 (by simp), g .r4 (by simp)]; exact h.sg, (g .r3 (by simp)).trans h.r3,
+    by rw [hm]; exact h.st⟩
+
+/-- After the test of `i`. -/
+structure M1 (σ : State) (t : Nat) (s : State) : Prop where
+  bat : BAt σ t s
+  z : s.z = decide (256 ≤ (St σ t).2)
+
+/-- After the test of the byte `j`, if `i < 256`. -/
+structure T1 (σ : State) (t : Nat) (s : State) : Prop where
+  bat : BAt σ t s
+  lt : (St σ t).2 < 256
+  r8 : s.gpr .r8 = BitVec.ofNat 32 (Xb σ t).toNat
+  z : s.z = decide ((Xb σ t).toNat ≤ (St σ t).2)
+
+/-- After the coefficients of iteration `t`. -/
+structure M2 (σ : State) (t : Nat) (s : State) : Prop where
+  env : Env (spOf σ) σ s
+  out : bytesAt s.mem ((spOf σ).at' 840) 272 = X σ
+  r0 : s.gpr .r0 = stackArg σ 0 + BitVec.ofNat 32 (848 + t)
+  r2 : s.gpr .r2 = BitVec.ofNat 32 (St σ (t + 1)).2
+  sg : Sg σ (St σ (t + 1)).2 s
+  r3 : s.gpr .r3 = BitVec.ofNat 32 (1 * (264 - t))
+  st : CStored s.mem (spOf σ).A (St σ (t + 1)).1
+
+theorem pieceA {σ : State} {t : Nat} {s : State} (h : BAt σ t s) : WP isa (.block jFull) s (M1 σ t) :=
+  WP.mono (jFull_ok s h.r2 (by have := St_le σ t; omega)) fun _ ⟨z, g, m, rd, wr, sp⟩ =>
+    ⟨h.same m (fun r hr => g r (by simp at hr; rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide))
+      rd wr sp, z⟩
+
+theorem ldrb_ok (s : State) {A : Addr} (ha : State.addr (s.gpr .r0 + BitVec.ofNat 32 0) = A)
+    (hr : InRegions (s.rd ++ s.wr) A 1) :
+    WP isa (.block [.ldrb .r8 .r0 0]) s fun s' => s'.gpr .r8 = BitVec.ofNat 32 (s.mem A).toNat ∧
+      (∀ r, r ≠ .r8 → s'.gpr r = s.gpr r) ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.sp = s.sp := by
+  run_block [ha, hr, and_self, and_true, true_and]
+  refine ⟨BitVec.eq_of_toNat_eq ?_, fun r h => by simp [h]⟩
+  rw [setWidth32_toNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by have := (s.mem A).isLt; omega)]
+
+section
+variable {σ : State} (hp : SpOk (spOf σ) σ)
+include hp
+
+theorem tryA {t : Nat} (ht : t < 264) {s : State} (h : M1 σ t s) (hz : s.z = false) :
+    WP isa (.block [.ldrb .r8 .r0 0, .dp .sub .r11 .r2 (.reg .r8), .mov .r11 (.shifted .r11 .lsr 31),
+      .cmp .r11 (.imm 0)]) s (T1 σ t) := by
+  have hl : (St σ t).2 < 256 := by
+    have := h.z; rw [hz] at this; simp at this; omega
+  have l := h.bat
+  have ea : State.addr (s.gpr .r0 + BitVec.ofNat 32 0) = (spOf σ).at' (840 + (8 + t)) := by
+    rw [l.r0, ptr_add_add32, show 848 + t + 0 = 840 + (8 + t) by omega]; exact at_eq hp (by omega)
+  have hb : s.mem ((spOf σ).at' (840 + (8 + t))) = Xb σ t := by
+    have := congrArg (fun L => L.getD (8 + t) 0) l.out
+    rw [MlKem.bytesAt_getD _ _ (by omega), add_ofNat_add] at this
+    exact this
+  rw [← List.singleton_append, WP.block_append_iff]
+  refine WP.mono (ldrb_ok s ea (inScrRd hp l.env (by omega))) fun s1 ⟨g8, g1, m1, rd1, wr1, sp1⟩ => ?_
+  rw [hb] at g8
+  have l1 : BAt σ t s1 := l.same m1 (fun r hr => g1 r (by
+    simp at hr; rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide)) rd1 wr1 sp1
+  have hj := (Xb σ t).isLt
+  refine WP.mono (sgn_ok s1 .r2 (.reg .r8) (y := BitVec.ofNat 32 (Xb σ t).toNat) (by simp [Op2.eval, g8])
+    (by rw [l1.r2, toNat_ofNat32 (by omega)]; omega) (by rw [toNat_ofNat32 (by omega)]; omega))
+    fun s2 ⟨z2, g2, m2, rd2, wr2, sp2⟩ => ⟨l1.same m2 (fun r hr => g2 r (by
+      simp at hr; rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide)) rd2 wr2 sp2, hl,
+      by rw [g2 _ (by decide), g8], ?_⟩
+  rw [z2, l1.r2, toNat_ofNat32 (by omega), toNat_ofNat32 (by omega)]
+
+omit hp in
+/-- The sign bit of `i`, from the sign bits not yet used. -/
+theorem sign_bit {i : Nat} (hτ : tau σ ≤ 256) (hi0 : i0 σ ≤ i) {s : State} (hs : Sg σ i s) :
+    decide ((s.gpr .r1).toNat % 2 = 0) = !(signs (X σ)).getD (i + tau σ - 256) false := by
+  have hs' : (s.gpr .r1).toNat + 2 ^ 32 * (s.gpr .r4).toNat = Wn σ / 2 ^ (i - i0 σ) := hs
+  have e0 : i0 σ = 256 - tau σ := rfl
+  rw [signs_getD, testBit_eq, show i + tau σ - 256 = i - i0 σ by omega]
+  have e : (s.gpr .r1).toNat % 2 = Wn σ / 2 ^ (i - i0 σ) % 2 := by rw [← hs']; omega
+  rw [e]
+  by_cases h : Wn σ / 2 ^ (i - i0 σ) % 2 = 1
+  · rw [decide_eq_false (by omega), decide_eq_true h]; rfl
+  · rw [decide_eq_true (by omega), decide_eq_false h]; rfl
+
+omit hp in
+theorem sg_succ {i : Nat} (hi0 : i0 σ ≤ i) {s s' : State} (hs : Sg σ i s)
+    (g1 : s'.gpr .r1 = s.gpr .r1 >>> 1 ||| s.gpr .r4 <<< 31) (g4 : s'.gpr .r4 = s.gpr .r4 >>> 1) :
+    Sg σ (i + 1) s' := by
+  have hs' : (s.gpr .r1).toNat + 2 ^ 32 * (s.gpr .r4).toNat = Wn σ / 2 ^ (i - i0 σ) := hs
+  show _ = _
+  rw [g1, g4, shr_or, BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, show i + 1 - i0 σ = i - i0 σ + 1 by omega,
+    Nat.pow_succ 2 (i - i0 σ), ← Nat.div_div_eq_div_mul, ← hs']
+  omega
+
+/-- `c[i] ← c[j]`, `c[j] ← ±1`, `i` incremented. -/
+theorem setOk (hτ : tau σ ≤ 256) {t : Nat} (ht : t < 264) {s : State} (h : T1 σ t s) (hz : s.z = true) :
+    WP isa bSet s (M2 σ t) := by
+  have l := h.bat
+  have hi := h.lt
+  have hj : (Xb σ t).toNat ≤ (St σ t).2 := by have := h.z; rw [hz] at this; simpa using this
+  have hA := addr_aJ hp (j := (Xb σ t).toNat) (by omega)
+  have hB := addr_aJ hp (j := (St σ t).2) hi
+  rw [← h.r8, ← l.env.r5] at hA
+  rw [← l.r2, ← l.env.r5] at hB
+  have inA : (spOf σ).aR.Contains (coeffAddr (spOf σ).A (Xb σ t).toNat) 4 := coeff_contains _ (by omega)
+  have inB : (spOf σ).aR.Contains (coeffAddr (spOf σ).A (St σ t).2) 4 := coeff_contains _ hi
+  have wA : (spOf σ).aR ∈ s.wr := by rw [l.env.wr, hp.wr]; simp
+  refine WP.seq (WP.mono (bSet1_ok s hA hB ⟨_, List.mem_append_right _ wA, inA⟩ ⟨_, wA, inB⟩)
+    fun s1 ⟨m1, g10, z1, g1, rd1, wr1, sp1⟩ => ?_)
+  rw [sign_bit hτ (St_ge σ t) l.sg] at z1
+  refine WP.seq (WP.mono (bSign_ok s1 _ z1) fun s2 ⟨g11, g2, m2, rd2, wr2, sp2⟩ => ?_)
+  have e10 : State.addr (s2.gpr .r10 + BitVec.ofNat 32 0) = coeffAddr (spOf σ).A (Xb σ t).toNat := by
+    rw [g2 _ (by decide), g10]; exact hA
+  refine WP.mono (bSet3_ok s2 e10 (by rw [wr2, wr1]; exact ⟨_, wA, inA⟩))
+    fun s3 ⟨m3, g1', g4', g2', g3, rd3, wr3, sp3⟩ => ?_
+  have k : ∀ r, r ≠ .r1 → r ≠ .r2 → r ≠ .r4 → r ≠ .r10 → r ≠ .r11 → r ≠ .r12 → s3.gpr r = s.gpr r :=
+    fun r a b c d e f => by rw [g3 r a b c, g2 r e, g1 r d e f]
+  have hst := St_succ σ ht
+  rw [bStep, ifT hi, ifF (show ¬ (Xb σ t).toNat > (St σ t).2 by omega)] at hst
+  have hf : Frame [(spOf σ).aR] s.mem s3.mem := by
+    rw [m3, m2, m1]
+    exact ((Frame.refl _ _).writeW (List.mem_singleton_self _) _ inB).writeW (List.mem_singleton_self _) _ inA
+  refine ⟨l.env.step hp hf (fun r hr => by
+      rw [List.mem_singleton] at hr; subst hr; exact .inr (.inl fun _ h => h))
+    (k _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide))
+    (k _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide))
+    (by rw [rd3, rd2, rd1]) (by rw [wr3, wr2, wr1]) (by rw [sp3, sp2, sp1]), ?_,
+    by rw [k _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)]; exact l.r0, ?_, ?_,
+    by rw [k _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)]; exact l.r3, ?_⟩
+  · rw [MlKem.bytesAt_frame hf (fun r hr => by
+      rw [List.mem_singleton] at hr; subst hr
+      exact (hp.a_scr.sub_right (sub_scr (a := 840) (n := 272) (by omega))).symm) (by omega)]
+    exact l.out
+  · rw [g2', g2 _ (by decide), g1 _ (by decide) (by decide) (by decide), l.r2, hst, BitVec.ofNat_add]; rfl
+  · rw [hst]
+    refine sg_succ (St_ge σ t) l.sg ?_ ?_
+    · rw [g1', g2 _ (by decide), g2 _ (by decide), g1 _ (by decide) (by decide) (by decide),
+        g1 _ (by decide) (by decide) (by decide)]
+    · rw [g4', g2 _ (by decide), g1 _ (by decide) (by decide) (by decide)]
+  · intro k hk
+    rw [hst, m3, m2, m1, g11, sgn_word, coeffAt_writeW _ _ hk (by omega), coeffAt_writeW _ _ hk hi,
+      ipoly_set!_get _ _ (by simp only [n]; omega), ipoly_set!_get _ _ (by simp only [n]; omega)]
+    by_cases ejk : (Xb σ t).toNat = k
+    · rw [ifT ejk, ifT ejk]
+    · rw [ifF ejk, ifF ejk]
+      by_cases eik : (St σ t).2 = k
+      · subst eik; rw [ifT rfl, ifT rfl, ← coeffAt_eq, l.st _ (by omega)]
+      · rw [ifF eik, ifF eik]; exact l.st k hk
+
+end
 
 end VG.Proof.MlDsa.Arm.Sample.Ball

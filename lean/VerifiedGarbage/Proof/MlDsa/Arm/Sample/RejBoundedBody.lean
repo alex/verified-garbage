@@ -66,14 +66,19 @@ theorem ld3_ok {X : List Byte} {t : Nat} (ht : t < 544) {L : List Zq} {s : State
         (∀ r, r ≠ .r8 → r ≠ .r9 → s'.gpr r = s.gpr r) ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
         s'.sp = s.sp := by
   have ea : State.addr (s.gpr .r0 + BitVec.ofNat 32 0) = P.at' 840 + BitVec.ofNat 64 t := by
-    rw [h.r0, BitVec.ofNat_eq_ofNat, BitVec.add_zero, at_eq hp (by omega), add_add]
+    rw [h.r0]
+    show State.addr (P.scr + BitVec.ofNat 32 (840 + t) + 0#32) = _
+    rw [BitVec.add_zero, at_eq hp (by omega), Offset.add_add]
   have hin : InRegions (s.rd ++ s.wr) (State.addr (s.gpr .r0 + BitVec.ofNat 32 0)) 1 := by
-    rw [ea, add_add]; exact inScrRd hp h.env (by omega)
+    rw [ea, Offset.add_add]; exact inScrRd hp h.env (by omega)
   have hz : s.mem (State.addr (s.gpr .r0 + BitVec.ofNat 32 0)) = zAt X t := by
-    rw [ea, ← MlKem.bytesAt_getD _ _ (by omega : t < 544), h.out]
+    have := MlKem.bytesAt_getD s.mem (P.at' 840) (len := 544) (i := t) (by omega)
+    rw [h.out] at this
+    rw [ea, ← this]
   have h0 : (0 : Nat) < 4096 := by decide
   run_block [hin, hz, h0, lo_eq, and_true]
-  exact fun r h8 h9 => by simp [h8, h9]
+  refine ⟨trivial, trivial, fun r h8 h9 => ?_⟩
+  simp [h8, h9]
 
 /-- The loads. -/
 theorem load_ok {X : List Byte} {t : Nat} (ht : t < 544) {L : List Zq} {s : State} (h : Base P σ X t L s) :
@@ -95,8 +100,7 @@ theorem hi_ok {P : Sp} {σ : State} {X : List Byte} {t : Nat} {L : List Zq} {s :
   unfold rbHi
   rw [← List.singleton_append, WP.block_append_iff]
   refine WP.mono (Q := fun s1 => s1 = s.setReg .r9 (BitVec.ofNat 32 ((zAt X t).toNat / 16))) (by
-    run_block [h8, hi_eq]
-    rfl) fun s1 e1 => ?_
+    run_block [h8, hi_eq]) fun s1 e1 => ?_
   subst e1
   have b1 : Base P σ X t L (s.setReg .r9 (BitVec.ofNat 32 ((zAt X t).toNat / 16))) :=
     h.regs (fun r _ h9 _ _ => RegUpd.gpr_setReg_of_ne _ _ h9) rfl rfl rfl rfl
@@ -145,8 +149,8 @@ end
 theorem ofNat_pred {k : Nat} (hk : 0 < k) (hk' : k < 2 ^ 32) :
     BitVec.ofNat 32 k - 1 = BitVec.ofNat 32 (k - 1) := by
   apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hk', Nat.mod_eq_of_lt (by omega)]
-  show (2 ^ 32 - 1 + k) % 2 ^ 32 = k - 1
+  have e1 : (1 : BitVec 32).toNat = 1 := rfl
+  rw [BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat, e1, Nat.mod_eq_of_lt hk']
   omega
 
 /-- The step, to iteration `t + 1`: `Z` set iff it is the last. -/
@@ -159,11 +163,11 @@ theorem stepB_ok {P : Sp} {σ : State} {X : List Byte} {t : Nat} (ht : t < 544) 
   refine ⟨⟨⟨hrd.trans h.env.rd, hwr.trans h.env.wr, hsp.trans h.env.sp,
       (hg .r5 (by decide) (by decide)).trans h.env.r5, (hg .r6 (by decide) (by decide)).trans h.env.r6,
       by rw [hm]; exact h.env.sav, by rw [hm]; exact h.env.savlr, by rw [hm]; exact h.env.frame⟩,
-    by rw [hm]; exact h.out, by rw [h0, h.r0, add_add], by rw [h3, h.r3, e3],
+    by rw [hm]; exact h.out, by rw [h0, h.r0]; exact Offset.add_add_eq _ (by omega), by rw [h3, h.r3, e3],
     by rw [hg .r2 (by decide) (by decide)]; exact h.r2, h.len, by rw [hm]; exact h.st⟩, ?_⟩
-  rw [hz, h.r3, e3, cmp_z _ _ (by decide)]
-  rw [toNat_ofNat32 (by omega)]
-  exact decide_eq_decide.mpr (by omega)
+  have ez := count_z (N := 544) (i := t) (k := 1) ht (by decide) (by decide)
+  simp only [Nat.one_mul] at ez
+  rw [hz, h.r3]; exact ez
 
 /-- The coefficients after `t` iterations. -/
 abbrev Lf (η : Nat) (X : List Byte) (t : Nat) : List Zq := rbFold η [] (X.take t)

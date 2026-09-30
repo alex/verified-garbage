@@ -141,4 +141,10 @@ theorem frame_saved (rs : List Reg) {s : State} (h : 4 * rs.length ≤ s.sp.toNa
     m.readW (State.addr ((pushed rs s).sp + BitVec.ofNat 32 (4 * i))) 32 = s.gpr rs[i] := by
   rw [pushed_sp, hf.readW (frameR_contains rs h hi) hd (by decide), pushed_word rs h hi]
 
+/-- The load of the stack argument into `r12`. -/
+theorem entry_ok {s : State} (ia : InRegions (s.rd ++ s.wr) (State.addr (s.sp + BitVec.ofNat 32 0)) 4) :
+    WP isa (.block [.ldrSp .r12 0]) s fun s' =>
+      s' = s.setReg .r12 (s.mem.readW (State.addr (s.sp + BitVec.ofNat 32 0)) 32) := by
+  run_block [ia]
+
 end VG.Proof.MlDsa.Arm.Pack.Hint

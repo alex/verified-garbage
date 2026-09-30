@@ -22,14 +22,6 @@ open VG.Spec.Sha3 (bytesAt)
 open VG.Proof.MlKem (bytesAt_getD)
 open VG.Proof.MlDsa.Pack
 
-theorem relct_wp {c : Prog isa} {P : State → State → Prop} {F₁ F₂ : State → Prop}
-    (hct : RelCT isa P c fun _ _ => True) (hw : ∀ a b, P a b → WP isa c a F₁ ∧ WP isa c b F₂) :
-    RelCT isa P c fun a b => F₁ a ∧ F₂ b :=
-  (hct.wp hw).mono (fun _ _ h => h) fun _ _ h => ⟨h.2.1, h.2.2⟩
-
-theorem covers_of_mem {rs rs' : List Region} (h : ∀ r ∈ rs, r ∈ rs') : Covers rs rs' :=
-  fun _ _ ⟨r, hr, hc⟩ => ⟨r, h r hr, hc⟩
-
 /-- The bytes of words that agree. -/
 theorem bytes_of_words {m₁ m₂ : Mem} {p : Addr} {N : Nat}
     (h : (List.range N).map (fun i => (coeffAt m₁ p i).toNat) = (List.range N).map (fun i => (coeffAt m₂ p i).toNat))
