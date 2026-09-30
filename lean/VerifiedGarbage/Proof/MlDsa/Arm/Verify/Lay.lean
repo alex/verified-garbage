@@ -37,11 +37,18 @@ structure VFacts (p : Params) : Prop where
   w1 : p.k * w1Len p ≤ 1024 ∧ 0 < p.k * w1Len p ∧ encodable (BitVec.ofNat 32 (p.k * w1Len p)) = true
   w1l : w1Len p = 128 ∨ w1Len p = 192
   scr : 8192 + 1024 * (20 + 8 * p.k) ≤ scrLen p ∧ scrLen p < 2 ^ 32
+  hp : (p.ω, p.k) ∈ Spec.MlDsa.hintParams
+  bu : (p.γ₁ - 1, p.γ₁) ∈ Spec.MlDsa.bitPackParams ∧ lenZ p = 32 * Spec.MlDsa.bitlen (p.γ₁ - 1 + p.γ₁) ∧
+    p.γ₁ < 2 ^ 32
+  ball : (p.ctildeLen, p.τ) ∈ Spec.MlDsa.ballParams ∧ p.τ < 2 ^ 32
+  g2 : p.γ₂ ∈ Spec.MlDsa.gamma2s ∧ p.γ₂ < 2 ^ 32
+  sbp : w1Max p ∈ Spec.MlDsa.simpleBitPackBounds ∧ w1Len p = 32 * Spec.MlDsa.bitlen (w1Max p) ∧ w1Max p < 2 ^ 32
+  nb : p.γ₁ - p.β < 2 ^ 32 ∧ 0 < p.γ₁ - p.β
 
 theorem vfacts {p : Params} (hp : p = mlDsa44 ∨ p = mlDsa65 ∨ p = mlDsa87) : VFacts p := by
   rcases hp with rfl | rfl | rfl <;>
     exact ⟨by decide, by decide, by decide, by decide, by decide, by decide, by decide, by decide, by decide,
-      by decide, by decide, by decide⟩
+      by decide, by decide, by decide, by decide, by decide, by decide, by decide, by decide, by decide⟩
 
 /-! ## The precondition -/
 
