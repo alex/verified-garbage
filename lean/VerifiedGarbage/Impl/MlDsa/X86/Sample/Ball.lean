@@ -34,7 +34,7 @@ def bZero : Prog isa :=
 byte after them, and `ecx = 264`. -/
 def bSetup : List Instr :=
   [.mov .edi (.imm 256), .alu .sub .edi (.mem (argOp 2)), .mov .eax (.mem (at_ .esi outOff)),
-    .store (argOp 1) .eax, .mov .eax (.mem (at_ .esi (outOff + 4))), .store (argOp 2) .eax,
+    .mov .edx (.mem (at_ .esi (outOff + 4))), .store (argOp 1) .eax, .store (argOp 2) .edx,
     .alu .add .esi (.imm (BitVec.ofNat 32 (outOff + 8))), .mov .ecx (.imm 264)]
 
 /-- `eax = c + 4j`, `edx = c + 4i`, `c[i] ← c[j]`, and the next sign bit
@@ -44,12 +44,12 @@ def bMove : List Instr :=
     .alu .add .edx (.reg .edx), .alu .add .edx (.reg .edx), .alu .add .edx (.reg .ebp),
     .mov .ebx (.mem (at_ .eax 0)), .store (at_ .edx 0) .ebx, .mov .ebx (.mem (argOp 1)), .alu .test .ebx (.imm 1)]
 
-/-- `c[j] ← ±1` (in `edx`), the sign bits shifted right by one, `i`
-incremented. -/
+/-- `c[j] ← ±1` (in `edx`), the sign bits shifted right by one (the low
+word in `ebx`, the high one in `eax`), `i` incremented. -/
 def bShift : List Instr :=
-  [.store (at_ .eax 0) .edx, .shift .shr .ebx 1, .mov .edx (.mem (argOp 2)), .alu .and .edx (.imm 1),
-    .shift .ror .edx 1, .alu .add .ebx (.reg .edx), .store (argOp 1) .ebx, .mov .ebx (.mem (argOp 2)),
-    .shift .shr .ebx 1, .store (argOp 2) .ebx, .alu .add .edi (.imm 1)]
+  [.store (at_ .eax 0) .edx, .mov .edx (.mem (argOp 2)), .mov .eax (.reg .edx), .shift .shr .ebx 1,
+    .alu .and .edx (.imm 1), .shift .ror .edx 1, .alu .add .ebx (.reg .edx), .shift .shr .eax 1,
+    .store (argOp 1) .ebx, .store (argOp 2) .eax, .alu .add .edi (.imm 1)]
 
 /-- The byte `j` in `eax` taken: `c[i] ← c[j]`, `c[j] ← ±1`. -/
 def bSet : Prog isa :=
