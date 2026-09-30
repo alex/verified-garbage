@@ -7,12 +7,13 @@
 //! lays out their context (the key, the nonce and the tag) and checks the
 //! length limit.
 //!
-//! They are emitted once for each implementation of `vg_chacha20_xor`, and
-//! the one called is that of the implementation `ChaCha20` selects
-//! (`crate::chacha20::Backend`): on x86-64, CPUs with AVX-512F run
-//! `vg_chacha20_poly1305_seal_avx512` and `vg_chacha20_poly1305_open_avx512`,
-//! and other CPUs with AVX2 `vg_chacha20_poly1305_seal_avx2` and
-//! `vg_chacha20_poly1305_open_avx2`.
+//! They are emitted once for each implementation of `vg_chacha20_xor`
+//! (`crate::chacha20::Backend`), each calling it and the implementation of
+//! `vg_poly1305_blocks` for the same CPUs: on x86-64, CPUs with AVX-512F and
+//! AVX2 run `vg_chacha20_poly1305_seal_avx512` and
+//! `vg_chacha20_poly1305_open_avx512` (with `vg_chacha20_xor_avx512` and
+//! `vg_poly1305_blocks_avx2`), and other CPUs with AVX2
+//! `vg_chacha20_poly1305_seal_avx2` and `vg_chacha20_poly1305_open_avx2`.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -21,14 +22,32 @@
     target_arch = "x86"
 ))]
 
-use crate::arch::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::chacha20poly1305::{
+    VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES, VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES,
     vg_chacha20_poly1305_open_avx2, vg_chacha20_poly1305_open_avx512,
     vg_chacha20_poly1305_seal_avx2, vg_chacha20_poly1305_seal_avx512,
 };
+use crate::arch::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
 use crate::chacha20::Backend;
-use crate::cpu::detected;
+use crate::cpu::{Features, detected};
+
+/// The best implementation a CPU with the features `f` can run (`open`'s
+/// instances need the same features as `seal`'s, see the tests).
+#[cfg(target_arch = "x86_64")]
+fn select(f: Features) -> Backend {
+    Backend::select_for(
+        f,
+        VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES,
+        VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES,
+    )
+}
+
+/// The best implementation a CPU with the features `f` can run.
+#[cfg(not(target_arch = "x86_64"))]
+fn select(f: Features) -> Backend {
+    Backend::select(f)
+}
 
 /// The largest plaintext RFC 8439 allows (`P_MAX`, §2.8): 2³² − 1 blocks of
 /// 64 bytes, as the block counter starts at 1.
@@ -47,7 +66,8 @@ pub struct InvalidTag;
 #[derive(Clone)]
 pub struct ChaCha20Poly1305 {
     key: [u8; 32],
-    /// The implementation of `vg_chacha20_xor` the functions called call.
+    /// The implementations of `vg_chacha20_xor` and `vg_poly1305_blocks` the
+    /// functions called call.
     backend: Backend,
 }
 
@@ -63,7 +83,7 @@ impl ChaCha20Poly1305 {
     pub fn new(key: &[u8; 32]) -> Self {
         ChaCha20Poly1305 {
             key: *key,
-            backend: Backend::select(detected()),
+            backend: select(detected()),
         }
     }
 
@@ -165,7 +185,9 @@ impl ChaCha20Poly1305 {
 
 #[cfg(test)]
 mod tests {
-    use super::{Backend, ChaCha20Poly1305, InvalidTag, P_MAX, too_long};
+    use super::{Backend, ChaCha20Poly1305, InvalidTag, P_MAX, select, too_long};
+    #[cfg(target_arch = "x86_64")]
+    use crate::cpu::Features;
     use crate::cpu::detected;
 
     /// Decryption undoes encryption, and rejects any change to the data, the
@@ -235,7 +257,7 @@ mod tests {
         let mut scalar = ChaCha20Poly1305::new(&key);
         scalar.backend = Backend::Scalar;
         let best = ChaCha20Poly1305::new(&key);
-        assert_eq!(best.backend, Backend::select(detected()));
+        assert_eq!(best.backend, select(detected()));
         let nonce = [9; 12];
         let aad = [4; 20];
         for len in [0, 63, 64, 65, 511, 512, 513, 1000, 1023, 1024, 1025, 2100] {
@@ -258,8 +280,9 @@ mod tests {
         }
     }
 
-    /// The functions called for each implementation need exactly the
-    /// features of the ChaCha20 implementation `Backend::select` checks for.
+    /// The functions called for each implementation need the features of
+    /// both `vg_chacha20_xor`'s and `vg_poly1305_blocks`'s for the same CPUs,
+    /// `open`'s the same as `seal`'s, and `select` chooses by them.
     #[cfg(target_arch = "x86_64")]
     #[test]
     fn features() {
@@ -270,21 +293,33 @@ mod tests {
             VG_CHACHA20_POLY1305_OPEN_AVX2_FEATURES, VG_CHACHA20_POLY1305_OPEN_AVX512_FEATURES,
             VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES, VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES,
         };
+        use crate::arch::poly1305::VG_POLY1305_BLOCKS_AVX2_FEATURES;
+        let avx2 = Features::all(&[
+            VG_CHACHA20_XOR_AVX2_FEATURES,
+            VG_POLY1305_BLOCKS_AVX2_FEATURES,
+        ]);
+        let avx512 = Features::all(&[
+            VG_CHACHA20_XOR_AVX512_FEATURES,
+            VG_POLY1305_BLOCKS_AVX2_FEATURES,
+        ]);
+        assert_eq!(Features::of(VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES), avx2);
+        assert_eq!(Features::of(VG_CHACHA20_POLY1305_OPEN_AVX2_FEATURES), avx2);
         assert_eq!(
-            VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES,
-            VG_CHACHA20_XOR_AVX2_FEATURES
+            Features::of(VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES),
+            avx512
         );
         assert_eq!(
-            VG_CHACHA20_POLY1305_OPEN_AVX2_FEATURES,
-            VG_CHACHA20_XOR_AVX2_FEATURES
+            Features::of(VG_CHACHA20_POLY1305_OPEN_AVX512_FEATURES),
+            avx512
         );
+        assert_eq!(select(avx2), Backend::Avx2);
+        assert_eq!(select(avx512), Backend::Avx512);
+        // AVX-512F alone is not enough: the AVX-512 instances call Poly1305
+        // with AVX2.
         assert_eq!(
-            VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES,
-            VG_CHACHA20_XOR_AVX512_FEATURES
+            select(Features::of(VG_CHACHA20_XOR_AVX512_FEATURES)),
+            Backend::Scalar
         );
-        assert_eq!(
-            VG_CHACHA20_POLY1305_OPEN_AVX512_FEATURES,
-            VG_CHACHA20_XOR_AVX512_FEATURES
-        );
+        assert_eq!(select(Features::of(&["avx"])), Backend::Scalar);
     }
 }

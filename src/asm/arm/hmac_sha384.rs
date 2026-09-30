@@ -11,13 +11,13 @@
 /// * `inner` must be valid for reads and writes of 192 bytes.
 /// * `outer` must be valid for reads and writes of 192 bytes.
 /// * `key` must be valid for reads of `key_len` bytes.
-/// * `scratch` must be valid for reads and writes of 768 bytes.
+/// * `scratch` must be valid for reads and writes of 1872 bytes.
 /// * `key_len` must be at most 128.
 /// * The contents of `scratch` on return are unspecified.
 /// * `inner`, `outer` and `scratch` must not overlap each other, `key` or the arguments on the stack (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `key` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_hmac_sha384_init(inner: *mut [u8; 192], outer: *mut [u8; 192], key: *const u8, key_len: usize, scratch: *mut [u64; 96]) {
+pub(crate) unsafe extern "C" fn vg_hmac_sha384_init(inner: *mut [u8; 192], outer: *mut [u8; 192], key: *const u8, key_len: usize, scratch: *mut [u64; 234]) {
     core::arch::naked_asm!(
         "ldr r12, [sp, #0]",
         "str r4, [r12, #272]",
@@ -114,13 +114,13 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha384_init(inner: *mut [u8; 192], outer
 /// * `inner` must be valid for reads and writes of 192 bytes.
 /// * `outer` must be valid for reads of 192 bytes.
 /// * `out` must be valid for reads and writes of 48 bytes.
-/// * `scratch` must be valid for reads and writes of 768 bytes.
+/// * `scratch` must be valid for reads and writes of 1872 bytes.
 /// * The contents of `inner` on return are unspecified.
 /// * The contents of `scratch` on return are unspecified.
 /// * `inner`, `out` and `scratch` must not overlap each other, `outer` or the arguments on the stack (distinct Rust objects never do).
 /// * None of `inner`, `outer`, `out` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_hmac_sha384_finalize(inner: *mut [u8; 192], outer: *const [u8; 192], count: u64, out: *mut [u8; 48], scratch: *mut [u64; 96]) {
+pub(crate) unsafe extern "C" fn vg_hmac_sha384_finalize(inner: *mut [u8; 192], outer: *const [u8; 192], count: u64, out: *mut [u8; 48], scratch: *mut [u64; 234]) {
     core::arch::naked_asm!(
         "ldr r12, [sp, #4]",
         "str r4, [r12, #272]",

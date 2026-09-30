@@ -1,7 +1,5 @@
 import VerifiedGarbage.TCB.X86_64.Target
-import VerifiedGarbage.Impl.Pbkdf2.X86_64
-import VerifiedGarbage.Proof.Sha256.X86_64.Variant
-import VerifiedGarbage.Proof.Pbkdf2.X86_64.IterateCT
+import VerifiedGarbage.Proof.Pbkdf2.X86_64.Instances
 
 /-!
 # The PBKDF2-HMAC-SHA-256 iteration (RFC 8018) on x86-64
@@ -16,6 +14,10 @@ them against the contract's `pre`/`post`. An artifact made from a function's
 emitter adds the `# Safety` items that depend on the target
 (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract, and the CPU features the implementation needs.
+
+The code is the one PBKDF2 iteration for every hash function whose streaming
+code is the generic one (`Impl/Pbkdf2/X86_64.lean`), calling the verified
+compression function `v` directly, twice per step.
 -/
 
 namespace VG.Generic.Sha256Compress.X86_64.Pbkdf2
@@ -25,11 +27,11 @@ def artifacts (v : Proof.Sha256.X86_64.Compress) : List Artifact := [
     name := Spec.Pbkdf2.iterateSha256Api.name ++ v.suffix
     target := X86_64.target
     doc := Spec.Pbkdf2.iterateSha256Api.doc
-    code := Impl.Pbkdf2.X86_64.iterate v.callee
+    code := Proof.Pbkdf2.X86_64.Instances.sha256Iterate v
     contract := Spec.Pbkdf2.iterateSha256Contract X86_64.abi 8
     stack := 8
-    verified := Proof.Pbkdf2.X86_64.Iterate.iterate_verified v.ok v.mxcsr
-    spSafe := Proof.Pbkdf2.X86_64.Iterate.iterate_spSafe v.spSafe
+    verified := Proof.Pbkdf2.X86_64.Instances.sha256 v
+    spSafe := Proof.Pbkdf2.X86_64.Instances.sha256_sp v
     features := v.features }]
 
 end VG.Generic.Sha256Compress.X86_64.Pbkdf2
