@@ -119,14 +119,14 @@ theorem pow_ok {s₀ : State} {K i j n : Nat} (hi : 1 ≤ i) (hiK : i ≤ K) (hj
     (hij : i + j = K + 1) (hK : K + 1 ≤ 8) {s : State} (hI : Inv s₀ K n s) :
     WP isa (.block (Impl.Gcm.AArch64.Pmull.pow (K + 1) i j)) s (Inv s₀ (K + 1) n) := by
   rw [Impl.Gcm.AArch64.Pmull.pow, WP.block_append_iff]
-  refine WP.mono (mul_ok (tReg (K + 1)) (sReg i) (sReg j) (tReg j) s (sReg_free _) (sReg_free _)
+  refine WP.mono (mul_ok (sReg (K + 1)) (sReg i) (sReg j) (tReg j) s (sReg_free _) (sReg_free _)
     (tReg_free _) (hI.sw j hj hjK) hI.c) fun s₁ ⟨m₁, o₁⟩ => ?_
-  refine WP.mono (swap_ok (sReg (K + 1)) (tReg (K + 1)) s₁) fun s' ⟨w, o₂⟩ => ?_
+  refine WP.mono (swap_ok (tReg (K + 1)) (sReg (K + 1)) s₁) fun s' ⟨w, o₂⟩ => ?_
   have O := o₁.trans o₂
   have kv : ∀ r, r ∉ [LO, MID, HI, T] → r ≠ tReg (K + 1) → r ≠ sReg (K + 1) → s'.v r = s.v r :=
-    fun r h1 h2 h3 => O.v r (nmem_pow h1 h2 h3)
-  have kt : s'.v (tReg (K + 1)) = s₁.v (tReg (K + 1)) := o₂.v _ (by
-    simp only [List.mem_cons, List.not_mem_nil, or_false]; exact tReg_ne_sReg _ _)
+    fun r h1 h2 h3 => O.v r (nmem_pow h1 h3 h2)
+  have ks : s'.v (sReg (K + 1)) = s₁.v (sReg (K + 1)) := o₂.v _ (by
+    simp only [List.mem_cons, List.not_mem_nil, or_false]; exact fun e => tReg_ne_sReg _ _ e.symm)
   have told : ∀ k, 1 ≤ k → k ≤ K → s'.v (tReg k) = s.v (tReg k) := fun k hk hkK =>
     kv _ (tReg_nmem' k) (tReg_ne hk (by omega) (by omega) hK (by omega)) (tReg_ne_sReg _ _)
   have sold : ∀ k, 1 ≤ k → k ≤ K → s'.v (sReg k) = s.v (sReg k) := fun k hk hkK =>
@@ -137,11 +137,12 @@ theorem pow_ok {s₀ : State} {K i j n : Nat} (hi : 1 ≤ i) (hiK : i ≤ K) (hj
     by rw [O.gpr, hI.x1], by rw [O.gpr, hI.x2], by rw [O.gpr, hI.x3], by rw [O.gpr, hI.x5],
     by rw [O.mem, hI.mem], by rw [O.rd, hI.rd], by rw [O.wr, hI.wr]⟩
   · rcases (by omega : k = K + 1 ∨ k ≤ K) with rfl | hkK'
-    · rw [kt, m₁, hI.sw i hi hiK, ρ_ext8_self, ← hij, pow_add, ← hI.t i hi hiK, ← hI.t j hj hjK]
+    · rw [w, φ_ext8_self, m₁, hI.sw i hi hiK, ρ_ext8_self, ← hij, pow_add, ← hI.t i hi hiK,
+        ← hI.t j hj hjK]
       ring
     · rw [told k hk hkK', hI.t k hk hkK']
   · rcases (by omega : k = K + 1 ∨ k ≤ K) with rfl | hkK'
-    · rw [kt, w]
+    · rw [ks, w, ext8_ext8]
     · rw [told k hk hkK', sold k hk hkK', hI.sw k hk hkK']
 
 theorem powers_ok {s₀ : State} {n : Nat} {s : State} (hI : Inv s₀ 1 n s) :
@@ -251,12 +252,10 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {K k i : Nat} (hk : 1 ≤ k) (hkK
   rw [WP.block_append_iff]
   refine WP.mono (reduce_ok Y s₅ (by rw [(o₂₄.trans o₅).v C (by decide), hI.c]))
     fun s₆ ⟨r₆, o₆⟩ => ?_
-  rw [WP.block_append_iff]
-  refine WP.mono (swap_ok Y Y s₆) fun s₇ ⟨w₇, o₇⟩ => ?_
-  refine WP.mono (advance_ok k (by omega) s₇)
+  refine WP.mono (advance_ok k (by omega) s₆)
     fun s' ⟨f2, f3, f5, fg, fv, fm, frd, fwr⟩ => ?_
-  have O : VOnly [LO, MID, HI, A, T, Y] s s₇ :=
-    (o₂.trans ((o₃.trans (o₄.trans o₅)).trans (o₆.trans o₇))).weaken
+  have O : VOnly [LO, MID, HI, A, T, Y] s s₆ :=
+    (o₂.trans ((o₃.trans (o₄.trans o₅)).trans o₆)).weaken
   have kv : ∀ r, r ∉ [LO, MID, HI, A, T, Y] → s'.v r = s.v r := fun r h => by rw [fv, O.v r h]
   have kg : ∀ r, r ≠ .x2 → r ≠ .x3 → r ≠ .x5 → s'.gpr r = s.gpr r := fun r h2 h3 h5 => by
     rw [fg r h2 h3 h5, O.gpr]
@@ -266,7 +265,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {K k i : Nat} (hk : 1 ≤ k) (hkK
     by rw [kg .x0 (by decide) (by decide) (by decide), hI.x0],
     by rw [kg .x1 (by decide) (by decide) (by decide), hI.x1], ?_, ?_, f5,
     by rw [fm, O.mem, hI.mem], by rw [frd, O.rd, hI.rd], by rw [fwr, O.wr, hI.wr]⟩
-  · rw [fv, w₇, ρ_ext8_self, r₆, φ_reduce, hv]
+  · rw [fv, r₆, ρ_reduce, hv]
   · rw [f2, O.gpr, hI.x2, blkAddr, blkAddr, Offset.add_add, ← Nat.mul_add]
   · rw [f3, O.gpr, hI.x3, Offset.ofNat_sub_ofNat (by omega), Nat.sub_sub]
 
@@ -281,10 +280,10 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   rw [WP.block_append_iff]
   refine WP.mono (consts_ok s₁) fun s₂ ⟨c₂, t₂, w₂, kv₂, kg₂, m₂, rd₂, wr₂⟩ => ?_
   rw [WP.block_append_iff]
-  refine WP.mono (mul_ok (tReg 1) A (sReg 2) (tReg 2) s₂ free_A (sReg_free _) (tReg_free _)
+  refine WP.mono (mul_ok (sReg 1) A (sReg 2) (tReg 2) s₂ free_A (sReg_free _) (tReg_free _)
     (by rw [w₂, t₂]) c₂) fun s₃ ⟨m₃, o₃⟩ => ?_
   rw [WP.block_append_iff]
-  refine WP.mono (swap_ok (sReg 1) (tReg 1) s₃) fun s₄ ⟨w₄, o₄⟩ => ?_
+  refine WP.mono (swap_ok (tReg 1) (sReg 1) s₃) fun s₄ ⟨w₄, o₄⟩ => ?_
   have g₄ : ∀ r, r ≠ .x5 → r ≠ .x6 → r ≠ .x7 → s₄.gpr r = s₀.gpr r := fun r h5 h6 h7 => by
     rw [o₄.gpr, o₃.gpr, kg₂ r h5 h6 h7, o₁.gpr]
   have mem₄ : s₄.mem = s₀.mem := by rw [o₄.mem, o₃.mem, m₂, o₁.mem]
@@ -297,11 +296,15 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
   refine WP.mono (lsr_ok s₅) fun s' ⟨f5, fg, fv, fm, frd, fwr⟩ => ?_
   have g : ∀ r, r ≠ .x5 → r ≠ .x6 → r ≠ .x7 → s'.gpr r = s₀.gpr r := fun r h5 h6 h7 => by
     rw [fg r h5, o₅.gpr, g₄ r h5 h6 h7]
-  have O : VOnly ([sReg 1] ++ [Y]) s₃ s₅ := o₄.trans o₅
-  have t₁ : s'.v (tReg 1) = s₃.v (tReg 1) := by
+  have O : VOnly ([tReg 1] ++ [Y]) s₃ s₅ := o₄.trans o₅
+  have t₁ : s'.v (tReg 1) = ext8 (s₃.v (sReg 1)) (s₃.v (sReg 1)) := by
+    rw [fv, o₅.v _ (by
+      simp only [List.mem_cons, List.not_mem_nil, or_false]
+      exact (ne_tReg (r := Y) 1).symm), w₄]
+  have s₁' : s'.v (sReg 1) = s₃.v (sReg 1) := by
     rw [fv, O.v _ (by
       simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false, not_or]
-      exact ⟨tReg_ne_sReg _ _, (ne_tReg (r := Y) 1).symm⟩)]
+      exact ⟨fun e => tReg_ne_sReg _ _ e.symm, (ne_sReg (r := Y) 1).symm⟩)]
   have hA₂ : s₂.v A = s₁.v A := kv₂ A (by decide) (ne_tReg 2) (ne_sReg 2)
   refine ⟨Nat.zero_le _, ?_, fun k hk hk1 => ?_, fun k hk hk1 => ?_, ?_,
     by rw [g .x0 (by decide) (by decide) (by decide)],
@@ -310,20 +313,18 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
     by rw [g .x3 (by decide) (by decide) (by decide)]; simp [nb],
     by rw [f5, fg .x3 (by decide)], by rw [fm, o₅.mem, mem₄],
     by rw [frd, o₅.rd, o₄.rd, o₃.rd, rd₂, o₁.rd], by rw [fwr, o₅.wr, o₄.wr, o₃.wr, wr₂, o₁.wr]⟩
-  · have h : C ∉ [LO, MID, HI, T, tReg 1] := by
+  · have h : C ∉ [LO, MID, HI, T, sReg 1] := by
       simp only [List.mem_cons, List.not_mem_nil, or_false, not_or]
-      exact ⟨by decide, by decide, by decide, by decide, ne_tReg 1⟩
-    have h' : C ∉ [sReg 1] ++ [Y] := by
+      exact ⟨by decide, by decide, by decide, by decide, ne_sReg 1⟩
+    have h' : C ∉ [tReg 1] ++ [Y] := by
       simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false, not_or]
-      exact ⟨ne_sReg 1, by decide⟩
+      exact ⟨ne_tReg 1, by decide⟩
     rw [fv, O.v C h', o₃.v C h, c₂]
   · obtain rfl : k = 1 := by omega
-    rw [t₁, m₃, hA₂, l₁, t₂, add_ofNat_zero]
+    rw [t₁, φ_ext8_self, m₃, hA₂, l₁, t₂, add_ofNat_zero]
     linear_combination φ (H₀ s₀) * x2_φ_xInv2
   · obtain rfl : k = 1 := by omega
-    rw [t₁, fv, o₅.v _ (by
-      simp only [List.mem_cons, List.not_mem_nil, or_false]
-      exact (ne_sReg (r := Y) 1).symm), w₄]
+    rw [t₁, s₁', ext8_ext8]
   · rw [fv, l₅, mem₄, g₄ .x1 (by decide) (by decide) (by decide), add_ofNat_zero]
     exact congrArg φ (ghashFrom_blocksAt_zero _ _ _ _).symm
 

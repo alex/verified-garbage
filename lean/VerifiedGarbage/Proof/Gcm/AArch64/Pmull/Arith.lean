@@ -14,8 +14,8 @@ Untrusted: everything here is checked by Lean. What the instructions of
 * `pmull` multiplies polynomials (`φ_polyMul`), so the four of `acc`
   compute `x · a · t` as a 256-bit value (`Prod.val_acc`), where `a` is a
   block as loaded (its halves swapped: its class is `ρ a`);
-* `reduce` maps a 256-bit value to a block of the same class
-  (`φ_reduce`);
+* `reduce` maps a 256-bit value to a block of the same class, with its
+  halves swapped (`ρ_reduce`);
 * `rev64 .16b` of a 16-byte load is the block as loaded (`ρ_load`), and
   undoes itself (`rev64b_rev64b`).
 -/
@@ -200,18 +200,32 @@ theorem ψ_poly : ψ poly = 1 + x + x ^ 6 := by
         show (1 : Nat) ≠ d by omega, add_zero, show d ≠ 6 by omega]
   simp only [ψ, h, map_add, map_one, AdjoinRoot.mk_X, map_pow]
 
-/-- One step of the reduction: `swap(v) ⊕ pmull(v₀, 0xc2 · 2⁵⁶)`. -/
-def fold (v : BitVec 128) : BitVec 128 := ext8 v v ^^^ polyMul (vdword v 0) poly
+theorem φ_ext8_self (v : BitVec 128) : φ (ext8 v v) = ρ v := by rw [φ_ext8, ρ]
 
-theorem φ_fold (v : BitVec 128) : φ (fold v) = x ^ 64 * φ v := by
-  rw [fold, φ_xor, φ_ext8, φ_polyMul, ψ_poly, φ_v v]
-  linear_combination (-ψ (vdword v 0)) * x128
+theorem ext8_ext8 (v : BitVec 128) : ext8 (ext8 v v) (ext8 v v) = v := by
+  rw [ext8_eq (ext8 v v), vdword_ext8_0, vdword_ext8_1, ← vdwords]
 
-/-- The block `reduce` computes from a product. -/
-def reduce (p : Prod) : BitVec 128 := p.hi ^^^ fold (p.mid ^^^ fold p.lo)
+/-- A block as loaded, plus the `pmull` of its low half by `0xc2 · 2⁵⁶`, is of
+the class of `x⁶⁴` times the block. -/
+theorem ρ_add_polyMul (u : BitVec 128) : ρ u + φ (polyMul (vdword u 0) poly) = x ^ 64 * φ u := by
+  rw [ρ, φ_polyMul, ψ_poly, φ_v u]
+  linear_combination (-ψ (vdword u 0)) * x128
 
-theorem φ_reduce (p : Prod) : φ (reduce p) = p.val := by
-  simp only [reduce, φ_xor, φ_fold, Prod.val]
+/-- `fold(v) = swap(v) ⊕ pmull(v₀, 0xc2 · 2⁵⁶)` is of the class of `x⁶⁴ · v`. -/
+theorem φ_fold (v : BitVec 128) : φ (ext8 v v ^^^ polyMul (vdword v 0) poly) = x ^ 64 * φ v := by
+  rw [φ_xor, φ_ext8_self, ρ_add_polyMul]
+
+/-- The block, with its halves swapped, that `reduce` computes from a product:
+`swap(hi ⊕ fold(u)) = swap(hi) ⊕ u ⊕ swap(pmull(u₀, 0xc2 · 2⁵⁶))` for
+`u = mid ⊕ fold(lo)`. -/
+def reduce (p : Prod) : BitVec 128 :=
+  let u := (p.mid ^^^ ext8 p.lo p.lo) ^^^ polyMul (vdword p.lo 0) poly
+  (ext8 p.hi p.hi ^^^ u) ^^^ ext8 (polyMul (vdword u 0) poly) (polyMul (vdword u 0) poly)
+
+theorem ρ_reduce (p : Prod) : ρ (reduce p) = p.val := by
+  simp only [reduce]
+  rw [ρ_xor, ρ_xor, ρ_ext8_self, ρ_ext8_self, add_assoc, ρ_add_polyMul, BitVec.xor_assoc, φ_xor,
+    φ_fold, Prod.val]
   ring
 
 /-! ## `x⁻²` -/

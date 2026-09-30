@@ -21,7 +21,8 @@ swapped. In the bit-reflected representation of SP 800-38D:
 * the product is reduced into 128 bits as `hi ⊕ fold(mid ⊕ fold(lo))`, where
   `fold(r)`, the halves of `r` swapped (`ext #8`) plus the `pmull` of its low
   half by the constant `0xc2 · 2⁵⁶` (`x + x² + x⁷`, reflected), is of the
-  class of `x⁶⁴ · r`, so that `mul(a, t) = x · a · t` in GF(2¹²⁸);
+  class of `x⁶⁴ · r`, so that `mul(a, t) = x · a · t` in GF(2¹²⁸); it is
+  computed with its halves swapped, as a block is loaded;
 * to cancel the factor `x`, the hash subkey is used as `H' = H · x⁻¹ =
   mul(H, x⁻²)`, `x⁻²` a constant;
 * `H'ᵏ = mul(H'ⁱ, H'ʲ) = Hᵏ · x⁻¹` (`i + j = k`) for `k = 2 … 8` are
@@ -81,15 +82,16 @@ def acc (a s t : VReg) : List Instr :=
    .vop (.pmull false T a t), .vop (.logic .eor MID MID T),
    .vop (.pmull true T a t), .vop (.logic .eor MID MID T)]
 
-/-- `r ← swap(r) ⊕ pmull(r₀, 0xc2 · 2⁵⁶)`, of the class of `x⁶⁴ · r`. -/
-def fold (r : VReg) : List Instr :=
-  [.vop (.pmull false T r C), .vop (.ext r r r 8), .vop (.logic .eor r r T)]
-
-/-- The product, reduced, into `d`: `hi ⊕ fold(mid ⊕ fold(lo))`. -/
+/-- The product, reduced, into `d` with its halves swapped:
+`swap(hi ⊕ fold(u)) = swap(hi) ⊕ u ⊕ swap(pmull(u₀, c))` for
+`u = mid ⊕ fold(lo)`, where `fold(r) = swap(r) ⊕ pmull(r₀, c)`, with `c =
+0xc2 · 2⁵⁶`, is of the class of `x⁶⁴ · r`. -/
 def reduce (d : VReg) : List Instr :=
-  fold LO ++ [.vop (.logic .eor MID MID LO)] ++ fold MID ++ [.vop (.logic .eor d HI MID)]
+  [.vop (.pmull false T LO C), .vop (.ext LO LO LO 8), .vop (.logic .eor MID MID LO),
+   .vop (.logic .eor MID MID T), .vop (.pmull false T MID C), .vop (.ext HI HI HI 8),
+   .vop (.logic .eor HI HI MID), .vop (.ext T T T 8), .vop (.logic .eor d HI T)]
 
-/-- `d ← mul(a, t)`, `a` as loaded, `s` the halves of `t` swapped. -/
+/-- `d ← mul(a, t)` with its halves swapped, `a` as loaded, `s` the halves of `t` swapped. -/
 def mul (d a s t : VReg) : List Instr := zero ++ acc a s t ++ reduce d
 
 /-- The block at `[n, #off]` into `d`, as loaded. -/
@@ -100,7 +102,7 @@ def load (j : Nat) : List Instr := loadRev A .x2 (16 * j)
 
 /-- `H'ᵏ = mul(H'ⁱ, H'ʲ)`, and its halves swapped. -/
 def pow (k i j : Nat) : List Instr :=
-  mul (tReg k) (sReg i) (sReg j) (tReg j) ++ [.vop (.ext (sReg k) (tReg k) (tReg k) 8)]
+  mul (sReg k) (sReg i) (sReg j) (tReg j) ++ [.vop (.ext (tReg k) (sReg k) (sReg k) 8)]
 
 /-- The reduction constant in both halves of `v1`, and `x⁻²` in
 `v17` and, its halves swapped, in `v25`. -/
@@ -112,8 +114,8 @@ def consts : List Instr :=
 
 /-- `H` (as loaded), the constants, `H' = mul(H, x⁻²)` and `Y`. -/
 def prologue : List Instr :=
-  loadRev A .x0 0 ++ consts ++ mul (tReg 1) A (sReg 2) (tReg 2) ++
-  [.vop (.ext (sReg 1) (tReg 1) (tReg 1) 8)] ++ loadRev Y .x1 0 ++ [.lsr .x .x5 .x3 3]
+  loadRev A .x0 0 ++ consts ++ mul (sReg 1) A (sReg 2) (tReg 2) ++
+  [.vop (.ext (tReg 1) (sReg 1) (sReg 1) 8)] ++ loadRev Y .x1 0 ++ [.lsr .x .x5 .x3 3]
 
 /-- `H'²` to `H'⁸`. -/
 def powers : List Instr :=
@@ -131,7 +133,7 @@ block, which `Y` is added to, goes last, so that only its products and the
 reduction wait for the previous `Y`. -/
 def body (k : Nat) : List Instr :=
   zero ++ (List.range (k - 1)).flatMap (blk k) ++ load 0 ++ [.vop (.logic .eor A A Y)] ++
-  acc A (sReg k) (tReg k) ++ reduce Y ++ [.vop (.ext Y Y Y 8)] ++ advance k
+  acc A (sReg k) (tReg k) ++ reduce Y ++ advance k
 
 def epilogue : List Instr := [.vop (.rev .rev64b Y Y), .strq Y .x1 0]
 

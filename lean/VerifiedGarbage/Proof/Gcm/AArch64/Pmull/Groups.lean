@@ -161,24 +161,24 @@ theorem acc_ok (a sk t : VReg) (s : State) (ha : Free a) (hs : Free sk) (ht : Fr
 
 theorem reduce_ok (d : VReg) (s : State) (hc : s.v C = ofVDwords poly poly) :
     WP isa (.block (Impl.Gcm.AArch64.Pmull.reduce d)) s fun s' =>
-      s'.v d = reduce (prod s) ∧ VOnly [LO, MID, T, d] s s' := by
+      s'.v d = reduce (prod s) ∧ VOnly [LO, MID, HI, T, d] s s' := by
   have hc0 : vdword (ofVDwords poly poly) 0 = poly := vdword_append_0 _ _
   apply WP.of_runBlock
-  simp only [Impl.Gcm.AArch64.Pmull.reduce, Impl.Gcm.AArch64.Pmull.fold, List.cons_append,
-    List.nil_append, runBlock_cons, runStep_some, runBlock_nil, exec_pmull0, exec_eor, exec_ext8,
-    Option.some.injEq, exists_eq_left', v_setV, ite_true, ite_false, reduceCtorEq, hc]
+  simp only [Impl.Gcm.AArch64.Pmull.reduce, runBlock_cons, runStep_some, runBlock_nil,
+    exec_pmull0, exec_eor, exec_ext8, Option.some.injEq, exists_eq_left', v_setV, ite_true,
+    ite_false, reduceCtorEq, hc]
   refine ⟨?_, ⟨fun r hr => ?_, by simp only [gpr_setV], by simp only [mem_setV], by simp only [rd_setV],
     by simp only [wr_setV], by simp only [sp_setV]⟩⟩
   · simp only [hc0]
     rfl
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-    simp only [v_setV, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2, ite_false]
+    simp only [v_setV, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2, ite_false]
 
-/-- `d ← mul(a, t)`, a block of class `x · a · t` (`a` as loaded). -/
+/-- `d ← mul(a, t)` with its halves swapped, a block of class `x · a · t` (`a` as loaded). -/
 theorem mul_ok (d a sk t : VReg) (s : State) (ha : Free a) (hs : Free sk) (ht : Free t)
     (hst : s.v sk = ext8 (s.v t) (s.v t)) (hc : s.v C = ofVDwords poly poly) :
     WP isa (.block (Impl.Gcm.AArch64.Pmull.mul d a sk t)) s fun s' =>
-      φ (s'.v d) = x * ρ (s.v a) * φ (s.v t) ∧ VOnly [LO, MID, HI, T, d] s s' := by
+      ρ (s'.v d) = x * ρ (s.v a) * φ (s.v t) ∧ VOnly [LO, MID, HI, T, d] s s' := by
   rw [Impl.Gcm.AArch64.Pmull.mul, WP.block_append_iff, WP.block_append_iff]
   refine WP.mono (zero_ok s) fun s₁ ⟨p₁, o₁⟩ => ?_
   refine WP.mono (acc_ok a sk t s₁ ha hs ht) fun s₂ ⟨p₂, o₂⟩ => ?_
@@ -186,12 +186,12 @@ theorem mul_ok (d a sk t : VReg) (s : State) (ha : Free a) (hs : Free sk) (ht : 
     rw [o₂.v r (by simp [h3, h4, h5, h7]), o₁.v r (by simp [h3, h4, h5])]
   refine WP.mono (reduce_ok d s₂ (by rw [k C (by decide) (by decide) (by decide) (by decide), hc]))
     fun s₃ ⟨p₃, o₃⟩ => ⟨?_, ?_⟩
-  · rw [p₃, φ_reduce, p₂, p₁, o₁.v a (by simp [ha.1, ha.2.1, ha.2.2.1]),
+  · rw [p₃, ρ_reduce, p₂, p₁, o₁.v a (by simp [ha.1, ha.2.1, ha.2.2.1]),
       o₁.v sk (by simp [hs.1, hs.2.1, hs.2.2.1]), o₁.v t (by simp [ht.1, ht.2.1, ht.2.2.1]), hst,
       Prod.val_acc, Prod.val_zero, zero_add]
   · exact (o₁.trans (o₂.trans o₃)).weaken fun r hr => by
       simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢
-      rcases hr with (h | h | h) | (h | h | h | h) | (h | h | h | h) <;> simp [h]
+      rcases hr with (h | h | h) | (h | h | h | h) | (h | h | h | h | h) <;> simp [h]
 
 /-- `ext d, n, n, #8`: the halves of `n`, swapped. -/
 theorem swap_ok (d n : VReg) (s : State) :
