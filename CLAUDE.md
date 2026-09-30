@@ -92,8 +92,10 @@ instructions in an ISA model) go in their own PR before either.
    its Rust signature (`Sig`) and its `Contract` on every target, built with
    `Sig.contract` from a postcondition and any precondition the signature does
    not imply, and its `Api`: its Rust module (the file under
-   `src/asm/<target>/`) and name, its signature, its contract's `writeArgs`,
-   and its documentation: what it does, and the `# Safety` items but for what
+   `src/asm/<target>/`) and name, its signature, its contract on every target
+   (`contracts := some fun A stack => fooContract A stack`, or
+   `fun A _ => fooContract A` for a contract without `stack`), its
+   contract's `writeArgs`, and its documentation: what it does, and the `# Safety` items but for what
    the emitter generates (what memory each buffer must be valid for:
    `Sig.validDoc`; which buffers may not overlap each other, the stack or
    the arguments on it, and that none wraps around the address space:
@@ -109,7 +111,10 @@ instructions in an ISA model) go in their own PR before either.
    new algorithm or target; see `Artifacts/Selftest/X86_64.lean`; never
    `Artifacts.lean`, whose list is empty), made from the function's `Api`:
    `{ Spec.<Alg>.fooApi with target := …, doc := Spec.<Alg>.fooApi.doc, … }`,
-   passing `doc` any notes on the implementation (`(notes := […])`). Set
+   passing `doc` any notes on the implementation (`(notes := […])`). The
+   artifact takes the `Api`'s `contracts`, and `ofApi` checks that its
+   `contract` is `contracts` on its target for its `stack`: never set
+   `contracts` outside `Spec/`. Set
    `stack` to the contract's (and `writeArgs`, if the artifact is not made
    from an `Api`): the default proof of `ofSig` checks both against the
    contract, and the emitter documents what they imply. Set its `spSafe`
