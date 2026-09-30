@@ -42,7 +42,7 @@ theorem loadScalarWords_ok (s : State) (p : Addr) (hp : s.gpr .rdx = p)
     RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg,
     ite_true, ite_false, reduceCtorEq, Option.map_some, Option.some.injEq, exists_eq_left', scalarValue]
   refine ⟨?_, fun r hr => ?_, rfl, rfl, rfl⟩
-  · exact (decodeLE_words s.mem p).symm
+  · exact (decodeLE_inputWords s.mem p).symm
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     simp only [RegUpd.gpr_setReg, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2, ite_false]
 

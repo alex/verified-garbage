@@ -10,7 +10,7 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off Keeps ea_at val4)
 
-theorem decodeLE_words (m : Mem) (p : Addr) :
+theorem decodeLE_inputWords (m : Mem) (p : Addr) :
     Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt m p 32) =
       val4 (m.readW (off p 0) 64) (m.readW (off p 8) 64)
         (m.readW (off p 16) 64) (m.readW (off p 24) 64) := by
@@ -20,7 +20,7 @@ theorem decodeLE_words (m : Mem) (p : Addr) :
 private theorem encoded_top (m : Mem) (p : Addr) :
     ((m.readW (off p 24) 64) >>> 63).toNat =
       Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt m p 32) / 2 ^ 255 := by
-  rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, decodeLE_words, val4]
+  rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, decodeLE_inputWords, val4]
   have h0 := (m.readW (off p 0) 64).isLt
   have h1 := (m.readW (off p 8) 64).isLt
   have h2 := (m.readW (off p 16) 64).isLt

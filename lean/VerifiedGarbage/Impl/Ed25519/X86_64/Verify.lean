@@ -59,10 +59,12 @@ def verifyDecodeA : Prog isa :=
   .seq (.block [.mov .rdx (.mem (sc 7936))]) (.seq pointDecode
     (decodedThen (.seq (.block (pointTableWrite 7424)) verifyDecodeR)))
 
+def verifyHeaders : List Instr :=
+  [.store (at_ .rdx 7936) .rdi, .store (at_ .rdx 7944) .rsi,
+    .store (at_ .rdx 7952) .rax, .mov .rdi (.reg .rdx)]
+
 def verifySetup : List Instr :=
-  ([.mov .rax (.reg .rdx), .mov .rdx (.reg .rcx)] : List Instr) ++ scalarSave ++
-    [.store (at_ .rdx 7936) .rdi, .store (at_ .rdx 7944) .rsi,
-      .store (at_ .rdx 7952) .rax, .mov .rdi (.reg .rdx)]
+  ([.mov .rax (.reg .rdx), .mov .rdx (.reg .rcx)] : List Instr) ++ scalarSave ++ verifyHeaders
 
 def verifyEquation : Prog isa :=
   .seq (.block verifySetup) (.seq
