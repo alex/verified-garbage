@@ -43,8 +43,8 @@ theorem carryStep_ok {s : State} {base : Addr} (hs : Scr s base) {o a i : Nat}
     RegUpd.wr_setReg, RegUpd.wr_arithFlags, hs.rdi, State.store64, w, ite_true,
     ite_false, reduceCtorEq, Nat.reduceLeDiff, and_self, RegUpd.gpr_setFlags,
     Option.some.injEq, exists_eq_left']
-  have hv : (word s.mem base (a + 8 * i) + s.gpr .rcx).toNat = v := by
-    rw [BitVec.toNat_add, Nat.mod_eq_of_lt hb]
+  have hv : (s.gpr .rcx + word s.mem base (a + 8 * i)).toNat = v := by
+    rw [BitVec.add_comm, BitVec.toNat_add, Nat.mod_eq_of_lt hb]
   refine ⟨?_, ?_, (fun r hr => ?_), rfl, rfl⟩
   · rw [shr28, hv]
   · apply congrArg (s.mem.writeW (off base (o + 8 * i)))
@@ -55,7 +55,7 @@ theorem carryStep_ok {s : State} {base : Addr} (hs : Scr s base) {o a i : Nat}
       omega)]
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     simp only [RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, RegUpd.gpr_setFlags,
-      hr.1, hr.2.1, hr.2.2, ite_false]
+      hr.1, hr.2.1, ite_false]
 
 /-- A bounded multiply-add is an ordinary natural-number multiply-add. -/
 theorem mul_add_nat (a b c : BitVec 64) (h : a.toNat * b.toNat + c.toNat < 2 ^ 64) :
