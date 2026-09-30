@@ -23,8 +23,11 @@ at a time) in place of sampling and hashing:
   with `H(ek)` copied from `ekx` rather than computed, and `Â` copied to
   the working space rather than sampled;
 * `decapsX(dk = rdi, ekx = rsi, ct = rdx, key = rcx, scratch = r8)`:
-  `vg_mlkem768_decaps`, with `ekx` in `r13` (which it does not use
-  otherwise), and `Â` copied to the working space rather than sampled.
+  `vg_mlkem768_decaps`, with `Â` copied from `ekx` (in `r13`) to the
+  working space first rather than sampled after `G(m' ‖ h)`: K-PKE.Decrypt
+  and the hashes use neither `r13` nor polynomials 6–14. (`r13` holds a
+  buffer the function writes, in the other functions, so it may hold `ekx`
+  only until `ekx`'s last use.)
 
 `encapsX` and `decapsX` sample nothing, so they never fail: they return
 `r15`, which stays 1.
@@ -100,7 +103,7 @@ end DecapsX
 open Decaps (decrypt hashes select) in
 /-- `vg_mlkem768_decaps_expanded(dk = rdi, ekx = rsi, ct = rdx, key = rcx, scratch = r8)`. -/
 def decapsX : Prog isa :=
-  .seq (.block DecapsX.pro) (.seq decrypt (.seq hashes (.seq (matIn .r13)
+  .seq (.block DecapsX.pro) (.seq (matIn .r13) (.seq decrypt (.seq hashes
     (.seq (Encrypt.rest (.rbp, 1152)) (.seq select (.block topEpi))))))
 
 end VG.Impl.MlKem.X86_64

@@ -1,5 +1,6 @@
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.MlKem.X86_64.EcXVerified
+import VerifiedGarbage.Proof.MlKem.X86_64.DcXVerified
 
 /-!
 # ML-KEM-768 (FIPS 203) on x86-64: encapsulation and decapsulation with expanded keys
@@ -30,6 +31,14 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem.encapsExpandedContract X86_64.abi 32
     stack := 32
     verified := Proof.MlKem.X86_64.encapsX_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.MlKem.decapsExpandedApi with
+    target := X86_64.target
+    doc := Spec.MlKem.decapsExpandedApi.doc (notes := notes)
+    code := Impl.MlKem.X86_64.decapsX
+    contract := Spec.MlKem.decapsExpandedContract X86_64.abi 32
+    stack := 32
+    verified := Proof.MlKem.X86_64.decapsX_verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.MlKemExpanded.X86_64
