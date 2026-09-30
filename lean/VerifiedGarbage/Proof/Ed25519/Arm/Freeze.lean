@@ -93,10 +93,11 @@ theorem freezeCore_ok {s : State} (hc : Ctx b s) (hl : Lim s.mem (State.addr b) 
   · rw [V, val16_congr hr, hv]
     rfl
 
-theorem freeze_ok {s : State} (hc : Ctx b s) (hl : AllLim s.mem b) (a : Slot) :
+theorem freezeRaw_ok {s : State} (hc : Ctx b s) (hl : AllLim s.mem b) (a : Slot) :
     WP isa (.block (freeze a)) s fun t => Keep b s t ∧ AllLim t.mem b ∧
       env t.mem b = env s.mem b ∧ Lim t.mem (State.addr b) FR ∧
-      V t.mem (State.addr b) FR = (env s.mem b a).val := by
+      V t.mem (State.addr b) FR = (env s.mem b a).val ∧
+      ∀ (i : Slot) k, k < 16 → limb t.mem (State.addr b) (offset i) k = limb s.mem (State.addr b) (offset i) k := by
   rw [freeze, WP.block_append_iff]
   refine WP.mono (freezeCopy_ok hc a) fun u ⟨hr, hf, he⟩ => ?_
   refine WP.mono (freezeCore_ok (hc.of_rest hr (by decide))
@@ -113,10 +114,16 @@ theorem freeze_ok {s : State} (hc : Ctx b s) (hl : AllLim s.mem b) (a : Slot) :
     exact Offset.disjoint _ (.inl (by omega)) (by rw [ACC_eq] at hi; omega) (by decide)
   refine ⟨⟨(hr.mono (by decide)).trans hr', ?_⟩,
     fun i k hk => by rw [hs i k hk]; exact hl i k hk,
-    funext fun i => congrArg VG.Proof.X25519.toFe (val16_congr (hs i)), hl', ?_⟩
+    funext fun i => congrArg VG.Proof.X25519.toFe (val16_congr (hs i)), hl', ?_, hs⟩
   · exact hframe.sub fun r hm => ⟨_, List.mem_singleton_self _, by
       rw [List.mem_singleton.mp hm]; exact Offset.sub _ (by decide) (by decide)⟩
   · rw [hv, V, val16_congr he]
     rfl
+
+theorem freeze_ok {s : State} (hc : Ctx b s) (hl : AllLim s.mem b) (a : Slot) :
+    WP isa (.block (freeze a)) s fun t => Keep b s t ∧ AllLim t.mem b ∧
+      env t.mem b = env s.mem b ∧ Lim t.mem (State.addr b) FR ∧
+      V t.mem (State.addr b) FR = (env s.mem b a).val :=
+  WP.mono (freezeRaw_ok hc hl a) fun _ ⟨hk, ht, he, hf, hv, _⟩ => ⟨hk, ht, he, hf, hv⟩
 
 end VG.Proof.Ed25519.Arm
