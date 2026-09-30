@@ -191,7 +191,7 @@ def savedRegs : List Reg := [.x24, .x25, .x26, .x27, .x28, .x30]
 /-- Save the caller's registers in `scratch` (in `x3`), keep `scratch` in
 `x28` and the other arguments in `x25`–`x27`, and `x24 ← 1`. -/
 def pro : List Instr :=
-  (List.range 6).map (fun k => .str .x (savedRegs.getD k .x24) .x3 (SV + 8 * k)) ++
+  (List.range 6).map (fun k => .str .x (savedRegs.getD k .x0) .x3 (SV + 8 * k)) ++
     [.addImm .x .x25 .x0 0, .addImm .x .x26 .x1 0, .addImm .x .x27 .x2 0, .addImm .x .x28 .x3 0,
       .movz .x .x24 1 0]
 
