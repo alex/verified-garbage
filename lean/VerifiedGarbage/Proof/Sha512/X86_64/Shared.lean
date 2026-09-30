@@ -45,6 +45,10 @@ theorem compress_avx2 :
     Verified X86_64.target Impl.Sha512.X86_64.Avx2.compress (Spec.Sha512.compressContract X86_64.abi) :=
   Proof.Sha512.X86_64.Avx2.compress_verified.of_implies compressImplies
 
+theorem compress_shani :
+    Verified X86_64.target Impl.Sha512.X86_64.ShaNi.compress (Spec.Sha512.compressContract X86_64.abi) :=
+  Proof.Sha512.X86_64.ShaNi.compressWide_verified.of_implies compressImplies
+
 theorem init (iv : Spec.Sha512.HashValue) :
     Verified X86_64.target (Impl.Sha512.X86_64.Stream.init iv) (Spec.Sha512.initContract X86_64.abi iv) :=
   (Proof.Sha512.X86_64.Stream.init_verified iv).of_implies (by

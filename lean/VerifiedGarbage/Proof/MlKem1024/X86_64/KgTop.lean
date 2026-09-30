@@ -106,7 +106,7 @@ theorem keyGen1024_correct (σ : State) (hp : keyGen1024K.pre σ) :
         WP.seq (WP.mono (body_ok hp h₃) fun s₄ h₄ =>
           WP.mono (topEpi_ok h₄.kc.top (h₄.hin hp)) fun s₅ ⟨hr, hg, hm⟩ =>
             (⟨hg, post_of h₄ hr hm⟩ : gprPreserved σ s₅ ∧ keyGen1024K.post σ s₅)))))
-  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he hF.1, hF.2⟩
+  exact ⟨t, s', he, abiPreserved_of_ctl (by decide +kernel) he hF.1, hF.2⟩
 
 /-! ## Constant time -/
 
