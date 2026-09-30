@@ -60,25 +60,6 @@ structure PrimsOk (P : Prims) (D : Nat) where
 
 /-! ## The arguments of a call -/
 
-theorem argsIn2 {a b : Arg} {s s1 : State} (h : ArgsIn [a, b] s s1) :
-    s1.gpr .rdi = a.val s ∧ s1.gpr .rsi = b.val s :=
-  ⟨h (.rdi, a) (by simp [argRegs6]), h (.rsi, b) (by simp [argRegs6])⟩
-
-theorem argsIn3 {a b c : Arg} {s s1 : State} (h : ArgsIn [a, b, c] s s1) :
-    s1.gpr .rdi = a.val s ∧ s1.gpr .rsi = b.val s ∧ s1.gpr .rdx = c.val s :=
-  ⟨h (.rdi, a) (by simp [argRegs6]), h (.rsi, b) (by simp [argRegs6]), h (.rdx, c) (by simp [argRegs6])⟩
-
-theorem argsIn4 {a b c d : Arg} {s s1 : State} (h : ArgsIn [a, b, c, d] s s1) :
-    s1.gpr .rdi = a.val s ∧ s1.gpr .rsi = b.val s ∧ s1.gpr .rdx = c.val s ∧ s1.gpr .rcx = d.val s :=
-  ⟨h (.rdi, a) (by simp [argRegs6]), h (.rsi, b) (by simp [argRegs6]), h (.rdx, c) (by simp [argRegs6]),
-    h (.rcx, d) (by simp [argRegs6])⟩
-
-theorem argsIn5 {a b c d e : Arg} {s s1 : State} (h : ArgsIn [a, b, c, d, e] s s1) :
-    s1.gpr .rdi = a.val s ∧ s1.gpr .rsi = b.val s ∧ s1.gpr .rdx = c.val s ∧ s1.gpr .rcx = d.val s ∧
-      s1.gpr .r8 = e.val s :=
-  ⟨h (.rdi, a) (by simp [argRegs6]), h (.rsi, b) (by simp [argRegs6]), h (.rdx, c) (by simp [argRegs6]),
-    h (.rcx, d) (by simp [argRegs6]), h (.r8, e) (by simp [argRegs6])⟩
-
 theorem sw32_ofNat {v : Nat} (h : v < 2 ^ 32) : (BitVec.setWidth 32 (BitVec.ofNat 64 v)).toNat = v := by
   rw [BitVec.toNat_setWidth, BitVec.toNat_ofNat]; omega
 

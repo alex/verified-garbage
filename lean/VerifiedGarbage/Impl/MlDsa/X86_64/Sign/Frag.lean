@@ -119,7 +119,7 @@ def callP (name : String) (c : Prog isa) (as : List Arg) : Prog isa := .seq (.bl
 /-! ## The sponge -/
 
 /-- The 25 lanes at `b + off`, zeroed (with `rax = 0`). -/
-def zeroSt (b : Reg) (off : Nat) : List Instr := (List.range 25).map fun k => .store (at_ b (off + 8 * k)) .rax
+def zeroSt (b : Reg) (off : Nat) : List Instr := (List.range 25).flatMap fun k => [.store (at_ b (off + 8 * k)) .rax]
 
 /-- Zero the Keccak state. -/
 def kzero : List Instr := .mov32 .rax (.imm 0) :: zeroSt .rbx 0

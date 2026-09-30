@@ -117,6 +117,31 @@ theorem setArgs_nomem (as : List Arg) : ∀ i ∈ setArgs as, ∀ s, isa.addrs i
 /-- The arguments of `as`, in their registers after the moves. -/
 abbrev ArgsIn (as : List Arg) (s s1 : State) : Prop := ∀ da ∈ argRegs6.zip as, s1.gpr da.1 = da.2.val s
 
+theorem argsIn2 {a b : Arg} {s s1 : State} (h : ArgsIn [a, b] s s1) :
+    s1.gpr .rdi = a.val s ∧ s1.gpr .rsi = b.val s :=
+  ⟨h (.rdi, a) (by simp [argRegs6]), h (.rsi, b) (by simp [argRegs6])⟩
+
+theorem argsIn3 {a b c : Arg} {s s1 : State} (h : ArgsIn [a, b, c] s s1) :
+    s1.gpr .rdi = a.val s ∧ s1.gpr .rsi = b.val s ∧ s1.gpr .rdx = c.val s :=
+  ⟨h (.rdi, a) (by simp [argRegs6]), h (.rsi, b) (by simp [argRegs6]), h (.rdx, c) (by simp [argRegs6])⟩
+
+theorem argsIn4 {a b c d : Arg} {s s1 : State} (h : ArgsIn [a, b, c, d] s s1) :
+    s1.gpr .rdi = a.val s ∧ s1.gpr .rsi = b.val s ∧ s1.gpr .rdx = c.val s ∧ s1.gpr .rcx = d.val s :=
+  ⟨h (.rdi, a) (by simp [argRegs6]), h (.rsi, b) (by simp [argRegs6]), h (.rdx, c) (by simp [argRegs6]),
+    h (.rcx, d) (by simp [argRegs6])⟩
+
+theorem argsIn5 {a b c d e : Arg} {s s1 : State} (h : ArgsIn [a, b, c, d, e] s s1) :
+    s1.gpr .rdi = a.val s ∧ s1.gpr .rsi = b.val s ∧ s1.gpr .rdx = c.val s ∧ s1.gpr .rcx = d.val s ∧
+      s1.gpr .r8 = e.val s :=
+  ⟨h (.rdi, a) (by simp [argRegs6]), h (.rsi, b) (by simp [argRegs6]), h (.rdx, c) (by simp [argRegs6]),
+    h (.rcx, d) (by simp [argRegs6]), h (.r8, e) (by simp [argRegs6])⟩
+
+theorem argsIn6 {a b c d e f : Arg} {s s1 : State} (h : ArgsIn [a, b, c, d, e, f] s s1) :
+    s1.gpr .rdi = a.val s ∧ s1.gpr .rsi = b.val s ∧ s1.gpr .rdx = c.val s ∧ s1.gpr .rcx = d.val s ∧
+      s1.gpr .r8 = e.val s ∧ s1.gpr .r9 = f.val s :=
+  ⟨h (.rdi, a) (by simp [argRegs6]), h (.rsi, b) (by simp [argRegs6]), h (.rdx, c) (by simp [argRegs6]),
+    h (.rcx, d) (by simp [argRegs6]), h (.r8, e) (by simp [argRegs6]), h (.r9, f) (by simp [argRegs6])⟩
+
 theorem callP_ok {D : Nat} {n : String} {c : Prog isa} {k : Contract isa}
     (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
     (hsp : NoSp c) (hd : 8 * (c.depth + 1) ≤ D) (hD : D < 2 ^ 32) {as : List Arg} (ha : as.all Arg.ok = true)
