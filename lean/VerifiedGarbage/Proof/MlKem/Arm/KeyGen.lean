@@ -168,7 +168,7 @@ theorem setup_ok {s₀ : State} (hp : Pre s₀) :
   have ne2 : ∀ i < 9, ∀ (m : Mem) (v : Byte), (m.writeW ((lay s₀).A 0 1152) v).readW
       ((lay s₀).A 0 840 + BitVec.ofNat 64 (4 * i)) 32 = m.readW ((lay s₀).A 0 840 + BitVec.ofNat 64 (4 * i)) 32 :=
     fun i hi m v => Mem.readW_writeW_sep (fun x h1 h2 => by bv_omega) (by decide)
-  refine ⟨⟨⟨hL, rfl, rfl, by simp [lay], ?_, by show 8 ≤ s₁.sp.toNat; rw [h₁.sp]; exact hp.sp8, ?_, ?_⟩, ?_, ?_, ?_, h₁.rd, h₁.wr, h₁.sp, fun i hi => ?_, ?_, ?_⟩, ?_⟩
+  refine ⟨⟨⟨hL, Nat.le_refl _, rfl, by simp [lay], ?_, by show 8 ≤ s₁.sp.toNat; rw [h₁.sp]; exact hp.sp8, ?_, ?_⟩, ?_, ?_, ?_, h₁.rd, h₁.wr, h₁.sp, fun i hi => ?_, ?_, ?_⟩, ?_⟩
   · simp [h₁.gpr]; rfl
   · show s₀.sp - BitVec.ofNat 32 8 = s₁.sp - BitVec.ofNat 32 8
     rw [h₁.sp]

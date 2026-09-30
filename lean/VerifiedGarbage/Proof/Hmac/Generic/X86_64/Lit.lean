@@ -13,6 +13,11 @@ registration files' `spSafe` checks evaluate them.
 
 namespace VG.Proof.Hmac.Generic.X86_64
 
+-- MD5's functions first (no module of MD5's materializes them), so that the
+-- literals below call their literals rather than repeating their code.
+materialize_code md5Compress := Impl.Md5.X86_64.compress
+materialize_code md5Update := Impl.Md5.X86_64.Stream.update
+materialize_code md5Finalize := Impl.Md5.X86_64.Stream.finalize
 materialize_code md5HInit := md5H.init
 materialize_code md5HFinalize := md5H.finalize
 materialize_code sha384HInit := sha384H.init

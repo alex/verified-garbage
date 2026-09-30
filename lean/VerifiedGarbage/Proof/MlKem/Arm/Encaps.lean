@@ -226,7 +226,7 @@ theorem setup_ok {s₀ s₁ : State} (hp : Pre s₀) (h12 : s₁.gpr .r12 = pScr
     exact Lay.R_sub_R hL (by simp [lay]) (by decide) (by decide) (by simp [lay])
   have c872 : ((lay s₀).R 0 840 36).Contains ((lay s₀).A 0 872) 4 := by
     simp only [Region.Contains]; bv_omega
-  refine ⟨⟨⟨hL, rfl, rfl, by simp [lay], ?_, by show 8 ≤ s₂.sp.toNat; rw [h₂.sp, hsp]; exact hp.sp8, ?_, ?_⟩,
+  refine ⟨⟨⟨hL, Nat.le_refl _, rfl, by simp [lay], ?_, by show 8 ≤ s₂.sp.toNat; rw [h₂.sp, hsp]; exact hp.sp8, ?_, ?_⟩,
     ?_, ?_, ?_, h₂.rd.trans hrd, h₂.wr.trans hwr, h₂.sp.trans hsp, fun i hi => ?_, ?_, ?_⟩, ?_, ?_⟩
   · simp [h₂.gpr, h12]; rfl
   · show s₀.sp - BitVec.ofNat 32 8 = s₂.sp - BitVec.ofNat 32 8

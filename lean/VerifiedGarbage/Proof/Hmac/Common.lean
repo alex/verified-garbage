@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Sha256.Stream
 import VerifiedGarbage.Proof.Sha256.StateMem
 import VerifiedGarbage.Spec.Hmac
+import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
 # HMAC-SHA-256: lemmas shared by every target
@@ -26,7 +27,7 @@ private theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).
 theorem extractLsb'_read (m : Mem) (a : Addr) {n j : Nat} (hj : j < n) :
     (m.read a n).extractLsb' (8 * j) 8 = m (a + BitVec.ofNat 64 j) := by
   induction n generalizing a j with
-  | zero => omega
+  | zero => omega_nat
   | succ n ih =>
     simp only [Mem.read]
     cases j with
@@ -36,18 +37,18 @@ theorem extractLsb'_read (m : Mem) (a : Addr) {n j : Nat} (hj : j < n) :
       simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_append]
       simp [hi]
     | succ j =>
-      rw [show a + BitVec.ofNat 64 (j + 1) = a + 1 + BitVec.ofNat 64 j by bv_omega,
-        ← ih (a := a + 1) (by omega)]
+      rw [Offset.add_ofNat_succ a j,
+        ← ih (a := a + 1) (by omega_nat)]
       ext i hi
       simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_append,
-        show ¬ (8 * (j + 1) + i < 8) by omega, ite_false]
-      congr 1; omega
+        show ¬ (8 * (j + 1) + i < 8) by omega_nat, ite_false]
+      congr 1; omega_nat
 
 /-- Writing a word read from memory writes its bytes. -/
 theorem writeW_readW (m m' : Mem) (d s : Addr) (n : Nat) :
     m.writeW d (m'.readW s (8 * n)) = writeBytes m d (bytesAt m' s n) := by
   simp only [Mem.writeW, Mem.readW]
-  rw [show 8 * n / 8 = n by omega, BitVec.setWidth_eq, BitVec.setWidth_eq, write_eq_writeBytes]
+  rw [show 8 * n / 8 = n by omega_nat, BitVec.setWidth_eq, BitVec.setWidth_eq, write_eq_writeBytes]
   congr 1
   simp only [bytesAt]
   exact List.map_congr_left fun j hj => extractLsb'_read _ _ (List.mem_range.mp hj)
@@ -67,7 +68,7 @@ theorem bytesAt_writeBytes_sep (m : Mem) {p q : Addr} {n : Nat} (xs : List Byte)
   have hi := List.mem_range.mp hi
   simp only [writeBytes]
   split
-  · exact absurd ‹_› (h _ (by rw [Mem.sub_ofNat_toNat p (by omega)]; exact hi))
+  · exact absurd ‹_› (h _ (by rw [Mem.sub_ofNat_toNat p (by omega_nat)]; exact hi))
   · rfl
 
 /-- One more word copied from `A` to `B`. -/
@@ -79,16 +80,16 @@ theorem copy_mem (m : Mem) (A B : Addr) (n w : Nat)
   rw [writeW_readW, bytesAt_writeBytes_sep]
   · rw [bytesAt_add]
     have := writeBytes_append m B (bytesAt m A (w * n)) (bytesAt m (A + BitVec.ofNat 64 (w * n)) w)
-      (by simp [bytesAt]; omega)
+      (by simp [bytesAt]; omega_nat)
     simpa [bytesAt] using this
   · intro x hx hy
     simp only [bytesAt, List.length_map, List.length_range] at hy
-    apply hsep x _ (by omega)
+    apply hsep x _ (by omega_nat)
     rw [show x - A = (x - (A + BitVec.ofNat 64 (w * n))) + BitVec.ofNat 64 (w * n) by rw [← BitVec.sub_sub, BitVec.sub_add_cancel],
-      BitVec.toNat_add, toNat_ofNat_lt (by omega)]
+      BitVec.toNat_add, toNat_ofNat_lt (by omega_nat)]
     have := Nat.mod_le ((x - (A + BitVec.ofNat 64 (w * n))).toNat + w * n) (2 ^ 64)
-    omega
-  · omega
+    omega_nat
+  · omega_nat
 
 theorem bytesAt_zero (m : Mem) (p : Addr) : bytesAt m p 0 = [] := rfl
 
@@ -98,12 +99,11 @@ theorem read_congr₂ {m m' : Mem} {a b : Addr} {n : Nat}
   | zero => rfl
   | succ n ih =>
     simp only [Mem.read]
-    have h0 := h 0 (by omega)
+    have h0 := h 0 (by omega_nat)
     simp only [BitVec.add_zero] at h0
     rw [h0, ih fun i hi => ?_]
-    have := h (i + 1) (by omega)
-    rwa [show a + BitVec.ofNat 64 (i + 1) = a + 1 + BitVec.ofNat 64 i by bv_omega,
-      show b + BitVec.ofNat 64 (i + 1) = b + 1 + BitVec.ofNat 64 i by bv_omega] at this
+    have := h (i + 1) (by omega_nat)
+    rwa [Offset.add_ofNat_succ a i, Offset.add_ofNat_succ b i] at this
 
 /-- A hash value is determined by its 32 bytes. -/
 theorem stateAt_eq_of_bytes {m m' : Mem} {p q : Addr}
@@ -113,7 +113,7 @@ theorem stateAt_eq_of_bytes {m m' : Mem} {p q : Addr}
   simp only [stateAt, Vector.getElem_ofFn, Mem.readW]
   refine congrArg (BitVec.setWidth _) ?_
   refine read_congr₂ fun i hi => ?_
-  have := h (4 * j + i) (by omega)
+  have := h (4 * j + i) (by omega_nat)
   rwa [show p + BitVec.ofNat 64 (4 * j + i) = p + BitVec.ofNat 64 (4 * j) + BitVec.ofNat 64 i by
       simp only [BitVec.ofNat_add, BitVec.add_assoc],
     show q + BitVec.ofNat 64 (4 * j + i) = q + BitVec.ofNat 64 (4 * j) + BitVec.ofNat 64 i by
@@ -121,7 +121,7 @@ theorem stateAt_eq_of_bytes {m m' : Mem} {p q : Addr}
 
 theorem writeBytes_at (m : Mem) (q : Addr) (xs : List Byte) {i : Nat} (hi : i < xs.length)
     (hl : xs.length < 2 ^ 64) : writeBytes m q xs (q + BitVec.ofNat 64 i) = xs.getD i 0 := by
-  simp only [writeBytes, Mem.sub_ofNat_toNat q (show i < 2 ^ 64 by omega), hi, ite_true]
+  simp only [writeBytes, Mem.sub_ofNat_toNat q (show i < 2 ^ 64 by omega_nat), hi, ite_true]
 
 theorem writeBytes_other (m : Mem) (q : Addr) (xs : List Byte) {x : Addr}
     (hx : ¬ (x - q).toNat < xs.length) : writeBytes m q xs x = m x := by
@@ -151,10 +151,11 @@ theorem bytesAt_snoc (m : Mem) (p : Addr) {j : Nat} (hj : j + 1 < 2 ^ 64) (x : B
     have hi := List.mem_range.mp hi
     simp only [Mem.writeW]
     refine Mem.write_apply ?_
-    rw [show p + BitVec.ofNat 64 i - (p + BitVec.ofNat 64 j) = BitVec.ofNat 64 i - BitVec.ofNat 64 j by bv_omega,
-      BitVec.toNat_sub, toNat_ofNat_lt (by omega), toNat_ofNat_lt (by omega)]
-    omega
-  · have e : p + BitVec.ofNat 64 j + BitVec.ofNat 64 0 - (p + BitVec.ofNat 64 j) = 0 := by bv_omega
+    rw [Offset.add_sub_add_left,
+      BitVec.toNat_sub, toNat_ofNat_lt (by omega_nat), toNat_ofNat_lt (by omega_nat)]
+    omega_nat
+  · have e : p + BitVec.ofNat 64 j + BitVec.ofNat 64 0 - (p + BitVec.ofNat 64 j) = 0 := by
+      rw [Offset.add_sub_cancel_left]; rfl
     simp only [bytesAt, List.range_one, List.map_cons, List.map_nil, Mem.writeW, Mem.write, e,
 ]
     simp

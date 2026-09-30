@@ -27,12 +27,13 @@ theorem msg_add4 (n : Nat) : msg (n + 4) = msg n := by
 theorem msg_nodup (n : Nat) :
     [msg n, msg (n + 1), msg (n + 2), msg (n + 3), .xmm0, .xmm1, .xmm2, .xmm7, .xmm8, .xmm9,
       .xmm10, .xmm11].Nodup := by
-  simp only [msg]
-  have := Nat.mod_lt n (show 4 > 0 by omega)
-  rw [show (n + 1) % 4 = (n % 4 + 1) % 4 by omega, show (n + 2) % 4 = (n % 4 + 2) % 4 by omega,
-    show (n + 3) % 4 = (n % 4 + 3) % 4 by omega]
-  generalize n % 4 = c at *
-  rcases (by omega : c = 0 ∨ c = 1 ∨ c = 2 ∨ c = 3) with rfl | rfl | rfl | rfl <;> decide
+  have key : ∀ c < 4, [msg c, msg (c + 1), msg (c + 2), msg (c + 3), .xmm0, .xmm1, .xmm2, .xmm7, .xmm8,
+      .xmm9, .xmm10, .xmm11].Nodup := by
+    decide
+  have e : ∀ k, msg (n + k) = msg (n % 4 + k) := fun k => by
+    simp only [msg]; rw [show (n % 4 + k) % 4 = (n + k) % 4 by omega]
+  rw [show msg n = msg (n % 4) by simp only [msg, Nat.mod_mod], e 1, e 2, e 3]
+  exact key _ (Nat.mod_lt _ (by decide))
 
 theorem rounds4_ok (n : Nat) (s : State) (v : HashValue) (q : BitVec 128)
     (h1 : s.xmm .xmm1 = abef v) (h2 : s.xmm .xmm2 = cdgh v) (hq : s.xmm (msg n) = q) :
@@ -119,9 +120,11 @@ theorem msg_ne (n k : Nat) (h₁ : k < n) (h₂ : n ≤ k + 3) : msg k ≠ msg n
 
 theorem msg_other (n : Nat) (r : XReg) (h : r = .xmm0 ∨ r = .xmm1 ∨ r = .xmm2 ∨ r = .xmm7 ∨ r = .xmm8 ∨
     r = .xmm9 ∨ r = .xmm10 ∨ r = .xmm11) : msg n ≠ r := by
-  have hd := msg_nodup n
-  simp only [List.nodup_cons, List.mem_cons, List.not_mem_nil, or_false, not_or] at hd
-  rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp_all
+  have key : ∀ c < 4, ∀ r ∈ [XReg.xmm0, .xmm1, .xmm2, .xmm7, .xmm8, .xmm9, .xmm10, .xmm11], msg c ≠ r := by
+    decide
+  rw [show msg n = msg (n % 4) by simp only [msg, Nat.mod_mod]]
+  exact key _ (Nat.mod_lt _ (by decide)) r (by
+    rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp only [List.mem_cons, true_or, or_true])
 
 /-- What holds after rounds `0 … 4n-1` of a block `M`, from the state `sB` at its start. -/
 structure RInv (H : HashValue) (M : Block) (sB : State) (n : Nat) (s : State) : Prop where

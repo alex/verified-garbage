@@ -35,7 +35,7 @@ theorem shape : Shape (P := params) md where
     rw [m, digest_eq]
 
 theorem callee : CalleeOk (P := params) md Impl.Sha256.Arm.compress :=
-  ⟨compress_verified.1, by decide +kernel, by rw [← Code.allInstrs_eq]; decide +kernel⟩
+  ⟨compress_verified.1, by lit_decide, by rw [← Code.allInstrs_eq]; lit_decide⟩
 
 namespace Update
 

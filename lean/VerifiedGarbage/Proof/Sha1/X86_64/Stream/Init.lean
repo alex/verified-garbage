@@ -76,8 +76,6 @@ theorem init_verified : Verified X86_64.target init Proof.Sha1.initX86_64 := by
   · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.rdi]) ?_ (by taint_decide)
     intro s₁ s₂ _ _ h
     exact Taint.agree_ofRegs fun r hr => by simp at hr; subst hr; exact h
-  · intro a h₁ h₂
-    simp only [Region.Contains, initSat] at h₁ h₂
-    bv_omega
+  · exact Region.disjoint_of_sep (by decide)
 
 end VG.Proof.Sha1.X86_64.Stream

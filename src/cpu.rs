@@ -21,7 +21,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The features detection knows, by their Rust `target_feature` names: bit
 /// `i` of a [`Features`] is `NAMES[i]`.
-pub(crate) const NAMES: [&str; 8] = [
+pub(crate) const NAMES: [&str; 9] = [
     "ssse3",
     "sha",
     "aes",
@@ -30,6 +30,7 @@ pub(crate) const NAMES: [&str; 8] = [
     "avx2",
     "bmi1",
     "bmi2",
+    "avx512f",
 ];
 
 /// The bit of a feature detection does not know, which is never detected.
@@ -118,11 +119,13 @@ fn parse(names: &str) -> Option<u32> {
 
 /// Asks the CPU (Intel SDM Vol. 2A, CPUID: leaf 1 ECX bit 9 is SSSE3, bit 25
 /// AES, bit 1 PCLMULQDQ, bit 27 OSXSAVE and bit 28 AVX; leaf 7 sub-leaf 0 EBX
-/// bit 29 is SHA, bit 5 AVX2, bit 3 BMI1 and bit 8 BMI2; AMD reports them in
-/// the same bits). AVX and
+/// bit 29 is SHA, bit 5 AVX2, bit 3 BMI1, bit 8 BMI2 and bit 16 AVX512F; AMD
+/// reports them in the same bits). AVX and
 /// AVX2 also need the operating system to save the `ymm` registers: XCR0
 /// bits 1 and 2, read with `xgetbv` only if OSXSAVE says it may be (Intel SDM
-/// Vol. 1, §14.3, "Detection of Intel AVX Instructions").
+/// Vol. 1, §14.3, "Detection of Intel AVX Instructions"); AVX512F also needs
+/// the opmask and `zmm` state, XCR0 bits 5, 6 and 7 (§15.2, "Detection of
+/// AVX-512 Foundation Instructions").
 #[cfg(target_arch = "x86_64")]
 fn runtime() -> u32 {
     use core::arch::x86_64::{__cpuid, __cpuid_count, _xgetbv};
@@ -139,12 +142,14 @@ fn runtime() -> u32 {
         let osxsave = (ecx >> 27) & 1 == 1;
         let xcr0 = if osxsave { _xgetbv(0) } else { 0 };
         let ymm = u32::from(xcr0 & 0b110 == 0b110);
+        let zmm = u32::from(xcr0 & 0b1110_0110 == 0b1110_0110);
         let avx = (ecx >> 28) & ymm;
         let ebx = if max >= 7 { __cpuid_count(7, 0).ebx } else { 0 };
         let sha = (ebx >> 29) & 1;
         let avx2 = (ebx >> 5) & avx;
         let bmi1 = (ebx >> 3) & 1;
         let bmi2 = (ebx >> 8) & 1;
+        let avx512f = (ebx >> 16) & avx & zmm;
         ssse3
             | (sha << 1)
             | (aes << 2)
@@ -153,6 +158,7 @@ fn runtime() -> u32 {
             | (avx2 << 5)
             | (bmi1 << 6)
             | (bmi2 << 7)
+            | (avx512f << 8)
     }
 }
 
@@ -173,7 +179,8 @@ mod tests {
         assert_eq!(Features::of(&["pclmulqdq", "aes"]), Features(0b1100));
         assert_eq!(Features::of(&["avx", "avx2"]), Features(0b11_0000));
         assert_eq!(Features::of(&["bmi2", "bmi1"]), Features(0b1100_0000));
-        assert_eq!(Features::of(&["avx512f"]), Features(UNKNOWN));
+        assert_eq!(Features::of(&["avx", "avx512f"]), Features(0b1_0001_0000));
+        assert_eq!(Features::of(&["avx512bw"]), Features(UNKNOWN));
         assert_eq!(
             Features::all(&[&["sha"], &[], &["ssse3", "sha"]]),
             Features(0b11)
@@ -201,7 +208,8 @@ mod tests {
         assert_eq!(parse("aes,pclmulqdq,ssse3"), Some(0b1101));
         assert_eq!(parse("avx,avx2"), Some(0b11_0000));
         assert_eq!(parse("bmi1,bmi2"), Some(0b1100_0000));
-        for bad in ["avx512f", "aes,", "aes,none", " aes", "AES"] {
+        assert_eq!(parse("avx512f"), Some(0b1_0000_0000));
+        for bad in ["avx512bw", "aes,", "aes,none", " aes", "AES"] {
             assert_eq!(parse(bad), None, "{bad}");
         }
     }

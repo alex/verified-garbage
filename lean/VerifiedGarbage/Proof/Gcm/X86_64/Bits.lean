@@ -60,10 +60,10 @@ theorem blockAt_bswap (m : Mem) (p : Addr) :
     X86_64.bswap64 (m.readW (p + BitVec.ofNat 64 0) 64) ++
       X86_64.bswap64 (m.readW (p + BitVec.ofNat 64 8) 64) = Spec.Gcm.blockAt m p := by
   have e : ∀ j : Nat, j < 15 → p + BitVec.ofNat 64 j + 1 = p + BitVec.ofNat 64 (j + 1) :=
-    fun j hj => by bv_omega_using []
-  rw [X86_64.bswap64_readW, X86_64.bswap64_readW, e 0 (by omega), e 1 (by omega), e 2 (by omega),
-    e 3 (by omega), e 4 (by omega), e 5 (by omega), e 6 (by omega), e 8 (by omega), e 9 (by omega),
-    e 10 (by omega), e 11 (by omega), e 12 (by omega), e 13 (by omega), e 14 (by omega),
+    fun j _ => Offset.add_add p j 1
+  rw [X86_64.bswap64_readW, X86_64.bswap64_readW, e 0 (by decide), e 1 (by decide), e 2 (by decide),
+    e 3 (by decide), e 4 (by decide), e 5 (by decide), e 6 (by decide), e 8 (by decide), e 9 (by decide),
+    e 10 (by decide), e 11 (by decide), e 12 (by decide), e 13 (by decide), e 14 (by decide),
     Spec.Gcm.blockAt, bytesAt_16, ofBytes_16]
 
 theorem bswap64_bswap64 (a : BitVec 64) : X86_64.bswap64 (X86_64.bswap64 a) = a :=

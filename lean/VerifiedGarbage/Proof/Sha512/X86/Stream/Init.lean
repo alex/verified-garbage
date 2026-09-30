@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.KernelRfl
 import VerifiedGarbage.Proof.Framework.X86.Taint
 import VerifiedGarbage.Proof.Sha512.X86.Compress
 import VerifiedGarbage.Proof.Sha512.Stream
@@ -150,12 +151,10 @@ theorem init_agree₀ (iv : HashValue) {s₁ s₂ : State} (h₁ : (Proof.Sha512
 /-- The hint for `init 0`, which is also one for `init iv`. -/
 abbrev initHint : VG.Taint.Hint taint.T := VG.Taint.hintOf taint initτ₀ (init 0)
 
-/-- The taint check never looks at an immediate, so its result on `init iv`
-is its result on `init 0`, which is decided. -/
+/-- The taint check never looks at an immediate, so the kernel evaluates it on
+`init iv` for any `iv`. -/
 theorem init_check (iv : HashValue) : (taint.check initτ₀ (init iv) initHint).isSome = true := by
-  have h : (taint.check initτ₀ (init 0) initHint).isSome = true := by taint_decide
-  rw [show taint.check initτ₀ (init iv) initHint = taint.check initτ₀ (init 0) initHint from rfl]
-  exact h
+  kernel_rfl
 
 theorem init_verified (iv : HashValue) :
     Verified X86.target (init iv) (Proof.Sha512.initX86 iv) := by

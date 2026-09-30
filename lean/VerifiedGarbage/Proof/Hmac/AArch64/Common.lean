@@ -5,6 +5,7 @@ import VerifiedGarbage.Impl.Hmac.AArch64
 import VerifiedGarbage.Spec.Hmac
 import VerifiedGarbage.Proof.Sha256.AArch64.Contract
 import VerifiedGarbage.Proof.Hmac.AArch64.Lit
+import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
 # HMAC-SHA-256 on AArch64: common lemmas
@@ -120,21 +121,21 @@ theorem copy32_ok {src dst : Reg} (hs : src ≠ .x9) (hd : dst ≠ .x9) (o₁ o�
   | succ n ih =>
     intro rest s Q hin hout hsep k
     rw [List.range_succ, List.flatMap_append, List.flatMap_singleton, List.append_assoc]
-    refine ih ⟨by omega, by omega⟩ _ s Q (fun j hj => hin j (by omega))
-      (fun j hj => hout j (by omega)) (fun x hx hy => hsep x (by omega) (by omega))
+    refine ih ⟨by omega_nat, by omega_nat⟩ _ s Q (fun j hj => hin j (by omega_nat))
+      (fun j hj => hout j (by omega_nat)) (fun x hx hy => hsep x (by omega_nat) (by omega_nat))
       fun s₁ g₁ rd₁ wr₁ sp₁ m₁ => ?_
     simp only [cp32, List.cons_append, List.nil_append]
     refine wp_ldr32 (a := s.gpr src + BitVec.ofNat 64 o₁ + BitVec.ofNat 64 (4 * n))
-      ⟨by omega, by omega⟩ (by rw [g₁ _ hs, add_off]) (by rw [rd₁, wr₁]; exact hin n (by omega))
+      ⟨by omega_nat, by omega_nat⟩ (by rw [g₁ _ hs, add_off]) (by rw [rd₁, wr₁]; exact hin n (by omega_nat))
       fun s₂ u₂ => ?_
     refine wp_str32 (a := s.gpr dst + BitVec.ofNat 64 o₂ + BitVec.ofNat 64 (4 * n))
-      ⟨by omega, by omega⟩ (by rw [u₂.other _ hd, g₁ _ hd, add_off])
-      (by rw [u₂.wr, wr₁]; exact hout n (by omega))
+      ⟨by omega_nat, by omega_nat⟩ (by rw [u₂.other _ hd, g₁ _ hd, add_off])
+      (by rw [u₂.wr, wr₁]; exact hout n (by omega_nat))
       fun s₃ u₃ => k s₃ (fun r hr => by rw [u₃.gpr, u₂.other r hr, g₁ r hr])
         (by rw [u₃.rd, u₂.rd, rd₁]) (by rw [u₃.wr, u₂.wr, wr₁]) (by rw [u₃.sp, u₂.sp, sp₁]) ?_
     rw [u₃.mem, u₂.gpr, u₂.mem, m₁, BitVec.setWidth_setWidth_of_le _ (by decide), BitVec.setWidth_eq,
       Nat.mul_succ]
-    exact copy_mem s.mem _ _ n 4 (by rwa [← Nat.mul_succ]) (by omega)
+    exact copy_mem s.mem _ _ n 4 (by rwa [← Nat.mul_succ]) (by omega_nat)
 
 theorem copy64_ok {src dst : Reg} (hs : src ≠ .x9) (hd : dst ≠ .x9) (o₁ o₂ : Nat) (n : Nat)
     (ho : o₁ % 8 = 0 ∧ o₂ % 8 = 0) (hb : o₁ + 8 * n ≤ 4096 * 8 ∧ o₂ + 8 * n ≤ 4096 * 8) :
@@ -153,19 +154,19 @@ theorem copy64_ok {src dst : Reg} (hs : src ≠ .x9) (hd : dst ≠ .x9) (o₁ o�
   | succ n ih =>
     intro rest s Q hin hout hsep k
     rw [List.range_succ, List.flatMap_append, List.flatMap_singleton, List.append_assoc]
-    refine ih ⟨by omega, by omega⟩ _ s Q (fun j hj => hin j (by omega))
-      (fun j hj => hout j (by omega)) (fun x hx hy => hsep x (by omega) (by omega))
+    refine ih ⟨by omega_nat, by omega_nat⟩ _ s Q (fun j hj => hin j (by omega_nat))
+      (fun j hj => hout j (by omega_nat)) (fun x hx hy => hsep x (by omega_nat) (by omega_nat))
       fun s₁ g₁ rd₁ wr₁ sp₁ m₁ => ?_
     simp only [cp64, List.cons_append, List.nil_append]
     refine wp_ldr (a := s.gpr src + BitVec.ofNat 64 o₁ + BitVec.ofNat 64 (8 * n))
-      ⟨by omega, by omega⟩ (by rw [g₁ _ hs, add_off]) (by rw [rd₁, wr₁]; exact hin n (by omega))
+      ⟨by omega_nat, by omega_nat⟩ (by rw [g₁ _ hs, add_off]) (by rw [rd₁, wr₁]; exact hin n (by omega_nat))
       fun s₂ u₂ => ?_
     refine wp_str (a := s.gpr dst + BitVec.ofNat 64 o₂ + BitVec.ofNat 64 (8 * n))
-      ⟨by omega, by omega⟩ (by rw [u₂.other _ hd, g₁ _ hd, add_off])
-      (by rw [u₂.wr, wr₁]; exact hout n (by omega))
+      ⟨by omega_nat, by omega_nat⟩ (by rw [u₂.other _ hd, g₁ _ hd, add_off])
+      (by rw [u₂.wr, wr₁]; exact hout n (by omega_nat))
       fun s₃ u₃ => k s₃ (fun r hr => by rw [u₃.gpr, u₂.other r hr, g₁ r hr])
         (by rw [u₃.rd, u₂.rd, rd₁]) (by rw [u₃.wr, u₂.wr, wr₁]) (by rw [u₃.sp, u₂.sp, sp₁]) ?_
     rw [u₃.mem, u₂.gpr, u₂.mem, m₁, Nat.mul_succ]
-    exact copy_mem s.mem _ _ n 8 (by rwa [← Nat.mul_succ]) (by omega)
+    exact copy_mem s.mem _ _ n 8 (by rwa [← Nat.mul_succ]) (by omega_nat)
 
 end VG.Proof.Hmac.AArch64

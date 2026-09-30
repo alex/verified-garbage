@@ -222,7 +222,8 @@ theorem out32_ok {n : Nat} (be : Bool) (hn : 4 * n ≤ 64) {s₀ : State}
     refine ⟨R, hR, ?_⟩
     simp only [Region.Contains] at *
     have : (a + BitVec.ofNat 64 (4 * k) - R.base).toNat ≤ (a - R.base).toNat + 4 * k := by
-      rw [show a + BitVec.ofNat 64 (4 * k) - R.base = (a - R.base) + BitVec.ofNat 64 (4 * k) by bv_omega,
+      rw [show a + BitVec.ofNat 64 (4 * k) - R.base = (a - R.base) + BitVec.ofNat 64 (4 * k) by
+        rw [VG.Offset.add_sub_comm],
         BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := 4 * k) (by omega)]
       exact Nat.mod_le _ _
     omega

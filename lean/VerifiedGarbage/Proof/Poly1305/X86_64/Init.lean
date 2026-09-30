@@ -50,11 +50,11 @@ theorem init_exec {s₀ : State} (hp : IPre s₀) :
   have i : ∀ d, d + 8 ≤ 32 → InRegions (s₀.rd ++ s₀.wr) (off (kp s₀) d) 8 :=
     fun d hd => ⟨_, by rw [hp.rd]; exact List.mem_append_left _ (List.mem_singleton_self _),
       contains_off hd (by omega)⟩
-  have o0 := o 0 (by omega); have o8 := o 8 (by omega); have o16 := o 16 (by omega)
-  have o24 := o 24 (by omega); have o32 := o 32 (by omega); have o40 := o 40 (by omega)
-  have o48 := o 48 (by omega)
-  have i0 := i 0 (by omega); have i8 := i 8 (by omega); have i16 := i 16 (by omega)
-  have i24 := i 24 (by omega)
+  have o0 := o 0 (by decide); have o8 := o 8 (by decide); have o16 := o 16 (by decide)
+  have o24 := o 24 (by decide); have o32 := o 32 (by decide); have o40 := o 40 (by decide)
+  have o48 := o 48 (by decide)
+  have i0 := i 0 (by decide); have i8 := i 8 (by decide); have i16 := i 16 (by decide)
+  have i24 := i 24 (by decide)
   simp only [off, st, kp] at o0 o8 o16 o24 o32 o40 o48 i0 i8 i16 i24
   apply WP.of_runBlock
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec,
@@ -98,10 +98,10 @@ theorem init_correct {s₀ : State} (hp : IPre s₀) :
     exact (initMem_frame _ _ _).readW (Region.contains_self _ _) (by simpa using hp.ret_st) (by decide)
   · rfl
   · rw [hm, ← off_24, bytesAt_32, bytesAt_32, off_off, off_off, off_off, off_off,
-      initMem_word _ _ _ (j := 0) (by omega), initMem_word _ _ _ (j := 1) (by omega),
-      initMem_word _ _ _ (j := 2) (by omega), initMem_word _ _ _ (j := 3) (by omega)]
-  · rw [hm, leNum_acc, initMem_acc _ _ _ (by omega) (by omega), initMem_acc _ _ _ (by omega) (by omega),
-      initMem_acc _ _ _ (by omega) (by omega)]
+      initMem_word _ _ _ (j := 0) (by decide), initMem_word _ _ _ (j := 1) (by decide),
+      initMem_word _ _ _ (j := 2) (by decide), initMem_word _ _ _ (j := 3) (by decide)]
+  · rw [hm, leNum_acc, initMem_acc _ _ _ (by decide) (by decide), initMem_acc _ _ _ (by decide) (by decide),
+      initMem_acc _ _ _ (by decide) (by decide)]
     rfl
 
 /-- A state satisfying the precondition. -/
@@ -121,7 +121,7 @@ theorem init_ok (s : State) (hs : Proof.Poly1305.initX86_64.pre s) :
       Proof.Poly1305.initX86_64.post s s' := by
   obtain ⟨h1, h2, h3, h4⟩ := hs
   obtain ⟨t, s', he, h⟩ := init_correct ⟨h1, h2, h3, h4⟩
-  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he h.1, h.2⟩
+  exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he h.1, h.2⟩
 
 theorem init_ct : ConstantTime isa Proof.Poly1305.initX86_64.pre Proof.Poly1305.initX86_64.pub
     Impl.Poly1305.X86_64.init := by

@@ -199,7 +199,7 @@ theorem setup_ok {s₀ : State} (hp : Pre s₀) :
   have fr : Frame ((lay s₀).RL [(0, 840, 40)]) s₀.mem
       ((s₁.mem.writeW ((lay s₀).A 0 872) (s₁.gpr .lr)).writeW ((lay s₀).A 0 876) (s₁.gpr .r2)) :=
     (fr₀.writeW (List.mem_singleton_self _) _ c872).writeW (List.mem_singleton_self _) _ c876
-  refine ⟨⟨⟨hL, rfl, rfl, by simp [lay], ?_, by show 8 ≤ s₁.sp.toNat; rw [h₁.sp]; exact hp.sp8, ?_, ?_⟩,
+  refine ⟨⟨⟨hL, Nat.le_refl _, rfl, by simp [lay], ?_, by show 8 ≤ s₁.sp.toNat; rw [h₁.sp]; exact hp.sp8, ?_, ?_⟩,
     h₁.rd, h₁.wr, h₁.sp, fun i hi => ?_, ?_, ?_, ?_⟩, ?_, ?_, ?_⟩
   · simp [h₁.gpr]; rfl
   · show s₀.sp - BitVec.ofNat 32 8 = s₁.sp - BitVec.ofNat 32 8

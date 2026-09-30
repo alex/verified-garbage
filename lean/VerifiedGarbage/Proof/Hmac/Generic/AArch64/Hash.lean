@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Framework.RelCT
 import VerifiedGarbage.Proof.Framework.AArch64.RelCT
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Impl.Pbkdf2.Generic.AArch64
+import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
 # HMAC and PBKDF2-HMAC over any streaming hash function: the AArch64 contracts
@@ -217,9 +218,9 @@ structure After (s : State) (ws : List Region) (s' : State) : Prop where
 theorem frame_depth {c : Prog isa} (hd : c.fdepth ≤ 1) {s : State} {ws : List Region} {m' : Mem}
     (h : Frame (ws ++ [below s.sp (16 * c.fdepth)]) s.mem m') :
     Frame (ws ++ [below s.sp 16]) s.mem m' :=
-  Frame.below_mono h (by omega) (by omega)
+  Frame.below_mono h (by omega_nat) (by omega_nat)
 
-theorem fdepth_lt {c : Prog isa} (hd : c.fdepth ≤ 1) : 16 * c.fdepth < 2 ^ 64 := by omega
+theorem fdepth_lt {c : Prog isa} (hd : c.fdepth ≤ 1) : 16 * c.fdepth < 2 ^ 64 := by omega_nat
 
 theorem covers_wr {ws : List Region} {s : State} (h : Covers ws s.wr) : Covers ([] ++ ws) (s.rd ++ s.wr) :=
   fun a n hi => by

@@ -1,7 +1,164 @@
+import VerifiedGarbage.Proof.Framework.X86_64.RegUpd
+import VerifiedGarbage.Proof.Framework.X86_64.Sse
+import VerifiedGarbage.Proof.Sha1.Spec
 import VerifiedGarbage.Proof.Framework.X86_64.Exec
-import VerifiedGarbage.Proof.Sha1.X86_64.ShaNi.Spec
 import VerifiedGarbage.Impl.Sha1.X86_64.ShaNi
 import VerifiedGarbage.Proof.Sha1.X86_64.Compress
+
+/-!
+# SHA-1 with the SHA extensions: the values in the SSE registers
+
+Untrusted: everything here is checked by Lean. How the working variables,
+the message schedule and the constants are laid out in SSE registers, and
+that `sha1rnds4`, `sha1nexte` and `sha1msg1`/`sha1msg2` compute rounds and
+schedule words of `Spec/Sha1.lean`.
+-/
+
+namespace VG.Proof.Sha1.X86_64.ShaNi
+
+open VG VG.X86_64
+open VG.Spec.Sha1 (HashValue Word Block K W f)
+
+/-- The working variables `A, B, C, D`, as `sha1rnds4` takes and returns them
+(`A` in bits 127:96). -/
+def abcd (v : HashValue) : BitVec 128 := ofDwords v[3] v[2] v[1] v[0]
+
+/-- The working variable `E` in bits 127:96, and zeros. -/
+def eReg (v : HashValue) : BitVec 128 := ofDwords 0 0 0 v[4]
+
+/-- The message schedule words `W₄ᵢ … W₄ᵢ₊₃` (`W₄ᵢ` in bits 127:96). -/
+def quad (M : Block) (i : Nat) : BitVec 128 :=
+  ofDwords (W M (4 * i + 3)) (W M (4 * i + 2)) (W M (4 * i + 1)) (W M (4 * i))
+
+/-! ## Rounds -/
+
+/-- One round in group `g` of 20 rounds, as `sha1rnds4` computes it. -/
+def hw (g : Nat) (v : HashValue) (w : Word) : HashValue :=
+  #v[sha1F g v[1] v[2] v[3] + v[0].rotateLeft 5 + w + v[4] + sha1K g, v[0], v[1].rotateLeft 30, v[2],
+    v[3]]
+
+theorem f_eq {t : Nat} (ht : t < 80) : f t = sha1F (t / 20) := by
+  funext x y z
+  simp only [f, Spec.Sha1.ch, Spec.Sha1.parity, Spec.Sha1.maj]
+  rcases (by omega : t < 20 ∨ (20 ≤ t ∧ t < 40) ∨ (40 ≤ t ∧ t < 60) ∨ 60 ≤ t) with h | h | h | h
+  · simp only [h, ite_true, Nat.div_eq_of_lt h]; rfl
+  · simp only [show ¬ t < 20 by omega, h.2, ite_false, ite_true, show t / 20 = 1 by omega]; rfl
+  · simp only [show ¬ t < 20 by omega, show ¬ t < 40 by omega, h.2, ite_false, ite_true,
+      show t / 20 = 2 by omega]; rfl
+  · simp only [show ¬ t < 20 by omega, show ¬ t < 40 by omega, show ¬ t < 60 by omega, ite_false,
+      show t / 20 = 3 by omega]; rfl
+
+theorem K_eq {t : Nat} (ht : t < 80) : K t = sha1K (t / 20) := by
+  simp only [K]
+  rcases (by omega : t < 20 ∨ (20 ≤ t ∧ t < 40) ∨ (40 ≤ t ∧ t < 60) ∨ 60 ≤ t) with h | h | h | h
+  · simp only [h, ite_true, Nat.div_eq_of_lt h]; rfl
+  · simp only [show ¬ t < 20 by omega, h.2, ite_false, ite_true, show t / 20 = 1 by omega]; rfl
+  · simp only [show ¬ t < 20 by omega, show ¬ t < 40 by omega, h.2, ite_false, ite_true,
+      show t / 20 = 2 by omega]; rfl
+  · simp only [show ¬ t < 20 by omega, show ¬ t < 40 by omega, show ¬ t < 60 by omega, ite_false,
+      show t / 20 = 3 by omega]; rfl
+
+/-- A round of the specification is `hw` of its group. -/
+theorem round_hw (M : Block) (v : HashValue) {t : Nat} (ht : t < 80) :
+    Spec.Sha1.round M v t = hw (t / 20) v (W M t) := by
+  rw [round_eq, f_eq ht, K_eq ht]
+  simp only [roundKW, hw]
+  refine congrArg (fun x => #v[x, v[0], v[1].rotateLeft 30, v[2], v[3]]) ?_
+  ac_rfl
+
+/-- Four rounds in group `g`. -/
+def hw4 (g : Nat) (v : HashValue) (w0 w1 w2 w3 : Word) : HashValue :=
+  hw g (hw g (hw g (hw g v w0) w1) w2) w3
+
+theorem hw4_e (g : Nat) (v : HashValue) (w0 w1 w2 w3 : Word) :
+    (hw4 g v w0 w1 w2 w3)[4] = v[0].rotateLeft 30 := rfl
+
+section
+variable (g : Nat) (v : HashValue) (w : Word)
+theorem hw_0 : (hw g v w)[0] = sha1F g v[1] v[2] v[3] + v[0].rotateLeft 5 + w + v[4] + sha1K g := rfl
+theorem hw_1 : (hw g v w)[1] = v[0] := rfl
+theorem hw_2 : (hw g v w)[2] = v[1].rotateLeft 30 := rfl
+theorem hw_3 : (hw g v w)[3] = v[2] := rfl
+theorem hw_4 : (hw g v w)[4] = v[3] := rfl
+end
+
+theorem imm_eq {g : Nat} (hg : g < 4) : ((BitVec.ofNat 8 g).extractLsb' 0 2).toNat = g := by
+  rcases (by omega : g = 0 ∨ g = 1 ∨ g = 2 ∨ g = 3) with rfl | rfl | rfl | rfl <;> rfl
+
+/-- `sha1rnds4` does four rounds of group `g`, given `W₀ + E` in bits 127:96 of
+its source and `W₁ … W₃` below. -/
+theorem rnds4_eq (v : HashValue) {g : Nat} (hg : g < 4) (w0 w1 w2 w3 : Word) :
+    sha1Rnds4 (abcd v) (ofDwords w3 w2 w1 (w0 + v[4])) (BitVec.ofNat 8 g) =
+      abcd (hw4 g v w0 w1 w2 w3) := by
+  simp only [sha1Rnds4, imm_eq hg, abcd, hw4, hw_0, hw_1, hw_2, hw_3, hw_4, dword_ofDwords_0,
+    dword_ofDwords_1, dword_ofDwords_2, dword_ofDwords_3, ← BitVec.add_assoc]
+
+/-! ## The value added to the first message word -/
+
+theorem zero_add32 (x : Word) : (0 : Word) + x = x := by simp
+
+/-- In the first four rounds, `E` is added by `paddd`. -/
+theorem paddd_e (v : HashValue) (M : Block) :
+    XBinOp.eval .paddd (eReg v) (quad M 0) =
+      ofDwords (W M (4 * 0 + 3)) (W M (4 * 0 + 2)) (W M (4 * 0 + 1)) (W M (4 * 0) + v[4]) := by
+  simp only [XBinOp.eval, eReg, quad, dword_ofDwords_0, dword_ofDwords_1, dword_ofDwords_2,
+    dword_ofDwords_3, BitVec.add_comm v[4], zero_add32]
+
+/-- After that, `E` is `A` of four rounds before, rotated left by 30, which
+`sha1nexte` adds. -/
+theorem nexte_e (x : BitVec 128) (M : Block) (i : Nat) :
+    XBinOp.eval .sha1nexte x (quad M i) =
+      ofDwords (W M (4 * i + 3)) (W M (4 * i + 2)) (W M (4 * i + 1))
+        (W M (4 * i) + (dword x 3).rotateLeft 30) := by
+  simp only [XBinOp.eval, quad, dword_ofDwords_0, dword_ofDwords_1, dword_ofDwords_2, dword_ofDwords_3]
+
+/-! ## The message schedule -/
+
+theorem dword_xor (x y : BitVec 128) (k : Nat) : dword (x ^^^ y) k = dword x k ^^^ dword y k := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [getLsbD_dword, BitVec.getLsbD_xor, decide_eq_true hi, Bool.true_and]
+
+theorem W_ge' (M : Block) (t : Nat) :
+    W M (t + 16) = (W M (t + 13) ^^^ W M (t + 8) ^^^ W M (t + 2) ^^^ W M t).rotateLeft 1 := by
+  rw [W_ge M (by omega), show t + 16 - 3 = t + 13 by omega, show t + 16 - 8 = t + 8 by omega,
+    show t + 16 - 14 = t + 2 by omega, Nat.add_sub_cancel]
+
+/-- `sha1msg1`, `pxor` and `sha1msg2` compute the next four schedule words
+from the previous sixteen. -/
+theorem schedule_eq (M : Block) (i : Nat) :
+    sha1Msg2 (XBinOp.eval .pxor (XBinOp.eval .sha1msg1 (quad M i) (quad M (i + 1))) (quad M (i + 2)))
+      (quad M (i + 3)) = quad M (i + 4) := by
+  simp only [sha1Msg2, XBinOp.eval, quad, dword_xor, dword_ofDwords_0, dword_ofDwords_1, dword_ofDwords_2,
+    dword_ofDwords_3]
+  have w0 := W_ge' M (4 * i)
+  have w1 := W_ge' M (4 * i + 1)
+  have w2 := W_ge' M (4 * i + 2)
+  have w3 := W_ge' M (4 * i + 3)
+  simp only [show 4 * i + 16 = 4 * (i + 4) by omega, show 4 * i + 1 + 16 = 4 * (i + 4) + 1 by omega,
+    show 4 * i + 2 + 16 = 4 * (i + 4) + 2 by omega, show 4 * i + 3 + 16 = 4 * (i + 4) + 3 by omega,
+    show 4 * i + 13 = 4 * (i + 3) + 1 by omega, show 4 * i + 1 + 13 = 4 * (i + 3) + 2 by omega,
+    show 4 * i + 2 + 13 = 4 * (i + 3) + 3 by omega,
+    show 4 * i + 8 = 4 * (i + 2) by omega, show 4 * i + 1 + 8 = 4 * (i + 2) + 1 by omega,
+    show 4 * i + 2 + 8 = 4 * (i + 2) + 2 by omega, show 4 * i + 3 + 8 = 4 * (i + 2) + 3 by omega,
+    show 4 * i + 2 + 2 = 4 * (i + 1) by omega, show 4 * i + 3 + 2 = 4 * (i + 1) + 1 by omega,
+    show 4 * i + 1 + 2 = 4 * i + 3 by omega] at w0 w1 w2 w3 ⊢
+  rw [w3, w0, w1, w2]
+  generalize W M = f
+  ac_rfl
+
+/-! ## Adding the working variables into the hash value -/
+
+theorem paddd_abcd (v H : HashValue) :
+    XBinOp.eval .paddd (abcd v) (abcd H) = abcd (Vector.zipWith (· + ·) v H) := by
+  simp only [XBinOp.eval, abcd, dword_ofDwords_0, dword_ofDwords_1, dword_ofDwords_2,
+    dword_ofDwords_3, Vector.getElem_zipWith]
+
+theorem nexte_eReg (x : BitVec 128) (v H : HashValue) (hx : (dword x 3).rotateLeft 30 = v[4]) :
+    XBinOp.eval .sha1nexte x (eReg H) = eReg (Vector.zipWith (· + ·) v H) := by
+  simp only [XBinOp.eval, eReg, dword_ofDwords_0, dword_ofDwords_1, dword_ofDwords_2,
+    dword_ofDwords_3, Vector.getElem_zipWith, hx, BitVec.add_comm H[4]]
+
+end VG.Proof.Sha1.X86_64.ShaNi
 
 /-!
 # SHA-1 compression function on x86-64 with the SHA extensions
@@ -190,7 +347,7 @@ theorem load_quad (M : Block) (m : Mem) (bp : Addr) {n : Nat} (hn : n < 4)
     rw [dword_readW _ _ hj, ← hblk (4 * n + j) (by omega)]
     refine congrArg (fun a => bswap32 (m.readW a 32)) ?_
     simp only [ofInt_natCast']
-    bv_omega
+    rw [Offset.add_ofNat_add_ofNat, show 16 * n + 4 * j = 4 * (4 * n + j) by omega]
   rw [e 0 (by omega), e 1 (by omega), e 2 (by omega), e 3 (by omega)]
   rfl
 
@@ -271,7 +428,7 @@ theorem stateAt_e (m : Mem) (p : Addr) :
   simp only [stateAt, Vector.getElem_ofFn]
   refine congrArg (fun a => m.readW a 32) ?_
   simp only [ofInt_natCast']
-  bv_omega
+  rw [Offset.add_ofNat_add_ofNat]
 
 theorem getLsbD_zero32 (i : Nat) : (0 : Word).getLsbD i = false := by simp
 
@@ -320,8 +477,8 @@ theorem load_ok (s : State)
   apply WP.of_runBlock
   simp only [load, const, List.cons_append, List.nil_append]
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
-    execAlu, readSrc, arithFlags, State.setFlags,
-    isa, State.setXmm, State.setReg, State.load128, ea_at, hlo, hhi, ite_true, ite_false, movq_const,
+    execAlu, readSrc, RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags, RegUpd.wr_arithFlags, RegUpd.zf_arithFlags, RegUpd.xmm_arithFlags,
+    isa, State.setXmm, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, RegUpd.zf_setReg, RegUpd.cf_setReg, RegUpd.xmm_setReg, State.load128, ea_at, hlo, hhi, ite_true, ite_false, movq_const,
     Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
   refine ⟨?_, ?_, trivial, trivial, fun r hr => by simp [hr], trivial⟩
   · rw [shufDwords_1b, stateAt_lo _ _ (show 0 < 4 by decide), stateAt_lo _ _ (show 1 < 4 by decide),
@@ -338,12 +495,16 @@ theorem stateAt_store (m : Mem) (p : Addr) (x y : BitVec 128) :
   intro j hj
   simp only [stateAt, Vector.getElem_ofFn, ofInt_natCast']
   by_cases hlo : j < 4
-  · rw [show p + BitVec.ofNat 64 (4 * j) = p + BitVec.ofNat 64 0 + BitVec.ofNat 64 (4 * j) by bv_omega,
+  · rw [show p + BitVec.ofNat 64 (4 * j) = p + BitVec.ofNat 64 0 + BitVec.ofNat 64 (4 * j) by
+      rw [Offset.add_ofNat_add_ofNat, Nat.zero_add],
       readW_writeW128 _ _ _ hlo]
     rcases (by omega : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3) with rfl | rfl | rfl | rfl <;> rfl
   · obtain rfl : j = 4 := by omega
-    rw [Mem.readW_writeW_sep (fun a h₁ h₂ => by bv_omega) (by decide),
-      show p + BitVec.ofNat 64 (4 * 4) = p + BitVec.ofNat 64 4 + BitVec.ofNat 64 (4 * 3) by bv_omega,
+    rw [Mem.readW_writeW_sep (by
+        rw [show p = p + BitVec.ofNat 64 0 from (BitVec.add_zero p).symm]
+        exact Offset.sep _ (by omega) (by omega) (by omega)) (by decide),
+      show p + BitVec.ofNat 64 (4 * 4) = p + BitVec.ofNat 64 4 + BitVec.ofNat 64 (4 * 3) by
+        rw [Offset.add_ofNat_add_ofNat],
       readW_writeW128 _ _ _ (by omega)]
     rfl
 
@@ -378,7 +539,7 @@ theorem Pre.in_blk16 {s₀ : State} (hp : Pre s₀) {i n : Nat} (hi : i < nb s�
   have := hp.nb_lt
   refine ⟨blR s₀, by simp [hp.rd], ?_⟩
   rw [ofInt_natCast', show blkAddr s₀ i + BitVec.ofNat 64 (16 * n) =
-    bp s₀ + BitVec.ofNat 64 (64 * i + 16 * n) by simp only [blkAddr]; bv_omega]
+    bp s₀ + BitVec.ofNat 64 (64 * i + 16 * n) from Offset.add_ofNat_add_ofNat _ _ _]
   exact contains_offset (by omega) (by omega)
 
 /-- What holds between blocks, after `i` of them. -/
@@ -438,7 +599,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
       s₃.mem = s₂.mem ∧ s₃.rd = s₂.rd ∧ s₃.wr = s₂.wr := by
     apply WP.of_runBlock
     simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, XOp.exec,
-      execAlu, readSrc, arithFlags, State.setFlags, isa, State.setXmm, State.setReg, ite_true,
+      execAlu, readSrc, RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags, RegUpd.wr_arithFlags, RegUpd.zf_arithFlags, RegUpd.xmm_arithFlags, isa, State.setXmm, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, RegUpd.zf_setReg, RegUpd.xmm_setReg, ite_true,
       ite_false, hx0, k8, k9, paddd_abcd, nexte_eReg _ _ _ hx1, e1, e64, Option.some.injEq,
       Option.bind_some, exists_eq_left']
     exact ⟨by rw [compressBlocks_succ]; rfl, by rw [compressBlocks_succ]; rfl, trivial, trivial, trivial,
@@ -446,9 +607,8 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
   refine WP.mono h₃ fun s₃ ⟨f0, f1, f7, frsi, frdx, fg, fzf, fm, frd, fwr⟩ => ?_
   have g₂ : s₂.gpr = s.gpr := by rw [hR.gpr, hg₁]
   have hrdx : s₂.gpr .rdx - 1 = BitVec.ofNat 64 (nb s₀ - (i + 1)) := by
-    rw [g₂, hL.rdx]
-    have := (s₀.gpr .rdx).isLt
-    bv_omega
+    rw [g₂, hL.rdx, show (1 : BitVec 64) = BitVec.ofNat 64 1 from rfl, Offset.ofNat_sub_ofNat (by omega),
+      Nat.sub_sub]
   have hcommon : Common s₀ (i + 1) s₃ :=
     ⟨f0, f1, fun r ha hs hd => by rw [fg r hs hd, g₂, hL.gpr r ha hs hd],
       by rw [fm, hR.mem, hmem₁], by rw [frd, hR.rd, hrd₁, hL.rd], by rw [fwr, hR.wr, hwr₁, hL.wr]⟩
@@ -472,7 +632,8 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     · rw [f7, hR.keep .xmm7 (by simp), hx₁ _ (by decide) (by decide), hL.x7]
     · rw [frsi, g₂, hL.rsi]
       simp only [blkAddr]
-      bv_omega
+      rw [BitVec.add_assoc, show (64 : BitVec _) = BitVec.ofNat _ 64 from rfl, BitVec.ofNat_add_ofNat]
+      rfl
     · rw [frdx, hrdx]
 
 /-! ## The whole function -/

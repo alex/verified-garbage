@@ -40,13 +40,13 @@ theorem taints : Taints params :=
     ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
 
 theorem callee : CalleeOk (P := params) md Impl.Md5.X86_64.compress :=
-  .of_verified compress_verified.1 compress_verified.2.1 (by rw [← Code.allInstrs_eq]; decide +kernel)
-    (by decide +kernel)
+  .of_verified compress_verified.1 compress_verified.2.1 (by rw [← Code.allInstrs_eq]; lit_decide)
+    (by lit_decide)
 
 namespace Update
 
 theorem update_verified : Verified X86_64.target Impl.Md5.X86_64.Stream.update Proof.Md5.updateX86_64 :=
-  have h := MdStream.X86_64.Update.verified (name := "vg_md5_compress") dims taints callee (by decide +kernel)
+  have h := MdStream.X86_64.Update.verified (name := "vg_md5_compress") dims taints callee (by lit_decide)
   Verified.of_implies h ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Md5.H0 m hr hc, fun _ _ _ _ h => h, h.2.2⟩
 
 /-- A state satisfying `update`'s precondition. -/
@@ -57,7 +57,7 @@ end Update
 namespace Finalize
 
 theorem finalize_verified : Verified X86_64.target Impl.Md5.X86_64.Stream.finalize Proof.Md5.finalizeX86_64 :=
-  have h := MdStream.X86_64.Finalize.verified (name := "vg_md5_compress") dims shape taints callee (by decide +kernel)
+  have h := MdStream.X86_64.Finalize.verified (name := "vg_md5_compress") dims shape taints callee (by lit_decide)
   Verified.of_implies h ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Md5.H0 m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
 
 /-- A state satisfying `finalize`'s precondition. -/

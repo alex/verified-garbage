@@ -44,8 +44,8 @@ theorem coeff_gp {n : Nat} (v : BitVec n) (k : Nat) : (gp v).coeff k = bit (v.ge
     intro i; split_ifs <;> simp_all [coeff_X_pow]
   simp only [this, Finset.sum_ite_eq, Finset.mem_range]
   by_cases h : k < n
-  · simp [h]
-  · simp [h, BitVec.getMsbD]
+  · simp only [h, ↓reduceIte]
+  · simp only [h, ↓reduceIte, BitVec.getMsbD, decide_false, Bool.false_and, Bool.false_eq_true]
 
 theorem bit_xor (a b : Bool) : bit (a ^^ b) = bit a + bit b := by
   cases a <;> cases b <;> decide
@@ -66,7 +66,7 @@ theorem gp_xor {n : Nat} (a b : BitVec n) : gp (a ^^^ b) = gp a + gp b := by
 
 theorem gp_zero (n : Nat) : gp (0 : BitVec n) = 0 := by
   ext k
-  simp [coeff_gp, BitVec.getMsbD, bit]
+  simp only [BitVec.ofNat_eq_ofNat, coeff_gp, bit, BitVec.getMsbD, BitVec.getLsbD_zero, Bool.and_false, Bool.false_eq_true, ↓reduceIte, coeff_zero]
 
 theorem gp_zero' (n : Nat) : gp (0#n) = 0 := gp_zero n
 
@@ -79,14 +79,14 @@ theorem gp_append {n m : Nat} (a : BitVec n) (b : BitVec m) : gp (a ++ b) = gp a
     simp only [this, ite_false, add_zero]
   · have : n ≤ k := by omega
     simp only [this, ite_true]
-    have e : a.getMsbD k = false := by simp [BitVec.getMsbD, h]
-    rw [e]; simp [bit]
+    have e : a.getMsbD k = false := by simp only [BitVec.getMsbD, h, decide_false, Bool.false_and]
+    rw [e]; simp only [bit, Bool.false_eq_true, ↓reduceIte, zero_add]
 
 theorem degree_gp_lt {n : Nat} (v : BitVec n) : (gp v).degree < n := by
   rw [degree_lt_iff_coeff_zero]
   intro m hm
   rw [coeff_gp]
-  have e : v.getMsbD m = false := by simp [BitVec.getMsbD]; omega
+  have e : v.getMsbD m = false := by simp only [BitVec.getMsbD, Bool.and_eq_false_imp, decide_eq_true_eq]; omega
   rw [e]; rfl
 
 /-! ## The field -/
@@ -157,8 +157,8 @@ theorem gp_R : gp Spec.Gcm.R = X ^ 7 + X ^ 2 + X + 1 := by
     · decide
     · decide
     · decide
-    · simp [bit, h0, h1, h2, h7, show (1 : Nat) ≠ d from fun h => h1 h.symm]
-  · have e : Spec.Gcm.R.getMsbD d = false := by simp [BitVec.getMsbD]; omega
+    · simp only [bit, h0, decide_false, h1, Bool.or_self, h2, h7, Bool.false_eq_true, ↓reduceIte, add_zero, show (1 : Nat) ≠ d from fun h => h1 h.symm]
+  · have e : Spec.Gcm.R.getMsbD d = false := by simp only [BitVec.getMsbD, Nat.add_one_sub_one, Bool.and_eq_false_imp, decide_eq_true_eq]; omega
     rw [e]
     simp only [show d ≠ 7 by omega, show d ≠ 2 by omega, show 1 ≠ d by omega, show d ≠ 0 by omega,
       ite_false]
@@ -170,14 +170,14 @@ theorem gp_shr1 (v : BitVec 128) :
   simp only [coeff_add, coeff_gp]
   rcases d with _ | d
   · simp only [coeff_X_mul_zero]
-    have e : (v >>> 1).getMsbD 0 = false := by simp [BitVec.getMsbD_ushiftRight]
+    have e : (v >>> 1).getMsbD 0 = false := by simp only [BitVec.getMsbD_ushiftRight, Nat.ofNat_pos, decide_true, Order.lt_one_iff, Bool.not_true, zero_tsub, Bool.false_and, Bool.and_false]
     rw [e]; split_ifs <;> simp [bit, coeff_X_pow]
   · rw [coeff_X_mul, coeff_gp]
     by_cases hd : d = 127
     · subst hd
-      have e : (v >>> 1).getMsbD 128 = false := by simp [BitVec.getMsbD]
+      have e : (v >>> 1).getMsbD 128 = false := by simp only [BitVec.getMsbD, lt_self_iff_false, decide_false, Nat.add_one_sub_one, Nat.reduceLeDiff, Nat.sub_eq_zero_of_le, Nat.ofNat_pos, BitVec.getLsbD_eq_getElem, BitVec.getElem_ushiftRight, add_zero, Nat.one_lt_ofNat, Bool.false_and]
       rw [e]
-      have e' : v.getMsbD 127 = v.getLsbD 0 := by simp [BitVec.getMsbD]
+      have e' : v.getMsbD 127 = v.getLsbD 0 := by simp only [BitVec.getMsbD, Nat.lt_add_one, decide_true, Nat.add_one_sub_one, tsub_self, Nat.ofNat_pos, BitVec.getLsbD_eq_getElem, Bool.true_and]
       rw [e']
       cases v.getLsbD 0 <;> simp [bit, coeff_X_pow]
     · have e : (v >>> 1).getMsbD (d + 1) = v.getMsbD d := by
@@ -198,13 +198,13 @@ theorem φ_shr1 (v : BitVec 128) :
   split_ifs with hv
   · rw [φ_xor]
     simp only [φ, gp_R, map_add, map_pow, map_one, AdjoinRoot.mk_X, x128]
-  · simp [φ]
+  · simp only [φ, map_zero, add_zero]
 
 theorem mulSteps_φ (a b : Spec.Gcm.Block) (k : Nat) :
     φ (mulSteps a b k).2 = φ b * x ^ k ∧
       φ (mulSteps a b k).1 = φ b * ∑ i ∈ Finset.range k, (if a.getMsbD i then x ^ i else 0) := by
   induction k with
-  | zero => exact ⟨by simp [mulSteps_zero], by simpa [mulSteps_zero] using φ_zero⟩
+  | zero => exact ⟨by simp only [mulSteps_zero, BitVec.ofNat_eq_ofNat, pow_zero, mul_one], by simpa [mulSteps_zero] using φ_zero⟩
   | succ k ih =>
     rw [mulSteps_succ]
     simp only [mulStep, φ_shr1, Finset.sum_range_succ]

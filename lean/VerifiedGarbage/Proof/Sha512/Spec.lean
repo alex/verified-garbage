@@ -94,12 +94,22 @@ theorem add_ac {n : Nat} : (∀ a b c : BitVec n, a + b + c = a + (b + c)) ∧
     (∀ a b : BitVec n, a + b = b + a) ∧ (∀ a b c : BitVec n, a + (b + c) = b + (a + c)) :=
   ⟨BitVec.add_assoc, BitVec.add_comm, add_left_comm⟩
 
-theorem rotateRight_rotateRight (x : Word) {a b : Nat} (hab : a + b < 64) :
+/-- Bit `i` of a rotated word. -/
+theorem getLsbD_rotateRight (x : Word) (r : Nat) {i : Nat} (hi : i < 64) :
+    (x.rotateRight r).getLsbD i = x.getLsbD ((i + r) % 64) := by
+  rw [BitVec.getLsbD_rotateRight]
+  have := Nat.mod_lt r (show 64 > 0 by decide)
+  split
+  · exact congrArg x.getLsbD (by omega)
+  · rw [decide_eq_true hi, Bool.true_and]; exact congrArg x.getLsbD (by omega)
+
+theorem rotateRight_rotateRight (x : Word) {a b : Nat} (_hab : a + b < 64) :
     (x.rotateRight a).rotateRight b = x.rotateRight (a + b) := by
-  ext i hi
-  simp only [BitVec.getElem_rotateRight, Nat.mod_eq_of_lt (show a < 64 by omega),
-    Nat.mod_eq_of_lt (show b < 64 by omega), Nat.mod_eq_of_lt hab]
-  split_ifs <;> first | (exfalso; omega) | (congr 1; omega)
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  rw [getLsbD_rotateRight _ _ hi, getLsbD_rotateRight _ _ (Nat.mod_lt _ (by decide)),
+    getLsbD_rotateRight _ _ hi]
+  exact congrArg x.getLsbD (by omega)
 
 theorem ch_eq (x y z : Word) : ch x y z = (y ^^^ z) &&& x ^^^ z := by
   ext i; simp only [ch, BitVec.getElem_xor, BitVec.getElem_and, BitVec.getElem_not]

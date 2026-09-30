@@ -3,6 +3,7 @@ import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.Inline
 import VerifiedGarbage.Spec.Hmac.Contract
 import VerifiedGarbage.Proof.Framework.Offset
+import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
 # HMAC-SHA-256 on ARMv7: `finalize`
@@ -80,16 +81,16 @@ theorem argAddr_eq {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 2) :
     stackArgAddr s₀ k = stackArgAddr s₀ 0 + BitVec.ofNat 64 (4 * k) := by
   have := hp.sp_fit
   simp only [stackArgAddr]
-  rw [addr_add (by omega)]
+  rw [addr_add (by omega_nat)]
   simp
 
 theorem arg_in {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 2) :
     InRegions (s₀.rd ++ s₀.wr) (stackArgAddr s₀ k) 4 :=
-  ⟨argR s₀, by simp [hp.rd], by rw [argAddr_eq hp hk]; exact contains_offset (by omega) (by omega)⟩
+  ⟨argR s₀, by simp [hp.rd], by rw [argAddr_eq hp hk]; exact contains_offset (by omega_nat) (by omega_nat)⟩
 
 theorem arg_sub {s₀ : State} (hp : Pre s₀) {k : Nat} (hk : k < 2) :
     Region.Sub ⟨stackArgAddr s₀ k, 4⟩ (argR s₀) := by
-  rw [argAddr_eq hp hk]; exact sub_offset (by omega) (by omega)
+  rw [argAddr_eq hp hk]; exact sub_offset (by omega_nat) (by omega_nat)
 
 /-- The stack arguments are never written. -/
 theorem stackArg_eq {s₀ : State} (hp : Pre s₀) {s : State} (hsp : s.sp = s₀.sp)
@@ -104,7 +105,7 @@ theorem stackArg_eq {s₀ : State} (hp : Pre s₀) {s : State} (hsp : s.sp = s�
   · exact hp.a_o.sub_left (arg_sub hp hk)
   · exact hp.a_s.sub_left (arg_sub hp hk)
 
-theorem sub160 (s₀ : State) : Region.Sub ⟨scA s₀, 160⟩ (scR s₀) := Region.sub_prefix (by omega)
+theorem sub160 (s₀ : State) : Region.Sub ⟨scA s₀, 160⟩ (scR s₀) := Region.sub_prefix (by omega_nat)
 
 theorem finW_sub (s₀ : State) : ∀ r ∈ finW s₀, ∃ r' ∈ [inR s₀, outR s₀, scR s₀], Region.Sub r r' := by
   intro r hr
@@ -123,7 +124,7 @@ theorem fin_exec : ∀ s, Proof.Sha256.finalizeArm.pre s → ∃ t s',
 
 theorem r0_ok : ∀ i ∈ instrs Impl.Sha256.Arm.Stream.finalize, dstOf i ≠ some .r0 := by
   have : ((instrs Impl.Sha256.Arm.Stream.finalize).all fun i => dstOf i != some .r0) = true := by
-    rw [← Code.allInstrs_eq]; decide +kernel
+    rw [← Code.allInstrs_eq]; lit_decide
   intro i hi
   simpa using List.all_eq_true.mp this i hi
 
@@ -146,7 +147,7 @@ theorem fin_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd)
       State.withRegions_wr, State.withRegions_sp, h0, hsp]
     have := hp.scr_fit
     exact ⟨by first | rfl | trivial, by first | rfl | trivial, hp.i_o, hp.i_s.sub_right (sub160 s₀), hp.o_s.sub_right (sub160 s₀), hp.a_i, hp.a_o,
-      hp.a_s.sub_right (sub160 s₀), hp.in_fit, hp.out_fit, by omega, hp.sp_fit⟩
+      hp.a_s.sub_right (sub160 s₀), hp.in_fit, hp.out_fit, by omega_nat, hp.sp_fit⟩
   · rw [hrd, hwr, hp.rd, hp.wr]
     apply Covers.of_sub
     intro r hr
@@ -187,31 +188,31 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block saveOuter) s
   simp only [List.cons_append, List.nil_append]
   refine wp_ldrSp (a := stackArgAddr s₀ 1) (by decide) rfl (arg_in hp (by decide)) fun s₁ u₁ => ?_
   have h12 : s₁.gpr .r12 = scr s₀ := u₁.gpr
-  have c192 : (scR s₀).Contains (scA s₀ + BitVec.ofNat 64 192) 4 := contains_offset (by omega) (by omega)
-  refine wp_str (a := scA s₀ + BitVec.ofNat 64 192) (by decide) (by rw [h12, addr_add (by omega)])
+  have c192 : (scR s₀).Contains (scA s₀ + BitVec.ofNat 64 192) 4 := contains_offset (by omega_nat) (by omega_nat)
+  refine wp_str (a := scA s₀ + BitVec.ofNat 64 192) (by decide) (by rw [h12, addr_add (by omega_nat)])
     ⟨scR s₀, by simp [u₁.wr, hp.wr], c192⟩ fun s₂ u₂ => ?_
   have e1 : s₂.gpr .r1 = ou s₀ := by rw [u₂.gpr, u₁.other _ (by decide)]
   have e12 : s₂.gpr .r12 = scr s₀ := by rw [u₂.gpr, h12]
   have fr₂ : Frame [scR s₀] s₀.mem s₂.mem := by
     rw [u₂.mem, u₁.mem]; exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ c192
   refine copy_ok (t := .r2) (src := .r1) (dst := .r12) (by decide) (by decide) 0 160 8
-    ⟨by omega, by omega⟩ _ s₂ _ (by rw [e1]; omega) (by rw [e12]; omega) (fun k hk => ?_) (fun k hk => ?_) ?_
+    ⟨by omega_nat, by omega_nat⟩ _ s₂ _ (by rw [e1]; omega_nat) (by rw [e12]; omega_nat) (fun k hk => ?_) (fun k hk => ?_) ?_
     fun s₃ g₃ rd₃ wr₃ sp₃ m₃ => ?_
   · rw [e1, ofNat_zero_add, u₂.rd, u₂.wr, u₁.rd, u₁.wr]
-    exact ⟨ouR s₀, by simp [hp.rd], contains_offset (by omega) (by omega)⟩
+    exact ⟨ouR s₀, by simp [hp.rd], contains_offset (by omega_nat) (by omega_nat)⟩
   · rw [e12, u₂.wr, u₁.wr, ← add_off]
-    exact ⟨scR s₀, by simp [hp.wr], contains_offset (by omega) (by omega)⟩
+    exact ⟨scR s₀, by simp [hp.wr], contains_offset (by omega_nat) (by omega_nat)⟩
   · rw [e1, e12, ofNat_zero_add]
-    exact hp.u_s.sep (by simp [Region.Contains]) (contains_offset (by omega) (by omega))
+    exact hp.u_s.sep (by simp [Region.Contains]) (contains_offset (by omega_nat) (by omega_nat))
   rw [e1, e12, ofNat_zero_add] at m₃
   have h12₃ : s₃.gpr .r12 = scr s₀ := by rw [g₃ _ (by decide), e12]
-  have c160 : (scR s₀).Contains (scA s₀ + BitVec.ofNat 64 160) 32 := contains_offset (by omega) (by omega)
+  have c160 : (scR s₀).Contains (scA s₀ + BitVec.ofNat 64 160) 32 := contains_offset (by omega_nat) (by omega_nat)
   have fw : Frame [⟨scA s₀ + BitVec.ofNat 64 160, 32⟩] s₂.mem s₃.mem := by
     rw [m₃]; exact writeBytes_frame _ _ _ (by rw [bytesAt_length]; exact Region.contains_self _ _)
-  refine wp_ldr (a := scA s₀ + BitVec.ofNat 64 192) (by decide) (by rw [h12₃, addr_add (by omega)])
+  refine wp_ldr (a := scA s₀ + BitVec.ofNat 64 192) (by decide) (by rw [h12₃, addr_add (by omega_nat)])
     ⟨scR s₀, by simp [rd₃, wr₃, u₂.rd, u₂.wr, u₁.rd, u₁.wr, hp.wr], c192⟩ fun s₄ u₄ => WP.block_nil ?_
   have hb : ∀ i < 32, s₂.mem (ouA s₀ + BitVec.ofNat 64 i) = s₀.mem (ouA s₀ + BitVec.ofNat 64 i) :=
-    fun i hi => frame_bytes fr₂ (R := ouR s₀) (by simpa using hp.u_s) (by simp) (by show i < 96; omega)
+    fun i hi => frame_bytes fr₂ (R := ouR s₀) (by simpa using hp.u_s) (by simp) (by show i < 96; omega_nat)
   refine ⟨by rw [u₄.rd, rd₃, u₂.rd, u₁.rd], by rw [u₄.wr, wr₃, u₂.wr, u₁.wr],
     by rw [u₄.sp, sp₃, u₂.sp, u₁.sp], fun r hr => ?_, ?_, fun i hi => ?_⟩
   · by_cases h2 : r = .r2
@@ -225,8 +226,8 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block saveOuter) s
   · rw [u₄.mem]
     exact fr₂.trans (fw.sub fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr
-      exact ⟨scR s₀, by simp, sub_offset (by omega) (by omega)⟩)
-  · rw [u₄.mem, m₃, writeBytes_at _ _ _ (by rw [bytesAt_length]; omega) (by rw [bytesAt_length]; omega),
+      exact ⟨scR s₀, by simp, sub_offset (by omega_nat) (by omega_nat)⟩)
+  · rw [u₄.mem, m₃, writeBytes_at _ _ _ (by rw [bytesAt_length]; omega_nat) (by rw [bytesAt_length]; omega_nat),
       bytesAt_getD' _ _ hi, hb i hi]
 
 /-! ## Loading the outer hash value and the inner digest -/
@@ -267,26 +268,26 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd
   have wr₂ : s₂.wr = s₀.wr := by rw [u₂.wr, u₁.wr, hwr]
   have hm₂ : s₂.mem = s.mem := by rw [u₂.mem, u₁.mem]
   have cin : ∀ k < 8, InRegions s₂.wr (inA s₀ + BitVec.ofNat 64 0 + BitVec.ofNat 64 (4 * k)) 4 :=
-    fun k hk => ⟨inR s₀, by simp [wr₂, hp.wr], by rw [← add_off]; exact contains_offset (by omega) (by omega)⟩
+    fun k hk => ⟨inR s₀, by simp [wr₂, hp.wr], by rw [← add_off]; exact contains_offset (by omega_nat) (by omega_nat)⟩
   refine copy_ok (t := .r3) (src := .r1) (dst := .r0) (by decide) (by decide) 160 0 8
-    ⟨by omega, by omega⟩ _ s₂ _ (by rw [e1]; omega) (by rw [e0]; omega) (fun k hk => ?_)
+    ⟨by omega_nat, by omega_nat⟩ _ s₂ _ (by rw [e1]; omega_nat) (by rw [e0]; omega_nat) (fun k hk => ?_)
     (fun k hk => by rw [e0]; exact cin k hk) ?_ fun s₃ g₃ rd₃ wr₃ sp₃ m₃ => ?_
   · rw [e1, rd₂, wr₂, ← add_off]
-    exact ⟨scR s₀, by simp [hp.wr], contains_offset (by omega) (by omega)⟩
+    exact ⟨scR s₀, by simp [hp.wr], contains_offset (by omega_nat) (by omega_nat)⟩
   · rw [e1, e0, ofNat_zero_add]
-    exact hp.i_s.symm.sep (contains_offset (by omega) (by omega)) (by simp [Region.Contains])
+    exact hp.i_s.symm.sep (contains_offset (by omega_nat) (by omega_nat)) (by simp [Region.Contains])
   rw [e1, e0, ofNat_zero_add, hm₂] at m₃
   have e12₃ : s₃.gpr .r12 = out s₀ := by rw [g₃ _ (by decide), e12]
   have e0₃ : s₃.gpr .r0 = inn s₀ := by rw [g₃ _ (by decide), e0]
   refine copy_ok (t := .r3) (src := .r12) (dst := .r0) (by decide) (by decide) 0 32 8
-    ⟨by omega, by omega⟩ _ s₃ _ (by rw [e12₃]; omega) (by rw [e0₃]; omega) (fun k hk => ?_)
+    ⟨by omega_nat, by omega_nat⟩ _ s₃ _ (by rw [e12₃]; omega_nat) (by rw [e0₃]; omega_nat) (fun k hk => ?_)
     (fun k hk => ?_) ?_ fun s₄ g₄ rd₄ wr₄ sp₄ m₄ => ?_
   · rw [e12₃, rd₃, wr₃, rd₂, wr₂, ofNat_zero_add]
-    exact ⟨outR s₀, by simp [hp.wr], contains_offset (by omega) (by omega)⟩
+    exact ⟨outR s₀, by simp [hp.wr], contains_offset (by omega_nat) (by omega_nat)⟩
   · rw [e0₃, wr₃, wr₂, ← add_off]
-    exact ⟨inR s₀, by simp [hp.wr], contains_offset (by omega) (by omega)⟩
+    exact ⟨inR s₀, by simp [hp.wr], contains_offset (by omega_nat) (by omega_nat)⟩
   · rw [e12₃, e0₃, ofNat_zero_add]
-    exact hp.i_o.symm.sep (by simp [Region.Contains]) (contains_offset (by omega) (by omega))
+    exact hp.i_o.symm.sep (by simp [Region.Contains]) (contains_offset (by omega_nat) (by omega_nat))
   rw [e12₃, e0₃, ofNat_zero_add] at m₄
   refine wp_mov (op2_imm (by decide)) fun s₅ u₅ => wp_mov (op2_imm (by decide)) fun s₆ u₆ => WP.block_nil ?_
   have c₀ : (inR s₀).Contains (inA s₀) 32 := by simp [Region.Contains]
@@ -299,19 +300,19 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd
     rw [this, m₃, bytesAt_writeBytes_sep]
     · rw [bytesAt_length]
       exact hp.i_o.symm.sep (Region.contains_self _ _) c₀
-    · omega
+    · omega_nat
   have hst : stateAt s₄.mem (inA s₀) = stateAt s.mem (scA s₀ + BitVec.ofNat 64 160) := by
     refine stateAt_eq_of_bytes fun i hi => ?_
     have key : ∀ p : Addr, ¬ (p + BitVec.ofNat 64 i - (p + BitVec.ofNat 64 32)).toNat < 4 * 8 := by
-      intro p; bv_omega
+      intro p; rw [Offset.lt_iff _ _ (by omega_nat), Mem.sub_ofNat_toNat _ (by omega_nat)]; omega_nat
     rw [m₄, writeBytes_other _ _ _ (by rw [bytesAt_length]; exact key _), m₃,
-      writeBytes_at _ _ _ (by rw [bytesAt_length]; omega) (by rw [bytesAt_length]; omega),
-      bytesAt_getD' _ _ (by omega)]
+      writeBytes_at _ _ _ (by rw [bytesAt_length]; omega_nat) (by rw [bytesAt_length]; omega_nat),
+      bytesAt_getD' _ _ (by omega_nat)]
   have hfr : Frame [inR s₀] s.mem s₄.mem := by
     rw [m₄, m₃]
     refine (writeBytes_frame (R := inR s₀) _ _ _ ?_).trans (writeBytes_frame (R := inR s₀) _ _ _ ?_)
     · rw [bytesAt_length]; exact c₀
-    · rw [bytesAt_length]; exact contains_offset (by omega) (by omega)
+    · rw [bytesAt_length]; exact contains_offset (by omega_nat) (by omega_nat)
   have k₄ : ∀ r, r ≠ .r1 → r ≠ .r12 → r ≠ .r3 → s₄.gpr r = s.gpr r := fun r a b c => by
     rw [g₄ r c, g₃ r c, u₂.other r b, u₁.other r a]
   refine ⟨by rw [u₆.rd, u₅.rd, rd₄, rd₃, rd₂, hrd], by rw [u₆.wr, u₅.wr, wr₄, wr₃, wr₂, hwr],
@@ -331,16 +332,14 @@ theorem not_finW {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 32) :
     ∀ r ∈ finW s₀, ¬ r.Contains (scA s₀ + BitVec.ofNat 64 160 + BitVec.ofNat 64 i) 1 := by
   have := hp.scr_fit
   have hs : (scR s₀).Contains (scA s₀ + BitVec.ofNat 64 160 + BitVec.ofNat 64 i) 1 := by
-    rw [← add_off]; exact contains_offset (by omega) (by omega)
+    rw [← add_off]; exact contains_offset (by omega_nat) (by omega_nat)
   intro r hr
   simp only [finW, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl
   · exact fun hc => hp.i_s _ hc hs
   · exact fun hc => hp.o_s _ hc hs
   · simp only [Region.Contains]
-    have : (State.addr (scr s₀)).toNat = (scr s₀).toNat :=
-      Proof.MdStream.Arm.addr_toNat _
-    bv_omega
+    rw [Offset.add_add, Offset.add_sub_cancel_left, BitVec.toNat_ofNat]; omega_nat
 
 theorem countArm_96 {s : State} (h2 : s.gpr .r2 = 96) (h3 : s.gpr .r3 = 0) :
     countArm s = BitVec.ofNat 64 (64 + 32) := by
@@ -406,7 +405,7 @@ theorem wf₀ {s : State} (h : Proof.Hmac.finalizeSha256Arm.pre s) : VG.Arm.Tain
       forall_eq, List.Pairwise.nil, and_true]
     exact ⟨⟨hp.i_o, hp.i_s⟩, hp.o_s, fun _ h => h.elim⟩
   · simp only [hp.wr, List.mem_cons, List.not_mem_nil, or_false]
-    rintro r (rfl | rfl | rfl) <;> simp only [Proof.MdStream.Arm.addr_toNat] <;> omega
+    rintro r (rfl | rfl | rfl) <;> simp only [Proof.MdStream.Arm.addr_toNat] <;> omega_nat
   · intro p hp'; simp only [τ₀, List.mem_singleton] at hp'; subst hp'; simp [VG.Arm.Taint.region, hp.wr]
   · have e : (⟨State.addr s.sp, 8⟩ : Region) = argR s := by simp [stackArgAddr]
     simp only [τ₀, e, hp.wr, List.mem_cons, List.not_mem_nil, or_false]
@@ -432,9 +431,9 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Hmac.finalizeSha256Arm.pre s�
   · simp only [τ₀] at hk
     rw [Proof.MdStream.Arm.argByte_eq hp₁.sp_fit hk,
       Proof.MdStream.Arm.argByte_eq hp₂.sp_fit hk,
-      Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)),
-      Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega))]
-    have : k / 4 = 0 ∨ k / 4 = 1 := by omega
+      Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega_nat)),
+      Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega_nat))]
+    have : k / 4 = 0 ∨ k / 4 = 1 := by omega_nat
     rcases this with h | h <;> rw [h]
     · exact congrArg _ a0
     · exact congrArg _ a1
