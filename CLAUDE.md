@@ -304,6 +304,22 @@ definitions unfolded while elaborating it, which finds failing unfoldings.
 while measuring) before a declaration prints the heartbeats it uses
 against the 200000 budget.
 
+## Iterating on one proof
+
+While developing, never run a bare `lake build` or the emitter: the default
+targets are every module (over 1,500), and the emitter imports every
+registration file. From `lean/`, build the module you're working on, which
+builds only it and what it imports, and after that only what changed:
+
+```sh
+lake build +VerifiedGarbage.Proof.Md5.X86_64.Compress
+```
+
+To check the artifact, build its registration file
+(`+VerifiedGarbage.Artifacts.<Alg>.<Target>`). The axiom and
+compiler-override audits, and generic callers applied to each variant, run
+only in the emitter, so they wait for the full checks below.
+
 ## Checks to run before pushing
 
 ```sh
