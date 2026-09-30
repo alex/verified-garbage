@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.X86_64.Taint
 import VerifiedGarbage.Proof.Framework.X86_64.Exec
 import VerifiedGarbage.Proof.Framework.X86_64.Avx
 import VerifiedGarbage.Impl.Poly1305.X86_64.Avx2
