@@ -115,8 +115,8 @@ def sumB : Bnds :=
 def smS : Sym := (Sym.init.run false sumLanes).get (by decide +kernel)
 theorem smS_eq : Sym.init.run false sumLanes = some smS := (Option.some_get _).symm
 
-theorem smS_ok : ∀ i < 5, (smS.reg (xi (hreg i))).ok sumB 0 = true ∧
-    (smS.reg (xi (hreg i))).bnd sumB 0 < (if i = 1 then 2 ^ 27 else 2 ^ 26) := by
+theorem smS_ok : ∀ i < 5, ∀ k < 4, (smS.reg (xi (hreg i))).ok sumB k = true ∧
+    (smS.reg (xi (hreg i))).bnd sumB k < (if i = 1 then 2 ^ 27 else 2 ^ 26) := by
   decide +kernel
 
 /-- The sum of the lanes of `H`, limb by limb, as `sumLanes` adds them. -/
@@ -159,23 +159,28 @@ structure SumPost (s s' : State) : Prop where
   h : Limbs26.val (hv s' 0) ≡
     Limbs26.val (hv s 0) + Limbs26.val (hv s 1) + Limbs26.val (hv s 2) + Limbs26.val (hv s 3) [MOD P]
   hb : ∀ i < 5, hv s' 0 i < if i = 1 then 2 ^ 27 else 2 ^ 26
+  hball : ∀ k < 4, ∀ i < 5, hv s' k i < 2 ^ 27
 
 theorem sumLanes_ok {s : State} (hr8 : s.gpr .r8 = 0x3ffffff) (hb : ∀ k < 4, ∀ i < 5, hv s k i < 2 ^ 27) :
     WP isa (.block sumLanes) s (SumPost s) := by
   refine WP.mono (run_ok (by intro h; cases h) smS_eq) fun s' h => ?_
   have hE := sumB_env hr8 hb
   have e : ∀ i < 5, hv s' 0 i = Limbs26.carry (lsum (hv s)) 0x3ffffff i := fun i hi => by
-    obtain ⟨e, -⟩ := h.nat hE (by decide) (smS_ok i hi).1
+    obtain ⟨e, -⟩ := h.nat hE (by decide) (smS_ok i hi 0 (by decide)).1
     simp only [hv] at e ⊢
     rw [e, smS_nat _ i hi]
     simp only [envOf, hr8, xr_xi]
     rfl
-  refine ⟨h.eq, ?_, fun i hi => ?_⟩
+  refine ⟨h.eq, ?_, fun i hi => ?_, fun k hk i hi => ?_⟩
   · rw [val_congr e, ← lsum_val]
     have := Limbs26.carry_val (lsum (hv s))
     rw [← this, Nat.ModEq, Nat.add_mul_mod_self_left]
-  · obtain ⟨-, b⟩ := h.nat hE (by decide) (smS_ok i hi).1
-    exact Nat.lt_of_le_of_lt b (smS_ok i hi).2
+  · obtain ⟨-, b⟩ := h.nat hE (by decide) (smS_ok i hi 0 (by decide)).1
+    exact Nat.lt_of_le_of_lt b (smS_ok i hi 0 (by decide)).2
+  · obtain ⟨-, b⟩ := h.nat hE hk (smS_ok i hi k hk).1
+    have := (smS_ok i hi k hk).2
+    simp only [hv]
+    split at this <;> omega
 
 /-! ## `fullCarry` and `reduce` -/
 
