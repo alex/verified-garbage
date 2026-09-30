@@ -104,6 +104,20 @@ def sample8 : Prog isa := .block ([
   "ret"
 ]
 
+-- A displacement is encoded in 32 bits, sign-extended: the printer refuses
+-- one outside `[-2^31, 2^31)`, for every kind of memory operand, and accepts
+-- the bounds.
+#guard printer.unencodable (.mov .rax (.mem { base := .rdi, disp := 2147483647 })) == none
+#guard printer.unencodable (.store { base := .rdi, index := some .rcx, disp := -2147483648 } .rax) ==
+  none
+#guard printer.unencodable (.mov .rax (.mem { base := .rdi, disp := 2147483648 })) ==
+  some "the displacement of the memory operand [rdi+2147483648] does not fit in 32 bits"
+#guard printer.unencodable (.store { base := .rdi, index := some .rcx, disp := -2147483649 } .rax) ==
+  some "the displacement of the memory operand [rdi+rcx*1-2147483649] does not fit in 32 bits"
+#guard (printer.unencodable (.vmovdqu32Store { base := .rsi, disp := 4294967304 } .xmm0)).isSome
+#guard (printer.unencodable (.adox .rax (.mem { base := .rsi, disp := -4294967304 }))).isSome
+#guard printer.unencodable (.alu .add .rax (.imm 0x7fffffff)) == none
+
 /-- The 64-bit shifts and `movabs`, including an immediate ≥ 2⁶³. -/
 def sample64 : Prog isa := .block [
   .shift .ror .rax 28,

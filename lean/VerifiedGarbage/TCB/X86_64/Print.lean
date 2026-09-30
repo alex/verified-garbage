@@ -205,11 +205,41 @@ def Instr.asm : Instr → List String
 def Cond.name : Cond → String
   | .e => "e" | .ne => "ne" | .b => "b" | .ae => "ae"
 
+/-- Whether the displacement of `m` fits in the 32-bit field it is encoded
+in, which the processor sign-extends: `-2^31 ≤ disp < 2^31`. SDM Vol. 2
+§2.1.5, "Addressing-Mode Encoding of ModR/M and SIB Bytes" (Tables 2-2 and
+2-3: the displacement of a ModR/M or SIB memory operand is `disp8` or
+`disp32`), and §2.2.1.3, "Displacement", on 64-bit mode: "The ModR/M and
+SIB displacement sizes do not change. They remain 8 bits or 32 bits and are
+sign-extended to 64 bits." The model adds `disp` to the address as an
+unbounded integer (`State.ea`), and an assembler given a wider one may
+silently truncate it (LLVM before 22 does), so such an operand must not be
+printed. -/
+def MemOp.dispOk (m : MemOp) : Bool := decide (-2 ^ 31 ≤ m.disp ∧ m.disp < 2 ^ 31)
+
+def Src.memOps : Src → List MemOp
+  | .reg _ | .imm _ => []
+  | .mem m => [m]
+
+/-- The memory operands of an instruction. -/
+def Instr.memOps : Instr → List MemOp
+  | .mov _ s | .alu _ _ s | .mov32 _ s | .alu32 _ _ s | .mulx _ _ s | .adcx _ s | .adox _ s =>
+    s.memOps
+  | .store m _ | .store32 m _ | .movzx8 _ m | .store8 m _ | .movdquLoad _ m | .movdquStore m _
+  | .vmovdquLoad _ _ m | .vmovdquStore _ m _ | .vbroadcasti128 _ m | .vmovdqu32Load _ m
+  | .vmovdqu32Store m _ | .vbroadcasti32x4 _ m | .stmxcsr m | .ldmxcsr m => [m]
+  | .shift32 .. | .bswap32 _ | .rorx32 .. | .andn32 .. | .rorx .. | .andn .. | .bswap _
+  | .shift .. | .movImm64 .. | .xop _ | .vop _ | .zop _ | .lfence | .mul _ | .push _
+  | .pop .. => []
+
 def printer : Printer isa where
   instr := Instr.asm
   branch c l := s!"j{c.name} {l}"
   jump l := s!"jmp {l}"
   ret := ["ret"]
   call := "call"
+  unencodable i := match i.memOps.filter (!·.dispOk) with
+    | [] => none
+    | m :: _ => some s!"the displacement of the memory operand {m.addr} does not fit in 32 bits"
 
 end VG.X86_64
