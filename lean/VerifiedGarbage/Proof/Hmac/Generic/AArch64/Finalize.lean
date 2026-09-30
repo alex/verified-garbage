@@ -126,7 +126,7 @@ structure KR (s₀ s : State) : Prop where
   saved : SavedRegs H (scr s₀) s₀ s.mem
 
 /-- The registers `KR` fixes. -/
-abbrev kregs : List Reg := [.x19, .x20, .x21, .x23, .x25, .x26, .x27, .x28, .x29]
+abbrev kregs : List Reg := [.x19, .x20, .x21, .x23, .x25, .x26, .x27, .x28]
 
 theorem untouched_kregs : ∀ r ∈ untouched, r ∈ kregs := by decide
 theorem kregs_pres : ∀ r ∈ kregs, r ∈ preserved ∧ r ≠ .x30 := by decide

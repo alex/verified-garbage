@@ -907,7 +907,7 @@ theorem cell_sep (p : Addr) (m : Mem) (v : BitVec 64) {d e : Nat}
     (by decide)
 
 /-- The registers the code never writes (and `x0`, `x5`). -/
-def keptRegs : List Reg := [.x0, .x5, .x19, .x20, .x21, .x22, .x23, .x24, .x28, .x29, .x30]
+def keptRegs : List Reg := [.x0, .x5, .x19, .x20, .x21, .x22, .x23, .x24, .x28, .x30]
 
 theorem kept_ok : ∀ r ∈ keptRegs, r ∉ wregs ∧ r ≠ T ∧ r ≠ .x1 ∧ r ≠ .x2 ∧ r ≠ .x3 ∧ r ≠ .x4 ∧
     r ≠ .x6 ∧ r ≠ .x25 ∧ r ≠ .x26 ∧ r ≠ .x27 := by decide

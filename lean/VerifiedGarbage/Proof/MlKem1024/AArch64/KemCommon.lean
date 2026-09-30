@@ -120,7 +120,7 @@ abbrev Safe (L : Layout) (s₀ : State) (r : Region) : Prop :=
 theorem pres_kept : ∀ r ∈ preserved, r ∉ kemOwn → r ∉ [Reg.x25, .x26, .x27, .x28] := by decide
 
 /-- The callee-saved registers but `x24` and `x30`. -/
-abbrev keptK : List Reg := [.x19, .x20, .x21, .x22, .x23, .x25, .x26, .x27, .x28, .x29]
+abbrev keptK : List Reg := [.x19, .x20, .x21, .x22, .x23, .x25, .x26, .x27, .x28]
 
 theorem pres_keptK : ∀ r ∈ preserved, r ∉ kemOwn → r ∈ keptK := by decide
 

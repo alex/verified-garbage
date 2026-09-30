@@ -632,7 +632,7 @@ Untrusted: everything here is checked by Lean. As on x86-64
 (`Proof/Hmac/Generic/X86_64/Init.lean`). The return address is in `x30`,
 which each call replaces: it is saved in `scratch` with our caller's
 registers, and loaded back at the end. The other callee-saved registers
-we do not use (`x25`–`x29`) are kept by the calls, and never written.
+we do not use (`x25`–`x28`) are kept by the calls, and never written.
 -/
 
 namespace VG.Proof.Hmac.Generic.AArch64.Init
@@ -746,7 +746,7 @@ end
 /-! ## What the calls keep -/
 
 /-- The callee-saved registers we never write. -/
-abbrev untouched : List Reg := [.x25, .x26, .x27, .x28, .x29]
+abbrev untouched : List Reg := [.x25, .x26, .x27, .x28]
 
 /-- The registers and memory kept from the prologue on. -/
 structure KR (s₀ s : State) : Prop where
@@ -760,7 +760,7 @@ structure KR (s₀ s : State) : Prop where
   saved : SavedRegs H (scr s₀) s₀ s.mem
 
 /-- The registers `KR` fixes. -/
-abbrev kregs : List Reg := [.x19, .x20, .x23, .x25, .x26, .x27, .x28, .x29]
+abbrev kregs : List Reg := [.x19, .x20, .x23, .x25, .x26, .x27, .x28]
 
 theorem untouched_kregs : ∀ r ∈ untouched, r ∈ kregs := by decide
 theorem untouched_clob : ∀ r ∈ untouched, r ∉ clob := by decide

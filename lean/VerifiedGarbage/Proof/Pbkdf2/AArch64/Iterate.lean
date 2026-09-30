@@ -172,7 +172,7 @@ theorem add0 (p : Addr) : p + BitVec.ofNat 64 0 = p := BitVec.add_zero p
 
 /-- The registers `main` keeps between its pieces: ours but the count, and
 the callee-saved ones it never writes. -/
-abbrev kept : List Reg := [.x19, .x20, .x21, .x22, .x23, .x25, .x26, .x27, .x28, .x29]
+abbrev kept : List Reg := [.x19, .x20, .x21, .x22, .x23, .x25, .x26, .x27, .x28]
 
 theorem ne9 : ∀ r ∈ kept, r ≠ .x9 := by decide
 theorem ne10 : ∀ r ∈ kept, r ≠ .x10 := by decide

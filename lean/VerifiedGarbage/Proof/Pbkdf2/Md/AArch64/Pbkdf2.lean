@@ -81,7 +81,7 @@ structure KE (s₀ s : State) : Prop where
   x22 : s.gpr .x22 = s₀.gpr .x3
 
 /-- The registers `KE` fixes. -/
-abbrev eregs : List Reg := [.x19, .x20, .x21, .x22, .x23, .x25, .x26, .x27, .x28, .x29]
+abbrev eregs : List Reg := [.x19, .x20, .x21, .x22, .x23, .x25, .x26, .x27, .x28]
 
 /-- The public ones. -/
 abbrev epub : List Reg := [.x19, .x20, .x21, .x22, .x23]

@@ -486,7 +486,7 @@ abbrev workR (s₀ : State) : Region := sub s₀ 64 960
 
 /-- The callee-saved registers the code never writes (the functions it
 calls restore `x19` and `x20`). -/
-def untouched : List Reg := [.x19, .x20, .x26, .x27, .x28, .x29]
+def untouched : List Reg := [.x19, .x20, .x26, .x27, .x28]
 
 theorem untouched_preserved : ∀ r ∈ untouched, r ∈ preserved ∧ r ≠ .x30 := by decide
 

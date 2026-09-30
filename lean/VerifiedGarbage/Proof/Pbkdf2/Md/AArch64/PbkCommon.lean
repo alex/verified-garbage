@@ -8,7 +8,7 @@ import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Init
 Untrusted: everything here is checked by Lean. As on x86-64
 (`Proof/Pbkdf2/Md/X86_64/PbkCommon.lean`): the precondition of `pbkdf2`
 (`Pre`), the parts of its `scratch`, and what every piece of it keeps
-(`KR`): our caller's registers (those we save in `scratch`, and `x25`–`x29`,
+(`KR`): our caller's registers (those we save in `scratch`, and `x25`–`x28`,
 which nothing we run writes), `out`, `c - 1` and `out_len` in `scratch`,
 and that everything written is in `out`, `scratch` or the 16 bytes below
 the stack pointer.
@@ -168,7 +168,7 @@ structure KR (s₀ s : State) : Prop where
   frame : Frame [outR s₀, scR (H := H) s₀, stkR s₀] s₀.mem s.mem
 
 /-- The registers `KR` fixes. -/
-abbrev kregs : List Reg := [.x23, .x25, .x26, .x27, .x28, .x29]
+abbrev kregs : List Reg := [.x23, .x25, .x26, .x27, .x28]
 
 theorem kregs_pres : ∀ r ∈ kregs, r ∈ preserved ∧ r ≠ .x30 := by decide
 
