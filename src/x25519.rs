@@ -10,7 +10,7 @@
 //! shared secret that a public key of small order gives (RFC 7748 §6.1), in
 //! constant time; [`x25519`] is the function itself, which does not.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "arm"))]
 
 use crate::arch::x25519::vg_x25519;
 use crate::mlkem768::zeroize;
