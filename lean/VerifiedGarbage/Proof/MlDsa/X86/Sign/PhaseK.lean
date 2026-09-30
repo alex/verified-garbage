@@ -260,14 +260,11 @@ theorem CC.ofMem {t : Nat} {s₀ s s' : State} (hp : TPre (Y p) s₀) (ps : PS p
     (c : Ctx (Y p) s₀ s) (hm : s.mem = s'.mem) : CC p t s₀ s :=
   h.keep hp ps c (N := 0) (bs := []) (by decide) (by rw [hm]; exact Frame.refl _ _) (by simp)
 
-/-- `ĉ = NTT(c)`, `OK ← 1` and `ONES ← 0`. -/
-theorem checksHead_piece (F : PrimsOk P) (ps : PS p) (t : Nat) :
-    SP p (fun s₀ s => KP p F t s₀ s ∧ PolyIs s.mem (Buf.addr s₀ cP) (toRq (Cv p s₀ (p.ℓ * t))))
-      (CS p t (zY p t 0) (fun s₀ => Wv p s₀ (p.ℓ * t)) 0 (fun _ => true) (fun _ => 0))
-      (.seq (nttAt P cP) (.block (st32 oOK 1 ++ st32 oONES 0))) := by
-  refine Piece.seq (B := fun s₀ s => CC p t s₀ s ∧ PolyIs s.mem (Buf.addr s₀ cP) (chF (Cv p s₀ (p.ℓ * t))))
-    (inPlace_piece (t := ntt) F.ntt (F.ok _ (by simp)) cP rfl (by ofs) (fun _ _ _ h => ⟨h.1.cc.cw.cm.it.kd.ctx, h.2.1⟩)
-      fun s₀ s s' hp h c' fr hq => ⟨h.1.cc.keep hp ps c' (by decide) fr (by ofs), by rw [h.2.2] at hq; exact hq⟩) ?_
+/-- `OK ← 1` and `ONES ← 0`. -/
+theorem checksInit_piece (ps : PS p) (t : Nat) :
+    SP p (fun s₀ s => CC p t s₀ s ∧ PolyIs s.mem (Buf.addr s₀ cP) (chF (Cv p s₀ (p.ℓ * t))))
+      (CS p t (zY p t 0) (fun s₀ => Wv p s₀ (p.ℓ * t)) 0 (fun s₀ => okZ p s₀ (p.ℓ * t) 0) (fun _ => 0))
+      (.block (st32 oOK 1 ++ st32 oONES 0)) := by
   refine blk_piece (fun _ _ _ h => h.1.cw.cm.it.kd.ctx) (fun s₀ s hp h => ?_) rfl
   refine wp_st32 hp h.1.cw.cm.it.kd.ctx (sc_ok ps (by decide) (by decide)) 1 fun s₁ c₁ f₁ v₁ => ?_
   rw [← List.append_nil (st32 oONES 0)]
@@ -548,5 +545,193 @@ theorem hR_piece (F : PrimsOk P) (ps : PS p) (t i : Nat) (hi : i < p.k) :
   have k := (h.1.addOnes hp ps c' fr (x := fun s₀ => hintOnes [Hv p s₀ (p.ℓ * t) i]) v h.2 hb).congr
     (fun _ _ => rfl) (fun _ _ => rfl) (okb' := okH p t (i + 1)) (by simp only [okH, okT, all_range_succ, Bool.and_assoc])
   exact { k with ones := by rw [k.ones, onesS_succ] }
+
+/-! ## The 1s of the hint -/
+
+theorem sign_bit {a b : Nat} (ha : a < 2 ^ 31) (hb : b < 2 ^ 31) :
+    (BitVec.ofNat 32 a - BitVec.ofNat 32 b) >>> 31 = if a < b then 1 else 0 := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_ushiftRight, BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
+  split
+  · show _ = 1
+    rw [Nat.shiftRight_eq_div_pow]; omega
+  · show _ = 0
+    rw [Nat.shiftRight_eq_div_pow]; omega
+
+/-- The okays of all of the checks. -/
+abbrev okAll (p : Params) (t : Nat) (s₀ : State) : Bool :=
+  okH p t p.k s₀ && decide (onesS p s₀ (p.ℓ * t) p.k ≤ p.ω)
+
+/-- `OK ← OK ∧ ONES ≤ ω`. -/
+theorem onesOk_piece (ps : PS p) (t : Nat) :
+    SP p (CS p t (zY p t p.ℓ) (hW p t p.k) p.k (okH p t p.k) (fun s₀ => onesS p s₀ (p.ℓ * t) p.k))
+      (CS p t (zY p t p.ℓ) (hW p t p.k) p.k (okAll p t) (fun s₀ => onesS p s₀ (p.ℓ * t) p.k)) (.block (onesOk p)) := by
+  refine blk_piece (fun _ _ _ h => h.it.kd.ctx) (fun s₀ s hp h => ?_) rfl
+  have hω := ps.hω
+  have hk := ps.hk
+  have hS := onesS_le (p := p) (s₀ := s₀) (κ := p.ℓ * t) p.k
+  unfold onesOk
+  refine wp_ldsc hp h.it.kd.ctx (sc_ok' ps (by decide) (by decide)) fun s₁ o₁ v₁ => wp_subi fun s₂ o₂ v₂ _ =>
+    wp_shr (by decide) (by decide) fun s₃ o₃ v₃ => ?_
+  have o := (o₁.trans o₂).trans o₃
+  have c₃ := h.it.kd.ctx.only o (by simp) (by simp)
+  have h₃ : CS p t (zY p t p.ℓ) (hW p t p.k) p.k (okH p t p.k) (fun s₀ => onesS p s₀ (p.ℓ * t) p.k) s₀ s₃ :=
+    h.keep hp ps c₃ (N := 0) (bs := []) (by decide) (by rw [o.mem]; exact Frame.refl _ _) (by simp)
+  refine wp_andOK hp c₃ ps fun s' c' fr v => h₃.setOK hp ps c' fr (fun s₀ => decide (onesS p s₀ (p.ℓ * t) p.k ≤ p.ω)) v ?_
+  rw [v₃, v₂, v₁, h.ones, sign_bit (by omega) (by omega)]
+  by_cases e : onesS p s₀ (p.ℓ * t) p.k ≤ p.ω
+  · rw [ifp (by omega), decide_eq_true e]; rfl
+  · rw [ifn (by omega), decide_eq_false e]; rfl
+
+/-! ## The end of the checks -/
+
+/-- A piece keeps facts about the initial state. -/
+theorem sp_pure {A B : State → State → Prop} {c : Prog isa} (φ : State → Prop) (h : SP p A B c) :
+    SP p (fun s₀ s => A s₀ s ∧ φ s₀) (fun s₀ s => B s₀ s ∧ φ s₀) c where
+  wp s₀ s hp ha := (h.wp s₀ s hp ha.1).mono fun _ hb => ⟨hb, ha.2⟩
+  ct s₀ s₀' hp hp' hq := (h.ct s₀ s₀' hp hp' hq).mono (fun _ _ ⟨a, a'⟩ => ⟨a.1, a'.1⟩) fun _ _ h => h
+
+/-- Iteration `t` continues the loop. -/
+abbrev contS (p : Params) (F : PrimsOk P) (t : Nat) (s₀ : State) : Bool :=
+  contV p (skOf p s₀) (muOf s₀) (rndOf s₀) F.ballF t
+
+/-- The checks of iteration `t` pass. -/
+abbrev passS (p : Params) (t : Nat) (s₀ : State) : Prop := passV p (skOf p s₀) (muOf s₀) (rndOf s₀) (p.ℓ * t)
+
+/-- Iteration `t`, before `CNT ← CNT - 1`. -/
+structure ED (p : Params) (F : PrimsOk P) (t : Nat) (s₀ s : State) : Prop where
+  kd : KD p s₀ s
+  run : Run p F t s₀
+  cnt : scw s₀ s oCNT = if contS p F t s₀ then BitVec.ofNat 32 (814 - t) else 1
+  kap : contS p F t s₀ = true → scw s₀ s oKAP = BitVec.ofNat 32 (p.ℓ * (t + 1))
+  ok : scw s₀ s oOK = if (F.ballF p.τ (CTv p s₀ (p.ℓ * t)) && decide (passS p t s₀)) then 1 else 0
+  out : F.ballF p.τ (CTv p s₀ (p.ℓ * t)) = true → passS p t s₀ →
+    Fam s₀ s.mem (yB p) p.ℓ (Zv p s₀ (p.ℓ * t)) ∧ HF s₀ s.mem p.k (Hv p s₀ (p.ℓ * t)) ∧
+      bytesAt s.mem (Buf.addr s₀ (sc oCT (cLen p))) (cLen p) = CTv p s₀ (p.ℓ * t)
+  none : F.ballF p.τ (CTv p s₀ (p.ℓ * t)) = false → sampleInBall p.τ minBounds.ball (CTv p s₀ (p.ℓ * t)) = none
+
+theorem KD.keep {s₀ s s' : State} (hp : TPre (Y p) s₀) (ps : PS p) (h : KD p s₀ s) (c' : Ctx (Y p) s₀ s')
+    {bs : List Buf} {N : Nat} (hN : N ≤ 80) (fr : Frame (FR s₀ bs N) s.mem s'.mem)
+    (hb : ∀ c ∈ bs, OutK p p.ℓ p.k p.k c ∧ Out p oMS (oMS + 64) c) : KD p s₀ s' :=
+  ⟨c', h.dk.keep hp ps (Nat.le_refl _) (Nat.le_refl _) (Nat.le_refl _) hN fr fun c hc => (hb c hc).1,
+    by rw [keepB hp hN fr (sc_ok' ps (by decide) (by decide)) fun c hc => (hb c hc).2, h.ms]⟩
+
+theorem okAll_eq {t : Nat} {s₀ : State} : okAll p t s₀ = decide (passS p t s₀) := by
+  apply Bool.eq_iff_iff.mpr
+  rw [decide_eq_true_iff]
+  exact pass_iff.symm
+
+/-- Whether the checks passed, in a run that reaches iteration `t` and whose `SampleInBall` succeeded. -/
+def passB (p : Params) (F : PrimsOk P) (t : Nat) (s₀ : State) : Bool :=
+  decide (Run p F t s₀ ∧ F.ballF p.τ (CTv p s₀ (p.ℓ * t)) = true ∧ passS p t s₀)
+
+theorem passB_eq {F : PrimsOk P} {t : Nat} {s₀ s₀' : State} (ps : PS p) (hq : SPub p s₀ s₀') :
+    passB p F t s₀ = passB p F t s₀' := by
+  unfold passB
+  by_cases h : Run p F t s₀
+  · have h' := (run_iff ps hq).mp h
+    obtain ⟨ect, hb⟩ := run_at ps hq h
+    by_cases hs : F.ballF p.τ (CTv p s₀ (p.ℓ * t)) = true
+    · have hs' : F.ballF p.τ (CTv p s₀' (p.ℓ * t)) = true := by rw [← ect]; exact hs
+      exact decide_eq_decide.mpr ⟨fun ⟨_, _, a⟩ => ⟨h', hs', (hb hs).1.mp a⟩, fun ⟨_, _, a⟩ => ⟨h, hs, (hb hs).1.mpr a⟩⟩
+    · have hs' : ¬ F.ballF p.τ (CTv p s₀' (p.ℓ * t)) = true := by rw [← ect]; exact hs
+      exact decide_eq_decide.mpr ⟨fun ⟨_, a, _⟩ => absurd a hs, fun ⟨_, a, _⟩ => absurd a hs'⟩
+  · exact decide_eq_decide.mpr ⟨fun ⟨a, _⟩ => absurd a h, fun ⟨a, _⟩ => absurd ((run_iff ps hq).mpr a) h⟩
+
+theorem CS.ofMem {t nh : Nat} {fY fW : State → Nat → Poly} {okb : State → Bool} {ones : State → Nat}
+    {s₀ s s' : State} (hp : TPre (Y p) s₀) (ps : PS p) (h : CS p t fY fW nh okb ones s₀ s') (c : Ctx (Y p) s₀ s)
+    (hm : s.mem = s'.mem) : CS p t fY fW nh okb ones s₀ s :=
+  h.keep hp ps c (N := 0) (bs := []) (by decide) (by rw [hm]; exact Frame.refl _ _) (by simp)
+
+/-- The state after the checks. -/
+abbrev CE (p : Params) (F : PrimsOk P) (t : Nat) (s₀ s : State) : Prop :=
+  CS p t (zY p t p.ℓ) (hW p t p.k) p.k (okAll p t) (fun s₀ => onesS p s₀ (p.ℓ * t) p.k) s₀ s ∧
+    (Run p F t s₀ ∧ F.ballF p.τ (CTv p s₀ (p.ℓ * t)) = true)
+
+/-- `CNT ← 1` if the checks passed, and `κ ← κ + ℓ` otherwise. -/
+theorem checksEnd_piece (F : PrimsOk P) (ps : PS p) (t : Nat) :
+    SP p (CE p F t) (ED p F t) (ifOkElse (.block (st32 oCNT 1)) (.block (nextKappa p))) := by
+  refine okIte_piece (sc_ok' ps (by decide) (by decide)) (passB p F t) (fun s₀ s hp h => ⟨h.1.it.kd.ctx, ?_⟩)
+    (fun s₀ s₀' _ _ hq => passB_eq ps hq) ?_ ?_
+  · rw [h.1.ok, okAll_eq]
+    simp only [passB, h.2.1, h.2.2, true_and]
+  · refine blk_piece (fun _ _ _ h => h.1.choose_spec.2.1) (fun s₀ s₁ hp h => ?_) rfl
+    obtain ⟨⟨s, ha, c₁, m₁⟩, hb⟩ := h
+    have h₁ := ha.1.ofMem hp ps c₁ m₁
+    simp only [passB, decide_eq_true_iff] at hb
+    rw [← List.append_nil (st32 oCNT 1)]
+    refine wp_st32 hp c₁ (sc_ok ps (by decide) (by decide)) 1 fun s' c' fr v => WP.block_nil_iff.mpr ?_
+    have fr' := fr0 hp (N := 80) (by decide) fr
+    have hc : contS p F t s₀ = false := by
+      simp only [contS, contV, hb.2.2, decide_true, Bool.not_true, Bool.and_false]
+    have hk := h₁.nh
+    refine ⟨h₁.it.kd.keep hp ps c' (by decide) fr' (by ofs), hb.1, by rw [hc, v]; rfl, (fun e => by rw [hc] at e; cases e),
+      ?_, fun _ _ => ⟨?_, h₁.fh.keep hp ps (by decide) fr' (by simp only [nS]; omega) (by ofs),
+        h₁.ct_keep hp ps (by decide) fr' (by ofs)⟩, (fun e => by rw [hb.2.1] at e; cases e)⟩
+    · rw [scw, keepW' hp (by decide) fr' (sc_ok' ps (by decide) (by decide)) (by ofs), ← scw, h₁.ok, okAll_eq,
+        hb.2.1, Bool.true_and]
+    · exact (h₁.fy.keep hp ps (by decide) fr' (by simp only [nS, yB]; omega) (by ofs)).congr fun j hj => zY_lt hj
+  · refine blk_piece (fun _ _ _ h => h.1.choose_spec.2.1) (fun s₀ s₁ hp h => ?_) rfl
+    obtain ⟨⟨s, ha, c₁, m₁⟩, hb⟩ := h
+    have h₁ := ha.1.ofMem hp ps c₁ m₁
+    have hpass : ¬ passS p t s₀ := fun hq => by
+      simp only [passB, decide_eq_false_iff_not] at hb; exact hb ⟨ha.2.1, ha.2.2, hq⟩
+    have hc : contS p F t s₀ = true := by
+      simp only [contS, contV, Bool.and_eq_true, Bool.not_eq_true', decide_eq_false_iff_not]
+      exact ⟨ha.2.2, hpass⟩
+    unfold nextKappa
+    refine wp_ldsc hp c₁ (sc_ok' ps (by decide) (by decide)) fun s₂ o₂ v₂ => wp_addi fun s₃ o₃ v₃ => ?_
+    have o := o₂.trans o₃
+    have c₃ := c₁.only o (by simp) (by simp)
+    refine wp_stsc hp c₃ (sc_ok ps (by decide) (by decide)) fun s' c' g' m' => WP.block_nil_iff.mpr ?_
+    have fr : Frame (FR s₀ [sc oKAP 4] 80) s₁.mem s'.mem := fr0 hp (by decide) (by
+      rw [m', o.mem]; exact frW32 (Y := Y p))
+    refine ⟨h₁.it.kd.keep hp ps c' (by decide) fr (by ofs), ha.2.1, ?_, fun _ => ?_, ?_,
+      (fun _ e => absurd e hpass), (fun e => by rw [ha.2.2] at e; cases e)⟩
+    · rw [hc, scw, keepW' hp (by decide) fr (sc_ok' ps (by decide) (by decide)) (by ofs), ← scw, h₁.it.cnt]; rfl
+    · rw [scw, m', Mem.readW_writeW_self32, v₃, v₂, h₁.it.kap, ← BitVec.ofNat_add, Nat.mul_succ]
+    · rw [scw, keepW' hp (by decide) fr (sc_ok' ps (by decide) (by decide)) (by ofs), ← scw, h₁.ok, okAll_eq,
+        decide_eq_false hpass, Bool.and_false]
+
+/-! ## The checks -/
+
+/-- The checks of iteration `t`, once `SampleInBall` succeeded. -/
+theorem checks_piece (F : PrimsOk P) (ps : PS p) (t : Nat) :
+    SP p (fun s₀ s => KP p F t s₀ s ∧ PolyIs s.mem (Buf.addr s₀ cP) (toRq (Cv p s₀ (p.ℓ * t)))) (ED p F t)
+      (checks P p) := by
+  have hk := ps.hk
+  have hl := ps.hl
+  let φ : State → Prop := fun s₀ => Run p F t s₀ ∧ F.ballF p.τ (CTv p s₀ (p.ℓ * t)) = true
+  unfold checks
+  refine Piece.seq (B := fun s₀ s => (CC p t s₀ s ∧ PolyIs s.mem (Buf.addr s₀ cP) (chF (Cv p s₀ (p.ℓ * t)))) ∧ φ s₀)
+    ((inPlace_piece (t := ntt) F.ntt (F.ok _ (by simp)) cP rfl (by ofs) (fun _ _ _ h => ⟨h.1.cc.cw.cm.it.kd.ctx, h.2.1⟩)
+      fun s₀ s s' hp h c' fr hq => ⟨h.1.cc.keep hp ps c' (by decide) fr (by ofs), by rw [h.2.2] at hq; exact hq⟩).mono
+        (fun _ _ _ h => h) (fun _ _ _ h => h) |> sp_pure φ |>.mono (fun _ _ _ h => ⟨h, h.1.run, h.1.ball⟩)
+        fun _ _ _ h => h) ?_
+  refine Piece.seq (B := fun s₀ s => CS p t (zY p t 0) (fun s₀ => Wv p s₀ (p.ℓ * t)) 0
+      (fun s₀ => okZ p s₀ (p.ℓ * t) 0) (fun _ => 0) s₀ s ∧ φ s₀) (sp_pure φ (checksInit_piece ps t)) ?_
+  refine Piece.seq (B := fun s₀ s => CS p t (zY p t p.ℓ) (fun s₀ => Wv p s₀ (p.ℓ * t)) 0
+      (fun s₀ => okZ p s₀ (p.ℓ * t) p.ℓ) (fun _ => 0) s₀ s ∧ φ s₀) (sp_pure φ ?_) ?_
+  · have := seqR_piece (p := p) (I := fun r => CS p t (zY p t r) (fun s₀ => Wv p s₀ (p.ℓ * t)) 0
+      (fun s₀ => okZ p s₀ (p.ℓ * t) r) (fun _ => 0)) 0 p.ℓ fun r _ hr => zR_piece F ps t r (by omega)
+    simpa using this
+  refine Piece.seq (B := fun s₀ s => CS p t (zY p t p.ℓ) (rW p t p.k) 0
+      (fun s₀ => okZ p s₀ (p.ℓ * t) p.ℓ && okR p s₀ (p.ℓ * t) p.k) (fun _ => 0) s₀ s ∧ φ s₀) (sp_pure φ ?_) ?_
+  · have := seqR_piece (p := p) (I := fun i => CS p t (zY p t p.ℓ) (rW p t i) 0
+      (fun s₀ => okZ p s₀ (p.ℓ * t) p.ℓ && okR p s₀ (p.ℓ * t) i) (fun _ => 0)) 0 p.k fun i _ hi =>
+        r0R_piece F ps t i (by omega)
+    simp only [Nat.zero_add] at this
+    exact this.mono (fun s₀ s _ h => h.congr (fun _ _ => rfl) (fun j _ => (rW_ge (Nat.not_lt_zero j)).symm)
+      (by simp [okR])) fun _ _ _ h => h
+  refine Piece.seq (B := fun s₀ s => CS p t (zY p t p.ℓ) (hW p t p.k) p.k (okH p t p.k)
+      (fun s₀ => onesS p s₀ (p.ℓ * t) p.k) s₀ s ∧ φ s₀) (sp_pure φ ?_) ?_
+  · have := seqR_piece (p := p) (I := fun i => CS p t (zY p t p.ℓ) (hW p t i) i (okH p t i)
+      (fun s₀ => onesS p s₀ (p.ℓ * t) i)) 0 p.k fun i _ hi => hR_piece F ps t i (by omega)
+    simp only [Nat.zero_add] at this
+    refine this.mono (fun s₀ s _ h => ?_) fun _ _ _ h => h
+    have h' := h.congr (fY' := zY p t p.ℓ) (fW' := hW p t 0) (okb' := okH p t 0) (fun _ _ => rfl)
+      (fun j hj => by rw [rW_lt hj, hW_ge (Nat.not_lt_zero j)]) (by simp [okH, okT])
+    exact { h' with fh := fun j hj => absurd hj (Nat.not_lt_zero _), ones := by rw [h'.ones]; rfl, nh := Nat.zero_le _ }
+  refine Piece.seq (B := CE p F t) (sp_pure φ (onesOk_piece ps t)) (checksEnd_piece F ps t)
 
 end VG.Proof.MlDsa.X86.Sign

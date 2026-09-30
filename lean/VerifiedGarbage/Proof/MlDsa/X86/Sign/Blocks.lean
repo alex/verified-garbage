@@ -120,7 +120,7 @@ theorem seqR_piece {f : Nat → Prog isa} {I : Nat → State → State → Prop}
     rwa [show a + 1 + n = a + (n + 1) by omega] at this
 
 /-- The branch on `OK`, which is 1 or 0 as `b` of the initial state says. -/
-theorem okIte_piece (h3 : Ok3 p) {t e : Prog isa} (b : State → Bool)
+theorem okIte_piece (hc : (Y p).ok (sc oOK 4) = true) {t e : Prog isa} (b : State → Bool)
     (hA : ∀ s₀ s, TPre (Y p) s₀ → A s₀ s → Ctx (Y p) s₀ s ∧ scw s₀ s oOK = if b s₀ then 1 else 0)
     (hb : ∀ s₀ s₀', TPre (Y p) s₀ → TPre (Y p) s₀' → SPub p s₀ s₀' → b s₀ = b s₀')
     (ht : SP p (fun s₀ s₁ => (∃ s, A s₀ s ∧ Ctx (Y p) s₀ s₁ ∧ s₁.mem = s.mem) ∧ b s₀ = true) B t)
@@ -129,7 +129,7 @@ theorem okIte_piece (h3 : Ok3 p) {t e : Prog isa} (b : State → Bool)
   refine Piece.seq (B := fun s₀ s₁ => (∃ s, A s₀ s ∧ Ctx (Y p) s₀ s₁ ∧ s₁.mem = s.mem) ∧
     s₁.zf = some (!b s₀)) (blk_piece (fun s₀ s hp ha => (hA s₀ s hp ha).1) (fun s₀ s hp ha => ?_) rfl) ?_
   · obtain ⟨h, hok⟩ := hA s₀ s hp ha
-    refine wp_ldsc hp h (by lay) fun s₁ o₁ v₁ => wp_test fun s₂ o₂ z₂ => WP.block_nil_iff.mpr ?_
+    refine wp_ldsc hp h hc fun s₁ o₁ v₁ => wp_test fun s₂ o₂ z₂ => WP.block_nil_iff.mpr ?_
     have o := o₁.trans o₂
     refine ⟨⟨s, ha, h.only o (by simp) (by simp), o.mem⟩, ?_⟩
     rw [z₂, v₁, hok]
