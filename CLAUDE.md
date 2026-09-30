@@ -243,6 +243,9 @@ Avoid these patterns (each has cost tens of seconds in one proof):
   with `Proof/Framework/<ISA>/RegUpd.lean`: `gpr_setReg` (an `if`, decided
   for literal registers) or `gpr_setReg_self` and `gpr_setReg_of_ne` (for
   variables), and `mem_setReg`, `gpr_setFlags`, … for the other fields.
+  Keep writes folded throughout the block; expand the final state once only
+  if the postcondition needs it. Preserve this behavior in shared symbolic
+  execution tactics so every caller benefits.
 * **Addresses at offsets:** don't prove that ranges at `p + BitVec.ofNat 64 d`
   are separate, disjoint or contained, or their distances, with `bv_omega`
   (a second or more each, and a large term for the kernel): use `VG.Offset`
@@ -304,6 +307,50 @@ definitions unfolded while elaborating it, which finds failing unfoldings.
 `#count_heartbeats in` (from `Mathlib.Util.CountHeartbeats`, imported only
 while measuring) before a declaration prints the heartbeats it uses
 against the 200000 budget.
+
+For allocation-based work comparisons without adding an import, use Lean's
+heartbeat profiler. From `lean/`, build the module first to obtain its setup
+file, which supplies the same options and imports as Lake:
+
+```sh
+lake build +VerifiedGarbage.Proof.MlKem.Arm.Mul
+lake env lean --setup .lake/build/ir/VerifiedGarbage/Proof/MlKem/Arm/Mul.setup.json \
+  -j1 -DElab.async=false -Dtrace.profiler=true \
+  -Dtrace.profiler.useHeartbeats=true -Dtrace.profiler.threshold=1000000000 \
+  -Dtrace.Elab.command=true -Dtrace.Kernel=true \
+  VerifiedGarbage/Proof/MlKem/Arm/Mul.lean
+```
+
+Use identical profiling options for both versions. The high threshold
+suppresses other trace classes while command and kernel traces remain
+explicitly enabled. Report their counts separately: traces are inclusive,
+so adding parent and descendant counts double-counts work. These are work
+comparisons; use `#count_heartbeats` above to compare a declaration with its
+resource budget. Run elapsed-time benchmarks without tracing.
+
+When changing proof or build performance:
+
+* **Shared helpers:** compare representative callers, including large
+  proofs and different postcondition shapes. Check elaboration and kernel
+  work; improving one caller does not establish a general improvement.
+* **Build concurrency:** preserve the configured compiler thread limits
+  and Lake worker counts unless a controlled build comparison supports
+  changing them. More threads can increase contention, and a faster isolated
+  file can still slow the build. The two compiler threads and six Lake
+  workers measured in [PR #367](https://github.com/pyca/verified-garbage/pull/367)
+  are a measured configuration, not a universal optimum; retune against the
+  intended runner's CPU and memory limits.
+* **Comparable measurements:** compare baseline and candidate on the same
+  base revision, toolchain, hardware limits and cache state. Keep dependency
+  caches equally warm and clean project outputs for clean-build comparisons.
+  Repeat comparisons to check noise, record wall time and total CPU time,
+  and distinguish reduced proof work from improved scheduling. State the
+  workload and environment; local timings alone do not establish a CI speedup.
+* **Validation scope:** use targeted builds while iterating. Performance
+  changes to widely shared tactics, imports or build settings need a clean
+  full-build comparison before claiming an overall speedup, including the
+  artifact audits and golden tests. Keep the existing proof checks and
+  resource limits in every comparison.
 
 ## Iterating on one proof
 
