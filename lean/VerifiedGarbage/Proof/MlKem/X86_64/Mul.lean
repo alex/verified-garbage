@@ -1,13 +1,16 @@
-import VerifiedGarbage.Impl.MlKem.X86_64.Mul
-import VerifiedGarbage.Proof.MlKem.X86_64.Reduce
-import VerifiedGarbage.Proof.MlKem.X86_64.Contracts
+import VerifiedGarbage.Proof.MlKem.X86_64.VMul
+import VerifiedGarbage.Proof.MlKem.X86_64.VMxcsr
 import VerifiedGarbage.Proof.MlKem.Ntt
-import VerifiedGarbage.Proof.MlKem.X86_64.Table
+import VerifiedGarbage.Proof.Framework.X86_64.Taint
+import VerifiedGarbage.Proof.Framework.Contract
 
 /-!
 # ML-KEM on x86-64: `vg_mlkem_multiply_ntts`
 
-Untrusted: everything here is checked by Lean.
+Untrusted: everything here is checked by Lean. Each iteration of the loop
+loads 16 coefficients of `f` and of `g` into the words of their pairs
+(`deintF_ok`, `deintG_ok`), multiplies the eight pairs (`vbase_ok`) and
+stores the 16 coefficients of `h` (`vinter_ok`): `Mul.step`.
 -/
 
 namespace VG.Proof.MlKem.X86_64
@@ -32,185 +35,11 @@ def mulK : Contract isa where
 theorem gammaTab_eq {i : Nat} : gammaTab i = (gamma i).val := by
   rw [gamma, val_pow]; rfl
 
-theorem gammaTab_lt (i : Nat) : gammaTab i < 3329 := Nat.mod_lt _ (by decide)
+theorem gTab_eq (i : Nat) : gTab i = (gamma i).val * 65536 % 3329 := by rw [gTab, gammaTab_eq]
 
-/-- The product of two 32-bit values, as `mul` leaves it. -/
-abbrev prod32 (a b : BitVec 32) : BitVec 64 :=
-  BitVec.ofNat 64 ((BitVec.setWidth 64 a).toNat * (BitVec.setWidth 64 b).toNat)
-
-theorem prod32_toNat {a b : BitVec 32} (h : a.toNat * b.toNat < 2 ^ 64) :
-    (prod32 a b).toNat = a.toNat * b.toNat := by
-  rw [prod32, BitVec.toNat_ofNat, toNat_setWidth64, toNat_setWidth64, Nat.mod_eq_of_lt h]
-
-theorem mulA_ok (s : State) (h1 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 4) 4)
-    (h2 : InRegions (s.rd ++ s.wr) (s.gpr .r8 + BitVec.ofNat 64 4) 4) :
-    WP isa (.block [.mov32 .rax (.mem (at_ .rsi 4)), .mov32 .rdx (.mem (at_ .r8 4)), .mul .rdx]) s fun s' =>
-      (s'.gpr .rax = prod32 (s.mem.readW (s.gpr .rsi + BitVec.ofNat 64 4) 32)
-        (s.mem.readW (s.gpr .r8 + BitVec.ofNat 64 4) 32) ∧ s'.mem = s.mem) ∧ Keep [.rax, .rdx] s s' := by
-  refine WP.keep _ ?_ (by decide)
-  xrun [h1, h2]
-
-theorem mulB_ok (s : State) (h1 : InRegions (s.rd ++ s.wr) (s.gpr .rsi) 4)
-    (h2 : InRegions (s.rd ++ s.wr) (s.gpr .r8) 4) (h3 : InRegions (s.rd ++ s.wr) (s.gpr .r9) 4) :
-    WP isa (.block [.mov32 .rax (.mem (at_ .r9 0)), .mul .r10, .mov .r11 (.reg .rax), .mov32 .rax (.mem (at_ .rsi 0)),
-      .mov32 .rdx (.mem (at_ .r8 0)), .mul .rdx, .alu .add .rax (.reg .r11)]) s fun s' =>
-      (s'.gpr .rax = prod32 (s.mem.readW (s.gpr .rsi) 32) (s.mem.readW (s.gpr .r8) 32) +
-        BitVec.ofNat 64 ((BitVec.setWidth 64 (s.mem.readW (s.gpr .r9) 32)).toNat * (s.gpr .r10).toNat) ∧
-        s'.mem = s.mem) ∧ Keep [.rax, .rdx, .r11] s s' := by
-  refine WP.keep _ ?_ (by decide)
-  xrun [h1, h2, h3]
-
-theorem mulC_ok (s : State) (h1 : InRegions (s.rd ++ s.wr) (s.gpr .rsi) 4)
-    (h2 : InRegions (s.rd ++ s.wr) (s.gpr .r8 + BitVec.ofNat 64 4) 4)
-    (h3 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 4) 4)
-    (h4 : InRegions (s.rd ++ s.wr) (s.gpr .r8) 4) :
-    WP isa (.block [.mov32 .rax (.mem (at_ .rsi 0)), .mov32 .rdx (.mem (at_ .r8 4)), .mul .rdx, .mov .r11 (.reg .rax),
-      .mov32 .rax (.mem (at_ .rsi 4)), .mov32 .rdx (.mem (at_ .r8 0)), .mul .rdx, .alu .add .rax (.reg .r11)]) s
-      fun s' => (s'.gpr .rax = prod32 (s.mem.readW (s.gpr .rsi + BitVec.ofNat 64 4) 32) (s.mem.readW (s.gpr .r8) 32) +
-        prod32 (s.mem.readW (s.gpr .rsi) 32) (s.mem.readW (s.gpr .r8 + BitVec.ofNat 64 4) 32) ∧
-        s'.mem = s.mem) ∧ Keep [.rax, .rdx, .r11] s s' := by
-  refine WP.keep _ ?_ (by decide)
-  xrun [h1, h2, h3, h4]
-
-theorem store10_ok (s : State) (d : Nat) (h : InRegions s.wr (s.gpr .rdi + BitVec.ofNat 64 d) 4) :
-    WP isa (.block [.store32 (at_ .rdi d) .r10]) s fun s' =>
-      (s'.mem = s.mem.writeW (s.gpr .rdi + BitVec.ofNat 64 d) (BitVec.setWidth 32 (s.gpr .r10))) ∧ Keep [] s s' := by
-  refine WP.keep _ ?_ (by rfl)
-  xrun [h]
-
-
-/-! ## The body -/
-
-/-- The word stored for coefficient `2i`. -/
-def evenW (a0 a1 b0 b1 γ : BitVec 32) : BitVec 32 :=
-  BitVec.setWidth 32 (redV (prod32 a0 b0 +
-    BitVec.ofNat 64 ((BitVec.setWidth 64 γ).toNat * (redV (prod32 a1 b1)).toNat)))
-
-/-- The word stored for coefficient `2i + 1`. -/
-def oddW (a0 a1 b0 b1 : BitVec 32) : BitVec 32 :=
-  BitVec.setWidth 32 (redV (prod32 a1 b0 + prod32 a0 b1))
-
-theorem evenW_toNat {a0 a1 b0 b1 γ : BitVec 32} (ha0 : a0.toNat < q) (ha1 : a1.toNat < q)
-    (hb0 : b0.toNat < q) (hb1 : b1.toNat < q) (hγ : γ.toNat < q) :
-    (evenW a0 a1 b0 b1 γ).toNat = (a0.toNat * b0.toNat + γ.toNat * (a1.toNat * b1.toNat % q)) % q := by
-  have p1 := mul_lt_q2 ha1 hb1
-  have p0 := mul_lt_q2 ha0 hb0
-  have e1 : (prod32 a1 b1).toNat = a1.toNat * b1.toNat := prod32_toNat (by omega)
-  have r1 : (redV (prod32 a1 b1)).toNat = a1.toNat * b1.toNat % q := by
-    rw [redV_toNat (by rw [e1]; omega), e1]
-  have hr : a1.toNat * b1.toNat % q < q := Nat.mod_lt _ (by decide)
-  have p2 := mul_lt_q2 hγ hr
-  have e2 : (prod32 a0 b0 + BitVec.ofNat 64 ((BitVec.setWidth 64 γ).toNat * (redV (prod32 a1 b1)).toNat)).toNat =
-      a0.toNat * b0.toNat + γ.toNat * (a1.toNat * b1.toNat % q) := by
-    rw [BitVec.toNat_add, prod32_toNat (by omega), BitVec.toNat_ofNat, toNat_setWidth64, r1]
-    rw [q_eq] at *; omega
-  rw [evenW, toNat_setWidth32_64 (by
-    have := redV_lt (x := prod32 a0 b0 + BitVec.ofNat 64 ((BitVec.setWidth 64 γ).toNat *
-      (redV (prod32 a1 b1)).toNat)) (by rw [e2]; rw [q_eq] at *; omega)
-    rw [q_eq] at this; omega), redV_toNat (by rw [e2]; rw [q_eq] at *; omega), e2]
-
-theorem oddW_toNat {a0 a1 b0 b1 : BitVec 32} (ha0 : a0.toNat < q) (ha1 : a1.toNat < q)
-    (hb0 : b0.toNat < q) (hb1 : b1.toNat < q) :
-    (oddW a0 a1 b0 b1).toNat = (a0.toNat * b1.toNat + a1.toNat * b0.toNat) % q := by
-  have p1 := mul_lt_q2 ha1 hb0
-  have p0 := mul_lt_q2 ha0 hb1
-  have e : (prod32 a1 b0 + prod32 a0 b1).toNat = a0.toNat * b1.toNat + a1.toNat * b0.toNat := by
-    rw [BitVec.toNat_add, prod32_toNat (by omega), prod32_toNat (by omega)]
-    rw [q_eq] at *; omega
-  rw [oddW, toNat_setWidth32_64 (by
-    have := redV_lt (x := prod32 a1 b0 + prod32 a0 b1) (by rw [e]; rw [q_eq] at *; omega)
-    rw [q_eq] at this; omega), redV_toNat (by rw [e]; rw [q_eq] at *; omega), e]
-
-/-- `mulEven`: coefficient `2i` to `[rdi]`. -/
-theorem mulEven_ok (s : State) (h0 : InRegions (s.rd ++ s.wr) (s.gpr .rsi) 4)
-    (h1 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 4) 4)
-    (h2 : InRegions (s.rd ++ s.wr) (s.gpr .r8) 4)
-    (h3 : InRegions (s.rd ++ s.wr) (s.gpr .r8 + BitVec.ofNat 64 4) 4)
-    (h4 : InRegions (s.rd ++ s.wr) (s.gpr .r9) 4) (hw : InRegions s.wr (s.gpr .rdi) 4) :
-    WP isa (.block mulEven) s fun s' =>
-      s'.mem = s.mem.writeW (s.gpr .rdi) (evenW (s.mem.readW (s.gpr .rsi) 32)
-        (s.mem.readW (s.gpr .rsi + BitVec.ofNat 64 4) 32) (s.mem.readW (s.gpr .r8) 32)
-        (s.mem.readW (s.gpr .r8 + BitVec.ofNat 64 4) 32) (s.mem.readW (s.gpr .r9) 32)) ∧
-      Keep [.rax, .rdx, .r10, .r11] s s' := by
-  unfold mulEven
-  simp only [List.append_assoc]
-  rw [WP.block_append_iff]
-  refine WP.mono (mulA_ok s h1 h3) fun s1 ⟨⟨ha1, hm1⟩, k1⟩ => ?_
-  rw [WP.block_append_iff]
-  refine WP.mono (reduce_ok s1) fun s2 ⟨⟨hr2, hm2⟩, k2⟩ => ?_
-  have k12 := k1.trans k2
-  have g : ∀ r, r ∉ [Reg.rax, .rdx, .rax, .rdx, .r10, .r11] → s2.gpr r = s.gpr r := fun r hr => k12.gpr hr
-  have hrr : s2.rd ++ s2.wr = s.rd ++ s.wr := by rw [k12.2.1, k12.2.2]
-  rw [WP.block_append_iff]
-  refine WP.mono (mulB_ok s2 (by rw [hrr, g .rsi (by decide)]; exact h0)
-    (by rw [hrr, g .r8 (by decide)]; exact h2) (by rw [hrr, g .r9 (by decide)]; exact h4))
-    fun s3 ⟨⟨hb3, hm3⟩, k3⟩ => ?_
-  rw [WP.block_append_iff]
-  refine WP.mono (reduce_ok s3) fun s4 ⟨⟨hr4, hm4⟩, k4⟩ => ?_
-  have k14 := (k12.trans k3).trans k4
-  have hw4 : InRegions s4.wr (s4.gpr .rdi + BitVec.ofNat 64 0) 4 := by
-    rw [add_ofNat_zero, k14.2.2, k14.gpr (by decide)]; exact hw
-  refine WP.mono (store10_ok s4 0 hw4) fun s5 ⟨hm5, k5⟩ => ⟨?_, (k14.trans k5).mono (by decide)⟩
-  rw [hm5, add_ofNat_zero, k14.gpr (by decide), hr4, hb3, hm4, hm3, hm2, hm1, hr2, ha1,
-    k12.gpr (r := .rsi) (by decide), k12.gpr (r := .r8) (by decide), k12.gpr (r := .r9) (by decide)]
-  rfl
-
-/-- `mulOdd`: coefficient `2i + 1` to `[rdi + 4]`. -/
-theorem mulOdd_ok (s : State) (h0 : InRegions (s.rd ++ s.wr) (s.gpr .rsi) 4)
-    (h1 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 4) 4)
-    (h2 : InRegions (s.rd ++ s.wr) (s.gpr .r8) 4)
-    (h3 : InRegions (s.rd ++ s.wr) (s.gpr .r8 + BitVec.ofNat 64 4) 4)
-    (hw : InRegions s.wr (s.gpr .rdi + BitVec.ofNat 64 4) 4) :
-    WP isa (.block mulOdd) s fun s' =>
-      s'.mem = s.mem.writeW (s.gpr .rdi + BitVec.ofNat 64 4) (oddW (s.mem.readW (s.gpr .rsi) 32)
-        (s.mem.readW (s.gpr .rsi + BitVec.ofNat 64 4) 32) (s.mem.readW (s.gpr .r8) 32)
-        (s.mem.readW (s.gpr .r8 + BitVec.ofNat 64 4) 32)) ∧
-      Keep [.rax, .rdx, .r10, .r11] s s' := by
-  unfold mulOdd
-  simp only [List.append_assoc]
-  rw [WP.block_append_iff]
-  refine WP.mono (mulC_ok s h0 h3 h1 h2) fun s1 ⟨⟨ha1, hm1⟩, k1⟩ => ?_
-  rw [WP.block_append_iff]
-  refine WP.mono (reduce_ok s1) fun s2 ⟨⟨hr2, hm2⟩, k2⟩ => ?_
-  have k12 := k1.trans k2
-  refine WP.mono (store10_ok s2 4 (by rw [k12.2.2, k12.gpr (by decide)]; exact hw))
-    fun s3 ⟨hm3, k3⟩ => ⟨?_, (k12.trans k3).mono (by decide)⟩
-  rw [hm3, k12.gpr (by decide), hr2, hm2, ha1, hm1]
-  rfl
-
-theorem mulStep_ok (s : State) :
-    WP isa (.block mulStep) s fun s' =>
-      (s'.mem = s.mem ∧ s'.gpr .rdi = s.gpr .rdi + 8 ∧ s'.gpr .rsi = s.gpr .rsi + 8 ∧
-        s'.gpr .r8 = s.gpr .r8 + 8 ∧ s'.gpr .r9 = s.gpr .r9 + 4 ∧ s'.gpr .rcx = s.gpr .rcx - 1 ∧
-        s'.zf = some (s.gpr .rcx - 1 == 0)) ∧ Keep [.rdi, .rsi, .r8, .r9, .rcx] s s' := by
-  refine WP.keep _ ?_ (by decide)
-  unfold mulStep
-  xrun
-
-
-/-! ## Values -/
-
-theorem even_val {F G : Poly} {i : Nat} (hi : i < 128) {a0 a1 b0 b1 γ : BitVec 32}
-    (e0 : a0.toNat = (F[2 * i]!).val) (e1 : a1.toNat = (F[2 * i + 1]!).val)
-    (f0 : b0.toNat = (G[2 * i]!).val) (f1 : b1.toNat = (G[2 * i + 1]!).val)
-    (eγ : γ.toNat = (gamma i).val) :
-    (evenW a0 a1 b0 b1 γ).toNat = ((multiplyNTTs F G)[2 * i]!).val := by
-  rw [evenW_toNat (by rw [e0]; exact val_lt _) (by rw [e1]; exact val_lt _) (by rw [f0]; exact val_lt _)
-    (by rw [f1]; exact val_lt _) (by rw [eγ]; exact val_lt _), multiplyNTTs_even F G hi, val_add', val_mul,
-    val_mul, val_mul, e0, e1, f0, f1, eγ, Nat.add_mod (F[2 * i]!.val * G[2 * i]!.val), Nat.mul_comm (gamma i).val]
-
-theorem odd_val {F G : Poly} {i : Nat} (hi : i < 128) {a0 a1 b0 b1 : BitVec 32}
-    (e0 : a0.toNat = (F[2 * i]!).val) (e1 : a1.toNat = (F[2 * i + 1]!).val)
-    (f0 : b0.toNat = (G[2 * i]!).val) (f1 : b1.toNat = (G[2 * i + 1]!).val) :
-    (oddW a0 a1 b0 b1).toNat = ((multiplyNTTs F G)[2 * i + 1]!).val := by
-  rw [oddW_toNat (by rw [e0]; exact val_lt _) (by rw [e1]; exact val_lt _) (by rw [f0]; exact val_lt _)
-    (by rw [f1]; exact val_lt _), multiplyNTTs_odd F G hi, val_add', val_mul, val_mul, e0, e1, f0, f1,
-    Nat.add_mod]
-
-theorem gammaTab_toNat (i : Nat) : (BitVec.ofNat 32 (gammaTab i)).toNat = gammaTab i := by
-  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by have := gammaTab_lt i; omega)]
-
-/-! ## The loop -/
+theorem gTab_lt (i : Nat) : gTab i < 65536 := by
+  have : gTab i < 3329 := Nat.mod_lt _ (by decide)
+  omega
 
 namespace Mul
 
@@ -220,159 +49,225 @@ abbrev hP : Addr := s₀.gpr .rdi
 abbrev fP : Addr := s₀.gpr .rsi
 abbrev gP : Addr := s₀.gpr .rdx
 abbrev sP : Addr := s₀.gpr .rcx
-/-- The value of coefficient `k` of the product. -/
-abbrev val (k : Nat) : Nat := ((multiplyNTTs (polyAt s₀.mem (fP s₀)) (polyAt s₀.mem (gP s₀)))[k]!).val
+abbrev F : Poly := polyAt s₀.mem (fP s₀)
+abbrev G : Poly := polyAt s₀.mem (gP s₀)
 end
 
-/-- After `i` pairs. -/
+/-- After `i` groups of 16 coefficients. -/
 structure Inv (s₀ : State) (i : Nat) (s : State) : Prop where
-  rdi : s.gpr .rdi = hP s₀ + BitVec.ofNat 64 (8 * i)
-  rsi : s.gpr .rsi = fP s₀ + BitVec.ofNat 64 (8 * i)
-  r8 : s.gpr .r8 = gP s₀ + BitVec.ofNat 64 (8 * i)
-  r9 : s.gpr .r9 = sP s₀ + BitVec.ofNat 64 (4 * i)
+  rsi : s.gpr .rsi = coeffAddr (fP s₀) (16 * i)
+  rdx : s.gpr .rdx = coeffAddr (gP s₀) (16 * i)
+  rdi : s.gpr .rdi = coeffAddr (hP s₀) (16 * i)
+  r8 : s.gpr .r8 = wAddr (sP s₀) (8 * i)
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
+  c : VConsts s
+  r2 : s.xmm .xmm12 = r2V
   frame : Frame [pR (hP s₀), pR (sP s₀)] s₀.mem s.mem
-  tab : Tab gammaTab s.mem (sP s₀) 128
-  done : ∀ k < 2 * i, (coeffAt s.mem (hP s₀) k).toNat = val s₀ k
-
-theorem addr8 (p : Addr) (i : Nat) : p + BitVec.ofNat 64 (8 * i) = coeffAddr p (2 * i) := by
-  congr 2; omega
-
-theorem addr8' (p : Addr) (i : Nat) :
-    p + BitVec.ofNat 64 (8 * i) + BitVec.ofNat 64 4 = coeffAddr p (2 * i + 1) := by
-  rw [BitVec.add_assoc, ← BitVec.ofNat_add]; congr 2; omega
+  tab : ∀ k < 128, (wordAt s.mem (sP s₀) k).toNat = gTab k
+  done : ∀ k < 16 * i, (coeffAt s.mem (hP s₀) k).toNat = ((multiplyNTTs (F s₀) (G s₀))[k]!).val
 
 section
 variable {s₀ : State} (hp : mulK.pre s₀)
 include hp
 
-theorem regions : s₀.rd ++ s₀.wr = [pR (fP s₀), pR (gP s₀), pR (hP s₀), pR (sP s₀)] := by
-  rw [hp.1, hp.2.1]; rfl
-
-theorem inR {p : Addr} (hp' : p = fP s₀ ∨ p = gP s₀ ∨ p = hP s₀ ∨ p = sP s₀) {k : Nat} (hk : k < 256) :
-    InRegions (s₀.rd ++ s₀.wr) (coeffAddr p k) 4 := by
-  rw [regions hp]
-  rcases hp' with rfl | rfl | rfl | rfl
-  · exact ⟨_, by simp, coeff_contains _ hk⟩
-  · exact ⟨_, by simp, coeff_contains _ hk⟩
-  · exact ⟨_, by simp, coeff_contains _ hk⟩
-  · exact ⟨_, by simp, coeff_contains _ hk⟩
-
-theorem inW {k : Nat} (hk : k < 256) : InRegions s₀.wr (coeffAddr (hP s₀) k) 4 := by
-  rw [hp.2.1]; exact ⟨_, by simp, coeff_contains _ hk⟩
+theorem inRd {p : Addr} (hp' : p = fP s₀ ∨ p = gP s₀) {j : Nat} (hj : j + 16 ≤ 256) {t : Nat} (ht : t < 4) :
+    InRegions (s₀.rd ++ s₀.wr) (coeffAddr p j + BitVec.ofNat 64 (16 * t)) 16 := by
+  rw [off16, hp.1, hp.2.1]
+  rcases hp' with rfl | rfl
+  · exact ⟨pR _, by simp, Offset.contains_base _ (by omega) (by omega)⟩
+  · exact ⟨pR _, by simp, Offset.contains_base _ (by omega) (by omega)⟩
 
 /-- `f` and `g` are not written. -/
-theorem coeffF {m : Mem} (hf : Frame [pR (hP s₀), pR (sP s₀)] s₀.mem m) {k : Nat} (hk : k < 256) :
-    coeffAt m (fP s₀) k = coeffAt s₀.mem (fP s₀) k :=
-  coeffAt_congr (bytes_frame hf (by simpa using ⟨hp.2.2.1.symm, hp.2.2.2.2.2.1⟩) (by decide)) hk
+theorem coeffFG {m : Mem} (hf : Frame [pR (hP s₀), pR (sP s₀)] s₀.mem m) {p : Addr} (hp' : p = fP s₀ ∨ p = gP s₀)
+    {k : Nat} (hk : k < 256) : (coeffAt m p k).toNat = ((polyAt s₀.mem p)[k]!).val := by
+  have hd : ∀ r ∈ [pR (hP s₀), pR (sP s₀)], (polyRegion p).Disjoint r := by
+    rcases hp' with rfl | rfl
+    · simpa using ⟨hp.2.2.1.symm, hp.2.2.2.2.2.1⟩
+    · simpa using ⟨hp.2.2.2.1.symm, hp.2.2.2.2.2.2.1⟩
+  have hr : Reduced s₀.mem p := by
+    rcases hp' with rfl | rfl
+    · exact hp.2.2.2.2.2.2.2.2.2.2.2.1
+    · exact hp.2.2.2.2.2.2.2.2.2.2.2.2
+  rw [coeffAt_congr (bytes_frame hf hd (by decide)) (by rw [n_eq]; exact hk),
+    polyAt_val hr (by rw [n_eq]; exact hk)]
 
-theorem coeffG {m : Mem} (hf : Frame [pR (hP s₀), pR (sP s₀)] s₀.mem m) {k : Nat} (hk : k < 256) :
-    coeffAt m (gP s₀) k = coeffAt s₀.mem (gP s₀) k :=
-  coeffAt_congr (bytes_frame hf (by simpa using ⟨hp.2.2.2.1.symm, hp.2.2.2.2.2.2.1⟩) (by decide)) hk
+/-- The 16 coefficients from `j` of `f` or `g`, as `deint_lanes` takes them. -/
+theorem loads {m : Mem} (hf : Frame [pR (hP s₀), pR (sP s₀)] s₀.mem m) {p : Addr} (hp' : p = fP s₀ ∨ p = gP s₀)
+    {j : Nat} (hj : j + 16 ≤ 256) {t : Nat} (ht : t < 4) :
+    ∀ e < 4, (dword (m.readW (coeffAddr p j + BitVec.ofNat 64 (16 * t)) 128) e).toNat =
+      ((polyAt s₀.mem p)[j + (4 * t + e)]!).val := fun e he => by
+  rw [off16, dword_readW _ _ he, coeffAddr_off, ← coeffAt_eq, Nat.add_assoc, coeffFG hp hf hp' (by omega)]
 
 omit hp in
-theorem sepH {p : Addr} (hd : (pR p).Disjoint (pR (hP s₀))) {k j : Nat} (hk : k < 256) (hj : j < 256) :
-    Mem.Sep (coeffAddr p k) 4 (coeffAddr (hP s₀) j) (32 / 8) :=
-  hd.sep (coeff_contains _ hk) (coeff_contains _ hj)
+/-- A value of the product, from the lanes `vbase` leaves. -/
+theorem prod_val {i : Nat} (hi : i < 16) {X1 X2 : BitVec 128} {F G : Poly}
+    (h1 : Lanes X1 fun e => F[16 * i + 2 * e]! * G[16 * i + 2 * e]! +
+      F[16 * i + 2 * e + 1]! * G[16 * i + 2 * e + 1]! * gamma (8 * i + e))
+    (h2 : Lanes X2 fun e => F[16 * i + 2 * e]! * G[16 * i + 2 * e + 1]! + F[16 * i + 2 * e + 1]! * G[16 * i + 2 * e]!)
+    {k : Nat} (hk : k < 16) :
+    (word (if k % 2 = 0 then X1 else X2) (k / 2)).toNat = ((multiplyNTTs F G)[16 * i + k]!).val := by
+  rw [multiplyNTTs_get F G (by rw [n_eq]; omega)]
+  split
+  · rename_i he
+    rw [ite_eq_left_of_eq_true _ _ (eq_true (by omega)), h1 _ (by omega)]
+    dsimp only
+    rw [show 16 * i + 2 * (k / 2) = 16 * i + k by omega, show (16 * i + k) / 2 = 8 * i + k / 2 by omega]
+  · rename_i he
+    rw [ite_eq_right_of_eq_false _ _ (eq_false (by omega)), h2 _ (by omega)]
+    dsimp only
+    rw [show 16 * i + 2 * (k / 2) = 16 * i + k - 1 by omega, show 16 * i + k - 1 + 1 = 16 * i + k by omega]
 
-theorem step {i : Nat} (hi : i < 128) {s : State} (hI : Inv s₀ i s) :
-    WP isa (.block mulBody) s fun s' => Inv s₀ (i + 1) s' ∧ s'.gpr .rcx = s.gpr .rcx - 1 ∧
-      s'.zf = some (s.gpr .rcx - 1 == 0) := by
+theorem step {i : Nat} (hi : i < 16) {s : State} (hI : Inv s₀ i s) :
+    WP isa (.block (mulBody ++ ([.alu .sub .rcx (.imm 1)] : List Instr))) s fun s' =>
+      Inv s₀ (i + 1) s' ∧ s'.gpr .rcx = s.gpr .rcx - 1 ∧ s'.zf = some (s.gpr .rcx - 1 == 0) := by
   have hrr : s.rd ++ s.wr = s₀.rd ++ s₀.wr := by rw [hI.rd, hI.wr]
-  have i0 : 2 * i < 256 := by omega
-  have i1 : 2 * i + 1 < 256 := by omega
-  unfold mulBody
-  rw [List.append_assoc, WP.block_append_iff]
-  refine WP.mono (mulEven_ok s (by rw [hrr, hI.rsi, addr8]; exact inR hp (by simp) i0)
-    (by rw [hrr, hI.rsi, addr8']; exact inR hp (by simp) i1)
-    (by rw [hrr, hI.r8, addr8]; exact inR hp (by simp) i0)
-    (by rw [hrr, hI.r8, addr8']; exact inR hp (by simp) i1)
-    (by rw [hrr, hI.r9, ← coeffAddr]; exact inR hp (by simp) (show i < 256 by omega))
-    (by rw [hI.wr, hI.rdi, addr8]; exact inW hp i0)) fun s1 ⟨hm1, k1⟩ => ?_
-  have g1 : ∀ r, r ∉ [Reg.rax, .rdx, .r10, .r11] → s1.gpr r = s.gpr r := fun r hr => k1.gpr hr
+  have hj : 16 * i + 16 ≤ 256 := by omega
+  have rF : ∀ t < 4, InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 (16 * t)) 16 := fun t ht => by
+    rw [hrr, hI.rsi]; exact inRd hp (.inl rfl) hj ht
+  have rG : ∀ t < 4, InRegions (s.rd ++ s.wr) (s.gpr .rdx + BitVec.ofNat 64 (16 * t)) 16 := fun t ht => by
+    rw [hrr, hI.rdx]; exact inRd hp (.inr rfl) hj ht
+  have r0 : ∀ {a : Addr}, InRegions (s.rd ++ s.wr) (a + BitVec.ofNat 64 (16 * 0)) 16 →
+      InRegions (s.rd ++ s.wr) a 16 := fun h => by rwa [Nat.mul_zero, add_ofNat_zero] at h
+  simp only [mulBody, List.append_assoc]
   rw [WP.block_append_iff]
-  refine WP.mono (mulOdd_ok s1 (by rw [k1.2.1, k1.2.2, hrr, g1 .rsi (by decide), hI.rsi, addr8]; exact inR hp (by simp) i0)
-    (by rw [k1.2.1, k1.2.2, hrr, g1 .rsi (by decide), hI.rsi, addr8']; exact inR hp (by simp) i1)
-    (by rw [k1.2.1, k1.2.2, hrr, g1 .r8 (by decide), hI.r8, addr8]; exact inR hp (by simp) i0)
-    (by rw [k1.2.1, k1.2.2, hrr, g1 .r8 (by decide), hI.r8, addr8']; exact inR hp (by simp) i1)
-    (by rw [k1.2.2, hI.wr, g1 .rdi (by decide), hI.rdi, addr8']; exact inW hp i1)) fun s2 ⟨hm2, k2⟩ => ?_
-  have g2 : ∀ r, r ∉ [Reg.rax, .rdx, .r10, .r11] → s2.gpr r = s.gpr r := fun r hr => by
-    rw [k2.gpr hr, g1 r hr]
-  refine WP.mono (mulStep_ok s2) fun s3 ⟨⟨hm3, hdi, hsi, h8, h9, hcx, hz⟩, k3⟩ => ?_
-  rw [g2 .rcx (by decide)] at hcx hz
-  refine ⟨?_, hcx, hz⟩
-  -- The memory.
-  rw [g1 .rdi (by decide), g1 .rsi (by decide), g1 .r8 (by decide), hI.rdi, hI.rsi, hI.r8] at hm2
-  rw [hI.rdi, hI.rsi, hI.r8, hI.r9, ← coeffAddr] at hm1
-  simp only [addr8'] at hm1 hm2
-  simp only [addr8] at hm1 hm2
-  simp only [← coeffAt_eq] at hm1 hm2
-  have dF : (pR (fP s₀)).Disjoint (pR (hP s₀)) := hp.2.2.1.symm
-  have dG : (pR (gP s₀)).Disjoint (pR (hP s₀)) := hp.2.2.2.1.symm
-  rw [hm1, coeffAt_writeW_sep _ _ _ (sepH dF i0 i0), coeffAt_writeW_sep _ _ _ (sepH dF i1 i0),
-    coeffAt_writeW_sep _ _ _ (sepH dG i0 i0), coeffAt_writeW_sep _ _ _ (sepH dG i1 i0)] at hm2
-  have ha0 := coeffF hp hI.frame i0
-  have ha1 := coeffF hp hI.frame i1
-  have hb0 := coeffG hp hI.frame i0
-  have hb1 := coeffG hp hI.frame i1
-  rw [ha0, ha1, hb0, hb1] at hm1 hm2
-  have hF := hp.2.2.2.2.2.2.2.2.2.2.2.1
-  have hG := hp.2.2.2.2.2.2.2.2.2.2.2.2
-  have hγ : (coeffAt s.mem (sP s₀) i).toNat = (gamma i).val := by
-    rw [hI.tab i (by omega), gammaTab_toNat, gammaTab_eq]
-  refine ⟨?_, ?_, ?_, ?_, k3.2.1.trans (k2.2.1.trans (k1.2.1.trans hI.rd)),
-    k3.2.2.trans (k2.2.2.trans (k1.2.2.trans hI.wr)), ?_, fun k hk => ?_, fun k hk => ?_⟩
-  · rw [hdi, g2 .rdi (by decide), hI.rdi]; exact ptr_step _ i 8
-  · rw [hsi, g2 .rsi (by decide), hI.rsi]; exact ptr_step _ i 8
-  · rw [h8, g2 .r8 (by decide), hI.r8]; exact ptr_step _ i 8
-  · rw [h9, g2 .r9 (by decide), hI.r9]; exact ptr_step _ i 4
-  · rw [hm3, hm2]
-    exact (hI.frame.writeW (List.mem_cons_self ..) _ (coeff_contains _ i0)).writeW
-      (List.mem_cons_self ..) _ (coeff_contains _ i1)
-  · rw [hm3, hm2]
-    have dS : (pR (sP s₀)).Disjoint (pR (hP s₀)) := hp.2.2.2.2.1.symm
-    rw [coeffAt_writeW_sep _ _ _ (sepH dS (by omega) i1), coeffAt_writeW_sep _ _ _ (sepH dS (by omega) i0)]
-    exact hI.tab k hk
-  · rw [hm3, hm2, coeffAt_writeW _ _ (show k < 256 by omega) i1, coeffAt_writeW _ _ (show k < 256 by omega) i0]
-    by_cases e1 : 2 * i + 1 = k
-    · subst e1; rw [ifp rfl]
-      exact odd_val hi (polyAt_val hF i0).symm (polyAt_val hF i1).symm (polyAt_val hG i0).symm
-        (polyAt_val hG i1).symm
-    · rw [ifn e1]
-      by_cases e0 : 2 * i = k
-      · subst e0; rw [ifp rfl]
-        exact even_val hi (polyAt_val hF i0).symm (polyAt_val hF i1).symm (polyAt_val hG i0).symm
-          (polyAt_val hG i1).symm hγ
-      · rw [ifn e0]; exact hI.done k (by omega)
-
-theorem prologue_ok :
-    WP isa (.block (([.mov .r8 (.reg .rdx), .mov .r9 (.reg .rcx)] : List Instr) ++ storeTab gammaTab 128)) s₀
-      fun s => Tab gammaTab s.mem (sP s₀) 128 ∧ Frame [pR (hP s₀), pR (sP s₀)] s₀.mem s.mem ∧
-        Keep [.r8, .r9, .rax] s₀ s ∧ s.gpr .r8 = gP s₀ ∧ s.gpr .r9 = sP s₀ := by
+  refine WP.mono (deintF_ok (r0 (rF 0 (by decide))) (rF 1 (by decide)) (rF 2 (by decide)) (rF 3 (by decide)))
+    fun s1 ⟨e0, e4, o1⟩ => ?_
   rw [WP.block_append_iff]
-  refine WP.mono (WP.keep [.r8, .r9]
-    (Q := fun s => s.mem = s₀.mem ∧ s.gpr .r8 = gP s₀ ∧ s.gpr .r9 = sP s₀) (by xrun) (by decide))
-    fun s1 ⟨⟨hm, h8, h9⟩, k1⟩ => ?_
-  refine WP.mono (storeTab_ok gammaTab (by decide) s1 (by rw [k1.2.2, hp.2.1, h9]; simp))
-    fun s ⟨ht, hf, hk⟩ => ⟨by rw [← h9]; exact ht, by rw [← hm]; exact (hf.mono (by simp [h9])),
-      k1.trans hk, by rw [hk.gpr (by decide), h8], by rw [hk.gpr (by decide), h9]⟩
+  refine WP.mono (deintG_ok (by rw [o1.rd, o1.wr, o1.gpr]; exact r0 (rG 0 (by decide)))
+    (by rw [o1.rd, o1.wr, o1.gpr]; exact rG 1 (by decide)) (by rw [o1.rd, o1.wr, o1.gpr]; exact rG 2 (by decide))
+    (by rw [o1.rd, o1.wr, o1.gpr]; exact rG 3 (by decide))) fun s2 ⟨e6, e10, o2⟩ => ?_
+  have o12 := o1.trans o2
+  have hz : InRegions (s2.rd ++ s2.wr) (s2.gpr .r8) 16 := by
+    rw [o12.rd, o12.wr, o12.gpr, hrr, hI.r8, hp.1, hp.2.1]
+    exact ⟨pR (sP s₀), by simp, Offset.contains_base _ (by omega) (by omega)⟩
+  rw [WP.block_append_iff]
+  refine WP.mono (Q := fun (s3 : State) => s3.xmm .xmm13 = s2.mem.readW (s2.gpr .r8) 128 ∧ XOnly [.xmm13] s2 s3)
+    (by vrunm [hz]; xonly) fun s3 ⟨e13, o3⟩ => ?_
+  have o123 := o12.trans o3
+  -- the lanes `vbase` multiplies
+  have LF : ∀ t < 4, ∀ e < 4, (dword (s.mem.readW (s.gpr .rsi + BitVec.ofNat 64 (16 * t)) 128) e).toNat =
+      ((F s₀)[16 * i + (4 * t + e)]!).val := fun t ht => by rw [hI.rsi]; exact loads hp hI.frame (.inl rfl) hj ht
+  have LG : ∀ t < 4, ∀ e < 4, (dword (s.mem.readW (s.gpr .rdx + BitVec.ofNat 64 (16 * t)) 128) e).toNat =
+      ((G s₀)[16 * i + (4 * t + e)]!).val := fun t ht => by rw [hI.rdx]; exact loads hp hI.frame (.inr rfl) hj ht
+  have DF := deint_lanes (c := fun k => ((F s₀)[16 * i + k]!).val)
+    (fun e he => by have := LF 0 (by decide) e he; simpa only [Nat.mul_zero, add_ofNat_zero, Nat.zero_add] using this)
+    (fun e he => LF 1 (by decide) e he) (fun e he => LF 2 (by decide) e he) (fun e he => LF 3 (by decide) e he)
+    (fun k _ => by have := val_lt ((F s₀)[16 * i + k]!); omega)
+  have DG := deint_lanes (c := fun k => ((G s₀)[16 * i + k]!).val)
+    (fun e he => by have := LG 0 (by decide) e he; simpa only [Nat.mul_zero, add_ofNat_zero, Nat.zero_add] using this)
+    (fun e he => LG 1 (by decide) e he) (fun e he => LG 2 (by decide) e he) (fun e he => LG 3 (by decide) e he)
+    (fun k _ => by have := val_lt ((G s₀)[16 * i + k]!); omega)
+  have x0 : s3.xmm .xmm0 = s1.xmm .xmm0 := by rw [o3.xmm _ (by decide), o2.xmm _ (by decide)]
+  have x4 : s3.xmm .xmm4 = s1.xmm .xmm4 := by rw [o3.xmm _ (by decide), o2.xmm _ (by decide)]
+  have x6 : s3.xmm .xmm6 = s2.xmm .xmm6 := o3.xmm _ (by decide)
+  have x10 : s3.xmm .xmm10 = s2.xmm .xmm10 := o3.xmm _ (by decide)
+  rw [o1.gpr, o1.mem] at e6 e10
+  have hZ : ZLanes (s3.xmm .xmm13) (fun e => gamma (8 * i + e)) := fun e he => by
+    rw [e13, o12.mem, o12.gpr, hI.r8, word_readW _ _ he, wAddr_add, ← wordAt, hI.tab _ (by omega), gTab_eq]
+  rw [WP.block_append_iff]
+  refine WP.mono (vbase_ok (x0 := fun e => (F s₀)[16 * i + 2 * e]!) (x1 := fun e => (F s₀)[16 * i + 2 * e + 1]!)
+    (y0 := fun e => (G s₀)[16 * i + 2 * e]!) (y1 := fun e => (G s₀)[16 * i + 2 * e + 1]!)
+    (o123.consts hI.c (by decide) (by decide)) (by rw [o123.xmm _ (by decide), hI.r2])
+    (fun e he => by rw [x0, e0]; exact DF.1 e he) (fun e he => by rw [x4, e4]; exact DF.2 e he)
+    (fun e he => by rw [x6, e6]; exact DG.1 e he) (fun e he => by rw [x10, e10]; exact DG.2 e he) hZ)
+    fun s4 ⟨h1, h2, o4⟩ => ?_
+  have o1234 := o123.trans o4
+  have hw4 : pR (hP s₀) ∈ s4.wr := by rw [o1234.wr, hI.wr, hp.2.1]; simp
+  rw [WP.block_append_iff]
+  refine WP.mono (vinter_ok hj (by rw [o1234.gpr, hI.rdi]) hw4)
+    fun s5 ⟨out, inr, f5, g5, rd5, wr5, mx5, x5⟩ => ?_
+  have sx64 : BitVec.signExtend 64 (64 : BitVec 32) = BitVec.ofNat 64 (4 * 16) := by decide
+  vrunm [g5, o1234.gpr, sx64]
+  have tS : ∀ k < 128, wordAt s5.mem (sP s₀) k = wordAt s.mem (sP s₀) k := fun k hk => by
+    rw [wordAt, f5.readW (r := pR (sP s₀)) (Offset.contains_base _ (by omega) (by omega))
+      (fun r hr => by rw [List.mem_singleton.mp hr]; exact hp.2.2.2.2.1.symm) (by decide), o1234.mem]; rfl
+  constructor
+  all_goals try simp only [RegUpd.gpr_setReg, RegUpd.gpr_setFlags, RegUpd.rd_setReg, RegUpd.rd_setFlags,
+    RegUpd.wr_setReg, RegUpd.wr_setFlags, RegUpd.xmm_setReg, RegUpd.xmm_setFlags, setReg_mem, setFlags_mem,
+    reduceCtorEq, ite_true, ite_false]
+  case rsi => rw [hI.rsi, coeffAddr_off, Nat.mul_succ]
+  case rdx => rw [hI.rdx, coeffAddr_off, Nat.mul_succ]
+  case rdi => rw [hI.rdi, coeffAddr_off, Nat.mul_succ]
+  case r8 => rw [hI.r8, show (16 : BitVec 64) = BitVec.ofNat 64 (2 * 8) from rfl, wAddr_add, Nat.mul_succ]
+  case rd => rw [rd5, o1234.rd, hI.rd]
+  case wr => rw [wr5, o1234.wr, hI.wr]
+  case c =>
+    refine ⟨?_, ?_⟩ <;> simp only [RegUpd.xmm_setReg, RegUpd.xmm_setFlags]
+    · rw [x5 _ (by decide), o1234.xmm _ (by decide), hI.c.q]
+    · rw [x5 _ (by decide), o1234.xmm _ (by decide), hI.c.qinv]
+  case r2 => rw [x5 _ (by decide), o1234.xmm _ (by decide), hI.r2]
+  case frame => exact hI.frame.trans (by rw [← o1234.mem]; exact f5.mono (by simp))
+  case tab => exact fun k hk => by rw [tS k hk]; exact hI.tab k hk
+  case done =>
+    intro k hk
+    by_cases hk' : k < 16 * i
+    · rw [out k (by omega) (.inl hk'), o1234.mem]; exact hI.done k hk'
+    · obtain ⟨k', rfl⟩ : ∃ k', k = 16 * i + k' := ⟨k - 16 * i, by omega⟩
+      rw [inr k' (by omega)]
+      exact prod_val hi h1 h2 (by omega)
 
 theorem correct : ∃ t s', Exec isa Impl.MlKem.X86_64.multiplyNTTs s₀ t s' ∧ abiPreserved s₀ s' ∧
     mulK.post s₀ s' := by
-  obtain ⟨t, s', he, hI, hk⟩ := WP.keep (c := Impl.MlKem.X86_64.multiplyNTTs)
-    [.rax, .rdx, .rdi, .rsi, .rcx, .r8, .r9, .r10, .r11]
-    (WP.seq (WP.mono (prologue_ok hp) fun sp ⟨ht, hf, hk, h8, h9⟩ =>
-      wp_counted (s₀ := sp) (N := 128) (v := 128) rfl (by decide) (Inv s₀)
-        (fun s hm hk' => ⟨by rw [hk'.gpr (by decide), hk.gpr (by decide)]; simp,
-          by rw [hk'.gpr (by decide), hk.gpr (by decide)]; simp,
-          by rw [hk'.gpr (by decide), h8]; simp, by rw [hk'.gpr (by decide), h9]; simp,
-          hk'.2.1.trans hk.2.1, hk'.2.2.trans hk.2.2, by rw [hm]; exact hf, by rw [hm]; exact ht,
-          fun _ h => absurd h (Nat.not_lt_zero _)⟩)
-        fun i hi s hI => step hp hi hI)) (by decide +kernel)
-  exact ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he (gprPreserved_of hk (by decide) hI.frame
-    (by simpa using ⟨hp.2.2.2.2.2.2.2.1, hp.2.2.2.2.2.2.2.2.2.2.1⟩)),
-    polyIs_of_toNat fun k hk => hI.done k (by omega)⟩
+  have hw : pR (sP s₀) ∈ s₀.wr := by rw [hp.2.1]; simp
+  have hW : WP isa Impl.MlKem.X86_64.multiplyNTTs s₀ fun s' => ∃ s3,
+      (PolyIs s3.mem (hP s₀) (multiplyNTTs (F s₀) (G s₀)) ∧ Frame [pR (hP s₀), pR (sP s₀)] s₀.mem s3.mem) ∧
+      Frame [mxR (sP s₀)] s3.mem s'.mem ∧ Keep [] s3 s' := by
+    unfold Impl.MlKem.X86_64.multiplyNTTs
+    refine WP.seq (WP.mono (Q := fun (s1 : State) => s1.gpr .r10 = sP s₀ ∧ s1.mem = s₀.mem ∧
+      s1.xmm = s₀.xmm ∧ Keep [.r10] s₀ s1) (by
+        vrunm
+        refine ⟨fun r hr => ?_, rfl, rfl⟩
+        simp only [List.mem_singleton] at hr
+        simp only [RegUpd.gpr_setReg, hr, ite_false]) fun s1 ⟨h10, hm1, _, k1⟩ => ?_)
+    refine withMxcsr_ok (by decide) [.rax, .rcx, .rdx, .rdi, .rsi, .r8, .r9] (by decide) h10
+      (by rw [k1.2.2]; exact hw) ?_ fun s2 k2 f2 => ?_
+    · decide +kernel
+    have k12 := k1.trans k2
+    have h10' : s2.gpr .r10 = sP s₀ := by rw [k2.gpr (by decide), h10]
+    refine WP.seq ?_
+    simp only [mulPro, List.append_assoc]
+    rw [WP.block_append_iff]
+    refine WP.mono (wordTab_gen gTab gTab_lt (by decide) h10' (by rw [k12.2.2]; exact hw))
+      fun s3 ⟨ht, f3, k3, _, _⟩ => ?_
+    have h10'' : s3.gpr .r10 = sP s₀ := by rw [k3.gpr (by decide), h10']
+    refine WP.mono (Q := fun (s4 : State) => VConsts s4 ∧ s4.xmm .xmm12 = r2V ∧ s4.gpr .r8 = sP s₀ ∧
+      s4.mem = s3.mem ∧ Keep [.rax, .r8] s3 s4) (by
+        simp only [vconsts]
+        vrunm [h10'']
+        refine ⟨⟨?_, ?_⟩, fun r hr => ?_, rfl, rfl⟩
+        · simp only [RegUpd.xmm_setReg, xmm_setXmm, ite_true, ite_false, reduceCtorEq]
+          decide
+        · simp only [RegUpd.xmm_setReg, xmm_setXmm, ite_true, ite_false, reduceCtorEq]
+          decide
+        · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+          simp only [RegUpd.gpr_setReg, RegUpd.gpr_setXmm, hr, ite_false])
+      fun s4 ⟨hc4, hr4, h84, hm4, k4⟩ => ?_
+    have k14 := (k12.trans k3).trans k4
+    refine WP.mono (wp_rcxLoop (N := 16) (by decide) (by decide) (Inv s₀) (fun s g _ => ?_)
+      fun i hi s hI => step hp hi hI) fun s5 hI => ⟨?_, hI.frame⟩
+    · have k := k14.trans g.keep
+      refine ⟨?_, ?_, ?_, ?_, by rw [k.2.1], by rw [k.2.2], ?_, ?_, ?_, ?_, fun _ h => absurd h (by omega)⟩
+      · rw [k.gpr (by decide)]; exact (add_ofNat_zero _).symm
+      · rw [k.gpr (by decide)]; exact (add_ofNat_zero _).symm
+      · rw [k.gpr (by decide)]; exact (add_ofNat_zero _).symm
+      · rw [g.keep.gpr (by decide), h84]; exact (add_ofNat_zero _).symm
+      · exact ⟨by rw [g.xmm]; exact hc4.q, by rw [g.xmm]; exact hc4.qinv⟩
+      · rw [g.xmm]; exact hr4
+      · rw [g.mem, hm4, ← hm1]
+        refine (frame_fs (fP := hP s₀) f2 ?_).trans (frame_fs f3 ?_) <;>
+          intro r hr <;> simp only [List.mem_singleton] at hr <;> subst hr
+        exacts [.inr (mx_sub _), .inr (pR_sub_tab _)]
+      · intro k hk; rw [g.mem, hm4]; exact ht k hk
+    · exact polyIs_of_toNat fun k hk => hI.done k (by rw [n_eq] at hk; omega)
+  obtain ⟨t, s', he, ⟨s3, ⟨hP', hf⟩, hf', -⟩, hk⟩ :=
+    WP.keep [.rax, .rcx, .rdx, .rdi, .rsi, .r8, .r9, .r10, .r11] hW (by decide +kernel)
+  refine ⟨t, s', he, abiPreserved_of_ctl (by decide +kernel) he (gprPreserved_of hk (by decide)
+    (hf.trans (hf'.sub fun r hr => ⟨_, List.mem_cons_of_mem _ (List.mem_singleton_self _), ?_⟩))
+    (by simpa using ⟨hp.2.2.2.2.2.2.2.1, hp.2.2.2.2.2.2.2.2.2.2.1⟩)), ?_⟩
+  · rw [List.mem_singleton.mp hr]; exact mx_sub _
+  · exact polyIs_frame hf' (fun r hr => by
+      rw [List.mem_singleton.mp hr]; exact hp.2.2.2.2.1.sub_right (mx_sub _)) hP'
 
 end
 

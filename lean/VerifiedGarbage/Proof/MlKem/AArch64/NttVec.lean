@@ -6,9 +6,10 @@ import VerifiedGarbage.Proof.MlKem.AArch64.Common
 # ML-KEM on AArch64: polynomials in vectors
 
 Untrusted: everything here is checked by Lean. Four coefficients of a
-polynomial loaded into a vector (`lanes_load`), two vectors stored into it
-(`polyIs_write16x2`), and the butterflies of a block of the NTT and its
-inverse four at a time (`nttBlockN_add`, `nttBlockN_get'`).
+polynomial loaded into a vector (`lanes_load`) and two vectors stored into it
+(`polyIs_write16x2`). The butterflies of a block of the NTT and its inverse
+some at a time are in `Proof/MlKem/Ntt.lean` (`nttBlockN_add`,
+`nttBlockN_get'`).
 -/
 
 namespace VG.Proof.MlKem.AArch64
@@ -92,53 +93,5 @@ theorem lanes_coeffs {m : Mem} {p : Addr} {j : Nat} {A : Nat → Nat}
     rcases (show e = 0 ∨ e = 1 ∨ e = 2 ∨ e = 3 by omega) with rfl | rfl | rfl | rfl <;>
       simp only [List.getElem_cons_zero, List.getElem_cons_succ] <;>
       rw [coeffAddr_off, ← coeffAt_eq] <;> exact h _ (by decide)
-
-/-! ## Blocks, four butterflies at a time -/
-
-theorem nttBlockN_add (f : Poly) (len k start t t' : Nat) :
-    nttBlockN f len k start (t + t') = nttBlockN (nttBlockN f len k start t) len k (start + t) t' := by
-  simp only [nttBlockN]; rw [← List.foldl_append, List.range'_append_1]
-
-theorem nttInvBlockN_add (f : Poly) (len k start t t' : Nat) :
-    nttInvBlockN f len k start (t + t') =
-      nttInvBlockN (nttInvBlockN f len k start t) len k (start + t) t' := by
-  simp only [nttInvBlockN]; rw [← List.foldl_append, List.range'_append_1]
-
-/-- `nttBlockN_get`, for the butterflies of the block up to `start + t`
-only. -/
-theorem nttBlockN_get' (f : Poly) {len k start t : Nat} (hlen : 0 < len) (ht : t ≤ len)
-    (hs : start + len + t ≤ n) {i : Nat} (hi : i < n) :
-    (nttBlockN f len k start t)[i]! =
-      if start ≤ i ∧ i < start + t then f[i]! + zeta k * f[i + len]!
-      else if start + len ≤ i ∧ i < start + len + t then f[i - len]! - zeta k * f[i]!
-      else f[i]! := by
-  induction t generalizing i with
-  | zero =>
-    rw [nttBlockN_zero, ite_eq_right (by omega), ite_eq_right (by omega)]
-  | succ t ih =>
-    rw [nttBlockN_succ, bfly_get _ hlen (by omega) _ hi, ih (i := start + t) (by omega) (by omega) (by omega),
-      ih (i := start + t + len) (by omega) (by omega) (by omega), ih (by omega) (by omega) hi]
-    rcases (by omega : i < start ∨ (start ≤ i ∧ i < start + t) ∨ i = start + t ∨
-        (start + t < i ∧ i < start + len) ∨ (start + len ≤ i ∧ i < start + t + len) ∨
-        i = start + t + len ∨ start + t + len < i) with h | h | rfl | h | h | rfl | h <;>
-      simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_cancel, ↓reduceIte]
-
-theorem nttInvBlockN_get' (f : Poly) {len k start t : Nat} (hlen : 0 < len) (ht : t ≤ len)
-    (hs : start + len + t ≤ n) {i : Nat} (hi : i < n) :
-    (nttInvBlockN f len k start t)[i]! =
-      if start ≤ i ∧ i < start + t then f[i]! + f[i + len]!
-      else if start + len ≤ i ∧ i < start + len + t then zeta k * (f[i]! - f[i - len]!)
-      else f[i]! := by
-  induction t generalizing i with
-  | zero =>
-    rw [nttInvBlockN_zero, ite_eq_right (by omega), ite_eq_right (by omega)]
-  | succ t ih =>
-    rw [nttInvBlockN_succ, bflyInv_get _ hlen (by omega) _ hi,
-      ih (i := start + t) (by omega) (by omega) (by omega),
-      ih (i := start + t + len) (by omega) (by omega) (by omega), ih (by omega) (by omega) hi]
-    rcases (by omega : i < start ∨ (start ≤ i ∧ i < start + t) ∨ i = start + t ∨
-        (start + t < i ∧ i < start + len) ∨ (start + len ≤ i ∧ i < start + t + len) ∨
-        i = start + t + len ∨ start + t + len < i) with h | h | rfl | h | h | rfl | h <;>
-      simp (disch := omega) only [ite_eq_left, ite_eq_right, Nat.add_sub_cancel, ↓reduceIte]
 
 end VG.Proof.MlKem.AArch64

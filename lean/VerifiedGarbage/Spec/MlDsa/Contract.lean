@@ -92,22 +92,26 @@ def keyGenContract (p : Params) {M : ISA} (A : Abi M) (stack : Nat := 0) : Contr
 
 /-- What the signing loop may leak (lines 10–32 of Algorithm 7, as
 `signLoop`), from the counter `κ`, for at most `iters` more iterations: the
-commitment hash `c̃` of each iteration, and then, of the iteration whose
-validity checks pass, its hint `h` (as 0s and 1s), which the signature
-contains. -/
+commitment hash `c̃` of each iteration, each followed by how the iteration
+ended: 0 if its validity checks rejected it, and 1 then its hint `h` (as 0s
+and 1s, which the signature contains) if they passed; nothing if its
+`SampleInBall` did not finish. (The tags say where each iteration's leakage
+ends: without them, a hint of 0s and 1s would read as the `c̃`s of more
+iterations.) -/
 def signLeakLoop (p : Params) (b : Bounds) (Â : List (List Poly)) (ŝ₁ ŝ₂ t₀Hat : List Poly)
     (μ ρ'' : List Byte) : (iters κ : Nat) → List Nat
   | 0, _ => []
   | iters + 1, κ =>
     leakBytes (signCommit p Â μ ρ'' κ).2.2 ++
       match signIteration p b Â ŝ₁ ŝ₂ t₀Hat μ ρ'' κ with
-      | some (_, none) => signLeakLoop p b Â ŝ₁ ŝ₂ t₀Hat μ ρ'' iters (κ + p.ℓ)
-      | some (_, some (_, h)) => h.flatMap fun hi => hi.toList.map Bool.toNat
+      | some (_, none) => 0 :: signLeakLoop p b Â ŝ₁ ŝ₂ t₀Hat μ ρ'' iters (κ + p.ℓ)
+      | some (_, some (_, h)) => 1 :: h.flatMap fun hi => hi.toList.map Bool.toNat
       | none => []
 
 /-- What `ML-DSA.Sign_internal(sk, M′, rnd)` with the message representative
 `μ` (`signMu`) may leak: `ρ`, and the commitment hash `c̃` of each iteration
-of the signing loop and the hint of the signature (`signLeakLoop`), for
+of the signing loop, whether it was rejected, and the hint of the signature
+(`signLeakLoop`), for
 loops bounded by `maxBounds`. The number of iterations, and their `c̃`
 (pseudorandom outputs of `H` on commitments that are never revealed),
 reveal nothing about the private key. -/

@@ -4,7 +4,9 @@ import VerifiedGarbage.Proof.MdStream.X86_64.UpdateCT
 import VerifiedGarbage.Proof.MdStream.X86_64.FinalizeCT
 import VerifiedGarbage.Proof.MdStream.X86_64.Words
 import VerifiedGarbage.Proof.Framework.Contract
-import VerifiedGarbage.Proof.Sha512.X86_64.Compress
+import VerifiedGarbage.Proof.Sha512.X86_64.Wide
+import VerifiedGarbage.Proof.Sha512.X86_64.Avx2.Compress
+import VerifiedGarbage.Proof.Sha512.X86_64.ShaNi.Compress
 import VerifiedGarbage.Impl.Sha512.X86_64.Stream
 import VerifiedGarbage.Proof.Sha512.X86_64.Lit
 
@@ -67,10 +69,10 @@ end VG.Proof.Sha512
 Untrusted: everything here is checked by Lean. `update` and `finalize` are
 the generic streaming code (`Impl/MdStream/X86_64.lean`), so they are
 verified by the generic proofs (`Proof/MdStream/X86_64/`) for the SHA-512
-family's instance (above), given what its own pieces do: its
-length field and digest (`shape`), that the taint analysis accepts its code
-between the calls (`taints`), and that its compression function is verified
-(`callee`).
+family's instance (above), for any implementation `f` of the compression
+function (`CalleeOk`: `scalar_ok`, `avx2_ok`, `shani_ok`), given what the family's own pieces do:
+its length field and digest (`shape`) and that the taint analysis accepts
+its code between the calls (`taints`).
 -/
 
 namespace VG.Proof.Sha512.X86_64.Stream
@@ -79,6 +81,7 @@ open VG VG.X86_64 VG.Proof.MdStream VG.Proof.MdStream.X86_64
 open VG.Impl.MdStream.X86_64 (len64 out64)
 open VG.Impl.Sha512.X86_64 (at_)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append)
+open VG.Impl.Sha512.X86_64.Stream (Callee update finalize)
 
 abbrev params := Impl.Sha512.X86_64.Stream.params
 
@@ -142,15 +145,28 @@ theorem taints : Taints params :=
   ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
     ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
 
-theorem callee : CalleeOk (P := params) md Impl.Sha512.X86_64.compress :=
-  .of_verified compress_verified.1 compress_verified.2.1 (by rw [← Code.allInstrs_eq]; lit_decide)
-    (by lit_decide)
+theorem scalar_ok : CalleeOk (P := params) md Callee.scalar.code :=
+  .of_verified compressWide_verified.1 compressWide_verified.2.1
+    (by change (instrs Impl.Sha512.X86_64.compress).all _ = true; rw [← Code.allInstrs_eq]; lit_decide)
+    (by change Impl.Sha512.X86_64.compress.depth = 0; lit_decide)
+
+theorem avx2_ok : CalleeOk (P := params) md Callee.avx2.code :=
+  .of_verified Avx2.compress_verified.1 Avx2.compress_verified.2.1
+    (by change (instrs Impl.Sha512.X86_64.Avx2.compress).all _ = true; rw [← Code.allInstrs_eq]; lit_decide)
+    (by change Impl.Sha512.X86_64.Avx2.compress.depth = 0; lit_decide)
+
+theorem shani_ok : CalleeOk (P := params) md Callee.shani.code :=
+  .of_verified ShaNi.compressWide_verified.1 ShaNi.compressWide_verified.2.1
+    (by change (instrs Impl.Sha512.X86_64.ShaNi.compress).all _ = true; rw [← Code.allInstrs_eq]; lit_decide)
+    (by change Impl.Sha512.X86_64.ShaNi.compress.depth = 0; lit_decide)
 
 namespace Update
 
-theorem update_verified :
-    Verified X86_64.target Impl.Sha512.X86_64.Stream.update Proof.Sha512.updateX86_64 :=
-  MdStream.X86_64.Update.verified (name := "vg_sha512_compress") dims taints callee (by lit_decide)
+/-- `update` is verified if it never loads MXCSR. -/
+theorem verified_of {f : Callee} (hf : CalleeOk (P := params) md f.code)
+    (hm : (update f).allInstrs (fun i => !loadsMxcsr i) = true) :
+    Verified X86_64.target (update f) Proof.Sha512.updateX86_64 :=
+  MdStream.X86_64.Update.verified dims taints hf hm
 
 /-- A state satisfying `update`'s precondition. -/
 abbrev sat : State := MdStream.X86_64.Update.sat params
@@ -159,9 +175,11 @@ end Update
 
 namespace Finalize
 
-theorem finalize_verified :
-    Verified X86_64.target Impl.Sha512.X86_64.Stream.finalize Proof.Sha512.finalizeX86_64 :=
-  MdStream.X86_64.Finalize.verified (name := "vg_sha512_compress") dims shape taints callee (by lit_decide)
+/-- `finalize` is verified if it never loads MXCSR. -/
+theorem verified_of {f : Callee} (hf : CalleeOk (P := params) md f.code)
+    (hm : (finalize f).allInstrs (fun i => !loadsMxcsr i) = true) :
+    Verified X86_64.target (finalize f) Proof.Sha512.finalizeX86_64 :=
+  MdStream.X86_64.Finalize.verified dims shape taints hf hm
 
 /-- A state satisfying `finalize`'s precondition. -/
 abbrev sat : State := MdStream.X86_64.Finalize.sat params

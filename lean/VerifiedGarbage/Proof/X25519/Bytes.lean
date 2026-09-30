@@ -92,6 +92,20 @@ theorem leNum_bytesAt_words64 (m : Mem) (p : Addr) :
     256 ^ 8 * ((m.readW (p + 16) 64).toNat + 256 ^ 8 * (m.readW (p + 24) 64).toNat)) = _
   omega
 
+/-- A number stored as eight little-endian 32-bit words. -/
+theorem leNum_bytesAt_words32 (m : Mem) (p : Addr) :
+    leNum (bytesAt m p 32) = (m.readW p 32).toNat + 2 ^ 32 * (m.readW (p + 4) 32).toNat +
+      2 ^ 64 * (m.readW (p + 8) 32).toNat + 2 ^ 96 * (m.readW (p + 12) 32).toNat +
+      2 ^ 128 * (m.readW (p + 16) 32).toNat + 2 ^ 160 * (m.readW (p + 20) 32).toNat +
+      2 ^ 192 * (m.readW (p + 24) 32).toNat + 2 ^ 224 * (m.readW (p + 28) 32).toNat := by
+  rw [show bytesAt m p 32 = bytesAt m p (4 + (4 + (4 + (4 + (4 + (4 + (4 + 4))))))) from rfl]
+  simp only [bytesAt_add, leNum_append, length_bytesAt, leNum_bytesAt_32bit, BitVec.add_assoc]
+  show (m.readW p 32).toNat + 256 ^ 4 * ((m.readW (p + 4) 32).toNat +
+    256 ^ 4 * ((m.readW (p + 8) 32).toNat + 256 ^ 4 * ((m.readW (p + 12) 32).toNat +
+    256 ^ 4 * ((m.readW (p + 16) 32).toNat + 256 ^ 4 * ((m.readW (p + 20) 32).toNat +
+    256 ^ 4 * ((m.readW (p + 24) 32).toNat + 256 ^ 4 * (m.readW (p + 28) 32).toNat)))))) = _
+  omega
+
 /-! ## Numbers as bytes -/
 
 theorem leBytes_add (a b x : Nat) :
@@ -149,6 +163,25 @@ theorem bytesAt_leBytes_words64 (m : Mem) (p : Addr) (x : Nat)
     bytesAt m p 32 = leBytes 32 x := by
   have e := leNum_bytesAt_words64 m p
   rw [leNum_bytesAt_read, h₀, h₁, h₂, h₃] at e
+  rw [bytesAt_leBytes, e, ← leBytes_mod 32 x]
+  congr 1
+  omega
+
+/-- Eight little-endian 32-bit words in memory are the 32 bytes of `x`, if they
+are its eight 32-bit digits. -/
+theorem bytesAt_leBytes_words32 (m : Mem) (p : Addr) (x : Nat)
+    (h : ∀ j < 8, (m.readW (p + BitVec.ofNat 64 (4 * j)) 32).toNat = x / 2 ^ (32 * j) % 2 ^ 32) :
+    bytesAt m p 32 = leBytes 32 x := by
+  have e := leNum_bytesAt_words32 m p
+  have h0 : (m.readW p 32).toNat = x % 2 ^ 32 := by simpa using h 0 (by omega)
+  have h1 : (m.readW (p + 4) 32).toNat = x / 2 ^ 32 % 2 ^ 32 := h 1 (by omega)
+  have h2 : (m.readW (p + 8) 32).toNat = x / 2 ^ 64 % 2 ^ 32 := h 2 (by omega)
+  have h3 : (m.readW (p + 12) 32).toNat = x / 2 ^ 96 % 2 ^ 32 := h 3 (by omega)
+  have h4 : (m.readW (p + 16) 32).toNat = x / 2 ^ 128 % 2 ^ 32 := h 4 (by omega)
+  have h5 : (m.readW (p + 20) 32).toNat = x / 2 ^ 160 % 2 ^ 32 := h 5 (by omega)
+  have h6 : (m.readW (p + 24) 32).toNat = x / 2 ^ 192 % 2 ^ 32 := h 6 (by omega)
+  have h7 : (m.readW (p + 28) 32).toNat = x / 2 ^ 224 % 2 ^ 32 := h 7 (by omega)
+  rw [leNum_bytesAt_read, h0, h1, h2, h3, h4, h5, h6, h7] at e
   rw [bytesAt_leBytes, e, ← leBytes_mod 32 x]
   congr 1
   omega
