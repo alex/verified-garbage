@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.PbkCommon
 # PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: `pbkdf2`'s calls
 
 Untrusted: everything here is checked by Lean. The calls of HMAC's `init`
-and `finalize` and of `iterate`, whose contracts (`initG`, `finG`, `iterG`)
+and `finalize` and of `iterate`, whose contracts (`initG`, `finG`, `iterK`)
 their proofs are given as hypotheses: each is run with `WP.call`, and shown
 constant time in two runs with `RelCT.call`. Each uses at most 24 bytes of
 stack below `rsp` (a call two deep).
@@ -15,7 +15,8 @@ namespace VG.Proof.Pbkdf2.Md.X86_64.Pbk
 open VG.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Pbkdf2.Md.X86_64 (HashOK)
-open VG.Proof.Hmac.Generic.X86_64 (initG finG iterG ne_rsp callEntry_bytes)
+open VG.Proof.Pbkdf2.X86_64 (iterK)
+open VG.Proof.Hmac.Generic.X86_64 (initG finG ne_rsp callEntry_bytes)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad blockKey hmacBlockKey)
 
@@ -28,6 +29,11 @@ theorem stk24 (s : State) : Region.Sub ⟨s.callEntry.gpr .rsp - 16, 16⟩ (belo
   rw [State.callEntry_rsp, show s.gpr .rsp - 8 - 16 = s.gpr .rsp - BitVec.ofNat 64 24 from
     Offset.sub_sub_ofNat _ 8 16]
   exact Offset.sub_below _ (a := 24) (by omega) (by omega)
+
+theorem stk8 (s : State) : Region.Sub ⟨s.callEntry.gpr .rsp - 8, 8⟩ (below (s.gpr .rsp) 24) := by
+  rw [State.callEntry_rsp, show s.gpr .rsp - 8 - 8 = s.gpr .rsp - BitVec.ofNat 64 16 from
+    Offset.sub_sub_ofNat _ 8 8]
+  exact Offset.sub_below _ (a := 16) (by omega) (by omega)
 
 theorem b16 (s : State) : Region.Sub (below (s.gpr .rsp) 16) (below (s.gpr .rsp) 24) :=
   below_sub (by omega) (by omega)
@@ -212,17 +218,17 @@ structure IterArgs (s : State) (key u : Addr) (n : BitVec 64) (t sc : Addr) : Pr
   scnw : sc.toNat + 8 * H.W ≤ 2 ^ 64
 
 theorem IterArgs.pre {s : State} {key u t sc : Addr} {n : BitVec 64} (a : IterArgs (H := H) s key u n t sc) :
-    (iterG hH.SH H.W).pre (s.callEntry.withRegions [⟨key, 2 * H.S⟩, ⟨u, H.D⟩] [⟨t, H.D⟩, ⟨sc, 8 * H.W⟩]) := by
+    (iterK hH.SH H.W).pre (s.callEntry.withRegions [⟨key, 2 * H.S⟩, ⟨u, H.D⟩] [⟨t, H.D⟩, ⟨sc, 8 * H.W⟩]) := by
   have hS := hH.hS; have hD := hH.hD
-  simp only [iterG, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
+  simp only [iterK, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
     ne_rsp (by decide : Reg.rdi ≠ .rsp), ne_rsp (by decide : Reg.rsi ≠ .rsp),
     ne_rsp (by decide : Reg.rcx ≠ .rsp), ne_rsp (by decide : Reg.r8 ≠ .rsp), a.rdi, a.rsi, a.rcx, a.r8, hS, hD]
   exact ⟨trivial, trivial, a.k_t, a.k_s, a.u_t, a.u_s, a.t_s,
     a.stk_k.sub_left (ret24 s), a.stk_u.sub_left (ret24 s), a.stk_t.sub_left (ret24 s),
-    a.stk_s.sub_left (ret24 s), a.stk_k.sub_left (stk24 s), a.stk_u.sub_left (stk24 s),
-    a.stk_t.sub_left (stk24 s), a.stk_s.sub_left (stk24 s), a.knw, a.scnw⟩
+    a.stk_s.sub_left (ret24 s), a.stk_k.sub_left (stk8 s), a.stk_u.sub_left (stk8 s),
+    a.stk_t.sub_left (stk8 s), a.stk_s.sub_left (stk8 s), a.knw, a.scnw⟩
 
-theorem iter_call (hv : Verified X86_64.target H.iterate (iterG hH.SH H.W)) (hsp : NoSp H.iterate)
+theorem iter_call (hv : Verified X86_64.target H.iterate (iterK hH.SH H.W)) (hsp : NoSp H.iterate)
     (hd : H.iterate.depth ≤ 2) {s : State} {key u t sc : Addr} {n : BitVec 64}
     (a : IterArgs (H := H) s key u n t sc) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
@@ -239,7 +245,7 @@ theorem iter_call (hv : Verified X86_64.target H.iterate (iterG hH.SH H.W)) (hsp
   have hS := hH.hS; have hD := hH.hD; have hB := hH.hB
   have hS2 : H.S ≤ 256 := by have := hH.N_le; have := hH.B_le; show H.P.N + H.P.B ≤ 256; omega
   have hDn : H.D ≤ 2 ^ 64 := by have := hH.hDN; have := hH.N_le; omega
-  simp only [iterG, State.withRegions_gpr, State.withRegions_mem, ne_rsp (by decide : Reg.rdi ≠ .rsp),
+  simp only [iterK, State.withRegions_gpr, State.withRegions_mem, ne_rsp (by decide : Reg.rdi ≠ .rsp),
     ne_rsp (by decide : Reg.rsi ≠ .rsp), ne_rsp (by decide : Reg.rdx ≠ .rsp),
     ne_rsp (by decide : Reg.rcx ≠ .rsp), a.rdi, a.rsi, a.rdx, a.rcx, hm, hD, hB, hS,
     entry_bytes s a.stk_u hDn, entry_bytes s a.stk_t hDn] at hpost
@@ -247,7 +253,7 @@ theorem iter_call (hv : Verified X86_64.target H.iterate (iterG hH.SH H.W)) (hsp
   refine hpost k0 hk (entry_repr hH s (a.stk_k.sub_right (Region.sub_prefix (by omega))) hi)
     (entry_repr hH s (a.stk_k.sub_right (Offset.sub_base _ (by omega))) ho)
 
-theorem iter_rel (hv : Verified X86_64.target H.iterate (iterG hH.SH H.W)) {P : State → State → Prop}
+theorem iter_rel (hv : Verified X86_64.target H.iterate (iterK hH.SH H.W)) {P : State → State → Prop}
     {key u t sc : Addr} {n : BitVec 64}
     (h : ∀ s s', P s s' → IterArgs (H := H) s key u n t sc ∧ IterArgs (H := H) s' key u n t sc ∧
       s.gpr .rsp = s'.gpr .rsp) :
@@ -255,7 +261,7 @@ theorem iter_rel (hv : Verified X86_64.target H.iterate (iterG hH.SH H.W)) {P : 
   refine RelCT.call hv.1 hv.2.1 [⟨key, 2 * H.S⟩, ⟨u, H.D⟩] [⟨t, H.D⟩, ⟨sc, 8 * H.W⟩] fun s s' hp => ?_
   obtain ⟨a, a', sp⟩ := h s s' hp
   refine ⟨a.pre hH, a'.pre hH, ?_, covers_app a.cr a.cw, a.cw, covers_app a'.cr a'.cw, a'.cw, sp⟩
-  simp only [iterG, State.withRegions_gpr, State.callEntry_rsp, ne_rsp (by decide : Reg.rdi ≠ .rsp),
+  simp only [iterK, State.withRegions_gpr, State.callEntry_rsp, ne_rsp (by decide : Reg.rdi ≠ .rsp),
     ne_rsp (by decide : Reg.rsi ≠ .rsp), ne_rsp (by decide : Reg.rdx ≠ .rsp),
     ne_rsp (by decide : Reg.rcx ≠ .rsp), ne_rsp (by decide : Reg.r8 ≠ .rsp), a.rdi, a'.rdi, a.rsi, a'.rsi,
     a.rdx, a'.rdx, a.rcx, a'.rcx, a.r8, a'.r8, sp]

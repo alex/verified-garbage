@@ -61,12 +61,15 @@ Modelling choices:
   Its control bits (15:6) are callee-saved (see `Target.lean`). `lfence`
   has no architectural effect, so the model treats it as a no-op.
 * MXCSR-configuration-dependent timing (MCDT): on some Intel processors,
-  `pmuludq` and `vpmuludq`, although on Intel's DOIT list, may take up to a
-  cycle longer to retire for specific data values unless MXCSR holds
-  `0x1FBF` (Intel, "MXCSR Configuration Dependent Timing"; the processors
-  that enumerate `MCDT_NO`, CPUID.(EAX=7H,ECX=2):EDX[5], are not affected).
-  The leakage model does not see this, so code must only give these two
-  instructions secret operands between Intel's prologue and epilogue:
+  the multiplies of the model but `mul` (`pmuludq`, `vpmuludq`, `pmullw`,
+  `vpmullw`, `pmulhw` and `vpmulhw`), although on Intel's DOIT list, may
+  take up to a cycle longer to retire for specific data values unless
+  MXCSR holds `0x1FBF` (Intel, "MXCSR Configuration Dependent Timing", and
+  its list of the instructions affected, "MCDT Data Operand Independent
+  Timing Instructions"; the processors that enumerate `MCDT_NO`,
+  CPUID.(EAX=7H,ECX=2):EDX[5], are not affected). The leakage model does
+  not see this, so code must only give these instructions secret operands
+  between Intel's prologue and epilogue:
   `stmxcsr` (save the caller's MXCSR), `ldmxcsr` of `0x1FBF`, `lfence`, then
   the code that uses them, then `lfence` and `ldmxcsr` of the saved value.
   Reviewers of an implementation check this; `lfence` and the MXCSR
@@ -101,6 +104,12 @@ inductive Instr
   | rorx32 (dst src : Reg) (count : Nat)
   /-- `andn r32, r32, r32` (`VEX.LZ.0F38.W0 F2 /r`, BMI1): `dst := ¬src1 ∧ src2`. -/
   | andn32 (dst src1 src2 : Reg)
+  /-- `rorx r64, r64, count` (`VEX.LZ.F2.0F3A.W1 F0 /r ib`, BMI2): `src`
+  rotated right, into `dst`, without affecting the flags. Only counts
+  `1 ≤ count ≤ 63` are modelled; any other count faults. -/
+  | rorx (dst src : Reg) (count : Nat)
+  /-- `andn r64, r64, r64` (`VEX.LZ.0F38.W1 F2 /r`, BMI1): `dst := ¬src1 ∧ src2`. -/
+  | andn (dst src1 src2 : Reg)
   /-- `movzx r32, BYTE PTR [src]`: the byte, zero-extended into the 64-bit register. -/
   | movzx8 (dst : Reg) (src : MemOp)
   /-- `mov BYTE PTR [dst], r8`: the low byte of `src`. -/
@@ -183,15 +192,18 @@ their VEX.256 forms (e.g. `VEX.256.66.0F.WIG FE /r` VPADDD) and for VPBLENDD,
 VPSLLVD/Q, VPSRLVD/Q, VPBROADCASTD/Q, VPERMQ, VPERM2I128, VINSERTI128,
 VEXTRACTI128 and VBROADCASTI128 at any length. LDMXCSR and STMXCSR (SSE,
 `NP 0F AE /2`, `NP 0F AE /3`) and LFENCE (SSE2, `NP 0F AE E8`) are in the
-baseline. BMI2 for RORX (`VEX.LZ.F2.0F3A.W0 F0 /r ib`) and BMI1 for ANDN
-(`VEX.LZ.0F38.W0 F2 /r`). AVX512F for the EVEX.512 forms of VPADDD
+baseline. BMI2 for RORX (`VEX.LZ.F2.0F3A.W0 F0 /r ib`, `VEX.LZ.F2.0F3A.W1
+F0 /r ib`) and BMI1 for ANDN (`VEX.LZ.0F38.W0 F2 /r`, `VEX.LZ.0F38.W1 F2
+/r`). AVX512F for the EVEX.512 forms of VPADDD
 (`EVEX.512.66.0F.W0 FE /r`), VPXORD (`EVEX.512.66.0F.W0 EF /r`),
 VPUNPCKLDQ, VPUNPCKHDQ, VPUNPCKLQDQ and VPUNPCKHQDQ (`EVEX.512.66.0F.W0 62
 /r`, `EVEX.512.66.0F.W0 6A /r`, `EVEX.512.66.0F.W1 6C /r`,
 `EVEX.512.66.0F.W1 6D /r`), VPROLD (`EVEX.512.66.0F.W0 72 /1 ib`), VPSHUFD
 (`EVEX.512.66.0F.W0 70 /r ib`), VSHUFI32X4 (`EVEX.512.66.0F3A.W0 43 /r
 ib`), VMOVDQU32 (`EVEX.512.F3.0F.W0 6F /r`, `EVEX.512.F3.0F.W0 7F /r`) and
-VBROADCASTI32X4 (`EVEX.512.66.0F38.W0 5A /r`). -/
+VBROADCASTI32X4 (`EVEX.512.66.0F38.W0 5A /r`). SHA512 for VSHA512RNDS2,
+VSHA512MSG1 and VSHA512MSG2 (`VEX.256.F2.0F38.W0 CB /r`, `VEX.256.F2.0F38.W0
+CC /r`, `VEX.256.F2.0F38.W0 CD /r`). -/
 def Instr.requires : Instr → List String
   | .xop (.bin .pshufb ..) | .xop (.palignr ..) => ["ssse3"]
   | .xop (.bin .sha256msg1 ..) | .xop (.bin .sha256msg2 ..) | .xop (.sha256rnds2 ..) => ["sha"]
@@ -208,9 +220,10 @@ def Instr.requires : Instr → List String
   | .vop (.vpblendd ..) | .vop (.vvar ..) | .vop (.vpbroadcastd ..) | .vop (.vpbroadcastq ..)
   | .vop (.vpermq ..) | .vop (.vperm2i128 ..) | .vop (.vinserti128 ..) | .vop (.vextracti128 ..)
   | .vbroadcasti128 .. => ["avx2"]
-  | .rorx32 .. => ["bmi2"]
-  | .andn32 .. => ["bmi1"]
+  | .rorx32 .. | .rorx .. => ["bmi2"]
+  | .andn32 .. | .andn .. => ["bmi1"]
   | .zop _ | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. => ["avx512f"]
+  | .vop (.vsha512rnds2 ..) | .vop (.vsha512msg1 ..) | .vop (.vsha512msg2 ..) => ["sha512"]
   | _ => []
 
 /-- Semantics of an instruction. The byte forms: SDM Vol. 2, "MOVZX":
@@ -229,6 +242,8 @@ def exec : Instr → State → Option State
   | .bswap32 d, s => some (s.setReg32 d (bswap32 ((s.gpr d).setWidth 32)))
   | .rorx32 d r n, s => execRorx32 d r n s
   | .andn32 d a b, s => some (execAndn32 d a b s)
+  | .rorx d r n, s => execRorx d r n s
+  | .andn d a b, s => some (execAndn d a b s)
   | .movzx8 d m, s => (s.load8 (s.ea m)).map fun v => s.setReg d (v.setWidth 64)
   | .store8 m r, s => s.store8 (s.ea m) ((s.gpr r).setWidth 8)
   | .bswap d, s => some (s.setReg d (bswap64 (s.gpr d)))
@@ -292,6 +307,8 @@ def addrs : Instr → State → List Addr
   | .bswap32 _, _ => []
   | .rorx32 .., _ => []
   | .andn32 .., _ => []
+  | .rorx .., _ => []
+  | .andn .., _ => []
   | .movzx8 _ m, s => [s.ea m]
   | .store8 m _, s => [s.ea m]
   | .bswap _, _ => []
@@ -388,8 +405,8 @@ one (the pop of a frame also moves `rsp`, as the push does): `mul` writes
 two, `rax` and `rdx`, and stores and SSE instructions none. -/
 def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .mov32 d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
-  | .rorx32 d .. | .andn32 d .. | .movzx8 d _ | .bswap d | .shift _ d _ | .movImm64 d _
-  | .pop d _ => some d
+  | .rorx32 d .. | .andn32 d .. | .rorx d .. | .andn d .. | .movzx8 d _ | .bswap d | .shift _ d _
+  | .movImm64 d _ | .pop d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _
   | .vop _ | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .zop _
   | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. | .stmxcsr _ | .ldmxcsr _

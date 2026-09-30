@@ -54,14 +54,14 @@ theorem readW_writeW_save (m : Mem) (p : Addr) (v : BitVec 64) {d e : Nat} (hd :
 
 /-! Saves at `so + d`, with the conditions on the literal offsets `d`, `e`
 alone, which `decide` discharges. -/
-theorem readW_writeW_save_so {so : Nat} (hso : so ≤ 1024) (m : Mem) (p : Addr) (v : BitVec 64)
+theorem readW_writeW_save_so {so : Nat} (hso : so ≤ 2048) (m : Mem) (p : Addr) (v : BitVec 64)
     {d e : Nat} (hd : d ≤ 64) (he : e ≤ 64) (h : d + 8 ≤ e ∨ e + 8 ≤ d) :
     (m.writeW (p + BitVec.ofInt 64 ((so + e : Nat) : Int)) v).readW
       (p + BitVec.ofInt 64 ((so + d : Nat) : Int)) 64 =
       m.readW (p + BitVec.ofInt 64 ((so + d : Nat) : Int)) 64 :=
   readW_writeW_save m p v (by omega) (by omega) (by omega)
 
-theorem readW_writeW_save_so_l {so : Nat} (hso : so ≤ 1024) (m : Mem) (p : Addr) (v : BitVec 64)
+theorem readW_writeW_save_so_l {so : Nat} (hso : so ≤ 2048) (m : Mem) (p : Addr) (v : BitVec 64)
     {e : Nat} (he : e ≤ 64) (h : 8 ≤ e) :
     (m.writeW (p + BitVec.ofInt 64 ((so + e : Nat) : Int)) v).readW (p + BitVec.ofInt 64 (so : Int)) 64 =
       m.readW (p + BitVec.ofInt 64 (so : Int)) 64 :=
@@ -142,7 +142,7 @@ structure Dims (P : Params) : Prop where
   B : P.B = 64 ∨ P.B = 128
   N : 0 < P.N ∧ P.N ≤ 64
   L : 0 < P.L ∧ P.L ≤ 16
-  so : P.so ≤ 1024
+  so : P.so ≤ 2048
 
 theorem Dims.mod {P : Params} (hd : Dims P) (n : Nat) : n % 2 ^ 64 % P.B = n % P.B := by
   rcases hd.B with h | h <;> rw [h] <;> omega

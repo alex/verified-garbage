@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.MdStream.X86_64.FinalizeCT
 import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Hash
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Pbkdf2.X86_64.Iterate
 
 /-!
 # HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: the hash function
@@ -61,9 +62,8 @@ structure HashOK (H : Hash) where
   hDL : H.D + H.P.L + 4 ≤ H.P.B
   hL4 : H.P.L % 4 = 0
   hNL : H.P.N + H.P.L ≤ H.P.B
-  hso : H.P.so % 8 = 0 ∧ H.P.so + 48 ≤ 8 * 128
-  /-- The working space our functions get holds `iterate`'s, and our
-  functions' parts fit their offsets. -/
+  hso : H.P.so % 8 = 0 ∧ H.P.so + 48 ≤ 8 * 256
+  /-- The working space our functions get holds `iterate`'s. -/
   fits : H.P.so + 48 + H.P.N + H.P.B ≤ 8 * H.W
   hW : H.W ≤ 256
   /-- The streaming `init`. -/
@@ -144,7 +144,7 @@ def stream : Proof.Hmac.Generic.X86_64.HashOK H.stream where
   hB0 := hH.B_pos
   hBB := hH.B_le
   hWb := by show H.P.so + 48 ≤ 8 * ((H.P.so + 48) / 8); have := hH.hso; omega
-  hW := by show (H.P.so + 48) / 8 ≤ 128; have := hH.hso; omega
+  hW := by show (H.P.so + 48) / 8 ≤ 256; have := hH.hso; omega
   repr := hH.sh_reloc
   init := hH.init
   upd := hH.upd
@@ -157,5 +157,38 @@ def stream : Proof.Hmac.Generic.X86_64.HashOK H.stream where
   finSp := hH.finSp
 
 end HashOK
+
+/-! ## The sizes -/
+
+/-- The sizes, as facts about natural numbers. -/
+structure Sizes (H : Hash) : Prop where
+  B : H.P.B = 64 ∨ H.P.B = 128
+  N : 0 < H.P.N ∧ H.P.N ≤ 64
+  L : 0 < H.P.L ∧ H.P.L ≤ 16
+  D : 0 < H.D ∧ H.D ≤ H.P.N ∧ H.D % 4 = 0 ∧ H.D + H.P.L + 4 ≤ H.P.B
+  N4 : H.P.N % 4 = 0
+  L4 : H.P.L % 4 = 0
+  NL : H.P.N + H.P.L ≤ H.P.B
+  so : H.P.so % 8 = 0 ∧ H.P.so ≤ 2048
+  fits : H.P.so + 48 + H.P.N + H.P.B ≤ 8 * H.W
+  W : H.W ≤ 256
+
+theorem Sizes.B_le {H : Hash} (hz : Sizes H) : H.P.B ≤ 128 := by rcases hz.B with h | h <;> omega
+
+theorem HashOK.sizes {H : Hash} (hH : HashOK H) : Sizes H :=
+  ⟨hH.dims.B, hH.dims.N, hH.dims.L, ⟨hH.hD0, hH.hDN, hH.hD4, hH.hDL⟩, hH.hN4, hH.hL4, hH.hNL,
+    ⟨hH.hso.1, hH.dims.so⟩, hH.fits, hH.hW⟩
+
+/-- What the proof of PBKDF2's iteration (`Proof/Pbkdf2/X86_64/Iterate.lean`)
+needs of the hash function, with `W` words of scratch space. -/
+theorem HashOK.iterOk {H : Hash} (hH : HashOK H) :
+    Pbkdf2.X86_64.HashOk H.P H.D H.W hH.SH hH.md hH.iv where
+  sizes := ⟨hH.dims, hH.hN4, hH.hD4, hH.hL4, hH.hD0, hH.hDN, hH.hNL, by have := hH.hDL; omega, hH.fits,
+    by have := hH.hW; omega⟩
+  shape := hH.shape
+  reloc := hH.reloc
+  lenOk := hH.lenOk _ (by have := hH.B_le; have := hH.hDN; have := hH.N_le; omega)
+  link := ⟨hH.hB, hH.hS, hH.hD, fun m p x h => (hH.repr m p x).1 h, hH.hash, hH.hDN,
+    by have := hH.hDL; omega⟩
 
 end VG.Proof.Pbkdf2.Md.X86_64

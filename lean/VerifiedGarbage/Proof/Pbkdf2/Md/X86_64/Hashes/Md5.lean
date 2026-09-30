@@ -48,7 +48,7 @@ theorem coreOK : CoreOK coreH where
     ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
     ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   iter := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
-    ⟨_, by taint_decide⟩⟩
+    ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   hinit := {
     keys := ⟨_, by taint_decide⟩
     argI := by
@@ -142,9 +142,9 @@ theorem satF : ∃ s, (Spec.Hmac.md5I.finalizeContract X86_64.abi 16).pre s := b
   inst_sat [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.md5I, Spec.Hmac.finalizeContract,
     Spec.Hmac.finalizeSig, Spec.Hmac.md5S, Spec.Hmac.md5, X86_64.abi, X86_64.argRegs] using finSat 80 16 48
 
-theorem satT : ∃ s, (Spec.Hmac.md5I.iterateContract X86_64.abi 16).pre s := by
+theorem satT : ∃ s, (Spec.Hmac.md5I.iterateContract X86_64.abi 8).pre s := by
   inst_sat [Spec.Hmac.Instance.iterateContract, Spec.Hmac.md5I, Spec.Pbkdf2.iterateContract,
-    Spec.Pbkdf2.iterateSig, Spec.Hmac.md5S, Spec.Hmac.md5, X86_64.abi, X86_64.argRegs] using iterSat 80 16 48
+    Spec.Pbkdf2.iterateSig, Spec.Hmac.md5S, Spec.Hmac.md5, X86_64.abi, X86_64.argRegs] using Pbkdf2.X86_64.iterSat 80 16 48
 
 theorem satP : ∃ s, (Spec.Hmac.md5I.pbkdf2Contract X86_64.abi 24).pre s := by
   inst_sat [Spec.Hmac.Instance.pbkdf2Contract, Spec.Hmac.Instance.pbkdf2Scratch, Spec.Hmac.md5I,
@@ -153,6 +153,6 @@ theorem satP : ∃ s, (Spec.Hmac.md5I.pbkdf2Contract X86_64.abi 24).pre s := by
 
 /-- MD5, as a variant of `MdHash`. -/
 def variant : MdHash :=
-  MdHash.of ok coreOK callees rfl rfl (by decide) satI satF satT satP "" [] []
+  MdHash.of ok coreOK callees rfl rfl satI satF satT satP "" [] []
 
 end VG.Proof.Pbkdf2.Md.X86_64.Md5

@@ -18,7 +18,8 @@ namespace VG.Proof.Pbkdf2.Md.X86_64.Pbk
 open VG.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Pbkdf2.Md.X86_64 (HashOK pbkG pbkImp)
-open VG.Proof.Hmac.Generic.X86_64 (initG finG iterG rel_taint rel_wp)
+open VG.Proof.Pbkdf2.X86_64 (iterK)
+open VG.Proof.Hmac.Generic.X86_64 (initG finG rel_taint rel_wp)
 open Spec.Sha256 (bytesAt)
 
 variable {H : Hash}
@@ -296,7 +297,7 @@ section
 variable (hH : HashOK H) {s₀ s₀' : State} (hp : Pre (H := H) s₀) (hp' : Pre (H := H) s₀') (hz : PSizes H)
   (hq : PubEq s₀ s₀') (hc : Checks H)
   (hF : Verified X86_64.target H.hmacFin (finG hH.SH H.W)) (hFsp : NoSp H.hmacFin) (hFd : H.hmacFin.depth ≤ 2)
-  (hI : Verified X86_64.target H.iterate (iterG hH.SH H.W)) (hIsp : NoSp H.iterate) (hId : H.iterate.depth ≤ 2)
+  (hI : Verified X86_64.target H.iterate (iterK hH.SH H.W)) (hIsp : NoSp H.iterate) (hId : H.iterate.depth ≤ 2)
 include hH hp hp' hz hq hc hF hFsp hFd hI hIsp hId
 
 theorem block_mid_rel {k : Nat} (hk : k < nb H s₀) (hg : (G hH s₀ k).length = k * H.D)
@@ -427,7 +428,7 @@ theorem verified {H : Hash} (hH : HashOK H) (hz : PSizes H) (hc : Checks H)
     (hIn : Verified X86_64.target H.hmacInit (initG hH.SH H.W)) (hInsp : NoSp H.hmacInit)
     (hInd : H.hmacInit.depth ≤ 2)
     (hF : Verified X86_64.target H.hmacFin (finG hH.SH H.W)) (hFsp : NoSp H.hmacFin) (hFd : H.hmacFin.depth ≤ 2)
-    (hI : Verified X86_64.target H.iterate (iterG hH.SH H.W)) (hIsp : NoSp H.iterate) (hId : H.iterate.depth ≤ 2)
+    (hI : Verified X86_64.target H.iterate (iterK hH.SH H.W)) (hIsp : NoSp H.iterate) (hId : H.iterate.depth ≤ 2)
     (hmx : H.pbkdf2.allInstrs (fun i => !loadsMxcsr i) = true)
     (hsat : ∃ s, (pbkG hH.SH (H.W + H.S)).pre s) :
     Verified X86_64.target H.pbkdf2 (pbkG hH.SH (H.W + H.S)) := by

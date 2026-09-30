@@ -57,7 +57,7 @@ theorem coreOK : CoreOK coreH where
     ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
     ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   iter := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
-    ⟨_, by taint_decide⟩⟩
+    ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   hinit := {
     keys := ⟨_, by taint_decide⟩
     argI := by
@@ -155,9 +155,9 @@ theorem satF : ∃ s, (Spec.Hmac.sha256I.finalizeContract X86_64.abi 16).pre s :
   inst_sat [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.sha256I, Spec.Hmac.finalizeContract,
     Spec.Hmac.finalizeSig, Spec.Hmac.sha256S, Spec.Hmac.sha256, X86_64.abi, X86_64.argRegs] using finSat 96 32 104
 
-theorem satT : ∃ s, (Spec.Hmac.sha256I.iterateContract X86_64.abi 16).pre s := by
+theorem satT : ∃ s, (Spec.Hmac.sha256I.iterateContract X86_64.abi 8).pre s := by
   inst_sat [Spec.Hmac.Instance.iterateContract, Spec.Hmac.sha256I, Spec.Pbkdf2.iterateContract,
-    Spec.Pbkdf2.iterateSig, Spec.Hmac.sha256S, Spec.Hmac.sha256, X86_64.abi, X86_64.argRegs] using iterSat 96 32 104
+    Spec.Pbkdf2.iterateSig, Spec.Hmac.sha256S, Spec.Hmac.sha256, X86_64.abi, X86_64.argRegs] using Pbkdf2.X86_64.iterSat 96 32 104
 
 theorem satP : ∃ s, (Spec.Hmac.sha256I.pbkdf2Contract X86_64.abi 24).pre s := by
   inst_sat [Spec.Hmac.Instance.pbkdf2Contract, Spec.Hmac.Instance.pbkdf2Scratch, Spec.Hmac.sha256I,
@@ -189,6 +189,6 @@ def stream : List Artifact := [
 
 /-- SHA-256 with the implementation `v` of its compression function. -/
 def variant : MdHash :=
-  MdHash.of (ok v) coreOK (callees v) rfl rfl (by simp only [hash] <;> decide) satI satF satT satP v.suffix v.features (stream v)
+  MdHash.of (ok v) coreOK (callees v) rfl rfl satI satF satT satP v.suffix v.features (stream v)
 
 end VG.Proof.Pbkdf2.Md.X86_64.Sha256

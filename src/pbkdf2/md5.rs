@@ -1,10 +1,13 @@
-//! PBKDF2-HMAC-MD5. On x86-64, the whole derivation is
-//! `vg_pbkdf2_hmac_md5` (contract `VG.Spec.Hmac.Instance.pbkdf2Contract` of
-//! `VG.Spec.Hmac.md5I`), the one PBKDF2 implementation for every
-//! Merkle–Damgård hash function, calling MD5's verified functions. On the other
-//! targets, the iteration is `vg_pbkdf2_hmac_md5_iterate` (contract
-//! `VG.Spec.Hmac.Instance.iterateContract`), the one PBKDF2 iteration for
-//! every streaming hash function.
+//! PBKDF2-HMAC-MD5. On x86-64, the whole derivation is `vg_pbkdf2_hmac_md5`
+//! (contract `VG.Spec.Hmac.Instance.pbkdf2Contract` of `VG.Spec.Hmac.md5I`),
+//! the one PBKDF2 implementation for every Merkle–Damgård hash function,
+//! calling MD5's verified functions: its iteration calls MD5's verified
+//! compression function directly, twice per step.
+//!
+//! On the other targets, the iteration is `vg_pbkdf2_hmac_md5_iterate`
+//! (contract `VG.Spec.Hmac.Instance.iterateContract`), the one PBKDF2 iteration
+//! for every streaming hash function, calling MD5's verified streaming
+//! functions.
 
 #![cfg(any(
     target_arch = "x86_64",

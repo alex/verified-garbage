@@ -1,4 +1,5 @@
 import VerifiedGarbage.Impl.Hmac.Generic.X86_64
+import VerifiedGarbage.Impl.Pbkdf2.X86_64
 
 /-!
 # HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function: x86-64 implementation
@@ -17,14 +18,11 @@ the functions emitted for it.
   hash value and that digest over the inner state (the state that absorbed
   the outer block and the digest), finalizes it, and copies the MAC to
   `out`, all in 32-bit words.
-* `iterate(key = rdi, u = rsi, n = edx, t = rcx, scratch = r8)` runs `n`
-  steps `U ← HMAC (K₀, U)`, `T ← T ⊕ U` (`VG.Spec.Pbkdf2.iterate`), for the
-  key whose inner and outer streaming states are at `key` and `key + S`.
-  Each state has absorbed one block, so a step is two calls of the
-  compression function, each on one block that is `D` bytes of message and
-  the padding of a message of `B + D` bytes, written once: the inner hash
-  value with the block `U ‖ pad`, then the outer hash value with the block
-  `digest ‖ pad`, whose digest is the next `U`, left in the block.
+* `iterate(key = rdi, u = rsi, n = edx, t = rcx, scratch = r8)` is PBKDF2's
+  iteration over any Merkle–Damgård hash function (`Impl/Pbkdf2/X86_64.lean`),
+  for the hash function's `Params`, digest and compression function: `n`
+  steps `U ← HMAC (K₀, U)`, `T ← T ⊕ U`, each two calls of the compression
+  function.
 * `pbkdf2(password = rdi, password_len = rsi, salt = rdx, salt_len = rcx,
   c = r8d, out = r9, out_len = [rsp + 8], scratch = [rsp + 16])` computes
   the key (hashing a password longer than a block with the streaming
@@ -90,8 +88,7 @@ def stream : Impl.Hmac.Generic.X86_64.Hash :=
 
 /-- `n` 32-bit words from `[src + so]` to `[dst + d]`. -/
 def copy32 (src : Reg) (so : Nat) (dst : Reg) (d n : Nat) : List Instr :=
-  (List.range n).flatMap fun k =>
-    [.mov32 .rax (.mem (at_ src (so + 4 * k))), .store32 (at_ dst (d + 4 * k)) .rax]
+  (List.range n).flatMap (Impl.Pbkdf2.X86_64.cp32 src dst so d)
 
 /-- HMAC's `init`. -/
 def hmacInit : Prog isa := H.stream.init
@@ -123,61 +120,10 @@ def hmacFin : Prog isa :=
 
 /-! ## `iterate`
 
-`scratch` holds the compression function's working space (`[0, so)`),
-our caller's registers (`[so, so + 48)`), the hash value being compressed
-(`N` bytes at `st`) and the block (`B` bytes at `blk`). Registers: `rbx` =
-`st`, `rbp` = `blk`, `r12` = `key`, `r13` = the steps left, `r14` = `t`,
-`r15` = `scratch`. -/
+PBKDF2's iteration over any Merkle–Damgård hash function
+(`Impl/Pbkdf2/X86_64.lean`), calling the compression function directly. -/
 
-/-- Where the hash value is in `scratch`. -/
-def stO : Nat := H.P.so + 48
-
-/-- Where the block is. -/
-def blkO : Nat := H.P.so + 48 + H.P.N
-
-/-- The padding after `D` bytes of the block at `rbp`, up to byte `e`: the
-32-bit word `0x80` (the byte `0x80` and three zeros), then zero words. -/
-def padTo (e : Nat) : List Instr :=
-  [.mov32 .rax (.imm 0x80), .store32 (at_ .rbp H.D) .rax, .mov32 .rax (.imm 0)] ++
-    (List.range ((e - H.D - 4) / 4)).map fun k => .store32 (at_ .rbp (H.D + 4 + 4 * k)) .rax
-
-/-- After the digest was written over the block: the padding over its
-bytes after the first `D`. -/
-def fix : List Instr := if H.D < H.P.N then H.padTo H.P.N else []
-
-/-- `T ← T ⊕ U`, with `U` the block's first `D` bytes. -/
-def xor32 : List Instr :=
-  (List.range (H.D / 4)).flatMap fun k =>
-    [.mov32 .rax (.mem (at_ .rbp (4 * k))), .alu32 .xor .rax (.mem (at_ .r14 (4 * k))),
-      .store32 (at_ .r14 (4 * k)) .rax]
-
-/-- The hash value of the state at `key + o` into `st`, and the block's
-address into `rsi`. -/
-def load (o : Nat) : List Instr := copy32 .r12 o .rbx 0 (H.P.N / 4) ++ [.mov .rsi (.reg .rbp)]
-
-/-- One step. -/
-def body : Prog isa :=
-  .seq (.block (H.load 0))
-  (.seq (compressAt H.compN H.compC)
-  (.seq (.block (H.P.out ++ H.fix ++ H.load H.S))
-  (.seq (compressAt H.compN H.compC)
-    (.block (H.P.out ++ H.fix ++ H.xor32 ++ [.alu .sub .r13 (.imm 1)])))))
-
-/-- Saving our caller's registers, setting up ours, and writing `U` and the
-padding of a `B + D`-byte message into the block. -/
-def iterPrologue : List Instr :=
-  save H.P .r8 ++
-    [.mov .r15 (.reg .r8), .mov .rbx (.reg .r8), .alu .add .rbx (.imm (BitVec.ofNat 32 H.stO)),
-      .mov .rbp (.reg .r8), .alu .add .rbp (.imm (BitVec.ofNat 32 H.blkO)), .mov32 .r13 (.reg .rdx),
-      .mov .r14 (.reg .rcx)] ++
-    copy32 .rsi 0 .rbp 0 (H.D / 4) ++ H.padTo (H.P.B - H.P.L) ++
-    [.mov32 .r12 (.imm (BitVec.ofNat 32 (H.P.B + H.D)))] ++ H.P.len ++
-    [.mov .r12 (.reg .rdi), .alu .test .r13 (.reg .r13)]
-
-def iterate : Prog isa :=
-  .seq (.block H.iterPrologue)
-  (.seq (.ite .e (.block []) (.loop H.body .ne))
-    (.block (restore H.P)))
+def iterate : Prog isa := Impl.Pbkdf2.X86_64.iterate H.P H.D H.compN H.compC
 
 /-! ## `pbkdf2`
 

@@ -43,7 +43,7 @@ structure MdHash where
   I : Spec.Hmac.Instance
   hmacInit : Verified X86_64.target H.hmacInit (I.initContract X86_64.abi 16)
   hmacFin : Verified X86_64.target H.hmacFin (I.finalizeContract X86_64.abi 16)
-  iterate : Verified X86_64.target H.iterate (I.iterateContract X86_64.abi 16)
+  iterate : Verified X86_64.target H.iterate (I.iterateContract X86_64.abi 8)
   pbkdf2 : Verified X86_64.target H.pbkdf2 (I.pbkdf2Contract X86_64.abi 24)
   hmacInitSp : H.hmacInit.all (fun i => !isa.writesSp i) = true
   hmacFinSp : H.hmacFin.all (fun i => !isa.writesSp i) = true
@@ -76,30 +76,30 @@ theorem hmacFin_of (hs : ∃ s, (I.finalizeContract X86_64.abi 16).pre s) :
   simp only [Spec.Hmac.Instance.finalizeContract, ← hSH, ← hW] at hs ⊢
   exact hmacFin_verified hH C K hs
 
-theorem iterate_of (hs : ∃ s, (I.iterateContract X86_64.abi 16).pre s) :
-    Verified X86_64.target H.iterate (I.iterateContract X86_64.abi 16) := by
+theorem iterate_of (hs : ∃ s, (I.iterateContract X86_64.abi 8).pre s) :
+    Verified X86_64.target H.iterate (I.iterateContract X86_64.abi 8) := by
   simp only [Spec.Hmac.Instance.iterateContract, ← hSH, ← hW] at hs ⊢
   exact iterate_verified hH C K hs
 
-theorem pbkdf2_of (h128 : H.W ≤ 128) (hsI : ∃ s, (I.initContract X86_64.abi 16).pre s)
+theorem pbkdf2_of (hsI : ∃ s, (I.initContract X86_64.abi 16).pre s)
     (hsF : ∃ s, (I.finalizeContract X86_64.abi 16).pre s)
-    (hsT : ∃ s, (I.iterateContract X86_64.abi 16).pre s)
+    (hsT : ∃ s, (I.iterateContract X86_64.abi 8).pre s)
     (hs : ∃ s, (I.pbkdf2Contract X86_64.abi 24).pre s) :
     Verified X86_64.target H.pbkdf2 (I.pbkdf2Contract X86_64.abi 24) := by
   simp only [Spec.Hmac.Instance.initContract, Spec.Hmac.Instance.finalizeContract,
     Spec.Hmac.Instance.iterateContract, Spec.Hmac.Instance.pbkdf2Contract,
     Spec.Hmac.Instance.pbkdf2Scratch, ← hSH, ← hW, hH.hS] at hsI hsF hsT hs ⊢
-  exact pbkdf2_verified hH C K h128 hsI hsF hsT hs
+  exact pbkdf2_verified hH C K hsI hsF hsT hs
 
 end MdHash
 
 /-- The variant of hash function `H`, of instance `I`, from what the proofs
 need of it and the satisfiability of the shared contracts. -/
 def MdHash.of {H : Hash} {I : Spec.Hmac.Instance} (hH : HashOK H) (C : CoreOK (core H)) (K : Callees H)
-    (hSH : hH.SH = I.S) (hW : H.W = I.scratch) (h128 : H.W ≤ 128)
+    (hSH : hH.SH = I.S) (hW : H.W = I.scratch)
     (hsI : ∃ s, (I.initContract X86_64.abi 16).pre s)
     (hsF : ∃ s, (I.finalizeContract X86_64.abi 16).pre s)
-    (hsT : ∃ s, (I.iterateContract X86_64.abi 16).pre s)
+    (hsT : ∃ s, (I.iterateContract X86_64.abi 8).pre s)
     (hsP : ∃ s, (I.pbkdf2Contract X86_64.abi 24).pre s)
     (suffix : String) (features : List String) (stream : List Artifact) : MdHash where
   H := H
@@ -107,7 +107,7 @@ def MdHash.of {H : Hash} {I : Spec.Hmac.Instance} (hH : HashOK H) (C : CoreOK (c
   hmacInit := MdHash.hmacInit_of hH C K hSH hW hsI
   hmacFin := MdHash.hmacFin_of hH C K hSH hW hsF
   iterate := MdHash.iterate_of hH C K hSH hW hsT
-  pbkdf2 := MdHash.pbkdf2_of hH C K hSH hW h128 hsI hsF hsT hsP
+  pbkdf2 := MdHash.pbkdf2_of hH C K hSH hW hsI hsF hsT hsP
   hmacInitSp := hmacInit_sp C K
   hmacFinSp := hmacFin_sp C K
   iterateSp := iterate_sp C K

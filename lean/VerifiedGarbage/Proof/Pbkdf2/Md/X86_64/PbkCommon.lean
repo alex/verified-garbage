@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.IterateCT
+import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Words
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Contract
 import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Init
 
@@ -17,7 +17,8 @@ namespace VG.Proof.Pbkdf2.Md.X86_64.Pbk
 open VG.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Pbkdf2.Md.X86_64 (HashOK Sizes pbkG)
-open VG.Proof.Hmac.Generic.X86_64 (initG finG iterG After SavedRegs ne_rsp callEntry_bytes SavedRegs.frame)
+open VG.Proof.Pbkdf2.X86_64 (iterK)
+open VG.Proof.Hmac.Generic.X86_64 (initG finG After SavedRegs ne_rsp callEntry_bytes SavedRegs.frame)
 open VG.Proof.Hmac.Generic.Common (bytes_keep sub_of_off sub_of_self)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad blockKey hmacBlockKey)
@@ -96,7 +97,9 @@ theorem pre_of (hH : HashOK H) {s₀ : State} (h : (pbkG hH.SH (H.W + H.S)).pre 
 /-- The sizes, as facts about natural numbers. -/
 structure PSizes (H : Hash) : Prop where
   z : Sizes H
-  W : H.W ≤ 128
+  W : H.W ≤ 256
+
+theorem _root_.VG.Proof.Pbkdf2.Md.X86_64.HashOK.psizes (hH : HashOK H) : PSizes H := ⟨hH.sizes, hH.hW⟩
 
 /-! ## The parts of `scratch` -/
 

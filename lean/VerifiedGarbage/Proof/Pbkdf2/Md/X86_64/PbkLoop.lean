@@ -17,7 +17,8 @@ open VG.X86_64 VG.Proof.MdStream.X86_64
 open VG.Impl.MdStream.X86_64 (at_)
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
 open VG.Proof.Pbkdf2.Md.X86_64 (HashOK ea_nat wp_mov32r zx32 contains_pre)
-open VG.Proof.Hmac.Generic.X86_64 (initG finG iterG After SavedRegs SavedRegs.frame)
+open VG.Proof.Pbkdf2.X86_64 (iterK)
+open VG.Proof.Hmac.Generic.X86_64 (initG finG After SavedRegs SavedRegs.frame)
 open VG.Proof.Hmac.Generic.Common (bytes_keep readW_writeW_ne InRegions.right' sub_of_off sub_of_self bytesAt_take)
 open VG.Proof.Hmac.Common (bytesAt_length bytesAt_add bytesAt_writeBytes_sep bytesAt_getD' writeBytes_at xorPad_length)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeBytes_frame)
@@ -557,7 +558,7 @@ theorem pieceC_ok (hH : HashOK H) {k : Nat} (hk : k < nb H s₀) {s₇ : State} 
   exact ⟨m₁₃, ia, by rw [e₁₃, hU₈, hU], by rw [e₁₃, hT₈, hU]⟩
 
 /-- `iterate`: `T_{k+1}`. -/
-theorem callC_ok (hH : HashOK H) (hI : Verified X86_64.target H.iterate (iterG hH.SH H.W)) (hIsp : NoSp H.iterate)
+theorem callC_ok (hH : HashOK H) (hI : Verified X86_64.target H.iterate (iterK hH.SH H.W)) (hIsp : NoSp H.iterate)
     (hId : H.iterate.depth ≤ 2) {k : Nat} (hk : k < nb H s₀) {s : State} (h : AtIter hH s₀ k s) :
     WP isa (.call H.iterN H.iterate) s fun t => Mid hH s₀ k t ∧ bytesAt t.mem (A s₀ H.tO) H.D = Tb hH s₀ (k + 1) := by
   have hl := layout (H := H); have he := end_le hz; have hL := L_lt hz; have hW := hz.W
@@ -682,7 +683,7 @@ theorem tail_ok (hH : HashOK H) {k : Nat} (hk : k < nb H s₀) (hg : (G hH s₀ 
 /-- One block of the output. -/
 theorem block_ok (hH : HashOK H) (hF : Verified X86_64.target H.hmacFin (finG hH.SH H.W))
     (hFsp : NoSp H.hmacFin) (hFd : H.hmacFin.depth ≤ 2)
-    (hI : Verified X86_64.target H.iterate (iterG hH.SH H.W)) (hIsp : NoSp H.iterate) (hId : H.iterate.depth ≤ 2)
+    (hI : Verified X86_64.target H.iterate (iterK hH.SH H.W)) (hIsp : NoSp H.iterate) (hId : H.iterate.depth ≤ 2)
     {k : Nat} (hk : k < nb H s₀) {s : State} (h : Inv hH s₀ k s) :
     WP isa H.block s fun t => Inv hH s₀ (k + 1) t ∧ t.zf = some (decide (k + 1 = nb H s₀)) := by
   have hkD : k * H.D < ol s₀ := (lt_nb hz.z.D.1).1 hk
@@ -702,7 +703,7 @@ theorem block_ok (hH : HashOK H) (hF : Verified X86_64.target H.hmacFin (finG hH
 /-- The loop over the blocks of the output: none when `out_len = 0`. -/
 theorem loop_ok (hH : HashOK H) (hF : Verified X86_64.target H.hmacFin (finG hH.SH H.W))
     (hFsp : NoSp H.hmacFin) (hFd : H.hmacFin.depth ≤ 2)
-    (hI : Verified X86_64.target H.iterate (iterG hH.SH H.W)) (hIsp : NoSp H.iterate) (hId : H.iterate.depth ≤ 2)
+    (hI : Verified X86_64.target H.iterate (iterK hH.SH H.W)) (hIsp : NoSp H.iterate) (hId : H.iterate.depth ≤ 2)
     {s : State} (h : Inv hH s₀ 0 s) (hz0 : s.zf = some (decide (ol s₀ = 0))) :
     WP isa (.ite .e (.block []) (.loop H.block .ne)) s (Inv hH s₀ (nb H s₀)) := by
   have hD := hz.z.D.1
@@ -716,7 +717,7 @@ theorem correct (hH : HashOK H) (hIn : Verified X86_64.target H.hmacInit (initG 
     (hInsp : NoSp H.hmacInit) (hInd : H.hmacInit.depth ≤ 2)
     (hF : Verified X86_64.target H.hmacFin (finG hH.SH H.W))
     (hFsp : NoSp H.hmacFin) (hFd : H.hmacFin.depth ≤ 2)
-    (hI : Verified X86_64.target H.iterate (iterG hH.SH H.W)) (hIsp : NoSp H.iterate) (hId : H.iterate.depth ≤ 2) :
+    (hI : Verified X86_64.target H.iterate (iterK hH.SH H.W)) (hIsp : NoSp H.iterate) (hId : H.iterate.depth ≤ 2) :
     WP isa H.pbkdf2 s₀ fun s' => gprPreserved s₀ s' ∧ (pbkG hH.SH (H.W + H.S)).post s₀ s' := by
   have hD := hz.z.D.1; have hW := hz.W
   unfold Hash.pbkdf2
