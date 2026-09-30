@@ -9,15 +9,18 @@ XORed into it as they arrive (see `VG.Spec.Sha3.Repr`); the position in the
 block is kept by the caller.
 
 * `absorb(state = x0, rate = x1, pos = x2, data = x3, len = x4,
-  scratch = x5)` XORs the bytes of `data` into the state one at a time, from
-  byte `pos`, permuting the state whenever a block is complete, and returns
-  the position after them.
+  scratch = x5)` XORs the bytes of `data` into the state from byte `pos`, a
+  lane (8 bytes) at a time where the position is at a lane and at least 8
+  bytes are left, and a byte at a time otherwise, permuting the state
+  whenever a block is complete, and returns the position after them.
 * `pad(state = x0, rate = x1, pos = x2, suffix = x3, scratch = x4)` XORs
   the suffix into byte `pos` and `0x80` into byte `rate - 1`, and permutes
   the state.
 * `squeeze(state = x0, rate = x1, pos = x2, out = x3, outlen = x4,
-  scratch = x5)` copies the state to `out` one byte at a time from byte
-  `pos`, permuting it whenever a block has been used up and more output is
+  scratch = x5)` copies the state to `out` from byte `pos`, a lane (8 bytes)
+  at a time where the position is at a lane and at least 8 bytes are left
+  (every rate is a whole number of lanes), and a byte at a time otherwise,
+  permuting it whenever a block has been used up and more output is
   needed, and returns the position after them.
 
 The permutation is called (`vg_keccak_f1600`, `Impl.Sha3.AArch64.permute`)
@@ -62,11 +65,28 @@ def setup : List Instr :=
 
 /-! ## `absorb` -/
 
+/-- `x10 = 0` exactly when the position is at a lane (`x22 mod 8 = 0`) and at
+least 8 bytes are left (of data or of output) (`x24 ≥ 8`, as `x24 - 8` is then non-negative). -/
+def wordTest : List Instr :=
+  [.movz .x .x10 7 0, .logic .and .x .x10 .x22 .x10, .subImm .x .x11 .x24 8, .lsr .x .x11 .x11 63,
+    .logic .orr .x .x10 .x10 .x11]
+
+/-- A lane of data XORed into the state; `x9 = 0` if that completes the block. -/
+def absorbWord : List Instr :=
+  [.ldr .x .x9 .x23 0, .add .x .x10 .x19 .x22, .ldr .x .x11 .x10 0, .logic .eor .x .x9 .x9 .x11,
+    .str .x .x9 .x10 0, .addImm .x .x23 .x23 8, .addImm .x .x22 .x22 8, .subImm .x .x24 .x24 8,
+    .sub .x .x9 .x22 .x21]
+
+/-- A byte of data XORed into the state; `x9 = 0` if that completes the block. -/
+def absorbByte : List Instr :=
+  [.ldrb .x9 .x23 0, .add .x .x10 .x19 .x22, .ldrb .x11 .x10 0, .logic .eor .x .x9 .x9 .x11,
+    .strb .x9 .x10 0, .addImm .x .x23 .x23 1, .addImm .x .x22 .x22 1, .subImm .x .x24 .x24 1,
+    .sub .x .x9 .x22 .x21]
+
 def absorbBody : Prog isa :=
-  .seq (.block [.ldrb .x9 .x23 0, .add .x .x10 .x19 .x22, .ldrb .x11 .x10 0,
-      .logic .eor .x .x9 .x9 .x11, .strb .x9 .x10 0, .addImm .x .x23 .x23 1,
-      .addImm .x .x22 .x22 1, .subImm .x .x24 .x24 1, .sub .x .x9 .x22 .x21])
-    (.ite (.zero .x .x9) (.seq (.block [.movz .x .x22 0 0]) permuteAt) (.block []))
+  .seq (.block wordTest)
+  (.seq (.ite (.zero .x .x10) (.block absorbWord) (.block absorbByte))
+    (.ite (.zero .x .x9) (.seq (.block [.movz .x .x22 0 0]) permuteAt) (.block [])))
 
 /-- `absorb`, but for saving `x30`. -/
 def absorbMain : Prog isa :=
@@ -89,11 +109,20 @@ def pad : Prog isa := .frame (.push .x30) padMain (.pop .x30)
 
 /-! ## `squeeze` -/
 
+/-- A lane of the state to `out`. -/
+def squeezeWord : List Instr :=
+  [.add .x .x10 .x19 .x22, .ldr .x .x9 .x10 0, .str .x .x9 .x23 0, .addImm .x .x23 .x23 8,
+    .addImm .x .x22 .x22 8, .subImm .x .x24 .x24 8]
+
+/-- A byte of the state to `out`. -/
+def squeezeByte : List Instr :=
+  [.add .x .x10 .x19 .x22, .ldrb .x9 .x10 0, .strb .x9 .x23 0, .addImm .x .x23 .x23 1,
+    .addImm .x .x22 .x22 1, .subImm .x .x24 .x24 1]
+
 def squeezeBody : Prog isa :=
   .seq (.block [.sub .x .x9 .x22 .x21])
   (.seq (.ite (.zero .x .x9) (.seq (.block [.movz .x .x22 0 0]) permuteAt) (.block []))
-    (.block [.add .x .x10 .x19 .x22, .ldrb .x9 .x10 0, .strb .x9 .x23 0, .addImm .x .x23 .x23 1,
-      .addImm .x .x22 .x22 1, .subImm .x .x24 .x24 1]))
+    (.seq (.block wordTest) (.ite (.zero .x .x10) (.block squeezeWord) (.block squeezeByte))))
 
 /-- `squeeze`, but for saving `x30`. -/
 def squeezeMain : Prog isa :=

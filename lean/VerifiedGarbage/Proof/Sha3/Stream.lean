@@ -264,6 +264,81 @@ theorem rep_snoc {rate : Nat} (hr : 0 < rate) (hr' : rate ≤ 200) (msg : List B
     rw [hq', absorb_eq, hl, hq', absorbN_append _ (by omega), ha,
       List.drop_append_of_le_length (by omega)]
 
+/-- `A` with the bytes `bs` XORed into it from byte `j` on. -/
+def xorAt (A : State) (j : Nat) (bs : List Byte) : State :=
+  (List.range bs.length).foldl (fun S d => xorByte S (j + d) (bs.getD d 0)) A
+
+theorem foldl_range_congr {α : Type} {f g : α → Nat → α} (A : α) :
+    ∀ n, (∀ S d, d < n → f S d = g S d) → (List.range n).foldl f A = (List.range n).foldl g A
+  | 0, _ => rfl
+  | n + 1, h => by
+    rw [List.range_succ, List.foldl_append, List.foldl_append, foldl_range_congr A n
+      (fun S d hd => h S d (by omega)), List.foldl_cons, List.foldl_cons, List.foldl_nil,
+      List.foldl_nil, h _ n (by omega)]
+
+/-- Induction on a list from its end. -/
+theorem snoc_induction {P : List Byte → Prop} (h0 : P []) (hs : ∀ bs b, P bs → P (bs ++ [b])) :
+    ∀ bs, P bs := by
+  intro bs
+  rw [← List.reverse_reverse bs]
+  induction bs.reverse with
+  | nil => exact h0
+  | cons b l ih => rw [List.reverse_cons]; exact hs _ _ ih
+
+theorem xorAt_snoc (A : State) (j : Nat) (bs : List Byte) (b : Byte) :
+    xorAt A j (bs ++ [b]) = xorByte (xorAt A j bs) (j + bs.length) b := by
+  unfold xorAt
+  rw [List.length_append, List.length_singleton, List.range_succ, List.foldl_append, List.foldl_cons,
+    List.foldl_nil, getD_snoc, ite_eq_left rfl,
+    foldl_range_congr A bs.length fun S d hd => by rw [getD_snoc, ite_eq_right (by omega)]]
+
+theorem xorAt_single (A : State) (j : Nat) (b : Byte) : xorAt A j [b] = xorByte A j b := by
+  simp [xorAt]
+
+theorem byteOf_xorAt (A : State) (j : Nat) (bs : List Byte) {i : Nat} (hi : i < 200) :
+    byteOf (xorAt A j bs) i =
+      if j ≤ i ∧ i < j + bs.length then byteOf A i ^^^ bs.getD (i - j) 0 else byteOf A i := by
+  induction bs using snoc_induction generalizing i with
+  | h0 => simp [xorAt]
+  | hs bs b ih =>
+    rw [xorAt_snoc, byteOf_xorByte _ _ _ hi, List.length_append, List.length_singleton]
+    by_cases e : i = j + bs.length
+    · subst e
+      rw [ite_eq_left rfl, ih hi, ite_eq_right (by omega), ite_eq_left (by omega), getD_snoc,
+        ite_eq_left (by omega)]
+    · rw [ite_eq_right e, ih hi]
+      by_cases c : j ≤ i ∧ i < j + bs.length
+      · rw [ite_eq_left c, ite_eq_left (by omega), getD_snoc, ite_eq_right (by omega)]
+      · rw [ite_eq_right c, ite_eq_right (by omega)]
+
+/-- Absorbing bytes that fit in the block: they are XORed into the state
+from the position in the block, and the state is permuted if they complete
+it. -/
+theorem rep_append {rate : Nat} (hr : 0 < rate) (hr' : rate ≤ 200) (msg : List Byte) :
+    ∀ (bs : List Byte), 0 < bs.length → msg.length % rate + bs.length ≤ rate →
+      Rep rate (msg ++ bs) =
+        if msg.length % rate + bs.length = rate then keccakF (xorAt (Rep rate msg) (msg.length % rate) bs)
+        else xorAt (Rep rate msg) (msg.length % rate) bs := by
+  intro bs
+  induction bs using snoc_induction with
+  | h0 => intro h; simp at h
+  | hs bs b ih =>
+    intro _ hfit
+    simp only [List.length_append, List.length_singleton] at hfit ⊢
+    rw [← List.append_assoc, rep_snoc hr hr']
+    have hl : (msg ++ bs).length % rate = msg.length % rate + bs.length := by
+      rw [List.length_append]
+      have := Nat.div_add_mod msg.length rate
+      rw [← Nat.mod_add_mod, Nat.mod_eq_of_lt (by omega)]
+    rw [hl]
+    by_cases h0 : bs = []
+    · subst h0
+      simp only [List.length_nil, Nat.add_zero, Nat.zero_add, List.append_nil, List.nil_append,
+        xorAt_single]
+    · have hb : 0 < bs.length := List.length_pos_iff.mpr h0
+      rw [ih hb (by omega), ite_eq_right (show ¬ (msg.length % rate + bs.length = rate) by omega),
+        xorAt_snoc, Nat.add_assoc]
+
 /-- The padding: the suffix XORed into the byte at the position in the
 block, `0x80` into the last byte of the block, and the state permuted. -/
 theorem absorb_pad {rate : Nat} (hr : 1 < rate) (hr' : rate ≤ 200) (suffix : Byte) (msg : List Byte) :
