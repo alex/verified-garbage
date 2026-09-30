@@ -59,6 +59,8 @@ namespace KeyGen4
 
 open VG.Impl.MlKem1024.X86_64.KeyGen1024
 
+variable {K : KPre}
+
 /-! ## `G(d ‖ 4)` -/
 
 /-- After `G`: `ρ` and `σ` at `G`, and `ρ` at `SB`. -/
@@ -68,7 +70,7 @@ structure KA (σ s : State) : Prop where
   sig : bytesAt s.mem (pa s sigP) 32 = kgSigma1024 (kgD σ)
   sb : bytesAt s.mem (pa s (sc oSB)) 32 = kgRho1024 (kgD σ)
 
-theorem gRho_ok {σ : State} (hp : keyGen1024K.pre σ) {s : State} (h : KC σ s) (h15 : s.gpr .r15 = 1) :
+theorem gRho_ok {σ : State} (hp : K.pre σ) {s : State} (h : KC σ s) (h15 : s.gpr .r15 = 1) :
     WP isa gRho s fun s' => KA σ s' ∧ s'.gpr .r15 = 1 := by
   have L := h.lay hp
   unfold gRho
@@ -133,7 +135,7 @@ theorem KB.zero {σ s : State} (h : KA σ s) (h15 : s.gpr .r15 = 1) : KB 0 σ s 
   ⟨h, by rw [h15, ifp (show allOk4 (kgRho1024 (kgD σ)) 0 from fun _ h => absurd h (Nat.not_lt_zero _))],
     fun _ h => absurd h (Nat.not_lt_zero _)⟩
 
-theorem quad_step (v : Sample4Impl) {σ : State} (hp : keyGen1024K.pre σ) {e : Nat} (hc : kqChk e = true)
+theorem quad_step (v : Sample4Impl) {σ : State} (hp : K.pre σ) {e : Nat} (hc : kqChk e = true)
     (he : e + 4 ≤ 16) {s : State} (h : KB e σ s) :
     WP isa (quad v.callee 4 e (sc (oP (17 + e))) (pS 35)) s (KB (e + 4) σ) := by
   simp only [kqChk, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hc
@@ -150,7 +152,7 @@ theorem quad_step (v : Sample4Impl) {σ : State} (hp : keyGen1024K.pre σ) {e : 
       rw [hP.pa rbx_bases, aS4_eq]
       rwa [show oP (17 + e) + 1024 * (e' - e) = oP (17 + e') by simp only [oP]; omega] at this
 
-theorem samples_ok (v : Sample4Impl) {σ : State} (hp : keyGen1024K.pre σ) {s : State} (h : KB 0 σ s) :
+theorem samples_ok (v : Sample4Impl) {σ : State} (hp : K.pre σ) {s : State} (h : KB 0 σ s) :
     WP isa (samples4 v.callee) s (KB 16 σ) :=
   WP.seq (WP.mono (quad_step v hp kqChk_all.1 (by decide) h) fun _ h₁ =>
     WP.seq (WP.mono (quad_step v hp kqChk_all.2.1 (by decide) h₁) fun _ h₂ =>
