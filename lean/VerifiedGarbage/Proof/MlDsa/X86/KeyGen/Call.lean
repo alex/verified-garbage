@@ -296,6 +296,92 @@ theorem callPR_piece (hv : Verified X86.target c k) (hsp : NoSp c) (hst : stackU
 
 end
 
+/-! ## Calls of functions that may not write their arguments -/
+
+/-- The regions of such a call: the buffers it reads and its arguments, and those it writes. -/
+abbrev rdRO (s₀ : State) (rB : List Buf) (n : Nat) : List Region := rB.map (Buf.rgn s₀) ++ [below (E1 s₀) (4 * n)]
+abbrev wrRO (s₀ : State) (wB : List Buf) : List Region := wB.map (Buf.rgn s₀)
+
+section
+variable {k : Contract isa} {nm : String} {c : Prog isa} (as : List Arg) (rB wB : List Buf)
+
+theorem call_covRO {s₀ s₁ : State} (hp : TPre Y s₀) (h₁ : Ctx Y s₀ s₁) (hn : as.length ≤ 5)
+    (hr : rB.all Y.ok = true) (hw : wB.all Y.okW = true) :
+    Covers (rdRO s₀ rB as.length ++ wrRO s₀ wB)
+        (s₁.rd ++ below (s₁.gpr .esp) (4 * (argRs as.length).length) :: s₁.wr) ∧
+      Covers (wrRO s₀ wB) (below (s₁.gpr .esp) (4 * (argRs as.length).length) :: s₁.wr) := by
+  rw [argRs_len (by omega)]
+  refine ⟨Covers.of_sub fun r hr' => ?_, Covers.of_sub fun r hr' => ?_⟩
+  · rcases List.mem_append.mp hr' with hr' | hr'
+    · rcases List.mem_append.mp hr' with hr' | hr'
+      · obtain ⟨b, hb, rfl⟩ := List.mem_map.mp hr'
+        obtain ⟨r', h', o, e, l⟩ := Buf.within hp (List.all_eq_true.mp hr b hb) h₁.rd h₁.wr
+        refine ⟨r', ?_, o, e, l⟩
+        rcases List.mem_append.mp h' with h' | h'
+        · exact List.mem_append_left _ h'
+        · exact List.mem_append_right _ (List.mem_cons_of_mem _ h')
+      · rw [List.mem_singleton] at hr'; subst hr'
+        exact ⟨_, List.mem_append_right _ (List.mem_cons_self ..), 0, by rw [h₁.esp]; simp, by simp⟩
+    · obtain ⟨b, hb, rfl⟩ := List.mem_map.mp hr'
+      obtain ⟨o, w⟩ := Lay.okW_iff.mp (List.all_eq_true.mp hw b hb)
+      obtain ⟨r', h', o', e, l⟩ := Buf.withinW hp o w h₁.wr
+      exact ⟨r', List.mem_append_right _ (List.mem_cons_of_mem _ h'), o', e, l⟩
+  · obtain ⟨b, hb, rfl⟩ := List.mem_map.mp hr'
+    obtain ⟨o, w⟩ := Lay.okW_iff.mp (List.all_eq_true.mp hw b hb)
+    obtain ⟨r', h', o', e, l⟩ := Buf.withinW hp o w h₁.wr
+    exact ⟨r', List.mem_cons_of_mem _ h', o', e, l⟩
+
+theorem call_frRO {s₀ s₁ : State} (hp : TPre Y s₀) (hN : 96 ≤ Y.stk) (h₁ : Ctx Y s₀ s₁) (hst : stackUse c ≤ 56)
+    (hn : as.length ≤ 5) {m m' : Mem}
+    (fr : Frame (wrRO s₀ wB ++ [below (s₁.gpr .esp) (4 * (argRs as.length).length + stackUse c + 4)]) m m') :
+    Frame (FR s₀ wB 80) m m' := by
+  rw [h₁.esp, argRs_len (by omega)] at fr
+  refine fr.sub fun r hr => ?_
+  rcases List.mem_append.mp hr with hr | hr
+  · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
+  · rw [List.mem_singleton] at hr; subst hr
+    exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), stk_sub hp (by omega) (by omega)⟩
+
+/-- `callPR_piece`, for a function that may not write its arguments. -/
+theorem callPR_pieceRO (hv : Verified X86.target c k) (hsp : NoSp c) (hst : stackUse c ≤ 56)
+    (hn₀ : as.length ≠ 0) (hn : as.length ≤ 5) (hok : as.all (Arg.ok Y) = true) (hN : 96 ≤ Y.stk)
+    (hr : rB.all Y.ok = true) (hw : wB.all Y.okW = true)
+    {ht : Taint.Hint VG.X86.Taint.T}
+    (tt : (VG.X86.taint.check (τr [.esp, .esi]) (.block (setArgs Y.sc argRegs as)) ht).isSome = true)
+    (hA : ∀ s₀ s, TPre Y s₀ → A s₀ s → Ctx Y s₀ s)
+    (hpre : ∀ s₀ s e, TPre Y s₀ → A s₀ s → Ent Y s₀ s as e →
+      k.pre (e.withRegions (rdRO s₀ rB as.length) (wrRO s₀ wB)))
+    (hpub : ∀ s₀ s₀' s s' e e', TPre Y s₀ → TPre Y s₀' → TPub Y lk s₀ s₀' → A s₀ s → A s₀' s' →
+      Ent Y s₀ s as e → Ent Y s₀' s' as e' →
+      k.pub (e.withRegions (rdRO s₀ rB as.length) (wrRO s₀ wB))
+        (e'.withRegions (rdRO s₀ rB as.length) (wrRO s₀ wB)))
+    (hQ : ∀ s₀ s s', TPre Y s₀ → A s₀ s → Ctx Y s₀ s' → Frame (FR s₀ wB 80) s.mem s'.mem →
+      (∃ e s₂, Ent Y s₀ s as e ∧ s₂.mem = s'.mem ∧ s₂.gpr .eax = s'.gpr .eax ∧
+        k.post (e.withRegions (rdRO s₀ rB as.length) (wrRO s₀ wB)) s₂) → B s₀ s') :
+    Piece (TPre Y) (TPub Y lk) A B (callPR Y.sc nm c as) := by
+  refine Piece.seq (setup_call as hok tt hA) ?_
+  refine Piece.callRet hv.1 hv.2.1 hsp (argRs_ne hn₀ (by omega)) (esp_argRs _)
+    (fun s₀ => rdRO s₀ rB as.length) (fun s₀ => wrRO s₀ wB)
+    (fun s₀ s₁ hp ⟨_, _, h₁, _⟩ => call_hd as hp hN h₁ hst hn)
+    (fun s₀ s₁ hp ⟨s, ha, h₁, m₁, v⟩ => ⟨hpre s₀ s _ hp ha (ent_of hp hN h₁ m₁ hn v),
+      (call_covRO as rB wB hp h₁ hn hr hw).1, (call_covRO as rB wB hp h₁ hn hr hw).2⟩)
+    (fun s₀ s₀' s₁ s₁' hp hp' hq ⟨s, ha, h₁, m₁, v⟩ ⟨s', ha', h₁', m₁', v'⟩ => ?_)
+    (fun s₀ s₁ s' hp ⟨s, ha, h₁, m₁, v⟩ e₁ e₂ e₃ fr ⟨s₂, m₂, g₂, post⟩ => ?_)
+  · have er : rdRO s₀ rB as.length = rdRO s₀' rB as.length := by
+      simp only [rdRO, hq.E1]
+      exact congrArg (· ++ _) (List.map_congr_left fun b hb => by
+        simp only [Buf.rgn, hq.ptr (List.all_eq_true.mp hr b hb)])
+    have ew : wrRO s₀ wB = wrRO s₀' wB := List.map_congr_left fun b hb => by
+      simp only [Buf.rgn, hq.ptr (Lay.okW_iff.mp (List.all_eq_true.mp hw b hb)).1]
+    refine ⟨er, ew, by rw [h₁.esp, h₁'.esp, hq.E1], ?_⟩
+    exact hpub s₀ s₀' s s' _ _ hp hp' hq ha ha' (ent_of hp hN h₁ m₁ hn v) (ent_of hp' hN h₁' m₁' hn v')
+  · have fr' := call_frRO as wB hp hN h₁ hst hn fr
+    have h' : Ctx Y s₀ s' := h₁.call e₁ e₂ e₃ fr' (call_W wB hp hN hw)
+    rw [m₁] at fr'
+    exact hQ s₀ s s' hp ha h' fr' ⟨_, s₂, ent_of hp hN h₁ m₁ hn v, m₂, g₂, post⟩
+
+end
+
 end VG.Proof.MlDsa.X86.KeyGen
 
 namespace VG.Proof.MlDsa.X86.KeyGen
