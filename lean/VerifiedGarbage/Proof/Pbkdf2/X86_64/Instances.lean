@@ -162,8 +162,8 @@ final hash value, from its initial hash value `iv`. -/
 theorem sha512Fam_ok (S : Spec.Hmac.StreamingHash) (D : Nat) (iv : Spec.Sha512.HashValue)
     (hB : S.H.blockSize = 128) (hS : S.stateBytes = 192) (hD : S.digestBytes = D)
     (hR : S.Repr = Spec.Sha512.Repr iv) (hh : ∀ m, S.H.hash m = (Spec.Sha512.finalHash iv m).take D)
-    (hsz : Sizes Impl.Sha512.X86_64.Stream.params D 96) :
-    HashOk Impl.Sha512.X86_64.Stream.params D 96 S Proof.Sha512.md iv where
+    (hsz : Sizes Impl.Sha512.X86_64.Stream.params D 234) :
+    HashOk Impl.Sha512.X86_64.Stream.params D 234 S Proof.Sha512.md iv where
   sizes := hsz
   shape := Proof.Sha512.X86_64.Stream.shape
   reloc := sha512_reloc
@@ -172,7 +172,7 @@ theorem sha512Fam_ok (S : Spec.Hmac.StreamingHash) (D : Nat) (iv : Spec.Sha512.H
     by have := hsz.pad; simp [Impl.Sha512.X86_64.Stream.params] at this ⊢; omega⟩
 
 theorem sha512Fam_sizes {D : Nat} (h₁ : D % 4 = 0) (h₂ : 0 < D) (h₃ : D ≤ 64) :
-    Sizes Impl.Sha512.X86_64.Stream.params D 96 :=
+    Sizes Impl.Sha512.X86_64.Stream.params D 234 :=
   ⟨Proof.Sha512.X86_64.Stream.dims, by decide, h₁, by decide, h₂, h₃, by decide,
     by simp [Impl.Sha512.X86_64.Stream.params]; omega, by decide, by decide⟩
 
@@ -192,27 +192,27 @@ theorem sha512_256_checks : Checks Impl.Sha512.X86_64.Stream.params 32 :=
   ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
     ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
 
-theorem sha384_imp : (iterK Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.iterateContract X86_64.abi 8) :=
-  iterImp Spec.Hmac.sha384S 96 (by
+theorem sha384_imp : (iterK Spec.Hmac.sha384S 234).Implies (Spec.Hmac.sha384I.iterateContract X86_64.abi 8) :=
+  iterImp Spec.Hmac.sha384S 234 (by
     inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha384S, Spec.Hmac.sha384,
-      X86_64.abi, X86_64.argRegs] using iterSat 192 48 96)
+      X86_64.abi, X86_64.argRegs] using iterSat 192 48 234)
 
-theorem sha512_imp : (iterK Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.iterateContract X86_64.abi 8) :=
-  iterImp Spec.Hmac.sha512S 96 (by
+theorem sha512_imp : (iterK Spec.Hmac.sha512S 234).Implies (Spec.Hmac.sha512I.iterateContract X86_64.abi 8) :=
+  iterImp Spec.Hmac.sha512S 234 (by
     inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512S, Spec.Hmac.sha512,
-      X86_64.abi, X86_64.argRegs] using iterSat 192 64 96)
+      X86_64.abi, X86_64.argRegs] using iterSat 192 64 234)
 
 theorem sha512_224_imp :
-    (iterK Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.iterateContract X86_64.abi 8) :=
-  iterImp Spec.Hmac.sha512_224S 96 (by
+    (iterK Spec.Hmac.sha512_224S 234).Implies (Spec.Hmac.sha512_224I.iterateContract X86_64.abi 8) :=
+  iterImp Spec.Hmac.sha512_224S 234 (by
     inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224,
-      X86_64.abi, X86_64.argRegs] using iterSat 192 28 96)
+      X86_64.abi, X86_64.argRegs] using iterSat 192 28 234)
 
 theorem sha512_256_imp :
-    (iterK Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.iterateContract X86_64.abi 8) :=
-  iterImp Spec.Hmac.sha512_256S 96 (by
+    (iterK Spec.Hmac.sha512_256S 234).Implies (Spec.Hmac.sha512_256I.iterateContract X86_64.abi 8) :=
+  iterImp Spec.Hmac.sha512_256S 234 (by
     inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256,
-      X86_64.abi, X86_64.argRegs] using iterSat 192 32 96)
+      X86_64.abi, X86_64.argRegs] using iterSat 192 32 234)
 
 theorem sha384 :
     Verified X86_64.target
