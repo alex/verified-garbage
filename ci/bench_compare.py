@@ -18,6 +18,15 @@ verified-garbage benchmark got slower by more than `--threshold`.
 OpenSSL's code is the same on both sides, so its benchmarks run just once,
 with HEAD's binary, as a reference point for HEAD's times.
 
+Both sides run with the same fixed glibc malloc settings (`MALLOC_TUNABLES`):
+every allocation of 128 KiB or more is a fresh `mmap`, and the heap is
+trimmed on every free. By default glibc sometimes serves a large allocation
+(scrypt's table) from memory freed earlier and sometimes maps fresh pages,
+depending on what the process allocated before (criterion's own buffers, which
+change with the benchmarks that ran before), and the page faults of fresh pages
+cost a large, fixed share of a short run: `scrypt/1024` differed by 36% on
+32-bit Arm between two binaries whose scrypt code was the same.
+
 `VG_CPU_FEATURES` in the environment (see src/cpu.rs) restricts the CPU
 features both sides use, and is named in the report. Each side is passed
 only the features its own src/cpu.rs knows (base may predate one), since it
@@ -40,6 +49,12 @@ import sys
 # `<primitive>/<library>/<bytes>`, see bench/benches/primitives.rs).
 VG = "verified-garbage"
 OPENSSL = "openssl"
+
+
+# glibc malloc settings for both sides (see the module docstring): a fixed
+# `mmap` threshold (which also turns off glibc's dynamic threshold) and a
+# zero trim threshold. Other C libraries ignore it.
+MALLOC_TUNABLES = "glibc.malloc.mmap_threshold=131072:glibc.malloc.trim_threshold=0"
 
 
 # Every build shares one target directory, so the dependencies (criterion,
@@ -132,6 +147,9 @@ def run(binary, home, library, args, checkout):
             "CRITERION_HOME": str(home),
             "VG_BENCH_MODULES": args.modules,
             "VG_CPU_FEATURES": cpu_features(checkout),
+            "GLIBC_TUNABLES": ":".join(
+                t for t in (os.environ.get("GLIBC_TUNABLES", ""), MALLOC_TUNABLES) if t
+            ),
         },
         check=True,
         stdout=subprocess.DEVNULL,
