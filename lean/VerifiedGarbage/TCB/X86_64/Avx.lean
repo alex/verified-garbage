@@ -56,6 +56,16 @@ inductive VOp
   | vmovq (dst : XReg) (src : Reg)
   /-- `vzeroupper` -/
   | vzeroupper
+  /-- `vsha512rnds2 ymm1, ymm2, xmm3` (`VEX.256.F2.0F38.W0 CB /r`, SHA512):
+  two SHA-512 rounds, with `C, D, G, H` in `ymm1` (`dst`), `A, B, E, F` in
+  `ymm2` (`src1`) and `Wₜ + Kₜ` for the two rounds in `xmm3` (`src2`). -/
+  | vsha512rnds2 (dst src1 src2 : XReg)
+  /-- `vsha512msg1 ymm1, xmm2` (`VEX.256.F2.0F38.W0 CC /r`, SHA512): the
+  `σ₀` part of the next four message words. -/
+  | vsha512msg1 (dst src : XReg)
+  /-- `vsha512msg2 ymm1, ymm2` (`VEX.256.F2.0F38.W0 CD /r`, SHA512): the
+  `σ₁` part of the next four message words. -/
+  | vsha512msg2 (dst src : XReg)
   deriving DecidableEq, Repr
 
 /-! ### AVX
@@ -111,6 +121,89 @@ def VVarOp.eval (op : VVarOp) (a b : BitVec 128) : BitVec 128 :=
 /-- Quadword `i` (bits `64i+63:64i`) of a 256-bit value. -/
 def qword256 (x : BitVec 256) (i : Nat) : BitVec 64 := x.extractLsb' (64 * i) 64
 
+/-! ### SHA512
+
+SDM Vol. 2, "VSHA512MSG1", "VSHA512MSG2" and "VSHA512RNDS2" (the SHA512
+extension): the functions of FIPS 180-4 §4.1.3 on quadwords, as the SDM's
+pseudocode defines them (`ROR64(qword, n) := (qword >> n) | (qword << (64 -
+n))`, `SHR64(qword, n) := qword >> n`). -/
+
+def sha512Ch (x y z : BitVec 64) : BitVec 64 := (x &&& y) ^^^ (z &&& ~~~x)
+
+def sha512Maj (x y z : BitVec 64) : BitVec 64 := (x &&& y) ^^^ (x &&& z) ^^^ (y &&& z)
+
+/-- `cap_sigma0` -/
+def sha512BigSigma0 (x : BitVec 64) : BitVec 64 :=
+  x.rotateRight 28 ^^^ x.rotateRight 34 ^^^ x.rotateRight 39
+
+/-- `cap_sigma1` -/
+def sha512BigSigma1 (x : BitVec 64) : BitVec 64 :=
+  x.rotateRight 14 ^^^ x.rotateRight 18 ^^^ x.rotateRight 41
+
+/-- `s0` -/
+def sha512Sigma0 (x : BitVec 64) : BitVec 64 := x.rotateRight 1 ^^^ x.rotateRight 8 ^^^ x >>> 7
+
+/-- `s1` -/
+def sha512Sigma1 (x : BitVec 64) : BitVec 64 := x.rotateRight 19 ^^^ x.rotateRight 61 ^^^ x >>> 6
+
+/-- VSHA512MSG1: `W[4] := SRC.qword[0]; W[3] := DEST.qword[3]; W[2] :=
+DEST.qword[2]; W[1] := DEST.qword[1]; W[0] := DEST.qword[0];
+DEST.qword[3] := W[3] + s0(W[4]); DEST.qword[2] := W[2] + s0(W[3]);
+DEST.qword[1] := W[1] + s0(W[2]); DEST.qword[0] := W[0] + s0(W[1])`. -/
+def sha512Msg1 (dst : BitVec 256) (src : BitVec 128) : BitVec 256 :=
+  let w (i : Nat) := qword256 dst i
+  (w 3 + sha512Sigma0 (src.extractLsb' 0 64)) ++ (w 2 + sha512Sigma0 (w 3)) ++
+    (w 1 + sha512Sigma0 (w 2)) ++ (w 0 + sha512Sigma0 (w 1))
+
+/-- VSHA512MSG2: `W[14] := SRC.qword[2]; W[15] := SRC.qword[3]; W[16] :=
+DEST.qword[0] + s1(W[14]); W[17] := DEST.qword[1] + s1(W[15]); W[18] :=
+DEST.qword[2] + s1(W[16]); W[19] := DEST.qword[3] + s1(W[17]);
+DEST.qword[3] := W[19]; DEST.qword[2] := W[18]; DEST.qword[1] := W[17];
+DEST.qword[0] := W[16]`. -/
+def sha512Msg2 (dst src : BitVec 256) : BitVec 256 :=
+  let w16 := qword256 dst 0 + sha512Sigma1 (qword256 src 2)
+  let w17 := qword256 dst 1 + sha512Sigma1 (qword256 src 3)
+  let w18 := qword256 dst 2 + sha512Sigma1 w16
+  let w19 := qword256 dst 3 + sha512Sigma1 w17
+  w19 ++ w18 ++ w17 ++ w16
+
+/-- VSHA512RNDS2: `A[0] := SRC1.qword[3]; B[0] := SRC1.qword[2]; C[0] :=
+DEST.qword[3]; D[0] := DEST.qword[2]; E[0] := SRC1.qword[1]; F[0] :=
+SRC1.qword[0]; G[0] := DEST.qword[1]; H[0] := DEST.qword[0]; WK[0] :=
+SRC2.qword[0]; WK[1] := SRC2.qword[1]; FOR i := 0 to 1: A[i+1] :=
+CH(E[i], F[i], G[i]) + cap_sigma1(E[i]) + WK[i] + H[i] + MAJ(A[i], B[i],
+C[i]) + cap_sigma0(A[i]); B[i+1] := A[i]; C[i+1] := B[i]; D[i+1] := C[i];
+E[i+1] := CH(E[i], F[i], G[i]) + cap_sigma1(E[i]) + WK[i] + H[i] + D[i];
+F[i+1] := E[i]; G[i+1] := F[i]; H[i+1] := G[i]; ENDFOR; DEST.qword[3] :=
+A[2]; DEST.qword[2] := B[2]; DEST.qword[1] := E[2]; DEST.qword[0] :=
+F[2]`. -/
+def sha512Rnds2 (dst src1 : BitVec 256) (src2 : BitVec 128) : BitVec 256 :=
+  let a0 := qword256 src1 3
+  let b0 := qword256 src1 2
+  let c0 := qword256 dst 3
+  let d0 := qword256 dst 2
+  let e0 := qword256 src1 1
+  let f0 := qword256 src1 0
+  let g0 := qword256 dst 1
+  let h0 := qword256 dst 0
+  let wk0 := src2.extractLsb' 0 64
+  let wk1 := src2.extractLsb' 64 64
+  let a1 := sha512Ch e0 f0 g0 + sha512BigSigma1 e0 + wk0 + h0 + sha512Maj a0 b0 c0 +
+    sha512BigSigma0 a0
+  let b1 := a0
+  let c1 := b0
+  let d1 := c0
+  let e1 := sha512Ch e0 f0 g0 + sha512BigSigma1 e0 + wk0 + h0 + d0
+  let f1 := e0
+  let g1 := f0
+  let h1 := g0
+  let a2 := sha512Ch e1 f1 g1 + sha512BigSigma1 e1 + wk1 + h1 + sha512Maj a1 b1 c1 +
+    sha512BigSigma0 a1
+  let b2 := a1
+  let e2 := sha512Ch e1 f1 g1 + sha512BigSigma1 e1 + wk1 + h1 + d1
+  let f2 := e1
+  a2 ++ b2 ++ e2 ++ f2
+
 /-- SDM Vol. 2, "VPERMQ" (immediate form): `DEST[63:0] := (SRC >>
 (IMM8[1:0] * 64))[63:0]; DEST[127:64] := (SRC >> (IMM8[3:2] * 64))[63:0];
 DEST[191:128] := (SRC >> (IMM8[5:4] * 64))[63:0]; DEST[255:192] := (SRC >>
@@ -153,7 +246,9 @@ Vol. 2 (no flags are affected; `VEX.128` versions zero `DEST[MAXVL-1:128]`):
   := SRC1[127:0]; 1: DEST[127:0] := SRC1[255:128]; DEST[MAXVL-1:128] := 0`.
 * VMOVQ xmm, r64: `DEST[63:0] := SRC[63:0]; DEST[MAXVL-1:64] := 0`.
 * VZEROUPPER: in 64-bit mode, `YMM0[MAXVL-1:128] := 0` … `YMM15[MAXVL-1:128]
-  := 0` (bits 255:128 and 511:256 of each). -/
+  := 0` (bits 255:128 and 511:256 of each).
+* VSHA512RNDS2, VSHA512MSG1 and VSHA512MSG2: see `sha512Rnds2`,
+  `sha512Msg1` and `sha512Msg2` (`DEST[MAXVL-1:256] := 0`). -/
 def VOp.exec : VOp → State → State
   | .vbin op len d a b, s =>
     s.setV len d (op.sse.eval (s.lane a 0) (s.lane b 0)) (op.sse.eval (s.lane a 1) (s.lane b 1))
@@ -185,5 +280,14 @@ def VOp.exec : VOp → State → State
   | .vextracti128 d r n, s => s.setV .l128 d (s.lane r (if n.getLsbD 0 then 1 else 0)) 0
   | .vmovq d r, s => s.setV .l128 d ((0 : BitVec 64) ++ s.gpr r) 0
   | .vzeroupper, s => { s with ymmHi := fun _ => 0, zmmHi := fun _ => 0 }
+  | .vsha512rnds2 d a b, s =>
+    let x := sha512Rnds2 (s.ymm d) (s.ymm a) (s.xmm b)
+    s.setV .l256 d (x.extractLsb' 0 128) (x.extractLsb' 128 128)
+  | .vsha512msg1 d r, s =>
+    let x := sha512Msg1 (s.ymm d) (s.xmm r)
+    s.setV .l256 d (x.extractLsb' 0 128) (x.extractLsb' 128 128)
+  | .vsha512msg2 d r, s =>
+    let x := sha512Msg2 (s.ymm d) (s.ymm r)
+    s.setV .l256 d (x.extractLsb' 0 128) (x.extractLsb' 128 128)
 
 end VG.X86_64

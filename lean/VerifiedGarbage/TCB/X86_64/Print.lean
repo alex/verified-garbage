@@ -129,6 +129,9 @@ def VOp.asm : VOp → String
   | .vextracti128 d r n => s!"vextracti128 {d.name}, {r.yname}, {n.toNat}"
   | .vmovq d r => s!"vmovq {d.name}, {r.name}"
   | .vzeroupper => "vzeroupper"
+  | .vsha512rnds2 d a b => s!"vsha512rnds2 {d.yname}, {a.yname}, {b.name}"
+  | .vsha512msg1 d r => s!"vsha512msg1 {d.yname}, {r.name}"
+  | .vsha512msg2 d r => s!"vsha512msg2 {d.yname}, {r.yname}"
 
 def ZBinOp.name : ZBinOp → String
   | .vpaddd => "vpaddd" | .vpxord => "vpxord"
