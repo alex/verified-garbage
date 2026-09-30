@@ -41,6 +41,15 @@ pub(crate) mod md5;
 pub(crate) mod mldsa;
 
 #[rustfmt::skip]
+pub(crate) mod mldsa44;
+
+#[rustfmt::skip]
+pub(crate) mod mldsa65;
+
+#[rustfmt::skip]
+pub(crate) mod mldsa87;
+
+#[rustfmt::skip]
 pub(crate) mod mlkem;
 
 #[rustfmt::skip]
