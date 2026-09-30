@@ -1,6 +1,5 @@
 //! ML-KEM-768: key generation from a seed, an encapsulation key from its
-//! bytes (which checks it), its expansion, encapsulation (to the key and to
-//! the expanded key) and decapsulation.
+//! bytes (which checks it), encapsulation and decapsulation.
 //!
 //! OpenSSL implements ML-KEM from version 3.5, which the runners' OpenSSL
 //! (3.0) predates, and rust-openssl has no encapsulation API, so there is
@@ -42,20 +41,9 @@ pub fn bench(c: &mut Criterion) {
         b.iter(|| EncapsulationKey768::from_bytes(black_box(&ek_bytes)).unwrap())
     });
     g.finish();
-    let mut g = c.benchmark_group("mlkem768_ek_expand");
-    g.bench_function(BenchmarkId::new(VG, 10432), |b| {
-        b.iter(|| black_box(ek).expand().unwrap())
-    });
-    g.finish();
     let mut g = c.benchmark_group("mlkem768_encaps");
     g.bench_function(BenchmarkId::new(VG, 1088 + 32), |b| {
         b.iter(|| black_box(ek).encapsulate().unwrap())
-    });
-    g.finish();
-    let ekx = ek.expand().unwrap();
-    let mut g = c.benchmark_group("mlkem768_encaps_expanded");
-    g.bench_function(BenchmarkId::new(VG, 1088 + 32), |b| {
-        b.iter(|| black_box(&ekx).encapsulate().unwrap())
     });
     g.finish();
     let mut g = c.benchmark_group("mlkem768_decaps");
