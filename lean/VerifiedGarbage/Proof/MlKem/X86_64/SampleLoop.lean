@@ -98,7 +98,7 @@ theorem ofNat64_succ {j : Nat} (_h : j + 1 < 2 ^ 64) : BitVec.ofNat 64 j + 1 = B
   rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat, show (1 : BitVec 64).toNat = 1 from rfl]
   omega
 
-theorem sx0 : BitVec.signExtend 64 (0 : BitVec 32) = 0 := by decide
+theorem sxZero : BitVec.signExtend 64 (0 : BitVec 32) = 0 := by decide
 
 /-- A write past the coefficients keeps them. -/
 theorem stored_write {m : Mem} {aP : Addr} {L : List Zq} (h : Stored m aP L) (hL : L.length < 256) (v : BitVec 32) :
@@ -122,7 +122,7 @@ theorem snTry_ok (r : Reg) (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .r
   refine WP.mono (WP.keep [.rdi, r] (Q := fun s' =>
       s'.mem = s.mem.writeW (coeffAddr aP L.length) ((s.gpr r).setWidth 32) ∧
       s'.gpr .rdi = s.gpr .rdi + BitVec.setWidth 64 (BitVec.ofBool (decide (((s.gpr r).setWidth 32).toNat < 3329))))
-    (by unfold snTry; xrun [ha, hin, qImm_toNat, sx0]; exact congrArg (· + _) (BitVec.add_zero _))
+    (by unfold snTry; xrun [ha, hin, qImm_toNat, sxZero]; exact congrArg (· + _) (BitVec.add_zero _))
     (by cases r <;> decide))
     fun s' ⟨⟨hm, hdi'⟩, k⟩ => ?_
   have hf : Frame [pR aP] s.mem s'.mem := by
