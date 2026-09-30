@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.X86_64.Target
-import VerifiedGarbage.Proof.Pbkdf2.Generic.X86_64.Instances
+import VerifiedGarbage.Proof.Pbkdf2.X86_64.Instances
 
 /-!
 # The PBKDF2-HMAC-MD5 iteration (RFC 8018) on x86-64
@@ -14,25 +14,25 @@ target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract (after unfolding the `Instance`'s contract to the
 generic one, which is a `Sig.contract`).
 
-The code is the one PBKDF2 iteration for every streaming hash function
-(`Impl/Pbkdf2/Generic/X86_64.lean`), calling MD5's verified `update` and
-`finalize`.
+The code is the one PBKDF2 iteration for every hash function whose streaming
+code is the generic one (`Impl/Pbkdf2/X86_64.lean`), calling MD5's verified
+compression function directly, twice per step.
 -/
 
 namespace VG.Artifacts.Pbkdf2Md5.X86_64
 
-open VG.Proof.Hmac.Generic.X86_64
+open VG.Impl.Pbkdf2.X86_64 (iterate)
 
 def artifacts : List Artifact := [
   { Spec.Hmac.md5I.iterateApi with
     target := X86_64.target
     doc := Spec.Hmac.md5I.iterateApi.doc
-    code := Impl.Pbkdf2.Generic.X86_64.iterate md5H
-    contract := Spec.Hmac.md5I.iterateContract X86_64.abi 16
+    code := iterate Impl.Md5.X86_64.Stream.params 16 "vg_md5_compress" Impl.Md5.X86_64.compress
+    contract := Spec.Hmac.md5I.iterateContract X86_64.abi 8
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.iterateContract; rfl⟩
     writeArgs := true
-    stack := 16
-    verified := Proof.Pbkdf2.Generic.X86_64.Instances.md5
+    stack := 8
+    verified := Proof.Pbkdf2.X86_64.Instances.md5
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Pbkdf2Md5.X86_64

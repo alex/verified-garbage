@@ -16,13 +16,15 @@ inductive XBinOp
   | movdqa | paddd | pxor | por | punpckldq | punpckhdq | punpcklqdq | punpckhqdq
   | pshufb | sha256msg1 | sha256msg2 | sha1msg1 | sha1msg2 | sha1nexte
   | pand | pandn | paddq | pmuludq
+  | paddw | psubw | psubd | pmullw | pmulhw | packssdw | punpcklwd | punpckhwd
   | aesenc | aesenclast | aesdec | aesdeclast | aesimc
   deriving DecidableEq, Repr
 
-/-- SSE2 shifts by an immediate count: of each doubleword (`pslld`, `psrld`),
-of each quadword (`psllq`, `psrlq`), or of the whole register by bytes
-(`pslldq`, `psrldq`). -/
-inductive XShiftOp | pslld | psrld | psllq | psrlq | pslldq | psrldq
+/-- SSE2 shifts by an immediate count: of each word (`psllw`, `psrlw`,
+`psraw`), of each doubleword (`pslld`, `psrld`, `psrad`), of each quadword
+(`psllq`, `psrlq`), or of the whole register by bytes (`pslldq`,
+`psrldq`). -/
+inductive XShiftOp | pslld | psrld | psllq | psrlq | pslldq | psrldq | psllw | psrlw | psraw | psrad
   deriving DecidableEq, Repr
 
 /-- SSE instructions that write only an SSE register. -/
@@ -60,6 +62,23 @@ def qword (x : BitVec 128) (i : Nat) : BitVec 64 := x.extractLsb' (64 * i) 64
 
 /-- The 128-bit value with doublewords `d0` (bits 31:0), `d1`, `d2`, `d3` (bits 127:96). -/
 def ofDwords (d0 d1 d2 d3 : BitVec 32) : BitVec 128 := d3 ++ d2 ++ d1 ++ d0
+
+/-- Word `i` of `x`: bits `16i+15:16i`. -/
+def word (x : BitVec 128) (i : Nat) : BitVec 16 := x.extractLsb' (16 * i) 16
+
+/-- The 128-bit value whose word `i` (bits `16i+15:16i`) is `f i`. -/
+def ofWords (f : Nat → BitVec 16) : BitVec 128 :=
+  f 7 ++ f 6 ++ f 5 ++ f 4 ++ f 3 ++ f 2 ++ f 1 ++ f 0
+
+/-- The signed product of two words (SDM Vol. 2, "PMULLW" and "PMULHW":
+`TEMP0[31:0] := DEST[15:0] * SRC[15:0]`, "signed multiply"). -/
+def mulWordsSigned (a b : BitVec 16) : BitVec 32 := a.signExtend 32 * b.signExtend 32
+
+/-- SDM Vol. 2, "PACKSSDW", `SaturateSignedDwordToSignedWord`: the
+doubleword as a signed word, `7FFFH` if it is greater than 32767 and `8000H`
+if it is less than -32768. -/
+def satSignedWord (x : BitVec 32) : BitVec 16 :=
+  if 32767 < x.toInt then 0x7fff else if x.toInt < -32768 then 0x8000 else x.setWidth 16
 
 /-- Byte `i` of `x`: bits `8i+7:8i`. -/
 def byte (x : BitVec 128) (i : Nat) : BitVec 8 := x.extractLsb' (8 * i) 8
@@ -260,6 +279,27 @@ bits above 127 unmodified; no flags are affected):
   DEST[127:64] + SRC[127:64]` (wrapping).
 * PMULUDQ: `DEST[63:0] := DEST[31:0] * SRC[31:0]; DEST[127:64] :=
   DEST[95:64] * SRC[95:64]` (unsigned, full 64-bit products).
+* PADDW: `DEST[15:0] := DEST[15:0] + SRC[15:0]`, and likewise for words
+  1–7. PSUBW: `DEST[15:0] := DEST[15:0] − SRC[15:0]`, and likewise for
+  words 1–7. PSUBD: `DEST[31:0] := DEST[31:0] − SRC[31:0]`, and likewise
+  for doublewords 1–3 (all wrapping; no carry or borrow between elements).
+* PMULLW: `TEMP0[31:0] := DEST[15:0] * SRC[15:0]` (signed multiply; see
+  `mulWordsSigned`), … `TEMP7[31:0] := DEST[127:112] * SRC[127:112]`;
+  `DEST[15:0] := TEMP0[15:0]`, … `DEST[127:112] := TEMP7[15:0]`.
+* PMULHW: the same products; `DEST[15:0] := TEMP0[31:16]`, …
+  `DEST[127:112] := TEMP7[31:16]`.
+* PACKSSDW: `DEST[15:0] := SaturateSignedDwordToSignedWord (DEST[31:0])`,
+  … `DEST[63:48] := SaturateSignedDwordToSignedWord (DEST[127:96])`;
+  `DEST[79:64] := SaturateSignedDwordToSignedWord (SRC[31:0])`, …
+  `DEST[127:112] := SaturateSignedDwordToSignedWord (SRC[127:96])` (see
+  `satSignedWord`).
+* PUNPCKLWD (`INTERLEAVE_WORDS`): `DEST[15:0] := SRC1[15:0]; DEST[31:16] :=
+  SRC2[15:0]; DEST[47:32] := SRC1[31:16]; DEST[63:48] := SRC2[31:16];
+  DEST[79:64] := SRC1[47:32]; DEST[95:80] := SRC2[47:32]; DEST[111:96] :=
+  SRC1[63:48]; DEST[127:112] := SRC2[63:48]`.
+* PUNPCKHWD (`INTERLEAVE_HIGH_WORDS`): the same, from `SRC1[127:64]` and
+  `SRC2[127:64]`: `DEST[15:0] := SRC1[79:64]; DEST[31:16] := SRC2[79:64];
+  …; DEST[127:112] := SRC2[127:112]`.
 * AESENC: `STATE := SRC1; RoundKey := SRC2; STATE := ShiftRows(STATE);
   STATE := SubBytes(STATE); STATE := MixColumns(STATE); DEST[127:0] :=
   STATE XOR RoundKey`.
@@ -301,6 +341,18 @@ def XBinOp.eval : XBinOp → BitVec 128 → BitVec 128 → BitVec 128
   | .pmuludq, a, b =>
     ((dword a 2).setWidth 64 * (dword b 2).setWidth 64) ++
       ((dword a 0).setWidth 64 * (dword b 0).setWidth 64)
+  | .paddw, a, b => ofWords fun i => word a i + word b i
+  | .psubw, a, b => ofWords fun i => word a i - word b i
+  | .psubd, a, b =>
+    ofDwords (dword a 0 - dword b 0) (dword a 1 - dword b 1) (dword a 2 - dword b 2)
+      (dword a 3 - dword b 3)
+  | .pmullw, a, b => ofWords fun i => (mulWordsSigned (word a i) (word b i)).extractLsb' 0 16
+  | .pmulhw, a, b => ofWords fun i => (mulWordsSigned (word a i) (word b i)).extractLsb' 16 16
+  | .packssdw, a, b =>
+    ofWords fun i => if i < 4 then satSignedWord (dword a i) else satSignedWord (dword b (i - 4))
+  | .punpcklwd, a, b => ofWords fun i => if i % 2 = 0 then word a (i / 2) else word b (i / 2)
+  | .punpckhwd, a, b =>
+    ofWords fun i => if i % 2 = 0 then word a (4 + i / 2) else word b (4 + i / 2)
   | .aesenc, a, b => aesMixColumns (aesMapBytes aesSbox (aesShiftRows a)) ^^^ b
   | .aesenclast, a, b => aesMapBytes aesSbox (aesShiftRows a) ^^^ b
   | .aesdec, a, b => aesInvMixColumns (aesMapBytes aesInvSbox (aesInvShiftRows a)) ^^^ b
@@ -309,6 +361,13 @@ def XBinOp.eval : XBinOp → BitVec 128 → BitVec 128 → BitVec 128
 
 /-- SDM Vol. 2, the forms with an immediate count (no flags are affected):
 
+* "PSLLW/PSLLD/PSLLQ" and "PSRLW/PSRLD/PSRLQ", words: `IF (COUNT > 15) THEN
+  DEST[127:0] := 0 ELSE DEST[15:0] := ZeroExtend(DEST[15:0] << COUNT)`
+  (respectively `>>`, a logical shift), and likewise for words 1–7.
+* "PSRAW/PSRAD": `IF (COUNT > 15) THEN COUNT := 16; DEST[15:0] :=
+  SignExtend(DEST[15:0] >> COUNT)` (an arithmetic shift), and likewise for
+  words 1–7; doublewords: `IF (COUNT > 31) THEN COUNT := 32; DEST[31:0] :=
+  SignExtend(DEST[31:0] >> COUNT)`, and likewise for doublewords 1–3.
 * "PSLLW/PSLLD/PSLLQ" and "PSRLW/PSRLD/PSRLQ", doublewords: `IF (COUNT > 31)
   THEN DEST[127:0] := 0 ELSE DEST[31:0] := ZeroExtend(DEST[31:0] << COUNT)`
   (respectively `>>`, a logical shift), and likewise for doublewords 1–3.
@@ -323,6 +382,8 @@ def XShiftOp.eval (op : XShiftOp) (a : BitVec 128) (count : BitVec 8) : BitVec 1
     if 31 < n then 0 else ofDwords (f (dword a 0)) (f (dword a 1)) (f (dword a 2)) (f (dword a 3))
   let qwords (f : BitVec 64 → BitVec 64) : BitVec 128 :=
     if 63 < n then 0 else f (qword a 1) ++ f (qword a 0)
+  let words (f : BitVec 16 → BitVec 16) : BitVec 128 :=
+    if 15 < n then 0 else ofWords fun i => f (word a i)
   match op with
   | .pslld => dwords (· <<< n)
   | .psrld => dwords (· >>> n)
@@ -330,6 +391,12 @@ def XShiftOp.eval (op : XShiftOp) (a : BitVec 128) (count : BitVec 8) : BitVec 1
   | .psrlq => qwords (· >>> n)
   | .pslldq => a <<< (min n 16 * 8)
   | .psrldq => a >>> (min n 16 * 8)
+  | .psllw => words (· <<< n)
+  | .psrlw => words (· >>> n)
+  | .psraw => ofWords fun i => (word a i).sshiftRight (min n 16)
+  | .psrad =>
+    let f (x : BitVec 32) := x.sshiftRight (min n 32)
+    ofDwords (f (dword a 0)) (f (dword a 1)) (f (dword a 2)) (f (dword a 3))
 
 /-- SDM Vol. 2, "PSHUFD": `DEST[31:0] := (SRC >> (ORDER[1:0] * 32))[31:0];
 DEST[63:32] := (SRC >> (ORDER[3:2] * 32))[31:0]; DEST[95:64] := (SRC >>
