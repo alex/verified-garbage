@@ -159,9 +159,6 @@ theorem loop_ok {s : State} (h : J6 136 544 (spOf σ) σ s) : WP isa (rbLoop (et
       by rw [hk.gpr (by decide), hdi]; rfl, hcx, by rw [hm]; exact stored_nil _ _⟩ hcx
   rw [hI'.rcx, hI.rcx, ofNat64_pred (by omega) (by omega)]; rfl
 
-omit hp in
-theorem sx2 : BitVec.signExtend 64 (2 : BitVec 32) = BitVec.ofNat 64 2 := by decide
-
 /-- The branch on `η`, and the loop for it. -/
 theorem sel_ok {s : State} (h : J6 136 544 (spOf σ) σ s) :
     WP isa (.seq (.block [.alu32 .cmp .r12 (.imm 2)]) (.ite .e (rbLoop 2) (rbLoop 4))) s (LAt σ 544) := by

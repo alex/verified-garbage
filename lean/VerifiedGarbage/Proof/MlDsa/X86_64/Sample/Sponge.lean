@@ -383,16 +383,16 @@ structure J6 (rate outlen : Nat) (P : Sp) (σ s : State) : Prop where
 theorem covS {outlen : Nat} (ho : 840 + outlen ≤ 2024) {s : State} (he : Env P σ s) :
     Covers ([] ++ [⟨P.scr, 200⟩, ⟨P.at' 840, outlen⟩, ⟨P.at' 200, 640⟩]) (s.rd ++ s.wr) ∧
       Covers [⟨P.scr, 200⟩, ⟨P.at' 840, outlen⟩, ⟨P.at' 200, 640⟩] s.wr := by
-    refine ⟨cov_all hp he ?_, cov_scr hp he ?_⟩
-    · intro r hr
-      simp only [List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl
-      exacts [.inr ⟨0, (add_ofNat_zero _).symm, by simp⟩, .inr ⟨840, rfl, by simp; omega⟩,
-        .inr ⟨200, rfl, by simp⟩]
-    · intro r hr
-      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl
-      exacts [⟨0, (add_ofNat_zero _).symm, by simp⟩, ⟨840, rfl, by simp; omega⟩, ⟨200, rfl, by simp⟩]
+  refine ⟨cov_all hp he ?_, cov_scr hp he ?_⟩
+  · intro r hr
+    simp only [List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl
+    exacts [.inr ⟨0, (add_ofNat_zero _).symm, by simp⟩, .inr ⟨840, rfl, by simp; omega⟩,
+      .inr ⟨200, rfl, by simp⟩]
+  · intro r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl
+    exacts [⟨0, (add_ofNat_zero _).symm, by simp⟩, ⟨840, rfl, by simp; omega⟩, ⟨200, rfl, by simp⟩]
 
 theorem call3_ok {rate outlen : Nat} (ho : 840 + outlen ≤ 2024) {s : State} (h : J5 rate outlen P σ s) :
     WP isa (.call "vg_keccak_squeeze" Impl.Sha3.X86_64.Stream.squeeze) s (J6 rate outlen P σ) := by
@@ -461,7 +461,7 @@ and `rsp`, and the registers `rs`, which agree in runs related by `J`. -/
 theorem taintSp {J : Sp → State → State → Prop} (hJ : ∀ σ s, J (f σ) σ s → Env (f σ) σ s) {c : Prog isa}
     (rs : List Reg) (hr : ∀ s₁ s₂, Rel2 Pre Pub (fun σ => J (f σ) σ) s₁ s₂ → ∀ r ∈ rs, s₁.gpr r = s₂.gpr r)
     {hc : VG.Taint.Hint X86_64.Taint.T}
-    (h : (taint.check (X86_64.Taint.ofRegs ([.rbx, .rbp, .r12, .rsp] ++ rs)) c hc).isSome = true) :
+    (h : (taint.check (X86_64.Taint.ofRegs (([.rbx, .rbp, .r12, .rsp] : List Reg) ++ rs)) c hc).isSome = true) :
     RelCT isa (Rel2 Pre Pub fun σ => J (f σ) σ) c fun _ _ => True :=
   taintRel _ (fun s₁ s₂ hs r hr' => by
     rcases List.mem_append.mp hr' with hr' | hr'

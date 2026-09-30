@@ -167,8 +167,6 @@ theorem emGroup_ok {c : Nat} (hc : emOk c) {X : List Byte} {out aP : Addr} {g : 
   · rw [hm, coeffAt_writeW _ _ hi (by omega), ifF (by omega)]
     exact hsame i hi (by omega)
 
-theorem sx16 : BitVec.signExtend 64 (16 : BitVec 32) = BitVec.ofNat 64 16 := by decide
-
 theorem sxHalf {c : Nat} (hc : emOk c) : BitVec.signExtend 64 (BitVec.ofNat 32 (c / 2)) = BitVec.ofNat 64 (c / 2) := by
   rcases hc with rfl | rfl <;> decide
 

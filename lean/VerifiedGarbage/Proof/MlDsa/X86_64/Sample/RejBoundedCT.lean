@@ -48,7 +48,7 @@ theorem tryTrace {η : Nat} (hη : η = 2 ∨ η = 4) {h1 : VG.Taint.Hint X86_64
     (c1 : (taint.check (X86_64.Taint.ofRegs []) (.block [.alu32 .cmp .rdx (.imm (rbBound η))]) h1).isSome = true)
     {h2 : VG.Taint.Hint X86_64.Taint.T}
     (c2 : (taint.check (X86_64.Taint.ofRegs [.rbp, .rdi])
-      (.block (rbVal η ++ [.store32 aJ .r8, .alu .add .rdi (.imm 1)])) h2).isSome = true)
+      (.block (rbVal η ++ ([.store32 aJ .r8, .alu .add .rdi (.imm 1)] : List Instr))) h2).isSome = true)
     {h3 : VG.Taint.Hint X86_64.Taint.T} (c3 : (taint.check (X86_64.Taint.ofRegs []) (.block []) h3).isSome = true) :
     RelCT isa (fun s₁ s₂ => s₁.gpr .rbp = s₂.gpr .rbp ∧ s₁.gpr .rdi = s₂.gpr .rdi ∧
       decide (((s₁.gpr .rdx).setWidth 32).toNat < rbB η) = decide (((s₂.gpr .rdx).setWidth 32).toNat < rbB η))
@@ -95,7 +95,7 @@ are related through initial ones. -/
 theorem try_ct {η : Nat} (hη : η = 2 ∨ η = 4) {h1 h2 h3 : VG.Taint.Hint X86_64.Taint.T}
     (c1 : (taint.check (X86_64.Taint.ofRegs []) (.block [.alu32 .cmp .rdx (.imm (rbBound η))]) h1).isSome = true)
     (c2 : (taint.check (X86_64.Taint.ofRegs [.rbp, .rdi])
-      (.block (rbVal η ++ [.store32 aJ .r8, .alu .add .rdi (.imm 1)])) h2).isSome = true)
+      (.block (rbVal η ++ ([.store32 aJ .r8, .alu .add .rdi (.imm 1)] : List Instr))) h2).isSome = true)
     (c3 : (taint.check (X86_64.Taint.ofRegs []) (.block []) h3).isSome = true)
     {P : State → State → Prop} (hP : ∀ s₁ s₂, P s₁ s₂ → TRel η s₁ s₂) :
     RelCT isa P (rbTry η) fun s₁' s₂' => ∃ s₁ s₂, P s₁ s₂ ∧ TryPost η s₁ s₁' ∧ TryPost η s₂ s₂' :=
@@ -190,7 +190,7 @@ section
 variable {η : Nat} (hη : η = 2 ∨ η = 4) {h1 h2 h3 : VG.Taint.Hint X86_64.Taint.T}
   (c1 : (taint.check (X86_64.Taint.ofRegs []) (.block [.alu32 .cmp .rdx (.imm (rbBound η))]) h1).isSome = true)
   (c2 : (taint.check (X86_64.Taint.ofRegs [.rbp, .rdi])
-    (.block (rbVal η ++ [.store32 aJ .r8, .alu .add .rdi (.imm 1)])) h2).isSome = true)
+    (.block (rbVal η ++ ([.store32 aJ .r8, .alu .add .rdi (.imm 1)] : List Instr))) h2).isSome = true)
   (c3 : (taint.check (X86_64.Taint.ofRegs []) (.block []) h3).isSome = true)
 include hη c1 c2 c3
 
@@ -353,7 +353,7 @@ section
 variable {η : Nat} (hη : η = 2 ∨ η = 4) {h1 h2 h3 : VG.Taint.Hint X86_64.Taint.T}
   (c1 : (taint.check (X86_64.Taint.ofRegs []) (.block [.alu32 .cmp .rdx (.imm (rbBound η))]) h1).isSome = true)
   (c2 : (taint.check (X86_64.Taint.ofRegs [.rbp, .rdi])
-    (.block (rbVal η ++ [.store32 aJ .r8, .alu .add .rdi (.imm 1)])) h2).isSome = true)
+    (.block (rbVal η ++ ([.store32 aJ .r8, .alu .add .rdi (.imm 1)] : List Instr))) h2).isSome = true)
   (c3 : (taint.check (X86_64.Taint.ofRegs []) (.block []) h3).isSome = true)
 include hη c1 c2 c3
 
