@@ -4,11 +4,11 @@ import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.Framework.RelCT
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Common
-import VerifiedGarbage.Impl.Pbkdf2.Generic.X86_64
+import VerifiedGarbage.Impl.Hmac.Generic.X86_64
 import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
-# HMAC and PBKDF2-HMAC over any streaming hash function: the x86-64 contracts
+# HMAC over any streaming hash function: the x86-64 contracts
 
 **Untrusted**: the contracts the proofs are written against.
 
@@ -17,9 +17,10 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
   representation of the streaming state as parameters. At SHA-1 and MD5
   they are the contracts those functions are proved against
   (`Proof/<Alg>/X86_64/Contract.lean`); the SHA-512 family's imply them.
-* `initG`, `finG` and `iterG` are those of our functions; the artifacts are
-  emitted with the shared contracts of `Spec/Hmac/Generic.lean` and
-  `Spec/Pbkdf2/Generic.lean`, which imply them (`Contract.Implies`).
+* `initG` and `finG` are those of our functions; the artifacts are emitted
+  with the shared contracts of `Spec/Hmac/Generic.lean`, which imply them
+  (`Contract.Implies`). (PBKDF2's iteration on x86-64 calls the compression
+  functions directly: `Proof/Pbkdf2/X86_64/`.)
 -/
 
 namespace VG.Proof.Hmac.Generic.X86_64
@@ -133,31 +134,6 @@ def finG : Contract isa where
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
     s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
-/-- `iterate(key, u, n, t, scratch)`: `VG.Spec.Pbkdf2.iterateContract`. -/
-def iterG : Contract isa where
-  pre s :=
-    let key : Region := ⟨s.gpr .rdi, 2 * S.stateBytes⟩
-    let u : Region := ⟨s.gpr .rsi, S.digestBytes⟩
-    let t : Region := ⟨s.gpr .rcx, S.digestBytes⟩
-    let scratch : Region := ⟨s.gpr .r8, 8 * W⟩
-    let ret : Region := ⟨s.gpr .rsp, 8⟩
-    let stack : Region := ⟨s.gpr .rsp - 16, 16⟩
-    s.rd = [key, u] ∧ s.wr = [t, scratch] ∧
-    key.Disjoint t ∧ key.Disjoint scratch ∧ u.Disjoint t ∧ u.Disjoint scratch ∧ t.Disjoint scratch ∧
-    ret.Disjoint key ∧ ret.Disjoint u ∧ ret.Disjoint t ∧ ret.Disjoint scratch ∧
-    stack.Disjoint key ∧ stack.Disjoint u ∧ stack.Disjoint t ∧ stack.Disjoint scratch ∧
-    (s.gpr .rdi).toNat + 2 * S.stateBytes ≤ 2 ^ 64 ∧ (s.gpr .r8).toNat + 8 * W ≤ 2 ^ 64
-  post s s' := ∀ k0, k0.length = S.H.blockSize →
-    S.Repr s.mem (s.gpr .rdi) (xorPad k0 ipad) →
-    S.Repr s.mem (s.gpr .rdi + BitVec.ofNat 64 S.stateBytes) (xorPad k0 opad) →
-    bytesAt s'.mem (s.gpr .rcx) S.digestBytes =
-      Spec.Pbkdf2.iterate (hmacBlockKey S.H k0) ((s.gpr .rdx).setWidth 32).toNat
-        (bytesAt s.mem (s.gpr .rsi) S.digestBytes) (bytesAt s.mem (s.gpr .rcx) S.digestBytes)
-  pub s₁ s₂ :=
-    s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧
-    (s₁.gpr .rdx).setWidth 32 = (s₂.gpr .rdx).setWidth 32 ∧
-    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
-
 end VG.Proof.Hmac.Generic.X86_64
 
 /-!
@@ -194,7 +170,7 @@ structure HashOK (H : Hash) where
   hB0 : 0 < H.B
   hBB : H.B ≤ 128
   hWb : Wb ≤ 8 * H.W
-  hW : H.W ≤ 64
+  hW : H.W ≤ 256
   /-- The representation depends only on the state's bytes. -/
   repr : ∀ (m m' : Mem) (p q : Addr) (msg : List Byte),
     (∀ i < H.S, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i)) →

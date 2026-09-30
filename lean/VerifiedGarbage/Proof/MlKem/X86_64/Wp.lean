@@ -81,6 +81,15 @@ theorem sx16 : BitVec.signExtend 64 (16 : BitVec 32) = 16 := by decide
 theorem sx32 : BitVec.signExtend 64 (32 : BitVec 32) = 32 := by decide
 theorem sxQ : BitVec.signExtend 64 qImm = 3329 := by decide
 
+/-- An immediate less than `2³¹`, sign-extended. -/
+theorem sx_ofNat {n : Nat} (h : n < 2 ^ 31) : BitVec.signExtend 64 (BitVec.ofNat 32 n) = BitVec.ofNat 64 n := by
+  have hm : (BitVec.ofNat 32 n).msb = false := by
+    rw [BitVec.msb_eq_decide]; simp only [BitVec.toNat_ofNat, decide_eq_false_iff_not]; omega
+  rw [BitVec.signExtend_eq_setWidth_of_msb_false hm]
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_setWidth, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
+  omega
+
 /-! ## Memory accesses -/
 
 section
