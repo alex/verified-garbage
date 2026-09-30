@@ -14,7 +14,7 @@ the four states, one in each 64-bit element.
 `permute4` is a fragment (not a function: its callers inline it), with
 `rdi` pointing at the states, `rsi` at a second buffer of 800 bytes, and
 `rdx` at a table of the 24 round constants, each in the four elements of a
-`u256` (768 bytes; `rcTable` stores it, through `rax`), and `rcx` past its
+`u256` (768 bytes; `rcTable` stores it, through `rax` and `ymm0`), and `rcx` past its
 end. As the scalar implementation (`Impl/Sha3/X86_64.lean`), a round reads
 one buffer (`src`, `rdi`) and writes the other (`dst`, `rsi`), then swaps
 them; the loop runs two rounds per iteration, so that after the 24 rounds
@@ -97,10 +97,11 @@ def round : List Instr :=
 and its end in `rcx`. -/
 def permute4 : Prog isa := .loop (.block (round ++ round)) .ne
 
-/-- The table of the round constants at `[b + off]`, each four times,
-through `rax`. -/
-def rcTable (b : Reg) (off : Nat) : List Instr :=
+/-- The table of the round constants from lane `i` at `b` (byte `32 i`),
+each in the four elements, through `rax` and `ymm0`. -/
+def rcTable (b : Reg) (i : Nat) : List Instr :=
   (List.range 24).flatMap fun k =>
-    .movImm64 .rax (Spec.Sha3.RC k) :: (List.range 4).map fun i => .store (at_ b (off + 32 * k + 8 * i)) .rax
+    [.movImm64 .rax (Spec.Sha3.RC k), .vop (.vmovq .xmm0 .rax), .vop (.vpbroadcastq .l256 .xmm0 .xmm0),
+      st b (i + k) .xmm0]
 
 end VG.Impl.Sha3.X86_64.X4

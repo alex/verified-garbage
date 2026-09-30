@@ -148,6 +148,27 @@ theorem wp_vshr {d a : XReg} {n : Nat} (hn : n < 64)
   exact WP.cons rfl (k _ (VUpd.vshift _ _ _ _ _ fun _ _ => by
     rw [qword_psrlq _ (by omega) (mod2_lt _), e]; rfl))
 
+theorem wp_vmovq {d : XReg} {g : Reg}
+    (k : ∀ s', VUpd s s' d (fun i => if i = 0 then s.gpr g else 0) → WP isa (.block is) s' Q) :
+    WP isa (.block (.vop (.vmovq d g) :: is)) s Q := by
+  refine WP.cons rfl (k _ ⟨fun i hi => ?_, fun r hr i _ => ?_, VOp.exec_gpr _ _, VOp.exec_mem _ _,
+    VOp.exec_rd _ _, VOp.exec_wr _ _⟩)
+  · simp only [VOp.exec, q4, State.lane_setV128, ite_true]
+    rcases cases4 hi with rfl | rfl | rfl | rfl <;>
+      simp only [qword_app0, qword_app1, Nat.reduceDiv, Nat.reduceMod, ite_true, ite_false,
+        show (1 : Nat) ≠ 0 by decide, show (2 : Nat) ≠ 0 by decide, show (3 : Nat) ≠ 0 by decide] <;> simp [qword]
+  · simp only [VOp.exec, q4, State.lane_setV128, ite_eq_right hr]
+
+theorem wp_vbcast {d a : XReg}
+    (k : ∀ s', VUpd s s' d (fun _ => q4 s a 0) → WP isa (.block is) s' Q) :
+    WP isa (.block (.vop (.vpbroadcastq .l256 d a) :: is)) s Q := by
+  refine WP.cons rfl (k _ ⟨fun i hi => ?_, fun r hr i _ => ?_, VOp.exec_gpr _ _, VOp.exec_mem _ _,
+    VOp.exec_rd _ _, VOp.exec_wr _ _⟩)
+  · simp only [VOp.exec, q4, State.lane_setV256, ite_true]
+    have : i % 2 = 0 ∨ i % 2 = 1 := by omega
+    rcases this with h | h <;> rw [h] <;> split <;> simp [State.lane]
+  · simp only [VOp.exec, q4, State.lane_setV256, ite_eq_right hr]
+
 theorem wp_vld {d : XReg} {m : MemOp} {a : Addr} (ha : s.ea m = a)
     (hin : InRegions (s.rd ++ s.wr) a 32)
     (k : ∀ s', VUpd s s' d (fun i => s.mem.readW (a + BitVec.ofNat 64 (8 * i)) 64) → WP isa (.block is) s' Q) :
