@@ -10,7 +10,7 @@
 //! shared secret that a public key of small order gives (RFC 7748 §6.2), in
 //! constant time; [`x448`] is the function itself, which does not.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
 use crate::arch::x448::vg_x448;
 use crate::mlkem768::zeroize;
