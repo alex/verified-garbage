@@ -70,6 +70,9 @@ pub mod scrypt;
 pub mod x25519;
 
 #[cfg(test)]
+mod ed25519_scalar_tests;
+
+#[cfg(test)]
 mod tests {
     /// The pipeline self-test artifact (`VG.Spec.Selftest.addContract`).
     #[cfg(target_arch = "x86_64")]
