@@ -1,0 +1,5 @@
+name = "Ed25519"
+family = "Signatures"
+specs = ["Ed25519"]
+modules = ["src/ed25519.rs"]
+asm = ["ed25519"]

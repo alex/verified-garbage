@@ -1,4 +1,5 @@
 import VerifiedGarbage.Impl.Sha512.X86_64
+import VerifiedGarbage.Impl.Sha512.X86_64.Avx2
 import VerifiedGarbage.Impl.MdStream.X86_64
 
 /-!
@@ -18,10 +19,11 @@ The streaming state (192 bytes at `state`) is the hash value followed by a
 
 `update` and `finalize` are the generic streaming code of
 `Impl/MdStream/X86_64.lean`. They take the compression function they call (a
-`Callee`, e.g. `vg_sha512_compress`), and are emitted once for each
+`Callee`, e.g. `vg_sha512_compress` or `vg_sha512_compress_avx2`), and are emitted once for each
 implementation (`Generic/Sha512Compress/X86_64/Sha512.lean`). It is called
-with `scratch[0..176)` as its scratch space; our caller's callee-saved
-registers are saved in `scratch[176..224)`. The
+with `scratch[0..1328)` as its scratch space (as much as the shared
+contract gives the compression function, which the AVX2 implementation
+uses); our caller's callee-saved registers are saved in `scratch[1328..1376)`. The
 length field is the length in bits as a 128-bit big-endian integer:
 `count >> 61`, then `count << 3` (modulo 2⁶⁴); the words of the final hash
 value are big-endian.
@@ -39,6 +41,7 @@ structure Callee where
   code : Prog isa
 
 def Callee.scalar : Callee := ⟨"vg_sha512_compress", compress⟩
+def Callee.avx2 : Callee := ⟨"vg_sha512_compress_avx2", Avx2.compress⟩
 
 def init (iv : Spec.Sha512.HashValue) : Prog isa :=
   .block ((List.range 8).flatMap fun k => [.movImm64 .rax iv[k]!, .store (at_ .rdi (8 * k)) .rax])
@@ -48,7 +51,7 @@ def params : Params where
   N := 64
   B := 128
   L := 16
-  so := 176
+  so := 1328
   len := [.mov .rax (.reg .r12), .shift .shr .rax 61, .bswap .rax, .store (at_ .rbx 176) .rax] ++
     len64 184 true
   out := out64 8

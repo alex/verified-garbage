@@ -254,7 +254,7 @@ jobs:
   # times slower than a runner that has them (#274), so that code only runs
   # natively:
   # * `skx` (Skylake-SP): AVX-512F, so ChaCha20 with AVX-512F, and SHA-256
-  #   with AVX2;
+  #   and SHA-512 with AVX2;
   # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F, so ChaCha20 with AVX2
   #   even where this runner has AVX-512F;
   # * `p4p` (Pentium 4): nothing beyond x86-64's baseline, not even CPUID
@@ -313,7 +313,7 @@ jobs:
           CHIP: ${{ matrix.chip }}
       # Only the tests of what depends on CPU features.
       - name: Test the implementations
-        run: cargo test --locked --features cpu-features-env -- sha1 sha256 aes_gcm chacha20 cpu
+        run: cargo test --locked --features cpu-features-env -- sha1 sha256 sha384 sha512 aes_gcm chacha20 cpu
       - name: Export coverage
         run: python3 ci/export_rust_coverage.py .rust-cov --features cpu-features-env
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
