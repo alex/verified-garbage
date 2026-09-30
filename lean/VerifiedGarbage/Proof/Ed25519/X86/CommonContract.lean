@@ -59,4 +59,14 @@ theorem Saved.of_frame {s₀ s t : State} {x : BitVec 32} (h : Saved s₀ x s)
     h.frame.trans (hf.sub fun r hr => ⟨_, List.mem_singleton_self _, hsub r hr⟩), fun j hj => ?_⟩
   rw [wd_frame hf (hsep j hj)]; exact h.saved j hj
 
+theorem Saved.of_offset {s₀ s t : State} {x : BitVec 32} (h : Saved s₀ x s)
+    (hx : x.toNat + 8192 ≤ 2 ^ 32) (hk : ScalarKeep s t) {o n : Nat}
+    (hf : Frame [sub x o n] s.mem t.mem) (ho : 16 ≤ o) (hn : o + n ≤ 8192)
+    (ho' : o < 8192) : Saved s₀ x t := by
+  apply h.of_frame hk hf
+  · intro r hr; rw [List.mem_singleton.mp hr, scR_eq]
+    exact sub_sub hx (Nat.zero_le _) hn ho'
+  · intro j hj r hr; rw [List.mem_singleton.mp hr]
+    exact sub_disj (by omega_using [hx, hj]) (by omega_using [hx, hn]) (Or.inl (by omega_using [hj, ho]))
+
 end VG.Proof.Ed25519.X86

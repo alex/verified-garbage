@@ -13,4 +13,7 @@ def copyWords (dst n : Nat) : List Instr := (List.range n).flatMap fun k =>
 
 def outputWords (src n : Nat) : List Instr := (List.range n).flatMap fun k =>
   [.mov .eax (.mem (sc (src + 4 * k))), .store (at_ .esi (4 * k)) .eax]
+
+def finishWords (src : Nat) : List Instr :=
+  [.mov .esi (.mem (at_ .esp 4))] ++ outputWords src 8 ++ restore
 end VG.Impl.Ed25519.X86

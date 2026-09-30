@@ -62,7 +62,7 @@ theorem copyWords_ok {x p : BitVec 32} {s₀ : State} (hc : Ctx x s₀)
   | 0, _ => WP.block_nil ⟨Keep.refl _, Frame.refl _ _, fun _ h => by omega_using [h]⟩
   | n + 1, hn => by
     have he : copyWords dst (n + 1) = copyWords dst n ++
-        [.mov .eax (.mem (at_ .esi (4 * n))), .store (sc (dst + 4 * n)) .eax] := by
+        ([.mov .eax (.mem (at_ .esi (4 * n))), .store (sc (dst + 4 * n)) .eax] : List Instr) := by
       simp only [copyWords, List.range_succ, List.flatMap_append, List.flatMap_singleton]
     rw [he]
     refine WP.block_append (WP.mono (copyWords_ok hc hp hd hi hs n (by omega_using [hn]))
@@ -120,5 +120,15 @@ theorem abiRestore_ok {x : BitVec 32} {s : State} (hc : Ctx x s) :
   · rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.mem, u₁.mem]
   · rw [u₅.other _ (by decide), u₄.gpr, u₃.mem, u₂.mem, u₁.mem]
   · rw [u₅.gpr, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
+
+theorem loadArg_ok {s₀ s : State} {scidx argc i : Nat} (hp : ScratchPre s₀ scidx argc)
+    (h : Saved s₀ (arg s₀ scidx) s) (hi : i < argc) :
+    WP isa (.block [.mov .esi (.mem (at_ .esp (4 + 4 * i)))]) s fun t =>
+      Saved s₀ (arg s₀ scidx) t ∧ t.gpr .esi = arg s₀ i ∧ t.mem = s.mem := by
+  refine Wp.wp_ldm h.esp (by rw [h.rd, h.wr]; exact hp.argIn hi) fun t ht => WP.block_nil ?_
+  refine ⟨⟨(ht.other _ (by decide)).trans h.edi, (ht.other _ (by decide)).trans h.esp,
+    ht.rd.trans h.rd, ht.wr.trans h.wr, by rw [ht.mem]; exact h.frame,
+    fun j hj => by rw [ht.mem]; exact h.saved j hj⟩, ?_, ht.mem⟩
+  rw [ht.gpr]; exact hp.arg_same h.frame hi
 
 end VG.Proof.Ed25519.X86

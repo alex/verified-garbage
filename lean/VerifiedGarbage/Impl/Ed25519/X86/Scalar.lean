@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.X25519.X86
+import VerifiedGarbage.Impl.Ed25519.X86.CommonMemory
 import VerifiedGarbage.Spec.Ed25519
 
 /-! Binary scalar reduction uses eight 32-bit limbs in scratch. Every bit
@@ -40,4 +40,11 @@ def scalarRead : List Instr :=
 
 def scalarByte : List Instr := scalarRead ++ scalarBits 8 ++ [.alu .test .esi (.reg .esi)]
 
+def scalarInit : List Instr := zeroAcc ++ cols scalarR 8 (fun _ => []) ++ [.mov .esi (.imm 64)]
+
+def scalarEngine : Prog isa := .seq (.block scalarInit) (.loop (.block scalarByte) .ne)
+
+def scalarReduce : Prog isa :=
+  .seq (.block (abiSave 2 ++ ([.mov .esi (.mem (at_ .esp 8))] : List Instr) ++ copyWords 128 16))
+    (.seq scalarEngine (.block (finishWords scalarR)))
 end VG.Impl.Ed25519.X86
