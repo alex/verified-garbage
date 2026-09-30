@@ -93,7 +93,32 @@ structure KC (σ s : State) : Prop where
 def kcChk (ws : List (Ptr × Nat)) : Bool :=
   topChk kgB ws && keepB kgB ws (.rbp, 0) 32 && keepB kgB ws (.rbp, 32) 32
 
-theorem KC.lay {s : State} (h : KC σ s) : Lay kgR kgW s := kgLay hp h.top
+end
+
+/-- The precondition `pre` of a function that keeps the pointers of `vg_mlkem768_keygen` (`kgM`), under
+which its buffers are laid out as `kgR`/`kgW` (`lay`), and its public data `pub`, on which two runs have the
+same pointers and `ρ` (`eq`). The proof of `vg_mlkem768_keygen` holds for any: `vg_mlkem768_keygen_expanded`
+runs it with a larger `ek`. -/
+structure KPre where
+  pre : State → Prop
+  pub : State → State → Prop
+  lay : ∀ {σ s : State}, pre σ → Top kgM σ s → Lay kgR kgW s
+  eq : ∀ {σ₁ σ₂ : State}, pub σ₁ σ₂ → σ₁.gpr .rdi = σ₂.gpr .rdi ∧ σ₁.gpr .rsi = σ₂.gpr .rsi ∧
+    σ₁.gpr .rdx = σ₂.gpr .rdx ∧ σ₁.gpr .rcx = σ₂.gpr .rcx ∧ σ₁.gpr .rsp = σ₂.gpr .rsp ∧
+    keyGenRho mlKem768 (kgD σ₁) = keyGenRho mlKem768 (kgD σ₂)
+
+/-- `vg_mlkem768_keygen`'s. -/
+def kgK : KPre where
+  pre := keyGenK.pre
+  pub := keyGenK.pub
+  lay hp h := kgLay hp h
+  eq h := h
+
+section
+variable {K : KPre} {σ : State} (hp : K.pre σ)
+include hp
+
+theorem KC.lay {s : State} (h : KC σ s) : Lay kgR kgW s := K.lay hp h.top
 
 theorem KC.step {s s' : State} (h : KC σ s) {ws : List (Ptr × Nat)} (hP : PPostB s s' ws)
     (hc : kcChk ws = true) : KC σ s' := by
