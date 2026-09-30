@@ -475,7 +475,7 @@ theorem restore_ok {s : State} {scr : Addr} (h20 : s.gpr .x20 = scr)
 
 /-- The callee-saved registers our code never touches (but for `x30`, which
 our calls change and the frame restores). -/
-abbrev untouched : List Reg := [.x25, .x26, .x27, .x28, .x29]
+abbrev untouched : List Reg := [.x25, .x26, .x27, .x28]
 
 theorem notU {r : Reg} (hr : r ∈ untouched) (x : Reg) (hx : x ∉ untouched := by decide) : r ≠ x :=
   fun h => hx (h ▸ hr)

@@ -12,6 +12,7 @@
 mod aes_gcm;
 mod chacha20;
 mod chacha20poly1305;
+mod ed25519;
 mod harness;
 mod hmac;
 mod hmac_sha1;
@@ -32,6 +33,7 @@ mod pbkdf2_sha256;
 mod pbkdf2_sha384;
 mod pbkdf2_sha512;
 mod x25519;
+mod x448;
 
 use harness::Fields;
 

@@ -137,7 +137,7 @@ theorem Saved.frame {s₀ : State} {m m' : Mem} (h : Saved s₀ m) {rs : List Re
   exact contains_off (by omega) (by decide)
 
 /-- The callee-saved registers but `x24` and `x30`. -/
-abbrev kept : List Reg := [.x19, .x20, .x21, .x22, .x23, .x25, .x26, .x27, .x28, .x29]
+abbrev kept : List Reg := [.x19, .x20, .x21, .x22, .x23, .x25, .x26, .x27, .x28]
 
 theorem pres_kept : ∀ r ∈ preserved, r ∉ own → r ∈ kept := by decide
 

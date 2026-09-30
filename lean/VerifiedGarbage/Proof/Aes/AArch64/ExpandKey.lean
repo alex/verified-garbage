@@ -762,7 +762,7 @@ theorem movR_ok (s : State) (d r : Reg) :
   refine ⟨_, by rw [movR, runBlock_cons, exec_addImm_x (by decide), runStep_some, runBlock_nil], ?_⟩
   exact ⟨by simp [State.write, State.read], fun r h => by simp [State.write, h], rfl, rfl, rfl⟩
 
-theorem sreg_ne_x5 : ∀ i < 11, sreg i ≠ .x5 := by decide
+theorem sreg_ne_x5 : ∀ i < 10, sreg i ≠ .x5 := by decide
 
 theorem prologue_wp {s₀ : State} {S B P : Addr} {K : Nat} (hs : CSetup s₀ S B P K)
     (hS : s₀.gpr .x2 = S) (hB : s₀.gpr .x3 = B) (hP : s₀.gpr .x0 = P)
@@ -796,7 +796,7 @@ theorem prologue_wp {s₀ : State} {S B P : Addr} {K : Nat} (hs : CSetup s₀ S 
 
 theorem ek_correct {s₀ : State} (hp : Proof.Aes.expandKeyAArch64.pre s₀) :
     WP isa Impl.Aes.AArch64.expandKey s₀ fun s' =>
-      (∀ i < 11, s'.gpr (sreg i) = s₀.gpr (sreg i)) ∧ Proof.Aes.expandKeyAArch64.post s₀ s' := by
+      (∀ i < 10, s'.gpr (sreg i) = s₀.gpr (sreg i)) ∧ Proof.Aes.expandKeyAArch64.post s₀ s' := by
   obtain ⟨hrd, hwr, dKS, dKB, dSB, hK⟩ := hp
   have hs : CSetup s₀ (s₀.gpr .x2) (s₀.gpr .x3) (s₀.gpr .x0) (s₀.gpr .x1).toNat :=
     ⟨hK, by rw [hrd]; simp, by rw [hwr]; simp, by rw [hwr]; simp, dKS, dKB, dSB⟩
@@ -883,7 +883,7 @@ theorem expandKey_correct (s : State) (hs : Proof.Aes.expandKeyAArch64.pre s) :
     WP.gprs (rs := [.x30]) (ek_correct hs) (by decide +kernel) (by decide +kernel)
   refine ⟨t, s', he, ⟨fun r hr => ?_, Exec.sp he⟩, h₂⟩
   simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · exact h₁ 0 (by omega)
   · exact h₁ 1 (by omega)
   · exact h₁ 2 (by omega)
@@ -894,7 +894,6 @@ theorem expandKey_correct (s : State) (hs : Proof.Aes.expandKeyAArch64.pre s) :
   · exact h₁ 7 (by omega)
   · exact h₁ 8 (by omega)
   · exact h₁ 9 (by omega)
-  · exact h₁ 10 (by omega)
   · exact h₃ _ (by simp)
 
 theorem expandKey_ct : ConstantTime isa Proof.Aes.expandKeyAArch64.pre

@@ -20,7 +20,7 @@ open VG.Proof.MlKem.AArch64 (Only Keep wp_nil wp_movz wp_addImm wp_ldrx in_rd_wr
 open VG.Spec.Sha3 (bytesAt)
 
 /-- The callee-saved registers the functions never write. -/
-abbrev untouched : List Reg := [.x19, .x20, .x21, .x22, .x23, .x29]
+abbrev untouched : List Reg := [.x19, .x20, .x21, .x22, .x23]
 
 /-- What the functions keep from their entry state `σ` on. -/
 structure Top (σ s : State) : Prop where

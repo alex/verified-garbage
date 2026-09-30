@@ -5,9 +5,10 @@ import VerifiedGarbage.Proof.Framework.Arm.Inline
 
 Untrusted: everything here is checked by Lean.
 
-A call (`Code.call`, `bl`) leaves the return address in `lr` and an unknown
-value in `r12` (a linker veneer's), and runs the called function from there
-(`State.callEntry`); it does not touch the stack. `WP.call` runs a call of
+A call (`Code.call`, `bl`) leaves the return address in `lr` and unknown
+values in `r12` and the condition flags (a linker veneer's), and runs the
+called function from there (`State.callEntry`); it does not touch the stack.
+`WP.call` runs a call of
 verified code from the callee's `Verified` proof, as `WP.inline` does for
 inlined code.
 -/
@@ -16,7 +17,12 @@ namespace VG.Arm
 
 /-- The state a call enters the callee in. -/
 def State.callEntry (s : State) : State :=
-  { (s.setReg .lr (s.unknowns 0)).setReg .r12 (s.unknowns 1) with unknowns := fun n => s.unknowns (n + 2) }
+  { (s.setReg .lr (s.unknowns 0)).setReg .r12 (s.unknowns 1) with
+    n := (s.unknowns 2).getLsbD 0
+    z := (s.unknowns 2).getLsbD 1
+    c := (s.unknowns 2).getLsbD 2
+    v := (s.unknowns 2).getLsbD 3
+    unknowns := fun n => s.unknowns (n + 3) }
 
 theorem call_callEntry (s : State) : isa.call s = some s.callEntry := rfl
 
