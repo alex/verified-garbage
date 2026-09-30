@@ -123,4 +123,12 @@ theorem frSc {s₀ : State} (hp : TPre (Y p) s₀) {bs : List Buf} {N M : Nat} (
       Lay.ok_iff.mpr ⟨by rw [Y_n]; exact (by decide : 4 < 5), by simp only; omega, by rw [Y_alen4]; simp only; omega⟩, h₁, by simp only; omega,
       by simp only; omega⟩) fr
 
+/-- `keepB`, for bytes of `scratch` that may be none. -/
+theorem keepB0 {s₀ : State} (hp : TPre (Y p) s₀) {bs : List Buf} {N : Nat} (hN : N ≤ 80)
+    {m m' : Mem} (fr : Frame (FR s₀ bs N) m m') {o l : Nat} (L : Nat) (hl : o + l ≤ scrLen p)
+    (h : ∀ c ∈ bs, Out p o (o + l) c) : bytesAt m' (Buf.addr s₀ (sc o L)) l = bytesAt m (Buf.addr s₀ (sc o L)) l := by
+  rcases Nat.eq_zero_or_pos l with rfl | hl0
+  · rfl
+  · exact keepB hp hN fr (l := l) (Lay.ok_iff.mpr ⟨by rw [Y_n]; exact (by decide : 4 < 5), hl0, by rw [Y_alen4]; exact hl⟩) h
+
 end VG.Proof.MlDsa.X86.Sign
