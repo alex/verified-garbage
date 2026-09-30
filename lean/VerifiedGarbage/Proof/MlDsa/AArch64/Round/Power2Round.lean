@@ -29,7 +29,7 @@ def t0V (x : BitVec 32) : BitVec 32 :=
 theorem p2rBody_ok (s : State) (hq : s.gpr .x9 = Qv) (h0 : InRegions (s.rd ++ s.wr) (s.gpr .x0) 4)
     (h1 : InRegions s.wr (s.gpr .x1) 4) (h2 : InRegions s.wr (s.gpr .x2) 4) :
     WP isa (.block (p2rBody ++ [Reg.x0, .x1, .x2].map (fun p => .addImm .x p p 4) ++
-      [.subImm .x .x10 .x10 1])) s fun s' =>
+      ([.subImm .x .x10 .x10 1] : List Instr))) s fun s' =>
       (s'.mem = (s.mem.writeW (s.gpr .x1) (t1V (s.mem.readW (s.gpr .x0) 32))).writeW (s.gpr .x2)
           (t0V (s.mem.readW (s.gpr .x0) 32)) ∧
         s'.gpr .x0 = s.gpr .x0 + BitVec.ofNat 64 4 ∧ s'.gpr .x1 = s.gpr .x1 + BitVec.ofNat 64 4 ∧

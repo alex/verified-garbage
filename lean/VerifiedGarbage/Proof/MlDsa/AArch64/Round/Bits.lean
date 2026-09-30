@@ -22,7 +22,7 @@ def hbCv (g : Nat) (r : Reg) : BitVec 64 := if r = .x4 then BitVec.ofNat 64 (hbM
 theorem hbBody_ok (g : Nat) (s : State) (hM : s.gpr .x4 = BitVec.ofNat 64 (hbMul g))
     (hA : s.gpr .x5 = BitVec.ofNat 64 (hbAdd g)) (h0 : InRegions (s.rd ++ s.wr) (s.gpr .x0) 4)
     (h2 : InRegions s.wr (s.gpr .x2) 4) :
-    WP isa (.block (hbBody g ++ [Reg.x0, .x2].map (fun p => .addImm .x p p 4) ++ [.subImm .x .x6 .x6 1])) s
+    WP isa (.block (hbBody g ++ [Reg.x0, .x2].map (fun p => .addImm .x p p 4) ++ ([.subImm .x .x6 .x6 1] : List Instr))) s
       fun s' =>
       (s'.mem = s.mem.writeW (s.gpr .x2) ((r1X g ((s.mem.readW (s.gpr .x0) 32).setWidth 64)).setWidth 32) ∧
         s'.gpr .x0 = s.gpr .x0 + BitVec.ofNat 64 4 ∧ s'.gpr .x2 = s.gpr .x2 + BitVec.ofNat 64 4 ∧
@@ -38,7 +38,7 @@ theorem lbBody_ok (g : Nat) (s : State) (hM : s.gpr .x4 = BitVec.ofNat 64 (hbMul
     (hA : s.gpr .x5 = BitVec.ofNat 64 (hbAdd g)) (h7 : s.gpr .x7 = BitVec.ofNat 64 (2 * g))
     (hq : s.gpr .x9 = Qv) (h0 : InRegions (s.rd ++ s.wr) (s.gpr .x0) 4)
     (h2 : InRegions s.wr (s.gpr .x2) 4) :
-    WP isa (.block (lbBody g ++ [Reg.x0, .x2].map (fun p => .addImm .x p p 4) ++ [.subImm .x .x6 .x6 1])) s
+    WP isa (.block (lbBody g ++ [Reg.x0, .x2].map (fun p => .addImm .x p p 4) ++ ([.subImm .x .x6 .x6 1] : List Instr))) s
       fun s' =>
       (s'.mem = s.mem.writeW (s.gpr .x2) ((addQ ((s.mem.readW (s.gpr .x0) 32).setWidth 64 -
           r1X g ((s.mem.readW (s.gpr .x0) 32).setWidth 64) * BitVec.ofNat 64 (2 * g))).setWidth 32) ∧

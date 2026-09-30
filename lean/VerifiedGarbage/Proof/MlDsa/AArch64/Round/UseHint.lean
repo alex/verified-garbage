@@ -33,7 +33,7 @@ theorem uhBody_ok (g : Nat) (s : State) (hM : s.gpr .x5 = BitVec.ofNat 64 (hbMul
     (h0 : InRegions (s.rd ++ s.wr) (s.gpr .x0) 4) (h1 : InRegions (s.rd ++ s.wr) (s.gpr .x1) 4)
     (h3 : InRegions s.wr (s.gpr .x3) 4) :
     WP isa (.block (uhBody g ++ [Reg.x0, .x1, .x3].map (fun p => .addImm .x p p 4) ++
-      [.subImm .x .x8 .x8 1])) s fun s' =>
+      ([.subImm .x .x8 .x8 1] : List Instr))) s fun s' =>
       (s'.mem = s.mem.writeW (s.gpr .x3) ((uhV g ((s.mem.readW (s.gpr .x1) 32).setWidth 64)
           ((s.mem.readW (s.gpr .x0) 32).setWidth 64)).setWidth 32) ∧
         s'.gpr .x0 = s.gpr .x0 + BitVec.ofNat 64 4 ∧ s'.gpr .x1 = s.gpr .x1 + BitVec.ofNat 64 4 ∧

@@ -308,7 +308,7 @@ theorem loop_ok {s₀ : State} {ins outs ptrs fixed clob : List Reg} {cnt : Reg}
     (hfc : cnt ∉ fixed)
     (hJ : ∀ s, s.mem = s₀.mem → Keep [cnt] s₀ s → J 0 s)
     (hbody : ∀ i < 256, ∀ s, Inv s₀ ptrs fixed outs V J i s →
-      WP isa (.block (body ++ ptrs.map (fun p => .addImm .x p p 4) ++ [.subImm .x cnt cnt 1])) s fun s' =>
+      WP isa (.block (body ++ ptrs.map (fun p => .addImm .x p p 4) ++ ([.subImm .x cnt cnt 1] : List Instr))) s fun s' =>
         (s'.mem = writes s.mem (outs.map fun o => (s.gpr o, V o i)) ∧
           (∀ p ∈ ptrs, s'.gpr p = s.gpr p + BitVec.ofNat 64 4) ∧
           s'.gpr cnt = s.gpr cnt - BitVec.ofNat 64 1 ∧ J (i + 1) s') ∧
