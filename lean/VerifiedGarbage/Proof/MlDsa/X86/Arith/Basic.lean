@@ -19,9 +19,12 @@ open VG VG.X86 VG.Impl.MlDsa.X86.Arith
 open VG.Proof.MlDsa.Arith
 open VG.Spec.MlDsa (q)
 open VG.Proof.MlKem.X86 (Only wp_cons toNat_ofNat32 eq_ofNat_of_toNat E0 P0 frameR retR saveRegs_len
-  execMul_eax execMul_other)
+  execMul_eax execMul_other ea_add)
 
 theorem qImm_toNat : qImm.toNat = q := rfl
+
+theorem sub_val (x y : Spec.MlDsa.Zq) : (x - y).val = (x.val + q - y.val) % q := by
+  rw [val_sub', show x.val + (q - y.val) = x.val + q - y.val by have := y.isLt; omega]
 
 theorem mod_q_lt32 (x : Nat) : x % q < 2 ^ 32 := Nat.lt_of_lt_of_le (Nat.mod_lt _ (by decide)) (by decide)
 
@@ -161,6 +164,11 @@ theorem P0_mem {s₀ : State} (h : 16 ≤ (E0 s₀).toNat) : Frame [frameR s₀]
   have hf := pushed_frame (rs := Impl.MlKem.X86.saveRegs) (s := s₀) (by decide) (by rw [saveRegs_len]; exact h)
   rw [saveRegs_len] at hf
   exact hf
+
+/-- Coefficient `k` at the pointer `x + 4k`. -/
+theorem ea_ptr {x : BitVec 32} (hx : x.toNat + 1024 ≤ 2 ^ 32) {k : Nat} (hk : k < 256) :
+    (x + BitVec.ofNat 32 (4 * k) + BitVec.ofNat 32 0).setWidth 64 = coeffAddr (x.setWidth 64) k := by
+  rw [ea_add (by omega), Nat.add_zero]
 
 /-- All-zero memory holds a reduced polynomial. -/
 theorem reduced_of_zero {m : Mem} {p : Addr} (h : ∀ k < 1024, m (p + BitVec.ofNat 64 k) = 0) :

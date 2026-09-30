@@ -303,9 +303,6 @@ theorem map_post {F : Nat → Nat → Nat} {G : Zq → Zq → Zq} (hG : ∀ x y 
   rw [h.f i hi, ite_eq_left hi, getElem!_eq _ hi, Vector.getElem_zipWith, ← getElem!_eq _ hi,
     ← getElem!_eq _ hi, hG, polyAt_val hp.f_red hi, polyAt_val hp.g_red hi, newC, toNat_ofNat32 (by omega)]
 
-theorem sub_val (x y : Zq) : (x - y).val = (x.val + q - y.val) % q := by
-  rw [val_sub', show x.val + (q - y.val) = x.val + q - y.val by have := y.isLt; omega]
-
 /-- Memory whose argument words (at `0x5004`) hold `0` and `0x400`. -/
 def accSatMem : Mem := fun a => if a = 0x5009 then 4 else 0
 

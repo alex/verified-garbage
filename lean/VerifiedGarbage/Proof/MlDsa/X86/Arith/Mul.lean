@@ -245,10 +245,6 @@ theorem h_P0 {i : Nat} (hi : i < 256) : coeffAt (P0 s₀).mem (hA s₀) i = coef
 
 end MulPre
 
-theorem ea_ptr {x : BitVec 32} (hx : x.toNat + 1024 ≤ 2 ^ 32) {k : Nat} (hk : k < 256) :
-    (x + BitVec.ofNat 32 (4 * k) + BitVec.ofNat 32 0).setWidth 64 = coeffAddr (x.setWidth 64) k := by
-  rw [ea_add (by omega), Nat.add_zero]
-
 theorem mul_step {core : List Instr} {acc : Bool} {V : Nat → Nat → Nat → Nat} (hc : CoreSpec core acc V)
     {s₀ : State} (hp : MulPre acc s₀) {k : Nat} (hk : k < 256) {s : State} (h : MulInv V s₀ k s) :
     WP isa (.block (core ++ mulTail)) s fun s' =>
