@@ -497,9 +497,7 @@ theorem verified : Verified Arm.target decodeDecompress1024
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> assumption
   · refine ⟨satState, ?_⟩
-    sig_pre [Spec.MlKem1024.decodeDecompressContract, Spec.MlKem1024.decodeDecompressSig, Arm.abi,
+    sig_sat_check [Spec.MlKem1024.decodeDecompressContract, Spec.MlKem1024.decodeDecompressSig, Arm.abi,
       Arm.argRegs, Arm.reduceClassify, Arm.Loc.val]
-    exact ⟨by decide, rfl, rfl, Region.disjoint_of_sep (by decide), by decide, by decide, by decide,
-      by decide⟩
 
 end VG.Proof.MlKem1024.Arm.Decompress
