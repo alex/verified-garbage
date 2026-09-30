@@ -636,13 +636,13 @@ theorem sha384_initSp (v : Proof.Sha512.X86_64.Compress) :
     (sha384H v).init.all (fun i => !X86_64.isa.writesSp i) = true :=
   sha512Fam_initSp v (by decide +kernel)
 
-theorem sha384_initImp : (initG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.initContract X86_64.abi 16) :=
-  initImp Spec.Hmac.sha384S 96 (by
-    inst_sat [Spec.Hmac.initContract, Spec.Hmac.initSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, initG, X86_64.abi, X86_64.argRegs] using initSat 192 96)
+theorem sha384_initImp : (initG Spec.Hmac.sha384S 234).Implies (Spec.Hmac.sha384I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha384S 234 (by
+    inst_sat [Spec.Hmac.initContract, Spec.Hmac.initSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, initG, X86_64.abi, X86_64.argRegs] using initSat 192 234)
 
-theorem sha384_finImp : (finG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.finalizeContract X86_64.abi 16) :=
-  finImp Spec.Hmac.sha384S 96 (by
-    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, finG, X86_64.abi, X86_64.argRegs] using finSat 192 48 96)
+theorem sha384_finImp : (finG Spec.Hmac.sha384S 234).Implies (Spec.Hmac.sha384I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha384S 234 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, finG, X86_64.abi, X86_64.argRegs] using finSat 192 48 234)
 
 theorem sha384_init (v : Proof.Sha512.X86_64.Compress) :
     Verified X86_64.target (sha384H v).init (Spec.Hmac.sha384I.initContract X86_64.abi 16) :=
@@ -689,13 +689,13 @@ theorem sha512_initSp (v : Proof.Sha512.X86_64.Compress) :
     (sha512H' v).init.all (fun i => !X86_64.isa.writesSp i) = true :=
   sha512Fam_initSp v (by decide +kernel)
 
-theorem sha512_initImp : (initG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.initContract X86_64.abi 16) :=
-  initImp Spec.Hmac.sha512S 96
+theorem sha512_initImp : (initG Spec.Hmac.sha512S 234).Implies (Spec.Hmac.sha512I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha512S 234
     sha384_initImp.sat
 
-theorem sha512_finImp : (finG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.finalizeContract X86_64.abi 16) :=
-  finImp Spec.Hmac.sha512S 96 (by
-    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, finG, X86_64.abi, X86_64.argRegs] using finSat 192 64 96)
+theorem sha512_finImp : (finG Spec.Hmac.sha512S 234).Implies (Spec.Hmac.sha512I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha512S 234 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, finG, X86_64.abi, X86_64.argRegs] using finSat 192 64 234)
 
 theorem sha512_init (v : Proof.Sha512.X86_64.Compress) :
     Verified X86_64.target (sha512H' v).init (Spec.Hmac.sha512I.initContract X86_64.abi 16) :=
@@ -742,13 +742,13 @@ theorem sha512_224_initSp (v : Proof.Sha512.X86_64.Compress) :
     (sha512_224H v).init.all (fun i => !X86_64.isa.writesSp i) = true :=
   sha512Fam_initSp v (by decide +kernel)
 
-theorem sha512_224_initImp : (initG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.initContract X86_64.abi 16) :=
-  initImp Spec.Hmac.sha512_224S 96
+theorem sha512_224_initImp : (initG Spec.Hmac.sha512_224S 234).Implies (Spec.Hmac.sha512_224I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha512_224S 234
     sha384_initImp.sat
 
-theorem sha512_224_finImp : (finG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.finalizeContract X86_64.abi 16) :=
-  finImp Spec.Hmac.sha512_224S 96 (by
-    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, finG, X86_64.abi, X86_64.argRegs] using finSat 192 28 96)
+theorem sha512_224_finImp : (finG Spec.Hmac.sha512_224S 234).Implies (Spec.Hmac.sha512_224I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha512_224S 234 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, finG, X86_64.abi, X86_64.argRegs] using finSat 192 28 234)
 
 theorem sha512_224_init (v : Proof.Sha512.X86_64.Compress) :
     Verified X86_64.target (sha512_224H v).init (Spec.Hmac.sha512_224I.initContract X86_64.abi 16) :=
@@ -795,13 +795,13 @@ theorem sha512_256_initSp (v : Proof.Sha512.X86_64.Compress) :
     (sha512_256H v).init.all (fun i => !X86_64.isa.writesSp i) = true :=
   sha512Fam_initSp v (by decide +kernel)
 
-theorem sha512_256_initImp : (initG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.initContract X86_64.abi 16) :=
-  initImp Spec.Hmac.sha512_256S 96
+theorem sha512_256_initImp : (initG Spec.Hmac.sha512_256S 234).Implies (Spec.Hmac.sha512_256I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha512_256S 234
     sha384_initImp.sat
 
-theorem sha512_256_finImp : (finG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.finalizeContract X86_64.abi 16) :=
-  finImp Spec.Hmac.sha512_256S 96 (by
-    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, finG, X86_64.abi, X86_64.argRegs] using finSat 192 32 96)
+theorem sha512_256_finImp : (finG Spec.Hmac.sha512_256S 234).Implies (Spec.Hmac.sha512_256I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha512_256S 234 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, finG, X86_64.abi, X86_64.argRegs] using finSat 192 32 234)
 
 theorem sha512_256_init (v : Proof.Sha512.X86_64.Compress) :
     Verified X86_64.target (sha512_256H v).init (Spec.Hmac.sha512_256I.initContract X86_64.abi 16) :=
