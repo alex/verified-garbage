@@ -146,6 +146,16 @@ theorem entry_st {D : Nat} {p : Params} (h3 : Ok3 p) {σ s : State}
     entry_bytes hf (d4.sub_right hsub) (by omega) (ht.regs (.x26, .x1) (by decide)),
     entry_bytes hf (d6.sub_right hsub) (by omega) (ht.regs (.x27, .x2) (by decide))⟩
 
+/-- The prologue saves the registers in `scratch`. -/
+theorem pro_in {D : Nat} {p : Params} (h3 : Ok3 p) {σ : State} (hpre : (signK p D).pre σ) :
+    ∀ k < 7, InRegions σ.wr (σ.gpr .x4 + BitVec.ofNat 64 (oSV + 8 * k)) 8 := by
+  have hc := fChk_ok h3
+  simp only [fChk, Bool.and_eq_true, decide_eq_true_eq] at hc
+  obtain ⟨-, -, -, -, hsz⟩ := hc
+  intro k hk
+  exact ⟨⟨σ.gpr .x4, scrLen p⟩, by rw [hpre.2.1]; simp,
+    Offset.contains_base _ (by omega) (by simp only [oSV]; omega)⟩
+
 theorem sign_correct {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 : Ok3 p) (σ : State)
     (hpre : (signK p D).pre σ) :
     ∃ t s', Exec isa (Impl.MlDsa.AArch64.Sign.sign P p) σ t s' ∧ abiPreserved σ s' ∧ (signK p D).post σ s' := by
@@ -154,11 +164,8 @@ theorem sign_correct {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 :
   obtain ⟨⟨⟨⟨⟨⟨⟨ha, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩, hf⟩ := hc
   have hf' := hf
   simp only [fChk, Bool.and_eq_true, List.all_eq_true, List.mem_range, decide_eq_true_eq] at hf'
-  obtain ⟨hsv, -, -, -, hsz⟩ := hf'
-  have hwr := hpre.2.1
-  have hin : ∀ k < 7, InRegions σ.wr (σ.gpr .x4 + BitVec.ofNat 64 (oSV + 8 * k)) 8 := fun k hk =>
-    ⟨⟨σ.gpr .x4, scrLen p⟩, by rw [hwr]; simp,
-      Offset.contains_base _ (by omega) (by simp only [oSV]; omega)⟩
+  obtain ⟨hsv, -⟩ := hf'
+  have hin := pro_in h3 hpre
   have main : WP isa (Impl.MlDsa.AArch64.Sign.sign P p) σ fun s₅ => abiPreserved σ s₅ ∧
       ∃ s₄, FS p D σ s₄ ∧ s₅.gpr .x0 = s₄.gpr .x24 ∧ s₅.mem = s₄.mem := by
     unfold Impl.MlDsa.AArch64.Sign.sign
