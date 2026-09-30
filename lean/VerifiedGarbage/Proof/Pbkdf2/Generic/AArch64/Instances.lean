@@ -6,8 +6,7 @@ import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Hashes
 /-!
 # PBKDF2-HMAC over any streaming hash function on AArch64: `iterate`, correct
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Pbkdf2/Generic/X86_64/Instances.lean`), from the state `s₀` before the
+Untrusted: everything here is checked by Lean. From the state `s₀` before the
 first instruction, which zero-extends `n`.
 -/
 
@@ -697,8 +696,7 @@ end VG.Proof.Pbkdf2.Generic.AArch64
 /-!
 # PBKDF2-HMAC over any streaming hash function on AArch64: `iterate`, constant time
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Pbkdf2/Generic/X86_64/Instances.lean`).
+Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Pbkdf2.Generic.AArch64
@@ -1055,9 +1053,9 @@ theorem sha384_checks : Checks sha384H where
   dec := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha384_imp : (iterG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.iterateContract AArch64.abi 16) :=
-  iterImp Spec.Hmac.sha384S 96 (by
-    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, iterG, stk, AArch64.abi, AArch64.argRegs] using iterSat 192 48 96)
+theorem sha384_imp : (iterG Spec.Hmac.sha384S 234).Implies (Spec.Hmac.sha384I.iterateContract AArch64.abi 16) :=
+  iterImp Spec.Hmac.sha384S 234 (by
+    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, iterG, stk, AArch64.abi, AArch64.argRegs] using iterSat 192 48 234)
 
 theorem sha384 : Verified AArch64.target (Impl.Pbkdf2.Generic.AArch64.iterate sha384H)
     (Spec.Hmac.sha384I.iterateContract AArch64.abi 16) :=
@@ -1081,9 +1079,9 @@ theorem sha512_checks : Checks sha512H' where
   dec := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha512_imp : (iterG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.iterateContract AArch64.abi 16) :=
-  iterImp Spec.Hmac.sha512S 96 (by
-    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, iterG, stk, AArch64.abi, AArch64.argRegs] using iterSat 192 64 96)
+theorem sha512_imp : (iterG Spec.Hmac.sha512S 234).Implies (Spec.Hmac.sha512I.iterateContract AArch64.abi 16) :=
+  iterImp Spec.Hmac.sha512S 234 (by
+    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, iterG, stk, AArch64.abi, AArch64.argRegs] using iterSat 192 64 234)
 
 theorem sha512 : Verified AArch64.target (Impl.Pbkdf2.Generic.AArch64.iterate sha512H')
     (Spec.Hmac.sha512I.iterateContract AArch64.abi 16) :=
@@ -1107,9 +1105,9 @@ theorem sha512_224_checks : Checks sha512_224H where
   dec := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha512_224_imp : (iterG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.iterateContract AArch64.abi 16) :=
-  iterImp Spec.Hmac.sha512_224S 96 (by
-    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, iterG, stk, AArch64.abi, AArch64.argRegs] using iterSat 192 28 96)
+theorem sha512_224_imp : (iterG Spec.Hmac.sha512_224S 234).Implies (Spec.Hmac.sha512_224I.iterateContract AArch64.abi 16) :=
+  iterImp Spec.Hmac.sha512_224S 234 (by
+    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, iterG, stk, AArch64.abi, AArch64.argRegs] using iterSat 192 28 234)
 
 theorem sha512_224 : Verified AArch64.target (Impl.Pbkdf2.Generic.AArch64.iterate sha512_224H)
     (Spec.Hmac.sha512_224I.iterateContract AArch64.abi 16) :=
@@ -1133,9 +1131,9 @@ theorem sha512_256_checks : Checks sha512_256H where
   dec := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha512_256_imp : (iterG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.iterateContract AArch64.abi 16) :=
-  iterImp Spec.Hmac.sha512_256S 96 (by
-    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, iterG, stk, AArch64.abi, AArch64.argRegs] using iterSat 192 32 96)
+theorem sha512_256_imp : (iterG Spec.Hmac.sha512_256S 234).Implies (Spec.Hmac.sha512_256I.iterateContract AArch64.abi 16) :=
+  iterImp Spec.Hmac.sha512_256S 234 (by
+    inst_sat [Spec.Pbkdf2.iterateContract, Spec.Pbkdf2.iterateSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, iterG, stk, AArch64.abi, AArch64.argRegs] using iterSat 192 32 234)
 
 theorem sha512_256 : Verified AArch64.target (Impl.Pbkdf2.Generic.AArch64.iterate sha512_256H)
     (Spec.Hmac.sha512_256I.iterateContract AArch64.abi 16) :=

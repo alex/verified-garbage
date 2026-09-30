@@ -1,7 +1,9 @@
 //! PBKDF2-HMAC-MD5: the iteration is `vg_pbkdf2_hmac_md5_iterate` (contract
-//! `VG.Spec.Hmac.Instance.iterateContract` of `VG.Spec.Hmac.md5I`), the one
-//! PBKDF2 iteration for every streaming hash function, calling MD5's verified
-//! functions.
+//! `VG.Spec.Hmac.Instance.iterateContract` of `VG.Spec.Hmac.md5I`). On x86-64
+//! it is the one iteration for every hash function whose streaming code is the
+//! generic one, calling MD5's verified compression function directly, twice per
+//! step; on the other targets, the one iteration for every streaming hash
+//! function, calling MD5's verified streaming functions.
 
 #![cfg(any(
     target_arch = "x86_64",

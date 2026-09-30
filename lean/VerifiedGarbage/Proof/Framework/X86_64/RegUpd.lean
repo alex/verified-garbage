@@ -70,6 +70,8 @@ theorem mem_arithFlags {w : Nat} (x : BitVec w) (c o : Bool) : (arithFlags s x c
 theorem rd_arithFlags {w : Nat} (x : BitVec w) (c o : Bool) : (arithFlags s x c o).rd = s.rd := rfl
 theorem wr_arithFlags {w : Nat} (x : BitVec w) (c o : Bool) : (arithFlags s x c o).wr = s.wr := rfl
 theorem xmm_arithFlags {w : Nat} (x : BitVec w) (c o : Bool) : (arithFlags s x c o).xmm = s.xmm := rfl
+theorem ymmHi_arithFlags {w : Nat} (x : BitVec w) (c o : Bool) :
+    (arithFlags s x c o).ymmHi = s.ymmHi := rfl
 theorem zf_arithFlags {w : Nat} (x : BitVec w) (c o : Bool) :
     (arithFlags s x c o).zf = some (x == 0) := rfl
 theorem cf_arithFlags {w : Nat} (x : BitVec w) (c o : Bool) :
