@@ -208,6 +208,13 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     simp only [hn, and_self, ite_true]
     simp only [Option.some.injEq] at h; subst h; rfl
   | andn32 d a b => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
+  | rorx d r n =>
+    simp only [exec, execRorx] at h ⊢
+    split at h <;> [skip; cases h]
+    rename_i hn
+    simp only [hn, and_self, ite_true]
+    simp only [Option.some.injEq] at h; subst h; rfl
+  | andn d a b => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
   | bswap d => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
   | shift op d n =>
     simp only [exec, execShift] at h ⊢

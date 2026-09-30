@@ -140,6 +140,21 @@ def execAndn32 (dst src1 src2 : Reg) (s : State) : State :=
   let r := ~~~((s.gpr src1).setWidth 32) &&& (s.gpr src2).setWidth 32
   (arithFlags s r false false).setReg32 dst r
 
+/-- SDM Vol. 2, "RORX—Rotate Right Logical Without Affecting Flags", for a
+64-bit operand: `y := imm8 AND 3FH; DEST := (SRC >> y) | (SRC << (64 - y))`;
+"This instruction does not update any flags." Only counts `1 ≤ n ≤ 63` are
+modelled (so the masked count is `n`); other counts fault. -/
+def execRorx (dst src : Reg) (n : Nat) (s : State) : Option State :=
+  if 1 ≤ n ∧ n ≤ 63 then some (s.setReg dst ((s.gpr src).rotateRight n)) else none
+
+/-- SDM Vol. 2, "ANDN—Logical AND NOT", for 64-bit operands: `DEST := (NOT
+SRC1) bitwiseAND SRC2`; "SF and ZF flags are updated based on result. OF and
+CF flags are cleared. AF and PF flags are undefined." (AF and PF are not
+modelled.) -/
+def execAndn (dst src1 src2 : Reg) (s : State) : State :=
+  let r := ~~~(s.gpr src1) &&& s.gpr src2
+  (arithFlags s r false false).setReg dst r
+
 /-- SDM Vol. 2, "BSWAP": `DEST[7:0] := TEMP[31:24]; DEST[15:8] := TEMP[23:16];
 DEST[23:16] := TEMP[15:8]; DEST[31:24] := TEMP[7:0]` for a 32-bit operand
 (zero-extended, SDM Vol. 1 §3.4.1.1). No flags are affected. -/

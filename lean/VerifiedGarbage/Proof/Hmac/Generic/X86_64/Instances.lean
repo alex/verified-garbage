@@ -536,9 +536,16 @@ theorem md5_finalize : Verified X86_64.target md5H.finalize (Spec.Hmac.md5I.fina
   (Finalize.verified md5OK md5_finChecks (by decide) (by lit_decide) md5_finImp.sat_left).of_implies
     md5_finImp
 
-/-! ## SHA-384 -/
+/-! ## The SHA-512 family
 
-theorem sha384_initChecks : Init.Checks sha384H where
+As for SHA-1: the kernel evaluates the taint checks for the scalar
+instances (`… .scalar`), and they carry over to every implementation `v` of
+the compression function, since they do not look at the functions `init`
+and `finalize` call; that `init` and `finalize` never load MXCSR or write the
+stack pointer is checked around the calls of `v`'s `update` and `finalize`
+(`sha512Fam_initMx`, `sha384_finMx`, …). -/
+
+theorem sha384_initChecks₀ : Init.Checks (sha384H .scalar) where
   keys := ⟨_, by taint_decide⟩
   argI := by
     simp only [List.mem_cons, List.not_mem_nil, or_false]
@@ -547,7 +554,7 @@ theorem sha384_initChecks : Init.Checks sha384H where
   argU₂ := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha384_finChecks : Finalize.Checks sha384H where
+theorem sha384_finChecks₀ : Finalize.Checks (sha384H .scalar) where
   pro := ⟨_, by taint_decide⟩
   fin1 := ⟨_, by taint_decide⟩
   copy1 := ⟨_, by taint_decide⟩
@@ -556,95 +563,254 @@ theorem sha384_finChecks : Finalize.Checks sha384H where
   copy2 := ⟨_, by taint_decide⟩
   restore := ⟨_, by taint_decide⟩
 
-theorem sha384_initImp : (initG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.initContract X86_64.abi 16) :=
-  initImp Spec.Hmac.sha384S 96 (by
-    inst_sat [Spec.Hmac.initContract, Spec.Hmac.initSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, initG, X86_64.abi, X86_64.argRegs] using initSat 192 96)
+theorem sha512_finChecks₀ : Finalize.Checks (sha512H' .scalar) :=
+  Finalize.Checks.of_sizes (H := sha384H .scalar) rfl rfl rfl sha384_finChecks₀ ⟨_, by taint_decide⟩
+    ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
 
-theorem sha384_finImp : (finG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.finalizeContract X86_64.abi 16) :=
-  finImp Spec.Hmac.sha384S 96 (by
-    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, finG, X86_64.abi, X86_64.argRegs] using finSat 192 48 96)
+theorem sha512_224_finChecks₀ : Finalize.Checks (sha512_224H .scalar) :=
+  Finalize.Checks.of_sizes (H := sha384H .scalar) rfl rfl rfl sha384_finChecks₀ ⟨_, by taint_decide⟩
+    ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
 
-theorem sha384_init : Verified X86_64.target sha384H.init (Spec.Hmac.sha384I.initContract X86_64.abi 16) :=
-  (Init.verified sha384OK sha384_initChecks (by decide) (by lit_decide) sha384_initImp.sat_left).of_implies
-    sha384_initImp
+theorem sha512_256_finChecks₀ : Finalize.Checks (sha512_256H .scalar) :=
+  Finalize.Checks.of_sizes (H := sha384H .scalar) rfl rfl rfl sha384_finChecks₀ ⟨_, by taint_decide⟩
+    ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
 
-theorem sha384_finalize : Verified X86_64.target sha384H.finalize (Spec.Hmac.sha384I.finalizeContract X86_64.abi 16) :=
-  (Finalize.verified sha384OK sha384_finChecks (by decide) (by lit_decide) sha384_finImp.sat_left).of_implies
-    sha384_finImp
+section
+variable (v : Proof.Sha512.X86_64.Compress)
 
-/-! ## SHA-512 -/
+/-- `init` never loads MXCSR, for any implementation `v` of the compression
+function, given that the family member's `init` does not. -/
+theorem sha512Fam_initMx {D : Nat} {n : String} {iv : Spec.Sha512.HashValue}
+    (hI : (Impl.Sha512.X86_64.Stream.init iv).allInstrs (fun i => !loadsMxcsr i) = true) :
+    (sha512H v D n iv).init.allInstrs (fun i => !loadsMxcsr i) = true := by
+  simp only [Impl.Hmac.Generic.X86_64.Hash.init, Impl.Hmac.Generic.X86_64.Hash.callInit,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.allInstrs, sha512H_B, sha512H_buf, sha512H_restore,
+    sha512H_initC, sha512H_updC, sha512H_initKeys, hI, v.update_mxcsr, Bool.and_true]
+  decide +kernel
 
-theorem sha512_initChecks : Init.Checks sha512H' :=
-  Init.Checks.of_eq (H := sha384H) rfl rfl sha384_initChecks
+/-- `init` never writes the stack pointer, for any implementation `v` of the
+compression function, given that the family member's `init` does not. -/
+theorem sha512Fam_initSp {D : Nat} {n : String} {iv : Spec.Sha512.HashValue}
+    (hI : (Impl.Sha512.X86_64.Stream.init iv).all (fun i => !X86_64.isa.writesSp i) = true) :
+    (sha512H v D n iv).init.all (fun i => !X86_64.isa.writesSp i) = true := by
+  simp only [Impl.Hmac.Generic.X86_64.Hash.init, Impl.Hmac.Generic.X86_64.Hash.callInit,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.all, sha512H_B, sha512H_buf, sha512H_restore,
+    sha512H_initC, sha512H_updC, sha512H_initKeys, hI,
+    Proof.Sha512.X86_64.Shared.update_spSafe v.spSafe, Bool.and_true]
+  decide +kernel
 
-theorem sha512_finChecks : Finalize.Checks sha512H' :=
-  Finalize.Checks.of_sizes (H := sha384H) rfl rfl rfl sha384_finChecks ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
-    ⟨_, by taint_decide⟩
+end
 
-theorem sha512_initImp : (initG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.initContract X86_64.abi 16) :=
-  initImp Spec.Hmac.sha512S 96
+/-! ### SHA-384 -/
+
+theorem sha384_initChecks (v : Proof.Sha512.X86_64.Compress) : Init.Checks (sha384H v) :=
+  Init.Checks.of_eq (H := sha384H .scalar) rfl rfl sha384_initChecks₀
+
+theorem sha384_finChecks (v : Proof.Sha512.X86_64.Compress) : Finalize.Checks (sha384H v) :=
+  Finalize.Checks.of_eq (H := sha384H .scalar) rfl rfl rfl rfl sha384_finChecks₀
+
+/-- `finalize` never loads MXCSR, for any implementation `v` of the
+compression function. -/
+theorem sha384_finMx (v : Proof.Sha512.X86_64.Compress) :
+    (sha384H v).finalize.allInstrs (fun i => !loadsMxcsr i) = true := by
+  unfold sha384H
+  simp only [Impl.Hmac.Generic.X86_64.Hash.finalize, Impl.Hmac.Generic.X86_64.Hash.callFin,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.allInstrs, sha512H_B, sha512H_S, sha512H_D, sha512H_buf,
+    sha512H_restore, sha512H_updC, sha512H_finC, sha512H_finPrologue, v.update_mxcsr, v.finalize_mxcsr,
+    Bool.and_true]
+  decide +kernel
+
+/-- `finalize` never writes the stack pointer, for any implementation `v` of
+the compression function. -/
+theorem sha384_finSp (v : Proof.Sha512.X86_64.Compress) :
+    (sha384H v).finalize.all (fun i => !X86_64.isa.writesSp i) = true := by
+  unfold sha384H
+  simp only [Impl.Hmac.Generic.X86_64.Hash.finalize, Impl.Hmac.Generic.X86_64.Hash.callFin,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.all, sha512H_B, sha512H_S, sha512H_D, sha512H_buf,
+    sha512H_restore, sha512H_updC, sha512H_finC, sha512H_finPrologue,
+    Proof.Sha512.X86_64.Shared.update_spSafe v.spSafe, Proof.Sha512.X86_64.Shared.finalize_spSafe v.spSafe,
+    Bool.and_true]
+  decide +kernel
+
+theorem sha384_initSp (v : Proof.Sha512.X86_64.Compress) :
+    (sha384H v).init.all (fun i => !X86_64.isa.writesSp i) = true :=
+  sha512Fam_initSp v (by decide +kernel)
+
+theorem sha384_initImp : (initG Spec.Hmac.sha384S 234).Implies (Spec.Hmac.sha384I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha384S 234 (by
+    inst_sat [Spec.Hmac.initContract, Spec.Hmac.initSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, initG, X86_64.abi, X86_64.argRegs] using initSat 192 234)
+
+theorem sha384_finImp : (finG Spec.Hmac.sha384S 234).Implies (Spec.Hmac.sha384I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha384S 234 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, finG, X86_64.abi, X86_64.argRegs] using finSat 192 48 234)
+
+theorem sha384_init (v : Proof.Sha512.X86_64.Compress) :
+    Verified X86_64.target (sha384H v).init (Spec.Hmac.sha384I.initContract X86_64.abi 16) :=
+  (Init.verified (sha384OK v) (sha384_initChecks v) (by simp only [sha384H, sha512H_buf, sha512H_B]; decide)
+    (sha512Fam_initMx v (by decide +kernel)) sha384_initImp.sat_left).of_implies sha384_initImp
+
+theorem sha384_finalize (v : Proof.Sha512.X86_64.Compress) :
+    Verified X86_64.target (sha384H v).finalize (Spec.Hmac.sha384I.finalizeContract X86_64.abi 16) :=
+  (Finalize.verified (sha384OK v) (sha384_finChecks v) (by simp only [sha384H, sha512H_buf, sha512H_F]; decide)
+    (sha384_finMx v) sha384_finImp.sat_left).of_implies sha384_finImp
+
+/-! ### SHA-512 -/
+
+theorem sha512_initChecks (v : Proof.Sha512.X86_64.Compress) : Init.Checks (sha512H' v) :=
+  Init.Checks.of_eq (H := sha384H .scalar) rfl rfl sha384_initChecks₀
+
+theorem sha512_finChecks (v : Proof.Sha512.X86_64.Compress) : Finalize.Checks (sha512H' v) :=
+  Finalize.Checks.of_eq (H := sha512H' .scalar) rfl rfl rfl rfl sha512_finChecks₀
+
+/-- `finalize` never loads MXCSR, for any implementation `v` of the
+compression function. -/
+theorem sha512_finMx (v : Proof.Sha512.X86_64.Compress) :
+    (sha512H' v).finalize.allInstrs (fun i => !loadsMxcsr i) = true := by
+  unfold sha512H'
+  simp only [Impl.Hmac.Generic.X86_64.Hash.finalize, Impl.Hmac.Generic.X86_64.Hash.callFin,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.allInstrs, sha512H_B, sha512H_S, sha512H_D, sha512H_buf,
+    sha512H_restore, sha512H_updC, sha512H_finC, sha512H_finPrologue, v.update_mxcsr, v.finalize_mxcsr,
+    Bool.and_true]
+  decide +kernel
+
+/-- `finalize` never writes the stack pointer, for any implementation `v` of
+the compression function. -/
+theorem sha512_finSp (v : Proof.Sha512.X86_64.Compress) :
+    (sha512H' v).finalize.all (fun i => !X86_64.isa.writesSp i) = true := by
+  unfold sha512H'
+  simp only [Impl.Hmac.Generic.X86_64.Hash.finalize, Impl.Hmac.Generic.X86_64.Hash.callFin,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.all, sha512H_B, sha512H_S, sha512H_D, sha512H_buf,
+    sha512H_restore, sha512H_updC, sha512H_finC, sha512H_finPrologue,
+    Proof.Sha512.X86_64.Shared.update_spSafe v.spSafe, Proof.Sha512.X86_64.Shared.finalize_spSafe v.spSafe,
+    Bool.and_true]
+  decide +kernel
+
+theorem sha512_initSp (v : Proof.Sha512.X86_64.Compress) :
+    (sha512H' v).init.all (fun i => !X86_64.isa.writesSp i) = true :=
+  sha512Fam_initSp v (by decide +kernel)
+
+theorem sha512_initImp : (initG Spec.Hmac.sha512S 234).Implies (Spec.Hmac.sha512I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha512S 234
     sha384_initImp.sat
 
-theorem sha512_finImp : (finG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.finalizeContract X86_64.abi 16) :=
-  finImp Spec.Hmac.sha512S 96 (by
-    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, finG, X86_64.abi, X86_64.argRegs] using finSat 192 64 96)
+theorem sha512_finImp : (finG Spec.Hmac.sha512S 234).Implies (Spec.Hmac.sha512I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha512S 234 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, finG, X86_64.abi, X86_64.argRegs] using finSat 192 64 234)
 
-theorem sha512_init : Verified X86_64.target sha512H'.init (Spec.Hmac.sha512I.initContract X86_64.abi 16) :=
-  (Init.verified sha512OK sha512_initChecks (by decide) (by lit_decide) sha512_initImp.sat_left).of_implies
-    sha512_initImp
+theorem sha512_init (v : Proof.Sha512.X86_64.Compress) :
+    Verified X86_64.target (sha512H' v).init (Spec.Hmac.sha512I.initContract X86_64.abi 16) :=
+  (Init.verified (sha512OK v) (sha512_initChecks v) (by simp only [sha512H', sha512H_buf, sha512H_B]; decide)
+    (sha512Fam_initMx v (by decide +kernel)) sha512_initImp.sat_left).of_implies sha512_initImp
 
-theorem sha512_finalize : Verified X86_64.target sha512H'.finalize (Spec.Hmac.sha512I.finalizeContract X86_64.abi 16) :=
-  (Finalize.verified sha512OK sha512_finChecks (by decide) (by lit_decide) sha512_finImp.sat_left).of_implies
-    sha512_finImp
+theorem sha512_finalize (v : Proof.Sha512.X86_64.Compress) :
+    Verified X86_64.target (sha512H' v).finalize (Spec.Hmac.sha512I.finalizeContract X86_64.abi 16) :=
+  (Finalize.verified (sha512OK v) (sha512_finChecks v) (by simp only [sha512H', sha512H_buf, sha512H_F]; decide)
+    (sha512_finMx v) sha512_finImp.sat_left).of_implies sha512_finImp
 
-/-! ## SHA-512/224 -/
+/-! ### SHA-512/224 -/
 
-theorem sha512_224_initChecks : Init.Checks sha512_224H :=
-  Init.Checks.of_eq (H := sha384H) rfl rfl sha384_initChecks
+theorem sha512_224_initChecks (v : Proof.Sha512.X86_64.Compress) : Init.Checks (sha512_224H v) :=
+  Init.Checks.of_eq (H := sha384H .scalar) rfl rfl sha384_initChecks₀
 
-theorem sha512_224_finChecks : Finalize.Checks sha512_224H :=
-  Finalize.Checks.of_sizes (H := sha384H) rfl rfl rfl sha384_finChecks ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
-    ⟨_, by taint_decide⟩
+theorem sha512_224_finChecks (v : Proof.Sha512.X86_64.Compress) : Finalize.Checks (sha512_224H v) :=
+  Finalize.Checks.of_eq (H := sha512_224H .scalar) rfl rfl rfl rfl sha512_224_finChecks₀
 
-theorem sha512_224_initImp : (initG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.initContract X86_64.abi 16) :=
-  initImp Spec.Hmac.sha512_224S 96
+/-- `finalize` never loads MXCSR, for any implementation `v` of the
+compression function. -/
+theorem sha512_224_finMx (v : Proof.Sha512.X86_64.Compress) :
+    (sha512_224H v).finalize.allInstrs (fun i => !loadsMxcsr i) = true := by
+  unfold sha512_224H
+  simp only [Impl.Hmac.Generic.X86_64.Hash.finalize, Impl.Hmac.Generic.X86_64.Hash.callFin,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.allInstrs, sha512H_B, sha512H_S, sha512H_D, sha512H_buf,
+    sha512H_restore, sha512H_updC, sha512H_finC, sha512H_finPrologue, v.update_mxcsr, v.finalize_mxcsr,
+    Bool.and_true]
+  decide +kernel
+
+/-- `finalize` never writes the stack pointer, for any implementation `v` of
+the compression function. -/
+theorem sha512_224_finSp (v : Proof.Sha512.X86_64.Compress) :
+    (sha512_224H v).finalize.all (fun i => !X86_64.isa.writesSp i) = true := by
+  unfold sha512_224H
+  simp only [Impl.Hmac.Generic.X86_64.Hash.finalize, Impl.Hmac.Generic.X86_64.Hash.callFin,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.all, sha512H_B, sha512H_S, sha512H_D, sha512H_buf,
+    sha512H_restore, sha512H_updC, sha512H_finC, sha512H_finPrologue,
+    Proof.Sha512.X86_64.Shared.update_spSafe v.spSafe, Proof.Sha512.X86_64.Shared.finalize_spSafe v.spSafe,
+    Bool.and_true]
+  decide +kernel
+
+theorem sha512_224_initSp (v : Proof.Sha512.X86_64.Compress) :
+    (sha512_224H v).init.all (fun i => !X86_64.isa.writesSp i) = true :=
+  sha512Fam_initSp v (by decide +kernel)
+
+theorem sha512_224_initImp : (initG Spec.Hmac.sha512_224S 234).Implies (Spec.Hmac.sha512_224I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha512_224S 234
     sha384_initImp.sat
 
-theorem sha512_224_finImp : (finG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.finalizeContract X86_64.abi 16) :=
-  finImp Spec.Hmac.sha512_224S 96 (by
-    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, finG, X86_64.abi, X86_64.argRegs] using finSat 192 28 96)
+theorem sha512_224_finImp : (finG Spec.Hmac.sha512_224S 234).Implies (Spec.Hmac.sha512_224I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha512_224S 234 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, finG, X86_64.abi, X86_64.argRegs] using finSat 192 28 234)
 
-theorem sha512_224_init : Verified X86_64.target sha512_224H.init (Spec.Hmac.sha512_224I.initContract X86_64.abi 16) :=
-  (Init.verified sha512_224OK sha512_224_initChecks (by decide) (by lit_decide) sha512_224_initImp.sat_left).of_implies
-    sha512_224_initImp
+theorem sha512_224_init (v : Proof.Sha512.X86_64.Compress) :
+    Verified X86_64.target (sha512_224H v).init (Spec.Hmac.sha512_224I.initContract X86_64.abi 16) :=
+  (Init.verified (sha512_224OK v) (sha512_224_initChecks v) (by simp only [sha512_224H, sha512H_buf, sha512H_B]; decide)
+    (sha512Fam_initMx v (by decide +kernel)) sha512_224_initImp.sat_left).of_implies sha512_224_initImp
 
-theorem sha512_224_finalize : Verified X86_64.target sha512_224H.finalize (Spec.Hmac.sha512_224I.finalizeContract X86_64.abi 16) :=
-  (Finalize.verified sha512_224OK sha512_224_finChecks (by decide) (by lit_decide) sha512_224_finImp.sat_left).of_implies
-    sha512_224_finImp
+theorem sha512_224_finalize (v : Proof.Sha512.X86_64.Compress) :
+    Verified X86_64.target (sha512_224H v).finalize (Spec.Hmac.sha512_224I.finalizeContract X86_64.abi 16) :=
+  (Finalize.verified (sha512_224OK v) (sha512_224_finChecks v) (by simp only [sha512_224H, sha512H_buf, sha512H_F]; decide)
+    (sha512_224_finMx v) sha512_224_finImp.sat_left).of_implies sha512_224_finImp
 
-/-! ## SHA-512/256 -/
+/-! ### SHA-512/256 -/
 
-theorem sha512_256_initChecks : Init.Checks sha512_256H :=
-  Init.Checks.of_eq (H := sha384H) rfl rfl sha384_initChecks
+theorem sha512_256_initChecks (v : Proof.Sha512.X86_64.Compress) : Init.Checks (sha512_256H v) :=
+  Init.Checks.of_eq (H := sha384H .scalar) rfl rfl sha384_initChecks₀
 
-theorem sha512_256_finChecks : Finalize.Checks sha512_256H :=
-  Finalize.Checks.of_sizes (H := sha384H) rfl rfl rfl sha384_finChecks ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
-    ⟨_, by taint_decide⟩
+theorem sha512_256_finChecks (v : Proof.Sha512.X86_64.Compress) : Finalize.Checks (sha512_256H v) :=
+  Finalize.Checks.of_eq (H := sha512_256H .scalar) rfl rfl rfl rfl sha512_256_finChecks₀
 
-theorem sha512_256_initImp : (initG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.initContract X86_64.abi 16) :=
-  initImp Spec.Hmac.sha512_256S 96
+/-- `finalize` never loads MXCSR, for any implementation `v` of the
+compression function. -/
+theorem sha512_256_finMx (v : Proof.Sha512.X86_64.Compress) :
+    (sha512_256H v).finalize.allInstrs (fun i => !loadsMxcsr i) = true := by
+  unfold sha512_256H
+  simp only [Impl.Hmac.Generic.X86_64.Hash.finalize, Impl.Hmac.Generic.X86_64.Hash.callFin,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.allInstrs, sha512H_B, sha512H_S, sha512H_D, sha512H_buf,
+    sha512H_restore, sha512H_updC, sha512H_finC, sha512H_finPrologue, v.update_mxcsr, v.finalize_mxcsr,
+    Bool.and_true]
+  decide +kernel
+
+/-- `finalize` never writes the stack pointer, for any implementation `v` of
+the compression function. -/
+theorem sha512_256_finSp (v : Proof.Sha512.X86_64.Compress) :
+    (sha512_256H v).finalize.all (fun i => !X86_64.isa.writesSp i) = true := by
+  unfold sha512_256H
+  simp only [Impl.Hmac.Generic.X86_64.Hash.finalize, Impl.Hmac.Generic.X86_64.Hash.callFin,
+    Impl.Hmac.Generic.X86_64.Hash.callUpd, Code.all, sha512H_B, sha512H_S, sha512H_D, sha512H_buf,
+    sha512H_restore, sha512H_updC, sha512H_finC, sha512H_finPrologue,
+    Proof.Sha512.X86_64.Shared.update_spSafe v.spSafe, Proof.Sha512.X86_64.Shared.finalize_spSafe v.spSafe,
+    Bool.and_true]
+  decide +kernel
+
+theorem sha512_256_initSp (v : Proof.Sha512.X86_64.Compress) :
+    (sha512_256H v).init.all (fun i => !X86_64.isa.writesSp i) = true :=
+  sha512Fam_initSp v (by decide +kernel)
+
+theorem sha512_256_initImp : (initG Spec.Hmac.sha512_256S 234).Implies (Spec.Hmac.sha512_256I.initContract X86_64.abi 16) :=
+  initImp Spec.Hmac.sha512_256S 234
     sha384_initImp.sat
 
-theorem sha512_256_finImp : (finG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.finalizeContract X86_64.abi 16) :=
-  finImp Spec.Hmac.sha512_256S 96 (by
-    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, finG, X86_64.abi, X86_64.argRegs] using finSat 192 32 96)
+theorem sha512_256_finImp : (finG Spec.Hmac.sha512_256S 234).Implies (Spec.Hmac.sha512_256I.finalizeContract X86_64.abi 16) :=
+  finImp Spec.Hmac.sha512_256S 234 (by
+    inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, finG, X86_64.abi, X86_64.argRegs] using finSat 192 32 234)
 
-theorem sha512_256_init : Verified X86_64.target sha512_256H.init (Spec.Hmac.sha512_256I.initContract X86_64.abi 16) :=
-  (Init.verified sha512_256OK sha512_256_initChecks (by decide) (by lit_decide) sha512_256_initImp.sat_left).of_implies
-    sha512_256_initImp
+theorem sha512_256_init (v : Proof.Sha512.X86_64.Compress) :
+    Verified X86_64.target (sha512_256H v).init (Spec.Hmac.sha512_256I.initContract X86_64.abi 16) :=
+  (Init.verified (sha512_256OK v) (sha512_256_initChecks v) (by simp only [sha512_256H, sha512H_buf, sha512H_B]; decide)
+    (sha512Fam_initMx v (by decide +kernel)) sha512_256_initImp.sat_left).of_implies sha512_256_initImp
 
-theorem sha512_256_finalize : Verified X86_64.target sha512_256H.finalize (Spec.Hmac.sha512_256I.finalizeContract X86_64.abi 16) :=
-  (Finalize.verified sha512_256OK sha512_256_finChecks (by decide) (by lit_decide) sha512_256_finImp.sat_left).of_implies
-    sha512_256_finImp
+theorem sha512_256_finalize (v : Proof.Sha512.X86_64.Compress) :
+    Verified X86_64.target (sha512_256H v).finalize (Spec.Hmac.sha512_256I.finalizeContract X86_64.abi 16) :=
+  (Finalize.verified (sha512_256OK v) (sha512_256_finChecks v) (by simp only [sha512_256H, sha512H_buf, sha512H_F]; decide)
+    (sha512_256_finMx v) sha512_256_finImp.sat_left).of_implies sha512_256_finImp
 
 end VG.Proof.Hmac.Generic.X86_64.Instances

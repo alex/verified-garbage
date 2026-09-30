@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Framework.X86_64.Lit
-import VerifiedGarbage.Impl.Sha512.X86_64.Stream
+import VerifiedGarbage.Impl.Sha512.X86_64
 
 /-!
 # SHA-512 on X86_64: the code as literals
@@ -15,7 +15,5 @@ of its callers.
 namespace VG
 
 materialize_code Impl.Sha512.X86_64.compress
-materialize_code Impl.Sha512.X86_64.Stream.update
-materialize_code Impl.Sha512.X86_64.Stream.finalize
 
 end VG
