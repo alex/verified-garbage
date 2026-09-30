@@ -361,13 +361,13 @@ def ballLoop (τ : Nat) (h : Array Bool) : IPoly → Nat → List Byte → Optio
       ballLoop τ h ((c.set! i c[j.toNat]!).set! j.toNat (if h.getD (i + τ - 256) false then -1 else 1))
         (i + 1) out
 
-/-- Algorithm 29, `SampleInBall(ρ)`, drawing at most `bound` bytes of output
+/-- Algorithm 29, `SampleInBall(ρ)`, for `τ ≤ 64`, drawing at most `bound` bytes of output
 from `H` (Appendix C): the first 8 give the sign bits `h ← BytesToBits(s)`,
 and the following ones the indices; `none` if they run out. -/
-def sampleInBall (p : Params) (bound : Nat) (ρ : List Byte) : Option IPoly :=
+def sampleInBall (τ bound : Nat) (ρ : List Byte) : Option IPoly :=
   let out := H ρ bound
   if out.length < 8 then none else
-  ballLoop p.τ (bytesToBits (out.take 8)) (Vector.replicate n 0) (256 - p.τ) (out.drop 8)
+  ballLoop τ (bytesToBits (out.take 8)) (Vector.replicate n 0) (256 - τ) (out.drop 8)
 
 /-- Lines 4–10 of Algorithm 30, `RejNTTPoly`, from the coefficients `a`
 sampled so far (`j = |a|`), taking the 3-byte arrays `s` of the loop's
@@ -572,18 +572,26 @@ def skTr (sk : List Byte) : List Byte := (sk.drop 64).take 64
 line 6, and Algorithm 8, line 7). -/
 def messageRep (tr M' : List Byte) : List Byte := H (tr ++ M') 64
 
+/-- Lines 11–15 of Algorithm 7: the mask `y ← ExpandMask(ρ″, κ)`, the
+`w ← NTT⁻¹(Â ∘ NTT(y))` and the commitment hash
+`c̃ ← H(μ ‖ w1Encode(HighBits(w)), λ/4)` of the iteration of the signing loop
+with counter `κ`. -/
+def signCommit (p : Params) (Â : List (List Poly)) (μ ρ'' : List Byte) (κ : Nat) :
+    List IPoly × List Poly × List Byte :=
+  let y := expandMask p ρ'' κ
+  let w := (matrixVectorNTT Â (y.map fun yi => ntt (toRq yi))).map nttInv
+  let w₁ := w.map fun wi => wi.map fun c => (highBits p.γ₂ c).toNat
+  (y, w, H (μ ++ w1Encode p w₁) p.ctildeLen)
+
 /-- Lines 11–30 of Algorithm 7: the iteration of the signing loop with
-counter `κ`, from `Â`, `ŝ₁`, `ŝ₂`, `t₀Hat`, `μ` and `ρ″`: the commitment hash `c̃`
+counter `κ`, from `Â`, `ŝ₁`, `ŝ₂`, `t̂₀`, `μ` and `ρ″`: the commitment hash `c̃`
 and, if the validity checks pass, `(z, h)`; `none` if `SampleInBall` does
 not finish within `b.ball` bytes. -/
 def signIteration (p : Params) (b : Bounds) (Â : List (List Poly)) (ŝ₁ ŝ₂ t₀Hat : List Poly)
     (μ ρ'' : List Byte) (κ : Nat) :
     Option (List Byte × Option (List Poly × List (Vector Bool n))) := do
-  let y := expandMask p ρ'' κ
-  let w := (matrixVectorNTT Â (y.map fun yi => ntt (toRq yi))).map nttInv
-  let w₁ := w.map fun wi => wi.map fun c => (highBits p.γ₂ c).toNat
-  let ctilde := H (μ ++ w1Encode p w₁) p.ctildeLen
-  let c ← sampleInBall p b.ball ctilde
+  let (y, w, ctilde) := signCommit p Â μ ρ'' κ
+  let c ← sampleInBall p.τ b.ball ctilde
   let ĉ := ntt (toRq c)
   let cs₁ := ŝ₁.map fun s => nttInv (multiplyNTT ĉ s)
   let cs₂ := ŝ₂.map fun s => nttInv (multiplyNTT ĉ s)
@@ -637,7 +645,7 @@ def verifyMu (p : Params) (b : Bounds) (pk μ σ : List Byte) : Option Bool := d
   let (ctilde, z, h) := sigDecode p σ
   let some h := h | return false
   let Â ← expandA p b ρ
-  let c ← sampleInBall p b.ball ctilde
+  let c ← sampleInBall p.τ b.ball ctilde
   let ĉ := ntt (toRq c)
   let zHat := z.map fun zi => ntt (toRq zi)
   let t₁Hat := t₁.map fun ti => ntt (ti.map fun c => ofInt (c * 2 ^ d : Nat))
