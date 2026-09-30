@@ -165,7 +165,7 @@ theorem wr_mem : scR sc s₀ ∈ s₀.wr ∧ inR (H := H) s₀ ∈ s₀.wr ∧ o
 theorem pro_ok : WP isa (.block H.finPrologue) s₀ fun s => KR (H := H) s₀ s ∧ s.gpr .x0 = inn s₀ ∧
     s.gpr .x2 = s₀.gpr .x2 ∧ Frame [saveR H (scr s₀)] s₀.mem s.mem := by
   have hL : 8 * H.W + 56 ≤ 8 * sc := by have := hp.fits; simp only [Hash.buf] at this; omega_nat
-  refine save_ok H (scr := scr s₀) rfl hp.hW (wr_mem hp).1 hL fun s₁ g₁ rd₁ wr₁ sp₁ f₁ sv₁ => ?_
+  refine save_ok H (scr := scr s₀) rfl (Nat.le_trans hp.hW (by decide)) (wr_mem hp).1 hL fun s₁ g₁ rd₁ wr₁ sp₁ f₁ sv₁ => ?_
   refine wp_mov fun s₂ u₂ => wp_mov fun s₃ u₃ => wp_mov fun s₄ u₄ => wp_mov fun s₅ u₅ => WP.block_nil ?_
   have k : ∀ r, r ≠ .x19 → r ≠ .x20 → r ≠ .x21 → r ≠ .x23 → s₅.gpr r = s₀.gpr r := fun r h1 h2 h3 h4 => by
     rw [u₅.other r h4, u₄.other r h3, u₃.other r h2, u₂.other r h1, g₁]
@@ -387,7 +387,7 @@ theorem correct : WP isa H.finalize s₀ fun s' => abiPreserved s₀ s' ∧ (fin
     finCall_ok hH hp kt₄ a₄ fun s₅ k₅ f₅ d₅ => ?_))
   refine WP.seq (WP.mono (copy2_ok hp k₅) fun s₆ ⟨k₆, m₆⟩ => ?_)
   have hL : 8 * H.W + 56 ≤ 8 * sc := by have := hp.fits; simp only [Hash.buf] at this; omega_nat
-  refine WP.mono (restore_ok H k₆.x23 hp.hW k₆.saved (by rw [k₆.wr]; exact sR) hL)
+  refine WP.mono (restore_ok H k₆.x23 (Nat.le_trans hp.hW (by decide)) k₆.saved (by rw [k₆.wr]; exact sR) hL)
     fun s' ⟨hm, _, _, hsp, hg, ho⟩ => ⟨abi_of k₆ hsp hg ho, ?_⟩
   -- The functional part.
   intro k0 text hk0 hlen hrI hcnt hrO
