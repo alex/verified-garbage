@@ -19,7 +19,8 @@ open VG VG.AArch64 VG.Impl.Sha3.AArch64.Stream
 open VG.Proof.Sha3.AArch64
 open VG.Spec.Sha3 (stateAt keccakF bytesAt rates)
 open VG.Proof.Sha3 (byteOf byteOf_stateAt iterF iterF_succ length_squeezeFrom squeezeFrom_getElem
-  squeezeFrom_iterF ofNat_beq_zero sub_beq_zero sub_ofNat writeW8_self writeW8_other div_mod_eq)
+  squeezeFrom_iterF ofNat_beq_zero sub_beq_zero sub_ofNat writeW8_self writeW8_other div_mod_eq
+  writeW64_byte)
 
 /-! ## The precondition -/
 
@@ -245,15 +246,6 @@ theorem store_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI
 theorem rate_mod8 {r : Nat} (h : r ∈ rates) : r % 8 = 0 := by
   simp only [rates, List.mem_cons, List.not_mem_nil, or_false] at h
   rcases h with rfl | rfl | rfl | rfl | rfl <;> rfl
-
-/-- A byte of a 64-bit word written at `a`. -/
-theorem writeW64_byte (m : Mem) (a : Addr) (v : BitVec 64) {d : Nat} (hd : d < 8) :
-    (m.writeW a v) (a + BitVec.ofNat 64 d) = v.extractLsb' (8 * d) 8 := by
-  simp only [Mem.writeW, Mem.write]
-  rw [show a + BitVec.ofNat 64 d - a = BitVec.ofNat 64 d by bv_omega, BitVec.toNat_ofNat,
-    Nat.mod_eq_of_lt (by omega)]
-  simp only [show d < 8 from hd, ↓reduceIte]
-  rfl
 
 theorem store8_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI : Inv s₀ i k pos s)
     (hlt : pos + 8 ≤ rate s₀) (hi : i + 8 ≤ outn s₀) :

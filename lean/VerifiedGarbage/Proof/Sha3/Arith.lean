@@ -100,6 +100,15 @@ theorem writeW8_self (m : Mem) (a : Addr) (v : BitVec 8) : (m.writeW a v) a = v 
 theorem writeW8_other (m : Mem) {a x : Addr} (v : BitVec 8) (h : x ≠ a) : (m.writeW a v) x = m x :=
   Mem.write_apply (by intro h'; apply h; bv_omega)
 
+/-- A byte of a 64-bit word written at `a`. -/
+theorem writeW64_byte (m : Mem) (a : Addr) (v : BitVec 64) {d : Nat} (hd : d < 8) :
+    (m.writeW a v) (a + BitVec.ofNat 64 d) = v.extractLsb' (8 * d) 8 := by
+  simp only [Mem.writeW, Mem.write]
+  rw [show a + BitVec.ofNat 64 d - a = BitVec.ofNat 64 d by bv_omega, BitVec.toNat_ofNat,
+    Nat.mod_eq_of_lt (by omega)]
+  simp only [show d < 8 from hd, ↓reduceIte]
+  rfl
+
 theorem div_mod_eq {r k pos : Nat} (hr : 0 < r) (hlt : pos < r) :
     (r * k + pos) / r = k ∧ (r * k + pos) % r = pos := by
   refine ⟨?_, ?_⟩
