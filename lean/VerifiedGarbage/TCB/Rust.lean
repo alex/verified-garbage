@@ -220,6 +220,14 @@ def checkCalls (as : List Artifact) (a : Artifact) : Except String Unit :=
       unless a.target.printer.function body == b.target.printer.function b.code do
         throw s!"{a.target.name}: {a.name} calls {n}, whose code is not what the call runs"
 
+/-- The artifact carries the contract of the `Api` it is made from
+(`Artifact.contracts`), which it is proven against (`Artifact.ofApi`): so its
+name, signature and documentation are those `Spec/` gives that contract. -/
+def checkApi (a : Artifact) : Except String Unit :=
+  unless a.contracts.isSome do
+    throw s!"{a.target.name}: {a.name} is not made from an `Api` with a contract \
+      (`Api.contracts`)"
+
 /-- No two artifacts of a target have the same name. -/
 def checkUnique (as : List Artifact) : Except String Unit :=
   as.forM fun a =>
@@ -261,12 +269,14 @@ def render (as : List Artifact) (moduleOf : Artifact → String → String) : Li
 
 /-- The generated files, as paths relative to `src/asm/` and their contents:
 `mod.rs`, and for each target `<target>/mod.rs` and one `<target>/<module>.rs`
-per module; an error if two artifacts of a target have the same name
+per module; an error if an artifact is not made from an `Api` with a
+contract (`checkApi`), two artifacts of a target have the same name
 (`checkUnique`), a call is not of the code it runs (`checkCalls`), an
 artifact's features are not those its code requires (`checkFeatures`) or its
 doc has no `# Safety` section at its end for what `fullDoc` adds to it
 (`checkLayout`). -/
 def files (as : List Artifact) : Except String (List (String × String)) := do
+  as.forM checkApi
   checkUnique as
   as.forM (checkCalls as)
   as.forM checkFeatures

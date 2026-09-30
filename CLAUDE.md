@@ -114,7 +114,8 @@ instructions in an ISA model) go in their own PR before either.
    passing `doc` any notes on the implementation (`(notes := […])`). The
    artifact takes the `Api`'s `contracts`, and `ofApi` checks that its
    `contract` is `contracts` on its target for its `stack`: never set
-   `contracts` outside `Spec/`. Set
+   `contracts` outside `Spec/` (the emitter refuses an artifact without
+   them). Set
    `stack` to the contract's (and `writeArgs`, if the artifact is not made
    from an `Api`): the default proof of `ofSig` checks both against the
    contract, and the emitter documents what they imply. Set its `spSafe`
