@@ -34,7 +34,7 @@ theorem copyWorkspaceWord_ok {x : BitVec 32} {s₀ s : State} (hc : Ctx x s)
     (hn : n < total) (hsep : sa + a + 4 * total ≤ da + o ∨ da + o + 4 * total ≤ sa + a)
     (hk : CopyKeep x (da + o) (4 * n) s₀ s)
     (hv : ∀ j < n, wd s.mem x (da + o + 4 * j) = wd s₀.mem x (sa + a + 4 * j)) :
-    WP isa (.block (copyWord src dst a o n)) s fun t =>
+    WP isa (.block (workspaceCopyWord src dst a o n)) s fun t =>
       CopyKeep x (da + o) (4 * (n + 1)) s₀ t ∧
       ∀ j < n + 1, wd t.mem x (da + o + 4 * j) = wd s₀.mem x (sa + a + 4 * j) := by
   have ps : s.gpr src = x + BitVec.ofNat 32 sa := (hk.gpr src hs).trans hsa
@@ -68,12 +68,12 @@ theorem copyWorkspaceWords_ok {x : BitVec 32} {s : State} (hc : Ctx x s)
     (hsa : s.gpr src = x + BitVec.ofNat 32 sa) (hda : s.gpr dst = x + BitVec.ofNat 32 da)
     (ha : sa + a + 4 * total ≤ 8192) (ho : da + o + 4 * total ≤ 8192)
     (hsep : sa + a + 4 * total ≤ da + o ∨ da + o + 4 * total ≤ sa + a) :
-    ∀ n ≤ total, WP isa (.block (copyWords src dst a o n)) s fun t =>
+    ∀ n ≤ total, WP isa (.block (workspaceCopyWords src dst a o n)) s fun t =>
       CopyKeep x (da + o) (4 * n) s t ∧
       ∀ j < n, wd t.mem x (da + o + 4 * j) = wd s.mem x (sa + a + 4 * j)
   | 0, _ => WP.block_nil ⟨CopyKeep.refl _ _ _ _, fun j hj => by omega⟩
   | n + 1, hn => by
-    rw [copyWords, List.range_succ, List.flatMap_append, List.flatMap_singleton, WP.block_append_iff]
+    rw [workspaceCopyWords, List.range_succ, List.flatMap_append, List.flatMap_singleton, WP.block_append_iff]
     refine WP.mono (copyWorkspaceWords_ok hc src dst hs hd sa da a o total hsa hda ha ho hsep n (by omega))
       fun t ⟨hk, hv⟩ => ?_
     exact copyWorkspaceWord_ok (hk.ctx hc) src dst hs hd sa da a o n total hsa hda ha ho (by omega) hsep hk hv
