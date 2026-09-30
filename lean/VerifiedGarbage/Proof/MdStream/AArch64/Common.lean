@@ -118,6 +118,12 @@ theorem wp_lsr {d n : Reg} {sh : Nat} (h : sh < 64)
   WP.cons (s' := s.write .x d (s.gpr n >>> sh)) (by simp [exec, h, State.read])
     (k _ (Upd.write64 _ _ _))
 
+theorem wp_lsl {d n : Reg} {sh : Nat} (h : sh < 64)
+    (k : ∀ s', Upd s s' d (s.gpr n <<< sh) → WP isa (.block is) s' Q) :
+    WP isa (.block (.lsl .x d n sh :: is)) s Q :=
+  WP.cons (s' := s.write .x d (s.gpr n <<< sh)) (by simp [exec, h, State.read])
+    (k _ (Upd.write64 _ _ _))
+
 theorem wp_rev {d n : Reg}
     (k : ∀ s', Upd s s' d (rev64 (s.gpr n)) → WP isa (.block is) s' Q) :
     WP isa (.block (.rev d n :: is)) s Q :=
@@ -557,26 +563,39 @@ structure CalleeOk {P : Params} (H : Md 64 P.N 8) (code : Prog isa) : Prop where
 
 theorem one_toNat : (BitVec.setWidth 64 (1 : BitVec 16)).toNat = 1 := rfl
 
-/-- Compressing the block at `x1` into the hash value at `x19`, with scratch
-space at `x20`: the callee-saved registers other than `x30` are kept. -/
-theorem compressAt_ok {P : Params} {H : Md 64 P.N 8} {name : String} {code : Prog isa} (hf : CalleeOk H code)
-    {s : State} {st scr src : Addr}
+/-- `n` sets `x2` to `v`, given that only `x0` changed since the state `s`. -/
+def SetsN (n : Instr) (s : State) (v : BitVec 64) : Prop :=
+  ∀ (s₁ : State) (is : List Instr) (Q : State → Prop), (∀ r, r ≠ .x0 → s₁.gpr r = s.gpr r) →
+    (∀ s', Upd s₁ s' .x2 v → WP isa (.block is) s' Q) → WP isa (.block (n :: is)) s₁ Q
+
+theorem setsN_one (s : State) : SetsN (.movz .x .x2 1 0) s (BitVec.setWidth 64 (1 : BitVec 16)) :=
+  fun _ _ _ _ k => wp_movz k
+
+theorem setsN_x10 (s : State) : SetsN (mov .x2 .x10) s (s.gpr .x10) :=
+  fun _ _ _ he k => wp_mov fun s' u => k s' (by rwa [he _ (by decide)] at u)
+
+/-- Compressing the `k` blocks at `x1` (their number set in `x2` by `n`) into
+the hash value at `x19`, with scratch space at `x20`: the callee-saved
+registers other than `x30` are kept. -/
+theorem compressWith_ok {P : Params} {H : Md 64 P.N 8} {n : Instr} {s : State} {v : BitVec 64}
+    (hn : SetsN n s v) {k : Nat} (hk : v.toNat = k) {name : String} {code : Prog isa} (hf : CalleeOk H code)
+    {st scr src : Addr}
     (h19 : s.gpr .x19 = st) (h20 : s.gpr .x20 = scr) (h1 : s.gpr .x1 = src)
-    (d₁ : Region.Disjoint ⟨st, P.N⟩ ⟨scr, P.so⟩) (d₂ : Region.Disjoint ⟨src, 64⟩ ⟨st, P.N⟩)
-    (d₃ : Region.Disjoint ⟨src, 64⟩ ⟨scr, P.so⟩)
-    (hc : Covers [⟨src, 64⟩, ⟨st, P.N⟩, ⟨scr, P.so⟩] (s.rd ++ s.wr))
+    (d₁ : Region.Disjoint ⟨st, P.N⟩ ⟨scr, P.so⟩) (d₂ : Region.Disjoint ⟨src, 64 * k⟩ ⟨st, P.N⟩)
+    (d₃ : Region.Disjoint ⟨src, 64 * k⟩ ⟨scr, P.so⟩)
+    (hc : Covers [⟨src, 64 * k⟩, ⟨st, P.N⟩, ⟨scr, P.so⟩] (s.rd ++ s.wr))
     (hw : Covers [⟨st, P.N⟩, ⟨scr, P.so⟩] s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s.gpr r) →
       s'.sp = s.sp → Frame [⟨st, P.N⟩, ⟨scr, P.so⟩] s.mem s'.mem →
-      H.stateAt s'.mem st = H.compress (H.stateAt s.mem st) (H.blockAt s.mem src) → Q s') :
-    WP isa (compressAt name code) s Q := by
-  unfold compressAt
-  refine WP.seq (wp_mov fun s₁ u₁ => wp_movz fun s₂ u₂ => wp_mov fun s₃ u₃ => WP.block_nil ?_)
+      H.stateAt s'.mem st = H.compressBlocks (H.stateAt s.mem st) s.mem src k → Q s') :
+    WP isa (compressWith n name code) s Q := by
+  unfold compressWith
+  refine WP.seq (wp_mov fun s₁ u₁ => hn s₁ _ _ u₁.other fun s₂ u₂ => wp_mov fun s₃ u₃ => WP.block_nil ?_)
   have e0 : s₃.gpr .x0 = st := by
     rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.gpr, h19]
   have e1 : s₃.gpr .x1 = src := by
     rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), h1]
-  have e2 : s₃.gpr .x2 = BitVec.setWidth 64 (1 : BitVec 16) := by
+  have e2 : s₃.gpr .x2 = v := by
     rw [u₃.other _ (by decide), u₂.gpr]
   have e3 : s₃.gpr .x3 = scr := by
     rw [u₃.gpr, u₂.other _ (by decide), u₁.other _ (by decide), h20]
@@ -593,20 +612,35 @@ theorem compressAt_ok {P : Params} {H : Md 64 P.N 8} {name : String} {code : Pro
   have sp₃ : s₃.sp = s.sp := by rw [u₃.sp, u₂.sp, u₁.sp]
   have c0 : s₃.callEntry.gpr .x0 = st := (State.callEntry_gpr _ (by decide)).trans e0
   have c1 : s₃.callEntry.gpr .x1 = src := (State.callEntry_gpr _ (by decide)).trans e1
-  have c2 : s₃.callEntry.gpr .x2 = BitVec.setWidth 64 (1 : BitVec 16) :=
-    (State.callEntry_gpr _ (by decide)).trans e2
+  have c2 : s₃.callEntry.gpr .x2 = v := (State.callEntry_gpr _ (by decide)).trans e2
   have c3 : s₃.callEntry.gpr .x3 = scr := (State.callEntry_gpr _ (by decide)).trans e3
   refine WP.call (k := compressK H) hf.verified
-    (rd := [⟨src, 64 * 1⟩]) (wr := [⟨st, P.N⟩, ⟨scr, P.so⟩]) ?_ ?_ ?_ ?_ hf.noFrames
+    (rd := [⟨src, 64 * k⟩]) (wr := [⟨st, P.N⟩, ⟨scr, P.so⟩]) ?_ ?_ ?_ ?_ hf.noFrames
   · simp only [compressK, State.withRegions_gpr, State.withRegions_rd,
-      State.withRegions_wr, c0, c1, c2, c3, one_toNat]
+      State.withRegions_wr, c0, c1, c2, c3, hk]
     exact ⟨trivial, trivial, d₁, d₂, d₃⟩
   · rw [rd₃, wr₃]; simpa using hc
   · rw [wr₃]; exact hw
   · intro s' hrd hwr hsp hf' hcs _ hpost
     simp only [compressK, State.withRegions_gpr, State.withRegions_mem,
-      State.callEntry_mem, c0, c1, c2, one_toNat, Md.compressBlocks_one, m₃] at hpost
+      State.callEntry_mem, c0, c1, c2, hk, m₃] at hpost
     exact hQ s' (hrd.trans rd₃) (hwr.trans wr₃) (fun r hr h30 => (hcs r hr h30).trans (keep r hr))
       (hsp.trans sp₃) (m₃ ▸ hf') hpost
+
+/-- Compressing the block at `x1` into the hash value at `x19`, with scratch
+space at `x20`: the callee-saved registers other than `x30` are kept. -/
+theorem compressAt_ok {P : Params} {H : Md 64 P.N 8} {name : String} {code : Prog isa} (hf : CalleeOk H code)
+    {s : State} {st scr src : Addr}
+    (h19 : s.gpr .x19 = st) (h20 : s.gpr .x20 = scr) (h1 : s.gpr .x1 = src)
+    (d₁ : Region.Disjoint ⟨st, P.N⟩ ⟨scr, P.so⟩) (d₂ : Region.Disjoint ⟨src, 64⟩ ⟨st, P.N⟩)
+    (d₃ : Region.Disjoint ⟨src, 64⟩ ⟨scr, P.so⟩)
+    (hc : Covers [⟨src, 64⟩, ⟨st, P.N⟩, ⟨scr, P.so⟩] (s.rd ++ s.wr))
+    (hw : Covers [⟨st, P.N⟩, ⟨scr, P.so⟩] s.wr) {Q : State → Prop}
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s.gpr r) →
+      s'.sp = s.sp → Frame [⟨st, P.N⟩, ⟨scr, P.so⟩] s.mem s'.mem →
+      H.stateAt s'.mem st = H.compress (H.stateAt s.mem st) (H.blockAt s.mem src) → Q s') :
+    WP isa (compressAt name code) s Q :=
+  compressWith_ok (setsN_one s) one_toNat hf h19 h20 h1 d₁ d₂ d₃ hc hw
+    fun s' hrd hwr hcs hsp hf' hs => hQ s' hrd hwr hcs hsp hf' (by rw [hs, Md.compressBlocks_one])
 
 end VG.Proof.MdStream.AArch64

@@ -38,6 +38,9 @@ pub(crate) mod hmac_sha512_256;
 pub(crate) mod md5;
 
 #[rustfmt::skip]
+pub(crate) mod mldsa;
+
+#[rustfmt::skip]
 pub(crate) mod mlkem;
 
 #[rustfmt::skip]
@@ -87,3 +90,6 @@ pub(crate) mod sha3;
 
 #[rustfmt::skip]
 pub(crate) mod sha512;
+
+#[rustfmt::skip]
+pub(crate) mod x25519;

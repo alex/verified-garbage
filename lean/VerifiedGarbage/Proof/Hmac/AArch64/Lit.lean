@@ -15,6 +15,7 @@ of its callers.
 
 namespace VG
 
+materialize_code Impl.Hmac.AArch64.initMain
 materialize_code Impl.Hmac.AArch64.init
 materialize_code Impl.Hmac.AArch64.finalize
 

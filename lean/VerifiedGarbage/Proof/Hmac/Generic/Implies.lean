@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
 # Moving the generic proofs to the shared contracts, once for every hash function
@@ -34,7 +35,7 @@ macro_rules
           all_goals first
             | with_reducible assumption
             | with_reducible exact Region.Disjoint.symm ‹_›
-            | omega
+            | omega_nat
         post := by sig_implies_post [$ls,*]
         pub := by sig_implies_pub [$ls,*]
         sat := $h })

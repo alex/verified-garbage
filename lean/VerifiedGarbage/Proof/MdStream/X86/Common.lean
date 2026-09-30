@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Framework.X86.Exec
 import VerifiedGarbage.Impl.MdStream.X86
 import Mathlib.Tactic.Conv
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # Streaming Merkle–Damgård hash functions on x86 (32-bit): common lemmas
@@ -27,7 +28,7 @@ open VG.Proof.Sha256.Stream (writeBytes)
 theorem contains_offset {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
     (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
   simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, BitVec.toNat_ofNat,
+  rw [VG.Offset.add_sub_cancel_left, BitVec.toNat_ofNat,
     Nat.mod_eq_of_lt ho]
   exact h
 
@@ -36,7 +37,8 @@ theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (
   intro a ha
   simp only [Region.Contains] at *
   have : (a - base).toNat ≤ (a - (base + BitVec.ofNat 64 off)).toNat + off := by
-    rw [show a - base = (a - (base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by bv_omega,
+    rw [show a - base = (a - (base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by
+        rw [VG.Offset.sub_add_eq, BitVec.sub_add_cancel],
       BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ho]
     exact Nat.mod_le _ _
   omega
@@ -46,7 +48,7 @@ theorem frame_bytes {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {R : Re
     m' (R.base + BitVec.ofNat 64 i) = m (R.base + BitVec.ofNat 64 i) := by
   refine hf _ fun r hr hc => hd r hr _ ?_ hc
   simp only [Region.Contains]
-  rw [show R.base + BitVec.ofNat 64 i - R.base = BitVec.ofNat 64 i by bv_omega,
+  rw [VG.Offset.add_sub_cancel_left,
     BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   omega
 
@@ -76,11 +78,12 @@ theorem addr_add_ofNat {x : BitVec 32} {k d : Nat} (h : x.toNat + k + d < 2 ^ 32
 /-- Two accesses `[x + d]` and `[x + e]` of `n` and `k` bytes that do not overlap. -/
 theorem addr_sep {x : BitVec 32} {d e n k : Nat} (hd : x.toNat + d + n ≤ 2 ^ 32) (he : x.toNat + e + k ≤ 2 ^ 32)
     (h : d + n ≤ e ∨ e + k ≤ d) : Mem.Sep (addr x d) n (addr x e) k := by
-  intro a ha hb
-  rw [addr_eq (by omega)] at ha hb
-  have := x.isLt
-  generalize x.setWidth 64 = b at *
-  bv_omega
+  rcases Nat.eq_zero_or_pos n with rfl | hn
+  · exact fun _ h₁ => absurd h₁ (Nat.not_lt_zero _)
+  rcases Nat.eq_zero_or_pos k with rfl | hk
+  · exact fun _ _ h₂ => absurd h₂ (Nat.not_lt_zero _)
+  rw [addr_eq (by omega), addr_eq (by omega)]
+  exact Offset.sep _ h (by omega) (by omega)
 
 theorem readW_writeW_addr (m : Mem) {x : BitVec 32} (v : BitVec 32) {d e : Nat}
     (hd : x.toNat + d + 4 ≤ 2 ^ 32) (he : x.toNat + e + 4 ≤ 2 ^ 32) (h : d + 4 ≤ e ∨ e + 4 ≤ d) :
@@ -448,6 +451,94 @@ theorem arg_eq (s : State) (i : Nat) : arg s i = s.mem.readW (addr (s.gpr .esp) 
 section
 variable {P : Params} {H : Md 64 P.N 8}
 
+/-- Compressing the `k` blocks at `eax` (`blk`, their number in `ecx`) into
+the hash value at `st` (in register `sr`), with the scratch space at `scr`
+(in register `cr`): a call of `compress(st, blk, k, scr)` in a frame of its
+arguments, which uses the 20 bytes below `esp` (`E`) and writes only there,
+the hash value and the first `so` bytes of the scratch space. -/
+theorem compressFrame_ok {name : String} {code : Prog isa} (hf : CalleeOk H code) {sr cr : Reg}
+    (hsr : sr ≠ .esp) (hcr : cr ≠ .esp) {s : State} {st scr blk E : BitVec 32} {k : Nat}
+    (hesp : s.gpr .esp = E) (hS : s.gpr sr = st) (hC : s.gpr cr = scr) (heax : s.gpr .eax = blk)
+    (hk : (s.gpr .ecx).toNat = k)
+    (hE : 20 ≤ E.toNat) (f₀ : st.toNat + P.N ≤ 2 ^ 32) (f₁ : blk.toNat + 64 * k ≤ 2 ^ 32)
+    (f₃ : scr.toNat + P.so ≤ 2 ^ 32)
+    (d₁ : Region.Disjoint ⟨st.setWidth 64, P.N⟩ ⟨scr.setWidth 64, P.so⟩)
+    (d₂ : Region.Disjoint ⟨blk.setWidth 64, 64 * k⟩ ⟨st.setWidth 64, P.N⟩)
+    (d₃ : Region.Disjoint ⟨blk.setWidth 64, 64 * k⟩ ⟨scr.setWidth 64, P.so⟩)
+    (dS : Region.Disjoint (below E 20) ⟨st.setWidth 64, P.N⟩)
+    (dC : Region.Disjoint (below E 20) ⟨scr.setWidth 64, P.so⟩)
+    (dB : Region.Disjoint (below E 20) ⟨blk.setWidth 64, 64 * k⟩)
+    (hc : Covers [⟨blk.setWidth 64, 64 * k⟩] (s.rd ++ s.wr))
+    (hw : Covers [⟨st.setWidth 64, P.N⟩, ⟨scr.setWidth 64, P.so⟩] s.wr)
+    {Q : State → Prop}
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
+      Frame [⟨st.setWidth 64, P.N⟩, ⟨scr.setWidth 64, P.so⟩, below E 20] s.mem s'.mem →
+      H.stateAt s'.mem (st.setWidth 64) =
+        H.compressBlocks (H.stateAt s.mem (st.setWidth 64)) s.mem (blk.setWidth 64) k → Q s') :
+    WP isa (.frame (.push [cr, .ecx, .eax, sr]) (.call name code) (.pop .eax 4)) s Q := by
+  have fit : 4 * [cr, Reg.ecx, .eax, sr].length + 4 ≤ (s.gpr .esp).toNat := by
+    rw [hesp]; simp only [List.length_cons, List.length_nil]; omega
+  have hrs : Reg.esp ∉ [cr, Reg.ecx, .eax, sr] := by simp [Ne.symm hsr, Ne.symm hcr]
+  set sE := (pushed [cr, Reg.ecx, .eax, sr] s).callEntry with hsE
+  have a0 : arg sE 0 = st := by rw [hsE, callEntry_arg fit hrs (by simp)]; simp [hS]
+  have a1 : arg sE 1 = blk := by rw [hsE, callEntry_arg fit hrs (by simp)]; simp [heax]
+  have a2 : (arg sE 2).toNat = k := by rw [hsE, callEntry_arg fit hrs (by simp)]; simp [hk]
+  have a3 : arg sE 3 = scr := by rw [hsE, callEntry_arg fit hrs (by simp)]; simp [hC]
+  have eA : argAddr sE 0 = (E - BitVec.ofNat 32 16).setWidth 64 := by
+    rw [hsE, callEntry_argAddr0, hesp]; rfl
+  have eSp : sE.gpr .esp = E - BitVec.ofNat 32 20 := by
+    rw [hsE, callEntry_esp', hesp]; rfl
+  have b16 : Region.Sub (below E 16) (below E 20) := below_sub (by omega) hE
+  have r4 : Region.Sub ⟨(E - BitVec.ofNat 32 20).setWidth 64, 4⟩ (below E 20) := by
+    have := below_inner (sp := E) (a := 4) (b := 20) (k := 16) (by omega) hE
+    rw [show E - BitVec.ofNat 32 20 = E - BitVec.ofNat 32 16 - BitVec.ofNat 32 4 by
+      rw [← VG.Offset.sub_add_eq]; rfl]
+    exact this
+  refine WP.callWith (k := compressK H) hf.verified hf.nosp (by simp) hrs
+    (by rw [hf.stack, hesp]; simp only [List.length_cons, List.length_nil]; omega)
+    (rd := [⟨blk.setWidth 64, 64 * k⟩, ⟨argAddr sE 0, 16⟩])
+    (wr := [⟨st.setWidth 64, P.N⟩, ⟨scr.setWidth 64, P.so⟩])
+    ⟨?_, ?_, ?_⟩ fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
+  · rw [← hsE]
+    simp only [compressK, State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr,
+      arg_withRegions, argAddr_withRegions, a0, a1, a2, a3, eA, eSp]
+    refine ⟨trivial, trivial, d₁, d₂, d₃, dS.sub_left b16, dC.sub_left b16,
+      dS.sub_left r4, dC.sub_left r4, f₀, f₁, f₃, ?_⟩
+    rw [sub_toNat hE]; have := E.isLt; omega
+  · rw [hesp]
+    intro a n ⟨r, hr, hcn⟩
+    simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl
+    · obtain ⟨r', hr', hc'⟩ := hc a n ⟨_, List.mem_singleton_self _, by simpa using hcn⟩
+      exact InRegions_append_cons.mpr (.inr ⟨r', hr', hc'⟩)
+    · refine InRegions_append_cons.mpr (.inl ?_)
+      rw [eA] at hcn
+      simp only [Region.Contains] at hcn ⊢
+      simpa using hcn
+    · obtain ⟨r', hr', hc'⟩ := hw a n ⟨_, by simp, hcn⟩
+      exact InRegions_append_cons.mpr (.inr ⟨r', List.mem_append_right _ hr', hc'⟩)
+    · obtain ⟨r', hr', hc'⟩ := hw a n ⟨_, by simp, hcn⟩
+      exact InRegions_append_cons.mpr (.inr ⟨r', List.mem_append_right _ hr', hc'⟩)
+  · rw [hesp]
+    intro a n ⟨r, hr, hcn⟩
+    obtain ⟨r', hr', hc'⟩ := hw a n ⟨r, hr, hcn⟩
+    exact ⟨r', List.mem_cons_of_mem _ hr', hc'⟩
+  · rw [hf.stack, hesp] at f'
+    have hsE' : Frame [below E 20] s.mem sE.mem := by
+      have := callEntry_frame fit hrs
+      rw [hesp] at this; exact this
+    rw [← hsE] at post
+    simp only [compressK, arg_withRegions, State.withRegions_mem, a0, a1, a2, m₂] at post
+    refine hQ s' rd' wr' cs' f' ?_
+    have e₁ : H.stateAt sE.mem (st.setWidth 64) = H.stateAt s.mem (st.setWidth 64) :=
+      H.stateAt_congr fun i hi =>
+        hsE'.bytes (R := ⟨st.setWidth 64, P.N⟩) (by simpa using dS.symm) (by simp; omega) hi
+    have e₂ : H.compressBlocks (H.stateAt s.mem (st.setWidth 64)) sE.mem (blk.setWidth 64) k =
+        H.compressBlocks (H.stateAt s.mem (st.setWidth 64)) s.mem (blk.setWidth 64) k :=
+      H.compressBlocks_congr fun j hj =>
+        hsE'.bytes (R := ⟨blk.setWidth 64, 64 * k⟩) (by simpa using dB.symm) (by simp; omega) hj
+    rw [post, e₁, e₂]
+
 /-- Compressing the block at `eax` (`blk`) into the hash value at `st` (in
 register `sr`), with the scratch space at `scr` (in register `cr`): a call of
 `compress(st, blk, 1, scr)` in a frame of its arguments, which uses the 20
@@ -473,75 +564,19 @@ theorem compressAt_ok {name : String} {code : Prog isa} (hf : CalleeOk H code) {
       H.stateAt s'.mem (st.setWidth 64) =
         H.compress (H.stateAt s.mem (st.setWidth 64)) (H.blockAt s.mem (blk.setWidth 64)) → Q s') :
     WP isa (compressAt name code sr cr) s Q := by
-  unfold compressAt
+  unfold compressAt compressWith
   refine WP.seq (WP.cons (s' := s.setReg .ecx 1) rfl (WP.block_nil ?_))
   set s₁ := s.setReg .ecx 1 with hs₁
   have g₁ : ∀ r, r ≠ .ecx → s₁.gpr r = s.gpr r := fun r h => by simp [hs₁, State.setReg, h]
-  have fit : 4 * [cr, Reg.ecx, .eax, sr].length + 4 ≤ (s₁.gpr .esp).toNat := by
-    rw [g₁ _ (by decide), hesp]; simp only [List.length_cons, List.length_nil]; omega
-  have hrs : Reg.esp ∉ [cr, Reg.ecx, .eax, sr] := by simp [Ne.symm hsr, Ne.symm hcr]
-  set sE := (pushed [cr, Reg.ecx, .eax, sr] s₁).callEntry with hsE
-  have a0 : arg sE 0 = st := by rw [hsE, callEntry_arg fit hrs (by simp)]; simp [g₁ _ hsr', hS]
-  have a1 : arg sE 1 = blk := by rw [hsE, callEntry_arg fit hrs (by simp)]; simp [g₁ Reg.eax (by decide), heax]
-  have a2 : arg sE 2 = 1 := by rw [hsE, callEntry_arg fit hrs (by simp)]; simp [hs₁, State.setReg]
-  have a3 : arg sE 3 = scr := by rw [hsE, callEntry_arg fit hrs (by simp)]; simp [g₁ _ hcr', hC]
-  have eA : argAddr sE 0 = (E - BitVec.ofNat 32 16).setWidth 64 := by
-    rw [hsE, callEntry_argAddr0, g₁ _ (by decide), hesp]; rfl
-  have eSp : sE.gpr .esp = E - BitVec.ofNat 32 20 := by
-    rw [hsE, callEntry_esp', g₁ _ (by decide), hesp]; rfl
-  have b16 : Region.Sub (below E 16) (below E 20) := below_sub (by omega) hE
-  have r4 : Region.Sub ⟨(E - BitVec.ofNat 32 20).setWidth 64, 4⟩ (below E 20) := by
-    have := below_inner (sp := E) (a := 4) (b := 20) (k := 16) (by omega) hE
-    rw [show E - BitVec.ofNat 32 20 = E - BitVec.ofNat 32 16 - BitVec.ofNat 32 4 by bv_omega]
-    exact this
-  have hesp₁ : s₁.gpr .esp = E := by rw [g₁ _ (by decide), hesp]
-  refine WP.callWith (k := compressK H) hf.verified hf.nosp (by simp) hrs
-    (by rw [hf.stack, hesp₁]; simp only [List.length_cons, List.length_nil]; omega)
-    (rd := [⟨blk.setWidth 64, 64 * (1 : BitVec 32).toNat⟩, ⟨argAddr sE 0, 16⟩])
-    (wr := [⟨st.setWidth 64, P.N⟩, ⟨scr.setWidth 64, P.so⟩])
-    ⟨?_, ?_, ?_⟩ fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
-  · rw [← hsE]
-    simp only [compressK, State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr,
-      arg_withRegions, argAddr_withRegions, a0, a1, a2, a3, eA, eSp]
-    refine ⟨trivial, trivial, d₁, d₂, d₃, dS.sub_left b16, dC.sub_left b16,
-      dS.sub_left r4, dC.sub_left r4, f₀, by simpa using f₁, f₃, ?_⟩
-    rw [sub_toNat hE]; have := E.isLt; omega
-  · rw [hesp₁]
-    intro a n ⟨r, hr, hcn⟩
-    simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl
-    · obtain ⟨r', hr', hc'⟩ := hc a n ⟨_, List.mem_singleton_self _, by simpa using hcn⟩
-      exact InRegions_append_cons.mpr (.inr ⟨r', hr', hc'⟩)
-    · refine InRegions_append_cons.mpr (.inl ?_)
-      rw [eA] at hcn
-      simp only [Region.Contains] at hcn ⊢
-      simpa using hcn
-    · obtain ⟨r', hr', hc'⟩ := hw a n ⟨_, by simp, hcn⟩
-      exact InRegions_append_cons.mpr (.inr ⟨r', List.mem_append_right _ hr', hc'⟩)
-    · obtain ⟨r', hr', hc'⟩ := hw a n ⟨_, by simp, hcn⟩
-      exact InRegions_append_cons.mpr (.inr ⟨r', List.mem_append_right _ hr', hc'⟩)
-  · rw [hesp₁]
-    intro a n ⟨r, hr, hcn⟩
-    obtain ⟨r', hr', hc'⟩ := hw a n ⟨r, hr, hcn⟩
-    exact ⟨r', List.mem_cons_of_mem _ hr', hc'⟩
-  · rw [hf.stack, hesp₁] at f'
-    have hsE' : Frame [below E 20] s.mem sE.mem := by
-      have := callEntry_frame fit hrs
-      rw [hesp₁] at this; exact this
-    rw [← hsE] at post
-    simp only [compressK, arg_withRegions, State.withRegions_mem, a0, a1, a2, m₂,
-      show (1 : BitVec 32).toNat = 1 from rfl, Md.compressBlocks_one] at post
-    rw [hs₁] at f'
-    refine hQ s' rd' wr' (fun r hr => ?_) (by simpa [State.setReg] using f') ?_
-    · rw [cs' r hr, g₁ r (by simp [calleeSaved] at hr; rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide)]
-    · have e₁ : H.stateAt sE.mem (st.setWidth 64) = H.stateAt s.mem (st.setWidth 64) :=
-        H.stateAt_congr fun i hi =>
-          hsE'.bytes (R := ⟨st.setWidth 64, P.N⟩) (by simpa using dS.symm) (by simp; omega) hi
-      have e₂ : H.blockAt sE.mem (blk.setWidth 64) = H.blockAt s.mem (blk.setWidth 64) := by
-        simp only [Md.blockAt]
-        exact H.parse_congr fun k hk =>
-          hsE'.bytes (R := ⟨blk.setWidth 64, 64⟩) (by simpa using dB.symm) (by simp) hk
-      rw [post, e₁, e₂]
+  refine compressFrame_ok (k := 1) hf hsr hcr (by rw [g₁ _ (by decide), hesp])
+    (by rw [g₁ _ hsr', hS]) (by rw [g₁ _ hcr', hC]) (by rw [g₁ _ (by decide), heax])
+    (by simp [hs₁, State.setReg]) hE f₀ f₁ f₃ d₁ d₂ d₃ dS dC dB (by rw [hs₁]; exact hc)
+    (by rw [hs₁]; exact hw) fun s' rd' wr' cs' f' post => ?_
+  have m₁ : s₁.mem = s.mem := by rw [hs₁]; rfl
+  rw [m₁, Md.compressBlocks_one] at post
+  rw [m₁] at f'
+  refine hQ s' (by rw [rd']; rfl) (by rw [wr']; rfl) (fun r hr => ?_) f' post
+  rw [cs' r hr, g₁ r (by simp [calleeSaved] at hr; rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide)]
 
 end
 

@@ -360,14 +360,14 @@ theorem xor_chunk {s : State} {y b d : BitVec 32} (hyw : (⟨State.addr y, 16⟩
   have hd4 : State.addr (d + BitVec.ofNat 32 (4 * k)) = State.addr d + BitVec.ofNat 64 (4 * k) :=
     addr_add (by omega)
   refine wp_ldr (by omega) (by rw [hI.yp, hy4])
-    (by rw [hI.rd, hI.wr, ← hy4]; exact Straight.in_off (List.mem_append_right _ hyw) hfy (by omega) (by omega))
+    (by rw [hI.rd, hI.wr, ← hy4]; exact Straight.in_off (List.mem_append_right _ hyw) hfy (by omega) (by decide))
     fun s₁ u₁ => ?_
   refine wp_ldr (by omega) (by rw [u₁.other _ (by decide), hI.m, hd4])
     (by rw [u₁.rd, u₁.wr, hI.rd, hI.wr]; exact hdin k hk) fun s₂ u₂ => ?_
   refine wp_eor (op2_reg _ _) fun s₃ u₃ => ?_
   refine wp_str (by omega)
     (by rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.other _ (by decide), hI.yp, hy4])
-    (by rw [u₃.wr, u₂.wr, u₁.wr, hI.wr, ← hy4]; exact Straight.in_off hyw hfy (by omega) (by omega))
+    (by rw [u₃.wr, u₂.wr, u₁.wr, hI.wr, ← hy4]; exact Straight.in_off hyw hfy (by omega) (by decide))
     fun s₄ u₄ => WP.block_nil ?_
   have m₄ : s₄.mem = s'.mem.writeW (State.addr y + BitVec.ofNat 64 (4 * k))
       (s'.mem.readW (State.addr y + BitVec.ofNat 64 (4 * k)) 32 ^^^
@@ -485,7 +485,7 @@ theorem load_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
       (by decide), u₁.mem, hL.hs]
   have hhin : ∀ k < 4, InRegions (s.rd ++ s.wr) (State.addr (hA s₀ + BitVec.ofNat 32 (4 * k))) 4 :=
     fun k hk => by
-      rw [hL.rd, hL.wr]; exact Straight.in_off (by rw [hp.rd]; simp) hfH (by omega) (by omega)
+      rw [hL.rd, hL.wr]; exact Straight.in_off (by rw [hp.rd]; simp) hfH (by omega) (by decide)
   have hV₀ : VI s₃.mem (hA s₀) (yp s₀) (bp s₀) s 0 s₃ :=
     ⟨m₃, by rw [u₃.other _ (by decide), hX.yp], by rw [u₃.other _ (by decide), hX.sb],
       fun k' h => absurd h (by omega), rfl, by rw [u₃.rd, hX.rd, u₁.rd],
@@ -566,7 +566,7 @@ theorem z_chunk {s₂ : State} {y : BitVec 32} (hyw : (⟨State.addr y, 16⟩ : 
   have hy4 : State.addr (y + BitVec.ofNat 32 (4 * k)) = State.addr y + BitVec.ofNat 64 (4 * k) :=
     addr_add (by omega)
   refine wp_rev fun s₁ u₁ => wp_str (by omega) (by rw [u₁.other _ (Ne.symm hz.1), hI.yp, hy4])
-    (by rw [u₁.wr, hI.wr, ← hy4]; exact Straight.in_off hyw hfy (by omega) (by omega))
+    (by rw [u₁.wr, hI.wr, ← hy4]; exact Straight.in_off hyw hfy (by omega) (by decide))
     fun s₃ u₃ => WP.block_nil ?_
   have m₃ : s₃.mem = s'.mem.writeW (State.addr y + BitVec.ofNat 64 (4 * k)) (rev (s₂.gpr (Z k))) := by
     rw [u₃.mem, u₁.gpr, u₁.mem, hI.z k (Nat.le_refl _) hk]
@@ -781,15 +781,15 @@ theorem ghash_correct (s : State) (hs : Proof.Gcm.ghashArm.pre s) :
   refine ⟨t, s', he, ⟨fun r hr => ?_, Exec.sp he⟩, h₂⟩
   simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-  · exact h₁ 0 (by omega)
-  · exact h₁ 1 (by omega)
-  · exact h₁ 2 (by omega)
-  · exact h₁ 3 (by omega)
-  · exact h₁ 4 (by omega)
-  · exact h₁ 5 (by omega)
-  · exact h₁ 6 (by omega)
-  · exact h₁ 7 (by omega)
-  · exact h₁ 8 (by omega)
+  · exact h₁ 0 (by decide)
+  · exact h₁ 1 (by decide)
+  · exact h₁ 2 (by decide)
+  · exact h₁ 3 (by decide)
+  · exact h₁ 4 (by decide)
+  · exact h₁ 5 (by decide)
+  · exact h₁ 6 (by decide)
+  · exact h₁ 7 (by decide)
+  · exact h₁ 8 (by decide)
 
 /-! ## Constant time -/
 
@@ -834,7 +834,7 @@ theorem agree₀ {s₁ s₂ : State} (h₁ : Proof.Gcm.ghashArm.pre s₁) (h₂ 
   · rw [hp₁.wr, hp₂.wr]; simp only [yR, bR, yp, bp, p1, a0]
   · simp only [τ₀] at hk
     rw [VG.Proof.MdStream.Arm.argByte_eq hp₁.fitSp hk, VG.Proof.MdStream.Arm.argByte_eq hp₂.fitSp hk,
-      Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by omega)), Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by omega)),
+      Mem.readW_byte s₁.mem _ (Nat.mod_lt _ (by decide)), Mem.readW_byte s₂.mem _ (Nat.mod_lt _ (by decide)),
       show k / 4 = 0 by omega]
     exact congrArg _ a0
 

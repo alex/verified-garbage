@@ -27,7 +27,7 @@ theorem compressBlocks_one (H : HashValue) (m : Mem) (p : Addr) :
     compressBlocks H m p 1 = compress H (blockAt m p) := by
   simp [compressBlocks]
 
-theorem compress_noFrames : Impl.Sha256.AArch64.compress.noFrames = true := by decide +kernel
+theorem compress_noFrames : Impl.Sha256.AArch64.compress.noFrames = true := by lit_decide
 
 /-- Compressing the block at `x1` into the hash value at `x19`, with scratch
 space at `x20`: the callee-saved registers other than `x30` are kept. -/

@@ -264,9 +264,8 @@ def saveMem (m : Mem) (b : Addr) (g : Reg → BitVec 64) : Mem :=
     (b + BitVec.ofNat 64 208) (g .x23)).writeW (b + BitVec.ofNat 64 216) (g .x24)
 
 theorem save_sep (b : Addr) {d e : Nat} (hd : d < 2 ^ 32) (he : e < 2 ^ 32)
-    (h : d + 8 ≤ e ∨ e + 8 ≤ d) : Mem.Sep (b + BitVec.ofNat 64 d) 8 (b + BitVec.ofNat 64 e) 8 := by
-  intro x hx hy
-  bv_omega
+    (h : d + 8 ≤ e ∨ e + 8 ≤ d) : Mem.Sep (b + BitVec.ofNat 64 d) 8 (b + BitVec.ofNat 64 e) 8 :=
+  Offset.sep b h (by omega) (by omega)
 
 theorem readW_writeW_save (m : Mem) (b : Addr) (v : BitVec 64) {d e : Nat} (hd : d < 2 ^ 32)
     (he : e < 2 ^ 32) (h : d + 8 ≤ e ∨ e + 8 ≤ d) :
@@ -325,7 +324,7 @@ theorem frame_bytes {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {R : Re
     m' (R.base + BitVec.ofNat 64 i) = m (R.base + BitVec.ofNat 64 i) := by
   refine hf _ fun r hr hc => hd r hr _ ?_ hc
   simp only [Region.Contains]
-  rw [show R.base + BitVec.ofNat 64 i - R.base = BitVec.ofNat 64 i by bv_omega,
+  rw [show R.base + BitVec.ofNat 64 i - R.base = BitVec.ofNat 64 i from Offset.add_sub_cancel_left _ _,
     Proof.Sha512.AArch64.toNat_ofNat_lt (by omega)]
   omega
 

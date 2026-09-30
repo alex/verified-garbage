@@ -516,6 +516,66 @@ structure CalleeOk {P : Params} (H : Md 64 P.N 8) (code : Prog isa) : Prop where
 
 /-! ## The compression function -/
 
+/-- `n` sets `r2` to `v`. -/
+def SetsN (n : Instr) (s : State) (v : BitVec 32) : Prop :=
+  ∀ (is : List Instr) (Q : State → Prop), (∀ s', Upd s s' .r2 v → WP isa (.block is) s' Q) →
+    WP isa (.block (n :: is)) s Q
+
+theorem setsN_one (s : State) : SetsN (.mov .r2 (.imm 1)) s 1 := fun _ _ k => wp_mov (op2_imm (by decide)) k
+
+theorem setsN_r7 (s : State) : SetsN (.mov .r2 (.reg .r7)) s (s.gpr .r7) := fun _ _ k => wp_mov (op2_reg _ _) k
+
+/-- Compressing the `k` blocks at `r1` (their number set in `r2` by `n`) into
+the hash value at `r0`, with scratch space at `r3`. -/
+theorem compressWith_ok {P : Params} {H : Md 64 P.N 8} {n : Instr} {s : State} {v : BitVec 32}
+    (hn : SetsN n s v) {k : Nat} (hkv : v.toNat = k) {name : String} {code : Prog isa} (hf : CalleeOk H code)
+    {st scr src : BitVec 32}
+    (h0 : s.gpr .r0 = st) (h3 : s.gpr .r3 = scr) (h1 : s.gpr .r1 = src)
+    (f₀ : st.toNat + P.N ≤ 2 ^ 32) (f₁ : src.toNat + 64 * k ≤ 2 ^ 32) (f₃ : scr.toNat + P.so ≤ 2 ^ 32)
+    (d₁ : Region.Disjoint ⟨State.addr st, P.N⟩ ⟨State.addr scr, P.so⟩)
+    (d₂ : Region.Disjoint ⟨State.addr src, 64 * k⟩ ⟨State.addr st, P.N⟩)
+    (d₃ : Region.Disjoint ⟨State.addr src, 64 * k⟩ ⟨State.addr scr, P.so⟩)
+    (hc : Covers [⟨State.addr src, 64 * k⟩, ⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩] (s.rd ++ s.wr))
+    (hw : Covers [⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩] s.wr) {Q : State → Prop}
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ preserved, r ≠ .lr → s'.gpr r = s.gpr r) →
+      s'.gpr .r0 = st → s'.gpr .r3 = scr → s'.sp = s.sp →
+      Frame [⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩] s.mem s'.mem →
+      H.stateAt s'.mem (State.addr st) =
+        H.compressBlocks (H.stateAt s.mem (State.addr st)) s.mem (State.addr src) k → Q s') :
+    WP isa (compressWith n name code) s Q := by
+  have hk : ∀ i ∈ instrs code, dstOf i ≠ some .r0 ∧ dstOf i ≠ some .r3 := by
+    intro i hi
+    have := List.all_eq_true.mp hf.keeps i hi
+    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at this
+    exact this
+  unfold compressWith
+  refine WP.seq (hn _ _ fun s₁ u₁ => WP.block_nil ?_)
+  have e0 : s₁.gpr .r0 = st := by rw [u₁.other _ (by decide), h0]
+  have e1 : s₁.gpr .r1 = src := by rw [u₁.other _ (by decide), h1]
+  have e2 : s₁.gpr .r2 = v := u₁.gpr
+  have e3 : s₁.gpr .r3 = scr := by rw [u₁.other _ (by decide), h3]
+  have c : ∀ r, r ∉ linkRegs → s₁.callEntry.gpr r = s₁.gpr r := fun r h => State.callEntry_gpr s₁ h
+  refine WP.call (k := compressK H) hf.verified
+    (rd := [⟨State.addr src, 64 * k⟩]) (wr := [⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩]) ?_ ?_ ?_ ?_
+    hf.noCalls
+  · simp only [compressK, State.withRegions_gpr, State.withRegions_rd,
+      State.withRegions_wr, c _ (show Reg.r0 ∉ linkRegs by decide), c _ (show Reg.r1 ∉ linkRegs by decide),
+      c _ (show Reg.r2 ∉ linkRegs by decide), c _ (show Reg.r3 ∉ linkRegs by decide), e0, e1, e2, e3, hkv]
+    exact ⟨trivial, trivial, d₁, d₂, d₃, f₀, f₁, f₃⟩
+  · rw [u₁.rd, u₁.wr]; simpa using hc
+  · rw [u₁.wr]; exact hw
+  · intro s' hrd hwr hsp hf' hcs hg hpost
+    simp only [compressK, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem,
+      c _ (show Reg.r0 ∉ linkRegs by decide), c _ (show Reg.r1 ∉ linkRegs by decide),
+      c _ (show Reg.r2 ∉ linkRegs by decide), e0, e1, e2, u₁.mem, hkv] at hpost
+    refine hQ s' (hrd.trans u₁.rd) (hwr.trans u₁.wr) (fun r hr hlr => ?_)
+      (by rw [hg _ (fun i hi => (hk i hi).1) (by decide), e0])
+      (by rw [hg _ (fun i hi => (hk i hi).2) (by decide), e3]) (hsp.trans u₁.sp) (u₁.mem ▸ hf') hpost
+    have : r ≠ .r2 := by
+      simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+    rw [hcs r hr hlr, u₁.other r this]
+
 /-- Compressing the block at `r1` into the hash value at `r0`, with scratch
 space at `r3`. -/
 theorem compressAt_ok {P : Params} {H : Md 64 P.N 8} {name : String} {code : Prog isa} (hf : CalleeOk H code)
@@ -532,39 +592,8 @@ theorem compressAt_ok {P : Params} {H : Md 64 P.N 8} {name : String} {code : Pro
       Frame [⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩] s.mem s'.mem →
       H.stateAt s'.mem (State.addr st) =
         H.compress (H.stateAt s.mem (State.addr st)) (H.blockAt s.mem (State.addr src)) → Q s') :
-    WP isa (compressAt name code) s Q := by
-  have hk : ∀ i ∈ instrs code, dstOf i ≠ some .r0 ∧ dstOf i ≠ some .r3 := by
-    intro i hi
-    have := List.all_eq_true.mp hf.keeps i hi
-    simp only [Bool.and_eq_true, bne_iff_ne, ne_eq] at this
-    exact this
-  unfold compressAt
-  refine WP.seq (wp_mov (op2_imm (by decide)) fun s₁ u₁ => WP.block_nil ?_)
-  have e0 : s₁.gpr .r0 = st := by rw [u₁.other _ (by decide), h0]
-  have e1 : s₁.gpr .r1 = src := by rw [u₁.other _ (by decide), h1]
-  have e2 : s₁.gpr .r2 = 1 := u₁.gpr
-  have e3 : s₁.gpr .r3 = scr := by rw [u₁.other _ (by decide), h3]
-  have c : ∀ r, r ∉ linkRegs → s₁.callEntry.gpr r = s₁.gpr r := fun r h => State.callEntry_gpr s₁ h
-  refine WP.call (k := compressK H) hf.verified
-    (rd := [⟨State.addr src, 64 * 1⟩]) (wr := [⟨State.addr st, P.N⟩, ⟨State.addr scr, P.so⟩]) ?_ ?_ ?_ ?_
-    hf.noCalls
-  · simp only [compressK, State.withRegions_gpr, State.withRegions_rd,
-      State.withRegions_wr, c _ (show Reg.r0 ∉ linkRegs by decide), c _ (show Reg.r1 ∉ linkRegs by decide),
-      c _ (show Reg.r2 ∉ linkRegs by decide), c _ (show Reg.r3 ∉ linkRegs by decide), e0, e1, e2, e3]
-    exact ⟨rfl, trivial, d₁, d₂, d₃, f₀, by simpa using f₁, f₃⟩
-  · rw [u₁.rd, u₁.wr]; simpa using hc
-  · rw [u₁.wr]; exact hw
-  · intro s' hrd hwr hsp hf' hcs hg hpost
-    simp only [compressK, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem,
-      c _ (show Reg.r0 ∉ linkRegs by decide), c _ (show Reg.r1 ∉ linkRegs by decide),
-      c _ (show Reg.r2 ∉ linkRegs by decide), e0, e1, e2, u₁.mem] at hpost
-    rw [show (BitVec.toNat (1 : BitVec 32)) = 1 from rfl, H.compressBlocks_one] at hpost
-    refine hQ s' (hrd.trans u₁.rd) (hwr.trans u₁.wr) (fun r hr hlr => ?_)
-      (by rw [hg _ (fun i hi => (hk i hi).1) (by decide), e0])
-      (by rw [hg _ (fun i hi => (hk i hi).2) (by decide), e3]) (hsp.trans u₁.sp) (u₁.mem ▸ hf') hpost
-    have : r ≠ .r2 := by
-      simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-    rw [hcs r hr hlr, u₁.other r this]
+    WP isa (compressAt name code) s Q :=
+  compressWith_ok (setsN_one s) (k := 1) rfl hf h0 h3 h1 f₀ f₁ f₃ d₁ d₂ d₃ hc hw
+    fun s' hrd hwr hcs h0' h3' hsp hf' hs => hQ s' hrd hwr hcs h0' h3' hsp hf' (by rw [hs, Md.compressBlocks_one])
 
 end VG.Proof.MdStream.Arm

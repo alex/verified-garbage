@@ -55,13 +55,14 @@ variable (v : Compress)
 
 theorem update_mxcsr : (update v.callee).allInstrs (fun i => !loadsMxcsr i) = true := by
   simp only [update, Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody,
-    Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressAt, Code.allInstrs, v.mxcsr,
+    Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressWith,
+    Code.allInstrs, v.mxcsr,
     Bool.true_and]
   decide +kernel
 
 theorem finalize_mxcsr : (finalize v.callee).allInstrs (fun i => !loadsMxcsr i) = true := by
   simp only [finalize, Impl.MdStream.X86_64.finalize, Impl.MdStream.X86_64.finalizeBody,
-    Impl.MdStream.X86_64.compressAt, Code.allInstrs, v.mxcsr, Bool.true_and]
+    Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith, Code.allInstrs, v.mxcsr, Bool.true_and]
   decide +kernel
 
 theorem update_verified : Verified X86_64.target (update v.callee) Proof.Sha1.updateX86_64 :=
@@ -72,12 +73,13 @@ theorem finalize_verified : Verified X86_64.target (finalize v.callee) Proof.Sha
 
 theorem update_depth : (update v.callee).depth = 1 := by
   simp only [update, Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody,
-    Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressAt, Code.depth, v.ok.depth]
+    Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressWith,
+    Code.depth, v.ok.depth]
   decide +kernel
 
 theorem finalize_depth : (finalize v.callee).depth = 1 := by
   simp only [finalize, Impl.MdStream.X86_64.finalize, Impl.MdStream.X86_64.finalizeBody,
-    Impl.MdStream.X86_64.compressAt, Code.depth, v.ok.depth]
+    Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith, Code.depth, v.ok.depth]
   decide +kernel
 
 theorem callee_nosp : (v.callee.code.allInstrs fun i => !Taint.clobbers i .rsp) = true := by
@@ -87,7 +89,8 @@ theorem update_nosp : NoSp (update v.callee) := by
   have : ((instrs (update v.callee)).all fun i => !Taint.clobbers i .rsp) = true := by
     rw [← Code.allInstrs_eq]
     simp only [update, Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody,
-      Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressAt, Code.allInstrs,
+      Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressWith,
+      Code.allInstrs,
       v.callee_nosp, Bool.true_and]
     decide +kernel
   exact fun i hi => by simpa using List.all_eq_true.mp this i hi
@@ -96,7 +99,7 @@ theorem finalize_nosp : NoSp (finalize v.callee) := by
   have : ((instrs (finalize v.callee)).all fun i => !Taint.clobbers i .rsp) = true := by
     rw [← Code.allInstrs_eq]
     simp only [finalize, Impl.MdStream.X86_64.finalize, Impl.MdStream.X86_64.finalizeBody,
-      Impl.MdStream.X86_64.compressAt, Code.allInstrs, v.callee_nosp, Bool.true_and]
+      Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith, Code.allInstrs, v.callee_nosp, Bool.true_and]
     decide +kernel
   exact fun i hi => by simpa using List.all_eq_true.mp this i hi
 

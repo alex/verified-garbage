@@ -176,7 +176,7 @@ their top bits exchanged), and weakest-precondition rules for the macros of
 `VG.Impl.Sha3.X86` that load, combine, rotate and store a lane in `(eax,
 edx)`, each proved once for any registers and offsets, in
 continuation-passing style. The halves and the 64-bit words in memory are
-those of the SHA-512 proofs (`Proof/Sha512/X86/Steps.lean`).
+those of the SHA-512 proofs (`Proof/Sha512/X86/Rounds.lean`).
 -/
 
 namespace VG.Proof.Sha3.X86

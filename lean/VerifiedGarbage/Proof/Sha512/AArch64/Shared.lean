@@ -14,51 +14,51 @@ per-target contracts (`Proof/Sha512/AArch64/Compress.lean`); these theorems move
 them to the shared contracts of `Spec/Sha512/Contract.lean`, which the
 artifacts are emitted with.
 
-The shared contracts give the functions more scratch than these ones use (224
-bytes for `compress`, 272 for `update` and `finalize`, sized for the 32-bit
-targets): the per-target contracts are first widened to that scratch
-(`Verified.widen`, the same code running with the same trace and result),
-then moved to the shared ones.
+The shared contracts give the functions more scratch than these ones use (1328
+bytes for `compress`, 1376 for `update` and `finalize`, sized for the x86-64
+AVX2 compression function): the per-target contracts are first widened to
+that scratch (`Verified.widen`, the same code running with the same trace and
+result), then moved to the shared ones.
 -/
 
 namespace VG.Proof.Sha512.AArch64.Shared
 
 open _root_.VG.AArch64
 
-/-- `compressAArch64` with 224 bytes of scratch. -/
+/-- `compressAArch64` with 1328 bytes of scratch. -/
 def compressWide : Contract AArch64.isa :=
   { Proof.Sha512.compressAArch64 with
     pre := fun s =>
       let state : Region := ⟨s.gpr .x0, 64⟩
       let blocks : Region := ⟨s.gpr .x1, 128 * (s.gpr .x2).toNat⟩
-      let scratch : Region := ⟨s.gpr .x3, 224⟩
+      let scratch : Region := ⟨s.gpr .x3, 1328⟩
       s.rd = [blocks] ∧ s.wr = [state, scratch] ∧
       state.Disjoint scratch ∧ blocks.Disjoint state ∧ blocks.Disjoint scratch }
 
-/-- `updateAArch64` with 272 bytes of scratch. -/
+/-- `updateAArch64` with 1376 bytes of scratch. -/
 def updateWide : Contract AArch64.isa :=
   { Proof.Sha512.updateAArch64 with
     pre := fun s =>
       let state : Region := ⟨s.gpr .x0, 192⟩
       let data : Region := ⟨s.gpr .x2, (s.gpr .x3).toNat⟩
-      let scratch : Region := ⟨s.gpr .x4, 272⟩
+      let scratch : Region := ⟨s.gpr .x4, 1376⟩
       s.rd = [data] ∧ s.wr = [state, scratch] ∧
       state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch }
 
-/-- `finalizeAArch64` with 272 bytes of scratch. -/
+/-- `finalizeAArch64` with 1376 bytes of scratch. -/
 def finalizeWide : Contract AArch64.isa :=
   { Proof.Sha512.finalizeAArch64 with
     pre := fun s =>
       let state : Region := ⟨s.gpr .x0, 192⟩
       let out : Region := ⟨s.gpr .x2, 64⟩
-      let scratch : Region := ⟨s.gpr .x3, 272⟩
+      let scratch : Region := ⟨s.gpr .x3, 1376⟩
       s.rd = [] ∧ s.wr = [state, out, scratch] ∧
       state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch }
 
 theorem pfx {a : Addr} {m n : Nat} (h : Nat.ble m n = true) : Region.Prefix ⟨a, m⟩ ⟨a, n⟩ :=
   ⟨rfl, Nat.le_of_ble_eq_true h⟩
-theorem sub176 (a : Addr) : Region.Sub ⟨a, 176⟩ ⟨a, 224⟩ := Region.sub_prefix (by decide)
-theorem sub224 (a : Addr) : Region.Sub ⟨a, 224⟩ ⟨a, 272⟩ := Region.sub_prefix (by decide)
+theorem sub176 (a : Addr) : Region.Sub ⟨a, 176⟩ ⟨a, 1328⟩ := Region.sub_prefix (by decide)
+theorem sub224 (a : Addr) : Region.Sub ⟨a, 224⟩ ⟨a, 1376⟩ := Region.sub_prefix (by decide)
 
 theorem compressWide_verified (hsat : ∃ s, compressWide.pre s) :
     Verified AArch64.target Impl.Sha512.AArch64.compress compressWide :=
@@ -86,16 +86,16 @@ theorem finalizeWide_verified (hsat : ∃ s, finalizeWide.pre s) :
     (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat
 
 /-- A state satisfying `compressWide.pre`. -/
-def compressSat : State := { Proof.Sha512.AArch64.satState with wr := [⟨0x1000, 64⟩, ⟨0x3000, 224⟩] }
+def compressSat : State := { Proof.Sha512.AArch64.satState with wr := [⟨0x1000, 64⟩, ⟨0x3000, 1328⟩] }
 
 /-- A state satisfying `updateWide.pre`. -/
 def updateSat : State :=
-  { Proof.Sha512.AArch64.Stream.Update.sat with wr := [⟨0x1000, 192⟩, ⟨0x3000, 272⟩] }
+  { Proof.Sha512.AArch64.Stream.Update.sat with wr := [⟨0x1000, 192⟩, ⟨0x3000, 1376⟩] }
 
 /-- A state satisfying `finalizeWide.pre`. -/
 def finalizeSat : State :=
   { Proof.Sha512.AArch64.Stream.Finalize.sat with
-    wr := [⟨0x1000, 192⟩, ⟨0x2000, 64⟩, ⟨0x3000, 272⟩] }
+    wr := [⟨0x1000, 192⟩, ⟨0x2000, 64⟩, ⟨0x3000, 1376⟩] }
 
 theorem compress :
     Verified AArch64.target Impl.Sha512.AArch64.compress (Spec.Sha512.compressContract AArch64.abi) := by

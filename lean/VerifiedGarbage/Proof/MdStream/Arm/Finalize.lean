@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MdStream.Arm.Common
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # Streaming Merkle–Damgård hash functions on ARMv7: `finalize`
@@ -313,13 +314,7 @@ theorem compress_buf (hd : Dims P) {name : String} {code : Prog isa} (hf : Calle
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr'
       rcases hr' with rfl | rfl
       · exact (hp.st_scr.symm.sub_left (saved_sub hd hp')).sub_right eN
-      · have hA : (scA s₀).toNat = (scr s₀).toNat := addr_toNat _
-        have hB : (scA s₀ + BitVec.ofNat 64 p.2).toNat = (scr s₀).toNat + p.2 := by
-          rw [BitVec.toNat_add, hA, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega),
-            Nat.mod_eq_of_lt (by omega)]
-        intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂
-        rw [BitVec.toNat_sub, hB] at h₁; rw [BitVec.toNat_sub, hA] at h₂
-        have := a.isLt; omega
+      · exact Offset.disjoint_base _ this.1 (by omega_using [this.2, hd.so.2])
 
 /-- The loop's postcondition for one iteration. -/
 def Step {P : Params} (H : Md 64 P.N 8) (s₀ : State) (k : Nat) (s : State) : Prop :=

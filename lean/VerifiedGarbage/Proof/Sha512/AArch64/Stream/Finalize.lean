@@ -224,7 +224,7 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
   refine compressAt_ok hC.x19 hC.x20 hx1 ((hp.st_scr.sub_left e32).sub_right e112) ?_
     ((hp.st_scr.sub_left eb).sub_right e112) ?_ ?_ fun s' hrd hwr hcs hsp hf hstate =>
       hQ s' ?_ hcs hstate
-  · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+  · exact Offset.disjoint_base (d := 64) _ (by omega) (by omega)
   · rw [hC.rd, hC.wr, hp.rd, hp.wr]
     apply Covers.of_sub
     intro r hr
@@ -258,7 +258,7 @@ theorem compress_buf {s₀ : State} (hp : Pre s₀) {s : State} (hC : Common s�
       · exact (hp.st_scr.symm.sub_left (saved_sub hp')).sub_right e32
       · simp only [Impl.Sha512.AArch64.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
         rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;>
-        · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+        · exact Offset.disjoint_base _ (by omega) (by omega)
 
 theorem times8 (x : BitVec 64) : x + x + (x + x) + (x + x + (x + x)) = BitVec.ofNat 64 (8 * x.toNat) := by
   bv_omega
@@ -677,7 +677,7 @@ theorem out_all {s₀ : State} (hp : Pre s₀) {sD : State} (hD : Done s₀ sD) 
 /-- No instruction of `finalize` writes the callee-saved registers it does not save. -/
 theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs finalize, dstOf i ≠ some r := by
   have : ((instrs finalize).all fun i => untouched.all fun r => dstOf i != some r) = true :=
-    instrs_keeps (by decide +kernel)
+    instrs_keeps (by lit_decide)
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this

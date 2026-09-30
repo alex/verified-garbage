@@ -105,6 +105,19 @@ theorem base_disjoint (p : Addr) {e n k : Nat} (h : k ≤ e) (he : e + n ≤ 2 ^
     Region.Disjoint ⟨p, k⟩ ⟨p + BitVec.ofNat 64 e, n⟩ :=
   fun x h₁ h₂ => sep_base p h he x h₁ h₂
 
+/-- `[p + d, p + d + k)` lies above `[p - n, p)`. -/
+theorem disjoint_below (p : Addr) {n d k : Nat} (h : n + d + k ≤ 2 ^ 64) :
+    Region.Disjoint ⟨p + BitVec.ofNat 64 d, k⟩ ⟨p - BitVec.ofNat 64 n, n⟩ := by
+  rw [show p + BitVec.ofNat 64 d = p - BitVec.ofNat 64 n + BitVec.ofNat 64 (n + d) by
+    rw [BitVec.ofNat_add, ← BitVec.add_assoc, BitVec.sub_add_cancel]]
+  exact disjoint_base _ (Nat.le_add_right _ _) (by omega)
+
+/-- `[p, p + k)` lies above `[p - n, p)`. -/
+theorem base_disjoint_below (p : Addr) {n k : Nat} (h : n + k ≤ 2 ^ 64) :
+    Region.Disjoint ⟨p, k⟩ ⟨p - BitVec.ofNat 64 n, n⟩ := by
+  have := disjoint_below p (n := n) (d := 0) (k := k) (by omega)
+  rwa [show p + BitVec.ofNat 64 0 = p from BitVec.add_zero p] at this
+
 /-- Two regions, the first below the second, are disjoint. -/
 theorem disjoint_of_le {r₁ r₂ : Region} (h : r₁.base.toNat + r₁.len ≤ r₂.base.toNat)
     (h' : r₂.base.toNat + r₂.len ≤ 2 ^ 64) : r₁.Disjoint r₂ := by

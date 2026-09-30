@@ -12,8 +12,8 @@ namespace VG.Variants.Sha256Compress.X86_64.Scalar
 def variant : Proof.Sha256.X86_64.Compress where
   callee := .scalar
   ok := Proof.Sha256.X86_64.Stream.scalar_ok
-  mxcsr := by decide +kernel
-  spSafe := Code.all_of_allInstrs (by lit_decide)
+  mxcsr := by change Impl.Sha256.X86_64.compress.allInstrs _ = true; lit_decide
+  spSafe := Code.all_of_allInstrs (by change Impl.Sha256.X86_64.compress.allInstrs _ = true; lit_decide)
   suffix := ""
   features := []
 

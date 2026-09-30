@@ -1,12 +1,14 @@
 import VerifiedGarbage.Spec.Pbkdf2.Generic
+import VerifiedGarbage.Proof.Framework.OffsetBelow
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.Framework.RelCT
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
 import VerifiedGarbage.Proof.Sha256.X86_64.Stream.Common
-import VerifiedGarbage.Impl.Pbkdf2.Generic.X86_64
+import VerifiedGarbage.Impl.Hmac.Generic.X86_64
+import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
-# HMAC and PBKDF2-HMAC over any streaming hash function: the x86-64 contracts
+# HMAC over any streaming hash function: the x86-64 contracts
 
 **Untrusted**: the contracts the proofs are written against.
 
@@ -15,9 +17,10 @@ import VerifiedGarbage.Impl.Pbkdf2.Generic.X86_64
   representation of the streaming state as parameters. At SHA-1 and MD5
   they are the contracts those functions are proved against
   (`Proof/<Alg>/X86_64/Contract.lean`); the SHA-512 family's imply them.
-* `initG`, `finG` and `iterG` are those of our functions; the artifacts are
-  emitted with the shared contracts of `Spec/Hmac/Generic.lean` and
-  `Spec/Pbkdf2/Generic.lean`, which imply them (`Contract.Implies`).
+* `initG` and `finG` are those of our functions; the artifacts are emitted
+  with the shared contracts of `Spec/Hmac/Generic.lean`, which imply them
+  (`Contract.Implies`). (PBKDF2's iteration on x86-64 calls the compression
+  functions directly: `Proof/Pbkdf2/X86_64/`.)
 -/
 
 namespace VG.Proof.Hmac.Generic.X86_64
@@ -131,31 +134,6 @@ def finG : Contract isa where
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
     s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
 
-/-- `iterate(key, u, n, t, scratch)`: `VG.Spec.Pbkdf2.iterateContract`. -/
-def iterG : Contract isa where
-  pre s :=
-    let key : Region := ⟨s.gpr .rdi, 2 * S.stateBytes⟩
-    let u : Region := ⟨s.gpr .rsi, S.digestBytes⟩
-    let t : Region := ⟨s.gpr .rcx, S.digestBytes⟩
-    let scratch : Region := ⟨s.gpr .r8, 8 * W⟩
-    let ret : Region := ⟨s.gpr .rsp, 8⟩
-    let stack : Region := ⟨s.gpr .rsp - 16, 16⟩
-    s.rd = [key, u] ∧ s.wr = [t, scratch] ∧
-    key.Disjoint t ∧ key.Disjoint scratch ∧ u.Disjoint t ∧ u.Disjoint scratch ∧ t.Disjoint scratch ∧
-    ret.Disjoint key ∧ ret.Disjoint u ∧ ret.Disjoint t ∧ ret.Disjoint scratch ∧
-    stack.Disjoint key ∧ stack.Disjoint u ∧ stack.Disjoint t ∧ stack.Disjoint scratch ∧
-    (s.gpr .rdi).toNat + 2 * S.stateBytes ≤ 2 ^ 64 ∧ (s.gpr .r8).toNat + 8 * W ≤ 2 ^ 64
-  post s s' := ∀ k0, k0.length = S.H.blockSize →
-    S.Repr s.mem (s.gpr .rdi) (xorPad k0 ipad) →
-    S.Repr s.mem (s.gpr .rdi + BitVec.ofNat 64 S.stateBytes) (xorPad k0 opad) →
-    bytesAt s'.mem (s.gpr .rcx) S.digestBytes =
-      Spec.Pbkdf2.iterate (hmacBlockKey S.H k0) ((s.gpr .rdx).setWidth 32).toNat
-        (bytesAt s.mem (s.gpr .rsi) S.digestBytes) (bytesAt s.mem (s.gpr .rcx) S.digestBytes)
-  pub s₁ s₂ :=
-    s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧
-    (s₁.gpr .rdx).setWidth 32 = (s₂.gpr .rdx).setWidth 32 ∧
-    s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
-
 end VG.Proof.Hmac.Generic.X86_64
 
 /-!
@@ -225,7 +203,7 @@ theorem frame_depth {c : Prog isa} (hd : c.depth ≤ 1) {s : State} {ws : List R
     rcases List.mem_append.mp hr with hr | hr
     · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
     · simp only [List.mem_singleton] at hr; subst hr
-      exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), below_sub (by omega) (by omega)⟩
+      exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), below_sub (by omega_nat) (by omega_nat)⟩
 
 /-- A region disjoint from the 16 bytes below `rsp` reads the same on entry
 to a callee. -/
@@ -233,13 +211,14 @@ theorem callEntry_bytes (s : State) {p : Addr} {n : Nat} (hd : (below (s.gpr .rs
     (hn : n ≤ 2 ^ 64) {i : Nat} (hi : i < n) :
     s.callEntry.mem (p + BitVec.ofNat 64 i) = s.mem (p + BitVec.ofNat 64 i) :=
   Proof.Sha256.X86_64.Stream.callEntry_byte s (R := ⟨p, n⟩)
-    (hd.sub_left (below_sub (by omega) (by omega))) hn hi
+    (hd.sub_left (below_sub (by omega_nat) (by omega_nat))) hn hi
 
 theorem ret_sub (s : State) : Region.Sub ⟨s.callEntry.gpr .rsp, 8⟩ (below (s.gpr .rsp) 16) := by
-  intro a h; simp only [State.callEntry_rsp, Region.Contains] at h ⊢; bv_omega
+  rw [State.callEntry_rsp]; exact Offset.sub_below _ (a := 8) (by omega_nat) (by omega_nat)
 
 theorem stk_sub (s : State) : Region.Sub ⟨s.callEntry.gpr .rsp - 8, 8⟩ (below (s.gpr .rsp) 16) := by
-  intro a h; simp only [State.callEntry_rsp, Region.Contains] at h ⊢; bv_omega
+  rw [State.callEntry_rsp, show s.gpr .rsp - 8 - 8 = s.gpr .rsp - BitVec.ofNat 64 16 from Offset.sub_sub_ofNat _ 8 8]
+  exact Offset.sub_below _ (a := 16) (by omega_nat) (by omega_nat)
 
 theorem covers_wr {ws : List Region} {s : State} (h : Covers ws s.wr) : Covers ([] ++ ws) (s.rd ++ s.wr) :=
   fun a n hi => by
@@ -254,7 +233,7 @@ theorem init_call {s : State} {st : Addr} (hdi : s.gpr .rdi = st) (hc : Covers [
     (hstk : (below (s.gpr .rsp) 16).Disjoint ⟨st, H.S⟩) {Q : State → Prop}
     (hQ : ∀ s', After s [⟨st, H.S⟩] s' → hH.SH.Repr s'.mem st [] → Q s') :
     WP isa (.call H.initN H.initC) s Q := by
-  refine WP.call (k := initK H.S hH.SH.Repr) hH.init.1 hH.initSp (by have := hH.initDepth; omega)
+  refine WP.call (k := initK H.S hH.SH.Repr) hH.init.1 hH.initSp (by have := hH.initDepth; omega_nat)
     (rd := []) (wr := [⟨st, H.S⟩]) ?_ (covers_wr hc) hc ?_
   · refine ⟨rfl, by simp [ne_rsp (by decide : Reg.rdi ≠ .rsp), hdi], ?_⟩
     simp only [State.withRegions_gpr, ne_rsp (by decide : Reg.rdi ≠ .rsp), hdi]
@@ -303,7 +282,7 @@ theorem upd_call {s : State} {st d sc : Addr} {len : Nat} (h : UpdArgs hH s st d
       (∀ m, hH.SH.Repr s.mem st m → s.gpr .rsi = BitVec.ofNat 64 m.length →
         hH.SH.Repr s'.mem st (m ++ bytesAt s.mem d len)) → Q s') :
     WP isa (.call H.updN H.updC) s Q := by
-  refine WP.call (k := updK H.S hH.Wb hH.SH.Repr) hH.upd.1 hH.updSp (by have := hH.updDepth; omega)
+  refine WP.call (k := updK H.S hH.Wb hH.SH.Repr) hH.upd.1 hH.updSp (by have := hH.updDepth; omega_nat)
     (h.pre hH) (h.covers hH) h.cw ?_
   intro s' h₁ h₂ h₃ h₄ _ ⟨s₂, hm, _, hpost⟩
   refine hQ s' ⟨h₁, h₂, h₃, frame_depth hH.updDepth h₄⟩ fun m hr hc => ?_
@@ -315,7 +294,7 @@ theorem upd_call {s : State} {st d sc : Addr} {len : Nat} (h : UpdArgs hH s st d
     simp only [bytesAt]
     exact List.map_congr_left fun i hi => callEntry_bytes s h.stk_d hlen (List.mem_range.mp hi)
   rw [← e]
-  exact hpost m (hH.repr _ _ _ _ _ (fun i hi => callEntry_bytes s h.stk_st (by omega) hi) hr) hc
+  exact hpost m (hH.repr _ _ _ _ _ (fun i hi => callEntry_bytes s h.stk_st (by omega_nat) hi) hr) hc
 
 /-! ## `finalize` -/
 
@@ -348,13 +327,13 @@ theorem fin_call {s : State} {st o sc : Addr} (h : FinArgs hH s st o sc) {Q : St
         (bytesAt s'.mem o H.F).take H.D = hH.SH.H.hash m) → Q s') :
     WP isa (.call H.finN H.finC) s Q := by
   refine WP.call (k := finK H.S hH.Wb H.F H.D hH.SH.Repr hH.SH.H.hash) hH.fin.1 hH.finSp
-    (by have := hH.finDepth; omega) (h.pre hH) (covers_wr h.cw) h.cw ?_
+    (by have := hH.finDepth; omega_nat) (h.pre hH) (covers_wr h.cw) h.cw ?_
   intro s' h₁ h₂ h₃ h₄ _ ⟨s₂, hm, _, hpost⟩
   refine hQ s' ⟨h₁, h₂, h₃, frame_depth hH.finDepth h₄⟩ fun m hr hl hc => ?_
   simp only [finK, State.withRegions_gpr, State.withRegions_mem, ne_rsp (by decide : Reg.rdi ≠ .rsp),
     ne_rsp (by decide : Reg.rdx ≠ .rsp), ne_rsp (by decide : Reg.rsi ≠ .rsp), h.rdi, h.rdx, hm] at hpost
   have hS := hH.hSB
-  exact hpost m (hH.repr _ _ _ _ _ (fun i hi => callEntry_bytes s h.stk_st (by omega) hi) hr) hl hc
+  exact hpost m (hH.repr _ _ _ _ _ (fun i hi => callEntry_bytes s h.stk_st (by omega_nat) hi) hr) hl hc
 
 /-! ## The calls in two runs
 

@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Framework.Arm.RegUpd
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Sha512
 import VerifiedGarbage.TCB.Arm.Target
+import VerifiedGarbage.Proof.Sha512.Arm.Lit
 
 /-!
 # SHA-512 compression function on ARMv7: the whole function
@@ -153,8 +154,8 @@ theorem stateAt_get {st : BitVec 32} (hfit : st.toNat + 64 ≤ 2 ^ 32) (m : Mem)
     (stateAt m (State.addr st))[k] = rd64 m st (8 * k) := by
   simp only [stateAt, Vector.getElem_ofFn, rd64]
   rw [readW64, A_eq (by omega), A_eq (by omega),
-    show State.addr st + BitVec.ofNat 64 (8 * k) + 4 = State.addr st + BitVec.ofNat 64 (8 * k + 4) by
-      bv_omega]
+    show State.addr st + BitVec.ofNat 64 (8 * k) + 4 = State.addr st + BitVec.ofNat 64 (8 * k + 4) from
+      Offset.add_ofNat_add_ofNat _ _ 4]
 
 theorem stateAt_ext {st : BitVec 32} (hfit : st.toNat + 64 ≤ 2 ^ 32) {m : Mem} {H : HashValue}
     (h : ∀ k (hk : k < 8), rd64 m st (8 * k) = H[k]) : stateAt m (State.addr st) = H := by
@@ -404,18 +405,13 @@ theorem saved_frame {s₀ : State} (hp : Pre s₀) {m m' : Mem} (h : Saved s₀ 
     rcases hf with hf | hf
     · refine hf.readW hc ?_ (by decide)
       simp only [List.mem_singleton, forall_eq]
-      intro a h₁ h₂
-      simp only [Region.Contains] at h₁ h₂
-      rw [hp.saveAddr_eq (by omega)] at h₁
-      generalize State.addr (scp s₀) = b at *
-      bv_omega
+      rw [hp.saveAddr_eq (by omega)]
+      exact Offset.disjoint_base _ (by omega) (by omega)
     · refine hf.readW hc ?_ (by decide)
       simp only [List.mem_singleton, forall_eq]
-      refine Region.Disjoint.sub_left hp.st_scr.symm fun a ha => ?_
-      simp only [Region.Contains] at ha ⊢
-      rw [hp.saveAddr_eq (by omega)] at ha
-      generalize State.addr (scp s₀) = b at *
-      bv_omega
+      refine Region.Disjoint.sub_left hp.st_scr.symm ?_
+      rw [hp.saveAddr_eq (by omega)]
+      exact Offset.sub_base _ (by omega)
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
   exact ⟨(key 192 (by omega) (by omega)).trans h1, (key 196 (by omega) (by omega)).trans h2,
     (key 200 (by omega) (by omega)).trans h3, (key 204 (by omega) (by omega)).trans h4,
@@ -507,8 +503,8 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     exact saved_frame hp hL.saved (.inl h₁.frame)
   have hnb : nb s₀ < 2 ^ 32 := (s₀.gpr .r2).isLt
   have hr5 : s₃.gpr .r5 - 1 = BitVec.ofNat 32 (nb s₀ - (i + 1)) := by
-    rw [gT .r5 (by decide), hL.r5]
-    bv_omega
+    rw [gT .r5 (by decide), hL.r5, show (1 : BitVec 32) = BitVec.ofNat 32 1 from rfl,
+      Offset.ofNat_sub_ofNat (by omega), Nat.sub_sub]
   have hcommon : Common s₀ (i + 1) s₄ := by
     refine ⟨by rw [g₃ _ (by decide) (by decide) (by decide), hL.r0],
       by rw [g₃ _ (by decide) (by decide) (by decide), hL.r3],
@@ -529,7 +525,8 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < nb s₀) {s :
     refine ⟨by rw [hev]; simpa using h0, by omega, { hcommon with r4 := ?_, r5 := ?_ }⟩
     · rw [r4₄, gT .r4 (by decide), hL.r4]
       simp only [blkAddr]
-      bv_omega
+      rw [BitVec.add_assoc, show (128 : BitVec _) = BitVec.ofNat _ 128 from rfl, BitVec.ofNat_add_ofNat]
+      rfl
     · rw [r5₄, hr5]
 
 /-! ## Prologue and epilogue -/
@@ -567,11 +564,8 @@ theorem save_ok {s₀ : State} (hp : Pre s₀) :
 
 theorem save_sep {s₀ : State} (hp : Pre s₀) {d e : Nat} (hd : d + 4 ≤ 224) (he : e + 4 ≤ 224)
     (h : d + 4 ≤ e ∨ e + 4 ≤ d) : Mem.Sep (saveAddr s₀ d) 4 (saveAddr s₀ e) 4 := by
-  intro x hx hy
-  rw [hp.saveAddr_eq (by omega)] at hx
-  rw [hp.saveAddr_eq (by omega)] at hy
-  generalize State.addr (scp s₀) = a at *
-  bv_omega
+  rw [hp.saveAddr_eq (by omega), hp.saveAddr_eq (by omega)]
+  exact Offset.sep _ h (by omega) (by omega)
 
 theorem readW_writeW_save {s₀ : State} (hp : Pre s₀) (m : Mem) (v : BitVec 32) {d e : Nat}
     (hd : d + 4 ≤ 224) (he : e + 4 ≤ 224) (h : d + 4 ≤ e ∨ e + 4 ≤ d) :

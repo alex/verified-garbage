@@ -41,6 +41,9 @@ pub(crate) mod md5;
 pub(crate) mod mlkem;
 
 #[rustfmt::skip]
+pub(crate) mod mlkem1024;
+
+#[rustfmt::skip]
 pub(crate) mod mlkem768;
 
 #[rustfmt::skip]
@@ -81,3 +84,6 @@ pub(crate) mod sha3;
 
 #[rustfmt::skip]
 pub(crate) mod sha512;
+
+#[rustfmt::skip]
+pub(crate) mod x25519;

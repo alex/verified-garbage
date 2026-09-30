@@ -90,6 +90,28 @@ theorem compressBlocks_one (h : H.HV) (m : Mem) (p : Addr) :
     H.compressBlocks h m p 1 = H.compress h (H.blockAt m p) := by
   simp [compressBlocks]
 
+theorem foldl_congr {α β : Type} {f g : β → α → β} {l : List α} (h : ∀ b a, a ∈ l → f b a = g b a) (b : β) :
+    l.foldl f b = l.foldl g b := by
+  induction l generalizing b with
+  | nil => rfl
+  | cons a l ih =>
+    simp only [List.foldl_cons]
+    rw [h b a (by simp)]
+    exact ih (fun b a' ha => h b a' (by simp [ha])) _
+
+theorem compressBlocks_congr {h : H.HV} {m m' : Mem} {p : Addr} {n : Nat}
+    (hm : ∀ j < B * n, m' (p + BitVec.ofNat 64 j) = m (p + BitVec.ofNat 64 j)) :
+    H.compressBlocks h m' p n = H.compressBlocks h m p n := by
+  unfold compressBlocks
+  refine foldl_congr (fun h' i hi => ?_) _
+  simp only [blockAt]
+  refine congrArg (H.compress h') (H.parse_congr fun k hk => ?_)
+  have hi := List.mem_range.mp hi
+  have e : p + BitVec.ofNat 64 (B * i) + BitVec.ofNat 64 k = p + BitVec.ofNat 64 (B * i + k) := by
+    rw [BitVec.add_assoc, ← BitVec.ofNat_add]
+  rw [e]
+  exact hm _ (by have := Nat.mul_le_mul_left B (Nat.succ_le_of_lt hi); rw [Nat.mul_succ] at this; omega)
+
 theorem compressList_succ (h : H.HV) (p : List Byte) (n : Nat) :
     H.compressList h p (n + 1) = H.compress (H.compressList h p n) (H.blockOf p n) := by
   simp only [compressList, List.range_succ, List.foldl_append, blockOf, List.foldl_cons, List.foldl_nil]
@@ -121,6 +143,18 @@ theorem compressList_add (h : H.HV) (p : List Byte) (a b : Nat) :
 theorem compressList_append {h : H.HV} {p q : List Byte} {n : Nat} (hn : B * n ≤ p.length) :
     H.compressList h (p ++ q) n = H.compressList h p n :=
   H.compressList_congr fun _ hj => getD_append_left (by omega)
+
+/-- `compressBlocks` of blocks in memory holding the bytes `xs`. -/
+theorem compressBlocks_eq {h : H.HV} {m : Mem} {p : Addr} {n : Nat} {xs : List Byte}
+    (hx : ∀ j < B * n, m (p + BitVec.ofNat 64 j) = xs.getD j 0) :
+    H.compressBlocks h m p n = H.compressList h xs n := by
+  unfold compressBlocks compressList
+  refine foldl_congr (fun h' i hi => ?_) _
+  simp only [blockAt]
+  refine congrArg (H.compress h') (H.parse_congr fun k hk => ?_)
+  have hi := List.mem_range.mp hi
+  rw [BitVec.add_assoc, ← BitVec.ofNat_add]
+  exact hx _ (by have := Nat.mul_le_mul_left B (Nat.succ_le_of_lt hi); rw [Nat.mul_succ] at this; omega)
 
 theorem compressList_one (h : H.HV) (p : List Byte) :
     H.compressList h p 1 = H.compress h (H.parse fun t => p.getD t 0) := by
@@ -207,6 +241,26 @@ theorem repr_append_block {iv : H.HV} {mem mem' : Mem} {p : Addr} {m xs : List B
     have e := Nat.div_add_mod (m ++ xs).length B
     rw [hmod, Nat.add_zero] at e
     omega
+
+/-- Appending whole blocks to a message of whole blocks, which are
+compressed. -/
+theorem repr_append_blocks {iv : H.HV} {mem mem' : Mem} {p : Addr} {m xs : List Byte} {n : Nat}
+    (hB : 0 < B) (hr : H.Repr iv mem p m) (hm : m.length % B = 0) (hx : xs.length = B * n)
+    (hs : H.stateAt mem' p = H.compressList (H.stateAt mem p) xs n) :
+    H.Repr iv mem' p (m ++ xs) := by
+  have e := Nat.div_add_mod m.length B
+  rw [hm, Nat.add_zero] at e
+  have hlen : (m ++ xs).length = B * (m.length / B + n) := by
+    rw [List.length_append, hx, Nat.mul_add, e]
+  have hdiv : (m ++ xs).length / B = m.length / B + n := by
+    rw [hlen, Nat.mul_div_cancel_left _ hB]
+  have hmod : (m ++ xs).length % B = 0 := by rw [hlen, Nat.mul_mod_right]
+  refine ⟨?_, ?_⟩
+  · rw [hs, hr.1, hdiv, compressList_add, H.compressList_append (by omega), e,
+      List.drop_left]
+  · rw [hmod]
+    simp only [bytesAt, List.range_zero, List.map_nil]
+    symm; rw [List.drop_eq_nil_iff, hdiv, ← hlen]
 
 /-! ## Padding -/
 

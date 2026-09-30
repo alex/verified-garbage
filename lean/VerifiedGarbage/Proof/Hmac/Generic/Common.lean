@@ -3,6 +3,7 @@ import VerifiedGarbage.Spec.Pbkdf2
 import VerifiedGarbage.Spec.Sha1
 import VerifiedGarbage.Spec.Md5
 import VerifiedGarbage.Spec.Sha512
+import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
 # HMAC over any streaming hash function: lemmas shared by every target
@@ -26,7 +27,7 @@ private theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).
 private theorem contains_offset {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
     (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
   simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, toNat_ofNat_lt ho]
+  rw [Offset.add_sub_cancel_left, toNat_ofNat_lt ho]
   exact h
 
 /-! ## Bytes -/
@@ -39,9 +40,9 @@ theorem writeW_byte (m : Mem) (a : Addr) (b : Byte) : m.writeW a b = writeBytes 
   by_cases h : x = a
   · subst h; simp
   · have : ¬ (x - a).toNat < 1 := fun h' => h (by
-      have : (x - a).toNat = 0 := by omega
+      have : (x - a).toNat = 0 := by omega_nat
       have := BitVec.eq_of_toNat_eq (x := x - a) (y := 0) (by simpa using this)
-      bv_omega)
+      rw [BitVec.sub_eq_iff_eq_add] at this; simpa using this)
     simp only [h, this, ↓reduceIte]
 
 /-- One more byte written after `k`. -/
@@ -76,7 +77,7 @@ theorem xorBytes_length' (a b : List Byte) (h : a.length = b.length) :
 
 theorem take_map_xor {K : List Byte} {n : Nat} (h : K.length = n) (p : Byte) :
     (K.take n).map (· ^^^ p) = xorPad K p := by
-  rw [List.take_of_length_le (by omega)]; rfl
+  rw [List.take_of_length_le (by omega_nat)]; rfl
 
 /-! ## Addresses and regions -/
 
@@ -94,14 +95,14 @@ theorem add_ofNat_add (p : Addr) (a b : Nat) :
 theorem inRegions_of_sub {rs : List Region} {R : Region} (hR : R ∈ rs) {p : Addr} {n : Nat}
     (hs : Region.Sub ⟨p, n⟩ R) (hn : n < 2 ^ 64) {k : Nat} (hk : k < n) :
     InRegions rs (p + BitVec.ofNat 64 k) 1 :=
-  ⟨R, hR, hs _ (contains_offset (by omega) (by omega))⟩
+  ⟨R, hR, hs _ (contains_offset (by omega_nat) (by omega_nat))⟩
 
 /-- A byte of `⟨p, n⟩` is not among the first `k ≤ n` of a disjoint region. -/
 theorem not_mem_of_disjoint {p q : Addr} {n k j : Nat} (hd : Region.Disjoint ⟨p, n⟩ ⟨q, n⟩) (hj : j < n)
     (hk : k ≤ n) (hn : n < 2 ^ 64) : ¬ ((p + BitVec.ofNat 64 j) - q).toNat < k := fun h =>
   hd _ (contains_offset (base := p) (len := n) (off := j) (n := 1)
-    (by omega) (by omega)) (by
-    show ((p + BitVec.ofNat 64 j) - q).toNat + 1 ≤ n; omega)
+    (by omega_nat) (by omega_nat)) (by
+    show ((p + BitVec.ofNat 64 j) - q).toNat + 1 ≤ n; omega_nat)
 
 theorem InRegions.right' {rd wr : List Region} {a : Addr} {n : Nat} (h : InRegions wr a n) :
     InRegions (rd ++ wr) a n :=
@@ -110,20 +111,13 @@ theorem InRegions.right' {rd wr : List Region} {a : Addr} {n : Nat} (h : InRegio
 /-- Parts of a region at offsets `a` and `b` do not overlap. -/
 theorem off_disj (p : Addr) {a m b n : Nat} (h : a + m ≤ b ∨ b + n ≤ a) (ha : a + m < 2 ^ 64)
     (hb : b + n < 2 ^ 64) :
-    Region.Disjoint ⟨p + BitVec.ofNat 64 a, m⟩ ⟨p + BitVec.ofNat 64 b, n⟩ := by
-  intro x h₁ h₂
-  simp only [Region.Contains] at h₁ h₂
-  have ta : (BitVec.ofNat 64 a).toNat = a := toNat_ofNat_lt (by omega)
-  have tb : (BitVec.ofNat 64 b).toNat = b := toNat_ofNat_lt (by omega)
-  bv_omega
+    Region.Disjoint ⟨p + BitVec.ofNat 64 a, m⟩ ⟨p + BitVec.ofNat 64 b, n⟩ :=
+  Offset.disjoint p h (by omega_nat) (by omega_nat)
 
 /-- The start of a region and a part of it at offset `b`. -/
 theorem off_disj0 (p : Addr) {m b n : Nat} (h : m ≤ b) (hb : b + n < 2 ^ 64) :
-    Region.Disjoint ⟨p, m⟩ ⟨p + BitVec.ofNat 64 b, n⟩ := by
-  intro x h₁ h₂
-  simp only [Region.Contains] at h₁ h₂
-  have tb : (BitVec.ofNat 64 b).toNat = b := toNat_ofNat_lt (by omega)
-  bv_omega
+    Region.Disjoint ⟨p, m⟩ ⟨p + BitVec.ofNat 64 b, n⟩ :=
+  Offset.base_disjoint p h (by omega_nat)
 
 /-- A region of `rs` covers itself (each target's `Covers [r] rs`). -/
 theorem covers_one {rs : List Region} {r : Region} (h : r ∈ rs) :
@@ -172,32 +166,32 @@ theorem buf_write {B : Nat} {P : Addr} {K0 : List Byte} {m₀ : Mem} {j : Nat} {
     BufMem B P K0 m₀ (j + 1) ((m.writeW (P + BitVec.ofNat 64 j) (K0[j] ^^^ Spec.Hmac.ipad)).writeW
       (P + BitVec.ofNat 64 B + BitVec.ofNat 64 j) (K0[j] ^^^ Spec.Hmac.opad)) := by
   have neI : ∀ i < B, P + BitVec.ofNat 64 i ≠ P + BitVec.ofNat 64 B + BitVec.ofNat 64 j := fun i hi => by
-    rw [add_ofNat_add]; exact add_ofNat_ne _ (by omega) (by omega) (by omega)
+    rw [add_ofNat_add]; exact add_ofNat_ne _ (by omega_nat) (by omega_nat) (by omega_nat)
   have neO : ∀ i < j, P + BitVec.ofNat 64 B + BitVec.ofNat 64 i ≠ P + BitVec.ofNat 64 j := fun i hi => by
-    rw [add_ofNat_add]; exact add_ofNat_ne _ (by omega) (by omega) (by omega)
+    rw [add_ofNat_add]; exact add_ofNat_ne _ (by omega_nat) (by omega_nat) (by omega_nat)
   refine ⟨?_, ?_, ?_⟩
   · rw [bytesAt_snoc', List.take_succ_eq_append_getElem hl, List.map_append, ← h.bufI]
     congr 1
     · refine bytesAt_prefix_congr fun i hi => ?_
-      simp only [writeW8_apply, neI i (by omega),
-        add_ofNat_ne P (a := i) (b := j) (by omega) (by omega) (by omega), ↓reduceIte]
+      simp only [writeW8_apply, neI i (by omega_nat),
+        add_ofNat_ne P (a := i) (b := j) (by omega_nat) (by omega_nat) (by omega_nat), ↓reduceIte]
     · simp only [writeW8_apply, neI j hj, ↓reduceIte, List.map_cons, List.map_nil]
   · rw [bytesAt_snoc', List.take_succ_eq_append_getElem hl, List.map_append, ← h.bufO]
     congr 1
     · refine bytesAt_prefix_congr fun i hi => ?_
       have e1 : P + BitVec.ofNat 64 B + BitVec.ofNat 64 i ≠ P + BitVec.ofNat 64 B + BitVec.ofNat 64 j := by
-        rw [add_ofNat_add, add_ofNat_add]; exact add_ofNat_ne _ (by omega) (by omega) (by omega)
+        rw [add_ofNat_add, add_ofNat_add]; exact add_ofNat_ne _ (by omega_nat) (by omega_nat) (by omega_nat)
       simp only [writeW8_apply, e1, neO i hi, ↓reduceIte]
     · simp only [writeW8_apply, ↓reduceIte, List.map_cons, List.map_nil]
   · refine (h.frame.writeW (List.mem_singleton_self _) _ ?_).writeW (List.mem_singleton_self _) _ ?_
-    · exact contains_offset (by omega) (by omega)
-    · rw [add_ofNat_add]; exact contains_offset (by omega) (by omega)
+    · exact contains_offset (by omega_nat) (by omega_nat)
+    · rw [add_ofNat_add]; exact contains_offset (by omega_nat) (by omega_nat)
 
 /-- The key: its `kl` bytes at `K`, then zeros up to `B`. -/
 def K0 (m : Mem) (K : Addr) (kl B : Nat) : List Byte := bytesAt m K kl ++ List.replicate (B - kl) 0
 
 theorem K0_length (m : Mem) (K : Addr) {kl B : Nat} (h : kl ≤ B) : (K0 m K kl B).length = B := by
-  simp [K0, bytesAt_length]; omega
+  simp [K0, bytesAt_length]; omega_nat
 
 theorem K0_lt {m : Mem} {K : Addr} {kl B j : Nat} (hj : j < kl) (h : j < (K0 m K kl B).length) :
     (K0 m K kl B)[j] = m (K + BitVec.ofNat 64 j) := by
@@ -221,7 +215,7 @@ theorem readW_reloc {m m' : Mem} {p q : Addr} {n : Nat}
   simp only [Mem.readW]
   refine congrArg (BitVec.setWidth _) ?_
   refine read_congr₂ fun i hi => ?_
-  rw [BitVec.add_assoc, BitVec.add_assoc, ← BitVec.ofNat_add, h (o + i) (by omega)]
+  rw [BitVec.add_assoc, BitVec.add_assoc, ← BitVec.ofNat_add, h (o + i) (by omega_nat)]
 
 /-- Bytes read at the same offset from two addresses whose bytes agree. -/
 theorem bytesAt_reloc {m m' : Mem} {p q : Addr} {n : Nat}
@@ -231,7 +225,7 @@ theorem bytesAt_reloc {m m' : Mem} {p q : Addr} {n : Nat}
   simp only [Spec.Sha256.bytesAt]
   refine List.map_congr_left fun i hi => ?_
   have := List.mem_range.mp hi
-  rw [BitVec.add_assoc, BitVec.add_assoc, ← BitVec.ofNat_add, h (o + i) (by omega)]
+  rw [BitVec.add_assoc, BitVec.add_assoc, ← BitVec.ofNat_add, h (o + i) (by omega_nat)]
 
 theorem sha1_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
     (h : ∀ i < 84, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i))
@@ -241,9 +235,9 @@ theorem sha1_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
     apply Vector.ext
     intro j hj
     simp only [Spec.Sha1.stateAt, Vector.getElem_ofFn]
-    exact readW_reloc h (by omega)
+    exact readW_reloc h (by omega_nat)
   · rw [← hr.2]
-    exact bytesAt_reloc h (o := 20) (k := msg.length % 64) (by omega)
+    exact bytesAt_reloc h (o := 20) (k := msg.length % 64) (by omega_nat)
 
 theorem md5_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
     (h : ∀ i < 80, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i))
@@ -253,9 +247,9 @@ theorem md5_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
     apply Vector.ext
     intro j hj
     simp only [Spec.Md5.stateAt, Vector.getElem_ofFn]
-    exact readW_reloc h (by omega)
+    exact readW_reloc h (by omega_nat)
   · rw [← hr.2]
-    exact bytesAt_reloc h (o := 16) (k := msg.length % 64) (by omega)
+    exact bytesAt_reloc h (o := 16) (k := msg.length % 64) (by omega_nat)
 
 theorem sha512_repr (iv : Spec.Sha512.HashValue) (m m' : Mem) (p q : Addr) (msg : List Byte)
     (h : ∀ i < 192, m' (q + BitVec.ofNat 64 i) = m (p + BitVec.ofNat 64 i))
@@ -265,9 +259,9 @@ theorem sha512_repr (iv : Spec.Sha512.HashValue) (m m' : Mem) (p q : Addr) (msg 
     apply Vector.ext
     intro j hj
     simp only [Spec.Sha512.stateAt, Vector.getElem_ofFn]
-    exact readW_reloc h (by omega)
+    exact readW_reloc h (by omega_nat)
   · rw [← hr.2]
-    exact bytesAt_reloc h (o := 64) (k := msg.length % 128) (by omega)
+    exact bytesAt_reloc h (o := 64) (k := msg.length % 128) (by omega_nat)
 
 theorem finalHash_length (iv : Spec.Sha512.HashValue) (m : List Byte) :
     (Spec.Sha512.finalHash iv m).length = 64 := by

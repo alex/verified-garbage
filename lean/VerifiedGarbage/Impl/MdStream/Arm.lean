@@ -14,9 +14,10 @@ The streaming state (`N + 64` bytes at `state`) is the hash value (`N`
 bytes) followed by a 64-byte buffer.
 
 * `update(state = r0, count = r2:r3, data = [sp], len = [sp, #4],
-  scratch = [sp, #8])` processes one block per iteration: straight from
-  `data` while the buffer is empty and a whole block remains, otherwise by
-  copying bytes into the buffer, compressing it once it is full.
+  scratch = [sp, #8])` compresses, in each iteration, every whole block left
+  in `data` with one call if the buffer is empty (so that implementations
+  that process several blocks at once can), and otherwise copies bytes into
+  the buffer, compressing it once it is full.
 * `finalize(state = r0, count = r2:r3, out = [sp], scratch = [sp, #4])` pads
   the buffered bytes (one or two blocks), compresses them and writes the
   digest.
@@ -66,21 +67,30 @@ def save (b : Reg) : List Instr := (saved P).map fun (r, d) => .str r b d
 /-- Restore them from `scratch` in `r3`. -/
 def restore : List Instr := (saved P).map fun (r, d) => .ldr r .r3 d
 
-/-- Compress the block at `r1` into the hash value at `r0`, with scratch
-space `r3`. -/
-def compressAt (name : String) (code : Prog isa) : Prog isa :=
-  .seq (.block [.mov .r2 (.imm 1)]) (.call name code)
+/-- Compress the blocks at `r1` into the hash value at `r0`, with scratch
+space `r3`, after `n` sets their number in `r2`. -/
+def compressWith (n : Instr) (name : String) (code : Prog isa) : Prog isa :=
+  .seq (.block [n]) (.call name code)
+
+/-- Compress one block. -/
+def compressAt : String → Prog isa → Prog isa := compressWith (.mov .r2 (.imm 1))
+
+/-- Compress `r7` blocks. -/
+def compressN : String → Prog isa → Prog isa := compressWith (.mov .r2 (.reg .r7))
 
 /-! ## `update`
 
 Registers: `r4` = bytes in the buffer (`r`), `r5` = `data`, `r6` = bytes of
-`data` left, `r7` = whether this iteration compresses a block (at `r1`).
+`data` left, `r7` = the number of blocks this iteration compresses (at
+`r1`).
 The loop runs while `r6 ≠ 0`, so each iteration starts with `r6 ≥ 1` and
 `r4 < 64`. -/
 
-/-- A whole block straight from `data`. -/
+/-- Every whole block left, straight from `data`: `len >> 6` blocks,
+`(len >> 6) << 6` bytes. -/
 def direct : List Instr :=
-  [.mov .r1 (.reg .r5), .dp .add .r5 .r5 (.imm 64), .dp .sub .r6 .r6 (.imm 64), .mov .r7 (.imm 1)]
+  [.mov .r1 (.reg .r5), .mov .r7 (.shifted .r6 .lsr 6), .mov .r12 (.shifted .r7 .lsl 6),
+    .dp .add .r5 .r5 (.reg .r12), .dp .sub .r6 .r6 (.reg .r12)]
 
 /-- Copy `n = min(64 - r, len) ≥ 1` bytes of `data` into the buffer; if that
 fills it, compress it. -/
@@ -105,7 +115,7 @@ def updateBody (name : String) (code : Prog isa) : Prog isa :=
   (.seq (.ite .eq
       (.seq (.block [.mov .r12 (.shifted .r6 .lsr 6), .cmp .r12 (.imm 0)]) (.ite .eq (fill P) (.block direct)))
       (fill P))
-  (.seq (.seq (.block [.cmp .r7 (.imm 0)]) (.ite .eq (.block []) (compressAt name code)))
+  (.seq (.seq (.block [.cmp .r7 (.imm 0)]) (.ite .eq (.block []) (compressN name code)))
     (.block [.cmp .r6 (.imm 0)])))
 
 def update (name : String) (code : Prog isa) : Prog isa :=

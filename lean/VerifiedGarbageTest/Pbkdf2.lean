@@ -1,13 +1,15 @@
 import VerifiedGarbageTest.Sha256
 import VerifiedGarbage.Spec.Pbkdf2
+import VerifiedGarbage.Spec.Pbkdf2.Generic
 
 /-!
 # Known-answer tests for the PBKDF2 specification
 
 The PBKDF2-HMAC-SHA-256 vectors of Section 11 of RFC 7914, read from the
 vendored `vectors/rfc7914/rfc7914.txt` (see `vectors/sources/`) when this
-file is built and checked against `VG.Spec.Pbkdf2.pbkdf2HmacSha256`, so that a
-transcription error in the spec fails the build. Only the vector with one
+file is built and checked against `VG.Spec.Pbkdf2.pbkdf2HmacSha256` and
+against the generic `VG.Spec.Pbkdf2.pbkdf2Hmac` at `VG.Spec.Hmac.sha256I`, so
+that a transcription error in the spec fails the build. Only the vector with one
 iteration is evaluated (the other has 80000, which evaluating the spec
 cannot do in reasonable time); its 64-byte key takes two blocks, so it
 checks `INT (i)`, the concatenation of the blocks and HMAC-SHA-256 as the
@@ -70,5 +72,7 @@ run_cmd do
     unless v.dk.length == v.dkLen do throwError "the {v.dkLen}-byte key has {v.dk.length} bytes"
     unless Spec.Pbkdf2.pbkdf2HmacSha256 v.p v.s v.c v.dkLen == some v.dk do
       throwError "PBKDF2-HMAC-SHA-256 of the RFC 7914 vector with c = {v.c} is wrong"
+    unless Spec.Pbkdf2.pbkdf2Hmac Spec.Hmac.sha256I.S v.p v.s v.c v.dkLen == some v.dk do
+      throwError "the generic PBKDF2-HMAC at SHA-256 of the RFC 7914 vector with c = {v.c} is wrong"
 
 end VG.Test.Pbkdf2

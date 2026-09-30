@@ -62,8 +62,10 @@ Modelling choices:
   ZeroExtend(value, MAX_VL)`), and the modelled vector forms all write 128
   bits, so no upper bits beyond 128 (SVE's `Z` registers) are observable to
   the model; with SVE, those are also zeroed.
-* No modelled AdvSIMD instruction is a saturating or floating-point one, so
-  none reads FPCR or writes FPSR, and neither is modelled. The loads and
+* No modelled AdvSIMD instruction is a floating-point one, and the one
+  saturating instruction, SQDMULH, faults in the model where it would
+  saturate (and set FPSR.QC), so verified code never saturates: no modelled
+  instruction reads FPCR or writes FPSR, and neither is modelled. The loads and
   stores of a vector register (`LDR`/`STR (immediate, SIMD&FP)`) need no
   alignment: they access Normal memory, and alignment is checked only if
   `SCTLR_ELx.A` is 1 (DDI 0487 B2.5.2, "Alignment of data accesses"), which
@@ -71,10 +73,10 @@ Modelling choices:
 * The AdvSIMD data-processing instructions modelled here (MOV = ORR, MOVI,
   DUP, INS, UMOV, AND, ORR, EOR, BIC, ORN, NOT, ADD, SUB, SHL, USHR, SRI,
   SLI, EXT, REV32, REV64, ZIP1, ZIP2, TRN1, TRN2, UZP1, UZP2, TBL, UMULL,
-  UMLAL, PMULL), and the cryptographic ones (AESE, AESD, AESMC, AESIMC,
-  SHA1C, SHA1P, SHA1M, SHA1H, SHA1SU0, SHA1SU1, SHA256H, SHA256H2,
-  SHA256SU0, SHA256SU1, SHA512H, SHA512H2, SHA512SU0, SHA512SU1, EOR3,
-  BCAX, RAX1, XAR) are all among those whose timing Arm specifies to be
+  UMLAL, PMULL, MUL, MLA, MLS, SQDMULH, UMIN), and the cryptographic ones
+  (AESE, AESD, AESMC, AESIMC, SHA1C, SHA1P, SHA1M, SHA1H, SHA1SU0, SHA1SU1,
+  SHA256H, SHA256H2, SHA256SU0, SHA256SU1, SHA512H, SHA512H2, SHA512SU0,
+  SHA512SU1, EOR3, BCAX, RAX1, XAR) are all among those whose timing Arm specifies to be
   independent of their data when PSTATE.DIT is 1 (DDI 0487, "About
   PSTATE.DIT"). As above, the code does not set PSTATE.DIT.
 -/
@@ -185,6 +187,16 @@ inductive VOp
   | umull (hi : Bool) (d n m : VReg)
   /-- `umlal vd.2d, vn.2s, vm.2s`, or `umlal2 vd.2d, vn.4s, vm.4s` if `hi` -/
   | umlal (hi : Bool) (d n m : VReg)
+  /-- `mul vd.4s, vn.4s, vm.4s` (MUL (vector)) -/
+  | mul (d n m : VReg)
+  /-- `mla vd.4s, vn.4s, vm.4s` (MLA (vector)) -/
+  | mla (d n m : VReg)
+  /-- `mls vd.4s, vn.4s, vm.4s` (MLS (vector)) -/
+  | mls (d n m : VReg)
+  /-- `sqdmulh vd.4s, vn.4s, vm.4s` (SQDMULH (vector)) -/
+  | sqdmulh (d n m : VReg)
+  /-- `umin vd.4s, vn.4s, vm.4s` -/
+  | umin (d n m : VReg)
   /-- `pmull vd.1q, vn.1d, vm.1d`, or `pmull2 vd.1q, vn.2d, vm.2d` if `hi` -/
   | pmull (hi : Bool) (d n m : VReg)
   /-- `aese vd.16b, vn.16b` -/
@@ -403,6 +415,23 @@ def VPermOp.eval (op : VPermOp) (a : VArr) (x y : BitVec 128) : BitVec 128 :=
   | .uzp1 => (List.range n.length).map fun e => g (n ++ m) (2 * e)
   | .uzp2 => (List.range n.length).map fun e => g (n ++ m) (2 * e + 1)
 
+/-- The vector whose word `e` is `f` of word `e` of `x`, `y` and `z`. -/
+def mapWords3 (f : BitVec 32 → BitVec 32 → BitVec 32 → BitVec 32) (x y z : BitVec 128) :
+    BitVec 128 :=
+  ofVWords (f (vword x 0) (vword y 0) (vword z 0)) (f (vword x 1) (vword y 1) (vword z 1))
+    (f (vword x 2) (vword y 2) (vword z 2)) (f (vword x 3) (vword y 3) (vword z 3))
+
+/-- One lane of SQDMULH (`.4s`), DDI 0487 C7.2, "SQDMULH (vector)":
+`element1 = SInt(Elem[operand1, e]); element2 = SInt(Elem[operand2, e]);
+product = 2 * element1 * element2; product = RShr(product, esize, FALSE)`
+(`product >> 32`, rounding towards minus infinity); `(Elem[result, e], sat)
+= SignedSatQ(product, esize)`, which saturates, and sets FPSR.QC, exactly
+when both elements are `-2 ^ 31`. `none` there: the model faults rather
+than saturate. -/
+def sqdmulhLane (a b : BitVec 32) : Option (BitVec 32) :=
+  if a = 0x80000000#32 ∧ b = 0x80000000#32 then none
+  else some (BitVec.ofInt 32 ((2 * a.toInt * b.toInt) >>> 32))
+
 /-- DDI 0487 C7.2, "REV32" and "REV64" (`Reverse` of the elements within
 each container): byte `i` of the result is byte `rev i` of the operand. -/
 def VRevOp.eval (op : VRevOp) (x : BitVec 128) : BitVec 128 :=
@@ -464,6 +493,13 @@ def Sha1Op.f : Sha1Op → BitVec 32 → BitVec 32 → BitVec 32 → BitVec 32
   element1 * element2` (unsigned, 64 bits), then `Elem[result, e, 64] =
   product` (UMULL) or `Elem[operand3, e, 64] + product` (UMLAL, `operand3 =
   V[d]`);
+* "MUL (vector)", "MLA (vector)", "MLS (vector)" (`.4s`): `product =
+  (UInt(element1) * UInt(element2))<esize-1:0>`, and `Elem[result, e] =
+  product`, `Elem[operand3, e] + product` or `Elem[operand3, e] - product`
+  (`operand3 = V[d]`), modulo `2 ^ 32`;
+* "SQDMULH (vector)" (`.4s`): `sqdmulhLane` in each lane, faulting if any
+  would saturate;
+* "UMIN" (`.4s`): `Elem[result, e] = Min(UInt(element1), UInt(element2))`;
 * "PMULL", "PMULL2" (`.1q`): `Elem[result, 0, 128] =
   PolynomialMult(Elem[operand1, part, 64], Elem[operand2, part, 64])`;
 * "AESE": `AESSubBytes(AESShiftRows(operand1 EOR operand2))`; "AESD":
@@ -520,6 +556,16 @@ def VOp.eval (s : State) : VOp → Option (VReg × BitVec 128)
     let prod (e : Nat) : BitVec 64 :=
       (vword (s.v n) (p + e)).setWidth 64 * (vword (s.v m) (p + e)).setWidth 64
     some (d, ofVDwords (vdword (s.v d) 0 + prod 0) (vdword (s.v d) 1 + prod 1))
+  | .mul d n m => some (d, VArr.s4.map2 (fun _ x y => x * y) (s.v n) (s.v m))
+  | .mla d n m => some (d, mapWords3 (fun a x y => a + x * y) (s.v d) (s.v n) (s.v m))
+  | .mls d n m => some (d, mapWords3 (fun a x y => a - x * y) (s.v d) (s.v n) (s.v m))
+  | .sqdmulh d n m =>
+    let r (e : Nat) := sqdmulhLane (vword (s.v n) e) (vword (s.v m) e)
+    match r 0, r 1, r 2, r 3 with
+    | some w0, some w1, some w2, some w3 => some (d, ofVWords w0 w1 w2 w3)
+    | _, _, _, _ => none
+  | .umin d n m =>
+    some (d, VArr.s4.map2 (fun _ x y => if x.toNat ≤ y.toNat then x else y) (s.v n) (s.v m))
   | .pmull hi d n m =>
     let p := if hi then 1 else 0
     some (d, polyMul (vdword (s.v n) p) (vdword (s.v m) p))

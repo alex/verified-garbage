@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Common
-import Mathlib.Tactic.Tauto
 import VerifiedGarbage.Proof.Framework.Contract
 
 /-!
@@ -117,7 +116,7 @@ theorem Inv.of_gpr {s₀ : State} {c : Nat} {s s' : State} (h : Inv s₀ c s)
     (hg : ∀ r ∈ [Reg.x19, .x20, .x21, .x22, .x23], s'.gpr r = s.gpr r)
     (hm : s'.mem = s.mem) (hrd : s'.rd = s.rd) (hwr : s'.wr = s.wr) (hsp : s'.sp = s.sp) :
     Inv s₀ c s' :=
-  { h.toCommon.of_gpr (fun r hr => hg r (by simp at hr ⊢; tauto)) hm hrd hwr hsp with
+  { h.toCommon.of_gpr (fun r hr => hg r (List.mem_append_left [Reg.x23] hr)) hm hrd hwr hsp with
     x23 := by rw [hg _ (by simp)]; exact h.x23
     repr := by rw [hm]; exact h.repr }
 
@@ -161,7 +160,7 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
     · exact .inr (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))
   refine compressAt_ok h.x19 h.x20 rfl ((hp.st_scr.sub_left e32).sub_right e112) ?_ ?_ ?_ ?_ ?_
   · rcases h.src with h' | ⟨c₀, h', hc₀⟩
-    · rw [h']; intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+    · rw [h']; exact Offset.disjoint_base (d := 64) _ (by omega) (by omega)
     · exact (hp.d_st.sub_left (h' ▸ sub_offset (by omega) (by have := len_lt s₀; omega))).sub_right e32
   · rcases eSrc with e | e
     · exact (hp.st_scr.sub_left e).sub_right e112
@@ -202,7 +201,7 @@ theorem Pending.compress_ok {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State}
       · exact (hp.st_scr.symm.sub_left (saved_sub hp')).sub_right e32
       · simp only [Impl.Sha512.AArch64.Stream.saved, List.mem_cons, List.not_mem_nil, or_false] at hp'
         rcases hp' with rfl | rfl | rfl | rfl | rfl | rfl <;>
-        · intro a h₁ h₂; simp only [Region.Contains] at h₁ h₂; bv_omega
+        · exact Offset.disjoint_base _ (by omega) (by omega)
     · rw [cs _ (by decide), h.x23, h.mod]; rfl
 
 /-! ## A whole block straight from the data -/
@@ -642,7 +641,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
 /-- No instruction of `update` writes the callee-saved registers it does not save. -/
 theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs update, dstOf i ≠ some r := by
   have : ((instrs update).all fun i => untouched.all fun r => dstOf i != some r) = true :=
-    instrs_keeps (by decide +kernel)
+    instrs_keeps (by lit_decide)
   intro r hr i hi
   have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
   simpa using this
