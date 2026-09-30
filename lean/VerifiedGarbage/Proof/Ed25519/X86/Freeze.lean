@@ -192,10 +192,10 @@ theorem colv_addM (m : Mem) (x : BitVec 32) (d : Nat) : colv m x [.addM d] = wv 
 
 /-- The element at `o` reduced fully, in place. -/
 theorem freeze_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o : Nat} (ho : isSlot o = true) :
-    WP isa (.block (freeze o)) s fun s' => Keep s s' ∧ Frame [sub x 64 864] s.mem s'.mem ∧
+    WP isa (.block (freeze o)) s fun s' => Keep s s' ∧ Frame [sub x o 32, sub x T 32] s.mem s'.mem ∧
       fe s'.mem x o = fe s.mem x o % P := by
   have hfit := hc.fit
-  have hob := slot_below ho; have ho' := slot_ge ho
+  have hob := slot_below ho
   simp only [Below, T] at hob
   rw [freeze_eq]
   -- The words of the element on entry.
@@ -283,15 +283,18 @@ theorem freeze_ok {x : BitVec 32} {s : State} (hc : Ctx x s) {o : Nat} (ho : isS
     (Nat.le_refl _) s₅ ⟨Keep.refl _, rfl, Frame.refl _ _, fun j hj => absurd hj (Nat.not_lt_zero _)⟩)
     fun s₆ h₆ => ⟨k₁.trans (k₂.trans (k₃.trans (k₄.trans (k₅.trans h₆.keep)))), ?_, ?_⟩
   · -- Everything written is in the element and `T`.
-    have w1 : ∀ {m m' : Mem} {a n : Nat}, Frame [sub x a n] m m' → 64 ≤ a → a + n ≤ 928 → a < 8192 →
-        Frame [sub x 64 864] m m' := fun hf h1 h2 h3 =>
-      frameWiden hf hfit h1 (by omega_using [h2]) h3
+    have w1 : ∀ {m m' : Mem} {a n : Nat}, Frame [sub x a n] m m' →
+        o ≤ a → a + n ≤ o + 32 → a < 8192 → Frame [sub x o 32, sub x T 32] m m' := fun hf h1 h2 h3 =>
+      (frameWiden hf hfit h1 h2 h3).mono (fun r hr => List.mem_cons.mpr (Or.inl (List.mem_singleton.mp hr)))
+    have w2 : ∀ {m m' : Mem} {a n : Nat}, Frame [sub x a n] m m' →
+        T ≤ a → a + n ≤ T + 32 → a < 8192 → Frame [sub x o 32, sub x T 32] m m' := fun hf h1 h2 h3 =>
+      (frameWiden hf hfit h1 h2 h3).mono (fun r hr => List.mem_cons_of_mem _ hr)
     rw [m₃] at f₄
-    exact (w1 f₁ (by omega_using [ho']) (by omega_using [hob]) (by omega_using [hob])).trans
-      ((w1 f₂ ho' (by omega_using [hob]) (by omega_using [hob])).trans
-      ((w1 f₄ (by simp only [T]; decide) (by simp only [T]; decide) (by simp only [T]; decide)).trans
-      ((w1 f₅ (by simp only [T]; decide) (by simp only [T]; decide) (by simp only [T]; decide)).trans
-      (w1 h₆.frame ho' (by omega_using [hob]) (by omega_using [hob])))))
+    exact (w1 f₁ (by omega) (by omega) (by omega_using [hob])).trans
+      ((w1 f₂ (by omega) (by omega) (by omega_using [hob])).trans
+      ((w2 f₄ (by decide) (by decide) (by decide)).trans
+      ((w2 f₅ (by simp only [T]; decide) (by simp only [T]; decide) (by simp only [T]; decide)).trans
+      (w1 h₆.frame (by omega) (by omega) (by omega_using [hob])))))
   · -- The selection is the value modulo `p`.
     have e₆ : fe s₆.mem x o = if wv s₄.mem x (T + 28) / 2 ^ 31 = 1 then (fe s₂.mem x o + 19) % 2 ^ 255
         else fe s₂.mem x o := by
