@@ -22,7 +22,9 @@ def constant (i j : Nat) : List Instr :=
    .movk .x .x4 ((K (2 * i + j)).extractLsb' 16 16) 1,
    .movk .x .x4 ((K (2 * i + j)).extractLsb' 32 16) 2,
    .movk .x .x4 ((K (2 * i + j)).extractLsb' 48 16) 3,
-   .vop (.ins .d2 .v4 j .x4)]
+   -- A full write for the first lane breaks the dependency on the previous
+   -- round's v4. Inserting both lanes would keep that SHA512H2 result live.
+   .vop (if j = 0 then .dup .d2 .v4 .x4 else .ins .d2 .v4 j .x4)]
 
 def schedule (i : Nat) : List Instr :=
   if i < 8 then

@@ -65,12 +65,13 @@ theorem constants_ok (n : Nat) (s : State) :
       (∀ r, r ≠ .x4 → s'.gpr r = s.gpr r) ∧
       s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
   apply WP.of_runBlock
-  simp only [constant, List.cons_append, List.nil_append]
+  simp only [constant, List.cons_append, List.nil_append, ite_true, show ¬ (1 : Nat) = 0 by decide,
+    ite_false]
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec, VOp.eval,
     isa, State.read, RegUpd.v_setV, ite_true, RegUpd.gpr_setV, RegUpd.mem_setV,
     RegUpd.rd_setV, RegUpd.wr_setV, RegUpd.gpr_write_self, RegUpd.v_write,
     RegUpd.mem_write, RegUpd.rd_write, RegUpd.wr_write, Size.bits,
-    BitVec.setWidth_eq, Option.map_some, setLane_two, movz_movk64', Nat.add_zero,
+    BitVec.setWidth_eq, Option.map_some, setLane_pair_hi, movz_movk64', Nat.add_zero,
     Option.some.injEq, exists_eq_left']
   refine ⟨rfl, fun r hr => ?_, fun r hr => ?_, trivial⟩
   · simp only [hr, ite_false]

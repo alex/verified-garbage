@@ -50,4 +50,13 @@ theorem setLane_two (v : BitVec 128) (a b : BitVec 64) :
     hj, decide_true, Bool.true_and, Nat.reduceMul, Nat.sub_zero]
   by_cases h : j < 64 <;> simp (disch := omega) [h, decide_eq_true]
 
+theorem setLane_pair_hi (a b c : BitVec 64) :
+    setLane (ofVDwords a b) 64 1 c = ofVDwords a c := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  simp only [setLane, ofVDwords, BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_not,
+    BitVec.getLsbD_shiftLeft, BitVec.getLsbD_setWidth, BitVec.getLsbD_allOnes, BitVec.getLsbD_append,
+    hj, decide_true, Bool.true_and, Nat.reduceMul]
+  by_cases h : j < 64 <;> simp (disch := omega) [h, decide_eq_true]
+
 end VG.AArch64
