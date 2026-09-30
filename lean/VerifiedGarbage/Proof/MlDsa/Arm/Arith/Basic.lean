@@ -124,6 +124,35 @@ theorem ofNat_val_eq {v : BitVec 32} {x : Zq} (h : v.toNat = x.val) : v = BitVec
 theorem toNat_val (x : Zq) : (BitVec.ofNat 32 x.val).toNat = x.val := by
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by have := val_lt x; omega)]
 
+/-! ## Registers kept -/
+
+/-- `s'` has the registers `rs`, and the regions and stack pointer, of `s`. -/
+structure Keep (rs : List Reg) (s s' : State) : Prop where
+  gpr : ∀ r ∈ rs, s'.gpr r = s.gpr r
+  rd : s'.rd = s.rd
+  wr : s'.wr = s.wr
+  sp : s'.sp = s.sp
+
+theorem keep_iff {rs : List Reg} {s s' : State} :
+    Keep rs s s' ↔ (∀ r ∈ rs, s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.sp = s.sp :=
+  ⟨fun h => ⟨h.gpr, h.rd, h.wr, h.sp⟩, fun h => ⟨h.1, h.2.1, h.2.2.1, h.2.2.2⟩⟩
+
+/-- The lemmas that prove `Keep` after a symbolic execution (`run_block`). -/
+macro "keep_simp" : tactic => `(tactic| (
+  set_option linter.unusedSimpArgs false in
+  simp (config := {decide := true}) only [keep_iff, List.forall_mem_cons, List.not_mem_nil, false_imp_iff,
+    implies_true, and_self, and_true, true_and, ite_true, ite_false]))
+
+theorem Keep.refl (rs : List Reg) (s : State) : Keep rs s s := ⟨fun _ _ => rfl, rfl, rfl, rfl⟩
+
+theorem Keep.trans {rs : List Reg} {s₁ s₂ s₃ : State} (h₁ : Keep rs s₁ s₂) (h₂ : Keep rs s₂ s₃) :
+    Keep rs s₁ s₃ :=
+  ⟨fun r hr => (h₂.gpr r hr).trans (h₁.gpr r hr), h₂.rd.trans h₁.rd, h₂.wr.trans h₁.wr, h₂.sp.trans h₁.sp⟩
+
+theorem Keep.mono {rs rs' : List Reg} {s s' : State} (h : Keep rs s s') (hs : ∀ r ∈ rs', r ∈ rs) :
+    Keep rs' s s' :=
+  ⟨fun r hr => h.gpr r (hs r hr), h.rd, h.wr, h.sp⟩
+
 /-! ## `mulz`, symbolically -/
 
 /-- What `mulz .r9 .r8 .r12` does: `r9` becomes the product, `r12` is
