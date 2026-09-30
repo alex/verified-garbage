@@ -230,7 +230,7 @@ theorem poly_ok {i : Nat} (hi : i < uk s₀) {s : State} (hI : OInv s₀ sA i s)
         rw [ebd, hc₁.rd, hc₁.wr]
         exact ⟨_, List.mem_append_left _ hA.rd, Offset.contains_base _ (by omega) (by omega)⟩))
       fun s₂ ⟨r4₂, m₂, rd₂, wr₂, sp₂, g₂⟩ => ?_
-    rw [ebd, yByte hp hA hc₁ (by omega)] at r4₂
+    rw [ebd, yByte hp hA.toYPre hc₁ (by omega)] at r4₂
     have k₂ := keepP_r4 g₂ rd₂ wr₂ sp₂
     have hc₂ : UCom s₀ sA s₂ := hc₁.ofP k₂ (by rw [m₂]; exact Frame.refl _ _)
     have hbl := ((uYs s₀).getD (uω s₀ + i) 0).isLt
@@ -299,9 +299,15 @@ theorem main_ok (h0 : sA.gpr .r0 = uY s₀) (h1 : sA.gpr .r1 = 0) (h2 : sA.gpr .
   show SRel s₀ (some (Array.replicate (uk s₀) noHint, 0)) s₁
   exact ⟨by rw [g₁ _ (by decide), h1]; rfl, Nat.zero_le _, by rw [m₁]; exact harr_zero hz⟩
 
+end
+
+section
+variable {s₀ : State} (hp : UPre s₀) {sA : State} (hY : YPre s₀ sA)
+include hp hY
+
 /-! ## The bytes after the last index -/
 
-omit hp hA in
+omit hp hY in
 theorem tload_blk {s : State} {y i : BitVec 32} (h0 : s.gpr .r0 = y) (h1 : s.gpr .r1 = i)
     (ib : InRegions (s.rd ++ s.wr) (State.addr (y + i + BitVec.ofNat 32 0)) 1) :
     WP isa (.block [.dp .add .r12 .r0 (.reg .r1), .ldrb .r12 .r12 0, .cmp .r12 (.imm 0)]) s fun s' =>
@@ -310,14 +316,14 @@ theorem tload_blk {s : State} {y i : BitVec 32} (h0 : s.gpr .r0 = y) (h1 : s.gpr
   run_block [KeepC, h0, h1, ib, true_and, and_true]
   intro r _ _ c; rw [ite_neg' c, ite_neg' c]
 
-omit hp hA in
+omit hp hY in
 theorem inc_blk {s : State} :
     WP isa (.block [.dp .add .r1 .r1 (.imm 1)]) s fun s' => s'.gpr .r1 = s.gpr .r1 + 1 ∧ s'.mem = s.mem ∧
       KeepC s s' := by
   run_block [KeepC, true_and, and_true]
   intro r a _ _; rw [ite_neg' a]
 
-omit hp hA in
+omit hp hY in
 theorem byte_z (b : Byte) : ((b.setWidth 32 : BitVec 32) - 0 == 0) = decide (b = 0) := by
   rw [sub_zero32]
   by_cases h : b = 0
@@ -362,9 +368,9 @@ theorem trail_ok {idx : Nat} (hidx : idx ≤ uω s₀) {s : State} (hc : UCom s�
       rw [addr_ptr _ _ _ (by omega), Nat.add_zero]
     refine WP.seq (WP.mono (tload_blk hc'.r0 h1' (by
         rw [eb, hc'.rd, hc'.wr]
-        exact ⟨_, List.mem_append_left _ hA.rd, Offset.contains_base _ (by omega) (by omega)⟩))
+        exact ⟨_, List.mem_append_left _ hY.rd, Offset.contains_base _ (by omega) (by omega)⟩))
       fun s₂ ⟨z₂, m₂, r1₂, k₂⟩ => ?_)
-    rw [eb, yByte hp hA hc' (by omega), byte_z] at z₂
+    rw [eb, yByte hp hY hc' (by omega), byte_z] at z₂
     have hc₂ : UCom s₀ sA s₂ := hc'.of k₂ (by rw [m₂]; exact Frame.refl _ _)
     have hF1 : optFold (huTrail (uYs s₀)) (List.range' idx (u + 1)) () = huTrail (uYs s₀) () (idx + u) := by
       rw [optFold_range'_succ, hF]; rfl
@@ -404,7 +410,7 @@ theorem trail_ok {idx : Nat} (hidx : idx ≤ uω s₀) {s : State} (hc : UCom s�
       show s₄.gpr .r1 = 256
       rw [g₄ _ (by decide), r1₃]
 
-omit hA in
+omit hY in
 /-- After a failed check, the bytes after the last index are not checked. -/
 theorem trail_fail {s : State} (hc : UCom s₀ sA s) (h1 : s.gpr .r1 = 256) :
     WP isa hbuTrail s fun s' => UCom s₀ sA s' ∧ s'.mem = s.mem ∧ s'.gpr .r1 = 256 := by

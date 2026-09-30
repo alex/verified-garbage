@@ -156,12 +156,15 @@ def SRel (s₀ : State) : Option (Array (Vector Bool n) × Nat) → State → Pr
   | some (hA, idx), s => s.gpr .r1 = BitVec.ofNat 32 idx ∧ idx ≤ uω s₀ ∧ HArr s₀ s.mem hA
   | none, s => s.gpr .r1 = 256
 
-/-- What the loops need of the state they start from: permission to read `y`
-and write `h`, and the bytes of `y` of the entry state. -/
-structure MainPre (s₀ sA : State) : Prop where
+/-- What the loops that read `y` need of the state they start from:
+permission to read it, and its bytes of the entry state. -/
+structure YPre (s₀ sA : State) : Prop where
   rd : uyR s₀ ∈ sA.rd
-  wr : uhR s₀ ∈ sA.wr
   y : ∀ t < uLen s₀, sA.mem (State.addr (uY s₀) + BitVec.ofNat 64 t) = s₀.mem (State.addr (uY s₀) + BitVec.ofNat 64 t)
+
+/-- ... and those that write `h`: permission to write it. -/
+structure MainPre (s₀ sA : State) : Prop extends YPre s₀ sA where
+  wr : uhR s₀ ∈ sA.wr
 
 /-- What stays the same in the loops that start from `sA`. -/
 structure UCom (s₀ sA s : State) : Prop where
@@ -221,7 +224,7 @@ theorem harr_zero {s₀ : State} {m : Mem} (hz : ∀ t < 256 * uk s₀, coeffAt 
   rfl
 
 /-- A byte of `y`, unchanged by the writes to `h`. -/
-theorem yByte {s₀ : State} (hp : UPre s₀) {sA s : State} (hA : MainPre s₀ sA) (hc : UCom s₀ sA s) {t : Nat}
+theorem yByte {s₀ : State} (hp : UPre s₀) {sA s : State} (hA : YPre s₀ sA) (hc : UCom s₀ sA s) {t : Nat}
     (ht : t < uLen s₀) : s.mem (State.addr (uY s₀) + BitVec.ofNat 64 t) = (uYs s₀).getD t 0 := by
   have fY := hp.fitY
   rw [Array.getD_eq_getD_getElem?, List.getElem?_toArray, ← List.getD_eq_getElem?_getD, bytesAt_getD _ _ ht,
@@ -299,7 +302,7 @@ theorem set_ok {i bound idx : Nat} (hi : i < uk s₀) (hidx : idx < uLen s₀) {
   have ey : State.addr (uY s₀ + BitVec.ofNat 32 idx + BitVec.ofNat 32 0) = State.addr (uY s₀) + BitVec.ofNat 64 idx := by
     rw [addr_ptr _ _ _ (by omega), Nat.add_zero]
   have hb : s.mem (State.addr (uY s₀ + BitVec.ofNat 32 idx + BitVec.ofNat 32 0)) = (uYs s₀).getD idx 0 := by
-    rw [ey]; exact yByte hp hA hP.com hidx
+    rw [ey]; exact yByte hp hA.toYPre hP.com hidx
   have eh : State.addr (uH s₀ + BitVec.ofNat 32 (1024 * i) + (((uYs s₀).getD idx 0).setWidth 32 <<< 2) +
       BitVec.ofNat 32 0) = coeffAddr (State.addr (uH s₀)) (256 * i + ((uYs s₀).getD idx 0).toNat) := by
     rw [shl2_byte, ptr_add, addr_ptr _ _ _ (by omega)]
@@ -355,8 +358,8 @@ theorem next_ok {i bound first idx : Nat} (hi : i < uk s₀) (hfi : first < idx)
       rw [ec, hrw]; exact ⟨_, List.mem_append_left _ hA.rd, Offset.contains_base _ (by omega) (by omega)⟩)
     (by rw [ep, hrw]; exact ⟨_, List.mem_append_left _ hA.rd, Offset.contains_base _ (by omega) (by omega)⟩))
     fun s₁ ⟨r7₁, r12₁, m₁, r1₁, k₁⟩ => ?_
-  rw [ec, yByte hp hA hP.com (by omega)] at r7₁
-  rw [ep, yByte hp hA hP.com (by omega)] at r12₁
+  rw [ec, yByte hp hA.toYPre hP.com (by omega)] at r7₁
+  rw [ep, yByte hp hA.toYPre hP.com (by omega)] at r12₁
   have hP₁ : PCom s₀ sA i bound s₁ := hP.of k₁ (by rw [m₁]; exact Frame.refl _ _)
   refine WP.mono (ltBit_ok .r7 .r12 .r7 s₁) fun s₂ ⟨_, z₂, m₂, rd₂, wr₂, sp₂, g₂⟩ => ?_
   have k₂ := keepC_r7 g₂ rd₂ wr₂ sp₂

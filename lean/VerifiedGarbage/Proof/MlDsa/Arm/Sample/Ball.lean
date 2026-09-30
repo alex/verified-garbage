@@ -54,7 +54,7 @@ theorem readW_pair (m : Mem) (a : Addr) (L : List Byte) (h : ∀ k < 8, m (a + B
 theorem setup1_ok (s : State) {A C : Addr} (hA : State.addr (s.gpr .r6 + BitVec.ofNat 32 840) = A)
     (hC : State.addr (s.gpr .r6 + BitVec.ofNat 32 844) = C) (hrA : InRegions (s.rd ++ s.wr) A 4)
     (hrC : InRegions (s.rd ++ s.wr) C 4) :
-    WP isa (.block (bSetup ++ [.mov .r3 (.imm 264)])) s fun s' =>
+    WP isa (.block (bSetup ++ ([.mov .r3 (.imm 264)] : List Instr))) s fun s' =>
       s'.gpr .r1 = s.mem.readW A 32 ∧ s'.gpr .r4 = s.mem.readW C 32 ∧
         s'.gpr .r2 = BitVec.ofNat 32 256 - s.gpr .r7 ∧ s'.gpr .r0 = s.gpr .r6 + BitVec.ofNat 32 848 ∧
         s'.gpr .r3 = BitVec.ofNat 32 264 ∧ s'.gpr .r5 = s.gpr .r5 ∧ s'.gpr .r6 = s.gpr .r6 ∧
@@ -67,7 +67,7 @@ variable {σ : State} (hp : SpOk (spOf σ) σ) (hτ : tau σ ≤ 256)
 include hp hτ
 
 theorem setup_ok {s : State} (h : ZDone σ s) :
-    WP isa (.block (bSetup ++ [.mov .r3 (.imm 264)])) s (BAt σ 0) := by
+    WP isa (.block (bSetup ++ ([.mov .r3 (.imm 264)] : List Instr))) s (BAt σ 0) := by
   have e6 := h.env.r6
   have hA : State.addr (s.gpr .r6 + BitVec.ofNat 32 840) = (spOf σ).at' 840 := by rw [e6]; exact at_eq hp (by omega)
   have hC : State.addr (s.gpr .r6 + BitVec.ofNat 32 844) = (spOf σ).at' 840 + BitVec.ofNat 64 4 := by
