@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MlKem.AArch64.NttFwd
+import Mathlib.Tactic.Set
 
 /-!
 # ML-KEM on AArch64: `vg_mlkem_inv_ntt`
