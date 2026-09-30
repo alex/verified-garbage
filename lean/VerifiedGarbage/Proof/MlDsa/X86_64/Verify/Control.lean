@@ -106,7 +106,7 @@ theorem sbb_val (x r : BitVec 64) :
     apply BitVec.eq_of_toNat_eq; simp
 
 theorem cmpEnd_ok (s : State) :
-    WP isa (.block ([.alu .sub .rdx (.imm 1), .alu .sbb .rax (.reg .rax)] ++ and15)) s fun s' =>
+    WP isa (.block (([.alu .sub .rdx (.imm 1), .alu .sbb .rax (.reg .rax)] : List Instr) ++ and15)) s fun s' =>
       (s'.gpr .r15 = (if s.gpr .rdx = 0 then BitVec.setWidth 64 ((s.gpr .r15).setWidth 32) else 0) ∧
         s'.mem = s.mem) ∧ Keep [.rdx, .rax, .r15] s s' := by
   refine WP.keep _ ?_ (by decide)

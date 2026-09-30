@@ -68,7 +68,8 @@ theorem copy_tr {dst src : Ptr} {n : Nat} (hok : ∀ a ∈ copyArgs dst src n, a
       hy.1.1 _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self ..)))]; rfl
 
 theorem maskPre_wp {a : Ptr} (hok : (Arg.ptr a).Ok) (hb : a.1 ∈ bases) (s : State) :
-    WP isa (.block ([.mov32 .rdx (.imm 0), .alu32 .sub .rdx (.reg .rax)] ++ glue [(.rdi, .ptr a), (.rcx, .imm 256)])) s
+    WP isa (.block (([.mov32 .rdx (.imm 0), .alu32 .sub .rdx (.reg .rax)] : List Instr) ++
+      glue [(.rdi, .ptr a), (.rcx, .imm 256)])) s
       fun s' => s'.gpr .rdi = (Arg.ptr a).val s ∧ s'.gpr .rcx = BitVec.ofNat 64 256 := by
   have hok' : ∀ x ∈ ([(.rdi, .ptr a), (.rcx, .imm 256)] : List (Reg × Arg)), x.2.Ok ∧ x.1 ∈ argRegs := by
     simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
@@ -98,7 +99,7 @@ theorem mask_tr {a : Ptr} (hok : (Arg.ptr a).Ok) (hb : a.1 ∈ bases) {P : State
 
 theorem cmpPre_wp {a b : Ptr} {n : Nat} (hok : ∀ x ∈ ([(.rsi, .ptr a), (.rdi, .ptr b), (.rcx, .imm n)] : List (Reg × Arg)),
       x.2.Ok ∧ x.1 ∈ argRegs) (s : State) :
-    WP isa (.block (glue [(.rsi, .ptr a), (.rdi, .ptr b), (.rcx, .imm n)] ++ [.mov32 .rdx (.imm 0)])) s
+    WP isa (.block (glue [(.rsi, .ptr a), (.rdi, .ptr b), (.rcx, .imm n)] ++ ([.mov32 .rdx (.imm 0)] : List Instr))) s
       fun s' => s'.gpr .rsi = (Arg.ptr a).val s ∧ s'.gpr .rdi = (Arg.ptr b).val s ∧
         s'.gpr .rcx = (Arg.imm n).val s := by
   rw [WP.block_append_iff]
