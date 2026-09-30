@@ -7,15 +7,9 @@ Untrusted: everything here is checked by Lean. `vg_mldsa{44,65,87}_sign`
 (`sign prims p`) is verified against `signContractT`: `signContract` with
 `signLeakT` (`Proof/MlDsa/Sign/Leak.lean`) for `signLeak`, which tags what
 each iteration of the loop leaks after its `c̃` with whether it was
-rejected. **It is not verified against `signContract`**, whose leakage does
-not say where the iterations end: after the `c̃` of an iteration that
-passes, the hint (`256 k` numbers, each 0 or 1) is the same list as the
-`c̃`s (of `λ / 4` bytes each, `256 k = 32 · λ / 4` for every parameter set)
-of 32 more rejected iterations whose bytes are all 0 or 1, the last of
-which has no `SampleInBall` within `maxBounds` (which leaks nothing more).
-Two runs so related agree on `signLeak` but not on whether the first
-passed, which the code branches on, so no implementation of the loop that
-branches on the checks is constant time under `signContract`'s `pub`.
+rejected. The contract's `signLeak` tags the iterations the same way
+(`signLeakT_eq_signLeak`), so `signContractT` is `signContract`
+(`signContractT_eq`), against which `sign*_verified'` state it.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign
@@ -84,6 +78,26 @@ theorem sign65_verified :
 theorem sign87_verified :
     Verified X86_64.target (Impl.MlDsa.X86_64.Sign.sign prims mlDsa87) (signContractT mlDsa87 X86_64.abi signStack) :=
   sign_verified (.inr (.inr rfl)) (by decide +kernel)
+
+/-! Against the contract: `signContractT` is `signContract`, whose leakage
+tags each iteration as `signLeakT` does (`signLeakT_eq_signLeak`). -/
+
+theorem signContractT_eq (p : Params) {M : ISA} (A : Abi M) (stack : Nat) :
+    signContractT p A stack = signContract p A stack := by
+  unfold signContractT signContract
+  simp only [Sign.signLeakT_eq_signLeak]
+
+theorem sign44_verified' :
+    Verified X86_64.target (Impl.MlDsa.X86_64.Sign.sign prims mlDsa44) (signContract mlDsa44 X86_64.abi signStack) :=
+  signContractT_eq mlDsa44 X86_64.abi signStack ▸ sign44_verified
+
+theorem sign65_verified' :
+    Verified X86_64.target (Impl.MlDsa.X86_64.Sign.sign prims mlDsa65) (signContract mlDsa65 X86_64.abi signStack) :=
+  signContractT_eq mlDsa65 X86_64.abi signStack ▸ sign65_verified
+
+theorem sign87_verified' :
+    Verified X86_64.target (Impl.MlDsa.X86_64.Sign.sign prims mlDsa87) (signContract mlDsa87 X86_64.abi signStack) :=
+  signContractT_eq mlDsa87 X86_64.abi signStack ▸ sign87_verified
 
 /-! What registering them needs of the code besides: it never writes the stack pointer. -/
 

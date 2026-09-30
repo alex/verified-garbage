@@ -52,6 +52,32 @@ def signLeakT (p : Params) (sk μ rnd : List Byte) : List Nat :=
       signLeakLoopT p maxBounds Â (s₁.map fun s => ntt (toRq s)) (s₂.map fun s => ntt (toRq s))
         (t₀.map fun t => ntt (toRq t)) μ (H (K ++ rnd ++ μ) 64) maxBounds.sign 0
 
+/-- `signLeakLoopT` is the contract's `signLeakLoop`, which tags each
+iteration the same way. -/
+theorem signLeakLoopT_eq_signLeakLoop (p : Params) (b : Bounds) (Â : List (List Poly)) (ŝ₁ ŝ₂ t₀Hat : List Poly)
+    (μ ρ'' : List Byte) : ∀ iters κ,
+    signLeakLoopT p b Â ŝ₁ ŝ₂ t₀Hat μ ρ'' iters κ = signLeakLoop p b Â ŝ₁ ŝ₂ t₀Hat μ ρ'' iters κ
+  | 0, _ => rfl
+  | iters + 1, κ => by
+    have ih := signLeakLoopT_eq_signLeakLoop p b Â ŝ₁ ŝ₂ t₀Hat μ ρ'' iters (κ + p.ℓ)
+    unfold signLeakLoopT signLeakLoop
+    cases signIteration p b Â ŝ₁ ŝ₂ t₀Hat μ ρ'' κ with
+    | none => rfl
+    | some r =>
+      rcases r with ⟨_, _ | _⟩
+      · exact congrArg (_ ++ 0 :: ·) ih
+      · rfl
+
+/-- `signLeakT` is the contract's `signLeak`. -/
+theorem signLeakT_eq_signLeak (p : Params) (sk μ rnd : List Byte) : signLeakT p sk μ rnd = signLeak p sk μ rnd := by
+  have h : @signLeakLoopT = @signLeakLoop := by
+    funext p b Â ŝ₁ ŝ₂ t₀Hat μ ρ'' iters κ
+    exact signLeakLoopT_eq_signLeakLoop p b Â ŝ₁ ŝ₂ t₀Hat μ ρ'' iters κ
+  unfold signLeakT signLeak
+  simp only [h]
+  -- The two sides differ only in their `match` auxiliaries, which are equal.
+  cases expandA p maxBounds (skDecode p sk).fst <;> rfl
+
 theorem leakBytes_inj : ∀ {a b : List Byte}, leakBytes a = leakBytes b → a = b
   | [], [], _ => rfl
   | x :: a, y :: b, h => by
