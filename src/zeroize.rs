@@ -32,11 +32,41 @@
     target_arch = "x86"
 ))]
 
-/// Overwrites `x` with zeros in a way the compiler does not remove.
-pub(crate) fn zeroize<T: Copy + Default>(x: &mut [T]) {
-    for v in x.iter_mut() {
-        // SAFETY: `v` is a valid, aligned, unique reference.
-        unsafe { core::ptr::write_volatile(v, T::default()) };
+mod sealed {
+    pub trait Sealed {}
+}
+
+/// An integer type: the value whose bytes are all zero is 0.
+pub(crate) trait Int: Copy + sealed::Sealed {}
+
+macro_rules! int {
+    ($($t:ty),*) => {
+        $(
+            impl sealed::Sealed for $t {}
+            impl Int for $t {}
+        )*
+    };
+}
+int!(u8, u16, u32, u64, i16, i32, i64);
+
+/// Overwrites `x` with zeros in a way the compiler does not remove: with
+/// volatile writes, of 8 bytes at a time where they are aligned, and of
+/// single bytes before and after.
+pub(crate) fn zeroize<T: Int>(x: &mut [T]) {
+    let len = core::mem::size_of_val(x);
+    let p = x.as_mut_ptr().cast::<u8>();
+    let head = p.align_offset(8).min(len);
+    let words = (len - head) / 8;
+    for i in (0..head).chain(head + 8 * words..len) {
+        // SAFETY: byte `i` of `x` is valid for writes; zero bytes are a
+        // valid `T`.
+        unsafe { p.add(i).write_volatile(0) };
+    }
+    for i in 0..words {
+        // SAFETY: bytes `head + 8 * i` to `head + 8 * i + 8` of `x` are
+        // valid for writes, and aligned for a `u64`; zero bytes are a valid
+        // `T`.
+        unsafe { p.add(head + 8 * i).cast::<u64>().write_volatile(0) };
     }
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 }
@@ -47,8 +77,23 @@ mod tests {
 
     #[test]
     fn zeroizes() {
-        let mut x = [1u8, 2, 3];
-        zeroize(&mut x);
-        assert_eq!(x, [0; 3]);
+        // Bytes before, between and after aligned words, at every offset.
+        for start in 0..8 {
+            for end in start..=25 {
+                let mut words = [u64::MAX; 4];
+                // SAFETY: `words` is 32 bytes, and any bytes are a valid `u8`.
+                let bytes = unsafe { &mut *words.as_mut_ptr().cast::<[u8; 32]>() };
+                zeroize(&mut bytes[start..end]);
+                for (i, b) in bytes.iter().enumerate() {
+                    assert_eq!(*b == 0, (start..end).contains(&i));
+                }
+            }
+        }
+        let mut y = [u64::MAX; 3];
+        zeroize(&mut y);
+        assert_eq!(y, [0; 3]);
+        let mut z = [-1i16; 5];
+        zeroize(&mut z);
+        assert_eq!(z, [0; 5]);
     }
 }
