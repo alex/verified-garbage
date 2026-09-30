@@ -49,7 +49,7 @@ theorem lenS_eq (p : Params) : lenS p = 32 * Spec.MlDsa.bitlen (p.η + p.η) := 
   rw [lenS, Nat.two_mul]
 
 /-- The entry `r` of `s₁ ‖ s₂`, before `NTT`. -/
-theorem KR.sP {p : Params} {σ : State} {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {np nr : Nat} {s : State}
+theorem KR.sPoly {p : Params} {σ : State} {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {np nr : Nat} {s : State}
     (h : KR p σ A S R np 0 nr s) {r : Nat} (hr : r < p.ℓ + p.k) : PolyIs s.mem (pa s (sP p r)) (toRq (S r)) := by
   by_cases hl : r < p.ℓ
   · have := h.s1 r hl; rwa [ifn (Nat.not_lt_zero r)] at this
@@ -62,7 +62,7 @@ theorem packS_ok {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {σ :
     (h : KR p σ A S R r 0 0 s) : WP isa (packS P p r) s (KR p σ A S R (r + 1) 0 0) := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   have S₀ := h.kc.site hF hp
-  have hS := h.sP hr
+  have hS := h.sPoly hr
   unfold packS
   rcases hF.eta with ⟨he, hlen⟩ | ⟨he, hlen⟩ <;>
   refine WP.mono (bpAt_ok (eta_params hF) (lenS_eq p) (sc_ok _ (by simp only [oP]; omega))
@@ -85,8 +85,8 @@ theorem packS_tr {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {r : 
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   refine rel_of (Q := fun x y => Two p x y ∧ PackIn x.mem (pa x (sP p r)) p.η p.η ∧
     PackIn y.mem (pa y (sP p r)) p.η p.η) ?_ fun _ _ _ _ p₁ p₂ pub ⟨_, _, _, h₁⟩ ⟨_, _, _, h₂⟩ =>
-      ⟨kc_two hF p₁ p₂ pub h₁.kc h₂.kc, packIn_of (eta_le hF) (h₁.sP hr) (h₁.small r hr),
-        packIn_of (eta_le hF) (h₂.sP hr) (h₂.small r hr)⟩
+      ⟨kc_two hF p₁ p₂ pub h₁.kc h₂.kc, packIn_of (eta_le hF) (h₁.sPoly hr) (h₁.small r hr),
+        packIn_of (eta_le hF) (h₂.sPoly hr) (h₂.small r hr)⟩
   unfold packS
   rcases hF.eta with ⟨he, hlen⟩ | ⟨he, hlen⟩ <;>
   exact bpAt_tr (eta_params hF) (lenS_eq p) (sc_ok _ (by simp only [oP]; omega))
