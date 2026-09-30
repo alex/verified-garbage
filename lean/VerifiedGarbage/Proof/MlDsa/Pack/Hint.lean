@@ -146,4 +146,190 @@ theorem onesBefore_n_le {h : List (Vector Bool n)} {k i : Nat} (hk : h.length = 
   rw [← sum_range_succ (fun t => count (h.getD t noHint) n)]
   exact sum_range_mono _ (by omega)
 
+/-! ## `HintBitUnpack` -/
+
+theorem ite_pos' {α : Sort _} {p : Prop} [Decidable p] (h : p) (a b : α) : (if p then a else b) = a :=
+  ite_eq_left_of_eq_true a b (eq_true h)
+
+theorem ite_neg' {α : Sort _} {p : Prop} [Decidable p] (h : ¬ p) (a b : α) : (if p then a else b) = b :=
+  ite_eq_right_of_eq_false a b (eq_false h)
+
+/-- A fold that stops at the first failure. -/
+def optFold {α S : Type} (g : S → α → Option S) : List α → S → Option S
+  | [], st => some st
+  | a :: l, st => (g st a).bind (optFold g l)
+
+theorem forIn_opt {α S R : Type} (g : S → α → Option S) (r₀ : R)
+    (f : α → Option R × S → Id (ForInStep (Option R × S)))
+    (hf : ∀ a st, (g st a = none → ∃ st', f a (none, st) = pure (.done (some r₀, st'))) ∧
+      (∀ st', g st a = some st' → f a (none, st) = pure (.yield (none, st')))) :
+    ∀ (l : List α) (st : S), (optFold g l st = none ∧ ∃ st', forIn l (none, st) f = pure (some r₀, st')) ∨
+      (∃ st', optFold g l st = some st' ∧ forIn l (none, st) f = pure (none, st'))
+  | [], st => .inr ⟨st, rfl, rfl⟩
+  | a :: l, st => by
+    rw [List.forIn_cons]
+    cases hg : g st a with
+    | none =>
+      obtain ⟨st', h⟩ := (hf a st).1 hg
+      exact .inl ⟨by simp [optFold, hg], st', by rw [h]; rfl⟩
+    | some st₁ =>
+      rw [(hf a st).2 st₁ hg]
+      rcases forIn_opt g r₀ f hf l st₁ with ⟨h1, st', h2⟩ | ⟨st', h1, h2⟩
+      · exact .inl ⟨by simp [optFold, hg, h1], st', by rw [← h2]; rfl⟩
+      · exact .inr ⟨st', by simp [optFold, hg, h1], by rw [← h2]; rfl⟩
+
+/-- A `for` loop of `Id` that stops at the first failure, followed by `G`. -/
+theorem forIn_opt_bind {α S R β : Type} (g : S → α → Option S) (r₀ : R)
+    (f : α → Option R × S → Id (ForInStep (Option R × S)))
+    (hf : ∀ a st, (g st a = none → ∃ st', f a (none, st) = pure (.done (some r₀, st'))) ∧
+      (∀ st', g st a = some st' → f a (none, st) = pure (.yield (none, st'))))
+    (l : List α) (st : S) (G : Option R × S → Id β) (rhs : β)
+    (hn : optFold g l st = none → ∀ st', G (some r₀, st') = rhs)
+    (hs : ∀ st', optFold g l st = some st' → G (none, st') = rhs) :
+    (forIn l (none, st) f >>= G) = rhs := by
+  rcases forIn_opt g r₀ f hf l st with ⟨h1, st', h2⟩ | ⟨st', h1, h2⟩
+  · rw [h2]; exact hn h1 st'
+  · rw [h2]; exact hs st' h1
+
+/-- A `for` loop of `Id` that stops at the first failure, as the body of an
+enclosing one. -/
+theorem forIn_opt_step {α S R R' : Type} (g : S → α → Option S) (r₀ : R) (r₀' : R')
+    (f : α → Option R × S → Id (ForInStep (Option R × S)))
+    (hf : ∀ a st, (g st a = none → ∃ st', f a (none, st) = pure (.done (some r₀, st'))) ∧
+      (∀ st', g st a = some st' → f a (none, st) = pure (.yield (none, st'))))
+    (l : List α) (st : S) (G : Option R × S → Id (ForInStep (Option R' × S)))
+    (hG₁ : ∀ st', G (some r₀, st') = pure (.done (some r₀', st'))) (hG₂ : ∀ st', G (none, st') = pure (.yield (none, st'))) :
+    (optFold g l st = none → ∃ st', (forIn l (none, st) f >>= G) = pure (.done (some r₀', st'))) ∧
+      (∀ st', optFold g l st = some st' → (forIn l (none, st) f >>= G) = pure (.yield (none, st'))) := by
+  rcases forIn_opt g r₀ f hf l st with ⟨h1, st', h2⟩ | ⟨st', h1, h2⟩
+  · refine ⟨fun _ => ⟨st', ?_⟩, fun _ h => ?_⟩
+    · rw [h2]; exact hG₁ st'
+    · rw [h1] at h; cases h
+  · refine ⟨fun h => ?_, fun st'' h => ?_⟩
+    · rw [h1] at h; cases h
+    · rw [h1] at h; cases h; rw [h2]; exact hG₂ st'
+
+/-- Set coefficient `b` of polynomial `i`. -/
+def huSet (i b : Nat) (h : Array (Vector Bool n)) : Array (Vector Bool n) :=
+  h.set! i ((h.getD i noHint).set! b true)
+
+/-- The index of polynomial `i` from `first`: its coefficient `y[index]`, after
+checking it is greater than the previous one. -/
+def huStep (y : Array Byte) (i first : Nat) (st : Array (Vector Bool n) × Nat) (_ : Nat) :
+    Option (Array (Vector Bool n) × Nat) :=
+  if st.2 > first ∧ (y.getD (st.2 - 1) 0).toNat ≥ (y.getD st.2 0).toNat then none
+  else some (huSet i (y.getD st.2 0).toNat st.1, st.2 + 1)
+
+/-- Polynomial `i`: the bound `y[ω + i]`, checked, and its coefficients. -/
+def huPoly (ω : Nat) (y : Array Byte) (st : Array (Vector Bool n) × Nat) (i : Nat) :
+    Option (Array (Vector Bool n) × Nat) :=
+  let bound := (y.getD (ω + i) 0).toNat
+  if bound < st.2 ∨ bound > ω then none else optFold (huStep y i st.2) (List.range (bound - st.2)) st
+
+/-- The bytes after the last index are zero. -/
+def huTrail (y : Array Byte) (_ : Unit) (i : Nat) : Option Unit := if y.getD i 0 ≠ 0 then none else some ()
+
+theorem hintBitUnpack_eq (ω k : Nat) (y : List Byte) :
+    hintBitUnpack ω k y =
+      match optFold (huPoly ω y.toArray) (List.range k) (Array.replicate k noHint, 0) with
+      | none => none
+      | some (h, idx) => (optFold (huTrail y.toArray) (List.range' idx (ω - idx)) ()).map fun _ => h.toList := by
+  dsimp only [hintBitUnpack]
+  refine forIn_opt_bind (huPoly ω y.toArray) (none : Option (List (Vector Bool n))) _ (fun i st => ?_) _ _ _ _
+    (fun h1 st' => by rw [h1]; rfl) (fun st' h1 => ?_)
+  · -- A polynomial.
+    obtain ⟨hh, idx⟩ := st
+    dsimp only
+    by_cases hc : (y.toArray.getD (ω + i) 0).toNat < idx ∨ (y.toArray.getD (ω + i) 0).toNat > ω
+    · simp only [huPoly, hc, ↓reduceIte]
+      exact ⟨fun _ => ⟨_, rfl⟩, fun _ h => (by cases h)⟩
+    · simp only [huPoly, hc, ↓reduceIte]
+      refine forIn_opt_step (huStep y.toArray i idx) (none : Option (List (Vector Bool n))) none _
+        (fun x st => ?_) _ _ _ (fun _ => rfl) (fun _ => rfl)
+      obtain ⟨h2, idx2⟩ := st
+      dsimp only
+      simp only [huStep, huSet, noHint]
+      by_cases e1 : idx2 > idx
+      · by_cases e2 : (y.toArray.getD (idx2 - 1) 0).toNat ≥ (y.toArray.getD idx2 0).toNat
+        · simp only [e1, e2, and_self, ↓reduceIte]
+          exact ⟨fun _ => ⟨_, rfl⟩, fun _ h => (by cases h)⟩
+        · simp only [e1, e2, and_false, ↓reduceIte]
+          exact ⟨fun h => (by cases h), fun st' h => (by cases h; rfl)⟩
+      · simp only [e1, false_and, ↓reduceIte]
+        exact ⟨fun h => (by cases h), fun st' h => (by cases h; rfl)⟩
+  · -- The trailing bytes.
+    obtain ⟨hh, idx⟩ := st'
+    rw [h1]
+    dsimp only
+    refine forIn_opt_bind (huTrail y.toArray) (none : Option (List (Vector Bool n))) _ (fun i st => ?_) _ _ _ _
+      (fun h2 _ => by rw [h2]; rfl) (fun st' h2 => by rw [h2]; rfl)
+    rw [show huTrail y.toArray st i = if y.toArray.getD i 0 ≠ 0 then none else some () from rfl]
+    by_cases hy : y.toArray.getD i 0 ≠ 0
+    · rw [ite_pos' hy, ite_pos' hy]
+      exact ⟨fun _ => ⟨(), rfl⟩, fun _ h => (by cases h)⟩
+    · rw [ite_neg' hy, ite_neg' hy]
+      exact ⟨fun h => (by cases h), fun st' h => (by cases h; rfl)⟩
+
+theorem optFold_append {α S : Type} (g : S → α → Option S) (l₁ l₂ : List α) (st : S) :
+    optFold g (l₁ ++ l₂) st = (optFold g l₁ st).bind (optFold g l₂) := by
+  induction l₁ generalizing st with
+  | nil => rfl
+  | cons a l ih =>
+    simp only [List.cons_append, optFold]
+    cases g st a with
+    | none => rfl
+    | some st' => exact ih st'
+
+theorem optFold_range_succ {S : Type} (g : S → Nat → Option S) (m : Nat) (st : S) :
+    optFold g (List.range (m + 1)) st = (optFold g (List.range m) st).bind fun st' => g st' m := by
+  rw [List.range_succ, optFold_append]
+  cases optFold g (List.range m) st with
+  | none => rfl
+  | some st' => simp only [Option.bind_some, optFold]; cases g st' m <;> rfl
+
+theorem optFold_range'_succ {S : Type} (g : S → Nat → Option S) (a m : Nat) (st : S) :
+    optFold g (List.range' a (m + 1)) st = (optFold g (List.range' a m) st).bind fun st' => g st' (a + m) := by
+  rw [List.range'_concat, optFold_append]
+  cases optFold g (List.range' a m) st with
+  | none => rfl
+  | some st' => simp only [Option.bind_some, optFold, Nat.one_mul]; cases g st' (a + m) <;> rfl
+
+/-- Once a fold fails, it stays failed. -/
+theorem optFold_range_none {S : Type} (g : S → Nat → Option S) {t m : Nat} (h : t ≤ m) {st : S}
+    (hn : optFold g (List.range t) st = none) : optFold g (List.range m) st = none := by
+  induction m with
+  | zero => rw [Nat.le_zero.mp h] at hn; exact hn
+  | succ m ih =>
+    rcases Nat.lt_or_eq_of_le h with h | rfl
+    · rw [optFold_range_succ, ih (by omega)]; rfl
+    · exact hn
+
+theorem optFold_range'_none {S : Type} (g : S → Nat → Option S) (a : Nat) {t m : Nat} (h : t ≤ m) {st : S}
+    (hn : optFold g (List.range' a t) st = none) : optFold g (List.range' a m) st = none := by
+  induction m with
+  | zero => rw [Nat.le_zero.mp h] at hn; exact hn
+  | succ m ih =>
+    rcases Nat.lt_or_eq_of_le h with h | rfl
+    · rw [optFold_range'_succ, ih (by omega)]; rfl
+    · exact hn
+
+theorem huSet_size (i b : Nat) (h : Array (Vector Bool n)) : (huSet i b h).size = h.size := by
+  simp [huSet]
+
+/-- Coefficient `j` of polynomial `i'` after setting coefficient `b` of
+polynomial `i`. -/
+theorem huSet_get {i b : Nat} {h : Array (Vector Bool n)} (hi : i < h.size) {i' j : Nat}
+    (hj : j < n) :
+    ((huSet i b h).getD i' noHint)[j]! = if i' = i ∧ j = b then true else (h.getD i' noHint)[j]! := by
+  simp only [huSet, Array.set!_eq_setIfInBounds, Array.getD_eq_getD_getElem?, Array.getElem?_setIfInBounds]
+  by_cases e : i = i'
+  · subst e
+    simp only [ite_true, hi, Option.getD_some]
+    rw [getElem!_pos _ j hj, getElem!_pos _ j hj, Vector.set!_eq_setIfInBounds, Vector.getElem_setIfInBounds]
+    by_cases e2 : b = j
+    · subst e2; simp
+    · simp [e2, Ne.symm e2]
+  · simp [e, Ne.symm e]
+
 end VG.Proof.MlDsa.Pack
+
