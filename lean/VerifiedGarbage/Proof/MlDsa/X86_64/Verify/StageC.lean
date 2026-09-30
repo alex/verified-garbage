@@ -205,66 +205,148 @@ theorem dot_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ 
   · rw [show 1 + (p.ℓ - 1) = p.ℓ by have := R.l1; omega] at hst
     exact hst
 
-theorem row_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ)
-    {h : List (Vector Bool n)} {A' : Nat → Nat → Poly} {Q : Prop} [Decidable Q] {cH : Poly}
-    {r : Nat} (hr : r < p.k) {s : State} (hs : SC p h A' Q p.ℓ cH r σ s) :
-    WP isa (row P p r) s (SC p h A' Q p.ℓ cH (r + 1) σ) := by
+theorem keepB_sub {bs : List (Reg × Nat)} {ws ws' : List (Ptr × Nat)} {q : Ptr} {l : Nat} (h : keepB bs ws q l = true)
+    (hw : ∀ w ∈ ws', w ∈ ws) : keepB bs ws' q l = true := by
+  simp only [keepB, Bool.and_eq_true, List.all_eq_true] at h ⊢
+  exact ⟨h.1, fun w hw' => h.2 w (hw w hw')⟩
+
+section Row
+variable {p : Params} {σ : State} {h : List (Vector Bool n)} {A' : Nat → Nat → Poly} {cH : Poly} {r : Nat}
+
+/-- `Σₛ Â[r, s] ẑ[s]`. -/
+abbrev rDot (p : Params) (σ : State) (A' : Nat → Nat → Poly) (r : Nat) : Poly := dotAcc p (vSig p σ) A' r p.ℓ
+/-- `t₁[r] · 2ᵈ`. -/
+abbrev rU (p : Params) (σ : State) (r : Nat) : Poly := (vT1 (vPk p σ) r).map fun c => ofInt (c * 2 ^ d : Nat)
+/-- `ĉ t̂₁[r]`. -/
+abbrev rCT (p : Params) (σ : State) (cH : Poly) (r : Nat) : Poly := multiplyNTT cH (t1Hat (vPk p σ) r)
+
+/-- Row `r` from `s₀`, what every step keeps: the writes and `r15`. -/
+abbrev RB (p : Params) (r : Nat) (s₀ s : State) : Prop := PPostB s₀ s (wsR p r) ∧ s.gpr .r15 = s₀.gpr .r15
+
+/-- After `Σₛ Â[r, s] ẑ[s]`, and `t₁[r] · 2ᵈ`, its NTT, and `ĉ t̂₁[r]`. -/
+def RF1 (p : Params) (σ : State) (A' : Nat → Nat → Poly) (r : Nat) (s₀ s : State) : Prop :=
+  RB p r s₀ s ∧ PolyIs s.mem (pa s pW) (rDot p σ A' r)
+def RF2 (p : Params) (σ : State) (A' : Nat → Nat → Poly) (r : Nat) (s₀ s : State) : Prop :=
+  RF1 p σ A' r s₀ s ∧ PolyIs s.mem (pa s pT) (rU p σ r)
+def RF3 (p : Params) (σ : State) (A' : Nat → Nat → Poly) (r : Nat) (s₀ s : State) : Prop :=
+  RF1 p σ A' r s₀ s ∧ PolyIs s.mem (pa s pT) (ntt (rU p σ r))
+def RF4 (p : Params) (σ : State) (A' : Nat → Nat → Poly) (cH : Poly) (r : Nat) (s₀ s : State) : Prop :=
+  RF1 p σ A' r s₀ s ∧ PolyIs s.mem (pa s pT2) (rCT p σ cH r)
+/-- After `w′ = NTT⁻¹(…)` less `ĉ t̂₁[r]`, `w′`, and `w′₁`. -/
+def RF5 (p : Params) (σ : State) (A' : Nat → Nat → Poly) (cH : Poly) (r : Nat) (s₀ s : State) : Prop :=
+  RB p r s₀ s ∧ PolyIs s.mem (pa s pW) (sub (rDot p σ A' r) (rCT p σ cH r))
+def RF6 (p : Params) (σ : State) (A' : Nat → Nat → Poly) (cH : Poly) (r : Nat) (s₀ s : State) : Prop :=
+  RB p r s₀ s ∧ PolyIs s.mem (pa s pW) (wRow p (vPk p σ) (vSig p σ) A' cH r)
+def RF7 (p : Params) (σ : State) (h : List (Vector Bool n)) (A' : Nat → Nat → Poly) (cH : Poly) (r : Nat)
+    (s₀ s : State) : Prop :=
+  RB p r s₀ s ∧ NatPolyIs s.mem (pa s pW1) (w1Row p (vPk p σ) (vSig p σ) A' cH h r)
+
+theorem RB.acc {s₀ s s' : State} (hb : RB p r s₀ s) {ws : List (Ptr × Nat)} (hP : PPostB s s' ws)
+    (e : s'.gpr .r15 = s.gpr .r15) (hw : ∀ w ∈ ws, w ∈ wsR p r) : RB p r s₀ s' :=
+  ⟨hb.1.accR hP hw, e.trans hb.2⟩
+
+variable {P : Prims} (C : PrimsOk P) (hp : p ∈ params) (hv : VPre p σ) {Q : Prop} [Decidable Q] (hr : r < p.k)
+  {s₀ : State} (hs : SC p h A' Q p.ℓ cH r σ s₀)
+include C hp hv hr hs
+
+theorem row0_ok : WP isa (dot P p r) s₀ (RF1 p σ A' r s₀) :=
+  WP.mono (dot_ok C hp hv hr hs) fun s ⟨hP, e, hq⟩ =>
+    ⟨⟨hP.mono (sub1 (wsR_mem p r).1), e⟩, by rw [pa_rbx hP]; exact hq⟩
+
+theorem row1_ok {s : State} (hf : RF1 p σ A' r s₀ s) :
+    WP isa (unpackT1At P (.rbp, 32 + 320 * r) pT) s (RF2 p σ A' r s₀) := by
   have R := rowC hp hr
-  have L := hs.t.lay hp hv
+  have L := (hs.t.lay hp hv).post hf.1.1
+  refine WP.mono (unpackT1At_ok C.unpackT1 L R.t1) fun s' ⟨hP, e, hq⟩ => ⟨⟨hf.1.acc hP e (sub1 (wsR_mem p r).2.1),
+    L.keepPoly hP (keepB_sub R.keepW (sub1 (List.mem_cons_self ..))) hf.2⟩, ?_⟩
+  rw [(hs.t.step hp hv hf.1.1 (keepC_spec R.keep).1).pkSlice R.pk] at hq
+  rw [pa_rbx hP]
+  exact hq
+
+theorem row2_ok {s : State} (hf : RF2 p σ A' r s₀ s) : WP isa (nttAt P pT) s (RF3 p σ A' r s₀) := by
+  have R := rowC hp hr
+  have L := (hs.t.lay hp hv).post hf.1.1.1
+  refine WP.mono (ipAt_ok C.ntt L R.ipT hf.2.1) fun s' ⟨hP, e, hq⟩ => ⟨⟨hf.1.1.acc hP e
+    (sub2 (wsR_mem p r).2.1 (wsR_mem p r).2.2.1), L.keepPoly hP (keepB_sub R.keepW (sub2 (List.mem_cons_self ..)
+      (List.mem_cons_of_mem _ (List.mem_cons_self ..)))) hf.1.2⟩, ?_⟩
+  rw [pa_rbx hP, ← hf.2.2]
+  exact hq
+
+theorem row3_ok {s : State} (hf : RF3 p σ A' r s₀ s) : WP isa (mulAt P pT2 pC pT) s (RF4 p σ A' cH r s₀) := by
+  have R := rowC hp hr
+  have L₀ := hs.t.lay hp hv
+  have L := L₀.post hf.1.1.1
+  have hC := L₀.keepPoly hf.1.1.1 R.keepC' hs.c
+  refine WP.mono (mulAt_ok C.mul L R.mulT hC.1 hf.2.1) fun s' ⟨hP, e, hq⟩ => ⟨⟨hf.1.1.acc hP e
+    (sub1 (wsR_mem p r).2.2.2.1), L.keepPoly hP (keepB_sub R.keepW (sub1 (List.mem_cons_of_mem _
+      (List.mem_cons_of_mem _ (List.mem_cons_self ..))))) hf.1.2⟩, ?_⟩
+  rw [pa_rbx hP, hC.2, hf.2.2] at *
+  exact hq
+
+theorem row4_ok {s : State} (hf : RF4 p σ A' cH r s₀ s) : WP isa (subAt P pW pT2) s (RF5 p σ A' cH r s₀) := by
+  have R := rowC hp hr
+  have L := (hs.t.lay hp hv).post hf.1.1.1
+  refine WP.mono (subAt_ok C.sub L R.sub hf.1.2.1 hf.2.1) fun s' ⟨hP, e, hq⟩ => ⟨hf.1.1.acc hP e
+    (sub1 (wsR_mem p r).1), ?_⟩
+  rw [pa_rbx hP, hf.1.2.2, hf.2.2] at *
+  exact hq
+
+theorem row5_ok {s : State} (hf : RF5 p σ A' cH r s₀ s) : WP isa (invNttAt P pW) s (RF6 p σ A' cH r s₀) := by
+  have R := rowC hp hr
+  have L := (hs.t.lay hp hv).post hf.1.1
+  refine WP.mono (ipAt_ok C.invNtt L R.ipW hf.2.1) fun s' ⟨hP, e, hq⟩ => ⟨hf.1.acc hP e
+    (sub2 (wsR_mem p r).1 (wsR_mem p r).2.2.1), ?_⟩
+  rw [pa_rbx hP, hf.2.2] at *
+  exact hq
+
+theorem row6_ok {s : State} (hf : RF6 p σ A' cH r s₀ s) : WP isa (useHintAt P (pH r) pW p.γ₂ pW1) s (RF7 p σ h A' cH r s₀) := by
+  have R := rowC hp hr
+  have L₀ := hs.t.lay hp hv
+  have L := L₀.post hf.1.1
+  have hh := L₀.keepHint hf.1.1 (keepC_spec R.keep).2.1 hs.hint
+  refine WP.mono (useHintAt_ok C.useHint L R.g2 R.uh hf.2.1) fun s' ⟨hP, e, hq⟩ => ⟨hf.1.acc hP e
+    (sub1 (wsR_mem p r).2.2.2.2.1), ?_⟩
+  have hq' : natPolyAt s'.mem (pa s pW1) = _ := hq
+  rw [hintRow_pa s r, hintAt_row hh hr, hf.2.2] at hq'
+  show natPolyAt s'.mem (pa s' pW1) = _
+  rw [pa_rbx hP]
+  exact hq'
+
+theorem row7_ok {s : State} (hf : RF7 p σ h A' cH r s₀ s) :
+    WP isa (sbpAt P pW1 (w1Max p) (sc (oB + w1Len p * r)) (w1Len p)) s (SC p h A' Q p.ℓ cH (r + 1) σ) := by
+  have R := rowC hp hr
+  have L₀ := hs.t.lay hp hv
+  have L := L₀.post hf.1.1
   obtain ⟨tk, hH, hZ, hA⟩ := keepC_spec R.keep
-  obtain ⟨mW, mT, mS, mT2, mW1, mB⟩ := wsR_mem p r
-  unfold row
-  refine WP.seq (WP.mono (dot_ok C hp hv hr hs) fun s₁ ⟨hP₁, e₁, hq₁⟩ => ?_)
-  have H₁ := hP₁.mono (sub1 mW)
-  refine WP.seq (WP.mono (unpackT1At_ok C.unpackT1 (L.post H₁) R.t1) fun s₂ ⟨hP₂, e₂, hq₂⟩ => ?_)
-  rw [(hs.t.step hp hv H₁ tk).pkSlice R.pk] at hq₂
-  have H₂ := H₁.accR hP₂ (sub1 mT)
-  have a₂ : pa s₂ pT = pa s₁ pT := pa_rbx hP₂ _
-  refine WP.seq (WP.mono (ipAt_ok C.ntt (L.post H₂) R.ipT (by rw [a₂]; exact hq₂.1)) fun s₃ ⟨hP₃, e₃, hq₃⟩ => ?_)
-  rw [a₂, hq₂.2] at hq₃
-  have H₃ := H₂.accR hP₃ (sub2 mT mS)
-  have hC₃ := L.keepPoly H₃ R.keepC' hs.c
-  have a₃ : pa s₃ pT = pa s₁ pT := (pa_rbx hP₃ _).trans a₂
-  refine WP.seq (WP.mono (mulAt_ok C.mul (L.post H₃) R.mulT hC₃.1 (by rw [a₃]; exact hq₃.1))
-    fun s₄ ⟨hP₄, e₄, hq₄⟩ => ?_)
-  rw [hC₃.2, a₃, hq₃.2] at hq₄
-  have H₄ := H₃.accR hP₄ (sub1 mT2)
-  have G : PPostB s₁ s₄ [(pT, 1024), (sc oSS, 1024), (pT2, 1024)] :=
-    (hP₂.trans hP₃ (by decide) (by decide) (by decide)).trans hP₄ (by decide) (fun _ h => h) (by decide)
-  have hW₄ := (L.post H₁).keepPoly G R.keepW (by rw [pa_rbx hP₁]; exact hq₁)
-  have a₄ : pa s₄ pT2 = pa s₃ pT2 := pa_rbx hP₄ _
-  refine WP.seq (WP.mono (subAt_ok C.sub (L.post H₄) R.sub hW₄.1 (by rw [a₄]; exact hq₄.1))
-    fun s₅ ⟨hP₅, e₅, hq₅⟩ => ?_)
-  rw [hW₄.2, a₄, hq₄.2] at hq₅
-  have H₅ := H₄.accR hP₅ (sub1 mW)
-  have a₅ : pa s₅ pW = pa s₄ pW := pa_rbx hP₅ _
-  refine WP.seq (WP.mono (ipAt_ok C.invNtt (L.post H₅) R.ipW (by rw [a₅]; exact hq₅.1)) fun s₆ ⟨hP₆, e₆, hq₆⟩ => ?_)
-  rw [a₅, hq₅.2] at hq₆
-  have H₆ := H₅.accR hP₆ (sub2 mW mS)
-  have hh₆ := L.keepHint H₆ hH hs.hint
-  have a₆ : pa s₆ pW = pa s₄ pW := (pa_rbx hP₆ _).trans a₅
-  refine WP.seq (WP.mono (useHintAt_ok C.useHint (L.post H₆) R.g2 R.uh (by rw [a₆]; exact hq₆.1))
-    fun s₇ ⟨hP₇, e₇, hq₇⟩ => ?_)
-  have hq₇' : natPolyAt s₇.mem (pa s₆ pW1) = _ := hq₇
-  rw [hintRow_pa s₆ r, hintAt_row hh₆ hr, a₆, hq₆.2] at hq₇'
-  have H₇ := H₆.accR hP₇ (sub1 mW1)
-  have a₇ : pa s₇ pW1 = pa s₆ pW1 := pa_rbx hP₇ _
-  have hb : ∀ i < n, (coeffAt s₇.mem (pa s₇ pW1) i).toNat ≤ w1Max p := fun i hi => by
-    have := congrArg (·[i]'hi) hq₇'
-    simp only [natPolyAt, Vector.getElem_ofFn, Vector.getElem_zipWith] at this
-    rw [a₇, this, R.max]
+  have hq₇ : natPolyAt s.mem (pa s pW1) = _ := hf.2
+  have hb : ∀ i < n, (coeffAt s.mem (pa s pW1) i).toNat ≤ w1Max p := fun i hi => by
+    have := congrArg (·[i]'hi) hq₇
+    simp only [natPolyAt, Vector.getElem_ofFn, w1Row, Vector.getElem_zipWith] at this
+    rw [this, R.max]
     exact useHint_le R.g2 _ _
-  refine WP.mono (sbpAt_ok C.simpleBitPack (L.post H₇) R.sbpB R.len R.sbp hb) fun s₈ ⟨hP₈, e₈, hq₈⟩ => ?_
-  rw [a₇, hq₇'] at hq₈
-  have H₈ := H₇.accR hP₈ (sub1 mB)
-  refine ⟨hs.t.step hp hv H₈ tk, L.keepHint H₈ hH hs.hint,
-    fun r' hr' c hc => L.keepPoly H₈ (hA r' hr' c hc) (hs.a r' hr' c hc),
-    fun i hi => L.keepPoly H₈ (hZ i hi (by have := kl_le p hp; omega)) (hs.z i hi), L.keepPoly H₈ R.keepC' hs.c,
-    fun r' hr' => ?_, by rw [e₈, e₇, e₆, e₅, e₄, e₃, e₂, e₁]; exact hs.r15⟩
+  refine WP.mono (sbpAt_ok C.simpleBitPack L R.sbpB R.len R.sbp hb) fun s' ⟨hP, e, hq⟩ => ?_
+  rw [hq₇] at hq
+  have H := hf.1.1.accR hP (sub1 (wsR_mem p r).2.2.2.2.2)
+  refine ⟨hs.t.step hp hv H tk, L₀.keepHint H hH hs.hint,
+    fun r' hr' c hc => L₀.keepPoly H (hA r' hr' c hc) (hs.a r' hr' c hc),
+    fun i hi => L₀.keepPoly H (hZ i hi (by have := kl_le p hp; omega)) (hs.z i hi), L₀.keepPoly H R.keepC' hs.c,
+    fun r' hr' => ?_, by rw [e, hf.1.2]; exact hs.r15⟩
   rcases Nat.lt_succ_iff_lt_or_eq.mp hr' with hlt | rfl
-  · rw [L.keepBytes H₈ (R.rows r' hlt)]; exact hs.rows r' hlt
-  · rw [show pa s₈ (sc (oB + w1Len p * r')) = pa s₇ (sc (oB + w1Len p * r')) from pa_rbx hP₈ _, hq₈]
-    rfl
+  · rw [L₀.keepBytes H (R.rows r' hlt)]; exact hs.rows r' hlt
+  · rw [pa_rbx hP]
+    exact hq
+
+theorem row_ok : WP isa (row P p r) s₀ (SC p h A' Q p.ℓ cH (r + 1) σ) := by
+  unfold row
+  exact WP.seq (WP.mono (row0_ok C hp hv hr hs) fun _ h1 =>
+    WP.seq (WP.mono (row1_ok C hp hv hr hs h1) fun _ h2 =>
+    WP.seq (WP.mono (row2_ok C hp hv hr hs h2) fun _ h3 =>
+    WP.seq (WP.mono (row3_ok C hp hv hr hs h3) fun _ h4 =>
+    WP.seq (WP.mono (row4_ok C hp hv hr hs h4) fun _ h5 =>
+    WP.seq (WP.mono (row5_ok C hp hv hr hs h5) fun _ h6 =>
+    WP.seq (WP.mono (row6_ok C hp hv hr hs h6) fun _ h7 => row7_ok C hp hv hr hs h7)))))))
+
+end Row
 
 /-! ## The rows, the hash and the comparison -/
 
