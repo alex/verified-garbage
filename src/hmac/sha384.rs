@@ -21,6 +21,6 @@ super::streaming_hmac!(
         Scalar => (vg_hmac_sha384_init, vg_hmac_sha384_finalize),
     },
     state: 192,
-    scratch: 96,
+    scratch: 234,
     output: 48,
 );

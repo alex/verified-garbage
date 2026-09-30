@@ -12,6 +12,10 @@ contract) takes them from there, and this file adds only notes on the
 implementation. The emitter adds the `# Safety` items that depend on the
 target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract.
+
+`update` and `finalize`, which call the compression function, are emitted
+once for each implementation of it
+(`Generic/Sha512Compress/X86_64/Sha512.lean`).
 -/
 
 namespace VG.Artifacts.Sha512.X86_64
@@ -51,22 +55,6 @@ def artifacts : List Artifact := [
     code := Impl.Sha512.X86_64.Stream.init Spec.Sha512.H0_512_256
     contract := Spec.Sha512.initContract X86_64.abi Spec.Sha512.H0_512_256
     verified := Proof.Sha512.X86_64.Shared.init Spec.Sha512.H0_512_256
-    spSafe := Code.all_of_allInstrs (by lit_decide) },
-  { Spec.Sha512.updateApi with
-    target := X86_64.target
-    doc := Spec.Sha512.updateApi.doc
-    code := Impl.Sha512.X86_64.Stream.update
-    contract := Spec.Sha512.updateContract X86_64.abi 8
-    stack := 8
-    verified := Proof.Sha512.X86_64.Shared.update
-    spSafe := Code.all_of_allInstrs (by lit_decide) },
-  { Spec.Sha512.finalizeApi with
-    target := X86_64.target
-    doc := Spec.Sha512.finalizeApi.doc
-    code := Impl.Sha512.X86_64.Stream.finalize
-    contract := Spec.Sha512.finalizeContract X86_64.abi 8
-    stack := 8
-    verified := Proof.Sha512.X86_64.Shared.finalize
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Sha512.X86_64

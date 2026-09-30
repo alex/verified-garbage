@@ -27,6 +27,7 @@ mod pbkdf2_sha1;
 mod pbkdf2_sha256;
 mod pbkdf2_sha384;
 mod pbkdf2_sha512;
+mod x25519;
 
 use harness::Fields;
 

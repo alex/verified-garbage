@@ -21,6 +21,6 @@ super::streaming_pbkdf2!(
         Scalar => vg_pbkdf2_hmac_sha384_iterate,
     },
     state: 192,
-    scratch: 96,
+    scratch: 234,
     output: 48,
 );
