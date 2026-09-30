@@ -61,7 +61,7 @@ abbrev copyArgs (dst src : Ptr) (n : Nat) : List (Reg × Arg) := [(.rdi, .ptr ds
 
 theorem copy_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {dst src : Ptr} {n : Nat}
     (hn0 : 0 < n) (hsd : sepB (rbs ++ wbs) src n dst n = true) (hw : inB wbs dst n = true) :
-    WP isa (copy dst src n) s fun s' => PPostB s s' [(dst, n)] ∧
+    WP isa (copy dst src n) s fun s' => PPostB s s' [(dst, n)] ∧ s'.gpr .r15 = s.gpr .r15 ∧
       bytesAt s'.mem (pa s dst) n = bytesAt s.mem (pa s src) n := by
   have hsd' := sepB_spec hsd
   have hS := L.ok
@@ -84,7 +84,7 @@ theorem copy_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s) {d
     (fun k hk s' ⟨hdi, hsi, hrd', hwr', hf, hc, kk⟩ _ => ?_) (fun _ h => h)
     ⟨by rw [h1.r0]; simp [Arg.val], by rw [h1.r1]; simp [Arg.val], h1.2.2.1, h1.2.2.2,
       by rw [h1.1.2]; exact Frame.refl _ _, fun j hj => absurd hj (Nat.not_lt_zero _), h1.2⟩ (by rw [h1.r2]; rfl))
-    fun s' ⟨_, _, _, _, hf, hc, kk⟩ => ⟨postB_of_keep kk (by decide) (by simpa using hf), ?_⟩
+    fun s' ⟨_, _, _, _, hf, hc, kk⟩ => ⟨postB_of_keep kk (by decide) (by simpa using hf), kk.gpr (by decide), ?_⟩
   · refine WP.mono (copyBody_ok s' (by rw [hrd', hwr', hsi]; exact inRegions_byte hrd hk (by omega))
       (by rw [hwr', hdi]; exact inRegions_byte hwr hk (by omega))) fun s'' ⟨⟨hm, hdi', hsi', hcx, hz⟩, k'⟩ =>
         ⟨⟨by rw [hdi', hdi, show (1 : BitVec 64) = BitVec.ofNat 64 1 from rfl, BitVec.add_assoc, BitVec.ofNat_add],

@@ -166,3 +166,112 @@ theorem aOne_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ
       exact ⟨r, hr, c, hc, done_succ.mpr (.inr ⟨rfl, rfl⟩), hs0 h0⟩
 
 end VG.Proof.MlDsa.X86_64.Verify
+
+namespace VG.Proof.MlDsa.X86_64.Verify
+
+open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Verify
+open VG.Proof.MlKem.X86_64
+open VG.Spec.MlDsa
+open VG.Spec.Sha3 (bytesAt)
+open VG.Proof.MlDsa.Verify (vHint vZ vCt vRho aSeed)
+
+theorem S3.next {p : Params} {h : List (Vector Bool n)} {r : Nat} {σ s : State} (hs : S3 p h r p.ℓ σ s) :
+    S3 p h (r + 1) 0 σ s := by
+  have e : ∀ r' c', c' < p.ℓ → (Done r p.ℓ r' c' ↔ Done (r + 1) 0 r' c') := fun r' c' hc => by
+    unfold Done; omega
+  obtain ⟨q, h15, hok, hbad⟩ := hs.ok
+  refine ⟨hs.t, hs.hint, hs.z, hs.rho, fun r' hr' c' hc' hd => hs.red r' hr' c' hc' ((e r' c' hc').mpr hd),
+    q, h15, fun hq r' hr' c' hc' hd => hok hq r' hr' c' hc' ((e r' c' hc').mpr hd), fun hq => ?_⟩
+  obtain ⟨r', hr', c', hc', hd, hn⟩ := hbad hq
+  exact ⟨r', hr', c', hc', (e r' c' hc').mp hd, hn⟩
+
+theorem aRow_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ)
+    {h : List (Vector Bool n)} {r : Nat} (hr : r < p.k) {s : State} (hs : S3 p h r 0 σ s) :
+    WP isa (aRow P p r) s (S3 p h (r + 1) 0 σ) := by
+  unfold aRow
+  refine WP.mono (seqR_ok (I := fun e => S3 p h r (e - 8 * r) σ) p.ℓ (8 * r) (fun e he he' st hst => ?_) s
+    (by rw [Nat.sub_self]; exact hs)) fun st hst => ?_
+  · have := aOne_ok C hp hv hr (c := e - 8 * r) (by omega) hst
+    rw [show 8 * r + (e - 8 * r) = e by omega, show e - 8 * r + 1 = e + 1 - 8 * r by omega] at this
+    exact this
+  · rw [show 8 * r + p.ℓ - 8 * r = p.ℓ by omega] at hst
+    exact hst.next
+
+/-- After the samplers, with the hint `h`. -/
+structure S4 (p : Params) (h : List (Vector Bool n)) (σ st : State) : Prop where
+  t : T p σ st
+  hint : HintIs st.mem (pa st (pH 0)) p.k h
+  z : ∀ i < p.ℓ, PolyIs st.mem (pa st (pZ i)) (toRq (vZ p (vSig p σ) i))
+  red : ∀ r < p.k, ∀ c < p.ℓ, Reduced st.mem (pa st (pA r c))
+  redC : Reduced st.mem (pa st pC)
+  ok : ∃ q : Bool, st.gpr .r15 = flag (q = true) ∧
+    (q = true → (∀ r < p.k, ∀ c < p.ℓ,
+      ∃ b : Bounds, rejNTTPoly b.rejNTT (aSeed (vPk p σ) r c) = some (polyAt st.mem (pa st (pA r c)))) ∧
+      ∃ b : Bounds, (sampleInBall p.τ b.ball (vCt p (vSig p σ))).map toRq = some (polyAt st.mem (pa st pC))) ∧
+    (q = false → (∃ r < p.k, ∃ c < p.ℓ, rejNTTPoly minBounds.rejNTT (aSeed (vPk p σ) r c) = none) ∨
+      (sampleInBall p.τ minBounds.ball (vCt p (vSig p σ))).map toRq = none)
+
+abbrev wsC : List (Ptr × Nat) := [(pC, 1024), (sc oSS, 2048)]
+
+/-- The facts about the parameters the copy of `ρ` and `c` need. -/
+def sChk (p : Params) : Bool :=
+  sepB (vB p) (.rbp, 0) 32 (sc oSB) 32 && inB (vW p) (sc oSB) 32 && keepChk p [(sc oSB, 32)] &&
+    decide (32 ≤ p.pkLen) && ballChk (vB p) (vW p) (.r13, 0) p.ctildeLen pC &&
+    decide ((p.ctildeLen, p.τ) ∈ ballParams) && decide (p.ctildeLen ≤ p.sigLen) && keepChk p wsC &&
+    inB (vB p) pC 1024 && inB (vW p) pC 1024 &&
+    (List.range p.k).all (fun r => (List.range p.ℓ).all fun c => keepB (vB p) wsC (pA r c) 1024)
+
+theorem sChk_all : ∀ p ∈ params, sChk p = true := by decide
+
+theorem samples_ok {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params) {σ : State} (hv : VPre p σ)
+    {h : List (Vector Bool n)} {s : State} (hs : S2 p h p.ℓ σ s) (h15 : s.gpr .r15 = flag True) :
+    WP isa (samples P p) s (S4 p h σ) := by
+  have hc := sChk_all p hp
+  simp only [sChk, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range] at hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨c1, c2⟩, c3⟩, c4⟩, c5⟩, c6⟩, c7⟩, c8⟩, c9⟩, c10⟩, c11⟩ := hc
+  obtain ⟨t3, h3, z3⟩ := keepChk_spec c3
+  obtain ⟨t8, h8, z8⟩ := keepChk_spec c8
+  have L := hs.t.lay hp hv
+  unfold samples
+  refine WP.seq (WP.mono (copy_ok L (by decide) c1 c2) fun s₁ ⟨hP₁, h15₁, hcp⟩ => ?_)
+  have t₁ := hs.t.step hp hv hP₁ t3
+  have L₁ := t₁.lay hp hv
+  have s₁3 : S3 p h 0 0 σ s₁ := by
+    refine ⟨t₁, L.keepHint hP₁ h3 hs.hint, fun i hi => L.keepPoly hP₁ (z3 i hi) (hs.z i hi), ?_,
+      fun r' _ c' _ hd => absurd hd (by unfold Done; omega), true, by rw [h15₁, h15]; exact flag_congr (by simp),
+      fun _ r' _ c' _ hd => absurd hd (by unfold Done; omega), fun hq => absurd hq (by simp)⟩
+    rw [hP₁.pa (show Reg.rbx ∈ bases by decide), hcp, hs.t.pkSlice c4, List.drop_zero]
+    rfl
+  refine WP.seq (WP.mono (seqR_ok (I := fun r => S3 p h r 0 σ) p.k 0 (fun r _ hr st hst => aRow_ok C hp hv
+    (by omega) hst) s₁ s₁3) fun s₂ hs₂ => ?_)
+  rw [Nat.zero_add] at hs₂
+  have L₂ := hs₂.t.lay hp hv
+  obtain ⟨q, h15₂, hok, hbad⟩ := hs₂.ok
+  refine WP.mono (sampled_ok L₂ c9 c10 h15₂ (List.mem_cons_self ..)
+    (WP.mono (ballAt_ok C.ball L₂ c6 c5) fun s' ⟨hP, h15', hr', ho⟩ => ⟨hP, h15', hr', ho⟩))
+    fun s₃ ⟨hP₃, hred, rr, hrr, h15₃, hs1, hs0⟩ => ?_
+  have hct : bytesAt s₂.mem (pa s₂ (.r13, 0)) p.ctildeLen = vCt p (vSig p σ) := by
+    rw [hs₂.t.sigSlice (by omega), List.drop_zero]; rfl
+  rw [hct] at hs1 hs0
+  have hdone : ∀ r' c', r' < p.k → Done p.k 0 r' c' := fun r' c' hr => by unfold Done; omega
+  have ec : pa s₃ pC = pa s₂ pC := hP₃.pa (show Reg.rbx ∈ bases by decide)
+  refine ⟨hs₂.t.step hp hv hP₃ t8, L₂.keepHint hP₃ h8 hs₂.hint, fun i hi => L₂.keepPoly hP₃ (z8 i hi) (hs₂.z i hi),
+    fun r hr c hc => L₂.keepRed hP₃ (c11 r hr c hc) (hs₂.red r hr c hc (hdone r c hr)), by rw [ec]; exact hred,
+    q && (rr == 1), by rw [h15₃]; exact flag_congr (by cases q <;> simp), fun hq => ?_, fun hq => ?_⟩
+  · simp only [Bool.and_eq_true, beq_iff_eq] at hq
+    refine ⟨fun r hr c hc => ?_, ?_⟩
+    · obtain ⟨b, hb⟩ := hok hq.1 r hr c hc (hdone r c hr)
+      exact ⟨b, by rw [hb, L₂.keepPolyAt hP₃ (c11 r hr c hc)]⟩
+    · obtain ⟨b, hb⟩ := hs1 hq.2
+      exact ⟨b, by rw [hb, ec]⟩
+  · cases hq' : q
+    · obtain ⟨r', hr', c', hc', _, hn⟩ := hbad hq'
+      exact .inl ⟨r', hr', c', hc', hn⟩
+    · rw [hq'] at hq
+      have h0 : rr = 0 := by
+        rcases hrr with h1 | h0
+        · rw [h1] at hq; cases hq
+        · exact h0
+      exact .inr (hs0 h0)
+
+end VG.Proof.MlDsa.X86_64.Verify
