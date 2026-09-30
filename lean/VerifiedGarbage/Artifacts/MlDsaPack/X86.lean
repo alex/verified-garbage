@@ -1,5 +1,7 @@
 import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.MlDsa.X86.Pack.Unpack
+import VerifiedGarbage.Proof.MlDsa.X86.Pack.HintPack
+import VerifiedGarbage.Proof.MlDsa.X86.Pack.HintUnpackEnd
 
 /-!
 # ML-DSA (FIPS 204) on x86: the encodings
@@ -51,6 +53,22 @@ def artifacts : List Artifact := [
     contract := Spec.MlDsa.unpackT1Contract X86.abi 16
     stack := 16
     verified := Proof.MlDsa.X86.Pack.Unpack.T1.verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.MlDsa.hintBitPackApi with
+    target := X86.target
+    doc := Spec.MlDsa.hintBitPackApi.doc
+    code := Impl.MlDsa.X86.Pack.hintBitPack
+    contract := Spec.MlDsa.hintBitPackContract X86.abi 16
+    stack := 16
+    verified := Proof.MlDsa.X86.Pack.Hint.hintBitPack_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.MlDsa.hintBitUnpackApi with
+    target := X86.target
+    doc := Spec.MlDsa.hintBitUnpackApi.doc
+    code := Impl.MlDsa.X86.Pack.hintBitUnpack
+    contract := Spec.MlDsa.hintBitUnpackContract X86.abi 16
+    stack := 16
+    verified := Proof.MlDsa.X86.Pack.Hint.hintBitUnpack_verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 
 end VG.Artifacts.MlDsaPack.X86
