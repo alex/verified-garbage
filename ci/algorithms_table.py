@@ -52,6 +52,7 @@ FAMILIES = ["Hashes", "MACs", "Ciphers", "AEADs", "KDFs", "KEMs", "Key agreement
 # with another.
 FEATURES = {
     "sha": "SHA extensions",
+    "sha512": "SHA512",
     "aes": "AES-NI",
     "pclmulqdq": "PCLMULQDQ",
     "ssse3": None,
@@ -61,6 +62,10 @@ FEATURES = {
     "bmi1": "BMI1",
     "bmi2": "BMI2",
 }
+
+# Names that differ on one architecture: AArch64's `aes` (Rust's name for
+# FEAT_AES with FEAT_PMULL) is not AES-NI.
+ARCH_FEATURES = {"aarch64": {"aes": "AES, PMULL"}}
 
 CFG = re.compile(r"^#!\[cfg\((.*?)\)\]$", re.MULTILINE | re.DOTALL)
 ARCH = re.compile(r'target_arch\s*=\s*"(\w+)"')
@@ -92,7 +97,7 @@ def optimized(row, arch):
     order = list(FEATURES)
     shown = []
     for f in sorted(set(features), key=lambda f: (order.index(f) if f in order else len(order), f)):
-        f = FEATURES.get(f, f)
+        f = {**FEATURES, **ARCH_FEATURES.get(arch, {})}.get(f, f)
         if f is not None:
             shown.append(f)
     note = row.get("optimized", {}).get(arch)

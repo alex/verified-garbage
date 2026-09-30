@@ -1,4 +1,4 @@
-name = "RFC 7748, Elliptic Curves for Security (X25519 test vectors in Sections 5.2 and 6.1)"
+name = "RFC 7748, Elliptic Curves for Security (X25519 and X448 test vectors in Sections 5.2, 6.1 and 6.2)"
 directories = ["rfc7748"]
 url = "https://www.rfc-editor.org/rfc/rfc7748.txt"
 sha256 = "279ca0ecc5e92e2962e27b846986aeb74729d9dd34bd4a04a362f80dcb596ad3"

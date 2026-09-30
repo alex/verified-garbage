@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.MlDsa.X86.Sample.RejNtt
-import VerifiedGarbage.Proof.MlDsa.Sample.HalfByte
+import VerifiedGarbage.Proof.MlDsa.Sample.HalfByteVal
 import VerifiedGarbage.Impl.MlDsa.X86.Sample.RejBounded
 
 /-!
@@ -175,10 +175,10 @@ theorem store_ok {s₀ : State} (hp : BPre s₀) {t : Nat} {La : List Zq} (x : Z
 
 /-- An accepted half-byte `b` in `edx`: its coefficient stored. -/
 theorem acc_ok {e : Nat} (he : e = 2 ∨ e = 4) {s₀ : State} (hp : BPre s₀) {t : Nat} {La : List Zq} {b : Nat}
-    (hb : b < hbBound e) (hl : La.length < 256) {s : State} (h : Loop s₀ t La s)
+    (hb : b < rbB e) (hl : La.length < 256) {s : State} (h : Loop s₀ t La s)
     (hdx : s.gpr .edx = BitVec.ofNat 32 b) :
     WP isa (.block (rbVal e ++ stBlk)) s fun s' =>
-      Loop s₀ t (La ++ [ofInt (hbCoef e b)]) s' ∧ s'.gpr .eax = s.gpr .eax := by
+      Loop s₀ t (La ++ [ofInt (rbC e b)]) s' ∧ s'.gpr .eax = s.gpr .eax := by
   rw [WP.block_append_iff]
   refine (rbVal_run he s).mono fun s1 ⟨hbx, hm, hr, hw, hg⟩ => ?_
   refine (store_ok hp _ hl (h.flags (hg _ (by decide) (by decide)) (hg _ (by decide) (by decide))
@@ -189,7 +189,7 @@ theorem acc_ok {e : Nat} (he : e = 2 ∨ e = 4) {s₀ : State} (hp : BPre s₀) 
 theorem try_piece {e : Nat} (he : e = 2 ∨ e = 4) (t : Nat) (La : State → List Zq) (hb E : State → Nat)
     (X : State → Prop)
     (hpub : ∀ s₀ s₀', BPre s₀ → BPre s₀' → BPub s₀ s₀' →
-      (La s₀).length = (La s₀').length ∧ decide (hb s₀ < hbBound (η s₀)) = decide (hb s₀' < hbBound (η s₀')))
+      (La s₀).length = (La s₀').length ∧ decide (hb s₀ < rbB (η s₀)) = decide (hb s₀' < rbB (η s₀')))
     (tc : TaintOk [] (.block [.alu .cmp .edx (.imm (rbBound e))]))
     (ts : TaintOk [.edi] (.block (rbVal e ++ stBlk))) :
     Piece BPre BPub
@@ -200,11 +200,11 @@ theorem try_piece {e : Nat} (he : e = 2 ∨ e = 4) (t : Nat) (La : State → Lis
       (rbTry e) := by
   obtain ⟨_, tc⟩ := tc
   obtain ⟨_, ts⟩ := ts
-  have hbnd : (rbBound e).toNat = hbBound e := by rcases he with rfl | rfl <;> rfl
+  have hbnd : (rbBound e).toNat = rbB e := by rcases he with rfl | rfl <;> rfl
   refine Piece.seq (B := fun s₀ s => (((Loop s₀ t (La s₀) s ∧ s.gpr .edx = BitVec.ofNat 32 (hb s₀) ∧
       s.gpr .eax = BitVec.ofNat 32 (E s₀) ∧ (La s₀).length < 256 ∧ hb s₀ < 16) ∧ η s₀ = e) ∧ X s₀) ∧
-      eval .b s = some (decide (hb s₀ < hbBound (η s₀)))) ?_
-    (Piece.ite (fun s₀ => decide (hb s₀ < hbBound (η s₀))) (fun _ _ _ h => h.2)
+      eval .b s = some (decide (hb s₀ < rbB (η s₀)))) ?_
+    (Piece.ite (fun s₀ => decide (hb s₀ < rbB (η s₀))) (fun _ _ _ h => h.2)
       (fun s₀ s₀' h₀ h₀' hq => (hpub s₀ s₀' h₀ h₀' hq).2) ?_ ?_)
   · refine Piece.taint [] (fun s₀ s hp ha => ?_) (fun _ _ _ _ _ _ _ _ _ r hr => absurd hr (by simp)) tc
     obtain ⟨⟨⟨h, hdx, hax, hl, h16⟩, hη⟩, hx⟩ := ha
@@ -215,15 +215,15 @@ theorem try_piece {e : Nat} (he : e = 2 ∨ e = 4) (t : Nat) (La : State → Lis
     simp only [eval, hdx, hbnd, toNat_ofNat32 (show hb s₀ < 2 ^ 32 by omega), hη]
   · refine Piece.taint [.edi] (fun s₀ s hp ⟨⟨⟨⟨⟨h, hdx, hax, hl, _⟩, hη⟩, hx⟩, _⟩, hb'⟩ => ?_)
       (fun s₀ s₀' s s' h₀ h₀' hq ⟨⟨⟨⟨⟨h, _⟩, _⟩, _⟩, _⟩, _⟩ ⟨⟨⟨⟨⟨h', _⟩, _⟩, _⟩, _⟩, _⟩ r hr => ?_) ts
-    · have hb2 : hb s₀ < hbBound e := hη ▸ of_decide_eq_true hb'
+    · have hb2 : hb s₀ < rbB e := hη ▸ of_decide_eq_true hb'
       refine (acc_ok he hp hb2 hl h hdx).mono fun s' ⟨h1, h2⟩ => ⟨⟨⟨?_, by rw [h2, hax]⟩, hη⟩, hx⟩
-      rw [hη, hbTry_eq' he, ifT hb2]; exact h1
+      rw [hη, hbTry_eq he, ifT hb2]; exact h1
     · simp only [List.mem_singleton] at hr
       subst hr
       rw [h.edi, h'.edi, hq.1.aP hL, (hpub s₀ s₀' h₀ h₀' hq).1]
   · exact nil_piece fun s₀ s _ ⟨⟨⟨⟨⟨h, _, hax, _⟩, hη⟩, hx⟩, _⟩, hb'⟩ => by
       refine ⟨⟨⟨?_, hax⟩, hη⟩, hx⟩
-      rw [hη, hbTry_eq' he, ifF (hη ▸ of_decide_eq_false hb')]; exact h
+      rw [hη, hbTry_eq he, ifF (hη ▸ of_decide_eq_false hb')]; exact h
 
 /-! ## An iteration -/
 
@@ -235,24 +235,24 @@ abbrev hi (s₀ : State) (t : Nat) : Nat := (zb s₀ t).toNat / 16
 abbrev L1 (s₀ : State) (t : Nat) : List Zq := hbTry (η s₀) (LA s₀ t) (lo s₀ t)
 
 theorem ok_bound {s₀ : State} (hp : BPre s₀) (b : Nat) :
-    halfByteOk (η s₀) b = if b < hbBound (η s₀) then 1 else 0 := halfByteOk_eq hp.2 b
+    halfByteOk (η s₀) b = if b < rbB (η s₀) then 1 else 0 := halfByteOk_eq hp.2 b
 
 theorem lo_pub {s₀ s₀' : State} (hp : BPre s₀) (hq : BPub s₀ s₀') {t : Nat} (ht : t < 544) :
-    decide (lo s₀ t < hbBound (η s₀)) = decide (lo s₀' t < hbBound (η s₀')) := by
+    decide (lo s₀ t < rbB (η s₀)) = decide (lo s₀' t < rbB (η s₀')) := by
   have h := congrArg Prod.fst (hq.oks_at ht)
   simp only [hbOks] at h
   rw [ok_bound hp, ok_bound hp] at h
   rw [← hq.eη]
-  by_cases h1 : lo s₀ t < hbBound (η s₀) <;> by_cases h2 : lo s₀' t < hbBound (η s₀) <;>
+  by_cases h1 : lo s₀ t < rbB (η s₀) <;> by_cases h2 : lo s₀' t < rbB (η s₀) <;>
     simp only [h1, h2, ↓reduceIte, decide_true, decide_false] at h ⊢ <;> omega
 
 theorem hi_pub {s₀ s₀' : State} (hp : BPre s₀) (hq : BPub s₀ s₀') {t : Nat} (ht : t < 544) :
-    decide (hi s₀ t < hbBound (η s₀)) = decide (hi s₀' t < hbBound (η s₀')) := by
+    decide (hi s₀ t < rbB (η s₀)) = decide (hi s₀' t < rbB (η s₀')) := by
   have h := congrArg Prod.snd (hq.oks_at ht)
   simp only [hbOks] at h
   rw [ok_bound hp, ok_bound hp] at h
   rw [← hq.eη]
-  by_cases h1 : hi s₀ t < hbBound (η s₀) <;> by_cases h2 : hi s₀' t < hbBound (η s₀) <;>
+  by_cases h1 : hi s₀ t < rbB (η s₀) <;> by_cases h2 : hi s₀' t < rbB (η s₀) <;>
     simp only [h1, h2, ↓reduceIte, decide_true, decide_false] at h ⊢ <;> omega
 
 theorem L1_len {s₀ s₀' : State} (hq : BPub s₀ s₀') {t : Nat} (ht : t < 544) :

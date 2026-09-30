@@ -33,28 +33,14 @@ theorem WP.all {c : Prog isa} {s : State} {α : Sort _} {Pre : α → Prop} {Q :
 
 /-! ## A try -/
 
-theorem traceTry (r : Reg)
-    {h1 : VG.Taint.Hint X86_64.Taint.T}
-    (c1 : (taint.check (X86_64.Taint.ofRegs []) (.block [.alu32 .cmp r (.imm qImm)]) h1).isSome = true)
-    {h2 : VG.Taint.Hint X86_64.Taint.T}
-    (c2 : (taint.check (X86_64.Taint.ofRegs [.rbp, .rdi]) (.block [.store32 aJ r, .alu .add .rdi (.imm 1)])
-      h2).isSome = true)
-    {h3 : VG.Taint.Hint X86_64.Taint.T} (c3 : (taint.check (X86_64.Taint.ofRegs []) (.block []) h3).isSome = true) :
+theorem traceTry (r : Reg) {h : VG.Taint.Hint X86_64.Taint.T}
+    (c : (taint.check (X86_64.Taint.ofRegs [.rbp, .rdi]) (.block (snTry r)) h).isSome = true) :
     RelCT isa (fun s₁ s₂ => s₁.gpr .rbp = s₂.gpr .rbp ∧ s₁.gpr .rdi = s₂.gpr .rdi ∧
-      (s₁.gpr r).setWidth 32 = (s₂.gpr r).setWidth 32) (snTry r) fun _ _ => True := by
-  refine RelCT.seq (R := fun (s₁ s₂ : State) => s₁.cf = s₂.cf ∧ s₁.gpr .rbp = s₂.gpr .rbp ∧ s₁.gpr .rdi = s₂.gpr .rdi)
-    (RelCT.postDep (F := fun (x x' : State) => x'.cf = some (decide (((x.gpr r).setWidth 32).toNat < 3329)) ∧
-        x'.gpr = x.gpr)
-      (taintRel [] (fun _ _ _ _ h => absurd h List.not_mem_nil) c1)
-      (fun x y _ => ⟨WP.mono (snTryCmp_ok r x) fun _ h => ⟨h.1, h.2.2.1⟩,
-        WP.mono (snTryCmp_ok r y) fun _ h => ⟨h.1, h.2.2.1⟩⟩)
-      fun x y x' y' ⟨e1, e2, e3⟩ ⟨f1, g1⟩ ⟨f2, g2⟩ => ⟨by rw [f1, f2, e3], by rw [g1, g2, e1], by rw [g1, g2, e2]⟩) ?_
-  exact RelCT.ite (fun x y h => h.1)
-    (taintRel [.rbp, .rdi] (fun x y h r hr => by
-      simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl
-      exacts [h.1.2.1, h.1.2.2]) c2)
-    (taintRel [] (fun _ _ _ _ h => absurd h List.not_mem_nil) c3)
+      (s₁.gpr r).setWidth 32 = (s₂.gpr r).setWidth 32) (.block (snTry r)) fun _ _ => True :=
+  taintRel [.rbp, .rdi] (fun x y h r hr => by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl
+    exacts [h.1, h.2.1]) c
 
 /-- The hypotheses of `snTry_ok`. -/
 structure TryPre (s : State) (aP : Addr) (L : List Zq) : Prop where
@@ -71,12 +57,14 @@ theorem tryL_len (L : List Zq) (d : Nat) : (tryL L d).length ≤ L.length + 1 :=
   unfold tryL; split <;> simp
 
 theorem snTry_all (r : Reg) (s : State) (hne : ∃ aP L, TryPre s aP L) :
-    WP isa (snTry r) s fun s' => ∀ aP L, TryPre s aP L →
+    WP isa (.block (snTry r)) s fun s' => ∀ aP L, TryPre s aP L →
       s'.gpr .rdi = BitVec.ofNat 64 (tryL L ((s.gpr r).setWidth 32).toNat).length ∧
-      Stored s'.mem aP (tryL L ((s.gpr r).setWidth 32).toNat) ∧ Frame [pR aP] s.mem s'.mem ∧ Keep [.rdi] s s' := by
+      Stored s'.mem aP (tryL L ((s.gpr r).setWidth 32).toNat) ∧ Frame [pR aP] s.mem s'.mem ∧
+        Keep [.rdi, r] s s' := by
   have := WP.all (Pre := fun p : Addr × List Zq => TryPre s p.1 p.2)
     (Q := fun p s' => s'.gpr .rdi = BitVec.ofNat 64 (tryL p.2 ((s.gpr r).setWidth 32).toNat).length ∧
-      Stored s'.mem p.1 (tryL p.2 ((s.gpr r).setWidth 32).toNat) ∧ Frame [pR p.1] s.mem s'.mem ∧ Keep [.rdi] s s')
+      Stored s'.mem p.1 (tryL p.2 ((s.gpr r).setWidth 32).toNat) ∧ Frame [pR p.1] s.mem s'.mem ∧
+        Keep [.rdi, r] s s')
     (fun p h => snTry_ok r s h.rbp h.rdi h.len h.wr h.st) (by obtain ⟨aP, L, h⟩ := hne; exact ⟨(aP, L), h⟩)
   exact WP.mono this fun s' h aP L hp => h (aP, L) hp
 
@@ -115,12 +103,13 @@ def R4 (s₁ s₂ : State) : Prop :=
 theorem ofNat64_toNat' {j : Nat} (h : j ≤ 256) : (BitVec.ofNat 64 j).toNat = j := by
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
 
-theorem tailTry_ct : RelCT isa R4 (.ite .b (snTry .r8) (.block [])) fun s₁ s₂ => s₁.gpr .rcx = s₂.gpr .rcx := by
+theorem tailTry_ct : RelCT isa R4 (.ite .b (.block (snTry .r8)) (.block [])) fun s₁ s₂ => s₁.gpr .rcx = s₂.gpr .rcx := by
   refine RelCT.ite (fun x y ⟨aP, L, _, _, _, _, c1, c2⟩ => by show x.cf = y.cf; rw [c1, c2]) ?_ ?_
   · refine RelCT.postDep (F := fun (x x' : State) => ∀ aP L, TryPre x aP L →
         x'.gpr .rdi = BitVec.ofNat 64 (tryL L ((x.gpr .r8).setWidth 32).toNat).length ∧
-        Stored x'.mem aP (tryL L ((x.gpr .r8).setWidth 32).toNat) ∧ Frame [pR aP] x.mem x'.mem ∧ Keep [.rdi] x x')
-      (RelCT.mono (traceTry .r8 (by taint_decide) (by taint_decide) (by taint_decide)) (fun x y h => by
+        Stored x'.mem aP (tryL L ((x.gpr .r8).setWidth 32).toNat) ∧ Frame [pR aP] x.mem x'.mem ∧
+          Keep [.rdi, .r8] x x')
+      (RelCT.mono (traceTry .r8 (by taint_decide)) (fun x y h => by
         obtain ⟨⟨aP, L, p1, p2, e8, _, _, _⟩, _⟩ := h
         exact ⟨by rw [p1.rbp, p2.rbp], by rw [p1.rdi, p2.rdi], by rw [e8]⟩) fun _ _ h => h) ?_ ?_
     · intro x y ⟨⟨aP, L, p1, p2, _, _, c1, _⟩, hb⟩
@@ -154,15 +143,16 @@ theorem cmp256_ct : RelCT isa R3 (.block [.alu .cmp .rdi (.imm 256)]) R4 :=
       exact ⟨aP, L, q1, q2, by rw [f1.2.2.1, f2.2.2.1, e8], by rw [f1.2.2.1, f2.2.2.1, ecx], c1, c2⟩
 
 theorem mid_ct : RelCT isa R1
-    (.ite .b (.seq (snTry .r9) (.seq (.block [.alu .cmp .rdi (.imm 256)]) (.ite .b (snTry .r8) (.block []))))
+    (.ite .b (.seq (.block (snTry .r9)) (.seq (.block [.alu .cmp .rdi (.imm 256)]) (.ite .b (.block (snTry .r8)) (.block []))))
       (.block [])) fun s₁ s₂ => s₁.gpr .rcx = s₂.gpr .rcx := by
   refine RelCT.ite (fun x y ⟨aP, L, p1, p2, _⟩ => by
       show x.cf = y.cf; rw [p1.cf, p2.cf, p1.rdi, p2.rdi]) ?_ ?_
   · refine RelCT.seq (R := R3) ?_ (RelCT.seq cmp256_ct tailTry_ct)
     refine RelCT.postDep (F := fun (x x' : State) => ∀ aP L, TryPre x aP L →
         x'.gpr .rdi = BitVec.ofNat 64 (tryL L ((x.gpr .r9).setWidth 32).toNat).length ∧
-        Stored x'.mem aP (tryL L ((x.gpr .r9).setWidth 32).toNat) ∧ Frame [pR aP] x.mem x'.mem ∧ Keep [.rdi] x x')
-      (RelCT.mono (traceTry .r9 (by taint_decide) (by taint_decide) (by taint_decide)) (fun x y h => by
+        Stored x'.mem aP (tryL L ((x.gpr .r9).setWidth 32).toNat) ∧ Frame [pR aP] x.mem x'.mem ∧
+          Keep [.rdi, .r9] x x')
+      (RelCT.mono (traceTry .r9 (by taint_decide)) (fun x y h => by
         obtain ⟨⟨aP, L, p1, p2, e9, _, _⟩, _⟩ := h
         exact ⟨by rw [p1.rbp, p2.rbp], by rw [p1.rdi, p2.rdi], by rw [e9]⟩) fun _ _ h => h) ?_ ?_
     · intro x y ⟨⟨aP, L, p1, p2, _⟩, hb⟩
@@ -254,63 +244,63 @@ theorem pub_Lt (t : Nat) : Lt σ₁ t = Lt σ₂ t := by simp only [Lt, pub_B hq
 
 end
 
-/-- Two runs at iteration `t`, `n = 280 - t` iterations from the end. -/
-def LI (n : Nat) (s₁ s₂ : State) : Prop :=
-  ∃ σ₁ σ₂ t, sampleK.pre σ₁ ∧ sampleK.pre σ₂ ∧ sampleK.pub σ₁ σ₂ ∧ n = 280 - t ∧ t < 280 ∧
-    LAt σ₁ t s₁ ∧ LAt σ₂ t s₂
+/-- Two runs at iteration `t` of `N`, `n = N - t` iterations from the end. -/
+def LI (N n : Nat) (s₁ s₂ : State) : Prop :=
+  ∃ σ₁ σ₂ t, sampleK.pre σ₁ ∧ sampleK.pre σ₂ ∧ sampleK.pub σ₁ σ₂ ∧ n = N - t ∧ t < N ∧
+    LAt σ₁ N t s₁ ∧ LAt σ₂ N t s₂
 
-theorem bpre {σ : State} (hp : sampleK.pre σ) {t : Nat} (ht : t < 280) {s : State} (h : LAt σ t s) :
-    BPre s (aP σ) (Lt σ t) :=
+theorem bpre {σ : State} (hp : sampleK.pre σ) {N t : Nat} (hN : N ≤ 280) (ht : t < N) {s : State}
+    (h : LAt σ N t s) : BPre s (aP σ) (Lt σ t) :=
   ⟨h.env.rbp, h.rdi, sampleAfter_length_le (a := []) (by simp) _ t, by rw [h.env.wr, hp.2.1]; simp, h.stored,
-    by simpa using lat_regions hp h (k := 0) (by omega), lat_regions hp h (by omega), lat_regions hp h (by omega)⟩
+    by simpa using lat_regions hp hN h (k := 0) (by omega), lat_regions hp hN h (by omega),
+    lat_regions hp hN h (by omega)⟩
 
-theorem li_brel {n : Nat} {s₁ s₂ : State} (h : LI n s₁ s₂) : BRel s₁ s₂ := by
+theorem li_brel {N n : Nat} (hN : N ≤ 280) {s₁ s₂ : State} (h : LI N n s₁ s₂) : BRel s₁ s₂ := by
   obtain ⟨σ₁, σ₂, t, p₁, p₂, hq, _, ht, l₁, l₂⟩ := h
-  refine ⟨aP σ₁, Lt σ₁ t, bpre p₁ ht l₁, by rw [pub_aP hq, pub_Lt hq]; exact bpre p₂ ht l₂,
+  refine ⟨aP σ₁, Lt σ₁ t, bpre p₁ hN ht l₁, by rw [pub_aP hq, pub_Lt hq]; exact bpre p₂ hN ht l₂,
     by rw [l₁.rsi, l₂.rsi, pub_at hq], by rw [l₁.rcx, l₂.rcx], fun k hk => ?_⟩
   rw [out_byte l₁ (by omega), out_byte l₂ (by omega), pub_B hq]
 
-theorem loop_ct (n : Nat) :
-    RelCT isa (LI n) (.loop snBody .ne) (Rel2 sampleK.pre sampleK.pub fun σ s => LAt σ 280 s) := by
-  refine RelCT.loop (M := isa) LI (fun n => ?_) n
-  refine RelCT.postDep (F := fun (x x' : State) => ∀ p : State × Nat, sampleK.pre p.1 ∧ p.2 < 280 ∧ LAt p.1 p.2 x →
-      LAt p.1 (p.2 + 1) x' ∧ x'.zf = some (BitVec.ofNat 64 (280 - p.2) - 1 == 0))
-    (RelCT.mono body_ct (fun x y h => li_brel h) fun _ _ _ => trivial) (fun x y h => ?_) ?_
+theorem loop_ct {N : Nat} (hN : N ≤ 280) (n : Nat) :
+    RelCT isa (LI N n) (.loop snBody .ne) (Rel2 sampleK.pre sampleK.pub fun σ s => LAt σ N N s) := by
+  refine RelCT.loop (M := isa) (LI N) (fun n => ?_) n
+  refine RelCT.postDep (F := fun (x x' : State) => ∀ p : State × Nat, sampleK.pre p.1 ∧ p.2 < N ∧ LAt p.1 N p.2 x →
+      LAt p.1 N (p.2 + 1) x' ∧ x'.zf = some (BitVec.ofNat 64 (N - p.2) - 1 == 0))
+    (RelCT.mono body_ct (fun x y h => li_brel hN h) fun _ _ _ => trivial) (fun x y h => ?_) ?_
   · obtain ⟨σ₁, σ₂, t, p₁, p₂, _, _, ht, l₁, l₂⟩ := h
-    exact ⟨WP.all (fun p hp' => lat_step hp'.1 hp'.2.1 hp'.2.2) ⟨(σ₁, t), p₁, ht, l₁⟩,
-      WP.all (fun p hp' => lat_step hp'.1 hp'.2.1 hp'.2.2) ⟨(σ₂, t), p₂, ht, l₂⟩⟩
+    exact ⟨WP.all (fun p hp' => lat_step hp'.1 hN hp'.2.1 hp'.2.2) ⟨(σ₁, t), p₁, ht, l₁⟩,
+      WP.all (fun p hp' => lat_step hp'.1 hN hp'.2.1 hp'.2.2) ⟨(σ₂, t), p₂, ht, l₂⟩⟩
   · intro x y x' y' ⟨σ₁, σ₂, t, p₁, p₂, hq, hn, ht, l₁, l₂⟩ f₁ f₂
     obtain ⟨l₁', z₁⟩ := f₁ (σ₁, t) ⟨p₁, ht, l₁⟩
     obtain ⟨l₂', z₂⟩ := f₂ (σ₂, t) ⟨p₂, ht, l₂⟩
-    have ez : (BitVec.ofNat 64 (280 - t) - 1 == 0) = decide (t + 1 = 280) := by
-      rw [ofNat64_pred (by omega) (by omega), ofNat64_beq_zero (by omega)]
-      exact decide_eq_decide.mpr (by omega)
-    rw [ez] at z₁ z₂
+    rw [zf_last hN ht] at z₁ z₂
     refine ⟨by show x'.zf.map _ = y'.zf.map _; rw [z₁, z₂], fun hf => ?_, fun ht' => ?_⟩
-    · have : t + 1 = 280 := by
+    · have : t + 1 = N := by
         have : x'.zf.map (!·) = some false := hf
         rw [z₁] at this; simpa using this
       rw [this] at l₁' l₂'
       exact ⟨σ₁, σ₂, p₁, p₂, hq, l₁', l₂'⟩
-    · have : t + 1 ≠ 280 := by
+    · have : t + 1 ≠ N := by
         have : x'.zf.map (!·) = some true := ht'
         rw [z₁] at this; simpa using this
-      exact ⟨280 - (t + 1), by omega, σ₁, σ₂, t + 1, p₁, p₂, hq, rfl, by omega, l₁', l₂'⟩
+      exact ⟨N - (t + 1), by omega, σ₁, σ₂, t + 1, p₁, p₂, hq, rfl, by omega, l₁', l₂'⟩
 
 theorem regs_pub {σ₁ σ₂ s₁ s₂ : State} (hq : sampleK.pub σ₁ σ₂) (e₁ : Env σ₁ s₁) (e₂ : Env σ₂ s₂) :
     s₁.gpr .rbx = s₂.gpr .rbx ∧ s₁.gpr .rsp = s₂.gpr .rsp := by
   rw [e₁.rbx, e₂.rbx, e₁.rsp, e₂.rsp, pub_scr hq]; exact ⟨rfl, hq.2.2.2.1⟩
 
-/-- The loop and the end. -/
-theorem tail_ct : RelCT isa (Rel2 sampleK.pre sampleK.pub I6) (.seq snLoop (.block snEpi)) fun _ _ => True := by
-  refine RelCT.seq (RelCT.seq (relInv (I' := IA) (fun σ s _ h => latA h)
+/-- `N` iterations of the loop, given the taint analysis of setting the counter. -/
+theorem snLoop_ct {n : BitVec 32} {N : Nat} (hn : n.toNat = N) (hN0 : 0 < N) (hN : N ≤ 280)
+    {hc : VG.Taint.Hint X86_64.Taint.T}
+    (cB : (taint.check (X86_64.Taint.ofRegs []) (.block [.mov32 .rcx (.imm n)]) hc).isSome = true) :
+    RelCT isa (Rel2 sampleK.pre sampleK.pub (fun σ s => I6 σ (3 * N) s)) (snLoop n)
+      (Rel2 sampleK.pre sampleK.pub fun σ s => LAt σ N N s) :=
+  RelCT.seq (relInv (I' := fun σ s => IA σ N s) (fun σ s _ h => latA h)
       (taintRel [] (fun _ _ _ _ h => absurd h List.not_mem_nil) (by taint_decide)))
-    (RelCT.seq (RelCT.mono (relInv (I' := fun σ s => LAt σ 0 s) (fun σ s _ h => latB h)
-        (taintRel [] (fun _ _ _ _ h => absurd h List.not_mem_nil) (by taint_decide)))
-      (fun _ _ h => h) fun _ _ ⟨σ₁, σ₂, p₁, p₂, hq, l₁, l₂⟩ => ⟨σ₁, σ₂, 0, p₁, p₂, hq, rfl, by omega, l₁, l₂⟩)
-      (loop_ct 280))) ?_
-  exact taintRel [.rbx] (fun x y ⟨σ₁, σ₂, _, _, hq, l₁, l₂⟩ r hr => by
-    simp only [List.mem_singleton] at hr; subst hr; exact (regs_pub hq l₁.env l₂.env).1) (by taint_decide)
+    (RelCT.seq (RelCT.mono (relInv (I' := fun σ s => LAt σ N 0 s) (fun σ s _ h => latB hn h)
+        (taintRel [] (fun _ _ _ _ h => absurd h List.not_mem_nil) cB))
+      (fun _ _ h => h) fun _ _ ⟨σ₁, σ₂, p₁, p₂, hq, l₁, l₂⟩ => ⟨σ₁, σ₂, 0, p₁, p₂, hq, rfl, hN0, l₁, l₂⟩)
+      (loop_ct hN N))
 
 theorem nil_regs {P : State → State → Prop} : ∀ x y, P x y → ∀ r ∈ ([] : List Reg), x.gpr r = y.gpr r :=
   fun _ _ _ _ h => absurd h List.not_mem_nil
@@ -340,18 +330,48 @@ theorem pad_ct' : RelCT isa (Rel2 sampleK.pre sampleK.pub I3)
         h₁.args.rsi, h₂.args.rsi, h₁.args.rdx, h₂.args.rdx, h₁.args.r8, h₂.args.r8, pub_scr hq, pub_at hq,
         (regs_pub hq h₁.env h₂.env).2, and_self])
 
-theorem squeeze_ct' : RelCT isa (Rel2 sampleK.pre sampleK.pub I5)
-    (.call "vg_keccak_squeeze" Impl.Sha3.X86_64.Stream.squeeze) (Rel2 sampleK.pre sampleK.pub I6) :=
-  relInv (fun σ s hp h => callF_ok hp h) (RelCT.callEx Proof.Sha3.X86_64.Stream.Squeeze.squeeze_correct
+theorem squeeze_ct' {len : Nat} (hl : len ≤ 840) : RelCT isa (Rel2 sampleK.pre sampleK.pub fun σ s => I5 σ len s)
+    (.call "vg_keccak_squeeze" Impl.Sha3.X86_64.Stream.squeeze) (Rel2 sampleK.pre sampleK.pub fun σ s => I6 σ len s) :=
+  relInv (fun σ s hp h => callF_ok hp hl h) (RelCT.callEx Proof.Sha3.X86_64.Stream.Squeeze.squeeze_correct
     Proof.Sha3.X86_64.Stream.Squeeze.squeeze_ct fun s₁ s₂ ⟨σ₁, σ₂, p₁, p₂, hq, h₁, h₂⟩ => by
-      refine ⟨_, _, _, _, squeeze_pre h₁.args, squeeze_pre h₂.args, ?_, (covS p₁ h₁.env).1, (covS p₁ h₁.env).2,
-        (covS p₂ h₂.env).1, (covS p₂ h₂.env).2, (regs_pub hq h₁.env h₂.env).2⟩
+      refine ⟨_, _, _, _, squeeze_pre h₁.args, squeeze_pre h₂.args, ?_, (covS p₁ h₁.env hl).1,
+        (covS p₁ h₁.env hl).2, (covS p₂ h₂.env hl).1, (covS p₂ h₂.env hl).2, (regs_pub hq h₁.env h₂.env).2⟩
       simp only [Proof.Sha3.squeezeX86_64, State.withRegions_gpr, State.callEntry_rsp,
         ce_gpr _ (by decide : Reg.rdi ≠ .rsp), ce_gpr _ (by decide : Reg.rsi ≠ .rsp),
         ce_gpr _ (by decide : Reg.rdx ≠ .rsp), ce_gpr _ (by decide : Reg.rcx ≠ .rsp),
         ce_gpr _ (by decide : Reg.r8 ≠ .rsp), ce_gpr _ (by decide : Reg.r9 ≠ .rsp), h₁.args.rdi, h₂.args.rdi,
         h₁.args.rsi, h₂.args.rsi, h₁.args.rdx, h₂.args.rdx, h₁.args.rcx, h₂.args.rcx, h₁.args.r8, h₂.args.r8,
         h₁.args.r9, h₂.args.r9, pub_scr hq, pub_at hq, (regs_pub hq h₁.env h₂.env).2, and_self])
+
+/-- `snSample n`, given the taint analysis of the blocks with `n`. -/
+theorem sample_ct' {n : BitVec 32} {N : Nat} (hn : n.toNat = N) (h3 : (3 * n).toNat = 3 * N) (hN0 : 0 < N)
+    (hN : N ≤ 280) {hE hB : VG.Taint.Hint X86_64.Taint.T}
+    (cE : (taint.check (X86_64.Taint.ofRegs []) (.block (snSqzArgs (3 * n))) hE).isSome = true)
+    (cB : (taint.check (X86_64.Taint.ofRegs []) (.block [.mov32 .rcx (.imm n)]) hB).isSome = true) :
+    RelCT isa (Rel2 sampleK.pre sampleK.pub I1) (snSample n) (Rel2 sampleK.pre sampleK.pub fun σ s => LAt σ N N s) :=
+  RelCT.seq absorb_ct' (RelCT.seq (relInv (I' := I3) (fun σ s hp h => blkC_ok hp h)
+    (taintRel [] nil_regs (by taint_decide))) (RelCT.seq pad_ct' (RelCT.seq
+      (relInv (I' := fun σ s => I5 σ (3 * N) s) (fun σ s hp h => blkE_ok hp h3 (by omega) h) (taintRel [] nil_regs cE))
+      (RelCT.seq (squeeze_ct' (by omega)) (snLoop_ct hn hN0 hN cB)))))
+
+/-- The check of `j`, and the 280 iterations if it is less than 256: both
+runs go the same way, since they sampled the same coefficients. -/
+theorem more_ct : RelCT isa (Rel2 sampleK.pre sampleK.pub fun σ s => LAt σ 168 168 s) snMore
+    (Rel2 sampleK.pre sampleK.pub IEnd) := by
+  refine RelCT.seq (relInv (I' := IM) (fun σ s _ h => cmp_ok h) (taintRel [] nil_regs (by taint_decide))) ?_
+  refine RelCT.ite (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ => by
+    show x.cf = y.cf; rw [h₁.cf, h₂.cf, pub_Lt hq]) ?_ ?_
+  · refine RelCT.mono (P := Rel2 sampleK.pre sampleK.pub IM) (RelCT.seq (relInv (I' := I1)
+        (fun σ s hp h => redo_ok hp h.env) (taintRel [.rbx] (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ r hr => by
+          simp only [List.mem_singleton] at hr; subst hr; exact (regs_pub hq h₁.env h₂.env).1) (by taint_decide)))
+      (sample_ct' (n := 280) (N := 280) (by decide) (by decide) (by omega) (by omega) (by taint_decide)
+        (by taint_decide))) (fun _ _ h => h.1) fun _ _ ⟨σ₁, σ₂, p₁, p₂, hq, l₁, l₂⟩ =>
+      ⟨σ₁, σ₂, p₁, p₂, hq, ⟨l₁.env, l₁.rdi, l₁.stored⟩, ⟨l₂.env, l₂.rdi, l₂.stored⟩⟩
+  · refine RelCT.mono (P := Rel2 sampleK.pre sampleK.pub fun σ s => IM σ s ∧ s.cf = some false)
+      (relInv (I' := IEnd) (fun σ s _ h => WP.block_nil (skip_ok h.1 h.2)) (taintRel [] nil_regs (by taint_decide)))
+      (fun x y ⟨⟨σ₁, σ₂, p₁, p₂, hq, h₁, h₂⟩, hc⟩ => ⟨σ₁, σ₂, p₁, p₂, hq, ⟨h₁, hc⟩, ⟨h₂, ?_⟩⟩) fun _ _ h => h
+    have hc' : x.cf = some false := hc
+    rw [h₂.cf, ← pub_Lt hq, ← h₁.cf, hc']
 
 end SampleNtt
 
@@ -363,9 +383,10 @@ theorem sample_ct : ConstantTime isa sampleK.pre sampleK.pub Impl.MlKem.X86_64.s
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl
       exacts [hq.1, hq.2.1, hq.2.2.1, hq.2.2.2.1]) (by taint_decide))) ?_)
-  refine RelCT.seq absorb_ct' (RelCT.seq (relInv (I' := I3) (fun σ s hp h => blkC_ok hp h)
-    (taintRel [] nil_regs (by taint_decide))) (RelCT.seq pad_ct' (RelCT.seq (relInv (I' := I5)
-      (fun σ s hp h => blkE_ok hp h) (taintRel [] nil_regs (by taint_decide))) (RelCT.seq squeeze_ct' tail_ct))))
+  refine RelCT.seq (sample_ct' (n := 168) (N := 168) (by decide) (by decide) (by omega) (by omega) (by taint_decide)
+    (by taint_decide)) (RelCT.seq more_ct ?_)
+  exact taintRel [.rbx] (fun x y ⟨σ₁, σ₂, _, _, hq, l₁, l₂⟩ r hr => by
+    simp only [List.mem_singleton] at hr; subst hr; exact (regs_pub hq l₁.env l₂.env).1) (by taint_decide)
 
 end VG.Proof.MlKem.X86_64
 

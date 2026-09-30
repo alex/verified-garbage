@@ -4,9 +4,11 @@
 //! checks which CPU features those need, and the emitter lists them in a
 //! generated `<NAME>_FEATURES` constant next to the function (and in its
 //! `# Safety` section): the function may only be called on a CPU that has
-//! all of them. They are detected once, with `cpuid`. Each object that can
-//! use such a function chooses its implementation when it is created, from
-//! the features detected.
+//! all of them. They are detected once: with `cpuid` on x86-64; on AArch64,
+//! by asking the operating system with the `cpu-features-env` feature (which
+//! links `std`), and otherwise from the target features the code was
+//! compiled for. Each object that can use such a function chooses its
+//! implementation when it is created, from the features detected.
 //!
 //! With the `cpu-features-env` Cargo feature, the environment variable
 //! `VG_CPU_FEATURES` restricts the features detected, so that tests and
@@ -21,7 +23,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The features detection knows, by their Rust `target_feature` names: bit
 /// `i` of a [`Features`] is `NAMES[i]`.
-pub(crate) const NAMES: [&str; 9] = [
+pub(crate) const NAMES: [&str; 10] = [
     "ssse3",
     "sha",
     "aes",
@@ -31,6 +33,7 @@ pub(crate) const NAMES: [&str; 9] = [
     "bmi1",
     "bmi2",
     "avx512f",
+    "sha512",
 ];
 
 /// The bit of a feature detection does not know, which is never detected.
@@ -42,7 +45,10 @@ pub(crate) struct Features(pub(crate) u32);
 
 impl Features {
     /// The features named in `names` (a generated `_FEATURES` constant).
-    #[cfg_attr(not(target_arch = "x86_64"), allow(dead_code))]
+    #[cfg_attr(
+        not(any(target_arch = "x86_64", target_arch = "aarch64")),
+        allow(dead_code)
+    )]
     pub(crate) fn of(names: &[&str]) -> Features {
         Features(names.iter().fold(0, |acc, n| {
             acc | NAMES
@@ -53,8 +59,11 @@ impl Features {
     }
 
     /// The features named in any of `lists`.
-    // Only the x86-64 artifacts need features so far.
-    #[cfg_attr(not(target_arch = "x86_64"), allow(dead_code))]
+    // Only the x86-64 and AArch64 artifacts need features so far.
+    #[cfg_attr(
+        not(any(target_arch = "x86_64", target_arch = "aarch64")),
+        allow(dead_code)
+    )]
     pub(crate) fn all(lists: &[&[&str]]) -> Features {
         Features(
             lists
@@ -64,7 +73,10 @@ impl Features {
     }
 
     /// Whether every feature of `other` is in `self`.
-    #[cfg_attr(not(target_arch = "x86_64"), allow(dead_code))]
+    #[cfg_attr(
+        not(any(target_arch = "x86_64", target_arch = "aarch64")),
+        allow(dead_code)
+    )]
     pub(crate) fn contains(self, other: Features) -> bool {
         self.0 & other.0 == other.0
     }
@@ -119,9 +131,12 @@ fn parse(names: &str) -> Option<u32> {
 
 /// Asks the CPU (Intel SDM Vol. 2A, CPUID: leaf 1 ECX bit 9 is SSSE3, bit 25
 /// AES, bit 1 PCLMULQDQ, bit 27 OSXSAVE and bit 28 AVX; leaf 7 sub-leaf 0 EBX
-/// bit 29 is SHA, bit 5 AVX2, bit 3 BMI1, bit 8 BMI2 and bit 16 AVX512F; AMD
-/// reports them in the same bits). AVX and
-/// AVX2 also need the operating system to save the `ymm` registers: XCR0
+/// bit 29 is SHA, bit 5 AVX2, bit 3 BMI1, bit 8 BMI2 and bit 16 AVX512F, and
+/// its EAX the highest sub-leaf; leaf 7 sub-leaf 1 EAX bit 0 is SHA512; AMD
+/// reports them in the same bits). AVX, AVX2
+/// and SHA512 (whose instructions are VEX.256-encoded, so also need AVX,
+/// Intel SDM Vol. 2, "VSHA512RNDS2") also need the operating system to save
+/// the `ymm` registers: XCR0
 /// bits 1 and 2, read with `xgetbv` only if OSXSAVE says it may be (Intel SDM
 /// Vol. 1, §14.3, "Detection of Intel AVX Instructions"); AVX512F also needs
 /// the opmask and `zmm` state, XCR0 bits 5, 6 and 7 (§15.2, "Detection of
@@ -130,8 +145,9 @@ fn parse(names: &str) -> Option<u32> {
 fn runtime() -> u32 {
     use core::arch::x86_64::{__cpuid, __cpuid_count, _xgetbv};
     // SAFETY: every x86-64 CPU has `cpuid`, and leaves 0 and 1; leaf 7 is
-    // read only if leaf 0 says it exists, and `xgetbv` only if OSXSAVE says
-    // the operating system has enabled it.
+    // read only if leaf 0 says it exists (and its sub-leaf 1 only if
+    // sub-leaf 0 says that exists), and `xgetbv` only if OSXSAVE says the
+    // operating system has enabled it.
     #[allow(unused_unsafe)]
     unsafe {
         let max = __cpuid(0).eax;
@@ -144,12 +160,23 @@ fn runtime() -> u32 {
         let ymm = u32::from(xcr0 & 0b110 == 0b110);
         let zmm = u32::from(xcr0 & 0b1110_0110 == 0b1110_0110);
         let avx = (ecx >> 28) & ymm;
-        let ebx = if max >= 7 { __cpuid_count(7, 0).ebx } else { 0 };
+        let (sub, ebx) = if max >= 7 {
+            let l = __cpuid_count(7, 0);
+            (l.eax, l.ebx)
+        } else {
+            (0, 0)
+        };
+        let eax1 = if max >= 7 && sub >= 1 {
+            __cpuid_count(7, 1).eax
+        } else {
+            0
+        };
         let sha = (ebx >> 29) & 1;
         let avx2 = (ebx >> 5) & avx;
         let bmi1 = (ebx >> 3) & 1;
         let bmi2 = (ebx >> 8) & 1;
         let avx512f = (ebx >> 16) & avx & zmm;
+        let sha512 = eax1 & avx;
         ssse3
             | (sha << 1)
             | (aes << 2)
@@ -159,11 +186,34 @@ fn runtime() -> u32 {
             | (bmi1 << 6)
             | (bmi2 << 7)
             | (avx512f << 8)
+            | (sha512 << 9)
     }
 }
 
+/// On AArch64, `aes`: FEAT_AES and FEAT_PMULL (Rust's `aes` target feature
+/// covers both).
+#[cfg(target_arch = "aarch64")]
+fn runtime() -> u32 {
+    u32::from(aarch64_aes()) * Features::of(&["aes"]).0
+}
+
+/// Whether the CPU has FEAT_AES and FEAT_PMULL, asked of the operating
+/// system through `std`, which the `cpu-features-env` feature links.
+#[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+fn aarch64_aes() -> bool {
+    std::arch::is_aarch64_feature_detected!("aes")
+}
+
+/// Whether the compiler was told every CPU running this code has FEAT_AES
+/// and FEAT_PMULL (as `aarch64-apple-darwin` and `-C target-feature=+aes`
+/// do): without `std`, this `no_std` crate cannot ask the operating system.
+#[cfg(all(target_arch = "aarch64", not(feature = "cpu-features-env")))]
+fn aarch64_aes() -> bool {
+    cfg!(target_feature = "aes")
+}
+
 /// No features are detected on the other targets yet.
-#[cfg(not(target_arch = "x86_64"))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 fn runtime() -> u32 {
     0
 }
@@ -180,6 +230,10 @@ mod tests {
         assert_eq!(Features::of(&["avx", "avx2"]), Features(0b11_0000));
         assert_eq!(Features::of(&["bmi2", "bmi1"]), Features(0b1100_0000));
         assert_eq!(Features::of(&["avx", "avx512f"]), Features(0b1_0001_0000));
+        assert_eq!(
+            Features::of(&["avx", "avx2", "sha512"]),
+            Features(0b10_0011_0000)
+        );
         assert_eq!(Features::of(&["avx512bw"]), Features(UNKNOWN));
         assert_eq!(
             Features::all(&[&["sha"], &[], &["ssse3", "sha"]]),
@@ -209,6 +263,7 @@ mod tests {
         assert_eq!(parse("avx,avx2"), Some(0b11_0000));
         assert_eq!(parse("bmi1,bmi2"), Some(0b1100_0000));
         assert_eq!(parse("avx512f"), Some(0b1_0000_0000));
+        assert_eq!(parse("sha512"), Some(0b10_0000_0000));
         for bad in ["avx512bw", "aes,", "aes,none", " aes", "AES"] {
             assert_eq!(parse(bad), None, "{bad}");
         }

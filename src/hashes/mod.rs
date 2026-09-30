@@ -16,6 +16,9 @@
     target_arch = "x86"
 ))]
 
+mod blake2;
+pub mod blake2b;
+pub mod blake2s;
 pub mod md5;
 pub mod sha1;
 pub mod sha256;

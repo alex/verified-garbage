@@ -21,14 +21,6 @@ open VG VG.X86_64 VG.Impl.MlKem.X86_64
 
 theorem sx262080 : BitVec.signExtend 64 (262080 : BitVec 32) = 262080 := by decide
 
-theorem sx_ofNat {n : Nat} (h : n < 2 ^ 31) : BitVec.signExtend 64 (BitVec.ofNat 32 n) = BitVec.ofNat 64 n := by
-  have hm : (BitVec.ofNat 32 n).msb = false := by
-    rw [BitVec.msb_eq_decide]; simp only [BitVec.toNat_ofNat, decide_eq_false_iff_not]; omega
-  rw [BitVec.signExtend_eq_setWidth_of_msb_false hm]
-  apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_setWidth, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
-  omega
-
 /-- `Compress_d` of `a`, as the code computes it with the multiplier `M`. -/
 def ceV (d : Nat) (a : BitVec 32) (M : BitVec 64) : BitVec 64 :=
   BitVec.setWidth 64 (BitVec.setWidth 32 ((BitVec.ofNat 64 ((BitVec.setWidth 64 a).toNat * M.toNat) +
