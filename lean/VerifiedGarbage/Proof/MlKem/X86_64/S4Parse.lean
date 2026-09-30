@@ -119,6 +119,20 @@ theorem setup_eq (K : Nat) : ([.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitV
     .mov32 .rdi (.imm 0), .mov .rbp (.reg .r13), .alu .add .rbp (.imm (BitVec.ofNat 32 (1024 * K))),
     .mov32 .rcx (.imm 168)] := rfl
 
+omit hp in
+/-- The setup of the loop. -/
+theorem setup_ok {K : Nat} (hK : K < 4) {s : State} (h : PInv σ K s) :
+    WP isa (.block [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitVec.ofNat 32 (oBuf + 504 * K))),
+      .mov32 .rdi (.imm 0), .mov .rbp (.reg .r13), .alu .add .rbp (.imm (BitVec.ofNat 32 (1024 * K))),
+      .mov32 .rcx (.imm 168)]) s fun s' => LAt σ K 0 s' ∧ s'.gpr .rcx = BitVec.ofNat 64 168 :=
+  WP.mono (WP.keep [.rsi, .rdi, .rbp, .rcx] (Q := fun s' => s'.mem = s.mem ∧
+      s'.gpr .rsi = at' σ (oBuf + 504 * K) ∧ s'.gpr .rdi = 0 ∧ s'.gpr .rbp = poly4 (aP σ) K ∧
+      s'.gpr .rcx = BitVec.ofNat 64 168)
+    (by xrun [h.env.rbx, h.env.r13, sx_ofNat (show oBuf + 504 * K < 2 ^ 31 by simp only [oBuf]; omega),
+      sx_ofNat (show 1024 * K < 2 ^ 31 by omega)]; rfl) rfl) fun s₁ ⟨⟨hm, hsi, hdi, hbp, hcx⟩, k₁⟩ =>
+    ⟨⟨h.keep hm k₁ (by decide), by rw [hsi, Nat.mul_zero, add_ofNat_zero], by rw [hdi]; rfl, hbp,
+      fun k hk => absurd hk (by simp [sampleAfter])⟩, hcx⟩
+
 /-- The setup and the 168 iterations. -/
 theorem loop_ok {K : Nat} (hK : K < 4) {s : State} (h : PInv σ K s) {rest : Prog isa} {Q : State → Prop}
     (kont : ∀ s', LAt σ K 168 s' → WP isa rest s' Q) :
@@ -240,81 +254,129 @@ theorem and14_ok (s : State) :
   refine WP.keep _ ?_ (by decide)
   xrun
 
+/-- The arguments of the call of `vg_mlkem_sample_ntt` on seed `K`. -/
+structure ArgI (σ : State) (K : Nat) (s : State) : Prop where
+  pinv : PInv σ K s
+  rdi : s.gpr .rdi = sd σ + BitVec.ofNat 64 (34 * K)
+  rsi : s.gpr .rsi = poly4 (aP σ) K
+  rdx : s.gpr .rdx = at' σ oScalar
+
+omit hp in
+theorem argsK_ok {K : Nat} (hK : K < 4) {s : State} (h : PInv σ K s) :
+    WP isa (.block [.mov .rdi (.reg .r12), .alu .add .rdi (.imm (BitVec.ofNat 32 (34 * K))),
+      .mov .rsi (.reg .r13), .alu .add .rsi (.imm (BitVec.ofNat 32 (1024 * K))), .mov .rdx (.reg .rbx),
+      .alu .add .rdx (.imm (BitVec.ofNat 32 oScalar))]) s (ArgI σ K) :=
+  WP.mono (WP.keep [.rdi, .rsi, .rdx] (Q := fun s' => s'.mem = s.mem ∧
+      s'.gpr .rdi = sd σ + BitVec.ofNat 64 (34 * K) ∧ s'.gpr .rsi = poly4 (aP σ) K ∧ s'.gpr .rdx = at' σ oScalar)
+    (by xrun [h.env.r12, h.env.r13, h.env.rbx, sx34 hK, sx1024 hK, sx6144]; exact ⟨rfl, rfl⟩) rfl)
+    fun _ ⟨⟨hm₂, hdi, hsi, hdx⟩, k₂⟩ => ⟨h.keep hm₂ k₂ (by decide), hdi, hsi, hdx⟩
+
+theorem argK_kS {K : Nat} (hK : K < 4) {s : State} (h : ArgI σ K s) :
+    (below (s.gpr .rsp) 24).Disjoint ⟨sd σ + BitVec.ofNat 64 (34 * K), 34⟩ := by
+  rw [h.pinv.env.rsp]; exact hp.stk_sd.sub_right (Offset.sub_base (sd σ) (d := 34 * K) (n := 34) (by omega))
+
+theorem argK_pre {K : Nat} (hK : K < 4) {s : State} (h : ArgI σ K s) :
+    sampleK.pre (s.callEntry.withRegions (cRd σ K) (cWr σ K)) := by
+  have hsp : s.gpr .rsp = σ.gpr .rsp := h.pinv.env.rsp
+  have kS := argK_kS hp hK h
+  have kA : (below (s.gpr .rsp) 24).Disjoint (pR (poly4 (aP σ) K)) := by
+    rw [hsp]; exact hp.stk_a.sub_right (sub_poly (σ := σ) hK)
+  have kZ : (below (s.gpr .rsp) 24).Disjoint ⟨at' σ oScalar, 2048⟩ := by
+    rw [hsp]; exact hp.stk_scr.sub_right (sub_scr (σ := σ) (a := oScalar) (n := 2048) (by simp only [oScalar]; omega))
+  simp only [sampleK, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
+    ce_gpr' s (by decide : Reg.rdi ≠ .rsp), ce_gpr' s (by decide : Reg.rsi ≠ .rsp),
+    ce_gpr' s (by decide : Reg.rdx ≠ .rsp), h.rdi, h.rsi, h.rdx]
+  exact ⟨trivial, trivial,
+    (hp.sd_a.sub_left (Offset.sub_base _ (by omega))).sub_right (sub_poly hK),
+    (hp.sd_scr.sub_left (Offset.sub_base _ (by omega))).sub_right (sub_scr (by simp only [oScalar]; omega)),
+    (hp.a_scr.sub_left (sub_poly hK)).sub_right (sub_scr (by simp only [oScalar]; omega)),
+    ret_disj s kS, ret_disj s kA, ret_disj s kZ, stk_disj s kS, stk_disj s kA, stk_disj s kZ,
+    scr6144_lt hp⟩
+
+/-- After the call of `vg_mlkem_sample_ntt` on seed `K`. -/
+structure CallI (σ : State) (K : Nat) (s : State) : Prop where
+  pinv : PInv σ K s
+  rax : (s.gpr .rax).setWidth 32 = if (sampleNTT minIterations (B σ K)).isSome then 1 else 0
+  poly : ∀ f, sampleNTT minIterations (B σ K) = some f → PolyIs s.mem (poly4 (aP σ) K) f
+
+theorem callK_ok {K : Nat} (hK : K < 4) {s : State} (h : ArgI σ K s) :
+    WP isa (.call "vg_mlkem_sample_ntt" sampleNTT) s (CallI σ K) := by
+  have hcv := cov hp h.pinv.env hK
+  refine WP.call sample_correct sample_nosp (by rw [sample_depth]; decide) (argK_pre hp hK h) hcv.1 hcv.2
+    fun s₃ hrd hwr hcs hf _ ⟨s₃', hm₃, hg₃, hpost⟩ => ?_
+  rw [sample_depth, h.pinv.env.rsp] at hf
+  have h₃ : PInv σ K s₃ := h.pinv.call hp hK hrd hwr (fun r hr => hcs r (by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> decide)) hf
+  simp only [sampleK, State.withRegions_gpr, State.withRegions_mem, ce_gpr' s (by decide : Reg.rdi ≠ .rsp),
+    ce_gpr' s (by decide : Reg.rsi ≠ .rsp), h.rdi, h.rsi, hm₃, ce_bytesAt s (n := 34) (by decide) (argK_kS hp hK h),
+    seed_bytes hp hK h.pinv.env.frame] at hpost
+  rw [hg₃ .rax (by decide)] at hpost
+  exact ⟨h₃, hpost.1, hpost.2⟩
+
+omit hp in
+theorem andK_ok {K : Nat} {s : State} (h : CallI σ K s) :
+    WP isa (.block [.alu32 .and .r14 (.reg .rax)]) s (PInv σ (K + 1)) := by
+  refine WP.mono (and14_ok s) fun s₄ ⟨⟨h14, hm₄⟩, k₄⟩ => ?_
+  have h₃ := h.pinv
+  refine ⟨⟨k₄.2.1.trans h₃.env.rd, k₄.2.2.trans h₃.env.wr, by rw [k₄.gpr (by decide), h₃.env.rbx],
+      by rw [k₄.gpr (by decide), h₃.env.r12], by rw [k₄.gpr (by decide), h₃.env.r13],
+      by rw [k₄.gpr (by decide), h₃.env.rsp], by rw [k₄.gpr (by decide), h₃.env.r15],
+      by rw [hm₄]; exact h₃.env.saved, by rw [hm₄]; exact h₃.env.frame⟩,
+    by rw [hm₄]; exact h₃.buf, by rw [h14, h₃.r14, h.rax, okN_succ], fun k hk f e => ?_⟩
+  rw [hm₄]
+  by_cases ek : k = K
+  · subst ek; exact h.poly f e
+  · exact h₃.polys k (by omega) f e
+
 /-- The call of `vg_mlkem_sample_ntt` on seed `K`. -/
 theorem call_ok {K : Nat} (hK : K < 4) {s : State} (h : PInv σ K s) :
     WP isa (.seq (.block [.mov .rdi (.reg .r12), .alu .add .rdi (.imm (BitVec.ofNat 32 (34 * K))),
           .mov .rsi (.reg .r13), .alu .add .rsi (.imm (BitVec.ofNat 32 (1024 * K))), .mov .rdx (.reg .rbx),
           .alu .add .rdx (.imm (BitVec.ofNat 32 oScalar))])
         (.seq (.call "vg_mlkem_sample_ntt" sampleNTT) (.block [.alu32 .and .r14 (.reg .rax)]))) s
-      (PInv σ (K + 1)) := by
-  refine WP.seq (WP.mono (WP.keep [.rdi, .rsi, .rdx] (Q := fun s' => s'.mem = s.mem ∧
-      s'.gpr .rdi = sd σ + BitVec.ofNat 64 (34 * K) ∧ s'.gpr .rsi = poly4 (aP σ) K ∧ s'.gpr .rdx = at' σ oScalar)
-    (by xrun [h.env.r12, h.env.r13, h.env.rbx, sx34 hK, sx1024 hK, sx6144]; exact ⟨rfl, rfl⟩) rfl)
-    fun s₂ ⟨⟨hm₂, hdi, hsi, hdx⟩, k₂⟩ => ?_)
-  have h₂ : PInv σ K s₂ := h.keep hm₂ k₂ (by decide)
-  have hsp : s₂.gpr .rsp = σ.gpr .rsp := h₂.env.rsp
-  have kS : (below (s₂.gpr .rsp) 24).Disjoint ⟨sd σ + BitVec.ofNat 64 (34 * K), 34⟩ := by
-    rw [hsp]; exact hp.stk_sd.sub_right (Offset.sub_base (sd σ) (d := 34 * K) (n := 34) (by omega))
-  have kA : (below (s₂.gpr .rsp) 24).Disjoint (pR (poly4 (aP σ) K)) := by
-    rw [hsp]; exact hp.stk_a.sub_right (sub_poly (σ := σ) hK)
-  have kZ : (below (s₂.gpr .rsp) 24).Disjoint ⟨at' σ oScalar, 2048⟩ := by
-    rw [hsp]; exact hp.stk_scr.sub_right (sub_scr (σ := σ) (a := oScalar) (n := 2048) (by simp only [oScalar]; omega))
-  have hpre : sampleK.pre (s₂.callEntry.withRegions (cRd σ K) (cWr σ K)) := by
-    simp only [sampleK, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
-      ce_gpr' s₂ (by decide : Reg.rdi ≠ .rsp), ce_gpr' s₂ (by decide : Reg.rsi ≠ .rsp),
-      ce_gpr' s₂ (by decide : Reg.rdx ≠ .rsp), hdi, hsi, hdx]
-    exact ⟨trivial, trivial,
-      (hp.sd_a.sub_left (Offset.sub_base _ (by omega))).sub_right (sub_poly hK),
-      (hp.sd_scr.sub_left (Offset.sub_base _ (by omega))).sub_right (sub_scr (by simp only [oScalar]; omega)),
-      (hp.a_scr.sub_left (sub_poly hK)).sub_right (sub_scr (by simp only [oScalar]; omega)),
-      ret_disj s₂ kS, ret_disj s₂ kA, ret_disj s₂ kZ, stk_disj s₂ kS, stk_disj s₂ kA, stk_disj s₂ kZ,
-      scr6144_lt hp⟩
-  have hcv := cov hp h₂.env hK
-  refine WP.seq (WP.call sample_correct sample_nosp (by rw [sample_depth]; decide) hpre hcv.1 hcv.2
-    fun s₃ hrd hwr hcs hf _ ⟨s₃', hm₃, hg₃, hpost⟩ => ?_)
-  rw [sample_depth, hsp] at hf
-  have h₃ : PInv σ K s₃ := h₂.call hp hK hrd hwr (fun r hr => hcs r (by
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> decide)) hf
-  simp only [sampleK, State.withRegions_gpr, State.withRegions_mem, ce_gpr' s₂ (by decide : Reg.rdi ≠ .rsp),
-    ce_gpr' s₂ (by decide : Reg.rsi ≠ .rsp), hdi, hsi, hm₃, ce_bytesAt s₂ (n := 34) (by decide) kS, hm₂,
-    seed_bytes hp hK h.env.frame] at hpost
-  rw [hg₃ .rax (by decide)] at hpost
-  refine WP.mono (and14_ok s₃) fun s₄ ⟨⟨h14, hm₄⟩, k₄⟩ => ?_
-  refine ⟨⟨k₄.2.1.trans h₃.env.rd, k₄.2.2.trans h₃.env.wr, by rw [k₄.gpr (by decide), h₃.env.rbx],
-      by rw [k₄.gpr (by decide), h₃.env.r12], by rw [k₄.gpr (by decide), h₃.env.r13],
-      by rw [k₄.gpr (by decide), h₃.env.rsp], by rw [k₄.gpr (by decide), h₃.env.r15],
-      by rw [hm₄]; exact h₃.env.saved, by rw [hm₄]; exact h₃.env.frame⟩,
-    by rw [hm₄]; exact h₃.buf, by rw [h14, h₃.r14, hpost.1, okN_succ], fun k hk f e => ?_⟩
-  rw [hm₄]
-  by_cases ek : k = K
-  · subst ek; exact hpost.2 f e
-  · exact h₃.polys k (by omega) f e
+      (PInv σ (K + 1)) :=
+  WP.seq (WP.mono (argsK_ok hK h) fun _ h₂ => WP.seq (WP.mono (callK_ok hp hK h₂) fun _ h₃ => andK_ok h₃))
+
+/-- After the check of `j`. -/
+structure MI (σ : State) (K : Nat) (s : State) : Prop where
+  pinv : PInv σ K s
+  stored : Stored s.mem (poly4 (aP σ) K) (Lt σ K 168)
+  cf : s.cf = some (decide ((Lt σ K 168).length < 256))
+
+omit hp in
+theorem cmpK_ok {K : Nat} {s : State} (h : LAt σ K 168 s) : WP isa (.block [.alu .cmp .rdi (.imm 256)]) s (MI σ K) := by
+  refine WP.mono (cmpRdi_ok s) fun s₁ ⟨hc, hm, hg, hrd, hwr⟩ => ?_
+  have hL : (Lt σ K 168).length ≤ 256 := sampleAfter_length_le (a := []) (by simp) _ 168
+  rw [h.rdi, ofNat64_toNat (by omega)] at hc
+  exact ⟨h.pinv.keep hm (rs := []) ⟨fun r _ => by rw [hg], hrd, hwr⟩ (by simp), by rw [hm]; exact h.stored, hc⟩
+
+omit hp in
+/-- Without the call, if `j = 256`. -/
+theorem skipK_ok {K : Nat} (hK : K < 4) {s : State} (h : MI σ K s) (hb : s.cf = some false) : PInv σ (K + 1) s := by
+  have hL : (Lt σ K 168).length ≤ 256 := sampleAfter_length_le (a := []) (by simp) _ 168
+  have hfull : (Lt σ K 168).length = 256 := by
+    rw [h.cf, Option.some.injEq, decide_eq_false_iff_not] at hb; omega
+  have hs : sampleNTT minIterations (B σ K) = some (toPoly (Lt σ K 168)) :=
+    sampleNTT_of_full (by decide) (by rw [n_eq]; exact hfull)
+  refine ⟨h.pinv.env, h.pinv.buf, ?_, fun k hk f e => ?_⟩
+  · have e : okN σ (K + 1) = okN σ K := by
+      simp only [okN, List.range_succ, List.all_append, List.all_cons, List.all_nil, Bool.and_true, hs,
+        Option.isSome_some]
+    rw [h.pinv.r14, e]
+  · by_cases ek : k = K
+    · subst ek
+      rw [hs] at e
+      rw [← Option.some.inj e]
+      exact SampleNtt.stored_polyAt h.stored hfull
+    · exact h.pinv.polys k (by omega) f e
 
 /-- The check of `j`, and the call if it is less than 256. -/
 theorem fallback_ok {K : Nat} (hK : K < 4) {s : State} (h : LAt σ K 168 s) :
     WP isa (fallback K) s (PInv σ (K + 1)) := by
   unfold fallback
-  refine WP.seq (WP.mono (cmpRdi_ok s) fun s₁ ⟨hc, hm, hg, hrd, hwr⟩ => ?_)
-  have hL : (Lt σ K 168).length ≤ 256 := sampleAfter_length_le (a := []) (by simp) _ 168
-  rw [h.rdi, ofNat64_toNat (by omega)] at hc
-  have h₁ : PInv σ K s₁ := h.pinv.keep hm (rs := []) ⟨fun r _ => by rw [hg], hrd, hwr⟩ (by simp)
-  refine WP.ite _ hc (fun _ => call_ok hp hK h₁) fun hb => WP.block_nil ?_
-  have hfull : (Lt σ K 168).length = 256 := by
-    rw [decide_eq_false_iff_not] at hb; omega
-  have hs : sampleNTT minIterations (B σ K) = some (toPoly (Lt σ K 168)) :=
-    sampleNTT_of_full (by decide) (by rw [n_eq]; exact hfull)
-  refine ⟨h₁.env, h₁.buf, ?_, fun k hk f e => ?_⟩
-  · have e : okN σ (K + 1) = okN σ K := by
-      simp only [okN, List.range_succ, List.all_append, List.all_cons, List.all_nil, Bool.and_true, hs,
-        Option.isSome_some]
-    rw [h₁.r14, e]
-  · by_cases ek : k = K
-    · subst ek
-      rw [hs] at e
-      rw [← Option.some.inj e]
-      exact SampleNtt.stored_polyAt (by rw [hm]; exact h.stored) hfull
-    · exact h₁.polys k (by omega) f e
+  exact WP.seq (WP.mono (cmpK_ok h) fun s₁ h₁ => WP.ite _ h₁.cf (fun _ => call_ok hp hK h₁.pinv)
+    fun hb => WP.block_nil (skipK_ok hK h₁ (by rw [h₁.cf, hb])))
 
 /-- `parse K`. -/
 theorem parse_ok {K : Nat} (hK : K < 4) {s : State} (h : PInv σ K s) : WP isa (parse K) s (PInv σ (K + 1)) := by
