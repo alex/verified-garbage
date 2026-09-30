@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Callee
-import VerifiedGarbage.Impl.Poly1305.X86_64
+import VerifiedGarbage.Impl.Poly1305.X86_64.Callee
 
 /-!
 # ChaCha20-Poly1305: x86-64 implementation
@@ -7,10 +7,13 @@ import VerifiedGarbage.Impl.Poly1305.X86_64
 `vg_chacha20_poly1305_seal(ctx = rdi, aad = rsi, aad_len = rdx, data = rcx, len = r8)`
 and `vg_chacha20_poly1305_open` (the same arguments, returning `eax`), composed
 of calls of the verified ChaCha20 and Poly1305 functions. They are generic
-over the implementation of `vg_chacha20_xor` they call (`Callee`): each of
-them is emitted once for each implementation (e.g. `vg_chacha20_poly1305_seal`
-calls `vg_chacha20_xor`, and `vg_chacha20_poly1305_seal_avx2` calls
-`vg_chacha20_xor_avx2`).
+over the implementations of `vg_chacha20_xor` (`Callee`) and
+`vg_poly1305_blocks` (`Blocks`) they call: each of them is emitted once for
+each implementation of `vg_chacha20_xor`, which comes with the one of
+`vg_poly1305_blocks` for the same CPUs (e.g. `vg_chacha20_poly1305_seal`
+calls `vg_chacha20_xor` and `vg_poly1305_blocks`, and
+`vg_chacha20_poly1305_seal_avx2` calls `vg_chacha20_xor_avx2` and
+`vg_poly1305_blocks_avx2`).
 
 The context (1024 bytes, see `VG.Spec.ChaCha20Poly1305.sealContract`):
 
@@ -88,22 +91,22 @@ def tailByte : MemOp := { base := .rsi, index := some .rcx }
 def padByte : MemOp := { base := .r15, index := some .rcx, disp := 576 }
 
 /-- The last `rdx` bytes (1 to 15) at `rsi`, padded with zeros, absorbed. -/
-def padTail : Prog isa :=
+def padTail (b : Poly1305.X86_64.Blocks) : Prog isa :=
   .seq (.block [.mov32 .rax (.imm 0), .store (at_ .r15 576) .rax, .store (at_ .r15 584) .rax,
     .mov32 .rcx (.imm 0)])
   (.seq (.loop (.block [.movzx8 .rax tailByte, .store8 padByte .rax, .alu .add .rcx (.imm 1),
     .alu .cmp .rcx (.reg .rdx)]) .ne)
   (.seq (.block (ptr .rdi .r15 448 ++ ptr .rsi .r15 576 ++ [.mov32 .rdx (.imm 1)]))
-  (.seq (.call "vg_poly1305_blocks" Impl.Poly1305.X86_64.blocks)
+  (.seq (.call b.name b.code)
     (.block (anchor .rdi 448)))))
 
 /-- The `n` bytes at `p`, padded with zeros to a multiple of 16, absorbed. -/
-def macPad (p n : Reg) : Prog isa :=
+def macPad (b : Poly1305.X86_64.Blocks) (p n : Reg) : Prog isa :=
   .seq (.block (ptr .rdi .r15 448 ++ [.mov .rsi (.reg p), .mov .rdx (.reg n), .shift .shr .rdx 4]))
-  (.seq (.call "vg_poly1305_blocks" Impl.Poly1305.X86_64.blocks)
+  (.seq (.call b.name b.code)
   (.seq (.block (anchor .rdi 448 ++ [.mov .rdx (.reg n), .alu .and .rdx (.imm 15)]))
     (.ite .e (.block []) (.seq (.block [.mov .rsi (.reg n), .alu .sub .rsi (.reg .rdx),
-      .alu .add .rsi (.reg p)]) padTail))))
+      .alu .add .rsi (.reg p)]) (padTail b)))))
 
 /-- The arguments of `vg_chacha20_xor`, with the ChaCha20 counter set to 1. -/
 def cryptArgs : List Instr :=
@@ -119,9 +122,9 @@ def crypt (x : ChaCha20.X86_64.Callee) : Prog isa :=
 def lengths : List Instr := [.store (at_ .r15 656) .rbp, .store (at_ .r15 664) .r13]
 
 /-- The lengths block absorbed. -/
-def absorbLengths : Prog isa :=
+def absorbLengths (b : Poly1305.X86_64.Blocks) : Prog isa :=
   .seq (.block (ptr .rdi .r15 448 ++ ptr .rsi .r15 656 ++ [.mov32 .rdx (.imm 1)]))
-  (.seq (.call "vg_poly1305_blocks" Impl.Poly1305.X86_64.blocks)
+  (.seq (.call b.name b.code)
     (.block (anchor .rdi 448)))
 
 /-- The tag written to `r15 + out`: the message is whole blocks, so its
@@ -130,13 +133,13 @@ def finalizeTo (out : Nat) : Prog isa :=
   .seq (.block (ptr .rdi .r15 448 ++ [.mov32 .rsi (.imm 0)] ++ ptr .rdx .r15 out))
     (.call "vg_poly1305_finalize" Impl.Poly1305.X86_64.finalize)
 
-def «seal» (x : ChaCha20.X86_64.Callee) : Prog isa :=
+def «seal» (x : ChaCha20.X86_64.Callee) (b : Poly1305.X86_64.Blocks) : Prog isa :=
   .seq prologue
-  (.seq (macPad .rbx .rbp)
+  (.seq (macPad b .rbx .rbp)
   (.seq (.block lengths)
   (.seq (crypt x)
-  (.seq (macPad .r14 .r13)
-  (.seq absorbLengths
+  (.seq (macPad b .r14 .r13)
+  (.seq (absorbLengths b)
   (.seq (finalizeTo 48)
     (.block restore)))))))
 
@@ -147,12 +150,12 @@ def compare : List Instr :=
    .mov .rdx (.mem (at_ .rcx 8)), .alu .xor .rdx (.mem { base := .rdi, disp := -392 }),
    .alu .or .rax (.reg .rdx), .alu .cmp .rax (.imm 1), .mov32 .rax (.imm 0), .alu32 .adc .rax (.imm 0)]
 
-def «open» (x : ChaCha20.X86_64.Callee) : Prog isa :=
+def «open» (x : ChaCha20.X86_64.Callee) (b : Poly1305.X86_64.Blocks) : Prog isa :=
   .seq prologue
-  (.seq (macPad .rbx .rbp)
-  (.seq (macPad .r14 .r13)
+  (.seq (macPad b .rbx .rbp)
+  (.seq (macPad b .r14 .r13)
   (.seq (.block lengths)
-  (.seq absorbLengths
+  (.seq (absorbLengths b)
   (.seq (crypt x)
   (.seq (finalizeTo 640)
     (.block (compare ++ restore))))))))

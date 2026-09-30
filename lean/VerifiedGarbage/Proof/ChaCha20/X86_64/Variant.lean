@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Avx2.Xor
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Avx512.Xor
 import VerifiedGarbage.Impl.ChaCha20.X86_64.Callee
+import VerifiedGarbage.Impl.Poly1305.X86_64.Callee
 
 /-!
 # Implementations of `vg_chacha20_xor` on x86-64
@@ -13,6 +14,11 @@ interface `ChaCha20Xor` on x86-64 (`Variants/ChaCha20Xor/X86_64/`), and each
 caller (in `Generic/ChaCha20Xor/X86_64/`) is emitted once for each of them
 (see `TCB/Emit.lean`). Callers leave room for 16 bytes of stack below its
 return address (`stack_le`), and for two levels of calls (`depth_le`).
+
+An implementation also names the implementation of `vg_poly1305_blocks` for
+the same CPUs (`poly`), which ChaCha20-Poly1305's instance for it calls: so
+each instance needs the CPU features of both, and the one for AVX-512 uses
+the AVX2 one.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64
@@ -42,6 +48,10 @@ structure XorImpl where
   suffix : String
   /-- The CPU features its code requires, which its callers require too. -/
   features : List String
+  /-- The implementation of `vg_poly1305_blocks` that callers of this one
+  which also call `vg_poly1305_blocks` (ChaCha20-Poly1305) call: the one
+  for the same CPUs. -/
+  poly : Impl.Poly1305.X86_64.Blocks
 
 namespace XorImpl
 
@@ -65,6 +75,7 @@ def scalar : XorImpl where
   spSafe := Code.all_of_allInstrs (by lit_decide)
   suffix := ""
   features := []
+  poly := .scalar
 
 theorem avx2_ok : ∀ s, (xorStack 16).pre s → ∃ t s', Exec isa Impl.ChaCha20.X86_64.Callee.avx2.code s t s' ∧
     abiPreserved s s' ∧ (xorStack 16).post s s' :=
@@ -91,6 +102,7 @@ def avx2 : XorImpl where
   spSafe := Code.all_of_allInstrs (by lit_decide)
   suffix := "_avx2"
   features := ["avx", "avx2"]
+  poly := .avx2
 
 theorem avx512_ok : ∀ s, (xorStack 16).pre s → ∃ t s', Exec isa Impl.ChaCha20.X86_64.Callee.avx512.code s t s' ∧
     abiPreserved s s' ∧ (xorStack 16).post s s' :=
@@ -117,6 +129,7 @@ def avx512 : XorImpl where
   spSafe := Code.all_of_allInstrs (by lit_decide)
   suffix := "_avx512"
   features := ["avx", "avx512f"]
+  poly := .avx2
 
 end XorImpl
 
