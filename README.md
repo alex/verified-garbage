@@ -602,6 +602,76 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 </table>
 
+### Signatures
+
+<table>
+
+<tr>
+
+<th>Algorithm</th>
+
+<th>Spec landed</th>
+
+<th>x86-64</th>
+
+<th>ARM64</th>
+
+<th>ARMv7</th>
+
+<th>x86</th>
+
+</tr>
+
+<tr>
+
+<td>ML-DSA-44</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>ML-DSA-65</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
+<td>ML-DSA-87</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+</table>
+
 <!-- END ci/algorithms_table.py -->
 
 The tables are generated from the code by `ci/algorithms_table.py`.

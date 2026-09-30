@@ -1,0 +1,5 @@
+name = "NIST ACVP ML-DSA sigGen test vectors (FIPS 204): the internalProjection.json of ML-DSA-sigGen-FIPS204, which has each test case's inputs and expected results"
+directories = ["nist-acvp/ML-DSA-sigGen-FIPS204"]
+url = "https://raw.githubusercontent.com/usnistgov/ACVP-Server/975de31eb83d87039ec88934fdc47d8c312b892d/gen-val/json-files/ML-DSA-sigGen-FIPS204/internalProjection.json"
+sha256 = "72dcaf5f69853ca267ccd16af9cb40949786aca0fcfbf05d1ebeba132b93af22"
+retrieved = 2026-09-30
