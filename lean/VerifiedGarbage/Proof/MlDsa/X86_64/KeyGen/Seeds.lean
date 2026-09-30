@@ -145,11 +145,6 @@ structure K1 (p : Params) (σ s : State) : Prop where
   sb : bytesAt s.mem (pa s (sc oSB)) 64 = rho'Of p σ
   z : bytesAt s.mem (pa s (sc (oSB + 65))) 1 = [0]
 
-/-- A piece that writes `ws` keeps `K1`. -/
-def k1Chk (p : Params) (ws : List (Ptr × Nat)) : Bool :=
-  kcChk p ws && keepB (kgB p) ws (sc oHX) 128 && keepB (kgB p) ws (sc oSA) 32 && keepB (kgB p) ws (sc oSB) 64 &&
-    keepB (kgB p) ws (sc (oSB + 65)) 1
-
 theorem K1.step {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ) {s s' : State} (h : K1 p σ s)
     {ws : List (Ptr × Nat)} (hP : PPostB s s' ws) (hx : MX s' = MX s) (hc : k1Chk p ws = true) : K1 p σ s' := by
   simp only [k1Chk, Bool.and_eq_true] at hc
@@ -170,20 +165,32 @@ theorem rho_eq (p : Params) (σ : State) : rhoOf p σ = (hxOf p σ).take 32 := r
 theorem rho'_eq (p : Params) (σ : State) : rho'Of p σ = ((hxOf p σ).drop 32).take 64 := rfl
 theorem kOf_eq (p : Params) (σ : State) : kOf p σ = ((hxOf p σ).drop 96).take 32 := rfl
 
+/-- Two bytes, at `scratch + o` and `scratch + o + 1`. -/
+theorem setTwo_ok {p : Params} {s : State} (L : Lay kgR (kgW p) s) {o a b : Nat} (ha : a < 256) (hb : b < 256)
+    (h1 : inB (kgW p) (sc o) 1 = true) (h2 : inB (kgW p) (sc (o + 1)) 1 = true)
+    (hk : keepB (kgB p) [(sc (o + 1), 1)] (sc o) 1 = true) :
+    WP isa (.block (setB (sc o) a ++ setB (sc (o + 1)) b)) s fun s' =>
+      PPost s s' [(sc o, 1), (sc (o + 1), 1)] ∧ MX s' = MX s ∧
+      bytesAt s'.mem (pa s (sc o)) 2 = [BitVec.ofNat 8 a, BitVec.ofNat 8 b] := by
+  have hr : Reg.rbx ≠ .rax := by decide
+  have hc : ∀ w ∈ [(sc (o + 1), 1)], w.1.1 ∈ calleeSaved := fun w hw => by
+    rw [List.mem_singleton] at hw; subst hw; exact rbx_cs
+  refine WP.block_append (WP.mono (setB_okM L (q := sc o) (v := a) hr ha h1)
+    fun s₁ ⟨⟨hP₁, hb₁⟩, hx₁⟩ => WP.mono (setB_okM (L.post hP₁.b (kgB_bases p)) (q := sc (o + 1)) (v := b)
+      hr hb h2) fun s₂ ⟨⟨hP₂, hb₂⟩, hx₂⟩ => ⟨PPost.app hP₁ hP₂ hc, hx₂.trans hx₁, ?_⟩)
+  have L₁ := L.post hP₁.b (kgB_bases p)
+  have e1 : pa s₁ (sc o) = pa s (sc o) := hP₁.pa rbx_cs
+  have k1 := L₁.keepBytes hP₂.b hk
+  rw [hP₂.pa rbx_cs, e1] at k1
+  have e : pa s (sc o) + BitVec.ofNat 64 1 = pa s₁ (sc (o + 1)) := by rw [hP₁.pa rbx_cs]; exact off_add _ _ _
+  rw [show 2 = 1 + 1 from rfl, Proof.MlKem.bytesAt_add, k1, hb₁, e, hb₂]
+  rfl
+
 theorem setKL_ok {p : Params} {s : State} (L : Lay kgR (kgW p) s) {a b : Nat} (ha : a < 256) (hb : b < 256) :
     WP isa (.block (setB (sc oKL) a ++ setB (sc (oKL + 1)) b)) s fun s' =>
       PPost s s' [(sc oKL, 1), (sc (oKL + 1), 1)] ∧ MX s' = MX s ∧
-      bytesAt s'.mem (pa s (sc oKL)) 2 = [BitVec.ofNat 8 a, BitVec.ofNat 8 b] := by
-  refine WP.block_append (WP.mono (setB_okM L (q := sc oKL) (v := a) (by decide) ha (by lay))
-    fun s₁ ⟨⟨hP₁, hb₁⟩, hx₁⟩ => WP.mono (setB_okM (L.post hP₁.b (kgB_bases p)) (q := sc (oKL + 1)) (v := b)
-      (by decide) hb (by lay)) fun s₂ ⟨⟨hP₂, hb₂⟩, hx₂⟩ => ⟨PPost.app hP₁ hP₂ (by decide), hx₂.trans hx₁, ?_⟩)
-  have L₁ := L.post hP₁.b (kgB_bases p)
-  have e1 : pa s₁ (sc oKL) = pa s (sc oKL) := hP₁.pa rbx_cs
-  have k1 := L₁.keepBytes hP₂.b (p := sc oKL) (l := 1) (by lay)
-  rw [hP₂.pa rbx_cs, e1] at k1
-  have e : pa s (sc oKL) + BitVec.ofNat 64 1 = pa s₁ (sc (oKL + 1)) := by rw [hP₁.pa rbx_cs]; exact off_add _ _ _
-  rw [show 2 = 1 + 1 from rfl, Proof.MlKem.bytesAt_add, k1, hb₁, e, hb₂]
-  rfl
+      bytesAt s'.mem (pa s (sc oKL)) 2 = [BitVec.ofNat 8 a, BitVec.ofNat 8 b] :=
+  setTwo_ok L ha hb (by lay) (by lay) (by lay)
 
 theorem seeds_ok {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ) {s : State} (h : KC p σ s)
     (h15 : s.gpr .r15 = 1) : WP isa (seeds p) s fun s' => K1 p σ s' ∧ s'.gpr .r15 = 1 := by

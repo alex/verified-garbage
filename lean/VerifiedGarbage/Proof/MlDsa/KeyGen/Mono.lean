@@ -260,3 +260,21 @@ theorem keyGenInternal_mono {p : Params} {b b' : Bounds} (h : Bounds.Le b b') {�
   rfl
 
 end VG.Proof.MlDsa.KeyGen
+
+namespace VG.Proof.MlDsa.KeyGen
+
+open VG.Spec.MlDsa
+
+/-- Key generation fails within the least bounds if an entry of `Â` does. -/
+theorem keyGenInternal_none_A {p : Params} {ξ : List Byte} {r s : Nat} (hr : r < p.k) (hs : s < p.ℓ)
+    (h : rejNTTPoly minBounds.rejNTT (seedA (keyGenSeeds p ξ).1 r s) = none) : keyGenInternal p minBounds ξ = none := by
+  rw [keyGenInternal_eq, expandA_none ⟨r, hr, s, hs, h⟩]; rfl
+
+/-- Key generation fails within the least bounds if an entry of `s₁ ‖ s₂` does. -/
+theorem keyGenInternal_none_S {p : Params} {ξ : List Byte} {r : Nat} (hr : r < p.ℓ + p.k)
+    (h : rejBoundedPoly p.η minBounds.rejBounded (seedS (keyGenSeeds p ξ).2.1 r) = none) :
+    keyGenInternal p minBounds ξ = none := by
+  rw [keyGenInternal_eq, expandS_none ⟨r, hr, h⟩]
+  cases expandA p minBounds (keyGenSeeds p ξ).1 <;> rfl
+
+end VG.Proof.MlDsa.KeyGen

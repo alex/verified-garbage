@@ -40,6 +40,11 @@ structure KC (p : Params) (σ s : State) : Prop where
 /-- A piece that writes `ws` keeps `KC`. -/
 def kcChk (p : Params) (ws : List (Ptr × Nat)) : Bool := topChk (kgB p) ws && keepB (kgB p) ws (.rbp, 0) 32
 
+/-- A piece that writes `ws` keeps `K1`. -/
+def k1Chk (p : Params) (ws : List (Ptr × Nat)) : Bool :=
+  kcChk p ws && keepB (kgB p) ws (sc oHX) 128 && keepB (kgB p) ws (sc oSA) 32 && keepB (kgB p) ws (sc oSB) 64 &&
+    keepB (kgB p) ws (sc (oSB + 65)) 1
+
 section
 variable {p : Params} (hF : PFacts p) {σ : State} (hp : (kgK p).pre σ)
 include hF hp
@@ -117,7 +122,7 @@ namespace VG.Proof.MlDsa.X86_64.KeyGen
 syntax "layk" (" [" Lean.Parser.Tactic.simpLemma,* "]")? : tactic
 macro_rules
   | `(tactic| layk) => `(tactic| layk [])
-  | `(tactic| layk [$ls,*]) => `(tactic| lay [VG.Proof.MlDsa.X86_64.KeyGen.kcChk, VG.Proof.MlKem.X86_64.topChk, VG.Proof.MlKem.X86_64.copyChk,
+  | `(tactic| layk [$ls,*]) => `(tactic| lay [VG.Proof.MlDsa.X86_64.KeyGen.kcChk, VG.Proof.MlDsa.X86_64.KeyGen.k1Chk, VG.Proof.MlKem.X86_64.topChk, VG.Proof.MlKem.X86_64.copyChk,
       VG.Proof.MlKem.X86_64.hashChk, VG.Proof.MlKem.X86_64.pieceChk, VG.Proof.MlKem.X86_64.kabsChk,
       VG.Proof.MlKem.X86_64.ksqzChk, VG.Proof.MlKem.X86_64.kChk, VG.Proof.MlKem.X86_64.rdOk,
       VG.Proof.MlKem.X86_64.wrOk, List.range_succ, List.range_zero, List.all_append, List.nil_append,
