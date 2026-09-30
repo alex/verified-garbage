@@ -216,6 +216,7 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     simp only [Option.some.injEq] at h; subst h; rfl
   | andn d a b => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
   | bswap d => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
+  | vmovmskps d r => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
   | shift op d n =>
     simp only [exec, execShift] at h ⊢
     split at h <;> [skip; cases h]

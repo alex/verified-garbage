@@ -16,6 +16,7 @@ inductive VBinOp
   | vpaddd | vpaddq | vpxor | vpor | vpand | vpandn | vpshufb | vpmuludq
   | vpunpckldq | vpunpckhdq | vpunpcklqdq | vpunpckhqdq
   | vpaddw | vpsubw | vpsubd | vpmullw | vpmulhw | vpackssdw | vpunpcklwd | vpunpckhwd
+  | vpcmpgtd
   deriving DecidableEq, Repr
 
 /-- AVX2 shifts of each element by the count in the corresponding element
@@ -54,6 +55,12 @@ inductive VOp
   | vextracti128 (dst src : XReg) (sel : BitVec 8)
   /-- `vmovq xmm, r64` (`VEX.128.66.0F.W1 6E /r`) -/
   | vmovq (dst : XReg) (src : Reg)
+  /-- `vpermd ymm1, ymm2, ymm3` (`VEX.256.66.0F38.W0 36 /r`): the
+  doublewords of `ymm3` (`src`) at the indices in `ymm2` (`idx`). -/
+  | vpermd (dst idx src : XReg)
+  /-- `vpmovzxbd ymm1, xmm2` (`VEX.256.66.0F38.WIG 31 /r`): the low eight
+  bytes of `xmm2`, zero-extended to doublewords. -/
+  | vpmovzxbd (dst src : XReg)
   /-- `vzeroupper` -/
   | vzeroupper
   /-- `vsha512rnds2 ymm1, ymm2, xmm3` (`VEX.256.F2.0F38.W0 CB /r`, SHA512):
@@ -78,10 +85,10 @@ into `DEST[127:0]`, then of `SRC1[255:128]` and `SRC2[255:128]` into
 
 /-- The legacy SSE instruction whose operation `op` applies to each lane:
 VPADDD, VPADDQ, VPXOR, VPOR, VPAND, VPANDN, VPSHUFB, VPMULUDQ,
-VPUNPCK{L,H}{DQ,QDQ}, VPADDW, VPSUBW, VPSUBD, VPMULLW, VPMULHW, VPACKSSDW
-and VPUNPCK{L,H}WD are, lane by lane, PADDD, PADDQ, PXOR, POR, PAND, PANDN,
-PSHUFB, PMULUDQ, PUNPCK{L,H}{DQ,QDQ}, PADDW, PSUBW, PSUBD, PMULLW, PMULHW,
-PACKSSDW and PUNPCK{L,H}WD (SDM Vol. 2, each instruction's "VEX.256 encoded
+VPUNPCK{L,H}{DQ,QDQ}, VPADDW, VPSUBW, VPSUBD, VPMULLW, VPMULHW, VPACKSSDW,
+VPUNPCK{L,H}WD and VPCMPGTD are, lane by lane, PADDD, PADDQ, PXOR, POR, PAND,
+PANDN, PSHUFB, PMULUDQ, PUNPCK{L,H}{DQ,QDQ}, PADDW, PSUBW, PSUBD, PMULLW,
+PMULHW, PACKSSDW, PUNPCK{L,H}WD and PCMPGTD (SDM Vol. 2, each instruction's "VEX.256 encoded
 version" pseudocode, with `SRC1` in place of the destination; VPACKSSDW
 and VPUNPCK{L,H}WD pack and interleave within each 128-bit lane). -/
 def VBinOp.sse : VBinOp → XBinOp
@@ -91,7 +98,7 @@ def VBinOp.sse : VBinOp → XBinOp
   | .vpunpcklqdq => .punpcklqdq | .vpunpckhqdq => .punpckhqdq
   | .vpaddw => .paddw | .vpsubw => .psubw | .vpsubd => .psubd | .vpmullw => .pmullw
   | .vpmulhw => .pmulhw | .vpackssdw => .packssdw | .vpunpcklwd => .punpcklwd
-  | .vpunpckhwd => .punpckhwd
+  | .vpunpckhwd => .punpckhwd | .vpcmpgtd => .pcmpgtd
 
 /-- SDM Vol. 2, "VPBLENDD", for one lane (`imm` holding that lane's four
 selector bits): `IF (imm8[i]) THEN DEST[32i+31:32i] := SRC2[32i+31:32i]
@@ -223,6 +230,34 @@ def perm2Lanes (a b : Nat → BitVec 128) (sel : BitVec 8) (j : Nat) : BitVec 12
     let k := (sel.extractLsb' (4 * j) 2).toNat
     if k < 2 then a (k % 2) else b (k % 2)
 
+/-- Doubleword `i` (bits `32i+31:32i`) of a 256-bit value. -/
+def dword256 (x : BitVec 256) (i : Nat) : BitVec 32 := x.extractLsb' (32 * i) 32
+
+/-- SDM Vol. 2, "VPERMD/VPERMW", VEX.256 encoded version: `DEST[31:0] :=
+(SRC2[255:0] >> (SRC1[2:0] * 32))[31:0]; DEST[63:32] := (SRC2[255:0] >>
+(SRC1[34:32] * 32))[31:0]; …; DEST[255:224] := (SRC2[255:0] >>
+(SRC1[226:224] * 32))[31:0]`: doubleword `j` of `DEST` is the doubleword of
+`SRC2` at the index in bits 2:0 of doubleword `j` of `SRC1`. -/
+def permDwords (idx src : BitVec 256) : BitVec 256 :=
+  let d (j : Nat) := dword256 src ((dword256 idx j).extractLsb' 0 3).toNat
+  d 7 ++ d 6 ++ d 5 ++ d 4 ++ d 3 ++ d 2 ++ d 1 ++ d 0
+
+/-- SDM Vol. 2, "PMOVZX", VEX.256 encoded VPMOVZXBD: `Packed_Zero_Extend_
+BYTE_to_DWORD(DEST[127:0], SRC[31:0]); Packed_Zero_Extend_BYTE_to_DWORD(
+DEST[255:128], SRC[63:32])`, where `Packed_Zero_Extend_BYTE_to_DWORD`
+zero-extends each of the four bytes of its source to a doubleword of its
+destination, in order: doubleword `j` of `DEST` is byte `j` of `SRC`,
+zero-extended. -/
+def zextBytesDwords (x : BitVec 128) : BitVec 256 :=
+  let d (j : Nat) : BitVec 32 := (byte x j).setWidth 32
+  d 7 ++ d 6 ++ d 5 ++ d 4 ++ d 3 ++ d 2 ++ d 1 ++ d 0
+
+/-- The sign bits of the eight doublewords of a 256-bit value (bit `j` is
+bit `32j+31`), for VMOVMSKPS (see `exec` in `Isa.lean`). -/
+def signsDwords (x : BitVec 256) : BitVec 8 :=
+  let b (j : Nat) : BitVec 1 := BitVec.ofBool (x.getLsbD (32 * j + 31))
+  b 7 ++ b 6 ++ b 5 ++ b 4 ++ b 3 ++ b 2 ++ b 1 ++ b 0
+
 /-- Semantics of an AVX instruction that writes only vector registers. SDM
 Vol. 2 (no flags are affected; `VEX.128` versions zero `DEST[MAXVL-1:128]`):
 
@@ -245,6 +280,8 @@ Vol. 2 (no flags are affected; `VEX.128` versions zero `DEST[MAXVL-1:128]`):
 * VEXTRACTI128 (register destination): `CASE (imm8[0]) OF 0: DEST[127:0]
   := SRC1[127:0]; 1: DEST[127:0] := SRC1[255:128]; DEST[MAXVL-1:128] := 0`.
 * VMOVQ xmm, r64: `DEST[63:0] := SRC[63:0]; DEST[MAXVL-1:64] := 0`.
+* VPERMD: see `permDwords`. VPMOVZXBD: see `zextBytesDwords` (both
+  `DEST[MAXVL-1:256] := 0`).
 * VZEROUPPER: in 64-bit mode, `YMM0[MAXVL-1:128] := 0` … `YMM15[MAXVL-1:128]
   := 0` (bits 255:128 and 511:256 of each).
 * VSHA512RNDS2, VSHA512MSG1 and VSHA512MSG2: see `sha512Rnds2`,
@@ -279,6 +316,12 @@ def VOp.exec : VOp → State → State
     else s.setV .l256 d (s.xmm b) (s.lane a 1)
   | .vextracti128 d r n, s => s.setV .l128 d (s.lane r (if n.getLsbD 0 then 1 else 0)) 0
   | .vmovq d r, s => s.setV .l128 d ((0 : BitVec 64) ++ s.gpr r) 0
+  | .vpermd d i r, s =>
+    let x := permDwords (s.ymm i) (s.ymm r)
+    s.setV .l256 d (x.extractLsb' 0 128) (x.extractLsb' 128 128)
+  | .vpmovzxbd d r, s =>
+    let x := zextBytesDwords (s.xmm r)
+    s.setV .l256 d (x.extractLsb' 0 128) (x.extractLsb' 128 128)
   | .vzeroupper, s => { s with ymmHi := fun _ => 0, zmmHi := fun _ => 0 }
   | .vsha512rnds2 d a b, s =>
     let x := sha512Rnds2 (s.ymm d) (s.ymm a) (s.xmm b)

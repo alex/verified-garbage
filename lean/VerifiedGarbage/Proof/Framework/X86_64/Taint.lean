@@ -231,12 +231,15 @@ def step (τ : T) : Instr → Option T
   | .movzx8 d m =>
     if memPub τ m then some { τ with regs := set τ d false, bases := kill τ d, lo := .empty } else none
   -- The SSE registers are not tracked: their values are always secret, and
-  -- no modelled instruction moves them into a general-purpose register or
-  -- the flags.
+  -- only `vmovmskps` moves them into a general-purpose register (which it
+  -- makes secret), none into the flags.
   | .movdquLoad _ m => if memPub τ m then some τ else none
   | .movdquStore m _ => storeStep τ m 16 false
   | .xop _ | .vop _ => some τ
   | .vmovdquLoad _ _ m | .vbroadcasti128 _ m => if memPub τ m then some τ else none
+  -- `vmovmskps` moves bits of a vector register, which is secret, into a
+  -- general-purpose register, and changes no flag.
+  | .vmovmskps d _ => some { τ with regs := set τ d false, bases := kill τ d, lo := .empty }
   | .vmovdquStore .l128 m _ => storeStep τ m 16 false
   | .vmovdquStore .l256 m _ => storeStep τ m 32 false
   | .zop _ => some τ
@@ -707,7 +710,7 @@ write two). -/
 def dstOf : Instr → Option Reg
   | .mov d _ | .mov32 d _ | .alu _ d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
   | .rorx32 d .. | .andn32 d .. | .rorx d .. | .andn d .. | .movzx8 d _ | .bswap d | .shift _ d _
-  | .movImm64 d _ | .adcx d _ | .adox d _ => some d
+  | .movImm64 d _ | .adcx d _ | .adox d _ | .vmovmskps d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ | .vop _
   | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .zop _ | .vmovdqu32Load ..
   | .vmovdqu32Store .. | .vbroadcasti32x4 .. | .stmxcsr _ | .ldmxcsr _ | .lfence | .mul _
@@ -807,6 +810,9 @@ theorem exec_nonstore {i : Instr} {d : Reg} (hd : dstOf i = some d) {s s' : Stat
     simp only [exec, Option.map_eq_some_iff] at h
     obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
   case bswap =>
+    simp only [exec, Option.some.injEq] at h
+    subst h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
+  case vmovmskps r =>
     simp only [exec, Option.some.injEq] at h
     subst h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
   case shift op _ n =>
@@ -1292,6 +1298,14 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     simp only [exec, Option.map_eq_some_iff] at e₁ e₂
     obtain ⟨v₁, -, rfl⟩ := e₁; obtain ⟨v₂, -, rfl⟩ := e₂
     exact ⟨regs_set (p := false) ha.rf.1 (fun h => by cases h), ha.rf.2⟩
+  | vmovmskps d r =>
+    simp only [step, Option.some.injEq] at hs
+    subst hs
+    refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl (fun _ h => h) rfl⟩
+    simp only [exec, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    exact ⟨regs_set (p := false) ha.rf.1 (fun h => by cases h), fun hf => by
+      simpa only [setReg_cf, setReg_zf, setReg_sf, setReg_of] using ha.rf.2 hf⟩
   | bswap d =>
     simp only [step, Option.some.injEq] at hs
     subst hs
@@ -1589,6 +1603,7 @@ def stepK (τ : T) : Instr → Option T
   | .movdquStore m _ => storeStepK τ m 16 false
   | .xop _ | .vop _ => some τ
   | .vmovdquLoad _ _ m | .vbroadcasti128 _ m => bif memPub τ m then some τ else none
+  | .vmovmskps d _ => some { τ with regs := setK τ d false, bases := killK τ d, lo := .empty }
   | .vmovdquStore .l128 m _ => storeStepK τ m 16 false
   | .vmovdquStore .l256 m _ => storeStepK τ m 32 false
   | .zop _ => some τ

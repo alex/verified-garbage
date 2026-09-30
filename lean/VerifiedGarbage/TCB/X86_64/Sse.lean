@@ -16,7 +16,7 @@ inductive XBinOp
   | movdqa | paddd | pxor | por | punpckldq | punpckhdq | punpcklqdq | punpckhqdq
   | pshufb | sha256msg1 | sha256msg2 | sha1msg1 | sha1msg2 | sha1nexte
   | pand | pandn | paddq | pmuludq
-  | paddw | psubw | psubd | pmullw | pmulhw | packssdw | punpcklwd | punpckhwd
+  | paddw | psubw | psubd | pmullw | pmulhw | packssdw | punpcklwd | punpckhwd | pcmpgtd
   | aesenc | aesenclast | aesdec | aesdeclast | aesimc
   deriving DecidableEq, Repr
 
@@ -300,6 +300,10 @@ bits above 127 unmodified; no flags are affected):
 * PUNPCKHWD (`INTERLEAVE_HIGH_WORDS`): the same, from `SRC1[127:64]` and
   `SRC2[127:64]`: `DEST[15:0] := SRC1[79:64]; DEST[31:16] := SRC2[79:64];
   …; DEST[127:112] := SRC2[127:112]`.
+* PCMPGTD: `IF DEST[31:0] > SRC[31:0] THEN DEST[31:0] := FFFFFFFFH; ELSE
+  DEST[31:0] := 0; FI;` and likewise for doublewords 1–3, where `>` compares
+  signed integers ("PCMPGTB/PCMPGTW/PCMPGTD/PCMPGTQ—Compare Packed Signed
+  Integers for Greater Than": "a signed compare").
 * AESENC: `STATE := SRC1; RoundKey := SRC2; STATE := ShiftRows(STATE);
   STATE := SubBytes(STATE); STATE := MixColumns(STATE); DEST[127:0] :=
   STATE XOR RoundKey`.
@@ -353,6 +357,9 @@ def XBinOp.eval : XBinOp → BitVec 128 → BitVec 128 → BitVec 128
   | .punpcklwd, a, b => ofWords fun i => if i % 2 = 0 then word a (i / 2) else word b (i / 2)
   | .punpckhwd, a, b =>
     ofWords fun i => if i % 2 = 0 then word a (4 + i / 2) else word b (4 + i / 2)
+  | .pcmpgtd, a, b =>
+    let gt (i : Nat) : BitVec 32 := if (dword b i).slt (dword a i) then -1 else 0
+    ofDwords (gt 0) (gt 1) (gt 2) (gt 3)
   | .aesenc, a, b => aesMixColumns (aesMapBytes aesSbox (aesShiftRows a)) ^^^ b
   | .aesenclast, a, b => aesMapBytes aesSbox (aesShiftRows a) ^^^ b
   | .aesdec, a, b => aesInvMixColumns (aesMapBytes aesInvSbox (aesInvShiftRows a)) ^^^ b

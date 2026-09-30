@@ -81,7 +81,7 @@ def XBinOp.name : XBinOp → String
   | .pand => "pand" | .pandn => "pandn" | .paddq => "paddq" | .pmuludq => "pmuludq"
   | .paddw => "paddw" | .psubw => "psubw" | .psubd => "psubd" | .pmullw => "pmullw"
   | .pmulhw => "pmulhw" | .packssdw => "packssdw" | .punpcklwd => "punpcklwd"
-  | .punpckhwd => "punpckhwd"
+  | .punpckhwd => "punpckhwd" | .pcmpgtd => "pcmpgtd"
   | .aesenc => "aesenc" | .aesenclast => "aesenclast" | .aesdec => "aesdec"
   | .aesdeclast => "aesdeclast" | .aesimc => "aesimc"
 
@@ -108,7 +108,7 @@ def VBinOp.name : VBinOp → String
   | .vpunpcklqdq => "vpunpcklqdq" | .vpunpckhqdq => "vpunpckhqdq"
   | .vpaddw => "vpaddw" | .vpsubw => "vpsubw" | .vpsubd => "vpsubd" | .vpmullw => "vpmullw"
   | .vpmulhw => "vpmulhw" | .vpackssdw => "vpackssdw" | .vpunpcklwd => "vpunpcklwd"
-  | .vpunpckhwd => "vpunpckhwd"
+  | .vpunpckhwd => "vpunpckhwd" | .vpcmpgtd => "vpcmpgtd"
 
 def VVarOp.name : VVarOp → String
   | .vpsllvd => "vpsllvd" | .vpsrlvd => "vpsrlvd" | .vpsllvq => "vpsllvq" | .vpsrlvq => "vpsrlvq"
@@ -128,6 +128,8 @@ def VOp.asm : VOp → String
   | .vinserti128 d a b n => s!"vinserti128 {d.yname}, {a.yname}, {b.name}, {n.toNat}"
   | .vextracti128 d r n => s!"vextracti128 {d.name}, {r.yname}, {n.toNat}"
   | .vmovq d r => s!"vmovq {d.name}, {r.name}"
+  | .vpermd d i r => s!"vpermd {d.yname}, {i.yname}, {r.yname}"
+  | .vpmovzxbd d r => s!"vpmovzxbd {d.yname}, {r.name}"
   | .vzeroupper => "vzeroupper"
   | .vsha512rnds2 d a b => s!"vsha512rnds2 {d.yname}, {a.yname}, {b.name}"
   | .vsha512msg1 d r => s!"vsha512msg1 {d.yname}, {r.name}"
@@ -175,6 +177,7 @@ def Instr.asm : Instr → List String
   | .andn32 d a b => [s!"andn {d.name32}, {a.name32}, {b.name32}"]
   | .rorx d r n => [s!"rorx {d.name}, {r.name}, {n}"]
   | .andn d a b => [s!"andn {d.name}, {a.name}, {b.name}"]
+  | .vmovmskps d r => [s!"vmovmskps {d.name32}, {r.yname}"]
   | .movzx8 d m => [s!"movzx {d.name32}, {m.str8}"]
   | .store8 m r => [s!"mov {m.str8}, {r.name8}"]
   | .bswap d => [s!"bswap {d.name}"]
