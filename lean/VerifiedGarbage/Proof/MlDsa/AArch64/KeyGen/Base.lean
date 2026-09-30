@@ -172,6 +172,14 @@ abbrev bases : List Reg := [.x25, .x26, .x27, .x28]
 
 theorem bases_pres : ∀ r ∈ bases, r ∈ preserved ∧ r ≠ .x30 := by decide
 
+/-- The callee-saved registers the functions never write (all but `x24`, and
+`x30`, which calls overwrite). -/
+abbrev keptRegs : List Reg := [.x19, .x20, .x21, .x22, .x23, .x25, .x26, .x27, .x28, .x29]
+
+theorem kept_pres : ∀ r ∈ keptRegs, r ∈ preserved ∧ r ≠ .x30 := by decide
+
+theorem bases_kept : ∀ r ∈ bases, r ∈ keptRegs := by decide
+
 /-- What a call leaves: the permissions, the stack pointer and the
 callee-saved registers but `x30`, and memory changed only within `W` and the
 `S` bytes of stack below the stack pointer. -/
@@ -182,27 +190,31 @@ structure Post (S : Nat) (s s' : State) (W : List Region) : Prop where
   cs : ∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s.gpr r
   frame : Frame (W ++ [below s.sp S]) s.mem s'.mem
 
-/-- What a piece of code leaves: the permissions, the registers `bases` and
-the stack pointer, and memory but within `W` and the stack. -/
+/-- What a piece of code leaves: the permissions, the registers `keptRegs`
+(among them `bases`) and the stack pointer, and memory but within `W` and the
+stack. -/
 structure PostB (S : Nat) (s s' : State) (W : List Region) : Prop where
   rd : s'.rd = s.rd
   wr : s'.wr = s.wr
   sp : s'.sp = s.sp
-  bs : ∀ r ∈ bases, s'.gpr r = s.gpr r
+  cs : ∀ r ∈ keptRegs, s'.gpr r = s.gpr r
   frame : Frame (W ++ [below s.sp S]) s.mem s'.mem
 
 section
 variable {S : Nat}
 
 theorem Post.b {s s' : State} {W : List Region} (h : Post S s s' W) : PostB S s s' W :=
-  ⟨h.rd, h.wr, h.sp, fun r hr => h.cs r (bases_pres r hr).1 (bases_pres r hr).2, h.frame⟩
+  ⟨h.rd, h.wr, h.sp, fun r hr => h.cs r (kept_pres r hr).1 (kept_pres r hr).2, h.frame⟩
+
+theorem PostB.bs {s s' : State} {W : List Region} (h : PostB S s s' W) : ∀ r ∈ bases, s'.gpr r = s.gpr r :=
+  fun r hr => h.cs r (bases_kept r hr)
 
 theorem PostB.refl (s : State) (W : List Region) : PostB S s s W :=
   ⟨rfl, rfl, rfl, fun _ _ => rfl, Frame.refl _ _⟩
 
 theorem PostB.trans {s s₁ s₂ : State} {W₁ W₂ W : List Region} (h₁ : PostB S s s₁ W₁) (h₂ : PostB S s₁ s₂ W₂)
     (hw₁ : ∀ r ∈ W₁, r ∈ W) (hw₂ : ∀ r ∈ W₂, r ∈ W) : PostB S s s₂ W := by
-  refine ⟨h₂.rd.trans h₁.rd, h₂.wr.trans h₁.wr, h₂.sp.trans h₁.sp, fun r hr => (h₂.bs r hr).trans (h₁.bs r hr), ?_⟩
+  refine ⟨h₂.rd.trans h₁.rd, h₂.wr.trans h₁.wr, h₂.sp.trans h₁.sp, fun r hr => (h₂.cs r hr).trans (h₁.cs r hr), ?_⟩
   have f₂ := h₂.frame
   rw [h₁.sp] at f₂
   refine (h₁.frame.mono fun r hr => ?_).trans (f₂.mono fun r hr => ?_)
@@ -213,7 +225,7 @@ theorem PostB.trans {s s₁ s₂ : State} {W₁ W₂ W : List Region} (h₁ : Po
 
 /-- A block that keeps the registers `bases` and the permissions, and writes within `W`. -/
 theorem postB_of_keep {rs : List Reg} {s s' : State} {W : List Region} (k : Keep rs s s')
-    (hrs : ∀ r ∈ bases, r ∉ rs) (hf : Frame W s.mem s'.mem) : PostB S s s' W :=
+    (hrs : ∀ r ∈ keptRegs, r ∉ rs) (hf : Frame W s.mem s'.mem) : PostB S s s' W :=
   ⟨k.rd, k.wr, k.sp, fun r hr => k.gpr r (hrs r hr), hf.mono fun _ hr => List.mem_append_left _ hr⟩
 
 theorem PostB.pa {s s' : State} {W : List Region} (hP : PostB S s s' W) {p : Ptr} (h : p.1 ∈ bases) :
