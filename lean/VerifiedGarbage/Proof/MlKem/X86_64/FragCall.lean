@@ -114,6 +114,34 @@ theorem stk_disj24 (s : State) {R : Region} (h : (below (s.gpr .rsp) 32).Disjoin
   rw [show x - (s.gpr .rsp - BitVec.ofNat 64 32) = x - (s.gpr .rsp - 8 - BitVec.ofNat 64 24) by bv_omega]
   omega
 
+/-- `ret_disj` for a caller with 24 bytes of stack. -/
+theorem ret_disj24 (s : State) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint R) :
+    (retR s.callEntry).Disjoint R := by
+  refine h.sub_left ?_
+  simp only [retR, State.callEntry_rsp]
+  intro x hx
+  simp only [Region.Contains] at hx ⊢
+  rw [show x - (s.gpr .rsp - BitVec.ofNat 64 24) = (x - (s.gpr .rsp - 8)) + 16 by bv_omega, BitVec.toNat_add]
+  have : (16 : BitVec 64).toNat = 16 := rfl
+  omega
+
+/-- `stk_disj` for a caller with 24 bytes of stack. -/
+theorem stk_disj24' (s : State) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint R) :
+    (below (s.callEntry.gpr .rsp) 16).Disjoint R := by
+  refine h.sub_left ?_
+  simp only [State.callEntry_rsp]
+  intro x hx
+  simp only [Region.Contains] at hx ⊢
+  rw [show x - (s.gpr .rsp - BitVec.ofNat 64 24) = x - (s.gpr .rsp - 8 - BitVec.ofNat 64 16) by bv_omega]
+  omega
+
+theorem k16_24 (s : State) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint R) : (below (s.gpr .rsp) 16).Disjoint R :=
+  h.sub_left (below_sub (by omega) (by omega))
+
+theorem ce_bytesAt24 (s : State) {p : Addr} {n : Nat} (hn : n < 2 ^ 64)
+    (h : (below (s.gpr .rsp) 24).Disjoint ⟨p, n⟩) : bytesAt s.callEntry.mem p n = bytesAt s.mem p n :=
+  callEntry_bytesAt s hn (k16_24 s h)
+
 theorem k16 (s : State) {R : Region} (h : (below (s.gpr .rsp) 32).Disjoint R) : (below (s.gpr .rsp) 16).Disjoint R :=
   h.sub_left (below_sub (by omega) (by omega))
 

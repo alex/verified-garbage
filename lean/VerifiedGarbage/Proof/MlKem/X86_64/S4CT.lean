@@ -160,8 +160,8 @@ theorem call_ct {X : State → Mem → Prop} {K : Nat} (hK : K < 4)
       simp only [sampleK, State.withRegions_gpr, State.withRegions_mem, State.callEntry_rsp,
         ce_gpr' _ (by decide : Reg.rdi ≠ .rsp), ce_gpr' _ (by decide : Reg.rsi ≠ .rsp),
         ce_gpr' _ (by decide : Reg.rdx ≠ .rsp), h₁.rdi, h₂.rdi, h₁.rsi, h₂.rsi, h₁.rdx, h₂.rdx]
-      rw [ce_bytesAt s₁ (n := 34) (by decide) (argK_kS (pre_of p₁) hK h₁),
-        ce_bytesAt s₂ (n := 34) (by decide) (argK_kS (pre_of p₂) hK h₂),
+      rw [ce_bytesAt24 s₁ (n := 34) (by decide) (argK_kS (pre_of p₁) hK h₁),
+        ce_bytesAt24 s₂ (n := 34) (by decide) (argK_kS (pre_of p₂) hK h₂),
         seed_bytes (pre_of p₁) hK h₁.pinv.env.frame, seed_bytes (pre_of p₂) hK h₂.pinv.env.frame, pub_B hq hK]
       simp only [pub_sd hq, pub_aP hq, at', pub_scr hq, hsp, and_self])
 

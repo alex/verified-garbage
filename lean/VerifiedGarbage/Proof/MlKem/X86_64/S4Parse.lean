@@ -302,7 +302,7 @@ theorem argK_pre {X : Mem → Prop} {K : Nat} (hK : K < 4) {s : State} (h : ArgI
     (hp.sd_a.sub_left (Offset.sub_base _ (by omega))).sub_right (sub_poly hK),
     (hp.sd_scr.sub_left (Offset.sub_base _ (by omega))).sub_right (sub_scr (by simp only [oScalar]; omega)),
     (hp.a_scr.sub_left (sub_poly hK)).sub_right (sub_scr (by simp only [oScalar]; omega)),
-    ret_disj s kS, ret_disj s kA, ret_disj s kZ, stk_disj s kS, stk_disj s kA, stk_disj s kZ,
+    ret_disj24 s kS, ret_disj24 s kA, ret_disj24 s kZ, stk_disj24' s kS, stk_disj24' s kA, stk_disj24' s kZ,
     scr6144_lt hp⟩
 
 /-- After the call of `vg_mlkem_sample_ntt` on seed `K`. -/
@@ -322,7 +322,7 @@ theorem callK_ok {X : Mem → Prop} {K : Nat} (hK : K < 4)
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> decide)) hf hX
   simp only [sampleK, State.withRegions_gpr, State.withRegions_mem, ce_gpr' s (by decide : Reg.rdi ≠ .rsp),
-    ce_gpr' s (by decide : Reg.rsi ≠ .rsp), h.rdi, h.rsi, hm₃, ce_bytesAt s (n := 34) (by decide) (argK_kS hp hK h),
+    ce_gpr' s (by decide : Reg.rsi ≠ .rsp), h.rdi, h.rsi, hm₃, ce_bytesAt24 s (n := 34) (by decide) (argK_kS hp hK h),
     seed_bytes hp hK h.pinv.env.frame] at hpost
   rw [hg₃ .rax (by decide)] at hpost
   exact ⟨h₃, hpost.1, hpost.2⟩

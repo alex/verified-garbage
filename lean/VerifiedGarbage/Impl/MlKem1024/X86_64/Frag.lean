@@ -29,8 +29,11 @@ def oCT4 : Nat := oP 33
 def sampleIJ4 (i j : Nat) : Prog isa :=
   .seq (.block (setB (sc (oSB + 32)) j ++ setB (sc (oSB + 33)) i)) (sampleAt (aS4 i j))
 
-/-- The sixteen entries of `Â`, row by row (entry `e = 4i + j`). -/
-def samples4 : Prog isa := seqR (fun e => sampleIJ4 (e / 4) (e % 4)) 0 16
+/-- The sixteen entries of `Â`, row by row (entry `e = 4i + j`), four at a
+time, with polynomials 35–42 as the working space. -/
+def samples4 (c : Callee4) : Prog isa :=
+  .seq (quad c 4 0 (aS4 0 0) (pS 35)) (.seq (quad c 4 4 (aS4 1 0) (pS 35))
+    (.seq (quad c 4 8 (aS4 2 0) (pS 35)) (quad c 4 12 (aS4 3 0) (pS 35))))
 
 /-- `f[0] ×_T g[0] + ⋯ + f[3] ×_T g[3]` to polynomial 15 (with 16 for the products). -/
 def dot4At (f g : Nat → Ptr) : Prog isa :=

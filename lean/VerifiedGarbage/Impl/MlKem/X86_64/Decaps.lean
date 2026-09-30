@@ -75,7 +75,7 @@ def select : Prog isa :=
 end Decaps
 
 open Decaps in
-def decaps : Prog isa :=
-  .seq (.block pro) (.seq decrypt (.seq hashes (.seq (encrypt (.rbp, 1152)) (.seq select (.block topEpi)))))
+def decaps (c : Callee4) : Prog isa :=
+  .seq (.block pro) (.seq decrypt (.seq hashes (.seq (encrypt c (.rbp, 1152)) (.seq select (.block topEpi)))))
 
 end VG.Impl.MlKem.X86_64
