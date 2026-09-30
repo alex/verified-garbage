@@ -16,9 +16,9 @@ space at 200, the saved registers at 840; the recomputed commitment hash
 `c̃′` at 1024 (`oCT`, at most 64 bytes); the seed of `RejNTTPoly` at 1152
 (`oSA`, 34 bytes); the working space of the primitives at 2048 (2048
 bytes); and polynomials of 1024 bytes from 4096 (`oP j`): `Â[r, s]` is
-polynomial `rℓ + s`, and after them come the hint `h` (`k` polynomials),
-`z` (`ℓ`), `c`, two temporaries, `w′`, `w′₁` and `w1Encode(w′₁)` (at most
-1024 bytes).
+polynomial `rℓ + s`, and after them come `w1Encode(w′₁)` (at most 1024
+bytes), the hint `h` (`k` polynomials), `z` (`ℓ`), `c`, two temporaries, `w′`
+and `w′₁`.
 
 1. `h ← HintBitUnpack` of the last `ω + k` bytes of `σ`
    (`vg_mldsa_hint_bit_unpack`); `x24` is its result, and it returns 0 at
@@ -72,15 +72,15 @@ def oCT : Nat := 1024
 /-- The polynomial `j` after `Â`. -/
 abbrev vP (j : Nat) : Ptr := sc (oP (p.k * p.ℓ + j))
 
-abbrev hP (r : Nat) : Ptr := vP p r
-abbrev zP (i : Nat) : Ptr := vP p (p.k + i)
-abbrev cP : Ptr := vP p (p.k + p.ℓ)
-abbrev tmP : Ptr := vP p (p.k + p.ℓ + 1)
-abbrev tm2P : Ptr := vP p (p.k + p.ℓ + 2)
-abbrev wP : Ptr := vP p (p.k + p.ℓ + 3)
-abbrev w1P : Ptr := vP p (p.k + p.ℓ + 4)
-/-- `w1Encode(w′₁)`. -/
-abbrev bP : Ptr := vP p (p.k + p.ℓ + 5)
+/-- `w1Encode(w′₁)` (at most 1024 bytes), first, so that its offset is below 2¹⁶, which the sponge takes. -/
+abbrev bP : Ptr := vP p 0
+abbrev hP (r : Nat) : Ptr := vP p (1 + r)
+abbrev zP (i : Nat) : Ptr := vP p (1 + p.k + i)
+abbrev cP : Ptr := vP p (1 + p.k + p.ℓ)
+abbrev tmP : Ptr := vP p (1 + p.k + p.ℓ + 1)
+abbrev tm2P : Ptr := vP p (1 + p.k + p.ℓ + 2)
+abbrev wP : Ptr := vP p (1 + p.k + p.ℓ + 3)
+abbrev w1P : Ptr := vP p (1 + p.k + p.ℓ + 4)
 
 end
 

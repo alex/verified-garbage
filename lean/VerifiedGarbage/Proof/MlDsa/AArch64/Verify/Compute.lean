@@ -20,7 +20,7 @@ open VG.Proof.MlDsa.KeyGen (ifp ifn)
 open VG.Proof.MlDsa.Verify (zHat dotAcc t1Hat wRow w1Row vT1 aSeed)
 
 /-- Where row `r` of `w1Encode(w′₁)` goes. -/
-abbrev rowP (p : Params) (r : Nat) : Ptr := sc (oP (p.k * p.ℓ + (p.k + p.ℓ + 5)) + w1Len p * r)
+abbrev rowP (p : Params) (r : Nat) : Ptr := sc (oP (p.k * p.ℓ + 0) + w1Len p * r)
 
 /-- What the samplers gave: `q` whether they succeeded, `Â = A'` and `c = c0` if so. -/
 def Gd (p : Params) (σ : State) (A' : Nat → Nat → Poly) (c0 : Poly) (q : Bool) : Prop :=
@@ -201,10 +201,10 @@ theorem rowI_two {p : Params} (hF : VFacts p) {S r : Nat} {f : State → List (V
 
 theorem hintRow_pa (p : Params) (s : State) (r : Nat) :
     pa s (hP p r) = pa s (hP p 0) + BitVec.ofNat 64 (1024 * r) := by
-  simp only [pa, oP]
-  rw [BitVec.add_assoc, ← BitVec.ofNat_add]
-  congr 2
-  omega
+  have e : oP (p.k * p.ℓ + (1 + r)) = oP (p.k * p.ℓ + (1 + 0)) + 1024 * r := by simp only [oP]; omega
+  rw [show pa s (hP p r) = s.gpr .x28 + BitVec.ofNat 64 (oP (p.k * p.ℓ + (1 + r))) from rfl,
+    show pa s (hP p 0) = s.gpr .x28 + BitVec.ofNat 64 (oP (p.k * p.ℓ + (1 + 0))) from rfl, e, BitVec.ofNat_add,
+    BitVec.add_assoc]
 
 /-- The temporaries of a row, facts about them. -/
 abbrev F1 (p : Params) (r j : Nat) (σ : State) (_ : List (Vector Bool Spec.MlDsa.n)) (A' : Nat → Nat → Poly)

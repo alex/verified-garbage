@@ -181,7 +181,7 @@ macro_rules
       set_option linter.unusedSimpArgs false in
       try simp only [VG.Impl.MlDsa.AArch64.KeyGen.oP, VG.Impl.MlDsa.AArch64.KeyGen.oSA,
         VG.Impl.MlDsa.AArch64.KeyGen.oSS, VG.Impl.MlDsa.AArch64.KeyGen.SV, VG.Impl.MlDsa.AArch64.Verify.oCT,
-        VG.Impl.MlDsa.AArch64.Verify.oHint, $ls,*]
+        VG.Impl.MlDsa.AArch64.Verify.oHint, or_true, true_or, and_true, true_and, $ls,*]
       and_intros <;> omega_arith))
 
 /-! ## What holds throughout -/
