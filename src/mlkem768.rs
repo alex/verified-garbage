@@ -22,15 +22,15 @@
 //! reached with probability less than 2⁻²⁶¹; the operation then fails with
 //! [`Error::SampleBound`].
 //!
-//! Encapsulation samples the matrix `Â` from the key's `ρ`, and hashes the
-//! key, every time. To encapsulate to a key many times,
-//! [`EncapsulationKey768::expand`] computes them once: an
-//! [`ExpandedEncapsulationKey768`] keeps them, and on x86-64 its
-//! encapsulation (`vg_mlkem768_encaps_expanded`, contract
-//! `VG.Spec.MlKem.encapsExpandedContract`) samples and hashes nothing but
-//! the message, in about half the time, and cannot fail. On x86-64, a
-//! decapsulation key keeps its encapsulation key expanded
-//! (`vg_mlkem768_keygen_expanded` writes it), and decapsulation
+//! On x86-64, an encapsulation key also keeps its *expanded* key: the key,
+//! `H(ek)` and the matrix `Â` that encapsulation samples from its `ρ`
+//! (contracts `VG.Spec.MlKem.keyGenExpandedContract` and
+//! `expandEkContract`), so that encapsulating to it again samples and hashes
+//! nothing but the message (`vg_mlkem768_encaps_expanded`), in about half
+//! the time. A key from [`EncapsulationKey768::from_bytes`] is expanded on
+//! its second encapsulation, so that a key used once costs no more than
+//! before; a decapsulation key's is written by key generation
+//! (`vg_mlkem768_keygen_expanded`), and decapsulation
 //! (`vg_mlkem768_decaps_expanded`) uses it rather than sampling `Â`.
 //!
 //! On x86-64, the functions that sample `Â` have an instance for each
@@ -44,6 +44,13 @@
     target_arch = "aarch64",
     target_arch = "arm"
 ))]
+
+#[cfg(target_arch = "x86_64")]
+use core::cell::UnsafeCell;
+#[cfg(target_arch = "x86_64")]
+use core::mem::MaybeUninit;
+#[cfg(target_arch = "x86_64")]
+use core::sync::atomic::{AtomicU8, Ordering};
 
 #[cfg(target_arch = "x86_64")]
 use crate::arch::mlkem768::{
@@ -126,28 +133,129 @@ pub(crate) fn zeroize<T: Copy + Default>(x: &mut [T]) {
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 }
 
-/// A shared secret key and its ciphertext, from `encapsulate_internal`
-/// with 32 bytes of randomness from the operating system.
-pub(crate) fn with_randomness<R>(
-    encapsulate_internal: impl FnOnce(&[u8; 32]) -> Result<R, Error>,
-) -> Result<R, Error> {
-    let mut m = [0u8; 32];
-    if getrandom::fill(&mut m).is_err() {
-        // The operating system's generator does not fail in the tests.
-        // NO-COVERAGE-START
-        return Err(Error::Randomness);
-        // NO-COVERAGE-END
+/// An encapsulation key's expanded key (`N` bytes), which it computes on its
+/// second encapsulation: the first uses the key alone, so a key used once
+/// costs no more than without it.
+///
+/// `state` says what `ekx` holds: nothing yet ([`Expanded::UNUSED`], or
+/// [`Expanded::USED`] after one encapsulation), being written by the one
+/// thread that moved it from `USED` ([`Expanded::BUSY`]), the expanded key
+/// ([`Expanded::READY`]), or nothing ever ([`Expanded::FAILED`], if the
+/// expansion reached `SampleNTT`'s bound). Only the thread that moved the
+/// state to `BUSY` writes `ekx`, and nothing reads it before the state is
+/// `READY`, which it never leaves; any other thread encapsulates without it
+/// meanwhile. `ekx` is initialized when it is written, so that a key that
+/// is never expanded costs no more than without it.
+#[cfg(target_arch = "x86_64")]
+pub(crate) struct Expanded<const N: usize> {
+    state: AtomicU8,
+    ekx: UnsafeCell<MaybeUninit<[u8; N]>>,
+}
+
+// SAFETY: `ekx` is written only by the thread that moved `state` from
+// `USED` to `BUSY`, and read only after `state` is `READY` (with acquire and
+// release orderings), after which it is never written.
+#[cfg(target_arch = "x86_64")]
+unsafe impl<const N: usize> Sync for Expanded<N> {}
+
+#[cfg(target_arch = "x86_64")]
+impl<const N: usize> Expanded<N> {
+    const UNUSED: u8 = 0;
+    const USED: u8 = 1;
+    const BUSY: u8 = 2;
+    const READY: u8 = 3;
+    const FAILED: u8 = 4;
+
+    /// Not expanded yet.
+    pub(crate) fn new() -> Self {
+        Expanded {
+            state: AtomicU8::new(Self::UNUSED),
+            ekx: UnsafeCell::new(MaybeUninit::uninit()),
+        }
     }
-    let r = encapsulate_internal(&m);
-    zeroize(&mut m);
-    r
+
+    /// The buffer, zeroed, for key generation to write the expanded key
+    /// into (then [`set_ready`](Self::set_ready)).
+    pub(crate) fn buffer(&mut self) -> &mut [u8; N] {
+        self.ekx.get_mut().write([0; N])
+    }
+
+    /// Marks the buffer as holding the expanded key.
+    pub(crate) fn set_ready(&mut self) {
+        *self.state.get_mut() = Self::READY;
+    }
+
+    /// The expanded key, if there is one.
+    pub(crate) fn ready(&self) -> Option<&[u8; N]> {
+        // SAFETY: the state is `READY`, so `ekx` is initialized, and nothing
+        // writes it any more.
+        (self.state.load(Ordering::Acquire) == Self::READY)
+            .then(|| unsafe { (*self.ekx.get()).assume_init_ref() })
+    }
+
+    /// The expanded key for an encapsulation: none on the key's first one,
+    /// written by `expand` (which returns whether it did) on its second, and
+    /// the same afterwards; none while another thread writes it.
+    pub(crate) fn get(&self, expand: impl FnOnce(&mut [u8; N]) -> bool) -> Option<&[u8; N]> {
+        match self.state.load(Ordering::Acquire) {
+            Self::UNUSED => {
+                let _ = self.state.compare_exchange(
+                    Self::UNUSED,
+                    Self::USED,
+                    Ordering::Relaxed,
+                    Ordering::Relaxed,
+                );
+                None
+            }
+            Self::USED
+                if self
+                    .state
+                    .compare_exchange(Self::USED, Self::BUSY, Ordering::Acquire, Ordering::Relaxed)
+                    .is_ok() =>
+            {
+                // SAFETY: this thread moved the state to `BUSY`, so no other
+                // thread writes `ekx` or reads it until the state is `READY`.
+                let ok = expand(unsafe { (*self.ekx.get()).write([0; N]) });
+                let state = if ok { Self::READY } else { Self::FAILED };
+                self.state.store(state, Ordering::Release);
+                self.ready()
+            }
+            _ => self.ready(),
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+impl<const N: usize> Clone for Expanded<N> {
+    fn clone(&self) -> Self {
+        let mut e = Expanded::new();
+        if let Some(ekx) = self.ready() {
+            e.ekx.get_mut().write(*ekx);
+            e.set_ready();
+        }
+        e
+    }
 }
 
 /// An ML-KEM-768 encapsulation key, which passed the check of FIPS 203 §7.2.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct EncapsulationKey768 {
     bytes: [u8; 1184],
+    /// On x86-64, its expanded key (see [`Expanded`]): written by
+    /// `vg_mlkem768_keygen_expanded` with `bytes`, or by
+    /// `vg_mlkem768_expand_ek` from `bytes` (or an instance of them), in a
+    /// call that returned 1.
+    #[cfg(target_arch = "x86_64")]
+    expanded: Expanded<10432>,
 }
+
+impl PartialEq for EncapsulationKey768 {
+    fn eq(&self, other: &Self) -> bool {
+        self.bytes == other.bytes
+    }
+}
+
+impl Eq for EncapsulationKey768 {}
 
 impl core::fmt::Debug for EncapsulationKey768 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -172,7 +280,11 @@ impl EncapsulationKey768 {
         // object, so it does not overlap the stack or wrap around the end of
         // the address space.
         if unsafe { vg_mlkem768_check_ek(bytes) } == 1 {
-            Ok(EncapsulationKey768 { bytes: *bytes })
+            Ok(EncapsulationKey768 {
+                bytes: *bytes,
+                #[cfg(target_arch = "x86_64")]
+                expanded: Expanded::new(),
+            })
         } else {
             Err(Error::InvalidKey)
         }
@@ -186,7 +298,39 @@ impl EncapsulationKey768 {
     /// `ML-KEM.Encaps` (FIPS 203 Algorithm 20): a shared secret key and its
     /// ciphertext, with 32 bytes of randomness from the operating system.
     pub fn encapsulate(&self) -> Result<([u8; 32], [u8; 1088]), Error> {
-        with_randomness(|m| self.encapsulate_internal(m))
+        let mut m = [0u8; 32];
+        if getrandom::fill(&mut m).is_err() {
+            // The operating system's generator does not fail in the tests.
+            // NO-COVERAGE-START
+            return Err(Error::Randomness);
+            // NO-COVERAGE-END
+        }
+        let r = self.encapsulate_internal(&m);
+        zeroize(&mut m);
+        r
+    }
+
+    /// The expanded key, from `vg_mlkem768_expand_ek` (see [`Expanded`]).
+    #[cfg(target_arch = "x86_64")]
+    fn expanded(&self) -> Option<&[u8; 10432]> {
+        self.expanded.get(|ekx| {
+            let mut scratch: Scratch = [0; 4096];
+            // SAFETY: `self.bytes`, `ekx` and `scratch` are valid for reads
+            // (and, for the last two, writes) of their sizes; they are
+            // distinct Rust objects, so they do not overlap each other or the
+            // stack, or wrap around the end of the address space.
+            // `self.bytes` passed `vg_mlkem768_check_ek`. `Backend::select`
+            // chose AVX2 only if the CPU has
+            // `VG_MLKEM768_EXPAND_EK_AVX2_FEATURES`.
+            let r = unsafe {
+                match Backend::select() {
+                    Backend::Scalar => vg_mlkem768_expand_ek(&self.bytes, ekx, &mut scratch),
+                    Backend::Avx2 => vg_mlkem768_expand_ek_avx2(&self.bytes, ekx, &mut scratch),
+                }
+            };
+            zeroize(&mut scratch);
+            r == 1
+        })
     }
 
     /// `ML-KEM.Encaps_internal(ek, m)` (FIPS 203 Algorithm 17), with the
@@ -198,6 +342,20 @@ impl EncapsulationKey768 {
         let mut key = [0u8; 32];
         let mut ct = [0u8; 1088];
         let mut scratch: Scratch = [0; 4096];
+        #[cfg(target_arch = "x86_64")]
+        if let Some(ekx) = self.expanded() {
+            // SAFETY: `ekx`, `m`, `key`, `ct` and `scratch` are valid for
+            // reads (and, for the last three, writes) of their sizes; they
+            // are distinct Rust objects, so they do not overlap each other or
+            // the stack, or wrap around the end of the address space. `ekx`
+            // was written by `vg_mlkem768_keygen_expanded` or by
+            // `vg_mlkem768_expand_ek` from a key that passed
+            // `vg_mlkem768_check_ek` (or an instance of them), in a call that
+            // returned 1.
+            unsafe { vg_mlkem768_encaps_expanded(ekx, m, &mut key, &mut ct, &mut scratch) };
+            zeroize(&mut scratch);
+            return Ok((key, ct));
+        }
         // SAFETY: `self.bytes`, `m`, `key`, `ct` and `scratch` are valid for
         // reads (and, for the last three, writes) of their sizes; they are
         // distinct Rust objects, so they do not overlap each other or the
@@ -226,112 +384,6 @@ impl EncapsulationKey768 {
         }
         Ok((key, ct))
     }
-
-    /// The key, expanded for encapsulating to it many times: with `H(ek)`
-    /// and, on x86-64, the matrix `Â` sampled from its `ρ`, which fails with
-    /// [`Error::SampleBound`] with probability less than 2⁻²⁶¹.
-    #[cfg(target_arch = "x86_64")]
-    pub fn expand(&self) -> Result<ExpandedEncapsulationKey768, Error> {
-        let mut key = ExpandedEncapsulationKey768 {
-            ek: self.clone(),
-            ekx: [0; 10432],
-        };
-        let mut scratch: Scratch = [0; 4096];
-        // SAFETY: `self.bytes`, `key.ekx` and `scratch` are valid for reads
-        // (and, for the last two, writes) of their sizes; they are distinct
-        // Rust objects, so they do not overlap each other or the stack, or
-        // wrap around the end of the address space. `self.bytes` passed
-        // `vg_mlkem768_check_ek`. `Backend::select` chose AVX2 only if the
-        // CPU has `VG_MLKEM768_EXPAND_EK_AVX2_FEATURES`.
-        let r = unsafe {
-            match Backend::select() {
-                Backend::Scalar => vg_mlkem768_expand_ek(&self.bytes, &mut key.ekx, &mut scratch),
-                Backend::Avx2 => {
-                    vg_mlkem768_expand_ek_avx2(&self.bytes, &mut key.ekx, &mut scratch)
-                }
-            }
-        };
-        zeroize(&mut scratch);
-        if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261.
-            // NO-COVERAGE-START
-            return Err(Error::SampleBound);
-            // NO-COVERAGE-END
-        }
-        Ok(key)
-    }
-
-    /// The key, expanded for encapsulating to it many times (on x86-64, with
-    /// `H(ek)` and the matrix `Â`; here, the key alone).
-    #[cfg(not(target_arch = "x86_64"))]
-    pub fn expand(&self) -> Result<ExpandedEncapsulationKey768, Error> {
-        Ok(ExpandedEncapsulationKey768 { ek: self.clone() })
-    }
-}
-
-/// An ML-KEM-768 encapsulation key, expanded for encapsulating to it many
-/// times ([`EncapsulationKey768::expand`]): on x86-64, with `H(ek)` and the
-/// matrix `Â` (the expanded key of `VG.Spec.MlKem.ExpandedEk`, 10432 bytes).
-#[derive(Clone, PartialEq, Eq)]
-pub struct ExpandedEncapsulationKey768 {
-    ek: EncapsulationKey768,
-    /// The expanded key: written by `vg_mlkem768_expand_ek` from `ek`, or
-    /// by `vg_mlkem768_keygen_expanded` with `ek` (or an instance of them),
-    /// in a call that returned 1.
-    #[cfg(target_arch = "x86_64")]
-    ekx: [u8; 10432],
-}
-
-impl core::fmt::Debug for ExpandedEncapsulationKey768 {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("ExpandedEncapsulationKey768")
-            .finish_non_exhaustive()
-    }
-}
-
-impl ExpandedEncapsulationKey768 {
-    /// The encapsulation key.
-    pub fn encapsulation_key(&self) -> &EncapsulationKey768 {
-        &self.ek
-    }
-
-    /// `ML-KEM.Encaps` (FIPS 203 Algorithm 20): a shared secret key and its
-    /// ciphertext, with 32 bytes of randomness from the operating system.
-    pub fn encapsulate(&self) -> Result<([u8; 32], [u8; 1088]), Error> {
-        with_randomness(|m| self.encapsulate_internal(m))
-    }
-
-    /// `ML-KEM.Encaps_internal(ek, m)` (FIPS 203 Algorithm 17), with the
-    /// randomness `m`: for known-answer tests only. FIPS 203 §6 allows this
-    /// function only for testing; `m` must otherwise be fresh random bytes
-    /// from an approved RBG, which [`encapsulate`](Self::encapsulate) draws.
-    #[doc(hidden)]
-    #[cfg(target_arch = "x86_64")]
-    pub fn encapsulate_internal(&self, m: &[u8; 32]) -> Result<([u8; 32], [u8; 1088]), Error> {
-        let mut key = [0u8; 32];
-        let mut ct = [0u8; 1088];
-        let mut scratch: Scratch = [0; 4096];
-        // SAFETY: `self.ekx`, `m`, `key`, `ct` and `scratch` are valid for
-        // reads (and, for the last three, writes) of their sizes; they are
-        // distinct Rust objects, so they do not overlap each other or the
-        // stack, or wrap around the end of the address space. `self.ekx`
-        // was written by `vg_mlkem768_expand_ek` from a key that passed
-        // `vg_mlkem768_check_ek`, or by `vg_mlkem768_keygen_expanded` (or an
-        // instance of them), in a call that returned 1.
-        unsafe { vg_mlkem768_encaps_expanded(&self.ekx, m, &mut key, &mut ct, &mut scratch) };
-        zeroize(&mut scratch);
-        Ok((key, ct))
-    }
-
-    /// `ML-KEM.Encaps_internal(ek, m)` (FIPS 203 Algorithm 17), with the
-    /// randomness `m`: for known-answer tests only. FIPS 203 §6 allows this
-    /// function only for testing; `m` must otherwise be fresh random bytes
-    /// from an approved RBG, which [`encapsulate`](Self::encapsulate) draws.
-    #[doc(hidden)]
-    #[cfg(not(target_arch = "x86_64"))]
-    pub fn encapsulate_internal(&self, m: &[u8; 32]) -> Result<([u8; 32], [u8; 1088]), Error> {
-        self.ek.encapsulate_internal(m)
-    }
 }
 
 /// An ML-KEM-768 decapsulation key, kept as the seed `d ‖ z` it is generated
@@ -339,7 +391,7 @@ impl ExpandedEncapsulationKey768 {
 /// destroyed when it is dropped.
 pub struct DecapsulationKey768 {
     seed: [u8; 64],
-    ek: ExpandedEncapsulationKey768,
+    ek: EncapsulationKey768,
     dk: [u8; 2400],
 }
 
@@ -368,43 +420,46 @@ impl DecapsulationKey768 {
     pub fn from_seed(seed: &[u8; 64]) -> Result<Self, Error> {
         let mut key = DecapsulationKey768 {
             seed: *seed,
-            ek: ExpandedEncapsulationKey768 {
-                ek: EncapsulationKey768 { bytes: [0; 1184] },
+            ek: EncapsulationKey768 {
+                bytes: [0; 1184],
                 #[cfg(target_arch = "x86_64")]
-                ekx: [0; 10432],
+                expanded: Expanded::new(),
             },
             dk: [0; 2400],
         };
         let mut scratch: Scratch = [0; 4096];
-        // SAFETY: `seed`, `key.ek.ekx`, `key.dk` and `scratch` are valid for
-        // reads (and, for the last three, writes) of their sizes; they are
-        // distinct Rust objects, so they do not overlap each other or the
-        // stack, or wrap around the end of the address space.
+        // SAFETY: `seed`, the expanded key's buffer, `key.dk` and `scratch`
+        // are valid for reads (and, for the last three, writes) of their
+        // sizes; they are distinct Rust objects, so they do not overlap each
+        // other or the stack, or wrap around the end of the address space.
         // `Backend::select` chose AVX2 only if the CPU has
         // `VG_MLKEM768_KEYGEN_EXPANDED_AVX2_FEATURES`.
         #[cfg(target_arch = "x86_64")]
-        let r = unsafe {
-            match Backend::select() {
-                Backend::Scalar => {
-                    vg_mlkem768_keygen_expanded(seed, &mut key.ek.ekx, &mut key.dk, &mut scratch)
+        let r = {
+            let ekx = key.ek.expanded.buffer();
+            let r = unsafe {
+                match Backend::select() {
+                    Backend::Scalar => {
+                        vg_mlkem768_keygen_expanded(seed, ekx, &mut key.dk, &mut scratch)
+                    }
+                    Backend::Avx2 => {
+                        vg_mlkem768_keygen_expanded_avx2(seed, ekx, &mut key.dk, &mut scratch)
+                    }
                 }
-                Backend::Avx2 => vg_mlkem768_keygen_expanded_avx2(
-                    seed,
-                    &mut key.ek.ekx,
-                    &mut key.dk,
-                    &mut scratch,
-                ),
-            }
+            };
+            // The expanded key starts with the key.
+            key.ek.bytes.copy_from_slice(&ekx[..1184]);
+            r
         };
-        // SAFETY: `seed`, `key.ek.ek.bytes`, `key.dk` and `scratch` are
-        // valid for reads (and, for the last three, writes) of their sizes;
-        // they are distinct Rust objects, so they do not overlap each other
-        // or the stack, or wrap around the end of the address space.
+        // SAFETY: `seed`, `key.ek.bytes`, `key.dk` and `scratch` are valid
+        // for reads (and, for the last three, writes) of their sizes; they
+        // are distinct Rust objects, so they do not overlap each other or
+        // the stack, or wrap around the end of the address space.
         #[cfg(not(target_arch = "x86_64"))]
         let r = unsafe {
             match Backend::select() {
                 Backend::Scalar => {
-                    vg_mlkem768_keygen(seed, &mut key.ek.ek.bytes, &mut key.dk, &mut scratch)
+                    vg_mlkem768_keygen(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
                 }
             }
         };
@@ -416,9 +471,8 @@ impl DecapsulationKey768 {
             return Err(Error::SampleBound);
             // NO-COVERAGE-END
         }
-        // The expanded key starts with the key.
         #[cfg(target_arch = "x86_64")]
-        key.ek.ek.bytes.copy_from_slice(&key.ek.ekx[..1184]);
+        key.ek.expanded.set_ready();
         Ok(key)
     }
 
@@ -429,11 +483,6 @@ impl DecapsulationKey768 {
 
     /// The encapsulation key.
     pub fn encapsulation_key(&self) -> &EncapsulationKey768 {
-        &self.ek.ek
-    }
-
-    /// The encapsulation key, expanded.
-    pub fn expanded_encapsulation_key(&self) -> &ExpandedEncapsulationKey768 {
         &self.ek
     }
 
@@ -445,14 +494,15 @@ impl DecapsulationKey768 {
     pub fn decapsulate(&self, ct: &[u8; 1088]) -> Result<[u8; 32], Error> {
         let mut key = [0u8; 32];
         let mut scratch: Scratch = [0; 4096];
-        // SAFETY: `self.dk`, `self.ek.ekx`, `ct`, `key` and `scratch` are
-        // valid for reads (and, for the last two, writes) of their sizes;
-        // they are distinct Rust objects, so they do not overlap each other
-        // or the stack, or wrap around the end of the address space.
-        // `self.dk` and `self.ek.ekx` were written by
-        // `vg_mlkem768_keygen_expanded` (or an instance of it) in a call that
-        // returned 1.
-        unsafe { vg_mlkem768_decaps_expanded(&self.dk, &self.ek.ekx, ct, &mut key, &mut scratch) };
+        // Key generation wrote the expanded key.
+        let ekx = self.ek.expanded.ready().unwrap();
+        // SAFETY: `self.dk`, `ekx`, `ct`, `key` and `scratch` are valid for
+        // reads (and, for the last two, writes) of their sizes; they are
+        // distinct Rust objects, so they do not overlap each other or the
+        // stack, or wrap around the end of the address space. `self.dk` and
+        // `ekx` were written by `vg_mlkem768_keygen_expanded` (or an instance
+        // of it) in a call that returned 1.
+        unsafe { vg_mlkem768_decaps_expanded(&self.dk, ekx, ct, &mut key, &mut scratch) };
         zeroize(&mut scratch);
         Ok(key)
     }
@@ -496,5 +546,28 @@ mod tests {
         let mut x = [1u8, 2, 3];
         zeroize(&mut x);
         assert_eq!(x, [0; 3]);
+    }
+
+    /// The expanded key is computed on the second use, and never if that
+    /// fails; a clone keeps it.
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn expands_on_second_use() {
+        use super::Expanded;
+
+        let fill = |ekx: &mut [u8; 4]| {
+            *ekx = [7; 4];
+            true
+        };
+        let e = Expanded::<4>::new();
+        assert_eq!(e.clone().ready(), None);
+        assert_eq!(e.get(|_| unreachable!()), None);
+        assert_eq!(e.get(fill), Some(&[7; 4]));
+        assert_eq!(e.get(|_| unreachable!()), Some(&[7; 4]));
+        assert_eq!(e.clone().ready(), Some(&[7; 4]));
+        let f = Expanded::<4>::new();
+        assert_eq!(f.get(|_| unreachable!()), None);
+        assert_eq!(f.get(|_| false), None);
+        assert_eq!(f.get(|_| unreachable!()), None);
     }
 }
