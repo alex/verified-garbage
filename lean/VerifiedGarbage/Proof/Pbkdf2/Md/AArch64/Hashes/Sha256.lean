@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Variant
 import VerifiedGarbage.Proof.Sha256.AArch64.Shared
+import VerifiedGarbage.Proof.Sha256.AArch64.Variant
 import VerifiedGarbage.Proof.Sha256.Md
 import VerifiedGarbage.Proof.Hmac.Generic.Common
 import VerifiedGarbage.TCB.AArch64.Target
@@ -19,24 +20,25 @@ namespace VG.Proof.Pbkdf2.Md.AArch64.Sha256
 
 open VG.AArch64
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
+open VG.Proof.Sha256.AArch64 (Compress)
 open VG.Proof.Hmac.Generic.AArch64.Instances (initSat finSat)
 
 /-- SHA-256's functions. -/
-def hash : Hash where
+def hash (v : Compress) : Hash where
   P := Impl.Pbkdf2.AArch64.ofMd Impl.Sha256.AArch64.Stream.params
   D := 32
   W := Spec.Hmac.sha256I.scratch
-  compN := Spec.Sha256.compressApi.name
-  compC := Impl.Sha256.AArch64.compress
+  compN := v.name
+  compC := v.code
   initN := Spec.Sha256.initApi.name
   initC := Impl.Sha256.AArch64.Stream.init
-  updN := Spec.Sha256.updateApi.name
-  updC := Impl.Sha256.AArch64.Stream.update
-  finN := Spec.Sha256.finalizeApi.name
-  finC := Impl.Sha256.AArch64.Stream.finalize
-  hmacInitN := Spec.Hmac.sha256I.initApi.name
-  hmacFinN := Spec.Hmac.sha256I.finalizeApi.name
-  iterN := Spec.Hmac.sha256I.iterateApi.name
+  updN := Spec.Sha256.updateApi.name ++ v.suffix
+  updC := v.update
+  finN := Spec.Sha256.finalizeApi.name ++ v.suffix
+  finC := v.finalize
+  hmacInitN := Spec.Hmac.sha256I.initApi.name ++ v.suffix
+  hmacFinN := Spec.Hmac.sha256I.finalizeApi.name ++ v.suffix
+  iterN := Spec.Hmac.sha256I.iterateApi.name ++ v.suffix
 
 /-- `hash` without the functions it calls. -/
 def coreH : Hash := ⟨Impl.Pbkdf2.AArch64.ofMd Impl.Sha256.AArch64.Stream.params, 32, 104, "", .block [], "",
@@ -75,60 +77,69 @@ theorem sha256_repr (m m' : Mem) (p q : Addr) (msg : List Byte)
   · rw [← hr.2]
     exact Hmac.Generic.Common.bytesAt_reloc h (o := 32) (k := msg.length % 64) (by omega)
 
+variable (v : Compress)
+
 /-- The streaming functions, verified against the contracts HMAC's proofs
 call them with. -/
-def streamOK : Hmac.Generic.AArch64.HashOK hash.stream where
+def streamOK : Hmac.Generic.AArch64.HashOK (hash v).stream where
   SH := Spec.Hmac.sha256S
   Wb := 160
   hS := rfl
   hD := rfl
   hB := rfl
-  hDF := by decide
-  hF := by decide
-  hD0 := by decide
-  hS0 := by decide
-  hSB := by decide
-  hB0 := by decide
-  hBB := by decide
-  hWb := by decide
-  hW := by decide
+  hDF := by simp only [hash, Hash.stream] <;> decide
+  hF := by simp only [hash, Hash.stream] <;> decide
+  hD0 := by simp only [hash, Hash.stream] <;> decide
+  hS0 := by simp only [hash, Hash.stream, Hash.S] <;> decide
+  hSB := by simp only [hash, Hash.stream, Hash.S] <;> decide
+  hB0 := by simp only [hash, Hash.stream] <;> decide
+  hBB := by simp only [hash, Hash.stream] <;> decide
+  hWb := by simp only [hash, Hash.stream] <;> decide
+  hW := by simp only [hash, Hash.stream] <;> decide
   repr := sha256_repr
   init := Proof.Sha256.AArch64.Stream.init_verified
-  upd := Proof.Sha256.AArch64.Stream.Update.update_verified
-  fin := Proof.Sha256.AArch64.Stream.Finalize.finalize_verified.of_implies
+  upd := v.update_verified
+  fin := v.finalize_verified.of_implies
     { pre := fun _ h => h
       post := fun s s' _ h m hr _ hc => by
         show List.take 32 (Spec.Sha256.bytesAt s'.mem _ 32) = _
         rw [List.take_of_length_le (by simp [Spec.Sha256.bytesAt])]
         exact h m hr hc
       pub := fun _ _ _ _ h => h
-      sat := Proof.Sha256.AArch64.Stream.Finalize.finalize_verified.2.2 }
-  initDepth := by decide +kernel
-  updDepth := by decide +kernel
-  finDepth := by decide +kernel
+      sat := v.finalize_verified.2.2 }
+  initDepth := by simp only [hash, Hash.stream] <;> decide +kernel
+  updDepth := by
+    show (Impl.MdStream.AArch64.update _ v.name v.code).fdepth ≤ 1
+    simp only [Impl.MdStream.AArch64.update, Code.fdepth, v.updateDepth]; decide
+  finDepth := by
+    show (Impl.MdStream.AArch64.finalize _ v.name v.code).fdepth ≤ 1
+    simp only [Impl.MdStream.AArch64.finalize, Code.fdepth, v.finalizeDepth]; decide
 
-def ok : HashOK hash where
+def ok : HashOK (hash v) where
   md := Proof.Sha256.md
   shape := Pbkdf2.AArch64.Shape.ofMd Proof.Sha256.AArch64.Stream.shape
-  comp := ⟨Proof.Sha256.AArch64.Stream.callee.verified, Proof.Sha256.AArch64.compress_verified.2.1,
-    Proof.Sha256.AArch64.Stream.callee.noFrames⟩
+  comp := ⟨v.callee.verified, v.verified.2.1, v.noFrames⟩
   reloc m m' p q h := by
     apply Vector.ext
     intro j hj
     simp only [Proof.Sha256.md, Spec.Sha256.stateAt, Vector.getElem_ofFn]
     exact Hmac.Generic.Common.readW_reloc (n := 32) h (by omega)
   lenOk _ _ := trivial
-  stream := streamOK
+  stream := streamOK v
   iv := Spec.Sha256.H0
   repr _ _ _ := Iff.rfl
   hash m := by
     show Spec.Sha256.hash m = _
     rw [Proof.Sha256.hash_eq]
     exact (List.take_of_length_le (Nat.le_of_eq (Proof.Sha256.md.digest_length _))).symm
-  sizes := ⟨⟨by decide, by decide⟩, by decide, by decide, by decide, by decide, by decide, by decide,
-    by decide, by decide, by decide, by decide⟩
-  L := by decide
-  W := by decide
+  sizes := ⟨⟨by simp only [hash] <;> decide, by simp only [hash] <;> decide⟩,
+    by simp only [hash] <;> decide, by simp only [hash] <;> decide,
+    by simp only [hash] <;> decide, by simp only [hash] <;> decide,
+    by simp only [hash] <;> decide, by simp only [hash] <;> decide,
+    by simp only [hash] <;> decide, by simp only [hash] <;> decide,
+    by simp only [hash] <;> decide, by simp only [hash] <;> decide⟩
+  L := by simp only [hash] <;> decide
+  W := by simp only [hash] <;> decide
 
 theorem satI : ∃ s, (Spec.Hmac.sha256I.initContract AArch64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.initContract, Spec.Hmac.sha256I, Spec.Hmac.initContract, Spec.Hmac.initSig,
@@ -148,7 +159,31 @@ theorem satP : ∃ s, (Spec.Hmac.sha256I.pbkdf2Contract AArch64.abi 16).pre s :=
     Spec.Pbkdf2.pbkdf2Contract, Spec.Pbkdf2.pbkdf2Sig, Spec.Hmac.sha256S, Spec.Hmac.sha256, AArch64.abi,
     AArch64.argRegs] using pbkSat 200
 
-/-- SHA-256 with its compression function. -/
-def variant : MdHash := MdHash.of ok coreOK rfl rfl satI satF satT satP "" []
+/-- Streaming wrappers for this compression backend, emitted through `MdHash`. -/
+def stream : List Artifact := [
+  { Spec.Sha256.updateApi with
+    name := Spec.Sha256.updateApi.name ++ v.suffix
+    target := AArch64.target
+    doc := Spec.Sha256.updateApi.doc
+    code := v.update
+    contract := Spec.Sha256.updateContract AArch64.abi 16
+    stack := 16
+    verified := Proof.Sha256.AArch64.Shared.update_of v.update_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _
+    features := v.features },
+  { Spec.Sha256.finalizeApi with
+    name := Spec.Sha256.finalizeApi.name ++ v.suffix
+    target := AArch64.target
+    doc := Spec.Sha256.finalizeApi.doc
+    code := v.finalize
+    contract := Spec.Sha256.finalizeContract AArch64.abi 16
+    stack := 16
+    verified := Proof.Sha256.AArch64.Shared.finalize_of v.finalize_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _
+    features := v.features }]
+
+/-- Every construction follows the registered compression backend. -/
+def variant : MdHash :=
+  MdHash.of (ok v) coreOK rfl rfl satI satF satT satP v.suffix v.features (stream v)
 
 end VG.Proof.Pbkdf2.Md.AArch64.Sha256

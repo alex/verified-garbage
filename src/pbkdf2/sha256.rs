@@ -7,7 +7,8 @@
 //! implementation of SHA-256 that `Sha256` runs on this CPU:
 //! `vg_pbkdf2_hmac_sha256_shani` with the SHA extensions, the same verified
 //! code calling `vg_sha256_compress_shani`, with the same contract; likewise
-//! `vg_pbkdf2_hmac_sha256_avx2` with AVX2.
+//! `vg_pbkdf2_hmac_sha256_avx2` with AVX2. AArch64 selects
+//! `vg_pbkdf2_hmac_sha256_sha2` when the SHA-256 instructions are available.
 //!
 //! On ARMv7 and x86, for each block `Tᵢ` of the derived key,
 //! `U₁ = HMAC (P, S ‖ INT (i))` is the verified HMAC-SHA-256 (`Hmac`), and
@@ -35,6 +36,8 @@ use crate::arch::pbkdf2_sha256::{
     VG_PBKDF2_HMAC_SHA256_AVX2_FEATURES, VG_PBKDF2_HMAC_SHA256_SHANI_FEATURES,
     vg_pbkdf2_hmac_sha256_avx2, vg_pbkdf2_hmac_sha256_shani,
 };
+#[cfg(target_arch = "aarch64")]
+use crate::arch::pbkdf2_sha256::{VG_PBKDF2_HMAC_SHA256_SHA2_FEATURES, vg_pbkdf2_hmac_sha256_sha2};
 use crate::hashes::sha256::Sha256;
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use crate::hashes::sha256::Sha256Backend;
@@ -43,6 +46,9 @@ use crate::hashes::sha256::Sha256Backend;
 super::whole_pbkdf2!(
     Sha256 (Sha256Backend) {
         Scalar => vg_pbkdf2_hmac_sha256,
+        #[cfg(target_arch = "aarch64")]
+        Sha2 if [VG_PBKDF2_HMAC_SHA256_SHA2_FEATURES] =>
+            vg_pbkdf2_hmac_sha256_sha2,
         #[cfg(target_arch = "x86_64")]
         ShaNi if [VG_PBKDF2_HMAC_SHA256_SHANI_FEATURES] => vg_pbkdf2_hmac_sha256_shani,
         #[cfg(target_arch = "x86_64")]
