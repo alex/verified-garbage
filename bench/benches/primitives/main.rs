@@ -21,6 +21,7 @@ mod blake2b;
 mod blake2s;
 mod chacha20;
 mod chacha20poly1305;
+mod ed25519;
 mod hmac_md5;
 mod hmac_sha1;
 mod hmac_sha256;
@@ -171,6 +172,7 @@ const BENCHES: &[Bench] = &[
     (sha512::USES, sha512::bench),
     (x25519::USES, x25519::bench),
     (x448::USES, x448::bench),
+    (ed25519::USES, ed25519::bench),
 ];
 
 /// Runs the benchmarks that use any of the modules in `$VG_BENCH_MODULES`

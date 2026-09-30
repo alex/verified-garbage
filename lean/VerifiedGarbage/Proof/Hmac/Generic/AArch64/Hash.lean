@@ -3,11 +3,11 @@ import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.Framework.RelCT
 import VerifiedGarbage.Proof.Framework.AArch64.RelCT
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
-import VerifiedGarbage.Impl.Pbkdf2.Generic.AArch64
+import VerifiedGarbage.Impl.Hmac.Generic.AArch64
 import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
-# HMAC and PBKDF2-HMAC over any streaming hash function: the AArch64 contracts
+# HMAC over any streaming hash function: the AArch64 contracts
 
 **Untrusted**: the contracts the proofs are written against, as on x86-64
 (`Proof/Hmac/Generic/X86_64/Hash.lean`).
@@ -18,10 +18,10 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
   use the 16 bytes below the stack pointer (a frame saving `x30`), as SHA-1's
   and MD5's do; the contracts the functions are proved against imply them
   (the SHA-512 family's, which use no stack, too).
-* `initG`, `finG` and `iterG` are those of our functions, which use no
+* `initG` and `finG` are those of our functions, which use no
   stack of their own but let the functions they call use those 16 bytes;
   the artifacts are emitted with the shared contracts of
-  `Spec/Hmac/Generic.lean` and `Spec/Pbkdf2/Generic.lean`, which imply them
+  `Spec/Hmac/Generic.lean`, which imply them
   (`Contract.Implies`).
 
 The return address is in `x30`, not on the stack, so no region needs to be
@@ -124,29 +124,6 @@ def finG : Contract isa where
     bytesAt s'.mem (s.gpr .x3) S.digestBytes = hmacBlockKey S.H k0 text
   pub s₁ s₂ :=
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
-    s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
-
-/-- `iterate(key, u, n, t, scratch)`: `VG.Spec.Pbkdf2.iterateContract`. -/
-def iterG : Contract isa where
-  pre s :=
-    let key : Region := ⟨s.gpr .x0, 2 * S.stateBytes⟩
-    let u : Region := ⟨s.gpr .x1, S.digestBytes⟩
-    let t : Region := ⟨s.gpr .x3, S.digestBytes⟩
-    let scratch : Region := ⟨s.gpr .x4, 8 * W⟩
-    s.rd = [key, u] ∧ s.wr = [t, scratch] ∧
-    key.Disjoint t ∧ key.Disjoint scratch ∧ u.Disjoint t ∧ u.Disjoint scratch ∧ t.Disjoint scratch ∧
-    16 ≤ s.sp.toNat ∧ (stk s).Disjoint key ∧ (stk s).Disjoint u ∧ (stk s).Disjoint t ∧
-    (stk s).Disjoint scratch ∧
-    (s.gpr .x0).toNat + 2 * S.stateBytes ≤ 2 ^ 64 ∧ (s.gpr .x4).toNat + 8 * W ≤ 2 ^ 64
-  post s s' := ∀ k0, k0.length = S.H.blockSize →
-    S.Repr s.mem (s.gpr .x0) (xorPad k0 ipad) →
-    S.Repr s.mem (s.gpr .x0 + BitVec.ofNat 64 S.stateBytes) (xorPad k0 opad) →
-    bytesAt s'.mem (s.gpr .x3) S.digestBytes =
-      Spec.Pbkdf2.iterate (hmacBlockKey S.H k0) ((s.gpr .x2).setWidth 32).toNat
-        (bytesAt s.mem (s.gpr .x1) S.digestBytes) (bytesAt s.mem (s.gpr .x3) S.digestBytes)
-  pub s₁ s₂ :=
-    s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧
-    (s₁.gpr .x2).setWidth 32 = (s₂.gpr .x2).setWidth 32 ∧
     s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
 
 end VG.Proof.Hmac.Generic.AArch64

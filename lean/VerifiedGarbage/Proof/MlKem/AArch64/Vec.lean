@@ -340,7 +340,7 @@ theorem exec_v {i : Instr} (hi : writesV i = false) {s s' : State} (h : exec i s
     simp only [exec] at h <;>
     (try (obtain ⟨⟩ := h)) <;>
     (try split at h) <;> (try (obtain ⟨⟩ := h)) <;>
-    simp_all [State.write, State.store, State.load, Option.bind_eq_some_iff] <;>
+    simp_all [State.addWithCarry, State.write, State.store, State.load, Option.bind_eq_some_iff] <;>
     (obtain ⟨_, _, _, rfl⟩ := h; rfl)
 
 /-- Code that writes no vector register keeps them. -/

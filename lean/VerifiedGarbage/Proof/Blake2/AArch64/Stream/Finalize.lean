@@ -242,7 +242,7 @@ theorem noFrames_finalizeMain (hf : CalleeOk P (compress P)) : (finalizeMain P).
     Impl.Blake2.AArch64.Stream.bufLen, Code.noFrames, hf.noFrames, Bool.and_self]
 
 /-- The registers kept from the prologue to the epilogue. -/
-abbrev commonKeep : List Reg := [.x19, .x20, .x21, .x24, .x25, .x26, .x27, .x28, .x29]
+abbrev commonKeep : List Reg := [.x19, .x20, .x21, .x24, .x25, .x26, .x27, .x28]
 
 theorem commonKeep_ok : ∀ r ∈ commonKeep,
     r ∈ preserved ∧ r ≠ .x30 ∧ r ≠ .x9 ∧ r ≠ .x11 ∧ r ≠ .x12 ∧ r ≠ .x23 := by decide

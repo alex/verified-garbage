@@ -9,7 +9,7 @@ Constant-time AES in the style of BearSSL's `aes_ct64` (Thomas Pornin, MIT
 licence): four blocks at a time, bitsliced in eight 64-bit registers
 (`Linear.lean`, `Sbox.lean`).
 
-* The callee-saved registers `x19`–`x29` are saved in slots 48–58 of the
+* The callee-saved registers `x19`–`x28` are saved in slots 48–57 of the
   scratch buffer, the counter block in slots 59–61: bytes 0–7, bytes 8–11
   (the high half zero) and the 32-bit counter as an integer (in the low
   half).
@@ -33,7 +33,7 @@ open VG.AArch64
 /-- The callee-saved registers, and their slots. -/
 def savedRegs : List (Reg × Nat) :=
   [(.x19, 48), (.x20, 49), (.x21, 50), (.x22, 51), (.x23, 52), (.x24, 53), (.x25, 54), (.x26, 55),
-   (.x27, 56), (.x28, 57), (.x29, 58)]
+   (.x27, 56), (.x28, 57)]
 
 def saveRegs : List Instr := savedRegs.map fun (r, k) => stS k r
 def restoreRegs : List Instr := savedRegs.map fun (r, k) => ldS r k

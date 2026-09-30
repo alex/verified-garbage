@@ -74,7 +74,7 @@ def Saved (m : Mem) : Prop :=
 end
 
 /-- The callee-saved registers the code never writes (`x30` aside). -/
-def others : List Reg := [.x25, .x26, .x27, .x28, .x29]
+def others : List Reg := [.x25, .x26, .x27, .x28]
 
 structure Pre (s₀ : State) : Prop where
   rd : s₀.rd = [bR s₀]

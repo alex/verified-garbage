@@ -13,7 +13,7 @@ Descriptions"); when adding an instruction, cite the section whose
 pseudocode it transcribes.
 
 Modelling choices:
-* Registers are `x0`–`x17` and `x19`–`x30`. `x18` is not modelled, so no
+* Registers are `x0`–`x17`, `x19`–`x28` and `x30`. `x18` is not modelled, so no
   code can use it: it is the platform register (AAPCS64 §6.1.1, "r18 …
   The Platform Register, if needed; otherwise a temporary register", and
   "software developers creating platform-independent code are advised to
@@ -22,6 +22,14 @@ Modelling choices:
   code for Apple platforms*) and Windows points it at the thread's TEB
   (*Overview of ARM64 ABI conventions*), so it may change under a function
   that writes it, and restoring it before returning is not enough.
+* `x29` is not modelled either: the portable target keeps the inherited
+  frame pointer intact throughout execution. AAPCS64 section 6.4.6 delegates
+  frame-chain requirements to the platform; Apple requires `x29` to always
+  address a valid frame record, even when a leaf function omits its own
+  record (*Writing ARM64 code for Apple platforms*, "Respect the purpose of
+  specific CPU registers"). Saving and restoring an arbitrary temporary in
+  `x29` would not satisfy that requirement.
+  https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms
 * The stack pointer is separate. Only the push and pop of a frame
   (`str`/`ldr` with writeback, see `push`) write it, and only they and
   `ldrSp` (a 64-bit load from `[sp, #off]`, which reads the arguments a
@@ -30,8 +38,10 @@ Modelling choices:
   Each operand is a 32-bit (`w`) or a 64-bit (`x`) register; a 32-bit
   result is zero-extended into the 64-bit register (DDI 0487, the pseudocode
   accessor `X[n, width] = value` sets `_R[n] = ZeroExtend(value, 64)`).
-* The condition flags are not modelled, and no modelled instruction reads or
-  writes them; control flow uses `cbz`/`cbnz`.
+* Of the condition flags, only PSTATE.C is observable: ADDS/ADCS/SUBS/SBCS
+  write it and ADCS/SBCS read it. N, Z and V are not observable by any
+  modelled instruction; control flow uses `cbz`/`cbnz`. A call makes C
+  unknown, since NZCV is undefined at a public interface (AAPCS64 §6.1.1).
 * Immediates that the instruction cannot encode make the instruction fault,
   so verified code only ever contains encodable instructions.
 * Memory accesses (32-bit, 64-bit, and single bytes via `ldrb`/`strb`) must
@@ -44,7 +54,8 @@ Modelling choices:
   of their data when PSTATE.DIT is 1 (DDI 0487, "About PSTATE.DIT", FEAT_DIT,
   which lists MADD and UBFM, as it does the other modelled data-processing
   instructions that read a register: ADD, SUB, AND, EOR, ORR, EXTR, REV and
-  MOVK). The code does not set PSTATE.DIT, for these as for the others.
+  MOVK, ADDS, ADCS, SUBS, SBCS and UMULH). The code does not set PSTATE.DIT,
+  for these as for the others.
 * Calls are `bl` and returns `ret` (DDI 0487, C6.2 "BL", "RET"). The return
   addresses are the next of the state's `unknowns`, which nothing constrains
   (see `TCB/Code.lean`). A linker veneer between a `bl` and its target may
@@ -85,7 +96,7 @@ namespace VG.AArch64
 
 inductive Reg
   | x0 | x1 | x2 | x3 | x4 | x5 | x6 | x7 | x8 | x9 | x10 | x11 | x12 | x13 | x14 | x15
-  | x16 | x17 | x19 | x20 | x21 | x22 | x23 | x24 | x25 | x26 | x27 | x28 | x29 | x30
+  | x16 | x17 | x19 | x20 | x21 | x22 | x23 | x24 | x25 | x26 | x27 | x28 | x30
   deriving DecidableEq, Repr, Inhabited
 
 /-- The SIMD and floating-point registers, other than `v8`–`v15` (see above). -/
@@ -105,6 +116,8 @@ abbrev Size.bits : Size → Nat
 structure State where
   gpr : Reg → BitVec 64
   sp : BitVec 64
+  /-- PSTATE.C: unsigned carry, or no borrow after subtraction. -/
+  c : Bool := false
   /-- The SIMD and floating-point registers (`V[n]`, 128 bits). -/
   v : VReg → BitVec 128 := fun _ => 0
   mem : Mem
@@ -246,6 +259,14 @@ inductive Instr
   | add (sz : Size) (d n m : Reg)
   /-- `sub d, n, m` (SUB (shifted register), no shift) -/
   | sub (sz : Size) (d n m : Reg)
+  /-- ADDS (shifted register), no shift; writes the carry flag. -/
+  | adds (sz : Size) (d n m : Reg)
+  /-- ADCS: add both operands and PSTATE.C, writing the carry flag. -/
+  | adcs (sz : Size) (d n m : Reg)
+  /-- SUBS (shifted register), no shift; C is the no-borrow flag. -/
+  | subs (sz : Size) (d n m : Reg)
+  /-- SBCS: subtract the second operand and NOT(PSTATE.C). -/
+  | sbcs (sz : Size) (d n m : Reg)
   /-- `add d, n, #imm` (ADD (immediate), `imm < 4096`, no shift) -/
   | addImm (sz : Size) (d n : Reg) (imm : Nat)
   /-- `sub d, n, #imm` (SUB (immediate), `imm < 4096`, no shift) -/
@@ -263,6 +284,8 @@ inductive Instr
   /-- `mul d, n, m` (MUL, the alias of MADD with the zero register as the
   addend): `n * m`, modulo `2 ^ size` -/
   | mul (sz : Size) (d n m : Reg)
+  /-- UMULH: bits 127:64 of the unsigned 64-by-64-bit product. -/
+  | umulh (d n m : Reg)
   /-- `rev wd, wn` (REV, 32-bit): reverse the bytes of the low 32 bits -/
   | rev32 (d n : Reg)
   /-- `rev xd, xn` (REV, 64-bit): reverse the bytes of all 64 bits -/
@@ -319,6 +342,17 @@ def read (s : State) (sz : Size) (r : Reg) : BitVec sz.bits := (s.gpr r).setWidt
 /-- Write a register at the operand size, zero-extending a 32-bit value. -/
 def write (s : State) (sz : Size) (r : Reg) (v : BitVec sz.bits) : State :=
   { s with gpr := fun r' => if r' = r then v.setWidth 64 else s.gpr r' }
+
+/-- DDI 0487 C6.2, ADDS/ADCS/SUBS/SBCS and shared pseudocode AddWithCarry:
+the result is the low `size` bits of `UInt(a) + UInt(b) + UInt(carry)`;
+C says that the unsigned sum does not fit. The other NZCV bits are not
+observable in this model. SUBS uses `(a, NOT(b), 1)` and SBCS uses
+`(a, NOT(b), PSTATE.C)`. All four are baseline A64 instructions.
+https://developer.arm.com/documentation/ddi0487/latest -/
+def addWithCarry (s : State) (sz : Size) (d : Reg)
+    (a b : BitVec sz.bits) (carry : Bool) : State :=
+  { s.write sz d (a + b + BitVec.ofNat sz.bits carry.toNat) with
+    c := decide (2 ^ sz.bits ≤ a.toNat + b.toNat + carry.toNat) }
 
 /-- Write a vector register (`V[n] = value`, 128 bits). -/
 def setV (s : State) (r : VReg) (x : BitVec 128) : State :=
@@ -628,6 +662,10 @@ def VOp.eval (s : State) : VOp → Option (VReg × BitVec 128)
 def exec : Instr → State → Option State
   | .add sz d n m, s => some (s.write sz d (s.read sz n + s.read sz m))
   | .sub sz d n m, s => some (s.write sz d (s.read sz n - s.read sz m))
+  | .adds sz d n m, s => some (s.addWithCarry sz d (s.read sz n) (s.read sz m) false)
+  | .adcs sz d n m, s => some (s.addWithCarry sz d (s.read sz n) (s.read sz m) s.c)
+  | .subs sz d n m, s => some (s.addWithCarry sz d (s.read sz n) (~~~s.read sz m) true)
+  | .sbcs sz d n m, s => some (s.addWithCarry sz d (s.read sz n) (~~~s.read sz m) s.c)
   | .addImm sz d n imm, s =>
     if imm < 4096 then some (s.write sz d (s.read sz n + BitVec.ofNat _ imm)) else none
   | .subImm sz d n imm, s =>
@@ -644,6 +682,9 @@ def exec : Instr → State → Option State
     if sh < sz.bits then some (s.write sz d (s.read sz n <<< sh)) else none
   | .madd sz d n m a, s => some (s.write sz d (s.read sz a + s.read sz n * s.read sz m))
   | .mul sz d n m, s => some (s.write sz d (s.read sz n * s.read sz m))
+  -- DDI 0487 C6.2, UMULH: UInt(X[n]) * UInt(X[m]), bits 127:64.
+  | .umulh d n m, s =>
+    some (s.write .x d (BitVec.ofNat 64 ((s.gpr n).toNat * (s.gpr m).toNat / 2 ^ 64)))
   | .rev32 d n, s => some (s.write .w d (rev32 (s.read .w n)))
   | .rev d n, s => some (s.write .x d (rev64 (s.read .x n)))
   | .movz sz d imm hw, s =>
@@ -695,13 +736,18 @@ def eval : Cond → State → Option Bool
 /-- DDI 0487, C6.2 "BL": `X[30, 64] = PC64 + 4` (the address of the next
 instruction), then the branch, possibly through a linker veneer, which may
 change `x16` and `x17` (AAPCS64 §6.1.1). The return address and the values
-left in `x16` and `x17` are the next three of the state's. -/
+left in `x16` and `x17` are the next three of the state's unknowns. The
+fourth supplies an independent C bit: AAPCS64 §6.1.1 makes NZCV undefined
+at public interfaces, and AAELF64 §5.7.7 (Call and Jump relocations) permits
+veneers to corrupt it.
+https://github.com/ARM-software/abi-aa/blob/main/aaelf64/aaelf64.rst -/
 def call (s : State) : Option State :=
   some { s with
     gpr := fun r =>
       if r = .x30 then s.unknowns 0 else if r = .x16 then s.unknowns 1
       else if r = .x17 then s.unknowns 2 else s.gpr r
-    unknowns := fun n => s.unknowns (n + 3) }
+    c := (s.unknowns 3).getLsbD 0
+    unknowns := fun n => s.unknowns (n + 4) }
 
 /-- DDI 0487, C6.2 "RET" (with the default register `x30`): `target =
 X[30, 64]; BranchTo(target)`. It returns after the call instruction if `x30`

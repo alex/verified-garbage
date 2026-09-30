@@ -336,7 +336,7 @@ theorem WP.gprs {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s 
   exact ⟨t, s', he, hq, fun r hr => Exec.gpr (hc r hr) he (.inl hn)⟩
 
 /-- The callee-saved registers our code never touches. -/
-def untouched : List Reg := [.x25, .x26, .x27, .x28, .x29, .x30]
+def untouched : List Reg := [.x25, .x26, .x27, .x28, .x30]
 
 theorem restore_eq : restore = [.ldr .x .x19 .x20 176, .ldr .x .x21 .x20 192, .ldr .x .x22 .x20 200,
     .ldr .x .x23 .x20 208, .ldr .x .x24 .x20 216, .ldr .x .x20 .x20 184] := rfl

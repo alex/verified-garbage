@@ -94,22 +94,22 @@ open VG VG.AArch64 VG.AArch64.Straight VG.Bitslice VG.Impl.Aes.AArch64 VG.Proof.
 /-- The callee-saved registers the code uses, in the order of `savedRegs`. -/
 def sreg : Nat → Reg
   | 0 => .x19 | 1 => .x20 | 2 => .x21 | 3 => .x22 | 4 => .x23 | 5 => .x24 | 6 => .x25
-  | 7 => .x26 | 8 => .x27 | 9 => .x28 | _ => .x29
+  | 7 => .x26 | 8 => .x27 | _ => .x28
 
 def saveCfg : Cfg := { base := sb, slots := 59, ext := sb, exts := 0 }
 
 def saveEnv : Env Nat :=
-  { reg := fun r => (List.range 11).find? (fun i => sreg i == r), slot := fun _ => none }
+  { reg := fun r => (List.range 10).find? (fun i => sreg i == r), slot := fun _ => none }
 
-def savePost (e : Env Nat) : Bool := (List.range 11).all fun i => e.slot (48 + i) == some i
+def savePost (e : Env Nat) : Bool := (List.range 10).all fun i => e.slot (48 + i) == some i
 
 theorem save_check : check (names 64) saveCfg (fun _ => none) saveRegs saveEnv savePost = true := by
   decide +kernel
 
 def restoreEnv : Env Nat :=
-  { reg := fun _ => none, slot := fun k => if 48 ≤ k ∧ k < 59 then some (k - 48) else none }
+  { reg := fun _ => none, slot := fun k => if 48 ≤ k ∧ k < 58 then some (k - 48) else none }
 
-def restorePost (e : Env Nat) : Bool := (List.range 11).all fun i => e.reg (sreg i) == some i
+def restorePost (e : Env Nat) : Bool := (List.range 10).all fun i => e.reg (sreg i) == some i
 
 theorem restore_check :
     check (names 64) saveCfg (fun _ => none) restoreRegs restoreEnv restorePost = true := by
@@ -119,9 +119,9 @@ theorem saveCfg_ok {s : State} {b : Addr} {n : Nat} (hw : (⟨b, n⟩ : Region) 
     (hb : s.gpr sb = b) (hn : 8 * 59 ≤ n) : Ok saveCfg s :=
   Ok.of_region hw hb.symm hn (by simp [saveCfg]) rfl
 
-/-- The saved registers are in slots 48–58. -/
+/-- The saved registers are in slots 48–57. -/
 def Saved (s₀ : State) (b : Addr) (m : Mem) : Prop :=
-  ∀ i < 11, m.readW (wordAddr b (48 + i)) 64 = s₀.gpr (sreg i)
+  ∀ i < 10, m.readW (wordAddr b (48 + i)) 64 = s₀.gpr (sreg i)
 
 theorem save_ok {s : State} {b : Addr} {n : Nat} (hw : (⟨b, n⟩ : Region) ∈ s.wr) (hb : s.gpr sb = b)
     (hn : 8 * 59 ≤ n) :
@@ -151,7 +151,7 @@ theorem save_ok {s : State} {b : Addr} {n : Nat} (hw : (⟨b, n⟩ : Region) ∈
 
 theorem restore_ok {s₀ s : State} {b : Addr} {n : Nat} (hw : (⟨b, n⟩ : Region) ∈ s.wr)
     (hb : s.gpr sb = b) (hn : 8 * 59 ≤ n) (hs : Saved s₀ b s.mem) :
-    ∃ s', runBlock isa restoreRegs s = some s' ∧ (∀ i < 11, s'.gpr (sreg i) = s₀.gpr (sreg i)) ∧
+    ∃ s', runBlock isa restoreRegs s = some s' ∧ (∀ i < 10, s'.gpr (sreg i) = s₀.gpr (sreg i)) ∧
       Frame [⟨b, 8 * 59⟩] s.mem s'.mem := by
   obtain ⟨e', he, hpost⟩ := of_check _ _ _ restore_check
   let V : Nat → BitVec 64 := fun i => s₀.gpr (sreg i)
@@ -392,7 +392,7 @@ theorem notKeyWrites : ∀ r ∈ [Reg.x3, .x4, .x5], r ∉ keyWrites := by decid
 
 theorem correct {s₀ : State} (hp : Proof.Aes.ctr32AArch64.pre s₀) :
     WP isa Impl.Aes.AArch64.ctr32 s₀ fun s' =>
-      (∀ i < 11, s'.gpr (sreg i) = s₀.gpr (sreg i)) ∧ Proof.Aes.ctr32AArch64.post s₀ s' := by
+      (∀ i < 10, s'.gpr (sreg i) = s₀.gpr (sreg i)) ∧ Proof.Aes.ctr32AArch64.post s₀ s' := by
   obtain ⟨hrd, hwr, dSC, dSD, dSS, dCD, dCS, dDS, hwrap, hR⟩ := hp
   have hwC : (⟨s₀.gpr .x2, 16⟩ : Region) ∈ s₀.wr := by rw [hwr]; simp
   have hwD : (⟨s₀.gpr .x3, 16 * (s₀.gpr .x4).toNat⟩ : Region) ∈ s₀.wr := by rw [hwr]; simp
@@ -614,7 +614,7 @@ theorem ctr32_correct (s : State) (hs : Proof.Aes.ctr32AArch64.pre s) :
     WP.gprs (rs := [.x30]) (correct hs) (by decide +kernel) (by decide +kernel)
   refine ⟨t, s', he, ⟨fun r hr => ?_, Exec.sp he⟩, h₂⟩
   simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · exact h₁ 0 (by omega)
   · exact h₁ 1 (by omega)
   · exact h₁ 2 (by omega)
@@ -625,7 +625,6 @@ theorem ctr32_correct (s : State) (hs : Proof.Aes.ctr32AArch64.pre s) :
   · exact h₁ 7 (by omega)
   · exact h₁ 8 (by omega)
   · exact h₁ 9 (by omega)
-  · exact h₁ 10 (by omega)
   · exact h₃ _ (by simp)
 
 theorem ctr32_ct : ConstantTime isa Proof.Aes.ctr32AArch64.pre Proof.Aes.ctr32AArch64.pub

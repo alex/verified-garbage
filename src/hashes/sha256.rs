@@ -12,6 +12,8 @@
 //! have the same contracts and call `vg_sha256_compress_shani`; CPUs without
 //! them but with AVX2, BMI1 and BMI2 run `vg_sha256_update_avx2` and
 //! `vg_sha256_finalize_avx2`, which call `vg_sha256_compress_avx2`.
+//! On AArch64, the `sha2` feature selects the `_sha2` streaming functions,
+//! whose compression uses SHA256H/SHA256H2 and SHA256SU0/SHA256SU1.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -26,6 +28,11 @@ use crate::arch::sha256::{
     VG_SHA256_UPDATE_AVX2_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES, vg_sha256_finalize_avx2,
     vg_sha256_finalize_shani, vg_sha256_update_avx2, vg_sha256_update_shani,
 };
+#[cfg(target_arch = "aarch64")]
+use crate::arch::sha256::{
+    VG_SHA256_FINALIZE_SHA2_FEATURES, VG_SHA256_UPDATE_SHA2_FEATURES, vg_sha256_finalize_sha2,
+    vg_sha256_update_sha2,
+};
 use crate::arch::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
 
 super::streaming_hash!(
@@ -39,6 +46,9 @@ super::streaming_hash!(
         init: vg_sha256_init,
         backends: Sha256Backend {
             Scalar => (vg_sha256_update, vg_sha256_finalize),
+            #[cfg(target_arch = "aarch64")]
+            Sha2 if [VG_SHA256_UPDATE_SHA2_FEATURES, VG_SHA256_FINALIZE_SHA2_FEATURES] =>
+                (vg_sha256_update_sha2, vg_sha256_finalize_sha2),
             #[cfg(target_arch = "x86_64")]
             ShaNi if [VG_SHA256_UPDATE_SHANI_FEATURES, VG_SHA256_FINALIZE_SHANI_FEATURES] =>
                 (vg_sha256_update_shani, vg_sha256_finalize_shani),
@@ -79,7 +89,7 @@ mod tests {
     /// The implementation chosen for each set of the features it depends on.
     #[test]
     fn select() {
-        for bits in 0..256 {
+        for bits in 0..(1 << crate::cpu::NAMES.len()) {
             let backend = Sha256Backend::select(Features(bits));
             #[cfg(target_arch = "x86_64")]
             {
@@ -94,7 +104,16 @@ mod tests {
                 };
                 assert_eq!(backend, expected, "{bits:#b}");
             }
-            #[cfg(not(target_arch = "x86_64"))]
+            #[cfg(target_arch = "aarch64")]
+            {
+                let expected = if Features(bits).contains(Features::of(&["sha2"])) {
+                    Sha256Backend::Sha2
+                } else {
+                    Sha256Backend::Scalar
+                };
+                assert_eq!(backend, expected, "{bits:#b}");
+            }
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
             assert_eq!(backend, Sha256Backend::Scalar);
         }
         assert_eq!(Sha256::new().backend, Sha256Backend::select(detected()));
