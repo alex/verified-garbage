@@ -23,12 +23,6 @@ def TabOf (tab : Nat → Nat) (Z : Nat → Zq) : Prop := ∀ k < 256, tab k = (Z
 /-- Where the zeta pointer moves: up or down by 4 bytes. -/
 def zstep (up : Bool) (a : Addr) : Addr := if up then a + BitVec.ofNat 64 4 else a - BitVec.ofNat 64 4
 
-/-- A 16-bit immediate. -/
-theorem imm16 {k : Nat} (h : k < 65536) : (BitVec.ofNat 16 k).setWidth 64 = BitVec.ofNat 64 k := by
-  apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_setWidth, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
-  omega
-
 /-! ## A block -/
 
 section

@@ -250,6 +250,12 @@ theorem q32 : (BitVec.ofNat 32 8380417).setWidth 64 = Qv := by decide
 
 theorem toNat_Qv : Qv.toNat = q := rfl
 
+/-- A 16-bit immediate. -/
+theorem imm16 {k : Nat} (h : k < 65536) : (BitVec.ofNat 16 k).setWidth 64 = BitVec.ofNat 64 k := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_setWidth, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
+  omega
+
 /-- `movW d v`: `d ← v`. -/
 theorem movW_ok (d : Reg) (v : BitVec 32) (s : State) :
     WP isa (.block (movW d v)) s fun s' => (s'.gpr d = v.setWidth 64 ∧ s'.mem = s.mem) ∧ Keep [d] s s' := by
