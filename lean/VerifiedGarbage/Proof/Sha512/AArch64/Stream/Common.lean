@@ -159,7 +159,8 @@ theorem one_toNat : (BitVec.setWidth 64 (1 : BitVec 16)).toNat = 1 := rfl
 
 /-- Compressing the block at `x1` into the hash value at `x19`, with scratch
 space at `x20`. -/
-theorem compressAt_ok {s : State} {st scr src : Addr}
+theorem compressAt_ok_of {code : Prog isa}
+    (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true) {s : State} {st scr src : Addr}
     (h19 : s.gpr .x19 = st) (h20 : s.gpr .x20 = scr) (h1 : s.gpr .x1 = src)
     (d₁ : Region.Disjoint ⟨st, 64⟩ ⟨scr, 176⟩) (d₂ : Region.Disjoint ⟨src, 128⟩ ⟨st, 64⟩)
     (d₃ : Region.Disjoint ⟨src, 128⟩ ⟨scr, 176⟩)
@@ -168,8 +169,8 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ preserved, s'.gpr r = s.gpr r) →
       s'.sp = s.sp → Frame [⟨st, 64⟩, ⟨scr, 176⟩] s.mem s'.mem →
       stateAt s'.mem st = compress (stateAt s.mem st) (blockAt s.mem src) → Q s') :
-    WP isa compressAt s Q := by
-  unfold compressAt
+    WP isa (compressAtWith code) s Q := by
+  unfold compressAtWith
   refine WP.seq (wp_mov fun s₁ u₁ => wp_movz fun s₂ u₂ => wp_mov fun s₃ u₃ => WP.block_nil ?_)
   have e0 : s₃.gpr .x0 = st := by
     rw [u₃.other _ (by decide), u₂.other _ (by decide), u₁.gpr, h19]
@@ -190,7 +191,7 @@ theorem compressAt_ok {s : State} {st scr src : Addr}
   have rd₃ : s₃.rd = s.rd := by rw [u₃.rd, u₂.rd, u₁.rd]
   have wr₃ : s₃.wr = s.wr := by rw [u₃.wr, u₂.wr, u₁.wr]
   have sp₃ : s₃.sp = s.sp := by rw [u₃.sp, u₂.sp, u₁.sp]
-  refine WP.inline (k := Proof.Sha512.compressAArch64) compress_verified.1
+  refine WP.inline (k := Proof.Sha512.compressAArch64) (hn := hno) hcode.1
     (rd := [⟨src, 128 * 1⟩]) (wr := [⟨st, 64⟩, ⟨scr, 176⟩]) ?_ ?_ ?_ ?_
   · simp only [Proof.Sha512.compressAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, e0, e1, e2, e3, one_toNat]
