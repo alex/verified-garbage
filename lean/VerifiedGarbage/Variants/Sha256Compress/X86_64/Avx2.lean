@@ -14,14 +14,15 @@ open VG.Impl.Sha256.X86_64.Stream (Callee)
 
 theorem ok : Callee.avx2.Ok :=
   .of_verified Proof.Sha256.X86_64.Avx2.compress_verified.1
-    Proof.Sha256.X86_64.Avx2.compress_verified.2.1 (by rw [← Code.allInstrs_eq]; decide +kernel)
-    (by decide +kernel)
+    Proof.Sha256.X86_64.Avx2.compress_verified.2.1
+    (by change (instrs Impl.Sha256.X86_64.Avx2.compress).all _ = true; rw [← Code.allInstrs_eq]; lit_decide)
+    (by change Impl.Sha256.X86_64.Avx2.compress.depth = 0; lit_decide)
 
 def variant : Proof.Sha256.X86_64.Compress where
   callee := .avx2
   ok := ok
-  mxcsr := by decide +kernel
-  spSafe := Code.all_of_allInstrs (by lit_decide)
+  mxcsr := by change Impl.Sha256.X86_64.Avx2.compress.allInstrs _ = true; lit_decide
+  spSafe := Code.all_of_allInstrs (by change Impl.Sha256.X86_64.Avx2.compress.allInstrs _ = true; lit_decide)
   suffix := "_avx2"
   features := ["avx", "avx2", "bmi1", "bmi2"]
 

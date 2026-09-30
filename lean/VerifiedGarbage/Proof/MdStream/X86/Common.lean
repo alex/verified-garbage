@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Framework.X86.Exec
 import VerifiedGarbage.Impl.MdStream.X86
 import Mathlib.Tactic.Conv
 import Mathlib.Tactic.Set
+import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # Streaming Merkle–Damgård hash functions on x86 (32-bit): common lemmas
@@ -27,7 +28,7 @@ open VG.Proof.Sha256.Stream (writeBytes)
 theorem contains_offset {base : Addr} {len off n : Nat} (h : off + n ≤ len) (ho : off < 2 ^ 64) :
     (⟨base, len⟩ : Region).Contains (base + BitVec.ofNat 64 off) n := by
   simp only [Region.Contains]
-  rw [show base + BitVec.ofNat 64 off - base = BitVec.ofNat 64 off by bv_omega, BitVec.toNat_ofNat,
+  rw [VG.Offset.add_sub_cancel_left, BitVec.toNat_ofNat,
     Nat.mod_eq_of_lt ho]
   exact h
 
@@ -36,7 +37,8 @@ theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (
   intro a ha
   simp only [Region.Contains] at *
   have : (a - base).toNat ≤ (a - (base + BitVec.ofNat 64 off)).toNat + off := by
-    rw [show a - base = (a - (base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by bv_omega,
+    rw [show a - base = (a - (base + BitVec.ofNat 64 off)) + BitVec.ofNat 64 off by
+        rw [VG.Offset.sub_add_eq, BitVec.sub_add_cancel],
       BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ho]
     exact Nat.mod_le _ _
   omega
@@ -46,7 +48,7 @@ theorem frame_bytes {rs : List Region} {m m' : Mem} (hf : Frame rs m m') {R : Re
     m' (R.base + BitVec.ofNat 64 i) = m (R.base + BitVec.ofNat 64 i) := by
   refine hf _ fun r hr hc => hd r hr _ ?_ hc
   simp only [Region.Contains]
-  rw [show R.base + BitVec.ofNat 64 i - R.base = BitVec.ofNat 64 i by bv_omega,
+  rw [VG.Offset.add_sub_cancel_left,
     BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   omega
 
@@ -76,11 +78,12 @@ theorem addr_add_ofNat {x : BitVec 32} {k d : Nat} (h : x.toNat + k + d < 2 ^ 32
 /-- Two accesses `[x + d]` and `[x + e]` of `n` and `k` bytes that do not overlap. -/
 theorem addr_sep {x : BitVec 32} {d e n k : Nat} (hd : x.toNat + d + n ≤ 2 ^ 32) (he : x.toNat + e + k ≤ 2 ^ 32)
     (h : d + n ≤ e ∨ e + k ≤ d) : Mem.Sep (addr x d) n (addr x e) k := by
-  intro a ha hb
-  rw [addr_eq (by omega)] at ha hb
-  have := x.isLt
-  generalize x.setWidth 64 = b at *
-  bv_omega
+  rcases Nat.eq_zero_or_pos n with rfl | hn
+  · exact fun _ h₁ => absurd h₁ (Nat.not_lt_zero _)
+  rcases Nat.eq_zero_or_pos k with rfl | hk
+  · exact fun _ _ h₂ => absurd h₂ (Nat.not_lt_zero _)
+  rw [addr_eq (by omega), addr_eq (by omega)]
+  exact Offset.sep _ h (by omega) (by omega)
 
 theorem readW_writeW_addr (m : Mem) {x : BitVec 32} (v : BitVec 32) {d e : Nat}
     (hd : x.toNat + d + 4 ≤ 2 ^ 32) (he : x.toNat + e + 4 ≤ 2 ^ 32) (h : d + 4 ≤ e ∨ e + 4 ≤ d) :
@@ -492,7 +495,8 @@ theorem compressAt_ok {name : String} {code : Prog isa} (hf : CalleeOk H code) {
   have b16 : Region.Sub (below E 16) (below E 20) := below_sub (by omega) hE
   have r4 : Region.Sub ⟨(E - BitVec.ofNat 32 20).setWidth 64, 4⟩ (below E 20) := by
     have := below_inner (sp := E) (a := 4) (b := 20) (k := 16) (by omega) hE
-    rw [show E - BitVec.ofNat 32 20 = E - BitVec.ofNat 32 16 - BitVec.ofNat 32 4 by bv_omega]
+    rw [show E - BitVec.ofNat 32 20 = E - BitVec.ofNat 32 16 - BitVec.ofNat 32 4 by
+      rw [← VG.Offset.sub_add_eq]; rfl]
     exact this
   have hesp₁ : s₁.gpr .esp = E := by rw [g₁ _ (by decide), hesp]
   refine WP.callWith (k := compressK H) hf.verified hf.nosp (by simp) hrs

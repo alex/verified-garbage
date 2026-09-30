@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MdStream.AArch64.Common
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # Streaming Merkle–Damgård hash functions on AArch64: `update`
@@ -433,14 +434,14 @@ theorem fill_pending (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {s
     {s : State} (h : Copy P s₀ c sI.mem (tt s₀ c) s) (hfull : rr s₀ c + tt s₀ c = 64) :
     WP isa (.block [.addImm .x .x1 .x19 P.N, .movz .x .x23 0 0, .movz .x .x10 1 0]) s
       (Pending H s₀ (c + tt s₀ c)) := by
-  have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c
+  have ht' := tt_le' s₀ c
   have hrr := rr_eq s₀ c; have htt := tt_eq s₀ c
   have hxs := xs_length s₀ c
   have hc := hI.c_le
   have := hd.N
   obtain ⟨hfr, hsv, hst, hby⟩ := copied_facts hd hp hI
   have hmem : s.mem = writeBytes sI.mem (q P s₀ c) (xs s₀ c) := by
-    rw [h.mem, List.take_of_length_le (by omega)]
+    rw [h.mem, List.take_of_length_le (by omega_using [hxs])]
   refine wp_addImm (by omega) fun s₁ u₁ => wp_movz fun s₂ u₂ => wp_movz fun s₃ u₃ => WP.block_nil ?_
   have g : ∀ r, r ≠ .x1 → r ≠ .x23 → r ≠ .x10 → s₃.gpr r = s.gpr r := fun r h1 h2 h3 => by
     rw [u₃.other r h3, u₂.other r h2, u₁.other r h1]
@@ -470,21 +471,21 @@ theorem fill_pending (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {s
 /-- All the data fits in the buffer. -/
 theorem fill_done (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {sI : State} (hI : Inv H s₀ c sI)
     {s : State} (h : Copy P s₀ c sI.mem (tt s₀ c) s) (hnf : rr s₀ c + tt s₀ c ≠ 64) : Done H s₀ s := by
-  have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c
+  have hr := rr_lt s₀ c; have ht' := tt_le' s₀ c
   have hrr := rr_eq s₀ c; have htt := tt_eq s₀ c
   have hxs := xs_length s₀ c
   have hc := hI.c_le
   have htl : tt s₀ c = len s₀ - c := by omega
   obtain ⟨hfr, hsv, hst, hby⟩ := copied_facts hd hp hI
   have hmem : s.mem = writeBytes sI.mem (q P s₀ c) (xs s₀ c) := by
-    rw [h.mem, List.take_of_length_le (by omega)]
+    rw [h.mem, List.take_of_length_le (by omega_using [hxs])]
   refine ⟨⟨⟨(Nat.le_refl _), h.rd, h.wr, h.x19, h.x20, h.sp, ?_, ?_, by rw [hmem]; exact hfr,
     by rw [hmem]; exact hsv⟩, ?_, fun iv m hm => ?_⟩, h.x10⟩
-  · rw [h.x21]; congr 2; omega
-  · rw [h.x22]; congr 1; omega
-  · rw [h.x23]; congr 1; omega
+  · rw [h.x21]; congr 2; omega_using [htl, hc]
+  · rw [h.x22]; congr 1; omega_using [htl]
+  · rw [h.x23]; congr 1; omega_using [htl, hc, hrr, hr, ht', hnf]
   · have hmod := length_mid s₀ hm hc
-    rw [show len s₀ = c + tt s₀ c by omega, ← take_add_data]
+    rw [show len s₀ = c + tt s₀ c by omega_using [htl, hc], ← take_add_data]
     refine H.repr_append_buf (hI.repr iv m hm) (by rw [hmod, hxs]; omega) (by rw [hmem, hst]) ?_
     rw [hmod, hxs, hmem, hby]
     have hb := (hI.repr iv m hm).2
@@ -494,10 +495,10 @@ theorem fill_done (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {sI :
 theorem fill_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {s : State} (hI : Inv H s₀ c s)
     (hcl : c < len s₀) (h10 : s.gpr .x10 = 0) :
     WP isa (fill P) s fun s' => (∃ c', c < c' ∧ Pending H s₀ c' s') ∨ Done H s₀ s' := by
-  have hr := rr_lt s₀ c; have ht := tt_le s₀ c; have ht' := tt_le' s₀ c
+  have ht' := tt_le' s₀ c
   have hrr := rr_eq s₀ c; have htt := tt_eq s₀ c
   have ne : ∀ r ∈ [Reg.x19, .x20, .x21, .x22, .x23], r ≠ .x9 ∧ r ≠ .x11 := by decide
-  have hc := hI.c_le; have hlen := len_lt s₀
+  have hlen := len_lt s₀
   unfold fill
   -- `x11 := 64 - r; x9 := len >> 6`
   refine WP.seq (wp_movz fun s₁ u₁ => wp_sub fun s₂ u₂ => wp_lsr (by decide) fun s₃ u₃ => WP.block_nil ?_)
@@ -573,7 +574,7 @@ theorem fill_ok (hd : Dims P) {s₀ : State} (hp : Pre P s₀) {c : Nat} {s : St
 theorem body_ok (hd : Dims P) {name : String} {code : Prog isa} (hf : CalleeOk H code) {s₀ : State}
     (hp : Pre P s₀) {c : Nat} {s : State} (hI : Inv H s₀ c s) (hcl : c < len s₀) :
     WP isa (updateBody P name code) s fun s' => ∃ c', c < c' ∧ Inv H s₀ c' s' := by
-  have hlen := len_lt s₀; have hc := hI.c_le; have hr := rr_lt s₀ c
+  have hlen := len_lt s₀; have hr := rr_lt s₀ c
   have ne : ∀ r ∈ [Reg.x19, .x20, .x21, .x22, .x23], r ≠ .x10 ∧ r ≠ .x9 := by decide
   unfold updateBody
   refine WP.seq (wp_movz fun s₁ u₁ => WP.block_nil ?_)

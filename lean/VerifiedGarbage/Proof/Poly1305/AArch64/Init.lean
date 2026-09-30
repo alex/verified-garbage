@@ -47,11 +47,11 @@ theorem init_exec {s₀ : State} (hp : IPre s₀) :
   have i : ∀ d, d + 8 ≤ 32 → InRegions (s₀.rd ++ s₀.wr) (off (kp s₀) d) 8 :=
     fun d hd => ⟨_, by rw [hp.rd]; exact List.mem_append_left _ (List.mem_singleton_self _),
       contains_off hd (by omega)⟩
-  have o0 := o 0 (by omega); have o8 := o 8 (by omega); have o16 := o 16 (by omega)
-  have o24 := o 24 (by omega); have o32 := o 32 (by omega); have o40 := o 40 (by omega)
-  have o48 := o 48 (by omega)
-  have i0 := i 0 (by omega); have i8 := i 8 (by omega); have i16 := i 16 (by omega)
-  have i24 := i 24 (by omega)
+  have o0 := o 0 (by decide); have o8 := o 8 (by decide); have o16 := o 16 (by decide)
+  have o24 := o 24 (by decide); have o32 := o 32 (by decide); have o40 := o 40 (by decide)
+  have o48 := o 48 (by decide)
+  have i0 := i 0 (by decide); have i8 := i 8 (by decide); have i16 := i 16 (by decide)
+  have i24 := i 24 (by decide)
   simp only [off, st, kp] at o0 o8 o16 o24 o32 o40 o48 i0 i8 i16 i24
   apply WP.of_runBlock
   simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec,
@@ -88,8 +88,8 @@ theorem init_correct {s₀ : State} (hp : IPre s₀) :
     WP isa init s₀ fun s' => Proof.Poly1305.initAArch64.post s₀ s' := by
   refine WP.mono (init_exec hp) fun s' hm => ⟨rfl, ?_, ?_⟩
   · rw [← off_24, hm, bytesAt_32, bytesAt_32, off_off, off_off, off_off, off_off,
-      initMem_word _ _ _ (j := 0) (by omega), initMem_word _ _ _ (j := 1) (by omega),
-      initMem_word _ _ _ (j := 2) (by omega), initMem_word _ _ _ (j := 3) (by omega)]
+      initMem_word _ _ _ (j := 0) (by decide), initMem_word _ _ _ (j := 1) (by decide),
+      initMem_word _ _ _ (j := 2) (by decide), initMem_word _ _ _ (j := 3) (by decide)]
   · rw [hm, initMem_acc]
     rfl
 
@@ -103,7 +103,7 @@ def initSat : State where
   wr := [⟨0x1000, 128⟩]
 
 theorem init_untouched : Untouched Impl.Poly1305.AArch64.init :=
-  Untouched.of_all (by rw [← Code.allInstrs_eq]; decide +kernel)
+  Untouched.of_all (by rw [← Code.allInstrs_eq]; lit_decide)
 
 theorem init_ok (s : State) (hs : Proof.Poly1305.initAArch64.pre s) :
     ∃ t s', Exec isa Impl.Poly1305.AArch64.init s t s' ∧ abiPreserved s s' ∧

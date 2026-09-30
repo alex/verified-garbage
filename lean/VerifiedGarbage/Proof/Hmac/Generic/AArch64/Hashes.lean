@@ -124,12 +124,12 @@ def finSat : State where
 
 theorem upd_sat (R : Mem → Addr → List Byte → Prop) : ∃ s, (updK 192 224 R).pre s := by
   refine ⟨updSat, rfl, rfl, ?_, ?_, ?_, by decide, ?_, ?_, ?_⟩ <;>
-    (intro a h₁ h₂; simp only [Region.Contains, updSat] at h₁ h₂; bv_omega)
+    exact Region.disjoint_of_sep (by decide)
 
 theorem fin_sat (R : Mem → Addr → List Byte → Prop) (hash : List Byte → List Byte) (D : Nat) :
     ∃ s, (finK 192 224 64 D R hash).pre s := by
   refine ⟨finSat, rfl, rfl, ?_, ?_, ?_, by decide, ?_, ?_, ?_⟩ <;>
-    (intro a h₁ h₂; simp only [Region.Contains, finSat] at h₁ h₂; bv_omega)
+    exact Region.disjoint_of_sep (by decide)
 
 /-- `HashOK` for a member of the SHA-512 family, whose digest is the first
 `D` bytes of the final hash value. -/

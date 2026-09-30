@@ -42,6 +42,15 @@ theorem add_ofNat_succ (a : BitVec w) (i : Nat) :
     a + BitVec.ofNat w (i + 1) = a + 1 + BitVec.ofNat w i := by
   rw [BitVec.ofNat_add, BitVec.add_comm (BitVec.ofNat w i), ← BitVec.add_assoc]; rfl
 
+/-- The next byte after offset `k`. -/
+theorem add_ofNat_add_one (a : BitVec w) (k : Nat) : a + BitVec.ofNat w k + 1 = a + BitVec.ofNat w (k + 1) := by
+  rw [BitVec.add_assoc, show (1 : BitVec w) = BitVec.ofNat w 1 from rfl, BitVec.ofNat_add_ofNat]
+
+/-- Offsets add up. -/
+theorem add_ofNat_add_ofNat (a : BitVec w) (j k : Nat) :
+    a + BitVec.ofNat w j + BitVec.ofNat w k = a + BitVec.ofNat w (j + k) := by
+  rw [BitVec.add_assoc, BitVec.ofNat_add_ofNat]
+
 theorem sub_add_eq (x E y : BitVec w) : x - (E + y) = (x - E) - y := by
   rw [BitVec.sub_sub]
 

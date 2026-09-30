@@ -102,12 +102,12 @@ def sha1OK : HashOK sha1H where
         exact h m hr hc
       pub := fun _ _ _ _ h => h
       sat := Proof.Sha1.X86.Stream.Finalize.finalize_verified.2.2 }
-  initSp := nosp_of (by decide +kernel)
-  updSp := nosp_of (by decide +kernel)
-  finSp := nosp_of (by decide +kernel)
-  initSU := by decide +kernel
-  updSU := by decide +kernel
-  finSU := by decide +kernel
+  initSp := nosp_of (by lit_decide)
+  updSp := nosp_of (by lit_decide)
+  finSp := nosp_of (by lit_decide)
+  initSU := by lit_decide
+  updSU := by lit_decide
+  finSU := by lit_decide
 
 /-! ## MD5 -/
 
@@ -140,12 +140,12 @@ def md5OK : HashOK md5H where
         exact h m hr hc
       pub := fun _ _ _ _ h => h
       sat := Proof.Md5.X86.Stream.Finalize.finalize_verified.2.2 }
-  initSp := nosp_of (by decide +kernel)
-  updSp := nosp_of (by decide +kernel)
-  finSp := nosp_of (by decide +kernel)
-  initSU := by decide +kernel
-  updSU := by decide +kernel
-  finSU := by decide +kernel
+  initSp := nosp_of (by lit_decide)
+  updSp := nosp_of (by lit_decide)
+  finSp := nosp_of (by lit_decide)
+  initSU := by lit_decide
+  updSU := by lit_decide
+  finSU := by lit_decide
 
 /-! ## The SHA-512 family -/
 
@@ -154,10 +154,10 @@ def sha512H (D : Nat) (initN : String) (iv : Spec.Sha512.HashValue) : Hash :=
   ⟨128, 192, D, 64, 34, initN, Impl.Sha512.X86.Stream.init iv, "vg_sha512_update",
     Impl.Sha512.X86.Stream.update, "vg_sha512_finalize", Impl.Sha512.X86.Stream.finalize⟩
 
-theorem sha512_updSp : NoSp Impl.Sha512.X86.Stream.update := nosp_of (by decide +kernel)
-theorem sha512_finSp : NoSp Impl.Sha512.X86.Stream.finalize := nosp_of (by decide +kernel)
-theorem sha512_updSU : stackUse Impl.Sha512.X86.Stream.update = 20 := by decide +kernel
-theorem sha512_finSU : stackUse Impl.Sha512.X86.Stream.finalize = 20 := by decide +kernel
+theorem sha512_updSp : NoSp Impl.Sha512.X86.Stream.update := nosp_of (by lit_decide)
+theorem sha512_finSp : NoSp Impl.Sha512.X86.Stream.finalize := nosp_of (by lit_decide)
+theorem sha512_updSU : stackUse Impl.Sha512.X86.Stream.update = 20 := by lit_decide
+theorem sha512_finSU : stackUse Impl.Sha512.X86.Stream.finalize = 20 := by lit_decide
 
 /-- `HashOK` for a member of the SHA-512 family, whose digest is the first
 `D` bytes of the final hash value. -/
@@ -208,15 +208,15 @@ def sha512_224H : Hash := sha512H 28 "vg_sha512_224_init" Spec.Sha512.H0_512_224
 def sha512_256H : Hash := sha512H 32 "vg_sha512_256_init" Spec.Sha512.H0_512_256
 
 def sha384OK : HashOK sha384H := sha512FamOK Spec.Hmac.sha384S 48 "vg_sha384_init" Spec.Sha512.H0_384
-  rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide) (nosp_of (by decide +kernel)) (by decide +kernel)
+  rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide) (nosp_of (by lit_decide)) (by lit_decide)
 def sha512OK : HashOK sha512H' := sha512FamOK Spec.Hmac.sha512S 64 "vg_sha512_init" Spec.Sha512.H0_512
   rfl rfl rfl rfl (fun m => (List.take_of_length_le (Nat.le_of_eq (finalHash_length _ m))).symm) (by decide) (by decide)
-  (nosp_of (by decide +kernel)) (by decide +kernel)
+  (nosp_of (by lit_decide)) (by lit_decide)
 def sha512_224OK : HashOK sha512_224H := sha512FamOK Spec.Hmac.sha512_224S 28 "vg_sha512_224_init"
-  Spec.Sha512.H0_512_224 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide) (nosp_of (by decide +kernel))
-  (by decide +kernel)
+  Spec.Sha512.H0_512_224 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide) (nosp_of (by lit_decide))
+  (by lit_decide)
 def sha512_256OK : HashOK sha512_256H := sha512FamOK Spec.Hmac.sha512_256S 32 "vg_sha512_256_init"
-  Spec.Sha512.H0_512_256 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide) (nosp_of (by decide +kernel))
-  (by decide +kernel)
+  Spec.Sha512.H0_512_256 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide) (nosp_of (by lit_decide))
+  (by lit_decide)
 
 end VG.Proof.Hmac.Generic.X86

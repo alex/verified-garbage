@@ -1,11 +1,65 @@
+import VerifiedGarbage.Proof.MdStream.Spec
+import VerifiedGarbage.Proof.Sha512.Stream
 import VerifiedGarbage.Proof.MdStream.X86_64.UpdateCT
 import VerifiedGarbage.Proof.MdStream.X86_64.FinalizeCT
 import VerifiedGarbage.Proof.MdStream.X86_64.Words
-import VerifiedGarbage.Proof.Sha512.Md
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Sha512.X86_64.Compress
 import VerifiedGarbage.Impl.Sha512.X86_64.Stream
 import VerifiedGarbage.Proof.Sha512.X86_64.Lit
+
+/-!
+# The SHA-512 family as a streaming Merkle–Damgård hash function
+
+Untrusted: everything here is checked by Lean. SHA-512 (for any initial hash
+value, so SHA-384, SHA-512/224 and SHA-512/256 too) as an instance of
+`Proof.MdStream.Md`, for the generic streaming proofs: its `Repr` and
+`finalHash` are the generic ones, by unfolding.
+-/
+
+namespace VG.Proof.Sha512
+
+open Spec.Sha512
+
+/-- The big-endian bytes of a 128-bit word (§5.1.2). -/
+def lenField (x : BitVec 128) : List Byte := (List.range 16).reverse.map fun i => x.extractLsb' (8 * i) 8
+
+/-- The SHA-512 family: 128-byte blocks, a 64-byte hash value, the
+big-endian 128-bit bit count as its length field (for messages shorter than
+2⁶⁴ bytes, which the count modulo 2⁶⁴ determines), and all the words of the
+hash value big-endian as its output (which the truncated variants
+truncate). -/
+def md : MdStream.Md 128 64 16 where
+  HV := HashValue
+  Blk := Block
+  stateAt := stateAt
+  parse := parseBlock
+  compress := compress
+  lenBytes n := lenField (BitVec.ofNat 128 (8 * n))
+  lenOf x := lenField (BitVec.ofNat 128 (8 * x.toNat))
+  lenOk n := n < 2 ^ 64
+  digest h := h.toList.flatMap wordBytes
+  stateAt_congr := Stream.stateAt_congr
+  parse_congr := Stream.parseBlock_congr
+  lenBytes_length _ := by simp [lenField]
+  lenOf_eq n h := by rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt h]
+  lenOf_length _ := by simp [lenField]
+  digest_length h := by simp [List.length_flatMap, wordBytes, List.map_const']
+
+/-- The 128-bit length in bits of a 64-bit count of bytes is the 64-bit
+words `count >> 61` and `8 count mod 2⁶⁴`, big-endian. -/
+theorem lenOf_split (x : BitVec 64) :
+    md.lenOf x = wordBytes (x >>> 61) ++ wordBytes (BitVec.ofNat 64 (8 * x.toNat)) := by
+  have e := Stream.lenN_split x.toNat x.isLt
+  rw [BitVec.ofNat_toNat, BitVec.setWidth_eq] at e
+  exact e
+
+theorem repr_iff {iv : HashValue} {mem : Mem} {p : Addr} {m : List Byte} :
+    Repr iv mem p m ↔ md.Repr iv mem p m := Iff.rfl
+
+theorem finalHash_eq (iv : HashValue) (m : List Byte) : finalHash iv m = md.hash iv m := rfl
+
+end VG.Proof.Sha512
 
 /-!
 # Streaming SHA-512 on x86-64: `update` and `finalize`
@@ -13,7 +67,7 @@ import VerifiedGarbage.Proof.Sha512.X86_64.Lit
 Untrusted: everything here is checked by Lean. `update` and `finalize` are
 the generic streaming code (`Impl/MdStream/X86_64.lean`), so they are
 verified by the generic proofs (`Proof/MdStream/X86_64/`) for the SHA-512
-family's instance (`Proof/Sha512/Md.lean`), given what its own pieces do: its
+family's instance (above), given what its own pieces do: its
 length field and digest (`shape`), that the taint analysis accepts its code
 between the calls (`taints`), and that its compression function is verified
 (`callee`).
@@ -89,14 +143,14 @@ theorem taints : Taints params :=
     ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
 
 theorem callee : CalleeOk (P := params) md Impl.Sha512.X86_64.compress :=
-  .of_verified compress_verified.1 compress_verified.2.1 (by rw [← Code.allInstrs_eq]; decide +kernel)
-    (by decide +kernel)
+  .of_verified compress_verified.1 compress_verified.2.1 (by rw [← Code.allInstrs_eq]; lit_decide)
+    (by lit_decide)
 
 namespace Update
 
 theorem update_verified :
     Verified X86_64.target Impl.Sha512.X86_64.Stream.update Proof.Sha512.updateX86_64 :=
-  MdStream.X86_64.Update.verified (name := "vg_sha512_compress") dims taints callee (by decide +kernel)
+  MdStream.X86_64.Update.verified (name := "vg_sha512_compress") dims taints callee (by lit_decide)
 
 /-- A state satisfying `update`'s precondition. -/
 abbrev sat : State := MdStream.X86_64.Update.sat params
@@ -107,7 +161,7 @@ namespace Finalize
 
 theorem finalize_verified :
     Verified X86_64.target Impl.Sha512.X86_64.Stream.finalize Proof.Sha512.finalizeX86_64 :=
-  MdStream.X86_64.Finalize.verified (name := "vg_sha512_compress") dims shape taints callee (by decide +kernel)
+  MdStream.X86_64.Finalize.verified (name := "vg_sha512_compress") dims shape taints callee (by lit_decide)
 
 /-- A state satisfying `finalize`'s precondition. -/
 abbrev sat : State := MdStream.X86_64.Finalize.sat params

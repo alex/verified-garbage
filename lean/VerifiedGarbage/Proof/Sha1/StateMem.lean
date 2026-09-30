@@ -26,9 +26,8 @@ theorem sub_offset {base : Addr} {off len len' : Nat} (h : off + len ≤ len') (
     Region.Sub ⟨base + BitVec.ofNat 64 off, len⟩ ⟨base, len'⟩ := Offset.sub_base base h
 
 theorem word_sep (p : Addr) {j k : Nat} (hj : j < 5) (hk : k < 5) (h : j ≠ k) :
-    Mem.Sep (p + BitVec.ofNat 64 (4 * j)) 4 (p + BitVec.ofNat 64 (4 * k)) 4 := by
-  intro x hx hy
-  bv_omega
+    Mem.Sep (p + BitVec.ofNat 64 (4 * j)) 4 (p + BitVec.ofNat 64 (4 * k)) 4 :=
+  Offset.sep p (by omega) (by omega) (by omega)
 
 theorem readW_writeW_word (m : Mem) (p : Addr) (v : Word) {j k : Nat} (hj : j < 5) (hk : k < 5)
     (h : j ≠ k) :

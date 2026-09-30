@@ -5,6 +5,7 @@ import VerifiedGarbage.Impl.Hmac.Arm
 import VerifiedGarbage.Spec.Hmac
 import VerifiedGarbage.Proof.Sha256.Arm.Contract
 import VerifiedGarbage.Proof.Hmac.Arm.Lit
+import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
 # HMAC-SHA-256 on ARMv7: common lemmas
@@ -136,19 +137,19 @@ theorem copy_ok {t src dst : Reg} (hs : src ≠ t) (hd : dst ≠ t) (o₁ o₂ :
   | succ n ih =>
     intro rest s Q fs fd hin hout hsep k
     rw [List.range_succ, List.flatMap_append, List.flatMap_singleton, List.append_assoc]
-    refine ih ⟨by omega, by omega⟩ _ s Q (by omega) (by omega) (fun j hj => hin j (by omega))
-      (fun j hj => hout j (by omega)) (fun x hx hy => hsep x (by omega) (by omega))
+    refine ih ⟨by omega_nat, by omega_nat⟩ _ s Q (by omega_nat) (by omega_nat) (fun j hj => hin j (by omega_nat))
+      (fun j hj => hout j (by omega_nat)) (fun x hx hy => hsep x (by omega_nat) (by omega_nat))
       fun s₁ g₁ rd₁ wr₁ sp₁ m₁ => ?_
     simp only [cp, List.cons_append, List.nil_append]
     refine wp_ldr (a := State.addr (s.gpr src) + BitVec.ofNat 64 o₁ + BitVec.ofNat 64 (4 * n))
-      (by omega) (by rw [g₁ _ hs, addr_add (by omega), add_off])
-      (by rw [rd₁, wr₁]; exact hin n (by omega)) fun s₂ u₂ => ?_
+      (by omega_nat) (by rw [g₁ _ hs, addr_add (by omega_nat), add_off])
+      (by rw [rd₁, wr₁]; exact hin n (by omega_nat)) fun s₂ u₂ => ?_
     refine wp_str (a := State.addr (s.gpr dst) + BitVec.ofNat 64 o₂ + BitVec.ofNat 64 (4 * n))
-      (by omega) (by rw [u₂.other _ hd, g₁ _ hd, addr_add (by omega), add_off])
-      (by rw [u₂.wr, wr₁]; exact hout n (by omega))
+      (by omega_nat) (by rw [u₂.other _ hd, g₁ _ hd, addr_add (by omega_nat), add_off])
+      (by rw [u₂.wr, wr₁]; exact hout n (by omega_nat))
       fun s₃ u₃ => k s₃ (fun r hr => by rw [u₃.gpr, u₂.other r hr, g₁ r hr])
         (by rw [u₃.rd, u₂.rd, rd₁]) (by rw [u₃.wr, u₂.wr, wr₁]) (by rw [u₃.sp, u₂.sp, sp₁]) ?_
     rw [u₃.mem, u₂.gpr, u₂.mem, m₁, Nat.mul_succ]
-    exact copy_mem s.mem _ _ n 4 (by rwa [← Nat.mul_succ]) (by omega)
+    exact copy_mem s.mem _ _ n 4 (by rwa [← Nat.mul_succ]) (by omega_nat)
 
 end VG.Proof.Hmac.Arm

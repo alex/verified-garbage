@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.MdStream.X86.Common
 import VerifiedGarbage.Proof.Sha1.Stream
 import VerifiedGarbage.Proof.Sha1.StateMem
@@ -104,9 +105,7 @@ theorem initSat_pre : Proof.Sha1.initX86.pre initSat := by
   have e : argAddr initSat 0 = 0x4004 := by decide
   simp only [Proof.Sha1.initX86, a0, e]
   refine ⟨rfl, rfl, ?_, ?_, by decide, by decide⟩ <;>
-  · intro a h₁ h₂
-    simp only [Region.Contains, initSat] at h₁ h₂
-    bv_omega
+  exact Region.disjoint_of_sep (by decide)
 
 /-- The initial taint: the argument is public. -/
 def initτ₀ : VG.X86.Taint.T := { regs := .ofList [.esp], flags := false, argLen := 8 }

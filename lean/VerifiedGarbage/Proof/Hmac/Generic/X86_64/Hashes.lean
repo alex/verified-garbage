@@ -41,12 +41,40 @@ theorem sha1H_D (v : Proof.Sha1.X86_64.Compress) : (sha1H v).D = 20 := rfl
 theorem sha1H_F (v : Proof.Sha1.X86_64.Compress) : (sha1H v).F = 20 := rfl
 theorem sha1H_buf (v : Proof.Sha1.X86_64.Compress) : (sha1H v).buf = 208 := rfl
 theorem sha1H_initC (v : Proof.Sha1.X86_64.Compress) : (sha1H v).initC = Impl.Sha1.X86_64.Stream.init := rfl
+
+/-- The parts of a `Hash` that depend only on its sizes. -/
+theorem Hash.initKeys_congr {H H' : Hash} (hB : H.B = H'.B) (hW : H.W = H'.W) :
+    H.initKeys = H'.initKeys := by
+  obtain ⟨B, S, D, F, W, iN, iC, uN, uC, fN, fC⟩ := H
+  obtain ⟨B', S', D', F', W', iN', iC', uN', uC', fN', fC'⟩ := H'
+  dsimp only at hB hW; subst hB hW; rfl
+
+theorem Hash.finPrologue_congr {H H' : Hash} (hW : H.W = H'.W) : H.finPrologue = H'.finPrologue := by
+  obtain ⟨B, S, D, F, W, iN, iC, uN, uC, fN, fC⟩ := H
+  obtain ⟨B', S', D', F', W', iN', iC', uN', uC', fN', fC'⟩ := H'
+  dsimp only at hW; subst hW; rfl
+
+theorem Hash.save_congr {H H' : Hash} (hW : H.W = H'.W) : H.save = H'.save := by
+  obtain ⟨B, S, D, F, W, iN, iC, uN, uC, fN, fC⟩ := H
+  obtain ⟨B', S', D', F', W', iN', iC', uN', uC', fN', fC'⟩ := H'
+  dsimp only at hW; subst hW; rfl
+
+theorem Hash.restore_congr {H H' : Hash} (hW : H.W = H'.W) : H.restore = H'.restore := by
+  obtain ⟨B, S, D, F, W, iN, iC, uN, uC, fN, fC⟩ := H
+  obtain ⟨B', S', D', F', W', iN', iC', uN', uC', fN', fC'⟩ := H'
+  dsimp only at hW; subst hW; rfl
+
+/- These are rewrites, not definitional lemmas: `simp` then adds their proofs,
+rather than leaving the kernel to unfold `sha1H v` against `sha1H .scalar`. -/
 theorem sha1H_initKeys (v : Proof.Sha1.X86_64.Compress) :
-    (sha1H v).initKeys = (sha1H .scalar).initKeys := rfl
+    (sha1H v).initKeys = (sha1H .scalar).initKeys := Hash.initKeys_congr rfl rfl
 theorem sha1H_finPrologue (v : Proof.Sha1.X86_64.Compress) :
-    (sha1H v).finPrologue = (sha1H .scalar).finPrologue := rfl
-theorem sha1H_save (v : Proof.Sha1.X86_64.Compress) : (sha1H v).save = (sha1H .scalar).save := rfl
-theorem sha1H_restore (v : Proof.Sha1.X86_64.Compress) : (sha1H v).restore = (sha1H .scalar).restore := rfl
+    (sha1H v).finPrologue = (sha1H .scalar).finPrologue := Hash.finPrologue_congr rfl
+theorem sha1H_save (v : Proof.Sha1.X86_64.Compress) : (sha1H v).save = (sha1H .scalar).save :=
+  Hash.save_congr rfl
+theorem sha1H_restore (v : Proof.Sha1.X86_64.Compress) : (sha1H v).restore = (sha1H .scalar).restore :=
+  Hash.restore_congr rfl
+
 theorem sha1H_updC (v : Proof.Sha1.X86_64.Compress) :
     (sha1H v).updC = Impl.Sha1.X86_64.Stream.update v.callee := rfl
 theorem sha1H_finC (v : Proof.Sha1.X86_64.Compress) :
@@ -78,10 +106,10 @@ def sha1OK (v : Proof.Sha1.X86_64.Compress) : HashOK (sha1H v) where
         exact h m hr hc
       pub := fun _ _ _ _ h => h
       sat := v.finalize_verified.2.2 }
-  initDepth := by simp only [sha1H]; decide +kernel
+  initDepth := by simp only [sha1H]; lit_decide
   updDepth := by simp only [sha1H, v.update_depth, Nat.le_refl]
   finDepth := by simp only [sha1H, v.finalize_depth, Nat.le_refl]
-  initSp := nosp_of (by simp only [sha1H]; rw [← Code.allInstrs_eq]; decide +kernel)
+  initSp := nosp_of (by simp only [sha1H]; rw [← Code.allInstrs_eq]; lit_decide)
   updSp := v.update_nosp
   finSp := v.finalize_nosp
 
@@ -117,12 +145,12 @@ def md5OK : HashOK md5H where
         exact h m hr hc
       pub := fun _ _ _ _ h => h
       sat := Proof.Md5.X86_64.Stream.Finalize.finalize_verified.2.2 }
-  initDepth := by decide +kernel
-  updDepth := by decide +kernel
-  finDepth := by decide +kernel
-  initSp := nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel)
-  updSp := nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel)
-  finSp := nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel)
+  initDepth := by lit_decide
+  updDepth := by lit_decide
+  finDepth := by lit_decide
+  initSp := nosp_of (by rw [← Code.allInstrs_eq]; lit_decide)
+  updSp := nosp_of (by rw [← Code.allInstrs_eq]; lit_decide)
+  finSp := nosp_of (by rw [← Code.allInstrs_eq]; lit_decide)
 
 /-! ## The SHA-512 family -/
 
@@ -131,12 +159,12 @@ def sha512H (D : Nat) (initN : String) (iv : Spec.Sha512.HashValue) : Hash :=
   ⟨128, 192, D, 64, 34, initN, Impl.Sha512.X86_64.Stream.init iv, "vg_sha512_update",
     Impl.Sha512.X86_64.Stream.update, "vg_sha512_finalize", Impl.Sha512.X86_64.Stream.finalize⟩
 
-theorem sha512_upd_depth : Impl.Sha512.X86_64.Stream.update.depth ≤ 1 := by decide +kernel
-theorem sha512_fin_depth : Impl.Sha512.X86_64.Stream.finalize.depth ≤ 1 := by decide +kernel
+theorem sha512_upd_depth : Impl.Sha512.X86_64.Stream.update.depth ≤ 1 := by lit_decide
+theorem sha512_fin_depth : Impl.Sha512.X86_64.Stream.finalize.depth ≤ 1 := by lit_decide
 theorem sha512_upd_sp : NoSp Impl.Sha512.X86_64.Stream.update :=
-  nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel)
+  nosp_of (by rw [← Code.allInstrs_eq]; lit_decide)
 theorem sha512_fin_sp : NoSp Impl.Sha512.X86_64.Stream.finalize :=
-  nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel)
+  nosp_of (by rw [← Code.allInstrs_eq]; lit_decide)
 
 /-- `HashOK` for a member of the SHA-512 family, whose digest is the first
 `D` bytes of the final hash value. -/
@@ -188,15 +216,15 @@ def sha512_256H : Hash := sha512H 32 "vg_sha512_256_init" Spec.Sha512.H0_512_256
 
 def sha384OK : HashOK sha384H := sha512FamOK Spec.Hmac.sha384S 48 "vg_sha384_init" Spec.Sha512.H0_384
   rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
-  (by decide +kernel) (nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel))
+  (by lit_decide) (nosp_of (by rw [← Code.allInstrs_eq]; lit_decide))
 def sha512OK : HashOK sha512H' := sha512FamOK Spec.Hmac.sha512S 64 "vg_sha512_init" Spec.Sha512.H0_512
   rfl rfl rfl rfl (fun m => (List.take_of_length_le (Nat.le_of_eq (finalHash_length _ m))).symm) (by decide) (by decide)
-  (by decide +kernel) (nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel))
+  (by lit_decide) (nosp_of (by rw [← Code.allInstrs_eq]; lit_decide))
 def sha512_224OK : HashOK sha512_224H := sha512FamOK Spec.Hmac.sha512_224S 28 "vg_sha512_224_init"
   Spec.Sha512.H0_512_224 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
-  (by decide +kernel) (nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel))
+  (by lit_decide) (nosp_of (by rw [← Code.allInstrs_eq]; lit_decide))
 def sha512_256OK : HashOK sha512_256H := sha512FamOK Spec.Hmac.sha512_256S 32 "vg_sha512_256_init"
   Spec.Sha512.H0_512_256 rfl rfl rfl rfl (fun _ => rfl) (by decide) (by decide)
-  (by decide +kernel) (nosp_of (by rw [← Code.allInstrs_eq]; decide +kernel))
+  (by lit_decide) (nosp_of (by rw [← Code.allInstrs_eq]; lit_decide))
 
 end VG.Proof.Hmac.Generic.X86_64

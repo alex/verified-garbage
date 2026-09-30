@@ -38,13 +38,13 @@ theorem key_step {s₀ : State} (hp : IPre s₀) (i : Nat) (s : State) (hi : i <
   have hkd : ∀ r' ∈ [stR (s₀.gpr .r0)],
       (⟨State.addr (s₀.gpr .r1) + BitVec.ofNat 64 (4 * i), 4⟩ : Region).Disjoint r' := by
     simp only [List.mem_singleton, forall_eq]
-    exact (hp.st_key.sub_right (sub_base _ (by omega) (by omega))).symm
+    exact (hp.st_key.sub_right (sub_base _ (by omega) (by decide))).symm
   have h1 : s.gpr .r1 = s₀.gpr .r1 := h.keeps.gpr _ (by decide)
   have h0 : s.gpr .r0 = s₀.gpr .r0 := h.keeps.gpr _ (by decide)
   refine wp_ldr (a := State.addr (s₀.gpr .r1) + BitVec.ofNat 64 (4 * i)) (by omega)
     (by rw [h1]; exact addr_add (by have := hp.key_fit; omega))
     (by rw [h.keeps.rd, hp.rd]; exact ⟨_, List.mem_append_left _ (List.mem_singleton_self _),
-      contains_base _ (by omega) (by omega)⟩) fun s1 u1 => ?_
+      contains_base _ (by omega) (by decide)⟩) fun s1 u1 => ?_
   refine wp_str (a := State.addr (s₀.gpr .r0) + BitVec.ofNat 64 (24 + 4 * i)) (by omega)
     (by rw [u1.other _ (by decide), h0]; exact ea hp.st_fit (by omega))
     (by rw [u1.wr, h.keeps.wr]; exact outSt (by rw [hp.wr]; exact List.mem_singleton_self _) (by omega))
@@ -103,8 +103,8 @@ theorem init_correct {s₀ : State} (hp : IPre s₀) :
     rw [show (24 : Addr) = BitVec.ofNat 64 24 from rfl, off_add]
     exact h'.key j hj
   · show leNum (bytesAt s'.mem (State.addr (s₀.gpr .r0)) 24) = accumulate _ []
-    rw [accumulate_nil, leNum_bytesAt_24, h'.zero 0 (by omega), h'.zero 1 (by omega),
-      h'.zero 2 (by omega), h'.zero 3 (by omega), h'.zero 4 (by omega), h'.zero 5 (by omega)]
+    rw [accumulate_nil, leNum_bytesAt_24, h'.zero 0 (by decide), h'.zero 1 (by decide),
+      h'.zero 2 (by decide), h'.zero 3 (by decide), h'.zero 4 (by decide), h'.zero 5 (by decide)]
     rfl
 
 theorem IPre.of (s : State) (h : Proof.Poly1305.initArm.pre s) : IPre s := by

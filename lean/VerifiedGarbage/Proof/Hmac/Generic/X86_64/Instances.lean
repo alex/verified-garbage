@@ -29,8 +29,8 @@ abbrev args : List Reg := [.rdi, .rsi, .rdx, .rcx, .r8, .rsp]
 
 /-- The block that sets up a call of `update` from `st`, at offset `o`. -/
 abbrev updBlock (H : Hash) (st : Reg) (o : Nat) : List Instr :=
-  [.mov .rdi (.reg st)] ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 0))] ++
-    VG.Impl.Hmac.Generic.X86_64.scr .rdx o ++ [.mov32 .rcx (.imm (BitVec.ofNat 32 H.B)), .mov .r8 (.reg .r15)]
+  ([.mov .rdi (.reg st)] : List Instr) ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 0))] : List Instr) ++
+    VG.Impl.Hmac.Generic.X86_64.scr .rdx o ++ ([.mov32 .rcx (.imm (BitVec.ofNat 32 H.B)), .mov .r8 (.reg .r15)] : List Instr)
 
 /-- The taint checks of the pieces of `init` between its calls. -/
 structure Checks (H : Hash) : Prop where
@@ -192,17 +192,17 @@ open VG.Proof.Hmac.Generic.X86_64.Init (PubEq args)
 
 /-- The block that sets up the first call of `finalize`. -/
 abbrev fin1Block (H : Hash) : List Instr :=
-  [] ++ [.mov .rsi (.reg .rdx)] ++ VG.Impl.Hmac.Generic.X86_64.scr .rdx H.buf ++ [.mov .rcx (.reg .r15)]
+  [] ++ ([.mov .rsi (.reg .rdx)] : List Instr) ++ VG.Impl.Hmac.Generic.X86_64.scr .rdx H.buf ++ ([.mov .rcx (.reg .r15)] : List Instr)
 
 /-- The block that sets up the second call of `finalize`. -/
 abbrev fin2Block (H : Hash) : List Instr :=
-  [.mov .rdi (.reg .rbx)] ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 (H.B + H.D)))] ++
-    VG.Impl.Hmac.Generic.X86_64.scr .rdx H.buf ++ [.mov .rcx (.reg .r15)]
+  ([.mov .rdi (.reg .rbx)] : List Instr) ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 (H.B + H.D)))] : List Instr) ++
+    VG.Impl.Hmac.Generic.X86_64.scr .rdx H.buf ++ ([.mov .rcx (.reg .r15)] : List Instr)
 
 /-- The block that sets up the call of `update`. -/
 abbrev updBlock (H : Hash) : List Instr :=
-  [.mov .rdi (.reg .rbx)] ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 H.B))] ++
-    VG.Impl.Hmac.Generic.X86_64.scr .rdx H.buf ++ [.mov32 .rcx (.imm (BitVec.ofNat 32 H.D)), .mov .r8 (.reg .r15)]
+  ([.mov .rdi (.reg .rbx)] : List Instr) ++ ([.mov32 .rsi (.imm (BitVec.ofNat 32 H.B))] : List Instr) ++
+    VG.Impl.Hmac.Generic.X86_64.scr .rdx H.buf ++ ([.mov32 .rcx (.imm (BitVec.ofNat 32 H.D)), .mov .r8 (.reg .r15)] : List Instr)
 
 /-- The taint checks of the pieces of `finalize` between its calls. -/
 structure Checks (H : Hash) : Prop where
@@ -213,6 +213,18 @@ structure Checks (H : Hash) : Prop where
   fin2 : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block (fin2Block H)) hc).isSome = true
   copy2 : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (copy .r15 H.buf .r13 0 H.D) hc).isSome = true
   restore : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block H.restore) hc).isSome = true
+
+/-- The checks of the parts of `finalize` that do not depend on the size of
+the digest carry over to a hash function of the same sizes but that one. -/
+theorem Checks.of_sizes {H H' : Hash} (hB : H.B = H'.B) (hS : H.S = H'.S) (hW : H.W = H'.W) (h : Checks H)
+    (upd : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block (updBlock H')) hc).isSome = true)
+    (fin2 : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (.block (fin2Block H')) hc).isSome = true)
+    (copy2 : ∃ hc, (Taint.check taint (Taint.ofRegs kregs) (copy .r15 H'.buf .r13 0 H'.D) hc).isSome = true) :
+    Checks H' := by
+  obtain ⟨B, S, D, F, W, iN, iC, uN, uC, fN, fC⟩ := H
+  obtain ⟨B', S', D', F', W', iN', iC', uN', uC', fN', fC'⟩ := H'
+  dsimp only at hB hS hW; subst hB hS hW
+  exact ⟨h.pro, h.fin1, h.copy1, upd, fin2, copy2, h.restore⟩
 
 variable {H : Hash} (hH : HashOK H) {sc : Nat} (hc : Checks H)
 variable {s₀ s₀' : State} (hp : Pre (H := H) sc s₀) (hp' : Pre (H := H) sc s₀') (hq : PubEq s₀ s₀')
@@ -423,13 +435,25 @@ theorem sha1_finImp : (finG Spec.Hmac.sha1S 56).Implies (Spec.Hmac.sha1I.finaliz
 
 /-- The checks do not look at the functions `init` and `finalize` call, so
 they hold for every implementation `v` of the compression function. -/
+theorem Init.Checks.of_eq {H H' : Impl.Hmac.Generic.X86_64.Hash} (hB : H.B = H'.B) (hW : H.W = H'.W) (h : Init.Checks H) :
+    Init.Checks H' := by
+  obtain ⟨B, S, D, F, W, iN, iC, uN, uC, fN, fC⟩ := H
+  obtain ⟨B', S', D', F', W', iN', iC', uN', uC', fN', fC'⟩ := H'
+  dsimp only at hB hW; subst hB hW
+  exact ⟨h.keys, h.argI, h.argU₁, h.argU₂, h.restore⟩
+
+theorem Finalize.Checks.of_eq {H H' : Impl.Hmac.Generic.X86_64.Hash} (hB : H.B = H'.B) (hS : H.S = H'.S) (hD : H.D = H'.D)
+    (hW : H.W = H'.W) (h : Finalize.Checks H) : Finalize.Checks H' := by
+  obtain ⟨B, S, D, F, W, iN, iC, uN, uC, fN, fC⟩ := H
+  obtain ⟨B', S', D', F', W', iN', iC', uN', uC', fN', fC'⟩ := H'
+  dsimp only at hB hS hD hW; subst hB hS hD hW
+  exact ⟨h.pro, h.fin1, h.copy1, h.upd, h.fin2, h.copy2, h.restore⟩
+
 theorem sha1_initChecks (v : Proof.Sha1.X86_64.Compress) : Init.Checks (sha1H v) :=
-  have h := sha1_initChecks₀
-  ⟨h.keys, h.argI, h.argU₁, h.argU₂, h.restore⟩
+  Init.Checks.of_eq (H := sha1H .scalar) rfl rfl sha1_initChecks₀
 
 theorem sha1_finChecks (v : Proof.Sha1.X86_64.Compress) : Finalize.Checks (sha1H v) :=
-  have h := sha1_finChecks₀
-  ⟨h.pro, h.fin1, h.copy1, h.upd, h.fin2, h.copy2, h.restore⟩
+  Finalize.Checks.of_eq (H := sha1H .scalar) rfl rfl rfl rfl sha1_finChecks₀
 
 /-- `init` never loads MXCSR, for any implementation `v` of the compression
 function. -/
@@ -505,11 +529,11 @@ theorem md5_finImp : (finG Spec.Hmac.md5S 48).Implies (Spec.Hmac.md5I.finalizeCo
     inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.md5S, Spec.Hmac.md5, finG, X86_64.abi, X86_64.argRegs] using finSat 80 16 48)
 
 theorem md5_init : Verified X86_64.target md5H.init (Spec.Hmac.md5I.initContract X86_64.abi 16) :=
-  (Init.verified md5OK md5_initChecks (by decide) (by decide +kernel) md5_initImp.sat_left).of_implies
+  (Init.verified md5OK md5_initChecks (by decide) (by lit_decide) md5_initImp.sat_left).of_implies
     md5_initImp
 
 theorem md5_finalize : Verified X86_64.target md5H.finalize (Spec.Hmac.md5I.finalizeContract X86_64.abi 16) :=
-  (Finalize.verified md5OK md5_finChecks (by decide) (by decide +kernel) md5_finImp.sat_left).of_implies
+  (Finalize.verified md5OK md5_finChecks (by decide) (by lit_decide) md5_finImp.sat_left).of_implies
     md5_finImp
 
 /-! ## SHA-384 -/
@@ -541,32 +565,21 @@ theorem sha384_finImp : (finG Spec.Hmac.sha384S 96).Implies (Spec.Hmac.sha384I.f
     inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha384S, Spec.Hmac.sha384, finG, X86_64.abi, X86_64.argRegs] using finSat 192 48 96)
 
 theorem sha384_init : Verified X86_64.target sha384H.init (Spec.Hmac.sha384I.initContract X86_64.abi 16) :=
-  (Init.verified sha384OK sha384_initChecks (by decide) (by decide +kernel) sha384_initImp.sat_left).of_implies
+  (Init.verified sha384OK sha384_initChecks (by decide) (by lit_decide) sha384_initImp.sat_left).of_implies
     sha384_initImp
 
 theorem sha384_finalize : Verified X86_64.target sha384H.finalize (Spec.Hmac.sha384I.finalizeContract X86_64.abi 16) :=
-  (Finalize.verified sha384OK sha384_finChecks (by decide) (by decide +kernel) sha384_finImp.sat_left).of_implies
+  (Finalize.verified sha384OK sha384_finChecks (by decide) (by lit_decide) sha384_finImp.sat_left).of_implies
     sha384_finImp
 
 /-! ## SHA-512 -/
 
-theorem sha512_initChecks : Init.Checks sha512H' where
-  keys := ⟨_, by taint_decide⟩
-  argI := by
-    simp only [List.mem_cons, List.not_mem_nil, or_false]
-    rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
-  argU₁ := ⟨_, by taint_decide⟩
-  argU₂ := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
+theorem sha512_initChecks : Init.Checks sha512H' :=
+  Init.Checks.of_eq (H := sha384H) rfl rfl sha384_initChecks
 
-theorem sha512_finChecks : Finalize.Checks sha512H' where
-  pro := ⟨_, by taint_decide⟩
-  fin1 := ⟨_, by taint_decide⟩
-  copy1 := ⟨_, by taint_decide⟩
-  upd := ⟨_, by taint_decide⟩
-  fin2 := ⟨_, by taint_decide⟩
-  copy2 := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
+theorem sha512_finChecks : Finalize.Checks sha512H' :=
+  Finalize.Checks.of_sizes (H := sha384H) rfl rfl rfl sha384_finChecks ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
+    ⟨_, by taint_decide⟩
 
 theorem sha512_initImp : (initG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.initContract X86_64.abi 16) :=
   initImp Spec.Hmac.sha512S 96
@@ -577,32 +590,21 @@ theorem sha512_finImp : (finG Spec.Hmac.sha512S 96).Implies (Spec.Hmac.sha512I.f
     inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512S, Spec.Hmac.sha512, finG, X86_64.abi, X86_64.argRegs] using finSat 192 64 96)
 
 theorem sha512_init : Verified X86_64.target sha512H'.init (Spec.Hmac.sha512I.initContract X86_64.abi 16) :=
-  (Init.verified sha512OK sha512_initChecks (by decide) (by decide +kernel) sha512_initImp.sat_left).of_implies
+  (Init.verified sha512OK sha512_initChecks (by decide) (by lit_decide) sha512_initImp.sat_left).of_implies
     sha512_initImp
 
 theorem sha512_finalize : Verified X86_64.target sha512H'.finalize (Spec.Hmac.sha512I.finalizeContract X86_64.abi 16) :=
-  (Finalize.verified sha512OK sha512_finChecks (by decide) (by decide +kernel) sha512_finImp.sat_left).of_implies
+  (Finalize.verified sha512OK sha512_finChecks (by decide) (by lit_decide) sha512_finImp.sat_left).of_implies
     sha512_finImp
 
 /-! ## SHA-512/224 -/
 
-theorem sha512_224_initChecks : Init.Checks sha512_224H where
-  keys := ⟨_, by taint_decide⟩
-  argI := by
-    simp only [List.mem_cons, List.not_mem_nil, or_false]
-    rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
-  argU₁ := ⟨_, by taint_decide⟩
-  argU₂ := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
+theorem sha512_224_initChecks : Init.Checks sha512_224H :=
+  Init.Checks.of_eq (H := sha384H) rfl rfl sha384_initChecks
 
-theorem sha512_224_finChecks : Finalize.Checks sha512_224H where
-  pro := ⟨_, by taint_decide⟩
-  fin1 := ⟨_, by taint_decide⟩
-  copy1 := ⟨_, by taint_decide⟩
-  upd := ⟨_, by taint_decide⟩
-  fin2 := ⟨_, by taint_decide⟩
-  copy2 := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
+theorem sha512_224_finChecks : Finalize.Checks sha512_224H :=
+  Finalize.Checks.of_sizes (H := sha384H) rfl rfl rfl sha384_finChecks ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
+    ⟨_, by taint_decide⟩
 
 theorem sha512_224_initImp : (initG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.sha512_224I.initContract X86_64.abi 16) :=
   initImp Spec.Hmac.sha512_224S 96
@@ -613,32 +615,21 @@ theorem sha512_224_finImp : (finG Spec.Hmac.sha512_224S 96).Implies (Spec.Hmac.s
     inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_224S, Spec.Hmac.sha512_224, finG, X86_64.abi, X86_64.argRegs] using finSat 192 28 96)
 
 theorem sha512_224_init : Verified X86_64.target sha512_224H.init (Spec.Hmac.sha512_224I.initContract X86_64.abi 16) :=
-  (Init.verified sha512_224OK sha512_224_initChecks (by decide) (by decide +kernel) sha512_224_initImp.sat_left).of_implies
+  (Init.verified sha512_224OK sha512_224_initChecks (by decide) (by lit_decide) sha512_224_initImp.sat_left).of_implies
     sha512_224_initImp
 
 theorem sha512_224_finalize : Verified X86_64.target sha512_224H.finalize (Spec.Hmac.sha512_224I.finalizeContract X86_64.abi 16) :=
-  (Finalize.verified sha512_224OK sha512_224_finChecks (by decide) (by decide +kernel) sha512_224_finImp.sat_left).of_implies
+  (Finalize.verified sha512_224OK sha512_224_finChecks (by decide) (by lit_decide) sha512_224_finImp.sat_left).of_implies
     sha512_224_finImp
 
 /-! ## SHA-512/256 -/
 
-theorem sha512_256_initChecks : Init.Checks sha512_256H where
-  keys := ⟨_, by taint_decide⟩
-  argI := by
-    simp only [List.mem_cons, List.not_mem_nil, or_false]
-    rintro st (rfl | rfl) <;> exact ⟨_, by taint_decide⟩
-  argU₁ := ⟨_, by taint_decide⟩
-  argU₂ := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
+theorem sha512_256_initChecks : Init.Checks sha512_256H :=
+  Init.Checks.of_eq (H := sha384H) rfl rfl sha384_initChecks
 
-theorem sha512_256_finChecks : Finalize.Checks sha512_256H where
-  pro := ⟨_, by taint_decide⟩
-  fin1 := ⟨_, by taint_decide⟩
-  copy1 := ⟨_, by taint_decide⟩
-  upd := ⟨_, by taint_decide⟩
-  fin2 := ⟨_, by taint_decide⟩
-  copy2 := ⟨_, by taint_decide⟩
-  restore := ⟨_, by taint_decide⟩
+theorem sha512_256_finChecks : Finalize.Checks sha512_256H :=
+  Finalize.Checks.of_sizes (H := sha384H) rfl rfl rfl sha384_finChecks ⟨_, by taint_decide⟩ ⟨_, by taint_decide⟩
+    ⟨_, by taint_decide⟩
 
 theorem sha512_256_initImp : (initG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.sha512_256I.initContract X86_64.abi 16) :=
   initImp Spec.Hmac.sha512_256S 96
@@ -649,11 +640,11 @@ theorem sha512_256_finImp : (finG Spec.Hmac.sha512_256S 96).Implies (Spec.Hmac.s
     inst_sat [Spec.Hmac.finalizeContract, Spec.Hmac.finalizeSig, Spec.Hmac.sha512_256S, Spec.Hmac.sha512_256, finG, X86_64.abi, X86_64.argRegs] using finSat 192 32 96)
 
 theorem sha512_256_init : Verified X86_64.target sha512_256H.init (Spec.Hmac.sha512_256I.initContract X86_64.abi 16) :=
-  (Init.verified sha512_256OK sha512_256_initChecks (by decide) (by decide +kernel) sha512_256_initImp.sat_left).of_implies
+  (Init.verified sha512_256OK sha512_256_initChecks (by decide) (by lit_decide) sha512_256_initImp.sat_left).of_implies
     sha512_256_initImp
 
 theorem sha512_256_finalize : Verified X86_64.target sha512_256H.finalize (Spec.Hmac.sha512_256I.finalizeContract X86_64.abi 16) :=
-  (Finalize.verified sha512_256OK sha512_256_finChecks (by decide) (by decide +kernel) sha512_256_finImp.sat_left).of_implies
+  (Finalize.verified sha512_256OK sha512_256_finChecks (by decide) (by lit_decide) sha512_256_finImp.sat_left).of_implies
     sha512_256_finImp
 
 end VG.Proof.Hmac.Generic.X86_64.Instances

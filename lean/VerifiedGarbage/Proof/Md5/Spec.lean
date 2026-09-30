@@ -60,4 +60,14 @@ theorem rotateLeft_eq (x : Word) {n : Nat} (h₁ : 1 ≤ n) (h₂ : n ≤ 31) :
   simp only [BitVec.getElem_rotateLeft, BitVec.getElem_rotateRight]
   split_ifs <;> first | omega | (congr 1; omega)
 
+/-- A 32-bit load reads four bytes, low-order byte first. -/
+theorem readW_bytes (m : Mem) (a : Addr) :
+    m.readW a 32 = (m (a + 1 + 1 + 1) ++ m (a + 1 + 1) ++ m (a + 1) ++ m a : BitVec 32) := by
+  show (0#0 ++ m (a + 1 + 1 + 1) ++ m (a + 1 + 1) ++ m (a + 1) ++ m a).setWidth 32 = _
+  simp only [BitVec.setWidth_eq]
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  simp only [BitVec.getLsbD_append, BitVec.getLsbD_zero_length]
+  split_ifs <;> first | omega | rfl
+
 end VG.Proof.Md5
