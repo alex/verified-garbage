@@ -42,8 +42,10 @@ impl VerifyingKey {
     ///
     /// Public keys and signatures must use canonical encodings, and the
     /// signature scalar must be less than the subgroup order. This checks
-    /// the uncofactored equation using the full SHA-512 challenge. It does
-    /// not impose an additional subgroup or small-order rejection policy.
+    /// the uncofactored equation `[S]B = R + [k]A` with the SHA-512
+    /// challenge `k` reduced modulo the subgroup order, as RFC 8032 §6's
+    /// reference code and OpenSSL do. It does not impose an additional
+    /// subgroup or small-order rejection policy.
     /// Verification timing may depend on the public key, message, and signature.
     pub fn verify(&self, message: &[u8], signature: &[u8]) -> Result<(), Error> {
         let signature: &[u8; 64] = signature.try_into().map_err(|_| Error::InvalidSignature)?;
@@ -51,8 +53,12 @@ impl VerifyingKey {
         hash.update(&signature[..32]);
         hash.update(&self.bytes);
         hash.update(message);
-        let challenge = hash.finalize();
+        let digest = hash.finalize();
         let mut scratch = [0u64; 1024];
+        // `vg_ed25519_verify_equation` uses all 64 challenge bytes as given:
+        // reduce the digest first, as `VG.Spec.Ed25519.verify` does.
+        let mut challenge = [0u8; 64];
+        challenge[..32].copy_from_slice(&reduce(&digest, &mut scratch));
         // SAFETY: the input arrays are live for their declared sizes, and
         // scratch is a distinct writable object. None wraps the address space.
         let valid =

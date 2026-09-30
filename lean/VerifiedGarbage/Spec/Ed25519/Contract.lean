@@ -14,7 +14,8 @@ The scalar and group primitives allow composition with the existing SHA-512
 API. The complete-operation contracts also specify the hashing, so that an
 assembly caller can be verified end to end, generic over SHA-512 backends.
 `verifyEquation` alone checks a supplied challenge; its documentation does
-not claim it hashes the message.
+not claim it hashes the message, and states that `verify`'s predicate needs
+the challenge reduced modulo `L` (with `scalarReduce`) before the call.
 
 All functions take 8 KiB of scratch space, whose contents are unspecified on
 return and must be destroyed by callers handling secrets. `stack` describes
@@ -81,8 +82,9 @@ def verifyEquationSig : Sig where
     ("challenge", .array false .u8 64), ("scratch", .array true .u64 scratchWords)]
   ret := some .u32
 
-/-- Check the encodings and equation using the full 512-bit challenge.
-All inputs may affect timing. No message hashing takes place here. -/
+/-- Check the encodings and equation using the full 512-bit challenge, as
+given: no reduction modulo `L` takes place here, nor message hashing.
+All inputs may affect timing. -/
 def verifyEquationContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   verifyEquationSig.contract A
     (post := fun pk signature challenge _scratch m _m' r =>
@@ -177,9 +179,13 @@ def verifyEquationApi : Api where
   writeArgs := true
   summary := "Checks Ed25519 encodings and the equation `[S]B = R + [k]A` (RFC 8032 §5.1.7), \
     returning 1 if they pass and 0 otherwise. `pk` holds A, `signature` holds R || S, and \
-    `challenge` holds all 64 bytes of k as a little-endian integer. To verify a signature \
-    on M, the caller must supply SHA-512(R || A || M) as `challenge`; this function does \
-    not hash M. Rejects noncanonical points and S >= L, with no additional subgroup or \
+    `challenge` holds all 64 bytes of k as a little-endian integer, used as given: it is \
+    not reduced modulo L. To verify a signature on M as RFC 8032 §6 and \
+    `VG.Spec.Ed25519.verify` do, the caller must reduce SHA-512(R || A || M) modulo L (e.g. \
+    with `vg_ed25519_scalar_reduce`) and supply the 32-byte result followed by 32 zero \
+    bytes as `challenge`; this function does not hash M. Passing the unreduced digest \
+    checks a different equation, which disagrees with RFC 8032 §6 and OpenSSL whenever A \
+    has a small-order component. Rejects noncanonical points and S >= L, with no additional subgroup or \
     small-order check. Contract: `VG.Spec.Ed25519.verifyEquationContract`. Not constant \
     time: timing may depend on all inputs."
   safety := [scratchSafety]
@@ -215,8 +221,8 @@ def verifyApi : Api where
   summary := "Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at \
     `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at \
     `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks \
-    canonical point encodings, S < L, and `[S]B = R + [k]A` with the full SHA-512 \
-    challenge. No additional subgroup or small-order check is imposed. \
+    canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge \
+    k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. \
     Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on \
     the public key, message and signature."
   safety := [scratchSafety]

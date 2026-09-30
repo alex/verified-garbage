@@ -12297,7 +12297,7 @@ pub(crate) unsafe extern "sysv64" fn vg_ed25519_scalar_base(out: *mut [u8; 32], 
     )
 }
 
-/// Checks Ed25519 encodings and the equation `[S]B = R + [k]A` (RFC 8032 §5.1.7), returning 1 if they pass and 0 otherwise. `pk` holds A, `signature` holds R || S, and `challenge` holds all 64 bytes of k as a little-endian integer. To verify a signature on M, the caller must supply SHA-512(R || A || M) as `challenge`; this function does not hash M. Rejects noncanonical points and S >= L, with no additional subgroup or small-order check. Contract: `VG.Spec.Ed25519.verifyEquationContract`. Not constant time: timing may depend on all inputs.
+/// Checks Ed25519 encodings and the equation `[S]B = R + [k]A` (RFC 8032 §5.1.7), returning 1 if they pass and 0 otherwise. `pk` holds A, `signature` holds R || S, and `challenge` holds all 64 bytes of k as a little-endian integer, used as given: it is not reduced modulo L. To verify a signature on M as RFC 8032 §6 and `VG.Spec.Ed25519.verify` do, the caller must reduce SHA-512(R || A || M) modulo L (e.g. with `vg_ed25519_scalar_reduce`) and supply the 32-byte result followed by 32 zero bytes as `challenge`; this function does not hash M. Passing the unreduced digest checks a different equation, which disagrees with RFC 8032 §6 and OpenSSL whenever A has a small-order component. Rejects noncanonical points and S >= L, with no additional subgroup or small-order check. Contract: `VG.Spec.Ed25519.verifyEquationContract`. Not constant time: timing may depend on all inputs.
 ///
 /// Uses baseline integer instructions. Checks canonical point encodings and S < L, then evaluates the uncofactored equation using all 512 challenge bits. No additional subgroup or small-order policy is imposed.
 ///
