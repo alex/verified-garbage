@@ -36,7 +36,7 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem1024.compressEncodeContract X86.abi 16
     stack := 16
     verified := Proof.MlKem1024.X86.CompressEncode.verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.MlKem1024.decodeDecompressApi with
     target := X86.target
     doc := Spec.MlKem1024.decodeDecompressApi.doc
@@ -44,7 +44,7 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem1024.decodeDecompressContract X86.abi 16
     stack := 16
     verified := Proof.MlKem1024.X86.DecodeDecompress.verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.MlKem1024.checkEkApi with
     target := X86.target
     doc := Spec.MlKem1024.checkEkApi.doc
@@ -52,7 +52,7 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem1024.checkEkContract X86.abi 16
     stack := 16
     verified := Proof.MlKem1024.X86.CheckEk.verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.MlKem1024.keyGenApi with
     target := X86.target
     doc := Spec.MlKem1024.keyGenApi.doc
@@ -60,7 +60,7 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem1024.keyGenContract X86.abi 88
     stack := 88
     verified := Proof.MlKem1024.X86.KeyGen.verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.MlKem1024.encapsApi with
     target := X86.target
     doc := Spec.MlKem1024.encapsApi.doc
@@ -68,7 +68,7 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem1024.encapsContract X86.abi 88
     stack := 88
     verified := Proof.MlKem1024.X86.Encaps.verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.MlKem1024.decapsApi with
     target := X86.target
     doc := Spec.MlKem1024.decapsApi.doc
@@ -76,6 +76,6 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem1024.decapsContract X86.abi 88
     stack := 88
     verified := Proof.MlKem1024.X86.Decaps.verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.MlKem1024.X86

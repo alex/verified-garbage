@@ -79,19 +79,10 @@ theorem verified : Verified X86.target Impl.MlKem1024.X86.keyGen (Spec.MlKem1024
     simp only [d, z, addr0, ez, show Buf.addr s₀ ⟨1, 0, 1568⟩ = (arg s₀ 1).setWidth 64 from addr0 s₀ 1,
       show Buf.addr s₀ ⟨2, 0, 3168⟩ = (arg s₀ 2).setWidth 64 from addr0 s₀ 2] at r
     exact r
-  · obtain ⟨st, hst⟩ : ∃ st, st = satState satMem [⟨0, 64⟩]
-        [⟨0x100, 1568⟩, ⟨0x1000, 3168⟩, ⟨0x10000, 49152⟩, ⟨0x5004, 16⟩] := ⟨_, rfl⟩
-    have a0 : arg st 0 = 0 := by rw [hst]; decide
-    have a1 : arg st 1 = 0x100 := by rw [hst]; decide
-    have a2 : arg st 2 = 0x1000 := by rw [hst]; decide
-    have a3 : arg st 3 = 0x10000 := by rw [hst]; decide
-    have e : argAddr st 0 = 0x5004 := by rw [hst]; decide
-    have esp : st.gpr .esp = 0x5000 := by rw [hst]; rfl
+  · let st := satState satMem [⟨0, 64⟩]
+      [⟨0x100, 1568⟩, ⟨0x1000, 3168⟩, ⟨0x10000, 49152⟩, ⟨0x5004, 16⟩]
     refine ⟨st, ?_⟩
-    sig_pre [Spec.MlKem1024.keyGenContract, Spec.MlKem1024.keyGenSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [a0, a1, a2, a3, e, esp]
-    refine ⟨by decide, by decide, by rw [hst]; rfl, by rw [hst]; rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-      ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
-    exact Region.disjoint_of_sep (by decide)
+    sig_sat_check [Spec.MlKem1024.keyGenContract, Spec.MlKem1024.keyGenSig, X86.abi, X86.argSlots, X86.argVal,
+      X86.argBytes]
 
 end VG.Proof.MlKem1024.X86.KeyGen

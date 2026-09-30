@@ -94,9 +94,12 @@ theorem ce1024_call (d : Nat) (hd : d ∈ Spec.MlKem1024.compressWidths) (fa fo 
       · exact .inr (Buf.withinW hp hO₁ (Lay.okW_iff.mp hO).2 h.wr)
       · exact .inl (by rw [h.esp])
     refine ⟨h, ?_, cv.1, cv.2⟩
+    -- The callee's entry state stays opaque to `sig_pre`, which would unfold it.
+    generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e
     sig_pre [Spec.MlKem1024.compressEncodeContract, Spec.MlKem1024.compressEncodeSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr, State.withRegions_mem,
-      arg_withRegions, argAddr_withRegions, a0, a1, a2, a3, eA, eSp, toNat_ofNat32 hd', toNat_ofNat32 hd32]
+    subst he
+    simp only [arg_withRegions, argAddr_withRegions, a0, a1, a2, a3, eA, eSp, toNat_ofNat32 hd',
+      toNat_ofNat32 hd32]
     have ek := @ent_keep Y s₀ s hp h [.edi, .edx, .ecx, .eax] (by decide) (by simp; omega)
     refine ⟨by rw [sub_toNat (by omega)]; omega, by rw [sub_toNat (by omega)]; have := (E1 s₀).isLt; omega,
       trivial, trivial, Buf.disj hp hF hO₁ dFO, rF₁, rO₁, rF₂, rO₂, rG₂, rF₃, rO₃, rG₃,
@@ -115,8 +118,11 @@ theorem ce1024_call (d : Nat) (hd : d ∈ Spec.MlKem1024.compressWidths) (fa fo 
       · rw [hcx, hcx']
       · rw [hax, hax', hq.ptr hF]
     refine ⟨by simp only [Buf.rgn, hq.ptr hF], by simp only [Buf.rgn, hq.ptr hO₁, hq.E1], ?_⟩
+    generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e
+    generalize he' : (pushed [.edi, .edx, .ecx, .eax] s').callEntry = e'
     sig_pub [Spec.MlKem1024.compressEncodeContract, Spec.MlKem1024.compressEncodeSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_gpr, arg_withRegions, callEntry_esp', hsp]
+    subst he he'
+    simp only [arg_withRegions, callEntry_esp', hsp]
     exact ⟨trivial, callEntry_arg_eq (by decide) fit hsp hr (by decide),
       callEntry_arg_eq (by decide) fit hsp hr (by decide), callEntry_arg_eq (by decide) fit hsp hr (by decide),
       callEntry_arg_eq (by decide) fit hsp hr (by decide)⟩
@@ -124,9 +130,10 @@ theorem ce1024_call (d : Nat) (hd : d ∈ Spec.MlKem1024.compressWidths) (fa fo 
     obtain ⟨fit, a0, a1, a2, a3⟩ := entry s₀ s hp ha
     obtain ⟨s₂, m₂, post⟩ := post
     have ek := @ent_keep Y s₀ s hp h [.edi, .edx, .ecx, .eax] (by decide) (by simp; omega)
+    generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e at post
     sig_post [Spec.MlKem1024.compressEncodeContract, Spec.MlKem1024.compressEncodeSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes] at post
-    simp only [arg_withRegions, State.withRegions_mem, a0, a1, a2, a3, m₂, toNat_ofNat32 hd',
-      toNat_ofNat32 hd32] at post
+    subst he
+    simp only [arg_withRegions, a0, a1, a2, a3, m₂, toNat_ofNat32 hd', toNat_ofNat32 hd32] at post
     rw [polyAt_congr (ek hF)] at post
     exact hQ s₀ s s' hp ha h' e₃ (fr_conv hp (a := 16) (N := 36) (by omega) (by omega)
       (by rw [ce1024_stack] at fr; exact fr)) post
@@ -194,9 +201,12 @@ theorem dd1024_call (d : Nat) (hd : d ∈ Spec.MlKem1024.compressWidths) (ba bo 
       · exact .inr (Buf.withinW hp hF₁ (Lay.okW_iff.mp hF).2 h.wr)
       · exact .inl (by rw [h.esp])
     refine ⟨h, ?_, cv.1, cv.2⟩
+    -- The callee's entry state stays opaque to `sig_pre`, which would unfold it.
+    generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e
     sig_pre [Spec.MlKem1024.decodeDecompressContract, Spec.MlKem1024.decodeDecompressSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_gpr,
-      arg_withRegions, argAddr_withRegions, a0, a1, a2, a3, eA, eSp, toNat_ofNat32 hd', toNat_ofNat32 hd32]
+    subst he
+    simp only [arg_withRegions, argAddr_withRegions, a0, a1, a2, a3, eA, eSp, toNat_ofNat32 hd',
+      toNat_ofNat32 hd32]
     refine ⟨by rw [sub_toNat (by omega)]; omega, by rw [sub_toNat (by omega)]; have := (E1 s₀).isLt; omega,
       trivial, trivial, Buf.disj hp hB hF₁ dBF, rB₁, rF₁, rB₂, rF₂, rG₂, rB₃, rF₃, rG₃,
       Buf.fit hp hB, Buf.fit hp hF₁, hd, trivial⟩
@@ -214,8 +224,11 @@ theorem dd1024_call (d : Nat) (hd : d ∈ Spec.MlKem1024.compressWidths) (ba bo 
       · rw [hcx, hcx']
       · rw [hax, hax', hq.ptr hB]
     refine ⟨by simp only [Buf.rgn, hq.ptr hB], by simp only [Buf.rgn, hq.ptr hF₁, hq.E1], ?_⟩
+    generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e
+    generalize he' : (pushed [.edi, .edx, .ecx, .eax] s').callEntry = e'
     sig_pub [Spec.MlKem1024.decodeDecompressContract, Spec.MlKem1024.decodeDecompressSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [State.withRegions_gpr, arg_withRegions, callEntry_esp', hsp]
+    subst he he'
+    simp only [arg_withRegions, callEntry_esp', hsp]
     exact ⟨trivial, callEntry_arg_eq (by decide) fit hsp hr (by decide),
       callEntry_arg_eq (by decide) fit hsp hr (by decide), callEntry_arg_eq (by decide) fit hsp hr (by decide),
       callEntry_arg_eq (by decide) fit hsp hr (by decide)⟩
@@ -223,10 +236,11 @@ theorem dd1024_call (d : Nat) (hd : d ∈ Spec.MlKem1024.compressWidths) (ba bo 
     obtain ⟨fit, a0, a1, a2, a3⟩ := entry s₀ s hp ha
     obtain ⟨s₂, m₂, post⟩ := post
     have ek := @ent_keep Y s₀ s hp h [.edi, .edx, .ecx, .eax] (by decide) (by simp; omega)
+    generalize he : (pushed [.edi, .edx, .ecx, .eax] s).callEntry = e at post
     sig_post [Spec.MlKem1024.decodeDecompressContract, Spec.MlKem1024.decodeDecompressSig, X86.abi, X86.argSlots, X86.argVal,
       X86.argBytes] at post
-    simp only [arg_withRegions, State.withRegions_mem, a0, a1, a2, a3, m₂, toNat_ofNat32 hd',
-      toNat_ofNat32 hd32] at post
+    subst he
+    simp only [arg_withRegions, a0, a1, a2, a3, m₂, toNat_ofNat32 hd', toNat_ofNat32 hd32] at post
     rw [bytesAt_congr (ek hB)] at post
     exact hQ s₀ s s' hp ha h' e₃ (fr_conv hp (a := 16) (N := 36) (by omega) (by omega)
       (by rw [dd1024_stack] at fr; exact fr)) post

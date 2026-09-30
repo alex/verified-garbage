@@ -111,7 +111,8 @@ theorem bySteps_spec (o : Nat) (x : Nat → Nat) :
       omega
     refine bySteps_spec o x j is s₃ P _ (fun i hi => (hc i (by omega)).of_only oo (by decide)) v₃ ?_
       fun s₄ o₄ v₄ => k s₄ ((oo.trans o₄).mono fun r hr => by
-        simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; tauto) ?_
+        simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢
+        rcases hr with ((h | h) | h) | h | h <;> simp only [h, true_or, or_true]) ?_
     · have : A * 2 ^ 8 + x j + 1 ≤ (A + 1) * 2 ^ 8 := by rw [Nat.add_mul]; omega
       refine Nat.le_trans (Nat.mul_le_mul_right _ this) ?_
       rw [Nat.mul_assoc, ← hsplit]; exact hb

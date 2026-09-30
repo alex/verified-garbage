@@ -248,21 +248,10 @@ theorem verified : Verified X86.target Impl.MlKem1024.X86.encaps (Spec.MlKem1024
     have r := post hfin
     rw [ek_eq, msg_eq, addr0, addr0, addr0, addr0] at r
     exact r
-  · obtain ⟨st, hst⟩ : ∃ st, st = satState satMem [⟨0, 1568⟩, ⟨0x800, 32⟩]
-        [⟨0x1000, 32⟩, ⟨0x2000, 1568⟩, ⟨0x10000, 49152⟩, ⟨0x5004, 20⟩] := ⟨_, rfl⟩
-    have a0 : arg st 0 = 0 := by rw [hst]; decide
-    have a1 : arg st 1 = 0x800 := by rw [hst]; decide
-    have a2 : arg st 2 = 0x1000 := by rw [hst]; decide
-    have a3 : arg st 3 = 0x2000 := by rw [hst]; decide
-    have a4 : arg st 4 = 0x10000 := by rw [hst]; decide
-    have e : argAddr st 0 = 0x5004 := by rw [hst]; decide
-    have esp : st.gpr .esp = 0x5000 := by rw [hst]; rfl
+  · let st := satState satMem [⟨0, 1568⟩, ⟨0x800, 32⟩]
+      [⟨0x1000, 32⟩, ⟨0x2000, 1568⟩, ⟨0x10000, 49152⟩, ⟨0x5004, 20⟩]
     refine ⟨st, ?_⟩
-    sig_pre [Spec.MlKem1024.encapsContract, Spec.MlKem1024.encapsSig, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
-    simp only [a0, a1, a2, a3, a4, e, esp]
-    refine ⟨by decide, by decide, by rw [hst]; rfl, by rw [hst]; rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-      ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide,
-      by decide⟩ <;>
-    exact Region.disjoint_of_sep (by decide)
+    sig_sat_check [Spec.MlKem1024.encapsContract, Spec.MlKem1024.encapsSig, X86.abi, X86.argSlots, X86.argVal,
+      X86.argBytes]
 
 end VG.Proof.MlKem1024.X86.Encaps
