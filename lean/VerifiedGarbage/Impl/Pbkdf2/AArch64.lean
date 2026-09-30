@@ -86,6 +86,10 @@ at `x19 + d`: the length field of the SHA-512 family. `d` is a multiple of 8. -/
 def len128 (d : Nat) : List Instr :=
   [.lsr .x .x9 .x22 61, .rev .x9 .x9, .str .x .x9 .x19 d] ++ MdStream.AArch64.len64 (d + 8) true
 
+/-- The SHA-512 family's: a 64-byte hash value, 128-byte blocks, a 16-byte
+length field and the 176 bytes of scratch space of `vg_sha512_compress`. -/
+def sha512 : Params := ⟨64, 128, 16, 176, len128 176, out64 8⟩
+
 variable (P : Params) (D : Nat)
 
 /-- Where our return address is saved in `scratch`. -/
