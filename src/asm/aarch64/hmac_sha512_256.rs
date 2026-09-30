@@ -204,3 +204,218 @@ pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_finalize(inner: *mut [u8; 192
         vg_sha512_finalize = sym super::sha512::vg_sha512_finalize,
     )
 }
+
+/// The CPU features `vg_hmac_sha512_256_init_sha3` requires (`Artifact.features`).
+pub(crate) const VG_HMAC_SHA512_256_INIT_SHA3_FEATURES: &[&str] = &["sha3"];
+
+/// Starts an HMAC-SHA-512/256 computation with a key of at most 128 bytes: makes the SHA-512/256 streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to 128 bytes (FIPS 198-1). The text is then absorbed with `vg_sha512_update` on `*inner` (its `count` starting at 128), and the MAC computed with `vg_hmac_sha512_256_finalize`.
+///
+/// Contract: `VG.Spec.Hmac.Instance.initContract` of `VG.Spec.Hmac.sha512_256I`. Constant time: only the pointers and `key_len` may affect timing, not the key.
+///
+/// # Safety
+///
+/// * `inner` must be valid for reads and writes of 192 bytes.
+/// * `outer` must be valid for reads and writes of 192 bytes.
+/// * `key` must be valid for reads of `key_len` bytes.
+/// * `scratch` must be valid for reads and writes of 1872 bytes.
+/// * `key_len` must be at most 128.
+/// * The contents of `scratch` on return are unspecified.
+/// * `inner`, `outer` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `key` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `sha3` target feature.
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_init_sha3(inner: *mut [u8; 192], outer: *mut [u8; 192], key: *const u8, key_len: usize, scratch: *mut [u64; 234]) {
+    core::arch::naked_asm!(
+        ".arch_extension sha3",
+        "str x19, [x4, #224]",
+        "str x20, [x4, #232]",
+        "str x21, [x4, #240]",
+        "str x22, [x4, #248]",
+        "str x24, [x4, #256]",
+        "str x30, [x4, #264]",
+        "str x23, [x4, #272]",
+        "add x19, x0, #0",
+        "add x20, x1, #0",
+        "add x21, x2, #0",
+        "add x22, x3, #0",
+        "add x23, x4, #0",
+        "movz x14, #54, lsl #0",
+        "movz x15, #92, lsl #0",
+        "movz x24, #0, lsl #0",
+        "cbz x22, 20f",
+        "22:",
+        "add x13, x21, x24",
+        "ldrb w9, [x13, #0]",
+        "add x12, x23, x24",
+        "eor x10, x9, x14",
+        "strb w10, [x12, #280]",
+        "eor x10, x9, x15",
+        "strb w10, [x12, #408]",
+        "add x24, x24, #1",
+        "sub x11, x22, x24",
+        "cbnz x11, 22b",
+        "b 21f",
+        "20:",
+        "21:",
+        "movz x11, #128, lsl #0",
+        "sub x11, x11, x24",
+        "cbz x11, 23f",
+        "25:",
+        "add x12, x23, x24",
+        "strb w14, [x12, #280]",
+        "strb w15, [x12, #408]",
+        "add x24, x24, #1",
+        "movz x11, #128, lsl #0",
+        "sub x11, x11, x24",
+        "cbnz x11, 25b",
+        "b 24f",
+        "23:",
+        "24:",
+        "add x0, x19, #0",
+        "bl {vg_sha512_256_init}",
+        "add x0, x19, #0",
+        "movz x1, #0, lsl #0",
+        "add x2, x23, #280",
+        "movz x3, #128, lsl #0",
+        "add x4, x23, #0",
+        "bl {vg_sha512_update_sha3}",
+        "add x0, x20, #0",
+        "bl {vg_sha512_256_init}",
+        "add x0, x20, #0",
+        "movz x1, #0, lsl #0",
+        "add x2, x23, #408",
+        "movz x3, #128, lsl #0",
+        "add x4, x23, #0",
+        "bl {vg_sha512_update_sha3}",
+        "ldr x19, [x23, #224]",
+        "ldr x20, [x23, #232]",
+        "ldr x21, [x23, #240]",
+        "ldr x22, [x23, #248]",
+        "ldr x24, [x23, #256]",
+        "ldr x30, [x23, #264]",
+        "ldr x23, [x23, #272]",
+        "ret",
+        ".arch_extension nosha3",
+        vg_sha512_256_init = sym super::sha512::vg_sha512_256_init,
+        vg_sha512_update_sha3 = sym super::sha512::vg_sha512_update_sha3,
+    )
+}
+
+/// The CPU features `vg_hmac_sha512_256_finalize_sha3` requires (`Artifact.features`).
+pub(crate) const VG_HMAC_SHA512_256_FINALIZE_SHA3_FEATURES: &[&str] = &["sha3"];
+
+/// Finishes an HMAC-SHA-512/256 computation: if, for a 128-byte key `K₀` and a text of fewer than 2⁶⁴ − 128 bytes, the SHA-512/256 streaming state `*inner` represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes, and `*outer` represents `K₀ ⊕ opad`, writes the HMAC-SHA-512/256 of the text under `K₀` (32 bytes) to `*out`.
+///
+/// Contract: `VG.Spec.Hmac.Instance.finalizeContract` of `VG.Spec.Hmac.sha512_256I`. Constant time: only the pointers and `count` may affect timing, not the states.
+///
+/// # Safety
+///
+/// * `inner` must be valid for reads and writes of 192 bytes.
+/// * `outer` must be valid for reads of 192 bytes.
+/// * `out` must be valid for reads and writes of 32 bytes.
+/// * `scratch` must be valid for reads and writes of 1872 bytes.
+/// * The contents of `inner` on return are unspecified.
+/// * The contents of `scratch` on return are unspecified.
+/// * `inner`, `out` and `scratch` must not overlap each other or `outer` (distinct Rust objects never do).
+/// * None of `inner`, `outer`, `out` and `scratch` may overlap the 16 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `sha3` target feature.
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_hmac_sha512_256_finalize_sha3(inner: *mut [u8; 192], outer: *const [u8; 192], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 234]) {
+    core::arch::naked_asm!(
+        ".arch_extension sha3",
+        "str x19, [x4, #224]",
+        "str x20, [x4, #232]",
+        "str x21, [x4, #240]",
+        "str x22, [x4, #248]",
+        "str x24, [x4, #256]",
+        "str x30, [x4, #264]",
+        "str x23, [x4, #272]",
+        "add x19, x0, #0",
+        "add x20, x1, #0",
+        "add x21, x3, #0",
+        "add x23, x4, #0",
+        "add x1, x2, #0",
+        "add x2, x23, #280",
+        "add x3, x23, #0",
+        "bl {vg_sha512_finalize_sha3}",
+        "ldr w9, [x20, #0]",
+        "str w9, [x19, #0]",
+        "ldr w9, [x20, #4]",
+        "str w9, [x19, #4]",
+        "ldr w9, [x20, #8]",
+        "str w9, [x19, #8]",
+        "ldr w9, [x20, #12]",
+        "str w9, [x19, #12]",
+        "ldr w9, [x20, #16]",
+        "str w9, [x19, #16]",
+        "ldr w9, [x20, #20]",
+        "str w9, [x19, #20]",
+        "ldr w9, [x20, #24]",
+        "str w9, [x19, #24]",
+        "ldr w9, [x20, #28]",
+        "str w9, [x19, #28]",
+        "ldr w9, [x20, #32]",
+        "str w9, [x19, #32]",
+        "ldr w9, [x20, #36]",
+        "str w9, [x19, #36]",
+        "ldr w9, [x20, #40]",
+        "str w9, [x19, #40]",
+        "ldr w9, [x20, #44]",
+        "str w9, [x19, #44]",
+        "ldr w9, [x20, #48]",
+        "str w9, [x19, #48]",
+        "ldr w9, [x20, #52]",
+        "str w9, [x19, #52]",
+        "ldr w9, [x20, #56]",
+        "str w9, [x19, #56]",
+        "ldr w9, [x20, #60]",
+        "str w9, [x19, #60]",
+        "ldr w9, [x23, #280]",
+        "str w9, [x19, #64]",
+        "ldr w9, [x23, #284]",
+        "str w9, [x19, #68]",
+        "ldr w9, [x23, #288]",
+        "str w9, [x19, #72]",
+        "ldr w9, [x23, #292]",
+        "str w9, [x19, #76]",
+        "ldr w9, [x23, #296]",
+        "str w9, [x19, #80]",
+        "ldr w9, [x23, #300]",
+        "str w9, [x19, #84]",
+        "ldr w9, [x23, #304]",
+        "str w9, [x19, #88]",
+        "ldr w9, [x23, #308]",
+        "str w9, [x19, #92]",
+        "add x0, x19, #0",
+        "movz x1, #160, lsl #0",
+        "add x2, x23, #280",
+        "add x3, x23, #0",
+        "bl {vg_sha512_finalize_sha3}",
+        "ldr w9, [x23, #280]",
+        "str w9, [x21, #0]",
+        "ldr w9, [x23, #284]",
+        "str w9, [x21, #4]",
+        "ldr w9, [x23, #288]",
+        "str w9, [x21, #8]",
+        "ldr w9, [x23, #292]",
+        "str w9, [x21, #12]",
+        "ldr w9, [x23, #296]",
+        "str w9, [x21, #16]",
+        "ldr w9, [x23, #300]",
+        "str w9, [x21, #20]",
+        "ldr w9, [x23, #304]",
+        "str w9, [x21, #24]",
+        "ldr w9, [x23, #308]",
+        "str w9, [x21, #28]",
+        "ldr x19, [x23, #224]",
+        "ldr x20, [x23, #232]",
+        "ldr x21, [x23, #240]",
+        "ldr x22, [x23, #248]",
+        "ldr x24, [x23, #256]",
+        "ldr x30, [x23, #264]",
+        "ldr x23, [x23, #272]",
+        "ret",
+        ".arch_extension nosha3",
+        vg_sha512_finalize_sha3 = sym super::sha512::vg_sha512_finalize_sha3,
+    )
+}

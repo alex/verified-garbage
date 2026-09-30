@@ -38,15 +38,15 @@ theorem prims_ok : PrimsOk prims where
   bitPack := ⟨⟨0, by decide, Pack.bitPack_verified⟩, nosp_of (by decide +kernel), by decide +kernel⟩
 
 theorem keyGen44_verified :
-    Verified X86_64.target keyGen44 (Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa44 X86_64.abi 24) :=
+    Verified X86_64.target keyGen44 (Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa44 X86_64.abi 32) :=
   keyGen_verified prims_ok _ (.inl rfl)
 
 theorem keyGen65_verified :
-    Verified X86_64.target keyGen65 (Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa65 X86_64.abi 24) :=
+    Verified X86_64.target keyGen65 (Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa65 X86_64.abi 32) :=
   keyGen_verified prims_ok _ (.inr (.inl rfl))
 
 theorem keyGen87_verified :
-    Verified X86_64.target keyGen87 (Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa87 X86_64.abi 24) :=
+    Verified X86_64.target keyGen87 (Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa87 X86_64.abi 32) :=
   keyGen_verified prims_ok _ (.inr (.inr rfl))
 
 end VG.Proof.MlDsa.X86_64.KeyGen

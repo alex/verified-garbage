@@ -35,6 +35,7 @@ def out : Prog isa := .seq (copy (.r12, 0) (sc oG) 32) (copy (.r13, 0) (sc oCT) 
 end Encaps
 
 open Encaps in
-def encaps : Prog isa := .seq (.block pro) (.seq hashes (.seq (encrypt (.r14, 0)) (.seq out (.block topEpi))))
+def encaps (c : Callee4) : Prog isa :=
+  .seq (.block pro) (.seq hashes (.seq (encrypt c (.r14, 0)) (.seq out (.block topEpi))))
 
 end VG.Impl.MlKem.X86_64

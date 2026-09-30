@@ -35,7 +35,7 @@ def out : Prog isa := .seq (copy (.r12, 0) (sc oG) 32) (copy (.r13, 0) (sc oCT4)
 end Encaps1024
 
 open Encaps1024 in
-def encaps1024 : Prog isa :=
-  .seq (.block pro) (.seq hashes (.seq (encrypt1024 (.r14, 0)) (.seq out (.block topEpi))))
+def encaps1024 (c : Callee4) : Prog isa :=
+  .seq (.block pro) (.seq hashes (.seq (encrypt1024 c (.r14, 0)) (.seq out (.block topEpi))))
 
 end VG.Impl.MlKem1024.X86_64

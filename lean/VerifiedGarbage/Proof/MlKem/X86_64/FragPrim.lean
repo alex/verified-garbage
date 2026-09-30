@@ -97,8 +97,8 @@ structure IpH (f : Ptr) (s : State) : Prop where
   off : f.2 < 2 ^ 31
   red : Reduced s.mem (pa s f)
   d : (pR (pa s f)).Disjoint (pR (pa s (sc oSS)))
-  kF : (below (s.gpr .rsp) 24).Disjoint (pR (pa s f))
-  kZ : (below (s.gpr .rsp) 24).Disjoint (pR (pa s (sc oSS)))
+  kF : (below (s.gpr .rsp) 32).Disjoint (pR (pa s f))
+  kZ : (below (s.gpr .rsp) 32).Disjoint (pR (pa s (sc oSS)))
   w : Covers [pR (pa s f), pR (pa s (sc oSS))] s.wr
 
 theorem ipGlue_ok (f : Ptr) (hf : f.2 < 2 ^ 31) (s : State) :
@@ -123,7 +123,7 @@ theorem ipAt_ok {t : Poly → Poly} {n : String} {c : Prog isa}
     (hsp : NoSp c) (hd : c.depth ≤ 2) {f : Ptr} {s : State} (h : IpH f s) :
     WP isa (.seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call n c)) s fun s' =>
       Post s s' [pR (pa s f), pR (pa s (sc oSS))] ∧ PolyIs s'.mem (pa s f) (t (polyAt s.mem (pa s f))) := by
-  refine WP.mono (glueCall_ok hv hsp hd (ipGlue_ok f h.off s) (fun s1 hv hm k => ipPre h hv hm k)
+  refine WP.mono (glueCall_ok hv hsp (Nat.le_succ_of_le hd) (ipGlue_ok f h.off s) (fun s1 hv hm k => ipPre h hv hm k)
     (covers_nil_wr h.w) h.w) fun s' ⟨hpost, s1, hV, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, ?_⟩
   have hsp : s1.gpr .rsp = s.gpr .rsp := k.gpr (by decide)
   simp only [inPlaceK, State.withRegions_gpr, State.withRegions_mem, ce_gpr' s1 (by decide : Reg.rdi ≠ .rsp),
@@ -156,8 +156,8 @@ structure AccH (f g : Ptr) (s : State) : Prop where
   redF : Reduced s.mem (pa s f)
   redG : Reduced s.mem (pa s g)
   d : (pR (pa s f)).Disjoint (pR (pa s g))
-  kF : (below (s.gpr .rsp) 24).Disjoint (pR (pa s f))
-  kG : (below (s.gpr .rsp) 24).Disjoint (pR (pa s g))
+  kF : (below (s.gpr .rsp) 32).Disjoint (pR (pa s f))
+  kG : (below (s.gpr .rsp) 32).Disjoint (pR (pa s g))
   c : Covers ([pR (pa s g)] ++ [pR (pa s f)]) (s.rd ++ s.wr)
   w : Covers [pR (pa s f)] s.wr
 
@@ -184,7 +184,7 @@ theorem accAt_ok {t : Poly → Poly → Poly} {n : String} {c : Prog isa}
     (hsp : NoSp c) (hd : c.depth ≤ 2) {f g : Ptr} (hgr : g.1 ≠ .rdi) {s : State} (h : AccH f g s) :
     WP isa (.seq (.block (lea .rdi f ++ lea .rsi g)) (.call n c)) s fun s' =>
       Post s s' [pR (pa s f)] ∧ PolyIs s'.mem (pa s f) (t (polyAt s.mem (pa s f)) (polyAt s.mem (pa s g))) := by
-  refine WP.mono (glueCall_ok hv hsp hd (accGlue_ok f g h.off.1 h.off.2 hgr s) (fun s1 hv hm k => accPre h hv hm k)
+  refine WP.mono (glueCall_ok hv hsp (Nat.le_succ_of_le hd) (accGlue_ok f g h.off.1 h.off.2 hgr s) (fun s1 hv hm k => accPre h hv hm k)
     h.c h.w) fun s' ⟨hpost, s1, hV, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, ?_⟩
   have hsp : s1.gpr .rsp = s.gpr .rsp := k.gpr (by decide)
   simp only [accK, State.withRegions_gpr, State.withRegions_mem, ce_gpr' s1 (by decide : Reg.rdi ≠ .rsp),
@@ -222,10 +222,10 @@ structure MulH (h f g : Ptr) (s : State) : Prop where
   hz : (pR (pa s h)).Disjoint (pR (pa s (sc oSS)))
   fz : (pR (pa s f)).Disjoint (pR (pa s (sc oSS)))
   gz : (pR (pa s g)).Disjoint (pR (pa s (sc oSS)))
-  kH : (below (s.gpr .rsp) 24).Disjoint (pR (pa s h))
-  kF : (below (s.gpr .rsp) 24).Disjoint (pR (pa s f))
-  kG : (below (s.gpr .rsp) 24).Disjoint (pR (pa s g))
-  kZ : (below (s.gpr .rsp) 24).Disjoint (pR (pa s (sc oSS)))
+  kH : (below (s.gpr .rsp) 32).Disjoint (pR (pa s h))
+  kF : (below (s.gpr .rsp) 32).Disjoint (pR (pa s f))
+  kG : (below (s.gpr .rsp) 32).Disjoint (pR (pa s g))
+  kZ : (below (s.gpr .rsp) 32).Disjoint (pR (pa s (sc oSS)))
   c : Covers ([pR (pa s f), pR (pa s g)] ++ [pR (pa s h), pR (pa s (sc oSS))]) (s.rd ++ s.wr)
   w : Covers [pR (pa s h), pR (pa s (sc oSS))] s.wr
 
@@ -294,8 +294,8 @@ theorem mulAt_tr {h f g : Ptr} (hf : NA f) (hg : NA g) :
 structure TwoH (p q : Ptr) (n m : Nat) (s : State) : Prop where
   off : p.2 < 2 ^ 31 ∧ q.2 < 2 ^ 31
   d : Region.Disjoint ⟨pa s p, n⟩ ⟨pa s q, m⟩
-  kP : (below (s.gpr .rsp) 24).Disjoint ⟨pa s p, n⟩
-  kQ : (below (s.gpr .rsp) 24).Disjoint ⟨pa s q, m⟩
+  kP : (below (s.gpr .rsp) 32).Disjoint ⟨pa s p, n⟩
+  kQ : (below (s.gpr .rsp) 32).Disjoint ⟨pa s q, m⟩
   c : Covers ([⟨pa s p, n⟩] ++ [⟨pa s q, m⟩]) (s.rd ++ s.wr)
   w : Covers [⟨pa s q, m⟩] s.wr
 
@@ -425,8 +425,8 @@ structure CEH (f out : Ptr) (d : Nat) (s : State) : Prop where
   dw : d ∈ compressWidths
   red : Reduced s.mem (pa s f)
   dj : Region.Disjoint (pR (pa s f)) ⟨pa s out, 32 * d⟩
-  kF : (below (s.gpr .rsp) 24).Disjoint (pR (pa s f))
-  kO : (below (s.gpr .rsp) 24).Disjoint ⟨pa s out, 32 * d⟩
+  kF : (below (s.gpr .rsp) 32).Disjoint (pR (pa s f))
+  kO : (below (s.gpr .rsp) 32).Disjoint ⟨pa s out, 32 * d⟩
   c : Covers ([pR (pa s f)] ++ [⟨pa s out, 32 * d⟩]) (s.rd ++ s.wr)
   w : Covers [⟨pa s out, 32 * d⟩] s.wr
 
@@ -496,8 +496,8 @@ structure DDH (b f : Ptr) (d : Nat) (s : State) : Prop where
   off : b.2 < 2 ^ 31 ∧ f.2 < 2 ^ 31
   dw : d ∈ compressWidths
   dj : Region.Disjoint ⟨pa s b, 32 * d⟩ (pR (pa s f))
-  kB : (below (s.gpr .rsp) 24).Disjoint ⟨pa s b, 32 * d⟩
-  kF : (below (s.gpr .rsp) 24).Disjoint (pR (pa s f))
+  kB : (below (s.gpr .rsp) 32).Disjoint ⟨pa s b, 32 * d⟩
+  kF : (below (s.gpr .rsp) 32).Disjoint (pR (pa s f))
   c : Covers ([⟨pa s b, 32 * d⟩] ++ [pR (pa s f)]) (s.rd ++ s.wr)
   w : Covers [pR (pa s f)] s.wr
 
@@ -571,9 +571,9 @@ structure SampH (a : Ptr) (s : State) : Prop where
   dSA : Region.Disjoint ⟨pa s (sc oSB), 34⟩ (pR (pa s a))
   dSZ : Region.Disjoint ⟨pa s (sc oSB), 34⟩ ⟨pa s (sc oSS), 2048⟩
   dAZ : (pR (pa s a)).Disjoint ⟨pa s (sc oSS), 2048⟩
-  kS : (below (s.gpr .rsp) 24).Disjoint ⟨pa s (sc oSB), 34⟩
-  kA : (below (s.gpr .rsp) 24).Disjoint (pR (pa s a))
-  kZ : (below (s.gpr .rsp) 24).Disjoint ⟨pa s (sc oSS), 2048⟩
+  kS : (below (s.gpr .rsp) 32).Disjoint ⟨pa s (sc oSB), 34⟩
+  kA : (below (s.gpr .rsp) 32).Disjoint (pR (pa s a))
+  kZ : (below (s.gpr .rsp) 32).Disjoint ⟨pa s (sc oSS), 2048⟩
   nw : (pa s (sc oSS)).toNat + 2048 ≤ 2 ^ 64
   c : Covers ([⟨pa s (sc oSB), 34⟩] ++ [pR (pa s a), ⟨pa s (sc oSS), 2048⟩]) (s.rd ++ s.wr)
   w : Covers [pR (pa s a), ⟨pa s (sc oSS), 2048⟩] s.wr
@@ -613,7 +613,7 @@ structure SampPost (a : Ptr) (s s' : State) : Prop where
   rd : s'.rd = s.rd
   wr : s'.wr = s.wr
   cs : ∀ r ∈ calleeSaved, r ≠ .r15 → s'.gpr r = s.gpr r
-  frame : Frame ([pR (pa s a), ⟨pa s (sc oSS), 2048⟩] ++ [below (s.gpr .rsp) 24]) s.mem s'.mem
+  frame : Frame ([pR (pa s a), ⟨pa s (sc oSS), 2048⟩] ++ [below (s.gpr .rsp) 32]) s.mem s'.mem
   r15 : s'.gpr .r15 = BitVec.setWidth 64 ((s.gpr .r15).setWidth 32 &&&
     (if (sampleNTT minIterations (bytesAt s.mem (pa s (sc oSB)) 34)).isSome then 1 else 0))
   res : ∀ f, sampleNTT minIterations (bytesAt s.mem (pa s (sc oSB)) 34) = some f → PolyIs s'.mem (pa s a) f

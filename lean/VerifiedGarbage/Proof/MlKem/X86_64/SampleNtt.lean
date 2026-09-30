@@ -393,7 +393,7 @@ theorem lat_step {N t : Nat} (hN : N ≤ 280) (ht : t < N) {s : State} (h : LAt 
     WP isa snBody s fun s' => LAt σ N (t + 1) s' ∧ s'.zf = some (BitVec.ofNat 64 (N - t) - 1 == 0) := by
   have hL : (Lt σ t).length ≤ 256 := sampleAfter_length_le (a := []) (by simp) _ t
   have hw : pR (aP σ) ∈ s.wr := by rw [h.env.wr, hp.2.1]; simp
-  refine WP.mono (snBody_ok s (aP := aP σ) h.env.rbp h.rdi hL hw h.stored
+  refine WP.mono (snBody_ok s (aP := aP σ) h.env.rbp h.rdi hL (WrA.of_mem hw) h.stored
     (by simpa using lat_regions hp hN h (k := 0) (by omega)) (lat_regions hp hN h (by omega))
     (lat_regions hp hN h (by omega))) fun s' ⟨hdi, hst, hf, hsi, hcx, hz, hk⟩ => ?_
   have e0 := out_byte h (k := 0) (by omega)

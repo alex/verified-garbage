@@ -55,7 +55,7 @@ def rest : Prog isa := .seq (seqR se 0 8) (.seq (seqR row 0 4) (.seq (seqR encS 
 end KeyGen1024
 
 open KeyGen1024 in
-def keyGen1024 : Prog isa :=
-  .seq (.block pro) (.seq gRho (.seq samples4 (.seq (ifOk rest) (.block topEpi))))
+def keyGen1024 (c : Callee4) : Prog isa :=
+  .seq (.block pro) (.seq gRho (.seq (samples4 c) (.seq (ifOk rest) (.block topEpi))))
 
 end VG.Impl.MlKem1024.X86_64

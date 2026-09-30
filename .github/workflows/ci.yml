@@ -37,6 +37,9 @@ jobs:
         run: echo "shards=$(python3 ci/lean_shards.py list)" >> "$GITHUB_OUTPUT"
 
   lean-shard:
+    # More independent files, with two compiler threads per file (lakefile.toml).
+    env:
+      LEAN_NUM_THREADS: "6"
     needs: lean-shards
     strategy:
       fail-fast: false
@@ -85,6 +88,8 @@ jobs:
           if-no-files-found: error
 
   lean:
+    env:
+      LEAN_NUM_THREADS: "6"
     name: Lean proofs
     needs: lean-shard
     runs-on: ubuntu-latest
@@ -272,13 +277,13 @@ jobs:
       fail-fast: false
       matrix:
         chip: [native, skx, hsw, p4p]
-        tests: [sha1 sha256 sha384 sha512 aes_gcm chacha20 cpu]
+        tests: [sha1 sha256 sha384 sha512 aes_gcm chacha20 mlkem cpu]
         include:
           - chip: arl
             tests: sha384 sha512 cpu
           - chip: native
             os: ubuntu-24.04-arm
-            tests: aes_gcm sha1 sha256 scrypt cpu
+            tests: aes_gcm sha1 sha256 sha384 sha512 scrypt cpu
     name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     env:

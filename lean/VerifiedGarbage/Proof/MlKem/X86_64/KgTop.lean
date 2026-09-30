@@ -97,15 +97,15 @@ theorem KeyGen.KEnd.hin {σ s : State} (hp : keyGenK.pre σ) (h : KeyGen.KEnd σ
   exact (h.kc.lay hp).cR (hk' k hk) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
 
 open KeyGen in
-theorem keyGen_correct (σ : State) (hp : keyGenK.pre σ) :
-    ∃ t s', Exec isa Impl.MlKem.X86_64.keyGen σ t s' ∧ abiPreserved σ s' ∧ keyGenK.post σ s' := by
+theorem keyGen_correct (v : Sample4Impl) (σ : State) (hp : keyGenK.pre σ) :
+    ∃ t s', Exec isa (Impl.MlKem.X86_64.keyGen v.callee) σ t s' ∧ abiPreserved σ s' ∧ keyGenK.post σ s' := by
   obtain ⟨t, s', he, hF⟩ := WP.seq (WP.mono (pro_ok hp) fun s₁ ⟨h₁, h15⟩ =>
     WP.seq (WP.mono (gRho_ok hp h₁ h15) fun s₂ ⟨h₂, h15'⟩ =>
-      WP.seq (WP.mono (samples_ok hp (KB.zero h₂ h15')) fun s₃ h₃ =>
+      WP.seq (WP.mono (samples_ok v hp (KB.zero h₂ h15')) fun s₃ h₃ =>
         WP.seq (WP.mono (body_ok hp h₃) fun s₄ h₄ =>
           WP.mono (topEpi_ok h₄.kc.top (h₄.hin hp)) fun s₅ ⟨hr, hg, hm⟩ =>
             (⟨hg, post_of h₄ hr hm⟩ : gprPreserved σ s₅ ∧ keyGenK.post σ s₅)))))
-  exact ⟨t, s', he, abiPreserved_of_ctl (by decide +kernel) he hF.1, hF.2⟩
+  exact ⟨t, s', he, abiPreserved_of_ctl (by s4_ctl v) he hF.1, hF.2⟩
 
 /-! ## Constant time -/
 
@@ -176,15 +176,15 @@ theorem epi_tr : RelCT isa (R KEnd) (.block topEpi) fun _ _ => True :=
 end KeyGen
 
 open KeyGen in
-theorem keyGen_ct : ConstantTime isa keyGenK.pre keyGenK.pub Impl.MlKem.X86_64.keyGen := by
+theorem keyGen_ct (v : Sample4Impl) :
+    ConstantTime isa keyGenK.pre keyGenK.pub (Impl.MlKem.X86_64.keyGen v.callee) := by
   refine relStart (Q := fun _ _ => True) ?_
   unfold Impl.MlKem.X86_64.keyGen
   refine RelCT.seq (relInv (I' := fun σ s => KC σ s ∧ s.gpr .r15 = 1)
     (fun σ s hp hs => by subst hs; exact pro_ok hp) pro_tr) ?_
   refine RelCT.seq (relInv (I' := fun σ s => KA σ s ∧ s.gpr .r15 = 1)
     (fun σ s hp hs => gRho_ok hp hs.1 hs.2) gRho_tr) ?_
-  refine RelCT.seq (RelCT.mono (seqR_tr (R := fun e => R (KB e)) 9 0
-    fun e _ he => relInv (fun σ s hp hs => sample_step hp (by omega) hs) (sample_tr (by omega)))
+  refine RelCT.seq (RelCT.mono (samples_tr v)
     (fun x y ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩ => ⟨σ₁, σ₂, p₁, p₂, pub, KB.zero h₁.1 h₁.2, KB.zero h₂.1 h₂.2⟩)
     fun _ _ h => h) ?_
   exact RelCT.seq body_tr (RelCT.mono epi_tr (fun _ _ h => h) fun _ _ _ => trivial)
@@ -201,9 +201,9 @@ def keyGenSat : State where
   rd := [⟨0x1000, 64⟩]
   wr := [⟨0x2000, 1184⟩, ⟨0x3000, 2400⟩, ⟨0x10000, 32768⟩]
 
-theorem keyGen_verified :
-    Verified X86_64.target Impl.MlKem.X86_64.keyGen (Spec.MlKem.keyGenContract X86_64.abi 24) :=
-  Verified.of_correct keyGen_correct keyGen_ct
+theorem keyGen_verified (v : Sample4Impl) :
+    Verified X86_64.target (Impl.MlKem.X86_64.keyGen v.callee) (Spec.MlKem.keyGenContract X86_64.abi 32) :=
+  Verified.of_correct (keyGen_correct v) (keyGen_ct v)
     { pre := by sig_implies_pre [Spec.MlKem.keyGenContract, Spec.MlKem.keyGenSig, keyGenK, X86_64.abi,
         VG.X86_64.argRegs]
       post := by sig_implies_post [Spec.MlKem.keyGenContract, Spec.MlKem.keyGenSig, keyGenK, X86_64.abi,
