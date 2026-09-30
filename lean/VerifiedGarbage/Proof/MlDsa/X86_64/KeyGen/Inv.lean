@@ -110,3 +110,17 @@ theorem rel_of {c : Prog isa} {Q : State → State → Prop} (htr : RelCT isa Q 
 end
 
 end VG.Proof.MlDsa.X86_64.KeyGen
+
+namespace VG.Proof.MlDsa.X86_64.KeyGen
+
+/-- `lay`, which also unfolds the checks of pieces (`kcChk`, `copyChk`, `hashChk`, …). -/
+syntax "layk" (" [" Lean.Parser.Tactic.simpLemma,* "]")? : tactic
+macro_rules
+  | `(tactic| layk) => `(tactic| layk [])
+  | `(tactic| layk [$ls,*]) => `(tactic| lay [VG.Proof.MlDsa.X86_64.KeyGen.kcChk, VG.Proof.MlKem.X86_64.topChk, VG.Proof.MlKem.X86_64.copyChk,
+      VG.Proof.MlKem.X86_64.hashChk, VG.Proof.MlKem.X86_64.pieceChk, VG.Proof.MlKem.X86_64.kabsChk,
+      VG.Proof.MlKem.X86_64.ksqzChk, VG.Proof.MlKem.X86_64.kChk, VG.Proof.MlKem.X86_64.rdOk,
+      VG.Proof.MlKem.X86_64.wrOk, List.range_succ, List.range_zero, List.all_append, List.nil_append,
+      List.all_cons, List.all_nil, VG.Impl.MlKem.X86_64.oSV, $ls,*])
+
+end VG.Proof.MlDsa.X86_64.KeyGen
