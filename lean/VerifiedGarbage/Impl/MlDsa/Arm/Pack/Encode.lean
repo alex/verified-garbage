@@ -16,8 +16,8 @@ that width `d`, with groups of `c` coefficients and `nb` bytes, as on x86-64:
   `b - x` in 32 bits, and `q` added if it is negative (`bMinus`). It needs
   `r4` as well, which it saves in a frame on the stack (4 bytes).
 * `bitUnpack(v = r0, len = r1, a = r2, b = r3, f = [sp])` (`f` loaded into
-  `r1`): the coefficient of a field `x` is `b - x` modulo `q`, computed the
-  same way; it saves `r4` in a frame, so `f` is then at `[sp, #4]`.
+  `r12`, before the frame, and moved to `r1`): the coefficient of a field `x`
+  is `b - x` modulo `q`, computed the same way; it saves `r4` in a frame.
 * `unpackT1(v = r0, f = r1)`: the coefficient of a 10-bit field `x` is
   `x · 2¹³` (less than `q`), a shift. It uses only `r0`–`r3` and `r12`.
 
@@ -64,13 +64,13 @@ def buFin (B : Nat) (j : Nat) : List Instr := bMinus B .r4 .r12 ++ [.str .r4 .r1
 
 /-- The body of `bitUnpack`, in its frame. -/
 def bitUnpackBody : Prog isa :=
-  .seq (.block [.ldrSp .r1 4])
+  .seq (.block [.mov .r1 (.reg .r12)])
     (sel .r3 2 (unpackLoop (buFin 2) 3 8 3)
       (sel .r3 4 (unpackLoop (buFin 4) 4 2 1)
         (sel .r3 4096 (unpackLoop (buFin 4096) 13 8 13)
           (sel .r3 131072 (unpackLoop (buFin 131072) 18 4 9) (unpackLoop (buFin 524288) 20 2 5)))))
 
-def bitUnpack : Prog isa := .frame (.push [.r4]) bitUnpackBody (.pop .r4 4)
+def bitUnpack : Prog isa := .seq (.block [.ldrSp .r12 0]) (.frame (.push [.r4]) bitUnpackBody (.pop .r4 4))
 
 /-! ## `vg_mldsa_unpack_t1` -/
 

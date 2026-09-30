@@ -8,9 +8,10 @@ Both follow Algorithms 20 and 21 (the spec's `hintBitPack` and
 branch and index memory on it; each first zeroes its output, whose contents
 are then a function of the hint alone. The model branches only on `Z`: a
 comparison `x < y` of small numbers is the sign bit of `x - y`
-(`ltBit`), compared with zero. Each saves the registers it needs beyond
-`r0`–`r3` and `r12` in a frame on the stack, and reloads all but the first
-from it at the end (the pop reloads the first).
+(`ltBit`), compared with zero. Each loads its stack argument into `r12`,
+then saves the registers it needs beyond `r0`–`r3` and `r12` in a frame on
+the stack, and reloads all but the first from it at the end (the pop
+reloads the first).
 
 * `hintBitPack(h = r0, hlen = r1, omega = r2, y = r3, len = [sp])`: zeroes
   the `len` bytes of `y`; then, with the index in `r1`, for each of the `k`
@@ -41,10 +42,10 @@ def ltBit (t x y : Reg) : List Instr := [.dp .sub t x (.reg y), .mov t (.shifted
 
 /-! ## `vg_mldsa_hint_bit_pack` -/
 
-/-- Zero the `len` bytes of `y` (`r3`), with `r5` walking them and `r4`
-counting; `r12` is then 0. -/
+/-- `k = len - ω` into `r1` (`len` in `r12`); zero the `len` bytes of `y`
+(`r3`), with `r5` walking them and `r4` counting; `r12` is then 0. -/
 def hbpZero : Prog isa :=
-  .seq (.block [.ldrSp .r4 8, .mov .r12 (.imm 0), .mov .r5 (.reg .r3)])
+  .seq (.block [.dp .sub .r1 .r12 (.reg .r2), .mov .r4 (.reg .r12), .mov .r12 (.imm 0), .mov .r5 (.reg .r3)])
     (.loop (.block [.strb .r12 .r5 0, .dp .add .r5 .r5 (.imm 1), .subs .r4 .r4 (.imm 1)]) .ne)
 
 /-- Coefficient `j = r12` of the polynomial, the word at `r0`: if it is not
@@ -59,22 +60,24 @@ def hbpPoly : Prog isa :=
   .seq (.block [.mov .r12 (.imm 0)])
     (.seq (.loop hbpCoef .ne) (.block [.strb .r1 .r5 0, .dp .add .r5 .r5 (.imm 1), .subs .r4 .r4 (.imm 1)]))
 
-/-- The `k = len - ω` polynomials, from `r5 = y + ω`, the index `r1` from 0. -/
+/-- The `k` polynomials (`k` from `r1`), from `r5 = y + ω`, the index `r1`
+from 0. -/
 def hbpMain : Prog isa :=
-  .seq (.block [.ldrSp .r4 8, .dp .sub .r4 .r4 (.reg .r2), .dp .add .r5 .r3 (.reg .r2), .mov .r1 (.imm 0)])
+  .seq (.block [.mov .r4 (.reg .r1), .dp .add .r5 .r3 (.reg .r2), .mov .r1 (.imm 0)])
     (.loop hbpPoly .ne)
 
-/-- The body of `hintBitPack`, in its frame (`r4`, `r5`; `len` at `[sp, #8]`). -/
+/-- The body of `hintBitPack`, in its frame (`r4`, `r5`), with `len` in `r12`. -/
 def hintBitPackBody : Prog isa := .seq hbpZero (.seq hbpMain (.block [.ldrSp .r5 4]))
 
-def hintBitPack : Prog isa := .frame (.push [.r4, .r5]) hintBitPackBody (.pop .r4 8)
+def hintBitPack : Prog isa :=
+  .seq (.block [.ldrSp .r12 0]) (.frame (.push [.r4, .r5]) hintBitPackBody (.pop .r4 8))
 
 /-! ## `vg_mldsa_hint_bit_unpack` -/
 
-/-- `k = len - ω` into `r6`; zero the `hlen` words of `h` (`r3`), with `r5`
-walking them and `r4` counting; the index `r1` then 0. -/
+/-- `k = len - ω` into `r6`; zero the `hlen` words (`hlen` in `r12`) of `h`
+(`r3`), with `r5` walking them and `r4` counting; the index `r1` then 0. -/
 def hbuZero : Prog isa :=
-  .seq (.block [.dp .sub .r6 .r1 (.reg .r2), .ldrSp .r4 16, .mov .r12 (.imm 0), .mov .r5 (.reg .r3)])
+  .seq (.block [.dp .sub .r6 .r1 (.reg .r2), .mov .r4 (.reg .r12), .mov .r12 (.imm 0), .mov .r5 (.reg .r3)])
     (.seq (.loop (.block [.str .r12 .r5 0, .dp .add .r5 .r5 (.imm 4), .subs .r4 .r4 (.imm 1)]) .ne)
       (.block [.mov .r1 (.imm 0)]))
 
@@ -131,10 +134,11 @@ def hbuRet : List Instr :=
   [.dp .sub .r7 .r2 (.reg .r1), .mov .r7 (.shifted .r7 .lsr 31), .mov .r0 (.imm 1), .dp .sub .r0 .r0 (.reg .r7),
     .ldrSp .r5 4, .ldrSp .r6 8, .ldrSp .r7 12]
 
-/-- The body of `hintBitUnpack`, in its frame (`r4`–`r7`; `hlen` at
-`[sp, #16]`). -/
+/-- The body of `hintBitUnpack`, in its frame (`r4`–`r7`), with `hlen` in
+`r12`. -/
 def hintBitUnpackBody : Prog isa := .seq hbuZero (.seq hbuMain (.seq hbuTrail (.block hbuRet)))
 
-def hintBitUnpack : Prog isa := .frame (.push [.r4, .r5, .r6, .r7]) hintBitUnpackBody (.pop .r4 16)
+def hintBitUnpack : Prog isa :=
+  .seq (.block [.ldrSp .r12 0]) (.frame (.push [.r4, .r5, .r6, .r7]) hintBitUnpackBody (.pop .r4 16))
 
 end VG.Impl.MlDsa.Arm.Pack

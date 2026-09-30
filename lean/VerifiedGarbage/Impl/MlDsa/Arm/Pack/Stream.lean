@@ -40,7 +40,7 @@ def shiftAdd (sh : Nat) : Instr :=
 /-- Byte `t` of the group, the low byte of `r3`, to `[r2, #t]`. -/
 def packByte (t : Nat) : List Instr := [.strb .r3 .r2 t, .mov .r3 (.shifted .r3 .lsr 8)]
 
-/-- Coefficient `j` of the group: its value (`ld j`) into `r3`, then the
+/-- Coefficient `j` of the group: its value (`ld j`, in `r12`) added to `r3`, then the
 bytes it completes. -/
 def packCoef (ld : Nat → List Instr) (d j : Nat) : List Instr :=
   ld j ++ [shiftAdd (d * j % 8)] ++
