@@ -1,0 +1,5 @@
+name = "pyca/cryptography RC2-CBC vector (verified against OpenSSL and Go)"
+directories = ["cryptography-rc2"]
+url = "https://raw.githubusercontent.com/pyca/cryptography/dd22989f9594704bfef2ea3a8b08b40774a06a23/vectors/cryptography_vectors/ciphers/RC2/rc2-cbc.txt"
+sha256 = "1513a238c968f61e2aba38c88a71ff82ed4ac635bdce77817eb0f59a1f01537f"
+retrieved = 2026-09-30

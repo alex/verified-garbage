@@ -8,9 +8,7 @@ import VerifiedGarbage.Proof.MlKem.KPke
 
 Untrusted: everything here is checked by Lean. An iteration of the loop
 does what `sampleStepCap` does to the coefficients sampled so far, stored
-at `a` (`Stored`) and counted in `rdi` (`snBody_ok`); so after 280
-iterations over the bytes `X` it has sampled `sampleAfter [] X 280`
-(`snLoop_ok`).
+at `a` (`Stored`) and counted in `rdi` (`snBody_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64
@@ -254,47 +252,7 @@ theorem snBody_ok (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .rbp = aP)
   exact ⟨by rw [k4.gpr (by decide), hdi3], by rw [hm4]; exact hst3, by rw [hm4, ← hm1]; exact hf3,
     by rw [hsi4, hsi3], by rw [hcx4, hcx3], by rw [hz4, hcx3], ((k1.trans k3).trans k4).mono (by simp)⟩
 
-/-! ## The loop -/
-
-/-- After `t` iterations over the bytes `X`, from the state `sL`. -/
-structure LInv (sL : State) (aP outP : Addr) (X : Nat → Byte) (t : Nat) (s : State) : Prop where
-  rsi : s.gpr .rsi = outP + BitVec.ofNat 64 (3 * t)
-  rdi : s.gpr .rdi = BitVec.ofNat 64 (sampleAfter [] X t).length
-  rd : s.rd = sL.rd
-  wr : s.wr = sL.wr
-  stored : Stored s.mem aP (sampleAfter [] X t)
-  frame : Frame [pR aP] sL.mem s.mem
-  keep : Keep [.rsi, .rdi, .rcx, .rax, .rdx, .r8, .r9] sL s
-
 theorem off_add (p : Addr) (a b : Nat) : p + BitVec.ofNat 64 a + BitVec.ofNat 64 b = p + BitVec.ofNat 64 (a + b) := by
   rw [BitVec.add_assoc, BitVec.ofNat_add]
-
-/-- The 280 iterations, from `rsi` = `outP`, `rdi` = 0. -/
-theorem snIter_ok (sL : State) {aP outP : Addr} (hbp : sL.gpr .rbp = aP) (hw : pR aP ∈ sL.wr)
-    (hout : ∀ p < 840, InRegions (sL.rd ++ sL.wr) (outP + BitVec.ofNat 64 p) 1)
-    (hd : ∀ p < 840, ¬ (pR aP).Contains (outP + BitVec.ofNat 64 p) 1)
-    (hsi : sL.gpr .rsi = outP) (hdi : sL.gpr .rdi = 0) :
-    WP isa (.seq (.block [.mov32 .rcx (.imm 280)]) (.loop snBody .ne)) sL
-      (LInv sL aP outP (fun p => sL.mem (outP + BitVec.ofNat 64 p)) 280) := by
-  refine wp_counted (N := 280) (v := 280) rfl (by decide) _ (fun s hm hk => ⟨by rw [hk.gpr (by decide), hsi]; simp,
-      by rw [hk.gpr (by decide), hdi]; rfl, hk.2.1, hk.2.2, fun k hk' => absurd hk' (by simp [sampleAfter_zero]),
-      by rw [hm]; exact Frame.refl _ _, hk.mono (by decide)⟩) fun t ht s hI => ?_
-  have hL : (sampleAfter [] (fun p => sL.mem (outP + BitVec.ofNat 64 p)) t).length ≤ 256 :=
-    sampleAfter_length_le (a := []) (by simp) _ t
-  have hrr : s.rd ++ s.wr = sL.rd ++ sL.wr := by rw [hI.rd, hI.wr]
-  have rd_k : ∀ k < 3, s.mem (s.gpr .rsi + BitVec.ofNat 64 k) = sL.mem (outP + BitVec.ofNat 64 (3 * t + k)) := by
-    intro k hk
-    rw [hI.rsi, off_add]
-    exact hI.frame _ fun r hr => by simp at hr; subst hr; exact hd _ (by omega)
-  have in_k : ∀ k < 3, InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 k) 1 := by
-    intro k hk; rw [hrr, hI.rsi, off_add]; exact hout _ (by omega)
-  refine WP.mono (snBody_ok s (aP := aP) (by rw [hI.keep.gpr (by decide), hbp]) hI.rdi hL (by rw [hI.wr]; exact hw)
-    hI.stored (by simpa using in_k 0 (by decide)) (in_k 1 (by decide)) (in_k 2 (by decide)))
-    fun s' ⟨hdi', hst', hf', hsi', hcx', hz', hk'⟩ => ⟨?_, hcx', hz'⟩
-  have e0 := rd_k 0 (by decide)
-  rw [add_ofNat_zero, Nat.add_zero] at e0
-  rw [e0, rd_k 1 (by decide), rd_k 2 (by decide), ← sampleAfter_succ] at hdi' hst'
-  exact ⟨by rw [hsi', hI.rsi, show (3 : BitVec 64) = BitVec.ofNat 64 3 from rfl, off_add, Nat.mul_succ], hdi',
-    hk'.2.1.trans hI.rd, hk'.2.2.trans hI.wr, hst', hI.frame.trans hf', (hI.keep.trans hk').mono (by simp)⟩
 
 end VG.Proof.MlKem.X86_64

@@ -1,0 +1,5 @@
+name = "OpenSSL 3.5.0 RC2 EVP vectors (including CBC)"
+directories = ["openssl-rc2"]
+url = "https://raw.githubusercontent.com/openssl/openssl/636dfadc70ce26f2473870570bfd9ec352806b1d/test/recipes/30-test_evp_data/evpciph_rc2.txt"
+sha256 = "e9b95437db02237c1ae6421d23a5e6db7368a961b7f81d006fc878408f04090f"
+retrieved = 2026-09-30
