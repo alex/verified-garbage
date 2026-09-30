@@ -38,8 +38,13 @@ structure LPre (N : Nat) (B : List Byte) (bP aP : Addr) (s : State) : Prop where
 /-- Coefficient `i` of the list `L`, as stored. -/
 def cv (L : List Zq) (i : Nat) : BitVec 32 := BitVec.ofNat 32 (L.getD i 0).val
 
+/-- The coefficients `L` at `aP`, and zeros after them but for coefficient
+`L.length`, which may hold a rejected candidate. -/
+def Coeffs (m : Mem) (aP : Addr) (L : List Zq) : Prop :=
+  ∀ i < 256, i ≠ L.length → coeffAt m aP i = if i < L.length then cv L i else 0
+
 /-- The coefficients accepted so far, `L`, stored at `aP`, with zeros after
-them; the permissions, and all memory outside `a`, as in `s₀`. -/
+them (`Coeffs`); the permissions, and all memory outside `a`, as in `s₀`. -/
 structure Acc (aP : Addr) (s₀ : State) (L : List Zq) (u : State) : Prop where
   rd : u.rd = s₀.rd
   wr : u.wr = s₀.wr
@@ -48,22 +53,45 @@ structure Acc (aP : Addr) (s₀ : State) (L : List Zq) (u : State) : Prop where
   x3 : u.gpr .x3 = coeffAddr aP L.length
   x4 : (u.gpr .x4).toNat = 256 - L.length
   x9 : (u.gpr .x9).toNat = q
-  coeffs : CoeffsUpTo u.mem aP L.length (cv L) fun _ => 0
+  coeffs : Coeffs u.mem aP L
   frame : Frame [polyRegion aP] s₀.mem u.mem
-
-theorem CoeffsUpTo.congr {m : Mem} {p : Addr} {t : Nat} {G G' old : Nat → BitVec 32}
-    (h : CoeffsUpTo m p t G old) (hg : ∀ i < t, G i = G' i) : CoeffsUpTo m p t G' old :=
-  fun i hi => by
-    rw [h i hi]
-    by_cases hit : i < t
-    · rw [ite_eq_left hit, ite_eq_left hit, hg i hit]
-    · rw [ite_eq_right hit, ite_eq_right hit]
 
 theorem cv_append (L : List Zq) (x : Zq) {i : Nat} (hi : i < L.length) : cv L i = cv (L ++ [x]) i := by
   simp only [cv, List.getD_eq_getElem?_getD, List.getElem?_append_left hi]
 
 theorem cv_last (L : List Zq) (x : Zq) : cv (L ++ [x]) L.length = BitVec.ofNat 32 x.val := by
   simp [cv]
+
+theorem Coeffs.full {m : Mem} {aP : Addr} {L : List Zq} (h : Coeffs m aP L) (hf : L.length = 256) :
+    CoeffsUpTo m aP L.length (cv L) fun _ => 0 :=
+  fun i hi => h i hi (by omega)
+
+/-- Coefficient `L.length` set to zero. -/
+theorem Coeffs.zero {m : Mem} {aP : Addr} {L : List Zq} (h : Coeffs m aP L) (hl : L.length < 256) :
+    CoeffsUpTo (m.writeW (coeffAddr aP L.length) (0 : BitVec 32)) aP L.length (cv L) fun _ => 0 := fun i hi => by
+  rw [coeffAt_writeW m aP (show i < n from hi) (show L.length < n from hl)]
+  by_cases e : L.length = i
+  · rw [ite_eq_left e, ite_eq_right (by omega)]
+  · rw [ite_eq_right e, h i hi (Ne.symm e)]
+
+/-- A rejected candidate stored as coefficient `L.length`. -/
+theorem Coeffs.reject {m : Mem} {aP : Addr} {L : List Zq} (h : Coeffs m aP L) (hl : L.length < 256)
+    (w : BitVec 32) : Coeffs (m.writeW (coeffAddr aP L.length) w) aP L := fun i hi hne => by
+  rw [coeffAt_writeW_ne m aP (show i < n from hi) (show L.length < n from hl) hne, h i hi hne]
+
+/-- An accepted candidate `x` stored as coefficient `L.length`. -/
+theorem Coeffs.accept {m : Mem} {aP : Addr} {L : List Zq} (h : Coeffs m aP L) (hl : L.length < 256)
+    {x : Zq} {w : BitVec 32} (hw : w = BitVec.ofNat 32 x.val) :
+    Coeffs (m.writeW (coeffAddr aP L.length) w) aP (L ++ [x]) := fun i hi hne => by
+  rw [coeffAt_writeW m aP (show i < n from hi) (show L.length < n from hl)]
+  simp only [List.length_append, List.length_singleton] at hne ⊢
+  by_cases e : L.length = i
+  · subst e
+    rw [ite_eq_left rfl, ite_eq_left (by omega), cv_last, hw]
+  · rw [ite_eq_right e, h i hi (Ne.symm e)]
+    by_cases hit : i < L.length
+    · rw [ite_eq_left hit, ite_eq_left (by omega), cv_append L x hit]
+    · rw [ite_eq_right hit, ite_eq_right (by omega)]
 
 /-- `v - q`, negative exactly when `v < q`. -/
 theorem lt_q_arith {a b : BitVec 64} {v : Nat} (ha : a.toNat = v) (hv : v < 2 ^ 12)
@@ -72,55 +100,58 @@ theorem lt_q_arith {a b : BitVec 64} {v : Nat} (ha : a.toNat = v) (hv : v < 2 ^ 
   have hq : q = 3329 := rfl
   split <;> omega
 
-/-- Accepting the candidate `v` in `d` if it is less than `q`. -/
+/-- Accepting the candidate `v` in `d` if it is less than `q`: storing it
+either way, and counting it only if it is accepted. -/
 theorem accept_ok {aP : Addr} {s₀ : State} (hina : ∀ i < 256, InRegions s₀.wr (coeffAddr aP i) 4)
     {L : List Zq} {u : State} (h : Acc aP s₀ L u) (hlt : L.length < 256) {d : Reg}
-    (hd : d ≠ .x13 ∧ d ≠ .x14 ∧ d ≠ .x3 ∧ d ≠ .x4) {v : Nat} (hv : (u.gpr d).toNat = v)
-    (hv' : v < 2 ^ 12) :
-    WP isa (sampleAccept d) u fun u' =>
-      Acc aP s₀ (if v < q then L ++ [ofNat v] else L) u' ∧ Keep [.x3, .x4, .x13, .x14] u u' := by
+    (hd : d ≠ .x13 ∧ d ≠ .x14) {v : Nat} (hv : (u.gpr d).toNat = v) (hv' : v < 2 ^ 12) :
+    WP isa (.block (sampleAccept d)) u fun u' =>
+      Acc aP s₀ (if v < q then L ++ [ofNat v] else L) u' ∧
+        Keep [.x3, .x4, .x13, .x14, .x15] u u' := by
   have hq : q = 3329 := rfl
-  refine WP.seq (wp_sub fun u₁ h₁ e₁ => wp_lsr (by decide) fun u₂ h₂ e₂ => wp_nil ?_)
-  have k₂ := (h₁.keep.trans h₂.keep).mono (rs' := [.x3, .x4, .x13, .x14]) (by decide)
+  refine wp_sub fun u₁ h₁ e₁ => wp_lsr (by decide) fun u₂ h₂ e₂ => ?_
   have v14 : (u₂.gpr .x14).toNat = if v < q then 1 else 0 := by
     rw [e₂, e₁]
     exact lt_q_arith hv hv' h.x9
-  have a₂ : Acc aP s₀ L u₂ :=
-    ⟨by rw [k₂.rd, h.rd], by rw [k₂.wr, h.wr], by rw [k₂.sp, h.sp], h.len,
-      by rw [h₂.get .x3, h₁.get .x3, h.x3], by rw [h₂.get .x4, h₁.get .x4, h.x4],
-      by rw [h₂.get .x9, h₁.get .x9, h.x9], by rw [h₂.mem, h₁.mem]; exact h.coeffs,
-      by rw [h₂.mem, h₁.mem]; exact h.frame⟩
-  refine WP.ite (u₂.gpr .x14 == 0) (eval_zero _ _) (fun hz => ?_) (fun hz => ?_)
-  · rw [eq_zero_iff, decide_eq_true_eq, v14] at hz
-    refine wp_nil ⟨?_, k₂⟩
-    rw [ite_eq_right (by intro hvq; rw [ite_eq_left hvq] at hz; cases hz)]
-    exact a₂
-  · rw [eq_zero_iff, decide_eq_false_iff_not, v14] at hz
-    have hvq : v < q := by by_contra hn; rw [ite_eq_right hn] at hz; exact hz rfl
-    rw [ite_eq_left hvq]
-    refine wp_strw (a := coeffAddr aP L.length) (by decide) (by rw [a₂.x3, ptr_zero])
-      (by rw [a₂.wr]; exact hina _ hlt) fun u₃ h₃ =>
-      wp_addImm (by decide) fun u₄ h₄ e₄ => wp_subImm (by decide) fun u₅ h₅ e₅ => wp_nil ?_
-    have k₅ := ((h₃.keep.trans h₄.keep).trans h₅.keep).mono (rs' := [.x3, .x4, .x13, .x14]) (by decide)
-    have c4 : (u₄.gpr .x4).toNat = 256 - L.length := by rw [h₄.get .x4, h₃.gpr, a₂.x4]
-    have m₅ : u₅.mem = u₂.mem.writeW (coeffAddr aP L.length) ((u₂.gpr d).setWidth 32) := by
-      rw [h₅.mem, h₄.mem, h₃.mem]
-    have dv : (u₂.gpr d).toNat = v := by
-      rw [h₂.get d (by simpa using hd.2.1), h₁.get d (by simpa using hd.1), hv]
-    refine ⟨⟨by rw [k₅.rd, a₂.rd], by rw [k₅.wr, a₂.wr], by rw [k₅.sp, a₂.sp],
-      by simp only [List.length_append, List.length_singleton]; omega, ?_, ?_,
-      by rw [k₅.get .x9, a₂.x9], ?_, ?_⟩, k₂.trans k₅ |>.mono⟩
-    · rw [h₅.get .x3, e₄, h₃.gpr, a₂.x3, List.length_append, List.length_singleton, coeffAddr,
-        coeffAddr, ptr_next]
-    · rw [e₅, toNat_sub_n (by rw [c4]; simp; omega), c4, List.length_append, List.length_singleton]
-      simp
-      omega
-    · rw [m₅, List.length_append, List.length_singleton]
-      refine CoeffsUpTo.write (CoeffsUpTo.congr a₂.coeffs fun i hi => cv_append L (ofNat v) hi) hlt ?_
-      rw [cv_last, setWidth32_of_toNat dv, val_ofNat, Nat.mod_eq_of_lt hvq]
-    · rw [m₅]
-      exact a₂.frame.writeW (List.mem_singleton_self _) _
-        (coeff_contains _ (show L.length < n from hlt))
+  have dv : (u₂.gpr d).toNat = v := by
+    rw [h₂.gpr d (by simpa using hd.2), h₁.gpr d (by simpa using hd.1), hv]
+  refine wp_strw (a := coeffAddr aP L.length) (by decide)
+    (by rw [h₂.gpr .x3 (by decide), h₁.gpr .x3 (by decide), h.x3, ptr_zero])
+    (by rw [h₂.wr, h₁.wr, h.wr]; exact hina _ hlt) fun u₃ h₃ =>
+    wp_lsl (by decide) fun u₄ h₄ e₄ => wp_add fun u₅ h₅ e₅ => wp_sub fun u₆ h₆ e₆ => wp_nil ?_
+  have k₆ := (((((h₁.keep.trans h₂.keep).trans h₃.keep).trans h₄.keep).trans h₅.keep).trans
+    h₆.keep).mono (rs' := [.x3, .x4, .x13, .x14, .x15]) (by decide)
+  have m₆ : u₆.mem = u.mem.writeW (coeffAddr aP L.length) ((u₂.gpr d).setWidth 32) := by
+    rw [h₆.mem, h₅.mem, h₄.mem, h₃.mem, h₂.mem, h₁.mem]
+  have x14 : u₅.gpr .x14 = u₂.gpr .x14 := by
+    rw [h₅.gpr .x14 (by decide), h₄.gpr .x14 (by decide), h₃.gpr]
+  have x15 : u₄.gpr .x15 = BitVec.ofNat 64 (4 * if v < q then 1 else 0) := by
+    apply BitVec.eq_of_toNat_eq
+    rw [e₄, toNat_lsl_n (by rw [h₃.gpr, v14]; split <;> decide), h₃.gpr, v14, BitVec.toNat_ofNat]
+    split <;> decide
+  have x3 : u₆.gpr .x3 = coeffAddr aP (L.length + if v < q then 1 else 0) := by
+    rw [h₆.gpr .x3 (by decide), e₅, h₄.gpr .x3 (by decide), h₃.gpr, h₂.gpr .x3 (by decide),
+      h₁.gpr .x3 (by decide), h.x3, x15, coeffAddr, coeffAddr, ptr_add, Nat.mul_add]
+  have c4 : (u₅.gpr .x4).toNat = 256 - L.length := by
+    rw [h₅.gpr .x4 (by decide), h₄.gpr .x4 (by decide), h₃.gpr, h₂.gpr .x4 (by decide),
+      h₁.gpr .x4 (by decide), h.x4]
+  have x4 : (u₆.gpr .x4).toNat = 256 - L.length - if v < q then 1 else 0 := by
+    rw [e₆, toNat_sub_n (by rw [x14, v14, c4]; split <;> omega), c4, x14, v14]
+  have fr : Frame [polyRegion aP] s₀.mem u₆.mem := by
+    rw [m₆]
+    exact h.frame.writeW (List.mem_singleton_self _) _ (coeff_contains _ (show L.length < n from hlt))
+  have acc : ∀ L' : List Zq, L'.length = L.length + (if v < q then 1 else 0) →
+      Coeffs u₆.mem aP L' → Acc aP s₀ L' u₆ := fun L' hl hc =>
+    ⟨by rw [k₆.rd, h.rd], by rw [k₆.wr, h.wr], by rw [k₆.sp, h.sp], by rw [hl]; split <;> omega,
+      by rw [x3, hl], by rw [x4, hl]; split <;> omega, by rw [k₆.get .x9, h.x9], hc, fr⟩
+  refine ⟨acc _ ?_ ?_, k₆⟩
+  · split <;> simp
+  · rw [m₆]
+    by_cases hvq : v < q
+    · rw [ite_eq_left hvq]
+      exact h.coeffs.accept hlt (by rw [setWidth32_of_toNat dv, val_ofNat, Nat.mod_eq_of_lt hvq])
+    · rw [ite_eq_right hvq]
+      exact h.coeffs.reject hlt _
 
 /-! ## One iteration -/
 
@@ -136,7 +167,7 @@ abbrev d₂ (B : List Byte) (t : Nat) : Nat :=
 abbrev LA (B : List Byte) (t : Nat) : List Zq := sampleAfter [] (xofByte B) t
 
 /-- The registers the loop changes. -/
-abbrev lRegs : List Reg := [.x2, .x3, .x4, .x5, .x6, .x7, .x8, .x11, .x12, .x13, .x14]
+abbrev lRegs : List Reg := [.x2, .x3, .x4, .x5, .x6, .x7, .x8, .x11, .x12, .x13, .x14, .x15]
 
 /-- After `t` of `N` iterations. -/
 structure Inv (N : Nat) (B : List Byte) (bP aP : Addr) (s₀ : State) (t : Nat) (u : State) : Prop where
@@ -235,8 +266,9 @@ theorem tail_ok {aP : Addr} {s₀ : State} (hina : ∀ i < 256, InRegions s₀.w
     (h11 : (u.gpr .x11).toNat = c₀.toNat + 256 * (c₁.toNat % 16))
     (h12 : (u.gpr .x12).toNat = c₁.toNat / 16 + 16 * c₂.toNat) :
     WP isa (.ite (.zero .x .x4) (.block [])
-      (.seq (sampleAccept .x11) (.ite (.zero .x .x4) (.block []) (sampleAccept .x12)))) u
-      fun u' => Acc aP s₀ (sampleStepCap L c₀ c₁ c₂) u' ∧ Keep [.x3, .x4, .x13, .x14] u u' := by
+      (.seq (.block (sampleAccept .x11)) (.ite (.zero .x .x4) (.block [])
+        (.block (sampleAccept .x12))))) u
+      fun u' => Acc aP s₀ (sampleStepCap L c₀ c₁ c₂) u' ∧ Keep [.x3, .x4, .x13, .x14, .x15] u u' := by
   have l0 := c₀.isLt
   have l1 := c₁.isLt
   have l2 := c₂.isLt
@@ -307,30 +339,57 @@ theorem iters_ok {N : Nat} (hN : 0 < N) {B : List Byte} {bP aP : Addr} {s₀ : S
   have l0 : (LA B 0).length = 0 := rfl
   have i₀ : Inv N B bP aP s₀ 0 s₀ := by
     refine ⟨⟨rfl, rfl, rfl, by rw [l0]; omega, by rw [hp.x3, l0, coeffAddr, Nat.mul_zero, ptr_zero],
-      by rw [hp.x4, l0], hp.x9, fun i hi => ?_, Frame.refl _ _⟩, Keep.refl _ _,
+      by rw [hp.x4, l0], hp.x9, fun i hi _ => ?_, Frame.refl _ _⟩, Keep.refl _ _,
       by rw [hp.x2, Nat.mul_zero, ptr_zero], by rw [hp.x5, Nat.sub_zero], hp.x10⟩
     rw [hp.zero i hi, l0, ite_eq_right (Nat.not_lt_zero i)]
   exact count_loop hN (Inv N B bP aP s₀) (fun t ht u h => body_ok hp ht h) i₀
 
+/-- Coefficient `j`, which may hold a rejected candidate, set to zero if
+there are fewer than 256. -/
+theorem fix_ok {aP : Addr} {s₀ : State} (hina : ∀ i < 256, InRegions s₀.wr (coeffAddr aP i) 4)
+    {L : List Zq} {u : State} (h : Acc aP s₀ L u) :
+    WP isa (.ite (.zero .x .x4) (.block []) (.block [.movz .x .x13 0 0, .str .w .x13 .x3 0])) u
+      fun u' => Keep [.x13] u u' ∧ Frame [polyRegion aP] s₀.mem u'.mem ∧ Reduced u'.mem aP ∧
+        (L.length = 256 → CoeffsUpTo u'.mem aP L.length (cv L) fun _ => 0) := by
+  have hL := h.len
+  refine WP.ite (u.gpr .x4 == 0) (eval_zero _ _) (fun hz => ?_) (fun hz => ?_)
+  · rw [eq_zero_iff, decide_eq_true_eq, h.x4] at hz
+    have hc := h.coeffs.full (by omega)
+    exact wp_nil ⟨Keep.refl _ _, h.frame, reduced_of_coeffs hc, fun _ => hc⟩
+  · rw [eq_zero_iff, decide_eq_false_iff_not, h.x4] at hz
+    have hlt : L.length < 256 := by omega
+    refine wp_movz fun u₁ h₁ e₁ => wp_strw (a := coeffAddr aP L.length) (by decide)
+      (by rw [h₁.gpr .x3 (by decide), h.x3, ptr_zero]) (by rw [h₁.wr, h.wr]; exact hina _ hlt)
+      fun u₂ h₂ => wp_nil ?_
+    have m₂ : u₂.mem = u.mem.writeW (coeffAddr aP L.length) (0 : BitVec 32) := by
+      rw [h₂.mem, e₁, h₁.mem]
+      rfl
+    refine ⟨(h₁.keep.trans h₂.keep).mono (by decide), ?_, ?_, fun hf => absurd hf (by omega)⟩
+    · rw [m₂]
+      exact h.frame.writeW (List.mem_singleton_self _) _ (coeff_contains _ (show L.length < n from hlt))
+    · rw [m₂]
+      exact reduced_of_coeffs (h.coeffs.zero hlt)
+
 theorem loop_ok {B : List Byte} {bP aP : Addr} {s₀ : State} (hp : LPre 280 B bP aP s₀) :
     WP isa sampleLoop s₀ fun u => Keep (.x0 :: lRegs) s₀ u ∧ Frame [polyRegion aP] s₀.mem u.mem ∧
       Res B aP u := by
-  refine WP.seq (WP.mono (iters_ok (by decide) hp) fun u h => ?_)
+  refine WP.seq (WP.mono (iters_ok (by decide) hp) fun u h =>
+    WP.seq (WP.mono (fix_ok hp.ina h.acc) fun u' ⟨k', fr', red', full'⟩ => ?_))
   refine wp_subImm (by decide) fun u₁ h₁ e₁ => wp_lsr (by decide) fun u₂ h₂ e₂ => wp_nil ?_
   have hL := h.acc.len
-  have c4 := h.acc.x4
-  refine ⟨((h.keep.trans (h₁.keep.trans h₂.keep))).mono (by decide), by
-    rw [h₂.mem, h₁.mem]; exact h.acc.frame, ?_⟩
+  have c4 : (u'.gpr .x4).toNat = 256 - (LA B 280).length := by rw [k'.get .x4, h.acc.x4]
+  refine ⟨((h.keep.trans (k'.trans (h₁.keep.trans h₂.keep)))).mono (by decide), by
+    rw [h₂.mem, h₁.mem]; exact fr', ?_⟩
   have v0 : (u₂.gpr .x0).toNat = if (LA B 280).length = 256 then 1 else 0 := by
     rw [e₂, toNat_lsr, e₁, BitVec.toNat_sub, c4]
     simp only [BitVec.toNat_ofNat]
     split <;> omega
-  refine ⟨by rw [h₂.mem, h₁.mem]; exact reduced_of_coeffs h.acc.coeffs, ?_⟩
+  refine ⟨by rw [h₂.mem, h₁.mem]; exact red', ?_⟩
   by_cases hf : (LA B 280).length = 256
   · rw [ite_eq_left hf] at v0
     refine .inl ⟨BitVec.eq_of_toNat_eq (by rw [v0]; rfl), ?_, sampleNTT_of_full (Nat.le_refl _) hf⟩
     rw [h₂.mem, h₁.mem]
-    have hc := h.acc.coeffs
+    have hc := full' hf
     rw [hf] at hc
     exact CoeffsUpTo.polyIs hc fun i hi => cv_toPoly hi
   · rw [ite_eq_right hf] at v0

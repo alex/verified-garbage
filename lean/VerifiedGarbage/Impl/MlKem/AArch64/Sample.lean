@@ -33,7 +33,10 @@ The Keccak calls keep `x24` = `seed`, `x25` = `a` and `x26` = `scratch`
 `x3` = the next coefficient of `a`, `x4` = the coefficients still to accept
 (`256 - j`), `x5` = the iterations left, `x9` = `q` and `x10` = 15. Before
 it, `a` is set to zeros, so that the loop only ever reads the output and
-writes `a`.
+writes `a`. The loop stores each candidate as coefficient `j`, and moves on
+only if it accepts it: until there are 256, coefficient `j` may hold a
+rejected candidate, which `sampleLoop` sets back to zero if the loop ends
+with fewer.
 
 The loop's branches, the addresses it writes, and whether `sampleFull`
 runs depend on the SHAKE128 output, and so on the seed, which the contract
@@ -101,11 +104,12 @@ def sampleSqueezeN (len : Nat) (setup : List Instr) : Prog isa :=
 /-- Everything before the loop of `sampleFull`. -/
 def sampleSqueeze : Prog isa := sampleSqueezeN 840 sampleSetup
 
-/-- Accept the candidate `d` if it is less than `q`: store it and count it. -/
-def sampleAccept (d : Reg) : Prog isa :=
-  .seq (.block [.sub .x .x13 d .x9, .lsr .x .x14 .x13 63])
-    (.ite (.zero .x .x14) (.block [])
-      (.block [.str .w d .x3 0, .addImm .x .x3 .x3 4, .subImm .x .x4 .x4 1]))
+/-- Accept the candidate `d` if it is less than `q`, without a branch: store
+it as the next coefficient either way, and count it (`x14`) only if it is
+accepted, so that a rejected one is overwritten by the next. -/
+def sampleAccept (d : Reg) : List Instr :=
+  [.sub .x .x13 d .x9, .lsr .x .x14 .x13 63, .str .w d .x3 0, .lsl .x .x15 .x14 2,
+    .add .x .x3 .x3 .x15, .sub .x .x4 .x4 .x14]
 
 /-- The candidates `d₁` (`x11`) and `d₂` (`x12`) of the chunk at `x2`. -/
 def sampleChunk : List Instr :=
@@ -117,11 +121,15 @@ def sampleChunk : List Instr :=
 def sampleBody : Prog isa :=
   .seq (.block sampleChunk)
     (.ite (.zero .x .x4) (.block [])
-      (.seq (sampleAccept .x11) (.ite (.zero .x .x4) (.block []) (sampleAccept .x12))))
+      (.seq (.block (sampleAccept .x11)) (.ite (.zero .x .x4) (.block [])
+        (.block (sampleAccept .x12)))))
 
-/-- The 280 iterations, then 1 if there are 256 coefficients (`x4 = 0`). -/
+/-- The 280 iterations, then 1 if there are 256 coefficients (`x4 = 0`), or
+0 and coefficient `j` (which may hold a rejected candidate) set to zero. -/
 def sampleLoop : Prog isa :=
-  .seq (.loop sampleBody (.nonzero .x .x5)) (.block [.subImm .x .x0 .x4 1, .lsr .x .x0 .x0 63])
+  .seq (.loop sampleBody (.nonzero .x .x5)) <|
+  .seq (.ite (.zero .x .x4) (.block []) (.block [.movz .x .x13 0 0, .str .w .x13 .x3 0]))
+    (.block [.subImm .x .x0 .x4 1, .lsr .x .x0 .x0 63])
 
 /-- 840 bytes of output, and 280 iterations on them. -/
 def sampleFull : Prog isa := .seq sampleSqueeze sampleLoop
