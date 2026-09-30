@@ -6,8 +6,7 @@ import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Hashes
 /-!
 # PBKDF2-HMAC over any streaming hash function on AArch64: `iterate`, correct
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Pbkdf2/Generic/X86_64/Instances.lean`), from the state `s₀` before the
+Untrusted: everything here is checked by Lean. From the state `s₀` before the
 first instruction, which zero-extends `n`.
 -/
 
@@ -697,8 +696,7 @@ end VG.Proof.Pbkdf2.Generic.AArch64
 /-!
 # PBKDF2-HMAC over any streaming hash function on AArch64: `iterate`, constant time
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Pbkdf2/Generic/X86_64/Instances.lean`).
+Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Pbkdf2.Generic.AArch64
