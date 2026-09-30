@@ -40,6 +40,7 @@ use crate::arch::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash_pclmul};
 #[cfg(target_arch = "aarch64")]
 use crate::arch::gcm::{VG_GHASH_PMULL_FEATURES, vg_ghash_pmull};
 use crate::cpu::{Features, detected};
+use core::mem::MaybeUninit;
 
 /// A 16-byte block.
 type Block = [u8; 16];
@@ -193,23 +194,27 @@ impl AesGcm {
             h: [0; 16],
             backend: Backend::select(detected()),
         };
-        let mut scratch = [0u64; 64];
+        let mut scratch = MaybeUninit::<[u64; 64]>::uninit();
         let (key_ptr, schedule) = (key.as_ptr(), &mut k.schedule);
         // SAFETY: `key` is valid for reads of `key.len()` bytes, which is 16,
         // 24 or 32; `k.schedule` and `scratch` are valid for reads and writes
         // of 240 and 512 bytes. They are distinct objects, so no two overlap,
         // nor do they overlap the return address. The CPU has the features
-        // of the implementation selected.
+        // of the implementation selected. `scratch` is uninitialized: it is
+        // only working space, and the contract's result does not depend on
+        // what it holds.
         unsafe {
             match k.backend {
-                Backend::Scalar => vg_aes_expand_key(key_ptr, key.len(), schedule, &mut scratch),
+                Backend::Scalar => {
+                    vg_aes_expand_key(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
+                }
                 #[cfg(target_arch = "x86_64")]
                 Backend::AesNi => {
-                    vg_aes_expand_key_aesni(key_ptr, key.len(), schedule, &mut scratch)
+                    vg_aes_expand_key_aesni(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
                 }
                 #[cfg(target_arch = "aarch64")]
                 Backend::ArmCrypto => {
-                    vg_aes_expand_key_aes(key_ptr, key.len(), schedule, &mut scratch)
+                    vg_aes_expand_key_aes(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
                 }
             }
         };
@@ -223,7 +228,7 @@ impl AesGcm {
     /// XORs the counter-mode keystream from `counter` into `blocks`, and
     /// advances `counter` past them.
     fn ctr32(&self, counter: &mut Block, blocks: &mut [Block]) {
-        let mut scratch = [0u64; 256];
+        let mut scratch = MaybeUninit::<[u64; 256]>::uninit();
         let f = match self.backend {
             Backend::Scalar => vg_aes_ctr32,
             #[cfg(target_arch = "x86_64")]
@@ -235,10 +240,10 @@ impl AesGcm {
         // (10, 12 or 14) rounds, written by key expansion (every
         // implementation writes the same one); it is valid for reads of 240
         // bytes, `counter` for reads and writes of 16, `blocks` of
-        // `16 * blocks.len()` and `scratch` of 2048. `counter`, `blocks` and
-        // `scratch` are mutable borrows, so none overlaps another argument or
-        // the return address. The CPU has the features of the implementation
-        // selected.
+        // `16 * blocks.len()` and `scratch` (uninitialized working space,
+        // as in `new`) of 2048. `counter` and `blocks` are mutable borrows and
+        // `scratch` a local, so none overlaps another argument or the return
+        // address. The CPU has the features of the implementation selected.
         unsafe {
             f(
                 &self.schedule,
@@ -246,7 +251,7 @@ impl AesGcm {
                 counter,
                 blocks.as_mut_ptr(),
                 blocks.len(),
-                &mut scratch,
+                scratch.as_mut_ptr(),
             )
         };
     }
@@ -255,7 +260,7 @@ impl AesGcm {
     /// number of blocks.
     fn ghash(&self, y: &mut Block, data: &[u8]) {
         let (blocks, rest) = data.as_chunks::<16>();
-        let mut scratch = [0u64; 32];
+        let mut scratch = MaybeUninit::<[u64; 32]>::uninit();
         let f = match self.backend {
             Backend::Scalar => vg_ghash,
             #[cfg(target_arch = "x86_64")]
@@ -265,15 +270,24 @@ impl AesGcm {
         };
         // SAFETY: `self.h` is valid for reads of 16 bytes, `y` for reads and
         // writes of 16, `blocks` for reads of `16 * blocks.len()` and
-        // `scratch` for reads and writes of 256. `y` and `scratch` are
-        // mutable borrows, so they overlap nothing else. The CPU has the
-        // features of the implementation selected.
-        unsafe { f(&self.h, y, blocks.as_ptr(), blocks.len(), &mut scratch) };
+        // `scratch` (uninitialized working space, as in `new`) for reads and
+        // writes of 256. `y` is a mutable borrow and `scratch` a local, so
+        // they overlap nothing else. The CPU has the features of the
+        // implementation selected.
+        unsafe {
+            f(
+                &self.h,
+                y,
+                blocks.as_ptr(),
+                blocks.len(),
+                scratch.as_mut_ptr(),
+            )
+        };
         if !rest.is_empty() {
             let mut last = [[0u8; 16]];
             last[0][..rest.len()].copy_from_slice(rest);
             // SAFETY: as above.
-            unsafe { f(&self.h, y, last.as_ptr(), 1, &mut scratch) };
+            unsafe { f(&self.h, y, last.as_ptr(), 1, scratch.as_mut_ptr()) };
         }
     }
 
