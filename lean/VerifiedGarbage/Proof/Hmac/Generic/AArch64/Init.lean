@@ -470,7 +470,7 @@ theorem slot_sub (scr : Addr) {i : Nat} (hi : i < 7) :
   rw [slot, ← add_ofNat_add]
   exact Proof.MdStream.AArch64.sub_offset (by omega_nat) (by omega_nat)
 
-theorem slot_disj (scr : Addr) {i j : Nat} (hi : i < 7) (hj : j < 7) (hij : i ≠ j) (hW : H.W ≤ 64) :
+theorem slot_disj (scr : Addr) {i j : Nat} (hi : i < 7) (hj : j < 7) (hij : i ≠ j) (hW : H.W ≤ 1024) :
     Region.Disjoint ⟨slot H scr i, 8⟩ ⟨slot H scr j, 8⟩ := by
   intro a h₁ h₂
   simp only [Region.Contains, slot] at h₁ h₂
@@ -491,14 +491,14 @@ theorem SavedRegs.frame {scr : Addr} {s₀ : State} {m m' : Mem} (h : SavedRegs 
     by rw [k 6 (by omega_nat), h.x23]⟩
 
 theorem slot_in {rs : List Region} {scr : Addr} {L : Nat} (h : ⟨scr, L⟩ ∈ rs) (hL : 8 * H.W + 56 ≤ L)
-    (hW : H.W ≤ 64) {i : Nat} (hi : i < 7) : InRegions rs (slot H scr i) 8 :=
+    (hW : H.W ≤ 1024) {i : Nat} (hi : i < 7) : InRegions rs (slot H scr i) 8 :=
   ⟨_, h, contains_offset (by omega_nat) (by omega_nat)⟩
 
 theorem slot_eq (scr : Addr) {o : Nat} (i : Nat) (h : o = 8 * H.W + 8 * i) :
     scr + BitVec.ofNat 64 o = slot H scr i := by rw [h]
 
 /-- Saving the registers, with `scratch` in `x4`. -/
-theorem save_ok {s : State} {scr : Addr} {L : Nat} (h4 : s.gpr .x4 = scr) (hW : H.W ≤ 64)
+theorem save_ok {s : State} {scr : Addr} {L : Nat} (h4 : s.gpr .x4 = scr) (hW : H.W ≤ 1024)
     (hsc : ⟨scr, L⟩ ∈ s.wr) (hL : 8 * H.W + 56 ≤ L) {rest : List Instr} {Q : State → Prop}
     (k : ∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
       Frame [saveR H scr] s.mem s'.mem → SavedRegs H scr s s'.mem → WP isa (.block rest) s' Q) :
@@ -568,7 +568,7 @@ theorem save_ok {s : State} {scr : Addr} {L : Nat} (h4 : s.gpr .x4 = scr) (hW : 
     · rw [Mem.readW_writeW_self64]
 
 /-- Loading them back, with `scratch` in `x23` (loaded last). -/
-theorem restore_ok {s : State} {scr : Addr} {L : Nat} (h23 : s.gpr .x23 = scr) (hW : H.W ≤ 64) {s₀ : State}
+theorem restore_ok {s : State} {scr : Addr} {L : Nat} (h23 : s.gpr .x23 = scr) (hW : H.W ≤ 1024) {s₀ : State}
     (hs : SavedRegs H scr s₀ s.mem) (hsc : ⟨scr, L⟩ ∈ s.wr) (hL : 8 * H.W + 56 ≤ L) :
     WP isa (.block H.restore) s fun s' => s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
       s'.sp = s.sp ∧ (∀ r ∈ savedRegs, s'.gpr r = s₀.gpr r) ∧
@@ -632,7 +632,7 @@ Untrusted: everything here is checked by Lean. As on x86-64
 (`Proof/Hmac/Generic/X86_64/Init.lean`). The return address is in `x30`,
 which each call replaces: it is saved in `scratch` with our caller's
 registers, and loaded back at the end. The other callee-saved registers
-we do not use (`x25`–`x29`) are kept by the calls, and never written.
+we do not use (`x25`–`x28`) are kept by the calls, and never written.
 -/
 
 namespace VG.Proof.Hmac.Generic.AArch64.Init
@@ -795,7 +795,7 @@ theorem keys_ok {s₀ : State} (hp : Pre (H := H) sc s₀) : WP isa H.initKeys s
   have hL : 8 * H.W + 56 ≤ 8 * sc := by have := hp.fits; simp only [Hash.buf] at this; omega_nat
   have hB := hp.hB
   have hW := hp.hW
-  refine WP.seq (save_ok H (scr := scr s₀) rfl hp.hW hsc hL fun s₁ g₁ rd₁ wr₁ sp₁ f₁ sv₁ => ?_)
+  refine WP.seq (save_ok H (scr := scr s₀) rfl (Nat.le_trans hp.hW (by decide)) hsc hL fun s₁ g₁ rd₁ wr₁ sp₁ f₁ sv₁ => ?_)
   refine wp_mov fun s₂ u₂ => wp_mov fun s₃ u₃ => wp_mov fun s₄ u₄ => wp_mov fun s₅ u₅ =>
     wp_mov fun s₆ u₆ => wp_movz fun s₇ u₇ => wp_movz fun s₈ u₈ => wp_movz fun s₉ u₉ => WP.block_nil ?_
   have k₉ : ∀ r, r ∉ [Reg.x19, .x20, .x21, .x22, .x23, .x14, .x15, .x24] → s₉.gpr r = s₀.gpr r :=
@@ -1085,7 +1085,7 @@ theorem correct :
     · exact hp.i_s.sub_right (cal_sub hH hp)
     · exact hp.stk_i.symm) rI₄
   have hsc : ⟨scr s₀, 8 * sc⟩ ∈ s₅.wr := by rw [k₅.wr, hp.wr]; simp
-  refine WP.mono (restore_ok H k₅.x23 hW k₅.saved hsc (by omega_nat)) fun s' ⟨hm, _, _, hsp, hg, ho⟩ => ?_
+  refine WP.mono (restore_ok H k₅.x23 (Nat.le_trans hW (by decide)) k₅.saved hsc (by omega_nat)) fun s' ⟨hm, _, _, hsp, hg, ho⟩ => ?_
   refine ⟨abi_of k₅ hsp hg ho, ?_⟩
   show hH.SH.Repr s'.mem (inn s₀) _ ∧ hH.SH.Repr s'.mem (out s₀) _
   rw [hm, blockKey_eq hH hp]
