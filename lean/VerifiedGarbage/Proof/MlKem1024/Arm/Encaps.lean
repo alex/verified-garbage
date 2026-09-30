@@ -1,7 +1,7 @@
-import VerifiedGarbage.Proof.MlKem.Arm.Encrypt
+import VerifiedGarbage.Proof.MlKem1024.Arm.Encrypt
 
 /-!
-# ML-KEM-768 on 32-bit ARM: `vg_mlkem768_encaps`, correctness
+# ML-KEM-1024 on 32-bit ARM: `vg_mlkem1024_encaps`, correctness
 
 Untrusted: everything here is checked by Lean. The buffers of the function
 (`lay`): `scratch` (the argument on the stack), the stack below the stack
@@ -12,12 +12,14 @@ keeps (`EnEnv`), and the phases: the setup, `m` copied, `H(ek)`,
 (`Enc.encrypt_ok`) into `ct`.
 -/
 
-namespace VG.Proof.MlKem.Arm.Encaps
+namespace VG.Proof.MlKem1024.Arm.Encaps
 
-open VG VG.Arm VG.Impl.MlKem.Arm
+open VG VG.Arm VG.Impl.MlKem.Arm VG.Impl.MlKem1024.Arm
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
-open VG.Proof.MlKem.Arm.Enc
+open VG.Proof.MlKem VG.Proof.MlKem.Arm VG.Proof.MlKem1024.Arm
+open VG.Proof.MlKem.Arm.Enc (EB)
+open VG.Proof.MlKem1024.Arm.Enc
 
 section
 variable (s₀ : State)
@@ -30,16 +32,16 @@ def pScr : BitVec 32 := stackArg s₀ 0
 
 /-- The buffers: `scratch`, the 8 bytes below the stack pointer, `ek`, `key` and `ct`. -/
 def lay : Lay :=
-  ⟨fun i => [pScr s₀, s₀.sp - BitVec.ofNat 32 8, pEk s₀, pKey s₀, pCt s₀].getD i 0, [32768, 8, 1184, 32, 1088]⟩
+  ⟨fun i => [pScr s₀, s₀.sp - BitVec.ofNat 32 8, pEk s₀, pKey s₀, pCt s₀].getD i 0, [49152, 8, 1568, 32, 1568]⟩
 
 /-- The buffers of the copy of `m`: `scratch`, the stack and `m`. -/
-def layM : Lay := ⟨fun i => [pScr s₀, s₀.sp - BitVec.ofNat 32 8, pM s₀].getD i 0, [32768, 8, 32]⟩
+def layM : Lay := ⟨fun i => [pScr s₀, s₀.sp - BitVec.ofNat 32 8, pM s₀].getD i 0, [49152, 8, 32]⟩
 
 end
 
-theorem lay_sizes (s₀ : State) : (lay s₀).sizes = [32768, 8, 1184, 32, 1088] := rfl
+theorem lay_sizes (s₀ : State) : (lay s₀).sizes = [49152, 8, 1568, 32, 1568] := rfl
 
-theorem layM_sizes (s₀ : State) : (layM s₀).sizes = [32768, 8, 32] := rfl
+theorem layM_sizes (s₀ : State) : (layM s₀).sizes = [49152, 8, 32] := rfl
 
 theorem lay_ptr0 (s₀ : State) : (lay s₀).ptr 0 = pScr s₀ := rfl
 theorem layM_ptr0 (s₀ : State) : (layM s₀).ptr 0 = pScr s₀ := rfl
@@ -51,31 +53,31 @@ macro "edecide" : tactic => `(tactic| first | decide | (simp only [lay_sizes]; d
 structure Pre (s : State) : Prop where
   sp8 : 8 ≤ s.sp.toNat
   spf : s.sp.toNat + 4 ≤ 2 ^ 32
-  rd : s.rd = [⟨State.addr (pEk s), 1184⟩, ⟨State.addr (pM s), 32⟩, ⟨stackArgAddr s 0, 4⟩]
-  wr : s.wr = [⟨State.addr (pKey s), 32⟩, ⟨State.addr (pCt s), 1088⟩, ⟨State.addr (pScr s), 32768⟩]
-  d_ek_key : (⟨State.addr (pEk s), 1184⟩ : Region).Disjoint ⟨State.addr (pKey s), 32⟩
-  d_ek_ct : (⟨State.addr (pEk s), 1184⟩ : Region).Disjoint ⟨State.addr (pCt s), 1088⟩
-  d_ek_scr : (⟨State.addr (pEk s), 1184⟩ : Region).Disjoint ⟨State.addr (pScr s), 32768⟩
+  rd : s.rd = [⟨State.addr (pEk s), 1568⟩, ⟨State.addr (pM s), 32⟩, ⟨stackArgAddr s 0, 4⟩]
+  wr : s.wr = [⟨State.addr (pKey s), 32⟩, ⟨State.addr (pCt s), 1568⟩, ⟨State.addr (pScr s), 49152⟩]
+  d_ek_key : (⟨State.addr (pEk s), 1568⟩ : Region).Disjoint ⟨State.addr (pKey s), 32⟩
+  d_ek_ct : (⟨State.addr (pEk s), 1568⟩ : Region).Disjoint ⟨State.addr (pCt s), 1568⟩
+  d_ek_scr : (⟨State.addr (pEk s), 1568⟩ : Region).Disjoint ⟨State.addr (pScr s), 49152⟩
   d_m_key : (⟨State.addr (pM s), 32⟩ : Region).Disjoint ⟨State.addr (pKey s), 32⟩
-  d_m_ct : (⟨State.addr (pM s), 32⟩ : Region).Disjoint ⟨State.addr (pCt s), 1088⟩
-  d_m_scr : (⟨State.addr (pM s), 32⟩ : Region).Disjoint ⟨State.addr (pScr s), 32768⟩
-  d_key_ct : (⟨State.addr (pKey s), 32⟩ : Region).Disjoint ⟨State.addr (pCt s), 1088⟩
-  d_key_scr : (⟨State.addr (pKey s), 32⟩ : Region).Disjoint ⟨State.addr (pScr s), 32768⟩
+  d_m_ct : (⟨State.addr (pM s), 32⟩ : Region).Disjoint ⟨State.addr (pCt s), 1568⟩
+  d_m_scr : (⟨State.addr (pM s), 32⟩ : Region).Disjoint ⟨State.addr (pScr s), 49152⟩
+  d_key_ct : (⟨State.addr (pKey s), 32⟩ : Region).Disjoint ⟨State.addr (pCt s), 1568⟩
+  d_key_scr : (⟨State.addr (pKey s), 32⟩ : Region).Disjoint ⟨State.addr (pScr s), 49152⟩
   d_key_arg : (⟨State.addr (pKey s), 32⟩ : Region).Disjoint ⟨stackArgAddr s 0, 4⟩
-  d_ct_scr : (⟨State.addr (pCt s), 1088⟩ : Region).Disjoint ⟨State.addr (pScr s), 32768⟩
-  d_ct_arg : (⟨State.addr (pCt s), 1088⟩ : Region).Disjoint ⟨stackArgAddr s 0, 4⟩
-  d_scr_arg : (⟨State.addr (pScr s), 32768⟩ : Region).Disjoint ⟨stackArgAddr s 0, 4⟩
-  b_ek : (below s 8).Disjoint ⟨State.addr (pEk s), 1184⟩
+  d_ct_scr : (⟨State.addr (pCt s), 1568⟩ : Region).Disjoint ⟨State.addr (pScr s), 49152⟩
+  d_ct_arg : (⟨State.addr (pCt s), 1568⟩ : Region).Disjoint ⟨stackArgAddr s 0, 4⟩
+  d_scr_arg : (⟨State.addr (pScr s), 49152⟩ : Region).Disjoint ⟨stackArgAddr s 0, 4⟩
+  b_ek : (below s 8).Disjoint ⟨State.addr (pEk s), 1568⟩
   b_m : (below s 8).Disjoint ⟨State.addr (pM s), 32⟩
   b_key : (below s 8).Disjoint ⟨State.addr (pKey s), 32⟩
-  b_ct : (below s 8).Disjoint ⟨State.addr (pCt s), 1088⟩
-  b_scr : (below s 8).Disjoint ⟨State.addr (pScr s), 32768⟩
+  b_ct : (below s 8).Disjoint ⟨State.addr (pCt s), 1568⟩
+  b_scr : (below s 8).Disjoint ⟨State.addr (pScr s), 49152⟩
   b_arg : (below s 8).Disjoint ⟨stackArgAddr s 0, 4⟩
-  f_ek : (pEk s).toNat + 1184 ≤ 2 ^ 32
+  f_ek : (pEk s).toNat + 1568 ≤ 2 ^ 32
   f_m : (pM s).toNat + 32 ≤ 2 ^ 32
   f_key : (pKey s).toNat + 32 ≤ 2 ^ 32
-  f_ct : (pCt s).toNat + 1088 ≤ 2 ^ 32
-  f_scr : (pScr s).toNat + 32768 ≤ 2 ^ 32
+  f_ct : (pCt s).toNat + 1568 ≤ 2 ^ 32
+  f_scr : (pScr s).toNat + 49152 ≤ 2 ^ 32
 
 section
 variable {s₀ : State} (hp : Pre s₀)
@@ -144,11 +146,11 @@ structure EnEnv (s₀ s : State) : Prop where
   sp : s.sp = s₀.sp
   sav : Saved s.mem ((lay s₀).A 0 840) s₀.gpr
   savlr : s.mem.readW ((lay s₀).A 0 872) 32 = s₀.gpr .lr
-  ek : bytesAt s.mem ((lay s₀).A 2 0) 1184 = bytesAt s₀.mem ((lay s₀).A 2 0) 1184
+  ek : bytesAt s.mem ((lay s₀).A 2 0) 1568 = bytesAt s₀.mem ((lay s₀).A 2 0) 1568
 
 /-- A region the phases may change: apart from the saved registers and `ek`. -/
-def okW (w : Nat × Nat × Nat) : Bool := sepB [32768, 8, 1184, 32, 1088] (0, 840, 36) w &&
-  sepB [32768, 8, 1184, 32, 1088] (2, 0, 1184) w
+def okW (w : Nat × Nat × Nat) : Bool := sepB [49152, 8, 1568, 32, 1568] (0, 840, 36) w &&
+  sepB [49152, 8, 1568, 32, 1568] (2, 0, 1568) w
 
 theorem EnEnv.keep {s₀ s s' : State} (hp : Pre s₀) (h : EnEnv s₀ s) {xs : List Reg} {W : List (Nat × Nat × Nat)}
     (hk : KeptX xs ((lay s₀).RL W) s s') (hx : ∀ r ∈ [Reg.r4, .r6, .r7, .r8], r ∉ xs) (hW : W.all okW = true) :
@@ -157,7 +159,7 @@ theorem EnEnv.keep {s₀ s s' : State} (hp : Pre s₀) (h : EnEnv s₀ s) {xs : 
   have h1 : sepAll (lay s₀).sizes (0, 840, 36) W = true :=
     List.all_eq_true.mpr fun w hw => by
       have := List.all_eq_true.mp hW w hw; simp only [okW, Bool.and_eq_true] at this; exact this.1
-  have h2 : sepAll (lay s₀).sizes (2, 0, 1184) W = true :=
+  have h2 : sepAll (lay s₀).sizes (2, 0, 1568) W = true :=
     List.all_eq_true.mpr fun w hw => by
       have := List.all_eq_true.mp hW w hw; simp only [okW, Bool.and_eq_true] at this; exact this.2
   have hd := Lay.disjAll hL h1
@@ -200,14 +202,14 @@ theorem setup_ok {s₀ s₁ : State} (hp : Pre s₀) (h12 : s₁.gpr .r12 = pScr
   have hL := lay_ok hp
   have fc := hp.f_scr
   obtain ⟨w0, -, -, -, -, -⟩ := buf_wr hp
-  have wS : ∀ {o n : Nat}, o + n ≤ 32768 → InRegions s₁.wr ((lay s₀).A 0 o) n := fun h => by
+  have wS : ∀ {o n : Nat}, o + n ≤ 49152 → InRegions s₁.wr ((lay s₀).A 0 o) n := fun h => by
     rw [hwr]; exact Lay.covers w0 h _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
   rw [encapsSetup, WP.block_append_iff]
   refine WP.mono (saveRegs_ok .r12 (off := 840) (by decide) (by rw [h12]; exact fit_le (by decide) fc) fun i hi => by
     rw [h12, add_ofNat_add]; exact wS (by omega)) fun s₂ h₂ => ?_
   have g12 : s₂.gpr .r12 = pScr s₀ := by rw [h₂.gpr, h12]
   have e872 : State.addr (s₂.gpr .r12 + BitVec.ofNat 32 (oSave + 32)) = (lay s₀).A 0 872 := by
-    rw [g12]; exact addr_add (by offs)
+    rw [g12]; exact addr_add (by offs4)
   have i872 : InRegions s₂.wr (State.addr (s₂.gpr .r12 + BitVec.ofNat 32 (oSave + 32))) 4 := by
     rw [e872, h₂.wr]; exact wS (by decide)
   have o1 : oSave + 32 < 4096 := by decide
@@ -226,12 +228,12 @@ theorem setup_ok {s₀ s₁ : State} (hp : Pre s₀) (h12 : s₁.gpr .r12 = pScr
     exact Lay.R_sub_R hL (by simp [lay]) (by decide) (by decide) (by simp [lay])
   have c872 : ((lay s₀).R 0 840 36).Contains ((lay s₀).A 0 872) 4 := by
     simp only [Region.Contains]; bv_omega
-  refine ⟨⟨⟨hL, Nat.le_refl _, rfl, by simp [lay], ?_, by show 8 ≤ s₂.sp.toNat; rw [h₂.sp, hsp]; exact hp.sp8, ?_, ?_⟩,
+  refine ⟨⟨⟨hL, by simp [lay], rfl, by simp [lay], ?_, by show 8 ≤ s₂.sp.toNat; rw [h₂.sp, hsp]; exact hp.sp8, ?_, ?_⟩,
     ?_, ?_, ?_, h₂.rd.trans hrd, h₂.wr.trans hwr, h₂.sp.trans hsp, fun i hi => ?_, ?_, ?_⟩, ?_, ?_⟩
   · simp [h₂.gpr, h12]; rfl
   · show s₀.sp - BitVec.ofNat 32 8 = s₂.sp - BitVec.ofNat 32 8
     rw [h₂.sp, hsp]
-  · show (⟨State.addr (pScr s₀), 32768⟩ : Region) ∈ s₂.wr
+  · show (⟨State.addr (pScr s₀), 49152⟩ : Region) ∈ s₂.wr
     rw [h₂.wr, hwr, hp.wr]; simp
   · simp [g .r0 (by decide)]; rfl
   · simp [g .r2 (by decide)]; rfl
@@ -261,7 +263,7 @@ theorem setup_ok {s₀ s₁ : State} (hp : Pre s₀) (h12 : s₁.gpr .r12 = pScr
 abbrev M (s₀ : State) : List Byte := bytesAt s₀.mem ((layM s₀).A 2 0) 32
 
 /-- `ek`. -/
-abbrev EK (s₀ : State) : List Byte := bytesAt s₀.mem ((lay s₀).A 2 0) 1184
+abbrev EK (s₀ : State) : List Byte := bytesAt s₀.mem ((lay s₀).A 2 0) 1568
 
 theorem layA0 (s₀ : State) (o : Nat) : (layM s₀).A 0 o = (lay s₀).A 0 o := by
   simp only [Lay.A, lay_ptr0, layM_ptr0]
@@ -298,7 +300,7 @@ theorem pieceE {s₀ s : State} (hp : Pre s₀) (h : EnEnv s₀ s) {p : Piece} {
     (hb : p.base = .r4 ∨ p.base = .r7) (hw : w = true → p.base = .r7)
     (hoe : encodable (BitVec.ofNat 32 p.off) = true) (hle : encodable (BitVec.ofNat 32 p.len) = true)
     (hpos : 0 < p.len) (hlt : p.off + p.len < 2 ^ 32)
-    (hsep : sepAll [32768, 8, 1184, 32, 1088] (eidx p.base, p.off, p.len) kRegs = true) :
+    (hsep : sepAll [49152, 8, 1568, 32, 1568] (eidx p.base, p.off, p.len) kRegs = true) :
     PieceOk (lay s₀) eidx s w p := by
   obtain ⟨w0, -, -, w2, -, -⟩ := buf_wr hp
   rw [← h.wr] at w0
@@ -317,10 +319,10 @@ theorem pieceE {s₀ s : State} (hp : Pre s₀) (h : EnEnv s₀ s) {p : Piece} {
       rw [hw rfl]; exact w0
 
 theorem hashH_ok {s₀ s : State} (hp : Pre s₀) (h : EnEnv s₀ s) :
-    WP isa (hash 136 0x06 [⟨.r4, 0, 1184⟩] [⟨.r7, oHek, 32⟩]) s fun s' =>
+    WP isa (hash 136 0x06 [⟨.r4, 0, 1568⟩] [⟨.r7, oHek, 32⟩]) s fun s' =>
       EnEnv s₀ s' ∧ Frame ((lay s₀).RL (kRegs ++ [(0, oHek, 32)])) s.mem s'.mem ∧ s'.gpr .r5 = s.gpr .r5 ∧
       bytesAt s'.mem ((lay s₀).A 0 oHek) 32 = H (EK s₀) := by
-  have hin : ∀ p ∈ [(⟨.r4, 0, 1184⟩ : Piece)], PieceOk (lay s₀) eidx s false p := by
+  have hin : ∀ p ∈ [(⟨.r4, 0, 1568⟩ : Piece)], PieceOk (lay s₀) eidx s false p := by
     intro p hp'; rw [List.mem_singleton] at hp'; subst hp'
     exact pieceE hp h (.inl rfl) (by simp) (by decide) (by decide) (by decide) (by decide) (by decide)
   have hout : ∀ p ∈ [(⟨.r7, oHek, 32⟩ : Piece)], PieceOk (lay s₀) eidx s true p := by
@@ -333,7 +335,7 @@ theorem hashH_ok {s₀ s : State} (hp : Pre s₀) (h : EnEnv s₀ s) :
   simp only [List.map_cons, List.map_nil, List.flatten_cons, List.flatten_nil, List.append_nil] at e
   refine e.trans ?_
   show _ = H (EK s₀)
-  have ek : bytesAt s.mem ((lay s₀).A 2 0) 1184 = EK s₀ := h.ek
+  have ek : bytesAt s.mem ((lay s₀).A 2 0) 1568 = EK s₀ := h.ek
   rw [VG.Proof.MlKem.H_eq, ← ek]; rfl
 
 theorem hashG_ok {s₀ s : State} (hp : Pre s₀) (h : EnEnv s₀ s)
@@ -392,7 +394,7 @@ theorem encPre {s₀ s : State} (hp : Pre s₀) (h : EnEnv s₀ s) (h5 : s.gpr .
     by rw [h.r8, show BitVec.ofNat 32 0 = 0#32 from rfl, BitVec.add_zero]; rfl, by edecide, by edecide, by edecide,
     by rw [h.rd, h.wr]; exact w2, by rw [h.rd, h.wr]; exact mem_rd_wr w0, by rw [h.wr]; exact w4⟩
 
-theorem encW_ok : (encW eb).all okW = true ∧ sepAll [32768, 8, 1184, 32, 1088] (3, 0, 32) (encW eb) = true := by
+theorem encW_ok : (encW eb).all okW = true ∧ sepAll [49152, 8, 1568, 32, 1568] (3, 0, 32) (encW eb) = true := by
   decide
 
 
@@ -423,7 +425,7 @@ theorem s4_ok {s : State} (h : EnEnv s₀ s) (hm : bytesAt s.mem ((lay s₀).A 0
     ⟨h.keep hp (W := []) k (by simp) rfl, by rw [g5, h.ctx.r7], by rw [m]; exact hm⟩
 
 theorem s5_ok {s : State} (h : F4 s₀ s) :
-    WP isa (hash 136 0x06 [⟨.r4, 0, 1184⟩] [⟨.r7, oHek, 32⟩]) s fun s' =>
+    WP isa (hash 136 0x06 [⟨.r4, 0, 1568⟩] [⟨.r7, oHek, 32⟩]) s fun s' =>
       F4 s₀ s' ∧ bytesAt s'.mem ((lay s₀).A 0 oHek) 32 = H (EK s₀) :=
   WP.mono (hashH_ok hp h.1) fun _ ⟨e, f, g5, hh⟩ =>
     ⟨⟨e, by rw [g5, h.2.1], (Lay.bytes_keep (lay_ok hp) f (by edecide) (by decide)).trans h.2.2⟩, hh⟩
@@ -445,12 +447,12 @@ theorem s7_ok {s : State}
 
 theorem s8_ok {s : State}
     (h : F4 s₀ s ∧ bytesAt s.mem ((lay s₀).A 3 0) 32 = KK s₀ ∧ bytesAt s.mem ((lay s₀).A 0 oSigma) 32 = RR s₀) :
-    WP isa encrypt s fun s' => EnEnv s₀ s' ∧ bytesAt s'.mem ((lay s₀).A 3 0) 32 = KK s₀ ∧
-      s'.gpr .r11 = (if okEnc (ekRho mlKem768 (EK s₀)) 3 then 1 else 0) ∧
-      bytesAt s'.mem ((lay s₀).A 4 0) 1088 =
-        VG.Proof.MlKem.ct768 (aEnc (ekRho mlKem768 (EK s₀)) (RR s₀)) (EK s₀) (M s₀) (RR s₀) := by
-  have eρ : ρE (lay s₀) eb s = ekRho mlKem768 (EK s₀) := by
-    show ekRho mlKem768 (bytesAt s.mem ((lay s₀).A 2 0) 1184) = _
+    WP isa encrypt4 s fun s' => EnEnv s₀ s' ∧ bytesAt s'.mem ((lay s₀).A 3 0) 32 = KK s₀ ∧
+      s'.gpr .r11 = (if okEnc (ekRho mlKem1024 (EK s₀)) 4 then 1 else 0) ∧
+      bytesAt s'.mem ((lay s₀).A 4 0) 1568 =
+        VG.Proof.MlKem.ct1024 (aEnc (ekRho mlKem1024 (EK s₀)) (RR s₀)) (EK s₀) (M s₀) (RR s₀) := by
+  have eρ : ρE (lay s₀) eb s = ekRho mlKem1024 (EK s₀) := by
+    show ekRho mlKem1024 (bytesAt s.mem ((lay s₀).A 2 0) 1568) = _
     rw [h.1.1.ek]
   have er : rB (lay s₀) s = RR s₀ := h.2.2
   have e1 : ekB (lay s₀) eb s = EK s₀ := h.1.1.ek
@@ -458,9 +460,9 @@ theorem s8_ok {s : State}
   refine WP.mono (encrypt_ok (encPre hp h.1.1 h.1.2.1)) fun s' ⟨K, r11, ct⟩ =>
     ⟨h.1.1.keep hp K (by simp) encW_ok.1, (Lay.bytes_keep (lay_ok hp) K.frame encW_ok.2 (by decide)).trans h.2.1,
       ?_, ?_⟩
-  · rw [r11]; show (if okEnc (ρE (lay s₀) eb s) 3 = true then _ else _) = _; rw [eρ]
+  · rw [r11]; show (if okEnc (ρE (lay s₀) eb s) 4 = true then _ else _) = _; rw [eρ]
   · rw [e1, e2] at ct
-    show _ = VG.Proof.MlKem.ct768 (aEnc (ekRho mlKem768 (EK s₀)) (RR s₀)) (EK s₀) (M s₀) (RR s₀)
+    show _ = VG.Proof.MlKem.ct1024 (aEnc (ekRho mlKem1024 (EK s₀)) (RR s₀)) (EK s₀) (M s₀) (RR s₀)
     rw [← eρ, ← er]; exact ct
 
 end
@@ -468,11 +470,11 @@ end
 /-! ## The whole function -/
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa encaps s₀ fun s => (∀ r ∈ preserved, s.gpr r = s₀.gpr r) ∧ s.sp = s₀.sp ∧
-      s.gpr .r0 = (if okEnc (ekRho mlKem768 (EK s₀)) 3 then 1 else 0) ∧
+    WP isa encaps1024 s₀ fun s => (∀ r ∈ preserved, s.gpr r = s₀.gpr r) ∧ s.sp = s₀.sp ∧
+      s.gpr .r0 = (if okEnc (ekRho mlKem1024 (EK s₀)) 4 then 1 else 0) ∧
       bytesAt s.mem (State.addr (pKey s₀)) 32 = KK s₀ ∧
-      bytesAt s.mem (State.addr (pCt s₀)) 1088 =
-        VG.Proof.MlKem.ct768 (aEnc (ekRho mlKem768 (EK s₀)) (RR s₀)) (EK s₀) (M s₀) (RR s₀) := by
+      bytesAt s.mem (State.addr (pCt s₀)) 1568 =
+        VG.Proof.MlKem.ct1024 (aEnc (ekRho mlKem1024 (EK s₀)) (RR s₀)) (EK s₀) (M s₀) (RR s₀) := by
   refine WP.seq (WP.mono (ldrSp_ok hp) fun s₁ ⟨a, b, c, d, e, f⟩ => ?_)
   refine WP.seq (WP.mono (setup_ok hp a b c d e f) fun s₂ ⟨h₂, g5, m₂⟩ => ?_)
   refine WP.seq (WP.mono (copyM_ok hp h₂ g5 m₂) fun s₃ ⟨h₃, m₃⟩ => ?_)
@@ -488,4 +490,4 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   · rw [m', show State.addr (pCt s₀) = (lay s₀).A 4 0 by simp only [Lay.A, add_ofNat_zero]; rfl]
     exact ct₈
 
-end VG.Proof.MlKem.Arm.Encaps
+end VG.Proof.MlKem1024.Arm.Encaps
