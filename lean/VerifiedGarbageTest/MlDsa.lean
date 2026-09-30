@@ -1,6 +1,6 @@
 import Lean.Data.Json
 import VerifiedGarbageTest.Sha256
-import VerifiedGarbage.Spec.MlDsa.Contract
+import VerifiedGarbage.Spec.MlDsa
 
 /-!
 # Known-answer tests for the ML-DSA specification: the checks
@@ -19,9 +19,7 @@ interface (`ML-DSA.Sign_internal`, with `μ` given or computed from the
 message) and of the external interface of pure ML-DSA (`ML-DSA.Sign`, which
 formats the message with its context string), deterministic and hedged; and
 of signature verification, in each such test group, the first vector of
-each reason a signature is valid or not. The contracts' leakage functions
-are checked on the same vectors: signing's (`signLeak`) starts with `ρ` and
-ends with the hint of the signature. HashML-DSA has no spec, so its
+each reason a signature is valid or not. HashML-DSA has no spec, so its
 test groups are skipped. (Only these are checked here; the Rust tests run
 the implementation on every vector.)
 -/
@@ -117,25 +115,13 @@ def check (name : String) : CommandElabM Unit := do
     unless keyGenInternal g.params minBounds (← bytes t "seed") ==
         some (← bytes t "pk", ← bytes t "sk") do
       throw "KeyGen_internal is wrong"
-    unless (keyGenLeak g.params (← bytes t "seed")).length ==
-        32 + (g.params.ℓ + g.params.k) * 2 * maxBounds.rejBounded do
-      throw "keyGenLeak is wrong"
   checkGroups name "ML-DSA-sigGen-FIPS204" fun g => do
     if g.preHash == "preHash" then return
     let some t := g.tests[0]? | throw "no test case"
     let sk ← bytes t "sk"
     let rnd ← if g.deterministic then pure (List.replicate 32 0) else bytes t "rnd"
-    let μ ← mu g t (skTr sk)
-    let σ ← bytes t "signature"
-    unless signMu g.params minBounds sk μ rnd == some σ do
+    unless signMu g.params minBounds sk (← mu g t (skTr sk)) rnd == some (← bytes t "signature") do
       throw "Sign_internal is wrong"
-    -- What the contract lets signing leak ends with the hint of the signature.
-    let some h := (sigDecode g.params σ).2.2 | throw "the signature's hint is malformed"
-    let leak := signLeak g.params sk μ rnd
-    unless leak.take 32 == leakBytes (sk.take 32) &&
-        leak.drop (leak.length - 256 * g.params.k) == h.flatMap (·.toList.map Bool.toNat) &&
-        (leak.length - 32 - 256 * g.params.k) % g.params.ctildeLen == 0 do
-      throw "signLeak is wrong"
   checkGroups name "ML-DSA-sigVer-FIPS204" fun g => do
     if g.preHash == "preHash" then return
     let mut seen : List String := []
