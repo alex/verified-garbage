@@ -137,8 +137,8 @@ def poly4 (a : Addr) (k : Nat) : Addr := a + BitVec.ofNat 64 (1024 * k)
 /-- `SampleNTT` four times: with the four 34-byte seeds `B₀, …, B₃` at
 `seeds` (`seed4`), writes `SampleNTT(Bₖ)` (Algorithm 7) to the polynomial at
 `a + 1024 k` (`poly4`), reduced, for each `k`, and returns 1; or returns 0
-if the loop reaches its bound for one of them (see `Outcome`), and `a` is
-unspecified. May leak the seeds. -/
+if the loop of `SampleNTT` reaches its bound (`minIterations`) for one of
+them, and `a` is unspecified. May leak the seeds. -/
 def sampleNTT4Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   sampleNTT4Sig.contract A
     (post := fun seeds a _scratch m m' r =>
