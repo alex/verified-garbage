@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.Inv
 /-!
 # ML-DSA key generation on x86 (32-bit): the seeds
 
-Untrusted: everything here is checked by Lean. `esi ← scratch`, the AND of
+Untrusted: everything here is checked by Lean. The AND of
 the samplers' results set to 1, `(ρ, ρ′, K) = H(ξ ‖ k ‖ ℓ, 128)`, `ρ` to the
 seed of `RejNTTPoly` and `ρ′ ‖ · ‖ 0` to that of `RejBoundedPoly`
 (`seeds_piece`, which ends in `KB` with the AND 1).
@@ -40,10 +40,8 @@ theorem acc_keep {s₀ s s' : State} (hp : TPre (YK p) s₀) {bs : List Buf} {N 
     accV s₀ s' = accV s₀ s := keepW hp hN hs fr
 
 theorem seeds_piece (hF : PFacts p) :
-    KP p (fun s₀ s => s = P0 s₀) (fun s₀ s => KB p s₀ s ∧ accV s₀ s = 1)
-      (.seq (.block [.mov .esi (.mem (at_ .esp (20 + 4 * kS)))]) (seeds p)) := by
+    KP p (Ctx (YK p)) (fun s₀ s => KB p s₀ s ∧ accV s₀ s = 1) (seeds p) := by
   have hk := hF.k; have hl := hF.l
-  refine Piece.seq (ldsc_piece (Y := YK p) (ht := .block []) (by kernel_rfl)) ?_
   unfold seeds
   refine Piece.seq (B := A1 p) (st32_piece (Y := YK p) oACC 1 (by layp hF) (by taint_decide) (fun _ _ _ h => h)
     fun s₀ s s' hp _ h' m' => ⟨h', by rw [accV, m']; exact Mem.readW_writeW_self32 _ _ _⟩) ?_
