@@ -52,6 +52,11 @@ pub trait HmacHash: HashFunction + sealed::Sealed {
     fn hmac_finalize(state: Self::State) -> Self::Output;
 }
 
+/// The MAC did not match: the message or the key is not what was
+/// authenticated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InvalidMac;
+
 /// An incremental HMAC computation with the hash function `H`.
 #[derive(Clone)]
 pub struct Hmac<H: HmacHash> {
@@ -78,6 +83,18 @@ impl<H: HmacHash> Hmac<H> {
     /// Returns the MAC of everything absorbed.
     pub fn finalize(self) -> H::Output {
         H::hmac_finalize(self.state)
+    }
+
+    /// Checks that `mac` is the MAC of everything absorbed, in constant
+    /// time: the time taken does not depend on where, or whether, `mac`
+    /// differs from it (its length is public). `mac` must be the whole MAC,
+    /// of `H::OUTPUT_SIZE` bytes; a truncated one is rejected.
+    pub fn verify(self, mac: &[u8]) -> Result<(), InvalidMac> {
+        if crate::ct::eq(self.finalize().as_ref(), mac) {
+            Ok(())
+        } else {
+            Err(InvalidMac)
+        }
     }
 
     /// The MAC of `data` with `key`.
@@ -248,3 +265,32 @@ macro_rules! streaming_hmac {
     target_arch = "x86"
 ))]
 use streaming_hmac;
+
+#[cfg(test)]
+mod tests {
+    use super::{Hmac, InvalidMac};
+    use crate::hashes::sha256::Sha256;
+
+    /// `verify` accepts the MAC and rejects any other, including a changed
+    /// byte anywhere, a truncated MAC and a longer one.
+    #[test]
+    fn verify() {
+        let (key, data) = (b"key", b"data");
+        let mac = Hmac::<Sha256>::mac(key, data);
+        let check = |m: &[u8]| {
+            let mut h = Hmac::<Sha256>::new(key);
+            h.update(data);
+            h.verify(m)
+        };
+        assert_eq!(check(&mac), Ok(()));
+        for i in 0..mac.len() {
+            let mut bad = mac;
+            bad[i] ^= 1;
+            assert_eq!(check(&bad), Err(InvalidMac));
+        }
+        assert_eq!(check(&mac[..16]), Err(InvalidMac));
+        let mut longer = [0u8; 33];
+        longer[..32].copy_from_slice(&mac);
+        assert_eq!(check(&longer), Err(InvalidMac));
+    }
+}

@@ -97,12 +97,7 @@ fn verify(expected: &Block, tag: &[u8]) -> Result<(), Error> {
     if !TAG_LENGTHS.contains(&tag.len()) {
         return Err(Error::InvalidTagLength);
     }
-    // Fold every byte's difference together.
-    let diff = expected
-        .iter()
-        .zip(tag)
-        .fold(0u8, |acc, (a, b)| acc | (a ^ b));
-    if core::hint::black_box(diff) != 0 {
+    if !crate::ct::eq(&expected[..tag.len()], tag) {
         return Err(Error::TagMismatch);
     }
     Ok(())
