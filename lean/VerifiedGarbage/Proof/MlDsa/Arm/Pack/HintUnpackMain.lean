@@ -200,7 +200,7 @@ theorem correct {s₀ : State} (hp : UPre s₀) :
     rw [hp.rd]; exact ⟨uargR s₀, by simp, Region.contains_self _ _⟩)) fun s₁ e₁ => ?_)
   subst e₁
   refine WP.frame (rs := [.r4, .r5, .r6, .r7]) (r := .r4) rfl (hsp16 hp) (by decide)
-    (WP.mono (WP.gpr (body_ok hp) (r := .lr) (by decide)) fun s₂ ⟨⟨hsp, h5, h6, h7, h4, hr⟩, hlr⟩ => ?_)
+    (WP.mono (WP.gpr (body_ok hp) (r := .lr) (noWrite (by decide +kernel))) fun s₂ ⟨⟨hsp, h5, h6, h7, h4, hr⟩, hlr⟩ => ?_)
   refine ⟨?_, by rw [popped_gpr (by decide), h5], by rw [popped_gpr (by decide), h6], by rw [popped_gpr (by decide), h7],
     by rw [popped_gpr (by decide), hlr]; rfl, ?_, by rw [popped_mem, popped_gpr (by decide)]; exact hr⟩
   · simp only [popped, State.setReg, ite_true]; exact h4

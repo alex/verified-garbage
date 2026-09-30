@@ -147,4 +147,11 @@ theorem entry_ok {s : State} (ia : InRegions (s.rd ++ s.wr) (State.addr (s.sp + 
       s' = s.setReg .r12 (s.mem.readW (State.addr (s.sp + BitVec.ofNat 32 0)) 32) := by
   run_block [ia]
 
+/-- No instruction of `c` writes `r`, by evaluating `Code.allInstrs`. -/
+theorem noWrite {c : Prog isa} {r : Reg} (h : c.allInstrs (fun i => dstOf i != some r) = true) :
+    ∀ i ∈ instrs c, dstOf i ≠ some r := by
+  rw [Code.allInstrs_eq, List.all_eq_true] at h
+  intro i hi
+  simpa using h i hi
+
 end VG.Proof.MlDsa.Arm.Pack.Hint

@@ -249,7 +249,7 @@ theorem hintBitPack_verified :
       · exact h5
       rotate_right
       · exact hlr
-      all_goals exact Exec.gpr (by decide) he
+      all_goals exact Exec.gpr (noWrite (by decide +kernel)) he
     · sig_post [hintBitPackContract, hintBitPackSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val]
       exact hy
   · have hp₁ := pre_of h₁

@@ -498,7 +498,7 @@ theorem correct {s₀ : State} (hp : PPre s₀) :
     rw [hp.rd]; exact ⟨argR s₀, by simp, Region.contains_self _ _⟩)) fun s₁ e₁ => ?_)
   subst e₁
   refine WP.frame (rs := [.r4, .r5]) (r := .r4) rfl (hsp8 hp) (by decide)
-    (WP.mono (WP.gpr (body_ok hp) (r := .lr) (by decide)) fun s₂ ⟨⟨hsp, h5, h4, hy⟩, hlr⟩ => ?_)
+    (WP.mono (WP.gpr (body_ok hp) (r := .lr) (noWrite (by decide +kernel))) fun s₂ ⟨⟨hsp, h5, h4, hy⟩, hlr⟩ => ?_)
   refine ⟨?_, by rw [popped_gpr (by decide), h5], by rw [popped_gpr (by decide), hlr]; rfl, ?_, hy⟩
   · simp only [popped, State.setReg, ite_true]; exact h4
   · simp only [popped_sp, hsp, P1, pushed_sp]
