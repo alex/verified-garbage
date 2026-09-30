@@ -65,7 +65,7 @@ theorem lbCore_spec {g : Nat} (hg : g ∈ gamma2s) : Core1 (lbCore g) (lbV g) :=
     rw [← hM]; exact Nat.mul_le_mul_right _ (Nat.le_of_lt hlt)
   have e₃ : (s₃.gpr .eax).toNat = hbF g a % hbM g := by rw [u₃.other _ (by decide), v₂]
   have m₃ : (s₃.gpr .edx).toNat = 2 * g := by rw [u₃.gpr]; exact toNat_ofNat32 (by omega)
-  refine wp_mulSmall (by rw [e₃, m₃]; exact Nat.lt_of_le_of_lt hle (by rw [q_eq]; decide)) fun s₄ o₄ v₄ => ?_
+  refine wp_mulSmall (r := .edx) (by rw [e₃, m₃]; exact Nat.lt_of_le_of_lt hle (by rw [q_eq]; decide)) fun s₄ o₄ v₄ => ?_
   have b₄ : (s₄.gpr .ebx).toNat = a := by
     rw [o₄.gpr _ (by decide), u₃.other _ (by decide), o₂.gpr _ (by decide), u₁.gpr]
     simp [State.setReg, hv]
