@@ -170,6 +170,8 @@ def Instr.asm : Instr → List String
   | .bswap32 d => [s!"bswap {d.name32}"]
   | .rorx32 d r n => [s!"rorx {d.name32}, {r.name32}, {n}"]
   | .andn32 d a b => [s!"andn {d.name32}, {a.name32}, {b.name32}"]
+  | .rorx d r n => [s!"rorx {d.name}, {r.name}, {n}"]
+  | .andn d a b => [s!"andn {d.name}, {a.name}, {b.name}"]
   | .movzx8 d m => [s!"movzx {d.name32}, {m.str8}"]
   | .store8 m r => [s!"mov {m.str8}, {r.name8}"]
   | .bswap d => [s!"bswap {d.name}"]
