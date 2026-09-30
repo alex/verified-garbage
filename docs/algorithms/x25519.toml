@@ -1,0 +1,5 @@
+name = "X25519"
+family = "Key agreement"
+specs = ["X25519"]
+modules = ["src/x25519.rs"]
+asm = ["x25519"]

@@ -45,7 +45,7 @@ END = "<!-- END ci/algorithms_table.py -->\n"
 ARCHES = {"x86_64": "x86-64", "aarch64": "ARM64", "arm": "ARMv7", "x86": "x86"}
 
 # The families, in README order: each has its own table, under a heading.
-FAMILIES = ["Hashes", "MACs", "Ciphers", "AEADs", "KDFs", "KEMs"]
+FAMILIES = ["Hashes", "MACs", "Ciphers", "AEADs", "KDFs", "KEMs", "Key agreement"]
 
 # How the table names CPU features (Rust's `target_feature` names), in the
 # order it lists them; None leaves a feature out, e.g. one that only comes
