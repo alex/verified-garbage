@@ -18,7 +18,7 @@ namespace VG.Artifacts.MlDsaKeyGen.X86_64
 
 /-- Notes on the implementation, the same for every parameter set. -/
 def notes : List String :=
-  ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 24 \
+  ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 32 \
     bytes of stack below its return address.",
    "It samples every polynomial of `A` and of `s1` and `s2` whatever the samplers return, and \
     zeroes the polynomial of a sampler that fails rather than branching on it: its timing does not \
@@ -29,24 +29,24 @@ def artifacts : List Artifact := [
     target := X86_64.target
     doc := Spec.MlDsa.keyGen44Api.doc (notes := notes)
     code := Impl.MlDsa.X86_64.KeyGen.keyGen44
-    contract := Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa44 X86_64.abi 24
-    stack := 24
+    contract := Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa44 X86_64.abi 32
+    stack := 32
     verified := Proof.MlDsa.X86_64.KeyGen.keyGen44_verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { Spec.MlDsa.keyGen65Api with
     target := X86_64.target
     doc := Spec.MlDsa.keyGen65Api.doc (notes := notes)
     code := Impl.MlDsa.X86_64.KeyGen.keyGen65
-    contract := Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa65 X86_64.abi 24
-    stack := 24
+    contract := Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa65 X86_64.abi 32
+    stack := 32
     verified := Proof.MlDsa.X86_64.KeyGen.keyGen65_verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) },
   { Spec.MlDsa.keyGen87Api with
     target := X86_64.target
     doc := Spec.MlDsa.keyGen87Api.doc (notes := notes)
     code := Impl.MlDsa.X86_64.KeyGen.keyGen87
-    contract := Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa87 X86_64.abi 24
-    stack := 24
+    contract := Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa87 X86_64.abi 32
+    stack := 32
     verified := Proof.MlDsa.X86_64.KeyGen.keyGen87_verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) }]
 

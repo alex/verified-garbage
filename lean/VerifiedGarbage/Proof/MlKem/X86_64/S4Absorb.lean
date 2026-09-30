@@ -251,8 +251,8 @@ theorem byte_step {σ : State} (hp : Pre σ) {m₁ : Mem} {K j : Nat} (hK : K < 
 
 theorem seedLanes_eq (K : Nat) : seedLanes K = (List.range 4).flatMap (fun i =>
     [.mov .rax (.mem (at_ .r12 (34 * K + 8 * i))), .store (at_ .rbx (32 * i + 8 * K)) .rax]) ++
-    ([.movzx8 .rax (at_ .r12 (34 * K + (32 + 0))), .store8 (at_ .rbx (128 + 8 * K + 0)) .rax] ++
-      [.movzx8 .rax (at_ .r12 (34 * K + (32 + 1))), .store8 (at_ .rbx (128 + 8 * K + 1)) .rax]) := by
+    (([.movzx8 .rax (at_ .r12 (34 * K + (32 + 0))), .store8 (at_ .rbx (128 + 8 * K + 0)) .rax] : List Instr) ++
+      ([.movzx8 .rax (at_ .r12 (34 * K + (32 + 1))), .store8 (at_ .rbx (128 + 8 * K + 1)) .rax] : List Instr)) := by
   simp only [seedLanes, Nat.add_zero]; rfl
 
 /-- The states after the first `K` seeds. -/
@@ -345,9 +345,9 @@ theorem cbytes_ok {σ : State} (hp : Pre σ) {m₁ : Mem} {F : Nat → Nat → B
     · rw [ifn e, ifn (by omega)]
 
 theorem absorb4_eq : absorb4 = zero4 ++ ((List.range 4).flatMap seedLanes ++
-    ([.mov32 .rax (.imm 0x1f)] ++ ((List.range 4).flatMap (fun k =>
+    (([.mov32 .rax (.imm 0x1f)] : List Instr) ++ ((List.range 4).flatMap (fun k =>
       [Instr.store8 (at_ .rbx (32 * (34 / 8) + 8 * k + 34 % 8)) .rax]) ++
-    ([.mov32 .rax (.imm 0x80)] ++ (List.range 4).flatMap (fun k =>
+    (([.mov32 .rax (.imm 0x80)] : List Instr) ++ (List.range 4).flatMap (fun k =>
       [Instr.store8 (at_ .rbx (32 * (167 / 8) + 8 * k + 167 % 8)) .rax]))))) := by
   simp only [absorb4, List.append_assoc, List.cons_append, List.nil_append]
 

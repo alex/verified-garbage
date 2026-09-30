@@ -9,12 +9,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.CheckEk
 import VerifiedGarbage.Proof.MlKem.X86_64.Mul
 import VerifiedGarbage.Proof.MlKem.X86_64.NttInv
 import VerifiedGarbage.Proof.MlKem.X86_64.SampleCT
-import VerifiedGarbage.Proof.MlKem.X86_64.KgTop
-import VerifiedGarbage.Proof.MlKem.X86_64.EcTop
-import VerifiedGarbage.Proof.MlKem.X86_64.DcTop
+import VerifiedGarbage.Proof.MlKem.X86_64.Sample4Impl
 
 /-!
-# ML-KEM (FIPS 203) on x86-64: the polynomial primitives and ML-KEM-768
+# ML-KEM (FIPS 203) on x86-64: the polynomial primitives
 
 A registration file (see `TCB/Emit.lean`): the artifacts it lists are
 emitted. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
@@ -125,35 +123,29 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem.checkEkContract X86_64.abi
     verified := Proof.MlKem.X86_64.checkEk_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) },
-  { Spec.MlKem.keyGenApi with
+  { Spec.MlKem.sampleNTT4Api with
     target := X86_64.target
-    doc := Spec.MlKem.keyGenApi.doc
-      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 32 \
-        bytes of stack below its return address."])
-    code := Impl.MlKem.X86_64.keyGen
-    contract := Spec.MlKem.keyGenContract X86_64.abi 32
-    stack := 32
-    verified := Proof.MlKem.X86_64.keyGen_verified
-    spSafe := Code.all_of_allInstrs (by lit_decide) },
-  { Spec.MlKem.encapsApi with
+    doc := Spec.MlKem.sampleNTT4Api.doc
+      (notes := ["The function calls `vg_mlkem_sample_ntt` on each seed, with 24 bytes of stack below its \
+        return address."])
+    code := Impl.MlKem.X86_64.Sample4.sampleNTT4
+    contract := Spec.MlKem.sampleNTT4Contract X86_64.abi 24
+    stack := 24
+    verified := Proof.MlKem.X86_64.sample4_scalar_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.MlKem.sampleNTT4Api with
+    name := Spec.MlKem.sampleNTT4Api.name ++ "_avx2"
     target := X86_64.target
-    doc := Spec.MlKem.encapsApi.doc
-      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 32 \
-        bytes of stack below its return address."])
-    code := Impl.MlKem.X86_64.encaps
-    contract := Spec.MlKem.encapsContract X86_64.abi 32
-    stack := 32
-    verified := Proof.MlKem.X86_64.encaps_verified
-    spSafe := Code.all_of_allInstrs (by lit_decide) },
-  { Spec.MlKem.decapsApi with
-    target := X86_64.target
-    doc := Spec.MlKem.decapsApi.doc
-      (notes := ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 32 \
-        bytes of stack below its return address."])
-    code := Impl.MlKem.X86_64.decaps
-    contract := Spec.MlKem.decapsContract X86_64.abi 32
-    stack := 32
-    verified := Proof.MlKem.X86_64.decaps_verified
-    spSafe := Code.all_of_allInstrs (by lit_decide) }]
+    doc := Spec.MlKem.sampleNTT4Api.doc
+      (notes := ["The function absorbs the four seeds and squeezes the four instances of SHAKE128 at once, \
+        each 64-bit lane of the Keccak states in a 256-bit AVX2 register holding that lane of all four; \
+        it then parses the output of each in turn, and finishes any that needs more than the 504 bytes \
+        it squeezed with `vg_mlkem_sample_ntt`, with 24 bytes of stack below its return address."])
+    code := Impl.MlKem.X86_64.Sample4.sampleNTT4Avx2
+    contract := Spec.MlKem.sampleNTT4Contract X86_64.abi 24
+    stack := 24
+    verified := Proof.MlKem.X86_64.sample4_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel)
+    features := ["avx", "avx2"] }]
 
 end VG.Artifacts.MlKem.X86_64

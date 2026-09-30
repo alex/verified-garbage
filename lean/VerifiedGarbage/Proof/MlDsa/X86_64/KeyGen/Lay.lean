@@ -39,7 +39,7 @@ theorem pfacts {p : Params} (hp : p = mlDsa44 ∨ p = mlDsa65 ∨ p = mlDsa87) :
 /-- The size of `scratch`, in bytes. -/
 abbrev scrLen (p : Params) : Nat := scratchWords p * 8
 
-/-- `vg_mldsa*_keygen(seed = rdi, pk = rsi, sk = rdx, scratch = rcx) -> eax`, with 24 bytes of stack. -/
+/-- `vg_mldsa*_keygen(seed = rdi, pk = rsi, sk = rdx, scratch = rcx) -> eax`, with 32 bytes of stack. -/
 def kgK (p : Params) : Contract isa where
   pre s :=
     24 ≤ (s.gpr .rsp).toNat ∧
@@ -51,9 +51,9 @@ def kgK (p : Params) : Contract isa where
     Region.Disjoint ⟨s.gpr .rdx, p.skLen⟩ ⟨s.gpr .rcx, scrLen p⟩ ∧
     (retR s).Disjoint ⟨s.gpr .rdi, 32⟩ ∧ (retR s).Disjoint ⟨s.gpr .rsi, p.pkLen⟩ ∧
     (retR s).Disjoint ⟨s.gpr .rdx, p.skLen⟩ ∧ (retR s).Disjoint ⟨s.gpr .rcx, scrLen p⟩ ∧
-    (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .rdi, 32⟩ ∧ (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .rsi, p.pkLen⟩ ∧
-    (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .rdx, p.skLen⟩ ∧
-    (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .rcx, scrLen p⟩ ∧
+    (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .rdi, 32⟩ ∧ (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .rsi, p.pkLen⟩ ∧
+    (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .rdx, p.skLen⟩ ∧
+    (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .rcx, scrLen p⟩ ∧
     (s.gpr .rdi).toNat + 32 ≤ 2 ^ 64 ∧ (s.gpr .rsi).toNat + p.pkLen ≤ 2 ^ 64 ∧
     (s.gpr .rdx).toNat + p.skLen ≤ 2 ^ 64 ∧ (s.gpr .rcx).toNat + scrLen p ≤ 2 ^ 64
   post s s' :=
