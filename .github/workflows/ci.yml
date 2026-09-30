@@ -258,7 +258,10 @@ jobs:
   # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F, so ChaCha20 with AVX2
   #   even where this runner has AVX-512F;
   # * `p4p` (Pentium 4): nothing beyond x86-64's baseline, not even CPUID
-  #   leaf 7, so the baseline ISA's implementations everywhere.
+  #   leaf 7, so the baseline ISA's implementations everywhere;
+  # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
+  #   runner has. It also has the SHA extensions, so only SHA-512's tests
+  #   (and detection's) run there.
   # The coverage is merged with the rest, which checks that every
   # implementation was chosen on one of them.
   rust-cpu-features:
@@ -266,6 +269,10 @@ jobs:
       fail-fast: false
       matrix:
         chip: [native, skx, hsw, p4p]
+        tests: [sha1 sha256 sha384 sha512 aes_gcm chacha20 cpu]
+        include:
+          - chip: arl
+            tests: sha384 sha512 cpu
     name: Rust (${{ matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
     runs-on: ubuntu-latest
     env:
@@ -289,7 +296,7 @@ jobs:
         run: |
           grep -m1 'model name' /proc/cpuinfo
           grep -m1 flags /proc/cpuinfo | tr ' ' '\n' \
-            | grep -xE 'ssse3|sha_ni|aes|pclmulqdq|avx|avx2|bmi1|bmi2|avx512f' | tr '\n' ' '
+            | grep -xE 'ssse3|sha_ni|aes|pclmulqdq|avx|avx2|bmi1|bmi2|avx512f|sha512' | tr '\n' ' '
       - name: Download Intel SDE
         if: ${{ matrix.chip != 'native' }}
         run: |
@@ -313,7 +320,9 @@ jobs:
           CHIP: ${{ matrix.chip }}
       # Only the tests of what depends on CPU features.
       - name: Test the implementations
-        run: cargo test --locked --features cpu-features-env -- sha1 sha256 sha384 sha512 aes_gcm chacha20 cpu
+        run: cargo test --locked --features cpu-features-env -- $TESTS
+        env:
+          TESTS: ${{ matrix.tests }}
       - name: Export coverage
         run: python3 ci/export_rust_coverage.py .rust-cov --features cpu-features-env
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
