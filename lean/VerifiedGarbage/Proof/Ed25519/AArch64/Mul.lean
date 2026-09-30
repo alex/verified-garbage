@@ -18,24 +18,21 @@ theorem fe_mul_expand (m : Mem) (base : Addr) (a B : Nat) :
 
 def wideClob : List Reg := [.x2, .x3, .x4, .x5, .x6, .x7, .x8, .x9, .x20, .x21, .x22, .x23, .x24]
 
-theorem wideProduct_ok {s : State} {base : Addr} (hs : Scr s base) {a b : Nat}
+theorem rowsAccumulate_ok {s : State} {base : Addr} (hs : Scr s base) {a b : Nat}
     (ha : FieldRange a) (hb : FieldRange b) (hz : s.gpr .x10 = 0) :
-    WP isa (.block (wideProduct a b)) s fun t =>
+    WP isa (.block (row a b 0 ++ (row a b 1 ++ (row a b 2 ++ row a b 3)))) s fun t =>
       val4 (t.gpr .x4) (t.gpr .x5) (t.gpr .x6) (t.gpr .x7) +
         2 ^ 256 * val4 (t.gpr .x21) (t.gpr .x22) (t.gpr .x23) (t.gpr .x24) =
-          fe s.mem base a * fe s.mem base b ∧ Keeps wideClob s t := by
+          val4 (s.gpr .x4) (s.gpr .x5) (s.gpr .x6) (s.gpr .x7) +
+            fe s.mem base a * fe s.mem base b ∧ Keeps wideClob s t := by
   obtain ⟨haa, ha⟩ := ha
   obtain ⟨hba, hb⟩ := hb
   have g : ∀ {x y : State} {rs : List Reg} (k : Keeps rs x y) (r : Reg), r ∉ rs → y.gpr r = x.gpr r :=
     fun k r h => k.gpr r h
-  rw [wideProduct, List.append_assoc, List.append_assoc, List.append_assoc, WP.block_append_iff]
-  refine WP.mono (zero4_ok s) fun s₀ ⟨z4, z5, z6, z7, k0⟩ => ?_
-  have hs₀ := hs.of_keeps k0 (by decide)
-  have hz0 := (g k0 .x10 (by decide)).trans hz
   rw [WP.block_append_iff, row0]
-  refine WP.mono (rowR_ok hs₀ (by omega) hb haa hba hz0 (by decide)) fun s₁ ⟨e1, k1⟩ => ?_
-  have hs₁ := hs₀.of_keeps k1 (by decide)
-  have hz1 := (g k1 .x10 (by decide)).trans hz0
+  refine WP.mono (rowR_ok hs (by omega) hb haa hba hz (by decide)) fun s₁ ⟨e1, k1⟩ => ?_
+  have hs₁ := hs.of_keeps k1 (by decide)
+  have hz1 := (g k1 .x10 (by decide)).trans hz
   rw [WP.block_append_iff, row1]
   refine WP.mono (rowR_ok hs₁ (by omega) hb haa hba hz1 (by decide)) fun s₂ ⟨e2, k2⟩ => ?_
   have hs₂ := hs₁.of_keeps k2 (by decide)
@@ -47,25 +44,39 @@ theorem wideProduct_ok {s : State} {base : Addr} (hs : Scr s base) {a b : Nat}
   rw [row3]
   refine WP.mono (rowR_ok hs₃ (by omega) hb haa hba hz3 (by decide)) fun s₄ ⟨e4, k4⟩ => ?_
   have K : Keeps wideClob s s₄ :=
-    (((k0.mono (by decide)).trans (k1.mono (by decide))).trans (k2.mono (by decide))).trans
+    ((k1.mono (by decide)).trans (k2.mono (by decide))).trans
       (k3.mono (by decide)) |>.trans (k4.mono (by decide))
   refine ⟨?_, K⟩
   rw [fe_mul_expand]
-  rw [k0.mem] at e1
-  rw [k1.mem, k0.mem] at e2
-  rw [k2.mem, k1.mem, k0.mem] at e3
-  rw [k3.mem, k2.mem, k1.mem, k0.mem] at e4
-  rw [z4, z5, z6, z7] at e1
-  have hz : (0 : Word).toNat = 0 := rfl
+  rw [k1.mem] at e2
+  rw [k2.mem, k1.mem] at e3
+  rw [k3.mem, k2.mem, k1.mem] at e4
   have r1 := g k2 .x4 (by decide)
   have r2 := g k3 .x4 (by decide)
   have r3 := g k4 .x4 (by decide)
   have q2 := g k3 .x5 (by decide)
   have q3 := g k4 .x5 (by decide)
   have q4 := g k4 .x6 (by decide)
-  simp only [val4, hz, Nat.mul_zero, Nat.add_zero, Nat.zero_add] at e1 e2 e3 e4 ⊢
+  simp only [val4] at e1 e2 e3 e4 ⊢
   rw [r3, r2, r1, q3, q2, q4]
   omega_using [e1, e2, e3, e4]
+
+theorem wideProduct_ok {s : State} {base : Addr} (hs : Scr s base) {a b : Nat}
+    (ha : FieldRange a) (hb : FieldRange b) (hz : s.gpr .x10 = 0) :
+    WP isa (.block (wideProduct a b)) s fun t =>
+      val4 (t.gpr .x4) (t.gpr .x5) (t.gpr .x6) (t.gpr .x7) +
+        2 ^ 256 * val4 (t.gpr .x21) (t.gpr .x22) (t.gpr .x23) (t.gpr .x24) =
+          fe s.mem base a * fe s.mem base b ∧ Keeps wideClob s t := by
+  rw [show wideProduct a b = zero4 ++
+      (row a b 0 ++ (row a b 1 ++ (row a b 2 ++ row a b 3))) by
+    simp only [wideProduct, List.append_assoc], WP.block_append_iff]
+  refine WP.mono (zero4_ok s) fun s₀ ⟨z4, z5, z6, z7, k0⟩ => ?_
+  refine WP.mono (rowsAccumulate_ok (hs.of_keeps k0 (by decide)) ha hb
+    ((k0.gpr .x10 (by decide)).trans hz)) fun t ⟨hv, kt⟩ => ?_
+  refine ⟨?_, (k0.mono (by decide)).trans kt⟩
+  have hz : (0 : Word).toNat = 0 := rfl
+  simpa only [z4, z5, z6, z7, val4, hz, Nat.mul_zero,
+    Nat.zero_add, k0.mem] using hv
 
 theorem mul_mod_arith {L H V c AB : Nat} (h₁ : V + 2 ^ 256 * c = L + 38 * H)
     (h₂ : L + 2 ^ 256 * H = AB) : (V + 38 * c) % Spec.X25519.P = AB % Spec.X25519.P := by

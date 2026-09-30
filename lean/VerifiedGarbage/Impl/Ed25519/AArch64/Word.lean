@@ -104,18 +104,26 @@ def fieldSub (o a b : Nat) : List Instr :=
 
 def low63 : BitVec 64 := 0x7fffffffffffffff
 
+/-- Fold the high bit into 19, given x2 = low63, x10 = 0 and x11 = 19. -/
+def freezeFold : List Instr :=
+  [.lsr .x .x8 .x7 63, .logic .and .x .x7 .x7 .x2, .mul .x .x3 .x8 .x11,
+    .adds .x .x4 .x4 .x3, .adcs .x .x5 .x5 .x10,
+    .adcs .x .x6 .x6 .x10, .adcs .x .x7 .x7 .x10]
+
+/-- Compute x - p as a candidate, and the mask selecting it. -/
+def freezeCandidate : List Instr :=
+  [.adds .x .x21 .x4 .x11, .adcs .x .x22 .x5 .x10,
+    .adcs .x .x23 .x6 .x10, .adcs .x .x24 .x7 .x10,
+    .lsr .x .x8 .x24 63, .logic .and .x .x24 .x24 .x2, .sub .x .x3 .x10 .x8]
+
+def select4 : List Instr :=
+  [(Reg.x4, Reg.x21), (.x5, .x22), (.x6, .x23), (.x7, .x24)].flatMap fun (x, y) =>
+    [.logic .eor .x y y x, .logic .and .x y y .x3, .logic .eor .x x x y]
+
 /-- Fully reduce the field element at `a` into x4–x7. -/
 def freeze (a : Nat) : List Instr :=
   [.movz .w .x10 0 0, .movz .w .x11 19 0] ++ const64 .x2 low63 ++
-    loads a .x4 .x5 .x6 .x7 ++
-    [.lsr .x .x8 .x7 63, .logic .and .x .x7 .x7 .x2, .mul .x .x3 .x8 .x11,
-      .adds .x .x4 .x4 .x3, .adcs .x .x5 .x5 .x10,
-      .adcs .x .x6 .x6 .x10, .adcs .x .x7 .x7 .x10,
-      .adds .x .x21 .x4 .x11, .adcs .x .x22 .x5 .x10,
-      .adcs .x .x23 .x6 .x10, .adcs .x .x24 .x7 .x10,
-      .lsr .x .x8 .x24 63, .logic .and .x .x24 .x24 .x2, .sub .x .x3 .x10 .x8] ++
-    ([(Reg.x4, Reg.x21), (.x5, .x22), (.x6, .x23), (.x7, .x24)].flatMap fun (x, y) =>
-      [.logic .eor .x y y x, .logic .and .x y y .x3, .logic .eor .x x x y])
+    loads a .x4 .x5 .x6 .x7 ++ freezeFold ++ freezeCandidate ++ select4
 
 /-- Swap two field elements if x3 is all ones, leaving them if it is zero. -/
 def cswap (x y : Nat) : List Instr :=

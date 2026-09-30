@@ -12,10 +12,14 @@ def orderTop : BitVec 64 := 0x1000000000000000
 
 /-- x20 holds the current byte; x10 = 0 and x11 = 1. Comparing its bit
 with 1 sets C to that bit before the four doubling-with-carry steps. -/
-def scalarShift (j : Nat) : List Instr :=
-  [.lsr .x .x3 .x20 j, .logic .and .x .x3 .x3 .x11, .subs .x .x8 .x3 .x11,
-    .adcs .x .x4 .x4 .x4, .adcs .x .x5 .x5 .x5,
+def scalarExtractBit (j : Nat) : List Instr :=
+  [.lsr .x .x3 .x20 j, .logic .and .x .x3 .x3 .x11, .subs .x .x8 .x3 .x11]
+
+def scalarDouble : List Instr :=
+  [.adcs .x .x4 .x4 .x4, .adcs .x .x5 .x5 .x5,
     .adcs .x .x6 .x6 .x6, .adcs .x .x7 .x7 .x7]
+
+def scalarShift (j : Nat) : List Instr := scalarExtractBit j ++ scalarDouble
 
 def scalarSubtract : List Instr :=
   [mov .x21 .x4, mov .x22 .x5, mov .x23 .x6, mov .x24 .x7] ++

@@ -30,9 +30,9 @@ theorem Op.of_store {base : Addr} {o : Nat} {s t : State} (ho : FieldRange o) (h
   rw [h.mem]
   exact st4_outside _ _ (by have := ho.2; omega) _ _ _ _
 
-theorem fieldInit_ok (s : State) :
-    WP isa (.block [.movz .w .x10 0 0, .movz .w .x11 38 0]) s fun t =>
-      t.gpr .x10 = 0 ∧ t.gpr .x11 = 38 ∧ Keeps [.x10, .x11] s t := by
+theorem fieldInit_ok (s : State) (v : BitVec 16 := 38) :
+    WP isa (.block [.movz .w .x10 0 0, .movz .w .x11 v 0]) s fun t =>
+      t.gpr .x10 = 0 ∧ t.gpr .x11 = v.setWidth 64 ∧ Keeps [.x10, .x11] s t := by
   apply WP.of_runBlock
   simp only [runBlock_cons, runStep_some, runBlock_nil, exec,
     show 16 * 0 < Size.w.bits from by decide, ite_true,
@@ -40,8 +40,7 @@ theorem fieldInit_ok (s : State) :
   refine ⟨?_, ?_, ⟨?_, rfl, rfl, rfl, rfl⟩⟩
   · rw [RegUpd.gpr_write_of_ne _ _ _ (by decide), RegUpd.gpr_write_self]
     rfl
-  · rw [RegUpd.gpr_write_self]
-    rfl
+  · rw [RegUpd.gpr_write_self, BitVec.shiftLeft_zero, BitVec.setWidth_setWidth (by decide)]
   · intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     rw [RegUpd.gpr_write_of_ne _ _ _ hr.2, RegUpd.gpr_write_of_ne _ _ _ hr.1]

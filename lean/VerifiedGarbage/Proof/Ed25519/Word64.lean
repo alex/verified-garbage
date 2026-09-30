@@ -129,4 +129,8 @@ theorem multiply_accumulate (a b c t : Word) :
   all_goals simp only [h2, decide_true, decide_false, Bool.toNat_true, Bool.toNat_false]
   all_goals omega
 
+/-- A doubled bounded value cannot carry out of its four limbs. -/
+theorem bounded_double {v a c b : Nat} (e : v + 2 ^ 256 * c = a + a + b)
+    (h : 2 * a + b < 2 ^ 256) : v = 2 * a + b := by omega
+
 end VG.Proof.Ed25519.Word64

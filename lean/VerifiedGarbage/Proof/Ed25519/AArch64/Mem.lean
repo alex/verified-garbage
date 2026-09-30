@@ -205,4 +205,27 @@ theorem loads_ok {s : State} {base : Addr} (hs : Scr s base) {o : Nat} (ho : Fie
     simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     simp only [RegUpd.gpr_write, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2, ite_false]
 
+theorem read_byte (m : Mem) (a : Addr) : (m.read a 1 : BitVec 8) = m a := by
+  simp only [Mem.read]
+  ext i hi
+  rw [BitVec.getElem_append]
+  simp only [show i < 8 by omega, dite_true]
+
+theorem Outside.writeW {base : Addr} {o n d : Nat} {m m' : Mem} (h : Outside base o n m m')
+    (h₁ : o ≤ d) (h₂ : d + 8 ≤ o + n) (h₃ : o + n < 2 ^ 64) (v : BitVec 64) :
+    Outside base o n m (m'.writeW (off base d) v) :=
+  h.trans ((writeW_outside m' base v (by omega)).mono h₁ h₂)
+
+theorem word_writeW_sep (m : Mem) (base : Addr) {d e : Nat} (v : BitVec 64)
+    (h : e + 8 ≤ d ∨ d + 8 ≤ e) (hd : d + 8 ≤ 2 ^ 64) (he : e + 8 ≤ 2 ^ 64) :
+    word (m.writeW (off base d) v) base e = word m base e :=
+  Mem.readW_writeW_sep (sep_off base h he hd) (by decide)
+
+theorem word_writeW_self (m : Mem) (base : Addr) (d : Nat) (v : BitVec 64) :
+    word (m.writeW (off base d) v) base d = v := Mem.readW_writeW_self64 m _ v
+
+theorem write64_eq_writeW (m : Mem) (a : Addr) (v : BitVec 64) :
+    m.write a 8 v = m.writeW a v := by
+  simp only [Mem.writeW, BitVec.setWidth_eq]
+
 end VG.Proof.Ed25519.AArch64
