@@ -74,13 +74,28 @@ theorem end_ok {X : Mem → Prop} {s : State} (h : PC X σ 4 s) :
       simpa using ⟨hp.ret_a, hp.ret_scr, Offset.base_disjoint_below (σ.gpr .rsp) (n := 24) (k := 8) (by omega)⟩)
       (by decide)
 
+omit hp in
+/-- `vzeroupper` changes no register or memory the invariants see. -/
+theorem vz_ok (s : State) :
+    WP isa (.block [.vop .vzeroupper]) s fun s' => s'.mem = s.mem ∧ Keep [] s s' := by
+  apply WP.of_runBlock
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, Option.some.injEq, exists_eq_left', Keep]
+  exact ⟨rfl, fun _ _ => rfl, rfl, rfl⟩
+
+omit hp in
+theorem vz_sq {n : Nat} {s : State} (h : SqInv σ n s) : WP isa (.block [.vop .vzeroupper]) s (SqInv σ n) :=
+  WP.mono (vz_ok s) fun _ ⟨hm, k⟩ => ⟨h.env.keep hm k (fun _ _ => List.not_mem_nil),
+    (k.gpr List.not_mem_nil).trans h.r14, by rw [hm]; exact h.rc, by rw [hm]; exact h.lanes,
+    by rw [hm]; exact h.buf⟩
+
 /-- The three squeezes. -/
 theorem squeezes_ok {s : State} (h : SqInv σ 0 s) :
-    WP isa (.seq (squeeze4 0) (.seq (squeeze4 1) (.seq (squeeze4 2) (.seq (parse 0) (.seq (parse 1)
-      (.seq (parse 2) (.seq (parse 3) (.block epi)))))))) s fun s' =>
+    WP isa (.seq (squeeze4 0) (.seq (squeeze4 1) (.seq (squeeze4 2) (.seq (.block [.vop .vzeroupper])
+      (.seq (parse 0) (.seq (parse 1) (.seq (parse 2) (.seq (parse 3) (.block epi))))))))) s fun s' =>
       sample4K.post σ s' ∧ gprPreserved σ s' := by
   refine WP.seq (WP.mono (sq_ok hp (by decide) h) fun s₁ h₁ => WP.seq (WP.mono (sq_ok hp (by decide) h₁)
-    fun s₂ h₂ => WP.seq (WP.mono (sq_ok hp (by decide) h₂) fun s₃ h₃ => ?_)))
+    fun s₂ h₂ => WP.seq (WP.mono (sq_ok hp (by decide) h₂) fun s₃' h₃' =>
+      WP.seq (WP.mono (vz_sq h₃') fun s₃ h₃ => ?_))))
   have p₀ : PInv σ 0 s₃ := ⟨h₃.env, fun k hk p hp' => h₃.buf k hk p (by omega), by rw [h₃.r14]; rfl,
     fun _ h _ _ => absurd h (by omega)⟩
   refine WP.seq (WP.mono (parse_ok hp (by decide) p₀) fun s₄ p₁ => WP.seq (WP.mono (parse_ok hp (by decide) p₁)

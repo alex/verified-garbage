@@ -115,11 +115,13 @@ def epi : List Instr :=
     ((List.range 4).map fun k => .mov (saved.getD (4 - k) .rbx) (.mem (at_ .rbx (oSave + 8 * (4 - k))))) ++
     [.mov .rbx (.mem (at_ .rbx oSave))]
 
-/-- `vg_mlkem_sample_ntt4_avx2`. -/
+/-- `vg_mlkem_sample_ntt4_avx2`. After the squeezes, `vzeroupper` clears the
+upper halves of the vector registers, so that the SSE code that runs next
+(the caller's, or `vg_mlkem_sample_ntt`'s) does not pay for mixing them. -/
 def sampleNTT4Avx2 : Prog isa :=
   .seq (.block (pro ++ rcTable .rbx (oRc / 32) ++ absorb4))
-    (.seq (squeeze4 0) (.seq (squeeze4 1) (.seq (squeeze4 2)
-      (.seq (parse 0) (.seq (parse 1) (.seq (parse 2) (.seq (parse 3) (.block epi))))))))
+    (.seq (squeeze4 0) (.seq (squeeze4 1) (.seq (squeeze4 2) (.seq (.block [.vop .vzeroupper])
+      (.seq (parse 0) (.seq (parse 1) (.seq (parse 2) (.seq (parse 3) (.block epi)))))))))
 
 /-- `vg_mlkem_sample_ntt` on seed `k`, and `r14 ← r14 ∧ result`. -/
 def callK (k : Nat) : Prog isa :=

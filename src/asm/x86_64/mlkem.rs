@@ -4373,6 +4373,7 @@ pub(crate) unsafe extern "sysv64" fn vg_mlkem_sample_ntt4_avx2(seeds: *const [u8
         "mov QWORD PTR [rbx+4368], rax",
         "mov rax, QWORD PTR [rbx+664]",
         "mov QWORD PTR [rbx+4376], rax",
+        "vzeroupper",
         "mov rsi, rbx",
         "add rsi, 2368",
         "mov edi, 0",

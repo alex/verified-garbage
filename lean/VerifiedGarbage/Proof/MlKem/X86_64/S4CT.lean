@@ -226,7 +226,9 @@ theorem pinv0 {σ s : State} (h : SqInv σ 3 s) : PInv σ 0 s :=
 
 theorem ct : ConstantTime isa sample4K.pre sample4K.pub Impl.MlKem.X86_64.Sample4.sampleNTT4Avx2 := by
   refine relStart (Q := fun _ _ => True) (RelCT.seq start_ct (RelCT.seq sq0_ct
-    (RelCT.seq (sq_ct 1 (by decide) (by taint_decide)) (RelCT.seq (sq_ct 2 (by decide) (by taint_decide)) ?_))))
+    (RelCT.seq (sq_ct 1 (by decide) (by taint_decide)) (RelCT.seq (sq_ct 2 (by decide) (by taint_decide))
+      (RelCT.seq (relInv (I' := fun σ s => SqInv σ 3 s) (fun _ _ _ h => vz_sq h)
+        (taintRel [] (fun _ _ _ _ hr => absurd hr List.not_mem_nil) (by taint_decide))) ?_)))))
   refine RelCT.seq (RelCT.mono (parse_ct (K := 0) (by decide) (by taint_decide) (by taint_decide))
     (fun _ _ ⟨σ₁, σ₂, p₁, p₂, hq, h₁, h₂⟩ => ⟨σ₁, σ₂, p₁, p₂, hq, pinv0 h₁, pinv0 h₂⟩) fun _ _ h => h) ?_
   refine RelCT.seq (parse_ct (K := 1) (by decide) (by taint_decide) (by taint_decide)) ?_
