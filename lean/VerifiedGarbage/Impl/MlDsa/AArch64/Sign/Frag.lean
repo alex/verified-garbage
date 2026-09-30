@@ -188,7 +188,7 @@ def normAt (f : Ptr) (bound : Nat) : Prog isa :=
   .seq (callAt "vg_mldsa_norm_lt" P.normLt [(.x0, .ptr f), (.x1, .imm bound)]) (.block and24)
 
 /-- `ONES ← ONES + w0` (in 32 bits), through `x9`. -/
-def onesAdd : List Instr := [.ldr .w .x9 .x28 oONES, .add .w .x9 .x9 .x0, .str .x .x9 .x28 oONES]
+def onesAdd : List Instr := [.ldr .x .x9 .x28 oONES, .add .w .x9 .x9 .x0, .str .x .x9 .x28 oONES]
 
 /-- `MakeHint` of `z` and `r` to `h`, and the number of 1s added to `ONES`. -/
 def makeHintAt (z r : Ptr) (gamma2 : Nat) (h : Ptr) : Prog isa :=

@@ -292,24 +292,22 @@ theorem setKappa_run (r : Nat) (hr : r < 4096) (s : State)
 
 /-! ## The 1s of the hint -/
 
-theorem onesAdd_ok (s : State) (h1 : InRegions (s.rd ++ s.wr) (pa s (sc oONES)) 4)
+theorem onesAdd_ok (s : State) (h1 : InRegions (s.rd ++ s.wr) (pa s (sc oONES)) 8)
     (h2 : InRegions s.wr (pa s (sc oONES)) 8) :
     WP isa (.block onesAdd) s fun s' => s'.mem = s.mem.writeW (pa s (sc oONES))
-      (BitVec.setWidth 64 (s.mem.readW (pa s (sc oONES)) 32 + (s.gpr .x0).setWidth 32)) ∧ Keep [.x9] s s' := by
-  refine wp_ldrw (a := pa s (sc oONES)) (by decide) rfl h1 fun s₁ h₁ e₁ => wp_add32 fun s₂ h₂ e₂ =>
+      (BitVec.setWidth 64 ((s.mem.readW (pa s (sc oONES)) 64).setWidth 32 + (s.gpr .x0).setWidth 32)) ∧
+      Keep [.x9] s s' := by
+  refine wp_ldrx (a := pa s (sc oONES)) (by decide) rfl h1 fun s₁ h₁ e₁ => wp_add32 fun s₂ h₂ e₂ =>
     wp_strx (a := pa s (sc oONES)) (by decide) (by rw [h₂.get .x28, h₁.get .x28]) (by rw [h₂.wr, h₁.wr]; exact h2)
       fun s₃ h₃ => wp_nil ⟨?_, ((h₁.keep.trans h₂.keep).trans h₃.keep).mono (by simp)⟩
   rw [h₃.mem, e₂, e₁, h₂.mem, h₁.mem, h₁.get .x0]
-  congr 2
-  apply BitVec.eq_of_toNat_eq
-  simp
 
 theorem onesOk_run (p : Spec.MlDsa.Params) (hω : p.ω + 1 < 4096) (s : State)
-    (h1 : InRegions (s.rd ++ s.wr) (pa s (sc oONES)) 4) :
+    (h1 : InRegions (s.rd ++ s.wr) (pa s (sc oONES)) 8) :
     WP isa (.block (onesOk p)) s fun s' => (s'.gpr .x24 = BitVec.setWidth 64 ((s.gpr .x24).setWidth 32 &&&
-      ((BitVec.setWidth 64 (s.mem.readW (pa s (sc oONES)) 32) - BitVec.ofNat 64 (p.ω + 1)) >>> 63).setWidth 32) ∧
+      ((s.mem.readW (pa s (sc oONES)) 64 - BitVec.ofNat 64 (p.ω + 1)) >>> 63).setWidth 32) ∧
       s'.mem = s.mem) ∧ Keep [.x9, .x24] s s' := by
-  refine wp_ldrw (a := pa s (sc oONES)) (by decide) rfl h1 fun s₁ h₁ e₁ => wp_subImm hω fun s₂ h₂ e₂ =>
+  refine wp_ldrx (a := pa s (sc oONES)) (by decide) rfl h1 fun s₁ h₁ e₁ => wp_subImm hω fun s₂ h₂ e₂ =>
     wp_lsr (by decide) fun s₃ h₃ e₃ => wp_and32 fun s₄ h₄ e₄ =>
       wp_nil ⟨⟨?_, by rw [h₄.mem, h₃.mem, h₂.mem, h₁.mem]⟩,
         ((((h₁.keep.trans h₂.keep).trans h₃.keep).trans h₄.keep)).mono (by simp)⟩
