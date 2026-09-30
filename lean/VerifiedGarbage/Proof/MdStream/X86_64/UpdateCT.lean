@@ -70,7 +70,8 @@ theorem test_rel {P : State → State → Prop} :
     (c := .block [.alu .test .r14 (.reg .r14)]) (by taint_decide)).wpDep
     fun _ _ _ => ⟨test_ok .r14, test_ok .r14⟩
 
-theorem one_and : ((1 : BitVec 64) &&& 1 == 0) = false := by decide
+/-- `k` blocks, as a nonzero `r14`. -/
+abbrev nz (k : Nat) : Prop := BitVec.ofNat 64 k ≠ 0
 theorem zero_and : ((0 : BitVec 64) &&& 0 == 0) = true := by decide
 
 section
@@ -80,7 +81,7 @@ variable {P : Params} {H : Md P.B P.N P.L} (hd : Dims P) (ht : Taints P) {name :
 /-- After the first half of an iteration: the same block is ready in both
 runs, or all the data is buffered in both. -/
 def Mid (H : Md P.B P.N P.L) (s₀ s₀' : State) (c : Nat) (s₁ s₂ : State) : Prop :=
-  (∃ c', c < c' ∧ Pending H s₀ c' s₁ ∧ Pending H s₀' c' s₂ ∧ s₁.gpr .rsi = s₂.gpr .rsi) ∨
+  (∃ c' k, c < c' ∧ Pending H s₀ c' k s₁ ∧ Pending H s₀' c' k s₂ ∧ s₁.gpr .rsi = s₂.gpr .rsi) ∨
     (Done H s₀ s₁ ∧ Done H s₀' s₂)
 
 include hd ht hp hp' hq in
@@ -93,46 +94,61 @@ theorem head_rel {c : Nat} :
   refine t.mono (fun _ _ h => h) fun s₁ s₂ ⟨ag, h₁, h₂⟩ => ?_
   have e12 := ag .r12 (by simp)
   have e14 := ag .r14 (by simp)
-  rcases h₁ with ⟨c₁, hc₁, P₁, si₁⟩ | D₁ <;> rcases h₂ with ⟨c₂, hc₂, P₂, si₂⟩ | D₂
+  rcases h₁ with ⟨c₁, k₁, hc₁, P₁, si₁⟩ | D₁ <;> rcases h₂ with ⟨c₂, k₂, hc₂, P₂, si₂⟩ | D₂
   · have e := congrArg BitVec.toNat (P₁.r12.symm.trans (e12.trans P₂.r12))
     have l₁ := P₁.c_le; have l₂ := P₂.c_le; have hl := len_lt s₀; have hl' := hq.len
     rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega),
       Nat.mod_eq_of_lt (by omega)] at e
     obtain rfl : c₁ = c₂ := by omega
-    exact .inl ⟨c₁, hc₁, P₁, P₂, by rw [si₁, si₂]; exact hq.src⟩
-  · exact absurd (P₁.r14.symm.trans (e14.trans D₂.2)) (by decide)
-  · exact absurd (D₁.2.symm.trans (e14.trans P₂.r14)) (by decide)
+    have ek := congrArg BitVec.toNat (P₁.r14.symm.trans (e14.trans P₂.r14))
+    rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (P₁.k_lt hd).2,
+      Nat.mod_eq_of_lt (P₂.k_lt hd).2] at ek
+    subst ek
+    exact .inl ⟨c₁, k₁, hc₁, P₁, P₂, by rw [si₁, si₂]; exact hq.src⟩
+  · have e := congrArg BitVec.toNat (P₁.r14.symm.trans (e14.trans D₂.2))
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (P₁.k_lt hd).2] at e
+    exact absurd e (by have := P₁.k_pos; simp; omega)
+  · have e := congrArg BitVec.toNat (D₁.2.symm.trans (e14.trans P₂.r14))
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (P₂.k_lt hd).2] at e
+    exact absurd e (by have := P₂.k_pos; simp; omega)
   · exact .inr ⟨D₁, D₂⟩
 
 include hd hf hp hp' hq in
-/-- The second half, when a block is ready. -/
-theorem tail_pending {c' : Nat} :
-    RelCT isa (fun s₁ s₂ => Pending H s₀ c' s₁ ∧ Pending H s₀' c' s₂ ∧ s₁.gpr .rsi = s₂.gpr .rsi)
+/-- The second half, when blocks are ready. -/
+theorem tail_pending {c' k : Nat} :
+    RelCT isa (fun s₁ s₂ => Pending H s₀ c' k s₁ ∧ Pending H s₀' c' k s₂ ∧ s₁.gpr .rsi = s₂.gpr .rsi)
       (updateTail name code) fun s₁ s₂ =>
         eval .ne s₁ = some true ∧ eval .ne s₂ = some true ∧ Inv H s₀ c' s₁ ∧ Inv H s₀' c' s₂ := by
   unfold updateTail
   refine (test_rel.mono (fun _ _ h => h) fun s₁ s₂ ⟨_, σ₁, σ₂, ⟨P₁, P₂, esi⟩,
     ⟨g₁, m₁, rd₁, wr₁, z₁⟩, ⟨g₂, m₂, rd₂, wr₂, z₂⟩⟩ =>
       (⟨P₁.congr g₁ m₁ rd₁ wr₁, P₂.congr g₂ m₂ rd₂ wr₂, by rw [g₁, g₂]; exact esi,
-        by rw [z₁, P₁.r14, one_and], by rw [z₂, P₂.r14, one_and]⟩ :
-        Pending H s₀ c' s₁ ∧ Pending H s₀' c' s₂ ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧
+        by rw [z₁, P₁.r14, ofNat_and_ne P₁.k_pos (P₁.k_lt hd).2],
+        by rw [z₂, P₂.r14, ofNat_and_ne P₂.k_pos (P₂.k_lt hd).2]⟩ :
+        Pending H s₀ c' k s₁ ∧ Pending H s₀' c' k s₂ ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧
           s₁.zf = some false ∧ s₂.zf = some false)).seq ?_
-  have cmp : RelCT isa (fun s₁ s₂ => (Pending H s₀ c' s₁ ∧ Pending H s₀' c' s₂ ∧
+  have cmp : RelCT isa (fun s₁ s₂ => (Pending H s₀ c' k s₁ ∧ Pending H s₀' c' k s₂ ∧
         s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.zf = some false ∧ s₂.zf = some false) ∧
-        eval .ne s₁ = some true) (compressAt name code)
-      fun s₁ s₂ => (Inv H s₀ c' s₁ ∧ s₁.gpr .r14 = 1) ∧ (Inv H s₀' c' s₂ ∧ s₂.gpr .r14 = 1) :=
-    ((compressAt_rel H hf fun s₁ s₂ ⟨⟨P₁, P₂, esi, _⟩, _⟩ =>
-      ⟨⟨_, _, _, P₁.callOk hd hp⟩, ⟨_, _, _, P₂.callOk hd hp'⟩,
+        eval .ne s₁ = some true) (compressN name code)
+      fun s₁ s₂ => (Inv H s₀ c' s₁ ∧ s₁.gpr .r14 = BitVec.ofNat 64 k ∧ nz k) ∧
+        (Inv H s₀' c' s₂ ∧ s₂.gpr .r14 = BitVec.ofNat 64 k ∧ nz k) :=
+    ((compressWith_rel H setsN_r14 ⟨_, by taint_decide⟩ hf fun s₁ s₂ ⟨⟨P₁, P₂, esi, _⟩, _⟩ =>
+      ⟨⟨_, _, _, k, by rw [P₁.r14, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (P₁.k_lt hd).2], P₁.callOk hd hp⟩,
+        ⟨_, _, _, k, by rw [P₂.r14, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (P₂.k_lt hd).2], P₂.callOk hd hp'⟩,
         by rw [P₁.rbx, P₂.rbx]; exact hq.rdi, by rw [P₁.r15, P₂.r15]; exact hq.r8, esi,
-        by rw [P₁.rsp, P₂.rsp]; exact hq.rsp⟩).wp
-      fun _ _ h => ⟨h.1.1.compress_ok hd hf hp, h.1.2.1.compress_ok hd hf hp'⟩).mono
+        by rw [P₁.rsp, P₂.rsp]; exact hq.rsp, by rw [P₁.r14, P₂.r14]⟩).wp
+      fun _ _ h => ⟨WP.mono (h.1.1.compress_ok hd hf hp) fun _ r =>
+          ⟨r.1, r.2, h.1.1.ne_zero hd⟩,
+        WP.mono (h.1.2.1.compress_ok hd hf hp') fun _ r =>
+          ⟨r.1, r.2, h.1.2.1.ne_zero hd⟩⟩).mono
       (fun _ _ h => h) fun _ _ h => h.2
-  have fin : RelCT isa (fun s₁ s₂ => (Inv H s₀ c' s₁ ∧ s₁.gpr .r14 = 1) ∧ (Inv H s₀' c' s₂ ∧ s₂.gpr .r14 = 1))
+  have fin : RelCT isa (fun s₁ s₂ => (Inv H s₀ c' s₁ ∧ s₁.gpr .r14 = BitVec.ofNat 64 k ∧ nz k) ∧
+        (Inv H s₀' c' s₂ ∧ s₂.gpr .r14 = BitVec.ofNat 64 k ∧ nz k))
       (.block [.alu .test .r14 (.reg .r14)]) fun s₁ s₂ =>
         eval .ne s₁ = some true ∧ eval .ne s₂ = some true ∧ Inv H s₀ c' s₁ ∧ Inv H s₀' c' s₂ :=
-    test_rel.mono (fun _ _ h => h) fun s₁ s₂ ⟨_, σ₁, σ₂, ⟨⟨I₁, r₁⟩, ⟨I₂, r₂⟩⟩,
+    test_rel.mono (fun _ _ h => h) fun s₁ s₂ ⟨_, σ₁, σ₂, ⟨⟨I₁, r₁, n₁⟩, ⟨I₂, r₂, n₂⟩⟩,
       ⟨g₁, m₁, rd₁, wr₁, z₁⟩, ⟨g₂, m₂, rd₂, wr₂, z₂⟩⟩ =>
-      ⟨by simp [eval, z₁, r₁], by simp [eval, z₂, r₂], I₁.congr g₁ m₁ rd₁ wr₁, I₂.congr g₂ m₂ rd₂ wr₂⟩
+      ⟨by simp [eval, z₁, r₁]; exact n₁, by simp [eval, z₂, r₂]; exact n₂, I₁.congr g₁ m₁ rd₁ wr₁, I₂.congr g₂ m₂ rd₂ wr₂⟩
   refine (RelCT.ite (fun s₁ s₂ h => ?_) cmp (RelCT.of_false fun s₁ s₂ h => ?_)).seq fin
   · simp [eval, h.2.2.2.1, h.2.2.2.2]
   · have := h.2; simp [eval, h.1.2.2.2.1] at this
@@ -177,7 +193,7 @@ theorem body_rel (n : Nat) :
   have tl : RelCT isa (Mid H s₀ s₀' c) (updateTail name code) fun s₁ s₂ =>
       (eval .ne s₁ = some true ∧ eval .ne s₂ = some true ∧ ∃ c', c < c' ∧ Inv H s₀ c' s₁ ∧ Inv H s₀' c' s₂) ∨
       (eval .ne s₁ = some false ∧ eval .ne s₂ = some false ∧ Done H s₀ s₁ ∧ Done H s₀' s₂) :=
-    RelCT.or (RelCT.exists_ fun c' => fun _ _ _ _ _ _ ⟨hc, h⟩ e₁ e₂ =>
+    RelCT.or (RelCT.exists_ fun c' => RelCT.exists_ fun _ => fun _ _ _ _ _ _ ⟨hc, h⟩ e₁ e₂ =>
         let ⟨ht, z₁, z₂, I₁, I₂⟩ := tail_pending hd hf hp hp' hq _ _ _ _ _ _ h e₁ e₂
         ⟨ht, .inl ⟨z₁, z₂, c', hc, I₁, I₂⟩⟩)
       ((tail_done (name := name) (code := code) (s₀ := s₀) (s₀' := s₀')).mono (fun _ _ h => h)

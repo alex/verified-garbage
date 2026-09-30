@@ -58,7 +58,8 @@ theorem update {f : Callee} (hf : MdStream.X86_64.CalleeOk (P := Stream.params) 
     Verified X86_64.target (Impl.Sha1.X86_64.Stream.update f) (Spec.Sha1.updateContract X86_64.abi 8) :=
   (Proof.Sha1.X86_64.Stream.Update.verified_of hf (by
     simp only [Impl.Sha1.X86_64.Stream.update, Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody,
-      Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressAt, Code.allInstrs, hm,
+      Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressWith,
+      Code.allInstrs, hm,
       Bool.true_and]
     decide +kernel)).of_implies updateImplies
 
@@ -66,7 +67,7 @@ open VG.Impl.Sha1.X86_64.Stream (Callee) in
 theorem update_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
     (Impl.Sha1.X86_64.Stream.update f).all (fun i => !X86_64.isa.writesSp i) = true := by
   simp only [Impl.Sha1.X86_64.Stream.update, Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody,
-    Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressAt, Code.all, h,
+    Impl.MdStream.X86_64.updateTail, Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressWith, Code.all, h,
     Bool.true_and]
   decide +kernel
 
@@ -78,14 +79,16 @@ theorem finalize {f : Callee} (hf : MdStream.X86_64.CalleeOk (P := Stream.params
       (Spec.Sha1.finalizeContract X86_64.abi 8) :=
   (Proof.Sha1.X86_64.Stream.Finalize.verified_of hf (by
     simp only [Impl.Sha1.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
-      Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Code.allInstrs, hm, Bool.true_and]
+      Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith,
+      Code.allInstrs, hm, Bool.true_and]
     decide +kernel)).of_implies finalizeImplies
 
 open VG.Impl.Sha1.X86_64.Stream (Callee) in
 theorem finalize_spSafe {f : Callee} (h : f.code.all (fun i => !X86_64.isa.writesSp i) = true) :
     (Impl.Sha1.X86_64.Stream.finalize f).all (fun i => !X86_64.isa.writesSp i) = true := by
   simp only [Impl.Sha1.X86_64.Stream.finalize, Impl.MdStream.X86_64.finalize,
-    Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Code.all, h, Bool.true_and]
+    Impl.MdStream.X86_64.finalizeBody, Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith,
+    Code.all, h, Bool.true_and]
   decide +kernel
 
 end VG.Proof.Sha1.X86_64.Shared
