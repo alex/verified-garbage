@@ -119,6 +119,7 @@ theorem pro_ok :
     by rw [k.get .x1, coeffAddr, Nat.mul_zero, BitVec.add_zero], by rw [k₂.get .x9, h9]; exact q32, k.mono,
     by rw [hm₂, hm]; exact Frame.refl _ _, fun k _ => by rw [hm₂, hm]; rfl⟩
 
+omit hp in
 /-- The whole function, from its precondition, with a body that stores `v i`
 to coefficient `i`, where `v i` is coefficient `i` of the result. -/
 theorem fn_ok {body : List Instr} {v : Nat → BitVec 32} (hbody : BodyOk s₀ body v)
@@ -144,7 +145,7 @@ end AddSub
 theorem add_correct (s : State) (hs : (accK Spec.MlDsa.add).pre s) :
     ∃ t s', Exec isa Impl.MlDsa.AArch64.Arith.add s t s' ∧ abiPreserved s s' ∧
       (accK Spec.MlDsa.add).post s s' :=
-  AddSub.fn_ok hs (v := fun i => (csubX (w64 (coeffAt s.mem (s.gpr .x0) i) +
+  AddSub.fn_ok (v := fun i => (csubX (w64 (coeffAt s.mem (s.gpr .x0) i) +
       w64 (coeffAt s.mem (s.gpr .x1) i))).setWidth 32)
     (fun i hi s' hI => by
       obtain ⟨e1, e2, h1, h2, h3⟩ := AddSub.reads hs hi hI
@@ -158,7 +159,7 @@ theorem add_correct (s : State) (hs : (accK Spec.MlDsa.add).pre s) :
 theorem sub_correct (s : State) (hs : (accK Spec.MlDsa.sub).pre s) :
     ∃ t s', Exec isa Impl.MlDsa.AArch64.Arith.sub s t s' ∧ abiPreserved s s' ∧
       (accK Spec.MlDsa.sub).post s s' :=
-  AddSub.fn_ok hs (v := fun i => (csubX (w64 (coeffAt s.mem (s.gpr .x0) i) + Qv -
+  AddSub.fn_ok (v := fun i => (csubX (w64 (coeffAt s.mem (s.gpr .x0) i) + Qv -
       w64 (coeffAt s.mem (s.gpr .x1) i))).setWidth 32)
     (fun i hi s' hI => by
       obtain ⟨e1, e2, h1, h2, h3⟩ := AddSub.reads hs hi hI
