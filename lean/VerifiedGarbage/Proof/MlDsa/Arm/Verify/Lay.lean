@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.Samp
 import VerifiedGarbage.Impl.MlDsa.Arm.Verify.Verify
+import VerifiedGarbage.Proof.MlDsa.Verify.Final
 
 /-!
 # ML-DSA verification on 32-bit ARM: its parameters, precondition and buffers
@@ -44,11 +45,12 @@ structure VFacts (p : Params) : Prop where
   g2 : p.γ₂ ∈ Spec.MlDsa.gamma2s ∧ p.γ₂ < 2 ^ 32
   sbp : w1Max p ∈ Spec.MlDsa.simpleBitPackBounds ∧ w1Len p = 32 * Spec.MlDsa.bitlen (w1Max p) ∧ w1Max p < 2 ^ 32
   nb : p.γ₁ - p.β < 2 ^ 32 ∧ 0 < p.γ₁ - p.β
+  g1 : p.γ₁ ∈ Proof.MlDsa.Verify.gamma1s
 
 theorem vfacts {p : Params} (hp : p = mlDsa44 ∨ p = mlDsa65 ∨ p = mlDsa87) : VFacts p := by
   rcases hp with rfl | rfl | rfl <;>
     exact ⟨by decide, by decide, by decide, by decide, by decide, by decide, by decide, by decide, by decide,
-      by decide, by decide, by decide, by decide, by decide, by decide, by decide, by decide, by decide⟩
+      by decide, by decide, by decide, by decide, by decide, by decide, by decide, by decide, by decide, by decide⟩
 
 /-! ## The precondition -/
 
