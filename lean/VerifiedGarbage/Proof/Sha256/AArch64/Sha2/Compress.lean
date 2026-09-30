@@ -43,6 +43,24 @@ theorem exec_strq {s : State} {t : VReg} {n : Reg} {off : Nat}
   simp only [exec, addr, show 4096 * 16 = 65536 from rfl, ho, and_self, ite_true, State.store,
     h, Option.bind_some]
 
+theorem setLane_three_hi (a b c d : BitVec 32) :
+    setLane (setLane (setLane (ofVWords a a a a) 32 1 b) 32 2 c) 32 3 d = ofVWords a b c d := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  simp only [setLane, ofVWords, BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_not,
+    BitVec.getLsbD_shiftLeft, BitVec.getLsbD_setWidth, BitVec.getLsbD_allOnes, BitVec.getLsbD_append,
+    hj, decide_true, Bool.true_and, Nat.reduceMul]
+  by_cases h0 : j < 32
+  · simp (disch := omega) [h0, decide_eq_true]
+  by_cases h1 : j < 64
+  · simp (disch := omega) [h0, h1, decide_eq_true, show j - 32 < 32 by omega]
+  by_cases h2 : j < 96
+  · simp (disch := omega) [h0, h1, h2, decide_eq_true,
+      show ¬ j - 32 < 32 by omega, show j - 32 - 32 = j - 64 by omega, show j - 64 < 32 by omega]
+  · simp (disch := omega) [h0, h1, h2, decide_eq_true, decide_eq_false,
+      show ¬ j - 32 < 32 by omega, show ¬ j - 32 - 32 < 32 by omega,
+      show j - 32 - 32 - 32 = j - 96 by omega]
+
 theorem rounds4_ok (n : Nat) (s : State) (v : HashValue) (q : BitVec 128)
     (h0 : s.v .v0 = abcd v) (h1 : s.v .v1 = efgh v) (hq : s.v (msg n) = q) :
     WP isa (.block (rounds4 n)) s fun s' =>
@@ -54,7 +72,8 @@ theorem rounds4_ok (n : Nat) (s : State) (v : HashValue) (q : BitVec 128)
   have hd := msg_nodup n
   apply WP.of_runBlock
   simp only [rounds4, show List.range 4 = [0, 1, 2, 3] from rfl,
-    List.flatMap_cons, List.flatMap_nil, constant, List.cons_append, List.nil_append]
+    List.flatMap_cons, List.flatMap_nil, constant, List.cons_append, List.nil_append,
+    ite_true, Nat.reduceEqDiff, ite_false]
   generalize msg n = x at *
   simp only [List.nodup_cons, List.mem_cons, List.not_mem_nil, or_false, not_or,
     List.nodup_nil, and_true] at hd
@@ -64,7 +83,7 @@ theorem rounds4_ok (n : Nat) (s : State) (v : HashValue) (q : BitVec 128)
     RegUpd.mem_write, RegUpd.rd_write, RegUpd.wr_write, Size.bits,
     Nat.reduceLeDiff, ite_true,
     BitVec.setWidth_setWidth_of_le, BitVec.setWidth_eq, Option.map_some,
-    hd, h0, h1, hq, setLane_four, Nat.add_zero,
+    hd, h0, h1, hq, setLane_three_hi, Nat.add_zero,
     Option.some.injEq, exists_eq_left']
   have hc (x : BitVec 32) :
       (x.extractLsb' 0 16).setWidth 32 &&& (65535 : BitVec 32) |||
