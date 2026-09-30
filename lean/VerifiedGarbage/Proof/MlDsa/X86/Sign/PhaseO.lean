@@ -108,6 +108,7 @@ structure OS (p : Params) (F : PrimsOk P) (U : State → Nat) (r : Nat) (s₀ s 
   run : Run p F (U s₀) s₀
   ball : F.ballF p.τ (CTv p s₀ (p.ℓ * U s₀)) = true
   pass : passS p (U s₀) s₀
+  ok1 : scw s₀ s oOK = 1
   sig : bytesAt s.mem (Buf.addr s₀ (bSig 0 (cLen p + zLen p * r))) (cLen p + zLen p * r) =
     CTv p s₀ (p.ℓ * U s₀) ++ zEnc p s₀ (p.ℓ * U s₀) r
 
@@ -115,10 +116,13 @@ structure OS (p : Params) (F : PrimsOk P) (U : State → Nat) (r : Nat) (s₀ s 
 theorem sigKeep {s₀ : State} (hp : TPre (Y p) s₀) (ps : PS p) {m m' : Mem} {fz : Nat → Poly} {fh : Nat → Vector Bool n}
     (hz : Fam s₀ m (yB p) p.ℓ fz) (hh : HF s₀ m p.k fh) {bs : List Buf} {N : Nat} (hN : N ≤ 80)
     (fr : Frame (FR s₀ bs N) m m') (hb : ∀ c ∈ bs, (Y p).ok c = true ∧ c.arg = 3) :
-    Fam s₀ m' (yB p) p.ℓ fz ∧ HF s₀ m' p.k fh :=
+    Fam s₀ m' (yB p) p.ℓ fz ∧ HF s₀ m' p.k fh ∧
+      m'.readW (Buf.addr s₀ (sc oOK 4)) 32 = m.readW (Buf.addr s₀ (sc oOK 4)) 32 :=
   ⟨hz.keep hp ps hN fr (by simp only [nS, yB]; omega) fun c hc => ⟨(hb c hc).1, fun e => by
       rw [(hb c hc).2] at e; cases e⟩,
     hh.keep hp ps hN fr (by simp only [nS]; omega) fun c hc => ⟨(hb c hc).1, fun e => by
+      rw [(hb c hc).2] at e; cases e⟩,
+    keepW' hp hN fr (sc_ok' ps (by decide) (by decide)) fun c hc => ⟨(hb c hc).1, fun e => by
       rw [(hb c hc).2] at e; cases e⟩⟩
 
 theorem sig_ok {o l : Nat} (h : o + l ≤ p.sigLen) (hl : 0 < l) : (Y p).okW (bSig o l) = true :=
@@ -132,6 +136,7 @@ structure OI (p : Params) (F : PrimsOk P) (U : State → Nat) (s₀ s : State) :
   run : Run p F (U s₀) s₀
   ball : F.ballF p.τ (CTv p s₀ (p.ℓ * U s₀)) = true
   pass : passS p (U s₀) s₀
+  ok1 : scw s₀ s oOK = 1
   ct : bytesAt s.mem (Buf.addr s₀ (sc oCT (cLen p))) (cLen p) = CTv p s₀ (p.ℓ * U s₀)
 
 /-- `c̃` to `sig`. -/
@@ -147,7 +152,7 @@ theorem outCopy_piece (F : PrimsOk P) (ps : PS p) (U : State → Nat) :
   have fr' : Frame (FR s₀ [⟨3, 0, 4 * (cLen p / 4)⟩] 80) s.mem s'.mem := fr.mono (by simp)
   have hk := sigKeep hp ps h.fy h.fh (by decide) fr' fun c hc => by
     rw [List.mem_singleton] at hc; subst hc; exact ⟨by ofs, rfl⟩
-  refine ⟨c', hk.1, hk.2, h.run, h.ball, h.pass, ?_⟩
+  refine ⟨c', hk.1, hk.2.1, h.run, h.ball, h.pass, by rw [scw, hk.2.2]; exact h.ok1, ?_⟩
   rw [e4] at hb
   simp only [Nat.mul_zero, Nat.add_zero]
   rw [show zEnc p s₀ (p.ℓ * U s₀) 0 = [] from rfl, List.append_nil]
@@ -165,7 +170,7 @@ theorem packZ_piece (F : PrimsOk P) (ps : PS p) (U : State → Nat) (r : Nat) (h
       inRange_of_norm (fam_at h.fy hr) (h.pass.1 r hr) (by omega)⟩) fun s₀ s s' hp h c' fr hb => ?_
   have hk := sigKeep hp ps h.fy h.fh (by decide) fr fun c hc => by
     rw [List.mem_singleton] at hc; subst hc; exact ⟨by ofs, rfl⟩
-  refine ⟨c', hk.1, hk.2, h.run, h.ball, h.pass, ?_⟩
+  refine ⟨c', hk.1, hk.2.1, h.run, h.ball, h.pass, by rw [scw, hk.2.2]; exact h.ok1, ?_⟩
   rw [bytes_split hp s'.mem (o' := sigZ p r) (l₁ := cLen p + zLen p * r) (l₂ := zLen p) (by simp only [sigZ]; omega) (by rw [Nat.mul_succ]; omega)
     (by ofs) (by ofs), keepBytes hp (N := 80) (by show 80 + 16 ≤ 96; decide) (b := ⟨3, 0, cLen p + zLen p * r⟩) (by ofs) fr, h.sig, hb,
     (fam_at h.fy hr).2, List.append_assoc]
@@ -178,7 +183,7 @@ abbrev sigV (p : Params) (s₀ : State) (κ : Nat) : List Byte :=
 /-- `HintBitPack(h)` to `sig`. -/
 theorem hpack_piece (F : PrimsOk P) (ps : PS p) (U : State → Nat)
     (hU : ∀ s₀ s₀', TPre (Y p) s₀ → TPre (Y p) s₀' → SPub p s₀ s₀' → U s₀ = U s₀') :
-    SP p (OS p F U p.ℓ) (fun s₀ s => Ctx (Y p) s₀ s ∧
+    SP p (OS p F U p.ℓ) (fun s₀ s => Ctx (Y p) s₀ s ∧ scw s₀ s oOK = 1 ∧
       bytesAt s.mem (Buf.addr s₀ (bSig 0 p.sigLen)) p.sigLen = sigV p s₀ (p.ℓ * U s₀))
       (hintBitPackAt P (sc (oP 5) (1024 * p.k)) p.ω (bSig (sigH p) (p.ω + p.k))) := by
   have hz := ps.hzLen
@@ -187,7 +192,9 @@ theorem hpack_piece (F : PrimsOk P) (ps : PS p) (U : State → Nat)
   unfold hintBitPackAt
   rw [show (sc (oP 5) (1024 * p.k)).len / 4 = 256 * p.k by show 1024 * p.k / 4 = _; omega]
   refine hbp_piece F.hintBitPack (F.ok _ (by simp)) p.ω p.k ps.hhint SC (oP 5) 3 (sigH p) (by ofs)
-    (fun s₀ s hp h => ⟨h.ctx, ?_⟩) (fun s₀ s₀' s s' hp hp' hq h h' => ?_) fun s₀ s s' hp h c' fr hb => ⟨c', ?_⟩
+    (fun s₀ s hp h => ⟨h.ctx, ?_⟩) (fun s₀ s₀' s s' hp hp' hq h h' => ?_) fun s₀ s s' hp h c' fr hb =>
+      ⟨c', by rw [scw, (sigKeep hp ps h.fy h.fh (by decide) fr fun c hc => by
+        rw [List.mem_singleton] at hc; subst hc; exact ⟨by ofs, rfl⟩).2.2]; exact h.ok1, ?_⟩
   · rw [hintAt_of hp ps h.fh, hintOnes_map]; exact h.pass.2.2.2
   · rw [hint_list hp ps h.fh, hint_list hp' ps h'.fh, ← hU s₀ s₀' hp hp' hq]
     exact (((run_at ps hq h.run).2 h.ball).2 h.pass)
@@ -198,7 +205,7 @@ theorem hpack_piece (F : PrimsOk P) (ps : PS p) (U : State → Nat)
 /-- The signature. -/
 theorem output_piece (F : PrimsOk P) (ps : PS p) (U : State → Nat)
     (hU : ∀ s₀ s₀', TPre (Y p) s₀ → TPre (Y p) s₀' → SPub p s₀ s₀' → U s₀ = U s₀') :
-    SP p (OI p F U) (fun s₀ s => Ctx (Y p) s₀ s ∧
+    SP p (OI p F U) (fun s₀ s => Ctx (Y p) s₀ s ∧ scw s₀ s oOK = 1 ∧
       bytesAt s.mem (Buf.addr s₀ (bSig 0 p.sigLen)) p.sigLen = sigV p s₀ (p.ℓ * U s₀)) (output P p) := by
   unfold output
   refine (outCopy_piece F ps U).seq (Piece.seq ?_ (hpack_piece F ps U hU))
