@@ -7,7 +7,7 @@ Untrusted: everything here is checked by Lean. Two runs from entry states
 that agree on the public data (`keyGenK.pub`: the pointers, the stack
 pointer and `ρ`), each at the same step with its invariant (`Rel2`), are
 in the same layout (`kc_lrel`), and each piece leaks the same in both
-(`gRho_tr`, `sample_tr`, `se_tr`, `row_tr`, `encS_tr`, `fin_tr`).
+(`gRho_tr`, `samples_tr`, `se_tr`, `row_tr`, `encS_tr`, `fin_tr`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

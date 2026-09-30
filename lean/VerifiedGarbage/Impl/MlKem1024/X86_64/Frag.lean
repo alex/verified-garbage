@@ -25,10 +25,6 @@ abbrev aS4 (i j : Nat) : Ptr := pS (17 + 4 * i + j)
 /-- The ciphertext of the re-encryption (1568 bytes, in polynomials 33 and 34). -/
 def oCT4 : Nat := oP 33
 
-/-- `Â[i, j] = SampleNTT(ρ ‖ j ‖ i)`, with `ρ` at `SB`. -/
-def sampleIJ4 (i j : Nat) : Prog isa :=
-  .seq (.block (setB (sc (oSB + 32)) j ++ setB (sc (oSB + 33)) i)) (sampleAt (aS4 i j))
-
 /-- The sixteen entries of `Â`, row by row (entry `e = 4i + j`), four at a
 time, with polynomials 35–42 as the working space. -/
 def samples4 (c : Callee4) : Prog isa :=
