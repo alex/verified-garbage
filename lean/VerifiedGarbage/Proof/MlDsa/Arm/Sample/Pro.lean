@@ -293,4 +293,11 @@ theorem storeJ_stored {s : State} (he : Env P σ s) {v : Reg} (hv : v ≠ .r11) 
 
 end
 
+
+/-- `Env` after code that writes no memory and keeps `r5` and `r6`. -/
+theorem Env.same {P : Sp} {σ s s' : State} (he : Env P σ s) (hm : s'.mem = s.mem) (g5 : s'.gpr .r5 = s.gpr .r5)
+    (g6 : s'.gpr .r6 = s.gpr .r6) (rd : s'.rd = s.rd) (wr : s'.wr = s.wr) (sp : s'.sp = s.sp) : Env P σ s' :=
+  ⟨rd.trans he.rd, wr.trans he.wr, sp.trans he.sp, g5.trans he.r5, g6.trans he.r6, by rw [hm]; exact he.sav,
+    by rw [hm]; exact he.savlr, by rw [hm]; exact he.frame⟩
+
 end VG.Proof.MlDsa.Arm.Sample
