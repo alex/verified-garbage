@@ -6,7 +6,7 @@ import VerifiedGarbage.TCB.X86_64.State
 **Trusted.** The semantics of the general-purpose (integer) instructions of
 the x86-64 model in `TCB/X86_64/Isa.lean`: source operands, the ALU
 operations and their flags, shifts, rotates (including BMI2's `rorx`), BMI1's
-`andn`, byte swaps and `mul`.
+`andn`, byte swaps, `mul`, BMI2's `mulx` and ADX's `adcx` and `adox`.
 -/
 
 namespace VG.X86_64
@@ -203,5 +203,48 @@ def execMul (src : Reg) (s : State) : State :=
   let hi : BitVec 64 := BitVec.ofNat 64 (p / 2 ^ 64)
   ((s.setFlags (some (hi != 0)) (some (hi != 0)) none none).setReg .rax (BitVec.ofNat 64 p)).setReg
     .rdx hi
+
+/-- SDM Vol. 2, "MULX—Unsigned Multiply Without Affecting Flags", for 64-bit
+operands (`VEX.LZ.F2.0F38.W1 F6 /r`, `MULX r64a, r64b, r/m64`): `SRC1 :=
+RDX; SRC2 := r/m64; TEMP := SRC1 * SRC2; DEST2 := TEMP[OperandSize-1:0];
+DEST1 := TEMP[2*OperandSize-1:OperandSize]`, where `DEST1` is the first
+operand (`hi`) and `DEST2` the second (`lo`); "Flags Affected: None." The
+high half is written last: "If the first and second operand are identical,
+it will contain the high half of the multiplication result." An immediate
+source does not exist: it faults. -/
+def execMulx (hi lo : Reg) (src : Src) (s : State) : Option State :=
+  match src with
+  | .imm _ => none
+  | _ => (readSrc s src).map fun b =>
+    let p := (s.gpr .rdx).toNat * b.toNat
+    (s.setReg lo (BitVec.ofNat 64 p)).setReg hi (BitVec.ofNat 64 (p / 2 ^ 64))
+
+/-- SDM Vol. 2, "ADCX—Unsigned Integer Addition of Two Operands With Carry
+Flag", for 64-bit operands (`66 REX.w 0F 38 F6 /r`, `ADCX r64, r/m64`):
+`CF:DEST[63:0] := DEST[63:0] + SRC[63:0] + CF`; "CF is updated based on
+result. OF, SF, ZF, AF and PF flags are unmodified." (AF and PF are not
+modelled.) It faults if CF is undefined, as `adc` does, and on an immediate
+source, which does not exist. -/
+def execAdcx (dst : Reg) (src : Src) (s : State) : Option State :=
+  match src with
+  | .imm _ => none
+  | _ => (readSrc s src).bind fun b => s.cf.map fun c =>
+    let a := s.gpr dst
+    let r := a + b + (BitVec.ofBool c).setWidth 64
+    (s.setFlags (some (2 ^ 64 ≤ a.toNat + b.toNat + c.toNat)) s.of s.zf s.sf).setReg dst r
+
+/-- SDM Vol. 2, "ADOX—Unsigned Integer Addition of Two Operands With
+Overflow Flag", for 64-bit operands (`F3 REX.w 0F 38 F6 /r`, `ADOX r64,
+r/m64`): `OF:DEST[63:0] := DEST[63:0] + SRC[63:0] + OF`; "OF is updated
+based on result. CF, SF, ZF, AF and PF flags are unmodified." (AF and PF are
+not modelled.) It faults if OF is undefined, and on an immediate source,
+which does not exist. -/
+def execAdox (dst : Reg) (src : Src) (s : State) : Option State :=
+  match src with
+  | .imm _ => none
+  | _ => (readSrc s src).bind fun b => s.of.map fun o =>
+    let a := s.gpr dst
+    let r := a + b + (BitVec.ofBool o).setWidth 64
+    (s.setFlags s.cf (some (2 ^ 64 ≤ a.toNat + b.toNat + o.toNat)) s.zf s.sf).setReg dst r
 
 end VG.X86_64

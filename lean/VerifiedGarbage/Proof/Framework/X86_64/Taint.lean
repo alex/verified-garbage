@@ -187,6 +187,21 @@ def mulStep (τ : T) (r : Reg) : T :=
   { τ with regs := if p then (τ.regs.insert .rax).insert .rdx else (τ.regs.erase .rax).erase .rdx,
            flags := p, bases := (kill τ .rax).filter (·.1 != .rdx), lo := .empty }
 
+/-- `mulx hi, lo, src`: `hi` and `lo` are functions of `rdx` and `src`; the
+flags are unchanged. -/
+def mulxStep (τ : T) (hi lo : Reg) (src : Src) : T :=
+  let p := pub τ .rdx && srcPub τ src
+  { τ with regs := if p then (τ.regs.insert lo).insert hi else (τ.regs.erase lo).erase hi,
+           bases := (kill τ hi).filter (·.1 != lo), lo := .empty }
+
+/-- `adcx d, src` and `adox d, src`: `d` and the flag it changes are
+functions of `d`, `src` and that flag. -/
+def adxStep (τ : T) (d : Reg) (src : Src) : Option T :=
+  if srcOk τ src then
+    let p := pub τ d && srcPub τ src && τ.flags
+    some { τ with regs := set τ d p, flags := p, bases := kill τ d, lo := .empty }
+  else none
+
 def step (τ : T) : Instr → Option T
   | .mov d src =>
     if srcOk τ src then
@@ -233,6 +248,8 @@ def step (τ : T) : Instr → Option T
   | .ldmxcsr m => if memPub τ m then some τ else none
   | .lfence => some τ
   | .mul r => some (mulStep τ r)
+  | .mulx hi lo src => if srcOk τ src then some (mulxStep τ hi lo src) else none
+  | .adcx d src | .adox d src => adxStep τ d src
   -- Frames are not analysed yet.
   | .push _ | .pop .. => none
 
@@ -685,15 +702,16 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {m : 
 /-! ### Instructions that write a register -/
 
 /-- The general-purpose register an instruction writes, if it writes exactly
-one (none for stores and SSE instructions, and for `mul`, which writes two). -/
+one (none for stores and SSE instructions, and for `mul` and `mulx`, which
+write two). -/
 def dstOf : Instr → Option Reg
   | .mov d _ | .mov32 d _ | .alu _ d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
   | .rorx32 d .. | .andn32 d .. | .rorx d .. | .andn d .. | .movzx8 d _ | .bswap d | .shift _ d _
-  | .movImm64 d _ => some d
+  | .movImm64 d _ | .adcx d _ | .adox d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _ | .vop _
   | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .zop _ | .vmovdqu32Load ..
   | .vmovdqu32Store .. | .vbroadcasti32x4 .. | .stmxcsr _ | .ldmxcsr _ | .lfence | .mul _
-  | .push _ | .pop .. => none
+  | .mulx .. | .push _ | .pop .. => none
 
 /-- An SSE instruction on registers changes only the SSE registers. -/
 theorem XOp.exec_eq (op : XOp) (s : State) : op.exec s = { s with xmm := (op.exec s).xmm } := by
@@ -720,6 +738,7 @@ theorem Agree.withXmm {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) (x�
 def clobbers (i : Instr) (r : Reg) : Bool :=
   match i with
   | .mul _ => r == .rax || r == .rdx
+  | .mulx hi lo _ => r == hi || r == lo
   -- The push and pop of a frame move `rsp`, and the pop loads `d`.
   | .push _ => r == .rsp
   | .pop d _ => r == .rsp || r == d
@@ -799,6 +818,18 @@ theorem exec_nonstore {i : Instr} {d : Reg} (hd : dstOf i = some d) {s s' : Stat
   case movImm64 v =>
     simp only [exec, Option.some.injEq] at h
     subst h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
+  case adcx src =>
+    simp only [exec, execAdcx] at h
+    split at h
+    · cases h
+    · simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+      obtain ⟨_, _, _, _, rfl⟩ := h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
+  case adox src =>
+    simp only [exec, execAdox] at h
+    split at h
+    · cases h
+    · simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+      obtain ⟨_, _, _, _, rfl⟩ := h; exact ⟨rfl, rfl, rfl, fun r h => setReg_ne h⟩
 
 theorem aluBases_narrow (τ : T) (op : AluOp) (d : Reg) (src : Src) :
     aluBases τ op d src false = kill τ d := by
@@ -899,6 +930,53 @@ theorem Agree.mul {τ : T} {r : Reg} {s₁ s₂ : State} (ha : Agree τ s₁ s�
   · simp only [mulStep, Bool.and_eq_true] at hp
     simp only [execMul, State.setReg, ha.reg hp.1, ha.reg hp.2, Nat.reducePow, State.setFlags,
         BitVec.ofNat_eq_ofNat, and_self]
+
+theorem mulx_gpr {hi lo : Reg} (s : State) (v w : BitVec 64) {q : Reg} (h₁ : q ≠ hi)
+    (h₂ : q ≠ lo) : ((s.setReg lo w).setReg hi v).gpr q = s.gpr q := by
+  rw [setReg_ne h₁, setReg_ne h₂]
+
+theorem Agree.mulx {τ : T} {hi lo : Reg} {src : Src} {s₁ s₂ s₁' s₂' : State} (ha : Agree τ s₁ s₂)
+    (e₁ : execMulx hi lo src s₁ = some s₁') (e₂ : execMulx hi lo src s₂ = some s₂') :
+    Agree (mulxStep τ hi lo src) s₁' s₂' := by
+  have hs : ∀ {s s'}, execMulx hi lo src s = some s' → ∃ b, X86_64.readSrc s src = some b ∧
+      s' = (s.setReg lo (BitVec.ofNat 64 ((s.gpr .rdx).toNat * b.toNat))).setReg hi
+        (BitVec.ofNat 64 ((s.gpr .rdx).toNat * b.toNat / 2 ^ 64)) := by
+    intro s s' e
+    simp only [execMulx] at e
+    split at e
+    · cases e
+    · simp only [Option.map_eq_some_iff] at e
+      obtain ⟨b, hb, rfl⟩ := e; exact ⟨b, hb, rfl⟩
+  obtain ⟨b₁, hb₁, rfl⟩ := hs e₁
+  obtain ⟨b₂, hb₂, rfl⟩ := hs e₂
+  have hbase : ∀ {s : State} (b : BitVec 64), Wf τ s → ∀ p ∈ (mulxStep τ hi lo src).bases,
+      ((s.setReg lo (BitVec.ofNat 64 ((s.gpr .rdx).toNat * b.toNat))).setReg hi
+        (BitVec.ofNat 64 ((s.gpr .rdx).toNat * b.toNat / 2 ^ 64))).gpr p.1 =
+      (region ((s.setReg lo (BitVec.ofNat 64 ((s.gpr .rdx).toNat * b.toNat))).setReg hi
+        (BitVec.ofNat 64 ((s.gpr .rdx).toNat * b.toNat / 2 ^ 64))) p.2.1).base +
+        BitVec.ofNat 64 p.2.2 := by
+    intro s b hw p hp
+    simp only [mulxStep, kill, List.mem_filter, bne_iff_ne, ne_eq] at hp
+    rw [mulx_gpr s _ _ hp.1.2 hp.2, hw.2 p hp.1.1]; rfl
+  refine ha.keep ⟨fun q hq => ?_, fun hf => ?_⟩ rfl rfl rfl rfl rfl rfl (hbase b₁ ha.wf₁)
+    (hbase b₂ ha.wf₂) noLo
+  · simp only [mulxStep] at hq
+    by_cases hp : (pub τ .rdx && srcPub τ src) = true
+    · have hp' := hp
+      simp only [Bool.and_eq_true] at hp'
+      have hrdx := ha.reg hp'.1
+      rw [ha.readSrc hp'.2, hb₂] at hb₁
+      cases hb₁
+      simp only [hp, ite_true, RegSet.mem_insert] at hq
+      by_cases h₁ : q = hi
+      · subst h₁; simp only [State.setReg, hrdx, ↓reduceIte]
+      by_cases h₂ : q = lo
+      · subst h₂; simp only [State.setReg, hrdx, h₁, ↓reduceIte]
+      simp only [h₁, h₂, false_or] at hq
+      rw [mulx_gpr s₁ _ _ h₁ h₂, mulx_gpr s₂ _ _ h₁ h₂]; exact ha.rf.1 q hq
+    · simp only [hp, Bool.false_eq_true, ite_false, RegSet.mem_erase] at hq
+      rw [mulx_gpr s₁ _ _ hq.1 hq.2.1, mulx_gpr s₂ _ _ hq.1 hq.2.1]; exact ha.rf.1 q hq.2.2
+  · simpa only [mulxStep, setReg_cf, setReg_zf, setReg_sf, setReg_of] using ha.rf.2 hf
 
 theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha : Agree τ s₁ s₂)
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
@@ -1265,6 +1343,63 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     simp only [exec, Option.some.injEq] at e₁ e₂
     subst e₁ e₂
     exact ⟨rfl, ha.mul⟩
+  | mulx hi lo src =>
+    simp only [step] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hok; cases hs
+    exact ⟨ha.srcAddrs hok, ha.mulx e₁ e₂⟩
+  | adcx d src =>
+    simp only [step, adxStep] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hok; cases hs
+    refine ⟨ha.srcAddrs hok, ha.write rfl e₁ e₂ ?_ rfl rfl (fun _ h => h) rfl⟩
+    simp only [exec, execAdcx] at e₁ e₂
+    split at e₁
+    · cases e₁
+    simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨b₁, hb₁, c₁, hc₁, rfl⟩ := e₁; obtain ⟨b₂, hb₂, c₂, hc₂, rfl⟩ := e₂
+    have hv : (pub τ d && srcPub τ src && τ.flags) = true →
+        s₁.gpr d = s₂.gpr d ∧ b₁ = b₂ ∧ c₁ = c₂ ∧ s₁.of = s₂.of ∧ s₁.zf = s₂.zf ∧ s₁.sf = s₂.sf := by
+      intro hp
+      simp only [Bool.and_eq_true] at hp
+      obtain ⟨⟨hd, hsp⟩, hf⟩ := hp
+      rw [ha.readSrc hsp, hb₂] at hb₁
+      obtain ⟨hcf, hzf, hsf, hof⟩ := ha.rf.2 hf
+      rw [hcf, hc₂] at hc₁
+      cases hb₁; cases hc₁
+      exact ⟨ha.reg hd, rfl, rfl, hof, hzf, hsf⟩
+    refine ⟨regs_set (fun r hr => by simpa only [State.setReg, State.setFlags] using ha.rf.1 r hr)
+      fun hp => ?_, fun hp => ?_⟩
+    · obtain ⟨h1, h2, h3, -⟩ := hv hp; rw [h1, h2, h3]
+    · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hv hp
+      simp only [setReg_cf, setReg_zf, setReg_sf, setReg_of, State.setFlags, h1, h2, h3, h4, h5, h6,
+        and_self]
+  | adox d src =>
+    simp only [step, adxStep] at hs
+    split at hs <;> [skip; cases hs]
+    rename_i hok; cases hs
+    refine ⟨ha.srcAddrs hok, ha.write rfl e₁ e₂ ?_ rfl rfl (fun _ h => h) rfl⟩
+    simp only [exec, execAdox] at e₁ e₂
+    split at e₁
+    · cases e₁
+    simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at e₁ e₂
+    obtain ⟨b₁, hb₁, c₁, hc₁, rfl⟩ := e₁; obtain ⟨b₂, hb₂, c₂, hc₂, rfl⟩ := e₂
+    have hv : (pub τ d && srcPub τ src && τ.flags) = true →
+        s₁.gpr d = s₂.gpr d ∧ b₁ = b₂ ∧ c₁ = c₂ ∧ s₁.cf = s₂.cf ∧ s₁.zf = s₂.zf ∧ s₁.sf = s₂.sf := by
+      intro hp
+      simp only [Bool.and_eq_true] at hp
+      obtain ⟨⟨hd, hsp⟩, hf⟩ := hp
+      rw [ha.readSrc hsp, hb₂] at hb₁
+      obtain ⟨hcf, hzf, hsf, hof⟩ := ha.rf.2 hf
+      rw [hof, hc₂] at hc₁
+      cases hb₁; cases hc₁
+      exact ⟨ha.reg hd, rfl, rfl, hcf, hzf, hsf⟩
+    refine ⟨regs_set (fun r hr => by simpa only [State.setReg, State.setFlags] using ha.rf.1 r hr)
+      fun hp => ?_, fun hp => ?_⟩
+    · obtain ⟨h1, h2, h3, -⟩ := hv hp; rw [h1, h2, h3]
+    · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hv hp
+      simp only [setReg_cf, setReg_zf, setReg_sf, setReg_of, State.setFlags, h1, h2, h3, h4, h5, h6,
+        and_self]
 
 theorem cond_sound {τ : T} {c : Cond} {s₁ s₂ : State} (ha : Agree τ s₁ s₂)
     (hc : τ.flags = true) : eval c s₁ = eval c s₂ := by
@@ -1391,6 +1526,17 @@ def storeSlotsK (τ : T) (m : MemOp) (w : Nat) (p : Bool) : List (Nat × Nat × 
 def storeStepK (τ : T) (m : MemOp) (w : Nat) (p : Bool) : Option T :=
   bif memPub τ m then some { τ with slots := storeSlotsK τ m w p } else none
 
+def mulxStepK (τ : T) (hi lo : Reg) (src : Src) : T :=
+  let p := pub τ .rdx && srcPub τ src
+  { τ with regs := bif p then (τ.regs.insert lo).insert hi else (τ.regs.erase lo).erase hi,
+           bases := filter (fun p => !regEq p.1 lo) (killK τ hi), lo := .empty }
+
+def adxStepK (τ : T) (d : Reg) (src : Src) : Option T :=
+  bif srcOkK τ src then
+    let p := pub τ d && srcPub τ src && τ.flags
+    some { τ with regs := setK τ d p, flags := p, bases := killK τ d, lo := .empty }
+  else none
+
 def aluBasesK (τ : T) (op : AluOp) (d : Reg) (src : Src) (wide : Bool) : List (Reg × Nat × Nat) :=
   match op, src with
   | .add, .imm v =>
@@ -1452,6 +1598,8 @@ def stepK (τ : T) : Instr → Option T
   | .ldmxcsr m => bif memPub τ m then some τ else none
   | .lfence => some τ
   | .mul r => some (mulStep τ r)
+  | .mulx hi lo src => bif srcOkK τ src then some (mulxStepK τ hi lo src) else none
+  | .adcx d src | .adox d src => adxStepK τ d src
   | .push _ | .pop .. => none
 
 /-- `l.contains a`, for a known base address. -/
@@ -1512,12 +1660,19 @@ theorem aluStepK_eq : aluStepK = aluStep := by
   funext τ op d src wide
   simp only [aluStepK, aluStep, srcOkK_eq, setK_eq, aluBasesK_eq, Bool.cond_eq_ite]
 
+theorem mulxStepK_eq : mulxStepK = mulxStep := by
+  funext τ hi lo src
+  simp only [mulxStepK, mulxStep, killK_eq, filter_eq, regEq_eq, Bool.cond_eq_ite]; rfl
+
+theorem adxStepK_eq : adxStepK = adxStep := by
+  funext τ d src; simp only [adxStepK, adxStep, srcOkK_eq, setK_eq, killK_eq, Bool.cond_eq_ite]
+
 theorem stepK_eq : stepK = step := by
   funext τ i
   cases i
   case vmovdquStore l _ _ => cases l <;> simp only [stepK, step, storeStepK_eq]
   all_goals simp only [stepK, step, srcOkK_eq, setK_eq, loadPubK_eq, movBasesK_eq, killK_eq,
-    storeStepK_eq, aluStepK_eq, Bool.cond_eq_ite]
+    storeStepK_eq, aluStepK_eq, mulxStepK_eq, adxStepK_eq, Bool.cond_eq_ite]
 
 theorem memB_eq (a : Reg × Nat × Nat) (l : List (Reg × Nat × Nat)) : memB a l = l.contains a := by
   simp only [memB, any_eq, beq_eq, regEq_eq, List.contains_eq_any_beq]
