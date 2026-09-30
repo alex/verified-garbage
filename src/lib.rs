@@ -60,6 +60,7 @@ compile_error!("32-bit x86 needs an i686 target with SSE2 (e.g. i686-unknown-lin
 pub mod aes_gcm;
 pub mod chacha20;
 pub mod chacha20poly1305;
+pub mod ed25519;
 pub mod hashes;
 pub mod hmac;
 pub mod mldsa44;

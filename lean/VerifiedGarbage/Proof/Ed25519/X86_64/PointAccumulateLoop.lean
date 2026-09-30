@@ -33,9 +33,6 @@ theorem accumulateTest_ok (s : State) (n : Nat) (hn : n < 16)
     Option.bind_some, Option.some.injEq, exists_eq_left']
   exact ⟨trivial, fun _ _ => rfl, rfl, rfl, rfl⟩
 
-theorem RbxKeep.of_keep {base : Addr} {s t : State} (h : Keep base s t) : RbxKeep base s t :=
-  ⟨fun r hr _ => h.gpr r hr, h.rd, h.wr, h.mem⟩
-
 theorem accumulateBody_ok {s : State} {base : Addr} (hs : Scratch s base)
     (n start scalar : Nat) (p : Spec.Ed25519.Point) (hn : n < 16) (hi : start + n < 512)
     (hc : s.gpr .rbx = BitVec.ofNat 64 (n + 1)) (hstart : s.gpr .rsi = BitVec.ofNat 64 start)

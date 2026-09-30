@@ -99,12 +99,6 @@ theorem toTableQuarter_ok {s : State} {base : Addr} (hs : Scratch s base) {o : N
     rfl
   · rw [hm, hk.2.1]; exact st4_outside _ _ (by omega) _ _ _ _
 
-theorem Outside_F {base : Addr} {o n : Nat} {m m' : Mem}
-    (h : Outside base o n m m') {d : Nat} (hd : d + 32 < 2 ^ 64)
-    (hsep : d + 32 ≤ o ∨ o + n ≤ d) : F m' base d = F m base d := by
-  unfold F
-  rw [h.fe hsep hd]
-
 theorem toTablePrefix_ok {s : State} {base : Addr} (hs : Scratch s base) {o : Nat}
     (hp : s.gpr .rax = off base o) (hlo : 768 ≤ o) (ho : o + 128 ≤ 8192)
     (n : Nat) (hn : n ≤ 4) :

@@ -71,4 +71,10 @@ theorem copyField_op {s : State} {base : Addr} (hs : Scr s base) (o a : Slot) :
   refine ⟨op, ?_⟩
   rw [F, hm, fe_st4 _ _ (by simp only [offset]; omega), hv]
 
+theorem Outside_F {base : Addr} {o n : Nat} {m m' : Mem}
+    (h : Outside base o n m m') {d : Nat} (hd : d + 32 < 2 ^ 64)
+    (hsep : d + 32 ≤ o ∨ o + n ≤ d) : F m' base d = F m base d := by
+  unfold F
+  rw [h.fe hsep hd]
+
 end VG.Proof.Ed25519.X86_64

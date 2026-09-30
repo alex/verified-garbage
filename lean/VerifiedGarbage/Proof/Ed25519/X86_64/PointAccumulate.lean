@@ -37,11 +37,6 @@ theorem scalarBitMask_ok {s : State} {base : Addr} (hs : Scratch s base)
   simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
   simp only [RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, hr.1, hr.2, ite_false]
 
-theorem Keep.of_keeps {base : Addr} {s t : State} {rs : List Reg}
-    (h : Keeps rs s t) (hrs : ∀ r ∈ rs, r ∈ clob) : Keep base s t :=
-  ⟨fun r hr => h.1 r (fun hm => hr (hrs r hm)), h.2.2.1, h.2.2.2,
-    by rw [h.2.1]; exact Proof.X25519.X86_64.Outside.refl _ _ _ _⟩
-
 theorem Keep.of_table {base : Addr} {s t : State}
     (h : TableKeep base 64 128 s t) : Keep base s t := by
   refine ⟨fun r hr => h.gpr r (fun hm => hr ?_), h.rd, h.wr, h.mem.mono (by decide) (by decide)⟩
