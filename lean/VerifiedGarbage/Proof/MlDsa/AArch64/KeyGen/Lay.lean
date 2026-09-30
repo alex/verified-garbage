@@ -40,6 +40,9 @@ abbrev scrLen (p : Params) : Nat := scratchWords p * 8
 theorem scr_eq (p : Params) : scrLen p = 1024 * (p.k * p.ℓ + 4 * p.k + 3 * p.ℓ + 32) := by
   simp only [scrLen, scratchWords]; omega
 
+theorem PFacts.scr {p : Params} (_ : PFacts p) : scrLen p = 1024 * (p.k * p.ℓ + 4 * p.k + 3 * p.ℓ + 32) :=
+  scr_eq p
+
 theorem PFacts.small {p : Params} (hF : PFacts p) : scrLen p < 2 ^ 32 ∧ p.pkLen < 2 ^ 32 ∧ p.skLen < 2 ^ 32 := by
   have hk := hF.k; have hl := hF.l; have hkl := hF.kl
   have hls : lenS p * (p.ℓ + p.k) ≤ 128 * 15 := by
