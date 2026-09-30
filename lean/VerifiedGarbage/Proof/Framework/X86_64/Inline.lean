@@ -275,6 +275,27 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     rename_i hr; simp only [hr, ite_true]; rfl
   | lfence => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
   | mul r => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
+  | mulx hi lo src =>
+    simp only [exec, execMulx] at h ⊢
+    split at h
+    · cases h
+    · simp only [Option.map_eq_some_iff] at h ⊢
+      obtain ⟨b, hb, rfl⟩ := h
+      exact ⟨b, readSrc_widen hc hb, rfl⟩
+  | adcx d src =>
+    simp only [exec, execAdcx] at h ⊢
+    split at h
+    · cases h
+    · simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h ⊢
+      obtain ⟨b, hb, c, hc', rfl⟩ := h
+      exact ⟨b, readSrc_widen hc hb, c, hc', rfl⟩
+  | adox d src =>
+    simp only [exec, execAdox] at h ⊢
+    split at h
+    · cases h
+    · simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h ⊢
+      obtain ⟨b, hb, c, hc', rfl⟩ := h
+      exact ⟨b, readSrc_widen hc hb, c, hc', rfl⟩
   | push | pop => simp only [exec, reduceCtorEq] at h
 
 theorem addrs_withRegions (i : Instr) (s : State) (rd wr : List Region) :
@@ -318,6 +339,10 @@ theorem exec_regions {i : Instr} (h : exec i s = some s') : s'.rd = s.rd ∧ s'.
     split at h <;> cases h; exact ⟨rfl, rfl⟩
   | lfence => simp only [exec, Option.some.injEq] at h; subst h; exact ⟨rfl, rfl⟩
   | mul r => simp only [exec, Option.some.injEq] at h; subst h; exact ⟨rfl, rfl⟩
+  | mulx hi lo src =>
+    simp only [exec, execMulx] at h; split at h
+    · cases h
+    · simp only [Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl⟩
   | push | pop => simp only [exec, reduceCtorEq] at h
   | _ => exact ⟨(Taint.exec_nonstore rfl h).1, (Taint.exec_nonstore rfl h).2.1⟩
 
@@ -367,6 +392,10 @@ theorem exec_frame {i : Instr} (h : exec i s = some s') : Frame s.wr s.mem s'.me
     split at h <;> cases h; exact Frame.refl _ _
   | lfence => simp only [exec, Option.some.injEq] at h; subst h; exact Frame.refl _ _
   | mul r => simp only [exec, Option.some.injEq] at h; subst h; exact Frame.refl _ _
+  | mulx hi lo src =>
+    simp only [exec, execMulx] at h; split at h
+    · cases h
+    · simp only [Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; exact Frame.refl _ _
   | push | pop => simp only [exec, reduceCtorEq] at h
   | _ => rw [(Taint.exec_nonstore rfl h).2.2.1]; exact Frame.refl _ _
 
@@ -640,6 +669,12 @@ theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.clobbers i r = false) {s s' :
       simp only [Taint.clobbers, Bool.or_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at hi
       simp only [exec, Option.some.injEq] at h; subst h
       exact Taint.execMul_gpr q s hi.1 hi.2
+    · rename_i hi' lo src
+      simp only [Taint.clobbers, Bool.or_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at hi
+      simp only [exec, execMulx] at h; split at h
+      · cases h
+      · simp only [Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h
+        exact Taint.mulx_gpr s _ _ hi.1 hi.2
     · simp only [exec, reduceCtorEq] at h
     · simp only [exec, reduceCtorEq] at h
 

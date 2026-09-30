@@ -30,7 +30,8 @@ Modelling choices:
   be added: the constant-time leakage model assumes they do not exist. `mul`
   is one of the instructions whose timing Intel documents as independent of
   their data operands ("Data Operand Independent Timing Instruction Set
-  Architecture (ISA) Guidance", which lists `MUL`).
+  Architecture (ISA) Guidance", which lists `MUL`), and so are BMI2's `mulx`
+  and ADX's `adcx` and `adox` (it lists `MULX`, `ADCX` and `ADOX`).
 * Calls (`call`) and returns (`ret`) are near and direct (SDM Vol. 2, "CALL",
   "RET"). The return addresses are the next of the state's `unknowns`,
   which nothing constrains (see `TCB/Code.lean`).
@@ -61,10 +62,10 @@ Modelling choices:
   Its control bits (15:6) are callee-saved (see `Target.lean`). `lfence`
   has no architectural effect, so the model treats it as a no-op.
 * MXCSR-configuration-dependent timing (MCDT): on some Intel processors,
-  the multiplies of the model but `mul` (`pmuludq`, `vpmuludq`, `pmullw`,
-  `vpmullw`, `pmulhw` and `vpmulhw`), although on Intel's DOIT list, may
-  take up to a cycle longer to retire for specific data values unless
-  MXCSR holds `0x1FBF` (Intel, "MXCSR Configuration Dependent Timing", and
+  the multiplies of the model but `mul` and `mulx` (`pmuludq`, `vpmuludq`,
+  `pmullw`, `vpmullw`, `pmulhw` and `vpmulhw`), although on Intel's DOIT
+  list, may take up to a cycle longer to retire for specific data values
+  unless MXCSR holds `0x1FBF` (Intel, "MXCSR Configuration Dependent Timing", and
   its list of the instructions affected, "MCDT Data Operand Independent
   Timing Instructions"; the processors that enumerate `MCDT_NO`,
   CPUID.(EAX=7H,ECX=2):EDX[5], are not affected). The leakage model does
@@ -154,6 +155,16 @@ inductive Instr
   | lfence
   /-- `mul r64` (REX.W + F7 /4): the unsigned product `RDX:RAX := RAX * r64`. -/
   | mul (src : Reg)
+  /-- `mulx hi, lo, src` (`VEX.LZ.F2.0F38.W1 F6 /r`, BMI2): the unsigned
+  product `hi:lo := RDX * src`, without affecting the flags. `src` is a
+  register or memory. -/
+  | mulx (hi lo : Reg) (src : Src)
+  /-- `adcx r64, src` (`66 REX.w 0F 38 F6 /r`, ADX): `CF:dst := dst + src +
+  CF`, the other flags unchanged. `src` is a register or memory. -/
+  | adcx (dst : Reg) (src : Src)
+  /-- `adox r64, src` (`F3 REX.w 0F 38 F6 /r`, ADX): `OF:dst := dst + src +
+  OF`, the other flags unchanged. `src` is a register or memory. -/
+  | adox (dst : Reg) (src : Src)
   /-- `push r64` (50+rd) for each `r` of `rs`, in order: the push of a frame
   (see `push`); `rs` must not be empty or contain `rsp` -/
   | push (rs : List Reg)
@@ -193,7 +204,8 @@ VPSLLVD/Q, VPSRLVD/Q, VPBROADCASTD/Q, VPERMQ, VPERM2I128, VINSERTI128,
 VEXTRACTI128 and VBROADCASTI128 at any length. LDMXCSR and STMXCSR (SSE,
 `NP 0F AE /2`, `NP 0F AE /3`) and LFENCE (SSE2, `NP 0F AE E8`) are in the
 baseline. BMI2 for RORX (`VEX.LZ.F2.0F3A.W0 F0 /r ib`, `VEX.LZ.F2.0F3A.W1
-F0 /r ib`) and BMI1 for ANDN (`VEX.LZ.0F38.W0 F2 /r`, `VEX.LZ.0F38.W1 F2
+F0 /r ib`) and for MULX (`VEX.LZ.F2.0F38.W1 F6 /r`), ADX for ADCX and ADOX
+(`66 REX.w 0F 38 F6 /r`, `F3 REX.w 0F 38 F6 /r`), and BMI1 for ANDN (`VEX.LZ.0F38.W0 F2 /r`, `VEX.LZ.0F38.W1 F2
 /r`). AVX512F for the EVEX.512 forms of VPADDD
 (`EVEX.512.66.0F.W0 FE /r`), VPXORD (`EVEX.512.66.0F.W0 EF /r`),
 VPUNPCKLDQ, VPUNPCKHDQ, VPUNPCKLQDQ and VPUNPCKHQDQ (`EVEX.512.66.0F.W0 62
@@ -220,7 +232,8 @@ def Instr.requires : Instr → List String
   | .vop (.vpblendd ..) | .vop (.vvar ..) | .vop (.vpbroadcastd ..) | .vop (.vpbroadcastq ..)
   | .vop (.vpermq ..) | .vop (.vperm2i128 ..) | .vop (.vinserti128 ..) | .vop (.vextracti128 ..)
   | .vbroadcasti128 .. => ["avx2"]
-  | .rorx32 .. | .rorx .. => ["bmi2"]
+  | .rorx32 .. | .rorx .. | .mulx .. => ["bmi2"]
+  | .adcx .. | .adox .. => ["adx"]
   | .andn32 .. | .andn .. => ["bmi1"]
   | .zop _ | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. => ["avx512f"]
   | .vop (.vsha512rnds2 ..) | .vop (.vsha512msg1 ..) | .vop (.vsha512msg2 ..) => ["sha512"]
@@ -293,6 +306,9 @@ def exec : Instr → State → Option State
     if v.extractLsb' 16 16 = 0 then some { s with mxcsr := v } else none
   | .lfence, s => some s
   | .mul r, s => some (execMul r s)
+  | .mulx hi lo src, s => execMulx hi lo src s
+  | .adcx d src, s => execAdcx d src s
+  | .adox d src, s => execAdox d src s
   -- Only the push and pop of a frame (`push`, `pop`).
   | .push _, _ | .pop .., _ => none
 
@@ -329,6 +345,9 @@ def addrs : Instr → State → List Addr
   | .ldmxcsr m, s => [s.ea m]
   | .lfence, _ => []
   | .mul _, _ => []
+  | .mulx _ _ src, s => srcAddrs s src
+  | .adcx _ src, s => srcAddrs s src
+  | .adox _ src, s => srcAddrs s src
   | .push rs, s => (List.range rs.length).map fun i => s.gpr .rsp - BitVec.ofNat 64 (8 * (i + 1))
   | .pop _ k, s => (List.range k).map fun i => s.gpr .rsp + BitVec.ofNat 64 (8 * i)
 
@@ -406,11 +425,11 @@ two, `rax` and `rdx`, and stores and SSE instructions none. -/
 def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .mov32 d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
   | .rorx32 d .. | .andn32 d .. | .rorx d .. | .andn d .. | .movzx8 d _ | .bswap d | .shift _ d _
-  | .movImm64 d _ | .pop d _ => some d
+  | .movImm64 d _ | .adcx d _ | .adox d _ | .pop d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _
   | .vop _ | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .zop _
   | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. | .stmxcsr _ | .ldmxcsr _
-  | .lfence | .mul _ | .push _ => none
+  | .lfence | .mul _ | .mulx .. | .push _ => none
 
 abbrev isa : ISA where
   State := State
@@ -424,8 +443,10 @@ abbrev isa : ISA where
   ret := ret
   retAddrs s := [s.gpr .rsp]
   -- Other than as the push and pop of a frame. `mul` writes `rax` and
-  -- `rdx`, never `rsp`.
-  writesSp i := i.dst == some .rsp
+  -- `rdx`, never `rsp`; `mulx` writes both of its destinations.
+  writesSp i := match i with
+    | .mulx hi lo _ => hi == .rsp || lo == .rsp
+    | _ => i.dst == some .rsp
   push := push
   pop := pop
   requires := Instr.requires

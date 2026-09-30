@@ -196,6 +196,9 @@ def Instr.asm : Instr → List String
   | .ldmxcsr m => [s!"ldmxcsr {m.str32}"]
   | .lfence => ["lfence"]
   | .mul r => [s!"mul {r.name}"]
+  | .mulx hi lo s => [s!"mulx {hi.name}, {lo.name}, {s.str}"]
+  | .adcx d s => [s!"adcx {d.name}, {s.str}"]
+  | .adox d s => [s!"adox {d.name}, {s.str}"]
   | .push rs => rs.map fun r => s!"push {r.name}"
   | .pop r k => List.replicate k s!"pop {r.name}"
 

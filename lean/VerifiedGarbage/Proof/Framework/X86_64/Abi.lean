@@ -57,6 +57,20 @@ theorem exec_mxcsr {i : Instr} (hi : loadsMxcsr i = false) {s s' : State} (h : e
     simp only [exec, Option.some.injEq] at h; subst h; rfl
   | rorx32 => simp only [exec, execRorx32] at h; split at h <;> cases h; rfl
   | rorx => simp only [exec, execRorx] at h; split at h <;> cases h; rfl
+  | mulx =>
+    simp only [exec, execMulx] at h; split at h
+    · cases h
+    · simp only [Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; rfl
+  | adcx =>
+    simp only [exec, execAdcx] at h; split at h
+    · cases h
+    · simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+      obtain ⟨_, _, _, _, rfl⟩ := h; rfl
+  | adox =>
+    simp only [exec, execAdox] at h; split at h
+    · cases h
+    · simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+      obtain ⟨_, _, _, _, rfl⟩ := h; rfl
   | push | pop => simp only [exec, reduceCtorEq] at h
 
 theorem pushRegs_mxcsr (s : State) (rs : List Reg) : (pushRegs s rs).mxcsr = s.mxcsr := by
