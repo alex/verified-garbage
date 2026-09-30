@@ -17,7 +17,7 @@ read (`out` then in `rsi`):
   byte `t` is bit `t` of `k`).
 
 The arithmetic (registers `rax, rdx, rcx, rbp, r8–r15`), whose
-multiplications (`mul`, squaring as `mul`, and `mulSmall` by `a24`) are the
+multiplications (`mul`, `sqr`, and `mulSmall` by `a24`) are the
 `Field` `baseline`; the rest of the code takes them as a parameter
 (`x25519With`), so that `vg_x25519_adx` (`X86_64/Adx.lean`) is this code with
 other multiplications:
@@ -27,6 +27,8 @@ other multiplications:
   folded in as `38 c`, and a last carry of that as 38 more;
 * `add`, `sub`: with carries (borrows), each carry folded in (subtracted) as
   38, twice;
+* `sqr`: the products `a_i a_j` for `i < j` once, as rows of `mul`, then
+  doubled, and the squares `a_i²` added; reduced as `mul`;
 * `mulSmall`: by a one-word constant (`a24`), folded as for `mul`;
 * `cswap`: with the mask `-swap`, as RFC 7748 §5 describes;
 * `freeze`: the full reduction of the result, by folding bit 255 in as 19,
@@ -34,8 +36,8 @@ other multiplications:
 
 The ladder follows RFC 7748 §5 operation by operation, over the bits of `k`
 from 254 down to 0 (the counter `rbx`, which indexes `BITS`), and the
-inversion `z2^(p-2)` is the addition chain of ref10 (254 squarings, each a
-`mul`, and 11 multiplications).
+inversion `z2^(p-2)` is the addition chain of ref10 (254 squarings and 11
+multiplications).
 
 The only branches are on the loop counters, and every address is a pointer
 plus a constant or a counter, so only the pointers can affect timing.
@@ -130,6 +132,45 @@ def reduce : List Instr :=
 def mul (o a b : Nat) : List Instr :=
   zero4 ++ row a b 0 ++ row a b 1 ++ row a b 2 ++ row a b 3 ++ reduce ++ store4 o
 
+/-- `r9–r12 = a₀ · (a₁, a₂, a₃)`, a row of `mul`. -/
+def sq1 (a : Nat) : List Instr :=
+  [.mov .rcx (.mem (sc a)), .mov32 .rbp (.imm 0), .mov32 .r9 (.imm 0), .mov32 .r10 (.imm 0),
+    .mov32 .r11 (.imm 0)] ++
+    mulStep .r9 .rbp .rcx (.mem (sc (a + 8))) ++ mulStep .r10 .rbp .rcx (.mem (sc (a + 16))) ++
+    mulStep .r11 .rbp .rcx (.mem (sc (a + 24))) ++ [.mov .r12 (.reg .rbp)]
+
+/-- `r11–r13 = r11–r12 + a₁ · (a₂, a₃)`. -/
+def sq2 (a : Nat) : List Instr :=
+  [.mov .rcx (.mem (sc (a + 8))), .mov32 .rbp (.imm 0)] ++
+    mulStep .r11 .rbp .rcx (.mem (sc (a + 16))) ++ mulStep .r12 .rbp .rcx (.mem (sc (a + 24))) ++
+    [.mov .r13 (.reg .rbp)]
+
+/-- `r13–r14 = r13 + a₂ a₃`. -/
+def sq3 (a : Nat) : List Instr :=
+  [.mov .rcx (.mem (sc (a + 16))), .mov32 .rbp (.imm 0)] ++
+    mulStep .r13 .rbp .rcx (.mem (sc (a + 24))) ++ [.mov .r14 (.reg .rbp)]
+
+/-- `r9–r15 = 2 · r9–r14`, and `r8 = rbp = 0`. -/
+def sqDbl : List Instr :=
+  [.mov32 .r15 (.imm 0), .mov32 .r8 (.imm 0), .alu .add .r9 (.reg .r9),
+    .alu .adc .r10 (.reg .r10), .alu .adc .r11 (.reg .r11), .alu .adc .r12 (.reg .r12),
+    .alu .adc .r13 (.reg .r13), .alu .adc .r14 (.reg .r14), .alu .adc .r15 (.reg .r15),
+    .mov32 .rbp (.imm 0)]
+
+/-- `t + 2⁶⁴ u + 2¹²⁸ rbp = t + 2⁶⁴ u + rbp + [d]²`: a square added at the
+words `t`, `u`, the carry word `rbp` in and out. -/
+def diag (t u : Reg) (d : Nat) : List Instr :=
+  [.mov .rax (.mem (sc d)), .mul .rax, .alu .add .rax (.reg .rbp), .alu .adc .rdx (.imm 0),
+    .alu .add t (.reg .rax), .alu .adc u (.reg .rdx), .mov32 .rbp (.imm 0),
+    .alu .adc .rbp (.imm 0)]
+
+/-- `[o] = [a]²`: the products `a_i a_j` (`i < j`) into `r9–r14` (by `a₀`,
+then `a₁`, then `a₂`, as rows of `mul`), doubled into `r9–r15`, then the
+squares `a_i²` added at `r8 + 2i` (`diag`), and reduced as in `mul`. -/
+def sqr (o a : Nat) : List Instr :=
+  sq1 a ++ sq2 a ++ sq3 a ++ sqDbl ++ diag .r8 .r9 a ++ diag .r10 .r11 (a + 8) ++
+    diag .r12 .r13 (a + 16) ++ diag .r14 .r15 (a + 24) ++ reduce ++ store4 o
+
 /-- `[o] = k · [a]`, for a constant `k < 2³¹`. -/
 def mulSmall (o a : Nat) (k : BitVec 32) : List Instr :=
   zero4 ++ [.mov32 .rcx (.imm k), .mov32 .rbp (.imm 0)] ++
@@ -181,10 +222,10 @@ structure Field where
   /-- `[o] = a24 · [a]` -/
   a24 : Nat → Nat → List Instr
 
-/-- The baseline's: `mul`, which also squares. -/
+/-- The baseline's: `mul`, `sqr` and `mulSmall`. -/
 def baseline : Field where
   mul := mul
-  sqr o a := mul o a a
+  sqr := sqr
   a24 o a := mulSmall o a a24
 
 /-- `[o] = [a]^(2^n)`, for `n ≥ 2`: a square, then `n - 1` in place. -/

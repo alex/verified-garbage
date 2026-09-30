@@ -25,8 +25,9 @@ def artifacts : List Artifact := [
   { Spec.X25519.x25519Api with
     target := X86_64.target
     doc := Spec.X25519.x25519Api.doc (notes := ["The function saves its caller's callee-saved \
-      registers in `scratch`. Field elements are four 64-bit words, multiplied with `mul` and \
-      reduced with `2^256 = 38` (mod p); the inversion is ref10's addition chain."])
+      registers in `scratch`. Field elements are four 64-bit words, multiplied with `mul` \
+      (squares computing each cross product once) and reduced with `2^256 = 38` (mod p); the \
+      inversion is ref10's addition chain."])
     code := Impl.X25519.X86_64.x25519
     contract := Spec.X25519.x25519Contract X86_64.abi
     verified := Proof.X25519.X86_64.x25519_verified
