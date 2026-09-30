@@ -190,14 +190,17 @@ structure Site (p : Params) (s : State) : Prop where
   lay : Lay kgR (kgW p) s
   h24 : 24 ≤ (s.gpr .rsp).toNat
 
+/-- The registers that hold the pointers of the layout. -/
+abbrev kgRegs : List Reg := [.rbx, .rbp, .r12, .r13]
+
 /-- Two such states with the same pointers and stack pointer. -/
 structure Two (p : Params) (x y : State) : Prop where
   sx : Site p x
   sy : Site p y
-  regs : ∀ r ∈ bases, x.gpr r = y.gpr r
+  regs : ∀ r ∈ kgRegs, x.gpr r = y.gpr r
   rsp : x.gpr .rsp = y.gpr .rsp
 
-theorem Two.pa {p : Params} {x y : State} (h : Two p x y) {q : Ptr} (hq : q.1 ∈ bases) : pa x q = pa y q := by
+theorem Two.pa {p : Params} {x y : State} (h : Two p x y) {q : Ptr} (hq : q.1 ∈ kgRegs) : pa x q = pa y q := by
   simp only [VG.Proof.MlKem.X86_64.pa, h.regs _ hq]
 
 /-- The registers the moves of arguments write keep the stack pointer. -/
@@ -250,7 +253,7 @@ theorem ipAt_ok {t : Spec.MlDsa.Poly → Spec.MlDsa.Poly} {c : Prog isa} {n : St
 
 include hf h1 w1 w2 in
 theorem ipAt_tr {t : Spec.MlDsa.Poly → Spec.MlDsa.Poly} {c : Prog isa} {n : String}
-    (hc : Callee c fun stk => Spec.MlDsa.inPlaceContract X86_64.abi t stk) (hb : f.1 ∈ bases) :
+    (hc : Callee c fun stk => Spec.MlDsa.inPlaceContract X86_64.abi t stk) (hb : f.1 ∈ kgRegs) :
     RelCT isa (fun x y => Two p x y ∧ Spec.MlDsa.Reduced x.mem (pa x f) ∧ Spec.MlDsa.Reduced y.mem (pa y f))
       (.seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call n c)) fun _ _ => True := by
   have g := fun s => glue2_ok hf (sc_ok oSS (by decide)) s
@@ -312,7 +315,7 @@ theorem addAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.addContract
 
 include hf hg h1 w1 in
 theorem addAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.addContract X86_64.abi stk)
-    (hbf : f.1 ∈ bases) (hbg : g.1 ∈ bases) :
+    (hbf : f.1 ∈ kgRegs) (hbg : g.1 ∈ kgRegs) :
     RelCT isa (fun x y => Two p x y ∧ (Spec.MlDsa.Reduced x.mem (pa x f) ∧ Spec.MlDsa.Reduced x.mem (pa x g)) ∧
       (Spec.MlDsa.Reduced y.mem (pa y f) ∧ Spec.MlDsa.Reduced y.mem (pa y g))) (addAt c f g) fun _ _ => True := by
   obtain ⟨i1, i2, _⟩ := sepB_spec h1
@@ -377,7 +380,7 @@ theorem mulAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulContract
 
 include hh hf hg h1 h2 w1 in
 theorem mulAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulContract X86_64.abi stk)
-    (hbh : h.1 ∈ bases) (hbf : f.1 ∈ bases) (hbg : g.1 ∈ bases) :
+    (hbh : h.1 ∈ kgRegs) (hbf : f.1 ∈ kgRegs) (hbg : g.1 ∈ kgRegs) :
     RelCT isa (fun x y => Two p x y ∧ (Spec.MlDsa.Reduced x.mem (pa x f) ∧ Spec.MlDsa.Reduced x.mem (pa x g)) ∧ (Spec.MlDsa.Reduced y.mem (pa y f) ∧ Spec.MlDsa.Reduced y.mem (pa y g))) (mulAt c h f g) fun _ _ => True := by
   obtain ⟨i1, i2, _⟩ := sepB_spec h1
   obtain ⟨_, i3, _⟩ := sepB_spec h2
@@ -440,7 +443,7 @@ theorem mulAddAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulAddCo
 
 include hh hf hg h1 h2 w1 in
 theorem mulAddAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulAddContract X86_64.abi stk)
-    (hbh : h.1 ∈ bases) (hbf : f.1 ∈ bases) (hbg : g.1 ∈ bases) :
+    (hbh : h.1 ∈ kgRegs) (hbf : f.1 ∈ kgRegs) (hbg : g.1 ∈ kgRegs) :
     RelCT isa (fun x y => Two p x y ∧ (Spec.MlDsa.Reduced x.mem (pa x h) ∧ Spec.MlDsa.Reduced x.mem (pa x f) ∧ Spec.MlDsa.Reduced x.mem (pa x g)) ∧ (Spec.MlDsa.Reduced y.mem (pa y h) ∧ Spec.MlDsa.Reduced y.mem (pa y f) ∧ Spec.MlDsa.Reduced y.mem (pa y g))) (mulAddAt c h f g) fun _ _ => True := by
   obtain ⟨i1, i2, _⟩ := sepB_spec h1
   obtain ⟨_, i3, _⟩ := sepB_spec h2
@@ -510,7 +513,7 @@ theorem p2rAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.power2Round
 
 include ht ht1 ht0 h1 h2 h3 w1 w2 in
 theorem p2rAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.power2RoundContract X86_64.abi stk)
-    (hbt : t.1 ∈ bases) (hb1 : t1.1 ∈ bases) (hb0 : t0.1 ∈ bases) :
+    (hbt : t.1 ∈ kgRegs) (hb1 : t1.1 ∈ kgRegs) (hb0 : t0.1 ∈ kgRegs) :
     RelCT isa (fun x y => Two p x y ∧ Spec.MlDsa.Reduced x.mem (pa x t) ∧ Spec.MlDsa.Reduced y.mem (pa y t))
       (power2RoundAt c t t1 t0) fun _ _ => True := by
   obtain ⟨i1, i2, _⟩ := sepB_spec h1
@@ -569,7 +572,7 @@ theorem rejNttAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.rejNTTCo
 
 include hsd ha h1 h2 h3 w1 w2 in
 theorem rejNttAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.rejNTTContract X86_64.abi stk)
-    (hbs : sd.1 ∈ bases) (hba : a.1 ∈ bases) :
+    (hbs : sd.1 ∈ kgRegs) (hba : a.1 ∈ kgRegs) :
     RelCT isa (fun x y => Two p x y ∧ bytesAt x.mem (pa x sd) 34 = bytesAt y.mem (pa y sd) 34)
       (rejNttAt c sd a) fun _ _ => True := by
   obtain ⟨i1, _, _⟩ := sepB_spec h1
@@ -675,7 +678,7 @@ theorem rejBAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.rejBounded
 
 include heta hsd ha h1 h2 h3 w1 w2 in
 theorem rejBAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.rejBoundedContract X86_64.abi stk)
-    (hbs : sd.1 ∈ bases) (hba : a.1 ∈ bases) :
+    (hbs : sd.1 ∈ kgRegs) (hba : a.1 ∈ kgRegs) :
     RelCT isa (fun x y => Two p x y ∧ Spec.MlDsa.rejBoundedLeak eta (bytesAt x.mem (pa x sd) 66) =
       Spec.MlDsa.rejBoundedLeak eta (bytesAt y.mem (pa y sd) 66)) (rejBoundedAt c sd eta a) fun _ _ => True := by
   obtain ⟨i1, _, _⟩ := sepB_spec h1
@@ -752,7 +755,7 @@ theorem sbpAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.simpleBitPa
 
 include hb hl hf ho h1 w1 in
 theorem sbpAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.simpleBitPackContract X86_64.abi stk)
-    (hbf : f.1 ∈ bases) (hbo : out.1 ∈ bases) :
+    (hbf : f.1 ∈ kgRegs) (hbo : out.1 ∈ kgRegs) :
     RelCT isa (fun x y => Two p x y ∧ (∀ i < 256, (Spec.MlDsa.coeffAt x.mem (pa x f) i).toNat ≤ b) ∧
       (∀ i < 256, (Spec.MlDsa.coeffAt y.mem (pa y f) i).toNat ≤ b)) (simpleBitPackAt c f b out len) fun _ _ => True := by
   obtain ⟨i1, _, _⟩ := sepB_spec h1
@@ -838,7 +841,7 @@ theorem bpAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.bitPackContr
 
 include hab hl hf ho h1 w1 in
 theorem bpAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.bitPackContract X86_64.abi stk)
-    (hbf : f.1 ∈ bases) (hbo : out.1 ∈ bases) :
+    (hbf : f.1 ∈ kgRegs) (hbo : out.1 ∈ kgRegs) :
     RelCT isa (fun x y => Two p x y ∧ PackIn x.mem (pa x f) a b ∧ PackIn y.mem (pa y f) a b)
       (bitPackAt c f a b out len) fun _ _ => True := by
   obtain ⟨i1, _, _⟩ := sepB_spec h1
