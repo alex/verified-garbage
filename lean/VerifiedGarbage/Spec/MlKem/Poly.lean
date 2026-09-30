@@ -243,6 +243,7 @@ def nttApi : Api where
   name := "vg_mlkem_ntt"
   sig := inPlaceSig "f"
   writeArgs := true
+  contracts := some fun A stack => nttContract A stack
   summary := "The ML-KEM number-theoretic transform, `NTT` (FIPS 203 Algorithm 9), of the \
     polynomial `*f` (256 coefficients less than `q` = 3329), in place." ++ ctDoc "nttContract"
   safety := [reducedSafety "f", scratchSafety]
@@ -255,6 +256,7 @@ def nttInvApi : Api where
   name := "vg_mlkem_inv_ntt"
   sig := inPlaceSig "f"
   writeArgs := true
+  contracts := some fun A stack => nttInvContract A stack
   summary := "The inverse of the ML-KEM number-theoretic transform, `NTT⁻¹` (FIPS 203 \
     Algorithm 10), of `*f` (256 coefficients less than `q` = 3329), in place." ++
     ctDoc "nttInvContract"
@@ -266,6 +268,7 @@ def mulApi : Api where
   name := "vg_mlkem_multiply_ntts"
   sig := mulSig
   writeArgs := true
+  contracts := some fun A stack => mulContract A stack
   summary := "The product of two NTT representations, `MultiplyNTTs` (FIPS 203 Algorithm 11): \
     writes the product of `*f` and `*g` to `*h`, each of 256 coefficients less than \
     `q` = 3329." ++ ctDoc "mulContract"
@@ -277,6 +280,7 @@ def addApi : Api where
   name := "vg_mlkem_add"
   sig := accSig
   writeArgs := true
+  contracts := some fun A stack => addContract A stack
   summary := "Adds the polynomial `*g` to `*f` modulo `q` = 3329, coefficient by coefficient \
     (FIPS 203 (2.3))." ++ ctDoc "addContract"
   safety := [reducedSafety "f", reducedSafety "g"]
@@ -287,6 +291,7 @@ def subApi : Api where
   name := "vg_mlkem_sub"
   sig := accSig
   writeArgs := true
+  contracts := some fun A stack => subContract A stack
   summary := "Subtracts the polynomial `*g` from `*f` modulo `q` = 3329, coefficient by \
     coefficient." ++ ctDoc "subContract"
   safety := [reducedSafety "f", reducedSafety "g"]
@@ -297,6 +302,7 @@ def sampleNTTApi : Api where
   name := "vg_mlkem_sample_ntt"
   sig := sampleNTTSig
   writeArgs := true
+  contracts := some fun A stack => sampleNTTContract A stack
   summary := "`SampleNTT` (FIPS 203 Algorithm 7): writes the element of `T_q` sampled from the \
     SHAKE128 output of the 34 bytes `*seed` to `*a` (256 coefficients less than `q` = 3329), \
     and returns 1. Returns 0 if the loop reaches its bound, which is at least 280 iterations \
@@ -313,6 +319,7 @@ def sampleNTT4Api : Api where
   name := "vg_mlkem_sample_ntt4"
   sig := sampleNTT4Sig
   writeArgs := true
+  contracts := some fun A stack => sampleNTT4Contract A stack
   summary := "`SampleNTT` (FIPS 203 Algorithm 7) four times: for each `k` < 4, writes the element of \
     `T_q` sampled from the SHAKE128 output of the 34 bytes of `*seeds` from byte `34 k` to the \
     256 coefficients of `*a` from coefficient `256 k` (each less than `q` = 3329), and returns 1. \
@@ -332,6 +339,7 @@ def cbd2Api : Api where
   name := "vg_mlkem_cbd2"
   sig := cbd2Sig
   writeArgs := true
+  contracts := some fun A stack => cbd2Contract A stack
   summary := "`SamplePolyCBD₂` (FIPS 203 Algorithm 8 with `η` = 2): writes the polynomial \
     sampled from the 128 bytes `*b` to `*f` (256 coefficients less than `q` = 3329)." ++
     ctDoc "cbd2Contract"
@@ -343,6 +351,7 @@ def encode12Api : Api where
   name := "vg_mlkem_encode12"
   sig := encode12Sig
   writeArgs := true
+  contracts := some fun A stack => encode12Contract A stack
   summary := "`ByteEncode₁₂` (FIPS 203 Algorithm 5): writes the 256 coefficients of `*f`, each \
     less than `q` = 3329, to `*out` as 12-bit little-endian fields." ++ ctDoc "encode12Contract"
   safety := [reducedSafety "f"]
@@ -353,6 +362,7 @@ def decode12Api : Api where
   name := "vg_mlkem_decode12"
   sig := decode12Sig
   writeArgs := true
+  contracts := some fun A stack => decode12Contract A stack
   summary := "`ByteDecode₁₂` (FIPS 203 Algorithm 6): writes the 256 12-bit little-endian \
     fields of `*b`, each reduced modulo `q` = 3329, to `*f`." ++ ctDoc "decode12Contract"
   safety := []
@@ -363,6 +373,7 @@ def compressEncodeApi : Api where
   name := "vg_mlkem_compress_encode"
   sig := compressEncodeSig
   writeArgs := true
+  contracts := some fun A stack => compressEncodeContract A stack
   summary := "`ByteEncode_d(Compress_d(f))` (FIPS 203 (4.7) and Algorithm 5): writes the 256 \
     coefficients of `*f` (each less than `q` = 3329), compressed to `d` bits, to `out` as \
     `d`-bit little-endian fields.\n\n\
@@ -376,6 +387,7 @@ def decodeDecompressApi : Api where
   name := "vg_mlkem_decode_decompress"
   sig := decodeDecompressSig
   writeArgs := true
+  contracts := some fun A stack => decodeDecompressContract A stack
   summary := "`Decompress_d(ByteDecode_d(b))` (FIPS 203 Algorithm 6 and (4.8)): writes the 256 \
     `d`-bit little-endian fields of the `len` bytes at `b`, decompressed, to `*f` (each less \
     than `q` = 3329).\n\n\

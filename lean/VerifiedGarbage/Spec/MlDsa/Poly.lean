@@ -511,6 +511,7 @@ def nttApi : Api where
   name := "vg_mldsa_ntt"
   sig := inPlaceSig
   writeArgs := true
+  contracts := some fun A stack => nttContract A stack
   summary := "The ML-DSA number-theoretic transform, `NTT` (FIPS 204 Algorithm 41), of the \
     polynomial `*f` (256 coefficients less than `q` = 8380417), in place." ++ ctDoc "nttContract"
   safety := [reducedSafety "f", scratchSafety]
@@ -523,6 +524,7 @@ def nttInvApi : Api where
   name := "vg_mldsa_inv_ntt"
   sig := inPlaceSig
   writeArgs := true
+  contracts := some fun A stack => nttInvContract A stack
   summary := "The inverse of the ML-DSA number-theoretic transform, `NTT⁻¹` (FIPS 204 \
     Algorithm 42), of `*f` (256 coefficients less than `q` = 8380417), in place." ++
     ctDoc "nttInvContract"
@@ -534,6 +536,7 @@ def mulApi : Api where
   name := "vg_mldsa_multiply_ntt"
   sig := mulSig
   writeArgs := true
+  contracts := some fun A stack => mulContract A stack
   summary := "The product of two elements of `T_q`, `MultiplyNTT` (FIPS 204 Algorithm 45): \
     writes the coefficientwise product of `*f` and `*g` modulo `q` = 8380417 to `*h`." ++
     ctDoc "mulContract"
@@ -545,6 +548,7 @@ def mulAddApi : Api where
   name := "vg_mldsa_multiply_add_ntt"
   sig := mulSig
   writeArgs := true
+  contracts := some fun A stack => mulAddContract A stack
   summary := "Adds the product of two elements of `T_q` to a third, `AddNTT(h, \
     MultiplyNTT(f, g))` (FIPS 204 Algorithms 44 and 45): adds the coefficientwise product of \
     `*f` and `*g` to `*h`, modulo `q` = 8380417." ++ ctDoc "mulAddContract"
@@ -556,6 +560,7 @@ def addApi : Api where
   name := "vg_mldsa_add"
   sig := accSig
   writeArgs := true
+  contracts := some fun A stack => addContract A stack
   summary := "Adds the polynomial `*g` to `*f` modulo `q` = 8380417, coefficient by \
     coefficient (FIPS 204 Algorithm 44)." ++ ctDoc "addContract"
   safety := [reducedSafety "f", reducedSafety "g"]
@@ -566,6 +571,7 @@ def subApi : Api where
   name := "vg_mldsa_sub"
   sig := accSig
   writeArgs := true
+  contracts := some fun A stack => subContract A stack
   summary := "Subtracts the polynomial `*g` from `*f` modulo `q` = 8380417, coefficient by \
     coefficient." ++ ctDoc "subContract"
   safety := [reducedSafety "f", reducedSafety "g"]
@@ -576,6 +582,7 @@ def rejNTTApi : Api where
   name := "vg_mldsa_rej_ntt_poly"
   sig := rejNTTSig
   writeArgs := true
+  contracts := some fun A stack => rejNTTContract A stack
   summary := "`RejNTTPoly` (FIPS 204 Algorithm 30): writes the element of `T_q` sampled from \
     the SHAKE128 output of the 34 bytes `*seed` to `*a` (256 coefficients less than \
     `q` = 8380417), and returns 1. " ++ boundDoc "a" "894 bytes of SHAKE128 output" ++ "\n\n\
@@ -590,6 +597,7 @@ def rejBoundedApi : Api where
   name := "vg_mldsa_rej_bounded_poly"
   sig := rejBoundedSig
   writeArgs := true
+  contracts := some fun A stack => rejBoundedContract A stack
   summary := "`RejBoundedPoly` (FIPS 204 Algorithm 31): writes the polynomial with \
     coefficients in `[-eta, eta]` sampled from the SHAKE256 output of the 66 bytes `*seed` to \
     `*a` (each coefficient modulo `q` = 8380417), and returns 1. " ++
@@ -607,6 +615,7 @@ def expandMaskApi : Api where
   name := "vg_mldsa_expand_mask_poly"
   sig := expandMaskSig
   writeArgs := true
+  contracts := some fun A stack => expandMaskContract A stack
   summary := "A polynomial of `ExpandMask` (FIPS 204 Algorithm 34, lines 4 and 5): writes \
     `BitUnpack(H(seed, 32c), gamma1 - 1, gamma1)`, for the 66 bytes `*seed` and \
     `c = 1 + bitlen (gamma1 - 1)`, to `*a` (each coefficient modulo `q` = 8380417)." ++
@@ -619,6 +628,7 @@ def sampleInBallApi : Api where
   name := "vg_mldsa_sample_in_ball"
   sig := sampleInBallSig
   writeArgs := true
+  contracts := some fun A stack => sampleInBallContract A stack
   summary := "`SampleInBall` (FIPS 204 Algorithm 29): writes the polynomial with `tau` \
     coefficients 1 or -1 and the others 0 sampled from the SHAKE256 output of the `len` bytes \
     at `ctilde` to `*c` (each coefficient modulo `q` = 8380417), and returns 1. " ++
@@ -634,6 +644,7 @@ def power2RoundApi : Api where
   name := "vg_mldsa_power2round"
   sig := power2RoundSig
   writeArgs := true
+  contracts := some fun A stack => power2RoundContract A stack
   summary := "`Power2Round` (FIPS 204 Algorithm 35) of each coefficient of `*t`: writes the \
     `r1`s to `*t1` and the `r0`s, modulo `q` = 8380417, to `*t0`." ++ ctDoc "power2RoundContract"
   safety := [reducedSafety "t"]
@@ -644,6 +655,7 @@ def highBitsApi : Api where
   name := "vg_mldsa_high_bits"
   sig := bitsSig
   writeArgs := true
+  contracts := some fun A stack => highBitsContract A stack
   summary := "`HighBits` (FIPS 204 Algorithm 37) of each coefficient of `*r`, with `gamma2` = \
     `γ₂`: writes the `r1`s to `*out`." ++ ctDoc "highBitsContract" "the pointers and `gamma2`"
   safety := ["`gamma2` must be (q - 1)/88 = 95232 or (q - 1)/32 = 261888.", reducedSafety "r"]
@@ -654,6 +666,7 @@ def lowBitsApi : Api where
   name := "vg_mldsa_low_bits"
   sig := bitsSig
   writeArgs := true
+  contracts := some fun A stack => lowBitsContract A stack
   summary := "`LowBits` (FIPS 204 Algorithm 38) of each coefficient of `*r`, with `gamma2` = \
     `γ₂`: writes the `r0`s, modulo `q` = 8380417, to `*out`." ++
     ctDoc "lowBitsContract" "the pointers and `gamma2`"
@@ -664,6 +677,7 @@ def normLtApi : Api where
   module := "mldsa"
   name := "vg_mldsa_norm_lt"
   sig := normLtSig
+  contracts := some fun A stack => normLtContract A stack
   summary := "Returns 1 if the infinity norm of the polynomial `*f` (FIPS 204 §2.3: the largest \
     `|fᵢ mod± q|`) is less than `bound`, and 0 otherwise." ++
     ctDoc "normLtContract" "the pointer and `bound`"
@@ -675,6 +689,7 @@ def makeHintApi : Api where
   name := "vg_mldsa_make_hint"
   sig := makeHintSig
   writeArgs := true
+  contracts := some fun A stack => makeHintContract A stack
   summary := "`MakeHint` (FIPS 204 Algorithm 39) of each pair of coefficients of `*z` and \
     `*r`, with `gamma2` = `γ₂`: writes 1 for true and 0 for false to `*h`, and returns the \
     number of 1s." ++ ctDoc "makeHintContract" "the pointers and `gamma2`"
@@ -687,6 +702,7 @@ def useHintApi : Api where
   name := "vg_mldsa_use_hint"
   sig := useHintSig
   writeArgs := true
+  contracts := some fun A stack => useHintContract A stack
   summary := "`UseHint` (FIPS 204 Algorithm 40) of each pair of coefficients of `*h` (a hint \
     bit: true if it is not 0) and `*r`, with `gamma2` = `γ₂`: writes the results to \
     `*out`." ++ ctDoc "useHintContract" "the pointers and `gamma2`"
@@ -698,6 +714,7 @@ def simpleBitPackApi : Api where
   name := "vg_mldsa_simple_bit_pack"
   sig := simpleBitPackSig
   writeArgs := true
+  contracts := some fun A stack => simpleBitPackContract A stack
   summary := "`SimpleBitPack(f, b)` (FIPS 204 Algorithm 16): writes the 256 coefficients of \
     `*f` to `out` as `bitlen b`-bit little-endian fields." ++
     ctDoc "simpleBitPackContract" "the pointers, `b` and `len`"
@@ -710,6 +727,7 @@ def bitPackApi : Api where
   name := "vg_mldsa_bit_pack"
   sig := bitPackSig
   writeArgs := true
+  contracts := some fun A stack => bitPackContract A stack
   summary := "`BitPack(f mod± q, a, b)` (FIPS 204 Algorithm 17): writes `b - (fᵢ mod± q)` for \
     the 256 coefficients `fᵢ` of `*f` to `out` as `bitlen (a + b)`-bit little-endian fields." ++
     ctDoc "bitPackContract" "the pointers, `a`, `b` and `len`"
@@ -725,6 +743,7 @@ def bitUnpackApi : Api where
   name := "vg_mldsa_bit_unpack"
   sig := bitUnpackSig
   writeArgs := true
+  contracts := some fun A stack => bitUnpackContract A stack
   summary := "`BitUnpack(v, a, b)` (FIPS 204 Algorithm 19): writes `b - x` for the 256 \
     `bitlen (a + b)`-bit little-endian fields `x` of the `len` bytes at `v`, modulo \
     `q` = 8380417, to `*f`." ++ ctDoc "bitUnpackContract" "the pointers, `len`, `a` and `b`"
@@ -737,6 +756,7 @@ def unpackT1Api : Api where
   name := "vg_mldsa_unpack_t1"
   sig := unpackT1Sig
   writeArgs := true
+  contracts := some fun A stack => unpackT1Contract A stack
   summary := "The polynomial `t1 · 2^13` of a public key (FIPS 204 Algorithm 23 and line 9 of \
     Algorithm 8): writes the 256 10-bit little-endian fields of the 320 bytes `*v`, each \
     multiplied by 2^13, to `*f`." ++ ctDoc "unpackT1Contract"
@@ -748,6 +768,7 @@ def hintBitPackApi : Api where
   name := "vg_mldsa_hint_bit_pack"
   sig := hintBitPackSig
   writeArgs := true
+  contracts := some fun A stack => hintBitPackContract A stack
   summary := "`HintBitPack` (FIPS 204 Algorithm 20): writes the encoding of the hint of \
     `k = len - omega` polynomials of 256 coefficients at `h` (a coefficient is 1 if it is not \
     0) to the `len = omega + k` bytes at `y`.\n\n\
@@ -764,6 +785,7 @@ def hintBitUnpackApi : Api where
   name := "vg_mldsa_hint_bit_unpack"
   sig := hintBitUnpackSig
   writeArgs := true
+  contracts := some fun A stack => hintBitUnpackContract A stack
   summary := "`HintBitUnpack` (FIPS 204 Algorithm 21): if the `len = omega + k` bytes at `y` \
     encode a hint of `k` polynomials, writes it to `h` as `k` polynomials of 256 coefficients \
     0 or 1 and returns 1; if they are malformed (`⊥`), returns 0, and `h` is unspecified.\n\n\

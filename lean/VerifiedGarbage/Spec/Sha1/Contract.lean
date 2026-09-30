@@ -40,6 +40,7 @@ def compressApi : Api where
   module := "sha1"
   name := "vg_sha1_compress"
   sig := compressSig
+  contracts := some fun A _ => compressContract A
   summary := "The SHA-1 compression function (FIPS 180-4 §6.1.2): updates the hash value `*state` \
     with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
     Contract: `VG.Spec.Sha1.compressContract`. Constant time: only the pointers and `n` may affect \
@@ -59,6 +60,7 @@ def initApi : Api where
   module := "sha1"
   name := "vg_sha1_init"
   sig := initSig
+  contracts := some fun A _ => initContract A
   summary := "Starts a SHA-1 computation: makes the streaming state `*state` represent the empty \
     message.\n\n\
     Contract: `VG.Spec.Sha1.initContract`. The streaming state is the hash value followed by a \
@@ -87,6 +89,7 @@ def updateApi : Api where
   name := "vg_sha1_update"
   sig := updateSig
   writeArgs := true
+  contracts := some fun A stack => updateContract A stack
   summary := "Absorbs data into a SHA-1 computation: if the streaming state `*state` represents a \
     message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` \
     bytes at `data`.\n\n\
@@ -116,6 +119,7 @@ def finalizeApi : Api where
   name := "vg_sha1_finalize"
   sig := finalizeSig
   writeArgs := true
+  contracts := some fun A stack => finalizeContract A stack
   summary := "Finishes a SHA-1 computation: if the streaming state `*state` represents a message \
     of `count` bytes (modulo 2⁶⁴), writes the SHA-1 digest of that message to `*out`.\n\n\
     Contract: `VG.Spec.Sha1.finalizeContract`. Constant time: only the pointers and `count` may \
