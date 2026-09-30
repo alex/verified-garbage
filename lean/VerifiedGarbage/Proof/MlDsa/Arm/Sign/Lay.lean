@@ -205,6 +205,11 @@ theorem Lay.fit {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) (hl : 0 < 
   rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := p.2) (by omega), Nat.mod_eq_of_lt (by omega)]
   omega
 
+theorem Lay.lenlt {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) : l < 2 ^ 32 := by
+  obtain ⟨n, hn, hl⟩ := inB_spec h
+  have := L.small _ hn
+  simp only at this; omega
+
 theorem Lay.iR {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) : InRegions (s.rd ++ s.wr) (pa s p) l := by
   obtain ⟨n, hn, hl⟩ := inB_spec h
   exact inRegions_sub (L.rd (p.1, n) hn) hl (by have := L.small _ hn; omega)
