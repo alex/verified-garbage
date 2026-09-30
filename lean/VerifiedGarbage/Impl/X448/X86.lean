@@ -56,8 +56,8 @@ def copy (o a : Nat) : List Instr :=
 
 /-- Carry the sum in `eax` and the incoming carry in `ebx`. -/
 def carryStep (rb : Reg) (o : Nat) : List Instr :=
-  [.alu .add .eax (.reg .ebx), .mov .edx (.reg .eax), .alu .and .edx (.imm 65535),
-    .store (at_ rb o) .edx, .mov .ebx (.reg .eax), .shift .shr .ebx 16]
+  [.alu .add .ebx (.reg .eax), .mov .edx (.reg .ebx), .alu .and .edx (.imm 65535),
+    .store (at_ rb o) .edx, .shift .shr .ebx 16]
 
 def carryPass (rb : Reg) (o : Nat) (src : Nat → List Instr) : List Instr :=
   (List.range 28).flatMap fun i => src i ++ carryStep rb (o + 4 * i)

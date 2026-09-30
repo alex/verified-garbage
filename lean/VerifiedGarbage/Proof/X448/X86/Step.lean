@@ -24,9 +24,9 @@ theorem carryRaw_ok {s : State} {rb : Reg} {d : Nat} {a : Addr}
       (t.gpr .ebx).toNat = v / radix ∧
       t.mem = s.mem.writeW a (BitVec.ofNat 32 (v % radix)) ∧ Keeps [.eax, .ebx, .edx] s t := by
   intro v
-  have hsum : (s.gpr .eax + s.gpr .ebx).toNat = v := by rw [BitVec.toNat_add, Nat.mod_eq_of_lt hb]
+  have hsum : (s.gpr .ebx + s.gpr .eax).toNat = v := by rw [BitVec.add_comm, BitVec.toNat_add, Nat.mod_eq_of_lt hb]
   simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-  have mask : (s.gpr .eax + s.gpr .ebx) &&& (65535 : BitVec 32) = BitVec.ofNat 32 (v % radix) := by
+  have mask : (s.gpr .ebx + s.gpr .eax) &&& (65535 : BitVec 32) = BitVec.ofNat 32 (v % radix) := by
     apply BitVec.eq_of_toNat_eq
     rw [and16_nat, hsum, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := v % radix) (Nat.lt_trans (Nat.mod_lt v (by decide : 0 < radix)) (by decide : radix < 2 ^ 32))]
   have hn : 1 ≤ (16 : Nat) ∧ 16 ≤ 31 := by decide
@@ -37,14 +37,14 @@ theorem carryRaw_ok {s : State} {rb : Reg} {d : Nat} {a : Addr}
     RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, RegUpd.gpr_setFlags,
     RegUpd.mem_setReg, RegUpd.mem_arithFlags, RegUpd.mem_setFlags,
     RegUpd.wr_setReg, RegUpd.wr_arithFlags,
-    State.ea, at_, hr.1, hr.2.2, hn, and_self,
+    State.ea, at_, hr.2.1, hr.2.2, hn, and_self,
     ite_true, ite_false, reduceCtorEq, ha, State.store32, hw,
     Option.some.injEq, exists_eq_left']
   refine ⟨?_, ?_, (fun r hr => ?_), rfl, rfl⟩
   · rw [BitVec.toNat_ushiftRight, hsum, Nat.shiftRight_eq_div_pow]; rfl
   · rw [mask]
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-    simp only [RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, RegUpd.gpr_setFlags, hr.1, hr.2.1, hr.2.2, ite_false]
+    simp only [RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, RegUpd.gpr_setFlags, hr.2.1, hr.2.2, ite_false]
 
 /-- Load a coefficient and propagate its carry. -/
 def carryBlock (o a i : Nat) : List Instr :=
