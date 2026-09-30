@@ -150,8 +150,9 @@ state that has the permissions of `s`, its callee-saved registers and `rsp`,
 and every register the callee's instructions never write; that differs from
 `s` in memory only within `wr` and the stack below `rsp` that the call
 uses; and whose memory and registers (`rsp` aside) are those of a state
-satisfying the callee's postcondition. -/
-theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
+satisfying the callee's postcondition; and with the bits of MXCSR that
+`abiPreserved` keeps (a callee may load MXCSR, and restore it). -/
+theorem WP.call_mx {n : String} {c : Prog isa} {k : Contract isa}
     (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
     (hsp : NoSp c) (hd : 8 * c.depth + 16 < 2 ^ 64)
     {s : State} {rd wr : List Region} (hpre : k.pre (s.callEntry.withRegions rd wr))
@@ -160,7 +161,8 @@ theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
       Frame (wr ++ [below (s.gpr .rsp) (8 * (c.depth + 1))]) s.mem s'.mem →
       (∀ r, (∀ i ∈ instrs c, Taint.clobbers i r = false) → s'.gpr r = s.gpr r) →
       (∃ s₂ : State, s₂.mem = s'.mem ∧ (∀ r, r ≠ .rsp → s₂.gpr r = s'.gpr r) ∧
-        k.post (s.callEntry.withRegions rd wr) s₂) → Q s') :
+        k.post (s.callEntry.withRegions rd wr) s₂) →
+      s'.mxcsr.extractLsb' 6 10 = s.mxcsr.extractLsb' 6 10 → Q s') :
     WP isa (.call n c) s Q := by
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre
   obtain ⟨hr, hwr⟩ := Exec.rdwr he
@@ -186,7 +188,7 @@ theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
   have hkeep : ∀ r, r ≠ .rsp → (s₂.setReg .rsp (s₂.gpr .rsp + 8)).gpr r = s₂.gpr r :=
     fun r h => by simp [State.setReg, h]
   refine ⟨_, _, .call (call_callEntry s) he' hret, hQ _ rfl rfl (fun r hr' => ?_) ?_ (fun r h => ?_)
-    ⟨s₁, rfl, fun r h => (hkeep r h).symm, hpost⟩⟩
+    ⟨s₁, rfl, fun r h => (hkeep r h).symm, hpost⟩ habi.2.2⟩
   · by_cases h : r = .rsp
     · subst h; exact hrsp
     · rw [hkeep r h, hs₂, State.withRegions_gpr, habi.1 r hr', State.withRegions_gpr,
@@ -207,5 +209,19 @@ theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
   · by_cases hrs : r = .rsp
     · subst hrs; exact hrsp
     · rw [hkeep r hrs, Exec.gpr h he', State.callEntry_gpr _ hrs]
+
+/-- `WP.call`, without what it says of MXCSR. -/
+theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
+    (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
+    (hsp : NoSp c) (hd : 8 * c.depth + 16 < 2 ^ 64)
+    {s : State} {rd wr : List Region} (hpre : k.pre (s.callEntry.withRegions rd wr))
+    (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) →
+      Frame (wr ++ [below (s.gpr .rsp) (8 * (c.depth + 1))]) s.mem s'.mem →
+      (∀ r, (∀ i ∈ instrs c, Taint.clobbers i r = false) → s'.gpr r = s.gpr r) →
+      (∃ s₂ : State, s₂.mem = s'.mem ∧ (∀ r, r ≠ .rsp → s₂.gpr r = s'.gpr r) ∧
+        k.post (s.callEntry.withRegions rd wr) s₂) → Q s') :
+    WP isa (.call n c) s Q :=
+  WP.call_mx hv hsp hd hpre hc hw fun s' h₁ h₂ h₃ h₄ h₅ h₆ _ => hQ s' h₁ h₂ h₃ h₄ h₅ h₆
 
 end VG.X86_64
