@@ -43,8 +43,8 @@ Modelling choices:
   state's `unknowns`, which nothing constrains (see `TCB/Code.lean`); a
   return address also says whether the caller is ARM or Thumb code, which
   `bx` switches back to. A linker veneer between a `bl` and its target may
-  change `r12` (IP: AAPCS §6.1.1, "the intra-procedure-call scratch
-  register"), so a call leaves an unknown value in it too.
+  change `r12` and the condition flags (AAELF32 §5.6.1.4, "Call and Jump
+  relocations"), so a call leaves unknown values in them too.
 -/
 
 namespace VG.Arm
@@ -68,7 +68,8 @@ structure State where
   wr : List Region
   /-- Values the model does not know, used in order: the return address each
   call stores and, on the ARM targets, what a linker veneer may leave in the
-  intra-procedure-call scratch registers (see `TCB/Code.lean`). -/
+  intra-procedure-call scratch registers and condition flags (see
+  `TCB/Code.lean`). -/
   unknowns : Nat → BitVec 32 := fun _ => 0
 
 inductive Shift | lsl | lsr | ror
@@ -293,11 +294,18 @@ def eval : Cond → State → Option Bool
 `LR = PC<31:1> : '1'` in Thumb state (the address of the next instruction,
 and which state it is in), then the branch (with a change of instruction set
 to that of the target, which the linker arranges), possibly through a linker
-veneer, which may change `r12` (AAPCS §6.1.1). The return address and the
-value left in `r12` are the next two of the state's. -/
+veneer, which may change `r12` and the condition flags (AAELF32 §5.6.1.4,
+"Call and Jump relocations":
+https://github.com/ARM-software/abi-aa/blob/2025Q4/aaelf32/aaelf32.rst).
+The next three unknown words supply the return address, `r12`, and four
+independent flag bits. Nothing constrains or makes these unknowns public. -/
 def call (s : State) : Option State :=
   some { (s.setReg .lr (s.unknowns 0)).setReg .r12 (s.unknowns 1) with
-    unknowns := fun n => s.unknowns (n + 2) }
+    n := (s.unknowns 2).getLsbD 0
+    z := (s.unknowns 2).getLsbD 1
+    c := (s.unknowns 2).getLsbD 2
+    v := (s.unknowns 2).getLsbD 3
+    unknowns := fun n => s.unknowns (n + 3) }
 
 /-- DDI 0406C, A8.8.27 "BX" (`bx lr`): `BXWritePC(R[14])`, a branch to the
 address in `lr`, in the instruction set its bit 0 selects. It returns after
