@@ -55,14 +55,18 @@ follow `H(ek)`, row by row. -/
 def Params.ekxA (p : Params) (i j : Nat) : Nat := p.ekLen + 32 + 1024 * (p.k * i + j)
 
 /-- The expanded encapsulation key of `ek` is at `x` in `m`: the bytes of
-`ek`, then those of `H(ek)`, then, for some bound on `SampleNTT`'s
-iterations for which it samples the matrix `Â` of `K-PKE.Encrypt`
-(Algorithm 14, lines 4–8) from the `ρ` of `ek`, each entry `Â[i, j]` at
-`ekxA i j`, reduced. -/
+`ek`, then those of `H(ek)`, then the entries `Â[i, j]` at `ekxA i j`,
+reduced, which are those of the matrix `Â` that `K-PKE.Encrypt` samples from
+the `ρ` of `ek` (Algorithm 14, lines 4–8) for every bound on `SampleNTT`'s
+iterations for which it samples one. (All such bounds give the same matrix.
+The standard defines `Â` only if every `SampleNTT` finishes: `keygen_expanded`
+and `expand_ek` return 1 only then, and the functions that take an expanded
+key promise nothing when it does not; see `EncapsExpandedPost`.) -/
 def ExpandedEk (p : Params) (m : Mem) (x : Addr) (ek : List Byte) : Prop :=
   bytesAt m x p.ekLen = ek ∧ bytesAt m (x + BitVec.ofNat 64 p.ekLen) 32 = H ek ∧
-    ∃ iters A, sampleMatrix p.k iters (ekRho p ek) = some A ∧
-      ∀ i < p.k, ∀ j < p.k, PolyIs m (x + BitVec.ofNat 64 (p.ekxA i j)) ((A.getD i []).getD j zero)
+    (∀ i < p.k, ∀ j < p.k, Reduced m (x + BitVec.ofNat 64 (p.ekxA i j))) ∧
+    ∀ iters A, sampleMatrix p.k iters (ekRho p ek) = some A →
+      ∀ i < p.k, ∀ j < p.k, polyAt m (x + BitVec.ofNat 64 (p.ekxA i j)) = (A.getD i []).getD j zero
 
 /-- The postcondition of `keygen_expanded`, with the seed at `seed`: writes
 to `ekx` the expanded key of the encapsulation key of
@@ -74,22 +78,28 @@ def KeyGenExpandedPost (p : Params) (seed ekx dk : Addr) (m m' : Mem) (r : BitVe
       (bytesAt m' ekx p.ekLen, bytesAt m' dk p.dkLen) ∧
     (r = 1 → ExpandedEk p m' ekx (bytesAt m' ekx p.ekLen))
 
-/-- The postcondition of `expand_ek`: writes to `ekx` the expanded key of
-the encapsulation key at `ek` and returns 1, or returns 0 if a `SampleNTT`
-of `Â` does not finish within `minIterations` iterations. (It holds for any
-`ek`; the standard requires it to have passed the check of §7.2.) -/
+/-- The postcondition of `expand_ek`: returns 1 if every `SampleNTT` of `Â`
+finishes within `minIterations` iterations, and then writes to `ekx` the
+expanded key of the encapsulation key at `ek`; returns 0 otherwise. (It
+holds for any `ek`; the standard requires it to have passed the check of
+§7.2.) -/
 def ExpandEkPost (p : Params) (ek ekx : Addr) (m m' : Mem) (r : BitVec 32) : Prop :=
-  (r = 1 ∧ ExpandedEk p m' ekx (bytesAt m ek p.ekLen)) ∨
+  (r = 1 ∧ (sampleMatrix p.k minIterations (ekRho p (bytesAt m ek p.ekLen))).isSome ∧
+      ExpandedEk p m' ekx (bytesAt m ek p.ekLen)) ∨
     (r = 0 ∧ sampleMatrix p.k minIterations (ekRho p (bytesAt m ek p.ekLen)) = none)
 
 /-- The postcondition of `encaps_expanded`, given that `ekx` holds the
 expanded key of an encapsulation key `ek` (its first `384k + 32` bytes):
 writes the shared secret key and the ciphertext of
-`ML-KEM.Encaps_internal(ek, m)` (Algorithm 17) to `key` and `ct`. (It holds
-for any `ek`; the standard requires it to have passed the check of §7.2.) -/
+`ML-KEM.Encaps_internal(ek, m)` (Algorithm 17) to `key` and `ct`, for every
+bound on `SampleNTT`'s iterations for which it returns them (every large
+enough bound, if every `SampleNTT` of `Â` finishes, which it does for an
+expanded key for which `keygen_expanded` or `expand_ek` returned 1). (It
+holds for any `ek`; the standard requires it to have passed the check of
+§7.2.) -/
 def EncapsExpandedPost (p : Params) (ekx msg key ct : Addr) (m m' : Mem) : Prop :=
-  ∃ iters, encapsInternal p iters (bytesAt m ekx p.ekLen) (bytesAt m msg 32) =
-    some (bytesAt m' key 32, bytesAt m' ct p.ctLen)
+  ∀ iters r, encapsInternal p iters (bytesAt m ekx p.ekLen) (bytesAt m msg 32) = some r →
+    r = (bytesAt m' key 32, bytesAt m' ct p.ctLen)
 
 /-- The precondition of `decaps_expanded`: `ekx` holds the expanded key of
 the encapsulation key in the decapsulation key at `dk` (its bytes `384k` to
@@ -98,9 +108,12 @@ def DecapsExpandedPre (p : Params) (dk ekx : Addr) (m : Mem) : Prop :=
   ExpandedEk p m ekx (bytesAt m (dk + BitVec.ofNat 64 (384 * p.k)) p.ekLen)
 
 /-- The postcondition of `decaps_expanded`: writes the shared secret key
-`ML-KEM.Decaps_internal(dk, c)` (Algorithm 18) to `key`. -/
+`ML-KEM.Decaps_internal(dk, c)` (Algorithm 18) to `key`, for every bound on
+`SampleNTT`'s iterations for which it returns one (as in
+`EncapsExpandedPost`). -/
 def DecapsExpandedPost (p : Params) (dk ct key : Addr) (m m' : Mem) : Prop :=
-  ∃ iters, decapsInternal p iters (bytesAt m dk p.dkLen) (bytesAt m ct p.ctLen) = some (bytesAt m' key 32)
+  ∀ iters r, decapsInternal p iters (bytesAt m dk p.dkLen) (bytesAt m ct p.ctLen) = some r →
+    r = bytesAt m' key 32
 
 /-- What the documentation says of the return value of a function whose
 `SampleNTT` is bounded. -/
@@ -231,7 +244,7 @@ def encapsExpandedApi : Api where
   safety := [
     "`ekx` must have been written by `vg_mlkem768_keygen_expanded`, or by \
       `vg_mlkem768_expand_ek` from an encapsulation key that passed `vg_mlkem768_check_ek` \
-      (FIPS 203 §7.2), and not changed since.",
+      (FIPS 203 §7.2), in a call that returned 1, and not changed since.",
     "`m` must be fresh random bytes from an approved RBG (FIPS 203 §3.3).",
     scratchSafety]
 
@@ -252,7 +265,8 @@ def decapsExpandedApi : Api where
     "`dk` must have been written by `vg_mlkem768_keygen_expanded` or `vg_mlkem768_keygen` (so \
       that it passes the checks of FIPS 203 §7.3).",
     "`ekx` must have been written by `vg_mlkem768_keygen_expanded` with `dk`, or by \
-      `vg_mlkem768_expand_ek` from the encapsulation key in `dk`, and not changed since.",
+      `vg_mlkem768_expand_ek` from the encapsulation key in `dk`, in a call that returned 1, \
+      and not changed since.",
     scratchSafety]
 
 end VG.Spec.MlKem
@@ -391,7 +405,7 @@ def encapsExpandedApi : Api where
   safety := [
     "`ekx` must have been written by `vg_mlkem1024_keygen_expanded`, or by \
       `vg_mlkem1024_expand_ek` from an encapsulation key that passed `vg_mlkem1024_check_ek` \
-      (FIPS 203 §7.2), and not changed since.",
+      (FIPS 203 §7.2), in a call that returned 1, and not changed since.",
     "`m` must be fresh random bytes from an approved RBG (FIPS 203 §3.3).",
     scratchSafety]
 
@@ -412,7 +426,8 @@ def decapsExpandedApi : Api where
     "`dk` must have been written by `vg_mlkem1024_keygen_expanded` or `vg_mlkem1024_keygen` \
       (so that it passes the checks of FIPS 203 §7.3).",
     "`ekx` must have been written by `vg_mlkem1024_keygen_expanded` with `dk`, or by \
-      `vg_mlkem1024_expand_ek` from the encapsulation key in `dk`, and not changed since.",
+      `vg_mlkem1024_expand_ek` from the encapsulation key in `dk`, in a call that returned 1, \
+      and not changed since.",
     scratchSafety]
 
 end VG.Spec.MlKem1024
