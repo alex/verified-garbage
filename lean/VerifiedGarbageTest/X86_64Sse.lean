@@ -22,15 +22,20 @@ def b : BitVec 128 := 0xffffffff800000007fffffff12345678#128
 /-- The `pshufb` mask that reverses the bytes of each doubleword. -/
 def c : BitVec 128 := 0x0c0d0e0f08090a0b0405060700010203#128
 
-/-- A state with `a` in `xmm0`, `b` in `xmm1` and `c` in `xmm2`, and 16 bytes `17 i + 3` at
-address `0x100`, readable. -/
+/-- Small doublewords (`0x7fff`, `-0x8000`, `0x1234`, `-0x124`), which `packssdw` does not
+saturate, and words for the signed multiplies. -/
+def d : BitVec 128 := 0x00007fffffff800000001234fffffedc#128
+
+/-- A state with `a` in `xmm0`, `b` in `xmm1`, `c` in `xmm2` and `d` in `xmm3`, and 16 bytes
+`17 i + 3` at address `0x100`, readable. -/
 def s : State where
   gpr r := if r = .rdi then 0x100 else 0
   cf := none
   zf := none
   sf := none
   of := none
-  xmm r := if r = .xmm0 then a else if r = .xmm1 then b else if r = .xmm2 then c else 0
+  xmm r := if r = .xmm0 then a else if r = .xmm1 then b else if r = .xmm2 then c
+    else if r = .xmm3 then d else 0
   mem addr := if 0x100 ≤ addr.toNat ∧ addr.toNat < 0x110 then
     BitVec.ofNat 8 (17 * (addr.toNat - 0x100) + 3) else 0
   rd := [⟨0x100, 16⟩]
@@ -63,6 +68,24 @@ def bin (op : XBinOp) : BitVec 128 := ((XOp.bin op .xmm0 .xmm1).exec s).xmm .xmm
 #guard bin .aesdeclast == 0xf06c979e72fdc00a76f15e1d1e06d604#128
 -- `aesimc` reads only its source.
 #guard bin .aesimc == 0xffffffff41f7daecbe082513851bd147#128
+#guard bin .paddw == 0x89aacdee812345677edbba9788888888#128
+#guard bin .psubw == 0x89accdf0812345677eddba996420db98#128
+#guard bin .psubd == 0x89abcdf0812345677edcba99641fdb98#128
+#guard bin .pmullw == 0x765532118000000001244568f110d780#128
+#guard bin .pmulhw == 0x00000000ff6e0000ff6e0000086910e8#128
+#guard bin .packssdw == 0xffff80007fff7fff80007fff80007fff#128
+#guard bin .punpcklwd == 0x7ffffedcffffba981234765456783210#128
+#guard bin .punpckhwd == 0xffff89abffffcdef8000012300004567#128
+
+/-- `dst` after `op dst, src`. -/
+def binOf (op : XBinOp) (dst src : XReg) : BitVec 128 := ((XOp.bin op dst src).exec s).xmm dst
+
+-- `packssdw` without saturating, and saturating only the destination's or the source's.
+#guard binOf .packssdw .xmm3 .xmm0 == 0x80007fff80007fff7fff80001234fedc#128
+#guard binOf .packssdw .xmm1 .xmm3 == 0x7fff80001234fedcffff80007fff7fff#128
+-- The signed products of small words, and of `-0x8000` by itself (`0x40000000`).
+#guard binOf .pmulhw .xmm3 .xmm1 == 0x0000ffff000000000000ffffffffff9d#128
+#guard binOf .pmullw .xmm3 .xmm1 == 0x00008001800000000000edccedcc5f20#128
 
 /-- `xmm1` after `op xmm1, xmm0`. -/
 def binRev (op : XBinOp) : BitVec 128 := ((XOp.bin op .xmm1 .xmm0).exec s).xmm .xmm1
@@ -156,6 +179,29 @@ def shift (op : XShiftOp) (n : BitVec 8) : BitVec 128 := ((XOp.shift op .xmm0 n)
 #guard shift .pslldq 16 == 0
 #guard shift .psrldq 16 == 0
 #guard shift .pslldq 255 == 0
+#guard shift .psraw 0 == a
+#guard shift .psraw 1 == 0xc4d5e6f7009122b3ff6edd4c3b2a1908#128
+#guard shift .psraw 4 == 0xf89afcde00120456ffedfba907650321#128
+#guard shift .psraw 15 == 0xffffffff00000000ffffffff00000000#128
+#guard shift .psraw 16 == 0xffffffff00000000ffffffff00000000#128
+#guard shift .psraw 255 == 0xffffffff00000000ffffffff00000000#128
+#guard shift .psrad 1 == 0xc4d5e6f70091a2b3ff6e5d4c3b2a1908#128
+#guard shift .psrad 4 == 0xf89abcde00123456ffedcba907654321#128
+#guard shift .psrad 15 == 0xffff135700000246fffffdb90000eca8#128
+#guard shift .psrad 16 == 0xffff89ab00000123fffffedc00007654#128
+#guard shift .psrad 31 == 0xffffffff00000000ffffffff00000000#128
+#guard shift .psrad 32 == 0xffffffff00000000ffffffff00000000#128
+#guard shift .psrad 255 == 0xffffffff00000000ffffffff00000000#128
+#guard shift .psllw 1 == 0x13569bde02468acefdb87530eca86420#128
+#guard shift .psllw 4 == 0x9ab0def012305670edc0a98065402100#128
+#guard shift .psllw 15 == 0x80008000800080000000000000000000#128
+#guard shift .psllw 16 == 0
+#guard shift .psllw 255 == 0
+#guard shift .psrlw 1 == 0x44d566f7009122b37f6e5d4c3b2a1908#128
+#guard shift .psrlw 4 == 0x089a0cde001204560fed0ba907650321#128
+#guard shift .psrlw 15 == 0x00010001000000000001000100000000#128
+#guard shift .psrlw 16 == 0
+#guard shift .psrlw 255 == 0
 
 /-- `xmm1` after `pshufd xmm1, xmm0, order`. -/
 def shuf (order : BitVec 8) : BitVec 128 := ((XOp.pshufd .xmm1 .xmm0 order).exec s).xmm .xmm1
@@ -249,6 +295,18 @@ def stored (v : BitVec 32) : State :=
 #guard printer.instr (.xop (.shift .psrlq .xmm8 63)) == ["psrlq xmm8, 63"]
 #guard printer.instr (.xop (.shift .pslldq .xmm9 8)) == ["pslldq xmm9, 8"]
 #guard printer.instr (.xop (.shift .psrldq .xmm10 4)) == ["psrldq xmm10, 4"]
+#guard printer.instr (.xop (.bin .paddw .xmm1 .xmm2)) == ["paddw xmm1, xmm2"]
+#guard printer.instr (.xop (.bin .psubw .xmm3 .xmm4)) == ["psubw xmm3, xmm4"]
+#guard printer.instr (.xop (.bin .psubd .xmm5 .xmm6)) == ["psubd xmm5, xmm6"]
+#guard printer.instr (.xop (.bin .pmullw .xmm7 .xmm8)) == ["pmullw xmm7, xmm8"]
+#guard printer.instr (.xop (.bin .pmulhw .xmm9 .xmm10)) == ["pmulhw xmm9, xmm10"]
+#guard printer.instr (.xop (.bin .packssdw .xmm11 .xmm12)) == ["packssdw xmm11, xmm12"]
+#guard printer.instr (.xop (.bin .punpcklwd .xmm13 .xmm14)) == ["punpcklwd xmm13, xmm14"]
+#guard printer.instr (.xop (.bin .punpckhwd .xmm15 .xmm0)) == ["punpckhwd xmm15, xmm0"]
+#guard printer.instr (.xop (.shift .psllw .xmm1 3)) == ["psllw xmm1, 3"]
+#guard printer.instr (.xop (.shift .psrlw .xmm2 4)) == ["psrlw xmm2, 4"]
+#guard printer.instr (.xop (.shift .psraw .xmm3 15)) == ["psraw xmm3, 15"]
+#guard printer.instr (.xop (.shift .psrad .xmm4 31)) == ["psrad xmm4, 31"]
 #guard printer.instr (.stmxcsr { base := .rsp, disp := 8 }) == ["stmxcsr DWORD PTR [rsp+8]"]
 #guard printer.instr (.ldmxcsr { base := .rdi }) == ["ldmxcsr DWORD PTR [rdi]"]
 #guard printer.instr .lfence == ["lfence"]
@@ -268,7 +326,10 @@ def stored (v : BitVec 32) : State :=
   isa.requires (.xop (.bin op .xmm1 .xmm2)) == ["sha"]
 #guard isa.requires (.xop (.sha1rnds4 .xmm1 .xmm2 0)) == ["sha"]
 #guard [XBinOp.pand, .pandn, .paddq, .pmuludq].all fun op => isa.requires (.xop (.bin op .xmm1 .xmm2)) == []
-#guard [XShiftOp.psllq, .psrlq, .pslldq, .psrldq].all fun op => isa.requires (.xop (.shift op .xmm1 1)) == []
+#guard [XBinOp.paddw, .psubw, .psubd, .pmullw, .pmulhw, .packssdw, .punpcklwd, .punpckhwd].all
+  fun op => isa.requires (.xop (.bin op .xmm1 .xmm2)) == []
+#guard [XShiftOp.psllq, .psrlq, .pslldq, .psrldq, .psllw, .psrlw, .psraw, .psrad].all fun op =>
+  isa.requires (.xop (.shift op .xmm1 1)) == []
 #guard [XBinOp.aesenc, .aesenclast, .aesdec, .aesdeclast, .aesimc].all fun op =>
   isa.requires (.xop (.bin op .xmm1 .xmm2)) == ["aes"]
 #guard isa.requires (.xop (.aeskeygenassist .xmm1 .xmm2 1)) == ["aes"]
