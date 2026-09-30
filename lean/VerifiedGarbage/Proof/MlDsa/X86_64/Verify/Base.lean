@@ -412,6 +412,11 @@ theorem Lay.keepPoly {f : Spec.MlDsa.Poly} (hP : PPostB s s' ws) (hc : keepB (rb
   rw [hP.pa (keepB_bs hc)]
   exact Proof.MlDsa.Verify.polyIs_frame hP.frame (L.fdisj hc) h
 
+theorem Lay.keepPolyAt (hP : PPostB s s' ws) (hc : keepB (rbs ++ wbs) ws p 1024 = true) :
+    Spec.MlDsa.polyAt s'.mem (pa s' p) = Spec.MlDsa.polyAt s.mem (pa s p) := by
+  rw [hP.pa (keepB_bs hc)]
+  exact Proof.MlDsa.Verify.polyAt_frame hP.frame (L.fdisj hc)
+
 theorem Lay.keepRed (hP : PPostB s s' ws) (hc : keepB (rbs ++ wbs) ws p 1024 = true)
     (h : Spec.MlDsa.Reduced s.mem (pa s p)) : Spec.MlDsa.Reduced s'.mem (pa s' p) := by
   rw [hP.pa (keepB_bs hc)]
