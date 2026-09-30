@@ -151,4 +151,70 @@ theorem zero_ok {s : State} (h : J6 136 272 (spOf σ) σ s) : WP isa bZero s (ZD
 
 end
 
+/-! ## Setting a coefficient -/
+
+/-- The word of the sign: 1, or `q - 1` for -1. -/
+theorem sgn_word (b : Bool) :
+    (if b then (BitVec.ofNat 32 8380416) else 1) = zw (ofInt (if b then -1 else 1)) := by
+  cases b <;> decide
+
+/-- `r1 & 1`, compared with zero. -/
+theorem and1_beq (x : BitVec 32) : ((x &&& 1) - 0 == 0) = decide (x.toNat % 2 = 0) := by
+  have h1 : (x &&& 1).toNat = x.toNat % 2 := by
+    rw [BitVec.toNat_and, show (1 : BitVec 32).toNat = 2 ^ 1 - 1 from rfl, Nat.and_two_pow_sub_one_eq_mod]
+  rw [BitVec.sub_zero]
+  by_cases h : x.toNat % 2 = 0
+  · rw [decide_eq_true h, beq_iff_eq]; exact BitVec.eq_of_toNat_eq (by rw [h1, h]; rfl)
+  · rw [decide_eq_false h, beq_eq_false_iff_ne]
+    intro e; have := congrArg BitVec.toNat e; rw [h1] at this; exact h this
+
+/-- The sign bits shifted right by one, from `r4:r1`. -/
+theorem shr_or (x y : BitVec 32) :
+    (x >>> 1 ||| y <<< 31).toNat = x.toNat / 2 + 2 ^ 31 * (y.toNat % 2) := by
+  have hx : (x >>> 1).toNat = x.toNat / 2 := by
+    rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]; rfl
+  have hy : (y <<< 31).toNat = 2 ^ 31 * (y.toNat % 2) := by
+    rw [BitVec.toNat_shiftLeft, Nat.shiftLeft_eq]; omega
+  rw [BitVec.toNat_or, hx, hy, Nat.or_comm, ← Nat.two_pow_add_eq_or_of_lt (by have := x.isLt; omega), Nat.add_comm]
+
+theorem bSet1_ok (s : State) {A B : Addr} (hA : State.addr (s.gpr .r5 + s.gpr .r8 <<< 2 + BitVec.ofNat 32 0) = A)
+    (hB : State.addr (s.gpr .r5 + s.gpr .r2 <<< 2 + BitVec.ofNat 32 0) = B)
+    (hr : InRegions (s.rd ++ s.wr) A 4) (hw : InRegions s.wr B 4) :
+    WP isa (.block [.dp .add .r10 .r5 (.shifted .r8 .lsl 2), .ldr .r11 .r10 0,
+      .dp .add .r12 .r5 (.shifted .r2 .lsl 2), .str .r11 .r12 0, .dp .and .r11 .r1 (.imm 1), .cmp .r11 (.imm 0)]) s
+      fun s' => s'.mem = s.mem.writeW B (s.mem.readW A 32) ∧ s'.gpr .r10 = s.gpr .r5 + s.gpr .r8 <<< 2 ∧
+        s'.z = decide ((s.gpr .r1).toNat % 2 = 0) ∧
+        (∀ r, r ≠ .r10 → r ≠ .r11 → r ≠ .r12 → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
+        s'.sp = s.sp := by
+  have hA' : State.addr (s.gpr .r5 + s.gpr .r8 <<< 2 + 0) = A := hA
+  have hB' : State.addr (s.gpr .r5 + s.gpr .r2 <<< 2 + 0) = B := hB
+  run_block [hA', hB', hr, hw, and1_beq, and_self, and_true, true_and]
+  exact fun r h10 h11 h12 => by simp [h10, h11, h12]
+
+/-- The word of the sign, from `Z` = the sign bit is 0. -/
+theorem bSign_ok (s : State) (b : Bool) (hz : s.z = !b) :
+    WP isa (.ite .eq (.block [.mov .r11 (.imm 1)]) (.block [.movw .r11 0xE000, .movt .r11 0x7F])) s fun s' =>
+      s'.gpr .r11 = (if b then (BitVec.ofNat 32 8380416) else 1) ∧ (∀ r, r ≠ .r11 → s'.gpr r = s.gpr r) ∧
+        s'.mem = s.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.sp = s.sp := by
+  refine WP.ite s.z rfl (fun e => ?_) (fun e => ?_)
+  · have hb : b = false := by rw [hz] at e; simpa using e
+    subst hb
+    run_block [and_self, and_true, true_and]
+    exact ⟨rfl, fun r h => by simp [h]⟩
+  · have hb : b = true := by rw [hz] at e; simpa using e
+    subst hb
+    run_block [and_self, and_true, true_and]
+    exact ⟨rfl, fun r h => by simp [h]⟩
+
+theorem bSet3_ok (s : State) {A : Addr} (hA : State.addr (s.gpr .r10 + BitVec.ofNat 32 0) = A)
+    (hw : InRegions s.wr A 4) :
+    WP isa (.block [.str .r11 .r10 0, .mov .r1 (.shifted .r1 .lsr 1), .dp .orr .r1 .r1 (.shifted .r4 .lsl 31),
+        .mov .r4 (.shifted .r4 .lsr 1), .dp .add .r2 .r2 (.imm 1)]) s fun s' =>
+      s'.mem = s.mem.writeW A (s.gpr .r11) ∧ s'.gpr .r1 = s.gpr .r1 >>> 1 ||| s.gpr .r4 <<< 31 ∧
+        s'.gpr .r4 = s.gpr .r4 >>> 1 ∧ s'.gpr .r2 = s.gpr .r2 + 1 ∧
+        (∀ r, r ≠ .r1 → r ≠ .r2 → r ≠ .r4 → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
+        s'.sp = s.sp := by
+  run_block [hA, hw, and_self, and_true, true_and]
+  exact fun r h1 h2 h4 => by simp [h1, h2, h4]
+
 end VG.Proof.MlDsa.Arm.Sample.Ball
