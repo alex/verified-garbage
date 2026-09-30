@@ -58,7 +58,8 @@ globs = ["VerifiedGarbage.TCB.Mem", "VerifiedGarbage.Spec.Sha1", "VerifiedGarbag
   "VerifiedGarbage.Spec.Hmac", "VerifiedGarbage.Spec.Pbkdf2", "VerifiedGarbage.Spec.Scrypt",
   "VerifiedGarbage.Spec.ChaCha20", "VerifiedGarbage.Spec.Poly1305", "VerifiedGarbage.Spec.Aes",
   "VerifiedGarbage.Spec.Gcm", "VerifiedGarbage.Spec.MlKem", "VerifiedGarbage.Spec.X25519",
-  "VerifiedGarbage.Spec.MlDsa", "VerifiedGarbage.Spec.Ed25519", "VerifiedGarbage.Spec.Blake2"]
+  "VerifiedGarbage.Spec.MlDsa", "VerifiedGarbage.Spec.Ed25519", "VerifiedGarbage.Spec.Blake2",
+  "VerifiedGarbage.Spec.X448", "VerifiedGarbage.Spec.Rc2"]
 precompileModules = true
 
 # The evaluator of `sig_eval` (`Proof/Framework/SigEval.lean`), a tactic run
