@@ -1,0 +1,5 @@
+name = "RFC 2268, A Description of the RC2(r) Encryption Algorithm (Section 5)"
+directories = ["rfc2268"]
+url = "https://www.rfc-editor.org/rfc/rfc2268.txt"
+sha256 = "1229e54b0569f96daedfddb0b93d03df139f4f32d3cf5cfd3b9295a11ca5ae27"
+retrieved = 2026-09-30

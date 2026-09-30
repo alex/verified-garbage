@@ -12,6 +12,8 @@
     target_arch = "aarch64"
 ))]
 
+mod x448;
+
 use verified_garbage::x25519::{BASE_POINT, PrivateKey, x25519};
 
 const TEXT: &str = include_str!("../../vectors/rfc7748/rfc7748.txt");
