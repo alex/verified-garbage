@@ -2638,3 +2638,460 @@ pub(crate) unsafe extern "C" fn vg_mldsa_sub(f: *mut [u32; 256], g: *const [u32;
         "bx lr",
     )
 }
+
+/// `Power2Round` (FIPS 204 Algorithm 35) of each coefficient of `*t`: writes the `r1`s to `*t1` and the `r0`s, modulo `q` = 8380417, to `*t0`.
+///
+/// Contract: `VG.Spec.MlDsa.power2RoundContract`. Constant time: only the pointers may affect timing, not the data.
+///
+/// The function saves `r4` on the stack (the 4 bytes below the stack pointer).
+///
+/// # Safety
+///
+/// * `t` must be valid for reads of 1024 bytes.
+/// * `t1` must be valid for reads and writes of 1024 bytes.
+/// * `t0` must be valid for reads and writes of 1024 bytes.
+/// * Each of the 256 `u32`s of `t` must be less than `q` = 8380417.
+/// * `t1` and `t0` must not overlap each other or `t` (distinct Rust objects never do).
+/// * None of `t`, `t1` and `t0` may overlap the 4 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_mldsa_power2round(t: *const [u32; 256], t1: *mut [u32; 256], t0: *mut [u32; 256]) {
+    core::arch::naked_asm!(
+        "push {{r4}}",
+        "mov r3, #256",
+        "20:",
+        "ldr r12, [r0, #0]",
+        "add r12, r12, #4096",
+        "sub r12, r12, #1",
+        "lsr r4, r12, #13",
+        "str r4, [r1, #0]",
+        "lsl r12, r12, #19",
+        "lsr r12, r12, #19",
+        "sub r12, r12, #4096",
+        "add r12, r12, #1",
+        "lsr r4, r12, #31",
+        "add r12, r12, r4, lsl #23",
+        "sub r12, r12, r4, lsl #13",
+        "add r12, r12, r4",
+        "str r12, [r2, #0]",
+        "add r0, r0, #4",
+        "add r1, r1, #4",
+        "add r2, r2, #4",
+        "subs r3, r3, #1",
+        "bne 20b",
+        "ldr r4, [sp], #4",
+        "bx lr",
+    )
+}
+
+/// `HighBits` (FIPS 204 Algorithm 37) of each coefficient of `*r`, with `gamma2` = `γ₂`: writes the `r1`s to `*out`.
+///
+/// Contract: `VG.Spec.MlDsa.highBitsContract`. Constant time: only the pointers and `gamma2` may affect timing, not the data.
+///
+/// # Safety
+///
+/// * `r` must be valid for reads of 1024 bytes.
+/// * `out` must be valid for reads and writes of 1024 bytes.
+/// * `gamma2` must be (q - 1)/88 = 95232 or (q - 1)/32 = 261888.
+/// * Each of the 256 `u32`s of `r` must be less than `q` = 8380417.
+/// * `out` must not overlap `r` (distinct Rust objects never do).
+/// * Neither `r` nor `out` may wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_mldsa_high_bits(r: *const [u32; 256], gamma2: u32, out: *mut [u32; 256]) {
+    core::arch::naked_asm!(
+        "cmp r1, #95232",
+        "beq 20f",
+        "mov r1, #256",
+        "22:",
+        "ldr r3, [r0, #0]",
+        "add r3, r3, #127",
+        "lsr r3, r3, #7",
+        "movw r12, #1025",
+        "mul r3, r3, r12",
+        "add r3, r3, #2097152",
+        "lsr r3, r3, #22",
+        "sub r3, r3, #16",
+        "lsr r12, r3, #31",
+        "add r3, r3, r12, lsl #4",
+        "str r3, [r2, #0]",
+        "add r0, r0, #4",
+        "add r2, r2, #4",
+        "subs r1, r1, #1",
+        "bne 22b",
+        "b 21f",
+        "20:",
+        "mov r1, #256",
+        "23:",
+        "ldr r3, [r0, #0]",
+        "add r3, r3, #127",
+        "lsr r3, r3, #7",
+        "movw r12, #11275",
+        "mul r3, r3, r12",
+        "add r3, r3, #8388608",
+        "lsr r3, r3, #24",
+        "sub r3, r3, #44",
+        "lsr r12, r3, #31",
+        "add r3, r3, r12, lsl #5",
+        "add r3, r3, r12, lsl #3",
+        "add r3, r3, r12, lsl #2",
+        "str r3, [r2, #0]",
+        "add r0, r0, #4",
+        "add r2, r2, #4",
+        "subs r1, r1, #1",
+        "bne 23b",
+        "21:",
+        "bx lr",
+    )
+}
+
+/// `LowBits` (FIPS 204 Algorithm 38) of each coefficient of `*r`, with `gamma2` = `γ₂`: writes the `r0`s, modulo `q` = 8380417, to `*out`.
+///
+/// Contract: `VG.Spec.MlDsa.lowBitsContract`. Constant time: only the pointers and `gamma2` may affect timing, not the data.
+///
+/// # Safety
+///
+/// * `r` must be valid for reads of 1024 bytes.
+/// * `out` must be valid for reads and writes of 1024 bytes.
+/// * `gamma2` must be (q - 1)/88 = 95232 or (q - 1)/32 = 261888.
+/// * Each of the 256 `u32`s of `r` must be less than `q` = 8380417.
+/// * `out` must not overlap `r` (distinct Rust objects never do).
+/// * Neither `r` nor `out` may wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_mldsa_low_bits(r: *const [u32; 256], gamma2: u32, out: *mut [u32; 256]) {
+    core::arch::naked_asm!(
+        "cmp r1, #95232",
+        "beq 20f",
+        "mov r1, #256",
+        "22:",
+        "ldr r3, [r0, #0]",
+        "add r3, r3, #127",
+        "lsr r3, r3, #7",
+        "movw r12, #1025",
+        "mul r3, r3, r12",
+        "add r3, r3, #2097152",
+        "lsr r3, r3, #22",
+        "sub r3, r3, #16",
+        "lsr r12, r3, #31",
+        "add r3, r3, r12, lsl #4",
+        "movw r12, #65024",
+        "movt r12, #7",
+        "mul r3, r3, r12",
+        "ldr r12, [r0, #0]",
+        "sub r3, r12, r3",
+        "lsr r12, r3, #31",
+        "add r3, r3, r12, lsl #23",
+        "sub r3, r3, r12, lsl #13",
+        "add r3, r3, r12",
+        "str r3, [r2, #0]",
+        "add r0, r0, #4",
+        "add r2, r2, #4",
+        "subs r1, r1, #1",
+        "bne 22b",
+        "b 21f",
+        "20:",
+        "mov r1, #256",
+        "23:",
+        "ldr r3, [r0, #0]",
+        "add r3, r3, #127",
+        "lsr r3, r3, #7",
+        "movw r12, #11275",
+        "mul r3, r3, r12",
+        "add r3, r3, #8388608",
+        "lsr r3, r3, #24",
+        "sub r3, r3, #44",
+        "lsr r12, r3, #31",
+        "add r3, r3, r12, lsl #5",
+        "add r3, r3, r12, lsl #3",
+        "add r3, r3, r12, lsl #2",
+        "movw r12, #59392",
+        "movt r12, #2",
+        "mul r3, r3, r12",
+        "ldr r12, [r0, #0]",
+        "sub r3, r12, r3",
+        "lsr r12, r3, #31",
+        "add r3, r3, r12, lsl #23",
+        "sub r3, r3, r12, lsl #13",
+        "add r3, r3, r12",
+        "str r3, [r2, #0]",
+        "add r0, r0, #4",
+        "add r2, r2, #4",
+        "subs r1, r1, #1",
+        "bne 23b",
+        "21:",
+        "bx lr",
+    )
+}
+
+/// Returns 1 if the infinity norm of the polynomial `*f` (FIPS 204 §2.3: the largest `|fᵢ mod± q|`) is less than `bound`, and 0 otherwise.
+///
+/// Contract: `VG.Spec.MlDsa.normLtContract`. Constant time: only the pointer and `bound` may affect timing, not the data.
+///
+/// The function saves `r4` on the stack (the 4 bytes below the stack pointer).
+///
+/// # Safety
+///
+/// * `f` must be valid for reads of 1024 bytes.
+/// * Each of the 256 `u32`s of `f` must be less than `q` = 8380417.
+/// * `f` must not overlap the 4 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_mldsa_norm_lt(f: *const [u32; 256], bound: u32) -> u32 {
+    core::arch::naked_asm!(
+        "push {{r4}}",
+        "mov r4, #0",
+        "mov r2, #256",
+        "20:",
+        "ldr r3, [r0, #0]",
+        "movw r12, #57345",
+        "movt r12, #127",
+        "sub r12, r12, r3",
+        "cmp r3, r1",
+        "mov r3, #0",
+        "adc r3, r3, #0",
+        "cmp r12, r1",
+        "mov r12, #0",
+        "adc r12, r12, #0",
+        "and r3, r3, r12",
+        "orr r4, r4, r3",
+        "add r0, r0, #4",
+        "subs r2, r2, #1",
+        "bne 20b",
+        "mov r0, #1",
+        "sub r0, r0, r4",
+        "ldr r4, [sp], #4",
+        "bx lr",
+    )
+}
+
+/// `MakeHint` (FIPS 204 Algorithm 39) of each pair of coefficients of `*z` and `*r`, with `gamma2` = `γ₂`: writes 1 for true and 0 for false to `*h`, and returns the number of 1s.
+///
+/// Contract: `VG.Spec.MlDsa.makeHintContract`. Constant time: only the pointers and `gamma2` may affect timing, not the data.
+///
+/// The function saves `r4`–`r6` on the stack (the 12 bytes below the stack pointer).
+///
+/// # Safety
+///
+/// * `z` must be valid for reads of 1024 bytes.
+/// * `r` must be valid for reads of 1024 bytes.
+/// * `h` must be valid for reads and writes of 1024 bytes.
+/// * `gamma2` must be (q - 1)/88 = 95232 or (q - 1)/32 = 261888.
+/// * Each of the 256 `u32`s of `z` must be less than `q` = 8380417.
+/// * Each of the 256 `u32`s of `r` must be less than `q` = 8380417.
+/// * `h` must not overlap `z` or `r` (distinct Rust objects never do).
+/// * None of `z`, `r` and `h` may overlap the 12 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_mldsa_make_hint(z: *const [u32; 256], r: *const [u32; 256], gamma2: u32, h: *mut [u32; 256]) -> u32 {
+    core::arch::naked_asm!(
+        "push {{r4}}",
+        "push {{r5}}",
+        "push {{r6}}",
+        "cmp r2, #95232",
+        "mov r4, #0",
+        "beq 20f",
+        "mov r2, #256",
+        "22:",
+        "ldr r5, [r1, #0]",
+        "add r5, r5, #127",
+        "lsr r5, r5, #7",
+        "movw r12, #1025",
+        "mul r5, r5, r12",
+        "add r5, r5, #2097152",
+        "lsr r5, r5, #22",
+        "sub r5, r5, #16",
+        "lsr r12, r5, #31",
+        "add r5, r5, r12, lsl #4",
+        "ldr r6, [r1, #0]",
+        "ldr r12, [r0, #0]",
+        "add r6, r6, r12",
+        "sub r6, r6, #8388608",
+        "add r6, r6, #8192",
+        "sub r6, r6, #1",
+        "lsr r12, r6, #31",
+        "add r6, r6, r12, lsl #23",
+        "sub r6, r6, r12, lsl #13",
+        "add r6, r6, r12",
+        "add r6, r6, #127",
+        "lsr r6, r6, #7",
+        "movw r12, #1025",
+        "mul r6, r6, r12",
+        "add r6, r6, #2097152",
+        "lsr r6, r6, #22",
+        "sub r6, r6, #16",
+        "lsr r12, r6, #31",
+        "add r6, r6, r12, lsl #4",
+        "eor r6, r6, r5",
+        "add r6, r6, #63",
+        "lsr r6, r6, #6",
+        "str r6, [r3, #0]",
+        "add r4, r4, r6",
+        "add r0, r0, #4",
+        "add r1, r1, #4",
+        "add r3, r3, #4",
+        "subs r2, r2, #1",
+        "bne 22b",
+        "b 21f",
+        "20:",
+        "mov r2, #256",
+        "23:",
+        "ldr r5, [r1, #0]",
+        "add r5, r5, #127",
+        "lsr r5, r5, #7",
+        "movw r12, #11275",
+        "mul r5, r5, r12",
+        "add r5, r5, #8388608",
+        "lsr r5, r5, #24",
+        "sub r5, r5, #44",
+        "lsr r12, r5, #31",
+        "add r5, r5, r12, lsl #5",
+        "add r5, r5, r12, lsl #3",
+        "add r5, r5, r12, lsl #2",
+        "ldr r6, [r1, #0]",
+        "ldr r12, [r0, #0]",
+        "add r6, r6, r12",
+        "sub r6, r6, #8388608",
+        "add r6, r6, #8192",
+        "sub r6, r6, #1",
+        "lsr r12, r6, #31",
+        "add r6, r6, r12, lsl #23",
+        "sub r6, r6, r12, lsl #13",
+        "add r6, r6, r12",
+        "add r6, r6, #127",
+        "lsr r6, r6, #7",
+        "movw r12, #11275",
+        "mul r6, r6, r12",
+        "add r6, r6, #8388608",
+        "lsr r6, r6, #24",
+        "sub r6, r6, #44",
+        "lsr r12, r6, #31",
+        "add r6, r6, r12, lsl #5",
+        "add r6, r6, r12, lsl #3",
+        "add r6, r6, r12, lsl #2",
+        "eor r6, r6, r5",
+        "add r6, r6, #63",
+        "lsr r6, r6, #6",
+        "str r6, [r3, #0]",
+        "add r4, r4, r6",
+        "add r0, r0, #4",
+        "add r1, r1, #4",
+        "add r3, r3, #4",
+        "subs r2, r2, #1",
+        "bne 23b",
+        "21:",
+        "mov r0, r4",
+        "ldr r6, [sp], #4",
+        "ldr r5, [sp], #4",
+        "ldr r4, [sp], #4",
+        "bx lr",
+    )
+}
+
+/// `UseHint` (FIPS 204 Algorithm 40) of each pair of coefficients of `*h` (a hint bit: true if it is not 0) and `*r`, with `gamma2` = `γ₂`: writes the results to `*out`.
+///
+/// Contract: `VG.Spec.MlDsa.useHintContract`. Constant time: only the pointers and `gamma2` may affect timing, not the data.
+///
+/// The function saves `r4`–`r6` on the stack (the 12 bytes below the stack pointer).
+///
+/// # Safety
+///
+/// * `h` must be valid for reads of 1024 bytes.
+/// * `r` must be valid for reads of 1024 bytes.
+/// * `out` must be valid for reads and writes of 1024 bytes.
+/// * `gamma2` must be (q - 1)/88 = 95232 or (q - 1)/32 = 261888.
+/// * Each of the 256 `u32`s of `r` must be less than `q` = 8380417.
+/// * `out` must not overlap `h` or `r` (distinct Rust objects never do).
+/// * None of `h`, `r` and `out` may overlap the 12 bytes of stack below the stack pointer, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_mldsa_use_hint(h: *const [u32; 256], r: *const [u32; 256], gamma2: u32, out: *mut [u32; 256]) {
+    core::arch::naked_asm!(
+        "push {{r4}}",
+        "push {{r5}}",
+        "push {{r6}}",
+        "cmp r2, #95232",
+        "beq 20f",
+        "mov r2, #256",
+        "22:",
+        "ldr r12, [r1, #0]",
+        "add r12, r12, #127",
+        "lsr r12, r12, #7",
+        "movw r4, #1025",
+        "mul r12, r12, r4",
+        "add r12, r12, #2097152",
+        "lsr r12, r12, #22",
+        "movw r4, #65024",
+        "movt r4, #7",
+        "mul r4, r4, r12",
+        "ldr r5, [r1, #0]",
+        "cmp r4, r5",
+        "mov r4, #0",
+        "adc r4, r4, #0",
+        "mov r5, #1",
+        "sub r5, r5, r4, lsl #1",
+        "ldr r4, [r0, #0]",
+        "mov r6, #0",
+        "sub r6, r6, r4",
+        "orr r6, r6, r4",
+        "lsr r6, r6, #31",
+        "mul r5, r5, r6",
+        "add r12, r12, r5",
+        "add r12, r12, #16",
+        "sub r12, r12, #16",
+        "lsr r4, r12, #31",
+        "add r12, r12, r4, lsl #4",
+        "sub r12, r12, #16",
+        "lsr r4, r12, #31",
+        "add r12, r12, r4, lsl #4",
+        "str r12, [r3, #0]",
+        "add r0, r0, #4",
+        "add r1, r1, #4",
+        "add r3, r3, #4",
+        "subs r2, r2, #1",
+        "bne 22b",
+        "b 21f",
+        "20:",
+        "mov r2, #256",
+        "23:",
+        "ldr r12, [r1, #0]",
+        "add r12, r12, #127",
+        "lsr r12, r12, #7",
+        "movw r4, #11275",
+        "mul r12, r12, r4",
+        "add r12, r12, #8388608",
+        "lsr r12, r12, #24",
+        "movw r4, #59392",
+        "movt r4, #2",
+        "mul r4, r4, r12",
+        "ldr r5, [r1, #0]",
+        "cmp r4, r5",
+        "mov r4, #0",
+        "adc r4, r4, #0",
+        "mov r5, #1",
+        "sub r5, r5, r4, lsl #1",
+        "ldr r4, [r0, #0]",
+        "mov r6, #0",
+        "sub r6, r6, r4",
+        "orr r6, r6, r4",
+        "lsr r6, r6, #31",
+        "mul r5, r5, r6",
+        "add r12, r12, r5",
+        "add r12, r12, #44",
+        "sub r12, r12, #44",
+        "lsr r4, r12, #31",
+        "add r12, r12, r4, lsl #5",
+        "add r12, r12, r4, lsl #3",
+        "add r12, r12, r4, lsl #2",
+        "sub r12, r12, #44",
+        "lsr r4, r12, #31",
+        "add r12, r12, r4, lsl #5",
+        "add r12, r12, r4, lsl #3",
+        "add r12, r12, r4, lsl #2",
+        "str r12, [r3, #0]",
+        "add r0, r0, #4",
+        "add r1, r1, #4",
+        "add r3, r3, #4",
+        "subs r2, r2, #1",
+        "bne 23b",
+        "21:",
+        "ldr r6, [sp], #4",
+        "ldr r5, [sp], #4",
+        "ldr r4, [sp], #4",
+        "bx lr",
+    )
+}
