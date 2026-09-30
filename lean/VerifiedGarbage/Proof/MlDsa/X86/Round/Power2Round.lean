@@ -77,8 +77,8 @@ structure P2Inv (s₀ : State) (k : Nat) (s : State) : Prop where
 theorem p2rBody_eq : p2rBody =
     .mov .eax (.mem (at_ .esi 0)) :: .alu .add .eax (.imm 4095) :: .mov .edx (.reg .eax) :: .shift .shr .edx 13 ::
       .store (at_ .edi 0) .edx :: .alu .and .eax (.imm 8191) :: (condAdd .eax (.imm 4095) .edx qImm ++
-      [.store (at_ .ebp 0) .eax, .alu .add .esi (.imm 4), .alu .add .edi (.imm 4), .alu .add .ebp (.imm 4),
-        .alu .sub .ecx (.imm 1)]) := by
+      ([.store (at_ .ebp 0) .eax, .alu .add .esi (.imm 4), .alu .add .edi (.imm 4), .alu .add .ebp (.imm 4),
+        .alu .sub .ecx (.imm 1)] : List Instr)) := by
   simp only [p2rBody, List.cons_append, List.nil_append]
 
 theorem p2r_step {s₀ : State} (hp : P2Pre s₀) {k : Nat} (hk : k < 256) {s : State} (h : P2Inv s₀ k s) :
