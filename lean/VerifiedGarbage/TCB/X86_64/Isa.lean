@@ -201,7 +201,9 @@ VPUNPCKLDQ, VPUNPCKHDQ, VPUNPCKLQDQ and VPUNPCKHQDQ (`EVEX.512.66.0F.W0 62
 `EVEX.512.66.0F.W1 6D /r`), VPROLD (`EVEX.512.66.0F.W0 72 /1 ib`), VPSHUFD
 (`EVEX.512.66.0F.W0 70 /r ib`), VSHUFI32X4 (`EVEX.512.66.0F3A.W0 43 /r
 ib`), VMOVDQU32 (`EVEX.512.F3.0F.W0 6F /r`, `EVEX.512.F3.0F.W0 7F /r`) and
-VBROADCASTI32X4 (`EVEX.512.66.0F38.W0 5A /r`). -/
+VBROADCASTI32X4 (`EVEX.512.66.0F38.W0 5A /r`). SHA512 for VSHA512RNDS2,
+VSHA512MSG1 and VSHA512MSG2 (`VEX.256.F2.0F38.W0 CB /r`, `VEX.256.F2.0F38.W0
+CC /r`, `VEX.256.F2.0F38.W0 CD /r`). -/
 def Instr.requires : Instr → List String
   | .xop (.bin .pshufb ..) | .xop (.palignr ..) => ["ssse3"]
   | .xop (.bin .sha256msg1 ..) | .xop (.bin .sha256msg2 ..) | .xop (.sha256rnds2 ..) => ["sha"]
@@ -221,6 +223,7 @@ def Instr.requires : Instr → List String
   | .rorx32 .. | .rorx .. => ["bmi2"]
   | .andn32 .. | .andn .. => ["bmi1"]
   | .zop _ | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. => ["avx512f"]
+  | .vop (.vsha512rnds2 ..) | .vop (.vsha512msg1 ..) | .vop (.vsha512msg2 ..) => ["sha512"]
   | _ => []
 
 /-- Semantics of an instruction. The byte forms: SDM Vol. 2, "MOVZX":
