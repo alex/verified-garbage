@@ -44,7 +44,7 @@ theorem ip_cov : Covers ([] ++ [⟨pa s f, 1024⟩, ⟨pa s (sc oSS), 1024⟩]) 
   simp only [ipChk, Bool.and_eq_true] at hc
   exact ⟨covers_wr (covers_cons (L.cW hc.1.2) (L.cW hc.2)), covers_cons (L.cW hc.1.2) (L.cW hc.2)⟩
 
-theorem ip_pre (hr : Reduced s.mem (pa s f)) {s1 : State} (h1 : Args (ipArgs f) s s1) :
+theorem ip_pre {t : Poly → Poly} (hr : Reduced s.mem (pa s f)) {s1 : State} (h1 : Args (ipArgs f) s s1) :
     (inPlaceContract X86_64.abi (t : Poly → Poly) 16).pre
       (s1.callEntry.withRegions [] [⟨pa s f, 1024⟩, ⟨pa s (sc oSS), 1024⟩]) := by
   simp only [ipChk, Bool.and_eq_true] at hc

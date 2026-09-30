@@ -100,6 +100,21 @@ theorem Lay.wnatPolyAt {p : Ptr} (h : inB (rbs ++ wbs) p 1024 = true) (v : BitVe
     natPolyAt (s.mem.writeW (s.gpr .rsp - 8) v) (pa s p) = natPolyAt s.mem (pa s p) :=
   Proof.MlDsa.Verify.natPolyAt_congr (L.wbytes h v)
 
+theorem Lay.wcoeffAt {p : Ptr} (h : inB (rbs ++ wbs) p 1024 = true) (v : BitVec 64) {i : Nat} (hi : i < n) :
+    coeffAt (s.mem.writeW (s.gpr .rsp - 8) v) (pa s p) i = coeffAt s.mem (pa s p) i :=
+  Proof.MlDsa.Verify.coeffAt_congr (L.wbytes h v) hi
+
+theorem Lay.whintAt {p : Ptr} (h : inB (rbs ++ wbs) p 1024 = true) (v : BitVec 64) :
+    hintAt (s.mem.writeW (s.gpr .rsp - 8) v) (pa s p) 1 = hintAt s.mem (pa s p) 1 := by
+  unfold hintAt
+  refine List.map_congr_left fun i hi => ?_
+  have : i = 0 := by rw [List.mem_range] at hi; omega
+  subst this
+  apply Vector.ext
+  intro j hj
+  simp only [Vector.getElem_ofFn, Nat.mul_zero, Nat.zero_add]
+  rw [L.wcoeffAt h v hj]
+
 theorem Lay.wreduced {p : Ptr} (h : inB (rbs ++ wbs) p 1024 = true) (v : BitVec 64) (hr : Reduced s.mem (pa s p)) :
     Reduced (s.mem.writeW (s.gpr .rsp - 8) v) (pa s p) :=
   Proof.MlDsa.Verify.reduced_congr (L.wbytes h v) hr
@@ -132,6 +147,12 @@ theorem Args.r4 {r r1 r2 r3 r4 : Reg} {a a1 a2 a3 a4 : Arg} {as : List (Reg × A
 
 theorem Args.rsp {as : List (Reg × Arg)} {s s1 : State} (h : Args as s s1) : s1.gpr .rsp = s.gpr .rsp :=
   h.2.gpr (by decide)
+
+theorem imm32 {v : Nat} (h : v < 2 ^ 32) : (BitVec.setWidth 32 (BitVec.ofNat 64 v)).toNat = v := by
+  simp only [BitVec.toNat_setWidth, BitVec.toNat_ofNat]; omega
+
+theorem imm64 {v : Nat} (h : v < 2 ^ 64) : (BitVec.ofNat 64 v).toNat = v := by
+  simp only [BitVec.toNat_ofNat]; omega
 
 /-- The buffers of a layout: small, in the registers `bases`. -/
 def LayOk (bs : List (Reg × Nat)) : Prop := ∀ b ∈ bs, b.2 < 2 ^ 31 ∧ b.1 ∈ bases
