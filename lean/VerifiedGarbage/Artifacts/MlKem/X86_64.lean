@@ -178,8 +178,10 @@ def artifacts : List Artifact := [
     doc := Spec.MlKem.sampleNTT4Api.doc
       (notes := ["The function absorbs the four seeds and squeezes the four instances of SHAKE128 at once, \
         each 64-bit lane of the Keccak states in a 256-bit AVX2 register holding that lane of all four; \
-        it then parses the output of each in turn, and finishes any that needs more than the 504 bytes \
-        it squeezed with `vg_mlkem_sample_ntt`, with 24 bytes of stack below its return address."])
+        it then samples from the output of each in turn, eight candidates at a time in AVX2 registers \
+        (keeping those less than `q` with `vpermd`, by a table in `*scratch` indexed by their mask), \
+        and finishes any that needs more than the 504 bytes it squeezed with `vg_mlkem_sample_ntt`, \
+        with 24 bytes of stack below its return address."])
     code := Impl.MlKem.X86_64.Sample4.sampleNTT4Avx2
     contract := Spec.MlKem.sampleNTT4Contract X86_64.abi 24
     stack := 24

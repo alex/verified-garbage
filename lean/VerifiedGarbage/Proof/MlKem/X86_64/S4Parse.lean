@@ -4,13 +4,13 @@ import VerifiedGarbage.Proof.MlKem.X86_64.FragPrim
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, sampling
 
-Untrusted: everything here is checked by Lean. `parse k` runs 168
-iterations of `vg_mlkem_sample_ntt`'s loop on the 504 bytes of XOF output
-of seed `k` (`loop_ok`, as `SampleNtt.lean`'s), to polynomial `k`; and, if
-they sample fewer than 256 coefficients, calls `vg_mlkem_sample_ntt` on the
-seed (`fallback_ok`). Either way, polynomial `k` is then the seed's
-`SampleNTT`, if it succeeds, and `r14` records whether the first `k + 1` do
-(`parse_ok`).
+Untrusted: everything here is checked by Lean. What holds before and
+during `parse k` (`PInv`, `LAt`), an iteration of `vg_mlkem_sample_ntt`'s
+loop on the XOF output of seed `k` (`lat_step`, as `SampleNtt.lean`'s), and,
+if the iterations sample fewer than 256 coefficients, the call of
+`vg_mlkem_sample_ntt` on the seed (`fallback_ok`). Either way, polynomial `k`
+is then the seed's `SampleNTT`, if it succeeds, and `r14` records whether the
+first `k + 1` do. The loop of `parse k` is in `S4Loop.lean`.
 -/
 
 namespace VG.Proof.MlKem.X86_64.S4
@@ -28,6 +28,19 @@ def okN (σ : State) (K : Nat) : Nat :=
 abbrev BufOK (σ : State) (m : Mem) : Prop :=
   ∀ k < 4, ∀ p < 504, m (at' σ (oBuf + 504 * k + p)) = xofByte (B σ k) p
 
+/-- The table of the sampling and the constants of the vector code, from
+byte 0 of `scratch`. -/
+def TabOK (σ : State) (m : Mem) : Prop := ∀ i < 280, m.readW (at' σ (8 * i)) 64 = tabQ i
+
+/-- The output of the squeezes, and the table. -/
+abbrev BufT (σ : State) (m : Mem) : Prop := BufOK σ m ∧ TabOK σ m
+
+/-- The table is kept by writes elsewhere. -/
+theorem tab_frame {σ : State} {m m' : Mem} {rs : List Region} (hd : ∀ r ∈ rs, Region.Disjoint ⟨at' σ 0, 2240⟩ r)
+    (hf : Frame rs m m') (h : TabOK σ m) : TabOK σ m' := fun i hi => by
+  rw [← h i hi]
+  exact hf.readW (Offset.contains _ (by omega) (by omega) (by omega)) hd (by decide)
+
 /-- Before the `K`-th polynomial, with `X` of the memory. -/
 structure PC (X : Mem → Prop) (σ : State) (K : Nat) (s : State) : Prop where
   env : Env σ s
@@ -36,7 +49,7 @@ structure PC (X : Mem → Prop) (σ : State) (K : Nat) (s : State) : Prop where
   polys : ∀ k < K, ∀ f, sampleNTT minIterations (B σ k) = some f → PolyIs s.mem (poly4 (aP σ) k) f
 
 /-- Before `parse K`. -/
-abbrev PInv (σ : State) (K : Nat) (s : State) : Prop := PC (BufOK σ) σ K s
+abbrev PInv (σ : State) (K : Nat) (s : State) : Prop := PC (BufT σ) σ K s
 
 /-- The coefficients of seed `K` after `t` iterations. -/
 abbrev Lt (σ : State) (K t : Nat) : List Zq := sampleAfter [] (xofByte (B σ K)) t
@@ -64,14 +77,16 @@ theorem PInv.poly {K : Nat} (hK : K < 4) {s s' : State} (h : PInv σ K s)
   refine ⟨⟨hrd.trans h.env.rd, hwr.trans h.env.wr, by rw [hg .rbx (by simp), h.env.rbx],
       by rw [hg .r12 (by simp), h.env.r12], by rw [hg .r13 (by simp), h.env.r13], by rw [hg .rsp (by simp), h.env.rsp],
       by rw [hg .r15 (by simp), h.env.r15], fun i hi => ?_, h.env.frame.trans (hf.sub fun r hr => ?_)⟩,
-    fun k hk p hp' => ?_, by rw [hg .r14 (by simp), h.r14], fun k hk f e => ?_⟩
+    ⟨fun k hk p hp' => ?_, tab_frame (by
+      simpa using (hp.a_scr.symm.sub_left (sub_scr (a := 0) (n := 2240) (by omega))).sub_right hsub) hf h.buf.2⟩,
+    by rw [hg .r14 (by simp), h.r14], fun k hk f e => ?_⟩
   · rw [hf.readW (Region.contains_self _ _) (by
         simpa using (hp.a_scr.symm.sub_left (sub_scr (by simp only [oSave]; omega))).sub_right hsub) (by decide)]
     exact h.env.saved i hi
   · simp only [List.mem_singleton] at hr; subst hr; exact ⟨aR σ, by simp, hsub⟩
   · rw [buf_frame (by simpa using (hp.a_scr.symm.sub_left (sub_scr (by simp only [oBuf]; omega))).sub_right hsub)
       hf hk hp']
-    exact h.buf k hk p hp'
+    exact h.buf.1 k hk p hp'
   · have hd := Offset.disjoint (aP σ) (d := 1024 * k) (n := 1024) (e := 1024 * K) (k := 1024) (by omega) (by omega)
       (by omega)
     exact polyIs_frame hf (by simpa [poly4] using hd) (h.polys k hk f e)
@@ -79,7 +94,7 @@ theorem PInv.poly {K : Nat} (hK : K < 4) {s s' : State} (h : PInv σ K s)
 omit hp in
 theorem out_byte {K t : Nat} (hK : K < 4) {s : State} (h : LAt σ K t s) {j : Nat} (hj : 3 * t + j < 504) :
     s.mem (s.gpr .rsi + BitVec.ofNat 64 j) = xofByte (B σ K) (3 * t + j) := by
-  have e := h.pinv.buf K hK (3 * t + j) hj
+  have e := h.pinv.buf.1 K hK (3 * t + j) hj
   rw [at'] at e
   rw [h.rsi, at', Offset.add_add, Offset.add_add]
   exact e
@@ -118,43 +133,6 @@ theorem PC.keep {X : Mem → Prop} {K : Nat} {s s' : State} (h : PC X σ K s) (h
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢; rcases hr with h | h | h | h | h <;> simp [h]),
     by rw [hm]; exact h.buf, by rw [hk.gpr (hrs .r14 (by simp)), h.r14],
     by rw [hm]; exact h.polys⟩
-
-omit hp in
-theorem setup_eq (K : Nat) : ([.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitVec.ofNat 32 (oBuf + 504 * K))),
-    .mov32 .rdi (.imm 0), .mov .rbp (.reg .r13), .alu .add .rbp (.imm (BitVec.ofNat 32 (1024 * K))),
-    .mov32 .rcx (.imm 168)] : List Instr) = [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitVec.ofNat 32 (oBuf + 504 * K))),
-    .mov32 .rdi (.imm 0), .mov .rbp (.reg .r13), .alu .add .rbp (.imm (BitVec.ofNat 32 (1024 * K))),
-    .mov32 .rcx (.imm 168)] := rfl
-
-omit hp in
-/-- The setup of the loop. -/
-theorem setup_ok {K : Nat} (hK : K < 4) {s : State} (h : PInv σ K s) :
-    WP isa (.block [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitVec.ofNat 32 (oBuf + 504 * K))),
-      .mov32 .rdi (.imm 0), .mov .rbp (.reg .r13), .alu .add .rbp (.imm (BitVec.ofNat 32 (1024 * K))),
-      .mov32 .rcx (.imm 168)]) s fun s' => LAt σ K 0 s' ∧ s'.gpr .rcx = BitVec.ofNat 64 168 :=
-  WP.mono (WP.keep [.rsi, .rdi, .rbp, .rcx] (Q := fun s' => s'.mem = s.mem ∧
-      s'.gpr .rsi = at' σ (oBuf + 504 * K) ∧ s'.gpr .rdi = 0 ∧ s'.gpr .rbp = poly4 (aP σ) K ∧
-      s'.gpr .rcx = BitVec.ofNat 64 168)
-    (by xrun [h.env.rbx, h.env.r13, sx_ofNat (show oBuf + 504 * K < 2 ^ 31 by simp only [oBuf]; omega),
-      sx_ofNat (show 1024 * K < 2 ^ 31 by omega)]; rfl) rfl) fun s₁ ⟨⟨hm, hsi, hdi, hbp, hcx⟩, k₁⟩ =>
-    ⟨⟨h.keep hm k₁ (by decide), by rw [hsi, Nat.mul_zero, add_ofNat_zero], by rw [hdi]; rfl, hbp,
-      fun k hk => absurd hk (by simp [sampleAfter])⟩, hcx⟩
-
-/-- The setup and the 168 iterations. -/
-theorem loop_ok {K : Nat} (hK : K < 4) {s : State} (h : PInv σ K s) {rest : Prog isa} {Q : State → Prop}
-    (kont : ∀ s', LAt σ K 168 s' → WP isa rest s' Q) :
-    WP isa (.seq (.block [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitVec.ofNat 32 (oBuf + 504 * K))),
-      .mov32 .rdi (.imm 0), .mov .rbp (.reg .r13), .alu .add .rbp (.imm (BitVec.ofNat 32 (1024 * K))),
-      .mov32 .rcx (.imm 168)]) (.seq (.loop snBody .ne) rest)) s Q := by
-  refine WP.seq (WP.mono (WP.keep [.rsi, .rdi, .rbp, .rcx] (Q := fun s' => s'.mem = s.mem ∧
-      s'.gpr .rsi = at' σ (oBuf + 504 * K) ∧ s'.gpr .rdi = 0 ∧ s'.gpr .rbp = poly4 (aP σ) K ∧
-      s'.gpr .rcx = BitVec.ofNat 64 168)
-    (by xrun [h.env.rbx, h.env.r13, sx_ofNat (show oBuf + 504 * K < 2 ^ 31 by simp only [oBuf]; omega),
-      sx_ofNat (show 1024 * K < 2 ^ 31 by omega)]; rfl) rfl) fun s₁ ⟨⟨hm, hsi, hdi, hbp, hcx⟩, k₁⟩ => ?_)
-  refine WP.seq (WP.mono (wp_countdown (cnt := .rcx) (N := 168) (by decide) (by decide) (fun t s => LAt σ K t s)
-    (fun t ht s hs _ => lat_step hp hK ht hs) (fun _ h => h) ?_ hcx) kont)
-  exact ⟨h.keep hm k₁ (by decide), by rw [hsi, Nat.mul_zero, add_ofNat_zero], by rw [hdi]; rfl, hbp,
-    fun k hk => absurd hk (by simp [sampleAfter])⟩
 
 /-! ## The fallback -/
 
@@ -224,10 +202,10 @@ theorem PC.call {X : Mem → Prop} {K : Nat} (hK : K < 4) {s s' : State} (h : PC
     · exact (hp.a_scr.sub_left (sub_poly (by omega))).sub_right (sub_scr (by simp only [oScalar]; omega))
     · exact (hp.stk_a.sub_right (sub_poly (by omega))).symm
 
-theorem bufOK_call {K : Nat} (hK : K < 4) : ∀ m m', Frame (cWr σ K ++ [stkR σ]) m m' → BufOK σ m → BufOK σ m' :=
-  fun _ _ hf h k hk p hp' => by
+theorem bufOK_call {K : Nat} (hK : K < 4) : ∀ m m', Frame (cWr σ K ++ [stkR σ]) m m' → BufT σ m → BufT σ m' :=
+  fun _ _ hf h => ⟨fun k hk p hp' => by
     rw [buf_frame (c_disj hp hK (by simp only [oBuf, oScalar]; omega)) hf hk hp']
-    exact h k hk p hp'
+    exact h.1 k hk p hp', tab_frame (c_disj hp hK (a := 0) (n := 2240) (by simp only [oScalar]; omega)) hf h.2⟩
 
 omit hp in
 theorem sx6144 : BitVec.signExtend 64 (BitVec.ofNat 32 oScalar) = BitVec.ofNat 64 6144 := by decide
@@ -391,11 +369,6 @@ theorem fallback_ok {K : Nat} (hK : K < 4) {s : State} (h : LAt σ K 168 s) :
   unfold fallback
   exact WP.seq (WP.mono (cmpK_ok h) fun s₁ h₁ => WP.ite _ h₁.cf (fun _ => call_ok hp hK h₁.pinv)
     fun hb => WP.block_nil (skipK_ok hK h₁ (by rw [h₁.cf, hb])))
-
-/-- `parse K`. -/
-theorem parse_ok {K : Nat} (hK : K < 4) {s : State} (h : PInv σ K s) : WP isa (parse K) s (PInv σ (K + 1)) := by
-  unfold parse
-  exact loop_ok hp hK h fun _ h' => fallback_ok hp hK h'
 
 end
 
