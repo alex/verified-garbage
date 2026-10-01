@@ -41,14 +41,8 @@ theorem pointDouble_high (e : Env) (i : Slot) (hi : 16 ≤ i.val) :
 theorem constPoint_eval (p : Spec.Ed25519.Point) (e : Env) :
     point (evalOps (constPointOps p) e) 0 1 2 3 = p := by cases p; rfl
 
-theorem savePoint_eval (e : Env) :
-    point (evalOps savePointOps e) 17 18 19 20 = point e 0 1 2 3 := rfl
-
 theorem restorePoint_eval (e : Env) :
     point (evalOps restorePointOps e) 0 1 2 3 = point e 17 18 19 20 := rfl
-
-theorem copyPointToQ_eval (e : Env) :
-    point (evalOps copyPointToQOps e) 4 5 6 7 = point e 0 1 2 3 := rfl
 
 theorem pointDouble_ok {s : State} {base : Addr} (hs : Scr s base)
     (hd : env s.mem base 16 = Spec.Ed25519.d) :

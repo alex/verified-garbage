@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.Ed25519.X86_64.BaseMultiples
+import VerifiedGarbage.Impl.Ed25519.BaseMultiples
 import VerifiedGarbage.Impl.Ed25519.X86_64.Cached
 
 /-!

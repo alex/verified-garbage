@@ -1,6 +1,6 @@
-import VerifiedGarbage.Proof.Ed25519.X86_64.WindowStep
-import VerifiedGarbage.Proof.Ed25519.X86_64.Bits
-import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulCounter
+import VerifiedGarbage.Proof.Ed25519.AArch64.WindowStep
+import VerifiedGarbage.Proof.Ed25519.AArch64.Bits
+import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulCounter
 import VerifiedGarbage.Proof.Ed25519.Window
 
 /-!
@@ -10,34 +10,40 @@ Untrusted. Byte `i` of `k` (and of `S`) gives two digits, high nibble
 first; after it, the accumulator represents `[k / 256^i]A - [S / 256^i]B`.
 -/
 
-namespace VG.Proof.Ed25519.X86_64
+namespace VG.Proof.Ed25519.AArch64
 
-open VG VG.X86_64 VG.Impl.Ed25519.X86_64 VG.Proof.Ed25519 Edwards
-open VG.Proof.X25519.X86_64 (off ofs Keeps clob Outside)
-
-variable {fld : Arith} [EdArith fld]
+open VG VG.AArch64 VG.Impl.Ed25519.AArch64 VG.Proof.Ed25519 Edwards
 
 /-- What a byte of the scalars may change. -/
 structure ByteKeep (base : Addr) (s t : State) : Prop where
-  gpr : ∀ r, r ∉ clob → r ≠ .rbx → r ≠ .rsi → t.gpr r = s.gpr r
+  gpr : ∀ r, r ∉ clob → r ≠ .x19 → r ≠ .x1 → t.gpr r = s.gpr r
   rd : t.rd = s.rd
   wr : t.wr = s.wr
+  sp : t.sp = s.sp
   mem : Outside base 56 712 s.mem t.mem
+
+theorem ByteKeep.refl (base : Addr) (s : State) : ByteKeep base s s :=
+  ⟨fun _ _ _ _ => rfl, rfl, rfl, rfl, Outside.refl _ _ _ _⟩
 
 theorem ByteKeep.trans {base : Addr} {s t u : State} (h : ByteKeep base s t) (k : ByteKeep base t u) :
     ByteKeep base s u :=
   ⟨fun r a b c => (k.gpr r a b c).trans (h.gpr r a b c), k.rd.trans h.rd, k.wr.trans h.wr,
-    h.mem.trans k.mem⟩
+    k.sp.trans h.sp, h.mem.trans k.mem⟩
 
 theorem ByteKeep.of_win {base : Addr} {s t : State} (h : WinKeep base s t) : ByteKeep base s t :=
-  ⟨h.gpr, h.rd, h.wr, Outside.widen h.mem⟩
+  ⟨h.gpr, h.rd, h.wr, h.sp, Outside.widen h.mem⟩
 
 theorem ByteKeep.of_keeps {base : Addr} {s t : State} {rs : List Reg} (h : Keeps rs s t)
-    (hrs : ∀ r ∈ rs, r = .rbx ∨ r = .rsi ∨ r ∈ clob) : ByteKeep base s t :=
+    (hrs : ∀ r ∈ rs, r = .x19 ∨ r = .x1 ∨ r ∈ clob) : ByteKeep base s t :=
   ByteKeep.of_win (WinKeep.of_keeps h hrs)
 
-theorem ByteKeep.scratch {base : Addr} {s t : State} (h : ByteKeep base s t) (hs : Scratch s base) :
-    Scratch t base := ⟨(h.gpr _ (by decide) (by decide) (by decide)).trans hs.rdi, h.wr ▸ hs.wr, hs.nowrap⟩
+theorem ByteKeep.of_counter {base : Addr} {s t : State}
+    (ag : ∀ r, r ≠ .x19 → t.gpr r = s.gpr r) (ar : t.rd = s.rd) (aw : t.wr = s.wr) (asp : t.sp = s.sp)
+    (am : Outside base 56 8 s.mem t.mem) : ByteKeep base s t :=
+  ⟨fun r _ hb _ => ag r hb, ar, aw, asp, am.mono (by decide) (by decide)⟩
+
+theorem ByteKeep.scratch {base : Addr} {s t : State} (h : ByteKeep base s t) (hs : Scr s base) :
+    Scr t base := ⟨(h.gpr _ (by decide) (by decide) (by decide)).trans hs.x0, h.wr ▸ hs.wr, hs.nowrap⟩
 
 theorem WinCtx.of_byte {base kp sp : Addr} {A : EPoint dZ} {s t : State} (h : WinCtx base kp sp A s)
     (k : ByteKeep base s t) : WinCtx base kp sp A t := by
@@ -63,61 +69,62 @@ theorem digitKHigh {base kp sp : Addr} {A : EPoint dZ} {s : State} (h : WinCtx b
     DigitSpec base s (digitHigh 7952 0) ((s.mem (off kp i)).toNat / 16) := by
   intro t kt
   have ht := h.of_keep kt
-  refine WP.mono (digitHigh_ok ht.scratch 7952 0 (by decide) (by decide) ht.kHeader i
-    (kt.counter.trans hc) (by rw [off_zero]; exact ht.kRead i hi)) fun u ⟨uv, uz, ku⟩ => ?_
-  rw [off_zero, h.byteK kt hi] at uv uz
-  exact ⟨uv, uz, ku⟩
+  refine WP.mono (digitHigh_ok ht.scratch 7952 0 (by decide) (by decide) (by decide) ht.kHeader i
+    (kt.counter.trans hc) (by rw [off_zero]; exact ht.kRead i hi)) fun u ⟨uv, ku⟩ => ?_
+  rw [off_zero, h.byteK kt hi] at uv
+  exact ⟨uv, ku⟩
 
 theorem digitKLow {base kp sp : Addr} {A : EPoint dZ} {s : State} (h : WinCtx base kp sp A s)
     {i : Nat} (hi : i < 64) (hc : s.mem.readW (off base 56) 64 = BitVec.ofNat 64 i) :
     DigitSpec base s (digitLow 7952 0) ((s.mem (off kp i)).toNat % 16) := by
   intro t kt
   have ht := h.of_keep kt
-  refine WP.mono (digitLow_ok ht.scratch 7952 0 (by decide) (by decide) ht.kHeader i
-    (kt.counter.trans hc) (by rw [off_zero]; exact ht.kRead i hi)) fun u ⟨uv, uz, ku⟩ => ?_
-  rw [off_zero, h.byteK kt hi] at uv uz
-  exact ⟨uv, uz, ku⟩
+  refine WP.mono (digitLow_ok ht.scratch 7952 0 (by decide) (by decide) (by decide) ht.kHeader i
+    (kt.counter.trans hc) (by rw [off_zero]; exact ht.kRead i hi)) fun u ⟨uv, ku⟩ => ?_
+  rw [off_zero, h.byteK kt hi] at uv
+  exact ⟨uv, ku⟩
 
 theorem digitSHigh {base kp sp : Addr} {A : EPoint dZ} {s : State} (h : WinCtx base kp sp A s)
     {i : Nat} (hi : i < 32) (hc : s.mem.readW (off base 56) 64 = BitVec.ofNat 64 i) :
     DigitSpec base s (digitHigh 7944 32) ((s.mem (off (off sp 32) i)).toNat / 16) := by
   intro t kt
   have ht := h.of_keep kt
-  refine WP.mono (digitHigh_ok ht.scratch 7944 32 (by decide) (by decide) ht.sHeader i
-    (kt.counter.trans hc) (ht.sRead i hi)) fun u ⟨uv, uz, ku⟩ => ?_
-  rw [h.byteS kt hi] at uv uz
-  exact ⟨uv, uz, ku⟩
+  refine WP.mono (digitHigh_ok ht.scratch 7944 32 (by decide) (by decide) (by decide) ht.sHeader i
+    (kt.counter.trans hc) (ht.sRead i hi)) fun u ⟨uv, ku⟩ => ?_
+  rw [h.byteS kt hi] at uv
+  exact ⟨uv, ku⟩
 
 theorem digitSLow {base kp sp : Addr} {A : EPoint dZ} {s : State} (h : WinCtx base kp sp A s)
     {i : Nat} (hi : i < 32) (hc : s.mem.readW (off base 56) 64 = BitVec.ofNat 64 i) :
     DigitSpec base s (digitLow 7944 32) ((s.mem (off (off sp 32) i)).toNat % 16) := by
   intro t kt
   have ht := h.of_keep kt
-  refine WP.mono (digitLow_ok ht.scratch 7944 32 (by decide) (by decide) ht.sHeader i
-    (kt.counter.trans hc) (ht.sRead i hi)) fun u ⟨uv, uz, ku⟩ => ?_
-  rw [h.byteS kt hi] at uv uz
-  exact ⟨uv, uz, ku⟩
+  refine WP.mono (digitLow_ok ht.scratch 7944 32 (by decide) (by decide) (by decide) ht.sHeader i
+    (kt.counter.trans hc) (ht.sRead i hi)) fun u ⟨uv, ku⟩ => ?_
+  rw [h.byteS kt hi] at uv
+  exact ⟨uv, ku⟩
 
 /-! ## A byte -/
 
-theorem counterCmp_ok {s : State} {base : Addr} (hs : Scratch s base) (i : Nat) (hi : i < 64)
+private theorem above_cmp : ∀ i < 65,
+    (BitVec.ofNat 64 i - BitVec.ofNat 64 32 != 0) = decide (i ≠ 32) := by decide
+
+theorem aboveLow_ok {s : State} {base : Addr} (hs : Scr s base) (i : Nat) (hi : i ≤ 64)
     (hc : s.mem.readW (off base 56) 64 = BitVec.ofNat 64 i) :
-    WP isa (.block [.mov .rbx (.mem (Impl.X25519.X86_64.sc 56)), .alu .cmp .rbx (.imm 32)]) s
-      fun t => t.zf = some (decide (i = 32)) ∧ Keeps [.rbx] s t := by
-  have hr : InRegions (s.rd ++ s.wr) (off base 56) 8 :=
-    ⟨_, List.mem_append_right _ hs.wr, Offset.contains_base _ (by decide) (by decide)⟩
-  have hz : (BitVec.ofNat 64 i - (32 : BitVec 32).signExtend 64 == 0) = decide (i = 32) := by
-    rw [show (32 : BitVec 32).signExtend 64 = BitVec.ofNat 64 32 from rfl]
-    apply Bool.eq_iff_iff.mpr
-    simp only [beq_iff_eq, decide_eq_true_eq]
-    bv_omega_using [hi]
+    WP isa (.block aboveLow) s fun t => eval (.nonzero .x .x19) t = some (decide (i ≠ 32)) ∧
+      Keeps [.x19] s t := by
+  rw [aboveLow, show ([ld .x19 56, .subImm .x .x19 .x19 32] : List Instr) =
+    [ld .x19 56] ++ [.subImm .x .x19 .x19 32] from rfl, WP.block_append_iff]
+  refine WP.mono (loadPointer_ok hs .x19 56 (by decide) (by decide)) fun a ⟨av, ka⟩ => ?_
   apply WP.of_runBlock
-  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, readSrc, execAlu, State.load64,
-    Proof.X25519.X86_64.ea_sc, RegUpd.gpr_setReg, RegUpd.zf_arithFlags, hs.rdi, hr, hc, hz,
-    ite_true, Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
-  refine ⟨trivial, fun r hr => ?_, rfl, rfl, rfl⟩
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  simp only [RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, hr, ite_false]
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, read_x,
+    show (32 : Nat) < 4096 from by decide, ite_true, Option.some.injEq, exists_eq_left']
+  refine ⟨?_, ⟨fun r hr => ?_, by simp only [RegUpd.mem_write, ka.mem],
+    by simp only [RegUpd.rd_write, ka.rd], by simp only [RegUpd.wr_write, ka.wr],
+    by simp only [RegUpd.sp_write, ka.sp]⟩⟩
+  · simp only [eval, read_x, RegUpd.gpr_write_self, BitVec.setWidth_eq, av, hc, above_cmp i (by omega)]
+  · have h : r ≠ .x19 := by simpa only [List.mem_singleton] using hr
+    rw [RegUpd.gpr_write_of_ne _ _ _ h, ka.gpr r hr]
 
 theorem scalar_byte {m : Mem} {p : Addr} {n i : Nat} (hi : i < n) :
     (m (off p i)).toNat = Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt m p n) / 256 ^ i % 256 := by
@@ -126,36 +133,37 @@ theorem scalar_byte {m : Mem} {p : Addr} {n i : Nat} (hi : i < n) :
 theorem byteStepA_ok {s : State} {base kp sp : Addr} {A : EPoint dZ} (h : WinCtx base kp sp A s)
     (hd : env s.mem base 16 = Spec.Ed25519.d) {i : Nat} (hi32 : 32 ≤ i) (hi : i < 64)
     (hc : s.mem.readW (off base 56) 64 = BitVec.ofNat 64 (i + 1)) {S : Nat} (hS : S < 256 ^ 32)
-    (ha : Rep (point (env s.mem base) 0 1 2 3)
+    (ha : RepP (point (env s.mem base) 0 1 2 3)
       ((Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) / 256 ^ (i + 1)) • A +
         (S / 256 ^ (i + 1)) • (-baseAff))) :
-    WP isa (byteStepA fld) s fun t => t.zf = some (decide (i = 32)) ∧
+    WP isa byteStepA s fun t => eval (.nonzero .x .x19) t = some (decide (i ≠ 32)) ∧
       t.mem.readW (off base 56) 64 = BitVec.ofNat 64 i ∧ env t.mem base 16 = Spec.Ed25519.d ∧
-      Rep (point (env t.mem base) 0 1 2 3)
+      RepP (point (env t.mem base) 0 1 2 3)
         ((Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) / 256 ^ i) • A +
           (S / 256 ^ i) • (-baseAff)) ∧ ByteKeep base s t := by
   rw [byteStepA]
-  refine WP.seq (WP.mono (batchBegin_ok h.scratch i hc) fun a ⟨_, av, ag, ar, aw, am⟩ => ?_)
-  have ka : ByteKeep base s a := ⟨fun r _ hb _ => ag r hb, ar, aw, am.mono (by decide) (by decide)⟩
+  refine WP.seq (WP.mono (batchBegin_ok h.scratch i hc) fun a ⟨_, av, ag, ar, aw, asp, am⟩ => ?_)
+  have ka : ByteKeep base s a := ByteKeep.of_counter ag ar aw asp am
   have ae := header_env am
   have ha' := h.of_byte ka
   set K := Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) with hK
   have hb : (a.mem (off kp i)).toNat = K / 256 ^ i % 256 := by
     rw [scalar_byte (n := 64) hi, ka.bytesK h]
   refine WP.seq (WP.mono (windowA_ok (a := (K / 256 ^ (i + 1)) • A + (S / 256 ^ (i + 1)) • (-baseAff))
-    ha' (by rw [ae]; exact hd) (by rw [ae]; exact ha) (Nat.div_lt_of_lt_mul (by have := (a.mem (off kp i)).isLt; omega)) (digitKHigh ha' hi av))
+    ha' (by rw [ae]; exact hd) (by rw [ae]; exact ha)
+    (Nat.div_lt_of_lt_mul (by have := (a.mem (off kp i)).isLt; omega)) (digitKHigh ha' hi av))
     fun b ⟨br, bd, kb⟩ => ?_)
   have hb' := ha'.of_keep kb
   refine WP.seq (WP.mono (windowA_ok hb' bd br (Nat.mod_lt _ (by decide))
     (digitKLow hb' hi (kb.counter.trans av))) fun c ⟨cr, cd, kc⟩ => ?_)
   have hc' := hb'.of_keep kc
-  refine WP.mono (counterCmp_ok hc'.scratch i hi (kc.counter.trans (kb.counter.trans av)))
+  refine WP.mono (aboveLow_ok hc'.scratch i (by omega) (kc.counter.trans (kb.counter.trans av)))
     fun t ⟨tz, kt⟩ => ?_
-  refine ⟨tz, ?_, by rw [kt.2.1]; exact cd, ?_, ((ka.trans (ByteKeep.of_win kb)).trans
+  refine ⟨tz, ?_, by rw [kt.mem]; exact cd, ?_, ((ka.trans (ByteKeep.of_win kb)).trans
     (ByteKeep.of_win kc)).trans (ByteKeep.of_keeps kt (by decide))⟩
-  · rw [kt.2.1]; exact kc.counter.trans (kb.counter.trans av)
+  · rw [kt.mem]; exact kc.counter.trans (kb.counter.trans av)
   · rw [ha'.byteK kb hi] at cr
-    rw [kt.2.1]
+    rw [kt.mem]
     convert cr using 1
     rw [byte_split K i _ hb, high_zero hS hi32, high_zero hS (by omega : 32 ≤ i + 1)]
     module
@@ -163,19 +171,19 @@ theorem byteStepA_ok {s : State} {base kp sp : Addr} {A : EPoint dZ} (h : WinCtx
 theorem byteStepAB_ok {s : State} {base kp sp : Addr} {A : EPoint dZ} (h : WinCtx base kp sp A s)
     (hd : env s.mem base 16 = Spec.Ed25519.d) {i : Nat} (hi : i < 32)
     (hc : s.mem.readW (off base 56) 64 = BitVec.ofNat 64 (i + 1))
-    (ha : Rep (point (env s.mem base) 0 1 2 3)
+    (ha : RepP (point (env s.mem base) 0 1 2 3)
       ((Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) / 256 ^ (i + 1)) • A +
         (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem (off sp 32) 32) / 256 ^ (i + 1)) •
           (-baseAff))) :
-    WP isa (byteStepAB fld) s fun t => t.zf = some (decide (i = 0)) ∧
+    WP isa byteStepAB s fun t => t.gpr .x19 = BitVec.ofNat 64 i ∧
       t.mem.readW (off base 56) 64 = BitVec.ofNat 64 i ∧ env t.mem base 16 = Spec.Ed25519.d ∧
-      Rep (point (env t.mem base) 0 1 2 3)
+      RepP (point (env t.mem base) 0 1 2 3)
         ((Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) / 256 ^ i) • A +
           (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem (off sp 32) 32) / 256 ^ i) •
             (-baseAff)) ∧ ByteKeep base s t := by
   rw [byteStepAB]
-  refine WP.seq (WP.mono (batchBegin_ok h.scratch i hc) fun a ⟨_, av, ag, ar, aw, am⟩ => ?_)
-  have ka : ByteKeep base s a := ⟨fun r _ hb _ => ag r hb, ar, aw, am.mono (by decide) (by decide)⟩
+  refine WP.seq (WP.mono (batchBegin_ok h.scratch i hc) fun a ⟨_, av, ag, ar, aw, asp, am⟩ => ?_)
+  have ka : ByteKeep base s a := ByteKeep.of_counter ag ar aw asp am
   have ae := header_env am
   have ha' := h.of_byte ka
   set K := Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) with hK
@@ -193,15 +201,13 @@ theorem byteStepAB_ok {s : State} {base kp sp : Addr} {A : EPoint dZ} (h : WinCt
     (digitKLow hb' (by omega) (kb.counter.trans av)) (digitSLow hb' hi (kb.counter.trans av)))
     fun c ⟨cr, cd, kc⟩ => ?_)
   have hc' := hb'.of_keep kc
-  refine WP.mono (batchTest_ok hc'.scratch i (by omega) (kc.counter.trans (kb.counter.trans av)))
+  refine WP.mono (batchTest_ok hc'.scratch i (kc.counter.trans (kb.counter.trans av)))
     fun t ⟨tz, kt⟩ => ?_
-  refine ⟨tz, ?_, by rw [kt.2.1]; exact cd, ?_, ((ka.trans (ByteKeep.of_win kb)).trans
+  refine ⟨tz, ?_, by rw [kt.mem]; exact cd, ?_, ((ka.trans (ByteKeep.of_win kb)).trans
     (ByteKeep.of_win kc)).trans (ByteKeep.of_keeps kt (by decide))⟩
-  · rw [kt.2.1]; exact kc.counter.trans (kb.counter.trans av)
+  · rw [kt.mem]; exact kc.counter.trans (kb.counter.trans av)
   · rw [ha'.byteK kb (by omega), ha'.byteS kb hi] at cr
-    rw [kt.2.1]
-    convert cr using 1
-    rw [byte_split K i _ hbK, byte_split S i _ hbS]
-    module
+    rw [kt.mem, ← window_step A (-baseAff) K S i _ _ hbK hbS]
+    exact cr
 
-end VG.Proof.Ed25519.X86_64
+end VG.Proof.Ed25519.AArch64

@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.CombTable
-import VerifiedGarbage.Proof.Ed25519.X86_64.WindowConstants
+import VerifiedGarbage.Proof.Ed25519.WindowConstants
 
 /-!
 # The comb's tables represent `[k 256^j]B`
