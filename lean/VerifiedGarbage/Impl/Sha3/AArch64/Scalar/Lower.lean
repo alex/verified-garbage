@@ -3,6 +3,9 @@ import VerifiedGarbage.Impl.Sha3.AArch64.Scalar.Core
 namespace VG.Impl.Sha3.AArch64.Scalar
 open VG VG.AArch64
 
+/-- The two temporary lanes follow the callee-saved GPR prefix. -/
+def lowerSpillOffset (k : Nat) : Nat := 96 + 8 * k
+
 /-- Lower the portable operations through the already-reviewed ISA. v28
 backs up x30 around memory accesses; v29 backs up a rotated source when
 its destination aliases the first input. v31 holds the two-slot address. -/
@@ -19,10 +22,10 @@ def lower : ScalarOp → List Instr
   | .move d a => [.addImm .x d a 0]
   | .spill k a =>
     [.vop (.dup .d2 .v28 .x30), .umov .x .x30 .v31 0,
-     .str .x a .x30 (8 * k), .umov .x .x30 .v28 0]
+     .str .x a .x30 (lowerSpillOffset k), .umov .x .x30 .v28 0]
   | .reload d k =>
     [.vop (.dup .d2 .v28 .x30), .umov .x .x30 .v31 0,
-     .ldr .x d .x30 (8 * k), .umov .x .x30 .v28 0]
+     .ldr .x d .x30 (lowerSpillOffset k), .umov .x .x30 .v28 0]
 
 def Good : ScalarOp → Prop
   | .xor .. | .move .. => True
