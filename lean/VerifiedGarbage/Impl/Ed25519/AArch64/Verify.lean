@@ -1,6 +1,6 @@
 import VerifiedGarbage.Impl.Ed25519.AArch64.PointDecode
 import VerifiedGarbage.Impl.Ed25519.AArch64.ScalarBase
-import VerifiedGarbage.Impl.Ed25519.AArch64.PointFromScalar
+import VerifiedGarbage.Impl.Ed25519.AArch64.PointMulVar
 
 /-! Canonical point/scalar checks and the uncofactored verification equation
 with the caller's full 512-bit SHA-512 challenge. -/
@@ -30,15 +30,14 @@ def pointEqual : Prog isa :=
 
 def verifyLhs : Prog isa :=
   .seq (.block [ld .x1 7944, .addImm .x .x1 .x1 32])
-    (.seq (.block (constPoint Spec.Ed25519.basePoint))
-      (.seq (pointFromScalar 16) (.block (pointTableWrite 7680))))
+    (.seq baseFromScalarVar (.block (pointTableWrite 7680)))
 
 def verifyCombine : List Instr :=
   copyPointToQ ++ pointTableRead 7552 ++ pointAdd ++ copyPointToQ ++ pointTableRead 7680
 
 def verifyRhsPrepare : Prog isa :=
   .seq (.block [ld .x1 7952]) (.seq (.block (pointTableRead 7424))
-    (.seq (pointFromScalar 32) (.block verifyCombine)))
+    (.seq (pointFromScalarVar 32) (.block verifyCombine)))
 
 def verifyRhs : Prog isa := .seq verifyRhsPrepare pointEqual
 def verifyEquationPoints : Prog isa := .seq verifyLhs verifyRhs

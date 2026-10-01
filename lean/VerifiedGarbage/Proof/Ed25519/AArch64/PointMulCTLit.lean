@@ -8,10 +8,8 @@ namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 
 materialize_code prepareBatch
-materialize_code accumulate16
 materialize_code pointEncode
 materialize_code scalarBasePrepare
-materialize_code pointMultiplyInit16 := pointMultiplyInit 16
 materialize_code identityInit := (.block (constPoint Spec.Ed25519.identity) : Prog isa)
 
 end VG.Proof.Ed25519.AArch64

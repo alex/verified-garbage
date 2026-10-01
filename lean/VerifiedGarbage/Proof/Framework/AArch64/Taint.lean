@@ -38,7 +38,7 @@ def set (τ : T) (r : Reg) (p : Bool) : T :=
 
 def step (τ : T) : Instr → Option T
   | .add _ d n m | .sub _ d n m | .adds _ d n m | .subs _ d n m
-  | .logic _ _ d n m | .mul _ d n m | .umulh d n m =>
+  | .logic _ _ d n m | .logicRor _ _ d n m _ | .bicRor _ d n m _ | .mul _ d n m | .umulh d n m =>
     some (set τ d (pub τ n && pub τ m))
   -- This register-only domain conservatively treats the carry as secret.
   | .adcs _ d _ _ | .sbcs _ d _ _ => some (set τ d false)
@@ -119,6 +119,15 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
   | logic op sz d n m =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
+    refine ⟨rfl, ha.write sz d fun hp => ?_⟩
+    simp only [Bool.and_eq_true] at hp
+    rw [ha.read hp.1, ha.read hp.2]
+  | logicRor op sz d n m sh | bicRor sz d n m sh =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    simp only [exec] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    rename_i h
+    simp only [h, ite_true, Option.some.injEq] at e₁ e₂; subst e₁ e₂
     refine ⟨rfl, ha.write sz d fun hp => ?_⟩
     simp only [Bool.and_eq_true] at hp
     rw [ha.read hp.1, ha.read hp.2]

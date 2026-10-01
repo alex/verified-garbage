@@ -53,7 +53,7 @@ Modelling choices:
   data-processing instructions that Arm specifies to take a time independent
   of their data when PSTATE.DIT is 1 (DDI 0487, "About PSTATE.DIT", FEAT_DIT,
   which lists MADD and UBFM, as it does the other modelled data-processing
-  instructions that read a register: ADD, SUB, AND, EOR, ORR, EXTR, REV and
+  instructions that read a register: ADD, SUB, AND, BIC, EOR, ORR, EXTR, REV and
   MOVK, ADDS, ADCS, SUBS, SBCS and UMULH). The code does not set PSTATE.DIT,
   for these as for the others.
 * Calls are `bl` and returns `ret` (DDI 0487, C6.2 "BL", "RET"). The return
@@ -274,6 +274,10 @@ inductive Instr
   | subImm (sz : Size) (d n : Reg) (imm : Nat)
   /-- `and`/`orr`/`eor d, n, m` (shifted register, no shift) -/
   | logic (op : LogicOp) (sz : Size) (d n m : Reg)
+  /-- `and`/`orr`/`eor d, n, m, ror #sh`, `sh < size` (shifted register). -/
+  | logicRor (op : LogicOp) (sz : Size) (d n m : Reg) (sh : Nat)
+  /-- `bic d, n, m, ror #sh`, `sh < size` (shifted register). -/
+  | bicRor (sz : Size) (d n m : Reg) (sh : Nat)
   /-- `ror d, n, #sh` (alias of EXTR d, n, n, #sh), `sh < size` -/
   | ror (sz : Size) (d n : Reg) (sh : Nat)
   /-- `lsr d, n, #sh` (alias of UBFM), `sh < size` -/
@@ -638,7 +642,13 @@ def VOp.eval (s : State) : VOp → Option (VReg × BitVec 128)
   result of `AddWithCarry` (the flags are not set by these forms);
 * "SUB (shifted register)": `AddWithCarry(operand1, NOT(operand2), '1')`,
   i.e. `n - m` modulo `2 ^ size` (the flags are not set by this form);
-* "AND/ORR/EOR (shifted register)";
+* "AND/ORR/EOR (shifted register)" and "BIC (shifted register)": the
+  ROR forms use `operand2 = ShiftReg(m, SRType_ROR, shift_amount, datasize)`;
+  BIC complements this rotated operand before AND. `imm6<5> = 1` is
+  undefined for the 32-bit form, hence `sh < datasize`. These baseline
+  instructions do not set flags. See Arm DDI 0487 C6.2 and DDI 0596:
+  https://developer.arm.com/documentation/ddi0596/2020-12/Base-Instructions/EOR--shifted-register---Bitwise-Exclusive-OR--shifted-register--
+  https://developer.arm.com/documentation/ddi0596/2020-12/Base-Instructions/BIC--shifted-register---Bitwise-Bit-Clear--shifted-register--;
 * "ROR (immediate)" = "EXTR" with both sources `n`: `(n:n)<sh+size-1:sh>`,
   a rotation right by `sh`;
 * "LSR (immediate)" = "UBFM": a logical shift right by `sh`;
@@ -681,6 +691,16 @@ def exec : Instr → State → Option State
     let a := s.read sz n
     let b := s.read sz m
     some (s.write sz d (match op with | .and => a &&& b | .orr => a ||| b | .eor => a ^^^ b))
+  | .logicRor op sz d n m sh, s =>
+    if sh < sz.bits then
+      let a := s.read sz n
+      let b := (s.read sz m).rotateRight sh
+      some (s.write sz d (match op with | .and => a &&& b | .orr => a ||| b | .eor => a ^^^ b))
+    else none
+  | .bicRor sz d n m sh, s =>
+    if sh < sz.bits then
+      some (s.write sz d (s.read sz n &&& ~~~((s.read sz m).rotateRight sh)))
+    else none
   | .ror sz d n sh, s =>
     if sh < sz.bits then some (s.write sz d ((s.read sz n).rotateRight sh)) else none
   | .lsr sz d n sh, s =>
