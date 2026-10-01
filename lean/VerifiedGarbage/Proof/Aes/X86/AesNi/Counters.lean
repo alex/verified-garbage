@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Aes.X86.AesNi.Arith
+import VerifiedGarbage.Proof.Aes.Blocks
 import VerifiedGarbage.Proof.Framework.X86.Exec
 import VerifiedGarbage.Proof.Framework.X86.SseRegUpd
 
@@ -31,6 +32,39 @@ theorem cache_prefix (v : BitVec 128) :
   simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft,
     BitVec.getLsbD_append, BitVec.getLsbD_extractLsb']
   split <;> simp_all <;> omega
+
+/-- Counter-lane bytes follow GCM's big-endian low word. -/
+theorem counterLane_byte (c : BitVec 32) (pfx : BitVec 96) {i : Nat} (hi : i < 16) :
+    byte (counterLane c ((0 : BitVec 32) ++ pfx)) i =
+      if i < 12 then pfx.extractLsb' (8 * i) 8
+      else c.extractLsb' (8 * (15 - i)) 8 := by
+  rw [counterLane_eq]
+  apply BitVec.eq_of_getLsbD_eq
+  intro r hr
+  simp only [byte, BitVec.getLsbD_extractLsb', decide_eq_true hr, Bool.true_and,
+    BitVec.getLsbD_append]
+  by_cases h : i < 12
+  · simp [h, show 8 * i + r < 96 by omega, hr]
+  · simp only [h, ite_false, show ¬8 * i + r < 96 by omega, ite_false]
+    rw [show 8 * i + r - 96 = 8 * (i - 12) + r by omega,
+      getLsbD_bswap_block c (by omega : i - 12 < 4) hr]
+    simp only [BitVec.getLsbD_extractLsb', decide_eq_true hr, Bool.true_and]
+    rcases (by omega : i = 12 ∨ i = 13 ∨ i = 14 ∨ i = 15) with h | h | h | h <;>
+      subst i <;> simp
+
+/-- A lane is exactly the AES state of the specified incremented GCM counter. -/
+theorem counterLane_state (x : Spec.Gcm.Block) (pfx : BitVec 96) (i : Nat)
+    (hpfx : ∀ k < 12, pfx.extractLsb' (8 * k) 8 = (Spec.Gcm.toBytes x).getD k 0) :
+    st (counterLane (x.extractLsb' 0 32 + BitVec.ofNat 32 i) ((0 : BitVec 32) ++ pfx)) =
+      VG.Proof.Aes.ctrState x i := by
+  apply st_ext
+  intro k hk
+  rw [getD_st _ hk, counterLane_byte _ _ hk]
+  rw [VG.Proof.Aes.ctrState, getD_ofFn hk]
+  rw [VG.Proof.Aes.ctrBlock_byte x i hk]
+  split
+  · exact hpfx k (by assumption)
+  · rfl
 
 theorem counter_one (b : XReg) (s : State) (hb : b ≠ .xmm7) :
     WP isa (.block (ctrs [b])) s fun s' =>
