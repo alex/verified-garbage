@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Framework.Mem
 import VerifiedGarbage.Proof.Framework.Offset
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
@@ -1119,11 +1120,12 @@ theorem correct (hR : ROk P) {s₀ : State} (hp : Pre z s₀) :
       rw [hm, hc.state]
 
 /-- The generic proof, for either word size. -/
-theorem compress_correct (hR : ROk P) :
+theorem compress_correct (hR : ROk P)
+    (hv : (Impl.Blake2.AArch64.compress P).allInstrs keepsV = true := by decide +kernel) :
     ∀ s, (compressAArch64 P).pre s → ∃ t s', Exec isa (Impl.Blake2.AArch64.compress P) s t s' ∧
       AArch64.abiPreserved s s' ∧ (compressAArch64 P).post s s' := fun s hs => by
   obtain ⟨t, s', he, h₁, h₂⟩ := correct P hR (pre_of P s hs)
-  exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
+  exact ⟨t, s', he, ⟨h₁, Exec.sp he, Exec.preservedV he hv⟩, h₂⟩
 
 end Loop
 

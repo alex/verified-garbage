@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Gcm.AArch64.Pmull.Groups
 import VerifiedGarbage.Proof.Framework.Range
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
@@ -488,7 +489,7 @@ theorem ghash_correct (s : State) (hs : Proof.Gcm.ghashAArch64.pre s) :
     ∃ t s', Exec isa Impl.Gcm.AArch64.Pmull.ghash s t s' ∧ abiPreserved s s' ∧
       Proof.Gcm.ghashAArch64.post s s' := by
   obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
-  exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
+  exact ⟨t, s', he, ⟨h₁, Exec.sp he, Exec.preservedV he⟩, h₂⟩
 
 theorem ghash_ct : ConstantTime isa Proof.Gcm.ghashAArch64.pre Proof.Gcm.ghashAArch64.pub
     Impl.Gcm.AArch64.Pmull.ghash := by

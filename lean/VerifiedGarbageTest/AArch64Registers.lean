@@ -1,4 +1,4 @@
-import VerifiedGarbage.TCB.AArch64.Print
+import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.TCB.Axioms
 
 /-!
@@ -25,6 +25,25 @@ example : Reg.x28.index = 28 ∧ Reg.x30.index = 30 := by decide
 
 #guard Instr.asm (.addImm .x .x30 .x28 0) == ["add x30, x28, #0"]
 #guard Instr.asm (.addImm .w .x30 .x28 0) == ["add w30, w28, #0"]
+
+/-- Every SIMD register has its architectural number, including callee-saved ones. -/
+example : (preservedV.map VReg.index) = [8, 9, 10, 11, 12, 13, 14, 15] := by decide
+
+#guard Instr.asm (.vop (.eor3 .v8 .v9 .v10 .v15)) ==
+  ["eor3 v8.16b, v9.16b, v10.16b, v15.16b"]
+#guard Instr.asm (.ldrq .v12 .x0 16) == ["ldr q12, [x0, #16]"]
+#guard Instr.asm (.strq .v15 .x1 0) == ["str q15, [x1, #0]"]
+
+/-- ABI examples test the split at bit 64; they are not cryptographic vectors. -/
+def abiState : State := { gpr := fun _ => 0, sp := 0, mem := fun _ => 0, rd := [], wr := [] }
+
+example : abiPreserved abiState (abiState.setV .v8 (1#128 <<< 64)) := by simp [abiPreserved, preservedV, abiState, State.setV]
+example : ¬ abiPreserved abiState (abiState.setV .v8 1) := by simp [abiPreserved, preservedV, abiState, State.setV]
+example : abiPreserved abiState (abiState.setV .v16 1) := by simp [abiPreserved, preservedV, abiState, State.setV]
+
+/-- Each of the eight low halves is independently protected. -/
+example : ∀ r ∈ preservedV, ¬ abiPreserved abiState (abiState.setV r 1) := by
+  simp [abiPreserved, preservedV, abiState, State.setV]
 
 #assert_standard_axioms excludes_reserved
 

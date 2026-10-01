@@ -36,13 +36,13 @@ theorem cbd2_call {s : State} {b f : Addr} (h0 : s.gpr .x0 = b) (h1 : s.gpr .x1 
     WP isa (.call "vg_mlkem_cbd2" cbd2) s Q := by
   have c0 : s.callEntry.gpr .x0 = b := (entry s).trans h0
   have c1 : s.callEntry.gpr .x1 = f := (entry s).trans h1
-  refine WP.call (k := cbd2AArch64) Cbd2.correct (rd := [⟨b, 128⟩]) (wr := [⟨f, 1024⟩]) ?_ hc hw ?_
+  refine WP.callV (k := cbd2AArch64) Cbd2.correct (rd := [⟨b, 128⟩]) (wr := [⟨f, 1024⟩]) ?_ hc hw ?_
   · simp only [cbd2AArch64, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr, c0, c1]
     exact ⟨trivial, trivial, hd⟩
-  · intro s' hrd hwr hsp hf hcs _ hpost
+  · intro s' hrd hwr hsp hf hcs _ hvec hpost
     simp only [cbd2AArch64, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, c0, c1]
       at hpost
-    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ hpost
+    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf, hvec⟩ hpost
 
 /-- `vg_mlkem_ntt(f, scratch)` or `vg_mlkem_inv_ntt(f, scratch)`. -/
 theorem inPlace_call {t : Poly → Poly} {c : Prog isa} {name : String}
@@ -55,15 +55,15 @@ theorem inPlace_call {t : Poly → Poly} {c : Prog isa} {name : String}
     WP isa (.call name c) s Q := by
   have c0 : s.callEntry.gpr .x0 = f := (entry s).trans h0
   have c1 : s.callEntry.gpr .x1 = w := (entry s).trans h1
-  refine WP.call (k := inPlaceAArch64 t) hv (rd := []) (wr := [⟨f, 1024⟩, ⟨w, 1024⟩]) ?_
+  refine WP.callV (k := inPlaceAArch64 t) hv (rd := []) (wr := [⟨f, 1024⟩, ⟨w, 1024⟩]) ?_
     (covers_rw' hw) hw ?_ hn
   · simp only [inPlaceAArch64, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
       State.withRegions_mem, State.callEntry_mem, c0, c1]
     exact ⟨trivial, trivial, hd, hr⟩
-  · intro s' hrd hwr hsp hf hcs _ hpost
+  · intro s' hrd hwr hsp hf hcs _ hvec hpost
     simp only [inPlaceAArch64, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, c0]
       at hpost
-    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ hpost
+    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf, hvec⟩ hpost
 
 theorem ntt_call {s : State} {f w : Addr} (h0 : s.gpr .x0 = f) (h1 : s.gpr .x1 = w)
     (hd : Region.Disjoint ⟨f, 1024⟩ ⟨w, 1024⟩) (hr : Reduced s.mem f)
@@ -91,14 +91,14 @@ theorem acc_call {op : Poly → Poly → Poly} {c : Prog isa} {name : String}
     WP isa (.call name c) s Q := by
   have c0 : s.callEntry.gpr .x0 = f := (entry s).trans h0
   have c1 : s.callEntry.gpr .x1 = g := (entry s).trans h1
-  refine WP.call (k := accAArch64 op) hv (rd := [⟨g, 1024⟩]) (wr := [⟨f, 1024⟩]) ?_ hc hw ?_ hn
+  refine WP.callV (k := accAArch64 op) hv (rd := [⟨g, 1024⟩]) (wr := [⟨f, 1024⟩]) ?_ hc hw ?_ hn
   · simp only [accAArch64, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
       State.withRegions_mem, State.callEntry_mem, c0, c1]
     exact ⟨trivial, trivial, hd, hrf, hrg⟩
-  · intro s' hrd hwr hsp hf hcs _ hpost
+  · intro s' hrd hwr hsp hf hcs _ hvec hpost
     simp only [accAArch64, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, c0, c1]
       at hpost
-    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ hpost
+    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf, hvec⟩ hpost
 
 theorem add_call {s : State} {f g : Addr} (h0 : s.gpr .x0 = f) (h1 : s.gpr .x1 = g)
     (hd : Region.Disjoint ⟨f, 1024⟩ ⟨g, 1024⟩) (hrf : Reduced s.mem f) (hrg : Reduced s.mem g)
@@ -131,15 +131,15 @@ theorem mul_call {s : State} {h f g w : Addr} (h0 : s.gpr .x0 = h) (h1 : s.gpr .
   have c1 : s.callEntry.gpr .x1 = f := (entry s).trans h1
   have c2 : s.callEntry.gpr .x2 = g := (entry s).trans h2
   have c3 : s.callEntry.gpr .x3 = w := (entry s).trans h3
-  refine WP.call (k := mulAArch64) Mul.correct (rd := [⟨f, 1024⟩, ⟨g, 1024⟩])
+  refine WP.callV (k := mulAArch64) Mul.correct (rd := [⟨f, 1024⟩, ⟨g, 1024⟩])
     (wr := [⟨h, 1024⟩, ⟨w, 1024⟩]) ?_ hc hw ?_
   · simp only [mulAArch64, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
       State.withRegions_mem, State.callEntry_mem, c0, c1, c2, c3]
     exact ⟨trivial, trivial, d₁, d₂, d₃, d₄, d₅, hrf, hrg⟩
-  · intro s' hrd hwr hsp hf hcs _ hpost
+  · intro s' hrd hwr hsp hf hcs _ hvec hpost
     simp only [mulAArch64, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, c0, c1,
       c2] at hpost
-    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ hpost
+    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf, hvec⟩ hpost
 
 /-- `vg_mlkem_encode12(f, out)`. -/
 theorem encode12_call {s : State} {f o : Addr} (h0 : s.gpr .x0 = f) (h1 : s.gpr .x1 = o)
@@ -150,15 +150,15 @@ theorem encode12_call {s : State} {f o : Addr} (h0 : s.gpr .x0 = f) (h1 : s.gpr 
     WP isa (.call "vg_mlkem_encode12" Impl.MlKem.AArch64.encode12) s Q := by
   have c0 : s.callEntry.gpr .x0 = f := (entry s).trans h0
   have c1 : s.callEntry.gpr .x1 = o := (entry s).trans h1
-  refine WP.call (k := encode12AArch64) Encode12.correct (rd := [⟨f, 1024⟩]) (wr := [⟨o, 384⟩]) ?_
+  refine WP.callV (k := encode12AArch64) Encode12.correct (rd := [⟨f, 1024⟩]) (wr := [⟨o, 384⟩]) ?_
     hc hw ?_
   · simp only [encode12AArch64, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
       State.withRegions_mem, State.callEntry_mem, c0, c1]
     exact ⟨trivial, trivial, hd, hr⟩
-  · intro s' hrd hwr hsp hf hcs _ hpost
+  · intro s' hrd hwr hsp hf hcs _ hvec hpost
     simp only [encode12AArch64, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, c0,
       c1] at hpost
-    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ hpost
+    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf, hvec⟩ hpost
 
 /-- `vg_mlkem_decode12(b, f)`. -/
 theorem decode12_call {s : State} {b f : Addr} (h0 : s.gpr .x0 = b) (h1 : s.gpr .x1 = f)
@@ -168,14 +168,14 @@ theorem decode12_call {s : State} {b f : Addr} (h0 : s.gpr .x0 = b) (h1 : s.gpr 
     WP isa (.call "vg_mlkem_decode12" Impl.MlKem.AArch64.decode12) s Q := by
   have c0 : s.callEntry.gpr .x0 = b := (entry s).trans h0
   have c1 : s.callEntry.gpr .x1 = f := (entry s).trans h1
-  refine WP.call (k := decode12AArch64) Decode12.correct (rd := [⟨b, 384⟩]) (wr := [⟨f, 1024⟩]) ?_
+  refine WP.callV (k := decode12AArch64) Decode12.correct (rd := [⟨b, 384⟩]) (wr := [⟨f, 1024⟩]) ?_
     hc hw ?_
   · simp only [decode12AArch64, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr, c0, c1]
     exact ⟨trivial, trivial, hd⟩
-  · intro s' hrd hwr hsp hf hcs _ hpost
+  · intro s' hrd hwr hsp hf hcs _ hvec hpost
     simp only [decode12AArch64, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, c0,
       c1] at hpost
-    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ hpost
+    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf, hvec⟩ hpost
 
 /-- `vg_mlkem_compress_encode(f, d, out, 32 d)`. -/
 theorem compressEncode_call {s : State} {f o : Addr} {d : Nat} (h0 : s.gpr .x0 = f)
@@ -190,15 +190,15 @@ theorem compressEncode_call {s : State} {f o : Addr} {d : Nat} (h0 : s.gpr .x0 =
   have c1 : ((s.callEntry.gpr .x1).setWidth 32).toNat = d := by rw [entry s]; exact h1
   have c2 : s.callEntry.gpr .x2 = o := (entry s).trans h2
   have c3 : (s.callEntry.gpr .x3).toNat = 32 * d := by rw [entry s]; exact h3
-  refine WP.call (k := compressEncodeAArch64) CE.correct (rd := [⟨f, 1024⟩]) (wr := [⟨o, 32 * d⟩]) ?_
+  refine WP.callV (k := compressEncodeAArch64) CE.correct (rd := [⟨f, 1024⟩]) (wr := [⟨o, 32 * d⟩]) ?_
     hc hw ?_
   · simp only [compressEncodeAArch64, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
       State.withRegions_mem, State.callEntry_mem, c0, c1, c2, c3]
     exact ⟨trivial, trivial, hd, hdw, trivial, hr⟩
-  · intro s' hrd hwr hsp hf hcs _ hpost
+  · intro s' hrd hwr hsp hf hcs _ hvec hpost
     simp only [compressEncodeAArch64, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem,
       c0, c1, c2, c3] at hpost
-    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ hpost
+    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf, hvec⟩ hpost
 
 /-- `vg_mlkem_decode_decompress(b, 32 d, d, f)`. -/
 theorem decodeDecompress_call {s : State} {b f : Addr} {d : Nat} (h0 : s.gpr .x0 = b)
@@ -213,15 +213,15 @@ theorem decodeDecompress_call {s : State} {b f : Addr} {d : Nat} (h0 : s.gpr .x0
   have c1 : (s.callEntry.gpr .x1).toNat = 32 * d := by rw [entry s]; exact h1
   have c2 : ((s.callEntry.gpr .x2).setWidth 32).toNat = d := by rw [entry s]; exact h2
   have c3 : s.callEntry.gpr .x3 = f := (entry s).trans h3
-  refine WP.call (k := decodeDecompressAArch64) DD.correct (rd := [⟨b, 32 * d⟩]) (wr := [⟨f, 1024⟩]) ?_
+  refine WP.callV (k := decodeDecompressAArch64) DD.correct (rd := [⟨b, 32 * d⟩]) (wr := [⟨f, 1024⟩]) ?_
     hc hw ?_
   · simp only [decodeDecompressAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, c0, c1, c2, c3]
     exact ⟨trivial, trivial, hd, hdw, trivial⟩
-  · intro s' hrd hwr hsp hf hcs _ hpost
+  · intro s' hrd hwr hsp hf hcs _ hvec hpost
     simp only [decodeDecompressAArch64, State.withRegions_gpr, State.withRegions_mem,
       State.callEntry_mem, c0, c1, c2, c3] at hpost
-    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ hpost
+    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf, hvec⟩ hpost
 
 theorem sampleNTT_fdepth : Impl.MlKem.AArch64.sampleNTT.fdepth = 1 := by decide +kernel
 
@@ -240,16 +240,16 @@ theorem sample_call {s : State} {sd a w : Addr} (h0 : s.gpr .x0 = sd) (h1 : s.gp
   have c0 : s.callEntry.gpr .x0 = sd := (entry s).trans h0
   have c1 : s.callEntry.gpr .x1 = a := (entry s).trans h1
   have c2 : s.callEntry.gpr .x2 = w := (entry s).trans h2
-  refine WP.callF (k := Sample.sampleStrong) Sample.sample_strong (rd := [⟨sd, 34⟩])
+  refine WP.callFV (k := Sample.sampleStrong) Sample.sample_strong (rd := [⟨sd, 34⟩])
     (wr := [⟨a, 1024⟩, ⟨w, 2048⟩]) ?_ hc hw ?_ (by rw [sampleNTT_fdepth]; decide)
   · simp only [Sample.sampleStrong, sampleAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.withRegions_sp, State.callEntry_sp, c0, c1, c2]
     exact ⟨trivial, trivial, d₁, d₂, d₃, hsp, k₁, k₂, k₃⟩
-  · intro s' hrd hwr hsp' hf hcs hpost
+  · intro s' hrd hwr hsp' hf hcs hvec hpost
     rw [sampleNTT_fdepth, Nat.mul_one] at hf
     simp only [Sample.sampleStrong, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem,
       c0, c1] at hpost
-    exact hQ s' ⟨hcs, hsp', hrd, hwr, frame3 hf⟩ hpost.1 hpost.2
+    exact hQ s' ⟨hcs, hsp', hrd, hwr, frame3 hf, hvec⟩ hpost.1 hpost.2
 
 /-- What a call of `sample_ntt` needs. -/
 structure SampleArgs (s : State) (sd a w : Addr) : Prop where

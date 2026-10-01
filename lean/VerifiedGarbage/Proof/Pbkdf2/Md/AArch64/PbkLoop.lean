@@ -719,6 +719,7 @@ theorem correct (hH : HashOK H) (hIn : Verified AArch64.target H.hmacInit (initG
     (hFd : H.hmacFin.fdepth ≤ 1) (hI : Verified AArch64.target H.iterate (iterK hH.SH H.W))
     (hId : H.iterate.fdepth ≤ 1) :
     WP isa H.pbkdf2 s₀ fun s' => abiPreserved s₀ s' ∧ (pbkG hH.SH (H.W + H.S)).post s₀ s' := by
+  apply WP.withPreservedV (hc := hH.pbkdf2_keepsV)
   have hD := hz.z.D0; have hW := hz.W
   unfold Hash.pbkdf2
   refine WP.seq (WP.mono (entry_ok hp hz) fun s₁ k₁ => ?_)

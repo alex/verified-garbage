@@ -86,7 +86,7 @@ theorem bfly_ok (len : Nat) (s : State) (hc : Consts s) (ha : Acc s len) :
             redX (w64 (s.mem.readW (s.gpr .x2 + BitVec.ofNat 64 (4 * len)) 32) * s.gpr .x6))).setWidth 32) ∧
         s'.gpr .x2 = s.gpr .x2 + BitVec.ofNat 64 4 ∧ s'.gpr .x5 = s.gpr .x5 - BitVec.ofNat 64 1) ∧
       Keep [.x2, .x5, .x12, .x13, .x14, .x15] s s' := by
-  refine WP.keep _ ?_ (by rfl)
+  refine WP.keep _ ?_ (by rfl) (hv := rfl)
   unfold Impl.MlDsa.AArch64.Arith.bfly reduce Impl.MlKem.AArch64.csub
   arun [ha.r0, ha.r1, ha.w0, ha.w1, ha.off, hc.x9, hc.x10, hc.x11, redX, csubX]
 
@@ -100,7 +100,7 @@ theorem bflyInv_ok (len : Nat) (s : State) (hc : Consts s) (ha : Acc s len) :
             w64 (s.mem.readW (s.gpr .x2 + BitVec.ofNat 64 (4 * len)) 32)) * s.gpr .x6)).setWidth 32) ∧
         s'.gpr .x2 = s.gpr .x2 + BitVec.ofNat 64 4 ∧ s'.gpr .x5 = s.gpr .x5 - BitVec.ofNat 64 1) ∧
       Keep [.x2, .x5, .x12, .x13, .x14, .x15] s s' := by
-  refine WP.keep _ ?_ (by rfl)
+  refine WP.keep _ ?_ (by rfl) (hv := rfl)
   unfold Impl.MlDsa.AArch64.Arith.bflyInv reduce Impl.MlKem.AArch64.csub
   arun [ha.r0, ha.r1, ha.w0, ha.w1, ha.off, hc.x9, hc.x10, hc.x11, redX, csubX]
 
