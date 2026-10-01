@@ -60,6 +60,21 @@ theorem exec_logic {op : LogicOp} {sz : Size} {s : State} {d n m : Reg} :
       | .and => s.read sz n &&& s.read sz m | .orr => s.read sz n ||| s.read sz m
       | .eor => s.read sz n ^^^ s.read sz m)) := rfl
 
+theorem exec_logicRor {op : LogicOp} {sz : Size} {s : State} {d n m : Reg} {sh : Nat}
+    (h : sh < sz.bits) :
+    exec (.logicRor op sz d n m sh) s = some (s.write sz d (match op with
+      | .and => s.read sz n &&& (s.read sz m).rotateRight sh
+      | .orr => s.read sz n ||| (s.read sz m).rotateRight sh
+      | .eor => s.read sz n ^^^ (s.read sz m).rotateRight sh)) := by
+  simp only [exec, h, ite_true]
+  rfl
+
+theorem exec_bicRor {sz : Size} {s : State} {d n m : Reg} {sh : Nat}
+    (h : sh < sz.bits) :
+    exec (.bicRor sz d n m sh) s =
+      some (s.write sz d (s.read sz n &&& ~~~((s.read sz m).rotateRight sh))) := by
+  simp only [exec, h, ite_true]
+
 theorem exec_ror_w {s : State} {d n : Reg} {sh : Nat} (h : sh < 32) :
     exec (.ror .w d n sh) s = some (s.write .w d ((s.read .w n).rotateRight sh)) := by
   simp [exec, Size.bits, h]

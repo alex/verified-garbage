@@ -122,6 +122,45 @@ pub fn bench(c: &mut Criterion) {
         });
         g.finish();
     }
+
+    // Small streaming fragments reuse the partial-block keystream: they
+    // should not repeatedly enter the whole-block counter-mode primitive.
+    let size = 64;
+    let data = vec![0u8; size];
+    let mut buf = data.clone();
+    let mut out = [0u8; 32];
+    let mut tag = [0u8; 16];
+    let mut g = c.benchmark_group("aes-128-gcm-stream-bytes");
+    g.throughput(Throughput::Bytes(size as u64));
+    g.bench_function(BenchmarkId::new(VG, size), |b| {
+        b.iter(|| {
+            let mut s =
+                AesGcmStream::new(black_box(&key), black_box(&nonce), Direction::Encrypt).unwrap();
+            s.update_aad(black_box(&aad)).unwrap();
+            for byte in buf.chunks_mut(1) {
+                s.update(black_box(byte)).unwrap();
+            }
+            s.finalize().unwrap()
+        })
+    });
+    g.bench_function(BenchmarkId::new(OPENSSL, size), |b| {
+        b.iter(|| {
+            let mut s = Crypter::new(
+                cipher,
+                Mode::Encrypt,
+                black_box(&key),
+                Some(black_box(&nonce)),
+            )
+            .unwrap();
+            s.aad_update(black_box(&aad)).unwrap();
+            for byte in data.chunks(1) {
+                s.update(black_box(byte), &mut out).unwrap();
+            }
+            s.finalize(&mut out).unwrap();
+            s.get_tag(&mut tag).unwrap();
+        })
+    });
+    g.finish();
 }
 
 #[cfg(not(any(
