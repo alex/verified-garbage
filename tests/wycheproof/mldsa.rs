@@ -10,7 +10,12 @@
 //! are seeds of the wrong length, which the types do not represent, and
 //! context strings longer than 255 bytes, which are refused.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "x86",
+    target_arch = "aarch64",
+    target_arch = "arm"
+))]
 
 /// Defines the tests of the parameter set `$n` (`"44"`), of the module
 /// `$module` and its key types.

@@ -2,7 +2,12 @@
 //! `crate::mldsa65`, `crate::mldsa87`) share: their API, defined once by
 //! `ml_dsa!` for each parameter set's verified functions and sizes.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "x86",
+    target_arch = "aarch64",
+    target_arch = "arm"
+))]
 
 /// Overwrites `x` with zeros in a way the compiler does not remove.
 pub(crate) fn zeroize<T: Copy + Default>(x: &mut [T]) {
