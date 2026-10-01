@@ -39,7 +39,7 @@ def artifacts : List Artifact := [
   { Spec.Rc2.encryptBlockApi with
     target := X86_64.target
     doc := Spec.Rc2.encryptBlockApi.doc
-      (notes := ["Baseline x86-64. Mashing scans all 64 schedule words in a fixed order."])
+      (notes := ["Baseline x86-64 SSE2. Mashing scans all 64 schedule words in a fixed order, eight words per vector."])
     code := Impl.Rc2.X86_64.encryptBlock
     contract := Spec.Rc2.encryptBlockContract X86_64.abi
     stack := 0
@@ -48,7 +48,7 @@ def artifacts : List Artifact := [
   { Spec.Rc2.decryptBlockApi with
     target := X86_64.target
     doc := Spec.Rc2.decryptBlockApi.doc
-      (notes := ["Baseline x86-64. Reverse mashing scans all 64 schedule words in a fixed order."])
+      (notes := ["Baseline x86-64 SSE2. Reverse mashing scans all 64 schedule words in a fixed order, eight words per vector."])
     code := Impl.Rc2.X86_64.decryptBlock
     contract := Spec.Rc2.decryptBlockContract X86_64.abi
     stack := 0
