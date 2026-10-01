@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Rc2.X86_64.Sse2PiLookup
 import VerifiedGarbage.Impl.Rc2.X86_64.ExpandKey
 import VerifiedGarbage.Proof.Rc2.X86_64.Save
 import VerifiedGarbage.Proof.Rc2.Expansion
@@ -95,6 +96,7 @@ theorem fillOutput_ok (s : State)
     · simp only [wr_arithFlags, wr_setReg]
 
 theorem fillKey_ok (s : State)
+    (hlookup : InRegions s.wr (s.gpr .r8 + BitVec.ofNat 64 64) 16)
     (readLo : InRegions (s.rd ++ s.wr) (s.gpr .r14 + s.gpr .rbx - 1#64) 1)
     (readHi : InRegions (s.rd ++ s.wr) (s.gpr .r14 + (s.gpr .rbx - s.gpr .r13)) 1)
     (writable : InRegions s.wr (s.gpr .r14 + s.gpr .rbx) 1) :
@@ -109,7 +111,8 @@ theorem fillKey_ok (s : State)
   obtain ⟨s₁, run₁, out₁, keep₁⟩ := fillInput_ok s readLo readHi
   refine WP.of_runBlock ⟨s₁, run₁, ?_⟩
   rw [WP.block_append_iff]
-  apply WP.mono (piLookup_ok s₁)
+  apply WP.mono (Sse2.piLookup_ok s₁ (by
+    rw [keep₁.wr, keep₁.reg .r8 (by decide)]; exact hlookup))
   intro s₂ h₂
   have k₁ : Keep keyTemps s s₁ := keep₁.weaken (by
     intro r hr
@@ -195,13 +198,14 @@ theorem descendInput_ok (s : State)
     · simp only [rd_setReg, rd_arithFlags]
     · simp only [wr_setReg, wr_arithFlags]
 
-theorem piStore_ok (s : State) (writable : InRegions s.wr (s.gpr .r14 + s.gpr .rbx) 1) :
-    WP isa (.block (piLookup ++ ([.store8 (indexed .r14 .rbx) .rax] : List Instr))) s (fun s' =>
+theorem piStore_ok (s : State)
+    (hlookup : InRegions s.wr (s.gpr .r8 + BitVec.ofNat 64 64) 16) (writable : InRegions s.wr (s.gpr .r14 + s.gpr .rbx) 1) :
+    WP isa (.block (Sse2.piLookup ++ ([.store8 (indexed .r14 .rbx) .rax] : List Instr))) s (fun s' =>
       s'.gpr .rbx = s.gpr .rbx ∧
       Keep keyTemps {s with
         mem := s.mem.writeW (s.gpr .r14 + s.gpr .rbx) (Spec.Rc2.pi ((s.gpr .rax).setWidth 8))} s') := by
   rw [WP.block_append_iff]
-  apply WP.mono (piLookup_ok s)
+  apply WP.mono (Sse2.piLookup_ok s hlookup)
   intro s₁ h₁
   have ptr := h₁.2.reg .r14 (by decide)
   have index := h₁.2.reg .rbx (by decide)
@@ -221,6 +225,7 @@ theorem piStore_ok (s : State) (writable : InRegions s.wr (s.gpr .r14 + s.gpr .r
   · exact h₁.2.wr
 
 theorem reduceKey_ok (s : State)
+    (hlookup : InRegions s.wr (s.gpr .r8 + BitVec.ofNat 64 64) 16)
     (readable : InRegions (s.rd ++ s.wr) (s.gpr .r14 + s.gpr .rbx) 1)
     (writable : InRegions s.wr (s.gpr .r14 + s.gpr .rbx) 1) :
     WP isa (.block reduceKey) s (fun s' => s'.gpr .rbx = s.gpr .rbx ∧
@@ -234,7 +239,8 @@ theorem reduceKey_ok (s : State)
   have index := keep₁.reg .rbx (by decide)
   have valid : InRegions s₁.wr (s₁.gpr .r14 + s₁.gpr .rbx) 1 := by
     rw [keep₁.wr, ptr, index]; exact writable
-  apply WP.mono (piStore_ok s₁ valid)
+  apply WP.mono (piStore_ok s₁ (by
+    rw [keep₁.wr, keep₁.reg .r8 (by decide)]; exact hlookup) valid)
   intro s₂ h₂
   refine ⟨h₂.1.trans index, ?_⟩
   constructor
@@ -260,6 +266,7 @@ theorem cmpZero_ok (s : State) :
   · exact ⟨fun _ _ => rfl, rfl, rfl, rfl⟩
 
 theorem descendKey_ok (s : State)
+    (hlookup : InRegions s.wr (s.gpr .r8 + BitVec.ofNat 64 64) 16)
     (readLo : InRegions (s.rd ++ s.wr) (s.gpr .r14 + (s.gpr .rbx - 1#64) + 1#64) 1)
     (readHi : InRegions (s.rd ++ s.wr) (s.gpr .r14 + (s.gpr .rbx - 1#64 + s.gpr .rbp)) 1)
     (writable : InRegions s.wr (s.gpr .r14 + (s.gpr .rbx - 1#64)) 1) :
@@ -275,11 +282,12 @@ theorem descendKey_ok (s : State)
   have ptr := keep₁.reg .r14 (by decide)
   have valid : InRegions s₁.wr (s₁.gpr .r14 + s₁.gpr .rbx) 1 := by
     rw [keep₁.wr, ptr, index₁]; exact writable
-  have split : piLookup ++ [.store8 (indexed .r14 .rbx) .rax, .alu .cmp .rbx (.imm 0)] =
-      (piLookup ++ ([.store8 (indexed .r14 .rbx) .rax] : List Instr)) ++ [.alu .cmp .rbx (.imm 0)] := by
+  have split : Sse2.piLookup ++ [.store8 (indexed .r14 .rbx) .rax, .alu .cmp .rbx (.imm 0)] =
+      (Sse2.piLookup ++ ([.store8 (indexed .r14 .rbx) .rax] : List Instr)) ++ [.alu .cmp .rbx (.imm 0)] := by
     rw [List.append_assoc]; rfl
   rw [split, WP.block_append_iff]
-  apply WP.mono (piStore_ok s₁ valid)
+  apply WP.mono (piStore_ok s₁ (by
+    rw [keep₁.wr, keep₁.reg .r8 (by decide)]; exact hlookup) valid)
   intro s₂ h₂
   obtain ⟨s₃, run₃, flag₃, keep₃⟩ := cmpZero_ok s₂
   refine WP.of_runBlock ⟨s₃, run₃, ?_⟩

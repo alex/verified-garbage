@@ -1,0 +1,5 @@
+name = "NIST CAVP CMAC test vectors (the AES .rsp files but CMACVerAES192.rsp: generation for 128-, 192- and 256-bit keys, and verification for 128- and 256-bit keys)"
+directories = ["nist-cavp/cmac-aes"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/mac/cmactestvectors.zip"
+sha256 = "bdda4edade394c9a2ae74d9cd0921caa120c911a5e735e37abf39d0d5f062be1"
+retrieved = 2026-10-01

@@ -192,6 +192,8 @@ theorem WP.gprs {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s 
 our calls change and the frame restores). -/
 def untouched : List Reg := [.x25, .x26, .x27, .x28]
 
+theorem untouched_ne_sv : ∀ r ∈ untouched, ∀ k < 6, r ≠ sv k := by decide
+
 /-- The callee-saved registers but `x30` are saved or untouched. -/
 theorem preserved_cases : ∀ r ∈ preserved, r ≠ .x30 → (∃ k < 6, sv k = r) ∨ r ∈ untouched := by
   decide
