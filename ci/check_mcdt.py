@@ -58,6 +58,8 @@ def code(body, first_line):
     """The function's instructions, the line of the file each is on, and
     where each numeric label is: the index of the instruction it precedes."""
     instrs, lines, labels = [], [], {}
+    offset = 0
+    line_number = first_line
     for m in LINE.finditer(body):
         line = m.group(1)
         label = LABEL.match(line)
@@ -65,7 +67,11 @@ def code(body, first_line):
             labels.setdefault(label.group(1), []).append(len(instrs))
         else:
             instrs.append(line)
-            lines.append(first_line + body.count("\n", 0, m.start(1)))
+            # Count each newline once, rather than rescanning the growing
+            # prefix for every instruction in large generated functions.
+            line_number += body.count("\n", offset, m.start(1))
+            offset = m.start(1)
+            lines.append(line_number)
     return instrs, lines, labels
 
 
@@ -209,9 +215,13 @@ def main():
     for target_name in TARGETS:
         for path in sorted((ASM / target_name).glob("*.rs")):
             text = path.read_text()
+            offset = 0
+            first_line = 1
             for m in FN.finditer(text):
                 name, body = m.groups()
-                instrs, lines, labels = code(body, text.count("\n", 0, m.start(2)) + 1)
+                first_line += text.count("\n", offset, m.start(2))
+                offset = m.start(2)
+                instrs, lines, labels = code(body, first_line)
                 where = f"{path.relative_to(ROOT)} ({name})"
                 errs, n = check_function(where, instrs, lines, labels)
                 errors += errs
