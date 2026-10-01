@@ -106,7 +106,7 @@ theorem input_byte (hL : L.Ok) (hc : Ctx L g mx m₀ t) {r : Region} (hr : r ∈
     · exact (hL.ks r hr).symm) hn hi
 end Ctx
 
-/-- Calls may overwrite scratch and the two hash buffers, but not the saved arguments. -/
+/-- Calls may overwrite scratch, output and frame data, but not the saved arguments. -/
 theorem call_ok {L : Lay} (hL : L.Ok) {g : Reg → BitVec 64} {mx : BitVec 32} {m₀ : Mem}
     {n : String} {c : Prog isa} {k : Contract isa}
     (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')

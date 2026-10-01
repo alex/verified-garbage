@@ -58,4 +58,46 @@ theorem messageArgs_ok {t : State} (hc : Ctx L g mx m₀ t) (count : Nat)
   exact ⟨hc.regs rfl rfl rfl rfl (by cs_tac), trivial, trivial, zx32 hcount,
     trivial, trivial, by rw [sx32 (by omega)]⟩
 
+
+theorem prefixArgs_ok {t : State} (hc : Ctx L g mx m₀ t) :
+    WP isa (.block prefixArgs) t fun t' => Ctx L g mx m₀ t' ∧ t'.mem = t.mem ∧
+      UpdArgs L 0 (L.B + BitVec.ofNat 64 48) 32 t' := by
+  have hin := hc.inFr (d := 216) (by omega) (by omega)
+  apply WP.of_runBlock
+  simp only [prefixArgs, framePtr, scrPtr, shaScratch, fScratch, List.cons_append, List.nil_append,
+    runBlock_cons, runStep_some, runBlock_nil, exec, execAlu, readSrc, readSrc32, State.load64,
+    State.setReg32, ea_stk, RegUpd.gpr_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, RegUpd.mem_setReg,
+    RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags, RegUpd.wr_arithFlags,
+    Option.map_some, Option.bind_some, reduceCtorEq, ite_false, ite_true, hc.rsp, add_add,
+    Nat.reduceAdd, hin, Option.some.injEq, exists_eq_left', hc.pScr, UpdArgs]
+  exact ⟨hc.regs rfl rfl rfl rfl (by cs_tac), trivial, trivial, rfl,
+    by rw [sx32 (by decide : 32 < 2 ^ 31), add_add],
+    rfl, by rw [sx32 (by omega)]⟩
+
+def FinArgs (L : Lay) (count : BitVec 64) (t : State) : Prop :=
+  t.gpr .rdi = L.scr ∧ t.gpr .rsi = count ∧ t.gpr .rdx = L.B + BitVec.ofNat 64 144 ∧
+    t.gpr .rcx = L.scr + BitVec.ofNat 64 192
+
+theorem finalizeArgs_ok {t : State} (hc : Ctx L g mx m₀ t) (prefixLen : Nat)
+    (hp : prefixLen < 2 ^ 31) (withMessage : Bool) :
+    WP isa (.block (finalizeArgs prefixLen withMessage)) t fun t' => Ctx L g mx m₀ t' ∧
+      t'.mem = t.mem ∧ FinArgs L
+        (if withMessage then L.len + BitVec.ofNat 64 prefixLen else BitVec.ofNat 64 prefixLen) t' := by
+  have hs := hc.inFr (d := 216) (by omega) (by omega)
+  have hl := hc.inFr (d := 224) (by omega) (by omega)
+  cases withMessage <;> apply WP.of_runBlock <;>
+    simp only [finalizeArgs, framePtr, scrPtr, shaScratch, fScratch, fLength, Bool.false_eq_true,
+      ite_false, ite_true, List.cons_append, List.nil_append, runBlock_cons, runStep_some, runBlock_nil,
+      exec, execAlu, readSrc, readSrc32, State.load64, State.setReg32, ea_stk,
+      RegUpd.gpr_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, RegUpd.mem_setReg,
+      RegUpd.gpr_arithFlags, RegUpd.mem_arithFlags, RegUpd.rd_arithFlags, RegUpd.wr_arithFlags,
+      Option.map_some, Option.bind_some, reduceCtorEq, ite_false, ite_true, hc.rsp, add_add,
+      Nat.reduceAdd, hs, hl, Option.some.injEq, exists_eq_left', hc.pScr, hc.pLen, FinArgs]
+  · exact ⟨hc.regs rfl rfl rfl rfl (by cs_tac), trivial, trivial, zx32 (by omega),
+      by rw [sx32 (by decide : 128 < 2 ^ 31), add_add],
+      by rw [sx32 (by omega)]⟩
+  · exact ⟨hc.regs rfl rfl rfl rfl (by cs_tac), trivial, trivial, by rw [sx32 hp],
+      by rw [sx32 (by decide : 128 < 2 ^ 31), add_add],
+      by rw [sx32 (by omega)]⟩
+
 end VG.Proof.Ed25519.X86_64.SignCached

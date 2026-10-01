@@ -74,10 +74,14 @@ def pruneRegs : List Instr :=
     .movImm64 .rcx (BitVec.ofNat 64 (2 ^ 62 - 1)), .alu .and .r11 (.reg .rcx),
     .movImm64 .rcx (BitVec.ofNat 64 (2 ^ 62)), .alu .or .r11 (.reg .rcx)]
 
-def prefixWord (i : Nat) : List Instr :=
-  [.mov .rax (.mem (stk (160 + 8 * i))), .store (stk (32 + 8 * i)) .rax]
+def prefixRegs : List Instr :=
+  [.mov .r8 (.mem (stk 160)), .mov .r9 (.mem (stk 168)),
+    .mov .r10 (.mem (stk 176)), .mov .r11 (.mem (stk 184))]
 
-def saveSecret : List Instr := pruneRegs ++ pkPruneStores ++ (List.range 4).flatMap prefixWord
+def prefixStores : List Instr :=
+  [.store (stk 32) .r8, .store (stk 40) .r9, .store (stk 48) .r10, .store (stk 56) .r11]
+
+def saveSecret : List Instr := pruneRegs ++ pkPruneStores ++ prefixRegs ++ prefixStores
 
 def hashNonce (f : Callee) (suffix : String) : Prog isa :=
   .seq init (.seq (update f suffix prefixArgs)

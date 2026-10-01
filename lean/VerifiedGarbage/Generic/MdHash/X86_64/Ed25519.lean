@@ -1,17 +1,17 @@
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.Ed25519.X86_64.PublicKey.Verified
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyMessage.Verified
+import VerifiedGarbage.Proof.Ed25519.X86_64.SignCached.Verified
 
 /-!
 # Ed25519 (RFC 8032) on x86-64, over SHA-512
 
-A generic file (see `TCB/Emit.lean`): `vg_ed25519_public_key`, which hashes
-the seed with SHA-512's streaming functions made with the variant's
-compression function (`Impl/Ed25519/X86_64/PublicKey.lean`), is emitted once
-for each implementation of SHA-512's compression function (each SHA-512
-variant of `MdHash` carries it, `MdHash.sha512`; the other hash functions'
-variants give nothing), named with its suffix (e.g.
-`vg_ed25519_public_key_shani`). **Review note**: `sig` and `doc` are
+Complete key derivation, cached-key signing, and verification are emitted
+for every SHA-512 compression backend carried by `MdHash.sha512`. Each
+operation includes its streaming hash calls and carries the backend's
+suffix and CPU features. Other hash families emit no Ed25519 artifacts.
+
+**Review note**: `sig` and `doc` are
 trusted, as they tie the Rust caller to the contract: they are those of the
 function's `Api` (`Spec/Ed25519/Contract.lean`), and this file adds only
 notes on the implementation. The emitter adds the `# Safety` items that
@@ -53,6 +53,20 @@ def artifacts (v : Proof.Pbkdf2.Md.X86_64.MdHash) : List Artifact :=
       stack := 184
       verified := Proof.Ed25519.X86_64.VerifyMessage.verified c
       spSafe := Proof.Ed25519.X86_64.VerifyMessage.spSafe c
+      features := c.features },
+    { Spec.Ed25519.signCachedApi with
+      name := Spec.Ed25519.signCachedApi.name ++ c.suffix
+      target := X86_64.target
+      doc := Spec.Ed25519.signCachedApi.doc (notes := ["Computes all three SHA-512 hashes with \
+        the selected backend, reduces the nonce and challenge, encodes the nonce point, \
+        and computes the final scalar. The 248-byte stack frame holds the pruned scalar, \
+        nonce prefix, nonce, challenge, digest and saved arguments; its secret buffers are \
+        cleared before return. Calls use another 16 bytes below the frame."])
+      code := Impl.Ed25519.X86_64.SignCached.code c.callee c.suffix
+      contract := Spec.Ed25519.signCachedContract X86_64.abi 264
+      stack := 264
+      verified := Proof.Ed25519.X86_64.SignCached.verified c
+      spSafe := Proof.Ed25519.X86_64.SignCached.spSafe c
       features := c.features }]
 
 end VG.Generic.MdHash.X86_64.Ed25519

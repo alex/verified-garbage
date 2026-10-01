@@ -15,8 +15,7 @@ must be outside scratch because reduction and equation checking overwrite
 scratch. The SHA-512 state and working space use the same scratch layout
 as public-key derivation. The return value survives the frame pop.
 
-This implementation is not registered until its complete-operation proof
-against `Spec.Ed25519.verifyContract` is available.
+The complete-operation proof targets `Spec.Ed25519.verifyContract`.
 -/
 
 namespace VG.Impl.Ed25519.X86_64.VerifyMessage
