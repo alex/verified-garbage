@@ -17,6 +17,17 @@ def vreg (k : Fin 16) : VReg :=
   #[.v0, .v1, .v2, .v3, .v4, .v5, .v6, .v7,
     .v16, .v17, .v18, .v19, .v20, .v21, .v22, .v23][k]
 
+/-- Byte indices for rotating each 32-bit word left by eight bits. -/
+def rol8Table : BitVec 128 := 0x0e0d0c0f0a09080b0605040702010003
+
+def setupTable : List Instr :=
+  [.movz .x .x4 0x0003 0, .movk .x .x4 0x0201 1,
+   .movk .x .x4 0x0407 2, .movk .x .x4 0x0605 3,
+   .vop (.dup .d2 .v30 .x4),
+   .movz .x .x4 0x080b 0, .movk .x .x4 0x0a09 1,
+   .movk .x .x4 0x0c0f 2, .movk .x .x4 0x0e0d 3,
+   .vop (.ins .d2 .v30 1 .x4)]
+
 /-- The operations of the round scheduler, each acting on all four blocks. -/
 inductive Op
   | add (d a b : Fin 16)
@@ -25,9 +36,11 @@ inductive Op
 def Op.code : Op → List Instr
   | .add d a b => [.vop (.add .s4 (vreg d) (vreg a) (vreg b))]
   | .xorRol d a b n =>
-    [.vop (.logic .eor .v31 (vreg a) (vreg b)),
-     .vop (.shift .ushr .s4 (vreg d) .v31 (32 - n)),
-     .vop (.shift .sli .s4 (vreg d) .v31 n)]
+    [.vop (.logic .eor .v31 (vreg a) (vreg b))] ++
+    if n.val = 16 then [.vop (.rev .rev32h (vreg d) .v31)]
+    else if n.val = 8 then [.vop (.tbl (vreg d) .v31 .v30)]
+    else [.vop (.shift .ushr .s4 (vreg d) .v31 (32 - n)),
+      .vop (.shift .sli .s4 (vreg d) .v31 n)]
 
 def cols : List (Fin 16 × Fin 16 × Fin 16 × Fin 16) :=
   [(0,4,8,12), (1,5,9,13), (2,6,10,14), (3,7,11,15)]
@@ -49,17 +62,24 @@ def rounds : Nat → Prog isa
   | 0 => .block []
   | n + 1 => .seq (rounds n) (.block doubleRound)
 
+/-- Keep the double-round instruction body compact and repeat it ten times. -/
+def roundLoop : Prog isa :=
+  .seq (.block [.movz .x .x4 10 0])
+    (.loop (.seq (.block doubleRound) (.block [.subImm .x .x4 .x4 1])) (.nonzero .x .x4))
+
 /-- Broadcast an input word; word 12 instead has consecutive counters. -/
-def inputWord (k : Fin 16) : List Instr :=
-  [.ldr .w .x4 .x0 (4 * k), .vop (.dup .s4 .v31 .x4)] ++
+def inputWordInto (k : Fin 16) (d : VReg) : List Instr :=
+  [.ldr .w .x4 .x0 (4 * k), .vop (.dup .s4 d .x4)] ++
   if k = 12 then
-    [.addImm .w .x4 .x4 1, .vop (.ins .s4 .v31 1 .x4),
-     .addImm .w .x4 .x4 1, .vop (.ins .s4 .v31 2 .x4),
-     .addImm .w .x4 .x4 1, .vop (.ins .s4 .v31 3 .x4)]
+    [.addImm .w .x4 .x4 1, .vop (.ins .s4 d 1 .x4),
+     .addImm .w .x4 .x4 1, .vop (.ins .s4 d 2 .x4),
+     .addImm .w .x4 .x4 1, .vop (.ins .s4 d 3 .x4)]
   else []
 
-def setupWord (k : Fin 16) : List Instr := inputWord k ++ [.vop (.mov (vreg k) .v31)]
-def setup : List Instr := (List.finRange 16).flatMap setupWord
+def inputWord (k : Fin 16) : List Instr := inputWordInto k .v31
+
+def setupWord (k : Fin 16) : List Instr := inputWordInto k (vreg k)
+def setup : List Instr := (List.finRange 16).flatMap setupWord ++ setupTable
 
 def addWord (k : Fin 16) : List Instr :=
   inputWord k ++ [.vop (.add .s4 (vreg k) (vreg k) .v31)]
@@ -83,15 +103,17 @@ def xorRow (r j : Fin 4) : List Instr :=
    .vop (.logic .eor .v31 .v31 (vreg (rowWord r j))),
    .strq .v31 .x1 (64 * j + 16 * r)]
 
-def finishRow (r : Fin 4) : List Instr :=
+def finishRowFor (js : List (Fin 4)) (r : Fin 4) : List Instr :=
   transpose (vreg (rowWord r 0)) (vreg (rowWord r 1))
     (vreg (rowWord r 2)) (vreg (rowWord r 3)) ++
-  (List.finRange 4).flatMap (xorRow r)
+  js.flatMap (xorRow r)
+
+def finishRow (r : Fin 4) : List Instr := finishRowFor (List.finRange 4) r
 
 def finish : List Instr :=
   (List.finRange 16).flatMap addWord ++ (List.finRange 4).flatMap finishRow
 
-def chunk : Prog isa := .seq (.block setup) (.seq (rounds 10) (.block finish))
+def chunk : Prog isa := .seq (.block setup) (.seq roundLoop (.block finish))
 
 /-- Advance four counters and one 256-byte chunk; x5 tests for another chunk. -/
 def next : List Instr :=
