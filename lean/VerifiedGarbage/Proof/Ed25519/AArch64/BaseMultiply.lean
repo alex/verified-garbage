@@ -5,8 +5,8 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.PointMul
 /-!
 # Base-point multiplication from the cached table
 
-Untrusted. As `pointMulBatch_ok` and `pointMulLoop_ok`, but each batch's
-powers come from `baseCached` rather than from doubling a checkpoint.
+Untrusted. Each batch's powers come from `baseCached` rather than from
+doubling a checkpoint, and the accumulator is `after scalar B (16 j)`.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

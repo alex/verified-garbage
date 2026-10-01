@@ -5,8 +5,7 @@ import VerifiedGarbage.Impl.Ed25519.AArch64.PointMul
 # Base-point multiplication from a precomputed table
 
 The scalar's 256 bits are consumed in sixteen batches of sixteen, from the
-top, as in `pointMultiply`. Instead of doubling a checkpoint sixteen times,
-each batch writes its sixteen powers of the base point into the local table
+top. Instead of doubling a checkpoint sixteen times, each batch writes its sixteen powers of the base point into the local table
 at byte 5376 from constants (`baseCached`), chosen by comparing the public
 batch counter `x19` with each batch index. The powers are cached as
 `[Y - X, Y + X, 2dT, 2Z]`, so each addition takes eight multiplications.
