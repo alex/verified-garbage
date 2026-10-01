@@ -14,6 +14,8 @@ so they agree on the branches of each iteration, and leak the same
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Proof.MlDsa.Sign
@@ -215,12 +217,12 @@ theorem x0_zero {s : State} (hb : isa.eval (.nonzero .w .x0) s = some false) : (
 
 theorem iter_tr {P : Prims} (hP : PrimsOk P D) (h3 : Ok3 p) (hc1 : cChk p = true) (hc2 : bChk p = true)
     (hc3 : ksChk p = true) (hc4 : lChk p = true) {t : Nat} (ht : t < 814) :
-    RelCT isa (RS p D (LeakEq p t) fun σ s => IL p D σ t s) (iter P p) (IX p D t) := by
+    RelCT isa (RS p D (LeakEq p t) fun σ s => IL p D σ t s) (iterWith keccak.callee P p) (IX p D t) := by
   have hp := paramsOk h3
   have hc2' := hc2
   simp only [bChk, Bool.and_eq_true, decide_eq_true_eq] at hc2'
   obtain ⟨⟨⟨c1, -⟩, -⟩, hbp⟩ := hc2'
-  unfold iter
+  unfold iterWith
   refine RelCT.seq (commit_tr hP h3 hc1) ?_
   refine RelCT.seq (R := fun x y => RS p D (LeakEq p t) (fun σ s => IB p D σ t s) x y ∧
       (x.gpr .x0).setWidth 32 = (y.gpr .x0).setWidth 32)
@@ -251,8 +253,8 @@ theorem iter_tr {P : Prims} (hP : PrimsOk P D) (h3 : Ok3 p) (hc1 : cChk p = true
 
 theorem signLoop_tr {P : Prims} (hP : PrimsOk P D) (h3 : Ok3 p) (hc1 : cChk p = true) (hc2 : bChk p = true)
     (hc3 : ksChk p = true) (hc4 : lChk p = true) :
-    RelCT isa (RS p D (LeakEq p 0) fun σ s => IK p D σ s) (Impl.MlDsa.AArch64.Sign.signLoop P p) (OX p D) := by
-  unfold Impl.MlDsa.AArch64.Sign.signLoop
+    RelCT isa (RS p D (LeakEq p 0) fun σ s => IK p D σ s) (Impl.MlDsa.AArch64.Sign.signLoopWith keccak.callee P p) (OX p D) := by
+  unfold Impl.MlDsa.AArch64.Sign.signLoopWith
   refine RelCT.seq (liftT (J := fun σ s => IL p D σ 0 s) (fun _ _ h => h.d.im.st) (fun _ _ _ h => loopInit_ok hc4 h)
     (lrel_tr (fun x y h => h) (by taint_decide))) ?_
   refine RelCT.mono (RelCT.loop (M := isa)

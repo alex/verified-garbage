@@ -157,7 +157,7 @@ def JE (p : Params) (D : Nat) (e : Nat) (σ s : State) : Prop :=
 
 theorem callE_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {σ : State} {e : Nat}
     (he : eChk p e = true) {s : State} (h : IA p D σ e s) (hs : bytesAt s.mem (pa s (sc oRS)) 34 = seedE p σ e) :
-    WP isa (callAt "vg_mldsa_rej_ntt_poly" P.rejNTT [(.x0, .ptr (sc oRS)), (.x1, .ptr (pS (aBase p + e))),
+    WP isa (callAt ("vg_mldsa_rej_ntt_poly" ++ P.suffix) P.rejNTT [(.x0, .ptr (sc oRS)), (.x1, .ptr (pS (aBase p + e))),
       (.x2, .ptr (sc oPS))]) s
       (JE p D e σ) := by
   obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, hc, _, _⟩ := eChk_spec he
@@ -204,7 +204,7 @@ theorem andE_ok {D : Nat} {p : Params} {σ : State} {e : Nat} (he : eChk p e = t
         · exact ⟨e, by omega, hn⟩
 
 theorem sampleE_eq (P : Prims) (p : Params) (e : Nat) : sampleE P p e = .seq (.block (blkE p e))
-    (.seq (callAt "vg_mldsa_rej_ntt_poly" P.rejNTT [(.x0, .ptr (sc oRS)), (.x1, .ptr (pS (aBase p + e))),
+    (.seq (callAt ("vg_mldsa_rej_ntt_poly" ++ P.suffix) P.rejNTT [(.x0, .ptr (sc oRS)), (.x1, .ptr (pS (aBase p + e))),
       (.x2, .ptr (sc oPS))]) (.block and24)) := by
   unfold sampleE rejAt; rw [aP_eq]
 

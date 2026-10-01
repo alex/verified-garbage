@@ -15,8 +15,10 @@ bytes of stack below the stack pointer (`shake_ok`).
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
-open VG.Proof.MlKem.AArch64 (HSetup PieceOk preg pbytes Kept Outs hash_ok)
+open VG.Proof.MlKem.AArch64 (HSetup PieceOk preg pbytes Kept Outs hashWith_ok)
 open VG.Spec.Sha3 (bytesAt)
 
 /-- The pointer and length of a piece. -/
@@ -87,11 +89,11 @@ theorem shake256_eq' (m : List Byte) (d : Nat) :
 theorem shake_ok {S : Nat} (h16 : 16 ≤ S) (hS : S < 2 ^ 64) {rbs wbs : List (Reg × Nat)} {s : State}
     (L : Lay S rbs wbs s) {ins : List Impl.MlKem.AArch64.Piece} {out : Impl.MlKem.AArch64.Piece}
     (hne : ins ≠ []) (hc : hashChk rbs wbs ins out = true) :
-    WP isa (shakeAt ins out) s fun s' =>
+    WP isa (shakeAtWith keccak.callee ins out) s fun s' =>
       PPostB S s s' [(sc 0, 200), (sc 200, 640), pieceP out] ∧ s'.gpr .x24 = s.gpr .x24 ∧
       bytesAt s'.mem (pa s (out.base, out.off)) out.len = Spec.MlDsa.H (ins.map (pbytes s)).flatten out.len := by
   obtain ⟨c1, c2, c3, c4, c5⟩ := hashChk_parts hc
-  refine WP.mono (hash_ok (hsetup L h16 hS c1 c2 c3) (by decide) hne (fun q hq => pieceOk L h16 hS (c4 q hq))
+  refine WP.mono (hashWith_ok keccak (hsetup L h16 hS c1 c2 c3) (by decide) hne (fun q hq => pieceOk L h16 hS (c4 q hq))
     (fun q hq => by rw [List.mem_singleton.mp hq]; exact pieceOk L h16 hS c5) (List.pairwise_singleton _ _))
     fun s' ⟨k', o'⟩ => ⟨⟨k'.rd, k'.wr, k'.sp, fun r hr => k'.cs r (kept_pres r hr).1 (kept_pres r hr).2, ?_, k'.vcs⟩,
       k'.cs .x24 (by decide) (by decide), ?_⟩

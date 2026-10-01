@@ -116,7 +116,7 @@ theorem rejNttAtK_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTCo
     {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧
       bytesAt x.mem (pa x seed) 34 = bytesAt y.mem (pa y seed) 34 ∧ SameB x y) :
-    RelCT isa Q (callAt "vg_mldsa_rej_ntt_poly" P.rejNTT (rejNttArgs seed a ss))
+    RelCT isa Q (callAt ("vg_mldsa_rej_ntt_poly" ++ P.suffix) P.rejNTT (rejNttArgs seed a ss))
       fun s₁ s₂ => (s₁.gpr .x0).setWidth 32 = (s₂.gpr .x0).setWidth 32 := by
   have hc' := hc
   simp only [rejNttChk, Bool.and_eq_true, and_assoc] at hc'
@@ -141,7 +141,7 @@ theorem ballAtK_trRet {S : Nat} {P : Prims} (C : CalleeOk S P.ball (sampleInBall
     (hc : ballChk rbs wbs ct len c ss = true) {tau : Nat} (ht : (len, tau) ∈ ballParams) {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧
       bytesAt x.mem (pa x ct) len = bytesAt y.mem (pa y ct) len ∧ SameB x y) :
-    RelCT isa Q (callAt "vg_mldsa_sample_in_ball" P.ball (ballArgs ct len tau c ss))
+    RelCT isa Q (callAt ("vg_mldsa_sample_in_ball" ++ P.suffix) P.ball (ballArgs ct len tau c ss))
       fun s₁ s₂ => (s₁.gpr .x0).setWidth 32 = (s₂.gpr .x0).setWidth 32 := by
   have hl : len < 2 ^ 32 ∧ tau < 2 ^ 32 := by
     simp only [ballParams, List.mem_cons, Prod.mk.injEq, List.not_mem_nil, or_false] at ht; omega
@@ -209,7 +209,7 @@ theorem maskAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
     (C : CalleeOk S P.expandMask (expandMaskContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {seed a ss : Ptr}
     (hc : maskChk rbs wbs seed a ss = true) {γ : Nat} (hγ : γ = 2 ^ 17 ∨ γ = 2 ^ 19) :
-    WP isa (callAt "vg_mldsa_expand_mask_poly" P.expandMask (maskArgs seed γ a ss)) s fun s' =>
+    WP isa (callAt ("vg_mldsa_expand_mask_poly" ++ P.suffix) P.expandMask (maskArgs seed γ a ss)) s fun s' =>
       PPostB S s s' [(a, 1024), (ss, 2048)] ∧ s'.gpr .x24 = s.gpr .x24 ∧
       PolyIs s'.mem (pa s a) (toRq (bitUnpack (H (bytesAt s.mem (pa s seed) 66) (32 * (1 + bitlen (γ - 1))))
         (γ - 1) γ)) := by
@@ -229,7 +229,7 @@ theorem maskAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.expandMask (expandMas
     {rbs wbs : List (Reg × Nat)} (hB : LayOk (rbs ++ wbs)) {seed a ss : Ptr} (hc : maskChk rbs wbs seed a ss = true)
     {γ : Nat} (hγ : γ = 2 ^ 17 ∨ γ = 2 ^ 19) {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧ SameB x y) :
-    RelCT isa Q (callAt "vg_mldsa_expand_mask_poly" P.expandMask (maskArgs seed γ a ss)) fun _ _ => True := by
+    RelCT isa Q (callAt ("vg_mldsa_expand_mask_poly" ++ P.suffix) P.expandMask (maskArgs seed γ a ss)) fun _ _ => True := by
   have hc' := hc
   simp only [maskChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'

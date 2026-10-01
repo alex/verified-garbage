@@ -10,9 +10,11 @@ every buffer the step writes is apart from (`Apart`).
 
 namespace VG.Proof.MlKem1024.AArch64.KeyGen
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlKem1024.AArch64 VG.Impl.MlKem1024.AArch64.KG VG.Proof.MlKem
   VG.Proof.MlKem.AArch64 VG.Proof.MlKem1024 VG.Proof.MlKem1024.AArch64
-open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash copy32)
+open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash hashWith copy32)
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
 
@@ -134,7 +136,7 @@ structure TMid (s₀ : State) (mB : Mem) (v : BitVec 64) (i : Nat) (s : State) :
 
 theorem t_part1 {s₀ : State} (hp : Pre s₀) {mB : Mem} {v : BitVec 64} {i : Nat} (hi : i < 4) {s : State}
     (h : TL s₀ mB v i s) {REST : Prog isa} {Q : State → Prop} (hR : ∀ s', TMid s₀ mB v i s' → WP isa REST s' Q) :
-    WP isa (.seq (kgCbdNtt (4 + i) EP) <| .seq (kgMul TP (aOff i 0) (sOff 0)) <|
+    WP isa (.seq ((kgCbdNttWith keccak.callee) (4 + i) EP) <| .seq (kgMul TP (aOff i 0) (sOff 0)) <|
       .seq (kgMul PP (aOff i 1) (sOff 1)) <| .seq (kgAdd TP PP) REST) s Q := by
   refine WP.seq (WP.mono (cbdNtt_ok hp (N := 4 + i) (off := EP) (by omega) po_EP h.c.kb h.c.sig)
     fun s₁ ⟨kb₁, f₁, e₁, x₁⟩ => ?_)
@@ -239,7 +241,7 @@ theorem t_part3 {s₀ : State} (hp : Pre s₀) {mB : Mem} {v : BitVec 64} {i : N
         (.inl (by decide))) (by decide), b₈, tv.2]
 
 theorem t_step {s₀ : State} (hp : Pre s₀) {mB : Mem} {v : BitVec 64} {i : Nat} (hi : i < 4) {s : State}
-    (h : TL s₀ mB v i s) : WP isa (Impl.MlKem1024.AArch64.kgT i) s (TL s₀ mB v (i + 1)) :=
+    (h : TL s₀ mB v i s) : WP isa (Impl.MlKem1024.AArch64.kgTWith keccak.callee i) s (TL s₀ mB v (i + 1)) :=
   t_part1 hp hi h fun _ hm => t_part2 hp hi hm fun _ hm2 => t_part3 hp hi hm2
 
 end VG.Proof.MlKem1024.AArch64.KeyGen

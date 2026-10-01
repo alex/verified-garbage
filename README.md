@@ -142,7 +142,7 @@ yours to keep:
 
 <td>✅ lane complementing</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -652,7 +652,7 @@ yours to keep:
 
 <td>✅ AVX2; SSE2 polynomial arithmetic</td>
 
-<td>✅ NEON polynomial arithmetic</td>
+<td>✅ SHA extensions; NEON polynomial arithmetic</td>
 
 <td>✅</td>
 
@@ -668,7 +668,7 @@ yours to keep:
 
 <td>✅ AVX2; SSE2 polynomial arithmetic</td>
 
-<td>✅ NEON polynomial arithmetic</td>
+<td>✅ SHA extensions; NEON polynomial arithmetic</td>
 
 <td>✅</td>
 
@@ -776,7 +776,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -792,7 +792,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -808,7 +808,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 

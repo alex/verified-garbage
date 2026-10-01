@@ -52,10 +52,14 @@ def emLoop (c : Nat) : Prog isa :=
       .movz .x .x8 (BitVec.ofNat 16 (2 ^ (c - 16) - 1)) 1, .movk .x .x8 0xffff 0] ++ movQ .x9))
     (.loop (.block (emBody c)) (.nonzero .x .x5))
 
-def expandMask : Prog isa :=
-  .seq (.block (pro .x3 .x2 (.addImm .w .x27 .x1 0) (.movz .x .x4 66 0)))
-    (.seq (sponge 136 640)
-      (.seq (.seq (.block [.lsr .x .x9 .x27 18]) (.ite (.zero .x .x9) (emLoop 18) (emLoop 20)))
-        (.block epi)))
+def expandMaskTailWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
+  .seq (spongeWith c 136 640)
+    (.seq (.seq (.block [.lsr .x .x9 .x27 18]) (.ite (.zero .x .x9) (emLoop 18) (emLoop 20)))
+      (.block epi))
+
+def expandMaskWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
+  .seq (.block (pro .x3 .x2 (.addImm .w .x27 .x1 0) (.movz .x .x4 66 0))) (expandMaskTailWith c)
+
+def expandMask := expandMaskWith .scalar
 
 end VG.Impl.MlDsa.AArch64.Sample
