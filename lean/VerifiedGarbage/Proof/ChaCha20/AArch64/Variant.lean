@@ -17,6 +17,7 @@ structure BlockImpl where
   keeps : ∀ r ∈ [Reg.x0, .x1], ∀ i ∈ instrs callee.code, dstOf i ≠ some r
   xorKeeps : ∀ r ∈ [Reg.x21, .x22, .x23, .x24, .x25, .x26, .x27, .x28],
     ∀ i ∈ instrs (Impl.ChaCha20.AArch64.Xor.xorWith callee), dstOf i ≠ some r
+  xorKeepsV : (Impl.ChaCha20.AArch64.Xor.xorWith callee).allInstrs keepsV = true
   xorNoFrames : (Impl.ChaCha20.AArch64.Xor.xorWith callee).noFrames = true
   xorTaint : ∃ h, (taint.check (Taint.ofRegs [.x0, .x1, .x2, .x3])
     (Impl.ChaCha20.AArch64.Xor.xorWith callee) h).isSome = true

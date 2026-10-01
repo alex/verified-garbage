@@ -21,6 +21,7 @@ def scalar : BlockImpl where
   noFrames := by lit_decide
   keeps := keeps_of_check (by lit_decide)
   xorKeeps := keeps_of_check (by lit_decide)
+  xorKeepsV := by lit_decide
   xorNoFrames := by lit_decide
   xorTaint := ⟨_, by taint_decide⟩
 

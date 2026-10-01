@@ -732,7 +732,7 @@ theorem correct (v : BlockImpl) {s₀ : State} (hp : XPre s₀) :
     ∃ t s', Exec isa (Impl.ChaCha20.AArch64.Xor.xorWith v.callee) s₀ t s' ∧ abiPreserved s₀ s' ∧
       (Proof.ChaCha20.xorAArch64.post s₀ s' ∧ s'.gpr .x0 = s₀.gpr .x0 ∧ s'.gpr .x1 = s₀.gpr .x3) := by
   obtain ⟨t, s', he, ⟨hsv, h0, h1, hpost⟩⟩ := main_ok v hp
-  refine ⟨t, s', he, ⟨fun r hr => ?_, Exec.sp he⟩, hpost, h0, h1⟩
+  refine ⟨t, s', he, ⟨fun r hr => ?_, Exec.sp he, Exec.preservedV he v.xorKeepsV⟩, hpost, h0, h1⟩
   have hu : ∀ r ∈ untouched, s'.gpr r = s₀.gpr r := fun r hr =>
     Exec.gpr (untouched_ok v r hr) he (.inr (by
       simp only [untouched, List.mem_cons, List.not_mem_nil, or_false] at hr

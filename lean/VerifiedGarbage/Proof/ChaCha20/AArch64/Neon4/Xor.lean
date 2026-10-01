@@ -34,7 +34,7 @@ theorem bytes_of_bytesAt {m m' : Mem} {p : Addr} {n : Nat} {ks : List Byte} (hks
 
 theorem tail_ok {s₀ : State} (hp : XPre s₀) {t : Nat} {s : State} (h : LInv s₀ t s) :
     WP isa Impl.ChaCha20.AArch64.Xor.xor s fun s' =>
-      abiPreserved s₀ s' ∧ xorAArch64.post s₀ s' ∧
+      GprAbi s₀ s' ∧ xorAArch64.post s₀ s' ∧
       s'.gpr .x0 = s₀.gpr .x0 ∧ s'.gpr .x1 = s₀.gpr .x3 := by
   have hL := Xor.L_lt s₀
   have hle := h.le
@@ -95,6 +95,7 @@ theorem correct (s : State) (hp : xorAArch64.pre s) :
     WP isa Impl.ChaCha20.AArch64.Neon4.xor s fun s' =>
       abiPreserved s s' ∧ xorAArch64.post s s' ∧
       s'.gpr .x0 = s.gpr .x0 ∧ s'.gpr .x1 = s.gpr .x3 := by
+  apply WP.withPreservedV (hc := by lit_decide)
   apply WP.seq
   refine (init_ok s).mono fun u ⟨hi, h5⟩ => ?_
   apply WP.seq

@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Neon.Rounds
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Block
 import VerifiedGarbage.Proof.Framework.AArch64.SimdMem
@@ -123,7 +124,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 theorem block_correct (s : State) (hs : Proof.ChaCha20.blockAArch64.pre s) :
     ∃ t s', Exec isa block s t s' ∧ abiPreserved s s' ∧ Proof.ChaCha20.blockAArch64.post s s' := by
   obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
-  exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
+  exact ⟨t, s', he, ⟨h₁, Exec.sp he, Exec.preservedV he⟩, h₂⟩
 
 theorem block_verified :
     Verified AArch64.target block (Spec.ChaCha20.blockContract AArch64.abi) := by
