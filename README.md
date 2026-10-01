@@ -227,6 +227,22 @@ yours to keep:
 
 <tr>
 
+<td>3DES-CMAC (two- and three-key TDEA)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>HMAC-MD5</td>
 
 <td>✅</td>
