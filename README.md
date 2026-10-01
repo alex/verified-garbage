@@ -215,7 +215,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅ AES-NI</td>
 
 <td>❌</td>
 

@@ -407,7 +407,7 @@ jobs:
       fail-fast: false
       matrix:
         chip: [native, skx, hsw, p4p]
-        tests: [sha1 sha256 sha384 sha512 aes_gcm chacha20 mlkem x25519 ed25519 cpu]
+        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu]
         include:
           - chip: arl
             tests: sha384 sha512 ed25519 cpu

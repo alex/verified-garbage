@@ -12,6 +12,7 @@
 mod aes_gcm;
 mod chacha20;
 mod chacha20poly1305;
+mod cmac_aes;
 mod ed25519;
 mod harness;
 mod hmac;
