@@ -202,7 +202,7 @@ theorem windowA_ct {base kp sp : Addr} {A : EPoint dZ} {C : Addr} {digit : List 
   have hw (x : State) (h : WinPre base kp sp A C digit v x) :
       WP isa double4 x (WinPre base kp sp A C digit v) := by
     obtain ⟨a, ha⟩ := h.value
-    refine WP.mono (double4_ok h.ctx.scratch h.d ha) fun b ⟨br, bh, bk⟩ => ?_
+    refine WP.mono (double4_ok h.ctx.scratch ha) fun b ⟨br, bh, bk⟩ => ?_
     have kb := WinKeep.of_double bk
     exact ⟨h.ctx.of_keep kb, (bh 16 (by decide)).trans h.d, ⟨_, br⟩, kb.counter.trans h.counter,
       h.digit.of_keep kb, h.bound⟩
