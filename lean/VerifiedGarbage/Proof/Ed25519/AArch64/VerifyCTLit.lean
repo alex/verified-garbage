@@ -30,6 +30,7 @@ materialize_code verifyScalarTail := (.block (loadScalarWords ++ scalarSubtract 
 materialize_code verifyFinishBlock :=
   (.block (([mov .x2 .x0, mov .x0 .x8] : List Instr) ++ scalarRestore) : Prog isa)
 materialize_code pointMultiplyInit32 := pointMultiplyInit 32
+materialize_code pointMultiplyInit16 := pointMultiplyInit 16
 materialize_code scalarPrepare16 :=
   (.seq (scalarBits 32) (.block (constField 16 Spec.Ed25519.d)) : Prog isa)
 materialize_code scalarPrepare32 :=

@@ -3,7 +3,8 @@ import VerifiedGarbage.Impl.Ed25519.AArch64.ScalarBase
 import VerifiedGarbage.Impl.Ed25519.AArch64.PointMulVar
 
 /-! Canonical point/scalar checks and the uncofactored verification equation
-with the caller's full 512-bit SHA-512 challenge. -/
+with the caller's full 512-bit SHA-512 challenge. A challenge below `2^256`
+(a reduced one) takes half the doublings. -/
 namespace VG.Impl.Ed25519.AArch64
 open VG.AArch64
 
@@ -35,9 +36,20 @@ def verifyLhs : Prog isa :=
 def verifyCombine : List Instr :=
   copyPointToQ ++ pointTableRead 7552 ++ pointAdd ++ copyPointToQ ++ pointTableRead 7680
 
+/-- `x8` is zero exactly when the challenge at `x1` is below `2^256`: its
+upper 32 bytes are zero, as after `vg_ed25519_scalar_reduce`. -/
+def challengeHigh : List Instr :=
+  ([.addImm .x .x2 .x1 32] : List Instr) ++ loadScalarWords ++
+    [.logic .orr .x .x8 .x4 .x5, .logic .orr .x .x9 .x6 .x7, .logic .orr .x .x8 .x8 .x9]
+
+/-- `[k]A` for the challenge `k` at `x1`, with sixteen batches of bits when
+`k < 2^256` (the challenge is public), or thirty-two. -/
+def challengeMul : Prog isa :=
+  .seq (.block challengeHigh) (.ite (.zero .x .x8) (pointFromScalarVar 16) (pointFromScalarVar 32))
+
 def verifyRhsPrepare : Prog isa :=
   .seq (.block [ld .x1 7952]) (.seq (.block (pointTableRead 7424))
-    (.seq (pointFromScalarVar 32) (.block verifyCombine)))
+    (.seq challengeMul (.block verifyCombine)))
 
 def verifyRhs : Prog isa := .seq verifyRhsPrepare pointEqual
 def verifyEquationPoints : Prog isa := .seq verifyLhs verifyRhs

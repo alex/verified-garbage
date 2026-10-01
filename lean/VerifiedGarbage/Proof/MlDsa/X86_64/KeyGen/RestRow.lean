@@ -75,7 +75,7 @@ include hP hF hp hi
 
 /-- `t = Â[i, 0] ŝ₁[0]`. -/
 theorem mul_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State} (h : KR p σ A S R (p.ℓ + p.k) p.ℓ i s) :
-    WP isa (mulAt P.mul (tP p) (aP (p.ℓ * i)) (sP p 0)) s fun s' =>
+    WP isa (mulAt P.sfx P.mul (tP p) (aP (p.ℓ * i)) (sP p 0)) s fun s' =>
       KR p σ A S R (p.ℓ + p.k) p.ℓ i s' ∧ tIs p (fun A S => dotK p A S i 1) A S s' := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   have hx0 := idx_lt (j := 0) hi (by omega)
@@ -94,7 +94,7 @@ theorem mul_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State
 /-- `t = t + Â[i, j] ŝ₁[j]`. -/
 theorem mulAdd_ok {j : Nat} (hj : j < p.ℓ) {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State}
     (h : KR p σ A S R (p.ℓ + p.k) p.ℓ i s) (ht : tIs p (fun A S => dotK p A S i j) A S s) :
-    WP isa (mulAddAt P.mulAdd (tP p) (aP (p.ℓ * i + j)) (sP p j)) s fun s' =>
+    WP isa (mulAddAt P.sfx P.mulAdd (tP p) (aP (p.ℓ * i + j)) (sP p j)) s fun s' =>
       KR p σ A S R (p.ℓ + p.k) p.ℓ i s' ∧ tIs p (fun A S => dotK p A S i (j + 1)) A S s' := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   dsimp only [tIs] at ht
@@ -112,7 +112,7 @@ theorem mulAdd_ok {j : Nat} (hj : j < p.ℓ) {A : Nat → Poly} {S : Nat → IPo
 /-- `t = NTT⁻¹(t)`. -/
 theorem inv_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State}
     (h : KR p σ A S R (p.ℓ + p.k) p.ℓ i s) (ht : tIs p (fun A S => dotK p A S i p.ℓ) A S s) :
-    WP isa (invNttAt P.invNtt (tP p)) s fun s' =>
+    WP isa (invNttAt P.sfx P.invNtt (tP p)) s fun s' =>
       KR p σ A S R (p.ℓ + p.k) p.ℓ i s' ∧ tIs p (fun A S => nttInv (dotK p A S i p.ℓ)) A S s' := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   dsimp only [tIs] at ht
@@ -128,7 +128,7 @@ theorem inv_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State
 /-- `t = t + s₂[i]`. -/
 theorem addS2_ok {A : Nat → Poly} {S : Nat → IPoly} {R : BitVec 64} {s : State}
     (h : KR p σ A S R (p.ℓ + p.k) p.ℓ i s) (ht : tIs p (fun A S => nttInv (dotK p A S i p.ℓ)) A S s) :
-    WP isa (addAt P.add (tP p) (sP p (p.ℓ + i))) s fun s' =>
+    WP isa (addAt P.sfx P.add (tP p) (sP p (p.ℓ + i))) s fun s' =>
       KR p σ A S R (p.ℓ + p.k) p.ℓ i s' ∧ tIs p (fun A S => tK p A S i) A S s' := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   dsimp only [tIs] at ht
@@ -226,7 +226,7 @@ variable {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) {i : Nat} (hi
 include hP hF hi
 
 theorem mul_piece : Piece p (KRx p (p.ℓ + p.k) p.ℓ i) (RowI p i (tIs p fun A S => dotK p A S i 1))
-    (mulAt P.mul (tP p) (aP (p.ℓ * i)) (sP p 0)) := by
+    (mulAt P.sfx P.mul (tP p) (aP (p.ℓ * i)) (sP p 0)) := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   have hx0 := idx_lt (j := 0) hi (by omega)
   rw [Nat.add_zero] at hx0
@@ -244,7 +244,7 @@ theorem mul_piece : Piece p (KRx p (p.ℓ + p.k) p.ℓ i) (RowI p i (tIs p fun A
 
 theorem mulAdd_piece {j : Nat} (hj : j < p.ℓ) :
     Piece p (RowI p i (tIs p fun A S => dotK p A S i j)) (RowI p i (tIs p fun A S => dotK p A S i (j + 1)))
-      (mulAddAt P.mulAdd (tP p) (aP (p.ℓ * i + j)) (sP p j)) := by
+      (mulAddAt P.sfx P.mulAdd (tP p) (aP (p.ℓ * i + j)) (sP p j)) := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   have hx0 := idx_lt hi hj
   refine ⟨fun _ _ hp ⟨A, S, R, h, ht⟩ => WP.mono (mulAdd_ok hP hF hp hi hj h ht) fun _ h => ⟨A, S, R, h⟩, ?_⟩
@@ -259,7 +259,7 @@ theorem mulAdd_piece {j : Nat} (hj : j < p.ℓ) :
     (show Reg.rbx ∈ kgRegs by decide)
 
 theorem inv_piece : Piece p (RowI p i (tIs p fun A S => dotK p A S i p.ℓ))
-    (RowI p i (tIs p fun A S => nttInv (dotK p A S i p.ℓ))) (invNttAt P.invNtt (tP p)) := by
+    (RowI p i (tIs p fun A S => nttInv (dotK p A S i p.ℓ))) (invNttAt P.sfx P.invNtt (tP p)) := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   refine ⟨fun _ _ hp ⟨A, S, R, h, ht⟩ => WP.mono (inv_ok hP hF hp hi h ht) fun _ h => ⟨A, S, R, h⟩, ?_⟩
   refine rel_of (Q := fun x y => Two p x y ∧ Reduced x.mem (pa x (tP p)) ∧ Reduced y.mem (pa y (tP p))) ?_
@@ -268,7 +268,7 @@ theorem inv_piece : Piece p (RowI p i (tIs p fun A S => dotK p A S i p.ℓ))
   exact ipAt_tr (tP_ok hF) (by lay) (by lay) (by lay) hP.invNtt (show Reg.rbx ∈ kgRegs by decide)
 
 theorem addS2_piece : Piece p (RowI p i (tIs p fun A S => nttInv (dotK p A S i p.ℓ)))
-    (RowI p i (tIs p fun A S => Proof.MlDsa.KeyGen.tK p A S i)) (addAt P.add (tP p) (sP p (p.ℓ + i))) := by
+    (RowI p i (tIs p fun A S => Proof.MlDsa.KeyGen.tK p A S i)) (addAt P.sfx P.add (tP p) (sP p (p.ℓ + i))) := by
   have hkl := hF.kl; have hl := hF.l; have hk := hF.k
   refine ⟨fun _ _ hp ⟨A, S, R, h, ht⟩ => WP.mono (addS2_ok hP hF hp hi h ht) fun _ h => ⟨A, S, R, h⟩, ?_⟩
   refine rel_of (Q := fun x y => Two p x y ∧ (Reduced x.mem (pa x (tP p)) ∧ Reduced x.mem (pa x (sP p (p.ℓ + i)))) ∧
