@@ -200,11 +200,11 @@ def lowBitsAt (r : Ptr) (gamma2 : Nat) (out : Ptr) : Prog isa :=
 
 /-- `‖f‖∞ < bound`, and `r15 ← r15 ∧ result`. -/
 def normAt (f : Ptr) (bound : Nat) : Prog isa :=
-  .seq (callP "vg_mldsa_norm_lt" P.normLt [.ptr f, .imm bound]) (.block [.alu32 .and .r15 (.reg .rax)])
+  .seq (callP ("vg_mldsa_norm_lt" ++ P.sfx) P.normLt [.ptr f, .imm bound]) (.block [.alu32 .and .r15 (.reg .rax)])
 
 /-- `MakeHint` of `z` and `r` to `h`, and the number of 1s added to `ONES`. -/
 def makeHintAt (z r : Ptr) (gamma2 : Nat) (h : Ptr) : Prog isa :=
-  .seq (callP "vg_mldsa_make_hint" P.makeHint [.ptr z, .ptr r, .imm gamma2, .ptr h])
+  .seq (callP ("vg_mldsa_make_hint" ++ P.sfx) P.makeHint [.ptr z, .ptr r, .imm gamma2, .ptr h])
     (.block [.mov32 .rcx (.mem (at_ .rbx oONES)), .alu32 .add .rcx (.reg .rax), .store (at_ .rbx oONES) .rcx])
 
 def simpleBitPackAt (f : Ptr) (b : Nat) (out : Ptr) (len : Nat) : Prog isa :=

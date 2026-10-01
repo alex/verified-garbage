@@ -53,6 +53,7 @@ def primsWith (B : Arith.Backend) : Prims :=
     mul := B.mul
     mulAdd := B.mulAdd
     sub := B.sub
+    normLt := B.normLt
     sfx := B.sfx }
 
 /-- A function of the polynomial arithmetic satisfies what the proofs of verification need of it. -/
@@ -102,10 +103,7 @@ theorem prims_okWith (v : ArithImpl) : PrimsOk (primsWith v.code) where
     (Proof.MlKem.X86_64.nosp_of (by lit_decide)) (by lit_decide) (by lit_decide)
     (Code.all_of_allInstrs (by lit_decide)) :
     CalleeOk prims.hintUnpack _)
-  normLt := (CalleeOk.of_verified Proof.MlDsa.X86_64.Round.normLt_verified (by decide)
-    (Proof.MlKem.X86_64.nosp_of (by lit_decide)) (by lit_decide) (by lit_decide)
-    (Code.all_of_allInstrs (by lit_decide)) :
-    CalleeOk prims.normLt _)
+  normLt := calleeOf v.ok.normLt
 
 /-- `vg_mldsa*_verify` for the parameter set `p`, calling the x86-64
 primitives, with the polynomial arithmetic of `v`. -/
