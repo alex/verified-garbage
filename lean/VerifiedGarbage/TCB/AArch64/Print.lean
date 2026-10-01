@@ -124,6 +124,10 @@ def Instr.asm : Instr → List String
   | .addImm sz d n imm => [s!"add {d.name sz}, {n.name sz}, #{imm}"]
   | .subImm sz d n imm => [s!"sub {d.name sz}, {n.name sz}, #{imm}"]
   | .logic op sz d n m => [s!"{op.name} {d.name sz}, {n.name sz}, {m.name sz}"]
+  | .logicRor op sz d n m sh =>
+    [s!"{op.name} {d.name sz}, {n.name sz}, {m.name sz}, ror #{sh}"]
+  | .bicRor sz d n m sh =>
+    [s!"bic {d.name sz}, {n.name sz}, {m.name sz}, ror #{sh}"]
   | .ror sz d n sh => [s!"ror {d.name sz}, {n.name sz}, #{sh}"]
   | .lsr sz d n sh => [s!"lsr {d.name sz}, {n.name sz}, #{sh}"]
   | .lsl sz d n sh => [s!"lsl {d.name sz}, {n.name sz}, #{sh}"]
