@@ -14,7 +14,8 @@
 //! `vg_aes_expand_key_aesni`, `vg_aes_ctr32_aesni` and `vg_ghash_pclmul`
 //! instead, which have the same contracts; on AArch64, CPUs with the AES and
 //! PMULL extensions run `vg_aes_expand_key_aes`, `vg_aes_ctr32_aes` and
-//! `vg_ghash_pmull`.
+//! `vg_ghash_pmull`. On x86, AES-NI/PCLMULQDQ/SSSE3 select the accelerated
+//! counter mode and GHASH functions; key expansion remains scalar.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -28,14 +29,13 @@ use crate::arch::aes::{
     VG_AES_CTR32_AES_FEATURES, VG_AES_EXPAND_KEY_AES_FEATURES, vg_aes_ctr32_aes,
     vg_aes_expand_key_aes,
 };
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use crate::arch::aes::{VG_AES_CTR32_AESNI_FEATURES, vg_aes_ctr32_aesni};
 #[cfg(target_arch = "x86_64")]
-use crate::arch::aes::{
-    VG_AES_CTR32_AESNI_FEATURES, VG_AES_EXPAND_KEY_AESNI_FEATURES, vg_aes_ctr32_aesni,
-    vg_aes_expand_key_aesni,
-};
+use crate::arch::aes::{VG_AES_EXPAND_KEY_AESNI_FEATURES, vg_aes_expand_key_aesni};
 use crate::arch::aes::{vg_aes_ctr32, vg_aes_expand_key};
 use crate::arch::gcm::vg_ghash;
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::arch::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash_pclmul};
 #[cfg(target_arch = "aarch64")]
 use crate::arch::gcm::{VG_GHASH_PMULL_FEATURES, vg_ghash_pmull};
@@ -138,7 +138,7 @@ enum Backend {
     /// Constant-time scalar code, for the target's baseline ISA.
     Scalar,
     /// AES-NI and PCLMULQDQ.
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     AesNi,
     /// The AES and PMULL extensions.
     #[cfg(target_arch = "aarch64")]
@@ -147,9 +147,10 @@ enum Backend {
 
 impl Backend {
     /// The best implementation a CPU with the features `f` can run.
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn select(f: Features) -> Backend {
         if f.contains(Features::all(&[
+            #[cfg(target_arch = "x86_64")]
             VG_AES_EXPAND_KEY_AESNI_FEATURES,
             VG_AES_CTR32_AESNI_FEATURES,
             VG_GHASH_PCLMUL_FEATURES,
@@ -176,7 +177,7 @@ impl Backend {
 
     /// The best implementation a CPU with the features `f` can run: there
     /// is only one here.
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
     fn select(_: Features) -> Backend {
         Backend::Scalar
     }
@@ -216,6 +217,10 @@ impl AesGcm {
                 Backend::AesNi => {
                     vg_aes_expand_key_aesni(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
                 }
+                #[cfg(target_arch = "x86")]
+                Backend::AesNi => {
+                    vg_aes_expand_key(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
+                }
                 #[cfg(target_arch = "aarch64")]
                 Backend::ArmCrypto => {
                     vg_aes_expand_key_aes(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
@@ -238,7 +243,7 @@ impl AesGcm {
         let mut scratch = MaybeUninit::<[u64; 256]>::uninit();
         let f = match self.backend {
             Backend::Scalar => vg_aes_ctr32,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_aes_ctr32_aesni,
             #[cfg(target_arch = "aarch64")]
             Backend::ArmCrypto => vg_aes_ctr32_aes,
@@ -270,7 +275,7 @@ impl AesGcm {
         let mut scratch = MaybeUninit::<[u64; 32]>::uninit();
         let f = match self.backend {
             Backend::Scalar => vg_ghash,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             Backend::AesNi => vg_ghash_pclmul,
             #[cfg(target_arch = "aarch64")]
             Backend::ArmCrypto => vg_ghash_pmull,
@@ -582,19 +587,20 @@ impl AesGcmStream {
 #[cfg(test)]
 mod tests {
     use super::{AesGcm, AesGcmStream, Backend, Direction, Error, MAX_AAD, MAX_TEXT, add_len};
-    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
     use crate::cpu::Features;
     use crate::cpu::detected;
 
     /// The implementation chosen for each set of features.
     #[test]
     fn select() {
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
             let all = Features::of(&["aes", "pclmulqdq", "ssse3"]);
             assert_eq!(Backend::select(all), Backend::AesNi);
             for f in [
                 Features::of(&["aes", "ssse3"]),
+                Features::of(&["aes", "pclmulqdq"]),
                 Features::of(&["pclmulqdq", "ssse3"]),
             ] {
                 assert_eq!(Backend::select(f), Backend::Scalar);

@@ -52,7 +52,7 @@ pub(crate) struct Features(pub(crate) u32);
 impl Features {
     /// The features named in `names` (a generated `_FEATURES` constant).
     #[cfg_attr(
-        not(any(target_arch = "x86_64", target_arch = "aarch64")),
+        not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")),
         allow(dead_code)
     )]
     pub(crate) fn of(names: &[&str]) -> Features {
@@ -65,9 +65,9 @@ impl Features {
     }
 
     /// The features named in any of `lists`.
-    // Only the x86-64 and AArch64 artifacts need features so far.
+    // Only x86, x86-64 and AArch64 artifacts need features so far.
     #[cfg_attr(
-        not(any(target_arch = "x86_64", target_arch = "aarch64")),
+        not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")),
         allow(dead_code)
     )]
     pub(crate) fn all(lists: &[&[&str]]) -> Features {
@@ -80,7 +80,7 @@ impl Features {
 
     /// Whether every feature of `other` is in `self`.
     #[cfg_attr(
-        not(any(target_arch = "x86_64", target_arch = "aarch64")),
+        not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")),
         allow(dead_code)
     )]
     pub(crate) fn contains(self, other: Features) -> bool {

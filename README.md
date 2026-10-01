@@ -457,7 +457,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ AES-NI, PCLMULQDQ</td>
 
 </tr>
 
