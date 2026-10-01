@@ -15,7 +15,7 @@ open VG.Spec.Sha3 (bytesAt)
 
 /-- The contract the proof is written against; the artifact's is the
 shared contract of `Spec/`, which implies it. AArch64 contract for
-`decaps(dk = x0, ct = x1, key = x2, scratch = x3) -> w0`. -/
+`(decapsWith keccak.callee)(dk = x0, ct = x1, key = x2, scratch = x3) -> w0`. -/
 def decaps1024AArch64 : Contract AArch64.isa where
   pre s :=
     let dk : Region := ⟨s.gpr .x0, 3168⟩
@@ -39,9 +39,11 @@ end VG.Proof.MlKem1024
 
 namespace VG.Proof.MlKem1024.AArch64.Decaps
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlKem1024.AArch64 VG.Impl.MlKem1024.AArch64.KEM VG.Proof.MlKem
   VG.Proof.MlKem.AArch64 VG.Proof.MlKem1024 VG.Proof.MlKem1024.AArch64
-open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash copy32 slotReg argReg kemOwn)
+open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash hashWith copy32 slotReg argReg kemOwn)
 open VG.Proof.MlKem1024.AArch64.Kem
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
@@ -282,11 +284,11 @@ structure AfterA (s₀ s : State) : Prop where
   r : bytesAt s.mem (sA deL s₀ RB) 32 = (gD s₀).2
   rho : bytesAt s.mem (sA deL s₀ SB) 32 = rhoD s₀
 
-theorem a_ok {s₀ : State} (hp : Pre deL s₀) : WP isa deA s₀ (AfterA s₀) := by
+theorem a_ok {s₀ : State} (hp : Pre deL s₀) : WP isa (deAWith keccak.callee) s₀ (AfterA s₀) := by
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => WP.seq (WP.mono (m_ok hp ⟨h₁.kb, h₁.x24,
     fun _ h => absurd h (Nat.not_lt_zero _)⟩) fun s₂ ⟨kb₂, x₂, m₂⟩ => ?_))
   -- `G(m' ‖ h)`
-  refine WP.seq (WP.mono (hash_ok (hsetup hp kb₂ (by decide : 72 ∈ Spec.Sha3.rates)) (sfx := 6) (by decide)
+  refine WP.seq (WP.mono (hashWith_ok keccak (hsetup hp kb₂ (by decide : 72 ∈ Spec.Sha3.rates)) (sfx := 6) (by decide)
     (ins := [⟨.x28, MB, 32⟩, ⟨.x25, 3104, 32⟩]) (outs := [⟨.x28, KP, 32⟩, ⟨.x28, RB, 32⟩]) (by simp)
     (fun p hp' => by
       rcases mem2' hp' with rfl | rfl

@@ -12,6 +12,8 @@ an iteration passes (`signMu_max`).
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Proof.MlDsa.Sign
@@ -104,13 +106,13 @@ theorem x24_zero {s : State} (h : s.gpr .x24 = 0 ∨ s.gpr .x24 = 1) (he : (s.gp
   · rw [e] at he; exact absurd he (by decide)
 
 theorem rest_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 : Ok3 p) {σ s : State} (h : IM p D σ s) :
-    WP isa (rest P p) s (FS p D σ) := by
+    WP isa (restWith keccak.callee P p) s (FS p D σ) := by
   have hc := allChk_ok h3
   simp only [allChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨⟨⟨-, hd⟩, hc1⟩, hb⟩, hks⟩, hl⟩, ho⟩, -⟩ := hc
   have hp := paramsOk h3
   have hA := expandA_max h.ok
-  unfold rest
+  unfold restWith
   refine WP.seq (WP.mono (decode_ok hP hd h) fun s1 h1 => ?_)
   refine WP.seq (WP.mono (signLoop_ok hP hp hc1 hb hks hl h1) fun s2 h2 => ?_)
   unfold ifOk
@@ -158,7 +160,7 @@ theorem pro_in {D : Nat} {p : Params} (h3 : Ok3 p) {σ : State} (hpre : (signK p
 
 theorem sign_correct {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 : Ok3 p) (σ : State)
     (hpre : (signK p D).pre σ) :
-    ∃ t s', Exec isa (Impl.MlDsa.AArch64.Sign.sign P p) σ t s' ∧ abiPreserved σ s' ∧ (signK p D).post σ s' := by
+    ∃ t s', Exec isa (Impl.MlDsa.AArch64.Sign.signWith keccak.callee P p) σ t s' ∧ abiPreserved σ s' ∧ (signK p D).post σ s' := by
   have hc := allChk_ok h3
   simp only [allChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨⟨⟨ha, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩, hf⟩ := hc
@@ -166,13 +168,13 @@ theorem sign_correct {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 :
   simp only [fChk, Bool.and_eq_true, List.all_eq_true, List.mem_range, decide_eq_true_eq] at hf'
   obtain ⟨hsv, -⟩ := hf'
   have hin := pro_in h3 hpre
-  have main : WP isa (Impl.MlDsa.AArch64.Sign.sign P p) σ fun s₅ => abiPreserved σ s₅ ∧
+  have main : WP isa (Impl.MlDsa.AArch64.Sign.signWith keccak.callee P p) σ fun s₅ => abiPreserved σ s₅ ∧
       ∃ s₄, FS p D σ s₄ ∧ s₅.gpr .x0 = s₄.gpr .x24 ∧ s₅.mem = s₄.mem := by
-    unfold Impl.MlDsa.AArch64.Sign.sign
+    unfold Impl.MlDsa.AArch64.Sign.signWith
     refine WP.seq (WP.mono (pro_ok hin) fun s₁ ⟨h₁, h15, hf₁⟩ => ?_)
     have S1 := entry_st h3 hpre h₁ hf₁
     refine WP.seq (WP.mono (expandA_ok hP ha S1 h15) fun s₂ h₂ => ?_)
-    refine WP.seq (WP.mono (show WP isa (ifOk (rest P p)) s₂ (FS p D σ) from ?_) fun s₄ h₄ => ?_)
+    refine WP.seq (WP.mono (show WP isa (ifOk (restWith keccak.callee P p)) s₂ (FS p D σ) from ?_) fun s₄ h₄ => ?_)
     · unfold ifOk
       refine ifOkElse_ok (fun hne => ?_) fun he => ?_
       · have h1 := x24_one h₂.r01 hne

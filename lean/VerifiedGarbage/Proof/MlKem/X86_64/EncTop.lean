@@ -53,12 +53,12 @@ theorem rest_ok (v : Sample4Impl) {C : Ctx rbs wbs} (hc : EncChks (rbs ++ wbs) w
   unfold rest
   refine WP.seq (WP.mono (prfsE_ok v hc.prfs h) fun s₀ h₀ => ?_)
   refine WP.seq (WP.mono (seqR_ok (I := fun k => ER C E ek m r k 0 0) 3 0
-    (fun k _ hk s hs => WP.mono (y_ok (by omega) (hc.y k (by omega)) hs) fun _ h => h.2) s₀ h₀.2) fun s₁ h₁ => ?_)
+    (fun k _ hk s hs => WP.mono (y_ok v.arith (by omega) (hc.y k (by omega)) hs) fun _ h => h.2) s₀ h₀.2) fun s₁ h₁ => ?_)
   refine WP.seq (WP.mono (seqR_ok (I := fun k => ER C E ek m r 3 k 0) 3 0
-    (fun k _ hk s hs => WP.mono (u_ok (by omega) (hc.u k (by omega)) hs) fun _ h => h.2) s₁ h₁) fun s₂ h₂ => ?_)
+    (fun k _ hk s hs => WP.mono (u_ok v.arith (by omega) (hc.u k (by omega)) hs) fun _ h => h.2) s₁ h₁) fun s₂ h₂ => ?_)
   refine WP.seq (WP.mono (seqR_ok (I := fun k => ER C E ek m r 3 3 k) 3 0
     (fun k _ hk s hs => WP.mono (t_ok (by omega) (hc.t k (by omega)) hs) fun _ h => h.2) s₂ h₂) fun s₃ h₃ => ?_)
-  exact WP.mono (v_ok hc.v h₃) fun _ ⟨_, ho, h15, hct⟩ => ⟨ho, by rw [h15, ifp h₃.ok], fun _ => hct⟩
+  exact WP.mono (v_ok v.arith hc.v h₃) fun _ ⟨_, ho, h15, hct⟩ => ⟨ho, by rw [h15, ifp h₃.ok], fun _ => hct⟩
 
 theorem encrypt_ok (v : Sample4Impl) {C : Ctx rbs wbs} (hc : encChk (rbs ++ wbs) wbs C.chk E = true) {ek m r : List Byte} {s : State}
     (h : EIn C E ek m r s) (h15 : s.gpr .r15 = 1) : WP isa (encrypt v.callee E) s (EOut C E ek m r) := by
@@ -76,12 +76,12 @@ theorem rest_tr (v : Sample4Impl) {C : Ctx rbs wbs} (hc : EncChks (rbs ++ wbs) w
   unfold rest
   refine RelCT.seq (prfsE_tr v hc.prfs) ?_
   refine RelCT.seq (seqR_tr (R := fun k x y => LRel rbs wbs x y ∧ ERρ C E ρ k 0 0 x ∧ ERρ C E ρ k 0 0 y) 3 0
-    fun k _ hk => y_tr (by omega) (hc.y k (by omega))) ?_
+    fun k _ hk => y_tr v.arith (by omega) (hc.y k (by omega))) ?_
   refine RelCT.seq (seqR_tr (R := fun k x y => LRel rbs wbs x y ∧ ERρ C E ρ 3 k 0 x ∧ ERρ C E ρ 3 k 0 y) 3 0
-    fun k _ hk => u_tr (by omega) (hc.u k (by omega))) ?_
+    fun k _ hk => u_tr v.arith (by omega) (hc.u k (by omega))) ?_
   refine RelCT.seq (seqR_tr (R := fun k x y => LRel rbs wbs x y ∧ ERρ C E ρ 3 3 k x ∧ ERρ C E ρ 3 3 k y) 3 0
     fun k _ hk => t_tr (by omega) (hc.t k (by omega))) ?_
-  exact v_tr hc.v
+  exact v_tr v.arith hc.v
 
 theorem encrypt_tr (v : Sample4Impl) {C : Ctx rbs wbs} (hc : encChk (rbs ++ wbs) wbs C.chk E = true) {h : VG.Taint.Hint X86_64.Taint.T}
     (ht : (taint.check (X86_64.Taint.ofRegs [.rbx, E.1]) (copy (sc oSB) (E.1, E.2 + 1152) 32) h).isSome = true)

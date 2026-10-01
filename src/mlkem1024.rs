@@ -43,6 +43,12 @@ use crate::arch::mlkem1024::{
 use crate::arch::mlkem1024::{
     vg_mlkem1024_decaps_avx2, vg_mlkem1024_encaps_avx2, vg_mlkem1024_keygen_avx2,
 };
+#[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+use crate::arch::mlkem1024::{
+    vg_mlkem1024_decaps_sha3, vg_mlkem1024_encaps_sha3, vg_mlkem1024_keygen_sha3,
+};
+#[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+use crate::hashes::sha3::Backend as KeccakBackend;
 use crate::mlkem768::Backend;
 pub use crate::mlkem768::Error;
 use crate::zeroize::zeroize;
@@ -120,11 +126,21 @@ impl EncapsulationKey1024 {
         // stack, or wrap around the end of the address space. `self.bytes`
         // passed `vg_mlkem1024_check_ek`. `Backend::select` chose AVX2 only
         // if the CPU has `VG_MLKEM1024_ENCAPS_AVX2_FEATURES`.
+        // ARM64 Keccak selection checks the generated SHA-3 feature requirements.
         let r = unsafe {
             match Backend::select() {
                 Backend::Scalar => {
                     vg_mlkem1024_encaps(&self.bytes, m, &mut key, &mut ct, &mut scratch)
                 }
+                #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+                Backend::Keccak(backend) => match backend {
+                    KeccakBackend::Scalar => {
+                        vg_mlkem1024_encaps(&self.bytes, m, &mut key, &mut ct, &mut scratch)
+                    }
+                    KeccakBackend::Sha3 => {
+                        vg_mlkem1024_encaps_sha3(&self.bytes, m, &mut key, &mut ct, &mut scratch)
+                    }
+                },
                 #[cfg(target_arch = "x86_64")]
                 Backend::Avx2 => {
                     vg_mlkem1024_encaps_avx2(&self.bytes, m, &mut key, &mut ct, &mut scratch)
@@ -187,12 +203,22 @@ impl DecapsulationKey1024 {
         // are distinct Rust objects, so they do not overlap each other or
         // the stack, or wrap around the end of the address space.
         // `Backend::select` chose AVX2 only if the CPU has
-        // `VG_MLKEM1024_KEYGEN_AVX2_FEATURES`.
+        // `VG_MLKEM1024_KEYGEN_AVX2_FEATURES`. ARM64 selection also checks
+        // the generated SHA-3 feature requirements.
         let r = unsafe {
             match Backend::select() {
                 Backend::Scalar => {
                     vg_mlkem1024_keygen(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
                 }
+                #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+                Backend::Keccak(backend) => match backend {
+                    KeccakBackend::Scalar => {
+                        vg_mlkem1024_keygen(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
+                    }
+                    KeccakBackend::Sha3 => {
+                        vg_mlkem1024_keygen_sha3(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
+                    }
+                },
                 #[cfg(target_arch = "x86_64")]
                 Backend::Avx2 => {
                     vg_mlkem1024_keygen_avx2(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
@@ -236,6 +262,15 @@ impl DecapsulationKey1024 {
         let r = unsafe {
             match Backend::select() {
                 Backend::Scalar => vg_mlkem1024_decaps(&self.dk, ct, &mut key, &mut scratch),
+                #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+                Backend::Keccak(backend) => match backend {
+                    KeccakBackend::Scalar => {
+                        vg_mlkem1024_decaps(&self.dk, ct, &mut key, &mut scratch)
+                    }
+                    KeccakBackend::Sha3 => {
+                        vg_mlkem1024_decaps_sha3(&self.dk, ct, &mut key, &mut scratch)
+                    }
+                },
                 #[cfg(target_arch = "x86_64")]
                 Backend::Avx2 => vg_mlkem1024_decaps_avx2(&self.dk, ct, &mut key, &mut scratch),
             }

@@ -14,6 +14,8 @@ and what `RejBoundedPoly` leaks; so it meets the shared contract
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params Poly IPoly toRq ntt polyAt Reduced PolyIs bitPack simpleBitPack keyGenInternal)
 open VG.Proof.MlDsa.KeyGen (dotK tK t1K t0K pkK skK)
@@ -82,19 +84,17 @@ theorem trHash_chk {p : Params} (hF : PFacts p) :
 
 theorem trHash_taint {p : Params} (hp : p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDsa.mlDsa65 ∨ p = Spec.MlDsa.mlDsa87) :
     ∀ {P : State → State → Prop}, (∀ x y, P x y → x.sp = y.sp ∧ ∀ r ∈ bases, x.gpr r = y.gpr r) →
-      RelCT isa P (trHash p) fun _ _ => True := by
+      RelCT isa P ((trHashWith keccak.callee) p) fun _ _ => True := by
   intro P hr
-  rcases hp with rfl | rfl | rfl
-  · exact taintRel bases hr (by taint_decide)
-  · exact taintRel bases hr (by taint_decide)
-  · exact taintRel bases hr (by taint_decide)
+  obtain ⟨hint, hh⟩ := keccak.mldsaTrHashTaint p hp
+  exact taintRel bases hr hh
 
 theorem trHash_piece {p : Params} (hF : PFacts p) {S' : Nat} (h16 : 16 ≤ S') (hSl : S' < 2 ^ 64) :
-    Piece p S' (KRx p (p.ℓ + p.k) p.ℓ p.k) (KFin p) (trHash p) := by
+    Piece p S' (KRx p (p.ℓ + p.k) p.ℓ p.k) (KFin p) ((trHashWith keccak.callee) p) := by
   refine ⟨fun σ s hp ⟨A, S, R, h⟩ => ?_, rel_of (Q := Two p S') (trHash_taint hF.mem fun x y h => h.bases)
     fun _ _ _ _ p₁ p₂ pub ⟨_, _, _, h₁⟩ ⟨_, _, _, h₂⟩ => kc_two hF p₁ p₂ pub h₁.kc h₂.kc⟩
   have L := h.kc.lay hF hp
-  unfold trHash
+  unfold trHashWith
   refine WP.mono (shake_ok h16 hSl L (by simp) (trHash_chk hF)) fun s' ⟨hP', x', ho⟩ => ⟨A, S, R, ?_, ?_⟩
   · exact h.keep hF hp hP' x' (by krchk hF)
   · simp only [List.map_cons, List.map_nil, List.flatten_cons, List.flatten_nil, List.append_nil] at ho
@@ -137,8 +137,8 @@ theorem epi_piece {p : Params} (hF : PFacts p) {S' : Nat} :
 /-! ## The function -/
 
 theorem rest_piece {P : Prims} {S' : Nat} (hP : PrimsOk P S') {p : Params} (hF : PFacts p) :
-    Piece p S' (fun σ s => KSamp p σ (p.k * p.ℓ) (p.ℓ + p.k) s) (KFin p) (rest P p) := by
-  unfold rest
+    Piece p S' (fun σ s => KSamp p σ (p.k * p.ℓ) (p.ℓ + p.k) s) (KFin p) ((restWith keccak.callee) P p) := by
+  unfold restWith
   refine (copies_piece hF).seq (Piece.seq (J := KRx p (p.ℓ + p.k) 0 0) ?_
     (Piece.seq (J := KRx p (p.ℓ + p.k) p.ℓ 0) ?_ (Piece.seq (J := KRx p (p.ℓ + p.k) p.ℓ p.k) ?_
       (trHash_piece hF hP.s16 hP.s64))))
@@ -154,7 +154,7 @@ theorem rest_piece {P : Prims} {S' : Nat} (hP : PrimsOk P S') {p : Params} (hF :
 
 theorem keyGen_piece {P : Prims} {S' : Nat} (hP : PrimsOk P S') {p : Params} (hF : PFacts p) :
     Piece p S' (fun σ s => s = σ)
-      (fun σ s => abiPreserved σ s ∧ (Spec.MlDsa.keyGenContract p AArch64.abi S').post σ s) (keyGen P p) :=
+      (fun σ s => abiPreserved σ s ∧ (Spec.MlDsa.keyGenContract p AArch64.abi S').post σ s) ((keyGenWith keccak.callee) P p) :=
   (pro_piece hF).seq ((seeds_piece hF hP.s16 hP.s64).seq ((sampA_piece hP hF).seq ((sampS_piece hP hF).seq
     ((rest_piece hP hF).seq (epi_piece hF)))))
 
@@ -164,7 +164,7 @@ bytes of stack, if the contract is satisfiable. -/
 theorem keyGen_verified {P : Prims} {S : Nat} (hP : PrimsOk P S) (p : Params)
     (hp : p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDsa.mlDsa65 ∨ p = Spec.MlDsa.mlDsa87)
     (hsat : ∃ s, (Spec.MlDsa.keyGenContract p AArch64.abi S).pre s) :
-    Verified AArch64.target (keyGen P p) (Spec.MlDsa.keyGenContract p AArch64.abi S) :=
+    Verified AArch64.target ((keyGenWith keccak.callee) P p) (Spec.MlDsa.keyGenContract p AArch64.abi S) :=
   ⟨fun σ hσ => (keyGen_piece hP (pfacts hp)).ok σ σ hσ rfl,
     relStart (Q := fun _ _ => True) (keyGen_piece hP (pfacts hp)).tr, hsat⟩
 

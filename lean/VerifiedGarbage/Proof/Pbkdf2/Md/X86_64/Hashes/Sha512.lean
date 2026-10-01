@@ -227,12 +227,14 @@ theorem sha512_satP : ∃ s, (Spec.Hmac.sha512I.pbkdf2Contract X86_64.abi 24).pr
 
 theorem sha512_coreOK : CoreOK (coreH 64) := coreOK 64 (Or.inr (Or.inr (Or.inr rfl)))
 
-/-- SHA-512 with the implementation `v` of the compression function. -/
+/-- SHA-512 with the implementation `v` of the compression function, which it
+carries for the functions built on SHA-512 alone (`MdHash.sha512`). -/
 def sha512 (v : Compress) (stream : List StreamFn := []) : MdHash :=
   have C : CoreOK (core (hash Spec.Hmac.sha512I 64 Spec.Sha512.init512Api.name H0_512 v)) := sha512_coreOK
   have K : Callees (hash Spec.Hmac.sha512I 64 Spec.Sha512.init512Api.name H0_512 v) := callees (Or.inr (Or.inl rfl)) v
-  MdHash.of (ok C K rfl (fun _ => (List.take_of_length_le (Nat.le_of_eq (Proof.Sha512.md.digest_length _))).symm) rfl rfl rfl (Or.inr (Or.inr (Or.inr rfl))) rfl) C K rfl rfl
-    sha512_satI sha512_satF sha512_satT sha512_satP v.suffix v.features stream
+  { MdHash.of (ok C K rfl (fun _ => (List.take_of_length_le (Nat.le_of_eq (Proof.Sha512.md.digest_length _))).symm) rfl rfl rfl (Or.inr (Or.inr (Or.inr rfl))) rfl) C K rfl rfl
+      sha512_satI sha512_satF sha512_satT sha512_satP v.suffix v.features stream with
+    sha512 := some v }
 
 /-! ## SHA-512/224 -/
 

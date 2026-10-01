@@ -92,17 +92,17 @@ back. -/
 def sampleSetup : List Instr := sampleRegs 280 ++ sampleRestore
 
 /-- Everything before the loop, squeezing `len` bytes, and `setup`. -/
-def sampleSqueezeN (len : Nat) (setup : List Instr) : Prog isa :=
+def sampleSqueezeNWith (c : Impl.Sha3.AArch64.Callee) (len : Nat) (setup : List Instr) : Prog isa :=
   .seq (.block samplePrologue) <|
-  .seq (.call "vg_keccak_absorb" Impl.Sha3.AArch64.Stream.absorb) <|
+  .seq (.call ("vg_keccak_absorb" ++ c.suffix) (Impl.Sha3.AArch64.Stream.absorbWith c)) <|
   .seq (.block samplePadArgs) <|
-  .seq (.call "vg_keccak_pad" Impl.Sha3.AArch64.Stream.pad) <|
+  .seq (.call ("vg_keccak_pad" ++ c.suffix) (Impl.Sha3.AArch64.Stream.padWith c)) <|
   .seq (.block (sampleSqueezeArgs len)) <|
-  .seq (.call "vg_keccak_squeeze" Impl.Sha3.AArch64.Stream.squeeze) <|
+  .seq (.call ("vg_keccak_squeeze" ++ c.suffix) (Impl.Sha3.AArch64.Stream.squeezeWith c)) <|
   .seq sampleZero (.block setup)
 
 /-- Everything before the loop of `sampleFull`. -/
-def sampleSqueeze : Prog isa := sampleSqueezeN 840 sampleSetup
+def sampleSqueezeWith (c : Impl.Sha3.AArch64.Callee) : Prog isa := (sampleSqueezeNWith c) 840 sampleSetup
 
 /-- Accept the candidate `d` if it is less than `q`, without a branch: store
 it as the next coefficient either way, and count it (`x14`) only if it is
@@ -132,12 +132,12 @@ def sampleLoop : Prog isa :=
     (.block [.subImm .x .x0 .x4 1, .lsr .x .x0 .x0 63])
 
 /-- 840 bytes of output, and 280 iterations on them. -/
-def sampleFull : Prog isa := .seq sampleSqueeze sampleLoop
+def sampleFullWith (c : Impl.Sha3.AArch64.Callee) : Prog isa := .seq (sampleSqueezeWith c) sampleLoop
 
 /-- 504 bytes of output, and 168 iterations on them; our caller's registers
 stay saved. -/
-def sampleFast : Prog isa :=
-  .seq (sampleSqueezeN 504 (sampleRegs 168)) (.loop sampleBody (.nonzero .x .x5))
+def sampleFastWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
+  .seq ((sampleSqueezeNWith c) 504 (sampleRegs 168)) (.loop sampleBody (.nonzero .x .x5))
 
 /-- `sampleFull`'s arguments, from `x24`, `x25` and `x26`, and our caller's
 registers back. -/
@@ -146,7 +146,13 @@ def sampleRetry : List Instr := [mov .x0 .x24, mov .x1 .x25, mov .x2 .x26] ++ sa
 /-- 1 (there are 256 coefficients), and our caller's registers back. -/
 def sampleDone : List Instr := .movz .x .x0 1 0 :: sampleRestore
 
-def sampleNTT : Prog isa :=
-  .seq sampleFast (.ite (.zero .x .x4) (.block sampleDone) (.seq (.block sampleRetry) sampleFull))
+def sampleNTTWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
+  .seq (sampleFastWith c) (.ite (.zero .x .x4) (.block sampleDone) (.seq (.block sampleRetry) (sampleFullWith c)))
+
+def sampleSqueezeN := sampleSqueezeNWith .scalar
+def sampleSqueeze := sampleSqueezeWith .scalar
+def sampleFull := sampleFullWith .scalar
+def sampleFast := sampleFastWith .scalar
+def sampleNTT := sampleNTTWith .scalar
 
 end VG.Impl.MlKem.AArch64

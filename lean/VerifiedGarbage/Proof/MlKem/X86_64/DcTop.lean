@@ -147,14 +147,14 @@ theorem post_of {σ s : State} (h : DEnd σ s) {s' : State}
     rw [decapsInternal768, kpkeEncrypt768_none hi hj hn]
     rfl
 
-theorem decrypt_ok {σ : State} (hp : decapsK.pre σ) {s : State} (h : DC σ s) (h15 : s.gpr .r15 = 1) :
-    WP isa decrypt s (DM σ) := by
+theorem decrypt_ok {A : Arith} (hA : ArithOk A) {σ : State} (hp : decapsK.pre σ) {s : State} (h : DC σ s) (h15 : s.gpr .r15 = 1) :
+    WP isa (decrypt A) s (DM σ) := by
   unfold decrypt
-  refine WP.seq (WP.mono (seqR_ok (I := fun k => DR k 0 σ) 3 0 (fun k _ hk s hs => u_ok hp (by omega) hs) s
+  refine WP.seq (WP.mono (seqR_ok (I := fun k => DR k 0 σ) 3 0 (fun k _ hk s hs => u_ok hA hp (by omega) hs) s
     (DR.zero h h15)) fun s₁ h₁ => ?_)
   refine WP.seq (WP.mono (seqR_ok (I := fun k => DR 3 k σ) 3 0 (fun k _ hk s hs => s_ok hp (by omega) hs) s₁ h₁)
     fun s₂ h₂ => ?_)
-  exact tail_ok hp h₂
+  exact tail_ok hA hp h₂
 
 end Decaps
 
@@ -162,7 +162,7 @@ open Decaps in
 theorem decaps_correct (v : Sample4Impl) (σ : State) (hp : decapsK.pre σ) :
     ∃ t s', Exec isa (Impl.MlKem.X86_64.decaps v.callee) σ t s' ∧ abiPreserved σ s' ∧ decapsK.post σ s' := by
   obtain ⟨t, s', he, hF⟩ := WP.seq (WP.mono (pro_ok hp) fun s₁ ⟨h₁, h15⟩ =>
-    WP.seq (WP.mono (decrypt_ok hp h₁ h15) fun s₂ h₂ =>
+    WP.seq (WP.mono (decrypt_ok v.arith hp h₁ h15) fun s₂ h₂ =>
       WP.seq (WP.mono (hashes_ok hp h₂) fun s₃ h₃ =>
         WP.seq (WP.mono (Enc.encrypt_ok v (C := dcX σ) dcEncChk h₃.1 h₃.2) fun s₄ h₄ =>
           WP.seq (WP.mono (select_okD h₄) fun s₅ h₅ =>
@@ -184,15 +184,15 @@ theorem ekRho_dkEk (dk : List Byte) : ekRho mlKem768 (dkEk dk) = dkRho mlKem768 
 theorem rho_pub {σ₁ σ₂ : State} (pub : decapsK.pub σ₁ σ₂) : Enc.rhoE (dcEk σ₁) = Enc.rhoE (dcEk σ₂) := by
   rw [Enc.rhoE, Enc.rhoE, ekRho_dkEk, ekRho_dkEk]; exact pub.2.2.2.2.2
 
-theorem decrypt_tr : RelCT isa (R fun σ s => DC σ s ∧ s.gpr .r15 = 1) decrypt fun _ _ => True := by
+theorem decrypt_tr {A : Arith} (hA : ArithOk A) : RelCT isa (R fun σ s => DC σ s ∧ s.gpr .r15 = 1) (decrypt A) fun _ _ => True := by
   unfold decrypt
   refine RelCT.seq (RelCT.mono (seqR_tr (R := fun k => R (DR k 0)) 3 0
-    fun k _ hk => relInv (fun σ s hp hs => u_ok hp (by omega) hs) (u_tr (by omega)))
+    fun k _ hk => relInv (fun σ s hp hs => u_ok hA hp (by omega) hs) (u_tr hA (by omega)))
     (fun _ _ ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩ => ⟨σ₁, σ₂, p₁, p₂, pub, DR.zero h₁.1 h₁.2, DR.zero h₂.1 h₂.2⟩)
     fun _ _ h => h) ?_
   refine RelCT.seq (seqR_tr (R := fun k => R (DR 3 k)) 3 0
     fun k _ hk => relInv (fun σ s hp hs => s_ok hp (by omega) hs) (s_tr (by omega))) ?_
-  exact tail_tr
+  exact tail_tr hA
 
 theorem hashes_trL : RelCT isa (LRel dcR dcW) hashes fun _ _ => True := by
   unfold hashes
@@ -250,7 +250,7 @@ theorem decaps_ct (v : Sample4Impl) :
   unfold Impl.MlKem.X86_64.decaps
   refine RelCT.seq (relInv (I' := fun σ s => DC σ s ∧ s.gpr .r15 = 1)
     (fun σ s hp hs => by subst hs; exact pro_ok hp) pro_tr) ?_
-  refine RelCT.seq (relInv (I' := DM) (fun σ s hp hs => decrypt_ok hp hs.1 hs.2) decrypt_tr) ?_
+  refine RelCT.seq (relInv (I' := DM) (fun σ s hp hs => decrypt_ok v.arith hp hs.1 hs.2) (decrypt_tr v.arith)) ?_
   refine RelCT.seq (relInv (I' := EncI) (fun σ s hp hs => hashes_ok hp hs) hashes_tr) ?_
   refine RelCT.seq (relInv (I' := EncO) (fun σ s _ hs => Enc.encrypt_ok v (C := dcX σ) dcEncChk hs.1 hs.2)
     (encrypt_tr v)) ?_
