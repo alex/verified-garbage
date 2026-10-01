@@ -65,8 +65,8 @@ open Arm in
 /-- 32-bit ARM contract for
 `vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20])`:
 if the streaming state at `state` represents a message `m` of `count` bytes
-(modulo 2⁶⁴), then afterwards it represents `m` followed by the `len` bytes at
-`data`.
+(modulo 2⁶⁴), hashed from any initial hash value `iv`, then afterwards it
+represents `m` followed by the `len` bytes at `data`, from `iv`.
 
 Under AAPCS, `state` is in `r0`, `count` in `r2:r3`, and `data`, `len` and
 `scratch` are the stack arguments 0, 1 and 2. The code may read those
@@ -87,8 +87,8 @@ def updateArm : Contract Arm.isa where
     args.Disjoint state ∧ args.Disjoint scratch ∧
     (s.gpr .r0).toNat + 96 ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + (stackArg s 1).toNat ≤ 2 ^ 32 ∧
     (stackArg s 2).toNat + 160 ≤ 2 ^ 32 ∧ s.sp.toNat + 12 ≤ 2 ^ 32
-  post s s' := ∀ m, Repr s.mem (State.addr (s.gpr .r0)) m → countArm s = BitVec.ofNat 64 m.length →
-    Repr s'.mem (State.addr (s.gpr .r0))
+  post s s' := ∀ iv m, ReprFrom iv s.mem (State.addr (s.gpr .r0)) m → countArm s = BitVec.ofNat 64 m.length →
+    ReprFrom iv s'.mem (State.addr (s.gpr .r0))
       (m ++ bytesAt s.mem (State.addr (stackArg s 0)) (stackArg s 1).toNat)
   pub s₁ s₂ :=
     s₁.sp = s₂.sp ∧ s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧
@@ -98,7 +98,8 @@ open Arm in
 /-- 32-bit ARM contract for
 `vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20])`:
 if the streaming state at `state` represents a message `m` of `count` bytes
-(modulo 2⁶⁴), writes the SHA-256 digest of `m` to `out`.
+(modulo 2⁶⁴), hashed from the initial hash value `iv`, writes the final hash
+value of `m` from `iv` to `out` (the SHA-256 digest if `iv` is `H0`).
 
 Under AAPCS, `state` is in `r0`, `count` in `r2:r3`, and `out` and `scratch`
 are the stack arguments 0 and 1. The code may read those arguments (8 bytes
@@ -118,8 +119,8 @@ def finalizeArm : Contract Arm.isa where
     args.Disjoint state ∧ args.Disjoint out ∧ args.Disjoint scratch ∧
     (s.gpr .r0).toNat + 96 ≤ 2 ^ 32 ∧ (stackArg s 0).toNat + 32 ≤ 2 ^ 32 ∧
     (stackArg s 1).toNat + 160 ≤ 2 ^ 32 ∧ s.sp.toNat + 8 ≤ 2 ^ 32
-  post s s' := ∀ m, Repr s.mem (State.addr (s.gpr .r0)) m → countArm s = BitVec.ofNat 64 m.length →
-    bytesAt s'.mem (State.addr (stackArg s 0)) 32 = Spec.Sha256.hash m
+  post s s' := ∀ iv m, ReprFrom iv s.mem (State.addr (s.gpr .r0)) m → countArm s = BitVec.ofNat 64 m.length →
+    bytesAt s'.mem (State.addr (stackArg s 0)) 32 = Spec.Sha256.finalHash iv m
   pub s₁ s₂ :=
     s₁.sp = s₂.sp ∧ s₁.gpr .r0 = s₂.gpr .r0 ∧ s₁.gpr .r2 = s₂.gpr .r2 ∧ s₁.gpr .r3 = s₂.gpr .r3 ∧
     stackArg s₁ 0 = stackArg s₂ 0 ∧ stackArg s₁ 1 = stackArg s₂ 1

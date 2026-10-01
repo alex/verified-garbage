@@ -63,7 +63,7 @@ theorem signK_implies {p : Params} (h3 : Ok3 p) :
   · sig_implies_sat [signContractT, signSig, X86_64.abi, X86_64.argRegs] [signSat] using signSat mlDsa87
 
 theorem sign_verified {p : Params} (h3 : Ok3 p)
-    (hmx : (Impl.MlDsa.X86_64.Sign.sign prims p).allInstrs (fun i => !loadsMxcsr i) = true) :
+    (hmx : ctlOk (Impl.MlDsa.X86_64.Sign.sign prims p) = true) :
     Verified X86_64.target (Impl.MlDsa.X86_64.Sign.sign prims p) (signContractT p X86_64.abi signStack) :=
   Verified.of_correct (sign_correct prims_ok h3 hmx) (sign_ct prims_ok h3) (signK_implies h3)
 

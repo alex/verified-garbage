@@ -22,7 +22,7 @@ theorem update_of (ct : ConstantTime isa (updK (P := params) md 160).pre
     Verified X86.target (Impl.MdStream.X86.update params name code) Proof.Sha256.updateX86 := by
   have h := MdStream.X86.Update.verified (name := name) dims hcomp ct
   exact Verified.of_implies h
-    ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr hc,
+    ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr hc,
       fun _ _ _ _ h => h, h.2.2⟩
 
 /-- Any verified compressor gives the same SHA-256 finalization contract. -/
@@ -31,7 +31,7 @@ theorem finalize_of (ct : ConstantTime isa (finK (P := params) md 160).pre
     Verified X86.target (Impl.MdStream.X86.finalize params name code) Proof.Sha256.finalizeX86 := by
   have h := MdStream.X86.Finalize.verified (name := name) dims shape hcomp ct
   exact Verified.of_implies h
-    ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr trivial hc,
+    ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr trivial hc,
       fun _ _ _ _ h => h, h.2.2⟩
 
 end VG.Proof.Sha256.X86.Stream

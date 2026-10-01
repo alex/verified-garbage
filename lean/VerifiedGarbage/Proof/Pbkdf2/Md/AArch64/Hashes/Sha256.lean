@@ -98,13 +98,17 @@ def streamOK : Hmac.Generic.AArch64.HashOK (hash v).stream where
   hW := by simp only [hash, Hash.stream] <;> decide
   repr := sha256_repr
   init := Proof.Sha256.AArch64.Stream.init_verified
-  upd := v.update_verified
+  upd := v.update_verified.of_implies
+    { pre := fun _ h => h
+      post := fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr hc
+      pub := fun _ _ _ _ h => h
+      sat := v.update_verified.2.2 }
   fin := v.finalize_verified.of_implies
     { pre := fun _ h => h
       post := fun s s' _ h m hr _ hc => by
         show List.take 32 (Spec.Sha256.bytesAt s'.mem _ 32) = _
         rw [List.take_of_length_le (by simp [Spec.Sha256.bytesAt])]
-        exact h m hr hc
+        exact h Spec.Sha256.H0 m hr hc
       pub := fun _ _ _ _ h => h
       sat := v.finalize_verified.2.2 }
   initDepth := by simp only [hash, Hash.stream] <;> decide +kernel
