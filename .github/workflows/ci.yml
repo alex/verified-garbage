@@ -391,7 +391,8 @@ jobs:
   # * `skx` (Skylake-SP): AVX-512F, so ChaCha20 with AVX-512F, and SHA-256
   #   and SHA-512 with AVX2; and BMI2 and ADX, so X25519 with them;
   # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F or ADX, so ChaCha20
-  #   with AVX2 even where this runner has AVX-512F, and X25519's baseline;
+  #   with AVX2 even where this runner has AVX-512F, X25519's baseline, and
+  #   ML-DSA with its polynomial arithmetic in AVX2;
   # * `p4p` (Pentium 4): nothing beyond x86-64's baseline, not even CPUID
   #   leaf 7, so the baseline ISA's implementations everywhere;
   # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
@@ -407,7 +408,7 @@ jobs:
       fail-fast: false
       matrix:
         chip: [native, skx, hsw, p4p]
-        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu]
+        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem mldsa x25519 ed25519 cpu]
         include:
           - chip: arl
             tests: sha384 sha512 ed25519 cpu
