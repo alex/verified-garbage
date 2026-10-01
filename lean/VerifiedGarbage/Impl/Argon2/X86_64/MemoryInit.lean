@@ -30,7 +30,9 @@ def clearHeader : List Instr :=
 
 def clearSetup : List Instr := clearHeader ++ List.replicate 7 (.alu .add .rax (.reg .rax))
 
-def clear : Prog isa := .seq (.block clearSetup) (.loop (.block clearWord) .ne)
+def clearSetupCode : Prog isa := .block clearSetup
+
+def clear : Prog isa := .seq clearSetupCode (.loop (.block clearWord) .ne)
 
 /-- Reset the matrix pointer and lane number, retaining the lane stride in bytes. -/
 def lanesHeader : List Instr :=
@@ -38,6 +40,8 @@ def lanesHeader : List Instr :=
     .mov .r15 (.mem (at_ .rbp Initial.lanesOffset))]
 
 def lanesSetup : List Instr := lanesHeader ++ List.replicate 10 (.alu .add .r13 (.reg .r13))
+
+def lanesSetupCode : Prog isa := .block lanesSetup
 
 /-- H′(1024, H₀ || LE32(column) || LE32(lane)). -/
 def blockArgs (column : Nat) : List Instr :=
@@ -58,6 +62,6 @@ def lane (name : String) (h : Hash) : Prog isa :=
 
 /-- Zero the matrix and initialize both leading blocks in every lane. -/
 def code (name : String) (h : Hash) : Prog isa :=
-  .seq clear (.seq (.block lanesSetup) (.loop (lane name h) .ne))
+  .seq clear (.seq lanesSetupCode (.loop (lane name h) .ne))
 
 end VG.Impl.Argon2.X86_64.MemoryInit
