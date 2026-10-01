@@ -4,7 +4,7 @@
 //! checks which CPU features those need, and the emitter lists them in a
 //! generated `<NAME>_FEATURES` constant next to the function (and in its
 //! `# Safety` section): the function may only be called on a CPU that has
-//! all of them. They are detected once: with `cpuid` on x86-64; on AArch64,
+//! all of them. They are detected once: with `cpuid` on x86 and x86-64; on AArch64,
 //! by asking the operating system with the `cpu-features-env` feature (which
 //! links `std`), and otherwise from the target features the code was
 //! compiled for. Each object that can use such a function chooses its
@@ -150,10 +150,13 @@ fn parse(names: &str) -> Option<u32> {
 /// the opmask and `zmm` state, XCR0 bits 5, 6 and 7 (§15.2, "Detection of
 /// AVX-512 Foundation Instructions", and §15.4 for the other AVX-512
 /// instruction groups).
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 fn runtime() -> u32 {
+    #[cfg(target_arch = "x86")]
+    use core::arch::x86::{__cpuid, __cpuid_count, _xgetbv};
+    #[cfg(target_arch = "x86_64")]
     use core::arch::x86_64::{__cpuid, __cpuid_count, _xgetbv};
-    // SAFETY: every x86-64 CPU has `cpuid`, and leaves 0 and 1; leaf 7 is
+    // SAFETY: the i686 and x86-64 target baselines have `cpuid`, and leaves 0 and 1; leaf 7 is
     // read only if leaf 0 says it exists (and its sub-leaf 1 only if
     // sub-leaf 0 says that exists), and `xgetbv` only if OSXSAVE says the
     // operating system has enabled it.
@@ -258,7 +261,7 @@ fn aarch64_sha3() -> bool {
 }
 
 /// No features are detected on the other targets yet.
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
 fn runtime() -> u32 {
     0
 }
