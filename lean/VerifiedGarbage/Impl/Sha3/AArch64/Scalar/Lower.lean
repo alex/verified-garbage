@@ -36,4 +36,9 @@ def Good : ScalarOp → Prop
   | .spill k a => k < 2 ∧ a ≠ .x30
   | .reload d k => k < 2 ∧ d ≠ .x30
 
+/-- One round through chi, excluding the round-constant XOR. -/
+def coreOps : List ScalarOp := thetaOps ++ rhoPiOps ++ chiOps
+
+def coreInstrs : List Instr := coreOps.flatMap lower
+
 end VG.Impl.Sha3.AArch64.Scalar
