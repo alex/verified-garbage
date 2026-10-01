@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyInputs
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyTables
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyFrame
-import VerifiedGarbage.Proof.Ed25519.X86_64.PointFromScalar
+import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulVarBatch
 
 /-! Untrusted: compute [S]B while retaining the two decoded verification points. -/
 
@@ -29,23 +29,17 @@ theorem verifyLhs_ok {s : State} {base sig : Addr} (hs : Scratch s base)
   have kap : PowersKeep base 56 7752 s a := PowersKeep.of_keeps ka (by decide)
   have kbp : PowersKeep base 56 7752 a b := PowersKeep.of_keeps kb (by decide)
   have kab := kap.trans kbp
-  refine WP.seq (WP.mono (fieldCodeWide_ok (kab.scratch hs) (constPointOps Spec.Ed25519.basePoint))
-    fun c ⟨kc, vc⟩ => ?_)
-  have cs : c.gpr .rsi = off sig 32 := (kc.gpr _ (by decide)).trans bp
-  have cp : point (env c.mem base) 0 1 2 3 = Spec.Ed25519.basePoint := by rw [vc, constPoint_eval]
-  have cm : Spec.Ed25519.bytesAt c.mem (off sig 32) 32 = Spec.Ed25519.bytesAt s.mem (off sig 32) 32 := by
-    rw [outside_bytes kc.mem (by decide) hf, kb.2.1, ka.2.1]
-  have kabc := kab.trans (PowersKeep.of_keep kc)
-  refine WP.seq (WP.mono (pointFromScalar_ok (kabc.scratch hs) cs 16 (by decide) (by decide)
-    (by intro i hi; rw [kc.rd, kc.wr, kb.2.2.1, kb.2.2.2, ka.2.2.1, ka.2.2.2]; exact hr i hi) hf)
+  refine WP.seq (WP.mono (baseFromScalarVar_ok (kab.scratch hs) bp
+    (by intro i hi; rw [kb.2.2.1, kb.2.2.2, ka.2.2.1, ka.2.2.2]; exact hr i hi) hf)
     fun d ⟨kd, dv, _⟩ => ?_)
-  have kabcd := kabc.trans (kd.mono (by decide) (by decide))
-  refine WP.mono (pointTableWrite_ok (kabcd.scratch hs) 7680 (by decide) (by decide)) fun t ⟨kt, tv, _⟩ => ?_
-  refine ⟨kabcd.trans (kt.mono (by decide) (by decide)), ?_, ?_⟩
-  · rw [tv, dv, cp, cm]
+  have dm : Spec.Ed25519.bytesAt b.mem (off sig 32) 32 = Spec.Ed25519.bytesAt s.mem (off sig 32) 32 := by
+    rw [kb.2.1, ka.2.1]
+  have kabd := kab.trans (kd.mono (by decide) (by decide))
+  refine WP.mono (pointTableWrite_ok (kabd.scratch hs) 7680 (by decide) (by decide)) fun t ⟨kt, tv, _⟩ => ?_
+  refine ⟨kabd.trans (kt.mono (by decide) (by decide)), ?_, ?_⟩
+  · rw [tv, dv, dm]
   · intro o hlo hhi
     rw [kt.mem.point (by omega) (Or.inl (by omega)) (by omega),
-      kd.mem.point (by omega) (Or.inr (by omega)) (by omega),
-      workspace_tablePoint kc.mem (by omega) (by omega), kb.2.1, ka.2.1]
+      kd.mem.point (by omega) (Or.inr (by omega)) (by omega), kb.2.1, ka.2.1]
 
 end VG.Proof.Ed25519.X86_64
