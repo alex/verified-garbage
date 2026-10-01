@@ -21,12 +21,6 @@ theorem mul_val4 (v x y z w : Nat) : v * (x + 2 ^ 64 * y + 2 ^ 128 * z + 2 ^ 192
     v * x + 2 ^ 64 * (v * y) + 2 ^ 128 * (v * z) + 2 ^ 192 * (v * w) := by
   simp only [Nat.mul_add, Nat.mul_left_comm v]
 
-theorem fe_lt (m : Mem) (base : Addr) (a : Nat) : fe m base a < 2 ^ 256 := by
-  simp only [X86_64.fe, val4]
-  have := (word m base a).isLt; have := (word m base (a + 8)).isLt
-  have := (word m base (a + 16)).isLt; have := (word m base (a + 24)).isLt
-  omega
-
 /-- A word times four words. -/
 theorem word_mul_lt (w : BitVec 64) (f : Nat) (hf : f < 2 ^ 256) :
     w.toNat * f ≤ (2 ^ 64 - 1) * (2 ^ 256 - 1) :=

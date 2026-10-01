@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.X25519.X86_64.Small
+import VerifiedGarbage.Proof.X25519.X86_64.Sqr
 
 /-!
 # X25519 on x86-64: the working space as slots
@@ -74,7 +75,7 @@ structure FieldOk (fld : Field) : Prop where
 
 theorem baseline_ok : FieldOk baseline where
   mul hs _ _ _ ho ha hb := mul_ok hs ho ha hb
-  sqr hs _ _ ho ha := mul_ok hs ho ha ha
+  sqr hs _ _ ho ha := sqr_ok hs ho ha
   a24 hs _ _ ho ha := mulA24_ok hs ho ha
 
 /-! ## The field operations on the slots -/

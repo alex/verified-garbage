@@ -16,15 +16,6 @@ open VG VG.X86_64 VG.Impl.X25519.X86_64 VG.Proof.X25519
 /-- `r ∉ [...]` and `a ≠ b` for literal registers. -/
 local macro "nd" : tactic => `(tactic| decide)
 
-/-- The square of four words, by the products of their words (with no
-power of two above `2²⁵⁶`, which `ring` would not evaluate). -/
-theorem sq_words (x y z w : Nat) :
-    (x + 2 ^ 64 * y + 2 ^ 128 * z + 2 ^ 192 * w) * (x + 2 ^ 64 * y + 2 ^ 128 * z + 2 ^ 192 * w) =
-      x * x + 2 ^ 128 * (y * y) + 2 ^ 256 * (z * z) + 2 ^ 256 * (2 ^ 128 * (w * w)) +
-        2 * (2 ^ 64 * (x * y) + 2 ^ 128 * (x * z) + 2 ^ 192 * (x * w) + 2 ^ 192 * (y * z) +
-          2 ^ 256 * (y * w) + 2 ^ 256 * (2 ^ 64 * (z * w))) := by
-  ring
-
 theorem sqrA_eq (a : Nat) : sqrA a = ([.mov .rdx (.mem (sc a))] : List Instr) ++ (([clear] : List Instr) ++
     (([.mulx .r10 .r9 (.mem (sc (a + 8)))] : List Instr) ++ (mulAcc .r10 .r11 (.mem (sc (a + 16))) ++
       (mulAcc .r11 .r12 (.mem (sc (a + 24))) ++ ([.adcx .r12 (.reg .rbp)] : List Instr))))) := rfl
