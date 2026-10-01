@@ -14,10 +14,10 @@ target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract.
 -/
 
-namespace VG.Artifacts.MlDsaSign.AArch64
+namespace VG.Generic.Keccak.AArch64.MlDsaSign
 
 open VG
-open VG.Proof.MlDsa.AArch64.Sign (prims)
+open VG.Proof.MlDsa.AArch64.Sign (primsWith)
 
 /-- Notes on the implementation, the same for every parameter set. -/
 def notes : List String :=
@@ -27,30 +27,36 @@ def notes : List String :=
     every validity check and combines them without branching: the one branch on their result \
     is the only place an iteration's outcome affects timing."]
 
-def artifacts : List Artifact := [
+def artifacts (v : Proof.Sha3.AArch64.Permutation) : List Artifact := [
   { Spec.MlDsa.sign44Api with
+    name := Spec.MlDsa.sign44Api.name ++ v.callee.suffix
+    features := v.features
     target := AArch64.target
     doc := Spec.MlDsa.sign44Api.doc (notes := notes)
-    code := Impl.MlDsa.AArch64.Sign.sign prims Spec.MlDsa.mlDsa44
+    code := Impl.MlDsa.AArch64.Sign.signWith v.callee (primsWith v.callee) Spec.MlDsa.mlDsa44
     contract := Spec.MlDsa.signContract Spec.MlDsa.mlDsa44 AArch64.abi 16
     stack := 16
-    verified := Proof.MlDsa.AArch64.Sign.sign44_verified'
+    verified := Proof.MlDsa.AArch64.Sign.sign44_verifiedWith' (keccak := v)
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.MlDsa.sign65Api with
+    name := Spec.MlDsa.sign65Api.name ++ v.callee.suffix
+    features := v.features
     target := AArch64.target
     doc := Spec.MlDsa.sign65Api.doc (notes := notes)
-    code := Impl.MlDsa.AArch64.Sign.sign prims Spec.MlDsa.mlDsa65
+    code := Impl.MlDsa.AArch64.Sign.signWith v.callee (primsWith v.callee) Spec.MlDsa.mlDsa65
     contract := Spec.MlDsa.signContract Spec.MlDsa.mlDsa65 AArch64.abi 16
     stack := 16
-    verified := Proof.MlDsa.AArch64.Sign.sign65_verified'
+    verified := Proof.MlDsa.AArch64.Sign.sign65_verifiedWith' (keccak := v)
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.MlDsa.sign87Api with
+    name := Spec.MlDsa.sign87Api.name ++ v.callee.suffix
+    features := v.features
     target := AArch64.target
     doc := Spec.MlDsa.sign87Api.doc (notes := notes)
-    code := Impl.MlDsa.AArch64.Sign.sign prims Spec.MlDsa.mlDsa87
+    code := Impl.MlDsa.AArch64.Sign.signWith v.callee (primsWith v.callee) Spec.MlDsa.mlDsa87
     contract := Spec.MlDsa.signContract Spec.MlDsa.mlDsa87 AArch64.abi 16
     stack := 16
-    verified := Proof.MlDsa.AArch64.Sign.sign87_verified'
+    verified := Proof.MlDsa.AArch64.Sign.sign87_verifiedWith' (keccak := v)
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
-end VG.Artifacts.MlDsaSign.AArch64
+end VG.Generic.Keccak.AArch64.MlDsaSign

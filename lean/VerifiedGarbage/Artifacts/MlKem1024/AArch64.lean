@@ -42,30 +42,6 @@ def artifacts : List Artifact := [
     code := Impl.MlKem1024.AArch64.checkEk
     contract := Spec.MlKem1024.checkEkContract AArch64.abi
     verified := Proof.MlKem1024.AArch64.CheckEk.checkEk_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.MlKem1024.keyGenApi with
-    target := AArch64.target
-    doc := Spec.MlKem1024.keyGenApi.doc
-    code := Impl.MlKem1024.AArch64.keyGen
-    contract := Spec.MlKem1024.keyGenContract AArch64.abi 16
-    stack := 16
-    verified := Proof.MlKem1024.AArch64.KeyGen.keyGen_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.MlKem1024.encapsApi with
-    target := AArch64.target
-    doc := Spec.MlKem1024.encapsApi.doc
-    code := Impl.MlKem1024.AArch64.encaps
-    contract := Spec.MlKem1024.encapsContract AArch64.abi 16
-    stack := 16
-    verified := Proof.MlKem1024.AArch64.Encaps.encaps_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.MlKem1024.decapsApi with
-    target := AArch64.target
-    doc := Spec.MlKem1024.decapsApi.doc
-    code := Impl.MlKem1024.AArch64.decaps
-    contract := Spec.MlKem1024.decapsContract AArch64.abi 16
-    stack := 16
-    verified := Proof.MlKem1024.AArch64.Decaps.decaps_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.MlKem1024.AArch64

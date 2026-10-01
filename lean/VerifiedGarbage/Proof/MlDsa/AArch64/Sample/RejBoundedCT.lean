@@ -203,7 +203,8 @@ theorem rbLoop_ct {η : Nat} (hη : η = 2 ∨ η = 4) :
       · rw [h₁.env.x27, h₂.env.x27, pub_eq hq]⟩) ts) (iters_ct hη)) (fun _ _ h => h)
     fun s₁ s₂ ⟨σ₁, σ₂, p₁, p₂, hq, ⟨_, h₁⟩, ⟨_, h₂⟩⟩ => ⟨σ₁, σ₂, p₁, p₂, hq, h₁, h₂⟩
 
-theorem ct : ConstantTime isa rbK.pre rbK.pub rejBounded := by
+theorem ctWith (v : Proof.Sha3.AArch64.Permutation) : ConstantTime isa rbK.pre rbK.pub (rejBoundedWith v.callee) := by
+  obtain ⟨hint, hhint⟩ := v.mldsaBoundedTaint
   refine RelCT.constantTime (Q := fun _ _ => True) (RelCT.mono (Q := fun _ _ => True)
     (P := Rel2 rbK.pre rbK.pub fun σ s => s = σ)
     ?_ (fun s₁ s₂ h => ⟨s₁, s₂, h.1, h.2.1, h.2.2, rfl, rfl⟩) fun _ _ _ => trivial)
@@ -212,7 +213,7 @@ theorem ct : ConstantTime isa rbK.pre rbK.pub rejBounded := by
       subst h₁ h₂
       exact ⟨hq.2.2.2.2.1, RejNtt.regs3 hq.1 hq.2.2.1 hq.2.2.2.1⟩) (by taint_decide)) ?_
   refine RelCT.seq (relTaintStep (J' := fun σ => J6 136 544 (spOf σ) σ) [.x25, .x26, .x27, .x3, .x4]
-    (fun σ s hp h => sponge_ok (spOk hp) (by decide) (by decide) h) (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => by
+    (fun σ s hp h => spongeWith_ok (v := v) (spOk hp) (by decide) (by decide) h) (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => by
       refine ⟨by rw [h₁.env.sp, h₂.env.sp, hq.2.2.2.2.1], fun r hr => ?_⟩
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl | rfl
@@ -220,7 +221,7 @@ theorem ct : ConstantTime isa rbK.pre rbK.pub rejBounded := by
       · rw [h₁.env.x26, h₂.env.x26, pub_eq hq]
       · rw [h₁.env.x27, h₂.env.x27, pub_eq hq]
       · rw [h₁.x3, h₂.x3, pub_eq hq]
-      · exact toNat_inj h₁.x4 h₂.x4) (by taint_decide)) ?_
+      · exact toNat_inj h₁.x4 h₂.x4) hhint) ?_
   refine RelCT.seq (RelCT.seq (relTaintStep (J' := fun σ s => J6 136 544 (spOf σ) σ s ∧
       isa.eval (.zero .x .x9) s = some (decide (etaOf σ = 2))) []
       (fun σ s hp h => wp_subImm (by decide) fun s₁ o₁ e₁ => wp_nil ⟨⟨h.env.keep o₁.keep o₁.mem,
@@ -242,6 +243,9 @@ theorem ct : ConstantTime isa rbK.pre rbK.pub rejBounded := by
   exact relTaint [.x25] (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => ⟨by rw [h₁.base.env.sp, h₂.base.env.sp, hq.2.2.2.2.1],
     fun r hr => by rw [List.mem_singleton.mp hr, h₁.base.env.x25, h₂.base.env.x25, pub_eq hq]⟩) (by taint_decide)
 
+theorem ct : ConstantTime isa rbK.pre rbK.pub rejBounded :=
+  ctWith .scalar
+
 end RejBounded
 
 /-- A state satisfying the precondition. -/
@@ -253,9 +257,9 @@ def rbSat : State where
   rd := [⟨0x1000, 66⟩]
   wr := [⟨0x2000, 1024⟩, ⟨0x3000, 2048⟩]
 
-theorem rejBounded_verified : Verified AArch64.target Impl.MlDsa.AArch64.Sample.rejBounded
+theorem rejBounded_verifiedWith (v : Proof.Sha3.AArch64.Permutation) : Verified AArch64.target (Impl.MlDsa.AArch64.Sample.rejBoundedWith v.callee)
     (Spec.MlDsa.rejBoundedContract AArch64.abi 16) :=
-  Verified.of_correct RejBounded.correct RejBounded.ct
+  Verified.of_correct (RejBounded.correctWith v) (RejBounded.ctWith v)
     { pre := by sig_implies_pre [Spec.MlDsa.rejBoundedContract, Spec.MlDsa.rejBoundedSig, rbK,
         AArch64.abi, AArch64.argRegs]
       post := by
@@ -283,5 +287,9 @@ theorem rejBounded_verified : Verified AArch64.target Impl.MlDsa.AArch64.Sample.
         exact ⟨hx0, hx1, hx2, hx3, hsp, hb⟩
       sat := by sig_implies_sat [Spec.MlDsa.rejBoundedContract, Spec.MlDsa.rejBoundedSig, rbK,
         AArch64.abi, AArch64.argRegs] [rbSat] using rbSat }
+
+theorem rejBounded_verified : Verified AArch64.target Impl.MlDsa.AArch64.Sample.rejBounded
+    (Spec.MlDsa.rejBoundedContract AArch64.abi 16) :=
+  rejBounded_verifiedWith .scalar
 
 end VG.Proof.MlDsa.AArch64.Sample

@@ -14,6 +14,8 @@ ends in `XS`.
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlKem.AArch64 (Only Keep wp_movz wp_nil)
 open VG.Proof.MlDsa.Sign
@@ -191,8 +193,8 @@ theorem eval_w0 (s : State) : isa.eval (.nonzero .w .x0) s = some ((s.gpr .x0).s
 
 theorem iter_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hp : ParamsOk p) (hc1 : cChk p = true)
     (hc2 : bChk p = true) (hc3 : ksChk p = true) (hc4 : lChk p = true) {σ : State} {t : Nat} {s : State}
-    (h : IL p D σ t s) : WP isa (iter P p) s (LP p D σ t) := by
-  unfold iter
+    (h : IL p D σ t s) : WP isa (iterWith keccak.callee P p) s (LP p D σ t) := by
+  unfold iterWith
   refine WP.seq (WP.mono (commit_ok hP hc1 h) fun s1 h1 => ?_)
   refine WP.seq (WP.mono (ball_ok hP hc2 h1) fun s3 I3 => ?_)
   refine WP.seq (WP.ite (M := isa) _ (eval_w0 s3) (fun hb => ?_) fun hb => ?_)
@@ -223,8 +225,8 @@ theorem eval_x9 (s : State) : isa.eval (.nonzero .x .x9) s = some (s.gpr .x9 != 
 
 theorem signLoop_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hp : ParamsOk p) (hc1 : cChk p = true)
     (hc2 : bChk p = true) (hc3 : ksChk p = true) (hc4 : lChk p = true) {σ : State} {s : State}
-    (h : IK p D σ s) : WP isa (Impl.MlDsa.AArch64.Sign.signLoop P p) s (XS p D σ) := by
-  unfold Impl.MlDsa.AArch64.Sign.signLoop
+    (h : IK p D σ s) : WP isa (Impl.MlDsa.AArch64.Sign.signLoopWith keccak.callee P p) s (XS p D σ) := by
+  unfold Impl.MlDsa.AArch64.Sign.signLoopWith
   refine WP.seq (WP.mono (loopInit_ok hc4 h) fun s2 I0 => ?_)
   refine WP.loop (M := isa) (fun n s => ∃ t, n = 814 - t ∧ IL p D σ t s) (fun n s ⟨t, hn, hs⟩ => ?_) 814 s2
     ⟨0, rfl, I0⟩

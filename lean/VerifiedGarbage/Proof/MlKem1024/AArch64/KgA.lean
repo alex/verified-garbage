@@ -8,9 +8,11 @@ Untrusted: everything here is checked by Lean.
 
 namespace VG.Proof.MlKem1024.AArch64.KeyGen
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlKem1024.AArch64 VG.Impl.MlKem1024.AArch64.KG VG.Proof.MlKem
   VG.Proof.MlKem.AArch64 VG.Proof.MlKem1024 VG.Proof.MlKem1024.AArch64
-open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash copy32)
+open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash hashWith copy32)
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
 
@@ -79,8 +81,8 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block kgPrologue) 
     rw [hp.wr]
     exact in_regions (R := ⟨kA s₀ 3, kL 3⟩) (by simp) (contains_off (by simp at hk; simp only [SV, kL]; omega)
       (by decide))
-  refine WP.mono (saves_ok (kA s₀ 3) .x3 SV own (by decide) (by decide) 6 (by decide) rfl hin)
-    fun s₁ ⟨g₁, r₁, w₁, p₁, z₁, f₁⟩ => ?_
+  refine WP.mono (WP.preservedV (saves_ok (kA s₀ 3) .x3 SV own (by decide) (by decide) 6 (by decide) rfl hin) (hc := by decide +kernel))
+    fun s₁ ⟨⟨g₁, r₁, w₁, p₁, z₁, f₁⟩, vc₁⟩ => ?_
   refine wp_mov fun s₂ h₂ e₂ => wp_mov fun s₃ h₃ e₃ => wp_mov fun s₄ h₄ e₄ => wp_mov fun s₅ h₅ e₅ =>
     wp_movz fun s₆ h₆ e₆ => wp_movz fun s₇ h₇ e₇ => ?_
   have k₇ := (((((h₂.trans h₃).trans h₄).trans h₅).trans h₆).trans h₇).keep
@@ -99,7 +101,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block kgPrologue) 
       (List.mem_cons_of_mem _ (List.mem_singleton_self _)) _ (Region.contains_self _ _)
     rw [List.mem_singleton.mp hr]; exact List.mem_cons_self ..
   refine ⟨⟨by rw [k₈.rd, r₁], by rw [k₈.wr, w₁], by rw [k₈.sp, p₁], ?_, ?_, ?_, by rw [h₈.gpr]; exact c28,
-    fun r hr ho => ?_, ?_, ?_⟩, ?_, ?_⟩
+    fun r hr ho => ?_, ?_, ?_, fun r hr => (k₈.vcs r hr).trans (vc₁ r hr)⟩, ?_, ?_⟩
   · rw [h₈.gpr, h₇.get .x25, h₆.get .x25, h₅.get .x25, h₄.get .x25, h₃.get .x25, e₂, g₁]; rfl
   · rw [h₈.gpr, h₇.get .x26, h₆.get .x26, h₅.get .x26, h₄.get .x26, e₃, h₂.get .x1, g₁]; rfl
   · rw [h₈.gpr, h₇.get .x27, h₆.get .x27, h₅.get .x27, e₄, h₃.get .x2, h₂.get .x2, g₁]; rfl
@@ -161,10 +163,10 @@ structure AfterA (s₀ s : State) : Prop where
   rho : bytesAt s.mem (kA s₀ 3 + BitVec.ofNat 64 SB) 32 = kgRho1024 (dB s₀)
   sig : bytesAt s.mem (kA s₀ 3 + BitVec.ofNat 64 SG) 32 = kgSigma1024 (dB s₀)
 
-theorem g_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterPro s₀ s) : WP isa kgG s (AfterA s₀) := by
+theorem g_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterPro s₀ s) : WP isa (kgGWith keccak.callee) s (AfterA s₀) := by
   have e : ∀ o, s.gpr .x28 + BitVec.ofNat 64 o = kA s₀ 3 + BitVec.ofNat 64 o := fun o => by
     rw [h.kb.x28]
-  refine WP.mono (hash_ok (hsetup hp h.kb (by decide : 72 ∈ Spec.Sha3.rates)) (sfx := 6) (by decide)
+  refine WP.mono (hashWith_ok keccak (hsetup hp h.kb (by decide : 72 ∈ Spec.Sha3.rates)) (sfx := 6) (by decide)
     (ins := [⟨.x25, 0, 32⟩, ⟨.x28, B4, 1⟩]) (outs := [⟨.x28, SB, 32⟩, ⟨.x28, SG, 32⟩]) (by simp)
     (fun p hp' => ?_) (fun p hp' => ?_) ?_) fun s' ⟨k', o'⟩ => ?_
   · rcases mem2' hp' with rfl | rfl

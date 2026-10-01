@@ -1,5 +1,4 @@
-import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
-import VerifiedGarbage.Proof.Sha3.AArch64.Permute
+import VerifiedGarbage.Proof.Sha3.AArch64.Call
 import VerifiedGarbage.Proof.Sha3.Stream
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Contract
@@ -89,13 +88,14 @@ structure Inv (s₀ : State) (i k pos : Nat) (s : State) : Prop where
   sp : s.sp = s₀.sp
   frame : Frame [SR s₀, OR s₀, CR s₀] s₀.mem s.mem
   saved : Saved (scrp s₀) s₀.gpr s.mem
+  vcs : ∀ r ∈ preservedV, (s.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64
   state : stateAt s.mem (stp s₀) = iterF k (S₀ s₀)
   out : ∀ j < i, s.mem (outp s₀ + BitVec.ofNat 64 j) =
     byteOf (iterF ((pos₀ s₀ + j) / rate s₀) (S₀ s₀)) ((pos₀ s₀ + j) % rate s₀)
 
 theorem Inv.congr {s₀ : State} {i k pos : Nat} {s s' : State} (h : Inv s₀ i k pos s)
     (hg : ∀ r ∈ [Reg.x19, .x20, .x21, .x22, .x23, .x24], s'.gpr r = s.gpr r)
-    (hm : s'.mem = s.mem) (hrd : s'.rd = s.rd) (hwr : s'.wr = s.wr) (hsp : s'.sp = s.sp) :
+    (hm : s'.mem = s.mem) (hrd : s'.rd = s.rd) (hwr : s'.wr = s.wr) (hsp : s'.sp = s.sp) (hv : s'.v = s.v) :
     Inv s₀ i k pos s' where
   i_le := h.i_le
   hi := h.hi
@@ -111,6 +111,7 @@ theorem Inv.congr {s₀ : State} {i k pos : Nat} {s s' : State} (h : Inv s₀ i 
   sp := hsp.trans h.sp
   frame := by rw [hm]; exact h.frame
   saved := by rw [hm]; exact h.saved
+  vcs := fun r hr => by rw [hv]; exact h.vcs r hr
   state := by rw [hm]; exact h.state
   out := by rw [hm]; exact h.out
 
@@ -118,12 +119,13 @@ theorem prologue_ok {s₀ : State} (hp : SPre s₀) : WP isa (.block setup) s₀
   unfold setup
   rw [WP.block_append_iff]
   refine WP.mono (saves_ok fun k hk => ⟨CR s₀, by simp [hp.wr], contains_offset (by omega) (by omega)⟩)
-    fun s ⟨hg, hrd, hwr, hsp, hf, hv⟩ => ?_
+    fun s ⟨hg, hrd, hwr, hsp, hf, hvec, hv⟩ => ?_
   refine wp_mov fun s₁ u₁ => wp_mov fun s₂ u₂ => wp_mov fun s₃ u₃ => wp_mov fun s₄ u₄ =>
     wp_mov fun s₅ u₅ => wp_mov fun s₆ u₆ => wp_nil ?_
   have hm : s₆.mem = s.mem := by rw [u₆.mem, u₅.mem, u₄.mem, u₃.mem, u₂.mem, u₁.mem]
   refine ⟨Nat.zero_le _, by simp, hp.pos_le, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-    by rw [hm]; exact hf.mono (by simp), by rw [hm]; exact hv, ?_,
+    by rw [hm]; exact hf.mono (by simp), by rw [hm]; exact hv, (fun r _ => by
+      rw [u₆.vec, u₅.vec, u₄.vec, u₃.vec, u₂.vec, u₁.vec, hvec]), ?_,
     fun j hj => absurd hj (Nat.not_lt_zero _)⟩
   · rw [u₆.rd, u₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd, hrd]
   · rw [u₆.wr, u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr, hwr]
@@ -145,14 +147,14 @@ theorem prologue_ok {s₀ : State} (hp : SPre s₀) : WP isa (.block setup) s₀
 
 /-! ## One iteration -/
 
-theorem permute_ok {s₀ : State} (hp : SPre s₀) {i k : Nat} {s : State} (hI : Inv s₀ i k (rate s₀) s) :
-    WP isa (.seq (.block [.movz .x .x22 0 0]) permuteAt) s (Inv s₀ i (k + 1) 0) := by
+theorem permute_ok (v : Permutation) {s₀ : State} (hp : SPre s₀) {i k : Nat} {s : State} (hI : Inv s₀ i k (rate s₀) s) :
+    WP isa (.seq (.block [.movz .x .x22 0 0]) (permuteAtWith v.callee)) s (Inv s₀ i (k + 1) 0) := by
   refine WP.seq (wp_movz fun s₁ u₁ => wp_nil ?_)
   have e200 : Region.Sub ⟨stp s₀, 200⟩ (SR s₀) := fun _ h => h
   have e512 : Region.Sub ⟨scrp s₀, 512⟩ (CR s₀) := Region.sub_prefix (by omega)
-  refine permuteAt_ok (st := stp s₀) (scr := scrp s₀) (by rw [u₁.other _ (by decide), hI.x19])
+  refine permuteAt_ok v (st := stp s₀) (scr := scrp s₀) (by rw [u₁.other _ (by decide), hI.x19])
     (by rw [u₁.other _ (by decide), hI.x20]) (hp.st_c.sub_right e512) ?_
-    fun s' rd' wr' sp' cs' hf hst => ?_
+    fun s' rd' wr' sp' cs' vc' hf hst => ?_
   · rw [u₁.wr, hI.wr, hp.wr]
     apply Covers.of_sub
     intro r hr
@@ -168,7 +170,7 @@ theorem permute_ok {s₀ : State} (hp : SPre s₀) {i k : Nat} {s : State} (hI :
     · exact hp.st_o.symm
     · exact hp.o_c.sub_right e512
   refine ⟨hI.i_le, by rw [hI.hi, Nat.mul_succ]; rfl, Nat.zero_le _, rd'.trans (u₁.rd.trans hI.rd),
-    wr'.trans (u₁.wr.trans hI.wr), ?_, ?_, ?_, ?_, ?_, ?_, by rw [sp', u₁.sp, hI.sp], ?_, ?_, ?_,
+    wr'.trans (u₁.wr.trans hI.wr), ?_, ?_, ?_, ?_, ?_, ?_, by rw [sp', u₁.sp, hI.sp], ?_, ?_, (fun r hr => by rw [vc' r hr, u₁.vec]; exact hI.vcs r hr), ?_,
     fun j hj => ?_⟩
   · rw [cs _ (by decide) (by decide), u₁.other _ (by decide), hI.x19]
   · rw [cs _ (by decide) (by decide), u₁.other _ (by decide), hI.x20]
@@ -216,7 +218,8 @@ theorem store_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI
   have hfw : Frame [OR s₀] s.mem s₆.mem := by
     rw [hm]; exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_offset (by omega) (by omega))
   refine ⟨by omega, by have := hI.hi; omega, by omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-    hI.frame.trans (hfw.mono (by simp)), ?_, ?_, fun j hj => ?_⟩
+    hI.frame.trans (hfw.mono (by simp)), ?_, (fun r hr => by
+      rw [u₆.vec, u₅.vec, u₄.vec, g₃.vec, u₂.vec, u₁.vec]; exact hI.vcs r hr), ?_, fun j hj => ?_⟩
   · rw [u₆.rd, u₅.rd, u₄.rd, g₃.rd, u₂.rd, u₁.rd, hI.rd]
   · rw [u₆.wr, u₅.wr, u₄.wr, g₃.wr, u₂.wr, u₁.wr, hI.wr]
   · rw [g .x19 (by decide) (by decide) (by decide) (by decide) (by decide), hI.x19]
@@ -271,7 +274,8 @@ theorem store8_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (h
   have hfw : Frame [OR s₀] s.mem s₆.mem := by
     rw [hm]; exact (Frame.refl _ _).writeW (List.mem_singleton_self _) _ (contains_offset (by omega) (by omega))
   refine ⟨by omega, by have := hI.hi; omega, by omega, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
-    hI.frame.trans (hfw.mono (by simp)), ?_, ?_, fun j hj => ?_⟩
+    hI.frame.trans (hfw.mono (by simp)), ?_, (fun r hr => by
+      rw [u₆.vec, u₅.vec, u₄.vec, g₃.vec, u₂.vec, u₁.vec]; exact hI.vcs r hr), ?_, fun j hj => ?_⟩
   · rw [u₆.rd, u₅.rd, u₄.rd, g₃.rd, u₂.rd, u₁.rd, hI.rd]
   · rw [u₆.wr, u₅.wr, u₄.wr, g₃.wr, u₂.wr, u₁.wr, hI.wr]
   · rw [g .x19 (by decide) (by decide) (by decide) (by decide) (by decide), hI.x19]
@@ -306,16 +310,16 @@ theorem store8_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (h
         omega)]
       exact hI.out j (by omega)
 
-theorem body_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI : Inv s₀ i k pos s)
+theorem body_ok (v : Permutation) {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI : Inv s₀ i k pos s)
     (hi : i < outn s₀) :
-    WP isa squeezeBody s fun s' => ∃ i' k' pos', i < i' ∧ i' ≤ outn s₀ ∧ Inv s₀ i' k' pos' s' := by
+    WP isa (squeezeBodyWith v.callee) s fun s' => ∃ i' k' pos', i < i' ∧ i' ≤ outn s₀ ∧ Inv s₀ i' k' pos' s' := by
   have ⟨hr0, _⟩ := hp.rate_pos
   have h8 := rate_mod8 hp.rate_mem
-  unfold squeezeBody
+  unfold squeezeBodyWith
   refine WP.seq (wp_sub fun s₁ u₁ => wp_nil ?_)
   have hI₁ := hI.congr (fun r hr => u₁.other r (by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> decide)) u₁.mem u₁.rd u₁.wr u₁.sp
+    rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> decide)) u₁.mem u₁.rd u₁.wr u₁.sp u₁.vec
   have hz : eval (.zero .x .x9) s₁ = some (decide (pos = rate s₀)) := by
     rw [eval_zero, u₁.gpr, hI.x22, hI.x21,
       sub_beq_zero (by have := hI.pos_le; have := (s₀.gpr .x1).isLt; omega)]
@@ -324,7 +328,7 @@ theorem body_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI 
   · refine WP.ite (decide (pos = rate s₀)) hz (fun hb => ?_) (fun hb => ?_)
     · simp only [decide_eq_true_eq] at hb
       subst hb
-      exact WP.mono (permute_ok hp hI₁) fun s' h => ⟨k + 1, 0, h, hr0⟩
+      exact WP.mono ((permute_ok v) hp hI₁) fun s' h => ⟨k + 1, 0, h, hr0⟩
     · simp only [decide_eq_false_iff_not] at hb
       exact wp_nil ⟨k, pos, hI₁, by have := hI.pos_le; omega⟩
   -- a lane or a byte
@@ -339,6 +343,7 @@ theorem body_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI 
       u₃.other r (by rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> decide)])
     (by rw [u₇.mem, u₆.mem, u₅.mem, u₄.mem, u₃.mem]) (by rw [u₇.rd, u₆.rd, u₅.rd, u₄.rd, u₃.rd])
     (by rw [u₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr]) (by rw [u₇.sp, u₆.sp, u₅.sp, u₄.sp, u₃.sp])
+    (by rw [u₇.vec, u₆.vec, u₅.vec, u₄.vec, u₃.vec])
   have hx10 : s₇.gpr .x10 = 0 → pos' % 8 = 0 ∧ 8 ≤ outn s₀ - i := fun h0 => by
     rw [u₇.gpr, u₆.other _ (by decide), u₆.gpr, u₅.other _ (by decide), u₄.gpr, u₃.other _ (by decide),
       u₃.gpr, u₅.gpr, u₄.other _ (by decide), u₃.other _ (by decide), hI₂.x22, hI₂.x24] at h0
@@ -362,7 +367,9 @@ theorem body_ok {s₀ : State} (hp : SPre s₀) {i k pos : Nat} {s : State} (hI 
 
 /-- The epilogue's postcondition. -/
 def Post (s₀ s' : State) : Prop :=
-  (∀ k < 6, s'.gpr (sv k) = s₀.gpr (sv k)) ∧ s'.sp = s₀.sp ∧ Proof.Sha3.squeezeAArch64.post s₀ s'
+  (∀ k < 6, s'.gpr (sv k) = s₀.gpr (sv k)) ∧ s'.sp = s₀.sp ∧
+    (∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64) ∧
+    Proof.Sha3.squeezeAArch64.post s₀ s'
 
 theorem epilogue_ok {s₀ : State} (hp : SPre s₀) {k pos : Nat} {s : State} (hI : Inv s₀ (outn s₀) k pos s) :
     WP isa (.block (Impl.Sha3.AArch64.mov .x0 .x22 :: restore)) s (Post s₀) := by
@@ -373,7 +380,8 @@ theorem epilogue_ok {s₀ : State} (hp : SPre s₀) {k pos : Nat} {s : State} (h
   refine WP.mono (restores_ok (scr := scrp s₀) (by rw [u₁.other _ (by decide), hI.x20])
     fun k hk => ⟨CR s₀, by simp [u₁.rd, u₁.wr, hI.rd, hI.wr, hp.rd, hp.wr],
       contains_offset (by omega) (by omega)⟩)
-    fun s' ⟨ax, sp, m, _, _, _, v⟩ => ⟨fun k hk => ?_, by rw [sp, u₁.sp, hI.sp], ?_, ?_, fun d => ?_⟩
+    fun s' ⟨ax, sp, m, _, _, hv, _, v⟩ => ⟨fun k hk => ?_, by rw [sp, u₁.sp, hI.sp],
+      (fun r hr => by rw [hv, u₁.vec]; exact hI.vcs r hr), ?_, ?_, fun d => ?_⟩
   · rw [v k hk, u₁.mem]; exact hI.saved k hk
   · show bytesAt s'.mem (outp s₀) (outn s₀) = Spec.Sha3.squeezeFrom (rate s₀) (S₀ s₀) (pos₀ s₀) (outn s₀)
     rw [m, u₁.mem]
@@ -391,25 +399,23 @@ theorem epilogue_ok {s₀ : State} (hp : SPre s₀) {k pos : Nat} {s : State} (h
 /-! ## The whole function -/
 
 /-- No instruction of `squeezeMain` writes the callee-saved registers it does not save. -/
-theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs squeezeMain, dstOf i ≠ some r := by
-  have : ((instrs squeezeMain).all fun i => untouched.all fun r => dstOf i != some r) = true :=
-    instrs_keeps (by decide +kernel)
-  intro r hr i hi
-  have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
-  simpa using this
+theorem untouched_ok (v : Permutation) : ∀ r ∈ untouched,
+    ∀ i ∈ instrs (squeezeMainWith v.callee), dstOf i ≠ some r := v.squeezeKeeps
 
-theorem squeeze_eq : squeezeMain = .seq (.block setup)
-    (.seq (.ite (.zero .x .x24) (.block []) (.loop squeezeBody (.nonzero .x .x24)))
+theorem squeeze_eq (v : Permutation) : (squeezeMainWith v.callee) = .seq (.block setup)
+    (.seq (.ite (.zero .x .x24) (.block []) (.loop (squeezeBodyWith v.callee) (.nonzero .x .x24)))
       (.block (Impl.Sha3.AArch64.mov .x0 .x22 :: restore))) := rfl
 
 /-- `squeeze` without its frame: the callee-saved registers but `x30` are kept. -/
-theorem correctMain {s₀ : State} (hp : SPre s₀) :
-    WP isa squeezeMain s₀ fun s' => (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) ∧
-      s'.sp = s₀.sp ∧ Proof.Sha3.squeezeAArch64.post s₀ s' := by
+theorem correctMain (v : Permutation) {s₀ : State} (hp : SPre s₀) :
+    WP isa (squeezeMainWith v.callee) s₀ fun s' => (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) ∧
+      s'.sp = s₀.sp ∧
+    (∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64) ∧
+    Proof.Sha3.squeezeAArch64.post s₀ s' := by
   have hn := outn_lt s₀
-  refine WP.mono (WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
-    ⟨fun r hr h30 => ?_, hsp, hpost⟩
-  · rw [squeeze_eq]
+  refine WP.mono (WP.gprs (Q := Post s₀) ?_ (untouched_ok v)) fun s' ⟨⟨hsv, hsp, hv, hpost⟩, hu⟩ =>
+    ⟨fun r hr h30 => ?_, hsp, hv, hpost⟩
+  · rw [(squeeze_eq v)]
     refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI => ?_)
     refine WP.seq (WP.mono (Q := fun s => ∃ k pos, Inv s₀ (outn s₀) k pos s) ?_
       fun s₂ ⟨k, pos, hI₂⟩ => epilogue_ok hp hI₂)
@@ -423,7 +429,7 @@ theorem correctMain {s₀ : State} (hp : SPre s₀) :
       refine WP.loop (M := isa) (fun n s => ∃ i k pos, n = outn s₀ - i ∧ i < outn s₀ ∧ Inv s₀ i k pos s)
         ?_ (outn s₀) s₁ ⟨0, 0, pos₀ s₀, by omega, by omega, hI⟩
       rintro n s ⟨i, k, pos, rfl, hi, hI⟩
-      refine WP.mono (body_ok hp hI hi) fun s' ⟨i', k', pos', hii, hi', hI'⟩ => ?_
+      refine WP.mono ((body_ok v) hp hI hi) fun s' ⟨i', k', pos', hii, hi', hI'⟩ => ?_
       have hz : isa.eval (.nonzero .x .x24) s' = some (decide (outn s₀ - i' ≠ 0)) := by
         show VG.AArch64.eval (.nonzero .x .x24) s' = _
         rw [eval_nonzero, hI'.x24, bne, ofNat_beq_zero (by omega)]
@@ -439,12 +445,11 @@ theorem correctMain {s₀ : State} (hp : SPre s₀) :
 abbrev inner (s₀ : State) : State :=
   { s₀ with sp := s₀.sp - 16, mem := s₀.mem.write (s₀.sp - 16) 8 (s₀.gpr .x30) }
 
-theorem correct {s₀ : State} (hp : SPre s₀) (hs : Stack s₀) :
-    WP isa squeeze s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha3.squeezeAArch64.post s₀ s' := by
-  apply WP.withPreservedV (hc := by decide +kernel)
+theorem correct (v : Permutation) {s₀ : State} (hp : SPre s₀) (hs : Stack s₀) :
+    WP isa (squeezeWith v.callee) s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha3.squeezeAArch64.post s₀ s' := by
   have hpi : SPre (inner s₀) := ⟨hp.rd, hp.wr, hp.st_o, hp.st_c, hp.o_c, hp.rate_mem, hp.pos_le⟩
   have e : stateAt (inner s₀).mem (stp s₀) = stateAt s₀.mem (stp s₀) := write_frame_state hs.st
-  refine WP.frameReg hs.sp16 (fun R hR => ?_) (WP.mono (correctMain hpi) fun s' ⟨hk, hsp, hpost⟩ => ?_)
+  refine WP.frameReg (hn := by rw [v.squeezeMain_depth]; decide) hs.sp16 (fun R hR => ?_) (WP.mono ((correctMain v) hpi) fun s' ⟨hk, hsp, hv, hpost⟩ => ?_)
   · rw [hp.wr] at hR
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hR
     rcases hR with rfl | rfl | rfl
@@ -452,7 +457,7 @@ theorem correct {s₀ : State} (hp : SPre s₀) (hs : Stack s₀) :
     · exact hs.o
     · exact hs.c
   · obtain ⟨h1, h2, h3⟩ := hpost
-    refine ⟨⟨fun r hr => ?_, rfl⟩, ?_, h2, fun d => ?_⟩
+    refine ⟨⟨fun r hr => ?_, rfl, hv⟩, ?_, h2, fun d => ?_⟩
     · by_cases h30 : r = .x30
       · subst h30; simp [State.write]
       · simp only [State.write, h30, ite_false]
@@ -482,20 +487,21 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 200⟩, ⟨0x2000, 16⟩, ⟨0x3000, 640⟩]
 
-theorem squeeze_correct (s : State) (hs : Proof.Sha3.squeezeAArch64.pre s) :
-    ∃ t s', Exec isa squeeze s t s' ∧ abiPreserved s s' ∧ Proof.Sha3.squeezeAArch64.post s s' := by
-  obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
+theorem squeeze_correct (v : Permutation) (s : State) (hs : Proof.Sha3.squeezeAArch64.pre s) :
+    ∃ t s', Exec isa (squeezeWith v.callee) s t s' ∧ abiPreserved s s' ∧ Proof.Sha3.squeezeAArch64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := (correct v) (pre_of hs).1 (pre_of hs).2
   exact ⟨t, s', he, h⟩
 
-theorem squeeze_ct : ConstantTime isa Proof.Sha3.squeezeAArch64.pre Proof.Sha3.squeezeAArch64.pub
-    squeeze := by
+theorem squeeze_ct (v : Permutation) : ConstantTime isa Proof.Sha3.squeezeAArch64.pre Proof.Sha3.squeezeAArch64.pub
+    (squeezeWith v.callee) := by
+  obtain ⟨hint, hhint⟩ := v.squeezeTaint
   exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
-    (fun _ _ _ _ hp => agree₀ hp) (by taint_decide)
+    (fun _ _ _ _ hp => agree₀ hp) hhint
 
-theorem squeeze_verified :
-    Verified AArch64.target Impl.Sha3.AArch64.Stream.squeeze (Spec.Sha3.squeezeContract AArch64.abi
+theorem squeeze_verified (v : Permutation) :
+    Verified AArch64.target (Impl.Sha3.AArch64.Stream.squeezeWith v.callee) (Spec.Sha3.squeezeContract AArch64.abi
       16) :=
-  Verified.of_correct squeeze_correct squeeze_ct (by
+  Verified.of_correct (squeeze_correct v) (squeeze_ct v) (by
     sig_implies [Spec.Sha3.squeezeContract, Spec.Sha3.squeezeSig, Proof.Sha3.squeezeAArch64,
       AArch64.abi, AArch64.argRegs] [Proof.Sha3.AArch64.Stream.Squeeze.sat] using
       Proof.Sha3.AArch64.Stream.Squeeze.sat)

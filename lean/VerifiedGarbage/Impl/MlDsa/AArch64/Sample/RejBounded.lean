@@ -68,10 +68,12 @@ def rbSetup (η : Nat) : List Instr :=
 
 def rbLoop (η : Nat) : Prog isa := .seq (.block (rbSetup η)) (.loop (rbBody η) (.nonzero .x .x5))
 
-def rejBounded : Prog isa :=
+def rejBoundedWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
   .seq (.block (pro .x3 .x2 (.addImm .w .x27 .x1 0) (.movz .x .x4 66 0)))
-    (.seq (sponge 136 544)
+    (.seq (spongeWith c 136 544)
       (.seq (.seq (.block [.subImm .x .x9 .x27 2]) (.ite (.zero .x .x9) (rbLoop 2) (rbLoop 4)))
         (.block (retZ ++ epi))))
+
+def rejBounded := rejBoundedWith .scalar
 
 end VG.Impl.MlDsa.AArch64.Sample

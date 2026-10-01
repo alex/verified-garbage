@@ -1,10 +1,10 @@
 import VerifiedGarbage.Proof.MlKem1024.AArch64.KemCommon
 
 /-!
-# ML-KEM-1024 on AArch64: the building blocks of `encaps` and `decaps`
+# ML-KEM-1024 on AArch64: the building blocks of `(encapsWith keccak.callee)` and `(decapsWith keccak.callee)`
 
 Untrusted: everything here is checked by Lean. Each building block
-(`prfCbd`, `nttAt`, `nttInvAt`, `mulAt`, `addAt`, `subAt`, `ceAt`, `ddAt`,
+(`(prfCbdWith keccak.callee)`, `nttAt`, `nttInvAt`, `mulAt`, `addAt`, `subAt`, `ceAt`, `ddAt`,
 `dec12At`, and `ceWAt` and `ddWAt` for the widths of ML-KEM-1024): what it needs, what it computes, what it keeps (`KB`, `x24`),
 and the only memory it changes (`Frame`), so that the facts established
 before it survive it.
@@ -12,9 +12,11 @@ before it survive it.
 
 namespace VG.Proof.MlKem1024.AArch64.Kem
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlKem1024.AArch64 VG.Impl.MlKem1024.AArch64.KEM VG.Proof.MlKem
   VG.Proof.MlKem.AArch64 VG.Proof.MlKem1024 VG.Proof.MlKem1024.AArch64
-open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash copy32 slotReg argReg kemOwn)
+open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash hashWith copy32 slotReg argReg kemOwn)
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
 
@@ -44,7 +46,7 @@ theorem PO.ns {s₀ : State} (hp : Pre L s₀) {off : Nat} (h : PO off) :
 theorem e28 {s₀ s : State} (hk : KB L s₀ s) (o : Nat) :
     s.gpr .x28 + BitVec.ofNat 64 o = sA L s₀ o := by rw [hk.x28]
 
-/-- What `prfCbd` writes. -/
+/-- What `(prfCbdWith keccak.callee)` writes. -/
 abbrev pcW (L : Layout) (s₀ : State) (off : Nat) : List Region :=
   [R (kA s₀) L.sc ST 200, R (kA s₀) L.sc WK 640, below s₀.sp 16, R (kA s₀) L.sc (RB + 32) 1,
     R (kA s₀) L.sc PB 128, R (kA s₀) L.sc off 1024]
@@ -52,7 +54,7 @@ abbrev pcW (L : Layout) (s₀ : State) (off : Nat) : List Region :=
 /-- `SamplePolyCBD₂(PRF₂(r, N))`, with `r` at `RB`. -/
 theorem prfCbd_ok {s₀ : State} (hp : Pre L s₀) {N off : Nat} (hN : N < 256) (ho : PO off) {s : State}
     (hk : KB L s₀ s) {rv : List Byte} (hr : bytesAt s.mem (sA L s₀ RB) 32 = rv) :
-    WP isa (prfCbd N off) s fun s' => KB L s₀ s' ∧ Frame (pcW L s₀ off) s.mem s'.mem ∧
+    WP isa ((prfCbdWith keccak.callee) N off) s fun s' => KB L s₀ s' ∧ Frame (pcW L s₀ off) s.mem s'.mem ∧
       PolyIs s'.mem (sA L s₀ off) (cbd rv N) ∧ s'.gpr .x24 = s.gpr .x24 := by
   have fo := ho.le
   have hsl : ∀ {o l : Nat}, o + l ≤ 49152 → o + l ≤ L.len L.sc := fun h => by rw [hp.scl]; exact h
@@ -79,7 +81,7 @@ theorem prfCbd_ok {s₀ : State} (hp : Pre L s₀) {N off : Nat} (hN : N < 256) 
     rw [ptr_zero, ptr_add, m₂, writeW8_apply, ite_eq_left rfl, e₁]
     exact sfx8 hN
   -- `PRF₂(r, N)`
-  refine WP.seq (WP.mono (hash_ok (hsetup hp kb₂ (by decide : 136 ∈ Spec.Sha3.rates)) (sfx := 0x1f)
+  refine WP.seq (WP.mono (hashWith_ok keccak (hsetup hp kb₂ (by decide : 136 ∈ Spec.Sha3.rates)) (sfx := 0x1f)
     (by decide) (ins := [⟨.x28, RB, 33⟩]) (outs := [⟨.x28, PB, 128⟩]) (by simp)
     (fun p hp' => by
       rw [List.mem_singleton.mp hp']
