@@ -1,11 +1,13 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulVar
-import VerifiedGarbage.Proof.Ed25519.AArch64.BaseMultiply
+import VerifiedGarbage.Proof.Ed25519.AArch64.BaseAccumulate
+import VerifiedGarbage.Proof.Ed25519.AArch64.BaseBatchTable
+import VerifiedGarbage.Proof.Ed25519.AArch64.PointMul
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointFromScalar
 
 /-!
 # Variable-time scalar multiplication: batches and complete multiplications
 
-Untrusted. As `baseMulBatch_ok`/`baseMulLoop_ok`, and the batches over the
+Untrusted. As the batches of `PointMulBatch`, and the batches over the
 checkpoints of `pointMultiplyInit`, with the variable-time bit loop.
 -/
 
