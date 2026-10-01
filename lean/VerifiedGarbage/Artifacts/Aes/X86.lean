@@ -2,6 +2,8 @@ import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.Aes.X86.Ctr32
 import VerifiedGarbage.Proof.Aes.X86.ExpandKey
 import VerifiedGarbage.Proof.Aes.X86.AesNi.Ctr32
+import VerifiedGarbage.Proof.Aes.X86.AesNi.KeyBlocks
+import VerifiedGarbage.Proof.Aes.X86.AesNi.KeyVerified
 
 /-! # AES on x86 -/
 
@@ -35,6 +37,19 @@ def artifacts : List Artifact := [
     code := Impl.Aes.X86.AesNi.ctr32
     contract := Spec.Gcm.ctr32Contract X86.abi
     verified := Proof.Aes.X86.AesNi.ctr32_verified
+    features := ["aes"]
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.Aes.expandKeyApi with
+    name := "vg_aes_expand_key_aesni"
+    target := X86.target
+    doc := Spec.Aes.expandKeyApi.doc
+      (notes := ["AES-NI key expansion with `AESKEYGENASSIST` for AES-128, AES-192 and AES-256. \
+        The scratch buffer is unused."])
+    code := Impl.Aes.X86.AesNi.expandKey
+    contract := Spec.Aes.expandKeyContract X86.abi
+    verified := Proof.Aes.X86.AesNi.expandKey_verified
+      ⟨Proof.Aes.X86.AesNi.expand128_ok, Proof.Aes.X86.AesNi.expand192_ok,
+        Proof.Aes.X86.AesNi.expand256_ok⟩
     features := ["aes"]
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
