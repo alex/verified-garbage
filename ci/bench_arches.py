@@ -55,6 +55,7 @@ PLATFORMS = {
 CPU_FEATURES = {
     "x86_64": ["avx,avx2,bmi1,bmi2,adx", "avx,avx2,bmi1,bmi2", "none"],
     "aarch64": ["sha3", "none"],
+    "x86": ["none"],
 }
 
 SHARED = re.compile(
