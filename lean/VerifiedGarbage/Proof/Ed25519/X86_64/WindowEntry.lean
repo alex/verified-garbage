@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.VerifyWindow
-import VerifiedGarbage.Proof.Ed25519.X86_64.BaseAccumulate
+import VerifiedGarbage.Proof.Ed25519.X86_64.CachedPoint
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointTableAddr
 
 /-!

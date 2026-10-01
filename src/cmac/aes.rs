@@ -15,9 +15,15 @@
 //! same verified CMAC code, calling `vg_aes_ctr32_aesni` rather than
 //! `vg_aes_ctr32` to encrypt each block. On AArch64, CPUs with the AES
 //! extension run `vg_aes_expand_key_aes` and the `_aes` CMAC functions,
-//! calling `vg_aes_ctr32_aes`. ARMv7 has only the scalar implementation.
+//! calling `vg_aes_ctr32_aes`. ARMv7 and x86 have only the scalar
+//! implementation.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 
 use super::{InvalidKeyLength, InvalidMac};
 use crate::arch::aes::vg_aes_expand_key;
@@ -93,7 +99,7 @@ impl Backend {
     }
 
     /// The only implementation there is.
-    #[cfg(target_arch = "arm")]
+    #[cfg(any(target_arch = "arm", target_arch = "x86"))]
     fn select(_: Features) -> Backend {
         Backend::Scalar
     }
@@ -357,7 +363,7 @@ mod tests {
     }
 
     /// The scalar implementation is the only one.
-    #[cfg(target_arch = "arm")]
+    #[cfg(any(target_arch = "arm", target_arch = "x86"))]
     #[test]
     fn select() {
         assert_eq!(Backend::select(Features::of(&[])), Backend::Scalar);
