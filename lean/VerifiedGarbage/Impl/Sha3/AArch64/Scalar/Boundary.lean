@@ -41,4 +41,9 @@ def restore : List Instr :=
   [.umov .x .x17 .v31 0] ++
     (List.range 11).map (fun i => .ldr .x (savedReg i) .x17 (8 * i))
 
+/-- A common ABI boundary around a register-resident scalar permutation core. -/
+def wrap (middle : Prog isa) : Prog isa :=
+  .seq (.block save) (.seq (.block load)
+    (.seq middle (.seq (.block store) (.block restore))))
+
 end VG.Impl.Sha3.AArch64.Scalar.Boundary
