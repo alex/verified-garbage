@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.Framework.RelCT
 namespace VG.Proof.Ed25519.Arm.Whole
 open VG VG.Arm VG.Impl.Ed25519.Arm.Whole
 
-private theorem cons_ct {i : Instr} {is : List Instr} {P R Q : State → State → Prop}
+theorem block_cons_ct {i : Instr} {is : List Instr} {P R Q : State → State → Prop}
     (hi : ∀ a b a' b', P a b → exec i a = some a' → exec i b = some b' →
       addrs i a = addrs i b ∧ R a' b')
     (ht : RelCT isa R (.block is) Q) : RelCT isa P (.block (i :: is)) Q := by
@@ -25,7 +25,7 @@ private theorem cons_ct {i : Instr} {is : List Instr} {P R Q : State → State �
           obtain ⟨rfl, hq⟩ := ht _ _ _ _ _ _ hr (.block eu) (.block ev)
           exact ⟨by change (addrs i a).map Leak.addr ++ tr = _; rw [he], hq⟩
 
-private theorem nil_ct {P : State → State → Prop} : RelCT isa P (.block []) P := by
+theorem block_nil_ct {P : State → State → Prop} : RelCT isa P (.block []) P := by
   intro a b ta tb a' b' hp ea eb
   cases ea with | block ea =>
     cases eb with | block eb =>
@@ -34,7 +34,7 @@ private theorem nil_ct {P : State → State → Prop} : RelCT isa P (.block []) 
       obtain ⟨rfl, rfl⟩ := eb
       exact ⟨rfl, hp⟩
 
-private theorem append_ct {xs ys : List Instr} {P R Q : State → State → Prop}
+theorem block_append_ct {xs ys : List Instr} {P R Q : State → State → Prop}
     (hx : RelCT isa P (.block xs) R) (hy : RelCT isa R (.block ys) Q) :
     RelCT isa P (.block (xs ++ ys)) Q := by
   intro a b ta tb a' b' hp ea eb
@@ -52,12 +52,12 @@ private theorem append_ct {xs ys : List Instr} {P R Q : State → State → Prop
 private theorem store_ct (r : Reg) (off : Nat) :
     RelCT isa (fun a b => a.sp = b.sp)
       (.block [.addSp .r12 248, .str r .r12 off]) (fun a b => a.sp = b.sp) := by
-  apply cons_ct (R := fun a b => a.sp = b.sp ∧ a.gpr .r12 = b.gpr .r12)
+  apply block_cons_ct (R := fun a b => a.sp = b.sp ∧ a.gpr .r12 = b.gpr .r12)
   · intro a b a' b' hp ha hb
     simp only [exec, show 248 < 256 from by decide, ite_true, Option.some.injEq] at ha hb
     subst a' b'
     exact ⟨rfl, hp, congrArg (· + BitVec.ofNat 32 248) hp⟩
-  · apply cons_ct (ht := nil_ct)
+  · apply block_cons_ct (ht := block_nil_ct)
     intro a b a' b' hp ha hb
     exact ⟨by simp only [addrs, hp.2], (exec_sp ha).trans (hp.1.trans (exec_sp hb).symm)⟩
 
@@ -67,16 +67,16 @@ theorem saveWord_ct (j : Nat) : RelCT isa (fun a b => a.sp = b.sp)
   · simp only [saveWord, h, ite_true, List.nil_append]
     exact store_ct _ _
   · simp only [saveWord, h, ite_false, List.cons_append, List.nil_append]
-    apply cons_ct (ht := store_ct _ _)
+    apply block_cons_ct (ht := store_ct _ _)
     intro a b a' b' hp ha hb
     exact ⟨by simp only [addrs, hp], (exec_sp ha).trans (hp.trans (exec_sp hb).symm)⟩
 
 theorem saveArgs_ct (n : Nat) : RelCT isa (fun a b => a.sp = b.sp)
     (.block (saveArgs n)) (fun a b => a.sp = b.sp) := by
   induction n with
-  | zero => exact nil_ct
+  | zero => exact block_nil_ct
   | succ n ih =>
     simp only [saveArgs, List.range_succ, List.flatMap_append, List.flatMap_singleton]
-    exact append_ct ih (saveWord_ct n)
+    exact block_append_ct ih (saveWord_ct n)
 
 end VG.Proof.Ed25519.Arm.Whole
