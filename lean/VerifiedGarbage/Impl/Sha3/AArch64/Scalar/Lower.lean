@@ -6,18 +6,13 @@ open VG VG.AArch64
 /-- The two temporary lanes follow the callee-saved GPR prefix. -/
 def lowerSpillOffset (k : Nat) : Nat := 96 + 8 * k
 
-/-- Lower the portable operations through the already-reviewed ISA. v28
-backs up x30 around memory accesses; v29 backs up a rotated source when
-its destination aliases the first input. v31 holds the two-slot address. -/
+/-- Lower the portable operations through the reviewed scalar ISA. v28
+backs up x30 around memory accesses; v31 holds the scratch base. -/
 def lower : ScalarOp → List Instr
   | .xor d a b => [.logic .eor .x d a b]
-  | .xorRor d a b n =>
-    if d = a then
-      [.vop (.dup .d2 .v29 b), .ror .x b b n,
-       .logic .eor .x d a b, .umov .x b .v29 0]
-    else [.ror .x d b n, .logic .eor .x d a d]
-  | .bic d a b => [.logic .and .x d a b, .logic .eor .x d d a]
-  | .bicRor .. => []
+  | .xorRor d a b n => [.logicRor .eor .x d a b n]
+  | .bic d a b => [.bicRor .x d a b 0]
+  | .bicRor d a b n => [.bicRor .x d a b n]
   | .ror d a n => [.ror .x d a n]
   | .move d a => [.addImm .x d a 0]
   | .spill k a =>
@@ -28,10 +23,8 @@ def lower : ScalarOp → List Instr
      .ldr .x d .x30 (lowerSpillOffset k), .umov .x .x30 .v28 0]
 
 def Good : ScalarOp → Prop
-  | .xor .. | .move .. => True
-  | .xorRor d a b n => n < 64 ∧ (d = a → a ≠ b)
-  | .bic d a _ => d ≠ a
-  | .bicRor .. => False
+  | .xor .. | .bic .. | .move .. => True
+  | .xorRor _ _ _ n | .bicRor _ _ _ n => n < 64
   | .ror _ _ n => n < 64
   | .spill k a => k < 2 ∧ a ≠ .x30
   | .reload d k => k < 2 ∧ d ≠ .x30

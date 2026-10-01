@@ -60,7 +60,6 @@ theorem step_lower_ok (op : ScalarOp) (hgood : Good op) (p : Addr)
     · intro j hj; rw [hm]; exact hr.slots j hj
     · rw [hv .v31 (by decide)]; exact hr.ptr
     · rw [hm]; exact Frame.refl _ _
-  | bicRor _ _ _ _ => exact False.elim hgood
   | _ =>
       obtain ⟨s', hs, hg, hm, hrd, hwr, hsp, hv⟩ :=
         reg_lower_ok _ hgood (by intro k r h; cases h) (by intro r k h; cases h) f s hr.regs
