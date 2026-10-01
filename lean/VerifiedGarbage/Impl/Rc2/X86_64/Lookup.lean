@@ -6,8 +6,8 @@ import VerifiedGarbage.TCB.X86_64.Isa
 
 All candidates are visited in a fixed order. The secret index is compared
 with each public candidate using arithmetic, never used as an address or
-branch condition. For byte-sized `x XOR i`, `(x XOR i - 1) >> 63` is one
-exactly when `x = i`; subtracting that bit from zero gives the selection mask.
+branch condition. Subtracting one from `x XOR i` borrows exactly when
+`x = i`; `sbb r11, r11` turns that borrow into the selection mask.
 -/
 
 namespace VG.Impl.Rc2.X86_64
@@ -22,8 +22,7 @@ def imm (dst : Reg) (n : Nat) : Instr := .mov dst (.imm (BitVec.ofNat 32 n))
 Clobbers `r10`; leaves the input in `rax`. -/
 def selectMask (i : Nat) : List Instr :=
   [rr .r10 .rax, .alu .xor .r10 (.imm (BitVec.ofNat 32 i)),
-   .alu .sub .r10 (.imm 1), .shift .shr .r10 63,
-   imm .r11 0, .alu .sub .r11 (.reg .r10)]
+   .alu .sub .r10 (.imm 1), .alu .sbb .r11 (.reg .r11)]
 
 /-- Accumulate PITABLE candidate `i` into `rcx`. -/
 def piStep (i : Nat) : List Instr :=
