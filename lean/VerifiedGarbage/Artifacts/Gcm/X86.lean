@@ -1,5 +1,6 @@
 import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.Gcm.X86.Ghash
+import VerifiedGarbage.Proof.Gcm.X86.Pclmul.Ghash
 
 /-!
 # GHASH on x86
@@ -25,6 +26,19 @@ def artifacts : List Artifact := [
     code := Impl.Gcm.X86.ghash
     contract := Spec.Gcm.ghashContract X86.abi
     verified := Proof.Gcm.X86.ghash_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.Gcm.ghashApi with
+    target := X86.target
+    name := "vg_ghash_pclmul"
+    features := ["pclmulqdq", "ssse3"]
+    doc := Spec.Gcm.ghashApi.doc
+      (notes := ["PCLMULQDQ multiplication with SSSE3 byte reversal, processing one block at a time. \
+        The implementation retains the accumulator and transformed hash key in SSE registers and \
+        does not use the scratch buffer."])
+    code := Impl.Gcm.X86.Pclmul.ghash
+    contract := Spec.Gcm.ghashContract X86.abi
+    stack := 0
+    verified := Proof.Gcm.X86.Pclmul.ghash_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Gcm.X86

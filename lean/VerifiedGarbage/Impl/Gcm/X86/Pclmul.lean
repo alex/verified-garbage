@@ -2,8 +2,8 @@ import VerifiedGarbage.Spec.Gcm
 import VerifiedGarbage.TCB.X86.Isa
 
 /-!
-Draft 8-XMM PCLMUL GHASH. Not registered or proven; only usable after merged
-x86 SIMD model prerequisites. The reflected field arithmetic matches the
+8-XMM PCLMUL GHASH, verified against the shared GHASH contract using the
+reviewed x86 SIMD model. The reflected field arithmetic matches the
 reviewed x86-64 implementation, using one block at a time to fit eight XMMs.
 All GPR writes are caller-saved (eax, ecx, edx), so stack use is zero.
 -/
