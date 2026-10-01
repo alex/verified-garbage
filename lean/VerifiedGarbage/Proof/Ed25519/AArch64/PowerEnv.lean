@@ -58,6 +58,18 @@ theorem mulI (base : Addr) (o a b : Slot) (ho : ISlot o) :
     ISpec base (.block (fieldMul (offset o) (offset a) (offset b))) (opMul o a b) := fun _ hs =>
   WP.mono (mulI_ok hs o a b ho) fun _ ⟨k, _, e⟩ => ⟨k, e⟩
 
+/-- A squaring into a slot of the inversion's, which also keeps `x19`. -/
+theorem sqrI_ok {s : State} {base : Addr} (hs : Scr s base) (o a : Slot) (ho : ISlot o) :
+    WP isa (.block (fieldSqr (offset o) (offset a))) s fun s' =>
+      IKeep base s s' ∧ s'.gpr .x19 = s.gpr .x19 ∧ env s'.mem base = opMul o a a (env s.mem base) :=
+  WP.mono (sqr_ok hs (slot_range o) (slot_range a)) fun _ ⟨h, e⟩ =>
+    ⟨⟨fun r hr _ => h.gpr r hr, h.rd, h.wr, h.sp, h.mem.mono (by simp only [offset]; omega) (by simp only [offset]; omega)⟩,
+      h.gpr _ (by decide), by rw [env_update o h.mem, e]; rfl⟩
+
+theorem sqrI (base : Addr) (o a : Slot) (ho : ISlot o) :
+    ISpec base (.block (fieldSqr (offset o) (offset a))) (opMul o a a) := fun _ hs =>
+  WP.mono (sqrI_ok hs o a ho) fun _ ⟨k, _, e⟩ => ⟨k, e⟩
+
 /-! ## Runs of squarings -/
 
 theorem decX19_ok {s : State} {k : Nat} (hb : s.gpr .x19 = BitVec.ofNat 64 (k + 1)) :
@@ -94,7 +106,7 @@ theorem sqLoop_ok {s₀ : State} {base : Addr} (hs₀ : Scr s₀ base) (o : Slot
     (x : Spec.X25519.Fe) (n : Nat) (hn : n < 2 ^ 32) :
     ∀ m s, 1 ≤ m → m < n → IKeep base s₀ s → s.gpr .x19 = BitVec.ofNat 64 m →
       env s.mem base = Function.update (env s₀.mem base) o (sqn x (n - m)) →
-      WP isa (.loop (.block (fieldMul (offset o) (offset o) (offset o) ++
+      WP isa (.loop (.block (fieldSqr (offset o) (offset o) ++
           ([.subImm .x .x19 .x19 1] : List Instr))) (.nonzero .x .x19)) s fun s' =>
         IKeep base s₀ s' ∧ env s'.mem base = Function.update (env s₀.mem base) o (sqn x n) := by
   intro m s h1 h2 hk hb he
@@ -104,7 +116,7 @@ theorem sqLoop_ok {s₀ : State} {base : Addr} (hs₀ : Scr s₀ base) (o : Slot
   intro m s ⟨h1, h2, hk, hb, he⟩
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   rw [WP.block_append_iff]
-  refine WP.mono (mulI_ok (hk.scr hs₀) o o o ho) fun s1 ⟨k1, b1, e1⟩ => ?_
+  refine WP.mono (sqrI_ok (hk.scr hs₀) o o ho) fun s1 ⟨k1, b1, e1⟩ => ?_
   refine WP.mono (decX19_ok (b1.trans hb)) fun s2 ⟨b2, kdec⟩ => ?_
   have k2 : IKeep base s₀ s2 := hk.trans (k1.trans ⟨fun r _ hr => kdec.gpr r (by simpa only [List.mem_singleton] using hr), kdec.rd, kdec.wr, kdec.sp,
     by rw [kdec.mem]; exact Outside.refl _ _ _ _⟩)
@@ -126,7 +138,7 @@ theorem sqnI (base : Addr) (o a : Slot) (ho : ISlot o) (n : Nat) (hn : 2 ≤ n)
   intro s hs
   refine WP.seq ?_
   rw [WP.block_append_iff]
-  refine WP.mono (mulI_ok hs o a a ho) fun s1 ⟨k1, _, e1⟩ => ?_
+  refine WP.mono (sqrI_ok hs o a ho) fun s1 ⟨k1, _, e1⟩ => ?_
   refine WP.mono (const64_ok s1 .x19 (BitVec.ofNat 64 (n - 1))) fun s2 ⟨b2, kdec⟩ => ?_
   have k2 : IKeep base s s2 := k1.trans ⟨fun r _ hr => kdec.gpr r (by simpa only [List.mem_singleton] using hr), kdec.rd, kdec.wr, kdec.sp,
     by rw [kdec.mem]; exact Outside.refl _ _ _ _⟩

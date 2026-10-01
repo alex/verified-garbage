@@ -14,12 +14,12 @@ def power250Env (e : Env) : Env :=
 
 theorem power250_spec (base : Addr) : ISpec base power250 power250Env := by
   have h : ISpec base _ _ :=
-    (mulI base 14 2 2 ⟨by decide, by decide⟩).seq <|
-    ((mulI base 15 14 14 ⟨by decide, by decide⟩).append
-      (mulI base 15 15 15 ⟨by decide, by decide⟩)).seq <|
+    (sqrI base 14 2 ⟨by decide, by decide⟩).seq <|
+    ((sqrI base 15 14 ⟨by decide, by decide⟩).append
+      (sqrI base 15 15 ⟨by decide, by decide⟩)).seq <|
     ((((mulI base 15 2 15 ⟨by decide, by decide⟩).append
       (mulI base 14 14 15 ⟨by decide, by decide⟩)).append
-      (mulI base 16 14 14 ⟨by decide, by decide⟩)).append
+      (sqrI base 16 14 ⟨by decide, by decide⟩)).append
       (mulI base 15 15 16 ⟨by decide, by decide⟩)).seq <|
     (sqnI base 16 15 ⟨by decide, by decide⟩ 5 (by decide) (by decide)).seq <|
     (mulI base 15 16 15 ⟨by decide, by decide⟩).seq <|

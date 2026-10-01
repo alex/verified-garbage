@@ -6,7 +6,8 @@ namespace VG.Proof.Rc2.X86_64
 
 open VG VG.X86_64 VG.Impl.Rc2.X86_64
 
-theorem fillLoop_ok (s : State) (key : List Byte) (ht : 1 ≤ key.length) (ht' : key.length < 128)
+theorem fillLoop_ok (s : State)
+    (hlookup : InRegions s.wr (s.gpr .r8 + BitVec.ofNat 64 64) 16) (key : List Byte) (ht : 1 ≤ key.length) (ht' : key.length < 128)
     (len : s.gpr .r13 = BitVec.ofNat 64 key.length) (start : s.gpr .rbx = BitVec.ofNat 64 key.length)
     (writable : ∀ i < 128, InRegions s.wr (s.gpr .r14 + BitVec.ofNat 64 i) 1)
     (initialPrefix : BytesPrefix s.mem (s.gpr .r14) (fill key 0) key.length) :
@@ -45,7 +46,8 @@ theorem fillLoop_ok (s : State) (key : List Byte) (ht : 1 ≤ key.length) (ht' :
     rw [loAddr]; exact read₁ _ (by omega)
   have readHi : InRegions (s₁.rd ++ s₁.wr) (s₁.gpr .r14 + (s₁.gpr .rbx - s₁.gpr .r13)) 1 := by
     rw [hiAddr]; exact read₁ _ (by omega)
-  apply WP.mono (fillKey_ok s₁ readLo readHi write₁)
+  apply WP.mono (fillKey_ok s₁ (by
+    rw [frame₁.wr, frame₁.reg .r8 (by decide)]; exact hlookup) readLo readHi write₁)
   intro s₂ h₂
   let b := Spec.Rc2.pi ((fill key j).getD (key.length + j - 1) 0 + (fill key j).getD j 0)
   have keep₂ : Keep keyTemps {s₁ with

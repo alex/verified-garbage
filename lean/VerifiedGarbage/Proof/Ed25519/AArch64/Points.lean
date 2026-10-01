@@ -8,7 +8,7 @@ namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 
 def fieldDest : FieldOp → Slot
-  | .copy o _ | .const o _ | .mul o _ _ | .add o _ _ | .sub o _ _ => o
+  | .copy o _ | .const o _ | .mul o _ _ | .sqr o _ | .add o _ _ | .sub o _ _ => o
 
 theorem evalOp_unchanged (op : FieldOp) (e : Env) (i : Slot) (hi : i ≠ fieldDest op) :
     evalOp op e i = e i := by

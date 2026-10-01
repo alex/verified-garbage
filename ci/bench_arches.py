@@ -47,7 +47,7 @@ PLATFORMS = {
     "arm": {
         "os": "ubuntu-24.04-arm",
         "image": "ghcr.io/pyca/cryptography-runner-ubuntu-rolling:armv7l",
-        "options": "--env RUSTUP_HOME=/root/.rustup",
+        "options": "--env RUSTUP_HOME=/tmp/verified-garbage-rustup",
     },
 }
 
