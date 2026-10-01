@@ -6,9 +6,9 @@ namespace VG.Impl.Ed25519.X86_64
 
 open VG.X86_64
 
-def doubleBody : List Instr := pointDouble ++ [.alu .sub .rsi (.imm 1)]
+def doubleBody (fld : Arith) : List Instr := pointDouble fld ++ [.alu .sub .rsi (.imm 1)]
 
-def double16 : Prog isa :=
-  .seq (.block [.mov32 .rsi (.imm 16)]) (.loop (.block doubleBody) .ne)
+def double16 (fld : Arith) : Prog isa :=
+  .seq (.block [.mov32 .rsi (.imm 16)]) (.loop (.block (doubleBody fld)) .ne)
 
 end VG.Impl.Ed25519.X86_64

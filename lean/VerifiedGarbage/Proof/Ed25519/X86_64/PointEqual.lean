@@ -7,13 +7,15 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
+variable {fld : Arith} [EdArith fld]
+
 theorem equalOps_eval (e : Env) :
     evalOps pointEqualOps e 8 = e 0 * e 6 ∧ evalOps pointEqualOps e 9 = e 4 * e 2 ∧
     evalOps pointEqualOps e 10 = e 1 * e 6 ∧ evalOps pointEqualOps e 11 = e 5 * e 2 := by
   exact ⟨rfl, rfl, rfl, rfl⟩
 
 theorem pointEqual_ok {s : State} {base : Addr} (hs : Scratch s base) :
-    WP isa Impl.Ed25519.X86_64.pointEqual s fun t => Keep base s t ∧
+    WP isa (Impl.Ed25519.X86_64.pointEqual fld) s fun t => Keep base s t ∧
       t.gpr .rax = signWord (Spec.Ed25519.pointEqual (point (env s.mem base) 0 1 2 3)
         (point (env s.mem base) 4 5 6 7)) := by
   rw [Impl.Ed25519.X86_64.pointEqual]

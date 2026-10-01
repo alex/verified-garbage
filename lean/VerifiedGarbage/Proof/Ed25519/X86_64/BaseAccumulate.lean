@@ -16,6 +16,8 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off Keeps clob Outside)
 open Fin.CommRing
 
+variable {fld : Arith} [EdArith fld]
+
 def addCachedResult (e : Env) : Spec.Ed25519.Point :=
   let a := (e 1 - e 0) * e 4
   let b := (e 1 + e 0) * e 5
@@ -42,7 +44,7 @@ theorem pointAddCached_high (e : Env) (i : Slot) (hi : 16 ≤ i.val) :
 
 theorem pointAddCachedWide_ok {s : State} {base : Addr} (hs : Scratch s base)
     (q : Spec.Ed25519.Point) (hq : point (env s.mem base) 4 5 6 7 = cache q) :
-    WP isa (.block pointAddCached) s fun t =>
+    WP isa (.block (pointAddCached fld)) s fun t =>
       Keep base s t ∧ point (env t.mem base) 0 1 2 3 =
         Spec.Ed25519.pointAdd (point (env s.mem base) 0 1 2 3) q ∧
       ∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i := by
@@ -55,7 +57,7 @@ theorem baseAccumulate_ok {s : State} {base : Addr} (hs : Scratch s base)
     (hc : s.gpr .rbx = BitVec.ofNat 64 j) (hstart : s.gpr .rsi = BitVec.ofNat 64 start)
     (hb : s.mem (off base (768 + (start + j))) = BitVec.ofNat 8 bit)
     (hq : tablePoint s.mem base (5376 + 128 * j) = cache q) :
-    WP isa (.block baseAccumulate) s fun t => Keep base s t ∧
+    WP isa (.block (baseAccumulate fld)) s fun t => Keep base s t ∧
       point (env t.mem base) 0 1 2 3 =
         (if bit = 0 then point (env s.mem base) 0 1 2 3 else
           Spec.Ed25519.pointAdd (point (env s.mem base) 0 1 2 3) q) ∧
@@ -82,7 +84,7 @@ theorem baseAccumulateBody_ok {s : State} {base : Addr} (hs : Scratch s base)
     (hb : s.mem (off base (768 + (start + n))) = BitVec.ofNat 8 ((scalar / 2 ^ (start + n)) % 2))
     (hp : point (env s.mem base) 0 1 2 3 = after scalar p (start + n + 1))
     (ht : tablePoint s.mem base (5376 + 128 * n) = cache (powerPoint p (start + n))) :
-    WP isa (.block baseAccumulateBody) s fun t =>
+    WP isa (.block (baseAccumulateBody fld)) s fun t =>
       t.gpr .rbx = BitVec.ofNat 64 n ∧ t.zf = some (decide (n = 0)) ∧
       point (env t.mem base) 0 1 2 3 = after scalar p (start + n) ∧
       env t.mem base 16 = env s.mem base 16 ∧ RbxKeep base s t := by
@@ -120,7 +122,7 @@ theorem baseAccumulateLoop_ok {s₀ : State} {base : Addr} (hs : Scratch s₀ ba
     (hb : ∀ i < 16, s₀.mem (off base (768 + (start + i))) = BitVec.ofNat 8 ((scalar / 2 ^ (start + i)) % 2))
     (hp : point (env s₀.mem base) 0 1 2 3 = after scalar p (start + 16))
     (ht : ∀ i < 16, tablePoint s₀.mem base (5376 + 128 * i) = cache (powerPoint p (start + i))) :
-    WP isa (.loop (.block baseAccumulateBody) .ne) s₀ fun t =>
+    WP isa (.loop (.block (baseAccumulateBody fld)) .ne) s₀ fun t =>
       point (env t.mem base) 0 1 2 3 = after scalar p start ∧
       env t.mem base 16 = env s₀.mem base 16 ∧ RbxKeep base s₀ t := by
   apply WP.loop (BaseAccumulateInv s₀ base start scalar p) (n := 16)
@@ -153,7 +155,7 @@ theorem baseAccumulate16_ok {s : State} {base : Addr} (hs : Scratch s base)
     (hb : ∀ i < 16, s.mem (off base (768 + (start + i))) = BitVec.ofNat 8 ((scalar / 2 ^ (start + i)) % 2))
     (hp : point (env s.mem base) 0 1 2 3 = after scalar p (start + 16))
     (ht : ∀ i < 16, tablePoint s.mem base (5376 + 128 * i) = cache (powerPoint p (start + i))) :
-    WP isa baseAccumulate16 s fun t => point (env t.mem base) 0 1 2 3 = after scalar p start ∧
+    WP isa (baseAccumulate16 fld) s fun t => point (env t.mem base) 0 1 2 3 = after scalar p start ∧
       env t.mem base 16 = env s.mem base 16 ∧ RbxKeep base s t := by
   rw [baseAccumulate16]
   refine WP.seq (WP.mono (accumulateInit_ok s) fun a ⟨ac, ka⟩ => ?_)

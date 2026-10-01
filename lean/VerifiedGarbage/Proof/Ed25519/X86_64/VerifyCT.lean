@@ -9,6 +9,8 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off)
 open VG.Spec.Ed25519 (bytesAt)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem VerifyStarted.public {s t : State} (hs : verifyLocal.pre s) (h : VerifyStarted s t) :
     VerifyPublic (s.gpr .rcx) (s.gpr .rdi) (s.gpr .rsi) (s.gpr .rdx)
       (bytesAt s.mem (s.gpr .rdi) 32) (bytesAt s.mem (s.gpr .rsi) 32)
@@ -38,25 +40,25 @@ theorem VerifyStarted.public_right {s u t : State} (hu : verifyLocal.pre u)
 theorem verifyFinish_ct (base : Addr) :
     RelCT isa (fun s t => s.gpr .rdi = base ∧ t.gpr .rdi = base)
       (.block (([.mov .rdx (.reg .rdi)] : List Instr) ++ scalarRestore)) (fun _ _ => True) := by
-  apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+  apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
   exact fun _ _ h => rdi_agree h.1 h.2
 
 theorem verifyBody_rdi_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte) :
     RelCT isa (fun s t => VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧
       VerifyPublic base pk sig challenge pkbs rbs sbs kbs t)
-      (.seq (.block verifyScalar) (.ite .b verifyDecodeA recoverInvalid))
+      (.seq (.block verifyScalar) (.ite .b (verifyDecodeA fld) recoverInvalid))
       (fun s t => s.gpr .rdi = base ∧ t.gpr .rdi = base) := by
   have hw (s : State) (h : VerifyPublic base pk sig challenge pkbs rbs sbs kbs s) :
-      WP isa (.seq (.block verifyScalar) (.ite .b verifyDecodeA recoverInvalid)) s
+      WP isa (.seq (.block verifyScalar) (.ite .b (verifyDecodeA fld) recoverInvalid)) s
         (fun t => t.gpr .rdi = base) :=
     WP.mono (verifyBody_ok h.context) fun _ kt => (kt.1.scratch h.context.scratch).rdi
   exact (VG.RelCT.wp (verifyBody_ct base pk sig challenge pkbs rbs sbs kbs)
     (fun s t h => ⟨hw s h.1, hw t h.2⟩)).mono (fun _ _ h => h) (fun _ _ h => h.2)
 
-theorem verify_ct : ConstantTime isa verifyLocal.pre verifyLocal.pub verifyEquation := by
+theorem verify_ct : ConstantTime isa verifyLocal.pre verifyLocal.pub (verifyEquation fld) := by
   have setupCT : RelCT isa (fun s t => verifyLocal.pre s ∧ verifyLocal.pre t ∧ verifyLocal.pub s t)
       (.block verifySetup) (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rcx]) _ (by taint_decide)
+    apply taintFld (Taint.ofRegs [.rcx]) _ (by fld_taint_decide)
     intro s t h
     apply Taint.agree_ofRegs
     intro r hr
