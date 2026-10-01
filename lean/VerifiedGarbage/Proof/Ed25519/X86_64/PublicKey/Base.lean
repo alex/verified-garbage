@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PublicKey.Hash
 import VerifiedGarbage.Proof.Ed25519.Bytes
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBasePrecomputedVerified
-import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBasePrecomputedLit
+import VerifiedGarbage.Proof.Ed25519.X86_64.BaseMultiplyLit
 
 /-!
 # Ed25519 public-key derivation on x86-64: pruning and the base point
