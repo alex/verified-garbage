@@ -5,7 +5,7 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.BaseMultiply
 # Verification's equation with 4-bit windows
 
 Verification may leak its inputs, so its scalars `S` and `k` are public. It
-computes `[k]A - [S]B` with one chain of doublings, four per 4-bit window
+computes `[k]A - [S]B` with one chain of doublings (`dblOps`), four per 4-bit window
 of the scalars, from the top: each window adds `[a]A` for `k`'s digit `a`
 from a table of `[1]A … [15]A` built at run time (byte 5376), and `[-b]B`
 for `S`'s digit `b` from constants (`negBaseCached`, byte 2048). A zero
@@ -28,8 +28,19 @@ def pointFromTableQ : List Instr :=
 /-- `rax` = byte `o` of the scratch. -/
 def tableStart (o : Nat) : List Instr := [.movImm64 .rax (BitVec.ofNat 64 o), .alu .add .rax (.reg .rdi)]
 
-/-- Four exact doublings, with the counter `rsi`. -/
-def double4 : Prog isa := .seq (.block [.mov32 .rsi (.imm 4)]) (.loop (.block doubleBody) .ne)
+/-- Doubles slots 0–3 in place with `dbl-2008-hwcd` (for `a = -1`): `A = X²`, `B = Y²`,
+`C = 2Z²`, `E = 2XY`, `G = B - A`, `F = C - G`, `H = A + B`, and `X = EF`, `Y = GH`,
+`Z = FG`, and `T = EH` if `t` (only an addition reads `T`). -/
+def dblOps (t : Bool) : List FieldOp :=
+  [.mul 8 0 0, .mul 9 1 1, .mul 10 2 2, .add 10 10 10, .mul 11 0 1, .add 11 11 11,
+    .sub 12 9 8, .sub 13 10 12, .add 14 8 9, .mul 0 11 13, .mul 1 12 14, .mul 2 13 12] ++
+    if t then [.mul 3 11 14] else []
+
+/-- Four doublings: three without `T`, with the counter `rsi`, then one with it. -/
+def double4 : Prog isa :=
+  .seq (.block [.mov32 .rsi (.imm 3)]) (.seq
+    (.loop (.block (fieldCode (dblOps false) ++ [.alu .sub .rsi (.imm 1)])) .ne)
+    (.block (fieldCode (dblOps true))))
 
 /-- `[1]A` from byte 7424 into slots 0–3 and into the table's entry 0. -/
 def aTableInit : List Instr :=
