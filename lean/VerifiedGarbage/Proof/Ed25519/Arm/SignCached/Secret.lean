@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.SignCached.Preserve
+import VerifiedGarbage.Proof.Ed25519.Arm.SignCached.Hashes
 import VerifiedGarbage.Impl.Ed25519.Arm.SignCached
 import VerifiedGarbage.Proof.Ed25519.Signing
 import VerifiedGarbage.Proof.Ed25519.Arm.SignCached.Prefix
@@ -60,5 +61,10 @@ def nonce (L : Lay) (m : Mem) : List Byte := Spec.Ed25519.scalarReduce (Spec.Sha
 structure SecretReady (L : Lay) (m : Mem) (t : State) : Prop where
   scalar : Spec.Ed25519.bytesAt t.mem (State.addr L.E + 24) 32 = scalar L m
   prefixBytes : Spec.Ed25519.bytesAt t.mem (State.addr L.E + 56) 32 = (expanded L m).drop 32
+
+theorem secret_ok (hc : Ctx L g m₀ s) (hL : L.Ok) (ha : Arguments L m₀) :
+    WP isa secretCode s fun t => Ctx L g m₀ t ∧ SecretReady L m₀ t := by
+  refine WP.seq (WP.mono (hashSeed_ok hc hL ha) fun u ⟨hu, _, he⟩ => ?_)
+  exact WP.mono (saveSecret_ok hu hL he) fun t ⟨ht, hs, hp⟩ => ⟨ht, hs, hp⟩
 
 end VG.Proof.Ed25519.Arm.SignCached
