@@ -66,6 +66,15 @@ theorem counterLane_state (x : Spec.Gcm.Block) (pfx : BitVec 96) (i : Nat)
   · exact hpfx k (by assumption)
   · rfl
 
+theorem ctrState_rev (x : Spec.Gcm.Block) (i : Nat) :
+    VG.Proof.Aes.ctrState x i = st (XBinOp.eval .pshufb
+      (Nat.repeat Spec.Gcm.inc32 i x) VG.Proof.Gcm.X86.revMask) := by
+  apply st_ext
+  intro k hk
+  rw [VG.Proof.Aes.ctrState, getD_ofFn hk, getD_st _ hk,
+    VG.Proof.Gcm.X86.byte_pshufb_rev _ hk, VG.Proof.Aes.toBytes_getD _ hk]
+  rfl
+
 /-- The cached memory prefix has the standard's first twelve bytes. -/
 theorem memory_prefix (m : Mem) (p : Addr) {k : Nat} (hk : k < 12) :
     ((m.readW p 128).extractLsb' 0 96).extractLsb' (8 * k) 8 =
