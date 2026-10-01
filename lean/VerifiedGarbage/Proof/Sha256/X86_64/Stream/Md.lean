@@ -52,7 +52,7 @@ include hf
 theorem verified_of (hm : (update f).allInstrs (fun i => !loadsMxcsr i) = true) :
     Verified X86_64.target (update f) Proof.Sha256.updateX86_64 :=
   have h := MdStream.X86_64.Update.verified dims taints (callee hf) hm
-  Verified.of_implies h ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr hc, fun _ _ _ _ h => h, h.2.2⟩
+  Verified.of_implies h ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr hc, fun _ _ _ _ h => h, h.2.2⟩
 
 omit hf
 
@@ -73,7 +73,7 @@ theorem correct {s₀ : State} (hp : MdStream.X86_64.Finalize.Pre params s₀) :
     WP isa (finalize f) s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha256.finalizeX86_64.post s₀ s' ∧
       s'.gpr .rdi = s₀.gpr .rdi ∧ s'.gpr .rcx = s₀.gpr .rcx :=
   (MdStream.X86_64.Finalize.correct dims shape (callee hf) hp).mono fun _ ⟨g, h, di, cx⟩ =>
-    ⟨g, fun m hr hc => h Spec.Sha256.H0 m hr trivial hc, di, cx⟩
+    ⟨g, fun iv m hr hc => h iv m hr trivial hc, di, cx⟩
 
 theorem constantTime :
     ConstantTime isa Proof.Sha256.finalizeX86_64.pre Proof.Sha256.finalizeX86_64.pub (finalize f) :=
@@ -84,7 +84,7 @@ theorem verified_of (hm : (finalize f).allInstrs (fun i => !loadsMxcsr i) = true
     Verified X86_64.target (finalize f) Proof.Sha256.finalizeX86_64 :=
   have h := MdStream.X86_64.Finalize.verified dims shape taints (callee hf) hm
   Verified.of_implies h
-    ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
+    ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
 
 omit hf
 

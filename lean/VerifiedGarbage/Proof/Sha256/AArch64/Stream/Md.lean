@@ -46,7 +46,7 @@ theorem update_verified : Verified AArch64.target Impl.Sha256.AArch64.Stream.upd
     (VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4])
       (fun _ _ _ _ hp => MdStream.AArch64.Update.agree₀ hp) (by taint_decide))
     (instrs_keeps (by lit_decide)) (by lit_decide)
-  Verified.of_implies h ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr hc, fun _ _ _ _ h => h, h.2.2⟩
+  Verified.of_implies h ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr hc, fun _ _ _ _ h => h, h.2.2⟩
 
 /-- A state satisfying `update`'s precondition. -/
 abbrev sat : State := MdStream.AArch64.Update.sat params
@@ -61,7 +61,7 @@ theorem finalize_verified : Verified AArch64.target Impl.Sha256.AArch64.Stream.f
       (fun _ _ _ _ hp => MdStream.AArch64.Finalize.agree₀ hp) (by taint_decide))
     (instrs_keeps (by lit_decide)) (by lit_decide)
   Verified.of_implies h
-    ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
+    ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
 
 /-- A state satisfying `finalize`'s precondition. -/
 abbrev sat : State := MdStream.AArch64.Finalize.sat params
