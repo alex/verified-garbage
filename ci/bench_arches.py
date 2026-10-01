@@ -13,13 +13,16 @@ Each platform's `modules` narrows its benchmarks to those of the modules
 whose own files changed: `src/asm/<arch>/<module>.rs`, or the Rust API's
 `src/<module>.rs` or `src/hashes/<module>.rs` (for every architecture), or
 `src/<family>/<hash>.rs`, whose module is `<family>_<hash>` (e.g.
-`src/hmac/sha256.rs` is `hmac_sha256`, as in `src/asm/`). The
+`src/hmac/sha256.rs` is `hmac_sha256`, as in `src/asm/`), or the
+modules a changed benchmark `bench/benches/primitives/<name>.rs` lists in
+its `USES` (on every architecture), whose benchmarks include it. The
 benchmarks decide which of them run (each lists the modules it `USES`, see
 bench/benches/primitives/main.rs), and run everything for a module none of
 them uses (e.g. `cpu`, `lib`, or `hashes/mod.rs`'s `mod`). Any other change
-it benchmarks (e.g. the benchmarks themselves) runs every benchmark, and
-`modules` is empty. The generated `src/asm/<arch>/mod.rs` only declares the
-modules, so it narrows nothing either way.
+it benchmarks (e.g. the benchmarks' `main.rs`, or a benchmark whose `USES`
+it cannot read) runs every benchmark, and `modules` is empty. The generated
+`src/asm/<arch>/mod.rs` only declares the modules, so it narrows nothing
+either way.
 
 An architecture with primitives that choose among implementations by CPU
 feature is benchmarked once with every feature the runner has, and once
@@ -47,8 +50,6 @@ PLATFORMS = {
     "arm": {
         "os": "ubuntu-24.04-arm",
         "image": "ghcr.io/pyca/cryptography-runner-ubuntu-rolling:armv7l",
-        # A fresh home avoids upgrading the image's incomplete Rust
-        # installation (as in ci.yml).
         "options": "--env RUSTUP_HOME=/tmp/verified-garbage-rustup",
     },
 }
@@ -70,8 +71,23 @@ SHARED = re.compile(
 ASM = re.compile(r"src/asm/([a-z0-9_]+)/([a-z0-9_]+)\.rs$")
 API = re.compile(r"src/(?:hashes/)?([a-z0-9_]+)\.rs$")
 FAMILY = re.compile(r"src/(?!asm/|hashes/)([a-z0-9_]+)/([a-z0-9_]+)\.rs$")
+# One algorithm's benchmark, and the modules it lists in its `USES`.
+BENCH = re.compile(r"bench/benches/primitives/(?!main\.rs$)[a-z0-9_]+\.rs$")
+USES = re.compile(r"pub const USES: &\[&str\] = &\[([^\]]*)\];")
 
 ALL = None
+
+
+def bench_uses(path):
+    """The modules the benchmark at `path` lists in its `USES`, or None if
+    it cannot be read (e.g. a deleted benchmark) or lists none."""
+    try:
+        with open(path) as f:
+            m = USES.search(f.read())
+    except OSError:
+        return None
+    modules = re.findall(r'"([a-z0-9_]+)"', m[1]) if m else []
+    return modules or None
 
 
 def arches(changed):
@@ -98,6 +114,10 @@ def arches(changed):
             name = family[1] if family[2] == "mod" else f"{family[1]}_{family[2]}"
             for a in PLATFORMS:
                 need(a, name)
+        elif BENCH.match(path) and (uses := bench_uses(path)):
+            for a in PLATFORMS:
+                for m in uses:
+                    need(a, m)
         elif SHARED.match(path):
             for a in PLATFORMS:
                 needed[a] = ALL

@@ -8,7 +8,8 @@ open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64 VG.Proof.X25519
 abbrev F (m : Mem) (base : Addr) (o : Nat) : Spec.X25519.Fe := toFe (fe m base o)
 
 def clob : List Reg :=
-  [.x2, .x3, .x4, .x5, .x6, .x7, .x8, .x9, .x10, .x11, .x20, .x21, .x22, .x23, .x24]
+  [.x2, .x3, .x4, .x5, .x6, .x7, .x8, .x9, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17,
+    .x20, .x21, .x22, .x23, .x24]
 
 structure Op (base : Addr) (o : Nat) (s t : State) : Prop where
   gpr : ∀ r, r ∉ clob → t.gpr r = s.gpr r

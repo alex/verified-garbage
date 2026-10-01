@@ -2,6 +2,8 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyMessage.Equation
 
 /-! Correctness of the complete verifier's frame body. -/
 namespace VG.Proof.Ed25519.X86_64.VerifyMessage
+
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
 open VG VG.X86_64
 open VG.Impl.Ed25519.X86_64.VerifyMessage
 open VG.Proof.Sha512.X86_64 (Compress)
@@ -47,7 +49,7 @@ theorem challengeInput_eq : challengeInput L m₀ =
 
 theorem body_ok (v : Compress) (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t)
     (hlen : 64 + L.len.toNat < 2 ^ 64) :
-    WP isa (body v.callee v.suffix) t fun t' => Ctx L g mx m₀ t' ∧
+    WP isa (body fld fs v.callee v.suffix) t fun t' => Ctx L g mx m₀ t' ∧
       t'.gpr .rax = Proof.Ed25519.X86_64.signWord (Spec.Ed25519.verify
         (Spec.Ed25519.bytesAt m₀ L.pk 32) (Spec.Ed25519.bytesAt m₀ L.msg L.len.toNat)
         (Spec.Ed25519.bytesAt m₀ L.sig 64)) := by

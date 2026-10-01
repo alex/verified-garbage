@@ -17,6 +17,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64 VG.Proof.Ed25519 Edwards
 open VG.Proof.X25519.X86_64 (off Keeps clob Outside)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem tableStart_ok {s : State} {base : Addr} (hp : s.gpr .rdi = base) (o : Nat) :
     WP isa (.block (tableStart o)) s fun t => t.gpr .rax = off base o ∧ Keeps [.rax] s t := by
   apply WP.of_runBlock
@@ -114,7 +116,7 @@ structure ATableInv (s₀ : State) (base : Addr) (A : EPoint dZ) (n : Nat) (s : 
 
 theorem aTableBody_ok {s₀ s : State} {base : Addr} {A : EPoint dZ} {n : Nat} (hn : n < 15)
     (hA : Rep (tablePoint s₀.mem base 7424) A) (h : ATableInv s₀ base A n s) :
-    WP isa (.block aTableBody) s fun t => t.zf = some (decide (n + 1 = 15)) ∧
+    WP isa (.block (aTableBody fld)) s fun t => t.zf = some (decide (n + 1 = 15)) ∧
       ATableInv s₀ base A (n + 1) t := by
   rw [aTableBody, List.append_assoc, List.append_assoc, List.append_assoc, List.append_assoc,
     WP.block_append_iff]
@@ -213,7 +215,7 @@ theorem aTableInit_ok {s : State} {base : Addr} {A : EPoint dZ} (hs : Scratch s 
 
 theorem aTable_ok {s : State} {base : Addr} {A : EPoint dZ} (hs : Scratch s base)
     (hd : env s.mem base 16 = Spec.Ed25519.d) (hA : Rep (tablePoint s.mem base 7424) A) :
-    WP isa aTable s (ATableInv s base A 15) := by
+    WP isa (aTable fld) s (ATableInv s base A 15) := by
   rw [aTable]
   refine WP.seq (WP.mono (aTableInit_ok hs hd hA) fun a ha => ?_)
   apply WP.loop (fun n t => ATableInv s base A (15 - n) t ∧ 0 < n) (n := 14)

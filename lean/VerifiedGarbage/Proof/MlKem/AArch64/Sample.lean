@@ -256,7 +256,7 @@ abbrev FA (σ u : State) : Prop := LPre 280 (Bs σ) (So σ 0) (aP σ) u ∧ Fin 
 theorem full_ct (v : Proof.Sha3.AArch64.Permutation) : ConstantTime isa sampleAArch64.pre sampleAArch64.pub (sampleFullWith v.callee) := by
   obtain ⟨hint, hhint⟩ := v.sampleFullTaint
   refine RelCT.constantTime (Q := fun _ _ => True) (RelCT.seq
-    ((RelCT.taint (A := taint) (Taint.ofRegs [.x0, .x1, .x2])
+    ((VectorTaint.relCT (Taint.ofRegs [.x0, .x1, .x2])
       (fun _ _ h => agree_of h.2.2.2.2.2.1 (by
         obtain ⟨-, -, e0, e1, e2, -, -⟩ := h
         simp [e0, e1, e2])) hhint).wpDep (F := FA)
@@ -298,7 +298,7 @@ theorem ct (v : Proof.Sha3.AArch64.Permutation) : ConstantTime isa sampleAArch64
   -- the output of `(sampleFastWith v.callee)`, and its loop
   refine RelCT.seq (RelCT.seq (R := fun a b => (LPre 168 (Bs σ₁) (So σ₁ 0) (aP σ₁) a ∧ MidA σ₁ a) ∧
       (LPre 168 (Bs σ₂) (So σ₂ 0) (aP σ₂) b ∧ MidA σ₂ b))
-    (RelCT.mono ((RelCT.taint (A := taint) (P := fun a b => a = σ₁ ∧ b = σ₂) (Taint.ofRegs [.x0, .x1, .x2])
+    (RelCT.mono ((VectorTaint.relCT (P := fun a b => a = σ₁ ∧ b = σ₂) (Taint.ofRegs [.x0, .x1, .x2])
       (fun a b h => by
         obtain ⟨rfl, rfl⟩ := h
         exact agree_of esp (by simp [e0, e1, e2])) hhint).wp

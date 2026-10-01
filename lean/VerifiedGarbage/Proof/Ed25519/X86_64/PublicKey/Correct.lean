@@ -11,6 +11,8 @@ the ABI (`publicKey_ok`).
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey
 
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
+
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.Sha512.X86_64 (Compress)
 
@@ -41,7 +43,7 @@ theorem hash_ok (v : Compress) (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) 
 
 /-- The public key of the seed in `out`. -/
 theorem body_ok (v : Compress) (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) :
-    WP isa (pkBody v.callee v.suffix) t fun t' => Ctx L g mx m₀ t' ∧
+    WP isa (pkBody fld fs v.callee v.suffix) t fun t' => Ctx L g mx m₀ t' ∧
       Spec.Ed25519.bytesAt t'.mem L.out 32 = Spec.Ed25519.publicKey (Spec.Ed25519.bytesAt m₀ L.seed 32) := by
   refine WP.seq (WP.mono (hash_ok v hL hc) fun t₁ ⟨hc₁, hh₁⟩ => ?_)
   refine WP.seq (WP.mono (baseArgs_ok hc₁) fun t₂ ⟨hc₂, hm₂, ha₂⟩ => ?_)
@@ -61,7 +63,7 @@ theorem pop_rsp (B : Addr) : B + BitVec.ofNat 64 16 + BitVec.ofNat 64 (8 * 7) = 
 
 /-- `vg_ed25519_public_key` meets `pkLocal` and the ABI. -/
 theorem publicKey_ok (v : Compress) {s : State} (h : pkLocal.pre s) :
-    WP isa (publicKey v.callee v.suffix) s fun s' => abiPreserved s s' ∧ pkLocal.post s s' := by
+    WP isa (publicKey fld fs v.callee v.suffix) s fun s' => abiPreserved s s' ∧ pkLocal.post s s' := by
   have hL := lay_ok h
   have hc := push_ctx h
   refine WP.frame (rs := pushRs) (by decide) (by decide) (by decide) (by show 8 * 7 ≤ _; have := h.1; omega)

@@ -8,8 +8,10 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
+variable {fld : Arith} [EdArith fld]
+
 def fieldDest : FieldOp → Slot
-  | .copy o _ | .const o _ | .mul o _ _ | .add o _ _ | .sub o _ _ => o
+  | .copy o _ | .const o _ | .mul o _ _ | .sqr o _ | .add o _ _ | .sub o _ _ => o
 
 theorem evalOp_unchanged (op : FieldOp) (e : Env) (i : Slot) (hi : i ≠ fieldDest op) :
     evalOp op e i = e i := by
@@ -53,7 +55,7 @@ theorem copyPointToQ_eval (e : Env) :
 
 theorem pointDoubleWide_ok {s : State} {base : Addr} (hs : Scratch s base)
     (hd : env s.mem base 16 = Spec.Ed25519.d) :
-    WP isa (.block pointDouble) s fun t =>
+    WP isa (.block (pointDouble fld)) s fun t =>
       Keep base s t ∧ point (env t.mem base) 0 1 2 3 =
         Spec.Ed25519.pointAdd (point (env s.mem base) 0 1 2 3) (point (env s.mem base) 0 1 2 3) ∧
       ∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i := by
@@ -63,7 +65,7 @@ theorem pointDoubleWide_ok {s : State} {base : Addr} (hs : Scratch s base)
 
 theorem pointAddWide_ok {s : State} {base : Addr} (hs : Scratch s base)
     (hd : env s.mem base 16 = Spec.Ed25519.d) :
-    WP isa (.block pointAdd) s fun t =>
+    WP isa (.block (pointAdd fld)) s fun t =>
       Keep base s t ∧ point (env t.mem base) 0 1 2 3 =
         Spec.Ed25519.pointAdd (point (env s.mem base) 0 1 2 3) (point (env s.mem base) 4 5 6 7) ∧
       ∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i := by

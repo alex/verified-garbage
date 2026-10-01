@@ -4,12 +4,14 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.SignCached.Correct
 
 /-! Complete signing is constant-time with respect to seed, key and message bytes. -/
 namespace VG.Proof.Ed25519.X86_64.SignCached
+
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
 open VG VG.X86_64
 open VG.Impl.Ed25519.X86_64.SignCached
 open VG.Proof.Sha512.X86_64 (Compress)
 
 theorem body_ct (v : Compress) : RelCT isa (Two fun _ _ _ => True)
-    (body v.callee v.suffix) (Two fun _ _ _ => True) := by
+    (body fld fs v.callee v.suffix) (Two fun _ _ _ => True) := by
   have s : RelCT isa (Two fun _ _ _ => True) (.block saveSecret) (Two fun _ _ _ => True) :=
     two_blk (by taint_decide) fun _ _ _ _ _ _ hc _ =>
       WP.mono (saveSecret_ok hc rfl) fun _ ⟨hc', _, _⟩ => ⟨hc', trivial⟩
@@ -19,7 +21,7 @@ theorem body_ct (v : Compress) : RelCT isa (Two fun _ _ _ => True)
   exact (hashSeed_ct v).seq (s.seq ((hashNonce_ct v).seq ((reduce_ct 64 (by decide) (by taint_decide)).seq
     (base_ct.seq ((hashChallenge_ct v).seq ((reduce_ct 96 (by decide) (by taint_decide)).seq (mul_ct.seq w)))))))
 
-theorem sign_ct (v : Compress) : ConstantTime isa signLocal.pre signLocal.pub (code v.callee v.suffix) := by
+theorem sign_ct (v : Compress) : ConstantTime isa signLocal.pre signLocal.pub (code fld fs v.callee v.suffix) := by
   refine RelCT.constantTime (RelCT.frame (fun _ _ h => h.2.2.1)
     (RelCT.mono (body_ct v) ?_ fun _ _ _ => trivial))
   rintro _ _ ⟨s₁, s₂, ⟨h₁, h₂, hsp, hdi, hsi, hdx, hcx, h8, h9⟩, rfl, rfl⟩

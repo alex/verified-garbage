@@ -1,0 +1,453 @@
+// @generated from lean/VerifiedGarbage/Artifacts.lean by lean/Emit.lean. DO NOT EDIT.
+//! Verified `cmac_aes` functions for `x86_64`.
+#![allow(dead_code)]
+
+/// The CPU features `vg_cmac_aes_subkeys_aesni` requires (`Artifact.features`).
+pub(crate) const VG_CMAC_AES_SUBKEYS_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+
+/// The CMAC subkey generation (NIST SP 800-38B §6.1) for AES: writes `K1 ‖ K2` to `*subkeys`, where `L = CIPH_K(0¹²⁸)`, `K1 = L << 1` (XORed with `R₁₂₈ = 0¹²⁰10000111` if the leftmost bit of `L` is 1) and `K2` is `K1` doubled the same way. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.
+///
+/// Contract: `VG.Spec.Cmac.aesSubkeysContract`. Constant time: only the pointers and `rounds` may affect timing, not the key schedule or the subkeys.
+///
+/// This implementation encrypts each block with `vg_aes_ctr32_aesni`.
+///
+/// # Safety
+///
+/// * `schedule` must be valid for reads of 240 bytes.
+/// * `subkeys` must be valid for reads and writes of 32 bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
+/// * `subkeys` and `scratch` must not overlap each other or `schedule` (distinct Rust objects never do).
+/// * None of `schedule`, `subkeys` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `aes` and `ssse3` target features.
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_subkeys_aesni(schedule: *const [u8; 240], rounds: usize, subkeys: *mut [u8; 32], scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        "mov QWORD PTR [rcx+2064], rbx",
+        "mov QWORD PTR [rcx+2072], rbp",
+        "mov rbx, rdx",
+        "mov rbp, rcx",
+        "mov eax, 0",
+        "mov QWORD PTR [rcx+2048], rax",
+        "mov QWORD PTR [rcx+2056], rax",
+        "mov QWORD PTR [rdx], rax",
+        "mov QWORD PTR [rdx+8], rax",
+        "mov r9, rbp",
+        "mov rdx, rbp",
+        "add rdx, 2048",
+        "mov rcx, rbx",
+        "mov r8d, 1",
+        "call {vg_aes_ctr32_aesni}",
+        "mov rax, QWORD PTR [rbx]",
+        "bswap rax",
+        "mov rdx, QWORD PTR [rbx+8]",
+        "bswap rdx",
+        "mov rcx, rax",
+        "shr rcx, 63",
+        "mov r8d, 0",
+        "sub r8, rcx",
+        "and r8, 135",
+        "mov rcx, rdx",
+        "shr rcx, 63",
+        "add rax, rax",
+        "or rax, rcx",
+        "add rdx, rdx",
+        "xor rdx, r8",
+        "bswap rax",
+        "bswap rdx",
+        "mov QWORD PTR [rbx], rax",
+        "mov QWORD PTR [rbx+8], rdx",
+        "mov rax, QWORD PTR [rbx]",
+        "bswap rax",
+        "mov rdx, QWORD PTR [rbx+8]",
+        "bswap rdx",
+        "mov rcx, rax",
+        "shr rcx, 63",
+        "mov r8d, 0",
+        "sub r8, rcx",
+        "and r8, 135",
+        "mov rcx, rdx",
+        "shr rcx, 63",
+        "add rax, rax",
+        "or rax, rcx",
+        "add rdx, rdx",
+        "xor rdx, r8",
+        "bswap rax",
+        "bswap rdx",
+        "mov QWORD PTR [rbx+16], rax",
+        "mov QWORD PTR [rbx+24], rdx",
+        "mov rbx, QWORD PTR [rbp+2064]",
+        "mov rbp, QWORD PTR [rbp+2072]",
+        "ret",
+        vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
+    )
+}
+
+/// The CPU features `vg_cmac_aes_update_aesni` requires (`Artifact.features`).
+pub(crate) const VG_CMAC_AES_UPDATE_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+
+/// CMAC's chaining (NIST SP 800-38B §6.2 step 6) for AES, over whole blocks: replaces the block `C₀` at `*state` with `Cₙ`, where `Cᵢ = CIPH_K(Cᵢ₋₁ ⊕ Mᵢ)` for the `n` 16-byte blocks `M₁ … Mₙ` starting at `data`. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.
+///
+/// Contract: `VG.Spec.Cmac.aesUpdateContract`. Constant time: only the pointers, `rounds` and `n` may affect timing, not the key schedule, the chaining value or the data.
+///
+/// This implementation encrypts each block with `vg_aes_ctr32_aesni`.
+///
+/// # Safety
+///
+/// * `schedule` must be valid for reads of 240 bytes.
+/// * `state` must be valid for reads and writes of 16 bytes.
+/// * `data` must be valid for reads of `16 * n` bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other, `schedule` or `data` (distinct Rust objects never do).
+/// * None of `schedule`, `state`, `data` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `aes` and `ssse3` target features.
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_update_aesni(schedule: *const [u8; 240], rounds: usize, state: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        "mov QWORD PTR [r9+2064], rbx",
+        "mov QWORD PTR [r9+2072], rbp",
+        "mov QWORD PTR [r9+2080], r12",
+        "mov QWORD PTR [r9+2088], r13",
+        "mov QWORD PTR [r9+2096], r14",
+        "mov QWORD PTR [r9+2104], r15",
+        "mov rbx, rdi",
+        "mov rbp, rsi",
+        "mov r12, rdx",
+        "mov r13, rcx",
+        "mov r14, r8",
+        "mov r15, r9",
+        "test r14, r14",
+        "je 20f",
+        "22:",
+        "mov rax, QWORD PTR [r12]",
+        "xor rax, QWORD PTR [r13]",
+        "mov QWORD PTR [r15+2048], rax",
+        "mov rax, QWORD PTR [r12+8]",
+        "xor rax, QWORD PTR [r13+8]",
+        "mov QWORD PTR [r15+2056], rax",
+        "mov eax, 0",
+        "mov QWORD PTR [r12], rax",
+        "mov QWORD PTR [r12+8], rax",
+        "mov rdi, rbx",
+        "mov rsi, rbp",
+        "mov r9, r15",
+        "mov rdx, r15",
+        "add rdx, 2048",
+        "mov rcx, r12",
+        "mov r8d, 1",
+        "call {vg_aes_ctr32_aesni}",
+        "add r13, 16",
+        "sub r14, 1",
+        "jne 22b",
+        "jmp 21f",
+        "20:",
+        "21:",
+        "mov rbx, QWORD PTR [r15+2064]",
+        "mov rbp, QWORD PTR [r15+2072]",
+        "mov r12, QWORD PTR [r15+2080]",
+        "mov r13, QWORD PTR [r15+2088]",
+        "mov r14, QWORD PTR [r15+2096]",
+        "mov r15, QWORD PTR [r15+2104]",
+        "ret",
+        vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
+    )
+}
+
+/// The CPU features `vg_cmac_aes_finalize_aesni` requires (`Artifact.features`).
+pub(crate) const VG_CMAC_AES_FINALIZE_AESNI_FEATURES: &[&str] = &["aes", "ssse3"];
+
+/// Finishes an AES-CMAC computation (NIST SP 800-38B §6.2, with `Tlen = 128`): if the block at `*state` is the chaining value `Cₙ₋₁` of the message's blocks but the last (as `vg_cmac_aes_update` computes it from a zero block), and the `last_len` bytes at `last` are the message's last bytes `Mₙ*`, replaces it with the MAC `Cₙ = CIPH_K(Cₙ₋₁ ⊕ Mₙ)`, where `Mₙ = K1 ⊕ Mₙ*` if `last_len` is 16, and `Mₙ = K2 ⊕ (Mₙ* ‖ 10ʲ)` otherwise. `*key` is the 240 bytes `vg_aes_expand_key` writes the key schedule for `rounds` rounds to, followed by the subkeys `K1 ‖ K2` (as `vg_cmac_aes_subkeys` writes them). `last_len` is 0 only for the empty message.
+///
+/// Contract: `VG.Spec.Cmac.aesFinalizeContract`. Constant time: only the pointers, `rounds` and `last_len` may affect timing, not the key schedule, the subkeys, the chaining value or the data.
+///
+/// This implementation encrypts each block with `vg_aes_ctr32_aesni`.
+///
+/// # Safety
+///
+/// * `key` must be valid for reads of 272 bytes.
+/// * `state` must be valid for reads and writes of 16 bytes.
+/// * `last` must be valid for reads of `last_len` bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * `last_len` must be at most 16.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other, `key` or `last` (distinct Rust objects never do).
+/// * None of `key`, `state`, `last` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `aes` and `ssse3` target features.
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_finalize_aesni(key: *const [u8; 272], rounds: usize, state: *mut [u8; 16], last: *const u8, last_len: usize, scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        "cmp r8, 16",
+        "je 20f",
+        "mov eax, 0",
+        "mov QWORD PTR [r9+2048], rax",
+        "mov QWORD PTR [r9+2056], rax",
+        "test r8, r8",
+        "je 22f",
+        "mov r10d, 0",
+        "24:",
+        "movzx eax, BYTE PTR [rcx+r10*1]",
+        "mov BYTE PTR [r9+r10*1+2048], al",
+        "add r10, 1",
+        "cmp r10, r8",
+        "jne 24b",
+        "jmp 23f",
+        "22:",
+        "23:",
+        "mov eax, 128",
+        "mov BYTE PTR [r9+r8*1+2048], al",
+        "mov rax, QWORD PTR [r9+2048]",
+        "xor rax, QWORD PTR [rdi+256]",
+        "mov QWORD PTR [r9+2048], rax",
+        "mov rax, QWORD PTR [r9+2056]",
+        "xor rax, QWORD PTR [rdi+264]",
+        "mov QWORD PTR [r9+2056], rax",
+        "jmp 21f",
+        "20:",
+        "mov rax, QWORD PTR [rcx]",
+        "xor rax, QWORD PTR [rdi+240]",
+        "mov QWORD PTR [r9+2048], rax",
+        "mov rax, QWORD PTR [rcx+8]",
+        "xor rax, QWORD PTR [rdi+248]",
+        "mov QWORD PTR [r9+2056], rax",
+        "21:",
+        "mov rax, QWORD PTR [r9+2048]",
+        "xor rax, QWORD PTR [rdx]",
+        "mov QWORD PTR [r9+2048], rax",
+        "mov rax, QWORD PTR [r9+2056]",
+        "xor rax, QWORD PTR [rdx+8]",
+        "mov QWORD PTR [r9+2056], rax",
+        "mov eax, 0",
+        "mov QWORD PTR [rdx], rax",
+        "mov QWORD PTR [rdx+8], rax",
+        "mov rcx, rdx",
+        "mov rdx, r9",
+        "add rdx, 2048",
+        "mov r8d, 1",
+        "call {vg_aes_ctr32_aesni}",
+        "ret",
+        vg_aes_ctr32_aesni = sym super::aes::vg_aes_ctr32_aesni,
+    )
+}
+
+/// The CMAC subkey generation (NIST SP 800-38B §6.1) for AES: writes `K1 ‖ K2` to `*subkeys`, where `L = CIPH_K(0¹²⁸)`, `K1 = L << 1` (XORed with `R₁₂₈ = 0¹²⁰10000111` if the leftmost bit of `L` is 1) and `K2` is `K1` doubled the same way. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.
+///
+/// Contract: `VG.Spec.Cmac.aesSubkeysContract`. Constant time: only the pointers and `rounds` may affect timing, not the key schedule or the subkeys.
+///
+/// This implementation encrypts each block with `vg_aes_ctr32`.
+///
+/// # Safety
+///
+/// * `schedule` must be valid for reads of 240 bytes.
+/// * `subkeys` must be valid for reads and writes of 32 bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
+/// * `subkeys` and `scratch` must not overlap each other or `schedule` (distinct Rust objects never do).
+/// * None of `schedule`, `subkeys` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_subkeys(schedule: *const [u8; 240], rounds: usize, subkeys: *mut [u8; 32], scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        "mov QWORD PTR [rcx+2064], rbx",
+        "mov QWORD PTR [rcx+2072], rbp",
+        "mov rbx, rdx",
+        "mov rbp, rcx",
+        "mov eax, 0",
+        "mov QWORD PTR [rcx+2048], rax",
+        "mov QWORD PTR [rcx+2056], rax",
+        "mov QWORD PTR [rdx], rax",
+        "mov QWORD PTR [rdx+8], rax",
+        "mov r9, rbp",
+        "mov rdx, rbp",
+        "add rdx, 2048",
+        "mov rcx, rbx",
+        "mov r8d, 1",
+        "call {vg_aes_ctr32}",
+        "mov rax, QWORD PTR [rbx]",
+        "bswap rax",
+        "mov rdx, QWORD PTR [rbx+8]",
+        "bswap rdx",
+        "mov rcx, rax",
+        "shr rcx, 63",
+        "mov r8d, 0",
+        "sub r8, rcx",
+        "and r8, 135",
+        "mov rcx, rdx",
+        "shr rcx, 63",
+        "add rax, rax",
+        "or rax, rcx",
+        "add rdx, rdx",
+        "xor rdx, r8",
+        "bswap rax",
+        "bswap rdx",
+        "mov QWORD PTR [rbx], rax",
+        "mov QWORD PTR [rbx+8], rdx",
+        "mov rax, QWORD PTR [rbx]",
+        "bswap rax",
+        "mov rdx, QWORD PTR [rbx+8]",
+        "bswap rdx",
+        "mov rcx, rax",
+        "shr rcx, 63",
+        "mov r8d, 0",
+        "sub r8, rcx",
+        "and r8, 135",
+        "mov rcx, rdx",
+        "shr rcx, 63",
+        "add rax, rax",
+        "or rax, rcx",
+        "add rdx, rdx",
+        "xor rdx, r8",
+        "bswap rax",
+        "bswap rdx",
+        "mov QWORD PTR [rbx+16], rax",
+        "mov QWORD PTR [rbx+24], rdx",
+        "mov rbx, QWORD PTR [rbp+2064]",
+        "mov rbp, QWORD PTR [rbp+2072]",
+        "ret",
+        vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
+    )
+}
+
+/// CMAC's chaining (NIST SP 800-38B §6.2 step 6) for AES, over whole blocks: replaces the block `C₀` at `*state` with `Cₙ`, where `Cᵢ = CIPH_K(Cᵢ₋₁ ⊕ Mᵢ)` for the `n` 16-byte blocks `M₁ … Mₙ` starting at `data`. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.
+///
+/// Contract: `VG.Spec.Cmac.aesUpdateContract`. Constant time: only the pointers, `rounds` and `n` may affect timing, not the key schedule, the chaining value or the data.
+///
+/// This implementation encrypts each block with `vg_aes_ctr32`.
+///
+/// # Safety
+///
+/// * `schedule` must be valid for reads of 240 bytes.
+/// * `state` must be valid for reads and writes of 16 bytes.
+/// * `data` must be valid for reads of `16 * n` bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other, `schedule` or `data` (distinct Rust objects never do).
+/// * None of `schedule`, `state`, `data` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_update(schedule: *const [u8; 240], rounds: usize, state: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        "mov QWORD PTR [r9+2064], rbx",
+        "mov QWORD PTR [r9+2072], rbp",
+        "mov QWORD PTR [r9+2080], r12",
+        "mov QWORD PTR [r9+2088], r13",
+        "mov QWORD PTR [r9+2096], r14",
+        "mov QWORD PTR [r9+2104], r15",
+        "mov rbx, rdi",
+        "mov rbp, rsi",
+        "mov r12, rdx",
+        "mov r13, rcx",
+        "mov r14, r8",
+        "mov r15, r9",
+        "test r14, r14",
+        "je 20f",
+        "22:",
+        "mov rax, QWORD PTR [r12]",
+        "xor rax, QWORD PTR [r13]",
+        "mov QWORD PTR [r15+2048], rax",
+        "mov rax, QWORD PTR [r12+8]",
+        "xor rax, QWORD PTR [r13+8]",
+        "mov QWORD PTR [r15+2056], rax",
+        "mov eax, 0",
+        "mov QWORD PTR [r12], rax",
+        "mov QWORD PTR [r12+8], rax",
+        "mov rdi, rbx",
+        "mov rsi, rbp",
+        "mov r9, r15",
+        "mov rdx, r15",
+        "add rdx, 2048",
+        "mov rcx, r12",
+        "mov r8d, 1",
+        "call {vg_aes_ctr32}",
+        "add r13, 16",
+        "sub r14, 1",
+        "jne 22b",
+        "jmp 21f",
+        "20:",
+        "21:",
+        "mov rbx, QWORD PTR [r15+2064]",
+        "mov rbp, QWORD PTR [r15+2072]",
+        "mov r12, QWORD PTR [r15+2080]",
+        "mov r13, QWORD PTR [r15+2088]",
+        "mov r14, QWORD PTR [r15+2096]",
+        "mov r15, QWORD PTR [r15+2104]",
+        "ret",
+        vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
+    )
+}
+
+/// Finishes an AES-CMAC computation (NIST SP 800-38B §6.2, with `Tlen = 128`): if the block at `*state` is the chaining value `Cₙ₋₁` of the message's blocks but the last (as `vg_cmac_aes_update` computes it from a zero block), and the `last_len` bytes at `last` are the message's last bytes `Mₙ*`, replaces it with the MAC `Cₙ = CIPH_K(Cₙ₋₁ ⊕ Mₙ)`, where `Mₙ = K1 ⊕ Mₙ*` if `last_len` is 16, and `Mₙ = K2 ⊕ (Mₙ* ‖ 10ʲ)` otherwise. `*key` is the 240 bytes `vg_aes_expand_key` writes the key schedule for `rounds` rounds to, followed by the subkeys `K1 ‖ K2` (as `vg_cmac_aes_subkeys` writes them). `last_len` is 0 only for the empty message.
+///
+/// Contract: `VG.Spec.Cmac.aesFinalizeContract`. Constant time: only the pointers, `rounds` and `last_len` may affect timing, not the key schedule, the subkeys, the chaining value or the data.
+///
+/// This implementation encrypts each block with `vg_aes_ctr32`.
+///
+/// # Safety
+///
+/// * `key` must be valid for reads of 272 bytes.
+/// * `state` must be valid for reads and writes of 16 bytes.
+/// * `last` must be valid for reads of `last_len` bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * `last_len` must be at most 16.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other, `key` or `last` (distinct Rust objects never do).
+/// * None of `key`, `state`, `last` and `scratch` may overlap the return address on the stack or the 8 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_cmac_aes_finalize(key: *const [u8; 272], rounds: usize, state: *mut [u8; 16], last: *const u8, last_len: usize, scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        "cmp r8, 16",
+        "je 20f",
+        "mov eax, 0",
+        "mov QWORD PTR [r9+2048], rax",
+        "mov QWORD PTR [r9+2056], rax",
+        "test r8, r8",
+        "je 22f",
+        "mov r10d, 0",
+        "24:",
+        "movzx eax, BYTE PTR [rcx+r10*1]",
+        "mov BYTE PTR [r9+r10*1+2048], al",
+        "add r10, 1",
+        "cmp r10, r8",
+        "jne 24b",
+        "jmp 23f",
+        "22:",
+        "23:",
+        "mov eax, 128",
+        "mov BYTE PTR [r9+r8*1+2048], al",
+        "mov rax, QWORD PTR [r9+2048]",
+        "xor rax, QWORD PTR [rdi+256]",
+        "mov QWORD PTR [r9+2048], rax",
+        "mov rax, QWORD PTR [r9+2056]",
+        "xor rax, QWORD PTR [rdi+264]",
+        "mov QWORD PTR [r9+2056], rax",
+        "jmp 21f",
+        "20:",
+        "mov rax, QWORD PTR [rcx]",
+        "xor rax, QWORD PTR [rdi+240]",
+        "mov QWORD PTR [r9+2048], rax",
+        "mov rax, QWORD PTR [rcx+8]",
+        "xor rax, QWORD PTR [rdi+248]",
+        "mov QWORD PTR [r9+2056], rax",
+        "21:",
+        "mov rax, QWORD PTR [r9+2048]",
+        "xor rax, QWORD PTR [rdx]",
+        "mov QWORD PTR [r9+2048], rax",
+        "mov rax, QWORD PTR [r9+2056]",
+        "xor rax, QWORD PTR [rdx+8]",
+        "mov QWORD PTR [r9+2056], rax",
+        "mov eax, 0",
+        "mov QWORD PTR [rdx], rax",
+        "mov QWORD PTR [rdx+8], rax",
+        "mov rcx, rdx",
+        "mov rdx, r9",
+        "add rdx, 2048",
+        "mov r8d, 1",
+        "call {vg_aes_ctr32}",
+        "ret",
+        vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
+    )
+}

@@ -27,9 +27,11 @@ open VG.Spec.Sha256 (stateAt H0)
 /-- The two instructions storing the word `x` at `[eax + 4 * k]`. -/
 def word (x : BitVec 32) (k : Nat) : List Instr := [.mov .ecx (.imm x), .store (at_ .eax (4 * k)) .ecx]
 
-theorem init_eq : init = .seq (.block [.mov .eax (.mem (at_ .esp 4))])
-    (.block (word H0[0] 0 ++ word H0[1] 1 ++ word H0[2] 2 ++ word H0[3] 3 ++ word H0[4] 4 ++
-      word H0[5] 5 ++ word H0[6] 6 ++ word H0[7] 7)) := rfl
+variable (iv : Spec.Sha256.HashValue)
+
+theorem initWith_eq : initWith iv = .seq (.block [.mov .eax (.mem (at_ .esp 4))])
+    (.block (word iv[0] 0 ++ word iv[1] 1 ++ word iv[2] 2 ++ word iv[3] 3 ++ word iv[4] 4 ++
+      word iv[5] 5 ++ word iv[6] 6 ++ word iv[7] 7)) := rfl
 
 theorem word_ok {x : BitVec 32} {k : Nat} {rest : List Instr} {s : State} {Q : State → Prop}
     {st : BitVec 32} (heax : s.gpr .eax = st) (hout : InRegions s.wr (addr st (4 * k)) 4)
@@ -43,18 +45,18 @@ theorem word_ok {x : BitVec 32} {k : Nat} {rest : List Instr} {s : State} {Q : S
     (by rw [u₂.rd, u₁.rd]) (by rw [u₂.wr, u₁.wr]) ?_
   rw [u₂.mem, u₁.gpr, u₁.mem]
 
-theorem init_correct {s₀ : State} (hp : Proof.Sha256.initX86.pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.initX86.post s₀ s' := by
+theorem init_correct {s₀ : State} (hp : (Proof.Sha256.initX86 iv).pre s₀) :
+    WP isa (initWith iv) s₀ fun s' => abiPreserved s₀ s' ∧ (Proof.Sha256.initX86 iv).post s₀ s' := by
   obtain ⟨hrd, hwr, hargs, hret, hfit, hsp⟩ := hp
   set st := arg s₀ 0 with hst
   have o : ∀ k, k < 8 → InRegions s₀.wr (addr st (4 * k)) 4 :=
     fun k hk => ⟨⟨st.setWidth 64, 96⟩, by simp [hwr], contains_addr (by omega) (by omega) hfit⟩
-  rw [init_eq]
+  rw [initWith_eq]
   refine WP.seq (wp_movm (a := addr (s₀.gpr .esp) 4) (ea_at _ _ _)
     ⟨⟨argAddr s₀ 0, 4⟩, by simp [hrd], Region.contains_self _ _⟩ fun s₁ u₁ => WP.block_nil ?_)
   have e1 : s₁.gpr .eax = st := u₁.gpr
   have w1 : s₁.wr = s₀.wr := u₁.wr
-  rw [← List.append_nil (_ ++ word H0[7] 7)]
+  rw [← List.append_nil (_ ++ word iv[7] 7)]
   simp only [List.append_assoc]
   refine word_ok e1 (by rw [w1]; exact o 0 (by omega)) fun s2 a2 g2 _ wr2 m2 => ?_
   refine word_ok a2 (by rw [wr2, w1]; exact o 1 (by omega)) fun s3 a3 g3 _ wr3 m3 => ?_
@@ -71,7 +73,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha256.initX86.pre s₀) :
     rw [g9 r h, g8 r h, g7 r h, g6 r h, g5 r h, g4 r h, g3 r h, g2 r h, u₁.other r h']
   have ha : ∀ k, k < 8 → addr st (4 * k) = st.setWidth 64 + BitVec.ofNat 64 (4 * k) :=
     fun k hk => addr_eq (by omega)
-  have hm : s9.mem = Proof.Sha256.StateMem.writeState s₀.mem (st.setWidth 64) H0 := by
+  have hm : s9.mem = Proof.Sha256.StateMem.writeState s₀.mem (st.setWidth 64) iv := by
     rw [m9, m8, m7, m6, m5, m4, m3, m2, u₁.mem, ha 0 (by omega), ha 1 (by omega), ha 2 (by omega),
       ha 3 (by omega), ha 4 (by omega), ha 5 (by omega), ha 6 (by omega), ha 7 (by omega)]
     rfl
@@ -91,9 +93,9 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha256.initX86.pre s₀) :
   · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide
   · exact hf.readW (Region.contains_self _ _) (by simpa using hret) (by decide)
-  · show Spec.Sha256.Repr s9.mem (st.setWidth 64) []
+  · show Spec.Sha256.ReprFrom iv s9.mem (st.setWidth 64) []
     rw [hm]
-    exact Proof.Sha256.Stream.repr_nil (Proof.Sha256.StateMem.stateAt_writeState _ _ _)
+    exact Proof.Sha256.Stream.reprFrom_nil (Proof.Sha256.StateMem.stateAt_writeState _ _ _)
 
 /-- Memory holding the argument `0x1000` at `0x4004`. -/
 def initSatMem : Mem := fun a => if a = 0x4005 then 0x10 else 0
@@ -110,7 +112,7 @@ def initSat : State where
   rd := [⟨0x4004, 4⟩]
   wr := [⟨0x1000, 96⟩]
 
-theorem initSat_pre : Proof.Sha256.initX86.pre initSat := by
+theorem initSat_pre : (Proof.Sha256.initX86 iv).pre initSat := by
   have a0 : arg initSat 0 = 0x1000 := by decide
   have e : argAddr initSat 0 = 0x4004 := by decide
   simp only [Proof.Sha256.initX86, a0, e]
@@ -120,10 +122,11 @@ theorem initSat_pre : Proof.Sha256.initX86.pre initSat := by
 is the base address of the writable region. -/
 def initτ₀ : VG.X86.Taint.T := { regs := .ofList [.esp], flags := false, argLen := 8 }
 
-theorem init_agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.initX86.pre s₁) (h₂ : Proof.Sha256.initX86.pre s₂)
-    (hpub : Proof.Sha256.initX86.pub s₁ s₂) : VG.X86.Taint.Agree initτ₀ s₁ s₂ := by
+theorem init_agree₀ {s₁ s₂ : State} (h₁ : (Proof.Sha256.initX86 iv).pre s₁)
+    (h₂ : (Proof.Sha256.initX86 iv).pre s₂) (hpub : (Proof.Sha256.initX86 iv).pub s₁ s₂) :
+    VG.X86.Taint.Agree initτ₀ s₁ s₂ := by
   obtain ⟨hesp, a0⟩ := hpub
-  have wf : ∀ s, Proof.Sha256.initX86.pre s → VG.X86.Taint.Wf initτ₀ s := by
+  have wf : ∀ s, (Proof.Sha256.initX86 iv).pre s → VG.X86.Taint.Wf initτ₀ s := by
     intro s hs
     obtain ⟨-, hw, hd, hr, -, hsp⟩ := hs
     refine VG.X86.Taint.Wf.entry rfl rfl ⟨fun h => absurd rfl h, fun _ h => (List.not_mem_nil h).elim,
@@ -143,12 +146,20 @@ theorem init_agree₀ {s₁ s₂ : State} (h₁ : Proof.Sha256.initX86.pre s₁)
       show (k - 4) / 4 = 0 by omega]
     exact congrArg _ a0
 
-theorem init_verified : Verified X86.target init Proof.Sha256.initX86 := by
-  refine ⟨fun s hs => ?_, ?_, ⟨initSat, initSat_pre⟩⟩
-  · obtain ⟨t, s', he, h⟩ := init_correct hs
+/-- `initWith iv` is verified, given that the taint analysis, which the
+kernel can only run on a literal `iv`, accepts it. -/
+theorem initWith_verified {hc} (hct : (taint.check initτ₀ (initWith iv) hc).isSome = true) :
+    Verified X86.target (initWith iv) (Proof.Sha256.initX86 iv) := by
+  refine ⟨fun s hs => ?_, ?_, ⟨initSat, initSat_pre iv⟩⟩
+  · obtain ⟨t, s', he, h⟩ := init_correct iv hs
     exact ⟨t, s', he, h⟩
-  · exact VG.Taint.constantTime (A := taint) initτ₀ (fun _ _ h₁ h₂ hp => init_agree₀ h₁ h₂ hp)
-      (by taint_decide)
+  · exact VG.Taint.constantTime (A := taint) initτ₀ (fun _ _ h₁ h₂ hp => init_agree₀ iv h₁ h₂ hp) hct
+
+theorem init_verified : Verified X86.target init (Proof.Sha256.initX86 H0) :=
+  initWith_verified _ (hct := by taint_decide)
+
+theorem init224_verified : Verified X86.target init224 (Proof.Sha256.initX86 Spec.Sha256.H0_224) :=
+  initWith_verified _ (hct := by taint_decide)
 
 end VG.Proof.Sha256.X86.Stream
 
@@ -210,7 +221,7 @@ theorem update_verified : Verified X86.target Impl.Sha256.X86.Stream.update Proo
   rw [update_eq] at ct ⊢
   have h := MdStream.X86.Update.verified (name := "vg_sha256_compress") dims callee ct
   exact Verified.of_implies h
-    ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr hc, fun _ _ _ _ h => h, h.2.2⟩
+    ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr hc, fun _ _ _ _ h => h, h.2.2⟩
 
 /-- A state satisfying `update`'s precondition. -/
 abbrev sat : State := MdStream.X86.Update.sat params 160
@@ -227,7 +238,7 @@ theorem finalize_verified : Verified X86.target Impl.Sha256.X86.Stream.finalize 
   rw [finalize_eq] at ct ⊢
   have h := MdStream.X86.Finalize.verified (name := "vg_sha256_compress") dims shape callee ct
   exact Verified.of_implies h
-    ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
+    ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
 
 /-- A state satisfying `finalize`'s precondition. -/
 abbrev sat : State := MdStream.X86.Finalize.sat params 160
@@ -338,9 +349,9 @@ theorem compressWide_verified (hsat : ∃ s, compressWide.pre s) :
     (fun _ _ _ _ h => by narrow; exact h) hsat
 
 /-- `update` only reads its arguments. -/
-theorem updateWide_verified (hsat : ∃ s, updateWide.pre s) :
-    Verified X86.target Impl.Sha256.X86.Stream.update updateWide :=
-  Verified.narrowTo Proof.Sha256.X86.Stream.Update.update_verified
+theorem updateWide_of {code : Prog isa} (hv : Verified X86.target code Proof.Sha256.updateX86)
+    (hsat : ∃ s, updateWide.pre s) : Verified X86.target code updateWide :=
+  Verified.narrowTo hv
     (fun s => [⟨(arg s 3).setWidth 64, (arg s 4).toNat⟩, ⟨argAddr s 0, 24⟩])
     (fun s => [⟨(arg s 0).setWidth 64, 96⟩, ⟨(arg s 5).setWidth 64, 160⟩])
     (fun _ h => by
@@ -372,9 +383,9 @@ theorem updateWide_verified (hsat : ∃ s, updateWide.pre s) :
     (fun _ _ _ h => by narrow at h ⊢; exact h)
     (fun _ _ _ _ h => by narrow; exact h) hsat
 
-theorem finalizeWide_verified (hsat : ∃ s, finalizeWide.pre s) :
-    Verified X86.target Impl.Sha256.X86.Stream.finalize finalizeWide :=
-  Verified.widen Proof.Sha256.X86.Stream.Finalize.finalize_verified
+theorem finalizeWide_of {code : Prog isa} (hv : Verified X86.target code Proof.Sha256.finalizeX86)
+    (hsat : ∃ s, finalizeWide.pre s) : Verified X86.target code finalizeWide :=
+  Verified.widen hv
     (fun s => [⟨(arg s 0).setWidth 64, 96⟩, ⟨(arg s 3).setWidth 64, 32⟩,
       ⟨(arg s 4).setWidth 64, 160⟩, ⟨argAddr s 0, 20⟩])
     (fun _ h => by
@@ -419,6 +430,13 @@ theorem init :
       X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
       [Proof.Sha256.X86.Stream.initSat, Proof.Sha256.X86.Stream.initSatMem, X86.arg, X86.argAddr, Mem.readW, Mem.read] using Proof.Sha256.X86.Stream.initSat)
 
+theorem init224 :
+    Verified X86.target Impl.Sha256.X86.Stream.init224 (Spec.Sha256.init224Contract X86.abi) :=
+  Proof.Sha256.X86.Stream.init224_verified.of_implies (by
+    contract_implies [Spec.Sha256.init224Contract, Spec.Sha256.initSig, Proof.Sha256.initX86,
+      X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
+      [Proof.Sha256.X86.Stream.initSat, Proof.Sha256.X86.Stream.initSatMem, X86.arg, X86.argAddr, Mem.readW, Mem.read] using Proof.Sha256.X86.Stream.initSat)
+
 theorem updateWide_implies : updateWide.Implies (Spec.Sha256.updateContract X86.abi 20) := by
   contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, updateWide,
     Proof.Sha256.updateX86, Proof.Sha256.countX86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
@@ -427,7 +445,7 @@ theorem updateWide_implies : updateWide.Implies (Spec.Sha256.updateContract X86.
 
 theorem update :
     Verified X86.target Impl.Sha256.X86.Stream.update (Spec.Sha256.updateContract X86.abi 20) :=
-  (updateWide_verified updateWide_implies.sat_left).of_implies updateWide_implies
+  (updateWide_of Proof.Sha256.X86.Stream.Update.update_verified updateWide_implies.sat_left).of_implies updateWide_implies
 
 theorem finalizeWide_implies : finalizeWide.Implies (Spec.Sha256.finalizeContract X86.abi 20) := by
   contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig, finalizeWide,
@@ -438,6 +456,6 @@ theorem finalizeWide_implies : finalizeWide.Implies (Spec.Sha256.finalizeContrac
 
 theorem finalize :
     Verified X86.target Impl.Sha256.X86.Stream.finalize (Spec.Sha256.finalizeContract X86.abi 20) :=
-  (finalizeWide_verified finalizeWide_implies.sat_left).of_implies finalizeWide_implies
+  (finalizeWide_of Proof.Sha256.X86.Stream.Finalize.finalize_verified finalizeWide_implies.sat_left).of_implies finalizeWide_implies
 
 end VG.Proof.Sha256.X86.Shared

@@ -12,7 +12,9 @@ def artifacts : List Artifact := [
       Checks canonical point encodings and S < L, then evaluates the uncofactored equation \
       using all 512 challenge bits. No additional subgroup or small-order policy is imposed. \
       [S]B adds the precomputed powers [2^i]B of the base point, and both scalar \
-      multiplications add only for the set bits of their public scalars."])
+      multiplications add only for the set bits of their public scalars. [k]A doubles \
+      through only the low 256 bits of a challenge whose upper 32 bytes are zero, as a \
+      challenge reduced modulo L is."])
     code := Impl.Ed25519.AArch64.verifyEquation
     contract := Spec.Ed25519.verifyEquationContract AArch64.abi
     verified := Proof.Ed25519.AArch64.verify_verified

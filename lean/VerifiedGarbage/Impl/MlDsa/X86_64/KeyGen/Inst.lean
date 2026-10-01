@@ -1,7 +1,5 @@
 import VerifiedGarbage.Impl.MlDsa.X86_64.KeyGen.KeyGen
-import VerifiedGarbage.Impl.MlDsa.X86_64.Arith.Ntt
-import VerifiedGarbage.Impl.MlDsa.X86_64.Arith.Mul
-import VerifiedGarbage.Impl.MlDsa.X86_64.Arith.AddSub
+import VerifiedGarbage.Impl.MlDsa.X86_64.Arith.Backend
 import VerifiedGarbage.Impl.MlDsa.X86_64.Sample.RejNtt
 import VerifiedGarbage.Impl.MlDsa.X86_64.Sample.RejBounded
 import VerifiedGarbage.Impl.MlDsa.X86_64.Round.Round
@@ -11,7 +9,8 @@ import VerifiedGarbage.Impl.MlDsa.X86_64.Pack.Encode
 # ML-DSA key generation on x86-64, with this library's primitives
 
 `keyGen` (`KeyGen.lean`) called with the x86-64 implementations of the
-primitives it calls (`Arith/`, `Sample/`, `Round/`, `Pack/`).
+primitives it calls (`Arith/`, `Sample/`, `Round/`, `Pack/`), with the
+polynomial arithmetic of a `Backend` (`primsWith`).
 -/
 
 namespace VG.Impl.MlDsa.X86_64.KeyGen
@@ -31,11 +30,14 @@ def prims : Prims where
   simpleBitPack := Pack.simpleBitPack
   bitPack := Pack.bitPack
 
-/-- `vg_mldsa44_keygen` -/
-def keyGen44 : Prog isa := keyGen prims Spec.MlDsa.mlDsa44
-/-- `vg_mldsa65_keygen` -/
-def keyGen65 : Prog isa := keyGen prims Spec.MlDsa.mlDsa65
-/-- `vg_mldsa87_keygen` -/
-def keyGen87 : Prog isa := keyGen prims Spec.MlDsa.mlDsa87
+/-- The primitives, with the polynomial arithmetic of `B`. -/
+def primsWith (B : Arith.Backend) : Prims :=
+  { prims with
+    ntt := B.ntt
+    invNtt := B.invNtt
+    mul := B.mul
+    mulAdd := B.mulAdd
+    add := B.add
+    sfx := B.sfx }
 
 end VG.Impl.MlDsa.X86_64.KeyGen

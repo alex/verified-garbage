@@ -7,6 +7,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off)
 
+variable {fld : Arith} [EdArith fld]
+
 structure PointMulInv (s₀ : State) (base : Addr) (count scalar : Nat) (p : Spec.Ed25519.Point)
     (n : Nat) (s : State) : Prop where
   positive : 0 < n
@@ -26,7 +28,7 @@ theorem pointMulLoop_ok {s₀ : State} {base : Addr} (hs : Scratch s₀ base)
     (hp : point (env s₀.mem base) 0 1 2 3 = after scalar p (16 * count))
     (hb : ∀ i < 16 * count, s₀.mem (off base (768 + i)) = BitVec.ofNat 8 ((scalar / 2 ^ i) % 2))
     (ht : ∀ i < count, tablePoint s₀.mem base (1280 + 128 * i) = powerPoint p (16 * i)) :
-    WP isa (.loop pointMulBatch .ne) s₀ fun t =>
+    WP isa (.loop (pointMulBatch fld) .ne) s₀ fun t =>
       point (env t.mem base) 0 1 2 3 = Spec.Ed25519.pointMul scalar p ∧
       env t.mem base 16 = Spec.Ed25519.d ∧ PowersKeep base 56 7368 s₀ t := by
   apply WP.loop (PointMulInv s₀ base count scalar p) (n := count)

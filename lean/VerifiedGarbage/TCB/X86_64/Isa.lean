@@ -71,10 +71,11 @@ Modelling choices:
   operands. `zmm16`–`zmm31` and the opmask registers `k0`–`k7` are not
   modelled: no modelled instruction names them, and none here is masked.
   No SSE, AVX or AVX-512 instruction has a memory operand except the
-  unaligned `movdqu`/`vmovdqu`/`vmovdqu32` loads and stores and
-  `vbroadcasti128`/`vbroadcasti32x4`, which (like every VEX or EVEX memory
-  operand but those of the aligned moves) need no alignment, so no
-  alignment fault needs modelling.
+  unaligned `movdqu`/`vmovdqu`/`vmovdqu32` loads and stores,
+  `vbroadcasti128`/`vbroadcasti32x4`, and the quadword source of the
+  embedded-broadcast forms `zbcst` (`m64bcst`), which (like every VEX or
+  EVEX memory operand but those of the aligned moves) need no alignment, so
+  no alignment fault needs modelling.
 * MXCSR (SDM Vol. 1 §10.2.3) is modelled as a 32-bit value that only
   `ldmxcsr` and `stmxcsr` access: no other modelled instruction reads or
   writes it (integer instructions raise no SIMD floating-point exceptions).
@@ -178,6 +179,12 @@ inductive Instr
   | vmovdqu32Store (dst : MemOp) (src : XReg)
   /-- `vbroadcasti32x4 zmm, XMMWORD PTR [src]` (`EVEX.512.66.0F38.W0 5A /r`) -/
   | vbroadcasti32x4 (dst : XReg) (src : MemOp)
+  /-- `op zmm1, zmm2, QWORD PTR [src2]{1to8}`, an AVX-512 instruction whose
+  second source is the quadword at `src2` broadcast to every quadword
+  (`m64bcst`, `EVEX.b = 1`): `vpmuludq` (`EVEX.512.66.0F.W1 F4 /r`),
+  `vpandq` (`EVEX.512.66.0F.W1 DB /r`) or `vporq` (`EVEX.512.66.0F.W1 EB
+  /r`). -/
+  | zbcst (op : ZBcstOp) (dst src1 : XReg) (src2 : MemOp)
   /-- `stmxcsr DWORD PTR [dst]` (`NP 0F AE /3`) -/
   | stmxcsr (dst : MemOp)
   /-- `ldmxcsr DWORD PTR [src]` (`NP 0F AE /2`) -/
@@ -245,8 +252,15 @@ VPUNPCKLDQ, VPUNPCKHDQ, VPUNPCKLQDQ and VPUNPCKHQDQ (`EVEX.512.66.0F.W0 62
 /r`, `EVEX.512.66.0F.W0 6A /r`, `EVEX.512.66.0F.W1 6C /r`,
 `EVEX.512.66.0F.W1 6D /r`), VPROLD (`EVEX.512.66.0F.W0 72 /1 ib`), VPSHUFD
 (`EVEX.512.66.0F.W0 70 /r ib`), VSHUFI32X4 (`EVEX.512.66.0F3A.W0 43 /r
-ib`), VMOVDQU32 (`EVEX.512.F3.0F.W0 6F /r`, `EVEX.512.F3.0F.W0 7F /r`) and
-VBROADCASTI32X4 (`EVEX.512.66.0F38.W0 5A /r`). SHA512 for VSHA512RNDS2,
+ib`), VPADDQ (`EVEX.512.66.0F.W1 D4 /r`), VPMULUDQ (`EVEX.512.66.0F.W1 F4
+/r`), VPANDQ (`EVEX.512.66.0F.W1 DB /r`), VPORQ (`EVEX.512.66.0F.W1 EB
+/r`), VPANDNQ (`EVEX.512.66.0F.W1 DF /r`), VPSLLQ and VPSRLQ
+(`EVEX.512.66.0F.W1 73 /6 ib`, `EVEX.512.66.0F.W1 73 /2 ib`), VPBROADCASTQ
+(`EVEX.512.66.0F38.W1 59 /r`), VMOVDQA64 (`EVEX.512.66.0F.W1 6F /r`),
+VMOVDQU32 (`EVEX.512.F3.0F.W0 6F /r`, `EVEX.512.F3.0F.W0 7F /r`) and
+VBROADCASTI32X4 (`EVEX.512.66.0F38.W0 5A /r`), and for those of VPMULUDQ,
+VPANDQ and VPORQ with an `m64bcst` source (`EVEX.512.66.0F.W1 F4 /r`,
+`EVEX.512.66.0F.W1 DB /r`, `EVEX.512.66.0F.W1 EB /r`). SHA512 for VSHA512RNDS2,
 VSHA512MSG1 and VSHA512MSG2 (`VEX.256.F2.0F38.W0 CB /r`, `VEX.256.F2.0F38.W0
 CC /r`, `VEX.256.F2.0F38.W0 CD /r`). AVX512_IFMA and AVX512VL for the
 EVEX.128 and EVEX.256 forms of VPMADD52LUQ and VPMADD52HUQ
@@ -273,7 +287,8 @@ def Instr.requires : Instr → List String
   | .rorx32 .. | .rorx .. | .mulx .. => ["bmi2"]
   | .adcx .. | .adox .. => ["adx"]
   | .andn32 .. | .andn .. => ["bmi1"]
-  | .zop _ | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. => ["avx512f"]
+  | .zop _ | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. | .zbcst .. =>
+    ["avx512f"]
   | .vop (.vsha512rnds2 ..) | .vop (.vsha512msg1 ..) | .vop (.vsha512msg2 ..) => ["sha512"]
   | .vop (.vpmadd52luq ..) | .vop (.vpmadd52huq ..) => ["avx512ifma", "avx512vl"]
   | _ => []
@@ -338,6 +353,12 @@ def exec : Instr → State → Option State
   -- write mask): each 128-bit lane of `DEST` is `SRC[127:0]`; no alignment
   -- is required.
   | .vbroadcasti32x4 d m, s => (s.load128 (s.ea m)).map fun v => s.setZ d v v v v
+  -- See `ZBcstOp.sse`: on each 128-bit lane, the SSE operation of the lane
+  -- of `SRC1` and the loaded quadword `SRC2[63:0]` in both quadwords; no
+  -- alignment is required.
+  | .zbcst op d a m, s => (s.load64 (s.ea m)).map fun v =>
+    let f (i : Nat) := op.sse.eval (s.zlane a i) (v ++ v)
+    s.setZ d (f 0) (f 1) (f 2) (f 3)
   -- SDM Vol. 2, "STMXCSR": `m32 := MXCSR`. "LDMXCSR": `MXCSR := m32`, with
   -- #GP(0) "for an attempt to set reserved bits in MXCSR", which are bits
   -- 31:16 (SDM Vol. 1 §10.2.3); on processors without DAZ, bit 6 is
@@ -386,6 +407,7 @@ def addrs : Instr → State → List Addr
   | .vmovdqu32Load _ m, s => [s.ea m]
   | .vmovdqu32Store m _, s => [s.ea m]
   | .vbroadcasti32x4 _ m, s => [s.ea m]
+  | .zbcst _ _ _ m, s => [s.ea m]
   | .stmxcsr m, s => [s.ea m]
   | .ldmxcsr m, s => [s.ea m]
   | .lfence, _ => []
@@ -473,8 +495,8 @@ def Instr.dst : Instr → Option Reg
   | .movImm64 d _ | .adcx d _ | .adox d _ | .pop d _ | .vpmovmskb _ d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _
   | .vop _ | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .zop _
-  | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. | .stmxcsr _ | .ldmxcsr _
-  | .lfence | .mul _ | .mulx .. | .push _ => none
+  | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. | .zbcst .. | .stmxcsr _
+  | .ldmxcsr _ | .lfence | .mul _ | .mulx .. | .push _ => none
 
 abbrev isa : ISA where
   State := State

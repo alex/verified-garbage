@@ -5,7 +5,9 @@ import VerifiedGarbage.TCB.X86_64.Avx
 
 **Trusted.** The EVEX-encoded (AVX-512F) instructions of the x86-64 model in
 `TCB/X86_64/Isa.lean` that write only vector registers, all with 512-bit
-(`zmm`) operands and no masking.
+(`zmm`) operands and no masking, and the operations of those with an
+embedded-broadcast memory operand (`ZBcstOp`, which `Isa.lean` runs since
+they read memory).
 -/
 
 namespace VG.X86_64
@@ -15,6 +17,12 @@ each 128-bit lane as the legacy SSE instruction does on its destination
 (`src1`) and source (`src2`). -/
 inductive ZBinOp
   | vpaddd | vpxord | vpunpckldq | vpunpckhdq | vpunpcklqdq | vpunpckhqdq
+  | vpaddq | vpmuludq | vpandq | vporq | vpandnq
+  deriving DecidableEq, Repr
+
+/-- EVEX-encoded shifts of each quadword by an immediate count,
+`vop zmm1, zmm2, imm8`. -/
+inductive ZShiftOp | vpsllq | vpsrlq
   deriving DecidableEq, Repr
 
 /-- AVX-512 instructions with 512-bit operands that write only vector
@@ -29,18 +37,77 @@ inductive ZOp
   | vpshufd (dst src : XReg) (order : BitVec 8)
   /-- `vshufi32x4 zmm1, zmm2, zmm3, imm8` (`EVEX.512.66.0F3A.W0 43 /r ib`) -/
   | vshufi32x4 (dst src1 src2 : XReg) (sel : BitVec 8)
+  /-- `vpsllq zmm1, zmm2, imm8` (`EVEX.512.66.0F.W1 73 /6 ib`) or `vpsrlq zmm1,
+  zmm2, imm8` (`EVEX.512.66.0F.W1 73 /2 ib`) -/
+  | vshift (op : ZShiftOp) (dst src : XReg) (count : BitVec 8)
+  /-- `vpbroadcastq zmm1, xmm2` (`EVEX.512.66.0F38.W1 59 /r`) -/
+  | vpbroadcastq (dst src : XReg)
+  /-- `vmovdqa64 zmm1, zmm2` (`EVEX.512.66.0F.W1 6F /r`) -/
+  | vmovdqa64 (dst src : XReg)
   deriving DecidableEq, Repr
 
 /-- The legacy SSE instruction whose operation `op` applies to each lane:
-VPADDD, VPXORD and VPUNPCK{L,H}{DQ,QDQ} are, lane by lane, PADDD, PXOR and
-PUNPCK{L,H}{DQ,QDQ} (SDM Vol. 2, each instruction's "EVEX.512 encoded
+VPADDD, VPXORD, VPUNPCK{L,H}{DQ,QDQ}, VPADDQ, VPMULUDQ, VPANDQ, VPORQ and
+VPANDNQ are, lane by lane, PADDD, PXOR, PUNPCK{L,H}{DQ,QDQ}, PADDQ, PMULUDQ,
+PAND, POR and PANDN (SDM Vol. 2, each instruction's "EVEX.512 encoded
 version" pseudocode, with `SRC1` in place of the destination and no write
-mask: VPADDD and VPXORD act on each doubleword, and VPUNPCK* interleave the
-elements of each 128-bit lane as the VEX.256 forms do on two). -/
+mask nor embedded broadcast, the second source being a register: VPADDD and
+VPXORD act on each doubleword; VPADDQ (`DEST[i+63:i] := SRC1[i+63:i] +
+SRC2[i+63:i]`), VPANDQ, VPORQ and VPANDNQ (`DEST[i+63:i] := ((NOT
+SRC1[i+63:i]) BITWISE AND SRC2[i+63:i])`) on each quadword, which on each
+128-bit lane is what PADDQ, PAND, POR and PANDN compute; VPMULUDQ
+(`DEST[i+63:i] := ZeroExtend64( SRC1[i+31:i]) * ZeroExtend64( SRC2[i+31:i]
+)`) multiplies the low doublewords of each quadword, as PMULUDQ does on
+each lane's two; and VPUNPCK* interleave the elements of each 128-bit lane
+as the VEX.256 forms do on two). -/
 def ZBinOp.sse : ZBinOp → XBinOp
   | .vpaddd => .paddd | .vpxord => .pxor
   | .vpunpckldq => .punpckldq | .vpunpckhdq => .punpckhdq
   | .vpunpcklqdq => .punpcklqdq | .vpunpckhqdq => .punpckhqdq
+  | .vpaddq => .paddq | .vpmuludq => .pmuludq | .vpandq => .pand | .vporq => .por
+  | .vpandnq => .pandn
+
+/-- The legacy SSE shift whose operation `op` applies to each lane: SDM Vol.
+2, "PSLLW/PSLLD/PSLLQ" and "PSRLW/PSRLD/PSRLQ", "VPSLLQ (EVEX versions,
+imm8)": `DEST[i+63:i] := LOGICAL_LEFT_SHIFT_QWORDS(SRC1[i+63:i], imm8)` for
+each quadword (no write mask, a register source), and VPSRLQ likewise with
+`LOGICAL_RIGHT_SHIFT_QWORDS`: on each 128-bit lane what PSLLQ and PSRLQ
+compute (a count above 63 gives zero). -/
+def ZShiftOp.sse : ZShiftOp → XShiftOp
+  | .vpsllq => .psllq | .vpsrlq => .psrlq
+
+/-- EVEX-encoded three-operand instructions `vop zmm, zmm, m64bcst` whose
+second source is a quadword in memory broadcast to every element
+(`QWORD PTR [m]{1to8}`, `EVEX.b = 1`); see `ZBcstOp.sse`. -/
+inductive ZBcstOp
+  | vpmuludq | vpandq | vporq
+  deriving DecidableEq, Repr
+
+/-- The legacy SSE instruction whose operation `op` applies to each lane,
+with the loaded quadword in both quadwords of its source. SDM Vol. 2, each
+instruction's "EVEX encoded versions" pseudocode with `(KL, VL) = (8, 512)`,
+no write mask and a memory `SRC2` with `EVEX.b = 1`, for each quadword
+`j` from 0 to 7 (`i := j * 64`):
+
+* VPMULUDQ ("PMULUDQ"): `IF (EVEX.b = 1) AND (SRC2 *is memory*) THEN
+  DEST[i+63:i] := ZeroExtend64( SRC1[i+31:i]) * ZeroExtend64( SRC2[31:0] )`.
+* VPANDQ ("PAND"): `IF (EVEX.b = 1) AND (SRC2 *is memory*) THEN
+  DEST[i+63:i] := SRC1[i+63:i] BITWISE AND SRC2[63:0]`.
+* VPORQ ("POR/VPOR/VPORD/VPORQ"): the SDM gives the pseudocode of VPORD
+  only, `IF (EVEX.b = 1) AND (SRC2 *is memory*) THEN DEST[i+31:i] :=
+  SRC1[i+31:i] BITWISE OR SRC2[31:0]` for each doubleword (`i := j * 32`),
+  and describes VPORQ as the same on quadwords, its source "a 512/256/128-bit
+  vector broadcasted from a 32/64-bit memory location" (the 64-bit one for
+  VPORQ): `DEST[i+63:i] := SRC1[i+63:i] BITWISE OR SRC2[63:0]` with
+  `i := j * 64`, as VPANDQ.
+
+Each quadword of `DEST` is that of `SRC1` combined with `SRC2[63:0]`, so
+on each 128-bit lane this is PMULUDQ, PAND and POR (`XBinOp.eval`) of the
+lane of `SRC1` and `SRC2[63:0]` twice: PMULUDQ multiplies the low
+doubleword of each quadword, and the low doubleword of `SRC2[63:0]` is
+`SRC2[31:0]`. -/
+def ZBcstOp.sse : ZBcstOp → XBinOp
+  | .vpmuludq => .pmuludq | .vpandq => .pand | .vporq => .por
 
 /-- SDM Vol. 2, "VPROLD/VPROLVD/VPROLQ/VPROLVQ", for one lane:
 `LEFT_ROTATE_DWORDS(SRC, COUNT_SRC) { COUNT := COUNT_SRC modulo 32;
@@ -68,7 +135,12 @@ SDM Vol. 2 (no flags are affected; with 512-bit operands the whole of
 * The lane-wise instructions: see `ZBinOp.sse`, `rolDwords` (VPROLD) and
   `shufDwords` (VPSHUFD: "EVEX.512 encoded version", each lane with the
   same `imm8`).
-* VSHUFI32X4: see `shuf4Lanes`. -/
+* VSHUFI32X4: see `shuf4Lanes`.
+* VPSLLQ and VPSRLQ: see `ZShiftOp.sse`.
+* VPBROADCASTQ (EVEX.512 encoded version, register source, no write mask):
+  every quadword of `DEST` is `SRC[63:0]`.
+* VMOVDQA64 (EVEX.512 encoded version, register to register, no write
+  mask): `DEST[511:0] := SRC[511:0]`. -/
 def ZOp.exec : ZOp → State → State
   | .zbin op d a b, s =>
     let f (i : Nat) := op.sse.eval (s.zlane a i) (s.zlane b i)
@@ -82,5 +154,12 @@ def ZOp.exec : ZOp → State → State
   | .vshufi32x4 d a b n, s =>
     let f := shuf4Lanes (s.zlane a) (s.zlane b) n
     s.setZ d (f 0) (f 1) (f 2) (f 3)
+  | .vshift op d r n, s =>
+    let f (i : Nat) := op.sse.eval (s.zlane r i) n
+    s.setZ d (f 0) (f 1) (f 2) (f 3)
+  | .vpbroadcastq d r, s =>
+    let x := qword (s.xmm r) 0 ++ qword (s.xmm r) 0
+    s.setZ d x x x x
+  | .vmovdqa64 d r, s => s.setZ d (s.zlane r 0) (s.zlane r 1) (s.zlane r 2) (s.zlane r 3)
 
 end VG.X86_64

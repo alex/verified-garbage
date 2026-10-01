@@ -2,6 +2,37 @@
 //! Verified `sha256` functions for `x86_64`.
 #![allow(dead_code)]
 
+/// Starts a SHA-224 computation: makes the SHA-256 streaming state `*state` represent the empty message, hashed from the initial hash value of SHA-224 (`VG.Spec.Sha256.H0_224`). Continue with `vg_sha256_update` and `vg_sha256_finalize`, and take the first 28 bytes of the final hash value as the digest.
+///
+/// Contract: `VG.Spec.Sha256.init224Contract`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha256.ReprFrom`).
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 96 bytes.
+/// * `state` must not overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_sha224_init(state: *mut [u8; 96]) {
+    core::arch::naked_asm!(
+        "mov eax, -1056596264",
+        "mov DWORD PTR [rdi], eax",
+        "mov eax, 914150663",
+        "mov DWORD PTR [rdi+4], eax",
+        "mov eax, 812702999",
+        "mov DWORD PTR [rdi+8], eax",
+        "mov eax, -150054599",
+        "mov DWORD PTR [rdi+12], eax",
+        "mov eax, -4191439",
+        "mov DWORD PTR [rdi+16], eax",
+        "mov eax, 1750603025",
+        "mov DWORD PTR [rdi+20], eax",
+        "mov eax, 1694076839",
+        "mov DWORD PTR [rdi+24], eax",
+        "mov eax, -1090891868",
+        "mov DWORD PTR [rdi+28], eax",
+        "ret",
+    )
+}
+
 /// The SHA-256 compression function (FIPS 180-4 §6.2.2): updates the hash value `*state` with the `n` 64-byte blocks starting at `blocks`, in order.
 ///
 /// Contract: `VG.Spec.Sha256.compressContract`. Constant time: only the pointers and `n` may affect timing, not the hash value or the blocks.
@@ -6966,7 +6997,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_compress_avx2(state: *mut [u32; 8
     )
 }
 
-/// Absorbs data into a SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
+/// Absorbs data into a SHA-224 or SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
 ///
 /// Contract: `VG.Spec.Sha256.updateContract`. Constant time: only the pointers, `count` and `len` may affect timing, not the state or the data.
 ///
@@ -7098,7 +7129,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_update(state: *mut [u8; 96], coun
     )
 }
 
-/// Finishes a SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), writes the SHA-256 digest of that message to `*out`.
+/// Finishes a SHA-224 or SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), hashed from an initial hash value, writes the final hash value `H⁽ᴺ⁾` of that message (32 bytes) to `*out`. The SHA-256 digest is all of it; the SHA-224 digest is its first 28 bytes.
 ///
 /// Contract: `VG.Spec.Sha256.finalizeContract`. Constant time: only the pointers and `count` may affect timing, not the state.
 ///
@@ -7215,7 +7246,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_finalize(state: *mut [u8; 96], co
 /// The CPU features `vg_sha256_update_avx2` requires (`Artifact.features`).
 pub(crate) const VG_SHA256_UPDATE_AVX2_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2"];
 
-/// Absorbs data into a SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
+/// Absorbs data into a SHA-224 or SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
 ///
 /// Contract: `VG.Spec.Sha256.updateContract`. Constant time: only the pointers, `count` and `len` may affect timing, not the state or the data.
 ///
@@ -7351,7 +7382,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_update_avx2(state: *mut [u8; 96],
 /// The CPU features `vg_sha256_finalize_avx2` requires (`Artifact.features`).
 pub(crate) const VG_SHA256_FINALIZE_AVX2_FEATURES: &[&str] = &["avx", "avx2", "bmi1", "bmi2"];
 
-/// Finishes a SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), writes the SHA-256 digest of that message to `*out`.
+/// Finishes a SHA-224 or SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), hashed from an initial hash value, writes the final hash value `H⁽ᴺ⁾` of that message (32 bytes) to `*out`. The SHA-256 digest is all of it; the SHA-224 digest is its first 28 bytes.
 ///
 /// Contract: `VG.Spec.Sha256.finalizeContract`. Constant time: only the pointers and `count` may affect timing, not the state.
 ///
@@ -7469,7 +7500,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_finalize_avx2(state: *mut [u8; 96
 /// The CPU features `vg_sha256_update_shani` requires (`Artifact.features`).
 pub(crate) const VG_SHA256_UPDATE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
 
-/// Absorbs data into a SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
+/// Absorbs data into a SHA-224 or SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` bytes at `data`.
 ///
 /// Contract: `VG.Spec.Sha256.updateContract`. Constant time: only the pointers, `count` and `len` may affect timing, not the state or the data.
 ///
@@ -7605,7 +7636,7 @@ pub(crate) unsafe extern "sysv64" fn vg_sha256_update_shani(state: *mut [u8; 96]
 /// The CPU features `vg_sha256_finalize_shani` requires (`Artifact.features`).
 pub(crate) const VG_SHA256_FINALIZE_SHANI_FEATURES: &[&str] = &["sha", "ssse3"];
 
-/// Finishes a SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), writes the SHA-256 digest of that message to `*out`.
+/// Finishes a SHA-224 or SHA-256 computation: if the streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), hashed from an initial hash value, writes the final hash value `H⁽ᴺ⁾` of that message (32 bytes) to `*out`. The SHA-256 digest is all of it; the SHA-224 digest is its first 28 bytes.
 ///
 /// Contract: `VG.Spec.Sha256.finalizeContract`. Constant time: only the pointers and `count` may affect timing, not the state.
 ///

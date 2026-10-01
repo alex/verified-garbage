@@ -125,6 +125,22 @@ yours to keep:
 
 <tr>
 
+<td>SHA-224</td>
+
+<td>✅</td>
+
+<td>✅ SHA extensions, AVX2, BMI1, BMI2</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+</tr>
+
+<tr>
+
 <td>SHA-256</td>
 
 <td>✅</td>
@@ -199,11 +215,11 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅ AES-NI</td>
 
-<td>❌</td>
+<td>✅ AES, PMULL</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -327,7 +343,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2</td>
+<td>✅ AVX-512F, AVX2</td>
 
 <td>✅</td>
 
@@ -356,6 +372,22 @@ yours to keep:
 <th>ARMv7</th>
 
 <th>x86</th>
+
+</tr>
+
+<tr>
+
+<td>3DES-ECB</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -779,7 +811,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ SHA512, AVX2, BMI1, BMI2</td>
+<td>✅ SHA512, AVX2, BMI1, BMI2, ADX</td>
 
 <td>✅ SHA extensions</td>
 
@@ -795,7 +827,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SSE2 polynomial arithmetic</td>
 
 <td>✅ SHA extensions</td>
 
@@ -811,7 +843,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SSE2 polynomial arithmetic</td>
 
 <td>✅ SHA extensions</td>
 
@@ -827,7 +859,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SSE2 polynomial arithmetic</td>
 
 <td>✅ SHA extensions</td>
 

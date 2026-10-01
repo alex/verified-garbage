@@ -391,7 +391,7 @@ pub(crate) const VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES: &[&str] = &["avx", "
 ///
 /// Contract: `VG.Spec.ChaCha20Poly1305.sealContract`. Constant time: only the pointers and the lengths may affect timing, not the key, the nonce or the data. The block counter wraps around beyond 2³²-1 blocks of data (RFC 8439's `P_MAX`), which the caller must not exceed for the construction to be secure.
 ///
-/// This implementation encrypts with `vg_chacha20_xor_avx512` and authenticates with `vg_poly1305_blocks_avx2`.
+/// This implementation encrypts with `vg_chacha20_xor_avx512` and authenticates with `vg_poly1305_blocks_avx512`.
 ///
 /// # Safety
 ///
@@ -465,7 +465,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_seal_avx512(ctx: *mut 
         "mov rsi, rbx",
         "mov rdx, rbp",
         "shr rdx, 4",
-        "call {vg_poly1305_blocks_avx2}",
+        "call {vg_poly1305_blocks_avx512}",
         "mov r15, rdi",
         "sub r15, 448",
         "mov rdx, rbp",
@@ -489,7 +489,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_seal_avx512(ctx: *mut 
         "mov rsi, r15",
         "add rsi, 576",
         "mov edx, 1",
-        "call {vg_poly1305_blocks_avx2}",
+        "call {vg_poly1305_blocks_avx512}",
         "mov r15, rdi",
         "sub r15, 448",
         "jmp 21f",
@@ -513,7 +513,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_seal_avx512(ctx: *mut 
         "mov rsi, r14",
         "mov rdx, r13",
         "shr rdx, 4",
-        "call {vg_poly1305_blocks_avx2}",
+        "call {vg_poly1305_blocks_avx512}",
         "mov r15, rdi",
         "sub r15, 448",
         "mov rdx, r13",
@@ -537,7 +537,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_seal_avx512(ctx: *mut 
         "mov rsi, r15",
         "add rsi, 576",
         "mov edx, 1",
-        "call {vg_poly1305_blocks_avx2}",
+        "call {vg_poly1305_blocks_avx512}",
         "mov r15, rdi",
         "sub r15, 448",
         "jmp 24f",
@@ -548,7 +548,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_seal_avx512(ctx: *mut 
         "mov rsi, r15",
         "add rsi, 656",
         "mov edx, 1",
-        "call {vg_poly1305_blocks_avx2}",
+        "call {vg_poly1305_blocks_avx512}",
         "mov r15, rdi",
         "sub r15, 448",
         "mov rdi, r15",
@@ -565,7 +565,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_seal_avx512(ctx: *mut 
         "ret",
         vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
         vg_poly1305_init = sym super::poly1305::vg_poly1305_init,
-        vg_poly1305_blocks_avx2 = sym super::poly1305::vg_poly1305_blocks_avx2,
+        vg_poly1305_blocks_avx512 = sym super::poly1305::vg_poly1305_blocks_avx512,
         vg_chacha20_xor_avx512 = sym super::chacha20::vg_chacha20_xor_avx512,
         vg_poly1305_finalize = sym super::poly1305::vg_poly1305_finalize,
     )
@@ -578,7 +578,7 @@ pub(crate) const VG_CHACHA20_POLY1305_OPEN_AVX512_FEATURES: &[&str] = &["avx", "
 ///
 /// Contract: `VG.Spec.ChaCha20Poly1305.openContract`. Constant time: only the pointers and the lengths may affect timing, not the key, the nonce, the tag or the data.
 ///
-/// This implementation encrypts with `vg_chacha20_xor_avx512` and authenticates with `vg_poly1305_blocks_avx2`.
+/// This implementation encrypts with `vg_chacha20_xor_avx512` and authenticates with `vg_poly1305_blocks_avx512`.
 ///
 /// # Safety
 ///
@@ -652,7 +652,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_open_avx512(ctx: *mut 
         "mov rsi, rbx",
         "mov rdx, rbp",
         "shr rdx, 4",
-        "call {vg_poly1305_blocks_avx2}",
+        "call {vg_poly1305_blocks_avx512}",
         "mov r15, rdi",
         "sub r15, 448",
         "mov rdx, rbp",
@@ -676,7 +676,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_open_avx512(ctx: *mut 
         "mov rsi, r15",
         "add rsi, 576",
         "mov edx, 1",
-        "call {vg_poly1305_blocks_avx2}",
+        "call {vg_poly1305_blocks_avx512}",
         "mov r15, rdi",
         "sub r15, 448",
         "jmp 21f",
@@ -687,7 +687,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_open_avx512(ctx: *mut 
         "mov rsi, r14",
         "mov rdx, r13",
         "shr rdx, 4",
-        "call {vg_poly1305_blocks_avx2}",
+        "call {vg_poly1305_blocks_avx512}",
         "mov r15, rdi",
         "sub r15, 448",
         "mov rdx, r13",
@@ -711,7 +711,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_open_avx512(ctx: *mut 
         "mov rsi, r15",
         "add rsi, 576",
         "mov edx, 1",
-        "call {vg_poly1305_blocks_avx2}",
+        "call {vg_poly1305_blocks_avx512}",
         "mov r15, rdi",
         "sub r15, 448",
         "jmp 24f",
@@ -724,7 +724,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_open_avx512(ctx: *mut 
         "mov rsi, r15",
         "add rsi, 656",
         "mov edx, 1",
-        "call {vg_poly1305_blocks_avx2}",
+        "call {vg_poly1305_blocks_avx512}",
         "mov r15, rdi",
         "sub r15, 448",
         "mov eax, 1",
@@ -760,7 +760,7 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_poly1305_open_avx512(ctx: *mut 
         "ret",
         vg_chacha20_block = sym super::chacha20::vg_chacha20_block,
         vg_poly1305_init = sym super::poly1305::vg_poly1305_init,
-        vg_poly1305_blocks_avx2 = sym super::poly1305::vg_poly1305_blocks_avx2,
+        vg_poly1305_blocks_avx512 = sym super::poly1305::vg_poly1305_blocks_avx512,
         vg_chacha20_xor_avx512 = sym super::chacha20::vg_chacha20_xor_avx512,
         vg_poly1305_finalize = sym super::poly1305::vg_poly1305_finalize,
     )

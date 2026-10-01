@@ -56,6 +56,6 @@ theorem decode_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : dC
         (dec_tr hP (by decide) (by decide) (hs.2.2.1 i (by omega)).1)) (fun x y h => h.mono (fun _ _ h => h) fun _ _ h =>
           ⟨h.im, h.s1, h.s2, fun _ h => absurd h (Nat.not_lt_zero _)⟩) fun x y h => by rwa [Nat.zero_add] at h
   · exact liftT (fun _ _ h => h.im.st) (fun _ _ _ h => rpp_ok hP hc h)
-      (lrel_tr (fun _ _ h => h) keccak.mldsaSignDecodeTaint.choose_spec)
+      (vector_lrel_tr (fun _ _ h => h) keccak.mldsaSignDecodeTaint.choose_spec)
 
 end VG.Proof.MlDsa.AArch64.Sign

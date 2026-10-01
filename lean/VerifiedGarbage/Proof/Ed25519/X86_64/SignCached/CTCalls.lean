@@ -2,6 +2,8 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.SignCached.CTAccess
 
 /-! The signer's scalar and point operations keep all operand bytes secret. -/
 namespace VG.Proof.Ed25519.X86_64.SignCached
+
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
 open VG VG.X86_64
 open VG.Impl.Ed25519.X86_64 (callWith scalarBaseName scalarBase_precomputed scalarReduce scalarMulAdd)
 open VG.Impl.Ed25519.X86_64.SignCached
@@ -25,12 +27,13 @@ theorem reduce_ct (out : Nat) (ho : out + 32 ≤ 128)
   exact b.seq c
 
 theorem base_ct : RelCT isa (Two fun _ _ _ => True)
-    (callWith baseArgs scalarBaseName scalarBase_precomputed) (Two fun _ _ _ => True) := by
+    (callWith baseArgs (scalarBaseName fs) (scalarBase_precomputed fld)) (Two fun _ _ _ => True) := by
   have b : RelCT isa (Two fun _ _ _ => True) (.block baseArgs) (Two fun L _ => BaseArgs L) :=
     two_blk (by taint_decide) fun _ _ _ _ _ _ hc _ => WP.mono (baseArgs_ok hc)
       fun _ ⟨hc', _, ha⟩ => ⟨hc', ha⟩
-  have c := two_callP (n := scalarBaseName) (Φ := fun L _ => BaseArgs L)
-    scalarBase_precomputed_ok scalarBase_precomputed_ct base_nosp base_depth baseRd baseWr
+  have c := two_callP (n := (scalarBaseName fs)) (Φ := fun L _ => BaseArgs L)
+    (scalarBase_precomputed_ok (fld := fld)) (scalarBase_precomputed_ct (fld := fld)) base_nosp base_depth
+    baseRd baseWr
     (fun _ _ _ _ _ hL hc ha => base_pre hL hc ha)
     (fun L t₁ t₂ _ _ _ _ _ _ _ c₁ c₂ a₁ a₂ => by
       obtain ⟨d₁, s₁, x₁⟩ := base_regs a₁ (baseRd L) (baseWr L)

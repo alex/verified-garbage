@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.AArch64.Field
 import VerifiedGarbage.Proof.Ed25519.AArch64.FieldMemory
 import VerifiedGarbage.Proof.Ed25519.AArch64.Add
 import VerifiedGarbage.Proof.Ed25519.AArch64.Sub
-import VerifiedGarbage.Proof.Ed25519.AArch64.Mul
+import VerifiedGarbage.Proof.Ed25519.AArch64.Sqr
 import Mathlib.Data.ZMod.Defs
 import Mathlib.Tactic.Ring
 import VerifiedGarbage.Spec.Ed25519
@@ -28,6 +28,7 @@ def evalOp (op : FieldOp) (e : Env) : Env :=
   | .copy o a => Function.update e o (e a)
   | .const o v => Function.update e o v
   | .mul o a b => Function.update e o (e a * e b)
+  | .sqr o a => Function.update e o (e a * e a)
   | .add o a b => Function.update e o (e a + e b)
   | .sub o a b => Function.update e o (e a - e b)
 
@@ -91,6 +92,9 @@ theorem fieldOp_ok {s : State} {base : Addr} (hs : Scr s base) (op : FieldOp) :
   | mul o a b =>
     refine WP.mono (mul_ok hs (slot_range o) (slot_range a) (slot_range b)) fun t ⟨h, e⟩ => ?_
     exact ⟨op_keep h, by rw [env_update o h.mem, e]; rfl⟩
+  | sqr o a =>
+    refine WP.mono (sqr_ok hs (slot_range o) (slot_range a)) fun t ⟨h, e⟩ => ?_
+    exact ⟨op_keep h, by rw [env_update o h.mem, e]; rfl⟩
   | add o a b =>
     refine WP.mono (add_ok hs (slot_range o) (slot_range a) (slot_range b)) fun t ⟨h, e⟩ => ?_
     exact ⟨op_keep h, by rw [env_update o h.mem, e]; rfl⟩
@@ -139,9 +143,23 @@ theorem pointAdd_formula (e : Env) :
     point (evalOps pointAddOps e) 0 1 2 3 = addResult e 4 (by decide) := by
   rfl
 
+/-- What `pointDoubleOps` computes: the addition formula with `p = q`, its
+products of equal factors as squares. -/
+def doubleResult (e : Env) : Spec.Ed25519.Point :=
+  let a := (e 1 - e 0) * (e 1 - e 0)
+  let b := (e 1 + e 0) * (e 1 + e 0)
+  let c := e 3 * e 3 * e 16 + e 3 * e 3 * e 16
+  let dd := e 2 * e 2 + e 2 * e 2
+  ⟨(b - a) * (dd - c), (dd + c) * (b + a), (dd - c) * (dd + c), (b - a) * (b + a)⟩
+
 theorem pointDouble_formula (e : Env) :
-    point (evalOps pointDoubleOps e) 0 1 2 3 = addResult e 0 (by decide) := by
+    point (evalOps pointDoubleOps e) 0 1 2 3 = doubleResult e := by
   rfl
+
+theorem doubleResult_eq (e : Env) (hd : e 16 = Spec.Ed25519.d) :
+    doubleResult e = Spec.Ed25519.pointAdd (point e 0 1 2 3) (point e 0 1 2 3) := by
+  simp only [doubleResult, point, Spec.Ed25519.pointAdd, hd]
+  congr 1 <;> ring
 
 theorem addResult_eq (e : Env) (q : Nat) (hq : q + 3 < 22) (hd : e 16 = Spec.Ed25519.d) :
     addResult e q hq = Spec.Ed25519.pointAdd (point e 0 1 2 3)
@@ -157,6 +175,6 @@ theorem pointAdd_eval (e : Env) (hd : e 16 = Spec.Ed25519.d) :
 theorem pointDouble_eval (e : Env) (hd : e 16 = Spec.Ed25519.d) :
     point (evalOps pointDoubleOps e) 0 1 2 3 =
       Spec.Ed25519.pointAdd (point e 0 1 2 3) (point e 0 1 2 3) :=
-  (pointDouble_formula e).trans (addResult_eq e 0 (by decide) hd)
+  (pointDouble_formula e).trans (doubleResult_eq e hd)
 
 end VG.Proof.Ed25519.AArch64
