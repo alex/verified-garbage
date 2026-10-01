@@ -56,8 +56,8 @@ open AArch64 in
 /-- AArch64 contract for
 `vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20])`:
 if the streaming state at `state` represents a message `m` of `count` bytes
-(modulo 2⁶⁴), then afterwards it represents `m` followed by the `len` bytes at
-`data`.
+(modulo 2⁶⁴), hashed from any initial hash value `iv`, then afterwards it
+represents `m` followed by the `len` bytes at `data`, from `iv`.
 
 The code may read `data` (`len` bytes) and read and write `state` (96
 bytes) and `scratch` (160 bytes, whose contents on exit are unspecified).
@@ -73,8 +73,8 @@ def updateAArch64 : Contract AArch64.isa where
     s.rd = [data] ∧ s.wr = [state, scratch] ∧
     state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
     16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint scratch
-  post s s' := ∀ m, Repr s.mem (s.gpr .x0) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
-    Repr s'.mem (s.gpr .x0) (m ++ bytesAt s.mem (s.gpr .x2) (s.gpr .x3).toNat)
+  post s s' := ∀ iv m, ReprFrom iv s.mem (s.gpr .x0) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
+    ReprFrom iv s'.mem (s.gpr .x0) (m ++ bytesAt s.mem (s.gpr .x2) (s.gpr .x3).toNat)
   pub s₁ s₂ :=
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
     s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
@@ -83,7 +83,8 @@ open AArch64 in
 /-- AArch64 contract for
 `vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20])`:
 if the streaming state at `state` represents a message `m` of `count` bytes
-(modulo 2⁶⁴), writes the SHA-256 digest of `m` to `out`.
+(modulo 2⁶⁴), hashed from the initial hash value `iv`, writes the final hash
+value of `m` from `iv` to `out` (the SHA-256 digest if `iv` is `H0`).
 
 The code may read and write `state` (96 bytes, whose contents on exit are
 unspecified), `out` (32 bytes) and `scratch` (160 bytes, whose contents on
@@ -99,8 +100,8 @@ def finalizeAArch64 : Contract AArch64.isa where
     s.rd = [] ∧ s.wr = [state, out, scratch] ∧
     state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
     16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch
-  post s s' := ∀ m, Repr s.mem (s.gpr .x0) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
-    bytesAt s'.mem (s.gpr .x2) 32 = Spec.Sha256.hash m
+  post s s' := ∀ iv m, ReprFrom iv s.mem (s.gpr .x0) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
+    bytesAt s'.mem (s.gpr .x2) 32 = Spec.Sha256.finalHash iv m
   pub s₁ s₂ :=
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
     s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp

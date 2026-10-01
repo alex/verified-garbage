@@ -128,6 +128,6 @@ theorem verify_correct {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ para
           rcases hr with ⟨e, hb⟩ | ⟨e, hb⟩
           · exact .inl ⟨by rw [hres, e]; rfl, hb⟩
           · exact .inr ⟨by rw [hres, e]; rfl, hb⟩⟩ : gprPreserved σ s₃ ∧ (verifyK p).post σ s₃)))
-  exact ⟨t, s', he, abiPreserved_of_exec (verify_mxcsr C hp) he hF.1, hF.2⟩
+  exact ⟨t, s', he, abiPreserved_of_ctl (verify_ctl C hp) he hF.1, hF.2⟩
 
 end VG.Proof.MlDsa.X86_64.Verify
