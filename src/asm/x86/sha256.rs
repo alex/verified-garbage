@@ -35,6 +35,39 @@ pub(crate) unsafe extern "C" fn vg_sha224_init(state: *mut [u8; 96]) {
     )
 }
 
+/// Starts a SHA-256 computation: makes the streaming state `*state` represent the empty message.
+///
+/// Contract: `VG.Spec.Sha256.initContract`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha256.Repr`).
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 96 bytes.
+/// * `state` must not overlap the arguments on the stack (distinct Rust objects never do).
+/// * `state` must not overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_sha256_init(state: *mut [u8; 96]) {
+    core::arch::naked_asm!(
+        "mov eax, DWORD PTR [esp+4]",
+        "mov ecx, 1779033703",
+        "mov DWORD PTR [eax], ecx",
+        "mov ecx, -1150833019",
+        "mov DWORD PTR [eax+4], ecx",
+        "mov ecx, 1013904242",
+        "mov DWORD PTR [eax+8], ecx",
+        "mov ecx, -1521486534",
+        "mov DWORD PTR [eax+12], ecx",
+        "mov ecx, 1359893119",
+        "mov DWORD PTR [eax+16], ecx",
+        "mov ecx, -1694144372",
+        "mov DWORD PTR [eax+20], ecx",
+        "mov ecx, 528734635",
+        "mov DWORD PTR [eax+24], ecx",
+        "mov ecx, 1541459225",
+        "mov DWORD PTR [eax+28], ecx",
+        "ret",
+    )
+}
+
 /// The SHA-256 compression function (FIPS 180-4 §6.2.2): updates the hash value `*state` with the `n` 64-byte blocks starting at `blocks`, in order.
 ///
 /// Contract: `VG.Spec.Sha256.compressContract`. Constant time: only the pointers and `n` may affect timing, not the hash value or the blocks.
@@ -3393,39 +3426,6 @@ pub(crate) unsafe extern "C" fn vg_sha256_compress(state: *mut [u32; 8], blocks:
         "mov edi, DWORD PTR [esi+104]",
         "mov ebp, DWORD PTR [esi+108]",
         "mov esi, DWORD PTR [esi+100]",
-        "ret",
-    )
-}
-
-/// Starts a SHA-256 computation: makes the streaming state `*state` represent the empty message.
-///
-/// Contract: `VG.Spec.Sha256.initContract`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha256.Repr`).
-///
-/// # Safety
-///
-/// * `state` must be valid for reads and writes of 96 bytes.
-/// * `state` must not overlap the arguments on the stack (distinct Rust objects never do).
-/// * `state` must not overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
-#[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_sha256_init(state: *mut [u8; 96]) {
-    core::arch::naked_asm!(
-        "mov eax, DWORD PTR [esp+4]",
-        "mov ecx, 1779033703",
-        "mov DWORD PTR [eax], ecx",
-        "mov ecx, -1150833019",
-        "mov DWORD PTR [eax+4], ecx",
-        "mov ecx, 1013904242",
-        "mov DWORD PTR [eax+8], ecx",
-        "mov ecx, -1521486534",
-        "mov DWORD PTR [eax+12], ecx",
-        "mov ecx, 1359893119",
-        "mov DWORD PTR [eax+16], ecx",
-        "mov ecx, -1694144372",
-        "mov DWORD PTR [eax+20], ecx",
-        "mov ecx, 528734635",
-        "mov DWORD PTR [eax+24], ecx",
-        "mov ecx, 1541459225",
-        "mov DWORD PTR [eax+28], ecx",
         "ret",
     )
 }
