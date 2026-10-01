@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.Call
 import VerifiedGarbage.Proof.MlKem.X86_64.KCall
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
+import VerifiedGarbage.Proof.Framework.X86_64.Mxcsr
 
 /-!
 # ML-DSA verification on x86-64: entry to a callee
@@ -25,14 +26,14 @@ open VG.Spec.Sha3 (bytesAt)
 
 /-- A callee: correct and constant time under the contract `k` (a shared
 contract with 16 bytes of stack), not writing `rsp`, calling at most two
-deep, and never loading MXCSR or writing the stack pointer (which its
-callers' artifacts check). -/
+deep, loading MXCSR only to restore it (`ctlOk`), and never writing the
+stack pointer (which its callers' artifacts check). -/
 structure CalleeOk (c : Prog isa) (k : Contract isa) : Prop where
   correct : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s'
   ct : ConstantTime isa k.pre k.pub c
   nosp : NoSp c
   depth : c.depth ≤ 2
-  mxcsr : c.allInstrs (fun i => !loadsMxcsr i) = true
+  ctl : ctlOk c = true
   spSafe : c.all (fun i => !isa.writesSp i) = true
 
 /-- A callee verified against its shared contract with at most 16 bytes of stack. -/
@@ -40,7 +41,7 @@ theorem CalleeOk.of_verified {c : Prog isa} {sig : Sig} {pre : Curry (sig.words 
     {post : sig.Post X86_64.abi.ptrBits} {wa : Bool}
     {leak : Option (Curry (sig.words X86_64.abi.ptrBits) (Mem → List Nat))} {n : Nat}
     (h : Verified X86_64.target c (sig.contract X86_64.abi pre post wa n leak)) (hn : n ≤ 16)
-    (hsp : NoSp c) (hd : c.depth ≤ 2) (hmx : c.allInstrs (fun i => !loadsMxcsr i) = true)
+    (hsp : NoSp c) (hd : c.depth ≤ 2) (hmx : ctlOk c = true)
     (hss : c.all (fun i => !isa.writesSp i) = true) :
     CalleeOk c (sig.contract X86_64.abi pre post wa 16 leak) :=
   ⟨fun s hs => h.1 s (pre_stack hn hs),

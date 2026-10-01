@@ -210,7 +210,7 @@ theorem update_verified : Verified X86.target Impl.Sha256.X86.Stream.update Proo
   rw [update_eq] at ct ⊢
   have h := MdStream.X86.Update.verified (name := "vg_sha256_compress") dims callee ct
   exact Verified.of_implies h
-    ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr hc, fun _ _ _ _ h => h, h.2.2⟩
+    ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr hc, fun _ _ _ _ h => h, h.2.2⟩
 
 /-- A state satisfying `update`'s precondition. -/
 abbrev sat : State := MdStream.X86.Update.sat params 160
@@ -227,7 +227,7 @@ theorem finalize_verified : Verified X86.target Impl.Sha256.X86.Stream.finalize 
   rw [finalize_eq] at ct ⊢
   have h := MdStream.X86.Finalize.verified (name := "vg_sha256_compress") dims shape callee ct
   exact Verified.of_implies h
-    ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
+    ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
 
 /-- A state satisfying `finalize`'s precondition. -/
 abbrev sat : State := MdStream.X86.Finalize.sat params 160
@@ -338,9 +338,9 @@ theorem compressWide_verified (hsat : ∃ s, compressWide.pre s) :
     (fun _ _ _ _ h => by narrow; exact h) hsat
 
 /-- `update` only reads its arguments. -/
-theorem updateWide_verified (hsat : ∃ s, updateWide.pre s) :
-    Verified X86.target Impl.Sha256.X86.Stream.update updateWide :=
-  Verified.narrowTo Proof.Sha256.X86.Stream.Update.update_verified
+theorem updateWide_of {code : Prog isa} (hv : Verified X86.target code Proof.Sha256.updateX86)
+    (hsat : ∃ s, updateWide.pre s) : Verified X86.target code updateWide :=
+  Verified.narrowTo hv
     (fun s => [⟨(arg s 3).setWidth 64, (arg s 4).toNat⟩, ⟨argAddr s 0, 24⟩])
     (fun s => [⟨(arg s 0).setWidth 64, 96⟩, ⟨(arg s 5).setWidth 64, 160⟩])
     (fun _ h => by
@@ -372,9 +372,9 @@ theorem updateWide_verified (hsat : ∃ s, updateWide.pre s) :
     (fun _ _ _ h => by narrow at h ⊢; exact h)
     (fun _ _ _ _ h => by narrow; exact h) hsat
 
-theorem finalizeWide_verified (hsat : ∃ s, finalizeWide.pre s) :
-    Verified X86.target Impl.Sha256.X86.Stream.finalize finalizeWide :=
-  Verified.widen Proof.Sha256.X86.Stream.Finalize.finalize_verified
+theorem finalizeWide_of {code : Prog isa} (hv : Verified X86.target code Proof.Sha256.finalizeX86)
+    (hsat : ∃ s, finalizeWide.pre s) : Verified X86.target code finalizeWide :=
+  Verified.widen hv
     (fun s => [⟨(arg s 0).setWidth 64, 96⟩, ⟨(arg s 3).setWidth 64, 32⟩,
       ⟨(arg s 4).setWidth 64, 160⟩, ⟨argAddr s 0, 20⟩])
     (fun _ h => by
@@ -427,7 +427,7 @@ theorem updateWide_implies : updateWide.Implies (Spec.Sha256.updateContract X86.
 
 theorem update :
     Verified X86.target Impl.Sha256.X86.Stream.update (Spec.Sha256.updateContract X86.abi 20) :=
-  (updateWide_verified updateWide_implies.sat_left).of_implies updateWide_implies
+  (updateWide_of Proof.Sha256.X86.Stream.Update.update_verified updateWide_implies.sat_left).of_implies updateWide_implies
 
 theorem finalizeWide_implies : finalizeWide.Implies (Spec.Sha256.finalizeContract X86.abi 20) := by
   contract_implies [Spec.Sha256.finalizeContract, Spec.Sha256.finalizeSig, finalizeWide,
@@ -438,6 +438,6 @@ theorem finalizeWide_implies : finalizeWide.Implies (Spec.Sha256.finalizeContrac
 
 theorem finalize :
     Verified X86.target Impl.Sha256.X86.Stream.finalize (Spec.Sha256.finalizeContract X86.abi 20) :=
-  (finalizeWide_verified finalizeWide_implies.sat_left).of_implies finalizeWide_implies
+  (finalizeWide_of Proof.Sha256.X86.Stream.Finalize.finalize_verified finalizeWide_implies.sat_left).of_implies finalizeWide_implies
 
 end VG.Proof.Sha256.X86.Shared

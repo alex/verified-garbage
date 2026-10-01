@@ -1,19 +1,23 @@
 import VerifiedGarbage.TCB.Mem
 
 /-!
-# SHA-256 (FIPS 180-4)
+# SHA-224 and SHA-256 (FIPS 180-4)
 
-**Trusted** (as every file in `Spec/`). The hash function SHA-256, transcribed
-from FIPS 180-4, *Secure Hash Standard* (August 2015); section numbers below
-refer to it. Messages are sequences of bytes (the standard allows any number
-of bits); every multi-byte quantity is big-endian (§3.1).
+**Trusted** (as every file in `Spec/`). The hash functions SHA-224 and
+SHA-256, transcribed from FIPS 180-4, *Secure Hash Standard* (August 2015);
+section numbers below refer to it. Messages are sequences of bytes (the
+standard allows any number of bits); every multi-byte quantity is big-endian
+(§3.1).
 
-The primitives implemented in assembly are the compression function over a
-run of whole blocks (`compressBlocks`), and the streaming (incremental)
-interface: initialize, absorb message bytes, pad and output the digest, on a
-streaming state that `Repr` relates to the message absorbed so far. Their
-contracts on each target, which say how the code's arguments and memory
-relate to these definitions, are in `Spec/Sha256/<Target>.lean`.
+Both functions share the SHA-256 compression function and differ only in the
+initial hash value and in how much of the final hash value is output (§6.2,
+§6.3). The primitives implemented in assembly are the compression function
+over a run of whole blocks (`compressBlocks`), and the streaming
+(incremental) interface: initialize with either initial hash value, absorb
+message bytes, and pad and output the final hash value, on a streaming state
+that `ReprFrom` relates to the message absorbed so far. Their contracts,
+which say how the code's arguments and memory relate to these definitions,
+are in `Spec/Sha256/Contract.lean`.
 -/
 
 namespace VG.Spec.Sha256
@@ -48,7 +52,7 @@ def ssig0 (x : Word) : Word := x.rotateRight 7 ^^^ x.rotateRight 18 ^^^ x >>> 3
 /-- `σ₁(x) = ROTR¹⁷(x) ⊕ ROTR¹⁹(x) ⊕ SHR¹⁰(x)` -/
 def ssig1 (x : Word) : Word := x.rotateRight 17 ^^^ x.rotateRight 19 ^^^ x >>> 10
 
-/-! ## Constants (§4.2.2) and the initial hash value (§5.3.3) -/
+/-! ## Constants (§4.2.2) and initial hash values (§5.3.2, §5.3.3) -/
 
 /-- The sixty-four constants `K₀ … K₆₃`. -/
 def Ks : List Word := [
@@ -64,9 +68,13 @@ def Ks : List Word := [
 /-- `Kₜ` -/
 def K (t : Nat) : Word := Ks.getD t 0
 
-/-- `H⁽⁰⁾` -/
+/-- `H⁽⁰⁾` for SHA-256 (§5.3.3). -/
 def H0 : HashValue :=
   #v[0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]
+
+/-- `H⁽⁰⁾` for SHA-224 (§5.3.2). -/
+def H0_224 : HashValue :=
+  #v[0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939, 0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4]
 
 /-! ## Preprocessing (§5.1.1, §5.2.1) -/
 
@@ -77,7 +85,8 @@ def wordBytes (x : Word) : List Byte :=
 /-- §5.1.1: append the bit `1`, then the least number of `0` bits that makes
 the length `≡ 448 (mod 512)`, then the message length `ℓ` in bits as a 64-bit
 big-endian integer. For a message of bytes, the `1` bit and the first seven
-`0` bits are the byte `0x80`. (SHA-256 is only defined for `ℓ < 2⁶⁴`.) -/
+`0` bits are the byte `0x80`. (SHA-224 and SHA-256 are only defined for
+`ℓ < 2⁶⁴`.) -/
 def pad (m : List Byte) : List Byte :=
   let ℓ : BitVec 64 := BitVec.ofNat 64 (8 * m.length)
   m ++ [0x80] ++ List.replicate ((119 - m.length % 64) % 64) 0 ++
@@ -126,10 +135,17 @@ def compress (H : HashValue) (M : Block) : HashValue :=
 def compressList (H : HashValue) (p : List Byte) (n : Nat) : HashValue :=
   (List.range n).foldl (fun H i => compress H (parseBlock fun k => p.getD (64 * i + k) 0)) H
 
-/-- The SHA-256 digest of a message: `H⁽ᴺ⁾` as 32 big-endian bytes. -/
-def hash (m : List Byte) : List Byte :=
+/-- §6.2: the final hash value `H⁽ᴺ⁾` of a message, starting from `iv`, as
+32 big-endian bytes. -/
+def finalHash (iv : HashValue) (m : List Byte) : List Byte :=
   let p := pad m
-  (compressList H0 p (p.length / 64)).toList.flatMap wordBytes
+  (compressList iv p (p.length / 64)).toList.flatMap wordBytes
+
+/-- The SHA-256 digest (§6.2): all of `H⁽ᴺ⁾`, 32 bytes. -/
+def hash (m : List Byte) : List Byte := finalHash H0 m
+
+/-- The SHA-224 digest (§6.3): the left-most 224 bits of `H⁽ᴺ⁾`, 28 bytes. -/
+def sha224 (m : List Byte) : List Byte := (finalHash H0_224 m).take 28
 
 /-! ## The compression function on memory
 
@@ -157,18 +173,25 @@ def bytesAt (m : Mem) (p : Addr) (n : Nat) : List Byte :=
 The streaming primitives hash a message given in pieces. Their state is 96
 bytes: the hash value after the message's whole blocks (stored as by
 `stateAt`), followed by a 64-byte buffer holding the bytes of the message
-after its last whole block. The length of the message is not part of the
-state: the caller keeps it (in bytes, modulo 2⁶⁴) and passes it to every
-call. (Lengths are public, so it may live anywhere; and `pad` only uses the
-length modulo 2⁶⁴ bits, so this suffices even beyond SHA-256's limit of
-`ℓ < 2⁶⁴` bits.) -/
+after its last whole block. SHA-224 and SHA-256 share the state and differ
+only in the initial hash value it starts from, and in how much of the final
+hash value is output.
 
-/-- The streaming state at `p` (96 bytes) represents the message `m`: its hash
-value is `H⁽⁰⁾` updated with the `⌊|m| / 64⌋` whole blocks of `m`, and its
-buffer starts with the remaining `|m| mod 64` bytes of `m`. The rest of the
-buffer is unspecified. -/
-def Repr (mem : Mem) (p : Addr) (m : List Byte) : Prop :=
-  stateAt mem p = compressList H0 m (m.length / 64) ∧
+The length of the message is not part of the state: the caller keeps it (in
+bytes, modulo 2⁶⁴) and passes it to every call. (Lengths are public, so it
+may live anywhere; and `pad` only uses the length modulo 2⁶⁴ bits, so this
+suffices even beyond the limit of `ℓ < 2⁶⁴` bits.) -/
+
+/-- The streaming state at `p` (96 bytes) represents the message `m`, hashed
+from the initial hash value `iv`: its hash value is `iv` updated with the
+`⌊|m| / 64⌋` whole blocks of `m`, and its buffer starts with the remaining
+`|m| mod 64` bytes of `m`. The rest of the buffer is unspecified. -/
+def ReprFrom (iv : HashValue) (mem : Mem) (p : Addr) (m : List Byte) : Prop :=
+  stateAt mem p = compressList iv m (m.length / 64) ∧
   bytesAt mem (p + 32) (m.length % 64) = m.drop (64 * (m.length / 64))
+
+/-- The streaming state at `p` represents the message `m`, hashed by SHA-256
+(from `H0`). -/
+def Repr (mem : Mem) (p : Addr) (m : List Byte) : Prop := ReprFrom H0 mem p m
 
 end VG.Spec.Sha256
