@@ -28,4 +28,37 @@ theorem rotate28_word (x : BitVec 28) (n : Nat) (hn : 1 ≤ n) (hn' : n < 28) :
   · simp (disch := omega) [h, hj, show j < 64 by omega,
       show j - n < 64 by omega, BitVec.getLsbD_of_ge]
 
+
+theorem packHalves_word (l r : BitVec 32) :
+    (l.setWidth 64).rotateRight 32 ^^^ r.setWidth 64 = l ++ r := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  simp only [BitVec.getLsbD_xor, BitVec.getLsbD_rotateRight, BitVec.getLsbD_setWidth,
+    BitVec.getLsbD_append]
+  by_cases h : j < 32
+  · simp (disch := omega) [h, hj, show 32 + j < 64 by omega, BitVec.getLsbD_of_ge]
+  · simp (disch := omega) [h, hj, show j - 32 < 64 by omega, BitVec.getLsbD_of_ge]
+
+
+theorem appended_left (l r : BitVec 32) : ((l ++ r) >>> 32).setWidth 32 = l := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  simp only [BitVec.getLsbD_setWidth, BitVec.getLsbD_ushiftRight, BitVec.getLsbD_append,
+    hj, decide_true, Bool.true_and, show ¬32 + j < 32 by omega, ite_false,
+    show 32 + j - 32 = j by omega]
+
+theorem appended_right (l r : BitVec 32) : (l ++ r).setWidth 32 = r := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  simp only [BitVec.getLsbD_setWidth, BitVec.getLsbD_append, hj, decide_true,
+    Bool.true_and, ite_true]
+
+theorem halves_append (x : BitVec 64) : (x >>> 32).setWidth 32 ++ x.setWidth 32 = x := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  simp only [BitVec.getLsbD_append, BitVec.getLsbD_setWidth, BitVec.getLsbD_ushiftRight]
+  by_cases h : j < 32
+  · simp only [h, decide_true, Bool.true_and, ite_true]
+  · simp (disch := omega) [h, show j - 32 < 32 by omega, show 32 + (j - 32) = j by omega]
+
 end VG.Proof.TripleDes
