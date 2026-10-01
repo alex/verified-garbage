@@ -75,14 +75,15 @@ theorem regs3 {s₁ s₂ : State} {a b c : Reg} (ha : s₁.gpr a = s₂.gpr a) (
     (hc : s₁.gpr c = s₂.gpr c) : ∀ r ∈ [a, b, c], s₁.gpr r = s₂.gpr r := fun r hr => by
   rcases mem3 hr with rfl | rfl | rfl <;> assumption
 
-theorem ct : ConstantTime isa rnK.pre rnK.pub rejNTT := by
+theorem ctWith (v : Proof.Sha3.AArch64.Permutation) : ConstantTime isa rnK.pre rnK.pub (rejNTTWith v.callee) := by
+  obtain ⟨hint, hhint⟩ := v.mldsaNttTaint
   refine RelCT.constantTime (Q := fun _ _ => True) (RelCT.mono (Q := fun _ _ => True) (P := Rel2 rnK.pre rnK.pub fun σ s => s = σ)
     ?_ (fun s₁ s₂ h => ⟨s₁, s₂, h.1, h.2.1, h.2.2, rfl, rfl⟩) fun _ _ _ => trivial)
   refine RelCT.seq (relTaintStep (J' := fun σ => J0 (spOf σ) σ) [.x0, .x1, .x2]
     (fun σ s hp h => by subst h; exact pro_ok hp) (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => by
       subst h₁ h₂; exact ⟨hq.2.2.2.1, regs3 hq.1 hq.2.1 hq.2.2.1⟩) (by taint_decide)) ?_
   refine RelCT.seq (relTaintStep (J' := fun σ => J6 168 1008 (spOf σ) σ) [.x25, .x26, .x27, .x3, .x4]
-    (fun σ s hp h => sponge_ok (spOk hp) (by decide) (by decide) h) (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => by
+    (fun σ s hp h => spongeWith_ok (v := v) (spOk hp) (by decide) (by decide) h) (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => by
       refine ⟨by rw [h₁.env.sp, h₂.env.sp, hq.2.2.2.1], fun r hr => ?_⟩
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl | rfl
@@ -90,13 +91,16 @@ theorem ct : ConstantTime isa rnK.pre rnK.pub rejNTT := by
       · rw [h₁.env.x26, h₂.env.x26, pub_eq hq]
       · rw [h₁.env.x27, h₂.env.x27, pub_eq hq]
       · rw [h₁.x3, h₂.x3, pub_eq hq]
-      · exact toNat_inj h₁.x4 h₂.x4) (by taint_decide)) ?_
+      · exact toNat_inj h₁.x4 h₂.x4) hhint) ?_
   refine RelCT.seq (relTaintStep (J' := Z) [.x26] (fun σ s hp h => zero_ok hp h)
     (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => ⟨by rw [h₁.env.sp, h₂.env.sp, hq.2.2.2.1], fun r hr => by
       rw [List.mem_singleton.mp hr, h₁.env.x26, h₂.env.x26, pub_eq hq]⟩) (by taint_decide)) ?_
   refine RelCT.seq (relStep (J' := LP) (fun σ s hp h => loopP_ok hp h) loop_ct) ?_
   exact relTaint [.x25] (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => ⟨by rw [h₁.env.sp, h₂.env.sp, hq.2.2.2.1],
     fun r hr => by rw [List.mem_singleton.mp hr, h₁.env.x25, h₂.env.x25, pub_eq hq]⟩) (by taint_decide)
+
+theorem ct : ConstantTime isa rnK.pre rnK.pub rejNTT :=
+  ctWith .scalar
 
 end RejNtt
 
@@ -118,9 +122,9 @@ def rnSat : State where
   rd := [⟨0x1000, 34⟩]
   wr := [⟨0x2000, 1024⟩, ⟨0x3000, 2048⟩]
 
-theorem rejNTT_verified :
-    Verified AArch64.target Impl.MlDsa.AArch64.Sample.rejNTT (Spec.MlDsa.rejNTTContract AArch64.abi 16) :=
-  Verified.of_correct RejNtt.correct RejNtt.ct
+theorem rejNTT_verifiedWith (v : Proof.Sha3.AArch64.Permutation) :
+    Verified AArch64.target (Impl.MlDsa.AArch64.Sample.rejNTTWith v.callee) (Spec.MlDsa.rejNTTContract AArch64.abi 16) :=
+  Verified.of_correct (RejNtt.correctWith v) (RejNtt.ctWith v)
     { pre := by sig_implies_pre [Spec.MlDsa.rejNTTContract, Spec.MlDsa.rejNTTSig, rnK, AArch64.abi,
         AArch64.argRegs]
       post := by
@@ -144,5 +148,9 @@ theorem rejNTT_verified :
         exact ⟨hx0, hx1, hx2, hsp, Proof.MlKem.AArch64.Sample.map_toNat_inj hb⟩
       sat := by sig_implies_sat [Spec.MlDsa.rejNTTContract, Spec.MlDsa.rejNTTSig, rnK, AArch64.abi,
         AArch64.argRegs] [rnSat] using rnSat }
+
+theorem rejNTT_verified :
+    Verified AArch64.target Impl.MlDsa.AArch64.Sample.rejNTT (Spec.MlDsa.rejNTTContract AArch64.abi 16) :=
+  rejNTT_verifiedWith .scalar
 
 end VG.Proof.MlDsa.AArch64.Sample

@@ -54,7 +54,7 @@ PLATFORMS = {
 # The other `VG_CPU_FEATURES` each architecture is benchmarked with.
 CPU_FEATURES = {
     "x86_64": ["avx,avx2,bmi1,bmi2,adx", "avx,avx2,bmi1,bmi2", "none"],
-    "aarch64": ["none"],
+    "aarch64": ["sha3", "none"],
 }
 
 SHARED = re.compile(

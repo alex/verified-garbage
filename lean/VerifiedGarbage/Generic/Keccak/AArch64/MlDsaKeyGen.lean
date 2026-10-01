@@ -14,7 +14,7 @@ target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
 against the contract.
 -/
 
-namespace VG.Artifacts.MlDsaKeyGen.AArch64
+namespace VG.Generic.Keccak.AArch64.MlDsaKeyGen
 
 /-- Notes on the implementation, the same for every parameter set. -/
 def notes : List String :=
@@ -24,30 +24,36 @@ def notes : List String :=
     zeroes the polynomial of a sampler that fails rather than branching on it: its timing does not \
     depend on whether key generation fails."]
 
-def artifacts : List Artifact := [
+def artifacts (v : Proof.Sha3.AArch64.Permutation) : List Artifact := [
   { Spec.MlDsa.keyGen44Api with
+    name := Spec.MlDsa.keyGen44Api.name ++ v.callee.suffix
+    features := v.features
     target := AArch64.target
     doc := Spec.MlDsa.keyGen44Api.doc (notes := notes)
-    code := Impl.MlDsa.AArch64.KeyGen.keyGen44
+    code := Impl.MlDsa.AArch64.KeyGen.keyGen44With v.callee
     contract := Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa44 AArch64.abi 16
     stack := 16
-    verified := Proof.MlDsa.AArch64.KeyGen.keyGen44_verified
+    verified := Proof.MlDsa.AArch64.KeyGen.keyGen44_verifiedWith (keccak := v)
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.MlDsa.keyGen65Api with
+    name := Spec.MlDsa.keyGen65Api.name ++ v.callee.suffix
+    features := v.features
     target := AArch64.target
     doc := Spec.MlDsa.keyGen65Api.doc (notes := notes)
-    code := Impl.MlDsa.AArch64.KeyGen.keyGen65
+    code := Impl.MlDsa.AArch64.KeyGen.keyGen65With v.callee
     contract := Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa65 AArch64.abi 16
     stack := 16
-    verified := Proof.MlDsa.AArch64.KeyGen.keyGen65_verified
+    verified := Proof.MlDsa.AArch64.KeyGen.keyGen65_verifiedWith (keccak := v)
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.MlDsa.keyGen87Api with
+    name := Spec.MlDsa.keyGen87Api.name ++ v.callee.suffix
+    features := v.features
     target := AArch64.target
     doc := Spec.MlDsa.keyGen87Api.doc (notes := notes)
-    code := Impl.MlDsa.AArch64.KeyGen.keyGen87
+    code := Impl.MlDsa.AArch64.KeyGen.keyGen87With v.callee
     contract := Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa87 AArch64.abi 16
     stack := 16
-    verified := Proof.MlDsa.AArch64.KeyGen.keyGen87_verified
+    verified := Proof.MlDsa.AArch64.KeyGen.keyGen87_verifiedWith (keccak := v)
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
-end VG.Artifacts.MlDsaKeyGen.AArch64
+end VG.Generic.Keccak.AArch64.MlDsaKeyGen

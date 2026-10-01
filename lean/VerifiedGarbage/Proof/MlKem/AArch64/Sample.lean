@@ -29,22 +29,22 @@ open VG VG.AArch64 VG.Impl.MlKem.AArch64 VG.Proof.MlKem.AArch64
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-theorem phaseA_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa sampleSqueeze s₀ fun u => LPre 280 (Bs s₀) (So s₀ 0) (aP s₀) u ∧ Fin s₀ u :=
-  WP.seq (WP.mono (prologue_ok hp) fun _ h => calls_ok hp h (by decide) (by decide) fun _ m b =>
+theorem phaseA_ok (v : Proof.Sha3.AArch64.Permutation) {s₀ : State} (hp : Pre s₀) :
+    WP isa (sampleSqueezeWith v.callee) s₀ fun u => LPre 280 (Bs s₀) (So s₀ 0) (aP s₀) u ∧ Fin s₀ u :=
+  WP.seq (WP.mono (prologue_ok hp) fun _ h => calls_ok v hp h (by decide) (by decide) fun _ m b =>
     rest_ok hp m b)
 
 theorem pres_loop : ∀ r ∈ preserved, r ∉ (Reg.x0 :: lRegs) := by decide
 
 /-- What the code guarantees: `sampleStrong`'s postcondition, and the ABI. -/
 def Post (s₀ s' : State) : Prop :=
-  GprAbi s₀ s' ∧ Reduced s'.mem (aP s₀) ∧
+  abiPreserved s₀ s' ∧ Reduced s'.mem (aP s₀) ∧
     ((s'.gpr .x0 = 1 ∧ sampleNTT 280 (Bs s₀) = some (polyAt s'.mem (aP s₀))) ∨
       (s'.gpr .x0 = 0 ∧ sampleNTT 280 (Bs s₀) = none))
 
-theorem full_ok {s₀ : State} (hp : Pre s₀) : WP isa sampleFull s₀ (Post s₀) := by
-  refine WP.seq (WP.mono (phaseA_ok hp) fun u ⟨hl, hf⟩ => WP.mono (loop_ok hl) fun s' ⟨k, _, res⟩ => ?_)
-  refine ⟨⟨fun r hr => ?_, ?_⟩, res.1, ?_⟩
+theorem full_ok (v : Proof.Sha3.AArch64.Permutation) {s₀ : State} (hp : Pre s₀) : WP isa (sampleFullWith v.callee) s₀ (Post s₀) := by
+  refine WP.seq (WP.mono ((phaseA_ok v) hp) fun u ⟨hl, hf⟩ => WP.mono (loop_ok hl) fun s' ⟨k, _, res⟩ => ?_)
+  refine ⟨⟨fun r hr => ?_, ?_, fun r hr => (k.vcs r hr).trans (hf.vcs r hr)⟩, res.1, ?_⟩
   · rw [k.gpr r (pres_loop r hr), hf.cs r hr]
   · rw [k.sp, hf.sp]
   rcases res.2 with ⟨h0, hpoly, hs⟩ | ⟨h0, hn⟩
@@ -53,10 +53,10 @@ theorem full_ok {s₀ : State} (hp : Pre s₀) : WP isa sampleFull s₀ (Post s�
 
 /-! ## `sampleFast` -/
 
-theorem fastA_ok {s₀ : State} (hp : Pre s₀) :
-    WP isa (sampleSqueezeN 504 (sampleRegs 168)) s₀ fun u =>
+theorem fastA_ok (v : Proof.Sha3.AArch64.Permutation) {s₀ : State} (hp : Pre s₀) :
+    WP isa ((sampleSqueezeNWith v.callee) 504 (sampleRegs 168)) s₀ fun u =>
       LPre 168 (Bs s₀) (So s₀ 0) (aP s₀) u ∧ MidA s₀ u :=
-  WP.seq (WP.mono (prologue_ok hp) fun _ h => calls_ok hp h (by decide) (by decide) fun _ m b =>
+  WP.seq (WP.mono (prologue_ok hp) fun _ h => calls_ok v hp h (by decide) (by decide) fun _ m b =>
     WP.seq (restN_ok hp (by decide) (by decide) (by decide) m b))
 
 /-- What `sampleFast` leaves: our caller's registers still saved, and the
@@ -72,8 +72,8 @@ theorem fastLoop_ok {s₀ : State} (hp : Pre s₀) {u : State} (hl : LPre 168 (B
   WP.mono (iters_ok (by decide) hl) fun _ hv =>
     ⟨MidA.keep hp hm hv.keep hv.acc.frame, hv.acc.len, hv.acc.x4, hv.acc.coeffs⟩
 
-theorem fast_ok {s₀ : State} (hp : Pre s₀) : WP isa sampleFast s₀ (FastPost s₀) :=
-  WP.seq (WP.mono (fastA_ok hp) fun _ ⟨hl, hm⟩ => fastLoop_ok hp hl hm)
+theorem fast_ok (v : Proof.Sha3.AArch64.Permutation) {s₀ : State} (hp : Pre s₀) : WP isa (sampleFastWith v.callee) s₀ (FastPost s₀) :=
+  WP.seq (WP.mono ((fastA_ok v) hp) fun _ ⟨hl, hm⟩ => fastLoop_ok hp hl hm)
 
 /-- 256 coefficients after 168 iterations: 1, and `SampleNTT`. -/
 theorem done_ok {s₀ : State} (hp : Pre s₀) {u : State} (h : FastPost s₀ u)
@@ -85,7 +85,7 @@ theorem done_ok {s₀ : State} (hp : Pre s₀) {u : State} (h : FastPost s₀ u)
     fun v hk hm => ⟨by rw [hk.get .x0, e₁]; rfl, by rw [hm, h₁.mem]⟩) fun s' ⟨⟨h0, hm⟩, hfin⟩ => ?_
   have hc := h.coeffs.full hf
   rw [hf] at hc
-  refine ⟨⟨hfin.cs, hfin.sp⟩, ?_, .inl ⟨h0, ?_⟩⟩
+  refine ⟨⟨hfin.cs, hfin.sp, hfin.vcs⟩, ?_, .inl ⟨h0, ?_⟩⟩
   · rw [hm]; exact reduced_of_coeffs (L := LA (Bs s₀) 168) (by rw [hf]; exact hc)
   · rw [sampleNTT_of_full (by decide : 168 ≤ 280) hf]
     refine congrArg some ?_
@@ -101,6 +101,7 @@ structure RetryPost (s₀ v : State) : Prop where
   x2 : v.gpr .x2 = scP s₀
   cs : ∀ r ∈ preserved, v.gpr r = s₀.gpr r
   seed : bytesAt v.mem (sdP s₀) 34 = Bs s₀
+  vcs : ∀ r ∈ preservedV, (v.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64
 
 theorem retryBlock_ok {s₀ : State} (hp : Pre s₀) {u : State} (h : FastPost s₀ u) :
     WP isa (.block sampleRetry) u (RetryPost s₀) := by
@@ -110,7 +111,7 @@ theorem retryBlock_ok {s₀ : State} (hp : Pre s₀) {u : State} (h : FastPost s
   have m₃ : MidA s₀ u₃ := MidA.keep hp h.mid k₃ (by rw [h₃.mem, h₂.mem, h₁.mem]; exact Frame.refl _ _)
   refine WP.mono (restore_ok hp m₃ (P := fun v => v.gpr .x0 = sdP s₀ ∧ v.gpr .x1 = aP s₀ ∧
     v.gpr .x2 = scP s₀ ∧ v.mem = u₃.mem) fun v hk hm => ⟨?_, ?_, ?_, hm⟩)
-    fun v ⟨⟨e0, e1, e2, hm⟩, hfin⟩ => ⟨hfin.rd, hfin.wr, hfin.sp, e0, e1, e2, hfin.cs, by rw [hm]; exact m₃.seed⟩
+    fun v ⟨⟨e0, e1, e2, hm⟩, hfin⟩ => ⟨hfin.rd, hfin.wr, hfin.sp, e0, e1, e2, hfin.cs, by rw [hm]; exact m₃.seed, hfin.vcs⟩
   · rw [hk.get .x0, h₃.get .x0, h₂.get .x0, e₁, h.mid.x24]
   · rw [hk.get .x1, h₃.get .x1, e₂, h₁.get .x25, h.mid.x25]
   · rw [hk.get .x2, e₃, h₂.get .x26, h₁.get .x26, h.mid.x26]
@@ -120,25 +121,24 @@ theorem RetryPost.pre {s₀ v : State} (hp : Pre s₀) (h : RetryPost s₀ v) : 
   exact ⟨hp.rd, hp.wr, hp.d_sa, hp.d_ss, hp.d_as, hp.sp16, hp.k_s, hp.k_a, hp.k_c⟩
 
 /-- Fewer: the original arguments back, and `sampleFull` from them. -/
-theorem retry_ok {s₀ : State} (hp : Pre s₀) {u : State} (h : FastPost s₀ u) :
-    WP isa (.seq (.block sampleRetry) sampleFull) u (Post s₀) := by
-  refine WP.seq (WP.mono (retryBlock_ok hp h) fun v hv => ?_)
-  refine WP.mono (full_ok (pre_of (hv.pre hp))) fun s' ⟨⟨cs, sp⟩, red, res⟩ => ?_
-  have hB : Bs v = Bs s₀ := by simp only [Bs, sdP, hv.x0]; exact hv.seed
-  refine ⟨⟨fun r hr => by rw [cs r hr, hv.cs r hr], by rw [sp, hv.sp]⟩, ?_, ?_⟩
+theorem retry_ok (v : Proof.Sha3.AArch64.Permutation) {s₀ : State} (hp : Pre s₀) {u : State} (h : FastPost s₀ u) :
+    WP isa (.seq (.block sampleRetry) (sampleFullWith v.callee)) u (Post s₀) := by
+  refine WP.seq (WP.mono (retryBlock_ok hp h) fun u₁ hv => ?_)
+  refine WP.mono ((full_ok v) (pre_of (hv.pre hp))) fun s' ⟨⟨cs, sp, vcs⟩, red, res⟩ => ?_
+  have hB : Bs u₁ = Bs s₀ := by simp only [Bs, sdP, hv.x0]; exact hv.seed
+  refine ⟨⟨fun r hr => by rw [cs r hr, hv.cs r hr], by rw [sp, hv.sp], fun r hr => (vcs r hr).trans (hv.vcs r hr)⟩, ?_, ?_⟩
   · simpa only [aP, hv.x1] using red
   · simpa only [aP, hv.x1, hB] using res
 
-theorem strong_ok {s₀ : State} (hp : Pre s₀) : WP isa sampleNTT s₀ (Post s₀) := by
-  refine WP.seq (WP.mono (fast_ok hp) fun u h => ?_)
-  refine WP.ite (u.gpr .x4 == 0) (eval_zero _ _) (fun hz => ?_) (fun _ => retry_ok hp h)
+theorem strong_ok (v : Proof.Sha3.AArch64.Permutation) {s₀ : State} (hp : Pre s₀) : WP isa (sampleNTTWith v.callee) s₀ (Post s₀) := by
+  refine WP.seq (WP.mono ((fast_ok v) hp) fun u h => ?_)
+  refine WP.ite (u.gpr .x4 == 0) (eval_zero _ _) (fun hz => ?_) (fun _ => (retry_ok v) hp h)
   rw [eq_zero_iff, decide_eq_true_eq] at hz
   exact done_ok hp h hz
 
-theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa sampleNTT s₀ fun s' => abiPreserved s₀ s' ∧ sampleAArch64.post s₀ s' := by
-  apply WP.withPreservedV (hc := by decide +kernel)
-  refine WP.mono (strong_ok hp) fun s' ⟨abi, red, res⟩ => ⟨abi, ?_⟩
+theorem correct (v : Proof.Sha3.AArch64.Permutation) {s₀ : State} (hp : Pre s₀) :
+    WP isa (sampleNTTWith v.callee) s₀ fun s' => abiPreserved s₀ s' ∧ sampleAArch64.post s₀ s' := by
+  refine WP.mono ((strong_ok v) hp) fun s' ⟨abi, red, res⟩ => ⟨abi, ?_⟩
   rcases res with ⟨h0, hs⟩ | ⟨h0, hn⟩
   · have r1 : (s'.gpr .x0).setWidth 32 = 1 := by rw [h0]; rfl
     exact ⟨fun _ => red, outcome_of_min (.inl ⟨r1, hs⟩)⟩
@@ -253,13 +253,14 @@ theorem iters_taint : ∃ hint : Taint.Hint memTaint.T,
 /-- What each run of `sampleFull` knows after the Keccak calls. -/
 abbrev FA (σ u : State) : Prop := LPre 280 (Bs σ) (So σ 0) (aP σ) u ∧ Fin σ u
 
-theorem full_ct : ConstantTime isa sampleAArch64.pre sampleAArch64.pub sampleFull := by
+theorem full_ct (v : Proof.Sha3.AArch64.Permutation) : ConstantTime isa sampleAArch64.pre sampleAArch64.pub (sampleFullWith v.callee) := by
+  obtain ⟨hint, hhint⟩ := v.sampleFullTaint
   refine RelCT.constantTime (Q := fun _ _ => True) (RelCT.seq
     ((RelCT.taint (A := taint) (Taint.ofRegs [.x0, .x1, .x2])
       (fun _ _ h => agree_of h.2.2.2.2.2.1 (by
         obtain ⟨-, -, e0, e1, e2, -, -⟩ := h
-        simp [e0, e1, e2])) (by taint_decide)).wpDep (F := FA)
-      fun s₁ s₂ h => ⟨phaseA_ok (pre_of h.1), phaseA_ok (pre_of h.2.1)⟩) ?_)
+        simp [e0, e1, e2])) hhint).wpDep (F := FA)
+      fun s₁ s₂ h => ⟨(phaseA_ok v) (pre_of h.1), (phaseA_ok v) (pre_of h.2.1)⟩) ?_)
   refine RelCT.mono (RelCT.exists_ (P := fun (x : Addr × Addr × List Byte) s₁ s₂ =>
       ∃ σ₁ σ₂, (sampleAArch64.pre σ₁ ∧ sampleAArch64.pre σ₂ ∧ sampleAArch64.pub σ₁ σ₂) ∧ FA σ₁ s₁ ∧
         FA σ₂ s₂ ∧ So σ₁ 0 = x.1 ∧ aP σ₁ = x.2.1 ∧ Bs σ₁ = x.2.2)
@@ -284,7 +285,8 @@ theorem RelCT.pointwise {P Q : State → State → Prop} {c : Prog isa}
     (h : ∀ s₁ s₂, P s₁ s₂ → RelCT isa (fun a b => a = s₁ ∧ b = s₂) c Q) : RelCT isa P c Q :=
   fun s₁ s₂ _ _ _ _ hp e₁ e₂ => h s₁ s₂ hp s₁ s₂ _ _ _ _ ⟨rfl, rfl⟩ e₁ e₂
 
-theorem ct : ConstantTime isa sampleAArch64.pre sampleAArch64.pub sampleNTT := by
+theorem ct (v : Proof.Sha3.AArch64.Permutation) : ConstantTime isa sampleAArch64.pre sampleAArch64.pub (sampleNTTWith v.callee) := by
+  obtain ⟨hint, hhint⟩ := v.sampleFastTaint
   refine RelCT.constantTime (Q := fun _ _ => True) (RelCT.pointwise fun σ₁ σ₂ hσ => ?_)
   obtain ⟨p₁, p₂, e0, e1, e2, esp, eB⟩ := hσ
   have hB : Bs σ₂ = Bs σ₁ := (map_toNat_inj eB).symm
@@ -293,16 +295,16 @@ theorem ct : ConstantTime isa sampleAArch64.pre sampleAArch64.pub sampleNTT := b
   have eS : So σ₂ 0 = So σ₁ 0 := by rw [So, So, scP, scP, e2]
   have eA : aP σ₂ = aP σ₁ := e1.symm
   have e26 : scP σ₂ = scP σ₁ := e2.symm
-  -- the output of `sampleFast`, and its loop
+  -- the output of `(sampleFastWith v.callee)`, and its loop
   refine RelCT.seq (RelCT.seq (R := fun a b => (LPre 168 (Bs σ₁) (So σ₁ 0) (aP σ₁) a ∧ MidA σ₁ a) ∧
       (LPre 168 (Bs σ₂) (So σ₂ 0) (aP σ₂) b ∧ MidA σ₂ b))
     (RelCT.mono ((RelCT.taint (A := taint) (P := fun a b => a = σ₁ ∧ b = σ₂) (Taint.ofRegs [.x0, .x1, .x2])
       (fun a b h => by
         obtain ⟨rfl, rfl⟩ := h
-        exact agree_of esp (by simp [e0, e1, e2])) (by taint_decide)).wp
+        exact agree_of esp (by simp [e0, e1, e2])) hhint).wp
       (F₁ := fun a => LPre 168 (Bs σ₁) (So σ₁ 0) (aP σ₁) a ∧ MidA σ₁ a)
       (F₂ := fun b => LPre 168 (Bs σ₂) (So σ₂ 0) (aP σ₂) b ∧ MidA σ₂ b)
-      fun a b h => by obtain ⟨rfl, rfl⟩ := h; exact ⟨fastA_ok q₁, fastA_ok q₂⟩)
+      fun a b h => by obtain ⟨rfl, rfl⟩ := h; exact ⟨(fastA_ok v) q₁, (fastA_ok v) q₂⟩)
       (fun _ _ h => h) fun _ _ h => h.2)
     (RelCT.mono ((loop_ct (N := 168) (B := Bs σ₁) (bP := So σ₁ 0) (aP := aP σ₁) (fun a b h => ?_)
       (fun a b h => ?_) (fun hl => by obtain ⟨t, u, e, -⟩ := iters_ok (by decide) hl; exact ⟨t, u, e⟩)
@@ -330,8 +332,8 @@ theorem ct : ConstantTime isa sampleAArch64.pre sampleAArch64.pub sampleNTT := b
     rw [eval_zero, eval_zero]
     have v : a.gpr .x4 = b.gpr .x4 := BitVec.eq_of_toNat_eq (by rw [h₁.x4, h₂.x4, hB])
     rw [v]
-  · -- `sampleFull`, from states that satisfy its contract
-    refine fun a b t₁ t₂ a' b' h e₁ e₂ => ⟨full_ct a b t₁ t₂ a' b' (h.1.pre q₁) (h.2.pre q₂) ?_ e₁ e₂, trivial⟩
+  · -- `(sampleFullWith v.callee)`, from states that satisfy its contract
+    refine fun a b t₁ t₂ a' b' h e₁ e₂ => ⟨(full_ct v) a b t₁ t₂ a' b' (h.1.pre q₁) (h.2.pre q₂) ?_ e₁ e₂, trivial⟩
     obtain ⟨h₁, h₂⟩ := h
     refine ⟨by rw [h₁.x0, h₂.x0, sdP, sdP, e0], by rw [h₁.x1, h₂.x1, eA], by rw [h₁.x2, h₂.x2, e26],
       by rw [h₁.sp, h₂.sp, esp], ?_⟩
@@ -348,9 +350,9 @@ def sat : State where
   rd := [⟨0x1000, 34⟩]
   wr := [⟨0x2000, 1024⟩, ⟨0x3000, 2048⟩]
 
-theorem sample_correct (s : State) (hs : sampleAArch64.pre s) :
-    ∃ t s', Exec isa sampleNTT s t s' ∧ abiPreserved s s' ∧ sampleAArch64.post s s' :=
-  correct (pre_of hs)
+theorem sample_correctWith (v : Proof.Sha3.AArch64.Permutation) (s : State) (hs : sampleAArch64.pre s) :
+    ∃ t s', Exec isa (sampleNTTWith v.callee) s t s' ∧ abiPreserved s s' ∧ sampleAArch64.post s s' :=
+  (correct v) (pre_of hs)
 
 /-- What callers use: `a` is always reduced, and the return value is
 determined by the seed (`SampleNTT` with 280 iterations). -/
@@ -360,17 +362,31 @@ def sampleStrong : Contract isa :=
       ((s'.gpr .x0 = 1 ∧ sampleNTT 280 (bytesAt s.mem (s.gpr .x0) 34) = some (polyAt s'.mem (s.gpr .x1))) ∨
         (s'.gpr .x0 = 0 ∧ sampleNTT 280 (bytesAt s.mem (s.gpr .x0) 34) = none)) }
 
+theorem sample_strongWith (v : Proof.Sha3.AArch64.Permutation) (s : State) (hs : sampleStrong.pre s) :
+    ∃ t s', Exec isa (sampleNTTWith v.callee) s t s' ∧ abiPreserved s s' ∧ sampleStrong.post s s' :=
+  WP.mono ((strong_ok v) (pre_of hs)) fun _ h => h
+
+theorem ct_strongWith (v : Proof.Sha3.AArch64.Permutation) : ConstantTime isa sampleStrong.pre sampleStrong.pub (sampleNTTWith v.callee) := (ct v)
+
+theorem sample_verifiedWith (v : Proof.Sha3.AArch64.Permutation) :
+    Verified AArch64.target (sampleNTTWith v.callee) (Spec.MlKem.sampleNTTContract AArch64.abi 16) :=
+  Verified.of_correct (sample_correctWith v) (ct v) (by
+    mlkem_implies [Spec.MlKem.sampleNTTContract, Spec.MlKem.sampleNTTSig, sampleAArch64,
+      AArch64.abi, AArch64.argRegs] [sat] using sat)
+
+theorem sample_correct (s : State) (hs : sampleAArch64.pre s) :
+    ∃ t s', Exec isa sampleNTT s t s' ∧ abiPreserved s s' ∧ sampleAArch64.post s s' :=
+  sample_correctWith .scalar s hs
+
 theorem sample_strong (s : State) (hs : sampleStrong.pre s) :
     ∃ t s', Exec isa sampleNTT s t s' ∧ abiPreserved s s' ∧ sampleStrong.post s s' :=
-  WP.withPreservedV (hc := by decide +kernel) <|
-    WP.mono (strong_ok (pre_of hs)) fun _ h => h
+  sample_strongWith .scalar s hs
 
-theorem ct_strong : ConstantTime isa sampleStrong.pre sampleStrong.pub sampleNTT := ct
+theorem ct_strong : ConstantTime isa sampleStrong.pre sampleStrong.pub sampleNTT :=
+  ct_strongWith .scalar
 
 theorem sample_verified :
     Verified AArch64.target sampleNTT (Spec.MlKem.sampleNTTContract AArch64.abi 16) :=
-  Verified.of_correct sample_correct ct (by
-    mlkem_implies [Spec.MlKem.sampleNTTContract, Spec.MlKem.sampleNTTSig, sampleAArch64,
-      AArch64.abi, AArch64.argRegs] [sat] using sat)
+  sample_verifiedWith .scalar
 
 end VG.Proof.MlKem.AArch64.Sample

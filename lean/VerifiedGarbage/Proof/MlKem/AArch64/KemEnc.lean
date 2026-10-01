@@ -13,6 +13,8 @@ buffer the function only reads, and the ciphertext in a written buffer
 
 namespace VG.Proof.MlKem.AArch64.Kem
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlKem.AArch64 VG.Impl.MlKem.AArch64.KEM VG.Proof.MlKem.AArch64
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
@@ -168,7 +170,7 @@ theorem pns {s₀ : State} (hp : Pre L s₀) {o : Nat} (h : PO o) :
 
 theorem y_step {s₀ : State} (hp : Pre L s₀) {kE eo kC co : Nat} (A : EncArgs L kE eo kC co) {mE mB : Mem}
     {v : BitVec 64} {rv mv : List Byte} {j : Nat} (hj : j < 3) {s : State}
-    (h : EInv L s₀ kC co mE mB v rv mv j 0 s) : WP isa (encYAt j) s (EInv L s₀ kC co mE mB v rv mv (j + 1) 0) := by
+    (h : EInv L s₀ kC co mE mB v rv mv j 0 s) : WP isa ((encYAtWith keccak.callee) j) s (EInv L s₀ kC co mE mB v rv mv (j + 1) 0) := by
   have hpo := po_y hj
   have h1 : YH + 1024 * j ≤ yOff j := by simp only [yOff]; omega
   have h2 : yOff j + 1024 ≤ CB := by simp only [yOff, YH, CB]; omega
@@ -184,7 +186,7 @@ theorem y_step {s₀ : State} (hp : Pre L s₀) {kE eo kC co : Nat} (A : EncArgs
       rcases mem2' hr with rfl | rfl
       · exact papart hp (po_y (by omega)) hpo (by simp only [yOff]; omega)
       · exact pns hp (po_y (by omega))) (polyIs_frame f₁ (fun r hr => ?_) (h.y j' hj'))
-    -- `ŷ[j']` is apart from what `prfCbd` writes
+    -- `ŷ[j']` is apart from what `(prfCbdWith keccak.callee)` writes
     rcases mem6 hr with rfl | rfl | rfl | rfl | rfl | rfl
     · exact sdisj hp (po_y (by omega)).le (by decide) (.inr (by simp only [yOff, YH, KEM.ST]; omega))
     · exact sdisj hp (po_y (by omega)).le (by decide) (.inr (by simp only [yOff, YH, KEM.WK]; omega))
@@ -264,7 +266,7 @@ theorem u_part2 {s₀ : State} (hp : Pre L s₀) {kE eo kC co : Nat} (A : EncArg
     {v : BitVec 64} {rv mv : List Byte} {i : Nat} (hi : i < 3) {s : State}
     (h : EInv L s₀ kC co mE mB v rv mv 3 i s)
     (ht : PolyIs s.mem (sA L s₀ TP) (dot3 (fun j => aM L s₀ mB j i) (encY rv))) :
-    WP isa (.seq (nttInvAt TP) <| .seq (prfCbd (3 + i) EP) <| .seq (addAt TP EP)
+    WP isa (.seq (nttInvAt TP) <| .seq ((prfCbdWith keccak.callee) (3 + i) EP) <| .seq (addAt TP EP)
       (ceAt TP 10 (slotReg kC) (co + 320 * i))) s (EInv L s₀ kC co mE mB v rv mv 3 (i + 1)) := by
   have hn : i ≤ 3 := by omega
   refine WP.seq (WP.mono (nttInv_ok hp po_TP h.kb ht.1) fun s₁ ⟨kb₁, f₁, t₁, x₁⟩ => ?_)
@@ -302,7 +304,7 @@ theorem u_part2 {s₀ : State} (hp : Pre L s₀) {kE eo kC co : Nat} (A : EncArg
 theorem u_step {s₀ : State} (hp : Pre L s₀) {kE eo kC co : Nat} (A : EncArgs L kE eo kC co) {mE mB : Mem}
     {v : BitVec 64} {rv mv : List Byte} {i : Nat} (hi : i < 3) {s : State}
     (h : EInv L s₀ kC co mE mB v rv mv 3 i s) :
-    WP isa (encUAt (slotReg kC) co i) s (EInv L s₀ kC co mE mB v rv mv 3 (i + 1)) :=
+    WP isa ((encUAtWith keccak.callee) (slotReg kC) co i) s (EInv L s₀ kC co mE mB v rv mv 3 (i + 1)) :=
   u_part1 hp A hi h fun _ h' t => u_part2 hp A hi h' t
 
 theorem v_part1 {s₀ : State} (hp : Pre L s₀) {kE eo kC co : Nat} (A : EncArgs L kE eo kC co) {mE mB : Mem}
@@ -389,7 +391,7 @@ abbrev vPoly (T : Nat → Poly) (rv mv : List Byte) : Poly :=
 theorem v_part2 {s₀ : State} (hp : Pre L s₀) {kE eo kC co : Nat} (A : EncArgs L kE eo kC co) {mE mB : Mem}
     {v : BitVec 64} {rv mv : List Byte} {T : Nat → Poly} {s : State} (h : EInv L s₀ kC co mE mB v rv mv 3 3 s)
     (ht : PolyIs s.mem (sA L s₀ TP) (dot3 T (encY rv))) :
-    WP isa (.seq (nttInvAt TP) <| .seq (prfCbd 6 EP) <| .seq (addAt TP EP) <| .seq (ddAt .x28 MB 1 EP) <|
+    WP isa (.seq (nttInvAt TP) <| .seq ((prfCbdWith keccak.callee) 6 EP) <| .seq (addAt TP EP) <| .seq (ddAt .x28 MB 1 EP) <|
       .seq (addAt TP EP) (ceAt TP 4 (slotReg kC) (co + 960))) s fun s' =>
       EInv L s₀ kC co mE mB v rv mv 3 3 s' ∧
       bytesAt s'.mem (kA s₀ (L.slot kC) + BitVec.ofNat 64 (co + 960)) 128 = compressEncode 4 (vPoly T rv mv) := by
@@ -444,7 +446,7 @@ theorem encrypt_ok {s₀ : State} (hp : Pre L s₀) {kE eo kC co : Nat} (A : Enc
     {v : BitVec 64} {rv mv : List Byte} {T : Nat → Poly}
     (hT : ∀ j < 3, decode12 (bytesAt s₀.mem (kA s₀ (L.slot kE) + BitVec.ofNat 64 (eo + 384 * j)) 384) = T j)
     {s : State} (h : EInv L s₀ kC co mE mB v rv mv 0 0 s) :
-    WP isa (encryptC (slotReg kE) eo .x28 MB (slotReg kC) co) s fun s' =>
+    WP isa ((encryptCWith keccak.callee) (slotReg kE) eo .x28 MB (slotReg kC) co) s fun s' =>
       EInv L s₀ kC co mE mB v rv mv 3 3 s' ∧
       bytesAt s'.mem (kA s₀ (L.slot kC) + BitVec.ofNat 64 (co + 960)) 128 = compressEncode 4 (vPoly T rv mv) :=
   WP.seq (WP.mono (y_step hp A (j := 0) (by decide) h) fun _ h₁ =>

@@ -1,5 +1,4 @@
-import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
-import VerifiedGarbage.Proof.Sha3.AArch64.Permute
+import VerifiedGarbage.Proof.Sha3.AArch64.Call
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Sha3.Contract
@@ -87,6 +86,7 @@ structure Common (s₀ : State) (c : Nat) (s : State) : Prop where
   x24 : s.gpr .x24 = BitVec.ofNat 64 (len s₀ - c)
   frame : Frame [stR s₀, scR s₀] s₀.mem s.mem
   saved : Saved (scr s₀) s₀.gpr s.mem
+  vcs : ∀ r ∈ preservedV, (s.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64
 
 /-- The loop invariant: the state represents the message followed by the
 first `c` bytes of data. -/
@@ -96,7 +96,7 @@ structure Inv (s₀ : State) (c : Nat) (s : State) : Prop extends Common s₀ c 
 
 theorem Common.of_gpr {s₀ : State} {c : Nat} {s s' : State} (h : Common s₀ c s)
     (hg : ∀ r ∈ [Reg.x19, .x20, .x21, .x23, .x24], s'.gpr r = s.gpr r)
-    (hm : s'.mem = s.mem) (hrd : s'.rd = s.rd) (hwr : s'.wr = s.wr) (hsp : s'.sp = s.sp) :
+    (hm : s'.mem = s.mem) (hrd : s'.rd = s.rd) (hwr : s'.wr = s.wr) (hsp : s'.sp = s.sp) (hv : s'.v = s.v) :
     Common s₀ c s' where
   c_le := h.c_le
   rd := hrd.trans h.rd
@@ -109,11 +109,13 @@ theorem Common.of_gpr {s₀ : State} {c : Nat} {s s' : State} (h : Common s₀ c
   x24 := by rw [hg _ (by simp)]; exact h.x24
   frame := by rw [hm]; exact h.frame
   saved := by rw [hm]; exact h.saved
+  vcs := fun r hr => by rw [hv]; exact h.vcs r hr
 
 /-- A call of the permutation keeps what holds throughout. -/
 theorem Common.after_call {s₀ : State} (hp : Pre s₀) {c : Nat} {s s' : State} (h : Common s₀ c s)
     (hrd : s'.rd = s.rd) (hwr : s'.wr = s.wr) (hsp : s'.sp = s.sp)
     (hcs : ∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s.gpr r)
+    (hv : ∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64)
     (hf : Frame [stR s₀, ⟨scr s₀, 512⟩] s.mem s'.mem) : Common s₀ c s' where
   c_le := h.c_le
   rd := hrd.trans h.rd
@@ -130,6 +132,7 @@ theorem Common.after_call {s₀ : State} (hp : Pre s₀) {c : Nat} {s s' : State
     · exact ⟨stR s₀, by simp, fun _ h => h⟩
     · exact ⟨scR s₀, by simp, Region.sub_prefix (by omega)⟩)
   saved := h.saved.permute hp.st_scr hf
+  vcs := fun r hr => (hv r hr).trans (h.vcs r hr)
 
 /-- The data is unchanged. -/
 theorem Common.data {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Common s₀ c s) {i : Nat}
@@ -142,12 +145,13 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block setup) s₀ 
   unfold setup
   rw [WP.block_append_iff]
   refine WP.mono (saves_ok fun k hk => ⟨scR s₀, by simp [hp.wr], contains_offset (by omega) (by omega)⟩)
-    fun s₁ ⟨g₁, rd₁, wr₁, sp₁, f₁, v₁⟩ => ?_
+    fun s₁ ⟨g₁, rd₁, wr₁, sp₁, f₁, hv₁, v₁⟩ => ?_
   refine wp_mov fun s₂ u₂ => wp_mov fun s₃ u₃ => wp_mov fun s₄ u₄ => wp_mov fun s₅ u₅ =>
     wp_mov fun s₆ u₆ => wp_mov fun s₇ u₇ => wp_nil ?_
   have hm : s₇.mem = s₁.mem := by rw [u₇.mem, u₆.mem, u₅.mem, u₄.mem, u₃.mem, u₂.mem]
   have hf : Frame [stR s₀, scR s₀] s₀.mem s₁.mem := f₁.mono (by simp)
-  refine ⟨⟨Nat.zero_le _, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by rw [hm]; exact hf, by rw [hm]; exact v₁⟩,
+  refine ⟨⟨Nat.zero_le _, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by rw [hm]; exact hf, by rw [hm]; exact v₁, fun r _ => by
+      rw [u₇.vec, u₆.vec, u₅.vec, u₄.vec, u₃.vec, u₂.vec, hv₁]⟩,
     ?_, fun msg ⟨hs, _⟩ => ?_⟩
   · rw [u₇.rd, u₆.rd, u₅.rd, u₄.rd, u₃.rd, u₂.rd, rd₁]
   · rw [u₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr, u₂.wr, wr₁]
@@ -225,7 +229,8 @@ theorem body_byte {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) {
       u₁.other _ (by decide), hr22, ← BitVec.ofNat_add]
   have h21 : s₉.gpr .x21 = s₀.gpr .x1 := by
     rw [g .x21 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hI.x21]
-  refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, h21, ?_, ?_, ?_, ?_⟩, h22, ?_, ?_⟩
+  refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, h21, ?_, ?_, ?_, ?_, fun r hr => by
+      rw [u₉.vec, u₈.vec, u₇.vec, u₆.vec, g₅.vec, u₄.vec, u₃.vec, u₂.vec, u₁.vec]; exact hI.vcs r hr⟩, h22, ?_, ?_⟩
   · rw [u₉.rd, u₈.rd, u₇.rd, u₆.rd, g₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd, hI.rd]
   · rw [u₉.wr, u₈.wr, u₇.wr, u₆.wr, g₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr, hI.wr]
   · rw [g .x19 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hI.x19]
@@ -327,7 +332,8 @@ theorem body_word {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c + 8 ≤ len s
       u₁.other _ (by decide), hr22, ← BitVec.ofNat_add]
   have h21 : s₉.gpr .x21 = s₀.gpr .x1 := by
     rw [g .x21 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hI.x21]
-  refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, h21, ?_, ?_, ?_, ?_⟩, h22, ?_, ?_⟩
+  refine ⟨⟨by omega, ?_, ?_, ?_, ?_, ?_, h21, ?_, ?_, ?_, ?_, fun r hr => by
+      rw [u₉.vec, u₈.vec, u₇.vec, u₆.vec, g₅.vec, u₄.vec, u₃.vec, u₂.vec, u₁.vec]; exact hI.vcs r hr⟩, h22, ?_, ?_⟩
   · rw [u₉.rd, u₈.rd, u₇.rd, u₆.rd, g₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd, hI.rd]
   · rw [u₉.wr, u₈.wr, u₇.wr, u₆.wr, g₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr, hI.wr]
   · rw [g .x19 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), hI.x19]
@@ -366,9 +372,9 @@ structure After (s₀ : State) (s : State) (c n : Nat) (s' : State) : Prop where
     (bytesAt s₀.mem (dp s₀ + BitVec.ofNat 64 c) n)
 
 /-- The permutation if the block is complete. -/
-theorem after_ok {s₀ : State} (hp : Pre s₀) {c n : Nat} (hn : 0 < n)
+theorem after_ok (v : Permutation) {s₀ : State} (hp : Pre s₀) {c n : Nat} (hn : 0 < n)
     (hfit : (pos s₀ + c) % rt s₀ + n ≤ rt s₀) {s s₁ : State} (hI : Inv s₀ c s) (h : After s₀ s c n s₁) :
-    WP isa (.ite (.zero .x .x9) (.seq (.block [.movz .x .x22 0 0]) permuteAt) (.block [])) s₁
+    WP isa (.ite (.zero .x .x9) (.seq (.block [.movz .x .x22 0 0]) (permuteAtWith v.callee)) (.block [])) s₁
       (Inv s₀ (c + n)) := by
   have ⟨hr₀, hr₁⟩ := hp.rt_pos
   have hC := h.common
@@ -395,9 +401,9 @@ theorem after_ok {s₀ : State} (hp : Pre s₀) {c n : Nat} (hn : 0 < n)
     refine WP.seq (wp_movz fun s₂ u₂ => wp_nil ?_)
     have hC₂ := hC.of_gpr (fun r hr => u₂.other r (by
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide)) u₂.mem u₂.rd u₂.wr u₂.sp
-    refine permuteAt_ok hC₂.x19 hC₂.x20 (hp.st_scr.sub_right (Region.sub_prefix (by omega)))
-      ?_ fun s₃ rd₃ wr₃ sp₃ cs₃ f₃ e₃ => ?_
+      rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide)) u₂.mem u₂.rd u₂.wr u₂.sp u₂.vec
+    refine permuteAt_ok v hC₂.x19 hC₂.x20 (hp.st_scr.sub_right (Region.sub_prefix (by omega)))
+      ?_ fun s₃ rd₃ wr₃ sp₃ cs₃ vc₃ f₃ e₃ => ?_
     · rw [hC₂.wr, hp.wr]
       apply Covers.of_sub
       intro r hr
@@ -405,7 +411,7 @@ theorem after_ok {s₀ : State} (hp : Pre s₀) {c n : Nat} (hn : 0 < n)
       rcases hr with rfl | rfl
       · exact ⟨stR s₀, by simp, 0, by simp, by simp⟩
       · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
-    · refine { hC₂.after_call hp rd₃ wr₃ sp₃ cs₃ f₃ with x22 := ?_, repr := fun msg hm => ?_ }
+    · refine { hC₂.after_call hp rd₃ wr₃ sp₃ cs₃ vc₃ f₃ with x22 := ?_, repr := fun msg hm => ?_ }
       · rw [cs₃ _ (by decide) (by decide), u₂.gpr, hpc, ite_eq_left_of_eq_true _ _ (eq_true hb)]; rfl
       · rw [e₃, u₂.mem, hrep msg hm, ite_eq_left_of_eq_true _ _ (eq_true hb)]
   · simp only [decide_eq_false_iff_not] at hb
@@ -414,12 +420,12 @@ theorem after_ok {s₀ : State} (hp : Pre s₀) {c n : Nat} (hn : 0 < n)
     · rw [hrep msg hm, ite_eq_right_of_eq_false _ _ (eq_false hb)]
 
 /-- The whole body: a lane or a byte of data. -/
-theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) {s : State} (hI : Inv s₀ c s) :
-    WP isa absorbBody s fun s' => ∃ c', c < c' ∧ c' ≤ len s₀ ∧ Inv s₀ c' s' := by
+theorem body_ok (v : Permutation) {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) {s : State} (hI : Inv s₀ c s) :
+    WP isa (absorbBodyWith v.callee) s fun s' => ∃ c', c < c' ∧ c' ≤ len s₀ ∧ Inv s₀ c' s' := by
   have ⟨hr₀, hr₁⟩ := hp.rt_pos
   have h8 := rate_mod8 hp.rate
   have hj : (pos s₀ + c) % rt s₀ < rt s₀ := Nat.mod_lt _ hr₀
-  unfold absorbBody
+  unfold absorbBodyWith
   refine WP.seq (wp_movz fun s₃ u₃ => wp_and fun s₄ u₄ => wp_subImm (by decide) fun s₅ u₅ =>
     wp_lsr (by decide) fun s₆ u₆ => wp_orr fun s₇ u₇ => wp_nil ?_)
   have oth : ∀ r, r ≠ .x10 → r ≠ .x11 → s₇.gpr r = s.gpr r := fun r h10 h11 => by
@@ -432,7 +438,8 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) {s 
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
         rcases hr with rfl | rfl | rfl | rfl | rfl <;> decide)) m₇
         (by rw [u₇.rd, u₆.rd, u₅.rd, u₄.rd, u₃.rd]) (by rw [u₇.wr, u₆.wr, u₅.wr, u₄.wr, u₃.wr])
-        (by rw [u₇.sp, u₆.sp, u₅.sp, u₄.sp, u₃.sp]) with
+        (by rw [u₇.sp, u₆.sp, u₅.sp, u₄.sp, u₃.sp])
+        (by rw [u₇.vec, u₆.vec, u₅.vec, u₄.vec, u₃.vec]) with
       x22 := by rw [oth _ (by decide) (by decide)]; exact hI.x22
       repr := fun msg hm => by rw [m₇]; exact hI.repr msg hm }
   have hx10 : s₇.gpr .x10 = 0 → (pos s₀ + c) % rt s₀ % 8 = 0 ∧ 8 ≤ len s₀ - c := fun h0 => by
@@ -450,7 +457,7 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) {s 
     omega
   refine WP.seq (WP.mono (Q := fun s₁ => ∃ n, 0 < n ∧ (pos s₀ + c) % rt s₀ + n ≤ rt s₀ ∧
       c + n ≤ len s₀ ∧ After s₀ s₇ c n s₁) ?_
-    fun s₁ ⟨n, hn, hfit, hcn, hA⟩ => WP.mono (after_ok hp hn hfit hI₇ hA)
+    fun s₁ ⟨n, hn, hfit, hcn, hA⟩ => WP.mono ((after_ok v) hp hn hfit hI₇ hA)
       fun s' h => ⟨c + n, by omega, hcn, h⟩)
   refine WP.ite (s₇.gpr .x10 == 0) (eval_zero _ _) (fun hb => ?_) (fun _ => ?_)
   · obtain ⟨m8, l8⟩ := hx10 (by simpa using hb)
@@ -465,7 +472,9 @@ theorem body_ok {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < len s₀) {s 
 
 /-- The epilogue's postcondition. -/
 def Post (s₀ s' : State) : Prop :=
-  (∀ k < 6, s'.gpr (sv k) = s₀.gpr (sv k)) ∧ s'.sp = s₀.sp ∧ Proof.Sha3.absorbAArch64.post s₀ s'
+  (∀ k < 6, s'.gpr (sv k) = s₀.gpr (sv k)) ∧ s'.sp = s₀.sp ∧
+    (∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64) ∧
+    Proof.Sha3.absorbAArch64.post s₀ s'
 
 theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (len s₀) s) :
     WP isa (.block (Impl.Sha3.AArch64.mov .x0 .x22 :: restore)) s (Post s₀) := by
@@ -473,7 +482,8 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
   refine wp_mov fun s₁ u₁ => ?_
   refine WP.mono (restores_ok (scr := scr s₀) (by rw [u₁.other _ (by decide), hI.x20])
     fun k hk => ⟨scR s₀, by simp [u₁.rd, u₁.wr, hI.rd, hI.wr, hp.wr], contains_offset (by omega) (by omega)⟩)
-    fun s' ⟨ax, sp, m, _, _, _, v⟩ => ⟨fun k hk => ?_, by rw [sp, u₁.sp, hI.sp], fun msg hm hpm => ?_, ?_⟩
+    fun s' ⟨ax, sp, m, _, _, hv, _, v⟩ => ⟨fun k hk => ?_, by rw [sp, u₁.sp, hI.sp],
+      (fun r hr => by rw [hv, u₁.vec]; exact hI.vcs r hr), fun msg hm hpm => ?_, ?_⟩
   · rw [v k hk, u₁.mem]; exact hI.saved k hk
   · rw [Proof.Sha3.repr_iff, m, u₁.mem]
     exact hI.repr msg ⟨hm, hpm⟩
@@ -482,25 +492,23 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
 /-! ## The whole function -/
 
 /-- No instruction of `absorbMain` writes the callee-saved registers it does not save. -/
-theorem untouched_ok : ∀ r ∈ untouched, ∀ i ∈ instrs absorbMain, dstOf i ≠ some r := by
-  have : ((instrs absorbMain).all fun i => untouched.all fun r => dstOf i != some r) = true :=
-    instrs_keeps (by decide +kernel)
-  intro r hr i hi
-  have := List.all_eq_true.mp (List.all_eq_true.mp this i hi) r hr
-  simpa using this
+theorem untouched_ok (v : Permutation) : ∀ r ∈ untouched,
+    ∀ i ∈ instrs (absorbMainWith v.callee), dstOf i ≠ some r := v.absorbKeeps
 
-theorem absorb_eq : absorbMain = .seq (.block setup)
-    (.seq (.ite (.zero .x .x24) (.block []) (.loop absorbBody (.nonzero .x .x24)))
+theorem absorb_eq (v : Permutation) : (absorbMainWith v.callee) = .seq (.block setup)
+    (.seq (.ite (.zero .x .x24) (.block []) (.loop (absorbBodyWith v.callee) (.nonzero .x .x24)))
       (.block (Impl.Sha3.AArch64.mov .x0 .x22 :: restore))) := rfl
 
 /-- `absorb` without its frame: the callee-saved registers but `x30` are kept. -/
-theorem correctMain {s₀ : State} (hp : Pre s₀) :
-    WP isa absorbMain s₀ fun s' => (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) ∧
-      s'.sp = s₀.sp ∧ Proof.Sha3.absorbAArch64.post s₀ s' := by
+theorem correctMain (v : Permutation) {s₀ : State} (hp : Pre s₀) :
+    WP isa (absorbMainWith v.callee) s₀ fun s' => (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) ∧
+      s'.sp = s₀.sp ∧
+      (∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64) ∧
+      Proof.Sha3.absorbAArch64.post s₀ s' := by
   have hl := len_lt s₀
-  refine WP.mono (WP.gprs (Q := Post s₀) ?_ untouched_ok) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
-    ⟨fun r hr h30 => ?_, hsp, hpost⟩
-  · rw [absorb_eq]
+  refine WP.mono (WP.gprs (Q := Post s₀) ?_ (untouched_ok v)) fun s' ⟨⟨hsv, hsp, hv, hpost⟩, hu⟩ =>
+    ⟨fun r hr h30 => ?_, hsp, hv, hpost⟩
+  · rw [(absorb_eq v)]
     refine WP.seq (WP.mono (prologue_ok hp) fun s₁ hI => ?_)
     refine WP.seq (WP.mono (Q := Inv s₀ (len s₀)) ?_ fun s₂ hI₂ => epilogue_ok hp hI₂)
     refine WP.ite (decide (len s₀ = 0))
@@ -513,7 +521,7 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
       refine WP.loop (M := isa) (fun n s => ∃ c, n = len s₀ - c ∧ c < len s₀ ∧ Inv s₀ c s) ?_ (len s₀) s₁
         ⟨0, rfl, by omega, hI⟩
       rintro n s ⟨c, rfl, hcl, hI⟩
-      refine WP.mono (body_ok hp hcl hI) fun s' ⟨c', hcc, hc', hI'⟩ => ?_
+      refine WP.mono ((body_ok v) hp hcl hI) fun s' ⟨c', hcc, hc', hI'⟩ => ?_
       have hz : isa.eval (.nonzero .x .x24) s' = some (decide (len s₀ - c' ≠ 0)) := by
         show VG.AArch64.eval (.nonzero .x .x24) s' = _
         rw [eval_nonzero, hI'.x24, bne, ofNat_beq_zero (by omega)]
@@ -530,17 +538,16 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
 abbrev inner (s₀ : State) : State :=
   { s₀ with sp := s₀.sp - 16, mem := s₀.mem.write (s₀.sp - 16) 8 (s₀.gpr .x30) }
 
-theorem correct {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) :
-    WP isa absorb s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha3.absorbAArch64.post s₀ s' := by
-  apply WP.withPreservedV (hc := by decide +kernel)
+theorem correct (v : Permutation) {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) :
+    WP isa (absorbWith v.callee) s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha3.absorbAArch64.post s₀ s' := by
   have hpi : Pre (inner s₀) := ⟨hp.rd, hp.wr, hp.st_scr, hp.d_st, hp.d_scr, hp.rate, hp.pos_lt⟩
-  refine WP.frameReg hs.sp16 (fun R hR => ?_) (WP.mono (correctMain hpi) fun s' ⟨hk, hsp, hpost⟩ => ?_)
+  refine WP.frameReg (hn := by rw [v.absorbMain_depth]; decide) hs.sp16 (fun R hR => ?_) (WP.mono ((correctMain v) hpi) fun s' ⟨hk, hsp, hv, hpost⟩ => ?_)
   · rw [hp.wr] at hR
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hR
     rcases hR with rfl | rfl
     · exact hs.st
     · exact hs.scr
-  · refine ⟨⟨fun r hr => ?_, rfl⟩, fun msg hm hc => ?_, hpost.2⟩
+  · refine ⟨⟨fun r hr => ?_, rfl, hv⟩, fun msg hm hc => ?_, hpost.2⟩
     · by_cases h30 : r = .x30
       · subst h30; simp [State.write]
       · simp only [State.write, h30, ite_false]
@@ -571,20 +578,21 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 200⟩, ⟨0x3000, 640⟩]
 
-theorem absorb_correct (s : State) (hs : Proof.Sha3.absorbAArch64.pre s) :
-    ∃ t s', Exec isa absorb s t s' ∧ abiPreserved s s' ∧ Proof.Sha3.absorbAArch64.post s s' := by
-  obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
+theorem absorb_correct (v : Permutation) (s : State) (hs : Proof.Sha3.absorbAArch64.pre s) :
+    ∃ t s', Exec isa (absorbWith v.callee) s t s' ∧ abiPreserved s s' ∧ Proof.Sha3.absorbAArch64.post s s' := by
+  obtain ⟨t, s', he, h⟩ := (correct v) (pre_of hs).1 (pre_of hs).2
   exact ⟨t, s', he, h⟩
 
-theorem absorb_ct : ConstantTime isa Proof.Sha3.absorbAArch64.pre Proof.Sha3.absorbAArch64.pub
-    absorb := by
+theorem absorb_ct (v : Permutation) : ConstantTime isa Proof.Sha3.absorbAArch64.pre Proof.Sha3.absorbAArch64.pub
+    (absorbWith v.callee) := by
+  obtain ⟨hint, hhint⟩ := v.absorbTaint
   exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
-    (fun _ _ _ _ hp => agree₀ hp) (by taint_decide)
+    (fun _ _ _ _ hp => agree₀ hp) hhint
 
-theorem absorb_verified :
-    Verified AArch64.target Impl.Sha3.AArch64.Stream.absorb (Spec.Sha3.absorbContract AArch64.abi
+theorem absorb_verified (v : Permutation) :
+    Verified AArch64.target (Impl.Sha3.AArch64.Stream.absorbWith v.callee) (Spec.Sha3.absorbContract AArch64.abi
       16) :=
-  Verified.of_correct absorb_correct absorb_ct (by
+  Verified.of_correct (absorb_correct v) (absorb_ct v) (by
     sig_implies [Spec.Sha3.absorbContract, Spec.Sha3.absorbSig, Proof.Sha3.absorbAArch64,
       AArch64.abi, AArch64.argRegs] [Proof.Sha3.AArch64.Stream.Absorb.sat] using
       Proof.Sha3.AArch64.Stream.Absorb.sat)

@@ -340,7 +340,7 @@ jobs:
             tests: x25519 cpu
           - chip: native
             os: ubuntu-24.04-arm
-            tests: aes_gcm sha1 sha256 sha384 sha512 scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+            tests: aes_gcm sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
     name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     env:
@@ -401,6 +401,11 @@ jobs:
         run: cargo test --locked --features cpu-features-env -- chacha20
         env:
           VG_CPU_FEATURES: none
+      - name: Test the ARM64 SHA-3 prototype and scalar fallback
+        if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
+        run: |
+          VG_CPU_FEATURES=sha3 cargo test --locked --features cpu-features-env -- sha3 shake mlkem mldsa
+          VG_CPU_FEATURES=none cargo test --locked --features cpu-features-env -- sha3 shake mlkem mldsa
       - name: Export coverage
         run: python3 ci/export_rust_coverage.py .rust-cov --features cpu-features-env
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
