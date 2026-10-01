@@ -1,9 +1,8 @@
 //! Ed25519 (RFC 8032), deterministic signatures from 32-byte seeds.
 //!
-//! On x86-64, x86, and AArch64, key derivation, signing, and verification each call
-//! one complete verified assembly operation, including SHA-512. x86-64 and AArch64
-//! variants follow the selected SHA-512 backend. ARMv7 composes
-//! verified scalar and group primitives with the SHA-512 API in Rust. Secret
+//! Key derivation, signing, and verification each call one complete verified
+//! assembly operation, including SHA-512, on every supported architecture.
+//! x86-64 and AArch64 variants follow the selected SHA-512 backend. Secret
 //! scratch values are cleared after use.
 
 #![cfg(any(
@@ -13,7 +12,6 @@
     target_arch = "arm"
 ))]
 
-#[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))]
 use crate::arch::ed25519::{vg_ed25519_public_key, vg_ed25519_sign_cached, vg_ed25519_verify};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::ed25519::{
@@ -24,14 +22,6 @@ use crate::arch::ed25519::{
 use crate::arch::ed25519::{
     vg_ed25519_public_key_sha3, vg_ed25519_sign_cached_sha3, vg_ed25519_verify_sha3,
 };
-#[cfg(target_arch = "arm")]
-use crate::arch::ed25519::{
-    vg_ed25519_scalar_base, vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce,
-    vg_ed25519_verify_equation,
-};
-#[cfg(target_arch = "arm")]
-use crate::hashes::sha512::Sha512;
-#[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))]
 use crate::hashes::sha512::Sha512Backend;
 use crate::zeroize::zeroize;
 
@@ -63,10 +53,9 @@ impl VerifyingKey {
     ///
     /// Public keys and signatures must use canonical encodings, and the
     /// signature scalar must be less than the subgroup order. This checks
-    /// the uncofactored equation. On x86-64, x86, and AArch64 the SHA-512 challenge is
-    /// reduced modulo the subgroup order, following RFC 8032 §6; the other targets
-    /// currently use the full digest. No additional subgroup or small-order
-    /// rejection policy is imposed.
+    /// the uncofactored equation. The SHA-512 challenge is reduced modulo the
+    /// subgroup order, following RFC 8032 §6. No additional subgroup or
+    /// small-order rejection policy is imposed.
     /// Verification timing may depend on the public key, message, and signature.
     pub fn verify(&self, message: &[u8], signature: &[u8]) -> Result<(), Error> {
         let signature: &[u8; 64] = signature.try_into().map_err(|_| Error::InvalidSignature)?;
@@ -129,7 +118,6 @@ impl SigningKey {
 
 /// The public key of `seed` (RFC 8032 §5.1.5), with the verified
 /// `vg_ed25519_public_key` including SHA-512.
-#[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))]
 fn public_key(seed: &[u8; 32]) -> [u8; 32] {
     let derive = match Sha512Backend::select(crate::cpu::detected()) {
         Sha512Backend::Scalar => vg_ed25519_public_key,
@@ -151,21 +139,6 @@ fn public_key(seed: &[u8; 32]) -> [u8; 32] {
     public
 }
 
-/// The public key of `seed` (RFC 8032 §5.1.5): SHA-512, pruning, and the
-/// verified base-point multiplication.
-#[cfg(target_arch = "arm")]
-fn public_key(seed: &[u8; 32]) -> [u8; 32] {
-    let mut expanded = Sha512::digest(seed);
-    let mut scalar = prune(&expanded);
-    let mut scratch = [0u64; 1024];
-    let public = scalar_base(&scalar, &mut scratch);
-    zeroize(&mut scratch);
-    zeroize(&mut scalar);
-    zeroize(&mut expanded);
-    public
-}
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))]
 fn verify_message(pk: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> u32 {
     let verify = match Sha512Backend::select(crate::cpu::detected()) {
         Sha512Backend::Scalar => vg_ed25519_verify,
@@ -185,50 +158,6 @@ fn verify_message(pk: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> u32 {
     valid
 }
 
-#[cfg(target_arch = "arm")]
-fn verify_message(pk: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> u32 {
-    let mut hash = Sha512::new();
-    hash.update(&signature[..32]);
-    hash.update(pk);
-    hash.update(message);
-    let challenge = hash.finalize();
-    let mut scratch = [0u64; 1024];
-    // SAFETY: the input arrays are live for their declared sizes, and
-    // scratch is a distinct writable object. None wraps the address space.
-    let valid = unsafe { vg_ed25519_verify_equation(pk, signature, &challenge, &mut scratch) };
-    zeroize(&mut scratch);
-    valid
-}
-
-#[cfg(target_arch = "arm")]
-fn prune(expanded: &[u8; 64]) -> [u8; 32] {
-    let mut scalar = [0u8; 32];
-    scalar.copy_from_slice(&expanded[..32]);
-    scalar[0] &= 248;
-    scalar[31] &= 63;
-    scalar[31] |= 64;
-    scalar
-}
-
-#[cfg(target_arch = "arm")]
-fn scalar_base(scalar: &[u8; 32], scratch: &mut [u64; 1024]) -> [u8; 32] {
-    let mut out = [0u8; 32];
-    // SAFETY: output, scalar, and scratch are distinct live objects of the
-    // required sizes, without address-space wrapping.
-    unsafe { vg_ed25519_scalar_base(&mut out, scalar, scratch) };
-    out
-}
-
-#[cfg(target_arch = "arm")]
-fn reduce(wide: &[u8; 64], scratch: &mut [u64; 1024]) -> [u8; 32] {
-    let mut out = [0u8; 32];
-    // SAFETY: the output, wide scalar, and scratch are distinct objects valid
-    // for 32, 64, and 8192 bytes, respectively, without address-space wrapping.
-    unsafe { vg_ed25519_scalar_reduce(&mut out, wide, scratch) };
-    out
-}
-
-#[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))]
 fn sign_message(seed: &[u8; 32], pk: &[u8; 32], message: &[u8]) -> [u8; 64] {
     let sign = match Sha512Backend::select(crate::cpu::detected()) {
         Sha512Backend::Scalar => vg_ed25519_sign_cached,
@@ -257,41 +186,6 @@ fn sign_message(seed: &[u8; 32], pk: &[u8; 32], message: &[u8]) -> [u8; 64] {
         )
     };
     zeroize(&mut scratch);
-    signature
-}
-
-#[cfg(target_arch = "arm")]
-fn sign_message(seed: &[u8; 32], pk: &[u8; 32], message: &[u8]) -> [u8; 64] {
-    let mut expanded = Sha512::digest(seed);
-    let mut scalar = prune(&expanded);
-    let mut nonce_hash = Sha512::new();
-    nonce_hash.update(&expanded[32..]);
-    nonce_hash.update(message);
-    let mut nonce_digest = nonce_hash.finalize();
-    let mut scratch = [0u64; 1024];
-    let mut nonce = reduce(&nonce_digest, &mut scratch);
-    let r = scalar_base(&nonce, &mut scratch);
-    let mut challenge_hash = Sha512::new();
-    challenge_hash.update(&r);
-    challenge_hash.update(pk);
-    challenge_hash.update(message);
-    let mut challenge_digest = challenge_hash.finalize();
-    let mut challenge = reduce(&challenge_digest, &mut scratch);
-    let mut s = [0u8; 32];
-    // SAFETY: the output, inputs, and scratch are distinct live objects
-    // of the required sizes, with no overlap or address-space wrapping.
-    unsafe { vg_ed25519_scalar_mul_add(&mut s, &nonce, &challenge, &scalar, &mut scratch) };
-    let mut signature = [0u8; 64];
-    signature[..32].copy_from_slice(&r);
-    signature[32..].copy_from_slice(&s);
-    zeroize(&mut scratch);
-    zeroize(&mut expanded);
-    zeroize(&mut scalar);
-    zeroize(&mut nonce_digest);
-    zeroize(&mut nonce);
-    zeroize(&mut challenge_digest);
-    zeroize(&mut challenge);
-    zeroize(&mut s);
     signature
 }
 
