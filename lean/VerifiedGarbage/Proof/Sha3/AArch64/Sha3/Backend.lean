@@ -1,12 +1,12 @@
 import VerifiedGarbage.Proof.Sha3.AArch64.Variant
-import VerifiedGarbage.Proof.Sha3.AArch64.Sha3.Hybrid.Permute
+import VerifiedGarbage.Proof.Sha3.AArch64.Sha3.Vector.Permute
 
 namespace VG.Proof.Sha3.AArch64.Sha3
 
 open VG VG.AArch64
 
 def callee : Impl.Sha3.AArch64.Callee :=
-  ⟨"vg_keccak_f1600_sha3", Impl.Sha3.AArch64.Sha3.Hybrid.permute, "_sha3"⟩
+  ⟨"vg_keccak_f1600_sha3", Impl.Sha3.AArch64.Sha3.Vector.permute, "_sha3"⟩
 
 theorem absorbTaint : ∃ h, (taint.check (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
     (Impl.Sha3.AArch64.Stream.absorbWith callee) h).isSome = true :=
@@ -125,8 +125,8 @@ theorem mldsaSignCommitTaint : ∀ p : Spec.MlDsa.Params,
 def backend : Permutation where
   callee := callee
   features := ["sha3"]
-  ok := Hybrid.permute_correct
-  noFrames := Hybrid.permute_noFrames
+  ok := Vector.permute_correct
+  noFrames := Vector.permute_noFrames
   absorbKeeps := keeps_of_check (by lit_decide)
   squeezeKeeps := keeps_of_check (by lit_decide)
   absorbTaint := absorbTaint
