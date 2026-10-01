@@ -23,7 +23,7 @@ theorem initial_raw_ok (s : State) :
       (∀ r, ((instrs initialPermutation.lit).all fun op => dstOf op != some r) = true →
         s'.gpr r = s.gpr r) := by
   obtain ⟨s', run, word, rd, wr, sp, mem, regs⟩ := initial_ok s
-  have hcode : permuteCode Spec.TripleDes.ip 64 .x10 .x3 .x11 =
+  have hcode : permuteCode Spec.TripleDes.ip 64 .x10 .x3 .x11 .x12 =
       instrs initialPermutation.lit := congrArg instrs initialPermutation.lit_eq
   refine ⟨s', (congrArg (fun is => runBlock isa is s) hcode).trans run, ?_, rd, wr, sp, mem, regs⟩
   exact word.trans ((BitVec.setWidth_eq _).trans
@@ -49,7 +49,7 @@ theorem final_raw_ok (s : State) :
       (∀ r, ((instrs finalPermutation.lit).all fun op => dstOf op != some r) = true →
         s'.gpr r = s.gpr r) := by
   obtain ⟨s', run, word, rd, wr, sp, mem, regs⟩ := final_ok s
-  have hcode : permuteCode Spec.TripleDes.fp 64 .x10 .x3 .x11 =
+  have hcode : permuteCode Spec.TripleDes.fp 64 .x10 .x3 .x11 .x12 =
       instrs finalPermutation.lit := congrArg instrs finalPermutation.lit_eq
   refine ⟨s', (congrArg (fun is => runBlock isa is s) hcode).trans run, ?_, rd, wr, sp, mem, regs⟩
   exact word.trans ((BitVec.setWidth_eq _).trans
