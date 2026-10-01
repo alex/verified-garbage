@@ -13,6 +13,7 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64 VG.Proof.Ed25519 Edwards
 open VG.Proof.X25519.X86_64 (off ofs Keeps clob Outside)
 
 variable {fld : Arith} [EdArith fld]
+variable {dbl : Prog isa} [EdDouble dbl]
 
 /-- The loops' invariant, with `c` bytes left. -/
 structure WinLoop (s₀ : State) (base kp sp : Addr) (A : EPoint dZ) (K S c : Nat) (s : State) : Prop where
@@ -32,7 +33,7 @@ theorem decodeLE_lt32 (m : Mem) (p : Addr) :
 /-- A byte of `k` alone, from `32 + j + 1` bytes left to `32 + j`. -/
 theorem stepA_ok {s₀ t : State} {base kp sp : Addr} {A : EPoint dZ} {K S j : Nat} (hj : j < 32)
     (ht : WinLoop s₀ base kp sp A K S (32 + (j + 1)) t) :
-    WP isa (byteStepA fld) t fun u => u.zf = some (decide (j = 0)) ∧ WinLoop s₀ base kp sp A K S (32 + j) u := by
+    WP isa (byteStepA fld dbl) t fun u => u.zf = some (decide (j = 0)) ∧ WinLoop s₀ base kp sp A K S (32 + j) u := by
   have hS : S < 256 ^ 32 := ht.sVal ▸ decodeLE_lt32 _ _
   refine WP.mono (byteStepA_ok (i := 32 + j) ht.ctx ht.d (by omega) (by omega)
     (by rw [ht.counter]; rfl) hS (by rw [ht.kVal]; exact ht.value)) fun u ⟨uz, uc, ud, uv, uk⟩ => ?_
@@ -42,7 +43,7 @@ theorem stepA_ok {s₀ t : State} {base kp sp : Addr} {A : EPoint dZ} {K S j : N
 /-- A byte of both scalars, from `j + 1` bytes left to `j`. -/
 theorem stepB_ok {s₀ t : State} {base kp sp : Addr} {A : EPoint dZ} {K S j : Nat} (hj : j < 32)
     (ht : WinLoop s₀ base kp sp A K S (j + 1) t) :
-    WP isa (byteStepAB fld) t fun u => u.zf = some (decide (j = 0)) ∧ WinLoop s₀ base kp sp A K S j u := by
+    WP isa (byteStepAB fld dbl) t fun u => u.zf = some (decide (j = 0)) ∧ WinLoop s₀ base kp sp A K S j u := by
   refine WP.mono (byteStepAB_ok (i := j) ht.ctx ht.d hj ht.counter
     (by rw [ht.kVal, ht.sVal]; exact ht.value)) fun u ⟨uz, uc, ud, uv, uk⟩ => ?_
   exact ⟨uz, ht.ctx.of_byte uk, ud, uc, by rw [uk.bytesK ht.ctx, ht.kVal],
@@ -50,7 +51,7 @@ theorem stepB_ok {s₀ t : State} {base kp sp : Addr} {A : EPoint dZ} {K S j : N
 
 theorem loopA_ok {s₀ s : State} {base kp sp : Addr} {A : EPoint dZ} {K S : Nat}
     (h : WinLoop s₀ base kp sp A K S 64 s) :
-    WP isa (.loop (byteStepA fld) .ne) s (WinLoop s₀ base kp sp A K S 32) := by
+    WP isa (.loop (byteStepA fld dbl) .ne) s (WinLoop s₀ base kp sp A K S 32) := by
   apply WP.loop (fun (n : Nat) (t : State) => WinLoop s₀ base kp sp A K S (32 + n) t ∧ 0 < n ∧ n ≤ 32)
     (n := 32)
   · intro n t ⟨ht, hn0, hn⟩
@@ -65,7 +66,7 @@ theorem loopA_ok {s₀ s : State} {base kp sp : Addr} {A : EPoint dZ} {K S : Nat
 
 theorem loopB_ok {s₀ s : State} {base kp sp : Addr} {A : EPoint dZ} {K S : Nat}
     (h : WinLoop s₀ base kp sp A K S 32 s) :
-    WP isa (.loop (byteStepAB fld) .ne) s (WinLoop s₀ base kp sp A K S 0) := by
+    WP isa (.loop (byteStepAB fld dbl) .ne) s (WinLoop s₀ base kp sp A K S 0) := by
   apply WP.loop (fun (n : Nat) (t : State) => WinLoop s₀ base kp sp A K S n t ∧ 0 < n ∧ n ≤ 32)
     (n := 32)
   · intro n t ⟨ht, hn0, hn⟩

@@ -16,6 +16,7 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64 VG.Proof.Ed25519 Edwards
 open VG.Proof.X25519.X86_64 (off ofs Keeps clob Outside)
 
 variable {fld : Arith} [EdArith fld]
+variable {dbl : Prog isa} [EdDouble dbl]
 
 theorem decodeLE_byte : ∀ (bs : List Byte) (i : Nat),
     Spec.Ed25519.decodeLE bs / 256 ^ i % 256 = (bs.getD i 0).toNat
@@ -42,7 +43,7 @@ structure ByteKeep (base : Addr) (s t : State) : Prop where
   gpr : ∀ r, r ∉ clob → r ≠ .rbx → r ≠ .rsi → t.gpr r = s.gpr r
   rd : t.rd = s.rd
   wr : t.wr = s.wr
-  mem : Outside base 56 712 s.mem t.mem
+  mem : Outside base 56 1832 s.mem t.mem
 
 theorem ByteKeep.trans {base : Addr} {s t u : State} (h : ByteKeep base s t) (k : ByteKeep base t u) :
     ByteKeep base s u :=
@@ -156,7 +157,7 @@ theorem byteStepA_ok {s : State} {base kp sp : Addr} {A : EPoint dZ} (h : WinCtx
     (ha : Rep (point (env s.mem base) 0 1 2 3)
       ((Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) / 256 ^ (i + 1)) • A +
         (S / 256 ^ (i + 1)) • (-baseAff))) :
-    WP isa (byteStepA fld) s fun t => t.zf = some (decide (i = 32)) ∧
+    WP isa (byteStepA fld dbl) s fun t => t.zf = some (decide (i = 32)) ∧
       t.mem.readW (off base 56) 64 = BitVec.ofNat 64 i ∧ env t.mem base 16 = Spec.Ed25519.d ∧
       Rep (point (env t.mem base) 0 1 2 3)
         ((Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) / 256 ^ i) • A +
@@ -194,7 +195,7 @@ theorem byteStepAB_ok {s : State} {base kp sp : Addr} {A : EPoint dZ} (h : WinCt
       ((Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) / 256 ^ (i + 1)) • A +
         (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem (off sp 32) 32) / 256 ^ (i + 1)) •
           (-baseAff))) :
-    WP isa (byteStepAB fld) s fun t => t.zf = some (decide (i = 0)) ∧
+    WP isa (byteStepAB fld dbl) s fun t => t.zf = some (decide (i = 0)) ∧
       t.mem.readW (off base 56) 64 = BitVec.ofNat 64 i ∧ env t.mem base 16 = Spec.Ed25519.d ∧
       Rep (point (env t.mem base) 0 1 2 3)
         ((Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem kp 64) / 256 ^ i) • A +

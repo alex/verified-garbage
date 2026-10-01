@@ -5,8 +5,10 @@
 //! contracts in `VG.Spec.Ed25519`. On x86-64 CPUs with BMI2 and ADX, the
 //! point multiplications are `vg_ed25519_scalar_base_precomputed_adx` and
 //! `vg_ed25519_verify_equation_adx`, with the same contracts and faster field
-//! multiplications. Rust composes those primitives and clears secret
-//! temporary values.
+//! multiplications, and on those that also have AVX512_IFMA and AVX512VL
+//! verification is `vg_ed25519_verify_equation_ifma`, whose doublings use
+//! four-lane field multiplications. Rust composes those primitives and clears
+//! secret temporary values.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -18,8 +20,9 @@
 #[cfg(target_arch = "x86_64")]
 use crate::arch::ed25519::{
     VG_ED25519_SCALAR_BASE_PRECOMPUTED_ADX_FEATURES, VG_ED25519_VERIFY_EQUATION_ADX_FEATURES,
-    vg_ed25519_scalar_base_precomputed, vg_ed25519_scalar_base_precomputed_adx,
-    vg_ed25519_verify_equation_adx,
+    VG_ED25519_VERIFY_EQUATION_IFMA_FEATURES, vg_ed25519_scalar_base_precomputed,
+    vg_ed25519_scalar_base_precomputed_adx, vg_ed25519_verify_equation_adx,
+    vg_ed25519_verify_equation_ifma,
 };
 use crate::arch::ed25519::{
     vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce, vg_ed25519_verify_equation,
@@ -36,16 +39,22 @@ enum Backend {
     /// BMI2's `mulx` and ADX's `adcx` and `adox` for the field multiplications.
     #[cfg(target_arch = "x86_64")]
     Adx,
+    /// `Adx`, and AVX512_IFMA's `vpmadd52luq` and `vpmadd52huq` (on `ymm`
+    /// registers, with AVX512VL) for verification's doublings.
+    #[cfg(target_arch = "x86_64")]
+    Ifma,
 }
 
 impl Backend {
     /// The best implementation a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
     fn select(f: Features) -> Backend {
-        if f.contains(Features::of(
+        let adx = f.contains(Features::of(
             VG_ED25519_SCALAR_BASE_PRECOMPUTED_ADX_FEATURES,
-        )) && f.contains(Features::of(VG_ED25519_VERIFY_EQUATION_ADX_FEATURES))
-        {
+        )) && f.contains(Features::of(VG_ED25519_VERIFY_EQUATION_ADX_FEATURES));
+        if adx && f.contains(Features::of(VG_ED25519_VERIFY_EQUATION_IFMA_FEATURES)) {
+            Backend::Ifma
+        } else if adx {
             Backend::Adx
         } else {
             Backend::Baseline
@@ -104,6 +113,8 @@ impl VerifyingKey {
             // `select` chose it because the CPU has the features it needs.
             #[cfg(target_arch = "x86_64")]
             Backend::Adx => vg_ed25519_verify_equation_adx,
+            #[cfg(target_arch = "x86_64")]
+            Backend::Ifma => vg_ed25519_verify_equation_ifma,
         };
         // SAFETY: the input arrays are live for their declared sizes, and
         // scratch is a distinct writable object. None wraps the address space.
@@ -219,7 +230,7 @@ fn scalar_base(scalar: &[u8; 32], scratch: &mut [u64; 1024]) -> [u8; 32] {
     let f = match Backend::select(detected()) {
         Backend::Baseline => vg_ed25519_scalar_base_precomputed,
         // `select` chose it because the CPU has the features it needs.
-        Backend::Adx => vg_ed25519_scalar_base_precomputed_adx,
+        Backend::Adx | Backend::Ifma => vg_ed25519_scalar_base_precomputed_adx,
     };
     #[cfg(not(target_arch = "x86_64"))]
     let f = match Backend::select(detected()) {
@@ -264,6 +275,12 @@ mod tests {
             let adx = Features::of(VG_ED25519_VERIFY_EQUATION_ADX_FEATURES);
             assert_eq!(Backend::select(adx), Backend::Adx);
             assert_eq!(Backend::select(Features::of(&["bmi2"])), Backend::Baseline);
+            let ifma = Features::of(VG_ED25519_VERIFY_EQUATION_IFMA_FEATURES);
+            assert_eq!(Backend::select(ifma), Backend::Ifma);
+            assert_eq!(
+                Backend::select(Features(adx.0 | Features::of(&["avx512ifma"]).0)),
+                Backend::Adx
+            );
         }
     }
 }
