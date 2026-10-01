@@ -18,8 +18,10 @@ open VG.Spec.Sha256 (stateAt H0)
 def word (x : BitVec 32) (off : Nat) : List Instr :=
   [.movz .w .x9 (x.extractLsb' 0 16) 0, .movk .w .x9 (x.extractLsb' 16 16) 1, .str .w .x9 .x0 off]
 
-theorem init_eq : init = .block (word H0[0] 0 ++ word H0[1] 4 ++ word H0[2] 8 ++ word H0[3] 12 ++
-    word H0[4] 16 ++ word H0[5] 20 ++ word H0[6] 24 ++ word H0[7] 28) := rfl
+variable (iv : Spec.Sha256.HashValue)
+
+theorem initWith_eq : initWith iv = .block (word iv[0] 0 ++ word iv[1] 4 ++ word iv[2] 8 ++ word iv[3] 12 ++
+    word iv[4] 16 ++ word iv[5] 20 ++ word iv[6] 24 ++ word iv[7] 28) := rfl
 
 /-- `movz` of the low half then `movk` of the high half, then a 32-bit store. -/
 theorem movzk (x : BitVec 32) :
@@ -49,13 +51,13 @@ theorem word_ok {x : BitVec 32} {off : Nat} (ho : off % 4 = 0 ∧ off < 16384) {
     congr 1
     exact movzk x
 
-theorem init_correct {s₀ : State} (hp : Proof.Sha256.initAArch64.pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.initAArch64.post s₀ s' := by
-  apply WP.withPreservedV (hc := by decide +kernel)
+theorem init_correct {s₀ : State} (hp : (Proof.Sha256.initAArch64 iv).pre s₀) :
+    WP isa (initWith iv) s₀ fun s' => abiPreserved s₀ s' ∧ (Proof.Sha256.initAArch64 iv).post s₀ s' := by
+  apply WP.withPreservedV (hc := by rw [initWith_eq]; rfl)
   obtain ⟨-, hwr⟩ := hp
   have o : ∀ k, k < 8 → InRegions s₀.wr (s₀.gpr .x0 + BitVec.ofNat 64 (4 * k)) 4 :=
     fun k hk => ⟨⟨s₀.gpr .x0, 96⟩, by simp [hwr], contains_offset (by omega) (by omega)⟩
-  rw [init_eq, ← List.append_nil (_ ++ word H0[7] 28)]
+  rw [initWith_eq, ← List.append_nil (_ ++ word iv[7] 28)]
   simp only [List.append_assoc]
   refine word_ok (by decide) (o 0 (by omega)) fun s1 g1 _ wr1 sp1 m1 => ?_
   refine word_ok (by decide) (by rw [wr1, g1 _ (by decide)]; exact o 1 (by omega))
@@ -80,7 +82,7 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha256.initAArch64.pre s₀) :
     WP.block_nil ?_
   have k8 : ∀ r, r ≠ .x9 → s8.gpr r = s₀.gpr r := fun r h => by
     rw [g8 r h, g7 r h, g6 r h, g5 r h, k4 r h]
-  have hm : s8.mem = writeState s₀.mem (s₀.gpr .x0) H0 := by
+  have hm : s8.mem = writeState s₀.mem (s₀.gpr .x0) iv := by
     rw [m8, m7, m6, m5, m4, m3, m2, m1]
     simp only [g7 _ (show Reg.x0 ≠ .x9 by decide), g6 _ (show Reg.x0 ≠ .x9 by decide),
       g5 _ (show Reg.x0 ≠ .x9 by decide), k4 _ (show Reg.x0 ≠ .x9 by decide),
@@ -90,9 +92,9 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha256.initAArch64.pre s₀) :
   refine ⟨⟨fun r hr => k8 r ?_, by rw [sp8, sp7, sp6, sp5, sp4, sp3, sp2, sp1]⟩, ?_⟩
   · simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-  · show Spec.Sha256.Repr s8.mem (s₀.gpr .x0) []
+  · show Spec.Sha256.ReprFrom iv s8.mem (s₀.gpr .x0) []
     rw [hm]
-    exact Proof.Sha256.Stream.repr_nil (stateAt_writeState _ _ _)
+    exact Proof.Sha256.Stream.reprFrom_nil (stateAt_writeState _ _ _)
 
 /-- A state satisfying the precondition. -/
 def initSat : State where
@@ -103,14 +105,23 @@ def initSat : State where
   rd := []
   wr := [⟨0x1000, 96⟩]
 
-theorem init_verified : Verified AArch64.target init Proof.Sha256.initAArch64 := by
+/-- `initWith iv` is verified, given that the taint analysis, which the
+kernel can only run on a literal `iv`, accepts it. -/
+theorem initWith_verified {hc} (hct : (taint.check (Taint.ofRegs [.x0]) (initWith iv) hc).isSome = true) :
+    Verified AArch64.target (initWith iv) (Proof.Sha256.initAArch64 iv) := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl⟩⟩
-  · obtain ⟨t, s', he, h⟩ := init_correct hs
+  · obtain ⟨t, s', he, h⟩ := init_correct iv hs
     exact ⟨t, s', he, h⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0]) ?_ (by taint_decide)
+  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0]) ?_ hct
     intro s₁ s₂ _ _ h
     refine ⟨h.2, fun r hr => ?_⟩
     simp only [VG.AArch64.Taint.mem_ofRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
     subst hr; exact h.1
+
+theorem init_verified : Verified AArch64.target init (Proof.Sha256.initAArch64 H0) :=
+  initWith_verified _ (hct := by taint_decide)
+
+theorem init224_verified : Verified AArch64.target init224 (Proof.Sha256.initAArch64 Spec.Sha256.H0_224) :=
+  initWith_verified _ (hct := by taint_decide)
 
 end VG.Proof.Sha256.AArch64.Stream

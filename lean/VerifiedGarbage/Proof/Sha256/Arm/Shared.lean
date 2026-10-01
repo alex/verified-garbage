@@ -151,6 +151,13 @@ theorem init : Verified Arm.target Impl.Sha256.Arm.Stream.init (Spec.Sha256.init
       [Proof.Sha256.Arm.Stream.initSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
       Mem.read] using Proof.Sha256.Arm.Stream.initSat)
 
+theorem init224 : Verified Arm.target Impl.Sha256.Arm.Stream.init224 (Spec.Sha256.init224Contract Arm.abi) :=
+  Proof.Sha256.Arm.Stream.init224_verified.of_implies (by
+    contract_implies [Spec.Sha256.init224Contract, Spec.Sha256.initSig, Proof.Sha256.initArm, Arm.abi,
+      Arm.argRegs, Arm.reduceClassify, Arm.Loc.val, Arm.State.addr]
+      [Proof.Sha256.Arm.Stream.initSat, Arm.stackArg, Arm.stackArgAddr, Mem.readW,
+      Mem.read] using Proof.Sha256.Arm.Stream.initSat)
+
 theorem updateWide_implies : updateWide.Implies (Spec.Sha256.updateContract Arm.abi) := by
   contract_implies [Spec.Sha256.updateContract, Spec.Sha256.updateSig, updateWide,
     Proof.Sha256.updateArm, Proof.Sha256.countArm, Arm.abi, Arm.argRegs, Arm.reduceClassify,
