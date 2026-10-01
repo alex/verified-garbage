@@ -377,6 +377,22 @@ yours to keep:
 
 <tr>
 
+<td>3DES-ECB</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>ChaCha20</td>
 
 <td>✅</td>
@@ -811,7 +827,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SSE2 NTT</td>
 
 <td>✅ SHA extensions</td>
 
@@ -827,7 +843,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SSE2 NTT</td>
 
 <td>✅ SHA extensions</td>
 
@@ -843,7 +859,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SSE2 NTT</td>
 
 <td>✅ SHA extensions</td>
 
