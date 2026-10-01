@@ -46,6 +46,70 @@ theorem other_word (b i : Nat) (bound : i < 2 ^ 64) (positive : i = 0 → 0 < b)
     change BitVec.ofNat 64 b + 0#64 = BitVec.ofNat 64 b
     rw [BitVec.add_zero]
 
+theorem selected_word (b i : Nat) (same : Bool) (bound : i < 2 ^ 64)
+    (positive : 0 < b + i) (atZero : i = 0 → 0 < b) :
+    (if same then BitVec.ofNat 64 b + BitVec.ofNat 64 i - (1 : Addr) else
+      BitVec.ofNat 64 b + Divide.mask (decide ((BitVec.ofNat 64 i).toNat < 1))) =
+      BitVec.ofNat 64 (if same then b + i - 1 else b - (if i = 0 then 1 else 0)) := by
+  cases same
+  · exact other_word b i bound atZero
+  · exact same_word b i positive
+
+theorem spec_count (p : Spec.Argon2.Params) (pass slice index : Nat) (same : Bool) :
+    Spec.Argon2.referenceCount p pass slice index same =
+      let b := if pass = 0 then slice * p.segmentLen else p.laneLen - p.segmentLen
+      if same then b + index - 1 else b - (if index = 0 then 1 else 0) := by
+  unfold Spec.Argon2.referenceCount
+  by_cases firstPass : pass = 0 <;> cases same <;>
+    simp only [firstPass, ite_true, ite_false, Bool.false_eq_true]
+
+def windowBase (p : Spec.Argon2.Params) (pass slice : Nat) : Nat :=
+  if pass = 0 then slice * p.segmentLen else p.laneLen - p.segmentLen
+
+theorem base_nat (s : State) (p : Spec.Argon2.Params) (pass slice : Nat)
+    (passReg : (s.gpr .r9).toNat = pass)
+    (laneReg : s.gpr .r12 = BitVec.ofNat 64 p.laneLen)
+    (segmentReg : s.gpr .r13 = BitVec.ofNat 64 p.segmentLen)
+    (sliceReg : s.gpr .r14 = BitVec.ofNat 64 slice)
+    (segmentBound : p.segmentLen ≤ p.laneLen) :
+    CountCandidates.base s = BitVec.ofNat 64 (windowBase p pass slice) := by
+  have isZero : s.gpr .r9 = 0 ↔ pass = 0 := by
+    rw [← passReg]
+    constructor
+    · intro h; rw [h]; rfl
+    · intro h
+      apply BitVec.eq_of_toNat_eq
+      exact h
+  unfold CountCandidates.base windowBase
+  by_cases firstPass : pass = 0
+  · simp only [isZero, firstPass, ite_true]
+    rw [segmentReg, sliceReg, ← BitVec.ofNat_mul, Nat.mul_comm]
+  · simp only [isZero, firstPass, ite_false]
+    rw [laneReg, segmentReg]
+    exact Offset.ofNat_sub_ofNat segmentBound
+
+theorem code_nat_ok (s : State) (p : Spec.Argon2.Params) (pass slice index : Nat)
+    (passReg : (s.gpr .r9).toNat = pass)
+    (laneReg : s.gpr .r12 = BitVec.ofNat 64 p.laneLen)
+    (segmentReg : s.gpr .r13 = BitVec.ofNat 64 p.segmentLen)
+    (sliceReg : s.gpr .r14 = BitVec.ofNat 64 slice)
+    (indexReg : s.gpr .r15 = BitVec.ofNat 64 index)
+    (segmentBound : p.segmentLen ≤ p.laneLen) (indexBound : index < 2 ^ 64)
+    (positive : 0 < windowBase p pass slice + index)
+    (atZero : index = 0 → 0 < windowBase p pass slice) :
+    WP isa code s fun t =>
+      t.gpr .r8 = BitVec.ofNat 64 (Spec.Argon2.referenceCount p pass slice index
+        (decide (s.gpr .rdi = s.gpr .rsi))) ∧
+      Divide.Keeps CountCandidates.changed s t := by
+  refine (code_ok s).mono ?_
+  rintro t ⟨out, keeps⟩
+  refine ⟨out.trans ?_, keeps⟩
+  rw [base_nat s p pass slice passReg laneReg segmentReg sliceReg segmentBound, indexReg,
+    spec_count]
+  simpa only [decide_eq_true_eq, windowBase] using
+    selected_word (windowBase p pass slice) index
+      (decide (s.gpr .rdi = s.gpr .rsi)) indexBound positive atZero
+
 theorem code_rel : RelCT isa (fun s t => s.gpr .r9 = t.gpr .r9) code
     (fun _ _ => True) :=
   CountCandidates.code_rel.seq SelectWindow.code_secret_rel
