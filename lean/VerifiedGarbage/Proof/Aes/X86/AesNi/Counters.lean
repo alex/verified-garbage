@@ -66,6 +66,17 @@ theorem counterLane_state (x : Spec.Gcm.Block) (pfx : BitVec 96) (i : Nat)
   · exact hpfx k (by assumption)
   · rfl
 
+/-- The cached memory prefix has the standard's first twelve bytes. -/
+theorem memory_prefix (m : Mem) (p : Addr) {k : Nat} (hk : k < 12) :
+    ((m.readW p 128).extractLsb' 0 96).extractLsb' (8 * k) 8 =
+      (Spec.Gcm.toBytes (Spec.Gcm.blockAt m p)).getD k 0 := by
+  rw [VG.Proof.Aes.toBytes_blockAt m p (by omega),
+    ← VG.Proof.Gcm.X86.byte_readW m p (by omega : k < 16)]
+  apply BitVec.eq_of_getLsbD_eq
+  intro r hr
+  simp only [byte, BitVec.getLsbD_extractLsb', decide_eq_true hr, Bool.true_and]
+  simp [show 8 * k + r < 96 by omega]
+
 theorem counter_one (b : XReg) (s : State) (hb : b ≠ .xmm7) :
     WP isa (.block (ctrs [b])) s fun s' =>
       s'.xmm b = counterLane (s.gpr .ebx) (s.xmm .xmm7) ∧
