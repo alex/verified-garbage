@@ -8,7 +8,12 @@
 //! shared secrets. Oversized public keys fail conversion to the API's
 //! fixed-size byte array.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "x86",
+    target_arch = "aarch64",
+    target_arch = "arm"
+))]
 
 use serde::Deserialize;
 use verified_garbage::x448::{Error, PrivateKey, x448};

@@ -1,0 +1,77 @@
+import VerifiedGarbage.Proof.X448.X86.FreezePrep
+import VerifiedGarbage.Proof.X448.X86.Select
+import VerifiedGarbage.Proof.X448.X86.Env
+
+/-!
+# X448 on x86 (32-bit): canonical reduction
+
+Untrusted: everything here is checked by Lean. The final carry selects the
+unique representative below the prime, using only a mask on secret data.
+-/
+
+namespace VG.Proof.X448.X86
+
+open VG VG.X86 VG.Impl.X448.X86 VG.Proof.X448.Radix16
+
+theorem freezeMask_ok {s : State} {c : Nat} (hc : (s.gpr .ebx).toNat = c) (hb : c < 2) :
+    WP isa (.block [.mov .ecx (.imm 0), .alu .sub .ecx (.reg .ebx)]) s fun t =>
+      t.gpr .ecx = mask (decide (c = 1)) ∧ t.mem = s.mem ∧ Keeps [.ecx] s t := by
+  have he : s.gpr .ebx = BitVec.ofNat 32 c := by rw [← hc, BitVec.ofNat_toNat, BitVec.setWidth_eq]
+  have hm : ∀ a < 2, (0 : BitVec 32) - BitVec.ofNat 32 a = mask (decide (a = 1)) := by decide
+  refine wp_mov rfl fun t ht => ?_
+  refine wp_alu (by simp [plain]) rfl fun u hu _ => WP.block_nil ⟨?_, ?_, ?_⟩
+  · rw [hu.gpr]; change t.gpr .ecx - t.gpr .ebx = _
+    rw [ht.gpr, ht.other .ebx (by decide), he]; exact hm c hb
+  · exact hu.mem.trans ht.mem
+  · exact ((ht.rest (by decide)).trans (hu.rest (by decide)))
+
+theorem freeze_ok {s : State} {base : Addr} (hs : Scr s base) (hb : Bounded s.mem base X2) :
+    WP isa (.block freeze) s fun t =>
+      Bounded t.mem base X2 ∧ fe t.mem base X2 = fe s.mem base X2 % Spec.X448.P ∧
+      FieldMem base X2 s.mem t.mem ∧ Keeps workRegs s t := by
+  simp only [freeze, List.append_assoc]
+  change WP isa (.block (copy TMP X2 ++ [0, 14].flatMap (fun i =>
+    [ld .eax (TMP + 4 * i), .alu .add .eax (.imm 1),
+      st .eax (TMP + 4 * i)]) ++ (pass TMP TMP ++
+    (([.mov .ecx (.imm 0), .alu .sub .ecx (.reg .ebx)] : List Instr) ++
+      (List.range 28).flatMap selectStep)))) s _
+  rw [WP.block_append_iff]
+  refine WP.mono (freezePrep_ok hs hb) fun t ⟨tf, tm, tk⟩ => ?_
+  rw [WP.block_append_iff]
+  refine WP.mono (pass_ok (hs.of_keeps tk (by decide)) (by decide) (by decide) (Or.inl rfl)
+    tf (fun i hi => Nat.le_of_lt (freezeCoeff_bound hb i hi))) fun u ⟨uf, uc, um, uk⟩ => ?_
+  have cb : carry (freezeCoeff (limbs s.mem base X2)) 28 < 2 := by
+    rw [freeze_carry hb]; split <;> decide
+  rw [WP.block_append_iff]
+  refine WP.mono (freezeMask_ok uc cb) fun v ⟨vc, vm, vk⟩ => ?_
+  have vs := ((hs.of_keeps tk (by decide)).of_keeps uk (by decide)).of_keeps vk (by decide)
+  refine WP.mono (select_ok vs vc) fun w ⟨wf, wm, wk⟩ => ?_
+  have outside : Outside base TMP 112 s.mem v.mem := by rw [vm]; exact tm.trans um
+  have lf : ∀ i < 28, limbs w.mem base X2 i =
+      if carry (freezeCoeff (limbs s.mem base X2)) 28 = 1 then
+        digit (freezeCoeff (limbs s.mem base X2)) i else limbs s.mem base X2 i := by
+    intro i hi
+    rw [wf i hi, outside.limbs (d := X2) (by decide) (by decide) hi, vm, uf i hi]
+    simp only [decide_eq_true_eq]
+  refine ⟨?_, ?_, (FieldMem.work outside (by decide) (by decide)).trans (FieldMem.output wm),
+    (tk.mono ?_).trans ((uk.mono ?_).trans ((vk.mono ?_).trans (wk.mono ?_)))⟩
+  · intro i hi; rw [lf i hi]; split
+    · exact digit_lt _ _
+    · exact hb i hi
+  · change valN (limbs w.mem base X2) 28 = _
+    rw [valN_congr lf]
+    by_cases h : carry (freezeCoeff (limbs s.mem base X2)) 28 = 1
+    · simp only [h, ite_true]
+      exact (ite_eq_left h).symm.trans (freeze_value hb)
+    · simp only [h, ite_false]
+      exact (ite_eq_right h).symm.trans (freeze_value hb)
+  · intro r hr; exact List.mem_cons_of_mem _ hr
+  · intro r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl <;> decide
+  · intro r hr; simp only [List.mem_singleton] at hr; subst r; decide
+  · intro r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl <;> decide
+
+end VG.Proof.X448.X86
