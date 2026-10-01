@@ -7,6 +7,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off ofs Outside Keeps clob)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem PowersKeep.of_keeps {base : Addr} {o n : Nat} {s t : State} {rs : List Reg}
     (h : Keeps rs s t) (hrs : ∀ r ∈ rs, r = .rbx ∨ r = .rsi ∨ r ∈ clob) : PowersKeep base o n s t := by
   refine ⟨fun r hb hs hr => h.1 r (fun hm => ?_), h.2.2.1, h.2.2.2, ?_⟩
@@ -36,7 +38,7 @@ theorem pointMulBatch_ok {s : State} {base : Addr} (hs : Scratch s base)
     (hp : point (env s.mem base) 0 1 2 3 = after scalar p (16 * (j + 1)))
     (hb : ∀ i < 16 * count, s.mem (off base (768 + i)) = BitVec.ofNat 8 ((scalar / 2 ^ i) % 2))
     (ht : ∀ i < count, tablePoint s.mem base (1280 + 128 * i) = powerPoint p (16 * i)) :
-    WP isa pointMulBatch s fun t =>
+    WP isa (pointMulBatch fld) s fun t =>
       t.mem.readW (off base 56) 64 = BitVec.ofNat 64 j ∧ t.zf = some (decide (j = 0)) ∧
       point (env t.mem base) 0 1 2 3 = after scalar p (16 * j) ∧
       env t.mem base 16 = Spec.Ed25519.d ∧

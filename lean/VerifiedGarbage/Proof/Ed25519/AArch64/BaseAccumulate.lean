@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.Ed25519.BaseTable
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointAccumulateLoop
 
 /-!
-# Adding cached powers, sixteen scalar bits at a time
+# Adding cached points
 
-Untrusted. The cached addition is the specification's `pointAdd` (`ring`),
-and the loop over a batch's sixteen bits is `accumulateLoop_ok`'s, with the
-local table holding cached powers, loaded straight into slots 4–7.
+Untrusted. The cached addition is the specification's `pointAdd` (`ring`);
+a table's cached point is loaded straight into slots 4–7.
 -/
 
 namespace VG.Proof.Ed25519.AArch64
@@ -119,126 +118,5 @@ theorem tableQ_other {base : Addr} {s t : State} (h : TableKeep base 192 128 s t
   rcases hi with hi | hi
   · exact Outside_F h.mem (by simp only [offset]; omega) (Or.inl (by simp only [offset]; omega))
   · exact Outside_F h.mem (by simp only [offset]; omega) (Or.inr (by simp only [offset]; omega))
-
-theorem prepareCached_ok {s : State} {base : Addr} (hs : Scr s base)
-    (j : Nat) (hj : j < 16) (hc : s.gpr .x19 = BitVec.ofNat 64 j) :
-    WP isa (.block prepareCached) s fun t => Keep base s t ∧
-      point (env t.mem base) 0 1 2 3 = point (env s.mem base) 0 1 2 3 ∧
-      point (env t.mem base) 4 5 6 7 = tablePoint s.mem base (5376 + 128 * j) ∧
-      point (env t.mem base) 17 18 19 20 = point (env s.mem base) 0 1 2 3 := by
-  rw [prepareCached, List.append_assoc, WP.block_append_iff]
-  refine WP.mono (fieldCode_ok savePointOps hs) fun a ⟨ka, va⟩ => ?_
-  rw [WP.block_append_iff]
-  refine WP.mono (tableAddr_ok (ka.scr hs).x0 5376 j (by omega)
-    ((ka.gpr _ (by decide)).trans hc)) fun b ⟨pb, kb⟩ => ?_
-  have kbe : Keep base a b := Keep.of_keeps kb (by decide)
-  refine WP.mono (pointFromTableQ_ok ((ka.trans kbe).scr hs) pb (by omega) (by omega))
-    fun t ⟨pt, kt⟩ => ?_
-  have o := tableQ_other kt
-  refine ⟨(ka.trans kbe).trans (Keep.of_tableQ kt), ?_, ?_, ?_⟩
-  · have h : point (env t.mem base) 0 1 2 3 = point (env a.mem base) 0 1 2 3 := by
-      simp only [point, o 0 (by decide), o 1 (by decide), o 2 (by decide), o 3 (by decide), kb.mem]
-    rw [h, va]; rfl
-  · rw [pt, kb.mem]
-    exact workspace_tablePoint ka.mem (by omega) (by omega)
-  · have h : point (env t.mem base) 17 18 19 20 = point (env a.mem base) 17 18 19 20 := by
-      simp only [point, o 17 (by decide), o 18 (by decide), o 19 (by decide), o 20 (by decide), kb.mem]
-    rw [h, va, savePoint_eval]
-
-theorem baseAccumulate_ok {s : State} {base : Addr} (hs : Scr s base)
-    (j start bit : Nat) (q : Spec.Ed25519.Point) (hj : j < 16) (hi : start + j < 512) (hbit : bit < 2)
-    (hc : s.gpr .x19 = BitVec.ofNat 64 j) (hstart : s.gpr .x1 = BitVec.ofNat 64 start)
-    (hb : s.mem (off base (768 + (start + j))) = BitVec.ofNat 8 bit)
-    (hq : tablePoint s.mem base (5376 + 128 * j) = cache q) :
-    WP isa (.block baseAccumulate) s fun t => Keep base s t ∧
-      point (env t.mem base) 0 1 2 3 =
-        (if bit = 0 then point (env s.mem base) 0 1 2 3 else
-          Spec.Ed25519.pointAdd (point (env s.mem base) 0 1 2 3) q) := by
-  rw [baseAccumulate, List.append_assoc, List.append_assoc, WP.block_append_iff]
-  refine WP.mono (prepareCached_ok hs j hj hc) fun a ⟨ka, ap, aq, av⟩ => ?_
-  rw [WP.block_append_iff]
-  refine WP.mono (pointAddCached_ok (ka.scr hs) q (aq.trans hq)) fun b ⟨kb, bp, bh⟩ => ?_
-  have kab := ka.trans kb
-  rw [WP.block_append_iff]
-  refine WP.mono (scalarBitMask_ok (kab.scr hs) j start bit hi hbit
-    ((kab.gpr _ (by decide)).trans hc) ((kab.gpr _ (by decide)).trans hstart)
-    ((kab.bit _ hi).trans hb)) fun c ⟨cm, kc⟩ => ?_
-  have kce : Keep base b c := Keep.of_keeps kc (by decide)
-  refine WP.mono (pointSelect_ok ((kab.trans kce).scr hs) cm) fun t ⟨kt, tv, _⟩ => ?_
-  refine ⟨(kab.trans kce).trans kt, ?_⟩
-  rw [tv, kc.mem, savedPoint_congr _ _ bh, av, bp, ap]
-  simp only [decide_eq_true_eq]
-
-theorem baseAccumulateBody_ok {s : State} {base : Addr} (hs : Scr s base)
-    (n start scalar : Nat) (p : Spec.Ed25519.Point) (hn : n < 16) (hi : start + n < 512)
-    (hc : s.gpr .x19 = BitVec.ofNat 64 (n + 1)) (hstart : s.gpr .x1 = BitVec.ofNat 64 start)
-    (hb : s.mem (off base (768 + (start + n))) = BitVec.ofNat 8 ((scalar / 2 ^ (start + n)) % 2))
-    (hp : point (env s.mem base) 0 1 2 3 = after scalar p (start + n + 1))
-    (ht : tablePoint s.mem base (5376 + 128 * n) = cache (powerPoint p (start + n))) :
-    WP isa (.block baseAccumulateBody) s fun t =>
-      t.gpr .x19 = BitVec.ofNat 64 n ∧
-      point (env t.mem base) 0 1 2 3 = after scalar p (start + n) ∧ CounterKeep base s t := by
-  rw [baseAccumulateBody, WP.block_append_iff]
-  refine WP.mono (accumulateDec_ok s n hc) fun a ⟨ac, ka⟩ => ?_
-  refine WP.mono (baseAccumulate_ok (hs.of_keeps ka (by decide)) n start
-    ((scalar / 2 ^ (start + n)) % 2) (powerPoint p (start + n)) hn hi (by omega) ac
-    ((ka.gpr _ (by decide)).trans hstart) (by rw [ka.mem]; exact hb) (by rw [ka.mem]; exact ht))
-    fun b ⟨kb, bp⟩ => ?_
-  have bc : b.gpr .x19 = BitVec.ofNat 64 n := (kb.gpr _ (by decide)).trans ac
-  refine ⟨bc, ?_, (CounterKeep.of_keeps ka (by decide)).trans (CounterKeep.of_keep kb)⟩
-  rw [bp, ka.mem, hp, ← after_step]
-
-structure BaseAccumulateInv (s₀ : State) (base : Addr) (start scalar : Nat)
-    (p : Spec.Ed25519.Point) (n : Nat) (s : State) : Prop where
-  positive : 0 < n
-  bound : n ≤ 16
-  scratch : Scr s base
-  counter : s.gpr .x19 = BitVec.ofNat 64 n
-  startReg : s.gpr .x1 = BitVec.ofNat 64 start
-  value : point (env s.mem base) 0 1 2 3 = after scalar p (start + n)
-  bits : ∀ i < 16, s.mem (off base (768 + (start + i))) = BitVec.ofNat 8 ((scalar / 2 ^ (start + i)) % 2)
-  table : ∀ i < 16, tablePoint s.mem base (5376 + 128 * i) = cache (powerPoint p (start + i))
-  keep : CounterKeep base s₀ s
-
-theorem baseAccumulateLoop_ok {s₀ : State} {base : Addr} (start scalar : Nat)
-    (p : Spec.Ed25519.Point) (hi : start + 16 ≤ 512)
-    (h₀ : BaseAccumulateInv s₀ base start scalar p 16 s₀) :
-    WP isa (.loop (.block baseAccumulateBody) (.nonzero .x .x19)) s₀ fun t =>
-      point (env t.mem base) 0 1 2 3 = after scalar p start ∧ CounterKeep base s₀ t := by
-  apply WP.loop (BaseAccumulateInv s₀ base start scalar p) (n := 16)
-  · intro n s h
-    obtain ⟨k, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by have := h.positive; omega : n ≠ 0)
-    have hk : k < 16 := by have := h.bound; omega
-    refine WP.mono (baseAccumulateBody_ok h.scratch k start scalar p hk (by omega) h.counter
-      h.startReg (h.bits k hk) (by rw [Nat.add_assoc]; exact h.value) (h.table k hk))
-      fun t ⟨tc, tv, tk⟩ => ?_
-    by_cases hk0 : k = 0
-    · subst hk0
-      exact Or.inl ⟨by simp only [eval, read_x, tc, point_counter_nonzero 0 (by decide),
-        show decide ((0 : Nat) ≠ 0) = false from rfl], tv, h.keep.trans tk⟩
-    · refine Or.inr ⟨by simp only [eval, read_x, tc, point_counter_nonzero k hk, decide_eq_true hk0],
-        k, by omega, ⟨by omega, by omega, tk.scr h.scratch, tc,
-          (tk.gpr _ (by decide) (by decide)).trans h.startReg, tv, ?_, ?_, h.keep.trans tk⟩⟩
-      · intro i hi'
-        rw [tk.mem _ (by rw [ofs_off' base (by omega)]; omega), h.bits i hi']
-      · intro i hi'
-        rw [workspace_tablePoint tk.mem (by omega) (by omega), h.table i hi']
-  · exact h₀
-
-theorem baseAccumulate16_ok {s : State} {base : Addr} (hs : Scr s base)
-    (start scalar : Nat) (p : Spec.Ed25519.Point) (hi : start + 16 ≤ 512)
-    (hstart : s.gpr .x1 = BitVec.ofNat 64 start)
-    (hb : ∀ i < 16, s.mem (off base (768 + (start + i))) = BitVec.ofNat 8 ((scalar / 2 ^ (start + i)) % 2))
-    (hp : point (env s.mem base) 0 1 2 3 = after scalar p (start + 16))
-    (ht : ∀ i < 16, tablePoint s.mem base (5376 + 128 * i) = cache (powerPoint p (start + i))) :
-    WP isa baseAccumulate16 s fun t => point (env t.mem base) 0 1 2 3 = after scalar p start ∧
-      CounterKeep base s t := by
-  rw [baseAccumulate16]
-  refine WP.seq (WP.mono (accumulateInit_ok s) fun a ⟨ac, ka⟩ => ?_)
-  refine WP.mono (baseAccumulateLoop_ok start scalar p hi
-    ⟨by decide, by decide, hs.of_keeps ka (by decide), ac, (ka.gpr _ (by decide)).trans hstart,
-      by rw [ka.mem]; exact hp, by rw [ka.mem]; exact hb, by rw [ka.mem]; exact ht,
-      CounterKeep.refl _ _⟩) fun t ⟨tv, tk⟩ => ?_
-  exact ⟨tv, (CounterKeep.of_keeps ka (by decide)).trans tk⟩
 
 end VG.Proof.Ed25519.AArch64

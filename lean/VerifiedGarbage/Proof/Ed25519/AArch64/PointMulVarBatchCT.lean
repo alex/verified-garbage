@@ -2,7 +2,8 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulVarBatch
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulVarCT
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulCT
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointFromScalarCT
-import VerifiedGarbage.Proof.Ed25519.AArch64.BaseMultiplyCT
+import VerifiedGarbage.Proof.Ed25519.AArch64.BaseMultiplyLit
+import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulCTBatch
 import VerifiedGarbage.Proof.Ed25519.AArch64.RecoverCTBlocks
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyCTLit
 
@@ -99,21 +100,20 @@ theorem pointMultiplyVar_ct_of_init (count : Nat) (base : Addr) (scalar : Nat)
 def ScalarVarCTPre (count : Nat) (base k : Addr) (scalar : Nat) (s : State) : Prop :=
   ScalarCTPre count base k s ∧ Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem k (2 * count)) = scalar
 
-theorem pointFromScalarVar32_ct (base k : Addr) (scalar : Nat) :
-    CT (fun s t => ScalarVarCTPre 32 base k scalar s ∧ ScalarVarCTPre 32 base k scalar t)
-      (pointFromScalarVar 32) (fun _ _ => True) := by
-  have hp : CT (fun s t => ScalarVarCTPre 32 base k scalar s ∧ ScalarVarCTPre 32 base k scalar t)
-      (pointFromScalarPrepare 32) (fun _ _ => True) := by
-    apply CT.taint (Taint.ofRegs [.x0, .x1]) _ (by taint_decide)
-    exact fun _ _ h => scalarInput_agree ⟨h.1.1, h.2.1⟩
-  have hp' := withRuns hp (fun s t h =>
-    ⟨pointFromScalarPrepare_ok h.1.1.1 h.1.1.2.1 32 (by decide) (by decide) h.1.1.2.2.1 h.1.1.2.2.2,
-     pointFromScalarPrepare_ok h.2.1.1 h.2.1.2.1 32 (by decide) (by decide) h.2.1.2.2.1 h.2.1.2.2.2⟩)
-  have hm : CT (fun x y => MulCTPreN 32 base scalar x ∧ MulCTPreN 32 base scalar y)
-      (pointMultiplyVar 32) (fun _ _ => True) := by
-    refine pointMultiplyVar_ct_of_init 32 base scalar (by decide) (by decide) ?_
-    apply CT.taint (Taint.ofRegs [.x0]) _ (by taint_decide)
-    exact fun x y h => x0_agree h.1.1.x0 h.2.1.x0
+/-- `pointFromScalarVar count` keeps the trace fixed, given that its two
+parts' straight-line code does (checked by evaluation for each `count`). -/
+theorem pointFromScalarVar_ct_of (count : Nat) (hn0 : 0 < count) (hn : count ≤ 32)
+    (base k : Addr) (scalar : Nat)
+    (prepCT : CT (fun s t => ScalarVarCTPre count base k scalar s ∧ ScalarVarCTPre count base k scalar t)
+      (pointFromScalarPrepare count) (fun _ _ => True))
+    (initCT : CT (fun x y => MulCTPreN count base scalar x ∧ MulCTPreN count base scalar y)
+      (pointMultiplyInit count) (fun _ _ => True)) :
+    CT (fun s t => ScalarVarCTPre count base k scalar s ∧ ScalarVarCTPre count base k scalar t)
+      (pointFromScalarVar count) (fun _ _ => True) := by
+  have hp' := withRuns prepCT (fun s t h =>
+    ⟨pointFromScalarPrepare_ok h.1.1.1 h.1.1.2.1 count hn0 hn h.1.1.2.2.1 h.1.1.2.2.2,
+     pointFromScalarPrepare_ok h.2.1.1 h.2.1.2.1 count hn0 hn h.2.1.2.2.1 h.2.1.2.2.2⟩)
+  have hm := pointMultiplyVar_ct_of_init count base scalar hn0 hn initCT
   rw [pointFromScalarVar]
   refine CT.seq hp' ?_
   intro s t ts tt s' t' ⟨hsp, _, a, b, hab, ha, hb⟩ es et
@@ -123,6 +123,24 @@ theorem pointFromScalarVar32_ct (base k : Addr) (scalar : Nat) :
   · rw [← hab.1.2]; exact ha.2.2.2.2
   · rw [← hab.2.2]; exact hb.2.2.2.1
   · rw [← hab.2.2]; exact hb.2.2.2.2
+
+theorem pointFromScalarVar32_ct (base k : Addr) (scalar : Nat) :
+    CT (fun s t => ScalarVarCTPre 32 base k scalar s ∧ ScalarVarCTPre 32 base k scalar t)
+      (pointFromScalarVar 32) (fun _ _ => True) := by
+  refine pointFromScalarVar_ct_of 32 (by decide) (by decide) base k scalar ?_ ?_
+  · apply CT.taint (Taint.ofRegs [.x0, .x1]) _ (by taint_decide)
+    exact fun _ _ h => scalarInput_agree ⟨h.1.1, h.2.1⟩
+  · apply CT.taint (Taint.ofRegs [.x0]) _ (by taint_decide)
+    exact fun x y h => x0_agree h.1.1.x0 h.2.1.x0
+
+theorem pointFromScalarVar16_ct (base k : Addr) (scalar : Nat) :
+    CT (fun s t => ScalarVarCTPre 16 base k scalar s ∧ ScalarVarCTPre 16 base k scalar t)
+      (pointFromScalarVar 16) (fun _ _ => True) := by
+  refine pointFromScalarVar_ct_of 16 (by decide) (by decide) base k scalar ?_ ?_
+  · apply CT.taint (Taint.ofRegs [.x0, .x1]) _ (by taint_decide)
+    exact fun _ _ h => scalarInput_agree ⟨h.1.1, h.2.1⟩
+  · apply CT.taint (Taint.ofRegs [.x0]) _ (by taint_decide)
+    exact fun x y h => x0_agree h.1.1.x0 h.2.1.x0
 
 theorem baseMulBatchVar_ct {s₁ s₂ : State} {base : Addr} {scalar j : Nat} (hj : j < 16) :
     CT (fun x y => BaseMulVarInv s₁ base scalar (j + 1) x ∧

@@ -9,6 +9,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem both_wp {P F : State → Prop} {c : Prog isa}
     (h : RelCT isa (fun x y => P x ∧ P y) c (fun _ _ => True))
     (hw : ∀ s, P s → WP isa c s F) :
@@ -31,7 +33,7 @@ theorem begin_ct (base : Addr) (j : Nat) :
     RelCT isa (fun x y => BatchCTPre base j x ∧ BatchCTPre base j y)
       (.block batchBegin) (fun x y => BatchCTReady base j x ∧ BatchCTReady base j y) := by
   apply both_wp
-  · apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+  · apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
     intro x y h
     exact Taint.agree_ofRegs (by
       intro r hr
@@ -45,9 +47,9 @@ theorem begin_ct (base : Addr) (j : Nat) :
 
 private theorem prepare_ct (base : Addr) (j : Nat) (hj : j < 32) :
     RelCT isa (fun x y => BatchCTReady base j x ∧ BatchCTReady base j y)
-      prepareBatch (fun x y => BatchCTOffset base j x ∧ BatchCTOffset base j y) := by
+      (prepareBatch fld) (fun x y => BatchCTOffset base j x ∧ BatchCTOffset base j y) := by
   apply both_wp
-  · apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rbx]) _ (by taint_decide)
+  · apply taintFld (Taint.ofRegs [.rdi, .rbx]) _ (by fld_taint_decide)
     intro x y h
     apply Taint.agree_ofRegs
     intro r hr
@@ -66,7 +68,7 @@ theorem offset_ct (base : Addr) (j : Nat) (hj : j < 32) :
         (x.gpr .rdi = base ∧ x.gpr .rsi = BitVec.ofNat 64 (16 * j)) ∧
         (y.gpr .rdi = base ∧ y.gpr .rsi = BitVec.ofNat 64 (16 * j))) := by
   apply both_wp
-  · apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+  · apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
     intro x y h
     exact Taint.agree_ofRegs (by
       intro r hr
@@ -78,11 +80,11 @@ theorem offset_ct (base : Addr) (j : Nat) (hj : j < 32) :
 
 theorem pointMulBatch_ct (base : Addr) (j : Nat) (hj : j < 32) :
     RelCT isa (fun x y => BatchCTPre base j x ∧ BatchCTPre base j y)
-      pointMulBatch (fun _ _ => True) := by
+      (pointMulBatch fld) (fun _ _ => True) := by
   rw [pointMulBatch]
   refine VG.RelCT.seq (begin_ct base j) (VG.RelCT.seq (prepare_ct base j hj)
     (VG.RelCT.seq (offset_ct base j hj) (VG.RelCT.seq (R := fun (x y : State) => ∀ r ∈ ([.rdi] : List Reg), x.gpr r = y.gpr r) ?_ ?_)))
-  · apply VG.X86_64.RelCT.taintRegs (τ := Taint.ofRegs [.rdi, .rsi]) _ [.rdi] (by taint_decide)
+  · apply taintRegsFld (τ := Taint.ofRegs [.rdi, .rsi]) _ [.rdi] (by fld_taint_decide)
     intro x y h
     apply Taint.agree_ofRegs
     intro r hr
@@ -90,7 +92,7 @@ theorem pointMulBatch_ct (base : Addr) (j : Nat) (hj : j < 32) :
     rcases hr with rfl | rfl
     · exact h.1.1.trans h.2.1.symm
     · exact h.1.2.trans h.2.2.symm
-  · apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+  · apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
     intro x y h
     exact Taint.agree_ofRegs h
 

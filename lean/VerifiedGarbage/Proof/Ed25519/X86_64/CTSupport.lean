@@ -1,10 +1,41 @@
 import VerifiedGarbage.Proof.Framework.X86_64.RelCT
+import VerifiedGarbage.Proof.Framework.X86_64.Lit
+import VerifiedGarbage.Proof.Ed25519.X86_64.Field
 
 /-! Untrusted: retain separate functional postconditions for two secret inputs. -/
 
 namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64
+
+set_option hygiene false in
+/-- `taint_decide` for the code emitted with `fld`, for each field arithmetic it may be. -/
+macro "fld_taint_decide" : tactic =>
+  `(tactic| first
+    | (rcases (EdArith.known (fld := fld)) with h | h <;> (rw [h]; exact ⟨_, by taint_decide⟩))
+    | exact ⟨_, by taint_decide⟩)
+
+set_option hygiene false in
+/-- `lit_decide` for the code emitted with `fld`, for each field arithmetic it may be. -/
+macro "fld_lit_decide" : tactic =>
+  `(tactic| first
+    | (rcases (EdArith.known (fld := fld)) with h | h <;> (rw [h]; lit_decide))
+    | lit_decide)
+
+/-- `RelCT.taint`, with the hint found by `fld_taint_decide` for each field arithmetic. -/
+theorem taintFld {P : State → State → Prop} {c : Prog isa} (τ : VG.X86_64.Taint.T)
+    (hp : ∀ s₁ s₂, P s₁ s₂ → VG.X86_64.Taint.Agree τ s₁ s₂)
+    (h : ∃ hc : VG.Taint.Hint VG.X86_64.Taint.T, (VG.X86_64.taint.check τ c hc).isSome = true) :
+    RelCT isa P c fun _ _ => True :=
+  let ⟨_, h⟩ := h; VG.RelCT.taint (A := VG.X86_64.taint) τ hp h
+
+/-- `RelCT.taintRegs`, with the hint found by `fld_taint_decide`. -/
+theorem taintRegsFld {τ : VG.X86_64.Taint.T} {P : State → State → Prop} {c : Prog isa}
+    (hp : ∀ s₁ s₂, P s₁ s₂ → VG.X86_64.Taint.Agree τ s₁ s₂) (rs : List Reg)
+    (h : ∃ hc : VG.Taint.Hint VG.X86_64.Taint.T,
+      ((VG.X86_64.taint.check τ c hc).map fun τ' => (RegSet.ofList rs).subset τ'.regs) = some true) :
+    RelCT isa P c fun s₁ s₂ => ∀ r ∈ rs, s₁.gpr r = s₂.gpr r :=
+  let ⟨_, h⟩ := h; VG.X86_64.RelCT.taintRegs hp rs h
 
 theorem execBlock_append_seq {xs ys : List Instr} {s t : State} {tr : List Leak}
     (h : Exec isa (.block (xs ++ ys)) s tr t) :

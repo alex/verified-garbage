@@ -15,6 +15,8 @@ data, its pointers, agree (`RelCT.callEx`).
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey
 
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
+
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.Sha512.X86_64 (Compress)
 
@@ -115,7 +117,7 @@ theorem rspOnly {Φ : Lay → State → Prop} : ∀ (L : Lay) (t₁ t₂ : State
 
 /-- The frame's body, for any implementation `v` of the compression function. -/
 theorem body_ct (v : Compress) :
-    RelCT isa (Two fun _ _ => True) (pkBody v.callee v.suffix) fun _ _ => True := by
+    RelCT isa (Two fun _ _ => True) (pkBody fld fs v.callee v.suffix) fun _ _ => True := by
   -- `init`
   have i₁ : RelCT isa (Two fun _ _ => True) (.block pkInitArgs) (Two InitArgs) :=
     two_blk [.rsp] rspOnly (by taint_decide) fun _ _ _ _ _ _ hc _ =>
@@ -164,8 +166,8 @@ theorem body_ct (v : Compress) :
     rcases hr with rfl | rfl
     · exact rsp_two c₁ c₂
     · exact a₁.2.2.trans a₂.2.2.symm
-  have b₃ := two_callP (n := scalarBaseName) (Φ := BaseArgs)
-    Proof.Ed25519.X86_64.scalarBase_precomputed_ok Proof.Ed25519.X86_64.scalarBase_precomputed_ct
+  have b₃ := two_callP (n := (scalarBaseName fs)) (Φ := BaseArgs)
+    (Proof.Ed25519.X86_64.scalarBase_precomputed_ok (fld := fld)) (Proof.Ed25519.X86_64.scalarBase_precomputed_ct (fld := fld))
     base_nosp base_depth baseRd baseWr (fun _ _ _ _ _ hL hc ha => base_pre hL hc ha)
     (fun L t₁ t₂ _ _ _ _ _ _ c₁ c₂ a₁ a₂ => by
       obtain ⟨d₁, s₁, x₁⟩ := base_regs a₁ (baseRd L) (baseWr L)

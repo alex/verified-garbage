@@ -224,7 +224,7 @@ jobs:
       - run: python3 ci/algorithms_table.py --check
       - run: python3 ci/check_arch_gates.py
       - run: python3 ci/check_variants.py
-      - run: python3 -m unittest discover -s ci -p 'test_check_mcdt.py'
+      - run: python3 -m unittest discover -s ci -p 'test_check_*.py'
       - run: python3 ci/check_mcdt.py
 
   vectors:
@@ -389,9 +389,11 @@ jobs:
   # times slower than a runner that has them (#274), so that code only runs
   # natively:
   # * `skx` (Skylake-SP): AVX-512F, so ChaCha20 with AVX-512F, and SHA-256
-  #   and SHA-512 with AVX2; and BMI2 and ADX, so X25519 with them;
+  #   and SHA-512 with AVX2; and BMI2 and ADX, so X25519 and Ed25519 with
+  #   them;
   # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F or ADX, so ChaCha20
-  #   with AVX2 even where this runner has AVX-512F, and X25519's baseline;
+  #   with AVX2 even where this runner has AVX-512F, and X25519's and
+  #   Ed25519's baselines;
   # * `p4p` (Pentium 4): nothing beyond x86-64's baseline, not even CPUID
   #   leaf 7, so the baseline ISA's implementations everywhere;
   # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
@@ -416,7 +418,7 @@ jobs:
             tests: x25519 cpu
           - chip: native
             os: ubuntu-24.04-arm
-            tests: aes_gcm sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+            tests: aes_gcm cmac sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
     name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     env:

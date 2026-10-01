@@ -1,10 +1,11 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyCombine
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyInputs
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyFrame
-import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulVarBatch
+import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyChallenge
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointEqual
 
-/-! Untrusted: the uncofactored equation uses every bit of the challenge digest. -/
+/-! Untrusted: the uncofactored equation uses every bit of the challenge digest
+(the bits above a challenge below `2^256` are zero). -/
 
 namespace VG.Proof.Ed25519.AArch64
 
@@ -13,6 +14,7 @@ open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 theorem verifyRhsPrepare_ok {s : State} {base challenge : Addr} (hs : Scr s base)
     (hp : s.mem.readW (off base 7952) 64 = challenge)
     (hr : ∀ i < 64, InRegions (s.rd ++ s.wr) (off challenge i) 1)
+    (hw : ∀ d, d + 8 ≤ 32 → InRegions (s.rd ++ s.wr) (off (off challenge 32) d) 8)
     (hf : ∀ i < 64, 8192 ≤ ofs base (off challenge i)) :
     WP isa verifyRhsPrepare s fun t => PowersKeep base 56 7752 s t ∧
       point (env t.mem base) 0 1 2 3 = tablePoint s.mem base 7680 ∧
@@ -29,7 +31,8 @@ theorem verifyRhsPrepare_ok {s : State} {base challenge : Addr} (hs : Scr s base
   have bi : b.gpr .x1 = challenge := (kb.gpr _ (by decide) (by decide)).trans ap
   have bm : Spec.Ed25519.bytesAt b.mem challenge 64 = Spec.Ed25519.bytesAt s.mem challenge 64 := by
     rw [outside_bytes kb.mem (by decide) hf, ka.mem]
-  refine WP.seq (WP.mono (pointFromScalarVar_ok (kab.scratch hs) bi 32 (by decide) (by decide)
+  refine WP.seq (WP.mono (challengeMul_ok (kab.scratch hs) bi
+    (by intro d hd; rw [kb.rd, kb.wr, ka.rd, ka.wr]; exact hw d hd)
     (by intro i hi; rw [kb.rd, kb.wr, ka.rd, ka.wr]; exact hr i hi) hf) fun c ⟨kc, cp, cd⟩ => ?_)
   have kabc := kab.trans (kc.mono (by decide) (by decide))
   have cp' : point (env c.mem base) 0 1 2 3 =
@@ -47,6 +50,7 @@ theorem verifyRhsPrepare_ok {s : State} {base challenge : Addr} (hs : Scr s base
 theorem verifyRhs_ok {s : State} {base challenge : Addr} (hs : Scr s base)
     (hp : s.mem.readW (off base 7952) 64 = challenge)
     (hr : ∀ i < 64, InRegions (s.rd ++ s.wr) (off challenge i) 1)
+    (hw : ∀ d, d + 8 ≤ 32 → InRegions (s.rd ++ s.wr) (off (off challenge 32) d) 8)
     (hf : ∀ i < 64, 8192 ≤ ofs base (off challenge i)) :
     WP isa verifyRhs s fun t => PowersKeep base 56 7752 s t ∧
       t.gpr .x8 = signWord (Spec.Ed25519.pointEqual (tablePoint s.mem base 7680)
@@ -54,7 +58,7 @@ theorem verifyRhs_ok {s : State} {base challenge : Addr} (hs : Scr s base)
           (Spec.Ed25519.pointMul (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem challenge 64))
             (tablePoint s.mem base 7424)))) := by
   rw [verifyRhs]
-  refine WP.seq (WP.mono (verifyRhsPrepare_ok hs hp hr hf) fun a ⟨ka, al, ar⟩ => ?_)
+  refine WP.seq (WP.mono (verifyRhsPrepare_ok hs hp hr hw hf) fun a ⟨ka, al, ar⟩ => ?_)
   refine WP.mono (pointEqual_ok (ka.scratch hs)) fun t ⟨kt, tv⟩ => ?_
   exact ⟨ka.trans (PowersKeep.of_keep kt), by rw [tv, al, ar]⟩
 

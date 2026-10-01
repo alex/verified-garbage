@@ -37,6 +37,7 @@ theorem vec_keep {s s' : State} (h : vec s s' = s') : s'.gpr = s.gpr ∧ s'.mem 
   ⟨vec_gpr h, vec_mem h, vec_rd h, vec_wr h, by rw [← h]; rfl⟩
 
 theorem se16 : BitVec.signExtend 64 (16 : BitVec 32) = 16 := by decide
+theorem se32 : BitVec.signExtend 64 (BitVec.ofNat 32 32) = 32 := by decide
 theorem se64 : BitVec.signExtend 64 (64 : BitVec 32) = 64 := by decide
 theorem se1 : BitVec.signExtend 64 (1 : BitVec 32) = 1 := by decide
 theorem se3 : BitVec.signExtend 64 (3 : BitVec 32) = 3 := by decide
@@ -45,11 +46,11 @@ set_option simprocs false in
 theorem cmp_ok (s : State) :
     WP isa (.block [.alu .cmp .rdx (.imm (BitVec.ofNat 32 minBlocks))]) s fun s' =>
       s'.gpr = s.gpr ∧ s'.mem = s.mem ∧ VKeep s s' ∧
-      s'.cf = some (decide ((s.gpr .rdx).toNat < 16)) := by
+      s'.cf = some (decide ((s.gpr .rdx).toNat < 32)) := by
   apply WP.of_runBlock
   simp only [runBlock_cons, runStep_some, runBlock_nil, exec, readSrc, execAlu, arithFlags,
     State.setFlags, Option.bind_some, Option.some.injEq, exists_eq_left', minBlocks,
-    show BitVec.signExtend 64 (BitVec.ofNat 32 16) = 16 from se16]
+    se32]
   exact ⟨trivial, trivial, ⟨rfl, rfl, rfl, rfl, rfl⟩, rfl⟩
 
 set_option simprocs false in

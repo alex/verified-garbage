@@ -46,6 +46,10 @@ def artifacts : List Artifact := [
   { Spec.MlDsa.mulApi with
     target := X86_64.target
     doc := Spec.MlDsa.mulApi.doc
+      (notes := ["The function computes on four coefficients at a time in SSE2 registers. It sets MXCSR to \
+        `0x1FBF` around its multiplications (Intel's mitigation of MXCSR-configuration-dependent timing), \
+        through the last 8 bytes of `h`, which it stores last, and loads the caller's MXCSR back before \
+        returning."])
     code := Impl.MlDsa.X86_64.Arith.mul
     contract := Spec.MlDsa.mulContract X86_64.abi
     verified := Proof.MlDsa.X86_64.Arith.mul_verified
@@ -53,6 +57,10 @@ def artifacts : List Artifact := [
   { Spec.MlDsa.mulAddApi with
     target := X86_64.target
     doc := Spec.MlDsa.mulAddApi.doc
+      (notes := ["The function computes on four coefficients at a time in SSE2 registers. It sets MXCSR to \
+        `0x1FBF` around its multiplications (Intel's mitigation of MXCSR-configuration-dependent timing), \
+        through the last 8 bytes of `h`, which it stores last, and loads the caller's MXCSR back before \
+        returning."])
     code := Impl.MlDsa.X86_64.Arith.mulAdd
     contract := Spec.MlDsa.mulAddContract X86_64.abi
     verified := Proof.MlDsa.X86_64.Arith.mulAdd_verified
@@ -60,6 +68,7 @@ def artifacts : List Artifact := [
   { Spec.MlDsa.addApi with
     target := X86_64.target
     doc := Spec.MlDsa.addApi.doc
+      (notes := ["The function computes on four coefficients at a time in SSE2 registers."])
     code := Impl.MlDsa.X86_64.Arith.add
     contract := Spec.MlDsa.addContract X86_64.abi
     verified := Proof.MlDsa.X86_64.Arith.add_verified
@@ -67,6 +76,7 @@ def artifacts : List Artifact := [
   { Spec.MlDsa.subApi with
     target := X86_64.target
     doc := Spec.MlDsa.subApi.doc
+      (notes := ["The function computes on four coefficients at a time in SSE2 registers."])
     code := Impl.MlDsa.X86_64.Arith.sub
     contract := Spec.MlDsa.subContract X86_64.abi
     verified := Proof.MlDsa.X86_64.Arith.sub_verified

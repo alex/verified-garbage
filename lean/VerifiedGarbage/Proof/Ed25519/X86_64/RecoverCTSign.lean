@@ -6,13 +6,15 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
+variable {fld : Arith} [EdArith fld]
+
 theorem testThenSign_ct (base : Addr) (b : Bool) (x : Spec.X25519.Fe) :
     RelCT isa (fun s t => SignCTPre base b x s ∧ SignCTPre base b x t)
-      (.seq (.block [.alu .test .rsi (.reg .rsi)]) (.ite .ne recoverInvalid recoverAdjustSign))
+      (.seq (.block [.alu .test .rsi (.reg .rsi)]) (.ite .ne recoverInvalid (recoverAdjustSign fld)))
       (fun _ _ => True) := by
   have ht : RelCT isa (fun s t => SignCTPre base b x s ∧ SignCTPre base b x t)
       (.block [.alu .test .rsi (.reg .rsi)]) (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs []) _ (by taint_decide)
+    apply taintFld (Taint.ofRegs []) _ (by fld_taint_decide)
     exact fun _ _ _ => Taint.agree_ofRegs (by simp)
   have hw (s : State) (h : SignCTPre base b x s) :
       WP isa (.block [.alu .test .rsi (.reg .rsi)]) s fun t =>
@@ -31,7 +33,7 @@ theorem testThenSign_ct (base : Addr) (b : Bool) (x : Spec.X25519.Fe) :
 
 theorem recoverSign_ct (base : Addr) (b : Bool) (x : Spec.X25519.Fe) :
     RelCT isa (fun s t => SignCTPre base b x s ∧ SignCTPre base b x t)
-      recoverSign (fun _ _ => True) := by
+      (recoverSign fld) (fun _ _ => True) := by
   have ht := (zeroBlock_ct base).mono
     (fun _ _ (h : SignCTPre base b x _ ∧ SignCTPre base b x _) => ⟨h.1.1.rdi, h.2.1.rdi⟩)
     (fun _ _ h => h)

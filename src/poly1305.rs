@@ -17,7 +17,7 @@
 //! `vg_poly1305_blocks_avx512`, eight at a time once there are at least 40 of
 //! them (and fewer with `vg_poly1305_blocks_avx2`), and other CPUs with AVX2
 //! `vg_poly1305_update_avx2`, which absorbs them with
-//! `vg_poly1305_blocks_avx2`, four at a time once there are at least 16 of
+//! `vg_poly1305_blocks_avx2`, four at a time once there are at least 32 of
 //! them.
 //!
 //! A key must be used to authenticate only one message: the tags of two

@@ -297,9 +297,9 @@ theorem covers_rw {s : State} {p : Params} (L : Lay kgR (kgW p) s) {a b : Ptr} {
   covers_append (covers_cons (L.cR ha) covers_nil) (covers_cons (L.cR (inB_mono hb)) covers_nil)
 
 include hf hg h1 w1 in
-theorem addAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.addContract X86_64.abi stk) {s : State}
+theorem addAt_ok {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.addContract X86_64.abi stk) {s : State}
     (S : Site p s) (rf : Spec.MlDsa.Reduced s.mem (pa s f)) (rg : Spec.MlDsa.Reduced s.mem (pa s g)) :
-    WP isa (addAt c f g) s fun s' => Post s s' [⟨pa s f, 1024⟩] ∧ MX s' = MX s ∧
+    WP isa (addAt sfx c f g) s fun s' => Post s s' [⟨pa s f, 1024⟩] ∧ MX s' = MX s ∧
       Spec.MlDsa.PolyIs s'.mem (pa s f) (Spec.MlDsa.add (Spec.MlDsa.polyAt s.mem (pa s f))
         (Spec.MlDsa.polyAt s.mem (pa s g))) := by
   obtain ⟨i1, i2, _⟩ := sepB_spec h1
@@ -314,10 +314,10 @@ theorem addAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.addContract
   rwa [ce_polyAt (by rw [hsp]; exact L.stkD i1), ce_polyAt (by rw [hsp]; exact L.stkD i2), hm] at hpost
 
 include hf hg h1 w1 in
-theorem addAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.addContract X86_64.abi stk)
+theorem addAt_tr {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.addContract X86_64.abi stk)
     (hbf : f.1 ∈ kgRegs) (hbg : g.1 ∈ kgRegs) :
     RelCT isa (fun x y => Two p x y ∧ (Spec.MlDsa.Reduced x.mem (pa x f) ∧ Spec.MlDsa.Reduced x.mem (pa x g)) ∧
-      (Spec.MlDsa.Reduced y.mem (pa y f) ∧ Spec.MlDsa.Reduced y.mem (pa y g))) (addAt c f g) fun _ _ => True := by
+      (Spec.MlDsa.Reduced y.mem (pa y f) ∧ Spec.MlDsa.Reduced y.mem (pa y g))) (addAt sfx c f g) fun _ _ => True := by
   obtain ⟨i1, i2, _⟩ := sepB_spec h1
   refine primTr hc (nomem_append (lea_nomem _ _) (lea_nomem _ _)) (fun x y _ => ⟨glue2_ok hf hg x, glue2_ok hf hg y⟩)
     fun stk hs x y x1 y1 ⟨T, rx, ry⟩ ⟨⟨hv1, hm1⟩, k1⟩ ⟨⟨hv2, hm2⟩, k2⟩ =>
@@ -362,9 +362,9 @@ theorem mul_pre {stk : Nat} (hstk : stk ≤ 16) {s s1 : State} (S : Site p s)
     · exact (ce_reduced (by rw [hsp]; exact L.stkD i3)).mpr (hm ▸ rg)
 
 include hh hf hg h1 h2 w1 in
-theorem mulAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulContract X86_64.abi stk) {s : State}
+theorem mulAt_ok {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulContract X86_64.abi stk) {s : State}
     (S : Site p s) (rf : Spec.MlDsa.Reduced s.mem (pa s f)) (rg : Spec.MlDsa.Reduced s.mem (pa s g)) :
-    WP isa (mulAt c h f g) s fun s' => Post s s' [⟨pa s h, 1024⟩] ∧ MX s' = MX s ∧
+    WP isa (mulAt sfx c h f g) s fun s' => Post s s' [⟨pa s h, 1024⟩] ∧ MX s' = MX s ∧
       Spec.MlDsa.PolyIs s'.mem (pa s h) (Spec.MlDsa.multiplyNTT (Spec.MlDsa.polyAt s.mem (pa s f)) (Spec.MlDsa.polyAt s.mem (pa s g))) := by
   obtain ⟨i1, i2, _⟩ := sepB_spec h1
   obtain ⟨_, i3, _⟩ := sepB_spec h2
@@ -379,9 +379,9 @@ theorem mulAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulContract
   rwa [ce_polyAt (by rw [hsp]; exact L.stkD i2), ce_polyAt (by rw [hsp]; exact L.stkD i3), hm] at hpost
 
 include hh hf hg h1 h2 w1 in
-theorem mulAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulContract X86_64.abi stk)
+theorem mulAt_tr {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulContract X86_64.abi stk)
     (hbh : h.1 ∈ kgRegs) (hbf : f.1 ∈ kgRegs) (hbg : g.1 ∈ kgRegs) :
-    RelCT isa (fun x y => Two p x y ∧ (Spec.MlDsa.Reduced x.mem (pa x f) ∧ Spec.MlDsa.Reduced x.mem (pa x g)) ∧ (Spec.MlDsa.Reduced y.mem (pa y f) ∧ Spec.MlDsa.Reduced y.mem (pa y g))) (mulAt c h f g) fun _ _ => True := by
+    RelCT isa (fun x y => Two p x y ∧ (Spec.MlDsa.Reduced x.mem (pa x f) ∧ Spec.MlDsa.Reduced x.mem (pa x g)) ∧ (Spec.MlDsa.Reduced y.mem (pa y f) ∧ Spec.MlDsa.Reduced y.mem (pa y g))) (mulAt sfx c h f g) fun _ _ => True := by
   obtain ⟨i1, i2, _⟩ := sepB_spec h1
   obtain ⟨_, i3, _⟩ := sepB_spec h2
   refine primTr hc (nomem_append (nomem_append (lea_nomem _ _) (lea_nomem _ _)) (lea_nomem _ _))
@@ -425,9 +425,9 @@ theorem mulAdd_pre {stk : Nat} (hstk : stk ≤ 16) {s s1 : State} (S : Site p s)
     · exact (ce_reduced (by rw [hsp]; exact L.stkD i3)).mpr (hm ▸ rg)
 
 include hh hf hg h1 h2 w1 in
-theorem mulAddAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulAddContract X86_64.abi stk) {s : State}
+theorem mulAddAt_ok {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulAddContract X86_64.abi stk) {s : State}
     (S : Site p s) (rh : Spec.MlDsa.Reduced s.mem (pa s h)) (rf : Spec.MlDsa.Reduced s.mem (pa s f)) (rg : Spec.MlDsa.Reduced s.mem (pa s g)) :
-    WP isa (mulAddAt c h f g) s fun s' => Post s s' [⟨pa s h, 1024⟩] ∧ MX s' = MX s ∧
+    WP isa (mulAddAt sfx c h f g) s fun s' => Post s s' [⟨pa s h, 1024⟩] ∧ MX s' = MX s ∧
       Spec.MlDsa.PolyIs s'.mem (pa s h) (Spec.MlDsa.add (Spec.MlDsa.polyAt s.mem (pa s h)) (Spec.MlDsa.multiplyNTT (Spec.MlDsa.polyAt s.mem (pa s f)) (Spec.MlDsa.polyAt s.mem (pa s g)))) := by
   obtain ⟨i1, i2, _⟩ := sepB_spec h1
   obtain ⟨_, i3, _⟩ := sepB_spec h2
@@ -442,9 +442,9 @@ theorem mulAddAt_ok {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulAddCo
   rwa [ce_polyAt (by rw [hsp]; exact L.stkD i1), ce_polyAt (by rw [hsp]; exact L.stkD i2), ce_polyAt (by rw [hsp]; exact L.stkD i3), hm] at hpost
 
 include hh hf hg h1 h2 w1 in
-theorem mulAddAt_tr {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulAddContract X86_64.abi stk)
+theorem mulAddAt_tr {sfx : String} {c : Prog isa} (hc : Callee c fun stk => Spec.MlDsa.mulAddContract X86_64.abi stk)
     (hbh : h.1 ∈ kgRegs) (hbf : f.1 ∈ kgRegs) (hbg : g.1 ∈ kgRegs) :
-    RelCT isa (fun x y => Two p x y ∧ (Spec.MlDsa.Reduced x.mem (pa x h) ∧ Spec.MlDsa.Reduced x.mem (pa x f) ∧ Spec.MlDsa.Reduced x.mem (pa x g)) ∧ (Spec.MlDsa.Reduced y.mem (pa y h) ∧ Spec.MlDsa.Reduced y.mem (pa y f) ∧ Spec.MlDsa.Reduced y.mem (pa y g))) (mulAddAt c h f g) fun _ _ => True := by
+    RelCT isa (fun x y => Two p x y ∧ (Spec.MlDsa.Reduced x.mem (pa x h) ∧ Spec.MlDsa.Reduced x.mem (pa x f) ∧ Spec.MlDsa.Reduced x.mem (pa x g)) ∧ (Spec.MlDsa.Reduced y.mem (pa y h) ∧ Spec.MlDsa.Reduced y.mem (pa y f) ∧ Spec.MlDsa.Reduced y.mem (pa y g))) (mulAddAt sfx c h f g) fun _ _ => True := by
   obtain ⟨i1, i2, _⟩ := sepB_spec h1
   obtain ⟨_, i3, _⟩ := sepB_spec h2
   refine primTr hc (nomem_append (nomem_append (lea_nomem _ _) (lea_nomem _ _)) (lea_nomem _ _))
