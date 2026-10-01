@@ -177,6 +177,14 @@ macro_rules! streaming_hash {
             }
         }
 
+        impl Drop for $name {
+            /// Wipes the streaming state (which, for HMAC, represents the
+            /// key).
+            fn drop(&mut self) {
+                $crate::zeroize::zeroize(&mut self.state);
+            }
+        }
+
         impl $name {
             /// The size of a digest, in bytes.
             pub const OUTPUT_SIZE: usize = $output;

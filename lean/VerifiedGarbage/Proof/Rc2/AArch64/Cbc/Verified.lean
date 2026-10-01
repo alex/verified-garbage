@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Rc2.AArch64.Cbc.Contract
 
 /-! # Verified RC2-CBC encryption and decryption -/
@@ -102,14 +103,14 @@ theorem encrypt_correct (s : State) (hs : (contract .encrypt).pre s) :
       (contract .encrypt).post s s' := by
   obtain ⟨t, s', he, ha, hp⟩ := cbc_body_correct .encrypt s hs
   change Exec isa Impl.Rc2.AArch64.Cbc.encrypt s t s' at he
-  exact ⟨t, s', he, ⟨ha, (VG.AArch64.Exec.regions he rfl).2.2.1⟩, hp⟩
+  exact ⟨t, s', he, ⟨ha, (VG.AArch64.Exec.regions he rfl).2.2.1, VG.AArch64.Exec.preservedV he⟩, hp⟩
 
 theorem decrypt_correct (s : State) (hs : (contract .decrypt).pre s) :
     ∃ t s', Exec isa Impl.Rc2.AArch64.Cbc.decrypt s t s' ∧ abiPreserved s s' ∧
       (contract .decrypt).post s s' := by
   obtain ⟨t, s', he, ha, hp⟩ := cbc_body_correct .decrypt s hs
   change Exec isa Impl.Rc2.AArch64.Cbc.decrypt s t s' at he
-  exact ⟨t, s', he, ⟨ha, (VG.AArch64.Exec.regions he rfl).2.2.1⟩, hp⟩
+  exact ⟨t, s', he, ⟨ha, (VG.AArch64.Exec.regions he rfl).2.2.1, VG.AArch64.Exec.preservedV he⟩, hp⟩
 
 theorem publicRegs_five (s₁ s₂ : State) : PublicRegs [.x0, .x1, .x2, .x3, .x4] s₁ s₂ ↔
     s₁.sp = s₂.sp ∧ s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧

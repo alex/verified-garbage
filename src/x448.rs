@@ -18,7 +18,7 @@
 ))]
 
 use crate::arch::x448::vg_x448;
-use crate::mlkem768::zeroize;
+use crate::zeroize::zeroize;
 
 /// Why an operation failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

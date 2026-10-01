@@ -39,7 +39,7 @@ theorem uhBody_ok (g : Nat) (s : State) (hM : s.gpr .x5 = BitVec.ofNat 64 (hbMul
         s'.gpr .x0 = s.gpr .x0 + BitVec.ofNat 64 4 ∧ s'.gpr .x1 = s.gpr .x1 + BitVec.ofNat 64 4 ∧
         s'.gpr .x3 = s.gpr .x3 + BitVec.ofNat 64 4 ∧ s'.gpr .x8 = s.gpr .x8 - BitVec.ofNat 64 1) ∧
       Keep [.x0, .x1, .x3, .x8, .x11, .x12, .x13, .x14] s s' := by
-  refine VG.Proof.MlDsa.AArch64.Arith.WP.keep _ ?_ (by rfl)
+  refine VG.Proof.MlDsa.AArch64.Arith.WP.keep _ ?_ (by rfl) (hv := rfl)
   unfold uhBody hbRaw csubR
   have hS := @dShift_lt g
   have hm := @dMod_lt g
@@ -158,7 +158,7 @@ theorem uhConsts_ok (g : Nat) (hg : IsG g) (s : State) :
   have hdm : dMod g < 65536 := by rcases hg with rfl | rfl <;> decide
   refine WP.mono (VG.Proof.MlDsa.AArch64.Arith.WP.keep [.x9, .x10] (Q := fun s' => s'.gpr .x9 = 0 ∧
     s'.gpr .x10 = BitVec.ofNat 64 (dMod g) ∧ s'.mem = s₂.mem) (by arun [VG.Proof.MlDsa.AArch64.Arith.imm16 hdm])
-    (by rfl)) fun s₃ ⟨⟨h9, h10, hm₃⟩, k₃⟩ =>
+    (by rfl) (hv := rfl)) fun s₃ ⟨⟨h9, h10, hm₃⟩, k₃⟩ =>
     ⟨⟨fun r hr => ?_, by rw [hm₃, hm₂, hm₁], fun _ _ _ => trivial⟩, ((k₁.trans k₂).trans k₃).mono⟩
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl

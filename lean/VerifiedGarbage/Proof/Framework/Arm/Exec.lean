@@ -69,14 +69,16 @@ theorem execBlock_sp {is : List Instr} {s s' : State} {t : List Leak}
 theorem push_sp {i : Instr} {s s₁ : State} (h : push i s = some s₁) :
     ∃ n, s₁.sp = s.sp - BitVec.ofNat 32 n ∧ s₁.wr.head? = some ⟨State.addr s₁.sp, n⟩ := by
   cases i <;> simp only [push, reduceCtorEq] at h
-  split at h <;> cases h; exact ⟨_, rfl, rfl⟩
+  all_goals split at h <;> cases h
+  all_goals exact ⟨_, rfl, rfl⟩
 
 theorem pop_sp {j : Instr} {s₁ s₂ s' : State} (h : pop j s₁ s₂ = some s') :
     s₂.sp = s₁.sp ∧ ∃ n, s₁.wr.head? = some ⟨State.addr s₁.sp, n⟩ ∧
       s'.sp = s₂.sp + BitVec.ofNat 32 n := by
   cases j <;> simp only [pop, reduceCtorEq] at h
-  split at h <;> cases h
-  rename_i hc; exact ⟨hc.2.2.1, _, hc.2.2.2.2, rfl⟩
+  all_goals split at h <;> cases h
+  case pop r n hc => exact ⟨hc.2.2.1, _, hc.2.2.2.2, rfl⟩
+  case free bytes hc => exact ⟨hc.2.2.2.1, _, hc.2.2.2.2.2, rfl⟩
 
 /-- `sp` is back where it was after any code: only frames change it. -/
 theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c s t s') :

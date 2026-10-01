@@ -26,7 +26,7 @@ use crate::arch::x25519::{
     VG_X25519_ADX_FEATURES, VG_X25519_IFMA_FEATURES, vg_x25519_adx, vg_x25519_ifma,
 };
 use crate::cpu::{Features, detected};
-use crate::mlkem768::zeroize;
+use crate::zeroize::zeroize;
 
 /// The implementations of `vg_x25519`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

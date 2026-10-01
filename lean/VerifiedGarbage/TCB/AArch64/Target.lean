@@ -19,8 +19,11 @@ so no code can modify it.
 
 The SIMD and floating-point registers `v0`–`v7` and `v16`–`v31` are
 caller-saved (AAPCS64 §6.1.2), so `abiPreserved` says nothing about them.
-The low 64 bits of `v8`–`v15` are callee-saved, and the model does not have
-those registers (see `TCB/AArch64/Isa.lean`), so no code can modify them.
+The low 64 bits of `v8`–`v15` are callee-saved (AAPCS64 §6.1.2), and
+`abiPreserved` explicitly requires those bits to be restored. The upper 64
+bits need not be preserved. See
+https://github.com/ARM-software/abi-aa/blob/2025Q4/aapcs64/aapcs64.rst
+(section 6.1.2, SIMD and Floating-Point registers).
 
 PSTATE.C is modelled but is not callee-saved: NZCV is undefined on entry
 to and return from a public interface (AAPCS64 §6.1.1). N, Z and V are not
@@ -34,9 +37,13 @@ namespace VG.AArch64
 def preserved : List Reg := [.x19, .x20, .x21, .x22, .x23, .x24, .x25, .x26, .x27, .x28,
   .x30]
 
+/-- AAPCS64 §6.1.2: preserve the low 64 bits of these SIMD registers. -/
+def preservedV : List VReg := [.v8, .v9, .v10, .v11, .v12, .v13, .v14, .v15]
+
 /-- Calling-convention obligations on return. -/
 def abiPreserved (s s' : State) : Prop :=
-  (∀ r ∈ preserved, s'.gpr r = s.gpr r) ∧ s'.sp = s.sp
+  (∀ r ∈ preserved, s'.gpr r = s.gpr r) ∧ s'.sp = s.sp ∧
+    (∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64)
 
 /-- AAPCS64 argument registers, in order. -/
 def argRegs : List Reg := [.x0, .x1, .x2, .x3, .x4, .x5, .x6, .x7]

@@ -26,7 +26,7 @@ use crate::arch::ed25519::{
 };
 use crate::cpu::{Features, detected};
 use crate::hashes::sha512::Sha512;
-use crate::mlkem768::zeroize;
+use crate::zeroize::zeroize;
 
 /// The implementations of the point multiplications.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

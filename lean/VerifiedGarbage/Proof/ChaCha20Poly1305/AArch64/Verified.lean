@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.ChaCha20Poly1305.AArch64.Stages
 import VerifiedGarbage.Proof.Framework.ContractPost
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
@@ -60,7 +61,7 @@ theorem preserved_split : ∀ r ∈ preserved, r ∉ [Reg.x21, .x22, .x23, .x24,
 theorem abi_of {s₀ s s₁ s' : State} (h : Inv s₀ s) (hk : ∀ r ∈ preserved, r ≠ .x30 → s₁.gpr r = s.gpr r)
     (hr : ∀ r ∈ [Reg.x21, .x22, .x23, .x24, .x25, .x30], s'.gpr r = s₀.gpr r)
     (hg : ∀ r, r ∉ [Reg.x21, .x22, .x23, .x24, .x25, .x30] → s'.gpr r = s₁.gpr r) (hsp : s'.sp = s.sp) :
-    abiPreserved s₀ s' := by
+    GprAbi s₀ s' := by
   refine ⟨fun r hr' => ?_, by rw [hsp, h.sp]⟩
   by_cases hm : r ∈ [Reg.x21, .x22, .x23, .x24, .x25, .x30]
   · exact hr r hm
@@ -69,6 +70,7 @@ theorem abi_of {s₀ s s₁ s' : State} (h : Inv s₀ s) (hk : ∀ r ∈ preserv
 
 theorem seal_correct {s₀ : State} (hp : APre s₀) :
     WP isa «seal» s₀ fun s' => abiPreserved s₀ s' ∧ sealAArch64.post s₀ s' := by
+  apply WP.withPreservedV (hc := by decide +kernel)
   have hL' := (Nat.le_of_lt (s₀.gpr .x4).isLt)
   unfold «seal»
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
@@ -114,6 +116,7 @@ theorem seal_correct {s₀ : State} (hp : APre s₀) :
 
 theorem open_correct {s₀ : State} (hp : APre s₀) :
     WP isa «open» s₀ fun s' => abiPreserved s₀ s' ∧ openAArch64.post s₀ s' := by
+  apply WP.withPreservedV (hc := by decide +kernel)
   have hL' := (Nat.le_of_lt (s₀.gpr .x4).isLt)
   unfold «open»
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)

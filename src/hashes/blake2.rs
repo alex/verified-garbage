@@ -36,10 +36,84 @@ macro_rules! blake2 {
             block: $block:literal,
             max: $max:literal,
             init: $init:path,
-            update: $update:path,
-            finalize: $finalize:path $(,)?
+            backends: $backend:ident {
+                $base:ident => ($update:path, $finalize:path)
+                $(, $(#[$attr:meta])* $variant:ident if [$($req:path),*] => ($vupdate:path, $vfinalize:path))*
+                $(,)?
+            } $(,)?
         }
     ) => {
+        /// The implementations of the streaming primitives.
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub(crate) enum $backend {
+            /// For the baseline ISA.
+            $base,
+            $(
+                $(#[$attr])*
+                /// Needing CPU features.
+                $variant,
+            )*
+        }
+
+        impl $backend {
+            /// The best implementation a CPU with the features `f` can run.
+            pub(crate) fn select(f: $crate::cpu::Features) -> Self {
+                $(
+                    $(#[$attr])*
+                    if f.contains($crate::cpu::Features::all(&[$($req),*])) {
+                        return Self::$variant;
+                    }
+                )*
+                let _ = f;
+                Self::$base
+            }
+
+            /// `update`.
+            ///
+            /// # Safety
+            ///
+            /// As for the artifacts; the CPU must have the features of the
+            /// implementation (as `select` guarantees).
+            pub(crate) unsafe fn update(
+                self,
+                state: &mut [u8; $state],
+                count: u64,
+                data: *const u8,
+                len: usize,
+                scratch: &mut [u64; $scratch],
+            ) {
+                // SAFETY: the caller's obligations.
+                unsafe {
+                    match self {
+                        Self::$base => $update(state, count, data, len, scratch),
+                        $($(#[$attr])* Self::$variant => $vupdate(state, count, data, len, scratch),)*
+                    }
+                }
+            }
+
+            /// `finalize`.
+            ///
+            /// # Safety
+            ///
+            /// As for the artifacts; the CPU must have the features of the
+            /// implementation (as `select` guarantees).
+            pub(crate) unsafe fn finalize(
+                self,
+                state: &mut [u8; $state],
+                count: u64,
+                out: &mut [u8; $max],
+                scratch: &mut [u64; $scratch],
+            ) {
+                // SAFETY: the caller's obligations.
+                unsafe {
+                    match self {
+                        Self::$base => $finalize(state, count, out, scratch),
+                        $($(#[$attr])* Self::$variant => $vfinalize(state, count, out, scratch),)*
+                    }
+                }
+            }
+        }
+
         $(#[$doc])*
         ///
         /// `N` is the size of the digest, 1 to
@@ -53,6 +127,15 @@ macro_rules! blake2 {
             /// The length of the data so far (the key block included), in
             /// bytes.
             length: u64,
+            /// The implementation this CPU runs.
+            backend: $backend,
+        }
+
+        impl<const N: usize> Drop for $name<N> {
+            /// Wipes the streaming state (which represents the key, if any).
+            fn drop(&mut self) {
+                $crate::zeroize::zeroize(&mut self.state);
+            }
         }
 
         impl<const N: usize> Default for $name<N> {
@@ -92,7 +175,8 @@ macro_rules! blake2 {
                 unsafe { $init(&mut state, N, key.as_ptr(), key.len()) };
                 // The key block is the first block of the data.
                 let length = if key.is_empty() { 0 } else { $block };
-                $name { state, length }
+                let backend = $backend::select($crate::cpu::detected());
+                $name { state, length, backend }
             }
 
             /// Absorbs `data`.
@@ -115,7 +199,7 @@ macro_rules! blake2 {
                 // `self.state` represents, and adding `data.len()` to it
                 // does not reach 2⁶⁴.
                 unsafe {
-                    $update(
+                    self.backend.update(
                         &mut self.state,
                         self.length,
                         data.as_ptr(),
@@ -137,7 +221,7 @@ macro_rules! blake2 {
                 // x86-64), and do not wrap around the end of the address
                 // space. `self.length` is the exact length, less than 2⁶⁴, of
                 // the data `self.state` represents.
-                unsafe { $finalize(&mut self.state, self.length, &mut out, &mut scratch) };
+                unsafe { self.backend.finalize(&mut self.state, self.length, &mut out, &mut scratch) };
                 let mut digest = [0; N];
                 digest.copy_from_slice(&out[..N]);
                 digest
