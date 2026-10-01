@@ -352,6 +352,14 @@ theorem loop_ok {K : Nat} (hK : K < 4) {s : State} (h : LV σ K 0 s) (h10 : s.gp
   exact ⟨⟨h₂.lat.same' hm k, fun h' => (h₂.vc h').same hl⟩, by rw [h10', g₂, g₁], by rw [hz, g₂, g₁]⟩
 
 omit hp in
+/-- `vzeroupper` changes no register or memory the invariants see. -/
+theorem vz_ok (s : State) :
+    WP isa (.block [.vop .vzeroupper]) s fun s' => s'.mem = s.mem ∧ Keep [] s s' := by
+  apply WP.of_runBlock
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, Option.some.injEq, exists_eq_left', Keep]
+  exact ⟨rfl, fun _ _ => rfl, rfl, rfl⟩
+
+omit hp in
 theorem vz_lat {K t : Nat} {s : State} (h : LAt σ K t s) : WP isa (.block [.vop .vzeroupper]) s (LAt σ K t) := by
   apply WP.of_runBlock
   simp only [runBlock_cons, runStep_some, runBlock_nil, exec, Option.some.injEq, exists_eq_left']

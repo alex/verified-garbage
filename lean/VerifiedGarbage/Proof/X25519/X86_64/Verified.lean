@@ -31,7 +31,7 @@ def satState : State where
 theorem x25519_ok (s : State) (hs : Proof.X25519.x25519X86_64.pre s) :
     ∃ t s', Exec isa Impl.X25519.X86_64.x25519 s t s' ∧ abiPreserved s s' ∧
       Proof.X25519.x25519X86_64.post s s' := by
-  obtain ⟨t, s', he, h⟩ := correct (Pre.of s hs)
+  obtain ⟨t, s', he, h⟩ := correct baseline_ok (Pre.of s hs)
   exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he h.1, h.2⟩
 
 theorem x25519_ct : ConstantTime isa Proof.X25519.x25519X86_64.pre Proof.X25519.x25519X86_64.pub

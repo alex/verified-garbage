@@ -51,17 +51,35 @@ theorem ISpec.append {base : Addr} {l₁ l₂ : List Instr} {f g : Env → Env}
 /-- A slot of the inversion's: 16 to 19. -/
 abbrev ISlot (o : Fin 128) : Prop := 16 ≤ o.val ∧ o.val < 20
 
+variable {fld : Field} (hf : FieldOk fld)
+
+include hf in
 /-- A multiplication into a slot of the inversion's, which also keeps `rbx`. -/
 theorem mulI_ok {s : State} {base : Addr} (hs : Scr s base) (o a b : Fin 128) (ho : ISlot o) :
-    WP isa (.block (mul (32 * o.val) (32 * a.val) (32 * b.val))) s fun s' =>
+    WP isa (.block (fld.mul (32 * o.val) (32 * a.val) (32 * b.val))) s fun s' =>
       IKeep base s s' ∧ s'.gpr .rbx = s.gpr .rbx ∧ E s'.mem base = opMul o a b (E s.mem base) :=
-  WP.mono (mul_ok hs (by omega) (by omega) (by omega)) fun _ ⟨h, e⟩ =>
+  WP.mono (hf.mul hs (by omega) (by omega) (by omega)) fun _ ⟨h, e⟩ =>
     ⟨⟨fun r hr _ => h.gpr r hr, h.rd, h.wr, h.mem.mono (by omega) (by omega)⟩,
       h.gpr _ (by decide), by rw [E_update h.mem, e]; rfl⟩
 
+include hf in
+/-- A square into a slot of the inversion's, which also keeps `rbx`. -/
+theorem sqrI_ok {s : State} {base : Addr} (hs : Scr s base) (o a : Fin 128) (ho : ISlot o) :
+    WP isa (.block (fld.sqr (32 * o.val) (32 * a.val))) s fun s' =>
+      IKeep base s s' ∧ s'.gpr .rbx = s.gpr .rbx ∧ E s'.mem base = opMul o a a (E s.mem base) :=
+  WP.mono (hf.sqr hs (by omega) (by omega)) fun _ ⟨h, e⟩ =>
+    ⟨⟨fun r hr _ => h.gpr r hr, h.rd, h.wr, h.mem.mono (by omega) (by omega)⟩,
+      h.gpr _ (by decide), by rw [E_update h.mem, e]; rfl⟩
+
+include hf in
 theorem mulI (base : Addr) (o a b : Fin 128) (ho : ISlot o) :
-    ISpec base (.block (mul (32 * o.val) (32 * a.val) (32 * b.val))) (opMul o a b) := fun _ hs =>
-  WP.mono (mulI_ok hs o a b ho) fun _ ⟨k, _, e⟩ => ⟨k, e⟩
+    ISpec base (.block (fld.mul (32 * o.val) (32 * a.val) (32 * b.val))) (opMul o a b) :=
+  fun _ hs => WP.mono (mulI_ok hf hs o a b ho) fun _ ⟨k, _, e⟩ => ⟨k, e⟩
+
+include hf in
+theorem sqrI (base : Addr) (o a : Fin 128) (ho : ISlot o) :
+    ISpec base (.block (fld.sqr (32 * o.val) (32 * a.val))) (opMul o a a) :=
+  fun _ hs => WP.mono (sqrI_ok hf hs o a ho) fun _ ⟨k, _, e⟩ => ⟨k, e⟩
 
 /-! ## Runs of squarings -/
 
@@ -111,13 +129,14 @@ theorem opMul_update (o : Fin 128) (e : Env) (v : Spec.X25519.Fe) :
     opMul o o o (Function.update e o v) = Function.update e o (v * v) := by
   simp only [opMul, Function.update_self, Function.update_idem]
 
+include hf in
 /-- The loop of `sqn`, with the counter `rbx = m` and slot `o` squared
 `n - m` times since `s₀`. -/
 theorem sqLoop_ok {s₀ : State} {base : Addr} (hs₀ : Scr s₀ base) (o : Fin 128) (ho : ISlot o)
     (x : Spec.X25519.Fe) (n : Nat) (hn : n < 2 ^ 32) :
     ∀ m s, 1 ≤ m → m < n → IKeep base s₀ s → s.gpr .rbx = BitVec.ofNat 64 m →
       E s.mem base = Function.update (E s₀.mem base) o (sqn x (n - m)) →
-      WP isa (.loop (.block (mul (32 * o.val) (32 * o.val) (32 * o.val) ++
+      WP isa (.loop (.block (fld.sqr (32 * o.val) (32 * o.val) ++
           ([.alu .sub .rbx (.imm 1)] : List Instr))) .ne) s fun s' =>
         IKeep base s₀ s' ∧ E s'.mem base = Function.update (E s₀.mem base) o (sqn x n) := by
   intro m s h1 h2 hk hb he
@@ -127,7 +146,7 @@ theorem sqLoop_ok {s₀ : State} {base : Addr} (hs₀ : Scr s₀ base) (o : Fin 
   intro m s ⟨h1, h2, hk, hb, he⟩
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
   rw [WP.block_append_iff]
-  refine WP.mono (mulI_ok (hk.scr hs₀) o o o ho) fun s1 ⟨k1, b1, e1⟩ => ?_
+  refine WP.mono (sqrI_ok hf (hk.scr hs₀) o o ho) fun s1 ⟨k1, b1, e1⟩ => ?_
   refine WP.mono (decRbx_ok (by omega) (b1.trans hb)) fun s2 ⟨b2, g2, m2, rd2, wr2, z2⟩ => ?_
   have k2 : IKeep base s₀ s2 := hk.trans (k1.trans ⟨fun r _ hr => g2 r hr, rd2, wr2,
     by rw [m2]; exact Outside.refl _ _ _ _⟩)
@@ -142,18 +161,19 @@ theorem sqLoop_ok {s₀ : State} {base : Addr} (hs₀ : Scr s₀ base) (o : Fin 
   · exact .inr ⟨by simp only [decide_eq_false (by omega : ¬m = 0), Bool.not_false], m, by omega,
       by omega, by omega, k2, b2, e2⟩
 
+include hf in
 /-- `sqn o a n`: slot `o` becomes slot `a` squared `n` times (`o` may be `a`). -/
 theorem sqnI (base : Addr) (o a : Fin 128) (ho : ISlot o) (n : Nat) (hn : 2 ≤ n)
     (hn' : n < 2 ^ 32) :
-    ISpec base (Impl.X25519.X86_64.sqn (32 * o.val) (32 * a.val) n) (opSqn o a n) := by
+    ISpec base (Impl.X25519.X86_64.sqn fld (32 * o.val) (32 * a.val) n) (opSqn o a n) := by
   intro s hs
   refine WP.seq ?_
   rw [WP.block_append_iff]
-  refine WP.mono (mulI_ok hs o a a ho) fun s1 ⟨k1, _, e1⟩ => ?_
+  refine WP.mono (sqrI_ok hf hs o a ho) fun s1 ⟨k1, _, e1⟩ => ?_
   refine WP.mono (setRbx_ok s1 (n - 1) (by omega)) fun s2 ⟨b2, g2, m2, rd2, wr2⟩ => ?_
   have k2 : IKeep base s s2 := k1.trans ⟨fun r _ hr => g2 r hr, rd2, wr2,
     by rw [m2]; exact Outside.refl _ _ _ _⟩
-  refine sqLoop_ok hs o ho (E s.mem base a) n hn' (n - 1) s2 (by omega) (by omega) k2 b2 ?_
+  refine sqLoop_ok hf hs o ho (E s.mem base a) n hn' (n - 1) s2 (by omega) (by omega) k2 b2 ?_
   rw [m2, e1, show n - (n - 1) = 1 by omega]
   rfl
 
@@ -167,43 +187,45 @@ def invEnv (e : Env) : Env :=
     (opMul 18 16 16 (opMul 16 16 17 (opMul 17 4 17 (opMul 17 17 17 (opMul 17 16 16
     (opMul 16 4 4 e))))))))))))))))))))))
 
-theorem invert_spec (base : Addr) : ISpec base Impl.X25519.X86_64.invert invEnv := by
+include hf in
+theorem invert_spec (base : Addr) : ISpec base (Impl.X25519.X86_64.invert fld) invEnv := by
   have h : ISpec base _ _ :=
-    (mulI base 16 4 4 ⟨by decide, by decide⟩).seq <|
-    ((mulI base 17 16 16 ⟨by decide, by decide⟩).append
-      (mulI base 17 17 17 ⟨by decide, by decide⟩)).seq <|
-    ((((mulI base 17 4 17 ⟨by decide, by decide⟩).append
-      (mulI base 16 16 17 ⟨by decide, by decide⟩)).append
-      (mulI base 18 16 16 ⟨by decide, by decide⟩)).append
-      (mulI base 17 17 18 ⟨by decide, by decide⟩)).seq <|
-    (sqnI base 18 17 ⟨by decide, by decide⟩ 5 (by decide) (by decide)).seq <|
-    (mulI base 17 18 17 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 18 17 ⟨by decide, by decide⟩ 10 (by decide) (by decide)).seq <|
-    (mulI base 18 18 17 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 19 18 ⟨by decide, by decide⟩ 20 (by decide) (by decide)).seq <|
-    (mulI base 18 19 18 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 18 18 ⟨by decide, by decide⟩ 10 (by decide) (by decide)).seq <|
-    (mulI base 17 18 17 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 18 17 ⟨by decide, by decide⟩ 50 (by decide) (by decide)).seq <|
-    (mulI base 18 18 17 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 19 18 ⟨by decide, by decide⟩ 100 (by decide) (by decide)).seq <|
-    (mulI base 18 19 18 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 18 18 ⟨by decide, by decide⟩ 50 (by decide) (by decide)).seq <|
-    (mulI base 17 18 17 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 17 17 ⟨by decide, by decide⟩ 5 (by decide) (by decide)).seq
-    (mulI base 17 17 16 ⟨by decide, by decide⟩)
+    (sqrI hf base 16 4 ⟨by decide, by decide⟩).seq <|
+    ((sqrI hf base 17 16 ⟨by decide, by decide⟩).append
+      (sqrI hf base 17 17 ⟨by decide, by decide⟩)).seq <|
+    ((((mulI hf base 17 4 17 ⟨by decide, by decide⟩).append
+      (mulI hf base 16 16 17 ⟨by decide, by decide⟩)).append
+      (sqrI hf base 18 16 ⟨by decide, by decide⟩)).append
+      (mulI hf base 17 17 18 ⟨by decide, by decide⟩)).seq <|
+    (sqnI hf base 18 17 ⟨by decide, by decide⟩ 5 (by decide) (by decide)).seq <|
+    (mulI hf base 17 18 17 ⟨by decide, by decide⟩).seq <|
+    (sqnI hf base 18 17 ⟨by decide, by decide⟩ 10 (by decide) (by decide)).seq <|
+    (mulI hf base 18 18 17 ⟨by decide, by decide⟩).seq <|
+    (sqnI hf base 19 18 ⟨by decide, by decide⟩ 20 (by decide) (by decide)).seq <|
+    (mulI hf base 18 19 18 ⟨by decide, by decide⟩).seq <|
+    (sqnI hf base 18 18 ⟨by decide, by decide⟩ 10 (by decide) (by decide)).seq <|
+    (mulI hf base 17 18 17 ⟨by decide, by decide⟩).seq <|
+    (sqnI hf base 18 17 ⟨by decide, by decide⟩ 50 (by decide) (by decide)).seq <|
+    (mulI hf base 18 18 17 ⟨by decide, by decide⟩).seq <|
+    (sqnI hf base 19 18 ⟨by decide, by decide⟩ 100 (by decide) (by decide)).seq <|
+    (mulI hf base 18 19 18 ⟨by decide, by decide⟩).seq <|
+    (sqnI hf base 18 18 ⟨by decide, by decide⟩ 50 (by decide) (by decide)).seq <|
+    (mulI hf base 17 18 17 ⟨by decide, by decide⟩).seq <|
+    (sqnI hf base 17 17 ⟨by decide, by decide⟩ 5 (by decide) (by decide)).seq
+    (mulI hf base 17 17 16 ⟨by decide, by decide⟩)
   exact h
 
 theorem invEnv_eval (e : Env) : invEnv e 17 = VG.Proof.X25519.invert (e 4) := by
   simp (config := {decide := true}) only [invEnv, opMul, opSqn, Function.update_apply]
   rfl
 
+include hf in
 theorem invert_ok {s : State} {base : Addr} (hs : Scr s base) :
-    WP isa Impl.X25519.X86_64.invert s fun s' =>
+    WP isa (Impl.X25519.X86_64.invert fld) s fun s' =>
       (∀ r, r ∉ clob → r ≠ .rbx → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
       Outside base 512 128 s.mem s'.mem ∧
       E s'.mem base 17 = VG.Proof.X25519.invert (E s.mem base 4) :=
-  WP.mono (invert_spec base s hs) fun _ ⟨k, e⟩ =>
+  WP.mono (invert_spec hf base s hs) fun _ ⟨k, e⟩ =>
     ⟨k.gpr, k.rd, k.wr, k.mem, by rw [e, invEnv_eval]⟩
 
 end VG.Proof.X25519.X86_64

@@ -18,12 +18,9 @@ against the contract.
 namespace VG.Artifacts.Selftest.X86_64
 
 def artifacts : List Artifact := [
-  { target := X86_64.target
-    module := "selftest"
-    name := "vg_selftest_add"
-    sig := Spec.Selftest.addSig
-    doc := "Pipeline self-test: returns `a.wrapping_add(b)`.\n\n\
-      Contract: `VG.Spec.Selftest.addContract`. No safety requirements."
+  { Spec.Selftest.addApi with
+    target := X86_64.target
+    doc := Spec.Selftest.addApi.summary
     code := Impl.Selftest.X86_64.add
     contract := Spec.Selftest.addContract X86_64.abi
     verified := Proof.Selftest.X86_64.add_verified

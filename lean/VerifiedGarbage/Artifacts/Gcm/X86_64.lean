@@ -30,10 +30,9 @@ def artifacts : List Artifact := [
     contract := Spec.Gcm.ghashContract X86_64.abi
     verified := Proof.Gcm.X86_64.ghash_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) },
-  { target := X86_64.target
-    module := "gcm"
+  { Spec.Gcm.ghashApi with
     name := "vg_ghash_pclmul"
-    sig := Spec.Gcm.ghashSig
+    target := X86_64.target
     doc := "GHASH (SP 800-38D §6.4), with PCLMULQDQ: replaces the block `*y` with `GHASH_H` \
       continued from `*y` over the `n` 16-byte blocks starting at `data`, where `H` is the \
       hash subkey `*h` (`Y ← (Y ⊕ Xᵢ) • H` for each block `Xᵢ`, in order). Four blocks at a \

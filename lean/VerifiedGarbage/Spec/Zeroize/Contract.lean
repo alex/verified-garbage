@@ -37,6 +37,7 @@ def zeroizeApi : Api where
   module := "zeroize"
   name := "vg_zeroize"
   sig := zeroizeSig
+  contracts := some fun A stack => zeroizeContract A stack
   summary := "Wipes a buffer: sets the `len` bytes at `p` to zero, and writes no other memory. \
     A call of it is not a dead store the compiler may remove, since the compiler cannot see its \
     code.\n\n\

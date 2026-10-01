@@ -1,6 +1,6 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.PointDecode
 import VerifiedGarbage.Impl.Ed25519.X86_64.ScalarBase
-import VerifiedGarbage.Impl.Ed25519.X86_64.PointFromScalar
+import VerifiedGarbage.Impl.Ed25519.X86_64.VerifyWindow
 
 /-! Strict verification with the full 512-bit challenge supplied by the caller. -/
 
@@ -12,9 +12,6 @@ open VG.Impl.X25519.X86_64 (at_ sc)
 /-- Tail storage survives scalar multiplication's checkpoint and local tables. -/
 def pointTableWrite (o : Nat) : List Instr :=
   [.movImm64 .rbx 0] ++ tableAddr o ++ pointToTable
-
-def pointTableRead (o : Nat) : List Instr :=
-  [.movImm64 .rbx 0] ++ tableAddr o ++ pointFromTable
 
 def loadScalarWords : List Instr :=
   [.mov .r8 (.mem (at_ .rdx 0)), .mov .r9 (.mem (at_ .rdx 8)),
@@ -31,22 +28,10 @@ def pointEqual : Prog isa :=
     (.seq (.block (fieldEqual 10 11)) (.ite .e (.block [.mov32 .rax (.imm 1)]) recoverInvalid))
     recoverInvalid)
 
-def verifyLhs : Prog isa :=
-  .seq (.block [.mov .rsi (.mem (sc 7944)), .alu .add .rsi (.imm 32)])
-    (.seq (.block (constPoint Spec.Ed25519.basePoint))
-      (.seq (pointFromScalar 16) (.block (pointTableWrite 7680))))
-
-def verifyCombine : List Instr :=
-  copyPointToQ ++ pointTableRead 7552 ++ pointAdd ++ copyPointToQ ++ pointTableRead 7680
-
-def verifyRhsPrepare : Prog isa :=
-  .seq (.block [.mov .rsi (.mem (sc 7952))])
-    (.seq (.block (pointTableRead 7424))
-      (.seq (pointFromScalar 32) (.block verifyCombine)))
-
-def verifyRhs : Prog isa := .seq verifyRhsPrepare pointEqual
-
-def verifyEquationPoints : Prog isa := .seq verifyLhs verifyRhs
+/-- Returns 1 in `rax` if `[S]B = R + [k]A`, for `A` at byte 7424 and `R` at byte 7552. -/
+def verifyEquationPoints : Prog isa :=
+  .seq (.block windowSetup) (.seq aTable (.seq (.block bTable) (.seq (.block windowInit)
+    (.seq (.loop byteStepA .ne) (.seq (.loop byteStepAB .ne) (.seq (.block negR) pointEqual))))))
 
 /-- Continue only when a point decoder returned success. -/
 def decodedThen (next : Prog isa) : Prog isa :=

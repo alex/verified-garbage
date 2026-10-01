@@ -1,4 +1,5 @@
-import VerifiedGarbage.Proof.Ed25519.X86_64.BaseMultiplyPrecomputed
+import VerifiedGarbage.Impl.Ed25519.X86_64.ScalarBasePrecomputed
+import VerifiedGarbage.Proof.Ed25519.X86_64.BaseMultiply
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBaseEngine
 
 namespace VG.Proof.Ed25519.X86_64
@@ -14,8 +15,8 @@ theorem scalarBasePrecomputedEngine_ok {s : State} {base k : Addr} (hs : Scratch
           Spec.Ed25519.basePoint) := by
   rw [scalarBasePrecomputedEngine]
   refine WP.seq (WP.mono (scalarBasePrepare_ok hs hp hr hd) fun b ⟨kab, _, bd, bbits, hscalar⟩ => ?_)
-  refine WP.seq (WP.mono (baseMultiplyPrecomputed_ok (kab.scratch hs) _ hscalar bd bbits)
-    fun c ⟨cp, _, kc⟩ => ?_)
+  refine WP.seq (WP.mono (baseMultiply_ok (kab.scratch hs) _ hscalar bbits)
+    fun c ⟨cp, kc⟩ => ?_)
   refine WP.mono (pointEncode_ok (kc.scratch (kab.scratch hs))) fun t ⟨kt, tv⟩ => ?_
   refine ⟨(kab.trans kc).trans (PowersKeep.of_rbx kt), ?_⟩
   change val4 (t.gpr .r8) (t.gpr .r9) (t.gpr .r10) (t.gpr .r11) = encodedValue (point (env c.mem base) 0 1 2 3) at tv

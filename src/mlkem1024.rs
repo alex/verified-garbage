@@ -19,8 +19,10 @@
 //! check of §7.2 in [`EncapsulationKey1024::from_bytes`].
 //!
 //! The bound on `SampleNTT`'s loop (280 iterations, as Appendix B allows) is
-//! reached with probability less than 2⁻²⁶¹; the operation then fails with
-//! [`Error::SampleBound`].
+//! reached with probability less than 2⁻²⁶¹ for each call; key generation,
+//! encapsulation and decapsulation each call it 16 times (once for each
+//! entry of the matrix `Â`), so an operation reaches it with probability
+//! less than 2⁻²⁵⁷, and then fails with [`Error::SampleBound`].
 //!
 //! On x86-64, key generation, encapsulation and decapsulation have an
 //! instance for each implementation of `vg_mlkem_sample_ntt4`, which samples
@@ -130,7 +132,7 @@ impl EncapsulationKey1024 {
         };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261.
+            // One of the 16 `SampleNTT`s reaches its bound with probability less than 2^-257.
             // NO-COVERAGE-START
             zeroize(&mut key);
             zeroize(&mut ct);
@@ -198,7 +200,7 @@ impl DecapsulationKey1024 {
         };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261;
+            // One of the 16 `SampleNTT`s reaches its bound with probability less than 2^-257;
             // dropping `key` destroys it.
             // NO-COVERAGE-START
             return Err(Error::SampleBound);
@@ -239,7 +241,7 @@ impl DecapsulationKey1024 {
         };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261.
+            // One of the 16 `SampleNTT`s reaches its bound with probability less than 2^-257.
             // NO-COVERAGE-START
             zeroize(&mut key);
             return Err(Error::SampleBound);
