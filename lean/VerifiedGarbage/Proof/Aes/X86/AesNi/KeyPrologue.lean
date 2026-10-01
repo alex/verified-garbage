@@ -11,11 +11,13 @@ structure KeySetup (s₀ s : State) : Prop where
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
 
-structure KeyStart (s₀ s : State) : Prop extends KeySetup s₀ s where
+structure KeyReady (s₀ s : State) : Prop extends KeySetup s₀ s where
   eax : s.gpr .eax = keyP s₀
   ecx : s.gpr .ecx = arg s₀ 1
   edx : s.gpr .edx = ekSchP s₀
   callee : ∀ r, r ≠ .eax → r ≠ .ecx → r ≠ .edx → s.gpr r = s₀.gpr r
+
+structure KeyStart (s₀ s : State) : Prop extends KeyReady s₀ s where
   zf : s.zf = some (decide (arg s₀ 1 = 24#32))
 
 theorem KeySetup.setReg {s₀ s : State} (h : KeySetup s₀ s) (d : Reg) (v : BitVec 32)
@@ -62,7 +64,7 @@ theorem keyHead_ok (s₀ : State) (hp : EPre s₀) :
   simp (config := {decide := true}) only [runBlock_cons, exec, execAlu, readSrc,
     gpr_setReg, Option.bind_some, ite_true, ite_false, runStep_some,
     runBlock_nil, Option.some.injEq, exists_eq_left']
-  refine ⟨⟨?_, ?_, ?_, ?_⟩, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨⟨⟨?_, ?_, ?_, ?_⟩, ?_, ?_, ?_, ?_⟩, ?_⟩
   · simp only [gpr_arithFlags, gpr_setReg]; rfl
   · simp only [mem_arithFlags, mem_setReg]
   · simp only [rd_arithFlags, rd_setReg]
