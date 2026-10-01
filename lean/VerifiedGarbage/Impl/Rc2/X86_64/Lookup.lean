@@ -7,7 +7,7 @@ import VerifiedGarbage.TCB.X86_64.Isa
 All candidates are visited in a fixed order. The secret index is compared
 with each public candidate using arithmetic, never used as an address or
 branch condition. Subtracting one from `x XOR i` borrows exactly when
-`x = i`; `sbb r11, r11` turns that borrow into the selection mask.
+`x = i`; `sbb r10, r10` turns that borrow into the selection mask.
 -/
 
 namespace VG.Impl.Rc2.X86_64
@@ -18,17 +18,17 @@ def memOp (base : Reg) (offset : Nat) : MemOp := { base, disp := Int.ofNat offse
 def rr (dst src : Reg) : Instr := .mov dst (.reg src)
 def imm (dst : Reg) (n : Nat) : Instr := .mov dst (.imm (BitVec.ofNat 32 n))
 
-/-- With a byte in `rax`, the equality mask for candidate `i` in `r11`.
-Clobbers `r10`; leaves the input in `rax`. -/
+/-- With a byte in `rax`, the equality mask for candidate `i` in `r10`.
+Leaves the input in `rax`. -/
 def selectMask (i : Nat) : List Instr :=
   [rr .r10 .rax, .alu .xor .r10 (.imm (BitVec.ofNat 32 i)),
-   .alu .sub .r10 (.imm 1), .alu .sbb .r11 (.reg .r11)]
+   .alu .sub .r10 (.imm 1), .alu .sbb .r10 (.reg .r10)]
 
 /-- Accumulate PITABLE candidate `i` into `rcx`. -/
 def piStep (i : Nat) : List Instr :=
   selectMask i ++
-    ([.alu .and .r11 (.imm ((Spec.Rc2.piTable.getD i 0).setWidth 32)),
-      .alu .or .rcx (.reg .r11)] : List Instr)
+    ([.alu .and .r10 (.imm ((Spec.Rc2.piTable.getD i 0).setWidth 32)),
+      .alu .or .rcx (.reg .r10)] : List Instr)
 
 /-- PITABLE of the low byte of `rax`, returned in `rax`. Clobbers only
 `rax`, `rcx`, `r10`, `r11`, and flags; accesses no memory. -/
@@ -45,7 +45,7 @@ def loadKey (i : Nat) : List Instr :=
 /-- Accumulate schedule candidate `i` into `rcx`. -/
 def keyStep (i : Nat) : List Instr :=
   selectMask i ++ loadKey i ++
-    ([.alu .and .r8 (.reg .r11), .alu .or .rcx (.reg .r8)] : List Instr)
+    ([.alu .and .r8 (.reg .r10), .alu .or .rcx (.reg .r8)] : List Instr)
 
 /-- Select schedule word `rax & 63`, returned in `rax`, from all 64 words
 at `rdi`. Clobbers `rax`, `rcx`, `r8`–`r11`, and flags. -/
