@@ -53,12 +53,12 @@ def saved4 : List (Reg × Nat) := [(.r4, 2064), (.r5, 2068), (.r6, 2072), (.lr, 
 
 theorem subkeysPre_eq : subkeysPre = saved4.map (fun p => Instr.str p.1 .r3 p.2) ++
     (.mov .r6 (.reg .r2) :: .mov .r5 (.reg .r3) :: .mov .r12 (.imm 0) :: (zeroBlk .r12 .r3 2048 ++
-      (zeroBlk .r12 .r2 0 ++ [.dp .add .r2 .r5 (.imm (BitVec.ofNat 32 2048)), .mov .r3 (.reg .r6),
-        .mov .r4 (.imm 1)]))) := rfl
+      (zeroBlk .r12 .r2 0 ++ ([.dp .add .r2 .r5 (.imm (BitVec.ofNat 32 2048)), .mov .r3 (.reg .r6),
+        .mov .r4 (.imm 1)] : List Instr)))) := rfl
 
 theorem subkeysPost_eq : subkeysPost = dbl 0 0 ++ (dbl 0 16 ++
     ([(.r4, 2064), (.r6, 2072), (.lr, 2076)].map (fun (p : Reg × Nat) => Instr.ldr p.1 .r5 p.2) ++
-      [.ldr .r5 .r5 2068])) := rfl
+      ([.ldr .r5 .r5 2068] : List Instr))) := rfl
 
 set_option simprocs false in
 theorem saved4_slot (m : Mem) (B : Addr) (g : Reg → BitVec 32) {r : Reg} {d : Nat} (h : (r, d) ∈ saved4) :

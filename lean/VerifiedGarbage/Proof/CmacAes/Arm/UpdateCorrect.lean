@@ -39,8 +39,8 @@ theorem restoreB_ok {b : Reg} {rest : List Instr} (l : List (Reg × Nat)) :
     · simp only [List.map_cons, List.mem_cons, not_or] at hr
       rw [ho r hr.2, u₁.other r hr.1]
 
-theorem restore_eq : restore = (saved.take 7).map (fun p => Instr.ldr p.1 .r10 p.2) ++ [.ldr .r10 .r10 2088] :=
-  rfl
+theorem restore_eq : restore = (saved.take 7).map (fun p => Instr.ldr p.1 .r10 p.2) ++
+    ([.ldr .r10 .r10 2088] : List Instr) := rfl
 
 theorem take7_ne : ∀ p ∈ saved.take 7, p.1 ≠ .r10 := by decide
 

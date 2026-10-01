@@ -30,7 +30,8 @@ structure FMid (s₀ s : State) : Prop where
 
 theorem finArgs_eq : finArgs = xorBlk .r12 .lr .r5 .r2 .r5 2048 0 2048 ++
     (.mov .r12 (.imm 0) :: (zeroBlk .r12 .r2 0 ++
-      [.mov .r3 (.reg .r2), .dp .add .r2 .r5 (.imm (BitVec.ofNat 32 2048)), .mov .r4 (.imm 1)])) := rfl
+      ([.mov .r3 (.reg .r2), .dp .add .r2 .r5 (.imm (BitVec.ofNat 32 2048)), .mov .r4 (.imm 1)] :
+        List Instr))) := rfl
 
 theorem preserved_ne {r : Reg} (hr : r ∈ preserved) : r ≠ .r0 ∧ r ≠ .r1 ∧ r ≠ .r2 ∧ r ≠ .r3 ∧ r ≠ .r12 := by
   simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr

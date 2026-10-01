@@ -83,8 +83,8 @@ structure BodyA (s₀ : State) (k : Nat) (s s₁ : State) : Prop where
 
 theorem chainIn_eq : chainIn ++ updArgs = xorBlk .r0 .r1 .r6 .r7 .r10 0 0 2048 ++
     (.mov .r0 (.imm 0) :: (zeroBlk .r0 .r6 0 ++
-      [.mov .r0 (.reg .r4), .mov .r1 (.reg .r5), .dp .add .r2 .r10 (.imm (BitVec.ofNat 32 2048)),
-       .mov .r3 (.reg .r6), .mov .r9 (.imm 1)])) := rfl
+      ([.mov .r0 (.reg .r4), .mov .r1 (.reg .r5), .dp .add .r2 .r10 (.imm (BitVec.ofNat 32 2048)),
+       .mov .r3 (.reg .r6), .mov .r9 (.imm 1)] : List Instr))) := rfl
 
 theorem bodyA_wp {s₀ : State} (hp : UPre s₀) {k : Nat} (hk : k < N s₀) {s : State} (h : LInv s₀ k s) :
     WP isa (.block (chainIn ++ updArgs)) s (BodyA s₀ k s) := by

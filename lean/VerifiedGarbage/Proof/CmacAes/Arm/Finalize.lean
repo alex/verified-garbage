@@ -122,7 +122,7 @@ def fsaved : List (Reg × Nat) := [(.r4, 2064), (.r5, 2068), (.lr, 2072)]
 def fsMem (s₀ : State) : Mem := saveMem s₀.mem (State.addr (S s₀)) s₀.gpr fsaved
 
 theorem finSave_eq : finSave = .ldrSp .r12 4 :: (fsaved.map (fun p => Instr.str p.1 .r12 p.2) ++
-    [.mov .r5 (.reg .r12), .ldrSp .r4 0, .cmp .r4 (.imm 16)]) := rfl
+    ([.mov .r5 (.reg .r12), .ldrSp .r4 0, .cmp .r4 (.imm 16)] : List Instr)) := rfl
 
 theorem fsMem_frame (s₀ : State) : Frame [scrR s₀] s₀.mem (fsMem s₀) :=
   saveMem_frame _ _ _ (by decide) fsaved (by decide)
@@ -318,7 +318,7 @@ theorem copy_wp {s : State} {p c : BitVec 32} {L : Nat} (hL₀ : 0 < L) (hL : L 
 /-! ## A partial last block -/
 
 theorem zero_eq : zero = .mov .r12 (.imm 0) :: (zeroBlk .r12 .r5 2048 ++
-    [.dp .add .lr .r5 (.imm (BitVec.ofNat 32 2048)), .cmp .r4 (.imm 0)]) := rfl
+    ([.dp .add .lr .r5 (.imm (BitVec.ofNat 32 2048)), .cmp .r4 (.imm 0)] : List Instr)) := rfl
 
 theorem padK2_eq : padK2 = .mov .r12 (.imm 0x80) :: .strb .r12 .lr 0 ::
     (xorBlk .r12 .lr .r5 .r0 .r5 2048 256 2048 ++ []) := rfl
