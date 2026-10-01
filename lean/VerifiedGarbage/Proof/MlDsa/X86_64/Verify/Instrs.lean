@@ -8,8 +8,9 @@ Untrusted: everything here is checked by Lean. A property `q` of every
 instruction of `verify P p` (`Code.allInstrs q`) holds if it holds of every
 instruction of the primitives `P` and of `verify P0 p`, the same code with
 the primitives empty (`verify_q`), which the kernel evaluates. So it never
-loads MXCSR (`verify_mxcsr`) or writes the stack pointer (`verify_spSafe`)
-if the primitives do not.
+writes the stack pointer (`verify_spSafe`) if the primitives do not. Likewise
+for `ctlC` (`verify_c`): it loads MXCSR only to restore it (`verify_ctl`) if
+the primitives do (`ctlOk`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify
@@ -107,19 +108,87 @@ theorem Code.allInstrs_of_all {I C : Type} {q : I → Bool} {c : Code I C} (h : 
   | block is => induction is <;> simp_all [Code.all, Code.allInstrs]
   | _ => simp_all [Code.all, Code.allInstrs]
 
-theorem verify0_mxcsr : ∀ p ∈ params, (verify P0 p).allInstrs (fun i => !loadsMxcsr i) = true := by
+theorem verify0_sp : ∀ p ∈ params, (verify P0 p).allInstrs (fun i => !isa.writesSp i) = true := by
   decide +kernel
 
-theorem verify0_sp : ∀ p ∈ params, (verify P0 p).allInstrs (fun i => !isa.writesSp i) = true := by
+/-! ## MXCSR -/
+
+/-- Every primitive of `P` loads MXCSR only to restore it. -/
+structure PrimsC (P : Prims) : Prop where
+  ntt : ctlOk P.ntt = true
+  invNtt : ctlOk P.invNtt = true
+  mul : ctlOk P.mul = true
+  mulAdd : ctlOk P.mulAdd = true
+  sub : ctlOk P.sub = true
+  rejNtt : ctlOk P.rejNtt = true
+  ball : ctlOk P.ball = true
+  useHint : ctlOk P.useHint = true
+  simpleBitPack : ctlOk P.simpleBitPack = true
+  bitUnpack : ctlOk P.bitUnpack = true
+  unpackT1 : ctlOk P.unpackT1 = true
+  hintUnpack : ctlOk P.hintUnpack = true
+  normLt : ctlOk P.normLt = true
+
+/-- `ctlC` holds of `c` exactly when it does of `c'`. -/
+def SameC (c c' : Prog isa) : Prop := ctlC c = ctlC c'
+
+theorem SameC.seq {a a' b b' : Prog isa} (ha : SameC a a') (hb : SameC b b') : SameC (.seq a b) (.seq a' b') := by
+  show (ctlC a && ctlC b) = (ctlC a' && ctlC b')
+  rw [show ctlC a = ctlC a' from ha, show ctlC b = ctlC b' from hb]
+
+theorem SameC.call {c : Prog isa} (hc : ctlOk c = true) (n : String) (as : List (Reg × Arg)) :
+    SameC (callAt n c as) (callAt n (.block []) as) := by
+  show (_ && ctlOk c) = (_ && true)
+  rw [hc]
+
+theorem SameC.seqR {f g : Nat → Prog isa} (h : ∀ k, SameC (f k) (g k)) : ∀ a n, SameC (seqR f a n) (seqR g a n)
+  | _, 0 => rfl
+  | a, n + 1 => (h a).seq (SameC.seqR h (a + 1) n)
+
+theorem SameC.ifOk {c c' : Prog isa} (h : SameC c c') : SameC (ifOk c) (ifOk c') := by
+  refine SameC.seq rfl ?_
+  show (ctlC c && _) = (ctlC c' && _)
+  rw [show ctlC c = ctlC c' from h]
+
+theorem SameC.sampled {c c' : Prog isa} (h : SameC c c') (a : Ptr) : SameC (sampled c a) (sampled c' a) :=
+  h.seq rfl
+
+section
+variable {P : Prims} (hP : PrimsC P) (p : Params)
+include hP
+
+theorem verify_c : SameC (verify P p) (verify P0 p) := by
+  have aOne : ∀ e, SameC (aOne P e) (aOne P0 e) := fun e =>
+    SameC.seq rfl (SameC.sampled (SameC.call hP.rejNtt _ _) _)
+  have dot : ∀ r, SameC (dot P p r) (dot P0 p r) := fun r =>
+    (SameC.call hP.mul _ _).seq (SameC.seqR (fun _ => SameC.call hP.mulAdd _ _) _ _)
+  have row : ∀ r, SameC (row P p r) (row P0 p r) := fun r =>
+    (dot r).seq ((SameC.call hP.unpackT1 _ _).seq ((SameC.call hP.ntt _ _).seq ((SameC.call hP.mul _ _).seq
+      ((SameC.call hP.sub _ _).seq ((SameC.call hP.invNtt _ _).seq ((SameC.call hP.useHint _ _).seq
+        (SameC.call hP.simpleBitPack _ _)))))))
+  have samples : SameC (samples P p) (samples P0 p) :=
+    SameC.seq rfl ((SameC.seqR (fun r => SameC.seqR aOne _ _) _ _).seq
+      (SameC.sampled (SameC.call hP.ball _ _) _))
+  have compute : SameC (compute P p) (compute P0 p) :=
+    (SameC.seqR (fun _ => SameC.call hP.ntt _ _) _ _).seq ((SameC.call hP.ntt _ _).seq
+      ((SameC.seqR row _ _).seq rfl))
+  have zOne : ∀ i, SameC (zOne P p i) (zOne P0 p i) := fun _ =>
+    (SameC.call hP.bitUnpack _ _).seq ((SameC.call hP.normLt _ _).seq rfl)
+  exact SameC.seq rfl ((((SameC.call hP.hintUnpack _ _).seq rfl).seq (SameC.ifOk ((SameC.seqR zOne _ _).seq
+    (SameC.ifOk (samples.seq compute))))).seq rfl)
+
+end
+
+theorem verify0_ctlC : ∀ p ∈ params, ctlC (verify P0 p) = true := by
   decide +kernel
 
 variable {P : Prims} (C : PrimsOk P) {p : Params} (hp : p ∈ params)
 include C hp
 
-theorem verify_mxcsr : (verify P p).allInstrs (fun i => !loadsMxcsr i) = true :=
-  (verify_q ⟨C.ntt.mxcsr, C.invNtt.mxcsr, C.mul.mxcsr, C.mulAdd.mxcsr, C.sub.mxcsr, C.rejNtt.mxcsr, C.ball.mxcsr,
-    C.useHint.mxcsr, C.simpleBitPack.mxcsr, C.bitUnpack.mxcsr, C.unpackT1.mxcsr, C.hintUnpack.mxcsr,
-    C.normLt.mxcsr⟩ p).trans (verify0_mxcsr p hp)
+theorem verify_ctl : ctlOk (verify P p) = true :=
+  ctlOk_of_ctlC ((verify_c ⟨C.ntt.ctl, C.invNtt.ctl, C.mul.ctl, C.mulAdd.ctl, C.sub.ctl, C.rejNtt.ctl, C.ball.ctl,
+    C.useHint.ctl, C.simpleBitPack.ctl, C.bitUnpack.ctl, C.unpackT1.ctl, C.hintUnpack.ctl,
+    C.normLt.ctl⟩ p).trans (verify0_ctlC p hp))
 
 theorem verify_spSafe : (verify P p).all (fun i => !isa.writesSp i) = true :=
   Code.all_of_allInstrs ((verify_q ⟨Code.allInstrs_of_all C.ntt.spSafe, Code.allInstrs_of_all C.invNtt.spSafe,
