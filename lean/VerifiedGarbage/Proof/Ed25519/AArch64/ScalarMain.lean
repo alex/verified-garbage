@@ -26,17 +26,18 @@ theorem scalarReduce_correct {s : State} (hs : scalarReduceLocal.pre s) :
   apply WP.seq
   rw [WP.block_append_iff]
   refine WP.mono (scalarSave_ok rfl hws) fun s₁ ⟨g₁, rd₁, wr₁, sp₁, o₁, sv₁⟩ => ?_
-  refine WP.mono (scalarInit_ok s₁) fun s₂ ⟨b₂, v₂, z₂, one₂, k₂⟩ => ?_
+  refine WP.mono (scalarInit_ok s₁) fun s₂ ⟨b₂, v₂, z₂, k₂⟩ => ?_
   have x1₂ : s₂.gpr .x1 = s.gpr .x1 := (k₂.gpr _ (by decide)).trans (congrFun g₁ _)
   have x2₂ : s₂.gpr .x2 = s.gpr .x2 := (k₂.gpr _ (by decide)).trans (congrFun g₁ _)
   have x0₂ : s₂.gpr .x0 = s.gpr .x0 := (k₂.gpr _ (by decide)).trans (congrFun g₁ _)
-  have read₂ : ∀ n < 64, InRegions (s₂.rd ++ s₂.wr) (s₂.gpr .x1 + BitVec.ofNat 64 n) 1 := by
-    intro n hn
+  have read₂ : ∀ k < 8,
+      InRegions (s₂.rd ++ s₂.wr) (s₂.gpr .x1 + BitVec.ofNat 64 (8 * k)) 8 := by
+    intro k hk
     refine ⟨⟨s.gpr .x1, 64⟩, ?_, ?_⟩
     · rw [k₂.rd, rd₁, hr]; simp
     · rw [x1₂]; exact Offset.contains_base _ (by omega) (by omega)
   apply WP.seq
-  refine WP.mono (scalarLoop_ok s₂ b₂ v₂ read₂ z₂ one₂) fun s₃ ⟨v₃, k₃⟩ => ?_
+  refine WP.mono (scalarLoop_ok s₂ b₂ v₂ read₂ z₂) fun s₃ ⟨v₃, k₃⟩ => ?_
   have x2₃ : s₃.gpr .x2 = s.gpr .x2 := (k₃.gpr _ (by decide)).trans x2₂
   have wr₃ : s₃.wr = s.wr := k₃.wr.trans (k₂.wr.trans wr₁)
   have sv₃ : Saved (s.gpr .x2) s.gpr s₃.mem := by rw [k₃.mem, k₂.mem]; exact sv₁

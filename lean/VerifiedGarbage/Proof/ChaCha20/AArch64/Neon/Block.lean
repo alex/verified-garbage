@@ -14,15 +14,25 @@ theorem rowReg_inj {i j : Nat} (hi : i < 4) (hj : j < 4) (h : rowReg i = rowReg 
 theorem rowReg_ne_v4 {i : Nat} (hi : i < 4) : rowReg i ≠ .v4 :=
   (show ∀ i < 4, rowReg i ≠ .v4 by decide) i hi
 
-theorem Pre.in_row {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 4) (ws : List Region) :
-    InRegions (s₀.rd ++ ws) (st s₀ + BitVec.ofNat 64 (16 * i)) 16 :=
-  ⟨stR s₀, by simp [hp.rd], contains_off (by omega) (by omega)⟩
+/-- The single-block NEON implementation loads and stores whole rows. -/
+structure RowPre (s : State) extends Pre s where
+  readRows : ∀ i < 4, InRegions (s.rd ++ s.wr) (st s + BitVec.ofNat 64 (16 * i)) 16
+  writeRows : ∀ i < 4, InRegions s.wr (buf s + BitVec.ofNat 64 (16 * i)) 16
 
-theorem Pre.out_row {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 4) :
-    InRegions s₀.wr (buf s₀ + BitVec.ofNat 64 (16 * i)) 16 :=
-  ⟨bufR s₀, by simp [hp.wr], contains_off (by omega) (by omega)⟩
+theorem row_pre_of (s : State) (h : Proof.ChaCha20.blockAArch64.pre s) : RowPre s := by
+  refine ⟨pre_of s h, ?_, ?_⟩
+  · intro i hi
+    exact ⟨stR s, by simp [h.1], contains_off (by omega) (by omega)⟩
+  · intro i hi
+    exact ⟨bufR s, by simp [h.2.1], contains_off (by omega) (by omega)⟩
 
-theorem read_row {s₀ : State} (hp : Pre s₀) {m : Mem} (hf : Frame [outR s₀] s₀.mem m)
+theorem RowPre.in_row {s₀ : State} (hp : RowPre s₀) {i : Nat} (hi : i < 4) :
+    InRegions (s₀.rd ++ s₀.wr) (st s₀ + BitVec.ofNat 64 (16 * i)) 16 := hp.readRows i hi
+
+theorem RowPre.out_row {s₀ : State} (hp : RowPre s₀) {i : Nat} (hi : i < 4) :
+    InRegions s₀.wr (buf s₀ + BitVec.ofNat 64 (16 * i)) 16 := hp.writeRows i hi
+
+theorem read_row {s₀ : State} (hp : RowPre s₀) {m : Mem} (hf : Frame [outR s₀] s₀.mem m)
     {i e : Nat} (hi : i < 4) (he : e < 4) :
     vword (m.read (st s₀ + BitVec.ofNat 64 (16 * i)) 16) e = (V s₀)[4 * i + e]'(by omega) := by
   rw [vword_read16 _ _ he, Offset.add_add, show 16 * i + 4 * e = 4 * (4 * i + e) by omega]
@@ -33,11 +43,11 @@ structure LI (s₀ : State) (i : Nat) (s : State) : Prop where
     vword (s.v (rowReg j)) e = (V s₀)[4 * j + e]'(by omega)
   keeps : Keeps s₀ s
 
-theorem load_step {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 4) {s : State} (h : LI s₀ i s) :
+theorem load_step {s₀ : State} (hp : RowPre s₀) {i : Nat} (hi : i < 4) {s : State} (h : LI s₀ i s) :
     WP isa (.block [.ldrq (rowReg i) .x0 (16 * i)]) s (LI s₀ (i + 1)) := by
   have ha : 16 * i % 16 = 0 ∧ 16 * i < 4096 * 16 := by omega
   have hin : InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 (16 * i)) 16 := by
-    rw [h.keeps.rd, h.keeps.wr, h.keeps.gpr]; exact Pre.in_row hp hi _
+    rw [h.keeps.rd, h.keeps.wr, h.keeps.gpr]; exact RowPre.in_row hp hi
   apply WP.of_runBlock
   simp only [runBlock_cons, runBlock_nil, exec, addr, ha, and_self, ite_true, State.load, hin,
     Option.bind_some, Option.map_some, isa, runStep_some, Option.some.injEq, exists_eq_left']
@@ -48,7 +58,7 @@ theorem load_step {s₀ : State} (hp : Pre s₀) {i : Nat} (hi : i < 4) {s : Sta
   · rw [RegUpd.v_setV_self, h.keeps.gpr, h.keeps.mem]
     exact read_row hp (Frame.refl _ _) hi he
 
-theorem load_ok {s₀ : State} (hp : Pre s₀) :
+theorem load_ok {s₀ : State} (hp : RowPre s₀) :
     WP isa (.block load) s₀ fun s => Holds (V s₀) s ∧ Keeps s₀ s := by
   have h : LI s₀ 0 s₀ := ⟨fun _ _ h => absurd h (by omega), Keeps.refl s₀⟩
   have hl : WP isa (.block load) s₀ (LI s₀ 4) := by
@@ -74,15 +84,15 @@ structure FI (s₀ : State) (R : CState) (i : Nat) (s : State) : Prop where
   wr : s.wr = s₀.wr
   sp : s.sp = s₀.sp
 
-theorem finish_step {s₀ : State} (hp : Pre s₀) {R : CState} {i : Nat} (hi : i < 4)
+theorem finish_step {s₀ : State} (hp : RowPre s₀) {R : CState} {i : Nat} (hi : i < 4)
     {s : State} (h : FI s₀ R i s) :
     WP isa (.block (finishRow i)) s (FI s₀ R (i + 1)) := by
   have ha : 16 * i % 16 = 0 ∧ 16 * i < 4096 * 16 := by omega
   have hn := rowReg_ne_v4 hi
   have hin : InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 (16 * i)) 16 := by
-    rw [h.rd, h.wr, h.gpr]; exact Pre.in_row hp hi _
+    rw [h.rd, h.wr, h.gpr]; exact RowPre.in_row hp hi
   have hout : InRegions s.wr (s.gpr .x1 + BitVec.ofNat 64 (16 * i)) 16 := by
-    rw [h.wr, h.gpr]; exact Pre.out_row hp hi
+    rw [h.wr, h.gpr]; exact RowPre.out_row hp hi
   apply WP.of_runBlock
   simp only [finishRow, runBlock_cons, runBlock_nil, exec, addr, ha, and_self, ite_true,
     State.load, hin, State.store, hout, Option.bind_some, Option.map_some, isa,
@@ -102,7 +112,7 @@ theorem finish_step {s₀ : State} (hp : Pre s₀) {R : CState} {i : Nat} (hi : 
   · rw [h.gpr]
     exact h.frame.write (List.mem_singleton_self _) _ (contains_off (by omega) (by omega))
 
-theorem correct {s₀ : State} (hp : Pre s₀) :
+theorem correct {s₀ : State} (hp : RowPre s₀) :
     WP isa block s₀ fun s' =>
       (∀ r ∈ preserved, s'.gpr r = s₀.gpr r) ∧ Proof.ChaCha20.blockAArch64.post s₀ s' := by
   refine WP.seq ((load_ok hp).mono fun s₁ ⟨h₁, k₁⟩ => ?_)
@@ -123,7 +133,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
 
 theorem block_correct (s : State) (hs : Proof.ChaCha20.blockAArch64.pre s) :
     ∃ t s', Exec isa block s t s' ∧ abiPreserved s s' ∧ Proof.ChaCha20.blockAArch64.post s s' := by
-  obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
+  obtain ⟨t, s', he, h₁, h₂⟩ := correct (row_pre_of s hs)
   exact ⟨t, s', he, ⟨h₁, Exec.sp he, Exec.preservedV he⟩, h₂⟩
 
 theorem block_verified :
