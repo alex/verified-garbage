@@ -80,5 +80,22 @@ theorem reduce_ok (s : State) (h1 : s.xmm .xmm1 = poly) :
   · simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     simp only [xmm_setXmm, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2, ite_false]
 
+/-- Multiply the accumulator by the transformed hash key. -/
+theorem mul_ok (s : State) (h1 : s.xmm .xmm1 = poly) :
+    WP isa (.block (Impl.Gcm.X86.Pclmul.zero ++ Impl.Gcm.X86.Pclmul.acc ++
+      Impl.Gcm.X86.Pclmul.reduce)) s fun s' =>
+      φ (s'.xmm .xmm2) = x * φ (s.xmm .xmm2) * φ (s.xmm .xmm3) ∧
+      Only [.xmm4, .xmm5, .xmm6, .xmm7, .xmm2] s s' := by
+  rw [WP.block_append_iff, WP.block_append_iff]
+  refine WP.mono (zero_ok s) fun s₁ ⟨p₁, o₁⟩ => ?_
+  refine WP.mono (acc_ok s₁) fun s₂ ⟨p₂, o₂⟩ => ?_
+  have e1 : s₂.xmm .xmm1 = poly := by
+    rw [o₂.xmm _ (by decide), o₁.xmm _ (by decide), h1]
+  refine WP.mono (reduce_ok s₂ e1) fun s₃ ⟨p₃, o₃⟩ => ⟨?_, ?_⟩
+  · rw [p₃, φ_reduce, p₂, p₁, Prod.val_acc, Prod.val_zero, zero_add,
+      o₁.xmm .xmm2 (by decide), o₁.xmm .xmm3 (by decide)]
+  · exact (o₁.trans (o₂.trans o₃)).weaken fun r hr => by
+      simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢
+      rcases hr with (h | h | h) | (h | h | h | h) | (h | h | h | h | h) <;> simp [h]
 
 end VG.Proof.Gcm.X86.Pclmul

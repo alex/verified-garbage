@@ -16,11 +16,12 @@ def revMask : BitVec 128 := 0x000102030405060708090a0b0c0d0e0f#128
 def poly : BitVec 128 := 0xc2000000000000000000000000000000#128
 def xInv : BitVec 128 := 0xc2000000000000000000000000000001#128
 
-/-- Constants use the first 16 bytes of scratch, currently in edx. -/
+/-- Build a constant in registers; xmm5 is free during setup. -/
 def const (x : XReg) (c : BitVec 128) : List Instr :=
-  (List.range 4).flatMap (fun k =>
-    [.mov .eax (.imm (c.extractLsb' (32 * k) 32)), .store (at_ .edx (4 * k)) .eax]) ++
-  [.movdquLoad x (at_ .edx 0)]
+  [.mov .eax (.imm (c.extractLsb' 96 32)), .xop (.movd x .eax)] ++
+  (List.range 3).flatMap (fun k =>
+    [.xop (.shift .pslldq x 4), .mov .eax (.imm (c.extractLsb' (32 * (2 - k)) 32)),
+     .xop (.movd .xmm5 .eax), .xop (.bin .por x .xmm5)])
 
 /-! xmm0 reversal, xmm1 polynomial, xmm2 Y/input, xmm3 H*x^-1,
 xmm4 lo, xmm5 mid, xmm6 hi, xmm7 temporary. -/
@@ -62,7 +63,7 @@ def hInv : List Instr :=
    .xop (.bin .pxor .xmm3 .xmm6)]
 
 def prologue : List Instr :=
-  [.mov .edx (.mem (argOp 4))] ++ const .xmm0 revMask ++ const .xmm1 poly ++
+  const .xmm0 revMask ++ const .xmm1 poly ++
   [.mov .eax (.mem (argOp 0)), .movdquLoad .xmm7 (at_ .eax 0),
    .xop (.bin .pshufb .xmm7 .xmm0)] ++ hInv ++
   [.mov .ecx (.mem (argOp 1)), .movdquLoad .xmm2 (at_ .ecx 0),
