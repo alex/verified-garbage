@@ -8,26 +8,14 @@
     target_arch = "x86"
 ))]
 
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use crate::arch::ct::vg_ct_eq;
 
 /// Whether `a` and `b` are equal. The verified comparison leaks only their
 /// pointers and lengths; it does not branch on their contents.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub(crate) fn eq(a: &[u8], b: &[u8]) -> bool {
     // SAFETY: both slices are readable for their lengths and cannot wrap.
     // The buffers may overlap. Live slices lie outside the callee’s stack frame.
     unsafe { vg_ct_eq(a.as_ptr(), a.len(), b.as_ptr(), b.len()) != 0 }
-}
-
-// Existing comparison on targets whose verified implementation is pending.
-#[cfg(any(target_arch = "arm", target_arch = "x86"))]
-pub(crate) fn eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    let diff = a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y));
-    core::hint::black_box(diff) == 0
 }
 
 #[cfg(test)]

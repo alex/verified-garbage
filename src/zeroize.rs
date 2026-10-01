@@ -51,35 +51,11 @@ int!(u8, u16, u32, u64, i16, i32, i64);
 
 /// Overwrites `x` with zeros using the verified assembly primitive. Its
 /// opaque call prevents the compiler from removing the stores.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 pub(crate) fn zeroize<T: Int>(x: &mut [T]) {
     // SAFETY: `x` is writable for its entire byte length, cannot wrap, and
     // lies outside the callee’s stack frame. All-zero bytes are valid for T.
     unsafe {
         crate::arch::zeroize::vg_zeroize(x.as_mut_ptr().cast::<u8>(), core::mem::size_of_val(x));
-    }
-    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
-}
-
-/// Overwrites `x` with zeros in a way the compiler does not remove: with
-/// volatile writes, of 8 bytes at a time where they are aligned, and of
-/// single bytes before and after.
-#[cfg(any(target_arch = "arm", target_arch = "x86"))]
-pub(crate) fn zeroize<T: Int>(x: &mut [T]) {
-    let len = core::mem::size_of_val(x);
-    let p = x.as_mut_ptr().cast::<u8>();
-    let head = p.align_offset(8).min(len);
-    let words = (len - head) / 8;
-    for i in (0..head).chain(head + 8 * words..len) {
-        // SAFETY: byte `i` of `x` is valid for writes; zero bytes are a
-        // valid `T`.
-        unsafe { p.add(i).write_volatile(0) };
-    }
-    for i in 0..words {
-        // SAFETY: bytes `head + 8 * i` to `head + 8 * i + 8` of `x` are
-        // valid for writes, and aligned for a `u64`; zero bytes are a valid
-        // `T`.
-        unsafe { p.add(head + 8 * i).cast::<u64>().write_volatile(0) };
     }
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 }
