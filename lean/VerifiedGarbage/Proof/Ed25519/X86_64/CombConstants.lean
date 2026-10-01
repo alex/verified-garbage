@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.CombTable
 import VerifiedGarbage.Proof.Ed25519.X86_64.WindowConstants
 
 /-!
-# The comb's tables represent `[k 256^j]B`
+# The comb's tables represent `[k 256^j]B`, and `combG` represents `[G]B`
 
 Untrusted. Each entry is turned back into affine `(x, y)` (`uncache`, which
 the kernel checks inverts the caching) and `checkTables` walks the tables
@@ -90,7 +90,7 @@ private theorem tables_cached :
     combTable.all (fun row => row.all fun e => decide (recache e = e)) = true := by decide +kernel
 
 private theorem tables_length :
-    combTable.length = 32 ∧ combTable.all (fun row => row.length == 15) = true := by decide +kernel
+    combTable.length = 32 ∧ combTable.all (fun row => row.length == 8) = true := by decide +kernel
 
 private theorem getD_map' {α β : Type} (l : List α) (f : α → β) (n : Nat) (d : α) :
     (l.map f).getD n (f d) = f (l.getD n d) := by
@@ -98,7 +98,7 @@ private theorem getD_map' {α β : Type} (l : List α) (f : α → β) (n : Nat)
 
 private theorem uncache_default : uncache (1, 1, 0) = (0, 1) := by decide
 
-theorem combCached_ok (j k : Nat) (hj : j < 32) (hk : k < 16) :
+theorem combCached_ok (j k : Nat) (hj : j < 32) (hk : k < 9) :
     ∃ q, combCached j k = cache q ∧ Rep q ((k * 256 ^ j) • baseAff) := by
   cases k with
   | zero =>
@@ -109,7 +109,7 @@ theorem combCached_ok (j k : Nat) (hj : j < 32) (hk : k < 16) :
     have hrow : (combTable.getD j []) ∈ combTable := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [tables_length.1]; exact hj)]
       exact List.getElem_mem _
-    have hlen : (combTable.getD j []).length = 15 :=
+    have hlen : (combTable.getD j []).length = 8 :=
       beq_iff_eq.mp (List.all_eq_true.mp tables_length.2 _ hrow)
     have hmem : (combTable.getD j []).getD k (1, 1, 0) ∈ combTable.getD j [] := by
       have hk' : k < (combTable.getD j []).length := by rw [hlen]; omega
@@ -130,5 +130,27 @@ theorem combCached_ok (j k : Nat) (hj : j < 32) (hk : k < 16) :
         (by rw [hgj, List.length_map, hlen]; omega)
       rw [hgj, ← uncache_default, getD_map', smul_smul] at hr
       exact hr
+
+/-- The constant the comb's digits are offset by: `8 Σ_{j < 32} 256^j`. -/
+def combGVal : Nat := 8 * ((256 ^ 32 - 1) / 255)
+
+private def combGCheck (p : Point) : Bool := combG.X * p.Z == p.X && combG.Y * p.Z == p.Y && p.Z != 0
+
+private theorem combG_check : combGCheck (pointMul combGVal basePoint) = true := by decide +kernel
+
+theorem combG_ok : Rep combG (combGVal • baseAff) := by
+  have hp := pointMul_rep combGVal basePoint_rep
+  have hc := combG_check
+  simp only [combGCheck, Bool.and_eq_true, beq_iff_eq, bne_iff_ne, ne_eq] at hc
+  obtain ⟨⟨hx, hy⟩, _⟩ := hc
+  refine hp.of_proj (show toZ 1 ≠ 0 by decide) ?_ ?_ ?_
+  · show toZ combG.X * toZ _ = toZ _ * toZ 1
+    rw [toZ_one, mul_one, ← toZ_mul, hx]
+  · show toZ combG.Y * toZ _ = toZ _ * toZ 1
+    rw [toZ_one, mul_one, ← toZ_mul, hy]
+  · show toZ (combGAff.1 * combGAff.2) * toZ 1 = toZ combGAff.1 * toZ combGAff.2
+    rw [toZ_mul, toZ_one, mul_one]
+
+theorem combGCached_eq : combGCached = cache combG := by decide +kernel
 
 end VG.Proof.Ed25519.X86_64
