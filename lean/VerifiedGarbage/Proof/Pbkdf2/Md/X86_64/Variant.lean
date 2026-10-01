@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Core
+import VerifiedGarbage.Proof.Sha512.X86_64.Variant
 import VerifiedGarbage.TCB.Artifact
 
 /-!
@@ -77,6 +78,11 @@ structure MdHash where
   the compression function, when no other variant shares them (otherwise
   they are in the hash function's registration file). -/
   stream : List StreamFn
+  /-- For SHA-512's variants, the implementation of the compression
+  function, from which the functions built on SHA-512 alone (Ed25519's) are
+  made (`Generic/MdHash/X86_64/Ed25519.lean`); `none` for the other hash
+  functions. -/
+  sha512 : Option Proof.Sha512.X86_64.Compress := none
 
 namespace MdHash
 

@@ -1,8 +1,8 @@
 //! Ed25519 (RFC 8032), deterministic signatures from 32-byte seeds.
 //!
-//! On x86 and AArch64, key derivation, signing, and verification each call
-//! one complete verified assembly operation, including SHA-512. AArch64
-//! variants follow the selected SHA-512 backend. Other architectures compose
+//! On x86-64, x86, and AArch64, key derivation, signing, and verification each call
+//! one complete verified assembly operation, including SHA-512. x86-64 and AArch64
+//! variants follow the selected SHA-512 backend. ARMv7 composes
 //! verified scalar and group primitives with the SHA-512 API in Rust. Secret
 //! scratch values are cleared after use.
 
@@ -13,21 +13,25 @@
     target_arch = "arm"
 ))]
 
-#[cfg(target_arch = "x86_64")]
-use crate::arch::ed25519::vg_ed25519_scalar_base_precomputed;
-#[cfg(any(target_arch = "x86", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))]
 use crate::arch::ed25519::{vg_ed25519_public_key, vg_ed25519_sign_cached, vg_ed25519_verify};
+#[cfg(target_arch = "x86_64")]
+use crate::arch::ed25519::{
+    vg_ed25519_public_key_avx2, vg_ed25519_public_key_shani, vg_ed25519_sign_cached_avx2,
+    vg_ed25519_sign_cached_shani, vg_ed25519_verify_avx2, vg_ed25519_verify_shani,
+};
 #[cfg(target_arch = "aarch64")]
 use crate::arch::ed25519::{
     vg_ed25519_public_key_sha3, vg_ed25519_sign_cached_sha3, vg_ed25519_verify_sha3,
 };
-#[cfg(not(any(target_arch = "x86", target_arch = "aarch64")))]
+#[cfg(target_arch = "arm")]
 use crate::arch::ed25519::{
-    vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce, vg_ed25519_verify_equation,
+    vg_ed25519_scalar_base, vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce,
+    vg_ed25519_verify_equation,
 };
-#[cfg(not(any(target_arch = "x86", target_arch = "aarch64")))]
+#[cfg(target_arch = "arm")]
 use crate::hashes::sha512::Sha512;
-#[cfg(any(target_arch = "x86", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))]
 use crate::hashes::sha512::Sha512Backend;
 use crate::zeroize::zeroize;
 
@@ -59,7 +63,7 @@ impl VerifyingKey {
     ///
     /// Public keys and signatures must use canonical encodings, and the
     /// signature scalar must be less than the subgroup order. This checks
-    /// the uncofactored equation. On x86 and AArch64 the SHA-512 challenge is
+    /// the uncofactored equation. On x86-64, x86, and AArch64 the SHA-512 challenge is
     /// reduced modulo the subgroup order, following RFC 8032 §6; the other targets
     /// currently use the full digest. No additional subgroup or small-order
     /// rejection policy is imposed.
@@ -125,10 +129,14 @@ impl SigningKey {
 
 /// The public key of `seed` (RFC 8032 §5.1.5), with the verified
 /// `vg_ed25519_public_key` including SHA-512.
-#[cfg(any(target_arch = "x86", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))]
 fn public_key(seed: &[u8; 32]) -> [u8; 32] {
     let derive = match Sha512Backend::select(crate::cpu::detected()) {
         Sha512Backend::Scalar => vg_ed25519_public_key,
+        #[cfg(target_arch = "x86_64")]
+        Sha512Backend::ShaNi => vg_ed25519_public_key_shani,
+        #[cfg(target_arch = "x86_64")]
+        Sha512Backend::Avx2 => vg_ed25519_public_key_avx2,
         #[cfg(target_arch = "aarch64")]
         Sha512Backend::Sha3 => vg_ed25519_public_key_sha3,
     };
@@ -145,7 +153,7 @@ fn public_key(seed: &[u8; 32]) -> [u8; 32] {
 
 /// The public key of `seed` (RFC 8032 §5.1.5): SHA-512, pruning, and the
 /// verified base-point multiplication.
-#[cfg(not(any(target_arch = "x86", target_arch = "aarch64")))]
+#[cfg(target_arch = "arm")]
 fn public_key(seed: &[u8; 32]) -> [u8; 32] {
     let mut expanded = Sha512::digest(seed);
     let mut scalar = prune(&expanded);
@@ -157,10 +165,14 @@ fn public_key(seed: &[u8; 32]) -> [u8; 32] {
     public
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))]
 fn verify_message(pk: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> u32 {
     let verify = match Sha512Backend::select(crate::cpu::detected()) {
         Sha512Backend::Scalar => vg_ed25519_verify,
+        #[cfg(target_arch = "x86_64")]
+        Sha512Backend::ShaNi => vg_ed25519_verify_shani,
+        #[cfg(target_arch = "x86_64")]
+        Sha512Backend::Avx2 => vg_ed25519_verify_avx2,
         #[cfg(target_arch = "aarch64")]
         Sha512Backend::Sha3 => vg_ed25519_verify_sha3,
     };
@@ -173,7 +185,7 @@ fn verify_message(pk: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> u32 {
     valid
 }
 
-#[cfg(not(any(target_arch = "x86", target_arch = "aarch64")))]
+#[cfg(target_arch = "arm")]
 fn verify_message(pk: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> u32 {
     let mut hash = Sha512::new();
     hash.update(&signature[..32]);
@@ -188,7 +200,7 @@ fn verify_message(pk: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> u32 {
     valid
 }
 
-#[cfg(not(any(target_arch = "x86", target_arch = "aarch64")))]
+#[cfg(target_arch = "arm")]
 fn prune(expanded: &[u8; 64]) -> [u8; 32] {
     let mut scalar = [0u8; 32];
     scalar.copy_from_slice(&expanded[..32]);
@@ -198,47 +210,16 @@ fn prune(expanded: &[u8; 64]) -> [u8; 32] {
     scalar
 }
 
-#[cfg(not(any(target_arch = "x86", target_arch = "aarch64")))]
-enum BaseBackend {
-    #[cfg(not(target_arch = "x86_64"))]
-    Scalar,
-    #[cfg(target_arch = "x86_64")]
-    Precomputed,
-}
-
-#[cfg(not(any(target_arch = "x86", target_arch = "aarch64")))]
-const BASE_BACKEND: BaseBackend = {
-    #[cfg(target_arch = "x86_64")]
-    {
-        BaseBackend::Precomputed
-    }
-    #[cfg(not(target_arch = "x86_64"))]
-    {
-        BaseBackend::Scalar
-    }
-};
-
-#[cfg(not(any(target_arch = "x86", target_arch = "aarch64")))]
+#[cfg(target_arch = "arm")]
 fn scalar_base(scalar: &[u8; 32], scratch: &mut [u64; 1024]) -> [u8; 32] {
     let mut out = [0u8; 32];
-    // SAFETY: the output, scalar, and scratch are distinct objects valid
-    // for 32, 32, and 8192 bytes, respectively, without address-space wrapping.
-    unsafe {
-        match BASE_BACKEND {
-            #[cfg(not(target_arch = "x86_64"))]
-            BaseBackend::Scalar => {
-                crate::arch::ed25519::vg_ed25519_scalar_base(&mut out, scalar, scratch)
-            }
-            #[cfg(target_arch = "x86_64")]
-            BaseBackend::Precomputed => {
-                vg_ed25519_scalar_base_precomputed(&mut out, scalar, scratch)
-            }
-        }
-    };
+    // SAFETY: output, scalar, and scratch are distinct live objects of the
+    // required sizes, without address-space wrapping.
+    unsafe { vg_ed25519_scalar_base(&mut out, scalar, scratch) };
     out
 }
 
-#[cfg(not(any(target_arch = "x86", target_arch = "aarch64")))]
+#[cfg(target_arch = "arm")]
 fn reduce(wide: &[u8; 64], scratch: &mut [u64; 1024]) -> [u8; 32] {
     let mut out = [0u8; 32];
     // SAFETY: the output, wide scalar, and scratch are distinct objects valid
@@ -247,10 +228,14 @@ fn reduce(wide: &[u8; 64], scratch: &mut [u64; 1024]) -> [u8; 32] {
     out
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))]
 fn sign_message(seed: &[u8; 32], pk: &[u8; 32], message: &[u8]) -> [u8; 64] {
     let sign = match Sha512Backend::select(crate::cpu::detected()) {
         Sha512Backend::Scalar => vg_ed25519_sign_cached,
+        #[cfg(target_arch = "x86_64")]
+        Sha512Backend::ShaNi => vg_ed25519_sign_cached_shani,
+        #[cfg(target_arch = "x86_64")]
+        Sha512Backend::Avx2 => vg_ed25519_sign_cached_avx2,
         #[cfg(target_arch = "aarch64")]
         Sha512Backend::Sha3 => vg_ed25519_sign_cached_sha3,
     };
@@ -275,7 +260,7 @@ fn sign_message(seed: &[u8; 32], pk: &[u8; 32], message: &[u8]) -> [u8; 64] {
     signature
 }
 
-#[cfg(not(any(target_arch = "x86", target_arch = "aarch64")))]
+#[cfg(target_arch = "arm")]
 fn sign_message(seed: &[u8; 32], pk: &[u8; 32], message: &[u8]) -> [u8; 64] {
     let mut expanded = Sha512::digest(seed);
     let mut scalar = prune(&expanded);
@@ -333,6 +318,44 @@ mod tests {
                         VG_ED25519_SIGN_CACHED_SHA3_FEATURES,
                         VG_ED25519_VERIFY_SHA3_FEATURES,
                     ])));
+                }
+            }
+        }
+    }
+}
+
+#[cfg(all(test, target_arch = "x86_64"))]
+mod x86_64_tests {
+    use super::*;
+    use crate::arch::ed25519::{
+        VG_ED25519_PUBLIC_KEY_AVX2_FEATURES, VG_ED25519_PUBLIC_KEY_SHANI_FEATURES,
+        VG_ED25519_SIGN_CACHED_AVX2_FEATURES, VG_ED25519_SIGN_CACHED_SHANI_FEATURES,
+        VG_ED25519_VERIFY_AVX2_FEATURES, VG_ED25519_VERIFY_SHANI_FEATURES,
+    };
+    use crate::cpu::{Features, NAMES};
+
+    /// Each complete Ed25519 operation needs no CPU feature that
+    /// SHA-512's backend is not selected for: on every set of features that
+    /// selects it.
+    #[test]
+    fn whole_algorithm_features() {
+        for bits in 0..1u32 << NAMES.len() {
+            let f = Features(bits);
+            match Sha512Backend::select(f) {
+                Sha512Backend::Scalar => {}
+                Sha512Backend::ShaNi => {
+                    assert!(f.contains(Features::all(&[
+                        VG_ED25519_PUBLIC_KEY_SHANI_FEATURES,
+                        VG_ED25519_SIGN_CACHED_SHANI_FEATURES,
+                        VG_ED25519_VERIFY_SHANI_FEATURES
+                    ])))
+                }
+                Sha512Backend::Avx2 => {
+                    assert!(f.contains(Features::all(&[
+                        VG_ED25519_PUBLIC_KEY_AVX2_FEATURES,
+                        VG_ED25519_SIGN_CACHED_AVX2_FEATURES,
+                        VG_ED25519_VERIFY_AVX2_FEATURES
+                    ])))
                 }
             }
         }
