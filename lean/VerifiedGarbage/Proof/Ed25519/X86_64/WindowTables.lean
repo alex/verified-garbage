@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.Verify
 import VerifiedGarbage.Proof.Ed25519.X86_64.WindowConstants
 import VerifiedGarbage.Proof.Ed25519.X86_64.WindowEntry
-import VerifiedGarbage.Proof.Ed25519.X86_64.BaseBatchTable
+import VerifiedGarbage.Proof.Ed25519.X86_64.CachedPoint
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulBatch
 
 /-!
