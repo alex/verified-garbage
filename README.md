@@ -1,6 +1,9 @@
 # Verified Garbage
 
-<img src="logo.svg" alt="Verified Garbage logo" width="280">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="logo-dark.svg">
+  <img src="logo.svg" alt="Verified Garbage logo" width="280">
+</picture>
 
 Verified Garbage is an experimental cryptography library, implemented entirely by LLMs. All of the cryptography primitives are formally verified using Lean.
 
