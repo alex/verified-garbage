@@ -3,11 +3,11 @@ import VerifiedGarbage.Impl.Sha3.AArch64.Scalar.Core
 namespace VG.Impl.Sha3.AArch64.Scalar
 open VG VG.AArch64
 
-/-- The two temporary lanes follow the callee-saved GPR prefix. -/
-def lowerSpillOffset (k : Nat) : Nat := 96 + 8 * k
+/-- Caller-saved vectors retain the two temporary lanes. -/
+def tempSlotV (k : Nat) : VReg := if k = 0 then .v24 else .v25
 
-/-- Lower the portable operations through the reviewed scalar ISA. v28
-backs up x30 around memory accesses; v31 holds the scratch base. -/
+/-- Lower portable operations through the reviewed scalar ISA. Temporary
+lanes remain in vectors; no round-stage scratch-memory traffic is needed. -/
 def lower : ScalarOp → List Instr
   | .xor d a b => [.logic .eor .x d a b]
   | .xorRor d a b n => [.logicRor .eor .x d a b n]
@@ -15,12 +15,8 @@ def lower : ScalarOp → List Instr
   | .bicRor d a b n => [.bicRor .x d a b n]
   | .ror d a n => [.ror .x d a n]
   | .move d a => [.addImm .x d a 0]
-  | .spill k a =>
-    [.vop (.dup .d2 .v28 .x30), .umov .x .x30 .v31 0,
-     .str .x a .x30 (lowerSpillOffset k), .umov .x .x30 .v28 0]
-  | .reload d k =>
-    [.vop (.dup .d2 .v28 .x30), .umov .x .x30 .v31 0,
-     .ldr .x d .x30 (lowerSpillOffset k), .umov .x .x30 .v28 0]
+  | .spill k a => [.vop (.dup .d2 (tempSlotV k) a)]
+  | .reload d k => [.umov .x d (tempSlotV k) 0]
 
 def Good : ScalarOp → Prop
   | .xor .. | .bic .. | .move .. => True
@@ -31,7 +27,5 @@ def Good : ScalarOp → Prop
 
 /-- One round through chi, excluding the round-constant XOR. -/
 def coreOps : List ScalarOp := thetaOps ++ rhoPiOps ++ chiOps
-
-def coreInstrs : List Instr := coreOps.flatMap lower
 
 end VG.Impl.Sha3.AArch64.Scalar

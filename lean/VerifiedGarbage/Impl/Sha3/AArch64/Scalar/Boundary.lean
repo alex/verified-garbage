@@ -19,10 +19,6 @@ abbrev laneReg := VG.Impl.Sha3.AArch64.Scalar.laneReg
 def savedReg (i : Nat) : Reg :=
   [Reg.x19,.x20,.x21,.x22,.x23,.x24,.x25,.x26,.x27,.x28,.x30].getD i .x19
 
-/-- Two transient state words occupy scratch[96..112); the round constants
-occupy scratch[128..320). The state buffer remains disjoint from scratch. -/
-def spillOffset (i : Nat) : Nat := 96 + 8 * i
-
 def savedVec (i : Nat) : VReg :=
   [VReg.v0,.v1,.v2,.v3,.v4,.v5,.v6,.v7,.v16,.v17,.v18].getD i .v0
 

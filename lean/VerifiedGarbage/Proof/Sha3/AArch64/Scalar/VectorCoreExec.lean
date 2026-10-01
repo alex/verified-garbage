@@ -14,7 +14,7 @@ private theorem slotV_eq {j k : Nat} (hj : j < 2) (hk : k < 2) :
 
 private theorem slotV_ne (k : Nat) (v : VReg) (h24 : v ≠ .v24) (h25 : v ≠ .v25) :
     v ≠ slotV k := by
-  unfold slotV
+  unfold slotV tempSlotV
   split <;> assumption
 
 /-- Every instruction realizes its abstract operation without changing memory. -/
@@ -54,7 +54,7 @@ theorem vector_step_ok (op : ScalarOp) (hg : Good op) (f : File) (s : VG.AArch64
       reg_lower_ok _ hg (by intro k r h; cases h) (by intro r k h; cases h) f s hr.regs
     refine ⟨s', hs, ⟨hregs, ?_⟩, hm, hrd, hwr, hsp, fun v _ _ _ h29 => hv v h29⟩
     · intro k hk
-      rw [hv (slotV k) (by unfold slotV; split <;> decide)]
+      rw [hv (slotV k) (by unfold slotV tempSlotV; split <;> decide)]
       exact hr.slots k hk
 
 private theorem block_append (xs ys : List Instr) (s : VG.AArch64.State) :

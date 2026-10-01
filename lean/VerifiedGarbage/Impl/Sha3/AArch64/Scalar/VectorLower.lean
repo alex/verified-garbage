@@ -4,7 +4,7 @@ namespace VG.Impl.Sha3.AArch64.Scalar
 open VG VG.AArch64
 
 /-- Caller-saved vectors used for the two temporary lanes. -/
-def slotV (k : Nat) : VReg := if k = 0 then .v24 else .v25
+abbrev slotV := tempSlotV
 
 /-- Keep temporary lanes in vectors instead of scratch memory. -/
 def lowerVector : ScalarOp → List Instr
