@@ -1,0 +1,5 @@
+name = "RFC 4493, The AES-CMAC Algorithm (subkey generation and examples in Section 4)"
+directories = ["rfc4493"]
+url = "https://www.rfc-editor.org/rfc/rfc4493.txt"
+sha256 = "252850ac038a44e931fdce6cb02b444a18ed1da0c9e212bfdd1da0ed3366fc1c"
+retrieved = 2026-10-01

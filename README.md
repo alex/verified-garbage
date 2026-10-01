@@ -190,6 +190,22 @@ yours to keep:
 
 <tr>
 
+<td>AES-CMAC (128-, 192- and 256-bit keys)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>HMAC-MD5</td>
 
 <td>✅</td>
