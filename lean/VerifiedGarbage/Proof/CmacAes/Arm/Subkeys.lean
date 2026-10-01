@@ -72,9 +72,18 @@ def preMem (s₀ : State) : Mem :=
   Proof.Cmac.zero4 (Proof.Cmac.zero4 (saveMem s₀.mem (State.addr (Sc s₀)) s₀.gpr saved4)
     (State.addr (Sc s₀) + BitVec.ofNat 64 2048)) (State.addr (Kb s₀))
 
-theorem subkeys_wp {s₀ : State} (h0 : subkeysArm.pre s₀) :
-    WP isa subkeys s₀ fun s' => abiPreserved s₀ s' ∧ subkeysArm.post s₀ s' := by
-  have hp := SPre.of h0
+/-- What the code before the call leaves. -/
+structure SAfter (s₀ s : State) : Prop where
+  pre : CallPre s (W s₀) (Sc s₀ + BitVec.ofNat 32 2048) (Kb s₀) (Sc s₀) (R s₀) .r4 .r5
+  keep : ∀ r, r ≠ .r2 → r ≠ .r3 → r ≠ .r4 → r ≠ .r5 → r ≠ .r6 → r ≠ .r12 → s.gpr r = s₀.gpr r
+  r5 : s.gpr .r5 = Sc s₀
+  r6 : s.gpr .r6 = Kb s₀
+  sp : s.sp = s₀.sp
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
+  mem : s.mem = preMem s₀
+
+theorem pre_wp {s₀ : State} (hp : SPre s₀) : WP isa (.block subkeysPre) s₀ (SAfter s₀) := by
   have kf := hp.k_fit
   have sf := hp.scr_fit
   have sf' : (s₀.gpr .r3).toNat + 2176 ≤ 2 ^ 32 := sf
@@ -94,8 +103,6 @@ theorem subkeys_wp {s₀ : State} (h0 : subkeysArm.pre s₀) :
     fun d n h a k hi => rw' (cK d n h) hi
   have aS : ∀ {d}, d < 2176 → State.addr (Sc s₀ + BitVec.ofNat 32 d) = State.addr (Sc s₀) + BitVec.ofNat 64 d :=
     fun _ => addr_add (by omega)
-  unfold subkeys
-  refine WP.seq ?_
   -- Before the call.
   rw [subkeysPre_eq]
   refine saveList_ok saved4 s₀ _ (fun p hp' => ?_) fun s₁ g₁ rd₁ wr₁ sp₁ m₁ => ?_
@@ -133,19 +140,6 @@ theorem subkeys_wp {s₀ : State} (h0 : subkeysArm.pre s₀) :
   have cA : State.addr (Sc s₀ + BitVec.ofNat 32 2048) = State.addr (Sc s₀) + BitVec.ofNat 64 2048 := aS (by decide)
   have kC : (⟨State.addr (Kb s₀), 16⟩ : Region).Disjoint ⟨State.addr (Sc s₀) + BitVec.ofNat 64 2048, 16⟩ :=
     (hp.k_scr.sub_left (Region.sub_prefix (by decide))).sub_right (Offset.sub_base _ (by decide))
-  have f₉ : Frame [scR s₀, kR s₀] s₀.mem s₉.mem := by
-    rw [mem₉, preMem]
-    refine (((saveMem_frame _ _ _ (L := 2176) (by decide) saved4 (by decide)).sub fun r hr => ?_).trans
-      ((Proof.Cmac.frame_store4 _ _ _ _ _).sub fun r hr => ?_)).trans
-      ((Proof.Cmac.frame_store4 _ _ _ _ _).sub fun r hr => ?_) <;>
-    simp only [List.mem_singleton] at hr <;> subst hr
-    · exact ⟨scR s₀, by simp, fun _ h => h⟩
-    · exact ⟨scR s₀, by simp, Offset.sub_base _ (by decide)⟩
-    · exact ⟨kR s₀, by simp, Region.sub_prefix (by decide)⟩
-  have zC : Spec.Aes.bytesAt s₉.mem (State.addr (Sc s₀) + BitVec.ofNat 64 2048) 16 = Spec.Cmac.zeros 16 := by
-    rw [mem₉, preMem, Proof.Cmac.zero4, Proof.Cmac.bytesAt_frame16 (Proof.Cmac.frame_store4 _ _ _ _ _) (by
-      intro r hr; simp only [List.mem_singleton] at hr; subst hr; exact kC.symm)]
-    exact Proof.Cmac.zero4_bytes _ _
   have hb : below s₉ = belowR s₀ := by rw [below, sp₉]; rfl
   have pre : CallPre s₉ (W s₀) (Sc s₀ + BitVec.ofNat 32 2048) (Kb s₀) (Sc s₀) (R s₀) .r4 .r5 :=
     { r0 := keep₉ _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
@@ -191,6 +185,51 @@ theorem subkeys_wp {s₀ : State} (h0 : subkeysArm.pre s₀) :
         · exact ⟨kR s₀, by simp, 0, by simp, by simp⟩
         · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
       zero := by rw [mem₉, preMem]; exact Proof.Cmac.zero4_bytes _ _ }
+  exact ⟨pre, keep₉, r5₉, r6₉, sp₉, rd₉, wr₉, mem₉⟩
+
+theorem subkeys_wp {s₀ : State} (h0 : subkeysArm.pre s₀) :
+    WP isa subkeys s₀ fun s' => abiPreserved s₀ s' ∧ subkeysArm.post s₀ s' := by
+  have hp := SPre.of h0
+  have kf := hp.k_fit
+  have sf := hp.scr_fit
+  have sf' : (s₀.gpr .r3).toNat + 2176 ≤ 2 ^ 32 := sf
+  have hR := hp.rounds
+  have hRb : 16 * (R s₀ + 1) ≤ 240 := by rcases hR with h | h | h <;> omega
+  have cK : ∀ d n, d + n ≤ 32 → Covers [⟨State.addr (Kb s₀) + BitVec.ofNat 64 d, n⟩] s₀.wr := fun d n h => by
+    rw [hp.wr]
+    exact Covers.of_sub fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; exact ⟨kR s₀, by simp, d, rfl, h⟩
+  have cS : ∀ d n, d + n ≤ 2176 → Covers [⟨State.addr (Sc s₀) + BitVec.ofNat 64 d, n⟩] s₀.wr := fun d n h => by
+    rw [hp.wr]
+    exact Covers.of_sub fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; exact ⟨scR s₀, by simp, d, rfl, h⟩
+  have rw' : ∀ {rs a n}, Covers rs s₀.wr → InRegions rs a n → InRegions (s₀.rd ++ s₀.wr) a n :=
+    fun h hi => by obtain ⟨r, hr, hc⟩ := h _ _ hi; exact ⟨r, List.mem_append_right _ hr, hc⟩
+  have cKr : ∀ d n, d + n ≤ 32 → Covers [⟨State.addr (Kb s₀) + BitVec.ofNat 64 d, n⟩] (s₀.rd ++ s₀.wr) :=
+    fun d n h a k hi => rw' (cK d n h) hi
+  have aS : ∀ {d}, d < 2176 → State.addr (Sc s₀ + BitVec.ofNat 32 d) = State.addr (Sc s₀) + BitVec.ofNat 64 d :=
+    fun _ => addr_add (by omega)
+  unfold subkeys
+  refine WP.seq (WP.mono (pre_wp hp) fun s₉ a => ?_)
+  obtain ⟨pre, keep₉, r5₉, r6₉, sp₉, rd₉, wr₉, mem₉⟩ := a
+  -- The memory before the call.
+  have cA : State.addr (Sc s₀ + BitVec.ofNat 32 2048) = State.addr (Sc s₀) + BitVec.ofNat 64 2048 := aS (by decide)
+  have kC : (⟨State.addr (Kb s₀), 16⟩ : Region).Disjoint ⟨State.addr (Sc s₀) + BitVec.ofNat 64 2048, 16⟩ :=
+    (hp.k_scr.sub_left (Region.sub_prefix (by decide))).sub_right (Offset.sub_base _ (by decide))
+  have f₉ : Frame [scR s₀, kR s₀] s₀.mem s₉.mem := by
+    rw [mem₉, preMem]
+    refine (((saveMem_frame _ _ _ (L := 2176) (by decide) saved4 (by decide)).sub fun r hr => ?_).trans
+      ((Proof.Cmac.frame_store4 _ _ _ _ _).sub fun r hr => ?_)).trans
+      ((Proof.Cmac.frame_store4 _ _ _ _ _).sub fun r hr => ?_) <;>
+    simp only [List.mem_singleton] at hr <;> subst hr
+    · exact ⟨scR s₀, by simp, fun _ h => h⟩
+    · exact ⟨scR s₀, by simp, Offset.sub_base _ (by decide)⟩
+    · exact ⟨kR s₀, by simp, Region.sub_prefix (by decide)⟩
+  have zC : Spec.Aes.bytesAt s₉.mem (State.addr (Sc s₀) + BitVec.ofNat 64 2048) 16 = Spec.Cmac.zeros 16 := by
+    rw [mem₉, preMem, Proof.Cmac.zero4, Proof.Cmac.bytesAt_frame16 (Proof.Cmac.frame_store4 _ _ _ _ _) (by
+      intro r hr; simp only [List.mem_singleton] at hr; subst hr; exact kC.symm)]
+    exact Proof.Cmac.zero4_bytes _ _
+  have hb : below s₉ = belowR s₀ := by rw [below, sp₉]; rfl
   -- The call.
   refine WP.seq (WP.mono (ctr_call pre) fun s₁₀ h₁₀ => ?_)
   have sv (r : Reg) (hr : r ∈ preserved) (hlr : r ≠ .lr) : s₁₀.gpr r = s₉.gpr r := h₁₀.saved r hr hlr
