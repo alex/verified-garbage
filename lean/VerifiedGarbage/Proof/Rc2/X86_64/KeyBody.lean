@@ -31,7 +31,8 @@ theorem CoreFrame.trans {s₀ s₁ s₂ : State} (h₁ : CoreFrame s₀ s₁) (h
   rw [h₁.reg .r14 (by decide)] at frame₂
   exact h₁.mem.trans frame₂
 
-theorem expandCopyFill_ok (s : State) (t : Nat) (ht : 1 ≤ t) (ht' : t ≤ 128)
+theorem expandCopyFill_ok (s : State)
+    (hlookup : InRegions s.wr (s.gpr .r8 + BitVec.ofNat 64 64) 16) (t : Nat) (ht : 1 ≤ t) (ht' : t ≤ 128)
     (len : s.gpr .r13 = BitVec.ofNat 64 t) (zero : s.gpr .rbx = 0)
     (readable : ∀ i < t, InRegions (s.rd ++ s.wr) (s.gpr .r12 + BitVec.ofNat 64 i) 1)
     (writable : ∀ i < 128, InRegions s.wr (s.gpr .r14 + BitVec.ofNat 64 i) 1)
@@ -47,14 +48,16 @@ theorem expandCopyFill_ok (s : State) (t : Nat) (ht : 1 ≤ t) (ht' : t ≤ 128)
   have ptr₁ := h₁.2.1.reg .r14 (by decide)
   have writes : ∀ i < 128, InRegions s₁.wr (s₁.gpr .r14 + BitVec.ofNat 64 i) 1 := by
     rw [h₁.2.1.wr, ptr₁]; exact writable
-  apply WP.mono (maybeFill_ok s₁ (Spec.Rc2.bytesAt s.mem (s.gpr .r12) t)
+  apply WP.mono (maybeFill_ok s₁ (by
+    rw [h₁.2.1.wr, h₁.2.1.reg .r8 (by decide)]; exact hlookup) (Spec.Rc2.bytesAt s.mem (s.gpr .r12) t)
     (by rw [length]; exact ht) (by rw [length]; exact ht')
     (by rw [length]; exact (h₁.2.1.reg .r13 (by decide)).trans len)
     (by rw [length]; exact h₁.1) writes (by rw [ptr₁, length]; exact h₁.2.2))
   intro s₂ h₂
   exact ⟨h₁.2.1.trans h₂.2.1, by rw [length, ptr₁] at h₂; exact h₂.2.2⟩
 
-theorem reduceDescend_ok (s : State) (l : KeyBytes) (bits : Nat) (hb : 1 ≤ bits) (hb' : bits ≤ 1024)
+theorem reduceDescend_ok (s : State)
+    (hlookup : InRegions s.wr (s.gpr .r8 + BitVec.ofNat 64 64) 16) (l : KeyBytes) (bits : Nat) (hb : 1 ≤ bits) (hb' : bits ≤ 1024)
     (len : s.gpr .rbp = BitVec.ofNat 64 ((bits + 7) / 8))
     (index : s.gpr .rbx = BitVec.ofNat 64 (128 - (bits + 7) / 8))
     (mask : (s.gpr .rdx).setWidth 8 = BitVec.ofNat 8 (255 % 2 ^ (8 + bits - 8 * ((bits + 7) / 8))))
@@ -71,7 +74,7 @@ theorem reduceDescend_ok (s : State) (l : KeyBytes) (bits : Nat) (hb : 1 ≤ bit
     obtain ⟨r, hr, hc⟩ := writes
     exact ⟨r, List.mem_append_right _ hr, hc⟩
   apply WP.seq
-  apply WP.mono (reduceKey_ok s reads writes)
+  apply WP.mono (reduceKey_ok s hlookup reads writes)
   intro s₁ h₁
   have keep₁ := h₁.2
   rw [index, initialPrefix _ (by omega), mask] at keep₁
@@ -82,13 +85,15 @@ theorem reduceDescend_ok (s : State) (l : KeyBytes) (bits : Nat) (hb : 1 ≤ bit
     exact initialPrefix.write (by decide) (by omega) _
   have write₁ : ∀ i < 128, InRegions s₁.wr (s₁.gpr .r14 + BitVec.ofNat 64 i) 1 := by
     rw [keep₁.wr, ptr₁]; exact writable
-  apply WP.mono (maybeDescend_ok s₁ (reduce l bits) ((bits + 7) / 8) bound.1 bound.2
+  apply WP.mono (maybeDescend_ok s₁ (by
+    rw [keep₁.wr, keep₁.reg .r8 (by decide)]; exact hlookup) (reduce l bits) ((bits + 7) / 8) bound.1 bound.2
     ((keep₁.reg .rbp (by decide)).trans len) (h₁.1.trans index) write₁
     (by rw [ptr₁]; exact prefix₁))
   intro s₂ h₂
   exact ⟨frame₁.trans h₂.1, by rw [ptr₁] at h₂; exact h₂.2⟩
 
-theorem expandReduce_ok (s : State) (l : KeyBytes) (bits : Nat) (hb : 1 ≤ bits) (hb' : bits ≤ 1024)
+theorem expandReduce_ok (s : State)
+    (hlookup : InRegions s.wr (s.gpr .r8 + BitVec.ofNat 64 64) 16) (l : KeyBytes) (bits : Nat) (hb : 1 ≤ bits) (hb' : bits ≤ 1024)
     (input : s.gpr .r15 = BitVec.ofNat 64 bits)
     (writable : ∀ i < 128, InRegions s.wr (s.gpr .r14 + BitVec.ofNat 64 i) 1)
     (initialPrefix : BytesPrefix s.mem (s.gpr .r14) l 128) :
@@ -105,7 +110,8 @@ theorem expandReduce_ok (s : State) (l : KeyBytes) (bits : Nat) (hb : 1 ≤ bits
   have ptr₂ := frame.reg .r14 (by decide)
   have writes : ∀ i < 128, InRegions s₂.wr (s₂.gpr .r14 + BitVec.ofNat 64 i) 1 := by
     rw [frame.wr, ptr₂]; exact writable
-  apply WP.mono (reduceDescend_ok s₂ l bits hb hb'
+  apply WP.mono (reduceDescend_ok s₂ (by
+    rw [frame.wr, frame.reg .r8 (by decide)]; exact hlookup) l bits hb hb'
     ((h₂.2.reg .rbp (by decide)).trans len₁) ((h₂.2.reg .rbx (by decide)).trans index₁) h₂.1 writes
     (by rw [ptr₂, h₂.2.mem, keep₁.mem]; exact initialPrefix))
   intro s₃ h₃

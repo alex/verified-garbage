@@ -1,0 +1,5 @@
+name = "AES-CMAC (128-, 192- and 256-bit keys)"
+family = "MACs"
+specs = ["Aes", "Cmac"]
+modules = ["src/cmac/aes.rs"]
+asm = ["aes", "cmac_aes"]
