@@ -760,7 +760,18 @@ def ret (s₁ s₂ : State) : Option State :=
 `Mem[address, 8] = X[t]`; `SP[] = address`. The 16 bytes (the register,
 then 8 bytes it does not write) become a writable region, at the head of
 `wr`. Faults if the frame would wrap around the address space
-(`sp < 16`). -/
+(`sp < 16`).
+
+The model grants 16 bytes but writes only the first 8, so `[sp, #8]` then
+holds what memory held there before the push. That memory was below the
+stack pointer, where on hardware a signal handler may change it at any
+time, while the model keeps it until a store. This is harmless: the
+contract says nothing of those bytes (they are in the stack below the
+caller's stack pointer, `Abi.reserved`, which no buffer overlaps), so a
+proof holds whatever they contain and learns nothing from reading them;
+it could only rely on two reads agreeing. The only read that addresses the
+stack pointer is `ldrSp`, and no emitted code reads `[sp, #n]`
+(`src/asm/aarch64/`). -/
 def push : Instr → State → Option State
   | .push r, s =>
     if 16 ≤ s.sp.toNat then

@@ -93,7 +93,8 @@ def abi : Abi isa where
   rd s := s.rd
   wr s := s.wr
   ret s := s.gpr .x0
-  argAreaDoc _ := none
+  argAreaDoc ws := if ws.length - argRegs.length = 0 then none else
+    some ("the arguments on the stack", false)
   reservedDoc n := if n = 0 then none else some s!"the {n} bytes of stack below the stack pointer"
 
 abbrev target : Target where
