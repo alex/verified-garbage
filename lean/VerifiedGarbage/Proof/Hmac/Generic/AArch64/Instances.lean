@@ -90,8 +90,8 @@ theorem callInit_rel {st : Reg} (hst : st = .x19 ∨ st = .x20) :
   refine ha.seq (rel_wp (F := fun s => KR (H := H) s₀ s ∧ s.gpr .x0 = p ∧ True)
     (F' := fun s => KR (H := H) s₀' s ∧ s.gpr .x0 = p ∧ True)
     (init_rel hH (st := p) fun s s' h => ?_)
-    (fun _ ⟨k, d, _⟩ => initCall_ok hH hp k d hpR fun _ k' _ _ => k')
-    (fun _ ⟨k, d, _⟩ => initCall_ok hH hp' k d hpR' fun _ k' _ _ => k'))
+    (fun _ ⟨k, d, _⟩ => initCall_ok hH hp k d hpR fun _ _ k' _ _ => k')
+    (fun _ ⟨k, d, _⟩ => initCall_ok hH hp' k d hpR' fun _ _ k' _ _ => k'))
   obtain ⟨⟨k, d, _⟩, ⟨k', d', _⟩⟩ := h
   exact ⟨d, d', by rw [k.wr]; exact covers_one (state_in hp hpR),
     by rw [k'.wr]; exact covers_one (state_in hp' hpR'), by rw [k.sp, k'.sp, hq.sp]⟩
@@ -127,8 +127,8 @@ theorem callUpd_rel {st : Reg} (hst : st = .x19 ∨ st = .x20) {o : Nat} (ho : o
     (F' := fun s => KR (H := H) s₀' s ∧ UpdArgs hH s p (dO s₀ o) (scr s₀) H.B ∧ s.gpr .x1 = 0)
     (upd_rel hH (st := p) (d := dO s₀ o) (sc := scr s₀) (len := H.B)
     fun s s' ⟨⟨k, a, x1⟩, ⟨k', a', x1'⟩⟩ => ⟨a, a', by rw [x1, x1'], by rw [k.sp, k'.sp, hq.sp]⟩)
-    (fun _ ⟨k, a, x1⟩ => updCall_ok hH hp k hpR a x1 fun _ k' _ _ => k')
-    (fun _ ⟨k, a, x1⟩ => updCall_ok hH hp' k hpR' (e8'.symm ▸ a) x1 fun _ k' _ _ => k'))
+    (fun _ ⟨k, a, x1⟩ => updCall_ok hH hp k hpR a x1 fun _ _ k' _ _ => k')
+    (fun _ ⟨k, a, x1⟩ => updCall_ok hH hp' k hpR' (e8'.symm ▸ a) x1 fun _ _ k' _ _ => k'))
 
 theorem ct : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') H.init fun _ _ => True := by
   have keys : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') H.initKeys
@@ -274,8 +274,8 @@ theorem fin_rel' {blk : List Instr} {c : BitVec 64} {F F' : State → Prop}
     (fun s h => WP.mono (hb' s h) fun _ ⟨k, a, x1, _⟩ => ⟨k, e1 ▸ e2 ▸ e3 ▸ a, x1⟩)
   refine ha.seq (rel_wp (fin_rel hH (st := inn s₀) (o := T (H := H) s₀) (sc := scr s₀)
     fun s s' ⟨⟨k, a, x1⟩, ⟨k', a', x1'⟩⟩ => ⟨a, a', by rw [x1, x1'], by rw [k.sp, k'.sp, hq.sp]⟩)
-    (fun _ ⟨k, a, _⟩ => finCall_ok hH hp k a fun _ k' _ _ => k')
-    (fun _ ⟨k, a, _⟩ => finCall_ok hH hp' k (e1.symm ▸ e2.symm ▸ e3.symm ▸ a) fun _ k' _ _ => k'))
+    (fun _ ⟨k, a, _⟩ => finCall_ok hH hp k a fun _ _ k' _ _ => k')
+    (fun _ ⟨k, a, _⟩ => finCall_ok hH hp' k (e1.symm ▸ e2.symm ▸ e3.symm ▸ a) fun _ _ k' _ _ => k'))
 
 theorem ct (hc : Checks H) : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') H.finalize fun _ _ => True := by
   obtain ⟨e1, e2, e3⟩ := eqs hq
@@ -315,8 +315,8 @@ theorem ct (hc : Checks H) : RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') H.f
       (fun s h => WP.mono (updArgs_ok hH hp' h) fun _ ⟨k, a, x1, _⟩ => ⟨k, e1 ▸ e2 ▸ e3 ▸ a, x1⟩)
     exact ha.seq (rel_wp (upd_rel hH (st := inn s₀) (d := T (H := H) s₀) (sc := scr s₀) (len := H.D)
       fun s s' ⟨⟨k, a, x1⟩, ⟨k', a', x1'⟩⟩ => ⟨a, a', by rw [x1, x1'], by rw [k.sp, k'.sp, hq.sp]⟩)
-      (fun _ ⟨k, a, _⟩ => updCall_ok hH hp k a fun _ k' _ _ => k')
-      (fun _ ⟨k, a, _⟩ => updCall_ok hH hp' k (e1.symm ▸ e2.symm ▸ e3.symm ▸ a) fun _ k' _ _ => k'))
+      (fun _ ⟨k, a, _⟩ => updCall_ok hH hp k a fun _ _ k' _ _ => k')
+      (fun _ ⟨k, a, _⟩ => updCall_ok hH hp' k (e1.symm ▸ e2.symm ▸ e3.symm ▸ a) fun _ _ k' _ _ => k'))
   have c1 := kr_rel hp hp' hq hc.copy1 fun hp s k => WP.mono (copy1_ok hp k) fun _ h => h.1
   have c2 := kr_rel hp hp' hq hc.copy2 fun hp s k => WP.mono (copy2_ok hp k) fun _ h => h.1
   obtain ⟨_, hr⟩ := hc.restore

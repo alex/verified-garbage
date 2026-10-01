@@ -64,10 +64,10 @@ Modelling choices:
 * The stack pointer is always 16-byte aligned (AAPCS64 §6.4.5.1, "SP mod 16
   = 0"), and a frame moves it by 16 bytes, so the model does not check the
   stack alignment that the push and pop of a frame require.
-* The SIMD and floating-point registers are `v0`–`v7` and `v16`–`v31`, 128
-  bits each (DDI 0487 B1.2.1). `v8`–`v15` are not modelled, so no code can
-  use them: the low 64 bits of each are callee-saved (AAPCS64 §6.1.2), and
-  leaving them out keeps `abiPreserved` true of all code. A write of a
+* The SIMD and floating-point registers are `v0`–`v31`, 128 bits each
+  (DDI 0487 B1.2.1). The low 64 bits of `v8`–`v15` are callee-saved
+  (AAPCS64 §6.1.2); `Target.abiPreserved` requires their preservation.
+  Their upper 64 bits, like all bits of the other vectors, are caller-saved. A write of a
   scalar (`S`) register sets the other bits of its vector register to zero
   (the pseudocode accessor `V[n, width] = value` sets `_Z[n] =
   ZeroExtend(value, MAX_VL)`), and the modelled vector forms all write 128
@@ -99,9 +99,10 @@ inductive Reg
   | x16 | x17 | x19 | x20 | x21 | x22 | x23 | x24 | x25 | x26 | x27 | x28 | x30
   deriving DecidableEq, Repr, Inhabited
 
-/-- The SIMD and floating-point registers, other than `v8`–`v15` (see above). -/
+/-- The 32 SIMD and floating-point registers (DDI 0487 B1.2.1). -/
 inductive VReg
   | v0 | v1 | v2 | v3 | v4 | v5 | v6 | v7
+  | v8 | v9 | v10 | v11 | v12 | v13 | v14 | v15
   | v16 | v17 | v18 | v19 | v20 | v21 | v22 | v23 | v24 | v25 | v26 | v27 | v28 | v29 | v30 | v31
   deriving DecidableEq, Repr, Inhabited
 

@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Rc2.AArch64.Save
 import VerifiedGarbage.Proof.Rc2.AArch64.ConstantTime
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
@@ -128,14 +129,14 @@ theorem encrypt_correct (s : State) (hs : (blockContract .encrypt).pre s) :
       (blockContract .encrypt).post s s' := by
   obtain ⟨t, s', he, ha, hp⟩ := block_correct .encrypt s hs
   change Exec isa encryptBlock s t s' at he
-  exact ⟨t, s', he, ⟨ha, (VG.AArch64.Exec.regions he rfl).2.2.1⟩, hp⟩
+  exact ⟨t, s', he, ⟨ha, (VG.AArch64.Exec.regions he rfl).2.2.1, VG.AArch64.Exec.preservedV he⟩, hp⟩
 
 theorem decrypt_correct (s : State) (hs : (blockContract .decrypt).pre s) :
     ∃ t s', Exec isa decryptBlock s t s' ∧ abiPreserved s s' ∧
       (blockContract .decrypt).post s s' := by
   obtain ⟨t, s', he, ha, hp⟩ := block_correct .decrypt s hs
   change Exec isa decryptBlock s t s' at he
-  exact ⟨t, s', he, ⟨ha, (VG.AArch64.Exec.regions he rfl).2.2.1⟩, hp⟩
+  exact ⟨t, s', he, ⟨ha, (VG.AArch64.Exec.regions he rfl).2.2.1, VG.AArch64.Exec.preservedV he⟩, hp⟩
 
 theorem publicRegs_three (s₁ s₂ : State) : PublicRegs [.x0, .x1, .x2] s₁ s₂ ↔
     s₁.sp = s₂.sp ∧ s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 := by

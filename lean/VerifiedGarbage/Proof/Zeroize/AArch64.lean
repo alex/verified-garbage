@@ -113,7 +113,7 @@ theorem verified : Verified target zeroize (Spec.Zeroize.zeroizeContract abi) :=
   apply Verified.of_correct (k := contract)
   · intro s hp
     obtain ⟨tr, t, he, ho, _⟩ := correct s hp
-    refine ⟨tr, t, he, ⟨?_, Exec.sp he⟩, ho⟩
+    refine ⟨tr, t, he, ⟨?_, Exec.sp he, Exec.preservedV he⟩, ho⟩
     intro r hr
     have hc := instrs_keeps (c := zeroize) (rs := preserved) (by decide +kernel)
     apply Exec.gpr (fun i hi => ?_) he
