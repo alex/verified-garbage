@@ -62,7 +62,7 @@ theorem dZ_pow : dZ ^ ((P - 1) / 2) = -1 := by
   rw [h, ← powMod_cast P 256 _ _ (by decide), d_pow, Nat.cast_sub (by decide), ZMod.natCast_self,
     Nat.cast_one, zero_sub]
 
-private theorem sqrtM1_sq : Spec.Ed25519.sqrtM1 * Spec.Ed25519.sqrtM1 = 0 - 1 := by decide +kernel
+theorem sqrtM1_sq : Spec.Ed25519.sqrtM1 * Spec.Ed25519.sqrtM1 = 0 - 1 := by decide +kernel
 
 theorem params : Params dZ where
   two := by

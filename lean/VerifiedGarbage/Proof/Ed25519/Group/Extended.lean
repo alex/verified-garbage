@@ -132,6 +132,28 @@ theorem pointEqual_rep {p q : Point} {a b : EPoint dZ} (hp : Rep p a) (hq : Rep 
     · rw [toZ_mul, toZ_mul, hp.x, hq.x]; ring
     · rw [toZ_mul, toZ_mul, hp.y, hq.y]; ring
 
+/-- The first of the projective comparisons: the `x` coordinates agree. -/
+theorem rep_cross_x {p q : Point} {a b : EPoint dZ} (hp : Rep p a) (hq : Rep q b) :
+    p.X * q.Z = q.X * p.Z ↔ a.x = b.x := by
+  constructor
+  · intro h
+    have e : toZ (p.X * q.Z) = toZ (q.X * p.Z) := congrArg toZ h
+    rw [toZ_mul, toZ_mul, hp.x, hq.x] at e
+    exact mul_right_cancel₀ (mul_ne_zero hp.z hq.z) (by linear_combination e)
+  · intro h
+    exact toZ_inj.mp (by rw [toZ_mul, toZ_mul, hp.x, hq.x, h]; ring)
+
+/-- The second: the `y` coordinates agree. -/
+theorem rep_cross_y {p q : Point} {a b : EPoint dZ} (hp : Rep p a) (hq : Rep q b) :
+    p.Y * q.Z = q.Y * p.Z ↔ a.y = b.y := by
+  constructor
+  · intro h
+    have e : toZ (p.Y * q.Z) = toZ (q.Y * p.Z) := congrArg toZ h
+    rw [toZ_mul, toZ_mul, hp.y, hq.y] at e
+    exact mul_right_cancel₀ (mul_ne_zero hp.z hq.z) (by linear_combination e)
+  · intro h
+    exact toZ_inj.mp (by rw [toZ_mul, toZ_mul, hp.y, hq.y, h]; ring)
+
 private theorem base_on : OnCurve dZ (toZ Spec.Ed25519.basePoint.X) (toZ Spec.Ed25519.basePoint.Y) := by
   unfold OnCurve dZ
   decide +kernel
@@ -141,5 +163,34 @@ def baseAff : EPoint dZ := ⟨toZ Spec.Ed25519.basePoint.X, toZ Spec.Ed25519.bas
 
 theorem basePoint_rep : Rep Spec.Ed25519.basePoint baseAff :=
   ⟨by decide, (mul_one _).symm, (mul_one _).symm, (mul_one _).symm⟩
+
+/-- Another representative of the same point: the same projective `X : Y : Z`. -/
+theorem Rep.of_proj {p q : Point} {a : EPoint dZ} (h : Rep p a) (hz : toZ q.Z ≠ 0)
+    (hx : toZ q.X * toZ p.Z = toZ p.X * toZ q.Z) (hy : toZ q.Y * toZ p.Z = toZ p.Y * toZ q.Z)
+    (ht : toZ q.T * toZ q.Z = toZ q.X * toZ q.Y) : Rep q a := by
+  have ex : toZ q.X = a.x * toZ q.Z :=
+    mul_right_cancel₀ h.z (by rw [hx, h.x]; ring)
+  have ey : toZ q.Y = a.y * toZ q.Z :=
+    mul_right_cancel₀ h.z (by rw [hy, h.y]; ring)
+  exact ⟨hz, ex, ey, mul_right_cancel₀ hz (by rw [ht, ex, ey]; ring)⟩
+
+/-- `(-X, Y, Z, -T)` represents `-a`. -/
+def negPoint (p : Point) : Point := ⟨0 - p.X, p.Y, p.Z, 0 - p.T⟩
+
+theorem Rep.neg {p : Point} {a : EPoint dZ} (h : Rep p a) : Rep (negPoint p) (-a) := by
+  refine ⟨h.z, ?_, h.y, ?_⟩
+  · show toZ (0 - p.X) = -a.x * toZ p.Z
+    rw [toZ_sub, toZ_zero, h.x]; ring
+  · show toZ (0 - p.T) = -a.x * a.y * toZ p.Z
+    rw [toZ_sub, toZ_zero, h.t]; ring
+
+theorem Rep.double {p : Point} {a : EPoint dZ} (h : Rep p a) :
+    Rep (Spec.Ed25519.pointAdd p p) ((2 : Nat) • a) := by
+  rw [two_nsmul]; exact pointAdd_rep h h
+
+/-- An affine point with `Z = 1`. -/
+theorem rep_affine (x y : Fe) (h : OnCurve dZ (toZ x) (toZ y)) :
+    Rep ⟨x, y, 1, x * y⟩ ⟨toZ x, toZ y, h⟩ :=
+  ⟨show toZ 1 ≠ 0 by decide, (mul_one _).symm, (mul_one _).symm, (mul_one _).symm⟩
 
 end VG.Proof.Ed25519
