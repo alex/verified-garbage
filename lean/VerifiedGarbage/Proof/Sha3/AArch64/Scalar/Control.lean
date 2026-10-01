@@ -164,4 +164,59 @@ theorem setup_ok (orig : State) (A : Spec.Sha3.State) (s : State)
       RegUpd.gpr_setV,RegUpd.gpr_write,ite_false,ite_true,State.read,Size.bits,
       BitVec.setWidth_eq,hq.base,constAddr]
 
+theorem constAddr_next (orig : State) (k : Nat) :
+    constAddr orig k + 8 = constAddr orig (k + 1) := by
+  simp only [constAddr]
+  rw [show (8 : BitVec 64) = BitVec.ofNat 64 8 by rfl, BitVec.add_assoc, ← BitVec.ofNat_add]
+  congr 1
+
+theorem iotaAdvance_ok (orig : State) (A : Spec.Sha3.State) (k : Nat) (s : State)
+    (hp : VG.Proof.Sha3.AArch64.Pre orig) (hk : k < 24) (hs : Ready orig A k s) :
+    WP isa (.block iotaAdvance) s fun s' =>
+      Ready orig (Spec.Sha3.iota A k) (k + 1) s' ∧
+        s'.gpr .x27 = constAddr orig (k + 1) - constAddr orig 24 := by
+  have hrc : s.mem.readW (vdword (s.v .v26) 0) 64 = Spec.Sha3.RC k := by
+    rw [hs.next]; exact hs.constants k hk
+  have h0 : s.gpr .x0 = A[0] := hs.core.lanes 0 (by decide)
+  have hlimit : (s.v .v27).extractLsb' 0 64 = constAddr orig 24 := hs.limit
+  unfold iotaAdvance
+  refine WP.cons (exec_umov_low s .x26 .v26) (WP.cons (exec_ldr_x (by decide) ?_)
+    (WP.cons rfl (WP.cons rfl (WP.cons rfl (WP.cons rfl (WP.cons rfl (wp_nil ?_)))))))
+  · simp only [RegUpd.rd_write,RegUpd.wr_write,RegUpd.gpr_write_self,
+      Size.bits,BitVec.setWidth_eq,BitVec.add_zero,hs.next,hs.core.keep.rd,hs.core.keep.wr]
+    exact hp.in_all (hp.in_wr (.inr rfl) (constant_contains orig hk))
+  · refine ⟨⟨⟨?_,?_,?_,?_,?_⟩,hs.constants,?_,?_⟩,?_⟩
+    · exact ⟨hs.core.keep.rd,hs.core.keep.wr,hs.core.keep.sp⟩
+    · simp only [Boundary.Ptrs,RegUpd.v_write,RegUpd.v_setV,reduceCtorEq,ite_false]
+      exact hs.core.ptrs
+    · exact hs.core.saved
+    · intro r hr
+      have hn : ∀ r ∈ preservedV, r ≠ .v26 := by decide
+      simp only [RegUpd.v_write,RegUpd.v_setV,hn r hr,ite_false]
+      exact hs.core.vec r hr
+    · intro i hi
+      have h26 := scratch_not_lane .x26 (by simp) i hi
+      have h27 := scratch_not_lane .x27 (by simp) i hi
+      have h28 := scratch_not_lane .x28 (by simp) i hi
+      simp only [RegUpd.gpr_write,RegUpd.gpr_setV,h26,h27,h28,ite_false,
+        State.read,Size.bits,BitVec.setWidth_eq,BitVec.add_zero,RegUpd.mem_write]
+      by_cases hz : i = 0
+      · subst i
+        simp only [VG.Impl.Sha3.AArch64.Scalar.laneReg,reduceCtorEq,ite_true,ite_false,
+          h0,hrc,Spec.Sha3.iota,Vector.getElem_set_self]
+      · have hr : VG.Impl.Sha3.AArch64.Scalar.laneReg i ≠ .x0 := by
+          intro hr; exact hz ((laneReg_zero i hi).mp hr)
+        simp only [hr,ite_false,hs.core.lanes i hi,Spec.Sha3.iota,
+          Vector.getElem_set,Ne.symm hz]
+    · simp only [RegUpd.v_write,RegUpd.v_setV,reduceCtorEq,ite_true,ite_false,
+        vdword_ofVDwords_0,RegUpd.gpr_write,RegUpd.gpr_setV,State.read,
+        Size.bits,BitVec.setWidth_eq,hs.next]
+      exact constAddr_next orig k
+    · simp only [RegUpd.v_write,RegUpd.v_setV,reduceCtorEq,ite_false]
+      exact hs.limit
+    · simp only [RegUpd.gpr_write,RegUpd.gpr_setV,reduceCtorEq,ite_true,ite_false,
+        State.read,Size.bits,BitVec.setWidth_eq,RegUpd.v_write,RegUpd.v_setV,
+        hs.next,hlimit]
+      exact congrArg (fun p => p - constAddr orig 24) (constAddr_next orig k)
+
 end VG.Proof.Sha3.AArch64.Scalar.Control
