@@ -158,16 +158,16 @@ theorem decrypt_ok {σ : State} (hp : decaps1024K.pre σ) {s : State} (h : DC σ
 end Decaps4
 
 open Decaps4 in
-theorem decaps1024_correct (σ : State) (hp : decaps1024K.pre σ) :
-    ∃ t s', Exec isa decaps1024 σ t s' ∧ abiPreserved σ s' ∧ decaps1024K.post σ s' := by
+theorem decaps1024_correct (v : Sample4Impl) (σ : State) (hp : decaps1024K.pre σ) :
+    ∃ t s', Exec isa (decaps1024 v.callee) σ t s' ∧ abiPreserved σ s' ∧ decaps1024K.post σ s' := by
   obtain ⟨t, s', he, hF⟩ := WP.seq (WP.mono (pro_ok hp) fun s₁ ⟨h₁, h15⟩ =>
     WP.seq (WP.mono (decrypt_ok hp h₁ h15) fun s₂ h₂ =>
       WP.seq (WP.mono (hashes_ok hp h₂) fun s₃ h₃ =>
-        WP.seq (WP.mono (Enc4.encrypt_ok (C := dcX σ) dcEncChk h₃.1 h₃.2) fun s₄ h₄ =>
+        WP.seq (WP.mono (Enc4.encrypt_ok v (C := dcX σ) dcEncChk h₃.1 h₃.2) fun s₄ h₄ =>
           WP.seq (WP.mono (select_okD h₄) fun s₅ h₅ =>
             WP.mono (topEpi_ok h₅.dc.top (h₅.hin hp)) fun s₆ ⟨hr, hg, hm⟩ =>
               (⟨hg, post_of h₅ hr hm⟩ : gprPreserved σ s₆ ∧ decaps1024K.post σ s₆))))))
-  exact ⟨t, s', he, abiPreserved_of_ctl (by decide +kernel) he hF.1, hF.2⟩
+  exact ⟨t, s', he, abiPreserved_of_ctl (by s4_ctl v) he hF.1, hF.2⟩
 
 /-! ## Constant time -/
 
@@ -213,10 +213,10 @@ theorem copyRho_taint : (taint.check (X86_64.Taint.ofRegs [.rbx, .rbp]) (copy (s
     (Taint.hintOf taint (X86_64.Taint.ofRegs [.rbx, .rbp]) (copy (sc oSB) (.rbp, 1536 + 1536) 32))).isSome = true := by
   taint_decide
 
-theorem encrypt_tr : RelCT isa (R EncI) (encrypt1024 (.rbp, 1536)) fun _ _ => True := by
+theorem encrypt_tr (v : Sample4Impl) : RelCT isa (R EncI) (encrypt1024 v.callee (.rbp, 1536)) fun _ _ => True := by
   refine RelCT.mono (RelCT.exists_ (P := fun ρ x y => LRel dcR dcW x y ∧ Enc4.EIρ dcXA (.rbp, 1536) ρ x ∧
       Enc4.EIρ dcXA (.rbp, 1536) ρ y) (Q := fun _ _ => True) fun ρ =>
-      RelCT.mono (Enc4.encrypt_tr (C := dcXA) dcEncChk copyRho_taint (ρ := ρ)) (fun _ _ h => h)
+      RelCT.mono (Enc4.encrypt_tr v (C := dcXA) dcEncChk copyRho_taint (ρ := ρ)) (fun _ _ h => h)
         fun _ _ _ => trivial) ?_ fun _ _ _ => trivial
   rintro x y ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩
   have i₁ : Enc4.EIρ dcXA (.rbp, 1536) (Enc4.rhoE (dcEk σ₁)) x := ⟨_, _, _, rfl, EIn.any h₁.1, h₁.2⟩
@@ -243,15 +243,16 @@ theorem epi_tr : RelCT isa (R DEnd) (.block topEpi) fun _ _ => True :=
 end Decaps4
 
 open Decaps4 in
-theorem decaps1024_ct : ConstantTime isa decaps1024K.pre decaps1024K.pub decaps1024 := by
+theorem decaps1024_ct (v : Sample4Impl) :
+    ConstantTime isa decaps1024K.pre decaps1024K.pub (decaps1024 v.callee) := by
   refine relStart (Q := fun _ _ => True) ?_
   unfold decaps1024
   refine RelCT.seq (relInv (I' := fun σ s => DC σ s ∧ s.gpr .r15 = 1)
     (fun σ s hp hs => by subst hs; exact pro_ok hp) pro_tr) ?_
   refine RelCT.seq (relInv (I' := DM) (fun σ s hp hs => decrypt_ok hp hs.1 hs.2) decrypt_tr) ?_
   refine RelCT.seq (relInv (I' := EncI) (fun σ s hp hs => hashes_ok hp hs) hashes_tr) ?_
-  refine RelCT.seq (relInv (I' := EncO) (fun σ s _ hs => Enc4.encrypt_ok (C := dcX σ) dcEncChk hs.1 hs.2)
-    encrypt_tr) ?_
+  refine RelCT.seq (relInv (I' := EncO) (fun σ s _ hs => Enc4.encrypt_ok v (C := dcX σ) dcEncChk hs.1 hs.2)
+    (encrypt_tr v)) ?_
   refine RelCT.seq (relInv (I' := DEnd) (fun σ s _ hs => select_okD hs) select_tr) ?_
   exact RelCT.mono epi_tr (fun _ _ h => h) fun _ _ _ => trivial
 
@@ -267,9 +268,9 @@ def decaps1024Sat : State where
   rd := [⟨0x1000, 3168⟩, ⟨0x2000, 1568⟩]
   wr := [⟨0x3000, 32⟩, ⟨0x10000, 49152⟩]
 
-theorem decaps1024_verified :
-    Verified X86_64.target decaps1024 (Spec.MlKem1024.decapsContract X86_64.abi 24) :=
-  Verified.of_correct decaps1024_correct decaps1024_ct
+theorem decaps1024_verified (v : Sample4Impl) :
+    Verified X86_64.target (decaps1024 v.callee) (Spec.MlKem1024.decapsContract X86_64.abi 32) :=
+  Verified.of_correct (decaps1024_correct v) (decaps1024_ct v)
     { pre := by sig_implies_pre [Spec.MlKem1024.decapsContract, Spec.MlKem1024.decapsSig, decaps1024K, X86_64.abi,
         VG.X86_64.argRegs]
       post := by sig_implies_post [Spec.MlKem1024.decapsContract, Spec.MlKem1024.decapsSig, decaps1024K, X86_64.abi,

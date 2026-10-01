@@ -6,7 +6,7 @@
 ///
 /// Contract: `VG.Spec.MlDsa.keyGenContract`. Constant time but for `ρ` and rejections: timing may depend on the pointers, on `ρ` (the first 32 bytes of the public key), and on which half-bytes of the SHAKE256 outputs `RejBoundedPoly` rejects (`rejBoundedLeak`, which is independent of the coefficients it samples), but not on anything else of the seed or the keys.
 ///
-/// The function saves its caller's callee-saved registers in `scratch`; its calls use the 24 bytes of stack below its return address.
+/// The function saves its caller's callee-saved registers in `scratch`; its calls use the 32 bytes of stack below its return address.
 ///
 /// It samples every polynomial of `A` and of `s1` and `s2` whatever the samplers return, and zeroes the polynomial of a sampler that fails rather than branching on it: its timing does not depend on whether key generation fails.
 ///
@@ -19,7 +19,7 @@
 /// * `seed` must be random bytes from an approved RBG (FIPS 204 §3.6.1), or a seed so generated before.
 /// * `scratch` is working space: on return it holds intermediate values, which the caller must destroy (FIPS 204 §3.6.3).
 /// * `pk`, `sk` and `scratch` must not overlap each other or `seed` (distinct Rust objects never do).
-/// * None of `seed`, `pk`, `sk` and `scratch` may overlap the return address on the stack or the 24 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
+/// * None of `seed`, `pk`, `sk` and `scratch` may overlap the return address on the stack or the 32 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_mldsa65_keygen(seed: *const [u8; 32], pk: *mut [u8; 1952], sk: *mut [u8; 4032], scratch: *mut [u64; 12928]) -> u32 {
     core::arch::naked_asm!(

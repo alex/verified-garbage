@@ -12,6 +12,24 @@ The library is implemented in Lean, assembly, and Rust.
 
 It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
+The crate refuses to build for configurations its ISA models do not
+describe: big-endian ARM and ARM64, x32, x86 or x86-64 without SSE2 (e.g.
+`i586-*`, `x86_64-unknown-none`, the UEFI targets), ARM64 without NEON
+(`aarch64-unknown-none-softfloat`), and Apple's 32-bit ARM targets, which do
+not use AAPCS. Rust has no `cfg` for some other assumptions, so they are
+yours to keep:
+
+* On 32-bit x86, don't build with nightly's `-Zregparm`, which moves
+  `extern "C"` arguments from the stack to registers.
+* ARMv7 code does word loads and stores at unaligned addresses. Hosted
+  targets allow them; bare-metal code (e.g. `armv7a-none-eabi*`, built
+  `+strict-align`) must turn off alignment checking and run with the MMU
+  on, with its buffers in Normal memory: otherwise an unaligned access
+  faults or, on some cores, is UNPREDICTABLE.
+* Only ARMv7 and later are supported on 32-bit ARM; older targets
+  (`arm-*`, `armv5te-*`, …) are rejected only because the code does not
+  assemble for them.
+
 ## Algorithms
 
 <!-- BEGIN ci/algorithms_table.py: edit docs/algorithms/, then run it -->
@@ -342,13 +360,13 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -584,7 +602,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>✅ SSE2 polynomial arithmetic</td>
+<td>✅ AVX2; SSE2 polynomial arithmetic</td>
 
 <td>✅ NEON polynomial arithmetic</td>
 
@@ -600,7 +618,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>✅ SSE2 polynomial arithmetic</td>
+<td>✅ AVX2; SSE2 polynomial arithmetic</td>
 
 <td>✅ NEON polynomial arithmetic</td>
 
@@ -638,7 +656,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ BMI2, ADX</td>
 
 <td>✅</td>
 
@@ -656,11 +674,11 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -696,9 +714,9 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -710,9 +728,9 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -726,9 +744,9 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -742,9 +760,9 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -775,6 +793,16 @@ Our goal is to implement all the cryptographic algorithms that are used by the P
   makes: it reads memory at indices derived from the password, and its
   contract declares that it leaks them and nothing else secret). See [`lean/README.md`](lean/README.md) for the
   layout, the pipeline, and exactly what has to be trusted.
+* Constant time means that the sequence of instructions and memory
+  addresses does not depend on secrets; that each instruction's own timing
+  does not depend on its data is an assumption about the CPU, recorded in
+  each ISA model (`lean/VerifiedGarbage/TCB/<ISA>/Isa.lean`). On x86 and
+  x86-64 it rests on Intel's data operand independent timing guidance,
+  which covers only Intel Core and Atom processors (not AMD's, VIA's or
+  the Pentium 4's), holds on Intel processors from Ice Lake (Atom:
+  Gracemont) on only if the operating system has set the DOITM bit, which
+  user code cannot, and does not list the `VSHA512*` instructions that
+  SHA-512 uses on CPUs with the SHA512 extension.
 * The proven assembly is emitted into [`src/asm/`](src/asm/) (one directory
   per architecture) as Rust naked functions (`naked_asm!`); there is no build
   script and no separate assembler step.

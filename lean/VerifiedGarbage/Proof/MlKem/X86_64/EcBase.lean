@@ -19,7 +19,7 @@ open VG VG.X86_64 VG.Impl.MlKem.X86_64
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- `vg_mlkem768_encaps(ek = rdi, m = rsi, key = rdx, ct = rcx, scratch = r8) -> eax`, with 24 bytes of stack. -/
+/-- `vg_mlkem768_encaps(ek = rdi, m = rsi, key = rdx, ct = rcx, scratch = r8) -> eax`, with 32 bytes of stack. -/
 def encapsK : Contract isa where
   pre s :=
     s.rd = [⟨s.gpr .rdi, 1184⟩, ⟨s.gpr .rsi, 32⟩] ∧
@@ -32,9 +32,9 @@ def encapsK : Contract isa where
     (retR s).Disjoint ⟨s.gpr .rdi, 1184⟩ ∧ (retR s).Disjoint ⟨s.gpr .rsi, 32⟩ ∧
     (retR s).Disjoint ⟨s.gpr .rdx, 32⟩ ∧ (retR s).Disjoint ⟨s.gpr .rcx, 1088⟩ ∧
     (retR s).Disjoint ⟨s.gpr .r8, 32768⟩ ∧
-    (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .rdi, 1184⟩ ∧ (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .rsi, 32⟩ ∧
-    (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .rdx, 32⟩ ∧ (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .rcx, 1088⟩ ∧
-    (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr .r8, 32768⟩ ∧
+    (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .rdi, 1184⟩ ∧ (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .rsi, 32⟩ ∧
+    (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .rdx, 32⟩ ∧ (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .rcx, 1088⟩ ∧
+    (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr .r8, 32768⟩ ∧
     (s.gpr .rdi).toNat + 1184 ≤ 2 ^ 64 ∧ (s.gpr .rsi).toNat + 32 ≤ 2 ^ 64 ∧
     (s.gpr .rdx).toNat + 32 ≤ 2 ^ 64 ∧ (s.gpr .rcx).toNat + 1088 ≤ 2 ^ 64 ∧
     (s.gpr .r8).toNat + 32768 ≤ 2 ^ 64

@@ -57,7 +57,7 @@ def rest : Prog isa := .seq (seqR se 0 6) (.seq (seqR row 0 3) (.seq (seqR encS 
 end KeyGen
 
 open KeyGen in
-def keyGen : Prog isa :=
-  .seq (.block pro) (.seq gRho (.seq samples (.seq (ifOk rest) (.block topEpi))))
+def keyGen (c : Callee4) : Prog isa :=
+  .seq (.block pro) (.seq gRho (.seq (samples c) (.seq (ifOk rest) (.block topEpi))))
 
 end VG.Impl.MlKem.X86_64

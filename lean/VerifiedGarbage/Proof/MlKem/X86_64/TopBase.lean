@@ -37,7 +37,7 @@ theorem pairwise_sym {α : Type} {R : α → α → Prop} (hs : ∀ a b, R a b �
 theorem Lay.of {rbs wbs : List (Reg × Nat)} {s : State} (small : ∀ b ∈ rbs ++ wbs, b.2 < 2 ^ 32)
     (pw : (rbs ++ wbs).Pairwise fun b b' => (b.1 ∈ wRegs ∨ b'.1 ∈ wRegs) →
       Region.Disjoint ⟨s.gpr b.1, b.2⟩ ⟨s.gpr b'.1, b'.2⟩)
-    (stk : ∀ b ∈ rbs ++ wbs, (below (s.gpr .rsp) 24).Disjoint ⟨s.gpr b.1, b.2⟩)
+    (stk : ∀ b ∈ rbs ++ wbs, (below (s.gpr .rsp) 32).Disjoint ⟨s.gpr b.1, b.2⟩)
     (nw : ∀ b ∈ rbs ++ wbs, (s.gpr b.1).toNat + b.2 ≤ 2 ^ 64)
     (rd : ∀ b ∈ rbs ++ wbs, InRegions (s.rd ++ s.wr) (s.gpr b.1) b.2)
     (wr : ∀ b ∈ wbs, InRegions s.wr (s.gpr b.1) b.2)

@@ -32,6 +32,25 @@ Modelling choices:
   their data operands ("Data Operand Independent Timing Instruction Set
   Architecture (ISA) Guidance", which lists `MUL`), and so are BMI2's `mulx`
   and ADX's `adcx` and `adox` (it lists `MULX`, `ADCX` and `ADOX`).
+* Assumed, not proven: the model's instructions take a time independent of
+  their data operands on every processor that runs this code. Intel's
+  guidance, the only vendor statement the model cites, is narrower. It
+  covers Intel Core and Atom processors only, not those of other vendors
+  (AMD, VIA, Zhaoxin), which document no such list. On Intel Core
+  processors from Ice Lake and Intel Atom processors from Gracemont on,
+  which enumerate DOITM, it holds only while the DOITM bit
+  (IA32_UARCH_MISC_CTL[0], MSR 1B01H) is set; the bit resets to 0 and only
+  privileged software can set it, so user code (and so this library)
+  cannot, and runs with it clear unless the operating system sets it
+  ("Data Operand Independent Timing ISA Guidance", "DOITM";
+  https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/best-practices/data-operand-independent-timing-isa-guidance.html).
+  And Intel's list of the instructions it covers ("Data Operand Independent
+  Timing Instructions", updated 2/23/2026;
+  https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/resources/data-operand-independent-timing-instructions.html)
+  does not list `VSHA512RNDS2`, `VSHA512MSG1` or `VSHA512MSG2` (`Avx.lean`),
+  which take secret data in `vg_sha512_compress_shani`: that they, like
+  the `SHA1*` and `SHA256*` instructions it does list, take a time
+  independent of their data is an assumption no vendor statement covers.
 * Calls (`call`) and returns (`ret`) are near and direct (SDM Vol. 2, "CALL",
   "RET"). The return addresses are the next of the state's `unknowns`,
   which nothing constrains (see `TCB/Code.lean`).
@@ -60,10 +79,18 @@ Modelling choices:
   `ldmxcsr` and `stmxcsr` access: no other modelled instruction reads or
   writes it (integer instructions raise no SIMD floating-point exceptions).
   Its control bits (15:6) are callee-saved (see `Target.lean`). `lfence`
-  has no architectural effect, so the model treats it as a no-op.
+  has no architectural effect, so the model treats it as a no-op. As in
+  the SDM, bits 31:16 are reserved: `ldmxcsr` of a value with any of them
+  set faults. AMD processors with misaligned SSE mode define bit 17 as the
+  control bit MM, "Misaligned Exception Mask" (AMD64 Architecture
+  Programmer's Manual Vol. 1, "MXCSR Register"), which the model does not
+  know, so code that saves and restores MXCSR clears bits 31:16 of the
+  value it restores (`and r32, 65535`): a caller's MM = 1 would be cleared
+  on return. Nothing is known to set it.
 * MXCSR-configuration-dependent timing (MCDT): on some Intel processors,
   the multiplies of the model but `mul` and `mulx` (`pmuludq`, `vpmuludq`,
-  `pmullw`, `vpmullw`, `pmulhw` and `vpmulhw`), although on Intel's DOIT
+  `pmullw`, `vpmullw`, `pmulhw`, `vpmulhw`, `vpmadd52luq` and
+  `vpmadd52huq`), although on Intel's DOIT
   list, may take up to a cycle longer to retire for specific data values
   unless MXCSR holds `0x1FBF` (Intel, "MXCSR Configuration Dependent Timing", and
   its list of the instructions affected, "MCDT Data Operand Independent
@@ -215,7 +242,11 @@ VPUNPCKLDQ, VPUNPCKHDQ, VPUNPCKLQDQ and VPUNPCKHQDQ (`EVEX.512.66.0F.W0 62
 ib`), VMOVDQU32 (`EVEX.512.F3.0F.W0 6F /r`, `EVEX.512.F3.0F.W0 7F /r`) and
 VBROADCASTI32X4 (`EVEX.512.66.0F38.W0 5A /r`). SHA512 for VSHA512RNDS2,
 VSHA512MSG1 and VSHA512MSG2 (`VEX.256.F2.0F38.W0 CB /r`, `VEX.256.F2.0F38.W0
-CC /r`, `VEX.256.F2.0F38.W0 CD /r`). -/
+CC /r`, `VEX.256.F2.0F38.W0 CD /r`). AVX512_IFMA and AVX512VL for the
+EVEX.128 and EVEX.256 forms of VPMADD52LUQ and VPMADD52HUQ
+(`EVEX.256.66.0F38.W1 B4 /r`, `EVEX.256.66.0F38.W1 B5 /r`; the SDM's
+"CPUID Feature Flag" column lists both, AVX512VL for the vector lengths
+below 512 bits). -/
 def Instr.requires : Instr → List String
   | .xop (.bin .pshufb ..) | .xop (.palignr ..) => ["ssse3"]
   | .xop (.bin .sha256msg1 ..) | .xop (.bin .sha256msg2 ..) | .xop (.sha256rnds2 ..) => ["sha"]
@@ -237,6 +268,7 @@ def Instr.requires : Instr → List String
   | .andn32 .. | .andn .. => ["bmi1"]
   | .zop _ | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. => ["avx512f"]
   | .vop (.vsha512rnds2 ..) | .vop (.vsha512msg1 ..) | .vop (.vsha512msg2 ..) => ["sha512"]
+  | .vop (.vpmadd52luq ..) | .vop (.vpmadd52huq ..) => ["avx512ifma", "avx512vl"]
   | _ => []
 
 /-- Semantics of an instruction. The byte forms: SDM Vol. 2, "MOVZX":

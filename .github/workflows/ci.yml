@@ -37,6 +37,9 @@ jobs:
         run: echo "shards=$(python3 ci/lean_shards.py list)" >> "$GITHUB_OUTPUT"
 
   lean-shard:
+    # More independent files, with two compiler threads per file (lakefile.toml).
+    env:
+      LEAN_NUM_THREADS: "6"
     needs: lean-shards
     strategy:
       fail-fast: false
@@ -85,6 +88,8 @@ jobs:
           if-no-files-found: error
 
   lean:
+    env:
+      LEAN_NUM_THREADS: "6"
     name: Lean proofs
     needs: lean-shard
     runs-on: ubuntu-latest
@@ -254,9 +259,9 @@ jobs:
   # times slower than a runner that has them (#274), so that code only runs
   # natively:
   # * `skx` (Skylake-SP): AVX-512F, so ChaCha20 with AVX-512F, and SHA-256
-  #   and SHA-512 with AVX2;
-  # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F, so ChaCha20 with AVX2
-  #   even where this runner has AVX-512F;
+  #   and SHA-512 with AVX2; and BMI2 and ADX, so X25519 with them;
+  # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F or ADX, so ChaCha20
+  #   with AVX2 even where this runner has AVX-512F, and X25519's baseline;
   # * `p4p` (Pentium 4): nothing beyond x86-64's baseline, not even CPUID
   #   leaf 7, so the baseline ISA's implementations everywhere;
   # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
@@ -272,7 +277,7 @@ jobs:
       fail-fast: false
       matrix:
         chip: [native, skx, hsw, p4p]
-        tests: [sha1 sha256 sha384 sha512 aes_gcm chacha20 cpu]
+        tests: [sha1 sha256 sha384 sha512 aes_gcm chacha20 mlkem x25519 cpu]
         include:
           - chip: arl
             tests: sha384 sha512 cpu
@@ -305,7 +310,7 @@ jobs:
           else
             grep -m1 'model name' /proc/cpuinfo
             grep -m1 flags /proc/cpuinfo | tr ' ' '\n' \
-              | grep -xE 'ssse3|sha_ni|aes|pclmulqdq|avx|avx2|bmi1|bmi2|avx512f|sha512' | tr '\n' ' '
+              | grep -xE 'ssse3|sha_ni|aes|pclmulqdq|avx|avx2|bmi1|bmi2|avx512f|sha512|adx' | tr '\n' ' '
           fi
       - name: Download Intel SDE
         if: ${{ matrix.chip != 'native' }}

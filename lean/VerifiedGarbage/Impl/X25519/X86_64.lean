@@ -16,7 +16,11 @@ read (`out` then in `rsi`):
 * `swap` (a word, 0 or 1) and the bits of the clamped scalar `k` (`BITS`,
   byte `t` is bit `t` of `k`).
 
-The arithmetic (registers `rax, rdx, rcx, rbp, r8–r15`):
+The arithmetic (registers `rax, rdx, rcx, rbp, r8–r15`), whose
+multiplications (`mul`, squaring as `mul`, and `mulSmall` by `a24`) are the
+`Field` `baseline`; the rest of the code takes them as a parameter
+(`x25519With`), so that `vg_x25519_adx` (`X86_64/Adx.lean`) is this code with
+other multiplications:
 
 * `mul`: the 512-bit product, row by row (`r8–r15`, with the carry of a row
   in `rbp`), then `lo + 38 hi` (as `2²⁵⁶ ≡ 38`), whose carry word `c` is
@@ -162,33 +166,51 @@ def cswap (x y : Nat) : List Instr :=
       .alu .xor a (.reg .rax), .alu .xor b (.reg .rax)]) ++
   store4 x ++ stores y .r12 .r13 .r14 .r15
 
-/-- `[o] = [a]^(2^n)`, for `n ≥ 2`: a square, then `n - 1` in place. -/
-def sqn (o a n : Nat) : Prog isa :=
-  .seq (.block (mul o a a ++ [.mov32 .rbx (.imm (BitVec.ofNat 32 (n - 1)))]))
-    (.loop (.block (mul o o o ++ [.alu .sub .rbx (.imm 1)])) .ne)
-
-/-! ## The ladder -/
-
 /-- The ladder's `a24 = 121665`. -/
 def a24 : BitVec 32 := 121665
+
+/-- The field multiplications, as each implementation of X25519 does them;
+the rest of the code is the same for all. Both read the working space and
+write `[o]` (which may be an operand), and use only the registers `rax`,
+`rcx`, `rdx`, `rbp` and `r8–r15`. -/
+structure Field where
+  /-- `[o] = [a] · [b]` -/
+  mul : Nat → Nat → Nat → List Instr
+  /-- `[o] = [a]²` -/
+  sqr : Nat → Nat → List Instr
+  /-- `[o] = a24 · [a]` -/
+  a24 : Nat → Nat → List Instr
+
+/-- The baseline's: `mul`, which also squares. -/
+def baseline : Field where
+  mul := mul
+  sqr o a := mul o a a
+  a24 o a := mulSmall o a a24
+
+/-- `[o] = [a]^(2^n)`, for `n ≥ 2`: a square, then `n - 1` in place. -/
+def sqn (F : Field) (o a n : Nat) : Prog isa :=
+  .seq (.block (F.sqr o a ++ [.mov32 .rbx (.imm (BitVec.ofNat 32 (n - 1)))]))
+    (.loop (.block (F.sqr o o ++ [.alu .sub .rbx (.imm 1)])) .ne)
+
+/-! ## The ladder -/
 
 /-- One iteration of the ladder, for the bit `t = rbx - 1`: `k_t` from
 `BITS`, `swap ^= k_t` into the mask `rcx = -swap`, the swaps, `swap = k_t`,
 and the formulas of RFC 7748 §5 in order. -/
-def step : List Instr :=
+def step (F : Field) : List Instr :=
   [.alu .sub .rbx (.imm 1), .movzx8 .rax { base := .rdi, index := some .rbx, disp := BITS },
     .mov .rdx (.mem (sc SWAP)), .alu .xor .rdx (.reg .rax), .store (sc SWAP) .rax,
     .mov32 .rcx (.imm 0), .alu .sub .rcx (.reg .rdx)] ++
   cswap X2 X3 ++ cswap Z2 Z3 ++
-  add A X2 Z2 ++ mul AA A A ++ sub B X2 Z2 ++ mul BB B B ++ sub E AA BB ++
-  add C X3 Z3 ++ sub D X3 Z3 ++ mul DA D A ++ mul CB C B ++
-  add X3 DA CB ++ mul X3 X3 X3 ++ sub Z3 DA CB ++ mul Z3 Z3 Z3 ++ mul Z3 X1 Z3 ++
-  mul X2 AA BB ++ mulSmall Z2 E a24 ++ add Z2 AA Z2 ++ mul Z2 E Z2 ++
+  add A X2 Z2 ++ F.sqr AA A ++ sub B X2 Z2 ++ F.sqr BB B ++ sub E AA BB ++
+  add C X3 Z3 ++ sub D X3 Z3 ++ F.mul DA D A ++ F.mul CB C B ++
+  add X3 DA CB ++ F.sqr X3 X3 ++ sub Z3 DA CB ++ F.sqr Z3 Z3 ++ F.mul Z3 X1 Z3 ++
+  F.mul X2 AA BB ++ F.a24 Z2 E ++ add Z2 AA Z2 ++ F.mul Z2 E Z2 ++
   [.alu .test .rbx (.reg .rbx)]
 
 /-- The 255 iterations, for `t` from 254 down to 0. -/
-def ladder : Prog isa :=
-  .seq (.block [.mov32 .rbx (.imm 255)]) (.loop (.block step) .ne)
+def ladder (F : Field) : Prog isa :=
+  .seq (.block [.mov32 .rbx (.imm 255)]) (.loop (.block (step F)) .ne)
 
 /-- `[rdi + 8 rbx + BITS + j]`: bit `j` of byte `rbx` of the scalar. -/
 def bitAt (j : Nat) : MemOp :=
@@ -212,19 +234,19 @@ def bits : Prog isa :=
 
 `[T1] = [Z2]^(p-2)`, `p - 2 = 2²⁵⁵ - 21`, as ref10's `fe_invert`. -/
 
-def invert : Prog isa :=
-  .seq (.block (mul T0 Z2 Z2)) <|                           -- z^2
-  .seq (.block (mul T1 T0 T0 ++ mul T1 T1 T1)) <|           -- z^8
-  .seq (.block (mul T1 Z2 T1 ++ mul T0 T0 T1 ++             -- z^9, z^11
-    mul T2 T0 T0 ++ mul T1 T1 T2)) <|                       -- z^22, z^(2^5 - 1)
-  .seq (sqn T2 T1 5) <| .seq (.block (mul T1 T2 T1)) <|      -- z^(2^10 - 1)
-  .seq (sqn T2 T1 10) <| .seq (.block (mul T2 T2 T1)) <|     -- z^(2^20 - 1)
-  .seq (sqn T3 T2 20) <| .seq (.block (mul T2 T3 T2)) <|     -- z^(2^40 - 1)
-  .seq (sqn T2 T2 10) <| .seq (.block (mul T1 T2 T1)) <|     -- z^(2^50 - 1)
-  .seq (sqn T2 T1 50) <| .seq (.block (mul T2 T2 T1)) <|     -- z^(2^100 - 1)
-  .seq (sqn T3 T2 100) <| .seq (.block (mul T2 T3 T2)) <|    -- z^(2^200 - 1)
-  .seq (sqn T2 T2 50) <| .seq (.block (mul T1 T2 T1)) <|     -- z^(2^250 - 1)
-  .seq (sqn T1 T1 5) (.block (mul T1 T1 T0))                -- z^(2^255 - 21)
+def invert (F : Field) : Prog isa :=
+  .seq (.block (F.sqr T0 Z2)) <|                                  -- z^2
+  .seq (.block (F.sqr T1 T0 ++ F.sqr T1 T1)) <|                   -- z^8
+  .seq (.block (F.mul T1 Z2 T1 ++ F.mul T0 T0 T1 ++                -- z^9, z^11
+    F.sqr T2 T0 ++ F.mul T1 T1 T2)) <|                            -- z^22, z^(2^5 - 1)
+  .seq (sqn F T2 T1 5) <| .seq (.block (F.mul T1 T2 T1)) <|        -- z^(2^10 - 1)
+  .seq (sqn F T2 T1 10) <| .seq (.block (F.mul T2 T2 T1)) <|       -- z^(2^20 - 1)
+  .seq (sqn F T3 T2 20) <| .seq (.block (F.mul T2 T3 T2)) <|       -- z^(2^40 - 1)
+  .seq (sqn F T2 T2 10) <| .seq (.block (F.mul T1 T2 T1)) <|       -- z^(2^50 - 1)
+  .seq (sqn F T2 T1 50) <| .seq (.block (F.mul T2 T2 T1)) <|       -- z^(2^100 - 1)
+  .seq (sqn F T3 T2 100) <| .seq (.block (F.mul T2 T3 T2)) <|      -- z^(2^200 - 1)
+  .seq (sqn F T2 T2 50) <| .seq (.block (F.mul T1 T2 T1)) <|       -- z^(2^250 - 1)
+  .seq (sqn F T1 T1 5) (.block (F.mul T1 T1 T0))                  -- z^(2^255 - 21)
 
 /-! ## Encoding and decoding -/
 
@@ -273,8 +295,8 @@ def setup : List Instr :=
 
 /-- `x2 · z2^(p-2)`, reduced fully, to `out`, and the saved registers
 restored (before the stores, which do not touch the working space). -/
-def finish : List Instr :=
-  mul X2 X2 T1 ++ freeze X2 ++ restore ++
+def finish (F : Field) : List Instr :=
+  F.mul X2 X2 T1 ++ freeze X2 ++ restore ++
   [.store (at_ .rsi 0) .r8, .store (at_ .rsi 8) .r9, .store (at_ .rsi 16) .r10,
     .store (at_ .rsi 24) .r11]
 
@@ -283,8 +305,11 @@ def lastSwap : List Instr :=
   [.mov .rdx (.mem (sc SWAP)), .mov32 .rcx (.imm 0), .alu .sub .rcx (.reg .rdx)] ++
   cswap X2 X3 ++ cswap Z2 Z3
 
-def x25519 : Prog isa :=
-  .seq (.block setup) <| .seq bits <| .seq (.block [.mov .rsi (.reg .r12)]) <| .seq ladder <|
-    .seq (.block lastSwap) <| .seq invert (.block finish)
+/-- X25519 with the field multiplications `F`. -/
+def x25519With (F : Field) : Prog isa :=
+  .seq (.block setup) <| .seq bits <| .seq (.block [.mov .rsi (.reg .r12)]) <| .seq (ladder F) <|
+    .seq (.block lastSwap) <| .seq (invert F) (.block (finish F))
+
+def x25519 : Prog isa := x25519With baseline
 
 end VG.Impl.X25519.X86_64

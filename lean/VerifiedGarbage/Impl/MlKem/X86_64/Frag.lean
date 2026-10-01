@@ -5,6 +5,7 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Compress
 import VerifiedGarbage.Impl.MlKem.X86_64.Mul
 import VerifiedGarbage.Impl.MlKem.X86_64.Ntt
 import VerifiedGarbage.Impl.MlKem.X86_64.Sample
+import VerifiedGarbage.Impl.MlKem.X86_64.Sample4
 
 /-!
 # ML-KEM-768 on x86-64: the pieces of the top-level functions
@@ -160,8 +161,27 @@ def seqR (f : Nat → Prog isa) (a : Nat) : Nat → Prog isa
   | 0 => .block []
   | n + 1 => .seq (f a) (seqR f (a + 1) n)
 
-/-- The nine entries of `Â`, row by row (entry `e = 3i + j`). -/
-def samples : Prog isa := seqR (fun e => sampleIJ (e / 3) (e % 3)) 0 9
+/-- Seed `k` of four, `ρ ‖ j ‖ i` with `ρ` at `SB`, to `34 k` bytes into `scratch`. -/
+def seedAt (k i j : Nat) : Prog isa :=
+  .seq (copy (sc (34 * k)) (sc oSB) 32) (.block (setB (sc (34 * k + 32)) j ++ setB (sc (34 * k + 33)) i))
+
+/-- `SampleNTT` of the four seeds at `scratch` to the four polynomials from
+`a`, with the working space `scr` (8192 bytes), and `r15 ← r15 ∧ result`. -/
+def sample4At (c : Callee4) (a scr : Ptr) : Prog isa :=
+  .seq (.block (lea .rdi (sc 0) ++ lea .rsi a ++ lea .rdx scr))
+    (.seq (.call c.name c.code) (.block [.alu32 .and .r15 (.reg .rax)]))
+
+/-- Entries `e₀, …, e₀ + 3` of a matrix of `n` columns (entry `e = n i + j`),
+from polynomial `a`, with `SampleNTT` on the four seeds at once. -/
+def quad (c : Callee4) (n e₀ : Nat) (a scr : Ptr) : Prog isa :=
+  .seq (seedAt 0 (e₀ / n) (e₀ % n)) (.seq (seedAt 1 ((e₀ + 1) / n) ((e₀ + 1) % n))
+    (.seq (seedAt 2 ((e₀ + 2) / n) ((e₀ + 2) % n)) (.seq (seedAt 3 ((e₀ + 3) / n) ((e₀ + 3) % n))
+      (sample4At c a scr))))
+
+/-- The nine entries of `Â`, row by row (entry `e = 3i + j`): four at a
+time, with polynomials 17–24 as the working space, and the last on its own. -/
+def samples (c : Callee4) : Prog isa :=
+  .seq (quad c 3 0 (aS 0 0) (pS 17)) (.seq (quad c 3 4 (aS 1 1) (pS 17)) (sampleIJ 2 2))
 
 /-- `c` if every `SampleNTT` so far succeeded (`r15 ≠ 0`). -/
 def ifOk (c : Prog isa) : Prog isa :=

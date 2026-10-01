@@ -131,6 +131,13 @@ def checkFeatures (a : Artifact) : Except String Unit :=
   featureCheck s!"{a.target.name}: {a.name}" a.doc (a.code.requires a.target.isa.requires)
     a.features
 
+/-- The target's printer can encode every instruction of `a`'s code, and of
+the functions it calls, as the model describes it (`Printer.unencodable`). -/
+def checkEncodable (a : Artifact) : Except String Unit :=
+  match a.code.requires fun i => (a.target.printer.unencodable i).toList with
+  | [] => pure ()
+  | e :: _ => throw s!"{a.target.name}: {a.name}: {e}"
+
 /-- `doc` with the paragraphs `notes` inserted before its `# Safety` section. -/
 def insertNotes (doc : String) : List String → String
   | [] => doc
@@ -272,14 +279,16 @@ def render (as : List Artifact) (moduleOf : Artifact → String → String) : Li
 per module; an error if an artifact is not made from an `Api` with a
 contract (`checkApi`), two artifacts of a target have the same name
 (`checkUnique`), a call is not of the code it runs (`checkCalls`), an
-artifact's features are not those its code requires (`checkFeatures`) or its
-doc has no `# Safety` section at its end for what `fullDoc` adds to it
-(`checkLayout`). -/
+artifact's features are not those its code requires (`checkFeatures`), its
+code has an instruction its target's printer cannot encode
+(`checkEncodable`) or its doc has no `# Safety` section at its end for what
+`fullDoc` adds to it (`checkLayout`). -/
 def files (as : List Artifact) : Except String (List (String × String)) := do
   as.forM checkApi
   checkUnique as
   as.forM (checkCalls as)
   as.forM checkFeatures
+  as.forM checkEncodable
   as.forM checkLayout
   return render as fun a n => ((callee as a n).map (·.module)).getD ""
 

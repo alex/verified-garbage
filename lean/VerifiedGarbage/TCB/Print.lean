@@ -51,6 +51,11 @@ structure Printer (M : ISA) where
   enable it for that function only. -/
   enableFeature : String → List String := fun _ => []
   disableFeature : String → List String := fun _ => []
+  /-- Why the assembler cannot encode an instruction as the model describes
+  it (e.g. an x86-64 displacement too wide for its field, which some
+  assemblers silently truncate), or `none` if it can. The emitter refuses
+  code containing such an instruction (`Rust.checkEncodable`). -/
+  unencodable : M.Instr → Option String := fun _ => none
 
 variable {M : ISA} (P : Printer M)
 

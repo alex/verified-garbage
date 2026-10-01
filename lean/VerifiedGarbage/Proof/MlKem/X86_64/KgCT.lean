@@ -7,7 +7,7 @@ Untrusted: everything here is checked by Lean. Two runs from entry states
 that agree on the public data (`keyGenK.pub`: the pointers, the stack
 pointer and `ρ`), each at the same step with its invariant (`Rel2`), are
 in the same layout (`kc_lrel`), and each piece leaks the same in both
-(`gRho_tr`, `sample_tr`, `se_tr`, `row_tr`, `encS_tr`, `fin_tr`).
+(`gRho_tr`, `samples_tr`, `se_tr`, `row_tr`, `encS_tr`, `fin_tr`).
 -/
 
 namespace VG.Proof.MlKem.X86_64
@@ -71,6 +71,24 @@ theorem sample_tr {e : Nat} (he : e < 9) :
   simp only [kbChk, Bool.and_eq_true] at hc
   exact rel2_of (sampleIJ_tr kgB_bases (by omega) (by omega) hc.1.1.1.1.1 (setIJ_taint e he))
     fun _ _ _ _ p₁ p₂ pub h₁ h₂ => ⟨kc_lrel p₁ p₂ pub h₁.a.kc h₂.a.kc, by rw [h₁.a.sb, h₂.a.sb]; exact rho_pub pub⟩
+
+theorem quad_trK (v : Sample4Impl) {e : Nat} (hc : kqChk e = true) (he : e + 4 ≤ 9) :
+    RelCT isa (Rel2 keyGenK.pre keyGenK.pub (KB e)) (quad v.callee 3 e (sc (oP (6 + e))) (pS 17))
+      fun _ _ => True := by
+  simp only [kqChk, Bool.and_eq_true] at hc
+  exact rel2_of (RelCT.exists_ fun ρ => quad_tr (ρ := ρ) v kgB_bases (by omega) (fun k hk => ⟨by omega, by omega⟩)
+      hc.1.1.1.1.1)
+    fun σ₁ _ _ _ p₁ p₂ pub h₁ h₂ => ⟨kgRho (kgD σ₁), kc_lrel p₁ p₂ pub h₁.a.kc h₂.a.kc,
+      ⟨h₁.a.sb, fun _ h => absurd h (Nat.not_lt_zero _)⟩,
+      ⟨h₂.a.sb.trans (rho_pub pub).symm, fun _ h => absurd h (Nat.not_lt_zero _)⟩⟩
+
+theorem samples_tr (v : Sample4Impl) : RelCT isa (Rel2 keyGenK.pre keyGenK.pub (KB 0)) (samples v.callee)
+    (Rel2 keyGenK.pre keyGenK.pub (KB 9)) := by
+  unfold samples
+  exact RelCT.seq (relInv (fun σ s hp hs => quad_step v hp kqChk_all.1 (by decide) hs)
+    (quad_trK v kqChk_all.1 (by decide))) (RelCT.seq (relInv (fun σ s hp hs => quad_step v hp kqChk_all.2
+      (by decide) hs) (quad_trK v kqChk_all.2 (by decide)))
+    (relInv (fun σ s hp hs => sample_step hp (by decide) hs) (sample_tr (by decide))))
 
 /-! ## `ŝ` and `ê` -/
 

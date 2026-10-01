@@ -13,6 +13,13 @@ return address is at `[esp]`), each 4 bytes; `ebx`, `esi`, `edi`, `ebp` and
 `abiPreserved` demands that `esp` and the return-address slot are unchanged
 on exit. The caller removes the arguments.
 
+The nightly-only `-Zregparm=N` flag changes this: it passes the first `N`
+integer arguments of `extern "C"` (and `cdecl`) functions in `eax`, `edx` and
+`ecx` instead of on the stack, so the functions read other values than the
+arguments. There is no `cfg` for it, so the crate cannot refuse to build with
+it: it must not be built with `-Zregparm` (nor Clang's `-mregparm` for code
+calling it through the C ABI).
+
 Not modelled: the direction flag (no modelled instruction changes it; it is
 clear on entry and exit), x87/SSE state (never modified), and memory below
 `esp` (never granted to a function).
@@ -80,7 +87,9 @@ abbrev target : Target where
   isa := isa
   printer := printer
   abiPreserved := abiPreserved
-  rustCfg := "target_arch = \"x86\""
+  -- The model's baseline is i686 with SSE2 (`TCB/X86/Isa.lean`), which the
+  -- `i586-*` targets and `i686-unknown-uefi` lack.
+  rustCfg := "all(target_arch = \"x86\", target_feature = \"sse2\")"
   rustAbi := "C"
   abi := abi
 

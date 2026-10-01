@@ -65,9 +65,8 @@ def copy (o a : Nat) : List Instr :=
 
 /-- One carry step from `a` to `o`, with the incoming carry in `rcx`. -/
 def carryStep (o a i : Nat) : List Instr :=
-  [.mov .rax (.mem (sc (a + 8 * i))), .alu .add .rax (.reg .rcx),
-    .mov .rdx (.reg .rax), .alu .and .rdx (.imm mask28), .store (sc (o + 8 * i)) .rdx,
-    .mov .rcx (.reg .rax), .shift .shr .rcx 28]
+  [.mov .rax (.mem (sc (a + 8 * i))), .alu .add .rcx (.reg .rax), .mov .rax (.reg .rcx),
+    .alu .and .rax (.imm mask28), .store (sc (o + 8 * i)) .rax, .shift .shr .rcx 28]
 
 /-- Normalize the limbs, returning the carry out in `rcx`. -/
 def pass (o a : Nat) : List Instr :=

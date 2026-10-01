@@ -28,7 +28,9 @@ def scalarBaseFinish : Prog isa :=
     [.store (at_ .rdi 0) .r8, .store (at_ .rdi 8) .r9,
       .store (at_ .rdi 16) .r10, .store (at_ .rdi 24) .r11]))
 
-def scalarBase : Prog isa :=
-  .seq (.block (scalarSave ++ scalarBaseSetup)) (.seq scalarBaseEngine scalarBaseFinish)
+def scalarBaseWith (engine : Prog isa) : Prog isa :=
+  .seq (.block (scalarSave ++ scalarBaseSetup)) (.seq engine scalarBaseFinish)
+
+def scalarBase : Prog isa := scalarBaseWith scalarBaseEngine
 
 end VG.Impl.Ed25519.X86_64

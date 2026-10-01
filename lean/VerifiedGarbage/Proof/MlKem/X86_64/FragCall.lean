@@ -16,7 +16,7 @@ import VerifiedGarbage.Proof.MlKem.X86_64.SampleCT
 Untrusted: everything here is checked by Lean. A call, with the moves of
 its arguments before it (`glueCall_ok`), leaves the permissions and the
 callee-saved registers as they were, and changes memory only within the
-buffers it writes and the 24 bytes of stack below `rsp` (`Post`).
+buffers it writes and the 32 bytes of stack below `rsp` (`Post`).
 -/
 
 namespace VG.Proof.MlKem.X86_64
@@ -31,7 +31,7 @@ structure Post (s s' : State) (W : List Region) : Prop where
   rd : s'.rd = s.rd
   wr : s'.wr = s.wr
   cs : ∀ r ∈ calleeSaved, s'.gpr r = s.gpr r
-  frame : Frame (W ++ [below (s.gpr .rsp) 24]) s.mem s'.mem
+  frame : Frame (W ++ [below (s.gpr .rsp) 32]) s.mem s'.mem
 
 theorem Post.rsp {s s' : State} {W : List Region} (h : Post s s' W) : s'.gpr .rsp = s.gpr .rsp :=
   h.cs .rsp (by decide)
@@ -44,7 +44,7 @@ theorem argRegs_cs : ∀ r ∈ calleeSaved, r ∉ argRegs := by decide
 /-- The moves of the arguments, then a call of verified code. -/
 theorem glueCall_ok {glue : List Instr} {n : String} {c : Prog isa} {k : Contract isa}
     (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
-    (hsp : NoSp c) (hd : c.depth ≤ 2) {s : State} {V : State → Prop}
+    (hsp : NoSp c) (hd : c.depth ≤ 3) {s : State} {V : State → Prop}
     (hg : WP isa (.block glue) s fun s1 => (V s1 ∧ s1.mem = s.mem) ∧ Keep argRegs s s1)
     {rd wr : List Region} (hpre : ∀ s1, V s1 → s1.mem = s.mem → Keep argRegs s s1 →
       k.pre (s1.callEntry.withRegions rd wr))
@@ -82,7 +82,40 @@ theorem glueCall_tr {glue : List Instr} {n : String} {c : Prog isa} {k : Contrac
 theorem ce_gpr' (s : State) {r : Reg} (h : r ≠ .rsp) : s.callEntry.gpr r = s.gpr r := State.callEntry_gpr _ h
 
 /-- The return address of a call is apart from a region apart from the stack. -/
-theorem ret_disj (s : State) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint R) :
+theorem ret_disj (s : State) {R : Region} (h : (below (s.gpr .rsp) 32).Disjoint R) :
+    (retR s.callEntry).Disjoint R := by
+  refine h.sub_left ?_
+  simp only [retR, State.callEntry_rsp]
+  intro x hx
+  simp only [Region.Contains] at hx ⊢
+  rw [show x - (s.gpr .rsp - BitVec.ofNat 64 32) = (x - (s.gpr .rsp - 8)) + 24 by bv_omega, BitVec.toNat_add]
+  have : (24 : BitVec 64).toNat = 24 := rfl
+  omega
+
+/-- The stack a callee's own calls use (16 bytes below its return address). -/
+theorem stk_disj (s : State) {R : Region} (h : (below (s.gpr .rsp) 32).Disjoint R) :
+    (below (s.callEntry.gpr .rsp) 16).Disjoint R := by
+  refine h.sub_left ?_
+  simp only [State.callEntry_rsp]
+  intro x hx
+  simp only [Region.Contains] at hx ⊢
+  rw [show x - (s.gpr .rsp - BitVec.ofNat 64 32) = (x - (s.gpr .rsp - 8 - BitVec.ofNat 64 16)) + 8 by bv_omega,
+    BitVec.toNat_add]
+  have : (8 : BitVec 64).toNat = 8 := rfl
+  omega
+
+/-- The stack a callee's own calls use, for one that uses 24 bytes below its return address. -/
+theorem stk_disj24 (s : State) {R : Region} (h : (below (s.gpr .rsp) 32).Disjoint R) :
+    (below (s.callEntry.gpr .rsp) 24).Disjoint R := by
+  refine h.sub_left ?_
+  simp only [State.callEntry_rsp]
+  intro x hx
+  simp only [Region.Contains] at hx ⊢
+  rw [show x - (s.gpr .rsp - BitVec.ofNat 64 32) = x - (s.gpr .rsp - 8 - BitVec.ofNat 64 24) by bv_omega]
+  omega
+
+/-- `ret_disj` for a caller with 24 bytes of stack. -/
+theorem ret_disj24 (s : State) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint R) :
     (retR s.callEntry).Disjoint R := by
   refine h.sub_left ?_
   simp only [retR, State.callEntry_rsp]
@@ -92,8 +125,8 @@ theorem ret_disj (s : State) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint 
   have : (16 : BitVec 64).toNat = 16 := rfl
   omega
 
-/-- The stack a callee's own calls use (16 bytes below its return address). -/
-theorem stk_disj (s : State) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint R) :
+/-- `stk_disj` for a caller with 24 bytes of stack. -/
+theorem stk_disj24' (s : State) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint R) :
     (below (s.callEntry.gpr .rsp) 16).Disjoint R := by
   refine h.sub_left ?_
   simp only [State.callEntry_rsp]
@@ -102,20 +135,27 @@ theorem stk_disj (s : State) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint 
   rw [show x - (s.gpr .rsp - BitVec.ofNat 64 24) = x - (s.gpr .rsp - 8 - BitVec.ofNat 64 16) by bv_omega]
   omega
 
-theorem k16 (s : State) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint R) : (below (s.gpr .rsp) 16).Disjoint R :=
+theorem k16_24 (s : State) {R : Region} (h : (below (s.gpr .rsp) 24).Disjoint R) : (below (s.gpr .rsp) 16).Disjoint R :=
+  h.sub_left (below_sub (by omega) (by omega))
+
+theorem ce_bytesAt24 (s : State) {p : Addr} {n : Nat} (hn : n < 2 ^ 64)
+    (h : (below (s.gpr .rsp) 24).Disjoint ⟨p, n⟩) : bytesAt s.callEntry.mem p n = bytesAt s.mem p n :=
+  callEntry_bytesAt s hn (k16_24 s h)
+
+theorem k16 (s : State) {R : Region} (h : (below (s.gpr .rsp) 32).Disjoint R) : (below (s.gpr .rsp) 16).Disjoint R :=
   h.sub_left (below_sub (by omega) (by omega))
 
 /-- A polynomial apart from the stack reads the same on entry to a callee. -/
-theorem ce_polyAt (s : State) {p : Addr} (h : (below (s.gpr .rsp) 24).Disjoint (pR p)) :
+theorem ce_polyAt (s : State) {p : Addr} (h : (below (s.gpr .rsp) 32).Disjoint (pR p)) :
     polyAt s.callEntry.mem p = polyAt s.mem p :=
   polyAt_congr fun _ hi => callEntry_bytes s (R := pR p) (k16 s h) (by simp) hi
 
-theorem ce_reduced (s : State) {p : Addr} (h : (below (s.gpr .rsp) 24).Disjoint (pR p)) :
+theorem ce_reduced (s : State) {p : Addr} (h : (below (s.gpr .rsp) 32).Disjoint (pR p)) :
     Reduced s.callEntry.mem p ↔ Reduced s.mem p :=
   ⟨reduced_congr fun _ hi => (callEntry_bytes s (R := pR p) (k16 s h) (by simp) hi).symm,
     reduced_congr fun _ hi => callEntry_bytes s (R := pR p) (k16 s h) (by simp) hi⟩
 
-theorem ce_bytesAt (s : State) {p : Addr} {n : Nat} (hn : n < 2 ^ 64) (h : (below (s.gpr .rsp) 24).Disjoint ⟨p, n⟩) :
+theorem ce_bytesAt (s : State) {p : Addr} {n : Nat} (hn : n < 2 ^ 64) (h : (below (s.gpr .rsp) 32).Disjoint ⟨p, n⟩) :
     bytesAt s.callEntry.mem p n = bytesAt s.mem p n := callEntry_bytesAt s hn (k16 s h)
 
 end VG.Proof.MlKem.X86_64

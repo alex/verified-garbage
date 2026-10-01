@@ -171,7 +171,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha1_iterate(key: *const [u8
 /// * `scratch` must be valid for reads and writes of 1120 bytes.
 /// * `c` must be positive, and `out_len` at most `(2^32 - 1) * 20`.
 /// * The contents of `scratch` on return are unspecified.
-/// * `out` and `scratch` must not overlap each other, `password` or `salt` (distinct Rust objects never do).
+/// * `out` and `scratch` must not overlap each other, `password`, `salt` or the arguments on the stack (distinct Rust objects never do).
 /// * None of `password`, `salt`, `out` and `scratch` may overlap the return address on the stack or the 24 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha1(password: *const u8, password_len: usize, salt: *const u8, salt_len: usize, c: u32, out: *mut u8, out_len: usize, scratch: *mut [u64; 140]) {
@@ -505,7 +505,7 @@ pub(crate) const VG_PBKDF2_HMAC_SHA1_SHANI_FEATURES: &[&str] = &["sha", "ssse3"]
 /// * `scratch` must be valid for reads and writes of 1120 bytes.
 /// * `c` must be positive, and `out_len` at most `(2^32 - 1) * 20`.
 /// * The contents of `scratch` on return are unspecified.
-/// * `out` and `scratch` must not overlap each other, `password` or `salt` (distinct Rust objects never do).
+/// * `out` and `scratch` must not overlap each other, `password`, `salt` or the arguments on the stack (distinct Rust objects never do).
 /// * None of `password`, `salt`, `out` and `scratch` may overlap the return address on the stack or the 24 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
 #[unsafe(naked)]

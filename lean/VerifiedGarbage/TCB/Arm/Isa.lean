@@ -29,6 +29,20 @@ Modelling choices:
   addresses of `Mem`. Memory accesses must lie within the state's permitted
   regions: loads within `rd ++ wr`, stores within `wr`; otherwise the
   instruction faults. Memory is little-endian.
+* Word loads and stores (`ldr`, `str`) need no alignment, and the code does
+  them on byte buffers at any address. ARMv7 supports unaligned `LDR` and
+  `STR` to Normal memory when alignment checking is off (`SCTLR.A` = 0 on
+  ARMv7-A and -R: DDI 0406C.d A3.2.1, "Unaligned data access", Table A3-1;
+  `CCR.UNALIGN_TRP` = 0 on ARMv7-M: DDI 0403E.b A3.2.1, "Alignment
+  behavior"). An unaligned access to Device or Strongly-ordered memory is not
+  permitted: it faults, or without the Virtualization Extensions is
+  UNPREDICTABLE (DDI 0406C.d A3.2.2); and with the stage 1 MMU disabled every
+  data access is Strongly-ordered (DDI 0406C.d B3.2.1). Linux, Android and
+  the other hosted targets run user code with alignment checking off over
+  Normal memory. A bare-metal program (e.g. on `armv7a-none-eabi`, which
+  Rust builds with `+strict-align` for this reason) must do the same: turn
+  alignment checking off and run the code with the MMU on, with every buffer
+  it passes in Normal memory. The model does not describe any other setting.
 * Instructions whose timing depends on their operands (e.g. `sdiv`, `udiv`)
   must never be added: the constant-time leakage model assumes they do not
   exist. ARMv7 makes no architectural promise about multiply timing (it has
@@ -162,11 +176,13 @@ def setReg (s : State) (r : Reg) (x : BitVec 32) : State :=
 /-- The 64-bit address of a 32-bit address. -/
 def addr (a : BitVec 32) : Addr := a.setWidth 64
 
-/-- Load 4 bytes, faulting if not permitted. -/
+/-- Load 4 bytes, faulting if not permitted. The address need not be aligned
+(see "Word loads and stores" above). -/
 def load32 (s : State) (a : Addr) : Option (BitVec 32) :=
   if InRegions (s.rd ++ s.wr) a 4 then some (s.mem.readW a 32) else none
 
-/-- Store 4 bytes, faulting if not permitted. -/
+/-- Store 4 bytes, faulting if not permitted. The address need not be aligned
+(see "Word loads and stores" above). -/
 def store32 (s : State) (a : Addr) (x : BitVec 32) : Option State :=
   if InRegions s.wr a 4 then some { s with mem := s.mem.writeW a x } else none
 

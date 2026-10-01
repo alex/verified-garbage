@@ -107,9 +107,15 @@ theorem stored_write {m : Mem} {aP : Addr} {L : List Zq} (h : Stored m aP L) (hL
   rw [coeffAt_writeW _ _ (show k < 256 by omega) hL, ifn (by omega)]
   exact h k hk
 
+/-- The coefficients at `aP` may be written. -/
+def WrA (wr : List Region) (aP : Addr) : Prop := ∀ j < 256, InRegions wr (coeffAddr aP j) 4
+
+theorem WrA.of_mem {wr : List Region} {aP : Addr} (h : pR aP ∈ wr) : WrA wr aP := fun _ hj =>
+  ⟨_, h, coeff_contains _ hj⟩
+
 /-- Store the value of `r` to `a[j]`, and count it if it is less than `q`. -/
 theorem snTry_ok (r : Reg) (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .rbp = aP)
-    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length < 256) (hw : pR aP ∈ s.wr)
+    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length < 256) (hw : WrA s.wr aP)
     (hst : Stored s.mem aP L) :
     WP isa (.block (snTry r)) s fun s' =>
       s'.gpr .rdi = BitVec.ofNat 64 (if ((s.gpr r).setWidth 32).toNat < q
@@ -118,7 +124,7 @@ theorem snTry_ok (r : Reg) (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .r
         then L ++ [ofNat ((s.gpr r).setWidth 32).toNat] else L) ∧
       Frame [pR aP] s.mem s'.mem ∧ Keep [.rdi, r] s s' := by
   have ha := ea_aJ s hbp hdi hL
-  have hin : InRegions s.wr (coeffAddr aP L.length) 4 := ⟨_, hw, coeff_contains _ hL⟩
+  have hin : InRegions s.wr (coeffAddr aP L.length) 4 := hw _ hL
   refine WP.mono (WP.keep [.rdi, r] (Q := fun s' =>
       s'.mem = s.mem.writeW (coeffAddr aP L.length) ((s.gpr r).setWidth 32) ∧
       s'.gpr .rdi = s.gpr .rdi + BitVec.setWidth 64 (BitVec.ofBool (decide (((s.gpr r).setWidth 32).toNat < 3329))))
@@ -163,7 +169,7 @@ def midL (L : List Zq) (d1 d2 : Nat) : List Zq := if L.length < 256 then stepD L
 
 /-- The two tries, if `j < 256`. -/
 theorem snMid_ok (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .rbp = aP)
-    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : pR aP ∈ s.wr)
+    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : WrA s.wr aP)
     (hst : Stored s.mem aP L) (hcf : s.cf = some (decide ((s.gpr .rdi).toNat < 256))) :
     WP isa (.ite .b (.seq (.block (snTry .r9)) (.seq (.block [.alu .cmp .rdi (.imm 256)]) (.ite .b (.block (snTry .r8)) (.block []))))
         (.block [])) s fun s' =>
@@ -221,7 +227,7 @@ theorem snStep_ok (s : State) :
 
 /-- An iteration: what `sampleStepCap` does to the coefficients `L`. -/
 theorem snBody_ok (s : State) {aP : Addr} {L : List Zq} (hbp : s.gpr .rbp = aP)
-    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : pR aP ∈ s.wr)
+    (hdi : s.gpr .rdi = BitVec.ofNat 64 L.length) (hL : L.length ≤ 256) (hw : WrA s.wr aP)
     (hst : Stored s.mem aP L) (h0 : InRegions (s.rd ++ s.wr) (s.gpr .rsi) 1)
     (h1 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 1) 1)
     (h2 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 2) 1) :

@@ -47,9 +47,9 @@ structure KAbsH (src : Ptr) (len rate pos : Nat) (s : State) : Prop where
   st_scr : Region.Disjoint ⟨pa s (sc 0), 200⟩ ⟨pa s (sc 200), 640⟩
   d_st : Region.Disjoint ⟨pa s src, len⟩ ⟨pa s (sc 0), 200⟩
   d_scr : Region.Disjoint ⟨pa s src, len⟩ ⟨pa s (sc 200), 640⟩
-  k_st : (below (s.gpr .rsp) 24).Disjoint ⟨pa s (sc 0), 200⟩
-  k_d : (below (s.gpr .rsp) 24).Disjoint ⟨pa s src, len⟩
-  k_scr : (below (s.gpr .rsp) 24).Disjoint ⟨pa s (sc 200), 640⟩
+  k_st : (below (s.gpr .rsp) 32).Disjoint ⟨pa s (sc 0), 200⟩
+  k_d : (below (s.gpr .rsp) 32).Disjoint ⟨pa s src, len⟩
+  k_scr : (below (s.gpr .rsp) 32).Disjoint ⟨pa s (sc 200), 640⟩
   c : Covers ([⟨pa s src, len⟩] ++ [⟨pa s (sc 0), 200⟩, ⟨pa s (sc 200), 640⟩]) (s.rd ++ s.wr)
   w : Covers [⟨pa s (sc 0), 200⟩, ⟨pa s (sc 200), 640⟩] s.wr
 
@@ -140,8 +140,8 @@ structure KPadH (rate pos : Nat) (s : State) : Prop where
   hrate : rate ∈ rates
   hpos : pos < rate
   st_scr : Region.Disjoint ⟨pa s (sc 0), 200⟩ ⟨pa s (sc 200), 640⟩
-  k_st : (below (s.gpr .rsp) 24).Disjoint ⟨pa s (sc 0), 200⟩
-  k_scr : (below (s.gpr .rsp) 24).Disjoint ⟨pa s (sc 200), 640⟩
+  k_st : (below (s.gpr .rsp) 32).Disjoint ⟨pa s (sc 0), 200⟩
+  k_scr : (below (s.gpr .rsp) 32).Disjoint ⟨pa s (sc 200), 640⟩
   w : Covers [⟨pa s (sc 0), 200⟩, ⟨pa s (sc 200), 640⟩] s.wr
 
 theorem b8_ofNat64 {v : Nat} (_hv : v < 256) : BitVec.setWidth 8 (BitVec.ofNat 64 v) = BitVec.ofNat 8 v := by
@@ -224,9 +224,9 @@ structure KSqzH (dst : Ptr) (len rate : Nat) (s : State) : Prop where
   st_out : Region.Disjoint ⟨pa s (sc 0), 200⟩ ⟨pa s dst, len⟩
   st_scr : Region.Disjoint ⟨pa s (sc 0), 200⟩ ⟨pa s (sc 200), 640⟩
   out_scr : Region.Disjoint ⟨pa s dst, len⟩ ⟨pa s (sc 200), 640⟩
-  k_st : (below (s.gpr .rsp) 24).Disjoint ⟨pa s (sc 0), 200⟩
-  k_out : (below (s.gpr .rsp) 24).Disjoint ⟨pa s dst, len⟩
-  k_scr : (below (s.gpr .rsp) 24).Disjoint ⟨pa s (sc 200), 640⟩
+  k_st : (below (s.gpr .rsp) 32).Disjoint ⟨pa s (sc 0), 200⟩
+  k_out : (below (s.gpr .rsp) 32).Disjoint ⟨pa s dst, len⟩
+  k_scr : (below (s.gpr .rsp) 32).Disjoint ⟨pa s (sc 200), 640⟩
   w : Covers [⟨pa s (sc 0), 200⟩, ⟨pa s dst, len⟩, ⟨pa s (sc 200), 640⟩] s.wr
 
 theorem ksqzGlue_ok (dst : Ptr) (len rate : Nat) (ho : dst.2 < 2 ^ 31) (hl : len < 2 ^ 31) (hr : rate < 2 ^ 31)
