@@ -236,7 +236,7 @@ structure Api where
   sig : Sig
   writeArgs : Bool := false
   /-- The function's contract on every target, `fun A stack => fooContract A
-  stack` (`none` only until every `Api` has one). -/
+  stack`. The emitter refuses an artifact without one (`Rust.checkApi`). -/
   contracts : Option Contracts := none
   /-- The documentation, up to its `# Safety` section. -/
   summary : String
@@ -285,7 +285,8 @@ structure Artifact where
     exact ⟨_, _, _, rfl⟩
   /-- The contract of the function on every target, which an artifact made
   from an `Api` (`{ api with … }`) takes from it with its `name` and `sig`
-  (`Api.contracts`); `none` for an artifact that is not made from one. -/
+  (`Api.contracts`). The emitter refuses an artifact without one
+  (`Rust.checkApi`). -/
   contracts : Option Contracts := none
   /-- `contract` is `contracts` on the target, for `stack`: an artifact made
   from an `Api` is proven against the contract `Spec/` gives the function,

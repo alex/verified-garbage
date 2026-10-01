@@ -78,7 +78,8 @@ never import proofs.
    (`Api.contracts`), and must be proven against exactly that contract on its
    target (`Artifact.ofApi`), so a registration file, or a proof building
    artifacts for a generic caller, cannot pair a function's name with another
-   function's contract. An `Artifact` cannot be built
+   function's contract; the emitter refuses an artifact that is not made from
+   an `Api` with a contract. An `Artifact` cannot be built
    without the proof, and the emitter's `#assert_standard_axioms` rejects
    `sorry`, `native_decide` and any non-standard axiom anywhere in them. The
    emitter runs compiled code, so it also rejects anything that makes the
