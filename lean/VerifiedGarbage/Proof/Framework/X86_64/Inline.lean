@@ -223,6 +223,7 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     simp only [hn, and_self, ite_true]
     cases op <;> (simp only [Option.some.injEq] at h; subst h; rfl)
   | movImm64 d v => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
+  | vpmovmskb len d r => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
   | movdquLoad d m =>
     simp only [exec, Option.map_eq_some_iff] at h
     obtain ⟨v, hv, rfl⟩ := h
