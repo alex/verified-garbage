@@ -1,4 +1,4 @@
-//! Triple DES ECB, including key expansion and unpadded streaming.
+//! Triple DES ECB, including key expansion and in-place encryption/decryption.
 
 use criterion::Criterion;
 
@@ -12,7 +12,7 @@ pub fn bench(c: &mut Criterion) {
     use criterion::{BenchmarkId, Throughput};
     use openssl::nid::Nid;
     use openssl::symm::{Cipher, Crypter, Mode};
-    use verified_garbage::triple_des_ecb::{Direction, TripleDesEcb};
+    use verified_garbage::triple_des_ecb::TripleDesEcb;
 
     use crate::{OPENSSL, SIZES, VG};
 
@@ -21,21 +21,25 @@ pub fn bench(c: &mut Criterion) {
         (16, Cipher::from_nid(Nid::DES_EDE_ECB).unwrap()),
         (24, Cipher::des_ede3_ecb()),
     ] {
-        for (operation, direction, mode) in [
-            ("encrypt", Direction::Encrypt, Mode::Encrypt),
-            ("decrypt", Direction::Decrypt, Mode::Decrypt),
+        for (operation, encrypt, mode) in [
+            ("encrypt", true, Mode::Encrypt),
+            ("decrypt", false, Mode::Decrypt),
         ] {
             let mut group = c.benchmark_group(format!("3des-ecb-{operation}-{key_len}"));
             for size in SIZES {
                 group.throughput(Throughput::Bytes(size as u64));
                 let data = vec![0x5a; size];
+                let mut buffer = vec![0; size];
                 group.bench_function(BenchmarkId::new(VG, size), |b| {
                     b.iter(|| {
-                        let mut ctx =
-                            TripleDesEcb::init(black_box(&key[..key_len]), direction).unwrap();
-                        let output = ctx.update(black_box(&data));
-                        black_box(ctx.finalize().unwrap());
-                        black_box(output)
+                        let ctx = TripleDesEcb::new(black_box(&key[..key_len])).unwrap();
+                        buffer.copy_from_slice(black_box(&data));
+                        if encrypt {
+                            ctx.encrypt(black_box(&mut buffer)).unwrap();
+                        } else {
+                            ctx.decrypt(black_box(&mut buffer)).unwrap();
+                        }
+                        black_box(&buffer);
                     })
                 });
                 let mut output = vec![0; size + 8];
