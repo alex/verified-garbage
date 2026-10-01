@@ -19,7 +19,7 @@ theorem decodeBlock_cat (b : Block) : decodeBlock b = catBlock b := by
   have h : (catBlock b).setWidth 64 = catBlock b := by simp
   rw [← h]
   simp only [catBlock, BitVec.setWidth_append_eq_shiftLeft_setWidth_or]
-  simp only [Fin.val_succ, Fin.val_zero]
+  simp
   rfl
 
 end VG.Proof.TripleDes
