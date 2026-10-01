@@ -36,5 +36,7 @@ structure Prims where
   simpleBitPack : Prog isa
   /-- `vg_mldsa_bit_pack` -/
   bitPack : Prog isa
+  /-- What the names of the polynomial arithmetic's functions end with (`Arith.Backend`). -/
+  sfx : String := ""
 
 end VG.Impl.MlDsa.X86_64.KeyGen
