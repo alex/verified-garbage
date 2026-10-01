@@ -343,7 +343,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2</td>
+<td>✅ AVX-512F, AVX2</td>
 
 <td>✅</td>
 
