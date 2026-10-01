@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.ChaCha20.AArch64.XorCallee
-import VerifiedGarbage.Impl.Poly1305.AArch64
+import VerifiedGarbage.Impl.Poly1305.AArch64.Radix64
 
 /-!
 # ChaCha20-Poly1305: AArch64 implementation
@@ -92,12 +92,12 @@ def padTail : Prog isa :=
     .addImm .x .x9 .x21 576])
   (.seq copyLoop
   (.seq (.block [.addImm .x .x0 .x21 448, .addImm .x .x1 .x21 576, .movz .x .x2 1 0])
-    (.call "vg_poly1305_blocks" Impl.Poly1305.AArch64.blocks)))
+    (.call "vg_poly1305_blocks" Impl.Poly1305.AArch64.Radix64.blocks)))
 
 /-- The `n` bytes at `p`, padded with zeros to a multiple of 16, absorbed. -/
 def macPad (p n : Reg) : Prog isa :=
   .seq (.block [.addImm .x .x0 .x21 448, mov .x1 p, .lsr .x .x2 n 4])
-  (.seq (.call "vg_poly1305_blocks" Impl.Poly1305.AArch64.blocks)
+  (.seq (.call "vg_poly1305_blocks" Impl.Poly1305.AArch64.Radix64.blocks)
   (.seq (.block [.lsl .x .x10 n 60, .lsr .x .x10 .x10 60])
     (.ite (.zero .x .x10) (.block [])
       (.seq (.block [.sub .x .x9 n .x10, .add .x .x1 p .x9]) padTail))))
@@ -114,14 +114,14 @@ def lengths : List Instr := [.str .x .x25 .x21 656, .str .x .x23 .x21 664]
 /-- The lengths block absorbed. -/
 def absorbLengths : Prog isa :=
   .seq (.block [.addImm .x .x0 .x21 448, .addImm .x .x1 .x21 656, .movz .x .x2 1 0])
-    (.call "vg_poly1305_blocks" Impl.Poly1305.AArch64.blocks)
+    (.call "vg_poly1305_blocks" Impl.Poly1305.AArch64.Radix64.blocks)
 
 /-- The tag written to `x21 + out`: the message is whole blocks, so its
 length (`count`) is 0 modulo 16, and nothing is buffered. -/
 def finalizeTo (out : Nat) : Prog isa :=
   .seq (.block [.addImm .x .x0 .x21 448, .movz .x .x1 0 0, .addImm .x .x2 .x21 out,
     .addImm .x .x3 .x21 672])
-    (.call "vg_poly1305_finalize" Impl.Poly1305.AArch64.finalize)
+    (.call "vg_poly1305_finalize" Impl.Poly1305.AArch64.Radix64.finalize)
 
 def sealWith (c : XorCallee) : Prog isa :=
   .seq prologue

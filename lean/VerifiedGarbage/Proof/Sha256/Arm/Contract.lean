@@ -49,16 +49,17 @@ low word in `r2`). -/
 def countArm (s : Arm.State) : BitVec 64 := s.gpr .r3 ++ s.gpr .r2
 
 open Arm in
-/-- 32-bit ARM contract for `vg_sha256_init(state: *mut [u8; 96])`: makes the
-streaming state at `state` represent the empty message.
+/-- 32-bit ARM contract for `vg_sha256_init(state: *mut [u8; 96])` and
+`vg_sha224_init`, which store the initial hash value `iv`: makes the
+streaming state at `state` represent the empty message, hashed from `iv`.
 
 The code may write `state` (96 bytes), which may not wrap around the end of
 the (32-bit) address space. The pointer is public. -/
-def initArm : Contract Arm.isa where
+def initArm (iv : HashValue) : Contract Arm.isa where
   pre s :=
     let state : Region := ⟨State.addr (s.gpr .r0), 96⟩
     s.rd = [] ∧ s.wr = [state] ∧ (s.gpr .r0).toNat + 96 ≤ 2 ^ 32
-  post s s' := Repr s'.mem (State.addr (s.gpr .r0)) []
+  post s s' := ReprFrom iv s'.mem (State.addr (s.gpr .r0)) []
   pub s₁ s₂ := s₁.gpr .r0 = s₂.gpr .r0
 
 open Arm in

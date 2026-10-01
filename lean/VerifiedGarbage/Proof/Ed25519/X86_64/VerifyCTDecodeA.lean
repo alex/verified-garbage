@@ -6,12 +6,14 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64 Edwards
 
+variable {fld : Arith} [EdArith fld]
+
 theorem verifyStoreA_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte)
     (a : Spec.Ed25519.Point) {Aa : EPoint dZ} (hA : Rep a Aa) :
     RelCT isa (fun s t => (VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧
       point (env s.mem base) 0 1 2 3 = a) ∧ (VerifyPublic base pk sig challenge pkbs rbs sbs kbs t ∧
       point (env t.mem base) 0 1 2 3 = a))
-      (.seq (.block (pointTableWrite 7424)) verifyDecodeR) (fun _ _ => True) := by
+      (.seq (.block (pointTableWrite 7424)) (verifyDecodeR fld)) (fun _ _ => True) := by
   have ht := (pointTableWrite_ct base 7424 (by decide)).mono
     (fun s t (h : (VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧
       point (env s.mem base) 0 1 2 3 = a) ∧ (VerifyPublic base pk sig challenge pkbs rbs sbs kbs t ∧
@@ -28,11 +30,11 @@ theorem verifyStoreA_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List 
 
 theorem verifyDecodeA_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte) :
     RelCT isa (fun s t => VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧
-      VerifyPublic base pk sig challenge pkbs rbs sbs kbs t) verifyDecodeA (fun _ _ => True) := by
+      VerifyPublic base pk sig challenge pkbs rbs sbs kbs t) (verifyDecodeA fld) (fun _ _ => True) := by
   let P := VerifyPublic base pk sig challenge pkbs rbs sbs kbs
   have loadCT : RelCT isa (fun s t => P s ∧ P t)
       (.block [.mov .rdx (.mem (Impl.X25519.X86_64.sc 7936))]) (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+    apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
     exact fun _ _ h => rdi_agree h.1.context.scratch.rdi h.2.context.scratch.rdi
   have loadWP (s : State) (h : P s) :
       WP isa (.block [.mov .rdx (.mem (Impl.X25519.X86_64.sc 7936))]) s fun t =>
@@ -42,12 +44,12 @@ theorem verifyDecodeA_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List
     have hp := h.of_keep kp
     exact ⟨hp, hp.context.scratch, tp.trans h.context.pkHeader, hp.context.pkRead, hp.pkBytes⟩
   have hl := VG.RelCT.wp loadCT (fun s t h => ⟨loadWP s h.1, loadWP t h.2⟩)
-  have decodeCT := (pointDecode_ct base pk pkbs).mono
+  have decodeCT := (pointDecode_ct (fld := fld) base pk pkbs).mono
     (fun s t (h : (P s ∧ DecodeCTPre base pk pkbs s) ∧ (P t ∧ DecodeCTPre base pk pkbs t)) =>
       ⟨h.1.2, h.2.2⟩) (fun _ _ h => h)
   have decodeWP (s : State) (h : P s ∧ DecodeCTPre base pk pkbs s) :
-      WP isa pointDecode s fun t => P t ∧ DecodeResult base (Spec.Ed25519.decodePoint pkbs) t := by
-    have hd := pointDecode_ok (base := base) (p := pk) h.2.1 h.2.2.1 h.2.2.2.1
+      WP isa (pointDecode fld) s fun t => P t ∧ DecodeResult base (Spec.Ed25519.decodePoint pkbs) t := by
+    have hd := pointDecode_ok (fld := fld) (base := base) (p := pk) h.2.1 h.2.2.1 h.2.2.2.1
     rw [h.2.2.2.2] at hd
     with_reducible apply WP.mono hd
     intro t ht

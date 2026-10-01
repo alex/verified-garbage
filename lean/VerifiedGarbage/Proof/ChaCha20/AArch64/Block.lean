@@ -184,13 +184,17 @@ abbrev Rs : CState := Nat.repeat innerBlock 10 (V s₀)
 end
 
 structure Pre (s₀ : State) : Prop where
-  rd : s₀.rd = [stR s₀]
-  wr : s₀.wr = [bufR s₀]
+  read : ∀ k < 16, InRegions (s₀.rd ++ s₀.wr) (st s₀ + BitVec.ofNat 64 (4 * k)) 4
+  write : ∀ k < 16, InRegions s₀.wr (buf s₀ + BitVec.ofNat 64 (4 * k)) 4
   buf_st : (bufR s₀).Disjoint (stR s₀)
 
 theorem pre_of (s₀ : State) (h : Proof.ChaCha20.blockAArch64.pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3⟩ := h
-  exact ⟨h1, h2, h3⟩
+  refine ⟨?_, ?_, h3⟩
+  · intro k hk
+    exact ⟨stR s₀, by simp [h1], Offset.contains_base _ (by omega) (by omega)⟩
+  · intro k hk
+    exact ⟨bufR s₀, by simp [h2], Offset.contains_base _ (by omega) (by omega)⟩
 
 theorem toNat_ofNat_lt {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = n := by
   rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt h
@@ -202,16 +206,16 @@ namespace Pre
 variable {s₀ : State} (hp : Pre s₀)
 include hp
 
-theorem in_st {k : Nat} (hk : k < 16) (ws : List Region) :
-    InRegions (s₀.rd ++ ws) (st s₀ + BitVec.ofNat 64 (4 * k)) 4 :=
-  ⟨stR s₀, by simp [hp.rd], contains_off (by lit_omega) (by lit_omega)⟩
+theorem in_st {k : Nat} (hk : k < 16) :
+    InRegions (s₀.rd ++ s₀.wr) (st s₀ + BitVec.ofNat 64 (4 * k)) 4 := hp.read k hk
 
 theorem in_out {k : Nat} (hk : k < 16) (rs : List Region) :
-    InRegions (rs ++ s₀.wr) (buf s₀ + BitVec.ofNat 64 (4 * k)) 4 :=
-  ⟨bufR s₀, by simp [hp.wr], contains_off (by lit_omega) (by lit_omega)⟩
+    InRegions (rs ++ s₀.wr) (buf s₀ + BitVec.ofNat 64 (4 * k)) 4 := by
+  obtain ⟨r,hr,hc⟩ := hp.write k hk
+  exact ⟨r,List.mem_append_right _ hr,hc⟩
 
 theorem out_out {k : Nat} (hk : k < 16) : InRegions s₀.wr (buf s₀ + BitVec.ofNat 64 (4 * k)) 4 :=
-  ⟨bufR s₀, by simp [hp.wr], contains_off (by lit_omega) (by lit_omega)⟩
+  hp.write k hk
 
 /-- Reading the input state after writes to the output only. -/
 theorem read_st {m : Mem} (hf : Frame [outR s₀] s₀.mem m) {k : Nat} (hk : k < 16) :
@@ -254,7 +258,7 @@ theorem load_step {s₀ : State} (hp : Pre s₀) {n : Nat} (hn : n < 16) {s : St
     WP isa (.block [.ldr .w (wreg n) .x0 (4 * n)]) s (LI s₀ (n + 1)) := by
   have hx0 : s.gpr .x0 = st s₀ := h.keep _ not_words_x0
   have hin : InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 (4 * n)) 4 := by
-    rw [h.rd, h.wr, hx0]; exact hp.in_st hn _
+    rw [h.rd, h.wr, hx0]; exact hp.in_st hn
   have hv : s.mem.readW (st s₀ + BitVec.ofNat 64 (4 * n)) 32 = (V s₀)[n] := by
     rw [h.mem]; exact hp.read_st (Frame.refl _ _) hn
   apply WP.of_runBlock
@@ -292,7 +296,7 @@ theorem add_step {s₀ : State} (hp : Pre s₀) {R : CState} {sB : State} {i : N
   have hx0 : s.gpr .x0 = st s₀ := h.keep _ not_words_x0
   have hx1 : s.gpr .x1 = buf s₀ := h.keep _ not_words_x1
   have hin : InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 (4 * (i + 1))) 4 := by
-    rw [h.rd, h.wr, hx0]; exact hp.in_st hk _
+    rw [h.rd, h.wr, hx0]; exact hp.in_st hk
   have hout : InRegions s.wr (s.gpr .x1 + BitVec.ofNat 64 (4 * (i + 1))) 4 := by
     rw [h.wr, hx1]; exact hp.out_out hk
   have hv := hp.read_st h.frame hk
@@ -351,11 +355,11 @@ theorem last_ok {s₀ : State} (hp : Pre s₀) {R : CState} {sB s : State} (h : 
     WP isa (.block [.ldr .w .x2 .x0 0, .ldr .w .x3 .x1 0, .add .w .x2 .x3 .x2, .str .w .x2 .x1 0]) s
       fun s' => (∀ j (hj : j < 16),
         s'.mem.readW (buf s₀ + BitVec.ofNat 64 (4 * j)) 32 = R[j] + (V s₀)[j]) ∧
-        (∀ r, ¬ Words r → s'.gpr r = s₀.gpr r) := by
+        (∀ r, ¬ Words r → s'.gpr r = s₀.gpr r) ∧ Frame [outR s₀] s₀.mem s'.mem := by
   have hx0 : s.gpr .x0 = st s₀ := h.keep _ not_words_x0
   have hx1 : s.gpr .x1 = buf s₀ := h.keep _ not_words_x1
   have hin : InRegions (s.rd ++ s.wr) (st s₀ + BitVec.ofNat 64 (4 * 0)) 4 := by
-    rw [h.rd, h.wr]; exact hp.in_st (by lit_omega) _
+    rw [h.rd, h.wr]; exact hp.in_st (by lit_omega)
   have hin' : InRegions (s.rd ++ s.wr) (buf s₀ + BitVec.ofNat 64 (4 * 0)) 4 := by
     rw [h.rd, h.wr]; exact hp.in_out (by lit_omega) _
   have hout : InRegions s.wr (buf s₀ + BitVec.ofNat 64 (4 * 0)) 4 := by
@@ -369,7 +373,7 @@ theorem last_ok {s₀ : State} (hp : Pre s₀) {R : CState} {sB s : State} (h : 
     (show 4 * 0 % 4 = 0 ∧ 4 * 0 < 16384 by omega), isa, State.read, State.write, Size.bits, hx0,
     hx1, hin, hin', hout, hv, h.out0, ite_true, ite_false, BitVec.setWidth_setWidth_of_le,
     BitVec.setWidth_eq, Option.some.injEq, exists_eq_left']
-  refine ⟨fun j hj => ?_, fun r hr => ?_⟩
+  refine ⟨fun j hj => ?_, fun r hr => ?_, ?_⟩
   · by_cases hj0 : j = 0
     · subst hj0; exact Mem.readW_writeW_self32 _ _ _
     · rw [readW_writeW_out _ _ _ hj (show 0 < 16 by omega) hj0]
@@ -377,6 +381,9 @@ theorem last_ok {s₀ : State} (hp : Pre s₀) {R : CState} {sB s : State} (h : 
   · have e2 : r ≠ .x2 := fun e => hr ⟨0, by omega, e⟩
     have e3 : r ≠ .x3 := fun e => hr ⟨1, by omega, e⟩
     simp only [e2, e3, ite_false]; exact h.keep r hr
+
+  · exact h.frame.writeW (List.mem_singleton_self _) _
+      (contains_off (by decide : 0 + 4 ≤ 64) (by decide))
 
 /-! ## The whole function -/
 
@@ -408,7 +415,7 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     (h₂.wr.trans h₁.wr) hk₂) fun s₃ h₃ => ?_
   refine WP.mono (wp_range_flatMap (M := isa) (FI s₀ (Rs s₀) s₂) (fun i s hi h => add_step hp hi h) 15 (Nat.le_refl _)
     s₃ h₃) fun s₄ h₄ => ?_
-  refine WP.mono (last_ok hp h₄) fun s' ⟨hout, hk'⟩ => ⟨fun r hr => hk' r (not_words_preserved hr), ?_⟩
+  refine WP.mono (last_ok hp h₄) fun s' ⟨hout, hk', _⟩ => ⟨fun r hr => hk' r (not_words_preserved hr), ?_⟩
   exact block_post hout
 
 /-- A state satisfying the precondition. -/

@@ -8,14 +8,14 @@ open VG.X86_64
 
 def affineOps : List FieldOp := [.mul 0 0 15, .mul 1 1 15]
 
-def pointAffine : Prog isa :=
-  .seq (VG.Impl.X25519.X86_64.invert VG.Impl.X25519.X86_64.baseline) (.block (fieldCode affineOps))
+def pointAffine (fld : Arith) : Prog isa :=
+  .seq (VG.Impl.X25519.X86_64.invert fld) (.block (fieldCode fld affineOps))
 
 def pointSign : List Instr :=
   [.mov .rbx (.reg .r8), .alu .and .rbx (.imm 1), .shift .ror .rbx 1]
 
-def pointEncode : Prog isa :=
-  .seq pointAffine (.block (VG.Impl.X25519.X86_64.freeze 64 ++ pointSign ++
+def pointEncode (fld : Arith) : Prog isa :=
+  .seq (pointAffine fld) (.block (VG.Impl.X25519.X86_64.freeze 64 ++ pointSign ++
     VG.Impl.X25519.X86_64.freeze 96 ++ [.alu .add .r11 (.reg .rbx)]))
 
 end VG.Impl.Ed25519.X86_64
