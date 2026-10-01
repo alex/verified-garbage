@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.Poly1305.X86_64.Avx2
+import VerifiedGarbage.Impl.Poly1305.X86_64.Avx512
 
 /-!
 # The implementations of `vg_poly1305_blocks` on x86-64
@@ -20,20 +20,25 @@ inductive Blocks where
   | scalar
   /-- `vg_poly1305_blocks_avx2`. -/
   | avx2
+  /-- `vg_poly1305_blocks_avx512`. -/
+  | avx512
 
 /-- Its symbol. -/
 def Blocks.name : Blocks → String
   | .scalar => "vg_poly1305_blocks"
   | .avx2 => "vg_poly1305_blocks_avx2"
+  | .avx512 => "vg_poly1305_blocks_avx512"
 
 /-- Its code. -/
 def Blocks.code : Blocks → Prog isa
   | .scalar => blocks
   | .avx2 => Avx2.blocksAvx2
+  | .avx512 => Avx512.blocksAvx512
 
 /-- The CPU features its code requires. -/
 def Blocks.features : Blocks → List String
   | .scalar => []
   | .avx2 => ["avx", "avx2"]
+  | .avx512 => ["avx", "avx512f", "avx2"]
 
 end VG.Impl.Poly1305.X86_64
