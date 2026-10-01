@@ -22,4 +22,13 @@ theorem decodeBlock_cat (b : Block) : decodeBlock b = catBlock b := by
   simp
   rfl
 
+
+theorem blockAt_eq_of_frame {rs : List VG.Region} {m m' : VG.Mem} (p : VG.Addr)
+    (hf : VG.Frame rs m m')
+    (hd : ∀ r ∈ rs, (⟨p, 8⟩ : VG.Region).Disjoint r) : blockAt m' p = blockAt m p := by
+  apply Vector.ext
+  intro i hi
+  simp only [blockAt, Vector.getElem_ofFn]
+  exact hf.bytes hd (by change 8 ≤ 2 ^ 64; decide) hi
+
 end VG.Proof.TripleDes

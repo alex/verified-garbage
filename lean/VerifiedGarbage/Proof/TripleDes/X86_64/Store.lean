@@ -85,4 +85,14 @@ theorem blockStore_ok (s : State) (l r : BitVec 32)
     exact (regs₃ q (hneq q hq).1 (hneq q hq).2.1).trans
       ((regs₂ q hno).trans (regs₁ q (hneq q hq).1))
 
+
+theorem writeData_ok (s : State) (hwrite : InRegions s.wr (s.gpr .rsi) 8) :
+    ∃ s', runBlock isa [.store (memOp .rsi 0) .rax] s = some s' ∧
+      s'.mem = s.mem.writeW (s.gpr .rsi) (s.gpr .rax) ∧
+      s'.gpr = s.gpr ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+  have haddr : s.gpr .rsi + BitVec.ofInt 64 (Int.ofNat 0) = s.gpr .rsi := BitVec.add_zero _
+  refine ⟨{ s with mem := s.mem.writeW (s.gpr .rsi) (s.gpr .rax) }, by
+    simp only [runBlock_cons, runStep_some, runBlock_nil, exec, State.store64,
+      State.ea, memOp, haddr, hwrite, ite_true], rfl, rfl, rfl, rfl⟩
+
 end VG.Proof.TripleDes.X86_64
