@@ -54,6 +54,31 @@ def ctlOk : Prog isa → Bool
   | .call _ b => ctlOk b
   | .frame i b j => !loadsMxcsr i && ctlOk b && !loadsMxcsr j
 
+/-- A check that implies `ctlOk` and composes like `Code.allInstrs`: `c`
+itself never loads MXCSR, and the functions it calls satisfy `ctlOk`. -/
+def ctlC : Prog isa → Bool
+  | .block is => is.all fun i => !loadsMxcsr i
+  | .seq a b => ctlC a && ctlC b
+  | .ite _ t e => ctlC t && ctlC e
+  | .loop b _ => ctlC b
+  | .call _ b => ctlOk b
+  | .frame i b j => !loadsMxcsr i && ctlC b && !loadsMxcsr j
+
+theorem ctlOk_of_ctlC {c : Prog isa} (h : ctlC c = true) : ctlOk c = true := by
+  induction c with
+  | block _ => exact h
+  | seq _ _ iha ihb =>
+    simp only [ctlC, Bool.and_eq_true] at h
+    simp only [ctlOk, iha h.1, ihb h.2, Bool.and_self, Bool.or_true]
+  | ite _ _ _ iht ihe =>
+    simp only [ctlC, Bool.and_eq_true] at h
+    simp only [ctlOk, iht h.1, ihe h.2, Bool.and_self]
+  | loop _ _ ih => exact ih h
+  | call _ _ _ => exact h
+  | frame _ _ _ ih =>
+    simp only [ctlC, Bool.and_eq_true] at h
+    simp only [ctlOk, h.1.1, h.2, ih h.1.2, Bool.and_self]
+
 /-- MXCSR's control bits, which the calling convention preserves. -/
 abbrev ctl (v : BitVec 32) : BitVec 10 := v.extractLsb' 6 10
 
