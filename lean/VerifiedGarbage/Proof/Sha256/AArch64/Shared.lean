@@ -117,6 +117,13 @@ theorem init :
       AArch64.abi, AArch64.argRegs]
       [Proof.Sha256.AArch64.Stream.initSat] using Proof.Sha256.AArch64.Stream.initSat)
 
+theorem init224 :
+    Verified AArch64.target Impl.Sha256.AArch64.Stream.init224 (Spec.Sha256.init224Contract AArch64.abi) :=
+  Proof.Sha256.AArch64.Stream.init224_verified.of_implies (by
+    contract_implies [Spec.Sha256.init224Contract, Spec.Sha256.initSig, Proof.Sha256.initAArch64,
+      AArch64.abi, AArch64.argRegs]
+      [Proof.Sha256.AArch64.Stream.initSat] using Proof.Sha256.AArch64.Stream.initSat)
+
 theorem update_of {code : Prog isa} (hv : Verified AArch64.target code Proof.Sha256.updateAArch64) :
     Verified AArch64.target code (Spec.Sha256.updateContract AArch64.abi 16) := by
   have hi : updateWide.Implies (Spec.Sha256.updateContract AArch64.abi 16) := by
