@@ -48,7 +48,6 @@ mod pbkdf2_sha512_224;
 mod pbkdf2_sha512_256;
 mod poly1305;
 mod rc2_cbc;
-mod triple_des_ecb;
 mod scrypt;
 mod sha1;
 mod sha224;
@@ -58,6 +57,7 @@ mod sha384;
 mod sha512;
 mod sha512_224;
 mod sha512_256;
+mod triple_des_ecb;
 mod x25519;
 mod x448;
 
