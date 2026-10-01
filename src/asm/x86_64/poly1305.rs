@@ -150,7 +150,7 @@ pub(crate) const VG_POLY1305_BLOCKS_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
 ///
 /// Contract: `VG.Spec.Poly1305.blocksContract`. Constant time: only the pointers and `n` may affect timing, not the state or the data.
 ///
-/// With AVX2: four blocks at a time, in four interleaved Horner evaluations, once there are at least 16 blocks; fewer, and the last `n mod 4`, with `vg_poly1305_blocks`. It sets MXCSR to Intel's value for data operand-independent timing (`0x1FBF`) around its `vpmuludq`s, and restores it.
+/// With AVX2: four blocks at a time, in four interleaved Horner evaluations, once there are at least 32 blocks; fewer, and the last `n mod 4`, with `vg_poly1305_blocks`. It sets MXCSR to Intel's value for data operand-independent timing (`0x1FBF`) around its `vpmuludq`s, and restores it.
 ///
 /// # Safety
 ///
@@ -162,7 +162,7 @@ pub(crate) const VG_POLY1305_BLOCKS_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_poly1305_blocks_avx2(state: *mut [u64; 16], blocks: *const [u8; 16], n: usize) {
     core::arch::naked_asm!(
-        "cmp rdx, 16",
+        "cmp rdx, 32",
         "jb 20f",
         "mov r8d, 67108863",
         "mov r9d, 16777216",
