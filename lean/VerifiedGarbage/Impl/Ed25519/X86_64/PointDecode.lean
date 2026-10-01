@@ -19,7 +19,7 @@ def canonicalY : List Instr :=
 
 def pointDecodeLoad : List Instr := loadSign ++ loadU ++ store4 (offset 1) ++ canonicalY
 
-def pointDecode : Prog isa :=
-  .seq (.block pointDecodeLoad) (.ite .e recoverPoint recoverInvalid)
+def pointDecode (fld : Arith) : Prog isa :=
+  .seq (.block pointDecodeLoad) (.ite .e (recoverPoint fld) recoverInvalid)
 
 end VG.Impl.Ed25519.X86_64

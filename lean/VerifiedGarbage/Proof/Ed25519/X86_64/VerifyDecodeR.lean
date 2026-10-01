@@ -7,6 +7,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64 Edwards
 open VG.Proof.X25519.X86_64 (off)
 
+variable {fld : Arith} [EdArith fld]
+
 def equationWithR (r : Option Spec.Ed25519.Point) (a : Spec.Ed25519.Point) (scalar challenge : Nat) : Bool :=
   match r with
   | none => false
@@ -16,7 +18,7 @@ def equationWithR (r : Option Spec.Ed25519.Point) (a : Spec.Ed25519.Point) (scal
 theorem verifyDecodeR_ok {s : State} {base pk sig challenge : Addr}
     {Aa : EPoint dZ} (h : VerifyContext s base pk sig challenge)
     (hA : Rep (tablePoint s.mem base 7424) Aa) :
-    WP isa verifyDecodeR s fun t => VerifyKeep base s t ∧
+    WP isa (verifyDecodeR fld) s fun t => VerifyKeep base s t ∧
       t.gpr .rax = signWord (equationWithR
         (Spec.Ed25519.decodePoint (Spec.Ed25519.bytesAt s.mem sig 32))
         (tablePoint s.mem base 7424)
@@ -27,7 +29,7 @@ theorem verifyDecodeR_ok {s : State} {base pk sig challenge : Addr}
   have kap : VerifyKeep base s a := PowersKeep.of_keeps ka (by decide)
   have ha := h.of_keep kap
   apply WP.seq
-  have hd := pointDecode_ok (base := base) (p := sig) ha.scratch (ap.trans h.sigHeader) ha.rRead
+  have hd := pointDecode_ok (fld := fld) (base := base) (p := sig) ha.scratch (ap.trans h.sigHeader) ha.rRead
   generalize hp : Spec.Ed25519.decodePoint (Spec.Ed25519.bytesAt a.mem sig 32) = decoded at hd
   rw [ka.2.1] at hp
   with_reducible apply WP.mono hd

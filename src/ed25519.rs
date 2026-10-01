@@ -2,8 +2,11 @@
 //!
 //! SHA-512 uses the hash API's selected backend. Scalar reduction,
 //! multiply-add, and point multiplication use verified assembly with the
-//! contracts in `VG.Spec.Ed25519`. Rust composes those primitives and clears
-//! secret temporary values.
+//! contracts in `VG.Spec.Ed25519`. On x86-64 CPUs with BMI2 and ADX, the
+//! point multiplications are `vg_ed25519_scalar_base_precomputed_adx` and
+//! `vg_ed25519_verify_equation_adx`, with the same contracts and faster field
+//! multiplications. Rust composes those primitives and clears secret
+//! temporary values.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -13,12 +16,49 @@
 ))]
 
 #[cfg(target_arch = "x86_64")]
-use crate::arch::ed25519::vg_ed25519_scalar_base_precomputed;
+use crate::arch::ed25519::{
+    VG_ED25519_SCALAR_BASE_PRECOMPUTED_ADX_FEATURES, VG_ED25519_VERIFY_EQUATION_ADX_FEATURES,
+    vg_ed25519_scalar_base_precomputed, vg_ed25519_scalar_base_precomputed_adx,
+    vg_ed25519_verify_equation_adx,
+};
 use crate::arch::ed25519::{
     vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce, vg_ed25519_verify_equation,
 };
+use crate::cpu::{Features, detected};
 use crate::hashes::sha512::Sha512;
 use crate::mlkem768::zeroize;
+
+/// The implementations of the point multiplications.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Backend {
+    /// The target's baseline ISA.
+    Baseline,
+    /// BMI2's `mulx` and ADX's `adcx` and `adox` for the field multiplications.
+    #[cfg(target_arch = "x86_64")]
+    Adx,
+}
+
+impl Backend {
+    /// The best implementation a CPU with the features `f` can run.
+    #[cfg(target_arch = "x86_64")]
+    fn select(f: Features) -> Backend {
+        if f.contains(Features::of(
+            VG_ED25519_SCALAR_BASE_PRECOMPUTED_ADX_FEATURES,
+        )) && f.contains(Features::of(VG_ED25519_VERIFY_EQUATION_ADX_FEATURES))
+        {
+            Backend::Adx
+        } else {
+            Backend::Baseline
+        }
+    }
+
+    /// The best implementation a CPU with the features `f` can run: there
+    /// is only one here.
+    #[cfg(not(target_arch = "x86_64"))]
+    fn select(_: Features) -> Backend {
+        Backend::Baseline
+    }
+}
 
 /// Why signature verification failed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,10 +99,16 @@ impl VerifyingKey {
         hash.update(message);
         let challenge = hash.finalize();
         let mut scratch = [0u64; 1024];
+        let f = match Backend::select(detected()) {
+            Backend::Baseline => vg_ed25519_verify_equation,
+            // `select` chose it because the CPU has the features it needs.
+            #[cfg(target_arch = "x86_64")]
+            Backend::Adx => vg_ed25519_verify_equation_adx,
+        };
         // SAFETY: the input arrays are live for their declared sizes, and
         // scratch is a distinct writable object. None wraps the address space.
-        let valid =
-            unsafe { vg_ed25519_verify_equation(&self.bytes, signature, &challenge, &mut scratch) };
+        // The CPU has the features of the function `select` chose.
+        let valid = unsafe { f(&self.bytes, signature, &challenge, &mut scratch) };
         zeroize(&mut scratch);
         if valid == 1 {
             Ok(())
@@ -166,40 +212,23 @@ fn prune(expanded: &[u8; 64]) -> [u8; 32] {
     scalar
 }
 
-enum BaseBackend {
-    #[cfg(not(target_arch = "x86_64"))]
-    Scalar,
-    #[cfg(target_arch = "x86_64")]
-    Precomputed,
-}
-
-const BASE_BACKEND: BaseBackend = {
-    #[cfg(target_arch = "x86_64")]
-    {
-        BaseBackend::Precomputed
-    }
-    #[cfg(not(target_arch = "x86_64"))]
-    {
-        BaseBackend::Scalar
-    }
-};
-
 fn scalar_base(scalar: &[u8; 32], scratch: &mut [u64; 1024]) -> [u8; 32] {
     let mut out = [0u8; 32];
-    // SAFETY: the output, scalar, and scratch are distinct objects valid
-    // for 32, 32, and 8192 bytes, respectively, without address-space wrapping.
-    unsafe {
-        match BASE_BACKEND {
-            #[cfg(not(target_arch = "x86_64"))]
-            BaseBackend::Scalar => {
-                crate::arch::ed25519::vg_ed25519_scalar_base(&mut out, scalar, scratch)
-            }
-            #[cfg(target_arch = "x86_64")]
-            BaseBackend::Precomputed => {
-                vg_ed25519_scalar_base_precomputed(&mut out, scalar, scratch)
-            }
-        }
+    // On x86-64 the base point's powers are precomputed.
+    #[cfg(target_arch = "x86_64")]
+    let f = match Backend::select(detected()) {
+        Backend::Baseline => vg_ed25519_scalar_base_precomputed,
+        // `select` chose it because the CPU has the features it needs.
+        Backend::Adx => vg_ed25519_scalar_base_precomputed_adx,
     };
+    #[cfg(not(target_arch = "x86_64"))]
+    let f = match Backend::select(detected()) {
+        Backend::Baseline => crate::arch::ed25519::vg_ed25519_scalar_base,
+    };
+    // SAFETY: the output, scalar, and scratch are distinct objects valid
+    // for 32, 32, and 8192 bytes, respectively, without address-space wrapping,
+    // and the CPU has the features of the function `select` chose.
+    unsafe { f(&mut out, scalar, scratch) };
     out
 }
 
@@ -209,4 +238,32 @@ fn reduce(wide: &[u8; 64], scratch: &mut [u64; 1024]) -> [u8; 32] {
     // for 32, 64, and 8192 bytes, respectively, without address-space wrapping.
     unsafe { vg_ed25519_scalar_reduce(&mut out, wide, scratch) };
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The baseline agrees with the implementation chosen for this CPU, and
+    /// the choice follows the features.
+    #[test]
+    fn backends() {
+        let key = SigningKey::from_seed(&[0x42; 32]);
+        let signature = key.sign(b"backends");
+        assert!(key.verifying_key().verify(b"backends", &signature).is_ok());
+        assert_eq!(Backend::select(Features(0)), Backend::Baseline);
+        #[cfg(target_arch = "x86_64")]
+        {
+            let mut out = [0u8; 32];
+            let mut scratch = [0u64; 1024];
+            let mut scalar = [0x24u8; 32];
+            scalar[31] = 0x44;
+            // SAFETY: as in `scalar_base`, and the baseline needs no CPU feature.
+            unsafe { vg_ed25519_scalar_base_precomputed(&mut out, &scalar, &mut scratch) };
+            assert_eq!(out, scalar_base(&scalar, &mut scratch));
+            let adx = Features::of(VG_ED25519_VERIFY_EQUATION_ADX_FEATURES);
+            assert_eq!(Backend::select(adx), Backend::Adx);
+            assert_eq!(Backend::select(Features::of(&["bmi2"])), Backend::Baseline);
+        }
+    }
 }

@@ -8,6 +8,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (Scr Keeps val4 fe)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem freezeWide_ok {s : State} {base : Addr} (hs : Scratch s base) (a : Slot) :
     WP isa (.block (VG.Impl.X25519.X86_64.freeze (offset a))) s fun t =>
       val4 (t.gpr .r8) (t.gpr .r9) (t.gpr .r10) (t.gpr .r11) = (env s.mem base a).val ∧
@@ -70,7 +72,7 @@ theorem encodeSign_ok (s : State) (x y : Nat) (hy : y < 2 ^ 255)
     simp only [RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, hr, ite_false]
 
 theorem pointEncode_ok {s : State} {base : Addr} (hs : Scratch s base) :
-    WP isa pointEncode s fun t => RbxKeep base s t ∧
+    WP isa (pointEncode fld) s fun t => RbxKeep base s t ∧
       val4 (t.gpr .r8) (t.gpr .r9) (t.gpr .r10) (t.gpr .r11) =
         (env s.mem base 1 * Spec.X25519.pow (env s.mem base 2) (Spec.X25519.P - 2)).val +
         ((env s.mem base 0 * Spec.X25519.pow (env s.mem base 2) (Spec.X25519.P - 2)).val % 2) * 2 ^ 255 := by

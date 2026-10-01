@@ -8,6 +8,8 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
+variable {fld : Arith} [EdArith fld]
+
 def verifySatState : State where
   gpr r := match r with
     | .rdi => 0x1000 | .rsi => 0x2000 | .rdx => 0x3000 | .rcx => 0x4000 | .rsp => 0x8000 | _ => 0
@@ -20,9 +22,9 @@ def verifySatState : State where
   wr := [⟨0x4000, 8192⟩]
 
 theorem verify_ok (s : State) (hs : verifyLocal.pre s) :
-    ∃ t s', Exec isa verifyEquation s t s' ∧ abiPreserved s s' ∧ verifyLocal.post s s' := by
-  obtain ⟨t, s', he, h⟩ := verify_correct hs
-  exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he h.1, h.2⟩
+    ∃ t s', Exec isa (verifyEquation fld) s t s' ∧ abiPreserved s s' ∧ verifyLocal.post s s' := by
+  obtain ⟨t, s', he, h⟩ := verify_correct (fld := fld) hs
+  exact ⟨t, s', he, abiPreserved_of_exec (by fld_lit_decide) he h.1, h.2⟩
 
 private theorem byteMap_inj : ∀ {xs ys : List Byte}, xs.map (·.toNat) = ys.map (·.toNat) → xs = ys
   | [], [], _ => rfl
@@ -54,7 +56,7 @@ theorem verify_implies : verifyLocal.Implies (Spec.Ed25519.verifyEquationContrac
     sig_implies_sat [Spec.Ed25519.verifyEquationContract, Spec.Ed25519.verifyEquationSig,
       Spec.Ed25519.scratchWords, X86_64.abi, X86_64.argRegs] [verifySatState] using verifySatState
 
-theorem verify_verified : Verified X86_64.target verifyEquation (Spec.Ed25519.verifyEquationContract X86_64.abi) :=
+theorem verify_verified : Verified X86_64.target (verifyEquation fld) (Spec.Ed25519.verifyEquationContract X86_64.abi) :=
   Verified.of_correct verify_ok verify_ct verify_implies
 
 end VG.Proof.Ed25519.X86_64

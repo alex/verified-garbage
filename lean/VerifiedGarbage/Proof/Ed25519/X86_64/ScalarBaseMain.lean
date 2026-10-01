@@ -9,6 +9,8 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off ofs Outside Saved val4 st4 bytesAt_st4)
 open VG.Spec.Ed25519 (bytesAt)
 
+variable {fld : Arith} [EdArith fld]
+
 def scalarBaseLocal : Contract isa where
   pre s := s.rd = [⟨s.gpr .rsi, 32⟩] ∧ s.wr = [⟨s.gpr .rdi, 32⟩, ⟨s.gpr .rdx, 8192⟩] ∧
     (⟨s.gpr .rsi, 32⟩ : Region).Disjoint ⟨s.gpr .rdx, 8192⟩ ∧
@@ -103,7 +105,7 @@ theorem scalarBase_correct_of_engine (engine : Prog isa) (engine_ok : BaseEngine
     rw [vc, input]
 
 theorem scalarBase_correct {s : State} (hs : scalarBaseLocal.pre s) :
-    WP isa scalarBase s fun t => gprPreserved s t ∧ scalarBaseLocal.post s t :=
-  scalarBase_correct_of_engine scalarBaseEngine scalarBaseEngine_ok hs
+    WP isa (scalarBase fld) s fun t => gprPreserved s t ∧ scalarBaseLocal.post s t :=
+  scalarBase_correct_of_engine (scalarBaseEngine fld) scalarBaseEngine_ok hs
 
 end VG.Proof.Ed25519.X86_64
