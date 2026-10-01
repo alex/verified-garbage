@@ -31,4 +31,13 @@ theorem blockAt_eq_of_frame {rs : List VG.Region} {m m' : VG.Mem} (p : VG.Addr)
   simp only [blockAt, Vector.getElem_ofFn]
   exact hf.bytes hd (by change 8 ≤ 2 ^ 64; decide) hi
 
+theorem bytesAt_eq_of_frame {rs : List VG.Region} {m m' : VG.Mem} (p : VG.Addr) (n : Nat)
+    (hf : VG.Frame rs m m') (hn : n ≤ 2 ^ 64)
+    (hd : ∀ r ∈ rs, (⟨p, n⟩ : VG.Region).Disjoint r) : bytesAt m' p n = bytesAt m p n := by
+  unfold bytesAt
+  apply List.map_congr_left
+  intro i hi
+  exact hf.bytes hd hn (List.mem_range.mp hi)
+
+
 end VG.Proof.TripleDes
