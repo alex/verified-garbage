@@ -16,10 +16,7 @@ Pieces of code that the ML-DSA arithmetic functions share, for
   `⌊rax / q⌋ - 1`, so `rax` less that quotient times `q` (a second `mul`) is
   less than `2q`, and `csubQ` reduces it. `mul` is the only multiplication of
   the model, and its timing does not depend on its operands (it is on
-  Intel's DOIT list). It uses `rax`, `rdx` and `r11`;
-* `storeTab t n`: the table `t 0, …, t (n - 1)` of constants stored as
-  `u32`s at `r9` (in the working space: the code has no other memory), with
-  immediates. It uses `rax`.
+  Intel's DOIT list). It uses `rax`, `rdx` and `r11`.
 -/
 
 namespace VG.Impl.MlDsa.X86_64.Arith
@@ -46,12 +43,5 @@ subtracted from the copy of `rax` in `r10`, then `csubQ`. Uses `rdx` and
 def reduce : List Instr :=
   [.mov .r10 (.reg .rax), .movImm64 .r11 barrettImm, .mul .r11, .mov .rax (.reg .rdx),
     .mov .r11 (.imm qImm), .mul .r11, .alu .sub .r10 (.reg .rax)] ++ csubQ .r10 .r11
-
-/-- `t i` to `[r9 + 4i]`. -/
-def tabStep (t : Nat → Nat) (i : Nat) : List Instr :=
-  [.mov32 .rax (.imm (BitVec.ofNat 32 (t i))), .store32 (at_ .r9 (4 * i)) .rax]
-
-/-- The table `t 0, …, t (n - 1)` at `r9`. -/
-def storeTab (t : Nat → Nat) (n : Nat) : List Instr := (List.range n).flatMap (tabStep t)
 
 end VG.Impl.MlDsa.X86_64.Arith

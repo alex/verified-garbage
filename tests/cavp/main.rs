@@ -14,6 +14,7 @@
 ))]
 
 mod aes_gcm;
+mod cmac_aes;
 mod rc2_cbc;
 mod sha1;
 mod sha256;

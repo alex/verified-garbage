@@ -1,0 +1,5 @@
+name = "NIST CAVP Triple DES ECB KAT vectors"
+directories = ["nist-cavp-tdes-kat"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/des/KAT_TDES.zip"
+sha256 = "19d8841f84ae3415350b069a4768bd416c05a0533ee43e905ab099adb8ccb374"
+retrieved = 2026-10-01

@@ -1,12 +1,17 @@
-import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.NttLoop
+import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.VLay21
+import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Basic
+import VerifiedGarbage.Proof.MlKem.X86_64.VMxcsr
 import VerifiedGarbage.Proof.Framework.X86_64.Abi
+import VerifiedGarbage.Proof.Framework.Range
 
 /-!
 # ML-DSA on x86-64: `vg_mldsa_ntt`
 
-Untrusted: everything here is checked by Lean. The butterfly's code does
-what `bfly` does (`bfly_spec`), so each layer is `nttLayer` (`lay_ok`), and
-the eight layers are `NTT` (`ntt_eq_layers`). `Ntt.LI`, `Ntt.pro_ok` and
+Untrusted: everything here is checked by Lean. ML-KEM's `withMxcsr` runs
+its code from any MXCSR and keeps what it does (`withMxcsr_ok`); the
+prologue leaves the table of zetas in `scratch` and the constants
+(`vpro_ok`), each layer is `nttLayer` (`vlay_ok`, `vlay2_ok`, `vlay1_ok`),
+and the eight layers are `NTT` (`ntt_eq_layers`). `LI`, `vpro_ok` and
 `inPlaceSat` serve `NTT⁻¹` too.
 -/
 
@@ -14,99 +19,233 @@ namespace VG.Proof.MlDsa.X86_64.Arith
 
 open VG VG.X86_64 VG.Impl.MlDsa.X86_64.Arith
 open VG.Proof.MlDsa.Arith
-open VG.Proof.MlKem.X86_64 (Keep WP.keep writesOnly gprPreserved_of)
+open VG.Proof.MlKem.X86_64 (Keep WP.keep writesOnly gprPreserved_of withMxcsr_ok mxR mx_sub xmm_setXmm
+  GOnly add_ofNat_zero sel)
 open VG.Spec.MlDsa (q n Poly Zq coeffAt polyAt Reduced PolyIs zetas ntt)
 
-namespace Ntt
+/-! ## The prologue -/
 
-/-- Between layers: the polynomial `F` at `fP`, the table `tab` at `zP`, and
-entry `k` of the table at `r8`. -/
-structure LI (tab : Nat → Nat) (s₀ : State) (fP zP : Addr) (F : Poly) (k : Nat) (s : State) : Prop where
-  rsi : s.gpr .rsi = fP
-  r8 : s.gpr .r8 = coeffAddr zP k
-  poly : PolyIs s.mem fP F
-  rd : s.rd = s₀.rd
-  wr : s.wr = s₀.wr
-  tab : Tab tab s.mem zP 256
-  frame : Frame [pR fP, pR zP] s₀.mem s.mem
-  keep : Keep [.rax, .rcx, .rdx, .rsi, .rdi, .r8, .r9, .r10, .r11] s₀ s
+/-- A table of 256 `u32`s `t k`, stored at `sP` (in `r`), two at a time
+through `r9`. -/
+theorem dwordTab_ok (t : Nat → Nat) (ht : ∀ k, t k < 2 ^ 32) {r : Reg} (hr : r ≠ .r9) {sP : Addr} {s : State}
+    (hsi : s.gpr r = sP) (hw : pR sP ∈ s.wr) :
+    WP isa (.block (dwordTab t 256 r)) s fun s' => Tab t s'.mem sP 256 ∧
+      Frame [pR sP] s.mem s'.mem ∧ Keep [.r9] s s' ∧ s'.mxcsr = s.mxcsr ∧ s'.xmm = s.xmm := by
+  refine WP.mono (wp_range_flatMap (M := isa) (N := 128) (fun i w =>
+      Tab t w.mem sP (2 * i) ∧ Frame [pR sP] s.mem w.mem ∧
+        Keep [.r9] s w ∧ w.mxcsr = s.mxcsr ∧ w.xmm = s.xmm)
+    (fun i w hi ⟨hT, hf, hk, hm, hx⟩ => ?_) 128 (Nat.le_refl _) s
+    ⟨fun _ h => absurd h (by omega), Frame.refl _ _, Keep.refl _ _, rfl, rfl⟩)
+    fun w ⟨hT, hf, hk, hm, hx⟩ => ⟨hT, hf, hk, hm, hx⟩
+  have hsi' : w.gpr r = sP := by
+    rw [hk.gpr (by simp only [List.mem_singleton]; exact hr), hsi]
+  have w0 : InRegions w.wr (sP + BitVec.ofNat 64 (8 * i)) 8 :=
+    ⟨_, by rw [hk.2.2]; exact hw, Offset.contains_base sP (by omega) (by omega)⟩
+  have hV : ∀ e < 2, (BitVec.ofNat 64 (t (2 * i) + 2 ^ 32 * t (2 * i + 1))).extractLsb' (32 * e) 32 =
+      BitVec.ofNat 32 (t (2 * i + e)) := fun e he => by
+    apply BitVec.eq_of_toNat_eq
+    have h0 := ht (2 * i)
+    have h1 := ht (2 * i + 1)
+    rw [BitVec.extractLsb'_toNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow]
+    rcases (by omega : e = 0 ∨ e = 1) with rfl | rfl
+    · simp only [Nat.mul_zero, Nat.pow_zero, Nat.div_one, Nat.add_zero]; omega
+    · simp only [Nat.mul_one]; omega
+  vrund [hsi', w0, hr]
+  generalize BitVec.ofNat 64 (t (2 * i) + 2 ^ 32 * t (2 * i + 1)) = V at hV ⊢
+  refine ⟨fun k hk' => ?_, hf.writeW (List.mem_singleton_self _) _
+      (Offset.contains_base sP (by omega) (by omega)),
+    ⟨fun r hr => ?_, hk.2.1, hk.2.2⟩, hm, hx⟩
+  · by_cases h : 2 * i ≤ k
+    · rw [coeffAt_eq, coeffAddr, show sP + BitVec.ofNat 64 (4 * k) =
+          sP + BitVec.ofNat 64 (8 * i) + BitVec.ofNat 64 (4 * (k - 2 * i)) by
+        rw [BitVec.add_assoc, ← BitVec.ofNat_add]; exact congrArg _ (congrArg _ (by omega)),
+        show 32 = 8 * 4 from rfl, readW_writeW_inside _ _ _ (by omega) (by decide),
+        show 8 * (4 * (k - 2 * i)) = 32 * (k - 2 * i) by omega, hV _ (by omega),
+        show 2 * i + (k - 2 * i) = k by omega]
+    · rw [coeffAt_eq, Mem.readW_writeW_sep (Offset.sep sP (by omega) (by omega) (by omega)) (by decide)]
+      exact hT k (by omega)
+  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    simp only [RegUpd.gpr_setReg, hr, ite_false]
+    exact hk.1 r (by simp [hr])
 
-theorem LI.step {tab : Nat → Nat} {s₀ : State} {fP zP : Addr} {F F' : Poly} {k k' : Nat} {s s' : State}
-    (hI : LI tab s₀ fP zP F k s) (hP : PolyIs s'.mem fP F') (hf : Frame [pR fP] s.mem s'.mem)
-    (hsi : s'.gpr .rsi = fP) (h8 : s'.gpr .r8 = coeffAddr zP k')
-    (hk : Keep [.rdi, .r9, .r8, .rcx, .rax, .rdx, .rsi, .rcx, .r10, .r11, .rsi, .rdi, .rsi] s s')
-    (hd : (pR zP).Disjoint (pR fP)) : LI tab s₀ fP zP F' k' s' :=
-  ⟨hsi, h8, hP, hk.2.1.trans hI.rd, hk.2.2.trans hI.wr, hI.tab.frame hf (by simpa using hd) (by decide),
-    hI.frame.trans (hf.mono (by simp)), (hI.keep.trans hk).mono (by decide)⟩
+theorem vconsts_ok (s : State) :
+    WP isa (.block vconsts) s fun s' => VConsts s' ∧ Keep [.rax] s s' ∧ s'.mem = s.mem ∧
+      s'.mxcsr = s.mxcsr := by
+  simp only [vconsts]
+  vrund
+  refine ⟨⟨?_, ?_⟩, ⟨fun r hr => ?_, rfl, rfl⟩⟩
+  · simp only [RegUpd.xmm_setReg, xmm_setXmm, ite_true]; decide
+  · simp only [RegUpd.xmm_setReg, xmm_setXmm, ite_true, ite_false, reduceCtorEq]; decide
+  · simp only [List.mem_singleton] at hr
+    simp only [RegUpd.gpr_setReg, RegUpd.gpr_setXmm, hr, ite_false]
 
-/-- The chain of zeta indices of the layers `ls` of `NTT`, from `k`. -/
-def Chain : Nat → List Nat → Prop
-  | _, [] => True
-  | k, len :: ls => k = 128 / len ∧ Chain (256 / len) ls
+/-- The table of zetas and the constants. -/
+theorem vpro_ok {sP : Addr} {s : State} (hsi : s.gpr .rsi = sP) (hw : pR sP ∈ s.wr) :
+    WP isa (.block vpro) s fun s' => Tab zmTab s'.mem sP 256 ∧ VConsts s' ∧
+      Frame [pR sP] s.mem s'.mem ∧ Keep [.r9, .rax] s s' ∧ s'.mxcsr = s.mxcsr := by
+  rw [vpro, WP.block_append_iff]
+  refine WP.mono (dwordTab_ok zmTab (fun k => Nat.lt_trans (zmTab_lt k) (by decide)) (by decide) hsi hw)
+    fun s1 ⟨hT, hf, k1, x1, _⟩ => WP.mono (vconsts_ok s1) fun s2 ⟨hc, k2, m2, x2⟩ =>
+      ⟨by rw [m2]; exact hT, hc, by rw [m2]; exact hf, (k1.trans k2).mono (by simp), by rw [x2, x1]⟩
 
-theorem lens_fwd : ∀ len ∈ nttLens, 2 * (128 / len) ≤ 256 ∧ 128 / len + 128 / len = 256 / len := by decide
+/-! ## The layers -/
 
-theorem zetaTab_of : TabOf zetaTab zetas := fun k _ => zetaNat_eq k
+/-- Between the layers: the polynomial `F` at `fP`, the table at `sP`, and
+the constants. -/
+structure LI (fP sP : Addr) (s₀ : State) (F : Poly) (s : State) : Prop where
+  P : PolyIs s.mem fP F
+  T : Tab zmTab s.mem sP 256
+  c : VConsts s
+  keep : Keep [.rax, .rcx, .rdx, .r8] s₀ s
+  frame : Frame [pR fP] s₀.mem s.mem
 
-theorem lays_ok {s₀ : State} {fP zP : Addr} (hw : pR fP ∈ s₀.wr) (hz : pR zP ∈ s₀.rd ++ s₀.wr)
-    (hd : (pR zP).Disjoint (pR fP)) :
-    ∀ (ls : List Nat) (F : Poly) (k : Nat) (s : State), (∀ len ∈ ls, len ∈ nttLens) → Chain k ls →
-      LI zetaTab s₀ fP zP F k s →
-      WP isa (nttLays ls) s fun s' => ∃ k', LI zetaTab s₀ fP zP (ls.foldl nttLayer F) k' s'
-  | [], F, k, s, _, _, hI => WP.block_nil ⟨k, hI⟩
-  | len :: ls, F, k, s, hls, ⟨hk, hc⟩, hI => by
-    have hlen := hls len (List.mem_cons_self ..)
-    obtain ⟨h1, h2⟩ := lens_fwd len hlen
-    refine WP.seq (WP.mono (lay_ok bfly_spec zetaTab_of hlen 4 (fun c => 128 / len + c) (fun c hc => by omega)
-      (fun c _ => by rw [show BitVec.signExtend 64 (4 : BitVec 32) = 4 by decide, coeffAddr_succ]; rfl)
-      F s hI.rsi (by rw [hI.r8, hk]; rfl) hI.poly (by rw [hI.wr]; exact hw) (by rw [hI.rd, hI.wr]; exact hz) hd
-      hI.tab) fun s' ⟨⟨hP, hf, hsi, h8⟩, hk'⟩ => ?_)
-    exact lays_ok hw hz hd ls _ (256 / len) s' (fun l hl => hls l (List.mem_cons_of_mem _ hl)) hc
-      (hI.step hP hf hsi (by rw [h8, h2]) hk' hd)
+/-- The last layer. -/
+theorem LI.last {fP sP : Addr} {s₀ : State} (hdi : s₀.gpr .rdi = fP) (hsi : s₀.gpr .rsi = sP)
+    (hwf : pR fP ∈ s₀.wr) (hw : pR sP ∈ s₀.wr) (hd : (pR sP).Disjoint (pR fP)) {l : Prog isa}
+    {F F' : Poly}
+    (hl : ∀ s, VConsts s → s.gpr .rdi = fP → s.gpr .rsi = sP → PolyIs s.mem fP F → Tab zmTab s.mem sP 256 →
+      pR fP ∈ s.wr → pR sP ∈ s.wr → WP isa l s fun s' => PolyIs s'.mem fP F' ∧ BInv fP s s')
+    {s : State} (hI : LI fP sP s₀ F s) : WP isa l s (LI fP sP s₀ F') :=
+  WP.mono (hl s hI.c (by rw [hI.keep.gpr (by decide), hdi]) (by rw [hI.keep.gpr (by decide), hsi]) hI.P
+      hI.T (by rw [hI.keep.2.2]; exact hwf) (by rw [hI.keep.2.2]; exact hw))
+    fun s' ⟨hS, hb⟩ => ⟨hS, hI.T.frame hb.frame (fun r hr => by rw [List.mem_singleton.mp hr]; exact hd)
+      (by decide), hb.consts, (hI.keep.trans hb.keep).mono (by decide), hI.frame.trans hb.frame⟩
 
-/-- The table `tab` to `scratch`, `rsi` = `f` and `r8` at entry `k`. -/
-theorem pro_ok {s₀ : State} {t : Poly → Poly} (hp : (inPlaceK t).pre s₀) (tab : Nat → Nat) (d : BitVec 32)
-    (k : Nat) (hd : BitVec.signExtend 64 d = BitVec.ofNat 64 (4 * k)) :
-    WP isa (.block (nttPro tab ++ ([.alu .add .r8 (.imm d)] : List Instr))) s₀
-      (LI tab s₀ (s₀.gpr .rdi) (s₀.gpr .rsi) (polyAt s₀.mem (s₀.gpr .rdi)) k) := by
-  simp only [nttPro, List.append_assoc]
-  rw [WP.block_append_iff]
-  refine WP.mono (WP.keep [.r9] (Q := fun s => s.mem = s₀.mem ∧ s.gpr .r9 = s₀.gpr .rsi) (by xrund) (by decide))
-    fun s1 ⟨⟨hm1, h9⟩, k1⟩ => ?_
-  rw [WP.block_append_iff]
-  refine WP.mono (storeTab_ok tab (by decide) s1 (by rw [k1.2.2, hp.2.1, h9]; simp))
-    fun s2 ⟨ht, hf, k2⟩ => ?_
-  have k12 := k1.trans k2
-  refine WP.mono (WP.keep [.rsi, .r8] (Q := fun s => s.mem = s2.mem ∧ s.gpr .rsi = s2.gpr .rdi ∧
-    s.gpr .r8 = s2.gpr .r9 + BitVec.signExtend 64 d) (by xrund [List.cons_append, List.nil_append]) (by rfl))
-    fun s3 ⟨⟨hm3, hsi, h8⟩, k3⟩ => ?_
-  have hd' : (pR (s₀.gpr .rdi)).Disjoint (pR (s₀.gpr .rsi)) := hp.2.2.1
-  rw [h9] at hf
-  refine ⟨by rw [hsi, k12.gpr (by decide)], by rw [h8, k2.gpr (by decide), h9, hd], ?_, by rw [k3.2.1, k12.2.1],
-    by rw [k3.2.2, k12.2.2], by rw [hm3, ← h9]; exact ht,
-    by rw [hm3, ← hm1]; exact hf.mono (by simp), ((k12.trans k3)).mono (by decide)⟩
-  rw [hm3]
-  exact ⟨reduced_frame (by rw [← hm1]; exact hf) (by simpa using hd') hp.2.2.2.2.2,
-    polyAt_frame (by rw [← hm1]; exact hf) (by simpa using hd')⟩
+/-- A layer, then `c`. -/
+theorem LI.seq {fP sP : Addr} {s₀ : State} (hdi : s₀.gpr .rdi = fP) (hsi : s₀.gpr .rsi = sP)
+    (hwf : pR fP ∈ s₀.wr) (hw : pR sP ∈ s₀.wr) (hd : (pR sP).Disjoint (pR fP)) {l c : Prog isa}
+    {F F' : Poly} {Q : State → Prop}
+    (hl : ∀ s, VConsts s → s.gpr .rdi = fP → s.gpr .rsi = sP → PolyIs s.mem fP F → Tab zmTab s.mem sP 256 →
+      pR fP ∈ s.wr → pR sP ∈ s.wr → WP isa l s fun s' => PolyIs s'.mem fP F' ∧ BInv fP s s')
+    (hc : ∀ s, LI fP sP s₀ F' s → WP isa c s Q) {s : State} (hI : LI fP sP s₀ F s) :
+    WP isa (.seq l c) s Q :=
+  WP.seq (WP.mono (hl s hI.c (by rw [hI.keep.gpr (by decide), hdi]) (by rw [hI.keep.gpr (by decide), hsi]) hI.P
+      hI.T (by rw [hI.keep.2.2]; exact hwf) (by rw [hI.keep.2.2]; exact hw))
+    fun s' ⟨hS, hb⟩ => hc s' ⟨hS, hI.T.frame hb.frame (fun r hr => by rw [List.mem_singleton.mp hr]; exact hd)
+      (by decide), hb.consts, (hI.keep.trans hb.keep).mono (by decide), hI.frame.trans hb.frame⟩)
 
-end Ntt
+theorem step_fwd (p : Addr) (a d : Nat) {dz : BitVec 32} (h : BitVec.signExtend 64 dz = BitVec.ofNat 64 (4 * d)) :
+    coeffAddr p a + BitVec.signExtend 64 dz = coeffAddr p (a + d) := by
+  rw [h, coeffAddr_add]
 
-theorem chain_fwd : Ntt.Chain 1 nttLens := by
-  simp only [nttLens, Ntt.Chain]; decide
+theorem step_bwd (p : Addr) (a d : Nat) {dz : BitVec 32}
+    (h : BitVec.ofNat 64 (4 * d) + BitVec.signExtend 64 dz = 0) :
+    coeffAddr p (a + d) + BitVec.signExtend 64 dz = coeffAddr p a := by
+  rw [← coeffAddr_add, BitVec.add_assoc, h]; exact BitVec.add_zero _
+
+/-- The block of `NTT`. -/
+abbrev fwdBlk : Poly → Nat → Nat → Nat → Nat → Poly := fun f len k st t => blockN bfly f len (zetas k) st t
+
+theorem nttLayer_eq (F : Poly) (len : Nat) :
+    nttLayer F len = layF fwdBlk F len (fun c => 128 / len + c) (128 / len) := rfl
+
+/-- A layer of `NTT` with `len ≥ 4`, whose first zeta is `zetas k`. -/
+theorem fwdLay_ok {fP sP : Addr} (hd : (pR sP).Disjoint (pR fP)) (len k : Nat) (hlen : len ∈ [4, 8, 16, 32, 64, 128]) (hk : 128 / len = k)
+    {F : Poly} (s : State) (hc : VConsts s) (hdi : s.gpr .rdi = fP) (hsi : s.gpr .rsi = sP)
+    (hS : PolyIs s.mem fP F) (hT : Tab zmTab s.mem sP 256) (hwf : pR fP ∈ s.wr) (hw : pR sP ∈ s.wr) :
+    WP isa (vlay vbfly len k 4) s fun s' => PolyIs s'.mem fP (nttLayer F len) ∧ BInv fP s s' := by
+  rw [nttLayer_eq]
+  exact vlay_ok vbfly_spec nttBlk_ok hlen 4 (fun c => 128 / len + c) (by rw [hk]; rfl)
+    (fun c hc => by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hlen
+      rcases hlen with rfl | rfl | rfl | rfl | rfl | rfl <;> omega)
+    (fun c _ => step_fwd _ _ 1 (by decide)) hc hdi hsi hS hT hwf hw hd
+
+theorem fwdLay2_ok {fP sP : Addr} (hd : (pR sP).Disjoint (pR fP)) {F : Poly} (s : State) (hc : VConsts s) (hdi : s.gpr .rdi = fP)
+    (hsi : s.gpr .rsi = sP) (hS : PolyIs s.mem fP F) (hT : Tab zmTab s.mem sP 256) (hwf : pR fP ∈ s.wr)
+    (hw : pR sP ∈ s.wr) :
+    WP isa (vlay2 vbfly 64 0x50 8) s fun s' => PolyIs s'.mem fP (nttLayer F 2) ∧ BInv fP s s' := by
+  have hs : ∀ e < 4, sel 0x50 e = e / 2 := by decide
+  rw [nttLayer_eq, show 128 / 2 = 64 from rfl]
+  exact vlay2_ok vbfly_spec nttBlk_ok 64 0x50 8 (fun c => 64 + c) (fun i => 64 + 2 * i) rfl
+    (fun i _ => by omega) (fun i _ e he => by rw [hs e he]; omega)
+    (fun i _ => (step_fwd _ _ 2 (by decide)).trans (congrArg _ (by omega))) hc hdi hsi hS hT hwf hw hd
+
+theorem fwdLay1_ok {fP sP : Addr} (hd : (pR sP).Disjoint (pR fP)) {F : Poly} (s : State) (hc : VConsts s) (hdi : s.gpr .rdi = fP)
+    (hsi : s.gpr .rsi = sP) (hS : PolyIs s.mem fP F) (hT : Tab zmTab s.mem sP 256) (hwf : pR fP ∈ s.wr)
+    (hw : pR sP ∈ s.wr) :
+    WP isa (vlay1 vbfly 128 0xE4 16) s fun s' => PolyIs s'.mem fP (nttLayer F 1) ∧ BInv fP s s' := by
+  have hs : ∀ e < 4, sel 0xE4 e = e := by decide
+  rw [nttLayer_eq, show 128 / 1 = 128 from rfl]
+  exact vlay1_ok vbfly_spec nttBlk_ok 128 0xE4 16 (fun c => 128 + c) (fun i => 128 + 4 * i) rfl
+    (fun i _ => by omega) (fun i _ e he => by rw [hs e he]; omega)
+    (fun i _ => (step_fwd _ _ 4 (by decide)).trans (congrArg _ (by omega))) hc hdi hsi hS hT hwf hw hd
+
+/-! ## `vg_mldsa_ntt` -/
+
+theorem mx_sub' (sP : Addr) : Region.Sub (mxR sP) (pR sP) := mx_sub sP
+
+/-- The regions of `scratch` within it, and `f`. -/
+theorem frame_fs {fP sP : Addr} {m m' : Mem} {rs : List Region} (h : Frame rs m m')
+    (hs : ∀ r ∈ rs, Region.Sub r (pR fP) ∨ Region.Sub r (pR sP)) : Frame [pR fP, pR sP] m m' :=
+  h.sub fun r hr => (hs r hr).elim (fun h => ⟨_, List.mem_cons_self .., h⟩)
+    fun h => ⟨_, List.mem_cons_of_mem _ (List.mem_singleton_self _), h⟩
+
+/-- The code in `withMxcsr`, from its state `s1`: the prologue, then the
+layers `l`, which leave `F`, then `NTT⁻¹`'s scaling or nothing. -/
+theorem nttBody_ok {t : Poly → Poly} {s s1 : State} (hs : (inPlaceK t).pre s) {l : Prog isa} {G : Poly}
+    (k1 : Keep [.rax, .r11] s s1) (f1 : Frame [mxR (s.gpr .rsi)] s.mem s1.mem)
+    (hl : ∀ s2, LI (s.gpr .rdi) (s.gpr .rsi) s2 (polyAt s.mem (s.gpr .rdi)) s2 → s2.gpr .rdi = s.gpr .rdi →
+      s2.gpr .rsi = s.gpr .rsi → pR (s.gpr .rdi) ∈ s2.wr → pR (s.gpr .rsi) ∈ s2.wr →
+      WP isa l s2 fun s3 => LI (s.gpr .rdi) (s.gpr .rsi) s2 G s3) :
+    WP isa (.seq (.block vpro) l) s1 fun s' =>
+      PolyIs s'.mem (s.gpr .rdi) G ∧ Frame [pR (s.gpr .rdi), pR (s.gpr .rsi)] s.mem s'.mem := by
+  have hw : pR (s.gpr .rsi) ∈ s.wr := by rw [hs.2.1]; simp
+  have hwf : pR (s.gpr .rdi) ∈ s.wr := by rw [hs.2.1]; simp
+  have hd : (pR (s.gpr .rdi)).Disjoint (pR (s.gpr .rsi)) := hs.2.2.1
+  have hdi1 : s1.gpr .rdi = s.gpr .rdi := k1.gpr (by decide)
+  have hsi1 : s1.gpr .rsi = s.gpr .rsi := k1.gpr (by decide)
+  have hF1 : PolyIs s1.mem (s.gpr .rdi) (polyAt s.mem (s.gpr .rdi)) :=
+    polyIs_frame f1 (fun r hr => by rw [List.mem_singleton.mp hr]; exact hd.sub_right (mx_sub' _))
+      ⟨hs.2.2.2.2.2, rfl⟩
+  refine WP.seq (WP.mono (vpro_ok hsi1 (by rw [k1.2.2]; exact hw)) fun s2 ⟨hT, hc, hf2, k2, _⟩ => ?_)
+  have hF2 : PolyIs s2.mem (s.gpr .rdi) (polyAt s.mem (s.gpr .rdi)) :=
+    polyIs_frame hf2 (fun r hr => by rw [List.mem_singleton.mp hr]; exact hd) hF1
+  refine WP.mono (hl s2 ⟨hF2, hT, hc, Keep.refl _ _, Frame.refl _ _⟩
+    (by rw [k2.gpr (by decide), hdi1]) (by rw [k2.gpr (by decide), hsi1])
+    (by rw [k2.2.2, k1.2.2]; exact hwf) (by rw [k2.2.2, k1.2.2]; exact hw)) fun s3 hI => ⟨hI.P, ?_⟩
+  refine (frame_fs f1 ?_).trans ((frame_fs hf2 ?_).trans (frame_fs hI.frame ?_)) <;>
+    intro r hr <;> simp only [List.mem_singleton] at hr <;> subst hr
+  exacts [.inr (mx_sub' _), .inr fun _ h => h, .inl fun _ h => h]
+
+/-- `withMxcsr` around the body, and the ABI. -/
+theorem mx_correct {t : Poly → Poly} {l : Prog isa} (s : State) (hs : (inPlaceK t).pre s)
+    (hk : writesOnly [.rax, .rcx, .rdx, .r8, .r9] (.seq (.block vpro) l) = true)
+    (hctl : ctlOk (VG.Impl.MlKem.X86_64.withMxcsr .rsi 768 (.seq (.block vpro) l)) = true)
+    (hk' : writesOnly [.rax, .rcx, .rdx, .r8, .r9, .r11]
+      (VG.Impl.MlKem.X86_64.withMxcsr .rsi 768 (.seq (.block vpro) l)) = true)
+    (hl : ∀ s1, Keep [.rax, .r11] s s1 → Frame [mxR (s.gpr .rsi)] s.mem s1.mem →
+      WP isa (.seq (.block vpro) l) s1 fun s' => PolyIs s'.mem (s.gpr .rdi) (t (polyAt s.mem (s.gpr .rdi))) ∧
+        Frame [pR (s.gpr .rdi), pR (s.gpr .rsi)] s.mem s'.mem) :
+    ∃ tr s', Exec isa (VG.Impl.MlKem.X86_64.withMxcsr .rsi 768 (.seq (.block vpro) l)) s tr s' ∧
+      abiPreserved s s' ∧ (inPlaceK t).post s s' := by
+  have hw : pR (s.gpr .rsi) ∈ s.wr := by rw [hs.2.1]; simp
+  have hd : (pR (s.gpr .rdi)).Disjoint (pR (s.gpr .rsi)) := hs.2.2.1
+  have hW := withMxcsr_ok (c := .seq (.block vpro) l) (by decide) [.rax, .rcx, .rdx, .r8, .r9] (by decide) rfl hw
+    hk (hl)
+  obtain ⟨tr, s', he, ⟨s2, ⟨hP, hf⟩, hf', -⟩, hk⟩ := WP.keep [.rax, .rcx, .rdx, .r8, .r9, .r11] hW hk'
+  refine ⟨tr, s', he, abiPreserved_of_ctl hctl he (gprPreserved_of hk (by decide)
+    (hf.trans (hf'.sub fun r hr => ⟨_, List.mem_cons_of_mem _ (List.mem_singleton_self _), ?_⟩))
+    (by simpa using ⟨hs.2.2.2.1, hs.2.2.2.2.1⟩)), ?_⟩
+  · rw [List.mem_singleton.mp hr]; exact mx_sub' _
+  · exact polyIs_frame hf' (fun r hr => by
+      rw [List.mem_singleton.mp hr]; exact hd.sub_right (mx_sub' _)) hP
 
 theorem ntt_correct (s : State) (hs : (inPlaceK ntt).pre s) :
     ∃ t s', Exec isa Impl.MlDsa.X86_64.Arith.ntt s t s' ∧ abiPreserved s s' ∧ (inPlaceK ntt).post s s' := by
-  have hw : pR (s.gpr .rdi) ∈ s.wr := by rw [hs.2.1]; simp
-  have hz : pR (s.gpr .rsi) ∈ s.rd ++ s.wr := by rw [hs.1, hs.2.1]; simp
-  obtain ⟨t, s', he, ⟨k, hI⟩, hk⟩ := WP.keep (c := Impl.MlDsa.X86_64.Arith.ntt)
-    [.rax, .rcx, .rdx, .rsi, .rdi, .r8, .r9, .r10, .r11]
-    (WP.seq (WP.mono (Ntt.pro_ok hs zetaTab 4 1 (by decide)) fun s1 hI =>
-      Ntt.lays_ok hw hz hs.2.2.1.symm nttLens _ 1 s1 (fun _ h => h) chain_fwd hI)) (by decide +kernel)
-  refine ⟨t, s', he, abiPreserved_of_exec (by decide +kernel) he (gprPreserved_of hk (by decide) hI.frame
-    (by simpa using ⟨hs.2.2.2.1, hs.2.2.2.2.1⟩)), ?_⟩
-  show PolyIs _ _ _
-  rw [ntt_eq_layers]
-  exact hI.poly
+  have hd : (pR (s.gpr .rsi)).Disjoint (pR (s.gpr .rdi)) := hs.2.2.1.symm
+  refine mx_correct s hs (by decide +kernel) (by decide +kernel) (by decide +kernel) fun s1 k1 f1 =>
+    WP.mono (nttBody_ok hs k1 f1 (G := nttLens.foldl nttLayer (polyAt s.mem (s.gpr .rdi)))
+      fun s2 hI hdi hsi hwf hw => ?_) fun s' ⟨hP, hf⟩ => ⟨by rw [ntt_eq_layers]; exact hP, hf⟩
+  simp only [nttLens, List.foldl_cons, List.foldl_nil]
+  refine LI.seq hdi hsi hwf hw hd (fwdLay_ok hd 128 1 (by decide) (by decide)) ?_ hI
+  refine fun _ hI => LI.seq hdi hsi hwf hw hd (fwdLay_ok hd 64 2 (by decide) (by decide)) ?_ hI
+  refine fun _ hI => LI.seq hdi hsi hwf hw hd (fwdLay_ok hd 32 4 (by decide) (by decide)) ?_ hI
+  refine fun _ hI => LI.seq hdi hsi hwf hw hd (fwdLay_ok hd 16 8 (by decide) (by decide)) ?_ hI
+  refine fun _ hI => LI.seq hdi hsi hwf hw hd (fwdLay_ok hd 8 16 (by decide) (by decide)) ?_ hI
+  refine fun _ hI => LI.seq hdi hsi hwf hw hd (fwdLay_ok hd 4 32 (by decide) (by decide)) ?_ hI
+  refine fun _ hI => LI.seq hdi hsi hwf hw hd (fwdLay2_ok hd) ?_ hI
+  exact fun _ hI => LI.last hdi hsi hwf hw hd (fwdLay1_ok hd) hI
 
 /-- The pointers and `rsp` are public. -/
 theorem inPlace_agree {t : Poly → Poly} (s₁ s₂ : State) (_ : (inPlaceK t).pre s₁) (_ : (inPlaceK t).pre s₂)
