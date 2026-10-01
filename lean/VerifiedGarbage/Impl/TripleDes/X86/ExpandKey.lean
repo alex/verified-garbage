@@ -6,13 +6,16 @@ def save : List Instr :=
   [.mov .eax (.mem (memOp .esp 16))] ++
     savedRegs.zipIdx.map (fun (r, i) => .store (memOp .eax (4 * i)) r) ++ [rr .ebp .eax]
 def restore : List Instr := blockRestore
-def load (offset component : Nat) : List Instr :=
+def loadHead (offset : Nat) : List Instr :=
   [.mov .edx (.mem (memOp .esp 4)), .mov .edi (.mem (memOp .edx offset)),
-    .mov .esi (.mem (memOp .edx (offset + 4))), .bswap .edi, .bswap .esi] ++
-    permuteCode Spec.TripleDes.pc1 64 32 28 .eax .ebx .esi .edi .ecx ++
-    [rr .esi .ebx, rr .edi .eax, imm .eax 0, .store (memOp .ebp 20) .eax,
-      .mov .eax (.mem (memOp .esp 12)),
-      .alu .add .eax (.imm (BitVec.ofNat 32 (128 * component))), .store (memOp .ebp 16) .eax]
+    .mov .esi (.mem (memOp .edx (offset + 4))), .bswap .edi, .bswap .esi]
+def loadTail (component : Nat) : List Instr :=
+  [rr .esi .ebx, rr .edi .eax, .mov .edx (.mem (memOp .esp 12)),
+    imm .eax 0, .store (memOp .ebp 20) .eax,
+    .alu .add .edx (.imm (BitVec.ofNat 32 (128 * component))), .store (memOp .ebp 16) .edx]
+def load (offset component : Nat) : List Instr :=
+  loadHead offset ++ permuteCode Spec.TripleDes.pc1 64 32 28 .eax .ebx .esi .edi .ecx ++
+    loadTail component
 def rotate28 (r : Reg) (n : Nat) : List Instr :=
   [rr .eax r, .shift .shr .eax (28 - n), .shift .ror r (32 - n),
     .alu .xor r (.reg .eax), .alu .and r (.imm 268435455)]
@@ -22,12 +25,13 @@ def rotation : Prog isa :=
     (.ite .b (rotate 1)
       (.seq (.block [.alu .cmp .eax (.imm 8)]) (.ite .e (rotate 1)
         (.seq (.block [.alu .cmp .eax (.imm 15)]) (.ite .e (rotate 1) (rotate 2))))))
+def storeTail : List Instr :=
+  [.mov .edx (.mem (memOp .ebp 16)), .store (memOp .edx 0) .eax,
+    .store (memOp .edx 4) .ebx, .alu .add .edx (.imm 8), .store (memOp .ebp 16) .edx,
+    .mov .eax (.mem (memOp .ebp 20)), .alu .add .eax (.imm 1),
+    .store (memOp .ebp 20) .eax, .alu .cmp .eax (.imm 16)]
 def storeRound : List Instr :=
-  permuteCode Spec.TripleDes.pc2 56 28 32 .eax .ebx .edi .esi .ecx ++
-    [.mov .edx (.mem (memOp .ebp 16)), .store (memOp .edx 0) .eax,
-      .store (memOp .edx 4) .ebx, .alu .add .edx (.imm 8), .store (memOp .ebp 16) .edx,
-      .mov .eax (.mem (memOp .ebp 20)), .alu .add .eax (.imm 1),
-      .store (memOp .ebp 20) .eax, .alu .cmp .eax (.imm 16)]
+  permuteCode Spec.TripleDes.pc2 56 28 32 .eax .ebx .edi .esi .ecx ++ storeTail
 def component (offset index : Nat) : Prog isa :=
   .seq (.block (load offset index)) (.loop (.seq rotation (.block storeRound)) .ne)
 def copyThird : List Instr :=
