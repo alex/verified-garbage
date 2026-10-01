@@ -182,10 +182,10 @@ def rejNTTContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (stack := stack)
     (leak := some fun seed _a _scratch m => leakBytes (bytesAt m seed 34))
 
-/-- `vg_mldsa_rej_ntt_poly4(seeds: *const [u8; 136], a: *mut [u32; 1024], scratch: *mut [u64; 256]) -> u32`. -/
+/-- `vg_mldsa_rej_ntt_poly4(seeds: *const [u8; 136], a: *mut [u32; 1024], scratch: *mut [u64; 1024]) -> u32`. -/
 def rejNTT4Sig : Sig where
   params := [("seeds", .array false .u8 136), ("a", .array true .u32 1024),
-    ("scratch", .array true .u64 256)]
+    ("scratch", .array true .u64 1024)]
   ret := some .u32
 
 /-- Seed `k` of four at `seeds`: the 34 bytes from byte `34 k`. -/
