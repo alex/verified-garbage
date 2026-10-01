@@ -68,7 +68,7 @@ jobs:
         include: ${{ fromJSON(needs.arches.outputs.matrix) }}
     name: Compare with base (${{ matrix.arch }}${{ matrix.cpu-features && format(', VG_CPU_FEATURES={0}', matrix.cpu-features) || '' }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     # With an empty image the job runs directly on the runner.
     container:
       image: ${{ matrix.image || '' }}
