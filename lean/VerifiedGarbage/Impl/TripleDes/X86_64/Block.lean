@@ -73,7 +73,7 @@ def pass (component : Nat) (direction : Direction) : Prog isa :=
     (.seq (.loop (.block (roundBody ++ roundAdvance direction)) .ne) (.block swapHalves))
 
 def blockStore : List Instr :=
-  [rr .rax .r12, .shift .ror .rax 32, .alu .or .rax (.reg .r13)] ++
+  [rr .rax .r12, .shift .ror .rax 32, .alu .xor .rax (.reg .r13)] ++
     permuteCode Spec.TripleDes.fp 64 .rbx .rax .rbp ++
     [.bswap .rbx, .store (memOp .rsi 0) .rbx]
 

@@ -14,14 +14,14 @@ open VG VG.X86_64
 /-- A bounded interpreter for model smoke tests, omitting leakage traces. -/
 def evaluate : Nat → Prog isa → State → Option State
   | 0, _, _ => none
-  | fuel + 1, .block is, s => runBlock isa is s
+  | _ + 1, .block is, s => runBlock isa is s
   | fuel + 1, .seq a b, s => (evaluate fuel a s).bind (evaluate fuel b)
   | fuel + 1, .ite c a b, s => do
-    let taken ← isa.evalCond c s
+    let taken ← isa.eval c s
     evaluate fuel (if taken then a else b) s
   | fuel + 1, .loop body c, s => do
     let s' ← evaluate fuel body s
-    let again ← isa.evalCond c s'
+    let again ← isa.eval c s'
     if again then evaluate fuel (.loop body c) s' else some s'
   | fuel + 1, .call _ body, s => do
     let s₁ ← isa.call s
@@ -62,7 +62,7 @@ def checkCase (key pt ct : List Byte) : Except String Unit := do
     throw "block decryption differs from NIST"
 
 run_cmd do
-  let file ← IO.FS.realPath (← getFileName)
+  let file ← IO.FS.realPath (← Lean.getFileName)
   let some root := file.parent >>= (·.parent) >>= (·.parent)
     | throwError "no repository root"
   let text ← IO.FS.readFile (root / "vectors" / "nist-cavp-tdes-mmt" / "TECBMMT3.rsp")

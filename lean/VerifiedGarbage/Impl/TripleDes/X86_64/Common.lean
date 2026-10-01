@@ -21,6 +21,6 @@ def permuteCode {m : Nat} (positions : Vector Nat m) (n : Nat)
   [imm dst 0] ++ (List.range m).flatMap fun i =>
     [rr tmp src] ++ shr tmp (n - positions.getD i 1) ++
       ([.alu .and tmp (.imm 1)] : List Instr) ++ placeBit tmp (m - 1 - i) ++
-      ([.alu .or dst (.reg tmp)] : List Instr)
+      ([.alu .xor dst (.reg tmp)] : List Instr)
 
 end VG.Impl.TripleDes.X86_64
