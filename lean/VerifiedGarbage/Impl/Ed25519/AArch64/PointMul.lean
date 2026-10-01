@@ -8,17 +8,10 @@ def batchBegin : List Instr := [ld .x19 56, .subImm .x .x19 .x19 1, st .x19 56]
 def batchBitOffset : List Instr := [ld .x8 56, .lsl .x .x1 .x8 4]
 def batchTest : List Instr := [ld .x19 56]
 
-def pointMulBatch : Prog isa :=
-  .seq (.block batchBegin) (.seq prepareBatch (.seq (.block batchBitOffset)
-    (.seq accumulate16 (.block batchTest))))
-
 def mulCounterInit (count : Nat) : List Instr := const64 .x8 (BitVec.ofNat 64 count) ++ [st .x8 56]
 
 def pointMultiplyInit (count : Nat) : Prog isa :=
   .seq (pointPowers 1280 count true) (.seq (.block (constPoint Spec.Ed25519.identity))
     (.block (mulCounterInit count)))
-
-def pointMultiply (count : Nat) : Prog isa :=
-  .seq (pointMultiplyInit count) (.loop pointMulBatch (.nonzero .x .x19))
 
 end VG.Impl.Ed25519.AArch64

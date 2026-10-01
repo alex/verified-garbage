@@ -1,7 +1,12 @@
 //! BLAKE2b-512: the 256 unkeyed and 256 keyed vectors, in one call and split
 //! into two pieces at every position.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "x86",
+    target_arch = "arm"
+))]
 
 use verified_garbage::hashes::HashFunction;
 use verified_garbage::hashes::blake2b::{Blake2b, Blake2b512};

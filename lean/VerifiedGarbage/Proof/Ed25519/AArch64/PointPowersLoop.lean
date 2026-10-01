@@ -24,7 +24,6 @@ theorem powersLoop_ok (batch : Bool) {s₀ : State} {base : Addr} (hs : Scr s₀
     WP isa (.loop (powersBody o count batch) (.nonzero .x .x8)) s₀ fun t =>
       (∀ j < count, tablePoint t.mem base (o + 128 * j) =
         powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * j)) ∧
-      point (env t.mem base) 0 1 2 3 = powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * count) ∧
       (∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s₀.mem base i) ∧
       PowersKeep base o (128 * count) s₀ t := by
   apply WP.loop (fun n => PowersInv s₀ base o count n batch) (n := count)
@@ -34,10 +33,6 @@ theorem powersLoop_ok (batch : Bool) {s₀ : State} {base : Addr} (hs : Scr s₀
     refine WP.mono (powersBody_ok batch hi.scratch o (count - (k + 1)) count hlo hbound (by omega) hn
       hi.counter ((hi.high 16 (by decide)).trans hd)) fun t ⟨htc, htz, htt, htv, hthi, htk⟩ => ?_
     have hstep : count - (k + 1) + 1 = count - k := by omega
-    have hv : point (env t.mem base) 0 1 2 3 =
-        powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * (count - k)) := by
-      rw [htv, hi.value, ← powerPoint_add]
-      exact congrArg (powerPoint _) (by cases batch <;> simp only [powerStride, Bool.false_eq_true, ite_true, ite_false] <;> omega)
     have ht : ∀ j < count - k, tablePoint t.mem base (o + 128 * j) =
         powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * j) := by
       intro j hj
@@ -51,8 +46,12 @@ theorem powersLoop_ok (batch : Bool) {s₀ : State} {base : Addr} (hs : Scr s₀
     by_cases hk0 : k = 0
     · subst hk0
       exact Or.inl ⟨by simp only [eval, read_x, htz, show count - (0 + 1) + 1 = count by omega,
-        show decide (count ≠ count) = false from decide_eq_false (not_not_intro rfl)], ht, hv, hh, hkeep⟩
-    · exact Or.inr ⟨by simp only [eval, read_x, htz,
+        show decide (count ≠ count) = false from decide_eq_false (not_not_intro rfl)], ht, hh, hkeep⟩
+    · have hv : point (env t.mem base) 0 1 2 3 =
+          powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * (count - k)) := by
+        rw [htv (by omega), hi.value, ← powerPoint_add]
+        exact congrArg (powerPoint _) (by cases batch <;> simp only [powerStride, Bool.false_eq_true, ite_true, ite_false] <;> omega)
+      exact Or.inr ⟨by simp only [eval, read_x, htz,
         decide_eq_true (show count - (k + 1) + 1 ≠ count by omega)],
         k, by omega, ⟨by omega, by omega, htk.scratch hi.scratch, hstep ▸ htc, hv, ht, hh, hkeep⟩⟩
   · refine ⟨hn0, Nat.le_refl _, hs, ?_, ?_, ?_, fun _ _ => rfl, PowersKeep.refl _ _ _ _⟩
@@ -75,16 +74,15 @@ theorem pointPowers_ok (batch : Bool) {s : State} {base : Addr} (hs : Scr s base
     WP isa (pointPowers o count batch) s fun t =>
       (∀ j < count, tablePoint t.mem base (o + 128 * j) =
         powerPoint (point (env s.mem base) 0 1 2 3) (powerStride batch * j)) ∧
-      point (env t.mem base) 0 1 2 3 = powerPoint (point (env s.mem base) 0 1 2 3) (powerStride batch * count) ∧
       (∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i) ∧
       PowersKeep base o (128 * count) s t := by
   rw [pointPowers]
   refine WP.seq (WP.mono (powersInit_ok s) fun t ⟨hc, hk⟩ => ?_)
   refine WP.mono (powersLoop_ok batch (hs.of_keeps hk (by decide)) o count hlo hbound hn0 hn hc
-    (by rw [hk.mem]; exact hd)) fun u ⟨ht, hv, hh, hu⟩ => ?_
+    (by rw [hk.mem]; exact hd)) fun u ⟨ht, hh, hu⟩ => ?_
   have hkeep : PowersKeep base o (128 * count) s t := ⟨fun r hr _ _ => hk.gpr r (by simpa using hr),
     hk.rd, hk.wr, hk.sp, by rw [hk.mem]; exact TableFrame.refl _ _ _ _⟩
-  rw [hk.mem] at ht hv hh
-  exact ⟨ht, hv, hh, hkeep.trans hu⟩
+  rw [hk.mem] at ht hh
+  exact ⟨ht, hh, hkeep.trans hu⟩
 
 end VG.Proof.Ed25519.AArch64
