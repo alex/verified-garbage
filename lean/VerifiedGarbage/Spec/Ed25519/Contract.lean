@@ -184,8 +184,9 @@ def verifyEquationApi : Api where
     `VG.Spec.Ed25519.verify` do, the caller must reduce SHA-512(R || A || M) modulo L (e.g. \
     with `vg_ed25519_scalar_reduce`) and supply the 32-byte result followed by 32 zero \
     bytes as `challenge`; this function does not hash M. Passing the unreduced digest \
-    checks a different equation, which disagrees with RFC 8032 §6 and OpenSSL whenever A \
-    has a small-order component. Rejects noncanonical points and S >= L, with no additional subgroup or \
+    instead checks the equation with the full 512-bit k, which RFC 8032 §5.1.7 also \
+    permits but which differs from §6 and OpenSSL whenever A has a small-order \
+    component. Rejects noncanonical points and S >= L, with no additional subgroup or \
     small-order check. Contract: `VG.Spec.Ed25519.verifyEquationContract`. Not constant \
     time: timing may depend on all inputs."
   safety := [scratchSafety]

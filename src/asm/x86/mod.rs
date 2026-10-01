@@ -86,6 +86,9 @@ pub(crate) mod pbkdf2_sha512_256;
 pub(crate) mod poly1305;
 
 #[rustfmt::skip]
+pub(crate) mod rc2;
+
+#[rustfmt::skip]
 pub(crate) mod scrypt;
 
 #[rustfmt::skip]
@@ -102,3 +105,6 @@ pub(crate) mod sha512;
 
 #[rustfmt::skip]
 pub(crate) mod x25519;
+
+#[rustfmt::skip]
+pub(crate) mod x448;

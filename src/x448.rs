@@ -10,7 +10,12 @@
 //! shared secret that a public key of small order gives (RFC 7748 §6.2), in
 //! constant time; [`x448`] is the function itself, which does not.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "x86",
+    target_arch = "aarch64",
+    target_arch = "arm"
+))]
 
 use crate::arch::x448::vg_x448;
 use crate::mlkem768::zeroize;
@@ -37,8 +42,8 @@ pub fn x448(scalar: &[u8; 56], u: &[u8; 56]) -> [u8; 56] {
     let mut out = [0u8; 56];
     let mut scratch = [0u64; 1024];
     // SAFETY: `out` and `scratch` are valid for reads and writes of 56 and
-    // 8192 bytes, and `scalar` and `u` for reads of 56 bytes; they are
-    // the writable buffers are disjoint from each other and from the inputs.
+    // 8192 bytes, and `scalar` and `u` for reads of 56 bytes; the writable
+    // buffers are disjoint from each other and from the inputs.
     // No buffer overlaps the callee's stack or wraps around the address space.
     unsafe { vg_x448(&mut out, scalar, u, &mut scratch) };
     zeroize(&mut scratch);

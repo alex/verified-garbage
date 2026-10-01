@@ -5,11 +5,17 @@
 //! contracts in `VG.Spec.Ed25519`. Rust composes those primitives and clears
 //! secret temporary values.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "x86",
+    target_arch = "arm"
+))]
 
+#[cfg(target_arch = "x86_64")]
+use crate::arch::ed25519::vg_ed25519_scalar_base_precomputed;
 use crate::arch::ed25519::{
-    vg_ed25519_scalar_base, vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce,
-    vg_ed25519_verify_equation,
+    vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce, vg_ed25519_verify_equation,
 };
 use crate::hashes::sha512::Sha512;
 use crate::mlkem768::zeroize;
@@ -42,10 +48,8 @@ impl VerifyingKey {
     ///
     /// Public keys and signatures must use canonical encodings, and the
     /// signature scalar must be less than the subgroup order. This checks
-    /// the uncofactored equation `[S]B = R + [k]A` with the SHA-512
-    /// challenge `k` reduced modulo the subgroup order, as RFC 8032 §6's
-    /// reference code and OpenSSL do. It does not impose an additional
-    /// subgroup or small-order rejection policy.
+    /// the uncofactored equation using the full SHA-512 challenge. It does
+    /// not impose an additional subgroup or small-order rejection policy.
     /// Verification timing may depend on the public key, message, and signature.
     pub fn verify(&self, message: &[u8], signature: &[u8]) -> Result<(), Error> {
         let signature: &[u8; 64] = signature.try_into().map_err(|_| Error::InvalidSignature)?;
@@ -53,12 +57,8 @@ impl VerifyingKey {
         hash.update(&signature[..32]);
         hash.update(&self.bytes);
         hash.update(message);
-        let digest = hash.finalize();
+        let challenge = hash.finalize();
         let mut scratch = [0u64; 1024];
-        // `vg_ed25519_verify_equation` uses all 64 challenge bytes as given:
-        // reduce the digest first, as `VG.Spec.Ed25519.verify` does.
-        let mut challenge = [0u8; 64];
-        challenge[..32].copy_from_slice(&reduce(&digest, &mut scratch));
         // SAFETY: the input arrays are live for their declared sizes, and
         // scratch is a distinct writable object. None wraps the address space.
         let valid =
@@ -166,11 +166,40 @@ fn prune(expanded: &[u8; 64]) -> [u8; 32] {
     scalar
 }
 
+enum BaseBackend {
+    #[cfg(not(target_arch = "x86_64"))]
+    Scalar,
+    #[cfg(target_arch = "x86_64")]
+    Precomputed,
+}
+
+const BASE_BACKEND: BaseBackend = {
+    #[cfg(target_arch = "x86_64")]
+    {
+        BaseBackend::Precomputed
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        BaseBackend::Scalar
+    }
+};
+
 fn scalar_base(scalar: &[u8; 32], scratch: &mut [u64; 1024]) -> [u8; 32] {
     let mut out = [0u8; 32];
     // SAFETY: the output, scalar, and scratch are distinct objects valid
     // for 32, 32, and 8192 bytes, respectively, without address-space wrapping.
-    unsafe { vg_ed25519_scalar_base(&mut out, scalar, scratch) };
+    unsafe {
+        match BASE_BACKEND {
+            #[cfg(not(target_arch = "x86_64"))]
+            BaseBackend::Scalar => {
+                crate::arch::ed25519::vg_ed25519_scalar_base(&mut out, scalar, scratch)
+            }
+            #[cfg(target_arch = "x86_64")]
+            BaseBackend::Precomputed => {
+                vg_ed25519_scalar_base_precomputed(&mut out, scalar, scratch)
+            }
+        }
+    };
     out
 }
 
