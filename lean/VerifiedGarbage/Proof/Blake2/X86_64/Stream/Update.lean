@@ -22,7 +22,7 @@ open VG.WriteBytes (writeBytes writeBytes_before writeBytes_frame)
 open VG.Proof.Blake2 (ReprR bufLen_le repr_iff reprR_append reprR_flush reprR_blocks repr_of_reprR stateAt_congr
   bytesAt_congr bytesAt_add blockAt_congr compressBlocks_congr)
 
-variable {w : Nat} {P : Params w}
+variable {w : Nat} {P : Params w} {callee : Impl.Blake2.X86_64.Stream.Callee}
 
 /-! ## Saving the caller's registers
 
@@ -436,9 +436,9 @@ theorem compressBlocks_one (h : HashValue w) (m : Mem) (p : Addr) (t : Nat) (f :
   rw [compressBlocks_succ, compressBlocks_zero]; simp
 
 /-- Compressing the full buffer. -/
-theorem compressBuf_ok (hP : Ok P) (hf : CalleeOk P (compress P)) {s₀ : State} (hp : Pre w s₀)
+theorem compressBuf_ok (hP : Ok P) (hf : CalleeOk P callee.code) {s₀ : State} (hp : Pre w s₀)
     {c : Nat} {s : State} (hI : Inv P s₀ c (blockBytes w) s) :
-    WP isa (compressBuf P) s (Inv P s₀ c 0) := by
+    WP isa (compressBuf (w := w) callee) s (Inv P s₀ c 0) := by
   have hl := ok_len hP
   have hc := hI.c_le
   unfold compressBuf
@@ -573,9 +573,9 @@ buffer is empty and data is left. -/
 def HeadPost (P : Params w) (s₀ : State) (s : State) : Prop :=
   ∃ c r, Inv P s₀ c r s ∧ ((c = len s₀ ∧ 1 ≤ r) ∨ (c < len s₀ ∧ r = 0))
 
-theorem head_ok (hP : Ok P) (hf : CalleeOk P (compress P)) {s₀ : State} (hp : Pre w s₀) {r : Nat}
+theorem head_ok (hP : Ok P) (hf : CalleeOk P callee.code) {s₀ : State} (hp : Pre w s₀) {r : Nat}
     (hr : r ≤ blockBytes w) (hl : 0 < len s₀) {s : State} (hI : Inv P s₀ 0 r s) :
-    WP isa (head P) s (HeadPost P s₀) := by
+    WP isa (head (w := w) callee) s (HeadPost P s₀) := by
   have hL := len_lt s₀
   have hl' := ok_len hP
   unfold head
@@ -619,9 +619,9 @@ theorem shr_ofNat (hP : Ok P) {m : Nat} (h : m < 2 ^ 64) :
     Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) h), Nat.shiftRight_eq_div_pow, lgB]
 
 /-- The blocks of data but the last, straight from the data. -/
-theorem direct_ok (hP : Ok P) (hf : CalleeOk P (compress P)) {s₀ : State} (hp : Pre w s₀) {c : Nat}
+theorem direct_ok (hP : Ok P) (hf : CalleeOk P callee.code) {s₀ : State} (hp : Pre w s₀) {c : Nat}
     (hc : c < len s₀) {s : State} (hI : Inv P s₀ c 0 s) :
-    WP isa (direct P) s (Inv P s₀ (c + blockBytes w * ((len s₀ - c - 1) / blockBytes w)) 0) := by
+    WP isa (direct (w := w) callee) s (Inv P s₀ (c + blockBytes w * ((len s₀ - c - 1) / blockBytes w)) 0) := by
   have hl := ok_len hP
   have hL := len_lt s₀
   have hcn := cnt_lt s₀
@@ -764,8 +764,8 @@ theorem tail_ok (hP : Ok P) {s₀ : State} (hp : Pre w s₀) {c : Nat} (hc₁ : 
 /-- All the data is in, and the buffer is not empty. -/
 def Full (P : Params w) (s₀ : State) (s : State) : Prop := ∃ r, Inv P s₀ (len s₀) r s ∧ 1 ≤ r
 
-theorem rest_ok (hP : Ok P) (hf : CalleeOk P (compress P)) {s₀ : State} (hp : Pre w s₀) {s : State}
-    (h : HeadPost P s₀ s) : WP isa (rest P) s (Full P s₀) := by
+theorem rest_ok (hP : Ok P) (hf : CalleeOk P callee.code) {s₀ : State} (hp : Pre w s₀) {s : State}
+    (h : HeadPost P s₀ s) : WP isa (rest (w := w) callee) s (Full P s₀) := by
   have hL := len_lt s₀
   have hpos := hP.pos
   obtain ⟨c, r, hI, hcr⟩ := h
@@ -836,8 +836,8 @@ theorem epilogue_ok {s₀ : State} (hp : Pre w s₀) {s : State} (hI : Done P s�
   simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp (config := {decide := true}) [hrsp]
 
-theorem correct (hP : Ok P) (hf : CalleeOk P (compress P)) {s₀ : State} (hp : Pre w s₀) :
-    WP isa (update P) s₀ fun s' => gprPreserved s₀ s' ∧ (updateX86_64 P).post s₀ s' := by
+theorem correct (hP : Ok P) (hf : CalleeOk P callee.code) {s₀ : State} (hp : Pre w s₀) :
+    WP isa (update P callee) s₀ fun s' => gprPreserved s₀ s' ∧ (updateX86_64 P).post s₀ s' := by
   have hL := len_lt s₀
   unfold update
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨hC, hm⟩ => ?_)

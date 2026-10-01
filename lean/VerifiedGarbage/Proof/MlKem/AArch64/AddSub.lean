@@ -187,12 +187,13 @@ theorem map_correct {op : List Instr} {F : Nat → Nat → Nat} (hop : VOpSpec o
     {G : Poly → Poly → Poly}
     (hG : ∀ P R : Poly, ∀ i < n, ((G P R)[i]!).val = F (P[i]!).val (R[i]!).val)
     (hpres : (vmapLoop op).allInstrs (keeps (RegSet.ofList preserved)) = true)
-    (s : State) (hs : (accAArch64 G).pre s) :
+    (s : State) (hs : (accAArch64 G).pre s)
+    (hv : (vmapLoop op).allInstrs keepsV = true := by decide +kernel) :
     ∃ t s', Exec isa (vmapLoop op) s t s' ∧ abiPreserved s s' ∧ (accAArch64 G).post s s' := by
   obtain ⟨h1, h2, h3, h4, h5⟩ := hs
   have hp : AccPre s := ⟨h1, h2, h3, h4, h5⟩
   obtain ⟨t, s', he, hI⟩ := map_loop (F := F) hop hp
-  refine ⟨t, s', he, abi_of rfl hpres he, ?_⟩
+  refine ⟨t, s', he, abi_of rfl hpres he hv, ?_⟩
   show PolyIs s'.mem (fP s) (G (polyAt s.mem (fP s)) (polyAt s.mem (gP s)))
   refine polyIs_of_coeffAt fun i hi => ?_
   rw [hI.f i hi, ite_eq_left (by rw [n_eq] at hi; omega), newC, hG _ _ i hi, polyAt_val hp.f hi,

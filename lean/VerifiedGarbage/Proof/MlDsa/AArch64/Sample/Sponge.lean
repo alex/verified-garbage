@@ -539,7 +539,7 @@ theorem sponge_ok {rate outlen : Nat} (hr : rate ∈ rates) (ho : 840 + outlen �
 /-- The epilogue: `x30`, `x26`, `x27` and `x25` restored; with `Env`, the
 calling convention's obligations. -/
 theorem epi_ok {s : State} (he : Env P σ s) :
-    WP isa (.block epi) s fun s' => abiPreserved σ s' ∧ s'.mem = s.mem ∧
+    WP isa (.block epi) s fun s' => GprAbi σ s' ∧ s'.mem = s.mem ∧
       Keep [.x30, .x26, .x27, .x25] s s' := by
   have in8 : ∀ {u : State}, u.rd = σ.rd → u.wr = σ.wr → ∀ {off : Nat}, off + 8 ≤ 2048 →
       InRegions (u.rd ++ u.wr) (P.at' off) 8 := fun hr hw _ h' => inScrRd hp hr hw h'

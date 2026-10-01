@@ -55,15 +55,15 @@ theorem compressEncode1024_call {s : State} {f o : Addr} {d : Nat} (h0 : s.gpr .
   have c1 : ((s.callEntry.gpr .x1).setWidth 32).toNat = d := by rw [entry s]; exact h1
   have c2 : s.callEntry.gpr .x2 = o := (entry s).trans h2
   have c3 : (s.callEntry.gpr .x3).toNat = 32 * d := by rw [entry s]; exact h3
-  refine WP.call (k := MlKem1024.compressEncodeAArch64) MlKem1024.AArch64.CE.correct (rd := [⟨f, 1024⟩]) (wr := [⟨o, 32 * d⟩]) ?_
+  refine WP.callV (k := MlKem1024.compressEncodeAArch64) MlKem1024.AArch64.CE.correct (rd := [⟨f, 1024⟩]) (wr := [⟨o, 32 * d⟩]) ?_
     hc hw ?_
   · simp only [MlKem1024.compressEncodeAArch64, State.withRegions_gpr, State.withRegions_rd, State.withRegions_wr,
       State.withRegions_mem, State.callEntry_mem, c0, c1, c2, c3]
     exact ⟨trivial, trivial, hd, hdw, trivial, hr⟩
-  · intro s' hrd hwr hsp hf hcs _ hpost
+  · intro s' hrd hwr hsp hf hcs _ hvec hpost
     simp only [MlKem1024.compressEncodeAArch64, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem,
       c0, c1, c2, c3] at hpost
-    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ hpost
+    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf, hvec⟩ hpost
 
 /-- `vg_mlkem1024_decode_decompress(b, 32 d, d, f)`. -/
 theorem decodeDecompress1024_call {s : State} {b f : Addr} {d : Nat} (h0 : s.gpr .x0 = b)
@@ -78,14 +78,14 @@ theorem decodeDecompress1024_call {s : State} {b f : Addr} {d : Nat} (h0 : s.gpr
   have c1 : (s.callEntry.gpr .x1).toNat = 32 * d := by rw [entry s]; exact h1
   have c2 : ((s.callEntry.gpr .x2).setWidth 32).toNat = d := by rw [entry s]; exact h2
   have c3 : s.callEntry.gpr .x3 = f := (entry s).trans h3
-  refine WP.call (k := MlKem1024.decodeDecompressAArch64) MlKem1024.AArch64.DD.correct (rd := [⟨b, 32 * d⟩]) (wr := [⟨f, 1024⟩]) ?_
+  refine WP.callV (k := MlKem1024.decodeDecompressAArch64) MlKem1024.AArch64.DD.correct (rd := [⟨b, 32 * d⟩]) (wr := [⟨f, 1024⟩]) ?_
     hc hw ?_
   · simp only [MlKem1024.decodeDecompressAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, c0, c1, c2, c3]
     exact ⟨trivial, trivial, hd, hdw, trivial⟩
-  · intro s' hrd hwr hsp hf hcs _ hpost
+  · intro s' hrd hwr hsp hf hcs _ hvec hpost
     simp only [MlKem1024.decodeDecompressAArch64, State.withRegions_gpr, State.withRegions_mem,
       State.callEntry_mem, c0, c1, c2, c3] at hpost
-    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ hpost
+    exact hQ s' ⟨hcs, hsp, hrd, hwr, hf, hvec⟩ hpost
 
 end VG.Proof.MlKem1024.AArch64

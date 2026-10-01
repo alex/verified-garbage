@@ -96,6 +96,10 @@ pub mod rc2_cbc;
 pub mod scrypt;
 pub mod x25519;
 pub mod x448;
+mod zeroize;
+
+#[cfg(test)]
+mod argon2_compress_tests;
 
 #[cfg(test)]
 mod tests {

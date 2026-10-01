@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Impl.Aes.AArch64.ExpandKey
 import VerifiedGarbage.Proof.Aes.AArch64.Ctr32
 import VerifiedGarbage.Proof.Aes.KeyExp
@@ -881,7 +882,7 @@ theorem expandKey_correct (s : State) (hs : Proof.Aes.expandKeyAArch64.pre s) :
       Proof.Aes.expandKeyAArch64.post s s' := by
   obtain ⟨t, s', he, ⟨h₁, h₂⟩, h₃⟩ :=
     WP.gprs (rs := [.x30]) (ek_correct hs) (by decide +kernel) (by decide +kernel)
-  refine ⟨t, s', he, ⟨fun r hr => ?_, Exec.sp he⟩, h₂⟩
+  refine ⟨t, s', he, ⟨fun r hr => ?_, Exec.sp he, Exec.preservedV he⟩, h₂⟩
   simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · exact h₁ 0 (by omega)

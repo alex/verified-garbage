@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Range
@@ -974,7 +975,7 @@ theorem permute_correct (s : State) (hs : Proof.Sha3.permuteAArch64.pre s) :
       Proof.Sha3.permuteAArch64.post s s' := by
   obtain ⟨t, s', he, hsp, h⟩ := correct (pre_of s hs)
   exact ⟨t, s', he,
-    ⟨fun r hr => Exec.gpr (permute_preserved r hr) he (.inl permute_noCalls), hsp⟩, h⟩
+    ⟨fun r hr => Exec.gpr (permute_preserved r hr) he (.inl permute_noCalls), hsp, Exec.preservedV he⟩, h⟩
 
 theorem permute_ct : ConstantTime isa Proof.Sha3.permuteAArch64.pre Proof.Sha3.permuteAArch64.pub
     Impl.Sha3.AArch64.permute := by
