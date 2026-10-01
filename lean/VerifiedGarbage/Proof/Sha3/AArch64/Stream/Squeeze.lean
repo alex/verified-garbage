@@ -506,7 +506,7 @@ theorem squeeze_correct (v : Permutation) (s : State) (hs : Proof.Sha3.squeezeAA
 theorem squeeze_ct (v : Permutation) : ConstantTime isa Proof.Sha3.squeezeAArch64.pre Proof.Sha3.squeezeAArch64.pub
     (squeezeWith v.callee) := by
   obtain ⟨hint, hhint⟩ := v.squeezeTaint
-  exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
+  exact VectorTaint.constantTime (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
     (fun _ _ _ _ hp => agree₀ hp) hhint
 
 theorem squeeze_verified (v : Permutation) :

@@ -212,7 +212,7 @@ theorem ctWith (v : Proof.Sha3.AArch64.Permutation) : ConstantTime isa rbK.pre r
     (fun σ s hp h => by subst h; exact pro_ok hp) (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => by
       subst h₁ h₂
       exact ⟨hq.2.2.2.2.1, RejNtt.regs3 hq.1 hq.2.2.1 hq.2.2.2.1⟩) (by taint_decide)) ?_
-  refine RelCT.seq (relTaintStep (J' := fun σ => J6 136 544 (spOf σ) σ) [.x25, .x26, .x27, .x3, .x4]
+  refine RelCT.seq (vectorRelTaintStep (J' := fun σ => J6 136 544 (spOf σ) σ) [.x25, .x26, .x27, .x3, .x4]
     (fun σ s hp h => spongeWith_ok (v := v) (spOk hp) (by decide) (by decide) h) (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => by
       refine ⟨by rw [h₁.env.sp, h₂.env.sp, hq.2.2.2.2.1], fun r hr => ?_⟩
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr

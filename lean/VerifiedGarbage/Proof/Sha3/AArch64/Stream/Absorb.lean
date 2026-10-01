@@ -605,7 +605,7 @@ theorem absorb_correct (v : Permutation) (s : State) (hs : Proof.Sha3.absorbAArc
 theorem absorb_ct (v : Permutation) : ConstantTime isa Proof.Sha3.absorbAArch64.pre Proof.Sha3.absorbAArch64.pub
     (absorbWith v.callee) := by
   obtain ⟨hint, hhint⟩ := v.absorbTaint
-  exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
+  exact VectorTaint.constantTime (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
     (fun _ _ _ _ hp => agree₀ hp) hhint
 
 theorem absorb_verified (v : Permutation) :
