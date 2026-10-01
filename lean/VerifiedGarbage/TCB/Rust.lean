@@ -216,16 +216,45 @@ def distinct (as : List Artifact) (f : Artifact → String) : List String :=
 def callee (as : List Artifact) (a : Artifact) (name : String) : Option Artifact :=
   as.find? fun b => b.target.name == a.target.name && b.name == name
 
+/-- The first of `calls` (`Code.calls`: the name of each function called and
+the code the model runs for it) that is not of a function `printed` gives the
+printed code of (`some (n, false)`), or whose code `P` does not print as that
+(`some (n, true)`); `none` if every call is of the code it runs.
+
+A function is often called many times (up to hundreds of times in one
+artifact's `calls`), and printing its code for each call was most of the
+emitter's work. So only the first call of each name is compared with
+`printed`, and every later one with the first one's code, which therefore
+prints as `printed` says: by equal printed code, which `withPtrEq` returns
+at once if the two are the same value in memory, as they usually are. -/
+def badCall {M : ISA} (P : Printer M) (printed : String → Option (List Line))
+    (calls : List (String × Prog M)) : Option (String × Bool) := Id.run do
+  -- The first call of each function checked so far, with its code.
+  let mut first : List (String × Prog M) := []
+  for (n, body) in calls do
+    match first.find? (·.1 == n) with
+    | some (_, body₀) =>
+      unless withPtrEq body body₀ (fun _ => P.function body == P.function body₀)
+          (fun h => by simp [h]) do
+        return some (n, true)
+    | none =>
+      match printed n with
+      | none => return some (n, false)
+      | some lines =>
+        unless P.function body == lines do return some (n, true)
+        first := (n, body) :: first
+  return none
+
 /-- Every call in the code of `a`, and in the code of the functions it calls,
 is of an artifact of the same target whose printed code is that of the
-called code. -/
+called code (`badCall`). -/
 def checkCalls (as : List Artifact) (a : Artifact) : Except String Unit :=
-  a.code.calls.forM fun (n, body) =>
-    match callee as a n with
-    | none => throw s!"{a.target.name}: {a.name} calls {n}, which is not an artifact"
-    | some b =>
-      unless a.target.printer.function body == b.target.printer.function b.code do
-        throw s!"{a.target.name}: {a.name} calls {n}, whose code is not what the call runs"
+  match badCall a.target.printer
+      (fun n => (callee as a n).map fun b => b.target.printer.function b.code) a.code.calls with
+  | none => pure ()
+  | some (n, false) => throw s!"{a.target.name}: {a.name} calls {n}, which is not an artifact"
+  | some (n, true) =>
+    throw s!"{a.target.name}: {a.name} calls {n}, whose code is not what the call runs"
 
 /-- No two artifacts of a target have the same name. -/
 def checkUnique (as : List Artifact) : Except String Unit :=
