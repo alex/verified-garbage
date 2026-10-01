@@ -388,12 +388,12 @@ jobs:
   # SDE chip is one without the SHA extensions, whose code SDE runs tens of
   # times slower than a runner that has them (#274), so that code only runs
   # natively:
-  # * `skx` (Skylake-SP): AVX-512F, so ChaCha20 with AVX-512F, and SHA-256
-  #   and SHA-512 with AVX2; and BMI2 and ADX, so X25519 and Ed25519 with
-  #   them;
+  # * `skx` (Skylake-SP): AVX-512F, so ChaCha20 and Poly1305 with AVX-512F,
+  #   and SHA-256 and SHA-512 with AVX2; and BMI2 and ADX, so X25519 and
+  #   Ed25519 with them;
   # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F or ADX, so ChaCha20
-  #   with AVX2 even where this runner has AVX-512F, and X25519's and
-  #   Ed25519's baselines;
+  #   and Poly1305 with AVX2 even where this runner has AVX-512F, and
+  #   X25519's and Ed25519's baselines;
   # * `p4p` (Pentium 4): nothing beyond x86-64's baseline, not even CPUID
   #   leaf 7, so the baseline ISA's implementations everywhere;
   # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
@@ -409,7 +409,7 @@ jobs:
       fail-fast: false
       matrix:
         chip: [native, skx, hsw, p4p]
-        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu]
+        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem x25519 ed25519 cpu]
         include:
           - chip: arl
             tests: sha384 sha512 ed25519 cpu

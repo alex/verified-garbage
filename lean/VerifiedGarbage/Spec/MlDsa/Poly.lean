@@ -261,6 +261,28 @@ def expandMaskContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (writeArgs := true)
     (stack := stack)
 
+/-- `vg_mldsa_expand_mask_poly4(seeds: *const [u8; 264], gamma1: u32, a: *mut [u32; 1024], scratch: *mut [u64; 1024])`. -/
+def expandMask4Sig : Sig where
+  params := [("seeds", .array false .u8 264), ("gamma1", .int .u32 true),
+    ("a", .array true .u32 1024), ("scratch", .array true .u64 1024)]
+
+/-- Seed `k` of four at `seeds`: the 66 bytes from byte `66 k`. -/
+def seed66 (m : Mem) (seeds : Addr) (k : Nat) : List Byte := bytesAt m (seeds + BitVec.ofNat 64 (66 * k)) 66
+
+/-- Four polynomials of `ExpandMask`: if `γ₁` = `gamma1` is `2¹⁷` or `2¹⁹`,
+with the four 66-byte seeds `ρ′₀, …, ρ′₃` at `seeds` (`seed66`), writes
+`BitUnpack(H(ρ′ₖ, 32c), γ₁ - 1, γ₁)` for `c = 1 + bitlen (γ₁ - 1)` to the
+polynomial at `a + 1024 k` (`poly4`, as a polynomial of `R_q`), reduced,
+for each `k`: what `expandMaskContract` says of each. -/
+def expandMask4Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
+  expandMask4Sig.contract A
+    (pre := fun _seeds gamma1 _a _scratch _m => gamma1.toNat = 2 ^ 17 ∨ gamma1.toNat = 2 ^ 19)
+    (post := fun seeds gamma1 a _scratch m m' _ => ∀ k < 4,
+      PolyIs m' (poly4 a k) (toRq (bitUnpack (H (seed66 m seeds k) (32 * (1 + bitlen (gamma1.toNat - 1))))
+        (gamma1.toNat - 1) gamma1.toNat)))
+    (writeArgs := true)
+    (stack := stack)
+
 /-- The values of `(λ/4, τ)` of the parameter sets (Table 1). -/
 def ballParams : List (Nat × Nat) := [(32, 39), (48, 49), (64, 60)]
 
@@ -666,6 +688,21 @@ def expandMaskApi : Api where
     `BitUnpack(H(seed, 32c), gamma1 - 1, gamma1)`, for the 66 bytes `*seed` and \
     `c = 1 + bitlen (gamma1 - 1)`, to `*a` (each coefficient modulo `q` = 8380417)." ++
     ctDoc "expandMaskContract" "the pointers and `gamma1`"
+  safety := ["`gamma1` must be 2^17 or 2^19.", scratchSafety]
+
+/-- `vg_mldsa_expand_mask_poly4` on every target. -/
+def expandMask4Api : Api where
+  module := "mldsa"
+  name := "vg_mldsa_expand_mask_poly4"
+  sig := expandMask4Sig
+  writeArgs := true
+  contracts := some fun A stack => expandMask4Contract A stack
+  summary := "Four polynomials of `ExpandMask` (FIPS 204 Algorithm 34, lines 4 and 5): for each \
+    `k` < 4, writes `BitUnpack(H(seed, 32c), gamma1 - 1, gamma1)`, for the 66 bytes `seed` of \
+    `*seeds` from byte `66 k` and `c = 1 + bitlen (gamma1 - 1)`, to the 256 coefficients of `*a` \
+    from coefficient `256 k` (each modulo `q` = 8380417). The four are independent, so an \
+    implementation may compute them together (e.g. four SHAKE256 instances at once in vector \
+    registers)." ++ ctDoc "expandMask4Contract" "the pointers and `gamma1`"
   safety := ["`gamma1` must be 2^17 or 2^19.", scratchSafety]
 
 /-- `vg_mldsa_sample_in_ball` on every target. -/

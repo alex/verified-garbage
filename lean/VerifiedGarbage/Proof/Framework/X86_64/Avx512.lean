@@ -102,6 +102,35 @@ theorem pick4_lanes (f : Nat → BitVec 128) {i : Nat} (hi : i < 4) : pick4 (f 0
   simp only [ZOp.exec]
   rw [State.zlane_setZ _ _ _ _ _ _ _ hi, pick4_lanes (shuf4Lanes (s.zlane a) (s.zlane b) n) hi]
 
+@[simp] theorem zlane_vshift (op : ZShiftOp) (d a : XReg) (n : BitVec 8) (s : State) (r : XReg) {i : Nat}
+    (hi : i < 4) :
+    ((ZOp.vshift op d a n).exec s).zlane r i = if r = d then op.sse.eval (s.zlane a i) n else s.zlane r i := by
+  simp only [ZOp.exec]
+  rw [State.zlane_setZ _ _ _ _ _ _ _ hi, pick4_lanes (fun i => op.sse.eval (s.zlane a i) n) hi]
+
+@[simp] theorem zlane_vpbroadcastq (d a : XReg) (s : State) (r : XReg) {i : Nat} (hi : i < 4) :
+    ((ZOp.vpbroadcastq d a).exec s).zlane r i =
+      if r = d then qword (s.xmm a) 0 ++ qword (s.xmm a) 0 else s.zlane r i := by
+  simp only [ZOp.exec]
+  rw [State.zlane_setZ _ _ _ _ _ _ _ hi]
+  split
+  · simp only [pick4]; split <;> (try split) <;> (try split) <;> rfl
+  · rfl
+
+@[simp] theorem zlane_vmovdqa64 (d a : XReg) (s : State) (r : XReg) {i : Nat} (hi : i < 4) :
+    ((ZOp.vmovdqa64 d a).exec s).zlane r i = if r = d then s.zlane a i else s.zlane r i := by
+  simp only [ZOp.exec]
+  rw [State.zlane_setZ _ _ _ _ _ _ _ hi, pick4_lanes (fun i => s.zlane a i) hi]
+
+/-- A VEX-encoded 128-bit result zeroes lanes 1 to 3. -/
+theorem State.zlane_setV128 (s : State) (d r : XReg) (lo hi : BitVec 128) {i : Nat} (hi4 : i < 4) :
+    (s.setV .l128 d lo hi).zlane r i = if r = d then (if i = 0 then lo else 0) else s.zlane r i := by
+  simp only [State.zlane, State.lane, State.setV]
+  by_cases h : r = d
+  · subst h
+    rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3) with rfl | rfl | rfl | rfl <;> simp
+  · simp [h]
+
 /-- `shuf4Lanes` with a concrete selector. -/
 theorem shuf4Lanes_eq (a b : Nat → BitVec 128) (n : BitVec 8) (j : Nat) :
     shuf4Lanes a b n j = (if j < 2 then a else b) (n.extractLsb' (2 * j) 2).toNat := by

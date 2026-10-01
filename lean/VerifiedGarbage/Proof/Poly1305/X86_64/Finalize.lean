@@ -12,6 +12,8 @@ Untrusted: everything here is checked by Lean.
 
 open VG.PowLit
 
+open VG.Proof.Poly1305.Limbs64
+
 namespace VG.Proof.Poly1305.X86_64
 
 open VG VG.X86_64 VG.Impl.Poly1305.X86_64

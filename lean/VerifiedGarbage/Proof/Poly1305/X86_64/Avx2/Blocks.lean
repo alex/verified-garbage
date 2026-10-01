@@ -23,6 +23,8 @@ block's effect on the vector registers is established under that
 assumption (`hA`), and its execution without it (`guard`).
 -/
 
+open VG.Proof.Poly1305.Limbs64
+
 namespace VG.Proof.Poly1305.X86_64.Avx2
 
 open VG VG.X86_64 VG.Impl.Poly1305.X86_64.Avx2
