@@ -49,6 +49,7 @@ def eqApi : Api where
   module := "ct"
   name := "vg_ct_eq"
   sig := eqSig
+  contracts := some fun A stack => eqContract A stack
   summary := "Compares two byte strings in constant time: returns 1 if the `a_len` bytes at `a` \
     are the `b_len` bytes at `b` (so byte strings of different lengths are unequal), and 0 \
     otherwise. Writes no memory.\n\n\
