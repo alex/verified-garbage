@@ -30,11 +30,11 @@ Modelling choices:
   specific CPU registers"). Saving and restoring an arbitrary temporary in
   `x29` would not satisfy that requirement.
   https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms
-* The stack pointer is separate. Only the push and pop of a frame
-  (`str`/`ldr` with writeback, see `push`) write it, and only they and
-  `ldrSp` (a 64-bit load from `[sp, #off]`, which reads the arguments a
-  caller passed on the stack) read it; register number 31, SP or the zero
-  register, is otherwise never an operand.
+* The stack pointer is separate. Only frame delimiters (`push`/`pop` and
+  `alloc`/`free`) write it. `addSp` computes a stack-relative pointer, and
+  `ldrSp` loads a 64-bit word from `[sp, #off]` (including arguments passed
+  on the stack). Register number 31, SP or the zero register, is otherwise
+  never an operand.
   Each operand is a 32-bit (`w`) or a 64-bit (`x`) register; a 32-bit
   result is zero-extended into the 64-bit register (DDI 0487, the pseudocode
   accessor `X[n, width] = value` sets `_R[n] = ZeroExtend(value, 64)`).
@@ -315,6 +315,12 @@ inductive Instr
   /-- `ldr xt, [sp, #off]` (LDR (immediate), 64-bit, unsigned offset, base
   register SP: a multiple of 8, less than 32768) -/
   | ldrSp (t : Reg) (off : Nat)
+  /-- `add xd, sp, #imm`, 64-bit ADD (immediate), without shifting. -/
+  | addSp (d : Reg) (imm : Nat)
+  /-- `sub sp, sp, #bytes`, opening an aligned frame (only `push`). -/
+  | alloc (bytes : Nat)
+  /-- `add sp, sp, #bytes`, closing that frame (only `pop`). -/
+  | free (bytes : Nat)
   /-- An AdvSIMD or cryptographic instruction that writes only a vector register. -/
   | vop (op : VOp)
   /-- `ldr qt, [n, #off]` (LDR (immediate, SIMD&FP), 128-bit, unsigned offset:
@@ -708,14 +714,16 @@ def exec : Instr → State → Option State
     if off % 8 = 0 ∧ off < 32768 then
       (s.load (s.sp + BitVec.ofNat 64 off) 8).map fun v => s.write .x t (v.setWidth 64)
     else none
+  | .addSp d imm, s =>
+    if imm < 4096 then some (s.write .x d (s.sp + BitVec.ofNat 64 imm)) else none
   | .vop op, s => (op.eval s).map fun (d, x) => s.setV d x
   | .ldrq t n off, s => (addr s 16 n off).bind fun a => (s.load a 16).map fun x => s.setV t x
   | .strq t n off, s => (addr s 16 n off).bind fun a => s.store a 16 (s.v t)
   | .umov sz d n i, s =>
     if i * sz.bits < 128 then some (s.write sz d ((s.v n).extractLsb' (sz.bits * i) sz.bits))
     else none
-  -- Only the push and pop of a frame (`push`, `pop`).
-  | .push _, _ | .pop _, _ => none
+  -- Frame delimiters execute only through `push` and `pop`.
+  | .push _, _ | .pop _, _ | .alloc _, _ | .free _, _ => none
 
 def addrs : Instr → State → List Addr
   | .ldr _ _ n off, s => [s.gpr n + BitVec.ofNat 64 off]
@@ -770,10 +778,29 @@ time, while the model keeps it until a store. This is harmless: the
 contract says nothing of those bytes (they are in the stack below the
 caller's stack pointer, `Abi.reserved`, which no buffer overlaps), so a
 proof holds whatever they contain and learns nothing from reading them;
-it could only rely on two reads agreeing. The only read that addresses the
-stack pointer is `ldrSp`, and no emitted code reads `[sp, #n]`
-(`src/asm/aarch64/`). -/
+it could only rely on two reads agreeing. `ldrSp` can read the frame
+directly, and `addSp` can form a pointer to it. Neither grants permission
+below the currently allocated stack.
+
+DDI 0602, ADD/SUB (immediate), `sf=1`, `sh=0`, `Rn=Rd=31`:
+`operand1 = SP[64]`, and the non-flag-setting result is written to `SP[64]`.
+`addSp` uses `Rn=31`, `Rd != 31` and writes the result to `X[d,64]`.
+These are baseline A64 instructions, requiring no optional feature.
+https://developer.arm.com/documentation/ddi0602/2025-09/Base-Instructions/ADD--immediate---Add--immediate--
+https://developer.arm.com/documentation/ddi0602/2025-09/Base-Instructions/SUB--immediate---Subtract--immediate--
+
+`alloc`/`free` are accepted only as frame delimiters, never by `exec`.
+Allocation grants one contiguous region without initializing it, exactly
+as the unwritten half of the existing `push` frame. The size is a positive,
+16-byte-aligned unshifted immediate; allocation cannot underflow. Release
+requires the matching region and unchanged SP and permissions.
+-/
 def push : Instr → State → Option State
+  | .alloc bytes, s =>
+    if 0 < bytes ∧ bytes < 4096 ∧ bytes % 16 = 0 ∧ bytes ≤ s.sp.toNat then
+      let sp := s.sp - BitVec.ofNat 64 bytes
+      some { s with sp := sp, wr := ⟨sp, bytes⟩ :: s.wr }
+    else none
   | .push r, s =>
     if 16 ≤ s.sp.toNat then
       let sp := s.sp - 16
@@ -787,6 +814,11 @@ address + 16`; `X[t] = data`. Faults unless the stack pointer and the
 writable regions are those the push left (`s₁`), whose head is the frame;
 it removes the frame. -/
 def pop : Instr → State → State → Option State
+  | .free bytes, s₁, s₂ =>
+    if 0 < bytes ∧ bytes < 4096 ∧ bytes % 16 = 0 ∧
+        s₂.sp = s₁.sp ∧ s₂.wr = s₁.wr ∧ s₁.wr.head? = some ⟨s₁.sp, bytes⟩ then
+      some { s₂ with sp := s₂.sp + BitVec.ofNat 64 bytes, wr := s₂.wr.tail }
+    else none
   | .pop r, s₁, s₂ =>
     if s₂.sp = s₁.sp ∧ s₂.wr = s₁.wr ∧ s₁.wr.head? = some ⟨s₁.sp, 16⟩ then
       some { s₂.write .x r (s₂.mem.read s₂.sp 8) with sp := s₂.sp + 16, wr := s₂.wr.tail }

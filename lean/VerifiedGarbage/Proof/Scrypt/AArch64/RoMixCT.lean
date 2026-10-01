@@ -1338,7 +1338,7 @@ open VG.Proof.Scrypt.Memory (InRegions.right)
 
 /-! ## The call of `vg_scrypt_blockmix` -/
 
-theorem blockMix_fdepth : Impl.Scrypt.AArch64.blockMix.fdepth = 1 := by decide +kernel
+theorem blockMix_fdepth : Impl.Scrypt.AArch64.blockMix.aarch64Depth = 1 := by decide +kernel
 
 theorem bm_pre {s : State} {src dst scr : Addr} {r : Nat} (h0 : s.gpr .x0 = src)
     (h1 : s.gpr .x1 = BitVec.ofNat 64 r) (h2 : s.gpr .x2 = dst) (h3 : s.gpr .x3 = BitVec.ofNat 64 r)

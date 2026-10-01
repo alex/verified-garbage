@@ -471,7 +471,7 @@ theorem finArgs_ok (hH : HashOK H) {k : Nat} {s : State} (h : Mid hH s₀ k s)
 
 /-- HMAC's `finalize`: `U₁`. -/
 theorem callB_ok (hH : HashOK H) (hF : Verified AArch64.target H.hmacFin (finG hH.SH H.W))
-    (hFd : H.hmacFin.fdepth ≤ 1) {k : Nat} (hk : k < nb H s₀) {s : State} (h : AtFin hH s₀ k s) :
+    (hFd : H.hmacFin.aarch64Depth ≤ 1) {k : Nat} (hk : k < nb H s₀) {s : State} (h : AtFin hH s₀ k s) :
     WP isa (.call H.hmacFinN H.hmacFin) s fun t => Mid hH s₀ k t ∧ bytesAt t.mem (A s₀ H.uO) H.D = U1 hH s₀ k := by
   have hl := layout (H := H); have he := end_le hz; have hL := L_lt hz
   have hkD : k * H.D < ol s₀ := (lt_nb hz.z.D0).1 hk
@@ -570,7 +570,7 @@ theorem pieceC_ok (hH : HashOK H) {k : Nat} (hk : k < nb H s₀) {s₇ : State} 
 
 /-- `iterate`: `T_{k+1}`. -/
 theorem callC_ok (hH : HashOK H) (hI : Verified AArch64.target H.iterate (iterK hH.SH H.W))
-    (hId : H.iterate.fdepth ≤ 1) {k : Nat} (hk : k < nb H s₀) {s : State} (h : AtIter hH s₀ k s) :
+    (hId : H.iterate.aarch64Depth ≤ 1) {k : Nat} (hk : k < nb H s₀) {s : State} (h : AtIter hH s₀ k s) :
     WP isa (.call H.iterN H.iterate) s fun t => Mid hH s₀ k t ∧ bytesAt t.mem (A s₀ H.tO) H.D = Tb hH s₀ (k + 1) := by
   have hl := layout (H := H); have he := end_le hz
   have hk' : k * H.D ≤ ol s₀ := Nat.le_of_lt ((lt_nb hz.z.D0).1 hk)
@@ -683,8 +683,8 @@ theorem tail_ok (hH : HashOK H) {k : Nat} (hk : k < nb H s₀) (hg : (G hH s₀ 
 
 /-- One block of the output. -/
 theorem block_ok (hH : HashOK H) (hF : Verified AArch64.target H.hmacFin (finG hH.SH H.W))
-    (hFd : H.hmacFin.fdepth ≤ 1) (hI : Verified AArch64.target H.iterate (iterK hH.SH H.W))
-    (hId : H.iterate.fdepth ≤ 1) {k : Nat} (hk : k < nb H s₀) {s : State} (h : Inv hH s₀ k s) :
+    (hFd : H.hmacFin.aarch64Depth ≤ 1) (hI : Verified AArch64.target H.iterate (iterK hH.SH H.W))
+    (hId : H.iterate.aarch64Depth ≤ 1) {k : Nat} (hk : k < nb H s₀) {s : State} (h : Inv hH s₀ k s) :
     WP isa H.block s fun t =>
       Inv hH s₀ (k + 1) t ∧ isa.eval (.nonzero .x .x21) t = some (decide (k + 1 ≠ nb H s₀)) := by
   have hkD : k * H.D < ol s₀ := (lt_nb hz.z.D0).1 hk
@@ -703,8 +703,8 @@ theorem block_ok (hH : HashOK H) (hF : Verified AArch64.target H.hmacFin (finG h
 
 /-- The loop over the blocks of the output: none when `out_len = 0`. -/
 theorem loop_ok (hH : HashOK H) (hF : Verified AArch64.target H.hmacFin (finG hH.SH H.W))
-    (hFd : H.hmacFin.fdepth ≤ 1) (hI : Verified AArch64.target H.iterate (iterK hH.SH H.W))
-    (hId : H.iterate.fdepth ≤ 1) {s : State} (h : Inv hH s₀ 0 s)
+    (hFd : H.hmacFin.aarch64Depth ≤ 1) (hI : Verified AArch64.target H.iterate (iterK hH.SH H.W))
+    (hId : H.iterate.aarch64Depth ≤ 1) {s : State} (h : Inv hH s₀ 0 s)
     (hz0 : isa.eval (.zero .x .x21) s = some (decide (ol s₀ = 0))) :
     WP isa (.ite (.zero .x .x21) (.block []) (.loop H.block (.nonzero .x .x21))) s (Inv hH s₀ (nb H s₀)) := by
   have hD := hz.z.D0
@@ -715,9 +715,9 @@ theorem loop_ok (hH : HashOK H) (hF : Verified AArch64.target H.hmacFin (finG hH
       (fun k hk t ht => block_ok hp hz hH hF hFd hI hId hk ht) h
 
 theorem correct (hH : HashOK H) (hIn : Verified AArch64.target H.hmacInit (initG hH.SH H.W))
-    (hInd : H.hmacInit.fdepth ≤ 1) (hF : Verified AArch64.target H.hmacFin (finG hH.SH H.W))
-    (hFd : H.hmacFin.fdepth ≤ 1) (hI : Verified AArch64.target H.iterate (iterK hH.SH H.W))
-    (hId : H.iterate.fdepth ≤ 1) :
+    (hInd : H.hmacInit.aarch64Depth ≤ 1) (hF : Verified AArch64.target H.hmacFin (finG hH.SH H.W))
+    (hFd : H.hmacFin.aarch64Depth ≤ 1) (hI : Verified AArch64.target H.iterate (iterK hH.SH H.W))
+    (hId : H.iterate.aarch64Depth ≤ 1) :
     WP isa H.pbkdf2 s₀ fun s' => abiPreserved s₀ s' ∧ (pbkG hH.SH (H.W + H.S)).post s₀ s' := by
   apply WP.withPreservedV (hc := hH.pbkdf2_keepsV)
   have hD := hz.z.D0; have hW := hz.W

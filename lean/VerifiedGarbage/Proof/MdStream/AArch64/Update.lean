@@ -714,7 +714,7 @@ abbrev inner (s₀ : State) : State :=
 
 theorem correct (hd : Dims P) {name : String} {code : Prog isa} (hf : CalleeOk H code)
     (hu : ∀ r ∈ untouched, ∀ i ∈ instrs (updateMain P name code), dstOf i ≠ some r)
-    (hn : 16 * (updateMain P name code).fdepth + 16 < 2 ^ 64) {s₀ : State} (hp : Pre P s₀)
+    (hn : 16 * (updateMain P name code).aarch64Depth + 16 < 2 ^ 64) {s₀ : State} (hp : Pre P s₀)
     (hs : Stack P s₀) :
     WP isa (update P name code) s₀ fun s' => abiPreserved s₀ s' ∧ (updK H).post s₀ s' := by
   apply WP.withPreservedV (hc := update_keepsV hf.keepsV)
@@ -753,7 +753,7 @@ fits its frames in the address space. -/
 theorem verified (hd : Dims P) {name : String} {code : Prog isa} (hf : CalleeOk H code)
     (hct : ConstantTime isa (updK H).pre (updK H).pub (update P name code))
     (hu : ((instrs (updateMain P name code)).all fun i => untouched.all fun r => dstOf i != some r) = true)
-    (hn : 16 * (updateMain P name code).fdepth + 16 < 2 ^ 64) :
+    (hn : 16 * (updateMain P name code).aarch64Depth + 16 < 2 ^ 64) :
     Verified AArch64.target (update P name code) (updK H) := by
   have := hd.N; have := hd.so
   have hu' : ∀ r ∈ untouched, ∀ i ∈ instrs (updateMain P name code), dstOf i ≠ some r := by

@@ -109,11 +109,11 @@ def streamOK : Hmac.Generic.AArch64.HashOK (hash v).stream where
       sat := v.finalize_verified.2.2 }
   initDepth := by simp only [hash, Hash.stream] <;> decide +kernel
   updDepth := by
-    show (Impl.MdStream.AArch64.update _ v.name v.code).fdepth ≤ 1
-    simp only [Impl.MdStream.AArch64.update, Code.fdepth, v.updateDepth]; decide
+    show (Impl.MdStream.AArch64.update _ v.name v.code).aarch64Depth ≤ 1
+    simp only [Impl.MdStream.AArch64.update, Code.aarch64Depth, v.updateDepth]; decide
   finDepth := by
-    show (Impl.MdStream.AArch64.finalize _ v.name v.code).fdepth ≤ 1
-    simp only [Impl.MdStream.AArch64.finalize, Code.fdepth, v.finalizeDepth]; decide
+    show (Impl.MdStream.AArch64.finalize _ v.name v.code).aarch64Depth ≤ 1
+    simp only [Impl.MdStream.AArch64.finalize, Code.aarch64Depth, v.finalizeDepth]; decide
 
 def ok : HashOK (hash v) where
   initKeepsV := by rfl

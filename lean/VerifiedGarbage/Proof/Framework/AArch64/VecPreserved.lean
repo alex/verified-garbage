@@ -56,7 +56,7 @@ theorem exec_vec {i : Instr} {r : VReg} {s s' : State}
     split at h <;> [skip; cases h]
     obtain ⟨v, -, rfl⟩ := Option.map_eq_some_iff.mp h
     rfl
-  | push _ | pop _ => simp only [exec, reduceCtorEq] at h
+  | push _ | pop _ | alloc _ | free _ => simp only [exec, reduceCtorEq] at h
   | _ =>
     simp only [exec] at h
     first
@@ -87,12 +87,14 @@ theorem call_vec {s s' : State} (h : isa.call s = some s') : s'.v = s.v := by
 
 theorem push_vec {i : Instr} {s s' : State} (h : isa.push i s = some s') : s'.v = s.v := by
   cases i <;> simp only [isa, push, reduceCtorEq] at h
-  split at h <;> cases h; rfl
+  all_goals split at h <;> cases h
+  all_goals rfl
 
 theorem pop_vec {i : Instr} {s₁ s₂ s' : State} (h : isa.pop i s₁ s₂ = some s') :
     s'.v = s₂.v := by
   cases i <;> simp only [isa, pop, reduceCtorEq] at h
-  split at h <;> cases h; rfl
+  all_goals split at h <;> cases h
+  all_goals rfl
 
 /-- An unwritten vector register keeps its entire value through all control flow. -/
 theorem Exec.vec {c : Prog isa} {r : VReg} (hc : ∀ i ∈ instrs c, vdstOf i ≠ some r)

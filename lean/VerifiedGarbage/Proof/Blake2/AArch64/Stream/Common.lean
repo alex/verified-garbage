@@ -152,8 +152,8 @@ structure CalleeOk (P : Params w) (code : Prog isa) : Prop where
     ∃ t s', Exec isa code s t s' ∧ abiPreserved s s' ∧ (compressAArch64 P).post s s'
   noFrames : code.noFrames = true
 
-theorem fdepth_of_noFrames {c : Prog isa} (h : c.noFrames = true) : c.fdepth = 0 := by
-  induction c <;> simp_all [Code.noFrames, Code.fdepth]
+theorem fdepth_of_noFrames {c : Prog isa} (h : c.noFrames = true) : c.aarch64Depth = 0 := by
+  induction c <;> simp_all [Code.noFrames, Code.aarch64Depth]
 
 /-- What the call of the compression function needs of the state `s` before
 the argument set-up: the hash value `st` at `x19`, the scratch space `scr` at

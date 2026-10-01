@@ -24,8 +24,8 @@ structure Compress where
   /-- Like the GPR certificates, current wrappers require syntactically untouched SIMD saves. -/
   updateKeepsV : (updateWith code).allInstrs VG.AArch64.keepsV = true
   finalizeKeepsV : (finalizeWith code).allInstrs VG.AArch64.keepsV = true
-  updateDepth : (updateWith code).fdepth = 0
-  finalizeDepth : (finalizeWith code).fdepth = 0
+  updateDepth : (updateWith code).aarch64Depth = 0
+  finalizeDepth : (finalizeWith code).aarch64Depth = 0
 
 namespace Compress
 variable (v : Compress)

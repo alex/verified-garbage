@@ -146,10 +146,10 @@ def streamOK (hR : I.S.Repr = Spec.Sha512.Repr iv)
       pub := fun _ _ _ _ h => h
       sat := fin_sat _ _ _ }
   initDepth := by
-    show (Impl.Sha512.AArch64.Stream.init iv).fdepth ≤ 1
+    show (Impl.Sha512.AArch64.Stream.init iv).aarch64Depth ≤ 1
     rcases hiv with rfl | rfl | rfl | rfl <;> decide +kernel
-  updDepth := by show v.update.fdepth ≤ 1; rw [show v.update.fdepth = 0 from v.updateDepth]; decide
-  finDepth := by show v.finalize.fdepth ≤ 1; rw [show v.finalize.fdepth = 0 from v.finalizeDepth]; decide
+  updDepth := by show v.update.aarch64Depth ≤ 1; rw [show v.update.aarch64Depth = 0 from v.updateDepth]; decide
+  finDepth := by show v.finalize.aarch64Depth ≤ 1; rw [show v.finalize.aarch64Depth = 0 from v.finalizeDepth]; decide
 
 /-- `HashOK` for the member of instance `I`, whose specification is the
 family's from `iv`, with its digest the first `D` bytes. -/

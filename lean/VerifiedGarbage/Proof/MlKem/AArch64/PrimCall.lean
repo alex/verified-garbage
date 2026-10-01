@@ -223,7 +223,7 @@ theorem decodeDecompress_call {s : State} {b f : Addr} {d : Nat} (h0 : s.gpr .x0
       State.callEntry_mem, c0, c1, c2, c3] at hpost
     exact hQ s' ⟨hcs, hsp, hrd, hwr, hf, hvec⟩ hpost
 
-theorem sampleNTT_fdepth : Impl.MlKem.AArch64.sampleNTT.fdepth = 1 := by decide +kernel
+theorem sampleNTT_fdepth : Impl.MlKem.AArch64.sampleNTT.aarch64Depth = 1 := by decide +kernel
 
 /-- `vg_mlkem_sample_ntt(seed, a, scratch)`. -/
 theorem sample_call {s : State} {sd a w : Addr} (h0 : s.gpr .x0 = sd) (h1 : s.gpr .x1 = a)
