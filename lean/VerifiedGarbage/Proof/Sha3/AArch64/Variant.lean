@@ -32,10 +32,6 @@ structure Permutation where
       ∃ t s', Exec isa code s t s' ∧ abiPreserved s s' ∧
         Proof.Sha3.absorbAArch64.post s s'
   absorbOverrideDepth : ∀ code, callee.absorbOverride = some code → code.aarch64Depth = 1
-  absorbKeeps : ∀ r ∈ [Reg.x25, .x26, .x27, .x28],
-    ∀ i ∈ instrs (Impl.Sha3.AArch64.Stream.absorbMainWith callee), dstOf i ≠ some r
-  squeezeKeeps : ∀ r ∈ [Reg.x25, .x26, .x27, .x28],
-    ∀ i ∈ instrs (Impl.Sha3.AArch64.Stream.squeezeMainWith callee), dstOf i ≠ some r
   absorbTaint : ∃ h, (taint.check (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
     (Impl.Sha3.AArch64.Stream.absorbWith callee) h).isSome = true
   padTaint : ∃ h, (taint.check (Taint.ofRegs [.x0, .x1, .x2, .x4])
@@ -161,8 +157,6 @@ def Permutation.scalar : Permutation where
   noFrames := permute_noFrames
   absorbOverrideOk := by intro code h; cases h
   absorbOverrideDepth := by intro code h; cases h
-  absorbKeeps := keeps_of_check (by decide +kernel)
-  squeezeKeeps := keeps_of_check (by decide +kernel)
   absorbTaint := ⟨_, by taint_decide⟩
   padTaint := ⟨_, by taint_decide⟩
   squeezeTaint := ⟨_, by taint_decide⟩

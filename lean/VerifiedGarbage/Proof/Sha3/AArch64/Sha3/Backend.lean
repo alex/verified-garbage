@@ -132,8 +132,6 @@ def backend : Permutation where
   noFrames := Vector.permute_noFrames
   absorbOverrideOk := by intro code h; cases h
   absorbOverrideDepth := by intro code h; cases h
-  absorbKeeps := keeps_of_check (by lit_decide)
-  squeezeKeeps := keeps_of_check (by lit_decide)
   absorbTaint := absorbTaint
   padTaint := padTaint
   squeezeTaint := squeezeTaint

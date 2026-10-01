@@ -138,8 +138,6 @@ def backend : Permutation where
     intro code h
     cases h
     exact Vector.Resident.hardware_absorb_depth
-  absorbKeeps := keeps_of_check (by lit_decide)
-  squeezeKeeps := keeps_of_check (by lit_decide)
   absorbTaint := absorbTaint
   padTaint := padTaint
   squeezeTaint := squeezeTaint
