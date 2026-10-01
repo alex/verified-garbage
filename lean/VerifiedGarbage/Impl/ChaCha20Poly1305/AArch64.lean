@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.ChaCha20.AArch64.Xor
+import VerifiedGarbage.Impl.ChaCha20.AArch64.XorCallee
 import VerifiedGarbage.Impl.Poly1305.AArch64
 
 /-!
@@ -39,7 +39,7 @@ lengths, and every address is a pointer plus a constant or a count.
 namespace VG.Impl.ChaCha20Poly1305.AArch64
 
 open VG.AArch64
-open VG.Impl.ChaCha20.AArch64 (Callee)
+open VG.Impl.ChaCha20.AArch64 (XorCallee)
 open VG.Impl.ChaCha20.AArch64.Xor (mov)
 
 /-- The registers saved in the context, and where. -/
@@ -75,9 +75,9 @@ def initState : List Instr := (List.range 16).flatMap stW
 
 /-- Saves the registers, moves the arguments, and computes the one-time key
 and the Poly1305 state for it. -/
-def prologueWith (c : Callee) : Prog isa :=
+def prologue : Prog isa :=
   .seq (.block (save ++ moves ++ initState ++ [.addImm .x .x0 .x21 64, .addImm .x .x1 .x21 128]))
-  (.seq (.call c.name c.code)
+  (.seq (.call "vg_chacha20_block" VG.Impl.ChaCha20.AArch64.block)
   (.seq (.block [.addImm .x .x0 .x21 448, .addImm .x .x1 .x21 128])
     (.call "vg_poly1305_init" Impl.Poly1305.AArch64.init)))
 
@@ -103,10 +103,10 @@ def macPad (p n : Reg) : Prog isa :=
       (.seq (.block [.sub .x .x9 n .x10, .add .x .x1 p .x9]) padTail))))
 
 /-- The ChaCha20 counter set to 1, and the data encrypted or decrypted. -/
-def cryptWith (c : Callee) : Prog isa :=
+def cryptWith (c : XorCallee) : Prog isa :=
   .seq (.block [.movz .w .x9 1 0, .str .w .x9 .x21 112, .addImm .x .x0 .x21 64, mov .x1 .x22,
     mov .x2 .x23, .addImm .x .x3 .x21 128])
-    (.call ("vg_chacha20_xor" ++ c.suffix) (Impl.ChaCha20.AArch64.Xor.xorWith c))
+    (.call c.name c.code)
 
 /-- The lengths block. -/
 def lengths : List Instr := [.str .x .x25 .x21 656, .str .x .x23 .x21 664]
@@ -123,8 +123,8 @@ def finalizeTo (out : Nat) : Prog isa :=
     .addImm .x .x3 .x21 672])
     (.call "vg_poly1305_finalize" Impl.Poly1305.AArch64.finalize)
 
-def sealWith (c : Callee) : Prog isa :=
-  .seq (prologueWith c)
+def sealWith (c : XorCallee) : Prog isa :=
+  .seq prologue
   (.seq (macPad .x24 .x25)
   (.seq (.block lengths)
   (.seq (cryptWith c)
@@ -143,8 +143,8 @@ def compare : List Instr :=
    .movz .x .x10 0 0, .sub .x .x10 .x10 .x9, .logic .orr .x .x9 .x9 .x10, .lsr .x .x9 .x9 63,
    .movz .x .x10 1 0, .sub .x .x0 .x10 .x9]
 
-def openWith (c : Callee) : Prog isa :=
-  .seq (prologueWith c)
+def openWith (c : XorCallee) : Prog isa :=
+  .seq prologue
   (.seq (macPad .x24 .x25)
   (.seq (macPad .x22 .x23)
   (.seq (.block lengths)
@@ -153,7 +153,6 @@ def openWith (c : Callee) : Prog isa :=
   (.seq (finalizeTo 640)
     (.block (compare ++ restore))))))))
 
-def prologue := prologueWith .scalar
 def crypt := cryptWith .scalar
 def «seal» := sealWith .scalar
 def «open» := openWith .scalar

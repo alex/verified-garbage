@@ -1,5 +1,4 @@
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Variant
-import VerifiedGarbage.Proof.ChaCha20.AArch64.Neon.Block
 
 namespace VG.Proof.ChaCha20.AArch64
 
@@ -24,21 +23,6 @@ def scalar : BlockImpl where
   xorKeeps := keeps_of_check (by lit_decide)
   xorNoFrames := by lit_decide
   xorTaint := ⟨_, by taint_decide⟩
-  sealTaint := ⟨_, by taint_decide⟩
-  openTaint := ⟨_, by taint_decide⟩
-
-/-- Four 32-bit NEON lanes, using only baseline AdvSIMD instructions. -/
-def neon : BlockImpl where
-  callee := ⟨"vg_chacha20_block_neon", Impl.ChaCha20.AArch64.Neon.block, "_neon"⟩
-  features := []
-  ok := Neon.block_correct
-  noFrames := by lit_decide
-  keeps := keeps_of_check (by lit_decide)
-  xorKeeps := keeps_of_check (by lit_decide)
-  xorNoFrames := by lit_decide
-  xorTaint := ⟨_, by taint_decide⟩
-  sealTaint := ⟨_, by taint_decide⟩
-  openTaint := ⟨_, by taint_decide⟩
 
 end BlockImpl
 end VG.Proof.ChaCha20.AArch64

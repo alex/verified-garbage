@@ -1,12 +1,12 @@
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Block
 import VerifiedGarbage.Proof.ChaCha20.AArch64.XorContract
-import VerifiedGarbage.Impl.ChaCha20Poly1305.AArch64
+import VerifiedGarbage.Impl.ChaCha20.AArch64.Xor
 
 namespace VG.Proof.ChaCha20.AArch64
 
 open VG VG.AArch64
 
-/-- Facts needed by the generic stream and AEAD callers. The functional proofs
+/-- Facts needed by the generic scalar stream caller. The functional proofs
 are shared; each concrete backend supplies its mechanical taint checks. -/
 structure BlockImpl where
   callee : Impl.ChaCha20.AArch64.Callee
@@ -20,9 +20,5 @@ structure BlockImpl where
   xorNoFrames : (Impl.ChaCha20.AArch64.Xor.xorWith callee).noFrames = true
   xorTaint : ∃ h, (taint.check (Taint.ofRegs [.x0, .x1, .x2, .x3])
     (Impl.ChaCha20.AArch64.Xor.xorWith callee) h).isSome = true
-  sealTaint : ∃ h, (taint.check (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4])
-    (Impl.ChaCha20Poly1305.AArch64.sealWith callee) h).isSome = true
-  openTaint : ∃ h, (taint.check (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4])
-    (Impl.ChaCha20Poly1305.AArch64.openWith callee) h).isSome = true
 
 end VG.Proof.ChaCha20.AArch64

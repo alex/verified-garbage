@@ -31,14 +31,14 @@
     target_arch = "x86"
 ))]
 
+#[cfg(target_arch = "aarch64")]
+use crate::arch::chacha20::vg_chacha20_xor_neon;
 #[cfg(target_arch = "x86_64")]
 use crate::arch::chacha20::{
     VG_CHACHA20_XOR_AVX2_FEATURES, VG_CHACHA20_XOR_AVX512_FEATURES, vg_chacha20_xor_avx2,
     vg_chacha20_xor_avx512,
 };
 use crate::arch::chacha20::{vg_chacha20_block, vg_chacha20_xor};
-#[cfg(target_arch = "aarch64")]
-use crate::arch::chacha20::{vg_chacha20_block_neon, vg_chacha20_xor_neon};
 use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;
 
@@ -51,7 +51,7 @@ fn block(state: &[u32; 16], backend: Backend) -> [u8; 64] {
     let f = match backend {
         Backend::Scalar => vg_chacha20_block,
         #[cfg(target_arch = "aarch64")]
-        Backend::Neon => vg_chacha20_block_neon,
+        Backend::Neon => vg_chacha20_block,
         #[cfg(target_arch = "x86_64")]
         Backend::Avx2 | Backend::Avx512 => vg_chacha20_block,
     };
@@ -77,7 +77,7 @@ fn words<const N: usize>(bytes: &[u8]) -> [u32; N] {
 pub(crate) enum Backend {
     /// Constant-time scalar code, for the target's baseline ISA.
     Scalar,
-    /// Four parallel 32-bit lanes in baseline AArch64 AdvSIMD.
+    /// Four independent blocks in baseline AArch64 AdvSIMD lanes.
     #[cfg(target_arch = "aarch64")]
     Neon,
     /// AVX2, eight blocks at a time.
@@ -399,6 +399,34 @@ mod tests {
                 c.apply_keystream(&mut data[..split]);
                 c.apply_keystream(&mut data[split..]);
                 assert_eq!(data, expected);
+            }
+        }
+    }
+
+    /// Bulk vector stores handle unaligned slices, preserve their surrounding
+    /// bytes, and agree with scalar code at the four-block/tail boundary.
+    #[test]
+    fn bulk_boundaries() {
+        for len in [191, 192, 193, 255, 256, 257, 319, 320, 321, 511, 512, 513] {
+            for offset in [0, 1, 7, 15] {
+                for counter in [7, u32::MAX - (len as u32).div_ceil(64) + 1] {
+                    let n = nonce(counter, &[6; 12]);
+                    let msg: [u8; 544] = core::array::from_fn(|i| (i * 29) as u8);
+                    let mut expected = msg;
+                    let mut scalar = ChaCha20::new(&key(), &n);
+                    scalar.backend = Backend::Scalar;
+                    scalar.apply_keystream(&mut expected[offset..offset + len]);
+                    let mut actual = msg;
+                    ChaCha20::new(&key(), &n).apply_keystream(&mut actual[offset..offset + len]);
+                    assert_eq!(actual, expected);
+                    // Starting with a buffered partial block must still reach
+                    // the same later bulk boundary and final counter.
+                    let mut fragmented = msg;
+                    let mut c = ChaCha20::new(&key(), &n);
+                    c.apply_keystream(&mut fragmented[offset..offset + 1]);
+                    c.apply_keystream(&mut fragmented[offset + 1..offset + len]);
+                    assert_eq!(fragmented, expected);
+                }
             }
         }
     }

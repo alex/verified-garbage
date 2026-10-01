@@ -6,8 +6,8 @@ import VerifiedGarbage.Proof.ChaCha20Poly1305.AArch64.Lit
 /-!
 # ChaCha20-Poly1305 (RFC 8439 §2.8) on AArch64
 
-A generic caller (see `TCB/Emit.lean`), emitted for every ChaCha20 block
-backend, including both its direct block call and its stream call. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
+A generic caller (see `TCB/Emit.lean`), emitted for every ChaCha20 stream
+backend. The one-time Poly1305 key uses the scalar block function. **Review note**: `sig` and `doc` are trusted, as they tie the Rust
 caller to the contract; check them against the contract's `pre`/`post`. An
 artifact made from a function's `Api` (in `Spec/`, reviewed with the
 contract) takes them from there, and this file adds only notes on the
@@ -17,9 +17,9 @@ against the contract. The functions use no stack: their calls (`bl`) keep
 the return address in `x30`, which they save in the context.
 -/
 
-namespace VG.Generic.ChaCha20Block.AArch64.ChaCha20Poly1305
+namespace VG.Generic.ChaCha20Xor.AArch64.ChaCha20Poly1305
 
-def artifacts (v : Proof.ChaCha20.AArch64.BlockImpl) : List Artifact := [
+def artifacts (v : Proof.ChaCha20.AArch64.XorImpl) : List Artifact := [
   { Spec.ChaCha20Poly1305.sealApi with
     name := Spec.ChaCha20Poly1305.sealApi.name ++ v.callee.suffix
     features := v.features
@@ -39,4 +39,4 @@ def artifacts (v : Proof.ChaCha20.AArch64.BlockImpl) : List Artifact := [
     verified := Proof.ChaCha20Poly1305.AArch64.open_verified v
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
-end VG.Generic.ChaCha20Block.AArch64.ChaCha20Poly1305
+end VG.Generic.ChaCha20Xor.AArch64.ChaCha20Poly1305

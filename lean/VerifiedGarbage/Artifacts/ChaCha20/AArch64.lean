@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.AArch64.Target
-import VerifiedGarbage.Proof.ChaCha20.AArch64.Neon.Block
+import VerifiedGarbage.Proof.ChaCha20.AArch64.Block
 import VerifiedGarbage.Impl.ChaCha20.AArch64.Xor
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Lit
 
@@ -25,14 +25,6 @@ def artifacts : List Artifact := [
     code := Impl.ChaCha20.AArch64.block
     contract := Spec.ChaCha20.blockContract AArch64.abi
     verified := Proof.ChaCha20.AArch64.block_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.ChaCha20.blockApi with
-    name := "vg_chacha20_block_neon"
-    target := AArch64.target
-    doc := Spec.ChaCha20.blockApi.doc (notes := ["Uses four parallel NEON lanes."])
-    code := Impl.ChaCha20.AArch64.Neon.block
-    contract := Spec.ChaCha20.blockContract AArch64.abi
-    verified := Proof.ChaCha20.AArch64.Neon.block_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.ChaCha20.AArch64

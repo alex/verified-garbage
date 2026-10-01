@@ -68,11 +68,11 @@ theorem abi_of {s₀ s s₁ s' : State} (h : Inv s₀ s) (hk : ∀ r ∈ preserv
   · have hu := preserved_split r hr' hm
     rw [hg r hm, hk r hr' hu.2, h.un r hu.1]
 
-theorem seal_correct (v : Proof.ChaCha20.AArch64.BlockImpl) {s₀ : State} (hp : APre s₀) :
+theorem seal_correct (v : Proof.ChaCha20.AArch64.XorImpl) {s₀ : State} (hp : APre s₀) :
     WP isa (sealWith v.callee) s₀ fun s' => abiPreserved s₀ s' ∧ sealAArch64.post s₀ s' := by
   have hL' := (Nat.le_of_lt (s₀.gpr .x4).isLt)
   unfold sealWith
-  refine WP.seq (WP.mono (prologue_ok v hp) fun s₁ h₁ => ?_)
+  refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
   have hA : bytesAt s₁.mem (ad s₀) (AL s₀) = A s₀ :=
     bytesAt_frame h₁.inv.frame (by rdisj_all) (Nat.le_of_lt (s₀.gpr .x2).isLt)
   refine WP.seq (WP.mono (macPad_ok hp (p := .x24) (n := .x25) ⟨.inl rfl, .inl rfl⟩ (srcA hp) h₁.inv.x21
@@ -113,11 +113,11 @@ theorem seal_correct (v : Proof.ChaCha20.AArch64.BlockImpl) {s₀ : State} (hp :
   simp only [Spec.ChaCha20Poly1305.encrypt, macData, List.nil_append,
     List.append_assoc, VG.Proof.Poly1305.length_bytesAt, length_encrypt]
 
-theorem open_correct (v : Proof.ChaCha20.AArch64.BlockImpl) {s₀ : State} (hp : APre s₀) :
+theorem open_correct (v : Proof.ChaCha20.AArch64.XorImpl) {s₀ : State} (hp : APre s₀) :
     WP isa (openWith v.callee) s₀ fun s' => abiPreserved s₀ s' ∧ openAArch64.post s₀ s' := by
   have hL' := (Nat.le_of_lt (s₀.gpr .x4).isLt)
   unfold openWith
-  refine WP.seq (WP.mono (prologue_ok v hp) fun s₁ h₁ => ?_)
+  refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
   have hA : bytesAt s₁.mem (ad s₀) (AL s₀) = A s₀ :=
     bytesAt_frame h₁.inv.frame (by rdisj_all) (Nat.le_of_lt (s₀.gpr .x2).isLt)
   refine WP.seq (WP.mono (macPad_ok hp (p := .x24) (n := .x25) ⟨.inl rfl, .inl rfl⟩ (srcA hp) h₁.inv.x21
@@ -208,29 +208,29 @@ def sat : State where
   rd := [⟨0x2000, 0⟩]
   wr := [⟨0x1000, 1024⟩, ⟨0x3000, 0⟩]
 
-theorem seal_ok (v : Proof.ChaCha20.AArch64.BlockImpl) (s : State) (hs : sealAArch64.pre s) :
+theorem seal_ok (v : Proof.ChaCha20.AArch64.XorImpl) (s : State) (hs : sealAArch64.pre s) :
     ∃ t s', Exec isa (Impl.ChaCha20Poly1305.AArch64.sealWith v.callee) s t s' ∧ abiPreserved s s' ∧
       sealAArch64.post s s' := by
   obtain ⟨t, s', he, h, hpost⟩ := seal_correct v (APre.of s hs)
   exact ⟨t, s', he, h, hpost⟩
 
-theorem seal_ct (v : Proof.ChaCha20.AArch64.BlockImpl) : ConstantTime isa sealAArch64.pre sealAArch64.pub
+theorem seal_ct (v : Proof.ChaCha20.AArch64.XorImpl) : ConstantTime isa sealAArch64.pre sealAArch64.pub
     (Impl.ChaCha20Poly1305.AArch64.sealWith v.callee) := by
   obtain ⟨h, hh⟩ := v.sealTaint
   exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ _ _ hp => agree₀ hp) hh
 
-theorem open_ok (v : Proof.ChaCha20.AArch64.BlockImpl) (s : State) (hs : openAArch64.pre s) :
+theorem open_ok (v : Proof.ChaCha20.AArch64.XorImpl) (s : State) (hs : openAArch64.pre s) :
     ∃ t s', Exec isa (Impl.ChaCha20Poly1305.AArch64.openWith v.callee) s t s' ∧ abiPreserved s s' ∧
       openAArch64.post s s' := by
   obtain ⟨t, s', he, h, hpost⟩ := open_correct v (APre.of s hs)
   exact ⟨t, s', he, h, hpost⟩
 
-theorem open_ct (v : Proof.ChaCha20.AArch64.BlockImpl) : ConstantTime isa openAArch64.pre openAArch64.pub
+theorem open_ct (v : Proof.ChaCha20.AArch64.XorImpl) : ConstantTime isa openAArch64.pre openAArch64.pub
     (Impl.ChaCha20Poly1305.AArch64.openWith v.callee) := by
   obtain ⟨h, hh⟩ := v.openTaint
   exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ _ _ hp => agree₀ hp) hh
 
-theorem seal_verified (v : Proof.ChaCha20.AArch64.BlockImpl) :
+theorem seal_verified (v : Proof.ChaCha20.AArch64.XorImpl) :
     Verified AArch64.target (Impl.ChaCha20Poly1305.AArch64.sealWith v.callee)
       (Spec.ChaCha20Poly1305.sealContract AArch64.abi) :=
   Verified.of_correct (seal_ok v) (seal_ct v) (by
@@ -241,7 +241,7 @@ theorem seal_verified (v : Proof.ChaCha20.AArch64.BlockImpl) :
 
 /-- The postconditions match on `decrypt` through different auxiliary
 functions, so the implication splits on it. -/
-theorem open_verified (v : Proof.ChaCha20.AArch64.BlockImpl) :
+theorem open_verified (v : Proof.ChaCha20.AArch64.XorImpl) :
     Verified AArch64.target (Impl.ChaCha20Poly1305.AArch64.openWith v.callee)
       (Spec.ChaCha20Poly1305.openContract AArch64.abi) :=
   Verified.of_correct (open_ok v) (open_ct v)

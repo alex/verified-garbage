@@ -4,7 +4,7 @@ namespace VG.Impl.ChaCha20.AArch64
 
 open VG.AArch64
 
-/-- A block implementation used by the generic stream and AEAD code. -/
+/-- A block implementation used by the scalar stream code. -/
 structure Callee where
   name : String
   code : Prog isa
