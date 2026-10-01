@@ -1,0 +1,485 @@
+// @generated from lean/VerifiedGarbage/Artifacts.lean by lean/Emit.lean. DO NOT EDIT.
+//! Verified `cmac_aes` functions for `aarch64`.
+#![allow(dead_code)]
+
+/// The CPU features `vg_cmac_aes_subkeys_aes` requires (`Artifact.features`).
+pub(crate) const VG_CMAC_AES_SUBKEYS_AES_FEATURES: &[&str] = &["aes"];
+
+/// The CMAC subkey generation (NIST SP 800-38B §6.1) for AES: writes `K1 ‖ K2` to `*subkeys`, where `L = CIPH_K(0¹²⁸)`, `K1 = L << 1` (XORed with `R₁₂₈ = 0¹²⁰10000111` if the leftmost bit of `L` is 1) and `K2` is `K1` doubled the same way. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.
+///
+/// Contract: `VG.Spec.Cmac.aesSubkeysContract`. Constant time: only the pointers and `rounds` may affect timing, not the key schedule or the subkeys.
+///
+/// This implementation encrypts each block with `vg_aes_ctr32_aes`.
+///
+/// # Safety
+///
+/// * `schedule` must be valid for reads of 240 bytes.
+/// * `subkeys` must be valid for reads and writes of 32 bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
+/// * `subkeys` and `scratch` must not overlap each other or `schedule` (distinct Rust objects never do).
+/// * None of `schedule`, `subkeys` and `scratch` may wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `aes` target feature.
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_subkeys_aes(schedule: *const [u8; 240], rounds: usize, subkeys: *mut [u8; 32], scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        ".arch_extension aes",
+        "str x19, [x3, #2064]",
+        "str x20, [x3, #2072]",
+        "str x30, [x3, #2080]",
+        "add x19, x2, #0",
+        "add x20, x3, #0",
+        "movz x9, #0, lsl #0",
+        "str x9, [x3, #2048]",
+        "str x9, [x3, #2056]",
+        "str x9, [x2, #0]",
+        "str x9, [x2, #8]",
+        "add x2, x20, #2048",
+        "add x3, x19, #0",
+        "movz x4, #1, lsl #0",
+        "add x5, x20, #0",
+        "bl {vg_aes_ctr32_aes}",
+        "ldr x9, [x19, #0]",
+        "ldr x10, [x19, #8]",
+        "rev x9, x9",
+        "rev x10, x10",
+        "lsr x11, x9, #63",
+        "movz x12, #0, lsl #0",
+        "sub x11, x12, x11",
+        "movz x12, #135, lsl #0",
+        "and x11, x11, x12",
+        "lsr x12, x10, #63",
+        "lsl x9, x9, #1",
+        "orr x9, x9, x12",
+        "lsl x10, x10, #1",
+        "eor x10, x10, x11",
+        "rev x9, x9",
+        "rev x10, x10",
+        "str x9, [x19, #0]",
+        "str x10, [x19, #8]",
+        "ldr x9, [x19, #0]",
+        "ldr x10, [x19, #8]",
+        "rev x9, x9",
+        "rev x10, x10",
+        "lsr x11, x9, #63",
+        "movz x12, #0, lsl #0",
+        "sub x11, x12, x11",
+        "movz x12, #135, lsl #0",
+        "and x11, x11, x12",
+        "lsr x12, x10, #63",
+        "lsl x9, x9, #1",
+        "orr x9, x9, x12",
+        "lsl x10, x10, #1",
+        "eor x10, x10, x11",
+        "rev x9, x9",
+        "rev x10, x10",
+        "str x9, [x19, #16]",
+        "str x10, [x19, #24]",
+        "ldr x30, [x20, #2080]",
+        "ldr x19, [x20, #2064]",
+        "ldr x20, [x20, #2072]",
+        "ret",
+        ".arch_extension noaes",
+        vg_aes_ctr32_aes = sym super::aes::vg_aes_ctr32_aes,
+    )
+}
+
+/// The CPU features `vg_cmac_aes_update_aes` requires (`Artifact.features`).
+pub(crate) const VG_CMAC_AES_UPDATE_AES_FEATURES: &[&str] = &["aes"];
+
+/// CMAC's chaining (NIST SP 800-38B §6.2 step 6) for AES, over whole blocks: replaces the block `C₀` at `*state` with `Cₙ`, where `Cᵢ = CIPH_K(Cᵢ₋₁ ⊕ Mᵢ)` for the `n` 16-byte blocks `M₁ … Mₙ` starting at `data`. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.
+///
+/// Contract: `VG.Spec.Cmac.aesUpdateContract`. Constant time: only the pointers, `rounds` and `n` may affect timing, not the key schedule, the chaining value or the data.
+///
+/// This implementation encrypts each block with `vg_aes_ctr32_aes`.
+///
+/// # Safety
+///
+/// * `schedule` must be valid for reads of 240 bytes.
+/// * `state` must be valid for reads and writes of 16 bytes.
+/// * `data` must be valid for reads of `16 * n` bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other, `schedule` or `data` (distinct Rust objects never do).
+/// * None of `schedule`, `state`, `data` and `scratch` may wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `aes` target feature.
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_update_aes(schedule: *const [u8; 240], rounds: usize, state: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        ".arch_extension aes",
+        "str x19, [x5, #2064]",
+        "str x20, [x5, #2072]",
+        "str x21, [x5, #2080]",
+        "str x22, [x5, #2088]",
+        "str x23, [x5, #2096]",
+        "str x30, [x5, #2104]",
+        "str x24, [x5, #2112]",
+        "add x19, x0, #0",
+        "add x20, x1, #0",
+        "add x21, x2, #0",
+        "add x22, x3, #0",
+        "add x23, x4, #0",
+        "add x24, x5, #0",
+        "cbz x23, 20f",
+        "22:",
+        "ldr x9, [x21, #0]",
+        "ldr x10, [x22, #0]",
+        "eor x9, x9, x10",
+        "str x9, [x24, #2048]",
+        "ldr x9, [x21, #8]",
+        "ldr x10, [x22, #8]",
+        "eor x9, x9, x10",
+        "str x9, [x24, #2056]",
+        "movz x9, #0, lsl #0",
+        "str x9, [x21, #0]",
+        "str x9, [x21, #8]",
+        "add x0, x19, #0",
+        "add x1, x20, #0",
+        "add x2, x24, #2048",
+        "add x3, x21, #0",
+        "movz x4, #1, lsl #0",
+        "add x5, x24, #0",
+        "bl {vg_aes_ctr32_aes}",
+        "add x22, x22, #16",
+        "sub x23, x23, #1",
+        "cbnz x23, 22b",
+        "b 21f",
+        "20:",
+        "21:",
+        "ldr x19, [x24, #2064]",
+        "ldr x20, [x24, #2072]",
+        "ldr x21, [x24, #2080]",
+        "ldr x22, [x24, #2088]",
+        "ldr x23, [x24, #2096]",
+        "ldr x30, [x24, #2104]",
+        "ldr x24, [x24, #2112]",
+        "ret",
+        ".arch_extension noaes",
+        vg_aes_ctr32_aes = sym super::aes::vg_aes_ctr32_aes,
+    )
+}
+
+/// The CPU features `vg_cmac_aes_finalize_aes` requires (`Artifact.features`).
+pub(crate) const VG_CMAC_AES_FINALIZE_AES_FEATURES: &[&str] = &["aes"];
+
+/// Finishes an AES-CMAC computation (NIST SP 800-38B §6.2, with `Tlen = 128`): if the block at `*state` is the chaining value `Cₙ₋₁` of the message's blocks but the last (as `vg_cmac_aes_update` computes it from a zero block), and the `last_len` bytes at `last` are the message's last bytes `Mₙ*`, replaces it with the MAC `Cₙ = CIPH_K(Cₙ₋₁ ⊕ Mₙ)`, where `Mₙ = K1 ⊕ Mₙ*` if `last_len` is 16, and `Mₙ = K2 ⊕ (Mₙ* ‖ 10ʲ)` otherwise. `*key` is the 240 bytes `vg_aes_expand_key` writes the key schedule for `rounds` rounds to, followed by the subkeys `K1 ‖ K2` (as `vg_cmac_aes_subkeys` writes them). `last_len` is 0 only for the empty message.
+///
+/// Contract: `VG.Spec.Cmac.aesFinalizeContract`. Constant time: only the pointers, `rounds` and `last_len` may affect timing, not the key schedule, the subkeys, the chaining value or the data.
+///
+/// This implementation encrypts each block with `vg_aes_ctr32_aes`.
+///
+/// # Safety
+///
+/// * `key` must be valid for reads of 272 bytes.
+/// * `state` must be valid for reads and writes of 16 bytes.
+/// * `last` must be valid for reads of `last_len` bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * `last_len` must be at most 16.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other, `key` or `last` (distinct Rust objects never do).
+/// * None of `key`, `state`, `last` and `scratch` may wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `aes` target feature.
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_finalize_aes(key: *const [u8; 272], rounds: usize, state: *mut [u8; 16], last: *const u8, last_len: usize, scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        ".arch_extension aes",
+        "sub x9, x4, #16",
+        "cbz x9, 20f",
+        "movz x9, #0, lsl #0",
+        "str x9, [x5, #2048]",
+        "str x9, [x5, #2056]",
+        "add x6, x5, #2048",
+        "add x7, x3, #0",
+        "add x8, x4, #0",
+        "cbz x4, 22f",
+        "24:",
+        "ldrb w9, [x7, #0]",
+        "strb w9, [x6, #0]",
+        "add x7, x7, #1",
+        "add x6, x6, #1",
+        "sub x8, x8, #1",
+        "cbnz x8, 24b",
+        "b 23f",
+        "22:",
+        "23:",
+        "movz x9, #128, lsl #0",
+        "strb w9, [x6, #0]",
+        "ldr x9, [x5, #2048]",
+        "ldr x10, [x0, #256]",
+        "eor x9, x9, x10",
+        "str x9, [x5, #2048]",
+        "ldr x9, [x5, #2056]",
+        "ldr x10, [x0, #264]",
+        "eor x9, x9, x10",
+        "str x9, [x5, #2056]",
+        "b 21f",
+        "20:",
+        "ldr x9, [x3, #0]",
+        "ldr x10, [x0, #240]",
+        "eor x9, x9, x10",
+        "str x9, [x5, #2048]",
+        "ldr x9, [x3, #8]",
+        "ldr x10, [x0, #248]",
+        "eor x9, x9, x10",
+        "str x9, [x5, #2056]",
+        "21:",
+        "ldr x9, [x5, #2048]",
+        "ldr x10, [x2, #0]",
+        "eor x9, x9, x10",
+        "str x9, [x5, #2048]",
+        "ldr x9, [x5, #2056]",
+        "ldr x10, [x2, #8]",
+        "eor x9, x9, x10",
+        "str x9, [x5, #2056]",
+        "movz x9, #0, lsl #0",
+        "str x9, [x2, #0]",
+        "str x9, [x2, #8]",
+        "str x19, [x5, #2064]",
+        "str x30, [x5, #2072]",
+        "add x19, x5, #0",
+        "add x3, x2, #0",
+        "add x2, x5, #2048",
+        "movz x4, #1, lsl #0",
+        "bl {vg_aes_ctr32_aes}",
+        "ldr x30, [x19, #2072]",
+        "ldr x19, [x19, #2064]",
+        "ret",
+        ".arch_extension noaes",
+        vg_aes_ctr32_aes = sym super::aes::vg_aes_ctr32_aes,
+    )
+}
+
+/// The CMAC subkey generation (NIST SP 800-38B §6.1) for AES: writes `K1 ‖ K2` to `*subkeys`, where `L = CIPH_K(0¹²⁸)`, `K1 = L << 1` (XORed with `R₁₂₈ = 0¹²⁰10000111` if the leftmost bit of `L` is 1) and `K2` is `K1` doubled the same way. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.
+///
+/// Contract: `VG.Spec.Cmac.aesSubkeysContract`. Constant time: only the pointers and `rounds` may affect timing, not the key schedule or the subkeys.
+///
+/// This implementation encrypts each block with `vg_aes_ctr32`.
+///
+/// # Safety
+///
+/// * `schedule` must be valid for reads of 240 bytes.
+/// * `subkeys` must be valid for reads and writes of 32 bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
+/// * `subkeys` and `scratch` must not overlap each other or `schedule` (distinct Rust objects never do).
+/// * None of `schedule`, `subkeys` and `scratch` may wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_subkeys(schedule: *const [u8; 240], rounds: usize, subkeys: *mut [u8; 32], scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        "str x19, [x3, #2064]",
+        "str x20, [x3, #2072]",
+        "str x30, [x3, #2080]",
+        "add x19, x2, #0",
+        "add x20, x3, #0",
+        "movz x9, #0, lsl #0",
+        "str x9, [x3, #2048]",
+        "str x9, [x3, #2056]",
+        "str x9, [x2, #0]",
+        "str x9, [x2, #8]",
+        "add x2, x20, #2048",
+        "add x3, x19, #0",
+        "movz x4, #1, lsl #0",
+        "add x5, x20, #0",
+        "bl {vg_aes_ctr32}",
+        "ldr x9, [x19, #0]",
+        "ldr x10, [x19, #8]",
+        "rev x9, x9",
+        "rev x10, x10",
+        "lsr x11, x9, #63",
+        "movz x12, #0, lsl #0",
+        "sub x11, x12, x11",
+        "movz x12, #135, lsl #0",
+        "and x11, x11, x12",
+        "lsr x12, x10, #63",
+        "lsl x9, x9, #1",
+        "orr x9, x9, x12",
+        "lsl x10, x10, #1",
+        "eor x10, x10, x11",
+        "rev x9, x9",
+        "rev x10, x10",
+        "str x9, [x19, #0]",
+        "str x10, [x19, #8]",
+        "ldr x9, [x19, #0]",
+        "ldr x10, [x19, #8]",
+        "rev x9, x9",
+        "rev x10, x10",
+        "lsr x11, x9, #63",
+        "movz x12, #0, lsl #0",
+        "sub x11, x12, x11",
+        "movz x12, #135, lsl #0",
+        "and x11, x11, x12",
+        "lsr x12, x10, #63",
+        "lsl x9, x9, #1",
+        "orr x9, x9, x12",
+        "lsl x10, x10, #1",
+        "eor x10, x10, x11",
+        "rev x9, x9",
+        "rev x10, x10",
+        "str x9, [x19, #16]",
+        "str x10, [x19, #24]",
+        "ldr x30, [x20, #2080]",
+        "ldr x19, [x20, #2064]",
+        "ldr x20, [x20, #2072]",
+        "ret",
+        vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
+    )
+}
+
+/// CMAC's chaining (NIST SP 800-38B §6.2 step 6) for AES, over whole blocks: replaces the block `C₀` at `*state` with `Cₙ`, where `Cᵢ = CIPH_K(Cᵢ₋₁ ⊕ Mᵢ)` for the `n` 16-byte blocks `M₁ … Mₙ` starting at `data`. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.
+///
+/// Contract: `VG.Spec.Cmac.aesUpdateContract`. Constant time: only the pointers, `rounds` and `n` may affect timing, not the key schedule, the chaining value or the data.
+///
+/// This implementation encrypts each block with `vg_aes_ctr32`.
+///
+/// # Safety
+///
+/// * `schedule` must be valid for reads of 240 bytes.
+/// * `state` must be valid for reads and writes of 16 bytes.
+/// * `data` must be valid for reads of `16 * n` bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other, `schedule` or `data` (distinct Rust objects never do).
+/// * None of `schedule`, `state`, `data` and `scratch` may wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_update(schedule: *const [u8; 240], rounds: usize, state: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        "str x19, [x5, #2064]",
+        "str x20, [x5, #2072]",
+        "str x21, [x5, #2080]",
+        "str x22, [x5, #2088]",
+        "str x23, [x5, #2096]",
+        "str x30, [x5, #2104]",
+        "str x24, [x5, #2112]",
+        "add x19, x0, #0",
+        "add x20, x1, #0",
+        "add x21, x2, #0",
+        "add x22, x3, #0",
+        "add x23, x4, #0",
+        "add x24, x5, #0",
+        "cbz x23, 20f",
+        "22:",
+        "ldr x9, [x21, #0]",
+        "ldr x10, [x22, #0]",
+        "eor x9, x9, x10",
+        "str x9, [x24, #2048]",
+        "ldr x9, [x21, #8]",
+        "ldr x10, [x22, #8]",
+        "eor x9, x9, x10",
+        "str x9, [x24, #2056]",
+        "movz x9, #0, lsl #0",
+        "str x9, [x21, #0]",
+        "str x9, [x21, #8]",
+        "add x0, x19, #0",
+        "add x1, x20, #0",
+        "add x2, x24, #2048",
+        "add x3, x21, #0",
+        "movz x4, #1, lsl #0",
+        "add x5, x24, #0",
+        "bl {vg_aes_ctr32}",
+        "add x22, x22, #16",
+        "sub x23, x23, #1",
+        "cbnz x23, 22b",
+        "b 21f",
+        "20:",
+        "21:",
+        "ldr x19, [x24, #2064]",
+        "ldr x20, [x24, #2072]",
+        "ldr x21, [x24, #2080]",
+        "ldr x22, [x24, #2088]",
+        "ldr x23, [x24, #2096]",
+        "ldr x30, [x24, #2104]",
+        "ldr x24, [x24, #2112]",
+        "ret",
+        vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
+    )
+}
+
+/// Finishes an AES-CMAC computation (NIST SP 800-38B §6.2, with `Tlen = 128`): if the block at `*state` is the chaining value `Cₙ₋₁` of the message's blocks but the last (as `vg_cmac_aes_update` computes it from a zero block), and the `last_len` bytes at `last` are the message's last bytes `Mₙ*`, replaces it with the MAC `Cₙ = CIPH_K(Cₙ₋₁ ⊕ Mₙ)`, where `Mₙ = K1 ⊕ Mₙ*` if `last_len` is 16, and `Mₙ = K2 ⊕ (Mₙ* ‖ 10ʲ)` otherwise. `*key` is the 240 bytes `vg_aes_expand_key` writes the key schedule for `rounds` rounds to, followed by the subkeys `K1 ‖ K2` (as `vg_cmac_aes_subkeys` writes them). `last_len` is 0 only for the empty message.
+///
+/// Contract: `VG.Spec.Cmac.aesFinalizeContract`. Constant time: only the pointers, `rounds` and `last_len` may affect timing, not the key schedule, the subkeys, the chaining value or the data.
+///
+/// This implementation encrypts each block with `vg_aes_ctr32`.
+///
+/// # Safety
+///
+/// * `key` must be valid for reads of 272 bytes.
+/// * `state` must be valid for reads and writes of 16 bytes.
+/// * `last` must be valid for reads of `last_len` bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * `last_len` must be at most 16.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other, `key` or `last` (distinct Rust objects never do).
+/// * None of `key`, `state`, `last` and `scratch` may wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_finalize(key: *const [u8; 272], rounds: usize, state: *mut [u8; 16], last: *const u8, last_len: usize, scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        "sub x9, x4, #16",
+        "cbz x9, 20f",
+        "movz x9, #0, lsl #0",
+        "str x9, [x5, #2048]",
+        "str x9, [x5, #2056]",
+        "add x6, x5, #2048",
+        "add x7, x3, #0",
+        "add x8, x4, #0",
+        "cbz x4, 22f",
+        "24:",
+        "ldrb w9, [x7, #0]",
+        "strb w9, [x6, #0]",
+        "add x7, x7, #1",
+        "add x6, x6, #1",
+        "sub x8, x8, #1",
+        "cbnz x8, 24b",
+        "b 23f",
+        "22:",
+        "23:",
+        "movz x9, #128, lsl #0",
+        "strb w9, [x6, #0]",
+        "ldr x9, [x5, #2048]",
+        "ldr x10, [x0, #256]",
+        "eor x9, x9, x10",
+        "str x9, [x5, #2048]",
+        "ldr x9, [x5, #2056]",
+        "ldr x10, [x0, #264]",
+        "eor x9, x9, x10",
+        "str x9, [x5, #2056]",
+        "b 21f",
+        "20:",
+        "ldr x9, [x3, #0]",
+        "ldr x10, [x0, #240]",
+        "eor x9, x9, x10",
+        "str x9, [x5, #2048]",
+        "ldr x9, [x3, #8]",
+        "ldr x10, [x0, #248]",
+        "eor x9, x9, x10",
+        "str x9, [x5, #2056]",
+        "21:",
+        "ldr x9, [x5, #2048]",
+        "ldr x10, [x2, #0]",
+        "eor x9, x9, x10",
+        "str x9, [x5, #2048]",
+        "ldr x9, [x5, #2056]",
+        "ldr x10, [x2, #8]",
+        "eor x9, x9, x10",
+        "str x9, [x5, #2056]",
+        "movz x9, #0, lsl #0",
+        "str x9, [x2, #0]",
+        "str x9, [x2, #8]",
+        "str x19, [x5, #2064]",
+        "str x30, [x5, #2072]",
+        "add x19, x5, #0",
+        "add x3, x2, #0",
+        "add x2, x5, #2048",
+        "movz x4, #1, lsl #0",
+        "bl {vg_aes_ctr32}",
+        "ldr x30, [x19, #2072]",
+        "ldr x19, [x19, #2064]",
+        "ret",
+        vg_aes_ctr32 = sym super::aes::vg_aes_ctr32,
+    )
+}

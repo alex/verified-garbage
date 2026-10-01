@@ -11,7 +11,7 @@ import VerifiedGarbage.Proof.Framework.X86_64.Inline
 # Poly1305 on x86-64 with AVX2: `vg_poly1305_blocks_avx2`
 
 Untrusted: everything here is checked by Lean. The whole function: with
-fewer than 16 blocks, or for the last `n mod 4`, it calls
+fewer than 32 blocks, or for the last `n mod 4`, it calls
 `vg_poly1305_blocks`; otherwise it absorbs the blocks four at a time (see
 `Impl/Poly1305/X86_64/Avx2.lean`).
 
@@ -314,7 +314,7 @@ structure LInv (s₀ : State) (j : Nat) (s : State) : Prop where
   mem : s.mem = mxMem s₀.mem (st s₀) s₀.mxcsr
   acc : H2 s₀ < 4 → LaneInv (Rn s₀) (Poly1305.absorbAll (Rn s₀) (A0 s₀) (blks s₀ (4 * j))) s
 
-theorem pro_ok {s₀ : State} (hp : APre s₀) (hbig : 16 ≤ nb s₀) {s : State} (hg : s.gpr = s₀.gpr)
+theorem pro_ok {s₀ : State} (hp : APre s₀) (hbig : 32 ≤ nb s₀) {s : State} (hg : s.gpr = s₀.gpr)
     (hm : s.mem = s₀.mem) (hk : VKeep s₀ s) :
     WP isa (.block (consts ++ mxcsrIn ++ powers ++ loadHw ++ loadH ++
       ([.mov .rcx (.reg .rdx), .shift .shr .rcx 2, .alu .sub .rcx (.imm 1)] : List Instr))) s
@@ -568,7 +568,7 @@ theorem epi_ok {s₀ : State} (hp : APre s₀) {s : State} (h : LInv s₀ (nb s�
 
 /-! ## The whole function -/
 
-theorem body_ok {s₀ : State} (hp : APre s₀) (hbig : 16 ≤ nb s₀) {s : State} (hg : s.gpr = s₀.gpr)
+theorem body_ok {s₀ : State} (hp : APre s₀) (hbig : 32 ≤ nb s₀) {s : State} (hg : s.gpr = s₀.gpr)
     (hm : s.mem = s₀.mem) (hk : VKeep s₀ s) :
     WP isa body s (TailPre s₀ (4 * (nb s₀ / 4))) :=
   WP.seq (WP.mono (pro_ok hp hbig hg hm hk) fun _ h₁ =>
@@ -584,7 +584,7 @@ theorem TailPre.congr {s₀ s s' : State} {i : Nat} (h : TailPre s₀ i s) (hg :
 theorem correct {s₀ : State} (hp : APre s₀) : WP isa blocksAvx2 s₀ (Post s₀) := by
   have hb := hp.bpre.nb_lt
   refine WP.seq (WP.mono (cmp_ok s₀) fun s₁ ⟨g₁, m₁, k₁, cf₁⟩ => ?_)
-  refine WP.ite (decide (nb s₀ < 16)) (by simp [eval, cf₁]) (fun hlt => ?_) (fun hge => ?_)
+  refine WP.ite (decide (nb s₀ < 32)) (by simp [eval, cf₁]) (fun hlt => ?_) (fun hge => ?_)
   · refine tail_ok hp (i := 0) ⟨by omega, by rw [g₁], by rw [g₁]; simp [blkAddr], ?_,
       fun r _ => by rw [g₁], k₁.rd, k₁.wr, by rw [m₁]; exact Frame.refl _ _, by rw [k₁.mxcsr],
       fun key msg hr => by rw [m₁, blks_zero, List.append_nil]; exact hr⟩
