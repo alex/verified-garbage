@@ -16,6 +16,8 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off F fe_st4 st4_outside Outside Keeps clob)
 open VG.Impl.X25519.X86_64 (stores)
 
+variable {fld : Arith} [EdArith fld]
+
 /-- `add` adds `q` to the accumulator in slots 0–3 when slots 4–7 hold `f q`. -/
 def AddSpec (add : List Instr) (f : Spec.Ed25519.Point → Spec.Ed25519.Point) : Prop :=
   ∀ (s : State) (base : Addr) (q : Spec.Ed25519.Point), Scratch s base →
@@ -24,10 +26,10 @@ def AddSpec (add : List Instr) (f : Spec.Ed25519.Point → Spec.Ed25519.Point) :
       point (env t.mem base) 0 1 2 3 = Spec.Ed25519.pointAdd (point (env s.mem base) 0 1 2 3) q ∧
       ∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i
 
-theorem pointAdd_spec : AddSpec pointAdd id := fun _ _ _ hs hd hq =>
+theorem pointAdd_spec : AddSpec (pointAdd fld) id := fun _ _ _ hs hd hq =>
   WP.mono (pointAddWide_ok hs hd) fun _ ⟨k, v, h⟩ => ⟨k, v.trans (by rw [hq]; rfl), h⟩
 
-theorem pointAddCached_spec : AddSpec pointAddCached cache := fun _ _ q hs _ hq =>
+theorem pointAddCached_spec : AddSpec (pointAddCached fld) cache := fun _ _ q hs _ hq =>
   pointAddCachedWide_ok hs q hq
 
 theorem fromTableQuarterQ_ok {s : State} {base : Addr} (hs : Scratch s base) {o : Nat}

@@ -8,6 +8,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off)
 
+variable {fld : Arith} [EdArith fld]
+
 private def BaseStart (base k out : Addr) (s : State) : Prop :=
   scalarBaseLocal.pre s ∧ s.gpr .rdi = out ∧ s.gpr .rsi = k ∧ s.gpr .rdx = base
 
@@ -40,7 +42,7 @@ private theorem start_ct (base k out : Addr) :
       (fun x y => BasePrepared base k out x ∧ BasePrepared base k out y) := by
   have hc : RelCT isa (fun x y => BaseStart base k out x ∧ BaseStart base k out y)
       (.block (scalarSave ++ scalarBaseSetup)) (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rsi, .rdx]) _ (by taint_decide)
+    apply taintFld (Taint.ofRegs [.rdi, .rsi, .rdx]) _ (by fld_taint_decide)
     intro x y h
     apply Taint.agree_ofRegs
     intro r hr
@@ -74,7 +76,7 @@ private theorem finish_ct (base out : Addr) :
       scalarBaseFinish (fun _ _ => True) := by
   have hc : RelCT isa (fun x y => BaseReady base out x ∧ BaseReady base out y)
       (.block scalarBaseFinishArgs) (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+    apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
     intro x y h
     exact Taint.agree_ofRegs (by
       intro r hr
@@ -88,7 +90,7 @@ private theorem finish_ct (base out : Addr) :
     (fun _ _ h => h) (fun _ _ h => h.2)
   rw [scalarBaseFinish]
   refine VG.RelCT.seq hc' ?_
-  apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdx, .rdi]) _ (by taint_decide)
+  apply taintFld (Taint.ofRegs [.rdx, .rdi]) _ (by fld_taint_decide)
   intro x y h
   apply Taint.agree_ofRegs
   intro r hr
@@ -108,7 +110,7 @@ theorem scalarBase_ct_of_engine (engine : Prog isa) (engine_ok : BaseEngineCorre
       (finish_ct (x.gpr .rdx) (x.gpr .rdi)))
   exact hc _ _ _ _ _ _ ⟨⟨hx, rfl, rfl, rfl⟩, ⟨hy, ho.symm, hk.symm, hb.symm⟩⟩ ex ey
 
-theorem scalarBase_ct : ConstantTime isa scalarBaseLocal.pre scalarBaseLocal.pub scalarBase :=
-  scalarBase_ct_of_engine scalarBaseEngine scalarBaseEngine_ok scalarBaseEngine_ct
+theorem scalarBase_ct : ConstantTime isa scalarBaseLocal.pre scalarBaseLocal.pub (scalarBase fld) :=
+  scalarBase_ct_of_engine (scalarBaseEngine fld) scalarBaseEngine_ok scalarBaseEngine_ct
 
 end VG.Proof.Ed25519.X86_64

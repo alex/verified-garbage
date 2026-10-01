@@ -77,17 +77,19 @@ def equationArgs : List Instr :=
   [.mov .rdi (.mem (stk fPublicKey)), .mov .rsi (.mem (stk fSignature)),
     .mov .rdx (.reg .rsp), .mov .rcx (.mem (stk fScratch))]
 
-def body (f : Callee) (suffix : String) : Prog isa :=
+def body (fld : Arith) (fs : String) (f : Callee) (suffix : String) : Prog isa :=
   .seq (hash f suffix)
     (.seq (callWith reduceArgs "vg_ed25519_scalar_reduce" scalarReduce)
     (.seq (.block extendChallenge)
-      (callWith equationArgs "vg_ed25519_verify_equation" verifyEquation)))
+      (callWith equationArgs ("vg_ed25519_verify_equation" ++ fs) (verifyEquation fld))))
 
-/-- Five saved arguments and sixteen hash/scalar words; calls use 16 more bytes. -/
-def code (f : Callee) (suffix : String) : Prog isa :=
+/-- Five saved arguments and sixteen hash/scalar words; calls use 16 more bytes.
+The field multiplications are `fld`, those of `vg_ed25519_verify_equation` with
+the suffix `fs`. -/
+def code (fld : Arith) (fs : String) (f : Callee) (suffix : String) : Prog isa :=
   .frame (.push [.rdi, .rsi, .rdx, .rcx, .r8,
     .rax, .rax, .rax, .rax, .rax, .rax, .rax, .rax,
     .rax, .rax, .rax, .rax, .rax, .rax, .rax, .rax])
-    (body f suffix) (.pop .r11 21)
+    (body fld fs f suffix) (.pop .r11 21)
 
 end VG.Impl.Ed25519.X86_64.VerifyMessage

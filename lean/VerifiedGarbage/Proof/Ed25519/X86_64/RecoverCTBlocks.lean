@@ -8,6 +8,8 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
+variable {fld : Arith} [EdArith fld]
+
 theorem rdi_agree {base : Addr} {s t : State} (hs : s.gpr .rdi = base) (ht : t.gpr .rdi = base) :
     VG.X86_64.Taint.Agree (Taint.ofRegs [.rdi]) s t := Taint.agree_ofRegs (by
   intro r hr
@@ -15,36 +17,36 @@ theorem rdi_agree {base : Addr} {s t : State} (hs : s.gpr .rdi = base) (ht : t.g
   subst r; exact hs.trans ht.symm)
 
 theorem recoverCandidate_ct (base : Addr) :
-    RelCT isa (fun s t => s.gpr .rdi = base ∧ t.gpr .rdi = base) recoverCandidate (fun _ _ => True) := by
-  apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+    RelCT isa (fun s t => s.gpr .rdi = base ∧ t.gpr .rdi = base) (recoverCandidate fld) (fun _ _ => True) := by
+  apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
   exact fun _ _ h => rdi_agree h.1 h.2
 
 theorem parityBlock_ct (base : Addr) :
     RelCT isa (fun s t => s.gpr .rdi = base ∧ t.gpr .rdi = base)
       (.block (Impl.X25519.X86_64.freeze (offset 0) ++ recoverParity)) (fun _ _ => True) := by
-  apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+  apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
   exact fun _ _ h => rdi_agree h.1 h.2
 
 theorem zeroBlock_ct (base : Addr) :
     RelCT isa (fun s t => s.gpr .rdi = base ∧ t.gpr .rdi = base)
       (.block (fieldZero 0)) (fun _ _ => True) := by
-  apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+  apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
   exact fun _ _ h => rdi_agree h.1 h.2
 
 theorem negateBlock_ct (base : Addr) :
     RelCT isa (fun s t => s.gpr .rdi = base ∧ t.gpr .rdi = base)
-      (.block (fieldCode [.const 5 0, .sub 0 5 0])) (fun _ _ => True) := by
-  apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+      (.block (fieldCode fld [.const 5 0, .sub 0 5 0])) (fun _ _ => True) := by
+  apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
   exact fun _ _ h => rdi_agree h.1 h.2
 
 theorem successBlock_ct (base : Addr) :
     RelCT isa (fun s t => s.gpr .rdi = base ∧ t.gpr .rdi = base)
-      (.block recoverSuccess) (fun _ _ => True) := by
-  apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+      (.block (recoverSuccess fld)) (fun _ _ => True) := by
+  apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
   exact fun _ _ h => rdi_agree h.1 h.2
 
 theorem recoverInvalid_ct : RelCT isa (fun _ _ => True) recoverInvalid (fun _ _ => True) := by
-  apply VG.RelCT.taint (A := taint) (Taint.ofRegs []) _ (by taint_decide)
+  apply taintFld (Taint.ofRegs []) _ (by fld_taint_decide)
   exact fun _ _ _ => Taint.agree_ofRegs (by simp)
 
 end VG.Proof.Ed25519.X86_64

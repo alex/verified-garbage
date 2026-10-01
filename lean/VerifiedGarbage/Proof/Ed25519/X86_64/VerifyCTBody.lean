@@ -7,13 +7,15 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem verifyScalar_ct (base pk sig challenge : Addr) :
     RelCT isa (fun s t => VerifyContext s base pk sig challenge ∧ VerifyContext t base pk sig challenge)
       (.block verifyScalar) (fun _ _ => True) := by
   have ht : RelCT isa (fun s t => VerifyContext s base pk sig challenge ∧ VerifyContext t base pk sig challenge)
       (.block [.mov .rdx (.mem (Impl.X25519.X86_64.sc 7944)), .alu .add .rdx (.imm 32)])
       (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+    apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
     exact fun _ _ h => rdi_agree h.1.scratch.rdi h.2.scratch.rdi
   have hw (s : State) (h : VerifyContext s base pk sig challenge) :
       WP isa (.block [.mov .rdx (.mem (Impl.X25519.X86_64.sc 7944)), .alu .add .rdx (.imm 32)]) s
@@ -27,7 +29,7 @@ theorem verifyScalar_ct (base pk sig challenge : Addr) :
   have hp := VG.RelCT.wp ht (fun s t h => ⟨hw s h.1, hw t h.2⟩)
   have tailCT : RelCT isa (fun s t => s.gpr .rdx = off sig 32 ∧ t.gpr .rdx = off sig 32)
       (.block (loadScalarWords ++ scalarSubtract)) (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdx]) _ (by taint_decide)
+    apply taintFld (Taint.ofRegs [.rdx]) _ (by fld_taint_decide)
     intro s t h
     apply Taint.agree_ofRegs
     intro r hr
@@ -39,7 +41,7 @@ theorem verifyScalar_ct (base pk sig challenge : Addr) :
 theorem verifyBody_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte) :
     RelCT isa (fun s t => VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧
       VerifyPublic base pk sig challenge pkbs rbs sbs kbs t)
-      (.seq (.block verifyScalar) (.ite .b verifyDecodeA recoverInvalid)) (fun _ _ => True) := by
+      (.seq (.block verifyScalar) (.ite .b (verifyDecodeA fld) recoverInvalid)) (fun _ _ => True) := by
   let P := VerifyPublic base pk sig challenge pkbs rbs sbs kbs
   have ht := (verifyScalar_ct base pk sig challenge).mono
     (fun _ _ (h : P _ ∧ P _) => ⟨h.1.context, h.2.context⟩) (fun _ _ h => h)

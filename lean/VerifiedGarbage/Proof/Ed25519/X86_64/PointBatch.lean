@@ -9,12 +9,14 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (Keeps clob)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem PowersKeep.of_keep {base : Addr} {o n : Nat} {s t : State} (h : Keep base s t) :
     PowersKeep base o n s t := ⟨fun r _ _ hr => h.gpr r hr, h.rd, h.wr, TableFrame.workspace h.mem⟩
 
 theorem loadCheckpoint_ok {s : State} {base : Addr} (hs : Scratch s base)
     (j : Nat) (hj : j < 32) (hc : s.gpr .rbx = BitVec.ofNat 64 j) :
-    WP isa (.block loadCheckpoint) s fun t => Keep base s t ∧
+    WP isa (.block (loadCheckpoint fld)) s fun t => Keep base s t ∧
       point (env t.mem base) 0 1 2 3 = tablePoint s.mem base (1280 + 128 * j) ∧
       point (env t.mem base) 17 18 19 20 = point (env s.mem base) 0 1 2 3 ∧
       env t.mem base 16 = env s.mem base 16 := by
@@ -34,7 +36,7 @@ theorem loadCheckpoint_ok {s : State} {base : Addr} (hs : Scratch s base)
 theorem prepareBatch_ok {s : State} {base : Addr} (hs : Scratch s base)
     (j : Nat) (hj : j < 32) (hc : s.gpr .rbx = BitVec.ofNat 64 j)
     (hd : env s.mem base 16 = Spec.Ed25519.d) :
-    WP isa prepareBatch s fun t => PowersKeep base 5376 2048 s t ∧
+    WP isa (prepareBatch fld) s fun t => PowersKeep base 5376 2048 s t ∧
       point (env t.mem base) 0 1 2 3 = point (env s.mem base) 0 1 2 3 ∧
       (∀ i < 16, tablePoint t.mem base (5376 + 128 * i) =
         powerPoint (tablePoint s.mem base (1280 + 128 * j)) i) ∧

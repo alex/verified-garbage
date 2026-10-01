@@ -7,6 +7,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (Keeps)
 
+variable {fld : Arith} [EdArith fld]
+
 structure PowersInv (s₀ : State) (base : Addr) (o count n : Nat) (batch : Bool) (s : State) : Prop where
   positive : 0 < n
   bound : n ≤ count
@@ -22,7 +24,7 @@ theorem powersLoop_ok (batch : Bool) {s₀ : State} {base : Addr} (hs : Scratch 
     (o count : Nat) (hlo : 768 ≤ o) (hbound : o + 128 * count ≤ 8192)
     (hn0 : 0 < count) (hn : count ≤ 32) (hc : s₀.gpr .rbx = 0)
     (hd : env s₀.mem base 16 = Spec.Ed25519.d) :
-    WP isa (.loop (powersBody o count batch) .ne) s₀ fun t =>
+    WP isa (.loop (powersBody fld o count batch) .ne) s₀ fun t =>
       (∀ j < count, tablePoint t.mem base (o + 128 * j) =
         powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * j)) ∧
       point (env t.mem base) 0 1 2 3 = powerPoint (point (env s₀.mem base) 0 1 2 3) (powerStride batch * count) ∧
@@ -73,7 +75,7 @@ theorem powersInit_ok (s : State) :
 theorem pointPowers_ok (batch : Bool) {s : State} {base : Addr} (hs : Scratch s base)
     (o count : Nat) (hlo : 768 ≤ o) (hbound : o + 128 * count ≤ 8192)
     (hn0 : 0 < count) (hn : count ≤ 32) (hd : env s.mem base 16 = Spec.Ed25519.d) :
-    WP isa (pointPowers o count batch) s fun t =>
+    WP isa (pointPowers fld o count batch) s fun t =>
       (∀ j < count, tablePoint t.mem base (o + 128 * j) =
         powerPoint (point (env s.mem base) 0 1 2 3) (powerStride batch * j)) ∧
       point (env t.mem base) 0 1 2 3 = powerPoint (point (env s.mem base) 0 1 2 3) (powerStride batch * count) ∧

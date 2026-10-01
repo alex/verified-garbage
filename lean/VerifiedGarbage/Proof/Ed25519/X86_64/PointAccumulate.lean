@@ -10,6 +10,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off mask Keeps clob)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem scalarBitMask_ok {s : State} {base : Addr} (hs : Scratch s base)
     (j start bit : Nat) (hi : start + j < 512) (hbit : bit < 2)
     (hj : s.gpr .rbx = BitVec.ofNat 64 j) (hstart : s.gpr .rsi = BitVec.ofNat 64 start)
@@ -58,7 +60,7 @@ theorem restorePoint_q (e : Env) : point (evalOps restorePointOps e) 4 5 6 7 = p
 
 theorem prepareAdd_ok {s : State} {base : Addr} (hs : Scratch s base)
     (j : Nat) (hj : j < 16) (hc : s.gpr .rbx = BitVec.ofNat 64 j) :
-    WP isa (.block prepareAdd) s fun t => Keep base s t ∧
+    WP isa (.block (prepareAdd fld)) s fun t => Keep base s t ∧
       point (env t.mem base) 0 1 2 3 = point (env s.mem base) 0 1 2 3 ∧
       point (env t.mem base) 4 5 6 7 = tablePoint s.mem base (5376 + 128 * j) ∧
       point (env t.mem base) 17 18 19 20 = point (env s.mem base) 0 1 2 3 ∧
@@ -101,7 +103,7 @@ theorem pointAccumulate_ok {s : State} {base : Addr} (hs : Scratch s base)
     (hc : s.gpr .rbx = BitVec.ofNat 64 j) (hstart : s.gpr .rsi = BitVec.ofNat 64 start)
     (hb : s.mem (off base (768 + (start + j))) = BitVec.ofNat 8 bit)
     (hd : env s.mem base 16 = Spec.Ed25519.d) :
-    WP isa (.block pointAccumulate) s fun t => Keep base s t ∧
+    WP isa (.block (pointAccumulate fld)) s fun t => Keep base s t ∧
       point (env t.mem base) 0 1 2 3 =
         (if bit = 0 then point (env s.mem base) 0 1 2 3 else
           Spec.Ed25519.pointAdd (point (env s.mem base) 0 1 2 3) (tablePoint s.mem base (5376 + 128 * j))) ∧

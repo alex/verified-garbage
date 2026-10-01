@@ -32,15 +32,15 @@ def tableStart (o : Nat) : List Instr := [.movImm64 .rax (BitVec.ofNat 64 o), .a
 `C = 2Z²`, `E = 2XY`, `G = B - A`, `F = C - G`, `H = A + B`, and `X = EF`, `Y = GH`,
 `Z = FG`, and `T = EH` if `t` (only an addition reads `T`). -/
 def dblOps (t : Bool) : List FieldOp :=
-  [.mul 8 0 0, .mul 9 1 1, .mul 10 2 2, .add 10 10 10, .mul 11 0 1, .add 11 11 11,
+  [.sqr 8 0, .sqr 9 1, .sqr 10 2, .add 10 10 10, .mul 11 0 1, .add 11 11 11,
     .sub 12 9 8, .sub 13 10 12, .add 14 8 9, .mul 0 11 13, .mul 1 12 14, .mul 2 13 12] ++
     if t then [.mul 3 11 14] else []
 
 /-- Four doublings: three without `T`, with the counter `rsi`, then one with it. -/
-def double4 : Prog isa :=
+def double4 (fld : Arith) : Prog isa :=
   .seq (.block [.mov32 .rsi (.imm 3)]) (.seq
-    (.loop (.block (fieldCode (dblOps false) ++ [.alu .sub .rsi (.imm 1)])) .ne)
-    (.block (fieldCode (dblOps true))))
+    (.loop (.block (fieldCode fld (dblOps false) ++ [.alu .sub .rsi (.imm 1)])) .ne)
+    (.block (fieldCode fld (dblOps true))))
 
 /-- `[1]A` from byte 7424 into slots 0–3 and into the table's entry 0. -/
 def aTableInit : List Instr :=
@@ -48,12 +48,12 @@ def aTableInit : List Instr :=
     pointToTable ++ [.mov32 .rbx (.imm 1)]
 
 /-- Entry `rbx` = entry `rbx - 1` (in slots 0–3) + A. -/
-def aTableBody : List Instr :=
-  tableStart 7424 ++ pointFromTableQ ++ pointAdd ++ tableAddr 5376 ++ pointToTable ++
+def aTableBody (fld : Arith) : List Instr :=
+  tableStart 7424 ++ pointFromTableQ ++ pointAdd fld ++ tableAddr 5376 ++ pointToTable ++
     [.alu .add .rbx (.imm 1), .alu .cmp .rbx (.imm 15)]
 
 /-- Entries `j < 15` of the table at byte 5376 are `[j + 1]A`. -/
-def aTable : Prog isa := .seq (.block aTableInit) (.loop (.block aTableBody) .ne)
+def aTable (fld : Arith) : Prog isa := .seq (.block aTableInit) (.loop (.block (aTableBody fld)) .ne)
 
 /-- Entries `j < 15` of the table at byte 2048 are cached `-[j + 1]B`. -/
 def bTable : List Instr :=
@@ -78,29 +78,29 @@ def addDigit (o : Nat) (add : List Instr) : Prog isa :=
     (.block [])
 
 /-- A window of `k` alone. -/
-def windowA (digit : List Instr) : Prog isa :=
-  .seq double4 (.seq (.block digit) (addDigit 5376 pointAdd))
+def windowA (fld : Arith) (digit : List Instr) : Prog isa :=
+  .seq (double4 fld) (.seq (.block digit) (addDigit 5376 (pointAdd fld)))
 
 /-- A window of `k` and of `S`. -/
-def windowAB (digitA digitB : List Instr) : Prog isa :=
-  .seq (windowA digitA) (.seq (.block digitB) (addDigit 2048 pointAddCached))
+def windowAB (fld : Arith) (digitA digitB : List Instr) : Prog isa :=
+  .seq (windowA fld digitA) (.seq (.block digitB) (addDigit 2048 (pointAddCached fld)))
 
 /-- A byte of `k` alone (bytes 63 down to 32). -/
-def byteStepA : Prog isa :=
-  .seq (.block batchBegin) (.seq (windowA (digitHigh 7952 0))
-    (.seq (windowA (digitLow 7952 0)) (.block [.mov .rbx (.mem (sc 56)), .alu .cmp .rbx (.imm 32)])))
+def byteStepA (fld : Arith) : Prog isa :=
+  .seq (.block batchBegin) (.seq (windowA fld (digitHigh 7952 0))
+    (.seq (windowA fld (digitLow 7952 0)) (.block [.mov .rbx (.mem (sc 56)), .alu .cmp .rbx (.imm 32)])))
 
 /-- A byte of `k` and of `S` (bytes 31 down to 0). -/
-def byteStepAB : Prog isa :=
-  .seq (.block batchBegin) (.seq (windowAB (digitHigh 7952 0) (digitHigh 7944 32))
-    (.seq (windowAB (digitLow 7952 0) (digitLow 7944 32)) (.block batchTest)))
+def byteStepAB (fld : Arith) : Prog isa :=
+  .seq (.block batchBegin) (.seq (windowAB fld (digitHigh 7952 0) (digitHigh 7944 32))
+    (.seq (windowAB fld (digitLow 7952 0) (digitLow 7944 32)) (.block batchTest)))
 
 /-- `-R` from byte 7552 into slots 4–7. -/
-def negR : List Instr :=
-  tableStart 7552 ++ pointFromTableQ ++ fieldCode [.const 8 0, .sub 4 8 4, .sub 7 8 7]
+def negR (fld : Arith) : List Instr :=
+  tableStart 7552 ++ pointFromTableQ ++ fieldCode fld [.const 8 0, .sub 4 8 4, .sub 7 8 7]
 
 def windowSetup : List Instr := constField 16 Spec.Ed25519.d
 
-def windowInit : List Instr := constPoint Spec.Ed25519.identity ++ mulCounterInit 64
+def windowInit (fld : Arith) : List Instr := constPoint fld Spec.Ed25519.identity ++ mulCounterInit 64
 
 end VG.Impl.Ed25519.X86_64

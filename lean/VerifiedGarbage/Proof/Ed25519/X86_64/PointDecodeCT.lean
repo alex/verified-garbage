@@ -8,18 +8,20 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off)
 
+variable {fld : Arith} [EdArith fld]
+
 def DecodeCTPre (base p : Addr) (bs : List Byte) (s : State) : Prop :=
   Scratch s base ∧ s.gpr .rdx = p ∧
     (∀ d, d + 8 ≤ 32 → InRegions (s.rd ++ s.wr) (off p d) 8) ∧ Spec.Ed25519.bytesAt s.mem p 32 = bs
 
 theorem pointDecode_ct (base p : Addr) (bs : List Byte) :
     RelCT isa (fun s t => DecodeCTPre base p bs s ∧ DecodeCTPre base p bs t)
-      pointDecode (fun _ _ => True) := by
+      (pointDecode fld) (fun _ _ => True) := by
   let b := Spec.Ed25519.decodeLE bs / 2 ^ 255 == 1
   let y := Proof.X25519.toFe (Spec.Ed25519.decodeLE bs % 2 ^ 255)
   have ht : RelCT isa (fun s t => DecodeCTPre base p bs s ∧ DecodeCTPre base p bs t)
       (.block pointDecodeLoad) (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rdx]) _ (by taint_decide)
+    apply taintFld (Taint.ofRegs [.rdi, .rdx]) _ (by fld_taint_decide)
     intro s t h
     apply Taint.agree_ofRegs
     intro r hr

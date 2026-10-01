@@ -2,6 +2,8 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyMessage.CTHash
 
 /-! The complete verifier leaks only its explicitly public inputs. -/
 namespace VG.Proof.Ed25519.X86_64.VerifyMessage
+
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
 open VG VG.X86_64
 open VG.Impl.Ed25519.X86_64 (scalarReduce verifyEquation callWith)
 open VG.Impl.Ed25519.X86_64.VerifyMessage
@@ -68,7 +70,7 @@ theorem ce_challenge {L : Lay} {g : Reg → BitVec 64} {mx : BitVec 32} {m₀ : 
     (by decide : 64 ≤ 2 ^ 64) (List.mem_range.mp hi)
 
 theorem equation_ct : RelCT isa (Two EquationReady)
-    (.call "vg_ed25519_verify_equation" verifyEquation) fun _ _ => True := by
+    (.call ("vg_ed25519_verify_equation" ++ fs) (verifyEquation fld)) fun _ _ => True := by
   refine two_call verify_ok verify_ct eqRd eqWr
     (fun _ _ _ _ _ hL hc ha => eq_pre hL hc ha.1) ?_ eq_access
   intro L t₁ t₂ g₁ g₂ mx₁ mx₂ m₁ m₂ hL hi c₁ c₂ a₁ a₂
@@ -92,10 +94,10 @@ theorem equation_ct : RelCT isa (Two EquationReady)
       ce_challenge c₂ a₂.2, hi.challenge]
 
 theorem body_ct (v : Compress) : RelCT isa (Two fun _ _ _ => True)
-    (body v.callee v.suffix) fun _ _ => True := by
-  have h := (prepare_ct v).seq (equationArgs_ct.seq equation_ct)
-  have reassoc : ∀ {s t s'}, Exec isa (body v.callee v.suffix) s t s' →
-      Exec isa (.seq (prepare v) (callWith equationArgs "vg_ed25519_verify_equation" verifyEquation)) s t s' := by
+    (body fld fs v.callee v.suffix) fun _ _ => True := by
+  have h := (prepare_ct v).seq (equationArgs_ct.seq (equation_ct (fld := fld) (fs := fs)))
+  have reassoc : ∀ {s t s'}, Exec isa (body fld fs v.callee v.suffix) s t s' →
+      Exec isa (.seq (prepare v) (callWith equationArgs ("vg_ed25519_verify_equation" ++ fs) (verifyEquation fld))) s t s' := by
     intro s t s' he
     cases he with
     | seq hh hr =>
@@ -108,7 +110,7 @@ theorem body_ct (v : Compress) : RelCT isa (Two fun _ _ _ => True)
   exact h _ _ _ _ _ _ hp (reassoc he₁) (reassoc he₂)
 
 theorem verifyMessage_ct (v : Compress) :
-    ConstantTime isa verifyMessageLocal.pre verifyMessageLocal.pub (code v.callee v.suffix) := by
+    ConstantTime isa verifyMessageLocal.pre verifyMessageLocal.pub (code fld fs v.callee v.suffix) := by
   refine RelCT.constantTime (RelCT.frame (fun _ _ h => h.2.2.1)
     (RelCT.mono (body_ct v) ?_ fun _ _ _ => trivial))
   rintro _ _ ⟨s₁, s₂, ⟨h₁, h₂, hsp, hdi, hsi, hdx, hcx, h8, hp, hm, hs⟩, rfl, rfl⟩
