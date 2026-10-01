@@ -115,7 +115,8 @@ def checkBoundaries : Except String Unit := do
   unless verify id [] sig do throw "identity-key policy changed"
   for s in [L, L + 1, 2 ^ 256 - 1] do
     if verify id [] (id ++ encodeLE 32 s) then throw "accepted S >= L"
-  -- A full 512-bit challenge matters for non-prime-order public keys.
+  -- `verifyEquation` itself uses its full 512-bit challenge, unreduced.
+  -- That matters for non-prime-order public keys.
   let some orderTwo := decodePoint (encodeLE 32 (Spec.X25519.P - 1))
     | throw "order-two point did not decode"
   if verifyEquation (encodePoint orderTwo) sig (encodeLE 64 L) then
@@ -123,6 +124,36 @@ def checkBoundaries : Except String Unit := do
   unless verifyEquation (encodePoint orderTwo) sig (encodeLE 64 (2 * L)) do
     throw "order-two equation failed for an even challenge"
   if verifyEquation id sig (encodeLE 63 0) then throw "accepted short challenge"
+
+/-- `verify` reduces the challenge modulo `L` (RFC 8032 §6), which matters
+for a public key with a small-order component (issue #343): with an
+order-8 key `A = T`, a small-order `R = [j]T` and `S = 0`, the equation
+`O = [j]T + [k]T` holds exactly when `j + k ≡ 0 (mod 8)`, and since
+`L ≡ 5 (mod 8)` the full digest and its reduction differ modulo 8 unless
+`digest / L ≡ 0 (mod 8)`. The key is derived here, not embedded. -/
+def checkReducedChallenge : Except String Unit := do
+  -- The torsion component `[L]P` of the first decodable y ≥ 2 of order 8.
+  let order8 := (List.range 64).filterMap fun y =>
+    (decodePoint (encodeLE 32 (y + 2))).bind fun p =>
+      let t := pointMul L p
+      if pointEqual (pointMul 4 t) identity then none else some t
+  let some t := order8.head? | throw "no point of order 8 found"
+  unless pointEqual (pointMul 8 t) identity do throw "torsion point has wrong order"
+  let pk := encodePoint t
+  let message : List Byte := [0]
+  let mut disagreements := 0
+  for j in List.range 8 do
+    let rr := encodePoint (pointMul j t)
+    let sig := rr ++ encodeLE 32 0
+    let digest := decodeLE (Spec.Sha512.sha512 (rr ++ pk ++ message))
+    unless verify pk message sig == ((j + digest % L) % 8 == 0) do
+      throw s!"R = [{j}]T: challenge was not reduced modulo L"
+    unless verify pk message sig == verifyEquation pk sig (encodeLE 64 (digest % L)) do
+      throw s!"R = [{j}]T: verify disagrees with verifyEquation on the reduced challenge"
+    if ((j + digest % L) % 8 == 0) != ((j + digest) % 8 == 0) then
+      disagreements := disagreements + 1
+  -- Some R must distinguish the two readings, or this test checks nothing.
+  unless disagreements > 0 do throw "no signature distinguishes reduced and full challenges"
 
 run_cmd do
   let file ← IO.FS.realPath (← getFileName)
@@ -133,6 +164,7 @@ run_cmd do
     let vs ← parseVectors text
     for (v, i) in vs.zipIdx do checkVector i v
     checkBoundaries
+    checkReducedChallenge
   match result with
   | .ok () => pure ()
   | .error e => throwError "rfc8032.txt: {e}"
