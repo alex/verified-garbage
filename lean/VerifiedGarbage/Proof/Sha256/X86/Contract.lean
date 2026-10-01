@@ -60,22 +60,23 @@ and 2 (cdecl: the low word first). -/
 def countX86 (s : X86.State) : BitVec 64 := arg s 2 ++ arg s 1
 
 open X86 in
-/-- x86 (32-bit) contract for `vg_sha256_init(state: *mut [u8; 96])`, whose
+/-- x86 (32-bit) contract for `vg_sha256_init(state: *mut [u8; 96])` and
+`vg_sha224_init`, which store the initial hash value `iv`, whose
 argument is on the stack (cdecl): makes the streaming state at `state`
-represent the empty message.
+represent the empty message, hashed from `iv`.
 
 The code may read the argument (4 bytes above the return address) and write
 `state` (96 bytes), which may not overlap the argument or the return address;
 nothing may wrap around the end of the (32-bit) address space. `esp` and the
 pointer are public. -/
-def initX86 : Contract X86.isa where
+def initX86 (iv : HashValue) : Contract X86.isa where
   pre s :=
     let state : Region := ⟨(arg s 0).setWidth 64, 96⟩
     let args : Region := ⟨argAddr s 0, 4⟩
     let ret : Region := ⟨(s.gpr .esp).setWidth 64, 4⟩
     s.rd = [args] ∧ s.wr = [state] ∧ args.Disjoint state ∧ ret.Disjoint state ∧
     (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (s.gpr .esp).toNat + 8 ≤ 2 ^ 32
-  post s s' := Repr s'.mem ((arg s 0).setWidth 64) []
+  post s s' := ReprFrom iv s'.mem ((arg s 0).setWidth 64) []
   pub s₁ s₂ := s₁.gpr .esp = s₂.gpr .esp ∧ arg s₁ 0 = arg s₂ 0
 
 open X86 in

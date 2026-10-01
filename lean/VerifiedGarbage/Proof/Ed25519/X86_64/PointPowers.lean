@@ -8,6 +8,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off ofs Outside Keeps clob)
 
+variable {fld : Arith} [EdArith fld]
+
 /-- Only the field workspace and the specified table can change. -/
 def TableFrame (base : Addr) (o n : Nat) (m m' : Mem) : Prop :=
   ∀ p, (ofs base p < 64 ∨ 768 ≤ ofs base p) →
@@ -104,7 +106,7 @@ theorem powersNext_ok (s : State) (j count : Nat) (hj : j < count) (hn : count �
 
 theorem powerBatch_ok {s : State} {base : Addr} (hs : Scratch s base)
     (hd : env s.mem base 16 = Spec.Ed25519.d) (batch : Bool) :
-    WP isa (powerBatch batch) s fun t =>
+    WP isa (powerBatch fld batch) s fun t =>
       point (env t.mem base) 0 1 2 3 = powerPoint (point (env s.mem base) 0 1 2 3) (powerStride batch) ∧
       (∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i) ∧ DoubleKeep base s t := by
   cases batch with
@@ -117,7 +119,7 @@ theorem powersBody_ok (batch : Bool) {s : State} {base : Addr} (hs : Scratch s b
     (o j count : Nat) (hlo : 768 ≤ o) (hbound : o + 128 * count ≤ 8192)
     (hj : j < count) (hn : count ≤ 32) (hc : s.gpr .rbx = BitVec.ofNat 64 j)
     (hd : env s.mem base 16 = Spec.Ed25519.d) :
-    WP isa (powersBody o count batch) s fun t =>
+    WP isa (powersBody fld o count batch) s fun t =>
       t.gpr .rbx = BitVec.ofNat 64 (j + 1) ∧ t.zf = some (decide (j + 1 = count)) ∧
       tablePoint t.mem base (o + 128 * j) = point (env s.mem base) 0 1 2 3 ∧
       point (env t.mem base) 0 1 2 3 = powerPoint (point (env s.mem base) 0 1 2 3) (powerStride batch) ∧

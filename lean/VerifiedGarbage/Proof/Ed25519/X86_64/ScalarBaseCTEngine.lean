@@ -8,6 +8,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off ofs)
 
+variable {fld : Arith} [EdArith fld]
+
 def BaseEnginePre (base k : Addr) (s : State) : Prop :=
   Scratch s base ∧ s.gpr .rsi = k ∧
     (∀ q < 32, InRegions (s.rd ++ s.wr) (off k q) 1) ∧
@@ -15,10 +17,10 @@ def BaseEnginePre (base k : Addr) (s : State) : Prop :=
 
 theorem scalarBaseEngine_ct (base k : Addr) :
     RelCT isa (fun x y => BaseEnginePre base k x ∧ BaseEnginePre base k y)
-      scalarBaseEngine (fun _ _ => True) := by
+      (scalarBaseEngine fld) (fun _ _ => True) := by
   have hc : RelCT isa (fun x y => BaseEnginePre base k x ∧ BaseEnginePre base k y)
-      scalarBasePrepare (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rsi]) _ (by taint_decide)
+      (scalarBasePrepare fld) (fun _ _ => True) := by
+    apply taintFld (Taint.ofRegs [.rdi, .rsi]) _ (by fld_taint_decide)
     intro x y h
     apply Taint.agree_ofRegs
     intro r hr
@@ -32,15 +34,15 @@ theorem scalarBaseEngine_ct (base k : Addr) :
   rw [scalarBaseEngine]
   refine VG.RelCT.seq hp ?_
   intro x y tx ty x' y' ⟨_, a, b, hab, hx, hy⟩ ex ey
-  have hm := pointMultiply16_ct base
+  have hm := pointMultiply16_ct (fld := fld) base
     (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt a.mem k 32))
     (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt b.mem k 32))
   have hm' := withRuns hm (fun u v h =>
     ⟨pointMultiply_ok h.1.1 16 _ (by decide) (by decide) h.1.2.1 h.1.2.2.1 h.1.2.2.2,
      pointMultiply_ok h.2.1 16 _ (by decide) (by decide) h.2.2.1 h.2.2.2.1 h.2.2.2.2⟩)
   have he : RelCT isa (fun u v => u.gpr .rdi = base ∧ v.gpr .rdi = base)
-      pointEncode (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+      (pointEncode fld) (fun _ _ => True) := by
+    apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
     intro u v h
     exact Taint.agree_ofRegs (by
       intro r hr

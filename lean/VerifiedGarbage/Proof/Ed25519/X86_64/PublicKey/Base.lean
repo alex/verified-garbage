@@ -13,6 +13,8 @@ pruned, is stored in the frame (`prune_ok`), `[s]B` is encoded into `out`
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey
 
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
+
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
 variable {L : Lay} {g : Reg → BitVec 64} {mx : BitVec 32} {m₀ : Mem}
@@ -158,6 +160,8 @@ end VG.Proof.Ed25519.X86_64.PublicKey
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey
 
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
+
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
 variable {L : Lay} {g : Reg → BitVec 64} {mx : BitVec 32} {m₀ : Mem}
@@ -193,14 +197,16 @@ end VG.Proof.Ed25519.X86_64.PublicKey
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey
 
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
+
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
 variable {L : Lay} {g : Reg → BitVec 64} {mx : BitVec 32} {m₀ : Mem}
 
-theorem base_nosp : NoSp scalarBase_precomputed :=
-  Proof.Pbkdf2.Md.X86_64.nosp_of (by lit_decide)
+theorem base_nosp : NoSp (scalarBase_precomputed fld) :=
+  Proof.Pbkdf2.Md.X86_64.nosp_of (by fld_lit_decide)
 
-theorem base_depth : scalarBase_precomputed.depth ≤ 1 := by lit_decide
+theorem base_depth : (scalarBase_precomputed fld).depth ≤ 1 := by fld_lit_decide
 
 abbrev baseRd (L : Lay) : List Region := [⟨L.B + BitVec.ofNat 64 16, 32⟩]
 abbrev baseWr (L : Lay) : List Region := [L.OUT, L.SCR]
@@ -234,7 +240,7 @@ theorem base_wsub : ∀ r ∈ baseWr L, Within r L.OUT ∨ Within r L.SCR := by
 
 theorem base_ok (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) (ha : BaseArgs L t) {s : Nat}
     (hs : Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt t.mem (L.B + BitVec.ofNat 64 16) 32) = s) :
-    WP isa (.call scalarBaseName scalarBase_precomputed) t fun t' => Ctx L g mx m₀ t' ∧
+    WP isa (.call (scalarBaseName fs) (scalarBase_precomputed fld)) t fun t' => Ctx L g mx m₀ t' ∧
       Spec.Ed25519.bytesAt t'.mem L.out 32 =
         Spec.Ed25519.encodePoint (Spec.Ed25519.pointMul s Spec.Ed25519.basePoint) := by
   refine call_ok hL Proof.Ed25519.X86_64.scalarBase_precomputed_ok base_nosp base_depth hc

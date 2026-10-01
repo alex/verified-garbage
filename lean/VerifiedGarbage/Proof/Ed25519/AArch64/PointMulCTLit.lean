@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Framework.AArch64.Lit
 import VerifiedGarbage.Impl.Ed25519.AArch64.ScalarBase
+import VerifiedGarbage.Impl.Ed25519.AArch64.PointBatch
 
 /-! Checked literals for the pieces of the relational constant-time proof. -/
 

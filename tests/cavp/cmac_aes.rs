@@ -1,7 +1,7 @@
 //! AES-CMAC: every vector of the CMAC generation and verification files,
 //! for 128-, 192- and 256-bit keys (the MAC truncated to `Tlen` bytes).
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use verified_garbage::cmac::aes::AesCmac;
 

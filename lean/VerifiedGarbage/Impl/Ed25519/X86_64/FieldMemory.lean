@@ -11,7 +11,7 @@ open VG.Impl.X25519.X86_64 (loads store4)
 def constPointOps (p : Spec.Ed25519.Point) : List FieldOp :=
   [.const 0 p.X, .const 1 p.Y, .const 2 p.Z, .const 3 p.T]
 
-def constPoint (p : Spec.Ed25519.Point) : List Instr := fieldCode (constPointOps p)
+def constPoint (fld : Arith) (p : Spec.Ed25519.Point) : List Instr := fieldCode fld (constPointOps p)
 
 /-- Save the accumulator while a batch of powers is prepared. -/
 def savePointOps : List FieldOp := [.copy 17 0, .copy 18 1, .copy 19 2, .copy 20 3]
@@ -20,10 +20,10 @@ def restorePointOps : List FieldOp := [.copy 0 17, .copy 1 18, .copy 2 19, .copy
 
 def copyPointToQOps : List FieldOp := [.copy 4 0, .copy 5 1, .copy 6 2, .copy 7 3]
 
-def savePoint : List Instr := fieldCode savePointOps
+def savePoint (fld : Arith) : List Instr := fieldCode fld savePointOps
 
-def restorePoint : List Instr := fieldCode restorePointOps
+def restorePoint (fld : Arith) : List Instr := fieldCode fld restorePointOps
 
-def copyPointToQ : List Instr := fieldCode copyPointToQOps
+def copyPointToQ (fld : Arith) : List Instr := fieldCode fld copyPointToQOps
 
 end VG.Impl.Ed25519.X86_64

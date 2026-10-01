@@ -7,12 +7,14 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (Scr IKeep)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem rootPowerWide_ok {s : State} {base : Addr} (hs : Scratch s base) :
-    WP isa Impl.Ed25519.X86_64.rootPower s fun t => IKeep base s t ∧
+    WP isa (Impl.Ed25519.X86_64.rootPower fld) s fun t => IKeep base s t ∧
       env t.mem base 15 = Spec.X25519.pow (env s.mem base 2) ((Spec.X25519.P - 5) / 8) := by
   let narrow := s.withRegions s.rd [⟨base, 4096⟩]
   have hn : Scr narrow base := ⟨hs.rdi, List.mem_singleton_self _, by have := hs.nowrap; omega⟩
-  obtain ⟨tr, t, he, hk, hv⟩ := rootPower_spec base narrow hn
+  obtain ⟨tr, t, he, hk, hv⟩ := rootPower_spec (fld := fld) base narrow hn
   have cw : Covers [⟨base, 4096⟩] s.wr := by
     apply Covers.of_sub
     intro r hr

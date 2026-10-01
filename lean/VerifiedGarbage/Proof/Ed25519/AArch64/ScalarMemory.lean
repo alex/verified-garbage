@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarLoop
+import VerifiedGarbage.Proof.Ed25519.AArch64.Mem
 
 /-! Untrusted: scalar reducer saves, restores, and output stores. -/
 namespace VG.Proof.Ed25519.AArch64
@@ -69,16 +70,16 @@ theorem scalarOut_ok {s : State} {q : Addr} (hq : s.gpr .x0 = q) (hw : (⟨q, 32
 
 theorem scalarInit_ok (s : State) :
     WP isa (.block scalarInit) s fun t =>
-      t.gpr .x19 = 64 ∧ scalarValue t = 0 ∧ t.gpr .x10 = 0 ∧ t.gpr .x11 = 1 ∧
-      Keeps [.x4, .x5, .x6, .x7, .x10, .x11, .x19] s t := by
+      t.gpr .x19 = 64 ∧ scalarValue t = 0 ∧ t.gpr .x10 = 0 ∧
+      Keeps [.x4, .x5, .x6, .x7, .x10, .x19] s t := by
   apply WP.of_runBlock
   simp only [scalarInit, zero4, List.cons_append, List.nil_append,
     runBlock_cons, runStep_some, runBlock_nil, exec, show 16 * 0 < Size.w.bits from by decide,
     scalarValue, RegUpd.gpr_write, ite_true, ite_false, reduceCtorEq, Option.some.injEq, exists_eq_left']
-  refine ⟨rfl, rfl, rfl, rfl, ⟨?_, rfl, rfl, rfl, rfl⟩⟩
+  refine ⟨rfl, rfl, rfl, ⟨?_, rfl, rfl, rfl, rfl⟩⟩
   intro r hr
   simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
   simp only [RegUpd.gpr_write, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1,
-    hr.2.2.2.2.1, hr.2.2.2.2.2.1, hr.2.2.2.2.2.2, ite_false]
+    hr.2.2.2.2.1, hr.2.2.2.2.2, ite_false]
 
 end VG.Proof.Ed25519.AArch64

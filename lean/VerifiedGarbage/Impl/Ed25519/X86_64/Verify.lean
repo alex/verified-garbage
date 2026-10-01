@@ -23,27 +23,27 @@ def verifyScalar : List Instr :=
 /-- Compare [X:Y:Z] in slots 0-3 and 4-7 without inversion. -/
 def pointEqualOps : List FieldOp := [.mul 8 0 6, .mul 9 4 2, .mul 10 1 6, .mul 11 5 2]
 
-def pointEqual : Prog isa :=
-  .seq (.block (fieldCode pointEqualOps ++ fieldEqual 8 9)) (.ite .e
-    (.seq (.block (fieldEqual 10 11)) (.ite .e (.block [.mov32 .rax (.imm 1)]) recoverInvalid))
+def pointEqual (fld : Arith) : Prog isa :=
+  .seq (.block (fieldCode fld pointEqualOps ++ fieldEqual fld 8 9)) (.ite .e
+    (.seq (.block (fieldEqual fld 10 11)) (.ite .e (.block [.mov32 .rax (.imm 1)]) recoverInvalid))
     recoverInvalid)
 
 /-- Returns 1 in `rax` if `[S]B = R + [k]A`, for `A` at byte 7424 and `R` at byte 7552. -/
-def verifyEquationPoints : Prog isa :=
-  .seq (.block windowSetup) (.seq aTable (.seq (.block bTable) (.seq (.block windowInit)
-    (.seq (.loop byteStepA .ne) (.seq (.loop byteStepAB .ne) (.seq (.block negR) pointEqual))))))
+def verifyEquationPoints (fld : Arith) : Prog isa :=
+  .seq (.block windowSetup) (.seq (aTable fld) (.seq (.block bTable) (.seq (.block (windowInit fld))
+    (.seq (.loop (byteStepA fld) .ne) (.seq (.loop (byteStepAB fld) .ne) (.seq (.block (negR fld)) (pointEqual fld)))))))
 
 /-- Continue only when a point decoder returned success. -/
 def decodedThen (next : Prog isa) : Prog isa :=
   .seq (.block [.alu .test .rax (.reg .rax)]) (.ite .ne next recoverInvalid)
 
-def verifyDecodeR : Prog isa :=
-  .seq (.block [.mov .rdx (.mem (sc 7944))]) (.seq pointDecode
-    (decodedThen (.seq (.block (pointTableWrite 7552)) verifyEquationPoints)))
+def verifyDecodeR (fld : Arith) : Prog isa :=
+  .seq (.block [.mov .rdx (.mem (sc 7944))]) (.seq (pointDecode fld)
+    (decodedThen (.seq (.block (pointTableWrite 7552)) (verifyEquationPoints fld))))
 
-def verifyDecodeA : Prog isa :=
-  .seq (.block [.mov .rdx (.mem (sc 7936))]) (.seq pointDecode
-    (decodedThen (.seq (.block (pointTableWrite 7424)) verifyDecodeR)))
+def verifyDecodeA (fld : Arith) : Prog isa :=
+  .seq (.block [.mov .rdx (.mem (sc 7936))]) (.seq (pointDecode fld)
+    (decodedThen (.seq (.block (pointTableWrite 7424)) (verifyDecodeR fld))))
 
 def verifyHeaders : List Instr :=
   [.store (at_ .rdx 7936) .rdi, .store (at_ .rdx 7944) .rsi,
@@ -52,9 +52,9 @@ def verifyHeaders : List Instr :=
 def verifySetup : List Instr :=
   ([.mov .rax (.reg .rdx), .mov .rdx (.reg .rcx)] : List Instr) ++ scalarSave ++ verifyHeaders
 
-def verifyEquation : Prog isa :=
+def verifyEquation (fld : Arith) : Prog isa :=
   .seq (.block verifySetup) (.seq
-    (.seq (.block verifyScalar) (.ite .b verifyDecodeA recoverInvalid))
+    (.seq (.block verifyScalar) (.ite .b (verifyDecodeA fld) recoverInvalid))
     (.block (([.mov .rdx (.reg .rdi)] : List Instr) ++ scalarRestore)))
 
 end VG.Impl.Ed25519.X86_64
