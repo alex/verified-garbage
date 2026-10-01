@@ -14,6 +14,6 @@ def wordsZero : List Instr :=
 def fieldZero (a : Slot) : List Instr := VG.Impl.X25519.X86_64.freeze (offset a) ++ wordsZero
 
 /-- Slot 21 is temporary. -/
-def fieldEqual (a b : Slot) : List Instr := fieldCode [.sub 21 a b] ++ fieldZero 21
+def fieldEqual (fld : Arith) (a b : Slot) : List Instr := fieldCode fld [.sub 21 a b] ++ fieldZero 21
 
 end VG.Impl.Ed25519.X86_64

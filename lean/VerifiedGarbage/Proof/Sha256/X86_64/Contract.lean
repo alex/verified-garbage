@@ -39,17 +39,18 @@ def compressX86_64 : Contract X86_64.isa where
     s₁.gpr .rdx = s₂.gpr .rdx ∧ s₁.gpr .rcx = s₂.gpr .rcx
 
 open X86_64 in
-/-- x86-64 contract for `vg_sha256_init(state: *mut [u8; 96])`: makes the
-streaming state at `state` represent the empty message.
+/-- x86-64 contract for `vg_sha256_init(state: *mut [u8; 96])` and
+`vg_sha224_init`, which store the initial hash value `iv`: makes the
+streaming state at `state` represent the empty message, hashed from `iv`.
 
 The code may write `state` (96 bytes), which may not overlap the return
 address on the stack. The pointer is public. -/
-def initX86_64 : Contract X86_64.isa where
+def initX86_64 (iv : HashValue) : Contract X86_64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .rdi, 96⟩
     let ret : Region := ⟨s.gpr .rsp, 8⟩
     s.rd = [] ∧ s.wr = [state] ∧ ret.Disjoint state
-  post s s' := Repr s'.mem (s.gpr .rdi) []
+  post s s' := ReprFrom iv s'.mem (s.gpr .rdi) []
   pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi
 
 open X86_64 in

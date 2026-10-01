@@ -39,7 +39,7 @@ def pointMultiplyVar (count : Nat) : Prog isa :=
 def pointFromScalarVar (count : Nat) : Prog isa :=
   .seq (pointFromScalarPrepare count) (pointMultiplyVar count)
 
-/-- `baseMulBatch`, adding only for set bits. -/
+/-- A batch of the base point's cached powers, adding only for set bits. -/
 def baseMulBatchVar : Prog isa :=
   .seq (.block batchBegin) (.seq baseBatchTable (.seq (.block batchBitOffset)
     (.seq (accumulateVar16 pointAddCached) (.block batchTest))))

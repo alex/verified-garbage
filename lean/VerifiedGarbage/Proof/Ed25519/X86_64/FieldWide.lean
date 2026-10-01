@@ -8,6 +8,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (Scr Keeps clob Outside)
 
+variable {fld : Arith} [EdArith fld]
+
 structure Scratch (s : State) (base : Addr) : Prop where
   rdi : s.gpr .rdi = base
   wr : (⟨base, 8192⟩ : Region) ∈ s.wr
@@ -38,9 +40,9 @@ theorem field_lift {s : State} {base : Addr} (hs : Scratch s base) (code : List 
   simpa only [narrow, State.withRegions_withRegions, State.withRegions_rd, State.withRegions_self] using e
 
 theorem fieldCodeWide_ok {s : State} {base : Addr} (hs : Scratch s base) (ops : List FieldOp) :
-    WP isa (.block (fieldCode ops)) s fun t =>
+    WP isa (.block (fieldCode fld ops)) s fun t =>
       Keep base s t ∧ env t.mem base = evalOps ops (env s.mem base) :=
-  field_lift hs (fieldCode ops) (evalOps ops) (fun _ h => fieldCode_ok ops h)
+  field_lift hs (fieldCode fld ops) (evalOps ops) (fun _ h => fieldCode_ok ops h)
 
 theorem constFieldWide_ok {s : State} {base : Addr} (hs : Scratch s base) (o : Slot) (v : Spec.X25519.Fe) :
     WP isa (.block (constField o v)) s fun t =>

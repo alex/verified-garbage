@@ -9,7 +9,7 @@ import VerifiedGarbage.Impl.MdStream.X86_64
 The streaming state (96 bytes at `state`) is the hash value followed by a
 64-byte buffer (see `VG.Spec.Sha256.Repr`).
 
-* `init(state = rdi)` stores `H⁽⁰⁾`.
+* `init(state = rdi)` stores `H⁽⁰⁾` (`init224`, SHA-224's).
 * `update(state = rdi, count = rsi, data = rdx, len = rcx, scratch = r8)`
   processes one block per iteration: straight from `data` while the buffer is
   empty and a whole block remains, otherwise by copying bytes into the buffer,
@@ -42,9 +42,16 @@ def Callee.scalar : Callee := ⟨"vg_sha256_compress", compress⟩
 def Callee.shani : Callee := ⟨"vg_sha256_compress_shani", ShaNi.compress⟩
 def Callee.avx2 : Callee := ⟨"vg_sha256_compress_avx2", Avx2.compress⟩
 
-def init : Prog isa :=
+/-- Stores the initial hash value `iv`. -/
+def initWith (iv : Spec.Sha256.HashValue) : Prog isa :=
   .block ((List.range 8).flatMap fun k =>
-    [.mov32 .rax (.imm Spec.Sha256.H0[k]!), .store32 (at_ .rdi (4 * k)) .rax])
+    [.mov32 .rax (.imm iv[k]!), .store32 (at_ .rdi (4 * k)) .rax])
+
+/-- `vg_sha256_init`. -/
+def init : Prog isa := initWith Spec.Sha256.H0
+
+/-- `vg_sha224_init`. -/
+def init224 : Prog isa := initWith Spec.Sha256.H0_224
 
 /-- The callee-saved registers, and where they are saved in `scratch`. -/
 def saved : List (Reg × Nat) := [(.rbx, 560), (.rbp, 568), (.r12, 576), (.r13, 584), (.r14, 592), (.r15, 600)]

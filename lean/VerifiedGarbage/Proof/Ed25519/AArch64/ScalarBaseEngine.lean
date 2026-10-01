@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.Ed25519.AArch64.ScalarBase
-import VerifiedGarbage.Proof.Ed25519.AArch64.BaseMultiply
+import VerifiedGarbage.Proof.Ed25519.AArch64.CombLoop
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointEncode
 import VerifiedGarbage.Proof.Ed25519.AArch64.Bits
 
@@ -7,7 +7,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.Bits
 
 namespace VG.Proof.Ed25519.AArch64
 
-open VG VG.AArch64 VG.Impl.Ed25519.AArch64
+open VG VG.AArch64 VG.Impl.Ed25519.AArch64 VG.Proof.Ed25519
 open Word64
 
 def encodedValue (p : Spec.Ed25519.Point) : Nat :=
@@ -16,6 +16,10 @@ def encodedValue (p : Spec.Ed25519.Point) : Nat :=
 
 theorem encodedValue_spec (p : Spec.Ed25519.Point) :
     Spec.Ed25519.encodePoint p = Spec.Ed25519.encodeLE 32 (encodedValue p) := rfl
+
+theorem encodedValue_rep {p q : Spec.Ed25519.Point} {a : Edwards.EPoint dZ} (hp : Rep p a)
+    (hq : Rep q a) : encodedValue p = encodedValue q := by
+  rw [encodedValue, encodedValue, hp.affine_x, hp.affine_y, hq.affine_x, hq.affine_y]
 
 theorem powersKeep_outside {base : Addr} {s t : State} (h : PowersKeep base 56 7368 s t) :
     Outside base 56 7368 s.mem t.mem := fun p hp => h.mem p (by omega) hp
@@ -55,10 +59,13 @@ theorem scalarBaseEngine_ok {s : State} {base k : Addr} (hs : Scr s base) (hp : 
           Spec.Ed25519.basePoint) := by
   rw [scalarBaseEngine]
   refine WP.seq (WP.mono (scalarBasePrepare_ok hs hp hr hd) fun b ⟨kab, bbits, hscalar⟩ => ?_)
-  refine WP.seq (WP.mono (baseMultiply_ok (kab.scratch hs) _ hscalar bbits) fun c ⟨cp, kc⟩ => ?_)
-  refine WP.mono (pointEncode_ok (kc.scratch (kab.scratch hs))) fun t ⟨kt, tv⟩ => ?_
-  refine ⟨(kab.trans kc).trans (PowersKeep.of_counter kt), ?_⟩
+  refine WP.seq (WP.mono (combMultiply_ok (kab.scratch hs) (by simpa using hscalar) bbits)
+    fun c ⟨cp, kc⟩ => ?_)
+  refine WP.mono (pointEncode_ok (kc.scr (kab.scratch hs))) fun t ⟨kt, tv⟩ => ?_
+  refine ⟨(kab.trans kc.powers).trans
+    ⟨fun r hb _ hr => kt.gpr r hr hb, kt.rd, kt.wr, kt.sp, TableFrame.workspace kt.mem⟩, ?_⟩
   change val4 (t.gpr .x4) (t.gpr .x5) (t.gpr .x6) (t.gpr .x7) = encodedValue (point (env c.mem base) 0 1 2 3) at tv
-  rw [tv, cp]
+  rw [tv]
+  exact encodedValue_rep cp (pointMul_rep _ basePoint_rep)
 
 end VG.Proof.Ed25519.AArch64
