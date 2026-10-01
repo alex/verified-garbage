@@ -60,17 +60,17 @@ def finalizeSat (w : Nat) : State where
 theorem initB_correct (st : State) (hs : (initAArch64 b).pre st) :
     ∃ t s', Exec isa (Impl.Blake2.AArch64.Stream.init b) st t s' ∧ abiPreserved st s' ∧
       (initAArch64 b).post st s' :=
-  Init.correct okB hs
+  WP.withPreservedV (Init.correct okB hs) (by decide +kernel)
 
 theorem updateB_correct (st : State) (hs : (updateAArch64 b).pre st) :
     ∃ t s', Exec isa (Impl.Blake2.AArch64.Stream.update b) st t s' ∧ abiPreserved st s' ∧
       (updateAArch64 b).post st s' :=
-  Update.correct okB calleeB hs
+  WP.withPreservedV (Update.correct okB calleeB hs) (by decide +kernel)
 
 theorem finalizeB_correct (st : State) (hs : (finalizeAArch64 b).pre st) :
     ∃ t s', Exec isa (Impl.Blake2.AArch64.Stream.finalize b) st t s' ∧ abiPreserved st s' ∧
       (finalizeAArch64 b).post st s' :=
-  Finalize.correct okB calleeB hs
+  WP.withPreservedV (Finalize.correct okB calleeB hs) (by decide +kernel)
 
 theorem initB_verified :
     Verified AArch64.target (Impl.Blake2.AArch64.Stream.init b)
@@ -102,17 +102,17 @@ theorem finalizeB_verified :
 theorem initS_correct (st : State) (hs : (initAArch64 s).pre st) :
     ∃ t s', Exec isa (Impl.Blake2.AArch64.Stream.init s) st t s' ∧ abiPreserved st s' ∧
       (initAArch64 s).post st s' :=
-  Init.correct okS hs
+  WP.withPreservedV (Init.correct okS hs) (by decide +kernel)
 
 theorem updateS_correct (st : State) (hs : (updateAArch64 s).pre st) :
     ∃ t s', Exec isa (Impl.Blake2.AArch64.Stream.update s) st t s' ∧ abiPreserved st s' ∧
       (updateAArch64 s).post st s' :=
-  Update.correct okS calleeS hs
+  WP.withPreservedV (Update.correct okS calleeS hs) (by decide +kernel)
 
 theorem finalizeS_correct (st : State) (hs : (finalizeAArch64 s).pre st) :
     ∃ t s', Exec isa (Impl.Blake2.AArch64.Stream.finalize s) st t s' ∧ abiPreserved st s' ∧
       (finalizeAArch64 s).post st s' :=
-  Finalize.correct okS calleeS hs
+  WP.withPreservedV (Finalize.correct okS calleeS hs) (by decide +kernel)
 
 theorem initS_verified :
     Verified AArch64.target (Impl.Blake2.AArch64.Stream.init s)

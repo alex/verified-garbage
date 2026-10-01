@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.MdStream.AArch64.Common
 import VerifiedGarbage.Proof.Md5.AArch64.Compress
 import VerifiedGarbage.Impl.Md5.AArch64.Stream
@@ -52,6 +53,7 @@ theorem word_ok {x : BitVec 32} {off : Nat} (ho : off % 4 = 0 ∧ off < 16384) {
 
 theorem init_correct {s₀ : State} (hp : Proof.Md5.initAArch64.pre s₀) :
     WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Md5.initAArch64.post s₀ s' := by
+  apply WP.withPreservedV (hc := by decide +kernel)
   obtain ⟨-, hwr⟩ := hp
   have o : ∀ k, k < 4 → InRegions s₀.wr (s₀.gpr .x0 + BitVec.ofNat 64 (4 * k)) 4 :=
     fun k hk => ⟨⟨s₀.gpr .x0, 80⟩, by simp [hwr], contains_offset (by omega) (by omega)⟩

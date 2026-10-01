@@ -16,11 +16,16 @@ a mathematical specification; its branches on scalars are not an assembly
 implementation or a claim about timing.
 
 Verification uses the uncofactored equation explicitly permitted by
-§5.1.7: `[S]B = R + [k]A`, with the full SHA-512 integer `k`. Encodings
-must be canonical, including the sign of a zero x-coordinate, and `S < L`.
-There is no additional subgroup or small-order rejection. In particular,
-this policy is not ZIP 215 and does not promise to reject identity keys.
-The choice of equation is part of the contract, not implementation freedom.
+§5.1.7: `[S]B = R + [k]A`, with `k = SHA-512(R || A || M) mod L`, reduced
+as §6's reference code (`h = sha512_modq(...)`) and OpenSSL reduce it.
+Reading §5.1.7 with the full 512-bit SHA-512 integer instead gives a
+different predicate: since `L ≡ 5 (mod 8)`, `[k]A` and `[k mod L]A` differ
+whenever A has a small-order component. Encodings must be canonical,
+including the sign of a zero x-coordinate, and `S < L`. There is no
+additional subgroup or small-order rejection. In particular, this policy is
+not ZIP 215 and does not promise to reject identity keys. The choice of
+equation and of the reduced challenge is part of the contract, not
+implementation freedom.
 -/
 
 namespace VG.Spec.Ed25519
@@ -156,8 +161,11 @@ def sign (seed message : List Byte) : List Byte :=
   rr ++ encodeLE 32 ((r + k * s) % L)
 
 /-- Verify canonical encodings and the uncofactored equation of §5.1.7
-using the challenge digest supplied by the caller. It must be the 64 bytes
-`SHA-512(R || A || M)` for this to verify a signature on `M`. -/
+using the challenge integer `k` supplied by the caller, as 64 little-endian
+bytes, in full: it is not reduced modulo `L`. `verify` passes
+`SHA-512(R || A || M) mod L` (zero-extended to 64 bytes); passing the
+unreduced digest checks a different equation (see the module
+documentation). -/
 def verifyEquation (pk signature challenge : List Byte) : Bool :=
   if pk.length != 32 || signature.length != 64 || challenge.length != 64 then false else
   match decodePoint pk, decodePoint (signature.take 32) with
@@ -167,8 +175,10 @@ def verifyEquation (pk signature challenge : List Byte) : Bool :=
       (pointAdd r (pointMul (decodeLE challenge) a))
   | _, _ => false
 
-/-- Ed25519 verification (§5.1.7), including all encoding checks. -/
+/-- Ed25519 verification (§5.1.7), including all encoding checks, with the
+challenge `k = SHA-512(R || A || M)` reduced modulo `L` as in §6. -/
 def verify (pk message signature : List Byte) : Bool :=
-  verifyEquation pk signature (Sha512.sha512 (signature.take 32 ++ pk ++ message))
+  verifyEquation pk signature
+    (encodeLE 64 (decodeLE (Sha512.sha512 (signature.take 32 ++ pk ++ message)) % L))
 
 end VG.Spec.Ed25519

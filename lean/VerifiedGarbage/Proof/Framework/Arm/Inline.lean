@@ -68,8 +68,8 @@ theorem Covers.push {xs ys xs' ys' : List Region} (f : Region) (h : Covers (xs +
 register). -/
 def dstOf : Instr → Option Reg
   | .mov d _ | .dp _ d _ _ | .adds d _ _ | .adc d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _
-  | .mul d _ _ | .ldr d _ _ | .ldrb d _ _ | .ldrSp d _ | .pop d _ => some d
-  | .cmp .. | .str .. | .strb .. | .push _ => none
+  | .addSp d _ | .mul d _ _ | .ldr d _ _ | .ldrb d _ _ | .ldrSp d _ | .pop d _ => some d
+  | .cmp .. | .str .. | .strb .. | .push _ | .alloc _ | .free _ => none
 
 section
 variable {s s' : State} {rd wr : List Region}
@@ -113,7 +113,13 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     subst h
     simp only [State.withRegions_wr, State.withRegions_gpr, hw _ _ hi, ite_true]
     rfl
-  | push _ | pop _ _ => simp only [exec, reduceCtorEq] at h
+  | addSp d imm =>
+    simp only [exec] at h ⊢
+    split at h <;> [skip; cases h]
+    rename_i hi
+    simp only [hi, ite_true, Option.some.injEq] at h ⊢
+    subst h; rfl
+  | push _ | pop _ _ | alloc _ | free _ => simp only [exec, reduceCtorEq] at h
   | _ =>
     simp only [exec, op2_withRegions, Option.map_eq_some_iff] at h ⊢
     first
@@ -206,7 +212,8 @@ theorem push_eq {i : Instr} {s s₁ : State} (h : isa.push i s = some s₁) :
     ∃ n, s₁.rd = s.rd ∧ s₁.wr = ⟨State.addr s₁.sp, n⟩ :: s.wr ∧ s₁.gpr = s.gpr ∧
       s₁.sp = s.sp - BitVec.ofNat 32 n := by
   cases i <;> simp only [isa, push, reduceCtorEq] at h
-  split at h <;> cases h; exact ⟨_, rfl, rfl, rfl, rfl⟩
+  all_goals split at h <;> cases h
+  all_goals exact ⟨_, rfl, rfl, rfl, rfl⟩
 
 /-- A frame's pop removes the region at the head of `wr`, and changes only
 its register. -/
@@ -215,29 +222,36 @@ theorem pop_eq {j : Instr} {s₁ s₂ s' : State} (h : isa.pop j s₁ s₂ = som
       (∀ r, dstOf j ≠ some r → s'.gpr r = s₂.gpr r) ∧ s₂.sp = s₁.sp ∧
       ∃ n, s₁.wr.head? = some ⟨State.addr s₁.sp, n⟩ ∧ s'.sp = s₂.sp + BitVec.ofNat 32 n := by
   cases j <;> simp only [isa, pop, reduceCtorEq] at h
-  split at h <;> cases h
-  rename_i r n hc
-  refine ⟨hc.2.2.2.1, rfl, rfl, fun r' hr => ?_, hc.2.2.1, _, hc.2.2.2.2, rfl⟩
-  simp only [dstOf, ne_eq, Option.some.injEq] at hr
-  simp [State.setReg, Ne.symm hr]
+  all_goals split at h <;> cases h
+  case pop r n hc =>
+    refine ⟨hc.2.2.2.1, rfl, rfl, fun r' hr => ?_, hc.2.2.1, _, hc.2.2.2.2, rfl⟩
+    simp only [dstOf, ne_eq, Option.some.injEq] at hr
+    simp [State.setReg, Ne.symm hr]
+  case free bytes hc =>
+    exact ⟨hc.2.2.2.2.1, rfl, rfl, fun _ _ => rfl, hc.2.2.2.1, _, hc.2.2.2.2.2, rfl⟩
 
 theorem push_widen {i : Instr} {s s₁ : State} (h : isa.push i s = some s₁) (rd wr : List Region) :
     ∃ f, s₁.rd = s.rd ∧ s₁.wr = f :: s.wr ∧
       isa.push i (s.withRegions rd wr) = some (s₁.withRegions rd (f :: wr)) := by
   cases i <;> simp only [isa, push, reduceCtorEq] at h
-  split at h <;> cases h
-  rename_i hc
-  exact ⟨_, rfl, rfl, by simp only [isa, push, State.withRegions_sp, hc, and_self, ite_true]; rfl⟩
+  all_goals
+    split at h <;> cases h
+    rename_i hc
+    exact ⟨_, rfl, rfl, by simp only [isa, push, State.withRegions_sp, hc, and_self, ite_true]; rfl⟩
 
 theorem pop_widen {j : Instr} {s₁ s₂ s' : State} (h : isa.pop j s₁ s₂ = some s') (rd : List Region)
     {wr : List Region} (hw : wr.head? = s₁.wr.head?) :
     isa.pop j (s₁.withRegions rd wr) (s₂.withRegions rd wr) = some (s'.withRegions rd wr.tail) := by
   cases j <;> simp only [isa, pop, reduceCtorEq] at h
-  split at h <;> cases h
-  rename_i hc
-  simp only [isa, pop, State.withRegions_sp, State.withRegions_wr, hw, hc.1, hc.2.1, hc.2.2.1,
-    hc.2.2.2.2, and_self, ite_true]
-  rfl
+  all_goals split at h <;> cases h
+  case pop r n hc =>
+    simp only [isa, pop, State.withRegions_sp, State.withRegions_wr, hw, hc.1, hc.2.1, hc.2.2.1,
+      hc.2.2.2.2, and_self, ite_true]
+    rfl
+  case free bytes hc =>
+    simp only [isa, pop, State.withRegions_sp, State.withRegions_wr, hw,
+      hc.1, hc.2.1, hc.2.2.1, hc.2.2.2.1, hc.2.2.2.2.2, and_self, ite_true]
+    rfl
 
 /-- Code never changes its permissions or the stack pointer. -/
 theorem Exec.rdwr {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa c s t s') :

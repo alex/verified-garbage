@@ -906,21 +906,21 @@ theorem kr_after {t s' : State} (hk : KR (H := H) s₀ t) {rs : List Region} (ha
 
 theorem initCall_ok {t : State} (hk : KR (H := H) s₀ t) {p : Addr} (hd : t.gpr .x0 = p)
     (hpR : p = inn s₀ ∨ p = out s₀) {Q : State → Prop}
-    (hQ : ∀ s', KR (H := H) s₀ s' → Frame [⟨p, H.S⟩, stkR s₀] t.mem s'.mem → hH.SH.Repr s'.mem p [] → Q s') :
+    (hQ : ∀ s', VecKept t s' → KR (H := H) s₀ s' → Frame [⟨p, H.S⟩, stkR s₀] t.mem s'.mem → hH.SH.Repr s'.mem p [] → Q s') :
     WP isa (.call H.initN H.initC) t Q := by
   obtain ⟨dS, _⟩ := state_disj hp hpR
   refine init_call hH hd (by rw [hk.wr]; exact covers_one (state_in hp hpR)) fun s' ha hr => ?_
   have f := ha.frame
   rw [hk.sp] at f
-  exact hQ s' (kr_after hp hk ha (by
+  exact hQ s' ha.vec (kr_after hp hk ha (by
     simp only [List.mem_singleton]; rintro r rfl; exact dS.symm.sub_left (save_sub hp))) f hr
 
 theorem callInit_ok {s : State} (hk : KR (H := H) s₀ s) {st : Reg} {p : Addr} (hs : s.gpr st = p)
     (hpR : p = inn s₀ ∨ p = out s₀) {Q : State → Prop}
-    (hQ : ∀ s', KR (H := H) s₀ s' → Frame [⟨p, H.S⟩, stkR s₀] s.mem s'.mem → hH.SH.Repr s'.mem p [] → Q s') :
+    (hQ : ∀ s', VecKept s s' → KR (H := H) s₀ s' → Frame [⟨p, H.S⟩, stkR s₀] s.mem s'.mem → hH.SH.Repr s'.mem p [] → Q s') :
     WP isa (H.callInit st) s Q :=
-  WP.seq (WP.mono (initArgs_ok hk hs) fun _ ⟨k, d, m⟩ =>
-    initCall_ok hH hp k d hpR fun s' k' f r => hQ s' k' (m ▸ f) r)
+  WP.seq (WP.mono (WP.preservedV (initArgs_ok hk hs) (by rfl)) fun _ ⟨⟨k, d, m⟩, hv⟩ =>
+    initCall_ok hH hp k d hpR fun s' hv' k' f r => hQ s' (VecKept.trans hv hv') k' (m ▸ f) r)
 
 /-- The arguments of `init`'s calls of `update`. -/
 abbrev dO (s₀ : State) (o : Nat) : Addr := scr s₀ + BitVec.ofNat 64 o
@@ -981,14 +981,14 @@ theorem updArgs_ok {s : State} (hk : KR (H := H) s₀ s) {st : Reg} {p : Addr}
 
 theorem updCall_ok {t : State} (hk : KR (H := H) s₀ t) {p d : Addr} (hpR : p = inn s₀ ∨ p = out s₀)
     (ha : UpdArgs hH t p d (scr s₀) H.B) (hx1 : t.gpr .x1 = 0) {Q : State → Prop}
-    (hQ : ∀ s', KR (H := H) s₀ s' → Frame [⟨p, H.S⟩, calR hH s₀, stkR s₀] t.mem s'.mem →
+    (hQ : ∀ s', VecKept t s' → KR (H := H) s₀ s' → Frame [⟨p, H.S⟩, calR hH s₀, stkR s₀] t.mem s'.mem →
       (hH.SH.Repr t.mem p [] → hH.SH.Repr s'.mem p ([] ++ bytesAt t.mem d H.B)) → Q s') :
     WP isa (.call H.updN H.updC) t Q := by
   obtain ⟨dS, _⟩ := state_disj hp hpR
   refine upd_call hH ha fun s' ha' hpost => ?_
   have f := ha'.frame
   rw [hk.sp] at f
-  refine hQ s' (kr_after hp hk ha' ?_) f fun hr => hpost [] hr (by rw [hx1]; rfl)
+  refine hQ s' ha'.vec (kr_after hp hk ha' ?_) f fun hr => hpost [] hr (by rw [hx1]; rfl)
   simp only [List.mem_cons, List.not_mem_nil, or_false]
   rintro r (rfl | rfl)
   · exact dS.symm.sub_left (save_sub hp)
@@ -997,12 +997,12 @@ theorem updCall_ok {t : State} (hk : KR (H := H) s₀ t) {p d : Addr} (hpR : p =
 theorem callUpd_ok {s : State} (hk : KR (H := H) s₀ s) {st : Reg} {p : Addr}
     (hs : s.gpr st = p) (hpR : p = inn s₀ ∨ p = out s₀) {o : Nat} (ho : o = H.buf ∨ o = H.buf + H.B)
     {Q : State → Prop}
-    (hQ : ∀ s', KR (H := H) s₀ s' → Frame [⟨p, H.S⟩, calR hH s₀, stkR s₀] s.mem s'.mem →
+    (hQ : ∀ s', VecKept s s' → KR (H := H) s₀ s' → Frame [⟨p, H.S⟩, calR hH s₀, stkR s₀] s.mem s'.mem →
       (hH.SH.Repr s.mem p [] → hH.SH.Repr s'.mem p ([] ++ bytesAt s.mem (scr s₀ + BitVec.ofNat 64 o) H.B)) →
       Q s') :
     WP isa (H.callUpd [VG.Impl.Sha256.AArch64.Stream.mov .x0 st] 0 o H.B) s Q :=
-  WP.seq (WP.mono (updArgs_ok hH hp hk hs hpR ho) fun _ ⟨k, a, x1, m⟩ =>
-    updCall_ok hH hp k hpR a x1 fun s' k' f r => hQ s' k' (m ▸ f) (m ▸ r))
+  WP.seq (WP.mono (WP.preservedV (updArgs_ok hH hp hk hs hpR ho) (by rfl)) fun _ ⟨⟨k, a, x1, m⟩, hv⟩ =>
+    updCall_ok hH hp k hpR a x1 fun s' hv' k' f r => hQ s' (VecKept.trans hv hv') k' (m ▸ f) (m ▸ r))
 
 /-! ## Correctness -/
 
@@ -1021,10 +1021,10 @@ theorem blockKey_eq : blockKey hH.SH.H (bytesAt s₀.mem (kp s₀) (kl s₀)) = 
 
 omit hp in
 /-- The end: `abiPreserved`, from `KR` and `restore`. -/
-theorem abi_of {s s' : State} (hk : KR (H := H) s₀ s) (hsp : s'.sp = s.sp)
+theorem abi_of {s s' : State} (hk : KR (H := H) s₀ s) (hsp : s'.sp = s.sp) (hv : VecKept s₀ s')
     (hg : ∀ r ∈ savedRegs, s'.gpr r = s₀.gpr r) (ho : ∀ r, r ∉ savedRegs → s'.gpr r = s.gpr r) :
     abiPreserved s₀ s' := by
-  refine ⟨fun r hr => ?_, by rw [hsp, hk.sp]⟩
+  refine ⟨fun r hr => ?_, by rw [hsp, hk.sp], hv⟩
   simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   all_goals first
@@ -1052,21 +1052,21 @@ theorem correct :
     (cal_buf hH hp).symm.sub_left (padO_sub hp)
   have eO : scr s₀ + BitVec.ofNat 64 (H.buf + H.B) = P (H := H) s₀ + BitVec.ofNat 64 H.B := by
     rw [P, add_ofNat_add]
-  refine WP.seq (WP.mono (keys_ok sc hp) fun s₁ h₁ => ?_)
-  refine WP.seq (callInit_ok hH hp h₁.kr (st := .x19) h₁.kr.x19 (.inl rfl) fun s₂ k₂ f₂ r₂ => ?_)
+  refine WP.seq (WP.mono (WP.preservedV (keys_ok sc hp) (by rfl)) fun s₁ ⟨h₁, hv₁⟩ => ?_)
+  refine WP.seq (callInit_ok hH hp h₁.kr (st := .x19) h₁.kr.x19 (.inl rfl) fun s₂ hv₂ k₂ f₂ r₂ => ?_)
   have bI₂ := (bytes_keep f₂ (p := P (H := H) s₀) (n := H.B) (by
     simp only [List.mem_cons, List.not_mem_nil, or_false]; rintro r (rfl | rfl) <;> with_reducible assumption)
     (by omega_nat)).trans h₁.bufI
   have bO₂ := (bytes_keep f₂ (p := P (H := H) s₀ + BitVec.ofNat 64 H.B) (n := H.B) (by
     simp only [List.mem_cons, List.not_mem_nil, or_false]; rintro r (rfl | rfl) <;> with_reducible assumption)
     (by omega_nat)).trans h₁.bufO
-  refine WP.seq (callUpd_ok hH hp k₂ k₂.x19 (.inl rfl) (.inl rfl) fun s₃ k₃ f₃ r₃ => ?_)
+  refine WP.seq (callUpd_ok hH hp k₂ k₂.x19 (.inl rfl) (.inl rfl) fun s₃ hv₃ k₃ f₃ r₃ => ?_)
   have rI₃ := r₃ r₂
   rw [List.nil_append, bI₂] at rI₃
   have bO₃ := (bytes_keep f₃ (p := P (H := H) s₀ + BitVec.ofNat 64 H.B) (n := H.B) (by
     simp only [List.mem_cons, List.not_mem_nil, or_false]; rintro r (rfl | rfl | rfl) <;> with_reducible assumption)
     (by omega_nat)).trans bO₂
-  refine WP.seq (callInit_ok hH hp k₃ (st := .x20) k₃.x20 (.inr rfl) fun s₄ k₄ f₄ r₄ => ?_)
+  refine WP.seq (callInit_ok hH hp k₃ (st := .x20) k₃.x20 (.inr rfl) fun s₄ hv₄ k₄ f₄ r₄ => ?_)
   have rI₄ := repr_keep hH f₄ (by
     simp only [List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl)
@@ -1075,7 +1075,7 @@ theorem correct :
   have bO₄ := (bytes_keep f₄ (p := P (H := H) s₀ + BitVec.ofNat 64 H.B) (n := H.B) (by
     simp only [List.mem_cons, List.not_mem_nil, or_false]; rintro r (rfl | rfl) <;> with_reducible assumption)
     (by omega_nat)).trans bO₃
-  refine WP.seq (callUpd_ok hH hp k₄ k₄.x20 (.inr rfl) (.inr rfl) fun s₅ k₅ f₅ r₅ => ?_)
+  refine WP.seq (callUpd_ok hH hp k₄ k₄.x20 (.inr rfl) (.inr rfl) fun s₅ hv₅ k₅ f₅ r₅ => ?_)
   have rO₅ := r₅ r₄
   rw [List.nil_append, eO, bO₄] at rO₅
   have rI₅ := repr_keep hH f₅ (by
@@ -1085,8 +1085,8 @@ theorem correct :
     · exact hp.i_s.sub_right (cal_sub hH hp)
     · exact hp.stk_i.symm) rI₄
   have hsc : ⟨scr s₀, 8 * sc⟩ ∈ s₅.wr := by rw [k₅.wr, hp.wr]; simp
-  refine WP.mono (restore_ok H k₅.x23 (Nat.le_trans hW (by decide)) k₅.saved hsc (by omega_nat)) fun s' ⟨hm, _, _, hsp, hg, ho⟩ => ?_
-  refine ⟨abi_of k₅ hsp hg ho, ?_⟩
+  refine WP.mono (WP.preservedV (restore_ok H k₅.x23 (Nat.le_trans hW (by decide)) k₅.saved hsc (by omega_nat)) (by rfl)) fun s' ⟨⟨hm, _, _, hsp, hg, ho⟩, hv₆⟩ => ?_
+  refine ⟨abi_of k₅ hsp (fun r hr => (hv₆ r hr).trans ((hv₅ r hr).trans ((hv₄ r hr).trans ((hv₃ r hr).trans ((hv₂ r hr).trans (hv₁ r hr)))))) hg ho, ?_⟩
   show hH.SH.Repr s'.mem (inn s₀) _ ∧ hH.SH.Repr s'.mem (out s₀) _
   rw [hm, blockKey_eq hH hp]
   exact ⟨rI₅, rO₅⟩

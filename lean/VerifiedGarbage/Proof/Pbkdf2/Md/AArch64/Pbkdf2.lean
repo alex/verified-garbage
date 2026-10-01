@@ -542,7 +542,7 @@ theorem su1_ok (hH : HashOK H) {s : State} (h : KE (H := H) s₀ s) (hx2 : s.gpr
 
 /-- HMAC's `init`: the key's inner and outer states. -/
 theorem su2_ok (hH : HashOK H) (hI : Verified AArch64.target H.hmacInit (initG hH.SH H.W))
-    (hId : H.hmacInit.fdepth ≤ 1) {s : State} (h : KE (H := H) s₀ s)
+    (hId : H.hmacInit.aarch64Depth ≤ 1) {s : State} (h : KE (H := H) s₀ s)
     (ia : InitArgs (H := H) s (A s₀ H.st0O) (A s₀ H.st1O) (kp H s₀) (scr s₀) (kl H s₀))
     (hk : KeyAt hH s₀ s.mem (kp H s₀) (kl H s₀)) :
     WP isa (.call H.hmacInitN H.hmacInit) s fun t => KE (H := H) s₀ t ∧
@@ -660,7 +660,7 @@ theorem su4_ok (hH : HashOK H) {s₁₀ : State} (k₁₀ : KE (H := H) s₀ s�
   rwa [k₁₀.kr.saltBytes hp] at this
 
 theorem setup_ok (hH : HashOK H) (hI : Verified AArch64.target H.hmacInit (initG hH.SH H.W))
-    (hId : H.hmacInit.fdepth ≤ 1) {s : State} (h : KE (H := H) s₀ s)
+    (hId : H.hmacInit.aarch64Depth ≤ 1) {s : State} (h : KE (H := H) s₀ s)
     (hx2 : s.gpr .x2 = kp H s₀) (hx3 : (s.gpr .x3).toNat = kl H s₀) (hk : KeyAt hH s₀ s.mem (kp H s₀) (kl H s₀)) :
     WP isa H.setup s fun t => KE (H := H) s₀ t ∧ States hH s₀ t.mem := by
   unfold Hash.setup

@@ -90,6 +90,15 @@ pub struct Sha256HmacState {
 }
 
 #[cfg(any(target_arch = "arm", target_arch = "x86"))]
+impl Drop for Sha256HmacState {
+    /// Wipes the streaming states, which represent the key.
+    fn drop(&mut self) {
+        crate::zeroize::zeroize(&mut self.inner);
+        crate::zeroize::zeroize(&mut self.outer);
+    }
+}
+
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 impl sealed::Sealed for Sha256 {}
 
 #[cfg(any(target_arch = "arm", target_arch = "x86"))]

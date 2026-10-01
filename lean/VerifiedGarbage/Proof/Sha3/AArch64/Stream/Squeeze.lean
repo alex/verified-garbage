@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Sha3.AArch64.Permute
 import VerifiedGarbage.Proof.Sha3.Stream
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
@@ -440,6 +441,7 @@ abbrev inner (s₀ : State) : State :=
 
 theorem correct {s₀ : State} (hp : SPre s₀) (hs : Stack s₀) :
     WP isa squeeze s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha3.squeezeAArch64.post s₀ s' := by
+  apply WP.withPreservedV (hc := by decide +kernel)
   have hpi : SPre (inner s₀) := ⟨hp.rd, hp.wr, hp.st_o, hp.st_c, hp.o_c, hp.rate_mem, hp.pos_le⟩
   have e : stateAt (inner s₀).mem (stp s₀) = stateAt s₀.mem (stp s₀) := write_frame_state hs.st
   refine WP.frameReg hs.sp16 (fun R hR => ?_) (WP.mono (correctMain hpi) fun s' ⟨hk, hsp, hpost⟩ => ?_)

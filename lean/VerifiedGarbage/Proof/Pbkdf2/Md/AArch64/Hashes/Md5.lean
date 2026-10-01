@@ -95,10 +95,13 @@ def streamOK : Hmac.Generic.AArch64.HashOK hash.stream where
   finDepth := by decide +kernel
 
 def ok : HashOK hash where
+  initKeepsV := by decide +kernel
+  updKeepsV := by lit_decide
+  finKeepsV := by lit_decide
   md := Proof.Md5.md
   shape := Pbkdf2.AArch64.Shape.ofMd Proof.Md5.AArch64.Stream.shape
   comp := ⟨Proof.Md5.AArch64.Stream.callee.verified, Proof.Md5.AArch64.compress_verified.2.1,
-    Proof.Md5.AArch64.Stream.callee.noFrames⟩
+    Proof.Md5.AArch64.Stream.callee.noFrames, Proof.Md5.AArch64.Stream.callee.keepsV⟩
   reloc m m' p q h := by
     apply Vector.ext
     intro j hj

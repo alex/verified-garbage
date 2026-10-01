@@ -24,16 +24,16 @@ open VG.Spec.Sha3 (Repr stateAt bytesAt absorb pad squeezeFrom rates)
 /-! ## What changes -/
 
 theorem Kept.refl (rs : List Region) (s : State) : Kept rs s s :=
-  ⟨fun _ _ _ => rfl, rfl, rfl, rfl, Frame.refl _ _⟩
+  ⟨fun _ _ _ => rfl, rfl, rfl, rfl, Frame.refl _ _, fun _ _ => rfl⟩
 
 theorem Kept.trans {rs : List Region} {s₁ s₂ s₃ : State} (h₁ : Kept rs s₁ s₂) (h₂ : Kept rs s₂ s₃) :
     Kept rs s₁ s₃ :=
   ⟨fun r hr h => by rw [h₂.cs r hr h, h₁.cs r hr h], by rw [h₂.sp, h₁.sp], by rw [h₂.rd, h₁.rd],
-    by rw [h₂.wr, h₁.wr], h₁.frame.trans h₂.frame⟩
+    by rw [h₂.wr, h₁.wr], h₁.frame.trans h₂.frame, fun r hr => (h₂.vcs r hr).trans (h₁.vcs r hr)⟩
 
 theorem Kept.sub {rs rs' : List Region} {s s' : State} (h : Kept rs s s')
     (hs : ∀ r ∈ rs, ∃ r' ∈ rs', Region.Sub r r') : Kept rs' s s' :=
-  ⟨h.cs, h.sp, h.rd, h.wr, h.frame.sub hs⟩
+  ⟨h.cs, h.sp, h.rd, h.wr, h.frame.sub hs, h.vcs⟩
 
 theorem Kept.mono {rs rs' : List Region} {s s' : State} (h : Kept rs s s') (hs : ∀ r ∈ rs, r ∈ rs') :
     Kept rs' s s' :=
@@ -42,7 +42,7 @@ theorem Kept.mono {rs rs' : List Region} {s s' : State} (h : Kept rs s s') (hs :
 /-- A block that writes no callee-saved register nor memory. -/
 theorem Kept.of_keep {rs : List Region} {regs : List Reg} {s s' : State} (hk : Keep regs s s')
     (hm : s'.mem = s.mem) (hr : ∀ r ∈ preserved, r ∉ regs) : Kept rs s s' :=
-  ⟨fun r hp _ => hk.gpr r (hr r hp), hk.sp, hk.rd, hk.wr, by rw [hm]; exact Frame.refl _ _⟩
+  ⟨fun r hp _ => hk.gpr r (hr r hp), hk.sp, hk.rd, hk.wr, by rw [hm]; exact Frame.refl _ _, hk.vcs⟩
 
 theorem pres_not {r : Reg} (h : r ∈ preserved) :
     r ≠ .x0 ∧ r ≠ .x1 ∧ r ≠ .x2 ∧ r ≠ .x3 ∧ r ≠ .x4 ∧ r ≠ .x5 ∧ r ≠ .x9 := by
@@ -420,10 +420,10 @@ theorem zeroState_ok {sc : Reg} {st wk rate : Nat} {s₀ : State} (hS : HSetup s
       obtain ⟨r, hr, hc⟩ := Covers.head hS.cov (s₀.gpr sc + BitVec.ofNat 64 st + BitVec.ofNat 64 (8 * k)) 8
         ⟨_, List.mem_singleton_self _, contains_off (by omega) (by decide)⟩
       exact ⟨r, hr, hc⟩
-  refine WP.mono (zstores_ok _ 25 (by decide) (by rw [e₂]; rfl)
-    (by rw [h₂.get .x0, e₁, hg.cs sc hS.hsc.1 hS.hsc.2]) hin) fun s' ⟨g', r', w', p', z', f'⟩ => ?_
+  refine WP.mono (WP.preservedV (zstores_ok _ 25 (by decide) (by rw [e₂]; rfl)
+    (by rw [h₂.get .x0, e₁, hg.cs sc hS.hsc.1 hS.hsc.2]) hin) (hc := by decide +kernel)) fun s' ⟨⟨g', r', w', p', z', f'⟩, hv⟩ => ?_
   have k₂ := (h₁.trans h₂).keep
-  refine ⟨⟨fun r hr h30 => ?_, by rw [p', k₂.sp], by rw [r', k₂.rd], by rw [w', k₂.wr], ?_⟩,
+  refine ⟨⟨fun r hr h30 => ?_, by rw [p', k₂.sp], by rw [r', k₂.rd], by rw [w', k₂.wr], ?_, fun r hr => (hv r hr).trans (k₂.vcs r hr)⟩,
     stateAt_zero' fun k hk => z' k hk⟩
   · have := pres_not hr
     rw [g', k₂.gpr r (by simp only [List.mem_append, List.mem_singleton, not_or]; exact ⟨this.1, this.2.2.2.2.2.2⟩)]

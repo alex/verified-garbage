@@ -69,6 +69,8 @@ byte count in `x22` at `x19 + N + B - L`, writing only `x9` and `x12`, and
 `P.out` writes the digest of the hash value at `x19` to `x21`, writing only
 `x9`. -/
 structure Shape {P : Params} (H : Md P.B P.N P.L) : Prop where
+  lenKeepsV : P.len.all keepsV = true
+  outKeepsV : P.out.all keepsV = true
   len : ∀ s : State, InRegions s.wr (s.gpr .x19 + BitVec.ofNat 64 (P.N + P.B - P.L)) P.L →
     WP isa (.block P.len) s fun s' => (∀ r, r ≠ .x9 → r ≠ .x12 → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧
       s'.wr = s.wr ∧ s'.sp = s.sp ∧
@@ -83,6 +85,8 @@ structure Shape {P : Params} (H : Md P.B P.N P.L) : Prop where
 and an 8-byte length field. -/
 theorem Shape.ofMd {P : VG.Impl.MdStream.AArch64.Params} {H : Md 64 P.N 8} (h : MdStream.AArch64.Shape H) :
     Shape (P := Impl.Pbkdf2.AArch64.ofMd P) H where
+  lenKeepsV := h.lenKeepsV
+  outKeepsV := h.outKeepsV
   len s hs := by
     have e : P.N + 64 - 8 = P.N + 56 := by omega
     have := h.len s (by rw [← e]; exact hs)
@@ -1012,7 +1016,7 @@ theorem post_eq {H : Md P.B P.N P.L} {S : StreamingHash} {iv : H.HV} (hl : H.Lin
 
 theorem epilogue_ok {H : Md P.B P.N P.L} {S : StreamingHash} {iv : H.HV} (hl : H.Link S iv D) {s : State}
     (h : Inv P D W H s₀ 0 s) :
-    WP isa (.block (epilogue P)) s fun s' => abiPreserved s₀ s' ∧ (iterK S W).post s₀ s' := by
+    WP isa (.block (epilogue P)) s fun s' => GprAbi s₀ s' ∧ (iterK S W).post s₀ s' := by
   have := so_le hz; have := N_le hz; have := B_le hz; have := hz.fits; have := hz.W; have := so8 hz
   unfold epilogue
   refine wp_ldr (a := scr s₀ + BitVec.ofNat 64 (raO P)) ⟨by simp only [raO]; omega, by simp only [raO]; omega⟩
@@ -1047,17 +1051,31 @@ structure HashOk (P : Params) (D W : Nat) (S : StreamingHash) (H : Md P.B P.N P.
 theorem main_ok {P : Params} {D W : Nat} {S : StreamingHash} {H : Md P.B P.N P.L} {iv : H.HV}
     (ho : HashOk P D W S H iv) {name : String} {code : Prog isa} (hf : CompOk H P.so code) {s₀ : State}
     (hp : Pre P D W s₀) :
-    WP isa (main P D name code) (zext s₀) fun s' => abiPreserved s₀ s' ∧ (iterK S W).post s₀ s' := by
+    WP isa (main P D name code) (zext s₀) fun s' => GprAbi s₀ s' ∧ (iterK S W).post s₀ s' := by
   unfold main
   refine WP.seq (WP.mono (prologue_ok ho.sizes hp ho.shape ho.lenOk) fun s₁ h => ?_)
   exact WP.seq (WP.mono (loop_ok ho.sizes hp ho.shape ho.reloc hf h) fun s₂ h₂ =>
     epilogue_ok ho.sizes hp ho.link h₂)
 
+/-- The wrapper adds scalar instructions and checked length/digest code. -/
+theorem iterate_keepsV {P : Params} {D : Nat} {H : Md P.B P.N P.L}
+    (hs : Shape H) {name : String} {code : Prog isa} (hc : code.allInstrs keepsV = true) :
+    (iterate P D name code).allInstrs keepsV = true := by
+  rw [Code.allInstrs_eq] at hc ⊢
+  by_cases hDN : D < P.N <;>
+  simp [iterate, main, prologue, epilogue, body, loadKey, compressBlock,
+    Impl.Pbkdf2.AArch64.digest, padFrom, Impl.Pbkdf2.AArch64.cp32, xorW, Impl.MdStream.AArch64.compressAt,
+    Impl.MdStream.AArch64.compressWith, Impl.MdStream.AArch64.save,
+    Impl.MdStream.AArch64.saved, Impl.MdStream.AArch64.restore, Impl.MdStream.AArch64.mov,
+    instrs, keepsV, vdstOf, hc, hs.lenKeepsV, hs.outKeepsV, hDN]
+
 theorem correct {P : Params} {D W : Nat} {S : StreamingHash} {H : Md P.B P.N P.L} {iv : H.HV}
     (ho : HashOk P D W S H iv) {name : String} {code : Prog isa} (hf : CompOk H P.so code) {s₀ : State}
     (hp : Pre P D W s₀) :
     WP isa (iterate P D name code) s₀ fun s' => abiPreserved s₀ s' ∧ (iterK S W).post s₀ s' :=
-  WP.seq (MdStream.AArch64.WP.cons (zext_exec s₀) (WP.block_nil (main_ok ho hf hp)))
+  WP.withPreservedV
+    (WP.seq (MdStream.AArch64.WP.cons (zext_exec s₀) (WP.block_nil (main_ok ho hf hp))))
+    (iterate_keepsV ho.shape hf.keepsV)
 
 /-- `iterate` is correct and keeps what the calling convention requires. -/
 theorem iterate_ok {P : Params} {D W : Nat} {S : StreamingHash} {H : Md P.B P.N P.L} {iv : H.HV}

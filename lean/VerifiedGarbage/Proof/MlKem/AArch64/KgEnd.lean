@@ -135,7 +135,7 @@ theorem apart_below {s₀ : State} (hp : Pre s₀) (i : Nat) (hi : i ≤ 3) : Ap
 
 /-- What the function leaves. -/
 structure Done (s₀ : State) (mB : Mem) (v : BitVec 64) (s : State) : Prop where
-  abi : abiPreserved s₀ s
+  abi : GprAbi s₀ s
   x0 : s.gpr .x0 = v
   ek : bytesAt s.mem (kA s₀ 1) 1184 = ekPKE768 (aM s₀ mB) (dB s₀)
   dk : bytesAt s.mem (kA s₀ 2) 2400 =
@@ -148,7 +148,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {u : State} (hk : KB s₀ u) :
     WP isa (.block [mov .x0 .x24, .ldr .x .x30 .x28 (SV + 40), .ldr .x .x24 .x28 SV,
       .ldr .x .x25 .x28 (SV + 8), .ldr .x .x26 .x28 (SV + 16), .ldr .x .x27 .x28 (SV + 24),
       .ldr .x .x28 .x28 (SV + 32)]) u fun u' =>
-      abiPreserved s₀ u' ∧ u'.gpr .x0 = u.gpr .x24 ∧ u'.mem = u.mem := by
+      GprAbi s₀ u' ∧ u'.gpr .x0 = u.gpr .x24 ∧ u'.mem = u.mem := by
   have cv := cov_r hp hk (b := 3) (o := SV) (l := 48) (by decide) (by decide)
   have ld : ∀ k < 6, ∀ {w : State}, w.rd = u.rd ∧ w.wr = u.wr ∧ w.mem = u.mem ∧ w.gpr .x28 = kA s₀ 3 →
       w.gpr .x28 + BitVec.ofNat 64 (SV + 8 * k) = kA s₀ 3 + BitVec.ofNat 64 (SV + 8 * k) ∧
