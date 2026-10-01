@@ -6,8 +6,9 @@ import VerifiedGarbage.TCB.X86_64.Print
 Each expected value was computed on an x86-64 CPU with AVX-512F, by the same
 instruction through its intrinsic (`_mm512_add_epi32`, `_mm512_rol_epi32`,
 `_mm512_shuffle_i32x4`, …) or in inline assembly (what VEX-encoded and
-legacy SSE instructions and `vzeroupper` leave in bits 511:256), and is
-compared with the model's result on the same inputs.
+legacy SSE instructions and `vzeroupper` leave in bits 511:256, and the
+embedded-broadcast forms, run as the printed strings in Rust naked
+functions), and is compared with the model's result on the same inputs.
 -/
 
 namespace VG.Test.Avx512
@@ -102,6 +103,25 @@ def s5 : State := (ZOp.vpshufd .xmm5 .xmm0 0xe4).exec s
   (·.mem.readW 0x200 512)) == some B
 #guard (exec (.vmovdqu32Store { base := .rdi, disp := 0x101 } .xmm1) s).isNone
 
+/-- `zmm5` after `op zmm5, zmm1, QWORD PTR [rdi+disp]{1to8}`, where memory
+holds `A`. -/
+def bcst (op : ZBcstOp) (disp : Int) : Option (BitVec 512) :=
+  (exec (.zbcst op .xmm5 .xmm1 { base := .rdi, disp := disp }) s).map (·.zmm .xmm5)
+
+#guard bcst .vpmuludq 13 == some 0xa9eafc0b92514030241bf514a373435c7f6593afbe64b71b19ad2e01172c0f606116d62142098d638f2845da3c6674265a44d5e6800000000cd697062fe36618#512
+#guard bcst .vpmuludq 56 == some 0xefef0a2a5b5c412032fcfe50ca8a0428b3e439a15f39f6a22441b419d06ddc4089187141579e1c52ca2571fb813dd0e47f76fd67000000001220da14dfa6c490#512
+#guard bcst .vpandq 13 == some 0x00070605b080a0c0500582a0300188ccf0819281b4818285100792852408a8c000030425808989cdd08596a58088aa8cf08796a580000000708796a510000248#512
+#guard bcst .vpandq 56 == some 0x0b0d000df0e0f0c00105a0083221c8cc00a1d001b4a592860305900d2468a8c00121400588a9c8ce0aadb00dcaecba8e0badf00d800000000badf00d12245248#512
+#guard bcst .vporq 13 == some 0xff8f9faff4f9fbfdf5d7beafb7bbefcdf0e7d6e7b4adbfcff3d79fffb4e9afedf1a7d7e7bdabefeffeafbeeffeffbbffffffffffb489abcdffffffffb6bdfffd#512
+#guard bcst .vporq 56 == some 0x0fafff0ffefdfafe5ffdfaaffffffecefbedf2cffeedfecf1bfffbdffeedfeee0baff56fffefffefdfadfeeffefffafefffffffffeedface7ffffffffefdfefe#512
+#guard bcst .vporq 0 == some 0xffdfbf9ff6f4f2f0ffddbaba7777fedcfefdfadbf6f5b697ffdfbbdf767cbef0fffffffffffffffffefdbefffefebabefffffffff6543210ffffffff76747678#512
+-- The quadword must lie within the regions.
+#guard (bcst .vpmuludq 57).isNone
+#guard (bcst .vpandq (-1)).isNone
+-- The destination may be the source, and only the destination changes.
+#guard ((exec (.zbcst .vporq .xmm1 .xmm1 { base := .rdi }) s).map (·.zmm .xmm1)) == bcst .vporq 0
+#guard ((exec (.zbcst .vporq .xmm5 .xmm1 { base := .rdi }) s).map (·.zmm .xmm1)) == some B
+
 /-! ## Printing -/
 
 #guard printer.instr (.zop (.zbin .vpaddd .xmm1 .xmm2 .xmm15)) == ["vpaddd zmm1, zmm2, zmm15"]
@@ -116,6 +136,13 @@ def s5 : State := (ZOp.vpshufd .xmm5 .xmm0 0xe4).exec s
 #guard printer.instr (.vmovdqu32Store { base := .rcx } .xmm14) == ["vmovdqu32 ZMMWORD PTR [rcx], zmm14"]
 #guard printer.instr (.vbroadcasti32x4 .xmm1 { base := .rdi, disp := 48 }) ==
   ["vbroadcasti32x4 zmm1, XMMWORD PTR [rdi+48]"]
+#guard printer.instr (.zbcst .vpmuludq .xmm5 .xmm1 { base := .rdi, disp := 13 }) ==
+  ["vpmuludq zmm5, zmm1, QWORD PTR [rdi+13]{1to8}"]
+#guard printer.instr (.zbcst .vpandq .xmm0 .xmm9 { base := .rsp }) ==
+  ["vpandq zmm0, zmm9, QWORD PTR [rsp]{1to8}"]
+#guard printer.instr
+    (.zbcst .vporq .xmm15 .xmm14 { base := .rdi, index := some .rax, scale := 8, disp := -8 }) ==
+  ["vporq zmm15, zmm14, QWORD PTR [rdi+rax*8-8]{1to8}"]
 
 /-! ## Required features -/
 
@@ -126,5 +153,8 @@ def s5 : State := (ZOp.vpshufd .xmm5 .xmm0 0xe4).exec s
 #guard isa.requires (.vmovdqu32Load .xmm0 { base := .rdi }) == ["avx512f"]
 #guard isa.requires (.vmovdqu32Store { base := .rdi } .xmm0) == ["avx512f"]
 #guard isa.requires (.vbroadcasti32x4 .xmm0 { base := .rdi }) == ["avx512f"]
+#guard isa.requires (.zbcst .vpmuludq .xmm0 .xmm1 { base := .rdi }) == ["avx512f"]
+#guard isa.requires (.zbcst .vpandq .xmm0 .xmm1 { base := .rdi }) == ["avx512f"]
+#guard isa.requires (.zbcst .vporq .xmm0 .xmm1 { base := .rdi }) == ["avx512f"]
 
 end VG.Test.Avx512
