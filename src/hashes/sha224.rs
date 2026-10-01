@@ -21,14 +21,18 @@
 
 #[cfg(target_arch = "x86_64")]
 use crate::arch::sha256::{
-    VG_SHA256_FINALIZE_AVX2_FEATURES, VG_SHA256_FINALIZE_SHANI_FEATURES,
-    VG_SHA256_UPDATE_AVX2_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES, vg_sha256_finalize_avx2,
-    vg_sha256_finalize_shani, vg_sha256_update_avx2, vg_sha256_update_shani,
+    VG_SHA256_FINALIZE_AVX2_FEATURES, VG_SHA256_UPDATE_AVX2_FEATURES, vg_sha256_finalize_avx2,
+    vg_sha256_update_avx2,
 };
 #[cfg(target_arch = "aarch64")]
 use crate::arch::sha256::{
     VG_SHA256_FINALIZE_SHA2_FEATURES, VG_SHA256_UPDATE_SHA2_FEATURES, vg_sha256_finalize_sha2,
     vg_sha256_update_sha2,
+};
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use crate::arch::sha256::{
+    VG_SHA256_FINALIZE_SHANI_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES, vg_sha256_finalize_shani,
+    vg_sha256_update_shani,
 };
 use crate::arch::sha256::{vg_sha224_init, vg_sha256_finalize, vg_sha256_update};
 
@@ -46,7 +50,7 @@ super::streaming_hash!(
             #[cfg(target_arch = "aarch64")]
             Sha2 if [VG_SHA256_UPDATE_SHA2_FEATURES, VG_SHA256_FINALIZE_SHA2_FEATURES] =>
                 (vg_sha256_update_sha2, vg_sha256_finalize_sha2),
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             ShaNi if [VG_SHA256_UPDATE_SHANI_FEATURES, VG_SHA256_FINALIZE_SHANI_FEATURES] =>
                 (vg_sha256_update_shani, vg_sha256_finalize_shani),
             #[cfg(target_arch = "x86_64")]
@@ -93,7 +97,7 @@ mod tests {
                 Sha256Backend::Scalar => Sha224Backend::Scalar,
                 #[cfg(target_arch = "aarch64")]
                 Sha256Backend::Sha2 => Sha224Backend::Sha2,
-                #[cfg(target_arch = "x86_64")]
+                #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                 Sha256Backend::ShaNi => Sha224Backend::ShaNi,
                 #[cfg(target_arch = "x86_64")]
                 Sha256Backend::Avx2 => Sha224Backend::Avx2,

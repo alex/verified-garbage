@@ -411,7 +411,7 @@ jobs:
       matrix:
         arch: [x86_64]
         chip: [native, skx, hsw, p4p]
-        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem mldsa x25519 ed25519 cpu]
+        tests: [sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem mldsa x25519 ed25519 cpu]
         include:
           # x86 feature dispatch, natively in a 32-bit userspace, with both
           # the runner's features and the baseline implementations.
@@ -421,7 +421,7 @@ jobs:
               image: rust:slim
               options: --platform linux/386
             install-amd64-libc: true
-            tests: sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu
+            tests: sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu
           - chip: native
             arch: x86
             cpu-features: none
@@ -429,7 +429,7 @@ jobs:
               image: rust:slim
               options: --platform linux/386
             install-amd64-libc: true
-            tests: sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu
+            tests: sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu
           - chip: arl
             tests: sha384 sha512 ed25519 cpu
           # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma.
@@ -438,7 +438,7 @@ jobs:
           - chip: native
             arch: aarch64
             os: ubuntu-24.04-arm
-            tests: aes_gcm cmac sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+            tests: aes_gcm cmac sha1 sha224 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
     name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }}${{ matrix.arch && format(', {0}', matrix.arch) || '' }}${{ matrix.cpu-features && format(', VG_CPU_FEATURES={0}', matrix.cpu-features) || '' }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     container:
