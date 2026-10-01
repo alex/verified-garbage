@@ -180,13 +180,15 @@ jobs:
           - os: ubuntu-24.04-arm
             container:
               image: ghcr.io/pyca/cryptography-runner-ubuntu-rolling:armv7l
-              options: --env RUSTUP_HOME=/root/.rustup
+              # A fresh home avoids upgrading the image's incomplete Rust installation.
+              options: --env RUSTUP_HOME=/tmp/verified-garbage-rustup
           # PPC64LE: pyca's ppc64le runner image, on a ppc64le runner (as
           # pyca/cryptography does).
           - os: ubuntu-24.04-ppc64le
             container:
               image: ghcr.io/pyca/cryptography-runner-ubuntu-rolling:ppc64le
-              options: --env RUSTUP_HOME=/root/.rustup
+              # A fresh home avoids upgrading the image's incomplete Rust installation.
+              options: --env RUSTUP_HOME=/tmp/verified-garbage-rustup
           - os: macos-latest
           - os: windows-latest
         rust: [stable, "1.88"]
@@ -197,7 +199,7 @@ jobs:
               os: ubuntu-24.04-ppc64le
               container:
                 image: ghcr.io/pyca/cryptography-runner-ubuntu-rolling:ppc64le
-                options: --env RUSTUP_HOME=/root/.rustup
+                options: --env RUSTUP_HOME=/tmp/verified-garbage-rustup
             rust: "1.88"
         # One job each for the upcoming toolchains, to catch regressions (and
         # new warnings, which are errors here) before they reach stable.
