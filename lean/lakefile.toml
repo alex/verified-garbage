@@ -1,5 +1,8 @@
 name = "VerifiedGarbage"
-defaultTargets = ["VerifiedGarbage", "VerifiedGarbageTest"]
+# Resolve the compiled specifications before the broad library glob. Otherwise
+# Lake can first assign one of these modules to VerifiedGarbage, then try to
+# load NativeSpec (which includes that same module) while compiling it.
+defaultTargets = ["NativeSpec", "VerifiedGarbage", "VerifiedGarbageTest"]
 # Lake already checks several files concurrently. Limit each compiler to
 # two threads so declaration tasks do not contend across all of those files.
 moreLeanArgs = ["-j2"]
@@ -56,13 +59,13 @@ name = "NativeSpec"
 # Exactly these modules (as `globs`: `roots` would also take their submodules,
 # such as `Spec.MlKem.Contract`, and with them the rest of the library).
 roots = []
-globs = ["VerifiedGarbage.TCB.Mem", "VerifiedGarbage.Spec.Sha1", "VerifiedGarbage.Spec.Sha256",
+globs = ["VerifiedGarbage.Spec.Sha1", "VerifiedGarbage.Spec.Sha256",
   "VerifiedGarbage.Spec.Sha512", "VerifiedGarbage.Spec.Md5", "VerifiedGarbage.Spec.Sha3",
   "VerifiedGarbage.Spec.Hmac", "VerifiedGarbage.Spec.Pbkdf2", "VerifiedGarbage.Spec.Scrypt",
   "VerifiedGarbage.Spec.ChaCha20", "VerifiedGarbage.Spec.Poly1305", "VerifiedGarbage.Spec.Aes",
   "VerifiedGarbage.Spec.Gcm", "VerifiedGarbage.Spec.MlKem", "VerifiedGarbage.Spec.X25519",
   "VerifiedGarbage.Spec.MlDsa", "VerifiedGarbage.Spec.Ed25519", "VerifiedGarbage.Spec.Blake2",
-  "VerifiedGarbage.Spec.X448", "VerifiedGarbage.Spec.Rc2"]
+  "VerifiedGarbage.Spec.X448", "VerifiedGarbage.Spec.Rc2", "VerifiedGarbage.Spec.Argon2"]
 precompileModules = true
 
 # The evaluator of `sig_eval` (`Proof/Framework/SigEval.lean`), a tactic run
@@ -72,4 +75,14 @@ precompileModules = true
 name = "NativeTactics"
 roots = []
 globs = ["VerifiedGarbage.Proof.Framework.SigEval"]
+precompileModules = true
+
+# The trusted base, which imports only Lean core: the code the emitter
+# (`Emit.lean`, which loads this library) runs to check and print every
+# artifact, an order of magnitude faster compiled than in the interpreter
+# (52 s to 7 s). `TCB.Mem` is here and not in `NativeSpec`, which imports it.
+[[lean_lib]]
+name = "NativeTCB"
+roots = []
+globs = ["VerifiedGarbage.TCB.+"]
 precompileModules = true
