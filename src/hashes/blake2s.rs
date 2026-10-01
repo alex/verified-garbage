@@ -2,7 +2,12 @@
 //! to 32 bytes, over 32-bit words (see `blake2` for how the verified
 //! functions are used).
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "x86",
+    target_arch = "arm"
+))]
 
 use crate::arch::blake2s::{vg_blake2s_finalize, vg_blake2s_init, vg_blake2s_update};
 

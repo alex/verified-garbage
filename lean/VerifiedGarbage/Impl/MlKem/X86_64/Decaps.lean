@@ -35,15 +35,15 @@ namespace Decaps
 def pro : List Instr := topPro .rcx [(.rbp, .rdi), (.r14, .rsi), (.r12, .rdx)]
 
 /-- `NTT(u'[i])`. -/
-def uHat (i : Nat) : Prog isa := .seq (ddAt (.r14, 320 * i) 10 (pS i)) (nttAt (pS i))
+def uHat (A : Arith) (i : Nat) : Prog isa := .seq (ddAt (.r14, 320 * i) 10 (pS i)) (nttAt A (pS i))
 
 /-- `ŝ[i]`. -/
 def sHat (i : Nat) : Prog isa := dec12At (.rbp, 384 * i) (pS (3 + i))
 
 /-- `m'` to `M`. -/
-def decrypt : Prog isa :=
-  .seq (seqR uHat 0 3) (.seq (seqR sHat 0 3) (.seq (dotAt (fun j => pS (3 + j)) pS)
-    (.seq (nttInvAt (pS 15)) (.seq (ddAt (.r14, 960) 4 (pS 16)) (.seq (subAt (pS 16) (pS 15))
+def decrypt (A : Arith) : Prog isa :=
+  .seq (seqR (uHat A) 0 3) (.seq (seqR sHat 0 3) (.seq (dotAt A (fun j => pS (3 + j)) pS)
+    (.seq (nttInvAt A (pS 15)) (.seq (ddAt (.r14, 960) 4 (pS 16)) (.seq (subAt (pS 16) (pS 15))
       (ceAt (pS 16) 1 (sc oM)))))))
 
 /-- `G(m' ‖ h)` and `J(z ‖ c)`. -/
@@ -76,6 +76,6 @@ end Decaps
 
 open Decaps in
 def decaps (c : Callee4) : Prog isa :=
-  .seq (.block pro) (.seq decrypt (.seq hashes (.seq (encrypt c (.rbp, 1152)) (.seq select (.block topEpi)))))
+  .seq (.block pro) (.seq (decrypt c.arith) (.seq hashes (.seq (encrypt c (.rbp, 1152)) (.seq select (.block topEpi)))))
 
 end VG.Impl.MlKem.X86_64

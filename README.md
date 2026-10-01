@@ -66,7 +66,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -82,7 +82,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -346,7 +346,7 @@ yours to keep:
 
 <td>✅ AVX-512F, AVX2</td>
 
-<td>✅</td>
+<td>✅ NEON</td>
 
 <td>✅</td>
 
@@ -416,7 +416,7 @@ yours to keep:
 
 <td>✅ AVX-512F, AVX2</td>
 
-<td>✅</td>
+<td>✅ NEON</td>
 
 <td>✅</td>
 
@@ -758,9 +758,9 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SHA512, AVX2, BMI1, BMI2</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 

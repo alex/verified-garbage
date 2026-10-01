@@ -23,7 +23,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The features detection knows, by their Rust `target_feature` names: bit
 /// `i` of a [`Features`] is `NAMES[i]`.
-pub(crate) const NAMES: [&str; 15] = [
+pub(crate) const NAMES: [&str; 16] = [
     "ssse3",
     "sha",
     "aes",
@@ -39,6 +39,7 @@ pub(crate) const NAMES: [&str; 15] = [
     "adx",
     "avx512ifma",
     "avx512vl",
+    "neon",
 ];
 
 /// The bit of a feature detection does not know, which is never detected.
@@ -212,6 +213,9 @@ fn runtime() -> u32 {
     (u32::from(aarch64_aes()) * Features::of(&["aes"]).0)
         | (u32::from(aarch64_sha2()) * Features::of(&["sha2"]).0)
         | (u32::from(aarch64_sha3()) * Features::of(&["sha3"]).0)
+        // AdvSIMD is the AArch64 baseline used by the verified ISA.
+        // Keep a mask bit so tests and benchmarks can select scalar code.
+        | Features::of(&["neon"]).0
 }
 
 /// Whether the CPU has FEAT_AES and FEAT_PMULL, asked of the operating
@@ -286,6 +290,7 @@ mod tests {
         assert_eq!(Features::of(&["avx512bw"]), Features(UNKNOWN));
         assert_eq!(Features::of(&["sha2"]), Features(1 << 10));
         assert_eq!(Features::of(&["sha3"]), Features(1 << 11));
+        assert_eq!(Features::of(&["neon"]), Features(1 << 15));
         assert_eq!(
             Features::all(&[&["sha"], &[], &["ssse3", "sha"]]),
             Features(0b11)

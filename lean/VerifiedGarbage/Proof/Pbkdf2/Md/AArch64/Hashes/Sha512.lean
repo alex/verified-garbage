@@ -251,9 +251,10 @@ theorem sha512_coreOK : CoreOK (coreH 64) := coreOK 64 (Or.inr (Or.inr (Or.inr r
 
 /-- SHA-512 with its compression function. -/
 def sha512 (v : Compress) : MdHash :=
-  MdHash.of (H := hash v Spec.Hmac.sha512I 64 Spec.Sha512.init512Api.name H0_512)
+  { MdHash.of (H := hash v Spec.Hmac.sha512I 64 Spec.Sha512.init512Api.name H0_512)
     (ok v rfl (fun m => (List.take_of_length_le (Nat.le_of_eq (Hmac.Generic.Common.finalHash_length _ m))).symm) rfl rfl rfl (Or.inr (Or.inr (Or.inr rfl))) rfl (Or.inr (Or.inl rfl))) sha512_coreOK rfl rfl
-    sha512_satI sha512_satF sha512_satT sha512_satP v.suffix v.features (stream v)
+    sha512_satI sha512_satF sha512_satT sha512_satP v.suffix v.features (stream v) with
+    sha512 := some v }
 
 /-! ## SHA-512/224 -/
 
