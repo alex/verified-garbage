@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.X25519.AArch64.Main
 import VerifiedGarbage.Spec.X25519.Contract
 import VerifiedGarbage.TCB.AArch64.Target
@@ -221,6 +222,6 @@ theorem x25519_ok (s : State) (hs : Proof.X25519.x25519AArch64.pre s) :
     ∃ t s', Exec isa Impl.X25519.AArch64.x25519 s t s' ∧ abiPreserved s s' ∧
       Proof.X25519.x25519AArch64.post s s' := by
   obtain ⟨t, s', he, h1, h2⟩ := correct (Pre.of s hs)
-  exact ⟨t, s', he, ⟨h1, Exec.sp he⟩, h2⟩
+  exact ⟨t, s', he, ⟨h1, Exec.sp he, Exec.preservedV he⟩, h2⟩
 
 end VG.Proof.X25519.AArch64

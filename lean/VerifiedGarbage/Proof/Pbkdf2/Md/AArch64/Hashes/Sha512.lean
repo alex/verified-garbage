@@ -158,9 +158,12 @@ def ok (hR : I.S.Repr = Spec.Sha512.Repr iv)
     (hB : I.S.H.blockSize = 128) (hS : I.S.stateBytes = 192) (hDs : I.S.digestBytes = D)
     (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) (hW : I.scratch = 234) (hiv : IVs iv) :
     HashOK (hash v I D initN iv) where
+  initKeepsV := by rfl
+  updKeepsV := v.updateKeepsV
+  finKeepsV := v.finalizeKeepsV
   md := Proof.Sha512.md
   shape := Pbkdf2.AArch64.sha512_shape
-  comp := ⟨v.verified.1, v.verified.2.1, v.noFrames⟩
+  comp := ⟨v.verified.1, v.verified.2.1, v.noFrames, v.keepsV⟩
   reloc m m' p q h := by
     apply Vector.ext
     intro j hj

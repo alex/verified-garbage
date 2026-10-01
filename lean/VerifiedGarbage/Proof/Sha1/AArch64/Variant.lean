@@ -19,6 +19,8 @@ structure Compress where
   code : Prog isa
   verified : Verified AArch64.target code Proof.Sha1.compressAArch64
   noFrames : code.noFrames = true
+  /-- Current streaming wrappers require untouched callee-saved SIMD registers. -/
+  keepsV : code.allInstrs keepsV = true
   suffix : String
   features : List String
   updateCT : ConstantTime isa (updK (P := Stream.params) md).pre
@@ -39,7 +41,7 @@ variable (v : Compress)
 def update : Prog isa := Impl.MdStream.AArch64.update Stream.params v.name v.code
 def finalize : Prog isa := Impl.MdStream.AArch64.finalize Stream.params v.name v.code
 
-theorem callee : CalleeOk (P := Stream.params) md v.code := ⟨v.verified.1, v.noFrames⟩
+theorem callee : CalleeOk (P := Stream.params) md v.code := ⟨v.verified.1, v.noFrames, v.keepsV⟩
 
 theorem update_verified : Verified AArch64.target v.update Proof.Sha1.updateAArch64 := by
   have h := MdStream.AArch64.Update.verified Stream.dims v.callee v.updateCT v.updateKeeps

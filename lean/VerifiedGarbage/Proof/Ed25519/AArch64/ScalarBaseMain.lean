@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarBaseMemory
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarMain
 
@@ -27,6 +28,7 @@ theorem farScr {base p : Addr} {n : Nat}
 
 theorem scalarBase_correct {s : State} (hs : scalarBaseLocal.pre s) :
     WP isa scalarBase s fun t => abiPreserved s t ∧ scalarBaseLocal.post s t := by
+  apply WP.withPreservedV (hc := by decide +kernel)
   obtain ⟨hr, hw, hd, hn⟩ := hs
   have hws : (⟨s.gpr .x2, 8192⟩ : Region) ∈ s.wr := by rw [hw]; simp
   rw [scalarBase]

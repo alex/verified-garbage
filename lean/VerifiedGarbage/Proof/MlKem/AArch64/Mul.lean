@@ -343,7 +343,7 @@ theorem step {s₀ : State} (hp : Pre s₀) {c : Nat} (hc : c < 32) {s : State} 
   have k₁₄ : Keep [] s s₁₄ := ⟨fun r _ => by rw [g₁₄], by rw [h₁₄.rd, h₁₃.rd, h₁₂.rd, h₁₁.rd,
     h₁₀.rd, h₉.rd, h₈.rd, h₇.rd, h₆.rd, h₅.rd, h₄.rd, h₃.rd, h₂.rd, h₁.rd], by rw [h₁₄.wr, h₁₃.wr, w₁₂, h.wr],
     by rw [h₁₄.sp, h₁₃.sp, h₁₂.sp, h₁₁.sp, h₁₀.sp, h₉.sp, h₈.sp, h₇.sp, h₆.sp, h₅.sp, h₄.sp, h₃.sp, h₂.sp,
-      h₁.sp]⟩
+      h₁.sp], (((((((((((((h₁.keep.trans h₂.keep).trans h₃.keep).trans h₄.keep).trans h₅.keep).trans h₆.keep).trans h₇.keep).trans h₈.keep).trans h₉.keep).trans h₁₀.keep).trans h₁₁.keep).trans h₁₂.keep).trans h₁₃.keep).trans h₁₄.keep).vcs⟩
   have c11 : (s₁₄.gpr .x11).toNat = 32 - c := by rw [g₁₄, h.x11]
   have x11' : (s'.gpr .x11).toNat = 32 - (c + 1) := by
     rw [e11, toNat_sub_n (by rw [c11]; simp; omega), c11]; simp; omega

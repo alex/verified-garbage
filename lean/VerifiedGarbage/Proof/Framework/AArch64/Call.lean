@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Framework.AArch64.Inline
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 
 /-!
 # Calls and frames (AArch64)
@@ -34,6 +34,7 @@ theorem call_callEntry (s : State) : isa.call s = some s.callEntry := rfl
 @[simp] theorem State.callEntry_wr (s : State) : s.callEntry.wr = s.wr := rfl
 @[simp] theorem State.callEntry_sp (s : State) : s.callEntry.sp = s.sp := rfl
 @[simp] theorem State.callEntry_mem (s : State) : s.callEntry.mem = s.mem := rfl
+@[simp] theorem State.callEntry_v (s : State) : s.callEntry.v = s.v := rfl
 
 theorem State.callEntry_gpr (s : State) {r : Reg} (h : r ∉ linkRegs) : s.callEntry.gpr r = s.gpr r := by
   simp only [linkRegs, List.mem_cons, List.not_mem_nil, or_false, not_or] at h
@@ -51,14 +52,15 @@ precondition holds on entry, once its permissions are narrowed to `rd` and
 (on the narrowed states), which has the permissions and stack pointer of
 `s`, differs from it in memory only within `wr`, and keeps the callee-saved
 registers other than `x30` and every register other than `linkRegs` that no
-instruction of the callee writes. -/
-theorem WP.call {name : String} {c : Prog isa} {k : Contract isa}
+instruction of the callee writes. The low 64 bits of v8–v15 are preserved. -/
+theorem WP.callV {name : String} {c : Prog isa} {k : Contract isa}
     (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
     {s : State} {rd wr : List Region} (hpre : k.pre (s.callEntry.withRegions rd wr))
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp → Frame wr s.mem s'.mem →
       (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s.gpr r) →
       (∀ r, r ∉ linkRegs → (∀ i ∈ instrs c, dstOf i ≠ some r) → s'.gpr r = s.gpr r) →
+      (∀ r ∈ VG.AArch64.preservedV, (s'.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64) →
       k.post (s.callEntry.withRegions rd wr) (s'.withRegions rd wr) → Q s')
     (hn : c.noFrames = true := by decide +kernel) : WP isa (.call name c) s Q := by
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre
@@ -71,17 +73,30 @@ theorem WP.call {name : String} {c : Prog isa} {k : Contract isa}
   have h30 : s₁.gpr .x30 = s.callEntry.gpr .x30 := habi.1 .x30 (by simp [preserved])
   have hret : isa.ret s.callEntry (s₁.withRegions s.rd s.wr) = some (s₁.withRegions s.rd s.wr) := by
     simp only [isa, ret, State.withRegions_gpr, h30, ite_true]
-  refine ⟨_, _, Exec.call (call_callEntry s) he' hret, hQ _ rfl rfl ?_ hf ?_ ?_ ?_⟩
-  · simp only [State.withRegions_sp]; exact habi.2
+  refine ⟨_, _, Exec.call (call_callEntry s) he' hret, hQ _ rfl rfl ?_ hf ?_ ?_ ?_ ?_⟩
+  · simp only [State.withRegions_sp]; exact habi.2.1
   · intro r hr' h30'
     have hl : r ∉ linkRegs := preserved_not_link r hr' h30'
     simp only [State.withRegions_gpr]
     rw [habi.1 r hr', State.withRegions_gpr, State.callEntry_gpr s hl]
   · intro r hl hd
     rw [Exec.gpr hd he' (.inr hl), State.callEntry_gpr s hl]
+  · exact habi.2.2
   · have : (s₁.withRegions s.rd s.wr).withRegions rd wr = s₁ := by
       rw [State.withRegions_withRegions, ← hr, ← hwr]; rfl
     rw [this]; exact hpost
+
+/-- Compatibility rule for callers that do not track vector registers. -/
+theorem WP.call {name : String} {c : Prog isa} {k : Contract isa}
+    (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
+    {s : State} {rd wr : List Region} (hpre : k.pre (s.callEntry.withRegions rd wr))
+    (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp → Frame wr s.mem s'.mem →
+      (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s.gpr r) →
+      (∀ r, r ∉ linkRegs → (∀ i ∈ instrs c, dstOf i ≠ some r) → s'.gpr r = s.gpr r) →
+      k.post (s.callEntry.withRegions rd wr) (s'.withRegions rd wr) → Q s')
+    (hn : c.noFrames = true := by decide +kernel) : WP isa (.call name c) s Q := by
+  exact WP.callV hv hpre hc hw (fun s' hr hwr hsp hf hg hu _ hp => hQ s' hr hwr hsp hf hg hu hp) hn
 
 /-- The state a frame's body starts in, after `str xr, [sp, #-16]!`. -/
 def pushed (r : Reg) (s : State) : State :=
@@ -244,14 +259,16 @@ theorem Exec.frameSp {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa
     · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), below_body s₀.sp _⟩
 
 /-- Calling verified code that may have frames: as `WP.call`, but the
-callee may also change the `16 * fdepth` bytes below the stack pointer. -/
-theorem WP.callF {name : String} {c : Prog isa} {k : Contract isa}
+callee may also change the `16 * fdepth` bytes below the stack pointer.
+The vector ABI guarantee is available to its postcondition. -/
+theorem WP.callFV {name : String} {c : Prog isa} {k : Contract isa}
     (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
     {s : State} {rd wr : List Region} (hpre : k.pre (s.callEntry.withRegions rd wr))
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
       Frame (wr ++ [below s.sp (16 * c.fdepth)]) s.mem s'.mem →
       (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s.gpr r) →
+      (∀ r ∈ VG.AArch64.preservedV, (s'.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64) →
       k.post (s.callEntry.withRegions rd wr) (s'.withRegions rd wr) → Q s')
     (hd : 16 * c.fdepth < 2 ^ 64 := by decide +kernel) : WP isa (.call name c) s Q := by
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre
@@ -265,15 +282,28 @@ theorem WP.callF {name : String} {c : Prog isa} {k : Contract isa}
   have h30 : s₁.gpr .x30 = s.callEntry.gpr .x30 := habi.1 .x30 (by simp [preserved])
   have hret : isa.ret s.callEntry (s₁.withRegions s.rd s.wr) = some (s₁.withRegions s.rd s.wr) := by
     simp only [isa, ret, State.withRegions_gpr, h30, ite_true]
-  refine ⟨_, _, Exec.call (call_callEntry s) he' hret, hQ _ rfl rfl ?_ hf ?_ ?_⟩
-  · simp only [State.withRegions_sp]; exact habi.2
+  refine ⟨_, _, Exec.call (call_callEntry s) he' hret, hQ _ rfl rfl ?_ hf ?_ ?_ ?_⟩
+  · simp only [State.withRegions_sp]; exact habi.2.1
   · intro r hr' h30'
     have hl : r ∉ linkRegs := preserved_not_link r hr' h30'
     simp only [State.withRegions_gpr]
     rw [habi.1 r hr', State.withRegions_gpr, State.callEntry_gpr s hl]
+  · exact habi.2.2
   · have : (s₁.withRegions s.rd s.wr).withRegions rd wr = s₁ := by
       rw [State.withRegions_withRegions, ← hr, ← hwr]; rfl
     rw [this]; exact hpost
+
+/-- Compatibility rule for callers that do not track vector registers. -/
+theorem WP.callF {name : String} {c : Prog isa} {k : Contract isa}
+    (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
+    {s : State} {rd wr : List Region} (hpre : k.pre (s.callEntry.withRegions rd wr))
+    (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
+    (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
+      Frame (wr ++ [below s.sp (16 * c.fdepth)]) s.mem s'.mem →
+      (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s.gpr r) →
+      k.post (s.callEntry.withRegions rd wr) (s'.withRegions rd wr) → Q s')
+    (hd : 16 * c.fdepth < 2 ^ 64 := by decide +kernel) : WP isa (.call name c) s Q := by
+  exact WP.callFV hv hpre hc hw (fun s' hr hwr hsp hf hg _ hp => hQ s' hr hwr hsp hf hg hp) hd
 
 /-- Running code that was proven on narrower permissions: if, from `s` with
 its permissions narrowed to `rd` and `wr`, the code terminates in a state
