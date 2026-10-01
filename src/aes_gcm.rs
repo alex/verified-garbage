@@ -232,6 +232,9 @@ impl AesGcm {
     /// XORs the counter-mode keystream from `counter` into `blocks`, and
     /// advances `counter` past them.
     fn ctr32(&self, counter: &mut Block, blocks: &mut [Block]) {
+        if blocks.is_empty() {
+            return;
+        }
         let mut scratch = MaybeUninit::<[u64; 256]>::uninit();
         let f = match self.backend {
             Backend::Scalar => vg_aes_ctr32,
