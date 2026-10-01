@@ -3,13 +3,15 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.SignCached.Entry
 
 /-! Complete signing meets its functional contract and preserves the ABI. -/
 namespace VG.Proof.Ed25519.X86_64.SignCached
+
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
 open VG VG.X86_64
 open VG.Impl.Ed25519.X86_64.SignCached
 open VG.Proof.Sha512.X86_64 (Compress)
 open VG.Proof.Ed25519.X86_64.PublicKey (add_add ne_cs)
 
 theorem sign_ok (v : Compress) {s : State} (h : signLocal.pre s) :
-    WP isa (code v.callee v.suffix) s fun s' => abiPreserved s s' ∧ signLocal.post s s' := by
+    WP isa (code fld fs v.callee v.suffix) s fun s' => abiPreserved s s' ∧ signLocal.post s s' := by
   have hL := lay_ok h
   have hc := push_ctx h
   refine WP.frame (rs := pushRs) (by decide) (by decide) (by decide) (by show 8 * 31 ≤ _; have := h.1; omega)

@@ -9,6 +9,8 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (val4 Keeps clob)
 open Fin.CommRing
 
+variable {fld : Arith} [EdArith fld]
+
 theorem wordsZero_flag (a b c d : BitVec 64) :
     (((a ||| b) ||| c) ||| d == 0#64) = decide (val4 a b c d = 0) := by
   apply Bool.eq_iff_iff.mpr
@@ -49,7 +51,7 @@ theorem fieldZero_ok {s : State} {base : Addr} (hs : Scratch s base) (a : Slot) 
   simp only [he]
 
 theorem fieldEqual_ok {s : State} {base : Addr} (hs : Scratch s base) (a b : Slot) :
-    WP isa (.block (fieldEqual a b)) s fun t =>
+    WP isa (.block (fieldEqual fld a b)) s fun t =>
       t.zf = some (decide (env s.mem base a = env s.mem base b)) ∧ Keep base s t ∧
       ∀ i : Slot, i ≠ 21 → env t.mem base i = env s.mem base i := by
   rw [fieldEqual, WP.block_append_iff]

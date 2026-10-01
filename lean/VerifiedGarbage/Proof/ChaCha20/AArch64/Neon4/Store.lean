@@ -101,14 +101,14 @@ theorem xorList_ok (r : Fin 4) (js : List (Fin 4)) (hn : js.Nodup)
     (hd : Data m₀ s.mem p out done) (hp : s.gpr .x1 = p)
     (hv : ∀ j : Fin 4, s.v (vreg (rowWord r j)) = out (slot r j))
     (hfresh : ∀ j ∈ js, slot r j ∉ done)
-    (hout : ∀ j : Fin 4, InRegions s.wr (p + BitVec.ofNat 64 (64 * j + 16 * r)) 16) :
+    (hout : ∀ j ∈ js, InRegions s.wr (p + BitVec.ofNat 64 (64 * j + 16 * r)) 16) :
     WP isa (.block (js.flatMap (xorRow r))) s fun s' =>
       Data m₀ s'.mem p out (js.map (slot r) ++ done) ∧ StoreSame s s' := by
   induction js generalizing s done with
   | nil => exact WP.block_nil ⟨hd, rfl, fun _ => rfl, rfl, rfl, rfl⟩
   | cons j js ih =>
     have ho : InRegions s.wr (s.gpr .x1 + BitVec.ofNat 64 (64 * j + 16 * r)) 16 := by
-      rw [hp]; exact hout j
+      rw [hp]; exact hout j (List.mem_cons_self ..)
     apply WP.block_append
     refine (xorRow_ok s r j ho).mono fun s' ⟨hm, hs⟩ => ?_
     have hd' : Data m₀ s'.mem p out (slot r j :: done) := by
@@ -122,8 +122,8 @@ theorem xorList_ok (r : Fin 4) (js : List (Fin 4)) (hn : js.Nodup)
       simp only [List.mem_cons, slot_inj, not_or]
       exact ⟨fun e => (List.nodup_cons.mp hn).1 (e ▸ hi),
         hfresh i (List.mem_cons_of_mem _ hi)⟩
-    have hout' : ∀ i : Fin 4, InRegions s'.wr (p + BitVec.ofNat 64 (64 * i + 16 * r)) 16 := by
-      intro i; rw [hs.wr]; exact hout i
+    have hout' : ∀ i ∈ js, InRegions s'.wr (p + BitVec.ofNat 64 (64 * i + 16 * r)) 16 := by
+      intro i hi; rw [hs.wr]; exact hout i (List.mem_cons_of_mem _ hi)
     refine (ih (List.nodup_cons.mp hn).2 hd' hp' hv' hfresh' hout').mono fun s'' ⟨hd'', ht⟩ =>
       ⟨?_, hs.trans ht⟩
     intro x

@@ -2,6 +2,8 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.SignCached.Preserve
 
 /-! Argument blocks composed with the signer's scalar and group calls. -/
 namespace VG.Proof.Ed25519.X86_64.SignCached
+
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
 open VG VG.X86_64
 open VG.Impl.Ed25519.X86_64 (callWith scalarBaseName scalarBase_precomputed scalarMulAdd)
 open VG.Impl.Ed25519.X86_64.SignCached
@@ -18,7 +20,7 @@ theorem reduce_step (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) (out : Nat)
 
 theorem base_step (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) {scalar : List Byte}
     (hs : Spec.Ed25519.bytesAt t.mem (L.B + BitVec.ofNat 64 80) 32 = scalar) :
-    WP isa (callWith baseArgs scalarBaseName scalarBase_precomputed) t fun t' => Ctx L g mx m₀ t' ∧
+    WP isa (callWith baseArgs (scalarBaseName fs) (scalarBase_precomputed fld)) t fun t' => Ctx L g mx m₀ t' ∧
       Spec.Ed25519.bytesAt t'.mem L.out 32 = Spec.Ed25519.scalarBase scalar ∧
       Frame (baseWr L ++ [⟨L.B, 16⟩]) t.mem t'.mem := by
   refine WP.seq (WP.mono (baseArgs_ok hc) fun u ⟨hu, hm, ha⟩ => ?_)

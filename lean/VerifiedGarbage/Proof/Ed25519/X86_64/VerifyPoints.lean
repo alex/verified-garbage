@@ -16,6 +16,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64 VG.Proof.Ed25519 Edwards
 open VG.Proof.X25519.X86_64 (off ofs Keeps clob Outside)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem window_equation {P Q R A : Spec.Ed25519.Point} {Aa Ra : EPoint dZ} {K S : Nat}
     (hA : Rep A Aa) (hR : Rep R Ra) (hP : Rep P (K • Aa + S • (-baseAff))) (hQ : Rep Q (-Ra)) :
     Spec.Ed25519.pointEqual P Q = Spec.Ed25519.pointEqual
@@ -41,7 +43,7 @@ theorem negR_eval (e : Env) :
 
 /-- `-R`, beside the accumulator. -/
 theorem negR_ok {s : State} {base : Addr} (hs : Scratch s base) :
-    WP isa (.block negR) s fun t => Keep base s t ∧
+    WP isa (.block (negR fld)) s fun t => Keep base s t ∧
       point (env t.mem base) 0 1 2 3 = point (env s.mem base) 0 1 2 3 ∧
       point (env t.mem base) 4 5 6 7 = negPoint (tablePoint s.mem base 7552) := by
   rw [negR, List.append_assoc, WP.block_append_iff]
@@ -62,8 +64,8 @@ theorem negR_ok {s : State} {base : Addr} (hs : Scratch s base) :
   · rw [vt, (negR_eval _).2, pb, ka.2.1]
 
 /-- Verification's code before the windows, regrouped. -/
-def windowPrep : Prog isa :=
-  .seq (.seq (.seq (.block windowSetup) aTable) (.block bTable)) (.block windowInit)
+def windowPrep (fld : Arith) : Prog isa :=
+  .seq (.seq (.seq (.block windowSetup) (aTable fld)) (.block bTable)) (.block (windowInit fld))
 
 /-- Before the windows: the tables, an accumulator representing `0` and the counter at 64. -/
 theorem windowPrep_ok {s : State} {base sig challenge : Addr} {Aa : EPoint dZ}
@@ -75,7 +77,7 @@ theorem windowPrep_ok {s : State} {base sig challenge : Addr} {Aa : EPoint dZ}
     (hcr : ∀ i < 64, InRegions (s.rd ++ s.wr) (off challenge i) 1)
     (hcf : ∀ i < 64, 8192 ≤ ofs base (off challenge i))
     (hA : Rep (tablePoint s.mem base 7424) Aa) :
-    WP isa windowPrep s fun e => WinLoop e base challenge sig Aa
+    WP isa (windowPrep fld) s fun e => WinLoop e base challenge sig Aa
       (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem challenge 64))
       (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem (off sig 32) 32)) 64 e ∧
       PowersKeep base 56 7752 s e ∧ tablePoint e.mem base 7552 = tablePoint s.mem base 7552 := by
@@ -150,7 +152,7 @@ theorem verifyEquationPoints_ok {s : State} {base sig challenge : Addr} {Aa Ra :
     (hcr : ∀ i < 64, InRegions (s.rd ++ s.wr) (off challenge i) 1)
     (hcf : ∀ i < 64, 8192 ≤ ofs base (off challenge i))
     (hA : Rep (tablePoint s.mem base 7424) Aa) (hR : Rep (tablePoint s.mem base 7552) Ra) :
-    WP isa verifyEquationPoints s fun t => PowersKeep base 56 7752 s t ∧
+    WP isa (verifyEquationPoints fld) s fun t => PowersKeep base 56 7752 s t ∧
       t.gpr .rax = signWord (Spec.Ed25519.pointEqual
         (Spec.Ed25519.pointMul
           (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem (off sig 32) 32)) Spec.Ed25519.basePoint)

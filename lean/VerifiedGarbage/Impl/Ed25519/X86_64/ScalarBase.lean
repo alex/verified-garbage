@@ -10,13 +10,13 @@ namespace VG.Impl.Ed25519.X86_64
 open VG.X86_64
 open VG.Impl.X25519.X86_64 (at_ sc)
 
-def scalarBaseInit : List Instr := constField 16 Spec.Ed25519.d ++ constPoint Spec.Ed25519.basePoint
+def scalarBaseInit (fld : Arith) : List Instr := constField 16 Spec.Ed25519.d ++ constPoint fld Spec.Ed25519.basePoint
 
-def scalarBasePrepare : Prog isa :=
-  .seq (scalarBits 32) (.block scalarBaseInit)
+def scalarBasePrepare (fld : Arith) : Prog isa :=
+  .seq (scalarBits 32) (.block (scalarBaseInit fld))
 
-def scalarBaseEngine : Prog isa :=
-  .seq scalarBasePrepare (.seq (pointMultiply 16) pointEncode)
+def scalarBaseEngine (fld : Arith) : Prog isa :=
+  .seq (scalarBasePrepare fld) (.seq (pointMultiply fld 16) (pointEncode fld))
 
 def scalarBaseSetup : List Instr :=
   [.store (at_ .rdx 48) .rdi, .mov .rdi (.reg .rdx)]
@@ -31,6 +31,6 @@ def scalarBaseFinish : Prog isa :=
 def scalarBaseWith (engine : Prog isa) : Prog isa :=
   .seq (.block (scalarSave ++ scalarBaseSetup)) (.seq engine scalarBaseFinish)
 
-def scalarBase : Prog isa := scalarBaseWith scalarBaseEngine
+def scalarBase (fld : Arith) : Prog isa := scalarBaseWith (scalarBaseEngine fld)
 
 end VG.Impl.Ed25519.X86_64

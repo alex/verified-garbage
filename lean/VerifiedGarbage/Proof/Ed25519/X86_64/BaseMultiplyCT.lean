@@ -14,11 +14,13 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem baseBatchTable_ct (base : Addr) (j : Nat) (hj : j < 16) :
     RelCT isa (fun x y => BatchCTReady base j x ∧ BatchCTReady base j y)
       baseBatchTable (fun x y => BatchCTOffset base j x ∧ BatchCTOffset base j y) := by
   apply both_wp
-  · apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rbx]) _ (by taint_decide)
+  · apply taintFld (Taint.ofRegs [.rdi, .rbx]) _ (by fld_taint_decide)
     intro x y h
     apply Taint.agree_ofRegs
     intro r hr
@@ -33,12 +35,12 @@ theorem baseBatchTable_ct (base : Addr) (j : Nat) (hj : j < 16) :
 
 theorem baseMulBatch_ct (base : Addr) (j : Nat) (hj : j < 16) :
     RelCT isa (fun x y => BatchCTPre base j x ∧ BatchCTPre base j y)
-      baseMulBatch (fun _ _ => True) := by
+      (baseMulBatch fld) (fun _ _ => True) := by
   rw [baseMulBatch]
   refine VG.RelCT.seq (begin_ct base j) (VG.RelCT.seq (baseBatchTable_ct base j hj)
     (VG.RelCT.seq (offset_ct base j (by omega)) (VG.RelCT.seq
       (R := fun (x y : State) => ∀ r ∈ ([.rdi] : List Reg), x.gpr r = y.gpr r) ?_ ?_)))
-  · apply VG.X86_64.RelCT.taintRegs (τ := Taint.ofRegs [.rdi, .rsi]) _ [.rdi] (by taint_decide)
+  · apply taintRegsFld (τ := Taint.ofRegs [.rdi, .rsi]) _ [.rdi] (by fld_taint_decide)
     intro x y h
     apply Taint.agree_ofRegs
     intro r hr
@@ -46,7 +48,7 @@ theorem baseMulBatch_ct (base : Addr) (j : Nat) (hj : j < 16) :
     rcases hr with rfl | rfl
     · exact h.1.1.trans h.2.1.symm
     · exact h.1.2.trans h.2.2.symm
-  · apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+  · apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
     intro x y h
     exact Taint.agree_ofRegs h
 
@@ -56,7 +58,7 @@ def BaseMulCTInv (s₀ : State) (base : Addr) (scalar n : Nat) (s : State) : Pro
 
 theorem baseMulLoop_ct (s₁ s₂ : State) (base : Addr) (scalar₁ scalar₂ : Nat) (n : Nat) :
     RelCT isa (fun x y => BaseMulCTInv s₁ base scalar₁ n x ∧ BaseMulCTInv s₂ base scalar₂ n y)
-      (.loop baseMulBatch .ne) (fun _ _ => True) := by
+      (.loop (baseMulBatch fld) .ne) (fun _ _ => True) := by
   apply VG.RelCT.loop (M := isa) (fun n x y => BaseMulCTInv s₁ base scalar₁ n x ∧
     BaseMulCTInv s₂ base scalar₂ n y) _ n
   intro k
@@ -67,7 +69,7 @@ theorem baseMulLoop_ct (s₁ s₂ : State) (base : Addr) (scalar₁ scalar₂ : 
     exact Nat.not_lt_zero _ h.1.1.positive
   | succ j =>
     by_cases hj : j < 16
-    · have hct := (baseMulBatch_ct base j hj).mono
+    · have hct := (baseMulBatch_ct (fld := fld) base j hj).mono
         (fun x y (h : BaseMulCTInv s₁ base scalar₁ (j + 1) x ∧ BaseMulCTInv s₂ base scalar₂ (j + 1) y) =>
           ⟨⟨h.1.1.scratch, h.1.1.counter, h.1.1.slot16.trans h.1.2⟩,
            ⟨h.2.1.scratch, h.2.1.counter, h.2.1.slot16.trans h.2.2⟩⟩)
@@ -99,10 +101,10 @@ theorem baseMulLoop_ct (s₁ s₂ : State) (base : Addr) (scalar₁ scalar₂ : 
 
 theorem baseMultiply_ct (base : Addr) (scalar₁ scalar₂ : Nat) :
     RelCT isa (fun x y => MulCTPre base scalar₁ x ∧ MulCTPre base scalar₂ y)
-      baseMultiply (fun _ _ => True) := by
+      (baseMultiply fld) (fun _ _ => True) := by
   have initCT : RelCT isa (fun x y => MulCTPre base scalar₁ x ∧ MulCTPre base scalar₂ y)
-      (.block baseMultiplyInit) (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+      (.block (baseMultiplyInit fld)) (fun _ _ => True) := by
+    apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
     intro x y h
     exact Taint.agree_ofRegs (by
       intro r hr
