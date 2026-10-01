@@ -1,5 +1,6 @@
 import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Proof.Ed25519.X86_64.PublicKey.Verified
+import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyMessage.Verified
 
 /-!
 # Ed25519 (RFC 8032) on x86-64, over SHA-512
@@ -39,6 +40,19 @@ def artifacts (v : Proof.Pbkdf2.Md.X86_64.MdHash) : List Artifact :=
       stack := 72
       verified := Proof.Ed25519.X86_64.PublicKey.publicKey_verified c
       spSafe := Proof.Ed25519.X86_64.PublicKey.publicKey_spSafe c
+      features := c.features },
+    { Spec.Ed25519.verifyApi with
+      name := Spec.Ed25519.verifyApi.name ++ c.suffix
+      target := X86_64.target
+      doc := Spec.Ed25519.verifyApi.doc (notes := ["Hashes R, the public key and the message with \
+        the selected SHA-512 backend, reduces the challenge modulo L, and calls \
+        `vg_ed25519_verify_equation`. The digest and zero-extended reduced challenge occupy \
+        separate buffers in a 168-byte stack frame; calls use another 16 bytes below it."])
+      code := Impl.Ed25519.X86_64.VerifyMessage.code c.callee c.suffix
+      contract := Spec.Ed25519.verifyContract X86_64.abi 184
+      stack := 184
+      verified := Proof.Ed25519.X86_64.VerifyMessage.verified c
+      spSafe := Proof.Ed25519.X86_64.VerifyMessage.spSafe c
       features := c.features }]
 
 end VG.Generic.MdHash.X86_64.Ed25519
