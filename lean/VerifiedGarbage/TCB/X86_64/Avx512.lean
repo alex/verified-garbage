@@ -61,8 +61,13 @@ no write mask and a memory `SRC2` with `EVEX.b = 1`, for each quadword
   DEST[i+63:i] := ZeroExtend64( SRC1[i+31:i]) * ZeroExtend64( SRC2[31:0] )`.
 * VPANDQ ("PAND"): `IF (EVEX.b = 1) AND (SRC2 *is memory*) THEN
   DEST[i+63:i] := SRC1[i+63:i] BITWISE AND SRC2[63:0]`.
-* VPORQ ("POR"): `IF (EVEX.b = 1) AND (SRC2 *is memory*) THEN
-  DEST[i+63:i] := SRC1[i+63:i] BITWISE OR SRC2[63:0]`.
+* VPORQ ("POR/VPOR/VPORD/VPORQ"): the SDM gives the pseudocode of VPORD
+  only, `IF (EVEX.b = 1) AND (SRC2 *is memory*) THEN DEST[i+31:i] :=
+  SRC1[i+31:i] BITWISE OR SRC2[31:0]` for each doubleword (`i := j * 32`),
+  and describes VPORQ as the same on quadwords, its source "a 512/256/128-bit
+  vector broadcasted from a 32/64-bit memory location" (the 64-bit one for
+  VPORQ): `DEST[i+63:i] := SRC1[i+63:i] BITWISE OR SRC2[63:0]` with
+  `i := j * 64`, as VPANDQ.
 
 Each quadword of `DEST` is that of `SRC1` combined with `SRC2[63:0]`, so
 on each 128-bit lane this is PMULUDQ, PAND and POR (`XBinOp.eval`) of the
