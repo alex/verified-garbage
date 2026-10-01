@@ -26,6 +26,7 @@ inductive FieldOp where
   | copy (out a : Slot)
   | const (out : Slot) (v : Spec.X25519.Fe)
   | mul (out a b : Slot)
+  | sqr (out a : Slot)
   | add (out a b : Slot)
   | sub (out a b : Slot)
   deriving DecidableEq
@@ -34,6 +35,7 @@ def FieldOp.code : FieldOp → List Instr
   | .copy o a => copyField o a
   | .const o v => constField o v
   | .mul o a b => fieldMul (offset o) (offset a) (offset b)
+  | .sqr o a => fieldSqr (offset o) (offset a)
   | .add o a b => fieldAdd (offset o) (offset a) (offset b)
   | .sub o a b => fieldSub (offset o) (offset a) (offset b)
 
@@ -52,13 +54,13 @@ def pointAddOps : List FieldOp := [
 
 def pointAdd : List Instr := fieldCode pointAddOps
 
-/-- Double the first point, using the complete addition formula on two
-equal inputs. Uses precisely the same formula as the specification. -/
+/-- Double the first point: the complete addition formula on two equal
+inputs, with its products of equal factors as squarings. -/
 def pointDoubleOps : List FieldOp := [
-  .sub 8 1 0, .mul 8 8 8,
-  .add 9 1 0, .mul 9 9 9,
-  .mul 10 3 16, .add 10 10 10, .mul 10 10 3,
-  .add 11 2 2, .mul 11 11 2,
+  .sub 8 1 0, .sqr 8 8,
+  .add 9 1 0, .sqr 9 9,
+  .sqr 10 3, .mul 10 10 16, .add 10 10 10,
+  .sqr 11 2, .add 11 11 11,
   .sub 12 9 8, .sub 13 11 10, .add 14 11 10, .add 15 9 8,
   .mul 0 12 13, .mul 1 14 15, .mul 2 13 14, .mul 3 12 15]
 

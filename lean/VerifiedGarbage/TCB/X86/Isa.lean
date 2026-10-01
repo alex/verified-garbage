@@ -1,4 +1,4 @@
-import VerifiedGarbage.TCB.Code
+import VerifiedGarbage.TCB.X86.Sse
 
 /-!
 # x86 (32-bit) machine model
@@ -16,6 +16,9 @@ Modelling choices:
   only `al`, `cl`, `dl` and `bl` can be the source of a byte store as the low
   byte of a 32-bit register (SDM Vol. 1 §3.4.1.1 and Vol. 2 §3.1.1.1), so a
   byte store takes a `Reg8`.
+* Legacy SIMD uses only `xmm0`–`xmm7`, each 128 bits (SDM Vol. 1 §10.2.1).
+  The model includes no AVX/AVX-512 instructions; legacy writes affect only
+  these 128 bits. All XMM registers are caller-saved in the i386 ABI.
 * Only CF, ZF, SF and OF are modelled. Each is an `Option Bool`; `none` means
   "undefined" (as the SDM specifies for some instructions). Evaluating a
   branch on an undefined flag faults, so verified code never depends on one.
@@ -53,32 +56,6 @@ Modelling choices:
 -/
 
 namespace VG.X86
-
-inductive Reg
-  | eax | ecx | edx | ebx | esp | ebp | esi | edi
-  deriving DecidableEq, Repr, Inhabited
-
-structure State where
-  gpr : Reg → BitVec 32
-  cf : Option Bool
-  zf : Option Bool
-  sf : Option Bool
-  of : Option Bool
-  mem : Mem
-  /-- Regions the code may read (in addition to `wr`). -/
-  rd : List Region
-  /-- Regions the code may read and write. -/
-  wr : List Region
-  /-- Values the model does not know, used in order: the return address each
-  call stores and, on the ARM targets, what a linker veneer may leave in the
-  intra-procedure-call scratch registers (see `TCB/Code.lean`). -/
-  unknowns : Nat → BitVec 32 := fun _ => 0
-
-/-- A memory operand `[base + disp]`. -/
-structure MemOp where
-  base : Reg
-  disp : Nat := 0
-  deriving DecidableEq, Repr
 
 /-- The registers whose low byte has an 8-bit name without a REX prefix:
 `al`, `cl`, `dl`, `bl` (the low bytes of `eax`, `ecx`, `edx`, `ebx`). -/
@@ -126,6 +103,12 @@ inductive Instr
   | pop (r : Reg) (k : Nat)
   /-- `mul r32` (F7 /4): the unsigned product `EDX:EAX := EAX * r32`. -/
   | mul (src : Reg)
+  /-- Legacy SSE2 unaligned 128-bit load (F3 0F 6F /r). -/
+  | movdquLoad (dst : XReg) (src : MemOp)
+  /-- Legacy SSE2 unaligned 128-bit store (F3 0F 7F /r). -/
+  | movdquStore (dst : MemOp) (src : XReg)
+  /-- A legacy SSE instruction that writes only an XMM register. -/
+  | xop (op : XOp)
   deriving DecidableEq, Repr
 
 /-- Branch conditions (`jcc` suffixes). -/
@@ -140,35 +123,7 @@ inductive Cond
   | ae
   deriving DecidableEq, Repr
 
-namespace State
 
-def setReg (s : State) (r : Reg) (v : BitVec 32) : State :=
-  { s with gpr := fun r' => if r' = r then v else s.gpr r' }
-
-/-- Effective address of a memory operand (32-bit, zero-extended). -/
-def ea (s : State) (m : MemOp) : Addr := (s.gpr m.base + BitVec.ofNat 32 m.disp).setWidth 64
-
-/-- Load 4 bytes, faulting if not permitted. -/
-def load32 (s : State) (a : Addr) : Option (BitVec 32) :=
-  if InRegions (s.rd ++ s.wr) a 4 then some (s.mem.readW a 32) else none
-
-/-- Store 4 bytes, faulting if not permitted. -/
-def store32 (s : State) (a : Addr) (v : BitVec 32) : Option State :=
-  if InRegions s.wr a 4 then some { s with mem := s.mem.writeW a v } else none
-
-/-- Load 1 byte, faulting if not permitted. -/
-def load8 (s : State) (a : Addr) : Option Byte :=
-  if InRegions (s.rd ++ s.wr) a 1 then some (s.mem a) else none
-
-/-- Store 1 byte, faulting if not permitted. -/
-def store8 (s : State) (a : Addr) (v : Byte) : Option State :=
-  if InRegions s.wr a 1 then some { s with mem := s.mem.writeW a v } else none
-
-/-- Set CF, OF, ZF and SF. -/
-def setFlags (s : State) (cf of zf sf : Option Bool) : State :=
-  { s with cf := cf, of := of, zf := zf, sf := sf }
-
-end State
 
 def readSrc (s : State) : Src → Option (BitVec 32)
   | .reg r => some (s.gpr r)
@@ -266,6 +221,9 @@ def exec : Instr → State → Option State
   | .movzx8 d m, s => (s.load8 (s.ea m)).map fun v => s.setReg d (v.setWidth 32)
   | .store8 m r, s => s.store8 (s.ea m) ((s.gpr r.reg).setWidth 8)
   | .mul r, s => some (execMul r s)
+  | .movdquLoad d m, s => (s.load128 (s.ea m)).map fun v => s.setXmm d v
+  | .movdquStore m r, s => s.store128 (s.ea m) (s.xmm r)
+  | .xop op, s => some (op.exec s)
   -- Only the push and pop of a frame (`push`, `pop`).
   | .push _, _ | .pop .., _ => none
 
@@ -277,7 +235,8 @@ def addrs : Instr → State → List Addr
   | .bswap _, _ => []
   | .movzx8 _ m, s => [s.ea m]
   | .store8 m _, s => [s.ea m]
-  | .mul _, _ => []
+  | .mul _, _ | .xop _, _ => []
+  | .movdquLoad _ m, s | .movdquStore m _, s => [s.ea m]
   | .push rs, s => (List.range rs.length).map fun i =>
     (s.gpr .esp - BitVec.ofNat 32 (4 * (i + 1))).setWidth 64
   | .pop _ k, s => (List.range k).map fun i =>
@@ -358,7 +317,20 @@ a frame also moves `esp`, as the push does): `mul` writes two, `eax` and
 `edx`, and stores none. -/
 def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .shift _ d _ | .bswap d | .movzx8 d _ | .pop d _ => some d
-  | .store .. | .store8 .. | .push _ | .mul _ => none
+  | .store .. | .store8 .. | .push _ | .mul _ | .movdquLoad .. | .movdquStore .. | .xop _ => none
+
+/-- Intel SDM Vol. 2's "CPUID Feature Flag" column: PSHUFB/PALIGNR need
+SSSE3, SHA256MSG1/MSG2/RNDS2 need SHA, AESENC/AESENCLAST/AESKEYGENASSIST
+need AES, and PCLMULQDQ needs PCLMULQDQ. The remaining legacy instructions
+are SSE2, already in this target's i686 baseline. -/
+def Instr.requires : Instr → List String
+  | .xop (.bin .pshufb ..) | .xop (.palignr ..) => ["ssse3"]
+  | .xop (.bin .sha256msg1 ..) | .xop (.bin .sha256msg2 ..)
+    | .xop (.sha256rnds2 ..) => ["sha"]
+  | .xop (.bin .aesenc ..) | .xop (.bin .aesenclast ..)
+    | .xop (.aeskeygenassist ..) => ["aes"]
+  | .xop (.pclmulqdq ..) => ["pclmulqdq"]
+  | _ => []
 
 abbrev isa : ISA where
   State := State
@@ -376,7 +348,7 @@ abbrev isa : ISA where
   writesSp i := i.dst == some .esp
   push := push
   pop := pop
-  -- Every modelled instruction is in the i686 baseline.
-  requires _ := []
+  -- SSE2 is baseline; the crypto and SSSE3 instructions require their CPUID features.
+  requires := Instr.requires
 
 end VG.X86

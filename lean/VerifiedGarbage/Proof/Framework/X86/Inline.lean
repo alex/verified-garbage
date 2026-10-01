@@ -119,6 +119,23 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     simp only [State.withRegions_wr, State.withRegions_gpr, State.withRegions_ea, hw _ _ hi, ite_true]
     rfl
   | mul r => simp only [exec, Option.some.injEq] at h ⊢; subst h; rfl
+  | xop op =>
+    simp only [exec, Option.some.injEq] at h ⊢; subst h
+    cases op <;> rfl
+  | movdquLoad d m =>
+    simp only [exec, State.load128, Option.map_eq_some_iff] at h ⊢
+    split at h <;> [rename_i hi; simp at h]
+    obtain ⟨v, hv, rfl⟩ := h
+    simp only [State.withRegions_rd, State.withRegions_wr, State.withRegions_mem, State.withRegions_ea,
+      hc _ _ hi, ite_true]
+    exact ⟨v, hv, rfl⟩
+  | movdquStore m r =>
+    simp only [exec, State.store128] at h ⊢
+    split at h <;> [rename_i hi; cases h]
+    simp only [Option.some.injEq] at h
+    subst h
+    simp only [State.withRegions_wr, State.withRegions_ea, hw _ _ hi, ite_true]
+    rfl
   | push _ | pop _ _ => simp only [exec, reduceCtorEq] at h
 
 theorem addrs_withRegions (i : Instr) (s : State) (rd wr : List Region) :
@@ -152,6 +169,19 @@ theorem exec_regions {i : Instr} (h : exec i s = some s') :
     simp only [exec, Option.map_eq_some_iff] at h
     obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl, Frame.refl _ _⟩
   | mul r => simp only [exec, Option.some.injEq] at h; subst h; exact ⟨rfl, rfl, Frame.refl _ _⟩
+  | xop op =>
+    simp only [exec, Option.some.injEq] at h; subst h
+    cases op <;> exact ⟨rfl, rfl, Frame.refl _ _⟩
+  | movdquLoad d m =>
+    simp only [exec, Option.map_eq_some_iff] at h
+    obtain ⟨_, _, rfl⟩ := h; exact ⟨rfl, rfl, Frame.refl _ _⟩
+  | movdquStore m r =>
+    simp only [exec, State.store128] at h
+    split at h <;> [rename_i hi; cases h]
+    simp only [Option.some.injEq] at h
+    subst h
+    obtain ⟨r, hr, hc⟩ := hi
+    exact ⟨rfl, rfl, (Frame.refl _ _).writeW hr _ hc⟩
   | push _ | pop _ _ => simp only [exec, reduceCtorEq] at h
 
 theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.clobbers i r = false) (h : exec i s = some s') :
@@ -169,6 +199,17 @@ theorem exec_gpr {i : Instr} {r : Reg} (hi : Taint.clobbers i r = false) (h : ex
       simp only [Taint.clobbers, Bool.or_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at hi
       simp only [exec, Option.some.injEq] at h; subst h
       exact Taint.execMul_gpr q s hi.1 hi.2
+    | xop op =>
+      simp only [exec, Option.some.injEq] at h; subst h
+      cases op <;> rfl
+    | movdquLoad d m =>
+      simp only [exec, Option.map_eq_some_iff] at h
+      obtain ⟨_, _, rfl⟩ := h; rfl
+    | movdquStore m r' =>
+      simp only [exec, State.store128] at h
+      split at h <;> [skip; cases h]
+      simp only [Option.some.injEq] at h
+      subst h; rfl
     | push _ | pop _ _ => simp only [exec, reduceCtorEq] at h
     | _ => simp [Taint.dst] at hd
 

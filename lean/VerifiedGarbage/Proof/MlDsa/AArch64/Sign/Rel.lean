@@ -166,6 +166,12 @@ theorem lrel_tr {S : Nat} {rbs wbs : List (Reg × Nat)} {P : State → State →
     (h : (taint.check (AArch64.Taint.ofRegs bases) c hc).isSome = true) : RelCT isa P c fun _ _ => True :=
   taintRel bases (fun x y hp => ⟨(hr x y hp).sp, (hr x y hp).regs⟩) h
 
+theorem vector_lrel_tr {S : Nat} {rbs wbs : List (Reg × Nat)} {P : State → State → Prop} {c : Prog isa}
+    {hc : VG.Taint.Hint VectorTaint.T} (hr : ∀ x y, P x y → LRel S rbs wbs x y)
+    (h : (VectorTaint.taint.check (VectorTaint.ofRegs bases) c hc).isSome = true) :
+    RelCT isa P c fun _ _ => True :=
+  VectorTaint.relRegs bases (fun x y hp => ⟨(hr x y hp).sp, (hr x y hp).regs⟩) h
+
 /-! ## `ρ` -/
 
 theorem signLeakT_head (p : Params) (sk μ rnd : List Byte) :
