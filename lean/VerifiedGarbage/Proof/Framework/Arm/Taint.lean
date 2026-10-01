@@ -155,6 +155,7 @@ def step (τ : T) : Instr → Option T
     some { τ with regs := set τ d (pub τ n && op2Pub τ op2 && τ.flags), bases := kill τ d }
   | .cmp n op2 => some { τ with flags := pub τ n && op2Pub τ op2 }
   | .movw d _ => some { τ with regs := set τ d true, bases := kill τ d }
+  | .addSp d _ => some { τ with regs := set τ d (decide (0 < τ.argLen)), bases := kill τ d }
   | .movt d _ => some { τ with regs := set τ d (pub τ d), bases := kill τ d }
   | .rev d m => some { τ with regs := set τ d (pub τ m), bases := kill τ d }
   | .mul d n m => some { τ with regs := set τ d (pub τ n && pub τ m), bases := kill τ d }
@@ -166,7 +167,7 @@ def step (τ : T) : Instr → Option T
   | .ldrSp t off =>
     if off + 4 ≤ τ.argLen then some { τ with regs := set τ t true, bases := spBases τ t off } else none
   -- Frames are not analysed yet.
-  | .push _ | .pop .. => none
+  | .push _ | .pop .. | .alloc _ | .free _ => none
 
 def meet (τ₁ τ₂ : T) : T where
   regs := τ₁.regs.inter τ₂.regs
@@ -548,8 +549,8 @@ theorem Agree.store {τ : T} {s₁ s₂ : State} (ha : Agree τ s₁ s₂) {r : 
 do not; a frame's pop writes its register). -/
 def dst : Instr → Option Reg
   | .mov d _ | .dp _ d _ _ | .adds d _ _ | .adc d _ _ | .subs d _ _ | .movw d _ | .movt d _ | .rev d _
-  | .mul d _ _ | .ldr d _ _ | .ldrb d _ _ | .ldrSp d _ | .pop d _ => some d
-  | .cmp .. | .str .. | .strb .. | .push _ => none
+  | .addSp d _ | .mul d _ _ | .ldr d _ _ | .ldrb d _ _ | .ldrSp d _ | .pop d _ => some d
+  | .cmp .. | .str .. | .strb .. | .push _ | .alloc _ | .free _ => none
 
 theorem exec_dst {i : Instr} {d : Reg} (hd : dst i = some d) {s s' : State}
     (h : exec i s = some s') :
@@ -610,7 +611,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
     addrs i s₁ = addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i with
-  | push | pop => simp only [step, reduceCtorEq] at hs
+  | push | pop | alloc | free => simp only [step, reduceCtorEq] at hs
   | mov d o =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec, Option.map_eq_some_iff] at e₁ e₂
@@ -661,6 +662,17 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     simp only [Bool.and_eq_true] at hp
     rw [op2_some ha h₁ h₂ hp.2, ha.reg hp.1]
     simp [subFlags]
+  | addSp d imm =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl rfl rfl fun _ h => h⟩
+    simp only [exec] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    rename_i hi
+    simp only [hi, ite_true, Option.some.injEq] at e₁ e₂
+    subst e₁ e₂
+    refine ⟨regs_set (d := d) (p := decide (0 < τ.argLen)) ha.rf.1 ?_, fun hf => ha.rf.2 hf⟩
+    intro hp
+    rw [ha.sp (of_decide_eq_true hp)]
   | movw d imm =>
     simp only [step, Option.some.injEq] at hs; subst hs
     refine ⟨rfl, ha.write rfl e₁ e₂ ?_ rfl rfl rfl rfl fun _ h => h⟩
@@ -912,6 +924,7 @@ def stepK (τ : T) : Instr → Option T
     some { τ with regs := setK τ d (pub τ n && op2Pub τ op2 && τ.flags), bases := killK τ d }
   | .cmp n op2 => some { τ with flags := pub τ n && op2Pub τ op2 }
   | .movw d _ => some { τ with regs := setK τ d true, bases := killK τ d }
+  | .addSp d _ => some { τ with regs := setK τ d (decide (0 < τ.argLen)), bases := killK τ d }
   | .movt d _ => some { τ with regs := setK τ d (pub τ d), bases := killK τ d }
   | .rev d m => some { τ with regs := setK τ d (pub τ m), bases := killK τ d }
   | .mul d n m => some { τ with regs := setK τ d (pub τ n && pub τ m), bases := killK τ d }
@@ -923,7 +936,7 @@ def stepK (τ : T) : Instr → Option T
   | .ldrSp t off =>
     bif Nat.ble (off + 4) τ.argLen then some { τ with regs := setK τ t true, bases := spBasesK τ t off }
     else none
-  | .push _ | .pop .. => none
+  | .push _ | .pop .. | .alloc _ | .free _ => none
 
 /-- `l.contains a`, for a known base address. -/
 def memB (a : Reg × Nat) (l : List (Reg × Nat)) : Bool := any l fun b => regEq a.1 b.1 && Nat.beq a.2 b.2

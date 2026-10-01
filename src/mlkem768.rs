@@ -109,14 +109,7 @@ impl Backend {
 /// The working space of the assembly functions (32 KiB).
 type Scratch = [u64; 4096];
 
-/// Overwrites `x` with zeros in a way the compiler does not remove.
-pub(crate) fn zeroize<T: Copy + Default>(x: &mut [T]) {
-    for v in x.iter_mut() {
-        // SAFETY: `v` is a valid, aligned, unique reference.
-        unsafe { core::ptr::write_volatile(v, T::default()) };
-    }
-    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
-}
+use crate::zeroize::zeroize;
 
 /// An ML-KEM-768 encapsulation key, which passed the check of FIPS 203 §7.2.
 #[derive(Clone, PartialEq, Eq)]
@@ -317,17 +310,5 @@ impl DecapsulationKey768 {
             // NO-COVERAGE-END
         }
         Ok(key)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::zeroize;
-
-    #[test]
-    fn zeroizes() {
-        let mut x = [1u8, 2, 3];
-        zeroize(&mut x);
-        assert_eq!(x, [0; 3]);
     }
 }

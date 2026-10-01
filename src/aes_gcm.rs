@@ -40,6 +40,7 @@ use crate::arch::gcm::{VG_GHASH_PCLMUL_FEATURES, vg_ghash_pclmul};
 #[cfg(target_arch = "aarch64")]
 use crate::arch::gcm::{VG_GHASH_PMULL_FEATURES, vg_ghash_pmull};
 use crate::cpu::{Features, detected};
+use crate::zeroize::zeroize;
 use core::mem::MaybeUninit;
 
 /// A 16-byte block.
@@ -97,12 +98,7 @@ fn verify(expected: &Block, tag: &[u8]) -> Result<(), Error> {
     if !TAG_LENGTHS.contains(&tag.len()) {
         return Err(Error::InvalidTagLength);
     }
-    // Fold every byte's difference together.
-    let diff = expected
-        .iter()
-        .zip(tag)
-        .fold(0u8, |acc, (a, b)| acc | (a ^ b));
-    if core::hint::black_box(diff) != 0 {
+    if !crate::ct::eq(&expected[..tag.len()], tag) {
         return Err(Error::TagMismatch);
     }
     Ok(())
@@ -126,6 +122,14 @@ pub struct AesGcm {
     rounds: usize,
     h: Block,
     backend: Backend,
+}
+
+impl Drop for AesGcm {
+    /// Wipes the key schedule and the hash subkey.
+    fn drop(&mut self) {
+        zeroize(&mut self.schedule);
+        zeroize(&mut self.h);
+    }
 }
 
 /// The implementations of the primitives.
@@ -419,6 +423,16 @@ pub struct AesGcmStream {
     in_text: bool,
     /// The tag from [`set_tag`](Self::set_tag).
     tag: Option<(Block, usize)>,
+}
+
+impl Drop for AesGcmStream {
+    /// Wipes the keystream, the partial block of text and the GHASH state
+    /// (the key wipes itself).
+    fn drop(&mut self) {
+        zeroize(&mut self.keystream);
+        zeroize(&mut self.pending);
+        zeroize(&mut self.y);
+    }
 }
 
 impl AesGcmStream {

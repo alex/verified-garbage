@@ -11,6 +11,9 @@ pub(crate) mod chacha20;
 pub(crate) mod chacha20poly1305;
 
 #[rustfmt::skip]
+pub(crate) mod ct;
+
+#[rustfmt::skip]
 pub(crate) mod ed25519;
 
 #[rustfmt::skip]
@@ -108,3 +111,6 @@ pub(crate) mod x25519;
 
 #[rustfmt::skip]
 pub(crate) mod x448;
+
+#[rustfmt::skip]
+pub(crate) mod zeroize;

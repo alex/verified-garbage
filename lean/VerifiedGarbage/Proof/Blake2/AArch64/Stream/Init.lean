@@ -410,7 +410,7 @@ end
 /-- `init` stores the initial hash value and, for a key, the key block. -/
 theorem correct {w : Nat} {P : Params w} {s₀ : State} (hP : Ok P) (hp : (initAArch64 P).pre s₀) :
     WP isa (Impl.Blake2.AArch64.Stream.init P) s₀ fun s' =>
-      abiPreserved s₀ s' ∧ (initAArch64 P).post s₀ s' := by
+      GprAbi s₀ s' ∧ (initAArch64 P).post s₀ s' := by
   obtain ⟨hrd, hwr, hd, -, -, hkk⟩ := hp
   have hw := hP.w
   have hs := sizes hw

@@ -62,8 +62,8 @@ def uChk (i : Nat) : Bool :=
 
 theorem uChk_all : ∀ i < 4, uChk i = true := by decide +kernel
 
-theorem u_ok {σ : State} (hp : decaps1024K.pre σ) {i : Nat} (hi : i < 4) {s : State} (h : DR i 0 σ s) :
-    WP isa (uHat i) s (DR (i + 1) 0 σ) := by
+theorem u_ok {A : Arith} (hA : ArithOk A) {σ : State} (hp : decaps1024K.pre σ) {i : Nat} (hi : i < 4) {s : State} (h : DR i 0 σ s) :
+    WP isa (uHat A i) s (DR (i + 1) 0 σ) := by
   have hc := uChk_all i hi
   simp only [uChk, Bool.and_eq_true] at hc
   obtain ⟨⟨hdd, hic⟩, hrc⟩ := hc
@@ -72,7 +72,7 @@ theorem u_ok {σ : State} (hp : decaps1024K.pre σ) {i : Nat} (hi : i < 4) {s : 
   refine WP.seq (WP.mono (dd4At_okL L (d := 11) rbx_na hdd (by decide)) fun s₁ ⟨hP₁, hp₁⟩ => ?_)
   have L₁ := L.post hP₁.b dcB_bases
   rw [← hP₁.pa rbx_cs] at hp₁
-  refine WP.mono (nttAt_ok L₁ hic hp₁.1) fun s₂ ⟨hP₂, hp₂⟩ => ?_
+  refine WP.mono (nttAt_ok hA L₁ hic hp₁.1) fun s₂ ⟨hP₂, hp₂⟩ => ?_
   have hk := h.keep hp (PPost.app hP₁ hP₂ (by simp [calleeSaved])) hrc
   refine ⟨hk.dc, hk.r15, fun k hk' => ?_, fun _ h => absurd h (Nat.not_lt_zero _)⟩
   rcases (by omega : k < i ∨ k = i) with hk' | rfl
@@ -80,7 +80,7 @@ theorem u_ok {σ : State} (hp : decaps1024K.pre σ) {i : Nat} (hi : i < 4) {s : 
   · rw [hp₁.2, ← hP₂.pa rbx_cs, Decaps.slice_of h.dc.c (show 352 * k + 32 * 11 ≤ 1568 by omega)] at hp₂
     exact hp₂
 
-theorem u_tr {i : Nat} (hi : i < 4) : RelCT isa (R (DR i 0)) (uHat i) fun _ _ => True := by
+theorem u_tr {A : Arith} (hA : ArithOk A) {i : Nat} (hi : i < 4) : RelCT isa (R (DR i 0)) (uHat A i) fun _ _ => True := by
   have hc := uChk_all i hi
   simp only [uChk, Bool.and_eq_true] at hc
   obtain ⟨⟨hdd, hic⟩, _⟩ := hc
@@ -88,7 +88,7 @@ theorem u_tr {i : Nat} (hi : i < 4) : RelCT isa (R (DR i 0)) (uHat i) fun _ _ =>
   exact rel2_of (Q := fun x y => LRel dcR dcW x y ∧ True ∧ True) (RelCT.seqL (J := fun x => Reduced x.mem (pa x (pS i)))
     dcB_bases (RelCT.mono (dd4At_trL (d := 11) rbx_na hdd (by decide)) (fun _ _ h => h.1) fun _ _ h => h)
     (fun x Lx _ => WP.mono (dd4At_okL Lx (d := 11) rbx_na hdd (by decide)) fun x' ⟨hP, hq⟩ =>
-      ⟨⟨_, hP.b⟩, by rw [hP.pa rbx_cs]; exact hq.1⟩) (nttAt_tr hic))
+      ⟨⟨_, hP.b⟩, by rw [hP.pa rbx_cs]; exact hq.1⟩) (nttAt_tr hA hic))
     fun _ _ _ _ p₁ p₂ pub h₁ h₂ => ⟨dc_lrel p₁ p₂ pub h₁.dc h₂.dc, trivial, trivial⟩
 
 /-! ## `ŝ` -/
@@ -137,20 +137,20 @@ def tailChk : Bool :=
 theorem tailChk_true : tailChk = true := by decide +kernel
 
 /-- The rest of `decrypt`. -/
-abbrev tail : Prog isa :=
-  .seq (dot4At (fun j => pS (4 + j)) pS) (.seq (nttInvAt (pS 15)) (.seq (dd4At (.r14, 1408) 5 (pS 16))
+abbrev tail (A : Arith) : Prog isa :=
+  .seq (dot4At A (fun j => pS (4 + j)) pS) (.seq (nttInvAt A (pS 15)) (.seq (dd4At (.r14, 1408) 5 (pS 16))
     (.seq (subAt (pS 16) (pS 15)) (ceAt (pS 16) 1 (sc oM)))))
 
-theorem tail_ok {σ : State} (hp : decaps1024K.pre σ) {s : State} (h : DR 4 4 σ s) : WP isa tail s (DM σ) := by
+theorem tail_ok {A : Arith} (hA : ArithOk A) {σ : State} (hp : decaps1024K.pre σ) {s : State} (h : DR 4 4 σ s) : WP isa (tail A) s (DM σ) := by
   have hc := tailChk_true
   simp only [tailChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨⟨hdc, hic⟩, hdd⟩, hk15⟩, hac⟩, htw⟩, hkc⟩ := hc
   have L := h.dc.lay hp
-  refine WP.seq (WP.mono (dot4At_ok L dcB_bases hdc (a := dcS (dkPke1024 (dcDk σ))) (b := fun i => ntt (dcU1024 (dcC σ) i))
+  refine WP.seq (WP.mono (dot4At_ok hA L dcB_bases hdc (a := dcS (dkPke1024 (dcDk σ))) (b := fun i => ntt (dcU1024 (dcC σ) i))
     (fun k hk => h.sh k hk) (fun k hk => h.u k hk)) fun s₁ ⟨hP₁, hp₁⟩ => ?_)
   have L₁ := L.post hP₁.b dcB_bases
   rw [← hP₁.pa rbx_cs] at hp₁
-  refine WP.seq (WP.mono (nttInvAt_ok L₁ hic hp₁.1) fun s₂ ⟨hP₂, hp₂⟩ => ?_)
+  refine WP.seq (WP.mono (nttInvAt_ok hA L₁ hic hp₁.1) fun s₂ ⟨hP₂, hp₂⟩ => ?_)
   have L₂ := L₁.post hP₂.b dcB_bases
   rw [hp₁.2, ← hP₂.pa rbx_cs] at hp₂
   refine WP.seq (WP.mono (dd4At_okL L₂ (d := 5) rbx_na hdd (by decide)) fun s₃ ⟨hP₃, hp₃⟩ => ?_)
@@ -173,18 +173,18 @@ theorem tail_ok {σ : State} (hp : decaps1024K.pre σ) {s : State} (h : DR 4 4 �
   · rw [hP₅.pa rbx_cs, hb₅, hp₄.2, decM1024, kpkeDecrypt1024]
     rfl
 
-theorem tail_tr : RelCT isa (R (DR 4 4)) tail fun _ _ => True := by
+theorem tail_tr {A : Arith} (hA : ArithOk A) : RelCT isa (R (DR 4 4)) (tail A) fun _ _ => True := by
   have hc := tailChk_true
   simp only [tailChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨⟨hdc, hic⟩, hdd⟩, hk15⟩, hac⟩, htw⟩, _⟩ := hc
   refine rel2_of (Q := fun x y => LRel dcR dcW x y ∧ DotIn4 (fun j => pS (4 + j)) pS x ∧
       DotIn4 (fun j => pS (4 + j)) pS y) (RelCT.seqL (J := fun x => Reduced x.mem (pa x (pS 15))) dcB_bases
-    (RelCT.mono (dot4At_tr dcB_bases hdc) (fun _ _ h => h) fun _ _ h => h)
-    (fun x Lx hx => WP.mono (dot4At_ok Lx dcB_bases hdc (a := fun k => polyAt x.mem (pa x (pS (4 + k))))
+    (RelCT.mono (dot4At_tr hA dcB_bases hdc) (fun _ _ h => h) fun _ _ h => h)
+    (fun x Lx hx => WP.mono (dot4At_ok hA Lx dcB_bases hdc (a := fun k => polyAt x.mem (pa x (pS (4 + k))))
       (b := fun k => polyAt x.mem (pa x (pS k))) (fun k hk => ⟨(hx k hk).1, rfl⟩) (fun k hk => ⟨(hx k hk).2, rfl⟩))
       fun x' ⟨hP, hq⟩ => ⟨⟨_, hP.b⟩, by rw [hP.pa rbx_cs]; exact hq.1⟩)
-    (RelCT.seqL (J := fun x => Reduced x.mem (pa x (pS 15))) dcB_bases (nttInvAt_tr hic)
-      (fun x Lx hx => WP.mono (nttInvAt_ok Lx hic hx) fun x' ⟨hP, hq⟩ =>
+    (RelCT.seqL (J := fun x => Reduced x.mem (pa x (pS 15))) dcB_bases (nttInvAt_tr hA hic)
+      (fun x Lx hx => WP.mono (nttInvAt_ok hA Lx hic hx) fun x' ⟨hP, hq⟩ =>
         ⟨⟨_, hP.b⟩, by rw [hP.pa rbx_cs]; exact hq.1⟩)
     (RelCT.seqL (J := fun x => Reduced x.mem (pa x (pS 16)) ∧ Reduced x.mem (pa x (pS 15))) dcB_bases
       (RelCT.mono (dd4At_trL (d := 5) rbx_na hdd (by decide)) (fun _ _ h => h.1) fun _ _ h => h)

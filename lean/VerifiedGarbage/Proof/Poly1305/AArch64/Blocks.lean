@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Spec.Poly1305
 import VerifiedGarbage.Proof.Framework.PowLit
 import VerifiedGarbage.Proof.Framework.Omega
@@ -1845,7 +1846,7 @@ theorem blocks_ok (s : State) (hs : Proof.Poly1305.blocksAArch64.pre s) :
     ∃ t s', Exec isa Impl.Poly1305.AArch64.blocks s t s' ∧ abiPreserved s s' ∧
       Proof.Poly1305.blocksAArch64.post s s' := by
   obtain ⟨t, s', he, h⟩ := blocks_correct (BPre.of s hs)
-  exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (blocks_untouched r hr) he, Exec.sp he⟩, h⟩
+  exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (blocks_untouched r hr) he, Exec.sp he, Exec.preservedV he⟩, h⟩
 
 theorem blocks_ct : ConstantTime isa Proof.Poly1305.blocksAArch64.pre
     Proof.Poly1305.blocksAArch64.pub Impl.Poly1305.AArch64.blocks := by

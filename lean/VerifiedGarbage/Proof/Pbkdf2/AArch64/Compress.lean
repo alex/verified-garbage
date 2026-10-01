@@ -41,11 +41,14 @@ def compK : Contract isa where
     s₁.gpr .x2 = s₂.gpr .x2 ∧ s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp
 
 /-- What a caller needs of an implementation of the compression function:
-that it is correct and constant time, and pushes no frames. -/
+that it is correct and constant time, pushes no frames, and its checked
+instructions do not write callee-saved SIMD registers. -/
 structure CompOk (code : Prog isa) : Prop where
   verified : ∀ s, (compK H so).pre s → ∃ t s', Exec isa code s t s' ∧ abiPreserved s s' ∧ (compK H so).post s s'
   ct : ConstantTime isa (compK H so).pre (compK H so).pub code
   noFrames : code.noFrames = true
+  /-- Existing MD wrappers require untouched callee-saved SIMD registers. -/
+  keepsV : code.allInstrs keepsV = true
 
 end
 

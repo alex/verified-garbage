@@ -2,7 +2,7 @@
 //! to 64 bytes, over 64-bit words (see `blake2` for how the verified
 //! functions are used).
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"))]
 
 use crate::arch::blake2b::{vg_blake2b_finalize, vg_blake2b_init, vg_blake2b_update};
 
@@ -14,8 +14,9 @@ super::blake2::blake2!(
         block: 128,
         max: 64,
         init: vg_blake2b_init,
-        update: vg_blake2b_update,
-        finalize: vg_blake2b_finalize,
+        backends: Blake2bBackend {
+            Scalar => (vg_blake2b_update, vg_blake2b_finalize),
+        },
     }
 );
 

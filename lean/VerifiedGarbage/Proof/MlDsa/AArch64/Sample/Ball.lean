@@ -124,7 +124,7 @@ theorem loopP_ok {s : State} (h : Z σ s) : WP isa bLoop s (LP σ) :=
 
 /-- The end: the postcondition, and the calling convention. -/
 theorem end_ok {s : State} (h : LP σ s) :
-    WP isa (.block (.lsr .x .x0 .x10 8 :: epi)) s fun s' => abiPreserved σ s' ∧ sbK.post σ s' := by
+    WP isa (.block (.lsr .x .x0 .x10 8 :: epi)) s fun s' => GprAbi σ s' ∧ sbK.post σ s' := by
   refine wp_lsr (by decide) fun s₁ h₁ e₁ => ?_
   have hl : (ballFold (tauOf σ) (X σ)).2 ≤ 256 := bFold_le (by simp only [n]; omega) _
   have v0 : (s₁.gpr .x0).toNat = if (ballFold (tauOf σ) (X σ)).2 = 256 then 1 else 0 := by
@@ -144,7 +144,7 @@ end
 
 theorem correct (σ : State) (hp : sbK.pre σ) :
     ∃ t s', Exec isa sampleInBall σ t s' ∧ abiPreserved σ s' ∧ sbK.post σ s' :=
-  WP.seq (WP.mono (pro_ok hp) fun _ h1 =>
+  WP.withPreservedV (hc := by decide +kernel) <| WP.seq (WP.mono (pro_ok hp) fun _ h1 =>
     WP.seq (WP.mono (sponge_ok (spOk hp) (rate := 136) (outlen := 272) (by decide) (by decide) h1)
       fun _ h2 => WP.seq (WP.mono (zero_ok hp h2) fun _ h3 =>
         WP.seq (WP.mono (loopP_ok hp h3) fun _ h4 => end_ok hp h4))))

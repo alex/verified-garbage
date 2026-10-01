@@ -31,28 +31,28 @@ theorem ipChk_in {bs wbs : List (Reg × Nat)} {f : Ptr} (hc : ipChk bs wbs f = t
     inB bs f 1024 = true ∧ inB bs (sc oSS) 1024 = true := by
   simp only [ipChk, Bool.and_eq_true] at hc; exact ⟨wrOk_in hc.1.1, wrOk_in hc.1.2⟩
 
-theorem nttAt_ok {s : State} (L : Lay rbs wbs s) {f : Ptr} (hc : ipChk (rbs ++ wbs) wbs f = true)
-    (red : Reduced s.mem (pa s f)) :
-    WP isa (nttAt f) s fun s' => PPost s s' [(f, 1024), (sc oSS, 1024)] ∧
+theorem nttAt_ok {A : Arith} (hA : ArithOk A) {s : State} (L : Lay rbs wbs s) {f : Ptr}
+    (hc : ipChk (rbs ++ wbs) wbs f = true) (red : Reduced s.mem (pa s f)) :
+    WP isa (nttAt A f) s fun s' => PPost s s' [(f, 1024), (sc oSS, 1024)] ∧
       PolyIs s'.mem (pa s f) (ntt (polyAt s.mem (pa s f))) :=
-  ipAt_ok ntt_correct ntt_nosp (by rw [ntt_depth]; decide) (IpH.of L hc red)
+  ipAt_ok hA.ntt.ok hA.ntt.nosp (by rw [hA.ntt.depth]; decide) (IpH.of L hc red)
 
-theorem nttInvAt_ok {s : State} (L : Lay rbs wbs s) {f : Ptr} (hc : ipChk (rbs ++ wbs) wbs f = true)
-    (red : Reduced s.mem (pa s f)) :
-    WP isa (nttInvAt f) s fun s' => PPost s s' [(f, 1024), (sc oSS, 1024)] ∧
+theorem nttInvAt_ok {A : Arith} (hA : ArithOk A) {s : State} (L : Lay rbs wbs s) {f : Ptr}
+    (hc : ipChk (rbs ++ wbs) wbs f = true) (red : Reduced s.mem (pa s f)) :
+    WP isa (nttInvAt A f) s fun s' => PPost s s' [(f, 1024), (sc oSS, 1024)] ∧
       PolyIs s'.mem (pa s f) (nttInv (polyAt s.mem (pa s f))) :=
-  ipAt_ok nttInv_correct nttInv_nosp (by rw [nttInv_depth]; decide) (IpH.of L hc red)
+  ipAt_ok hA.nttInv.ok hA.nttInv.nosp (by rw [hA.nttInv.depth]; decide) (IpH.of L hc red)
 
-theorem nttAt_tr {f : Ptr} (hc : ipChk (rbs ++ wbs) wbs f = true) :
-    RelCT isa (fun x y => LRel rbs wbs x y ∧ Reduced x.mem (pa x f) ∧ Reduced y.mem (pa y f)) (nttAt f)
+theorem nttAt_tr {A : Arith} (hA : ArithOk A) {f : Ptr} (hc : ipChk (rbs ++ wbs) wbs f = true) :
+    RelCT isa (fun x y => LRel rbs wbs x y ∧ Reduced x.mem (pa x f) ∧ Reduced y.mem (pa y f)) (nttAt A f)
       fun _ _ => True :=
-  RelCT.mono (ipAt_tr ntt_correct ntt_ct) (fun _ _ ⟨h, rx, ry⟩ => ⟨IpH.of h.1 hc rx, IpH.of h.2.1 hc ry,
+  RelCT.mono (ipAt_tr hA.ntt.ok hA.ntt.ct) (fun _ _ ⟨h, rx, ry⟩ => ⟨IpH.of h.1 hc rx, IpH.of h.2.1 hc ry,
     h.eq (ipChk_in hc).1, h.eq (ipChk_in hc).2, h.2.2.2⟩) fun _ _ _ => trivial
 
-theorem nttInvAt_tr {f : Ptr} (hc : ipChk (rbs ++ wbs) wbs f = true) :
-    RelCT isa (fun x y => LRel rbs wbs x y ∧ Reduced x.mem (pa x f) ∧ Reduced y.mem (pa y f)) (nttInvAt f)
+theorem nttInvAt_tr {A : Arith} (hA : ArithOk A) {f : Ptr} (hc : ipChk (rbs ++ wbs) wbs f = true) :
+    RelCT isa (fun x y => LRel rbs wbs x y ∧ Reduced x.mem (pa x f) ∧ Reduced y.mem (pa y f)) (nttInvAt A f)
       fun _ _ => True :=
-  RelCT.mono (ipAt_tr nttInv_correct nttInv_ct) (fun _ _ ⟨h, rx, ry⟩ => ⟨IpH.of h.1 hc rx, IpH.of h.2.1 hc ry,
+  RelCT.mono (ipAt_tr hA.nttInv.ok hA.nttInv.ct) (fun _ _ ⟨h, rx, ry⟩ => ⟨IpH.of h.1 hc rx, IpH.of h.2.1 hc ry,
     h.eq (ipChk_in hc).1, h.eq (ipChk_in hc).2, h.2.2.2⟩) fun _ _ _ => trivial
 
 /-! ## Addition and subtraction -/
@@ -95,16 +95,18 @@ theorem mulChk_in {bs wbs : List (Reg × Nat)} {h f g : Ptr} (hc : mulChk bs wbs
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, _⟩, _⟩, _⟩, _⟩, _⟩ := hc
   exact ⟨wrOk_in h1, rdOk_in h2, rdOk_in h3, wrOk_in h4⟩
 
-theorem mulAt_okL {s : State} (L : Lay rbs wbs s) {h f g : Ptr} (hf : NA f) (hg : NA g)
-    (hc : mulChk (rbs ++ wbs) wbs h f g = true) (rf : Reduced s.mem (pa s f)) (rg : Reduced s.mem (pa s g)) :
-    WP isa (mulAt h f g) s fun s' => PPost s s' [(h, 1024), (sc oSS, 1024)] ∧
+theorem mulAt_okL {A : Arith} (hA : ArithOk A) {s : State} (L : Lay rbs wbs s) {h f g : Ptr} (hf : NA f)
+    (hg : NA g) (hc : mulChk (rbs ++ wbs) wbs h f g = true) (rf : Reduced s.mem (pa s f))
+    (rg : Reduced s.mem (pa s g)) :
+    WP isa (mulAt A h f g) s fun s' => PPost s s' [(h, 1024), (sc oSS, 1024)] ∧
       PolyIs s'.mem (pa s h) (multiplyNTTs (polyAt s.mem (pa s f)) (polyAt s.mem (pa s g))) :=
-  mulAt_ok hf hg (MulH.of L hc rf rg)
+  mulAt_ok hA hf hg (MulH.of L hc rf rg)
 
-theorem mulAt_trL {h f g : Ptr} (hf : NA f) (hg : NA g) (hc : mulChk (rbs ++ wbs) wbs h f g = true) :
+theorem mulAt_trL {A : Arith} (hA : ArithOk A) {h f g : Ptr} (hf : NA f) (hg : NA g)
+    (hc : mulChk (rbs ++ wbs) wbs h f g = true) :
     RelCT isa (fun x y => LRel rbs wbs x y ∧ (Reduced x.mem (pa x f) ∧ Reduced x.mem (pa x g)) ∧
-      (Reduced y.mem (pa y f) ∧ Reduced y.mem (pa y g))) (mulAt h f g) fun _ _ => True :=
-  RelCT.mono (mulAt_tr hf hg) (fun _ _ ⟨e, ⟨r1, r2⟩, r3, r4⟩ => ⟨MulH.of e.1 hc r1 r2, MulH.of e.2.1 hc r3 r4,
+      (Reduced y.mem (pa y f) ∧ Reduced y.mem (pa y g))) (mulAt A h f g) fun _ _ => True :=
+  RelCT.mono (mulAt_tr hA hf hg) (fun _ _ ⟨e, ⟨r1, r2⟩, r3, r4⟩ => ⟨MulH.of e.1 hc r1 r2, MulH.of e.2.1 hc r3 r4,
     e.eq (mulChk_in hc).1, e.eq (mulChk_in hc).2.1, e.eq (mulChk_in hc).2.2.1, e.eq (mulChk_in hc).2.2.2,
     e.2.2.2⟩) fun _ _ _ => trivial
 

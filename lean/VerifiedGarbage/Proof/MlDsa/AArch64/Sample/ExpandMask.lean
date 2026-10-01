@@ -92,6 +92,7 @@ end
 
 theorem correct (σ : State) (hp : emK.pre σ) :
     ∃ t s', Exec isa expandMask σ t s' ∧ abiPreserved σ s' ∧ emK.post σ s' := by
+  apply WP.withPreservedV (hc := by decide +kernel)
   have hg := gamma hp
   obtain ⟨e1, e2, e3⟩ := emC_eq hg
   refine WP.seq (WP.mono (pro_ok hp) fun _ h1 =>
