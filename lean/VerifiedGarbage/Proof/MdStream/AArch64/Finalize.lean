@@ -588,9 +588,10 @@ abbrev inner (s₀ : State) : State :=
 
 theorem correct (hd : Dims P) (hs : Shape H) {name : String} {code : Prog isa} (hf : CalleeOk H code)
     (hu : ∀ r ∈ untouched, ∀ i ∈ instrs (finalizeMain P name code), dstOf i ≠ some r)
-    (hn : 16 * (finalizeMain P name code).fdepth + 16 < 2 ^ 64) {s₀ : State} (hp : Pre P s₀)
+    (hn : 16 * (finalizeMain P name code).aarch64Depth + 16 < 2 ^ 64) {s₀ : State} (hp : Pre P s₀)
     (hst : Stack P s₀) :
     WP isa (finalize P name code) s₀ fun s' => abiPreserved s₀ s' ∧ (finK H).post s₀ s' := by
+  apply WP.withPreservedV (hc := finalize_keepsV hs hf.keepsV)
   have hpi : Pre P (inner s₀) := ⟨hp.rd, hp.wr, hp.st_out, hp.st_scr, hp.out_scr⟩
   refine WP.frameReg hst.sp16 (fun R hR => ?_)
     (WP.mono (correctMain hd hs hf hu hpi) fun s' ⟨hk, hsp, hpost⟩ => ?_) hn
@@ -623,7 +624,7 @@ fits its frames in the address space. -/
 theorem verified (hd : Dims P) (hs : Shape H) {name : String} {code : Prog isa} (hf : CalleeOk H code)
     (hct : ConstantTime isa (finK H).pre (finK H).pub (finalize P name code))
     (hu : ((instrs (finalizeMain P name code)).all fun i => untouched.all fun r => dstOf i != some r) = true)
-    (hn : 16 * (finalizeMain P name code).fdepth + 16 < 2 ^ 64) :
+    (hn : 16 * (finalizeMain P name code).aarch64Depth + 16 < 2 ^ 64) :
     Verified AArch64.target (finalize P name code) (finK H) := by
   have := hd.N; have := hd.so
   have hu' : ∀ r ∈ untouched, ∀ i ∈ instrs (finalizeMain P name code), dstOf i ≠ some r := by

@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifySetup
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarBaseMain
 
@@ -92,6 +93,7 @@ theorem verifySetup_state_ok {s : State} (hs : verifyLocal.pre s) :
 
 theorem verify_correct {s : State} (hs : verifyLocal.pre s) :
     WP isa verifyEquation s fun t => abiPreserved s t ∧ verifyLocal.post s t := by
+  apply WP.withPreservedV (hc := by decide +kernel)
   have hpk := hs.2.2.1
   have hsig := hs.2.2.2.1
   have hchallenge := hs.2.2.2.2.1

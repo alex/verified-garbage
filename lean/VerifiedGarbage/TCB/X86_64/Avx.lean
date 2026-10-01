@@ -49,6 +49,9 @@ inductive VOp
   | vpbroadcastq (len : VLen) (dst src : XReg)
   /-- `vpermq ymm1, ymm2, imm8` -/
   | vpermq (dst src : XReg) (order : BitVec 8)
+  /-- `vpermd ymm1, ymm2, ymm3` (`VEX.256.66.0F38.W0 36 /r`): the doublewords
+  of `ymm3` (`src`) at the indices in `ymm2` (`idx`) -/
+  | vpermd (dst idx src : XReg)
   /-- `vperm2i128 ymm1, ymm2, ymm3, imm8` -/
   | vperm2i128 (dst src1 src2 : XReg) (sel : BitVec 8)
   /-- `vinserti128 ymm1, ymm2, xmm3, imm8` -/
@@ -148,6 +151,14 @@ def madd52 (hi : Bool) (d a b : BitVec 128) : BitVec 128 :=
     qword d i + (if hi then t.extractLsb' 52 52 else t.extractLsb' 0 52).setWidth 64
   q 1 ++ q 0
 
+/-- SDM Vol. 2, "PMOVMSKB—Move Byte Mask" (VEX.128 and VEX.256 encoded
+VPMOVMSKB): `r32[0] := SRC[7]; r32[1] := SRC[15]; …`, bit `i` of the result
+the most significant bit of byte `i` of `SRC`, for the `n` bytes of the
+source (16 for `xmm`, 32 for `ymm`), and the other bits zero (`r32[31:16]
+:= ZERO_FILL` for VEX.128; `r64[63:32] := ZERO_FILL`). -/
+def byteMask (x : BitVec 256) (n : Nat) : BitVec 64 :=
+  (List.range n).foldl (fun m i => if x.getLsbD (8 * i + 7) then m ||| BitVec.twoPow 64 i else m) 0
+
 /-! ### SHA512
 
 SDM Vol. 2, "VSHA512MSG1", "VSHA512MSG2" and "VSHA512RNDS2" (the SHA512
@@ -239,6 +250,16 @@ def permQwords (x : BitVec 256) (order : BitVec 8) : BitVec 256 :=
   let q (i : Nat) := qword256 x (order.extractLsb' (2 * i) 2).toNat
   q 3 ++ q 2 ++ q 1 ++ q 0
 
+/-- SDM Vol. 2, "VPERMD/VPERMW" (VEX.256 encoded VPERMD): `DEST[31:0] :=
+(SRC2[255:0] >> (SRC1[2:0] * 32))[31:0]; DEST[63:32] := (SRC2[255:0] >>
+(SRC1[34:32] * 32))[31:0]; …; DEST[255:224] := (SRC2[255:0] >>
+(SRC1[226:224] * 32))[31:0]`, where `SRC1` (`idx`, the second operand)
+holds the indices and `SRC2` (`x`, the third) the doublewords: doubleword
+`i` of `DEST` is doubleword `SRC1[32i+2:32i]` of `SRC2`. -/
+def permDwords (idx x : BitVec 256) : BitVec 256 :=
+  let d (i : Nat) : BitVec 32 := x.extractLsb' (32 * (idx.extractLsb' (32 * i) 3).toNat) 32
+  d 7 ++ d 6 ++ d 5 ++ d 4 ++ d 3 ++ d 2 ++ d 1 ++ d 0
+
 /-- SDM Vol. 2, "VPERM2I128": `CASE IMM8[1:0] of 0: DEST[127:0] :=
 SRC1[127:0]; 1: DEST[127:0] := SRC1[255:128]; 2: DEST[127:0] :=
 SRC2[127:0]; 3: DEST[127:0] := SRC2[255:128]`, likewise `IMM8[5:4]` for
@@ -265,7 +286,8 @@ Vol. 2 (no flags are affected; `VEX.128` versions zero `DEST[MAXVL-1:128]`):
   `DEST[127:0] := SRC[127:0]`).
 * VPBROADCASTD/VPBROADCASTQ (register source): every doubleword
   (quadword) of `DEST` is `SRC[31:0]` (`SRC[63:0]`).
-* VPERMQ: see `permQwords`. VPERM2I128: see `perm2Lanes`.
+* VPERMQ: see `permQwords`. VPERMD: see `permDwords` (`DEST[MAXVL-1:256]
+  := 0`). VPERM2I128: see `perm2Lanes`.
 * VINSERTI128: `TEMP[255:0] := SRC1[255:0]; CASE (imm8[0]) OF 0:
   TEMP[127:0] := SRC2[127:0]; 1: TEMP[255:128] := SRC2[127:0]; DEST :=
   TEMP`.
@@ -300,6 +322,9 @@ def VOp.exec : VOp → State → State
     s.setV len d x x
   | .vpermq d r o, s =>
     let x := permQwords (s.ymm r) o
+    s.setV .l256 d (x.extractLsb' 0 128) (x.extractLsb' 128 128)
+  | .vpermd d i r, s =>
+    let x := permDwords (s.ymm i) (s.ymm r)
     s.setV .l256 d (x.extractLsb' 0 128) (x.extractLsb' 128 128)
   | .vperm2i128 d a b n, s =>
     s.setV .l256 d (perm2Lanes (s.lane a) (s.lane b) n 0) (perm2Lanes (s.lane a) (s.lane b) n 1)

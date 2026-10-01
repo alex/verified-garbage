@@ -1,0 +1,5 @@
+name = "Argon2id"
+family = "KDFs"
+specs = ["Argon2"]
+modules = ["src/argon2.rs"]
+asm = ["argon2"]

@@ -175,13 +175,17 @@ theorem correct : WP isa H.hmacFin s₀ fun s' => abiPreserved s₀ s' ∧ (finG
   obtain ⟨hN4, hD4, hDB, hD0, hDN, hf, h8, hSB, hb⟩ := sizes hH hp
   have hD := hp.hD
   have hB0 := hH.B_pos
-  refine WP.seq (WP.mono (pro_ok hp) fun s₁ ⟨k₁, di₁, dx₁, f₁⟩ => ?_)
-  refine WP.seq (WP.seq (WP.mono (fin1Args_ok hH.stream hp k₁ di₁ dx₁) fun t₁ ⟨kt₁, a₁, si₁, m₁⟩ =>
-    finCall_ok hH.stream hp kt₁ a₁ fun s₂ k₂ f₂ d₂ => ?_))
-  refine WP.seq (WP.mono (mid_ok hH hp k₂) fun s₃ ⟨k₃, i₃, b₃⟩ => ?_)
-  refine WP.seq (WP.seq (WP.mono (fin2Args_ok hH.stream hp k₃) fun t₃ ⟨kt₃, a₃, si₃, mt₃⟩ =>
-    finCall_ok hH.stream hp kt₃ a₃ fun s₄ k₄ f₄ d₄ => ?_))
-  refine WP.mono (out_ok hH hp k₄) fun s' ⟨s₅, k₅, m₅, hm, hsp, hg, ho⟩ => ⟨abi_of k₅ hsp hg ho, ?_⟩
+  refine WP.seq (WP.mono (WP.preservedV (pro_ok hp) (by rfl)) fun s₁ ⟨⟨k₁, di₁, dx₁, f₁⟩, hv₁⟩ => ?_)
+  refine WP.seq (WP.seq (WP.mono (WP.preservedV (fin1Args_ok hH.stream hp k₁ di₁ dx₁) (by rfl)) fun t₁ ⟨⟨kt₁, a₁, si₁, m₁⟩, hva₁⟩ =>
+    finCall_ok hH.stream hp kt₁ a₁ fun s₂ hv₂ k₂ f₂ d₂ => ?_))
+  refine WP.seq (WP.mono (WP.preservedV (mid_ok hH hp k₂) (by rw [Code.allInstrs_eq]; simp [Hash.finMid, Hash.copy32, Impl.Pbkdf2.AArch64.cp32, instrs, keepsV, vdstOf])) fun s₃ ⟨⟨k₃, i₃, b₃⟩, hv₃⟩ => ?_)
+  refine WP.seq (WP.seq (WP.mono (WP.preservedV (fin2Args_ok hH.stream hp k₃) (by rfl)) fun t₃ ⟨⟨kt₃, a₃, si₃, mt₃⟩, hva₃⟩ =>
+    finCall_ok hH.stream hp kt₃ a₃ fun s₄ hv₄ k₄ f₄ d₄ => ?_))
+  refine WP.mono (WP.preservedV (out_ok hH hp k₄) (by
+    rw [Code.allInstrs_eq]; simp [Hash.finOut, Hash.copy32, Impl.Pbkdf2.AArch64.cp32,
+      Impl.Hmac.Generic.AArch64.Hash.restore, Impl.Hmac.Generic.AArch64.Hash.saved, instrs, keepsV, vdstOf]))
+    fun s' ⟨⟨s₅, k₅, m₅, hm, hsp, hg, ho⟩, hv₅⟩ => ⟨abi_of k₅ hsp (fun r hr => by
+      rw [hv₅ r hr, hv₄ r hr, hva₃ r hr, hv₃ r hr, hv₂ r hr, hva₁ r hr, hv₁ r hr]) hg ho, ?_⟩
   -- The functional part.
   intro k0 text hk0 hlen hrI hcnt hrO
   rw [hH.hB] at hk0 hcnt
