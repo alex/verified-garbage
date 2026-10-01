@@ -150,6 +150,7 @@ jobs:
       - run: python3 ci/algorithms_table.py --check
       - run: python3 ci/check_arch_gates.py
       - run: python3 ci/check_variants.py
+      - run: python3 ci/check_mcdt.py
 
   vectors:
     name: Test vector provenance
