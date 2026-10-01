@@ -5,6 +5,9 @@
 pub(crate) mod aes;
 
 #[rustfmt::skip]
+pub(crate) mod blake2b;
+
+#[rustfmt::skip]
 pub(crate) mod blake2s;
 
 #[rustfmt::skip]

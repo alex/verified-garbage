@@ -1,6 +1,6 @@
 //! BLAKE2b: the example of Appendix A and the self-test of Appendix E.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use verified_garbage::hashes::blake2b::{Blake2b, Blake2b512};
 
