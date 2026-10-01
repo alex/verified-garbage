@@ -66,23 +66,45 @@ def finalize (h : Hash) : Prog isa :=
   .seq (.block finalizeArgs)
     (.call h.finalizeName h.finalize)
 
+/-- Absorb a fixed workspace buffer, starting a fresh byte count. -/
+def fixedArgs (offset size : Nat) : List Instr :=
+  [.mov32 .rsi (.imm 0), .mov .rdx (.reg .rbx),
+    .alu .add .rdx (.imm (BitVec.ofNat 32 offset)), .mov32 .rcx (.imm (BitVec.ofNat 32 size))]
+
+/-- Absorb a workspace buffer into an empty hash state. -/
+def absorbFixed (h : Hash) (offset size : Nat) : Prog isa :=
+  .seq (.block (fixedArgs offset size)) (update h)
+
+/-- The first digest has `min(out_len, 64)` bytes. -/
+def chooseLength : Prog isa :=
+  .seq (.block [.mov .rsi (.reg .r15), .alu .cmp .rsi (.imm 65)])
+    (.ite .b (.block []) (.block [.mov32 .rsi (.imm 64)]))
+
+/-- Absorb the caller's input after the four-byte length prefix. -/
+def inputArgs : List Instr :=
+  [.mov32 .rsi (.imm 4), .mov .rdx (.reg .r12), .mov .rcx (.reg .r13)]
+
+/-- Absorb the caller's bytes after the length prefix. -/
+def absorbInput (h : Hash) : Prog isa :=
+  .seq (.block inputArgs) (update h)
+
+/-- Finish the hash after the four-byte prefix and the caller's input. -/
+def finishInput (h : Hash) : Prog isa :=
+  .seq (.block [.mov .rsi (.reg .r13), .alu .add .rsi (.imm 4)]) (finalize h)
+
 /-- H(min(out_len, 64), LE32(out_len) || input). -/
 def first (h : Hash) : Prog isa :=
-  .seq (.block [.mov .rsi (.reg .r15), .alu .cmp .rsi (.imm 65)])
-  (.seq (.ite .b (.block []) (.block [.mov32 .rsi (.imm 64)]))
+  .seq chooseLength
   (.seq (init h)
-  (.seq (.block [.mov32 .rsi (.imm 0), .mov .rdx (.reg .rbx), .alu .add .rdx (.imm 832), .mov32 .rcx (.imm 4)])
-  (.seq (update h)
-  (.seq (.block [.mov32 .rsi (.imm 4), .mov .rdx (.reg .r12), .mov .rcx (.reg .r13)])
-  (.seq (update h)
-  (.seq (.block [.mov .rsi (.reg .r13), .alu .add .rsi (.imm 4)]) (finalize h))))))))
+  (.seq (absorbFixed h 832 4)
+  (.seq (absorbInput h)
+  (finishInput h))))
 
 /-- Hash the 64-byte previous digest, with the new digest length in `rsi`. -/
 def next (h : Hash) : Prog isa :=
   .seq (init h)
-  (.seq (.block [.mov32 .rsi (.imm 0), .mov .rdx (.reg .rbx), .alu .add .rdx (.imm 768), .mov32 .rcx (.imm 64)])
-  (.seq (update h)
-  (.seq (.block [.mov32 .rsi (.imm 64)]) (finalize h))))
+  (.seq (absorbFixed h 768 64)
+  (.seq (.block [.mov32 .rsi (.imm 64)]) (finalize h)))
 
 /-- Copy one byte and advance the source, destination and countdown. -/
 def copyByte : List Instr :=
