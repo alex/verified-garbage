@@ -19,4 +19,15 @@ def addSig : Sig where
 def addContract {M : ISA} (A : Abi M) : Contract M :=
   addSig.contract A (post := fun a b m m' r => r = add a b ∧ m' = m)
 
+/-- `vg_selftest_add` on every target. It has no `# Safety` section: its
+documentation is its `summary` alone. -/
+def addApi : Api where
+  module := "selftest"
+  name := "vg_selftest_add"
+  sig := addSig
+  contracts := some fun A _ => addContract A
+  summary := "Pipeline self-test: returns `a.wrapping_add(b)`.\n\n\
+    Contract: `VG.Spec.Selftest.addContract`. No safety requirements."
+  safety := []
+
 end VG.Spec.Selftest

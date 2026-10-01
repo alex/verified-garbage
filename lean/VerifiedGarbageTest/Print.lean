@@ -43,6 +43,35 @@ def sample : Prog isa :=
   "ret"
 ]
 
+/-! `Rust.badCall`: the first call that is not of the code it runs. -/
+
+/-- The printed code of the functions `f`, `g` and `k`, which calls `g`. -/
+def printedFG : String → Option (List Line)
+  | "f" => some (printer.function (.block [.mov .rax (.imm 1)]))
+  | "g" => some (printer.function (.block [.mov .rax (.imm 2)]))
+  | "k" => some (printer.function (.call "g" (.block [.mov .rax (.imm 2)])))
+  | _ => none
+
+-- The same code written twice is two values in memory: the later call of
+-- `f` is compared by its printed code.
+#guard Rust.badCall printer printedFG
+  [("f", .block [.mov .rax (.imm 1)]), ("g", .block [.mov .rax (.imm 2)]),
+   ("f", .block [.mov .rax (.imm 1)])] == none
+#guard Rust.badCall printer printedFG [("h", .block [])] == some ("h", false)
+#guard Rust.badCall printer printedFG
+  [("f", .block [.mov .rax (.imm 1)]), ("g", .block [.mov .rax (.imm 1)])] == some ("g", true)
+-- A later call of a function whose first call is of its code.
+#guard Rust.badCall printer printedFG
+  [("f", .block [.mov .rax (.imm 1)]), ("f", .block [.mov .rax (.imm 2)])] == some ("f", true)
+-- Calls nested in a call's code are in `Code.calls`: `k` prints as it should,
+-- but the code its call of `g` runs does not.
+#guard Rust.badCall printer printedFG
+  (Code.calls (.seq (.call "k" (.call "g" (.block [.mov .rax (.imm 2)])))
+    (.call "f" (.block [.mov .rax (.imm 1)])) : Prog isa)) == none
+#guard Rust.badCall printer printedFG
+  (Code.calls (.call "k" (.call "g" (.block [.mov .rax (.imm 3)])) : Prog isa)) ==
+  some ("g", true)
+
 /-- Every 32-bit instruction form. -/
 def sample32 : Prog isa := .block [
   .mov32 .rax (.reg .r8),

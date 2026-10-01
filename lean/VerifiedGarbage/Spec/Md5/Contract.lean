@@ -40,6 +40,7 @@ def compressApi : Api where
   module := "md5"
   name := "vg_md5_compress"
   sig := compressSig
+  contracts := some fun A _ => compressContract A
   summary := "The MD5 compression function (RFC 1321 §3.4): updates the MD buffer `*state` \
     (`A, B, C, D`) with the `n` 64-byte blocks starting at `blocks`, in order.\n\n\
     Contract: `VG.Spec.Md5.compressContract`. Constant time: only the pointers and `n` may affect \
@@ -59,6 +60,7 @@ def initApi : Api where
   module := "md5"
   name := "vg_md5_init"
   sig := initSig
+  contracts := some fun A _ => initContract A
   summary := "Starts an MD5 computation: makes the streaming state `*state` represent the empty \
     message.\n\n\
     Contract: `VG.Spec.Md5.initContract`. The streaming state is the MD buffer followed by a \
@@ -87,6 +89,7 @@ def updateApi : Api where
   name := "vg_md5_update"
   sig := updateSig
   writeArgs := true
+  contracts := some fun A stack => updateContract A stack
   summary := "Absorbs data into an MD5 computation: if the streaming state `*state` represents a \
     message of `count` bytes (modulo 2⁶⁴), it then represents that message followed by the `len` \
     bytes at `data`.\n\n\
@@ -116,6 +119,7 @@ def finalizeApi : Api where
   name := "vg_md5_finalize"
   sig := finalizeSig
   writeArgs := true
+  contracts := some fun A stack => finalizeContract A stack
   summary := "Finishes an MD5 computation: if the streaming state `*state` represents a message of \
     `count` bytes (modulo 2⁶⁴), writes the MD5 digest of that message to `*out`.\n\n\
     Contract: `VG.Spec.Md5.finalizeContract`. Constant time: only the pointers and `count` may \

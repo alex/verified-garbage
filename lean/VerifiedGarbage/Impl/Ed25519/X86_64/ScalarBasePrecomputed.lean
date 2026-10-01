@@ -1,25 +1,12 @@
-import VerifiedGarbage.Impl.Ed25519.X86_64.BaseCheckpoints
-import VerifiedGarbage.Impl.Ed25519.X86_64.Verify
+import VerifiedGarbage.Impl.Ed25519.X86_64.BaseMultiply
+import VerifiedGarbage.Impl.Ed25519.X86_64.ScalarBase
 
-/-! Fixed-base multiplication with exact, precomputed checkpoint coordinates. -/
+/-! Fixed-base multiplication with the precomputed, cached powers of the base point. -/
 namespace VG.Impl.Ed25519.X86_64
 open VG.X86_64
 
-def baseCheckpointStore (i : Nat) : List Instr :=
-  constPoint (baseCheckpoint i) ++ pointTableWrite (1280 + 128 * i)
-
-def baseCheckpointStores (n : Nat) : List Instr :=
-  (List.range n).flatMap baseCheckpointStore
-
-def baseMultiplyPrecomputedInit : Prog isa :=
-  .seq (.block (baseCheckpointStores 16))
-    (.seq (.block (constPoint Spec.Ed25519.identity)) (.block (mulCounterInit 16)))
-
-def baseMultiplyPrecomputed : Prog isa :=
-  .seq baseMultiplyPrecomputedInit (.loop pointMulBatch .ne)
-
 def scalarBasePrecomputedEngine : Prog isa :=
-  .seq scalarBasePrepare (.seq baseMultiplyPrecomputed pointEncode)
+  .seq scalarBasePrepare (.seq baseMultiply pointEncode)
 
 def scalarBase_precomputed : Prog isa :=
   scalarBaseWith scalarBasePrecomputedEngine

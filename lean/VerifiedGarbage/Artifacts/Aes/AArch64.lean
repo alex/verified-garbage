@@ -38,10 +38,9 @@ def artifacts : List Artifact := [
     contract := Spec.Gcm.ctr32Contract AArch64.abi
     verified := Proof.Aes.AArch64.ctr32_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { target := AArch64.target
-    module := "aes"
+  { Spec.Aes.expandKeyApi with
     name := "vg_aes_expand_key_aes"
-    sig := Spec.Aes.expandKeySig
+    target := AArch64.target
     doc := "AES key expansion (FIPS 197 §5.2), with the Armv8 Cryptographic Extension (AESE): \
       writes the key schedule of the `key_len`-byte key at `key` (AES-128, AES-192 or AES-256) \
       to the first `16 (Nr + 1)` bytes of `schedule`, where `Nr = key_len / 4 + 6`: the words \
@@ -58,10 +57,9 @@ def artifacts : List Artifact := [
     verified := Proof.Aes.AArch64.Aese.Key.expandKey_verified
     features := ["aes"]
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { target := AArch64.target
-    module := "aes"
+  { Spec.Gcm.ctr32Api with
     name := "vg_aes_ctr32_aes"
-    sig := Spec.Gcm.ctr32Sig
+    target := AArch64.target
     doc := "AES in GCM's counter mode (SP 800-38D §6.5, with `inc₃₂`), with the Armv8 \
       Cryptographic Extension (AESE, AESMC): XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` \
       16-byte blocks at `data`, where `CB₁` is the block at `counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, \

@@ -656,7 +656,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ AVX-512 IFMA, AVX-512VL, AVX2, BMI2, ADX</td>
 
 <td>✅</td>
 
@@ -730,9 +730,9 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -746,9 +746,9 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -762,9 +762,9 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 

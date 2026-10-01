@@ -40,6 +40,7 @@ def expandKeyApi : Api where
   module := "rc2"
   name := "vg_rc2_expand_key"
   sig := expandKeySig
+  contracts := some fun A stack => expandKeyContract A stack
   summary := "RC2 key expansion (RFC 2268 §2): expands the `key_len` bytes at `key` with \
     `effective_bits` effective key bits into `*schedule`, as 64 little-endian 16-bit words. \
     Effective bits are independent of the supplied key length.\n\n\
@@ -70,6 +71,7 @@ def encryptBlockApi : Api where
   module := "rc2"
   name := "vg_rc2_encrypt_block"
   sig := blockSig
+  contracts := some fun A stack => encryptBlockContract A stack
   summary := "RC2 block encryption (RFC 2268 §3): encrypts `*data` in place under \
     `*schedule`, the 64 little-endian 16-bit words written by `vg_rc2_expand_key`.\n\n\
     Contract: `VG.Spec.Rc2.encryptBlockContract`. Constant time: only pointers may affect \
@@ -80,6 +82,7 @@ def decryptBlockApi : Api where
   module := "rc2"
   name := "vg_rc2_decrypt_block"
   sig := blockSig
+  contracts := some fun A stack => decryptBlockContract A stack
   summary := "RC2 block decryption (RFC 2268 §4): decrypts `*data` in place under \
     `*schedule`, the 64 little-endian 16-bit words written by `vg_rc2_expand_key`.\n\n\
     Contract: `VG.Spec.Rc2.decryptBlockContract`. Constant time: only pointers may affect \
@@ -113,6 +116,7 @@ def cbcEncryptApi : Api where
   name := "vg_rc2_cbc_encrypt"
   sig := cbcSig
   writeArgs := true
+  contracts := some fun A stack => cbcEncryptContract A stack
   summary := "RC2-CBC encryption on `n` complete 8-byte blocks at `data`, in place: \
     `C[i] = RC2(schedule, P[i] XOR C[i-1])`, starting with `C[0] = *iv`. \
     Writes the last ciphertext block to `*iv`; for `n = 0`, leaves `*iv` unchanged. \
@@ -127,6 +131,7 @@ def cbcDecryptApi : Api where
   name := "vg_rc2_cbc_decrypt"
   sig := cbcSig
   writeArgs := true
+  contracts := some fun A stack => cbcDecryptContract A stack
   summary := "RC2-CBC decryption on `n` complete 8-byte blocks at `data`, in place: \
     `P[i] = RC2_inverse(schedule, C[i]) XOR C[i-1]`, starting with `C[0] = *iv`. \
     Writes the last input ciphertext block to `*iv`; for `n = 0`, leaves `*iv` unchanged. \

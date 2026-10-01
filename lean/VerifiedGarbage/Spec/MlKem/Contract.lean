@@ -160,6 +160,7 @@ def keyGenApi : Api where
   name := "vg_mlkem768_keygen"
   sig := keyGenSig
   writeArgs := true
+  contracts := some fun A stack => keyGenContract A stack
   summary := "ML-KEM-768 key generation from a seed, `ML-KEM.KeyGen_internal(d, z)` (FIPS 203 \
     Algorithm 16): with `d` in bytes 0–31 of `*seed` and `z` in bytes 32–63, writes the \
     encapsulation key to `*ek` and the decapsulation key to `*dk`. " ++ outcomeDoc ++ "\n\n\
@@ -176,6 +177,7 @@ def checkEkApi : Api where
   module := "mlkem768"
   name := "vg_mlkem768_check_ek"
   sig := checkEkSig
+  contracts := some fun A stack => checkEkContract A stack
   summary := "The ML-KEM-768 encapsulation key check (FIPS 203 §7.2): returns 1 if every 12-bit \
     integer that the first 1152 bytes of `*ek` encode is less than `q` = 3329 (the modulus \
     check), and 0 otherwise. An encapsulation key must pass it before it is given to \
@@ -190,6 +192,7 @@ def encapsApi : Api where
   name := "vg_mlkem768_encaps"
   sig := encapsSig
   writeArgs := true
+  contracts := some fun A stack => encapsContract A stack
   summary := "ML-KEM-768 encapsulation with given randomness, `ML-KEM.Encaps_internal(ek, m)` \
     (FIPS 203 Algorithm 17): with the encapsulation key `*ek` and the randomness `*m`, writes \
     the shared secret key to `*key` and the ciphertext to `*ct`. " ++ outcomeDoc ++ "\n\n\
@@ -207,6 +210,7 @@ def decapsApi : Api where
   name := "vg_mlkem768_decaps"
   sig := decapsSig
   writeArgs := true
+  contracts := some fun A stack => decapsContract A stack
   summary := "ML-KEM-768 decapsulation, `ML-KEM.Decaps_internal(dk, c)` (FIPS 203 Algorithm \
     18): with the decapsulation key `*dk` and the ciphertext `*ct`, writes the shared secret key \
     to `*key`, which is the implicit rejection key `J(z ‖ c)` if the ciphertext does not \

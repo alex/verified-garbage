@@ -103,6 +103,7 @@ def iterateApi : Api where
   module := s!"pbkdf2_{I.rust}"
   name := s!"vg_pbkdf2_hmac_{I.rust}_iterate"
   sig := Pbkdf2.iterateSig I.S I.scratch
+  contracts := some fun A stack => I.iterateContract A stack
   summary := s!"Runs `n` steps of PBKDF2-HMAC-{I.alg}'s iteration: if, for a \
     {I.S.H.blockSize}-byte key `K₀`, the {I.alg} streaming state in bytes 0 to \
     {I.S.stateBytes - 1} of `*key` represents `K₀ ⊕ ipad` and the one in bytes {I.S.stateBytes} \
@@ -130,6 +131,7 @@ def pbkdf2Api : Api where
   name := s!"vg_pbkdf2_hmac_{I.rust}"
   sig := Pbkdf2.pbkdf2Sig I.pbkdf2Scratch
   writeArgs := true
+  contracts := some fun A stack => I.pbkdf2Contract A stack
   summary := s!"PBKDF2-HMAC-{I.alg} (RFC 8018 §5.2, with HMAC-{I.alg} as the pseudorandom \
     function): writes the `out_len`-byte key derived from the `password_len` bytes at `password` \
     and the `salt_len` bytes at `salt` with `c` iterations to `out`. Calls the verified {I.alg} \

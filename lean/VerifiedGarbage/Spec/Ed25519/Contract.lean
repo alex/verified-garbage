@@ -141,6 +141,7 @@ def scalarBaseApi : Api where
   name := "vg_ed25519_scalar_base"
   sig := scalarBaseSig
   writeArgs := true
+  contracts := some fun A stack => scalarBaseContract A stack
   summary := "Ed25519 base-point multiplication (RFC 8032 §5.1.4): writes the encoding of \
     `[s]B` to `*out`, for the unsigned little-endian 256-bit integer at `scalar`, without \
     pruning. Contract: `VG.Spec.Ed25519.scalarBaseContract`. Constant time: only pointers \
@@ -152,6 +153,7 @@ def scalarReduceApi : Api where
   name := "vg_ed25519_scalar_reduce"
   sig := scalarReduceSig
   writeArgs := true
+  contracts := some fun A stack => scalarReduceContract A stack
   summary := "Ed25519 scalar reduction (RFC 8032 §5.1.6): writes the canonical 32-byte \
     little-endian encoding of `wide mod L` to `*out`, using all 64 input bytes. \
     Contract: `VG.Spec.Ed25519.scalarReduceContract`. Constant time: only pointers may \
@@ -163,6 +165,7 @@ def scalarMulAddApi : Api where
   name := "vg_ed25519_scalar_mul_add"
   sig := scalarMulAddSig
   writeArgs := true
+  contracts := some fun A stack => scalarMulAddContract A stack
   summary := "Ed25519 scalar multiply-add (RFC 8032 §5.1.6): writes the canonical 32-byte \
     little-endian encoding of `(r + k*s) mod L` to `*out`. The inputs are unsigned 256-bit \
     little-endian integers; they need not be canonical scalars. \
@@ -175,6 +178,7 @@ def verifyEquationApi : Api where
   name := "vg_ed25519_verify_equation"
   sig := verifyEquationSig
   writeArgs := true
+  contracts := some fun A stack => verifyEquationContract A stack
   summary := "Checks Ed25519 encodings and the equation `[S]B = R + [k]A` (RFC 8032 §5.1.7), \
     returning 1 if they pass and 0 otherwise. `pk` holds A, `signature` holds R || S, and \
     `challenge` holds all 64 bytes of k as a little-endian integer. To verify a signature \
@@ -189,6 +193,7 @@ def publicKeyApi : Api where
   name := "vg_ed25519_public_key"
   sig := publicKeySig
   writeArgs := true
+  contracts := some fun A stack => publicKeyContract A stack
   summary := "Ed25519 public-key derivation (RFC 8032 §5.1.5): writes the 32-byte public \
     key to `*out`, from the 32-byte private seed at `seed`, including SHA-512 and pruning. \
     Contract: `VG.Spec.Ed25519.publicKeyContract`. Constant time: only pointers may affect \
@@ -200,6 +205,7 @@ def signApi : Api where
   name := "vg_ed25519_sign"
   sig := signSig
   writeArgs := true
+  contracts := some fun A stack => signContract A stack
   summary := "Deterministic Ed25519 signing (RFC 8032 §5.1.6): writes the 64-byte signature \
     to `*out`, for the `len` bytes at `message` and the 32-byte private seed at `seed`. \
     Uses pure Ed25519, with no context or prehash. Derives the public key from the seed. \
@@ -212,6 +218,7 @@ def verifyApi : Api where
   name := "vg_ed25519_verify"
   sig := verifySig
   writeArgs := true
+  contracts := some fun A stack => verifyContract A stack
   summary := "Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at \
     `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at \
     `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks \

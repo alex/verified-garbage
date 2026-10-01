@@ -87,17 +87,25 @@ theorem Outside.frame {base : Addr} {m m' : Mem} (h : Outside base 0 4096 m m') 
   have := hx _ (List.mem_singleton_self _)
   simp only [Region.Contains] at this; show 0 + 4096 ≤ (x - base).toNat; omega))
 
-theorem finish_eq : finish = mul X2 X2 T1 ++ (freeze X2 ++ (restore ++
+variable {fld : Field} (hf : FieldOk fld)
+
+theorem finish_eq : finish fld = fld.mul X2 X2 T1 ++ (freeze X2 ++ (restore ++
     ([.store (at_ .rsi 0) .r8, .store (at_ .rsi 8) .r9, .store (at_ .rsi 16) .r10,
       .store (at_ .rsi 24) .r11] : List Instr))) := by
   simp only [finish, List.append_assoc]
 
-theorem x25519_eq' : x25519 = .seq (.block setup) (.seq bits (.seq
-    (.block ([.mov .rsi (.reg .r12)] : List Instr)) (.seq ladder (.seq (.block lastSwap)
-    (.seq Impl.X25519.X86_64.invert (.block finish)))))) := rfl
+theorem x25519_eq' (lad : Prog isa) : x25519Of fld lad = .seq (.block setup) (.seq bits (.seq
+    (.block ([.mov .rsi (.reg .r12)] : List Instr)) (.seq lad (.seq (.block lastSwap)
+    (.seq (Impl.X25519.X86_64.invert fld) (.block (finish fld))))))) := rfl
 
-theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa x25519 s₀ fun s' => gprPreserved s₀ s' ∧ Proof.X25519.x25519X86_64.post s₀ s' := by
+include hf in
+/-- X25519 with any ladder `lad` that leaves the ladder's final state as
+`ladder` does (`LPost`). -/
+theorem correct_of {lad : Prog isa}
+    (hlad : ∀ {s : State} {base : Addr} {k : Nat} {u : Spec.X25519.Fe}, LPre base k u s →
+      WP isa lad s (LPost base k u s))
+    {s₀ : State} (hp : Pre s₀) :
+    WP isa (x25519Of fld lad) s₀ fun s' => gprPreserved s₀ s' ∧ Proof.X25519.x25519X86_64.post s₀ s' := by
   obtain ⟨base, hbase⟩ : ∃ b, s₀.gpr .rcx = b := ⟨_, rfl⟩
   have hn : base.toNat + 4096 ≤ 2 ^ 64 := hbase ▸ hp.sc_fit
   have hw₀ : (⟨base, 4096⟩ : Region) ∈ s₀.wr := by rw [hp.wr, ← hbase]; simp
@@ -121,18 +129,13 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have hkb := bytesAt_outside o₁ hkd
   have e₃ : ∀ i : Fin 128, i.val < 24 → E s₃.mem base i = E s₁.mem base i :=
     fun i h₂ => by rw [k₃.2.1]; exact E_outside o₂ i (Or.inl (by simp only [BITS]; omega))
-  refine WP.seq (WP.mono (ladder_ok (s₀ := s₃) (s := s₃)
+  refine WP.seq (WP.mono (hlad (s := s₃)
     (k := Spec.X25519.decodeScalar25519 (Spec.X25519.bytesAt s₀.mem (s₀.gpr .rsi) 32))
     (u := toFe (Spec.X25519.decodeUCoordinate (Spec.X25519.bytesAt s₀.mem (s₀.gpr .rdx) 32)))
-    (fun t ht => by rw [k₃.2.1, b₂ t ht, hkb])
-    (fun s' hb g m rd wr => ⟨⟨by rw [g _ (by decide)]; exact hs₃.rdi, by rw [wr]; exact hs₃.wr, hn⟩,
-      fun r _ h => g r h, hb, rd, wr, by rw [m]; exact Outside.refl _ _ _ _,
-      by rw [m, e₃ 2 (by decide), x1₁],
-      by rw [m, e₃ 3 (by decide), x2₁]; rfl,
-      by rw [m, e₃ 4 (by decide), z2₁]; rfl,
-      by rw [m, e₃ 5 (by decide), x3₁]; rfl,
-      by rw [m, e₃ 6 (by decide), z3₁]; rfl,
-      by rw [m, k₃.2.1, o₂.word (by decide) (by decide), sw₁]; rfl⟩)) fun s₄ L => ?_)
+    ⟨hs₃, fun t ht => by rw [k₃.2.1, b₂ t ht, hkb],
+      by rw [e₃ 2 (by decide), x1₁], by rw [e₃ 3 (by decide), x2₁], by rw [e₃ 4 (by decide), z2₁],
+      by rw [e₃ 5 (by decide), x3₁], by rw [e₃ 6 (by decide), z3₁],
+      by rw [k₃.2.1, o₂.word (by decide) (by decide), sw₁]⟩) fun s₄ L => ?_)
   refine WP.seq (WP.mono (lastSwap_ok L.scr
     (by have := ladderAfter_swap_le
           (Spec.X25519.decodeScalar25519 (Spec.X25519.bytesAt s₀.mem (s₀.gpr .rsi) 32))
@@ -140,10 +143,10 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
           (n := 0) (by omega)
         omega) L.swap L.x2 L.z2 L.x3 L.z3) fun s₅ ⟨K₅, e3₅, e4₅⟩ => ?_)
   have hs₅ := K₅.scr L.scr
-  refine WP.seq (WP.mono (invert_ok hs₅) fun s₆ ⟨g₆, rd₆, wr₆, o₆, e₆⟩ => ?_)
+  refine WP.seq (WP.mono (invert_ok hf hs₅) fun s₆ ⟨g₆, rd₆, wr₆, o₆, e₆⟩ => ?_)
   have hs₆ : Scr s₆ base := ⟨(g₆ _ (by decide) (by decide)).trans hs₅.rdi, wr₆ ▸ hs₅.wr, hn⟩
   rw [finish_eq, WP.block_append_iff]
-  refine WP.mono (mulE hs₆ 3 3 17 (by decide)) fun s₇ ⟨K₇, e₇⟩ => ?_
+  refine WP.mono (mulE hf hs₆ 3 3 17 (by decide)) fun s₇ ⟨K₇, e₇⟩ => ?_
   have hs₇ := K₇.scr hs₆
   rw [WP.block_append_iff]
   refine WP.mono (freeze_ok hs₇ (a := X2) (by decide)) fun s₈ ⟨v₈, k₈⟩ => ?_
@@ -204,5 +207,10 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     rw [e₇]
     simp only [opMul, Function.update_self]
     rw [E_outside o₆ 3 (by decide), e3₅, e₆, e4₅]
+
+include hf in
+theorem correct {s₀ : State} (hp : Pre s₀) :
+    WP isa (x25519With fld) s₀ fun s' => gprPreserved s₀ s' ∧ Proof.X25519.x25519X86_64.post s₀ s' :=
+  correct_of hf (fun h => ladder_post hf h) hp
 
 end VG.Proof.X25519.X86_64
