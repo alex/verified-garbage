@@ -75,7 +75,7 @@ def pass (component : Nat) (direction : Direction) : Prog isa :=
 def blockStore : List Instr :=
   [rr .rax .r12, .shift .ror .rax 32, .alu .xor .rax (.reg .r13)] ++
     permuteCode Spec.TripleDes.fp 64 .rbx .rax .rbp ++
-    [.bswap .rbx, .store (memOp .rsi 0) .rbx]
+    [.bswap .rbx, rr .rax .rbx]
 
 def blockBody (direction : Direction) : Prog isa :=
   match direction with
@@ -84,7 +84,8 @@ def blockBody (direction : Direction) : Prog isa :=
 
 def block (direction : Direction) : Prog isa :=
   .seq (.block (blockSave ++ blockLoad))
-    (.seq (blockBody direction) (.block (blockStore ++ blockRestore)))
+    (.seq (blockBody direction) (.block (blockStore ++ blockRestore ++
+      ([.store (memOp .rsi 0) .rax] : List Instr))))
 
 def encryptBlock : Prog isa := block .encrypt
 def decryptBlock : Prog isa := block .decrypt
