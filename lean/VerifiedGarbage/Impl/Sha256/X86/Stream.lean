@@ -8,7 +8,7 @@ The streaming state (96 bytes at `state`) is the hash value followed by a
 64-byte buffer (see `VG.Spec.Sha256.Repr`). Every argument is on the stack
 (cdecl).
 
-* `init(state)` stores `H⁽⁰⁾`.
+* `init(state)` stores `H⁽⁰⁾` (`init224`, SHA-224's).
 * `update(state, count, data, len, scratch)` is the generic streaming code
   (`Impl/MdStream/X86.lean`): it compresses every whole block left in `data`
   with one call if the buffer is empty, and otherwise copies bytes into the
@@ -33,10 +33,17 @@ namespace VG.Impl.Sha256.X86.Stream
 open VG.X86
 open VG.Impl.Sha256.X86 (at_ compress)
 
-def init : Prog isa :=
+/-- Stores the initial hash value `iv`. -/
+def initWith (iv : Spec.Sha256.HashValue) : Prog isa :=
   .seq (.block [.mov .eax (.mem (at_ .esp 4))])
     (.block ((List.range 8).flatMap fun k =>
-      [.mov .ecx (.imm Spec.Sha256.H0[k]!), .store (at_ .eax (4 * k)) .ecx]))
+      [.mov .ecx (.imm iv[k]!), .store (at_ .eax (4 * k)) .ecx]))
+
+/-- `vg_sha256_init`. -/
+def init : Prog isa := initWith Spec.Sha256.H0
+
+/-- `vg_sha224_init`. -/
+def init224 : Prog isa := initWith Spec.Sha256.H0_224
 
 /-- The callee-saved registers, and where they are saved in `scratch`. -/
 def saved : List (Reg × Nat) := [(.ebx, 112), (.esi, 116), (.edi, 120), (.ebp, 124)]

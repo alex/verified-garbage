@@ -13,14 +13,24 @@
 //! On x86-64, CPUs with AES-NI and SSSE3 run `vg_aes_expand_key_aesni` and
 //! the `_aesni` CMAC functions instead, which have the same contracts: the
 //! same verified CMAC code, calling `vg_aes_ctr32_aesni` rather than
-//! `vg_aes_ctr32` to encrypt each block.
+//! `vg_aes_ctr32` to encrypt each block. On AArch64, CPUs with the AES
+//! extension run `vg_aes_expand_key_aes` and the `_aes` CMAC functions,
+//! calling `vg_aes_ctr32_aes`.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
 use super::{InvalidKeyLength, InvalidMac};
 use crate::arch::aes::vg_aes_expand_key;
+#[cfg(target_arch = "aarch64")]
+use crate::arch::aes::{VG_AES_EXPAND_KEY_AES_FEATURES, vg_aes_expand_key_aes};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::aes::{VG_AES_EXPAND_KEY_AESNI_FEATURES, vg_aes_expand_key_aesni};
+#[cfg(target_arch = "aarch64")]
+use crate::arch::cmac_aes::{
+    VG_CMAC_AES_FINALIZE_AES_FEATURES, VG_CMAC_AES_SUBKEYS_AES_FEATURES,
+    VG_CMAC_AES_UPDATE_AES_FEATURES, vg_cmac_aes_finalize_aes, vg_cmac_aes_subkeys_aes,
+    vg_cmac_aes_update_aes,
+};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::cmac_aes::{
     VG_CMAC_AES_FINALIZE_AESNI_FEATURES, VG_CMAC_AES_SUBKEYS_AESNI_FEATURES,
@@ -46,6 +56,9 @@ enum Backend {
     /// AES-NI.
     #[cfg(target_arch = "x86_64")]
     AesNi,
+    /// The AES extension.
+    #[cfg(target_arch = "aarch64")]
+    ArmCrypto,
 }
 
 impl Backend {
@@ -59,6 +72,21 @@ impl Backend {
             VG_CMAC_AES_FINALIZE_AESNI_FEATURES,
         ])) {
             Backend::AesNi
+        } else {
+            Backend::Scalar
+        }
+    }
+
+    /// The best implementation a CPU with the features `f` can run.
+    #[cfg(target_arch = "aarch64")]
+    fn select(f: Features) -> Backend {
+        if f.contains(Features::all(&[
+            VG_AES_EXPAND_KEY_AES_FEATURES,
+            VG_CMAC_AES_SUBKEYS_AES_FEATURES,
+            VG_CMAC_AES_UPDATE_AES_FEATURES,
+            VG_CMAC_AES_FINALIZE_AES_FEATURES,
+        ])) {
+            Backend::ArmCrypto
         } else {
             Backend::Scalar
         }
@@ -140,6 +168,11 @@ impl AesCmac {
                     vg_aes_expand_key_aesni(k, key.len(), schedule, e);
                     vg_cmac_aes_subkeys_aesni(schedule, rounds, subkeys, s);
                 }
+                #[cfg(target_arch = "aarch64")]
+                Backend::ArmCrypto => {
+                    vg_aes_expand_key_aes(k, key.len(), schedule, e);
+                    vg_cmac_aes_subkeys_aes(schedule, rounds, subkeys, s);
+                }
             }
         }
         Ok(c)
@@ -155,6 +188,8 @@ impl AesCmac {
             Backend::Scalar => vg_cmac_aes_update,
             #[cfg(target_arch = "x86_64")]
             Backend::AesNi => vg_cmac_aes_update_aesni,
+            #[cfg(target_arch = "aarch64")]
+            Backend::ArmCrypto => vg_cmac_aes_update_aes,
         };
         let schedule = self.key.first_chunk::<240>().unwrap();
         // SAFETY: `schedule` holds the key schedule for `self.rounds` (10,
@@ -210,6 +245,8 @@ impl AesCmac {
             Backend::Scalar => vg_cmac_aes_finalize,
             #[cfg(target_arch = "x86_64")]
             Backend::AesNi => vg_cmac_aes_finalize_aesni,
+            #[cfg(target_arch = "aarch64")]
+            Backend::ArmCrypto => vg_cmac_aes_finalize_aes,
         };
         // SAFETY: `self.key` holds the key schedule for `self.rounds` (10, 12
         // or 14) rounds and then its subkeys, written by `new`; it is valid
@@ -293,6 +330,7 @@ mod tests {
 
     /// Each implementation is selected exactly when the CPU has its
     /// features.
+    #[cfg(target_arch = "x86_64")]
     #[test]
     fn select() {
         assert_eq!(Backend::select(Features::of(&[])), Backend::Scalar);
@@ -301,5 +339,14 @@ mod tests {
             Backend::AesNi
         );
         assert_eq!(Backend::select(Features::of(&["aes"])), Backend::Scalar);
+    }
+
+    /// Each implementation is selected exactly when the CPU has its
+    /// features.
+    #[cfg(target_arch = "aarch64")]
+    #[test]
+    fn select() {
+        assert_eq!(Backend::select(Features::of(&[])), Backend::Scalar);
+        assert_eq!(Backend::select(Features::of(&["aes"])), Backend::ArmCrypto);
     }
 }

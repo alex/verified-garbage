@@ -2,6 +2,45 @@
 //! Verified `sha256` functions for `arm`.
 #![allow(dead_code)]
 
+/// Starts a SHA-224 computation: makes the SHA-256 streaming state `*state` represent the empty message, hashed from the initial hash value of SHA-224 (`VG.Spec.Sha256.H0_224`). Continue with `vg_sha256_update` and `vg_sha256_finalize`, and take the first 28 bytes of the final hash value as the digest.
+///
+/// Contract: `VG.Spec.Sha256.init224Contract`. The streaming state is the hash value followed by a buffered partial block (`VG.Spec.Sha256.ReprFrom`).
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 96 bytes.
+/// * `state` must not wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_sha224_init(state: *mut [u8; 96]) {
+    core::arch::naked_asm!(
+        "movw r12, #40664",
+        "movt r12, #49413",
+        "str r12, [r0, #0]",
+        "movw r12, #54535",
+        "movt r12, #13948",
+        "str r12, [r0, #4]",
+        "movw r12, #56599",
+        "movt r12, #12400",
+        "str r12, [r0, #8]",
+        "movw r12, #22841",
+        "movt r12, #63246",
+        "str r12, [r0, #12]",
+        "movw r12, #2865",
+        "movt r12, #65472",
+        "str r12, [r0, #16]",
+        "movw r12, #5393",
+        "movt r12, #26712",
+        "str r12, [r0, #20]",
+        "movw r12, #36775",
+        "movt r12, #25849",
+        "str r12, [r0, #24]",
+        "movw r12, #20388",
+        "movt r12, #48890",
+        "str r12, [r0, #28]",
+        "bx lr",
+    )
+}
+
 /// The SHA-256 compression function (FIPS 180-4 §6.2.2): updates the hash value `*state` with the `n` 64-byte blocks starting at `blocks`, in order.
 ///
 /// Contract: `VG.Spec.Sha256.compressContract`. Constant time: only the pointers and `n` may affect timing, not the hash value or the blocks.
