@@ -91,7 +91,8 @@ structure EAt (σ : State) (c g : Nat) (s : State) : Prop where
 theorem gpre {c g : Nat} (hg : g < 64) {s : State} (h : EAt σ c g s) :
     GPre c (X σ) ((spOf σ).at' 840) (σ.gpr .rdx) g s := by
   have hp' := spOk hp
-  refine ⟨h.rsi, h.rdi, hg, fun j hj => ?_, fun j hj => ?_, by rw [h.env.wr, hp.2.1]; simp, fun j hj hc => ?_⟩
+  refine ⟨h.rsi, h.rdi, hg, fun j hj => ?_, fun j hj => ?_,
+    fun i hi => ⟨_, by rw [h.env.wr, hp.2.1]; simp, coeff_contains _ hi⟩, fun j hj hc => ?_⟩
   · have := congrArg (fun L => L.getD j 0) h.out
     rw [MlKem.bytesAt_getD _ _ hj] at this
     exact this

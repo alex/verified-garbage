@@ -126,7 +126,7 @@ structure GPre (c : Nat) (X : List Byte) (out aP : Addr) (g : Nat) (s : State) :
   g_lt : g < 64
   bytes : ∀ j < 640, s.mem (out + BitVec.ofNat 64 j) = X.getD j 0
   rd : ∀ j ≤ 637, InRegions (s.rd ++ s.wr) (out + BitVec.ofNat 64 j) 4
-  wr : pR aP ∈ s.wr
+  wr : ∀ i < 256, InRegions s.wr (coeffAddr aP i) 4
   apart : ∀ j < 640, ¬ (pR aP).Contains (out + BitVec.ofNat 64 j) 1
 
 /-- The 4 coefficients of group `g`. -/
@@ -152,7 +152,7 @@ theorem emGroup_ok {c : Nat} (hc : emOk c) {X : List Byte} {out aP : Addr} {g : 
   have hkk : c * k / 8 ≤ c * 3 / 8 := Nat.div_le_div_right (Nat.mul_le_mul_left c (by omega))
   have hg' : c / 2 * g ≤ c / 2 * 63 := Nat.mul_le_mul_left _ (by omega)
   refine WP.mono (emCoef_run c k (by omega) s' (by rw [hr, k'.2.1, k'.2.2]; exact h.rd _ (by omega))
-    (by rw [ha, k'.2.2]; exact ⟨_, h.wr, coeff_contains _ (by omega)⟩)) fun s'' ⟨hm, k''⟩ => ?_
+    (by rw [ha, k'.2.2]; exact h.wr _ (by omega))) fun s'' ⟨hm, k''⟩ => ?_
   have hv := emCoef_val hc s'.mem (s'.gpr .rsi + BitVec.ofNat 64 (c * k / 8)) X (g := g) (k := k) (fun b hb => by
     rw [hr, offAdd, hf _ fun r hr' => by
       simp only [List.mem_singleton] at hr'; subst hr'; exact h.apart _ (by omega)]

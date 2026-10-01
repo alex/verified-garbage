@@ -46,6 +46,8 @@ structure Prims where
   hintBitPack : Prog isa
   /-- `vg_mldsa_rej_ntt_poly4` -/
   rej4 : Prog isa
+  /-- `vg_mldsa_expand_mask_poly4` -/
+  expandMask4 : Prog isa
   /-- What the names of the polynomial arithmetic's functions end with (`Arith.Backend`). -/
   sfx : String := ""
 
@@ -57,7 +59,8 @@ the iterations left (`CNT`), the counter `κ` (`KAP`) and the number of 1s
 of the hint (`ONES`) at 888, 896 and 904 (8 bytes each); the seed of
 `RejNTTPoly` (`RS`, 34 bytes) at 912; the seed of `ExpandMask` (`MS`,
 `ρ″` and two bytes) at 960; `c̃` (`CT`, up to 64 bytes) at 1040; the four
-seeds of `vg_mldsa_rej_ntt_poly4` (`RS4`, 136 bytes) at 1152; the
+seeds of `vg_mldsa_rej_ntt_poly4` (`RS4`, 136 bytes) at 1152; the four
+seeds of `vg_mldsa_expand_mask_poly4` (`MS4`, 264 bytes) at 1296; the
 encoding of `w₁` (`W1`, up to 1024 bytes) at 2048; the working space of
 the primitives (`PS`, 2048 bytes) at 3072; and polynomials of 1024 bytes
 from 5120 (`P i`). -/
@@ -70,6 +73,7 @@ def oRS : Nat := 912
 def oMS : Nat := 960
 def oCT : Nat := 1040
 def oRS4 : Nat := 1152
+def oMS4 : Nat := 1296
 def oW1 : Nat := 2048
 def oPS : Nat := 3072
 /-- Polynomial `i`. -/
@@ -193,6 +197,11 @@ space `w`, and `r15 ← r15 ∧ result`. -/
 def rej4At (a w : Ptr) : Prog isa :=
   .seq (callP ("vg_mldsa_rej_ntt_poly4" ++ P.sfx) P.rej4 [.ptr (sc oRS4), .ptr a, .ptr w])
     (.block [.alu32 .and .r15 (.reg .rax)])
+
+/-- Four polynomials of `ExpandMask` from the four seeds at `MS4` to the four polynomials from `a`,
+with the working space `w`. -/
+def mask4At (gamma1 : Nat) (a w : Ptr) : Prog isa :=
+  callP ("vg_mldsa_expand_mask_poly4" ++ P.sfx) P.expandMask4 [.ptr (sc oMS4), .imm gamma1, .ptr a, .ptr w]
 
 /-- A polynomial of `ExpandMask` from the seed at `MS` to `a`. -/
 def maskAt (gamma1 : Nat) (a : Ptr) : Prog isa :=

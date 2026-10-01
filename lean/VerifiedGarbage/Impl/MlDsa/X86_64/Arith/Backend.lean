@@ -2,6 +2,7 @@ import VerifiedGarbage.Impl.MlDsa.X86_64.Arith.Ntt
 import VerifiedGarbage.Impl.MlDsa.X86_64.Arith.Mul
 import VerifiedGarbage.Impl.MlDsa.X86_64.Arith.AddSub
 import VerifiedGarbage.Impl.MlDsa.X86_64.Sample.RejNtt4
+import VerifiedGarbage.Impl.MlDsa.X86_64.Sample.ExpandMask4
 
 /-!
 # ML-DSA on x86-64: implementations of the polynomial arithmetic
@@ -30,16 +31,19 @@ structure Backend where
   add : Prog isa
   sub : Prog isa
   rej4 : Prog isa
+  expandMask4 : Prog isa
   /-- What the names of its functions, and of those calling them, end with. -/
   sfx : String
 
 /-- The SSE2 code. -/
 def Backend.sse2 : Backend :=
-  ⟨Arith.ntt, Arith.nttInv, Arith.mul, Arith.mulAdd, Arith.add, Arith.sub, Sample.Rej4.rejNTT4, ""⟩
+  ⟨Arith.ntt, Arith.nttInv, Arith.mul, Arith.mulAdd, Arith.add, Arith.sub, Sample.Rej4.rejNTT4,
+    Sample.Mask4.expandMask4, ""⟩
 
 /-- Every function empty, which the proofs that the functions calling a
 backend never write `rsp` (and load MXCSR only to restore it) evaluate in
 its place. -/
-def Backend.empty : Backend := ⟨.block [], .block [], .block [], .block [], .block [], .block [], .block [], ""⟩
+def Backend.empty : Backend := ⟨.block [], .block [], .block [], .block [], .block [], .block [], .block [], .block [],
+  ""⟩
 
 end VG.Impl.MlDsa.X86_64.Arith

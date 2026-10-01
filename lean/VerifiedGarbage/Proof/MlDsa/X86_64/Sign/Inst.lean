@@ -54,6 +54,7 @@ def prims : Prims where
   bitUnpack := Impl.MlDsa.X86_64.Pack.bitUnpack
   hintBitPack := Impl.MlDsa.X86_64.Pack.hintBitPack
   rej4 := Impl.MlDsa.X86_64.Sample.Rej4.rejNTT4
+  expandMask4 := Impl.MlDsa.X86_64.Sample.Mask4.expandMask4
 
 /-- The primitives, with the polynomial arithmetic of `B`. -/
 def primsWith (B : Impl.MlDsa.X86_64.Arith.Backend) : Prims :=
@@ -65,6 +66,7 @@ def primsWith (B : Impl.MlDsa.X86_64.Arith.Backend) : Prims :=
     add := B.add
     sub := B.sub
     rej4 := B.rej4
+    expandMask4 := B.expandMask4
     sfx := B.sfx }
 
 theorem nosp_of {c : Prog isa} (h : c.allInstrs (fun i => !Taint.clobbers i .rsp) = true) : NoSp c := by
@@ -173,6 +175,10 @@ def prims_okWith (v : ArithImpl) : PrimsOk (primsWith v.code) signStack where
   rej4 := ⟨24, by decide, v.ok.rej4.ver, v.ok.rej4.nosp, by
     have := v.ok.rej4.depth
     show 8 * (v.code.rej4.depth + 1) ≤ signStack
+    unfold signStack; omega⟩
+  expandMask4 := ⟨24, by decide, v.ok.expandMask4.ver, v.ok.expandMask4.nosp, by
+    have := v.ok.expandMask4.depth
+    show 8 * (v.code.expandMask4.depth + 1) ≤ signStack
     unfold signStack; omega⟩
   rej4Ret := fun s₁ s₂ t₁ t₂ s₁' s₂' ⟨h₁, h₂, hp⟩ e₁ e₂ =>
     ⟨v.ok.rej4.ver.2.1 s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hp e₁ e₂,

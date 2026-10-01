@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejBoundedCT
 import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.ExpandMask
 import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.BallCT
 import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.Rej4Verified
+import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.M4Verified
 
 /-!
 # ML-DSA (FIPS 204) on x86-64: the sampling primitives
@@ -74,6 +75,28 @@ def artifacts : List Artifact := [
     stack := 16
     verified := Proof.MlDsa.X86_64.Sample.expandMask_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.MlDsa.expandMask4Api with
+    target := X86_64.target
+    doc := Spec.MlDsa.expandMask4Api.doc (notes := ["It calls `vg_mldsa_expand_mask_poly` on each seed, and \
+      saves its caller's callee-saved registers in `scratch`."])
+    code := Impl.MlDsa.X86_64.Sample.Mask4.expandMask4
+    contract := Spec.MlDsa.expandMask4Contract X86_64.abi 24
+    stack := 24
+    verified := Proof.MlDsa.X86_64.Mask4.expandMask4_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.MlDsa.expandMask4Api with
+    name := Spec.MlDsa.expandMask4Api.name ++ "_avx2"
+    target := X86_64.target
+    doc := Spec.MlDsa.expandMask4Api.doc (notes := ["It runs the four instances of SHAKE256 at once, in the \
+      four 64-bit elements of AVX2 registers (as `vg_mldsa_rej_ntt_poly4_avx2` does with SHAKE128), \
+      squeezing five blocks of each, and unpacks the 576 or 640 bytes of each seed's output as \
+      `vg_mldsa_expand_mask_poly` does. It saves its caller's callee-saved registers in `scratch`."])
+    code := Impl.MlDsa.X86_64.Sample.Mask4.expandMask4Avx2
+    contract := Spec.MlDsa.expandMask4Contract X86_64.abi 24
+    stack := 24
+    verified := Proof.MlDsa.X86_64.Mask4.expandMask4Avx2_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel)
+    features := ["avx", "avx2"] },
   { Spec.MlDsa.sampleInBallApi with
     target := X86_64.target
     doc := Spec.MlDsa.sampleInBallApi.doc (notes := ["It squeezes 272 bytes of SHAKE256 output (2 blocks) and \
