@@ -1,15 +1,15 @@
-import VerifiedGarbage.Proof.Framework.AArch64.VectorCaller
 import VerifiedGarbage.Proof.Sha3.AArch64.Variant
-import VerifiedGarbage.Proof.Sha3.AArch64.Sha3.Vector.Permute
+import VerifiedGarbage.Proof.Sha3.AArch64.Scalar.VectorPermute
+import VerifiedGarbage.Proof.Framework.AArch64.VectorTaint
 
-namespace VG.Proof.Sha3.AArch64.Sha3
+namespace VG.Proof.Sha3.AArch64.Scalar.VectorSlots
 
 open VG VG.AArch64
 
 def callee : Impl.Sha3.AArch64.Callee where
-  name := "vg_keccak_f1600_sha3"
-  code := Impl.Sha3.AArch64.Sha3.Vector.permute
-  suffix := "_sha3"
+  name := "vg_keccak_f1600"
+  code := Impl.Sha3.AArch64.Scalar.vectorPermute
+  suffix := ""
   absorbOverride := none
 
 theorem absorbTaint : ∃ h, (VectorTaint.taint.check (VectorTaint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
@@ -128,9 +128,9 @@ theorem mldsaSignCommitTaint : ∀ p : Spec.MlDsa.Params,
 
 def backend : Permutation where
   callee := callee
-  features := ["sha3"]
-  ok := Vector.permute_correct
-  noFrames := Vector.permute_noFrames
+  features := []
+  ok := VG.Proof.Sha3.AArch64.Scalar.vector_permute_correct
+  noFrames := VG.Proof.Sha3.AArch64.Scalar.vector_permute_noFrames
   absorbOverrideOk := by intro code h; cases h
   absorbOverrideDepth := by intro code h; cases h
   absorbTaint := absorbTaint
@@ -162,4 +162,4 @@ def backend : Permutation where
   mldsaSignDecodeTaint := mldsaSignDecodeTaint
   mldsaSignCommitTaint := mldsaSignCommitTaint
 
-end VG.Proof.Sha3.AArch64.Sha3
+end VG.Proof.Sha3.AArch64.Scalar.VectorSlots
