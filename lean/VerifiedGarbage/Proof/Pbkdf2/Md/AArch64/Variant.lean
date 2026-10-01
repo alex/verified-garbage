@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.Core
 import VerifiedGarbage.TCB.Artifact
+import VerifiedGarbage.Proof.Sha512.AArch64.Variant
 
 /-!
 # Merkle–Damgård hash functions on AArch64, as variants
@@ -63,6 +64,8 @@ structure MdHash where
   the compression function, when no other variant shares them (otherwise
   they are in the hash function's registration file). -/
   stream : List StreamFn := []
+  /-- SHA-512 compression backend for constructions that require this hash. -/
+  sha512 : Option Proof.Sha512.AArch64.Compress := none
 
 namespace MdHash
 
