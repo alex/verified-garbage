@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.PhaseO
+import VerifiedGarbage.Proof.Framework.X86_64.Mxcsr
 
 /-!
 # ML-DSA signing on x86-64: correctness
@@ -153,7 +154,7 @@ theorem entry_st {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 : Ok3
     entry_bytes hf d6 (by omega) (ht.regs (.r13, .rdx) (by decide))⟩
 
 theorem sign_correct {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 : Ok3 p)
-    (hmx : (Impl.MlDsa.X86_64.Sign.sign P p).allInstrs (fun i => !loadsMxcsr i) = true) (σ : State)
+    (hmx : ctlOk (Impl.MlDsa.X86_64.Sign.sign P p) = true) (σ : State)
     (hpre : (signK p D).pre σ) :
     ∃ t s', Exec isa (Impl.MlDsa.X86_64.Sign.sign P p) σ t s' ∧ abiPreserved σ s' ∧ (signK p D).post σ s' := by
   have hc := allChk_ok h3
@@ -182,7 +183,7 @@ theorem sign_correct {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 :
         ⟨hg, s₄, h₄, hr, hm⟩
   obtain ⟨t, s', he, hF⟩ := main
   obtain ⟨hg, s₄, h₄, hr, hm⟩ := hF
-  refine ⟨t, s', he, abiPreserved_of_exec hmx he hg, ?_⟩
+  refine ⟨t, s', he, abiPreserved_of_ctl hmx he hg, ?_⟩
   have e14 : pa s₄ (.r14, 0) = σ.gpr .rcx := by
     rw [pa, h₄.st.top.regs (.r14, .rcx) (by decide), VG.Proof.MlKem.X86_64.add_ofNat_zero]
   show Outcome _ _ _
