@@ -40,11 +40,8 @@ fn cmac_aes() {
         assert_eq!(group.params.tag_size, 128, "tcId {id}");
         if !matches!(key.0.len(), 16 | 24 | 32) {
             assert_eq!(test.result, Expectation::Invalid, "tcId {id}");
-            assert_eq!(
-                AesCmac::new(&key.0).err(),
-                Some(InvalidKeyLength),
-                "tcId {id}"
-            );
+            let err = AesCmac::new(&key.0).err();
+            assert_eq!(err, Some(InvalidKeyLength), "tcId {id}");
             bad_keys += 1;
             continue;
         }
