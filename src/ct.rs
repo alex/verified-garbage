@@ -1,5 +1,5 @@
-//! Constant-time comparison, for the checks of MACs and tags that the Rust
-//! code around the verified primitives does.
+//! Constant-time comparison, for the checks of MACs, tags and shared secrets
+//! that the Rust code around the verified primitives does.
 
 #![cfg(any(
     target_arch = "x86_64",
