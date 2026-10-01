@@ -11,6 +11,8 @@ leaks only its pointers, given that its input polynomial is reduced
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -34,9 +36,9 @@ theorem dec_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {a b c : Na
     (ipAt_tr (t := ntt) hP.ntt h2)) (fun _ _ h => ⟨h, trivial, trivial⟩) fun _ _ h => h
 
 theorem decode_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : dChk p = true) {E : State → State → Prop} :
-    RelCT isa (RS p D E (IM p D)) (decode P p) (RS p D E (IK p D)) := by
+    RelCT isa (RS p D E (IM p D)) (decodeWith keccak.callee P p) (RS p D E (IK p D)) := by
   have hs := dChk_spec hc
-  unfold decode
+  unfold decodeWith
   refine RelCT.seq (R := RS p D E fun σ s => ID p D σ p.ℓ 0 0 s) ?_ (RelCT.seq (R := RS p D E fun σ s => ID p D σ p.ℓ p.k 0 s)
     ?_ (RelCT.seq (R := RS p D E fun σ s => ID p D σ p.ℓ p.k p.k s) ?_ ?_))
   · refine RelCT.mono (seqR_tr (R := fun r => RS p D E fun σ s => ID p D σ r 0 0 s) p.ℓ 0 fun r _ hr =>
@@ -54,6 +56,6 @@ theorem decode_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : dC
         (dec_tr hP (by decide) (by decide) (hs.2.2.1 i (by omega)).1)) (fun x y h => h.mono (fun _ _ h => h) fun _ _ h =>
           ⟨h.im, h.s1, h.s2, fun _ h => absurd h (Nat.not_lt_zero _)⟩) fun x y h => by rwa [Nat.zero_add] at h
   · exact liftT (fun _ _ h => h.im.st) (fun _ _ _ h => rpp_ok hP hc h)
-      (lrel_tr (fun _ _ h => h) (by taint_decide))
+      (lrel_tr (fun _ _ h => h) keccak.mldsaSignDecodeTaint.choose_spec)
 
 end VG.Proof.MlDsa.AArch64.Sign

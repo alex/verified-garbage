@@ -45,8 +45,10 @@ def rnSetup : List Instr :=
 
 def rnLoop : Prog isa := .seq (.block rnSetup) (.loop rnBody (.nonzero .x .x5))
 
-def rejNTT : Prog isa :=
+def rejNTTWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
   .seq (.block (pro .x2 .x1 (.movz .x .x27 0 0) (.movz .x .x4 34 0)))
-    (.seq (sponge 168 1008) (.seq zeroPoly (.seq rnLoop (.block (retZ ++ epi)))))
+    (.seq (spongeWith c 168 1008) (.seq zeroPoly (.seq rnLoop (.block (retZ ++ epi)))))
+
+def rejNTT := rejNTTWith .scalar
 
 end VG.Impl.MlDsa.AArch64.Sample

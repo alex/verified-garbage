@@ -109,8 +109,8 @@ def seChk (N : Nat) : Bool :=
 
 theorem seChk_all : ∀ N < 8, seChk N = true := by decide +kernel
 
-theorem se_ok {σ : State} (hp : keyGen1024K.pre σ) {N : Nat} (hN : N < 8) {s : State} (h : KRest N 0 0 σ s) :
-    WP isa (se N) s (KRest (N + 1) 0 0 σ) := by
+theorem se_ok {A : Arith} (hA : ArithOk A) {σ : State} (hp : keyGen1024K.pre σ) {N : Nat} (hN : N < 8) {s : State} (h : KRest N 0 0 σ s) :
+    WP isa (se A N) s (KRest (N + 1) 0 0 σ) := by
   have hc := seChk_all N hN
   simp only [seChk, Bool.and_eq_true] at hc
   obtain ⟨⟨htw, hic⟩, hrc⟩ := hc
@@ -119,7 +119,7 @@ theorem se_ok {σ : State} (hp : keyGen1024K.pre σ) {N : Nat} (hN : N < 8) {s :
   refine WP.seq (WP.mono (cbd2At_okL L rbx_na htw) fun s₁ ⟨hP₁, hp₁⟩ => ?_)
   have L₁ := L.post hP₁.b kgB_bases
   rw [h.prf N hN, ← hP₁.pa rbx_cs] at hp₁
-  refine WP.mono (nttAt_ok L₁ hic hp₁.1) fun s₂ ⟨hP₂, hp₂⟩ => ?_
+  refine WP.mono (nttAt_ok hA L₁ hic hp₁.1) fun s₂ ⟨hP₂, hp₂⟩ => ?_
   have hk := h.keep hp (PPost.app hP₁ hP₂ (by simp [calleeSaved])) hrc
   refine ⟨hk.kc, hk.rho, hk.sig, hk.r15, hk.mat, hk.prf, fun k hk' => ?_, fun _ h => absurd h (Nat.not_lt_zero _),
     fun _ h => absurd h (Nat.not_lt_zero _)⟩
@@ -138,14 +138,14 @@ def rowChk (i : Nat) : Bool :=
 
 theorem rowChk_all : ∀ i < 4, rowChk i = true := by decide +kernel
 
-theorem row_ok {σ : State} (hp : keyGen1024K.pre σ) {i : Nat} (hi : i < 4) {s : State} (h : KRest 8 i 0 σ s) :
-    WP isa (row i) s (KRest 8 (i + 1) 0 σ) := by
+theorem row_ok {A : Arith} (hA : ArithOk A) {σ : State} (hp : keyGen1024K.pre σ) {i : Nat} (hi : i < 4) {s : State} (h : KRest 8 i 0 σ s) :
+    WP isa (row A i) s (KRest 8 (i + 1) 0 σ) := by
   have hc := rowChk_all i hi
   simp only [rowChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨hdc, hac⟩, hk3⟩, htw⟩, hrc⟩ := hc
   have L := h.kc.lay hp
   unfold row
-  refine WP.seq (WP.mono (dot4At_ok L kgB_bases hdc (a := fun j => aHat (rhoK σ) i j) (b := kgS1024 (kgD σ))
+  refine WP.seq (WP.mono (dot4At_ok hA L kgB_bases hdc (a := fun j => aHat (rhoK σ) i j) (b := kgS1024 (kgD σ))
     (fun k hk => h.mat i hi k hk) (fun k hk => h.se k (by omega))) fun s₁ ⟨hP₁, hp₁⟩ => ?_)
   have L₁ := L.post hP₁.b kgB_bases
   rw [← hP₁.pa rbx_cs] at hp₁

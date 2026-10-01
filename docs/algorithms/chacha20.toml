@@ -3,3 +3,6 @@ family = "Ciphers"
 specs = ["ChaCha20"]
 modules = ["src/chacha20.rs"]
 asm = ["chacha20"]
+
+[optimized]
+aarch64 = "NEON"

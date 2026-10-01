@@ -1,12 +1,12 @@
-import VerifiedGarbage.Proof.MlKem.X86_64.S4Parse
+import VerifiedGarbage.Proof.MlKem.X86_64.S4Loop
 
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, correctness
 
 Untrusted: everything here is checked by Lean. The pieces, in order: the
 prologue, the round constants and the padded seeds (`S4Absorb.lean`), three
-squeezes (`S4Squeeze.lean`), the four polynomials (`S4Parse.lean`), and the
-epilogue, which returns whether every seed sampled its polynomial.
+squeezes (`S4Squeeze.lean`), the table (`S4Tab.lean`), the four polynomials
+(`S4Loop.lean`), and the epilogue, which returns whether every seed sampled its polynomial.
 -/
 
 namespace VG.Proof.MlKem.X86_64.S4
@@ -74,30 +74,14 @@ theorem end_ok {X : Mem → Prop} {s : State} (h : PC X σ 4 s) :
       simpa using ⟨hp.ret_a, hp.ret_scr, Offset.base_disjoint_below (σ.gpr .rsp) (n := 24) (k := 8) (by omega)⟩)
       (by decide)
 
-omit hp in
-/-- `vzeroupper` changes no register or memory the invariants see. -/
-theorem vz_ok (s : State) :
-    WP isa (.block [.vop .vzeroupper]) s fun s' => s'.mem = s.mem ∧ Keep [] s s' := by
-  apply WP.of_runBlock
-  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, Option.some.injEq, exists_eq_left', Keep]
-  exact ⟨rfl, fun _ _ => rfl, rfl, rfl⟩
-
-omit hp in
-theorem vz_sq {n : Nat} {s : State} (h : SqInv σ n s) : WP isa (.block [.vop .vzeroupper]) s (SqInv σ n) :=
-  WP.mono (vz_ok s) fun _ ⟨hm, k⟩ => ⟨h.env.keep hm k (fun _ _ => List.not_mem_nil),
-    (k.gpr List.not_mem_nil).trans h.r14, by rw [hm]; exact h.rc, by rw [hm]; exact h.lanes,
-    by rw [hm]; exact h.buf⟩
-
-/-- The three squeezes. -/
+/-- The three squeezes, the table and the four polynomials. -/
 theorem squeezes_ok {s : State} (h : SqInv σ 0 s) :
-    WP isa (.seq (squeeze4 0) (.seq (squeeze4 1) (.seq (squeeze4 2) (.seq (.block [.vop .vzeroupper])
+    WP isa (.seq (squeeze4 0) (.seq (squeeze4 1) (.seq (squeeze4 2) (.seq (.block tabBuild)
       (.seq (parse 0) (.seq (parse 1) (.seq (parse 2) (.seq (parse 3) (.block epi))))))))) s fun s' =>
       sample4K.post σ s' ∧ gprPreserved σ s' := by
   refine WP.seq (WP.mono (sq_ok hp (by decide) h) fun s₁ h₁ => WP.seq (WP.mono (sq_ok hp (by decide) h₁)
     fun s₂ h₂ => WP.seq (WP.mono (sq_ok hp (by decide) h₂) fun s₃' h₃' =>
-      WP.seq (WP.mono (vz_sq h₃') fun s₃ h₃ => ?_))))
-  have p₀ : PInv σ 0 s₃ := ⟨h₃.env, fun k hk p hp' => h₃.buf k hk p (by omega), by rw [h₃.r14]; rfl,
-    fun _ h _ _ => absurd h (by omega)⟩
+      WP.seq (WP.mono (pinv0_ok hp h₃') fun s₃ p₀ => ?_))))
   refine WP.seq (WP.mono (parse_ok hp (by decide) p₀) fun s₄ p₁ => WP.seq (WP.mono (parse_ok hp (by decide) p₁)
     fun s₅ p₂ => WP.seq (WP.mono (parse_ok hp (by decide) p₂) fun s₆ p₃ =>
       WP.seq (WP.mono (parse_ok hp (by decide) p₃) fun s₇ p₄ => end_ok hp p₄))))
