@@ -169,7 +169,7 @@ theorem b_rct : RelCT isa (fun s₁ s₂ => True ∧ ∃ σ₁ σ₂, Pub3 σ₁
 
 theorem c_rct : RelCT isa (fun s₁ s₂ => ∃ σ₁ σ₂, Pub3 σ₁ σ₂ ∧ BInv σ₁ 9 s₁ ∧ BInv σ₂ 9 s₂) (kgCWith keccak.callee)
     fun _ _ => True :=
-  RelCT.taint (A := taint) (Taint.ofRegs [.x25, .x26, .x27, .x28]) (fun s₁ s₂ ⟨σ₁, σ₂, hpub, b₁, b₂⟩ =>
+  VectorTaint.relCT (Taint.ofRegs [.x25, .x26, .x27, .x28]) (fun s₁ s₂ ⟨σ₁, σ₂, hpub, b₁, b₂⟩ =>
     agree_of (by rw [b₁.kb.sp, b₂.kb.sp, hpub.sp]) fun r hr => by
       rcases mem4 hr with rfl | rfl | rfl | rfl
       · rw [b₁.kb.x25, b₂.kb.x25, hpub.kA 0]
@@ -179,7 +179,7 @@ theorem c_rct : RelCT isa (fun s₁ s₂ => ∃ σ₁ σ₂, Pub3 σ₁ σ₂ �
 
 theorem ct : ConstantTime isa keyGenAArch64.pre keyGenAArch64.pub (keyGenWith keccak.callee) :=
   RelCT.constantTime (Q := fun _ _ => True) (RelCT.seq
-    ((RelCT.taint (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) (fun _ _ h =>
+    ((VectorTaint.relCT (Taint.ofRegs [.x0, .x1, .x2, .x3]) (fun _ _ h =>
       agree_of h.2.2.2.2.2.2.1 (by
         obtain ⟨-, -, e0, e1, e2, e3, -, -⟩ := h
         simp [e0, e1, e2, e3])) keccak.mlkemKgATaint.choose_spec).wpDep (F := fun σ s => AfterA σ s)

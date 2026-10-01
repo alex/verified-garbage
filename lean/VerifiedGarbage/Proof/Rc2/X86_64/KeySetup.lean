@@ -17,7 +17,8 @@ theorem cmp128_ok (s : State) :
     rfl, ?_⟩
   exact ⟨zf_arithFlags _ _ _ _, ⟨fun _ _ => rfl, rfl, rfl, rfl⟩⟩
 
-theorem maybeFill_ok (s : State) (key : List Byte) (ht : 1 ≤ key.length) (ht' : key.length ≤ 128)
+theorem maybeFill_ok (s : State)
+    (hlookup : InRegions s.wr (s.gpr .r8 + BitVec.ofNat 64 64) 16) (key : List Byte) (ht : 1 ≤ key.length) (ht' : key.length ≤ 128)
     (len : s.gpr .r13 = BitVec.ofNat 64 key.length) (start : s.gpr .rbx = BitVec.ofNat 64 key.length)
     (writable : ∀ i < 128, InRegions s.wr (s.gpr .r14 + BitVec.ofNat 64 i) 1)
     (initialPrefix : BytesPrefix s.mem (s.gpr .r14) (fill key 0) key.length) :
@@ -48,7 +49,8 @@ theorem maybeFill_ok (s : State) (key : List Byte) (ht : 1 ≤ key.length) (ht' 
         rw [keep₁.wr, ptr₁]; exact writable
       have initial : BytesPrefix s₁.mem (s₁.gpr .r14) (fill key 0) key.length := by
         rw [keep₁.mem, ptr₁]; exact initialPrefix
-      apply WP.mono (fillLoop_ok s₁ key ht (by omega)
+      apply WP.mono (fillLoop_ok s₁ (by
+        rw [keep₁.wr, keep₁.reg .r8 (by simp)]; exact hlookup) key ht (by omega)
         ((keep₁.reg .r13 (by simp)).trans len) ((keep₁.reg .rbx (by simp)).trans start) writes initial)
       intro s₂ h₂
       exact ⟨h₂.1, frame₁.trans h₂.2.1, by rw [ptr₁] at h₂; exact h₂.2.2⟩
@@ -85,7 +87,8 @@ theorem setReduction_ok (s : State) (bits : Nat) (hb : 1 ≤ bits) (hb' : bits �
     · simp only [rd_setReg, rd_arithFlags, rd_setFlags]
     · simp only [wr_setReg, wr_arithFlags, wr_setFlags]
 
-theorem maybeDescend_ok (s : State) (l : KeyBytes) (t8 : Nat) (ht : 1 ≤ t8) (ht' : t8 ≤ 128)
+theorem maybeDescend_ok (s : State)
+    (hlookup : InRegions s.wr (s.gpr .r8 + BitVec.ofNat 64 64) 16) (l : KeyBytes) (t8 : Nat) (ht : 1 ≤ t8) (ht' : t8 ≤ 128)
     (len : s.gpr .rbp = BitVec.ofNat 64 t8) (start : s.gpr .rbx = BitVec.ofNat 64 (128 - t8))
     (writable : ∀ i < 128, InRegions s.wr (s.gpr .r14 + BitVec.ofNat 64 i) 1)
     (initialPrefix : BytesPrefix s.mem (s.gpr .r14) l 128) :
@@ -119,7 +122,8 @@ theorem maybeDescend_ok (s : State) (l : KeyBytes) (t8 : Nat) (ht : 1 ≤ t8) (h
         rw [keep₁.wr, ptr₁]; exact writable
       have initial : BytesPrefix s₁.mem (s₁.gpr .r14) l 128 := by
         rw [keep₁.mem, ptr₁]; exact initialPrefix
-      apply WP.mono (descendLoop_ok s₁ l t8 ht (by omega)
+      apply WP.mono (descendLoop_ok s₁ (by
+        rw [keep₁.wr, keep₁.reg .r8 (by simp)]; exact hlookup) l t8 ht (by omega)
         ((keep₁.reg .rbp (by simp)).trans len) ((keep₁.reg .rbx (by simp)).trans start) writes initial)
       intro s₂ h₂
       exact ⟨frame₁.trans h₂.2.1, by rw [ptr₁] at h₂; exact h₂.2.2⟩

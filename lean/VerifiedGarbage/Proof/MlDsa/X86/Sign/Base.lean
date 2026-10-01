@@ -82,7 +82,7 @@ def esAddr : Instr → Bool
   | .mov .. | .alu .. => true
   | .store m _ | .store8 m _ | .movzx8 _ m => esBase m
   | .shift .. | .bswap _ | .mul _ => true
-  | .push _ | .pop .. => false
+  | .push _ | .pop .. | .movdquLoad .. | .movdquStore .. | .xop .. => false
 
 /-- `i` writes neither `esp` nor `esi`, and addresses through them. -/
 def esOk (i : Instr) : Bool := !Taint.clobbers i .esp && !Taint.clobbers i .esi && esAddr i
@@ -108,7 +108,7 @@ theorem esAddr_addrs {i : Instr} (h : esAddr i = true) {s s' : State} (h₁ : s.
   | store8 m r => simp only [esAddr] at h; simp only [addrs, esBase_ea h h₁ h₂]
   | movzx8 d m => simp only [esAddr] at h; simp only [addrs, esBase_ea h h₁ h₂]
   | shift | bswap | mul => rfl
-  | push | pop => simp [esAddr] at h
+  | push | pop | movdquLoad | movdquStore | xop => simp [esAddr] at h
 
 theorem esOk_block : ∀ {is : List Instr}, is.all esOk = true →
     RelCT isa (fun s s' => s.gpr .esp = s'.gpr .esp ∧ s.gpr .esi = s'.gpr .esi) (.block is) fun _ _ => True := by

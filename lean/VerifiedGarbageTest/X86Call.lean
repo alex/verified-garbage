@@ -249,11 +249,11 @@ def satMem : Mem := fun a => if a = 0x4005 then 0x10 else 0
 
 theorem f_verified : Verified X86.target f fK := by
   refine ⟨f_verified_correct, ?_, ⟨⟨fun r => if r = .esp then 0x4000 else 0, none, none, none, none,
-    satMem, [⟨0x4004, 12⟩], [⟨0x1000, 4⟩], fun _ => 0⟩, ?_⟩⟩
+    (fun _ => 0), satMem, [⟨0x4004, 12⟩], [⟨0x1000, 4⟩], fun _ => 0⟩, ?_⟩⟩
   · exact VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp)
       (by taint_decide)
   · have a0 : arg ⟨fun r => if r = .esp then 0x4000 else 0, none, none, none, none,
-        satMem, [⟨0x4004, 12⟩], [⟨0x1000, 4⟩], fun _ => 0⟩ 0 = 0x1000 := by decide
+        (fun _ => 0), satMem, [⟨0x4004, 12⟩], [⟨0x1000, 4⟩], fun _ => 0⟩ 0 = 0x1000 := by decide
     refine ⟨by decide, by simp only [out, a0]; rfl, by decide, by decide, by rw [a0]; decide, ?_, ?_⟩ <;>
     · intro x h₁ h₂
       simp only [Region.Contains, out, a0, ite_true] at h₁ h₂
