@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Finalize
 import VerifiedGarbage.Proof.Poly1305.X86_64.Init
 import VerifiedGarbage.Proof.Poly1305.X86_64.Lit
 import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Blocks
+import VerifiedGarbage.Proof.Poly1305.X86_64.Avx512.Blocks
 
 /-!
 # Poly1305 (RFC 8439 §2.5) on x86-64
@@ -52,6 +53,20 @@ def artifacts : List Artifact := [
     stack := 8
     verified := Proof.Poly1305.X86_64.Avx2.blocksAvx2_verified
     features := ["avx", "avx2"]
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.Poly1305.blocksApi with
+    name := Spec.Poly1305.blocksApi.name ++ "_avx512"
+    target := X86_64.target
+    doc := Spec.Poly1305.blocksApi.doc (notes := ["With AVX-512F: eight blocks at a time, in eight \
+      interleaved Horner evaluations in the quadwords of `zmm` registers, once there are at least 40 \
+      blocks; fewer with `vg_poly1305_blocks_avx2`, and the last `n mod 8` with `vg_poly1305_blocks`. \
+      It sets MXCSR to Intel's value for data operand-independent timing (`0x1FBF`) around its \
+      `vpmuludq`s, and restores it."])
+    code := Impl.Poly1305.X86_64.Avx512.blocksAvx512
+    contract := Spec.Poly1305.blocksContract X86_64.abi 16
+    stack := 16
+    verified := Proof.Poly1305.X86_64.Avx512.blocksAvx512_verified
+    features := ["avx", "avx512f", "avx2"]
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Poly1305.finalizeApi with
     target := X86_64.target

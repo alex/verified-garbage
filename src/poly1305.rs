@@ -12,9 +12,13 @@
 //!
 //! `vg_poly1305_update` absorbs the whole blocks of the data with an
 //! implementation of `vg_poly1305_blocks`, and is emitted once for each
-//! (`Backend`): on x86-64, CPUs with AVX2 run `vg_poly1305_update_avx2`,
-//! which absorbs them with `vg_poly1305_blocks_avx2`, four at a time once
-//! there are at least 16 of them.
+//! (`Backend`): on x86-64, CPUs with AVX-512F and AVX2 run
+//! `vg_poly1305_update_avx512`, which absorbs them with
+//! `vg_poly1305_blocks_avx512`, eight at a time once there are at least 40 of
+//! them (and fewer with `vg_poly1305_blocks_avx2`), and other CPUs with AVX2
+//! `vg_poly1305_update_avx2`, which absorbs them with
+//! `vg_poly1305_blocks_avx2`, four at a time once there are at least 16 of
+//! them.
 //!
 //! A key must be used to authenticate only one message: the tags of two
 //! messages under the same key reveal enough to forge others.
@@ -27,7 +31,10 @@
 ))]
 
 #[cfg(target_arch = "x86_64")]
-use crate::arch::poly1305::{VG_POLY1305_UPDATE_AVX2_FEATURES, vg_poly1305_update_avx2};
+use crate::arch::poly1305::{
+    VG_POLY1305_UPDATE_AVX2_FEATURES, VG_POLY1305_UPDATE_AVX512_FEATURES, vg_poly1305_update_avx2,
+    vg_poly1305_update_avx512,
+};
 use crate::arch::poly1305::{vg_poly1305_finalize, vg_poly1305_init, vg_poly1305_update};
 use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;
@@ -41,13 +48,18 @@ enum Backend {
     /// `vg_poly1305_update_avx2`, with `vg_poly1305_blocks_avx2`.
     #[cfg(target_arch = "x86_64")]
     Avx2,
+    /// `vg_poly1305_update_avx512`, with `vg_poly1305_blocks_avx512`.
+    #[cfg(target_arch = "x86_64")]
+    Avx512,
 }
 
 impl Backend {
     /// The best implementation a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
     fn select(f: Features) -> Backend {
-        if f.contains(Features::of(VG_POLY1305_UPDATE_AVX2_FEATURES)) {
+        if f.contains(Features::of(VG_POLY1305_UPDATE_AVX512_FEATURES)) {
+            Backend::Avx512
+        } else if f.contains(Features::of(VG_POLY1305_UPDATE_AVX2_FEATURES)) {
             Backend::Avx2
         } else {
             Backend::Scalar
@@ -107,6 +119,8 @@ impl Poly1305 {
             Backend::Scalar => vg_poly1305_update,
             #[cfg(target_arch = "x86_64")]
             Backend::Avx2 => vg_poly1305_update_avx2,
+            #[cfg(target_arch = "x86_64")]
+            Backend::Avx512 => vg_poly1305_update_avx512,
         };
         // SAFETY: `self.state` and `scratch` are valid for reads and writes of
         // 128 bytes and `data` for reads of `data.len()` bytes; they are
@@ -186,7 +200,8 @@ mod tests {
         let key: [u8; 32] = core::array::from_fn(|i| (i * 11 + 1) as u8);
         let msg: [u8; 1100] = core::array::from_fn(|i| (i * 31 + 7) as u8);
         for len in [
-            0, 1, 15, 16, 17, 63, 64, 65, 255, 256, 257, 271, 272, 273, 319, 320, 321, 1024, 1100,
+            0, 1, 15, 16, 17, 63, 64, 65, 255, 256, 257, 271, 272, 273, 319, 320, 321, 495, 496,
+            511, 512, 513, 527, 528, 529, 623, 624, 625, 639, 640, 641, 1024, 1100,
         ] {
             let mut scalar = Poly1305::new(&key);
             scalar.backend = Backend::Scalar;
@@ -208,12 +223,23 @@ mod tests {
         assert_eq!(Poly1305::new(&[0; 32]).backend, Backend::select(detected()));
         #[cfg(target_arch = "x86_64")]
         {
-            use crate::arch::poly1305::VG_POLY1305_BLOCKS_AVX2_FEATURES;
+            use crate::arch::poly1305::{
+                VG_POLY1305_BLOCKS_AVX2_FEATURES, VG_POLY1305_BLOCKS_AVX512_FEATURES,
+            };
             let avx2 = Features::of(VG_POLY1305_UPDATE_AVX2_FEATURES);
-            // The instance for AVX2 needs the features of the
-            // implementation of `vg_poly1305_blocks` it calls.
+            let avx512 = Features::of(VG_POLY1305_UPDATE_AVX512_FEATURES);
+            // The instances need the features of the implementations of
+            // `vg_poly1305_blocks` they call.
             assert_eq!(avx2, Features::of(VG_POLY1305_BLOCKS_AVX2_FEATURES));
+            assert_eq!(avx512, Features::of(VG_POLY1305_BLOCKS_AVX512_FEATURES));
+            assert_eq!(Backend::select(avx512), Backend::Avx512);
             assert_eq!(Backend::select(avx2), Backend::Avx2);
+            // AVX-512F alone is not enough: the AVX-512 instance calls the
+            // AVX2 one.
+            assert_eq!(
+                Backend::select(Features::of(&["avx", "avx512f"])),
+                Backend::Scalar
+            );
             assert_eq!(Backend::select(Features::of(&["avx"])), Backend::Scalar);
         }
     }
