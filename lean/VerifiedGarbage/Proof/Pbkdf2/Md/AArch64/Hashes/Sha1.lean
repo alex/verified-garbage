@@ -146,28 +146,21 @@ theorem satP : ∃ s, (Spec.Hmac.sha1I.pbkdf2Contract AArch64.abi 16).pre s := b
     Spec.Pbkdf2.pbkdf2Contract, Spec.Pbkdf2.pbkdf2Sig, Spec.Hmac.sha1S, Spec.Hmac.sha1, AArch64.abi,
     AArch64.argRegs] using pbkSat 140
 
-/-- Streaming wrappers for this compression backend, emitted through `MdHash`. -/
-def stream : List Artifact := [
-  { Spec.Sha1.updateApi with
-    name := Spec.Sha1.updateApi.name ++ v.suffix
-    target := AArch64.target
-    doc := Spec.Sha1.updateApi.doc
+/-- The streaming `update` and `finalize` made with `v`, which
+`Generic/MdHash/AArch64/Stream.lean` emits. -/
+def stream : List StreamFn := [
+  { api := Spec.Sha1.updateApi
     code := v.update
     contract := Spec.Sha1.updateContract AArch64.abi 16
     stack := 16
     verified := Proof.Sha1.AArch64.Shared.update_of v.update_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _
-    features := v.features },
-  { Spec.Sha1.finalizeApi with
-    name := Spec.Sha1.finalizeApi.name ++ v.suffix
-    target := AArch64.target
-    doc := Spec.Sha1.finalizeApi.doc
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { api := Spec.Sha1.finalizeApi
     code := v.finalize
     contract := Spec.Sha1.finalizeContract AArch64.abi 16
     stack := 16
     verified := Proof.Sha1.AArch64.Shared.finalize_of v.finalize_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _
-    features := v.features }]
+    spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 /-- Every construction follows the registered compression backend. -/
 def variant : MdHash :=

@@ -27,11 +27,12 @@ theorem farScratch {base p : Addr} {n : Nat}
   change (off p i - base).toNat < 8192 at h
   omega
 
-theorem scalarBase_correct {s : State} (hs : scalarBaseLocal.pre s) :
-    WP isa scalarBase s fun t => gprPreserved s t ∧ scalarBaseLocal.post s t := by
+theorem scalarBase_correct_of_engine (engine : Prog isa) (engine_ok : BaseEngineCorrect engine)
+    {s : State} (hs : scalarBaseLocal.pre s) :
+    WP isa (scalarBaseWith engine) s fun t => gprPreserved s t ∧ scalarBaseLocal.post s t := by
   obtain ⟨hr, hw, hd, hro, hrs, hn⟩ := hs
   have hws : (⟨s.gpr .rdx, 8192⟩ : Region) ∈ s.wr := by rw [hw]; simp
-  rw [scalarBase]
+  rw [scalarBaseWith]
   apply WP.seq
   rw [WP.block_append_iff]
   refine WP.mono (scalarSave_ok rfl hws) fun a ⟨ga, ra, wa, ma, sva⟩ => ?_
@@ -44,7 +45,7 @@ theorem scalarBase_correct {s : State} (hs : scalarBaseLocal.pre s) :
   have svb : Saved (s.gpr .rdx) s.gpr b.mem := sva.outside mb (by decide)
   have input : bytesAt b.mem (s.gpr .rsi) 32 = bytesAt s.mem (s.gpr .rsi) 32 := bytesAt32_frame fm hd
   apply WP.seq
-  refine WP.mono (scalarBaseEngine_ok hb ((gb _ (by decide)).trans (congrFun ga _))
+  refine WP.mono (engine_ok hb ((gb _ (by decide)).trans (congrFun ga _))
     (fun q hq => ⟨⟨s.gpr .rsi, 32⟩, by rw [rb, ra, hr]; simp,
       Offset.contains_base _ (by omega) (by omega)⟩)
     (fun q hq => farScratch hd hq (by decide))) fun c ⟨kc, vc⟩ => ?_
@@ -100,5 +101,9 @@ theorem scalarBase_correct {s : State} (hs : scalarBaseLocal.pre s) :
       kd.1 .r8 (by decide), kd.1 .r9 (by decide), kd.1 .r10 (by decide), kd.1 .r11 (by decide)]
     change val4 (c.gpr .r8) (c.gpr .r9) (c.gpr .r10) (c.gpr .r11) = _
     rw [vc, input]
+
+theorem scalarBase_correct {s : State} (hs : scalarBaseLocal.pre s) :
+    WP isa scalarBase s fun t => gprPreserved s t ∧ scalarBaseLocal.post s t :=
+  scalarBase_correct_of_engine scalarBaseEngine scalarBaseEngine_ok hs
 
 end VG.Proof.Ed25519.X86_64

@@ -15,13 +15,9 @@ Merkle–Damgård code (`Stream.params`), its specification `Spec.Hmac.sha256S`.
 The facts about the code HMAC and PBKDF2 add, which do not depend on `v`,
 are checked once (`coreOK`).
 
-`stream v` are the streaming `update` and `finalize` made with `v`, named
-with its suffix. **Review note**: `sig` and `doc` are trusted, as they tie
-the Rust caller to the contract: they are those of the functions' `Api`s
-(`Spec/Sha256/Contract.lean`). The emitter adds the `# Safety` items that
-depend on the target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which
-`ofSig` checks against the contract, and the CPU features the
-implementation needs.
+`stream v` are the streaming `update` and `finalize` made with `v`, which
+`Generic/MdHash/X86_64/Stream.lean` emits from their `Api`s, named with
+its suffix.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64.Sha256
@@ -165,27 +161,19 @@ theorem satP : ∃ s, (Spec.Hmac.sha256I.pbkdf2Contract X86_64.abi 24).pre s := 
     X86_64.argRegs] using pbkSat 200
 
 /-- The streaming `update` and `finalize` made with `v`. -/
-def stream : List Artifact := [
-  { Spec.Sha256.updateApi with
-    name := Spec.Sha256.updateApi.name ++ v.suffix
-    target := X86_64.target
-    doc := Spec.Sha256.updateApi.doc
+def stream : List StreamFn := [
+  { api := Spec.Sha256.updateApi
     code := Impl.Sha256.X86_64.Stream.update v.callee
     contract := Spec.Sha256.updateContract X86_64.abi 8
     stack := 8
     verified := Proof.Sha256.X86_64.Shared.update v.ok v.mxcsr
-    spSafe := Proof.Sha256.X86_64.Shared.update_spSafe v.spSafe
-    features := v.features },
-  { Spec.Sha256.finalizeApi with
-    name := Spec.Sha256.finalizeApi.name ++ v.suffix
-    target := X86_64.target
-    doc := Spec.Sha256.finalizeApi.doc
+    spSafe := Proof.Sha256.X86_64.Shared.update_spSafe v.spSafe },
+  { api := Spec.Sha256.finalizeApi
     code := Impl.Sha256.X86_64.Stream.finalize v.callee
     contract := Spec.Sha256.finalizeContract X86_64.abi 8
     stack := 8
     verified := Proof.Sha256.X86_64.Shared.finalize v.ok v.mxcsr
-    spSafe := Proof.Sha256.X86_64.Shared.finalize_spSafe v.spSafe
-    features := v.features }]
+    spSafe := Proof.Sha256.X86_64.Shared.finalize_spSafe v.spSafe }]
 
 /-- SHA-256 with the implementation `v` of its compression function. -/
 def variant : MdHash :=

@@ -1,11 +1,19 @@
 //! RC2-CBC (RFC 2268), without padding.
 //!
-//! Key expansion and CBC encryption/decryption use the verified x86-64
+//! Key expansion and CBC encryption/decryption use the verified
 //! primitives (`VG.Spec.Rc2.expandKeyContract` and the CBC contracts).
 //! This wrapper validates parameters and buffers partial blocks between
 //! updates. Finalization rejects a trailing partial block.
 
-#![cfg(all(target_arch = "x86_64", feature = "alloc"))]
+#![cfg(all(
+    any(
+        target_arch = "x86_64",
+        target_arch = "arm",
+        target_arch = "aarch64",
+        target_arch = "x86"
+    ),
+    feature = "alloc"
+))]
 
 use alloc::vec::Vec;
 

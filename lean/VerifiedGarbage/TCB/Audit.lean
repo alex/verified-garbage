@@ -38,17 +38,20 @@ open Lean Elab Command
 /-- The modules of this project, `VerifiedGarbage` and those under it, with
 their indices in `env`. -/
 def projectModules (env : Environment) : List (ModuleIdx × Name) :=
-  (List.range env.header.moduleNames.size).filterMap fun i =>
-    let m := env.header.moduleNames[i]!
+  -- `moduleNames` builds a new array of every module on each call: read it once.
+  let names := env.header.moduleNames
+  (List.range names.size).filterMap fun i =>
+    let m := names[i]!
     if (`VerifiedGarbage).isPrefixOf m then some (i, m) else none
 
-/-- Whether `env` declares `n` in the module being elaborated or in a module
-of this project, rather than in Lean or a dependency (whose constants never
-depend on this project's). -/
-def isProjectConst (env : Environment) (n : Name) : Bool :=
+/-- Whether `env`, whose modules are `names` (`env.header.moduleNames`, which
+callers read once), declares `n` in the module being elaborated or in a
+module of this project, rather than in Lean or a dependency (whose constants
+never depend on this project's). -/
+def isProjectConst (env : Environment) (names : Array Name) (n : Name) : Bool :=
   match env.getModuleIdxFor? n with
   | none => true
-  | some i => (`VerifiedGarbage).isPrefixOf env.header.moduleNames[i.toNat]!
+  | some i => (`VerifiedGarbage).isPrefixOf names[i.toNat]!
 
 /-- The constants of this project (`isProjectConst`) that the compiled code
 of the constants `roots` may run in `env`: those their values use,
@@ -56,13 +59,14 @@ transitively (including `roots`). Types and proofs are erased from compiled
 code, so it follows neither the types of constants nor the values of
 theorems (whose names it still includes). -/
 def dependencies (env : Environment) (roots : List Name) : NameSet := Id.run do
+  let names := env.header.moduleNames
   let mut seen : NameSet := {}
   let mut todo := roots
   -- Visits each constant once, so it ends.
   while !todo.isEmpty do
     let n := todo.head!
     todo := todo.tail
-    if seen.contains n || !isProjectConst env n then continue
+    if seen.contains n || !isProjectConst env names n then continue
     seen := seen.insert n
     if let some ci := env.find? n then
       unless ci matches .thmInfo _ do
@@ -97,11 +101,12 @@ elab "#assert_no_compiler_overrides " ids:ident* : command => do
 declared outside the modules under `VerifiedGarbage.Spec` (in another
 module, or in the one being elaborated), with their modules. -/
 def specOutsideSpec (env : Environment) : List (Name × Name) :=
+  let names := env.header.moduleNames
   env.constants.fold (init := []) fun acc n c =>
     if !(`VG.Spec).isPrefixOf n || c matches .thmInfo _ then acc else
       let m := match env.getModuleIdxFor? n with
         | none => env.mainModule
-        | some i => env.header.moduleNames[i.toNat]!
+        | some i => names[i.toNat]!
       if (`VerifiedGarbage.Spec).isPrefixOf m then acc else (n, m) :: acc
 
 elab "#assert_spec_origin" : command => do

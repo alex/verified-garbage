@@ -2,7 +2,12 @@
 //! `crate::mldsa65`, `crate::mldsa87`) share: their API, defined once by
 //! `ml_dsa!` for each parameter set's verified functions and sizes.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "x86",
+    target_arch = "aarch64",
+    target_arch = "arm"
+))]
 
 /// The message representative `μ = H(tr ‖ M′, 64)` (FIPS 204 Algorithm 7,
 /// line 6) of the message `msg` with the context string `ctx`, formatted as

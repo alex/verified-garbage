@@ -61,8 +61,9 @@ never import proofs.
    target's calling convention where the arguments are, the permitted memory
    regions, disjointness and which arguments are public, and the contract
    adds a postcondition (in terms of the spec) and any further precondition.
-   Each function's `Api` gives its Rust module, name and signature, and its
-   documentation, but for what the emitter derives from the signature.
+   Each function's `Api` gives its Rust module, name and signature, its
+   contract on every target (`contracts`), and its documentation, but for
+   what the emitter derives from the signature.
 2. **Impl** — `Impl/<Alg>/<Target>.lean` defines the code as a `Prog`.
 3. **Proof** — `Proof/<Alg>/…` proves `Verified target code contract`:
    termination without faults (hence memory safety), the postcondition,
@@ -72,8 +73,13 @@ never import proofs.
 4. **Registry** — the registration files `Artifacts/<Alg>/<Target>.lean`
    list every `Artifact`, bundling target, Rust name and signature, code,
    contract and proof: mostly a function's `Api`, with the stack its contract
-   gives its calls (`stack`) and any notes on the implementation. An
-   `Artifact` cannot be built
+   gives its calls (`stack`) and any notes on the implementation. An artifact
+   made from an `Api` takes the contract from it with the name and signature
+   (`Api.contracts`), and must be proven against exactly that contract on its
+   target (`Artifact.ofApi`), so a registration file, or a proof building
+   artifacts for a generic caller, cannot pair a function's name with another
+   function's contract; the emitter refuses an artifact that is not made from
+   an `Api` with a contract. An `Artifact` cannot be built
    without the proof, and the emitter's `#assert_standard_axioms` rejects
    `sorry`, `native_decide` and any non-standard axiom anywhere in them. The
    emitter runs compiled code, so it also rejects anything that makes the

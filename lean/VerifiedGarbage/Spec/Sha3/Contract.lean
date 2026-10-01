@@ -52,6 +52,7 @@ def permuteApi : Api where
   module := "sha3"
   name := "vg_keccak_f1600"
   sig := permuteSig
+  contracts := some fun A stack => permuteContract A stack
   summary := "The permutation Keccak-f[1600] (FIPS 202 §3.4): applies it to the state `*state` \
     (lane `x + 5y` at index `x + 5y`).\n\n\
     Contract: `VG.Spec.Sha3.permuteContract`. Constant time: only the pointers may affect timing, \
@@ -87,6 +88,7 @@ def absorbApi : Api where
   name := "vg_keccak_absorb"
   sig := absorbSig
   writeArgs := true
+  contracts := some fun A stack => absorbContract A stack
   summary := "Absorbs data into a SHA-3 or SHAKE computation: if the state `*state` represents a \
     message whose length is `pos` modulo `rate` (`VG.Spec.Sha3.Repr`), it then represents that \
     message followed by the `len` bytes at `data`. Returns the position after them, \
@@ -124,6 +126,7 @@ def padApi : Api where
   name := "vg_keccak_pad"
   sig := padSig
   writeArgs := true
+  contracts := some fun A stack => padContract A stack
   summary := "Pads a SHA-3 or SHAKE message: if the state `*state` represents a message whose \
     length is `pos` modulo `rate` (`VG.Spec.Sha3.Repr`), it becomes the state after absorbing that \
     message with the domain-separation suffix (the low byte of `suffix`, with the first bit of the \
@@ -166,6 +169,7 @@ def squeezeApi : Api where
   name := "vg_keccak_squeeze"
   sig := squeezeSig
   writeArgs := true
+  contracts := some fun A stack => squeezeContract A stack
   summary := "Squeezes output from a padded SHA-3 or SHAKE state: writes to `out` the `outlen` \
     bytes of the output of the sponge with rate `rate` from the state `*state` (FIPS 202 Algorithm \
     8, steps 7 to 10), from byte `pos` of that output on; leaves in `*state` a state, and returns \

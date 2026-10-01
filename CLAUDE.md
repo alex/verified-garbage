@@ -73,11 +73,15 @@ trustworthy. Read `lean/README.md` first.
   the namespace `VG.Spec`. The emitter refuses both (`TCB/Audit.lean`).
 * Never add instructions with operand-dependent timing (e.g. `div`) to an ISA
   model.
-* On x86-64, `pmuludq`, `pmullw`, `pmulhw` and their VEX forms may only take
+* On x86-64, `pmuludq`, `pmullw`, `pmulhw`, their VEX forms, `vpmadd52luq`
+  and `vpmadd52huq` may only take
   secret operands between Intel's MXCSR prologue and epilogue (`stmxcsr`,
   `ldmxcsr` of `0x1FBF`, `lfence`, … `lfence`, `ldmxcsr` of the saved
   value), which the proofs do not check: see "MCDT" in
-  `lean/VerifiedGarbage/TCB/X86_64/Isa.lean`.
+  `lean/VerifiedGarbage/TCB/X86_64/Isa.lean`. `ci/check_mcdt.py` checks the
+  generated code instead: every instruction on Intel's MCDT list must be
+  inside that exact sequence in its function, entered only through the
+  prologue.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
   `Proof/`. `Spec/` and `Impl/` never import `Proof/`.
 
@@ -92,8 +96,10 @@ instructions in an ISA model) go in their own PR before either.
    its Rust signature (`Sig`) and its `Contract` on every target, built with
    `Sig.contract` from a postcondition and any precondition the signature does
    not imply, and its `Api`: its Rust module (the file under
-   `src/asm/<target>/`) and name, its signature, its contract's `writeArgs`,
-   and its documentation: what it does, and the `# Safety` items but for what
+   `src/asm/<target>/`) and name, its signature, its contract on every target
+   (`contracts := some fun A stack => fooContract A stack`, or
+   `fun A _ => fooContract A` for a contract without `stack`), its
+   contract's `writeArgs`, and its documentation: what it does, and the `# Safety` items but for what
    the emitter generates (what memory each buffer must be valid for:
    `Sig.validDoc`; which buffers may not overlap each other, the stack or
    the arguments on it, and that none wraps around the address space:
@@ -109,7 +115,11 @@ instructions in an ISA model) go in their own PR before either.
    new algorithm or target; see `Artifacts/Selftest/X86_64.lean`; never
    `Artifacts.lean`, whose list is empty), made from the function's `Api`:
    `{ Spec.<Alg>.fooApi with target := …, doc := Spec.<Alg>.fooApi.doc, … }`,
-   passing `doc` any notes on the implementation (`(notes := […])`). Set
+   passing `doc` any notes on the implementation (`(notes := […])`). The
+   artifact takes the `Api`'s `contracts`, and `ofApi` checks that its
+   `contract` is `contracts` on its target for its `stack`: never set
+   `contracts` outside `Spec/` (the emitter refuses an artifact without
+   them). Set
    `stack` to the contract's (and `writeArgs`, if the artifact is not made
    from an `Api`): the default proof of `ofSig` checks both against the
    contract, and the emitter documents what they imply. Set its `spSafe`
@@ -242,6 +252,9 @@ Avoid these patterns (each has cost tens of seconds in one proof):
   with `Proof/Framework/<ISA>/RegUpd.lean`: `gpr_setReg` (an `if`, decided
   for literal registers) or `gpr_setReg_self` and `gpr_setReg_of_ne` (for
   variables), and `mem_setReg`, `gpr_setFlags`, … for the other fields.
+  Keep writes folded throughout the block; expand the final state once only
+  if the postcondition needs it. Preserve this behavior in shared symbolic
+  execution tactics so every caller benefits.
 * **Addresses at offsets:** don't prove that ranges at `p + BitVec.ofNat 64 d`
   are separate, disjoint or contained, or their distances, with `bv_omega`
   (a second or more each, and a large term for the kernel): use `VG.Offset`
@@ -304,6 +317,50 @@ definitions unfolded while elaborating it, which finds failing unfoldings.
 while measuring) before a declaration prints the heartbeats it uses
 against the 200000 budget.
 
+For allocation-based work comparisons without adding an import, use Lean's
+heartbeat profiler. From `lean/`, build the module first to obtain its setup
+file, which supplies the same options and imports as Lake:
+
+```sh
+lake build +VerifiedGarbage.Proof.MlKem.Arm.Mul
+lake env lean --setup .lake/build/ir/VerifiedGarbage/Proof/MlKem/Arm/Mul.setup.json \
+  -j1 -DElab.async=false -Dtrace.profiler=true \
+  -Dtrace.profiler.useHeartbeats=true -Dtrace.profiler.threshold=1000000000 \
+  -Dtrace.Elab.command=true -Dtrace.Kernel=true \
+  VerifiedGarbage/Proof/MlKem/Arm/Mul.lean
+```
+
+Use identical profiling options for both versions. The high threshold
+suppresses other trace classes while command and kernel traces remain
+explicitly enabled. Report their counts separately: traces are inclusive,
+so adding parent and descendant counts double-counts work. These are work
+comparisons; use `#count_heartbeats` above to compare a declaration with its
+resource budget. Run elapsed-time benchmarks without tracing.
+
+When changing proof or build performance:
+
+* **Shared helpers:** compare representative callers, including large
+  proofs and different postcondition shapes. Check elaboration and kernel
+  work; improving one caller does not establish a general improvement.
+* **Build concurrency:** preserve the configured compiler thread limits
+  and Lake worker counts unless a controlled build comparison supports
+  changing them. More threads can increase contention, and a faster isolated
+  file can still slow the build. The two compiler threads and six Lake
+  workers measured in [PR #367](https://github.com/pyca/verified-garbage/pull/367)
+  are a measured configuration, not a universal optimum; retune against the
+  intended runner's CPU and memory limits.
+* **Comparable measurements:** compare baseline and candidate on the same
+  base revision, toolchain, hardware limits and cache state. Keep dependency
+  caches equally warm and clean project outputs for clean-build comparisons.
+  Repeat comparisons to check noise, record wall time and total CPU time,
+  and distinguish reduced proof work from improved scheduling. State the
+  workload and environment; local timings alone do not establish a CI speedup.
+* **Validation scope:** use targeted builds while iterating. Performance
+  changes to widely shared tactics, imports or build settings need a clean
+  full-build comparison before claiming an overall speedup, including the
+  artifact audits and golden tests. Keep the existing proof checks and
+  resource limits in every comparison.
+
 ## Iterating on one proof
 
 While developing, never run a bare `lake build` or the emitter: the default
@@ -329,6 +386,7 @@ python3 ci/check_lean_speed.py
 python3 ci/check_vectors.py
 python3 ci/check_arch_gates.py
 python3 ci/check_variants.py
+python3 ci/check_mcdt.py
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
 ```

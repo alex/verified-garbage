@@ -38,10 +38,9 @@ def artifacts : List Artifact := [
     stack := 8
     verified := Proof.ChaCha20.X86_64.Xor.xor_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) },
-  { target := X86_64.target
-    module := "chacha20"
+  { Spec.ChaCha20.xorApi with
     name := "vg_chacha20_xor_avx2"
-    sig := Spec.ChaCha20.xorSig
+    target := X86_64.target
     doc := "XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` \
       (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced \
       by 0, 1, … modulo 2³²) into the `len` bytes at `data`, with AVX2: eight blocks at a time \
@@ -58,10 +57,9 @@ def artifacts : List Artifact := [
     verified := Proof.ChaCha20.X86_64.Avx2.xor_verified
     features := ["avx", "avx2"]
     spSafe := Code.all_of_allInstrs (by lit_decide) },
-  { target := X86_64.target
-    module := "chacha20"
+  { Spec.ChaCha20.xorApi with
     name := "vg_chacha20_xor_avx512"
-    sig := Spec.ChaCha20.xorSig
+    target := X86_64.target
     doc := "XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` \
       (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced \
       by 0, 1, … modulo 2³²) into the `len` bytes at `data`, with AVX-512: sixteen blocks at a \

@@ -14,7 +14,8 @@ The scalar and group primitives allow composition with the existing SHA-512
 API. The complete-operation contracts also specify the hashing, so that an
 assembly caller can be verified end to end, generic over SHA-512 backends.
 `verifyEquation` alone checks a supplied challenge; its documentation does
-not claim it hashes the message.
+not claim it hashes the message, and states that `verify`'s predicate needs
+the challenge reduced modulo `L` (with `scalarReduce`) before the call.
 
 All functions take 8 KiB of scratch space, whose contents are unspecified on
 return and must be destroyed by callers handling secrets. `stack` describes
@@ -81,8 +82,9 @@ def verifyEquationSig : Sig where
     ("challenge", .array false .u8 64), ("scratch", .array true .u64 scratchWords)]
   ret := some .u32
 
-/-- Check the encodings and equation using the full 512-bit challenge.
-All inputs may affect timing. No message hashing takes place here. -/
+/-- Check the encodings and equation using the full 512-bit challenge, as
+given: no reduction modulo `L` takes place here, nor message hashing.
+All inputs may affect timing. -/
 def verifyEquationContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
   verifyEquationSig.contract A
     (post := fun pk signature challenge _scratch m _m' r =>
@@ -141,6 +143,7 @@ def scalarBaseApi : Api where
   name := "vg_ed25519_scalar_base"
   sig := scalarBaseSig
   writeArgs := true
+  contracts := some fun A stack => scalarBaseContract A stack
   summary := "Ed25519 base-point multiplication (RFC 8032 §5.1.4): writes the encoding of \
     `[s]B` to `*out`, for the unsigned little-endian 256-bit integer at `scalar`, without \
     pruning. Contract: `VG.Spec.Ed25519.scalarBaseContract`. Constant time: only pointers \
@@ -152,6 +155,7 @@ def scalarReduceApi : Api where
   name := "vg_ed25519_scalar_reduce"
   sig := scalarReduceSig
   writeArgs := true
+  contracts := some fun A stack => scalarReduceContract A stack
   summary := "Ed25519 scalar reduction (RFC 8032 §5.1.6): writes the canonical 32-byte \
     little-endian encoding of `wide mod L` to `*out`, using all 64 input bytes. \
     Contract: `VG.Spec.Ed25519.scalarReduceContract`. Constant time: only pointers may \
@@ -163,6 +167,7 @@ def scalarMulAddApi : Api where
   name := "vg_ed25519_scalar_mul_add"
   sig := scalarMulAddSig
   writeArgs := true
+  contracts := some fun A stack => scalarMulAddContract A stack
   summary := "Ed25519 scalar multiply-add (RFC 8032 §5.1.6): writes the canonical 32-byte \
     little-endian encoding of `(r + k*s) mod L` to `*out`. The inputs are unsigned 256-bit \
     little-endian integers; they need not be canonical scalars. \
@@ -175,11 +180,17 @@ def verifyEquationApi : Api where
   name := "vg_ed25519_verify_equation"
   sig := verifyEquationSig
   writeArgs := true
+  contracts := some fun A stack => verifyEquationContract A stack
   summary := "Checks Ed25519 encodings and the equation `[S]B = R + [k]A` (RFC 8032 §5.1.7), \
     returning 1 if they pass and 0 otherwise. `pk` holds A, `signature` holds R || S, and \
-    `challenge` holds all 64 bytes of k as a little-endian integer. To verify a signature \
-    on M, the caller must supply SHA-512(R || A || M) as `challenge`; this function does \
-    not hash M. Rejects noncanonical points and S >= L, with no additional subgroup or \
+    `challenge` holds all 64 bytes of k as a little-endian integer, used as given: it is \
+    not reduced modulo L. To verify a signature on M as RFC 8032 §6 and \
+    `VG.Spec.Ed25519.verify` do, the caller must reduce SHA-512(R || A || M) modulo L (e.g. \
+    with `vg_ed25519_scalar_reduce`) and supply the 32-byte result followed by 32 zero \
+    bytes as `challenge`; this function does not hash M. Passing the unreduced digest \
+    instead checks the equation with the full 512-bit k, which RFC 8032 §5.1.7 also \
+    permits but which differs from §6 and OpenSSL whenever A has a small-order \
+    component. Rejects noncanonical points and S >= L, with no additional subgroup or \
     small-order check. Contract: `VG.Spec.Ed25519.verifyEquationContract`. Not constant \
     time: timing may depend on all inputs."
   safety := [scratchSafety]
@@ -189,6 +200,7 @@ def publicKeyApi : Api where
   name := "vg_ed25519_public_key"
   sig := publicKeySig
   writeArgs := true
+  contracts := some fun A stack => publicKeyContract A stack
   summary := "Ed25519 public-key derivation (RFC 8032 §5.1.5): writes the 32-byte public \
     key to `*out`, from the 32-byte private seed at `seed`, including SHA-512 and pruning. \
     Contract: `VG.Spec.Ed25519.publicKeyContract`. Constant time: only pointers may affect \
@@ -200,6 +212,7 @@ def signApi : Api where
   name := "vg_ed25519_sign"
   sig := signSig
   writeArgs := true
+  contracts := some fun A stack => signContract A stack
   summary := "Deterministic Ed25519 signing (RFC 8032 §5.1.6): writes the 64-byte signature \
     to `*out`, for the `len` bytes at `message` and the 32-byte private seed at `seed`. \
     Uses pure Ed25519, with no context or prehash. Derives the public key from the seed. \
@@ -212,11 +225,12 @@ def verifyApi : Api where
   name := "vg_ed25519_verify"
   sig := verifySig
   writeArgs := true
+  contracts := some fun A stack => verifyContract A stack
   summary := "Ed25519 verification (RFC 8032 §5.1.7): returns 1 if the 64-byte signature at \
     `signature` verifies for the 32-byte public key at `pk` and the `len` bytes at \
     `message`, and 0 otherwise. Uses pure Ed25519, with no context or prehash. Checks \
-    canonical point encodings, S < L, and `[S]B = R + [k]A` with the full SHA-512 \
-    challenge. No additional subgroup or small-order check is imposed. \
+    canonical point encodings, S < L, and `[S]B = R + [k]A` with the challenge \
+    k = SHA-512(R || A || M) reduced modulo L, as in RFC 8032 §6. No additional subgroup or small-order check is imposed. \
     Contract: `VG.Spec.Ed25519.verifyContract`. Not constant time: timing may depend on \
     the public key, message and signature."
   safety := [scratchSafety]

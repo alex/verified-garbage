@@ -136,19 +136,3 @@ def sampleNTT4 : Prog isa :=
   .seq (.block pro) (.seq (callK 0) (.seq (callK 1) (.seq (callK 2) (.seq (callK 3) (.block epi)))))
 
 end VG.Impl.MlKem.X86_64.Sample4
-
-namespace VG.Impl.MlKem.X86_64
-
-open VG.X86_64
-
-/-- An implementation of `vg_mlkem_sample_ntt4` to call: its symbol and its
-code. The top-level functions, which call it, are emitted once for each
-(`Generic/MlKemSample4/X86_64/`). -/
-structure Callee4 where
-  name : String
-  code : Prog isa
-
-def Callee4.scalar : Callee4 := ⟨"vg_mlkem_sample_ntt4", Sample4.sampleNTT4⟩
-def Callee4.avx2 : Callee4 := ⟨"vg_mlkem_sample_ntt4_avx2", Sample4.sampleNTT4Avx2⟩
-
-end VG.Impl.MlKem.X86_64

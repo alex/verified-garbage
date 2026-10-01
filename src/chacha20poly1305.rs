@@ -185,6 +185,9 @@ impl ChaCha20Poly1305 {
         if ok == 1 {
             Ok(())
         } else {
+            // `open`'s contract leaves `data` unspecified when the tag is
+            // wrong (it may hold the decryption of the forged ciphertext):
+            // this, not the verified code, keeps it from being released.
             data.fill(0);
             Err(InvalidTag)
         }

@@ -190,6 +190,7 @@ def keyGenExpandedApi : Api where
   name := "vg_mlkem768_keygen_expanded"
   sig := keyGenExpandedSig
   writeArgs := true
+  contracts := some fun A stack => keyGenExpandedContract A stack
   summary := "ML-KEM-768 key generation from a seed, `ML-KEM.KeyGen_internal(d, z)` (FIPS 203 \
     Algorithm 16), as `vg_mlkem768_keygen`, with the encapsulation key written to `*ekx` as " ++
     ekxDoc mlKem768 "ML-KEM-768" ++ ", and the decapsulation key to `*dk`. " ++ outcomeDoc ++ "\n\n\
@@ -207,6 +208,7 @@ def expandEkApi : Api where
   name := "vg_mlkem768_expand_ek"
   sig := expandEkSig
   writeArgs := true
+  contracts := some fun A stack => expandEkContract A stack
   summary := "Writes to `*ekx` " ++ ekxDoc mlKem768 "ML-KEM-768" ++ ", of the encapsulation key \
     `*ek`. " ++ outcomeDoc ++ "\n\n\
     Contract: `VG.Spec.MlKem.expandEkContract`. Constant time but for `ρ`: timing may depend \
@@ -222,6 +224,7 @@ def encapsExpandedApi : Api where
   name := "vg_mlkem768_encaps_expanded"
   sig := encapsExpandedSig
   writeArgs := true
+  contracts := some fun A stack => encapsExpandedContract A stack
   summary := "ML-KEM-768 encapsulation with given randomness, `ML-KEM.Encaps_internal(ek, m)` \
     (FIPS 203 Algorithm 17), from `*ekx`, " ++ ekxDoc mlKem768 "ML-KEM-768" ++ " of `ek`, and \
     the randomness `*m`: writes the shared secret key to `*key` and the ciphertext to `*ct`. It \
@@ -241,6 +244,7 @@ def decapsExpandedApi : Api where
   name := "vg_mlkem768_decaps_expanded"
   sig := decapsExpandedSig
   writeArgs := true
+  contracts := some fun A stack => decapsExpandedContract A stack
   summary := "ML-KEM-768 decapsulation, `ML-KEM.Decaps_internal(dk, c)` (FIPS 203 Algorithm \
     18), with `*ekx`, " ++ ekxDoc mlKem768 "ML-KEM-768" ++ " of the encapsulation key in the \
     decapsulation key `*dk` (its bytes 1152–2335), and the ciphertext `*ct`: writes the shared \
@@ -350,6 +354,7 @@ def keyGenExpandedApi : Api where
   name := "vg_mlkem1024_keygen_expanded"
   sig := keyGenExpandedSig
   writeArgs := true
+  contracts := some fun A stack => keyGenExpandedContract A stack
   summary := "ML-KEM-1024 key generation from a seed, `ML-KEM.KeyGen_internal(d, z)` (FIPS 203 \
     Algorithm 16), as `vg_mlkem1024_keygen`, with the encapsulation key written to `*ekx` as " ++
     ekxDoc ++ ", and the decapsulation key to `*dk`. " ++ outcomeDoc ++ "\n\n\
@@ -367,6 +372,7 @@ def expandEkApi : Api where
   name := "vg_mlkem1024_expand_ek"
   sig := expandEkSig
   writeArgs := true
+  contracts := some fun A stack => expandEkContract A stack
   summary := "Writes to `*ekx` " ++ ekxDoc ++ ", of the encapsulation key `*ek`. " ++ outcomeDoc ++
     "\n\n\
     Contract: `VG.Spec.MlKem1024.expandEkContract`. Constant time but for `ρ`: timing may depend \
@@ -382,6 +388,7 @@ def encapsExpandedApi : Api where
   name := "vg_mlkem1024_encaps_expanded"
   sig := encapsExpandedSig
   writeArgs := true
+  contracts := some fun A stack => encapsExpandedContract A stack
   summary := "ML-KEM-1024 encapsulation with given randomness, `ML-KEM.Encaps_internal(ek, m)` \
     (FIPS 203 Algorithm 17), from `*ekx`, " ++ ekxDoc ++ " of `ek`, and the randomness `*m`: \
     writes the shared secret key to `*key` and the ciphertext to `*ct`. It samples nothing, so \
@@ -401,6 +408,7 @@ def decapsExpandedApi : Api where
   name := "vg_mlkem1024_decaps_expanded"
   sig := decapsExpandedSig
   writeArgs := true
+  contracts := some fun A stack => decapsExpandedContract A stack
   summary := "ML-KEM-1024 decapsulation, `ML-KEM.Decaps_internal(dk, c)` (FIPS 203 Algorithm \
     18), with `*ekx`, " ++ ekxDoc ++ " of the encapsulation key in the decapsulation key `*dk` \
     (its bytes 1536–3103), and the ciphertext `*ct`: writes the shared secret key to `*key`, \

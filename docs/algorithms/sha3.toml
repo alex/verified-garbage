@@ -3,3 +3,4 @@ family = "Hashes"
 specs = ["Sha3"]
 modules = ["src/hashes/sha3.rs"]
 asm = ["sha3"]
+optimized = { x86_64 = "lane complementing" }

@@ -38,10 +38,9 @@ def artifacts : List Artifact := [
     contract := Spec.Gcm.ctr32Contract X86_64.abi
     verified := Proof.Aes.X86_64.ctr32_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) },
-  { target := X86_64.target
-    module := "aes"
+  { Spec.Aes.expandKeyApi with
     name := "vg_aes_expand_key_aesni"
-    sig := Spec.Aes.expandKeySig
+    target := X86_64.target
     doc := "AES key expansion (FIPS 197 §5.2), with AES-NI: writes the key schedule of the \
       `key_len`-byte key at `key` (AES-128, AES-192 or AES-256) to the first `16 (Nr + 1)` bytes \
       of `schedule`, where `Nr = key_len / 4 + 6`: the words `w[0] … w[4 Nr + 3]` in order, each \
@@ -57,10 +56,9 @@ def artifacts : List Artifact := [
     verified := Proof.Aes.X86_64.AesNi.Key.expandKey_verified
     features := ["aes"]
     spSafe := Code.all_of_allInstrs (by lit_decide) },
-  { target := X86_64.target
-    module := "aes"
+  { Spec.Gcm.ctr32Api with
     name := "vg_aes_ctr32_aesni"
-    sig := Spec.Gcm.ctr32Sig
+    target := X86_64.target
     doc := "AES in GCM's counter mode (SP 800-38D §6.5, with `inc₃₂`), with AES-NI: XORs \
       `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the block \
       at `counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` at `counter`. `CIPH_K` is \

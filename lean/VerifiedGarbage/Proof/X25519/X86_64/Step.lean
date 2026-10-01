@@ -87,6 +87,15 @@ theorem mulStep_ok (s : State) {t c ai : Reg} {src : Src} {v : BitVec 64}
     simp only [RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, RegUpd.gpr_setFlags, hr.1, hr.2.1,
       hr.2.2.1, hr.2.2.2, ite_false]
 
+/-- The halves of a product of two words (`mul`, `mulx`): `lo + 2⁶⁴ hi`. -/
+theorem mulx_arith (d v : BitVec 64) :
+    (BitVec.ofNat 64 (d.toNat * v.toNat)).toNat +
+        2 ^ 64 * (BitVec.ofNat 64 (d.toNat * v.toNat / 2 ^ 64)).toNat = d.toNat * v.toNat := by
+  have hd := d.isLt; have hv := v.isLt
+  have hp : d.toNat * v.toNat < 2 ^ 64 * 2 ^ 64 := Nat.mul_lt_mul'' hd hv
+  rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := _ / 2 ^ 64) (by omega)]
+  omega
+
 /-! ## Carry chains -/
 
 theorem add_carry (a b : BitVec 64) :

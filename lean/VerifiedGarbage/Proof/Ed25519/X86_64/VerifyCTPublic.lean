@@ -31,9 +31,11 @@ theorem verifyEquationPoints_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs
     (a r : Spec.Ed25519.Point) :
     RelCT isa (fun s t => PointsCTPre base pk sig challenge pkbs rbs sbs kbs a r s ∧
       PointsCTPre base pk sig challenge pkbs rbs sbs kbs a r t) verifyEquationPoints (fun _ _ => True) := by
-  have ht := (verifyLhs_ct base pk sig challenge).mono
+  have ht := (verifyLhs_ct base pk sig challenge (Spec.Ed25519.decodeLE sbs)).mono
     (fun _ _ (h : PointsCTPre base pk sig challenge pkbs rbs sbs kbs a r _ ∧
-      PointsCTPre base pk sig challenge pkbs rbs sbs kbs a r _) => ⟨h.1.1.context, h.2.1.context⟩) (fun _ _ h => h)
+      PointsCTPre base pk sig challenge pkbs rbs sbs kbs a r _) =>
+        ⟨⟨h.1.1.context, by rw [h.1.1.sBytes]⟩, ⟨h.2.1.context, by rw [h.2.1.sBytes]⟩⟩)
+    (fun _ _ h => h)
   have hw (s : State) (h : PointsCTPre base pk sig challenge pkbs rbs sbs kbs a r s) :
       WP isa verifyLhs s (RhsCTPre base pk sig challenge a r
         (Spec.Ed25519.pointMul (Spec.Ed25519.decodeLE sbs) Spec.Ed25519.basePoint) (Spec.Ed25519.decodeLE kbs)) := by

@@ -1,6 +1,11 @@
 //! The X448 vectors of RFC 7748 (§5.2 and §6.2), read from the vendored RFC.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "x86",
+    target_arch = "aarch64",
+    target_arch = "arm"
+))]
 
 use verified_garbage::x448::{BASE_POINT, PrivateKey, x448};
 
