@@ -239,7 +239,7 @@ theorem key_rel : RelCT isa (fun s s' => KE (H := H) s₀ s ∧ KE (H := H) s₀
 
 /-- HMAC's states, and the inner one after the salt. -/
 theorem setup_rel (hIn : Verified AArch64.target H.hmacInit (initG hH.SH H.W))
-    (hInd : H.hmacInit.fdepth ≤ 1) :
+    (hInd : H.hmacInit.aarch64Depth ≤ 1) :
     RelCT isa (fun s s' => (KE (H := H) s₀ s ∧ s.gpr .x2 = kp H s₀ ∧ (s.gpr .x3).toNat = kl H s₀ ∧
         KeyAt hH s₀ s.mem (kp H s₀) (kl H s₀)) ∧
       (KE (H := H) s₀' s' ∧ s'.gpr .x2 = kp H s₀' ∧ (s'.gpr .x3).toNat = kl H s₀' ∧
@@ -301,8 +301,8 @@ abbrev LI (hH : HashOK H) (s₀ s₀' : State) (n : Nat) (s s' : State) : Prop :
 section
 variable (hH : HashOK H) {s₀ s₀' : State} (hp : Pre (H := H) s₀) (hp' : Pre (H := H) s₀') (hz : PSizes H)
   (hq : PubEq s₀ s₀') (hc : Checks H)
-  (hF : Verified AArch64.target H.hmacFin (finG hH.SH H.W)) (hFd : H.hmacFin.fdepth ≤ 1)
-  (hI : Verified AArch64.target H.iterate (iterK hH.SH H.W)) (hId : H.iterate.fdepth ≤ 1)
+  (hF : Verified AArch64.target H.hmacFin (finG hH.SH H.W)) (hFd : H.hmacFin.aarch64Depth ≤ 1)
+  (hI : Verified AArch64.target H.iterate (iterK hH.SH H.W)) (hId : H.iterate.aarch64Depth ≤ 1)
 include hH hp hp' hz hq hc hF hFd hI hId
 
 theorem block_mid_rel {k : Nat} (hk : k < nb H s₀) (hg : (G hH s₀ k).length = k * H.D)
@@ -407,7 +407,7 @@ theorem loop_rel :
     refine ⟨Nat.le_refl _, Nat.pos_of_ne_zero this, ?_, ?_⟩ <;> rw [Nat.sub_self]
     exacts [h.1.1.1, h.1.2.1]
 
-theorem ct (hIn : Verified AArch64.target H.hmacInit (initG hH.SH H.W)) (hInd : H.hmacInit.fdepth ≤ 1) :
+theorem ct (hIn : Verified AArch64.target H.hmacInit (initG hH.SH H.W)) (hInd : H.hmacInit.aarch64Depth ≤ 1) :
     RelCT isa (fun s s' => s = s₀ ∧ s' = s₀') H.pbkdf2 fun _ _ => True := by
   unfold Hash.pbkdf2
   have lr := rel_taint (F := fun s => KE (H := H) s₀ s ∧ States hH s₀ s.mem)
@@ -431,9 +431,9 @@ end
 /-- `pbkdf2` is verified against `pbkG`, given the taint checks and the
 proofs of the functions it calls. -/
 theorem verified {H : Hash} (hH : HashOK H) (hc : Checks H)
-    (hIn : Verified AArch64.target H.hmacInit (initG hH.SH H.W)) (hInd : H.hmacInit.fdepth ≤ 1)
-    (hF : Verified AArch64.target H.hmacFin (finG hH.SH H.W)) (hFd : H.hmacFin.fdepth ≤ 1)
-    (hI : Verified AArch64.target H.iterate (iterK hH.SH H.W)) (hId : H.iterate.fdepth ≤ 1)
+    (hIn : Verified AArch64.target H.hmacInit (initG hH.SH H.W)) (hInd : H.hmacInit.aarch64Depth ≤ 1)
+    (hF : Verified AArch64.target H.hmacFin (finG hH.SH H.W)) (hFd : H.hmacFin.aarch64Depth ≤ 1)
+    (hI : Verified AArch64.target H.iterate (iterK hH.SH H.W)) (hId : H.iterate.aarch64Depth ≤ 1)
     (hsat : ∃ s, (pbkG hH.SH (H.W + H.S)).pre s) :
     Verified AArch64.target H.pbkdf2 (pbkG hH.SH (H.W + H.S)) := by
   refine ⟨fun s hs => correct (pre_of hH hs) hH.psizes hH hIn hInd hF hFd hI hId,

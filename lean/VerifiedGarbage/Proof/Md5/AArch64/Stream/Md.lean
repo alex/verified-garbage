@@ -26,6 +26,8 @@ abbrev params := Impl.Md5.AArch64.Stream.params
 theorem dims : Dims params := ⟨by decide, by decide⟩
 
 theorem shape : Shape (P := params) md where
+  lenKeepsV := by decide +kernel
+  outKeepsV := by decide +kernel
   len _ hout := len64_ok (d := params.N + 56) (be := false) (by decide) hout
   out _ hin hout hd := by
     refine (out32_ok (n := 4) false (by decide) hin hout hd).mono fun s' ⟨g, rd, wr, sp, m⟩ =>
@@ -33,7 +35,7 @@ theorem shape : Shape (P := params) md where
     rw [m, digest_eq]
 
 theorem callee : CalleeOk (P := params) md Impl.Md5.AArch64.compress :=
-  ⟨compress_verified.1, by decide +kernel⟩
+  ⟨compress_verified.1, by decide +kernel, by decide +kernel⟩
 
 namespace Update
 

@@ -38,7 +38,7 @@ theorem pres_loop : ∀ r ∈ preserved, r ∉ (Reg.x0 :: lRegs) := by decide
 
 /-- What the code guarantees: `sampleStrong`'s postcondition, and the ABI. -/
 def Post (s₀ s' : State) : Prop :=
-  abiPreserved s₀ s' ∧ Reduced s'.mem (aP s₀) ∧
+  GprAbi s₀ s' ∧ Reduced s'.mem (aP s₀) ∧
     ((s'.gpr .x0 = 1 ∧ sampleNTT 280 (Bs s₀) = some (polyAt s'.mem (aP s₀))) ∨
       (s'.gpr .x0 = 0 ∧ sampleNTT 280 (Bs s₀) = none))
 
@@ -137,6 +137,7 @@ theorem strong_ok {s₀ : State} (hp : Pre s₀) : WP isa sampleNTT s₀ (Post s
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa sampleNTT s₀ fun s' => abiPreserved s₀ s' ∧ sampleAArch64.post s₀ s' := by
+  apply WP.withPreservedV (hc := by decide +kernel)
   refine WP.mono (strong_ok hp) fun s' ⟨abi, red, res⟩ => ⟨abi, ?_⟩
   rcases res with ⟨h0, hs⟩ | ⟨h0, hn⟩
   · have r1 : (s'.gpr .x0).setWidth 32 = 1 := by rw [h0]; rfl
@@ -361,7 +362,8 @@ def sampleStrong : Contract isa :=
 
 theorem sample_strong (s : State) (hs : sampleStrong.pre s) :
     ∃ t s', Exec isa sampleNTT s t s' ∧ abiPreserved s s' ∧ sampleStrong.post s s' :=
-  WP.mono (strong_ok (pre_of hs)) fun _ h => h
+  WP.withPreservedV (hc := by decide +kernel) <|
+    WP.mono (strong_ok (pre_of hs)) fun _ h => h
 
 theorem ct_strong : ConstantTime isa sampleStrong.pre sampleStrong.pub sampleNTT := ct
 

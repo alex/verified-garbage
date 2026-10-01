@@ -82,7 +82,7 @@ open VG.Impl.Blake2.X86_64 (at_ compress)
 open VG.Proof.MdStream.X86_64 (Upd ofInt_natCast toNat_ofNat_lt callEntry_byte wp_mov wp_movm wp_store
   wp_addi wp_subi wp_sub wp_add wp_cmp wp_test wp_movzx8 wp_store8 wp_mov32i wp_andi)
 
-variable {w : Nat} {P : Params w}
+variable {w : Nat} {P : Params w} {callee : Impl.Blake2.X86_64.Stream.Callee}
 
 /-- The word sizes. -/
 structure Ok (P : Params w) : Prop where
@@ -174,7 +174,7 @@ theorem call_hyps {σ s : State} {st scr src : Addr} {n t : BitVec 64} {last : B
 /-- Compressing the `n` blocks at `src` into the hash value at `rbx`, with
 scratch space at `r15`, by calling the compression function, after `args`
 set up its arguments. -/
-theorem compressWith_ok {args : List Instr} (hf : CalleeOk P (compress P)) {s : State}
+theorem compressWith_ok {args : List Instr} (hf : CalleeOk P callee.code) {s : State}
     {st scr src : Addr} {n t : BitVec 64} {last : Bool}
     (hs : WP isa (.block (([.mov .rdi (.reg .rbx)] : List Instr) ++ args ++ ([.mov .r9 (.reg .r15)] : List Instr))) s
       fun s' => Setup s s' src n t last)
@@ -184,7 +184,7 @@ theorem compressWith_ok {args : List Instr} (hf : CalleeOk P (compress P)) {s : 
       Frame [⟨st, bufOff w⟩, ⟨scr, 512⟩, below (s.gpr .rsp) 8] s.mem s'.mem →
       stateAt w s'.mem st = compressBlocks P (stateAt w s.mem st) s.mem src n.toNat t.toNat last →
       Q s') :
-    WP isa (compressWith P args) s Q := by
+    WP isa (compressWith callee args) s Q := by
   unfold compressWith
   refine WP.seq (WP.mono hs fun s₁ hs => ?_)
   have e₁ : s₁.gpr .rdi = st := hs.rdi.trans h.rbx

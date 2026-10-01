@@ -33,6 +33,7 @@ structure Top (σ s : State) : Prop where
   x28 : s.gpr .x28 = σ.gpr .x3
   cs : ∀ r ∈ untouched, s.gpr r = σ.gpr r
   saved : ∀ k < 6, s.mem.readW (σ.gpr .x3 + BitVec.ofNat 64 (SV + 8 * k)) 64 = σ.gpr (savedRegs.getD k .x0)
+  vcs : ∀ r ∈ preservedV, (s.v r).extractLsb' 0 64 = (σ.v r).extractLsb' 0 64
 
 theorem untouched_kept : ∀ r ∈ untouched, r ∈ keptRegs := by decide
 
@@ -50,7 +51,8 @@ theorem Top.step {S : Nat} {rbs wbs : List (Reg × Nat)} {σ s s' : State} (h : 
       (L.fdisj hc) (by decide)
   refine ⟨hP.rd.trans h.rd, hP.wr.trans h.wr, hP.sp.trans h.sp, by rw [hP.bs _ (by decide), h.x25],
     by rw [hP.bs _ (by decide), h.x26], by rw [hP.bs _ (by decide), h.x27], by rw [hP.bs _ (by decide), h.x28],
-    fun r hr => by rw [hP.cs r (untouched_kept r hr), h.cs r hr], fun k hk => ?_⟩
+    fun r hr => by rw [hP.cs r (untouched_kept r hr), h.cs r hr], fun k hk => ?_,
+    fun r hr => (hP.vcs r hr).trans (h.vcs r hr)⟩
   have e : σ.gpr .x3 + BitVec.ofNat 64 (SV + 8 * k) = pa s svP + BitVec.ofNat 64 (8 * k) := by
     rw [pa, h.x28, BitVec.add_assoc, ← BitVec.ofNat_add]
   have e' : σ.gpr .x3 + BitVec.ofNat 64 (SV + 8 * k) = pa s' svP + BitVec.ofNat 64 (8 * k) := by
@@ -67,12 +69,14 @@ theorem pro_ok {σ : State} (hin : ∀ k < 6, InRegions σ.wr (σ.gpr .x3 + BitV
     WP isa (.block pro) σ fun s => Top σ s ∧ s.gpr .x24 = 1 ∧
       Frame [⟨σ.gpr .x3 + BitVec.ofNat 64 SV, 48⟩] σ.mem s.mem := by
   rw [pro_eq, WP.block_append_iff]
-  refine WP.mono (Proof.MlKem.AArch64.KeyGen.saves_ok (σ.gpr .x3) .x3 SV savedRegs (by decide) (by decide) 6
-    (by decide) rfl hin) fun s₁ ⟨g₁, r₁, w₁, p₁, z₁, f₁⟩ => ?_
+  refine WP.mono (WP.preservedV (Proof.MlKem.AArch64.KeyGen.saves_ok
+    (σ.gpr .x3) .x3 SV savedRegs (by decide) (by decide) 6
+    (by decide) rfl hin) (by decide +kernel)) fun s₁ ⟨⟨g₁, r₁, w₁, p₁, z₁, f₁⟩, hv₁⟩ => ?_
   refine wp_addImm (by decide) fun s₂ h₂ e₂ => wp_addImm (by decide) fun s₃ h₃ e₃ =>
     wp_addImm (by decide) fun s₄ h₄ e₄ => wp_addImm (by decide) fun s₅ h₅ e₅ => wp_movz fun s₆ h₆ e₆ => wp_nil ?_
   have o : Only [.x25, .x26, .x27, .x28, .x24] s₁ s₆ := ((((h₂.trans h₃).trans h₄).trans h₅).trans h₆).mono
-  refine ⟨⟨by rw [o.rd, r₁], by rw [o.wr, w₁], by rw [o.sp, p₁], ?_, ?_, ?_, ?_, fun r hr => ?_, fun k hk => ?_⟩,
+  refine ⟨⟨by rw [o.rd, r₁], by rw [o.wr, w₁], by rw [o.sp, p₁], ?_, ?_, ?_, ?_, fun r hr => ?_, fun k hk => ?_,
+    fun r hr => (o.vcs r hr).trans (hv₁ r hr)⟩,
     by rw [e₆]; rfl, by rw [o.mem]; exact f₁⟩
   · rw [h₆.get .x25, h₅.get .x25, h₄.get .x25, h₃.get .x25, e₂, BitVec.add_zero, g₁]
   · rw [h₆.get .x26, h₅.get .x26, h₄.get .x26, e₃, BitVec.add_zero, h₂.get .x1, g₁]
@@ -121,7 +125,7 @@ theorem epi_ok {σ s : State} (h : Top σ s) (hin : InRegions (s.rd ++ s.wr) (σ
     wp_nil ?_
   have o₇ : Only [.x0, .x30, .x24, .x25, .x26, .x27, .x28] s s₇ :=
     ((((((h₁.trans h₂).trans h₃).trans h₄).trans h₅).trans h₆).trans h₇).mono
-  refine ⟨⟨fun r hr => ?_, by rw [o₇.sp, h.sp]⟩, ?_, o₇.mem⟩
+  refine ⟨⟨fun r hr => ?_, by rw [o₇.sp, h.sp], fun r hr => (o₇.vcs r hr).trans (h.vcs r hr)⟩, ?_, o₇.mem⟩
   · by_cases ho : r ∈ savedRegs
     · simp only [savedRegs, List.mem_cons, List.not_mem_nil, or_false] at ho
       rcases ho with rfl | rfl | rfl | rfl | rfl | rfl

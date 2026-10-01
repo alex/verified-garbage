@@ -80,7 +80,11 @@ theorem exec_pure {i : Instr} (hi : ∀ t n off, i ≠ .ldr t n off ∧ i ≠ .l
   | strb t n off => exact absurd rfl (hi t n off).2.2.2.1
   | ldrSp t off => exact absurd rfl (hi t t off).2.2.2.2
   | push => simp only [exec, reduceCtorEq] at h
-  | pop => simp only [exec, reduceCtorEq] at h
+  | pop | alloc | free => simp only [exec, reduceCtorEq] at h
+  | addSp d imm =>
+    simp only [exec] at h
+    split at h <;> cases h
+    exact ⟨rfl, rfl, rfl⟩
   | _ =>
     simp only [exec, Option.map_eq_some_iff, Option.some.injEq] at h
     first
@@ -174,6 +178,8 @@ theorem mstep_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha
   | movt => exact base (fun _ _ _ => by simp) hs e₁ e₂
   | rev => exact base (fun _ _ _ => by simp) hs e₁ e₂
   | mul => exact base (fun _ _ _ => by simp) hs e₁ e₂
+  | addSp => exact base (fun _ _ _ => by simp) hs e₁ e₂
+  | alloc | free => simp only [exec, reduceCtorEq] at e₁
 
 /-- Taint tracking over memory both runs agree on, for ARMv7. -/
 def memTaint : VG.Taint isa where
