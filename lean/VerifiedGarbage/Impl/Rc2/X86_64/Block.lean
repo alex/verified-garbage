@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.Rc2.X86_64.Lookup
+import VerifiedGarbage.Impl.Rc2.X86_64.Sse2KeyLookup
 
 /-! # RC2 block encryption and decryption on baseline x86-64 -/
 
@@ -48,7 +48,7 @@ def reverseMix (j i : Nat) : List Instr :=
      .alu .and (wordReg i) (.imm 65535)]
 
 def mash (direction : Spec.Rc2.Direction) (i : Nat) : List Instr :=
-  [rr .rax (wordReg (i + 3))] ++ keyLookup ++
+  [rr .rax (wordReg (i + 3))] ++ Sse2.keyLookup ++
     [.alu (if direction = .encrypt then .add else .sub) (wordReg i) (.reg .rax),
      .alu .and (wordReg i) (.imm 65535)]
 

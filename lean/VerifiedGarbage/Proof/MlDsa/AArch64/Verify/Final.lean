@@ -67,7 +67,7 @@ theorem hash_taint {p : Params} (hp : p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDsa.
       RelCT isa P ((shake256With keccak.callee) (hIns p) [⟨.x28, oCT, p.ctildeLen⟩]) fun _ _ => True := by
   intro P hr
   obtain ⟨hint, hh⟩ := keccak.mldsaVerifyHashTaint p hp
-  exact taintRel bases hr hh
+  exact VectorTaint.relRegs bases hr hh
 
 theorem cmp_taint {p : Params} (hp : p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDsa.mlDsa65 ∨ p = Spec.MlDsa.mlDsa87) :
     ∀ {P : State → State → Prop}, (∀ x y, P x y → x.sp = y.sp ∧ ∀ r ∈ bases, x.gpr r = y.gpr r) →

@@ -185,7 +185,7 @@ theorem pad_correct (v : Permutation) (s : State) (hs : Proof.Sha3.padAArch64.pr
 theorem pad_ct (v : Permutation) : ConstantTime isa Proof.Sha3.padAArch64.pre Proof.Sha3.padAArch64.pub
     (Impl.Sha3.AArch64.Stream.padWith v.callee) := by
   obtain ⟨hint, hhint⟩ := v.padTaint
-  exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x4])
+  exact VectorTaint.constantTime (Taint.ofRegs [.x0, .x1, .x2, .x4])
     (fun _ _ _ _ hp => agree₀ hp) hhint
 
 theorem pad_verified (v : Permutation) :
