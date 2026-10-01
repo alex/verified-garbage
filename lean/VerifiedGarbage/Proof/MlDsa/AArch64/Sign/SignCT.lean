@@ -13,6 +13,8 @@ agree once `ExpandA` finished (`pub_leq`, `rest_tr`).
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -36,12 +38,12 @@ theorem rr_rs {I E : State → State → Prop} {x y : State} (h : RR p D I E x y
   exact ⟨σ₁, σ₂, p₁, p₂, hpub, trivial, i₁, i₂⟩
 
 theorem sign_ct {P : Prims} (hP : PrimsOk P D) (h3 : Ok3 p) :
-    ConstantTime isa (signK p D).pre (signK p D).pub (Impl.MlDsa.AArch64.Sign.sign P p) := by
+    ConstantTime isa (signK p D).pre (signK p D).pub (Impl.MlDsa.AArch64.Sign.signWith keccak.callee P p) := by
   have hc := allChk_ok h3
   simp only [allChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨⟨⟨ha, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩, -⟩ := hc
   refine relStart (Q := fun _ _ => True) ?_
-  unfold Impl.MlDsa.AArch64.Sign.sign
+  unfold Impl.MlDsa.AArch64.Sign.signWith
   refine RelCT.seq (RelCT.mono (relInvE (J := fun σ s => St p D σ s ∧ s.gpr .x24 = 1) (E := fun _ _ => True)
     (fun σ s hp hs => by
       subst hs

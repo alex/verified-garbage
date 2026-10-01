@@ -18,19 +18,21 @@ arguments of `sample_ntt`, then `sample_ntt`'s own constant time
 
 namespace VG.Proof.MlKem1024.AArch64.KeyGen
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlKem1024.AArch64 VG.Impl.MlKem1024.AArch64.KG VG.Proof.MlKem
   VG.Proof.MlKem.AArch64 VG.Proof.MlKem1024 VG.Proof.MlKem1024.AArch64
-open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash copy32)
+open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash hashWith copy32)
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
 
 /-! ## Correctness -/
 
-theorem a_ok {s₀ : State} (hp : Pre s₀) : WP isa kgA s₀ (AfterA s₀) :=
+theorem a_ok {s₀ : State} (hp : Pre s₀) : WP isa (kgAWith keccak.callee) s₀ (AfterA s₀) :=
   WP.seq (WP.mono (prologue_ok hp) fun _ h => g_ok hp h)
 
 theorem c_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : BInv s₀ 16 s) :
-    WP isa kgC s (Done s₀ s.mem (s.gpr .x24)) := by
+    WP isa (kgCWith keccak.callee) s (Done s₀ s.mem (s.gpr .x24)) := by
   have c : CInv s₀ s.mem (s.gpr .x24) s := ⟨h.kb, h.rho, h.sig, rfl, fun e he => ⟨h.red e he, rfl⟩⟩
   have s0 : SInv s₀ s.mem (s.gpr .x24) 0 s :=
     ⟨c, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩
@@ -81,7 +83,7 @@ theorem post_of {s₀ sB s' : State} (hB : BInv s₀ 16 sB) (hD : Done s₀ sB.m
     rfl
 
 theorem correct {s₀ : State} (hs : keyGen1024AArch64.pre s₀) :
-    WP isa keyGen s₀ fun s' => abiPreserved s₀ s' ∧ keyGen1024AArch64.post s₀ s' := by
+    WP isa (keyGenWith keccak.callee) s₀ fun s' => abiPreserved s₀ s' ∧ keyGen1024AArch64.post s₀ s' := by
   have hp := pre_of hs
   exact WP.seq (WP.mono (a_ok hp) fun _ hA => WP.seq (WP.mono (b_ok hp hA) fun _ hB =>
     WP.mono (c_ok hp hB) fun _ hD => ⟨hD.abi, post_of hB hD⟩))
@@ -109,11 +111,11 @@ theorem Pub3.rho {σ₁ σ₂ : State} (h : Pub3 σ₁ σ₂) : rhoK σ₁ = rho
 
 /-- `SampleNTT` on the same seed in both runs. -/
 theorem call_rct {σ₁ σ₂ : State} (hpub : Pub3 σ₁ σ₂) {i j : Nat} (hi : i < 4) (hj : j < 4) :
-    RelCT isa (fun s₁ s₂ => Mid σ₁ i j s₁ ∧ Mid σ₂ i j s₂) kgCall fun _ _ => True := by
+    RelCT isa (fun s₁ s₂ => Mid σ₁ i j s₁ ∧ Mid σ₂ i j s₂) (kgCallWith keccak.callee) fun _ _ => True := by
   have hp₁ := pre_of hpub.1
   have hp₂ := pre_of hpub.2.1
   refine RelCT.seq (RelCT.wp (F₁ := fun s : State => s.sp = σ₁.sp) (F₂ := fun s : State => s.sp = σ₂.sp)
-    (sample_ct (sd := kA σ₁ 3 + BitVec.ofNat 64 SB) (a := kA σ₁ 3 + BitVec.ofNat 64 (aOff i j))
+    (sample_ctWith keccak (sd := kA σ₁ 3 + BitVec.ofNat 64 SB) (a := kA σ₁ 3 + BitVec.ofNat 64 (aOff i j))
       (w := kA σ₁ 3 + BitVec.ofNat 64 SS) fun s₁ s₂ h => ?_) fun s₁ s₂ h => ⟨?_, ?_⟩)
     (RelCT.taint (A := taint) (Taint.ofRegs []) (fun s₁ s₂ h => agree_of (by rw [h.2.1, h.2.2, hpub.sp])
       fun r hr => by cases hr) (by taint_decide))
@@ -121,8 +123,8 @@ theorem call_rct {σ₁ σ₂ : State} (hpub : Pub3 σ₁ σ₂) {i j : Nat} (hi
     rw [← hpub.kA 3] at A₂
     refine ⟨h.1.args hp₁ hi hj, A₂, ?_, by rw [h.1.b.kb.sp, h.2.b.kb.sp, hpub.sp]⟩
     rw [h.1.seed, hpub.kA 3, h.2.seed, hpub.rho]
-  · exact WP.mono (h.1.args hp₁ hi hj).sp fun s' e => by rw [e, h.1.b.kb.sp]
-  · exact WP.mono (h.2.args hp₂ hi hj).sp fun s' e => by rw [e, h.2.b.kb.sp]
+  · exact WP.mono ((h.1.args hp₁ hi hj).spWith keccak) fun s' e => by rw [e, h.1.b.kb.sp]
+  · exact WP.mono ((h.2.args hp₂ hi hj).spWith keccak) fun s' e => by rw [e, h.2.b.kb.sp]
 
 /-- The arguments of `sample_ntt` depend only on the pointer to `scratch`. -/
 theorem setup_taint : ∀ i < 4, ∀ j < 4, ∃ hc : Taint.Hint taint.T,
@@ -134,7 +136,7 @@ theorem setup_taint : ∀ i < 4, ∀ j < 4, ∃ hc : Taint.Hint taint.T,
 
 /-- `Â[i, j]` in both runs. -/
 theorem sample_rct {σ₁ σ₂ : State} (hpub : Pub3 σ₁ σ₂) {i j : Nat} (hi : i < 4) (hj : j < 4) :
-    RelCT isa (fun s₁ s₂ => BInv σ₁ (4 * i + j) s₁ ∧ BInv σ₂ (4 * i + j) s₂) (kgSample i j)
+    RelCT isa (fun s₁ s₂ => BInv σ₁ (4 * i + j) s₁ ∧ BInv σ₂ (4 * i + j) s₂) ((kgSampleWith keccak.callee) i j)
       fun s₁ s₂ => BInv σ₁ (4 * i + j + 1) s₁ ∧ BInv σ₂ (4 * i + j + 1) s₂ := by
   have hp₁ := pre_of hpub.1
   have hp₂ := pre_of hpub.2.1
@@ -149,7 +151,7 @@ theorem sample_rct {σ₁ σ₂ : State} (hpub : Pub3 σ₁ σ₂) {i j : Nat} (
       (call_rct hpub hi hj) fun s₁ s₂ h => ⟨call_ok hp₁ hi hj h.1, call_ok hp₂ hi hj h.2⟩)
       (fun _ _ h => h) fun _ _ h => h.2)
 
-theorem b_rct : RelCT isa (fun s₁ s₂ => True ∧ ∃ σ₁ σ₂, Pub3 σ₁ σ₂ ∧ AfterA σ₁ s₁ ∧ AfterA σ₂ s₂) kgB
+theorem b_rct : RelCT isa (fun s₁ s₂ => True ∧ ∃ σ₁ σ₂, Pub3 σ₁ σ₂ ∧ AfterA σ₁ s₁ ∧ AfterA σ₂ s₂) (kgBWith keccak.callee)
     fun s₁ s₂ => ∃ σ₁ σ₂, Pub3 σ₁ σ₂ ∧ BInv σ₁ 16 s₁ ∧ BInv σ₂ 16 s₂ := by
   refine RelCT.mono (RelCT.exists_ (P := fun (x : State × State) s₁ s₂ =>
       Pub3 x.1 x.2 ∧ BInv x.1 0 s₁ ∧ BInv x.2 0 s₂) fun x => ?_)
@@ -176,7 +178,7 @@ theorem b_rct : RelCT isa (fun s₁ s₂ => True ∧ ∃ σ₁ σ₂, Pub3 σ₁
         (sample_rct hpub (i := 3) (j := 3) (by decide) (by decide))
   · exact RelCT.of_false fun _ _ h => hpub h.1
 
-theorem c_rct : RelCT isa (fun s₁ s₂ => ∃ σ₁ σ₂, Pub3 σ₁ σ₂ ∧ BInv σ₁ 16 s₁ ∧ BInv σ₂ 16 s₂) kgC
+theorem c_rct : RelCT isa (fun s₁ s₂ => ∃ σ₁ σ₂, Pub3 σ₁ σ₂ ∧ BInv σ₁ 16 s₁ ∧ BInv σ₂ 16 s₂) (kgCWith keccak.callee)
     fun _ _ => True :=
   RelCT.taint (A := taint) (Taint.ofRegs [.x25, .x26, .x27, .x28]) (fun s₁ s₂ ⟨σ₁, σ₂, hpub, b₁, b₂⟩ =>
     agree_of (by rw [b₁.kb.sp, b₂.kb.sp, hpub.sp]) fun r hr => by
@@ -184,14 +186,14 @@ theorem c_rct : RelCT isa (fun s₁ s₂ => ∃ σ₁ σ₂, Pub3 σ₁ σ₂ �
       · rw [b₁.kb.x25, b₂.kb.x25, hpub.kA 0]
       · rw [b₁.kb.x26, b₂.kb.x26, hpub.kA 1]
       · rw [b₁.kb.x27, b₂.kb.x27, hpub.kA 2]
-      · rw [b₁.kb.x28, b₂.kb.x28, hpub.kA 3]) (by taint_decide)
+      · rw [b₁.kb.x28, b₂.kb.x28, hpub.kA 3]) keccak.mlkem1024KgCTaint.choose_spec
 
-theorem ct : ConstantTime isa keyGen1024AArch64.pre keyGen1024AArch64.pub keyGen :=
+theorem ct : ConstantTime isa keyGen1024AArch64.pre keyGen1024AArch64.pub (keyGenWith keccak.callee) :=
   RelCT.constantTime (Q := fun _ _ => True) (RelCT.seq
     ((RelCT.taint (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) (fun _ _ h =>
       agree_of h.2.2.2.2.2.2.1 (by
         obtain ⟨-, -, e0, e1, e2, e3, -, -⟩ := h
-        simp [e0, e1, e2, e3])) (by taint_decide)).wpDep (F := fun σ s => AfterA σ s)
+        simp [e0, e1, e2, e3])) keccak.mlkem1024KgATaint.choose_spec).wpDep (F := fun σ s => AfterA σ s)
       fun _ _ h => ⟨a_ok (pre_of h.1), a_ok (pre_of h.2.1)⟩)
     (RelCT.seq b_rct c_rct))
 
@@ -206,14 +208,18 @@ def sat : State where
   rd := [⟨0x1000, 64⟩]
   wr := [⟨0x2000, 1568⟩, ⟨0x3000, 3168⟩, ⟨0x10000, 49152⟩]
 
-theorem keyGen_correct (s : State) (hs : keyGen1024AArch64.pre s) :
-    ∃ t s', Exec isa keyGen s t s' ∧ abiPreserved s s' ∧ keyGen1024AArch64.post s s' :=
+theorem keyGen_correctWith (s : State) (hs : keyGen1024AArch64.pre s) :
+    ∃ t s', Exec isa (keyGenWith keccak.callee) s t s' ∧ abiPreserved s s' ∧ keyGen1024AArch64.post s s' :=
   correct hs
+
+theorem keyGen_verifiedWith :
+    Verified AArch64.target (keyGenWith keccak.callee) (Spec.MlKem1024.keyGenContract AArch64.abi 16) :=
+  Verified.of_correct (keyGen_correctWith (keccak := keccak)) (ct (keccak := keccak)) (by
+    mlkem_implies [Spec.MlKem1024.keyGenContract, Spec.MlKem1024.keyGenSig, keyGen1024AArch64,
+      AArch64.abi, AArch64.argRegs] [sat] using sat)
 
 theorem keyGen_verified :
     Verified AArch64.target keyGen (Spec.MlKem1024.keyGenContract AArch64.abi 16) :=
-  Verified.of_correct keyGen_correct ct (by
-    mlkem_implies [Spec.MlKem1024.keyGenContract, Spec.MlKem1024.keyGenSig, keyGen1024AArch64,
-      AArch64.abi, AArch64.argRegs] [sat] using sat)
+  keyGen_verifiedWith (keccak := .scalar)
 
 end VG.Proof.MlKem1024.AArch64.KeyGen

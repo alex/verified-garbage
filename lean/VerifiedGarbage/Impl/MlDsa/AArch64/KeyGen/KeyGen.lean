@@ -36,6 +36,8 @@ samplers leak (`ρ` and which half-bytes `RejBoundedPoly` rejects).
 
 namespace VG.Impl.MlDsa.AArch64.KeyGen
 
+variable (c : Impl.Sha3.AArch64.Callee)
+
 open VG.AArch64
 open VG.Impl.MlKem.AArch64 (copy32)
 open VG.Spec.MlDsa (Params bitlen)
@@ -67,9 +69,9 @@ def oT0 (p : Params) : Nat := 128 + lenS p * (p.ℓ + p.k)
 
 /-- `(ρ, ρ′, K) = H(ξ ‖ k ‖ ℓ, 128)`, `ρ` to the seed of `RejNTTPoly`, and
 `ρ′ ‖ 0` to that of `RejBoundedPoly`. -/
-def seeds (p : Params) : Prog isa :=
+def seedsWith (p : Params) : Prog isa :=
   .seq (.block (setB (sc oKL) p.k ++ setB (sc (oKL + 1)) p.ℓ))
-    (.seq (shake256 [⟨.x25, 0, 32⟩, ⟨.x28, oKL, 2⟩] [⟨.x28, oHX, 128⟩])
+    (.seq ((shake256With c) [⟨.x25, 0, 32⟩, ⟨.x28, oKL, 2⟩] [⟨.x28, oHX, 128⟩])
       (.block (copy32 .x28 oHX .x28 oSA ++ copy32 .x28 (oHX + 32) .x28 oSB ++
         copy32 .x28 (oHX + 64) .x28 (oSB + 32) ++ setB (sc (oSB + 65)) 0)))
 
@@ -104,16 +106,21 @@ def row (P : Prims) (p : Params) (i : Nat) : Prog isa :=
       (bitPackAt P (t0P p) 4095 4096 (.x27, oT0 p + 416 * i) 416))))))
 
 /-- `tr = H(pk, 64)` to `sk`. -/
-def trHash (p : Params) : Prog isa := shake256 [⟨.x26, 0, p.pkLen⟩] [⟨.x27, 64, 64⟩]
+def trHashWith (p : Params) : Prog isa := (shake256With c) [⟨.x26, 0, p.pkLen⟩] [⟨.x27, 64, 64⟩]
 
 /-- Everything after the samplers. -/
-def rest (P : Prims) (p : Params) : Prog isa :=
+def restWith (P : Prims) (p : Params) : Prog isa :=
   .seq (.block copies) (.seq (seqR (packS P p) 0 (p.ℓ + p.k)) (.seq (seqR (nttS P p) 0 p.ℓ)
-    (.seq (seqR (row P p) 0 p.k) (trHash p))))
+    (.seq (seqR (row P p) 0 p.k) ((trHashWith c) p))))
 
 /-- `vg_mldsa*_keygen` for the parameter set `p`, calling the primitives `P`. -/
-def keyGen (P : Prims) (p : Params) : Prog isa :=
-  .seq (.block pro) (.seq (seeds p) (.seq (seqR (expA P p) 0 (p.k * p.ℓ))
-    (.seq (seqR (expS P p) 0 (p.ℓ + p.k)) (.seq (rest P p) (.block epi)))))
+def keyGenWith (P : Prims) (p : Params) : Prog isa :=
+  .seq (.block pro) (.seq ((seedsWith c) p) (.seq (seqR (expA P p) 0 (p.k * p.ℓ))
+    (.seq (seqR (expS P p) 0 (p.ℓ + p.k)) (.seq ((restWith c) P p) (.block epi)))))
+
+def seeds := seedsWith .scalar
+def trHash := trHashWith .scalar
+def rest := restWith .scalar
+def keyGen := keyGenWith .scalar
 
 end VG.Impl.MlDsa.AArch64.KeyGen

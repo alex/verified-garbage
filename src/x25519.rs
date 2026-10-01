@@ -4,7 +4,9 @@
 //! `VG.Spec.X25519.x25519Contract`): `X25519(k, u)` of RFC 7748 §5, the
 //! scalar decoded (clamped) and the u-coordinate's top bit masked as the RFC
 //! specifies, in constant time. On x86-64 CPUs with BMI2 and ADX it is
-//! `vg_x25519_adx`, with the same contract and faster field multiplications.
+//! `vg_x25519_adx`, with the same contract and faster field multiplications,
+//! and on those that also have AVX512_IFMA and AVX512VL `vg_x25519_ifma`,
+//! whose ladder does four field multiplications at once.
 //! This module gives it working space, and destroys what it leaves there.
 //!
 //! [`diffie_hellman`](PrivateKey::diffie_hellman) rejects the all-zero
@@ -20,9 +22,11 @@
 
 use crate::arch::x25519::vg_x25519;
 #[cfg(target_arch = "x86_64")]
-use crate::arch::x25519::{VG_X25519_ADX_FEATURES, vg_x25519_adx};
+use crate::arch::x25519::{
+    VG_X25519_ADX_FEATURES, VG_X25519_IFMA_FEATURES, vg_x25519_adx, vg_x25519_ifma,
+};
 use crate::cpu::{Features, detected};
-use crate::mlkem768::zeroize;
+use crate::zeroize::zeroize;
 
 /// The implementations of `vg_x25519`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -32,13 +36,20 @@ enum Backend {
     /// BMI2's `mulx` and ADX's `adcx` and `adox`.
     #[cfg(target_arch = "x86_64")]
     Adx,
+    /// AVX512_IFMA's `vpmadd52luq` and `vpmadd52huq` (on `ymm` registers,
+    /// with AVX512VL) for the ladder, and `Adx`'s multiplications for the
+    /// inversion.
+    #[cfg(target_arch = "x86_64")]
+    Ifma,
 }
 
 impl Backend {
     /// The best implementation a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
     fn select(f: Features) -> Backend {
-        if f.contains(Features::of(VG_X25519_ADX_FEATURES)) {
+        if f.contains(Features::of(VG_X25519_IFMA_FEATURES)) {
+            Backend::Ifma
+        } else if f.contains(Features::of(VG_X25519_ADX_FEATURES)) {
             Backend::Adx
         } else {
             Backend::Baseline
@@ -79,6 +90,8 @@ pub fn x25519(scalar: &[u8; 32], u: &[u8; 32]) -> [u8; 32] {
         // `select` chose it because the CPU has the features it needs.
         #[cfg(target_arch = "x86_64")]
         Backend::Adx => vg_x25519_adx,
+        #[cfg(target_arch = "x86_64")]
+        Backend::Ifma => vg_x25519_ifma,
     };
     // SAFETY: `out` and `scratch` are valid for reads and writes of 32 and
     // 4096 bytes, and `scalar` and `u` for reads of 32 bytes; they are
@@ -193,6 +206,12 @@ mod tests {
             let adx = Features::of(VG_X25519_ADX_FEATURES);
             assert_eq!(Backend::select(adx), Backend::Adx);
             assert_eq!(Backend::select(Features::of(&["bmi2"])), Backend::Baseline);
+            let ifma = Features::of(VG_X25519_IFMA_FEATURES);
+            assert_eq!(Backend::select(ifma), Backend::Ifma);
+            assert_eq!(
+                Backend::select(Features(adx.0 | Features::of(&["avx512ifma"]).0)),
+                Backend::Adx
+            );
         }
     }
 

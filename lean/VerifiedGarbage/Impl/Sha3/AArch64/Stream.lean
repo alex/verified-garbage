@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.Sha3.AArch64
+import VerifiedGarbage.Impl.Sha3.AArch64.Callee
 
 /-!
 # The SHA-3 sponge: AArch64 implementation
@@ -41,7 +41,7 @@ only on the pointers, `rate`, `pos` and the lengths.
 namespace VG.Impl.Sha3.AArch64.Stream
 
 open VG.AArch64
-open VG.Impl.Sha3.AArch64 (mov permute)
+open VG.Impl.Sha3.AArch64 (mov Callee)
 
 /-- The callee-saved registers we use, and where they are saved in `scratch`. -/
 def saved : List (Reg × Nat) :=
@@ -55,8 +55,8 @@ def restore : List Instr :=
   (saved.filter (·.1 != .x20)).map (fun (r, d) => .ldr .x r .x20 d) ++ [.ldr .x .x20 .x20 520]
 
 /-- Permute the state at `x19`, with scratch space `x20`. -/
-def permuteAt : Prog isa :=
-  .seq (.block [mov .x0 .x19, mov .x1 .x20]) (.call "vg_keccak_f1600" permute)
+def permuteAtWith (c : Callee) : Prog isa :=
+  .seq (.block [mov .x0 .x19, mov .x1 .x20]) (.call c.name c.code)
 
 /-- Registers: `x19` = `state`, `x20` = `scratch`, `x21` = `rate`, `x22` = the
 position in the block, `x23` = `data` or `out`, `x24` = bytes of it left. -/
@@ -83,29 +83,37 @@ def absorbByte : List Instr :=
     .strb .x9 .x10 0, .addImm .x .x23 .x23 1, .addImm .x .x22 .x22 1, .subImm .x .x24 .x24 1,
     .sub .x .x9 .x22 .x21]
 
-def absorbBody : Prog isa :=
+def absorbBodyWith (c : Callee) : Prog isa :=
   .seq (.block wordTest)
   (.seq (.ite (.zero .x .x10) (.block absorbWord) (.block absorbByte))
-    (.ite (.zero .x .x9) (.seq (.block [.movz .x .x22 0 0]) permuteAt) (.block [])))
+    (.ite (.zero .x .x9) (.seq (.block [.movz .x .x22 0 0]) (permuteAtWith c)) (.block [])))
 
 /-- `absorb`, but for saving `x30`. -/
-def absorbMain : Prog isa :=
+def absorbMainWith (c : Callee) : Prog isa :=
   .seq (.block setup)
-  (.seq (.ite (.zero .x .x24) (.block []) (.loop absorbBody (.nonzero .x .x24)))
+  (.seq (.ite (.zero .x .x24) (.block []) (.loop (absorbBodyWith c) (.nonzero .x .x24)))
     (.block (mov .x0 .x22 :: restore)))
 
-def absorb : Prog isa := .frame (.push .x30) absorbMain (.pop .x30)
+/-- The general absorb loop, including its single link-register frame. -/
+def absorbGenericWith (c : Callee) : Prog isa :=
+  .frame (.push .x30) (absorbMainWith c) (.pop .x30)
+
+/-- A backend may replace absorb as a whole while retaining the same contract. -/
+def absorbWith (c : Callee) : Prog isa :=
+  match c.absorbOverride with
+  | some code => code
+  | none => absorbGenericWith c
 
 /-! ## `pad` -/
 
 /-- `pad`, but for saving `x30`. -/
-def padMain : Prog isa :=
+def padMainWith (c : Callee) : Prog isa :=
   .seq (.block [.add .x .x9 .x0 .x2, .ldrb .x10 .x9 0, .logic .eor .x .x10 .x10 .x3,
       .strb .x10 .x9 0, .add .x .x9 .x0 .x1, .subImm .x .x9 .x9 1, .ldrb .x10 .x9 0,
       .movz .x .x11 0x80 0, .logic .eor .x .x10 .x10 .x11, .strb .x10 .x9 0, mov .x1 .x4])
-    (.call "vg_keccak_f1600" permute)
+    (.call c.name c.code)
 
-def pad : Prog isa := .frame (.push .x30) padMain (.pop .x30)
+def padWith (c : Callee) : Prog isa := .frame (.push .x30) (padMainWith c) (.pop .x30)
 
 /-! ## `squeeze` -/
 
@@ -119,17 +127,27 @@ def squeezeByte : List Instr :=
   [.add .x .x10 .x19 .x22, .ldrb .x9 .x10 0, .strb .x9 .x23 0, .addImm .x .x23 .x23 1,
     .addImm .x .x22 .x22 1, .subImm .x .x24 .x24 1]
 
-def squeezeBody : Prog isa :=
+def squeezeBodyWith (c : Callee) : Prog isa :=
   .seq (.block [.sub .x .x9 .x22 .x21])
-  (.seq (.ite (.zero .x .x9) (.seq (.block [.movz .x .x22 0 0]) permuteAt) (.block []))
+  (.seq (.ite (.zero .x .x9) (.seq (.block [.movz .x .x22 0 0]) (permuteAtWith c)) (.block []))
     (.seq (.block wordTest) (.ite (.zero .x .x10) (.block squeezeWord) (.block squeezeByte))))
 
 /-- `squeeze`, but for saving `x30`. -/
-def squeezeMain : Prog isa :=
+def squeezeMainWith (c : Callee) : Prog isa :=
   .seq (.block setup)
-  (.seq (.ite (.zero .x .x24) (.block []) (.loop squeezeBody (.nonzero .x .x24)))
+  (.seq (.ite (.zero .x .x24) (.block []) (.loop (squeezeBodyWith c) (.nonzero .x .x24)))
     (.block (mov .x0 .x22 :: restore)))
 
-def squeeze : Prog isa := .frame (.push .x30) squeezeMain (.pop .x30)
+def squeezeWith (c : Callee) : Prog isa := .frame (.push .x30) (squeezeMainWith c) (.pop .x30)
+
+def permuteAt : Prog isa := permuteAtWith .scalar
+def absorbBody : Prog isa := absorbBodyWith .scalar
+def absorbMain : Prog isa := absorbMainWith .scalar
+def absorb : Prog isa := absorbWith .scalar
+def padMain : Prog isa := padMainWith .scalar
+def pad : Prog isa := padWith .scalar
+def squeezeBody : Prog isa := squeezeBodyWith .scalar
+def squeezeMain : Prog isa := squeezeMainWith .scalar
+def squeeze : Prog isa := squeezeWith .scalar
 
 end VG.Impl.Sha3.AArch64.Stream

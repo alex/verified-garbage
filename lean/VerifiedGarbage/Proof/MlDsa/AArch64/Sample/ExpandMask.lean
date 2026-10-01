@@ -90,12 +90,12 @@ theorem loop_ok' {s : State} (h : J6 136 640 (spOf σ) σ s) {c : Nat} (hc : c =
 
 end
 
-theorem correct (σ : State) (hp : emK.pre σ) :
-    ∃ t s', Exec isa expandMask σ t s' ∧ abiPreserved σ s' ∧ emK.post σ s' := by
+theorem correctWith (v : Proof.Sha3.AArch64.Permutation) (σ : State) (hp : emK.pre σ) :
+    ∃ t s', Exec isa (expandMaskWith v.callee) σ t s' ∧ abiPreserved σ s' ∧ emK.post σ s' := by
   have hg := gamma hp
   obtain ⟨e1, e2, e3⟩ := emC_eq hg
   refine WP.seq (WP.mono (pro_ok hp) fun _ h1 =>
-    WP.seq (WP.mono (sponge_ok (spOk hp) (rate := 136) (outlen := 640) (by decide) (by decide) h1)
+    WP.seq (WP.mono (spongeWith_ok (v := v) (spOk hp) (rate := 136) (outlen := 640) (by decide) (by decide) h1)
       fun s h2 => ?_))
   refine WP.seq (WP.mono (Q := fun (u : State) => Env (spOf σ) σ u ∧
     ∀ i < 256, coeffAt u.mem (σ.gpr .x2) i = ExpandMask.Wd (X σ) (emC (gammaOf σ)) i) ?_
@@ -117,12 +117,17 @@ theorem correct (σ : State) (hp : emK.pre σ) :
     refine WP.ite false (by rw [eval_zero, eq_zero_iff, x9, hg]; rfl) (fun h => nomatch h) (fun _ => ?_)
     rw [ec]; exact loop_ok' hp h6 ec.symm
 
+theorem correct (σ : State) (hp : emK.pre σ) :
+    ∃ t s', Exec isa expandMask σ t s' ∧ abiPreserved σ s' ∧ emK.post σ s' :=
+  correctWith .scalar σ hp
+
 /-! ## Constant time -/
 
 theorem pub_eq {σ₁ σ₂ : State} (hq : emK.pub σ₁ σ₂) : spOf σ₁ = spOf σ₂ := by
   rw [spOf, spOf, hq.1, hq.2.1, hq.2.2.1, hq.2.2.2.1]
 
-theorem ct : ConstantTime isa emK.pre emK.pub expandMask := by
+theorem ctWith (v : Proof.Sha3.AArch64.Permutation) : ConstantTime isa emK.pre emK.pub (expandMaskWith v.callee) := by
+  obtain ⟨hint, hhint⟩ := v.mldsaMaskTaint
   refine RelCT.constantTime (Q := fun _ _ => True) (RelCT.mono (Q := fun _ _ => True)
     (P := Rel2 emK.pre emK.pub fun σ s => s = σ)
     ?_ (fun s₁ s₂ h => ⟨s₁, s₂, h.1, h.2.1, h.2.2, rfl, rfl⟩) fun _ _ _ => trivial)
@@ -138,7 +143,10 @@ theorem ct : ConstantTime isa emK.pre emK.pub expandMask := by
       · rw [h₁.env.x26, h₂.env.x26, pub_eq hq]
       · rw [h₁.env.x27, h₂.env.x27, pub_eq hq]
       · rw [h₁.x3, h₂.x3, pub_eq hq]
-      · exact toNat_inj h₁.x4 h₂.x4) (by taint_decide)
+      · exact toNat_inj h₁.x4 h₂.x4) hhint
+
+theorem ct : ConstantTime isa emK.pre emK.pub expandMask :=
+  ctWith .scalar
 
 end ExpandMask
 
@@ -151,9 +159,9 @@ def emSat : State where
   rd := [⟨0x1000, 66⟩]
   wr := [⟨0x2000, 1024⟩, ⟨0x3000, 2048⟩]
 
-theorem expandMask_verified : Verified AArch64.target Impl.MlDsa.AArch64.Sample.expandMask
+theorem expandMask_verifiedWith (v : Proof.Sha3.AArch64.Permutation) : Verified AArch64.target (Impl.MlDsa.AArch64.Sample.expandMaskWith v.callee)
     (Spec.MlDsa.expandMaskContract AArch64.abi 16) :=
-  Verified.of_correct ExpandMask.correct ExpandMask.ct
+  Verified.of_correct (ExpandMask.correctWith v) (ExpandMask.ctWith v)
     { pre := by sig_implies_pre [Spec.MlDsa.expandMaskContract, Spec.MlDsa.expandMaskSig, emK,
         AArch64.abi, AArch64.argRegs]
       post := by sig_implies_post [Spec.MlDsa.expandMaskContract, Spec.MlDsa.expandMaskSig, emK,
@@ -162,5 +170,9 @@ theorem expandMask_verified : Verified AArch64.target Impl.MlDsa.AArch64.Sample.
         AArch64.abi, AArch64.argRegs]
       sat := by sig_implies_sat [Spec.MlDsa.expandMaskContract, Spec.MlDsa.expandMaskSig, emK,
         AArch64.abi, AArch64.argRegs] [emSat] using emSat }
+
+theorem expandMask_verified : Verified AArch64.target Impl.MlDsa.AArch64.Sample.expandMask
+    (Spec.MlDsa.expandMaskContract AArch64.abi 16) :=
+  expandMask_verifiedWith .scalar
 
 end VG.Proof.MlDsa.AArch64.Sample

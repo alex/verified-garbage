@@ -9,15 +9,6 @@
     target_arch = "arm"
 ))]
 
-/// Overwrites `x` with zeros in a way the compiler does not remove.
-pub(crate) fn zeroize<T: Copy + Default>(x: &mut [T]) {
-    for v in x.iter_mut() {
-        // SAFETY: `v` is a valid, aligned, unique reference.
-        unsafe { core::ptr::write_volatile(v, T::default()) };
-    }
-    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
-}
-
 /// The message representative `μ = H(tr ‖ M′, 64)` (FIPS 204 Algorithm 7,
 /// line 6) of the message `msg` with the context string `ctx`, formatted as
 /// `M′ = 0 ‖ |ctx| ‖ ctx ‖ msg` (Algorithm 2, line 10), for the public key
@@ -45,12 +36,31 @@ macro_rules! ml_dsa {
         keygen: $keygen:path,
         sign: $sign:path,
         verify: $verify:path,
+        keygen_sha3: ($keygen_sha3:path, $keygen_sha3_features:path),
+        sign_sha3: ($sign_sha3:path, $sign_sha3_features:path),
+        verify_sha3: ($verify_sha3:path, $verify_sha3_features:path),
         pk: $pk:literal,
         sk: $sk:literal,
         sig: $sig:literal,
         scratch: $scratch:literal $(,)?
     ) => {
-        use $crate::mldsa_common::{message_rep, zeroize};
+        use $crate::mldsa_common::message_rep;
+        use $crate::zeroize::zeroize;
+        use $crate::hashes::sha3::Backend;
+
+        /// Follow the shared Keccak backend only when all generated callers'
+        /// feature requirements are met. The draft's default stays scalar.
+        fn backend() -> Backend {
+            #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+            if !$crate::cpu::detected().contains($crate::cpu::Features::all(&[
+                $keygen_sha3_features,
+                $sign_sha3_features,
+                $verify_sha3_features,
+            ])) {
+                return Backend::Scalar;
+            }
+            Backend::detected()
+        }
 
         /// Why an operation failed.
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -124,7 +134,14 @@ macro_rules! ml_dsa {
                 // for reads (and, for `scratch`, writes) of their sizes; they
                 // are distinct Rust objects, so they do not overlap each other
                 // or the stack, or wrap around the end of the address space.
-                let r = unsafe { $verify(&self.bytes, mu, sig, &mut scratch) };
+                // Backend selection checks the generated CPU feature requirements.
+                let r = unsafe {
+                    match backend() {
+                        Backend::Scalar => $verify(&self.bytes, mu, sig, &mut scratch),
+                        #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+                        Backend::Sha3 => $verify_sha3(&self.bytes, mu, sig, &mut scratch),
+                    }
+                };
                 if r == 1 { Ok(()) } else { Err(Error::InvalidSignature) }
             }
         }
@@ -173,7 +190,14 @@ macro_rules! ml_dsa {
                 // sizes; they are distinct Rust objects, so they do not
                 // overlap each other or the stack, or wrap around the end of
                 // the address space. `seed` is the caller's seed.
-                let r = unsafe { $keygen(seed, &mut key.vk.bytes, &mut key.sk, &mut scratch) };
+                // Backend selection checks the generated CPU feature requirements.
+                let r = unsafe {
+                    match backend() {
+                        Backend::Scalar => $keygen(seed, &mut key.vk.bytes, &mut key.sk, &mut scratch),
+                        #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+                        Backend::Sha3 => $keygen_sha3(seed, &mut key.vk.bytes, &mut key.sk, &mut scratch),
+                    }
+                };
                 zeroize(&mut scratch);
                 if r != 1 {
                     // A loop reaches its bound with probability about 2^-256
@@ -244,7 +268,14 @@ macro_rules! ml_dsa {
                 // overlap each other or the stack, or wrap around the end of
                 // the address space. `self.sk` was written by the key
                 // generation.
-                let r = unsafe { $sign(&self.sk, mu, rnd, &mut sig, &mut scratch) };
+                // Backend selection checks the generated CPU feature requirements.
+                let r = unsafe {
+                    match backend() {
+                        Backend::Scalar => $sign(&self.sk, mu, rnd, &mut sig, &mut scratch),
+                        #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+                        Backend::Sha3 => $sign_sha3(&self.sk, mu, rnd, &mut sig, &mut scratch),
+                    }
+                };
                 zeroize(&mut scratch);
                 if r != 1 {
                     // A loop reaches its bound with probability about 2^-256
@@ -264,14 +295,7 @@ pub(crate) use ml_dsa;
 
 #[cfg(test)]
 mod tests {
-    use super::{message_rep, zeroize};
-
-    #[test]
-    fn zeroizes() {
-        let mut x = [1u8, 2, 3];
-        zeroize(&mut x);
-        assert_eq!(x, [0; 3]);
-    }
+    use super::message_rep;
 
     #[test]
     fn context_too_long() {

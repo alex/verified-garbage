@@ -146,10 +146,10 @@ def streamOK (hR : I.S.Repr = Spec.Sha512.Repr iv)
       pub := fun _ _ _ _ h => h
       sat := fin_sat _ _ _ }
   initDepth := by
-    show (Impl.Sha512.AArch64.Stream.init iv).fdepth ≤ 1
+    show (Impl.Sha512.AArch64.Stream.init iv).aarch64Depth ≤ 1
     rcases hiv with rfl | rfl | rfl | rfl <;> decide +kernel
-  updDepth := by show v.update.fdepth ≤ 1; rw [show v.update.fdepth = 0 from v.updateDepth]; decide
-  finDepth := by show v.finalize.fdepth ≤ 1; rw [show v.finalize.fdepth = 0 from v.finalizeDepth]; decide
+  updDepth := by show v.update.aarch64Depth ≤ 1; rw [show v.update.aarch64Depth = 0 from v.updateDepth]; decide
+  finDepth := by show v.finalize.aarch64Depth ≤ 1; rw [show v.finalize.aarch64Depth = 0 from v.finalizeDepth]; decide
 
 /-- `HashOK` for the member of instance `I`, whose specification is the
 family's from `iv`, with its digest the first `D` bytes. -/
@@ -158,9 +158,12 @@ def ok (hR : I.S.Repr = Spec.Sha512.Repr iv)
     (hB : I.S.H.blockSize = 128) (hS : I.S.stateBytes = 192) (hDs : I.S.digestBytes = D)
     (hD : D = 28 ∨ D = 32 ∨ D = 48 ∨ D = 64) (hW : I.scratch = 234) (hiv : IVs iv) :
     HashOK (hash v I D initN iv) where
+  initKeepsV := by rfl
+  updKeepsV := v.updateKeepsV
+  finKeepsV := v.finalizeKeepsV
   md := Proof.Sha512.md
   shape := Pbkdf2.AArch64.sha512_shape
-  comp := ⟨v.verified.1, v.verified.2.1, v.noFrames⟩
+  comp := ⟨v.verified.1, v.verified.2.1, v.noFrames, v.keepsV⟩
   reloc m m' p q h := by
     apply Vector.ext
     intro j hj
@@ -248,9 +251,10 @@ theorem sha512_coreOK : CoreOK (coreH 64) := coreOK 64 (Or.inr (Or.inr (Or.inr r
 
 /-- SHA-512 with its compression function. -/
 def sha512 (v : Compress) : MdHash :=
-  MdHash.of (H := hash v Spec.Hmac.sha512I 64 Spec.Sha512.init512Api.name H0_512)
+  { MdHash.of (H := hash v Spec.Hmac.sha512I 64 Spec.Sha512.init512Api.name H0_512)
     (ok v rfl (fun m => (List.take_of_length_le (Nat.le_of_eq (Hmac.Generic.Common.finalHash_length _ m))).symm) rfl rfl rfl (Or.inr (Or.inr (Or.inr rfl))) rfl (Or.inr (Or.inl rfl))) sha512_coreOK rfl rfl
-    sha512_satI sha512_satF sha512_satT sha512_satP v.suffix v.features (stream v)
+    sha512_satI sha512_satF sha512_satT sha512_satP v.suffix v.features (stream v) with
+    sha512 := some v }
 
 /-! ## SHA-512/224 -/
 

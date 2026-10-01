@@ -13,6 +13,8 @@ leaked the same agree (`OX`); so all but `Â` leaks what `signLeakT` says
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Proof.MlDsa.Sign
@@ -91,12 +93,12 @@ theorem XS.io {σ x : State} (h : XS p D σ x) (h15 : x.gpr .x24 = 1) : IOi p D 
   exact ⟨p.ℓ * t, h.k, hct, hz, hh, hpass, h15⟩
 
 theorem rest_tr {P : Prims} (hP : PrimsOk P D) (h3 : Ok3 p) :
-    RelCT isa (RS p D (LeakEq p 0) (IM p D)) (rest P p) (RS p D (LeakEq p 0) (FS p D)) := by
+    RelCT isa (RS p D (LeakEq p 0) (IM p D)) (restWith keccak.callee P p) (RS p D (LeakEq p 0) (FS p D)) := by
   refine liftR (fun σ s _ h => rest_ok hP h3 h) ?_
   have hc := allChk_ok h3
   simp only [allChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨⟨⟨-, hd⟩, hc1⟩, hb⟩, hks⟩, hl⟩, ho⟩, -⟩ := hc
-  unfold rest
+  unfold restWith
   refine RelCT.seq (decode_tr hP hd) (RelCT.seq (signLoop_tr hP h3 hc1 hb hks hl) ?_)
   unfold ifOk
   refine ifOkElse_tr (fun x y h => by rw [h.2.1]) (RelCT.mono (output_tr hP ho (E := fun _ _ => True))

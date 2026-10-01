@@ -2,7 +2,8 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Arith
 import VerifiedGarbage.Impl.MlKem.X86_64.Encode12
 import VerifiedGarbage.Impl.MlKem.X86_64.Cbd
 import VerifiedGarbage.Impl.MlKem.X86_64.Compress
-import VerifiedGarbage.Impl.MlKem.X86_64.Mul
+import VerifiedGarbage.Impl.MlKem.X86_64.MulAvx2
+import VerifiedGarbage.Impl.MlKem.X86_64.NttAvx2
 import VerifiedGarbage.Impl.MlKem.X86_64.Ntt
 import VerifiedGarbage.Impl.MlKem.X86_64.Sample
 import VerifiedGarbage.Impl.MlKem.X86_64.Sample4
@@ -23,10 +24,12 @@ The layout of `scratch` (in bytes): the Keccak state at 0 (200 bytes) and
 the sponge functions' working space at 200 (640 bytes); the caller's
 callee-saved registers at 840 (48 bytes); a byte (`NB`, an index) at 896
 and the seed of `SampleNTT` (`SB`, 34 bytes) at 904; the output of `G` at
-1024 (64 bytes), of `H` at 1088 (32 bytes), of `PRF` at 1120 (128 bytes),
-the message of decapsulation at 1248 (32 bytes), and its key `K̄` at 1280
-(32 bytes); the working space of the primitives at 2048 (2048 bytes); and
-28 polynomials of 1024 bytes from 4096 (`P k`).
+1024 (64 bytes), of `H` at 1088 (32 bytes), the message of decapsulation
+at 1248 (32 bytes), and its key `K̄` at 1280 (32 bytes); the working space
+of the primitives at 2048 (2048 bytes); and 28 polynomials of 1024 bytes
+from 4096 (`P k`). The outputs of `PRF₂` are in polynomial 20 (`PR`), and
+the working space of their computation from polynomial 17 (which also
+holds that of `vg_mlkem_sample_ntt4`).
 -/
 
 namespace VG.Impl.MlKem.X86_64
@@ -43,12 +46,15 @@ def oNB : Nat := 896
 def oSB : Nat := 904
 def oG : Nat := 1024
 def oH : Nat := 1088
-def oPB : Nat := 1120
 def oM : Nat := 1248
 def oKB : Nat := 1280
 def oSS : Nat := 2048
 /-- Polynomial `k`. -/
 def oP (k : Nat) : Nat := 4096 + 1024 * k
+/-- The outputs of `PRF₂` (at most 8 of 128 bytes, in polynomial 20). -/
+def oPR : Nat := oP 20
+/-- The working space of `prfs` (2368 bytes, from polynomial 17), as a lane (32 bytes). -/
+def lPW : Nat := oP 17 / 32
 /-- The ciphertext of the re-encryption (1088 bytes, in polynomials 26 and 27). -/
 def oCT : Nat := oP 26
 
@@ -107,15 +113,32 @@ def hashAt (ps : List (Ptr × Nat)) (rate suffix : Nat) (out : Ptr) (len : Nat) 
 
 /-! ## The polynomial primitives -/
 
-def nttAt (f : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call "vg_mlkem_ntt" ntt)
+/-- The implementations (symbols and code) of `vg_mlkem_multiply_ntts`,
+`vg_mlkem_ntt` and `vg_mlkem_inv_ntt` that a top-level function calls:
+those in SSE2 registers (`sse`), or those in AVX2 registers (`avx2`). -/
+structure Arith where
+  mulN : String
+  mul : Prog isa
+  nttN : String
+  ntt : Prog isa
+  nttInvN : String
+  nttInv : Prog isa
 
-def nttInvAt (f : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call "vg_mlkem_inv_ntt" nttInv)
+def Arith.sse : Arith :=
+  ⟨"vg_mlkem_multiply_ntts", multiplyNTTs, "vg_mlkem_ntt", X86_64.ntt, "vg_mlkem_inv_ntt", X86_64.nttInv⟩
 
-def mulAt (h f g : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi h ++ lea .rsi f ++ lea .rdx g ++ lea .rcx (sc oSS)))
-    (.call "vg_mlkem_multiply_ntts" multiplyNTTs)
+def Arith.avx2 : Arith :=
+  ⟨"vg_mlkem_multiply_ntts_avx2", multiplyNTTsAvx2, "vg_mlkem_ntt_avx2", nttAvx2, "vg_mlkem_inv_ntt_avx2",
+    nttInvAvx2⟩
+
+def nttAt (A : Arith) (f : Ptr) : Prog isa :=
+  .seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call A.nttN A.ntt)
+
+def nttInvAt (A : Arith) (f : Ptr) : Prog isa :=
+  .seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call A.nttInvN A.nttInv)
+
+def mulAt (A : Arith) (h f g : Ptr) : Prog isa :=
+  .seq (.block (lea .rdi h ++ lea .rsi f ++ lea .rdx g ++ lea .rcx (sc oSS))) (.call A.mulN A.mul)
 
 def addAt (f g : Ptr) : Prog isa := .seq (.block (lea .rdi f ++ lea .rsi g)) (.call "vg_mlkem_add" add)
 
@@ -156,14 +179,120 @@ abbrev aS (i j : Nat) : Ptr := pS (6 + 3 * i + j)
 def sampleIJ (i j : Nat) : Prog isa :=
   .seq (.block (setB (sc (oSB + 32)) j ++ setB (sc (oSB + 33)) i)) (sampleAt (aS i j))
 
+/-- Seed `k` of four, `ρ ‖ j ‖ i` with `ρ` at `SB`, to `34 k` bytes into `scratch`. -/
+def seedAt (k i j : Nat) : Prog isa :=
+  .seq (copy (sc (34 * k)) (sc oSB) 32) (.block (setB (sc (34 * k + 32)) j ++ setB (sc (34 * k + 33)) i))
+
 /-- `f a, f (a + 1), …, f (a + n - 1)`, in sequence. -/
 def seqR (f : Nat → Prog isa) (a : Nat) : Nat → Prog isa
   | 0 => .block []
   | n + 1 => .seq (f a) (seqR f (a + 1) n)
 
-/-- Seed `k` of four, `ρ ‖ j ‖ i` with `ρ` at `SB`, to `34 k` bytes into `scratch`. -/
-def seedAt (k i j : Nat) : Prog isa :=
-  .seq (copy (sc (34 * k)) (sc oSB) 32) (.block (setB (sc (34 * k + 32)) j ++ setB (sc (34 * k + 33)) i))
+/-! ## `PRF₂`, several at once -/
+
+/-- `σ` (or `r`): the second half of `G`'s output. -/
+abbrev sigP : Ptr := sc (oG + 32)
+
+/-- `PRF₂(σ, N)` (128 bytes) to `out`, with `σ` at `G + 32`. -/
+def prf1 (N : Nat) (out : Ptr) : Prog isa :=
+  .seq (.block (setB (sc oNB) N)) (hashAt [(sigP, 32), (sc oNB, 1)] 136 0x1f out 128)
+
+/-- `PRF₂(σ, N₀ + i)` to `scratch + o + 128 i` for each `i < n`, one at a
+time (the working space at lane `wl` is not used). -/
+def prfsScalar (N₀ n o _wl : Nat) : Prog isa := seqR (fun i => prf1 (N₀ + i) (sc (o + 128 * i))) 0 n
+
+namespace Prf4
+
+open VG.Impl.Sha3.X86_64.X4 (vb st permute4 rcTable)
+
+/-! Four instances of `PRF₂` at once, in the four 64-bit elements of `ymm`
+registers (`Impl/Sha3/X86_64/X4.lean`), in 2368 bytes of working space
+from lane `wl` of `scratch` (byte `32 wl`): the four states (interleaved,
+800 bytes), the second buffer of the permutation (800 bytes) and the table
+of the round constants (768 bytes). The input `σ ‖ N` is 33 bytes, and the
+128 bytes of output fewer than the rate of SHAKE256 (136), so the padded
+input is one block and the output its permutation's first 128 bytes. -/
+
+/-- The four states, zeroed. -/
+def zero (wl : Nat) : List Instr :=
+  vb .vpxor .xmm0 .xmm0 .xmm0 :: (List.range 25).flatMap fun i => [st .rbx (wl + i) .xmm0]
+
+/-- Lanes 0–3 of each state: the 32 bytes of `σ`. -/
+def sigLanes (wl : Nat) : List Instr :=
+  (List.range 4).flatMap fun i => .mov .rax (.mem (at_ .rbx (oG + 32 + 8 * i))) ::
+    (List.range 4).flatMap fun k => [.store (at_ .rbx (32 * (wl + i) + 8 * k)) .rax]
+
+/-- Byte 32 of state `k`: the index `N₀ + k`. -/
+def nonces (N₀ wl : Nat) : List Instr :=
+  (List.range 4).flatMap fun k =>
+    [.mov32 .rax (.imm (BitVec.ofNat 32 (N₀ + k))), .store8 (at_ .rbx (32 * (wl + 4) + 8 * k)) .rax]
+
+/-- SHAKE's suffix `0x1f` at byte 33 of each state, and the last bit of the
+padding (`0x80`) at byte 135. -/
+def pads (wl : Nat) : List Instr :=
+  .mov32 .rax (.imm 0x1f) :: ((List.range 4).flatMap fun k => [.store8 (at_ .rbx (32 * (wl + 4) + 8 * k + 1)) .rax]) ++
+    .mov32 .rax (.imm 0x80) :: (List.range 4).flatMap fun k => [.store8 (at_ .rbx (32 * (wl + 16) + 8 * k + 7)) .rax]
+
+/-- The arguments of `permute4`. -/
+def args (wl : Nat) : List Instr :=
+  [.mov .rdi (.reg .rbx), .alu .add .rdi (.imm (BitVec.ofNat 32 (32 * wl))), .mov .rsi (.reg .rbx),
+    .alu .add .rsi (.imm (BitVec.ofNat 32 (32 * (wl + 25)))), .mov .rdx (.reg .rbx),
+    .alu .add .rdx (.imm (BitVec.ofNat 32 (32 * (wl + 50)))), .mov .rcx (.reg .rbx),
+    .alu .add .rcx (.imm (BitVec.ofNat 32 (32 * (wl + 74))))]
+
+/-- The first 128 bytes of states `0, …, m - 1` to `scratch + o + 128 k`. -/
+def extract (m o wl : Nat) : List Instr :=
+  (List.range m).flatMap fun k => (List.range 16).flatMap fun i =>
+    [.mov .rax (.mem (at_ .rbx (32 * (wl + i) + 8 * k))), .store (at_ .rbx (o + 128 * k + 8 * i)) .rax]
+
+/-- The table, the padded inputs and the arguments of the permutation. -/
+def setup (N₀ wl : Nat) : List Instr :=
+  rcTable .rbx (wl + 50) ++ zero wl ++ sigLanes wl ++ nonces N₀ wl ++ pads wl ++ args wl
+
+/-- `PRF₂(σ, N₀ + k)` to `scratch + o + 128 k` for each `k < m` (at most
+four), at once. After the copies, `vzeroupper` clears the upper halves of
+the vector registers, so that the SSE code that runs next does not pay for
+mixing them. -/
+def batch (N₀ m o wl : Nat) : Prog isa :=
+  .seq (.block (setup N₀ wl)) (.seq permute4 (.block (extract m o wl ++ [.vop .vzeroupper])))
+
+end Prf4
+
+/-- `PRF₂(σ, N₀ + i)` to `scratch + o + 128 i` for each `i < n`, four at a
+time (the last `n mod 4` with lanes whose outputs are not copied). -/
+def prfsX4 : Nat → Nat → Nat → Nat → Prog isa
+  | _, 0, _, _ => .block []
+  | N₀, 1, o, wl => Prf4.batch N₀ 1 o wl
+  | N₀, 2, o, wl => Prf4.batch N₀ 2 o wl
+  | N₀, 3, o, wl => Prf4.batch N₀ 3 o wl
+  | N₀, n + 4, o, wl => .seq (Prf4.batch N₀ 4 o wl) (prfsX4 (N₀ + 4) n (o + 512) wl)
+
+/-- How many of `n` outputs `prfsAvx2` computes one at a time, first:
+`n mod 4` when it is 1 or 2. (Four instances at once cost about as much as
+two on their own, so this is as fast as running them with lanes whose
+outputs are not copied, and the code is shorter; three are four at a time.) -/
+def prfsLead (n : Nat) : Nat := if n % 4 = 1 ∨ n % 4 = 2 then n % 4 else 0
+
+/-- `PRF₂(σ, N₀ + i)` to `scratch + o + 128 i` for each `i < n`, with AVX2:
+the first `prfsLead n` one at a time, and the others four at a time. -/
+def prfsAvx2 (N₀ n o wl : Nat) : Prog isa :=
+  .seq (prfsScalar N₀ (prfsLead n) o wl) (prfsX4 (N₀ + prfsLead n) (n - prfsLead n) (o + 128 * prfsLead n) wl)
+
+/-- An implementation of `vg_mlkem_sample_ntt4` to call (its symbol and its
+code), and of the computation of several outputs of `PRF₂` that goes with
+it, which its callers inline: `prfs N₀ n o wl` writes `PRF₂(σ, N₀ + i)`
+(with `σ` at `G + 32`) to `scratch + o + 128 i` for each `i < n`, with the
+working space from lane `wl` of `scratch`. The top-level functions, which
+use both, are emitted once for each (`Generic/MlKemSample4/X86_64/`). -/
+structure Callee4 where
+  name : String
+  code : Prog isa
+  prfs : Nat → Nat → Nat → Nat → Prog isa
+  /-- The polynomial arithmetic that goes with it. -/
+  arith : Arith
+
+def Callee4.scalar : Callee4 := ⟨"vg_mlkem_sample_ntt4", Sample4.sampleNTT4, prfsScalar, .sse⟩
+def Callee4.avx2 : Callee4 := ⟨"vg_mlkem_sample_ntt4_avx2", Sample4.sampleNTT4Avx2, prfsAvx2, .avx2⟩
 
 /-- `SampleNTT` of the four seeds at `scratch` to the four polynomials from
 `a`, with the working space `scr` (8192 bytes), and `r15 ← r15 ∧ result`. -/
@@ -187,15 +316,10 @@ def samples (c : Callee4) : Prog isa :=
 def ifOk (c : Prog isa) : Prog isa :=
   .seq (.block [.alu32 .test .r15 (.reg .r15)]) (.ite .ne c (.block []))
 
-/-- `SamplePolyCBD₂(PRF₂(σ, N))` to `f`, with `σ` at `sig`. -/
-def prfCbd (sig : Ptr) (N : Nat) (f : Ptr) : Prog isa :=
-  .seq (.block (setB (sc oNB) N))
-    (.seq (hashAt [(sig, 32), (sc oNB, 1)] 136 0x1f (sc oPB) 128) (cbd2At (sc oPB) f))
-
 /-- `f[0] ×_T g[0] + f[1] ×_T g[1] + f[2] ×_T g[2]` to polynomial 15 (with 16 for the products). -/
-def dotAt (f g : Nat → Ptr) : Prog isa :=
-  .seq (mulAt (pS 15) (f 0) (g 0)) (.seq (mulAt (pS 16) (f 1) (g 1)) (.seq (addAt (pS 15) (pS 16))
-    (.seq (mulAt (pS 16) (f 2) (g 2)) (addAt (pS 15) (pS 16)))))
+def dotAt (A : Arith) (f g : Nat → Ptr) : Prog isa :=
+  .seq (mulAt A (pS 15) (f 0) (g 0)) (.seq (mulAt A (pS 16) (f 1) (g 1)) (.seq (addAt (pS 15) (pS 16))
+    (.seq (mulAt A (pS 16) (f 2) (g 2)) (addAt (pS 15) (pS 16)))))
 
 /-! ## Entry and exit -/
 

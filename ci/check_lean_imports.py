@@ -7,9 +7,11 @@ proofs. Exits non-zero on violations.
   * Spec/  imports only TCB/, Spec/ and Mathlib.
   * Impl/  imports only TCB/, Spec/, Impl/ and Mathlib (never proofs).
   * A module of a target (one with a directory of TCB/, e.g. `Arm`, as a
-    component of its path) imports no module of another target: CI builds
-    each target's modules in a shard of its own (ci/lean_shards.py), and
-    what more than one target uses goes in a target-independent module.
+    component of its path) imports no module of another target: a change
+    to one target would rebuild the other's modules too, and a CI shard
+    (ci/lean_shards.py), which builds a module with everything it imports,
+    would check both. What more than one target uses goes in a
+    target-independent module.
 """
 
 import pathlib

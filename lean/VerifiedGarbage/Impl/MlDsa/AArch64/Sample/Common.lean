@@ -62,13 +62,15 @@ def sqzArgs (rate outlen : Nat) : List Instr :=
 
 /-- `outlen` bytes of SHAKE with the rate `rate` of the message at `x3`, of
 `x4` bytes, to `x25 + 840`. -/
-def sponge (rate outlen : Nat) : Prog isa :=
+def spongeWith (c : Impl.Sha3.AArch64.Callee) (rate outlen : Nat) : Prog isa :=
   .seq (.block (zeroSt ++ absArgs rate))
-    (.seq (.call "vg_keccak_absorb" Impl.Sha3.AArch64.Stream.absorb)
+    (.seq (.call ("vg_keccak_absorb" ++ c.suffix) (Impl.Sha3.AArch64.Stream.absorbWith c))
       (.seq (.block (padArgs rate))
-        (.seq (.call "vg_keccak_pad" Impl.Sha3.AArch64.Stream.pad)
+        (.seq (.call ("vg_keccak_pad" ++ c.suffix) (Impl.Sha3.AArch64.Stream.padWith c))
           (.seq (.block (sqzArgs rate outlen))
-            (.call "vg_keccak_squeeze" Impl.Sha3.AArch64.Stream.squeeze)))))
+            (.call ("vg_keccak_squeeze" ++ c.suffix) (Impl.Sha3.AArch64.Stream.squeezeWith c))))))
+
+def sponge := spongeWith .scalar
 
 /-- `x30`, `x26`, `x27` and `x25` restored. -/
 def epi : List Instr :=

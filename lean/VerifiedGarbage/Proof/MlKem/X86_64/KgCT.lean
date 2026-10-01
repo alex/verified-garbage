@@ -92,27 +92,29 @@ theorem samples_tr (v : Sample4Impl) : RelCT isa (Rel2 keyGenK.pre keyGenK.pub (
 
 /-! ## `ŝ` and `ê` -/
 
-theorem setNB_taint : ∀ N < 7, (taint.check (X86_64.Taint.ofRegs [.rbx]) (.block (setB (sc oNB) N))
-    (.block [])).isSome = true := by
-  decide +kernel
+theorem prfs_trK (v : Sample4Impl) :
+    RelCT isa (Rel2 keyGenK.pre keyGenK.pub KRest0) (v.callee.prfs 0 6 oPR lPW) fun _ _ => True := by
+  have hc := prfsKChk_true
+  simp only [prfsKChk, Bool.and_eq_true] at hc
+  exact rel2_of (v.prfs_tr kgB_bases (by decide) hc.1.1.1.1) fun _ _ _ _ p₁ p₂ pub h₁ h₂ =>
+    kc_lrel p₁ p₂ pub h₁.kc h₂.kc
 
-theorem se_tr {N : Nat} (hN : N < 6) :
-    RelCT isa (Rel2 keyGenK.pre keyGenK.pub (KRest N 0 0)) (se N) fun _ _ => True := by
+theorem se_tr {A : Arith} (hA : ArithOk A) {N : Nat} (hN : N < 6) :
+    RelCT isa (Rel2 keyGenK.pre keyGenK.pub (KRest N 0 0)) (se A N) fun _ _ => True := by
   have hc := seChk_all N hN
   simp only [seChk, Bool.and_eq_true] at hc
-  obtain ⟨⟨hpc, hic⟩, _⟩ := hc
+  obtain ⟨⟨htw, hic⟩, _⟩ := hc
   unfold se
   refine rel2_of (Q := fun x y => LRel kgR kgW x y ∧ True ∧ True) (RelCT.seqL (J := fun x => Reduced x.mem (pa x (pS N)))
-    kgB_bases (RelCT.mono (prfCbd_tr kgB_bases (by omega) hpc (setNB_taint N (by omega))) (fun _ _ h => h.1)
-      fun _ _ h => h)
-    (fun x Lx _ => WP.mono (prfCbd_ok Lx kgB_bases (by omega) hpc) fun x' ⟨hP, hq⟩ =>
-      ⟨⟨_, hP.b⟩, by rw [hP.pa rbx_cs]; exact hq.1⟩) (nttAt_tr hic))
+    kgB_bases (RelCT.mono (cbd2At_trL rbx_na htw) (fun _ _ h => h.1) fun _ _ h => h)
+    (fun x Lx _ => WP.mono (cbd2At_okL Lx rbx_na htw) fun x' ⟨hP, hq⟩ =>
+      ⟨⟨_, hP.b⟩, by rw [hP.pa rbx_cs]; exact hq.1⟩) (nttAt_tr hA hic))
     fun _ _ _ _ p₁ p₂ pub h₁ h₂ => ⟨kc_lrel p₁ p₂ pub h₁.kc h₂.kc, trivial, trivial⟩
 
 /-! ## The rows of `ek` -/
 
-theorem row_tr {i : Nat} (hi : i < 3) :
-    RelCT isa (Rel2 keyGenK.pre keyGenK.pub (KRest 6 i 0)) (row i) fun _ _ => True := by
+theorem row_tr {A : Arith} (hA : ArithOk A) {i : Nat} (hi : i < 3) :
+    RelCT isa (Rel2 keyGenK.pre keyGenK.pub (KRest 6 i 0)) (row A i) fun _ _ => True := by
   have hc := rowChk_all i hi
   simp only [rowChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨hdc, hac⟩, hk3⟩, htw⟩, _⟩ := hc
@@ -120,7 +122,7 @@ theorem row_tr {i : Nat} (hi : i < 3) :
   refine rel2_of (Q := fun x y => LRel kgR kgW x y ∧ (DotIn (fun j => aS i j) pS x ∧
       Reduced x.mem (pa x (pS (3 + i)))) ∧ (DotIn (fun j => aS i j) pS y ∧ Reduced y.mem (pa y (pS (3 + i)))))
     (RelCT.seqL (J := fun x => Reduced x.mem (pa x (pS 15)) ∧ Reduced x.mem (pa x (pS (3 + i)))) kgB_bases
-      (RelCT.mono (dotAt_tr kgB_bases hdc) (fun _ _ ⟨e, h₁, h₂⟩ => ⟨e, h₁.1, h₂.1⟩) fun _ _ h => h)
+      (RelCT.mono (dotAt_tr hA kgB_bases hdc) (fun _ _ ⟨e, h₁, h₂⟩ => ⟨e, h₁.1, h₂.1⟩) fun _ _ h => h)
       (fun x Lx hx => ?_)
       (RelCT.seqL (J := fun x => Reduced x.mem (pa x (pS 15))) kgB_bases (addAt_tr rbx_na hac)
         (fun x Lx hx => WP.mono (addAt_ok Lx rbx_na hac hx.1 hx.2) fun x' ⟨hP, hq⟩ =>
@@ -129,7 +131,7 @@ theorem row_tr {i : Nat} (hi : i < 3) :
       ⟨fun k hk => ⟨(h₁.mat i hi k hk).1, (h₁.se k (by omega)).1⟩, (h₁.se (3 + i) (by omega)).1⟩,
       ⟨fun k hk => ⟨(h₂.mat i hi k hk).1, (h₂.se k (by omega)).1⟩, (h₂.se (3 + i) (by omega)).1⟩⟩
   -- The sum of products, from reduced inputs.
-  refine WP.mono (dotAt_ok Lx kgB_bases hdc (a := fun k => polyAt x.mem (pa x (aS i k)))
+  refine WP.mono (dotAt_ok hA Lx kgB_bases hdc (a := fun k => polyAt x.mem (pa x (aS i k)))
     (b := fun k => polyAt x.mem (pa x (pS k))) (fun k hk => ⟨(hx.1 k hk).1, rfl⟩) (fun k hk => ⟨(hx.1 k hk).2, rfl⟩))
     fun x' ⟨hP, hq⟩ => ⟨⟨_, hP.b⟩, by rw [hP.pa rbx_cs]; exact hq.1, Lx.keepRed hP.b hk3 hx.2⟩
 

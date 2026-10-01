@@ -117,6 +117,8 @@ theorem len128_ok {s : State} (hout : InRegions s.wr (s.gpr .x19 + BitVec.ofNat 
 
 /-- The SHA-512 family's length field and digest, as PBKDF2's iteration uses them. -/
 theorem sha512_shape : Shape (P := Impl.Pbkdf2.AArch64.sha512) Proof.Sha512.md where
+  lenKeepsV := by decide +kernel
+  outKeepsV := by decide +kernel
   len _ hout := len128_ok hout
   out _ hin hout hd := by
     refine (out64_ok (n := 8) (by decide) hin hout hd).mono fun s' ⟨g, rd, wr, sp, m⟩ =>

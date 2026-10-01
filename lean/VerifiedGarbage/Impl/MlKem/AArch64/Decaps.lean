@@ -3,7 +3,7 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Kem
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_decaps`
 
-`decaps(dk = x0, ct = x1, key = x2, scratch = x3) -> x0`:
+`(decapsWith c)(dk = x0, ct = x1, key = x2, scratch = x3) -> x0`:
 `Decaps_internal(dk, c)` (FIPS 203 Algorithms 18, 15 and 14), as calls of
 the verified primitives and Keccak functions. We keep `dk`, `ct`, `key` and
 `scratch` in `x25`–`x28`, and the AND of `sample_ntt`'s results in `x24`.
@@ -13,7 +13,7 @@ the verified primitives and Keccak functions. We keep `dk`, `ct`, `key` and
 2. `(K', r') = G(m' ‖ h)`, with `h` in `dk`, into `scratch`; `ρ` (bytes
    2304–2335 of `dk`) into `scratch`.
 3. `Â[i, j] = SampleNTT(ρ ‖ j ‖ i)` for the nine `(i, j)`.
-4. `c' = K-PKE.Encrypt(ek_PKE, m', r')` into `scratch` (`encryptC`), with
+4. `c' = K-PKE.Encrypt(ek_PKE, m', r')` into `scratch` (`(encryptCWith c)`), with
    `ek_PKE` in `dk`; `K̄ = J(z ‖ c)`, with `z` in `dk`, into `scratch`.
 5. `c = c'` without branching: the OR of the bytes of `c ⊕ c'` (`deCmp`),
    a mask of ones if it is 0, and `K'` or `K̄` into `key` through the mask
@@ -41,9 +41,9 @@ def deM : Prog isa :=
   .seq (nttInvAt TP) <| .seq (ddAt .x26 960 4 EP) <| .seq (subAt EP TP) (ceAt EP 1 .x28 MB)
 
 /-- The prologue, `m'`, `G(m' ‖ h)` and `ρ`. -/
-def deA : Prog isa :=
+def deAWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
   .seq (.block (kemPrologue 3 [0, 1, 2, 3])) <| .seq deM <|
-  .seq (hash .x28 ST WK 72 6 [⟨.x28, MB, 32⟩, ⟨.x25, 2336, 32⟩] [⟨.x28, KP, 32⟩, ⟨.x28, RB, 32⟩])
+  .seq (hashWith c .x28 ST WK 72 6 [⟨.x28, MB, 32⟩, ⟨.x25, 2336, 32⟩] [⟨.x28, KP, 32⟩, ⟨.x28, RB, 32⟩])
     (.block (copy32 .x25 2304 .x28 SB))
 
 /-- One byte of `c ⊕ c'` ORed into `x10`. -/
@@ -68,11 +68,15 @@ def deSelWord (k : Nat) : List Instr :=
 def deSel : List Instr := (List.range 4).flatMap deSelWord
 
 /-- `c'`, `K̄`, the comparison, the key and the epilogue. -/
-def deC : Prog isa :=
-  .seq (encryptC .x25 1152 .x28 MB .x28 CB) <|
-  .seq (hash .x28 ST WK 136 0x1f [⟨.x25, 2368, 32⟩, ⟨.x26, 0, 1088⟩] [⟨.x28, JB, 32⟩]) <|
+def deCWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
+  .seq ((encryptCWith c) .x25 1152 .x28 MB .x28 CB) <|
+  .seq (hashWith c .x28 ST WK 136 0x1f [⟨.x25, 2368, 32⟩, ⟨.x26, 0, 1088⟩] [⟨.x28, JB, 32⟩]) <|
   .seq deCmp (.block (deSel ++ kemEpilogue))
 
-def decaps : Prog isa := .seq deA (.seq kemMatrix deC)
+def decapsWith (c : Impl.Sha3.AArch64.Callee) : Prog isa := .seq (deAWith c) (.seq (kemMatrixWith c) (deCWith c))
+
+def deA := deAWith .scalar
+def deC := deCWith .scalar
+def decaps := decapsWith .scalar
 
 end VG.Impl.MlKem.AArch64

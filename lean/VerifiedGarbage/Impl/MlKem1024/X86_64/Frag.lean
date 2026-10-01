@@ -10,7 +10,9 @@ and layout of `scratch` they share), with `k = 4`: the 16 entries of `Â`
 are polynomials 17–32 of the working space (`Â[i, j]` is polynomial
 `17 + 4i + j`), after the accumulator (polynomial 15) and the products
 (polynomial 16), and the ciphertext of the re-encryption (1568 bytes) is in
-polynomials 33 and 34. Sums of products have four terms, and the
+polynomials 33 and 34; the outputs of `PRF₂` are in polynomials 38 and 39
+(`PR4`), and the working space of their computation and of
+`vg_mlkem_sample_ntt4` from polynomial 35. Sums of products have four terms, and the
 compression to 11 and 5 bits calls `vg_mlkem1024_compress_encode` and
 `vg_mlkem1024_decode_decompress`.
 -/
@@ -22,6 +24,10 @@ open VG.X86_64 VG.Impl.MlKem.X86_64
 /-- `Â[i, j]`: polynomial `17 + 4i + j`. -/
 abbrev aS4 (i j : Nat) : Ptr := pS (17 + 4 * i + j)
 
+/-- The outputs of `PRF₂` (at most 12 of 128 bytes, from polynomial 38). -/
+def oPR4 : Nat := oP 38
+/-- The working space of `prfs` (2368 bytes, from polynomial 35), as a lane (32 bytes). -/
+def lPW4 : Nat := oP 35 / 32
 /-- The ciphertext of the re-encryption (1568 bytes, in polynomials 33 and 34). -/
 def oCT4 : Nat := oP 33
 
@@ -32,8 +38,8 @@ def samples4 (c : Callee4) : Prog isa :=
     (.seq (quad c 4 8 (aS4 2 0) (pS 35)) (quad c 4 12 (aS4 3 0) (pS 35))))
 
 /-- `f[0] ×_T g[0] + ⋯ + f[3] ×_T g[3]` to polynomial 15 (with 16 for the products). -/
-def dot4At (f g : Nat → Ptr) : Prog isa :=
-  .seq (dotAt f g) (.seq (mulAt (pS 16) (f 3) (g 3)) (addAt (pS 15) (pS 16)))
+def dot4At (A : Arith) (f g : Nat → Ptr) : Prog isa :=
+  .seq (dotAt A f g) (.seq (mulAt A (pS 16) (f 3) (g 3)) (addAt (pS 15) (pS 16)))
 
 def ce4At (f : Ptr) (d : Nat) (out : Ptr) : Prog isa :=
   .seq (.block (lea .rdi f ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 d))] ++ lea .rdx out ++

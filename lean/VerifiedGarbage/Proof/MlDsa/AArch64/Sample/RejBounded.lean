@@ -328,11 +328,15 @@ theorem pro_ok : WP isa (.block (pro .x3 .x2 (.addImm .w .x27 .x1 0) (.movz .x .
 
 end
 
+theorem correctWith (v : Proof.Sha3.AArch64.Permutation) (σ : State) (hp : rbK.pre σ) :
+    ∃ t s', Exec isa (rejBoundedWith v.callee) σ t s' ∧ abiPreserved σ s' ∧ rbK.post σ s' :=
+  WP.seq (WP.mono (pro_ok hp) fun _ h1 =>
+    WP.seq (WP.mono (spongeWith_ok (v := v) (spOk hp) (rate := 136) (outlen := 544) (by decide) (by decide) h1)
+      fun _ h2 => WP.seq (WP.mono (branch_ok hp h2) fun _ h3 => end_ok hp h3)))
+
 theorem correct (σ : State) (hp : rbK.pre σ) :
     ∃ t s', Exec isa rejBounded σ t s' ∧ abiPreserved σ s' ∧ rbK.post σ s' :=
-  WP.seq (WP.mono (pro_ok hp) fun _ h1 =>
-    WP.seq (WP.mono (sponge_ok (spOk hp) (rate := 136) (outlen := 544) (by decide) (by decide) h1)
-      fun _ h2 => WP.seq (WP.mono (branch_ok hp h2) fun _ h3 => end_ok hp h3)))
+  correctWith .scalar σ hp
 
 end RejBounded
 

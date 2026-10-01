@@ -60,6 +60,21 @@ theorem exec_logic {op : LogicOp} {sz : Size} {s : State} {d n m : Reg} :
       | .and => s.read sz n &&& s.read sz m | .orr => s.read sz n ||| s.read sz m
       | .eor => s.read sz n ^^^ s.read sz m)) := rfl
 
+theorem exec_logicRor {op : LogicOp} {sz : Size} {s : State} {d n m : Reg} {sh : Nat}
+    (h : sh < sz.bits) :
+    exec (.logicRor op sz d n m sh) s = some (s.write sz d (match op with
+      | .and => s.read sz n &&& (s.read sz m).rotateRight sh
+      | .orr => s.read sz n ||| (s.read sz m).rotateRight sh
+      | .eor => s.read sz n ^^^ (s.read sz m).rotateRight sh)) := by
+  simp only [exec, h, ite_true]
+  rfl
+
+theorem exec_bicRor {sz : Size} {s : State} {d n m : Reg} {sh : Nat}
+    (h : sh < sz.bits) :
+    exec (.bicRor sz d n m sh) s =
+      some (s.write sz d (s.read sz n &&& ~~~((s.read sz m).rotateRight sh))) := by
+  simp only [exec, h, ite_true]
+
 theorem exec_ror_w {s : State} {d n : Reg} {sh : Nat} (h : sh < 32) :
     exec (.ror .w d n sh) s = some (s.write .w d ((s.read .w n).rotateRight sh)) := by
   simp [exec, Size.bits, h]
@@ -185,16 +200,27 @@ theorem execBlock_sp {is : List Instr} {s s' : State} {t : List Leak}
       obtain ⟨rfl, -⟩ := he'
       rw [ih h]; exact exec_sp he
 
-/-- No modelled instruction changes `sp`. -/
-theorem push_sp {i : Instr} {s s₁ : State} (h : push i s = some s₁) : s₁.sp = s.sp - 16 := by
+/-- Opening a frame subtracts its region's size from SP. -/
+theorem push_sp {i : Instr} {s s₁ : State} (h : push i s = some s₁) :
+    ∃ n, s₁.wr.head? = some ⟨s₁.sp, n⟩ ∧ s₁.sp = s.sp - BitVec.ofNat 64 n := by
   cases i <;> simp only [push, reduceCtorEq] at h
-  split at h <;> cases h; rfl
+  all_goals split at h <;> cases h
+  all_goals exact ⟨_, rfl, rfl⟩
 
+/-- Closing a frame adds back exactly its region's size. -/
 theorem pop_sp {j : Instr} {s₁ s₂ s' : State} (h : pop j s₁ s₂ = some s') :
-    s₂.sp = s₁.sp ∧ s'.sp = s₂.sp + 16 := by
+    s₂.sp = s₁.sp ∧ ∀ n, s₁.wr.head? = some ⟨s₁.sp, n⟩ →
+      s'.sp = s₂.sp + BitVec.ofNat 64 n := by
   cases j <;> simp only [pop, reduceCtorEq] at h
-  split at h <;> cases h
-  rename_i hc; exact ⟨hc.1, rfl⟩
+  all_goals split at h <;> cases h
+  case pop r hc =>
+    refine ⟨hc.1, fun n hn => ?_⟩
+    have hn' : n = 16 := congrArg Region.len (Option.some.inj (hn.symm.trans hc.2.2))
+    rw [hn']; rfl
+  case free bytes hc =>
+    refine ⟨hc.2.2.2.1, fun n hn => ?_⟩
+    have hn' : n = bytes := congrArg Region.len (Option.some.inj (hn.symm.trans hc.2.2.2.2.2))
+    rw [hn']
 
 theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c s t s') :
     s'.sp = s.sp := by
@@ -210,7 +236,8 @@ theorem Exec.sp {c : Prog isa} {s s' : State} {t : List Leak} (h : VG.Exec isa c
     subst hc; obtain ⟨-, h⟩ := Option.ite_none_right_eq_some.mp hr; cases h; exact ih
   | frame hp _ hq ih =>
     obtain ⟨h₁, h₂⟩ := pop_sp hq
-    rw [h₂, ih, push_sp hp, BitVec.sub_add_cancel]
+    obtain ⟨n, hn, hs⟩ := push_sp hp
+    rw [h₂ n hn, ih, hs, BitVec.sub_add_cancel]
 
 end VG.AArch64
 

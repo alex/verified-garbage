@@ -49,21 +49,23 @@ theorem r15_eq {ρ : List Byte} {r : BitVec 64} (h : r = if allOk ρ 9 then 1 el
   rw [h] at he
   exact absurd he (by decide)
 
-theorem rest_ok {σ : State} (hp : keyGenK.pre σ) {s : State} (h : KRest 0 0 0 σ s) :
-    WP isa rest s (KFin σ) := by
+theorem rest_ok (v : Sample4Impl) {σ : State} (hp : keyGenK.pre σ) {s : State} (h : KRest0 σ s) :
+    WP isa (rest v.callee) s (KFin σ) := by
   unfold rest
-  refine WP.seq (WP.mono (seqR_ok (I := fun k => KRest k 0 0 σ) 6 0 (fun k _ hk s hs => se_ok hp (by omega) hs) s h)
+  refine WP.seq (WP.mono (prfs_okK v hp h) fun s₀ h₀ => ?_)
+  refine WP.seq (WP.mono (seqR_ok (I := fun k => KRest k 0 0 σ) 6 0 (fun k _ hk s hs => se_ok v.arith hp (by omega) hs) s₀ h₀)
     fun s₁ h₁ => ?_)
-  refine WP.seq (WP.mono (seqR_ok (I := fun k => KRest 6 k 0 σ) 3 0 (fun k _ hk s hs => row_ok hp (by omega) hs) s₁ h₁)
+  refine WP.seq (WP.mono (seqR_ok (I := fun k => KRest 6 k 0 σ) 3 0 (fun k _ hk s hs => row_ok v.arith hp (by omega) hs) s₁ h₁)
     fun s₂ h₂ => ?_)
   refine WP.seq (WP.mono (seqR_ok (I := fun k => KRest 6 3 k σ) 3 0 (fun k _ hk s hs => encS_ok hp (by omega) hs) s₂
     h₂) fun s₃ h₃ => ?_)
   exact fin_ok hp h₃
 
-theorem body_ok {σ : State} (hp : keyGenK.pre σ) {s : State} (h : KB 9 σ s) : WP isa (ifOk rest) s (KEnd σ) := by
+theorem body_ok (v : Sample4Impl) {σ : State} (hp : keyGenK.pre σ) {s : State} (h : KB 9 σ s) :
+    WP isa (ifOk (rest v.callee)) s (KEnd σ) := by
   refine ifOk_ok (fun s₁ hP hne => ?_) fun s₁ hP he => ?_
   · have ho := r15_ne h.r15 hne
-    exact WP.mono (rest_ok hp (KRest.start (h.flag hp (by decide) hP) ho)) fun s' hf =>
+    exact WP.mono (rest_ok v hp (KRest0.start (h.flag hp (by decide) hP) ho)) fun s' hf =>
       ⟨hf.kc, by rw [hf.r15, ifp ho], fun _ => hf⟩
   · have ho := r15_eq h.r15 he
     have h' := h.flag hp (by decide) hP
@@ -102,7 +104,7 @@ theorem keyGen_correct (v : Sample4Impl) (σ : State) (hp : keyGenK.pre σ) :
   obtain ⟨t, s', he, hF⟩ := WP.seq (WP.mono (pro_ok hp) fun s₁ ⟨h₁, h15⟩ =>
     WP.seq (WP.mono (gRho_ok hp h₁ h15) fun s₂ ⟨h₂, h15'⟩ =>
       WP.seq (WP.mono (samples_ok v hp (KB.zero h₂ h15')) fun s₃ h₃ =>
-        WP.seq (WP.mono (body_ok hp h₃) fun s₄ h₄ =>
+        WP.seq (WP.mono (body_ok v hp h₃) fun s₄ h₄ =>
           WP.mono (topEpi_ok h₄.kc.top (h₄.hin hp)) fun s₅ ⟨hr, hg, hm⟩ =>
             (⟨hg, post_of h₄ hr hm⟩ : gprPreserved σ s₅ ∧ keyGenK.post σ s₅)))))
   exact ⟨t, s', he, abiPreserved_of_ctl (by s4_ctl v) he hF.1, hF.2⟩
@@ -123,13 +125,14 @@ open VG.Impl.MlKem.X86_64.KeyGen
 
 abbrev R (I : State → State → Prop) : State → State → Prop := Rel2 keyGenK.pre keyGenK.pub I
 
-theorem rest_tr : RelCT isa (R fun σ s => KRest 0 0 0 σ s ∧ allOk (rhoK σ) 9) rest
+theorem rest_tr (v : Sample4Impl) : RelCT isa (R fun σ s => KRest0 σ s ∧ allOk (rhoK σ) 9) (rest v.callee)
     (R fun σ s => KFin σ s ∧ allOk (rhoK σ) 9) := by
   unfold rest
+  refine RelCT.seq (relInvC (fun σ s hp hs => prfs_okK v hp hs) (prfs_trK v)) ?_
   refine RelCT.seq (seqR_tr (R := fun k => R fun σ s => KRest k 0 0 σ s ∧ allOk (rhoK σ) 9) 6 0
-    fun k _ hk => relInvC (fun σ s hp hs => se_ok hp (by omega) hs) (se_tr (by omega))) ?_
+    fun k _ hk => relInvC (fun σ s hp hs => se_ok v.arith hp (by omega) hs) (se_tr v.arith (by omega))) ?_
   refine RelCT.seq (seqR_tr (R := fun k => R fun σ s => KRest 6 k 0 σ s ∧ allOk (rhoK σ) 9) 3 0
-    fun k _ hk => relInvC (fun σ s hp hs => row_ok hp (by omega) hs) (row_tr (by omega))) ?_
+    fun k _ hk => relInvC (fun σ s hp hs => row_ok v.arith hp (by omega) hs) (row_tr v.arith (by omega))) ?_
   refine RelCT.seq (seqR_tr (R := fun k => R fun σ s => KRest 6 3 k σ s ∧ allOk (rhoK σ) 9) 3 0
     fun k _ hk => relInvC (fun σ s hp hs => encS_ok hp (by omega) hs) (encS_tr (by omega))) ?_
   exact relInvC (fun σ s hp hs => fin_ok hp hs) fin_tr
@@ -139,9 +142,9 @@ theorem r15_pub {σ₁ σ₂ x y : State} (pub : keyGenK.pub σ₁ σ₂) (h₁ 
   have e : kgRho (kgD σ₁) = kgRho (kgD σ₂) := rho_pub pub
   rw [h₁.r15, h₂.r15, e]
 
-theorem body_tr : RelCT isa (R (KB 9)) (ifOk rest) (R KEnd) := by
+theorem body_tr (v : Sample4Impl) : RelCT isa (R (KB 9)) (ifOk (rest v.callee)) (R KEnd) := by
   refine ifOk_tr (fun x y ⟨_, _, _, _, pub, h₁, h₂⟩ => by rw [r15_pub pub h₁ h₂]) ?_ ?_
-  · refine RelCT.mono rest_tr (fun x y ⟨x₀, y₀, ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩, hx, hy, hne⟩ => ?_)
+  · refine RelCT.mono (rest_tr v) (fun x y ⟨x₀, y₀, ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩, hx, hy, hne⟩ => ?_)
       fun x y ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩ =>
         ⟨σ₁, σ₂, p₁, p₂, pub, ⟨h₁.1.kc, by rw [h₁.1.r15, ifp h₁.2], fun _ => h₁.1⟩,
           ⟨h₂.1.kc, by rw [h₂.1.r15, ifp h₂.2], fun _ => h₂.1⟩⟩
@@ -150,8 +153,8 @@ theorem body_tr : RelCT isa (R (KB 9)) (ifOk rest) (R KEnd) := by
       have e : kgRho (kgD σ₁) = kgRho (kgD σ₂) := rho_pub pub
       show allOk (kgRho (kgD σ₂)) 9
       rw [← e]; exact o₁
-    exact ⟨σ₁, σ₂, p₁, p₂, pub, ⟨KRest.start (h₁.flag p₁ (by decide) hx) o₁, o₁⟩,
-      ⟨KRest.start (h₂.flag p₂ (by decide) hy) o₂, o₂⟩⟩
+    exact ⟨σ₁, σ₂, p₁, p₂, pub, ⟨KRest0.start (h₁.flag p₁ (by decide) hx) o₁, o₁⟩,
+      ⟨KRest0.start (h₂.flag p₂ (by decide) hy) o₂, o₂⟩⟩
   · rintro x y ⟨x₀, y₀, ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩, hx, hy, he⟩
     have o₁ := r15_eq h₁.r15 he
     have o₂ : ¬ allOk (rhoK σ₂) 9 := by
@@ -187,7 +190,7 @@ theorem keyGen_ct (v : Sample4Impl) :
   refine RelCT.seq (RelCT.mono (samples_tr v)
     (fun x y ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩ => ⟨σ₁, σ₂, p₁, p₂, pub, KB.zero h₁.1 h₁.2, KB.zero h₂.1 h₂.2⟩)
     fun _ _ h => h) ?_
-  exact RelCT.seq body_tr (RelCT.mono epi_tr (fun _ _ h => h) fun _ _ _ => trivial)
+  exact RelCT.seq (body_tr v) (RelCT.mono epi_tr (fun _ _ h => h) fun _ _ _ => trivial)
 
 /-- A state satisfying `keyGenContract`'s precondition. -/
 def keyGenSat : State where

@@ -687,8 +687,10 @@ theorem untouched_ok_of {code : Prog isa}
 
 theorem correct_of {code : Prog isa}
     (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true)
-    (hkeep : ((instrs (finalizeWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true) {s₀ : State} (hp : Pre s₀) :
+    (hkeep : ((instrs (finalizeWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true)
+    (hvec : (finalizeWith code).allInstrs keepsV = true) {s₀ : State} (hp : Pre s₀) :
     WP isa (finalizeWith code) s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.finalizeAArch64.post s₀ s' := by
+  apply WP.withPreservedV (hc := hvec)
   refine WP.mono (WP.gprs (Q := Post s₀) (hn := by
     simp only [finalizeWith, finalizeBodyWith, compressAtWith, Code.noCalls, hno, Bool.and_self]) ?_ (untouched_ok_of hkeep)) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
     ⟨⟨fun r hr => ?_, hsp⟩, hpost⟩
@@ -734,17 +736,19 @@ def sat : State where
 theorem finalize_verified_of {code : Prog isa}
     (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true)
     (hkeep : ((instrs (finalizeWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true)
+    (hvec : (finalizeWith code).allInstrs keepsV = true)
     (hct : ConstantTime isa Proof.Sha512.finalizeAArch64.pre Proof.Sha512.finalizeAArch64.pub (finalizeWith code)) :
     Verified AArch64.target (finalizeWith code) Proof.Sha512.finalizeAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct_of hcode hno hkeep (pre_of hs)
+  · obtain ⟨t, s', he, h⟩ := correct_of hcode hno hkeep hvec (pre_of hs)
     exact ⟨t, s', he, h⟩
   · exact hct
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_⟩ <;>
     exact Region.disjoint_of_sep (by decide)
 
 theorem finalize_verified : Verified AArch64.target finalize Proof.Sha512.finalizeAArch64 := by
-  apply finalize_verified_of Proof.Sha512.AArch64.compress_verified (by lit_decide) (instrs_keeps (by lit_decide))
+  apply finalize_verified_of Proof.Sha512.AArch64.compress_verified (by lit_decide)
+    (instrs_keeps (by lit_decide)) (by lit_decide)
   exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) (fun _ _ _ _ hp => agree₀ hp)
       (by taint_decide)
 

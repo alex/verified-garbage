@@ -25,6 +25,8 @@ def Reg.name (sz : Size) (r : Reg) : String :=
 
 def VReg.index : VReg → Nat
   | .v0 => 0 | .v1 => 1 | .v2 => 2 | .v3 => 3 | .v4 => 4 | .v5 => 5 | .v6 => 6 | .v7 => 7
+  | .v8 => 8 | .v9 => 9 | .v10 => 10 | .v11 => 11 | .v12 => 12 | .v13 => 13 | .v14 => 14
+  | .v15 => 15
   | .v16 => 16 | .v17 => 17 | .v18 => 18 | .v19 => 19 | .v20 => 20 | .v21 => 21 | .v22 => 22
   | .v23 => 23 | .v24 => 24 | .v25 => 25 | .v26 => 26 | .v27 => 27 | .v28 => 28 | .v29 => 29
   | .v30 => 30 | .v31 => 31
@@ -122,6 +124,10 @@ def Instr.asm : Instr → List String
   | .addImm sz d n imm => [s!"add {d.name sz}, {n.name sz}, #{imm}"]
   | .subImm sz d n imm => [s!"sub {d.name sz}, {n.name sz}, #{imm}"]
   | .logic op sz d n m => [s!"{op.name} {d.name sz}, {n.name sz}, {m.name sz}"]
+  | .logicRor op sz d n m sh =>
+    [s!"{op.name} {d.name sz}, {n.name sz}, {m.name sz}, ror #{sh}"]
+  | .bicRor sz d n m sh =>
+    [s!"bic {d.name sz}, {n.name sz}, {m.name sz}, ror #{sh}"]
   | .ror sz d n sh => [s!"ror {d.name sz}, {n.name sz}, #{sh}"]
   | .lsr sz d n sh => [s!"lsr {d.name sz}, {n.name sz}, #{sh}"]
   | .lsl sz d n sh => [s!"lsl {d.name sz}, {n.name sz}, #{sh}"]
@@ -138,6 +144,9 @@ def Instr.asm : Instr → List String
   | .strb t n off => [s!"strb {t.name .w}, [{n.name .x}, #{off}]"]
   | .push r => [s!"str {r.name .x}, [sp, #-16]!"]
   | .pop r => [s!"ldr {r.name .x}, [sp], #16"]
+  | .addSp d imm => [s!"add {d.name .x}, sp, #{imm}"]
+  | .alloc bytes => [s!"sub sp, sp, #{bytes}"]
+  | .free bytes => [s!"add sp, sp, #{bytes}"]
   | .ldrSp t off => [s!"ldr {t.name .x}, [sp, #{off}]"]
   | .vop op => [op.asm]
   | .ldrq t n off => [s!"ldr {t.q}, [{n.name .x}, #{off}]"]

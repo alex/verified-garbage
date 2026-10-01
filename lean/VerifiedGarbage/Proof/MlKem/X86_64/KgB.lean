@@ -23,13 +23,25 @@ open VG.Impl.MlKem.X86_64.KeyGen
 /-- `ρ` of `σ`. -/
 abbrev rhoK (σ : State) : List Byte := kgRho (kgD σ)
 
-/-- The steps done after the matrix. -/
+/-- `PRF₂(σ, N)`, in the outputs of `prfs`. -/
+abbrev prfO (N : Nat) : Ptr := sc (oPR + 128 * N)
+
+/-- After the matrix, when every `SampleNTT` succeeded. -/
+structure KRest0 (σ s : State) : Prop where
+  kc : KC σ s
+  rho : bytesAt s.mem (pa s (sc oG)) 32 = rhoK σ
+  sig : bytesAt s.mem (pa s sigP) 32 = kgSigma (kgD σ)
+  r15 : s.gpr .r15 = 1
+  mat : ∀ i < 3, ∀ j < 3, PolyIs s.mem (pa s (aS i j)) (aHat (rhoK σ) i j)
+
+/-- The steps done after the outputs of `PRF₂`. -/
 structure KRest (n r e : Nat) (σ s : State) : Prop where
   kc : KC σ s
   rho : bytesAt s.mem (pa s (sc oG)) 32 = rhoK σ
   sig : bytesAt s.mem (pa s sigP) 32 = kgSigma (kgD σ)
   r15 : s.gpr .r15 = 1
   mat : ∀ i < 3, ∀ j < 3, PolyIs s.mem (pa s (aS i j)) (aHat (rhoK σ) i j)
+  prf : ∀ N < 6, bytesAt s.mem (pa s (prfO N)) 128 = prf 2 (kgSigma (kgD σ)) (BitVec.ofNat 8 N)
   se : ∀ k < n, PolyIs s.mem (pa s (pS k)) (ntt (cbd (kgSigma (kgD σ)) k))
   ek : ∀ i < r, bytesAt s.mem (pa s (.r12, 384 * i)) 384 = encode12 (kgT (aHat (rhoK σ)) (kgD σ) i)
   dk : ∀ j < e, bytesAt s.mem (pa s (.r13, 384 * j)) 384 = encode12 (kgS (kgD σ) j)
@@ -38,6 +50,7 @@ structure KRest (n r e : Nat) (σ s : State) : Prop where
 def restChk (n r e : Nat) (ws : List (Ptr × Nat)) : Bool :=
   kcChk ws && keepB kgB ws (sc oG) 32 && keepB kgB ws sigP 32 &&
     (List.range 9).all (fun e => keepB kgB ws (aS (e / 3) (e % 3)) 1024) &&
+    (List.range 6).all (fun N => keepB kgB ws (prfO N) 128) &&
     (List.range n).all (fun k => keepB kgB ws (pS k) 1024) &&
     (List.range r).all (fun i => keepB kgB ws (.r12, 384 * i) 384) &&
     (List.range e).all (fun j => keepB kgB ws (.r13, 384 * j) 384)
@@ -45,10 +58,11 @@ def restChk (n r e : Nat) (ws : List (Ptr × Nat)) : Bool :=
 theorem KRest.keep {σ : State} (hp : keyGenK.pre σ) {n r e : Nat} {s s' : State} (h : KRest n r e σ s)
     {ws : List (Ptr × Nat)} (hP : PPost s s' ws) (hc : restChk n r e ws = true) : KRest n r e σ s' := by
   simp only [restChk, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hc
-  obtain ⟨⟨⟨⟨⟨⟨hkc, kG⟩, kS⟩, kA⟩, kP⟩, kE⟩, kD⟩ := hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨hkc, kG⟩, kS⟩, kA⟩, kR⟩, kP⟩, kE⟩, kD⟩ := hc
   have L := h.kc.lay hp
   refine ⟨h.kc.step hp hP.b hkc, by rw [L.keepBytes hP.b kG]; exact h.rho, by rw [L.keepBytes hP.b kS]; exact h.sig,
-    by rw [hP.cs .r15 (by decide)]; exact h.r15, fun i hi j hj => ?_, fun k hk => L.keepPoly hP.b (kP k hk) (h.se k hk),
+    by rw [hP.cs .r15 (by decide)]; exact h.r15, fun i hi j hj => ?_,
+    fun N hN => by rw [L.keepBytes hP.b (kR N hN)]; exact h.prf N hN, fun k hk => L.keepPoly hP.b (kP k hk) (h.se k hk),
     fun i hi => by rw [L.keepBytes hP.b (kE i hi)]; exact h.ek i hi,
     fun j hj => by rw [L.keepBytes hP.b (kD j hj)]; exact h.dk j hj⟩
   have := kA (3 * i + j) (by omega)
@@ -56,36 +70,61 @@ theorem KRest.keep {σ : State} (hp : keyGenK.pre σ) {n r e : Nat} {s s' : Stat
   exact L.keepPoly hP.b this (h.mat i hi j hj)
 
 /-- After the matrix, when every `SampleNTT` succeeded. -/
-theorem KRest.start {σ : State} {s : State} (h : KB 9 σ s) (ho : allOk (rhoK σ) 9) : KRest 0 0 0 σ s := by
-  refine ⟨h.a.kc, h.a.rho, h.a.sig, by rw [h.r15, ifp ho], fun i hi j hj => ?_, fun _ h => absurd h (Nat.not_lt_zero _),
-    fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩
+theorem KRest0.start {σ : State} {s : State} (h : KB 9 σ s) (ho : allOk (rhoK σ) 9) : KRest0 σ s := by
+  refine ⟨h.a.kc, h.a.rho, h.a.sig, by rw [h.r15, ifp ho], fun i hi j hj => ?_⟩
   have := h.mat (3 * i + j) (by omega) (aHat (rhoK σ) i j)
   rw [show (3 * i + j) / 3 = i by omega, show (3 * i + j) % 3 = j by omega] at this
   exact this (aHat_eq ho hi hj)
 
+/-! ## The outputs of `PRF₂` -/
+
+def prfsKChk : Bool :=
+  prfsChk kgB kgW 6 oPR lPW && kcChk (prfsW 6 oPR lPW) && keepB kgB (prfsW 6 oPR lPW) (sc oG) 32 &&
+    keepB kgB (prfsW 6 oPR lPW) sigP 32 &&
+    (List.range 9).all (fun e => keepB kgB (prfsW 6 oPR lPW) (aS (e / 3) (e % 3)) 1024)
+
+theorem prfsKChk_true : prfsKChk = true := by decide
+
+theorem prfs_okK (v : Sample4Impl) {σ : State} (hp : keyGenK.pre σ) {s : State} (h : KRest0 σ s) :
+    WP isa (v.callee.prfs 0 6 oPR lPW) s (KRest 0 0 0 σ) := by
+  have hc := prfsKChk_true
+  simp only [prfsKChk, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hc
+  obtain ⟨⟨⟨⟨hpc, hkc⟩, kG⟩, kS⟩, kA⟩ := hc
+  have L := h.kc.lay hp
+  refine WP.mono (v.prfs_ok L kgB_bases (by decide) hpc) fun s' ⟨hP, hb⟩ => ?_
+  have hσ : bytesAt s'.mem (pa s' sigP) 32 = bytesAt s.mem (pa s sigP) 32 := L.keepBytes hP.b kS
+  refine ⟨h.kc.step hp hP.b hkc, by rw [L.keepBytes hP.b kG]; exact h.rho, hσ.trans h.sig,
+    by rw [hP.cs .r15 (by decide)]; exact h.r15, fun i hi j hj => ?_, fun N hN => ?_,
+    fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _),
+    fun _ h => absurd h (Nat.not_lt_zero _)⟩
+  · have := kA (3 * i + j) (by omega)
+    rw [show (3 * i + j) / 3 = i by omega, show (3 * i + j) % 3 = j by omega] at this
+    exact L.keepPoly hP.b this (h.mat i hi j hj)
+  · rw [prfO, hP.pa rbx_cs, hb N hN, h.sig, Nat.zero_add]
+
 /-! ## `ŝ` and `ê` -/
 
 /-- What `se N` writes. -/
-abbrev seW (N : Nat) : List (Ptr × Nat) :=
-  [(sc oNB, 1)] ++ [(sc 0, 200), (sc 200, 640), (sc oPB, 128)] ++ [(pS N, 1024)] ++ [(pS N, 1024), (sc oSS, 1024)]
+abbrev seW (N : Nat) : List (Ptr × Nat) := [(pS N, 1024)] ++ [(pS N, 1024), (sc oSS, 1024)]
 
-def seChk (N : Nat) : Bool := prfChk kgB kgW (pS N) && ipChk kgB kgW (pS N) && restChk N 0 0 (seW N)
+def seChk (N : Nat) : Bool :=
+  twoChk kgB kgW (prfO N) 128 (pS N) 1024 && ipChk kgB kgW (pS N) && restChk N 0 0 (seW N)
 
 theorem seChk_all : ∀ N < 6, seChk N = true := by decide
 
-theorem se_ok {σ : State} (hp : keyGenK.pre σ) {N : Nat} (hN : N < 6) {s : State} (h : KRest N 0 0 σ s) :
-    WP isa (se N) s (KRest (N + 1) 0 0 σ) := by
+theorem se_ok {A : Arith} (hA : ArithOk A) {σ : State} (hp : keyGenK.pre σ) {N : Nat} (hN : N < 6) {s : State} (h : KRest N 0 0 σ s) :
+    WP isa (se A N) s (KRest (N + 1) 0 0 σ) := by
   have hc := seChk_all N hN
   simp only [seChk, Bool.and_eq_true] at hc
-  obtain ⟨⟨hpc, hic⟩, hrc⟩ := hc
+  obtain ⟨⟨htw, hic⟩, hrc⟩ := hc
   have L := h.kc.lay hp
   unfold se
-  refine WP.seq (WP.mono (prfCbd_ok L kgB_bases (by omega) hpc) fun s₁ ⟨hP₁, hp₁⟩ => ?_)
+  refine WP.seq (WP.mono (cbd2At_okL L rbx_na htw) fun s₁ ⟨hP₁, hp₁⟩ => ?_)
   have L₁ := L.post hP₁.b kgB_bases
-  rw [h.sig, ← hP₁.pa rbx_cs] at hp₁
-  refine WP.mono (nttAt_ok L₁ hic hp₁.1) fun s₂ ⟨hP₂, hp₂⟩ => ?_
+  rw [h.prf N hN, ← hP₁.pa rbx_cs] at hp₁
+  refine WP.mono (nttAt_ok hA L₁ hic hp₁.1) fun s₂ ⟨hP₂, hp₂⟩ => ?_
   have hk := h.keep hp (PPost.app hP₁ hP₂ (by simp [calleeSaved])) hrc
-  refine ⟨hk.kc, hk.rho, hk.sig, hk.r15, hk.mat, fun k hk' => ?_, fun _ h => absurd h (Nat.not_lt_zero _),
+  refine ⟨hk.kc, hk.rho, hk.sig, hk.r15, hk.mat, hk.prf, fun k hk' => ?_, fun _ h => absurd h (Nat.not_lt_zero _),
     fun _ h => absurd h (Nat.not_lt_zero _)⟩
   rcases (by omega : k < N ∨ k = N) with hk' | rfl
   · exact hk.se k hk'
@@ -111,14 +150,14 @@ def rowChk (i : Nat) : Bool :=
 
 theorem rowChk_all : ∀ i < 3, rowChk i = true := by decide
 
-theorem row_ok {σ : State} (hp : keyGenK.pre σ) {i : Nat} (hi : i < 3) {s : State} (h : KRest 6 i 0 σ s) :
-    WP isa (row i) s (KRest 6 (i + 1) 0 σ) := by
+theorem row_ok {A : Arith} (hA : ArithOk A) {σ : State} (hp : keyGenK.pre σ) {i : Nat} (hi : i < 3) {s : State} (h : KRest 6 i 0 σ s) :
+    WP isa (row A i) s (KRest 6 (i + 1) 0 σ) := by
   have hc := rowChk_all i hi
   simp only [rowChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨hdc, hac⟩, hk3⟩, htw⟩, hrc⟩ := hc
   have L := h.kc.lay hp
   unfold row
-  refine WP.seq (WP.mono (dotAt_ok L kgB_bases hdc (a := fun j => aHat (rhoK σ) i j) (b := kgS (kgD σ))
+  refine WP.seq (WP.mono (dotAt_ok hA L kgB_bases hdc (a := fun j => aHat (rhoK σ) i j) (b := kgS (kgD σ))
     (fun k hk => h.mat i hi k hk) (fun k hk => h.se k (by omega))) fun s₁ ⟨hP₁, hp₁⟩ => ?_)
   have L₁ := L.post hP₁.b kgB_bases
   rw [← hP₁.pa rbx_cs] at hp₁
@@ -128,7 +167,7 @@ theorem row_ok {σ : State} (hp : keyGenK.pre σ) {i : Nat} (hi : i < 3) {s : St
   rw [hp₁.2, he₁.2, ← hP₂.pa rbx_cs] at hp₂
   refine WP.mono (enc12At_okL L₂ r12_na htw hp₂.1) fun s₃ ⟨hP₃, hb₃⟩ => ?_
   have hk := h.keep hp (PPost.app (PPost.app hP₁ hP₂ (by decide)) hP₃ (by simp [calleeSaved])) hrc
-  refine ⟨hk.kc, hk.rho, hk.sig, hk.r15, hk.mat, hk.se, fun i' hi' => ?_, fun _ h => absurd h (Nat.not_lt_zero _)⟩
+  refine ⟨hk.kc, hk.rho, hk.sig, hk.r15, hk.mat, hk.prf, hk.se, fun i' hi' => ?_, fun _ h => absurd h (Nat.not_lt_zero _)⟩
   rcases (by omega : i' < i ∨ i' = i) with hi' | rfl
   · exact hk.ek i' hi'
   · rw [hP₃.pa r12_cs, hb₃, hp₂.2]; rfl
@@ -148,7 +187,7 @@ theorem encS_ok {σ : State} (hp : keyGenK.pre σ) {j : Nat} (hj : j < 3) {s : S
   have hs := h.se j (by omega)
   refine WP.mono (enc12At_okL L r13_na hc.1 hs.1) fun s' ⟨hP, hb⟩ => ?_
   have hk := h.keep hp hP hc.2
-  refine ⟨hk.kc, hk.rho, hk.sig, hk.r15, hk.mat, hk.se, hk.ek, fun j' hj' => ?_⟩
+  refine ⟨hk.kc, hk.rho, hk.sig, hk.r15, hk.mat, hk.prf, hk.se, hk.ek, fun j' hj' => ?_⟩
   rcases (by omega : j' < j ∨ j' = j) with hj' | rfl
   · exact hk.dk j' hj'
   · rw [hP.pa r13_cs, hb, hs.2]; rfl

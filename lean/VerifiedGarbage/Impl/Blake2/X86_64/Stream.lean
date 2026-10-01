@@ -56,6 +56,15 @@ def save (b : Reg) : List Instr := saved.map fun (r, d) => .store (at_ b d) r
 /-- Restore them (`r15`, the base, last). -/
 def restore : List Instr := saved.map fun (r, d) => .mov r (.mem (at_ .r15 d))
 
+/-- A compression implementation and its emitted symbol. -/
+structure Callee where
+  name : String
+  code : Prog isa
+
+/-- The baseline compression implementation. -/
+def scalar {w : Nat} (P : Spec.Blake2.Params w) : Callee :=
+  ⟨if w = 64 then "vg_blake2b_compress" else "vg_blake2s_compress", compress P⟩
+
 section
 variable {w : Nat} (P : Spec.Blake2.Params w)
 
@@ -73,9 +82,9 @@ def bufLen : Prog isa :=
 /-- Compress into the hash value at `rbx`, with scratch space `r15`, after
 `args` set the blocks (`rsi`), their number (`rdx`), the counter (`rcx`) and
 the final block flag (`r8`). -/
-def compressWith (args : List Instr) : Prog isa :=
+def compressWith (callee : Callee) (args : List Instr) : Prog isa :=
   .seq (.block ([.mov .rdi (.reg .rbx)] ++ args ++ [.mov .r9 (.reg .r15)]))
-    (.seq (.call (if w = 64 then "vg_blake2b_compress" else "vg_blake2s_compress") (compress P))
+    (.seq (.call callee.name callee.code)
       (.block [.mov .rbx (.reg .rdi), .mov .r15 (.reg .r9)]))
 
 /-- The loop copying `rax ≥ 1` bytes of `data` (at `rbp`) to the buffer, from
@@ -99,27 +108,27 @@ def fill : Prog isa :=
 
 /-- Compress the (full) buffer, which is not the last block: its counter is
 the byte count. -/
-def compressBuf : Prog isa :=
-  .seq (compressWith P [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitVec.ofNat 32 (N w))),
+def compressBuf (callee : Callee) : Prog isa :=
+  .seq (compressWith callee [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitVec.ofNat 32 (N w))),
       .mov32 .rdx (.imm 1), .mov .rcx (.reg .r14), .mov32 .r8 (.imm 0)])
     (.block [.mov32 .r13 (.imm 0)])
 
 /-- If the buffer is not empty: fill it, and if more data follows, compress
 it. -/
-def head : Prog isa :=
+def head (callee : Callee) : Prog isa :=
   .seq (.block [.alu .test .r13 (.reg .r13)])
     (.ite .e (.block [])
       (.seq (fill (w := w)) (.seq (.block [.alu .test .r12 (.reg .r12)])
-        (.ite .e (.block []) (compressBuf P)))))
+        (.ite .e (.block []) (compressBuf (w := w) callee)))))
 
 /-- With the buffer empty and `r12 ≥ 1` bytes left: compress all the blocks of
 `data` but the last, `(r12 - 1) / B` of them, straight from `data`, leaving
 `((r12 - 1) mod B) + 1` bytes. -/
-def direct : Prog isa :=
+def direct (callee : Callee) : Prog isa :=
   .seq (.block [.mov .rax (.reg .r12), .alu .sub .rax (.imm 1), .shift .shr .rax (Nat.log2 (B w)),
       .alu .test .rax (.reg .rax)])
     (.ite .e (.block [])
-      (.seq (compressWith P [.mov .rsi (.reg .rbp), .mov .rdx (.reg .rax), .mov .rcx (.reg .r14),
+      (.seq (compressWith callee [.mov .rsi (.reg .rbp), .mov .rdx (.reg .rax), .mov .rcx (.reg .r14),
           .alu .add .rcx (.imm (BitVec.ofNat 32 (B w))), .mov32 .r8 (.imm 0)])
         (.block [.mov .rax (.reg .r12), .alu .sub .rax (.imm 1),
           .alu .and .rax (.imm (BitVec.ofNat 32 (B w - 1))), .alu .add .rax (.imm 1),
@@ -132,18 +141,18 @@ def tail : Prog isa :=
     (copyLoop (w := w))
 
 /-- The rest of `data`, if any, after `head`. -/
-def rest : Prog isa :=
-  .seq (.block [.alu .test .r12 (.reg .r12)]) (.ite .e (.block []) (.seq (direct P) (tail (w := w))))
+def rest (callee : Callee) : Prog isa :=
+  .seq (.block [.alu .test .r12 (.reg .r12)]) (.ite .e (.block []) (.seq (direct (w := w) callee) (tail (w := w))))
 
 /-- Save registers and set up ours. -/
 def updateStart : List Instr :=
   save .r8 ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .r8), .mov .rbp (.reg .rdx),
     .mov .r12 (.reg .rcx), .mov .r14 (.reg .rsi)]
 
-def update : Prog isa :=
+def update (callee : Callee := scalar P) : Prog isa :=
   .seq (.block updateStart) (.seq (bufLen (w := w))
     (.seq (.block [.alu .test .r12 (.reg .r12)])
-      (.seq (.ite .e (.block []) (.seq (head P) (rest P))) (.block restore))))
+      (.seq (.ite .e (.block []) (.seq (head (w := w) callee) (rest (w := w) callee))) (.block restore))))
 
 /-! ## `finalize`
 
@@ -160,8 +169,8 @@ def pad : Prog isa :=
     (.ite .e (.block []) (zeroLoop (w := w)))
 
 /-- Compress the buffer as the last block: its counter is the byte count. -/
-def compressLast : Prog isa :=
-  compressWith P [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitVec.ofNat 32 (N w))),
+def compressLast (callee : Callee) : Prog isa :=
+  compressWith callee [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitVec.ofNat 32 (N w))),
     .mov32 .rdx (.imm 1), .mov .rcx (.reg .r14), .mov32 .r8 (.imm 1)]
 
 /-- Copy the hash value (at `rbx`) to `out` (at `rbp`). -/
@@ -169,10 +178,10 @@ def output : List Instr :=
   (List.range (N w / 8)).flatMap fun k =>
     [.mov .rax (.mem (at_ .rbx (8 * k))), .store (at_ .rbp (8 * k)) .rax]
 
-def finalize : Prog isa :=
+def finalize (callee : Callee := scalar P) : Prog isa :=
   .seq (.block (save .rcx ++ [.mov .rbx (.reg .rdi), .mov .r15 (.reg .rcx), .mov .rbp (.reg .rdx),
       .mov .r14 (.reg .rsi)]))
-    (.seq (bufLen (w := w)) (.seq (pad (w := w)) (.seq (compressLast P)
+    (.seq (bufLen (w := w)) (.seq (pad (w := w)) (.seq (compressLast (w := w) callee)
       (.block (output (w := w) ++ restore)))))
 
 /-! ## `init`

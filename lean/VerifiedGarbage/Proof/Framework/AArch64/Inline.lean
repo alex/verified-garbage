@@ -63,10 +63,10 @@ theorem Covers.push {xs ys xs' ys' : List Region} (f : Region) (h : Covers (xs +
 register). -/
 def dstOf : Instr → Option Reg
   | .adds _ d .. | .adcs _ d .. | .subs _ d .. | .sbcs _ d .. | .umulh d .. => some d
-  | .add _ d .. | .sub _ d .. | .addImm _ d .. | .subImm _ d .. | .logic _ _ d .. | .ror _ d ..
+  | .add _ d .. | .sub _ d .. | .addImm _ d .. | .subImm _ d .. | .logic _ _ d .. | .logicRor _ _ d .. | .bicRor _ d .. | .ror _ d ..
   | .lsr _ d .. | .lsl _ d .. | .madd _ d .. | .mul _ d .. | .rev32 d _ | .rev d _ | .movz _ d ..
-  | .movk _ d .. | .ldr _ d .. | .ldrb d .. | .ldrSp d _ | .pop d | .umov _ d .. => some d
-  | .str .. | .strb .. | .push _ | .vop _ | .ldrq .. | .strq .. => none
+  | .addSp d _ | .movk _ d .. | .ldr _ d .. | .ldrb d .. | .ldrSp d _ | .pop d | .umov _ d .. => some d
+  | .str .. | .strb .. | .alloc _ | .free _ | .push _ | .vop _ | .ldrq .. | .strq .. => none
 
 section
 variable {s s' : State} {rd wr : List Region}
@@ -126,7 +126,7 @@ theorem exec_widen (hc : Covers (s.rd ++ s.wr) (rd ++ wr)) (hw : Covers s.wr wr)
     obtain ⟨v, hv, rfl⟩ := Option.map_eq_some_iff.mp h
     simp only [ho, and_self, ite_true, State.withRegions_sp, load_widen hc hv, Option.map_some]
     rfl
-  | push _ | pop _ => simp only [exec, reduceCtorEq] at h
+  | push _ | pop _ | alloc _ | free _ => simp only [exec, reduceCtorEq] at h
   | _ =>
     simp only [exec] at h ⊢
     first
@@ -180,7 +180,7 @@ theorem exec_regions {i : Instr} (h : exec i s = some s') :
     split at h <;> [skip; cases h]
     obtain ⟨v, -, rfl⟩ := Option.map_eq_some_iff.mp h
     exact ⟨rfl, rfl, rfl, Frame.refl _ _⟩
-  | push _ | pop _ => simp only [exec, reduceCtorEq] at h
+  | push _ | pop _ | alloc _ | free _ => simp only [exec, reduceCtorEq] at h
   | _ =>
     simp only [exec] at h
     first
@@ -226,7 +226,7 @@ theorem exec_gpr {i : Instr} {r : Reg} (hi : dstOf i ≠ some r) (h : exec i s =
     split at h <;> [skip; cases h]
     obtain ⟨v, -, rfl⟩ := Option.map_eq_some_iff.mp h
     exact hw _ _ _ _ fun e => hi (by simp [dstOf, e])
-  | push _ | pop _ => simp only [exec, reduceCtorEq] at h
+  | push _ | pop _ | alloc _ | free _ => simp only [exec, reduceCtorEq] at h
   | _ =>
     simp only [exec] at h
     first
@@ -279,39 +279,50 @@ theorem ret_eq {s₁ s₂ s' : State} (h : isa.ret s₁ s₂ = some s') : s' = s
 
 /-- A frame's push adds its region at the head of `wr`, and changes no register. -/
 theorem push_eq {i : Instr} {s s₁ : State} (h : isa.push i s = some s₁) :
-    ∃ f, s₁.rd = s.rd ∧ s₁.wr = f :: s.wr ∧ s₁.gpr = s.gpr ∧ s₁.sp = s.sp - 16 := by
+    ∃ f, s₁.rd = s.rd ∧ s₁.wr = f :: s.wr ∧ s₁.gpr = s.gpr ∧ s₁.sp = s.sp - BitVec.ofNat 64 f.len := by
   cases i <;> simp only [isa, push, reduceCtorEq] at h
-  split at h <;> cases h; exact ⟨_, rfl, rfl, rfl, rfl⟩
+  all_goals split at h <;> cases h
+  all_goals exact ⟨_, rfl, rfl, rfl, rfl⟩
 
 /-- A frame's pop removes the region at the head of `wr`, and changes only
 its register. -/
 theorem pop_eq {j : Instr} {s₁ s₂ s' : State} (h : isa.pop j s₁ s₂ = some s') :
     s₂.wr = s₁.wr ∧ s'.rd = s₂.rd ∧ s'.wr = s₂.wr.tail ∧
-      (∀ r, dstOf j ≠ some r → s'.gpr r = s₂.gpr r) ∧ s₂.sp = s₁.sp ∧ s'.sp = s₂.sp + 16 := by
+      (∀ r, dstOf j ≠ some r → s'.gpr r = s₂.gpr r) ∧ s₂.sp = s₁.sp ∧ s'.sp = s₂.sp + BitVec.ofNat 64 (s₁.wr.headD ⟨0, 0⟩).len := by
   cases j <;> simp only [isa, pop, reduceCtorEq] at h
-  split at h <;> cases h
-  rename_i r hc
-  refine ⟨hc.2.1, rfl, rfl, fun r' hr => ?_, hc.1, rfl⟩
-  simp only [dstOf, ne_eq, Option.some.injEq] at hr
-  simp [State.write, Ne.symm hr]
+  all_goals split at h <;> cases h
+  case pop r hc =>
+    refine ⟨hc.2.1, rfl, rfl, fun r' hr => ?_, hc.1, ?_⟩
+    · simp only [dstOf, ne_eq, Option.some.injEq] at hr
+      simp [State.write, Ne.symm hr]
+    · simp only [List.headD_eq_head?_getD, hc.2.2, Option.getD_some]; rfl
+  case free bytes hc =>
+    refine ⟨hc.2.2.2.2.1, rfl, rfl, fun _ _ => rfl, hc.2.2.2.1, ?_⟩
+    simp only [List.headD_eq_head?_getD, hc.2.2.2.2.2, Option.getD_some]
+
 
 theorem push_widen {i : Instr} {s s₁ : State} (h : isa.push i s = some s₁) (rd wr : List Region) :
     ∃ f, s₁.rd = s.rd ∧ s₁.wr = f :: s.wr ∧
       isa.push i (s.withRegions rd wr) = some (s₁.withRegions rd (f :: wr)) := by
   cases i <;> simp only [isa, push, reduceCtorEq] at h
-  split at h <;> cases h
-  rename_i hc
-  exact ⟨_, rfl, rfl, by simp only [isa, push, State.withRegions_sp, hc, ite_true]; rfl⟩
+  all_goals
+    split at h <;> cases h
+    rename_i hc
+    exact ⟨_, rfl, rfl, by simp only [isa, push, State.withRegions_sp, hc, ite_true]; rfl⟩
 
 theorem pop_widen {j : Instr} {s₁ s₂ s' : State} (h : isa.pop j s₁ s₂ = some s') (rd : List Region)
     {wr : List Region} (hw : wr.head? = s₁.wr.head?) :
     isa.pop j (s₁.withRegions rd wr) (s₂.withRegions rd wr) = some (s'.withRegions rd wr.tail) := by
   cases j <;> simp only [isa, pop, reduceCtorEq] at h
-  split at h <;> cases h
-  rename_i hc
-  simp only [isa, pop, State.withRegions_sp, State.withRegions_wr, hw, hc.1, hc.2.2, and_self,
-    ite_true]
-  rfl
+  all_goals split at h <;> cases h
+  case pop r hc =>
+    simp only [isa, pop, State.withRegions_sp, State.withRegions_wr, hw, hc.1, hc.2.2, and_self,
+      ite_true]
+    rfl
+  case free bytes hc =>
+    simp only [isa, pop, State.withRegions_sp, State.withRegions_wr, hw,
+      hc.1, hc.2.1, hc.2.2.1, hc.2.2.2.1, hc.2.2.2.2.2, and_self, ite_true]
+    rfl
 
 /-- Code never changes its permissions or the stack pointer. -/
 theorem Exec.rdwr {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa c s t s') :
@@ -330,7 +341,9 @@ theorem Exec.rdwr {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa c 
     obtain ⟨f, r₁, w₁, -, p₁⟩ := push_eq hp
     obtain ⟨-, r₂, w₂, -, p₂, p₃⟩ := pop_eq hq
     refine ⟨r₂.trans (ih.1.trans r₁), by rw [w₂, ih.2.1, w₁]; rfl, ?_⟩
-    rw [p₃, ih.2.2, p₁, BitVec.sub_add_cancel]
+    rw [p₃, w₁]
+    simp only [List.headD_cons]
+    rw [ih.2.2, p₁, BitVec.sub_add_cancel]
 
 /-- Code without frames changes memory only within the regions it may write
 (a call stores nothing; a frame's push stores below the stack pointer). -/

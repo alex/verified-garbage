@@ -19,8 +19,10 @@
 //! check of §7.2 in [`EncapsulationKey768::from_bytes`].
 //!
 //! The bound on `SampleNTT`'s loop (280 iterations, as Appendix B allows) is
-//! reached with probability less than 2⁻²⁶¹; the operation then fails with
-//! [`Error::SampleBound`].
+//! reached with probability less than 2⁻²⁶¹ for each call; key generation,
+//! encapsulation and decapsulation each call it 9 times (once for each
+//! entry of the matrix `Â`), so an operation reaches it with probability
+//! less than 2⁻²⁵⁸, and then fails with [`Error::SampleBound`].
 //!
 //! On x86-64, key generation, encapsulation and decapsulation have an
 //! instance for each implementation of `vg_mlkem_sample_ntt4`, which samples
@@ -43,6 +45,10 @@ use crate::arch::mlkem768::{
 use crate::arch::mlkem768::{
     vg_mlkem768_check_ek, vg_mlkem768_decaps, vg_mlkem768_encaps, vg_mlkem768_keygen,
 };
+#[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+use crate::arch::mlkem768::{
+    vg_mlkem768_decaps_sha3, vg_mlkem768_encaps_sha3, vg_mlkem768_keygen_sha3,
+};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::mlkem1024::{
     VG_MLKEM1024_DECAPS_AVX2_FEATURES, VG_MLKEM1024_ENCAPS_AVX2_FEATURES,
@@ -50,12 +56,16 @@ use crate::arch::mlkem1024::{
 };
 #[cfg(target_arch = "x86_64")]
 use crate::cpu::{Features, detected};
+#[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+use crate::hashes::sha3::Backend as KeccakBackend;
 
 /// Why an operation failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
     /// A `SampleNTT` reached the bound on its loop's iterations (FIPS 203
-    /// Appendix B), which happens with probability less than 2⁻²⁶¹.
+    /// Appendix B), which happens with probability less than 2⁻²⁶¹ for each
+    /// call: less than 2⁻²⁵⁸ in an ML-KEM-768 operation (9 calls) and 2⁻²⁵⁷
+    /// in an ML-KEM-1024 one (16 calls).
     SampleBound,
     /// The encapsulation key failed the check of FIPS 203 §7.2.
     InvalidKey,
@@ -74,6 +84,9 @@ pub(crate) enum Backend {
     /// AVX2: four instances of SHAKE128 at once.
     #[cfg(target_arch = "x86_64")]
     Avx2,
+    /// The shared, CPU-checked Keccak selection on ARM64.
+    #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+    Keccak(KeccakBackend),
 }
 
 impl Backend {
@@ -96,23 +109,38 @@ impl Backend {
     }
 
     /// The best implementation the CPU can run: there is only one here.
-    #[cfg(not(target_arch = "x86_64"))]
+    #[cfg(not(any(
+        target_arch = "x86_64",
+        all(target_arch = "aarch64", feature = "cpu-features-env")
+    )))]
     pub(crate) fn select() -> Backend {
         Backend::Scalar
+    }
+    /// Keep the draft's default scalar selection; an explicit SHA-3 request
+    /// follows the shared sponge backend after checking every KEM's features.
+    #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+    pub(crate) fn select() -> Backend {
+        use crate::arch::{mlkem768, mlkem1024};
+        use crate::cpu::{Features, detected};
+        if detected().contains(Features::all(&[
+            mlkem768::VG_MLKEM768_KEYGEN_SHA3_FEATURES,
+            mlkem768::VG_MLKEM768_ENCAPS_SHA3_FEATURES,
+            mlkem768::VG_MLKEM768_DECAPS_SHA3_FEATURES,
+            mlkem1024::VG_MLKEM1024_KEYGEN_SHA3_FEATURES,
+            mlkem1024::VG_MLKEM1024_ENCAPS_SHA3_FEATURES,
+            mlkem1024::VG_MLKEM1024_DECAPS_SHA3_FEATURES,
+        ])) {
+            Backend::Keccak(KeccakBackend::detected())
+        } else {
+            Backend::Scalar
+        }
     }
 }
 
 /// The working space of the assembly functions (32 KiB).
 type Scratch = [u64; 4096];
 
-/// Overwrites `x` with zeros in a way the compiler does not remove.
-pub(crate) fn zeroize<T: Copy + Default>(x: &mut [T]) {
-    for v in x.iter_mut() {
-        // SAFETY: `v` is a valid, aligned, unique reference.
-        unsafe { core::ptr::write_volatile(v, T::default()) };
-    }
-    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
-}
+use crate::zeroize::zeroize;
 
 /// An ML-KEM-768 encapsulation key, which passed the check of FIPS 203 §7.2.
 #[derive(Clone, PartialEq, Eq)]
@@ -184,11 +212,21 @@ impl EncapsulationKey768 {
         // stack, or wrap around the end of the address space. `self.bytes`
         // passed `vg_mlkem768_check_ek`. `Backend::select` chose AVX2 only
         // if the CPU has `VG_MLKEM768_ENCAPS_AVX2_FEATURES`.
+        // ARM64 Keccak selection checks the generated SHA-3 feature requirements.
         let r = unsafe {
             match Backend::select() {
                 Backend::Scalar => {
                     vg_mlkem768_encaps(&self.bytes, m, &mut key, &mut ct, &mut scratch)
                 }
+                #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+                Backend::Keccak(backend) => match backend {
+                    KeccakBackend::Scalar => {
+                        vg_mlkem768_encaps(&self.bytes, m, &mut key, &mut ct, &mut scratch)
+                    }
+                    KeccakBackend::Sha3 => {
+                        vg_mlkem768_encaps_sha3(&self.bytes, m, &mut key, &mut ct, &mut scratch)
+                    }
+                },
                 #[cfg(target_arch = "x86_64")]
                 Backend::Avx2 => {
                     vg_mlkem768_encaps_avx2(&self.bytes, m, &mut key, &mut ct, &mut scratch)
@@ -197,7 +235,7 @@ impl EncapsulationKey768 {
         };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261.
+            // One of the 9 `SampleNTT`s reaches its bound with probability less than 2^-258.
             // NO-COVERAGE-START
             zeroize(&mut key);
             zeroize(&mut ct);
@@ -251,12 +289,22 @@ impl DecapsulationKey768 {
         // are distinct Rust objects, so they do not overlap each other or
         // the stack, or wrap around the end of the address space.
         // `Backend::select` chose AVX2 only if the CPU has
-        // `VG_MLKEM768_KEYGEN_AVX2_FEATURES`.
+        // `VG_MLKEM768_KEYGEN_AVX2_FEATURES`. ARM64 selection also checks
+        // the generated SHA-3 feature requirements.
         let r = unsafe {
             match Backend::select() {
                 Backend::Scalar => {
                     vg_mlkem768_keygen(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
                 }
+                #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+                Backend::Keccak(backend) => match backend {
+                    KeccakBackend::Scalar => {
+                        vg_mlkem768_keygen(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
+                    }
+                    KeccakBackend::Sha3 => {
+                        vg_mlkem768_keygen_sha3(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
+                    }
+                },
                 #[cfg(target_arch = "x86_64")]
                 Backend::Avx2 => {
                     vg_mlkem768_keygen_avx2(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
@@ -265,7 +313,7 @@ impl DecapsulationKey768 {
         };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261;
+            // One of the 9 `SampleNTT`s reaches its bound with probability less than 2^-258;
             // dropping `key` destroys it.
             // NO-COVERAGE-START
             return Err(Error::SampleBound);
@@ -300,30 +348,27 @@ impl DecapsulationKey768 {
         let r = unsafe {
             match Backend::select() {
                 Backend::Scalar => vg_mlkem768_decaps(&self.dk, ct, &mut key, &mut scratch),
+                #[cfg(all(target_arch = "aarch64", feature = "cpu-features-env"))]
+                Backend::Keccak(backend) => match backend {
+                    KeccakBackend::Scalar => {
+                        vg_mlkem768_decaps(&self.dk, ct, &mut key, &mut scratch)
+                    }
+                    KeccakBackend::Sha3 => {
+                        vg_mlkem768_decaps_sha3(&self.dk, ct, &mut key, &mut scratch)
+                    }
+                },
                 #[cfg(target_arch = "x86_64")]
                 Backend::Avx2 => vg_mlkem768_decaps_avx2(&self.dk, ct, &mut key, &mut scratch),
             }
         };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261.
+            // One of the 9 `SampleNTT`s reaches its bound with probability less than 2^-258.
             // NO-COVERAGE-START
             zeroize(&mut key);
             return Err(Error::SampleBound);
             // NO-COVERAGE-END
         }
         Ok(key)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::zeroize;
-
-    #[test]
-    fn zeroizes() {
-        let mut x = [1u8, 2, 3];
-        zeroize(&mut x);
-        assert_eq!(x, [0; 3]);
     }
 }

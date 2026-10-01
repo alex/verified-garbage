@@ -56,7 +56,7 @@ theorem rejNtt_args {bs : List (Reg × Nat)} (L : LayOk bs) {seed a ss : Ptr} (c
 theorem rejNttAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {seed a ss : Ptr}
     (hc : rejNttChk rbs wbs seed a ss = true) :
-    WP isa (callAt "vg_mldsa_rej_ntt_poly" P.rejNTT (rejNttArgs seed a ss)) s fun s' => PPostB S s s' [(a, 1024), (ss, 2048)] ∧ s'.gpr .x24 = s.gpr .x24 ∧
+    WP isa (callAt ("vg_mldsa_rej_ntt_poly" ++ P.suffix) P.rejNTT (rejNttArgs seed a ss)) s fun s' => PPostB S s s' [(a, 1024), (ss, 2048)] ∧ s'.gpr .x24 = s.gpr .x24 ∧
       ((s'.gpr .x0).setWidth 32 = 1 → Reduced s'.mem (pa s a)) ∧
       Outcome (fun b => rejNTTPoly b.rejNTT (bytesAt s.mem (pa s seed) 34)) ((s'.gpr .x0).setWidth 32)
         (polyAt s'.mem (pa s a)) := by
@@ -75,7 +75,7 @@ theorem rejNttAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContr
     {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧
       bytesAt x.mem (pa x seed) 34 = bytesAt y.mem (pa y seed) 34 ∧ SameB x y) :
-    RelCT isa Q (callAt "vg_mldsa_rej_ntt_poly" P.rejNTT (rejNttArgs seed a ss)) fun _ _ => True := by
+    RelCT isa Q (callAt ("vg_mldsa_rej_ntt_poly" ++ P.suffix) P.rejNTT (rejNttArgs seed a ss)) fun _ _ => True := by
   have hc' := hc
   simp only [rejNttChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
@@ -141,7 +141,7 @@ theorem ball_args {bs : List (Reg × Nat)} (L : LayOk bs) {ct c ss : Ptr} (len t
 theorem ballAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.ball (sampleInBallContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {ct c ss : Ptr} {len : Nat}
     (hc : ballChk rbs wbs ct len c ss = true) {tau : Nat} (ht : (len, tau) ∈ ballParams) :
-    WP isa (callAt "vg_mldsa_sample_in_ball" P.ball (ballArgs ct len tau c ss)) s fun s' => PPostB S s s' [(c, 1024), (ss, 2048)] ∧
+    WP isa (callAt ("vg_mldsa_sample_in_ball" ++ P.suffix) P.ball (ballArgs ct len tau c ss)) s fun s' => PPostB S s s' [(c, 1024), (ss, 2048)] ∧
       s'.gpr .x24 = s.gpr .x24 ∧
       ((s'.gpr .x0).setWidth 32 = 1 → Reduced s'.mem (pa s c)) ∧
       Outcome (fun b => (sampleInBall tau b.ball (bytesAt s.mem (pa s ct) len)).map toRq)
@@ -165,7 +165,7 @@ theorem ballAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.ball (sampleInBallCon
     (hc : ballChk rbs wbs ct len c ss = true) {tau : Nat} (ht : (len, tau) ∈ ballParams) {Q : State → State → Prop}
     (hQ : ∀ x y, Q x y → Lay S rbs wbs x ∧ Lay S rbs wbs y ∧
       bytesAt x.mem (pa x ct) len = bytesAt y.mem (pa y ct) len ∧ SameB x y) :
-    RelCT isa Q (callAt "vg_mldsa_sample_in_ball" P.ball (ballArgs ct len tau c ss)) fun _ _ => True := by
+    RelCT isa Q (callAt ("vg_mldsa_sample_in_ball" ++ P.suffix) P.ball (ballArgs ct len tau c ss)) fun _ _ => True := by
   have hl : len < 2 ^ 32 ∧ tau < 2 ^ 32 := by
     simp only [ballParams, List.mem_cons, Prod.mk.injEq, List.not_mem_nil, or_false] at ht; omega
   have hc' := hc

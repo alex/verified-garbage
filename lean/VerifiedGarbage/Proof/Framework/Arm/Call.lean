@@ -73,4 +73,30 @@ theorem WP.call {n : String} {c : Prog isa} {k : Contract isa}
       rw [State.withRegions_withRegions, ← hr, ← hwr]; rfl
     rw [this]; exact hpost
 
+/-- The state after reserving a contiguous stack buffer. -/
+def allocated (bytes : Nat) (s : State) : State :=
+  { s with
+    sp := s.sp - BitVec.ofNat 32 bytes
+    wr := ⟨State.addr (s.sp - BitVec.ofNat 32 bytes), bytes⟩ :: s.wr }
+
+/-- The state after releasing that buffer; memory and registers are unchanged. -/
+def freed (bytes : Nat) (s : State) : State :=
+  { s with sp := s.sp + BitVec.ofNat 32 bytes, wr := s.wr.tail }
+
+/-- Reserve a positive, encodable, ABI-aligned stack buffer and release it
+with exactly the permissions and stack pointer produced by allocation. -/
+theorem WP.alloc {bytes : Nat} {body : Prog isa} {s : State} {Q : State → Prop}
+    (hn : 0 < bytes ∧ bytes < 256 ∧ bytes % 8 = 0) (hsp : bytes ≤ s.sp.toNat)
+    (hb : WP isa body (allocated bytes s) fun s₂ => Q (freed bytes s₂)) :
+    WP isa (.frame (.alloc bytes) body (.free bytes)) s Q := by
+  obtain ⟨t, s₂, he, hq⟩ := hb
+  obtain ⟨-, hw, hp⟩ := Exec.rdwr he
+  have ha : isa.push (.alloc bytes) s = some (allocated bytes s) := by
+    simp only [isa, push, hn.1, hn.2.1, hn.2.2, hsp, and_self, ite_true]
+    rfl
+  have hf : isa.pop (.free bytes) (allocated bytes s) s₂ = some (freed bytes s₂) := by
+    simp only [freed, isa, pop, hn.1, hn.2.1, hn.2.2, hp, hw, allocated,
+      List.head?_cons, and_self, ite_true]
+  exact ⟨_, _, Exec.frame ha he hf, hq⟩
+
 end VG.Arm

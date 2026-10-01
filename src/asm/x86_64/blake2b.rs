@@ -2,6 +2,73 @@
 //! Verified `blake2b` functions for `x86_64`.
 #![allow(dead_code)]
 
+/// Starts a BLAKE2b computation of an `outlen`-byte digest with the `keylen`-byte key at `key` (none if `keylen` is 0): makes the streaming state `*state` represent the key padded to a block, the first block of the data (none for unkeyed hashing), hashed from the initial state for `outlen` and `keylen` (RFC 7693 §2.5, §3.3). The length of the data is then 128 if `keylen > 0` and 0 otherwise. Continue with `vg_blake2b_update` and `vg_blake2b_finalize`.
+///
+/// Contract: `VG.Spec.Blake2.initBContract`. The streaming state is the hash state followed by a buffered last block (`VG.Spec.Blake2.Repr`). Constant time: only the pointers, `outlen` and `keylen` may affect timing, not the key.
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 192 bytes.
+/// * `key` must be valid for reads of `keylen` bytes.
+/// * `outlen` must be between 1 and 64, and `keylen` at most 64.
+/// * `state` must not overlap `key` (distinct Rust objects never do).
+/// * Neither `state` nor `key` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_blake2b_init(state: *mut [u8; 192], outlen: usize, key: *const u8, keylen: usize) {
+    core::arch::naked_asm!(
+        "movabs rax, -4942790177534073029",
+        "mov QWORD PTR [rdi+8], rax",
+        "movabs rax, 4354685564936845355",
+        "mov QWORD PTR [rdi+16], rax",
+        "movabs rax, -6534734903238641935",
+        "mov QWORD PTR [rdi+24], rax",
+        "movabs rax, 5840696475078001361",
+        "mov QWORD PTR [rdi+32], rax",
+        "movabs rax, -7276294671716946913",
+        "mov QWORD PTR [rdi+40], rax",
+        "movabs rax, 2270897969802886507",
+        "mov QWORD PTR [rdi+48], rax",
+        "movabs rax, 6620516959819538809",
+        "mov QWORD PTR [rdi+56], rax",
+        "movabs rax, 7640891576939301128",
+        "mov r8, rcx",
+        "ror r8, 56",
+        "xor rax, r8",
+        "xor rax, rsi",
+        "mov QWORD PTR [rdi], rax",
+        "test rcx, rcx",
+        "je 20f",
+        "mov eax, 0",
+        "mov QWORD PTR [rdi+64], rax",
+        "mov QWORD PTR [rdi+72], rax",
+        "mov QWORD PTR [rdi+80], rax",
+        "mov QWORD PTR [rdi+88], rax",
+        "mov QWORD PTR [rdi+96], rax",
+        "mov QWORD PTR [rdi+104], rax",
+        "mov QWORD PTR [rdi+112], rax",
+        "mov QWORD PTR [rdi+120], rax",
+        "mov QWORD PTR [rdi+128], rax",
+        "mov QWORD PTR [rdi+136], rax",
+        "mov QWORD PTR [rdi+144], rax",
+        "mov QWORD PTR [rdi+152], rax",
+        "mov QWORD PTR [rdi+160], rax",
+        "mov QWORD PTR [rdi+168], rax",
+        "mov QWORD PTR [rdi+176], rax",
+        "mov QWORD PTR [rdi+184], rax",
+        "mov r8d, 0",
+        "22:",
+        "movzx eax, BYTE PTR [rdx+r8*1]",
+        "mov BYTE PTR [rdi+r8*1+64], al",
+        "add r8, 1",
+        "sub rcx, 1",
+        "jne 22b",
+        "jmp 21f",
+        "20:",
+        "21:",
+        "ret",
+    )
+}
+
 /// The BLAKE2b compression function F (RFC 7693 §3.2): updates the state `*state` (`h[0..7]`) with the `n` 128-byte blocks starting at `blocks`, in order: block `i` with the offset counter `t + 128 * i` (a 128-bit integer, so it does not wrap), and with the final block flag if `last != 0`.
 ///
 /// Contract: `VG.Spec.Blake2.compressBContract`. Constant time: only the pointers, `n`, `t` and `last` may affect timing, not the state or the blocks.
@@ -1681,73 +1748,6 @@ pub(crate) unsafe extern "sysv64" fn vg_blake2b_compress(state: *mut [u64; 8], b
         "mov r13, QWORD PTR [r9+320]",
         "mov r14, QWORD PTR [r9+328]",
         "mov r15, QWORD PTR [r9+336]",
-        "ret",
-    )
-}
-
-/// Starts a BLAKE2b computation of an `outlen`-byte digest with the `keylen`-byte key at `key` (none if `keylen` is 0): makes the streaming state `*state` represent the key padded to a block, the first block of the data (none for unkeyed hashing), hashed from the initial state for `outlen` and `keylen` (RFC 7693 §2.5, §3.3). The length of the data is then 128 if `keylen > 0` and 0 otherwise. Continue with `vg_blake2b_update` and `vg_blake2b_finalize`.
-///
-/// Contract: `VG.Spec.Blake2.initBContract`. The streaming state is the hash state followed by a buffered last block (`VG.Spec.Blake2.Repr`). Constant time: only the pointers, `outlen` and `keylen` may affect timing, not the key.
-///
-/// # Safety
-///
-/// * `state` must be valid for reads and writes of 192 bytes.
-/// * `key` must be valid for reads of `keylen` bytes.
-/// * `outlen` must be between 1 and 64, and `keylen` at most 64.
-/// * `state` must not overlap `key` (distinct Rust objects never do).
-/// * Neither `state` nor `key` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
-#[unsafe(naked)]
-pub(crate) unsafe extern "sysv64" fn vg_blake2b_init(state: *mut [u8; 192], outlen: usize, key: *const u8, keylen: usize) {
-    core::arch::naked_asm!(
-        "movabs rax, -4942790177534073029",
-        "mov QWORD PTR [rdi+8], rax",
-        "movabs rax, 4354685564936845355",
-        "mov QWORD PTR [rdi+16], rax",
-        "movabs rax, -6534734903238641935",
-        "mov QWORD PTR [rdi+24], rax",
-        "movabs rax, 5840696475078001361",
-        "mov QWORD PTR [rdi+32], rax",
-        "movabs rax, -7276294671716946913",
-        "mov QWORD PTR [rdi+40], rax",
-        "movabs rax, 2270897969802886507",
-        "mov QWORD PTR [rdi+48], rax",
-        "movabs rax, 6620516959819538809",
-        "mov QWORD PTR [rdi+56], rax",
-        "movabs rax, 7640891576939301128",
-        "mov r8, rcx",
-        "ror r8, 56",
-        "xor rax, r8",
-        "xor rax, rsi",
-        "mov QWORD PTR [rdi], rax",
-        "test rcx, rcx",
-        "je 20f",
-        "mov eax, 0",
-        "mov QWORD PTR [rdi+64], rax",
-        "mov QWORD PTR [rdi+72], rax",
-        "mov QWORD PTR [rdi+80], rax",
-        "mov QWORD PTR [rdi+88], rax",
-        "mov QWORD PTR [rdi+96], rax",
-        "mov QWORD PTR [rdi+104], rax",
-        "mov QWORD PTR [rdi+112], rax",
-        "mov QWORD PTR [rdi+120], rax",
-        "mov QWORD PTR [rdi+128], rax",
-        "mov QWORD PTR [rdi+136], rax",
-        "mov QWORD PTR [rdi+144], rax",
-        "mov QWORD PTR [rdi+152], rax",
-        "mov QWORD PTR [rdi+160], rax",
-        "mov QWORD PTR [rdi+168], rax",
-        "mov QWORD PTR [rdi+176], rax",
-        "mov QWORD PTR [rdi+184], rax",
-        "mov r8d, 0",
-        "22:",
-        "movzx eax, BYTE PTR [rdx+r8*1]",
-        "mov BYTE PTR [rdi+r8*1+64], al",
-        "add r8, 1",
-        "sub rcx, 1",
-        "jne 22b",
-        "jmp 21f",
-        "20:",
-        "21:",
         "ret",
     )
 }

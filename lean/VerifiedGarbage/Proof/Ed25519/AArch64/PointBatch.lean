@@ -41,7 +41,7 @@ theorem prepareBatch_ok {s : State} {base : Addr} (hs : Scr s base)
   rw [prepareBatch]
   refine WP.seq (WP.mono (loadCheckpoint_ok hs j hj hc) fun a ⟨ka, ap, av, ad⟩ => ?_)
   refine WP.seq (WP.mono (pointPowers_ok false (ka.scr hs) 5376 16 (by decide)
-    (by decide) (by decide) (by decide) (ad.trans hd)) fun b ⟨bt, _, bh, kb⟩ => ?_)
+    (by decide) (by decide) (by decide) (ad.trans hd)) fun b ⟨bt, bh, kb⟩ => ?_)
   refine WP.mono (fieldCode_ok restorePointOps (kb.scratch (ka.scr hs))) fun t ⟨kt, vt⟩ => ?_
   refine ⟨((PowersKeep.of_keep ka).trans kb).trans (PowersKeep.of_keep kt), ?_, ?_, ?_⟩
   · rw [vt, restorePoint_eval, savedPoint_congr _ _ bh, av]

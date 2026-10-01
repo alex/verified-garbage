@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.Depth
 import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Main
 import VerifiedGarbage.Impl.MlDsa.AArch64.KeyGen.Prims
 import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.Ntt
@@ -26,34 +27,36 @@ verified with 16 bytes of stack (`keyGen44_verified`, …).
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 
-theorem prims_ok : PrimsOk prims 16 where
+theorem prims_okWith : PrimsOk (primsWith keccak.callee) 16 where
   s16 := Nat.le_refl _
   sl := by decide
   ntt := by
     have h := Arith.ntt_verified
     unfold Spec.MlDsa.nttContract Spec.MlDsa.inPlaceContract at h ⊢
-    exact CalleeOk.of_verified (by decide) h (by decide) (by decide)
+    exact CalleeOk.of_verified (by decide) h (by decide) (by dsimp only [primsWith]; decide)
   invNtt := by
     have h := Arith.nttInv_verified
     unfold Spec.MlDsa.nttInvContract Spec.MlDsa.inPlaceContract at h ⊢
-    exact CalleeOk.of_verified (by decide) h (by decide) (by decide)
-  mul := CalleeOk.of_verified (by decide) Arith.mul_verified (by decide) (by decide)
-  mulAdd := CalleeOk.of_verified (by decide) Arith.mulAdd_verified (by decide) (by decide)
-  add := CalleeOk.of_verified (by decide) Arith.add_verified (by decide) (by decide)
-  sub := CalleeOk.of_verified (by decide) Arith.sub_verified (by decide) (by decide)
-  rejNtt := CalleeOk.of_verified (by decide) Sample.rejNTT_verified (by decide) (by decide)
-  rejBounded := CalleeOk.of_verified (by decide) Sample.rejBounded_verified (by decide) (by decide)
-  ball := CalleeOk.of_verified (by decide) Sample.sampleInBall_verified (by decide) (by decide)
-  power2Round := CalleeOk.of_verified (by decide) Round.power2Round_verified (by decide) (by decide)
-  useHint := CalleeOk.of_verified (by decide) Round.useHint_verified (by decide) (by decide)
-  normLt := CalleeOk.of_verified (by decide) Round.normLt_verified (by decide) (by decide)
-  simpleBitPack := CalleeOk.of_verified (by decide) Pack.simpleBitPack_verified (by decide) (by decide)
-  bitPack := CalleeOk.of_verified (by decide) Pack.bitPack_verified (by decide) (by decide)
-  bitUnpack := CalleeOk.of_verified (by decide) Pack.bitUnpack_verified (by decide) (by decide)
-  unpackT1 := CalleeOk.of_verified (by decide) Pack.unpackT1_verified (by decide) (by decide)
-  hintUnpack := CalleeOk.of_verified (by decide) Pack.hintBitUnpack_verified (by decide) (by decide)
+    exact CalleeOk.of_verified (by decide) h (by decide) (by dsimp only [primsWith]; decide)
+  mul := CalleeOk.of_verified (by decide) Arith.mul_verified (by decide) (by dsimp only [primsWith]; decide)
+  mulAdd := CalleeOk.of_verified (by decide) Arith.mulAdd_verified (by decide) (by dsimp only [primsWith]; decide)
+  add := CalleeOk.of_verified (by decide) Arith.add_verified (by decide) (by dsimp only [primsWith]; decide)
+  sub := CalleeOk.of_verified (by decide) Arith.sub_verified (by decide) (by dsimp only [primsWith]; decide)
+  rejNtt := CalleeOk.of_verified (by decide) (Sample.rejNTT_verifiedWith keccak) (by decide) (by simp [primsWith, Sample.rejNTT_depth keccak])
+  rejBounded := CalleeOk.of_verified (by decide) (Sample.rejBounded_verifiedWith keccak) (by decide) (by simp [primsWith, Sample.rejBounded_depth keccak])
+  ball := CalleeOk.of_verified (by decide) (Sample.sampleInBall_verifiedWith keccak) (by decide) (by simp [primsWith, Sample.ball_depth keccak])
+  power2Round := CalleeOk.of_verified (by decide) Round.power2Round_verified (by decide) (by dsimp only [primsWith]; decide)
+  useHint := CalleeOk.of_verified (by decide) Round.useHint_verified (by decide) (by dsimp only [primsWith]; decide)
+  normLt := CalleeOk.of_verified (by decide) Round.normLt_verified (by decide) (by dsimp only [primsWith]; decide)
+  simpleBitPack := CalleeOk.of_verified (by decide) Pack.simpleBitPack_verified (by decide) (by dsimp only [primsWith]; decide)
+  bitPack := CalleeOk.of_verified (by decide) Pack.bitPack_verified (by decide) (by dsimp only [primsWith]; decide)
+  bitUnpack := CalleeOk.of_verified (by decide) Pack.bitUnpack_verified (by decide) (by dsimp only [primsWith]; decide)
+  unpackT1 := CalleeOk.of_verified (by decide) Pack.unpackT1_verified (by decide) (by dsimp only [primsWith]; decide)
+  hintUnpack := CalleeOk.of_verified (by decide) Pack.hintBitUnpack_verified (by decide) (by dsimp only [primsWith]; decide)
 
 /-- A state satisfying `keyGenContract`'s precondition. -/
 def kgSat (p : Spec.MlDsa.Params) : State where
@@ -75,16 +78,30 @@ theorem keyGen_sat (p : Spec.MlDsa.Params)
   · refine ⟨kgSat Spec.MlDsa.mlDsa87, ?_⟩
     sig_sat_check [Spec.MlDsa.keyGenContract, Spec.MlDsa.keyGenSig, AArch64.abi, VG.AArch64.argRegs]
 
+theorem keyGen44_verifiedWith :
+    Verified AArch64.target (keyGen44With keccak.callee) (Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa44 AArch64.abi 16) :=
+  keyGen_verified (keccak := keccak) (prims_okWith (keccak := keccak)) Spec.MlDsa.mlDsa44 (.inl rfl) (keyGen_sat _ (.inl rfl))
+
+theorem keyGen65_verifiedWith :
+    Verified AArch64.target (keyGen65With keccak.callee) (Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa65 AArch64.abi 16) :=
+  keyGen_verified (keccak := keccak) (prims_okWith (keccak := keccak)) Spec.MlDsa.mlDsa65 (.inr (.inl rfl)) (keyGen_sat _ (.inr (.inl rfl)))
+
+theorem keyGen87_verifiedWith :
+    Verified AArch64.target (keyGen87With keccak.callee) (Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa87 AArch64.abi 16) :=
+  keyGen_verified (keccak := keccak) (prims_okWith (keccak := keccak)) Spec.MlDsa.mlDsa87 (.inr (.inr rfl)) (keyGen_sat _ (.inr (.inr rfl)))
+
+theorem prims_ok : PrimsOk prims 16 := prims_okWith (keccak := .scalar)
+
 theorem keyGen44_verified :
     Verified AArch64.target keyGen44 (Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa44 AArch64.abi 16) :=
-  keyGen_verified prims_ok Spec.MlDsa.mlDsa44 (.inl rfl) (keyGen_sat _ (.inl rfl))
+  keyGen44_verifiedWith (keccak := .scalar)
 
 theorem keyGen65_verified :
     Verified AArch64.target keyGen65 (Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa65 AArch64.abi 16) :=
-  keyGen_verified prims_ok Spec.MlDsa.mlDsa65 (.inr (.inl rfl)) (keyGen_sat _ (.inr (.inl rfl)))
+  keyGen65_verifiedWith (keccak := .scalar)
 
 theorem keyGen87_verified :
     Verified AArch64.target keyGen87 (Spec.MlDsa.keyGenContract Spec.MlDsa.mlDsa87 AArch64.abi 16) :=
-  keyGen_verified prims_ok Spec.MlDsa.mlDsa87 (.inr (.inr rfl)) (keyGen_sat _ (.inr (.inr rfl)))
+  keyGen87_verifiedWith (keccak := .scalar)
 
 end VG.Proof.MlDsa.AArch64.KeyGen

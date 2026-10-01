@@ -25,7 +25,7 @@ namespace VG.Proof.MlDsa.AArch64.Sample
 open VG VG.AArch64
 open VG.Proof.MlKem.AArch64 (Only Keep MemTo Kept wp_nil wp_mov wp_movz wp_addImm wp_subImm wp_strx
   wp_ldrx wp_strw wp_x only_write write_x_gpr ptr_add ptr_zero sep_off contains_off in_regions
-  in_rd_wr in_rd toNat_imm toNat_sub_n absorb_call pad_call squeeze_call stk count_loop)
+  in_rd_wr in_rd toNat_imm toNat_sub_n absorb_callWith pad_callWith squeeze_callWith stk count_loop)
 open VG.Impl.MlDsa.AArch64.Sample
 open VG.Impl.MlKem.AArch64 (mov)
 open VG.Proof.MlDsa.Sample (padded coeffAddr polyR coeff_contains)
@@ -78,6 +78,7 @@ structure Env (P : Sp) (σ s : State) : Prop where
   saved : s.mem.readW (P.at' 2016) 64 = σ.gpr .x25 ∧ s.mem.readW (P.at' 2024) 64 = σ.gpr .x26 ∧
     s.mem.readW (P.at' 2032) 64 = σ.gpr .x27 ∧ s.mem.readW (P.at' 2040) 64 = σ.gpr .x30
   frame : Frame [polyR P.a, P.scrR, below σ.sp 16] σ.mem s.mem
+  vcs : ∀ r ∈ preservedV, (s.v r).extractLsb' 0 64 = (σ.v r).extractLsb' 0 64
 
 theorem mem2 {α : Type} {a b x : α} (h : x ∈ [a, b]) : x = a ∨ x = b := by
   rcases List.mem_cons.mp h with h | h
@@ -192,7 +193,7 @@ theorem Env.call {s s' : State} (he : Env P σ s) {rs : List Region} (hk : Kept 
     by rw [hk.cs _ (by decide) (by decide), he.x25], by rw [hk.cs _ (by decide) (by decide), he.x26],
     by rw [hk.cs _ (by decide) (by decide), he.x27],
     fun r hr h25 h26 h27 h30 => by rw [hk.cs r hr h30, he.cs r hr h25 h26 h27 h30],
-    sv_frame he.saved hk.frame hd, he.frame.trans (hk.frame.sub fun r hr => ?_)⟩
+    sv_frame he.saved hk.frame hd, he.frame.trans (hk.frame.sub fun r hr => ?_), fun r hr => (hk.vcs r hr).trans (he.vcs r hr)⟩
   rcases hrs r hr with ⟨off, n, rfl, h⟩ | rfl
   · exact ⟨P.scrR, by simp, sub_scr (by omega)⟩
   · exact ⟨below σ.sp 16, by simp, by rw [he.sp]; exact fun _ h => h⟩
@@ -209,7 +210,7 @@ theorem Env.keepA {s s' : State} (he : Env P σ s) {regs : List Reg} (hk : Keep 
     fun r hp' h25 h26 h27 h30 => by rw [hk.get r (fun h' => hr _ h' hp'), he.cs r hp' h25 h26 h27 h30],
     sv_frame he.saved hf (fun r hr => by
       rw [List.mem_singleton.mp hr]; exact (a_scr' hp (a := 2016) (n := 32) (by omega)).symm),
-    he.frame.trans (hf.mono (by simp))⟩
+    he.frame.trans (hf.mono (by simp)), fun r hr => (hk.vcs r hr).trans (he.vcs r hr)⟩
 
 end
 
@@ -221,7 +222,7 @@ theorem Env.keep {P : Sp} {σ s s' : State} (he : Env P σ s) {regs : List Reg} 
     by rw [hk.get .x26 (fun h' => hr _ h' (by decide)), he.x26],
     by rw [hk.get .x27 (fun h' => hr _ h' (by decide)), he.x27],
     fun r hp' h25 h26 h27 h30 => by rw [hk.get r (fun h' => hr _ h' hp'), he.cs r hp' h25 h26 h27 h30],
-    by rw [hm]; exact he.saved, by rw [hm]; exact he.frame⟩
+    by rw [hm]; exact he.saved, by rw [hm]; exact he.frame, fun r hr => (hk.vcs r hr).trans (he.vcs r hr)⟩
 
 /-! ## The prologue -/
 
@@ -265,7 +266,8 @@ theorem pro_ok {P : Sp} {σ : State} (hp : SpOk P σ) {scr a : Reg} {prm len : I
       Mem.Sep (P.at' a) (64 / 8) (P.at' b) (64 / 8) := fun a b h1 h2 h3 =>
     Offset.sep _ (.inl h2) (by omega) (by omega)
   refine ⟨⟨by rw [k₉.rd, h₄.rd, h₃.rd, h₂.rd, h₁.rd], by rw [k₉.wr, h₄.wr, h₃.wr, h₂.wr, h₁.wr],
-    by rw [k₉.sp, h₄.sp, h₃.sp, h₂.sp, h₁.sp], ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+    by rw [k₉.sp, h₄.sp, h₃.sp, h₂.sp, h₁.sp], ?_, ?_, ?_, ?_, ?_, ?_,
+      fun r hr => by rw [k₉.vcs r hr, h₄.vcs r hr, h₃.vcs r hr, h₂.vcs r hr, h₁.vcs r hr]⟩, ?_, ?_⟩
   · rw [h₉.get .x25, h₈.get .x25, h₇.get .x25, h₆.get .x25, e₅, g₄, hscr]
   · rw [h₉.get .x26, h₈.get .x26, h₇.get .x26, e₆, h₅.get a (by simpa using ha25), g₄, ha]
   · rw [h₉.get .x27, h₈.get .x27, e₇]
@@ -357,14 +359,14 @@ theorem blk1_ok {rate : Nat} (hr : rate < 2 ^ 16) {s : State} (h : J0 P σ s) :
   refine wp_movz fun s₁ h₁ e₁ => ?_
   rw [List.append_eq, WP.block_append_iff]
   have e1 := h.env.keep h₁.keep h₁.mem
-  refine WP.mono (zst_ok hp 25 (by decide) (by rw [e₁]; rfl) e1.x25 e1.wr)
-    fun s₂ ⟨g₂, r₂, w₂, p₂, z₂, f₂⟩ => ?_
+  refine WP.mono (WP.preservedV (zst_ok hp 25 (by decide) (by rw [e₁]; rfl) e1.x25 e1.wr) (hc := by decide +kernel))
+    fun s₂ ⟨⟨g₂, r₂, w₂, p₂, z₂, f₂⟩, vc₂⟩ => ?_
   have e2 : Env P σ s₂ := ⟨by rw [r₂, e1.rd], by rw [w₂, e1.wr], by rw [p₂, e1.sp], by rw [g₂, e1.x25],
     by rw [g₂, e1.x26], by rw [g₂, e1.x27], fun r hr a b c d => by rw [g₂, e1.cs r hr a b c d],
     sv_frame e1.saved f₂ (fun r hr => by
       rw [List.mem_singleton.mp hr, ← at_zero (P := P)]; exact sv_disj (by omega)),
     e1.frame.trans (f₂.sub fun r hr => by
-      rw [List.mem_singleton.mp hr]; exact ⟨P.scrR, by simp, sub_scr0 (by omega)⟩)⟩
+      rw [List.mem_singleton.mp hr]; exact ⟨P.scrR, by simp, sub_scr0 (by omega)⟩), fun r hr => (vc₂ r hr).trans (e1.vcs r hr)⟩
   refine wp_mov fun s₃ h₃ e₃ => wp_movz fun s₄ h₄ e₄ => wp_movz fun s₅ h₅ e₅ =>
     wp_addImm (by decide) fun s₆ h₆ e₆ => wp_nil ?_
   have k₆ := ((h₃.keep.trans h₄.keep).trans h₅.keep).trans h₆.keep
@@ -385,10 +387,10 @@ structure J2 (rate : Nat) (P : Sp) (σ s : State) : Prop where
   repr : Repr s.mem P.scr rate (P.msg σ)
   x0 : (s.gpr .x0).toNat = P.len % rate
 
-theorem call1_ok {rate : Nat} (hr : rate ∈ rates) {s : State} (h : J1 rate P σ s) :
-    WP isa (.call "vg_keccak_absorb" Impl.Sha3.AArch64.Stream.absorb) s (J2 rate P σ) := by
+theorem call1With_ok (v : Proof.Sha3.AArch64.Permutation) {rate : Nat} (hr : rate ∈ rates) {s : State} (h : J1 rate P σ s) :
+    WP isa (.call ("vg_keccak_absorb" ++ v.callee.suffix) (Impl.Sha3.AArch64.Stream.absorbWith v.callee)) s (J2 rate P σ) := by
   have hsp := h.env.sp
-  refine absorb_call (st := P.scr) (sc := P.at' 200) h.x0 h.x1 h.x2 h.x3 h.x4 h.x5 hr
+  refine absorb_callWith v (st := P.scr) (sc := P.at' 200) h.x0 h.x1 h.x2 h.x3 h.x4 h.x5 hr
     (rate_pos hr)
     (by rw [← at_zero (P := P)]; exact disj_scr (.inl (by omega)) (by omega) (by omega))
     (hp.sd_scr.sub_right (sub_scr0 (by omega))) (sd_scr' hp (by omega))
@@ -443,14 +445,14 @@ structure J4 (rate : Nat) (P : Sp) (σ s : State) : Prop where
   env : Env P σ s
   st : stateAt s.mem P.scr = padded rate shakeSuffix (P.msg σ)
 
-theorem call2_ok {rate : Nat} (hr : rate ∈ rates) {s : State} (h : J3 rate P σ s) :
-    WP isa (.call "vg_keccak_pad" Impl.Sha3.AArch64.Stream.pad) s (J4 rate P σ) := by
+theorem call2With_ok (v : Proof.Sha3.AArch64.Permutation) {rate : Nat} (hr : rate ∈ rates) {s : State} (h : J3 rate P σ s) :
+    WP isa (.call ("vg_keccak_pad" ++ v.callee.suffix) (Impl.Sha3.AArch64.Stream.padWith v.callee)) s (J4 rate P σ) := by
   have hsp := h.env.sp
   have cw : Covers [⟨P.scr, 200⟩, ⟨P.at' 200, 640⟩] s.wr := cov_scr hp h.env.wr fun r hr => by
     rcases mem2 hr with rfl | rfl
     · exact ⟨0, (at_zero).symm, by simp⟩
     · exact ⟨200, rfl, by simp⟩
-  refine pad_call (st := P.scr) (sc := P.at' 200) h.x0 h.x1 h.x2 h.x4 hr
+  refine pad_callWith v (st := P.scr) (sc := P.at' 200) h.x0 h.x1 h.x2 h.x4 hr
     (Nat.mod_lt _ (rate_pos hr))
     (by rw [← at_zero (P := P)]; exact disj_scr (.inl (by omega)) (by omega) (by omega))
     (by rw [hsp]; exact hp.sp16) (by rw [stk, hsp]; exact hp.stk_scr.sub_right (sub_scr0 (by omega)))
@@ -500,9 +502,9 @@ structure J6 (rate outlen : Nat) (P : Sp) (σ s : State) : Prop where
   out : bytesAt s.mem (P.at' 840) outlen =
     Spec.Sha3.squeezeFrom rate (padded rate shakeSuffix (P.msg σ)) 0 outlen
 
-theorem call3_ok {rate outlen : Nat} (hr : rate ∈ rates) (ho : 840 + outlen ≤ 2016) {s : State}
+theorem call3With_ok (v : Proof.Sha3.AArch64.Permutation) {rate outlen : Nat} (hr : rate ∈ rates) (ho : 840 + outlen ≤ 2016) {s : State}
     (h : J5 rate outlen P σ s) :
-    WP isa (.call "vg_keccak_squeeze" Impl.Sha3.AArch64.Stream.squeeze) s (J6 rate outlen P σ) := by
+    WP isa (.call ("vg_keccak_squeeze" ++ v.callee.suffix) (Impl.Sha3.AArch64.Stream.squeezeWith v.callee)) s (J6 rate outlen P σ) := by
   have hsp := h.env.sp
   have cw : Covers [⟨P.scr, 200⟩, ⟨P.at' 840, outlen⟩, ⟨P.at' 200, 640⟩] s.wr :=
     cov_scr hp h.env.wr fun r hr => by
@@ -510,7 +512,7 @@ theorem call3_ok {rate outlen : Nat} (hr : rate ∈ rates) (ho : 840 + outlen �
       · exact ⟨0, (at_zero).symm, by simp⟩
       · exact ⟨840, rfl, by simp; omega⟩
       · exact ⟨200, rfl, by simp⟩
-  refine squeeze_call (st := P.scr) (out := P.at' 840) (sc := P.at' 200) h.x0 h.x1 h.x2 h.x3 h.x4 h.x5 hr
+  refine squeeze_callWith v (st := P.scr) (out := P.at' 840) (sc := P.at' 200) h.x0 h.x1 h.x2 h.x3 h.x4 h.x5 hr
     (Nat.zero_le _)
     (by rw [← at_zero (P := P)]; exact disj_scr (.inl (by omega)) (by omega) (by omega))
     (by rw [← at_zero (P := P)]; exact disj_scr (.inl (by omega)) (by omega) (by omega))
@@ -527,12 +529,16 @@ theorem call3_ok {rate outlen : Nat} (hr : rate ∈ rates) (ho : 840 + outlen �
   · rw [hout, h.st]
 
 /-- The sponge, from `J0`: `outlen` bytes of SHAKE at `scratch + 840`. -/
+theorem spongeWith_ok (v : Proof.Sha3.AArch64.Permutation) {rate outlen : Nat} (hr : rate ∈ rates) (ho : 840 + outlen ≤ 2016) {s : State}
+    (h : J0 P σ s) : WP isa (spongeWith v.callee rate outlen) s (J6 rate outlen P σ) :=
+  WP.seq (WP.mono (blk1_ok hp (rate_lt hr) h) fun _ h1 =>
+    WP.seq (WP.mono ((call1With_ok (v := v)) hp hr h1) fun _ h2 => WP.seq (WP.mono (blk2_ok hr h2) fun _ h3 =>
+      WP.seq (WP.mono ((call2With_ok (v := v)) hp hr h3) fun _ h4 =>
+        WP.seq (WP.mono (blk3_ok hr (by omega) h4) fun _ h5 => (call3With_ok (v := v)) hp hr ho h5)))))
+
 theorem sponge_ok {rate outlen : Nat} (hr : rate ∈ rates) (ho : 840 + outlen ≤ 2016) {s : State}
     (h : J0 P σ s) : WP isa (sponge rate outlen) s (J6 rate outlen P σ) :=
-  WP.seq (WP.mono (blk1_ok hp (rate_lt hr) h) fun _ h1 =>
-    WP.seq (WP.mono (call1_ok hp hr h1) fun _ h2 => WP.seq (WP.mono (blk2_ok hr h2) fun _ h3 =>
-      WP.seq (WP.mono (call2_ok hp hr h3) fun _ h4 =>
-        WP.seq (WP.mono (blk3_ok hr (by omega) h4) fun _ h5 => call3_ok hp hr ho h5)))))
+  spongeWith_ok (v := .scalar) hp hr ho h
 
 /-! ## The epilogue -/
 
@@ -555,7 +561,7 @@ theorem epi_ok {s : State} (he : Env P σ s) :
   have k₄ := ((h₁.keep.trans h₂.keep).trans h₃.keep).trans h₄.keep
   have m₄ : s₄.mem = s.mem := by rw [h₄.mem, h₃.mem, h₂.mem, h₁.mem]
   have sv := he.saved
-  refine ⟨⟨fun r hr => ?_, by rw [k₄.sp, he.sp]⟩, m₄, k₄⟩
+  refine ⟨⟨fun r hr => ?_, by rw [k₄.sp, he.sp], fun r hr => (k₄.vcs r hr).trans (he.vcs r hr)⟩, m₄, k₄⟩
   by_cases h30 : r = .x30
   · subst h30; rw [h₄.get .x30, h₃.get .x30, h₂.get .x30, e₁]; exact sv.2.2.2
   by_cases h26 : r = .x26

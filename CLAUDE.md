@@ -78,7 +78,10 @@ trustworthy. Read `lean/README.md` first.
   secret operands between Intel's MXCSR prologue and epilogue (`stmxcsr`,
   `ldmxcsr` of `0x1FBF`, `lfence`, … `lfence`, `ldmxcsr` of the saved
   value), which the proofs do not check: see "MCDT" in
-  `lean/VerifiedGarbage/TCB/X86_64/Isa.lean`.
+  `lean/VerifiedGarbage/TCB/X86_64/Isa.lean`. `ci/check_mcdt.py` checks the
+  generated code instead: every instruction on Intel's MCDT list must be
+  inside that exact sequence in its function, entered only through the
+  prologue.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
   `Proof/`. `Spec/` and `Impl/` never import `Proof/`.
 
@@ -115,7 +118,8 @@ instructions in an ISA model) go in their own PR before either.
    passing `doc` any notes on the implementation (`(notes := […])`). The
    artifact takes the `Api`'s `contracts`, and `ofApi` checks that its
    `contract` is `contracts` on its target for its `stack`: never set
-   `contracts` outside `Spec/`. Set
+   `contracts` outside `Spec/` (the emitter refuses an artifact without
+   them). Set
    `stack` to the contract's (and `writeArgs`, if the artifact is not made
    from an `Api`): the default proof of `ofSig` checks both against the
    contract, and the emitter documents what they imply. Set its `spSafe`
@@ -226,9 +230,10 @@ Avoid these patterns (each has cost tens of seconds in one proof):
   import (a framework file, an algorithm's `Spec` or `Stream` lemmas).
 * **Imports across targets:** a module of one target (a path with a
   directory of `TCB/`, e.g. `Proof/Sha256/Arm/…`) never imports a module of
-  another target, even for a lemma that mentions no ISA: CI checks each
-  target's proofs in a shard of its own (`ci/lean_shards.py`), which would
-  then check the other target's too. Put what more than one target uses in
+  another target, even for a lemma that mentions no ISA: a change to one
+  target (e.g. its ISA model) would then rebuild the other's proofs too, and
+  a CI shard (`ci/lean_shards.py`), which builds a proof with everything it
+  imports, would check both. Put what more than one target uses in
   a target-independent module (`Proof/<Alg>/…`, `Proof/Framework/…`);
   `ci/check_lean_imports.py` checks it.
 * **Properties of every instruction:** prove `(instrs c).all p` with
@@ -382,6 +387,7 @@ python3 ci/check_lean_speed.py
 python3 ci/check_vectors.py
 python3 ci/check_arch_gates.py
 python3 ci/check_variants.py
+python3 ci/check_mcdt.py
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
 ```

@@ -36,15 +36,15 @@ namespace Decaps1024
 def pro : List Instr := topPro .rcx [(.rbp, .rdi), (.r14, .rsi), (.r12, .rdx)]
 
 /-- `NTT(u'[i])`. -/
-def uHat (i : Nat) : Prog isa := .seq (dd4At (.r14, 352 * i) 11 (pS i)) (nttAt (pS i))
+def uHat (A : Arith) (i : Nat) : Prog isa := .seq (dd4At (.r14, 352 * i) 11 (pS i)) (nttAt A (pS i))
 
 /-- `ŝ[i]`. -/
 def sHat (i : Nat) : Prog isa := dec12At (.rbp, 384 * i) (pS (4 + i))
 
 /-- `m'` to `M`. -/
-def decrypt : Prog isa :=
-  .seq (seqR uHat 0 4) (.seq (seqR sHat 0 4) (.seq (dot4At (fun j => pS (4 + j)) pS)
-    (.seq (nttInvAt (pS 15)) (.seq (dd4At (.r14, 1408) 5 (pS 16)) (.seq (subAt (pS 16) (pS 15))
+def decrypt (A : Arith) : Prog isa :=
+  .seq (seqR (uHat A) 0 4) (.seq (seqR sHat 0 4) (.seq (dot4At A (fun j => pS (4 + j)) pS)
+    (.seq (nttInvAt A (pS 15)) (.seq (dd4At (.r14, 1408) 5 (pS 16)) (.seq (subAt (pS 16) (pS 15))
       (ceAt (pS 16) 1 (sc oM)))))))
 
 /-- `G(m' ‖ h)` and `J(z ‖ c)`. -/
@@ -66,6 +66,6 @@ end Decaps1024
 
 open Decaps1024 in
 def decaps1024 (c : Callee4) : Prog isa :=
-  .seq (.block pro) (.seq decrypt (.seq hashes (.seq (encrypt1024 c (.rbp, 1536)) (.seq select (.block topEpi)))))
+  .seq (.block pro) (.seq (decrypt c.arith) (.seq hashes (.seq (encrypt1024 c (.rbp, 1536)) (.seq select (.block topEpi)))))
 
 end VG.Impl.MlKem1024.X86_64

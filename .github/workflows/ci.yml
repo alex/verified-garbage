@@ -21,31 +21,58 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
-  # The Lean build is split into shards that build in parallel, one per
-  # target and one for the rest (see ci/lean_shards.py): no target's proofs
-  # need another's, and one runner would check them one after another.
-  lean-shards:
-    name: List the Lean shards
+  # The Lean build is split into shards that build in parallel (see
+  # ci/lean_shards.py): as many as the modules changed since the build `main`
+  # last saved (and the modules importing them) need, packed by how long
+  # each took to build before, from none to MAX_SHARDS. One runner would
+  # check them one after another.
+  lean-plan:
+    name: Plan the Lean build
     runs-on: ubuntu-latest
     outputs:
-      shards: ${{ steps.list.outputs.shards }}
+      count: ${{ steps.plan.outputs.count }}
+      shards: ${{ steps.plan.outputs.shards }}
+      build-key: ${{ steps.plan.outputs.build-key }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - id: list
-        run: echo "shards=$(python3 ci/lean_shards.py list)" >> "$GITHUB_OUTPUT"
+      # The hashes of the sources of `main`'s last build, and how long each
+      # module took to build.
+      - name: Restore the manifest of the last build
+        id: manifest
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .lean-manifest
+          key: lean-manifest-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ hashFiles('lean/lakefile.toml', 'lean/*.lean', 'lean/VerifiedGarbage/**', 'lean/VerifiedGarbageTest/**') }}
+          restore-keys: lean-manifest-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
+      - id: plan
+        env:
+          MATCHED: ${{ steps.manifest.outputs.cache-matched-key }}
+        run: |
+          python3 ci/lean_shards.py plan .lean-manifest/manifest.json "$RUNNER_TEMP/lean-plan.json" >> "$GITHUB_OUTPUT"
+          # The build saved with the manifest, which the plan is for.
+          if [ -n "$MATCHED" ]; then
+            echo "build-key=lean-build-${MATCHED#lean-manifest-}" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lean-plan
+          path: ${{ runner.temp }}/lean-plan.json
+          retention-days: 1
+          if-no-files-found: error
 
   lean-shard:
     # More independent files, with two compiler threads per file (lakefile.toml).
     env:
       LEAN_NUM_THREADS: "6"
-    needs: lean-shards
+    needs: lean-plan
+    if: ${{ needs.lean-plan.outputs.count != '0' }}
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.lean-shards.outputs.shards) }}
-    name: Lean proofs (${{ matrix.shard }})
+        shard: ${{ fromJSON(needs.lean-plan.outputs.shards) }}
+    name: Lean proofs (${{ matrix.shard }} of ${{ needs.lean-plan.outputs.count }})
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -55,34 +82,47 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/lean-setup
-      # The last build `lean` saved: Lake rebuilds only what changed since.
+      # The build the plan is for (or, if it has none, the last build `lean`
+      # saved): Lake rebuilds only what changed since.
       - name: Restore this project's build
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: lean/.lake/build
           key: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ hashFiles('lean/lakefile.toml', 'lean/*.lean', 'lean/VerifiedGarbage/**', 'lean/VerifiedGarbageTest/**') }}
-          restore-keys: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
+          restore-keys: |
+            ${{ needs.lean-plan.outputs.build-key }}
+            lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: lean-plan
+          path: ${{ runner.temp }}
       - name: Check the shard's proofs (and the axiom audit)
         env:
           SHARD: ${{ matrix.shard }}
         run: |
+          set -o pipefail
           touch "$RUNNER_TEMP/before-build"
-          lake build $(python3 ../ci/lean_shards.py targets "$SHARD")
+          lake build $(python3 ../ci/lean_shards.py targets "$RUNNER_TEMP/lean-plan.json" "$SHARD") 2>&1 \
+            | tee "$RUNNER_TEMP/build.log"
       # What this build wrote for the shard's own modules; Lean's outputs
       # are deterministic, so the shards' outputs agree on the modules they
-      # all import.
+      # all import. And how long it took to build each module, for later
+      # plans.
       - name: Collect the outputs of the shard's modules
         env:
           SHARD: ${{ matrix.shard }}
         run: |
+          python3 ../ci/lean_shards.py times < "$RUNNER_TEMP/build.log" > "$RUNNER_TEMP/lean-times-$SHARD.json"
           cd .lake/build
           find . -type f -newer "$RUNNER_TEMP/before-build" -printf '%P\n' \
-            | python3 ../../../ci/lean_shards.py outputs "$SHARD" \
+            | python3 ../../../ci/lean_shards.py outputs "$RUNNER_TEMP/lean-plan.json" "$SHARD" \
             | tar --zstd -cf "$RUNNER_TEMP/lean-build-$SHARD.tar.zst" -T -
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: lean-build-${{ matrix.shard }}
-          path: ${{ runner.temp }}/lean-build-${{ matrix.shard }}.tar.zst
+          path: |
+            ${{ runner.temp }}/lean-build-${{ matrix.shard }}.tar.zst
+            ${{ runner.temp }}/lean-times-${{ matrix.shard }}.json
           compression-level: 0
           retention-days: 1
           if-no-files-found: error
@@ -91,7 +131,9 @@ jobs:
     env:
       LEAN_NUM_THREADS: "6"
     name: Lean proofs
-    needs: lean-shard
+    needs: [lean-plan, lean-shard]
+    # Also when the plan has no shards, which skips `lean-shard`.
+    if: ${{ !cancelled() && needs.lean-plan.result == 'success' && (needs.lean-shard.result == 'success' || needs.lean-shard.result == 'skipped') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -107,8 +149,17 @@ jobs:
         with:
           path: lean/.lake/build
           key: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ hashFiles('lean/lakefile.toml', 'lean/*.lean', 'lean/VerifiedGarbage/**', 'lean/VerifiedGarbageTest/**') }}
-          restore-keys: lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
+          restore-keys: |
+            ${{ needs.lean-plan.outputs.build-key }}
+            lean-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
+      - name: Restore the manifest of the last build
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .lean-manifest
+          key: lean-manifest-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ hashFiles('lean/lakefile.toml', 'lean/*.lean', 'lean/VerifiedGarbage/**', 'lean/VerifiedGarbageTest/**') }}
+          restore-keys: lean-manifest-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: ${{ needs.lean-shard.result == 'success' }}
         with:
           pattern: lean-build-*
           merge-multiple: true
@@ -117,24 +168,47 @@ jobs:
         run: |
           mkdir -p .lake/build
           for f in "$RUNNER_TEMP"/lean-build/*.tar.zst; do
+            [ -e "$f" ] || continue
             tar --zstd -xf "$f" -C .lake/build
           done
-      # With every shard's outputs this builds nothing; anything it does
-      # build (e.g. if a newer cache was restored here than in a shard) is
-      # checked here.
+      # With every shard's outputs this builds only what the plan left to
+      # this job (all of it, with no shards); anything else it builds (e.g.
+      # if a newer cache was restored here than in a shard) is checked here.
       - name: Check every proof (and the axiom audit)
-        run: lake build
+        run: |
+          set -o pipefail
+          lake build 2>&1 | tee "$RUNNER_TEMP/build.log"
       # Only main saves. A pull request restores its own branch's caches
       # before main's, so an entry it saved would win over main's newer one
       # after it merges main, and it would re-prove everything main changed
       # since. (Merge queue runs each get their own branch, whose caches no
       # other run can restore.)
-      - name: Save this project's build
+      - name: Write the manifest of this build
+        id: manifest
         if: ${{ steps.lean-build.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' }}
+        env:
+          KEY: ${{ steps.lean-build.outputs.cache-primary-key }}
+        run: |
+          python3 ../ci/lean_shards.py times < "$RUNNER_TEMP/build.log" > "$RUNNER_TEMP/lean-times.json"
+          python3 ../ci/lean_shards.py manifest ../.lean-manifest/manifest.json \
+            "$RUNNER_TEMP"/lean-build/lean-times-*.json "$RUNNER_TEMP/lean-times.json" > "$RUNNER_TEMP/manifest.json"
+          mkdir -p ../.lean-manifest
+          mv "$RUNNER_TEMP/manifest.json" ../.lean-manifest/manifest.json
+          echo "key=lean-manifest-${KEY#lean-build-}" >> "$GITHUB_OUTPUT"
+      - name: Save this project's build
+        if: ${{ steps.manifest.outcome == 'success' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: lean/.lake/build
           key: ${{ steps.lean-build.outputs.cache-primary-key }}
+      # After the build, so that a plan never finds a manifest without its
+      # build.
+      - name: Save the manifest of this build
+        if: ${{ steps.manifest.outcome == 'success' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .lean-manifest
+          key: ${{ steps.manifest.outputs.key }}
       - name: Check the generated Rust is up to date
         run: lake env lean --run Emit.lean --check
 
@@ -150,6 +224,8 @@ jobs:
       - run: python3 ci/algorithms_table.py --check
       - run: python3 ci/check_arch_gates.py
       - run: python3 ci/check_variants.py
+      - run: python3 -m unittest discover -s ci -p 'test_check_mcdt.py'
+      - run: python3 ci/check_mcdt.py
 
   vectors:
     name: Test vector provenance
@@ -268,6 +344,58 @@ jobs:
           path: "*.lcov"
           if-no-files-found: error
 
+  # The ARM code in Thumb (T32): the `rust` job's ARMv7 target assembles it
+  # as A32, while thumbv7neon-*, Android, Windows and M-profile targets
+  # assemble the same text as T32 (see "Modelling choices" in
+  # lean/VerifiedGarbage/TCB/Arm/Isa.lean). Run natively, like ARMv7, on the
+  # ARM64 host. Without coverage: the standard library of this target has
+  # no profiler runtime, and its Rust code is the ARMv7 job's, which is
+  # covered there.
+  rust-thumb:
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable, "1.88"]
+    name: Rust (Thumb, ${{ matrix.rust }})
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: ghcr.io/pyca/cryptography-runner-ubuntu-rolling:armv7l
+      options: --env RUSTUP_HOME=/root/.rustup
+    env:
+      RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
+      # For every cargo command, with the container's native linker.
+      CARGO_BUILD_TARGET: thumbv7neon-unknown-linux-gnueabihf
+      RUSTFLAGS: -D warnings
+      WYCHEPROOF_ROOT: wycheproof
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: C2SP/wycheproof
+          path: wycheproof
+          persist-credentials: false
+
+      - name: Install Rust
+        run: rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy --target thumbv7neon-unknown-linux-gnueabihf
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: rust-thumb
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: rustc -vV
+      - name: Lint
+        if: ${{ matrix.rust == 'stable' }}
+        run: cargo clippy --all-targets --locked
+      - run: cargo test --locked
+      # That the tests ran T32: the symbol of Thumb code has an odd address
+      # (AAELF32 §5.5.3, "Symbol Values").
+      - name: Check the verified functions are Thumb code
+        run: |
+          find "target/$CARGO_BUILD_TARGET/debug/deps" -maxdepth 1 -type f -executable -exec readelf -sW {} + |
+            awk '$4 == "FUNC" && $8 ~ /vg_/ { n++; if ($2 ~ /[02468aceACE]$/) { print "not Thumb: " $8; bad++ } }
+                 END { print n " verified function symbols"; exit (n == 0 || bad > 0) }'
+
   # CPU feature detection, and the primitives that choose among
   # implementations by CPU feature (see src/cpu.rs), tested end to end on
   # CPUs with different features: this runner's, natively, and CPUs that
@@ -294,13 +422,16 @@ jobs:
       fail-fast: false
       matrix:
         chip: [native, skx, hsw, p4p]
-        tests: [sha1 sha256 sha384 sha512 aes_gcm chacha20 mlkem x25519 cpu]
+        tests: [sha1 sha256 sha384 sha512 aes_gcm chacha20 mlkem x25519 ed25519 cpu]
         include:
           - chip: arl
-            tests: sha384 sha512 cpu
+            tests: sha384 sha512 ed25519 cpu
+          # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma.
+          - chip: icx
+            tests: x25519 cpu
           - chip: native
             os: ubuntu-24.04-arm
-            tests: aes_gcm sha1 sha256 sha384 sha512 scrypt cpu
+            tests: aes_gcm sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
     name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     env:
@@ -327,7 +458,8 @@ jobs:
           else
             grep -m1 'model name' /proc/cpuinfo
             grep -m1 flags /proc/cpuinfo | tr ' ' '\n' \
-              | grep -xE 'ssse3|sha_ni|aes|pclmulqdq|avx|avx2|bmi1|bmi2|avx512f|sha512|adx' | tr '\n' ' '
+              | grep -xE 'ssse3|sha_ni|aes|pclmulqdq|avx|avx2|bmi1|bmi2|avx512f|sha512|adx|avx512ifma|avx512vl' \
+              | tr '\n' ' '
           fi
       - name: Download Intel SDE
         if: ${{ matrix.chip != 'native' }}
@@ -355,6 +487,16 @@ jobs:
         run: cargo test --locked --features cpu-features-env -- $TESTS
         env:
           TESTS: ${{ matrix.tests }}
+      - name: Test scalar ChaCha on ARM64
+        if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
+        run: cargo test --locked --features cpu-features-env -- chacha20
+        env:
+          VG_CPU_FEATURES: none
+      - name: Test the ARM64 SHA-3 prototype and scalar fallback
+        if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
+        run: |
+          VG_CPU_FEATURES=sha3 cargo test --locked --features cpu-features-env -- sha3 shake mlkem mldsa
+          VG_CPU_FEATURES=none cargo test --locked --features cpu-features-env -- sha3 shake mlkem mldsa
       - name: Export coverage
         run: python3 ci/export_rust_coverage.py .rust-cov --features cpu-features-env
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -404,7 +546,7 @@ jobs:
   # so the required checks don't have to track every job and matrix entry.
   all-green:
     if: ${{ always() }}
-    needs: [lean, lean-imports, vectors, rust, rust-cpu-features, coverage]
+    needs: [lean, lean-imports, vectors, rust, rust-thumb, rust-cpu-features, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Check every job succeeded

@@ -14,6 +14,8 @@
 //! `vg_chacha20_poly1305_open_avx512` (with `vg_chacha20_xor_avx512` and
 //! `vg_poly1305_blocks_avx2`), and other CPUs with AVX2
 //! `vg_chacha20_poly1305_seal_avx2` and `vg_chacha20_poly1305_open_avx2`.
+//! On AArch64, the NEON variants use the NEON ChaCha20 block for both
+//! message encryption and the one-time Poly1305 key.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -29,8 +31,13 @@ use crate::arch::chacha20poly1305::{
     vg_chacha20_poly1305_seal_avx2, vg_chacha20_poly1305_seal_avx512,
 };
 use crate::arch::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
+#[cfg(target_arch = "aarch64")]
+use crate::arch::chacha20poly1305::{
+    vg_chacha20_poly1305_open_neon, vg_chacha20_poly1305_seal_neon,
+};
 use crate::chacha20::Backend;
 use crate::cpu::{Features, detected};
+use crate::zeroize::zeroize;
 
 /// The best implementation a CPU with the features `f` can run (`open`'s
 /// instances need the same features as `seal`'s, see the tests).
@@ -69,6 +76,13 @@ pub struct ChaCha20Poly1305 {
     /// The implementations of `vg_chacha20_xor` and `vg_poly1305_blocks` the
     /// functions called call.
     backend: Backend,
+}
+
+impl Drop for ChaCha20Poly1305 {
+    /// Wipes the key.
+    fn drop(&mut self) {
+        zeroize(&mut self.key);
+    }
 }
 
 impl ChaCha20Poly1305 {
@@ -113,6 +127,8 @@ impl ChaCha20Poly1305 {
         let mut ctx = self.ctx(nonce, &[0; 16]);
         let seal = match self.backend {
             Backend::Scalar => vg_chacha20_poly1305_seal,
+            #[cfg(target_arch = "aarch64")]
+            Backend::Neon => vg_chacha20_poly1305_seal_neon,
             #[cfg(target_arch = "x86_64")]
             Backend::Avx2 => vg_chacha20_poly1305_seal_avx2,
             #[cfg(target_arch = "x86_64")]
@@ -159,6 +175,8 @@ impl ChaCha20Poly1305 {
         let mut ctx = self.ctx(nonce, tag);
         let open = match self.backend {
             Backend::Scalar => vg_chacha20_poly1305_open,
+            #[cfg(target_arch = "aarch64")]
+            Backend::Neon => vg_chacha20_poly1305_open_neon,
             #[cfg(target_arch = "x86_64")]
             Backend::Avx2 => vg_chacha20_poly1305_open_avx2,
             #[cfg(target_arch = "x86_64")]
@@ -177,6 +195,9 @@ impl ChaCha20Poly1305 {
         if ok == 1 {
             Ok(())
         } else {
+            // `open`'s contract leaves `data` unspecified when the tag is
+            // wrong (it may hold the decryption of the forged ciphertext):
+            // this, not the verified code, keeps it from being released.
             data.fill(0);
             Err(InvalidTag)
         }
@@ -260,7 +281,10 @@ mod tests {
         assert_eq!(best.backend, select(detected()));
         let nonce = [9; 12];
         let aad = [4; 20];
-        for len in [0, 63, 64, 65, 511, 512, 513, 1000, 1023, 1024, 1025, 2100] {
+        for len in [
+            0, 63, 64, 65, 255, 256, 257, 319, 320, 321, 511, 512, 513, 1000, 1023, 1024, 1025,
+            2100,
+        ] {
             let msg: [u8; 2100] = core::array::from_fn(|i| (i * 31) as u8);
             let mut a = msg;
             let mut b = msg;

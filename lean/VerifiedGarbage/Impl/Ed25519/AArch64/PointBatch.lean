@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.Ed25519.AArch64.PointPowers
-import VerifiedGarbage.Impl.Ed25519.AArch64.PointAccumulateLoop
+import VerifiedGarbage.Impl.Ed25519.AArch64.PointAccumulate
 
 /-! Rebuild adjacent powers from a checkpoint without losing the accumulator. -/
 namespace VG.Impl.Ed25519.AArch64

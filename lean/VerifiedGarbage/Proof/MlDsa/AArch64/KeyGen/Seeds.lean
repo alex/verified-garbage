@@ -11,6 +11,8 @@ caller's registers and keeps the pointers (`pro_piece`); then
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Proof.MlKem.AArch64 (Keep pbytes)
 open VG.Spec.MlDsa (Params keyGenSeeds integerToBytes)
@@ -117,10 +119,10 @@ theorem sc_pa {S : Nat} {s s' : State} {W : List Region} (hP : PostB S s s' W) (
 
 theorem seeds_ok {p : Params} (hF : PFacts p) {S : Nat} (h16 : 16 ≤ S) (hSl : S < 2 ^ 64) {σ : State}
     (hp : kgPre p S σ) {s : State} (h : KC p σ s) (h24 : s.gpr .x24 = 1) :
-    WP isa (seeds p) s fun s' => K1 p σ s' ∧ s'.gpr .x24 = 1 := by
+    WP isa ((seedsWith keccak.callee) p) s fun s' => K1 p σ s' ∧ s'.gpr .x24 = 1 := by
   have hk := hF.k; have hl := hF.l; have hkl := hF.kl; have hsc := scr_eq p
   have L := h.lay hF hp
-  unfold seeds
+  unfold seedsWith
   refine WP.seq (WP.mono (setTwo_ok L (o := oKL) (a := p.k) (b := p.ℓ) (by decide) (by lay) (by lay))
     fun s₁ ⟨hP₁, k₁, hb₁⟩ => ?_)
   have h₁ := h.step hF hp hP₁ (by unfold kcChk; lay)
@@ -175,19 +177,19 @@ theorem setKL_taint : ∀ v < 16, ∀ w < 16, (taint.check (AArch64.Taint.ofRegs
     (.block (setB (sc oKL) v ++ setB (sc (oKL + 1)) w)) (.block [])).isSome = true := by decide +kernel
 
 theorem seeds_tr {p : Params} (hF : PFacts p) {S : Nat} (h16 : 16 ≤ S) (hSl : S < 2 ^ 64) :
-    RelCT isa (Two p S) (seeds p) fun _ _ => True := by
+    RelCT isa (Two p S) ((seedsWith keccak.callee) p) fun _ _ => True := by
   have hk := hF.k; have hl := hF.l; have hkl := hF.kl; have hsc := scr_eq p
-  unfold seeds
+  unfold seedsWith
   refine RelCT.seq (Two.step (taintRel [.x28] (fun x y h => h.x28) (setKL_taint p.k (by omega) p.ℓ (by omega)))
     fun x L => WP.mono (setTwo_ok L (o := oKL) (a := p.k) (b := p.ℓ) (by decide) (by lay) (by lay))
       fun _ h => ⟨_, h.1⟩) ?_
-  refine RelCT.seq (Two.step (taintRel [.x25, .x26, .x27, .x28] (fun x y h => h.bases) (by taint_decide))
+  refine RelCT.seq (Two.step (taintRel [.x25, .x26, .x27, .x28] (fun x y h => h.bases) keccak.mldsaSeedsTaint.choose_spec)
     fun x L => WP.mono (shake_ok h16 hSl L (ins := [⟨.x25, 0, 32⟩, ⟨.x28, oKL, 2⟩]) (out := ⟨.x28, oHX, 128⟩)
       (by simp) (by unfold hashChk pieceChk; lay)) fun _ h => ⟨_, h.1⟩) ?_
   exact taintRel [.x28] (fun x y h => h.x28) (by taint_decide)
 
 theorem seeds_piece {p : Params} (hF : PFacts p) {S : Nat} (h16 : 16 ≤ S) (hSl : S < 2 ^ 64) :
-    Piece p S (fun σ s => KC p σ s ∧ s.gpr .x24 = 1) (fun σ s => K1 p σ s ∧ s.gpr .x24 = 1) (seeds p) :=
+    Piece p S (fun σ s => KC p σ s ∧ s.gpr .x24 = 1) (fun σ s => K1 p σ s ∧ s.gpr .x24 = 1) ((seedsWith keccak.callee) p) :=
   ⟨fun _ _ hp h => seeds_ok hF h16 hSl hp h.1 h.2,
     rel_of (seeds_tr hF h16 hSl) fun _ _ _ _ p₁ p₂ pub h₁ h₂ => kc_two hF p₁ p₂ pub h₁.1 h₂.1⟩
 

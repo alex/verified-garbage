@@ -13,7 +13,8 @@ results of `vg_mlkem_sample_ntt`.
 
 1. `ρ` (`ek[1536 : 1568]`) to `SB`; `Â[i, j] = SampleNTT(ρ ‖ j ‖ i)` to
    polynomials 17–32. If one of them failed (`r15 = 0`), nothing more.
-2. `ŷ[j] = NTT(SamplePolyCBD₂(PRF₂(r, j)))` (polynomial `j`).
+2. `PRF₂(r, N)` for `N = 0, …, 8` (`c.prfs`, to `PR4`), and
+   `ŷ[j] = NTT(SamplePolyCBD₂(PRF₂(r, j)))` (polynomial `j`).
 3. `u[i] = NTT⁻¹(Â[0, i] ŷ[0] + ⋯ + Â[3, i] ŷ[3]) + e₁[i]` (polynomial
    15), with `e₁[i] = SamplePolyCBD₂(PRF₂(r, 4 + i))` (polynomial 16), and
    `ByteEncode₁₁(Compress₁₁(u[i]))` to `CT + 352i`.
@@ -29,34 +30,35 @@ open VG.X86_64 VG.Impl.MlKem.X86_64
 
 namespace Encrypt1024
 
-/-- `r`. -/
-abbrev rP : Ptr := sc (oG + 32)
+/-- `PRF₂(r, N)`. -/
+abbrev prfO (N : Nat) : Ptr := sc (oPR4 + 128 * N)
 
 /-- `ρ` to `SB`, and `Â`. -/
 def mat (c : Callee4) (E : Ptr) : Prog isa := .seq (copy (sc oSB) (E.1, E.2 + 1536) 32) (samples4 c)
 
 /-- `ŷ[j]`. -/
-def y (j : Nat) : Prog isa := .seq (prfCbd rP j (pS j)) (nttAt (pS j))
+def y (A : Arith) (j : Nat) : Prog isa := .seq (cbd2At (prfO j) (pS j)) (nttAt A (pS j))
 
 /-- `u[i]`, compressed and encoded to the ciphertext. -/
-def u (i : Nat) : Prog isa :=
-  .seq (dot4At (fun j => aS4 j i) pS) (.seq (nttInvAt (pS 15)) (.seq (prfCbd rP (4 + i) (pS 16))
+def u (A : Arith) (i : Nat) : Prog isa :=
+  .seq (dot4At A (fun j => aS4 j i) pS) (.seq (nttInvAt A (pS 15)) (.seq (cbd2At (prfO (4 + i)) (pS 16))
     (.seq (addAt (pS 15) (pS 16)) (ce4At (pS 15) 11 (sc (oCT4 + 352 * i))))))
 
 /-- `t̂[i]`. -/
 def t (E : Ptr) (i : Nat) : Prog isa := dec12At (E.1, E.2 + 384 * i) (pS (4 + i))
 
 /-- `v`, compressed and encoded to the ciphertext. -/
-def v : Prog isa :=
-  .seq (dot4At (fun j => pS (4 + j)) pS) (.seq (nttInvAt (pS 15)) (.seq (prfCbd rP 8 (pS 16))
+def v (A : Arith) : Prog isa :=
+  .seq (dot4At A (fun j => pS (4 + j)) pS) (.seq (nttInvAt A (pS 15)) (.seq (cbd2At (prfO 8) (pS 16))
     (.seq (addAt (pS 15) (pS 16)) (.seq (ddAt (sc oM) 1 (pS 16)) (.seq (addAt (pS 15) (pS 16))
       (ce4At (pS 15) 5 (sc (oCT4 + 1408))))))))
 
-def rest (E : Ptr) : Prog isa := .seq (seqR y 0 4) (.seq (seqR u 0 4) (.seq (seqR (t E) 0 4) v))
+def rest (c : Callee4) (E : Ptr) : Prog isa :=
+  .seq (c.prfs 0 9 oPR4 lPW4) (.seq (seqR (y c.arith) 0 4) (.seq (seqR (u c.arith) 0 4) (.seq (seqR (t E) 0 4) (v c.arith))))
 
 end Encrypt1024
 
 open Encrypt1024 in
-def encrypt1024 (c : Callee4) (E : Ptr) : Prog isa := .seq (mat c E) (ifOk (rest E))
+def encrypt1024 (c : Callee4) (E : Ptr) : Prog isa := .seq (mat c E) (ifOk (rest c E))
 
 end VG.Impl.MlKem1024.X86_64
