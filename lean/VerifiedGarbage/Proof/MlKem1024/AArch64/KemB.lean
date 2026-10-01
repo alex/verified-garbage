@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.MlKem1024.AArch64.KemOps
 
 /-!
-# ML-KEM-1024 on AArch64: the matrix `Â` of `encaps` and `decaps`
+# ML-KEM-1024 on AArch64: the matrix `Â` of `(encapsWith keccak.callee)` and `(decapsWith keccak.callee)`
 
 Untrusted: everything here is checked by Lean. `Â[i, j]` for the sixteen
 `(i, j)` (entry `e = 4i + j`), from the seed `ρ` at `SB`, each with
@@ -17,9 +17,11 @@ the arguments of each call by the taint analysis, and the calls by
 
 namespace VG.Proof.MlKem1024.AArch64.Kem
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlKem1024.AArch64 VG.Impl.MlKem1024.AArch64.KEM VG.Proof.MlKem
   VG.Proof.MlKem.AArch64 VG.Proof.MlKem1024 VG.Proof.MlKem1024.AArch64
-open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash copy32 slotReg argReg kemOwn)
+open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash hashWith copy32 slotReg argReg kemOwn)
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
 open VG.Proof.MlKem1024.AArch64.KeyGen (and_acc seed_eq)
@@ -144,11 +146,11 @@ theorem Mid.args {s₀ : State} (hp : Pre L s₀) {mA : Mem} {ρ : List Byte} {i
     covers_cons (cov_s hp kb fa) (cov_s hp kb (by decide))⟩
 
 theorem call_ok {s₀ : State} (hp : Pre L s₀) {mA : Mem} {ρ : List Byte} {i j : Nat} (hi : i < 4) (hj : j < 4)
-    {s : State} (h : Mid L s₀ mA ρ i j s) : WP isa kgCall s (BInv L s₀ mA ρ (4 * i + j + 1)) := by
+    {s : State} (h : Mid L s₀ mA ρ i j s) : WP isa (kgCallWith keccak.callee) s (BInv L s₀ mA ρ (4 * i + j + 1)) := by
   have kb := h.b.kb
   have fa : aOff i j + 1024 ≤ 49152 := by simp only [aOff, AH]; omega
   have A := h.args hp hi hj
-  refine WP.seq <| sample_call A.h0 A.h1 A.h2 A.d₁ A.d₂ A.d₃ A.hsp A.k₁ A.k₂ A.k₃ A.hc A.hw
+  refine WP.seq <| sample_callWith keccak A.h0 A.h1 A.h2 A.d₁ A.d₂ A.d₃ A.hsp A.k₁ A.k₂ A.k₃ A.hc A.hw
     fun s₈ k₈ r₈ o₈ => ?_
   rw [kb.sp] at k₈
   have kb₈ : KB L s₀ s₈ := kb.call k₈ fun r hr => by
@@ -211,11 +213,11 @@ theorem call_ok {s₀ : State} (hp : Pre L s₀) {mA : Mem} {ρ : List Byte} {i 
 
 theorem sample_step {s₀ : State} (hp : Pre L s₀) {mA : Mem} {ρ : List Byte} {i j : Nat} (hi : i < 4)
     (hj : j < 4) {s : State} (h : BInv L s₀ mA ρ (4 * i + j) s) :
-    WP isa (kemSample i j) s (BInv L s₀ mA ρ (4 * i + j + 1)) :=
+    WP isa ((kemSampleWith keccak.callee) i j) s (BInv L s₀ mA ρ (4 * i + j + 1)) :=
   WP.seq (WP.mono (setup_ok hp hi hj h) fun _ m => call_ok hp hi hj m)
 
 theorem matrix_ok {s₀ : State} (hp : Pre L s₀) {mA : Mem} {ρ : List Byte} {s : State}
-    (h : BInv L s₀ mA ρ 0 s) : WP isa kemMatrix s (BInv L s₀ mA ρ 16) :=
+    (h : BInv L s₀ mA ρ 0 s) : WP isa (kemMatrixWith keccak.callee) s (BInv L s₀ mA ρ 16) :=
   WP.seq (WP.mono (sample_step hp (i := 0) (j := 0) (by decide) (by decide) h) fun _ h =>
   WP.seq (WP.mono (sample_step hp (i := 0) (j := 1) (by decide) (by decide) h) fun _ h =>
   WP.seq (WP.mono (sample_step hp (i := 0) (j := 2) (by decide) (by decide) h) fun _ h =>
@@ -278,9 +280,9 @@ structure Two (L : Layout) (σ₁ σ₂ : State) : Prop where
 
 theorem call_rct {σ₁ σ₂ : State} (ht : Two L σ₁ σ₂) {m₁ m₂ : Mem} {ρ : List Byte} {i j : Nat} (hi : i < 4)
     (hj : j < 4) :
-    RelCT isa (fun s₁ s₂ => Mid L σ₁ m₁ ρ i j s₁ ∧ Mid L σ₂ m₂ ρ i j s₂) kgCall fun _ _ => True := by
+    RelCT isa (fun s₁ s₂ => Mid L σ₁ m₁ ρ i j s₁ ∧ Mid L σ₂ m₂ ρ i j s₂) (kgCallWith keccak.callee) fun _ _ => True := by
   refine RelCT.seq (RelCT.wp (F₁ := fun s : State => s.sp = σ₁.sp) (F₂ := fun s : State => s.sp = σ₂.sp)
-    (sample_ct (sd := sA L σ₁ SB) (a := sA L σ₁ (aOff i j)) (w := sA L σ₁ SS) fun s₁ s₂ h => ?_)
+    (sample_ctWith keccak (sd := sA L σ₁ SB) (a := sA L σ₁ (aOff i j)) (w := sA L σ₁ SS) fun s₁ s₂ h => ?_)
       fun s₁ s₂ h => ⟨?_, ?_⟩)
     (RelCT.taint (A := taint) (Taint.ofRegs []) (fun s₁ s₂ h => agree_of (by rw [h.2.1, h.2.2, ht.sp])
       fun r hr => by cases hr) (by taint_decide))
@@ -291,12 +293,12 @@ theorem call_rct {σ₁ σ₂ : State} (ht : Two L σ₁ σ₂) {m₁ m₂ : Mem
     have s₂ := h.2.seed
     simp only [sA, ← ht.sc] at s₂
     rw [s₂]
-  · exact WP.mono (h.1.args ht.p₁ hi hj).sp fun s' e => by rw [e, h.1.b.kb.sp]
-  · exact WP.mono (h.2.args ht.p₂ hi hj).sp fun s' e => by rw [e, h.2.b.kb.sp]
+  · exact WP.mono ((h.1.args ht.p₁ hi hj).spWith keccak) fun s' e => by rw [e, h.1.b.kb.sp]
+  · exact WP.mono ((h.2.args ht.p₂ hi hj).spWith keccak) fun s' e => by rw [e, h.2.b.kb.sp]
 
 theorem sample_rct {σ₁ σ₂ : State} (ht : Two L σ₁ σ₂) {m₁ m₂ : Mem} {ρ : List Byte} {i j : Nat} (hi : i < 4)
     (hj : j < 4) :
-    RelCT isa (fun s₁ s₂ => BInv L σ₁ m₁ ρ (4 * i + j) s₁ ∧ BInv L σ₂ m₂ ρ (4 * i + j) s₂) (kemSample i j)
+    RelCT isa (fun s₁ s₂ => BInv L σ₁ m₁ ρ (4 * i + j) s₁ ∧ BInv L σ₂ m₂ ρ (4 * i + j) s₂) ((kemSampleWith keccak.callee) i j)
       fun s₁ s₂ => BInv L σ₁ m₁ ρ (4 * i + j + 1) s₁ ∧ BInv L σ₂ m₂ ρ (4 * i + j + 1) s₂ := by
   have hck := (setup_taint i hi j hj).choose_spec
   refine RelCT.seq (R := fun s₁ s₂ => Mid L σ₁ m₁ ρ i j s₁ ∧ Mid L σ₂ m₂ ρ i j s₂)
@@ -310,7 +312,7 @@ theorem sample_rct {σ₁ σ₂ : State} (ht : Two L σ₁ σ₂) {m₁ m₂ : M
       (fun _ _ h => h) fun _ _ h => h.2)
 
 theorem matrix_rct {σ₁ σ₂ : State} (ht : Two L σ₁ σ₂) {m₁ m₂ : Mem} {ρ : List Byte} :
-    RelCT isa (fun s₁ s₂ => BInv L σ₁ m₁ ρ 0 s₁ ∧ BInv L σ₂ m₂ ρ 0 s₂) kemMatrix
+    RelCT isa (fun s₁ s₂ => BInv L σ₁ m₁ ρ 0 s₁ ∧ BInv L σ₂ m₂ ρ 0 s₂) (kemMatrixWith keccak.callee)
       fun s₁ s₂ => BInv L σ₁ m₁ ρ 16 s₁ ∧ BInv L σ₂ m₂ ρ 16 s₂ :=
   RelCT.seq (sample_rct ht (i := 0) (j := 0) (by decide) (by decide)) <|
   RelCT.seq (sample_rct ht (i := 0) (j := 1) (by decide) (by decide)) <|

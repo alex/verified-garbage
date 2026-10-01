@@ -14,6 +14,8 @@ rejected. The contract's `signLeak` tags the iterations the same way
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -59,19 +61,19 @@ theorem signK_implies {p : Params} (h3 : Ok3 p) :
   · sig_implies_sat [signContractT, signSig, AArch64.abi, AArch64.argRegs] [signSat] using signSat mlDsa87
 
 theorem sign_verified {p : Params} (h3 : Ok3 p) :
-    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.sign prims p) (signContractT p AArch64.abi signStack) :=
-  Verified.of_correct (sign_correct prims_ok h3) (sign_ct prims_ok h3) (signK_implies h3)
+    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.signWith keccak.callee (primsWith keccak.callee) p) (signContractT p AArch64.abi signStack) :=
+  Verified.of_correct (sign_correct (keccak := keccak) (prims_okWith (keccak := keccak)) h3) (sign_ct (keccak := keccak) (prims_okWith (keccak := keccak)) h3) (signK_implies h3)
 
-theorem sign44_verified :
-    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.sign prims mlDsa44) (signContractT mlDsa44 AArch64.abi signStack) :=
+theorem sign44_verifiedWith :
+    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.signWith keccak.callee (primsWith keccak.callee) mlDsa44) (signContractT mlDsa44 AArch64.abi signStack) :=
   sign_verified (.inl rfl)
 
-theorem sign65_verified :
-    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.sign prims mlDsa65) (signContractT mlDsa65 AArch64.abi signStack) :=
+theorem sign65_verifiedWith :
+    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.signWith keccak.callee (primsWith keccak.callee) mlDsa65) (signContractT mlDsa65 AArch64.abi signStack) :=
   sign_verified (.inr (.inl rfl))
 
-theorem sign87_verified :
-    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.sign prims mlDsa87) (signContractT mlDsa87 AArch64.abi signStack) :=
+theorem sign87_verifiedWith :
+    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.signWith keccak.callee (primsWith keccak.callee) mlDsa87) (signContractT mlDsa87 AArch64.abi signStack) :=
   sign_verified (.inr (.inr rfl))
 
 /-! Against the contract: `signContractT` is `signContract`, whose leakage
@@ -82,16 +84,31 @@ theorem signContractT_eq (p : Params) {M : ISA} (A : Abi M) (stack : Nat) :
   unfold signContractT signContract
   simp only [Sign.signLeakT_eq_signLeak]
 
+theorem sign44_verifiedWith' :
+    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.signWith keccak.callee (primsWith keccak.callee) mlDsa44) (signContract mlDsa44 AArch64.abi signStack) :=
+  signContractT_eq mlDsa44 AArch64.abi signStack ▸ sign44_verifiedWith
+
+theorem sign65_verifiedWith' :
+    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.signWith keccak.callee (primsWith keccak.callee) mlDsa65) (signContract mlDsa65 AArch64.abi signStack) :=
+  signContractT_eq mlDsa65 AArch64.abi signStack ▸ sign65_verifiedWith
+
+theorem sign87_verifiedWith' :
+    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.signWith keccak.callee (primsWith keccak.callee) mlDsa87) (signContract mlDsa87 AArch64.abi signStack) :=
+  signContractT_eq mlDsa87 AArch64.abi signStack ▸ sign87_verifiedWith
+
 theorem sign44_verified' :
-    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.sign prims mlDsa44) (signContract mlDsa44 AArch64.abi signStack) :=
-  signContractT_eq mlDsa44 AArch64.abi signStack ▸ sign44_verified
+    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.sign prims mlDsa44)
+      (signContract mlDsa44 AArch64.abi signStack) :=
+  sign44_verifiedWith' (keccak := .scalar)
 
 theorem sign65_verified' :
-    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.sign prims mlDsa65) (signContract mlDsa65 AArch64.abi signStack) :=
-  signContractT_eq mlDsa65 AArch64.abi signStack ▸ sign65_verified
+    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.sign prims mlDsa65)
+      (signContract mlDsa65 AArch64.abi signStack) :=
+  sign65_verifiedWith' (keccak := .scalar)
 
 theorem sign87_verified' :
-    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.sign prims mlDsa87) (signContract mlDsa87 AArch64.abi signStack) :=
-  signContractT_eq mlDsa87 AArch64.abi signStack ▸ sign87_verified
+    Verified AArch64.target (Impl.MlDsa.AArch64.Sign.sign prims mlDsa87)
+      (signContract mlDsa87 AArch64.abi signStack) :=
+  sign87_verifiedWith' (keccak := .scalar)
 
 end VG.Proof.MlDsa.AArch64.Sign

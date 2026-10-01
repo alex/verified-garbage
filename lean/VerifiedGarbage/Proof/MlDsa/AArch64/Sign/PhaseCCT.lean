@@ -13,6 +13,8 @@ the coefficients of `HighBits(w[i])` bounded): `maskR_trL`, `rowW_trL`,
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Proof.MlDsa.Sign
@@ -138,7 +140,7 @@ theorem w1R_trL {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} {t i : Nat
 
 theorem ctShake_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : cChk p = true) {σ : State} {t : Nat}
     {s : State} (h : ICh p D σ t p.k s) :
-    WP isa (shakeAt [⟨.x26, 0, 64⟩, ⟨.x28, oW1, p.k * w1Len p⟩] ⟨.x28, oCT, cLen p⟩) s (IC p D σ t) := by
+    WP isa (shakeAtWith keccak.callee [⟨.x26, 0, 64⟩, ⟨.x28, oW1, p.k * w1Len p⟩] ⟨.x28, oCT, cLen p⟩) s (IC p D σ t) := by
   simp only [cChk, Bool.and_eq_true] at hc
   obtain ⟨⟨_, hs⟩, hk⟩ := hc
   refine WP.mono (shake_ok hP.s16 hP.s64 h.c.l.st.lay (by simp) hs) fun s4 ⟨hP4, _, hb⟩ => ⟨h.c.step hP4 hk, ?_⟩
@@ -150,11 +152,11 @@ theorem ctShake_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : c
 
 theorem commit_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 : Ok3 p) (hc : cChk p = true)
     {E : State → State → Prop} {t : Nat} :
-    RelCT isa (RS p D E fun σ s => IL p D σ t s) (commit P p) (RS p D E fun σ s => IC p D σ t s) := by
+    RelCT isa (RS p D E fun σ s => IL p D σ t s) (commitWith keccak.callee P p) (RS p D E fun σ s => IC p D σ t s) := by
   have hc' := hc
   simp only [cChk, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hc'
   obtain ⟨⟨⟨⟨hm, hw⟩, hh⟩, hs⟩, _⟩ := hc'
-  unfold commit
+  unfold commitWith
   refine RelCT.seq (R := RS p D E fun σ s => ICw p D σ t 0 s) ?_ (RelCT.seq (R := RS p D E fun σ s => ICh p D σ t 0 s)
     ?_ (RelCT.seq (R := RS p D E fun σ s => ICh p D σ t p.k s) ?_ ?_))
   · refine RelCT.mono (seqR_tr (R := fun r => RS p D E fun σ s => ICm p D σ t r s) p.ℓ 0 fun r _ hr =>
@@ -173,6 +175,7 @@ theorem commit_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 : Ok
         (fun _ _ _ h => w1R_ok hP (hh i (by omega)) (by omega) h) (w1R_trL hP (hh i (by omega)) (by omega)))
       (fun x y h => h) fun x y h => by rwa [Nat.zero_add] at h
   · refine liftT (fun _ _ h => h.c.l.st) (fun _ _ _ h => ctShake_ok hP hc h) ?_
-    rcases h3 with rfl | rfl | rfl <;> exact lrel_tr (fun _ _ h => h) (by taint_decide)
+    obtain ⟨hint, hh⟩ := keccak.mldsaSignCommitTaint p h3
+    exact lrel_tr (fun _ _ h => h) hh
 
 end VG.Proof.MlDsa.AArch64.Sign

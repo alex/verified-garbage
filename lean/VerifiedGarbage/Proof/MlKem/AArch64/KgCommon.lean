@@ -113,6 +113,7 @@ structure KB (s₀ s : State) : Prop where
   cs : ∀ r ∈ preserved, r ∉ own → s.gpr r = s₀.gpr r
   sv : Saved s₀ s.mem
   seed : bytesAt s.mem (kA s₀ 0 + BitVec.ofNat 64 0) 64 = bytesAt s₀.mem (kA s₀ 0 + BitVec.ofNat 64 0) 64
+  vcs : ∀ r ∈ preservedV, (s.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64
 
 theorem KB.breg {s₀ s : State} (h : KB s₀ s) : ∀ {b : Nat}, b < 4 → s.gpr (breg b) = kA s₀ b
   | 0, _ => h.x25
@@ -146,7 +147,7 @@ theorem KB.frame {s₀ s s' : State} (h : KB s₀ s) {rs : List Region} {regs : 
     by rw [hk.get .x27 (hr _ (by decide)), h.x27], by rw [hk.get .x28 (hr _ (by decide)), h.x28],
     fun r hp ho => by rw [hk.get r (hr r (pres_kept r hp ho)), h.cs r hp ho],
     h.sv.frame hf fun r hr => (hd r hr).1,
-    by rw [bytesAt_frame hf (fun r hr => (hd r hr).2) (by decide), h.seed]⟩
+    by rw [bytesAt_frame hf (fun r hr => (hd r hr).2) (by decide), h.seed], fun r hr => (hk.vcs r hr).trans (h.vcs r hr)⟩
 
 theorem KB.block {s₀ s s' : State} (h : KB s₀ s) {regs : List Reg} (hk : Keep regs s s')
     (hm : s'.mem = s.mem) (hr : ∀ r ∈ kept, r ∉ regs) : KB s₀ s' :=
@@ -162,7 +163,7 @@ theorem KB.call {s₀ s s' : State} (h : KB s₀ s) {rs : List Region} (hk : Kep
     fun r hp ho => by
       rw [hk.cs r hp (fun e => ho (by rw [e]; decide)), h.cs r hp ho],
     h.sv.frame hk.frame fun r hr => (hd r hr).1,
-    by rw [bytesAt_frame hk.frame (fun r hr => (hd r hr).2) (by decide), h.seed]⟩
+    by rw [bytesAt_frame hk.frame (fun r hr => (hd r hr).2) (by decide), h.seed], fun r hr => (hk.vcs r hr).trans (h.vcs r hr)⟩
 
 /-! ## Regions -/
 

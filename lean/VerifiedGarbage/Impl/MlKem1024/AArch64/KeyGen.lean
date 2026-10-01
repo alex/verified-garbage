@@ -3,7 +3,7 @@ import VerifiedGarbage.Impl.MlKem.AArch64.KeyGen
 /-!
 # ML-KEM-1024 on AArch64: `vg_mlkem1024_keygen`
 
-`keyGen(seed = x0, ek = x1, dk = x2, scratch = x3) -> x0`: `KeyGen_internal(d, z)`
+`(keyGenWith c)(seed = x0, ek = x1, dk = x2, scratch = x3) -> x0`: `KeyGen_internal(d, z)`
 (FIPS 203 Algorithms 16 and 13) of ML-KEM-1024 with `d ‖ z` at `seed`, as
 calls of the verified primitives and Keccak functions, as ML-KEM-768's
 (`Impl/MlKem/AArch64/KeyGen.lean`) for `k = 4`. We keep `seed`, `ek`, `dk`
@@ -37,7 +37,7 @@ the pointers.
 namespace VG.Impl.MlKem1024.AArch64
 
 open VG.AArch64
-open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash copy32 sampleNTT cbd2 ntt encode12 multiplyNTTs add)
+open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash hashWith copy32 sampleNTT sampleNTTWith cbd2 ntt encode12 multiplyNTTs add)
 
 namespace KG
 
@@ -72,10 +72,10 @@ def kgPrologue : List Instr :=
     mov .x28 .x3, .movz .x .x24 1 0, .movz .x .x9 4 0, .strb .x9 .x28 B4]
 
 /-- `(ρ, σ) = G(d ‖ 4)`. -/
-def kgG : Prog isa :=
-  hash .x28 ST WK 72 6 [⟨.x25, 0, 32⟩, ⟨.x28, B4, 1⟩] [⟨.x28, SB, 32⟩, ⟨.x28, SG, 32⟩]
+def kgGWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
+  hashWith c .x28 ST WK 72 6 [⟨.x25, 0, 32⟩, ⟨.x28, B4, 1⟩] [⟨.x28, SB, 32⟩, ⟨.x28, SG, 32⟩]
 
-def kgA : Prog isa := .seq (.block kgPrologue) kgG
+def kgAWith (c : Impl.Sha3.AArch64.Callee) : Prog isa := .seq (.block kgPrologue) (kgGWith c)
 
 /-- The seed `ρ ‖ j ‖ i` and the arguments of `SampleNTT` for `Â[i, j]`. -/
 def kgSetup (i j : Nat) : List Instr :=
@@ -83,23 +83,23 @@ def kgSetup (i j : Nat) : List Instr :=
     .strb .x9 .x28 (SB + 33)] ++ ptrTo .x0 .x28 SB ++ ptrTo .x1 .x28 (aOff i j) ++ ptrTo .x2 .x28 SS
 
 /-- `SampleNTT`, and its result ANDed into `x24`. -/
-def kgCall : Prog isa :=
-  .seq (.call "vg_mlkem_sample_ntt" sampleNTT) (.block [.logic .and .x .x24 .x24 .x0])
+def kgCallWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
+  .seq (.call ("vg_mlkem_sample_ntt" ++ c.suffix) (sampleNTTWith c)) (.block [.logic .and .x .x24 .x24 .x0])
 
 /-- `Â[i, j] = SampleNTT(ρ ‖ j ‖ i)`, and its result ANDed into `x24`. -/
-def kgSample (i j : Nat) : Prog isa := .seq (.block (kgSetup i j)) kgCall
+def kgSampleWith (c : Impl.Sha3.AArch64.Callee) (i j : Nat) : Prog isa := .seq (.block (kgSetup i j)) (kgCallWith c)
 
 /-- The sixteen `SampleNTT`s, row by row. -/
-def kgB : Prog isa :=
-  .seq (kgSample 0 0) <| .seq (kgSample 0 1) <| .seq (kgSample 0 2) <| .seq (kgSample 0 3) <|
-  .seq (kgSample 1 0) <| .seq (kgSample 1 1) <| .seq (kgSample 1 2) <| .seq (kgSample 1 3) <|
-  .seq (kgSample 2 0) <| .seq (kgSample 2 1) <| .seq (kgSample 2 2) <| .seq (kgSample 2 3) <|
-  .seq (kgSample 3 0) <| .seq (kgSample 3 1) <| .seq (kgSample 3 2) (kgSample 3 3)
+def kgBWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
+  .seq ((kgSampleWith c) 0 0) <| .seq ((kgSampleWith c) 0 1) <| .seq ((kgSampleWith c) 0 2) <| .seq ((kgSampleWith c) 0 3) <|
+  .seq ((kgSampleWith c) 1 0) <| .seq ((kgSampleWith c) 1 1) <| .seq ((kgSampleWith c) 1 2) <| .seq ((kgSampleWith c) 1 3) <|
+  .seq ((kgSampleWith c) 2 0) <| .seq ((kgSampleWith c) 2 1) <| .seq ((kgSampleWith c) 2 2) <| .seq ((kgSampleWith c) 2 3) <|
+  .seq ((kgSampleWith c) 3 0) <| .seq ((kgSampleWith c) 3 1) <| .seq ((kgSampleWith c) 3 2) ((kgSampleWith c) 3 3)
 
 /-- `SamplePolyCBD₂(PRF₂(σ, N))` into the polynomial at `off`, then its NTT. -/
-def kgCbdNtt (N off : Nat) : Prog isa :=
+def kgCbdNttWith (c : Impl.Sha3.AArch64.Callee) (N off : Nat) : Prog isa :=
   .seq (.block [.movz .x .x9 (BitVec.ofNat 16 N) 0, .strb .x9 .x28 (SG + 32)]) <|
-  .seq (hash .x28 ST WK 136 0x1f [⟨.x28, SG, 33⟩] [⟨.x28, PB, 128⟩]) <|
+  .seq (hashWith c .x28 ST WK 136 0x1f [⟨.x28, SG, 33⟩] [⟨.x28, PB, 128⟩]) <|
   .seq (.seq (.block (ptrTo .x0 .x28 PB ++ ptrTo .x1 .x28 off)) (.call "vg_mlkem_cbd2" cbd2))
     (.seq (.block (ptrTo .x0 .x28 off ++ ptrTo .x1 .x28 NS)) (.call "vg_mlkem_ntt" ntt))
 
@@ -108,7 +108,7 @@ def kgEnc (off : Nat) (b : Reg) (o : Nat) : Prog isa :=
   .seq (.block (ptrTo .x0 .x28 off ++ ptrTo .x1 b o)) (.call "vg_mlkem_encode12" encode12)
 
 /-- `ŝ[j]`, and its encoding into `dk`. -/
-def kgS (j : Nat) : Prog isa := .seq (kgCbdNtt j (sOff j)) (kgEnc (sOff j) .x27 (384 * j))
+def kgSWith (c : Impl.Sha3.AArch64.Callee) (j : Nat) : Prog isa := .seq ((kgCbdNttWith c) j (sOff j)) (kgEnc (sOff j) .x27 (384 * j))
 
 /-- `h ← f ×_T g` (with `x3` the NTT's working space). -/
 def kgMul (h f g : Nat) : Prog isa :=
@@ -120,25 +120,37 @@ def kgAdd (f g : Nat) : Prog isa :=
   .seq (.block (ptrTo .x0 .x28 f ++ ptrTo .x1 .x28 g)) (.call "vg_mlkem_add" add)
 
 /-- `ê[i]` and `t̂[i]`, and the encoding of `t̂[i]` into `ek` and `dk`. -/
-def kgT (i : Nat) : Prog isa :=
-  .seq (kgCbdNtt (4 + i) EP) <|
+def kgTWith (c : Impl.Sha3.AArch64.Callee) (i : Nat) : Prog isa :=
+  .seq ((kgCbdNttWith c) (4 + i) EP) <|
   .seq (kgMul TP (aOff i 0) (sOff 0)) <| .seq (kgMul PP (aOff i 1) (sOff 1)) <| .seq (kgAdd TP PP) <|
   .seq (kgMul PP (aOff i 2) (sOff 2)) <| .seq (kgAdd TP PP) <|
   .seq (kgMul PP (aOff i 3) (sOff 3)) <| .seq (kgAdd TP PP) <| .seq (kgAdd TP EP) <|
   .seq (kgEnc TP .x26 (384 * i)) (kgEnc TP .x27 (1536 + 384 * i))
 
 /-- `ρ` into `ek` and `dk`, `H(ek)`, `z`, the result, and our caller's registers back. -/
-def kgEnd : Prog isa :=
+def kgEndWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
   .seq (.block (copy32 .x28 SB .x26 1536 ++ copy32 .x28 SB .x27 3072)) <|
-  .seq (hash .x28 ST WK 136 6 [⟨.x26, 0, 1568⟩] [⟨.x27, 3104, 32⟩]) <|
+  .seq (hashWith c .x28 ST WK 136 6 [⟨.x26, 0, 1568⟩] [⟨.x27, 3104, 32⟩]) <|
   .block (copy32 .x25 32 .x27 3136 ++
     ([mov .x0 .x24, .ldr .x .x30 .x28 (SV + 40), .ldr .x .x24 .x28 SV, .ldr .x .x25 .x28 (SV + 8),
       .ldr .x .x26 .x28 (SV + 16), .ldr .x .x27 .x28 (SV + 24), .ldr .x .x28 .x28 (SV + 32)] : List Instr))
 
-def kgC : Prog isa :=
-  .seq (kgS 0) <| .seq (kgS 1) <| .seq (kgS 2) <| .seq (kgS 3) <|
-  .seq (kgT 0) <| .seq (kgT 1) <| .seq (kgT 2) <| .seq (kgT 3) kgEnd
+def kgCWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
+  .seq ((kgSWith c) 0) <| .seq ((kgSWith c) 1) <| .seq ((kgSWith c) 2) <| .seq ((kgSWith c) 3) <|
+  .seq ((kgTWith c) 0) <| .seq ((kgTWith c) 1) <| .seq ((kgTWith c) 2) <| .seq ((kgTWith c) 3) (kgEndWith c)
 
-def keyGen : Prog isa := .seq kgA (.seq kgB kgC)
+def keyGenWith (c : Impl.Sha3.AArch64.Callee) : Prog isa := .seq (kgAWith c) (.seq (kgBWith c) (kgCWith c))
+
+def kgG := kgGWith .scalar
+def kgA := kgAWith .scalar
+def kgCall := kgCallWith .scalar
+def kgSample := kgSampleWith .scalar
+def kgB := kgBWith .scalar
+def kgCbdNtt := kgCbdNttWith .scalar
+def kgS := kgSWith .scalar
+def kgT := kgTWith .scalar
+def kgEnd := kgEndWith .scalar
+def kgC := kgCWith .scalar
+def keyGen := keyGenWith .scalar
 
 end VG.Impl.MlKem1024.AArch64

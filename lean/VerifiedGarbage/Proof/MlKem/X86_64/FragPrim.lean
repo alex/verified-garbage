@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.MlKem.X86_64.FragCall
+import VerifiedGarbage.Proof.MlKem.X86_64.ArithOk
 
 /-!
 # ML-KEM-768 on x86-64: the calls of the polynomial primitives
@@ -60,11 +61,6 @@ theorem covers_nil_wr {rs : List Region} {s : State} (h : Covers rs s.wr) : Cove
     exact ⟨r, List.mem_append_right _ hr, hc⟩
 
 /-! ## The callees' stack -/
-
-theorem nosp_of {c : Prog isa} (h : c.allInstrs (fun i => !Taint.clobbers i .rsp) = true) : NoSp c := by
-  rw [Code.allInstrs_eq] at h
-  intro i hi
-  simpa using List.all_eq_true.mp h i hi
 
 theorem ntt_nosp : NoSp Impl.MlKem.X86_64.ntt := nosp_of (by decide +kernel)
 theorem nttInv_nosp : NoSp Impl.MlKem.X86_64.nttInv := nosp_of (by decide +kernel)
@@ -259,10 +255,11 @@ theorem mulPre {h f g : Ptr} {s s1 : State} (H : MulH h f g s)
   · rw [ce_reduced s1 (by rw [hsp]; exact H.kF), hm]; exact H.redF
   · rw [ce_reduced s1 (by rw [hsp]; exact H.kG), hm]; exact H.redG
 
-theorem mulAt_ok {h f g : Ptr} (hf : NA f) (hg : NA g) {s : State} (H : MulH h f g s) :
-    WP isa (mulAt h f g) s fun s' => Post s s' [pR (pa s h), pR (pa s (sc oSS))] ∧
+theorem mulAt_ok {A : Arith} (hA : ArithOk A) {h f g : Ptr} (hf : NA f) (hg : NA g) {s : State}
+    (H : MulH h f g s) :
+    WP isa (mulAt A h f g) s fun s' => Post s s' [pR (pa s h), pR (pa s (sc oSS))] ∧
       PolyIs s'.mem (pa s h) (multiplyNTTs (polyAt s.mem (pa s f)) (polyAt s.mem (pa s g))) := by
-  refine WP.mono (glueCall_ok mul_correct mul_nosp (by rw [mul_depth]; decide) (mulGlue_ok h f g H.off hf hg s)
+  refine WP.mono (glueCall_ok hA.mul.ok hA.mul.nosp (by rw [hA.mul.depth]; decide) (mulGlue_ok h f g H.off hf hg s)
     (fun s1 hv hm k => mulPre H hv hm k) H.c H.w) fun s' ⟨hpost, s1, hV, hm, k, s₂, hm₂, _, hq⟩ => ⟨hpost, ?_⟩
   have hsp : s1.gpr .rsp = s.gpr .rsp := k.gpr (by decide)
   simp only [mulK, State.withRegions_gpr, State.withRegions_mem, ce_gpr' s1 (by decide : Reg.rdi ≠ .rsp),
@@ -270,10 +267,10 @@ theorem mulAt_ok {h f g : Ptr} (hf : NA f) (hg : NA g) {s : State} (H : MulH h f
     ce_polyAt s1 (by rw [hsp]; exact H.kF), ce_polyAt s1 (by rw [hsp]; exact H.kG), hm] at hq
   exact hq
 
-theorem mulAt_tr {h f g : Ptr} (hf : NA f) (hg : NA g) :
+theorem mulAt_tr {A : Arith} (hA : ArithOk A) {h f g : Ptr} (hf : NA f) (hg : NA g) :
     RelCT isa (fun x y => MulH h f g x ∧ MulH h f g y ∧ x.gpr h.1 = y.gpr h.1 ∧ x.gpr f.1 = y.gpr f.1 ∧
-      x.gpr g.1 = y.gpr g.1 ∧ x.gpr .rbx = y.gpr .rbx ∧ x.gpr .rsp = y.gpr .rsp) (mulAt h f g) fun _ _ => True :=
-  glueCall_tr mul_correct mul_ct (V := fun x x1 => ((x1.gpr .rdi = pa x h ∧ x1.gpr .rsi = pa x f ∧
+      x.gpr g.1 = y.gpr g.1 ∧ x.gpr .rbx = y.gpr .rbx ∧ x.gpr .rsp = y.gpr .rsp) (mulAt A h f g) fun _ _ => True :=
+  glueCall_tr hA.mul.ok hA.mul.ct (V := fun x x1 => ((x1.gpr .rdi = pa x h ∧ x1.gpr .rsi = pa x f ∧
       x1.gpr .rdx = pa x g ∧ x1.gpr .rcx = pa x (sc oSS)) ∧ x1.mem = x.mem) ∧ Keep argRegs x x1)
     (block_nomem_tr (nomem_append (nomem_append (nomem_append (lea_nomem _ _) (lea_nomem _ _)) (lea_nomem _ _))
       (lea_nomem _ _)))

@@ -1,5 +1,4 @@
-import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
-import VerifiedGarbage.Proof.Sha3.AArch64.Permute
+import VerifiedGarbage.Proof.Sha3.AArch64.Call
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Sha3.Contract
@@ -55,9 +54,11 @@ theorem x80 : ((0x80 : BitVec 16).setWidth 64).setWidth 8 = (0x80 : BitVec 8) :=
 theorem keep_ne : ∀ r ∈ preserved, r ≠ .x9 ∧ r ≠ .x10 ∧ r ≠ .x11 ∧ r ≠ .x1 := by decide
 
 /-- `pad` without its frame: the callee-saved registers but `x30` are kept. -/
-theorem correctMain {s₀ : State} (hp : Pre s₀) :
-    WP isa padMain s₀ fun s' => (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) ∧
-      s'.sp = s₀.sp ∧ Proof.Sha3.padAArch64.post s₀ s' := by
+theorem correctMain (v : Permutation) {s₀ : State} (hp : Pre s₀) :
+    WP isa (padMainWith v.callee) s₀ fun s' => (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s₀.gpr r) ∧
+      s'.sp = s₀.sp ∧
+      (∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64) ∧
+      Proof.Sha3.padAArch64.post s₀ s' := by
   have hr : 72 ≤ (s₀.gpr .x1).toNat ∧ (s₀.gpr .x1).toNat ≤ 168 := Proof.Sha3.rate_bounds hp.rate
   have hpl : (s₀.gpr .x2).toNat < (s₀.gpr .x1).toNat := hp.pos_lt
   have hin : ∀ j < 200, (stR s₀).Contains (st s₀ + BitVec.ofNat 64 j) 1 := fun j hj =>
@@ -66,7 +67,7 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
     rw [hp.wr]; exact ⟨_, List.mem_cons_self .., hin j hj⟩
   have hw' : ∀ j < 200, InRegions (s₀.rd ++ s₀.wr) (st s₀ + BitVec.ofNat 64 j) 1 := fun j hj => by
     rw [hp.rd]; exact hw j hj
-  unfold padMain
+  unfold padMainWith
   refine WP.seq (wp_add fun s₁ u₁ => ?_)
   have e₁ : s₁.gpr .x9 + BitVec.ofNat 64 0 = st s₀ + BitVec.ofNat 64 ((s₀.gpr .x2).toNat) := by
     rw [u₁.gpr]; simp
@@ -115,7 +116,7 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
   have sp₁₁ : s₁₁.sp = s₀.sp := by
     rw [u₁₁.sp, g₁₀.sp, u₉.sp, u₈.sp, u₇.sp, u₆.sp, u₅.sp, g₄.sp, u₃.sp, u₂.sp, u₁.sp]
   have e512 : Region.Sub ⟨scr s₀, 512⟩ (scR s₀) := Region.sub_prefix (by omega)
-  refine call_ok (st := st s₀) (scr := scr s₀)
+  refine call_ok v (st := st s₀) (scr := scr s₀)
     (by rw [k₁₁ _ (by decide) (by decide) (by decide) (by decide)])
     (by rw [u₁₁.gpr, g₁₀.gpr, u₉.other _ (by decide), u₈.other _ (by decide), u₇.other _ (by decide),
       u₆.other _ (by decide), u₅.other _ (by decide), k₄ _ (by decide) (by decide)])
@@ -128,8 +129,9 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
       rcases hr with rfl | rfl
       · exact ⟨stR s₀, by simp, 0, by simp, by simp⟩
       · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩)
-    fun s' _ _ sp' cs' _ e' => ?_
-  refine ⟨fun r hr h30 => ?_, by rw [sp', sp₁₁], fun msg hR hm => ?_⟩
+    fun s' _ _ sp' cs' vc' _ e' => ?_
+  refine ⟨fun r hr h30 => ?_, by rw [sp', sp₁₁], (fun r hr => by
+    rw [vc' r hr, u₁₁.vec, g₁₀.vec, u₉.vec, u₈.vec, u₇.vec, u₆.vec, u₅.vec, g₄.vec, u₃.vec, u₂.vec, u₁.vec]), fun msg hR hm => ?_⟩
   · have ne := keep_ne r hr
     rw [cs' r hr h30, k₁₁ r ne.1 ne.2.1 ne.2.2.1 ne.2.2.2]
   · rw [e', u₁₁.mem, hS, absorb_pad (by omega) (by omega), ← hm,
@@ -139,18 +141,17 @@ theorem correctMain {s₀ : State} (hp : Pre s₀) :
 abbrev inner (s₀ : State) : State :=
   { s₀ with sp := s₀.sp - 16, mem := s₀.mem.write (s₀.sp - 16) 8 (s₀.gpr .x30) }
 
-theorem correct {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) :
-    WP isa Impl.Sha3.AArch64.Stream.pad s₀ fun s' =>
+theorem correct (v : Permutation) {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) :
+    WP isa (Impl.Sha3.AArch64.Stream.padWith v.callee) s₀ fun s' =>
       abiPreserved s₀ s' ∧ Proof.Sha3.padAArch64.post s₀ s' := by
-  apply WP.withPreservedV (hc := by decide +kernel)
   have hpi : Pre (inner s₀) := ⟨hp.rd, hp.wr, hp.st_scr, hp.rate, hp.pos_lt⟩
-  refine WP.frameReg hs.sp16 (fun R hR => ?_) (WP.mono (correctMain hpi) fun s' ⟨hk, hsp, hpost⟩ => ?_)
+  refine WP.frameReg (hn := by rw [v.padMain_depth]; decide) hs.sp16 (fun R hR => ?_) (WP.mono ((correctMain v) hpi) fun s' ⟨hk, hsp, hv, hpost⟩ => ?_)
   · rw [hp.wr] at hR
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hR
     rcases hR with rfl | rfl
     · exact hs.st
     · exact hs.scr
-  · refine ⟨⟨fun r hr => ?_, rfl⟩, fun msg hm hc => ?_⟩
+  · refine ⟨⟨fun r hr => ?_, rfl, hv⟩, fun msg hm hc => ?_⟩
     · by_cases h30 : r = .x30
       · subst h30; simp [State.write]
       · simp only [State.write, h30, ite_false]
@@ -175,20 +176,21 @@ def sat : State where
   rd := []
   wr := [⟨0x1000, 200⟩, ⟨0x3000, 640⟩]
 
-theorem pad_correct (s : State) (hs : Proof.Sha3.padAArch64.pre s) :
-    ∃ t s', Exec isa Impl.Sha3.AArch64.Stream.pad s t s' ∧ abiPreserved s s' ∧
+theorem pad_correct (v : Permutation) (s : State) (hs : Proof.Sha3.padAArch64.pre s) :
+    ∃ t s', Exec isa (Impl.Sha3.AArch64.Stream.padWith v.callee) s t s' ∧ abiPreserved s s' ∧
       Proof.Sha3.padAArch64.post s s' := by
-  obtain ⟨t, s', he, h⟩ := correct (pre_of hs).1 (pre_of hs).2
+  obtain ⟨t, s', he, h⟩ := (correct v) (pre_of hs).1 (pre_of hs).2
   exact ⟨t, s', he, h⟩
 
-theorem pad_ct : ConstantTime isa Proof.Sha3.padAArch64.pre Proof.Sha3.padAArch64.pub
-    Impl.Sha3.AArch64.Stream.pad := by
+theorem pad_ct (v : Permutation) : ConstantTime isa Proof.Sha3.padAArch64.pre Proof.Sha3.padAArch64.pub
+    (Impl.Sha3.AArch64.Stream.padWith v.callee) := by
+  obtain ⟨hint, hhint⟩ := v.padTaint
   exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x4])
-    (fun _ _ _ _ hp => agree₀ hp) (by taint_decide)
+    (fun _ _ _ _ hp => agree₀ hp) hhint
 
-theorem pad_verified :
-    Verified AArch64.target Impl.Sha3.AArch64.Stream.pad (Spec.Sha3.padContract AArch64.abi 16) :=
-  Verified.of_correct pad_correct pad_ct (by
+theorem pad_verified (v : Permutation) :
+    Verified AArch64.target (Impl.Sha3.AArch64.Stream.padWith v.callee) (Spec.Sha3.padContract AArch64.abi 16) :=
+  Verified.of_correct (pad_correct v) (pad_ct v) (by
     sig_implies [Spec.Sha3.padContract, Spec.Sha3.padSig, Proof.Sha3.padAArch64, AArch64.abi,
       AArch64.argRegs] [Proof.Sha3.AArch64.Stream.Pad.sat] using Proof.Sha3.AArch64.Stream.Pad.sat)
 
