@@ -34,7 +34,7 @@ theorem mhBody_ok (g : Nat) (s : State) (hM : s.gpr .x5 = BitVec.ofNat 64 (hbMul
         s'.gpr .x0 = s.gpr .x0 + BitVec.ofNat 64 4 ∧ s'.gpr .x1 = s.gpr .x1 + BitVec.ofNat 64 4 ∧
         s'.gpr .x3 = s.gpr .x3 + BitVec.ofNat 64 4 ∧ s'.gpr .x7 = s.gpr .x7 - BitVec.ofNat 64 1) ∧
       Keep [.x0, .x1, .x3, .x7, .x8, .x11, .x12, .x13, .x14] s s' := by
-  refine VG.Proof.MlDsa.AArch64.Arith.WP.keep _ ?_ (by rfl)
+  refine VG.Proof.MlDsa.AArch64.Arith.WP.keep _ ?_ (by rfl) (hv := rfl)
   unfold mhBody hb hbRaw Impl.MlKem.AArch64.csub
   have hS := @dShift_lt g
   have hm := @dMod_lt g

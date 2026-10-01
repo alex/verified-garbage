@@ -38,8 +38,8 @@ def samples4 (c : Callee4) : Prog isa :=
     (.seq (quad c 4 8 (aS4 2 0) (pS 35)) (quad c 4 12 (aS4 3 0) (pS 35))))
 
 /-- `f[0] ×_T g[0] + ⋯ + f[3] ×_T g[3]` to polynomial 15 (with 16 for the products). -/
-def dot4At (f g : Nat → Ptr) : Prog isa :=
-  .seq (dotAt f g) (.seq (mulAt (pS 16) (f 3) (g 3)) (addAt (pS 15) (pS 16)))
+def dot4At (A : Arith) (f g : Nat → Ptr) : Prog isa :=
+  .seq (dotAt A f g) (.seq (mulAt A (pS 16) (f 3) (g 3)) (addAt (pS 15) (pS 16)))
 
 def ce4At (f : Ptr) (d : Nat) (out : Ptr) : Prog isa :=
   .seq (.block (lea .rdi f ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 d))] ++ lea .rdx out ++

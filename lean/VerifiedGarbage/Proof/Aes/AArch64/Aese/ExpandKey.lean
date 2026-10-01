@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Aes.AArch64.Aese.Ctr32
 import VerifiedGarbage.Proof.Aes.AArch64.ExpandKey
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
@@ -498,7 +499,7 @@ theorem expandKey_correct (s : State) (hs : Proof.Aes.expandKeyAArch64.pre s) :
     ∃ t s', Exec isa expandKey s t s' ∧ abiPreserved s s' ∧ Proof.Aes.expandKeyAArch64.post s s' := by
   obtain ⟨t, s', he, h₂, h₁⟩ :=
     WP.gprs (rs := preserved) (correct (pre_of hs)) (by decide +kernel) (by decide +kernel)
-  exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
+  exact ⟨t, s', he, ⟨h₁, Exec.sp he, Exec.preservedV he⟩, h₂⟩
 
 theorem expandKey_ct : ConstantTime isa Proof.Aes.expandKeyAArch64.pre
     Proof.Aes.expandKeyAArch64.pub expandKey := by

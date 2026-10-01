@@ -1,7 +1,8 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Poly1305.AArch64.Init
 import VerifiedGarbage.Proof.Poly1305.AArch64.Blocks
 import VerifiedGarbage.Proof.Poly1305.AArch64.Finalize
-import VerifiedGarbage.Proof.ChaCha20.AArch64.Xor
+import VerifiedGarbage.Proof.ChaCha20.AArch64.XorVariant
 import VerifiedGarbage.Proof.ChaCha20Poly1305.Spec
 import VerifiedGarbage.Impl.ChaCha20Poly1305.AArch64
 import VerifiedGarbage.Proof.Framework.PowLit
@@ -92,7 +93,6 @@ theorem callEntry_gpr' (s : State) {r : Reg} (h : r ∉ linkRegs) : s.callEntry.
 theorem init_noFrames : Impl.Poly1305.AArch64.init.noFrames = true := by decide +kernel
 theorem blocks_noFrames : Impl.Poly1305.AArch64.blocks.noFrames = true := by decide +kernel
 theorem finalize_noFrames : Impl.Poly1305.AArch64.finalize.noFrames = true := by decide +kernel
-theorem xor_noFrames : Impl.ChaCha20.AArch64.Xor.xor.noFrames = true := by decide +kernel
 
 /-! ## `vg_poly1305_init` -/
 
@@ -176,7 +176,7 @@ theorem block_call {s : State} {S B : Addr} (hx0 : s.gpr .x0 = S) (hx1 : s.gpr .
     (hQ : ∀ s', Kept [⟨B, 256⟩] s s' → stateAt s'.mem B = Spec.ChaCha20.block (stateAt s.mem S) → Q s') :
     WP isa (.call "vg_chacha20_block" Impl.ChaCha20.AArch64.block) s Q := by
   refine WP.call (k := Proof.ChaCha20.blockAArch64) Proof.ChaCha20.AArch64.block_correct
-    (rd := [⟨S, 64⟩]) (wr := [⟨B, 256⟩]) ?_ hc hw ?_ Proof.ChaCha20.AArch64.Xor.block_noFrames
+    (rd := [⟨S, 64⟩]) (wr := [⟨B, 256⟩]) ?_ hc hw ?_ (by decide +kernel)
   · simp only [Proof.ChaCha20.blockAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs),
       callEntry_gpr' s (by decide : Reg.x1 ∉ linkRegs), hx0, hx1]
@@ -189,28 +189,29 @@ theorem block_call {s : State} {S B : Addr} (hx0 : s.gpr .x0 = S) (hx1 : s.gpr .
 
 /-! ## `vg_chacha20_xor` -/
 
-theorem xor_call {s : State} {S D B : Addr} {n : Nat} (hx0 : s.gpr .x0 = S) (hx1 : s.gpr .x1 = D)
+theorem xor_call (v : Proof.ChaCha20.AArch64.XorImpl) {s : State} {S D B : Addr} {n : Nat} (hx0 : s.gpr .x0 = S) (hx1 : s.gpr .x1 = D)
     (hx2 : s.gpr .x2 = BitVec.ofNat 64 n) (hx3 : s.gpr .x3 = B) (hn : n < 2 ^ 64)
     (hSD : (⟨S, 64⟩ : Region).Disjoint ⟨D, n⟩) (hSB : (⟨S, 64⟩ : Region).Disjoint ⟨B, 320⟩)
     (hDB : (⟨D, n⟩ : Region).Disjoint ⟨B, 320⟩) (hwrap : D.toNat + n ≤ 2 ^ 64)
     (hc : Covers ([] ++ [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩]) (s.rd ++ s.wr))
     (hw : Covers [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩] s.wr)
     {Q : State → Prop}
-    (hQ : ∀ s', Kept [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩] s s' →
+    (hQ : ∀ s', (∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64) →
+      Kept [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩] s s' →
       Spec.ChaCha20.bytesAt s'.mem D n =
         List.zipWith (· ^^^ ·) (Spec.ChaCha20.bytesAt s.mem D n) (keystream (stateAt s.mem S) n) → Q s') :
-    WP isa (.call "vg_chacha20_xor" Impl.ChaCha20.AArch64.Xor.xor) s Q := by
+    WP isa (.call v.callee.name v.callee.code) s Q := by
   have hn' : (BitVec.ofNat 64 n).toNat = n := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt hn
-  refine WP.call (k := Proof.ChaCha20.xorAArch64) Proof.ChaCha20.AArch64.Xor.xor_correct
-    (rd := []) (wr := [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩]) ?_ hc hw ?_ xor_noFrames
+  refine WP.callV (k := Proof.ChaCha20.xorAArch64) v.ok
+    (rd := []) (wr := [⟨S, 64⟩, ⟨D, n⟩, ⟨B, 320⟩]) ?_ hc hw ?_ v.noFrames
   · simp only [Proof.ChaCha20.xorAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs),
       callEntry_gpr' s (by decide : Reg.x1 ∉ linkRegs), callEntry_gpr' s (by decide : Reg.x2 ∉ linkRegs),
       callEntry_gpr' s (by decide : Reg.x3 ∉ linkRegs), hx0, hx1, hx2, hx3, hn']
     exact ⟨trivial, trivial, hSD, hSB, hDB, hwrap⟩
-  · intro s' hrd hwr hsp hf hcs _ hpost
-    refine hQ s' ⟨hcs, hsp, hrd, hwr, hf⟩ ?_
+  · intro s' hrd hwr hsp hf hcs _ hvec hpost
+    refine hQ s' hvec ⟨hcs, hsp, hrd, hwr, hf⟩ ?_
     simpa only [Proof.ChaCha20.xorAArch64, State.withRegions_gpr, State.withRegions_mem,
       State.callEntry_mem, callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs),
       callEntry_gpr' s (by decide : Reg.x1 ∉ linkRegs), callEntry_gpr' s (by decide : Reg.x2 ∉ linkRegs),
@@ -1445,11 +1446,12 @@ theorem cryptA_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s) :
 theorem hL (s₀ : State) : s₀.gpr .x4 = BitVec.ofNat 64 (L s₀) := by simp [L]
 
 /-- The data encrypted (or decrypted) from block counter 1. -/
-theorem crypt_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s)
+theorem crypt_ok (v : Proof.ChaCha20.AArch64.XorImpl) {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s)
     (hst : stateAt s.mem (off (cx s₀) 64) = Spec.ChaCha20.initState (K s₀) 0 (N s₀)) :
-    WP isa crypt s fun s' => Inv s₀ s' ∧ Kept [sub s₀ 64 384, dR s₀] s s' ∧
+    WP isa (cryptWith v.callee) s fun s' =>
+      (∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64) ∧ Inv s₀ s' ∧ Kept [sub s₀ 64 384, dR s₀] s s' ∧
       bytesAt s'.mem (dp s₀) (L s₀) = Spec.ChaCha20.encrypt (K s₀) 1 (N s₀) (bytesAt s.mem (dp s₀) (L s₀)) := by
-  refine WP.seq (WP.mono (cryptA_ok hp h) fun s₁ ⟨m₁, x0₁, x1₁, x2₁, x3₁, k₁⟩ => ?_)
+  refine WP.seq (WP.mono (WP.preservedV (cryptA_ok hp h)) fun s₁ ⟨⟨m₁, x0₁, x1₁, x2₁, x3₁, k₁⟩, v₁⟩ => ?_)
   have wr₁ : s₁.wr = s₀.wr := by rw [k₁.wr, h.wr]
   have hw : Covers [⟨off (cx s₀) 64, 64⟩, ⟨dp s₀, L s₀⟩, ⟨off (cx s₀) 128, 320⟩] s₁.wr := by
     refine Covers.of_sub fun r hr => ?_
@@ -1458,11 +1460,12 @@ theorem crypt_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Inv s₀ s)
     · exact ⟨ctxR s₀, by simp [wr₁, hp.wr], 64, rfl, by show 64 + 64 ≤ 1024; omega⟩
     · exact ⟨dR s₀, by simp [wr₁, hp.wr], 0, by simp, by simp⟩
     · exact ⟨ctxR s₀, by simp [wr₁, hp.wr], 128, rfl, by show 128 + 320 ≤ 1024; omega⟩
-  refine xor_call x0₁ x1₁ (by rw [x2₁]; exact hL s₀) x3₁ (s₀.gpr .x4).isLt
+  refine xor_call v x0₁ x1₁ (by rw [x2₁]; exact hL s₀) x3₁ (s₀.gpr .x4).isLt
     (hp.c_d.sub_left (sub_ctx s₀ (k := 64) (n := 64) (by lit_omega)))
     (sub_disj s₀ (a := 64) (n := 64) (b := 128) (m := 320) (by lit_omega) (by lit_omega) (by lit_omega))
     (hp.c_d.symm.sub_right (sub_ctx s₀ (k := 128) (n := 320) (by lit_omega))) hp.wrap_d
-    (covers_nil_append (covers_left _ hw)) hw fun s₂ k₂ data₂ => ?_
+    (covers_nil_append (covers_left _ hw)) hw fun s₂ v₂ k₂ data₂ => ?_
+  refine ⟨fun r hr => (v₂ r hr).trans (v₁ r hr), ?_⟩
   have hsub : ∀ r ∈ [sub s₀ 64 384, dR s₀], ∃ r' ∈ [workR s₀, dR s₀], Region.Sub r r' := by
     intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr

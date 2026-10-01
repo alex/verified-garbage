@@ -4,16 +4,18 @@ import VerifiedGarbage.Proof.MlKem1024.AArch64.KgB
 # ML-KEM-1024 on AArch64: `vg_mlkem1024_keygen`, the calls of phase C
 
 Untrusted: everything here is checked by Lean. Each building block of the
-computation of `ŝ`, `ê` and `t̂` (`kgCbdNtt`, `kgEnc`, `kgMul`, `kgAdd`): what
+computation of `ŝ`, `ê` and `t̂` (`(kgCbdNttWith keccak.callee)`, `kgEnc`, `kgMul`, `kgAdd`): what
 it needs, what it computes, what it keeps (`KB`), and the only memory it
 changes (`Frame`), so that the facts established before it survive it.
 -/
 
 namespace VG.Proof.MlKem1024.AArch64.KeyGen
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlKem1024.AArch64 VG.Impl.MlKem1024.AArch64.KG VG.Proof.MlKem
   VG.Proof.MlKem.AArch64 VG.Proof.MlKem1024 VG.Proof.MlKem1024.AArch64
-open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash copy32)
+open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash hashWith copy32)
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
 
@@ -36,7 +38,7 @@ example {s₀ : State} (hp : Pre s₀) (off : Nat) (h1 : 4128 ≤ off) (h2 : off
 the saved registers. -/
 def PolyOff (off : Nat) : Prop := AH ≤ off ∧ off + 1024 ≤ SV
 
-/-- What `kgCbdNtt` writes. -/
+/-- What `(kgCbdNttWith keccak.callee)` writes. -/
 abbrev cnW (s₀ : State) (off : Nat) : List Region :=
   [R (kA s₀) 3 ST 200, R (kA s₀) 3 WK 640, below s₀.sp 16, R (kA s₀) 3 (SG + 32) 1, R (kA s₀) 3 PB 128,
     R (kA s₀) 3 off 1024, R (kA s₀) 3 NS 1024]
@@ -44,7 +46,7 @@ abbrev cnW (s₀ : State) (off : Nat) : List Region :=
 /-- `SamplePolyCBD₂(PRF₂(σ, N))`. -/
 theorem cbdNtt_ok {s₀ : State} (hp : Pre s₀) {N off : Nat} (hN : N < 256) (ho : PolyOff off) {s : State}
     (hk : KB s₀ s) (hs : bytesAt s.mem (kA s₀ 3 + BitVec.ofNat 64 SG) 32 = kgSigma1024 (dB s₀)) :
-    WP isa (kgCbdNtt N off) s fun s' => KB s₀ s' ∧ Frame (cnW s₀ off) s.mem s'.mem ∧
+    WP isa ((kgCbdNttWith keccak.callee) N off) s fun s' => KB s₀ s' ∧ Frame (cnW s₀ off) s.mem s'.mem ∧
       PolyIs s'.mem (kA s₀ 3 + BitVec.ofNat 64 off) (ntt (cbd (kgSigma1024 (dB s₀)) N)) ∧
       s'.gpr .x24 = s.gpr .x24 := by
   have e : ∀ {u : State}, KB s₀ u → ∀ o, u.gpr .x28 + BitVec.ofNat 64 o = kA s₀ 3 + BitVec.ofNat 64 o :=
@@ -77,7 +79,7 @@ theorem cbdNtt_ok {s₀ : State} (hp : Pre s₀) {N off : Nat} (hN : N < 256) (h
     rw [ptr_zero, ptr_add, m₂, writeW8_apply, ite_eq_left rfl, e₁]
     exact sfx8 hN
   -- `PRF₂(σ, N)`
-  refine WP.seq (WP.mono (hash_ok (hsetup hp kb₂ (by decide : 136 ∈ Spec.Sha3.rates)) (sfx := 0x1f)
+  refine WP.seq (WP.mono (hashWith_ok keccak (hsetup hp kb₂ (by decide : 136 ∈ Spec.Sha3.rates)) (sfx := 0x1f)
     (by decide) (ins := [⟨.x28, SG, 33⟩]) (outs := [⟨.x28, PB, 128⟩]) (by simp)
     (fun p hp' => by
       rw [List.mem_singleton.mp hp']

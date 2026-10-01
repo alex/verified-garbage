@@ -53,9 +53,9 @@ theorem rest_ok (v : Sample4Impl) {σ : State} (hp : keyGenK.pre σ) {s : State}
     WP isa (rest v.callee) s (KFin σ) := by
   unfold rest
   refine WP.seq (WP.mono (prfs_okK v hp h) fun s₀ h₀ => ?_)
-  refine WP.seq (WP.mono (seqR_ok (I := fun k => KRest k 0 0 σ) 6 0 (fun k _ hk s hs => se_ok hp (by omega) hs) s₀ h₀)
+  refine WP.seq (WP.mono (seqR_ok (I := fun k => KRest k 0 0 σ) 6 0 (fun k _ hk s hs => se_ok v.arith hp (by omega) hs) s₀ h₀)
     fun s₁ h₁ => ?_)
-  refine WP.seq (WP.mono (seqR_ok (I := fun k => KRest 6 k 0 σ) 3 0 (fun k _ hk s hs => row_ok hp (by omega) hs) s₁ h₁)
+  refine WP.seq (WP.mono (seqR_ok (I := fun k => KRest 6 k 0 σ) 3 0 (fun k _ hk s hs => row_ok v.arith hp (by omega) hs) s₁ h₁)
     fun s₂ h₂ => ?_)
   refine WP.seq (WP.mono (seqR_ok (I := fun k => KRest 6 3 k σ) 3 0 (fun k _ hk s hs => encS_ok hp (by omega) hs) s₂
     h₂) fun s₃ h₃ => ?_)
@@ -130,9 +130,9 @@ theorem rest_tr (v : Sample4Impl) : RelCT isa (R fun σ s => KRest0 σ s ∧ all
   unfold rest
   refine RelCT.seq (relInvC (fun σ s hp hs => prfs_okK v hp hs) (prfs_trK v)) ?_
   refine RelCT.seq (seqR_tr (R := fun k => R fun σ s => KRest k 0 0 σ s ∧ allOk (rhoK σ) 9) 6 0
-    fun k _ hk => relInvC (fun σ s hp hs => se_ok hp (by omega) hs) (se_tr (by omega))) ?_
+    fun k _ hk => relInvC (fun σ s hp hs => se_ok v.arith hp (by omega) hs) (se_tr v.arith (by omega))) ?_
   refine RelCT.seq (seqR_tr (R := fun k => R fun σ s => KRest 6 k 0 σ s ∧ allOk (rhoK σ) 9) 3 0
-    fun k _ hk => relInvC (fun σ s hp hs => row_ok hp (by omega) hs) (row_tr (by omega))) ?_
+    fun k _ hk => relInvC (fun σ s hp hs => row_ok v.arith hp (by omega) hs) (row_tr v.arith (by omega))) ?_
   refine RelCT.seq (seqR_tr (R := fun k => R fun σ s => KRest 6 3 k σ s ∧ allOk (rhoK σ) 9) 3 0
     fun k _ hk => relInvC (fun σ s hp hs => encS_ok hp (by omega) hs) (encS_tr (by omega))) ?_
   exact relInvC (fun σ s hp hs => fin_ok hp hs) fin_tr

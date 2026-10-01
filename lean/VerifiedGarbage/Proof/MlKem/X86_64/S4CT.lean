@@ -7,9 +7,15 @@ import VerifiedGarbage.Proof.MlKem.X86_64.SampleCT
 Untrusted: everything here is checked by Lean. Two runs whose seeds (the
 declared leak) and pointers agree leak the same. The code but for the loops
 of `parse` and their fallbacks is proven by the taint analysis, from the
-pointers; the loops as `vg_mlkem_sample_ntt`'s (`body_ct`), since both runs
-read the same XOF output; the fallbacks take the same branch, and call
-`vg_mlkem_sample_ntt` on the same seed.
+pointers. Both runs read the same XOF output, so in the loops they are at
+the same iteration with the same coefficients sampled: each group of four
+iterations takes the same branch (on `j < 249`, `vgrp_ct`); the vector code
+computes the same mask of the candidates in `eax` (`VI.rax`), so it loads
+the same entry of the table, stores to the same address and counts the same
+(the taint analysis, from `rax`, `rbx`, `rbp`, `rdi` and `rsi`), and
+`vg_mlkem_sample_ntt`'s loop runs as in that function (`body_ct`). The
+fallbacks take the same branch, and call `vg_mlkem_sample_ntt` on the same
+seed.
 -/
 
 namespace VG.Proof.MlKem.X86_64.S4
@@ -68,7 +74,7 @@ theorem sq_ct (n : Nat) (hn : n < 3) {hc : VG.Taint.Hint X86_64.Taint.T}
 theorem sq0_ct : RelCT isa (R4 fun σ s => SqInv σ 0 s) (squeeze4 0) (R4 fun σ s => SqInv σ 1 s) :=
   sq_ct 0 (by decide) (by taint_decide)
 
-/-! ## The loops -/
+/-! ## The groups of four iterations -/
 
 theorem pub_Lt {σ₁ σ₂ : State} (hq : sample4K.pub σ₁ σ₂) {K : Nat} (hK : K < 4) (t : Nat) :
     Lt σ₁ K t = Lt σ₂ K t := by simp only [Lt, pub_B hq hK]
@@ -84,65 +90,124 @@ theorem bpre {σ : State} (hp : sample4K.pre σ) {K t : Nat} (hK : K < 4) (ht : 
   rw [coeffAddr, poly4, Offset.add_add]
   exact Offset.contains_base _ (by omega) (by omega)
 
-/-- Two runs at iteration `t` of `parse K`, `n = 168 - t` iterations from the end. -/
-def LI (K n : Nat) (s₁ s₂ : State) : Prop :=
-  ∃ σ₁ σ₂ t, sample4K.pre σ₁ ∧ sample4K.pre σ₂ ∧ sample4K.pub σ₁ σ₂ ∧ n = 168 - t ∧ t < 168 ∧
-    LAt σ₁ K t s₁ ∧ LAt σ₂ K t s₂ ∧ s₁.gpr .rcx = BitVec.ofNat 64 (168 - t) ∧
-    s₂.gpr .rcx = BitVec.ofNat 64 (168 - t)
+/-- Two runs at iteration `t + u` of the scalar group from iteration `t`, `n = 4 - u` iterations from its
+end. -/
+def GI (K t : Nat) (c : BitVec 64) (n : Nat) (s₁ s₂ : State) : Prop :=
+  ∃ σ₁ σ₂ u, sample4K.pre σ₁ ∧ sample4K.pre σ₂ ∧ sample4K.pub σ₁ σ₂ ∧ n = 4 - u ∧ u < 4 ∧
+    LAt σ₁ K (t + u) s₁ ∧ LAt σ₂ K (t + u) s₂ ∧ s₁.gpr .rcx = BitVec.ofNat 64 (4 - u) ∧
+    s₂.gpr .rcx = BitVec.ofNat 64 (4 - u) ∧ s₁.gpr .r10 = c ∧ s₂.gpr .r10 = c ∧
+    ¬ (Lt σ₁ K t).length < 249 ∧ ¬ (Lt σ₂ K t).length < 249
 
-theorem li_brel {K n : Nat} (hK : K < 4) {s₁ s₂ : State} (h : LI K n s₁ s₂) : BRel s₁ s₂ := by
-  obtain ⟨σ₁, σ₂, t, p₁, p₂, hq, _, ht, l₁, l₂, c₁, c₂⟩ := h
-  refine ⟨poly4 (aP σ₁) K, Lt σ₁ K t, bpre p₁ hK ht l₁, by rw [pub_aP hq, pub_Lt hq hK]; exact bpre p₂ hK ht l₂,
+theorem gi_brel {K t : Nat} {c : BitVec 64} {n : Nat} (hK : K < 4) (ht : t + 4 ≤ 168) {s₁ s₂ : State}
+    (h : GI K t c n s₁ s₂) : BRel s₁ s₂ := by
+  obtain ⟨σ₁, σ₂, u, p₁, p₂, hq, _, hu, l₁, l₂, c₁, c₂, -⟩ := h
+  refine ⟨poly4 (aP σ₁) K, Lt σ₁ K (t + u), bpre p₁ hK (by omega) l₁,
+    by rw [pub_aP hq, pub_Lt hq hK]; exact bpre p₂ hK (by omega) l₂,
     by rw [l₁.rsi, l₂.rsi, at', at', pub_scr hq], by rw [c₁, c₂], fun k hk => ?_⟩
   rw [out_byte hK l₁ (by omega), out_byte hK l₂ (by omega), pub_B hq hK]
 
-theorem loop_ct {K : Nat} (hK : K < 4) (n : Nat) :
-    RelCT isa (LI K n) (.loop snBody .ne) (R4 fun σ s => LAt σ K 168 s) := by
-  refine RelCT.loop (M := isa) (LI K) (fun n => ?_) n
-  refine RelCT.postDep (F := fun (x x' : State) => ∀ p : State × Nat, sample4K.pre p.1 ∧ p.2 < 168 ∧
-      LAt p.1 K p.2 x → LAt p.1 K (p.2 + 1) x' ∧ x'.gpr .rcx = x.gpr .rcx - 1 ∧ x'.zf = some (x.gpr .rcx - 1 == 0))
-    (RelCT.mono body_ct (fun x y h => li_brel hK h) fun _ _ _ => trivial) (fun x y h => ?_) ?_
-  · obtain ⟨σ₁, σ₂, t, p₁, p₂, _, _, ht, l₁, l₂, _⟩ := h
-    exact ⟨WP.all (fun p hp' => lat_step (pre_of hp'.1) hK hp'.2.1 hp'.2.2) ⟨(σ₁, t), p₁, ht, l₁⟩,
-      WP.all (fun p hp' => lat_step (pre_of hp'.1) hK hp'.2.1 hp'.2.2) ⟨(σ₂, t), p₂, ht, l₂⟩⟩
-  · intro x y x' y' ⟨σ₁, σ₂, t, p₁, p₂, hq, hn, ht, l₁, l₂, c₁, c₂⟩ f₁ f₂
-    obtain ⟨l₁', r₁, z₁⟩ := f₁ (σ₁, t) ⟨p₁, ht, l₁⟩
-    obtain ⟨l₂', r₂, z₂⟩ := f₂ (σ₂, t) ⟨p₂, ht, l₂⟩
-    rw [c₁, SampleNtt.zf_last (by decide) ht] at z₁
-    rw [c₂, SampleNtt.zf_last (by decide) ht] at z₂
+/-- The four iterations of `vg_mlkem_sample_ntt`'s loop. -/
+theorem iloop_ct {K t : Nat} {c : BitVec 64} (hK : K < 4) (ht : t + 4 ≤ 168) (n : Nat) :
+    RelCT isa (GI K t c n) (.loop snBody .ne)
+      (R4 fun σ s => LAt σ K (t + 4) s ∧ s.gpr .r10 = c ∧ ¬ (Lt σ K t).length < 249) := by
+  refine RelCT.loop (M := isa) (GI K t c) (fun n => ?_) n
+  refine RelCT.postDep (F := fun (x x' : State) => ∀ p : State × Nat, sample4K.pre p.1 ∧ p.2 < 4 ∧
+      LAt p.1 K (t + p.2) x → (LAt p.1 K (t + p.2 + 1) x' ∧ x'.gpr .rcx = x.gpr .rcx - 1 ∧
+        x'.zf = some (x.gpr .rcx - 1 == 0)) ∧ x'.gpr .r10 = x.gpr .r10)
+    (RelCT.mono body_ct (fun x y h => gi_brel hK ht h) fun _ _ _ => trivial) (fun x y h => ?_) ?_
+  · obtain ⟨σ₁, σ₂, u, p₁, p₂, _, _, hu, l₁, l₂, _⟩ := h
+    exact ⟨WP.all (fun p hp' => WP.gpr (lat_step (pre_of hp'.1) hK (by omega) hp'.2.2) (r := .r10) (by decide))
+        ⟨(σ₁, u), p₁, hu, l₁⟩,
+      WP.all (fun p hp' => WP.gpr (lat_step (pre_of hp'.1) hK (by omega) hp'.2.2) (r := .r10) (by decide))
+        ⟨(σ₂, u), p₂, hu, l₂⟩⟩
+  · intro x y x' y' ⟨σ₁, σ₂, u, p₁, p₂, hq, hn, hu, l₁, l₂, c₁, c₂, d₁, d₂, v₁, v₂⟩ f₁ f₂
+    obtain ⟨⟨l₁', r₁, z₁⟩, e₁⟩ := f₁ (σ₁, u) ⟨p₁, hu, l₁⟩
+    obtain ⟨⟨l₂', r₂, z₂⟩, e₂⟩ := f₂ (σ₂, u) ⟨p₂, hu, l₂⟩
+    rw [c₁, SampleNtt.zf_last (by decide) hu] at z₁
+    rw [c₂, SampleNtt.zf_last (by decide) hu] at z₂
     rw [c₁, ofNat64_pred (by omega) (by omega)] at r₁
     rw [c₂, ofNat64_pred (by omega) (by omega)] at r₂
     refine ⟨by show x'.zf.map _ = y'.zf.map _; rw [z₁, z₂], fun hf => ?_, fun ht' => ?_⟩
-    · have : t + 1 = 168 := by
+    · have : u + 1 = 4 := by
         have : x'.zf.map (!·) = some false := hf
         rw [z₁] at this; simpa using this
-      rw [this] at l₁' l₂'
-      exact ⟨σ₁, σ₂, p₁, p₂, hq, l₁', l₂'⟩
-    · have : t + 1 ≠ 168 := by
+      rw [Nat.add_assoc, this] at l₁' l₂'
+      exact ⟨σ₁, σ₂, p₁, p₂, hq, ⟨l₁', by rw [e₁, d₁], v₁⟩, ⟨l₂', by rw [e₂, d₂], v₂⟩⟩
+    · have : u + 1 ≠ 4 := by
         have : x'.zf.map (!·) = some true := ht'
         rw [z₁] at this; simpa using this
-      exact ⟨168 - (t + 1), by omega, σ₁, σ₂, t + 1, p₁, p₂, hq, rfl, by omega, l₁', l₂',
-        by rw [r₁]; congr 1, by rw [r₂]; congr 1⟩
+      exact ⟨4 - (u + 1), by omega, σ₁, σ₂, u + 1, p₁, p₂, hq, rfl, by omega, by rw [← Nat.add_assoc]; exact l₁',
+        by rw [← Nat.add_assoc]; exact l₂', by rw [r₁]; congr 1, by rw [r₂]; congr 1, by rw [e₁, d₁], by rw [e₂, d₂],
+        v₁, v₂⟩
 
-/-- The setup of the loop of `parse K`, given its taint analysis. -/
-theorem setup_ct {K : Nat} (hK : K < 4) {hc : VG.Taint.Hint X86_64.Taint.T}
-    (c : (taint.check (X86_64.Taint.ofRegs [.rbx, .r13])
-      (.block [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitVec.ofNat 32 (oBuf + 504 * K))),
-        .mov32 .rdi (.imm 0), .mov .rbp (.reg .r13), .alu .add .rbp (.imm (BitVec.ofNat 32 (1024 * K))),
-        .mov32 .rcx (.imm 168)]) hc).isSome = true) :
-    RelCT isa (R4 fun σ s => PInv σ K s)
-      (.block [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitVec.ofNat 32 (oBuf + 504 * K))),
-        .mov32 .rdi (.imm 0), .mov .rbp (.reg .r13), .alu .add .rbp (.imm (BitVec.ofNat 32 (1024 * K))),
-        .mov32 .rcx (.imm 168)]) (LI K 168) :=
-  RelCT.mono (relInv (I' := fun σ s => LAt σ K 0 s ∧ s.gpr .rcx = BitVec.ofNat 64 168)
-      (fun σ s _ h => setup_ok hK h)
-      (taintRel [.rbx, .r13] (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ r hr => by
-        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-        rcases hr with rfl | rfl
-        · exact env_rbx hq h₁.env h₂.env
-        · rw [h₁.env.r13, h₂.env.r13, pub_aP hq]) c))
-    (fun _ _ h => h) fun _ _ ⟨σ₁, σ₂, p₁, p₂, hq, ⟨l₁, c₁⟩, ⟨l₂, c₂⟩⟩ =>
-      ⟨σ₁, σ₂, 0, p₁, p₂, hq, rfl, by decide, l₁, l₂, c₁, c₂⟩
+/-- The relation of two runs at a group: iteration `t`, the constants in place while there are
+fewer than 249 coefficients, and `r10 = c`. -/
+abbrev RV (K t : Nat) (c : BitVec 64) : State → State → Prop := R4 fun σ s => LV σ K t s ∧ s.gpr .r10 = c
+
+theorem cmpG_ok {σ : State} {K t : Nat} {c : BitVec 64} {s : State} (h : LV σ K t s ∧ s.gpr .r10 = c) :
+    WP isa (.block [.alu .cmp .rdi (.imm 249)]) s fun s' => (LV σ K t s' ∧ s'.gpr .r10 = c) ∧
+      s'.cf = some (decide ((Lt σ K t).length < 249)) := by
+  have hlen : (Lt σ K t).length ≤ 256 := sampleAfter_length_le (a := []) (by simp) _ t
+  refine WP.mono (cmp249_ok s) fun s' ⟨hcf, hm, hg, hrd, hwr, hl⟩ => ?_
+  exact ⟨⟨⟨h.1.lat.same hg hm hrd hwr, fun h' => (h.1.vc h').same hl⟩, by rw [hg]; exact h.2⟩,
+    by rw [hcf, h.1.lat.rdi, ofNat64_toNat (by omega)]⟩
+
+/-- A group of four iterations. -/
+theorem vgrp_ct {K t : Nat} {c : BitVec 64} (hK : K < 4) (ht : t + 4 ≤ 168) :
+    RelCT isa (RV K t c) vgrp (RV K (t + 4) c) := by
+  unfold vgrp
+  refine RelCT.seq (relInv (I' := fun σ s => (LV σ K t s ∧ s.gpr .r10 = c) ∧
+      s.cf = some (decide ((Lt σ K t).length < 249))) (fun σ s _ h => cmpG_ok h)
+    (taintRel [.rdi] (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; rw [h₁.1.lat.rdi, h₂.1.lat.rdi, pub_Lt hq hK])
+      (by taint_decide))) (RelCT.ite (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ => by
+        show x.cf = y.cf; rw [h₁.2, h₂.2, pub_Lt hq hK]) ?_ ?_)
+  · -- with the vector code
+    refine RelCT.mono (P := R4 fun σ s => LAt σ K t s ∧ VC s ∧ (Lt σ K t).length < 249 ∧ s.gpr .r10 = c)
+      (RelCT.seq (relInv (I' := fun σ s => VI σ K t s ∧ s.gpr .r10 = c)
+          (fun σ s hp h => WP.mono (vec1_ok (pre_of hp) hK ht h.1 h.2.1 h.2.2.1) fun _ ⟨hi, h10⟩ =>
+            ⟨hi, by rw [h10]; exact h.2.2.2⟩)
+          (taintRel [.rsi] (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ r hr => by
+            simp only [List.mem_singleton] at hr; subst hr; rw [h₁.1.rsi, h₂.1.rsi, at', at', pub_scr hq])
+            (by taint_decide)))
+        (relInv (fun σ s hp h => WP.mono (vec2_ok (pre_of hp) hK ht h.1) fun _ ⟨l, v, h10⟩ =>
+            ⟨⟨l, fun _ => v⟩, by rw [h10]; exact h.2⟩)
+          (taintRel [.rbx, .rax, .rbp, .rdi, .rsi] (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ r hr => by
+            simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+            rcases hr with rfl | rfl | rfl | rfl | rfl
+            · exact env_rbx hq h₁.1.lat.pinv.env h₂.1.lat.pinv.env
+            · rw [h₁.1.rax, h₂.1.rax, pub_B hq hK]
+            · rw [h₁.1.lat.rbp, h₂.1.lat.rbp, pub_aP hq]
+            · rw [h₁.1.lat.rdi, h₂.1.lat.rdi, pub_Lt hq hK]
+            · rw [h₁.1.lat.rsi, h₂.1.lat.rsi, at', at', pub_scr hq]) (by taint_decide))))
+      (fun x y ⟨⟨σ₁, σ₂, p₁, p₂, hq, ⟨⟨⟨l₁, v₁⟩, d₁⟩, f₁⟩, ⟨⟨⟨l₂, v₂⟩, d₂⟩, f₂⟩⟩, hb⟩ => ?_) fun _ _ h => h
+    have hb' : (Lt σ₁ K t).length < 249 := by
+      have : x.cf = some true := hb
+      rw [f₁] at this; simpa using this
+    have hb'' : (Lt σ₂ K t).length < 249 := by rw [← pub_Lt hq hK]; exact hb'
+    exact ⟨σ₁, σ₂, p₁, p₂, hq, ⟨l₁, v₁ hb', hb', d₁⟩, ⟨l₂, v₂ hb'', hb'', d₂⟩⟩
+  · -- with `snBody`
+    refine RelCT.mono (P := R4 fun σ s => LAt σ K t s ∧ ¬ (Lt σ K t).length < 249 ∧ s.gpr .r10 = c) ?_ ?_
+      fun _ _ h => h
+    · refine RelCT.seq (relInv (I' := fun σ s => (LAt σ K t s ∧ ¬ (Lt σ K t).length < 249 ∧ s.gpr .r10 = c) ∧
+          s.gpr .rcx = BitVec.ofNat 64 4) ?_ ?_) ?_
+      · intro σ s _ h
+        refine WP.mono (WP.keep [.rcx] (Q := fun s' => s'.mem = s.mem ∧ s'.gpr .rcx = BitVec.ofNat 64 4)
+          (by xrun) (by decide)) fun s' ⟨⟨hm, hc⟩, k⟩ => ?_
+        exact ⟨⟨h.1.same' hm k, h.2.1, by rw [k.gpr (by decide)]; exact h.2.2⟩, hc⟩
+      · exact taintRel [] (fun _ _ _ _ hr => absurd hr List.not_mem_nil) (by taint_decide)
+      · refine RelCT.mono (iloop_ct (c := c) hK ht 4) ?_ ?_
+        · rintro x y ⟨σ₁, σ₂, p₁, p₂, hq, ⟨⟨l₁, v₁, d₁⟩, c₁⟩, ⟨⟨l₂, v₂, d₂⟩, c₂⟩⟩
+          exact ⟨σ₁, σ₂, 0, p₁, p₂, hq, rfl, by decide, l₁, l₂, c₁, c₂, d₁, d₂, v₁, v₂⟩
+        · rintro x y ⟨σ₁, σ₂, p₁, p₂, hq, ⟨l₁, d₁, v₁⟩, ⟨l₂, d₂, v₂⟩⟩
+          exact ⟨σ₁, σ₂, p₁, p₂, hq, ⟨⟨l₁, fun h' => absurd (Nat.lt_of_le_of_lt (Lt_mono σ₁ K t 4) h') v₁⟩, d₁⟩,
+            ⟨⟨l₂, fun h' => absurd (Nat.lt_of_le_of_lt (Lt_mono σ₂ K t 4) h') v₂⟩, d₂⟩⟩
+    · rintro x y ⟨⟨σ₁, σ₂, p₁, p₂, hq, ⟨⟨⟨l₁, -⟩, d₁⟩, f₁⟩, ⟨⟨⟨l₂, -⟩, d₂⟩, f₂⟩⟩, hb⟩
+      have hb' : ¬ (Lt σ₁ K t).length < 249 := by
+        have : x.cf = some false := hb
+        rw [f₁] at this; simpa using this
+      have hb'' : ¬ (Lt σ₂ K t).length < 249 := by rw [← pub_Lt hq hK]; exact hb'
+      exact ⟨σ₁, σ₂, p₁, p₂, hq, ⟨l₁, hb', d₁⟩, ⟨l₂, hb'', d₂⟩⟩
 
 /-! ## The fallbacks -/
 
@@ -199,7 +264,7 @@ theorem fallback_ct {K : Nat} (hK : K < 4) {hc : VG.Taint.Hint X86_64.Taint.T}
     (taintRel [] SampleNtt.nil_regs (by taint_decide))) (RelCT.ite (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ => by
       show x.cf = y.cf; rw [h₁.cf, h₂.cf, pub_Lt hq hK]) ?_ ?_)
   · refine RelCT.mono (P := R4 fun σ s => PInv σ K s)
-      (RelCT.seq (args_ct (X := BufOK) hK c) (RelCT.seq (call_ct hK fun σ hp => bufOK_call (pre_of hp) hK) and_ct))
+      (RelCT.seq (args_ct (X := BufT) hK c) (RelCT.seq (call_ct hK fun σ hp => bufOK_call (pre_of hp) hK) and_ct))
       (fun _ _ ⟨⟨σ₁, σ₂, p₁, p₂, hq, h₁, h₂⟩, _⟩ => ⟨σ₁, σ₂, p₁, p₂, hq, h₁.pinv, h₂.pinv⟩) fun _ _ h => h
   · refine RelCT.mono (P := R4 fun σ s => MI σ K s ∧ s.cf = some false)
       (relInv (I' := fun σ s => PInv σ (K + 1) s) (fun σ s _ h => WP.block_nil (skipK_ok hK h.1 h.2))
@@ -208,29 +273,76 @@ theorem fallback_ct {K : Nat} (hK : K < 4) {hc : VG.Taint.Hint X86_64.Taint.T}
     have hc' : x.cf = some false := hc
     rw [h₂.cf, ← pub_Lt hq hK, ← h₁.cf, hc']
 
+/-! ## The loop of `parse K` -/
+
+/-- Two runs at group `2 i` of the loop, `n = 21 - i` iterations from its end. -/
+def LI (K n : Nat) (s₁ s₂ : State) : Prop :=
+  ∃ i, n = 21 - i ∧ i < 21 ∧ RV K (8 * i) (BitVec.ofNat 64 (21 - i)) s₁ s₂
+
+theorem sub10_ct {K t : Nat} {c : BitVec 64} :
+    RelCT isa (RV K t c) (.block [.alu .sub .r10 (.imm 1)])
+      (R4 fun σ s => LV σ K t s ∧ s.gpr .r10 = c - 1 ∧ s.zf = some (c - 1 == 0)) :=
+  relInv (fun σ s _ h => WP.mono (sub10_ok s) fun s' ⟨⟨hm, h10, hz, hl⟩, k⟩ =>
+      ⟨⟨h.1.lat.same' hm k, fun h' => (h.1.vc h').same hl⟩, by rw [h10, h.2], by rw [hz, h.2]⟩)
+    (taintRel [.r10] (fun x y ⟨σ₁, σ₂, _, _, _, h₁, h₂⟩ r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; rw [h₁.2, h₂.2]) (by taint_decide))
+
+theorem loopV_ct {K : Nat} (hK : K < 4) (n : Nat) :
+    RelCT isa (LI K n) (.loop Sample4.vbody .ne) (R4 fun σ s => LAt σ K 168 s) := by
+  refine RelCT.loop (M := isa) (LI K) (fun n => ?_) n
+  refine RelCT.mono (P := fun s₁ s₂ => ∃ i, n = 21 - i ∧ i < 21 ∧ RV K (8 * i) (BitVec.ofNat 64 (21 - i)) s₁ s₂)
+    (RelCT.exists_ fun i => ?_) (fun _ _ h => by unfold LI at h; exact h) fun _ _ h => h
+  by_cases hi : i < 21 ∧ n = 21 - i
+  · obtain ⟨hi, hn⟩ := hi
+    refine RelCT.mono (P := RV K (8 * i) (BitVec.ofNat 64 (21 - i)))
+      (RelCT.seq (vgrp_ct hK (by omega)) (RelCT.seq (vgrp_ct hK (by omega)) sub10_ct))
+      (fun _ _ h => h.2.2) fun x y ⟨σ₁, σ₂, p₁, p₂, hq, ⟨l₁, d₁, z₁⟩, ⟨l₂, d₂, z₂⟩⟩ => ?_
+    rw [ofNat64_pred (by omega) (by omega)] at d₁ d₂ z₁ z₂
+    rw [ofNat64_beq_zero (by omega)] at z₁ z₂
+    rw [show 8 * i + 4 + 4 = 8 * (i + 1) by omega] at l₁ l₂
+    refine ⟨by show x.zf.map _ = y.zf.map _; rw [z₁, z₂], fun hf => ?_, fun ht => ?_⟩
+    · have : 21 - i - 1 = 0 := by
+        have : x.zf.map (!·) = some false := hf
+        rw [z₁] at this; simpa using this
+      rw [show i + 1 = 21 by omega] at l₁ l₂
+      exact ⟨σ₁, σ₂, p₁, p₂, hq, l₁.lat, l₂.lat⟩
+    · have : 21 - i - 1 ≠ 0 := by
+        have : x.zf.map (!·) = some true := ht
+        rw [z₁] at this; simpa using this
+      exact ⟨21 - (i + 1), by omega, i + 1, rfl, by omega, σ₁, σ₂, p₁, p₂, hq,
+        ⟨l₁, by rw [d₁]; congr 1⟩, ⟨l₂, by rw [d₂]; congr 1⟩⟩
+  · exact RelCT.of_false fun _ _ h => hi ⟨h.2.1, h.1⟩
+
+/-- `parse K`. -/
 theorem parse_ct {K : Nat} (hK : K < 4) {h₁ h₂ : VG.Taint.Hint X86_64.Taint.T}
-    (c₁ : (taint.check (X86_64.Taint.ofRegs [.rbx, .r13])
-      (.block [.mov .rsi (.reg .rbx), .alu .add .rsi (.imm (BitVec.ofNat 32 (oBuf + 504 * K))),
-        .mov32 .rdi (.imm 0), .mov .rbp (.reg .r13), .alu .add .rbp (.imm (BitVec.ofNat 32 (1024 * K))),
-        .mov32 .rcx (.imm 168)]) h₁).isSome = true)
+    (c₁ : (taint.check (X86_64.Taint.ofRegs [.rbx, .r13]) (.block (setup K ++ cstLoad)) h₁).isSome = true)
     (c₂ : (taint.check (X86_64.Taint.ofRegs [.r12, .r13, .rbx])
       (.block [.mov .rdi (.reg .r12), .alu .add .rdi (.imm (BitVec.ofNat 32 (34 * K))),
         .mov .rsi (.reg .r13), .alu .add .rsi (.imm (BitVec.ofNat 32 (1024 * K))), .mov .rdx (.reg .rbx),
         .alu .add .rdx (.imm (BitVec.ofNat 32 oScalar))]) h₂).isSome = true) :
     RelCT isa (R4 fun σ s => PInv σ K s) (parse K) (R4 fun σ s => PInv σ (K + 1) s) := by
   unfold parse
-  exact RelCT.seq (setup_ct hK c₁) (RelCT.seq (loop_ct hK 168) (fallback_ct hK c₂))
+  refine RelCT.seq (RelCT.mono (relInv (I' := fun σ s => LV σ K 0 s ∧ s.gpr .r10 = BitVec.ofNat 64 21)
+      (fun σ s hp h => setup_ok (pre_of hp) hK h)
+      (taintRel [.rbx, .r13] (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ r hr => by
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+        rcases hr with rfl | rfl
+        · exact env_rbx hq h₁.env h₂.env
+        · rw [h₁.env.r13, h₂.env.r13, pub_aP hq]) c₁)) (fun _ _ h => h)
+      (Q' := LI K 21) fun x y h => ⟨0, rfl, by decide, h⟩)
+    (RelCT.seq (loopV_ct hK 21) (RelCT.seq (relInv (I' := fun σ s => LAt σ K 168 s) (fun _ _ _ h => vz_lat h)
+      (taintRel [] (fun _ _ _ _ hr => absurd hr List.not_mem_nil) (by taint_decide))) (fallback_ct hK c₂)))
 
-theorem pinv0 {σ s : State} (h : SqInv σ 3 s) : PInv σ 0 s :=
-  ⟨h.env, fun k hk p hp' => h.buf k hk p (by omega), by rw [h.r14]; rfl, fun _ h _ _ => absurd h (by omega)⟩
+theorem tab_ct : RelCT isa (R4 fun σ s => SqInv σ 3 s) (.block tabBuild) (R4 fun σ s => PInv σ 0 s) :=
+  relInv (fun σ s hp h => pinv0_ok (pre_of hp) h)
+    (taintRel [.rbx] (fun x y ⟨σ₁, σ₂, _, _, hq, h₁, h₂⟩ r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; exact env_rbx hq h₁.env h₂.env) (by taint_decide))
 
 theorem ct : ConstantTime isa sample4K.pre sample4K.pub Impl.MlKem.X86_64.Sample4.sampleNTT4Avx2 := by
   refine relStart (Q := fun _ _ => True) (RelCT.seq start_ct (RelCT.seq sq0_ct
     (RelCT.seq (sq_ct 1 (by decide) (by taint_decide)) (RelCT.seq (sq_ct 2 (by decide) (by taint_decide))
-      (RelCT.seq (relInv (I' := fun σ s => SqInv σ 3 s) (fun _ _ _ h => vz_sq h)
-        (taintRel [] (fun _ _ _ _ hr => absurd hr List.not_mem_nil) (by taint_decide))) ?_)))))
-  refine RelCT.seq (RelCT.mono (parse_ct (K := 0) (by decide) (by taint_decide) (by taint_decide))
-    (fun _ _ ⟨σ₁, σ₂, p₁, p₂, hq, h₁, h₂⟩ => ⟨σ₁, σ₂, p₁, p₂, hq, pinv0 h₁, pinv0 h₂⟩) fun _ _ h => h) ?_
+      (RelCT.seq tab_ct ?_)))))
+  refine RelCT.seq (parse_ct (K := 0) (by decide) (by taint_decide) (by taint_decide)) ?_
   refine RelCT.seq (parse_ct (K := 1) (by decide) (by taint_decide) (by taint_decide)) ?_
   refine RelCT.seq (parse_ct (K := 2) (by decide) (by taint_decide) (by taint_decide)) ?_
   refine RelCT.seq (parse_ct (K := 3) (by decide) (by taint_decide) (by taint_decide)) ?_

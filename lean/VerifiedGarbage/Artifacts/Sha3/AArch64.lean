@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Sha3.AArch64.Sha3.Vector.Permute
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.Sha3.AArch64.Permute
 import VerifiedGarbage.Proof.Sha3.AArch64.Stream.Absorb
@@ -21,35 +22,20 @@ namespace VG.Artifacts.Sha3.AArch64
 
 def artifacts : List Artifact := [
   { Spec.Sha3.permuteApi with
+    name := "vg_keccak_f1600_sha3"
+    target := AArch64.target
+    doc := Spec.Sha3.permuteApi.doc (notes := ["Uses the Arm SHA-3 instructions."])
+    code := Impl.Sha3.AArch64.Sha3.Vector.permute
+    contract := Spec.Sha3.permuteContract AArch64.abi
+    verified := Proof.Sha3.AArch64.Sha3.Vector.permute_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _
+    features := ["sha3"] },
+  { Spec.Sha3.permuteApi with
     target := AArch64.target
     doc := Spec.Sha3.permuteApi.doc
     code := Impl.Sha3.AArch64.permute
     contract := Spec.Sha3.permuteContract AArch64.abi
     verified := Proof.Sha3.AArch64.permute_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.Sha3.absorbApi with
-    target := AArch64.target
-    doc := Spec.Sha3.absorbApi.doc
-    code := Impl.Sha3.AArch64.Stream.absorb
-    contract := Spec.Sha3.absorbContract AArch64.abi 16
-    stack := 16
-    verified := Proof.Sha3.AArch64.Stream.Absorb.absorb_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.Sha3.padApi with
-    target := AArch64.target
-    doc := Spec.Sha3.padApi.doc
-    code := Impl.Sha3.AArch64.Stream.pad
-    contract := Spec.Sha3.padContract AArch64.abi 16
-    stack := 16
-    verified := Proof.Sha3.AArch64.Stream.Pad.pad_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.Sha3.squeezeApi with
-    target := AArch64.target
-    doc := Spec.Sha3.squeezeApi.doc
-    code := Impl.Sha3.AArch64.Stream.squeeze
-    contract := Spec.Sha3.squeezeContract AArch64.abi 16
-    stack := 16
-    verified := Proof.Sha3.AArch64.Stream.Squeeze.squeeze_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.Sha3.AArch64

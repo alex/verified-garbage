@@ -47,6 +47,14 @@ pub(crate) fn check<H: HmacHash>(name: &str, new: fn(&[u8]) -> Hmac<H>) {
             h.update(core::slice::from_ref(byte));
         }
         assert_eq!(h.finalize().as_ref(), full.as_ref());
+        // `verify` takes only whole MACs: it accepts the expected tag when
+        // the test is valid and is not truncated, and rejects it otherwise.
+        let mut h = new(&key.0);
+        h.update(&msg.0);
+        let accept =
+            group.params.tag_size == H::OUTPUT_SIZE * 8 && test.result == Expectation::Valid;
+        let ok = h.verify(&tag.0).is_ok();
+        assert_eq!(ok, accept, "tcId {}", test.tc_id);
         let computed = &full.as_ref()[..group.params.tag_size / 8];
         if test.result == Expectation::Valid {
             assert_eq!(computed, &tag.0[..], "tcId {}", test.tc_id);

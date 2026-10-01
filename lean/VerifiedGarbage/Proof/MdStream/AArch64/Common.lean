@@ -542,6 +542,8 @@ byte count in `x22` at `x19 + N + 56`, writing only `x9` and `x12`, and
 `P.out` writes the digest of the hash value at `x19` to `x21`, writing only
 `x9`. -/
 structure Shape {P : Params} (H : Md 64 P.N 8) : Prop where
+  lenKeepsV : P.len.all VG.AArch64.keepsV = true
+  outKeepsV : P.out.all VG.AArch64.keepsV = true
   len : ∀ s : State, InRegions s.wr (s.gpr .x19 + BitVec.ofNat 64 (P.N + 56)) 8 →
     WP isa (.block P.len) s fun s' => (∀ r, r ≠ .x9 → r ≠ .x12 → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧
       s'.wr = s.wr ∧ s'.sp = s.sp ∧
@@ -558,6 +560,24 @@ structure CalleeOk {P : Params} (H : Md 64 P.N 8) (code : Prog isa) : Prop where
   verified : ∀ s, (compressK H).pre s →
     ∃ t s', Exec isa code s t s' ∧ abiPreserved s s' ∧ (compressK H).post s s'
   noFrames : code.noFrames = true
+  keepsV : code.allInstrs VG.AArch64.keepsV = true
+
+/-- The stream wrapper itself writes no vector registers. -/
+theorem update_keepsV {P : Params} {name : String} {code : Prog isa}
+    (h : code.allInstrs VG.AArch64.keepsV = true) :
+    (update P name code).allInstrs VG.AArch64.keepsV = true := by
+  simp [update, updateMain, updateStart, updateBody, fill, copyBody, direct,
+    compressN, compressWith, save, saved, restore, mov, Code.allInstrs,
+    VG.AArch64.keepsV, vdstOf, h]
+
+/-- The finalizer adds only the parameterized length and digest stores. -/
+theorem finalize_keepsV {P : Params} {H : Md 64 P.N 8} {name : String} {code : Prog isa}
+    (hs : Shape H) (h : code.allInstrs VG.AArch64.keepsV = true) :
+    (finalize P name code).allInstrs VG.AArch64.keepsV = true := by
+  rw [Code.allInstrs_eq] at h ⊢
+  simp [finalize, finalizeMain, finalizeStart, finalizeBody, zeroBody,
+    compressAt, compressWith, save, saved, restore, mov, instrs,
+    VG.AArch64.keepsV, vdstOf, h, hs.lenKeepsV, hs.outKeepsV]
 
 /-! ## The compression function -/
 

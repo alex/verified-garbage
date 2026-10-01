@@ -289,8 +289,8 @@ structure VUpd (s s' : State) (d : VReg) (x : BitVec 128) : Prop where
 theorem VUpd.get {s s' : State} {d : VReg} {x : BitVec 128} (h : VUpd s s' d x) (r : VReg)
     (hr : r ≠ d := by decide) : s'.v r = s.v r := h.other r hr
 
-theorem VUpd.keep {s s' : State} {d : VReg} {x : BitVec 128} (h : VUpd s s' d x) : Keep [] s s' :=
-  ⟨fun r _ => by rw [h.gpr], h.rd, h.wr, h.sp⟩
+theorem VUpd.keep {s s' : State} {d : VReg} {x : BitVec 128} (h : VUpd s s' d x) (hd : d ∉ preservedV := by decide +kernel) : Keep [] s s' :=
+  ⟨fun r _ => by rw [h.gpr], h.rd, h.wr, h.sp, fun r hr => by rw [h.other r (fun e => hd (e ▸ hr))]⟩
 
 theorem vupd_setV (s : State) (d : VReg) (x : BitVec 128) : VUpd s (s.setV d x) d x :=
   ⟨by simp [State.setV], fun r h => by simp [State.setV, h], rfl, rfl, rfl, rfl, rfl⟩
@@ -492,11 +492,11 @@ theorem get {rs : List VReg} {s s' : State} (h : VChg rs s s') (r : VReg) (hr : 
 
 end VChg
 
-theorem VChg.keep {rs : List VReg} {s s' : State} (h : VChg rs s s') : Keep [] s s' :=
-  ⟨fun r _ => by rw [h.gpr], h.rd, h.wr, h.sp⟩
+theorem VChg.keep {rs : List VReg} {s s' : State} (h : VChg rs s s') (hv : ∀ r ∈ preservedV, r ∉ rs := by decide +kernel) : Keep [] s s' :=
+  ⟨fun r _ => by rw [h.gpr], h.rd, h.wr, h.sp, fun r hr => by rw [h.v r (hv r hr)]⟩
 
 theorem VMem.keep {s s' : State} {m : Mem} (h : VMem s s' m) : Keep [] s s' :=
-  ⟨fun r _ => by rw [h.gpr], h.rd, h.wr, h.sp⟩
+  ⟨fun r _ => by rw [h.gpr], h.rd, h.wr, h.sp, fun r _ => by rw [h.v]⟩
 
 theorem VUpd.chg {s s' : State} {d : VReg} {x : BitVec 128} (h : VUpd s s' d x) : VChg [d] s s' :=
   ⟨fun r hr => h.other r (by simpa using hr), h.gpr, h.mem, h.rd, h.wr, h.sp⟩

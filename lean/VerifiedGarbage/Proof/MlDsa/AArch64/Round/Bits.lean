@@ -28,7 +28,7 @@ theorem hbBody_ok (g : Nat) (s : State) (hM : s.gpr .x4 = BitVec.ofNat 64 (hbMul
         s'.gpr .x0 = s.gpr .x0 + BitVec.ofNat 64 4 ∧ s'.gpr .x2 = s.gpr .x2 + BitVec.ofNat 64 4 ∧
         s'.gpr .x6 = s.gpr .x6 - BitVec.ofNat 64 1) ∧
       Keep [.x0, .x2, .x6, .x11, .x12, .x13] s s' := by
-  refine VG.Proof.MlDsa.AArch64.Arith.WP.keep _ ?_ (by rfl)
+  refine VG.Proof.MlDsa.AArch64.Arith.WP.keep _ ?_ (by rfl) (hv := rfl)
   unfold hbBody hb hbRaw
   have hS := @dShift_lt g
   have hm := @dMod_lt g
@@ -45,7 +45,7 @@ theorem lbBody_ok (g : Nat) (s : State) (hM : s.gpr .x4 = BitVec.ofNat 64 (hbMul
         s'.gpr .x0 = s.gpr .x0 + BitVec.ofNat 64 4 ∧ s'.gpr .x2 = s.gpr .x2 + BitVec.ofNat 64 4 ∧
         s'.gpr .x6 = s.gpr .x6 - BitVec.ofNat 64 1) ∧
       Keep [.x0, .x2, .x6, .x11, .x12, .x13] s s' := by
-  refine VG.Proof.MlDsa.AArch64.Arith.WP.keep _ ?_ (by rfl)
+  refine VG.Proof.MlDsa.AArch64.Arith.WP.keep _ ?_ (by rfl) (hv := rfl)
   unfold lbBody hb hbRaw
   have hS := @dShift_lt g
   have hm := @dMod_lt g

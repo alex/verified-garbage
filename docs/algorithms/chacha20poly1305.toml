@@ -3,3 +3,6 @@ family = "AEADs"
 specs = ["ChaCha20Poly1305"]
 modules = ["src/chacha20poly1305.rs"]
 asm = ["chacha20poly1305"]
+
+[optimized]
+aarch64 = "NEON"
