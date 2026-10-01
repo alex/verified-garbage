@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.Aes.X86.Ctr32
 import VerifiedGarbage.Proof.Aes.X86.ExpandKey
+import VerifiedGarbage.Proof.Aes.X86.AesNi.Ctr32
 
 /-!
 # AES on x86
@@ -35,6 +36,17 @@ def artifacts : List Artifact := [
     code := Impl.Aes.X86.ctr32
     contract := Spec.Gcm.ctr32Contract X86.abi
     verified := Proof.Aes.X86.ctr32_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.Gcm.ctr32Api with
+    name := "vg_aes_ctr32_aesni"
+    target := X86.target
+    doc := Spec.Gcm.ctr32Api.doc
+      (notes := ["AES-NI, six blocks at a time followed by a one-block tail. The low counter \
+        word increments modulo 2^32; the first twelve counter bytes stay fixed."])
+    code := Impl.Aes.X86.AesNi.ctr32
+    contract := Spec.Gcm.ctr32Contract X86.abi
+    verified := Proof.Aes.X86.AesNi.ctr32_verified
+    features := ["aes"]
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.Aes.X86

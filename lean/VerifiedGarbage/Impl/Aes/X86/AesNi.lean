@@ -2,8 +2,7 @@ import VerifiedGarbage.Spec.Aes
 import VerifiedGarbage.TCB.X86.Isa
 
 /-!
-Draft 32-bit AES-NI implementation. Not registered or proven; only usable after
-merged x86 SIMD model prerequisites.
+32-bit AES-NI implementation, verified against the merged x86 SIMD model.
 CTR encrypts six lanes using xmm0..5, round key xmm6, and load temporary xmm7.
 The counter prefix is cached in scratch; each lane inserts its incremented low
 word with MOVD/PSLLDQ/POR. The final low word is stored once. Only the low 32
