@@ -27,4 +27,16 @@ theorem packHalves_shift (l r : BitVec 32) :
     simp [h, hj, hb, show j - 32 < 64 by omega,
       BitVec.getLsbD_of_ge r j (by omega)]
 
+theorem pack28_shift (c d : BitVec 28) :
+    ((c.setWidth 64 <<< 28) ^^^ d.setWidth 64).setWidth 56 = c ++ d := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  simp only [BitVec.getLsbD_setWidth, BitVec.getLsbD_xor,
+    BitVec.getLsbD_shiftLeft, BitVec.getLsbD_append, hj, decide_true, Bool.true_and]
+  by_cases h : j < 28
+  · simp [h, show j < 64 by omega]
+  · simp [h, show j < 64 by omega, show j - 28 < 28 by omega,
+      show j - 28 < 64 by omega, BitVec.getLsbD_of_ge d j (by omega)]
+
+
 end VG.Proof.TripleDes.AArch64
