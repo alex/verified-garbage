@@ -9,9 +9,11 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem pointDecode_ok {s : State} {base p : Addr} (hs : Scratch s base) (hp : s.gpr .rdx = p)
     (hr : ∀ d, d + 8 ≤ 32 → InRegions (s.rd ++ s.wr) (off p d) 8) :
-    WP isa pointDecode s fun t => DecodeKeep base s t ∧
+    WP isa (pointDecode fld) s fun t => DecodeKeep base s t ∧
       DecodeResult base (Spec.Ed25519.decodePoint (Spec.Ed25519.bytesAt s.mem p 32)) t := by
   have hl : (Spec.Ed25519.bytesAt s.mem p 32).length = 32 := by
     simp only [Spec.Ed25519.bytesAt, List.length_map, List.length_range]

@@ -41,15 +41,16 @@ def compressAArch64 : Contract AArch64.isa where
     s₁.gpr .x2 = s₂.gpr .x2 ∧ s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.sp = s₂.sp
 
 open AArch64 in
-/-- AArch64 contract for `vg_sha256_init(state: *mut [u8; 96])`: makes the
-streaming state at `state` represent the empty message.
+/-- AArch64 contract for `vg_sha256_init(state: *mut [u8; 96])` and
+`vg_sha224_init`, which store the initial hash value `iv`: makes the
+streaming state at `state` represent the empty message, hashed from `iv`.
 
 The code may write `state` (96 bytes). The pointer is public. -/
-def initAArch64 : Contract AArch64.isa where
+def initAArch64 (iv : HashValue) : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 96⟩
     s.rd = [] ∧ s.wr = [state]
-  post s s' := Repr s'.mem (s.gpr .x0) []
+  post s s' := ReprFrom iv s'.mem (s.gpr .x0) []
   pub s₁ s₂ := s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.sp = s₂.sp
 
 open AArch64 in

@@ -26,16 +26,16 @@ def pointAddCachedOps : List FieldOp := [
   .sub 12 9 8, .sub 13 11 10, .add 14 11 10, .add 15 9 8,
   .mul 0 12 13, .mul 1 14 15, .mul 2 13 14, .mul 3 12 15]
 
-def pointAddCached : List Instr := fieldCode pointAddCachedOps
+def pointAddCached (fld : Arith) : List Instr := fieldCode fld pointAddCachedOps
 
 /-- One descending scalar bit, as `pointAccumulate`, adding a cached power. -/
-def baseAccumulate : List Instr := prepareAdd ++ pointAddCached ++ scalarBitMask ++ pointSelect
+def baseAccumulate (fld : Arith) : List Instr := prepareAdd fld ++ pointAddCached fld ++ scalarBitMask ++ pointSelect
 
-def baseAccumulateBody : List Instr :=
-  ([.alu .sub .rbx (.imm 1)] : List Instr) ++ baseAccumulate ++ [.alu .test .rbx (.reg .rbx)]
+def baseAccumulateBody (fld : Arith) : List Instr :=
+  ([.alu .sub .rbx (.imm 1)] : List Instr) ++ baseAccumulate fld ++ [.alu .test .rbx (.reg .rbx)]
 
-def baseAccumulate16 : Prog isa :=
-  .seq (.block [.mov32 .rbx (.imm 16)]) (.loop (.block baseAccumulateBody) .ne)
+def baseAccumulate16 (fld : Arith) : Prog isa :=
+  .seq (.block [.mov32 .rbx (.imm 16)]) (.loop (.block (baseAccumulateBody fld)) .ne)
 
 /-- `rax` = the local table, at byte 5376 of the scratch. -/
 def baseTableStart : List Instr := [.movImm64 .rax 5376, .alu .add .rax (.reg .rdi)]
@@ -61,13 +61,13 @@ def baseBatchTableFrom : List Nat → Prog isa
 def baseBatchTable : Prog isa := baseBatchTableFrom (List.range 16)
 
 /-- One batch: the counter, the batch's powers, then its sixteen bits. -/
-def baseMulBatch : Prog isa :=
+def baseMulBatch (fld : Arith) : Prog isa :=
   .seq (.block batchBegin) (.seq baseBatchTable (.seq (.block batchBitOffset)
-    (.seq baseAccumulate16 (.block batchTest))))
+    (.seq (baseAccumulate16 fld) (.block batchTest))))
 
-def baseMultiplyInit : List Instr := constPoint Spec.Ed25519.identity ++ mulCounterInit 16
+def baseMultiplyInit (fld : Arith) : List Instr := constPoint fld Spec.Ed25519.identity ++ mulCounterInit 16
 
 /-- `[s]B` into slots 0–3, for the scalar bits expanded into bytes 768 onward. -/
-def baseMultiply : Prog isa := .seq (.block baseMultiplyInit) (.loop baseMulBatch .ne)
+def baseMultiply (fld : Arith) : Prog isa := .seq (.block (baseMultiplyInit fld)) (.loop (baseMulBatch fld) .ne)
 
 end VG.Impl.Ed25519.X86_64

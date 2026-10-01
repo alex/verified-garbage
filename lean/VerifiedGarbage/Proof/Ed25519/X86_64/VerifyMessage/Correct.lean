@@ -3,6 +3,8 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyMessage.Body
 
 /-! Correctness and ABI preservation of the complete verification operation. -/
 namespace VG.Proof.Ed25519.X86_64.VerifyMessage
+
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
 open VG VG.X86_64
 open VG.Impl.Ed25519.X86_64.VerifyMessage
 open VG.Proof.Sha512.X86_64 (Compress)
@@ -12,7 +14,7 @@ theorem pop_rsp (B : Addr) :
   rw [PublicKey.add_add]
 
 theorem verifyMessage_ok (v : Compress) {s : State} (h : verifyMessageLocal.pre s) :
-    WP isa (code v.callee v.suffix) s fun s' => abiPreserved s s' ∧ verifyMessageLocal.post s s' := by
+    WP isa (code fld fs v.callee v.suffix) s fun s' => abiPreserved s s' ∧ verifyMessageLocal.post s s' := by
   have hL := lay_ok h
   have hc := push_ctx h
   refine WP.frame (rs := pushRs) (by decide) (by decide) (by decide)
