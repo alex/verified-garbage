@@ -17,8 +17,7 @@ return address (`stack_le`), and for two levels of calls (`depth_le`).
 
 An implementation also names the implementation of `vg_poly1305_blocks` for
 the same CPUs (`poly`), which ChaCha20-Poly1305's instance for it calls: so
-each instance needs the CPU features of both, and the one for AVX-512 uses
-the AVX2 one.
+each instance needs the CPU features of both.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64
@@ -129,7 +128,7 @@ def avx512 : XorImpl where
   spSafe := Code.all_of_allInstrs (by lit_decide)
   suffix := "_avx512"
   features := ["avx", "avx512f"]
-  poly := .avx2
+  poly := .avx512
 
 end XorImpl
 
