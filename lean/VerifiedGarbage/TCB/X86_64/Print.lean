@@ -141,12 +141,20 @@ def ZBinOp.name : ZBinOp → String
   | .vpaddd => "vpaddd" | .vpxord => "vpxord"
   | .vpunpckldq => "vpunpckldq" | .vpunpckhdq => "vpunpckhdq"
   | .vpunpcklqdq => "vpunpcklqdq" | .vpunpckhqdq => "vpunpckhqdq"
+  | .vpaddq => "vpaddq" | .vpmuludq => "vpmuludq" | .vpandq => "vpandq" | .vporq => "vporq"
+  | .vpandnq => "vpandnq"
+
+def ZShiftOp.name : ZShiftOp → String
+  | .vpsllq => "vpsllq" | .vpsrlq => "vpsrlq"
 
 def ZOp.asm : ZOp → String
   | .zbin op d a b => s!"{op.name} {d.zname}, {a.zname}, {b.zname}"
   | .vprold d r n => s!"vprold {d.zname}, {r.zname}, {n.toNat}"
   | .vpshufd d r o => s!"vpshufd {d.zname}, {r.zname}, {o.toNat}"
   | .vshufi32x4 d a b n => s!"vshufi32x4 {d.zname}, {a.zname}, {b.zname}, {n.toNat}"
+  | .vshift op d r n => s!"{op.name} {d.zname}, {r.zname}, {n.toNat}"
+  | .vpbroadcastq d r => s!"vpbroadcastq {d.zname}, {r.name}"
+  | .vmovdqa64 d r => s!"vmovdqa64 {d.zname}, {r.zname}"
 
 def Src.str : Src → String
   | .reg r => r.name
