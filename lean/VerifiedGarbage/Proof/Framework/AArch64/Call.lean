@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
+import VerifiedGarbage.Proof.Framework.AArch64.Depth
 
 /-!
 # Calls and frames (AArch64)
@@ -127,6 +128,31 @@ theorem WP.frame {r r' : Reg} {body : Prog isa} {s : State} {Q : State → Prop}
     exact ite_eq_left_of_eq_true _ _ (eq_true ⟨hp, hw, rfl⟩) |>.trans rfl
   exact ⟨_, _, Exec.frame (push_pushed hsp) he hpop, hq⟩
 
+/-- State after reserving a contiguous stack buffer. Its contents are unspecified. -/
+def allocated (bytes : Nat) (s : State) : State :=
+  { s with
+    sp := s.sp - BitVec.ofNat 64 bytes
+    wr := ⟨s.sp - BitVec.ofNat 64 bytes, bytes⟩ :: s.wr }
+
+/-- State after releasing that buffer. No register or memory is changed. -/
+def freed (bytes : Nat) (s : State) : State :=
+  { s with sp := s.sp + BitVec.ofNat 64 bytes, wr := s.wr.tail }
+
+/-- A buffer frame preserves stack alignment and cannot wrap on allocation. -/
+theorem WP.alloc {bytes : Nat} {body : Prog isa} {s : State} {Q : State → Prop}
+    (hn : 0 < bytes ∧ bytes < 4096 ∧ bytes % 16 = 0) (hsp : bytes ≤ s.sp.toNat)
+    (hb : WP isa body (allocated bytes s) fun s₂ => Q (freed bytes s₂)) :
+    WP isa (.frame (.alloc bytes) body (.free bytes)) s Q := by
+  obtain ⟨t, s₂, he, hq⟩ := hb
+  obtain ⟨-, hw, hp⟩ := Exec.rdwr he
+  have ha : isa.push (.alloc bytes) s = some (allocated bytes s) := by
+    simp only [isa, push, hn.1, hn.2.1, hn.2.2, hsp, and_self, ite_true]
+    rfl
+  have hf : isa.pop (.free bytes) (allocated bytes s) s₂ = some (freed bytes s₂) := by
+    simp only [freed, isa, pop, hn.1, hn.2.1, hn.2.2, hp, hw, allocated,
+      List.head?_cons, and_self, ite_true]
+  exact ⟨_, _, Exec.frame ha he hf, hq⟩
+
 /-- Running code without frames that was proven on narrower permissions: if,
 from `s` with its permissions narrowed to `rd` and `wr`, the code terminates
 in a state satisfying `P`, then from `s` it terminates in a state that has
@@ -197,36 +223,37 @@ theorem Frame.below_mono {wr : List Region} {sp : Addr} {a b : Nat} {m m' : Mem}
     · simp only [List.mem_singleton] at hr; subst hr
       exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), below_sub hab hb⟩
 
-theorem push_mem {i : Instr} {s s₁ : State} (h : isa.push i s = some s₁) :
+theorem push_mem {r : Reg} {s s₁ : State} (h : isa.push (.push r) s = some s₁) :
     ∃ v, s₁.mem = s.mem.write (s.sp - 16) 8 v ∧ s₁.wr = ⟨s.sp - 16, 16⟩ :: s.wr ∧ s₁.sp = s.sp - 16 := by
-  cases i <;> simp only [isa, push, reduceCtorEq] at h
+  simp only [isa, push] at h
   split at h <;> cases h; exact ⟨_, rfl, rfl, rfl⟩
 
 theorem pop_mem {j : Instr} {s₁ s₂ s' : State} (h : isa.pop j s₁ s₂ = some s') : s'.mem = s₂.mem := by
   cases j <;> simp only [isa, pop, reduceCtorEq] at h
-  split at h <;> cases h; rfl
+  all_goals split at h <;> cases h
+  all_goals rfl
 
 /-- Code changes memory only within the regions it may write and within
-`16 * fdepth` bytes below the stack pointer (its frames). -/
+`16 * aarch64Depth` bytes below the stack pointer (its frames). -/
 theorem Exec.frameSp {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa c s t s')
-    (hd : 16 * c.fdepth < 2 ^ 64) :
-    Frame (s.wr ++ [below s.sp (16 * c.fdepth)]) s.mem s'.mem := by
+    (hd : 16 * c.aarch64Depth < 2 ^ 64) :
+    Frame (s.wr ++ [below s.sp (16 * c.aarch64Depth)]) s.mem s'.mem := by
   induction h with
   | block h => exact Frame.mono (execBlock_regions h).2.2.2 fun r hr => List.mem_append_left _ hr
   | @seq c₁ c₂ _ s₂ _ _ _ h₁ _ ih₁ ih₂ =>
-    simp only [Code.fdepth] at hd ⊢
-    have f₁ := Frame.below_mono (ih₁ (by omega)) (b := 16 * max c₁.fdepth c₂.fdepth) (by omega)
+    simp only [Code.aarch64Depth] at hd ⊢
+    have f₁ := Frame.below_mono (ih₁ (by omega)) (b := 16 * max c₁.aarch64Depth c₂.aarch64Depth) (by omega)
       (by omega)
-    have f₂ := Frame.below_mono (ih₂ (by omega)) (b := 16 * max c₁.fdepth c₂.fdepth) (by omega)
+    have f₂ := Frame.below_mono (ih₂ (by omega)) (b := 16 * max c₁.aarch64Depth c₂.aarch64Depth) (by omega)
       (by omega)
     obtain ⟨-, w₁, p₁⟩ := Exec.rdwr h₁
     rw [w₁, p₁] at f₂
     exact Frame.trans f₁ f₂
   | iteT _ _ ih =>
-    simp only [Code.fdepth] at hd ⊢
+    simp only [Code.aarch64Depth] at hd ⊢
     exact Frame.below_mono (ih (by omega)) (by omega) (by omega)
   | iteF _ _ ih =>
-    simp only [Code.fdepth] at hd ⊢
+    simp only [Code.aarch64Depth] at hd ⊢
     exact Frame.below_mono (ih (by omega)) (by omega) (by omega)
   | loopExit _ _ ih => exact ih hd
   | loopNext h₁ _ _ ih₁ ih₂ =>
@@ -235,42 +262,66 @@ theorem Exec.frameSp {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa
     rw [w₁, p₁] at f₂
     exact Frame.trans (ih₁ hd) f₂
   | call hc _ hr ih =>
-    simp only [Code.fdepth] at hd ⊢
+    simp only [Code.aarch64Depth] at hd ⊢
     obtain ⟨-, w₁, p₁, m₁, -⟩ := call_eq hc
     rw [ret_eq hr]
     have := ih hd
     rwa [w₁, p₁, m₁] at this
-  | @frame _ _ b s₀ s₁ s₂ _ _ hp _ hq ih =>
-    simp only [Code.fdepth] at hd ⊢
-    rw [show 16 * (b.fdepth + 1) = 16 * b.fdepth + 16 by omega] at hd ⊢
-    obtain ⟨v, m₁, w₁, p₁⟩ := push_mem hp
-    rw [pop_mem hq]
-    have f₁ := ih (by omega)
-    rw [w₁, p₁, m₁] at f₁
-    have f₀ : Frame (s₀.wr ++ [below s₀.sp (16 * b.fdepth + 16)]) s₀.mem
-        (s₀.mem.write (s₀.sp - 16) 8 v) :=
-      Frame.write (Frame.refl _ _) (List.mem_append_right _ (List.mem_singleton_self _)) _
-        (below_frame_contains s₀.sp _ hd)
-    refine Frame.trans f₀ (Frame.sub f₁ fun r hr => ?_)
-    simp only [List.cons_append, List.mem_cons, List.mem_append, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | hr | rfl
-    · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), below_frame s₀.sp _ hd⟩
-    · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
-    · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), below_body s₀.sp _⟩
+  | @frame i _ b s₀ s₁ s₂ _ _ hp _ hq ih =>
+    cases i <;> try { simp only [isa, push, reduceCtorEq] at hp }
+    case push r =>
+      simp only [Code.aarch64Depth, Instr.frameUnits] at hd ⊢
+      rw [show 16 * (b.aarch64Depth + 1) = 16 * b.aarch64Depth + 16 by omega] at hd ⊢
+      obtain ⟨v, m₁, w₁, p₁⟩ := push_mem hp
+      rw [pop_mem hq]
+      have f₁ := ih (by omega)
+      rw [w₁, p₁, m₁] at f₁
+      have f₀ : Frame (s₀.wr ++ [below s₀.sp (16 * b.aarch64Depth + 16)]) s₀.mem
+          (s₀.mem.write (s₀.sp - 16) 8 v) :=
+        Frame.write (Frame.refl _ _) (List.mem_append_right _ (List.mem_singleton_self _)) _
+          (below_frame_contains s₀.sp _ hd)
+      refine Frame.trans f₀ (Frame.sub f₁ fun r hr => ?_)
+      simp only [List.cons_append, List.mem_cons, List.mem_append, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | hr | rfl
+      · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), below_frame s₀.sp _ hd⟩
+      · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
+      · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), below_body s₀.sp _⟩
+
+    case alloc bytes =>
+      simp only [isa, push] at hp
+      split at hp <;> [skip; cases hp]
+      rename_i hc
+      cases hp
+      have heq : 16 * (bytes / 16) = bytes := by omega
+      simp only [Code.aarch64Depth, Instr.frameUnits, Nat.mul_add, heq] at hd ⊢
+      rw [pop_mem hq]
+      have f₁ := ih (by omega)
+      refine Frame.sub f₁ fun r hr => ?_
+      simp only [List.cons_append, List.mem_cons, List.mem_append,
+        List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | hr | rfl
+      · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _),
+          below_sub (by omega) hd⟩
+      · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
+      · refine ⟨_, List.mem_append_right _ (List.mem_singleton_self _), ?_⟩
+        intro x hx
+        simp only [Region.Contains] at hx ⊢
+        rw [BitVec.sub_sub, ← BitVec.ofNat_add, Nat.add_comm bytes] at hx
+        omega
 
 /-- Calling verified code that may have frames: as `WP.call`, but the
-callee may also change the `16 * fdepth` bytes below the stack pointer.
+callee may also change the `16 * aarch64Depth` bytes below the stack pointer.
 The vector ABI guarantee is available to its postcondition. -/
 theorem WP.callFV {name : String} {c : Prog isa} {k : Contract isa}
     (hv : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s')
     {s : State} {rd wr : List Region} (hpre : k.pre (s.callEntry.withRegions rd wr))
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
-      Frame (wr ++ [below s.sp (16 * c.fdepth)]) s.mem s'.mem →
+      Frame (wr ++ [below s.sp (16 * c.aarch64Depth)]) s.mem s'.mem →
       (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s.gpr r) →
       (∀ r ∈ VG.AArch64.preservedV, (s'.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64) →
       k.post (s.callEntry.withRegions rd wr) (s'.withRegions rd wr) → Q s')
-    (hd : 16 * c.fdepth < 2 ^ 64 := by decide +kernel) : WP isa (.call name c) s Q := by
+    (hd : 16 * c.aarch64Depth < 2 ^ 64 := by decide +kernel) : WP isa (.call name c) s Q := by
   obtain ⟨t, s₁, he, habi, hpost⟩ := hv _ hpre
   have hf := Exec.frameSp he hd
   obtain ⟨hr, hwr, -⟩ := Exec.rdwr he
@@ -299,24 +350,24 @@ theorem WP.callF {name : String} {c : Prog isa} {k : Contract isa}
     {s : State} {rd wr : List Region} (hpre : k.pre (s.callEntry.withRegions rd wr))
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
-      Frame (wr ++ [below s.sp (16 * c.fdepth)]) s.mem s'.mem →
+      Frame (wr ++ [below s.sp (16 * c.aarch64Depth)]) s.mem s'.mem →
       (∀ r ∈ preserved, r ≠ .x30 → s'.gpr r = s.gpr r) →
       k.post (s.callEntry.withRegions rd wr) (s'.withRegions rd wr) → Q s')
-    (hd : 16 * c.fdepth < 2 ^ 64 := by decide +kernel) : WP isa (.call name c) s Q := by
+    (hd : 16 * c.aarch64Depth < 2 ^ 64 := by decide +kernel) : WP isa (.call name c) s Q := by
   exact WP.callFV hv hpre hc hw (fun s' hr hwr hsp hf hg _ hp => hQ s' hr hwr hsp hf hg hp) hd
 
 /-- Running code that was proven on narrower permissions: if, from `s` with
 its permissions narrowed to `rd` and `wr`, the code terminates in a state
 satisfying `P`, then from `s` it terminates in a state that has the
 permissions and stack pointer of `s`, differs from it in memory only within
-`wr` and the `16 * fdepth` bytes below the stack pointer, and, narrowed
+`wr` and the `16 * aarch64Depth` bytes below the stack pointer, and, narrowed
 likewise, satisfies `P`. -/
 theorem WP.narrowF {c : Prog isa} {s : State} {rd wr : List Region} {P : State → Prop}
     (h : WP isa c (s.withRegions rd wr) P)
     (hc : Covers (rd ++ wr) (s.rd ++ s.wr)) (hw : Covers wr s.wr) {Q : State → Prop}
     (hQ : ∀ s', s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
-      Frame (wr ++ [below s.sp (16 * c.fdepth)]) s.mem s'.mem → P (s'.withRegions rd wr) → Q s')
-    (hd : 16 * c.fdepth < 2 ^ 64) : WP isa c s Q := by
+      Frame (wr ++ [below s.sp (16 * c.aarch64Depth)]) s.mem s'.mem → P (s'.withRegions rd wr) → Q s')
+    (hd : 16 * c.aarch64Depth < 2 ^ 64) : WP isa c s Q := by
   obtain ⟨t, s₁, he, hp⟩ := h
   have hf := Exec.frameSp he hd
   obtain ⟨hr, hwr, hsp⟩ := Exec.rdwr he
@@ -348,7 +399,7 @@ theorem WP.frameReg {r : Reg} {main : Prog isa} {s₀ : State} {Q : State → Pr
     (hsp : 16 ≤ s₀.sp.toNat) (hd : ∀ R ∈ s₀.wr, Region.Disjoint ⟨s₀.sp - 16, 16⟩ R)
     (hmain : WP isa main { s₀ with sp := s₀.sp - 16, mem := s₀.mem.write (s₀.sp - 16) 8 (s₀.gpr r) }
       fun s₂ => Q { s₂.write .x r (s₀.gpr r) with sp := s₀.sp })
-    (hn : 16 * main.fdepth + 16 < 2 ^ 64 := by decide +kernel) :
+    (hn : 16 * main.aarch64Depth + 16 < 2 ^ 64 := by decide +kernel) :
     WP isa (.frame (.push r) main (.pop r)) s₀ Q := by
   refine WP.frame hsp (WP.narrowF (rd := s₀.rd) (wr := s₀.wr) hmain ?_ ?_ ?_ (by omega))
   · intro a n hi

@@ -32,9 +32,9 @@ structure Kept (rs : List Region) (s s' : State) : Prop where
 /-- The 16 bytes below the stack pointer, where a callee saves `x30`. -/
 abbrev stk (s : State) : Region := ⟨s.sp - 16, 16⟩
 
-theorem absorb_fdepth : Impl.Sha3.AArch64.Stream.absorb.fdepth = 1 := by decide +kernel
-theorem pad_fdepth : Impl.Sha3.AArch64.Stream.pad.fdepth = 1 := by decide +kernel
-theorem squeeze_fdepth : Impl.Sha3.AArch64.Stream.squeeze.fdepth = 1 := by decide +kernel
+theorem absorb_fdepth : Impl.Sha3.AArch64.Stream.absorb.aarch64Depth = 1 := by decide +kernel
+theorem pad_fdepth : Impl.Sha3.AArch64.Stream.pad.aarch64Depth = 1 := by decide +kernel
+theorem squeeze_fdepth : Impl.Sha3.AArch64.Stream.squeeze.aarch64Depth = 1 := by decide +kernel
 
 theorem frame3 {a b c : Region} {m m' : Mem} (h : Frame ([a, b] ++ [c]) m m') : Frame [a, b, c] m m' := h
 

@@ -64,7 +64,7 @@ theorem InitArgs.pre {s : State} {inn out k sc : Addr} {kl : Nat} (a : InitArgs 
   exact ⟨a.klB, trivial, trivial, a.i_o, a.i_s, a.o_s, a.k_i, a.k_o, a.k_s, a.sp16, a.stk_i, a.stk_o, a.stk_k,
     a.stk_s, a.scnw⟩
 
-theorem hinit_call (hv : Verified AArch64.target H.hmacInit (initG hH.SH H.W)) (hd : H.hmacInit.fdepth ≤ 1)
+theorem hinit_call (hv : Verified AArch64.target H.hmacInit (initG hH.SH H.W)) (hd : H.hmacInit.aarch64Depth ≤ 1)
     {s : State} {inn out k sc : Addr} {kl : Nat} (a : InitArgs (H := H) s inn out k sc kl) {Q : State → Prop}
     (hQ : ∀ s', After s [⟨inn, H.S⟩, ⟨out, H.S⟩, ⟨sc, 8 * H.W⟩] s' →
       hH.SH.Repr s'.mem inn (xorPad (blockKey hH.SH.H (bytesAt s.mem k kl)) ipad) →
@@ -121,7 +121,7 @@ theorem FinArgs.pre {s : State} {inn outer cnt o sc : Addr} (a : FinArgs (H := H
   exact ⟨trivial, trivial, a.i_u, a.i_o, a.i_s, a.u_o, a.u_s, a.o_s, a.sp16, a.stk_i, a.stk_u, a.stk_o,
     a.stk_s, a.scnw⟩
 
-theorem hfin_call (hv : Verified AArch64.target H.hmacFin (finG hH.SH H.W)) (hd : H.hmacFin.fdepth ≤ 1)
+theorem hfin_call (hv : Verified AArch64.target H.hmacFin (finG hH.SH H.W)) (hd : H.hmacFin.aarch64Depth ≤ 1)
     {s : State} {inn outer cnt o sc : Addr}
     (a : FinArgs (H := H) s inn outer cnt o sc) {Q : State → Prop}
     (hQ : ∀ s', After s [⟨inn, H.S⟩, ⟨o, H.D⟩, ⟨sc, 8 * H.W⟩] s' →
@@ -176,7 +176,7 @@ theorem IterArgs.pre {s : State} {key u t sc : Addr} {n : BitVec 64} (a : IterAr
     a.x0, a.x1, a.x3, a.x4, hS, hD]
   exact ⟨trivial, trivial, a.k_t, a.k_s, a.u_t, a.u_s, a.t_s, a.knw, a.scnw⟩
 
-theorem iter_call (hv : Verified AArch64.target H.iterate (iterK hH.SH H.W)) (hd : H.iterate.fdepth ≤ 1)
+theorem iter_call (hv : Verified AArch64.target H.iterate (iterK hH.SH H.W)) (hd : H.iterate.aarch64Depth ≤ 1)
     {s : State} {key u t sc : Addr} {n : BitVec 64}
     (a : IterArgs (H := H) s key u n t sc) {Q : State → Prop}
     (hQ : ∀ s', After s [⟨t, H.D⟩, ⟨sc, 8 * H.W⟩] s' →

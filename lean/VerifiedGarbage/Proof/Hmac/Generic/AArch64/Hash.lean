@@ -173,9 +173,9 @@ structure HashOK (H : Hash) where
   init : Verified AArch64.target H.initC (initK H.S SH.Repr)
   upd : Verified AArch64.target H.updC (updK H.S Wb SH.Repr)
   fin : Verified AArch64.target H.finC (finK H.S Wb H.F H.D SH.Repr SH.H.hash)
-  initDepth : H.initC.fdepth ≤ 1
-  updDepth : H.updC.fdepth ≤ 1
-  finDepth : H.finC.fdepth ≤ 1
+  initDepth : H.initC.aarch64Depth ≤ 1
+  updDepth : H.updC.aarch64Depth ≤ 1
+  finDepth : H.finC.aarch64Depth ≤ 1
 
 variable {H : Hash} (hH : HashOK H)
 
@@ -199,12 +199,12 @@ structure After (s : State) (ws : List Region) (s' : State) : Prop where
   vec : VecKept s s'
 
 /-- The stack of a callee with at most one frame. -/
-theorem frame_depth {c : Prog isa} (hd : c.fdepth ≤ 1) {s : State} {ws : List Region} {m' : Mem}
-    (h : Frame (ws ++ [below s.sp (16 * c.fdepth)]) s.mem m') :
+theorem frame_depth {c : Prog isa} (hd : c.aarch64Depth ≤ 1) {s : State} {ws : List Region} {m' : Mem}
+    (h : Frame (ws ++ [below s.sp (16 * c.aarch64Depth)]) s.mem m') :
     Frame (ws ++ [below s.sp 16]) s.mem m' :=
   Frame.below_mono h (by omega_nat) (by omega_nat)
 
-theorem fdepth_lt {c : Prog isa} (hd : c.fdepth ≤ 1) : 16 * c.fdepth < 2 ^ 64 := by omega_nat
+theorem fdepth_lt {c : Prog isa} (hd : c.aarch64Depth ≤ 1) : 16 * c.aarch64Depth < 2 ^ 64 := by omega_nat
 
 theorem covers_wr {ws : List Region} {s : State} (h : Covers ws s.wr) : Covers ([] ++ ws) (s.rd ++ s.wr) :=
   fun a n hi => by

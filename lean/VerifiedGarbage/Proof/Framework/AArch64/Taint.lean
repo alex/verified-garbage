@@ -45,7 +45,7 @@ def step (τ : T) : Instr → Option T
   | .madd _ d n m a => some (set τ d (pub τ n && pub τ m && pub τ a))
   | .addImm _ d n _ | .subImm _ d n _ | .ror _ d n _ | .lsr _ d n _ | .lsl _ d n _ | .rev32 d n
   | .rev d n => some (set τ d (pub τ n))
-  | .movz _ d _ _ => some (set τ d true)
+  | .addSp d _ | .movz _ d _ _ => some (set τ d true)
   | .movk _ d _ _ => some (set τ d (pub τ d))
   | .ldr _ t n _ | .ldrb t n _ => if pub τ n then some (set τ t false) else none
   -- The stack pointer is public, and memory secret.
@@ -55,7 +55,7 @@ def step (τ : T) : Instr → Option T
   | .ldrq _ n _ | .strq _ n _ => if pub τ n then some τ else none
   | .umov _ d _ _ => some (set τ d false)
   -- Frames are not analysed yet.
-  | .push .. | .pop .. => none
+  | .push .. | .pop .. | .alloc _ | .free _ => none
 
 def condPub (τ : T) : Cond → Bool
   | .zero _ r | .nonzero _ r => pub τ r
@@ -87,7 +87,7 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     (hs : step τ i = some τ') (e₁ : exec i s₁ = some s₁') (e₂ : exec i s₂ = some s₂') :
     addrs i s₁ = addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i with
-  | push | pop => simp only [step, reduceCtorEq] at hs
+  | push | pop | alloc | free => simp only [step, reduceCtorEq] at hs
   | add sz d n m =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec, Option.some.injEq] at e₁ e₂; subst e₁ e₂
@@ -122,6 +122,12 @@ theorem step_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (ha 
     refine ⟨rfl, ha.write sz d fun hp => ?_⟩
     simp only [Bool.and_eq_true] at hp
     rw [ha.read hp.1, ha.read hp.2]
+  | addSp d imm =>
+    simp only [step, Option.some.injEq] at hs; subst hs
+    simp only [exec] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    rename_i h; simp only [h, ite_true, Option.some.injEq] at e₁ e₂; subst e₁ e₂
+    exact ⟨rfl, ha.write .x d fun _ => by rw [ha.1]⟩
   | addImm sz d n imm =>
     simp only [step, Option.some.injEq] at hs; subst hs
     simp only [exec] at e₁ e₂
@@ -264,38 +270,43 @@ theorem cond_sound {τ : T} {c : Cond} {s₁ s₂ : State} (ha : Agree τ s₁ s
 
 /-- A frame's push stores to memory, which is secret. -/
 def push (τ : T) : Instr → Option T
-  | .push _ => some τ
+  | .push _ | .alloc _ => some τ
   | _ => none
 
 /-- A frame's pop loads a secret. -/
 def pop (τ : T) : Instr → Option T
   | .pop r => some (τ.erase r)
+  | .free _ => some τ
   | _ => none
 
 theorem push_sound {τ τ' : T} {i : Instr} {s₁ s₂ s₁' s₂' : State} (h : Agree τ s₁ s₂)
     (hs : push τ i = some τ') (e₁ : isa.push i s₁ = some s₁') (e₂ : isa.push i s₂ = some s₂') :
     isa.addrs i s₁ = isa.addrs i s₂ ∧ Agree τ' s₁' s₂' := by
   cases i <;> simp only [push, reduceCtorEq] at hs
-  cases hs
-  simp only [isa, AArch64.push] at e₁ e₂
-  split at e₁ <;> [skip; cases e₁]
-  split at e₂ <;> [skip; cases e₂]
-  cases e₁; cases e₂
-  exact ⟨by simp [addrs, h.1], by simp [h.1], h.2⟩
+  all_goals
+    cases hs
+    simp only [isa, AArch64.push] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    split at e₂ <;> [skip; cases e₂]
+    cases e₁; cases e₂
+  case push => exact ⟨by simp [addrs, h.1], by simp [h.1], h.2⟩
+  case alloc => exact ⟨rfl, by simp [h.1], h.2⟩
 
 theorem pop_sound {τ τ' : T} {j : Instr} {a₁ a₂ b₁ b₂ c₁ c₂ : State} (h : Agree τ b₁ b₂)
     (hs : pop τ j = some τ') (e₁ : isa.pop j a₁ b₁ = some c₁) (e₂ : isa.pop j a₂ b₂ = some c₂) :
     isa.addrs j b₁ = isa.addrs j b₂ ∧ Agree τ' c₁ c₂ := by
   cases j <;> simp only [pop, reduceCtorEq] at hs
-  rename_i r
-  cases hs
-  simp only [isa, AArch64.pop] at e₁ e₂
-  split at e₁ <;> [skip; cases e₁]
-  split at e₂ <;> [skip; cases e₂]
-  cases e₁; cases e₂
-  refine ⟨by simp [addrs, h.1], by simp [h.1], fun r' hr' => ?_⟩
-  simp only [RegSet.mem_erase] at hr'
-  simp [State.write, hr'.1, h.2 r' hr'.2]
+  all_goals
+    cases hs
+    simp only [isa, AArch64.pop] at e₁ e₂
+    split at e₁ <;> [skip; cases e₁]
+    split at e₂ <;> [skip; cases e₂]
+    cases e₁; cases e₂
+  case pop r =>
+    refine ⟨by simp [addrs, h.1], by simp [h.1], fun r' hr' => ?_⟩
+    simp only [RegSet.mem_erase] at hr'
+    simp [State.write, hr'.1, h.2 r' hr'.2]
+  case free bytes => exact ⟨rfl, by simp [h.1], h.2⟩
 
 end VG.AArch64.Taint
 

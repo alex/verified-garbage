@@ -31,8 +31,8 @@ structure Compress where
     untouched.all fun r => dstOf i != some r) = true
   finalizeKeeps : ((instrs (finalizeMain Stream.params name code)).all fun i =>
     untouched.all fun r => dstOf i != some r) = true
-  updateDepth : (updateMain Stream.params name code).fdepth = 0
-  finalizeDepth : (finalizeMain Stream.params name code).fdepth = 0
+  updateDepth : (updateMain Stream.params name code).aarch64Depth = 0
+  finalizeDepth : (finalizeMain Stream.params name code).aarch64Depth = 0
 
 namespace Compress
 

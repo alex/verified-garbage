@@ -734,7 +734,7 @@ abbrev inner (s₀ : State) : State :=
   { s₀ with sp := s₀.sp - 16, mem := s₀.mem.write (s₀.sp - 16) 8 (s₀.gpr .x30) }
 
 theorem correct {c : Prog isa} (hS : SalsaSpec c)
-    (hd : 16 * (blockMixMain c).fdepth + 16 < 2 ^ 64) {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) :
+    (hd : 16 * (blockMixMain c).aarch64Depth + 16 < 2 ^ 64) {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) :
     WP isa (blockMixWith c) s₀ fun s' =>
       GprAbi s₀ s' ∧ Proof.Scrypt.blockMixAArch64.post s₀ s' := by
   have hpi : Pre (inner s₀) := ⟨hp.rd, hp.wr, hp.y_s, hp.b_y, hp.b_s, hp.b_nw, hp.y_nw, hp.s_nw,
@@ -810,7 +810,7 @@ theorem salsaSpec : SalsaSpec Impl.Scrypt.AArch64.salsa := by
       State.callEntry_mem, c0] at hpost
     exact hQ s' hrd hwr hsp hcs hf hpost
 
-theorem main_fdepth : 16 * (Impl.Scrypt.AArch64.blockMixMain Impl.Scrypt.AArch64.salsa).fdepth + 16 < 2 ^ 64 := by
+theorem main_fdepth : 16 * (Impl.Scrypt.AArch64.blockMixMain Impl.Scrypt.AArch64.salsa).aarch64Depth + 16 < 2 ^ 64 := by
   decide +kernel
 
 theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Scrypt.blockMixAArch64.pub s₁ s₂) :

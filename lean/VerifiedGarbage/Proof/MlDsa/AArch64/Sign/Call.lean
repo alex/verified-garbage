@@ -80,7 +80,7 @@ contract with `S` bytes of stack), whose frames use at most those `S` bytes. -/
 structure CalleeOk (S : Nat) (c : Prog isa) (k : Contract isa) : Prop where
   correct : ∀ s, k.pre s → ∃ t s', Exec isa c s t s' ∧ abiPreserved s s' ∧ k.post s s'
   ct : ConstantTime isa k.pre k.pub c
-  fd : 16 * c.fdepth ≤ S
+  fd : 16 * c.aarch64Depth ≤ S
 
 theorem stackBelow_sub (sp : Addr) {n S : Nat} (hn : n ≤ S) (hS : S < 2 ^ 64) :
     ∀ r ∈ stackBelow sp n, Region.Sub r (below sp S) := by
@@ -133,7 +133,7 @@ theorem CalleeOk.of_verified {S : Nat} (hS : S < 2 ^ 64) {c : Prog isa} {sig : S
     {pre : Curry (sig.words AArch64.abi.ptrBits) (Mem → Prop)} {post : sig.Post AArch64.abi.ptrBits} {wa : Bool}
     {leak : Option (Curry (sig.words AArch64.abi.ptrBits) (Mem → List Nat))} {n : Nat}
     (h : Verified AArch64.target c (sig.contract AArch64.abi pre post wa n leak)) (hn : n ≤ S)
-    (hfd : 16 * c.fdepth ≤ S) :
+    (hfd : 16 * c.aarch64Depth ≤ S) :
     CalleeOk S c (sig.contract AArch64.abi pre post wa S leak) :=
   ⟨fun s hs => h.1 s (pre_stack hn hS hs),
     fun s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hp e₁ e₂ =>
