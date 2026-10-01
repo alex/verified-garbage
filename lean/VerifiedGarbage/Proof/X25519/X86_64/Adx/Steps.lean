@@ -21,15 +21,6 @@ open VG VG.X86_64 VG.Impl.X25519.X86_64
 theorem of_setReg (s : State) (r : Reg) (v : BitVec 64) : (s.setReg r v).of = s.of := rfl
 theorem of_setFlags (s : State) (a b c d : Option Bool) : (s.setFlags a b c d).of = b := rfl
 
-/-- `mulx`: `hi:lo = rdx · v`. -/
-theorem mulx_arith (d v : BitVec 64) :
-    (BitVec.ofNat 64 (d.toNat * v.toNat)).toNat +
-        2 ^ 64 * (BitVec.ofNat 64 (d.toNat * v.toNat / 2 ^ 64)).toNat = d.toNat * v.toNat := by
-  have hd := d.isLt; have hv := v.isLt
-  have hp : d.toNat * v.toNat < 2 ^ 64 * 2 ^ 64 := Nat.mul_lt_mul'' hd hv
-  rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (a := _ / 2 ^ 64) (by omega)]
-  omega
-
 /-- `mulx hi, lo, src` runs as `setReg lo` then `setReg hi`. -/
 theorem execMulx_eq {s : State} {hi lo : Reg} {src : Src} {v : BitVec 64}
     (hsrc : readSrc s src = some v) (himm : ∀ n, src ≠ .imm n) :

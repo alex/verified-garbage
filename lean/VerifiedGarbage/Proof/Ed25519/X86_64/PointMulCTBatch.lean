@@ -9,7 +9,7 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off)
 
-private theorem both_wp {P F : State → Prop} {c : Prog isa}
+theorem both_wp {P F : State → Prop} {c : Prog isa}
     (h : RelCT isa (fun x y => P x ∧ P y) c (fun _ _ => True))
     (hw : ∀ s, P s → WP isa c s F) :
     RelCT isa (fun x y => P x ∧ P y) c (fun x y => F x ∧ F y) :=
@@ -20,14 +20,14 @@ def BatchCTPre (base : Addr) (j : Nat) (s : State) : Prop :=
   Scratch s base ∧ s.mem.readW (off base 56) 64 = BitVec.ofNat 64 (j + 1) ∧
     env s.mem base 16 = Spec.Ed25519.d
 
-private def BatchCTReady (base : Addr) (j : Nat) (s : State) : Prop :=
+def BatchCTReady (base : Addr) (j : Nat) (s : State) : Prop :=
   Scratch s base ∧ s.mem.readW (off base 56) 64 = BitVec.ofNat 64 j ∧
     env s.mem base 16 = Spec.Ed25519.d ∧ s.gpr .rbx = BitVec.ofNat 64 j
 
-private def BatchCTOffset (base : Addr) (j : Nat) (s : State) : Prop :=
+def BatchCTOffset (base : Addr) (j : Nat) (s : State) : Prop :=
   Scratch s base ∧ s.mem.readW (off base 56) 64 = BitVec.ofNat 64 j
 
-private theorem begin_ct (base : Addr) (j : Nat) :
+theorem begin_ct (base : Addr) (j : Nat) :
     RelCT isa (fun x y => BatchCTPre base j x ∧ BatchCTPre base j y)
       (.block batchBegin) (fun x y => BatchCTReady base j x ∧ BatchCTReady base j y) := by
   apply both_wp
@@ -60,7 +60,7 @@ private theorem prepare_ct (base : Addr) (j : Nat) (hj : j < 32) :
     exact ⟨kt.scratch hs, ((tableFrame_outside kt.mem (by decide) (by decide)).word
       (d := 56) (Or.inl (by decide)) (by decide)).trans hc⟩
 
-private theorem offset_ct (base : Addr) (j : Nat) (hj : j < 32) :
+theorem offset_ct (base : Addr) (j : Nat) (hj : j < 32) :
     RelCT isa (fun x y => BatchCTOffset base j x ∧ BatchCTOffset base j y)
       (.block batchBitOffset) (fun x y =>
         (x.gpr .rdi = base ∧ x.gpr .rsi = BitVec.ofNat 64 (16 * j)) ∧
