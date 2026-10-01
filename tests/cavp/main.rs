@@ -16,12 +16,12 @@
 mod aes_gcm;
 mod cmac_aes;
 mod rc2_cbc;
-mod triple_des_ecb;
 mod sha1;
 mod sha224;
 mod sha256;
 mod sha3;
 mod sha512;
+mod triple_des_ecb;
 
 /// The `key = value` lines of a CAVP response file, in order, without the
 /// comments, blank lines and `[L = ...]` section headers.
