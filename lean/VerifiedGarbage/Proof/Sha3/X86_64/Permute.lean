@@ -13,6 +13,7 @@ import VerifiedGarbage.Proof.Sha3.Stream
 import VerifiedGarbage.Proof.Sha3.Arith
 import VerifiedGarbage.Proof.Framework.X86_64.Call
 import VerifiedGarbage.Impl.Sha3.X86_64.Stream
+import VerifiedGarbage.Proof.Sha3.X86_64.Round
 
 section
 
@@ -139,6 +140,12 @@ theorem wp_subi {d : Reg} {v : BitVec 32}
     WP isa (.block (.alu .sub d (.imm v) :: is)) s Q :=
   WP.cons rfl (k _ (Upd.flags _ _ _ _ _ _) rfl)
 
+theorem wp_addi_zf {d : Reg} {v : BitVec 32}
+    (k : ∀ s', Upd s s' d (s.gpr d + v.signExtend 64) →
+      s'.zf = some (s.gpr d + v.signExtend 64 == 0) → WP isa (.block is) s' Q) :
+    WP isa (.block (.alu .add d (.imm v) :: is)) s Q :=
+  WP.cons rfl (k _ (Upd.flags _ _ _ _ _ _) rfl)
+
 theorem wp_test {d : Reg}
     (k : ∀ s', s'.gpr = s.gpr → s'.mem = s.mem → s'.rd = s.rd → s'.wr = s.wr →
       s'.zf = some (s.gpr d &&& s.gpr d == 0) → WP isa (.block is) s' Q) :
@@ -168,340 +175,24 @@ end VG.Proof.Sha3.X86_64
 end
 
 /-!
-# Keccak-f[1600] on x86-64: one round
+# Keccak-f[1600] on x86-64: addresses
 
-Untrusted: everything here is checked by Lean. One round (`round`) from the
-state at `rdi` to the state at `rsi`, lane by lane (`Proof.Sha3.out`), and
-the swap of `rdi` and `rsi` after it.
+Untrusted: everything here is checked by Lean. (A round is proven by
+evaluation, in `Round.lean`.)
 -/
 
 namespace VG.Proof.Sha3.X86_64
 
 open VG VG.X86_64 VG.Impl.Sha3.X86_64
-open VG.Proof.Sha3 (C D B out)
-open VG.Impl.Sha3 (piSrc)
 
 abbrev KState := Spec.Sha3.State
 abbrev Lane := Spec.Sha3.Lane
-
-/-! ## Registers -/
-
-/-- The pointers, which a round only moves between each other. -/
-def ptrRegs : List Reg := [.rdi, .rsi, .rdx, .rcx, .rsp]
-
-theorem creg_inj : ∀ x < 5, ∀ x' < 5, creg x = creg x' → x = x' := by decide
-theorem dreg_inj : ∀ x < 5, ∀ x' < 5, dreg x = dreg x' → x = x' := by decide
-theorem creg_dreg : ∀ x < 5, ∀ x' < 5, creg x ≠ dreg x' := by decide
-theorem creg_ptr : ∀ x < 5, ∀ r ∈ ptrRegs, creg x ≠ r := by decide
-theorem dreg_ptr : ∀ x < 5, ∀ r ∈ ptrRegs, dreg x ≠ r := by decide
-theorem T_ptr : ∀ r ∈ ptrRegs, T ≠ r := by decide
-theorem T_creg : ∀ x < 5, T ≠ creg x := by decide
-theorem T_dreg : ∀ x < 5, T ≠ dreg x := by decide
-
-theorem creg_ne {x x' : Nat} (hx : x < 5) (hx' : x' < 5) (h : x' ≠ x) : creg x' ≠ creg x :=
-  fun e => h (creg_inj x' hx' x hx e)
-
-theorem dreg_ne {x x' : Nat} (hx : x < 5) (hx' : x' < 5) (h : x' ≠ x) : dreg x' ≠ dreg x :=
-  fun e => h (dreg_inj x' hx' x hx e)
-
-/-! ## Addresses -/
 
 theorem ea_at (s : State) (b : Reg) (d : Nat) : s.ea (at_ b d) = s.gpr b + BitVec.ofNat 64 d := by
   simp only [State.ea, at_]; rw [ofInt_natCast]
 
 theorem ea_lane (s : State) (b : Reg) (i : Nat) :
     s.ea (lane b i) = s.gpr b + BitVec.ofNat 64 (8 * i) := ea_at s b (8 * i)
-
-/-! ## θ -/
-
-/-- What a phase of the round keeps. -/
-structure Keeps (s s' : State) : Prop where
-  ptrs : ∀ r ∈ ptrRegs, s'.gpr r = s.gpr r
-  rd : s'.rd = s.rd
-  wr : s'.wr = s.wr
-
-theorem Keeps.refl (s : State) : Keeps s s := ⟨fun _ _ => rfl, rfl, rfl⟩
-
-theorem Keeps.trans {s₁ s₂ s₃ : State} (h₁ : Keeps s₁ s₂) (h₂ : Keeps s₂ s₃) : Keeps s₁ s₃ :=
-  ⟨fun r hr => (h₂.ptrs r hr).trans (h₁.ptrs r hr), h₂.rd.trans h₁.rd, h₂.wr.trans h₁.wr⟩
-
-theorem Keeps.ofUpd {s s' : State} {d : Reg} {v : BitVec 64} (h : Upd s s' d v)
-    (hd : ∀ r ∈ ptrRegs, d ≠ r) : Keeps s s' :=
-  ⟨fun r hr => h.other r (hd r hr).symm, h.rd, h.wr⟩
-
-theorem column_ok (x : Nat) (hx : x < 5) (s : State) (src : Addr) (A : KState)
-    (hrdi : s.gpr .rdi = src) (hin : ∀ i < 25, InRegions (s.rd ++ s.wr) (laneAddr src i) 8)
-    (hA : Lanes s.mem src A) :
-    WP isa (.block (column x)) s fun s' => Upd s s' (creg x) (C A x) := by
-  have hr : ∀ s' : State, Upd s s' (creg x) (s'.gpr (creg x)) → s'.gpr .rdi = src ∧
-      InRegions (s'.rd ++ s'.wr) = InRegions (s.rd ++ s.wr) ∧ s'.mem = s.mem := fun s' h =>
-    ⟨(h.other _ (creg_ptr x hx .rdi (by decide)).symm).trans hrdi, by rw [h.rd, h.wr], h.mem⟩
-  have ld : ∀ (s' : State) (k : Nat), k < 25 → Upd s s' (creg x) (s'.gpr (creg x)) →
-      s'.ea (lane .rdi k) = laneAddr src k ∧ InRegions (s'.rd ++ s'.wr) (laneAddr src k) 8 ∧
-      s'.mem.readW (laneAddr src k) 64 = A[k]! := fun s' k hk h => by
-    obtain ⟨e₁, e₂, e₃⟩ := hr s' h
-    refine ⟨by rw [ea_lane, e₁], by rw [e₂]; exact hin k hk, by rw [e₃, hA k hk]; simp [hk]⟩
-  have u₀ : Upd s s (creg x) (s.gpr (creg x)) := ⟨rfl, fun _ _ => rfl, rfl, rfl, rfl⟩
-  unfold column
-  obtain ⟨a₀, i₀, v₀⟩ := ld s x (by omega) u₀
-  refine wp_movm a₀ i₀ fun s₁ h₁ => ?_
-  have u₁ : Upd s s₁ (creg x) (s₁.gpr (creg x)) := ⟨rfl, h₁.other, h₁.mem, h₁.rd, h₁.wr⟩
-  obtain ⟨a₁, i₁, v₁⟩ := ld s₁ (x + 5) (by omega) u₁
-  refine wp_xorm a₁ i₁ fun s₂ h₂ => ?_
-  have u₂ := u₁.trans ⟨rfl, h₂.other, h₂.mem, h₂.rd, h₂.wr⟩
-  obtain ⟨a₂, i₂, v₂⟩ := ld s₂ (x + 10) (by omega) u₂
-  refine wp_xorm a₂ i₂ fun s₃ h₃ => ?_
-  have u₃ := u₂.trans ⟨rfl, h₃.other, h₃.mem, h₃.rd, h₃.wr⟩
-  obtain ⟨a₃, i₃, v₃⟩ := ld s₃ (x + 15) (by omega) u₃
-  refine wp_xorm a₃ i₃ fun s₄ h₄ => ?_
-  have u₄ := u₃.trans ⟨rfl, h₄.other, h₄.mem, h₄.rd, h₄.wr⟩
-  obtain ⟨a₄, i₄, v₄⟩ := ld s₄ (x + 20) (by omega) u₄
-  refine wp_xorm a₄ i₄ fun s₅ h₅ => wp_nil ?_
-  refine ⟨?_, (u₄.trans ⟨rfl, h₅.other, h₅.mem, h₅.rd, h₅.wr⟩).other, by rw [h₅.mem, u₄.mem],
-    by rw [h₅.rd, u₄.rd], by rw [h₅.wr, u₄.wr]⟩
-  rw [h₅.gpr, h₄.gpr, h₃.gpr, h₂.gpr, h₁.gpr, v₀, v₁, v₂, v₃, v₄]
-  rfl
-
-/-- After the first `k` columns. -/
-def ColInv (s₀ : State) (A : KState) (k : Nat) (s : State) : Prop :=
-  Keeps s₀ s ∧ s.mem = s₀.mem ∧ ∀ x < k, s.gpr (creg x) = C A x
-
-theorem columns_ok (s₀ : State) (src : Addr) (A : KState)
-    (hrdi : s₀.gpr .rdi = src) (hin : ∀ i < 25, InRegions (s₀.rd ++ s₀.wr) (laneAddr src i) 8)
-    (hA : Lanes s₀.mem src A) :
-    WP isa (.block ((List.range 5).flatMap column)) s₀ (ColInv s₀ A 5) := by
-  refine wp_range_flatMap (M := isa) (ColInv s₀ A) (fun x s hx ⟨hk, hm, hc⟩ => ?_) 5 (Nat.le_refl _) s₀
-    ⟨Keeps.refl _, rfl, fun _ h => absurd h (by omega)⟩
-  refine WP.mono (column_ok x hx s src A ((hk.ptrs .rdi (by decide)).trans hrdi)
-    (by rw [hk.rd, hk.wr]; exact hin) (by rw [hm]; exact hA)) fun s' h => ?_
-  refine ⟨hk.trans (Keeps.ofUpd h (creg_ptr x hx)), h.mem.trans hm, fun x' hx' => ?_⟩
-  by_cases e : x' = x
-  · subst e; exact h.gpr
-  · rw [h.other _ (creg_ne hx (by omega) e), hc x' (by omega)]
-
-/-! ## D -/
-
-theorem dcol_ok (x : Nat) (hx : x < 5) (s : State) (A : KState)
-    (hc : ∀ x' < 5, s.gpr (creg x') = C A x') :
-    WP isa (.block (dcol x)) s fun s' => Upd s s' (dreg x) (D A x) := by
-  unfold dcol
-  refine wp_mov fun s₁ h₁ => wp_ror (by decide) (by decide) fun s₂ h₂ => wp_xor fun s₃ h₃ => wp_nil ?_
-  have u := (h₁.trans ⟨h₂.gpr, h₂.other, h₂.mem, h₂.rd, h₂.wr⟩).trans
-    ⟨h₃.gpr, h₃.other, h₃.mem, h₃.rd, h₃.wr⟩
-  refine ⟨?_, u.other, u.mem, u.rd, u.wr⟩
-  rw [h₃.gpr, h₂.gpr, h₁.gpr, h₂.other _ (creg_dreg _ (Nat.mod_lt _ (by omega)) x hx),
-    h₁.other _ (creg_dreg _ (Nat.mod_lt _ (by omega)) x hx), hc _ (Nat.mod_lt _ (by omega)),
-    hc _ (Nat.mod_lt _ (by omega))]
-  rfl
-
-/-- After the first `k` of the `D[x]`. -/
-def DInv (s₀ : State) (A : KState) (k : Nat) (s : State) : Prop :=
-  Keeps s₀ s ∧ s.mem = s₀.mem ∧ (∀ x < 5, s.gpr (creg x) = C A x) ∧ ∀ x < k, s.gpr (dreg x) = D A x
-
-theorem dcols_ok (s₀ : State) (A : KState) (hc : ∀ x < 5, s₀.gpr (creg x) = C A x) :
-    WP isa (.block ((List.range 5).flatMap dcol)) s₀ (DInv s₀ A 5) := by
-  refine wp_range_flatMap (M := isa) (DInv s₀ A) (fun x s hx ⟨hk, hm, hcs, hd⟩ => ?_) 5 (Nat.le_refl _) s₀
-    ⟨Keeps.refl _, rfl, hc, fun _ h => absurd h (by omega)⟩
-  refine WP.mono (dcol_ok x hx s A hcs) fun s' h => ?_
-  refine ⟨hk.trans (Keeps.ofUpd h (dreg_ptr x hx)), h.mem.trans hm, fun x' hx' => ?_, fun x' hx' => ?_⟩
-  · rw [h.other _ (creg_dreg x' hx' x hx), hcs x' hx']
-  · by_cases e : x' = x
-    · subst e; exact h.gpr
-    · rw [h.other _ (dreg_ne hx (by omega) e), hd x' (by omega)]
-
-/-! ## A plane -/
-
-theorem laneB_ok (x y : Nat) (hx : x < 5) (_hy : y < 5) (s : State) (src : Addr) (A : KState)
-    (hrdi : s.gpr .rdi = src) (hin : ∀ i < 25, InRegions (s.rd ++ s.wr) (laneAddr src i) 8)
-    (hA : ∀ i < 25, s.mem.readW (laneAddr src i) 64 = A[i]!)
-    (hd : ∀ x' < 5, s.gpr (dreg x') = D A x') :
-    WP isa (.block (laneB x y)) s fun s' => Upd s s' (creg x) (B A x y) := by
-  have hj : piSrc x y < 25 := by simp only [piSrc]; omega
-  have hk : (x + 3 * y) % 5 < 5 := Nat.mod_lt _ (by omega)
-  unfold laneB
-  rw [List.cons_append, List.cons_append]
-  refine wp_movm (by rw [ea_lane, hrdi]) (hin _ hj) fun s₁ h₁ => wp_xor fun s₂ h₂ => ?_
-  have u := h₁.trans ⟨h₂.gpr, h₂.other, h₂.mem, h₂.rd, h₂.wr⟩
-  have hv : s₂.gpr (creg x) = A[piSrc x y]! ^^^ D A ((x + 3 * y) % 5) := by
-    rw [h₂.gpr, h₁.gpr, hA _ hj, h₁.other _ (creg_dreg x hx _ hk).symm, hd _ hk]
-  unfold B Proof.Sha3.rotl
-  split
-  · exact wp_nil ⟨by rw [hv], u.other, u.mem, u.rd, u.wr⟩
-  · have := Proof.Sha3.rhoOff_lt _ hj
-    refine wp_ror (by omega) (by omega) fun s₃ h₃ => wp_nil ?_
-    refine ⟨by rw [h₃.gpr, hv], (u.trans ⟨h₃.gpr, h₃.other, h₃.mem, h₃.rd, h₃.wr⟩).other,
-      by rw [h₃.mem, u.mem], by rw [h₃.rd, u.rd], by rw [h₃.wr, u.wr]⟩
-
-/-- After the first `k` lanes `B[x]` of plane `y`. -/
-def BInv (s₀ : State) (A : KState) (y k : Nat) (s : State) : Prop :=
-  Keeps s₀ s ∧ s.mem = s₀.mem ∧ (∀ x < 5, s.gpr (dreg x) = D A x) ∧
-    ∀ x < k, s.gpr (creg x) = B A x y
-
-theorem laneBs_ok (y : Nat) (_hy : y < 5) (s₀ : State) (src : Addr) (A : KState)
-    (hrdi : s₀.gpr .rdi = src) (hin : ∀ i < 25, InRegions (s₀.rd ++ s₀.wr) (laneAddr src i) 8)
-    (hA : ∀ i < 25, s₀.mem.readW (laneAddr src i) 64 = A[i]!)
-    (hd : ∀ x < 5, s₀.gpr (dreg x) = D A x) :
-    WP isa (.block ((List.range 5).flatMap fun x => laneB x y)) s₀ (BInv s₀ A y 5) := by
-  refine wp_range_flatMap (M := isa) (BInv s₀ A y) (fun x s hx ⟨hk, hm, hds, hb⟩ => ?_) 5 (Nat.le_refl _) s₀
-    ⟨Keeps.refl _, rfl, hd, fun _ h => absurd h (by omega)⟩
-  refine WP.mono (laneB_ok x y hx _hy s src A ((hk.ptrs .rdi (by decide)).trans hrdi)
-    (by rw [hk.rd, hk.wr]; exact hin) (by rw [hm]; exact hA) hds) fun s' h => ?_
-  refine ⟨hk.trans (Keeps.ofUpd h (creg_ptr x hx)), h.mem.trans hm, fun x' hx' => ?_, fun x' hx' => ?_⟩
-  · rw [h.other _ (creg_dreg x hx x' hx').symm, hds x' hx']
-  · by_cases e : x' = x
-    · subst e; exact h.gpr
-    · rw [h.other _ (creg_ne hx (by omega) e), hb x' (by omega)]
-
-theorem allOnes : BitVec.signExtend 64 (0xffffffff : BitVec 32) = (0xffffffffffffffff : BitVec 64) := by
-  decide
-
-theorem chi_ok (x y : Nat) (hx : x < 5) (hy : y < 5) (s : State) (dst rcp : Addr) (A : KState)
-    (rc : Lane) (hrsi : s.gpr .rsi = dst) (hrdx : s.gpr .rdx = rcp)
-    (hout : InRegions s.wr (laneAddr dst (x + 5 * y)) 8) (hrc_in : InRegions (s.rd ++ s.wr) rcp 8)
-    (hrc : s.mem.readW rcp 64 = rc) (hb : ∀ x' < 5, s.gpr (creg x') = B A x' y) :
-    WP isa (.block (chi x y)) s fun s' =>
-      (∀ r, r ≠ T → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
-      s'.mem = s.mem.writeW (laneAddr dst (x + 5 * y)) (out A rc x y) := by
-  have h1 : (x + 1) % 5 < 5 := Nat.mod_lt _ (by omega)
-  have h2 : (x + 2) % 5 < 5 := Nat.mod_lt _ (by omega)
-  unfold chi
-  simp only [List.cons_append, List.nil_append]
-  refine wp_mov fun s₁ h₁ => wp_xori fun s₂ h₂ => wp_and fun s₃ h₃ => wp_xor fun s₄ h₄ => ?_
-  have u := ((h₁.trans ⟨h₂.gpr, h₂.other, h₂.mem, h₂.rd, h₂.wr⟩).trans
-    ⟨h₃.gpr, h₃.other, h₃.mem, h₃.rd, h₃.wr⟩).trans ⟨h₄.gpr, h₄.other, h₄.mem, h₄.rd, h₄.wr⟩
-  have ht : s₄.gpr T = (B A ((x + 1) % 5) y ^^^ 0xffffffffffffffff) &&& B A ((x + 2) % 5) y ^^^
-      B A x y := by
-    rw [h₄.gpr, h₃.gpr, h₂.gpr, h₁.gpr, h₃.other _ (T_creg _ hx).symm,
-      h₂.other _ (T_creg _ hx).symm, h₁.other _ (T_creg _ hx).symm, h₂.other _ (T_creg _ h2).symm,
-      h₁.other _ (T_creg _ h2).symm, hb _ h1, hb _ h2, hb _ hx, allOnes]
-  have hsi : s₄.gpr .rsi = dst := (u.other _ (T_ptr .rsi (by decide)).symm).trans hrsi
-  have hdx : s₄.gpr .rdx = rcp := (u.other _ (T_ptr .rdx (by decide)).symm).trans hrdx
-  have fin : ∀ s₅ : State, Upd s s₅ T (out A rc x y) →
-      WP isa (.block [.store (lane .rsi (x + 5 * y)) T]) s₅ fun s' =>
-        (∀ r, r ≠ T → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
-        s'.mem = s.mem.writeW (laneAddr dst (x + 5 * y)) (out A rc x y) := fun s₅ h₅ => by
-    refine wp_store (by rw [ea_lane, h₅.other _ (T_ptr .rsi (by decide)).symm, hrsi])
-      (by rw [h₅.wr]; exact hout) fun s₆ g₆ m₆ r₆ w₆ => wp_nil ?_
-    exact ⟨fun r hr => by rw [g₆, h₅.other r hr], by rw [r₆, h₅.rd], by rw [w₆, h₅.wr],
-      by rw [m₆, h₅.mem, h₅.gpr]⟩
-  by_cases h0 : x = 0 ∧ y = 0
-  · obtain ⟨rfl, rfl⟩ := h0
-    simp only [and_self, ite_true, List.singleton_append]
-    refine wp_xorm (a := rcp) (by rw [ea_at, hdx]; exact BitVec.add_zero _)
-      (by rw [u.rd, u.wr]; exact hrc_in) fun s₅ h₅ => ?_
-    refine fin s₅ (u.trans ⟨?_, h₅.other, h₅.mem, h₅.rd, h₅.wr⟩)
-    rw [h₅.gpr, ht, u.mem, hrc, out]
-    simp only [and_self, ite_true]
-  · simp only [h0, ite_false, List.nil_append]
-    refine fin s₄ (u.trans ⟨?_, fun _ _ => rfl, rfl, rfl, rfl⟩)
-    rw [ht, out]
-    simp only [h0, ite_false]
-
-/-- After `k` lanes of plane `y` of the output. -/
-structure ChiInv (s₀ : State) (A : KState) (rc : Lane) (dst : Addr) (y k : Nat) (s : State) : Prop where
-  keeps : Keeps s₀ s
-  frame : Frame [⟨dst, 200⟩] s₀.mem s.mem
-  dregs : ∀ x < 5, s.gpr (dreg x) = D A x
-  bregs : ∀ x < 5, s.gpr (creg x) = B A x y
-  lanes : ∀ j < 5 * y + k, s.mem.readW (laneAddr dst j) 64 = out A rc (j % 5) (j / 5)
-
-theorem chis_ok (y : Nat) (hy : y < 5) (s₀ : State) (src dst rcp : Addr) (A : KState) (rc : Lane)
-    (he : Env s₀.rd s₀.wr src dst rcp) (hrsi : s₀.gpr .rsi = dst) (hrdx : s₀.gpr .rdx = rcp)
-    (hrc : s₀.mem.readW rcp 64 = rc) (s : State) (hs : ChiInv s₀ A rc dst y 0 s) :
-    WP isa (.block ((List.range 5).flatMap fun x => chi x y)) s (ChiInv s₀ A rc dst y 5) := by
-  refine wp_range_flatMap (M := isa) (ChiInv s₀ A rc dst y) (fun x s hx hi => ?_) 5 (Nat.le_refl _) s hs
-  have hj : x + 5 * y < 25 := by omega
-  refine WP.mono (chi_ok x y hx hy s dst rcp A rc ((hi.keeps.ptrs .rsi (by decide)).trans hrsi)
-    ((hi.keeps.ptrs .rdx (by decide)).trans hrdx) (by rw [hi.keeps.wr]; exact he.dst_out _ hj)
-    (by rw [hi.keeps.rd, hi.keeps.wr]; exact he.rc_in) (by rw [he.rc_frame hi.frame, hrc]) hi.bregs)
-    fun s' ⟨hg, hrd, hwr, hm⟩ => ?_
-  refine ⟨⟨fun r hr => by rw [hg r (T_ptr r hr).symm, hi.keeps.ptrs r hr], hrd.trans hi.keeps.rd,
-      hwr.trans hi.keeps.wr⟩, ?_, fun x' hx' => by rw [hg _ (T_dreg x' hx').symm, hi.dregs x' hx'],
-    fun x' hx' => by rw [hg _ (T_creg x' hx').symm, hi.bregs x' hx'], fun j hj' => ?_⟩
-  · rw [hm]; exact hi.frame.writeW (List.mem_singleton_self _) _ (lane_contains dst hj)
-  · rw [hm]
-    by_cases e : j = x + 5 * y
-    · subst e
-      rw [Mem.readW_writeW_self64, show (x + 5 * y) % 5 = x by omega, show (x + 5 * y) / 5 = y by omega]
-    · rw [Mem.readW_writeW_sep (lane_sep dst (by omega) hj e) (by decide)]
-      exact hi.lanes j (by omega)
-
-/-- After the first `y` planes of the output. -/
-structure PInv (s₀ : State) (A : KState) (rc : Lane) (dst : Addr) (y : Nat) (s : State) : Prop where
-  keeps : Keeps s₀ s
-  frame : Frame [⟨dst, 200⟩] s₀.mem s.mem
-  dregs : ∀ x < 5, s.gpr (dreg x) = D A x
-  lanes : ∀ j < 5 * y, s.mem.readW (laneAddr dst j) 64 = out A rc (j % 5) (j / 5)
-
-theorem planes_ok (s₀ : State) (src dst rcp : Addr) (A : KState) (rc : Lane)
-    (he : Env s₀.rd s₀.wr src dst rcp) (hrdi : s₀.gpr .rdi = src) (hrsi : s₀.gpr .rsi = dst)
-    (hrdx : s₀.gpr .rdx = rcp) (hA : Lanes s₀.mem src A) (hrc : s₀.mem.readW rcp 64 = rc)
-    (hd : ∀ x < 5, s₀.gpr (dreg x) = D A x) :
-    WP isa (.block ((List.range 5).flatMap plane)) s₀ (PInv s₀ A rc dst 5) := by
-  refine wp_range_flatMap (M := isa) (PInv s₀ A rc dst) (fun y s hy hi => ?_) 5 (Nat.le_refl _) s₀
-    ⟨Keeps.refl _, Frame.refl _ _, hd, fun _ h => absurd h (by omega)⟩
-  unfold plane
-  rw [WP.block_append_iff]
-  have hA' : ∀ i < 25, s.mem.readW (laneAddr src i) 64 = A[i]! := fun i hi' => by
-    rw [he.src_frame hi.frame hi', hA i hi']; simp [hi']
-  refine WP.mono (laneBs_ok y hy s src A ((hi.keeps.ptrs .rdi (by decide)).trans hrdi)
-    (by rw [hi.keeps.rd, hi.keeps.wr]; exact he.src_in) hA' hi.dregs) fun s₁ ⟨hk, hm, hds, hb⟩ => ?_
-  refine WP.mono (chis_ok y hy s₀ src dst rcp A rc he hrsi hrdx hrc s₁
-    ⟨hi.keeps.trans hk, by rw [hm]; exact hi.frame, hds, hb, fun j hj => by rw [hm]; exact hi.lanes j hj⟩)
-    fun s₂ h₂ => ⟨h₂.keeps, h₂.frame, h₂.dregs, fun j hj => h₂.lanes j (by omega)⟩
-
-/-! ## The round -/
-
-theorem tail_ok (s : State) :
-    WP isa (.block [.mov .rax (.reg .rdi), .mov .rdi (.reg .rsi), .mov .rsi (.reg .rax),
-      .alu .add .rdx (.imm 8), .alu .cmp .rdx (.reg .rcx)]) s fun s' =>
-      s'.gpr .rdi = s.gpr .rsi ∧ s'.gpr .rsi = s.gpr .rdi ∧ s'.gpr .rdx = s.gpr .rdx + 8 ∧
-      s'.gpr .rcx = s.gpr .rcx ∧ s'.gpr .rsp = s.gpr .rsp ∧ s'.mem = s.mem ∧ s'.rd = s.rd ∧
-      s'.wr = s.wr ∧ s'.zf = some (s.gpr .rdx + 8 - s.gpr .rcx == 0) := by
-  refine wp_mov fun s₁ h₁ => wp_mov fun s₂ h₂ => wp_mov fun s₃ h₃ => wp_addi fun s₄ h₄ =>
-    wp_cmp fun s₅ g₅ m₅ r₅ w₅ _ z₅ => wp_nil ?_
-  have e8 : BitVec.signExtend 64 (8 : BitVec 32) = (8 : BitVec 64) := by decide
-  have di : s₄.gpr .rdi = s.gpr .rsi := by
-    rw [h₄.other _ (by decide), h₃.other _ (by decide), h₂.gpr, h₁.other _ (by decide)]
-  have si : s₄.gpr .rsi = s.gpr .rdi := by
-    rw [h₄.other _ (by decide), h₃.gpr, h₂.other _ (by decide), h₁.gpr]
-  have dx : s₄.gpr .rdx = s.gpr .rdx + 8 := by
-    rw [h₄.gpr, h₃.other _ (by decide), h₂.other _ (by decide), h₁.other _ (by decide), e8]
-  have cx : s₄.gpr .rcx = s.gpr .rcx := by
-    rw [h₄.other _ (by decide), h₃.other _ (by decide), h₂.other _ (by decide), h₁.other _ (by decide)]
-  have sp : s₄.gpr .rsp = s.gpr .rsp := by
-    rw [h₄.other _ (by decide), h₃.other _ (by decide), h₂.other _ (by decide), h₁.other _ (by decide)]
-  exact ⟨by rw [g₅, di], by rw [g₅, si], by rw [g₅, dx], by rw [g₅, cx], by rw [g₅, sp],
-    by rw [m₅, h₄.mem, h₃.mem, h₂.mem, h₁.mem], by rw [r₅, h₄.rd, h₃.rd, h₂.rd, h₁.rd],
-    by rw [w₅, h₄.wr, h₃.wr, h₂.wr, h₁.wr], by rw [z₅, dx, cx]⟩
-
-theorem round_ok (s : State) (src dst rcp : Addr) (A : KState) (rc : Lane)
-    (he : Env s.rd s.wr src dst rcp) (hrdi : s.gpr .rdi = src) (hrsi : s.gpr .rsi = dst)
-    (hrdx : s.gpr .rdx = rcp) (hA : Lanes s.mem src A) (hrc : s.mem.readW rcp 64 = rc) :
-    WP isa (.block round) s fun s' =>
-      Lanes s'.mem dst (outState A rc) ∧ Frame [⟨dst, 200⟩] s.mem s'.mem ∧
-      s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.gpr .rdi = dst ∧ s'.gpr .rsi = src ∧
-      s'.gpr .rdx = rcp + 8 ∧ s'.gpr .rcx = s.gpr .rcx ∧ s'.gpr .rsp = s.gpr .rsp ∧
-      s'.zf = some (rcp + 8 - s.gpr .rcx == 0) := by
-  unfold round
-  rw [WP.block_append_iff, WP.block_append_iff, WP.block_append_iff]
-  refine WP.mono (columns_ok s src A hrdi he.src_in hA) fun s₁ ⟨k₁, m₁, c₁⟩ => ?_
-  refine WP.mono (dcols_ok s₁ A c₁) fun s₂ ⟨k₂, m₂, _, d₂⟩ => ?_
-  have k₁₂ := k₁.trans k₂
-  refine WP.mono (planes_ok s₂ src dst rcp A rc (by rw [k₁₂.rd, k₁₂.wr]; exact he)
-    ((k₁₂.ptrs .rdi (by decide)).trans hrdi) ((k₁₂.ptrs .rsi (by decide)).trans hrsi)
-    ((k₁₂.ptrs .rdx (by decide)).trans hrdx) (by rw [m₂, m₁]; exact hA) (by rw [m₂, m₁, hrc]) d₂)
-    fun s₃ h₃ => ?_
-  have k₃ := k₁₂.trans h₃.keeps
-  refine WP.mono (tail_ok s₃) fun s₄ ⟨e₁, e₂, e₃, e₄, e₅, e₆, e₇, e₈, e₉⟩ => ?_
-  have hdx : s₃.gpr .rdx = rcp := (k₃.ptrs .rdx (by decide)).trans hrdx
-  have hcx : s₃.gpr .rcx = s.gpr .rcx := k₃.ptrs .rcx (by decide)
-  refine ⟨fun i hi => ?_, by rw [e₆, ← m₁, ← m₂]; exact h₃.frame, by rw [e₇, k₃.rd],
-    by rw [e₈, k₃.wr], by rw [e₁, k₃.ptrs .rsi (by decide), hrsi],
-    by rw [e₂, k₃.ptrs .rdi (by decide), hrdi], by rw [e₃, hdx], by rw [e₄, hcx],
-    by rw [e₅, k₃.ptrs .rsp (by decide)], by rw [e₉, hdx, hcx]⟩
-  rw [e₆, h₃.lanes i (by omega)]
-  simp [outState]
 
 end VG.Proof.Sha3.X86_64
 
@@ -761,12 +452,12 @@ theorem save_eq : saved.map (fun (r, d) => Instr.store (at_ .rsi d) r) =
     (List.range 6).flatMap fun k =>
       [.store (at_ .rsi (392 + 8 * k)) ((saved.getD k (.rax, 0)).1)] := by decide
 
-theorem prologue_eq : prologue = (List.range 6).flatMap (fun k =>
+theorem setup_eq : setup = (List.range 6).flatMap (fun k =>
       ([.store (at_ .rsi (392 + 8 * k)) ((saved.getD k (.rax, 0)).1)] : List Instr)) ++
     (List.range 24).flatMap (fun k =>
       ([.movImm64 .rax (RC k), .store (at_ .rsi (200 + 8 * k)) .rax] : List Instr)) ++
-    ([.mov .rdx (.reg .rsi), .alu .add .rdx (.imm 200), .mov .rcx (.reg .rsi), .alu .add .rcx (.imm 392)] : List Instr) := by
-  rw [prologue, save_eq]
+    ([.mov .r15 (.imm (-192))] : List Instr) := by
+  rw [setup, save_eq]
 
 /-- During the saves. -/
 def SaveInv (s₀ : State) (k : Nat) (s : State) : Prop :=
@@ -826,101 +517,147 @@ theorem rcs_ok {s₀ : State} (hp : Pre s₀) (s : State) (hs : RcInv s₀ s.mem
           (by omega) (by omega) (by omega)
         exact this.sep (Region.contains_self _ _) (Region.contains_self _ _)
 
-/-- The rounds' invariant, before round `r`. -/
-structure LInv (s₀ : State) (r : Nat) (s : State) : Prop where
-  rdi : s.gpr .rdi = cur s₀ r
-  rsi : s.gpr .rsi = oth s₀ r
-  rdx : s.gpr .rdx = off s₀ (200 + 8 * r)
-  rcx : s.gpr .rcx = off s₀ 392
+open VG.Proof.Sha3.X86_64.Round (rowReg kept round_ok check₀ check₁ keeps₀ keeps₁ slots_ok
+  complement_check complementRow_check complement_writes complement_writes' rows_of cmpl_cmpl)
+open VG.Proof.Sha3.Compl (cmpl)
+
+/-- `r15` before iteration `j` of the loop. -/
+def r15At (j : Nat) : BitVec 64 := BitVec.ofNat 64 (16 * j) - 192
+
+/-- The rounds' invariant, before iteration `j` (round `2j`): the state,
+with the lanes `complLanes` complemented, at `state`, and its row 4 in
+`rowReg`. -/
+structure LInv (s₀ : State) (j : Nat) (s : State) : Prop where
+  rdi : s.gpr .rdi = st s₀
+  rsi : s.gpr .rsi = scr s₀
+  r15 : s.gpr .r15 = r15At j
   rsp : s.gpr .rsp = s₀.gpr .rsp
   rd : s.rd = s₀.rd
   wr : s.wr = s₀.wr
-  state : Lanes s.mem (cur s₀ r) ((List.range r).foldl rnd (A₀ s₀))
+  state : Lanes s.mem (st s₀) (cmpl ((List.range (2 * j)).foldl rnd (A₀ s₀)))
+  row : ∀ x (hx : x < 5), s.gpr (rowReg x) = (cmpl ((List.range (2 * j)).foldl rnd (A₀ s₀)))[20 + x]
   aux : Aux s₀ s.mem
   frame : Frame [stR s₀, scrR s₀] s₀.mem s.mem
 
-theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block prologue) s₀ (LInv s₀ 0) := by
-  rw [prologue_eq, WP.block_append_iff, WP.block_append_iff]
+theorem lanes₀ (s₀ : State) : Lanes s₀.mem (st s₀) (A₀ s₀) := by
+  intro i hi; simp [Spec.Sha3.stateAt, laneAddr]
+
+theorem prologue_ok {s₀ : State} (hp : Pre s₀) :
+    WP isa (.block (setup ++ complement ++ loadRow)) s₀ (LInv s₀ 0) := by
+  rw [setup_eq, List.append_assoc, List.append_assoc, WP.block_append_iff, WP.block_append_iff]
   refine WP.mono (saves_ok hp) fun s₁ ⟨g₁, rd₁, wr₁, f₁, v₁⟩ => ?_
   refine WP.mono (rcs_ok hp s₁ ⟨by rw [g₁], by rw [g₁], by rw [g₁], rd₁, wr₁, Frame.refl _ _,
     fun _ h => absurd h (by omega)⟩) fun s₂ ⟨di₂, si₂, sp₂, rd₂, wr₂, f₂, v₂⟩ => ?_
-  refine wp_mov fun s₃ h₃ => wp_addi fun s₄ h₄ => wp_mov fun s₅ h₅ => wp_addi fun s₆ h₆ => wp_nil ?_
-  have m : s₆.mem = s₂.mem := by rw [h₆.mem, h₅.mem, h₄.mem, h₃.mem]
-  have k : ∀ r, r ≠ .rdx → r ≠ .rcx → s₆.gpr r = s₂.gpr r := fun r a b => by
-    rw [h₆.other r b, h₅.other r b, h₄.other r a, h₃.other r a]
-  have e200 : BitVec.signExtend 64 (200 : BitVec 32) = BitVec.ofNat 64 200 := by decide
-  have e392 : BitVec.signExtend 64 (392 : BitVec 32) = BitVec.ofNat 64 392 := by decide
-  -- The prologue writes only scratch offsets 200 to 440.
+  rw [List.singleton_append]
+  refine WP.cons rfl ?_
+  -- The prologue writes only scratch offsets 200 to 440 before complementing.
   have hf : Frame [⟨off s₀ 200, 240⟩] s₀.mem s₂.mem := by
     refine (f₁.sub fun r hr => ?_).trans (f₂.sub fun r hr => ?_) <;>
       simp only [List.mem_singleton] at hr <;> subst hr <;>
       exact ⟨_, List.mem_singleton_self _, off_sub _ (by omega) (by omega) (by omega)⟩
-  have hf₂ : Frame [stR s₀, scrR s₀] s₀.mem s₂.mem :=
+  have hd₂ : Region.Disjoint (stR s₀) ⟨off s₀ 200, 240⟩ := hp.region_off (.inl rfl) (by omega) (by omega)
+  have hA : Lanes s₂.mem (st s₀) (A₀ s₀) := fun i hi => by
+    rw [hf.readW (lane_contains _ hi) (by simpa using hd₂) (by decide)]; exact lanes₀ s₀ i hi
+  have haux : Aux s₀ s₂.mem := by
+    refine ⟨fun j hj => ?_, fun j hj => ?_⟩
+    · rw [f₂.readW (Region.contains_self _ _) ?_ (by decide)]
+      · exact v₁ j hj
+      · simpa using off_disjoint (scr s₀) (a := 392 + 8 * j) (n := 8) (b := 200) (k := 192)
+          (by omega) (by omega) (by omega)
+    · exact v₂ j hj
+  let s₃ := s₂.setReg .r15 ((-192 : BitVec 32).signExtend 64)
+  have hwr : (stR s₀) ∈ s₃.wr := by
+    show stR s₀ ∈ s₂.wr; rw [wr₂, hp.wr]; simp
+  obtain ⟨s₄, e₄, hs₄, hp₄, hr₄, hl₄, hf₄, rd₄, wr₄, k₄⟩ := slots_ok complementRow_check
+    (fun e h => by simp only [Round.rPost, Bool.and_eq_true] at h; exact h.1) complement_writes
+    (s := s₃) (show s₂.gpr .rdi = st s₀ from di₂) hwr hA
+  refine WP.of_runBlock ⟨s₄, hs₄, ?_⟩
+  have hsk : Frame [stR s₀, scrR s₀] s₀.mem s₂.mem :=
     hf.sub fun r hr => by
       simp only [List.mem_singleton] at hr; subst hr
       exact ⟨scrR s₀, by simp, sub_offset (by omega) (by omega)⟩
-  refine ⟨by rw [k _ (by decide) (by decide), di₂]; simp [cur],
-    by rw [k _ (by decide) (by decide), si₂]; simp [oth], ?_, ?_,
-    by rw [k _ (by decide) (by decide), sp₂], by rw [h₆.rd, h₅.rd, h₄.rd, h₃.rd, rd₂],
-    by rw [h₆.wr, h₅.wr, h₄.wr, h₃.wr, wr₂], ?_, ⟨fun j hj => ?_, fun j hj => ?_⟩,
-    by rw [m]; exact hf₂⟩
-  · rw [h₆.other _ (by decide), h₅.other _ (by decide), h₄.gpr, h₃.gpr, si₂, e200]
-  · rw [h₆.gpr, h₅.gpr, h₄.other _ (by decide), h₃.other _ (by decide), si₂, e392]
-  · intro i hi
-    have hc : cur s₀ 0 = st s₀ := by simp [cur]
-    rw [hc, m, hf.readW (lane_contains _ hi)
-      (by simpa using hp.region_off (.inl rfl) (d := 200) (n := 240) (by omega) (by omega)) (by decide)]
-    simp [Spec.Sha3.stateAt, laneAddr]
-  · rw [m, f₂.readW (Region.contains_self _ _) ?_ (by decide)]
-    · exact v₁ j hj
-    · simpa using off_disjoint (scr s₀) (a := 392 + 8 * j) (n := 8) (b := 200) (k := 192)
-        (by omega) (by omega) (by omega)
-  · rw [m]; exact v₂ j hj
+  refine ⟨by rw [k₄ .rdi (by decide)]; exact di₂, by rw [k₄ .rsi (by decide)]; exact si₂,
+    by rw [k₄ .r15 (by decide)]; rfl, by rw [k₄ .rsp (by decide)]; exact sp₂,
+    by rw [rd₄]; exact rd₂, by rw [wr₄]; exact wr₂, by simpa using hl₄, fun x hx => ?_, ?_, ?_⟩
+  · simpa using rows_of hr₄ hp₄ x hx
+  · exact haux.frame (fun d hd hd' => (hp.region_off (.inl rfl) hd (by omega)).symm) hf₄
+  · exact hsk.trans (hf₄.sub fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; exact ⟨stR s₀, by simp, fun _ h => h⟩)
 
 /-! ## The rounds -/
 
-theorem off_add8 (s₀ : State) (d : Nat) : off s₀ d + 8 = off s₀ (d + 8) := by
-  simp only [off]; rw [BitVec.ofNat_add, BitVec.add_assoc]; rfl
+theorem r15At_succ : ∀ j < 12, r15At j + BitVec.signExtend 64 (16 : BitVec 32) = r15At (j + 1) := by
+  decide
 
-theorem off_beq (s₀ : State) {a b : Nat} (ha : a < 2 ^ 32) (hb : b < 2 ^ 32) :
-    (off s₀ a - off s₀ b == 0) = decide (a = b) := by
-  by_cases h : a = b
-  · subst h; simp
-  · simp only [h, decide_false, beq_eq_false_iff_ne, ne_eq]
-    intro e
-    apply h
-    simp only [off] at e
-    bv_omega
+theorem r15At_zero : ∀ j < 12, (r15At (j + 1) == 0) = decide (j + 1 = 12) := by decide
 
-theorem round_step {s₀ : State} (hp : Pre s₀) {r : Nat} (hr : r < 24) {s : State} (hL : LInv s₀ r s) :
-    WP isa (.block round) s fun s' =>
-      eval .ne s' = some (!decide (r + 1 = 24)) ∧ LInv s₀ (r + 1) s' := by
-  have he := hp.env r hr
-  have hc := cur_cases s₀ r
-  have hoth : oth s₀ r = st s₀ ∨ oth s₀ r = scr s₀ := hc.symm.imp (·.2) (·.2)
-  refine WP.mono (round_ok s _ _ _ _ (RC r) (by rw [hL.rd, hL.wr]; exact he) hL.rdi hL.rsi hL.rdx
-    hL.state (by rw [hL.aux.2 r hr])) fun s' ⟨hl, hf, hrd, hwr, hdi, hsi, hdx, hcx, hsp, hzf⟩ => ?_
-  have hL' : LInv s₀ (r + 1) s' := by
-    refine ⟨by rw [hdi, cur_succ], by rw [hsi, oth_succ], by rw [hdx, off_add8]; congr 1,
-      by rw [hcx, hL.rcx], by rw [hsp, hL.rsp], hrd.trans hL.rd, hwr.trans hL.wr, ?_, ?_, ?_⟩
-    · rw [cur_succ, foldl_succ, ← outState_eq]; exact hl
-    · exact hL.aux.frame (fun d hd hd' => (hp.region_off hoth hd (by omega)).symm) hf
-    · refine hL.frame.trans (hf.sub fun R hR => ?_)
-      simp only [List.mem_singleton] at hR; subst hR
-      rcases hoth with e | e <;> rw [e]
-      · exact ⟨stR s₀, by simp, fun _ h => h⟩
-      · exact ⟨scrR s₀, by simp, Region.sub_prefix (by omega)⟩
-  refine ⟨?_, hL'⟩
-  simp only [eval, hzf, hL.rcx, off_add8, Option.map_some]
-  rw [off_beq s₀ (by omega) (by omega)]
-  simp only [show (200 + 8 * r + 8 = 392) = (r + 1 = 24) by apply propext; omega]
+theorem rcOff : ∀ j < 12, ∀ k : Nat, k < 2 →
+    r15At j * BitVec.ofNat 64 1 + BitVec.ofInt 64 (392 + 8 * (k : Int)) = BitVec.ofNat 64 (200 + 8 * (2 * j + k)) := by
+  decide
 
-/-- Two rounds, from an even round `r`. -/
-theorem body_ok {s₀ : State} (hp : Pre s₀) {r : Nat} (hr : r + 2 ≤ 24) {s : State} (hL : LInv s₀ r s) :
-    WP isa (.block (round ++ round)) s fun s' =>
-      eval .ne s' = some (!decide (r + 2 = 24)) ∧ LInv s₀ (r + 2) s' := by
-  rw [WP.block_append_iff]
-  exact WP.mono (round_step hp (by omega) hL) fun s₁ ⟨_, h₁⟩ => round_step hp (by omega) h₁
+theorem ea_rcOp {s : State} {j k : Nat} (hj : j < 12) (hk : k < 2) {b : Addr} (hsi : s.gpr .rsi = b)
+    (h15 : s.gpr .r15 = r15At j) : s.ea (rcOp k) = b + BitVec.ofNat 64 (200 + 8 * (2 * j + k)) := by
+  simp only [State.ea, rcOp, hsi, h15]
+  rw [BitVec.add_assoc, rcOff j hj k hk]
+
+theorem cur_even (s₀ : State) (j : Nat) : cur s₀ (2 * j) = st s₀ ∧ oth s₀ (2 * j) = scr s₀ := by
+  simp [cur, oth]
+
+theorem cur_odd (s₀ : State) (j : Nat) : cur s₀ (2 * j + 1) = scr s₀ ∧ oth s₀ (2 * j + 1) = st s₀ := by
+  simp [cur, oth, Nat.add_mod]
+
+theorem foldl_two (A : KState) (j : Nat) :
+    (List.range (2 * (j + 1))).foldl rnd A = rnd (rnd ((List.range (2 * j)).foldl rnd A) (2 * j)) (2 * j + 1) := by
+  rw [show 2 * (j + 1) = 2 * j + 1 + 1 by omega, foldl_succ, foldl_succ]
+
+/-- Two rounds, from iteration `j`. -/
+theorem body_ok {s₀ : State} (hp : Pre s₀) {j : Nat} (hj : j < 12) {s : State} (hL : LInv s₀ j s) :
+    WP isa (.block body) s fun s' =>
+      eval .ne s' = some (!decide (j + 1 = 12)) ∧ LInv s₀ (j + 1) s' := by
+  unfold body
+  rw [WP.block_append_iff, WP.block_append_iff]
+  have ⟨c₀, o₀⟩ := cur_even s₀ j
+  have ⟨c₁, o₁⟩ := cur_odd s₀ j
+  have he₀ := hp.env (2 * j) (by omega)
+  have he₁ := hp.env (2 * j + 1) (by omega)
+  rw [c₀, o₀] at he₀
+  rw [c₁, o₁] at he₁
+  have hea₀ := ea_rcOp (k := 0) hj (by omega) hL.rsi hL.r15
+  have hd₀ : Region.Disjoint ⟨scr s₀, 200⟩ ⟨off s₀ (200 + 8 * (2 * j + 1)), 8⟩ :=
+    hp.region_off (.inr rfl) (by omega) (by omega)
+  refine WP.mono (round_ok check₀ keeps₀ (by decide) (by decide) 0 (rc := RC (2 * j))
+    (src := st s₀) (dst := scr s₀) hL.rdi hL.rsi
+    (by rw [hL.rd, hL.wr, hea₀]; exact he₀) hL.state hL.row
+    (by rw [hea₀]; exact hL.aux.2 (2 * j) (by omega))) fun s₁ ⟨l₁, w₁, f₁, rd₁, wr₁, k₁⟩ => ?_
+  have aux₁ : Aux s₀ s₁.mem := hL.aux.frame (fun d hd hd' => (hp.region_off (.inr rfl) hd (by omega)).symm) f₁
+  have hea₁ := ea_rcOp (k := 1) (b := scr s₀) hj (by omega) (by rw [k₁ .rsi (by decide)]; exact hL.rsi)
+    (by rw [k₁ .r15 (by decide)]; exact hL.r15)
+  refine WP.mono (round_ok check₁ keeps₁ (by decide) (by decide) 1 (rc := RC (2 * j + 1))
+    (src := scr s₀) (dst := st s₀)
+    (by rw [k₁ .rsi (by decide)]; exact hL.rsi) (by rw [k₁ .rdi (by decide)]; exact hL.rdi)
+    (by rw [rd₁, wr₁, hL.rd, hL.wr, hea₁]; exact he₁) l₁ w₁
+    (by rw [hea₁]; exact aux₁.2 (2 * j + 1) (by omega))) fun s₂ ⟨l₂, w₂, f₂, rd₂, wr₂, k₂⟩ => ?_
+  have h15 : s₂.gpr .r15 = r15At j := by rw [k₂ .r15 (by decide), k₁ .r15 (by decide), hL.r15]
+  refine wp_addi_zf fun s₃ u₃ z₃ => wp_nil ⟨?_, ?_⟩
+  · simp only [eval, z₃, h15, r15At_succ j hj, r15At_zero j hj, Option.map_some]
+  · have keep : ∀ r ∈ kept, r ≠ .r15 → s₃.gpr r = s.gpr r := fun r hr h => by
+      rw [u₃.other r h, k₂ r hr, k₁ r hr]
+    have hst : cmpl (Proof.Sha3.outState (Proof.Sha3.outState ((List.range (2 * j)).foldl rnd (A₀ s₀))
+        (RC (2 * j))) (RC (2 * j + 1))) = cmpl ((List.range (2 * (j + 1))).foldl rnd (A₀ s₀)) := by
+      rw [Proof.Sha3.outState_eq, Proof.Sha3.outState_eq, foldl_two]
+    rw [hst] at l₂ w₂
+    have hrow : ∀ x < 5, rowReg x ≠ .r15 := by decide
+    exact ⟨by rw [keep .rdi (by decide) (by decide), hL.rdi], by rw [keep .rsi (by decide) (by decide), hL.rsi],
+      by rw [u₃.gpr, h15, r15At_succ j hj], by rw [keep .rsp (by decide) (by decide), hL.rsp],
+      by rw [u₃.rd, rd₂, rd₁, hL.rd], by rw [u₃.wr, wr₂, wr₁, hL.wr], by rw [u₃.mem]; exact l₂,
+      fun x hx => by rw [u₃.other _ (hrow x hx), w₂ x hx],
+      by rw [u₃.mem]; exact aux₁.frame (fun d hd hd' => (hp.region_off (.inl rfl) hd (by omega)).symm) f₂,
+      by
+        rw [u₃.mem]
+        refine (hL.frame.trans (f₁.sub fun r hr => ?_)).trans (f₂.sub fun r hr => ?_) <;>
+          simp only [List.mem_singleton] at hr <;> subst hr
+        · exact ⟨scrR s₀, by simp, Region.sub_prefix (by omega)⟩
+        · exact ⟨stR s₀, by simp, fun _ h => h⟩⟩
 
 /-! ## The epilogue -/
 
@@ -934,27 +671,37 @@ theorem saved_ne_rsi : ∀ k < 6, (saved.getD k (.rax, 0)).1 ≠ .rsi ∧ (saved
     (saved.getD k (.rax, 0)).1 ≠ .rdi := by
   decide
 
+/-- After the rounds and the complementing back. -/
+structure EInv (s₀ s : State) : Prop where
+  rdi : s.gpr .rdi = st s₀
+  rsi : s.gpr .rsi = scr s₀
+  rsp : s.gpr .rsp = s₀.gpr .rsp
+  rd : s.rd = s₀.rd
+  wr : s.wr = s₀.wr
+  state : Lanes s.mem (st s₀) (keccakF (A₀ s₀))
+  aux : Aux s₀ s.mem
+  frame : Frame [stR s₀, scrR s₀] s₀.mem s.mem
+
 /-- During the restores. -/
 def ResInv (s₀ s₁ : State) (k : Nat) (s : State) : Prop :=
   s.gpr .rsi = scr s₀ ∧ s.gpr .rdi = st s₀ ∧ s.gpr .rsp = s₀.gpr .rsp ∧ s.mem = s₁.mem ∧ s.rd = s₁.rd ∧ s.wr = s₁.wr ∧
     ∀ j < k, s.gpr ((saved.getD j (.rax, 0)).1) = s₀.gpr ((saved.getD j (.rax, 0)).1)
 
-theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hL : LInv s₀ 24 s) :
+theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hE : EInv s₀ s) :
     WP isa (.block restore) s fun s' =>
       gprPreserved s₀ s' ∧ Proof.Sha3.permuteX86_64.post s₀ s' := by
   rw [restore_eq]
-  have hsi : s.gpr .rsi = scr s₀ := by rw [hL.rsi]; simp [oth]
-  have hdi : s.gpr .rdi = st s₀ := by rw [hL.rdi]; simp [cur]
   refine WP.mono (wp_range_flatMap (M := isa) (ResInv s₀ s) (fun k s' hk ⟨si, di, sp, m, rd, wr, v⟩ => ?_) 6
-    (Nat.le_refl _) s ⟨hsi, hdi, hL.rsp, rfl, rfl, rfl, fun _ h => absurd h (by omega)⟩) fun s' ⟨si, di, sp, m, _, _, v⟩ => ?_
+    (Nat.le_refl _) s ⟨hE.rsi, hE.rdi, hE.rsp, rfl, rfl, rfl, fun _ h => absurd h (by omega)⟩)
+    fun s' ⟨si, di, sp, m, _, _, v⟩ => ?_
   · refine wp_movm (a := off s₀ (392 + 8 * k)) (by rw [ea_at, si])
-      (by rw [rd, wr, hL.rd, hL.wr]; exact hp.in_all (hp.off_in (by omega))) fun s'' h => wp_nil ?_
+      (by rw [rd, wr, hE.rd, hE.wr]; exact hp.in_all (hp.off_in (by omega))) fun s'' h => wp_nil ?_
     have ne := saved_ne_rsi k hk
     refine ⟨by rw [h.other _ (Ne.symm ne.1), si], by rw [h.other _ (Ne.symm ne.2.2), di],
       by rw [h.other _ (Ne.symm ne.2.1), sp],
       by rw [h.mem, m], by rw [h.rd, rd], by rw [h.wr, wr], fun j hj => ?_⟩
     by_cases e : j = k
-    · subst e; rw [h.gpr, m]; exact hL.aux.1 j hk
+    · subst e; rw [h.gpr, m]; exact hE.aux.1 j hk
     · rw [h.other _ (saved_ne j (by omega) k hk e), v j (by omega)]
   · refine ⟨⟨fun r hr => ?_, ?_⟩, ?_⟩
     · simp only [calleeSaved, List.mem_cons, List.not_mem_nil, or_false] at hr
@@ -967,29 +714,40 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hL : LInv s₀ 24
       · exact v 4 (by omega)
       · exact v 5 (by omega)
     · rw [m]
-      exact hL.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_scr⟩) (by decide)
+      exact hE.frame.readW (Region.contains_self _ _) (by simpa using ⟨hp.ret_st, hp.ret_scr⟩) (by decide)
     · refine ⟨?_, di, si⟩
-      show stateAt s'.mem (st s₀) = keccakF (A₀ s₀)
       apply Vector.ext
       intro i hi
-      have := hL.state i hi
-      simp only [cur, show 24 % 2 = 0 from rfl, ite_true] at this
       simp only [Spec.Sha3.stateAt, Vector.getElem_ofFn, m]
-      exact this
+      exact hE.state i hi
+
+theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hL : LInv s₀ 12 s) :
+    WP isa (.block (complement ++ restore)) s fun s' =>
+      gprPreserved s₀ s' ∧ Proof.Sha3.permuteX86_64.post s₀ s' := by
+  rw [WP.block_append_iff]
+  have hwr : stR s₀ ∈ s.wr := by rw [hL.wr, hp.wr]; simp
+  obtain ⟨s₁, -, hs₁, -, -, hl₁, hf₁, rd₁, wr₁, k₁⟩ :=
+    slots_ok complement_check (fun _ h => h) complement_writes' hL.rdi hwr hL.state
+  refine WP.of_runBlock ⟨s₁, hs₁, restore_ok hp ⟨by rw [k₁ .rdi (by decide), hL.rdi],
+    by rw [k₁ .rsi (by decide), hL.rsi], by rw [k₁ .rsp (by decide), hL.rsp], by rw [rd₁, hL.rd],
+    by rw [wr₁, hL.wr], ?_, ?_, ?_⟩⟩
+  · rw [cmpl_cmpl] at hl₁; exact hl₁
+  · exact hL.aux.frame (fun d hd hd' => (hp.region_off (.inl rfl) hd (by omega)).symm) hf₁
+  · exact hL.frame.trans (hf₁.sub fun r hr => by
+      simp only [List.mem_singleton] at hr; subst hr; exact ⟨stR s₀, by simp, fun _ h => h⟩)
 
 /-! ## The whole function -/
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
     WP isa permute s₀ fun s' => gprPreserved s₀ s' ∧ Proof.Sha3.permuteX86_64.post s₀ s' := by
   refine WP.seq (WP.mono (prologue_ok hp) fun s₁ h₁ => ?_)
-  refine WP.seq (WP.mono (Q := LInv s₀ 24) ?_ fun s₂ h₂ => restore_ok hp h₂)
-  let Inv : Nat → State → Prop := fun n s => ∃ j, n = 12 - j ∧ j < 12 ∧ LInv s₀ (2 * j) s
+  refine WP.seq (WP.mono (Q := LInv s₀ 12) ?_ fun s₂ h₂ => epilogue_ok hp h₂)
+  let Inv : Nat → State → Prop := fun n s => ∃ j, n = 12 - j ∧ j < 12 ∧ LInv s₀ j s
   refine WP.loop (M := isa) Inv (fun n s ⟨j, hn, hj, hL⟩ => ?_) 12 s₁ ⟨0, rfl, by omega, h₁⟩
-  refine WP.mono (body_ok hp (by omega) hL) fun s' ⟨he, hl⟩ => ?_
-  by_cases hlast : 2 * j + 2 = 24
+  refine WP.mono (body_ok hp hj hL) fun s' ⟨he, hl⟩ => ?_
+  by_cases hlast : j + 1 = 12
   · exact .inl ⟨by show eval .ne s' = _; rw [he, hlast]; rfl, hlast ▸ hl⟩
-  · exact .inr ⟨by show eval .ne s' = _; rw [he]; simp [hlast], 12 - (j + 1), by omega, j + 1, rfl, by omega,
-      by rw [show 2 * (j + 1) = 2 * j + 2 by omega]; exact hl⟩
+  · exact .inr ⟨by show eval .ne s' = _; rw [he]; simp [hlast], 12 - (j + 1), by omega, j + 1, rfl, by omega, hl⟩
 
 /-- A state satisfying the precondition. -/
 def satState : State where

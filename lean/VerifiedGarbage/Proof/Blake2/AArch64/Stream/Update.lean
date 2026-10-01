@@ -741,7 +741,7 @@ abbrev inner (s₀ : State) : State :=
 
 theorem correct (hP : Ok P) (hf : CalleeOk P (compress P)) {s₀ : State}
     (hpre : (updateAArch64 P).pre s₀) :
-    WP isa (update P) s₀ fun s' => abiPreserved s₀ s' ∧ (updateAArch64 P).post s₀ s' := by
+    WP isa (update P) s₀ fun s' => GprAbi s₀ s' ∧ (updateAArch64 P).post s₀ s' := by
   obtain ⟨hp, hs⟩ := pre_of hpre
   have hl := hP.len
   have hpi : Pre w (inner s₀) := ⟨hp.rd, hp.wr, hp.st_scr, hp.d_st, hp.d_scr⟩

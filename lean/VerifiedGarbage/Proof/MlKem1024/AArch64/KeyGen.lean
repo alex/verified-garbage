@@ -82,6 +82,7 @@ theorem post_of {s₀ sB s' : State} (hB : BInv s₀ 16 sB) (hD : Done s₀ sB.m
 
 theorem correct {s₀ : State} (hs : keyGen1024AArch64.pre s₀) :
     WP isa keyGen s₀ fun s' => abiPreserved s₀ s' ∧ keyGen1024AArch64.post s₀ s' := by
+  apply WP.withPreservedV (hc := by decide +kernel)
   have hp := pre_of hs
   exact WP.seq (WP.mono (a_ok hp) fun _ hA => WP.seq (WP.mono (b_ok hp hA) fun _ hB =>
     WP.mono (c_ok hp hB) fun _ hD => ⟨hD.abi, post_of hB hD⟩))

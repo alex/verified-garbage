@@ -1,9 +1,9 @@
 //! Ed25519 (RFC 8032), deterministic signatures from 32-byte seeds.
 //!
-//! SHA-512 uses the hash API's selected backend. Scalar reduction,
-//! multiply-add, and point multiplication use verified assembly with the
-//! contracts in `VG.Spec.Ed25519`. Rust composes those primitives and clears
-//! secret temporary values.
+//! On x86, key derivation, signing, and verification each call one complete
+//! verified assembly operation, including SHA-512. Other architectures compose
+//! verified scalar and group primitives with the SHA-512 API in Rust. Secret
+//! scratch values are cleared after use.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -14,11 +14,15 @@
 
 #[cfg(target_arch = "x86_64")]
 use crate::arch::ed25519::vg_ed25519_scalar_base_precomputed;
+#[cfg(target_arch = "x86")]
+use crate::arch::ed25519::{vg_ed25519_public_key, vg_ed25519_sign_cached, vg_ed25519_verify};
+#[cfg(not(target_arch = "x86"))]
 use crate::arch::ed25519::{
     vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce, vg_ed25519_verify_equation,
 };
+#[cfg(not(target_arch = "x86"))]
 use crate::hashes::sha512::Sha512;
-use crate::mlkem768::zeroize;
+use crate::zeroize::zeroize;
 
 /// Why signature verification failed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -48,22 +52,14 @@ impl VerifyingKey {
     ///
     /// Public keys and signatures must use canonical encodings, and the
     /// signature scalar must be less than the subgroup order. This checks
-    /// the uncofactored equation using the full SHA-512 challenge. It does
-    /// not impose an additional subgroup or small-order rejection policy.
+    /// the uncofactored equation. On x86 the SHA-512 challenge is reduced
+    /// modulo the subgroup order, following RFC 8032 §6; the other targets
+    /// currently use the full digest. No additional subgroup or small-order
+    /// rejection policy is imposed.
     /// Verification timing may depend on the public key, message, and signature.
     pub fn verify(&self, message: &[u8], signature: &[u8]) -> Result<(), Error> {
         let signature: &[u8; 64] = signature.try_into().map_err(|_| Error::InvalidSignature)?;
-        let mut hash = Sha512::new();
-        hash.update(&signature[..32]);
-        hash.update(&self.bytes);
-        hash.update(message);
-        let challenge = hash.finalize();
-        let mut scratch = [0u64; 1024];
-        // SAFETY: the input arrays are live for their declared sizes, and
-        // scratch is a distinct writable object. None wraps the address space.
-        let valid =
-            unsafe { vg_ed25519_verify_equation(&self.bytes, signature, &challenge, &mut scratch) };
-        zeroize(&mut scratch);
+        let valid = verify_message(&self.bytes, message, signature);
         if valid == 1 {
             Ok(())
         } else {
@@ -96,18 +92,11 @@ impl Drop for SigningKey {
 impl SigningKey {
     /// Derive a signing key and its public key from an RFC 8032 seed.
     pub fn from_seed(seed: &[u8; 32]) -> Self {
-        let mut expanded = Sha512::digest(seed);
-        let mut scalar = prune(&expanded);
-        let mut scratch = [0u64; 1024];
-        let public = VerifyingKey {
-            bytes: scalar_base(&scalar, &mut scratch),
-        };
-        zeroize(&mut scratch);
-        zeroize(&mut scalar);
-        zeroize(&mut expanded);
         Self {
             seed: *seed,
-            public,
+            public: VerifyingKey {
+                bytes: public_key(seed),
+            },
         }
     }
 
@@ -123,40 +112,67 @@ impl SigningKey {
 
     /// Sign `message` deterministically using pure Ed25519 (RFC 8032 §5.1.6).
     pub fn sign(&self, message: &[u8]) -> [u8; 64] {
-        let mut expanded = Sha512::digest(&self.seed);
-        let mut scalar = prune(&expanded);
-        let mut nonce_hash = Sha512::new();
-        nonce_hash.update(&expanded[32..]);
-        nonce_hash.update(message);
-        let mut nonce_digest = nonce_hash.finalize();
-        let mut scratch = [0u64; 1024];
-        let mut nonce = reduce(&nonce_digest, &mut scratch);
-        let r = scalar_base(&nonce, &mut scratch);
-        let mut challenge_hash = Sha512::new();
-        challenge_hash.update(&r);
-        challenge_hash.update(&self.public.bytes);
-        challenge_hash.update(message);
-        let mut challenge_digest = challenge_hash.finalize();
-        let mut challenge = reduce(&challenge_digest, &mut scratch);
-        let mut s = [0u8; 32];
-        // SAFETY: the output, inputs, and scratch are distinct live objects
-        // of the required sizes, with no overlap or address-space wrapping.
-        unsafe { vg_ed25519_scalar_mul_add(&mut s, &nonce, &challenge, &scalar, &mut scratch) };
-        let mut signature = [0u8; 64];
-        signature[..32].copy_from_slice(&r);
-        signature[32..].copy_from_slice(&s);
-        zeroize(&mut scratch);
-        zeroize(&mut expanded);
-        zeroize(&mut scalar);
-        zeroize(&mut nonce_digest);
-        zeroize(&mut nonce);
-        zeroize(&mut challenge_digest);
-        zeroize(&mut challenge);
-        zeroize(&mut s);
-        signature
+        sign_message(&self.seed, &self.public.bytes, message)
     }
 }
 
+/// The public key of `seed` (RFC 8032 §5.1.5), with the verified
+/// `vg_ed25519_public_key` including SHA-512.
+#[cfg(target_arch = "x86")]
+fn public_key(seed: &[u8; 32]) -> [u8; 32] {
+    let derive = vg_ed25519_public_key;
+    let mut public = [0u8; 32];
+    let mut scratch = [0u64; 1024];
+    // SAFETY: the output, seed, and scratch are distinct objects valid for
+    // 32, 32, and 8192 bytes, respectively, so they overlap neither each
+    // other nor the call's stack, and none wraps the address space. The
+    // seed is the caller's. The operation requires only baseline x86 instructions.
+    unsafe { derive(&mut public, seed, &mut scratch) };
+    zeroize(&mut scratch);
+    public
+}
+
+/// The public key of `seed` (RFC 8032 §5.1.5): SHA-512, pruning, and the
+/// verified base-point multiplication.
+#[cfg(not(target_arch = "x86"))]
+fn public_key(seed: &[u8; 32]) -> [u8; 32] {
+    let mut expanded = Sha512::digest(seed);
+    let mut scalar = prune(&expanded);
+    let mut scratch = [0u64; 1024];
+    let public = scalar_base(&scalar, &mut scratch);
+    zeroize(&mut scratch);
+    zeroize(&mut scalar);
+    zeroize(&mut expanded);
+    public
+}
+
+#[cfg(target_arch = "x86")]
+fn verify_message(pk: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> u32 {
+    let verify = vg_ed25519_verify;
+    let mut scratch = [0u64; 1024];
+    // SAFETY: input references are valid for their declared lengths and scratch
+    // is a distinct writable object. No object overlaps the call stack.
+    let valid = unsafe { verify(pk, message.as_ptr(), message.len(), signature, &mut scratch) };
+    zeroize(&mut scratch);
+    valid
+}
+
+#[cfg(not(target_arch = "x86"))]
+fn verify_message(pk: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> u32 {
+    let mut hash = Sha512::new();
+    hash.update(&signature[..32]);
+    hash.update(pk);
+    hash.update(message);
+    let challenge = hash.finalize();
+    let mut scratch = [0u64; 1024];
+    // SAFETY: the input arrays are live for their declared sizes, and
+    // scratch is a distinct writable object. None wraps the address space.
+    let valid = unsafe { vg_ed25519_verify_equation(pk, signature, &challenge, &mut scratch) };
+    zeroize(&mut scratch);
+    valid
+}
+
+#[cfg(not(target_arch = "x86"))]
 fn prune(expanded: &[u8; 64]) -> [u8; 32] {
     let mut scalar = [0u8; 32];
     scalar.copy_from_slice(&expanded[..32]);
@@ -166,6 +182,7 @@ fn prune(expanded: &[u8; 64]) -> [u8; 32] {
     scalar
 }
 
+#[cfg(not(target_arch = "x86"))]
 enum BaseBackend {
     #[cfg(not(target_arch = "x86_64"))]
     Scalar,
@@ -173,6 +190,7 @@ enum BaseBackend {
     Precomputed,
 }
 
+#[cfg(not(target_arch = "x86"))]
 const BASE_BACKEND: BaseBackend = {
     #[cfg(target_arch = "x86_64")]
     {
@@ -184,6 +202,7 @@ const BASE_BACKEND: BaseBackend = {
     }
 };
 
+#[cfg(not(target_arch = "x86"))]
 fn scalar_base(scalar: &[u8; 32], scratch: &mut [u64; 1024]) -> [u8; 32] {
     let mut out = [0u8; 32];
     // SAFETY: the output, scalar, and scratch are distinct objects valid
@@ -203,10 +222,70 @@ fn scalar_base(scalar: &[u8; 32], scratch: &mut [u64; 1024]) -> [u8; 32] {
     out
 }
 
+#[cfg(not(target_arch = "x86"))]
 fn reduce(wide: &[u8; 64], scratch: &mut [u64; 1024]) -> [u8; 32] {
     let mut out = [0u8; 32];
     // SAFETY: the output, wide scalar, and scratch are distinct objects valid
     // for 32, 64, and 8192 bytes, respectively, without address-space wrapping.
     unsafe { vg_ed25519_scalar_reduce(&mut out, wide, scratch) };
     out
+}
+
+#[cfg(target_arch = "x86")]
+fn sign_message(seed: &[u8; 32], pk: &[u8; 32], message: &[u8]) -> [u8; 64] {
+    let sign = vg_ed25519_sign_cached;
+    let mut signature = [0u8; 64];
+    let mut scratch = [0u64; 1024];
+    // SAFETY: the input references are valid for their declared lengths.
+    // Signature and scratch are distinct writable objects, disjoint from the
+    // inputs and the call's stack. None wraps the address space. SigningKey's
+    // constructor derives pk from this seed, and both fields remain private.
+    // The operation requires only baseline x86 instructions.
+    unsafe {
+        sign(
+            &mut signature,
+            seed,
+            pk,
+            message.as_ptr(),
+            message.len(),
+            &mut scratch,
+        )
+    };
+    zeroize(&mut scratch);
+    signature
+}
+
+#[cfg(not(target_arch = "x86"))]
+fn sign_message(seed: &[u8; 32], pk: &[u8; 32], message: &[u8]) -> [u8; 64] {
+    let mut expanded = Sha512::digest(seed);
+    let mut scalar = prune(&expanded);
+    let mut nonce_hash = Sha512::new();
+    nonce_hash.update(&expanded[32..]);
+    nonce_hash.update(message);
+    let mut nonce_digest = nonce_hash.finalize();
+    let mut scratch = [0u64; 1024];
+    let mut nonce = reduce(&nonce_digest, &mut scratch);
+    let r = scalar_base(&nonce, &mut scratch);
+    let mut challenge_hash = Sha512::new();
+    challenge_hash.update(&r);
+    challenge_hash.update(pk);
+    challenge_hash.update(message);
+    let mut challenge_digest = challenge_hash.finalize();
+    let mut challenge = reduce(&challenge_digest, &mut scratch);
+    let mut s = [0u8; 32];
+    // SAFETY: the output, inputs, and scratch are distinct live objects
+    // of the required sizes, with no overlap or address-space wrapping.
+    unsafe { vg_ed25519_scalar_mul_add(&mut s, &nonce, &challenge, &scalar, &mut scratch) };
+    let mut signature = [0u8; 64];
+    signature[..32].copy_from_slice(&r);
+    signature[32..].copy_from_slice(&s);
+    zeroize(&mut scratch);
+    zeroize(&mut expanded);
+    zeroize(&mut scalar);
+    zeroize(&mut nonce_digest);
+    zeroize(&mut nonce);
+    zeroize(&mut challenge_digest);
+    zeroize(&mut challenge);
+    zeroize(&mut s);
+    signature
 }

@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointDecode
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyPoints
+import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyTables
 
 /-! Untrusted: the verification inputs remain readable and outside the workspace. -/
 

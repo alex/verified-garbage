@@ -215,7 +215,7 @@ theorem a_ok {s₀ : State} (hp : Pre enL s₀) : WP isa enA s₀ (AfterA s₀) 
 
 /-- What the function leaves. -/
 structure Done (s₀ : State) (mB : Mem) (v : BitVec 64) (s : State) : Prop where
-  abi : abiPreserved s₀ s
+  abi : GprAbi s₀ s
   x0 : s.gpr .x0 = v
   key : bytesAt s.mem (kA s₀ 2) 32 = (gE s₀).1
   ct : bytesAt s.mem (kA s₀ 3) 1088 = ct768 (aM enL s₀ mB) (ekE s₀) (mE s₀) (gE s₀).2
@@ -304,6 +304,7 @@ theorem post_of {s₀ sB s' : State} {mA : Mem} (hB : BInv enL s₀ mA (rhoE s�
 
 theorem correct {s₀ : State} (hs : encapsAArch64.pre s₀) :
     WP isa encaps s₀ fun s' => abiPreserved s₀ s' ∧ encapsAArch64.post s₀ s' := by
+  apply WP.withPreservedV (hc := by decide +kernel)
   have hp := pre_of hs
   exact WP.seq (WP.mono (a_ok hp) fun _ hA => WP.seq (WP.mono
     (matrix_ok hp (BInv.zero hA.kb hA.x24 hA.rho)) fun _ hB =>

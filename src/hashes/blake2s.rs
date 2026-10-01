@@ -14,8 +14,9 @@ super::blake2::blake2!(
         block: 64,
         max: 32,
         init: vg_blake2s_init,
-        update: vg_blake2s_update,
-        finalize: vg_blake2s_finalize,
+        backends: Blake2sBackend {
+            Scalar => (vg_blake2s_update, vg_blake2s_finalize),
+        },
     }
 );
 
