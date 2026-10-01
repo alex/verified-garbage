@@ -192,6 +192,7 @@ def keyGenApi (p : Params) (module name : String) : Api where
   name := s!"vg_{module}_keygen"
   sig := keyGenSig p
   writeArgs := true
+  contracts := some fun A stack => keyGenContract p A stack
   summary := s!"{name} key generation from a seed, `ML-DSA.KeyGen_internal(ξ)` (FIPS 204 \
     Algorithm 6): with the 32-byte seed `ξ` at `seed`, writes the public key to `*pk` and the \
     private key to `*sk`. " ++ outcomeDoc ++ "\n\n\
@@ -211,6 +212,7 @@ def signApi (p : Params) (module name : String) : Api where
   name := s!"vg_{module}_sign"
   sig := signSig p
   writeArgs := true
+  contracts := some fun A stack => signContract p A stack
   summary := s!"{name} signing of a message representative, `ML-DSA.Sign_internal(sk, M′, rnd)` \
     (FIPS 204 Algorithm 7) with `μ` computed by the caller: with the private key `*sk`, the \
     64-byte message representative `μ = H(tr ‖ M′, 64)` at `mu` (for the public key hash `tr`, \
@@ -233,6 +235,7 @@ def verifyApi (p : Params) (module name : String) : Api where
   name := s!"vg_{module}_verify"
   sig := verifySig p
   writeArgs := true
+  contracts := some fun A stack => verifyContract p A stack
   summary := s!"{name} verification of a signature of a message representative, \
     `ML-DSA.Verify_internal(pk, M′, σ)` (FIPS 204 Algorithm 8) with `μ` computed by the caller: \
     with the public key `*pk`, the 64-byte message representative `μ = H(H(pk, 64) ‖ M′, 64)` \

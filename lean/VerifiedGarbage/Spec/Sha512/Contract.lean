@@ -42,6 +42,7 @@ def compressApi : Api where
   module := "sha512"
   name := "vg_sha512_compress"
   sig := compressSig
+  contracts := some fun A _ => compressContract A
   summary := "The SHA-512 compression function (FIPS 180-4 §6.4.2), shared by SHA-384, SHA-512, \
     SHA-512/224 and SHA-512/256: updates the hash value `*state` with the `n` 128-byte blocks \
     starting at `blocks`, in order.\n\n\
@@ -60,23 +61,24 @@ def initContract {M : ISA} (A : Abi M) (iv : HashValue) : Contract M :=
   initSig.contract A (post := fun state _ m' _ => Repr iv m' state [])
 
 /-- `name`, which starts an `alg` computation from its initial hash value
-`iv` (the name of `H0_384`, `H0_512`, `H0_512_224` or `H0_512_256`), on
+`iv` (`H0_384`, `H0_512`, `H0_512_224` or `H0_512_256`, named `ivName`), on
 every target. -/
-def initApi (alg name iv : String) : Api where
+def initApi (alg name ivName : String) (iv : HashValue) : Api where
   module := "sha512"
   name := name
   sig := initSig
+  contracts := some fun A _ => initContract A iv
   summary := s!"Starts a {alg} computation: makes the SHA-512 streaming state `*state` represent \
-    the empty message, hashed from the initial hash value of {alg} (`VG.Spec.Sha512.{iv}`). \
+    the empty message, hashed from the initial hash value of {alg} (`VG.Spec.Sha512.{ivName}`). \
     Continue with `vg_sha512_update` and `vg_sha512_finalize`.\n\n\
-    Contract: `VG.Spec.Sha512.initContract` for `VG.Spec.Sha512.{iv}`. The streaming state is \
+    Contract: `VG.Spec.Sha512.initContract` for `VG.Spec.Sha512.{ivName}`. The streaming state is \
     the hash value followed by a buffered partial block (`VG.Spec.Sha512.Repr`)."
   safety := []
 
-def init384Api : Api := initApi "SHA-384" "vg_sha384_init" "H0_384"
-def init512Api : Api := initApi "SHA-512" "vg_sha512_init" "H0_512"
-def init512_224Api : Api := initApi "SHA-512/224" "vg_sha512_224_init" "H0_512_224"
-def init512_256Api : Api := initApi "SHA-512/256" "vg_sha512_256_init" "H0_512_256"
+def init384Api : Api := initApi "SHA-384" "vg_sha384_init" "H0_384" H0_384
+def init512Api : Api := initApi "SHA-512" "vg_sha512_init" "H0_512" H0_512
+def init512_224Api : Api := initApi "SHA-512/224" "vg_sha512_224_init" "H0_512_224" H0_512_224
+def init512_256Api : Api := initApi "SHA-512/256" "vg_sha512_256_init" "H0_512_256" H0_512_256
 
 /-- `vg_sha512_update(state: *mut [u8; 192], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 172])`.
 `count` is public; `scratch` is working space: 1376 bytes, room for the
@@ -101,6 +103,7 @@ def updateApi : Api where
   module := "sha512"
   name := "vg_sha512_update"
   sig := updateSig
+  contracts := some fun A stack => updateContract A stack
   summary := "Absorbs data into a SHA-384, SHA-512, SHA-512/224 or SHA-512/256 computation: if the \
     streaming state `*state` represents a message of `count` bytes (modulo 2⁶⁴), it then \
     represents that message followed by the `len` bytes at `data`.\n\n\
@@ -131,6 +134,7 @@ def finalizeApi : Api where
   module := "sha512"
   name := "vg_sha512_finalize"
   sig := finalizeSig
+  contracts := some fun A stack => finalizeContract A stack
   summary := "Finishes a SHA-384, SHA-512, SHA-512/224 or SHA-512/256 computation: if the \
     streaming state `*state` represents a message of `count` bytes, hashed from an initial hash \
     value, writes the final hash value `H⁽ᴺ⁾` of that message (64 bytes) to `*out`. The SHA-512 \
