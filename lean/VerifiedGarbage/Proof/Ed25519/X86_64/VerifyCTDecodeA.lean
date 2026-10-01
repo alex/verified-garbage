@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyCTDecodeR
 
 namespace VG.Proof.Ed25519.X86_64
 
-open VG VG.X86_64 VG.Impl.Ed25519.X86_64
+open VG VG.X86_64 VG.Impl.Ed25519.X86_64 Edwards
 
 theorem verifyStoreA_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte)
-    (a : Spec.Ed25519.Point) :
+    (a : Spec.Ed25519.Point) {Aa : EPoint dZ} (hA : Rep a Aa) :
     RelCT isa (fun s t => (VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧
       point (env s.mem base) 0 1 2 3 = a) ∧ (VerifyPublic base pk sig challenge pkbs rbs sbs kbs t ∧
       point (env t.mem base) 0 1 2 3 = a))
@@ -24,7 +24,7 @@ theorem verifyStoreA_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List 
     exact ⟨h.1.of_keep (kt.mono (by decide) (by decide)), tv.trans h.2⟩
   have hp := VG.RelCT.wp ht (fun s t h => ⟨hw s h.1, hw t h.2⟩)
   exact VG.RelCT.seq (hp.mono (fun _ _ h => h) (fun _ _ h => h.2))
-    (verifyDecodeR_ct base pk sig challenge pkbs rbs sbs kbs a)
+    (verifyDecodeR_ct base pk sig challenge pkbs rbs sbs kbs a hA)
 
 theorem verifyDecodeA_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte) :
     RelCT isa (fun s t => VerifyPublic base pk sig challenge pkbs rbs sbs kbs s ∧
@@ -59,7 +59,8 @@ theorem verifyDecodeA_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List
   apply decodedThen_ct base (Spec.Ed25519.decodePoint pkbs) P _
   · intro s t kt h
     exact h.of_keep (PowersKeep.of_keeps kt (by simp))
-  · intro a _
-    exact verifyStoreA_ct base pk sig challenge pkbs rbs sbs kbs a
+  · intro a ha
+    obtain ⟨Aa, hA⟩ := decodePoint_rep ha
+    exact verifyStoreA_ct base pk sig challenge pkbs rbs sbs kbs a hA
 
 end VG.Proof.Ed25519.X86_64
