@@ -99,6 +99,9 @@ pub mod x448;
 mod zeroize;
 
 #[cfg(test)]
+mod argon2_compress_tests;
+
+#[cfg(test)]
 mod tests {
     /// The pipeline self-test artifact (`VG.Spec.Selftest.addContract`).
     #[cfg(target_arch = "x86_64")]
