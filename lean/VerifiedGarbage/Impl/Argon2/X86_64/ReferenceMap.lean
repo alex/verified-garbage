@@ -35,11 +35,10 @@ def prepareLanes : Prog isa := .seq chooseLane (.block laneArgs)
 
 def window : Prog isa := .seq ReferenceStart.code ReferenceCount.code
 
-def code : Prog isa :=
-  .seq prepareLanes
-  (.seq window
-  (.seq (.block relativeArgs)
-  (.seq Relative.code
-  (.seq (.block wrapArgs) Wrap.code))))
+def relative : Prog isa := .seq (.block relativeArgs) Relative.code
+
+def finish : Prog isa := .seq (.block wrapArgs) Wrap.code
+
+def code : Prog isa := .seq prepareLanes (.seq window (.seq relative finish))
 
 end VG.Impl.Argon2.X86_64.ReferenceMap

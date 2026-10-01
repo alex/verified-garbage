@@ -44,6 +44,19 @@ structure Ready (p : Spec.Argon2.Params) (pass lane slice index : Nat) (s : Stat
   passRead : InRegions (s.rd ++ s.wr) (s.gpr .rbp) 8
   passWord : s.mem.readW (s.gpr .rbp) 64 = BitVec.ofNat 64 pass
 
+theorem Ready.lanes_nat {p : Spec.Argon2.Params} {pass lane slice index : Nat} {s : State}
+    (h : Ready p pass lane slice index s) : (s.gpr .rsi).toNat = p.lanes := by
+  rw [h.lanes, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (Nat.lt_trans h.bounds.lanesBound (by decide))]
+
+theorem Ready.of_keeps {p : Spec.Argon2.Params} {pass lane slice index : Nat} {s t : State}
+    (h : Ready p pass lane slice index s) (k : Divide.Keeps changed s t)
+    (lanes : t.gpr .rsi = s.gpr .rsi) : Ready p pass lane slice index t := by
+  refine ⟨h.bounds, h.position.of_keeps k, lanes.trans h.lanes, ?_, ?_⟩
+  · rw [k.rd, k.wr, k.regs .rbp (by decide)]
+    exact h.passRead
+  · rw [k.mem, k.regs .rbp (by decide)]
+    exact h.passWord
+
 def chosenLane (p : Spec.Argon2.Params) (pass lane slice : Nat) (random : Addr) : Nat :=
   if pass = 0 ∧ slice = 0 then lane else (random >>> 32).toNat % p.lanes
 
