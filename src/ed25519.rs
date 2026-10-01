@@ -13,21 +13,21 @@
     target_arch = "arm"
 ))]
 
-#[cfg(target_arch = "x86_64")]
-use crate::arch::ed25519::{
-    vg_ed25519_public_key_avx2, vg_ed25519_public_key_shani,
-    vg_ed25519_sign_cached_avx2, vg_ed25519_sign_cached_shani,
-    vg_ed25519_verify_avx2, vg_ed25519_verify_shani,
-};
 #[cfg(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))]
 use crate::arch::ed25519::{vg_ed25519_public_key, vg_ed25519_sign_cached, vg_ed25519_verify};
+#[cfg(target_arch = "x86_64")]
+use crate::arch::ed25519::{
+    vg_ed25519_public_key_avx2, vg_ed25519_public_key_shani, vg_ed25519_sign_cached_avx2,
+    vg_ed25519_sign_cached_shani, vg_ed25519_verify_avx2, vg_ed25519_verify_shani,
+};
 #[cfg(target_arch = "aarch64")]
 use crate::arch::ed25519::{
     vg_ed25519_public_key_sha3, vg_ed25519_sign_cached_sha3, vg_ed25519_verify_sha3,
 };
 #[cfg(target_arch = "arm")]
 use crate::arch::ed25519::{
-    vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce, vg_ed25519_verify_equation,
+    vg_ed25519_scalar_base, vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce,
+    vg_ed25519_verify_equation,
 };
 #[cfg(target_arch = "arm")]
 use crate::hashes::sha512::Sha512;
