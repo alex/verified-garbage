@@ -61,6 +61,7 @@ FEATURES = {
     "avx": None,
     "bmi1": "BMI1",
     "bmi2": "BMI2",
+    "adx": "ADX",
 }
 
 # Names that differ on one architecture: AArch64's `aes` (Rust's name for

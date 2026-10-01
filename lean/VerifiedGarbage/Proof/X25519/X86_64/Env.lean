@@ -56,7 +56,30 @@ theorem Op.keep {base : Addr} {o : Nat} {s s' : State} (h : Op base o s s') (h�
     (h₂ : o + 32 ≤ 640) : Keep base s s' :=
   ⟨h.gpr, h.rd, h.wr, h.mem.mono h₁ (by omega)⟩
 
+/-! ## The field multiplications -/
+
+/-- What the rest of the proof needs of the field multiplications `fld`:
+each writes the field element at `o` and nothing else of the working space,
+and changes only the registers `clob` (`Op`). -/
+structure FieldOk (fld : Field) : Prop where
+  mul : ∀ {s : State} {base : Addr}, Scr s base → ∀ {o a b : Nat}, Slot o → Slot a → Slot b →
+    WP isa (.block (fld.mul o a b)) s fun s' =>
+      Op base o s s' ∧ F s'.mem base o = F s.mem base a * F s.mem base b
+  sqr : ∀ {s : State} {base : Addr}, Scr s base → ∀ {o a : Nat}, Slot o → Slot a →
+    WP isa (.block (fld.sqr o a)) s fun s' =>
+      Op base o s s' ∧ F s'.mem base o = F s.mem base a * F s.mem base a
+  a24 : ∀ {s : State} {base : Addr}, Scr s base → ∀ {o a : Nat}, Slot o → Slot a →
+    WP isa (.block (fld.a24 o a)) s fun s' =>
+      Op base o s s' ∧ F s'.mem base o = Spec.X25519.a24 * F s.mem base a
+
+theorem baseline_ok : FieldOk baseline where
+  mul hs _ _ _ ho ha hb := mul_ok hs ho ha hb
+  sqr hs _ _ ho ha := mul_ok hs ho ha ha
+  a24 hs _ _ ho ha := mulA24_ok hs ho ha
+
 /-! ## The field operations on the slots -/
+
+variable {fld : Field} (hf : FieldOk fld)
 
 /-- Environments: the working space's slots. -/
 abbrev Env := Fin 128 → Spec.X25519.Fe
@@ -71,10 +94,18 @@ def opSwap (x y : Fin 128) (sw : Bool) (e : Env) : Env :=
 /-- A slot of the ladder's: 2 to 19. -/
 abbrev LSlot (o : Fin 128) : Prop := 2 ≤ o.val ∧ o.val < 20
 
+include hf in
 theorem mulE {s : State} {base : Addr} (hs : Scr s base) (o a b : Fin 128) (ho : LSlot o) :
-    WP isa (.block (mul (32 * o.val) (32 * a.val) (32 * b.val))) s fun s' =>
+    WP isa (.block (fld.mul (32 * o.val) (32 * a.val) (32 * b.val))) s fun s' =>
       Keep base s s' ∧ E s'.mem base = opMul o a b (E s.mem base) :=
-  WP.mono (mul_ok hs (by omega) (by omega) (by omega)) fun _ ⟨h, e⟩ =>
+  WP.mono (hf.mul hs (by omega) (by omega) (by omega)) fun _ ⟨h, e⟩ =>
+    ⟨h.keep (by omega) (by omega), by rw [E_update h.mem, e]; rfl⟩
+
+include hf in
+theorem sqrE {s : State} {base : Addr} (hs : Scr s base) (o a : Fin 128) (ho : LSlot o) :
+    WP isa (.block (fld.sqr (32 * o.val) (32 * a.val))) s fun s' =>
+      Keep base s s' ∧ E s'.mem base = opMul o a a (E s.mem base) :=
+  WP.mono (hf.sqr hs (by omega) (by omega)) fun _ ⟨h, e⟩ =>
     ⟨h.keep (by omega) (by omega), by rw [E_update h.mem, e]; rfl⟩
 
 theorem addE {s : State} {base : Addr} (hs : Scr s base) (o a b : Fin 128) (ho : LSlot o) :
@@ -89,10 +120,11 @@ theorem subE {s : State} {base : Addr} (hs : Scr s base) (o a b : Fin 128) (ho :
   WP.mono (sub_ok hs (by omega) (by omega) (by omega)) fun _ ⟨h, e⟩ =>
     ⟨h.keep (by omega) (by omega), by rw [E_update h.mem, e]; rfl⟩
 
+include hf in
 theorem a24E {s : State} {base : Addr} (hs : Scr s base) (o a : Fin 128) (ho : LSlot o) :
-    WP isa (.block (mulSmall (32 * o.val) (32 * a.val) a24)) s fun s' =>
+    WP isa (.block (fld.a24 (32 * o.val) (32 * a.val))) s fun s' =>
       Keep base s s' ∧ E s'.mem base = opA24 o a (E s.mem base) :=
-  WP.mono (mulA24_ok hs (by omega) (by omega)) fun _ ⟨h, e⟩ =>
+  WP.mono (hf.a24 hs (by omega) (by omega)) fun _ ⟨h, e⟩ =>
     ⟨h.keep (by omega) (by omega), by rw [E_update h.mem, e]; rfl⟩
 
 theorem cswapE {s : State} {base : Addr} (hs : Scr s base) (x y : Fin 128) (hx : LSlot x)

@@ -68,29 +68,31 @@ theorem stepPre_ok {s : State} {base : Addr} (hs : Scr s base) {t : Nat} (ht : t
   simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
   simp only [hr.1, hr.2.1, hr.2.2.1, hr.2.2.2, ite_false]
 
-def opsList : List Instr :=
+variable {fld : Field} (hf : FieldOk fld)
+
+def opsList (fld : Field) : List Instr :=
   cswap (32 * (3 : Fin 128).val) (32 * (5 : Fin 128).val) ++
   cswap (32 * (4 : Fin 128).val) (32 * (6 : Fin 128).val) ++
   add (32 * (7 : Fin 128).val) (32 * (3 : Fin 128).val) (32 * (4 : Fin 128).val) ++
-  mul (32 * (11 : Fin 128).val) (32 * (7 : Fin 128).val) (32 * (7 : Fin 128).val) ++
+  fld.sqr (32 * (11 : Fin 128).val) (32 * (7 : Fin 128).val) ++
   sub (32 * (8 : Fin 128).val) (32 * (3 : Fin 128).val) (32 * (4 : Fin 128).val) ++
-  mul (32 * (12 : Fin 128).val) (32 * (8 : Fin 128).val) (32 * (8 : Fin 128).val) ++
+  fld.sqr (32 * (12 : Fin 128).val) (32 * (8 : Fin 128).val) ++
   sub (32 * (13 : Fin 128).val) (32 * (11 : Fin 128).val) (32 * (12 : Fin 128).val) ++
   add (32 * (9 : Fin 128).val) (32 * (5 : Fin 128).val) (32 * (6 : Fin 128).val) ++
   sub (32 * (10 : Fin 128).val) (32 * (5 : Fin 128).val) (32 * (6 : Fin 128).val) ++
-  mul (32 * (14 : Fin 128).val) (32 * (10 : Fin 128).val) (32 * (7 : Fin 128).val) ++
-  mul (32 * (15 : Fin 128).val) (32 * (9 : Fin 128).val) (32 * (8 : Fin 128).val) ++
+  fld.mul (32 * (14 : Fin 128).val) (32 * (10 : Fin 128).val) (32 * (7 : Fin 128).val) ++
+  fld.mul (32 * (15 : Fin 128).val) (32 * (9 : Fin 128).val) (32 * (8 : Fin 128).val) ++
   add (32 * (5 : Fin 128).val) (32 * (14 : Fin 128).val) (32 * (15 : Fin 128).val) ++
-  mul (32 * (5 : Fin 128).val) (32 * (5 : Fin 128).val) (32 * (5 : Fin 128).val) ++
+  fld.sqr (32 * (5 : Fin 128).val) (32 * (5 : Fin 128).val) ++
   sub (32 * (6 : Fin 128).val) (32 * (14 : Fin 128).val) (32 * (15 : Fin 128).val) ++
-  mul (32 * (6 : Fin 128).val) (32 * (6 : Fin 128).val) (32 * (6 : Fin 128).val) ++
-  mul (32 * (6 : Fin 128).val) (32 * (2 : Fin 128).val) (32 * (6 : Fin 128).val) ++
-  mul (32 * (3 : Fin 128).val) (32 * (11 : Fin 128).val) (32 * (12 : Fin 128).val) ++
-  mulSmall (32 * (4 : Fin 128).val) (32 * (13 : Fin 128).val) a24 ++
+  fld.sqr (32 * (6 : Fin 128).val) (32 * (6 : Fin 128).val) ++
+  fld.mul (32 * (6 : Fin 128).val) (32 * (2 : Fin 128).val) (32 * (6 : Fin 128).val) ++
+  fld.mul (32 * (3 : Fin 128).val) (32 * (11 : Fin 128).val) (32 * (12 : Fin 128).val) ++
+  fld.a24 (32 * (4 : Fin 128).val) (32 * (13 : Fin 128).val) ++
   add (32 * (4 : Fin 128).val) (32 * (11 : Fin 128).val) (32 * (4 : Fin 128).val) ++
-  mul (32 * (4 : Fin 128).val) (32 * (13 : Fin 128).val) (32 * (4 : Fin 128).val)
+  fld.mul (32 * (4 : Fin 128).val) (32 * (13 : Fin 128).val) (32 * (4 : Fin 128).val)
 
-theorem step_eq : step = stepPre ++ (opsList ++ ([.alu .test .rbx (.reg .rbx)] : List Instr)) := by
+theorem step_eq : step fld = stepPre ++ (opsList fld ++ ([.alu .test .rbx (.reg .rbx)] : List Instr)) := by
   simp only [step, stepPre, opsList, List.append_assoc]
   rfl
 
@@ -101,11 +103,12 @@ def stepEnv (sw : Bool) (e : Env) : Env :=
     (opSub 13 11 12 (opMul 12 8 8 (opSub 8 3 4 (opMul 11 7 7 (opAdd 7 3 4 (opSwap 4 6 sw
     (opSwap 3 5 sw e)))))))))))))))))))
 
+include hf in
 /-- The field operations of an iteration, with the mask `rcx` of the swap
 bit `sw`. -/
 theorem ops_ok {s1 : State} {base : Addr} (hs1 : Scr s1 base) {sw : Bool}
     (hm : s1.gpr .rcx = mask sw) :
-    WP isa (.block opsList) s1 fun s' =>
+    WP isa (.block (opsList fld)) s1 fun s' =>
       Keep base s1 s' ∧ E s'.mem base = stepEnv sw (E s1.mem base) := by
   simp only [opsList, List.append_assoc]
   rw [WP.block_append_iff]
@@ -118,13 +121,13 @@ theorem ops_ok {s1 : State} {base : Addr} (hs1 : Scr s1 base) {sw : Bool}
   refine WP.mono (addE hs3 7 3 4 ⟨by decide, by decide⟩) fun s4 ⟨k4, e4⟩ => ?_
   have hs4 := k4.scr hs3
   rw [WP.block_append_iff]
-  refine WP.mono (mulE hs4 11 7 7 ⟨by decide, by decide⟩) fun s5 ⟨k5, e5⟩ => ?_
+  refine WP.mono (sqrE hf hs4 11 7 ⟨by decide, by decide⟩) fun s5 ⟨k5, e5⟩ => ?_
   have hs5 := k5.scr hs4
   rw [WP.block_append_iff]
   refine WP.mono (subE hs5 8 3 4 ⟨by decide, by decide⟩) fun s6 ⟨k6, e6⟩ => ?_
   have hs6 := k6.scr hs5
   rw [WP.block_append_iff]
-  refine WP.mono (mulE hs6 12 8 8 ⟨by decide, by decide⟩) fun s7 ⟨k7, e7⟩ => ?_
+  refine WP.mono (sqrE hf hs6 12 8 ⟨by decide, by decide⟩) fun s7 ⟨k7, e7⟩ => ?_
   have hs7 := k7.scr hs6
   rw [WP.block_append_iff]
   refine WP.mono (subE hs7 13 11 12 ⟨by decide, by decide⟩) fun s8 ⟨k8, e8⟩ => ?_
@@ -136,36 +139,36 @@ theorem ops_ok {s1 : State} {base : Addr} (hs1 : Scr s1 base) {sw : Bool}
   refine WP.mono (subE hs9 10 5 6 ⟨by decide, by decide⟩) fun s10 ⟨k10, e10⟩ => ?_
   have hs10 := k10.scr hs9
   rw [WP.block_append_iff]
-  refine WP.mono (mulE hs10 14 10 7 ⟨by decide, by decide⟩) fun s11 ⟨k11, e11⟩ => ?_
+  refine WP.mono (mulE hf hs10 14 10 7 ⟨by decide, by decide⟩) fun s11 ⟨k11, e11⟩ => ?_
   have hs11 := k11.scr hs10
   rw [WP.block_append_iff]
-  refine WP.mono (mulE hs11 15 9 8 ⟨by decide, by decide⟩) fun s12 ⟨k12, e12⟩ => ?_
+  refine WP.mono (mulE hf hs11 15 9 8 ⟨by decide, by decide⟩) fun s12 ⟨k12, e12⟩ => ?_
   have hs12 := k12.scr hs11
   rw [WP.block_append_iff]
   refine WP.mono (addE hs12 5 14 15 ⟨by decide, by decide⟩) fun s13 ⟨k13, e13⟩ => ?_
   have hs13 := k13.scr hs12
   rw [WP.block_append_iff]
-  refine WP.mono (mulE hs13 5 5 5 ⟨by decide, by decide⟩) fun s14 ⟨k14, e14⟩ => ?_
+  refine WP.mono (sqrE hf hs13 5 5 ⟨by decide, by decide⟩) fun s14 ⟨k14, e14⟩ => ?_
   have hs14 := k14.scr hs13
   rw [WP.block_append_iff]
   refine WP.mono (subE hs14 6 14 15 ⟨by decide, by decide⟩) fun s15 ⟨k15, e15⟩ => ?_
   have hs15 := k15.scr hs14
   rw [WP.block_append_iff]
-  refine WP.mono (mulE hs15 6 6 6 ⟨by decide, by decide⟩) fun s16 ⟨k16, e16⟩ => ?_
+  refine WP.mono (sqrE hf hs15 6 6 ⟨by decide, by decide⟩) fun s16 ⟨k16, e16⟩ => ?_
   have hs16 := k16.scr hs15
   rw [WP.block_append_iff]
-  refine WP.mono (mulE hs16 6 2 6 ⟨by decide, by decide⟩) fun s17 ⟨k17, e17⟩ => ?_
+  refine WP.mono (mulE hf hs16 6 2 6 ⟨by decide, by decide⟩) fun s17 ⟨k17, e17⟩ => ?_
   have hs17 := k17.scr hs16
   rw [WP.block_append_iff]
-  refine WP.mono (mulE hs17 3 11 12 ⟨by decide, by decide⟩) fun s18 ⟨k18, e18⟩ => ?_
+  refine WP.mono (mulE hf hs17 3 11 12 ⟨by decide, by decide⟩) fun s18 ⟨k18, e18⟩ => ?_
   have hs18 := k18.scr hs17
   rw [WP.block_append_iff]
-  refine WP.mono (a24E hs18 4 13 ⟨by decide, by decide⟩) fun s19 ⟨k19, e19⟩ => ?_
+  refine WP.mono (a24E hf hs18 4 13 ⟨by decide, by decide⟩) fun s19 ⟨k19, e19⟩ => ?_
   have hs19 := k19.scr hs18
   rw [WP.block_append_iff]
   refine WP.mono (addE hs19 4 11 4 ⟨by decide, by decide⟩) fun s20 ⟨k20, e20⟩ => ?_
   have hs20 := k20.scr hs19
-  refine WP.mono (mulE hs20 4 13 4 ⟨by decide, by decide⟩) fun s21 ⟨k21, e21⟩ => ?_
+  refine WP.mono (mulE hf hs20 4 13 4 ⟨by decide, by decide⟩) fun s21 ⟨k21, e21⟩ => ?_
   refine ⟨(k2.trans (k3.trans (k4.trans (k5.trans (k6.trans (k7.trans (k8.trans (k9.trans (k10.trans (k11.trans (k12.trans (k13.trans (k14.trans (k15.trans (k16.trans (k17.trans (k18.trans (k19.trans (k20.trans k21))))))))))))))))))), ?_⟩
   rw [e21, e20, e19, e18, e17, e16, e15, e14, e13, e12, e11, e10, e9, e8, e7, e6, e5, e4, e3, e2]
   rfl
@@ -210,12 +213,13 @@ theorem stepEnv_eval (e : Env) (st : Spec.X25519.Ladder) (k : Nat) (u : Spec.X25
     Function.update_apply, cswap_fst, cswap_snd, h2, h3, h4, h5, h6]
   exact ⟨rfl, rfl, rfl, rfl, rfl⟩
 
+include hf in
 /-- One iteration of the ladder: from the state after the bits down to
 `n + 1` to the state after the bits down to `n`. -/
 theorem step_ok {s₀ s : State} {base : Addr} {k : Nat} {u : Spec.X25519.Fe} {n : Nat} (hn : n < 255)
     (hbits : ∀ t < 255, s₀.mem (off base (BITS + t)) = BitVec.ofNat 8 (bit k t))
     (hi : LInv base k u s₀ s (n + 1)) :
-    WP isa (.block step) s fun s' => LInv base k u s₀ s' n ∧ s'.zf = some (decide (n = 0)) := by
+    WP isa (.block (step fld)) s fun s' => LInv base k u s₀ s' n ∧ s'.zf = some (decide (n = 0)) := by
   have hs := hi.scr
   have hbit : s.mem (off base (BITS + n)) = BitVec.ofNat 8 (bit k n) := by
     rw [hi.mem _ (by rw [ofs_off' base (by simp only [BITS]; omega)]; simp only [BITS]; omega)]
@@ -230,7 +234,7 @@ theorem step_ok {s₀ s : State} {base : Addr} {k : Nat} {u : Spec.X25519.Fe} {n
   have e1 : E s1.mem base = Function.update (E s.mem base) 20 (F s1.mem base (32 * 20)) :=
     E_update (o := 20) (o8.mono (by omega) (by omega))
   rw [WP.block_append_iff]
-  refine WP.mono (ops_ok hs1 m1) fun s2 ⟨K, e2⟩ => ?_
+  refine WP.mono (ops_ok hf hs1 m1) fun s2 ⟨K, e2⟩ => ?_
   have hs2 := K.scr hs1
   apply WP.of_runBlock
   simp only [runBlock_cons, runStep_some, runBlock_nil, exec, execAlu, readSrc, Option.bind_some,
@@ -268,30 +272,32 @@ theorem step_ok {s₀ s : State} {base : Addr} {k : Nat} {u : Spec.X25519.Fe} {n
     rfl
   · rw [RegUpd.zf_arithFlags, K.gpr .rbx (by decide), b1, zf]
 
+include hf in
 /-- The ladder's loop, from the counter `n ≥ 1` down to 0. -/
 theorem loop_ok {s₀ : State} {base : Addr} {k : Nat} {u : Spec.X25519.Fe}
     (hbits : ∀ t < 255, s₀.mem (off base (BITS + t)) = BitVec.ofNat 8 (bit k t)) :
     ∀ n, ∀ s, 1 ≤ n → n ≤ 255 → LInv base k u s₀ s n →
-      WP isa (.loop (.block step) .ne) s fun s' => LInv base k u s₀ s' 0 := by
+      WP isa (.loop (.block (step fld)) .ne) s fun s' => LInv base k u s₀ s' 0 := by
   intro n s h1 h2 hi
-  refine WP.loop (M := isa) (body := .block step) (c := .ne)
+  refine WP.loop (M := isa) (body := .block (step fld)) (c := .ne)
     (Q := fun s' => LInv base k u s₀ s' 0)
     (fun m (s : State) => 1 ≤ m ∧ m ≤ 255 ∧ LInv base k u s₀ s m) ?_ n s ⟨h1, h2, hi⟩
   intro m s ⟨h1, h2, hi⟩
   obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
-  refine WP.mono (step_ok (by omega) hbits hi) fun s' ⟨hi', hz⟩ => ?_
+  refine WP.mono (step_ok hf (by omega) hbits hi) fun s' ⟨hi', hz⟩ => ?_
   simp only [eval, hz, Option.map_some]
   rcases Nat.eq_zero_or_pos m with rfl | hm
   · exact .inl ⟨rfl, hi'⟩
   · refine .inr ⟨by simp only [decide_eq_false (by omega : ¬m = 0), Bool.not_false], m, by omega,
       by omega, by omega, hi'⟩
 
+include hf in
 /-- The ladder: the counter set to 255, then the loop. -/
 theorem ladder_ok {s₀ s : State} {base : Addr} {k : Nat} {u : Spec.X25519.Fe}
     (hbits : ∀ t < 255, s₀.mem (off base (BITS + t)) = BitVec.ofNat 8 (bit k t))
     (hi : ∀ s', s'.gpr .rbx = BitVec.ofNat 64 255 → (∀ r, r ≠ .rbx → s'.gpr r = s.gpr r) →
       s'.mem = s.mem → s'.rd = s.rd → s'.wr = s.wr → LInv base k u s₀ s' 255) :
-    WP isa ladder s fun s' => LInv base k u s₀ s' 0 := by
+    WP isa (ladder fld) s fun s' => LInv base k u s₀ s' 0 := by
   refine WP.seq (WP.mono (show WP isa (.block [.mov32 .rbx (.imm 255)]) s (fun s' =>
       s'.gpr .rbx = BitVec.ofNat 64 255 ∧ (∀ r, r ≠ .rbx → s'.gpr r = s.gpr r) ∧ s'.mem = s.mem ∧
         s'.rd = s.rd ∧ s'.wr = s.wr) by
@@ -299,6 +305,6 @@ theorem ladder_ok {s₀ s : State} {base : Addr} {k : Nat} {u : Spec.X25519.Fe}
     simp only [runBlock_cons, runStep_some, runBlock_nil, exec, readSrc32, Option.map_some,
       State.setReg32, Option.some.injEq, exists_eq_left', RegUpd.gpr_setReg_self]
     exact ⟨rfl, fun r hr => by simp only [RegUpd.gpr_setReg, hr, ite_false], rfl, rfl, rfl⟩)
-    fun s' ⟨h1, h2, h3, h4, h5⟩ => loop_ok hbits 255 s' (by omega) (by omega) (hi s' h1 h2 h3 h4 h5))
+    fun s' ⟨h1, h2, h3, h4, h5⟩ => loop_ok hf hbits 255 s' (by omega) (by omega) (hi s' h1 h2 h3 h4 h5))
 
 end VG.Proof.X25519.X86_64

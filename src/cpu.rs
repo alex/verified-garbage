@@ -23,7 +23,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The features detection knows, by their Rust `target_feature` names: bit
 /// `i` of a [`Features`] is `NAMES[i]`.
-pub(crate) const NAMES: [&str; 12] = [
+pub(crate) const NAMES: [&str; 13] = [
     "ssse3",
     "sha",
     "aes",
@@ -36,6 +36,7 @@ pub(crate) const NAMES: [&str; 12] = [
     "sha512",
     "sha2",
     "sha3",
+    "adx",
 ];
 
 /// The bit of a feature detection does not know, which is never detected.
@@ -133,7 +134,8 @@ fn parse(names: &str) -> Option<u32> {
 
 /// Asks the CPU (Intel SDM Vol. 2A, CPUID: leaf 1 ECX bit 9 is SSSE3, bit 25
 /// AES, bit 1 PCLMULQDQ, bit 27 OSXSAVE and bit 28 AVX; leaf 7 sub-leaf 0 EBX
-/// bit 29 is SHA, bit 5 AVX2, bit 3 BMI1, bit 8 BMI2 and bit 16 AVX512F, and
+/// bit 29 is SHA, bit 5 AVX2, bit 3 BMI1, bit 8 BMI2, bit 16 AVX512F and bit
+/// 19 ADX, and
 /// its EAX the highest sub-leaf; leaf 7 sub-leaf 1 EAX bit 0 is SHA512; AMD
 /// reports them in the same bits). AVX, AVX2
 /// and SHA512 (whose instructions are VEX.256-encoded, so also need AVX,
@@ -179,6 +181,7 @@ fn runtime() -> u32 {
         let bmi2 = (ebx >> 8) & 1;
         let avx512f = (ebx >> 16) & avx & zmm;
         let sha512 = eax1 & avx;
+        let adx = (ebx >> 19) & 1;
         ssse3
             | (sha << 1)
             | (aes << 2)
@@ -189,6 +192,7 @@ fn runtime() -> u32 {
             | (bmi2 << 7)
             | (avx512f << 8)
             | (sha512 << 9)
+            | (adx << 12)
     }
 }
 
@@ -263,6 +267,10 @@ mod tests {
             Features::of(&["avx", "avx2", "sha512"]),
             Features(0b10_0011_0000)
         );
+        assert_eq!(
+            Features::of(&["bmi2", "adx"]),
+            Features((1 << 12) | (1 << 7))
+        );
         assert_eq!(Features::of(&["avx512bw"]), Features(UNKNOWN));
         assert_eq!(Features::of(&["sha2"]), Features(1 << 10));
         assert_eq!(Features::of(&["sha3"]), Features(1 << 11));
@@ -298,6 +306,7 @@ mod tests {
         assert_eq!(parse("sha2"), Some(1 << 10));
         assert_eq!(parse("sha3"), Some(1 << 11));
         assert_eq!(parse("sha2,sha3"), Some((1 << 10) | (1 << 11)));
+        assert_eq!(parse("adx"), Some(1 << 12));
         for bad in ["avx512bw", "aes,", "aes,none", " aes", "AES"] {
             assert_eq!(parse(bad), None, "{bad}");
         }
