@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Ed25519.X86_64.BaseMultiplyPrecomputedCT
+import VerifiedGarbage.Proof.Ed25519.X86_64.BaseMultiplyCT
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBasePrecomputedEngine
 import VerifiedGarbage.Proof.Ed25519.X86_64.ScalarBaseCT
 
@@ -24,12 +24,12 @@ theorem scalarBasePrecomputedEngine_ct (base k : Addr) :
   rw [scalarBasePrecomputedEngine]
   refine VG.RelCT.seq hp ?_
   intro x y tx ty x' y' ⟨_, a, b, hab, hx, hy⟩ ex ey
-  have hm := baseMultiplyPrecomputed_ct base
+  have hm := baseMultiply_ct base
     (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt a.mem k 32))
     (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt b.mem k 32))
   have hm' := withRuns hm (fun u v h =>
-    ⟨baseMultiplyPrecomputed_ok h.1.1 _ h.1.2.1 h.1.2.2.1 h.1.2.2.2,
-     baseMultiplyPrecomputed_ok h.2.1 _ h.2.2.1 h.2.2.2.1 h.2.2.2.2⟩)
+    ⟨baseMultiply_ok h.1.1 _ h.1.2.1 h.1.2.2.2,
+     baseMultiply_ok h.2.1 _ h.2.2.1 h.2.2.2.2⟩)
   have he : RelCT isa (fun u v => u.gpr .rdi = base ∧ v.gpr .rdi = base)
       pointEncode (fun _ _ => True) := by
     apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
@@ -39,7 +39,7 @@ theorem scalarBasePrecomputedEngine_ct (base k : Addr) :
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       subst r; exact h.1.trans h.2.symm)
   have hm'' := hm'.mono (fun _ _ h => h) (fun u v ⟨_, c, d, hcd, hu, hv⟩ =>
-      And.intro (hu.2.2.scratch hcd.1.1).rdi (hv.2.2.scratch hcd.2.1).rdi)
+      And.intro (hu.2.scratch hcd.1.1).rdi (hv.2.scratch hcd.2.1).rdi)
   exact (VG.RelCT.seq hm'' he) _ _ _ _ _ _
     ⟨⟨hx.1.scratch hab.1.1, hx.2.2.2.2, hx.2.2.1, hx.2.2.2.1⟩,
      ⟨hy.1.scratch hab.2.1, hy.2.2.2.2, hy.2.2.1, hy.2.2.2.1⟩⟩ ex ey
