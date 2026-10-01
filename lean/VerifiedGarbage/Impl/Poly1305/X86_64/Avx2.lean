@@ -53,7 +53,7 @@ open VG.X86_64
 open VG.Impl.Poly1305.X86_64 (at_)
 
 /-- Below this many blocks, the scalar code is faster. -/
-def minBlocks : Nat := 16
+def minBlocks : Nat := 32
 
 /-- The accumulators, the products, the multipliers, and scratch. -/
 def hreg : Nat → XReg

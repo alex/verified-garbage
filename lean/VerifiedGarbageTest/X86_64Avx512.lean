@@ -7,6 +7,8 @@ Each expected value was computed on an x86-64 CPU with AVX-512F, by the same
 instruction through its intrinsic (`_mm512_add_epi32`, `_mm512_rol_epi32`,
 `_mm512_shuffle_i32x4`, …) or in inline assembly (what VEX-encoded and
 legacy SSE instructions and `vzeroupper` leave in bits 511:256, and the
+unmasked EVEX.512 forms of VPADDQ, VPMULUDQ, VPANDQ, VPORQ, VPANDNQ, VPSLLQ,
+VPSRLQ, VPBROADCASTQ and VMOVDQA64, on an Intel Xeon (Cascade Lake); and the
 embedded-broadcast forms, run as the printed strings in Rust naked
 functions), and is compared with the model's result on the same inputs.
 -/
@@ -52,6 +54,35 @@ def bin (op : ZBinOp) : BitVec 512 := run (.zbin op .xmm5 .xmm0 .xmm1)
 #guard bin .vpunpckhdq == 0x0f0f0f0f0badf00df0f0f0f0feedfacef0e1d2c38899aabbb4a59687ccddeeff012345670f1e2d3c89abcdef4b5a6978ffffffff89abcdef8000000001234567#512
 #guard bin .vpunpcklqdq == 0x5555aaaa3333ccccdeadbeef00c0ffee13579bdf2468ace00011223344556677deadbeefcafebabec3d2e1f08796a5b47fffffff12345678fedcba9876543210#512
 #guard bin .vpunpckhqdq == 0x0f0f0f0ff0f0f0f00badf00dfeedfacef0e1d2c3b4a596878899aabbccddeeff0123456789abcdef0f1e2d3c4b5a6978ffffffff8000000089abcdef01234567#512
+
+#guard bin .vpaddq == 0x1abcff1defdeebbe3403699933f4ccba797b7d7f818385861368be1268be1357104172a3d5063767a280a0e05295607289abcdee812345677edcba9788888888#512
+#guard bin .vpmuludq == 0xefef0a2a5b5c412000269a09cc2799a890908f8c696d727909b7f33f87e99c202885f4736b058f086b83c92086cbc3980091a2b380000000086a1c970b88d780#512
+#guard bin .vpandq == 0x0b0d000df0e0f0c05405aaaa0000cccc8081828384858687001102130440246001020524090a4968c280a0e08296a0b489abcdef000000007edcba9812141210#512
+#guard bin .vporq == 0x0fafff0ffefdfafedffdbeef33f3ffeef8f9fafbfcfdfeff1357bbff647deef70f3f6d7fcbfbedffdfffffffcffebfbeffffffff81234567ffffffff76747678#512
+#guard bin .vpandnq == 0x04020f020010003001500000333300007060504030201000134699cc202888800021404380a184871c2d1e0f48681a0a76543210800000000123456700204468#512
+
+/-- `zmm5` after `op zmm5, zmm0, n` (`vpsllq`, `vpsrlq`). -/
+def shift (op : ZShiftOp) (n : BitVec 8) : BitVec 512 := run (.vshift op .xmm5 .xmm0 n)
+
+#guard shift .vpsllq 0 == 0x0badf00dfeedfacedeadbeef00c0ffee8899aabbccddeeff00112233445566770f1e2d3c4b5a6978c3d2e1f08796a5b489abcdef01234567fedcba9876543210#512
+#guard shift .vpsllq 7 == 0xd6f806ff76fd670056df7780607ff7004cd55de66ef77f80089119a22ab33b808f169e25ad34bc00e970f843cb52da00d5e6f78091a2b3806e5d4c3b2a190800#512
+#guard shift .vpsllq 38 == 0xbb7eb38000000000303ffb8000000000377bbfc00000000015599dc000000000d69a5e0000000000e5a96d000000000048d159c000000000950c840000000000#512
+#guard shift .vpsllq 63 == 0x00000000000000000000000000000000800000000000000080000000000000000000000000000000000000000000000080000000000000000000000000000000#512
+#guard shift .vpsllq 64 == 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000#512
+#guard shift .vpsllq 200 == 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000#512
+#guard shift .vpsrlq 0 == 0x0badf00dfeedfacedeadbeef00c0ffee8899aabbccddeeff00112233445566770f1e2d3c4b5a6978c3d2e1f08796a5b489abcdef01234567fedcba9876543210#512
+#guard shift .vpsrlq 26 == 0x00000002eb7c037f00000037ab6fbbc000000022266aaef30000000004488cd100000003c78b4f1200000030f4b87c21000000226af37bc00000003fb72ea61d#512
+#guard shift .vpsrlq 52 == 0x00000000000000ba0000000000000dea0000000000000889000000000000000100000000000000f10000000000000c3d000000000000089a0000000000000fed#512
+#guard shift .vpsrlq 63 == 0x00000000000000000000000000000001000000000000000100000000000000000000000000000000000000000000000100000000000000010000000000000001#512
+#guard shift .vpsrlq 64 == 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000#512
+#guard shift .vpsrlq 255 == 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000#512
+
+-- `vmovdqa64 zmm5, zmm0`.
+#guard run (.vmovdqa64 .xmm5 .xmm0) == A
+
+-- `vpbroadcastq zmm5, xmm0` and `vpbroadcastq zmm5, xmm1`.
+#guard run (.vpbroadcastq .xmm5 .xmm0) == 0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210#512
+#guard run (.vpbroadcastq .xmm5 .xmm1) == 0x7fffffff123456787fffffff123456787fffffff123456787fffffff123456787fffffff123456787fffffff123456787fffffff123456787fffffff12345678#512
 
 /-- `zmm5` after `vprold zmm5, zmm0, n`. -/
 def rol (n : BitVec 8) : BitVec 512 := run (.vprold .xmm5 .xmm0 n)
@@ -131,6 +162,15 @@ def bcst (op : ZBcstOp) (disp : Int) : Option (BitVec 512) :=
 #guard printer.instr (.zop (.vpshufd .xmm9 .xmm10 147)) == ["vpshufd zmm9, zmm10, 147"]
 #guard printer.instr (.zop (.vshufi32x4 .xmm11 .xmm12 .xmm13 0x88)) ==
   ["vshufi32x4 zmm11, zmm12, zmm13, 136"]
+#guard printer.instr (.zop (.zbin .vpaddq .xmm1 .xmm2 .xmm3)) == ["vpaddq zmm1, zmm2, zmm3"]
+#guard printer.instr (.zop (.zbin .vpmuludq .xmm4 .xmm5 .xmm15)) == ["vpmuludq zmm4, zmm5, zmm15"]
+#guard printer.instr (.zop (.zbin .vpandq .xmm0 .xmm1 .xmm2)) == ["vpandq zmm0, zmm1, zmm2"]
+#guard printer.instr (.zop (.zbin .vporq .xmm0 .xmm1 .xmm2)) == ["vporq zmm0, zmm1, zmm2"]
+#guard printer.instr (.zop (.zbin .vpandnq .xmm0 .xmm1 .xmm2)) == ["vpandnq zmm0, zmm1, zmm2"]
+#guard printer.instr (.zop (.vshift .vpsllq .xmm3 .xmm4 38)) == ["vpsllq zmm3, zmm4, 38"]
+#guard printer.instr (.zop (.vshift .vpsrlq .xmm10 .xmm11 26)) == ["vpsrlq zmm10, zmm11, 26"]
+#guard printer.instr (.zop (.vpbroadcastq .xmm12 .xmm13)) == ["vpbroadcastq zmm12, xmm13"]
+#guard printer.instr (.zop (.vmovdqa64 .xmm14 .xmm15)) == ["vmovdqa64 zmm14, zmm15"]
 #guard printer.instr (.vmovdqu32Load .xmm0 { base := .rsi, disp := 64 }) ==
   ["vmovdqu32 zmm0, ZMMWORD PTR [rsi+64]"]
 #guard printer.instr (.vmovdqu32Store { base := .rcx } .xmm14) == ["vmovdqu32 ZMMWORD PTR [rcx], zmm14"]
@@ -150,6 +190,10 @@ def bcst (op : ZBcstOp) (disp : Int) : Option (BitVec 512) :=
 #guard isa.requires (.zop (.vprold .xmm0 .xmm1 7)) == ["avx512f"]
 #guard isa.requires (.zop (.vpshufd .xmm0 .xmm1 0)) == ["avx512f"]
 #guard isa.requires (.zop (.vshufi32x4 .xmm0 .xmm1 .xmm2 0)) == ["avx512f"]
+#guard isa.requires (.zop (.zbin .vpmuludq .xmm0 .xmm1 .xmm2)) == ["avx512f"]
+#guard isa.requires (.zop (.vshift .vpsrlq .xmm0 .xmm1 26)) == ["avx512f"]
+#guard isa.requires (.zop (.vpbroadcastq .xmm0 .xmm1)) == ["avx512f"]
+#guard isa.requires (.zop (.vmovdqa64 .xmm0 .xmm1)) == ["avx512f"]
 #guard isa.requires (.vmovdqu32Load .xmm0 { base := .rdi }) == ["avx512f"]
 #guard isa.requires (.vmovdqu32Store { base := .rdi } .xmm0) == ["avx512f"]
 #guard isa.requires (.vbroadcasti32x4 .xmm0 { base := .rdi }) == ["avx512f"]

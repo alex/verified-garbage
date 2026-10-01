@@ -19,8 +19,10 @@ open VG.Spec.Sha256 (stateAt H0)
 def word (x : BitVec 32) (off : Nat) : List Instr :=
   [.movw .r12 (x.extractLsb' 0 16), .movt .r12 (x.extractLsb' 16 16), .str .r12 .r0 off]
 
-theorem init_eq : init = .block (word H0[0] 0 ++ word H0[1] 4 ++ word H0[2] 8 ++ word H0[3] 12 ++
-    word H0[4] 16 ++ word H0[5] 20 ++ word H0[6] 24 ++ word H0[7] 28) := rfl
+variable (iv : Spec.Sha256.HashValue)
+
+theorem initWith_eq : initWith iv = .block (word iv[0] 0 ++ word iv[1] 4 ++ word iv[2] 8 ++ word iv[3] 12 ++
+    word iv[4] 16 ++ word iv[5] 20 ++ word iv[6] 24 ++ word iv[7] 28) := rfl
 
 theorem word_ok {x : BitVec 32} {off : Nat} (ho : off < 4096) {rest : List Instr}
     {s : State} {Q : State → Prop} (hfit : (s.gpr .r0).toNat + off < 2 ^ 32)
@@ -35,12 +37,12 @@ theorem word_ok {x : BitVec 32} {off : Nat} (ho : off < 4096) {rest : List Instr
   rw [u.mem]
   simp only [State.setReg, ite_true, movw_movt]
 
-theorem init_correct {s₀ : State} (hp : Proof.Sha256.initArm.pre s₀) :
-    WP isa init s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha256.initArm.post s₀ s' := by
+theorem init_correct {s₀ : State} (hp : (Proof.Sha256.initArm iv).pre s₀) :
+    WP isa (initWith iv) s₀ fun s' => abiPreserved s₀ s' ∧ (Proof.Sha256.initArm iv).post s₀ s' := by
   obtain ⟨-, hwr, hfit⟩ := hp
   have o : ∀ k, k < 8 → InRegions s₀.wr (State.addr (s₀.gpr .r0) + BitVec.ofNat 64 (4 * k)) 4 :=
     fun k hk => ⟨⟨State.addr (s₀.gpr .r0), 96⟩, by simp [hwr], contains_offset (by omega) (by omega)⟩
-  rw [init_eq, ← List.append_nil (_ ++ word H0[7] 28)]
+  rw [initWith_eq, ← List.append_nil (_ ++ word iv[7] 28)]
   simp only [List.append_assoc]
   refine word_ok (by decide) (by omega) (o 0 (by omega)) fun s1 g1 _ wr1 sp1 m1 => ?_
   have k1 : s1.gpr .r0 = s₀.gpr .r0 := g1 _ (by decide)
@@ -71,15 +73,15 @@ theorem init_correct {s₀ : State} (hp : Proof.Sha256.initArm.pre s₀) :
     fun s8 g8 _ _ sp8 m8 => WP.block_nil ?_
   have k8 : ∀ r, r ≠ .r12 → s8.gpr r = s₀.gpr r := fun r h => by
     rw [g8 r h, g7 r h, g6 r h, g5 r h, g4 r h, g3 r h, g2 r h, g1 r h]
-  have hm : s8.mem = Proof.Sha256.StateMem.writeState s₀.mem (State.addr (s₀.gpr .r0)) H0 := by
+  have hm : s8.mem = Proof.Sha256.StateMem.writeState s₀.mem (State.addr (s₀.gpr .r0)) iv := by
     rw [m8, m7, m6, m5, m4, m3, m2, m1, k7, k6, k5, k4, k3, k2, k1]
     rfl
   refine ⟨⟨fun r hr => k8 r ?_, by rw [sp8, sp7, sp6, sp5, sp4, sp3, sp2, sp1]⟩, ?_⟩
   · simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
-  · show Spec.Sha256.Repr s8.mem (State.addr (s₀.gpr .r0)) []
+  · show Spec.Sha256.ReprFrom iv s8.mem (State.addr (s₀.gpr .r0)) []
     rw [hm]
-    exact Proof.Sha256.Stream.repr_nil (Proof.Sha256.StateMem.stateAt_writeState _ _ _)
+    exact Proof.Sha256.Stream.reprFrom_nil (Proof.Sha256.StateMem.stateAt_writeState _ _ _)
 
 /-- A state satisfying the precondition. -/
 def initSat : State where
@@ -94,11 +96,20 @@ def initSat : State where
   rd := []
   wr := [⟨0x1000, 96⟩]
 
-theorem init_verified : Verified Arm.target init Proof.Sha256.initArm := by
+/-- `initWith iv` is verified, given that the taint analysis, which the
+kernel can only run on a literal `iv`, accepts it. -/
+theorem initWith_verified {hc} (hct : (taint.check (Taint.ofRegs [.r0]) (initWith iv) hc).isSome = true) :
+    Verified Arm.target (initWith iv) (Proof.Sha256.initArm iv) := by
   refine ⟨fun s hs => ?_, ?_, ⟨initSat, rfl, rfl, by decide⟩⟩
-  · obtain ⟨t, s', he, h⟩ := init_correct hs
+  · obtain ⟨t, s', he, h⟩ := init_correct iv hs
     exact ⟨t, s', he, h⟩
-  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0]) (fun _ _ _ _ hp => ?_) (by taint_decide)
+  · refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.r0]) (fun _ _ _ _ hp => ?_) hct
     exact Taint.agree_ofRegs fun r hr => by simp only [List.mem_singleton] at hr; subst hr; exact hp
+
+theorem init_verified : Verified Arm.target init (Proof.Sha256.initArm H0) :=
+  initWith_verified _ (hct := by taint_decide)
+
+theorem init224_verified : Verified Arm.target init224 (Proof.Sha256.initArm Spec.Sha256.H0_224) :=
+  initWith_verified _ (hct := by taint_decide)
 
 end VG.Proof.Sha256.Arm.Stream
