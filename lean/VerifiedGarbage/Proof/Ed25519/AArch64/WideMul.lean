@@ -9,15 +9,6 @@ def wideValue (s : State) : Nat :=
   val4 (s.gpr .x4) (s.gpr .x5) (s.gpr .x6) (s.gpr .x7) +
     2 ^ 256 * val4 (s.gpr .x21) (s.gpr .x22) (s.gpr .x23) (s.gpr .x24)
 
-theorem zeroReg_ok (s : State) (r : Reg) :
-    WP isa (.block [.movz .w r 0 0]) s fun t => t.gpr r = 0 ∧ Keeps [r] s t := by
-  apply WP.of_runBlock
-  simp only [runBlock_cons, runStep_some, runBlock_nil, exec,
-    show 16 * 0 < Size.w.bits from by decide, ite_true, Option.some.injEq, exists_eq_left']
-  refine ⟨?_, ⟨fun q hq => ?_, rfl, rfl, rfl, rfl⟩⟩
-  · rw [RegUpd.gpr_write_self]; rfl
-  · exact RegUpd.gpr_write_of_ne _ _ _ (by simpa only [List.mem_singleton] using hq)
-
 theorem wideAccumulate_ok {s : State} {base : Addr} (hs : Scr s base) {a b : Nat}
     (ha : FieldRange a) (hb : FieldRange b) :
     WP isa (.block (wideAccumulate a b)) s fun t =>

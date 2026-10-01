@@ -21,6 +21,7 @@ mod blake2b;
 mod blake2s;
 mod chacha20;
 mod chacha20poly1305;
+mod cmac_aes;
 mod ed25519;
 mod hmac_md5;
 mod hmac_sha1;
@@ -40,6 +41,7 @@ mod poly1305;
 mod rc2_cbc;
 mod scrypt;
 mod sha1;
+mod sha224;
 mod sha256;
 mod sha3;
 mod sha512;
@@ -193,6 +195,7 @@ const BENCHES: &[Bench] = &[
     (blake2s::USES, blake2s::bench),
     (chacha20::USES, chacha20::bench),
     (chacha20poly1305::USES, chacha20poly1305::bench),
+    (cmac_aes::USES, cmac_aes::bench),
     (hmac_md5::USES, hmac_md5::bench),
     (hmac_sha1::USES, hmac_sha1::bench),
     (hmac_sha256::USES, hmac_sha256::bench),
@@ -211,6 +214,7 @@ const BENCHES: &[Bench] = &[
     (rc2_cbc::USES, rc2_cbc::bench),
     (scrypt::USES, scrypt::bench),
     (sha1::USES, sha1::bench),
+    (sha224::USES, sha224::bench),
     (sha256::USES, sha256::bench),
     (sha3::USES, sha3::bench),
     (sha512::USES, sha512::bench),
