@@ -49,9 +49,22 @@ macro_rules! int {
 }
 int!(u8, u16, u32, u64, i16, i32, i64);
 
+/// Overwrites `x` with zeros using the verified assembly primitive. Its
+/// opaque call prevents the compiler from removing the stores.
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+pub(crate) fn zeroize<T: Int>(x: &mut [T]) {
+    // SAFETY: `x` is writable for its entire byte length, cannot wrap, and
+    // lies outside the callee’s stack frame. All-zero bytes are valid for T.
+    unsafe {
+        crate::arch::zeroize::vg_zeroize(x.as_mut_ptr().cast::<u8>(), core::mem::size_of_val(x));
+    }
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+}
+
 /// Overwrites `x` with zeros in a way the compiler does not remove: with
 /// volatile writes, of 8 bytes at a time where they are aligned, and of
 /// single bytes before and after.
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 pub(crate) fn zeroize<T: Int>(x: &mut [T]) {
     let len = core::mem::size_of_val(x);
     let p = x.as_mut_ptr().cast::<u8>();
