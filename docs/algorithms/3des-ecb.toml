@@ -1,0 +1,5 @@
+name = "3DES-ECB"
+family = "Ciphers"
+specs = ["TripleDes"]
+modules = ["src/triple_des_ecb.rs"]
+asm = ["triple_des"]
