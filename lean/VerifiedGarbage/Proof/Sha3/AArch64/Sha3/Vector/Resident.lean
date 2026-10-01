@@ -282,10 +282,10 @@ theorem absorb_correct (v : Permutation)
   obtain ⟨t,q,he,hq⟩ := correct v hb a hp
   exact ⟨t,q,he,hq⟩
 
-theorem bulk_depth : bulk.fdepth = 0 := by rfl
+theorem bulk_depth : bulk.aarch64Depth = 0 := by rfl
 
-theorem absorb_depth (v : Permutation) : (absorb v.callee).fdepth = 1 := by
-  change Nat.max 0 ((Impl.Sha3.AArch64.Stream.absorbMainWith v.callee).fdepth + 1) = 1
+theorem absorb_depth (v : Permutation) : (absorb v.callee).aarch64Depth = 1 := by
+  change Nat.max 0 ((Impl.Sha3.AArch64.Stream.absorbMainWith v.callee).aarch64Depth + 1) = 1
   rw [v.absorbMain_depth]
   rfl
 
@@ -320,7 +320,7 @@ theorem hardware_absorb_correct (a : State) (hp : Proof.Sha3.absorbAArch64.pre a
   absorb_correct Sha3.backend bulk_correct a hp
 
 theorem hardware_absorb_depth :
-    (Impl.Sha3.AArch64.Sha3.Vector.Resident.absorb Sha3.callee).fdepth = 1 :=
+    (Impl.Sha3.AArch64.Sha3.Vector.Resident.absorb Sha3.callee).aarch64Depth = 1 :=
   absorb_depth Sha3.backend
 
 #assert_standard_axioms hardware_absorb_correct
