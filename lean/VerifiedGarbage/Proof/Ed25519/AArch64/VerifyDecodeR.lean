@@ -48,7 +48,7 @@ theorem verifyDecodeR_ok {s : State} {base pk sig challenge : Addr}
       rw [kd.mem.point (by decide) (Or.inl (by decide)) (by decide), kc.mem,
         workspace_tablePoint kb.mem (by decide) (by decide), ka.mem]
     refine WP.mono (verifyEquationPoints_ok hd.scratch hd.sigHeader hd.challengeHeader
-      hd.scalarBytes hd.scalarFar hd.challengeRead hd.challengeFar) fun t ⟨kt, tv⟩ => ?_
+      hd.scalarBytes hd.scalarFar hd.challengeRead hd.challengeWords hd.challengeFar) fun t ⟨kt, tv⟩ => ?_
     refine ⟨kabcd.trans kt, ?_⟩
     rw [tv, dp, cp, da, verifyKeep_bytes kabcd h.scalarFar, verifyKeep_bytes kabcd h.challengeFar,
       hp, hy, equationWithR]
