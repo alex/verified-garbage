@@ -18,6 +18,15 @@ theorem Keep.trans {s t u : VG.AArch64.State} (h : Keep s t) (k : Keep t u) : Ke
 def Saved (s₀ : VG.AArch64.State) (m : Mem) : Prop :=
   ∀ i < 11, m.readW (s₀.gpr .x1 + BitVec.ofNat 64 (8*i)) 64 = s₀.gpr (savedReg i)
 
+def SavedVector (orig s : VG.AArch64.State) : Prop :=
+  ∀ i < 11, vdword (s.v (savedVec i)) 0 = orig.gpr (savedReg i)
+
+theorem savedVec_inj : ∀ i < 11, ∀ j < 11, savedVec i = savedVec j ↔ i = j := by decide
+
+theorem savedVec_ne_ptrs : ∀ i < 11, savedVec i ≠ .v30 ∧ savedVec i ≠ .v31 := by decide
+
+theorem savedVec_not_preserved : ∀ i < 11, ∀ r ∈ preservedV, r ≠ savedVec i := by decide
+
 def Ptrs (s₀ s : VG.AArch64.State) : Prop :=
   vdword (s.v .v30) 0 = s₀.gpr .x0 ∧ vdword (s.v .v31) 0 = s₀.gpr .x1
 

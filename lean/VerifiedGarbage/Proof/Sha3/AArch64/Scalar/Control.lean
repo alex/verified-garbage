@@ -98,9 +98,8 @@ theorem setup_constants_ok (orig : State) (A : Spec.Sha3.State) (s : State)
         hkeep.sp.trans hs.core.keep.sp⟩
     · simpa only [Boundary.Ptrs, hkeep.vec] using hs.core.ptrs
     · intro j hj
-      change (q.mem.writeW _ _).readW _ 64 = _
-      rw [hbase, hval, Mem.readW_writeW_sep (Offset.sep _ (by omega) (by omega) (by omega)) (by decide)]
-      rw [hkeep.mem]
+      change vdword (q.v (VG.Impl.Sha3.AArch64.Scalar.Boundary.savedVec j)) 0 = _
+      rw [hkeep.vec]
       exact hs.core.saved j hj
     · intro r hr
       rw [hkeep.vec]
@@ -148,7 +147,11 @@ theorem setup_ok (orig : State) (A : Spec.Sha3.State) (s : State)
   · exact ⟨hq.core.keep.rd,hq.core.keep.wr,hq.core.keep.sp⟩
   · simp only [Boundary.Ptrs,RegUpd.v_setV,reduceCtorEq,ite_false]
     exact hq.core.ptrs
-  · exact hq.core.saved
+  · intro i hi
+    have hn : ∀ i < 11, VG.Impl.Sha3.AArch64.Scalar.Boundary.savedVec i ≠ .v26 ∧
+        VG.Impl.Sha3.AArch64.Scalar.Boundary.savedVec i ≠ .v27 := by decide
+    simp only [RegUpd.v_write,RegUpd.v_setV,(hn i hi).1,(hn i hi).2,ite_false]
+    exact hq.core.saved i hi
   · intro r hr
     have hn : ∀ r ∈ preservedV, r ≠ .v26 ∧ r ≠ .v27 := by decide
     simp only [RegUpd.v_write,RegUpd.v_setV,(hn r hr).1,(hn r hr).2,ite_false]
@@ -189,7 +192,10 @@ theorem iotaAdvance_ok (orig : State) (A : Spec.Sha3.State) (k : Nat) (s : State
     · exact ⟨hs.core.keep.rd,hs.core.keep.wr,hs.core.keep.sp⟩
     · simp only [Boundary.Ptrs,RegUpd.v_write,RegUpd.v_setV,reduceCtorEq,ite_false]
       exact hs.core.ptrs
-    · exact hs.core.saved
+    · intro i hi
+      have hn : ∀ i < 11, VG.Impl.Sha3.AArch64.Scalar.Boundary.savedVec i ≠ .v26 := by decide
+      simp only [RegUpd.v_write,RegUpd.v_setV,hn i hi,ite_false]
+      exact hs.core.saved i hi
     · intro r hr
       have hn : ∀ r ∈ preservedV, r ≠ .v26 := by decide
       simp only [RegUpd.v_write,RegUpd.v_setV,hn r hr,ite_false]

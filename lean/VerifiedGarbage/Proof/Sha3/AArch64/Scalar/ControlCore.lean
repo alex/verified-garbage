@@ -27,7 +27,11 @@ theorem core_ready_ok (orig : State) (A : Spec.Sha3.State) (k : Nat) (s : State)
   · simpa only [Ptrs,hv .v30 (by decide) (by decide),hv .v31 (by decide) (by decide)]
       using hs.core.ptrs
   · intro i hi
-    rw [spill_frame_readW hf (8*i) (.inl (by omega)) (by omega)]
+    have hn : ∀ i < 11, VG.Impl.Sha3.AArch64.Scalar.Boundary.savedVec i ≠ .v28 ∧
+        VG.Impl.Sha3.AArch64.Scalar.Boundary.savedVec i ≠ .v29 := by decide
+    rw [show vdword (t.v (VG.Impl.Sha3.AArch64.Scalar.Boundary.savedVec i)) 0 =
+      vdword (s.v (VG.Impl.Sha3.AArch64.Scalar.Boundary.savedVec i)) 0 from
+        congrArg (fun v => vdword v 0) (hv _ (hn i hi).1 (hn i hi).2)]
     exact hs.core.saved i hi
   · intro r hr
     have hn : ∀ r ∈ preservedV, r ≠ .v28 ∧ r ≠ .v29 := by decide
