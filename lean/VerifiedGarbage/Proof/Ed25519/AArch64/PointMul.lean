@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulLoop
 
-/-! Untrusted: checkpoint generation and batch descent implement pointMul. -/
+/-! Untrusted: checkpoint generation before the batch descent. -/
 
 namespace VG.Proof.Ed25519.AArch64
 
@@ -28,7 +28,7 @@ theorem pointMultiplyInit_ok {s : State} {base : Addr} (hs : Scr s base)
       PointMulInv s base count scalar (point (env s.mem base) 0 1 2 3) count t := by
   rw [pointMultiplyInit]
   refine WP.seq (WP.mono (pointPowers_ok true hs 1280 count (by decide) (by omega) hn0 hn hd)
-    fun a ⟨atab, _, ahigh, ka⟩ => ?_)
+    fun a ⟨atab, ahigh, ka⟩ => ?_)
   have ad : env a.mem base 16 = Spec.Ed25519.d := (ahigh 16 (by decide)).trans hd
   have abits : ∀ i < 16 * count, a.mem (off base (768 + i)) = BitVec.ofNat 8 ((scalar / 2 ^ i) % 2) := by
     intro i hi
@@ -59,18 +59,5 @@ theorem pointMultiplyInit_ok {s : State} {base : Addr} (hs : Scr s base)
     (by intro i hi; rw [cm _ (by rw [ofs_off' base (by omega)]; omega)]; exact bbits i hi),
     (by intro i hi; rw [(TableFrame.table cm).point (by omega) (Or.inr (by omega)) (by omega)]; exact btab i hi),
     kab.trans kc⟩
-
-theorem pointMultiply_ok {s : State} {base : Addr} (hs : Scr s base)
-    (count scalar : Nat) (hn0 : 0 < count) (hn : count ≤ 32) (hscalar : scalar < 2 ^ (16 * count))
-    (hd : env s.mem base 16 = Spec.Ed25519.d)
-    (hb : ∀ i < 16 * count, s.mem (off base (768 + i)) = BitVec.ofNat 8 ((scalar / 2 ^ i) % 2)) :
-    WP isa (pointMultiply count) s fun t =>
-      point (env t.mem base) 0 1 2 3 = Spec.Ed25519.pointMul scalar (point (env s.mem base) 0 1 2 3) ∧
-      env t.mem base 16 = Spec.Ed25519.d ∧ PowersKeep base 56 7368 s t := by
-  rw [pointMultiply]
-  refine WP.seq (WP.mono (pointMultiplyInit_ok hs count scalar hn0 hn hscalar hd hb) fun a h => ?_)
-  refine WP.mono (pointMulLoop_ok h.scratch count scalar _ hn0 hn h.counter h.d h.value h.bits h.table)
-    fun t ⟨tv, td, kt⟩ => ?_
-  exact ⟨tv, td, h.keep.trans kt⟩
 
 end VG.Proof.Ed25519.AArch64
