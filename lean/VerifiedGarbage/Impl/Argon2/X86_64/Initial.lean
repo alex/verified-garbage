@@ -38,17 +38,25 @@ def outLenOffset : Nat := 264
 def headerWord (source destination : Nat) : List Instr :=
   [.mov .rax (.mem (at_ .rbp source)), .store32 (at_ .rbx destination) .rax]
 
+def headerSource (j : Nat) : Nat :=
+  if j = 0 then lanesOffset else if j = 1 then outLenOffset else
+  if j = 2 then memoryCostOffset else if j = 3 then passOffset else kindOffset
+
+/-- One public parameter, or the fixed version word, in the H₀ header. -/
+def headerSlot (j : Nat) : List Instr :=
+  if j = 4 then
+    [.mov32 .rax (.imm 0x13), .store32 (at_ .rbx (768 + 4 * j)) .rax]
+  else headerWord (headerSource j) (768 + 4 * j)
+
 /-- Lanes, tag length, requested memory, passes, version and variant. -/
-def header : List Instr :=
-  headerWord lanesOffset 768 ++ headerWord outLenOffset 772 ++
-  headerWord memoryCostOffset 776 ++ headerWord passOffset 780 ++
-  ([.mov32 .rax (.imm 0x13), .store32 (at_ .rbx 784) .rax] : List Instr) ++
-  headerWord kindOffset 788
+def header : List Instr := (List.range 6).flatMap headerSlot
+
+def headerCode : Prog isa := .block header
 
 def start (h : Hash) : Prog isa :=
   .seq (.block [.mov32 .rsi (.imm 64)])
   (.seq (HPrime.init h)
-  (.seq (.block header)
+  (.seq headerCode
   (.seq (HPrime.absorbFixed h 768 24)
     (.block [.mov32 .r12 (.imm 24)]))))
 
@@ -71,9 +79,11 @@ def absorb (h : Hash) (pointerOffset lengthOffset : Nat) : Prog isa :=
   (.seq (HPrime.update h)
     (.block [.alu .add .r12 (.reg .r14)]))))
 
-def finishArgs : List Instr :=
-  [.mov .rdi (.reg .rbx), .mov .rsi (.reg .r12), .mov .rdx (.reg .rbp),
-    .mov .rcx (.reg .rbx), .alu .add .rcx (.imm 192)]
+/-- Finalize in hash scratch, then copy H₀ into the memory-initialization input. -/
+def finish (h : Hash) : Prog isa :=
+  .seq (.block [.mov .rsi (.reg .r12)])
+  (.seq (HPrime.finalize h)
+  (.seq (.block [.mov .r14 (.reg .rbp), .mov32 .rax (.imm 64)]) HPrime.copy))
 
 /-- H₀ of the four byte-string inputs and the public Argon2 parameters. -/
 def code (h : Hash) : Prog isa :=
@@ -82,6 +92,6 @@ def code (h : Hash) : Prog isa :=
   (.seq (absorb h saltOffset saltLenOffset)
   (.seq (absorb h secretOffset secretLenOffset)
   (.seq (absorb h adOffset adLenOffset)
-  (.seq (.block finishArgs) (.call h.finalizeName h.finalize))))))
+  (finish h)))))
 
 end VG.Impl.Argon2.X86_64.Initial
