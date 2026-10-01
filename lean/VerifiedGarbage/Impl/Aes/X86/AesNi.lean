@@ -3,7 +3,7 @@ import VerifiedGarbage.TCB.X86.Isa
 
 /-!
 Draft 32-bit AES-NI implementation. Not registered or proven; only usable after
-merged x86 SIMD model prerequisites. Key expansion uses only caller-saved GPRs.
+merged x86 SIMD model prerequisites.
 CTR encrypts six lanes using xmm0..5, round key xmm6, and load temporary xmm7.
 The counter prefix is cached in scratch; each lane inserts its incremented low
 word with MOVD/PSLLDQ/POR. The final low word is stored once. Only the low 32
@@ -14,58 +14,6 @@ open VG.X86
 
 def at_ (b : Reg) (d : Nat) : MemOp := { base := b, disp := d }
 def argOp (i : Nat) : MemOp := at_ .esp (4 + 4 * i)
-
-/-! ## Key expansion -/
-
-/-- The round constant `Rcon[j]`'s first byte, `x^(j−1)` (FIPS 197 §5.2). -/
-def rc (j : Nat) : BitVec 8 := Nat.repeat Spec.Aes.xtimes (j - 1) 1
-
-/-- `d ← prefixXor(d) ⊕ bcast(dword sel of aeskeygenassist(s, r))`, then
-store `d` at `schedule + off`. `xmm3` and `xmm4` are temporaries. -/
-def kstep (d s : XReg) (sel r : BitVec 8) (off : Nat) : List Instr :=
-  [.xop (.aeskeygenassist .xmm3 s r), .xop (.pshufd .xmm3 .xmm3 sel),
-   .xop (.bin .movdqa .xmm4 d),
-   .xop (.shift .pslldq .xmm4 4), .xop (.bin .pxor d .xmm4),
-   .xop (.shift .pslldq .xmm4 4), .xop (.bin .pxor d .xmm4),
-   .xop (.shift .pslldq .xmm4 4), .xop (.bin .pxor d .xmm4),
-   .xop (.bin .pxor d .xmm3),
-   .movdquStore (at_ .edx off) d]
-
-/-- For `Nk = 6`: `B ← [b₀, b₀ ⊕ b₁, …] ⊕ bcast(a₃)` (`A` in `xmm1`, `B` in
-`xmm2`), then store `B` at `schedule + off`. -/
-def kstepB6 (off : Nat) : List Instr :=
-  [.xop (.pshufd .xmm3 .xmm1 0xff), .xop (.bin .movdqa .xmm4 .xmm2),
-   .xop (.shift .pslldq .xmm4 4), .xop (.bin .pxor .xmm2 .xmm4),
-   .xop (.bin .pxor .xmm2 .xmm3),
-   .movdquStore (at_ .edx off) .xmm2]
-
-/-- AES-128: 11 round keys. -/
-def expand128 : List Instr :=
-  [.movdquLoad .xmm1 (at_ .eax 0), .movdquStore (at_ .edx 0) .xmm1] ++
-  (List.range 10).flatMap fun k => kstep .xmm1 .xmm1 0xff (rc (k + 1)) (16 * (k + 1))
-
-/-- AES-192: 13 round keys (52 words), 6 words at a time. -/
-def expand192 : List Instr :=
-  [.movdquLoad .xmm1 (at_ .eax 0), .movdquLoad .xmm2 (at_ .eax 8), .xop (.shift .psrldq .xmm2 8),
-   .movdquStore (at_ .edx 0) .xmm1, .movdquStore (at_ .edx 16) .xmm2] ++
-  (List.range 7).flatMap (fun k =>
-    kstep .xmm1 .xmm2 0x55 (rc (k + 1)) (24 * (k + 1)) ++ kstepB6 (24 * (k + 1) + 16)) ++
-  kstep .xmm1 .xmm2 0x55 (rc 8) 192
-
-/-- AES-256: 15 round keys (60 words), 8 words at a time. -/
-def expand256 : List Instr :=
-  [.movdquLoad .xmm1 (at_ .eax 0), .movdquLoad .xmm2 (at_ .eax 16),
-   .movdquStore (at_ .edx 0) .xmm1, .movdquStore (at_ .edx 16) .xmm2] ++
-  (List.range 6).flatMap (fun k =>
-    kstep .xmm1 .xmm2 0xff (rc (k + 1)) (32 * (k + 1)) ++
-    kstep .xmm2 .xmm1 0xaa 0 (32 * (k + 1) + 16)) ++
-  kstep .xmm1 .xmm2 0xff (rc 7) 224
-
-def expandKey : Prog isa :=
-  .seq (.block [.mov .eax (.mem (argOp 0)), .mov .ecx (.mem (argOp 1)),
-      .mov .edx (.mem (argOp 2)), .alu .cmp .ecx (.imm 24)])
-    (.ite .e (.block expand192)
-      (.seq (.block [.alu .cmp .ecx (.imm 32)]) (.ite .e (.block expand256) (.block expand128))))
 
 /-! ## Six-lane counter mode -/
 
