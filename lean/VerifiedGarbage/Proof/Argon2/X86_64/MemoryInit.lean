@@ -43,7 +43,7 @@ theorem code_ok (v : Proof.Blake2.X86_64.Backend) (name : String)
       t.rd = s.rd ∧ t.wr = s.wr ∧
       Frame [⟨memory, 1024 * (lanes * q)⟩, ⟨s.gpr .rbx, 16384⟩,
         below (s.gpr .rsp) 24, ⟨s.gpr .rbp + 64, 8⟩] s.mem t.mem := by
-  unfold code
+  unfold code lanesSetupCode
   have blocksPositive : 1 ≤ lanes * q := by
     have mul := Nat.mul_le_mul_right q lo
     rw [Nat.one_mul] at mul; omega

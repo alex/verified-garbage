@@ -17,21 +17,14 @@ structure LoopI (s₀ : State) (memory : Addr) (lanes q j : Nat) (h0 : List Byte
   initialized : Initialized s.mem memory lanes q j h0
   hash : bytesAt s.mem (s.gpr .rbp) 64 = h0
 
-theorem lanesLoop_ok (v : Proof.Blake2.X86_64.Backend) (name : String)
-    (s₀ : State) (memory : Addr) (lanes q : Nat) (h0 : List Byte)
-    (space : Space s₀ memory (1024 * (lanes * q))) (lo : 1 ≤ lanes)
+theorem lane_step (v : Proof.Blake2.X86_64.Backend) (name : String)
+    (s₀ s : State) (memory : Addr) (lanes q j : Nat) (h0 : List Byte)
+    (space : Space s₀ memory (1024 * (lanes * q))) (hj : j < lanes)
     (lanesBound : lanes < 2 ^ 64) (hq : 2 ≤ q)
-    (dst : s₀.gpr .r14 = memory) (laneReg : s₀.gpr .r12 = 0)
-    (remaining : s₀.gpr .r15 = BitVec.ofNat 64 lanes)
-    (stride : s₀.gpr .r13 = BitVec.ofNat 64 (1024 * q))
-    (initialized : Initialized s₀.mem memory lanes q 0 h0)
-    (hash : bytesAt s₀.mem (s₀.gpr .rbp) 64 = h0) :
-    WP isa (.loop (lane name (HPrime.hash v)) .ne) s₀ (LoopI s₀ memory lanes q lanes h0) := by
-  refine WP.loop (M := isa)
-    (fun n s => ∃ j, n = lanes - j ∧ j < lanes ∧ LoopI s₀ memory lanes q j h0 s)
-    ?_ lanes s₀ ⟨0, by omega, lo, by omega, by simpa using dst, laneReg,
-      by simpa only [Nat.sub_zero] using remaining, stride, Keeps.refl _ _ _, initialized, hash⟩
-  rintro n s ⟨j, rfl, hj, h⟩
+    (h : LoopI s₀ memory lanes q j h0 s) :
+    WP isa (lane name (HPrime.hash v)) s fun t =>
+      LoopI s₀ memory lanes q (j + 1) h0 t ∧
+      t.zf = some (decide (lanes - (j + 1) = 0)) := by
   have spaceS := space.keeps h.keeps
   have endBound : 1024 * (j * q) + 2048 ≤ 1024 * (lanes * q) := by
     have mul := Nat.mul_le_mul_right q (show j + 1 ≤ lanes by omega)
@@ -63,6 +56,26 @@ theorem lanesLoop_ok (v : Proof.Blake2.X86_64.Backend) (name : String)
       simpa only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : lanes - (j + 1) < 2 ^ 64),
         show (0 : Addr).toNat = 0 from rfl] using num
     · intro eq; rw [eq]; rfl
+  exact ⟨next, zf⟩
+
+
+theorem lanesLoop_ok (v : Proof.Blake2.X86_64.Backend) (name : String)
+    (s₀ : State) (memory : Addr) (lanes q : Nat) (h0 : List Byte)
+    (space : Space s₀ memory (1024 * (lanes * q))) (lo : 1 ≤ lanes)
+    (lanesBound : lanes < 2 ^ 64) (hq : 2 ≤ q)
+    (dst : s₀.gpr .r14 = memory) (laneReg : s₀.gpr .r12 = 0)
+    (remaining : s₀.gpr .r15 = BitVec.ofNat 64 lanes)
+    (stride : s₀.gpr .r13 = BitVec.ofNat 64 (1024 * q))
+    (initialized : Initialized s₀.mem memory lanes q 0 h0)
+    (hash : bytesAt s₀.mem (s₀.gpr .rbp) 64 = h0) :
+    WP isa (.loop (lane name (HPrime.hash v)) .ne) s₀ (LoopI s₀ memory lanes q lanes h0) := by
+  refine WP.loop (M := isa)
+    (fun n s => ∃ j, n = lanes - j ∧ j < lanes ∧ LoopI s₀ memory lanes q j h0 s)
+    ?_ lanes s₀ ⟨0, by omega, lo, by omega, by simpa using dst, laneReg,
+      by simpa only [Nat.sub_zero] using remaining, stride, Keeps.refl _ _ _, initialized, hash⟩
+  rintro n s ⟨j, rfl, hj, h⟩
+  refine (lane_step v name s₀ s memory lanes q j h0 space hj lanesBound hq h).mono ?_
+  intro t ⟨next, zf⟩
   by_cases done : j + 1 = lanes
   · refine .inl ⟨?_, done ▸ next⟩
     simp only [eval, zf, show lanes - (j + 1) = 0 by omega, decide_true,
