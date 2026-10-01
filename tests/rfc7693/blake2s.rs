@@ -1,6 +1,6 @@
 //! BLAKE2s: the example of Appendix B and the self-test of Appendix E.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"))]
 
 use verified_garbage::hashes::blake2s::{Blake2s, Blake2s256};
 
