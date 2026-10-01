@@ -182,6 +182,34 @@ def rejNTTContract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
     (stack := stack)
     (leak := some fun seed _a _scratch m => leakBytes (bytesAt m seed 34))
 
+/-- `vg_mldsa_rej_ntt_poly4(seeds: *const [u8; 136], a: *mut [u32; 1024], scratch: *mut [u64; 256]) -> u32`. -/
+def rejNTT4Sig : Sig where
+  params := [("seeds", .array false .u8 136), ("a", .array true .u32 1024),
+    ("scratch", .array true .u64 256)]
+  ret := some .u32
+
+/-- Seed `k` of four at `seeds`: the 34 bytes from byte `34 k`. -/
+def seed4 (m : Mem) (seeds : Addr) (k : Nat) : List Byte := bytesAt m (seeds + BitVec.ofNat 64 (34 * k)) 34
+
+/-- Polynomial `k` of four at `a`: from byte `1024 k`. -/
+def poly4 (a : Addr) (k : Nat) : Addr := a + BitVec.ofNat 64 (1024 * k)
+
+/-- `RejNTTPoly` four times: with the four 34-byte seeds `ρ₀, …, ρ₃` at
+`seeds` (`seed4`), writes `RejNTTPoly(ρₖ)` (Algorithm 30) to the polynomial
+at `a + 1024 k` (`poly4`), reduced, for each `k`, and returns 1; or returns
+0 if the loop of `RejNTTPoly` does not finish within the least bound
+Appendix C allows (`minBounds`) for one of them, and `a` is unspecified.
+May leak the seeds. -/
+def rejNTT4Contract {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
+  rejNTT4Sig.contract A
+    (post := fun seeds a _scratch m m' r =>
+      (r = 1 → ∀ k < 4, Reduced m' (poly4 a k)) ∧
+        ((r = 1 ∧ ∀ k < 4, ∃ b : Bounds, rejNTTPoly b.rejNTT (seed4 m seeds k) = some (polyAt m' (poly4 a k))) ∨
+          (r = 0 ∧ ∃ k < 4, rejNTTPoly minBounds.rejNTT (seed4 m seeds k) = none)))
+    (writeArgs := true)
+    (stack := stack)
+    (leak := some fun seeds _a _scratch m => leakBytes (bytesAt m seeds 136))
+
 /-- Whether `RejBoundedPoly` accepts the half-byte `b`: 1 if
 `CoeffFromHalfByte(b)` (Algorithm 15) is not `⊥`, 0 if it is. -/
 def halfByteOk (η b : Nat) : Nat := if (coeffFromHalfByte η b).isSome then 1 else 0
@@ -588,6 +616,24 @@ def rejNTTApi : Api where
     `q` = 8380417), and returns 1. " ++ boundDoc "a" "894 bytes of SHAKE128 output" ++ "\n\n\
     Contract: `VG.Spec.MlDsa.rejNTTContract`. Not constant time in the seed: timing may depend \
     on the pointers and on `*seed` (public in ML-DSA: the seed `ρ` of the matrix and two \
+    indices), but not on anything else."
+  safety := [scratchSafety]
+
+/-- `vg_mldsa_rej_ntt_poly4` on every target. -/
+def rejNTT4Api : Api where
+  module := "mldsa"
+  name := "vg_mldsa_rej_ntt_poly4"
+  sig := rejNTT4Sig
+  writeArgs := true
+  contracts := some fun A stack => rejNTT4Contract A stack
+  summary := "`RejNTTPoly` (FIPS 204 Algorithm 30) four times: for each `k` < 4, writes the \
+    element of `T_q` sampled from the SHAKE128 output of the 34 bytes of `*seeds` from byte \
+    `34 k` to the 256 coefficients of `*a` from coefficient `256 k` (each less than `q` = \
+    8380417), and returns 1. " ++ boundDoc "a" "894 bytes of SHAKE128 output for each" ++ " The \
+    four are independent, so an implementation may compute them together (e.g. four SHAKE128 \
+    instances at once in vector registers).\n\n\
+    Contract: `VG.Spec.MlDsa.rejNTT4Contract`. Not constant time in the seeds: timing may \
+    depend on the pointers and on `*seeds` (public in ML-DSA: the seed `ρ` of the matrix and \
     indices), but not on anything else."
   safety := [scratchSafety]
 
