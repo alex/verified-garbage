@@ -2,6 +2,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Backend
 import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.YNtt
 import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.YMul
 import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.YAddSub
+import VerifiedGarbage.Proof.MlDsa.X86_64.Round.YBits
 
 /-!
 # ML-DSA on x86-64: the polynomial arithmetic with AVX2, as an `ArithImpl`
@@ -32,7 +33,11 @@ def ArithImpl.avx2 : ArithImpl where
       sub := FnOk.of Arith.subY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
       rej4 := ⟨Rej4.rejNTT4Avx2_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel), by decide +kernel,
-        by decide +kernel, Code.all_of_allInstrs (by decide +kernel), fun _ _ _ => Rej4.rejNTT4Avx2_ret⟩ }
+        by decide +kernel, Code.all_of_allInstrs (by decide +kernel), fun _ _ _ => Rej4.rejNTT4Avx2_ret⟩
+      highBits := FnOk.of Round.highBitsY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      lowBits := FnOk.of Round.lowBitsY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel) }
   features := ["avx", "avx2"]
 
 end VG.Proof.MlDsa.X86_64

@@ -4588,6 +4588,230 @@ pub(crate) unsafe extern "sysv64" fn vg_mldsa_low_bits(r: *const [u32; 256], gam
     )
 }
 
+/// The CPU features `vg_mldsa_high_bits_avx2` requires (`Artifact.features`).
+pub(crate) const VG_MLDSA_HIGH_BITS_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+
+/// `HighBits` (FIPS 204 Algorithm 37) of each coefficient of `*r`, with `gamma2` = `γ₂`: writes the `r1`s to `*out`.
+///
+/// Contract: `VG.Spec.MlDsa.highBitsContract`. Constant time: only the pointers and `gamma2` may affect timing, not the data.
+///
+/// The function computes on eight coefficients at a time in AVX2 registers, multiplying by shifts and additions; it needs AVX and AVX2.
+///
+/// # Safety
+///
+/// * `r` must be valid for reads of 1024 bytes.
+/// * `out` must be valid for reads and writes of 1024 bytes.
+/// * `gamma2` must be (q - 1)/88 = 95232 or (q - 1)/32 = 261888.
+/// * Each of the 256 `u32`s of `r` must be less than `q` = 8380417.
+/// * `out` must not overlap `r` (distinct Rust objects never do).
+/// * Neither `r` nor `out` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `avx` and `avx2` target features.
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_mldsa_high_bits_avx2(r: *const [u32; 256], gamma2: u32, out: *mut [u32; 256]) {
+    core::arch::naked_asm!(
+        "mov esi, esi",
+        "cmp esi, 261888",
+        "mov r10, rdx",
+        "je 20f",
+        "mov eax, 127",
+        "vmovq xmm8, rax",
+        "vpbroadcastd ymm8, xmm8",
+        "mov eax, 8388608",
+        "vmovq xmm9, rax",
+        "vpbroadcastd ymm9, xmm9",
+        "mov eax, 44",
+        "vmovq xmm10, rax",
+        "vpbroadcastd ymm10, xmm10",
+        "mov eax, 8380417",
+        "vmovq xmm15, rax",
+        "vpbroadcastd ymm15, xmm15",
+        "mov ecx, 32",
+        "22:",
+        "vmovdqu ymm0, YMMWORD PTR [rdi]",
+        "vpaddd ymm0, ymm0, ymm8",
+        "vpsrld ymm0, ymm0, 7",
+        "vmovdqa ymm1, ymm0",
+        "vpslld ymm2, ymm1, 1",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 3",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 10",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 11",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 13",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpaddd ymm0, ymm0, ymm9",
+        "vpsrld ymm0, ymm0, 24",
+        "vpsubd ymm1, ymm0, ymm10",
+        "vpsrad ymm1, ymm1, 31",
+        "vpand ymm0, ymm0, ymm1",
+        "vmovdqu YMMWORD PTR [r10], ymm0",
+        "add rdi, 32",
+        "add r10, 32",
+        "sub rcx, 1",
+        "jne 22b",
+        "jmp 21f",
+        "20:",
+        "mov eax, 127",
+        "vmovq xmm8, rax",
+        "vpbroadcastd ymm8, xmm8",
+        "mov eax, 2097152",
+        "vmovq xmm9, rax",
+        "vpbroadcastd ymm9, xmm9",
+        "mov eax, 16",
+        "vmovq xmm10, rax",
+        "vpbroadcastd ymm10, xmm10",
+        "mov eax, 8380417",
+        "vmovq xmm15, rax",
+        "vpbroadcastd ymm15, xmm15",
+        "mov ecx, 32",
+        "23:",
+        "vmovdqu ymm0, YMMWORD PTR [rdi]",
+        "vpaddd ymm0, ymm0, ymm8",
+        "vpsrld ymm0, ymm0, 7",
+        "vmovdqa ymm1, ymm0",
+        "vpslld ymm2, ymm1, 10",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpaddd ymm0, ymm0, ymm9",
+        "vpsrld ymm0, ymm0, 22",
+        "vpsubd ymm1, ymm0, ymm10",
+        "vpsrad ymm1, ymm1, 31",
+        "vpand ymm0, ymm0, ymm1",
+        "vmovdqu YMMWORD PTR [r10], ymm0",
+        "add rdi, 32",
+        "add r10, 32",
+        "sub rcx, 1",
+        "jne 23b",
+        "21:",
+        "vzeroupper",
+        "ret",
+    )
+}
+
+/// The CPU features `vg_mldsa_low_bits_avx2` requires (`Artifact.features`).
+pub(crate) const VG_MLDSA_LOW_BITS_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
+
+/// `LowBits` (FIPS 204 Algorithm 38) of each coefficient of `*r`, with `gamma2` = `γ₂`: writes the `r0`s, modulo `q` = 8380417, to `*out`.
+///
+/// Contract: `VG.Spec.MlDsa.lowBitsContract`. Constant time: only the pointers and `gamma2` may affect timing, not the data.
+///
+/// The function computes on eight coefficients at a time in AVX2 registers, multiplying by shifts and additions; it needs AVX and AVX2.
+///
+/// # Safety
+///
+/// * `r` must be valid for reads of 1024 bytes.
+/// * `out` must be valid for reads and writes of 1024 bytes.
+/// * `gamma2` must be (q - 1)/88 = 95232 or (q - 1)/32 = 261888.
+/// * Each of the 256 `u32`s of `r` must be less than `q` = 8380417.
+/// * `out` must not overlap `r` (distinct Rust objects never do).
+/// * Neither `r` nor `out` may overlap the return address on the stack, or wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `avx` and `avx2` target features.
+#[unsafe(naked)]
+pub(crate) unsafe extern "sysv64" fn vg_mldsa_low_bits_avx2(r: *const [u32; 256], gamma2: u32, out: *mut [u32; 256]) {
+    core::arch::naked_asm!(
+        "mov esi, esi",
+        "cmp esi, 261888",
+        "mov r10, rdx",
+        "je 20f",
+        "mov eax, 127",
+        "vmovq xmm8, rax",
+        "vpbroadcastd ymm8, xmm8",
+        "mov eax, 8388608",
+        "vmovq xmm9, rax",
+        "vpbroadcastd ymm9, xmm9",
+        "mov eax, 44",
+        "vmovq xmm10, rax",
+        "vpbroadcastd ymm10, xmm10",
+        "mov eax, 8380417",
+        "vmovq xmm15, rax",
+        "vpbroadcastd ymm15, xmm15",
+        "mov ecx, 32",
+        "22:",
+        "vmovdqu ymm0, YMMWORD PTR [rdi]",
+        "vmovdqa ymm3, ymm0",
+        "vpaddd ymm0, ymm0, ymm8",
+        "vpsrld ymm0, ymm0, 7",
+        "vmovdqa ymm1, ymm0",
+        "vpslld ymm2, ymm1, 1",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 3",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 10",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 11",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpslld ymm2, ymm1, 13",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpaddd ymm0, ymm0, ymm9",
+        "vpsrld ymm0, ymm0, 24",
+        "vpsubd ymm1, ymm0, ymm10",
+        "vpsrad ymm1, ymm1, 31",
+        "vpand ymm0, ymm0, ymm1",
+        "vpslld ymm1, ymm0, 11",
+        "vpslld ymm2, ymm0, 13",
+        "vpaddd ymm1, ymm1, ymm2",
+        "vpslld ymm2, ymm0, 14",
+        "vpaddd ymm1, ymm1, ymm2",
+        "vpslld ymm2, ymm0, 15",
+        "vpaddd ymm1, ymm1, ymm2",
+        "vpslld ymm2, ymm0, 17",
+        "vpaddd ymm1, ymm1, ymm2",
+        "vpsubd ymm3, ymm3, ymm1",
+        "vpsrad ymm1, ymm3, 31",
+        "vpand ymm1, ymm1, ymm15",
+        "vpaddd ymm3, ymm3, ymm1",
+        "vmovdqu YMMWORD PTR [r10], ymm3",
+        "add rdi, 32",
+        "add r10, 32",
+        "sub rcx, 1",
+        "jne 22b",
+        "jmp 21f",
+        "20:",
+        "mov eax, 127",
+        "vmovq xmm8, rax",
+        "vpbroadcastd ymm8, xmm8",
+        "mov eax, 2097152",
+        "vmovq xmm9, rax",
+        "vpbroadcastd ymm9, xmm9",
+        "mov eax, 16",
+        "vmovq xmm10, rax",
+        "vpbroadcastd ymm10, xmm10",
+        "mov eax, 8380417",
+        "vmovq xmm15, rax",
+        "vpbroadcastd ymm15, xmm15",
+        "mov ecx, 32",
+        "23:",
+        "vmovdqu ymm0, YMMWORD PTR [rdi]",
+        "vmovdqa ymm3, ymm0",
+        "vpaddd ymm0, ymm0, ymm8",
+        "vpsrld ymm0, ymm0, 7",
+        "vmovdqa ymm1, ymm0",
+        "vpslld ymm2, ymm1, 10",
+        "vpaddd ymm0, ymm0, ymm2",
+        "vpaddd ymm0, ymm0, ymm9",
+        "vpsrld ymm0, ymm0, 22",
+        "vpsubd ymm1, ymm0, ymm10",
+        "vpsrad ymm1, ymm1, 31",
+        "vpand ymm0, ymm0, ymm1",
+        "vpslld ymm1, ymm0, 19",
+        "vpslld ymm2, ymm0, 9",
+        "vpsubd ymm1, ymm1, ymm2",
+        "vpsubd ymm3, ymm3, ymm1",
+        "vpsrad ymm1, ymm3, 31",
+        "vpand ymm1, ymm1, ymm15",
+        "vpaddd ymm3, ymm3, ymm1",
+        "vmovdqu YMMWORD PTR [r10], ymm3",
+        "add rdi, 32",
+        "add r10, 32",
+        "sub rcx, 1",
+        "jne 23b",
+        "21:",
+        "vzeroupper",
+        "ret",
+    )
+}
+
 /// Returns 1 if the infinity norm of the polynomial `*f` (FIPS 204 §2.3: the largest `|fᵢ mod± q|`) is less than `bound`, and 0 otherwise.
 ///
 /// Contract: `VG.Spec.MlDsa.normLtContract`. Constant time: only the pointer and `bound` may affect timing, not the data.

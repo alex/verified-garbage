@@ -5,6 +5,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Mul
 import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.AddSub
 import VerifiedGarbage.Proof.MlKem.X86_64.ArithOk
 import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.Rej4Verified
+import VerifiedGarbage.Proof.MlDsa.X86_64.Round.Bits
 
 /-!
 # ML-DSA on x86-64: what the callers of the polynomial arithmetic need of it
@@ -54,6 +55,8 @@ structure BackendOk (B : Backend) : Prop where
   add : FnOk (fun S => Spec.MlDsa.addContract X86_64.abi S) B.add
   sub : FnOk (fun S => Spec.MlDsa.subContract X86_64.abi S) B.sub
   rej4 : Rej4Ok B.rej4
+  highBits : FnOk (fun S => Spec.MlDsa.highBitsContract X86_64.abi S) B.highBits
+  lowBits : FnOk (fun S => Spec.MlDsa.lowBitsContract X86_64.abi S) B.lowBits
 
 /-- An implementation of the polynomial arithmetic on x86-64. -/
 structure ArithImpl where
@@ -85,7 +88,11 @@ def ArithImpl.sse2 : ArithImpl where
       sub := FnOk.of Arith.sub_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
       rej4 := ⟨Rej4.rejNTT4_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel), by decide +kernel,
-        by decide +kernel, Code.all_of_allInstrs (by decide +kernel), fun _ _ _ => Rej4.rejNTT4_ret⟩ }
+        by decide +kernel, Code.all_of_allInstrs (by decide +kernel), fun _ _ _ => Rej4.rejNTT4_ret⟩
+      highBits := FnOk.of Round.highBits_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      lowBits := FnOk.of Round.lowBits_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel) }
   features := []
 
 end VG.Proof.MlDsa.X86_64

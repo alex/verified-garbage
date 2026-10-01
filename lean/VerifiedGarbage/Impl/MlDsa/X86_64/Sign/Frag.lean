@@ -203,10 +203,10 @@ def ballAt (len tau : Nat) (c : Ptr) : Prog isa :=
   callP "vg_mldsa_sample_in_ball" P.ball [.ptr (sc oCT), .imm len, .imm tau, .ptr c, .ptr (sc oPS)]
 
 def highBitsAt (r : Ptr) (gamma2 : Nat) (out : Ptr) : Prog isa :=
-  callP "vg_mldsa_high_bits" P.highBits [.ptr r, .imm gamma2, .ptr out]
+  callP ("vg_mldsa_high_bits" ++ P.sfx) P.highBits [.ptr r, .imm gamma2, .ptr out]
 
 def lowBitsAt (r : Ptr) (gamma2 : Nat) (out : Ptr) : Prog isa :=
-  callP "vg_mldsa_low_bits" P.lowBits [.ptr r, .imm gamma2, .ptr out]
+  callP ("vg_mldsa_low_bits" ++ P.sfx) P.lowBits [.ptr r, .imm gamma2, .ptr out]
 
 /-- `‖f‖∞ < bound`, and `r15 ← r15 ∧ result`. -/
 def normAt (f : Ptr) (bound : Nat) : Prog isa :=

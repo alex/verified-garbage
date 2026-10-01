@@ -65,6 +65,8 @@ def primsWith (B : Impl.MlDsa.X86_64.Arith.Backend) : Prims :=
     add := B.add
     sub := B.sub
     rej4 := B.rej4
+    highBits := B.highBits
+    lowBits := B.lowBits
     sfx := B.sfx }
 
 theorem nosp_of {c : Prog isa} (h : c.allInstrs (fun i => !Taint.clobbers i .rsp) = true) : NoSp c := by
@@ -143,10 +145,8 @@ def prims_okWith (v : ArithImpl) : PrimsOk (primsWith v.code) signStack where
   ball := (⟨16, by decide, Proof.MlDsa.X86_64.Sample.sampleInBall_verified, nosp_of (by decide +kernel),
     by decide +kernel⟩ :
     Callee _ signStack prims.ball)
-  highBits := (⟨0, by decide, Proof.MlDsa.X86_64.Round.highBits_verified, nosp_of (by decide +kernel), by decide +kernel⟩ :
-    Callee _ signStack prims.highBits)
-  lowBits := (⟨0, by decide, Proof.MlDsa.X86_64.Round.lowBits_verified, nosp_of (by decide +kernel), by decide +kernel⟩ :
-    Callee _ signStack prims.lowBits)
+  highBits := calleeOf v.ok.highBits
+  lowBits := calleeOf v.ok.lowBits
   normLt := (⟨0, by decide, Proof.MlDsa.X86_64.Round.normLt_verified, nosp_of (by decide +kernel), by decide +kernel⟩ :
     Callee _ signStack prims.normLt)
   makeHint := (⟨0, by decide, Proof.MlDsa.X86_64.Round.makeHint_verified, nosp_of (by decide +kernel), by decide +kernel⟩ :
