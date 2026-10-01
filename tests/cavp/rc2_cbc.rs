@@ -1,6 +1,6 @@
 //! Published RC2 vectors; unmodified sources and provenance live under vectors/.
 
-#![cfg(all(target_arch = "x86_64", feature = "alloc"))]
+#![cfg(all(any(target_arch = "x86_64", target_arch = "arm"), feature = "alloc"))]
 
 use std::collections::BTreeMap;
 

@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.Arm.Exec
+import VerifiedGarbage.Proof.Framework.Arm.RegUpd
 import VerifiedGarbage.Proof.Framework.Block
 import VerifiedGarbage.Proof.MlKem.Mem
 import VerifiedGarbage.TCB.Arm.Target
@@ -68,16 +69,22 @@ theorem count_sub {N i k : Nat} (hi : i < N) :
 /-! ## Symbolic execution -/
 
 /-- Runs a straight-line block symbolically (see `WP.of_runBlock`), with the
-facts `ls` about the registers and memory it reads. -/
+facts `ls` about the registers and memory it reads. Read through register
+writes without expanding the whole state at every step, then normalize the
+final state once for the postcondition. -/
 syntax "run_block " "[" Lean.Parser.Tactic.simpLemma,* "]" : tactic
 macro_rules
   | `(tactic| run_block [$ls,*]) => `(tactic| (
       apply WP.of_runBlock
       set_option linter.unusedSimpArgs false in
       simp (config := {decide := true}) only [runBlock_cons, runStep_some, runBlock_nil, exec,
-        Op2.eval, isa, State.setReg, State.load32, State.store32, State.load8, State.store8,
+        Op2.eval, isa, RegUpd.gpr_setReg, RegUpd.mem_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg,
+        RegUpd.sp_setReg, RegUpd.z_setReg, RegUpd.n_setReg, RegUpd.c_setReg, RegUpd.v_setReg,
+        State.load32, State.store32, State.load8, State.store8,
         subFlags, addFlags, ite_true, ite_false, Option.map_some, Option.some.injEq,
-        exists_eq_left', List.cons_append, List.nil_append, List.append_nil, $ls,*]))
+        exists_eq_left', List.cons_append, List.nil_append, List.append_nil, $ls,*]
+      set_option linter.unusedSimpArgs false in
+      all_goals try simp (config := {decide := true}) only [State.setReg, $ls,*]))
 
 /-- Resolves the `if`s on indices whose ranges `omega` knows. -/
 macro "resolve_ifs" : tactic => `(tactic| (

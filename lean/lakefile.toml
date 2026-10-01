@@ -1,5 +1,8 @@
 name = "VerifiedGarbage"
 defaultTargets = ["VerifiedGarbage", "VerifiedGarbageTest"]
+# Lake already checks several files concurrently. Limit each compiler to
+# two threads so declaration tasks do not contend across all of those files.
+moreLeanArgs = ["-j2"]
 
 [leanOptions]
 autoImplicit = false

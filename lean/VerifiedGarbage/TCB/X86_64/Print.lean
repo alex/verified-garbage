@@ -78,7 +78,8 @@ def XBinOp.name : XBinOp → String
   | .punpcklqdq => "punpcklqdq" | .punpckhqdq => "punpckhqdq"
   | .pshufb => "pshufb" | .sha256msg1 => "sha256msg1" | .sha256msg2 => "sha256msg2"
   | .sha1msg1 => "sha1msg1" | .sha1msg2 => "sha1msg2" | .sha1nexte => "sha1nexte"
-  | .pand => "pand" | .pandn => "pandn" | .paddq => "paddq" | .pmuludq => "pmuludq"
+  | .pand => "pand" | .pandn => "pandn" | .paddq => "paddq" | .psubq => "psubq"
+  | .pmuludq => "pmuludq"
   | .paddw => "paddw" | .psubw => "psubw" | .psubd => "psubd" | .pmullw => "pmullw"
   | .pmulhw => "pmulhw" | .packssdw => "packssdw" | .punpcklwd => "punpcklwd"
   | .punpckhwd => "punpckhwd"
@@ -108,7 +109,7 @@ def VBinOp.name : VBinOp → String
   | .vpunpcklqdq => "vpunpcklqdq" | .vpunpckhqdq => "vpunpckhqdq"
   | .vpaddw => "vpaddw" | .vpsubw => "vpsubw" | .vpsubd => "vpsubd" | .vpmullw => "vpmullw"
   | .vpmulhw => "vpmulhw" | .vpackssdw => "vpackssdw" | .vpunpcklwd => "vpunpcklwd"
-  | .vpunpckhwd => "vpunpckhwd"
+  | .vpunpckhwd => "vpunpckhwd" | .vpsubq => "vpsubq"
 
 def VVarOp.name : VVarOp → String
   | .vpsllvd => "vpsllvd" | .vpsrlvd => "vpsrlvd" | .vpsllvq => "vpsllvq" | .vpsrlvq => "vpsrlvq"
@@ -132,6 +133,8 @@ def VOp.asm : VOp → String
   | .vsha512rnds2 d a b => s!"vsha512rnds2 {d.yname}, {a.yname}, {b.name}"
   | .vsha512msg1 d r => s!"vsha512msg1 {d.yname}, {r.name}"
   | .vsha512msg2 d r => s!"vsha512msg2 {d.yname}, {r.yname}"
+  | .vpmadd52luq l d a b => s!"vpmadd52luq {d.vname l}, {a.vname l}, {b.vname l}"
+  | .vpmadd52huq l d a b => s!"vpmadd52huq {d.vname l}, {a.vname l}, {b.vname l}"
 
 def ZBinOp.name : ZBinOp → String
   | .vpaddd => "vpaddd" | .vpxord => "vpxord"
