@@ -388,11 +388,14 @@ mod tests {
     /// every length up to past two blocks, through `HashFunction`.
     fn incremental<H: HashFunction>() {
         let msg: [u8; 300] = core::array::from_fn(|i| (i * 7 + 3) as u8);
-        for len in
-            (0..msg.len())
-                .step_by(7)
-                .chain([H::BLOCK_SIZE - 1, H::BLOCK_SIZE, 2 * H::BLOCK_SIZE])
-        {
+        for len in (0..msg.len()).step_by(7).chain([
+            H::BLOCK_SIZE - 1,
+            H::BLOCK_SIZE,
+            H::BLOCK_SIZE + 1,
+            2 * H::BLOCK_SIZE - 1,
+            2 * H::BLOCK_SIZE,
+            2 * H::BLOCK_SIZE + 1,
+        ]) {
             let expected = H::digest(&msg[..len]);
             for split in (0..=len).step_by(5) {
                 let mut h = H::new();
@@ -450,6 +453,41 @@ mod tests {
             h.finalize(&mut out);
             assert_eq!(out[..], long[..273]);
         }
+    }
+
+    /// Whole-block absorption and its generic fallback agree around each
+    /// rate boundary, including a nonaligned update followed by two blocks.
+    #[test]
+    fn shake_absorb_boundaries() {
+        let msg: [u8; 337] = core::array::from_fn(|i| (i * 11 + 5) as u8);
+        macro_rules! check {
+            ($xof:ident, $rate:literal) => {
+                for len in [
+                    $rate - 1,
+                    $rate,
+                    $rate + 1,
+                    2 * $rate - 1,
+                    2 * $rate,
+                    2 * $rate + 1,
+                ] {
+                    let mut expected = [0u8; 32];
+                    $xof::digest(&msg[..len], &mut expected);
+                    for split in [0, 1, $rate - 1, $rate, $rate + 1, len]
+                        .into_iter()
+                        .filter(|&split| split <= len)
+                    {
+                        let mut h = $xof::new();
+                        h.update(&msg[..split]);
+                        h.update(&msg[split..len]);
+                        let mut output = [0u8; 32];
+                        h.finalize(&mut output);
+                        assert_eq!(output, expected);
+                    }
+                }
+            };
+        }
+        check!(Shake128, 168);
+        check!(Shake256, 136);
     }
 
     /// Output squeezed in pieces of every size from 0 to 300 bytes is the
