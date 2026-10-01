@@ -129,6 +129,12 @@ macro_rules! streaming_pbkdf2 {
             backend: $backend,
         }
 
+        impl Drop for Key {
+            fn drop(&mut self) {
+                $crate::zeroize::zeroize(&mut self.states);
+            }
+        }
+
         /// The streaming states of an HMAC computation that has not absorbed
         /// any data yet, and the implementation of the hash it runs.
         fn key(prf: &crate::hmac::Hmac<$hash>) -> Key {

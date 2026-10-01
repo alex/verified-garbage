@@ -1,0 +1,5 @@
+name = "RFC 9106, Argon2 version 1.3 (Argon2d, Argon2i and Argon2id vectors in Section 5)"
+directories = ["rfc9106"]
+url = "https://www.rfc-editor.org/rfc/rfc9106.txt"
+sha256 = "855c06f060379e34285e83a217e9069b5c72e161a1e54df9af5cd88dbb231f31"
+retrieved = 2026-10-01

@@ -55,6 +55,13 @@ macro_rules! blake2 {
             length: u64,
         }
 
+        impl<const N: usize> Drop for $name<N> {
+            /// Wipes the streaming state (which represents the key, if any).
+            fn drop(&mut self) {
+                $crate::zeroize::zeroize(&mut self.state);
+            }
+        }
+
         impl<const N: usize> Default for $name<N> {
             fn default() -> Self {
                 Self::new()

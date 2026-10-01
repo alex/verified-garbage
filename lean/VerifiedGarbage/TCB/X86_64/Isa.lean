@@ -166,6 +166,10 @@ inductive Instr
   | vmovdquStore (len : VLen) (dst : MemOp) (src : XReg)
   /-- `vbroadcasti128 ymm, XMMWORD PTR [src]` (`VEX.256.66.0F38.W0 5A /r`) -/
   | vbroadcasti128 (dst : XReg) (src : MemOp)
+  /-- `vpmovmskb r32, xmm` (`VEX.128.66.0F.WIG D7 /r`) or `vpmovmskb r32,
+  ymm` (`VEX.256.66.0F.WIG D7 /r`): the most significant bit of each byte of
+  `src`, into `dst`. -/
+  | vpmovmskb (len : VLen) (dst : Reg) (src : XReg)
   /-- An AVX-512 instruction with 512-bit operands that writes only vector registers. -/
   | zop (op : ZOp)
   /-- `vmovdqu32 zmm, ZMMWORD PTR [src]` (`EVEX.512.F3.0F.W0 6F /r`) -/
@@ -228,7 +232,9 @@ VEX.128 forms of the lane-wise instructions (e.g. `VEX.128.66.0F.WIG FE /r`
 VPADDD), for VMOVDQA, VMOVDQU (both lengths), VMOVQ and VZEROUPPER; AVX2 for
 their VEX.256 forms (e.g. `VEX.256.66.0F.WIG FE /r` VPADDD) and for VPBLENDD,
 VPSLLVD/Q, VPSRLVD/Q, VPBROADCASTD/Q, VPERMQ, VPERM2I128, VINSERTI128,
-VEXTRACTI128 and VBROADCASTI128 at any length. LDMXCSR and STMXCSR (SSE,
+VEXTRACTI128 and VBROADCASTI128 at any length; AVX for VPMOVMSKB reg, xmm1
+(`VEX.128.66.0F.WIG D7 /r`) and AVX2 for VPMOVMSKB reg, ymm1
+(`VEX.256.66.0F.WIG D7 /r`) and VPERMD (`VEX.256.66.0F38.W0 36 /r`). LDMXCSR and STMXCSR (SSE,
 `NP 0F AE /2`, `NP 0F AE /3`) and LFENCE (SSE2, `NP 0F AE E8`) are in the
 baseline. BMI2 for RORX (`VEX.LZ.F2.0F3A.W0 F0 /r ib`, `VEX.LZ.F2.0F3A.W1
 F0 /r ib`) and for MULX (`VEX.LZ.F2.0F38.W1 F6 /r`), ADX for ADCX and ADOX
@@ -261,8 +267,9 @@ def Instr.requires : Instr → List String
   | .vop (.vpalignr .l128 ..) | .vop (.vmovdqa ..) | .vop (.vmovq ..) | .vop .vzeroupper
   | .vmovdquLoad .. | .vmovdquStore .. => ["avx"]
   | .vop (.vpblendd ..) | .vop (.vvar ..) | .vop (.vpbroadcastd ..) | .vop (.vpbroadcastq ..)
-  | .vop (.vpermq ..) | .vop (.vperm2i128 ..) | .vop (.vinserti128 ..) | .vop (.vextracti128 ..)
-  | .vbroadcasti128 .. => ["avx2"]
+  | .vop (.vpermq ..) | .vop (.vpermd ..) | .vop (.vperm2i128 ..) | .vop (.vinserti128 ..) | .vop (.vextracti128 ..)
+  | .vbroadcasti128 .. | .vpmovmskb .l256 .. => ["avx2"]
+  | .vpmovmskb .l128 .. => ["avx"]
   | .rorx32 .. | .rorx .. | .mulx .. => ["bmi2"]
   | .adcx .. | .adox .. => ["adx"]
   | .andn32 .. | .andn .. => ["bmi1"]
@@ -314,6 +321,11 @@ def exec : Instr → State → Option State
   -- SDM Vol. 2, "VBROADCAST": `DEST[127:0] := SRC[127:0]; DEST[255:128] :=
   -- SRC[127:0]`; no alignment is required.
   | .vbroadcasti128 d m, s => (s.load128 (s.ea m)).map fun v => s.setV .l256 d v v
+  -- SDM Vol. 2, "PMOVMSKB" (VEX.128 and VEX.256 encoded VPMOVMSKB): see
+  -- `byteMask`; "The upper bits of r32 or r64 are filled with zeros." No
+  -- flags are affected.
+  | .vpmovmskb len d r, s =>
+    some (s.setReg d (byteMask (s.ymm r) (match len with | .l128 => 16 | .l256 => 32)))
   | .zop op, s => some (op.exec s)
   -- SDM Vol. 2, "MOVDQU,VMOVDQU8/16/32/64" (EVEX.512 encoded VMOVDQU32,
   -- without a write mask): `DEST[511:0] := SRC[511:0]`, and for a store the
@@ -369,6 +381,7 @@ def addrs : Instr → State → List Addr
   | .vmovdquLoad _ _ m, s => [s.ea m]
   | .vmovdquStore _ m _, s => [s.ea m]
   | .vbroadcasti128 _ m, s => [s.ea m]
+  | .vpmovmskb .., _ => []
   | .zop _, _ => []
   | .vmovdqu32Load _ m, s => [s.ea m]
   | .vmovdqu32Store m _, s => [s.ea m]
@@ -457,7 +470,7 @@ two, `rax` and `rdx`, and stores and SSE instructions none. -/
 def Instr.dst : Instr → Option Reg
   | .mov d _ | .alu _ d _ | .mov32 d _ | .alu32 _ d _ | .shift32 _ d _ | .bswap32 d
   | .rorx32 d .. | .andn32 d .. | .rorx d .. | .andn d .. | .movzx8 d _ | .bswap d | .shift _ d _
-  | .movImm64 d _ | .adcx d _ | .adox d _ | .pop d _ => some d
+  | .movImm64 d _ | .adcx d _ | .adox d _ | .pop d _ | .vpmovmskb _ d _ => some d
   | .store .. | .store32 .. | .store8 .. | .movdquLoad .. | .movdquStore .. | .xop _
   | .vop _ | .vmovdquLoad .. | .vmovdquStore .. | .vbroadcasti128 .. | .zop _
   | .vmovdqu32Load .. | .vmovdqu32Store .. | .vbroadcasti32x4 .. | .stmxcsr _ | .ldmxcsr _

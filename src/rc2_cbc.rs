@@ -18,7 +18,7 @@
 use alloc::vec::Vec;
 
 use crate::arch::rc2::{vg_rc2_cbc_decrypt, vg_rc2_cbc_encrypt, vg_rc2_expand_key};
-use crate::mlkem768::zeroize;
+use crate::zeroize::zeroize;
 
 /// Whether to encrypt plaintext or decrypt ciphertext.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
