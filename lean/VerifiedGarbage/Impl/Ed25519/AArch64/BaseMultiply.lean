@@ -2,13 +2,13 @@ import VerifiedGarbage.Impl.Ed25519.BaseTable
 import VerifiedGarbage.Impl.Ed25519.AArch64.PointMul
 
 /-!
-# Base-point multiplication from a precomputed table
+# Cached points and the precomputed powers of the base point
 
-The scalar's 256 bits are consumed in sixteen batches of sixteen, from the
-top. Instead of doubling a checkpoint sixteen times, each batch writes its sixteen powers of the base point into the local table
+A cached point `[Y - X, Y + X, 2dT, 2Z]` is added with eight
+multiplications (`pointAddCached`). Verification's multiplication by the
+base point writes each batch's sixteen powers `[2^i]B` into the local table
 at byte 5376 from constants (`baseCached`), chosen by comparing the public
-batch counter `x19` with each batch index. The powers are cached as
-`[Y - X, Y + X, 2dT, 2Z]`, so each addition takes eight multiplications.
+batch counter `x19` with each batch index.
 -/
 
 namespace VG.Impl.Ed25519.AArch64
@@ -31,18 +31,6 @@ def pointAddCached : List Instr := fieldCode pointAddCachedOps
 def pointFromTableQ : List Instr :=
   (List.range 4).flatMap fun j => fromTableWords (32 * j) ++ stores (192 + 32 * j) .x4 .x5 .x6 .x7
 
-/-- Save the accumulator for the selection, and load local table entry `x19`
-into slots 4–7. -/
-def prepareCached : List Instr := savePoint ++ tableAddr 5376 ++ pointFromTableQ
-
-/-- One descending scalar bit, as `pointAccumulate`, adding a cached power. -/
-def baseAccumulate : List Instr := prepareCached ++ pointAddCached ++ scalarBitMask ++ pointSelect
-
-def baseAccumulateBody : List Instr := ([.subImm .x .x19 .x19 1] : List Instr) ++ baseAccumulate
-
-def baseAccumulate16 : Prog isa :=
-  .seq (.block [.movz .w .x19 16 0]) (.loop (.block baseAccumulateBody) (.nonzero .x .x19))
-
 /-- A field constant to workspace byte `dst`. -/
 def cachedFieldStore (v : Spec.X25519.Fe) (dst : Nat) : List Instr := constWords v ++ store4 dst
 
@@ -63,14 +51,6 @@ def baseBatchTableFrom : List Nat → Prog isa
 
 def baseBatchTable : Prog isa := baseBatchTableFrom (List.range 16)
 
-/-- One batch: the counter, the batch's powers, then its sixteen bits. -/
-def baseMulBatch : Prog isa :=
-  .seq (.block batchBegin) (.seq baseBatchTable (.seq (.block batchBitOffset)
-    (.seq baseAccumulate16 (.block batchTest))))
-
 def baseMultiplyInit : List Instr := constPoint Spec.Ed25519.identity ++ mulCounterInit 16
-
-/-- `[s]B` into slots 0–3, for the scalar bits expanded into bytes 768 onward. -/
-def baseMultiply : Prog isa := .seq (.block baseMultiplyInit) (.loop baseMulBatch (.nonzero .x .x19))
 
 end VG.Impl.Ed25519.AArch64

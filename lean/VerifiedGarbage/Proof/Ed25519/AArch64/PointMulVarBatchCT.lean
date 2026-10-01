@@ -2,7 +2,8 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulVarBatch
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulVarCT
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulCT
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointFromScalarCT
-import VerifiedGarbage.Proof.Ed25519.AArch64.BaseMultiplyCT
+import VerifiedGarbage.Proof.Ed25519.AArch64.BaseMultiplyLit
+import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulCTBatch
 import VerifiedGarbage.Proof.Ed25519.AArch64.RecoverCTBlocks
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyCTLit
 
