@@ -256,7 +256,8 @@ jobs:
           - os: ubuntu-24.04-arm
             container:
               image: ghcr.io/pyca/cryptography-runner-ubuntu-rolling:armv7l
-              options: --env RUSTUP_HOME=/root/.rustup
+              # A fresh home avoids upgrading the image's incomplete Rust installation.
+              options: --env RUSTUP_HOME=/tmp/verified-garbage-rustup
           - os: macos-latest
           - os: windows-latest
         rust: [stable, "1.88"]
@@ -343,7 +344,8 @@ jobs:
     runs-on: ubuntu-24.04-arm
     container:
       image: ghcr.io/pyca/cryptography-runner-ubuntu-rolling:armv7l
-      options: --env RUSTUP_HOME=/root/.rustup
+      # A fresh home avoids upgrading the image's incomplete Rust installation.
+      options: --env RUSTUP_HOME=/tmp/verified-garbage-rustup
     env:
       RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
       # For every cargo command, with the container's native linker.
