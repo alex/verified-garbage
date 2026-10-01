@@ -14,6 +14,8 @@
 //! `vg_chacha20_poly1305_open_avx512` (with `vg_chacha20_xor_avx512` and
 //! `vg_poly1305_blocks_avx2`), and other CPUs with AVX2
 //! `vg_chacha20_poly1305_seal_avx2` and `vg_chacha20_poly1305_open_avx2`.
+//! On AArch64, the NEON variants use the NEON ChaCha20 block for both
+//! message encryption and the one-time Poly1305 key.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -29,6 +31,10 @@ use crate::arch::chacha20poly1305::{
     vg_chacha20_poly1305_seal_avx2, vg_chacha20_poly1305_seal_avx512,
 };
 use crate::arch::chacha20poly1305::{vg_chacha20_poly1305_open, vg_chacha20_poly1305_seal};
+#[cfg(target_arch = "aarch64")]
+use crate::arch::chacha20poly1305::{
+    vg_chacha20_poly1305_open_neon, vg_chacha20_poly1305_seal_neon,
+};
 use crate::chacha20::Backend;
 use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;
@@ -121,6 +127,8 @@ impl ChaCha20Poly1305 {
         let mut ctx = self.ctx(nonce, &[0; 16]);
         let seal = match self.backend {
             Backend::Scalar => vg_chacha20_poly1305_seal,
+            #[cfg(target_arch = "aarch64")]
+            Backend::Neon => vg_chacha20_poly1305_seal_neon,
             #[cfg(target_arch = "x86_64")]
             Backend::Avx2 => vg_chacha20_poly1305_seal_avx2,
             #[cfg(target_arch = "x86_64")]
@@ -167,6 +175,8 @@ impl ChaCha20Poly1305 {
         let mut ctx = self.ctx(nonce, tag);
         let open = match self.backend {
             Backend::Scalar => vg_chacha20_poly1305_open,
+            #[cfg(target_arch = "aarch64")]
+            Backend::Neon => vg_chacha20_poly1305_open_neon,
             #[cfg(target_arch = "x86_64")]
             Backend::Avx2 => vg_chacha20_poly1305_open_avx2,
             #[cfg(target_arch = "x86_64")]

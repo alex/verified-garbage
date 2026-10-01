@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Neon.Rounds
-import VerifiedGarbage.Proof.ChaCha20.AArch64.Xor
+import VerifiedGarbage.Proof.ChaCha20.AArch64.Block
 import VerifiedGarbage.Proof.Framework.AArch64.SimdMem
 
 namespace VG.Proof.ChaCha20.AArch64.Neon

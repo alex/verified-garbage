@@ -21,6 +21,8 @@
 //! On x86-64, CPUs with AVX-512F run `vg_chacha20_xor_avx512` instead, which
 //! has the same contract and XORs sixteen blocks at a time, and other CPUs
 //! with AVX2 run `vg_chacha20_xor_avx2`, which XORs eight.
+//! On AArch64, the NEON backend computes four quarter rounds in parallel
+//! within each block, including buffered partial blocks.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -35,6 +37,8 @@ use crate::arch::chacha20::{
     vg_chacha20_xor_avx512,
 };
 use crate::arch::chacha20::{vg_chacha20_block, vg_chacha20_xor};
+#[cfg(target_arch = "aarch64")]
+use crate::arch::chacha20::{vg_chacha20_block_neon, vg_chacha20_xor_neon};
 use crate::cpu::{Features, detected};
 use crate::zeroize::zeroize;
 
@@ -42,12 +46,19 @@ use crate::zeroize::zeroize;
 const CONSTANTS: [u32; 4] = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
 
 /// The 64 bytes of keystream for `state`.
-fn block(state: &[u32; 16]) -> [u8; 64] {
+fn block(state: &[u32; 16], backend: Backend) -> [u8; 64] {
     let mut buf = [0u32; 64];
+    let f = match backend {
+        Backend::Scalar => vg_chacha20_block,
+        #[cfg(target_arch = "aarch64")]
+        Backend::Neon => vg_chacha20_block_neon,
+        #[cfg(target_arch = "x86_64")]
+        Backend::Avx2 | Backend::Avx512 => vg_chacha20_block,
+    };
     // SAFETY: `state` is valid for reads of 64 bytes and `buf` for reads and
     // writes of 256 bytes; they are distinct objects, so they do not overlap
     // each other or the return address.
-    unsafe { vg_chacha20_block(state, &mut buf) };
+    unsafe { f(state, &mut buf) };
     let mut out = [0u8; 64];
     for (o, word) in out.as_chunks_mut::<4>().0.iter_mut().zip(&buf[..16]) {
         *o = word.to_le_bytes();
@@ -66,6 +77,9 @@ fn words<const N: usize>(bytes: &[u8]) -> [u32; N] {
 pub(crate) enum Backend {
     /// Constant-time scalar code, for the target's baseline ISA.
     Scalar,
+    /// Four parallel 32-bit lanes in baseline AArch64 AdvSIMD.
+    #[cfg(target_arch = "aarch64")]
+    Neon,
     /// AVX2, eight blocks at a time.
     #[cfg(target_arch = "x86_64")]
     Avx2,
@@ -75,6 +89,17 @@ pub(crate) enum Backend {
 }
 
 impl Backend {
+    /// AdvSIMD is part of our AArch64 baseline. Tracking it also lets
+    /// `VG_CPU_FEATURES=none` exercise the scalar implementation.
+    #[cfg(target_arch = "aarch64")]
+    pub(crate) fn select(f: Features) -> Backend {
+        if f.contains(Features::of(&["neon"])) {
+            Backend::Neon
+        } else {
+            Backend::Scalar
+        }
+    }
+
     /// The best implementation a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
     pub(crate) fn select(f: Features) -> Backend {
@@ -102,7 +127,7 @@ impl Backend {
 
     /// The best implementation a CPU with the features `f` can run: there
     /// is only one here.
-    #[cfg(not(target_arch = "x86_64"))]
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
     pub(crate) fn select(_: Features) -> Backend {
         Backend::Scalar
     }
@@ -191,7 +216,7 @@ impl ChaCha20 {
     fn xor_bytes(&mut self, data: &mut [u8]) {
         for byte in data {
             if self.used == 64 {
-                self.keystream = block(&self.state);
+                self.keystream = block(&self.state, self.backend);
                 self.used = 0;
                 self.advance(1);
             }
@@ -211,6 +236,8 @@ impl ChaCha20 {
             let mut buf = [0u32; 80];
             let f = match self.backend {
                 Backend::Scalar => vg_chacha20_xor,
+                #[cfg(target_arch = "aarch64")]
+                Backend::Neon => vg_chacha20_xor_neon,
                 #[cfg(target_arch = "x86_64")]
                 Backend::Avx2 => vg_chacha20_xor_avx2,
                 #[cfg(target_arch = "x86_64")]
@@ -381,6 +408,12 @@ mod tests {
     fn select() {
         let best = ChaCha20::new(&key(), &nonce(0, &[0; 12])).backend;
         assert_eq!(best, Backend::select(detected()));
+        #[cfg(target_arch = "aarch64")]
+        {
+            use crate::cpu::Features;
+            assert_eq!(Backend::select(Features::of(&["neon"])), Backend::Neon);
+            assert_eq!(Backend::select(Features::of(&[])), Backend::Scalar);
+        }
         #[cfg(target_arch = "x86_64")]
         {
             use crate::arch::chacha20::{
