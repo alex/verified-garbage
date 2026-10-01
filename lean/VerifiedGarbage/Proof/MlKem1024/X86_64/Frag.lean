@@ -245,21 +245,21 @@ theorem dot4Chk_spec {bs wbs : List (Reg × Nat)} {f g : Nat → Ptr} (h : dot4C
 theorem dot4_eq (a b : Nat → Poly) : dot4 a b = add (dot3 a b) (multiplyNTTs (a 3) (b 3)) := rfl
 
 /-- The sum of products `a₀ b₀ + a₁ b₁ + a₂ b₂ + a₃ b₃`, accumulated left to right. -/
-theorem dot4At_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
+theorem dot4At_ok {A : Arith} (hA : ArithOk A) {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
     (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {f g : Nat → Ptr} (hc : dot4Chk (rbs ++ wbs) wbs f g = true)
     {a b : Nat → Poly} (ha : ∀ k < 4, PolyIs s.mem (pa s (f k)) (a k)) (hb : ∀ k < 4, PolyIs s.mem (pa s (g k)) (b k)) :
-    WP isa (dot4At f g) s fun s' => PPost s s' dot4W ∧ PolyIs s'.mem (pa s (pS 15)) (dot4 a b) := by
+    WP isa (dot4At A f g) s fun s' => PPost s s' dot4W ∧ PolyIs s'.mem (pa s (pS 15)) (dot4 a b) := by
   obtain ⟨hdc, kf, kg, nf, ng, hm3, hk15⟩ := dot4Chk_spec hc
   have hac := (dotChk_spec hdc).2.2.2.2.1
   have s3 : ∀ w ∈ dot3W, w ∈ W3 := by decide
   unfold dot4At
-  refine WP.seq (WP.mono (dotAt_ok L hcs hdc (fun k hk => ha k (by omega)) (fun k hk => hb k (by omega)))
+  refine WP.seq (WP.mono (dotAt_ok hA L hcs hdc (fun k hk => ha k (by omega)) (fun k hk => hb k (by omega)))
     fun s₁ ⟨hP₁, hp₁⟩ => ?_)
   have L₁ := L.post hP₁.b hcs
   have ha₁ := L.keepPoly hP₁.b (keepB_sub kf s3) (ha 3 (by decide))
   have hb₁ := L.keepPoly hP₁.b (keepB_sub kg s3) (hb 3 (by decide))
   rw [← hP₁.pa rbx_cs] at hp₁
-  refine WP.seq (WP.mono (mulAt_okL L₁ nf ng hm3 ha₁.1 hb₁.1) fun s₂ ⟨hP₂, hp₂⟩ => ?_)
+  refine WP.seq (WP.mono (mulAt_okL hA L₁ nf ng hm3 ha₁.1 hb₁.1) fun s₂ ⟨hP₂, hp₂⟩ => ?_)
   have L₂ := L₁.post hP₂.b hcs
   rw [ha₁.2, hb₁.2, ← hP₂.pa rbx_cs] at hp₂
   have hq₂ := L₁.keepPoly hP₂.b hk15 hp₁
@@ -272,25 +272,25 @@ theorem dot4At_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
 abbrev DotIn4 (f g : Nat → Ptr) (s : State) : Prop :=
   ∀ k < 4, Reduced s.mem (pa s (f k)) ∧ Reduced s.mem (pa s (g k))
 
-theorem dot4At_tr {rbs wbs : List (Reg × Nat)} (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {f g : Nat → Ptr}
+theorem dot4At_tr {A : Arith} (hA : ArithOk A) {rbs wbs : List (Reg × Nat)} (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {f g : Nat → Ptr}
     (hc : dot4Chk (rbs ++ wbs) wbs f g = true) :
-    RelCT isa (fun x y => LRel rbs wbs x y ∧ DotIn4 f g x ∧ DotIn4 f g y) (dot4At f g) fun _ _ => True := by
+    RelCT isa (fun x y => LRel rbs wbs x y ∧ DotIn4 f g x ∧ DotIn4 f g y) (dot4At A f g) fun _ _ => True := by
   obtain ⟨hdc, kf, kg, nf, ng, hm3, hk15⟩ := dot4Chk_spec hc
   have hac := (dotChk_spec hdc).2.2.2.2.1
   have s3 : ∀ w ∈ dot3W, w ∈ W3 := by decide
   unfold dot4At
   refine RelCT.seqL (J := fun x => Reduced x.mem (pa x (f 3)) ∧ Reduced x.mem (pa x (g 3)) ∧
       Reduced x.mem (pa x (pS 15))) hcs
-    (RelCT.mono (dotAt_tr hcs hdc) (fun _ _ ⟨e, i1, i2⟩ => ⟨e, fun k hk => i1 k (by omega), fun k hk => i2 k (by omega)⟩)
+    (RelCT.mono (dotAt_tr hA hcs hdc) (fun _ _ ⟨e, i1, i2⟩ => ⟨e, fun k hk => i1 k (by omega), fun k hk => i2 k (by omega)⟩)
       fun _ _ h => h)
-    (fun x Lx hi => WP.mono (dotAt_ok Lx hcs hdc (a := fun k => polyAt x.mem (pa x (f k)))
+    (fun x Lx hi => WP.mono (dotAt_ok hA Lx hcs hdc (a := fun k => polyAt x.mem (pa x (f k)))
       (b := fun k => polyAt x.mem (pa x (g k))) (fun k hk => ⟨(hi k (by omega)).1, rfl⟩)
       (fun k hk => ⟨(hi k (by omega)).2, rfl⟩)) fun x' ⟨hP, hq⟩ => ⟨⟨_, hP.b⟩,
         Lx.keepRed hP.b (keepB_sub kf s3) (hi 3 (by decide)).1, Lx.keepRed hP.b (keepB_sub kg s3) (hi 3 (by decide)).2,
         by rw [hP.pa rbx_cs]; exact hq.1⟩) ?_
   refine RelCT.seqL (J := fun x => Reduced x.mem (pa x (pS 15)) ∧ Reduced x.mem (pa x (pS 16))) hcs
-    (RelCT.mono (mulAt_trL nf ng hm3) (fun _ _ ⟨e, i1, i2⟩ => ⟨e, ⟨i1.1, i1.2.1⟩, ⟨i2.1, i2.2.1⟩⟩) fun _ _ h => h)
-    (fun x Lx hi => WP.mono (mulAt_okL Lx nf ng hm3 hi.1 hi.2.1) fun x' ⟨hP, hp⟩ => ⟨⟨_, hP.b⟩,
+    (RelCT.mono (mulAt_trL hA nf ng hm3) (fun _ _ ⟨e, i1, i2⟩ => ⟨e, ⟨i1.1, i1.2.1⟩, ⟨i2.1, i2.2.1⟩⟩) fun _ _ h => h)
+    (fun x Lx hi => WP.mono (mulAt_okL hA Lx nf ng hm3 hi.1 hi.2.1) fun x' ⟨hP, hp⟩ => ⟨⟨_, hP.b⟩,
       Lx.keepRed hP.b hk15 hi.2.2, by rw [hP.pa rbx_cs]; exact hp.1⟩) ?_
   exact RelCT.mono (addAt_tr rbx_na hac) (fun _ _ ⟨e, i1, i2⟩ => ⟨e, i1, i2⟩) fun _ _ _ => trivial
 

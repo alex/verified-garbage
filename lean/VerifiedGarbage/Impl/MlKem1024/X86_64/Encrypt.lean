@@ -37,24 +37,24 @@ abbrev prfO (N : Nat) : Ptr := sc (oPR4 + 128 * N)
 def mat (c : Callee4) (E : Ptr) : Prog isa := .seq (copy (sc oSB) (E.1, E.2 + 1536) 32) (samples4 c)
 
 /-- `ŷ[j]`. -/
-def y (j : Nat) : Prog isa := .seq (cbd2At (prfO j) (pS j)) (nttAt (pS j))
+def y (A : Arith) (j : Nat) : Prog isa := .seq (cbd2At (prfO j) (pS j)) (nttAt A (pS j))
 
 /-- `u[i]`, compressed and encoded to the ciphertext. -/
-def u (i : Nat) : Prog isa :=
-  .seq (dot4At (fun j => aS4 j i) pS) (.seq (nttInvAt (pS 15)) (.seq (cbd2At (prfO (4 + i)) (pS 16))
+def u (A : Arith) (i : Nat) : Prog isa :=
+  .seq (dot4At A (fun j => aS4 j i) pS) (.seq (nttInvAt A (pS 15)) (.seq (cbd2At (prfO (4 + i)) (pS 16))
     (.seq (addAt (pS 15) (pS 16)) (ce4At (pS 15) 11 (sc (oCT4 + 352 * i))))))
 
 /-- `t̂[i]`. -/
 def t (E : Ptr) (i : Nat) : Prog isa := dec12At (E.1, E.2 + 384 * i) (pS (4 + i))
 
 /-- `v`, compressed and encoded to the ciphertext. -/
-def v : Prog isa :=
-  .seq (dot4At (fun j => pS (4 + j)) pS) (.seq (nttInvAt (pS 15)) (.seq (cbd2At (prfO 8) (pS 16))
+def v (A : Arith) : Prog isa :=
+  .seq (dot4At A (fun j => pS (4 + j)) pS) (.seq (nttInvAt A (pS 15)) (.seq (cbd2At (prfO 8) (pS 16))
     (.seq (addAt (pS 15) (pS 16)) (.seq (ddAt (sc oM) 1 (pS 16)) (.seq (addAt (pS 15) (pS 16))
       (ce4At (pS 15) 5 (sc (oCT4 + 1408))))))))
 
 def rest (c : Callee4) (E : Ptr) : Prog isa :=
-  .seq (c.prfs 0 9 oPR4 lPW4) (.seq (seqR y 0 4) (.seq (seqR u 0 4) (.seq (seqR (t E) 0 4) v)))
+  .seq (c.prfs 0 9 oPR4 lPW4) (.seq (seqR (y c.arith) 0 4) (.seq (seqR (u c.arith) 0 4) (.seq (seqR (t E) 0 4) (v c.arith))))
 
 end Encrypt1024
 

@@ -2,7 +2,8 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Arith
 import VerifiedGarbage.Impl.MlKem.X86_64.Encode12
 import VerifiedGarbage.Impl.MlKem.X86_64.Cbd
 import VerifiedGarbage.Impl.MlKem.X86_64.Compress
-import VerifiedGarbage.Impl.MlKem.X86_64.Mul
+import VerifiedGarbage.Impl.MlKem.X86_64.MulAvx2
+import VerifiedGarbage.Impl.MlKem.X86_64.NttAvx2
 import VerifiedGarbage.Impl.MlKem.X86_64.Ntt
 import VerifiedGarbage.Impl.MlKem.X86_64.Sample
 import VerifiedGarbage.Impl.MlKem.X86_64.Sample4
@@ -112,15 +113,32 @@ def hashAt (ps : List (Ptr × Nat)) (rate suffix : Nat) (out : Ptr) (len : Nat) 
 
 /-! ## The polynomial primitives -/
 
-def nttAt (f : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call "vg_mlkem_ntt" ntt)
+/-- The implementations (symbols and code) of `vg_mlkem_multiply_ntts`,
+`vg_mlkem_ntt` and `vg_mlkem_inv_ntt` that a top-level function calls:
+those in SSE2 registers (`sse`), or those in AVX2 registers (`avx2`). -/
+structure Arith where
+  mulN : String
+  mul : Prog isa
+  nttN : String
+  ntt : Prog isa
+  nttInvN : String
+  nttInv : Prog isa
 
-def nttInvAt (f : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call "vg_mlkem_inv_ntt" nttInv)
+def Arith.sse : Arith :=
+  ⟨"vg_mlkem_multiply_ntts", multiplyNTTs, "vg_mlkem_ntt", X86_64.ntt, "vg_mlkem_inv_ntt", X86_64.nttInv⟩
 
-def mulAt (h f g : Ptr) : Prog isa :=
-  .seq (.block (lea .rdi h ++ lea .rsi f ++ lea .rdx g ++ lea .rcx (sc oSS)))
-    (.call "vg_mlkem_multiply_ntts" multiplyNTTs)
+def Arith.avx2 : Arith :=
+  ⟨"vg_mlkem_multiply_ntts_avx2", multiplyNTTsAvx2, "vg_mlkem_ntt_avx2", nttAvx2, "vg_mlkem_inv_ntt_avx2",
+    nttInvAvx2⟩
+
+def nttAt (A : Arith) (f : Ptr) : Prog isa :=
+  .seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call A.nttN A.ntt)
+
+def nttInvAt (A : Arith) (f : Ptr) : Prog isa :=
+  .seq (.block (lea .rdi f ++ lea .rsi (sc oSS))) (.call A.nttInvN A.nttInv)
+
+def mulAt (A : Arith) (h f g : Ptr) : Prog isa :=
+  .seq (.block (lea .rdi h ++ lea .rsi f ++ lea .rdx g ++ lea .rcx (sc oSS))) (.call A.mulN A.mul)
 
 def addAt (f g : Ptr) : Prog isa := .seq (.block (lea .rdi f ++ lea .rsi g)) (.call "vg_mlkem_add" add)
 
@@ -270,9 +288,11 @@ structure Callee4 where
   name : String
   code : Prog isa
   prfs : Nat → Nat → Nat → Nat → Prog isa
+  /-- The polynomial arithmetic that goes with it. -/
+  arith : Arith
 
-def Callee4.scalar : Callee4 := ⟨"vg_mlkem_sample_ntt4", Sample4.sampleNTT4, prfsScalar⟩
-def Callee4.avx2 : Callee4 := ⟨"vg_mlkem_sample_ntt4_avx2", Sample4.sampleNTT4Avx2, prfsAvx2⟩
+def Callee4.scalar : Callee4 := ⟨"vg_mlkem_sample_ntt4", Sample4.sampleNTT4, prfsScalar, .sse⟩
+def Callee4.avx2 : Callee4 := ⟨"vg_mlkem_sample_ntt4_avx2", Sample4.sampleNTT4Avx2, prfsAvx2, .avx2⟩
 
 /-- `SampleNTT` of the four seeds at `scratch` to the four polynomials from
 `a`, with the working space `scr` (8192 bytes), and `r15 ← r15 ∧ result`. -/
@@ -297,9 +317,9 @@ def ifOk (c : Prog isa) : Prog isa :=
   .seq (.block [.alu32 .test .r15 (.reg .r15)]) (.ite .ne c (.block []))
 
 /-- `f[0] ×_T g[0] + f[1] ×_T g[1] + f[2] ×_T g[2]` to polynomial 15 (with 16 for the products). -/
-def dotAt (f g : Nat → Ptr) : Prog isa :=
-  .seq (mulAt (pS 15) (f 0) (g 0)) (.seq (mulAt (pS 16) (f 1) (g 1)) (.seq (addAt (pS 15) (pS 16))
-    (.seq (mulAt (pS 16) (f 2) (g 2)) (addAt (pS 15) (pS 16)))))
+def dotAt (A : Arith) (f g : Nat → Ptr) : Prog isa :=
+  .seq (mulAt A (pS 15) (f 0) (g 0)) (.seq (mulAt A (pS 16) (f 1) (g 1)) (.seq (addAt (pS 15) (pS 16))
+    (.seq (mulAt A (pS 16) (f 2) (g 2)) (addAt (pS 15) (pS 16)))))
 
 /-! ## Entry and exit -/
 
