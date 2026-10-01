@@ -1,14 +1,13 @@
 //! Ed25519 (RFC 8032), deterministic signatures from 32-byte seeds.
 //!
-//! SHA-512 uses the hash API's selected backend. Scalar reduction,
-//! multiply-add, and point multiplication use verified assembly with the
-//! contracts in `VG.Spec.Ed25519`. On x86-64 CPUs with BMI2 and ADX, the
-//! point multiplications are `vg_ed25519_scalar_base_precomputed_adx` and
-//! `vg_ed25519_verify_equation_adx`, with the same contracts and faster field
-//! multiplications, and on those that also have AVX512_IFMA and AVX512VL
-//! verification is `vg_ed25519_verify_equation_ifma`, whose doublings use
-//! four-lane field multiplications. Rust composes those primitives and clears
-//! secret temporary values.
+//! Key derivation, signing, and verification each call one complete verified
+//! assembly operation, including SHA-512, on every supported architecture.
+//! x86-64 and AArch64 variants follow the selected SHA-512 backend. On
+//! x86-64 CPUs with BMI2 and ADX, the `_adx` variants multiply field
+//! elements with `mulx`, `adcx` and `adox`, and on those that also have
+//! AVX512_IFMA and AVX512VL, verification is the `_ifma` variant, whose
+//! doublings use four-lane field multiplications. Secret scratch values are
+//! cleared after use.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -19,53 +18,62 @@
 
 #[cfg(target_arch = "x86_64")]
 use crate::arch::ed25519::{
-    VG_ED25519_SCALAR_BASE_PRECOMPUTED_ADX_FEATURES, VG_ED25519_VERIFY_EQUATION_ADX_FEATURES,
-    VG_ED25519_VERIFY_EQUATION_IFMA_FEATURES, vg_ed25519_scalar_base_precomputed,
-    vg_ed25519_scalar_base_precomputed_adx, vg_ed25519_verify_equation_adx,
-    vg_ed25519_verify_equation_ifma,
+    VG_ED25519_PUBLIC_KEY_ADX_FEATURES, VG_ED25519_SIGN_CACHED_ADX_FEATURES,
+    VG_ED25519_VERIFY_ADX_FEATURES, VG_ED25519_VERIFY_IFMA_FEATURES, vg_ed25519_public_key_adx,
+    vg_ed25519_public_key_avx2, vg_ed25519_public_key_avx2_adx, vg_ed25519_public_key_shani,
+    vg_ed25519_public_key_shani_adx, vg_ed25519_sign_cached_adx, vg_ed25519_sign_cached_avx2,
+    vg_ed25519_sign_cached_avx2_adx, vg_ed25519_sign_cached_shani,
+    vg_ed25519_sign_cached_shani_adx, vg_ed25519_verify_adx, vg_ed25519_verify_avx2,
+    vg_ed25519_verify_avx2_adx, vg_ed25519_verify_avx2_ifma, vg_ed25519_verify_ifma,
+    vg_ed25519_verify_shani, vg_ed25519_verify_shani_adx, vg_ed25519_verify_shani_ifma,
 };
+use crate::arch::ed25519::{vg_ed25519_public_key, vg_ed25519_sign_cached, vg_ed25519_verify};
+#[cfg(target_arch = "aarch64")]
 use crate::arch::ed25519::{
-    vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce, vg_ed25519_verify_equation,
+    vg_ed25519_public_key_sha3, vg_ed25519_sign_cached_sha3, vg_ed25519_verify_sha3,
 };
 use crate::cpu::{Features, detected};
-use crate::hashes::sha512::Sha512;
+use crate::hashes::sha512::Sha512Backend;
 use crate::zeroize::zeroize;
 
-/// The implementations of the point multiplications.
+/// The field multiplications of the complete operations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Backend {
+enum Field {
     /// The target's baseline ISA.
     Baseline,
-    /// BMI2's `mulx` and ADX's `adcx` and `adox` for the field multiplications.
+    /// BMI2's `mulx` and ADX's `adcx` and `adox` (the `_adx` variants).
     #[cfg(target_arch = "x86_64")]
     Adx,
     /// `Adx`, and AVX512_IFMA's `vpmadd52luq` and `vpmadd52huq` (on `ymm`
-    /// registers, with AVX512VL) for verification's doublings.
+    /// registers, with AVX512VL) for verification's doublings (the `_ifma`
+    /// variants of verification).
     #[cfg(target_arch = "x86_64")]
     Ifma,
 }
 
-impl Backend {
-    /// The best implementation a CPU with the features `f` can run.
+impl Field {
+    /// The fastest field multiplications a CPU with the features `f` can run.
     #[cfg(target_arch = "x86_64")]
-    fn select(f: Features) -> Backend {
-        let adx = f.contains(Features::of(
-            VG_ED25519_SCALAR_BASE_PRECOMPUTED_ADX_FEATURES,
-        )) && f.contains(Features::of(VG_ED25519_VERIFY_EQUATION_ADX_FEATURES));
-        if adx && f.contains(Features::of(VG_ED25519_VERIFY_EQUATION_IFMA_FEATURES)) {
-            Backend::Ifma
+    fn select(f: Features) -> Field {
+        let adx = f.contains(Features::all(&[
+            VG_ED25519_PUBLIC_KEY_ADX_FEATURES,
+            VG_ED25519_SIGN_CACHED_ADX_FEATURES,
+            VG_ED25519_VERIFY_ADX_FEATURES,
+        ]));
+        if adx && f.contains(Features::of(VG_ED25519_VERIFY_IFMA_FEATURES)) {
+            Field::Ifma
         } else if adx {
-            Backend::Adx
+            Field::Adx
         } else {
-            Backend::Baseline
+            Field::Baseline
         }
     }
 
-    /// The best implementation a CPU with the features `f` can run: there
+    /// The field multiplications a CPU with the features `f` can run: there
     /// is only one here.
     #[cfg(not(target_arch = "x86_64"))]
-    fn select(_: Features) -> Backend {
-        Backend::Baseline
+    fn select(_: Features) -> Field {
+        Field::Baseline
     }
 }
 
@@ -97,30 +105,13 @@ impl VerifyingKey {
     ///
     /// Public keys and signatures must use canonical encodings, and the
     /// signature scalar must be less than the subgroup order. This checks
-    /// the uncofactored equation using the full SHA-512 challenge. It does
-    /// not impose an additional subgroup or small-order rejection policy.
+    /// the uncofactored equation. The SHA-512 challenge is reduced modulo the
+    /// subgroup order, following RFC 8032 §6. No additional subgroup or
+    /// small-order rejection policy is imposed.
     /// Verification timing may depend on the public key, message, and signature.
     pub fn verify(&self, message: &[u8], signature: &[u8]) -> Result<(), Error> {
         let signature: &[u8; 64] = signature.try_into().map_err(|_| Error::InvalidSignature)?;
-        let mut hash = Sha512::new();
-        hash.update(&signature[..32]);
-        hash.update(&self.bytes);
-        hash.update(message);
-        let challenge = hash.finalize();
-        let mut scratch = [0u64; 1024];
-        let f = match Backend::select(detected()) {
-            Backend::Baseline => vg_ed25519_verify_equation,
-            // `select` chose it because the CPU has the features it needs.
-            #[cfg(target_arch = "x86_64")]
-            Backend::Adx => vg_ed25519_verify_equation_adx,
-            #[cfg(target_arch = "x86_64")]
-            Backend::Ifma => vg_ed25519_verify_equation_ifma,
-        };
-        // SAFETY: the input arrays are live for their declared sizes, and
-        // scratch is a distinct writable object. None wraps the address space.
-        // The CPU has the features of the function `select` chose.
-        let valid = unsafe { f(&self.bytes, signature, &challenge, &mut scratch) };
-        zeroize(&mut scratch);
+        let valid = verify_message(&self.bytes, message, signature);
         if valid == 1 {
             Ok(())
         } else {
@@ -153,18 +144,11 @@ impl Drop for SigningKey {
 impl SigningKey {
     /// Derive a signing key and its public key from an RFC 8032 seed.
     pub fn from_seed(seed: &[u8; 32]) -> Self {
-        let mut expanded = Sha512::digest(seed);
-        let mut scalar = prune(&expanded);
-        let mut scratch = [0u64; 1024];
-        let public = VerifyingKey {
-            bytes: scalar_base(&scalar, &mut scratch),
-        };
-        zeroize(&mut scratch);
-        zeroize(&mut scalar);
-        zeroize(&mut expanded);
         Self {
             seed: *seed,
-            public,
+            public: VerifyingKey {
+                bytes: public_key(seed),
+            },
         }
     }
 
@@ -180,107 +164,301 @@ impl SigningKey {
 
     /// Sign `message` deterministically using pure Ed25519 (RFC 8032 §5.1.6).
     pub fn sign(&self, message: &[u8]) -> [u8; 64] {
-        let mut expanded = Sha512::digest(&self.seed);
-        let mut scalar = prune(&expanded);
-        let mut nonce_hash = Sha512::new();
-        nonce_hash.update(&expanded[32..]);
-        nonce_hash.update(message);
-        let mut nonce_digest = nonce_hash.finalize();
-        let mut scratch = [0u64; 1024];
-        let mut nonce = reduce(&nonce_digest, &mut scratch);
-        let r = scalar_base(&nonce, &mut scratch);
-        let mut challenge_hash = Sha512::new();
-        challenge_hash.update(&r);
-        challenge_hash.update(&self.public.bytes);
-        challenge_hash.update(message);
-        let mut challenge_digest = challenge_hash.finalize();
-        let mut challenge = reduce(&challenge_digest, &mut scratch);
-        let mut s = [0u8; 32];
-        // SAFETY: the output, inputs, and scratch are distinct live objects
-        // of the required sizes, with no overlap or address-space wrapping.
-        unsafe { vg_ed25519_scalar_mul_add(&mut s, &nonce, &challenge, &scalar, &mut scratch) };
-        let mut signature = [0u8; 64];
-        signature[..32].copy_from_slice(&r);
-        signature[32..].copy_from_slice(&s);
-        zeroize(&mut scratch);
-        zeroize(&mut expanded);
-        zeroize(&mut scalar);
-        zeroize(&mut nonce_digest);
-        zeroize(&mut nonce);
-        zeroize(&mut challenge_digest);
-        zeroize(&mut challenge);
-        zeroize(&mut s);
-        signature
+        sign_message(&self.seed, &self.public.bytes, message)
     }
 }
 
-fn prune(expanded: &[u8; 64]) -> [u8; 32] {
-    let mut scalar = [0u8; 32];
-    scalar.copy_from_slice(&expanded[..32]);
-    scalar[0] &= 248;
-    scalar[31] &= 63;
-    scalar[31] |= 64;
-    scalar
+/// The public key of `seed` (RFC 8032 §5.1.5), with the verified
+/// `vg_ed25519_public_key` including SHA-512.
+fn public_key(seed: &[u8; 32]) -> [u8; 32] {
+    // SAFETY: the CPU has the features it was detected to have.
+    unsafe { public_key_with(detected(), seed) }
 }
 
-fn scalar_base(scalar: &[u8; 32], scratch: &mut [u64; 1024]) -> [u8; 32] {
-    let mut out = [0u8; 32];
-    // On x86-64 the base point's powers are precomputed.
-    #[cfg(target_arch = "x86_64")]
-    let f = match Backend::select(detected()) {
-        Backend::Baseline => vg_ed25519_scalar_base_precomputed,
-        // `select` chose it because the CPU has the features it needs.
-        Backend::Adx | Backend::Ifma => vg_ed25519_scalar_base_precomputed_adx,
-    };
-    #[cfg(not(target_arch = "x86_64"))]
-    let f = match Backend::select(detected()) {
-        Backend::Baseline => crate::arch::ed25519::vg_ed25519_scalar_base,
-    };
-    // SAFETY: the output, scalar, and scratch are distinct objects valid
-    // for 32, 32, and 8192 bytes, respectively, without address-space wrapping,
-    // and the CPU has the features of the function `select` chose.
-    unsafe { f(&mut out, scalar, scratch) };
-    out
-}
-
-fn reduce(wide: &[u8; 64], scratch: &mut [u64; 1024]) -> [u8; 32] {
-    let mut out = [0u8; 32];
-    // SAFETY: the output, wide scalar, and scratch are distinct objects valid
-    // for 32, 64, and 8192 bytes, respectively, without address-space wrapping.
-    unsafe { vg_ed25519_scalar_reduce(&mut out, wide, scratch) };
-    out
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The baseline agrees with the implementation chosen for this CPU, and
-    /// the choice follows the features.
-    #[test]
-    fn backends() {
-        let key = SigningKey::from_seed(&[0x42; 32]);
-        let signature = key.sign(b"backends");
-        assert!(key.verifying_key().verify(b"backends", &signature).is_ok());
-        assert_eq!(Backend::select(Features(0)), Backend::Baseline);
+/// `public_key`, with the implementations a CPU with the features `f` can run.
+///
+/// # Safety
+///
+/// The CPU has the features `f`.
+unsafe fn public_key_with(f: Features, seed: &[u8; 32]) -> [u8; 32] {
+    let derive = match (Sha512Backend::select(f), Field::select(f)) {
+        (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_public_key,
         #[cfg(target_arch = "x86_64")]
-        {
-            let mut out = [0u8; 32];
-            let mut scratch = [0u64; 1024];
-            let mut scalar = [0x24u8; 32];
-            scalar[31] = 0x44;
-            // SAFETY: as in `scalar_base`, and the baseline needs no CPU feature.
-            unsafe { vg_ed25519_scalar_base_precomputed(&mut out, &scalar, &mut scratch) };
-            assert_eq!(out, scalar_base(&scalar, &mut scratch));
-            let adx = Features::of(VG_ED25519_VERIFY_EQUATION_ADX_FEATURES);
-            assert_eq!(Backend::select(adx), Backend::Adx);
-            assert_eq!(Backend::select(Features::of(&["bmi2"])), Backend::Baseline);
-            let ifma = Features::of(VG_ED25519_VERIFY_EQUATION_IFMA_FEATURES);
-            assert_eq!(Backend::select(ifma), Backend::Ifma);
-            assert_eq!(
-                Backend::select(Features(adx.0 | Features::of(&["avx512ifma"]).0)),
-                Backend::Adx
-            );
+        (Sha512Backend::Scalar, Field::Adx | Field::Ifma) => vg_ed25519_public_key_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Baseline) => vg_ed25519_public_key_shani,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Adx | Field::Ifma) => vg_ed25519_public_key_shani_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Baseline) => vg_ed25519_public_key_avx2,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Adx | Field::Ifma) => vg_ed25519_public_key_avx2_adx,
+        #[cfg(target_arch = "aarch64")]
+        (Sha512Backend::Sha3, Field::Baseline) => vg_ed25519_public_key_sha3,
+    };
+    let mut public = [0u8; 32];
+    let mut scratch = [0u64; 1024];
+    // SAFETY: the output, seed, and scratch are distinct objects valid for
+    // 32, 32, and 8192 bytes, respectively, so they overlap neither each
+    // other nor the call's stack, and none wraps the address space. The
+    // seed is the caller's. SHA-512's backend and the field's, selected from
+    // features the CPU has, select every required CPU feature.
+    unsafe { derive(&mut public, seed, &mut scratch) };
+    zeroize(&mut scratch);
+    public
+}
+
+fn verify_message(pk: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> u32 {
+    // SAFETY: the CPU has the features it was detected to have.
+    unsafe { verify_message_with(detected(), pk, message, signature) }
+}
+
+/// `verify_message`, with the implementations a CPU with the features `f`
+/// can run.
+///
+/// # Safety
+///
+/// The CPU has the features `f`.
+unsafe fn verify_message_with(
+    f: Features,
+    pk: &[u8; 32],
+    message: &[u8],
+    signature: &[u8; 64],
+) -> u32 {
+    let verify = match (Sha512Backend::select(f), Field::select(f)) {
+        (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_verify,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Scalar, Field::Adx) => vg_ed25519_verify_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Scalar, Field::Ifma) => vg_ed25519_verify_ifma,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Baseline) => vg_ed25519_verify_shani,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Adx) => vg_ed25519_verify_shani_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Ifma) => vg_ed25519_verify_shani_ifma,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Baseline) => vg_ed25519_verify_avx2,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Adx) => vg_ed25519_verify_avx2_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Ifma) => vg_ed25519_verify_avx2_ifma,
+        #[cfg(target_arch = "aarch64")]
+        (Sha512Backend::Sha3, Field::Baseline) => vg_ed25519_verify_sha3,
+    };
+    let mut scratch = [0u64; 1024];
+    // SAFETY: input references are valid for their declared lengths and scratch
+    // is a distinct writable object. No object overlaps the call stack, and
+    // SHA-512's backend and the field's, selected from features the CPU has,
+    // select every required CPU feature.
+    let valid = unsafe { verify(pk, message.as_ptr(), message.len(), signature, &mut scratch) };
+    zeroize(&mut scratch);
+    valid
+}
+
+fn sign_message(seed: &[u8; 32], pk: &[u8; 32], message: &[u8]) -> [u8; 64] {
+    // SAFETY: the CPU has the features it was detected to have, and pk is
+    // seed's public key, as `sign_message_with` requires.
+    unsafe { sign_message_with(detected(), seed, pk, message) }
+}
+
+/// `sign_message`, with the implementations a CPU with the features `f` can
+/// run.
+///
+/// # Safety
+///
+/// The CPU has the features `f`, and `pk` is `seed`'s public key.
+unsafe fn sign_message_with(
+    f: Features,
+    seed: &[u8; 32],
+    pk: &[u8; 32],
+    message: &[u8],
+) -> [u8; 64] {
+    let sign = match (Sha512Backend::select(f), Field::select(f)) {
+        (Sha512Backend::Scalar, Field::Baseline) => vg_ed25519_sign_cached,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Scalar, Field::Adx | Field::Ifma) => vg_ed25519_sign_cached_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Baseline) => vg_ed25519_sign_cached_shani,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::ShaNi, Field::Adx | Field::Ifma) => vg_ed25519_sign_cached_shani_adx,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Baseline) => vg_ed25519_sign_cached_avx2,
+        #[cfg(target_arch = "x86_64")]
+        (Sha512Backend::Avx2, Field::Adx | Field::Ifma) => vg_ed25519_sign_cached_avx2_adx,
+        #[cfg(target_arch = "aarch64")]
+        (Sha512Backend::Sha3, Field::Baseline) => vg_ed25519_sign_cached_sha3,
+    };
+    let mut signature = [0u8; 64];
+    let mut scratch = [0u64; 1024];
+    // SAFETY: the input references are valid for their declared lengths.
+    // Signature and scratch are distinct writable objects, disjoint from the
+    // inputs and the call's stack. None wraps the address space. pk is seed's
+    // public key (the caller's requirement). SHA-512's backend and the
+    // field's, selected from features the CPU has, select every required CPU
+    // feature.
+    unsafe {
+        sign(
+            &mut signature,
+            seed,
+            pk,
+            message.as_ptr(),
+            message.len(),
+            &mut scratch,
+        )
+    };
+    zeroize(&mut scratch);
+    signature
+}
+
+#[cfg(all(test, target_arch = "aarch64"))]
+mod tests {
+    use super::Sha512Backend;
+    use crate::arch::ed25519::{
+        VG_ED25519_PUBLIC_KEY_SHA3_FEATURES, VG_ED25519_SIGN_CACHED_SHA3_FEATURES,
+        VG_ED25519_VERIFY_SHA3_FEATURES,
+    };
+    use crate::cpu::{Features, NAMES};
+
+    /// Every feature set selecting SHA-512's optimized backend also supports
+    /// each complete Ed25519 operation that uses that backend.
+    #[test]
+    fn whole_algorithm_features() {
+        for bits in 0..1u32 << NAMES.len() {
+            let features = Features(bits);
+            match Sha512Backend::select(features) {
+                Sha512Backend::Scalar => {}
+                Sha512Backend::Sha3 => {
+                    assert!(features.contains(Features::all(&[
+                        VG_ED25519_PUBLIC_KEY_SHA3_FEATURES,
+                        VG_ED25519_SIGN_CACHED_SHA3_FEATURES,
+                        VG_ED25519_VERIFY_SHA3_FEATURES,
+                    ])));
+                }
+            }
+        }
+    }
+}
+
+#[cfg(all(test, target_arch = "x86_64"))]
+mod x86_64_tests {
+    use super::*;
+    use crate::arch::ed25519::{
+        VG_ED25519_PUBLIC_KEY_AVX2_ADX_FEATURES, VG_ED25519_PUBLIC_KEY_AVX2_FEATURES,
+        VG_ED25519_PUBLIC_KEY_SHANI_ADX_FEATURES, VG_ED25519_PUBLIC_KEY_SHANI_FEATURES,
+        VG_ED25519_SIGN_CACHED_AVX2_ADX_FEATURES, VG_ED25519_SIGN_CACHED_AVX2_FEATURES,
+        VG_ED25519_SIGN_CACHED_SHANI_ADX_FEATURES, VG_ED25519_SIGN_CACHED_SHANI_FEATURES,
+        VG_ED25519_VERIFY_AVX2_ADX_FEATURES, VG_ED25519_VERIFY_AVX2_FEATURES,
+        VG_ED25519_VERIFY_AVX2_IFMA_FEATURES, VG_ED25519_VERIFY_SHANI_ADX_FEATURES,
+        VG_ED25519_VERIFY_SHANI_FEATURES, VG_ED25519_VERIFY_SHANI_IFMA_FEATURES,
+    };
+    use crate::cpu::NAMES;
+
+    /// The CPU features of the three operations with SHA-512's backend `s`
+    /// and the field multiplications `f`.
+    fn required(s: Sha512Backend, f: Field) -> [&'static [&'static str]; 3] {
+        match (s, f) {
+            (Sha512Backend::Scalar, Field::Baseline) => [&[], &[], &[]],
+            (Sha512Backend::Scalar, Field::Adx) => [
+                VG_ED25519_PUBLIC_KEY_ADX_FEATURES,
+                VG_ED25519_SIGN_CACHED_ADX_FEATURES,
+                VG_ED25519_VERIFY_ADX_FEATURES,
+            ],
+            (Sha512Backend::ShaNi, Field::Baseline) => [
+                VG_ED25519_PUBLIC_KEY_SHANI_FEATURES,
+                VG_ED25519_SIGN_CACHED_SHANI_FEATURES,
+                VG_ED25519_VERIFY_SHANI_FEATURES,
+            ],
+            (Sha512Backend::ShaNi, Field::Adx) => [
+                VG_ED25519_PUBLIC_KEY_SHANI_ADX_FEATURES,
+                VG_ED25519_SIGN_CACHED_SHANI_ADX_FEATURES,
+                VG_ED25519_VERIFY_SHANI_ADX_FEATURES,
+            ],
+            (Sha512Backend::Avx2, Field::Baseline) => [
+                VG_ED25519_PUBLIC_KEY_AVX2_FEATURES,
+                VG_ED25519_SIGN_CACHED_AVX2_FEATURES,
+                VG_ED25519_VERIFY_AVX2_FEATURES,
+            ],
+            (Sha512Backend::Avx2, Field::Adx) => [
+                VG_ED25519_PUBLIC_KEY_AVX2_ADX_FEATURES,
+                VG_ED25519_SIGN_CACHED_AVX2_ADX_FEATURES,
+                VG_ED25519_VERIFY_AVX2_ADX_FEATURES,
+            ],
+            (Sha512Backend::Scalar, Field::Ifma) => [
+                VG_ED25519_PUBLIC_KEY_ADX_FEATURES,
+                VG_ED25519_SIGN_CACHED_ADX_FEATURES,
+                VG_ED25519_VERIFY_IFMA_FEATURES,
+            ],
+            (Sha512Backend::ShaNi, Field::Ifma) => [
+                VG_ED25519_PUBLIC_KEY_SHANI_ADX_FEATURES,
+                VG_ED25519_SIGN_CACHED_SHANI_ADX_FEATURES,
+                VG_ED25519_VERIFY_SHANI_IFMA_FEATURES,
+            ],
+            (Sha512Backend::Avx2, Field::Ifma) => [
+                VG_ED25519_PUBLIC_KEY_AVX2_ADX_FEATURES,
+                VG_ED25519_SIGN_CACHED_AVX2_ADX_FEATURES,
+                VG_ED25519_VERIFY_AVX2_IFMA_FEATURES,
+            ],
+        }
+    }
+
+    /// Each complete Ed25519 operation needs no CPU feature that SHA-512's
+    /// backend and the field's are not selected for: on every set of
+    /// features that selects them.
+    #[test]
+    fn whole_algorithm_features() {
+        for bits in 0..1u32 << NAMES.len() {
+            let f = Features(bits);
+            let r = required(Sha512Backend::select(f), Field::select(f));
+            assert!(f.contains(Features::all(&r)), "{bits:#b}");
+        }
+    }
+
+    /// Each operation gives the same results with every choice of
+    /// implementations this CPU can run: the features of each subset of
+    /// SHA-512's backends and the field's.
+    #[test]
+    fn every_backend() {
+        let groups: [&[&str]; 4] = [
+            VG_ED25519_PUBLIC_KEY_SHANI_FEATURES,
+            VG_ED25519_PUBLIC_KEY_AVX2_FEATURES,
+            VG_ED25519_PUBLIC_KEY_ADX_FEATURES,
+            VG_ED25519_VERIFY_IFMA_FEATURES,
+        ];
+        let seed = [0x42; 32];
+        let message = b"every backend";
+        // SAFETY: no feature is needed; `public` is `seed`'s public key.
+        let (public, signature) = unsafe {
+            let public = public_key_with(Features(0), &seed);
+            (
+                public,
+                sign_message_with(Features(0), &seed, &public, message),
+            )
+        };
+        for mask in 0..1u32 << groups.len() {
+            let f = groups
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| mask >> i & 1 == 1)
+                .fold(Features(0), |f, (_, g)| Features(f.0 | Features::of(g).0));
+            if !detected().contains(f) {
+                continue;
+            }
+            // SAFETY: the CPU has the features `f`; `public` is `seed`'s
+            // public key.
+            unsafe {
+                assert_eq!(public_key_with(f, &seed), public, "{mask:#b}");
+                assert_eq!(
+                    sign_message_with(f, &seed, &public, message),
+                    signature,
+                    "{mask:#b}"
+                );
+                assert_eq!(
+                    verify_message_with(f, &public, message, &signature),
+                    1,
+                    "{mask:#b}"
+                );
+            }
         }
     }
 }

@@ -37,11 +37,11 @@ def gRho : Prog isa :=
     (copy (sc oSB) (sc oG) 32))
 
 /-- `ŝ[N]` or `ê[N - 4]`. -/
-def se (N : Nat) : Prog isa := .seq (cbd2At (sc (oPR4 + 128 * N)) (pS N)) (nttAt (pS N))
+def se (A : Arith) (N : Nat) : Prog isa := .seq (cbd2At (sc (oPR4 + 128 * N)) (pS N)) (nttAt A (pS N))
 
 /-- `t̂[i]`, encoded to `ek`. -/
-def row (i : Nat) : Prog isa :=
-  .seq (dot4At (fun j => aS4 i j) pS) (.seq (addAt (pS 15) (pS (4 + i))) (enc12At (pS 15) (.r12, 384 * i)))
+def row (A : Arith) (i : Nat) : Prog isa :=
+  .seq (dot4At A (fun j => aS4 i j) pS) (.seq (addAt (pS 15) (pS (4 + i))) (enc12At (pS 15) (.r12, 384 * i)))
 
 /-- `ŝ[j]`, encoded to `dk`. -/
 def encS (j : Nat) : Prog isa := enc12At (pS j) (.r13, 384 * j)
@@ -52,7 +52,7 @@ def fin : Prog isa :=
     (.seq (hashAt [((.r12, 0), 1568)] 136 6 (.r13, 3104) 32) (copy (.r13, 3136) (.rbp, 32) 32)))
 
 def rest (c : Callee4) : Prog isa :=
-  .seq (c.prfs 0 8 oPR4 lPW4) (.seq (seqR se 0 8) (.seq (seqR row 0 4) (.seq (seqR encS 0 4) fin)))
+  .seq (c.prfs 0 8 oPR4 lPW4) (.seq (seqR (se c.arith) 0 8) (.seq (seqR (row c.arith) 0 4) (.seq (seqR encS 0 4) fin)))
 
 end KeyGen1024
 

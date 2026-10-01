@@ -11,6 +11,8 @@ piece of `sk` (`dec_ok`), in their slots (`ID`), and
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -167,7 +169,7 @@ theorem decT0_ok {i : Nat} (hi : i < p.k) {s : State} (hs : ID p D σ p.ℓ p.k 
   exact hq
 
 theorem rpp_ok {s : State} (hs : ID p D σ p.ℓ p.k p.k s) :
-    WP isa (shakeAt [⟨.x25, 32, 32⟩, ⟨.x27, 0, 32⟩, ⟨.x26, 0, 64⟩] ⟨.x28, oMS, 64⟩) s (IK p D σ) := by
+    WP isa (shakeAtWith keccak.callee [⟨.x25, 32, 32⟩, ⟨.x27, 0, 32⟩, ⟨.x26, 0, 64⟩] ⟨.x28, oMS, 64⟩) s (IK p D σ) := by
   obtain ⟨_, _, _, h4, h5, _, _, hsk⟩ := dChk_spec hc
   refine WP.mono (shake_ok hP.s16 hP.s64 hs.im.st.lay (by simp) h4) fun s4 ⟨hP4, _, hb⟩ =>
     ⟨hs.step hP4 h5, ?_⟩
@@ -177,8 +179,8 @@ theorem rpp_ok {s : State} (hs : ID p D σ p.ℓ p.k p.k s) :
     bytesAt s.mem (pa s (.x26, 0)) 64)) 64 = _
   rw [sk_slice hs.im.st (o := 32) (len := 32) (by omega), hs.im.st.rnd, hs.im.st.mu, ← List.append_assoc]
 
-theorem decode_ok {s : State} (h : IM p D σ s) : WP isa (decode P p) s (IK p D σ) := by
-  unfold decode
+theorem decode_ok {s : State} (h : IM p D σ s) : WP isa (decodeWith keccak.callee P p) s (IK p D σ) := by
+  unfold decodeWith
   refine WP.seq (WP.mono (seqR_ok (I := fun r => ID p D σ r 0 0) p.ℓ 0
     (fun r _ hr s hs => decS1_ok hP hc (by omega) hs) s
     ⟨h, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _),

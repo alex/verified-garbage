@@ -15,6 +15,8 @@ Untrusted: everything here is checked by Lean. At the head of iteration
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Proof.MlDsa.Sign
@@ -353,10 +355,10 @@ theorem cChk_ok {p : Params} (h : Ok3 p) : cChk p = true := by
   rcases h with rfl | rfl | rfl <;> decide
 
 theorem commit_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : cChk p = true) {σ : State} {t : Nat}
-    {s : State} (h : IL p D σ t s) : WP isa (commit P p) s (IC p D σ t) := by
+    {s : State} (h : IL p D σ t s) : WP isa (commitWith keccak.callee P p) s (IC p D σ t) := by
   simp only [cChk, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hc
   obtain ⟨⟨⟨⟨hm, hw⟩, hh⟩, hs⟩, hk⟩ := hc
-  unfold commit
+  unfold commitWith
   refine WP.seq (WP.mono (seqR_ok (I := fun r => ICm p D σ t r) p.ℓ 0
     (fun r _ hr s hs => maskR_ok hP (hm r (by omega)) hs) s
     ⟨h, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩) fun s1 hs1 => ?_)

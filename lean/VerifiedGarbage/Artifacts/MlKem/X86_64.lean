@@ -7,7 +7,8 @@ import VerifiedGarbage.Proof.MlKem.X86_64.CompressEncode
 import VerifiedGarbage.Proof.MlKem.X86_64.DecodeDecompress
 import VerifiedGarbage.Proof.MlKem.X86_64.CheckEk
 import VerifiedGarbage.Proof.MlKem.X86_64.Mul
-import VerifiedGarbage.Proof.MlKem.X86_64.NttInv
+import VerifiedGarbage.Proof.MlKem.X86_64.MulAvx2
+import VerifiedGarbage.Proof.MlKem.X86_64.NttAvx2
 import VerifiedGarbage.Proof.MlKem.X86_64.SampleCT
 import VerifiedGarbage.Proof.MlKem.X86_64.Sample4Impl
 
@@ -49,6 +50,32 @@ def artifacts : List Artifact := [
     verified := Proof.MlKem.X86_64.nttInv_verified
     spSafe := Code.all_of_allInstrs (by lit_decide)
     ofSig := ⟨_, _, _, by unfold Spec.MlKem.nttInvContract Spec.MlKem.inPlaceContract; rfl⟩ },
+  { Spec.MlKem.nttApi with
+    name := Spec.MlKem.nttApi.name ++ "_avx2"
+    target := X86_64.target
+    doc := Spec.MlKem.nttApi.doc
+      (notes := ["The function computes on sixteen coefficients at a time in AVX2 registers. It sets MXCSR \
+        to `0x1FBF` around its multiplications (Intel's mitigation of MXCSR-configuration-dependent \
+        timing) and loads the caller's MXCSR back before returning."])
+    code := Impl.MlKem.X86_64.nttAvx2
+    contract := Spec.MlKem.nttContract X86_64.abi
+    verified := Proof.MlKem.X86_64.nttY_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel)
+    features := ["avx", "avx2"]
+    ofSig := ⟨_, _, _, by unfold Spec.MlKem.nttContract Spec.MlKem.inPlaceContract; rfl⟩ },
+  { Spec.MlKem.nttInvApi with
+    name := Spec.MlKem.nttInvApi.name ++ "_avx2"
+    target := X86_64.target
+    doc := Spec.MlKem.nttInvApi.doc
+      (notes := ["The function computes on sixteen coefficients at a time in AVX2 registers. It sets MXCSR \
+        to `0x1FBF` around its multiplications (Intel's mitigation of MXCSR-configuration-dependent \
+        timing) and loads the caller's MXCSR back before returning."])
+    code := Impl.MlKem.X86_64.nttInvAvx2
+    contract := Spec.MlKem.nttInvContract X86_64.abi
+    verified := Proof.MlKem.X86_64.nttInvY_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel)
+    features := ["avx", "avx2"]
+    ofSig := ⟨_, _, _, by unfold Spec.MlKem.nttInvContract Spec.MlKem.inPlaceContract; rfl⟩ },
   { Spec.MlKem.addApi with
     target := X86_64.target
     doc := Spec.MlKem.addApi.doc
@@ -73,6 +100,18 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem.mulContract X86_64.abi
     verified := Proof.MlKem.X86_64.mul_verified
     spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.MlKem.mulApi with
+    name := Spec.MlKem.mulApi.name ++ "_avx2"
+    target := X86_64.target
+    doc := Spec.MlKem.mulApi.doc
+      (notes := ["The function computes on sixteen pairs of coefficients at a time in AVX2 registers. It sets \
+        MXCSR to `0x1FBF` around its multiplications (Intel's mitigation of MXCSR-configuration-dependent \
+        timing) and loads the caller's MXCSR back before returning."])
+    code := Impl.MlKem.X86_64.multiplyNTTsAvx2
+    contract := Spec.MlKem.mulContract X86_64.abi
+    verified := Proof.MlKem.X86_64.mulY_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel)
+    features := ["avx", "avx2"] },
   { Spec.MlKem.sampleNTTApi with
     target := X86_64.target
     doc := Spec.MlKem.sampleNTTApi.doc
@@ -139,8 +178,10 @@ def artifacts : List Artifact := [
     doc := Spec.MlKem.sampleNTT4Api.doc
       (notes := ["The function absorbs the four seeds and squeezes the four instances of SHAKE128 at once, \
         each 64-bit lane of the Keccak states in a 256-bit AVX2 register holding that lane of all four; \
-        it then parses the output of each in turn, and finishes any that needs more than the 504 bytes \
-        it squeezed with `vg_mlkem_sample_ntt`, with 24 bytes of stack below its return address."])
+        it then samples from the output of each in turn, eight candidates at a time in AVX2 registers \
+        (keeping those less than `q` with `vpermd`, by a table in `*scratch` indexed by their mask), \
+        and finishes any that needs more than the 504 bytes it squeezed with `vg_mlkem_sample_ntt`, \
+        with 24 bytes of stack below its return address."])
     code := Impl.MlKem.X86_64.Sample4.sampleNTT4Avx2
     contract := Spec.MlKem.sampleNTT4Contract X86_64.abi 24
     stack := 24

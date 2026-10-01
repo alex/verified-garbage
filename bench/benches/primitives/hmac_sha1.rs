@@ -18,6 +18,7 @@ pub fn bench(c: &mut Criterion) {
     use verified_garbage::hmac::Hmac;
 
     crate::hmac_group(c, "hmac-sha1", Hmac::<Sha1>::mac, MessageDigest::sha1());
+    crate::hmac_verify_group::<Sha1>(c, "hmac-sha1-verify", MessageDigest::sha1());
 }
 
 #[cfg(not(any(

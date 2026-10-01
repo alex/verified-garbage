@@ -44,6 +44,8 @@ the results of the samplers.
 
 namespace VG.Impl.MlDsa.AArch64.Verify
 
+variable (c : Impl.Sha3.AArch64.Callee)
+
 open VG.AArch64
 open VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Impl.MlKem.AArch64 (copy32)
@@ -131,18 +133,22 @@ def row (r : Nat) : Prog isa :=
         (simpleBitPackAt P (w1P p) (w1Max p) ((bP p).1, (bP p).2 + w1Len p * r) (w1Len p))))))))
 
 /-- The NTTs of `z` and `c`, the rows, the hash and the comparison. -/
-def compute : Prog isa :=
+def computeWith : Prog isa :=
   .seq (seqR (fun i => nttAt P (sc oSS) (zP p i)) 0 p.ℓ) (.seq (nttAt P (sc oSS) (cP p))
     (.seq (seqR (row P p) 0 p.k)
-    (.seq (shake256 [⟨.x26, 0, 64⟩, ⟨.x28, (bP p).2, p.k * w1Len p⟩] [⟨.x28, oCT, p.ctildeLen⟩])
+    (.seq ((shake256With c) [⟨.x26, 0, 64⟩, ⟨.x28, (bP p).2, p.k * w1Len p⟩] [⟨.x28, oCT, p.ctildeLen⟩])
       (cmpAnd (sc oCT) (.x27, 0) p.ctildeLen))))
 
-def body : Prog isa :=
-  .seq (hint P p) (ifOk (.seq (seqR (zOne P p) 0 p.ℓ) (ifOk (.seq (samples P p) (compute P p)))))
+def bodyWith : Prog isa :=
+  .seq (hint P p) (ifOk (.seq (seqR (zOne P p) 0 p.ℓ) (ifOk (.seq (samples P p) ((computeWith c) P p)))))
 
 /-- `vg_mldsa*_verify` for the parameter set `p`, calling the primitives `P`. -/
-def verify : Prog isa := .seq (.block pro) (.seq (body P p) (.block epi))
+def verifyWith : Prog isa := .seq (.block pro) (.seq ((bodyWith c) P p) (.block epi))
 
 end
+
+def compute := computeWith .scalar
+def body := bodyWith .scalar
+def verify := verifyWith .scalar
 
 end VG.Impl.MlDsa.AArch64.Verify
