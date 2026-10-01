@@ -183,7 +183,7 @@ theorem seeds_tr {p : Params} (hF : PFacts p) {S : Nat} (h16 : 16 ≤ S) (hSl : 
   refine RelCT.seq (Two.step (taintRel [.x28] (fun x y h => h.x28) (setKL_taint p.k (by omega) p.ℓ (by omega)))
     fun x L => WP.mono (setTwo_ok L (o := oKL) (a := p.k) (b := p.ℓ) (by decide) (by lay) (by lay))
       fun _ h => ⟨_, h.1⟩) ?_
-  refine RelCT.seq (Two.step (taintRel [.x25, .x26, .x27, .x28] (fun x y h => h.bases) keccak.mldsaSeedsTaint.choose_spec)
+  refine RelCT.seq (Two.step (VectorTaint.relRegs [.x25, .x26, .x27, .x28] (fun x y h => h.bases) keccak.mldsaSeedsTaint.choose_spec)
     fun x L => WP.mono (shake_ok h16 hSl L (ins := [⟨.x25, 0, 32⟩, ⟨.x28, oKL, 2⟩]) (out := ⟨.x28, oHX, 128⟩)
       (by simp) (by unfold hashChk pieceChk; lay)) fun _ h => ⟨_, h.1⟩) ?_
   exact taintRel [.x28] (fun x y h => h.x28) (by taint_decide)

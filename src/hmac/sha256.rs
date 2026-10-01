@@ -119,8 +119,11 @@ impl HmacHash for Sha256 {
         // `key.len()` bytes and `scratch` for reads and writes of 608 bytes;
         // they are distinct objects, so they do not overlap each other or the
         // call's stack frame, nor wrap around the address space.
+        let init = match state.backend {
+            Sha256Backend::Scalar => vg_hmac_sha256_init,
+        };
         unsafe {
-            vg_hmac_sha256_init(
+            init(
                 &mut state.inner,
                 &mut state.outer,
                 key.as_ptr(),
@@ -162,8 +165,11 @@ impl HmacHash for Sha256 {
         // frame, nor wrap around the address space. `state.inner` represents
         // `(K₀ ⊕ ipad) ‖ text`, of `state.count` bytes, and `state.outer`
         // represents `K₀ ⊕ opad`.
+        let finalize = match state.backend {
+            Sha256Backend::Scalar => vg_hmac_sha256_finalize,
+        };
         unsafe {
-            vg_hmac_sha256_finalize(
+            finalize(
                 &mut state.inner,
                 &state.outer,
                 state.count,
