@@ -78,6 +78,7 @@ def seqR (f : Nat → Prog isa) (a : Nat) : Nat → Prog isa
 /-- The code of the primitives `vg_mldsa_*` that key generation and
 verification call. -/
 structure Prims where
+  suffix : String := ""
   ntt : Prog isa
   invNtt : Prog isa
   mul : Prog isa
@@ -115,14 +116,14 @@ def addAt (f g : Ptr) : Prog isa := callAt "vg_mldsa_add" P.add [(.x0, .ptr f), 
 def subAt (f g : Ptr) : Prog isa := callAt "vg_mldsa_sub" P.sub [(.x0, .ptr f), (.x1, .ptr g)]
 
 def rejNttAt (seed a : Ptr) : Prog isa :=
-  callAt "vg_mldsa_rej_ntt_poly" P.rejNtt [(.x0, .ptr seed), (.x1, .ptr a), (.x2, .ptr ss)]
+  callAt ("vg_mldsa_rej_ntt_poly" ++ P.suffix) P.rejNtt [(.x0, .ptr seed), (.x1, .ptr a), (.x2, .ptr ss)]
 
 def rejBoundedAt (seed : Ptr) (eta : Nat) (a : Ptr) : Prog isa :=
-  callAt "vg_mldsa_rej_bounded_poly" P.rejBounded
+  callAt ("vg_mldsa_rej_bounded_poly" ++ P.suffix) P.rejBounded
     [(.x0, .ptr seed), (.x1, .imm eta), (.x2, .ptr a), (.x3, .ptr ss)]
 
 def ballAt (ct : Ptr) (len tau : Nat) (c : Ptr) : Prog isa :=
-  callAt "vg_mldsa_sample_in_ball" P.ball
+  callAt ("vg_mldsa_sample_in_ball" ++ P.suffix) P.ball
     [(.x0, .ptr ct), (.x1, .imm len), (.x2, .imm tau), (.x3, .ptr c), (.x4, .ptr ss)]
 
 def power2RoundAt (t t1 t0 : Ptr) : Prog isa :=
@@ -180,8 +181,10 @@ def ifOk (c : Prog isa) : Prog isa := .ite (.nonzero .x .x24) c (.block [])
 
 /-- `H` (SHAKE256) of the pieces `ins` to the pieces `outs`, with the Keccak
 state at `scratch + 0` and its working space at `scratch + 200`. -/
-def shake256 (ins outs : List Impl.MlKem.AArch64.Piece) : Prog isa :=
-  Impl.MlKem.AArch64.hash .x28 0 200 136 0x1f ins outs
+def shake256With (c : Impl.Sha3.AArch64.Callee) (ins outs : List Impl.MlKem.AArch64.Piece) : Prog isa :=
+  Impl.MlKem.AArch64.hashWith c .x28 0 200 136 0x1f ins outs
+
+def shake256 := shake256With .scalar
 
 /-! ## Entry and exit -/
 

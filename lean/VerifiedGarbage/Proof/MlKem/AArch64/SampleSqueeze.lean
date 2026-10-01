@@ -164,6 +164,7 @@ structure Mid (s₀ s : State) : Prop where
   cs : ∀ r ∈ preserved, r ≠ .x24 → r ≠ .x25 → r ≠ .x26 → r ≠ .x30 → s.gpr r = s₀.gpr r
   sv : Saved s₀ s.mem
   frame : Frame [scR s₀, below s₀.sp 16] s₀.mem s.mem
+  vcs : ∀ r ∈ preservedV, (s.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64
 
 theorem preserved_ne : ∀ r ∈ preserved, r ≠ .x30 → r ∉ linkRegs := by decide
 
@@ -176,7 +177,7 @@ theorem Mid.call {s₀ s s' : State} (h : Mid s₀ s) {rs : List Region} (hk : K
     by rw [hk.cs _ (by decide) (by decide), h.x24],
     by rw [hk.cs _ (by decide) (by decide), h.x25], by rw [hk.cs _ (by decide) (by decide), h.x26],
     fun r hr h24 h25 h26 h30 => by rw [hk.cs r hr h30, h.cs r hr h24 h25 h26 h30],
-    h.sv.frame hk.frame hd, h.frame.trans (hk.frame.sub hs)⟩
+    h.sv.frame hk.frame hd, h.frame.trans (hk.frame.sub hs), fun r hr => (hk.vcs r hr).trans (h.vcs r hr)⟩
 
 /-- A block that writes no callee-saved register nor memory. -/
 theorem Mid.keep {s₀ s s' : State} (h : Mid s₀ s) {regs : List Reg}
@@ -188,7 +189,7 @@ theorem Mid.keep {s₀ s s' : State} (h : Mid s₀ s) {regs : List Reg}
     by rw [hk.get .x26 (fun h' => hr _ h' (by decide)), h.x26],
     fun r hp' h24 h25 h26 h30 => by
       rw [hk.get r (fun h' => hr _ h' hp'), h.cs r hp' h24 h25 h26 h30],
-    by rw [hm]; exact h.sv, by rw [hm]; exact h.frame⟩
+    by rw [hm]; exact h.sv, by rw [hm]; exact h.frame, fun r hr => (hk.vcs r hr).trans (h.vcs r hr)⟩
 
 /-! ## The prologue -/
 
@@ -278,10 +279,10 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block sampleProlog
       fun r hr h24 h25 h26 _ => by
         rw [h₈.get r (by simpa using fun e => by subst e; revert hr; decide),
           h₇.get r (by simpa using h26), h₆.get r (by simpa using h25), h₅.get r (by simpa using h24), g₄],
-      sv₈, f₈⟩
+      sv₈, f₈, fun r hr => by rw [k₈.vcs r hr, h₄.vcs r hr, h₃.vcs r hr, h₂.vcs r hr, h₁.vcs r hr]⟩
   have z9 : s₈.gpr .x9 = 0 := by rw [e₈]; rfl
   have c2 : s₈.gpr .x2 = scP s₀ := by rw [h₈.get .x2, h₇.get .x2, h₆.get .x2, h₅.get .x2, g₄]
-  refine WP.mono (zst_ok hp 25 (by decide) z9 c2 mid₈.wr) fun s₉ ⟨g₉, r₉, w₉, p₉, z₉, f₉⟩ => ?_
+  refine WP.mono (WP.preservedV (zst_ok hp 25 (by decide) z9 c2 mid₈.wr) (hc := by decide +kernel)) fun s₉ ⟨⟨g₉, r₉, w₉, p₉, z₉, f₉⟩, vc₉⟩ => ?_
   have mid₉ : Mid s₀ s₉ :=
     ⟨by rw [r₉, mid₈.rd], by rw [w₉, mid₈.wr], by rw [p₉, mid₈.sp], by rw [g₉, mid₈.x24],
       by rw [g₉, mid₈.x25], by rw [g₉, mid₈.x26], fun r hr a b c d => by rw [g₉, mid₈.cs r hr a b c d],
@@ -289,7 +290,8 @@ theorem prologue_ok {s₀ : State} (hp : Pre s₀) : WP isa (.block sampleProlog
         simp only [List.mem_singleton] at hr; subst hr; exact disj_so s₀ (by omega) (by omega) (by omega)),
       mid₈.frame.trans (f₉.sub fun r hr => by
         simp only [List.mem_singleton] at hr; subst hr
-        exact ⟨scR s₀, List.mem_cons_self .., sub_so s₀ (by omega)⟩)⟩
+        exact ⟨scR s₀, List.mem_cons_self .., sub_so s₀ (by omega)⟩),
+      fun r hr => (vc₉ r hr).trans (mid₈.vcs r hr)⟩
   have z₉' : stateAt s₉.mem (So s₀ 840) = Spec.Sha3.zero :=
     stateAt_zero fun k hk => by rw [ptr_add]; exact z₉ k hk
   refine wp_mov fun s₁₀ h₁₀ e₁₀ => wp_addImm (by decide) fun s₁₁ h₁₁ e₁₁ => wp_movz fun s₁₂ h₁₂ e₁₂ =>
@@ -330,14 +332,14 @@ theorem seed_frame {s₀ : State} (hp : Pre s₀) {m : Mem} (hf : Frame [scR s�
     · rw [below16]; exact hp.k_s.symm) (by decide)
 
 /-- `absorb`, `pad` and `squeeze` of `len` bytes, then `R`. -/
-theorem calls_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterPro s₀ s) {len : Nat}
+theorem calls_ok (v : Proof.Sha3.AArch64.Permutation) {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterPro s₀ s) {len : Nat}
     (hl : len ≤ 840) (hlv : ((BitVec.ofNat 16 len).setWidth 64).toNat = len) {R : Prog isa}
     {Q : State → Prop} (hR : ∀ s', Mid s₀ s' → Buf len s₀ s'.mem → WP isa R s' Q) :
-    WP isa (.seq (.call "vg_keccak_absorb" Impl.Sha3.AArch64.Stream.absorb) <|
+    WP isa (.seq (.call ("vg_keccak_absorb" ++ v.callee.suffix) (Impl.Sha3.AArch64.Stream.absorbWith v.callee)) <|
       .seq (.block samplePadArgs) <|
-      .seq (.call "vg_keccak_pad" Impl.Sha3.AArch64.Stream.pad) <|
+      .seq (.call ("vg_keccak_pad" ++ v.callee.suffix) (Impl.Sha3.AArch64.Stream.padWith v.callee)) <|
       .seq (.block (sampleSqueezeArgs len)) <|
-      .seq (.call "vg_keccak_squeeze" Impl.Sha3.AArch64.Stream.squeeze) R) s Q := by
+      .seq (.call ("vg_keccak_squeeze" ++ v.callee.suffix) (Impl.Sha3.AArch64.Stream.squeezeWith v.callee)) R) s Q := by
   have hsd : ∀ {u : State}, Mid s₀ u → 16 ≤ u.sp.toNat := fun hu => by rw [hu.sp]; exact hp.sp16
   have cw : ∀ {u : State}, Mid s₀ u → ∀ {rs : List Region},
       (∀ r ∈ rs, ∃ off, r.base = So s₀ off ∧ off + r.len ≤ 2048) → Covers rs u.wr :=
@@ -348,7 +350,7 @@ theorem calls_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterPro s₀ s
   have subk : ∀ {u : State}, Mid s₀ u → ∃ r' ∈ [scR s₀, below s₀.sp 16], Region.Sub (below u.sp 16) r' :=
     fun hu => ⟨below s₀.sp 16, by simp, by rw [hu.sp]; exact fun _ h => h⟩
   -- absorb
-  refine WP.seq (absorb_call (st := So s₀ 840) (sc := So s₀ 1040) h.x0 h.x1 h.x2 h.x3 h.x4 h.x5
+  refine WP.seq (absorb_callWith v (st := So s₀ 840) (sc := So s₀ 1040) h.x0 h.x1 h.x2 h.x3 h.x4 h.x5
     rate168 (by decide) (disj_so s₀ (by omega) (by omega) (by omega))
     (hp.d_ss.sub_right (sub_so s₀ (by omega))) (hp.d_ss.sub_right (sub_so s₀ (by omega)))
     (hsd h.mid) (by rw [stk_eq h.mid.sp]; exact k_so hp (by omega)) (by rw [stk_eq h.mid.sp]; exact hp.k_s)
@@ -382,7 +384,7 @@ theorem calls_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterPro s₀ s
   have k₆ := ((((h₂.keep.trans h₃.keep).trans h₄.keep).trans h₅.keep).trans h₆.keep)
   have m₆ : s₆.mem = s₁.mem := by rw [h₆.mem, h₅.mem, h₄.mem, h₃.mem, h₂.mem]
   have mid₆ := mid₁.keep k₆ m₆
-  refine WP.seq (pad_call (st := So s₀ 840) (sc := So s₀ 1040) (rate := 168) (pos := 34)
+  refine WP.seq (pad_callWith v (st := So s₀ 840) (sc := So s₀ 1040) (rate := 168) (pos := 34)
     (by rw [h₆.get .x0, h₅.get .x0, h₄.get .x0, h₃.get .x0, e₂, mid₁.x26])
     (by rw [h₆.get .x1, h₅.get .x1, h₄.get .x1, e₃]; rfl) (by rw [h₆.get .x2, h₅.get .x2, e₄]; rfl)
     (by rw [e₆, h₅.get .x26, h₄.get .x26, h₃.get .x26, h₂.get .x26, mid₁.x26]) rate168 (by decide)
@@ -420,7 +422,7 @@ theorem calls_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterPro s₀ s
   have k₁₃ := (((((h₈.keep.trans h₉.keep).trans h₁₀.keep).trans h₁₁.keep).trans h₁₂.keep).trans h₁₃.keep)
   have m₁₃ : s₁₃.mem = s₇.mem := by rw [h₁₃.mem, h₁₂.mem, h₁₁.mem, h₁₀.mem, h₉.mem, h₈.mem]
   have mid₁₃ := mid₇.keep k₁₃ m₁₃
-  refine WP.seq (squeeze_call (st := So s₀ 840) (out := So s₀ 0) (sc := So s₀ 1040) (rate := 168)
+  refine WP.seq (squeeze_callWith v (st := So s₀ 840) (out := So s₀ 0) (sc := So s₀ 1040) (rate := 168)
     (pos := 0) (len := len)
     (by rw [h₁₃.get .x0, h₁₂.get .x0, h₁₁.get .x0, h₁₀.get .x0, h₉.get .x0, e₈, mid₇.x26])
     (by rw [h₁₃.get .x1, h₁₂.get .x1, h₁₁.get .x1, h₁₀.get .x1, e₉]; rfl)
@@ -498,6 +500,7 @@ structure Fin (s₀ u : State) : Prop where
   wr : u.wr = s₀.wr
   sp : u.sp = s₀.sp
   cs : ∀ r ∈ preserved, u.gpr r = s₀.gpr r
+  vcs : ∀ r ∈ preservedV, (u.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64
 
 /-- After the setup of the loop, our caller's registers still saved: `Mid`,
 but for the memory, of which the seed is kept. -/
@@ -511,6 +514,7 @@ structure MidA (s₀ s : State) : Prop where
   cs : ∀ r ∈ preserved, r ≠ .x24 → r ≠ .x25 → r ≠ .x26 → r ≠ .x30 → s.gpr r = s₀.gpr r
   sv : Saved s₀ s.mem
   seed : bytesAt s.mem (sdP s₀) 34 = Bs s₀
+  vcs : ∀ r ∈ preservedV, (s.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64
 
 theorem sv_a {s₀ : State} (hp : Pre s₀) : ∀ r ∈ [aR s₀], Region.Disjoint ⟨So s₀ 1680, 32⟩ r :=
   fun r hr => by
@@ -529,7 +533,7 @@ theorem MidA.keep {s₀ s s' : State} (hp : Pre s₀) (h : MidA s₀ s) {regs : 
       rw [hk.get r (fun h' => hr _ h' hp'), h.cs r hp' h24 h25 h26 h30],
     h.sv.frame hf (sv_a hp),
     by rw [← h.seed]; exact bytesAt_frame hf (fun r hr => by
-      rw [List.mem_singleton.mp hr]; exact hp.d_sa) (by decide)⟩
+      rw [List.mem_singleton.mp hr]; exact hp.d_sa) (by decide), fun r hr => (hk.vcs r hr).trans (h.vcs r hr)⟩
 
 theorem pres_x34 : ∀ r ∈ preserved, r ∉ [Reg.x3, .x4] := by decide
 
@@ -551,7 +555,7 @@ theorem restN_ok {s₀ : State} (hp : Pre s₀) {len N : Nat} (hN : 3 * N ≤ le
     fun s₄ h₄ => ?_
   have midA₄ : MidA s₀ s₄ := MidA.keep hp
     ⟨mid₃.rd, mid₃.wr, mid₃.sp, mid₃.x24, mid₃.x25, mid₃.x26, mid₃.cs, mid₃.sv,
-      seed_frame hp mid₃.frame⟩ h₄.keep h₄.frame
+      seed_frame hp mid₃.frame, mid₃.vcs⟩ h₄.keep h₄.frame
   refine wp_mov fun s₅ h₅ e₅ => wp_mov fun s₆ h₆ e₆ => wp_movz fun s₇ h₇ e₇ => wp_movz fun s₈ h₈ e₈ =>
     wp_movz fun s₉ h₉ e₉ => wp_movz fun s₁₀ h₁₀ e₁₀ => wp_nil ?_
   have k₁₀ := ((((h₅.keep.trans h₆.keep).trans h₇.keep).trans h₈.keep).trans h₉.keep).trans h₁₀.keep
@@ -605,7 +609,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : MidA s₀ s) 
   have k₄ := ((h₁.keep.trans h₂.keep).trans h₃.keep).trans h₄.keep
   have m₄ : s₄.mem = s.mem := by rw [h₄.mem, h₃.mem, h₂.mem, h₁.mem]
   refine ⟨hP s₄ (k₄.mono (by decide)) m₄, by rw [k₄.rd, h.rd], by rw [k₄.wr, h.wr],
-    by rw [k₄.sp, h.sp], fun r hr => ?_⟩
+    by rw [k₄.sp, h.sp], (fun r hr => ?_), fun r hr => (k₄.vcs r hr).trans (h.vcs r hr)⟩
   have sv := h.sv
   by_cases h30 : r = .x30
   · subst h30; rw [h₄.get .x30, h₃.get .x30, h₂.get .x30, e₁]; exact sv.2.2.1

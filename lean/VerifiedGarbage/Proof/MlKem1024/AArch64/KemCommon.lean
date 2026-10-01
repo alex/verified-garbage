@@ -89,6 +89,7 @@ structure KB (L : Layout) (s₀ s : State) : Prop where
   ro : ∀ b < L.nrd, bytesAt s.mem (kA s₀ b) (L.len b) = bytesAt s₀.mem (kA s₀ b) (L.len b)
   lens : ∀ b < L.nb, L.len b ≤ 49152
   nrd : ∀ {b}, b < L.nrd → b < L.nb
+  vcs : ∀ r ∈ preservedV, (s.v r).extractLsb' 0 64 = (s₀.v r).extractLsb' 0 64
 
 variable {L : Layout}
 
@@ -136,7 +137,7 @@ theorem KB.frame {s₀ s s' : State} (h : KB L s₀ s) {rs : List Region} {regs 
     h.sv.frame hf fun r hr => (hd r hr).1,
     fun b hb => by
       rw [bytesAt_frame hf (fun r hr => (hd r hr).2 b hb) (by have := h.lens b (h.nrd hb); omega), h.ro b hb],
-    h.lens, h.nrd⟩
+    h.lens, h.nrd, fun r hr => (hk.vcs r hr).trans (h.vcs r hr)⟩
 
 theorem KB.block {s₀ s s' : State} (h : KB L s₀ s) {regs : List Reg} (hk : Keep regs s s')
     (hm : s'.mem = s.mem) (hr : ∀ r ∈ keptK, r ∉ regs) : KB L s₀ s' :=
@@ -153,7 +154,7 @@ theorem KB.call {s₀ s s' : State} (h : KB L s₀ s) {rs : List Region} (hk : K
     fun b hb => by
       rw [bytesAt_frame hk.frame (fun r hr => (hd r hr).2 b hb) (by have := h.lens b (h.nrd hb); omega),
         h.ro b hb],
-    h.lens, h.nrd⟩
+    h.lens, h.nrd, fun r hr => (hk.vcs r hr).trans (h.vcs r hr)⟩
 
 /-! ## Regions -/
 
@@ -322,7 +323,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre L s₀) :
     exacts [this.1 e, this.2.1 e, this.2.2.1 e, this.2.2.2.1 e, this.2.2.2.2 e]
   have v₁ : ∀ b, s₁.gpr (argReg b) = kA s₀ b := fun b => by rw [g₁]; rfl
   refine ⟨⟨k₆.rd, k₆.wr, k₆.sp, fun k hk => ?_, fun r hr ho => k₆.get r (pres_pro r hr ho), fun k hk => ?_,
-    fun b hb => ?_, hp.args.len, fun hb => by have := hp.scw; have := hp.scb; omega⟩, by rw [e₆]; rfl, k₆,
+    fun b hb => ?_, hp.args.len, (fun hb => by have := hp.scw; have := hp.scb; omega), k₆.vcs⟩, by rw [e₆]; rfl, k₆,
     .inr (by rw [o₆.mem]; exact f₁)⟩
   · rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3) with rfl | rfl | rfl | rfl
     · rw [h₆.get (slotReg 0) (by decide), h₅.get (slotReg 0) (by decide), h₄.get (slotReg 0) (by decide),
@@ -343,7 +344,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre L s₀) :
 /-- Our caller's registers back, and the result. -/
 theorem epilogue_ok {s₀ : State} (hp : Pre L s₀) {u : State} (hk : KB L s₀ u) :
     WP isa (.block kemEpilogue) u fun u' =>
-      GprAbi s₀ u' ∧ u'.gpr .x0 = u.gpr .x24 ∧ u'.mem = u.mem := by
+      abiPreserved s₀ u' ∧ u'.gpr .x0 = u.gpr .x24 ∧ u'.mem = u.mem := by
   have cv := cov_sr hp hk (o := SV) (l := 48) (by decide)
   have ld : ∀ k < 6, ∀ {w : State}, w.rd = u.rd ∧ w.wr = u.wr ∧ w.mem = u.mem ∧ w.gpr .x28 = kA s₀ L.sc →
       w.gpr .x28 + BitVec.ofNat 64 (SV + 8 * k) = kA s₀ L.sc + BitVec.ofNat 64 (SV + 8 * k) ∧
@@ -380,7 +381,7 @@ theorem epilogue_ok {s₀ : State} (hp : Pre L s₀) {u : State} (hk : KB L s₀
     wp_nil ?_
   have o₇ : Only [.x0, .x24, .x30, .x25, .x26, .x27, .x28] u s₇ :=
     ((((((h₁.trans h₂).trans h₃).trans h₄).trans h₅).trans h₆).trans h₇).mono
-  refine ⟨⟨fun r hr => ?_, by rw [o₇.sp, hk.sp]⟩, ?_, o₇.mem⟩
+  refine ⟨⟨fun r hr => ?_, by rw [o₇.sp, hk.sp], fun r hr => (o₇.vcs r hr).trans (hk.vcs r hr)⟩, ?_, o₇.mem⟩
   · by_cases ho : r ∈ kemOwn
     · rcases mem6 ho with rfl | rfl | rfl | rfl | rfl | rfl
       · rw [h₇.get .x24 (by decide), h₆.get .x24 (by decide), h₅.get .x24 (by decide),

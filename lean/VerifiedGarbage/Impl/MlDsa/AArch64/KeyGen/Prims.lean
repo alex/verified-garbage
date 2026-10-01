@@ -21,16 +21,17 @@ namespace VG.Impl.MlDsa.AArch64.KeyGen
 open VG.AArch64
 
 /-- The AArch64 primitives. -/
-def prims : Prims where
+def primsWith (c : Impl.Sha3.AArch64.Callee) : Prims where
+  suffix := c.suffix
   ntt := Arith.ntt
   invNtt := Arith.nttInv
   mul := Arith.mul
   mulAdd := Arith.mulAdd
   add := Arith.add
   sub := Arith.sub
-  rejNtt := Sample.rejNTT
-  rejBounded := Sample.rejBounded
-  ball := Sample.sampleInBall
+  rejNtt := Sample.rejNTTWith c
+  rejBounded := Sample.rejBoundedWith c
+  ball := Sample.sampleInBallWith c
   power2Round := Round.power2Round
   useHint := Round.useHint
   normLt := Round.normLt
@@ -40,12 +41,20 @@ def prims : Prims where
   unpackT1 := Pack.unpackT1
   hintUnpack := Pack.hintBitUnpack
 
-def keyGen44 : Prog isa := keyGen prims Spec.MlDsa.mlDsa44
-def keyGen65 : Prog isa := keyGen prims Spec.MlDsa.mlDsa65
-def keyGen87 : Prog isa := keyGen prims Spec.MlDsa.mlDsa87
+def keyGen44With (c : Impl.Sha3.AArch64.Callee) : Prog isa := keyGenWith c (primsWith c) Spec.MlDsa.mlDsa44
+def keyGen65With (c : Impl.Sha3.AArch64.Callee) : Prog isa := keyGenWith c (primsWith c) Spec.MlDsa.mlDsa65
+def keyGen87With (c : Impl.Sha3.AArch64.Callee) : Prog isa := keyGenWith c (primsWith c) Spec.MlDsa.mlDsa87
 
-def verify44 : Prog isa := Verify.verify prims Spec.MlDsa.mlDsa44
-def verify65 : Prog isa := Verify.verify prims Spec.MlDsa.mlDsa65
-def verify87 : Prog isa := Verify.verify prims Spec.MlDsa.mlDsa87
+def verify44With (c : Impl.Sha3.AArch64.Callee) : Prog isa := Verify.verifyWith c (primsWith c) Spec.MlDsa.mlDsa44
+def verify65With (c : Impl.Sha3.AArch64.Callee) : Prog isa := Verify.verifyWith c (primsWith c) Spec.MlDsa.mlDsa65
+def verify87With (c : Impl.Sha3.AArch64.Callee) : Prog isa := Verify.verifyWith c (primsWith c) Spec.MlDsa.mlDsa87
+
+def prims := primsWith .scalar
+def keyGen44 := keyGen44With .scalar
+def keyGen65 := keyGen65With .scalar
+def keyGen87 := keyGen87With .scalar
+def verify44 := verify44With .scalar
+def verify65 := verify65With .scalar
+def verify87 := verify87With .scalar
 
 end VG.Impl.MlDsa.AArch64.KeyGen

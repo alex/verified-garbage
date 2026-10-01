@@ -124,7 +124,7 @@ theorem loopP_ok {s : State} (h : Z σ s) : WP isa bLoop s (LP σ) :=
 
 /-- The end: the postcondition, and the calling convention. -/
 theorem end_ok {s : State} (h : LP σ s) :
-    WP isa (.block (.lsr .x .x0 .x10 8 :: epi)) s fun s' => GprAbi σ s' ∧ sbK.post σ s' := by
+    WP isa (.block (.lsr .x .x0 .x10 8 :: epi)) s fun s' => abiPreserved σ s' ∧ sbK.post σ s' := by
   refine wp_lsr (by decide) fun s₁ h₁ e₁ => ?_
   have hl : (ballFold (tauOf σ) (X σ)).2 ≤ 256 := bFold_le (by simp only [n]; omega) _
   have v0 : (s₁.gpr .x0).toNat = if (ballFold (tauOf σ) (X σ)).2 = 256 then 1 else 0 := by
@@ -142,12 +142,16 @@ theorem end_ok {s : State} (h : LP σ s) :
 
 end
 
-theorem correct (σ : State) (hp : sbK.pre σ) :
-    ∃ t s', Exec isa sampleInBall σ t s' ∧ abiPreserved σ s' ∧ sbK.post σ s' :=
-  WP.withPreservedV (hc := by decide +kernel) <| WP.seq (WP.mono (pro_ok hp) fun _ h1 =>
-    WP.seq (WP.mono (sponge_ok (spOk hp) (rate := 136) (outlen := 272) (by decide) (by decide) h1)
+theorem correctWith (v : Proof.Sha3.AArch64.Permutation) (σ : State) (hp : sbK.pre σ) :
+    ∃ t s', Exec isa (sampleInBallWith v.callee) σ t s' ∧ abiPreserved σ s' ∧ sbK.post σ s' :=
+  WP.seq (WP.mono (pro_ok hp) fun _ h1 =>
+    WP.seq (WP.mono (spongeWith_ok (v := v) (spOk hp) (rate := 136) (outlen := 272) (by decide) (by decide) h1)
       fun _ h2 => WP.seq (WP.mono (zero_ok hp h2) fun _ h3 =>
         WP.seq (WP.mono (loopP_ok hp h3) fun _ h4 => end_ok hp h4))))
+
+theorem correct (σ : State) (hp : sbK.pre σ) :
+    ∃ t s', Exec isa sampleInBall σ t s' ∧ abiPreserved σ s' ∧ sbK.post σ s' :=
+  correctWith .scalar σ hp
 
 end Ball
 
@@ -205,7 +209,8 @@ theorem loop_ct : RelCT isa (Rel2 sbK.pre sbK.pub Z) bLoop fun _ _ => True := by
           X_eq hq]
       · rw [byte_zero h₁.zero hc, byte_zero h₂.zero (by rw [← hq.2.2.2.1]; exact hc)]
 
-theorem ct : ConstantTime isa sbK.pre sbK.pub sampleInBall := by
+theorem ctWith (v : Proof.Sha3.AArch64.Permutation) : ConstantTime isa sbK.pre sbK.pub (sampleInBallWith v.callee) := by
+  obtain ⟨hint, hhint⟩ := v.mldsaBallTaint
   refine RelCT.constantTime (Q := fun _ _ => True) (RelCT.mono (Q := fun _ _ => True)
     (P := Rel2 sbK.pre sbK.pub fun σ s => s = σ)
     ?_ (fun s₁ s₂ h => ⟨s₁, s₂, h.1, h.2.1, h.2.2, rfl, rfl⟩) fun _ _ _ => trivial)
@@ -216,7 +221,7 @@ theorem ct : ConstantTime isa sbK.pre sbK.pub sampleInBall := by
       rcases mem4 hr with rfl | rfl | rfl | rfl
       exacts [hq.1, hq.2.1, hq.2.2.2.1, hq.2.2.2.2.1]) (by taint_decide)) ?_
   refine RelCT.seq (relTaintStep (J' := fun σ => J6 136 272 (spOf σ) σ) [.x25, .x26, .x27, .x3, .x4]
-    (fun σ s hp h => sponge_ok (spOk hp) (by decide) (by decide) h) (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => by
+    (fun σ s hp h => spongeWith_ok (v := v) (spOk hp) (by decide) (by decide) h) (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => by
       refine ⟨by rw [h₁.env.sp, h₂.env.sp, hq.2.2.2.2.2.1], fun r hr => ?_⟩
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl | rfl
@@ -224,13 +229,16 @@ theorem ct : ConstantTime isa sbK.pre sbK.pub sampleInBall := by
       · rw [h₁.env.x26, h₂.env.x26, pub_eq hq]
       · rw [h₁.env.x27, h₂.env.x27, pub_eq hq]
       · rw [h₁.x3, h₂.x3, pub_eq hq]
-      · exact toNat_inj h₁.x4 (by rw [h₂.x4, pub_eq hq])) (by taint_decide)) ?_
+      · exact toNat_inj h₁.x4 (by rw [h₂.x4, pub_eq hq])) hhint) ?_
   refine RelCT.seq (relTaintStep (J' := Z) [.x26] (fun σ s hp h => zero_ok hp h)
     (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => ⟨by rw [h₁.env.sp, h₂.env.sp, hq.2.2.2.2.2.1], fun r hr => by
       rw [List.mem_singleton.mp hr, h₁.env.x26, h₂.env.x26, pub_eq hq]⟩) (by taint_decide)) ?_
   refine RelCT.seq (relStep (J' := LP) (fun σ s hp h => loopP_ok hp h) loop_ct) ?_
   exact relTaint [.x25] (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => ⟨by rw [h₁.env.sp, h₂.env.sp, hq.2.2.2.2.2.1],
     fun r hr => by rw [List.mem_singleton.mp hr, h₁.env.x25, h₂.env.x25, pub_eq hq]⟩) (by taint_decide)
+
+theorem ct : ConstantTime isa sbK.pre sbK.pub sampleInBall :=
+  ctWith .scalar
 
 end Ball
 
@@ -252,9 +260,9 @@ def sbSat : State where
   rd := [⟨0x1000, 32⟩]
   wr := [⟨0x2000, 1024⟩, ⟨0x3000, 2048⟩]
 
-theorem sampleInBall_verified : Verified AArch64.target Impl.MlDsa.AArch64.Sample.sampleInBall
+theorem sampleInBall_verifiedWith (v : Proof.Sha3.AArch64.Permutation) : Verified AArch64.target (Impl.MlDsa.AArch64.Sample.sampleInBallWith v.callee)
     (Spec.MlDsa.sampleInBallContract AArch64.abi 16) :=
-  Verified.of_correct Ball.correct Ball.ct
+  Verified.of_correct (Ball.correctWith v) (Ball.ctWith v)
     { pre := by sig_implies_pre [Spec.MlDsa.sampleInBallContract, Spec.MlDsa.sampleInBallSig, sbK,
         AArch64.abi, AArch64.argRegs]
       post := by
@@ -282,5 +290,9 @@ theorem sampleInBall_verified : Verified AArch64.target Impl.MlDsa.AArch64.Sampl
         exact ⟨hx0, hx1, hx2, hx3, hx4, hsp, Proof.MlKem.AArch64.Sample.map_toNat_inj hb⟩
       sat := by sig_implies_sat [Spec.MlDsa.sampleInBallContract, Spec.MlDsa.sampleInBallSig, sbK,
         AArch64.abi, AArch64.argRegs] [sbSat] using sbSat }
+
+theorem sampleInBall_verified : Verified AArch64.target Impl.MlDsa.AArch64.Sample.sampleInBall
+    (Spec.MlDsa.sampleInBallContract AArch64.abi 16) :=
+  sampleInBall_verifiedWith .scalar
 
 end VG.Proof.MlDsa.AArch64.Sample

@@ -47,8 +47,10 @@ def bSetup : List Instr :=
 
 def bLoop : Prog isa := .seq (.block bSetup) (.loop bBody (.nonzero .x .x5))
 
-def sampleInBall : Prog isa :=
+def sampleInBallWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
   .seq (.block (pro .x4 .x3 (.addImm .w .x27 .x2 0) (mov .x4 .x1)))
-    (.seq (sponge 136 272) (.seq zeroPoly (.seq bLoop (.block (.lsr .x .x0 .x10 8 :: epi)))))
+    (.seq (spongeWith c 136 272) (.seq zeroPoly (.seq bLoop (.block (.lsr .x .x0 .x10 8 :: epi)))))
+
+def sampleInBall := sampleInBallWith .scalar
 
 end VG.Impl.MlDsa.AArch64.Sample

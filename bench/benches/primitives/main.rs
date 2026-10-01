@@ -100,6 +100,48 @@ pub(crate) fn hmac_group<O>(
     g.finish();
 }
 
+/// Benchmarks checking an HMAC with the hash `H` and `md` (32-byte key)
+/// against OpenSSL's: computing the MAC of the data and comparing it with
+/// the expected one in constant time (`Hmac::verify`; OpenSSL's
+/// `CRYPTO_memcmp`).
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
+pub(crate) fn hmac_verify_group<H: verified_garbage::hmac::HmacHash>(
+    c: &mut Criterion,
+    name: &str,
+    md: MessageDigest,
+) {
+    use verified_garbage::hmac::Hmac;
+    let key = [0x0b; 32];
+    let pkey = PKey::hmac(&key).unwrap();
+    let mut g = c.benchmark_group(name);
+    for size in SIZES {
+        g.throughput(Throughput::Bytes(size as u64));
+        let data = vec![0x5a; size];
+        let mac = Hmac::<H>::mac(&key, &data);
+        g.bench_function(BenchmarkId::new(VG, size), |b| {
+            b.iter(|| {
+                let mut h = Hmac::<H>::new(black_box(&key));
+                h.update(black_box(&data));
+                h.verify(black_box(mac.as_ref())).unwrap()
+            })
+        });
+        let mut out = [0u8; 64];
+        g.bench_function(BenchmarkId::new(OPENSSL, size), |b| {
+            b.iter(|| {
+                let mut s = Signer::new(md, &pkey).unwrap();
+                let n = s.sign_oneshot(&mut out, black_box(&data)).unwrap();
+                assert!(openssl::memcmp::eq(&out[..n], black_box(mac.as_ref())))
+            })
+        });
+    }
+    g.finish();
+}
+
 /// Benchmarks PBKDF2 with the hash of `vg` and `md` against OpenSSL's, of a
 /// 32-byte password, deriving `len` bytes (a digest), with the sizes as the
 /// iteration counts.
