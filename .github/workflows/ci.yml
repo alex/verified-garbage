@@ -337,9 +337,10 @@ jobs:
         include:
           - chip: arl
             tests: sha384 sha512 cpu
-          # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma.
+          # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma
+          # and Ed25519's IFMA variants.
           - chip: icx
-            tests: x25519 cpu
+            tests: x25519 ed25519 cpu
           - chip: native
             os: ubuntu-24.04-arm
             tests: aes_gcm sha1 sha256 sha384 sha512 scrypt cpu
