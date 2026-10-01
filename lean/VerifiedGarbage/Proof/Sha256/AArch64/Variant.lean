@@ -46,13 +46,13 @@ theorem callee : CalleeOk (P := Stream.params) md v.code := ⟨v.verified.1, v.n
 theorem update_verified : Verified AArch64.target v.update Proof.Sha256.updateAArch64 := by
   have h := MdStream.AArch64.Update.verified Stream.dims v.callee v.updateCT v.updateKeeps
     (by rw [v.updateDepth]; decide)
-  exact h.of_implies ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr hc,
+  exact h.of_implies ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr hc,
     fun _ _ _ _ h => h, h.2.2⟩
 
 theorem finalize_verified : Verified AArch64.target v.finalize Proof.Sha256.finalizeAArch64 := by
   have h := MdStream.AArch64.Finalize.verified Stream.dims Stream.shape v.callee v.finalizeCT
     v.finalizeKeeps (by rw [v.finalizeDepth]; decide)
-  exact h.of_implies ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr trivial hc,
+  exact h.of_implies ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr trivial hc,
     fun _ _ _ _ h => h, h.2.2⟩
 
 end Compress

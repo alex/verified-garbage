@@ -210,7 +210,7 @@ theorem update_verified : Verified X86.target Impl.Sha256.X86.Stream.update Proo
   rw [update_eq] at ct ⊢
   have h := MdStream.X86.Update.verified (name := "vg_sha256_compress") dims callee ct
   exact Verified.of_implies h
-    ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr hc, fun _ _ _ _ h => h, h.2.2⟩
+    ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr hc, fun _ _ _ _ h => h, h.2.2⟩
 
 /-- A state satisfying `update`'s precondition. -/
 abbrev sat : State := MdStream.X86.Update.sat params 160
@@ -227,7 +227,7 @@ theorem finalize_verified : Verified X86.target Impl.Sha256.X86.Stream.finalize 
   rw [finalize_eq] at ct ⊢
   have h := MdStream.X86.Finalize.verified (name := "vg_sha256_compress") dims shape callee ct
   exact Verified.of_implies h
-    ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
+    ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
 
 /-- A state satisfying `finalize`'s precondition. -/
 abbrev sat : State := MdStream.X86.Finalize.sat params 160

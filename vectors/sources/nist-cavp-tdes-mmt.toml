@@ -1,0 +1,5 @@
+name = "NIST CAVP Triple DES ECB MMT vectors"
+directories = ["nist-cavp-tdes-mmt"]
+url = "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/des/tdesmmt.zip"
+sha256 = "04db93728ebf994330b0ba4555d397f8f03c29fd8547d9d586219fabe00e8c78"
+retrieved = 2026-10-01
