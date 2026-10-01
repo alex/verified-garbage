@@ -20,9 +20,10 @@ abbrev SEED : Region := ⟨State.addr L.seed, 32⟩
 abbrev PK : Region := ⟨State.addr L.pk, 32⟩
 abbrev MSG : Region := ⟨State.addr L.msg, L.len.toNat⟩
 abbrev SCR : Region := ⟨State.addr L.scr, 8192⟩
+abbrev ORIGINALARGS : Region := ⟨State.addr L.E + BitVec.ofNat 64 280, 8⟩
 abbrev ARGS : Region := ⟨State.addr L.E + BitVec.ofNat 64 248, 24⟩
 abbrev FR : Region := Whole.FR L.E
-def inputs : List Region := [L.SEED, L.PK, L.MSG, L.ARGS]
+def inputs : List Region := [L.SEED, L.PK, L.MSG, L.ORIGINALARGS, L.ARGS]
 def outputs : List Region := [L.OUT, L.SCR]
 def value (j : Nat) : BitVec 32 :=
   match j with | 0 => L.out | 1 => L.seed | 2 => L.pk | 3 => L.msg | 4 => L.len | _ => L.scr
