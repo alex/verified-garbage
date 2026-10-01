@@ -22,7 +22,10 @@ def artifacts : List Artifact := [
   { Spec.MlDsa.nttApi with
     target := X86_64.target
     doc := Spec.MlDsa.nttApi.doc
-      (notes := ["The function stores a table of the 256 zetas in `scratch`."])
+      (notes := ["The function computes on four coefficients at a time in SSE2 registers, with a table of \
+        the 256 zetas that it stores in `scratch`. It sets MXCSR to `0x1FBF` around its multiplications \
+        (Intel's mitigation of MXCSR-configuration-dependent timing) and loads the caller's MXCSR back \
+        before returning."])
     code := Impl.MlDsa.X86_64.Arith.ntt
     contract := Spec.MlDsa.nttContract X86_64.abi
     verified := Proof.MlDsa.X86_64.Arith.ntt_verified
@@ -31,7 +34,10 @@ def artifacts : List Artifact := [
   { Spec.MlDsa.nttInvApi with
     target := X86_64.target
     doc := Spec.MlDsa.nttInvApi.doc
-      (notes := ["The function stores a table of the 256 negated zetas in `scratch`."])
+      (notes := ["The function computes on four coefficients at a time in SSE2 registers, with a table of \
+        the 256 zetas that it stores in `scratch`. It sets MXCSR to `0x1FBF` around its multiplications \
+        (Intel's mitigation of MXCSR-configuration-dependent timing) and loads the caller's MXCSR back \
+        before returning."])
     code := Impl.MlDsa.X86_64.Arith.nttInv
     contract := Spec.MlDsa.nttInvContract X86_64.abi
     verified := Proof.MlDsa.X86_64.Arith.nttInv_verified

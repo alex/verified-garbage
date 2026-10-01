@@ -114,7 +114,7 @@ theorem bytesAt_writeBytes (m : Mem) (p : Addr) (r : Nat) (xs : List Byte) (h : 
 /-! ## `Repr` -/
 
 theorem repr_nil {mem : Mem} {p : Addr} (h : stateAt mem p = H0) : Spec.Sha256.Repr mem p [] := by
-  simp [Spec.Sha256.Repr, h, compressList_zero, bytesAt]
+  simp [Spec.Sha256.Repr, Spec.Sha256.ReprFrom, h, compressList_zero, bytesAt]
 
 /-- Appending bytes that stay within the buffer. -/
 theorem repr_append_buf {mem mem' : Mem} {p : Addr} {m xs : List Byte} (hr : Spec.Sha256.Repr mem p m)
@@ -219,7 +219,7 @@ theorem hash_eq (m : List Byte) (nt : Nat)
   have hlen : (pad m).length / 64 = m.length / 64 + nt := by
     rw [hp]; simp only [List.length_append, List.length_replicate, lenBytes_length, List.length_singleton]
     omega
-  simp only [Spec.Sha256.hash]
+  simp only [Spec.Sha256.hash, Spec.Sha256.finalHash]
   rw [hlen, compressList_add, hp, compressList_append (by omega),
     List.drop_append_of_le_length (by omega)]
   simp only [List.append_assoc]
