@@ -24,28 +24,23 @@ theorem updateArgs_ok (s : State) : WP isa (.block updateArgs) s (UpdateArgs s) 
   refine ⟨rfl, rfl, fun r h1 h2 => ?_, rfl, rfl, rfl⟩
   simp only [RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, h1, h2, ite_false]
 
-theorem update_ok (v : Proof.Blake2.X86_64.Backend) (s : State)
-    (h0 : Spec.Blake2.HashValue 64) (d : List Byte)
-    (repr : Repr b h0 s.mem (s.gpr .rbx) d)
-    (count : s.gpr .rsi = BitVec.ofNat 64 d.length)
-    (bound : d.length + (s.gpr .rcx).toNat < 2 ^ 64)
+/-- The narrowed streaming call, without assumptions about message contents. -/
+theorem update_call_hyps (s u : State) (hu : UpdateArgs s u)
     (hwr : (⟨s.gpr .rbx, 16384⟩ : Region) ∈ s.wr)
     (hdata : Covers [⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩] (s.rd ++ s.wr))
     (dataState : (⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩ : Region).Disjoint ⟨s.gpr .rbx, 192⟩)
     (dataScratch : (⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩ : Region).Disjoint ⟨s.gpr .rbx + 192, 576⟩)
     (stackWork : (below (s.gpr .rsp) 16).Disjoint ⟨s.gpr .rbx, 16384⟩)
     (stackData : (below (s.gpr .rsp) 16).Disjoint ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩) :
-    WP isa (update (hash v)) s fun t =>
-      Repr b h0 t.mem (s.gpr .rbx) (d ++ bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat) ∧
-      (∀ r ∈ calleeSaved, t.gpr r = s.gpr r) ∧ t.rd = s.rd ∧ t.wr = s.wr ∧
-      Frame [⟨s.gpr .rbx, 192⟩, ⟨s.gpr .rbx + 192, 576⟩, below (s.gpr .rsp) 16] s.mem t.mem := by
-  unfold update
-  refine WP.seq ((updateArgs_ok s).mono fun u hu => ?_)
+    (Proof.Blake2.updateX86_64 b).pre (u.callEntry.withRegions
+      [⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩] [⟨s.gpr .rbx, 192⟩, ⟨s.gpr .rbx + 192, 576⟩]) ∧
+    Covers ([⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩] ++
+      [⟨s.gpr .rbx, 192⟩, ⟨s.gpr .rbx + 192, 576⟩]) (u.rd ++ u.wr) ∧
+    Covers [⟨s.gpr .rbx, 192⟩, ⟨s.gpr .rbx + 192, 576⟩] u.wr := by
   have g : ∀ r, r ≠ .rsp → u.callEntry.gpr r = u.gpr r := fun r hr => State.callEntry_gpr u hr
   have sp : u.gpr .rsp = s.gpr .rsp := hu.other _ (by decide) (by decide)
   have src : u.gpr .rdx = s.gpr .rdx := hu.other _ (by decide) (by decide)
   have len : u.gpr .rcx = s.gpr .rcx := hu.other _ (by decide) (by decide)
-  have cnt : u.gpr .rsi = s.gpr .rsi := hu.other _ (by decide) (by decide)
   have subState : Region.Sub ⟨s.gpr .rbx, 192⟩ ⟨s.gpr .rbx, 16384⟩ := Region.sub_prefix (by decide)
   have subScratch : Region.Sub ⟨s.gpr .rbx + 192, 576⟩ ⟨s.gpr .rbx, 16384⟩ :=
     Offset.sub_base _ (by decide)
@@ -77,6 +72,36 @@ theorem update_ok (v : Proof.Blake2.X86_64.Backend) (s : State)
     · rw [hu.rd, hu.wr]; exact hdata a n ⟨r, hr, hc⟩
     · obtain ⟨r', hr', hc'⟩ := writes a n ⟨r, hr, hc⟩
       exact ⟨r', List.mem_append_right _ hr', hc'⟩
+  exact ⟨hp, cover, writes⟩
+
+theorem update_ok (v : Proof.Blake2.X86_64.Backend) (s : State)
+    (h0 : Spec.Blake2.HashValue 64) (d : List Byte)
+    (repr : Repr b h0 s.mem (s.gpr .rbx) d)
+    (count : s.gpr .rsi = BitVec.ofNat 64 d.length)
+    (bound : d.length + (s.gpr .rcx).toNat < 2 ^ 64)
+    (hwr : (⟨s.gpr .rbx, 16384⟩ : Region) ∈ s.wr)
+    (hdata : Covers [⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩] (s.rd ++ s.wr))
+    (dataState : (⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩ : Region).Disjoint ⟨s.gpr .rbx, 192⟩)
+    (dataScratch : (⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩ : Region).Disjoint ⟨s.gpr .rbx + 192, 576⟩)
+    (stackWork : (below (s.gpr .rsp) 16).Disjoint ⟨s.gpr .rbx, 16384⟩)
+    (stackData : (below (s.gpr .rsp) 16).Disjoint ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩) :
+    WP isa (update (hash v)) s fun t =>
+      Repr b h0 t.mem (s.gpr .rbx) (d ++ bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat) ∧
+      (∀ r ∈ calleeSaved, t.gpr r = s.gpr r) ∧ t.rd = s.rd ∧ t.wr = s.wr ∧
+      Frame [⟨s.gpr .rbx, 192⟩, ⟨s.gpr .rbx + 192, 576⟩, below (s.gpr .rsp) 16] s.mem t.mem := by
+  unfold update
+  refine WP.seq ((updateArgs_ok s).mono fun u hu => ?_)
+  have g : ∀ r, r ≠ .rsp → u.callEntry.gpr r = u.gpr r := fun r hr => State.callEntry_gpr u hr
+  have sp : u.gpr .rsp = s.gpr .rsp := hu.other _ (by decide) (by decide)
+  have src : u.gpr .rdx = s.gpr .rdx := hu.other _ (by decide) (by decide)
+  have len : u.gpr .rcx = s.gpr .rcx := hu.other _ (by decide) (by decide)
+  have cnt : u.gpr .rsi = s.gpr .rsi := hu.other _ (by decide) (by decide)
+  have subState : Region.Sub ⟨s.gpr .rbx, 192⟩ ⟨s.gpr .rbx, 16384⟩ := Region.sub_prefix (by decide)
+  have subScratch : Region.Sub ⟨s.gpr .rbx + 192, 576⟩ ⟨s.gpr .rbx, 16384⟩ :=
+    Offset.sub_base _ (by decide)
+  have retSub : Region.Sub (below (s.gpr .rsp) 8) (below (s.gpr .rsp) 16) := below_sub (by decide) (by decide)
+  have nestSub := below_callee (s.gpr .rsp) 8
+  obtain ⟨hp, cover, writes⟩ := update_call_hyps s u hu hwr hdata dataState dataScratch stackWork stackData
   have retState : (below (u.gpr .rsp) 8).Disjoint ⟨s.gpr .rbx, 192⟩ := by
     rw [sp]; exact (stackWork.sub_left retSub).sub_right subState
   have retData : (below (u.gpr .rsp) 8).Disjoint ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩ := by

@@ -24,17 +24,15 @@ theorem initArgs_ok (s : State) : WP isa (.block initArgs) s (InitArgs s) := by
   refine ⟨rfl, rfl, rfl, fun r h1 h2 h3 => ?_, rfl, rfl, rfl⟩
   simp only [State.setReg32, RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, h1, h2, h3, ite_false]
 
-theorem init_ok (v : Proof.Blake2.X86_64.Backend) (s : State)
+/-- The narrowed BLAKE2b call and its permissions, shared by correctness and timing. -/
+theorem init_call_hyps (s u : State) (hu : InitArgs s u)
     (hlen : 1 ≤ (s.gpr .rsi).toNat ∧ (s.gpr .rsi).toNat ≤ 64)
     (hwr : (⟨s.gpr .rbx, 16384⟩ : Region) ∈ s.wr)
     (hret : (below (s.gpr .rsp) 8).Disjoint ⟨s.gpr .rbx, 192⟩) :
-    WP isa (init (hash v)) s fun t =>
-      Spec.Blake2.Repr Spec.Blake2.b (Spec.Blake2.init Spec.Blake2.b (s.gpr .rsi).toNat 0)
-        t.mem (s.gpr .rbx) [] ∧
-      (∀ r ∈ calleeSaved, t.gpr r = s.gpr r) ∧ t.rd = s.rd ∧ t.wr = s.wr ∧
-      Frame [⟨s.gpr .rbx, 192⟩, below (s.gpr .rsp) 8] s.mem t.mem := by
-  unfold init
-  refine WP.seq ((initArgs_ok s).mono fun u hu => ?_)
+    (Proof.Blake2.initX86_64 Spec.Blake2.b).pre
+      (u.callEntry.withRegions [⟨s.gpr .rbx + 832, 0⟩] [⟨s.gpr .rbx, 192⟩]) ∧
+    Covers [⟨s.gpr .rbx + 832, 0⟩, ⟨s.gpr .rbx, 192⟩] (u.rd ++ u.wr) ∧
+    Covers [⟨s.gpr .rbx, 192⟩] u.wr := by
   have hsp : u.gpr .rsp = s.gpr .rsp := hu.other _ (by decide) (by decide) (by decide)
   have hlen' : u.gpr .rsi = s.gpr .rsi := hu.other _ (by decide) (by decide) (by decide)
   have g : ∀ r, r ≠ .rsp → u.callEntry.gpr r = u.gpr r := fun r hr => State.callEntry_gpr u hr
@@ -60,6 +58,23 @@ theorem init_ok (v : Proof.Blake2.X86_64.Backend) (s : State)
     intro r hr
     simp only [List.mem_singleton] at hr; subst r
     exact ⟨⟨s.gpr .rbx, 16384⟩, hu.wr.symm ▸ hwr, 0, (BitVec.add_zero _).symm, by change 192 ≤ 16384; decide⟩
+  exact ⟨hp, cover, writes⟩
+
+theorem init_ok (v : Proof.Blake2.X86_64.Backend) (s : State)
+    (hlen : 1 ≤ (s.gpr .rsi).toNat ∧ (s.gpr .rsi).toNat ≤ 64)
+    (hwr : (⟨s.gpr .rbx, 16384⟩ : Region) ∈ s.wr)
+    (hret : (below (s.gpr .rsp) 8).Disjoint ⟨s.gpr .rbx, 192⟩) :
+    WP isa (init (hash v)) s fun t =>
+      Spec.Blake2.Repr Spec.Blake2.b (Spec.Blake2.init Spec.Blake2.b (s.gpr .rsi).toNat 0)
+        t.mem (s.gpr .rbx) [] ∧
+      (∀ r ∈ calleeSaved, t.gpr r = s.gpr r) ∧ t.rd = s.rd ∧ t.wr = s.wr ∧
+      Frame [⟨s.gpr .rbx, 192⟩, below (s.gpr .rsp) 8] s.mem t.mem := by
+  unfold init
+  refine WP.seq ((initArgs_ok s).mono fun u hu => ?_)
+  have hsp : u.gpr .rsp = s.gpr .rsp := hu.other _ (by decide) (by decide) (by decide)
+  have hlen' : u.gpr .rsi = s.gpr .rsi := hu.other _ (by decide) (by decide) (by decide)
+  have g : ∀ r, r ≠ .rsp → u.callEntry.gpr r = u.gpr r := fun r hr => State.callEntry_gpr u hr
+  obtain ⟨hp, cover, writes⟩ := init_call_hyps s u hu hlen hwr hret
   refine WP.call (k := Proof.Blake2.initX86_64 Spec.Blake2.b)
     Proof.Blake2.X86_64.Stream.initB_correct (hash_ok v).initNoSp
     (by decide) hp cover writes ?_

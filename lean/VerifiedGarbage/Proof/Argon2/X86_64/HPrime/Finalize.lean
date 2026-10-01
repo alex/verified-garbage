@@ -25,22 +25,17 @@ theorem finalizeArgs_ok (s : State) : WP isa (.block finalizeArgs) s (FinalizeAr
   refine ⟨rfl, rfl, rfl, fun r h1 h2 h3 => ?_, rfl, rfl, rfl⟩
   simp only [RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, h1, h2, h3, ite_false]
 
-theorem finalize_ok (v : Proof.Blake2.X86_64.Backend) (s : State)
-    (h0 : Spec.Blake2.HashValue 64) (d : List Byte)
-    (repr : Repr b h0 s.mem (s.gpr .rbx) d)
-    (count : s.gpr .rsi = BitVec.ofNat 64 d.length) (bound : d.length < 2 ^ 64)
+/-- The narrowed finalization call, independently of the represented message. -/
+theorem finalize_call_hyps (s u : State) (hu : FinalizeArgs s u)
     (hwr : (⟨s.gpr .rbx, 16384⟩ : Region) ∈ s.wr)
     (stackWork : (below (s.gpr .rsp) 16).Disjoint ⟨s.gpr .rbx, 16384⟩) :
-    WP isa (finalize (hash v)) s fun t =>
-      bytesAt t.mem (s.gpr .rbx + 768) 64 = Spec.Blake2.finalHash b h0 d ∧
-      (∀ r ∈ calleeSaved, t.gpr r = s.gpr r) ∧ t.rd = s.rd ∧ t.wr = s.wr ∧
-      Frame [⟨s.gpr .rbx, 192⟩, ⟨s.gpr .rbx + 768, 64⟩,
-        ⟨s.gpr .rbx + 192, 576⟩, below (s.gpr .rsp) 16] s.mem t.mem := by
-  unfold finalize
-  refine WP.seq ((finalizeArgs_ok s).mono fun u hu => ?_)
+    (Proof.Blake2.finalizeX86_64 b).pre (u.callEntry.withRegions []
+      [⟨s.gpr .rbx, 192⟩, ⟨s.gpr .rbx + 768, 64⟩, ⟨s.gpr .rbx + 192, 576⟩]) ∧
+    Covers ([] ++ [⟨s.gpr .rbx, 192⟩, ⟨s.gpr .rbx + 768, 64⟩,
+      ⟨s.gpr .rbx + 192, 576⟩]) (u.rd ++ u.wr) ∧
+    Covers [⟨s.gpr .rbx, 192⟩, ⟨s.gpr .rbx + 768, 64⟩, ⟨s.gpr .rbx + 192, 576⟩] u.wr := by
   have g : ∀ r, r ≠ .rsp → u.callEntry.gpr r = u.gpr r := fun r hr => State.callEntry_gpr u hr
   have sp : u.gpr .rsp = s.gpr .rsp := hu.other _ (by decide) (by decide) (by decide)
-  have cnt : u.gpr .rsi = s.gpr .rsi := hu.other _ (by decide) (by decide) (by decide)
   have subState : Region.Sub ⟨s.gpr .rbx, 192⟩ ⟨s.gpr .rbx, 16384⟩ := Region.sub_prefix (by decide)
   have subDigest : Region.Sub ⟨s.gpr .rbx + 768, 64⟩ ⟨s.gpr .rbx, 16384⟩ :=
     Offset.sub_base _ (by decide)
@@ -72,6 +67,32 @@ theorem finalize_ok (v : Proof.Blake2.X86_64.Backend) (s : State)
     intro a n h
     obtain ⟨r, hr, hc⟩ := writes a n h
     exact ⟨r, List.mem_append_right _ hr, hc⟩
+  exact ⟨hp, cover, writes⟩
+
+theorem finalize_ok (v : Proof.Blake2.X86_64.Backend) (s : State)
+    (h0 : Spec.Blake2.HashValue 64) (d : List Byte)
+    (repr : Repr b h0 s.mem (s.gpr .rbx) d)
+    (count : s.gpr .rsi = BitVec.ofNat 64 d.length) (bound : d.length < 2 ^ 64)
+    (hwr : (⟨s.gpr .rbx, 16384⟩ : Region) ∈ s.wr)
+    (stackWork : (below (s.gpr .rsp) 16).Disjoint ⟨s.gpr .rbx, 16384⟩) :
+    WP isa (finalize (hash v)) s fun t =>
+      bytesAt t.mem (s.gpr .rbx + 768) 64 = Spec.Blake2.finalHash b h0 d ∧
+      (∀ r ∈ calleeSaved, t.gpr r = s.gpr r) ∧ t.rd = s.rd ∧ t.wr = s.wr ∧
+      Frame [⟨s.gpr .rbx, 192⟩, ⟨s.gpr .rbx + 768, 64⟩,
+        ⟨s.gpr .rbx + 192, 576⟩, below (s.gpr .rsp) 16] s.mem t.mem := by
+  unfold finalize
+  refine WP.seq ((finalizeArgs_ok s).mono fun u hu => ?_)
+  have g : ∀ r, r ≠ .rsp → u.callEntry.gpr r = u.gpr r := fun r hr => State.callEntry_gpr u hr
+  have sp : u.gpr .rsp = s.gpr .rsp := hu.other _ (by decide) (by decide) (by decide)
+  have cnt : u.gpr .rsi = s.gpr .rsi := hu.other _ (by decide) (by decide) (by decide)
+  have subState : Region.Sub ⟨s.gpr .rbx, 192⟩ ⟨s.gpr .rbx, 16384⟩ := Region.sub_prefix (by decide)
+  have subDigest : Region.Sub ⟨s.gpr .rbx + 768, 64⟩ ⟨s.gpr .rbx, 16384⟩ :=
+    Offset.sub_base _ (by decide)
+  have subScratch : Region.Sub ⟨s.gpr .rbx + 192, 576⟩ ⟨s.gpr .rbx, 16384⟩ :=
+    Offset.sub_base _ (by decide)
+  have retSub : Region.Sub (below (s.gpr .rsp) 8) (below (s.gpr .rsp) 16) := below_sub (by decide) (by decide)
+  have nestSub := below_callee (s.gpr .rsp) 8
+  obtain ⟨hp, cover, writes⟩ := finalize_call_hyps s u hu hwr stackWork
   have retState : (below (u.gpr .rsp) 8).Disjoint ⟨s.gpr .rbx, 192⟩ := by
     rw [sp]; exact (stackWork.sub_left retSub).sub_right subState
   have repr' : Repr b h0 u.callEntry.mem (s.gpr .rbx) d := by
