@@ -9,12 +9,14 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (Scr IKeep E F)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem invertWide_ok {s : State} {base : Addr} (hs : Scratch s base) :
-    WP isa (VG.Impl.X25519.X86_64.invert VG.Impl.X25519.X86_64.baseline) s fun t => IKeep base s t ∧
+    WP isa (VG.Impl.X25519.X86_64.invert fld) s fun t => IKeep base s t ∧
       env t.mem base 15 = VG.Proof.X25519.invert (env s.mem base 2) := by
   let narrow := s.withRegions s.rd [⟨base, 4096⟩]
   have hn : Scr narrow base := ⟨hs.rdi, List.mem_singleton_self _, by have := hs.nowrap; omega⟩
-  obtain ⟨tr, t, he, hg, hr, hw, hm, hv⟩ := Proof.X25519.X86_64.invert_ok Proof.X25519.X86_64.baseline_ok hn
+  obtain ⟨tr, t, he, hg, hr, hw, hm, hv⟩ := Proof.X25519.X86_64.invert_ok (EdArith.ok (fld := fld)) hn
   have cw : Covers [⟨base, 4096⟩] s.wr := by
     apply Covers.of_sub
     intro r hr
@@ -29,7 +31,7 @@ theorem affine_eval (e : Env) :
   exact ⟨rfl, rfl⟩
 
 theorem pointAffine_ok {s : State} {base : Addr} (hs : Scratch s base) :
-    WP isa pointAffine s fun t => RbxKeep base s t ∧
+    WP isa (pointAffine fld) s fun t => RbxKeep base s t ∧
       env t.mem base 0 = env s.mem base 0 * Spec.X25519.pow (env s.mem base 2) (Spec.X25519.P - 2) ∧
       env t.mem base 1 = env s.mem base 1 * Spec.X25519.pow (env s.mem base 2) (Spec.X25519.P - 2) := by
   rw [pointAffine]

@@ -8,6 +8,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (clob Outside Keeps)
 
+variable {fld : Arith} [EdArith fld]
+
 structure DoubleKeep (base : Addr) (s t : State) : Prop where
   gpr : ∀ r, r ≠ .rsi → r ∉ clob → t.gpr r = s.gpr r
   rd : t.rd = s.rd
@@ -45,7 +47,7 @@ theorem doubleDec_ok (s : State) (n : Nat) (hn : n < 16)
 
 theorem doubleBody_ok {s : State} {base : Addr} (hs : Scratch s base) (n : Nat) (hn : n < 16)
     (hc : s.gpr .rsi = BitVec.ofNat 64 (n + 1)) (hd : env s.mem base 16 = Spec.Ed25519.d) :
-    WP isa (.block doubleBody) s fun t =>
+    WP isa (.block (doubleBody fld)) s fun t =>
       t.gpr .rsi = BitVec.ofNat 64 n ∧ t.zf = some (decide (n = 0)) ∧
       point (env t.mem base) 0 1 2 3 =
         Spec.Ed25519.pointAdd (point (env s.mem base) 0 1 2 3) (point (env s.mem base) 0 1 2 3) ∧
@@ -71,7 +73,7 @@ structure DoubleInv (s₀ : State) (base : Addr) (n : Nat) (s : State) : Prop wh
 
 theorem doubleLoop_ok {s₀ : State} {base : Addr} (hs : Scratch s₀ base)
     (hc : s₀.gpr .rsi = 16) (hd : env s₀.mem base 16 = Spec.Ed25519.d) :
-    WP isa (.loop (.block doubleBody) .ne) s₀ fun t =>
+    WP isa (.loop (.block (doubleBody fld)) .ne) s₀ fun t =>
       point (env t.mem base) 0 1 2 3 = powerPoint (point (env s₀.mem base) 0 1 2 3) 16 ∧
       (∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s₀.mem base i) ∧ DoubleKeep base s₀ t := by
   apply WP.loop (DoubleInv s₀ base) (n := 16)
@@ -103,7 +105,7 @@ theorem doubleInit_ok (s : State) :
 
 theorem double16_ok {s : State} {base : Addr} (hs : Scratch s base)
     (hd : env s.mem base 16 = Spec.Ed25519.d) :
-    WP isa double16 s fun t =>
+    WP isa (double16 fld) s fun t =>
       point (env t.mem base) 0 1 2 3 = powerPoint (point (env s.mem base) 0 1 2 3) 16 ∧
       (∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i) ∧ DoubleKeep base s t := by
   rw [double16]

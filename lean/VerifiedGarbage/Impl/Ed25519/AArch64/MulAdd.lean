@@ -28,6 +28,6 @@ def scalarMulAdd : Prog isa :=
   .seq (.block mulAddSetup) <|
   .seq (.block (wideAccumulate 64 96)) <|
   .seq (.block (storeWide ++ reduceArgs ++ scalarInit)) <|
-  .seq (.loop (.block scalarByte) (.nonzero .x .x19)) (.block scalarFinish)
+  .seq (.loop (.block scalarWord) (.nonzero .x .x19)) (.block scalarFinish)
 
 end VG.Impl.Ed25519.AArch64

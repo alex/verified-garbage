@@ -7,6 +7,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off ofs Outside ea_sc)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem mulCounterInit_ok {s : State} {base : Addr} (hs : Scratch s base) (count : Nat) :
     WP isa (.block (mulCounterInit count)) s fun t =>
       t.mem.readW (off base 56) 64 = BitVec.ofNat 64 count ∧
@@ -26,7 +28,7 @@ theorem pointMultiplyInit_ok {s : State} {base : Addr} (hs : Scratch s base)
     (count scalar : Nat) (hn0 : 0 < count) (hn : count ≤ 32) (hscalar : scalar < 2 ^ (16 * count))
     (hd : env s.mem base 16 = Spec.Ed25519.d)
     (hb : ∀ i < 16 * count, s.mem (off base (768 + i)) = BitVec.ofNat 8 ((scalar / 2 ^ i) % 2)) :
-    WP isa (pointMultiplyInit count) s fun t =>
+    WP isa (pointMultiplyInit fld count) s fun t =>
       PointMulInv s base count scalar (point (env s.mem base) 0 1 2 3) count t := by
   rw [pointMultiplyInit]
   refine WP.seq (WP.mono (pointPowers_ok true hs 1280 count (by decide) (by omega) hn0 hn hd)
@@ -66,7 +68,7 @@ theorem pointMultiply_ok {s : State} {base : Addr} (hs : Scratch s base)
     (count scalar : Nat) (hn0 : 0 < count) (hn : count ≤ 32) (hscalar : scalar < 2 ^ (16 * count))
     (hd : env s.mem base 16 = Spec.Ed25519.d)
     (hb : ∀ i < 16 * count, s.mem (off base (768 + i)) = BitVec.ofNat 8 ((scalar / 2 ^ i) % 2)) :
-    WP isa (pointMultiply count) s fun t =>
+    WP isa (pointMultiply fld count) s fun t =>
       point (env t.mem base) 0 1 2 3 = Spec.Ed25519.pointMul scalar (point (env s.mem base) 0 1 2 3) ∧
       env t.mem base 16 = Spec.Ed25519.d ∧ PowersKeep base 56 7368 s t := by
   rw [pointMultiply]

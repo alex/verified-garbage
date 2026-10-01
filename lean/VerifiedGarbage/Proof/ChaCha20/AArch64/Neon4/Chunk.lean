@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.ChaCha20.AArch64.Neon4.Finish
+import VerifiedGarbage.Proof.ChaCha20.AArch64.Neon4.RoundLoop
 
 namespace VG.Proof.ChaCha20.AArch64.Neon4
 
@@ -29,11 +30,10 @@ theorem chunk_ok (s : State)
         (serialize (block (ctr (stateAt s.mem (s.gpr .x0)) (k / 64)))).getD (k % 64) 0) ∧
       Frame [⟨s.gpr .x1, 256⟩] s.mem s'.mem ∧ ChunkKeep s s' := by
   apply WP.seq
-  refine (setup_ok s hin).mono fun a ⟨ha, hsa⟩ => ?_
+  refine (setup_ok s hin).mono fun a ⟨ha, hsa, hta⟩ => ?_
   apply WP.seq
-  refine (rounds_ok ha 10).mono fun b ⟨hb, hab⟩ => ?_
-  have hsb : LoadSame s b := hsa.trans ⟨fun r _ => congrFun hab.gpr r,
-    hab.mem, hab.rd, hab.wr, hab.sp⟩
+  refine (roundLoop_ok ha hta).mono fun b ⟨hb, hab⟩ => ?_
+  have hsb : LoadSame s b := hsa.trans hab
   have hi : ∀ k : Fin 16, InRegions (b.rd ++ b.wr) (b.gpr .x0 + BitVec.ofNat 64 (4 * k)) 4 := by
     intro k; rw [hsb.rd, hsb.wr, hsb.gpr _ (by decide)]; exact hin k
   apply WP.block_append

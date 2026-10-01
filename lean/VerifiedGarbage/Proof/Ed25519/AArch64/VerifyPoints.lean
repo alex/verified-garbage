@@ -13,6 +13,7 @@ theorem verifyEquationPoints_ok {s : State} {base sig challenge : Addr} (hs : Sc
     (hr : ∀ i < 32, InRegions (s.rd ++ s.wr) (off (off sig 32) i) 1)
     (hf : ∀ i < 32, 8192 ≤ ofs base (off (off sig 32) i))
     (hcr : ∀ i < 64, InRegions (s.rd ++ s.wr) (off challenge i) 1)
+    (hcw : ∀ d, d + 8 ≤ 32 → InRegions (s.rd ++ s.wr) (off (off challenge 32) d) 8)
     (hcf : ∀ i < 64, 8192 ≤ ofs base (off challenge i)) :
     WP isa verifyEquationPoints s fun t => PowersKeep base 56 7752 s t ∧
       t.gpr .x8 = signWord (Spec.Ed25519.pointEqual
@@ -28,7 +29,8 @@ theorem verifyEquationPoints_ok {s : State} {base sig challenge : Addr} (hs : Sc
   have am : Spec.Ed25519.bytesAt a.mem challenge 64 = Spec.Ed25519.bytesAt s.mem challenge 64 :=
     outside_bytes (tableFrame_work ka.mem (by decide) (by decide)) (by decide) hcf
   refine WP.mono (verifyRhs_ok (ka.scratch hs) ac
-    (by intro i hi; rw [ka.rd, ka.wr]; exact hcr i hi) hcf) fun t ⟨kt, tv⟩ => ?_
+    (by intro i hi; rw [ka.rd, ka.wr]; exact hcr i hi)
+    (by intro d hd; rw [ka.rd, ka.wr]; exact hcw d hd) hcf) fun t ⟨kt, tv⟩ => ?_
   refine ⟨ka.trans kt, ?_⟩
   rw [tv, av, am, ap 7552 (by decide) (by decide), ap 7424 (by decide) (by decide)]
 
