@@ -100,11 +100,7 @@ fn message_boundaries_and_unaligned_inputs() {
         signature_storage.0[1..].copy_from_slice(&signature);
         let signature = &signature_storage.0[1..];
         assert_eq!(signature.as_ptr() as usize % 8, 1);
-        assert_eq!(
-            key.verifying_key().verify(message, signature),
-            Ok(()),
-            "message length {len}"
-        );
+        assert_eq!(key.verifying_key().verify(message, signature), Ok(()));
     }
 }
 
