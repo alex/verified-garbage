@@ -8,8 +8,8 @@ import VerifiedGarbage.Proof.MlKem1024.X86_64.DcTop
 
 A generic file (see `TCB/Emit.lean`): the artifacts it lists, which sample
 the matrix `Â` four entries at a time with an implementation `v` of
-`vg_mlkem_sample_ntt4`, are emitted once for each implementation
-(`Variants/MlKemSample4/X86_64/`), named with its suffix (e.g.
+`vg_mlkem_sample_ntt4` (and compute the outputs of `PRF` as goes with it),
+are emitted once for each implementation (`Variants/MlKemSample4/X86_64/`), named with its suffix (e.g.
 `vg_mlkem1024_keygen_avx2`), and need its CPU features. **Review note**:
 `sig` and `doc` are trusted, as they tie the Rust caller to the contract;
 check them against the contract's `pre`/`post`. An artifact made from a
@@ -27,7 +27,7 @@ open VG.Proof.MlKem.X86_64 (Sample4Impl)
 def notes (v : Sample4Impl) : List String :=
   ["The function saves its caller's callee-saved registers in `scratch`; its calls use the 32 bytes of \
     stack below its return address. It samples the matrix four entries at a time with `" ++
-    v.callee.name ++ "`."]
+    v.callee.name ++ "`, and computes the outputs of `PRF` " ++ v.prfsDoc ++ "."]
 
 def artifacts (v : Sample4Impl) : List Artifact := [
   { Spec.MlKem1024.keyGenApi with

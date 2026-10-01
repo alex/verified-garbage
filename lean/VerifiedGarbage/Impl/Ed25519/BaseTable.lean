@@ -9,7 +9,7 @@ specification's `pointAdd p p`, `i` times, from `basePoint`), for `i < 256`.
 The proof checks every entry against the specification.
 -/
 
-namespace VG.Impl.Ed25519.X86_64
+namespace VG.Impl.Ed25519
 
 /-- The cached powers, `[Y - X, Y + X, 2dT, 2Z]` of `[2^i]B` at index `i`. -/
 def baseCachedTable : List Spec.Ed25519.Point := [
@@ -1041,4 +1041,4 @@ def baseCachedTable : List Spec.Ed25519.Point := [
 /-- Entry `i` of `baseCachedTable`. -/
 def baseCached (i : Nat) : Spec.Ed25519.Point := baseCachedTable.getD i Spec.Ed25519.identity
 
-end VG.Impl.Ed25519.X86_64
+end VG.Impl.Ed25519

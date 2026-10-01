@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.BaseMultiples
-import VerifiedGarbage.Proof.Ed25519.X86_64.BaseTable
+import VerifiedGarbage.Proof.Ed25519.BaseTable
 import VerifiedGarbage.Proof.Ed25519.Group.Decode
 
 /-!

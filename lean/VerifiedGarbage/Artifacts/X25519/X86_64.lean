@@ -5,6 +5,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Lit
 import VerifiedGarbage.Impl.X25519.X86_64.Adx
 import VerifiedGarbage.Proof.X25519.X86_64.Adx.Verified
 import VerifiedGarbage.Proof.X25519.X86_64.Adx.Lit
+import VerifiedGarbage.Impl.X25519.X86_64.Ifma
+import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Verified
+import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Lit
 
 /-!
 # X25519 (RFC 7748) on x86-64
@@ -44,6 +47,21 @@ def artifacts : List Artifact := [
     contract := Spec.X25519.x25519Contract X86_64.abi
     verified := Proof.X25519.X86_64.x25519Adx_verified
     features := ["bmi2", "adx"]
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.X25519.x25519Api with
+    target := X86_64.target
+    name := "vg_x25519_ifma"
+    doc := Spec.X25519.x25519Api.doc (notes := ["The function saves its caller's callee-saved \
+      registers in `scratch`. The ladder runs the four field multiplications of each of its \
+      three stages at once, one to each 64-bit lane of `ymm` registers, with AVX512_IFMA's \
+      `vpmadd52luq` and `vpmadd52huq`: field elements are five 51-bit limbs, reduced with \
+      `2^255 = 19` (mod p). It sets MXCSR to `0x1FBF` for the ladder (Intel's mitigation of \
+      MXCSR-configuration-dependent timing) and restores the caller's. The inversion is \
+      ref10's addition chain, with `vg_x25519_adx`'s field multiplications."])
+    code := Impl.X25519.X86_64.x25519Ifma
+    contract := Spec.X25519.x25519Contract X86_64.abi
+    verified := Proof.X25519.X86_64.x25519Ifma_verified
+    features := ["avx", "avx2", "bmi2", "adx", "avx512ifma", "avx512vl"]
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.X25519.X86_64

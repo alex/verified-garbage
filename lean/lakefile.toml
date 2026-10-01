@@ -56,7 +56,7 @@ name = "NativeSpec"
 # Exactly these modules (as `globs`: `roots` would also take their submodules,
 # such as `Spec.MlKem.Contract`, and with them the rest of the library).
 roots = []
-globs = ["VerifiedGarbage.TCB.Mem", "VerifiedGarbage.Spec.Sha1", "VerifiedGarbage.Spec.Sha256",
+globs = ["VerifiedGarbage.Spec.Sha1", "VerifiedGarbage.Spec.Sha256",
   "VerifiedGarbage.Spec.Sha512", "VerifiedGarbage.Spec.Md5", "VerifiedGarbage.Spec.Sha3",
   "VerifiedGarbage.Spec.Hmac", "VerifiedGarbage.Spec.Pbkdf2", "VerifiedGarbage.Spec.Scrypt",
   "VerifiedGarbage.Spec.ChaCha20", "VerifiedGarbage.Spec.Poly1305", "VerifiedGarbage.Spec.Aes",
@@ -72,4 +72,14 @@ precompileModules = true
 name = "NativeTactics"
 roots = []
 globs = ["VerifiedGarbage.Proof.Framework.SigEval"]
+precompileModules = true
+
+# The trusted base, which imports only Lean core: the code the emitter
+# (`Emit.lean`, which loads this library) runs to check and print every
+# artifact, an order of magnitude faster compiled than in the interpreter
+# (52 s to 7 s). `TCB.Mem` is here and not in `NativeSpec`, which imports it.
+[[lean_lib]]
+name = "NativeTCB"
+roots = []
+globs = ["VerifiedGarbage.TCB.+"]
 precompileModules = true
