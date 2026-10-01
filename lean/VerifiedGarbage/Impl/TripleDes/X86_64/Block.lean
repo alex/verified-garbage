@@ -28,7 +28,7 @@ def blockRestore : List Instr :=
     [.mov .rdi (.mem (memOp .rdx 48))]
 
 def blockLoad : List Instr :=
-  [.mov .rax (.mem (memOp .rsi 0)), .bswap .rax] ++
+  ([.mov .rax (.mem (memOp .rsi 0)), .bswap .rax] : List Instr) ++
     permuteCode Spec.TripleDes.ip 64 .rbx .rax .rbp ++
     [rr .r12 .rbx, .shift .shr .r12 32, .mov32 .r13 (.reg .rbx)]
 
@@ -36,7 +36,7 @@ def blockLoad : List Instr :=
 The source R bit comes directly from E; the key's upper sixteen bits are
 never read as cipher bits. -/
 def sboxInputs (i : Nat) : List Instr :=
-  [.mov .rbx (.mem (memOp .rdi 0))] ++ (List.range 6).flatMap fun j =>
+  ([.mov .rbx (.mem (memOp .rdi 0))] : List Instr) ++ (List.range 6).flatMap fun j =>
     let k := 6 * i + 5 - j
     [rr (q j) .r13] ++ shr (q j) (32 - Spec.TripleDes.expansion.getD k 1) ++
       [rr .rbp .rbx] ++ shr .rbp (47 - k) ++
@@ -62,7 +62,8 @@ def roundCountAdvance : List Instr :=
    .store (memOp .rdx 56) .rax]
 
 def roundAdvance (direction : Direction) : List Instr :=
-  [.alu (if direction = .encrypt then .add else .sub) .rdi (.imm 8)] ++ roundCountAdvance
+  ([.alu (if direction = .encrypt then .add else .sub) .rdi (.imm 8)] : List Instr) ++
+    roundCountAdvance
 
 def passStart (component : Nat) (direction : Direction) : List Instr :=
   [.mov .rdi (.mem (memOp .rdx 48)),
