@@ -1,5 +1,6 @@
 import VerifiedGarbage.Impl.Ed25519.X86.PublicKey
 import VerifiedGarbage.Impl.Ed25519.X86.Whole.Setup
+import VerifiedGarbage.Impl.Ed25519.X86.Whole.Wipe
 import VerifiedGarbage.Impl.Ed25519.X86.Scalar
 import VerifiedGarbage.Impl.Ed25519.X86.MulAdd
 import VerifiedGarbage.Spec.Ed25519.CachedSign
@@ -69,15 +70,14 @@ def hashChallenge : Prog isa :=
 def mulAddArgs : List Instr :=
   Whole.setup 0 [.caller 0 32, .frame 96, .frame 128, .frame 32, .caller 5 0]
 
-def wipe : List Instr := [.mov .eax (.imm 0)] ++
-  (List.range 56).map fun k => .store (at_ (32 + 4 * k)) .eax
+def wipe : List Instr := Whole.zeroWords 8 56
 
-def body : Prog isa :=
-  .seq hashSeed (.seq (.block saveSecret)
-    (.seq hashNonce (.seq (reduce 96)
-    (.seq (callWith baseArgs "vg_ed25519_scalar_base" scalarBase)
-    (.seq hashChallenge (.seq (reduce 128)
-    (.seq (callWith mulAddArgs "vg_ed25519_scalar_mul_add" scalarMulAdd) (.block wipe))))))))
+def secretCode : Prog isa := .seq hashSeed (.block saveSecret)
+def nonceCode : Prog isa := .seq hashNonce (.seq (reduce 96)
+  (callWith baseArgs "vg_ed25519_scalar_base" scalarBase))
+def challengeCode : Prog isa := .seq hashChallenge (.seq (reduce 128)
+  (callWith mulAddArgs "vg_ed25519_scalar_mul_add" scalarMulAdd))
+def body : Prog isa := .seq secretCode (.seq nonceCode (.seq challengeCode (.block wipe)))
 
 def code : Prog isa :=
   .frame (.push (List.replicate 64 .eax)) body (.pop .eax 64)
