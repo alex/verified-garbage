@@ -1,12 +1,12 @@
 import VerifiedGarbage.Proof.Blake2.X86.CompressB.Rounds
-import VerifiedGarbage.Proof.Blake2.X86.CompressB.Contract
+import VerifiedGarbage.Proof.Blake2.X86.Contract
 import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # BLAKE2b compression function on x86 (32-bit): the precondition
 
-Untrusted: everything here is checked by Lean. The facts `compressX86.pre`
-gives (`Pre`), and the addresses and regions the code uses.
+Untrusted: everything here is checked by Lean. The facts `compressX86 b`'s
+precondition gives (`Pre`), and the addresses and regions the code uses.
 -/
 
 namespace VG.Proof.Blake2.X86.CompressB
@@ -59,7 +59,7 @@ structure Pre (s₀ : State) : Prop where
   scr_fits : (scr s₀).toNat + 512 ≤ 2 ^ 32
   esp_fits : (esp₀ s₀).toNat + 32 ≤ 2 ^ 32
 
-theorem pre_of (s₀ : State) (h : compressX86.pre s₀) : Pre s₀ := by
+theorem pre_of (s₀ : State) (h : (compressX86 Spec.Blake2.b).pre s₀) : Pre s₀ := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13⟩
 

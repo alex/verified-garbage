@@ -2,13 +2,14 @@ import VerifiedGarbage.Proof.Blake2.X86.CompressB.Compress
 import VerifiedGarbage.Proof.Blake2.X86.CompressB.Lit
 import VerifiedGarbage.Proof.Framework.X86.Taint
 import VerifiedGarbage.Spec.Blake2.Contract
+import VerifiedGarbage.Proof.Framework.Contract
 
 /-!
 # BLAKE2b compression function on x86 (32-bit): the whole function
 
 Untrusted: everything here is checked by Lean. The prologue and epilogue,
 `correct` (the loop over the blocks), constant time, and `compress_verified`
-against `compressX86`, moved to the shared contract of
+against `compressX86 b` (`Proof/Blake2/X86/Contract.lean`), moved to the shared contract of
 `Spec/Blake2/Contract.lean` (`compressB_verified`).
 -/
 
@@ -21,15 +22,17 @@ open VG.Proof.Sha256.X86.Stream (contains_addr)
 
 /-! ## The prologue -/
 
-theorem pro_eq : prologue = [.mov .eax (.mem ⟨.esp, 28⟩), .store ⟨.eax, 288⟩ .ebx,
-      .store ⟨.eax, 292⟩ .esi, .store ⟨.eax, 296⟩ .edi, .store ⟨.eax, 300⟩ .ebp, .mov .esi (.reg .eax)] ++
-    ([.mov .eax (.mem ⟨.esp, 8⟩), .store ⟨.esi, 256⟩ .eax,
+theorem pro_eq : prologue = ([.mov .eax (.mem ⟨.esp, 28⟩), .store ⟨.eax, 288⟩ .ebx,
+      .store ⟨.eax, 292⟩ .esi, .store ⟨.eax, 296⟩ .edi, .store ⟨.eax, 300⟩ .ebp,
+      .mov .esi (.reg .eax)] : List Instr) ++
+    (([.mov .eax (.mem ⟨.esp, 8⟩), .store ⟨.esi, 256⟩ .eax,
       .mov .eax (.mem ⟨.esp, 16⟩), .store ⟨.esi, 264⟩ .eax,
       .mov .eax (.mem ⟨.esp, 20⟩), .store ⟨.esi, 268⟩ .eax,
-      .mov .eax (.imm 0), .store ⟨.esi, 272⟩ .eax, .store ⟨.esi, 276⟩ .eax] ++
-    ([.mov .eax (.mem ⟨.esp, 24⟩), .mov .ecx (.imm 0), .alu .cmp .ecx (.reg .eax),
-      .alu .sbb .ecx (.reg .ecx), .store ⟨.esi, 280⟩ .ecx, .store ⟨.esi, 284⟩ .ecx] ++
-    ([.mov .eax (.mem ⟨.esp, 12⟩), .store ⟨.esi, 260⟩ .eax, .alu .test .eax (.reg .eax)] : List Instr))) := rfl
+      .mov .eax (.imm 0), .store ⟨.esi, 272⟩ .eax, .store ⟨.esi, 276⟩ .eax] : List Instr) ++
+    (([.mov .eax (.mem ⟨.esp, 24⟩), .mov .ecx (.imm 0), .alu .cmp .ecx (.reg .eax),
+      .alu .sbb .ecx (.reg .ecx), .store ⟨.esi, 280⟩ .ecx, .store ⟨.esi, 284⟩ .ecx] : List Instr) ++
+    ([.mov .eax (.mem ⟨.esp, 12⟩), .store ⟨.esi, 260⟩ .eax, .alu .test .eax (.reg .eax)] :
+      List Instr))) := rfl
 
 /-- The final block flag as the prologue computes it: `0 - 0 - (0 < x)`. -/
 def flag32 (x : BitVec 32) : BitVec 32 :=
@@ -202,7 +205,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {s : State} (hc : Common s₀ 
 /-! ## The whole function -/
 
 theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ compressX86.post s₀ s' := by
+    WP isa compress s₀ fun s' => abiPreserved s₀ s' ∧ (compressX86 Spec.Blake2.b).post s₀ s' := by
   refine WP.seq (WP.mono (save_ok hp) fun s₁ ⟨hesi, hesp, hrd, hwr, hm, hz⟩ => ?_)
   refine WP.seq (WP.mono (Q := Common s₀ (nb s₀)) ?_ fun s₂ hc =>
     WP.mono (restore_ok hp hc) fun s' ⟨hr, hm'⟩ => ⟨⟨hr, ?_⟩, ?_⟩)
@@ -267,8 +270,8 @@ theorem wf₀ {s : State} (hp : Pre s) : VG.X86.Taint.Wf τ₀ s := by
     rcases hp' with rfl | rfl <;> refine ⟨by decide, ?_⟩ <;>
       simp [VG.X86.Taint.region, hp.wr, addr, arg, argAddr]
 
-theorem agree₀ {s₁ s₂ : State} (h₁ : compressX86.pre s₁) (h₂ : compressX86.pre s₂)
-    (hpub : compressX86.pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
+theorem agree₀ {s₁ s₂ : State} (h₁ : (compressX86 Spec.Blake2.b).pre s₁)
+    (h₂ : (compressX86 Spec.Blake2.b).pre s₂) (hpub : (compressX86 Spec.Blake2.b).pub s₁ s₂) : VG.X86.Taint.Agree τ₀ s₁ s₂ := by
   obtain ⟨hesp, ha⟩ := hpub
   have hp₁ := pre_of _ h₁; have hp₂ := pre_of _ h₂
   refine ⟨⟨fun r hr => ?_, fun h => nomatch h⟩, fun _ => ?_, wf₀ hp₁, wf₀ hp₂,
@@ -302,17 +305,17 @@ def satState : State where
   rd := [⟨0x2000, 0⟩, ⟨0x4004, 28⟩]
   wr := [⟨0x1000, 64⟩, ⟨0x3000, 512⟩]
 
-theorem sat_pre : compressX86.pre satState := by
+theorem sat_pre : (compressX86 Spec.Blake2.b).pre satState := by
   have a0 : arg satState 0 = 0x1000 := by decide
   have a1 : arg satState 1 = 0x2000 := by decide
   have a2 : arg satState 2 = 0 := by decide
   have a6 : arg satState 6 = 0x3000 := by decide
   have e : argAddr satState 0 = 0x4004 := by decide
-  simp only [compressX86, a0, a1, a2, a6, e]
+  simp only [compressX86, Spec.Blake2.blockBytes, a0, a1, a2, a6, e]
   refine ⟨by decide, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, by decide, by decide, by decide, by decide⟩ <;>
   exact Region.disjoint_of_sep (by decide)
 
-theorem compress_verified : Verified X86.target compress compressX86 :=
+theorem compress_verified : Verified X86.target compress (compressX86 Spec.Blake2.b) :=
   ⟨fun s hs => correct (pre_of s hs),
     VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hpub => agree₀ h₁ h₂ hpub) (by taint_decide),
     ⟨satState, sat_pre⟩⟩
@@ -320,7 +323,7 @@ theorem compress_verified : Verified X86.target compress compressX86 :=
 theorem compressB_verified :
     Verified X86.target compress (Spec.Blake2.compressBContract X86.abi) :=
   compress_verified.of_implies (by
-    sig_implies [Spec.Blake2.compressBContract, Spec.Blake2.compressBSig, compressX86,
+    sig_implies [Spec.Blake2.compressBContract, Spec.Blake2.compressBSig, Proof.Blake2.compressX86,
       X86.abi, X86.argSlots, X86.argVal, X86.argBytes, Spec.Blake2.blockBytes]
       [satState, satMem, X86.arg, X86.argAddr, Mem.readW, Mem.read] using satState)
 
