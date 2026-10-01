@@ -28,15 +28,18 @@ def relativeArgs : List Instr := [
 def wrapArgs : List Instr := [
   .mov .rdi (.reg .rax), .alu .add .rdi (.reg .r10), .mov .rsi (.reg .r12)]
 
+def chooseLane : Prog isa :=
+  .seq ReferenceLane.code (.seq (.block loadPass) FirstLane.code)
+
+def prepareLanes : Prog isa := .seq chooseLane (.block laneArgs)
+
+def window : Prog isa := .seq ReferenceStart.code ReferenceCount.code
+
 def code : Prog isa :=
-  .seq ReferenceLane.code
-  (.seq (.block loadPass)
-  (.seq FirstLane.code
-  (.seq (.block laneArgs)
-  (.seq ReferenceStart.code
-  (.seq ReferenceCount.code
+  .seq prepareLanes
+  (.seq window
   (.seq (.block relativeArgs)
   (.seq Relative.code
-  (.seq (.block wrapArgs) Wrap.code))))))))
+  (.seq (.block wrapArgs) Wrap.code))))
 
 end VG.Impl.Argon2.X86_64.ReferenceMap
