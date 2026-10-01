@@ -59,14 +59,18 @@ theorem key_body_correct (s : State) (hs : keyContract.pre s) :
     intro i hi
     rw [wr₂, ptr₂, hwr]
     exact ⟨⟨s.gpr .rcx, 128⟩, by simp, Offset.contains_base _ (by omega) (by omega)⟩
+  have lookup₂ : InRegions s₂.wr (s₂.gpr .r8 + BitVec.ofNat 64 64) 16 := by
+    rw [wr₂, r8₂, hwr]
+    exact ⟨⟨s.gpr .r8, 512⟩, by simp, Offset.contains_base _ (by decide) (by decide)⟩
   apply WP.seq
-  apply WP.mono (expandCopyFill_ok s₂ (s.gpr .rsi).toNat ht ht'
+  apply WP.mono (expandCopyFill_ok s₂ lookup₂ (s.gpr .rsi).toNat ht ht'
     (by simpa using len₂) zero₂ read₂ write₂ (by rw [key₂, ptr₂]; exact keyOut))
   intro s₃ h₃
   apply WP.seq
   have write₃ : ∀ i < 128, InRegions s₃.wr (s₃.gpr .r14 + BitVec.ofNat 64 i) 1 := by
     rw [h₃.1.wr, h₃.1.reg .r14 (by decide)]; exact write₂
-  apply WP.mono (expandReduce_ok s₃ _ (s.gpr .rdx).toNat hb hb'
+  apply WP.mono (expandReduce_ok s₃ (by
+    rw [h₃.1.wr, h₃.1.reg .r8 (by decide)]; exact lookup₂) _ (s.gpr .rdx).toNat hb hb'
     (by simpa using (h₃.1.reg .r15 (by decide)).trans bits₂) write₃
     (by rw [h₃.1.reg .r14 (by decide)]; exact h₃.2))
   intro s₄ h₄

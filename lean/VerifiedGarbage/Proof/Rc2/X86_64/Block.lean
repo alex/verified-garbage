@@ -63,8 +63,15 @@ theorem block_correct (d : Spec.Rc2.Direction) (s : State) (hs : (blockContract 
     intro i hi
     rw [h₂.2.rd, h₂.2.wr, h₂.2.reg .rdi (by decide), h₁.1, h₁.2.1, h₁.2.2.1, hrd, hwr]
     exact ⟨⟨s.gpr .rdi, 128⟩, by simp, Offset.contains_base _ (by omega) (by omega)⟩
+  have scans₂ : ScanMemory s₂ := by
+    refine ⟨read₂, ?_, ?_⟩
+    · intro i hi
+      rw [h₂.2.rd, h₂.2.wr, h₂.2.reg .rdi (by decide), h₁.1, h₁.2.1, h₁.2.2.1, hrd, hwr]
+      exact ⟨⟨s.gpr .rdi, 128⟩, by simp, Offset.contains_base _ (by omega) (by omega)⟩
+    · rw [h₂.2.wr, h₂.2.reg .rdx (by decide), h₁.1, h₁.2.2.1, hwr]
+      exact ⟨⟨s.gpr .rdx, 256⟩, by simp, Offset.contains_base _ (by decide) (by decide)⟩
   rw [WP.block_append_iff]
-  apply WP.mono (rounds_ok d s₂ _ h₂.1 read₂)
+  apply WP.mono (rounds_ok d s₂ _ h₂.1 scans₂)
   intro s₃ h₃
   have keep₂₃ := h₂.2.trans h₃.2
   have ptr₃ : s₃.gpr .rsi = s.gpr .rsi := (keep₂₃.reg .rsi (by decide)).trans (congrFun h₁.1 .rsi)

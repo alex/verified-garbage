@@ -135,7 +135,7 @@ theorem ctWith (v : Proof.Sha3.AArch64.Permutation) : ConstantTime isa emK.pre e
     (fun σ s hp h => by subst h; exact pro_ok hp) (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => by
       subst h₁ h₂
       exact ⟨hq.2.2.2.2, RejNtt.regs3 hq.1 hq.2.2.1 hq.2.2.2.1⟩) (by taint_decide)) ?_
-  exact relTaint [.x25, .x26, .x27, .x3, .x4] (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => by
+  exact vectorRelTaint [.x25, .x26, .x27, .x3, .x4] (fun σ₁ σ₂ s₁ s₂ _ _ hq h₁ h₂ => by
       refine ⟨by rw [h₁.env.sp, h₂.env.sp, hq.2.2.2.2], fun r hr => ?_⟩
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl | rfl

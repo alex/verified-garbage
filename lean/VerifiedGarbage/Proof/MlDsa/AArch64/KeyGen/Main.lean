@@ -87,7 +87,7 @@ theorem trHash_taint {p : Params} (hp : p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDs
       RelCT isa P ((trHashWith keccak.callee) p) fun _ _ => True := by
   intro P hr
   obtain ⟨hint, hh⟩ := keccak.mldsaTrHashTaint p hp
-  exact taintRel bases hr hh
+  exact VectorTaint.relRegs bases hr hh
 
 theorem trHash_piece {p : Params} (hF : PFacts p) {S' : Nat} (h16 : 16 ≤ S') (hSl : S' < 2 ^ 64) :
     Piece p S' (KRx p (p.ℓ + p.k) p.ℓ p.k) (KFin p) ((trHashWith keccak.callee) p) := by

@@ -55,6 +55,15 @@ theorem relTaint {J : State → State → Prop} {c : Prog isa} (rs : List Reg)
     let ⟨hsp, hrs⟩ := hr σ₁ σ₂ s₁ s₂ p₁ p₂ hq j₁ j₂
     Proof.MlKem.AArch64.agree_of hsp hrs) h
 
+theorem vectorRelTaint {J : State → State → Prop} {c : Prog isa} (rs : List Reg)
+    (hr : ∀ σ₁ σ₂ s₁ s₂, Pre σ₁ → Pre σ₂ → Pub σ₁ σ₂ → J σ₁ s₁ → J σ₂ s₂ →
+      s₁.sp = s₂.sp ∧ ∀ r ∈ rs, s₁.gpr r = s₂.gpr r)
+    {hc : VG.Taint.Hint VectorTaint.T} (h : (VectorTaint.taint.check (VectorTaint.ofRegs rs) c hc).isSome = true) :
+    RelCT isa (Rel2 Pre Pub J) c fun _ _ => True :=
+  VectorTaint.relCT _ (fun s₁ s₂ ⟨σ₁, σ₂, p₁, p₂, hq, j₁, j₂⟩ =>
+    let ⟨hsp, hrs⟩ := hr σ₁ σ₂ s₁ s₂ p₁ p₂ hq j₁ j₂
+    Proof.MlKem.AArch64.agree_of hsp hrs) h
+
 /-- `relStep` of `relTaint`. -/
 theorem relTaintStep {J J' : State → State → Prop} {c : Prog isa} (rs : List Reg)
     (hw : ∀ σ s, Pre σ → J σ s → WP isa c s (J' σ))
@@ -63,6 +72,15 @@ theorem relTaintStep {J J' : State → State → Prop} {c : Prog isa} (rs : List
     {hc : VG.Taint.Hint VG.AArch64.Taint.T} (h : (taint.check (Taint.ofRegs rs) c hc).isSome = true) :
     RelCT isa (Rel2 Pre Pub J) c (Rel2 Pre Pub J') :=
   relStep hw (relTaint rs hr h)
+
+theorem vectorRelTaintStep {J J' : State → State → Prop} {c : Prog isa} (rs : List Reg)
+    (hw : ∀ σ s, Pre σ → J σ s → WP isa c s (J' σ))
+    (hr : ∀ σ₁ σ₂ s₁ s₂, Pre σ₁ → Pre σ₂ → Pub σ₁ σ₂ → J σ₁ s₁ → J σ₂ s₂ →
+      s₁.sp = s₂.sp ∧ ∀ r ∈ rs, s₁.gpr r = s₂.gpr r)
+    {hc : VG.Taint.Hint VectorTaint.T} (h : (VectorTaint.taint.check (VectorTaint.ofRegs rs) c hc).isSome = true) :
+    RelCT isa (Rel2 Pre Pub J) c (Rel2 Pre Pub J') :=
+  relStep hw (VectorTaint.relRegs rs (fun s₁ s₂ ⟨σ₁, σ₂, p₁, p₂, hq, j₁, j₂⟩ =>
+    hr σ₁ σ₂ s₁ s₂ p₁ p₂ hq j₁ j₂) h)
 
 /-- Code that runs, with permissions only on the regions `rd σ` and `wr σ`
 (the same in both runs), on memory both runs agree on there: `memTaint`
