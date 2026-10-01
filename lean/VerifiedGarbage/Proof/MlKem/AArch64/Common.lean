@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.MlKem.AArch64.Reduce
 import VerifiedGarbage.Proof.MlKem.Mem
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
@@ -62,8 +63,8 @@ theorem preserved_of {c : Prog isa} (h : c.allInstrs (keeps (RegSet.ofList prese
 stack pointer, meets the calling convention. -/
 theorem abi_of {c : Prog isa} (hc : c.noCalls = true)
     (h : c.allInstrs (keeps (RegSet.ofList preserved)) = true) {s s' : State} {t : List Leak}
-    (he : Exec isa c s t s') : abiPreserved s s' :=
-  ⟨fun r hr => Exec.gpr (preserved_of h r hr) he (.inl hc), Exec.sp he⟩
+    (he : Exec isa c s t s') (hv : c.allInstrs keepsV = true := by decide +kernel) : abiPreserved s s' :=
+  ⟨fun r hr => Exec.gpr (preserved_of h r hr) he (.inl hc), Exec.sp he, Exec.preservedV he hv⟩
 
 /-- Agreement on the registers `rs` and the stack pointer. -/
 theorem agree_of {rs : List Reg} {s₁ s₂ : State} (hsp : s₁.sp = s₂.sp)

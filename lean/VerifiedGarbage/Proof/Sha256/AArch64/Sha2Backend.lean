@@ -11,6 +11,7 @@ def backend : Compress where
   code := Impl.Sha256.AArch64.Sha2.compress
   verified := Proof.Sha256.AArch64.Sha2.compress_verified
   noFrames := by lit_decide
+  keepsV := by lit_decide
   suffix := "_sha2"
   features := ["sha2"]
   updateCT := VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4])

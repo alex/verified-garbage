@@ -81,7 +81,7 @@ theorem pro_ok {s₀ : State} {t : Poly → Poly} (hp : (inPlaceK t).pre s₀) (
   refine WP.mono (consts_ok s1) fun s2 ⟨⟨hc, hm2⟩, k2⟩ => ?_
   have k12 := k1.trans k2
   refine WP.mono (WP.keep [.x2, .x3] (Q := fun s => s.mem = s2.mem ∧ s.gpr .x2 = s2.gpr .x0 ∧
-    s.gpr .x3 = s2.gpr .x1 + BitVec.ofNat 64 (4 * k)) (by arun [Impl.MlKem.AArch64.mov, hk]) (by rfl))
+    s.gpr .x3 = s2.gpr .x1 + BitVec.ofNat 64 (4 * k)) (by arun [Impl.MlKem.AArch64.mov, hk]) (by rfl) (hv := rfl))
     fun s3 ⟨⟨hm3, hx2, hx3⟩, k3⟩ => ?_
   have hd' : (pR (s₀.gpr .x0)).Disjoint (pR (s₀.gpr .x1)) := hp.2.2.1
   refine ⟨by rw [hx2, k12.get .x0], by rw [hx3, k12.get .x1],

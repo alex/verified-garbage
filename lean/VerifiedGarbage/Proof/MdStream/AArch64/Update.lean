@@ -717,6 +717,7 @@ theorem correct (hd : Dims P) {name : String} {code : Prog isa} (hf : CalleeOk H
     (hn : 16 * (updateMain P name code).fdepth + 16 < 2 ^ 64) {s₀ : State} (hp : Pre P s₀)
     (hs : Stack P s₀) :
     WP isa (update P name code) s₀ fun s' => abiPreserved s₀ s' ∧ (updK H).post s₀ s' := by
+  apply WP.withPreservedV (hc := update_keepsV hf.keepsV)
   have hpi : Pre P (inner s₀) := ⟨hp.rd, hp.wr, hp.st_scr, hp.d_st, hp.d_scr⟩
   refine WP.frameReg hs.sp16 (fun R hR => ?_) (WP.mono (correctMain hd hf hu hpi) fun s' ⟨hk, hsp, hpost⟩ => ?_)
     hn

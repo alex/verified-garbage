@@ -8,7 +8,7 @@ import VerifiedGarbage.Proof.Framework.Sig
 
 Untrusted: everything here is checked by Lean. A call of verified code,
 with the moves of its arguments before it (`callAt_ok`), leaves the
-permissions, the stack pointer and the callee-saved registers but `x30` as
+permissions, the stack pointer, the low halves of v8–v15 and the callee-saved GPRs but `x30` as
 they were, and changes memory only within the buffers it writes and the `S`
 bytes of stack below the stack pointer (`Post`); two runs whose callee's
 preconditions hold and whose public data agree leak the same (`callAt_tr`).
@@ -150,10 +150,10 @@ theorem callAt_ok {S : Nat} (hS : S < 2 ^ 64) {n : String} {c : Prog isa} {k : C
       ∃ s1, Args as s s1 ∧ k.post (s1.callEntry.withRegions rd wr) (s'.withRegions rd wr) := by
   refine WP.seq (WP.mono (glue_ok hok hnd s) fun s1 h1 => ?_)
   have k1 := h1.2
-  refine WP.callF C.correct (hpre s1 h1) (by rw [k1.rd, k1.wr]; exact hc) (by rw [k1.wr]; exact hw)
-    (fun s' hrd hwr hsp hf hcs hpost => ?_) (by have := C.fd; omega)
+  refine WP.callFV C.correct (hpre s1 h1) (by rw [k1.rd, k1.wr]; exact hc) (by rw [k1.wr]; exact hw)
+    (fun s' hrd hwr hsp hf hcs hvcs hpost => ?_) (by have := C.fd; omega)
   refine ⟨⟨hrd.trans k1.rd, hwr.trans k1.wr, hsp.trans k1.sp,
-    fun r hr h30 => by rw [hcs r hr h30, k1.gpr r (argRegs_pres r hr)], ?_⟩, s1, h1, hpost⟩
+    fun r hr h30 => by rw [hcs r hr h30, k1.gpr r (argRegs_pres r hr)], ?_, fun r hr => (hvcs r hr).trans (k1.vcs r hr)⟩, s1, h1, hpost⟩
   rw [h1.1.2, k1.sp] at hf
   exact Frame.below_mono hf C.fd hS
 

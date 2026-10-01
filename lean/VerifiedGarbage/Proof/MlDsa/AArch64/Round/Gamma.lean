@@ -65,7 +65,7 @@ theorem hbConsts_ok (g : Nat) (hg : IsG g) (rm ra : Reg) (hr : rm ≠ ra) (s : S
       (s'.gpr rm = BitVec.ofNat 64 (hbMul g) ∧ s'.gpr ra = BitVec.ofNat 64 (hbAdd g) ∧ s'.mem = s.mem) ∧
         Keep [rm, ra] s s' := by
   refine VG.Proof.MlDsa.AArch64.Arith.WP.keep _ ?_ (by simp [VG.Proof.MlDsa.AArch64.Arith.writesOnly,
-    Code.allInstrs, hbConsts, dstOf])
+    Code.allInstrs, hbConsts, dstOf]) (hv := by simp [Code.allInstrs, hbConsts, keepsV, vdstOf])
   unfold hbConsts
   apply WP.of_runBlock
   simp only [runBlock_cons, runStep_some, runBlock_nil, exec, Size.bits, show 16 * 0 < 64 by decide,

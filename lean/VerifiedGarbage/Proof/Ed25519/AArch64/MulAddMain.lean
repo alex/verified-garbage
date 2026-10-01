@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Ed25519.AArch64.MulAddSetup
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarMain
 
@@ -28,6 +29,7 @@ theorem MulAddPre.of {s : State} (h : scalarMulAddLocal.pre s) : MulAddPre s :=
 
 theorem scalarMulAdd_correct {s : State} (hs : MulAddPre s) :
     WP isa scalarMulAdd s fun t => abiPreserved s t ∧ scalarMulAddLocal.post s t := by
+  apply WP.withPreservedV (hc := by decide +kernel)
   have hw : (⟨s.gpr .x4, 8192⟩ : Region) ∈ s.wr := by rw [hs.wr]; simp
   rw [scalarMulAdd]
   refine WP.seq (WP.mono (mulAddSetup_ok hs) fun s₁ h₁ => ?_)

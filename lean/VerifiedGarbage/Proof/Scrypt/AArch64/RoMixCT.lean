@@ -1874,7 +1874,7 @@ theorem roMix_correct (s : State) (hs : Proof.Scrypt.roMixAArch64.pre s) :
     ∃ t s', Exec isa Impl.Scrypt.AArch64.roMix s t s' ∧ abiPreserved s s' ∧
       Proof.Scrypt.roMixAArch64.post s s' := by
   obtain ⟨t, s', he, hk, hsp, hpost⟩ := correct blockMixSpec (pre_of hs)
-  refine ⟨t, s', he, ⟨fun r hr => ?_, hsp⟩, hpost⟩
+  refine ⟨t, s', he, ⟨fun r hr => ?_, hsp, Exec.preservedV he (by decide +kernel)⟩, hpost⟩
   rcases preserved_cases r hr with h | h
   · obtain ⟨p, hp, rfl⟩ := List.mem_map.mp h
     exact hk p hp
