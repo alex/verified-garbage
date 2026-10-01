@@ -11,8 +11,10 @@ stack (`verify44_verified`, …).
 
 namespace VG.Proof.MlDsa.AArch64.Verify
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
-open VG.Proof.MlDsa.AArch64.KeyGen (prims_ok scrLen)
+open VG.Proof.MlDsa.AArch64.KeyGen (prims_okWith scrLen)
 
 /-- A state satisfying `verifyContract`'s precondition. -/
 def vSat (p : Spec.MlDsa.Params) : State where
@@ -34,16 +36,28 @@ theorem verify_sat (p : Spec.MlDsa.Params)
   · refine ⟨vSat Spec.MlDsa.mlDsa87, ?_⟩
     sig_sat_check [Spec.MlDsa.verifyContract, Spec.MlDsa.verifySig, AArch64.abi, VG.AArch64.argRegs]
 
+theorem verify44_verifiedWith :
+    Verified AArch64.target (verify44With keccak.callee) (Spec.MlDsa.verifyContract Spec.MlDsa.mlDsa44 AArch64.abi 16) :=
+  verify_verified (keccak := keccak) (prims_okWith (keccak := keccak)) Spec.MlDsa.mlDsa44 (.inl rfl) (verify_sat _ (.inl rfl))
+
+theorem verify65_verifiedWith :
+    Verified AArch64.target (verify65With keccak.callee) (Spec.MlDsa.verifyContract Spec.MlDsa.mlDsa65 AArch64.abi 16) :=
+  verify_verified (keccak := keccak) (prims_okWith (keccak := keccak)) Spec.MlDsa.mlDsa65 (.inr (.inl rfl)) (verify_sat _ (.inr (.inl rfl)))
+
+theorem verify87_verifiedWith :
+    Verified AArch64.target (verify87With keccak.callee) (Spec.MlDsa.verifyContract Spec.MlDsa.mlDsa87 AArch64.abi 16) :=
+  verify_verified (keccak := keccak) (prims_okWith (keccak := keccak)) Spec.MlDsa.mlDsa87 (.inr (.inr rfl)) (verify_sat _ (.inr (.inr rfl)))
+
 theorem verify44_verified :
     Verified AArch64.target verify44 (Spec.MlDsa.verifyContract Spec.MlDsa.mlDsa44 AArch64.abi 16) :=
-  verify_verified prims_ok Spec.MlDsa.mlDsa44 (.inl rfl) (verify_sat _ (.inl rfl))
+  verify44_verifiedWith (keccak := .scalar)
 
 theorem verify65_verified :
     Verified AArch64.target verify65 (Spec.MlDsa.verifyContract Spec.MlDsa.mlDsa65 AArch64.abi 16) :=
-  verify_verified prims_ok Spec.MlDsa.mlDsa65 (.inr (.inl rfl)) (verify_sat _ (.inr (.inl rfl)))
+  verify65_verifiedWith (keccak := .scalar)
 
 theorem verify87_verified :
     Verified AArch64.target verify87 (Spec.MlDsa.verifyContract Spec.MlDsa.mlDsa87 AArch64.abi 16) :=
-  verify_verified prims_ok Spec.MlDsa.mlDsa87 (.inr (.inr rfl)) (verify_sat _ (.inr (.inr rfl)))
+  verify87_verifiedWith (keccak := .scalar)
 
 end VG.Proof.MlDsa.AArch64.Verify

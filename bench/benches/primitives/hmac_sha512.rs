@@ -23,6 +23,7 @@ pub fn bench(c: &mut Criterion) {
         Hmac::<Sha512>::mac,
         MessageDigest::sha512(),
     );
+    crate::hmac_verify_group::<Sha512>(c, "hmac-sha512-verify", MessageDigest::sha512());
 }
 
 #[cfg(not(any(

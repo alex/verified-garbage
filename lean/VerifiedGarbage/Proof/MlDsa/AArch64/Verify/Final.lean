@@ -16,6 +16,8 @@ contract makes public.
 
 namespace VG.Proof.MlDsa.AArch64.Verify
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
 open VG.Proof.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params Poly IPoly toRq ntt polyAt Reduced PolyIs HintIs Bounds minBounds rejNTTPoly sampleInBall
@@ -62,12 +64,10 @@ theorem hash_chk {p : Params} (hF : VFacts p) : hashChk (vR p) (vW p) (hIns p) �
 
 theorem hash_taint {p : Params} (hp : p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDsa.mlDsa65 ∨ p = Spec.MlDsa.mlDsa87) :
     ∀ {P : State → State → Prop}, (∀ x y, P x y → x.sp = y.sp ∧ ∀ r ∈ bases, x.gpr r = y.gpr r) →
-      RelCT isa P (shake256 (hIns p) [⟨.x28, oCT, p.ctildeLen⟩]) fun _ _ => True := by
+      RelCT isa P ((shake256With keccak.callee) (hIns p) [⟨.x28, oCT, p.ctildeLen⟩]) fun _ _ => True := by
   intro P hr
-  rcases hp with rfl | rfl | rfl
-  · exact taintRel bases hr (by taint_decide)
-  · exact taintRel bases hr (by taint_decide)
-  · exact taintRel bases hr (by taint_decide)
+  obtain ⟨hint, hh⟩ := keccak.mldsaVerifyHashTaint p hp
+  exact taintRel bases hr hh
 
 theorem cmp_taint {p : Params} (hp : p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDsa.mlDsa65 ∨ p = Spec.MlDsa.mlDsa87) :
     ∀ {P : State → State → Prop}, (∀ x y, P x y → x.sp = y.sp ∧ ∀ r ∈ bases, x.gpr r = y.gpr r) →
@@ -93,7 +93,7 @@ theorem rows_bytes {p : Params} {σ : State} {h : List (Vector Bool Spec.MlDsa.n
   exact flatMap_congr' fun r hr => hs.rows r (List.mem_range.mp hr)
 
 theorem hash_vpiece {S : Nat} (h16 : 16 ≤ S) (hSl : S < 2 ^ 64) {p : Params} (hF : VFacts p) :
-    VPiece p S (SCx p p.ℓ true p.k) (SCH p) (shake256 (hIns p) [⟨.x28, oCT, p.ctildeLen⟩]) := by
+    VPiece p S (SCx p p.ℓ true p.k) (SCH p) ((shake256With keccak.callee) (hIns p) [⟨.x28, oCT, p.ctildeLen⟩]) := by
   refine ⟨fun σ s hp ⟨h, A', c0, q, hs⟩ => ?_, vrel_of (Q := VTwo p S) (hash_taint hF.mem fun x y h => h.bases)
     fun _ _ _ _ p₁ p₂ pub ⟨_, _, _, _, h₁⟩ ⟨_, _, _, _, h₂⟩ => vc_two hF p₁ p₂ pub h₁.vc h₂.vc⟩
   have L := hs.vc.lay hF hp
@@ -151,8 +151,8 @@ theorem cmp_vpiece {S : Nat} {p : Params} (hF : VFacts p) :
 /-! ## The function -/
 
 theorem compute_vpiece {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF : VFacts p) :
-    VPiece p S (VB p) (VFin p) (compute P p) := by
-  unfold compute
+    VPiece p S (VB p) (VFin p) ((computeWith keccak.callee) P p) := by
+  unfold computeWith
   refine VPiece.seq (J := SCx p p.ℓ false 0) ?_ ((nttC_vpiece hP hF).seq (VPiece.seq (J := SCx p p.ℓ true p.k) ?_
     ((hash_vpiece hP.s16 hP.s64 hF).seq (cmp_vpiece hF))))
   · refine VPiece.mono (VPiece.seqR (I := fun i => SCx p i false 0) p.ℓ 0 fun i _ hi => nttZ_vpiece hP hF (by omega))
@@ -165,8 +165,8 @@ theorem compute_vpiece {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF
 theorem normOk_zero (p : Params) (σ : State) : normOk p σ 0 := fun _ h => absurd h (Nat.not_lt_zero _)
 
 theorem body_vpiece {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF : VFacts p) :
-    VPiece p S (fun σ s => VC p σ s ∧ s.gpr .x24 = 1) (VFin p) (body P p) := by
-  unfold body
+    VPiece p S (fun σ s => VC p σ s ∧ s.gpr .x24 = 1) (VFin p) ((bodyWith keccak.callee) P p) := by
+  unfold bodyWith
   refine (hint_vpiece hP hF).seq (VPiece.ifOk (T := fun σ => (hintOf p σ).isSome = true)
     (fun _ _ _ h => h.2.1) (fun _ _ _ _ pub => by rw [hintOf, hintOf, (vPub_eq pub).2.2.2.1]) ?_ ?_)
   · refine VPiece.seq (J := Z0 p p.ℓ) ?_ (VPiece.ifOk (T := fun σ => normOk p σ p.ℓ) (fun _ _ _ h => h.2)
@@ -205,7 +205,7 @@ theorem epi_vpiece {S : Nat} {p : Params} (hF : VFacts p) :
 
 theorem verify_vpiece {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF : VFacts p) :
     VPiece p S (fun σ s => s = σ)
-      (fun σ s => abiPreserved σ s ∧ (Spec.MlDsa.verifyContract p AArch64.abi S).post σ s) (verify P p) :=
+      (fun σ s => abiPreserved σ s ∧ (Spec.MlDsa.verifyContract p AArch64.abi S).post σ s) ((verifyWith keccak.callee) P p) :=
   (pro_vpiece hF).seq ((body_vpiece hP hF).seq (epi_vpiece hF))
 
 /-- `vg_mldsa*_verify` of the parameter set `p` meets its contract, for any
@@ -214,7 +214,7 @@ bytes of stack, if the contract is satisfiable. -/
 theorem verify_verified {P : Prims} {S : Nat} (hP : PrimsOk P S) (p : Params)
     (hp : p = Spec.MlDsa.mlDsa44 ∨ p = Spec.MlDsa.mlDsa65 ∨ p = Spec.MlDsa.mlDsa87)
     (hsat : ∃ s, (Spec.MlDsa.verifyContract p AArch64.abi S).pre s) :
-    Verified AArch64.target (verify P p) (Spec.MlDsa.verifyContract p AArch64.abi S) :=
+    Verified AArch64.target ((verifyWith keccak.callee) P p) (Spec.MlDsa.verifyContract p AArch64.abi S) :=
   ⟨fun σ hσ => (verify_vpiece hP (vfacts hp)).ok σ σ hσ rfl,
     relStart (Q := fun _ _ => True) (verify_vpiece hP (vfacts hp)).tr, hsat⟩
 

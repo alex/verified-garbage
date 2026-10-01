@@ -43,8 +43,8 @@ def artifacts : List Artifact := [
       point's coordinates `X, Y, Z, T` in the four lanes of `ymm` registers, as five 51-bit \
       limbs each, and double it with two four-lane multiplications (AVX512_IFMA's \
       `vpmadd52luq` and `vpmadd52huq` on `ymm` registers, with AVX512VL), as `vg_x25519_ifma`'s \
-      ladder multiplies. Its inputs are public, so the multiplications do not run between \
-      Intel's MXCSR prologue and epilogue."])
+      ladder multiplies, between Intel's MXCSR prologue and epilogue, which save MXCSR \
+      through bytes 1600 to 1608 of `scratch`."])
     code := Impl.Ed25519.X86_64.verifyEquation Impl.X25519.X86_64.adx Impl.Ed25519.X86_64.Ifma.double4
     contract := Spec.Ed25519.verifyEquationContract X86_64.abi
     verified := Proof.Ed25519.X86_64.verify_verified (by lit_decide)

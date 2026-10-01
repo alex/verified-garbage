@@ -39,6 +39,8 @@ address and branch depends only on the pointers.
 
 namespace VG.Impl.MlDsa.AArch64.Sign
 
+variable (c : Impl.Sha3.AArch64.Callee)
+
 open VG.AArch64
 open VG.Spec.MlDsa (Params bitlen q)
 
@@ -115,9 +117,9 @@ def decT0 (i : Nat) : Prog isa :=
   .seq (bitUnpackAt P (.x25, skT0 p i) 416 4095 4096 (t0P p i)) (nttAt P (t0P p i))
 
 /-- `ŝ₁`, `ŝ₂`, `t̂₀`, and `ρ″ = H(K ‖ rnd ‖ μ, 64)` to `MS`. -/
-def decode : Prog isa :=
+def decodeWith : Prog isa :=
   .seq (seqR (decS1 P p) 0 p.ℓ) (.seq (seqR (decS2 P p) 0 p.k) (.seq (seqR (decT0 P p) 0 p.k)
-    (shakeAt [⟨.x25, 32, 32⟩, ⟨.x27, 0, 32⟩, ⟨.x26, 0, 64⟩] ⟨.x28, oMS, 64⟩)))
+    ((shakeAtWith c) [⟨.x25, 32, 32⟩, ⟨.x27, 0, 32⟩, ⟨.x26, 0, 64⟩] ⟨.x28, oMS, 64⟩)))
 
 /-! ### An iteration -/
 
@@ -140,9 +142,9 @@ def w1R (i : Nat) : Prog isa :=
   .seq (highBitsAt P (wP p i) p.γ₂ t1P) (simpleBitPackAt P t1P (w1Max p) (sc (oW1 + w1Len p * i)) (w1Len p))
 
 /-- `y`, `ŷ`, `w`, `w₁` and `c̃ = H(μ ‖ w1Encode(w₁), λ/4)` to `CT`. -/
-def commit : Prog isa :=
+def commitWith : Prog isa :=
   .seq (seqR (maskR P p) 0 p.ℓ) (.seq (seqR (rowW P p) 0 p.k) (.seq (seqR (w1R P p) 0 p.k)
-    (shakeAt [⟨.x26, 0, 64⟩, ⟨.x28, oW1, p.k * w1Len p⟩] ⟨.x28, oCT, cLen p⟩)))
+    ((shakeAtWith c) [⟨.x26, 0, 64⟩, ⟨.x28, oW1, p.k * w1Len p⟩] ⟨.x28, oCT, cLen p⟩)))
 
 /-- `z[r] = y[r] + NTT⁻¹(ĉ ŝ₁[r])` (in `y[r]`), and its norm. -/
 def zR (r : Nat) : Prog isa :=
@@ -180,15 +182,15 @@ def cntDec : List Instr := [.ldr .x .x9 .x28 oCNT, .subImm .x .x9 .x9 1, .str .x
 
 /-- An iteration: the commitment, `SampleInBall`, and the checks if it
 succeeded (and otherwise `x24 ← 0`, `CNT ← 1`); then `CNT ← CNT - 1`. -/
-def iter : Prog isa :=
-  .seq (commit P p) (.seq (ballAt P (cLen p) p.τ cP)
+def iterWith : Prog isa :=
+  .seq ((commitWith c) P p) (.seq (ballAt P (cLen p) p.τ cP)
     (.seq (.ite (.nonzero .w .x0) (checks P p) (.block ([.movz .x .x24 0 0] ++ setQ (sc oCNT) 1)))
       (.block cntDec)))
 
 /-- The rejection sampling loop: `κ ← 0`, `CNT ← 814`, and iterations while
 `CNT ≠ 0`. -/
-def signLoop : Prog isa :=
-  .seq (.block (setQ (sc oKAP) 0 ++ setQ (sc oCNT) 814)) (.loop (iter P p) (.nonzero .x .x9))
+def signLoopWith : Prog isa :=
+  .seq (.block (setQ (sc oKAP) 0 ++ setQ (sc oCNT) 814)) (.loop ((iterWith c) P p) (.nonzero .x .x9))
 
 /-! ### The signature -/
 
@@ -202,12 +204,19 @@ def output : Prog isa :=
 
 /-- Once `Â` is sampled: the private key, the loop, and the signature if the
 loop succeeded. -/
-def rest : Prog isa := .seq (decode P p) (.seq (signLoop P p) (ifOk (output P p)))
+def restWith : Prog isa := .seq ((decodeWith c) P p) (.seq ((signLoopWith c) P p) (ifOk (output P p)))
 
 end
 
 /-- `vg_mldsa{44,65,87}_sign` for the parameter set `p`, with the primitives `P`. -/
-def sign (P : Prims) (p : Params) : Prog isa :=
-  .seq (.block pro) (.seq (expandA P p) (.seq (ifOk (rest P p)) (.block epi)))
+def signWith (P : Prims) (p : Params) : Prog isa :=
+  .seq (.block pro) (.seq (expandA P p) (.seq (ifOk ((restWith c) P p)) (.block epi)))
+
+def decode := decodeWith .scalar
+def commit := commitWith .scalar
+def iter := iterWith .scalar
+def signLoop := signLoopWith .scalar
+def rest := restWith .scalar
+def sign := signWith .scalar
 
 end VG.Impl.MlDsa.AArch64.Sign

@@ -11,6 +11,8 @@ iterations succeeds; `x24` is the AND of the results.
 
 namespace VG.Proof.MlKem.AArch64.KeyGen
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlKem.AArch64 VG.Impl.MlKem.AArch64.KG VG.Proof.MlKem.AArch64
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
@@ -163,11 +165,11 @@ theorem Mid.args {s₀ : State} (hp : Pre s₀) {i j : Nat} (hi : i < 3) (hj : j
     covers_cons (cov_w hp kb (by decide) fa) (cov_w hp kb (by decide) (by decide))⟩
 
 theorem call_ok {s₀ : State} (hp : Pre s₀) {i j : Nat} (hi : i < 3) (hj : j < 3) {s : State}
-    (h : Mid s₀ i j s) : WP isa kgCall s (BInv s₀ (3 * i + j + 1)) := by
+    (h : Mid s₀ i j s) : WP isa (kgCallWith keccak.callee) s (BInv s₀ (3 * i + j + 1)) := by
   have kb := h.b.kb
   have fa : aOff i j + 1024 ≤ kL 3 := by simp only [aOff, AH, kL]; omega
   have A := h.args hp hi hj
-  refine WP.seq <| sample_call A.h0 A.h1 A.h2 A.d₁ A.d₂ A.d₃ A.hsp A.k₁ A.k₂ A.k₃ A.hc A.hw
+  refine WP.seq <| sample_callWith keccak A.h0 A.h1 A.h2 A.d₁ A.d₂ A.d₃ A.hsp A.k₁ A.k₂ A.k₃ A.hc A.hw
     fun s₈ k₈ r₈ o₈ => ?_
   rw [kb.sp] at k₈
   have kb₈ : KB s₀ s₈ := kb.call k₈ fun r hr => by
@@ -229,10 +231,10 @@ theorem call_ok {s₀ : State} (hp : Pre s₀) {i j : Nat} (hi : i < 3) (hj : j 
       · exact .inl h2
 
 theorem sample_step {s₀ : State} (hp : Pre s₀) {i j : Nat} (hi : i < 3) (hj : j < 3) {s : State}
-    (h : BInv s₀ (3 * i + j) s) : WP isa (kgSample i j) s (BInv s₀ (3 * i + j + 1)) :=
+    (h : BInv s₀ (3 * i + j) s) : WP isa ((kgSampleWith keccak.callee) i j) s (BInv s₀ (3 * i + j + 1)) :=
   WP.seq (WP.mono (setup_ok hp hi hj h) fun _ m => call_ok hp hi hj m)
 
-theorem b_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterA s₀ s) : WP isa kgB s (BInv s₀ 9) :=
+theorem b_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : AfterA s₀ s) : WP isa (kgBWith keccak.callee) s (BInv s₀ 9) :=
   WP.seq (WP.mono (sample_step hp (i := 0) (j := 0) (by decide) (by decide) (BInv.zero h)) fun _ h =>
   WP.seq (WP.mono (sample_step hp (i := 0) (j := 1) (by decide) (by decide) h) fun _ h =>
   WP.seq (WP.mono (sample_step hp (i := 0) (j := 2) (by decide) (by decide) h) fun _ h =>

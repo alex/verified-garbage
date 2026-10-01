@@ -32,6 +32,7 @@ abbrev Ptr := Reg × Nat
 
 /-- The code of the polynomial primitives that signing calls. -/
 structure Prims where
+  suffix : String := ""
   ntt : Prog isa
   invNtt : Prog isa
   mul : Prog isa
@@ -132,8 +133,8 @@ def callAt (name : String) (c : Prog isa) (as : List (Reg × Arg)) : Prog isa :=
 /-- SHAKE256 (`H`) of the concatenation of the pieces `ins`, `out.len` bytes
 of it to `out`: ML-KEM's `hash` (the sponge functions' calls), with the
 Keccak state at `scratch + 0` and its working space at `scratch + 200`. -/
-def shakeAt (ins : List Impl.MlKem.AArch64.Piece) (out : Impl.MlKem.AArch64.Piece) : Prog isa :=
-  Impl.MlKem.AArch64.hash .x28 0 200 136 0x1f ins [out]
+def shakeAtWith (c : Impl.Sha3.AArch64.Callee) (ins : List Impl.MlKem.AArch64.Piece) (out : Impl.MlKem.AArch64.Piece) : Prog isa :=
+  Impl.MlKem.AArch64.hashWith c .x28 0 200 136 0x1f ins [out]
 
 /-! ## Sequences -/
 
@@ -167,15 +168,15 @@ def subAt (f g : Ptr) : Prog isa := callAt "vg_mldsa_sub" P.sub [(.x0, .ptr f), 
 
 /-- `RejNTTPoly` of the seed at `RS` to `a`, and `x24 ← x24 ∧ result`. -/
 def rejAt (a : Ptr) : Prog isa :=
-  .seq (callAt "vg_mldsa_rej_ntt_poly" P.rejNTT [(.x0, .ptr (sc oRS)), (.x1, .ptr a), (.x2, .ptr (sc oPS))]) (.block and24)
+  .seq (callAt ("vg_mldsa_rej_ntt_poly" ++ P.suffix) P.rejNTT [(.x0, .ptr (sc oRS)), (.x1, .ptr a), (.x2, .ptr (sc oPS))]) (.block and24)
 
 /-- A polynomial of `ExpandMask` from the seed at `MS` to `a`. -/
 def maskAt (gamma1 : Nat) (a : Ptr) : Prog isa :=
-  callAt "vg_mldsa_expand_mask_poly" P.expandMask [(.x0, .ptr (sc oMS)), (.x1, .imm gamma1), (.x2, .ptr a), (.x3, .ptr (sc oPS))]
+  callAt ("vg_mldsa_expand_mask_poly" ++ P.suffix) P.expandMask [(.x0, .ptr (sc oMS)), (.x1, .imm gamma1), (.x2, .ptr a), (.x3, .ptr (sc oPS))]
 
 /-- `SampleInBall` of the `len` bytes at `CT` to `c`. -/
 def ballAt (len tau : Nat) (c : Ptr) : Prog isa :=
-  callAt "vg_mldsa_sample_in_ball" P.ball [(.x0, .ptr (sc oCT)), (.x1, .imm len), (.x2, .imm tau), (.x3, .ptr c), (.x4, .ptr (sc oPS))]
+  callAt ("vg_mldsa_sample_in_ball" ++ P.suffix) P.ball [(.x0, .ptr (sc oCT)), (.x1, .imm len), (.x2, .imm tau), (.x3, .ptr c), (.x4, .ptr (sc oPS))]
 
 def highBitsAt (r : Ptr) (gamma2 : Nat) (out : Ptr) : Prog isa :=
   callAt "vg_mldsa_high_bits" P.highBits [(.x0, .ptr r), (.x1, .imm gamma2), (.x2, .ptr out)]
@@ -230,5 +231,7 @@ def pro : List Instr :=
 /-- Return `x24` (in `x0`), and restore the caller's registers (`x28` last). -/
 def epi : List Instr :=
   .addImm .x .x0 .x24 0 :: (List.range 7).map fun k => .ldr .x (savedRegs.getD k .x0) .x28 (oSV + 8 * k)
+
+def shakeAt := shakeAtWith .scalar
 
 end VG.Impl.MlDsa.AArch64.Sign

@@ -49,6 +49,9 @@ structure Sample4Impl where
       RelCT isa (LRel rbs wbs) (callee.prfs N₀ n o wl) fun _ _ => True
   prfs_ctl : ∀ N₀ n o wl, ctlOk (callee.prfs N₀ n o wl) = true
   prfs_sp : ∀ N₀ n o wl, (callee.prfs N₀ n o wl).all (fun i => !isa.writesSp i) = true
+  /-- The polynomial arithmetic that goes with it is correct, constant
+  time, and safe to call. -/
+  arith : ArithOk callee.arith
   /-- What the names of its callers' instances end with (e.g. `_avx2`;
   nothing for the baseline implementation). -/
   suffix : String
@@ -72,6 +75,7 @@ def scalar : Sample4Impl where
   prfs_tr := fun hcs => prfsScalar_tr hcs
   prfs_ctl := prfsScalar_ctl
   prfs_sp := prfsScalar_sp
+  arith := ArithOk.sse
   suffix := ""
   prfsDoc := "one at a time"
   features := []
@@ -89,6 +93,7 @@ def avx2 : Sample4Impl where
   prfs_tr := fun hcs => prfsAvx2_tr hcs
   prfs_ctl := prfsAvx2_ctl
   prfs_sp := prfsAvx2_sp
+  arith := ArithOk.avx2
   suffix := "_avx2"
   prfsDoc := "four at a time, with AVX2 (and the first one or two of `4k + 1` or `4k + 2` on their own)"
   features := ["avx", "avx2"]
@@ -98,12 +103,14 @@ end Sample4Impl
 /-- `ctlOk` of code that calls the implementation `v`: evaluated by the
 kernel but for the calls of `v`. -/
 macro "s4_ctl " v:term : tactic =>
-  `(tactic| repeat (first | decide +kernel | apply ctlOk_seq | apply ctlOk_ite | (apply ctlOk_call; exact ($v).mxcsr) |
-    exact ($v).prfs_ctl _ _ _ _))
+  `(tactic| repeat' (first | decide +kernel | apply ctlOk_seq | apply ctlOk_ite | (apply ctlOk_call; exact ($v).mxcsr) |
+    exact ($v).prfs_ctl _ _ _ _ | exact ($v).arith.mul.ctl | exact ($v).arith.ntt.ctl |
+    exact ($v).arith.nttInv.ctl | rfl))
 
 /-- That code that calls the implementation `v` never writes the stack pointer. -/
 macro "s4_sp " v:term : tactic =>
-  `(tactic| repeat (first | exact Code.all_of_allInstrs (by decide +kernel) | apply all_seq | apply all_ite |
-    (apply all_call; exact ($v).spSafe) | exact ($v).prfs_sp _ _ _ _))
+  `(tactic| repeat' (first | exact Code.all_of_allInstrs (by decide +kernel) | apply all_seq | apply all_ite |
+    (apply all_call; exact ($v).spSafe) | exact ($v).prfs_sp _ _ _ _ | exact ($v).arith.mul.sp |
+    exact ($v).arith.ntt.sp | exact ($v).arith.nttInv.sp | rfl))
 
 end VG.Proof.MlKem.X86_64

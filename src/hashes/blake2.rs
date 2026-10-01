@@ -10,7 +10,7 @@
 //! about). The Rust types only keep that state together with the length of
 //! the data, which the contracts take as an argument.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"))]
 
 /// Defines a BLAKE2 hash function with `$words` words of `$block / 16`
 /// bytes over verified streaming primitives:

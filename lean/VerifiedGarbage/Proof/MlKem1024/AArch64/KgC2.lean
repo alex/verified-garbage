@@ -10,9 +10,11 @@ Untrusted: everything here is checked by Lean. `ŝ[j]` and its encoding into
 
 namespace VG.Proof.MlKem1024.AArch64.KeyGen
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlKem1024.AArch64 VG.Impl.MlKem1024.AArch64.KG VG.Proof.MlKem
   VG.Proof.MlKem.AArch64 VG.Proof.MlKem1024 VG.Proof.MlKem1024.AArch64
-open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash copy32)
+open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash hashWith copy32)
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
 
@@ -42,7 +44,7 @@ theorem CInv.frame {s₀ : State} {mB : Mem} {v : BitVec 64} {s s' : State} (h :
   · rw [bytesAt_frame hf (fun r hr => (hW r hr).2.1) (by decide)]; exact h.sig
   · rw [polyAt_frame hf (ha e he)]; exact (h.ahat e he).2
 
-/-- A buffer apart from everything `kgCbdNtt` writes. -/
+/-- A buffer apart from everything `(kgCbdNttWith keccak.callee)` writes. -/
 theorem cnW_apart {s₀ : State} (hp : Pre s₀) {off b o l : Nat} (hb : b < 4) (f : o + l ≤ kL b)
     (h : b ≠ 3 ∨ (840 ≤ o ∧ (o + l ≤ 912 ∨ 913 ≤ o) ∧ (o + l ≤ 928 ∨ 1056 ≤ o) ∧
       (o + l ≤ off ∨ off + 1024 ≤ o) ∧ (o + l ≤ 3104 ∨ 4128 ≤ o))) (ho : off + 1024 ≤ kL 3) :
@@ -57,7 +59,7 @@ theorem cnW_apart {s₀ : State} (hp : Pre s₀) {off b o l : Nat} (hb : b < 4) 
   · refine hp.args.rdisj hb (by decide) f ho ?_; omega
   · refine hp.args.rdisj hb (by decide) f (by decide) ?_; simp only [KG.NS]; omega
 
-/-- `ρ`, `σ` and `Â` are apart from what `kgCbdNtt` writes, for a polynomial past `Â`. -/
+/-- `ρ`, `σ` and `Â` are apart from what `(kgCbdNttWith keccak.callee)` writes, for a polynomial past `Â`. -/
 theorem cnW_far {s₀ : State} (hp : Pre s₀) {off : Nat} (ho : SH ≤ off ∧ off + 1024 ≤ SV) :
     ∀ r ∈ cnW s₀ off, (R (kA s₀) 3 SB 32).Disjoint r ∧ (R (kA s₀) 3 SG 32).Disjoint r ∧
       (R (kA s₀) 3 AH 16384).Disjoint r := by
@@ -87,7 +89,7 @@ structure SInv (s₀ : State) (mB : Mem) (v : BitVec 64) (j : Nat) (s : State) :
   dk : ∀ j' < j, bytesAt s.mem (kA s₀ 2 + BitVec.ofNat 64 (384 * j')) 384 = encode12 (kgS1024 (dB s₀) j')
 
 theorem s_step {s₀ : State} (hp : Pre s₀) {mB : Mem} {v : BitVec 64} {j : Nat} (hj : j < 4) {s : State}
-    (h : SInv s₀ mB v j s) : WP isa (Impl.MlKem1024.AArch64.kgS j) s (SInv s₀ mB v (j + 1)) := by
+    (h : SInv s₀ mB v j s) : WP isa (Impl.MlKem1024.AArch64.kgSWith keccak.callee j) s (SInv s₀ mB v (j + 1)) := by
   have hj' : SH + 1024 * j + 1024 ≤ SV := by simp only [SH, SV]; omega
   have hpo : PolyOff (sOff j) := ⟨by simp only [sOff, SH, AH]; omega, hj'⟩
   have hoL : sOff j + 1024 ≤ kL 3 := by simp only [sOff, SH, kL]; omega

@@ -15,9 +15,11 @@ matrix by `matrix_rct`.
 
 namespace VG.Proof.MlKem1024.AArch64.Decaps
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlKem1024.AArch64 VG.Impl.MlKem1024.AArch64.KEM VG.Proof.MlKem
   VG.Proof.MlKem.AArch64 VG.Proof.MlKem1024 VG.Proof.MlKem1024.AArch64
-open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash copy32 slotReg argReg kemOwn)
+open VG.Impl.MlKem.AArch64 (mov ptrTo Piece hash hashWith copy32 slotReg argReg kemOwn)
 open VG.Proof.MlKem1024.AArch64.Kem
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
@@ -48,7 +50,7 @@ abbrev jD (s₀ : State) : List Byte := J (dkZ1024 (dkD s₀) ++ cD s₀)
 
 /-- What the function leaves. -/
 structure Done (s₀ : State) (mB : Mem) (v : BitVec 64) (s : State) : Prop where
-  abi : GprAbi s₀ s
+  abi : abiPreserved s₀ s
   x0 : s.gpr .x0 = v
   key : bytesAt s.mem (kA s₀ 2) 32 = if cD s₀ = cpr s₀ mB then (gD s₀).1 else jD s₀
 
@@ -65,7 +67,7 @@ theorem far_encW {s₀ : State} (hp : Pre deL s₀) {o l : Nat} (h1 : 840 ≤ o)
   · exact sdisj hp f (by decide) (.inl (by simp only [PB, CB] at h3 ⊢; omega))
 
 theorem c_ok {s₀ : State} (hp : Pre deL s₀) {uA sB : State} (hA : AfterA s₀ uA)
-    (hB : BInv deL s₀ uA.mem (rhoD s₀) 16 sB) : WP isa deC sB (Done s₀ sB.mem (sB.gpr .x24)) := by
+    (hB : BInv deL s₀ uA.mem (rhoD s₀) 16 sB) : WP isa (deCWith keccak.callee) sB (Done s₀ sB.mem (sB.gpr .x24)) := by
   have fbw : ∀ {o l : Nat}, o + l ≤ 49152 → (o + l ≤ SB + 32 ∨ SB + 34 ≤ o) → (o + l ≤ AH) →
       (o + l ≤ SS ∨ SS + 2048 ≤ o) → ∀ r ∈ bW deL s₀, (R (kA s₀) deL.sc o l).Disjoint r :=
     fun f h1 h2 h3 r hr => by
@@ -99,7 +101,7 @@ theorem c_ok {s₀ : State} (hp : Pre deL s₀) {uA sB : State} (hA : AfterA s�
   have kp₁ : bytesAt s₁.mem (sA deL s₀ KP) 32 = (gD s₀).1 := by
     rw [bytesAt_frame e₁.fr (far_encW hp (by decide) (by decide) (by decide)) (by decide)]; exact kp₀
   -- `K̄ = J(z ‖ c)`
-  refine WP.seq (WP.mono (hash_ok (hsetup hp kb₁ (by decide : 136 ∈ Spec.Sha3.rates)) (sfx := 0x1f)
+  refine WP.seq (WP.mono (hashWith_ok keccak (hsetup hp kb₁ (by decide : 136 ∈ Spec.Sha3.rates)) (sfx := 0x1f)
     (by decide) (ins := [⟨.x25, 3136, 32⟩, ⟨.x26, 0, 1568⟩]) (outs := [⟨.x28, JB, 32⟩]) (by simp)
     (fun p hp' => by
       rcases mem2' hp' with rfl | rfl
@@ -176,8 +178,7 @@ theorem post_of {s₀ sB s' : State} {mA : Mem} (hB : BInv deL s₀ mA (rhoD s�
     rfl
 
 theorem correct {s₀ : State} (hs : decaps1024AArch64.pre s₀) :
-    WP isa decaps s₀ fun s' => abiPreserved s₀ s' ∧ decaps1024AArch64.post s₀ s' := by
-  apply WP.withPreservedV (hc := by decide +kernel)
+    WP isa (decapsWith keccak.callee) s₀ fun s' => abiPreserved s₀ s' ∧ decaps1024AArch64.post s₀ s' := by
   have hp := pre_of hs
   exact WP.seq (WP.mono (a_ok hp) fun _ hA => WP.seq (WP.mono
     (matrix_ok hp (BInv.zero hA.kb hA.x24 hA.rho)) fun _ hB =>
@@ -195,7 +196,7 @@ theorem Pub3.two {σ₁ σ₂ : State} (h : Pub3 σ₁ σ₂) : Two deL σ₁ σ
 theorem Pub3.rho {σ₁ σ₂ : State} (h : Pub3 σ₁ σ₂) : rhoD σ₁ = rhoD σ₂ :=
   Sample.map_toNat_inj h.2.2.2.2.2.2.2
 
-theorem b_rct : RelCT isa (fun s₁ s₂ => True ∧ ∃ σ₁ σ₂, Pub3 σ₁ σ₂ ∧ AfterA σ₁ s₁ ∧ AfterA σ₂ s₂) kemMatrix
+theorem b_rct : RelCT isa (fun s₁ s₂ => True ∧ ∃ σ₁ σ₂, Pub3 σ₁ σ₂ ∧ AfterA σ₁ s₁ ∧ AfterA σ₂ s₂) (kemMatrixWith keccak.callee)
     fun s₁ s₂ => ∃ σ₁ σ₂ m₁ m₂, Pub3 σ₁ σ₂ ∧ BInv deL σ₁ m₁ (rhoD σ₁) 16 s₁ ∧ BInv deL σ₂ m₂ (rhoD σ₁) 16 s₂ := by
   refine RelCT.mono (RelCT.exists_ (P := fun (x : State × State × Mem × Mem) s₁ s₂ =>
       Pub3 x.1 x.2.1 ∧ BInv deL x.1 x.2.2.1 (rhoD x.1) 0 s₁ ∧ BInv deL x.2.1 x.2.2.2 (rhoD x.1) 0 s₂)
@@ -208,7 +209,7 @@ theorem b_rct : RelCT isa (fun s₁ s₂ => True ∧ ∃ σ₁ σ₂, Pub3 σ₁
   · exact RelCT.of_false fun _ _ h => hpub h.1
 
 theorem c_rct : RelCT isa (fun s₁ s₂ => ∃ σ₁ σ₂ m₁ m₂, Pub3 σ₁ σ₂ ∧ BInv deL σ₁ m₁ (rhoD σ₁) 16 s₁ ∧
-    BInv deL σ₂ m₂ (rhoD σ₁) 16 s₂) deC fun _ _ => True :=
+    BInv deL σ₂ m₂ (rhoD σ₁) 16 s₂) (deCWith keccak.callee) fun _ _ => True :=
   RelCT.taint (A := taint) (Taint.ofRegs [.x25, .x26, .x27, .x28])
     (fun s₁ s₂ ⟨σ₁, σ₂, m₁, m₂, hpub, b₁, b₂⟩ =>
     agree_of (by rw [b₁.kb.sp, b₂.kb.sp, hpub.two.sp]) fun r hr => by
@@ -216,14 +217,14 @@ theorem c_rct : RelCT isa (fun s₁ s₂ => ∃ σ₁ σ₂ m₁ m₂, Pub3 σ�
       · rw [b₁.kb.x25, b₂.kb.x25]; exact hpub.2.2.1
       · rw [b₁.kb.x26, b₂.kb.x26]; exact hpub.2.2.2.1
       · rw [b₁.kb.x27, b₂.kb.x27]; exact hpub.2.2.2.2.1
-      · rw [b₁.kb.x28, b₂.kb.x28]; exact hpub.2.2.2.2.2.1) (by taint_decide)
+      · rw [b₁.kb.x28, b₂.kb.x28]; exact hpub.2.2.2.2.2.1) keccak.mlkem1024DeCTaint.choose_spec
 
-theorem ct : ConstantTime isa decaps1024AArch64.pre decaps1024AArch64.pub decaps :=
+theorem ct : ConstantTime isa decaps1024AArch64.pre decaps1024AArch64.pub (decapsWith keccak.callee) :=
   RelCT.constantTime (Q := fun _ _ => True) (RelCT.seq
     ((RelCT.taint (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) (fun _ _ h =>
       agree_of h.2.2.2.2.2.2.1 (by
         obtain ⟨-, -, e0, e1, e2, e3, -, -⟩ := h
-        simp [e0, e1, e2, e3])) (by taint_decide)).wpDep (F := fun σ s => AfterA σ s)
+        simp [e0, e1, e2, e3])) keccak.mlkem1024DeATaint.choose_spec).wpDep (F := fun σ s => AfterA σ s)
       fun _ _ h => ⟨a_ok (pre_of h.1), a_ok (pre_of h.2.1)⟩)
     (RelCT.seq b_rct c_rct))
 
@@ -238,14 +239,18 @@ def sat : State where
   rd := [⟨0x1000, 3168⟩, ⟨0x2000, 1568⟩]
   wr := [⟨0x3000, 32⟩, ⟨0x10000, 49152⟩]
 
-theorem decaps_correct (s : State) (hs : decaps1024AArch64.pre s) :
-    ∃ t s', Exec isa decaps s t s' ∧ abiPreserved s s' ∧ decaps1024AArch64.post s s' :=
+theorem decaps_correctWith (s : State) (hs : decaps1024AArch64.pre s) :
+    ∃ t s', Exec isa (decapsWith keccak.callee) s t s' ∧ abiPreserved s s' ∧ decaps1024AArch64.post s s' :=
   correct hs
+
+theorem decaps_verifiedWith :
+    Verified AArch64.target (decapsWith keccak.callee) (Spec.MlKem1024.decapsContract AArch64.abi 16) :=
+  Verified.of_correct (decaps_correctWith (keccak := keccak)) (ct (keccak := keccak)) (by
+    mlkem_implies [Spec.MlKem1024.decapsContract, Spec.MlKem1024.decapsSig, decaps1024AArch64,
+      AArch64.abi, AArch64.argRegs] [sat] using sat)
 
 theorem decaps_verified :
     Verified AArch64.target decaps (Spec.MlKem1024.decapsContract AArch64.abi 16) :=
-  Verified.of_correct decaps_correct ct (by
-    mlkem_implies [Spec.MlKem1024.decapsContract, Spec.MlKem1024.decapsSig, decaps1024AArch64,
-      AArch64.abi, AArch64.argRegs] [sat] using sat)
+  decaps_verifiedWith (keccak := .scalar)
 
 end VG.Proof.MlKem1024.AArch64.Decaps

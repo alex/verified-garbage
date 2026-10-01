@@ -107,38 +107,6 @@ def artifacts : List Artifact := [
     contract := Spec.MlKem.nttInvContract AArch64.abi
     verified := Proof.MlKem.AArch64.Ntt.ntt_inv_verified
     ofSig := ⟨_, _, _, by unfold Spec.MlKem.nttInvContract Spec.MlKem.inPlaceContract; rfl⟩
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.MlKem.sampleNTTApi with
-    target := AArch64.target
-    doc := Spec.MlKem.sampleNTTApi.doc
-    code := Impl.MlKem.AArch64.sampleNTT
-    contract := Spec.MlKem.sampleNTTContract AArch64.abi 16
-    stack := 16
-    verified := Proof.MlKem.AArch64.Sample.sample_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.MlKem.keyGenApi with
-    target := AArch64.target
-    doc := Spec.MlKem.keyGenApi.doc
-    code := Impl.MlKem.AArch64.keyGen
-    contract := Spec.MlKem.keyGenContract AArch64.abi 16
-    stack := 16
-    verified := Proof.MlKem.AArch64.KeyGen.keyGen_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.MlKem.encapsApi with
-    target := AArch64.target
-    doc := Spec.MlKem.encapsApi.doc
-    code := Impl.MlKem.AArch64.encaps
-    contract := Spec.MlKem.encapsContract AArch64.abi 16
-    stack := 16
-    verified := Proof.MlKem.AArch64.Encaps.encaps_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { Spec.MlKem.decapsApi with
-    target := AArch64.target
-    doc := Spec.MlKem.decapsApi.doc
-    code := Impl.MlKem.AArch64.decaps
-    contract := Spec.MlKem.decapsContract AArch64.abi 16
-    stack := 16
-    verified := Proof.MlKem.AArch64.Decaps.decaps_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 end VG.Artifacts.MlKem.AArch64

@@ -8,8 +8,8 @@ Both keep four pointers in `x25`–`x28` (`scratch` in `x28`), the AND of
 `sample_ntt`'s results in `x24`, and save our caller's values of these and
 of `x30` in `scratch` (`kemPrologue`, `kemEpilogue`): the Keccak functions
 keep these registers, and restore the others they use from memory. Both run K-PKE.Encrypt (FIPS 203
-Algorithm 14) after sampling `Â` (`kemMatrix`, from `ρ ‖ j ‖ i` at `SB`):
-`ŷ`, `u` and `v` (`encryptC`), with `r` at `RB`, and `ek`, `m` and the
+Algorithm 14) after sampling `Â` (`(kemMatrixWith c)`, from `ρ ‖ j ‖ i` at `SB`):
+`ŷ`, `u` and `v` (`(encryptCWith c)`), with `r` at `RB`, and `ek`, `m` and the
 ciphertext wherever the caller says.
 
 `scratch` (32 KiB) holds, at these offsets: the Keccak state (0) and working
@@ -79,9 +79,9 @@ def kemEpilogue : List Instr :=
 /-! ## Building blocks -/
 
 /-- `SamplePolyCBD₂(PRF₂(r, N))` into the polynomial at `off`, with `r` at `RB`. -/
-def prfCbd (N off : Nat) : Prog isa :=
+def prfCbdWith (c : Impl.Sha3.AArch64.Callee) (N off : Nat) : Prog isa :=
   .seq (.block [.movz .x .x9 (BitVec.ofNat 16 N) 0, .strb .x9 .x28 (RB + 32)]) <|
-  .seq (hash .x28 ST WK 136 0x1f [⟨.x28, RB, 33⟩] [⟨.x28, PB, 128⟩]) <|
+  .seq (hashWith c .x28 ST WK 136 0x1f [⟨.x28, RB, 33⟩] [⟨.x28, PB, 128⟩]) <|
     .seq (.block (ptrTo .x0 .x28 PB ++ ptrTo .x1 .x28 off)) (.call "vg_mlkem_cbd2" cbd2)
 
 /-- The NTT of the polynomial at `off`. -/
@@ -129,38 +129,46 @@ def kemSetup (i j : Nat) : List Instr :=
     .strb .x9 .x28 (SB + 33)] ++ ptrTo .x0 .x28 SB ++ ptrTo .x1 .x28 (aOff i j) ++ ptrTo .x2 .x28 SS
 
 /-- `Â[i, j] = SampleNTT(ρ ‖ j ‖ i)`, and its result ANDed into `x24`. -/
-def kemSample (i j : Nat) : Prog isa := .seq (.block (kemSetup i j)) kgCall
+def kemSampleWith (c : Impl.Sha3.AArch64.Callee) (i j : Nat) : Prog isa := .seq (.block (kemSetup i j)) (kgCallWith c)
 
 /-- The nine `SampleNTT`s, row by row. -/
-def kemMatrix : Prog isa :=
-  .seq (kemSample 0 0) <| .seq (kemSample 0 1) <| .seq (kemSample 0 2) <|
-  .seq (kemSample 1 0) <| .seq (kemSample 1 1) <| .seq (kemSample 1 2) <|
-  .seq (kemSample 2 0) <| .seq (kemSample 2 1) (kemSample 2 2)
+def kemMatrixWith (c : Impl.Sha3.AArch64.Callee) : Prog isa :=
+  .seq ((kemSampleWith c) 0 0) <| .seq ((kemSampleWith c) 0 1) <| .seq ((kemSampleWith c) 0 2) <|
+  .seq ((kemSampleWith c) 1 0) <| .seq ((kemSampleWith c) 1 1) <| .seq ((kemSampleWith c) 1 2) <|
+  .seq ((kemSampleWith c) 2 0) <| .seq ((kemSampleWith c) 2 1) ((kemSampleWith c) 2 2)
 
 /-! ## K-PKE.Encrypt after the matrix -/
 
 /-- `ŷ[j] = NTT(SamplePolyCBD₂(PRF₂(r, j)))`. -/
-def encYAt (j : Nat) : Prog isa := .seq (prfCbd j (yOff j)) (nttAt (yOff j))
+def encYAtWith (c : Impl.Sha3.AArch64.Callee) (j : Nat) : Prog isa := .seq ((prfCbdWith c) j (yOff j)) (nttAt (yOff j))
 
 /-- `u[i] = NTT⁻¹(Â[0, i] ŷ[0] + Â[1, i] ŷ[1] + Â[2, i] ŷ[2]) + e₁[i]`, into
 `ct + co + 320 i`. -/
-def encUAt (ct : Reg) (co i : Nat) : Prog isa :=
+def encUAtWith (c : Impl.Sha3.AArch64.Callee) (ct : Reg) (co i : Nat) : Prog isa :=
   .seq (mulAt TP (aOff 0 i) (yOff 0)) <| .seq (mulAt PP (aOff 1 i) (yOff 1)) <| .seq (addAt TP PP) <|
   .seq (mulAt PP (aOff 2 i) (yOff 2)) <| .seq (addAt TP PP) <| .seq (nttInvAt TP) <|
-  .seq (prfCbd (3 + i) EP) <| .seq (addAt TP EP) (ceAt TP 10 ct (co + 320 * i))
+  .seq ((prfCbdWith c) (3 + i) EP) <| .seq (addAt TP EP) (ceAt TP 10 ct (co + 320 * i))
 
 /-- `v = NTT⁻¹(t̂[0] ŷ[0] + t̂[1] ŷ[1] + t̂[2] ŷ[2]) + e₂ + μ`, with `t̂` from
 `ek + eo` and `μ` from `m + mo`, into `ct + co + 960`. -/
-def encVAt (ek : Reg) (eo : Nat) (m : Reg) (mo : Nat) (ct : Reg) (co : Nat) : Prog isa :=
+def encVAtWith (c : Impl.Sha3.AArch64.Callee) (ek : Reg) (eo : Nat) (m : Reg) (mo : Nat) (ct : Reg) (co : Nat) : Prog isa :=
   .seq (dec12At ek eo TH) <| .seq (mulAt TP TH (yOff 0)) <|
   .seq (dec12At ek (eo + 384) TH) <| .seq (mulAt PP TH (yOff 1)) <| .seq (addAt TP PP) <|
   .seq (dec12At ek (eo + 768) TH) <| .seq (mulAt PP TH (yOff 2)) <| .seq (addAt TP PP) <|
-  .seq (nttInvAt TP) <| .seq (prfCbd 6 EP) <| .seq (addAt TP EP) <|
+  .seq (nttInvAt TP) <| .seq ((prfCbdWith c) 6 EP) <| .seq (addAt TP EP) <|
   .seq (ddAt m mo 1 EP) <| .seq (addAt TP EP) (ceAt TP 4 ct (co + 960))
 
 /-- `ŷ`, `u` and `v`. -/
-def encryptC (ek : Reg) (eo : Nat) (m : Reg) (mo : Nat) (ct : Reg) (co : Nat) : Prog isa :=
-  .seq (encYAt 0) <| .seq (encYAt 1) <| .seq (encYAt 2) <|
-  .seq (encUAt ct co 0) <| .seq (encUAt ct co 1) <| .seq (encUAt ct co 2) (encVAt ek eo m mo ct co)
+def encryptCWith (c : Impl.Sha3.AArch64.Callee) (ek : Reg) (eo : Nat) (m : Reg) (mo : Nat) (ct : Reg) (co : Nat) : Prog isa :=
+  .seq ((encYAtWith c) 0) <| .seq ((encYAtWith c) 1) <| .seq ((encYAtWith c) 2) <|
+  .seq ((encUAtWith c) ct co 0) <| .seq ((encUAtWith c) ct co 1) <| .seq ((encUAtWith c) ct co 2) ((encVAtWith c) ek eo m mo ct co)
+
+def prfCbd := prfCbdWith .scalar
+def kemSample := kemSampleWith .scalar
+def kemMatrix := kemMatrixWith .scalar
+def encYAt := encYAtWith .scalar
+def encUAt := encUAtWith .scalar
+def encVAt := encVAtWith .scalar
+def encryptC := encryptCWith .scalar
 
 end VG.Impl.MlKem.AArch64

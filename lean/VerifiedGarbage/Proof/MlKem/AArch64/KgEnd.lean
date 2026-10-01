@@ -12,6 +12,8 @@ together (`ek_at`, `dk_at`).
 
 namespace VG.Proof.MlKem.AArch64.KeyGen
 
+variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
+
 open VG VG.AArch64 VG.Impl.MlKem.AArch64 VG.Impl.MlKem.AArch64.KG VG.Proof.MlKem.AArch64
 open VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt stateAt Repr)
@@ -135,7 +137,7 @@ theorem apart_below {s₀ : State} (hp : Pre s₀) (i : Nat) (hi : i ≤ 3) : Ap
 
 /-- What the function leaves. -/
 structure Done (s₀ : State) (mB : Mem) (v : BitVec 64) (s : State) : Prop where
-  abi : GprAbi s₀ s
+  abi : abiPreserved s₀ s
   x0 : s.gpr .x0 = v
   ek : bytesAt s.mem (kA s₀ 1) 1184 = ekPKE768 (aM s₀ mB) (dB s₀)
   dk : bytesAt s.mem (kA s₀ 2) 2400 =
@@ -148,7 +150,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {u : State} (hk : KB s₀ u) :
     WP isa (.block [mov .x0 .x24, .ldr .x .x30 .x28 (SV + 40), .ldr .x .x24 .x28 SV,
       .ldr .x .x25 .x28 (SV + 8), .ldr .x .x26 .x28 (SV + 16), .ldr .x .x27 .x28 (SV + 24),
       .ldr .x .x28 .x28 (SV + 32)]) u fun u' =>
-      GprAbi s₀ u' ∧ u'.gpr .x0 = u.gpr .x24 ∧ u'.mem = u.mem := by
+      abiPreserved s₀ u' ∧ u'.gpr .x0 = u.gpr .x24 ∧ u'.mem = u.mem := by
   have cv := cov_r hp hk (b := 3) (o := SV) (l := 48) (by decide) (by decide)
   have ld : ∀ k < 6, ∀ {w : State}, w.rd = u.rd ∧ w.wr = u.wr ∧ w.mem = u.mem ∧ w.gpr .x28 = kA s₀ 3 →
       w.gpr .x28 + BitVec.ofNat 64 (SV + 8 * k) = kA s₀ 3 + BitVec.ofNat 64 (SV + 8 * k) ∧
@@ -183,7 +185,7 @@ theorem restore_ok {s₀ : State} (hp : Pre s₀) {u : State} (hk : KB s₀ u) :
     wp_nil ?_
   have o₇ : Only [.x0, .x30, .x24, .x25, .x26, .x27, .x28] u s₇ :=
     ((((((h₁.trans h₂).trans h₃).trans h₄).trans h₅).trans h₆).trans h₇).mono
-  refine ⟨⟨fun r hr => ?_, by rw [o₇.sp, hk.sp]⟩, ?_, o₇.mem⟩
+  refine ⟨⟨fun r hr => ?_, by rw [o₇.sp, hk.sp], fun r hr => (o₇.vcs r hr).trans (hk.vcs r hr)⟩, ?_, o₇.mem⟩
   · by_cases ho : r ∈ own
     · rcases mem6 ho with rfl | rfl | rfl | rfl | rfl | rfl
       · rw [h₇.get .x24, h₆.get .x24, h₅.get .x24, h₄.get .x24, e₃]; exact l₂.2.2
@@ -265,11 +267,11 @@ theorem rho_ok {s₀ : State} (hp : Pre s₀) {mB : Mem} {v : BitVec 64} {s : St
 /-- `H(ek)` into `dk`. -/
 theorem hek_ok {s₀ : State} (hp : Pre s₀) {mB : Mem} {v : BitVec 64} {s : State} (kb : KB s₀ s)
     (h : EndInv s₀ mB v s) :
-    WP isa (hash .x28 ST WK 136 6 [⟨.x26, 0, 1184⟩] [⟨.x27, 2336, 32⟩]) s fun s' =>
+    WP isa (hashWith keccak.callee .x28 ST WK 136 6 [⟨.x26, 0, 1184⟩] [⟨.x27, 2336, 32⟩]) s fun s' =>
       KB s₀ s' ∧ EndInv s₀ mB v s' ∧
       bytesAt s'.mem (kA s₀ 2 + BitVec.ofNat 64 2336) 32 = H (ekPKE768 (aM s₀ mB) (dB s₀)) := by
   have e28 : ∀ o, s.gpr .x28 + BitVec.ofNat 64 o = kA s₀ 3 + BitVec.ofNat 64 o := fun o => by rw [kb.x28]
-  refine WP.mono (hash_ok (hsetup hp kb (by decide : 136 ∈ Spec.Sha3.rates)) (sfx := 6) (by decide)
+  refine WP.mono (hashWith_ok keccak (hsetup hp kb (by decide : 136 ∈ Spec.Sha3.rates)) (sfx := 6) (by decide)
     (ins := [⟨.x26, 0, 1184⟩]) (outs := [⟨.x27, 2336, 32⟩]) (by simp)
     (fun p hp' => by
       rw [List.mem_singleton.mp hp']
@@ -301,7 +303,7 @@ theorem hek_ok {s₀ : State} (hp : Pre s₀) {mB : Mem} {v : BitVec 64} {s : St
 
 /-- `z` into `dk`, and the rest. -/
 theorem end_ok {s₀ : State} (hp : Pre s₀) {mB : Mem} {v : BitVec 64} {s : State} (h : TL s₀ mB v 3 s) :
-    WP isa kgEnd s (Done s₀ mB v) := by
+    WP isa (kgEndWith keccak.callee) s (Done s₀ mB v) := by
   refine WP.seq (WP.mono (rho_ok hp h) fun s₁ ⟨kb₁, h₁⟩ => WP.seq (WP.mono (hek_ok hp kb₁ h₁)
     fun s₂ ⟨kb₂, h₂, hh₂⟩ => ?_))
   rw [WP.block_append_iff]

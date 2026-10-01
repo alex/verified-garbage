@@ -11,7 +11,13 @@ only worth having if everything built on the primitive can run it, so:
 * **Variants flow to callers.** If a function `g` calls `f`, and `f` has a
   variant `f_<s>`, then `g` must have the variant `g_<s>`, and it must call
   `f_<s>`. (A variant may call the function it is a variant of, e.g. for a
-  tail it leaves to the baseline code.) In Lean this is what a *generic*
+  tail it leaves to the baseline code.) Variants compose: a variant of a
+  variant, `g_<t>_<s>`, has both suffixes, in either order, so when `g_<t>`
+  calls `f`, its variant for `f_<s>` may be `g_<t>_<s>` or `g_<s>_<t>`
+  (e.g. Ed25519's operations over each SHA-512 backend and each field
+  multiplication: `vg_ed25519_verify_avx2_adx` is the variant both of
+  `vg_ed25519_verify_avx2` for `vg_ed25519_verify_equation_adx` and of
+  `vg_ed25519_verify_adx` for `vg_sha512_update_avx2`). In Lean this is what a *generic*
   caller does (`Generic/<Iface>/<Target>/`, see "Variants and generic
   callers" in `lean/VerifiedGarbage/TCB/Emit.lean`): proven once for any
   implementation of `f`, and emitted once for each.
@@ -66,6 +72,16 @@ def variants(fns):
     return out
 
 
+def chain(var, name):
+    """The function `name` is a variant of, through every variant it is of,
+    and the suffixes it adds to it, in order."""
+    if name not in var:
+        return name, []
+    base, suffix = var[name]
+    root, suffixes = chain(var, base)
+    return root, suffixes + [suffix]
+
+
 def check(targets, rust):
     errors = []
     for target, fns in sorted(targets.items()):
@@ -73,15 +89,22 @@ def check(targets, rust):
         by_base = {}
         for v, (base, suffix) in var.items():
             by_base.setdefault(base, []).append(suffix)
+        # Each function by its root and the set of suffixes it composes.
+        composed = {}
+        for name in fns:
+            root, suffixes = chain(var, name)
+            composed.setdefault((root, tuple(sorted(suffixes))), name)
         for caller, (_, callees) in sorted(fns.items()):
+            root, suffixes = chain(var, caller)
             for callee in sorted(callees):
                 for suffix in sorted(by_base.get(callee, [])):
                     if var.get(caller, (None,))[0] == callee:
                         continue  # a variant calling its baseline
-                    if var.get(caller) and var[caller][1] == suffix:
+                    if suffix in suffixes:
                         continue  # already the variant
-                    want = f"{caller}_{suffix}"
-                    if want not in fns or var.get(want) != (caller, suffix):
+                    want = composed.get((root, tuple(sorted(suffixes + [suffix]))))
+                    if want is None:
+                        want = f"{caller}_{suffix}"
                         errors.append(
                             f"{target}: {caller} calls {callee}, which has the variant "
                             f"{callee}_{suffix}, but there is no {want} (with the same "
