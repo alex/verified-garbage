@@ -19,8 +19,8 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Backend
 Untrusted: everything here is checked by Lean. The verified x86-64
 implementations of the primitives (`prims`), and what the proofs of signing
 need of them, with any implementation `v` of the polynomial arithmetic
-(`prims_okWith`), with 24 bytes of stack for each call: their
-contracts, and, of the two samplers whose result signing branches on, that
+(`prims_okWith`), with 32 bytes of stack for each call: their
+contracts, and, of the samplers whose result signing branches on, that
 it depends only on their public data and that they succeed only if the
 algorithm finishes within `maxBounds` (from what their own proofs say they
 return, `rejNTT_correct` and `sampleInBall_correct`).
@@ -53,6 +53,7 @@ def prims : Prims where
   bitPack := Impl.MlDsa.X86_64.Pack.bitPack
   bitUnpack := Impl.MlDsa.X86_64.Pack.bitUnpack
   hintBitPack := Impl.MlDsa.X86_64.Pack.hintBitPack
+  rej4 := Impl.MlDsa.X86_64.Sample.Rej4.rejNTT4
 
 /-- The primitives, with the polynomial arithmetic of `B`. -/
 def primsWith (B : Impl.MlDsa.X86_64.Arith.Backend) : Prims :=
@@ -63,6 +64,7 @@ def primsWith (B : Impl.MlDsa.X86_64.Arith.Backend) : Prims :=
     mulAdd := B.mulAdd
     add := B.add
     sub := B.sub
+    rej4 := B.rej4
     sfx := B.sfx }
 
 theorem nosp_of {c : Prog isa} (h : c.allInstrs (fun i => !Taint.clobbers i .rsp) = true) : NoSp c := by
@@ -71,7 +73,7 @@ theorem nosp_of {c : Prog isa} (h : c.allInstrs (fun i => !Taint.clobbers i .rsp
   simpa using List.all_eq_true.mp h i hi
 
 /-- The stack signing gives each call. -/
-abbrev signStack : Nat := 24
+abbrev signStack : Nat := 32
 
 /-! ## The samplers' results -/
 
@@ -168,6 +170,18 @@ def prims_okWith (v : ArithImpl) : PrimsOk (primsWith v.code) signStack where
     by_cases hf : (VG.Proof.MlDsa.Sample.rnFold [] (G (bytesAt s.mem (s.gpr .rdi) 34) 1008)).length = 256
     · rw [rejNTTPoly_mono (show 1008 ≤ maxBounds.rejNTT by decide) (VG.Proof.MlDsa.Sample.rejNTT_some hf)]; rfl
     · rw [ifn hf] at h1; exact absurd h1.symm one_ne_zero32
+  rej4 := ⟨24, by decide, v.ok.rej4.ver, v.ok.rej4.nosp, by
+    have := v.ok.rej4.depth
+    show 8 * (v.code.rej4.depth + 1) ≤ signStack
+    unfold signStack; omega⟩
+  rej4Ret := fun s₁ s₂ t₁ t₂ s₁' s₂' ⟨h₁, h₂, hp⟩ e₁ e₂ =>
+    ⟨v.ok.rej4.ver.2.1 s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hp e₁ e₂,
+      show _ = _ by
+        rw [v.ok.rej4.ret _ _ _ h₁ e₁, v.ok.rej4.ret _ _ _ h₂ e₂]
+        exact Proof.MlDsa.X86_64.Rej4.rej4Res_congr (Proof.MlDsa.X86_64.Rej4.r4_pub s₁ s₂ hp)⟩
+  rej4Max := fun s t s' h e h1 k hk => by
+    rw [v.ok.rej4.ret _ _ _ h e] at h1
+    exact Proof.MlDsa.X86_64.Rej4.rej4Res_max h1 hk (by decide)
   ballRet := fun s₁ s₂ t₁ t₂ s₁' s₂' ⟨h₁, h₂, hp⟩ e₁ e₂ =>
     ⟨Proof.MlDsa.X86_64.Sample.sampleInBall_verified.2.1 s₁ s₂ t₁ t₂ s₁' s₂' h₁ h₂ hp e₁ e₂,
       show _ = _ by rw [sb_ret h₁ e₁, sb_ret h₂ e₂, (sb_pub s₁ s₂ hp).1, (sb_pub s₁ s₂ hp).2]⟩

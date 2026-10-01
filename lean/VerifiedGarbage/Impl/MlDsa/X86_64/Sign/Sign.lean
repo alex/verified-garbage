@@ -13,8 +13,11 @@ keeps `scratch` in `rbx`, `sk` in `rbp`, `mu` in `r12`, `rnd` in `r13` and
 `scratch`.
 
 1. `ρ` (the first 32 bytes of `sk`) to `RS`, the seed of `RejNTTPoly`, and
-   `Â[r, s] = RejNTTPoly(ρ ‖ s ‖ r)` for the `kℓ` entries, with `r15` the
-   AND of the results. If one failed (`r15 = 0`), it returns 0 at once.
+   to each of the four seeds at `RS4`, and `Â[r, s] = RejNTTPoly(ρ ‖ s ‖ r)`
+   for the `kℓ` entries: four consecutive entries at a time
+   (`vg_mldsa_rej_ntt_poly4`, each seed at `RS4` with its entry's indices),
+   then the last `kℓ mod 4` one at a time, with `r15` the AND of the
+   results. If one failed (`r15 = 0`), it returns 0 at once.
 2. `ŝ₁`, `ŝ₂` and `t̂₀`: the `NTT` of the `BitUnpack` of their pieces of
    `sk`; and `ρ″ = H(K ‖ rnd ‖ μ, 64)` to `MS`.
 3. The rejection sampling loop, at most 814 iterations (`minBounds.sign`),
@@ -29,8 +32,8 @@ keeps `scratch` in `rbx`, `sk` in `rbp`, `mu` in `r12`, `rnd` in `r13` and
    iterations.
 4. If `r15 = 1`: `c̃`, the `BitPack` of `z` and `HintBitPack(h)` to `sig`.
 
-Only the calls of `vg_mldsa_rej_ntt_poly` (whose seeds are `ρ` and two
-indices), and the branch on their results, depend on `ρ`; only the calls of
+Only the calls of `vg_mldsa_rej_ntt_poly` and `vg_mldsa_rej_ntt_poly4`
+(whose seeds are `ρ` and two indices), and the branch on their results, depend on `ρ`; only the calls of
 `vg_mldsa_sample_in_ball`, and the branch on their results, on `c̃`; only
 the branch on the validity checks on whether they passed, and only the call
 of `vg_mldsa_hint_bit_pack` on the hint of the signature. Every other
@@ -71,7 +74,8 @@ abbrev sigH : Nat := cLen p + zLen p * p.ℓ
 /-! ## The polynomials of the working space
 
 `ĉ` (0), four temporaries (1–4), then `h` (`k`), `y` (`ℓ`), `ŷ` (`ℓ`),
-`w` (`k`), `ŝ₁` (`ℓ`), `ŝ₂` (`k`), `t̂₀` (`k`) and `Â` (`kℓ`, row by row). -/
+`w` (`k`), `ŝ₁` (`ℓ`), `ŝ₂` (`k`), `t̂₀` (`k`) and `Â` (`kℓ`, row by row), then the
+working space of `vg_mldsa_rej_ntt_poly4` (8 KiB). -/
 
 abbrev pS (i : Nat) : Ptr := sc (oP i)
 abbrev cP : Ptr := pS 0
@@ -87,6 +91,10 @@ abbrev s1P (r : Nat) : Ptr := pS (5 + 2 * p.k + 2 * p.ℓ + r)
 abbrev s2P (i : Nat) : Ptr := pS (5 + 2 * p.k + 3 * p.ℓ + i)
 abbrev t0P (i : Nat) : Ptr := pS (5 + 3 * p.k + 3 * p.ℓ + i)
 abbrev aP (i j : Nat) : Ptr := pS (5 + 4 * p.k + 3 * p.ℓ + p.ℓ * i + j)
+/-- Entry `e = ℓi + j` of `Â`. -/
+abbrev aE (e : Nat) : Ptr := pS (5 + 4 * p.k + 3 * p.ℓ + e)
+/-- The working space of `vg_mldsa_rej_ntt_poly4`. -/
+abbrev r4P : Ptr := pS (5 + 4 * p.k + 3 * p.ℓ + p.k * p.ℓ)
 
 end
 
@@ -99,8 +107,23 @@ variable (P : Prims) (p : Params)
 def sampleE (e : Nat) : Prog isa :=
   .seq (.block (setB (sc (oRS + 32)) (e % p.ℓ) ++ setB (sc (oRS + 33)) (e / p.ℓ))) (rejAt P (aP p (e / p.ℓ) (e % p.ℓ)))
 
-/-- `ρ` to `RS`, and the `kℓ` entries of `Â`. -/
-def expandA : Prog isa := .seq (copy (sc oRS) (.rbp, 0) 32) (seqR (sampleE P p) 0 (p.k * p.ℓ))
+/-- `ρ` to seed `k` of `RS4`. -/
+def cpR4 (k : Nat) : Prog isa := copy (sc (oRS4 + 34 * k)) (.rbp, 0) 32
+
+/-- The indices of entry `e + k` of `Â` to seed `k` of `RS4`. -/
+def setSR (e k : Nat) : List Instr :=
+  setB (sc (oRS4 + 34 * k + 32)) ((e + k) % p.ℓ) ++ setB (sc (oRS4 + 34 * k + 33)) ((e + k) / p.ℓ)
+
+/-- Entries `4g, …, 4g + 3` of `Â`. -/
+def sample4 (g : Nat) : Prog isa :=
+  .seq (.block (setSR p (4 * g) 0)) (.seq (.block (setSR p (4 * g) 1)) (.seq (.block (setSR p (4 * g) 2))
+    (.seq (.block (setSR p (4 * g) 3)) (rej4At P (aE p (4 * g)) (r4P p)))))
+
+/-- `ρ` to `RS` and to the four seeds of `RS4`, and the `kℓ` entries of `Â`: four at a time, then
+the last `kℓ mod 4` one at a time. -/
+def expandA : Prog isa :=
+  .seq (copy (sc oRS) (.rbp, 0) 32) (.seq (seqR cpR4 0 4)
+    (.seq (seqR (sample4 P p) 0 (p.k * p.ℓ / 4)) (seqR (sampleE P p) (4 * (p.k * p.ℓ / 4)) (p.k * p.ℓ % 4))))
 
 /-- `ŝ₁[r]`. -/
 def decS1 (r : Nat) : Prog isa :=
