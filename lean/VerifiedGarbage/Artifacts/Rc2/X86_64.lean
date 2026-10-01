@@ -30,7 +30,7 @@ def artifacts : List Artifact := [
   { Spec.Rc2.expandKeyApi with
     target := X86_64.target
     doc := Spec.Rc2.expandKeyApi.doc
-      (notes := ["Baseline x86-64. PITABLE selection scans all 256 candidates in a fixed order."])
+      (notes := ["Baseline x86-64 SSE2. PITABLE selection scans all 256 candidates in a fixed order, eight candidates per vector."])
     code := Impl.Rc2.X86_64.expandKey
     contract := Spec.Rc2.expandKeyContract X86_64.abi
     stack := 0

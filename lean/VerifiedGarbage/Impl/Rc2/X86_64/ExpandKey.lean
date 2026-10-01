@@ -1,10 +1,10 @@
-import VerifiedGarbage.Impl.Rc2.X86_64.Lookup
+import VerifiedGarbage.Impl.Rc2.X86_64.Sse2Lookup
 
 /-! # RC2 key expansion on baseline x86-64
 
 The public key length controls copying and expansion. The effective bit
 count controls the reduction mask and descending loop. PITABLE selection
-always scans all 256 candidates with arithmetic masks.
+always scans all 256 candidates with eight parallel SSE2 arithmetic masks.
 -/
 
 namespace VG.Impl.Rc2.X86_64
@@ -27,7 +27,7 @@ def copyKey : List Instr :=
 
 def fillKey : List Instr :=
   [.movzx8 .rax (indexed .r14 .rbx (-1)), rr .r9 .rbx, .alu .sub .r9 (.reg .r13),
-   .movzx8 .rcx (indexed .r14 .r9), .alu .add .rax (.reg .rcx)] ++ piLookup ++
+   .movzx8 .rcx (indexed .r14 .r9), .alu .add .rax (.reg .rcx)] ++ Sse2.piLookup ++
     [.store8 (indexed .r14 .rbx) .rax, .alu .add .rbx (.imm 1), .alu .cmp .rbx (.imm 128)]
 
 /-- TM = 2^(T1 mod 8) - 1, with TM = 255 for a multiple of eight. All
@@ -39,13 +39,13 @@ def maskCode : Prog isa :=
         (.seq (.ite .e (.block [imm .rdx (2 ^ (i + 1) - 1)]) (.block [])) rest)) (.block []))
 
 def reduceKey : List Instr :=
-  [.movzx8 .rax (indexed .r14 .rbx), .alu .and .rax (.reg .rdx)] ++ piLookup ++
+  [.movzx8 .rax (indexed .r14 .rbx), .alu .and .rax (.reg .rdx)] ++ Sse2.piLookup ++
     [.store8 (indexed .r14 .rbx) .rax]
 
 def descendKey : List Instr :=
   [.alu .sub .rbx (.imm 1), .movzx8 .rax (indexed .r14 .rbx 1), rr .r9 .rbx,
    .alu .add .r9 (.reg .rbp), .movzx8 .rcx (indexed .r14 .r9), .alu .xor .rax (.reg .rcx)] ++
-    piLookup ++ [.store8 (indexed .r14 .rbx) .rax, .alu .cmp .rbx (.imm 0)]
+    Sse2.piLookup ++ [.store8 (indexed .r14 .rbx) .rax, .alu .cmp .rbx (.imm 0)]
 
 def expandCopyFill : Prog isa :=
   .seq (.loop (.block copyKey) .ne)
