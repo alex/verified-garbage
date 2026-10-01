@@ -8,7 +8,7 @@
 //! and BLAKE2Xs, are not implemented): the digests of inputs of 0 to 255
 //! bytes, unkeyed and with a key of the largest size.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 mod blake2b;
 mod blake2s;
