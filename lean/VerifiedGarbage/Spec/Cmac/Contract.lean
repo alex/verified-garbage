@@ -32,18 +32,19 @@ last block of what it has been given, even a complete one, since only
 and compares MACs (§6.3).
 
 Each takes a `scratch` buffer of working space, sized for the target that
-needs the most, and the number of bytes of stack below the stack pointer
-that an implementation's calls and frames use (`stack`, see `Sig.contract`),
-0 for one that uses none.
+needs the most (room for `vg_aes_ctr32`'s working space and 128 bytes
+more), and the number of bytes of stack below the stack pointer that an
+implementation's calls and frames use (`stack`, see `Sig.contract`), 0 for
+one that uses none.
 -/
 
 namespace VG.Spec.Cmac
 
-/-- `vg_cmac_aes_subkeys(schedule: *const [u8; 240], rounds: usize, subkeys: *mut [u8; 32], scratch: *mut [u64; 256])`.
+/-- `vg_cmac_aes_subkeys(schedule: *const [u8; 240], rounds: usize, subkeys: *mut [u8; 32], scratch: *mut [u64; 272])`.
 `rounds` is public; `scratch` is working space. -/
 def aesSubkeysSig : Sig where
   params := [("schedule", .array false .u8 240), ("rounds", .int .usize true),
-    ("subkeys", .array true .u8 32), ("scratch", .array true .u64 256)]
+    ("subkeys", .array true .u8 32), ("scratch", .array true .u64 272)]
 
 /-- For `rounds` of 10, 12 or 14, with the key schedule `w` in the first
 `16 (rounds + 1)` bytes at `schedule`: writes the subkeys `K1 ‖ K2` of AES
@@ -74,12 +75,12 @@ def aesSubkeysApi : Api where
     "`rounds` must be 10, 12 or 14.",
     "The contents of `scratch` on return are unspecified."]
 
-/-- `vg_cmac_aes_update(schedule: *const [u8; 240], rounds: usize, state: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 256])`.
+/-- `vg_cmac_aes_update(schedule: *const [u8; 240], rounds: usize, state: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 272])`.
 `rounds` is public; `scratch` is working space. -/
 def aesUpdateSig : Sig where
   params := [("schedule", .array false .u8 240), ("rounds", .int .usize true),
     ("state", .array true .u8 16), ("data", .slice false (.array .u8 16) "n"),
-    ("scratch", .array true .u64 256)]
+    ("scratch", .array true .u64 272)]
 
 /-- For `rounds` of 10, 12 or 14, with the key schedule `w` in the first
 `16 (rounds + 1)` bytes at `schedule`: replaces the block `C` at `state`
@@ -110,12 +111,12 @@ def aesUpdateApi : Api where
     "`rounds` must be 10, 12 or 14.",
     "The contents of `scratch` on return are unspecified."]
 
-/-- `vg_cmac_aes_finalize(key: *const [u8; 272], rounds: usize, state: *mut [u8; 16], last: *const u8, last_len: usize, scratch: *mut [u64; 256])`.
+/-- `vg_cmac_aes_finalize(key: *const [u8; 272], rounds: usize, state: *mut [u8; 16], last: *const u8, last_len: usize, scratch: *mut [u64; 272])`.
 `rounds` is public; `scratch` is working space. -/
 def aesFinalizeSig : Sig where
   params := [("key", .array false .u8 272), ("rounds", .int .usize true),
     ("state", .array true .u8 16), ("last", .slice false .u8 "last_len"),
-    ("scratch", .array true .u64 256)]
+    ("scratch", .array true .u64 272)]
 
 /-- For `rounds` of 10, 12 or 14 and `last_len` at most 16, with the key
 schedule `w` in the first `16 (rounds + 1)` bytes at `key` and AES's
