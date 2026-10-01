@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Framework.Block
 import VerifiedGarbage.Proof.Framework.AArch64.Exec
 import VerifiedGarbage.Proof.ChaCha20.Spec
@@ -422,7 +423,7 @@ def satState : State where
 theorem block_correct (s : State) (hs : Proof.ChaCha20.blockAArch64.pre s) :
     ∃ t s', Exec isa block s t s' ∧ abiPreserved s s' ∧ Proof.ChaCha20.blockAArch64.post s s' := by
   obtain ⟨t, s', he, h₁, h₂⟩ := correct (pre_of s hs)
-  exact ⟨t, s', he, ⟨h₁, Exec.sp he⟩, h₂⟩
+  exact ⟨t, s', he, ⟨h₁, Exec.sp he, Exec.preservedV he⟩, h₂⟩
 
 theorem block_verified :
     Verified AArch64.target Impl.ChaCha20.AArch64.block (Spec.ChaCha20.blockContract AArch64.abi) :=
@@ -1217,7 +1218,7 @@ theorem correct {s₀ : State} (hp : XPre s₀) :
     ∃ t s', Exec isa Impl.ChaCha20.AArch64.Xor.xor s₀ t s' ∧ abiPreserved s₀ s' ∧
       (Proof.ChaCha20.xorAArch64.post s₀ s' ∧ s'.gpr .x0 = s₀.gpr .x0 ∧ s'.gpr .x1 = s₀.gpr .x3) := by
   obtain ⟨t, s', he, ⟨hsv, h0, h1, hpost⟩⟩ := main_ok hp
-  refine ⟨t, s', he, ⟨fun r hr => ?_, Exec.sp he⟩, hpost, h0, h1⟩
+  refine ⟨t, s', he, ⟨fun r hr => ?_, Exec.sp he, Exec.preservedV he⟩, hpost, h0, h1⟩
   have hu : ∀ r ∈ untouched, s'.gpr r = s₀.gpr r := fun r hr =>
     Exec.gpr (untouched_ok r hr) he (.inr (by
       simp only [untouched, List.mem_cons, List.not_mem_nil, or_false] at hr

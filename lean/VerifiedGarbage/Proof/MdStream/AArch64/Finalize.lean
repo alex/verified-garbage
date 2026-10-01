@@ -591,6 +591,7 @@ theorem correct (hd : Dims P) (hs : Shape H) {name : String} {code : Prog isa} (
     (hn : 16 * (finalizeMain P name code).fdepth + 16 < 2 ^ 64) {s₀ : State} (hp : Pre P s₀)
     (hst : Stack P s₀) :
     WP isa (finalize P name code) s₀ fun s' => abiPreserved s₀ s' ∧ (finK H).post s₀ s' := by
+  apply WP.withPreservedV (hc := finalize_keepsV hs hf.keepsV)
   have hpi : Pre P (inner s₀) := ⟨hp.rd, hp.wr, hp.st_out, hp.st_scr, hp.out_scr⟩
   refine WP.frameReg hst.sp16 (fun R hR => ?_)
     (WP.mono (correctMain hd hs hf hu hpi) fun s' ⟨hk, hsp, hpost⟩ => ?_) hn

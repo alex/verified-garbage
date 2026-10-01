@@ -304,8 +304,8 @@ theorem prologue_ok {s₀ : State} (hp : Pre L s₀) :
   have hin : ∀ k < kemOwn.length, InRegions s₀.wr (kA s₀ L.sc + BitVec.ofNat 64 (SV + 8 * k)) 8 :=
     fun k hk => in_R (cov_w₀ hp ⟨hp.scw, hp.scb⟩ (o := SV) (l := 48) (by rw [hp.scl]; decide)) (k := 8 * k)
       (n := 8) (by simp only [kemOwn, List.length_cons, List.length_nil] at hk; omega) (by decide)
-  refine WP.mono (KeyGen.saves_ok (kA s₀ L.sc) (argReg L.sc) SV kemOwn (by decide) (by decide) 6 (by decide) rfl hin)
-    fun s₁ ⟨g₁, r₁, w₁, p₁, z₁, f₁⟩ => ?_
+  refine WP.mono (WP.preservedV (KeyGen.saves_ok (kA s₀ L.sc) (argReg L.sc) SV kemOwn (by decide) (by decide) 6 (by decide) rfl hin) (hc := rfl))
+    fun s₁ ⟨⟨g₁, r₁, w₁, p₁, z₁, f₁⟩, hv₁⟩ => ?_
   rw [show List.range 4 = [0, 1, 2, 3] from rfl]
   simp only [List.map_cons, List.map_nil, List.cons_append, List.nil_append, List.getD_cons_zero,
     List.getD_cons_succ]
@@ -313,7 +313,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre L s₀) :
     wp_movz fun s₆ h₆ e₆ => wp_nil ?_
   have o₆ : Only [.x25, .x26, .x27, .x28, .x24] s₁ s₆ := ((((h₂.trans h₃).trans h₄).trans h₅).trans h₆).mono
   have k₆ : Keep [.x25, .x26, .x27, .x28, .x24] s₀ s₆ :=
-    ⟨fun r hr => by rw [o₆.get r hr, g₁], by rw [o₆.rd, r₁], by rw [o₆.wr, w₁], by rw [o₆.sp, p₁]⟩
+    ⟨fun r hr => by rw [o₆.get r hr, g₁], by rw [o₆.rd, r₁], by rw [o₆.wr, w₁], by rw [o₆.sp, p₁], fun r hr => (o₆.vcs r hr).trans (hv₁ r hr)⟩
   have a : ∀ (b : Nat) {w w' : State} {r : Reg}, Only [r] w w' → r ∈ [Reg.x24, .x25, .x26, .x27, .x28] →
       w'.gpr (argReg b) = w.gpr (argReg b) := fun b _ _ r h hr => h.get _ fun h' => by
     have e := List.mem_singleton.mp h'
@@ -343,7 +343,7 @@ theorem prologue_ok {s₀ : State} (hp : Pre L s₀) :
 /-- Our caller's registers back, and the result. -/
 theorem epilogue_ok {s₀ : State} (hp : Pre L s₀) {u : State} (hk : KB L s₀ u) :
     WP isa (.block kemEpilogue) u fun u' =>
-      abiPreserved s₀ u' ∧ u'.gpr .x0 = u.gpr .x24 ∧ u'.mem = u.mem := by
+      GprAbi s₀ u' ∧ u'.gpr .x0 = u.gpr .x24 ∧ u'.mem = u.mem := by
   have cv := cov_sr hp hk (o := SV) (l := 48) (by decide)
   have ld : ∀ k < 6, ∀ {w : State}, w.rd = u.rd ∧ w.wr = u.wr ∧ w.mem = u.mem ∧ w.gpr .x28 = kA s₀ L.sc →
       w.gpr .x28 + BitVec.ofNat 64 (SV + 8 * k) = kA s₀ L.sc + BitVec.ofNat 64 (SV + 8 * k) ∧

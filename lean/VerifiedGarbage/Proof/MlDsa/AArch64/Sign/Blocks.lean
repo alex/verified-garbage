@@ -26,7 +26,7 @@ open VG.Spec.Sha3 (bytesAt)
 /-! ## 32-bit operations -/
 
 theorem only_write32 (s : State) (d : Reg) (v : BitVec 32) : Only [d] s (s.write .w d v) :=
-  ⟨fun r h => by simp only [List.mem_singleton] at h; simp [State.write, h], rfl, rfl, rfl, rfl⟩
+  ⟨fun r h => by simp only [List.mem_singleton] at h; simp [State.write, h], rfl, rfl, rfl, rfl, fun _ _ => rfl⟩
 
 theorem write32_gpr (s : State) (d : Reg) (v : BitVec 32) : (s.write .w d v).gpr d = v.setWidth 64 := by
   simp [State.write]

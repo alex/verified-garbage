@@ -103,7 +103,7 @@ theorem loopP_ok {σ s : State} (hp : rnK.pre σ) (h : Z σ s) : WP isa rnLoop s
 
 /-- The end: the postcondition, and the calling convention. -/
 theorem end_ok {σ s : State} (hp : rnK.pre σ) (h : LP σ s) :
-    WP isa (.block (retZ ++ epi)) s fun s' => abiPreserved σ s' ∧ rnK.post σ s' := by
+    WP isa (.block (retZ ++ epi)) s fun s' => GprAbi σ s' ∧ rnK.post σ s' := by
   rw [retZ, List.cons_append, List.cons_append, List.nil_append]
   refine wp_subImm (by decide) fun s₁ h₁ e₁ => wp_lsr (by decide) fun s₂ h₂ e₂ => ?_
   have hl := rnFold_length_le (a := ([] : List Zq)) (by simp) (X σ)
@@ -123,7 +123,7 @@ theorem end_ok {σ s : State} (hp : rnK.pre σ) (h : LP σ s) :
 
 theorem correct (σ : State) (hp : rnK.pre σ) :
     ∃ t s', Exec isa rejNTT σ t s' ∧ abiPreserved σ s' ∧ rnK.post σ s' :=
-  WP.seq (WP.mono (pro_ok hp) fun _ h1 =>
+  WP.withPreservedV (hc := by decide +kernel) <| WP.seq (WP.mono (pro_ok hp) fun _ h1 =>
     WP.seq (WP.mono (sponge_ok (spOk hp) (rate := 168) (outlen := 1008) (by decide) (by decide) h1)
       fun _ h2 => WP.seq (WP.mono (zero_ok hp h2) fun _ h3 =>
         WP.seq (WP.mono (loopP_ok hp h3) fun _ h4 => end_ok hp h4))))

@@ -103,9 +103,12 @@ def streamOK : Hmac.Generic.AArch64.HashOK (hash v).stream where
     simp only [Impl.MdStream.AArch64.finalize, Code.fdepth, v.finalizeDepth]; decide
 
 def ok : HashOK (hash v) where
+  initKeepsV := by rfl
+  updKeepsV := MdStream.AArch64.update_keepsV v.keepsV
+  finKeepsV := MdStream.AArch64.finalize_keepsV Proof.Sha1.AArch64.Stream.shape v.keepsV
   md := Proof.Sha1.md
   shape := Pbkdf2.AArch64.Shape.ofMd Proof.Sha1.AArch64.Stream.shape
-  comp := ⟨v.callee.verified, v.verified.2.1, v.noFrames⟩
+  comp := ⟨v.callee.verified, v.verified.2.1, v.noFrames, v.keepsV⟩
   reloc m m' p q h := by
     apply Vector.ext
     intro j hj

@@ -28,21 +28,22 @@ structure Only (rs : List Reg) (s s' : State) : Prop where
   rd : s'.rd = s.rd
   wr : s'.wr = s.wr
   sp : s'.sp = s.sp
+  vcs : ∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64
 
 namespace Only
 
-theorem refl (rs : List Reg) (s : State) : Only rs s s := ⟨fun _ _ => rfl, rfl, rfl, rfl, rfl⟩
+theorem refl (rs : List Reg) (s : State) : Only rs s s := ⟨fun _ _ => rfl, rfl, rfl, rfl, rfl, fun _ _ => rfl⟩
 
 theorem trans {rs rs' : List Reg} {s₁ s₂ s₃ : State} (h₁ : Only rs s₁ s₂) (h₂ : Only rs' s₂ s₃) :
     Only (rs ++ rs') s₁ s₃ :=
   ⟨fun r hr => by
     rw [List.mem_append, not_or] at hr
     rw [h₂.gpr r hr.2, h₁.gpr r hr.1],
-   h₂.mem.trans h₁.mem, h₂.rd.trans h₁.rd, h₂.wr.trans h₁.wr, h₂.sp.trans h₁.sp⟩
+   h₂.mem.trans h₁.mem, h₂.rd.trans h₁.rd, h₂.wr.trans h₁.wr, h₂.sp.trans h₁.sp, fun r hr => (h₂.vcs r hr).trans (h₁.vcs r hr)⟩
 
 theorem mono {rs rs' : List Reg} {s s' : State} (h : Only rs s s')
     (hs : ∀ r ∈ rs, r ∈ rs' := by decide) : Only rs' s s' :=
-  ⟨fun r hr => h.gpr r fun h' => hr (hs r h'), h.mem, h.rd, h.wr, h.sp⟩
+  ⟨fun r hr => h.gpr r fun h' => hr (hs r h'), h.mem, h.rd, h.wr, h.sp, h.vcs⟩
 
 /-- A register not in `rs` is kept. -/
 theorem get {rs : List Reg} {s s' : State} (h : Only rs s s') (r : Reg) (hr : r ∉ rs := by decide) :
@@ -57,6 +58,7 @@ structure MemTo (s s' : State) (m : Mem) : Prop where
   rd : s'.rd = s.rd
   wr : s'.wr = s.wr
   sp : s'.sp = s.sp
+  vcs : ∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64
 
 /-- `s'` is `s` but for the registers `rs` and the memory. -/
 structure Keep (rs : List Reg) (s s' : State) : Prop where
@@ -64,21 +66,22 @@ structure Keep (rs : List Reg) (s s' : State) : Prop where
   rd : s'.rd = s.rd
   wr : s'.wr = s.wr
   sp : s'.sp = s.sp
+  vcs : ∀ r ∈ preservedV, (s'.v r).extractLsb' 0 64 = (s.v r).extractLsb' 0 64
 
 namespace Keep
 
-theorem refl (rs : List Reg) (s : State) : Keep rs s s := ⟨fun _ _ => rfl, rfl, rfl, rfl⟩
+theorem refl (rs : List Reg) (s : State) : Keep rs s s := ⟨fun _ _ => rfl, rfl, rfl, rfl, fun _ _ => rfl⟩
 
 theorem trans {rs rs' : List Reg} {s₁ s₂ s₃ : State} (h₁ : Keep rs s₁ s₂) (h₂ : Keep rs' s₂ s₃) :
     Keep (rs ++ rs') s₁ s₃ :=
   ⟨fun r hr => by
     rw [List.mem_append, not_or] at hr
     rw [h₂.gpr r hr.2, h₁.gpr r hr.1],
-   h₂.rd.trans h₁.rd, h₂.wr.trans h₁.wr, h₂.sp.trans h₁.sp⟩
+   h₂.rd.trans h₁.rd, h₂.wr.trans h₁.wr, h₂.sp.trans h₁.sp, fun r hr => (h₂.vcs r hr).trans (h₁.vcs r hr)⟩
 
 theorem mono {rs rs' : List Reg} {s s' : State} (h : Keep rs s s')
     (hs : ∀ r ∈ rs, r ∈ rs' := by decide) : Keep rs' s s' :=
-  ⟨fun r hr => h.gpr r fun h' => hr (hs r h'), h.rd, h.wr, h.sp⟩
+  ⟨fun r hr => h.gpr r fun h' => hr (hs r h'), h.rd, h.wr, h.sp, h.vcs⟩
 
 theorem get {rs : List Reg} {s s' : State} (h : Keep rs s s') (r : Reg) (hr : r ∉ rs := by decide) :
     s'.gpr r = s.gpr r := h.gpr r hr
@@ -86,17 +89,17 @@ theorem get {rs : List Reg} {s s' : State} (h : Keep rs s s') (r : Reg) (hr : r 
 end Keep
 
 theorem Only.keep {rs : List Reg} {s s' : State} (h : Only rs s s') : Keep rs s s' :=
-  ⟨h.gpr, h.rd, h.wr, h.sp⟩
+  ⟨h.gpr, h.rd, h.wr, h.sp, h.vcs⟩
 
 theorem MemTo.keep {s s' : State} {m : Mem} (h : MemTo s s' m) : Keep [] s s' :=
-  ⟨fun r _ => by rw [h.gpr], h.rd, h.wr, h.sp⟩
+  ⟨fun r _ => by rw [h.gpr], h.rd, h.wr, h.sp, h.vcs⟩
 
 theorem write_x_gpr (s : State) (d : Reg) (v : BitVec 64) :
     (s.write .x d v).gpr d = v := by simp [State.write]
 
 theorem only_write (s : State) (sz : Size) (d : Reg) (v : BitVec sz.bits) :
     Only [d] s (s.write sz d v) :=
-  ⟨fun r h => by simp only [List.mem_singleton] at h; simp [State.write, h], rfl, rfl, rfl, rfl⟩
+  ⟨fun r h => by simp only [List.mem_singleton] at h; simp [State.write, h], rfl, rfl, rfl, rfl, fun _ _ => rfl⟩
 
 theorem WP.cons {i : Instr} {is : List Instr} {s s' : State} {Q : State → Prop}
     (h : exec i s = some s') (k : WP isa (.block is) s' Q) : WP isa (.block (i :: is)) s Q :=
@@ -207,7 +210,7 @@ theorem wp_strw {t n : Reg} {off : Nat} {a : Addr} (ho : off % 4 = 0 ∧ off < 4
     (k : ∀ s', MemTo s s' (s.mem.writeW a ((s.gpr t).setWidth 32)) → WP isa (.block is) s' Q) :
     WP isa (.block (.str .w t n off :: is)) s Q := by
   refine WP.cons (s' := { s with mem := s.mem.writeW a ((s.gpr t).setWidth 32) }) ?_
-    (k _ ⟨rfl, rfl, rfl, rfl, rfl⟩)
+    (k _ ⟨rfl, rfl, rfl, rfl, rfl, fun _ _ => rfl⟩)
   simp only [exec, addr, Size.bytes, ho, and_self, ite_true, ha, Option.bind_some, State.store, hout,
     Mem.writeW, State.read]
   try rfl
@@ -226,7 +229,7 @@ theorem wp_strx {t n : Reg} {off : Nat} {a : Addr} (ho : off % 8 = 0 ∧ off < 4
     (ha : s.gpr n + BitVec.ofNat 64 off = a) (hout : InRegions s.wr a 8)
     (k : ∀ s', MemTo s s' (s.mem.writeW a (s.gpr t)) → WP isa (.block is) s' Q) :
     WP isa (.block (.str .x t n off :: is)) s Q := by
-  refine WP.cons (s' := { s with mem := s.mem.writeW a (s.gpr t) }) ?_ (k _ ⟨rfl, rfl, rfl, rfl, rfl⟩)
+  refine WP.cons (s' := { s with mem := s.mem.writeW a (s.gpr t) }) ?_ (k _ ⟨rfl, rfl, rfl, rfl, rfl, fun _ _ => rfl⟩)
   simp only [exec, addr, Size.bytes, ho, and_self, ite_true, ha, Option.bind_some, State.store, hout,
     Mem.writeW, State.read]
   try rfl
@@ -248,7 +251,7 @@ theorem wp_strb {t n : Reg} {off : Nat} {a : Addr} (ho : off < 4096)
     (k : ∀ s', MemTo s s' (s.mem.writeW a ((s.gpr t).setWidth 8)) → WP isa (.block is) s' Q) :
     WP isa (.block (.strb t n off :: is)) s Q := by
   refine WP.cons (s' := { s with mem := s.mem.writeW a ((s.gpr t).setWidth 8) }) ?_
-    (k _ ⟨rfl, rfl, rfl, rfl, rfl⟩)
+    (k _ ⟨rfl, rfl, rfl, rfl, rfl, fun _ _ => rfl⟩)
   simp only [exec, addr, Nat.mod_one, true_and, show off < 4096 * 1 by omega, ite_true, ha,
     Option.bind_some, State.store, hout, Mem.writeW, State.read]
   congr 3
@@ -263,7 +266,7 @@ theorem wp_movImm {d : Reg} {v : BitVec 64} {is : List Instr} {s : State} {Q : S
     (k : ∀ s', Only [d] s s' → s'.gpr d = v → WP isa (.block is) s' Q) :
     WP isa (.block (Impl.MlKem.AArch64.movImm d v ++ is)) s Q := by
   refine WP.cons rfl (WP.cons rfl (WP.cons rfl (WP.cons rfl (k _ ?_ ?_))))
-  · refine ⟨fun r hr => ?_, rfl, rfl, rfl, rfl⟩
+  · refine ⟨fun r hr => ?_, rfl, rfl, rfl, rfl, fun _ _ => rfl⟩
     simp only [List.mem_singleton] at hr
     simp [State.write, hr]
   · simp only [State.write, State.read, Size.bits, BitVec.setWidth_eq, ite_true]

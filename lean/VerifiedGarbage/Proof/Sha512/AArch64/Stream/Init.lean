@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Framework.KernelRfl
 import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Common
 
@@ -37,6 +38,7 @@ theorem word_ok {x : BitVec 64} {off : Nat} (ho : off % 8 = 0 ∧ off < 32768) {
 
 theorem init_correct {s₀ : State} (iv : HashValue) (hp : (Proof.Sha512.initAArch64 iv).pre s₀) :
     WP isa (init iv) s₀ fun s' => abiPreserved s₀ s' ∧ (Proof.Sha512.initAArch64 iv).post s₀ s' := by
+  apply WP.withPreservedV (hc := by rfl)
   obtain ⟨-, hwr⟩ := hp
   have o : ∀ k, k < 8 → InRegions s₀.wr (s₀.gpr .x0 + BitVec.ofNat 64 (8 * k)) 8 :=
     fun k hk => ⟨⟨s₀.gpr .x0, 192⟩, by simp [hwr], contains_offset (by omega) (by omega)⟩

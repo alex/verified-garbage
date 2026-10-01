@@ -33,7 +33,7 @@ theorem tabStep_ok (t : Nat → Nat) (b : Reg) (hb : b ≠ .x9) (i : Nat) (hi : 
   have hw₁ : InRegions s₁.wr (s₁.gpr b + BitVec.ofNat 64 (4 * i)) 4 := by rw [k₁.wr, hb']; exact hw
   refine WP.mono (WP.keep (c := .block [Instr.str .w .x9 b (4 * i)]) (s := s₁) []
     (Q := fun s' => s'.mem = s₁.mem.writeW (s₁.gpr b + BitVec.ofNat 64 (4 * i)) ((s₁.gpr .x9).setWidth 32))
-    (by arun [ho, hw₁]) (by rfl)) fun s₂ ⟨hm₂, k₂⟩ => ⟨?_, (k₁.trans k₂).mono⟩
+    (by arun [ho, hw₁]) (by rfl) (hv := rfl)) fun s₂ ⟨hm₂, k₂⟩ => ⟨?_, (k₁.trans k₂).mono⟩
   rw [hm₂, hb', hm, h9, BitVec.setWidth_setWidth_of_le _ (by decide), BitVec.setWidth_eq]
 
 /-- The table, stored in the 1024 bytes at `b`. -/
