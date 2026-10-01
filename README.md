@@ -827,7 +827,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; HighBits, LowBits, MakeHint and the norm check with AVX2</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; HighBits, LowBits, MakeHint, UseHint and the norm check with AVX2</td>
 
 <td>✅ SHA extensions</td>
 
@@ -843,7 +843,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; HighBits, LowBits, MakeHint and the norm check with AVX2</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; HighBits, LowBits, MakeHint, UseHint and the norm check with AVX2</td>
 
 <td>✅ SHA extensions</td>
 
@@ -859,7 +859,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; HighBits, LowBits, MakeHint and the norm check with AVX2</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; HighBits, LowBits, MakeHint, UseHint and the norm check with AVX2</td>
 
 <td>✅ SHA extensions</td>
 

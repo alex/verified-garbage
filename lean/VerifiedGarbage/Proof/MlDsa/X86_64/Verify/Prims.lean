@@ -54,6 +54,7 @@ def primsWith (B : Arith.Backend) : Prims :=
     mulAdd := B.mulAdd
     sub := B.sub
     normLt := B.normLt
+    useHint := B.useHint
     sfx := B.sfx }
 
 /-- A function of the polynomial arithmetic satisfies what the proofs of verification need of it. -/
@@ -83,10 +84,7 @@ theorem prims_okWith (v : ArithImpl) : PrimsOk (primsWith v.code) where
     (Proof.MlKem.X86_64.nosp_of (by lit_decide)) (by lit_decide) (by lit_decide)
     (Code.all_of_allInstrs (by lit_decide)) :
     CalleeOk prims.ball _)
-  useHint := (CalleeOk.of_verified Proof.MlDsa.X86_64.Round.useHint_verified (by decide)
-    (Proof.MlKem.X86_64.nosp_of (by lit_decide)) (by lit_decide) (by lit_decide)
-    (Code.all_of_allInstrs (by lit_decide)) :
-    CalleeOk prims.useHint _)
+  useHint := calleeOf v.ok.useHint
   simpleBitPack := (CalleeOk.of_verified Proof.MlDsa.X86_64.Pack.simpleBitPack_verified (by decide)
     (Proof.MlKem.X86_64.nosp_of (by lit_decide)) (by lit_decide) (by lit_decide)
     (Code.all_of_allInstrs (by lit_decide)) :

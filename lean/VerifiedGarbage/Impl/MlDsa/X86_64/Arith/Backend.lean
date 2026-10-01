@@ -10,8 +10,8 @@ Key generation, signing and verification call the polynomial arithmetic of
 one implementation, a `Backend`: the code of `vg_mldsa_ntt`,
 `vg_mldsa_inv_ntt`, `vg_mldsa_multiply_ntt`, `vg_mldsa_multiply_add_ntt`,
 `vg_mldsa_add` and `vg_mldsa_sub`, and of
-`vg_mldsa_high_bits`, `vg_mldsa_low_bits`, `vg_mldsa_norm_lt` and
-`vg_mldsa_make_hint`, whose names end with `sfx` (e.g.
+`vg_mldsa_high_bits`, `vg_mldsa_low_bits`, `vg_mldsa_norm_lt`,
+`vg_mldsa_make_hint` and `vg_mldsa_use_hint`, whose names end with `sfx` (e.g.
 `_avx2`; nothing for the SSE2 code, `sse2`). Each is a variant of the
 interface `MlDsaArith` on x86-64 (`Variants/MlDsaArith/X86_64/`), and the
 functions that call them are emitted once for each
@@ -34,19 +34,21 @@ structure Backend where
   lowBits : Prog isa
   normLt : Prog isa
   makeHint : Prog isa
+  useHint : Prog isa
   /-- What the names of its functions, and of those calling them, end with. -/
   sfx : String
 
 /-- The SSE2 code. -/
 def Backend.sse2 : Backend :=
   ⟨Arith.ntt, Arith.nttInv, Arith.mul, Arith.mulAdd, Arith.add, Arith.sub, Round.highBits,
-    Round.lowBits, Round.normLt, Round.makeHint, ""⟩
+    Round.lowBits, Round.normLt, Round.makeHint,
+    Round.useHint, ""⟩
 
 /-- Every function empty, which the proofs that the functions calling a
 backend never write `rsp` (and load MXCSR only to restore it) evaluate in
 its place. -/
 def Backend.empty : Backend :=
   ⟨.block [], .block [], .block [], .block [], .block [], .block [], .block [], .block [], .block [],
-    .block [], ""⟩
+    .block [], .block [], ""⟩
 
 end VG.Impl.MlDsa.X86_64.Arith

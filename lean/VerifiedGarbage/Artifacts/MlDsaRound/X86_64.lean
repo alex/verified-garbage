@@ -6,6 +6,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Round.UseHint
 import VerifiedGarbage.Proof.MlDsa.X86_64.Round.MakeHint
 import VerifiedGarbage.Proof.MlDsa.X86_64.Round.YBits
 import VerifiedGarbage.Proof.MlDsa.X86_64.Round.YHint
+import VerifiedGarbage.Proof.MlDsa.X86_64.Round.YUse
 
 /-!
 # ML-DSA (FIPS 204) on x86-64: rounding and hints
@@ -105,6 +106,16 @@ def artifacts : List Artifact := [
     code := Impl.MlDsa.X86_64.Round.useHint
     contract := Spec.MlDsa.useHintContract X86_64.abi
     verified := useHint_verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.MlDsa.useHintApi with
+    name := Spec.MlDsa.useHintApi.name ++ "_avx2"
+    target := X86_64.target
+    doc := Spec.MlDsa.useHintApi.doc (notes := ["The function computes on eight coefficients at a time in AVX2 \
+      registers, multiplying by shifts and additions; it needs AVX and AVX2."])
+    code := Impl.MlDsa.X86_64.Round.useHintAvx2
+    contract := Spec.MlDsa.useHintContract X86_64.abi
+    verified := useHintY_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel)
+    features := ["avx", "avx2"] }]
 
 end VG.Artifacts.MlDsaRound.X86_64

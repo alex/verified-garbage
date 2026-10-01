@@ -39,7 +39,7 @@ theorem hbX_ok {g : Nat} (hg : g = g32 ∨ g = g88) (s : State) (hc : HbC g s) :
     WP isa (.block (hbX g)) s fun s' => (∀ e < 4, dword (s'.xmm .xmm0) e = hbL g (dword (s.xmm .xmm0) e)) ∧
       XOnly [.xmm0, .xmm1, .xmm2] s s' := by
   rcases hg with rfl | rfl <;>
-  · simp only [hbX, mulX, dSh_32, dSh_88, dShift_32, dShift_88, xmov, xb, List.cons_append, List.nil_append,
+  · simp only [hbX, hfX, mulX, dSh_32, dSh_88, dShift_32, dShift_88, xmov, xb, List.cons_append, List.nil_append,
       List.flatMap_cons, List.flatMap_nil, List.append_nil]
     vrun [VG.X86_64.eval_movdqa]
     refine ⟨fun e he => ?_, by xonly⟩
@@ -57,7 +57,7 @@ theorem lbX_ok {g : Nat} (hg : g = g32 ∨ g = g88) (s : State) (hc : HbC g s) (
     WP isa (.block (lbX g)) s fun s' => (∀ e < 4, dword (s'.xmm .xmm3) e = lbL g (dword (s.xmm .xmm0) e)) ∧
       XOnly [.xmm0, .xmm1, .xmm2, .xmm3] s s' := by
   rcases hg with rfl | rfl <;>
-  · simp only [lbX, hbX, mulX, mul2X_32, mul2X_88, dSh_32, dSh_88, dShift_32, dShift_88,
+  · simp only [lbX, hbX, hfX, mulX, mul2X_32, mul2X_88, dSh_32, dSh_88, dShift_32, dShift_88,
       VG.Impl.MlDsa.X86_64.Arith.vcadd, xmov, xb, List.cons_append, List.nil_append, List.flatMap_cons,
       List.flatMap_nil, List.append_nil]
     vrun [VG.X86_64.eval_movdqa]
