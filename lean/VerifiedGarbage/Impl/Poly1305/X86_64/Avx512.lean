@@ -24,7 +24,10 @@ of `zmm` registers, and the rest (fewer than eight) by calling
   sum of the quadwords is then `h` after all the blocks.
 * The product and its carry are those of `vg_poly1305_blocks_avx2`
   (`D` in `zmm5`–`zmm9`, the multipliers `Y` in `zmm11`–`zmm15`, `zmm10`
-  scratch), on `zmm` registers.
+  scratch), on `zmm` registers. In the loop, the limbs of `r⁸` and five
+  times them, the mask and the pad bit are instead broadcast from the state
+  (`QWORD PTR [rdi + …]{1to8}` operands), so that no product is multiplied
+  by 5 there.
 * `Y` holds `r⁸` in the low doubleword of every quadword and `r^(8 - π k)`
   in the high doubleword of quadword `k`. They are computed on entry: `r²`
   by multiplying `r` (from the key) by itself, `(r⁴, r³)` in each lane by
@@ -164,9 +167,70 @@ def loadH : List Instr :=
   [.vop (.vmovq tP .rax), sll tP tP 24, z .vporq (dreg 4) (dreg 4) tP] ++
   (List.range 5).map fun i => mov (hreg i) (dreg i)
 
+/-! ## The multipliers in memory
+
+In the loop the multipliers are not read from `Y` but broadcast from the
+state as the second sources of `vpmuludq` (`zbcst`), with room for five
+times them: the doubleword at byte `56 + 4 i` of the state (a quadword's low
+doubleword, all that `vpmuludq` reads) is limb `i` of `r⁸`, and at
+`72 + 4 i` five times limb `i` (`1 ≤ i ≤ 4`), so that `d_j` needs no
+multiplication by 5. The quadwords at bytes 104 and 112 are the mask
+`2²⁶ - 1` and the pad bit `2²⁴`, for `vpandq` and `vporq`.
+`Repr` leaves bytes 56–127 to working space, and MXCSR is saved at bytes
+120–127. -/
+
+def mR (i : Nat) : MemOp := at_ .rdi (56 + 4 * i)
+def mS (i : Nat) : MemOp := at_ .rdi (72 + 4 * i)
+def mMask : MemOp := at_ .rdi 104
+def mPad : MemOp := at_ .rdi 112
+
+def zb (op : ZBcstOp) (d a : XReg) (m : MemOp) : Instr := .zbcst op d a m
+
+/-- `D_k = 5 Y_(k+1)` (`k < 4`; the low doublewords, which stay below `2³²`). -/
+def fiveY : List Instr :=
+  (List.range 4).flatMap fun k => [sll (dreg k) (yreg (k + 1)) 2, z .vpaddq (dreg k) (dreg k) (yreg (k + 1))]
+
+/-- The multipliers, the mask and the pad bit into the state: lane 0 of `Y_i`
+at `56 + 4 i` and of `5 Y_i` at `72 + 4 i`, each 16-byte store overwriting
+all but the first doubleword of the one before. -/
+def storeY : List Instr :=
+  fiveY ++ (List.range 5).map (fun i => .vmovdquStore .l128 (mR i) (yreg i)) ++
+    (List.range 4).map (fun k => .vmovdquStore .l128 (mS (k + 1)) (dreg k)) ++
+    [.store mMask .r8, .store mPad .r9]
+
+/-- `d_j = h₀ r_j + Σ_(i < j) h_(i+1) r_(j-i-1) + Σ_(i > j) h_i (5 r_(5+j-i))`,
+the multipliers from memory. -/
+def prodJM (j : Nat) : List Instr :=
+  [zb .vpmuludq (dreg j) (hreg 0) (mR j)] ++
+  ((List.range j).flatMap fun i =>
+    [zb .vpmuludq tP (hreg (i + 1)) (mR (j - i - 1)), z .vpaddq (dreg j) (dreg j) tP]) ++
+  ((List.range (4 - j)).flatMap fun k =>
+    [zb .vpmuludq tP (hreg (j + 1 + k)) (mS (4 - k)), z .vpaddq (dreg j) (dreg j) tP])
+
+def carryJM (j : Nat) : List Instr :=
+  [srl tP (dreg j) 26, zb .vpandq (hreg j) (dreg j) mMask, z .vpaddq (dreg (j + 1)) (dreg (j + 1)) tP]
+
+/-- `carry`, with the mask from memory. -/
+def carryM : List Instr :=
+  carryJM 0 ++ carryJM 1 ++ carryJM 2 ++ carryJM 3 ++
+  [srl tP (dreg 4) 26, zb .vpandq (hreg 4) (dreg 4) mMask,
+   sll (dreg 1) tP 2, z .vpaddq tP tP (dreg 1), z .vpaddq (hreg 0) (hreg 0) tP,
+   srl tP (hreg 0) 26, zb .vpandq (hreg 0) (hreg 0) mMask, z .vpaddq (hreg 1) (hreg 1) tP]
+
+/-- `H = H · r⁸`, with the multipliers from memory. -/
+def mulM : List Instr :=
+  prodJM 0 ++ prodJM 1 ++ prodJM 2 ++ prodJM 3 ++ prodJM 4 ++ carryM
+
+/-- `addGroup`, with the pad bit from memory. -/
+def addGroupM : List Instr :=
+  [.vmovdqu32Load (dreg 2) (at_ .rsi 0), .vmovdqu32Load (dreg 3) (at_ .rsi 64),
+   z .vpunpcklqdq (dreg 0) (dreg 2) (dreg 3), z .vpunpckhqdq (dreg 1) (dreg 2) (dreg 3)] ++ split ++
+  [zb .vporq (dreg 4) (dreg 4) mPad] ++
+  (List.range 5).map fun i => z .vpaddq (hreg i) (hreg i) (dreg i)
+
 /-- One group of eight blocks, multiplied by `r⁸`. -/
 def groupBody : Prog isa :=
-  .block (addGroup ++ mul ++ [.alu .add .rsi (.imm 128), .alu .sub .rcx (.imm 1)])
+  .block (addGroupM ++ mulM ++ [.alu .add .rsi (.imm 128), .alu .sub .rcx (.imm 1)])
 
 /-- The last group, multiplied quadword by quadword by the high doublewords of `Y`. -/
 def last : List Instr :=
@@ -184,7 +248,7 @@ def sumLanes : List Instr :=
 /-- The first `8 ⌊n / 8⌋` blocks absorbed; `rsi` advanced past them,
 `rdx = n mod 8`. The groups before the last are counted down in `rcx`. -/
 def body : Prog isa :=
-  .seq (.block (Avx2.consts ++ Avx2.mxcsrIn ++ powers ++ Avx2.loadHw ++ loadH ++
+  .seq (.block (Avx2.consts ++ Avx2.mxcsrIn ++ powers ++ Avx2.loadHw ++ loadH ++ storeY ++
     [.mov .rcx (.reg .rdx), .shift .shr .rcx 3, .alu .sub .rcx (.imm 1)]))
   (.seq (.loop groupBody .ne)
     (.block (Avx2.consts2 ++ last ++ sumLanes ++ Avx2.fullCarry ++ Avx2.reduce ++ Avx2.mxcsrOut ++
