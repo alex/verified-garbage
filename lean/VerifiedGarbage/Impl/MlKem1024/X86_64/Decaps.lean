@@ -65,7 +65,7 @@ def select : Prog isa :=
 end Decaps1024
 
 open Decaps1024 in
-def decaps1024 : Prog isa :=
-  .seq (.block pro) (.seq decrypt (.seq hashes (.seq (encrypt1024 (.rbp, 1536)) (.seq select (.block topEpi)))))
+def decaps1024 (c : Callee4) : Prog isa :=
+  .seq (.block pro) (.seq decrypt (.seq hashes (.seq (encrypt1024 c (.rbp, 1536)) (.seq select (.block topEpi)))))
 
 end VG.Impl.MlKem1024.X86_64

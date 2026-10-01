@@ -15,6 +15,9 @@
 //! the same contracts and call `vg_sha512_compress_shani`; CPUs without it but
 //! with AVX2, BMI1 and BMI2 run `vg_sha512_update_avx2` and
 //! `vg_sha512_finalize_avx2`, which call `vg_sha512_compress_avx2`.
+//!
+//! On AArch64, Rust's `sha3` feature enables the FEAT_SHA512 backend for
+//! all four digest sizes. Dispatch follows the generated feature requirements.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -28,6 +31,11 @@ use crate::arch::sha512::{
     VG_SHA512_FINALIZE_AVX2_FEATURES, VG_SHA512_FINALIZE_SHANI_FEATURES,
     VG_SHA512_UPDATE_AVX2_FEATURES, VG_SHA512_UPDATE_SHANI_FEATURES, vg_sha512_finalize_avx2,
     vg_sha512_finalize_shani, vg_sha512_update_avx2, vg_sha512_update_shani,
+};
+#[cfg(target_arch = "aarch64")]
+use crate::arch::sha512::{
+    VG_SHA512_FINALIZE_SHA3_FEATURES, VG_SHA512_UPDATE_SHA3_FEATURES, vg_sha512_finalize_sha3,
+    vg_sha512_update_sha3,
 };
 use crate::arch::sha512::{
     vg_sha384_init, vg_sha512_224_init, vg_sha512_256_init, vg_sha512_finalize, vg_sha512_init,
@@ -45,6 +53,9 @@ super::streaming_hash!(
         init: vg_sha384_init,
         backends: Sha384Backend {
             Scalar => (vg_sha512_update, vg_sha512_finalize),
+            #[cfg(target_arch = "aarch64")]
+            Sha3 if [VG_SHA512_UPDATE_SHA3_FEATURES, VG_SHA512_FINALIZE_SHA3_FEATURES] =>
+                (vg_sha512_update_sha3, vg_sha512_finalize_sha3),
             #[cfg(target_arch = "x86_64")]
             ShaNi if [VG_SHA512_UPDATE_SHANI_FEATURES, VG_SHA512_FINALIZE_SHANI_FEATURES] =>
                 (vg_sha512_update_shani, vg_sha512_finalize_shani),
@@ -65,6 +76,9 @@ super::streaming_hash!(
         init: vg_sha512_init,
         backends: Sha512Backend {
             Scalar => (vg_sha512_update, vg_sha512_finalize),
+            #[cfg(target_arch = "aarch64")]
+            Sha3 if [VG_SHA512_UPDATE_SHA3_FEATURES, VG_SHA512_FINALIZE_SHA3_FEATURES] =>
+                (vg_sha512_update_sha3, vg_sha512_finalize_sha3),
             #[cfg(target_arch = "x86_64")]
             ShaNi if [VG_SHA512_UPDATE_SHANI_FEATURES, VG_SHA512_FINALIZE_SHANI_FEATURES] =>
                 (vg_sha512_update_shani, vg_sha512_finalize_shani),
@@ -85,6 +99,9 @@ super::streaming_hash!(
         init: vg_sha512_224_init,
         backends: Sha512_224Backend {
             Scalar => (vg_sha512_update, vg_sha512_finalize),
+            #[cfg(target_arch = "aarch64")]
+            Sha3 if [VG_SHA512_UPDATE_SHA3_FEATURES, VG_SHA512_FINALIZE_SHA3_FEATURES] =>
+                (vg_sha512_update_sha3, vg_sha512_finalize_sha3),
             #[cfg(target_arch = "x86_64")]
             ShaNi if [VG_SHA512_UPDATE_SHANI_FEATURES, VG_SHA512_FINALIZE_SHANI_FEATURES] =>
                 (vg_sha512_update_shani, vg_sha512_finalize_shani),
@@ -105,6 +122,9 @@ super::streaming_hash!(
         init: vg_sha512_256_init,
         backends: Sha512_256Backend {
             Scalar => (vg_sha512_update, vg_sha512_finalize),
+            #[cfg(target_arch = "aarch64")]
+            Sha3 if [VG_SHA512_UPDATE_SHA3_FEATURES, VG_SHA512_FINALIZE_SHA3_FEATURES] =>
+                (vg_sha512_update_sha3, vg_sha512_finalize_sha3),
             #[cfg(target_arch = "x86_64")]
             ShaNi if [VG_SHA512_UPDATE_SHANI_FEATURES, VG_SHA512_FINALIZE_SHANI_FEATURES] =>
                 (vg_sha512_update_shani, vg_sha512_finalize_shani),
@@ -149,7 +169,7 @@ mod tests {
     /// the same for the four functions.
     #[test]
     fn select() {
-        for bits in 0..1024 {
+        for bits in 0..(1 << crate::cpu::NAMES.len()) {
             let f = Features(bits);
             let backend = Sha512Backend::select(f);
             #[cfg(target_arch = "x86_64")]
@@ -173,7 +193,23 @@ mod tests {
                 assert_eq!(Sha512_224Backend::select(f), expected!(Sha512_224Backend));
                 assert_eq!(Sha512_256Backend::select(f), expected!(Sha512_256Backend));
             }
-            #[cfg(not(target_arch = "x86_64"))]
+            #[cfg(target_arch = "aarch64")]
+            {
+                macro_rules! expected {
+                    ($backend:ident) => {
+                        if f.contains(Features::of(&["sha3"])) {
+                            $backend::Sha3
+                        } else {
+                            $backend::Scalar
+                        }
+                    };
+                }
+                assert_eq!(backend, expected!(Sha512Backend), "{bits:#b}");
+                assert_eq!(Sha384Backend::select(f), expected!(Sha384Backend));
+                assert_eq!(Sha512_224Backend::select(f), expected!(Sha512_224Backend));
+                assert_eq!(Sha512_256Backend::select(f), expected!(Sha512_256Backend));
+            }
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
             {
                 assert_eq!(backend, Sha512Backend::Scalar);
                 assert_eq!(Sha384Backend::select(f), Sha384Backend::Scalar);

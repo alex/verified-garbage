@@ -140,7 +140,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅ SHA512, AVX2, BMI1, BMI2</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -226,7 +226,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅ SHA512, AVX2, BMI1, BMI2</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -242,7 +242,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅ SHA512, AVX2, BMI1, BMI2</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -258,7 +258,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅ SHA512, AVX2, BMI1, BMI2</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -274,7 +274,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅ SHA512, AVX2, BMI1, BMI2</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -342,11 +342,11 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -484,7 +484,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅ SHA512, AVX2, BMI1, BMI2</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -500,7 +500,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅ SHA512, AVX2, BMI1, BMI2</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -516,7 +516,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅ SHA512, AVX2, BMI1, BMI2</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -532,7 +532,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅ SHA512, AVX2, BMI1, BMI2</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 <td>✅</td>
 
@@ -584,7 +584,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>✅ SSE2 polynomial arithmetic</td>
+<td>✅ AVX2; SSE2 polynomial arithmetic</td>
 
 <td>✅ NEON polynomial arithmetic</td>
 
@@ -600,7 +600,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>✅ SSE2 polynomial arithmetic</td>
+<td>✅ AVX2; SSE2 polynomial arithmetic</td>
 
 <td>✅ NEON polynomial arithmetic</td>
 
@@ -656,9 +656,9 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -698,7 +698,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>❌</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -710,7 +710,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -726,7 +726,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -742,7 +742,7 @@ It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 

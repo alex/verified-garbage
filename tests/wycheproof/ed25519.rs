@@ -1,6 +1,6 @@
 //! All pure Ed25519 verification cases in Wycheproof's ed25519_test.json.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "x86"))]
 
 use serde::Deserialize;
 use verified_garbage::ed25519::{Error, VerifyingKey};

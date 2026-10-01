@@ -52,8 +52,8 @@ def restore : List Instr :=
 
 /-- Compress the block at `x1` into the hash value at `x19`, with scratch
 space `x20`. -/
-def compressAt : Prog isa :=
-  .seq (.block [mov .x0 .x19, .movz .x .x2 1 0, mov .x3 .x20]) compress
+def compressAtWith (code : Prog isa) : Prog isa :=
+  .seq (.block [mov .x0 .x19, .movz .x .x2 1 0, mov .x3 .x20]) code
 
 /-! ## `update`
 
@@ -83,17 +83,17 @@ def fill : Prog isa :=
     (.ite (.zero .x .x9) (.block [.addImm .x .x1 .x19 64, .movz .x .x23 0 0, .movz .x .x10 1 0])
       (.block []))))))
 
-def updateBody : Prog isa :=
+def updateBodyWith (code : Prog isa) : Prog isa :=
   .seq (.block [.movz .x .x10 0 0])
   (.seq (.ite (.zero .x .x23)
       (.seq (.block [.lsr .x .x9 .x22 7]) (.ite (.zero .x .x9) fill (.block direct)))
       fill)
-    (.ite (.zero .x .x10) (.block []) compressAt))
+    (.ite (.zero .x .x10) (.block []) (compressAtWith code)))
 
-def update : Prog isa :=
+def updateWith (code : Prog isa) : Prog isa :=
   .seq (.block (save .x4 ++ [mov .x19 .x0, mov .x20 .x4, mov .x21 .x2, mov .x22 .x3,
       .movz .x .x9 127 0, .logic .and .x .x23 .x1 .x9]))
-  (.seq (.ite (.zero .x .x22) (.block []) (.loop updateBody (.nonzero .x .x22)))
+  (.seq (.ite (.zero .x .x22) (.block []) (.loop (updateBodyWith code) (.nonzero .x .x22)))
     (.block restore))
 
 /-! ## `finalize`
@@ -101,7 +101,7 @@ def update : Prog isa :=
 Registers: `x21` = `out`, `x22` = `count`, `x23` = bytes in the buffer (`r`),
 `x24` = 1 while the block being padded is not the last one (then 0). -/
 
-def finalizeBody : Prog isa :=
+def finalizeBodyWith (code : Prog isa) : Prog isa :=
   -- Zero the buffer from `r` to 128, or to 112 in the last block.
   .seq (.block [.movz .x .x11 128 0])
   (.seq (.ite (.zero .x .x24) (.block [.movz .x .x11 112 0]) (.block []))
@@ -117,19 +117,25 @@ def finalizeBody : Prog isa :=
         .str .x .x9 .x19 184])
       (.block []))
   (.seq (.block [.addImm .x .x1 .x19 64])
-  (.seq compressAt
+  (.seq (compressAtWith code)
     (.block [.movz .x .x23 0 0, .subImm .x .x24 .x24 1])))))))
 
-def finalize : Prog isa :=
+def finalizeWith (code : Prog isa) : Prog isa :=
   .seq (.block (save .x3 ++ [mov .x19 .x0, mov .x20 .x3, mov .x21 .x2, mov .x22 .x1,
       .movz .x .x9 127 0, .logic .and .x .x23 .x22 .x9,
       -- The `0x80` byte.
       .movz .x .x9 0x80 0, .add .x .x12 .x19 .x23, .strb .x9 .x12 64, .addImm .x .x23 .x23 1,
       -- Two blocks iff that leaves fewer than 16 bytes for the length (r ≥ 113).
       .addImm .x .x24 .x23 15, .lsr .x .x24 .x24 7]))
-  (.seq (.loop finalizeBody (.zero .x .x24))
+  (.seq (.loop (finalizeBodyWith code) (.zero .x .x24))
     (.block ((List.range 8).flatMap (fun k =>
         [.ldr .x .x9 .x19 (8 * k), .rev .x9 .x9, .str .x .x9 .x21 (8 * k)]) ++
       restore)))
+
+def compressAt : Prog isa := compressAtWith compress
+def updateBody : Prog isa := updateBodyWith compress
+def update : Prog isa := updateWith compress
+def finalizeBody : Prog isa := finalizeBodyWith compress
+def finalize : Prog isa := finalizeWith compress
 
 end VG.Impl.Sha512.AArch64.Stream

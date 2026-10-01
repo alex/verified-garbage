@@ -54,26 +54,26 @@ variable {s1 : State}
 /-- The memory a callee starts with. -/
 abbrev ceM (s1 : State) : Mem := s1.mem.writeW (s1.gpr .rsp - 8) (s1.unknowns 0)
 
-theorem ceM_bytes {q : Addr} (h : (below (s1.gpr .rsp) 24).Disjoint ⟨q, 1024⟩) :
+theorem ceM_bytes {q : Addr} (h : (below (s1.gpr .rsp) 32).Disjoint ⟨q, 1024⟩) :
     ∀ k < 1024, ceM s1 (q + BitVec.ofNat 64 k) = s1.mem (q + BitVec.ofNat 64 k) :=
   fun _ hk => callEntry_bytes s1 (R := ⟨q, 1024⟩) (k16 s1 h) (show 1024 ≤ 2 ^ 64 by decide) hk
 
-theorem ce_polyAt {q : Addr} (h : (below (s1.gpr .rsp) 24).Disjoint ⟨q, 1024⟩) :
+theorem ce_polyAt {q : Addr} (h : (below (s1.gpr .rsp) 32).Disjoint ⟨q, 1024⟩) :
     Spec.MlDsa.polyAt (ceM s1) q = Spec.MlDsa.polyAt s1.mem q := Proof.MlDsa.KeyGen.polyAt_congr (ceM_bytes h)
 
-theorem ce_natPolyAt {q : Addr} (h : (below (s1.gpr .rsp) 24).Disjoint ⟨q, 1024⟩) :
+theorem ce_natPolyAt {q : Addr} (h : (below (s1.gpr .rsp) 32).Disjoint ⟨q, 1024⟩) :
     Spec.MlDsa.natPolyAt (ceM s1) q = Spec.MlDsa.natPolyAt s1.mem q := Proof.MlDsa.KeyGen.natPolyAt_congr (ceM_bytes h)
 
-theorem ce_coeffAt {q : Addr} (h : (below (s1.gpr .rsp) 24).Disjoint ⟨q, 1024⟩) {i : Nat} (hi : i < 256) :
+theorem ce_coeffAt {q : Addr} (h : (below (s1.gpr .rsp) 32).Disjoint ⟨q, 1024⟩) {i : Nat} (hi : i < 256) :
     Spec.MlDsa.coeffAt (ceM s1) q i = Spec.MlDsa.coeffAt s1.mem q i :=
   Proof.MlDsa.KeyGen.coeffAt_congr (ceM_bytes h) hi
 
-theorem ce_reduced {q : Addr} (h : (below (s1.gpr .rsp) 24).Disjoint ⟨q, 1024⟩) :
+theorem ce_reduced {q : Addr} (h : (below (s1.gpr .rsp) 32).Disjoint ⟨q, 1024⟩) :
     Spec.MlDsa.Reduced (ceM s1) q ↔ Spec.MlDsa.Reduced s1.mem q :=
   ⟨Proof.MlDsa.KeyGen.reduced_congr fun k hk => (ceM_bytes h k hk).symm,
     Proof.MlDsa.KeyGen.reduced_congr (ceM_bytes h)⟩
 
-theorem ce_bytesAt' {q : Addr} {n : Nat} (hn : n < 2 ^ 64) (h : (below (s1.gpr .rsp) 24).Disjoint ⟨q, n⟩) :
+theorem ce_bytesAt' {q : Addr} {n : Nat} (hn : n < 2 ^ 64) (h : (below (s1.gpr .rsp) 32).Disjoint ⟨q, n⟩) :
     bytesAt (ceM s1) q n = bytesAt s1.mem q n := callEntry_bytesAt s1 hn (k16 s1 h)
 
 end
@@ -806,7 +806,7 @@ theorem bp_pre {stk : Nat} (hstk : stk ≤ 16) {s s1 : State} (S : Site p s) (hi
   obtain ⟨i1, _, _⟩ := sepB_spec h1
   have L := S.lay
   have hsp := keep_rsp k
-  have hk : (below (s1.gpr .rsp) 24).Disjoint ⟨pa s f, 1024⟩ := by rw [hsp]; exact L.stkD i1
+  have hk : (below (s1.gpr .rsp) 32).Disjoint ⟨pa s f, 1024⟩ := by rw [hsp]; exact L.stkD i1
   rcases stk with _ | n <;>
   · sig_pre [Spec.MlDsa.bitPackContract, Spec.MlDsa.bitPackSig, X86_64.abi, VG.X86_64.argRegs]
     simp only [hv.1, hv.2.1, hv.2.2.1, hv.2.2.2.1, hv.2.2.2.2, w32_toNat (bp_lt hab).1, w32_toNat (bp_lt hab).2,

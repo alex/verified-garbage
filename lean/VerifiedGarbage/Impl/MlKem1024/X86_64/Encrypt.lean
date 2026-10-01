@@ -33,7 +33,7 @@ namespace Encrypt1024
 abbrev rP : Ptr := sc (oG + 32)
 
 /-- `ρ` to `SB`, and `Â`. -/
-def mat (E : Ptr) : Prog isa := .seq (copy (sc oSB) (E.1, E.2 + 1536) 32) samples4
+def mat (c : Callee4) (E : Ptr) : Prog isa := .seq (copy (sc oSB) (E.1, E.2 + 1536) 32) (samples4 c)
 
 /-- `ŷ[j]`. -/
 def y (j : Nat) : Prog isa := .seq (prfCbd rP j (pS j)) (nttAt (pS j))
@@ -57,6 +57,6 @@ def rest (E : Ptr) : Prog isa := .seq (seqR y 0 4) (.seq (seqR u 0 4) (.seq (seq
 end Encrypt1024
 
 open Encrypt1024 in
-def encrypt1024 (E : Ptr) : Prog isa := .seq (mat E) (ifOk (rest E))
+def encrypt1024 (c : Callee4) (E : Ptr) : Prog isa := .seq (mat c E) (ifOk (rest E))
 
 end VG.Impl.MlKem1024.X86_64

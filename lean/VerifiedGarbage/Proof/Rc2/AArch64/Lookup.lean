@@ -1,0 +1,320 @@
+import VerifiedGarbage.Impl.Rc2.AArch64.Lookup
+import VerifiedGarbage.Proof.Rc2.Select
+import VerifiedGarbage.Proof.Framework.AArch64.Exec
+import VerifiedGarbage.Proof.Framework.AArch64.RegUpd
+
+/-! # Correctness of baseline AArch64 RC2 lookup steps -/
+
+namespace VG.Proof.Rc2.AArch64
+
+open VG VG.AArch64 VG.AArch64.RegUpd VG.Impl.Rc2.AArch64
+
+/-- A register-only block preserves memory, regions, and other GPRs. -/
+structure Keep (written : List Reg) (s s' : State) : Prop where
+  reg : ∀ r, r ∉ written → s'.gpr r = s.gpr r
+  mem : s'.mem = s.mem
+  rd : s'.rd = s.rd
+  wr : s'.wr = s.wr
+
+theorem Keep.trans {rs : List Reg} {s s' s'' : State}
+    (h : Keep rs s s') (h' : Keep rs s' s'') : Keep rs s s'' :=
+  ⟨fun r hr => (h'.reg r hr).trans (h.reg r hr), h'.mem.trans h.mem,
+    h'.rd.trans h.rd, h'.wr.trans h.wr⟩
+
+theorem byte_imm (b : Byte) : (BitVec.ofNat 16 b.toNat).setWidth 64 = b.setWidth 64 := by
+  simp
+
+theorem index_imm (i : Nat) (hi : i < 256) :
+    (BitVec.ofNat 16 i).setWidth 64 = (BitVec.ofNat 8 i).setWidth 64 := by
+  have h : BitVec.ofNat 16 i = (BitVec.ofNat 8 i).setWidth 16 := by bv_omega
+  rw [h]; simp
+
+theorem piStep_ok (s : State) (x : Byte) (hx : s.gpr .x8 = x.setWidth 64)
+    (i : Nat) (hi : i < 256) :
+    ∃ s', runBlock isa (piStep i) s = some s' ∧
+      s'.gpr .x3 = s.gpr .x3 |||
+        (if x.toNat = i then (Spec.Rc2.piTable.getD i 0).setWidth 64 else 0) ∧
+      Keep [.x3, .x6, .x7] s s' := by
+  refine ⟨_, by
+    simp (config := {decide := true}) only [piStep, selectMask, imm, List.cons_append,
+      List.nil_append, runBlock_cons, runStep_some, runBlock_nil, exec, State.read, BitVec.setWidth_eq, gpr_write, BitVec.setWidth_eq,
+      ite_true, ite_false]
+    rfl, ?_⟩
+  have he : x = BitVec.ofNat 8 i ↔ x.toNat = i := by
+    constructor
+    · intro h; rw [h, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hi]
+    · intro h; rw [← h, BitVec.ofNat_toNat, BitVec.setWidth_eq]
+  constructor
+  · simp only [gpr_write, BitVec.setWidth_eq, reduceCtorEq, ite_true, ite_false]
+    rw [hx, index_imm i hi, byte_imm]
+    simp only [Nat.mul_zero, BitVec.shiftLeft_zero, BitVec.setWidth_zero]
+    change s.gpr .x3 |||
+      ((0 - (((x.setWidth 64 ^^^ (BitVec.ofNat 8 i).setWidth 64) - 1) >>> 63)) &&&
+        (Spec.Rc2.piTable.getD i 0).setWidth 64) = _
+    rw [selectMask_eq]
+    by_cases h : x.toNat = i
+    · rw [ite_eq_left (he.mpr h), ite_eq_left h, BitVec.allOnes_and]
+    · simp [h, mt he.mp h]
+  · constructor
+    · intro r hr
+      simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+      simp only [gpr_write, BitVec.setWidth_eq, hr.1, hr.2.1, hr.2.2, ite_false]
+    · simp only [mem_write]
+    · simp only [rd_write]
+    · simp only [wr_write]
+
+
+theorem piSteps_ok (is : List Nat) (hi : ∀ i ∈ is, i < 256)
+    (s : State) (x : Byte) (hx : s.gpr .x8 = x.setWidth 64) :
+    WP isa (.block (is.flatMap piStep)) s (fun s' =>
+      s'.gpr .x3 = s.gpr .x3 |||
+        (if x.toNat ∈ is then (Spec.Rc2.piTable.getD x.toNat 0).setWidth 64 else 0) ∧
+      Keep [.x3, .x6, .x7] s s') := by
+  induction is generalizing s with
+  | nil =>
+    apply WP.block_nil
+    exact ⟨by simp, ⟨fun _ _ => rfl, rfl, rfl, rfl⟩⟩
+  | cons i is ih =>
+    rw [List.flatMap_cons, WP.block_append_iff]
+    obtain ⟨s₁, run₁, out₁, keep₁⟩ := piStep_ok s x hx i (hi i (by simp))
+    refine WP.of_runBlock ⟨s₁, run₁, ?_⟩
+    have hx₁ := (keep₁.reg .x8 (by decide)).trans hx
+    apply WP.mono (ih (fun j hj => hi j (List.mem_cons_of_mem _ hj)) s₁ hx₁)
+    intro s₂ h₂
+    refine ⟨?_, keep₁.trans h₂.2⟩
+    rw [h₂.1, out₁]
+    by_cases h : x.toNat = i
+    · subst i
+      by_cases hm : x.toNat ∈ is <;> simp [hm, BitVec.or_assoc]
+    · by_cases hm : x.toNat ∈ is <;> simp [h, hm]
+
+theorem Keep.weaken {rs rs' : List Reg} {s s' : State} (h : Keep rs s s')
+    (hsub : ∀ r ∈ rs, r ∈ rs') : Keep rs' s s' :=
+  ⟨fun r hr => h.reg r (fun hm => hr (hsub r hm)), h.mem, h.rd, h.wr⟩
+
+theorem maskBits (x : BitVec 64) (n : Nat) (hn : n ≤ 64) :
+    x <<< (64 - n) >>> (64 - n) = (x.setWidth n).setWidth 64 := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  simp only [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft,
+    BitVec.getLsbD_setWidth]
+  have ha : 64 - n + i < 64 ↔ i < n := by omega
+  have hb : ¬64 - n + i < 64 - n := by omega
+  simp only [ha, hb, hi, decide_true, decide_false, Bool.not_false,
+    Bool.and_true, Bool.true_and, Nat.add_sub_cancel_left]
+
+theorem piStart_ok (s : State) :
+    ∃ s', runBlock isa (mask .x8 8 ++ [imm .x3 0]) s = some s' ∧
+      s'.gpr .x8 = ((s.gpr .x8).setWidth 8).setWidth 64 ∧ s'.gpr .x3 = 0 ∧
+      Keep [.x8, .x3, .x6, .x7] s s' := by
+  refine ⟨_, by
+    simp (config := {decide := true}) only [mask, imm, List.cons_append, List.nil_append, runBlock_cons,
+      exec, State.read, BitVec.setWidth_eq]
+    rfl, ?_⟩
+  refine ⟨?_, ?_, ?_⟩
+  · simp only [gpr_write, BitVec.setWidth_eq, reduceCtorEq, ite_false, ite_true]
+    exact maskBits _ 8 (by decide)
+  · rfl
+  · constructor
+    · intro r hr
+      simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+      simp only [gpr_write, BitVec.setWidth_eq, hr.1, hr.2.1, ite_false]
+    · rfl
+    · rfl
+    · rfl
+
+theorem piLookup_ok (s : State) :
+    WP isa (.block piLookup) s (fun s' =>
+      s'.gpr .x8 = (Spec.Rc2.pi ((s.gpr .x8).setWidth 8)).setWidth 64 ∧
+      Keep [.x8, .x3, .x6, .x7] s s') := by
+  rw [piLookup, List.append_assoc, WP.block_append_iff]
+  obtain ⟨s₁, run₁, input₁, zero₁, keep₁⟩ := piStart_ok s
+  refine WP.of_runBlock ⟨s₁, run₁, ?_⟩
+  rw [WP.block_append_iff]
+  apply WP.mono (piSteps_ok (List.range 256) (fun i hi => List.mem_range.mp hi)
+    s₁ ((s.gpr .x8).setWidth 8) input₁)
+  intro s₂ h₂
+  have out₂ : s₂.gpr .x3 = (Spec.Rc2.pi ((s.gpr .x8).setWidth 8)).setWidth 64 := by
+    rw [h₂.1, zero₁]
+    simp only [List.mem_range]
+    rw [ite_eq_left ((s.gpr .x8).setWidth 8).isLt]
+    exact BitVec.zero_or
+  refine WP.of_runBlock ⟨s₂.write .x .x8 (s₂.gpr .x3), ?_, ?_⟩
+  · simp only [rr, runBlock_cons, runStep_some, runBlock_nil, exec, State.read, BitVec.setWidth_eq, BitVec.add_zero, show 0 < 4096 by decide, ite_true]
+  · constructor
+    · rw [gpr_write_self, BitVec.setWidth_eq, out₂]
+    · have k₂ : Keep [.x8, .x3, .x6, .x7] s₁ s₂ := h₂.2.weaken (by
+        intro r hr; exact List.mem_cons_of_mem _ hr)
+      apply (keep₁.trans k₂).trans
+      constructor
+      · intro r hr
+        exact gpr_write_of_ne _ _ _ (fun h => hr (h ▸ List.mem_cons_self))
+      · exact mem_write _ _ _ _
+      · exact rd_write _ _ _ _
+      · exact wr_write _ _ _ _
+
+
+theorem exec_ldrb (s : State) (t n : Reg) (off : Nat) (ho : off < 4096)
+    (h : InRegions (s.rd ++ s.wr) (s.gpr n + BitVec.ofNat 64 off) 1) :
+    exec (.ldrb t n off) s = some (s.write .w t ((s.mem (s.gpr n + BitVec.ofNat 64 off)).setWidth 32)) := by
+  simp only [exec, addr, Nat.mod_one, ho, and_self, ite_true, Option.bind_some,
+    State.load, h, Option.map_some]
+  have hb : s.mem.read (s.gpr n + BitVec.ofNat 64 off) 1 = s.mem (s.gpr n + BitVec.ofNat 64 off) := by
+    change (0#0 ++ s.mem (s.gpr n + BitVec.ofNat 64 off)) = _
+    exact BitVec.zero_width_append _ _
+  rw [hb]
+
+theorem keyStep_ok (s : State) (x : Byte) (hx : s.gpr .x8 = x.setWidth 64)
+    (i : Nat) (hi : i < 64)
+    (hlo : InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 (2 * i)) 1)
+    (hhi : InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 (2 * i + 1)) 1) :
+    ∃ s', runBlock isa (keyStep i) s = some s' ∧
+      s'.gpr .x3 = s.gpr .x3 |||
+        (if x.toNat = i then
+          ((s.mem (s.gpr .x0 + BitVec.ofNat 64 (2 * i))).setWidth 16 |||
+            (s.mem (s.gpr .x0 + BitVec.ofNat 64 (2 * i + 1))).setWidth 16 <<< 8).setWidth 64
+          else 0) ∧
+      Keep [.x3, .x4, .x5, .x6, .x7] s s' := by
+  have hloOff : 2 * i < 4096 := by omega
+  have hhiOff : 2 * i + 1 < 4096 := by omega
+  refine ⟨_, by
+    simp (config := {decide := true}) only [keyStep, selectMask, loadKey, imm,
+      List.cons_append, List.nil_append, runBlock_cons, runStep_some, runBlock_nil,
+      exec, State.read, addr, State.load, Mem.read,
+      Option.bind_some, Option.map_some, gpr_write, BitVec.setWidth_eq,
+      mem_write, rd_write,
+      wr_write, Nat.mod_one, Nat.mul_one, hloOff, hhiOff, hlo, hhi, ite_true, ite_false]
+    rfl, ?_⟩
+  have he : x = BitVec.ofNat 8 i ↔ x.toNat = i := by
+    constructor
+    · intro h; rw [h, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+    · intro h; rw [← h, BitVec.ofNat_toNat, BitVec.setWidth_eq]
+  constructor
+  · simp only [gpr_write, BitVec.setWidth_eq, reduceCtorEq, ite_true, ite_false]
+    rw [hx, index_imm i (by omega)]
+    simp only [Nat.mul_zero, BitVec.shiftLeft_zero, BitVec.setWidth_zero, BitVec.zero_width_append]
+    change s.gpr .x3 |||
+      (((s.mem (s.gpr .x0 + BitVec.ofNat 64 (2 * i))).setWidth 64 |||
+        ((s.mem (s.gpr .x0 + BitVec.ofNat 64 (2 * i + 1))).setWidth 64).rotateRight 56) &&&
+        (0 - (((x.setWidth 64 ^^^ (BitVec.ofNat 8 i).setWidth 64) - 1) >>> 63))) = _
+    rw [selectMask_eq, joinBytes]
+    by_cases h : x.toNat = i
+    · rw [ite_eq_left (he.mpr h), ite_eq_left h, BitVec.and_allOnes]
+    · simp [h, mt he.mp h]
+  · constructor
+    · intro r hr
+      simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+      simp only [gpr_write, BitVec.setWidth_eq,
+        hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2, ite_false]
+    · simp only [mem_write]
+    · simp only [rd_write]
+    · simp only [wr_write]
+
+theorem keySteps_ok (is : List Nat) (hi : ∀ i ∈ is, i < 64)
+    (s : State) (x : Byte) (hx : s.gpr .x8 = x.setWidth 64)
+    (readable : ∀ i < 128,
+      InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 i) 1) :
+    WP isa (.block (is.flatMap keyStep)) s (fun s' =>
+      s'.gpr .x3 = s.gpr .x3 |||
+        (if x.toNat ∈ is then
+          ((s.mem (s.gpr .x0 + BitVec.ofNat 64 (2 * x.toNat))).setWidth 16 |||
+            (s.mem (s.gpr .x0 + BitVec.ofNat 64 (2 * x.toNat + 1))).setWidth 16 <<< 8).setWidth 64
+          else 0) ∧ Keep [.x3, .x4, .x5, .x6, .x7] s s') := by
+  induction is generalizing s with
+  | nil =>
+    apply WP.block_nil
+    exact ⟨by simp, ⟨fun _ _ => rfl, rfl, rfl, rfl⟩⟩
+  | cons i is ih =>
+    rw [List.flatMap_cons, WP.block_append_iff]
+    have bound := hi i (by simp)
+    obtain ⟨s₁, run₁, out₁, keep₁⟩ := keyStep_ok s x hx i bound
+      (readable (2 * i) (by omega)) (readable (2 * i + 1) (by omega))
+    refine WP.of_runBlock ⟨s₁, run₁, ?_⟩
+    have hx₁ := (keep₁.reg .x8 (by decide)).trans hx
+    have ptr₁ := keep₁.reg .x0 (by decide)
+    have read₁ : ∀ j < 128,
+        InRegions (s₁.rd ++ s₁.wr) (s₁.gpr .x0 + BitVec.ofNat 64 j) 1 := by
+      rw [keep₁.rd, keep₁.wr, ptr₁]
+      exact readable
+    apply WP.mono (ih (fun j hj => hi j (List.mem_cons_of_mem _ hj)) s₁ hx₁ read₁)
+    intro s₂ h₂
+    refine ⟨?_, keep₁.trans h₂.2⟩
+    rw [h₂.1, out₁, keep₁.mem, ptr₁]
+    by_cases h : x.toNat = i
+    · subst i
+      by_cases hm : x.toNat ∈ is <;> simp [hm, BitVec.or_assoc]
+    · by_cases hm : x.toNat ∈ is <;> simp [h, hm]
+
+
+theorem keyStart_ok (s : State) :
+    ∃ s', runBlock isa (mask .x8 6 ++ [imm .x3 0]) s = some s' ∧
+      s'.gpr .x8 = ((s.gpr .x8).setWidth 6).setWidth 64 ∧ s'.gpr .x3 = 0 ∧
+      Keep [.x8, .x3, .x4, .x5, .x6, .x7] s s' := by
+  refine ⟨_, by
+    simp (config := {decide := true}) only [mask, imm, List.cons_append, List.nil_append, runBlock_cons,
+      exec, State.read, BitVec.setWidth_eq]
+    rfl, ?_⟩
+  refine ⟨?_, ?_, ?_⟩
+  · simp only [gpr_write, BitVec.setWidth_eq, reduceCtorEq, ite_false, ite_true]
+    exact maskBits _ 6 (by decide)
+  · rfl
+  · constructor
+    · intro r hr
+      simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+      simp only [gpr_write, BitVec.setWidth_eq, hr.1, hr.2.1, ite_false]
+    · rfl
+    · rfl
+    · rfl
+
+theorem scheduleAt_getD (m : Mem) (p : Addr) (i : Nat) (hi : i < 64) :
+    (Spec.Rc2.scheduleAt m p).getD i 0 =
+      (m (p + BitVec.ofNat 64 (2 * i))).setWidth 16 |||
+        (m (p + BitVec.ofNat 64 (2 * i + 1))).setWidth 16 <<< 8 := by
+  simp [Spec.Rc2.scheduleAt, Vector.getD, hi]
+
+theorem keyLookup_ok (s : State)
+    (readable : ∀ i < 128,
+      InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 i) 1) :
+    WP isa (.block keyLookup) s (fun s' =>
+      s'.gpr .x8 = ((Spec.Rc2.scheduleAt s.mem (s.gpr .x0)).getD
+        ((s.gpr .x8).setWidth 6).toNat 0).setWidth 64 ∧
+      Keep [.x8, .x3, .x4, .x5, .x6, .x7] s s') := by
+  rw [keyLookup, List.append_assoc, WP.block_append_iff]
+  obtain ⟨s₁, run₁, input₁, zero₁, keep₁⟩ := keyStart_ok s
+  refine WP.of_runBlock ⟨s₁, run₁, ?_⟩
+  rw [WP.block_append_iff]
+  have ptr₁ := keep₁.reg .x0 (by decide)
+  have read₁ : ∀ i < 128,
+      InRegions (s₁.rd ++ s₁.wr) (s₁.gpr .x0 + BitVec.ofNat 64 i) 1 := by
+    rw [keep₁.rd, keep₁.wr, ptr₁]
+    exact readable
+  have inputByte : s₁.gpr .x8 = (((s.gpr .x8).setWidth 6).setWidth 8).setWidth 64 := by
+    rw [input₁]; simp
+  apply WP.mono (keySteps_ok (List.range 64) (fun i hi => List.mem_range.mp hi)
+    s₁ (((s.gpr .x8).setWidth 6).setWidth 8) inputByte read₁)
+  intro s₂ h₂
+  have out₂ : s₂.gpr .x3 = ((Spec.Rc2.scheduleAt s.mem (s.gpr .x0)).getD
+      ((s.gpr .x8).setWidth 6).toNat 0).setWidth 64 := by
+    rw [h₂.1, zero₁, keep₁.mem, ptr₁]
+    simp only [List.mem_range, BitVec.toNat_setWidth]
+    have bound := ((s.gpr .x8).setWidth 6).isLt
+    simp only [BitVec.toNat_setWidth] at bound
+    rw [Nat.mod_eq_of_lt (show (s.gpr .x8).toNat % 64 < 256 by omega),
+      ite_eq_left bound, scheduleAt_getD _ _ _ bound]
+    exact BitVec.zero_or
+  refine WP.of_runBlock ⟨s₂.write .x .x8 (s₂.gpr .x3), ?_, ?_⟩
+  · simp only [rr, runBlock_cons, runStep_some, runBlock_nil, exec, State.read, BitVec.setWidth_eq, BitVec.add_zero, show 0 < 4096 by decide, ite_true]
+  · constructor
+    · rw [gpr_write_self, BitVec.setWidth_eq, out₂]
+    · have k₂ : Keep [.x8, .x3, .x4, .x5, .x6, .x7] s₁ s₂ := h₂.2.weaken (by
+        intro r hr; exact List.mem_cons_of_mem _ hr)
+      apply (keep₁.trans k₂).trans
+      constructor
+      · intro r hr
+        exact gpr_write_of_ne _ _ _ (fun h => hr (h ▸ List.mem_cons_self))
+      · exact mem_write _ _ _ _
+      · exact rd_write _ _ _ _
+      · exact wr_write _ _ _ _
+
+
+end VG.Proof.Rc2.AArch64
