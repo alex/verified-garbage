@@ -31,7 +31,7 @@ def load (offset component : Nat) : List Instr :=
 
 def rotate28 (r : Reg) (n : Nat) : List Instr :=
   [rr .rax r, .shift .shr .rax (28 - n), .shift .ror r (64 - n),
-   .alu .or r (.reg .rax), .alu .and r (.imm 0x0fffffff)]
+   .alu .xor r (.reg .rax), .alu .and r (.imm 0x0fffffff)]
 
 def rotate (n : Nat) : Prog isa := .block (rotate28 .r12 n ++ rotate28 .r13 n)
 
@@ -44,7 +44,7 @@ def rotation : Prog isa :=
           (.seq (.block [.alu .cmp .r14 (.imm 15)]) (.ite .e (rotate 1) (rotate 2))))))
 
 def storeRound : List Instr :=
-  [rr .rax .r12, .shift .ror .rax 36, .alu .or .rax (.reg .r13)] ++
+  [rr .rax .r12, .shift .ror .rax 36, .alu .xor .rax (.reg .r13)] ++
     permuteCode Spec.TripleDes.pc2 56 .rbx .rax .rbp ++
     [.store (memOp .r15 0) .rbx, .alu .add .r15 (.imm 8),
      .alu .add .r14 (.imm 1), .alu .cmp .r14 (.imm 16)]
@@ -52,11 +52,16 @@ def storeRound : List Instr :=
 def component (offset index : Nat) : Prog isa :=
   .seq (.block (load offset index)) (.loop (.seq rotation (.block storeRound)) .ne)
 
+/-- EDE2 reuses the first schedule rather than expanding K1 again. -/
+def copyThird : List Instr :=
+  (List.range 16).flatMap fun j =>
+    [.mov .rax (.mem (memOp .rdx (8 * j))), .store (memOp .rdx (256 + 8 * j)) .rax]
+
 def expandKey : Prog isa :=
   .seq (.block save)
     (.seq (component 0 0)
       (.seq (component 8 1)
         (.seq (.block [.alu .cmp .rsi (.imm 16)])
-          (.seq (.ite .e (component 0 2) (component 16 2)) (.block restore)))))
+          (.seq (.ite .e (.block copyThird) (component 16 2)) (.block restore)))))
 
 end VG.Impl.TripleDes.X86_64.Key

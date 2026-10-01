@@ -95,6 +95,7 @@ pub mod mlkem768;
 pub mod pbkdf2;
 pub mod poly1305;
 pub mod rc2_cbc;
+pub mod triple_des_ecb;
 pub mod scrypt;
 pub mod x25519;
 pub mod x448;

@@ -1,4 +1,5 @@
 import VerifiedGarbage.Impl.TripleDes.X86_64.Sbox
+import VerifiedGarbage.Impl.TripleDes.X86_64.Permutation
 import VerifiedGarbage.Proof.Framework.X86_64.Lit
 
 namespace VG.Impl.TripleDes.X86_64
@@ -11,5 +12,10 @@ materialize_code sbox4
 materialize_code sbox5
 materialize_code sbox6
 materialize_code sbox7
+
+materialize_code initialPermutation
+materialize_code finalPermutation
+materialize_code keyPermutation1
+materialize_code keyPermutation2
 
 end VG.Impl.TripleDes.X86_64
