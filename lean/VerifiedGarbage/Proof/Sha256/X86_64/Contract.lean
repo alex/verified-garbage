@@ -56,8 +56,8 @@ open X86_64 in
 /-- x86-64 contract for
 `vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 76])`:
 if the streaming state at `state` represents a message `m` of `count` bytes
-(modulo 2⁶⁴), then afterwards it represents `m` followed by the `len` bytes at
-`data`.
+(modulo 2⁶⁴), hashed from any initial hash value `iv`, then afterwards it
+represents `m` followed by the `len` bytes at `data`, from `iv`.
 
 The code may read `data` (`len` bytes) and read and write `state` (96
 bytes) and `scratch` (608 bytes, whose contents on exit are unspecified).
@@ -77,8 +77,8 @@ def updateX86_64 : Contract X86_64.isa where
     state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
     ret.Disjoint state ∧ ret.Disjoint scratch ∧
     stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint scratch
-  post s s' := ∀ m, Repr s.mem (s.gpr .rdi) m → s.gpr .rsi = BitVec.ofNat 64 m.length →
-    Repr s'.mem (s.gpr .rdi) (m ++ bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat)
+  post s s' := ∀ iv m, ReprFrom iv s.mem (s.gpr .rdi) m → s.gpr .rsi = BitVec.ofNat 64 m.length →
+    ReprFrom iv s'.mem (s.gpr .rdi) (m ++ bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat)
   pub s₁ s₂ :=
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
     s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .r8 = s₂.gpr .r8 ∧ s₁.gpr .rsp = s₂.gpr .rsp
@@ -87,7 +87,8 @@ open X86_64 in
 /-- x86-64 contract for
 `vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 76])`:
 if the streaming state at `state` represents a message `m` of `count` bytes
-(modulo 2⁶⁴), writes the SHA-256 digest of `m` to `out`.
+(modulo 2⁶⁴), hashed from the initial hash value `iv`, writes the final hash
+value of `m` from `iv` to `out` (the SHA-256 digest if `iv` is `H0`).
 
 The code may read and write `state` (96 bytes, whose contents on exit are
 unspecified), `out` (32 bytes) and `scratch` (608 bytes, whose contents on
@@ -106,8 +107,8 @@ def finalizeX86_64 : Contract X86_64.isa where
     state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
     ret.Disjoint state ∧ ret.Disjoint out ∧ ret.Disjoint scratch ∧
     stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch
-  post s s' := ∀ m, Repr s.mem (s.gpr .rdi) m → s.gpr .rsi = BitVec.ofNat 64 m.length →
-    bytesAt s'.mem (s.gpr .rdx) 32 = Spec.Sha256.hash m
+  post s s' := ∀ iv m, ReprFrom iv s.mem (s.gpr .rdi) m → s.gpr .rsi = BitVec.ofNat 64 m.length →
+    bytesAt s'.mem (s.gpr .rdx) 32 = Spec.Sha256.finalHash iv m
   pub s₁ s₂ :=
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
     s₁.gpr .rcx = s₂.gpr .rcx ∧ s₁.gpr .rsp = s₂.gpr .rsp

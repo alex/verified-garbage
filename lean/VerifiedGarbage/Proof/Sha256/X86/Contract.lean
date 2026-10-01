@@ -6,7 +6,7 @@ import VerifiedGarbage.TCB.X86.Target
 
 **Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the x86 (32-bit)
 implementations of the compression function and of streaming SHA-256
-(`init`/`update`/`finalize`, on the representation `Repr`), in terms of
+(`init`/`update`/`finalize`, on the representation `ReprFrom`), in terms of
 `Spec/Sha256.lean`.
 
 The shared contracts let the streaming functions write their own argument
@@ -83,8 +83,9 @@ open X86 in
 `vg_sha256_update(state: *mut [u8; 96], count: u64, data: *const u8, len: usize, scratch: *mut [u64; 20])`,
 whose arguments are on the stack (cdecl: `state`, the low and high words of
 `count`, `data`, `len`, `scratch`): if the streaming state at `state`
-represents a message `m` of `count` bytes (modulo 2⁶⁴), then afterwards it
-represents `m` followed by the `len` bytes at `data`.
+represents a message `m` of `count` bytes (modulo 2⁶⁴), hashed from any
+initial hash value `iv`, then afterwards it represents `m` followed by the
+`len` bytes at `data`, from `iv`.
 
 The code may read the arguments (24 bytes above the return address) and
 `data` (`len` bytes), and read and write `state` (96 bytes) and `scratch`
@@ -108,8 +109,8 @@ def updateX86 : Contract X86.isa where
     stack.Disjoint data ∧
     (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 3).toNat + (arg s 4).toNat ≤ 2 ^ 32 ∧
     (arg s 5).toNat + 160 ≤ 2 ^ 32 ∧ 20 ≤ (s.gpr .esp).toNat ∧ (s.gpr .esp).toNat + 28 ≤ 2 ^ 32
-  post s s' := ∀ m, Repr s.mem ((arg s 0).setWidth 64) m → countX86 s = BitVec.ofNat 64 m.length →
-    Repr s'.mem ((arg s 0).setWidth 64)
+  post s s' := ∀ iv m, ReprFrom iv s.mem ((arg s 0).setWidth 64) m → countX86 s = BitVec.ofNat 64 m.length →
+    ReprFrom iv s'.mem ((arg s 0).setWidth 64)
       (m ++ bytesAt s.mem ((arg s 3).setWidth 64) (arg s 4).toNat)
   pub s₁ s₂ :=
     s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 6, arg s₁ i = arg s₂ i
@@ -119,8 +120,9 @@ open X86 in
 `vg_sha256_finalize(state: *mut [u8; 96], count: u64, out: *mut [u8; 32], scratch: *mut [u64; 20])`,
 whose arguments are on the stack (cdecl: `state`, the low and high words of
 `count`, `out`, `scratch`): if the streaming state at `state` represents a
-message `m` of `count` bytes (modulo 2⁶⁴), writes the SHA-256 digest of `m`
-to `out`.
+message `m` of `count` bytes (modulo 2⁶⁴), hashed from the initial hash value
+`iv`, writes the final hash value of `m` from `iv` to `out` (the SHA-256
+digest if `iv` is `H0`).
 
 The code may read and write the arguments (20 bytes above the return
 address, whose contents on exit are unspecified), `state` (96 bytes, whose
@@ -145,8 +147,8 @@ def finalizeX86 : Contract X86.isa where
     stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch ∧
     (arg s 0).toNat + 96 ≤ 2 ^ 32 ∧ (arg s 3).toNat + 32 ≤ 2 ^ 32 ∧
     (arg s 4).toNat + 160 ≤ 2 ^ 32 ∧ 20 ≤ (s.gpr .esp).toNat ∧ (s.gpr .esp).toNat + 24 ≤ 2 ^ 32
-  post s s' := ∀ m, Repr s.mem ((arg s 0).setWidth 64) m → countX86 s = BitVec.ofNat 64 m.length →
-    bytesAt s'.mem ((arg s 3).setWidth 64) 32 = Spec.Sha256.hash m
+  post s s' := ∀ iv m, ReprFrom iv s.mem ((arg s 0).setWidth 64) m → countX86 s = BitVec.ofNat 64 m.length →
+    bytesAt s'.mem ((arg s 3).setWidth 64) 32 = Spec.Sha256.finalHash iv m
   pub s₁ s₂ :=
     s₁.gpr .esp = s₂.gpr .esp ∧ ∀ i < 5, arg s₁ i = arg s₂ i
 

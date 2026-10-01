@@ -43,7 +43,7 @@ theorem update_verified : Verified Arm.target Impl.Sha256.Arm.Stream.update Proo
   have h := MdStream.Arm.Update.verified (name := "vg_sha256_compress") dims callee
     (VG.Taint.constantTime (A := taint) (MdStream.Arm.Update.τ₀ params)
       (fun _ _ h₁ h₂ hp => MdStream.Arm.Update.agree₀ h₁ h₂ hp) (by taint_decide))
-  Verified.of_implies h ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr hc, fun _ _ _ _ h => h, h.2.2⟩
+  Verified.of_implies h ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr hc, fun _ _ _ _ h => h, h.2.2⟩
 
 /-- A state satisfying `update`'s precondition. -/
 abbrev sat : State := MdStream.Arm.Update.sat params
@@ -57,7 +57,7 @@ theorem finalize_verified : Verified Arm.target Impl.Sha256.Arm.Stream.finalize 
     (VG.Taint.constantTime (A := taint) (MdStream.Arm.Finalize.τ₀ params)
       (fun _ _ h₁ h₂ hp => MdStream.Arm.Finalize.agree₀ h₁ h₂ hp) (by taint_decide))
   Verified.of_implies h
-    ⟨fun _ h => h, fun _ _ _ h m hr hc => h Spec.Sha256.H0 m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
+    ⟨fun _ h => h, fun _ _ _ h iv m hr hc => h iv m hr trivial hc, fun _ _ _ _ h => h, h.2.2⟩
 
 /-- A state satisfying `finalize`'s precondition. -/
 abbrev sat : State := MdStream.Arm.Finalize.sat params
