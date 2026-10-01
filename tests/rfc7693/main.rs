@@ -9,7 +9,7 @@
 //! self-test's parameter sets are read from the RFC's text; the self-test's
 //! data generator, `selftest_seq`, is transcribed from its C source.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 mod blake2b;
 mod blake2s;
