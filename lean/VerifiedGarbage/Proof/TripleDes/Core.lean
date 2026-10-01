@@ -60,4 +60,28 @@ theorem decryptBlock_eq_cores (k : Schedule) (b : Block) :
   unfold decryptBlock
   rw [des_eq_core, des_eq_core, des_eq_core, ip_fp, ip_fp]
 
+def roundKey (keys : DesSchedule) (direction : Direction) (j : Nat) : BitVec 48 :=
+  keys.getD (if direction = .encrypt then j else 15 - j) 0
+
+def roundPrefix (keys : DesSchedule) (direction : Direction) (n : Nat)
+    (v : BitVec 32 × BitVec 32) : BitVec 32 × BitVec 32 :=
+  (List.range n).foldl (fun state j => feistelStep (roundKey keys direction j) state) v
+
+theorem roundPrefix_zero (keys : DesSchedule) (direction : Direction)
+    (v : BitVec 32 × BitVec 32) : roundPrefix keys direction 0 v = v := rfl
+
+theorem roundPrefix_succ (keys : DesSchedule) (direction : Direction) (n : Nat)
+    (v : BitVec 32 × BitVec 32) :
+    roundPrefix keys direction (n + 1) v =
+      feistelStep (roundKey keys direction n) (roundPrefix keys direction n v) := by
+  unfold roundPrefix
+  rw [List.range_succ, List.foldl_append]
+  simp only [List.foldl_cons, List.foldl_nil]
+
+theorem desCore_roundPrefix (keys : DesSchedule) (direction : Direction)
+    (v : BitVec 64) :
+    desCore keys direction v =
+      let halves := roundPrefix keys direction 16 ((v >>> 32).setWidth 32, v.setWidth 32)
+      halves.2 ++ halves.1 := rfl
+
 end VG.Proof.TripleDes

@@ -57,10 +57,12 @@ def swapHalves : List Instr := [rr .rax .r12, rr .r12 .r13, rr .r13 .rax]
 
 def roundBody : List Instr := (List.range 8).flatMap box ++ swapHalves
 
-def roundAdvance (direction : Direction) : List Instr :=
-  [.alu (if direction = .encrypt then .add else .sub) .rdi (.imm 8),
-   .mov .rax (.mem (memOp .rdx 56)), .alu .sub .rax (.imm 1),
+def roundCountAdvance : List Instr :=
+  [.mov .rax (.mem (memOp .rdx 56)), .alu .sub .rax (.imm 1),
    .store (memOp .rdx 56) .rax]
+
+def roundAdvance (direction : Direction) : List Instr :=
+  [.alu (if direction = .encrypt then .add else .sub) .rdi (.imm 8)] ++ roundCountAdvance
 
 def passStart (component : Nat) (direction : Direction) : List Instr :=
   [.mov .rdi (.mem (memOp .rdx 48)),
