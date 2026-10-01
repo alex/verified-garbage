@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyCombine
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyInputs
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyFrame
-import VerifiedGarbage.Proof.Ed25519.X86_64.PointFromScalar
+import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulVarBatch
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointEqual
 
 /-! Untrusted: the uncofactored equation uses every bit of the challenge digest. -/
@@ -30,7 +30,7 @@ theorem verifyRhsPrepare_ok {s : State} {base challenge : Addr} (hs : Scratch s 
   have bi : b.gpr .rsi = challenge := (kb.gpr _ (by decide) (by decide)).trans ap
   have bm : Spec.Ed25519.bytesAt b.mem challenge 64 = Spec.Ed25519.bytesAt s.mem challenge 64 := by
     rw [outside_bytes kb.mem (by decide) hf, ka.2.1]
-  refine WP.seq (WP.mono (pointFromScalar_ok (kab.scratch hs) bi 32 (by decide) (by decide)
+  refine WP.seq (WP.mono (pointFromScalarVar_ok (kab.scratch hs) bi 32 (by decide) (by decide)
     (by intro i hi; rw [kb.rd, kb.wr, ka.2.2.1, ka.2.2.2]; exact hr i hi) hf) fun c ⟨kc, cp, cd⟩ => ?_)
   have kabc := kab.trans (kc.mono (by decide) (by decide))
   have cp' : point (env c.mem base) 0 1 2 3 =

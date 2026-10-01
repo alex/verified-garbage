@@ -9,11 +9,6 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off)
 
-theorem ScalarCTPre.of_keep {count : Nat} {base k : Addr} {s t : State}
-    (h : ScalarCTPre count base k s) (kt : Keep base s t) : ScalarCTPre count base k t :=
-  ⟨h.1.of_keep kt, (kt.gpr _ (by decide)).trans h.2.1,
-    fun i hi => by rw [kt.rd, kt.wr]; exact h.2.2.1 i hi, h.2.2.2⟩
-
 theorem ScalarCTPre.of_rbx {count : Nat} {base k : Addr} {s t : State}
     (h : ScalarCTPre count base k s) (kt : RbxKeep base s t) : ScalarCTPre count base k t :=
   ⟨kt.scratch h.1, (kt.gpr _ (by decide) (by decide)).trans h.2.1,

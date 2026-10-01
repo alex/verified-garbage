@@ -25,7 +25,6 @@ materialize_code verifyWriteR := (.block (pointTableWrite 7552) : Prog isa)
 materialize_code verifyWriteLhs := (.block (pointTableWrite 7680) : Prog isa)
 materialize_code verifyReadA := (.block (pointTableRead 7424) : Prog isa)
 materialize_code verifyCombineBlock := (.block verifyCombine : Prog isa)
-materialize_code verifyBasePoint := (.block (constPoint Spec.Ed25519.basePoint) : Prog isa)
 materialize_code verifySetupBlock := (.block verifySetup : Prog isa)
 materialize_code verifyScalarTail := (.block (loadScalarWords ++ scalarSubtract) : Prog isa)
 materialize_code verifyFinishBlock :=

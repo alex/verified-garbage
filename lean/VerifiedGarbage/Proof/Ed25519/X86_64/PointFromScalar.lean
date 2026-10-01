@@ -47,18 +47,4 @@ theorem pointFromScalarPrepare_ok {s : State} {base k : Addr} (hs : Scratch s ba
     exact abits i (by omega)
   exact ⟨kap.trans (PowersKeep.of_keep kb), bp, bd, hscalar, bbits⟩
 
-theorem pointFromScalar_ok {s : State} {base k : Addr} (hs : Scratch s base) (hp : s.gpr .rsi = k)
-    (count : Nat) (hn0 : 0 < count) (hn : count ≤ 32)
-    (hr : ∀ q < 2 * count, InRegions (s.rd ++ s.wr) (off k q) 1)
-    (hd : ∀ q < 2 * count, 8192 ≤ ofs base (off k q)) :
-    WP isa (pointFromScalar count) s fun t => PowersKeep base 56 7368 s t ∧
-      point (env t.mem base) 0 1 2 3 =
-        Spec.Ed25519.pointMul (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem k (2 * count)))
-          (point (env s.mem base) 0 1 2 3) ∧ env t.mem base 16 = Spec.Ed25519.d := by
-  rw [pointFromScalar]
-  refine WP.seq (WP.mono (pointFromScalarPrepare_ok hs hp count hn0 hn hr hd)
-    fun a ⟨ka, ap, ad, ab, av⟩ => ?_)
-  refine WP.mono (pointMultiply_ok (ka.scratch hs) count _ hn0 hn ab ad av) fun t ⟨tv, td, kt⟩ => ?_
-  exact ⟨ka.trans kt, (by rw [tv, ap]), td⟩
-
 end VG.Proof.Ed25519.X86_64
