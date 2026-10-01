@@ -26,6 +26,8 @@ def operation : Prog isa :=
   .seq (.call Spec.Argon2.compressApi.name VG.Impl.Argon2.X86_64.compress)
     (.seq (.block writeArgs) FillWrite.code)
 
-def code : Prog isa := .seq (.block saveCurrent) (.seq (.block compressArgs) operation)
+def setup : Prog isa := .seq (.block saveCurrent) (.block compressArgs)
+
+def code : Prog isa := .seq setup operation
 
 end VG.Impl.Argon2.X86_64.FillCompress
