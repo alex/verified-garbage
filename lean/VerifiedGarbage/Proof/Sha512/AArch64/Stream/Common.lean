@@ -202,7 +202,7 @@ theorem compressAt_ok_of {code : Prog isa}
     simp only [Proof.Sha512.compressAArch64, State.withRegions_gpr, State.withRegions_mem, e0, e1, e2,
       one_toNat, compressBlocks_one, m₃] at hpost
     exact hQ s' (hrd.trans rd₃) (hwr.trans wr₃) (fun r hr => (habi.1 r hr).trans (keep r hr))
-      (habi.2.trans sp₃) (m₃ ▸ hf) hpost
+      (habi.2.1.trans sp₃) (m₃ ▸ hf) hpost
 
 /-! ## Arithmetic -/
 

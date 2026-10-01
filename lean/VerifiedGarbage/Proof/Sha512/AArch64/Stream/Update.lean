@@ -651,8 +651,10 @@ theorem untouched_ok_of {code : Prog isa}
 
 theorem correct_of {code : Prog isa}
     (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true)
-    (hkeep : ((instrs (updateWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true) {s₀ : State} (hp : Pre s₀) :
+    (hkeep : ((instrs (updateWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true)
+    (hvec : (updateWith code).allInstrs keepsV = true) {s₀ : State} (hp : Pre s₀) :
     WP isa (updateWith code) s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha512.updateAArch64.post s₀ s' := by
+  apply WP.withPreservedV (hc := hvec)
   have hlen := len_lt s₀
   refine WP.mono (WP.gprs (Q := Post s₀) (hn := by
     simp only [updateWith, updateBodyWith, compressAtWith, fill, Code.noCalls, hno, Bool.and_self]) ?_ (untouched_ok_of hkeep)) fun s' ⟨⟨hsv, hsp, hpost⟩, hu⟩ =>
@@ -709,17 +711,19 @@ def sat : State where
 theorem update_verified_of {code : Prog isa}
     (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true)
     (hkeep : ((instrs (updateWith code)).all fun i => untouched.all fun r => dstOf i != some r) = true)
+    (hvec : (updateWith code).allInstrs keepsV = true)
     (hct : ConstantTime isa Proof.Sha512.updateAArch64.pre Proof.Sha512.updateAArch64.pub (updateWith code)) :
     Verified AArch64.target (updateWith code) Proof.Sha512.updateAArch64 := by
   refine ⟨fun s hs => ?_, ?_, ?_⟩
-  · obtain ⟨t, s', he, h⟩ := correct_of hcode hno hkeep (pre_of hs)
+  · obtain ⟨t, s', he, h⟩ := correct_of hcode hno hkeep hvec (pre_of hs)
     exact ⟨t, s', he, h⟩
   · exact hct
   · refine ⟨sat, rfl, rfl, ?_, ?_, ?_⟩ <;>
     exact Region.disjoint_of_sep (by decide)
 
 theorem update_verified : Verified AArch64.target update Proof.Sha512.updateAArch64 := by
-  apply update_verified_of Proof.Sha512.AArch64.compress_verified (by lit_decide) (instrs_keeps (by lit_decide))
+  apply update_verified_of Proof.Sha512.AArch64.compress_verified (by lit_decide)
+    (instrs_keeps (by lit_decide)) (by lit_decide)
   exact VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4]) (fun _ _ _ _ hp => agree₀ hp)
       (by taint_decide)
 

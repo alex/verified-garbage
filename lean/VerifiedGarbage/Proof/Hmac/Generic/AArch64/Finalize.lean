@@ -242,14 +242,14 @@ theorem fin2Args_ok {s : State} (hk : KR (H := H) s₀ s) :
 
 theorem finCall_ok {t : State} (hk : KR (H := H) s₀ t) (ha : FinArgs hH t (inn s₀) (T (H := H) s₀) (scr s₀))
     {Q : State → Prop}
-    (hQ : ∀ s', KR (H := H) s₀ s' → Frame [inR (H := H) s₀, tR (H := H) s₀, calR hH s₀, stkR s₀] t.mem s'.mem →
+    (hQ : ∀ s', VecKept t s' → KR (H := H) s₀ s' → Frame [inR (H := H) s₀, tR (H := H) s₀, calR hH s₀, stkR s₀] t.mem s'.mem →
       (∀ m, hH.SH.Repr t.mem (inn s₀) m → m.length < 2 ^ 64 → t.gpr .x1 = BitVec.ofNat 64 m.length →
         (bytesAt s'.mem (T (H := H) s₀) H.F).take H.D = hH.SH.H.hash m) → Q s') :
     WP isa (.call H.finN H.finC) t Q :=
   fin_call hH ha fun s' ha' hpost => by
     have f := ha'.frame
     rw [hk.sp] at f
-    refine hQ s' (hk.call ha' ?_) f hpost
+    refine hQ s' ha'.vec (hk.call ha' ?_) f hpost
     simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl | rfl)
     · exact hp.i_s.symm.sub_left (save_sub hp)
@@ -303,14 +303,14 @@ theorem updArgs_ok {s : State} (hk : KR (H := H) s₀ s) :
 
 theorem updCall_ok {t : State} (hk : KR (H := H) s₀ t) (ha : UpdArgs hH t (inn s₀) (T (H := H) s₀) (scr s₀) H.D)
     {Q : State → Prop}
-    (hQ : ∀ s', KR (H := H) s₀ s' → Frame [inR (H := H) s₀, calR hH s₀, stkR s₀] t.mem s'.mem →
+    (hQ : ∀ s', VecKept t s' → KR (H := H) s₀ s' → Frame [inR (H := H) s₀, calR hH s₀, stkR s₀] t.mem s'.mem →
       (∀ m, hH.SH.Repr t.mem (inn s₀) m → t.gpr .x1 = BitVec.ofNat 64 m.length →
         hH.SH.Repr s'.mem (inn s₀) (m ++ bytesAt t.mem (T (H := H) s₀) H.D)) → Q s') :
     WP isa (.call H.updN H.updC) t Q :=
   upd_call hH ha fun s' ha' hpost => by
     have f := ha'.frame
     rw [hk.sp] at f
-    refine hQ s' (hk.call ha' ?_) f hpost
+    refine hQ s' ha'.vec (hk.call ha' ?_) f hpost
     simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false]
     rintro r (rfl | rfl | rfl)
     · exact hp.i_s.symm.sub_left (save_sub hp)
@@ -362,10 +362,10 @@ theorem copy2_ok {s : State} (hk : KR (H := H) s₀ s) :
 
 omit hp in
 /-- The end: `abiPreserved`, from `KR` and `restore`. -/
-theorem abi_of {s s' : State} (hk : KR (H := H) s₀ s) (hsp : s'.sp = s.sp)
+theorem abi_of {s s' : State} (hk : KR (H := H) s₀ s) (hsp : s'.sp = s.sp) (hv : VecKept s₀ s')
     (hg : ∀ r ∈ savedRegs, s'.gpr r = s₀.gpr r) (ho : ∀ r, r ∉ savedRegs → s'.gpr r = s.gpr r) :
     abiPreserved s₀ s' := by
-  refine ⟨fun r hr => ?_, by rw [hsp, hk.sp]⟩
+  refine ⟨fun r hr => ?_, by rw [hsp, hk.sp], hv⟩
   simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
   rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   all_goals first
@@ -377,18 +377,19 @@ theorem correct : WP isa H.finalize s₀ fun s' => abiPreserved s₀ s' ∧ (fin
   have hS' := hH.hS; have hD' := hH.hD; have hB' := hH.hB
   obtain ⟨sR, iR, pR⟩ := wr_mem hp
   have tsub : Region.Sub ⟨T (H := H) s₀, H.D⟩ (tR (H := H) s₀) := Region.sub_prefix hD.2.1
-  refine WP.seq (WP.mono (pro_ok hp) fun s₁ ⟨k₁, di₁, dx₁, f₁⟩ => ?_)
-  refine WP.seq (WP.seq (WP.mono (fin1Args_ok hH hp k₁ di₁ dx₁) fun t₁ ⟨kt₁, a₁, si₁, m₁⟩ =>
-    finCall_ok hH hp kt₁ a₁ fun s₂ k₂ f₂ d₂ => ?_))
-  refine WP.seq (WP.mono (copy1_ok hp k₂) fun s₃ ⟨k₃, m₃⟩ => ?_)
-  refine WP.seq (WP.seq (WP.mono (updArgs_ok hH hp k₃) fun t₃ ⟨kt₃, a₃, si₃, mt₃⟩ =>
-    updCall_ok hH hp kt₃ a₃ fun s₄ k₄ f₄ r₄ => ?_))
-  refine WP.seq (WP.seq (WP.mono (fin2Args_ok hH hp k₄) fun t₄ ⟨kt₄, a₄, si₄, mt₄⟩ =>
-    finCall_ok hH hp kt₄ a₄ fun s₅ k₅ f₅ d₅ => ?_))
-  refine WP.seq (WP.mono (copy2_ok hp k₅) fun s₆ ⟨k₆, m₆⟩ => ?_)
+  refine WP.seq (WP.mono (WP.preservedV (pro_ok hp) (by rfl)) fun s₁ ⟨⟨k₁, di₁, dx₁, f₁⟩, hv₁⟩ => ?_)
+  refine WP.seq (WP.seq (WP.mono (WP.preservedV (fin1Args_ok hH hp k₁ di₁ dx₁) (by rfl)) fun t₁ ⟨⟨kt₁, a₁, si₁, m₁⟩, hva₁⟩ =>
+    finCall_ok hH hp kt₁ a₁ fun s₂ hv₂ k₂ f₂ d₂ => ?_))
+  refine WP.seq (WP.mono (WP.preservedV (copy1_ok hp k₂) (by rfl)) fun s₃ ⟨⟨k₃, m₃⟩, hv₃⟩ => ?_)
+  refine WP.seq (WP.seq (WP.mono (WP.preservedV (updArgs_ok hH hp k₃) (by rfl)) fun t₃ ⟨⟨kt₃, a₃, si₃, mt₃⟩, hva₃⟩ =>
+    updCall_ok hH hp kt₃ a₃ fun s₄ hv₄ k₄ f₄ r₄ => ?_))
+  refine WP.seq (WP.seq (WP.mono (WP.preservedV (fin2Args_ok hH hp k₄) (by rfl)) fun t₄ ⟨⟨kt₄, a₄, si₄, mt₄⟩, hva₄⟩ =>
+    finCall_ok hH hp kt₄ a₄ fun s₅ hv₅ k₅ f₅ d₅ => ?_))
+  refine WP.seq (WP.mono (WP.preservedV (copy2_ok hp k₅) (by rfl)) fun s₆ ⟨⟨k₆, m₆⟩, hv₆⟩ => ?_)
   have hL : 8 * H.W + 56 ≤ 8 * sc := by have := hp.fits; simp only [Hash.buf] at this; omega_nat
-  refine WP.mono (restore_ok H k₆.x23 (Nat.le_trans hp.hW (by decide)) k₆.saved (by rw [k₆.wr]; exact sR) hL)
-    fun s' ⟨hm, _, _, hsp, hg, ho⟩ => ⟨abi_of k₆ hsp hg ho, ?_⟩
+  refine WP.mono (WP.preservedV (restore_ok H k₆.x23 (Nat.le_trans hp.hW (by decide)) k₆.saved (by rw [k₆.wr]; exact sR) hL) (by rfl))
+    fun s' ⟨⟨hm, _, _, hsp, hg, ho⟩, hv₇⟩ => ⟨abi_of k₆ hsp (fun r hr => by
+      rw [hv₇ r hr, hv₆ r hr, hv₅ r hr, hva₄ r hr, hv₄ r hr, hva₃ r hr, hv₃ r hr, hv₂ r hr, hva₁ r hr, hv₁ r hr]) hg ho, ?_⟩
   -- The functional part.
   intro k0 text hk0 hlen hrI hcnt hrO
   rw [hH.hB] at hk0 hcnt

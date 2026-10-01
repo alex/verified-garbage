@@ -125,6 +125,7 @@ def VOp.asm : VOp → String
   | .vpbroadcastd l d r => s!"vpbroadcastd {d.vname l}, {r.name}"
   | .vpbroadcastq l d r => s!"vpbroadcastq {d.vname l}, {r.name}"
   | .vpermq d r o => s!"vpermq {d.yname}, {r.yname}, {o.toNat}"
+  | .vpermd d i r => s!"vpermd {d.yname}, {i.yname}, {r.yname}"
   | .vperm2i128 d a b n => s!"vperm2i128 {d.yname}, {a.yname}, {b.yname}, {n.toNat}"
   | .vinserti128 d a b n => s!"vinserti128 {d.yname}, {a.yname}, {b.name}, {n.toNat}"
   | .vextracti128 d r n => s!"vextracti128 {d.name}, {r.yname}, {n.toNat}"
@@ -191,6 +192,7 @@ def Instr.asm : Instr → List String
   | .vmovdquLoad l d m => [s!"vmovdqu {d.vname l}, {m.strV l}"]
   | .vmovdquStore l m r => [s!"vmovdqu {m.strV l}, {r.vname l}"]
   | .vbroadcasti128 d m => [s!"vbroadcasti128 {d.yname}, {m.str128}"]
+  | .vpmovmskb l d r => [s!"vpmovmskb {d.name32}, {r.vname l}"]
   | .zop op => [op.asm]
   | .vmovdqu32Load d m => [s!"vmovdqu32 {d.zname}, {m.str512}"]
   | .vmovdqu32Store m r => [s!"vmovdqu32 {m.str512}, {r.zname}"]
@@ -232,8 +234,8 @@ def Instr.memOps : Instr → List MemOp
   | .vmovdquLoad _ _ m | .vmovdquStore _ m _ | .vbroadcasti128 _ m | .vmovdqu32Load _ m
   | .vmovdqu32Store m _ | .vbroadcasti32x4 _ m | .stmxcsr m | .ldmxcsr m => [m]
   | .shift32 .. | .bswap32 _ | .rorx32 .. | .andn32 .. | .rorx .. | .andn .. | .bswap _
-  | .shift .. | .movImm64 .. | .xop _ | .vop _ | .zop _ | .lfence | .mul _ | .push _
-  | .pop .. => []
+  | .shift .. | .movImm64 .. | .xop _ | .vop _ | .vpmovmskb .. | .zop _ | .lfence | .mul _
+  | .push _ | .pop .. => []
 
 def printer : Printer isa where
   instr := Instr.asm

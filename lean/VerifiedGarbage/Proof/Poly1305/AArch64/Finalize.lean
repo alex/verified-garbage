@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Poly1305.AArch64.Buffer
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Spec.Poly1305.Contract
@@ -420,7 +421,7 @@ theorem finalize_ok (s : State) (hs : Proof.Poly1305.finalizeAArch64.pre s) :
     ∃ t s', Exec isa Impl.Poly1305.AArch64.finalize s t s' ∧ abiPreserved s s' ∧
       Proof.Poly1305.finalizeAArch64.post s s' := by
   obtain ⟨t, s', he, h⟩ := finalize_correct (FPre.of s hs)
-  exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (finalize_untouched r hr) he, Exec.sp he⟩, h⟩
+  exact ⟨t, s', he, ⟨fun r hr => Exec.gpr (finalize_untouched r hr) he, Exec.sp he, Exec.preservedV he⟩, h⟩
 
 theorem finalize_ct : ConstantTime isa Proof.Poly1305.finalizeAArch64.pre
     Proof.Poly1305.finalizeAArch64.pub Impl.Poly1305.AArch64.finalize := by

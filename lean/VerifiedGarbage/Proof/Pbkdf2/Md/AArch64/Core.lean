@@ -35,27 +35,27 @@ def core (H : Hash) : Hash :=
 
 /-! ## How deeply frames nest -/
 
-theorem fdepth_of_noFrames {I C : Type} {c : Code I C} (h : c.noFrames = true) : c.fdepth = 0 := by
-  induction c <;> simp_all [Code.noFrames, Code.fdepth]
+theorem fdepth_of_noFrames {c : Prog isa} (h : c.noFrames = true) : c.aarch64Depth = 0 := by
+  induction c <;> simp_all [Code.noFrames, Code.aarch64Depth]
 
 section
 variable {H : Hash}
 
-theorem hmacInit_fdepth (hi : H.initC.fdepth ≤ 1) (hu : H.updC.fdepth ≤ 1) : H.hmacInit.fdepth ≤ 1 := by
+theorem hmacInit_fdepth (hi : H.initC.aarch64Depth ≤ 1) (hu : H.updC.aarch64Depth ≤ 1) : H.hmacInit.aarch64Depth ≤ 1 := by
   simp only [Hash.hmacInit, Hash.stream, Impl.Hmac.Generic.AArch64.Hash.init,
     Impl.Hmac.Generic.AArch64.Hash.initKeys, Impl.Hmac.Generic.AArch64.Hash.keyLoop,
     Impl.Hmac.Generic.AArch64.Hash.padLoop, Impl.Hmac.Generic.AArch64.Hash.callInit,
-    Impl.Hmac.Generic.AArch64.Hash.callUpd, Code.fdepth]
+    Impl.Hmac.Generic.AArch64.Hash.callUpd, Code.aarch64Depth]
   omega
 
-theorem hmacFin_fdepth (hf : H.finC.fdepth ≤ 1) : H.hmacFin.fdepth ≤ 1 := by
-  simp only [Hash.hmacFin, Hash.stream, Impl.Hmac.Generic.AArch64.Hash.callFin, Code.fdepth]
+theorem hmacFin_fdepth (hf : H.finC.aarch64Depth ≤ 1) : H.hmacFin.aarch64Depth ≤ 1 := by
+  simp only [Hash.hmacFin, Hash.stream, Impl.Hmac.Generic.AArch64.Hash.callFin, Code.aarch64Depth]
   omega
 
-theorem iterate_fdepth (hc : H.compC.noFrames = true) : H.iterate.fdepth ≤ 1 := by
+theorem iterate_fdepth (hc : H.compC.noFrames = true) : H.iterate.aarch64Depth ≤ 1 := by
   simp only [Hash.iterate, Impl.Pbkdf2.AArch64.iterate, Impl.Pbkdf2.AArch64.main,
     Impl.Pbkdf2.AArch64.body, Impl.Pbkdf2.AArch64.compressBlock, Impl.MdStream.AArch64.compressAt,
-    Impl.MdStream.AArch64.compressWith, Code.fdepth, fdepth_of_noFrames hc]
+    Impl.MdStream.AArch64.compressWith, Code.aarch64Depth, fdepth_of_noFrames hc]
   omega
 
 end

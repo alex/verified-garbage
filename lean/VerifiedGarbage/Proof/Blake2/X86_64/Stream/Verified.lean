@@ -74,13 +74,13 @@ theorem initB_correct (st : State) (hs : (initX86_64 b).pre st) :
 theorem updateB_correct (st : State) (hs : (updateX86_64 b).pre st) :
     ∃ t s', Exec isa (Impl.Blake2.X86_64.Stream.update b) st t s' ∧ abiPreserved st s' ∧
       (updateX86_64 b).post st s' := by
-  obtain ⟨t, s', he, h⟩ := Update.correct okB calleeB (Update.pre_of hs)
+  obtain ⟨t, s', he, h⟩ := Update.correct (callee := Impl.Blake2.X86_64.Stream.scalar b) okB calleeB (Update.pre_of hs)
   exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he h.1, h.2⟩
 
 theorem finalizeB_correct (st : State) (hs : (finalizeX86_64 b).pre st) :
     ∃ t s', Exec isa (Impl.Blake2.X86_64.Stream.finalize b) st t s' ∧ abiPreserved st s' ∧
       (finalizeX86_64 b).post st s' := by
-  obtain ⟨t, s', he, h⟩ := Finalize.correct okB calleeB hs
+  obtain ⟨t, s', he, h⟩ := Finalize.correct (callee := Impl.Blake2.X86_64.Stream.scalar b) okB calleeB hs
   exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he h.1, h.2⟩
 
 theorem initB_verified :
@@ -122,13 +122,13 @@ theorem initS_correct (st : State) (hs : (initX86_64 s).pre st) :
 theorem updateS_correct (st : State) (hs : (updateX86_64 s).pre st) :
     ∃ t s', Exec isa (Impl.Blake2.X86_64.Stream.update s) st t s' ∧ abiPreserved st s' ∧
       (updateX86_64 s).post st s' := by
-  obtain ⟨t, s', he, h⟩ := Update.correct okS calleeS (Update.pre_of hs)
+  obtain ⟨t, s', he, h⟩ := Update.correct (callee := Impl.Blake2.X86_64.Stream.scalar s) okS calleeS (Update.pre_of hs)
   exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he h.1, h.2⟩
 
 theorem finalizeS_correct (st : State) (hs : (finalizeX86_64 s).pre st) :
     ∃ t s', Exec isa (Impl.Blake2.X86_64.Stream.finalize s) st t s' ∧ abiPreserved st s' ∧
       (finalizeX86_64 s).post st s' := by
-  obtain ⟨t, s', he, h⟩ := Finalize.correct okS calleeS hs
+  obtain ⟨t, s', he, h⟩ := Finalize.correct (callee := Impl.Blake2.X86_64.Stream.scalar s) okS calleeS hs
   exact ⟨t, s', he, abiPreserved_of_exec (by lit_decide) he h.1, h.2⟩
 
 theorem initS_verified :

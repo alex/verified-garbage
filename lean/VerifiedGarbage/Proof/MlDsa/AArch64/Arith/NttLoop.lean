@@ -54,9 +54,9 @@ theorem blkPre_ok (len : Nat) (up : Bool) (s : State) (h : InRegions (s.rd ++ s.
       (s'.gpr .x6 = w64 (s.mem.readW (s.gpr .x3) 32) ∧ s'.gpr .x3 = zstep up (s.gpr .x3) ∧
         s'.gpr .x5 = (BitVec.ofNat 16 len).setWidth 64 ∧ s'.mem = s.mem) ∧ Keep [.x6, .x3, .x5] s s' := by
   cases up
-  · refine WP.keep _ ?_ (by rfl)
+  · refine WP.keep _ ?_ (by rfl) (hv := rfl)
     arun [h, zstep]
-  · refine WP.keep _ ?_ (by rfl)
+  · refine WP.keep _ ?_ (by rfl) (hv := rfl)
     arun [h, zstep]
 
 omit hb in
@@ -65,7 +65,7 @@ theorem blkPost_ok (len : Nat) (hl : len ≤ 128) (s : State) :
       (s'.gpr .x2 = s.gpr .x2 + BitVec.ofNat 64 (4 * len) ∧ s'.gpr .x4 = s.gpr .x4 - BitVec.ofNat 64 1 ∧
         s'.mem = s.mem) ∧ Keep [.x2, .x4] s s' := by
   have h : 4 * len < 4096 := by omega
-  refine WP.keep _ ?_ (by rfl)
+  refine WP.keep _ ?_ (by rfl) (hv := rfl)
   arun [h]
 
 /-- A block, with the zeta `Z k` at `x3`. -/
@@ -104,14 +104,14 @@ omit hb in
 theorem layPre_ok (c : Nat) (hc : c < 65536) (s : State) :
     WP isa (.block [.movz .x .x4 (BitVec.ofNat 16 c) 0]) s fun s' =>
       (s'.gpr .x4 = BitVec.ofNat 64 c ∧ s'.mem = s.mem) ∧ Keep [.x4] s s' := by
-  refine WP.keep _ ?_ (by rfl)
+  refine WP.keep _ ?_ (by rfl) (hv := rfl)
   arun [imm16 hc]
 
 omit hb in
 theorem layPost_ok (s : State) :
     WP isa (.block [.subImm .x .x2 .x2 1024]) s fun s' =>
       (s'.gpr .x2 = s.gpr .x2 - BitVec.ofNat 64 1024 ∧ s'.mem = s.mem) ∧ Keep [.x2] s s' := by
-  refine WP.keep _ ?_ (by rfl)
+  refine WP.keep _ ?_ (by rfl) (hv := rfl)
   arun
 
 omit hb in

@@ -13,9 +13,9 @@ Modelling choices:
 * Only instructions that exist, with the same semantics, in both the ARM
   (A32) and the Thumb (T32) instruction sets are modelled, so the model is
   right whichever of the two a function is assembled in.
-* Registers are `r0`–`r12` and `lr` (`r14`); `sp` is separate: only the push
-  and pop of a frame (`push {…}` and `ldr t, [sp], #n`, see `push`) write
-  it, and they and `ldr t, [sp, #off]` (for arguments passed on the stack)
+* Registers are `r0`–`r12` and `lr` (`r14`); `sp` is separate. Frame delimiters
+  (`push`/`pop`, `alloc`/`free`) alone write it. They, `addSp`, and
+  `ldr t, [sp, #off]` (for arguments passed on the stack)
   read it; `pc` is not an operand.
 * The stack pointer is always word-aligned (AAPCS §5.2.1.1, "SP mod 4 = 0"),
   and a frame moves it by whole words, so the model does not check the
@@ -134,6 +134,12 @@ inductive Instr
   | strb (t n : Reg) (off : Nat)
   /-- `ldr t, [sp, #off]` (`0 ≤ off < 4096`) -/
   | ldrSp (t : Reg) (off : Nat)
+  /-- Non-flag-setting `add d, sp, #imm`, with an unrotated 8-bit immediate. -/
+  | addSp (d : Reg) (imm : Nat)
+  /-- `sub sp, sp, #bytes`, opening an 8-byte-aligned buffer frame. -/
+  | alloc (bytes : Nat)
+  /-- `add sp, sp, #bytes`, releasing that buffer frame. -/
+  | free (bytes : Nat)
   /-- `push {rs}`: the push of a frame (see `push`); `rs` must be in
   ascending order and not empty -/
   | push (rs : List Reg)
@@ -285,8 +291,10 @@ def exec : Instr → State → Option State
     if off < 4096 then
       (s.load32 (State.addr (s.sp + BitVec.ofNat 32 off))).map fun x => s.setReg t x
     else none
-  -- Only the push and pop of a frame (`push`, `pop`).
-  | .push _, _ | .pop .., _ => none
+  | .addSp d imm, s =>
+    if imm < 256 then some (s.setReg d (s.sp + BitVec.ofNat 32 imm)) else none
+  -- Frame delimiters run only through `push` and `pop`.
+  | .push _, _ | .pop .., _ | .alloc _, _ | .free _, _ => none
 
 /-- The addresses of `n` consecutive words from `a`. -/
 def words (a : BitVec 32) (n : Nat) : List Addr :=
@@ -335,6 +343,19 @@ def storeWords (m : Mem) (a : BitVec 32) : List (BitVec 32) → Mem
   | [] => m
   | v :: vs => storeWords (m.writeW (State.addr a) v) (a + 4) vs
 
+/-! Arm DDI 0597 (2024-06), "ADD, ADDS (SP plus immediate)" (pp. 29–31)
+and "SUB, SUBS (SP minus immediate)" (pp. 536–537): non-flag-setting
+addition/subtraction from R[13], with the result written to R[d].
+https://documentation-service.arm.com/static/668bf4af69e89f01e39c4cd2
+
+The modeled immediates are below 256, encodable without rotation in A32
+and with T32 modified immediates. All three forms are baseline ARMv7/Thumb-2;
+no optional CPU feature is required. Frame sizes must be positive multiples
+of 8, preserving the ABI's alignment. Allocation cannot underflow and grants
+one contiguous region without initializing memory. Release requires the exact
+region and unchanged SP and permissions. Neither changes flags or memory.
+-/
+
 /-- The push of a frame, DDI 0406C A8.8.133 "PUSH" (= `STMDB sp!`):
 `address = SP - 4*BitCount(registers)`; for each register in ascending
 order, `MemA[address,4] = R[i]; address = address + 4`; `SP = SP -
@@ -342,6 +363,11 @@ order, `MemA[address,4] = R[i]; address = address + 4`; `SP = SP -
 `wr`. Faults if the register list is not valid (`regList`) or the frame
 would wrap around the address space. -/
 def push : Instr → State → Option State
+  | .alloc bytes, s =>
+    if 0 < bytes ∧ bytes < 256 ∧ bytes % 8 = 0 ∧ bytes ≤ s.sp.toNat then
+      let sp := s.sp - BitVec.ofNat 32 bytes
+      some { s with sp := sp, wr := ⟨State.addr sp, bytes⟩ :: s.wr }
+    else none
   | .push rs, s =>
     let n := 4 * rs.length
     if regList rs ∧ n ≤ s.sp.toNat then
@@ -361,6 +387,11 @@ Faults unless `n` is a multiple of 4 below 256, the stack pointer and the
 writable regions are those the push left (`s₁`), and the frame, the region
 at their head, has `n` bytes; it removes the frame. -/
 def pop : Instr → State → State → Option State
+  | .free bytes, s₁, s₂ =>
+    if 0 < bytes ∧ bytes < 256 ∧ bytes % 8 = 0 ∧
+        s₂.sp = s₁.sp ∧ s₂.wr = s₁.wr ∧ s₁.wr.head? = some ⟨State.addr s₁.sp, bytes⟩ then
+      some { s₂ with sp := s₂.sp + BitVec.ofNat 32 bytes, wr := s₂.wr.tail }
+    else none
   | .pop t n, s₁, s₂ =>
     if n % 4 = 0 ∧ n < 256 ∧ s₂.sp = s₁.sp ∧ s₂.wr = s₁.wr ∧
         s₁.wr.head? = some ⟨State.addr s₁.sp, n⟩ then

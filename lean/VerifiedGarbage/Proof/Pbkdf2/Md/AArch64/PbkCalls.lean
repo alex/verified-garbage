@@ -6,7 +6,7 @@ import VerifiedGarbage.Proof.Pbkdf2.AArch64.Iterate
 
 Untrusted: everything here is checked by Lean. The calls of HMAC's `init`
 and `finalize` and of `iterate`, whose contracts (`initG`, `finG`, `iterK`)
-their proofs are given as hypotheses: each is run with `WP.callF` (the
+their proofs are given as hypotheses: each is run with `WP.callFV` (the
 callee may use the 16 bytes below the stack pointer, a frame deep), and
 shown constant time in two runs with `RelCT.call`.
 -/
@@ -64,17 +64,17 @@ theorem InitArgs.pre {s : State} {inn out k sc : Addr} {kl : Nat} (a : InitArgs 
   exact ⟨a.klB, trivial, trivial, a.i_o, a.i_s, a.o_s, a.k_i, a.k_o, a.k_s, a.sp16, a.stk_i, a.stk_o, a.stk_k,
     a.stk_s, a.scnw⟩
 
-theorem hinit_call (hv : Verified AArch64.target H.hmacInit (initG hH.SH H.W)) (hd : H.hmacInit.fdepth ≤ 1)
+theorem hinit_call (hv : Verified AArch64.target H.hmacInit (initG hH.SH H.W)) (hd : H.hmacInit.aarch64Depth ≤ 1)
     {s : State} {inn out k sc : Addr} {kl : Nat} (a : InitArgs (H := H) s inn out k sc kl) {Q : State → Prop}
     (hQ : ∀ s', After s [⟨inn, H.S⟩, ⟨out, H.S⟩, ⟨sc, 8 * H.W⟩] s' →
       hH.SH.Repr s'.mem inn (xorPad (blockKey hH.SH.H (bytesAt s.mem k kl)) ipad) →
       hH.SH.Repr s'.mem out (xorPad (blockKey hH.SH.H (bytesAt s.mem k kl)) opad) → Q s') :
     WP isa (.call H.hmacInitN H.hmacInit) s Q := by
-  refine WP.callF hv.1 (a.pre hH) (covers_app a.cr a.cw) a.cw ?_ (fdepth_lt hd)
-  intro s' h₁ h₂ h₃ h₄ h₅ hpost
+  refine WP.callFV hv.1 (a.pre hH) (covers_app a.cr a.cw) a.cw ?_ (fdepth_lt hd)
+  intro s' h₁ h₂ h₃ h₄ h₅ hvec hpost
   simp only [initG, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, ce0, ce1, ce2, ce3,
     a.x0, a.x1, a.x2, a.x3] at hpost
-  exact hQ s' ⟨h₁, h₂, h₃, h₅, frame_depth hd h₄⟩ hpost.1 hpost.2
+  exact hQ s' ⟨h₁, h₂, h₃, h₅, frame_depth hd h₄, hvec⟩ hpost.1 hpost.2
 
 theorem hinit_rel (hv : Verified AArch64.target H.hmacInit (initG hH.SH H.W)) {P : State → State → Prop}
     {inn out k sc : Addr} {kl : Nat}
@@ -121,7 +121,7 @@ theorem FinArgs.pre {s : State} {inn outer cnt o sc : Addr} (a : FinArgs (H := H
   exact ⟨trivial, trivial, a.i_u, a.i_o, a.i_s, a.u_o, a.u_s, a.o_s, a.sp16, a.stk_i, a.stk_u, a.stk_o,
     a.stk_s, a.scnw⟩
 
-theorem hfin_call (hv : Verified AArch64.target H.hmacFin (finG hH.SH H.W)) (hd : H.hmacFin.fdepth ≤ 1)
+theorem hfin_call (hv : Verified AArch64.target H.hmacFin (finG hH.SH H.W)) (hd : H.hmacFin.aarch64Depth ≤ 1)
     {s : State} {inn outer cnt o sc : Addr}
     (a : FinArgs (H := H) s inn outer cnt o sc) {Q : State → Prop}
     (hQ : ∀ s', After s [⟨inn, H.S⟩, ⟨o, H.D⟩, ⟨sc, 8 * H.W⟩] s' →
@@ -130,9 +130,9 @@ theorem hfin_call (hv : Verified AArch64.target H.hmacFin (finG hH.SH H.W)) (hd 
         hH.SH.Repr s.mem outer (xorPad k0 opad) → bytesAt s'.mem o H.D = hmacBlockKey hH.SH.H k0 text) →
       Q s') :
     WP isa (.call H.hmacFinN H.hmacFin) s Q := by
-  refine WP.callF hv.1 (a.pre hH) (covers_app a.cr a.cw) a.cw ?_ (fdepth_lt hd)
-  intro s' h₁ h₂ h₃ h₄ h₅ hpost
-  refine hQ s' ⟨h₁, h₂, h₃, h₅, frame_depth hd h₄⟩ fun k0 text hk hl hi hc ho => ?_
+  refine WP.callFV hv.1 (a.pre hH) (covers_app a.cr a.cw) a.cw ?_ (fdepth_lt hd)
+  intro s' h₁ h₂ h₃ h₄ h₅ hvec hpost
+  refine hQ s' ⟨h₁, h₂, h₃, h₅, frame_depth hd h₄, hvec⟩ fun k0 text hk hl hi hc ho => ?_
   have hD := hH.hD; have hB := hH.hB
   simp only [finG, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, ce0, ce1, ce2, ce3,
     a.x0, a.x1, a.x2, a.x3, hD, hB] at hpost
@@ -176,7 +176,7 @@ theorem IterArgs.pre {s : State} {key u t sc : Addr} {n : BitVec 64} (a : IterAr
     a.x0, a.x1, a.x3, a.x4, hS, hD]
   exact ⟨trivial, trivial, a.k_t, a.k_s, a.u_t, a.u_s, a.t_s, a.knw, a.scnw⟩
 
-theorem iter_call (hv : Verified AArch64.target H.iterate (iterK hH.SH H.W)) (hd : H.iterate.fdepth ≤ 1)
+theorem iter_call (hv : Verified AArch64.target H.iterate (iterK hH.SH H.W)) (hd : H.iterate.aarch64Depth ≤ 1)
     {s : State} {key u t sc : Addr} {n : BitVec 64}
     (a : IterArgs (H := H) s key u n t sc) {Q : State → Prop}
     (hQ : ∀ s', After s [⟨t, H.D⟩, ⟨sc, 8 * H.W⟩] s' →
@@ -186,9 +186,9 @@ theorem iter_call (hv : Verified AArch64.target H.iterate (iterK hH.SH H.W)) (hd
           (bytesAt s.mem u H.D) (bytesAt s.mem t H.D)) →
       Q s') :
     WP isa (.call H.iterN H.iterate) s Q := by
-  refine WP.callF hv.1 (a.pre hH) (covers_app a.cr a.cw) a.cw ?_ (fdepth_lt hd)
-  intro s' h₁ h₂ h₃ h₄ h₅ hpost
-  refine hQ s' ⟨h₁, h₂, h₃, h₅, frame_depth hd h₄⟩ fun k0 hk hi ho => ?_
+  refine WP.callFV hv.1 (a.pre hH) (covers_app a.cr a.cw) a.cw ?_ (fdepth_lt hd)
+  intro s' h₁ h₂ h₃ h₄ h₅ hvec hpost
+  refine hQ s' ⟨h₁, h₂, h₃, h₅, frame_depth hd h₄, hvec⟩ fun k0 hk hi ho => ?_
   have hS := hH.hS; have hD := hH.hD; have hB := hH.hB
   simp only [iterK, State.withRegions_gpr, State.withRegions_mem, State.callEntry_mem, ce0, ce1, ce2, ce3,
     a.x0, a.x1, a.x2, a.x3, hD, hB, hS] at hpost

@@ -21,6 +21,7 @@
 ))]
 
 use crate::arch::poly1305::{vg_poly1305_finalize, vg_poly1305_init, vg_poly1305_update};
+use crate::zeroize::zeroize;
 
 /// An incremental Poly1305 computation.
 pub struct Poly1305 {
@@ -28,6 +29,13 @@ pub struct Poly1305 {
     state: [u64; 16],
     /// The message length so far, in bytes, modulo 2⁶⁴.
     count: u64,
+}
+
+impl Drop for Poly1305 {
+    /// Wipes the state, which holds the key.
+    fn drop(&mut self) {
+        zeroize(&mut self.state);
+    }
 }
 
 impl Poly1305 {

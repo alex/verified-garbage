@@ -180,7 +180,8 @@ theorem fn_ok {t : Poly → Poly → Poly → Poly} {hPre : Mem → Addr → Pro
     (hv : ∀ i < 256, (v i).toNat = ((t (polyAt s₀.mem (s₀.gpr .x0)) (polyAt s₀.mem (s₀.gpr .x1))
       (polyAt s₀.mem (s₀.gpr .x2)))[i]!).val)
     (hpres : (Code.seq (.block mulPro) (.loop (.block body) (.nonzero .x .x12)) : Prog isa).allInstrs
-      (keeps (RegSet.ofList preserved)) = true) :
+      (keeps (RegSet.ofList preserved)) = true)
+    (hvec : (Code.seq (.block mulPro) (.loop (.block body) (.nonzero .x .x12)) : Prog isa).allInstrs keepsV = true := by decide +kernel) :
     ∃ tr s', Exec isa (.seq (.block mulPro) (.loop (.block body) (.nonzero .x .x12))) s₀ tr s' ∧
       abiPreserved s₀ s' ∧ (mulK t hPre).post s₀ s' := by
   obtain ⟨tr, s', he, hI⟩ := WP.seq (M := isa) (WP.mono (pro_ok s₀) fun s ⟨h0, hc⟩ =>
@@ -188,7 +189,7 @@ theorem fn_ok {t : Poly → Poly → Poly → Poly} {hPre : Mem → Addr → Pro
       WP.mono (hbody i hi s hI) fun s' ⟨⟨hm, h0, h1, h2, hc⟩, hk⟩ => ⟨inv_step hi hI hm h0 h1 h2 hk, hc⟩)
       (show Inv s₀ v 0 s from ⟨h0.x0, h0.x1, h0.x2, h0.consts, h0.keep, h0.frame, fun k hk => by
         rw [h0.coeff k hk]; rfl⟩) hc)
-  refine ⟨tr, s', he, VG.Proof.MlKem.AArch64.abi_of rfl hpres he,
+  refine ⟨tr, s', he, VG.Proof.MlKem.AArch64.abi_of rfl hpres he hvec,
     polyIs_of_toNat fun i hi => by rw [hI.coeff i hi, ite_eq_left hi]; exact hv i hi⟩
 
 end Mul

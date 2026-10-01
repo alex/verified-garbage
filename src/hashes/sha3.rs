@@ -84,6 +84,12 @@ impl<const RATE: usize> Sponge<RATE> {
     }
 }
 
+impl<const RATE: usize> Drop for Sponge<RATE> {
+    fn drop(&mut self) {
+        crate::zeroize::zeroize(&mut self.state);
+    }
+}
+
 /// A Keccak sponge with a rate of `RATE` bytes, squeezing output.
 ///
 /// `RATE` is always one of the rates of FIPS 202, `pos ≤ RATE`, and the
@@ -94,6 +100,12 @@ struct Squeezer<const RATE: usize> {
     state: [u64; 25],
     /// The position of the next byte of output in the output of `state`.
     pos: usize,
+}
+
+impl<const RATE: usize> Drop for Squeezer<RATE> {
+    fn drop(&mut self) {
+        crate::zeroize::zeroize(&mut self.state);
+    }
 }
 
 impl<const RATE: usize> Squeezer<RATE> {
