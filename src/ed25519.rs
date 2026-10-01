@@ -446,19 +446,14 @@ mod x86_64_tests {
             }
             // SAFETY: the CPU has the features `f`; `public` is `seed`'s
             // public key.
-            unsafe {
-                assert_eq!(public_key_with(f, &seed), public, "{mask:#b}");
-                assert_eq!(
+            let got = unsafe {
+                (
+                    public_key_with(f, &seed),
                     sign_message_with(f, &seed, &public, message),
-                    signature,
-                    "{mask:#b}"
-                );
-                assert_eq!(
                     verify_message_with(f, &public, message, &signature),
-                    1,
-                    "{mask:#b}"
-                );
-            }
+                )
+            };
+            assert_eq!(got, (public, signature, 1), "{mask:#b}");
         }
     }
 }
