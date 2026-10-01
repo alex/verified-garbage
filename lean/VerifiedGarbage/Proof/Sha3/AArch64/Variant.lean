@@ -25,6 +25,13 @@ structure Permutation where
     ∃ t s', Exec isa callee.code s t s' ∧ abiPreserved s s' ∧
       Proof.Sha3.permuteAArch64.post s s'
   noFrames : callee.code.noFrames = true
+  /-- An absorb override must prove the same functional and SIMD ABI contract
+  as the general loop; it need not obey that loop's syntactic register shape. -/
+  absorbOverrideOk : ∀ code, callee.absorbOverride = some code →
+    ∀ s, Proof.Sha3.absorbAArch64.pre s →
+      ∃ t s', Exec isa code s t s' ∧ abiPreserved s s' ∧
+        Proof.Sha3.absorbAArch64.post s s'
+  absorbOverrideDepth : ∀ code, callee.absorbOverride = some code → code.fdepth = 1
   absorbKeeps : ∀ r ∈ [Reg.x25, .x26, .x27, .x28],
     ∀ i ∈ instrs (Impl.Sha3.AArch64.Stream.absorbMainWith callee), dstOf i ≠ some r
   squeezeKeeps : ∀ r ∈ [Reg.x25, .x26, .x27, .x28],
@@ -114,7 +121,12 @@ theorem Permutation.absorbMain_depth (v : Permutation) :
 
 theorem Permutation.absorb_depth (v : Permutation) :
     (Impl.Sha3.AArch64.Stream.absorbWith v.callee).fdepth = 1 := by
-  simp only [Impl.Sha3.AArch64.Stream.absorbWith, Code.fdepth, v.absorbMain_depth]
+  cases h : v.callee.absorbOverride with
+  | none =>
+    simp only [Impl.Sha3.AArch64.Stream.absorbWith, h,
+      Impl.Sha3.AArch64.Stream.absorbGenericWith, Code.fdepth, v.absorbMain_depth]
+  | some code =>
+    simpa only [Impl.Sha3.AArch64.Stream.absorbWith, h] using v.absorbOverrideDepth code h
 
 theorem Permutation.padMain_depth (v : Permutation) :
     (Impl.Sha3.AArch64.Stream.padMainWith v.callee).fdepth = 0 := by
@@ -147,6 +159,8 @@ def Permutation.scalar : Permutation where
   features := []
   ok := permute_correct
   noFrames := permute_noFrames
+  absorbOverrideOk := by intro code h; cases h
+  absorbOverrideDepth := by intro code h; cases h
   absorbKeeps := keeps_of_check (by decide +kernel)
   squeezeKeeps := keeps_of_check (by decide +kernel)
   absorbTaint := ⟨_, by taint_decide⟩

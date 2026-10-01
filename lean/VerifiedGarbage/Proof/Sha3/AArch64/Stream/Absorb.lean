@@ -539,7 +539,7 @@ abbrev inner (s₀ : State) : State :=
   { s₀ with sp := s₀.sp - 16, mem := s₀.mem.write (s₀.sp - 16) 8 (s₀.gpr .x30) }
 
 theorem correct (v : Permutation) {s₀ : State} (hp : Pre s₀) (hs : Stack s₀) :
-    WP isa (absorbWith v.callee) s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha3.absorbAArch64.post s₀ s' := by
+    WP isa (absorbGenericWith v.callee) s₀ fun s' => abiPreserved s₀ s' ∧ Proof.Sha3.absorbAArch64.post s₀ s' := by
   have hpi : Pre (inner s₀) := ⟨hp.rd, hp.wr, hp.st_scr, hp.d_st, hp.d_scr, hp.rate, hp.pos_lt⟩
   refine WP.frameReg (hn := by rw [v.absorbMain_depth]; decide) hs.sp16 (fun R hR => ?_) (WP.mono ((correctMain v) hpi) fun s' ⟨hk, hsp, hv, hpost⟩ => ?_)
   · rw [hp.wr] at hR
@@ -580,8 +580,12 @@ def sat : State where
 
 theorem absorb_correct (v : Permutation) (s : State) (hs : Proof.Sha3.absorbAArch64.pre s) :
     ∃ t s', Exec isa (absorbWith v.callee) s t s' ∧ abiPreserved s s' ∧ Proof.Sha3.absorbAArch64.post s s' := by
-  obtain ⟨t, s', he, h⟩ := (correct v) (pre_of hs).1 (pre_of hs).2
-  exact ⟨t, s', he, h⟩
+  cases h : v.callee.absorbOverride with
+  | none =>
+    obtain ⟨t, s', he, hpost⟩ := (correct v) (pre_of hs).1 (pre_of hs).2
+    exact ⟨t, s', by simpa only [absorbWith, h] using he, hpost⟩
+  | some code =>
+    simpa only [absorbWith, h] using v.absorbOverrideOk code h s hs
 
 theorem absorb_ct (v : Permutation) : ConstantTime isa Proof.Sha3.absorbAArch64.pre Proof.Sha3.absorbAArch64.pub
     (absorbWith v.callee) := by

@@ -94,7 +94,15 @@ def absorbMainWith (c : Callee) : Prog isa :=
   (.seq (.ite (.zero .x .x24) (.block []) (.loop (absorbBodyWith c) (.nonzero .x .x24)))
     (.block (mov .x0 .x22 :: restore)))
 
-def absorbWith (c : Callee) : Prog isa := .frame (.push .x30) (absorbMainWith c) (.pop .x30)
+/-- The general absorb loop, including its single link-register frame. -/
+def absorbGenericWith (c : Callee) : Prog isa :=
+  .frame (.push .x30) (absorbMainWith c) (.pop .x30)
+
+/-- A backend may replace absorb as a whole while retaining the same contract. -/
+def absorbWith (c : Callee) : Prog isa :=
+  match c.absorbOverride with
+  | some code => code
+  | none => absorbGenericWith c
 
 /-! ## `pad` -/
 
