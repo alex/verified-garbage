@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Poly1305.X86_64.Init
 import VerifiedGarbage.Proof.Poly1305.X86_64.Blocks
 import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Blocks
+import VerifiedGarbage.Proof.Poly1305.X86_64.Avx512.Blocks
 import VerifiedGarbage.Proof.Poly1305.X86_64.Finalize
 import VerifiedGarbage.Proof.ChaCha20.X86_64.Variant
 import VerifiedGarbage.Proof.ChaCha20Poly1305.Spec
@@ -128,14 +129,23 @@ theorem avx2_keeps : ((instrs Impl.Poly1305.X86_64.Avx2.blocksAvx2).all fun i =>
 
 theorem avx2_depth : Impl.Poly1305.X86_64.Avx2.blocksAvx2.depth = 1 := by lit_decide
 
-/-- The stack below `rsp` that a call of `vg_poly1305_blocks` uses (16 bytes
-for `vg_poly1305_blocks_avx2`, which calls `vg_poly1305_blocks`). -/
+theorem avx512_keeps : ((instrs Impl.Poly1305.X86_64.Avx512.blocksAvx512).all fun i =>
+    !Taint.clobbers i .rdi && !Taint.clobbers i .rsp) = true := by
+  rw [← Code.allInstrs_eq]; lit_decide
+
+theorem avx512_depth : Impl.Poly1305.X86_64.Avx512.blocksAvx512.depth = 2 := by lit_decide
+
+/-- The stack below `rsp` that a call of `vg_poly1305_blocks` uses (24 bytes
+for `vg_poly1305_blocks_avx512`, which calls `vg_poly1305_blocks_avx2`,
+which calls `vg_poly1305_blocks`). -/
 theorem below8_16 (sp : Addr) : Region.Sub (below sp 8) (below sp 16) := below_sub (by lit_omega) (by lit_omega)
+theorem below8_24' (sp : Addr) : Region.Sub (below sp 8) (below sp 24) := below_sub (by lit_omega) (by lit_omega)
+theorem below16_24 (sp : Addr) : Region.Sub (below sp 16) (below sp 24) := below_sub (by lit_omega) (by lit_omega)
 
 /-- What a call of an implementation of `vg_poly1305_blocks` leaves. -/
 def BlocksPost (s : State) (P p : Addr) (n : Nat) (s' : State) : Prop :=
   s'.rd = s.rd ∧ s'.wr = s.wr ∧ (∀ r ∈ calleeSaved, s'.gpr r = s.gpr r) ∧
-    Frame [⟨P, 128⟩, below (s.gpr .rsp) 16] s.mem s'.mem ∧ s'.gpr .rdi = P ∧
+    Frame [⟨P, 128⟩, below (s.gpr .rsp) 24] s.mem s'.mem ∧ s'.gpr .rdi = P ∧
     (∀ key msg, Repr s.mem P key msg → Repr s'.mem P key (msg ++ bytesAt s.mem p (16 * n))) ∧
     s'.mxcsr.extractLsb' 6 10 = s.mxcsr.extractLsb' 6 10
 
@@ -143,14 +153,14 @@ section
 variable {s : State} {P p : Addr} {n : Nat} (hrdi : s.gpr .rdi = P) (hrsi : s.gpr .rsi = p)
     (hrdx : s.gpr .rdx = BitVec.ofNat 64 n) (hn : 16 * n < 2 ^ 64)
     (hdj : (⟨P, 128⟩ : Region).Disjoint ⟨p, 16 * n⟩) (hwrap : p.toNat + 16 * n ≤ 2 ^ 64)
-    (hsP : (below (s.gpr .rsp) 16).Disjoint ⟨P, 128⟩) (hsp : (below (s.gpr .rsp) 16).Disjoint ⟨p, 16 * n⟩)
+    (hsP : (below (s.gpr .rsp) 24).Disjoint ⟨P, 128⟩) (hsp : (below (s.gpr .rsp) 24).Disjoint ⟨p, 16 * n⟩)
     (hc : Covers ([⟨p, 16 * n⟩] ++ [⟨P, 128⟩]) (s.rd ++ s.wr)) (hw : Covers [⟨P, 128⟩] s.wr)
 include hrdi hrsi hrdx hn hdj hwrap hsP hsp hc hw
 
 theorem scalar_call : WP isa (.call "vg_poly1305_blocks" Impl.Poly1305.X86_64.blocks) s (BlocksPost s P p n) := by
   have hn' : (BitVec.ofNat 64 n).toNat = n := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by lit_omega)
-  have hsP8 := hsP.sub_left (below8_16 _)
+  have hsP8 := hsP.sub_left (below8_24' _)
   refine WP.call_mx (k := Proof.Poly1305.blocksX86_64) Proof.Poly1305.X86_64.blocks_ok
     (keeps_of blocks_keeps fun _ h => and_right h) (by rw [blocks_depth]; decide)
     (rd := [⟨p, 16 * n⟩]) (wr := [⟨P, 128⟩]) ?_ hc hw ?_
@@ -166,19 +176,19 @@ theorem scalar_call : WP isa (.call "vg_poly1305_blocks" Impl.Poly1305.X86_64.bl
     · simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl
       · exact ⟨_, by simp, fun _ h => h⟩
-      · exact ⟨_, by simp, below8_16 _⟩
+      · exact ⟨_, by simp, below8_24' _⟩
     simp only [Proof.Poly1305.blocksX86_64, State.withRegions_gpr, State.withRegions_mem,
       callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp),
       callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp), hrdi, hrsi, hrdx, hn', hm₂] at hpost
     have h := hpost key msg (Repr.frame (callEntry_frame s) (h := hr) (by simpa using hsP8.symm))
-    rwa [bytesAt_frame (callEntry_frame s) (by simpa using (hsp.sub_left (below8_16 _)).symm)
+    rwa [bytesAt_frame (callEntry_frame s) (by simpa using (hsp.sub_left (below8_24' _)).symm)
       (by lit_omega)] at h
 
 theorem avx2_call :
     WP isa (.call "vg_poly1305_blocks_avx2" Impl.Poly1305.X86_64.Avx2.blocksAvx2) s (BlocksPost s P p n) := by
   have hn' : (BitVec.ofNat 64 n).toNat = n := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by lit_omega)
-  have hsP8 := hsP.sub_left (below8_16 _)
+  have hsP8 := hsP.sub_left (below8_24' _)
   refine WP.call_mx (k := Proof.Poly1305.X86_64.Avx2.blocksAvx2X86_64)
     Proof.Poly1305.X86_64.Avx2.blocksAvx2_ok
     (keeps_of avx2_keeps fun _ h => and_right h) (by rw [avx2_depth]; decide)
@@ -187,18 +197,50 @@ theorem avx2_call :
       State.withRegions_wr, State.callEntry_rsp, callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp),
       callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp), hrdi,
       hrsi, hrdx, hn']
-    exact ⟨trivial, trivial, hdj, hsP8, hsP.sub_left (below_callee _ 8),
-      hsp.sub_left (below_callee _ 8), hwrap⟩
+    exact ⟨trivial, trivial, hdj, hsP8, (hsP.sub_left (below16_24 _)).sub_left (below_callee _ 8),
+      (hsp.sub_left (below16_24 _)).sub_left (below_callee _ 8), hwrap⟩
   · intro s' hrd hwr hcs hf hkeep ⟨s₂, hm₂, _, hpost⟩ hmx
     rw [avx2_depth] at hf
-    refine ⟨hrd, hwr, hcs, hf,
+    refine ⟨hrd, hwr, hcs, hf.sub fun r hr => ?_,
       by rw [hkeep .rdi (keeps_of avx2_keeps fun _ h => and_left h), hrdi], fun key msg hr => ?_, hmx⟩
+    · simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl
+      · exact ⟨_, by simp, fun _ h => h⟩
+      · exact ⟨_, by simp, below16_24 _⟩
     simp only [Proof.Poly1305.X86_64.Avx2.blocksAvx2X86_64, Proof.Poly1305.blocksX86_64,
       State.withRegions_gpr, State.withRegions_mem,
       callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp),
       callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp), hrdi, hrsi, hrdx, hn', hm₂] at hpost
     have h := hpost key msg (Repr.frame (callEntry_frame s) (h := hr) (by simpa using hsP8.symm))
-    rwa [bytesAt_frame (callEntry_frame s) (by simpa using (hsp.sub_left (below8_16 _)).symm)
+    rwa [bytesAt_frame (callEntry_frame s) (by simpa using (hsp.sub_left (below8_24' _)).symm)
+      (by lit_omega)] at h
+
+theorem avx512_call :
+    WP isa (.call "vg_poly1305_blocks_avx512" Impl.Poly1305.X86_64.Avx512.blocksAvx512) s (BlocksPost s P p n) := by
+  have hn' : (BitVec.ofNat 64 n).toNat = n := by
+    rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by lit_omega)
+  have hsP8 := hsP.sub_left (below8_24' _)
+  refine WP.call_mx (k := Proof.Poly1305.X86_64.Avx512.blocksAvx512X86_64)
+    Proof.Poly1305.X86_64.Avx512.blocksAvx512_ok
+    (keeps_of avx512_keeps fun _ h => and_right h) (by rw [avx512_depth]; decide)
+    (rd := [⟨p, 16 * n⟩]) (wr := [⟨P, 128⟩]) ?_ hc hw ?_
+  · simp only [Proof.Poly1305.X86_64.Avx512.blocksAvx512X86_64, Proof.Poly1305.blocksStack,
+      State.withRegions_gpr, State.withRegions_rd,
+      State.withRegions_wr, State.callEntry_rsp, callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp),
+      callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp), hrdi,
+      hrsi, hrdx, hn']
+    exact ⟨trivial, trivial, hdj, hsP8, hsP.sub_left (below_callee _ 16),
+      hsp.sub_left (below_callee _ 16), hwrap⟩
+  · intro s' hrd hwr hcs hf hkeep ⟨s₂, hm₂, _, hpost⟩ hmx
+    rw [avx512_depth] at hf
+    refine ⟨hrd, hwr, hcs, hf,
+      by rw [hkeep .rdi (keeps_of avx512_keeps fun _ h => and_left h), hrdi], fun key msg hr => ?_, hmx⟩
+    simp only [Proof.Poly1305.X86_64.Avx512.blocksAvx512X86_64, Proof.Poly1305.blocksStack,
+      Proof.Poly1305.blocksX86_64, State.withRegions_gpr, State.withRegions_mem,
+      callEntry_gpr' s (by decide : Reg.rdi ≠ .rsp), callEntry_gpr' s (by decide : Reg.rsi ≠ .rsp),
+      callEntry_gpr' s (by decide : Reg.rdx ≠ .rsp), hrdi, hrsi, hrdx, hn', hm₂] at hpost
+    have h := hpost key msg (Repr.frame (callEntry_frame s) (h := hr) (by simpa using hsP8.symm))
+    rwa [bytesAt_frame (callEntry_frame s) (by simpa using (hsp.sub_left (below8_24' _)).symm)
       (by lit_omega)] at h
 
 /-- A call of the implementation `b` of `vg_poly1305_blocks`. -/
@@ -206,6 +248,7 @@ theorem blocks_call (b : Impl.Poly1305.X86_64.Blocks) : WP isa (.call b.name b.c
   cases b
   · exact scalar_call hrdi hrsi hrdx hn hdj hwrap hsP hsp hc hw
   · exact avx2_call hrdi hrsi hrdx hn hdj hwrap hsP hsp hc hw
+  · exact avx512_call hrdi hrsi hrdx hn hdj hwrap hsP hsp hc hw
 
 end
 
@@ -1246,12 +1289,12 @@ theorem frame_mac {s₀ : State} {k n : Nat} (h₁ : 448 ≤ k) (h₂ : k + n �
     simp only [List.mem_singleton] at hr; subst hr; exact ⟨_, by simp, sub_mac s₀ h₁ h₂⟩
 
 theorem frame_mac' {s₀ : State} {k n : Nat} (h₁ : 448 ≤ k) (h₂ : k + n ≤ 592) {m m' : Mem}
-    (hf : Frame [sub s₀ k n, below (s₀.gpr .rsp) 16] m m') : Frame (macR s₀) m m' :=
+    (hf : Frame [sub s₀ k n, below (s₀.gpr .rsp) 24] m m') : Frame (macR s₀) m m' :=
   hf.sub fun r hr => by
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
     · exact ⟨_, by simp, sub_mac s₀ h₁ h₂⟩
-    · exact ⟨stkR s₀, by simp, below16_stk s₀⟩
+    · exact ⟨stkR s₀, by simp, fun _ h => h⟩
 
 theorem calleeSaved_ne {r : Reg} (hr : r ∈ calleeSaved) :
     r ≠ .rax ∧ r ≠ .rcx ∧ r ≠ .rdx ∧ r ≠ .rsi ∧ r ≠ .rdi := by
@@ -1308,7 +1351,7 @@ theorem padTail_ok (b : Impl.Poly1305.X86_64.Blocks) {s₀ : State} (hp : APre s
   refine WP.seq (WP.mono (blocks_call (n := 1) rdi₆ rsi₆ rdx₆ (by lit_omega)
     (sub_disj s₀ (b := 576) (m := 16 * 1) (by lit_omega) (by lit_omega) (by lit_omega))
     (by rw [hp.off_toNat (by lit_omega)]; have := hp.wrap_c; omega)
-    (by rw [rsp₆]; exact hp.below16_sub (by lit_omega)) (by rw [rsp₆]; exact hp.below16_sub (by lit_omega))
+    (by rw [rsp₆]; exact hp.stk_sub (by lit_omega)) (by rw [rsp₆]; exact hp.stk_sub (by lit_omega))
     (covers_left _ (covers_sub hp wr₆' _ (by
       intro r hr; simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
         or_false] at hr
@@ -1382,8 +1425,8 @@ theorem macPad_ok (b : Impl.Poly1305.X86_64.Blocks) {s₀ : State} (hp : APre s�
     (by rw [rdi₁, hr15]) (by rw [rsi₁, hP]) (by rw [rdx₁, hn, shr4_ofNat hlt]) (by lit_omega)
     ((hcP.sub_left (sub_ctx s₀ (by lit_omega))).sub_right (Region.sub_prefix hk))
     (by have := hs.wrap; omega)
-    (by rw [rsp₁]; exact hp.below16_sub (by lit_omega))
-    (by rw [rsp₁]; exact (hs.stk.sub_left (below16_stk s₀)).sub_right (Region.sub_prefix hk))
+    (by rw [rsp₁]; exact hp.stk_sub (by lit_omega))
+    (by rw [rsp₁]; exact hs.stk.sub_right (Region.sub_prefix hk))
     (fun a w ⟨r, hr', hc⟩ => by
       simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr'
       rcases hr' with rfl | rfl
@@ -1406,12 +1449,12 @@ theorem macPad_ok (b : Impl.Poly1305.X86_64.Blocks) {s₀ : State} (hp : APre s�
     · rw [g₃ r h15 (calleeSaved_ne h).2.2.1, cs₂ r h, g₁' r h]
   have rd₃' : s₃.rd = s.rd := by rw [rd₃, rd₂, rd₁]
   have wr₃' : s₃.wr = s.wr := by rw [wr₃, wr₂, wr₁]
-  have hdisjP : ∀ r ∈ [sub s₀ 448 128, below (s₀.gpr .rsp) 16], (⟨P, len⟩ : Region).Disjoint r := by
+  have hdisjP : ∀ r ∈ [sub s₀ 448 128, below (s₀.gpr .rsp) 24], (⟨P, len⟩ : Region).Disjoint r := by
     intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl
     · exact (hcP.sub_left (sub_ctx s₀ (by lit_omega))).symm
-    · exact (hs.stk.sub_left (below16_stk s₀)).symm
+    · exact hs.stk.symm
   have fr₃ : Frame (macR s₀) s.mem s₃.mem := by rw [m₃]; exact frame_mac' (by lit_omega) (by lit_omega) f₂
   have x_eq : bytesAt s.mem P len = bytesAt s.mem P (16 * (len / 16)) ++
       bytesAt s.mem (P + BitVec.ofNat 64 (16 * (len / 16))) (len % 16) := by
@@ -1847,7 +1890,7 @@ theorem absorbLengths_ok (b : Impl.Poly1305.X86_64.Blocks) {s₀ : State} (hp : 
   refine WP.seq (WP.mono (blocks_call (n := 1) rdi₁ rsi₁ (by rw [rdx₁]; rfl) (by lit_omega)
     (sub_disj s₀ (b := 656) (m := 16 * 1) (by lit_omega) (by lit_omega) (by lit_omega))
     (by rw [hp.off_toNat (by lit_omega)]; have := hp.wrap_c; omega)
-    (by rw [rsp₁]; exact hp.below16_sub (by lit_omega)) (by rw [rsp₁]; exact hp.below16_sub (by lit_omega))
+    (by rw [rsp₁]; exact hp.stk_sub (by lit_omega)) (by rw [rsp₁]; exact hp.stk_sub (by lit_omega))
     (covers_left _ (covers_sub hp wr₁' _ (by
       intro r hr; simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
         or_false] at hr

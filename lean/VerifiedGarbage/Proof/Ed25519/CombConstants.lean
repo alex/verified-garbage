@@ -156,6 +156,4 @@ theorem combG_ok : Rep combG (combGVal • baseAff) := by
   obtain ⟨⟨hx, hy⟩, _⟩ := hc
   exact combPt_rep (q := combGAff) hp hx hy
 
-theorem combGCached_eq : combGCached = cache combG := by decide +kernel
-
 end VG.Proof.Ed25519

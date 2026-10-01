@@ -12,7 +12,7 @@
 //! `vg_poly1305_blocks` for the same CPUs: on x86-64, CPUs with AVX-512F and
 //! AVX2 run `vg_chacha20_poly1305_seal_avx512` and
 //! `vg_chacha20_poly1305_open_avx512` (with `vg_chacha20_xor_avx512` and
-//! `vg_poly1305_blocks_avx2`), and other CPUs with AVX2
+//! `vg_poly1305_blocks_avx512`), and other CPUs with AVX2
 //! `vg_chacha20_poly1305_seal_avx2` and `vg_chacha20_poly1305_open_avx2`.
 //! On AArch64, the NEON variants use the NEON ChaCha20 block for both
 //! message encryption and the one-time Poly1305 key.
@@ -317,14 +317,16 @@ mod tests {
             VG_CHACHA20_POLY1305_OPEN_AVX2_FEATURES, VG_CHACHA20_POLY1305_OPEN_AVX512_FEATURES,
             VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES, VG_CHACHA20_POLY1305_SEAL_AVX512_FEATURES,
         };
-        use crate::arch::poly1305::VG_POLY1305_BLOCKS_AVX2_FEATURES;
+        use crate::arch::poly1305::{
+            VG_POLY1305_BLOCKS_AVX2_FEATURES, VG_POLY1305_BLOCKS_AVX512_FEATURES,
+        };
         let avx2 = Features::all(&[
             VG_CHACHA20_XOR_AVX2_FEATURES,
             VG_POLY1305_BLOCKS_AVX2_FEATURES,
         ]);
         let avx512 = Features::all(&[
             VG_CHACHA20_XOR_AVX512_FEATURES,
-            VG_POLY1305_BLOCKS_AVX2_FEATURES,
+            VG_POLY1305_BLOCKS_AVX512_FEATURES,
         ]);
         assert_eq!(Features::of(VG_CHACHA20_POLY1305_SEAL_AVX2_FEATURES), avx2);
         assert_eq!(Features::of(VG_CHACHA20_POLY1305_OPEN_AVX2_FEATURES), avx2);
@@ -338,8 +340,8 @@ mod tests {
         );
         assert_eq!(select(avx2), Backend::Avx2);
         assert_eq!(select(avx512), Backend::Avx512);
-        // AVX-512F alone is not enough: the AVX-512 instances call Poly1305
-        // with AVX2.
+        // AVX-512F alone is not enough: the AVX-512 instances' Poly1305
+        // calls its AVX2 implementation.
         assert_eq!(
             select(Features::of(VG_CHACHA20_XOR_AVX512_FEATURES)),
             Backend::Scalar
