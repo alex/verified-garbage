@@ -230,9 +230,10 @@ Avoid these patterns (each has cost tens of seconds in one proof):
   import (a framework file, an algorithm's `Spec` or `Stream` lemmas).
 * **Imports across targets:** a module of one target (a path with a
   directory of `TCB/`, e.g. `Proof/Sha256/Arm/…`) never imports a module of
-  another target, even for a lemma that mentions no ISA: CI checks each
-  target's proofs in a shard of its own (`ci/lean_shards.py`), which would
-  then check the other target's too. Put what more than one target uses in
+  another target, even for a lemma that mentions no ISA: a change to one
+  target (e.g. its ISA model) would then rebuild the other's proofs too, and
+  a CI shard (`ci/lean_shards.py`), which builds a proof with everything it
+  imports, would check both. Put what more than one target uses in
   a target-independent module (`Proof/<Alg>/…`, `Proof/Framework/…`);
   `ci/check_lean_imports.py` checks it.
 * **Properties of every instruction:** prove `(instrs c).all p` with
