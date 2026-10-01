@@ -21,7 +21,12 @@
 //! bounds with probability about 2⁻²⁵⁶ or less; the operation then fails
 //! with [`Error::LoopBound`].
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "x86",
+    target_arch = "aarch64",
+    target_arch = "arm"
+))]
 
 crate::mldsa_common::ml_dsa! {
     name: "ML-DSA-44",
