@@ -47,16 +47,18 @@ theorem encChk_spec {bs wbs : List (Reg × Nat)} {chk : List (Ptr × Nat) → Bo
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨h1, q0⟩, q4⟩, s8⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩, h8⟩, h9⟩ := h
   exact ⟨h1, ⟨q0, q4, s8⟩, h3, h4, h5, h6, h7, h8, h9⟩
 
-theorem rest_ok {C : Ctx rbs wbs} (hc : EncChks (rbs ++ wbs) wbs C.chk E) {ek m r : List Byte} {s : State}
-    (h : ER C E ek m r 0 0 0 s) : WP isa (rest E) s (EOut C E ek m r) := by
+theorem rest_ok {C : Ctx rbs wbs} (hc : EncChks (rbs ++ wbs) wbs C.chk E) {a : Nat → Nat → Poly}
+    {ek m r : List Byte} {s : State} (h : ER C E a ek m r 0 0 0 s) :
+    WP isa (rest E) s fun s' => C.Out s' ∧ s'.gpr .r15 = 1 ∧
+      bytesAt s'.mem (pa s' (sc oCT)) 1088 = ct768 a ek m r := by
   unfold rest
-  refine WP.seq (WP.mono (seqR_ok (I := fun k => ER C E ek m r k 0 0) 3 0
+  refine WP.seq (WP.mono (seqR_ok (I := fun k => ER C E a ek m r k 0 0) 3 0
     (fun k _ hk s hs => WP.mono (y_ok (by omega) (hc.y k (by omega)) hs) fun _ h => h.2) s h) fun s₁ h₁ => ?_)
-  refine WP.seq (WP.mono (seqR_ok (I := fun k => ER C E ek m r 3 k 0) 3 0
+  refine WP.seq (WP.mono (seqR_ok (I := fun k => ER C E a ek m r 3 k 0) 3 0
     (fun k _ hk s hs => WP.mono (u_ok (by omega) (hc.u k (by omega)) hs) fun _ h => h.2) s₁ h₁) fun s₂ h₂ => ?_)
-  refine WP.seq (WP.mono (seqR_ok (I := fun k => ER C E ek m r 3 3 k) 3 0
+  refine WP.seq (WP.mono (seqR_ok (I := fun k => ER C E a ek m r 3 3 k) 3 0
     (fun k _ hk s hs => WP.mono (t_ok (by omega) (hc.t k (by omega)) hs) fun _ h => h.2) s₂ h₂) fun s₃ h₃ => ?_)
-  exact WP.mono (v_ok hc.v h₃) fun _ ⟨_, ho, h15, hct⟩ => ⟨ho, by rw [h15, ifp h₃.ok], fun _ => hct⟩
+  exact WP.mono (v_ok hc.v h₃) fun _ ⟨_, ho, h15, hct⟩ => ⟨ho, h15, hct⟩
 
 theorem encrypt_ok (v : Sample4Impl) {C : Ctx rbs wbs} (hc : encChk (rbs ++ wbs) wbs C.chk E = true) {ek m r : List Byte} {s : State}
     (h : EIn C E ek m r s) (h15 : s.gpr .r15 = 1) : WP isa (encrypt v.callee E) s (EOut C E ek m r) := by
@@ -64,19 +66,21 @@ theorem encrypt_ok (v : Sample4Impl) {C : Ctx rbs wbs} (hc : encChk (rbs ++ wbs)
   unfold encrypt
   refine WP.seq (WP.mono (mat_ok v hc.mat hc.samp h h15) fun s₁ h₁ => ?_)
   refine ifOk_ok (fun s₂ hP hne => ?_) fun s₂ hP he => ?_
-  · exact rest_ok hc (ER.start (h₁.flag hP hc.inK hc.aK hc.sbK) (KeyGen.r15_ne h₁.r15 hne))
+  · have ho := KeyGen.r15_ne h₁.r15 hne
+    exact WP.mono (rest_ok hc (ER.start (h₁.flag hP hc.inK hc.aK hc.sbK) ho)) fun _ ⟨hO, h15, hct⟩ =>
+      ⟨hO, by rw [h15, ifp ho], fun _ => hct⟩
   · have h₂ := h₁.flag hP hc.inK hc.aK hc.sbK
     exact ⟨h₂.i.out, h₂.r15, fun ho => absurd ho (KeyGen.r15_eq h₁.r15 he)⟩
 
-theorem rest_tr {C : Ctx rbs wbs} (hc : EncChks (rbs ++ wbs) wbs C.chk E) {ρ : List Byte} :
-    RelCT isa (fun x y => LRel rbs wbs x y ∧ ERρ C E ρ 0 0 0 x ∧ ERρ C E ρ 0 0 0 y) (rest E)
-      (fun x y => LRel rbs wbs x y ∧ EOρ C E ρ x ∧ EOρ C E ρ y) := by
+theorem rest_tr {C : Ctx rbs wbs} (hc : EncChks (rbs ++ wbs) wbs C.chk E) {P : (Nat → Nat → Poly) → List Byte → Prop} :
+    RelCT isa (fun x y => LRel rbs wbs x y ∧ ERP C E P 0 0 0 x ∧ ERP C E P 0 0 0 y) (rest E)
+      (fun x y => LRel rbs wbs x y ∧ EOP C P x ∧ EOP C P y) := by
   unfold rest
-  refine RelCT.seq (seqR_tr (R := fun k x y => LRel rbs wbs x y ∧ ERρ C E ρ k 0 0 x ∧ ERρ C E ρ k 0 0 y) 3 0
+  refine RelCT.seq (seqR_tr (R := fun k x y => LRel rbs wbs x y ∧ ERP C E P k 0 0 x ∧ ERP C E P k 0 0 y) 3 0
     fun k _ hk => y_tr (by omega) (hc.y k (by omega))) ?_
-  refine RelCT.seq (seqR_tr (R := fun k x y => LRel rbs wbs x y ∧ ERρ C E ρ 3 k 0 x ∧ ERρ C E ρ 3 k 0 y) 3 0
+  refine RelCT.seq (seqR_tr (R := fun k x y => LRel rbs wbs x y ∧ ERP C E P 3 k 0 x ∧ ERP C E P 3 k 0 y) 3 0
     fun k _ hk => u_tr (by omega) (hc.u k (by omega))) ?_
-  refine RelCT.seq (seqR_tr (R := fun k x y => LRel rbs wbs x y ∧ ERρ C E ρ 3 3 k x ∧ ERρ C E ρ 3 3 k y) 3 0
+  refine RelCT.seq (seqR_tr (R := fun k x y => LRel rbs wbs x y ∧ ERP C E P 3 3 k x ∧ ERP C E P 3 3 k y) 3 0
     fun k _ hk => t_tr (by omega) (hc.t k (by omega))) ?_
   exact v_tr hc.v
 
@@ -88,12 +92,16 @@ theorem encrypt_tr (v : Sample4Impl) {C : Ctx rbs wbs} (hc : encChk (rbs ++ wbs)
   have hc := encChk_spec hc
   unfold encrypt
   refine RelCT.seq (mat_tr v hc.mat hc.samp ht) (ifOk_tr (fun x y ⟨_, ⟨_, _, _, e₁, h₁⟩, ⟨_, _, _, e₂, h₂⟩⟩ => by
-    rw [h₁.r15, h₂.r15, e₁, e₂]) (RelCT.mono (rest_tr hc) ?_ fun _ _ h => h) ?_)
+    rw [h₁.r15, h₂.r15, e₁, e₂]) (RelCT.mono (rest_tr hc (P := fun a ek => rhoE ek = ρ ∧ allOk ρ 9 ∧ a = aHat ρ)) ?_
+      fun _ _ ⟨hl, ⟨_, ek₁, m₁, r₁, ⟨e₁, o₁, a₁⟩, h₁⟩, ⟨_, ek₂, m₂, r₂, ⟨e₂, o₂, a₂⟩, h₂⟩⟩ =>
+        ⟨hl, ⟨ek₁, m₁, r₁, e₁, h₁.1, by rw [h₁.2.1, e₁, ifp o₁], fun _ => by rw [h₁.2.2, a₁, e₁]⟩,
+          ⟨ek₂, m₂, r₂, e₂, h₂.1, by rw [h₂.2.1, e₂, ifp o₂], fun _ => by rw [h₂.2.2, a₂, e₂]⟩⟩) ?_)
   · rintro x y ⟨x₀, y₀, ⟨hl, ⟨ek₁, m₁, r₁, e₁, h₁⟩, ⟨ek₂, m₂, r₂, e₂, h₂⟩⟩, hx, hy, hne⟩
     have o₁ := KeyGen.r15_ne h₁.r15 hne
     have o₂ : allOk (rhoE ek₂) 9 := by rw [e₂, ← e₁]; exact o₁
-    exact ⟨hl.post C.bs hx.b hy.b, ⟨ek₁, m₁, r₁, e₁, ER.start (h₁.flag hx hc.inK hc.aK hc.sbK) o₁⟩,
-      ⟨ek₂, m₂, r₂, e₂, ER.start (h₂.flag hy hc.inK hc.aK hc.sbK) o₂⟩⟩
+    exact ⟨hl.post C.bs hx.b hy.b,
+      ⟨_, ek₁, m₁, r₁, ⟨e₁, by rw [← e₁]; exact o₁, by rw [e₁]⟩, ER.start (h₁.flag hx hc.inK hc.aK hc.sbK) o₁⟩,
+      ⟨_, ek₂, m₂, r₂, ⟨e₂, by rw [← e₂]; exact o₂, by rw [e₂]⟩, ER.start (h₂.flag hy hc.inK hc.aK hc.sbK) o₂⟩⟩
   · rintro x y ⟨x₀, y₀, ⟨hl, ⟨ek₁, m₁, r₁, e₁, h₁⟩, ⟨ek₂, m₂, r₂, e₂, h₂⟩⟩, hx, hy, he⟩
     have o₁ := KeyGen.r15_eq h₁.r15 he
     have o₂ : ¬ allOk (rhoE ek₂) 9 := by rw [e₂, ← e₁]; exact o₁

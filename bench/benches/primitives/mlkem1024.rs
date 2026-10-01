@@ -1,4 +1,5 @@
-//! ML-KEM-1024: key generation from a seed, encapsulation and decapsulation.
+//! ML-KEM-1024: key generation from a seed, an encapsulation key from its
+//! bytes (which checks it), encapsulation and decapsulation.
 //!
 //! OpenSSL implements ML-KEM from version 3.5, which the runners' OpenSSL
 //! (3.0) predates, and rust-openssl has no encapsulation API, so there is
@@ -22,7 +23,7 @@ pub fn bench(c: &mut Criterion) {
     use std::hint::black_box;
 
     use criterion::BenchmarkId;
-    use verified_garbage::mlkem1024::DecapsulationKey1024;
+    use verified_garbage::mlkem1024::{DecapsulationKey1024, EncapsulationKey1024};
 
     use crate::VG;
     let seed = [0x42; 64];
@@ -32,6 +33,12 @@ pub fn bench(c: &mut Criterion) {
     let mut g = c.benchmark_group("mlkem1024_keygen");
     g.bench_function(BenchmarkId::new(VG, 1568 + 64), |b| {
         b.iter(|| DecapsulationKey1024::from_seed(black_box(&seed)).unwrap())
+    });
+    g.finish();
+    let ek_bytes = *ek.as_bytes();
+    let mut g = c.benchmark_group("mlkem1024_ek_from_bytes");
+    g.bench_function(BenchmarkId::new(VG, 1568), |b| {
+        b.iter(|| EncapsulationKey1024::from_bytes(black_box(&ek_bytes)).unwrap())
     });
     g.finish();
     let mut g = c.benchmark_group("mlkem1024_encaps");

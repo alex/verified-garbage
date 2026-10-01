@@ -21,16 +21,18 @@ namespace KeyGen4
 
 open VG.Impl.MlKem1024.X86_64.KeyGen1024
 
-theorem kc_lrel {σ₁ σ₂ x y : State} (p₁ : keyGen1024K.pre σ₁) (p₂ : keyGen1024K.pre σ₂) (pub : keyGen1024K.pub σ₁ σ₂)
+variable {K : KPre}
+
+theorem kc_lrel {σ₁ σ₂ x y : State} (p₁ : K.pre σ₁) (p₂ : K.pre σ₂) (pub : K.pub σ₁ σ₂)
     (h₁ : KC σ₁ x) (h₂ : KC σ₂ y) : LRel kgR kgW x y := by
-  obtain ⟨e1, e2, e3, e4, e5, _⟩ := pub
+  obtain ⟨e1, e2, e3, e4, e5, _⟩ := K.eq pub
   refine ⟨h₁.lay p₁, h₂.lay p₂, fa4 ?_ ?_ ?_ ?_, by rw [h₁.top.rsp, h₂.top.rsp, e5]⟩
   · rw [h₁.top.regs (.rbp, .rdi) (by decide), h₂.top.regs (.rbp, .rdi) (by decide), e1]
   · rw [h₁.top.regs (.rbx, .rcx) (by decide), h₂.top.regs (.rbx, .rcx) (by decide), e4]
   · rw [h₁.top.regs (.r12, .rsi) (by decide), h₂.top.regs (.r12, .rsi) (by decide), e2]
   · rw [h₁.top.regs (.r13, .rdx) (by decide), h₂.top.regs (.r13, .rdx) (by decide), e3]
 
-theorem rho_pub {σ₁ σ₂ : State} (pub : keyGen1024K.pub σ₁ σ₂) : rhoK σ₁ = rhoK σ₂ := pub.2.2.2.2.2
+theorem rho_pub {σ₁ σ₂ : State} (pub : K.pub σ₁ σ₂) : rhoK σ₁ = rhoK σ₂ := (K.eq pub).2.2.2.2.2
 
 /-! ## `G` -/
 
@@ -49,14 +51,14 @@ theorem gRho_trL : RelCT isa (LRel kgR kgW) gRho fun _ _ => True := by
     (taintRel [.rbx] (fun x y h r hr => by
       simp only [List.mem_singleton] at hr; subst hr; exact h.eq (p := sc 0) (l := 1) (by decide)) (by taint_decide)))
 
-theorem gRho_tr : RelCT isa (Rel2 keyGen1024K.pre keyGen1024K.pub fun σ s => KC σ s ∧ s.gpr .r15 = 1) gRho
+theorem gRho_tr : RelCT isa (Rel2 K.pre K.pub fun σ s => KC σ s ∧ s.gpr .r15 = 1) gRho
     fun _ _ => True :=
   rel2_of gRho_trL fun _ _ _ _ p₁ p₂ pub h₁ h₂ => kc_lrel p₁ p₂ pub h₁.1 h₂.1
 
 /-! ## The matrix -/
 
 theorem quad_trK (v : Sample4Impl) {e : Nat} (hc : kqChk e = true) (he : e + 4 ≤ 16) :
-    RelCT isa (Rel2 keyGen1024K.pre keyGen1024K.pub (KB e)) (quad v.callee 4 e (sc (oP (17 + e))) (pS 35))
+    RelCT isa (Rel2 K.pre K.pub (KB e)) (quad v.callee 4 e (sc (oP (17 + e))) (pS 35))
       fun _ _ => True := by
   simp only [kqChk, Bool.and_eq_true] at hc
   exact rel2_of (RelCT.exists_ fun ρ => quad_tr (ρ := ρ) v kgB_bases (by omega) (fun k hk => ⟨by omega, by omega⟩)
@@ -65,8 +67,8 @@ theorem quad_trK (v : Sample4Impl) {e : Nat} (hc : kqChk e = true) (he : e + 4 �
       ⟨h₁.a.sb, fun _ h => absurd h (Nat.not_lt_zero _)⟩,
       ⟨h₂.a.sb.trans (rho_pub pub).symm, fun _ h => absurd h (Nat.not_lt_zero _)⟩⟩
 
-theorem samples_tr (v : Sample4Impl) : RelCT isa (Rel2 keyGen1024K.pre keyGen1024K.pub (KB 0)) (samples4 v.callee)
-    (Rel2 keyGen1024K.pre keyGen1024K.pub (KB 16)) := by
+theorem samples_tr (v : Sample4Impl) : RelCT isa (Rel2 K.pre K.pub (KB 0)) (samples4 v.callee)
+    (Rel2 K.pre K.pub (KB 16)) := by
   unfold samples4
   exact RelCT.seq (relInv (fun σ s hp hs => quad_step v hp kqChk_all.1 (by decide) hs)
     (quad_trK v kqChk_all.1 (by decide))) (RelCT.seq (relInv (fun σ s hp hs => quad_step v hp kqChk_all.2.1
@@ -82,7 +84,7 @@ theorem setNB9_taint : ∀ N < 9, (taint.check (X86_64.Taint.ofRegs [.rbx]) (.bl
   decide +kernel
 
 theorem se_tr {N : Nat} (hN : N < 8) :
-    RelCT isa (Rel2 keyGen1024K.pre keyGen1024K.pub (KRest N 0 0)) (se N) fun _ _ => True := by
+    RelCT isa (Rel2 K.pre K.pub (KRest N 0 0)) (se N) fun _ _ => True := by
   have hc := seChk_all N hN
   simp only [seChk, Bool.and_eq_true] at hc
   obtain ⟨⟨hpc, hic⟩, _⟩ := hc
@@ -97,7 +99,7 @@ theorem se_tr {N : Nat} (hN : N < 8) :
 /-! ## The rows of `ek` -/
 
 theorem row_tr {i : Nat} (hi : i < 4) :
-    RelCT isa (Rel2 keyGen1024K.pre keyGen1024K.pub (KRest 8 i 0)) (row i) fun _ _ => True := by
+    RelCT isa (Rel2 K.pre K.pub (KRest 8 i 0)) (row i) fun _ _ => True := by
   have hc := rowChk_all i hi
   simp only [rowChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨hdc, hac⟩, hk3⟩, htw⟩, _⟩ := hc
@@ -121,7 +123,7 @@ theorem row_tr {i : Nat} (hi : i < 4) :
 /-! ## The rows of `dk` -/
 
 theorem encS_tr {j : Nat} (hj : j < 4) :
-    RelCT isa (Rel2 keyGen1024K.pre keyGen1024K.pub (KRest 8 4 j)) (encS j) fun _ _ => True := by
+    RelCT isa (Rel2 K.pre K.pub (KRest 8 4 j)) (encS j) fun _ _ => True := by
   have hc := encSChk_all j hj
   simp only [encSChk, Bool.and_eq_true] at hc
   exact rel2_of (enc12At_trL KeyGen.r13_na hc.1) fun _ _ _ _ p₁ p₂ pub h₁ h₂ =>
@@ -148,7 +150,7 @@ theorem fin_trL : RelCT isa (LRel kgR kgW) fin fun _ _ => True := by
         (by decide) (show 6 < 256 by decide) Lx) fun _ h => ⟨_, h.1⟩)
     (tr (by taint_decide))))
 
-theorem fin_tr : RelCT isa (Rel2 keyGen1024K.pre keyGen1024K.pub (KRest 8 4 4)) fin fun _ _ => True :=
+theorem fin_tr : RelCT isa (Rel2 K.pre K.pub (KRest 8 4 4)) fin fun _ _ => True :=
   rel2_of fin_trL fun _ _ _ _ p₁ p₂ pub h₁ h₂ => kc_lrel p₁ p₂ pub h₁.kc h₂.kc
 
 end KeyGen4

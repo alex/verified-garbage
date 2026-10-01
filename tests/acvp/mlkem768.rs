@@ -120,9 +120,17 @@ fn encapsulation() {
     assert_eq!(vectors.len(), 25);
     for v in &vectors {
         let ek = EncapsulationKey768::from_bytes(&array(&v.ek)).unwrap();
-        let (k, c) = ek.encapsulate_internal(&array(&v.m)).unwrap();
-        assert_eq!(k[..], unhex(&v.k));
-        assert_eq!(c[..], unhex(&v.c));
+        // On x86-64, the first encapsulation uses the key alone, the second
+        // expands it, and the third uses the expanded key: all agree.
+        for _ in 0..3 {
+            let (k, c) = ek.encapsulate_internal(&array(&v.m)).unwrap();
+            assert_eq!(k[..], unhex(&v.k));
+            assert_eq!(c[..], unhex(&v.c));
+        }
+        assert_eq!(
+            ek.clone().encapsulate_internal(&array(&v.m)).unwrap().1[..],
+            unhex(&v.c)
+        );
     }
 }
 

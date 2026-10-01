@@ -20,6 +20,8 @@ namespace KeyGen
 
 open VG.Impl.MlKem.X86_64.KeyGen
 
+variable {K : KPre}
+
 /-- `ρ` of `σ`. -/
 abbrev rhoK (σ : State) : List Byte := kgRho (kgD σ)
 
@@ -42,7 +44,7 @@ def restChk (n r e : Nat) (ws : List (Ptr × Nat)) : Bool :=
     (List.range r).all (fun i => keepB kgB ws (.r12, 384 * i) 384) &&
     (List.range e).all (fun j => keepB kgB ws (.r13, 384 * j) 384)
 
-theorem KRest.keep {σ : State} (hp : keyGenK.pre σ) {n r e : Nat} {s s' : State} (h : KRest n r e σ s)
+theorem KRest.keep {σ : State} (hp : K.pre σ) {n r e : Nat} {s s' : State} (h : KRest n r e σ s)
     {ws : List (Ptr × Nat)} (hP : PPost s s' ws) (hc : restChk n r e ws = true) : KRest n r e σ s' := by
   simp only [restChk, Bool.and_eq_true, List.all_eq_true, List.mem_range] at hc
   obtain ⟨⟨⟨⟨⟨⟨hkc, kG⟩, kS⟩, kA⟩, kP⟩, kE⟩, kD⟩ := hc
@@ -73,7 +75,7 @@ def seChk (N : Nat) : Bool := prfChk kgB kgW (pS N) && ipChk kgB kgW (pS N) && r
 
 theorem seChk_all : ∀ N < 6, seChk N = true := by decide
 
-theorem se_ok {σ : State} (hp : keyGenK.pre σ) {N : Nat} (hN : N < 6) {s : State} (h : KRest N 0 0 σ s) :
+theorem se_ok {σ : State} (hp : K.pre σ) {N : Nat} (hN : N < 6) {s : State} (h : KRest N 0 0 σ s) :
     WP isa (se N) s (KRest (N + 1) 0 0 σ) := by
   have hc := seChk_all N hN
   simp only [seChk, Bool.and_eq_true] at hc
@@ -111,7 +113,7 @@ def rowChk (i : Nat) : Bool :=
 
 theorem rowChk_all : ∀ i < 3, rowChk i = true := by decide
 
-theorem row_ok {σ : State} (hp : keyGenK.pre σ) {i : Nat} (hi : i < 3) {s : State} (h : KRest 6 i 0 σ s) :
+theorem row_ok {σ : State} (hp : K.pre σ) {i : Nat} (hi : i < 3) {s : State} (h : KRest 6 i 0 σ s) :
     WP isa (row i) s (KRest 6 (i + 1) 0 σ) := by
   have hc := rowChk_all i hi
   simp only [rowChk, Bool.and_eq_true] at hc
@@ -140,7 +142,7 @@ def encSChk (j : Nat) : Bool :=
 
 theorem encSChk_all : ∀ j < 3, encSChk j = true := by decide
 
-theorem encS_ok {σ : State} (hp : keyGenK.pre σ) {j : Nat} (hj : j < 3) {s : State} (h : KRest 6 3 j σ s) :
+theorem encS_ok {σ : State} (hp : K.pre σ) {j : Nat} (hj : j < 3) {s : State} (h : KRest 6 3 j σ s) :
     WP isa (encS j) s (KRest 6 3 (j + 1) σ) := by
   have hc := encSChk_all j hj
   simp only [encSChk, Bool.and_eq_true] at hc
@@ -166,8 +168,15 @@ structure KFin (σ s : State) : Prop where
   ek : bytesAt s.mem (pa s (.r12, 0)) 1184 = ekPKE768 (aHat (rhoK σ)) (kgD σ)
   dk : bytesAt s.mem (pa s (.r13, 0)) 2400 = dkPKE768 (kgD σ) ++ ekPKE768 (aHat (rhoK σ)) (kgD σ) ++
     H (ekPKE768 (aHat (rhoK σ)) (kgD σ)) ++ kgZ σ
+  mat : ∀ i < 3, ∀ j < 3, PolyIs s.mem (pa s (aS i j)) (aHat (rhoK σ) i j)
 
-theorem fin_ok {σ : State} (hp : keyGenK.pre σ) {s : State} (h : KRest 6 3 3 σ s) :
+/-- What `fin` writes. -/
+abbrev finW : List (Ptr × Nat) := [((.r12, 1152), 32)] ++ [((.r13, 1152), 1184)] ++
+  [(sc 0, 200), (sc 200, 640), ((.r13, 2336), 32)] ++ [((.r13, 2368), 32)]
+
+theorem fin_keepA : ∀ e < 9, keepB kgB finW (aS (e / 3) (e % 3)) 1024 = true := by decide
+
+theorem fin_ok {σ : State} (hp : K.pre σ) {s : State} (h : KRest 6 3 3 σ s) :
     WP isa fin s (KFin σ) := by
   have L := h.kc.lay hp
   unfold fin
@@ -205,7 +214,9 @@ theorem fin_ok {σ : State} (hp : keyGenK.pre σ) {s : State} (h : KRest 6 3 3 �
     fun s₄ ⟨hP₄, hb₄⟩ => ?_
   have k₄ := k₃.step hp hP₄.b (by decide)
   rw [k₃.z] at hb₄
-  refine ⟨k₄, ?_, ?_, ?_⟩
+  have hP : PPost s s₄ finW :=
+    PPost.app (PPost.app (PPost.app hP₁ hP₂ (by decide)) hP₃ (by decide)) hP₄ (by decide)
+  refine ⟨k₄, ?_, ?_, ?_, fun i hi j hj => ?_⟩
   · rw [hP₄.cs .r15 (by decide), hP₃.cs .r15 (by decide), hP₂.cs .r15 (by decide), hP₁.cs .r15 (by decide), h.r15]
   · rw [L₃.keepBytes hP₄.b (by decide), L₂.keepBytes hP₃.b (by decide)]; exact hek₂
   · rw [show (2400 : Nat) = 384 + (384 + (384 + (1184 + (32 + 32)))) from rfl, bytesAt_split, bytesAt_split,
@@ -224,6 +235,9 @@ theorem fin_ok {σ : State} (hp : keyGenK.pre σ) {s : State} (h : KRest 6 3 3 �
       L₃.keepBytes hP₄.b (p := (.r13, 2336)) (by decide), hP₃.pa (p := (.r13, 2336)) (by decide), hb₃,
       hP₄.pa (p := (.r13, 2368)) (by decide), hb₄]
     simp only [dkPKE768, List.append_assoc]
+  · have := fin_keepA (3 * i + j) (by omega)
+    rw [show (3 * i + j) / 3 = i by omega, show (3 * i + j) % 3 = j by omega] at this
+    exact L.keepPoly hP.b this (h.mat i hi j hj)
 
 end KeyGen
 
