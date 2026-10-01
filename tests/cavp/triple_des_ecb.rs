@@ -1,41 +1,49 @@
 //! NIST CAVP ECB vectors, with unmodified sources under vectors/.
 
-#![cfg(all(target_arch = "x86_64", feature = "alloc"))]
+#![cfg(target_arch = "x86_64")]
 
 use std::collections::BTreeMap;
 
-use verified_garbage::triple_des_ecb::{Direction, Error, TripleDesEcb};
+use verified_garbage::triple_des_ecb::{Error, TripleDesEcb};
 
 use super::unhex;
 
-fn check(key: &[u8], plaintext: &[u8], ciphertext: &[u8], stream: bool) {
+fn check(key: &[u8], plaintext: &[u8], ciphertext: &[u8], split: bool) {
     assert_eq!(plaintext.len(), ciphertext.len());
-    for (direction, input, expected) in [
-        (Direction::Encrypt, plaintext, ciphertext),
-        (Direction::Decrypt, ciphertext, plaintext),
+    let ctx = TripleDesEcb::new(key).unwrap();
+    let parity: Vec<_> = key.iter().map(|byte| byte ^ 1).collect();
+    let parity_ctx = TripleDesEcb::new(&parity).unwrap();
+    for (operation, input, expected) in [
+        (
+            TripleDesEcb::encrypt as fn(&TripleDesEcb, &mut [u8]) -> Result<(), Error>,
+            plaintext,
+            ciphertext,
+        ),
+        (
+            TripleDesEcb::decrypt as fn(&TripleDesEcb, &mut [u8]) -> Result<(), Error>,
+            ciphertext,
+            plaintext,
+        ),
     ] {
-        let mut ctx = TripleDesEcb::init(key, direction).unwrap();
-        assert_eq!(ctx.update(input), expected);
-        assert!(ctx.finalize().unwrap().is_empty());
-        let parity: Vec<_> = key.iter().map(|byte| byte ^ 1).collect();
-        let mut ctx = TripleDesEcb::init(&parity, direction).unwrap();
-        assert_eq!(ctx.update(input), expected);
-        assert!(ctx.finalize().unwrap().is_empty());
-        if stream {
-            for split in 0..=input.len() {
-                let mut ctx = TripleDesEcb::init(key, direction).unwrap();
-                assert!(ctx.update(&[]).is_empty());
-                let mut output = ctx.update(&input[..split]);
-                assert_eq!(output.len(), split / 8 * 8);
-                assert!(ctx.update(&[]).is_empty());
-                output.extend(ctx.update(&input[split..]));
-                output.extend(ctx.finalize().unwrap());
+        for key_ctx in [&ctx, &parity_ctx] {
+            let mut output = input.to_vec();
+            operation(key_ctx, &mut output).unwrap();
+            assert_eq!(output, expected);
+        }
+        if split {
+            for offset in (0..=input.len()).step_by(8) {
+                let mut output = input.to_vec();
+                operation(&ctx, &mut []).unwrap();
+                operation(&ctx, &mut output[..offset]).unwrap();
+                operation(&ctx, &mut []).unwrap();
+                operation(&ctx, &mut output[offset..]).unwrap();
                 assert_eq!(output, expected);
             }
-            let mut ctx = TripleDesEcb::init(key, direction).unwrap();
-            let output: Vec<_> = input.chunks(1).flat_map(|byte| ctx.update(byte)).collect();
+            let mut output = input.to_vec();
+            for block in output.chunks_mut(8) {
+                operation(&ctx, block).unwrap();
+            }
             assert_eq!(output, expected);
-            assert!(ctx.finalize().unwrap().is_empty());
         }
     }
 }
@@ -120,24 +128,27 @@ fn nist_ecb() {
 
 #[test]
 fn limits_and_empty_input() {
-    for direction in [Direction::Encrypt, Direction::Decrypt] {
-        for len in 0..=33 {
-            let key: Vec<_> = (0..len).map(|i| (17 * i + 3) as u8).collect();
-            if len == 16 || len == 24 {
-                let mut ctx = TripleDesEcb::init(&key, direction).unwrap();
-                assert!(ctx.update(&[]).is_empty());
-                assert!(ctx.finalize().unwrap().is_empty());
-                for n in 1..8 {
-                    let mut ctx = TripleDesEcb::init(&key, direction).unwrap();
-                    assert!(ctx.update(&[0; 7][..n]).is_empty());
-                    assert_eq!(ctx.finalize(), Err(Error::IncompleteBlock));
+    for len in 0..=33 {
+        let key: Vec<_> = (0..len).map(|i| (17 * i + 3) as u8).collect();
+        if len == 16 || len == 24 {
+            let ctx = TripleDesEcb::new(&key).unwrap();
+            ctx.encrypt(&mut []).unwrap();
+            ctx.decrypt(&mut []).unwrap();
+            for n in 1usize..24 {
+                if n.is_multiple_of(8) {
+                    continue;
                 }
-            } else {
-                assert!(matches!(
-                    TripleDesEcb::init(&key, direction),
-                    Err(Error::InvalidKeyLength)
-                ));
+                let mut buffer = vec![0x5a; n];
+                assert_eq!(ctx.encrypt(&mut buffer), Err(Error::IncompleteBlock));
+                assert_eq!(buffer, vec![0x5a; n]);
+                assert_eq!(ctx.decrypt(&mut buffer), Err(Error::IncompleteBlock));
+                assert_eq!(buffer, vec![0x5a; n]);
             }
+        } else {
+            assert!(matches!(
+                TripleDesEcb::new(&key),
+                Err(Error::InvalidKeyLength)
+            ));
         }
     }
 }
