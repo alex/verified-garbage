@@ -455,9 +455,9 @@ theorem restore_ok {w : Nat} {s₀ s₁ : State} (hp : Pre w s₀) (hr15 : s₁.
 
 /-! ## The whole function -/
 
-theorem correct {w : Nat} {P : Params w} {s₀ : State} (hP : Ok P) (hf : CalleeOk P (compress P))
+theorem correct {callee : Impl.Blake2.X86_64.Stream.Callee} {w : Nat} {P : Params w} {s₀ : State} (hP : Ok P) (hf : CalleeOk P callee.code)
     (hpre : (finalizeX86_64 P).pre s₀) :
-    WP isa (Impl.Blake2.X86_64.Stream.finalize P) s₀ fun s' =>
+    WP isa (Impl.Blake2.X86_64.Stream.finalize P callee) s₀ fun s' =>
       gprPreserved s₀ s' ∧ (finalizeX86_64 P).post s₀ s' := by
   have hp := pre_of hpre
   have hw := hP.w
