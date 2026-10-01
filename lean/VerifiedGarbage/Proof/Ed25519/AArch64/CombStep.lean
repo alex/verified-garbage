@@ -62,92 +62,150 @@ theorem CombKeep.powers {base : Addr} {s t : State} (h : CombKeep base s t) :
     PowersKeep base 56 7368 s t :=
   ⟨fun r a b c => h.gpr r a b c, h.rd, h.wr, h.sp, TableFrame.workspace h.mem⟩
 
-/-! ## The mixed addition -/
+/-! ## The mixed additions -/
 
-def addMixedResult (e : Env) : Spec.Ed25519.Point :=
-  let a := (e 1 - e 0) * e 4
-  let b := (e 1 + e 0) * e 5
-  let c := e 3 * e 6
-  let dd := e 2 + e 2
+/-- What `addOddOps` and `addEvenOps` compute, from the accumulator's coordinates and the cached
+entry's. -/
+def mixedResult (x y z t q₀ q₁ q₂ : Spec.X25519.Fe) : Spec.Ed25519.Point :=
+  let a := (y - x) * q₀
+  let b := (y + x) * q₁
+  let c := t * q₂
+  let dd := z + z
   ⟨(b - a) * (dd - c), (dd + c) * (b + a), (dd - c) * (dd + c), (b - a) * (b + a)⟩
 
-theorem pointAddMixed_formula (e : Env) :
-    point (evalOps pointAddMixedOps e) 0 1 2 3 = addMixedResult e := rfl
-
-theorem pointAddMixed_eval (e : Env) (q : Spec.Ed25519.Point) (hq : cachedIn e = cache q)
-    (hz : q.Z = 1) :
-    point (evalOps pointAddMixedOps e) 0 1 2 3 = Spec.Ed25519.pointAdd (point e 0 1 2 3) q := by
-  have h4 : e 4 = q.Y - q.X := congrArg Spec.Ed25519.Point.X hq
-  have h5 : e 5 = q.Y + q.X := congrArg Spec.Ed25519.Point.Y hq
-  have h6 : e 6 = q.T * 2 * Spec.Ed25519.d := congrArg Spec.Ed25519.Point.Z hq
-  rw [pointAddMixed_formula]
-  simp only [addMixedResult, point, Spec.Ed25519.pointAdd, h4, h5, h6, hz]
+theorem mixedResult_eq (p q : Spec.Ed25519.Point) (hz : q.Z = 1) :
+    mixedResult p.X p.Y p.Z p.T (q.Y - q.X) (q.Y + q.X) (q.T * 2 * Spec.Ed25519.d) =
+      Spec.Ed25519.pointAdd p q := by
+  simp only [mixedResult, Spec.Ed25519.pointAdd, hz]
   congr 1 <;> ring
 
-theorem pointAddMixed_ok {s : State} {base : Addr} (hs : Scr s base)
-    (q : Spec.Ed25519.Point) (hq : cachedIn (env s.mem base) = cache q) (hz : q.Z = 1) :
-    WP isa (.block pointAddMixed) s fun t =>
+theorem addOdd_formula (e : Env) :
+    point (evalOps addOddOps e) 0 1 2 3 = mixedResult (e 0) (e 1) (e 2) (e 3) (e 4) (e 5) (e 6) := rfl
+
+theorem addEven_formula (e : Env) :
+    point (evalOps addEvenOps e) 17 18 19 20 =
+      mixedResult (e 17) (e 18) (e 19) (e 20) (e 13) (e 14) (e 15) := rfl
+
+theorem mixed_eval {e : Env} {a b c : Slot} {q : Spec.Ed25519.Point}
+    (hq : cachedAt e a b c = cache q) (p : Spec.Ed25519.Point) (hz : q.Z = 1) :
+    mixedResult p.X p.Y p.Z p.T (e a) (e b) (e c) = Spec.Ed25519.pointAdd p q := by
+  have h4 : e a = q.Y - q.X := congrArg Spec.Ed25519.Point.X hq
+  have h5 : e b = q.Y + q.X := congrArg Spec.Ed25519.Point.Y hq
+  have h6 : e c = q.T * 2 * Spec.Ed25519.d := congrArg Spec.Ed25519.Point.Z hq
+  rw [h4, h5, h6, mixedResult_eq p q hz]
+
+theorem addOdd_ok {s : State} {base : Addr} (hs : Scr s base)
+    (q : Spec.Ed25519.Point) (hq : cachedAt (env s.mem base) 4 5 6 = cache q) (hz : q.Z = 1) :
+    WP isa (.block (fieldCode addOddOps)) s fun t =>
       Keep base s t ∧ point (env t.mem base) 0 1 2 3 =
         Spec.Ed25519.pointAdd (point (env s.mem base) 0 1 2 3) q ∧
-      ∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i := by
-  refine WP.mono (fieldCode_ok pointAddMixedOps hs) fun t ⟨hk, hv⟩ => ?_
+      ∀ i : Slot, (4 ≤ i.val ∧ i.val < 8 ∨ 13 ≤ i.val) → env t.mem base i = env s.mem base i := by
+  refine WP.mono (fieldCode_ok addOddOps hs) fun t ⟨hk, hv⟩ => ?_
   rw [hv]
-  exact ⟨hk, pointAddMixed_eval _ q hq hz, point_ops_high _ (by decide) _⟩
+  refine ⟨hk, (addOdd_formula _).trans (mixed_eval hq (point (env s.mem base) 0 1 2 3) hz),
+    fun i hi => ?_⟩
+  apply evalOps_unchanged
+  intro op hop h
+  have : ∀ op ∈ addOddOps, (fieldDest op).val < 4 ∨ (8 ≤ (fieldDest op).val ∧ (fieldDest op).val < 13) :=
+    by decide
+  have := this op hop
+  rw [← h] at this
+  omega
 
-/-! ## `[G]B` -/
+theorem addEven_ok {s : State} {base : Addr} (hs : Scr s base)
+    (q : Spec.Ed25519.Point) (hq : cachedAt (env s.mem base) 13 14 15 = cache q) (hz : q.Z = 1) :
+    WP isa (.block (fieldCode addEvenOps)) s fun t =>
+      Keep base s t ∧ point (env t.mem base) 17 18 19 20 =
+        Spec.Ed25519.pointAdd (point (env s.mem base) 17 18 19 20) q ∧
+      ∀ i : Slot, (i.val < 8 ∨ 13 ≤ i.val ∧ i.val < 17 ∨ 21 ≤ i.val) →
+        env t.mem base i = env s.mem base i := by
+  refine WP.mono (fieldCode_ok addEvenOps hs) fun t ⟨hk, hv⟩ => ?_
+  rw [hv]
+  refine ⟨hk, (addEven_formula _).trans (mixed_eval hq (point (env s.mem base) 17 18 19 20) hz),
+    fun i hi => ?_⟩
+  apply evalOps_unchanged
+  intro op hop h
+  have : ∀ op ∈ addEvenOps, (8 ≤ (fieldDest op).val ∧ (fieldDest op).val < 13) ∨
+      (17 ≤ (fieldDest op).val ∧ (fieldDest op).val < 21) := by decide
+  have := this op hop
+  rw [← h] at this
+  omega
 
-def addGOps : List FieldOp :=
-  [.const 4 combGCached.X, .const 5 combGCached.Y, .const 6 combGCached.Z]
+/-! ## The negations -/
 
-theorem combAddG_ok {s : State} {base : Addr} (hs : Scr s base) :
-    WP isa (.block combAddG) s fun t => Keep base s t ∧
-      point (env t.mem base) 0 1 2 3 = Spec.Ed25519.pointAdd (point (env s.mem base) 0 1 2 3) combG ∧
-      ∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i := by
-  rw [combAddG, WP.block_append_iff]
-  refine WP.mono (fieldCode_ok addGOps hs) fun a ⟨ka, va⟩ => ?_
-  have ha16 : ∀ i : Slot, 16 ≤ i.val → env a.mem base i = env s.mem base i := fun i hi => by
-    rw [va]; exact point_ops_high _ (by decide) _ i hi
-  have hp : point (env a.mem base) 0 1 2 3 = point (env s.mem base) 0 1 2 3 := by rw [va]; rfl
-  have hc : cachedIn (env a.mem base) = cache combG := by
-    rw [va, ← combGCached_eq]; rfl
-  refine WP.mono (pointAddMixed_ok (ka.scr hs) combG hc rfl) fun t ⟨kt, tp, th⟩ =>
-    ⟨ka.trans kt, by rw [tp, hp], fun i hi => (th i hi).trans (ha16 i hi)⟩
+private theorem index3_fact : ∀ j < 32, BitVec.ofNat 64 j <<< 3 = BitVec.ofNat 64 (8 * j) := by
+  decide +kernel
 
-/-! ## The negation -/
+private theorem bit_mask : ∀ b < 2,
+    ((BitVec.ofNat 8 b).setWidth 32).setWidth 64 - BitVec.ofNat 64 1 = mask (decide (b = 0)) := by
+  decide
 
-theorem movMask_ok (s : State) :
-    WP isa (.block [mov .x3 .x1]) s fun t => t.gpr .x3 = s.gpr .x1 ∧ Keeps [.x3] s t := by
+theorem nib_neg (S i : Nat) : decide (nib S i < 8) = decide ((S / 2 ^ (4 * i + 3)) % 2 = 0) := by
+  rw [nib_bits]
+  have h0 := Nat.mod_lt (S / 2 ^ (4 * i)) (show 2 > 0 by decide)
+  have h1 := Nat.mod_lt (S / 2 ^ (4 * i + 1)) (show 2 > 0 by decide)
+  have h2 := Nat.mod_lt (S / 2 ^ (4 * i + 2)) (show 2 > 0 by decide)
+  have h3 := Nat.mod_lt (S / 2 ^ (4 * i + 3)) (show 2 > 0 by decide)
+  apply decide_eq_decide.mpr
+  omega
+
+theorem signLoad_ok {s : State} {base : Addr} (hs : Scr s base) {S j i o : Nat} (hj : j < 32)
+    (hi : i < 64) (hoi : 8 * j + o = 768 + 4 * i) (ho : o + 3 < 4096)
+    (hc : s.gpr .x19 = BitVec.ofNat 64 j)
+    (hb : ∀ q < 256, s.mem (off base (768 + q)) = BitVec.ofNat 8 ((S / 2 ^ q) % 2)) :
+    WP isa (.block [.lsl .x .x3 .x19 3, .add .x .x3 .x0 .x3, .ldrb .x3 .x3 (o + 3),
+      .subImm .x .x3 .x3 1]) s fun t =>
+      t.gpr .x3 = mask (decide (nib S i < 8)) ∧ Keeps [.x3] s t := by
+  have hr : InRegions (s.rd ++ s.wr) (off base (768 + (4 * i + 3))) 1 :=
+    ⟨_, List.mem_append_right _ hs.wr, Offset.contains_base _ (by omega) (by omega)⟩
+  have he : base + BitVec.ofNat 64 (8 * j) + BitVec.ofNat 64 (o + 3) = off base (768 + (4 * i + 3)) := by
+    rw [BitVec.add_assoc, ← BitVec.ofNat_add]
+    exact congrArg (off base) (by omega)
+  have hv := bit_mask _ (Nat.mod_lt (S / 2 ^ (4 * i + 3)) (show 2 > 0 by decide))
+  rw [← hb _ (by omega), ← nib_neg] at hv
   apply WP.of_runBlock
-  simp only [mov, runBlock_cons, runStep_some, runBlock_nil, exec_addImm_x (show 0 < 4096 by decide),
-    read_x, RegUpd.gpr_write_self, BitVec.setWidth_eq, BitVec.add_zero,
-    Option.some.injEq, exists_eq_left']
-  exact ⟨True.intro, ⟨fun r hr => RegUpd.gpr_write_of_ne _ _ _ (by simpa using hr), rfl, rfl, rfl, rfl⟩⟩
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, read_x, State.load, addr, Size.bits,
+    show (3 : Nat) < 64 from by decide, show (1 : Nat) < 4096 from by decide,
+    show o + 3 < 4096 * 1 by omega, Nat.mod_one, and_self,
+    RegUpd.gpr_write, RegUpd.mem_write, RegUpd.rd_write, RegUpd.wr_write, BitVec.setWidth_eq,
+    hc, index3_fact j hj, hs.x0, he, hr, read_byte, hv,
+    ite_true, ite_false, reduceCtorEq, Option.map_some, Option.bind_some, Option.some.injEq,
+    exists_eq_left']
+  refine ⟨True.intro, ⟨fun r hr => ?_, rfl, rfl, rfl, rfl⟩⟩
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+  simp only [RegUpd.gpr_write, hr, ite_false]
 
-theorem combNeg_ok {s : State} {base : Addr} (hs : Scr s base) {sw : Bool}
-    (hm : s.gpr .x1 = mask sw) (hz : env s.mem base 21 = 0) :
-    WP isa (.block combNeg) s fun t => Keep base s t ∧
-      cachedIn (env t.mem base) =
-        (if sw then negCached (cachedIn (env s.mem base)) else cachedIn (env s.mem base)) ∧
-      ∀ i : Slot, (i.val < 4 ∨ 9 ≤ i.val) → env t.mem base i = env s.mem base i := by
+/-- The negation, on the environment. -/
+theorem neg_env (e : Env) (a b c : Slot) (sw : Bool) (hab : a ≠ b) (hc8 : c ≠ 8) (ha : a ≠ 8)
+    (hb : b ≠ 8) (hac : a ≠ c) (hbc : b ≠ c) (hz : e 21 = 0) :
+    cachedAt (swapEnvs [(a, b), (c, 8)] sw (evalOps [.sub 8 21 c] e)) a b c =
+      if sw then negCached (cachedAt e a b c) else cachedAt e a b c := by
+  cases sw <;> simp [cachedAt, negCached, swapEnvs, swapEnv, evalOps, evalOp,
+    hab, hc8, ha, hb, ha.symm, hb.symm, hac, hac.symm, hbc, hbc.symm, hz]
+
+theorem neg_other (e : Env) (a b c : Slot) (sw : Bool) (i : Slot) (ha : i ≠ a) (hb : i ≠ b)
+    (hc : i ≠ c) (h8 : i ≠ 8) :
+    swapEnvs [(a, b), (c, 8)] sw (evalOps [.sub 8 21 c] e) i = e i := by
+  cases sw <;> simp [swapEnvs, swapEnv, evalOps, evalOp, Function.update_apply, ha, hb, hc, h8]
+
+theorem combNeg_ok {s : State} {base : Addr} (hs : Scr s base) {S j i o : Nat} (a b c : Slot)
+    (hj : j < 32) (hi : i < 64) (hoi : 8 * j + o = 768 + 4 * i) (ho : o + 3 < 4096)
+    (hc : s.gpr .x19 = BitVec.ofNat 64 j)
+    (hb : ∀ q < 256, s.mem (off base (768 + q)) = BitVec.ofNat 8 ((S / 2 ^ q) % 2))
+    (hdis : ∀ ab ∈ [(a, b), (c, (8 : Slot))], ab.1 ≠ ab.2) :
+    WP isa (.block (combNeg a b c o)) s fun t => Keep base s t ∧
+      env t.mem base = swapEnvs [(a, b), (c, 8)] (decide (nib S i < 8))
+        (evalOps [.sub 8 21 c] (env s.mem base)) := by
   rw [combNeg, List.append_assoc, WP.block_append_iff]
-  refine WP.mono (fieldCode_ok [.sub 8 21 6] hs) fun a ⟨ka, va⟩ => ?_
+  refine WP.mono (fieldCode_ok [.sub 8 21 c] hs) fun u ⟨ku, vu⟩ => ?_
   rw [WP.block_append_iff]
-  refine WP.mono (movMask_ok a) fun b ⟨b3, kb⟩ => ?_
-  have kab : Keep base a b := Keep.of_keeps kb (by decide)
-  refine WP.mono (swapFields_ok (sw := sw) ((ka.trans kab).scr hs) [(4, 5), (6, 8)]
-    (by intro ab hab; simp only [List.mem_cons, List.not_mem_nil, or_false] at hab
-        rcases hab with rfl | rfl <;> decide)
-    (b3.trans ((ka.gpr .x1 (by decide)).trans hm))) fun t ⟨kt, _, vt⟩ => ?_
-  refine ⟨(ka.trans kab).trans kt, ?_, fun i hi => ?_⟩
-  · rw [vt, kb.mem, va]
-    cases sw <;>
-      simp [cachedIn, negCached, swapEnvs, swapEnv, evalOps, evalOp, hz]
-  · rw [vt, kb.mem, va]
-    have h4 : i ≠ 4 := fun h => by subst h; simp at hi
-    have h5 : i ≠ 5 := fun h => by subst h; simp at hi
-    have h6 : i ≠ 6 := fun h => by subst h; simp at hi
-    have h8 : i ≠ 8 := fun h => by subst h; simp at hi
-    cases sw <;> simp [swapEnvs, swapEnv, evalOps, evalOp, h4, h5, h6, h8]
+  refine WP.mono (signLoad_ok (S := S) (ku.scr hs) hj hi hoi ho ((ku.gpr _ (by decide)).trans hc)
+    (fun q hq => by rw [ku.mem _ (by rw [ofs_off' base (by omega)]; omega)]; exact hb q hq))
+    fun v ⟨v3, kv⟩ => ?_
+  have kuv : Keep base u v := Keep.of_keeps kv (by decide)
+  refine WP.mono (swapFields_ok ((ku.trans kuv).scr hs) [(a, b), (c, 8)] hdis v3)
+    fun t ⟨kt, _, vt⟩ => ⟨(ku.trans kuv).trans kt, ?_⟩
+  rw [vt, kv.mem, vu]
 
 /-! ## Four doublings -/
 

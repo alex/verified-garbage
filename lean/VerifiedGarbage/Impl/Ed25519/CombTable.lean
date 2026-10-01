@@ -286,8 +286,4 @@ def combCached (j k : Nat) : Spec.Ed25519.Point :=
 /-- `[G]B`, with `Z = 1`. -/
 def combG : Spec.Ed25519.Point := ⟨combGAff.1, combGAff.2, 1, combGAff.1 * combGAff.2⟩
 
-/-- `[G]B`, cached. -/
-def combGCached : Spec.Ed25519.Point :=
-  ⟨combGAff.2 - combGAff.1, combGAff.2 + combGAff.1, combGAff.1 * combGAff.2 * 2 * Spec.Ed25519.d, 2⟩
-
 end VG.Impl.Ed25519
