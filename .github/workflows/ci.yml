@@ -252,6 +252,58 @@ jobs:
           path: "*.lcov"
           if-no-files-found: error
 
+  # The ARM code in Thumb (T32): the `rust` job's ARMv7 target assembles it
+  # as A32, while thumbv7neon-*, Android, Windows and M-profile targets
+  # assemble the same text as T32 (see "Modelling choices" in
+  # lean/VerifiedGarbage/TCB/Arm/Isa.lean). Run natively, like ARMv7, on the
+  # ARM64 host. Without coverage: the standard library of this target has
+  # no profiler runtime, and its Rust code is the ARMv7 job's, which is
+  # covered there.
+  rust-thumb:
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable, "1.88"]
+    name: Rust (Thumb, ${{ matrix.rust }})
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: ghcr.io/pyca/cryptography-runner-ubuntu-rolling:armv7l
+      options: --env RUSTUP_HOME=/root/.rustup
+    env:
+      RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
+      # For every cargo command, with the container's native linker.
+      CARGO_BUILD_TARGET: thumbv7neon-unknown-linux-gnueabihf
+      RUSTFLAGS: -D warnings
+      WYCHEPROOF_ROOT: wycheproof
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: C2SP/wycheproof
+          path: wycheproof
+          persist-credentials: false
+
+      - name: Install Rust
+        run: rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy --target thumbv7neon-unknown-linux-gnueabihf
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: rust-thumb
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: rustc -vV
+      - name: Lint
+        if: ${{ matrix.rust == 'stable' }}
+        run: cargo clippy --all-targets --locked
+      - run: cargo test --locked
+      # That the tests ran T32: the symbol of Thumb code has an odd address
+      # (AAELF32 §5.5.3, "Symbol Values").
+      - name: Check the verified functions are Thumb code
+        run: |
+          find "target/$CARGO_BUILD_TARGET/debug/deps" -maxdepth 1 -type f -executable -exec readelf -sW {} + |
+            awk '$4 == "FUNC" && $8 ~ /vg_/ { n++; if ($2 ~ /[02468aceACE]$/) { print "not Thumb: " $8; bad++ } }
+                 END { print n " verified function symbols"; exit (n == 0 || bad > 0) }'
+
   # CPU feature detection, and the primitives that choose among
   # implementations by CPU feature (see src/cpu.rs), tested end to end on
   # CPUs with different features: this runner's, natively, and CPUs that
@@ -392,7 +444,7 @@ jobs:
   # so the required checks don't have to track every job and matrix entry.
   all-green:
     if: ${{ always() }}
-    needs: [lean, lean-imports, vectors, rust, rust-cpu-features, coverage]
+    needs: [lean, lean-imports, vectors, rust, rust-thumb, rust-cpu-features, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Check every job succeeded
