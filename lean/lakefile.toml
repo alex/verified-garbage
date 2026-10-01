@@ -1,5 +1,8 @@
 name = "VerifiedGarbage"
-defaultTargets = ["VerifiedGarbage", "VerifiedGarbageTest"]
+# Resolve the compiled specifications before the broad library glob. Otherwise
+# Lake can first assign one of these modules to VerifiedGarbage, then try to
+# load NativeSpec (which includes that same module) while compiling it.
+defaultTargets = ["NativeSpec", "VerifiedGarbage", "VerifiedGarbageTest"]
 # Lake already checks several files concurrently. Limit each compiler to
 # two threads so declaration tasks do not contend across all of those files.
 moreLeanArgs = ["-j2"]
@@ -62,7 +65,7 @@ globs = ["VerifiedGarbage.Spec.Sha1", "VerifiedGarbage.Spec.Sha256",
   "VerifiedGarbage.Spec.ChaCha20", "VerifiedGarbage.Spec.Poly1305", "VerifiedGarbage.Spec.Aes",
   "VerifiedGarbage.Spec.Gcm", "VerifiedGarbage.Spec.MlKem", "VerifiedGarbage.Spec.X25519",
   "VerifiedGarbage.Spec.MlDsa", "VerifiedGarbage.Spec.Ed25519", "VerifiedGarbage.Spec.Blake2",
-  "VerifiedGarbage.Spec.X448", "VerifiedGarbage.Spec.Rc2"]
+  "VerifiedGarbage.Spec.X448", "VerifiedGarbage.Spec.Rc2", "VerifiedGarbage.Spec.Argon2"]
 precompileModules = true
 
 # The evaluator of `sig_eval` (`Proof/Framework/SigEval.lean`), a tactic run

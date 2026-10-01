@@ -19,8 +19,10 @@
 //! check of §7.2 in [`EncapsulationKey768::from_bytes`].
 //!
 //! The bound on `SampleNTT`'s loop (280 iterations, as Appendix B allows) is
-//! reached with probability less than 2⁻²⁶¹; the operation then fails with
-//! [`Error::SampleBound`].
+//! reached with probability less than 2⁻²⁶¹ for each call; key generation,
+//! encapsulation and decapsulation each call it 9 times (once for each
+//! entry of the matrix `Â`), so an operation reaches it with probability
+//! less than 2⁻²⁵⁸, and then fails with [`Error::SampleBound`].
 //!
 //! On x86-64, key generation, encapsulation and decapsulation have an
 //! instance for each implementation of `vg_mlkem_sample_ntt4`, which samples
@@ -55,7 +57,9 @@ use crate::cpu::{Features, detected};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
     /// A `SampleNTT` reached the bound on its loop's iterations (FIPS 203
-    /// Appendix B), which happens with probability less than 2⁻²⁶¹.
+    /// Appendix B), which happens with probability less than 2⁻²⁶¹ for each
+    /// call: less than 2⁻²⁵⁸ in an ML-KEM-768 operation (9 calls) and 2⁻²⁵⁷
+    /// in an ML-KEM-1024 one (16 calls).
     SampleBound,
     /// The encapsulation key failed the check of FIPS 203 §7.2.
     InvalidKey,
@@ -105,14 +109,7 @@ impl Backend {
 /// The working space of the assembly functions (32 KiB).
 type Scratch = [u64; 4096];
 
-/// Overwrites `x` with zeros in a way the compiler does not remove.
-pub(crate) fn zeroize<T: Copy + Default>(x: &mut [T]) {
-    for v in x.iter_mut() {
-        // SAFETY: `v` is a valid, aligned, unique reference.
-        unsafe { core::ptr::write_volatile(v, T::default()) };
-    }
-    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
-}
+use crate::zeroize::zeroize;
 
 /// An ML-KEM-768 encapsulation key, which passed the check of FIPS 203 §7.2.
 #[derive(Clone, PartialEq, Eq)]
@@ -197,7 +194,7 @@ impl EncapsulationKey768 {
         };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261.
+            // One of the 9 `SampleNTT`s reaches its bound with probability less than 2^-258.
             // NO-COVERAGE-START
             zeroize(&mut key);
             zeroize(&mut ct);
@@ -265,7 +262,7 @@ impl DecapsulationKey768 {
         };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261;
+            // One of the 9 `SampleNTT`s reaches its bound with probability less than 2^-258;
             // dropping `key` destroys it.
             // NO-COVERAGE-START
             return Err(Error::SampleBound);
@@ -306,24 +303,12 @@ impl DecapsulationKey768 {
         };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261.
+            // One of the 9 `SampleNTT`s reaches its bound with probability less than 2^-258.
             // NO-COVERAGE-START
             zeroize(&mut key);
             return Err(Error::SampleBound);
             // NO-COVERAGE-END
         }
         Ok(key)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::zeroize;
-
-    #[test]
-    fn zeroizes() {
-        let mut x = [1u8, 2, 3];
-        zeroize(&mut x);
-        assert_eq!(x, [0; 3]);
     }
 }

@@ -78,7 +78,10 @@ trustworthy. Read `lean/README.md` first.
   secret operands between Intel's MXCSR prologue and epilogue (`stmxcsr`,
   `ldmxcsr` of `0x1FBF`, `lfence`, … `lfence`, `ldmxcsr` of the saved
   value), which the proofs do not check: see "MCDT" in
-  `lean/VerifiedGarbage/TCB/X86_64/Isa.lean`.
+  `lean/VerifiedGarbage/TCB/X86_64/Isa.lean`. `ci/check_mcdt.py` checks the
+  generated code instead: every instruction on Intel's MCDT list must be
+  inside that exact sequence in its function, entered only through the
+  prologue.
 * `TCB/` holds definitions only and imports only Lean core; lemmas go in
   `Proof/`. `Spec/` and `Impl/` never import `Proof/`.
 
@@ -383,6 +386,7 @@ python3 ci/check_lean_speed.py
 python3 ci/check_vectors.py
 python3 ci/check_arch_gates.py
 python3 ci/check_variants.py
+python3 ci/check_mcdt.py
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 WYCHEPROOF_ROOT=/path/to/wycheproof cargo test
 ```
