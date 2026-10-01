@@ -10,9 +10,12 @@ The state (`rdi`, 128 bytes, see `VG.Spec.Poly1305.Buffered`):
 * `[24, 56)`: the key: `r` (`[24, 40)`) and `s` (`[40, 56)`);
 * `[56, 72)`: the buffer: the message's last bytes that do not fill a block,
   padded in place in `finalize`;
-* `[72, 120)`: the saved `rbx, rbp, r12–r15`.
+* `[72, 128)`: working space: `blocks` and `finalize` save `rbx, rbp,
+  r12–r15` in `[72, 120)`, `update` keeps three registers in `[72, 96)` while
+  it absorbs the buffer, and `vg_poly1305_blocks_avx2` saves MXCSR in
+  `[120, 128)`.
 
-Each call clamps `r = r0 + 2⁶⁴ r1` into `r8, r9` and computes `s1 = r1 + r1 / 4
+Each function that absorbs blocks itself clamps `r = r0 + 2⁶⁴ r1` into `r8, r9` and computes `s1 = r1 + r1 / 4
 = 5 r1 / 4` into `r10` (as `r1` is a multiple of 4), and keeps `h` in `r11,
 rbx, rbp`. A block is absorbed as in OpenSSL's `poly1305_blocks`, with the
 product `(h + m) r` reduced partially (modulo `p = 2¹³⁰ - 5`, using `2¹³⁰ ≡ 5`),
@@ -129,12 +132,31 @@ def blocks : Prog isa :=
     (.block (reduce ++ [.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
       .store (at_ .rdi 16) .rbp] ++ restore)))
 
-/-! ## `update(state = rdi, count = rsi, data = rdx, len = rcx)`
+/-! ## `update(state = rdi, count = rsi, data = rdx, len = rcx, scratch = r8)`
+
+`update` calls an implementation of `vg_poly1305_blocks` (`name`, whose code
+is `code`) for the whole blocks of the data, so it is emitted once for each
+implementation (`Generic/Poly1305Blocks/X86_64/Poly1305.lean`). That callee
+may use the state's working space (bytes 72–127), so our caller's
+callee-saved registers are saved in `scratch` (`saveS`), and the callee keeps
+what we need across the call in callee-saved registers: `rbx` = `state`,
+`rbp` = the data not yet consumed, `r12` = its length and `r15` = `scratch`.
 
 With `rsi` = the data not yet consumed, `rcx` = its length, and `r12` = the
 number of bytes in the buffer (`count mod 16`): a non-empty buffer is filled
-from the data (as far as it goes) and, once full, absorbed; then the whole
-blocks of the data are absorbed, and the rest is copied into the buffer. -/
+from the data (as far as it goes) and, once full, absorbed (`absorbBuf`);
+then the whole blocks of the data are absorbed by the call, if there are
+any, and the rest is copied into the buffer. -/
+
+/-- The callee-saved registers, and where `update` saves them in `scratch`. -/
+def savedS : List (Reg × Nat) :=
+  [(.rbx, 0), (.rbp, 8), (.r12, 16), (.r13, 24), (.r14, 32), (.r15, 40)]
+
+/-- Save them, with `scratch` in `r8`. -/
+def saveS : List Instr := savedS.map fun (r, d) => .store (at_ .r8 d) r
+
+/-- Restore them, with `scratch` in `r15` (`r15`, the base, last). -/
+def restoreS : List Instr := savedS.map fun (r, d) => .mov r (.mem (at_ .r15 d))
 
 /-- Copies the `rax > 0` bytes at `rsi` to the buffer from byte `r12` on,
 advancing `rsi` and `r12`. -/
@@ -149,34 +171,56 @@ def count : Prog isa :=
   (.seq (.ite .b (.block [.mov .rax (.reg .rcx)]) (.block []))
     (.block [.alu .sub .rcx (.reg .rax), .alu .test .rax (.reg .rax)]))
 
+/-- Absorbs the full buffer, with the clamped `r` and `h` loaded from the
+state (`setup`), and stores `h`, reduced fully. `rsi`, `rcx` and `r8`, which
+`setup` and the absorption overwrite, are kept in the state's working space
+meanwhile. -/
+def absorbBuf : List Instr :=
+  [.store (at_ .rdi 72) .rsi, .store (at_ .rdi 80) .rcx, .store (at_ .rdi 88) .r8] ++ setup ++
+    absorbAt .rdi 56 1 ++ reduce ++
+    [.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx, .store (at_ .rdi 16) .rbp,
+      .mov .rsi (.mem (at_ .rdi 72)), .mov .rcx (.mem (at_ .rdi 80)), .mov .r8 (.mem (at_ .rdi 88))]
+
 /-- Fills the buffer with `min(16 - r12, rcx)` bytes of the data, and absorbs
 it if that fills it. -/
 def fill : Prog isa :=
   .seq count
   (.seq (.ite .e (.block []) copyIn)
   (.seq (.block [.alu .cmp .r12 (.imm 16)])
-    (.ite .e (.block (absorbAt .rdi 56 1)) (.block []))))
+    (.ite .e (.block absorbBuf) (.block []))))
 
-/-- Absorbs the whole blocks of the data. -/
-def whole : Prog isa :=
-  .seq (.block [.alu .cmp .rcx (.imm 16)])
-    (.ite .b (.block [])
-      (.loop (.block (absorb 1 ++ [.alu .add .rsi (.imm 16), .alu .sub .rcx (.imm 16),
-        .alu .cmp .rcx (.imm 16)])) .ae))
+/-- What we keep across the call, and its arguments: `state` (still in
+`rdi`), the data not yet consumed (still in `rsi`) and the number of whole
+blocks in it, `rcx / 16`, in `rdx`; then whether there are none. -/
+def callArgs : List Instr :=
+  [.mov .r15 (.reg .r8), .mov .rbx (.reg .rdi), .mov .rbp (.reg .rsi), .mov .r12 (.reg .rcx),
+    .mov .rdx (.reg .rcx), .shift .shr .rdx 4, .alu .cmp .rcx (.imm 16)]
+
+/-- After the call (or none): `state` into `rdi`, the length of the rest,
+`r12 mod 16`, into `rcx`, and the data past the whole blocks,
+`rbp + (r12 - r12 mod 16)`, into `rsi`. -/
+def resume : List Instr :=
+  [.mov .rdi (.reg .rbx), .mov .rcx (.reg .r12), .alu .and .rcx (.imm 15), .mov .rsi (.reg .r12),
+    .alu .sub .rsi (.reg .rcx), .alu .add .rsi (.reg .rbp)]
 
 /-- Copies the rest of the data into the (empty) buffer. -/
 def rest : Prog isa :=
   .seq (.block [.alu .test .rcx (.reg .rcx)])
     (.ite .e (.block []) (.seq (.block [.mov32 .r12 (.imm 0), .mov .rax (.reg .rcx)]) copyIn))
 
-def update : Prog isa :=
-  .seq (.block (save ++ setup ++ [.mov .r12 (.reg .rsi), .alu .and .r12 (.imm 15),
-    .mov .rsi (.reg .rdx), .alu .test .r12 (.reg .r12)]))
-  (.seq (.ite .e (.block []) fill)
-  (.seq whole
-  (.seq rest
-    (.block (reduce ++ [.store (at_ .rdi 0) .r11, .store (at_ .rdi 8) .rbx,
-      .store (at_ .rdi 16) .rbp] ++ restore)))))
+/-- `update` up to the call. -/
+def updatePre : Prog isa :=
+  .seq (.block (saveS ++ [.mov .r12 (.reg .rsi), .alu .and .r12 (.imm 15), .mov .rsi (.reg .rdx),
+    .alu .test .r12 (.reg .r12)]))
+  (.seq (.ite .e (.block []) fill) (.block callArgs))
+
+/-- `update` after the call. -/
+def updatePost : Prog isa := .seq (.block resume) (.seq rest (.block restoreS))
+
+/-- `update`, calling the implementation `name` of `vg_poly1305_blocks`, whose
+code is `code`, for the whole blocks of the data if there are any. -/
+def update (name : String) (code : Prog isa) : Prog isa :=
+  .seq updatePre (.seq (.ite .b (.block []) (.call name code)) updatePost)
 
 /-! ## `finalize(state = rdi, count = rsi, out = rdx)`
 

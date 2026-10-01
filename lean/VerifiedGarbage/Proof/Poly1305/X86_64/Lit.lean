@@ -16,7 +16,8 @@ namespace VG
 
 materialize_code Impl.Poly1305.X86_64.init
 materialize_code Impl.Poly1305.X86_64.blocks
-materialize_code Impl.Poly1305.X86_64.update
+materialize_code Impl.Poly1305.X86_64.updatePre
+materialize_code Impl.Poly1305.X86_64.updatePost
 materialize_code Impl.Poly1305.X86_64.finalize
 
 end VG
