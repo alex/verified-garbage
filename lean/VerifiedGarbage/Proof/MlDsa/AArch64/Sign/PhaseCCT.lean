@@ -176,6 +176,6 @@ theorem commit_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (h3 : Ok
       (fun x y h => h) fun x y h => by rwa [Nat.zero_add] at h
   · refine liftT (fun _ _ h => h.c.l.st) (fun _ _ _ h => ctShake_ok hP hc h) ?_
     obtain ⟨hint, hh⟩ := keccak.mldsaSignCommitTaint p h3
-    exact lrel_tr (fun _ _ h => h) hh
+    exact vector_lrel_tr (fun _ _ h => h) hh
 
 end VG.Proof.MlDsa.AArch64.Sign
