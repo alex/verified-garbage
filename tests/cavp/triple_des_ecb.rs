@@ -1,6 +1,6 @@
 //! NIST CAVP ECB vectors, with unmodified sources under vectors/.
 
-#![cfg(target_arch = "x86_64")]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
 use std::collections::BTreeMap;
 
