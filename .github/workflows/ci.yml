@@ -416,7 +416,7 @@ jobs:
             tests: x25519 cpu
           - chip: native
             os: ubuntu-24.04-arm
-            tests: aes_gcm sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+            tests: aes_gcm cmac sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
     name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     env:
