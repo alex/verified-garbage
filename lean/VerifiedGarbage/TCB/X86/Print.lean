@@ -38,6 +38,34 @@ def AluOp.name : AluOp → String
 def ShiftOp.name : ShiftOp → String
   | .ror => "ror" | .shr => "shr"
 
+def XReg.name : XReg → String
+  | .xmm0 => "xmm0" | .xmm1 => "xmm1" | .xmm2 => "xmm2" | .xmm3 => "xmm3"
+  | .xmm4 => "xmm4" | .xmm5 => "xmm5" | .xmm6 => "xmm6" | .xmm7 => "xmm7"
+
+def MemOp.str128 (m : MemOp) : String := s!"XMMWORD PTR {m.addr}"
+
+def XBinOp.name : XBinOp → String
+  | .movdqa => "movdqa" | .paddd => "paddd" | .pxor => "pxor" | .por => "por"
+  | .pand => "pand" | .pandn => "pandn"
+  | .punpckldq => "punpckldq" | .punpckhdq => "punpckhdq"
+  | .punpcklqdq => "punpcklqdq" | .punpckhqdq => "punpckhqdq"
+  | .pshufb => "pshufb" | .sha256msg1 => "sha256msg1" | .sha256msg2 => "sha256msg2"
+  | .aesenc => "aesenc" | .aesenclast => "aesenclast"
+
+def XShiftOp.name : XShiftOp → String
+  | .pslld => "pslld" | .psrld => "psrld" | .psllq => "psllq" | .psrlq => "psrlq"
+  | .pslldq => "pslldq" | .psrldq => "psrldq"
+
+def XOp.asm : XOp → String
+  | .bin op d r => s!"{op.name} {d.name}, {r.name}"
+  | .shift op d n => s!"{op.name} {d.name}, {n.toNat}"
+  | .pshufd d r o => s!"pshufd {d.name}, {r.name}, {o.toNat}"
+  | .palignr d r n => s!"palignr {d.name}, {r.name}, {n.toNat}"
+  | .sha256rnds2 d r => s!"sha256rnds2 {d.name}, {r.name}, xmm0"
+  | .movd d r => s!"movd {d.name}, {r.name}"
+  | .aeskeygenassist d r n => s!"aeskeygenassist {d.name}, {r.name}, {n.toNat}"
+  | .pclmulqdq d r n => s!"pclmulqdq {d.name}, {r.name}, {n.toNat}"
+
 def Instr.asm : Instr → List String
   | .mov d s => [s!"mov {d.name}, {s.str}"]
   | .store m r => [s!"mov {m.str}, {r.name}"]
@@ -49,6 +77,9 @@ def Instr.asm : Instr → List String
   | .push rs => rs.map fun r => s!"push {r.name}"
   | .pop r k => List.replicate k s!"pop {r.name}"
   | .mul r => [s!"mul {r.name}"]
+  | .movdquLoad d m => [s!"movdqu {d.name}, {m.str128}"]
+  | .movdquStore m r => [s!"movdqu {m.str128}, {r.name}"]
+  | .xop op => [op.asm]
 
 def Cond.name : Cond → String
   | .e => "e" | .ne => "ne" | .b => "b" | .ae => "ae"
