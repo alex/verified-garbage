@@ -13,6 +13,7 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off F Keeps Outside fe_st4 st4_outside)
+open VG.Impl.Ed25519 (baseCached)
 
 theorem baseTableStart_ok {s : State} {base : Addr} (hp : s.gpr .rdi = base) :
     WP isa (.block baseTableStart) s fun t =>

@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.Ed25519.X86_64.BaseTable
+import VerifiedGarbage.Impl.Ed25519.BaseTable
 import VerifiedGarbage.Proof.Ed25519.ScalarMul
 
 /-!
@@ -10,9 +10,9 @@ doublings and compares 256 entries. `d` is replaced by its value first, so
 that the kernel computes its inversion once.
 -/
 
-namespace VG.Proof.Ed25519.X86_64
+namespace VG.Proof.Ed25519
 
-open VG.Spec.Ed25519 VG.Impl.Ed25519.X86_64 VG.Proof.Ed25519
+open VG.Spec.Ed25519 VG.Impl.Ed25519
 
 /-- `[Y - X, Y + X, 2dT, 2Z]`: a point cached for addition. -/
 def cache (q : Point) : Point := ⟨q.Y - q.X, q.Y + q.X, q.T * 2 * d, q.Z * 2⟩
@@ -67,4 +67,4 @@ theorem baseCached_ok (i : Nat) (hi : i < 256) :
     baseCached i = cache (powerPoint basePoint i) :=
   checkList_ok _ _ table_check i (table_length ▸ hi)
 
-end VG.Proof.Ed25519.X86_64
+end VG.Proof.Ed25519
