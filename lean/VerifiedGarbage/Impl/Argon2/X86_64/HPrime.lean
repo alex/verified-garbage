@@ -126,17 +126,24 @@ def chain (h : Hash) : Prog isa :=
   .loop (.seq (.block [.mov32 .rsi (.imm 64)])
     (.seq (next h) (.seq emitPrefix (.block [.alu .cmp .r15 (.imm 65)])))) .ae
 
+/-- Produce the final digest after the 32-byte prefixes of a long output. -/
+def extendDigest (h : Hash) : Prog isa :=
+  .seq emitPrefix
+  (.seq (.block [.alu .cmp .r15 (.imm 65)])
+  (.seq (.ite .b (.block []) (chain h))
+  (.seq (.block [.mov .rsi (.reg .r15)]) (next h))))
+
+def copyRemaining : Prog isa := .seq (.block [.mov .rax (.reg .r15)]) copy
+
+/-- Emit H′ from its first digest, extending it for outputs over 64 bytes. -/
+def finishOutput (h : Hash) : Prog isa :=
+  .seq (.block [.alu .cmp .r15 (.imm 65)])
+  (.seq (.ite .b (.block []) (extendDigest h)) copyRemaining)
+
 /-- H′, including the short-output case and the final 33–64-byte hash. -/
 def code (h : Hash) : Prog isa :=
   .seq (.block setup)
   (.seq (first h)
-  (.seq (.block [.alu .cmp .r15 (.imm 65)])
-  (.seq (.ite .b (.block [])
-    (.seq emitPrefix
-    (.seq (.block [.alu .cmp .r15 (.imm 65)])
-    (.seq (.ite .b (.block []) (chain h))
-    (.seq (.block [.mov .rsi (.reg .r15)]) (next h))))))
-  (.seq (.block [.mov .rax (.reg .r15)])
-  (.seq copy (.block restore))))))
+  (.seq (finishOutput h) (.block restore)))
 
 end VG.Impl.Argon2.X86_64.HPrime

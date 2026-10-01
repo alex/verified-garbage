@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Argon2.X86_64.HPrime.Copy
+import VerifiedGarbage.Proof.Blake2.Stream
 import VerifiedGarbage.Proof.MdStream.X86_64.Common
 
 /-! # H′: emitting a digest or its 32-byte prefix -/
@@ -105,5 +106,15 @@ theorem Emitted.frame {s t : State} (h : Emitted s t) :
   apply writeBytes_frame
   simpa only [bytesAt, List.length_map, List.length_range, BitVec.add_zero] using
     Offset.contains_base (s.gpr .r14) (d := 0) (n := 32) (k := 32) (by decide) (by decide)
+
+theorem Emitted.digest {s t : State} (h : Emitted s t)
+    (sep : (⟨s.gpr .rbx, 16384⟩ : Region).Disjoint ⟨s.gpr .r14, 32⟩) :
+    bytesAt t.mem (s.gpr .rbx + 768) 64 = bytesAt s.mem (s.gpr .rbx + 768) 64 := by
+  apply Proof.Blake2.bytesAt_congr
+  intro i hi
+  apply h.frame.bytes (R := ⟨s.gpr .rbx + 768, 64⟩) _ (show 64 ≤ 2 ^ 64 by decide) hi
+  intro r hr
+  simp only [List.mem_singleton] at hr; subst r
+  exact sep.sub_left (Offset.sub_base _ (by decide : 768 + 64 ≤ 16384))
 
 end VG.Proof.Argon2.X86_64.HPrime

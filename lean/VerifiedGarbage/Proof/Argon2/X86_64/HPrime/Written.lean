@@ -27,6 +27,17 @@ theorem Written.of_keeps {s t : State} (h : Keeps s t) : Written s [] t := by
   · exact (h.regs .r14 (by decide)).trans (BitVec.add_zero _).symm
   · exact h.frame.sub fun r hr => ⟨r, List.mem_append_left _ hr, fun _ hx => hx⟩
 
+theorem Written.before_keeps {s u t : State} {xs : List Byte} (h : Written u xs t)
+    (k : Keeps s u) : Written s xs t := by
+  have dst := k.regs .r14 (by decide)
+  refine ⟨by rw [h.output, dst], fun r hr h1 h2 => (h.regs r hr h1 h2).trans (k.regs r hr),
+    h.rd.trans k.rd, h.wr.trans k.wr, ?_, ?_⟩
+  · have before : Frame [⟨s.gpr .rbx, 832⟩, below (s.gpr .rsp) 16,
+        ⟨s.gpr .r14, xs.length⟩] s.mem u.mem :=
+      k.frame.sub fun r hr => ⟨r, List.mem_append_left _ hr, fun _ hx => hx⟩
+    exact before.trans (by simpa only [dst, k.rbx, k.rsp] using h.frame)
+  · rw [← dst]; exact h.bytes
+
 theorem Written.of_copied {s t : State} {k : Nat} (h : Copied s k t) (hk : k < 2 ^ 64) :
     Written s (bytesAt s.mem (s.gpr .rbx + 768) k) t := by
   have len : (bytesAt s.mem (s.gpr .rbx + 768) k).length = k := by
