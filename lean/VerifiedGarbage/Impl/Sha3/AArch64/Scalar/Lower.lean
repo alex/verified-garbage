@@ -1,0 +1,36 @@
+import VerifiedGarbage.Impl.Sha3.AArch64.Scalar.Core
+
+namespace VG.Impl.Sha3.AArch64.Scalar
+open VG VG.AArch64
+
+/-- Lower the portable operations through the already-reviewed ISA. v28
+backs up x30 around memory accesses; v29 backs up a rotated source when
+its destination aliases the first input. v31 holds the two-slot address. -/
+def lower : ScalarOp → List Instr
+  | .xor d a b => [.logic .eor .x d a b]
+  | .xorRor d a b n =>
+    if d = a then
+      [.vop (.dup .d2 .v29 b), .ror .x b b n,
+       .logic .eor .x d a b, .umov .x b .v29 0]
+    else [.ror .x d b n, .logic .eor .x d a d]
+  | .bic d a b => [.logic .and .x d a b, .logic .eor .x d d a]
+  | .bicRor .. => []
+  | .ror d a n => [.ror .x d a n]
+  | .move d a => [.addImm .x d a 0]
+  | .spill k a =>
+    [.vop (.dup .d2 .v28 .x30), .umov .x .x30 .v31 0,
+     .str .x a .x30 (8 * k), .umov .x .x30 .v28 0]
+  | .reload d k =>
+    [.vop (.dup .d2 .v28 .x30), .umov .x .x30 .v31 0,
+     .ldr .x d .x30 (8 * k), .umov .x .x30 .v28 0]
+
+def Good : ScalarOp → Prop
+  | .xor .. | .move .. => True
+  | .xorRor d a b n => n < 64 ∧ (d = a → a ≠ b)
+  | .bic d a _ => d ≠ a
+  | .bicRor .. => False
+  | .ror _ _ n => n < 64
+  | .spill k a => k < 2 ∧ a ≠ .x30
+  | .reload d k => k < 2 ∧ d ≠ .x30
+
+end VG.Impl.Sha3.AArch64.Scalar
