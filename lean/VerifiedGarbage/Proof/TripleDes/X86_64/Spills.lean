@@ -66,8 +66,8 @@ theorem spillBlock_frame (is : List Instr) (s s' : State)
   | cons i is ih =>
     simp only [List.all_cons, Bool.and_eq_true] at hsafe
     rw [runBlock_cons] at he
-    simp only [runStep, Option.bind_eq_some_iff] at he
-    obtain ⟨s₁, hi, hrest⟩ := he
+    change (exec i s).bind (runBlock isa is) = some s' at he
+    obtain ⟨s₁, hi, hrest⟩ := Option.bind_eq_some_iff.mp he
     obtain ⟨hg, hf⟩ := spillStep_frame i s s₁ hsafe.1 hi
     obtain ⟨hg', hf'⟩ := ih s₁ hsafe.2 hrest
     refine ⟨hg'.trans hg, hf.trans ?_⟩

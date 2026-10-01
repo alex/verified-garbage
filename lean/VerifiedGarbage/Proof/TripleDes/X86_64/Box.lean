@@ -5,10 +5,10 @@ namespace VG.Proof.TripleDes.X86_64
 
 open VG VG.X86_64 VG.X86_64.Straight VG.Impl.TripleDes.X86_64
 
-private theorem run_append (a b : List Instr) (s : State) :
+theorem runBoxes_append (a b : List Instr) (s : State) :
     runBlock isa (a ++ b) s = (runBlock isa a s).bind (runBlock isa b) := by
   induction a generalizing s with
-  | nil => simp [runBlock]
+  | nil => rw [List.nil_append, runBlock_nil]; rfl
   | cons i is ih =>
     show (isa.exec i s).bind _ = ((isa.exec i s).bind _).bind _
     cases isa.exec i s with
@@ -40,7 +40,7 @@ theorem box_ok (i : Nat) (hi : i < 8) (s : State) (hok : Ok sboxCfg s)
     rw [bits j hj 0 (by decide), chunk]
   obtain ⟨s₃, run₃, value, rd₃, wr₃, mem₃, keep₃⟩ := roundOutput_piece i hi s₂ _ hbits
   refine ⟨s₃, ?_, ?_, rd₃.trans (rd₂.trans rd₁), wr₃.trans (wr₂.trans wr₁), ?_, ?_⟩
-  · simp only [box, run_append, run₁, Option.bind_some, run₂, run₃]
+  · simp only [box, runBoxes_append, run₁, Option.bind_some, run₂, run₃]
   · rw [value, keep₂ .r12 (by decide), kept₁ .r12 (by decide)]
   · intro r hr
     rw [keep₃ r (roundOutput_keep i hi r hr), keep₂ r ?_, kept₁ r (List.mem_cons_of_mem _ hr)]
