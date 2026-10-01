@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.ChaCha20.AArch64
+import VerifiedGarbage.Impl.ChaCha20.AArch64.Callee
 
 /-!
 # ChaCha20 keystream XOR: AArch64 implementation
@@ -31,7 +31,7 @@ pointers and the length can affect timing.
 namespace VG.Impl.ChaCha20.AArch64.Xor
 
 open VG.AArch64
-open VG.Impl.ChaCha20.AArch64 (block)
+open VG.Impl.ChaCha20.AArch64 (Callee)
 
 /-- `mov d, n` (as `add d, n, #0`). -/
 def mov (d n : Reg) : Instr := .addImm .x d n 0
@@ -52,17 +52,21 @@ def xorLoop : Prog isa :=
 
 /-- One block: the keystream into `buf`, `x2 = min(64, x20)` bytes of it
 XORed into the data, and the counter incremented. -/
-def body : Prog isa :=
-  .seq (.call "vg_chacha20_block" block)
+def bodyWith (c : Callee) : Prog isa :=
+  .seq (.call c.name c.code)
   (.seq (.block [.lsr .x .x9 .x20 6, mov .x2 .x20])
   (.seq (.ite (.zero .x .x9) (.block []) (.block [.movz .x .x2 64 0]))
   (.seq (.block [.sub .x .x20 .x20 .x2, mov .x7 .x1])
   (.seq xorLoop
     (.block [.ldr .w .x3 .x0 48, .addImm .w .x3 .x3 1, .str .w .x3 .x0 48])))))
 
-def xor : Prog isa :=
+def xorWith (c : Callee) : Prog isa :=
   .seq (.block (save ++ [mov .x19 .x1, mov .x20 .x2, mov .x1 .x3]))
-  (.seq (.ite (.zero .x .x20) (.block []) (.loop body (.nonzero .x .x20)))
+  (.seq (.ite (.zero .x .x20) (.block []) (.loop (bodyWith c) (.nonzero .x .x20)))
     (.block restore))
+
+/-- The baseline implementation. -/
+def body := bodyWith .scalar
+def xor := xorWith .scalar
 
 end VG.Impl.ChaCha20.AArch64.Xor

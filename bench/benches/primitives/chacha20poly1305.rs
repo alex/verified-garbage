@@ -16,7 +16,7 @@ pub fn bench(c: &mut Criterion) {
     use std::hint::black_box;
 
     use criterion::{BenchmarkId, Throughput};
-    use openssl::symm::{Cipher, encrypt_aead};
+    use openssl::symm::{Cipher, decrypt_aead, encrypt_aead};
     use verified_garbage::chacha20poly1305::ChaCha20Poly1305;
 
     use crate::{OPENSSL, SIZES, VG};
@@ -46,6 +46,41 @@ pub fn bench(c: &mut Criterion) {
                     black_box(&aad),
                     black_box(&data),
                     &mut tag,
+                )
+                .unwrap()
+            })
+        });
+    }
+    g.finish();
+
+    let mut g = c.benchmark_group("chacha20poly1305-decrypt");
+    for size in SIZES {
+        g.throughput(Throughput::Bytes(size as u64));
+        let mut ciphertext = vec![0u8; size];
+        let tag = ChaCha20Poly1305::new(&key).encrypt_in_place(&nonce, &aad, &mut ciphertext);
+        let mut data = ciphertext.clone();
+        g.bench_function(BenchmarkId::new(VG, size), |b| {
+            b.iter(|| {
+                data.copy_from_slice(&ciphertext);
+                ChaCha20Poly1305::new(black_box(&key))
+                    .decrypt_in_place(
+                        black_box(&nonce),
+                        black_box(&aad),
+                        black_box(&mut data),
+                        black_box(&tag),
+                    )
+                    .unwrap()
+            })
+        });
+        g.bench_function(BenchmarkId::new(OPENSSL, size), |b| {
+            b.iter(|| {
+                decrypt_aead(
+                    Cipher::chacha20_poly1305(),
+                    black_box(&key),
+                    Some(black_box(&nonce)),
+                    black_box(&aad),
+                    black_box(&ciphertext),
+                    black_box(&tag),
                 )
                 .unwrap()
             })

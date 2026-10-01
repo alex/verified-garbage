@@ -346,7 +346,7 @@ yours to keep:
 
 <td>✅ AVX-512F, AVX2</td>
 
-<td>✅</td>
+<td>✅ NEON</td>
 
 <td>✅</td>
 
@@ -416,7 +416,7 @@ yours to keep:
 
 <td>✅ AVX-512F, AVX2</td>
 
-<td>✅</td>
+<td>✅ NEON</td>
 
 <td>✅</td>
 
