@@ -42,6 +42,7 @@ def expandKeyApi : Api where
   module := "aes"
   name := "vg_aes_expand_key"
   sig := expandKeySig
+  contracts := some fun A stack => expandKeyContract A stack
   summary := "The AES key expansion (FIPS 197 §5.2, `KEYEXPANSION`): writes the key schedule of \
     the `key_len`-byte key at `key`, the words `w[0] … w[4 * Nr + 3]` for `Nr = key_len / 4 + 6` \
     rounds, each as its 4 bytes (`16 * (Nr + 1)` bytes in all), to the start of `*schedule`, as \

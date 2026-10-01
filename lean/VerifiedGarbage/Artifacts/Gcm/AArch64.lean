@@ -27,10 +27,9 @@ def artifacts : List Artifact := [
     contract := Spec.Gcm.ghashContract AArch64.abi
     verified := Proof.Gcm.AArch64.ghash_verified
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
-  { target := AArch64.target
-    module := "gcm"
+  { Spec.Gcm.ghashApi with
     name := "vg_ghash_pmull"
-    sig := Spec.Gcm.ghashSig
+    target := AArch64.target
     doc := "GHASH (SP 800-38D §6.4), with PMULL: replaces the block `*y` with `GHASH_H` \
       continued from `*y` over the `n` 16-byte blocks starting at `data`, where `H` is the \
       hash subkey `*h` (`Y ← (Y ⊕ Xᵢ) • H` for each block `Xᵢ`, in order). Eight blocks at a \

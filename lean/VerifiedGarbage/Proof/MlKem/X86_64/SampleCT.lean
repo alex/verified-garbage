@@ -47,7 +47,7 @@ structure TryPre (s : State) (aP : Addr) (L : List Zq) : Prop where
   rbp : s.gpr .rbp = aP
   rdi : s.gpr .rdi = BitVec.ofNat 64 L.length
   len : L.length < 256
-  wr : pR aP ∈ s.wr
+  wr : WrA s.wr aP
   st : Stored s.mem aP L
 
 /-- The coefficients after a try of the value in `r`. -/
@@ -75,7 +75,7 @@ structure MPre (s : State) (aP : Addr) (L : List Zq) : Prop where
   rbp : s.gpr .rbp = aP
   rdi : s.gpr .rdi = BitVec.ofNat 64 L.length
   len : L.length ≤ 256
-  wr : pR aP ∈ s.wr
+  wr : WrA s.wr aP
   st : Stored s.mem aP L
   cf : s.cf = some (decide ((s.gpr .rdi).toNat < 256))
 
@@ -89,7 +89,7 @@ structure P3 (s : State) (aP : Addr) (L : List Zq) : Prop where
   rbp : s.gpr .rbp = aP
   rdi : s.gpr .rdi = BitVec.ofNat 64 L.length
   len : L.length ≤ 256
-  wr : pR aP ∈ s.wr
+  wr : WrA s.wr aP
   st : Stored s.mem aP L
 
 def R3 (s₁ s₂ : State) : Prop :=
@@ -185,7 +185,7 @@ structure BPre (s : State) (aP : Addr) (L : List Zq) : Prop where
   rbp : s.gpr .rbp = aP
   rdi : s.gpr .rdi = BitVec.ofNat 64 L.length
   len : L.length ≤ 256
-  wr : pR aP ∈ s.wr
+  wr : WrA s.wr aP
   st : Stored s.mem aP L
   r0 : InRegions (s.rd ++ s.wr) (s.gpr .rsi) 1
   r1 : InRegions (s.rd ++ s.wr) (s.gpr .rsi + BitVec.ofNat 64 1) 1
@@ -251,7 +251,7 @@ def LI (N n : Nat) (s₁ s₂ : State) : Prop :=
 
 theorem bpre {σ : State} (hp : sampleK.pre σ) {N t : Nat} (hN : N ≤ 280) (ht : t < N) {s : State}
     (h : LAt σ N t s) : BPre s (aP σ) (Lt σ t) :=
-  ⟨h.env.rbp, h.rdi, sampleAfter_length_le (a := []) (by simp) _ t, by rw [h.env.wr, hp.2.1]; simp, h.stored,
+  ⟨h.env.rbp, h.rdi, sampleAfter_length_le (a := []) (by simp) _ t, WrA.of_mem (by rw [h.env.wr, hp.2.1]; simp), h.stored,
     by simpa using lat_regions hp hN h (k := 0) (by omega), lat_regions hp hN h (by omega),
     lat_regions hp hN h (by omega)⟩
 

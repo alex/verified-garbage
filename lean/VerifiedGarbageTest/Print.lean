@@ -43,6 +43,35 @@ def sample : Prog isa :=
   "ret"
 ]
 
+/-! `Rust.badCall`: the first call that is not of the code it runs. -/
+
+/-- The printed code of the functions `f`, `g` and `k`, which calls `g`. -/
+def printedFG : String → Option (List Line)
+  | "f" => some (printer.function (.block [.mov .rax (.imm 1)]))
+  | "g" => some (printer.function (.block [.mov .rax (.imm 2)]))
+  | "k" => some (printer.function (.call "g" (.block [.mov .rax (.imm 2)])))
+  | _ => none
+
+-- The same code written twice is two values in memory: the later call of
+-- `f` is compared by its printed code.
+#guard Rust.badCall printer printedFG
+  [("f", .block [.mov .rax (.imm 1)]), ("g", .block [.mov .rax (.imm 2)]),
+   ("f", .block [.mov .rax (.imm 1)])] == none
+#guard Rust.badCall printer printedFG [("h", .block [])] == some ("h", false)
+#guard Rust.badCall printer printedFG
+  [("f", .block [.mov .rax (.imm 1)]), ("g", .block [.mov .rax (.imm 1)])] == some ("g", true)
+-- A later call of a function whose first call is of its code.
+#guard Rust.badCall printer printedFG
+  [("f", .block [.mov .rax (.imm 1)]), ("f", .block [.mov .rax (.imm 2)])] == some ("f", true)
+-- Calls nested in a call's code are in `Code.calls`: `k` prints as it should,
+-- but the code its call of `g` runs does not.
+#guard Rust.badCall printer printedFG
+  (Code.calls (.seq (.call "k" (.call "g" (.block [.mov .rax (.imm 2)])))
+    (.call "f" (.block [.mov .rax (.imm 1)])) : Prog isa)) == none
+#guard Rust.badCall printer printedFG
+  (Code.calls (.call "k" (.call "g" (.block [.mov .rax (.imm 3)])) : Prog isa)) ==
+  some ("g", true)
+
 /-- Every 32-bit instruction form. -/
 def sample32 : Prog isa := .block [
   .mov32 .rax (.reg .r8),
@@ -103,6 +132,20 @@ def sample8 : Prog isa := .block ([
   "mov BYTE PTR [rdi-3], r15b",
   "ret"
 ]
+
+-- A displacement is encoded in 32 bits, sign-extended: the printer refuses
+-- one outside `[-2^31, 2^31)`, for every kind of memory operand, and accepts
+-- the bounds.
+#guard printer.unencodable (.mov .rax (.mem { base := .rdi, disp := 2147483647 })) == none
+#guard printer.unencodable (.store { base := .rdi, index := some .rcx, disp := -2147483648 } .rax) ==
+  none
+#guard printer.unencodable (.mov .rax (.mem { base := .rdi, disp := 2147483648 })) ==
+  some "the displacement of the memory operand [rdi+2147483648] does not fit in 32 bits"
+#guard printer.unencodable (.store { base := .rdi, index := some .rcx, disp := -2147483649 } .rax) ==
+  some "the displacement of the memory operand [rdi+rcx*1-2147483649] does not fit in 32 bits"
+#guard (printer.unencodable (.vmovdqu32Store { base := .rsi, disp := 4294967304 } .xmm0)).isSome
+#guard (printer.unencodable (.adox .rax (.mem { base := .rsi, disp := -4294967304 }))).isSome
+#guard printer.unencodable (.alu .add .rax (.imm 0x7fffffff)) == none
 
 /-- The 64-bit shifts and `movabs`, including an immediate ≥ 2⁶³. -/
 def sample64 : Prog isa := .block [

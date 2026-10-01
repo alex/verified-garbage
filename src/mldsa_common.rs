@@ -2,16 +2,12 @@
 //! `crate::mldsa65`, `crate::mldsa87`) share: their API, defined once by
 //! `ml_dsa!` for each parameter set's verified functions and sizes.
 
-#![cfg(target_arch = "x86_64")]
-
-/// Overwrites `x` with zeros in a way the compiler does not remove.
-pub(crate) fn zeroize<T: Copy + Default>(x: &mut [T]) {
-    for v in x.iter_mut() {
-        // SAFETY: `v` is a valid, aligned, unique reference.
-        unsafe { core::ptr::write_volatile(v, T::default()) };
-    }
-    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
-}
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "x86",
+    target_arch = "aarch64",
+    target_arch = "arm"
+))]
 
 /// The message representative `μ = H(tr ‖ M′, 64)` (FIPS 204 Algorithm 7,
 /// line 6) of the message `msg` with the context string `ctx`, formatted as
@@ -45,7 +41,8 @@ macro_rules! ml_dsa {
         sig: $sig:literal,
         scratch: $scratch:literal $(,)?
     ) => {
-        use $crate::mldsa_common::{message_rep, zeroize};
+        use $crate::mldsa_common::message_rep;
+        use $crate::zeroize::zeroize;
 
         /// Why an operation failed.
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -259,14 +256,7 @@ pub(crate) use ml_dsa;
 
 #[cfg(test)]
 mod tests {
-    use super::{message_rep, zeroize};
-
-    #[test]
-    fn zeroizes() {
-        let mut x = [1u8, 2, 3];
-        zeroize(&mut x);
-        assert_eq!(x, [0; 3]);
-    }
+    use super::message_rep;
 
     #[test]
     fn context_too_long() {

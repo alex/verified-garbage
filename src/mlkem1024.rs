@@ -19,8 +19,15 @@
 //! check of §7.2 in [`EncapsulationKey1024::from_bytes`].
 //!
 //! The bound on `SampleNTT`'s loop (280 iterations, as Appendix B allows) is
-//! reached with probability less than 2⁻²⁶¹; the operation then fails with
-//! [`Error::SampleBound`].
+//! reached with probability less than 2⁻²⁶¹ for each call; key generation,
+//! encapsulation and decapsulation each call it 16 times (once for each
+//! entry of the matrix `Â`), so an operation reaches it with probability
+//! less than 2⁻²⁵⁷, and then fails with [`Error::SampleBound`].
+//!
+//! On x86-64, key generation, encapsulation and decapsulation have an
+//! instance for each implementation of `vg_mlkem_sample_ntt4`, which samples
+//! four entries of the matrix at once, and each operation calls the best one
+//! the CPU can run (as ML-KEM-768's).
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -32,8 +39,13 @@
 use crate::arch::mlkem1024::{
     vg_mlkem1024_check_ek, vg_mlkem1024_decaps, vg_mlkem1024_encaps, vg_mlkem1024_keygen,
 };
+#[cfg(target_arch = "x86_64")]
+use crate::arch::mlkem1024::{
+    vg_mlkem1024_decaps_avx2, vg_mlkem1024_encaps_avx2, vg_mlkem1024_keygen_avx2,
+};
+use crate::mlkem768::Backend;
 pub use crate::mlkem768::Error;
-use crate::mlkem768::zeroize;
+use crate::zeroize::zeroize;
 
 /// The working space of the assembly functions (48 KiB).
 type Scratch = [u64; 6144];
@@ -106,11 +118,22 @@ impl EncapsulationKey1024 {
         // reads (and, for the last three, writes) of their sizes; they are
         // distinct Rust objects, so they do not overlap each other or the
         // stack, or wrap around the end of the address space. `self.bytes`
-        // passed `vg_mlkem1024_check_ek`.
-        let r = unsafe { vg_mlkem1024_encaps(&self.bytes, m, &mut key, &mut ct, &mut scratch) };
+        // passed `vg_mlkem1024_check_ek`. `Backend::select` chose AVX2 only
+        // if the CPU has `VG_MLKEM1024_ENCAPS_AVX2_FEATURES`.
+        let r = unsafe {
+            match Backend::select() {
+                Backend::Scalar => {
+                    vg_mlkem1024_encaps(&self.bytes, m, &mut key, &mut ct, &mut scratch)
+                }
+                #[cfg(target_arch = "x86_64")]
+                Backend::Avx2 => {
+                    vg_mlkem1024_encaps_avx2(&self.bytes, m, &mut key, &mut ct, &mut scratch)
+                }
+            }
+        };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261.
+            // One of the 16 `SampleNTT`s reaches its bound with probability less than 2^-257.
             // NO-COVERAGE-START
             zeroize(&mut key);
             zeroize(&mut ct);
@@ -163,10 +186,22 @@ impl DecapsulationKey1024 {
         // for reads (and, for the last three, writes) of their sizes; they
         // are distinct Rust objects, so they do not overlap each other or
         // the stack, or wrap around the end of the address space.
-        let r = unsafe { vg_mlkem1024_keygen(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch) };
+        // `Backend::select` chose AVX2 only if the CPU has
+        // `VG_MLKEM1024_KEYGEN_AVX2_FEATURES`.
+        let r = unsafe {
+            match Backend::select() {
+                Backend::Scalar => {
+                    vg_mlkem1024_keygen(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
+                }
+                #[cfg(target_arch = "x86_64")]
+                Backend::Avx2 => {
+                    vg_mlkem1024_keygen_avx2(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
+                }
+            }
+        };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261;
+            // One of the 16 `SampleNTT`s reaches its bound with probability less than 2^-257;
             // dropping `key` destroys it.
             // NO-COVERAGE-START
             return Err(Error::SampleBound);
@@ -196,11 +231,18 @@ impl DecapsulationKey1024 {
         // (and, for the last two, writes) of their sizes; they are distinct
         // Rust objects, so they do not overlap each other or the stack, or
         // wrap around the end of the address space. `self.dk` was written by
-        // `vg_mlkem1024_keygen`.
-        let r = unsafe { vg_mlkem1024_decaps(&self.dk, ct, &mut key, &mut scratch) };
+        // `vg_mlkem1024_keygen` (or an instance of it). `Backend::select`
+        // chose AVX2 only if the CPU has `VG_MLKEM1024_DECAPS_AVX2_FEATURES`.
+        let r = unsafe {
+            match Backend::select() {
+                Backend::Scalar => vg_mlkem1024_decaps(&self.dk, ct, &mut key, &mut scratch),
+                #[cfg(target_arch = "x86_64")]
+                Backend::Avx2 => vg_mlkem1024_decaps_avx2(&self.dk, ct, &mut key, &mut scratch),
+            }
+        };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261.
+            // One of the 16 `SampleNTT`s reaches its bound with probability less than 2^-257.
             // NO-COVERAGE-START
             zeroize(&mut key);
             return Err(Error::SampleBound);

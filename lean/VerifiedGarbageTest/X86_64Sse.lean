@@ -71,6 +71,7 @@ def bin (op : XBinOp) : BitVec 128 := ((XOp.bin op .xmm0 .xmm1).exec s).xmm .xmm
 #guard bin .paddw == 0x89aacdee812345677edbba9788888888#128
 #guard bin .psubw == 0x89accdf0812345677eddba996420db98#128
 #guard bin .psubd == 0x89abcdf0812345677edcba99641fdb98#128
+#guard bin .psubq == 0x89abcdef812345677edcba99641fdb98#128
 #guard bin .pmullw == 0x765532118000000001244568f110d780#128
 #guard bin .pmulhw == 0x00000000ff6e0000ff6e0000086910e8#128
 #guard bin .packssdw == 0xffff80007fff7fff80007fff80007fff#128
@@ -298,6 +299,7 @@ def stored (v : BitVec 32) : State :=
 #guard printer.instr (.xop (.bin .paddw .xmm1 .xmm2)) == ["paddw xmm1, xmm2"]
 #guard printer.instr (.xop (.bin .psubw .xmm3 .xmm4)) == ["psubw xmm3, xmm4"]
 #guard printer.instr (.xop (.bin .psubd .xmm5 .xmm6)) == ["psubd xmm5, xmm6"]
+#guard printer.instr (.xop (.bin .psubq .xmm5 .xmm6)) == ["psubq xmm5, xmm6"]
 #guard printer.instr (.xop (.bin .pmullw .xmm7 .xmm8)) == ["pmullw xmm7, xmm8"]
 #guard printer.instr (.xop (.bin .pmulhw .xmm9 .xmm10)) == ["pmulhw xmm9, xmm10"]
 #guard printer.instr (.xop (.bin .packssdw .xmm11 .xmm12)) == ["packssdw xmm11, xmm12"]
@@ -325,7 +327,7 @@ def stored (v : BitVec 32) : State :=
 #guard [XBinOp.sha1msg1, .sha1msg2, .sha1nexte].all fun op =>
   isa.requires (.xop (.bin op .xmm1 .xmm2)) == ["sha"]
 #guard isa.requires (.xop (.sha1rnds4 .xmm1 .xmm2 0)) == ["sha"]
-#guard [XBinOp.pand, .pandn, .paddq, .pmuludq].all fun op => isa.requires (.xop (.bin op .xmm1 .xmm2)) == []
+#guard [XBinOp.pand, .pandn, .paddq, .psubq, .pmuludq].all fun op => isa.requires (.xop (.bin op .xmm1 .xmm2)) == []
 #guard [XBinOp.paddw, .psubw, .psubd, .pmullw, .pmulhw, .packssdw, .punpcklwd, .punpckhwd].all
   fun op => isa.requires (.xop (.bin op .xmm1 .xmm2)) == []
 #guard [XShiftOp.psllq, .psrlq, .pslldq, .psrldq, .psllw, .psrlw, .psraw, .psrad].all fun op =>

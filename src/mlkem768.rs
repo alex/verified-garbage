@@ -19,8 +19,15 @@
 //! check of §7.2 in [`EncapsulationKey768::from_bytes`].
 //!
 //! The bound on `SampleNTT`'s loop (280 iterations, as Appendix B allows) is
-//! reached with probability less than 2⁻²⁶¹; the operation then fails with
-//! [`Error::SampleBound`].
+//! reached with probability less than 2⁻²⁶¹ for each call; key generation,
+//! encapsulation and decapsulation each call it 9 times (once for each
+//! entry of the matrix `Â`), so an operation reaches it with probability
+//! less than 2⁻²⁵⁸, and then fails with [`Error::SampleBound`].
+//!
+//! On x86-64, key generation, encapsulation and decapsulation have an
+//! instance for each implementation of `vg_mlkem_sample_ntt4`, which samples
+//! four entries of the matrix at once, and each operation calls the best one
+//! the CPU can run ([`Backend`]).
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -29,15 +36,30 @@
     target_arch = "arm"
 ))]
 
+#[cfg(target_arch = "x86_64")]
+use crate::arch::mlkem768::{
+    VG_MLKEM768_DECAPS_AVX2_FEATURES, VG_MLKEM768_ENCAPS_AVX2_FEATURES,
+    VG_MLKEM768_KEYGEN_AVX2_FEATURES, vg_mlkem768_decaps_avx2, vg_mlkem768_encaps_avx2,
+    vg_mlkem768_keygen_avx2,
+};
 use crate::arch::mlkem768::{
     vg_mlkem768_check_ek, vg_mlkem768_decaps, vg_mlkem768_encaps, vg_mlkem768_keygen,
 };
+#[cfg(target_arch = "x86_64")]
+use crate::arch::mlkem1024::{
+    VG_MLKEM1024_DECAPS_AVX2_FEATURES, VG_MLKEM1024_ENCAPS_AVX2_FEATURES,
+    VG_MLKEM1024_KEYGEN_AVX2_FEATURES,
+};
+#[cfg(target_arch = "x86_64")]
+use crate::cpu::{Features, detected};
 
 /// Why an operation failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
     /// A `SampleNTT` reached the bound on its loop's iterations (FIPS 203
-    /// Appendix B), which happens with probability less than 2⁻²⁶¹.
+    /// Appendix B), which happens with probability less than 2⁻²⁶¹ for each
+    /// call: less than 2⁻²⁵⁸ in an ML-KEM-768 operation (9 calls) and 2⁻²⁵⁷
+    /// in an ML-KEM-1024 one (16 calls).
     SampleBound,
     /// The encapsulation key failed the check of FIPS 203 §7.2.
     InvalidKey,
@@ -45,17 +67,49 @@ pub enum Error {
     Randomness,
 }
 
+/// The implementations of `vg_mlkem_sample_ntt4`, which key generation,
+/// encapsulation and decapsulation (of ML-KEM-768 and ML-KEM-1024) follow:
+/// each has an instance calling each of them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Backend {
+    /// The target's baseline ISA (on x86-64, `SampleNTT` on one seed at a
+    /// time; elsewhere, one entry of the matrix at a time).
+    Scalar,
+    /// AVX2: four instances of SHAKE128 at once.
+    #[cfg(target_arch = "x86_64")]
+    Avx2,
+}
+
+impl Backend {
+    /// The best implementation the CPU can run: [`Backend::Avx2`] if it has
+    /// the features of every instance for AVX2.
+    #[cfg(target_arch = "x86_64")]
+    pub(crate) fn select() -> Backend {
+        if detected().contains(Features::all(&[
+            VG_MLKEM768_KEYGEN_AVX2_FEATURES,
+            VG_MLKEM768_ENCAPS_AVX2_FEATURES,
+            VG_MLKEM768_DECAPS_AVX2_FEATURES,
+            VG_MLKEM1024_KEYGEN_AVX2_FEATURES,
+            VG_MLKEM1024_ENCAPS_AVX2_FEATURES,
+            VG_MLKEM1024_DECAPS_AVX2_FEATURES,
+        ])) {
+            Backend::Avx2
+        } else {
+            Backend::Scalar
+        }
+    }
+
+    /// The best implementation the CPU can run: there is only one here.
+    #[cfg(not(target_arch = "x86_64"))]
+    pub(crate) fn select() -> Backend {
+        Backend::Scalar
+    }
+}
+
 /// The working space of the assembly functions (32 KiB).
 type Scratch = [u64; 4096];
 
-/// Overwrites `x` with zeros in a way the compiler does not remove.
-pub(crate) fn zeroize<T: Copy + Default>(x: &mut [T]) {
-    for v in x.iter_mut() {
-        // SAFETY: `v` is a valid, aligned, unique reference.
-        unsafe { core::ptr::write_volatile(v, T::default()) };
-    }
-    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
-}
+use crate::zeroize::zeroize;
 
 /// An ML-KEM-768 encapsulation key, which passed the check of FIPS 203 §7.2.
 #[derive(Clone, PartialEq, Eq)]
@@ -125,11 +179,22 @@ impl EncapsulationKey768 {
         // reads (and, for the last three, writes) of their sizes; they are
         // distinct Rust objects, so they do not overlap each other or the
         // stack, or wrap around the end of the address space. `self.bytes`
-        // passed `vg_mlkem768_check_ek`.
-        let r = unsafe { vg_mlkem768_encaps(&self.bytes, m, &mut key, &mut ct, &mut scratch) };
+        // passed `vg_mlkem768_check_ek`. `Backend::select` chose AVX2 only
+        // if the CPU has `VG_MLKEM768_ENCAPS_AVX2_FEATURES`.
+        let r = unsafe {
+            match Backend::select() {
+                Backend::Scalar => {
+                    vg_mlkem768_encaps(&self.bytes, m, &mut key, &mut ct, &mut scratch)
+                }
+                #[cfg(target_arch = "x86_64")]
+                Backend::Avx2 => {
+                    vg_mlkem768_encaps_avx2(&self.bytes, m, &mut key, &mut ct, &mut scratch)
+                }
+            }
+        };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261.
+            // One of the 9 `SampleNTT`s reaches its bound with probability less than 2^-258.
             // NO-COVERAGE-START
             zeroize(&mut key);
             zeroize(&mut ct);
@@ -182,10 +247,22 @@ impl DecapsulationKey768 {
         // for reads (and, for the last three, writes) of their sizes; they
         // are distinct Rust objects, so they do not overlap each other or
         // the stack, or wrap around the end of the address space.
-        let r = unsafe { vg_mlkem768_keygen(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch) };
+        // `Backend::select` chose AVX2 only if the CPU has
+        // `VG_MLKEM768_KEYGEN_AVX2_FEATURES`.
+        let r = unsafe {
+            match Backend::select() {
+                Backend::Scalar => {
+                    vg_mlkem768_keygen(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
+                }
+                #[cfg(target_arch = "x86_64")]
+                Backend::Avx2 => {
+                    vg_mlkem768_keygen_avx2(seed, &mut key.ek.bytes, &mut key.dk, &mut scratch)
+                }
+            }
+        };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261;
+            // One of the 9 `SampleNTT`s reaches its bound with probability less than 2^-258;
             // dropping `key` destroys it.
             // NO-COVERAGE-START
             return Err(Error::SampleBound);
@@ -215,28 +292,23 @@ impl DecapsulationKey768 {
         // (and, for the last two, writes) of their sizes; they are distinct
         // Rust objects, so they do not overlap each other or the stack, or
         // wrap around the end of the address space. `self.dk` was written by
-        // `vg_mlkem768_keygen`.
-        let r = unsafe { vg_mlkem768_decaps(&self.dk, ct, &mut key, &mut scratch) };
+        // `vg_mlkem768_keygen` (or an instance of it). `Backend::select`
+        // chose AVX2 only if the CPU has `VG_MLKEM768_DECAPS_AVX2_FEATURES`.
+        let r = unsafe {
+            match Backend::select() {
+                Backend::Scalar => vg_mlkem768_decaps(&self.dk, ct, &mut key, &mut scratch),
+                #[cfg(target_arch = "x86_64")]
+                Backend::Avx2 => vg_mlkem768_decaps_avx2(&self.dk, ct, &mut key, &mut scratch),
+            }
+        };
         zeroize(&mut scratch);
         if r != 1 {
-            // `SampleNTT` reaches its bound with probability less than 2^-261.
+            // One of the 9 `SampleNTT`s reaches its bound with probability less than 2^-258.
             // NO-COVERAGE-START
             zeroize(&mut key);
             return Err(Error::SampleBound);
             // NO-COVERAGE-END
         }
         Ok(key)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::zeroize;
-
-    #[test]
-    fn zeroizes() {
-        let mut x = [1u8, 2, 3];
-        zeroize(&mut x);
-        assert_eq!(x, [0; 3]);
     }
 }

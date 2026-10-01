@@ -11,8 +11,9 @@ with `k = 4`: the same registers and saves.
 1. `(ρ, σ) = G(d ‖ 4)` to `G`, and `ρ` to `SB`, the seed of `SampleNTT`.
 2. `Â[i, j] = SampleNTT(ρ ‖ j ‖ i)` for the sixteen `(i, j)`, to polynomials
    17–32. If one of them failed (`r15 = 0`), it returns 0 at once.
-3. `ŝ[j]` (polynomial `j`) and `ê[i]` (polynomial `4 + i`):
-   `NTT(SamplePolyCBD₂(PRF₂(σ, N)))` for `N = 0, …, 7`.
+3. `PRF₂(σ, N)` for `N = 0, …, 7` (`c.prfs`, to `PR4`), and `ŝ[j]`
+   (polynomial `j`) and `ê[i]` (polynomial `4 + i`):
+   `NTT(SamplePolyCBD₂(PRF₂(σ, N)))`.
 4. `t̂[i] = Â[i, 0] ŝ[0] + ⋯ + Â[i, 3] ŝ[3] + ê[i]` (polynomial 15), and
    `ByteEncode₁₂(t̂[i])` to `ek`; `ByteEncode₁₂(ŝ[j])` to `dk`.
 5. `ρ` to `ek`, `ek` to `dk`, `H(ek)` to `dk`, and `z` to `dk`.
@@ -36,7 +37,7 @@ def gRho : Prog isa :=
     (copy (sc oSB) (sc oG) 32))
 
 /-- `ŝ[N]` or `ê[N - 4]`. -/
-def se (N : Nat) : Prog isa := .seq (prfCbd (sc (oG + 32)) N (pS N)) (nttAt (pS N))
+def se (N : Nat) : Prog isa := .seq (cbd2At (sc (oPR4 + 128 * N)) (pS N)) (nttAt (pS N))
 
 /-- `t̂[i]`, encoded to `ek`. -/
 def row (i : Nat) : Prog isa :=
@@ -50,12 +51,13 @@ def fin : Prog isa :=
   .seq (copy (.r12, 1536) (sc oG) 32) (.seq (copy (.r13, 1536) (.r12, 0) 1568)
     (.seq (hashAt [((.r12, 0), 1568)] 136 6 (.r13, 3104) 32) (copy (.r13, 3136) (.rbp, 32) 32)))
 
-def rest : Prog isa := .seq (seqR se 0 8) (.seq (seqR row 0 4) (.seq (seqR encS 0 4) fin))
+def rest (c : Callee4) : Prog isa :=
+  .seq (c.prfs 0 8 oPR4 lPW4) (.seq (seqR se 0 8) (.seq (seqR row 0 4) (.seq (seqR encS 0 4) fin)))
 
 end KeyGen1024
 
 open KeyGen1024 in
-def keyGen1024 : Prog isa :=
-  .seq (.block pro) (.seq gRho (.seq samples4 (.seq (ifOk rest) (.block topEpi))))
+def keyGen1024 (c : Callee4) : Prog isa :=
+  .seq (.block pro) (.seq gRho (.seq (samples4 c) (.seq (ifOk (rest c)) (.block topEpi))))
 
 end VG.Impl.MlKem1024.X86_64

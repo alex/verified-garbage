@@ -36,7 +36,8 @@ use asm::x86_64 as arch;
 // width of each architecture's calling convention: the verified assembly is
 // compiled only where both hold (each target's `rustCfg`, in
 // `lean/VerifiedGarbage/TCB/<Target>/Target.lean`), not on aarch64_be, armeb
-// or x32.
+// or x32. This `compile_error!` and those below each mirror a condition of a
+// `rustCfg`.
 #[cfg(any(
     all(
         any(target_arch = "aarch64", target_arch = "arm"),
@@ -57,6 +58,26 @@ compile_error!(
 #[cfg(all(target_arch = "x86", not(target_feature = "sse2")))]
 compile_error!("32-bit x86 needs an i686 target with SSE2 (e.g. i686-unknown-linux-gnu)");
 
+// The x86-64 model's baseline includes SSE2, as the System V psABI's does,
+// but `x86_64-unknown-none` and `x86_64-unknown-uefi` turn it off (and the
+// Rust code there would not save the SSE registers the functions use, some of
+// which UEFI's calling convention makes callee-saved).
+#[cfg(all(target_arch = "x86_64", not(target_feature = "sse2")))]
+compile_error!(
+    "x86-64 needs a target with SSE2 (not, e.g., x86_64-unknown-none or x86_64-unknown-uefi)"
+);
+
+// The AArch64 model's baseline includes AdvSIMD (NEON), which
+// `aarch64-unknown-none-softfloat` turns off.
+#[cfg(all(target_arch = "aarch64", not(target_feature = "neon")))]
+compile_error!("AArch64 needs a target with NEON (not, e.g., aarch64-unknown-none-softfloat)");
+
+// The ARM model's calling convention is AAPCS; Apple's 32-bit ARM targets use
+// APCS (armv7s-apple-ios) or AAPCS16 (armv7k-apple-watchos), which pass some
+// arguments elsewhere.
+#[cfg(all(target_arch = "arm", target_vendor = "apple"))]
+compile_error!("32-bit ARM needs an AAPCS target (not Apple's armv7s or armv7k)");
+
 pub mod aes_gcm;
 pub mod chacha20;
 pub mod chacha20poly1305;
@@ -72,9 +93,11 @@ pub mod mlkem1024;
 pub mod mlkem768;
 pub mod pbkdf2;
 pub mod poly1305;
+pub mod rc2_cbc;
 pub mod scrypt;
 pub mod x25519;
 pub mod x448;
+mod zeroize;
 
 #[cfg(test)]
 mod tests {

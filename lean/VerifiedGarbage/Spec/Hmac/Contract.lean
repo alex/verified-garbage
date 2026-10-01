@@ -67,6 +67,7 @@ def initSha256Api : Api where
   name := "vg_hmac_sha256_init"
   sig := initSha256Sig
   writeArgs := true
+  contracts := some fun A stack => initSha256Contract A stack
   summary := "Starts an HMAC-SHA-256 computation with a key of at most 64 bytes: makes the SHA-256 \
     streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent `K₀ ⊕ opad`, where `K₀` \
     is the `key_len` bytes at `key` padded with zeros to 64 bytes (FIPS 198-1). The text is then \
@@ -101,6 +102,7 @@ def finalizeSha256Api : Api where
   module := "hmac_sha256"
   name := "vg_hmac_sha256_finalize"
   sig := finalizeSha256Sig
+  contracts := some fun A stack => finalizeSha256Contract A stack
   summary := "Finishes an HMAC-SHA-256 computation: if, for a 64-byte key `K₀` and a text, the \
     SHA-256 streaming state `*inner` represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes (modulo \
     2⁶⁴), and `*outer` represents `K₀ ⊕ opad`, leaves the HMAC-SHA-256 of the text under `K₀` in \
@@ -133,6 +135,7 @@ def finalizeSha256OutApi : Api where
   name := "vg_hmac_sha256_finalize"
   sig := finalizeSha256OutSig
   writeArgs := true
+  contracts := some fun A stack => finalizeSha256OutContract A stack
   summary := "Finishes an HMAC-SHA-256 computation: if, for a 64-byte key `K₀` and a text, the \
     SHA-256 streaming state `*inner` represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes (modulo \
     2⁶⁴), and `*outer` represents `K₀ ⊕ opad`, writes the HMAC-SHA-256 of the text under `K₀` to \

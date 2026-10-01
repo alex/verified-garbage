@@ -1,12 +1,14 @@
 import VerifiedGarbage.TCB.X86_64.Print
 
 /-!
-# Semantics tests for the x86-64 AVX and AVX2 instructions
+# Semantics tests for the x86-64 AVX, AVX2 and AVX512_IFMA (`ymm`) instructions
 
 Each expected value was computed on an x86-64 CPU, by the same instruction
 through its intrinsic (`_mm256_add_epi32`, `_mm256_permute2x128_si256`,
 `_mm256_sllv_epi64`, …), and is compared with the model's result on the same
-inputs. `VEX.128` results were widened with `_mm256_zextsi128_si256`, since
+inputs (`vpermd` and `vpmovmskb` on a Xeon with AVX2 and AVX-512, through
+`_mm256_permutevar8x32_epi32`, `_mm256_movemask_epi8` and
+`_mm_movemask_epi8`). `VEX.128` results were widened with `_mm256_zextsi128_si256`, since
 the instruction zeroes bits 255:128 of its destination.
 -/
 
@@ -70,6 +72,28 @@ def bin (op : VBinOp) (len : VLen := .l256) : BitVec 256 := run (.vbin op len .x
 #guard bin .vpackssdw == 0x7fff8000800080007fff7fff80008000ffff80007fff7fff80007fff80007fff#256
 #guard bin .vpunpcklwd == 0xdead8796beefa5b4cafec3d2babee1f07ffffedcffffba981234765456783210#256
 #guard bin .vpunpckhwd == 0x01230f1e45672d3c89ab4b5acdef6978ffff89abffffcdef8000012300004567#256
+#guard bin .vpsubq == 0x0dfae7d4c1ae9b89a8e8e6c4f8d4273289abcdef812345677edcba99641fdb98#256
+#guard bin .vpsubq .l128 == 0x0000000000000000000000000000000089abcdef812345677edcba99641fdb98#256
+
+/-! `vpmadd52luq` and `vpmadd52huq` (`_mm256_madd52lo_epu64`,
+`_mm256_madd52hi_epu64`, and `_mm_…` for `.l128`, on an Emerald Rapids Xeon), into the all-ones `ymm5`
+(so the sums wrap), into a source, and with sources of 52 ones (whose
+product's low 52 bits are 1 and high 52 bits `2⁵² - 2`). -/
+
+#guard run (.vpmadd52luq .l256 .xmm5 .xmm0 .xmm1) == 0x000502bf6b058f07000413041acc101f000e5d4c7fffffff000c71c70b88d77f#256
+#guard run (.vpmadd52huq .l256 .xmm5 .xmm0 .xmm1) == 0x0002e5fa1f559cf30005b5f64142cb3e000bcdeea2b3cd5c000cba97b9263968#256
+#guard run (.vpmadd52luq .l128 .xmm5 .xmm0 .xmm1) == 0x00000000000000000000000000000000000e5d4c7fffffff000c71c70b88d77f#256
+#guard run (.vpmadd52huq .l128 .xmm5 .xmm0 .xmm1) == 0x00000000000000000000000000000000000bcdeea2b3cd5c000cba97b9263968#256
+#guard run (.vpmadd52huq .l256 .xmm5 .xmm0 .xmm0) == 0x000c8fa967e94bab0002c2fbbb1f464c0008b5832bffd93c000a2064cfea3c4d#256
+#guard ((VOp.vpmadd52luq .l256 .xmm0 .xmm0 .xmm1).exec s).ymm .xmm0 == 0x0f232ffbb65ff880879ab8b8de9ef21089ba2b3b81234567fee92c5f81dd0990#256
+#guard ((VOp.vpmadd52huq .l256 .xmm1 .xmm0 .xmm1).exec s).ymm .xmm1 == 0x01262b61a9016ae3deb374e60c4185fd000bcdee22b3cd5d800cba96cb5a8fe1#256
+
+/-- `s` with `2⁵² - 1` in every quadword of `ymm6`. -/
+def s52 : State := (VOp.vpbroadcastq .l256 .xmm6 .xmm6).exec
+  ((VOp.vmovq .xmm6 .rax).exec { s with gpr := fun _ => 0x000fffffffffffff })
+
+#guard ((VOp.vpmadd52huq .l256 .xmm5 .xmm6 .xmm6).exec s52).ymm .xmm5 == 0x000ffffffffffffd000ffffffffffffd000ffffffffffffd000ffffffffffffd#256
+#guard ((VOp.vpmadd52luq .l256 .xmm5 .xmm6 .xmm6).exec s52).ymm .xmm5 == 0
 
 /-- `ymm5` after `op ymm5, ymm0, n`. -/
 def shift (op : XShiftOp) (n : BitVec 8) : BitVec 256 := run (.vshift op .l256 .xmm5 .xmm0 n)
@@ -110,6 +134,15 @@ def shift (op : XShiftOp) (n : BitVec 8) : BitVec 256 := run (.vshift op .l256 .
 
 #guard run (.vpermq .xmm5 .xmm0 0x1b) == 0xfedcba987654321089abcdef012345678796a5b4c3d2e1f00f1e2d3c4b5a6978#256
 #guard run (.vpermq .xmm5 .xmm0 0xd8) == 0x0f1e2d3c4b5a697889abcdef012345678796a5b4c3d2e1f0fedcba9876543210#256
+-- `vpermd` (`_mm256_permutevar8x32_epi32(src, idx)`): the indices' bits
+-- above 2 are ignored (`C`'s doublewords 31, 63 and 64, and `B`'s).
+#guard run (.vpermd .xmm5 .xmm2 .xmm0) == 0x7654321076543210765432100f1e2d3cfedcba98765432100f1e2d3c0f1e2d3c#256
+#guard run (.vpermd .xmm5 .xmm1 .xmm0) == 0x0f1e2d3c0f1e2d3c0f1e2d3c4b5a69780f1e2d3c765432100f1e2d3c76543210#256
+#guard run (.vpermd .xmm5 .xmm0 .xmm1) == 0xcafebabe12345678cafebabe1234567801234567012345671234567812345678#256
+-- The indices may be the source, and the destination either.
+#guard run (.vpermd .xmm5 .xmm0 .xmm0) == 0xc3d2e1f076543210c3d2e1f0765432100f1e2d3c0f1e2d3c7654321076543210#256
+#guard ((VOp.vpermd .xmm0 .xmm0 .xmm0).exec s).ymm .xmm0 == 0xc3d2e1f076543210c3d2e1f0765432100f1e2d3c0f1e2d3c7654321076543210#256
+#guard ((VOp.vpermd .xmm2 .xmm2 .xmm0).exec s).ymm .xmm2 == 0x7654321076543210765432100f1e2d3cfedcba98765432100f1e2d3c0f1e2d3c#256
 #guard run (.vperm2i128 .xmm5 .xmm0 .xmm1 0x21) == 0xffffffff800000007fffffff123456780f1e2d3c4b5a69788796a5b4c3d2e1f0#256
 #guard run (.vperm2i128 .xmm5 .xmm0 .xmm1 0x03) == 0x89abcdef01234567fedcba98765432100123456789abcdefdeadbeefcafebabe#256
 #guard run (.vperm2i128 .xmm5 .xmm0 .xmm1 0x88) == 0x0000000000000000000000000000000000000000000000000000000000000000#256
@@ -137,6 +170,25 @@ def shift (op : XShiftOp) (n : BitVec 8) : BitVec 256 := run (.vshift op .l256 .
 
 -- Legacy SSE instructions leave bits 255:128 unmodified.
 #guard ((XOp.bin .paddd .xmm5 .xmm1).exec s).ymmHi .xmm5 == -1
+
+/-! ## `vpmovmskb`
+
+`_mm256_movemask_epi8` and `_mm_movemask_epi8`; the instruction itself, on
+a 64-bit register of all ones, leaves bits 63:32 zero. -/
+
+/-- `rax` (which `s` holds `0x0123456789abcdef` in) after `vpmovmskb eax, r`. -/
+def mask (len : VLen) (r : XReg) : Option (BitVec 64) := (exec (.vpmovmskb len .rax r) s).map (·.gpr .rax)
+
+#guard mask .l256 .xmm0 == some 0x00fff0f0
+#guard mask .l256 .xmm1 == some 0x0ffff870
+#guard mask .l128 .xmm0 == some 0xf0f0
+#guard mask .l128 .xmm1 == some 0xf870
+#guard mask .l256 .xmm5 == some 0xffffffff
+#guard mask .l128 .xmm5 == some 0xffff
+#guard mask .l256 .xmm4 == some 0
+-- Only the destination changes.
+#guard (exec (.vpmovmskb .l256 .rcx .xmm0) s).map (fun t => (t.gpr .rax, t.gpr .rcx, t.ymm .xmm0, t.cf)) ==
+  some (0x0123456789abcdef, 0x00fff0f0, A, none)
 
 /-! ## Memory -/
 
@@ -168,6 +220,9 @@ def M : BitVec 256 := s.mem.readW 0x100 256
 #guard printer.instr (.vop (.vshift .psraw .l256 .xmm6 .xmm7 15)) == ["vpsraw ymm6, ymm7, 15"]
 #guard printer.instr (.vop (.vshift .psrad .l128 .xmm6 .xmm7 31)) == ["vpsrad xmm6, xmm7, 31"]
 #guard printer.instr (.vop (.vbin .vpmulhw .l256 .xmm1 .xmm2 .xmm3)) == ["vpmulhw ymm1, ymm2, ymm3"]
+#guard printer.instr (.vop (.vbin .vpsubq .l256 .xmm1 .xmm2 .xmm3)) == ["vpsubq ymm1, ymm2, ymm3"]
+#guard printer.instr (.vop (.vpmadd52luq .l256 .xmm1 .xmm2 .xmm15)) == ["vpmadd52luq ymm1, ymm2, ymm15"]
+#guard printer.instr (.vop (.vpmadd52huq .l128 .xmm1 .xmm2 .xmm3)) == ["vpmadd52huq xmm1, xmm2, xmm3"]
 #guard printer.instr (.vop (.vbin .vpackssdw .l256 .xmm1 .xmm2 .xmm3)) ==
   ["vpackssdw ymm1, ymm2, ymm3"]
 #guard printer.instr (.vop (.vpshufd .l256 .xmm8 .xmm9 147)) == ["vpshufd ymm8, ymm9, 147"]
@@ -180,6 +235,9 @@ def M : BitVec 256 := s.mem.readW 0x100 256
 #guard printer.instr (.vop (.vpbroadcastd .l256 .xmm3 .xmm4)) == ["vpbroadcastd ymm3, xmm4"]
 #guard printer.instr (.vop (.vpbroadcastq .l128 .xmm3 .xmm4)) == ["vpbroadcastq xmm3, xmm4"]
 #guard printer.instr (.vop (.vpermq .xmm5 .xmm6 0x1b)) == ["vpermq ymm5, ymm6, 27"]
+#guard printer.instr (.vop (.vpermd .xmm5 .xmm6 .xmm15)) == ["vpermd ymm5, ymm6, ymm15"]
+#guard printer.instr (.vpmovmskb .l256 .r9 .xmm3) == ["vpmovmskb r9d, ymm3"]
+#guard printer.instr (.vpmovmskb .l128 .rax .xmm12) == ["vpmovmskb eax, xmm12"]
 #guard printer.instr (.vop (.vperm2i128 .xmm7 .xmm8 .xmm9 0x21)) == ["vperm2i128 ymm7, ymm8, ymm9, 33"]
 #guard printer.instr (.vop (.vinserti128 .xmm10 .xmm11 .xmm12 1)) ==
   ["vinserti128 ymm10, ymm11, xmm12, 1"]
@@ -202,6 +260,9 @@ def M : BitVec 256 := s.mem.readW 0x100 256
 #guard isa.requires (.vop (.vshift .pslld .l128 .xmm0 .xmm1 1)) == ["avx"]
 #guard isa.requires (.vop (.vbin .vpmullw .l256 .xmm0 .xmm1 .xmm2)) == ["avx2"]
 #guard isa.requires (.vop (.vbin .vpmullw .l128 .xmm0 .xmm1 .xmm2)) == ["avx"]
+#guard isa.requires (.vop (.vbin .vpsubq .l256 .xmm0 .xmm1 .xmm2)) == ["avx2"]
+#guard isa.requires (.vop (.vpmadd52luq .l256 .xmm0 .xmm1 .xmm2)) == ["avx512ifma", "avx512vl"]
+#guard isa.requires (.vop (.vpmadd52huq .l128 .xmm0 .xmm1 .xmm2)) == ["avx512ifma", "avx512vl"]
 #guard isa.requires (.vop (.vshift .psraw .l256 .xmm0 .xmm1 1)) == ["avx2"]
 #guard isa.requires (.vop (.vpshufd .l256 .xmm0 .xmm1 1)) == ["avx2"]
 #guard isa.requires (.vop (.vpalignr .l128 .xmm0 .xmm1 .xmm2 1)) == ["avx"]
@@ -218,5 +279,10 @@ def M : BitVec 256 := s.mem.readW 0x100 256
 #guard isa.requires (.vop (.vinserti128 .xmm0 .xmm1 .xmm2 0)) == ["avx2"]
 #guard isa.requires (.vop (.vextracti128 .xmm0 .xmm1 0)) == ["avx2"]
 #guard isa.requires (.vbroadcasti128 .xmm0 { base := .rdi }) == ["avx2"]
+#guard isa.requires (.vop (.vpermd .xmm0 .xmm1 .xmm2)) == ["avx2"]
+#guard isa.requires (.vpmovmskb .l256 .rax .xmm0) == ["avx2"]
+#guard isa.requires (.vpmovmskb .l128 .rax .xmm0) == ["avx"]
+#guard isa.writesSp (.vpmovmskb .l256 .rsp .xmm0)
+#guard !isa.writesSp (.vpmovmskb .l256 .rax .xmm0)
 
 end VG.Test.Avx

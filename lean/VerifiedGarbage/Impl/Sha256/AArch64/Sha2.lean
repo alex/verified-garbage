@@ -23,11 +23,12 @@ open VG.Spec.Sha256 (K)
 /-- The register holding schedule words `4i` through `4i+3`. -/
 def msg (i : Nat) : VReg := [.v4, .v5, .v6, .v7].getD (i % 4) .v4
 
-/-- Materialize one word of a round-constant vector. -/
+/-- Materialize one word of a round-constant vector. The first word uses DUP
+to break the dependency on the previous group's vector; later words replace lanes. -/
 def constant (i j : Nat) : List Instr :=
   [.movz .w .x4 ((K (4 * i + j)).extractLsb' 0 16) 0,
    .movk .w .x4 ((K (4 * i + j)).extractLsb' 16 16) 1,
-   .vop (.ins .s4 .v3 j .x4)]
+   .vop (if j = 0 then .dup .s4 .v3 .x4 else .ins .s4 .v3 j .x4)]
 
 /-- Load the first sixteen words, then expand the schedule in registers. -/
 def schedule (i : Nat) : List Instr :=

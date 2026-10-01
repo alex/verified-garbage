@@ -10,9 +10,8 @@ Untrusted: everything here is checked by Lean. As `FragPrim.lean`,
 `FragL.lean`, `FragS.lean` and `FragC.lean` of ML-KEM-768 (whose lemmas
 the others are), for the pieces ML-KEM-1024 adds: the calls of
 `vg_mlkem1024_compress_encode` and `vg_mlkem1024_decode_decompress`
-(`ce4At_ok`, `dd4At_ok`, …, and in a layout `ce4At_okL`, …), an entry of
-`Â` at any polynomial (`sampP_ok`, `sampP_tr`), and sums of four products
-(`dot4At_ok`, `dot4At_tr`).
+(`ce4At_ok`, `dd4At_ok`, …, and in a layout `ce4At_okL`, …), and sums of
+four products (`dot4At_ok`, `dot4At_tr`).
 -/
 
 namespace VG.Proof.MlKem1024.X86_64
@@ -38,8 +37,8 @@ structure CEH4 (f out : Ptr) (d : Nat) (s : State) : Prop where
   dw : d ∈ Spec.MlKem1024.compressWidths
   red : Reduced s.mem (pa s f)
   dj : Region.Disjoint (pR (pa s f)) ⟨pa s out, 32 * d⟩
-  kF : (below (s.gpr .rsp) 24).Disjoint (pR (pa s f))
-  kO : (below (s.gpr .rsp) 24).Disjoint ⟨pa s out, 32 * d⟩
+  kF : (below (s.gpr .rsp) 32).Disjoint (pR (pa s f))
+  kO : (below (s.gpr .rsp) 32).Disjoint ⟨pa s out, 32 * d⟩
   c : Covers ([pR (pa s f)] ++ [⟨pa s out, 32 * d⟩]) (s.rd ++ s.wr)
   w : Covers [⟨pa s out, 32 * d⟩] s.wr
 
@@ -112,8 +111,8 @@ structure DDH4 (b f : Ptr) (d : Nat) (s : State) : Prop where
   off : b.2 < 2 ^ 31 ∧ f.2 < 2 ^ 31
   dw : d ∈ Spec.MlKem1024.compressWidths
   dj : Region.Disjoint ⟨pa s b, 32 * d⟩ (pR (pa s f))
-  kB : (below (s.gpr .rsp) 24).Disjoint ⟨pa s b, 32 * d⟩
-  kF : (below (s.gpr .rsp) 24).Disjoint (pR (pa s f))
+  kB : (below (s.gpr .rsp) 32).Disjoint ⟨pa s b, 32 * d⟩
+  kF : (below (s.gpr .rsp) 32).Disjoint (pR (pa s f))
   c : Covers ([⟨pa s b, 32 * d⟩] ++ [pR (pa s f)]) (s.rd ++ s.wr)
   w : Covers [pR (pa s f)] s.wr
 
@@ -221,45 +220,6 @@ theorem dd4At_trL {b f : Ptr} {d : Nat} (hf : NA f) (hc : twoChk (rbs ++ wbs) wb
     e.eq (twoChk_in hc).2, e.2.2.2⟩) fun _ _ _ => trivial
 
 end
-
-/-! ## An entry of `Â` -/
-
-/-- `SampleNTT(ρ ‖ j ‖ i)` to `a`, with `ρ` at `SB`. -/
-abbrev sampP (a : Ptr) (i j : Nat) : Prog isa :=
-  .seq (.block (setB (sc (oSB + 32)) j ++ setB (sc (oSB + 33)) i)) (sampleAt a)
-
-theorem sampP_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
-    (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {i j : Nat} (hi : i < 256) (hj : j < 256) {o : Nat}
-    (hc : ijChk (rbs ++ wbs) wbs (sc o) = true) :
-    WP isa (sampP (sc o) i j) s fun s' =>
-      PPostB s s' ([(sc (oSB + 32), 1)] ++ [(sc (oSB + 33), 1)] ++ [(sc o, 1024), (sc oSS, 2048)]) ∧
-      s'.gpr .r15 = BitVec.setWidth 64 ((s.gpr .r15).setWidth 32 &&&
-        (if (sampleNTT minIterations (matSeed (bytesAt s.mem (pa s (sc oSB)) 32) i j)).isSome then 1 else 0)) ∧
-      ∀ f, sampleNTT minIterations (matSeed (bytesAt s.mem (pa s (sc oSB)) 32) i j) = some f →
-        PolyIs s'.mem (pa s (sc o)) f := by
-  rw [WP.seq_iff]
-  refine WP.mono (setIJ_ok L hcs hi hj hc) fun s₂ ⟨hP₂, hseed⟩ => ?_
-  have L₂ := L.post hP₂.b hcs
-  refine WP.mono (sampleAt_ok rbx_na (SampH.of L₂ (ijChk_spec hc).1)) fun s₃ h => ?_
-  have e3 : pa s₂ (sc o) = pa s (sc o) := hP₂.pa rbx_cs
-  refine ⟨PPostB.app hP₂.b h.b (by simp [bases]), ?_, fun f hf => ?_⟩
-  · rw [h.r15, hseed, hP₂.cs .r15 (by decide)]
-  · rw [← e3]; exact h.res f (by rw [hseed]; exact hf)
-
-theorem sampP_tr {rbs wbs : List (Reg × Nat)} (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {i j : Nat}
-    (hi : i < 256) (hj : j < 256) {o : Nat} (hc : ijChk (rbs ++ wbs) wbs (sc o) = true)
-    (ht : (taint.check (X86_64.Taint.ofRegs [.rbx]) (.block (setB (sc (oSB + 32)) j ++ setB (sc (oSB + 33)) i))
-      (.block [])).isSome = true) :
-    RelCT isa (fun x y => LRel rbs wbs x y ∧ bytesAt x.mem (pa x (sc oSB)) 32 = bytesAt y.mem (pa y (sc oSB)) 32)
-      (sampP (sc o) i j) fun _ _ => True := by
-  have hin : inB (rbs ++ wbs) (sc oSB) 34 = true := (sampChk_in (ijChk_spec hc).1).1
-  refine RelCT.seq (RelCT.postDep (taintRel [.rbx] (fun x y h r hr => by
-      simp only [List.mem_singleton] at hr; subst hr; exact h.1.eq hin) ht)
-    (F := fun x x' => PPost x x' ([(sc (oSB + 32), 1)] ++ [(sc (oSB + 33), 1)]) ∧
-      bytesAt x'.mem (pa x' (sc oSB)) 34 = matSeed (bytesAt x.mem (pa x (sc oSB)) 32) i j)
-    (fun x y h => ⟨setIJ_ok h.1.1 hcs hi hj hc, setIJ_ok h.1.2.1 hcs hi hj hc⟩)
-    fun x y x' y' h hx hy => ⟨h.1.post hcs hx.1.b hy.1.b, by rw [hx.2, hy.2, h.2]⟩)
-    (sampleAt_trL rbx_na (ijChk_spec hc).1)
 
 /-! ## Sums of four products -/
 

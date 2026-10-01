@@ -23,6 +23,24 @@ namespace VG.Proof.Pbkdf2.Md.AArch64
 open VG.AArch64
 open VG.Impl.Pbkdf2.Md.AArch64 (Hash)
 
+/-- One of the streaming functions made with an implementation of a hash
+function's compression function, which `Generic/MdHash/AArch64/Stream.lean`
+emits, naming it with the variant's suffix: its `Api` (in `Spec/`), and its
+code, verified against the contract the `Api` gives it (`ofApi`, as
+`Artifact.ofApi`) with `stack` bytes of stack. -/
+structure StreamFn where
+  api : Api
+  code : Prog AArch64.target.isa
+  contract : Contract AArch64.target.isa
+  stack : Nat := 0
+  verified : Verified AArch64.target code contract
+  ofSig : ∃ pre post leak,
+      contract = api.sig.contract AArch64.target.abi pre post api.writeArgs stack leak := by
+    exact ⟨_, _, _, rfl⟩
+  ofApi : api.contracts.elim True fun f => contract = f AArch64.target.abi stack := by
+    first | exact True.intro | exact rfl
+  spSafe : code.all (fun i => !AArch64.target.isa.writesSp i) = true
+
 /-- A Merkle–Damgård hash function on AArch64, with one implementation of
 its compression function: its functions, verified against the contracts of
 its instance `I` (`Spec/Hmac/Generic.lean`, `Spec/Pbkdf2/Generic.lean`). -/
@@ -41,8 +59,10 @@ structure MdHash where
   /-- The CPU features its compression function requires, which the
   functions built on it require too. -/
   features : List String
-  /-- Streaming artifacts supplied by a compression backend. -/
-  stream : List Artifact := []
+  /-- The streaming `update` and `finalize` made with this implementation of
+  the compression function, when no other variant shares them (otherwise
+  they are in the hash function's registration file). -/
+  stream : List StreamFn := []
 
 namespace MdHash
 
@@ -85,7 +105,7 @@ def MdHash.of {H : Hash} {I : Spec.Hmac.Instance} (hH : HashOK H) (C : CoreOK (c
     (hsF : ∃ s, (I.finalizeContract AArch64.abi 16).pre s)
     (hsT : ∃ s, (I.iterateContract AArch64.abi).pre s)
     (hsP : ∃ s, (I.pbkdf2Contract AArch64.abi 16).pre s)
-    (suffix : String) (features : List String) (stream : List Artifact := []) : MdHash where
+    (suffix : String) (features : List String) (stream : List StreamFn := []) : MdHash where
   H := H
   I := I
   hmacInit := MdHash.hmacInit_of hH C hSH hW hsI

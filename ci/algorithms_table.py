@@ -57,10 +57,13 @@ FEATURES = {
     "pclmulqdq": "PCLMULQDQ",
     "ssse3": None,
     "avx512f": "AVX-512F",
+    "avx512ifma": "AVX-512 IFMA",
+    "avx512vl": "AVX-512VL",
     "avx2": "AVX2",
     "avx": None,
     "bmi1": "BMI1",
     "bmi2": "BMI2",
+    "adx": "ADX",
 }
 
 # Names that differ on one architecture: AArch64's `aes` (Rust's name for

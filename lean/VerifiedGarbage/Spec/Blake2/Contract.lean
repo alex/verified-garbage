@@ -56,6 +56,7 @@ def compressBApi : Api where
   module := "blake2b"
   name := "vg_blake2b_compress"
   sig := compressBSig
+  contracts := some fun A _ => compressBContract A
   summary := "The BLAKE2b compression function F (RFC 7693 §3.2): updates the state `*state` \
     (`h[0..7]`) with the `n` 128-byte blocks starting at `blocks`, in order: block `i` with the \
     offset counter `t + 128 * i` (a 128-bit integer, so it does not wrap), and with the final \
@@ -86,6 +87,7 @@ def initBApi : Api where
   module := "blake2b"
   name := "vg_blake2b_init"
   sig := initBSig
+  contracts := some fun A _ => initBContract A
   summary := "Starts a BLAKE2b computation of an `outlen`-byte digest with the `keylen`-byte key \
     at `key` (none if `keylen` is 0): makes the streaming state `*state` represent the key padded \
     to a block, the first block of the data (none for unkeyed hashing), hashed from the initial \
@@ -120,6 +122,7 @@ def updateBApi : Api where
   module := "blake2b"
   name := "vg_blake2b_update"
   sig := updateBSig
+  contracts := some fun A stack => updateBContract A stack
   summary := "Absorbs data into a BLAKE2b computation: if the streaming state `*state` represents \
     data of `count` bytes, it then represents that data followed by the `len` bytes at `data`.\n\n\
     Contract: `VG.Spec.Blake2.updateBContract`. Constant time: only the pointers, `count` and `len` \
@@ -151,6 +154,7 @@ def finalizeBApi : Api where
   module := "blake2b"
   name := "vg_blake2b_finalize"
   sig := finalizeBSig
+  contracts := some fun A stack => finalizeBContract A stack
   summary := "Finishes a BLAKE2b computation: if the streaming state `*state` represents data of \
     `count` bytes, compresses its last block and writes the final state `h[0..7]` (64 bytes) to \
     `*out`. The digest of `outlen` bytes (`init`'s) is its first `outlen` bytes.\n\n\
@@ -182,6 +186,7 @@ def compressSApi : Api where
   module := "blake2s"
   name := "vg_blake2s_compress"
   sig := compressSSig
+  contracts := some fun A _ => compressSContract A
   summary := "The BLAKE2s compression function F (RFC 7693 §3.2): updates the state `*state` \
     (`h[0..7]`) with the `n` 64-byte blocks starting at `blocks`, in order: block `i` with the \
     offset counter `t + 64 * i` (modulo 2⁶⁴), and with the final block flag if `last != 0`.\n\n\
@@ -211,6 +216,7 @@ def initSApi : Api where
   module := "blake2s"
   name := "vg_blake2s_init"
   sig := initSSig
+  contracts := some fun A _ => initSContract A
   summary := "Starts a BLAKE2s computation of an `outlen`-byte digest with the `keylen`-byte key \
     at `key` (none if `keylen` is 0): makes the streaming state `*state` represent the key padded \
     to a block, the first block of the data (none for unkeyed hashing), hashed from the initial \
@@ -245,6 +251,7 @@ def updateSApi : Api where
   module := "blake2s"
   name := "vg_blake2s_update"
   sig := updateSSig
+  contracts := some fun A stack => updateSContract A stack
   summary := "Absorbs data into a BLAKE2s computation: if the streaming state `*state` represents \
     data of `count` bytes, it then represents that data followed by the `len` bytes at `data`.\n\n\
     Contract: `VG.Spec.Blake2.updateSContract`. Constant time: only the pointers, `count` and `len` \
@@ -276,6 +283,7 @@ def finalizeSApi : Api where
   module := "blake2s"
   name := "vg_blake2s_finalize"
   sig := finalizeSSig
+  contracts := some fun A stack => finalizeSContract A stack
   summary := "Finishes a BLAKE2s computation: if the streaming state `*state` represents data of \
     `count` bytes, compresses its last block and writes the final state `h[0..7]` (32 bytes) to \
     `*out`. The digest of `outlen` bytes (`init`'s) is its first `outlen` bytes.\n\n\

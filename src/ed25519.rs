@@ -5,14 +5,20 @@
 //! contracts in `VG.Spec.Ed25519`. Rust composes those primitives and clears
 //! secret temporary values.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "x86",
+    target_arch = "arm"
+))]
 
+#[cfg(target_arch = "x86_64")]
+use crate::arch::ed25519::vg_ed25519_scalar_base_precomputed;
 use crate::arch::ed25519::{
-    vg_ed25519_scalar_base, vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce,
-    vg_ed25519_verify_equation,
+    vg_ed25519_scalar_mul_add, vg_ed25519_scalar_reduce, vg_ed25519_verify_equation,
 };
 use crate::hashes::sha512::Sha512;
-use crate::mlkem768::zeroize;
+use crate::zeroize::zeroize;
 
 /// Why signature verification failed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -160,11 +166,40 @@ fn prune(expanded: &[u8; 64]) -> [u8; 32] {
     scalar
 }
 
+enum BaseBackend {
+    #[cfg(not(target_arch = "x86_64"))]
+    Scalar,
+    #[cfg(target_arch = "x86_64")]
+    Precomputed,
+}
+
+const BASE_BACKEND: BaseBackend = {
+    #[cfg(target_arch = "x86_64")]
+    {
+        BaseBackend::Precomputed
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        BaseBackend::Scalar
+    }
+};
+
 fn scalar_base(scalar: &[u8; 32], scratch: &mut [u64; 1024]) -> [u8; 32] {
     let mut out = [0u8; 32];
     // SAFETY: the output, scalar, and scratch are distinct objects valid
     // for 32, 32, and 8192 bytes, respectively, without address-space wrapping.
-    unsafe { vg_ed25519_scalar_base(&mut out, scalar, scratch) };
+    unsafe {
+        match BASE_BACKEND {
+            #[cfg(not(target_arch = "x86_64"))]
+            BaseBackend::Scalar => {
+                crate::arch::ed25519::vg_ed25519_scalar_base(&mut out, scalar, scratch)
+            }
+            #[cfg(target_arch = "x86_64")]
+            BaseBackend::Precomputed => {
+                vg_ed25519_scalar_base_precomputed(&mut out, scalar, scratch)
+            }
+        }
+    };
     out
 }
 

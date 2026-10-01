@@ -63,6 +63,15 @@ theorem scalarBasePrepare_ok {s : State} {base k : Addr} (hs : Scratch s base) (
     rw [kb.bit _ (by omega)]; exact abits i hi
   exact ⟨kap.trans (PowersKeep.of_keep kb), bp, bd, bbits, hscalar⟩
 
+def BaseEngineCorrect (engine : Prog isa) : Prop :=
+  ∀ {s : State} {base k : Addr}, Scratch s base → s.gpr .rsi = k →
+    (∀ q < 32, InRegions (s.rd ++ s.wr) (off k q) 1) →
+    (∀ q < 32, 8192 ≤ ofs base (off k q)) →
+    WP isa engine s fun t => PowersKeep base 56 7368 s t ∧
+      val4 (t.gpr .r8) (t.gpr .r9) (t.gpr .r10) (t.gpr .r11) =
+        encodedValue (Spec.Ed25519.pointMul (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem k 32))
+          Spec.Ed25519.basePoint)
+
 theorem scalarBaseEngine_ok {s : State} {base k : Addr} (hs : Scratch s base) (hp : s.gpr .rsi = k)
     (hr : ∀ q < 32, InRegions (s.rd ++ s.wr) (off k q) 1)
     (hd : ∀ q < 32, 8192 ≤ ofs base (off k q)) :

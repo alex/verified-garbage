@@ -129,6 +129,20 @@ pub struct StreamingHmacState<H, const S: usize> {
     pub(crate) outer: [u8; S],
 }
 
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
+impl<H, const S: usize> Drop for StreamingHmacState<H, S> {
+    /// Wipes the outer state, which represents `K₀ ⊕ opad` (the inner hash
+    /// wipes its own).
+    fn drop(&mut self) {
+        crate::zeroize::zeroize(&mut self.outer);
+    }
+}
+
 /// Makes a hash function over verified streaming primitives (defined by
 /// `streaming_hash!`) an [`HmacHash`], with its verified
 /// `vg_hmac_<hash>_init` and `vg_hmac_<hash>_finalize` (contracts
@@ -200,10 +214,13 @@ macro_rules! streaming_hmac {
                     )
                 };
                 // `inner` now represents `K₀ ⊕ ipad`, of a block.
-                super::StreamingHmacState {
+                let state = super::StreamingHmacState {
                     inner: $hash::from_state(inner, Self::BLOCK_SIZE as u64, backend),
                     outer,
-                }
+                };
+                $crate::zeroize::zeroize(&mut inner);
+                $crate::zeroize::zeroize(&mut outer);
+                state
             }
 
             fn hmac_update(state: &mut Self::State, data: &[u8]) {
@@ -230,6 +247,7 @@ macro_rules! streaming_hmac {
                 // CPU feature that the hash's implementation was not selected
                 // for (`tests::backend_features`).
                 unsafe { finalize(&mut inner, &state.outer, count, &mut mac, &mut scratch) };
+                $crate::zeroize::zeroize(&mut inner);
                 mac
             }
         }

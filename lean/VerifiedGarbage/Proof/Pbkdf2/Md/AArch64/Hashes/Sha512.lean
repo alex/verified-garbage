@@ -184,25 +184,17 @@ end
 
 /-- Streaming wrappers shared by all four digest sizes. The SHA-512 member
 emits them once per backend through `MdHash`; the other members call them. -/
-def stream (v : Compress) : List Artifact := [
-  { Spec.Sha512.updateApi with
-    name := Spec.Sha512.updateApi.name ++ v.suffix
-    target := AArch64.target
-    doc := Spec.Sha512.updateApi.doc
+def stream (v : Compress) : List StreamFn := [
+  { api := Spec.Sha512.updateApi
     code := v.update
     contract := Spec.Sha512.updateContract AArch64.abi
     verified := Proof.Sha512.AArch64.Shared.update_of v.update_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _
-    features := v.features },
-  { Spec.Sha512.finalizeApi with
-    name := Spec.Sha512.finalizeApi.name ++ v.suffix
-    target := AArch64.target
-    doc := Spec.Sha512.finalizeApi.doc
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { api := Spec.Sha512.finalizeApi
     code := v.finalize
     contract := Spec.Sha512.finalizeContract AArch64.abi
     verified := Proof.Sha512.AArch64.Shared.finalize_of v.finalize_verified
-    spSafe := Code.all_of_forall (fun _ => rfl) _
-    features := v.features }]
+    spSafe := Code.all_of_forall (fun _ => rfl) _ }]
 
 /-! ## SHA-384 -/
 

@@ -211,18 +211,33 @@ def Verified (T : Target) (c : Prog T.isa) (k : Contract T.isa) : Prop :=
   ConstantTime T.isa k.pre k.pub c ∧
   (∃ s, k.pre s)
 
+/-- A function's contract on every target: the contract under the calling
+convention `A`, for an implementation whose calls and frames use `stack`
+bytes of stack below the stack pointer (`Sig.contract`'s `stack`; a contract
+that does not depend on it is the one with `stack` 0). -/
+abbrev Contracts : Type 1 := {M : ISA} → Abi M → Nat → Contract M
+
 /-- What a function is on every target: its Rust module, name and signature,
 whether its contract lets it overwrite its arguments in memory
-(`Sig.contract`'s `writeArgs`), and its documentation. A registration file
-makes an `Artifact` of it on each target
-(`{ api with target := …, doc := api.doc, … }`), adding any notes on the
-implementation; the emitter adds the obligations the signature implies
-(`Sig.validDoc`, and `Sig.layoutDoc`, which depends on the target). -/
+(`Sig.contract`'s `writeArgs`), its contract on every target (`contracts`),
+and its documentation. A registration file makes an `Artifact` of it on each
+target (`{ api with target := …, doc := api.doc, … }`), adding any notes on
+the implementation; the emitter adds the obligations the signature implies
+(`Sig.validDoc`, and `Sig.layoutDoc`, which depends on the target).
+
+The `Artifact` takes `contracts` from the `Api` with its name and signature,
+and must be proven against `contracts` on its target (`Artifact.ofApi`): so
+the Rust name, signature and documentation that `Spec/` gives a function are
+those of the contract `Spec/` gives it, and nothing outside `Spec/` pairs
+them. -/
 structure Api where
   module : String
   name : String
   sig : Sig
   writeArgs : Bool := false
+  /-- The function's contract on every target, `fun A stack => fooContract A
+  stack`. The emitter refuses an artifact without one (`Rust.checkApi`). -/
+  contracts : Option Contracts := none
   /-- The documentation, up to its `# Safety` section. -/
   summary : String
   /-- The items of the `# Safety` section, but for those `Sig.validDoc` and
@@ -268,6 +283,16 @@ structure Artifact where
   buffers are. -/
   ofSig : ∃ pre post leak, contract = sig.contract target.abi pre post writeArgs stack leak := by
     exact ⟨_, _, _, rfl⟩
+  /-- The contract of the function on every target, which an artifact made
+  from an `Api` (`{ api with … }`) takes from it with its `name` and `sig`
+  (`Api.contracts`). The emitter refuses an artifact without one
+  (`Rust.checkApi`). -/
+  contracts : Option Contracts := none
+  /-- `contract` is `contracts` on the target, for `stack`: an artifact made
+  from an `Api` is proven against the contract `Spec/` gives the function,
+  not one chosen where the artifact is built. -/
+  ofApi : contracts.elim True fun f => contract = f target.abi stack := by
+    first | exact True.intro | exact rfl
   /-- The code changes the stack pointer only by calls and returns and by
   the pushes and pops of frames, which are nested: no other instruction of
   it, or of the functions it calls, writes it. So a call instruction or a
