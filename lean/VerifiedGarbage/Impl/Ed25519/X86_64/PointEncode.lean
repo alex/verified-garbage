@@ -9,7 +9,7 @@ open VG.X86_64
 def affineOps : List FieldOp := [.mul 0 0 15, .mul 1 1 15]
 
 def pointAffine : Prog isa :=
-  .seq VG.Impl.X25519.X86_64.invert (.block (fieldCode affineOps))
+  .seq (VG.Impl.X25519.X86_64.invert VG.Impl.X25519.X86_64.baseline) (.block (fieldCode affineOps))
 
 def pointSign : List Instr :=
   [.mov .rbx (.reg .r8), .alu .and .rbx (.imm 1), .shift .ror .rbx 1]

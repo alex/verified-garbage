@@ -656,7 +656,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ BMI2, ADX</td>
 
 <td>✅</td>
 
@@ -730,9 +730,9 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -746,9 +746,9 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -762,9 +762,9 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 </tr>
 
@@ -793,6 +793,16 @@ Our goal is to implement all the cryptographic algorithms that are used by the P
   makes: it reads memory at indices derived from the password, and its
   contract declares that it leaks them and nothing else secret). See [`lean/README.md`](lean/README.md) for the
   layout, the pipeline, and exactly what has to be trusted.
+* Constant time means that the sequence of instructions and memory
+  addresses does not depend on secrets; that each instruction's own timing
+  does not depend on its data is an assumption about the CPU, recorded in
+  each ISA model (`lean/VerifiedGarbage/TCB/<ISA>/Isa.lean`). On x86 and
+  x86-64 it rests on Intel's data operand independent timing guidance,
+  which covers only Intel Core and Atom processors (not AMD's, VIA's or
+  the Pentium 4's), holds on Intel processors from Ice Lake (Atom:
+  Gracemont) on only if the operating system has set the DOITM bit, which
+  user code cannot, and does not list the `VSHA512*` instructions that
+  SHA-512 uses on CPUs with the SHA512 extension.
 * The proven assembly is emitted into [`src/asm/`](src/asm/) (one directory
   per architecture) as Rust naked functions (`naked_asm!`); there is no build
   script and no separate assembler step.

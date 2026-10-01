@@ -190,6 +190,7 @@ def initApi : Api where
   module := s!"hmac_{I.rust}"
   name := s!"vg_hmac_{I.rust}_init"
   sig := initSig I.S I.scratch
+  contracts := some fun A stack => I.initContract A stack
   summary := s!"Starts an HMAC-{I.alg} computation with a key of at most {I.S.H.blockSize} bytes: \
     makes the {I.alg} streaming state `*inner` represent `K₀ ⊕ ipad` and `*outer` represent \
     `K₀ ⊕ opad`, where `K₀` is the `key_len` bytes at `key` padded with zeros to \
@@ -207,6 +208,7 @@ def finalizeApi : Api where
   module := s!"hmac_{I.rust}"
   name := s!"vg_hmac_{I.rust}_finalize"
   sig := finalizeSig I.S I.scratch
+  contracts := some fun A stack => I.finalizeContract A stack
   summary := s!"Finishes an HMAC-{I.alg} computation: if, for a {I.S.H.blockSize}-byte key `K₀` \
     and a text of fewer than 2⁶⁴ − {I.S.H.blockSize} bytes, the {I.alg} streaming state `*inner` \
     represents `(K₀ ⊕ ipad) ‖ text`, of `count` bytes, and `*outer` represents `K₀ ⊕ opad`, \

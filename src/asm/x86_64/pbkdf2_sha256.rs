@@ -213,7 +213,7 @@ pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha256_iterate(key: *const [
 /// * `scratch` must be valid for reads and writes of 1600 bytes.
 /// * `c` must be positive, and `out_len` at most `(2^32 - 1) * 32`.
 /// * The contents of `scratch` on return are unspecified.
-/// * `out` and `scratch` must not overlap each other, `password` or `salt` (distinct Rust objects never do).
+/// * `out` and `scratch` must not overlap each other, `password`, `salt` or the arguments on the stack (distinct Rust objects never do).
 /// * None of `password`, `salt`, `out` and `scratch` may overlap the return address on the stack or the 24 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 #[unsafe(naked)]
 pub(crate) unsafe extern "sysv64" fn vg_pbkdf2_hmac_sha256(password: *const u8, password_len: usize, salt: *const u8, salt_len: usize, c: u32, out: *mut u8, out_len: usize, scratch: *mut [u64; 200]) {
@@ -589,7 +589,7 @@ pub(crate) const VG_PBKDF2_HMAC_SHA256_AVX2_FEATURES: &[&str] = &["avx", "avx2",
 /// * `scratch` must be valid for reads and writes of 1600 bytes.
 /// * `c` must be positive, and `out_len` at most `(2^32 - 1) * 32`.
 /// * The contents of `scratch` on return are unspecified.
-/// * `out` and `scratch` must not overlap each other, `password` or `salt` (distinct Rust objects never do).
+/// * `out` and `scratch` must not overlap each other, `password`, `salt` or the arguments on the stack (distinct Rust objects never do).
 /// * None of `password`, `salt`, `out` and `scratch` may overlap the return address on the stack or the 24 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `avx`, `avx2`, `bmi1` and `bmi2` target features.
 #[unsafe(naked)]
@@ -966,7 +966,7 @@ pub(crate) const VG_PBKDF2_HMAC_SHA256_SHANI_FEATURES: &[&str] = &["sha", "ssse3
 /// * `scratch` must be valid for reads and writes of 1600 bytes.
 /// * `c` must be positive, and `out_len` at most `(2^32 - 1) * 32`.
 /// * The contents of `scratch` on return are unspecified.
-/// * `out` and `scratch` must not overlap each other, `password` or `salt` (distinct Rust objects never do).
+/// * `out` and `scratch` must not overlap each other, `password`, `salt` or the arguments on the stack (distinct Rust objects never do).
 /// * None of `password`, `salt`, `out` and `scratch` may overlap the return address on the stack or the 24 bytes of stack below it, or wrap around the end of the address space (no Rust object does).
 /// * The CPU must support the `sha` and `ssse3` target features.
 #[unsafe(naked)]

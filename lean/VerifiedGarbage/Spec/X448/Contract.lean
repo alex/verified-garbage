@@ -43,6 +43,7 @@ def x448Api : Api where
   module := "x448"
   name := "vg_x448"
   sig := x448Sig
+  contracts := some fun A stack => x448Contract A stack
   summary := "Computes X448 (RFC 7748 §5): writes `X448(k, u)` to `*out`, for the 56-byte \
     scalar `k` at `scalar` and the 56-byte u-coordinate `u` at `point`. The scalar is \
     decoded (clamped); all 448 bits of `u` are used and noncanonical coordinates are \

@@ -20,14 +20,10 @@ their initial hash value `iv` and the size `D` of their digest, the first
 add, which do not depend on `v`, are checked once for each member
 (`coreOK`).
 
-`stream v` are the streaming `update` and `finalize` made with `v`, named
-with its suffix, which the four share: SHA-512's variant (`sha512 v`)
-carries them. **Review note**: `sig` and `doc` are trusted, as they tie the
-Rust caller to the contract: they are those of the functions' `Api`s
-(`Spec/Sha512/Contract.lean`). The emitter adds the `# Safety` items that
-depend on the target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which
-`ofSig` checks against the contract, and the CPU features the
-implementation needs.
+`stream v` are the streaming `update` and `finalize` made with `v`, which
+the four share: SHA-512's variant (`sha512 v`) carries them, and
+`Generic/MdHash/X86_64/Stream.lean` emits them from their `Api`s, named
+with its suffix.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64.Sha512
@@ -166,27 +162,19 @@ def ok {I : Spec.Hmac.Instance} {D : Nat} {initN : String} {iv : Spec.Sha512.Has
 
 /-- The streaming `update` and `finalize` made with `v`, which the family
 shares. -/
-def stream (v : Compress) : List Artifact := [
-  { Spec.Sha512.updateApi with
-    name := Spec.Sha512.updateApi.name ++ v.suffix
-    target := X86_64.target
-    doc := Spec.Sha512.updateApi.doc
+def stream (v : Compress) : List StreamFn := [
+  { api := Spec.Sha512.updateApi
     code := Impl.Sha512.X86_64.Stream.update v.callee
     contract := Spec.Sha512.updateContract X86_64.abi 8
     stack := 8
     verified := Proof.Sha512.X86_64.Shared.update v.ok v.mxcsr
-    spSafe := Proof.Sha512.X86_64.Shared.update_spSafe v.spSafe
-    features := v.features },
-  { Spec.Sha512.finalizeApi with
-    name := Spec.Sha512.finalizeApi.name ++ v.suffix
-    target := X86_64.target
-    doc := Spec.Sha512.finalizeApi.doc
+    spSafe := Proof.Sha512.X86_64.Shared.update_spSafe v.spSafe },
+  { api := Spec.Sha512.finalizeApi
     code := Impl.Sha512.X86_64.Stream.finalize v.callee
     contract := Spec.Sha512.finalizeContract X86_64.abi 8
     stack := 8
     verified := Proof.Sha512.X86_64.Shared.finalize v.ok v.mxcsr
-    spSafe := Proof.Sha512.X86_64.Shared.finalize_spSafe v.spSafe
-    features := v.features }]
+    spSafe := Proof.Sha512.X86_64.Shared.finalize_spSafe v.spSafe }]
 
 /-! ## SHA-384 -/
 
@@ -211,7 +199,7 @@ theorem sha384_satP : ∃ s, (Spec.Hmac.sha384I.pbkdf2Contract X86_64.abi 24).pr
 theorem sha384_coreOK : CoreOK (coreH 48) := coreOK 48 (Or.inr (Or.inr (Or.inl rfl)))
 
 /-- SHA-384 with the implementation `v` of the compression function. -/
-def sha384 (v : Compress) (stream : List Artifact := []) : MdHash :=
+def sha384 (v : Compress) (stream : List StreamFn := []) : MdHash :=
   have C : CoreOK (core (hash Spec.Hmac.sha384I 48 Spec.Sha512.init384Api.name H0_384 v)) := sha384_coreOK
   have K : Callees (hash Spec.Hmac.sha384I 48 Spec.Sha512.init384Api.name H0_384 v) := callees (Or.inl rfl) v
   MdHash.of (ok C K rfl (fun _ => rfl) rfl rfl rfl (Or.inr (Or.inr (Or.inl rfl))) rfl) C K rfl rfl
@@ -240,7 +228,7 @@ theorem sha512_satP : ∃ s, (Spec.Hmac.sha512I.pbkdf2Contract X86_64.abi 24).pr
 theorem sha512_coreOK : CoreOK (coreH 64) := coreOK 64 (Or.inr (Or.inr (Or.inr rfl)))
 
 /-- SHA-512 with the implementation `v` of the compression function. -/
-def sha512 (v : Compress) (stream : List Artifact := []) : MdHash :=
+def sha512 (v : Compress) (stream : List StreamFn := []) : MdHash :=
   have C : CoreOK (core (hash Spec.Hmac.sha512I 64 Spec.Sha512.init512Api.name H0_512 v)) := sha512_coreOK
   have K : Callees (hash Spec.Hmac.sha512I 64 Spec.Sha512.init512Api.name H0_512 v) := callees (Or.inr (Or.inl rfl)) v
   MdHash.of (ok C K rfl (fun _ => (List.take_of_length_le (Nat.le_of_eq (Proof.Sha512.md.digest_length _))).symm) rfl rfl rfl (Or.inr (Or.inr (Or.inr rfl))) rfl) C K rfl rfl
@@ -269,7 +257,7 @@ theorem sha512_224_satP : ∃ s, (Spec.Hmac.sha512_224I.pbkdf2Contract X86_64.ab
 theorem sha512_224_coreOK : CoreOK (coreH 28) := coreOK 28 (Or.inl rfl)
 
 /-- SHA-512/224 with the implementation `v` of the compression function. -/
-def sha512_224 (v : Compress) (stream : List Artifact := []) : MdHash :=
+def sha512_224 (v : Compress) (stream : List StreamFn := []) : MdHash :=
   have C : CoreOK (core (hash Spec.Hmac.sha512_224I 28 Spec.Sha512.init512_224Api.name H0_512_224 v)) := sha512_224_coreOK
   have K : Callees (hash Spec.Hmac.sha512_224I 28 Spec.Sha512.init512_224Api.name H0_512_224 v) := callees (Or.inr (Or.inr (Or.inl rfl))) v
   MdHash.of (ok C K rfl (fun _ => rfl) rfl rfl rfl (Or.inl rfl) rfl) C K rfl rfl
@@ -298,7 +286,7 @@ theorem sha512_256_satP : ∃ s, (Spec.Hmac.sha512_256I.pbkdf2Contract X86_64.ab
 theorem sha512_256_coreOK : CoreOK (coreH 32) := coreOK 32 (Or.inr (Or.inl rfl))
 
 /-- SHA-512/256 with the implementation `v` of the compression function. -/
-def sha512_256 (v : Compress) (stream : List Artifact := []) : MdHash :=
+def sha512_256 (v : Compress) (stream : List StreamFn := []) : MdHash :=
   have C : CoreOK (core (hash Spec.Hmac.sha512_256I 32 Spec.Sha512.init512_256Api.name H0_512_256 v)) := sha512_256_coreOK
   have K : Callees (hash Spec.Hmac.sha512_256I 32 Spec.Sha512.init512_256Api.name H0_512_256 v) := callees (Or.inr (Or.inr (Or.inr rfl))) v
   MdHash.of (ok C K rfl (fun _ => rfl) rfl rfl rfl (Or.inr (Or.inl rfl)) rfl) C K rfl rfl

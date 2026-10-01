@@ -36,6 +36,15 @@ Modelling choices:
   their data operands on its Core and Atom processors ("Data Operand
   Independent Timing Instruction Set Architecture (ISA) Guidance", which
   lists `MUL`).
+* Assumed, not proven: that holds on every processor that runs this code.
+  Intel's guidance covers only its Core and Atom processors, while the
+  baseline also admits processors it does not cover: the NetBurst Pentium 4
+  and its Xeons, and those of AMD, VIA and Zhaoxin, whose vendors document
+  no such list. On Intel Core processors from Ice Lake and Intel Atom
+  processors from Gracemont on, it holds only while the DOITM bit
+  (IA32_UARCH_MISC_CTL[0], MSR 1B01H) is set, which resets to 0 and only
+  privileged software can set: user code runs with it clear unless the
+  operating system sets it (see `TCB/X86_64/Isa.lean`).
 * Calls (`call`) and returns (`ret`) are near and direct (SDM Vol. 2, "CALL",
   "RET"). The return addresses are the next of the state's `unknowns`,
   which nothing constrains (see `TCB/Code.lean`).

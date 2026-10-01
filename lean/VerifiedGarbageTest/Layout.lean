@@ -77,6 +77,28 @@ def none' : Sig where
       address on the stack or the 4 bytes of stack below it, or wrap around the end of the address \
       space (no Rust object does)."]
 
+/-- `sample` with three more integers: nine arguments, more than the six
+registers of x86-64 and the eight of AArch64, so some are on the stack. -/
+def many : Sig where
+  params := sample.params ++ [("a", .int .u64 false), ("b", .int .u64 false),
+    ("c", .int .u64 false)]
+
+#guard Sig.layoutDoc X86_64.abi many false 0 == [
+    "`w` and `x` must not overlap each other, `r`, `y` or the arguments on the stack (distinct \
+      Rust objects never do).",
+    "None of `w`, `r`, `x` and `y` may overlap the return address on the stack, or wrap around \
+      the end of the address space (no Rust object does)."]
+
+#guard Sig.layoutDoc AArch64.abi many false 0 == [
+    "`w` and `x` must not overlap each other, `r`, `y` or the arguments on the stack (distinct \
+      Rust objects never do).",
+    "None of `w`, `r`, `x` and `y` may wrap around the end of the address space (no Rust object \
+      does)."]
+
+#guard Sig.layoutNote X86_64.abi many true == []
+
+#guard Sig.layoutNote AArch64.abi many true == []
+
 #guard Sig.layoutDoc X86_64.abi one false 0 == [
     "`state` must not overlap the return address on the stack, or wrap around the end of the \
       address space (no Rust object does)."]
