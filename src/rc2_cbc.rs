@@ -6,7 +6,12 @@
 //! updates. Finalization rejects a trailing partial block.
 
 #![cfg(all(
-    any(target_arch = "x86_64", target_arch = "arm", target_arch = "aarch64"),
+    any(
+        target_arch = "x86_64",
+        target_arch = "arm",
+        target_arch = "aarch64",
+        target_arch = "x86"
+    ),
     feature = "alloc"
 ))]
 
