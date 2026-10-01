@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.Framework.AArch64.Depth
 import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Update
 import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Finalize
 
