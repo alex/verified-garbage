@@ -61,4 +61,24 @@ theorem halves_append (x : BitVec 64) : (x >>> 32).setWidth 32 ++ x.setWidth 32 
   · simp only [h, decide_true, Bool.true_and, ite_true]
   · simp (disch := omega) [h, show j - 32 < 32 by omega, show 32 + (j - 32) = j by omega]
 
+theorem pack28_word (c d : BitVec 28) :
+    ((c.setWidth 64).rotateRight 36 ^^^ d.setWidth 64).setWidth 56 = c ++ d := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  simp only [BitVec.getLsbD_setWidth, BitVec.getLsbD_xor, BitVec.getLsbD_rotateRight,
+    BitVec.getLsbD_append]
+  by_cases h : j < 28
+  · simp (disch := omega) [h, hj, show j < 64 by omega, show 36 + j < 64 by omega, BitVec.getLsbD_of_ge]
+  · simp (disch := omega) [h, hj, show j < 64 by omega, show j - 28 < 64 by omega, BitVec.getLsbD_of_ge]
+
+theorem split28_upper (x : BitVec 56) :
+    x.setWidth 64 >>> 28 = ((x >>> 28).setWidth 28).setWidth 64 := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  simp only [BitVec.getLsbD_setWidth, BitVec.getLsbD_ushiftRight]
+  by_cases h : j < 28
+  · simp only [h, hj, show 28 + j < 64 by omega, decide_true, Bool.true_and]
+  · simp only [h, hj, BitVec.getLsbD_of_ge x (28 + j) (by omega), decide_false, decide_true, Bool.and_false]
+
+
 end VG.Proof.TripleDes
