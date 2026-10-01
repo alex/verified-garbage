@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.TripleDes.AArch64.FunctionsLit
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 
-/-! # Constant-time RC2 block and key-expansion programs -/
+/-! # Constant-time Triple DES block and key-expansion programs -/
 
 namespace VG.Proof.TripleDes.AArch64
 
