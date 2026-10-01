@@ -8,7 +8,7 @@ pub const USES: &[&str] = &["cmac_aes", "aes"];
 
 /// The MAC of a message with a 16-byte key (setup included), computed and
 /// verified.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 pub fn bench(c: &mut Criterion) {
     use std::hint::black_box;
 
@@ -63,5 +63,5 @@ pub fn bench(c: &mut Criterion) {
     g.finish();
 }
 
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm")))]
 pub fn bench(_: &mut Criterion) {}

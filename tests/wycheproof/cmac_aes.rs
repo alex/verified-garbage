@@ -5,7 +5,7 @@
 //! invalid one is either a modified tag, which `verify` must reject, or a
 //! key of a length AES does not take, which `new` must reject.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use serde::Deserialize;
 use verified_garbage::cmac::InvalidKeyLength;
