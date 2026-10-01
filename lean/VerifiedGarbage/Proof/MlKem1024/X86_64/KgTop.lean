@@ -21,8 +21,10 @@ namespace KeyGen4
 
 open VG.Impl.MlKem1024.X86_64.KeyGen1024
 
+variable {K : KPre}
+
 /-- `KB` is kept by a piece that only sets flags. -/
-theorem KB.flag {σ : State} (hp : keyGen1024K.pre σ) {e : Nat} (he : e ≤ 16) {s s' : State} (h : KB e σ s)
+theorem KB.flag {σ : State} (hp : K.pre σ) {e : Nat} (he : e ≤ 16) {s s' : State} (h : KB e σ s)
     (hP : PPost s s' []) : KB e σ s' := by
   have L := h.a.kc.lay hp
   refine ⟨⟨h.a.kc.step hp hP.b (by decide), by rw [L.keepBytes hP.b (by decide)]; exact h.a.rho,
@@ -50,7 +52,7 @@ theorem r15_eq {ρ : List Byte} {r : BitVec 64} (h : r = if allOk4 ρ 16 then 1 
   rw [h] at he
   exact absurd he (by decide)
 
-theorem rest_ok {σ : State} (hp : keyGen1024K.pre σ) {s : State} (h : KRest 0 0 0 σ s) :
+theorem rest_ok {σ : State} (hp : K.pre σ) {s : State} (h : KRest 0 0 0 σ s) :
     WP isa rest s (KFin σ) := by
   unfold rest
   refine WP.seq (WP.mono (seqR_ok (I := fun k => KRest k 0 0 σ) 8 0 (fun k _ hk s hs => se_ok hp (by omega) hs) s h)
@@ -61,7 +63,7 @@ theorem rest_ok {σ : State} (hp : keyGen1024K.pre σ) {s : State} (h : KRest 0 
     h₂) fun s₃ h₃ => ?_)
   exact fin_ok hp h₃
 
-theorem body_ok {σ : State} (hp : keyGen1024K.pre σ) {s : State} (h : KB 16 σ s) : WP isa (ifOk rest) s (KEnd σ) := by
+theorem body_ok {σ : State} (hp : K.pre σ) {s : State} (h : KB 16 σ s) : WP isa (ifOk rest) s (KEnd σ) := by
   refine ifOk_ok (fun s₁ hP hne => ?_) fun s₁ hP he => ?_
   · have ho := r15_ne h.r15 hne
     exact WP.mono (rest_ok hp (KRest.start (h.flag hp (by decide) hP) ho)) fun s' hf =>
@@ -92,7 +94,7 @@ theorem post_of {σ s : State} (h : KEnd σ s) {s' : State}
 
 end KeyGen4
 
-theorem KeyGen4.KEnd.hin {σ s : State} (hp : keyGen1024K.pre σ) (h : KeyGen4.KEnd σ s) :
+theorem KeyGen4.KEnd.hin {K : KeyGen4.KPre} {σ s : State} (hp : K.pre σ) (h : KeyGen4.KEnd σ s) :
     ∀ k < 6, InRegions (s.rd ++ s.wr) (pa s (sc (oSV + 8 * k))) 8 := fun k hk => by
   have hk' : ∀ k < 6, inB KeyGen4.kgB (sc (oSV + 8 * k)) 8 = true := by decide
   exact (h.kc.lay hp).cR (hk' k hk) _ _ ⟨_, List.mem_singleton_self _, Region.contains_self _ _⟩
@@ -101,10 +103,10 @@ open KeyGen4 in
 theorem keyGen1024_correct (v : Sample4Impl) (σ : State) (hp : keyGen1024K.pre σ) :
     ∃ t s', Exec isa (keyGen1024 v.callee) σ t s' ∧ abiPreserved σ s' ∧ keyGen1024K.post σ s' := by
   obtain ⟨t, s', he, hF⟩ := WP.seq (WP.mono (pro_ok hp) fun s₁ ⟨h₁, h15⟩ =>
-    WP.seq (WP.mono (gRho_ok hp h₁ h15) fun s₂ ⟨h₂, h15'⟩ =>
-      WP.seq (WP.mono (samples_ok v hp (KB.zero h₂ h15')) fun s₃ h₃ =>
-        WP.seq (WP.mono (body_ok hp h₃) fun s₄ h₄ =>
-          WP.mono (topEpi_ok h₄.kc.top (h₄.hin hp)) fun s₅ ⟨hr, hg, hm⟩ =>
+    WP.seq (WP.mono (gRho_ok (K := kgK) hp h₁ h15) fun s₂ ⟨h₂, h15'⟩ =>
+      WP.seq (WP.mono (samples_ok v (K := kgK) hp (KB.zero h₂ h15')) fun s₃ h₃ =>
+        WP.seq (WP.mono (body_ok (K := kgK) hp h₃) fun s₄ h₄ =>
+          WP.mono (topEpi_ok h₄.kc.top (h₄.hin (K := kgK) hp)) fun s₅ ⟨hr, hg, hm⟩ =>
             (⟨hg, post_of h₄ hr hm⟩ : gprPreserved σ s₅ ∧ keyGen1024K.post σ s₅)))))
   exact ⟨t, s', he, abiPreserved_of_ctl (by s4_ctl v) he hF.1, hF.2⟩
 
@@ -114,25 +116,27 @@ namespace KeyGen4
 
 open VG.Impl.MlKem1024.X86_64.KeyGen1024
 
-abbrev R (I : State → State → Prop) : State → State → Prop := Rel2 keyGen1024K.pre keyGen1024K.pub I
+variable {K : KPre}
 
-theorem rest_tr : RelCT isa (R fun σ s => KRest 0 0 0 σ s ∧ allOk4 (rhoK σ) 16) rest
-    (R fun σ s => KFin σ s ∧ allOk4 (rhoK σ) 16) := by
+abbrev R (K : KPre) (I : State → State → Prop) : State → State → Prop := Rel2 K.pre K.pub I
+
+theorem rest_tr : RelCT isa (R K fun σ s => KRest 0 0 0 σ s ∧ allOk4 (rhoK σ) 16) rest
+    (R K fun σ s => KFin σ s ∧ allOk4 (rhoK σ) 16) := by
   unfold rest
-  refine RelCT.seq (seqR_tr (R := fun k => R fun σ s => KRest k 0 0 σ s ∧ allOk4 (rhoK σ) 16) 8 0
+  refine RelCT.seq (seqR_tr (R := fun k => R K fun σ s => KRest k 0 0 σ s ∧ allOk4 (rhoK σ) 16) 8 0
     fun k _ hk => relInvC (fun σ s hp hs => se_ok hp (by omega) hs) (se_tr (by omega))) ?_
-  refine RelCT.seq (seqR_tr (R := fun k => R fun σ s => KRest 8 k 0 σ s ∧ allOk4 (rhoK σ) 16) 4 0
+  refine RelCT.seq (seqR_tr (R := fun k => R K fun σ s => KRest 8 k 0 σ s ∧ allOk4 (rhoK σ) 16) 4 0
     fun k _ hk => relInvC (fun σ s hp hs => row_ok hp (by omega) hs) (row_tr (by omega))) ?_
-  refine RelCT.seq (seqR_tr (R := fun k => R fun σ s => KRest 8 4 k σ s ∧ allOk4 (rhoK σ) 16) 4 0
+  refine RelCT.seq (seqR_tr (R := fun k => R K fun σ s => KRest 8 4 k σ s ∧ allOk4 (rhoK σ) 16) 4 0
     fun k _ hk => relInvC (fun σ s hp hs => encS_ok hp (by omega) hs) (encS_tr (by omega))) ?_
   exact relInvC (fun σ s hp hs => fin_ok hp hs) fin_tr
 
-theorem r15_pub {σ₁ σ₂ x y : State} (pub : keyGen1024K.pub σ₁ σ₂) (h₁ : KB 16 σ₁ x) (h₂ : KB 16 σ₂ y) :
+theorem r15_pub {σ₁ σ₂ x y : State} (pub : K.pub σ₁ σ₂) (h₁ : KB 16 σ₁ x) (h₂ : KB 16 σ₂ y) :
     x.gpr .r15 = y.gpr .r15 := by
   have e : kgRho1024 (kgD σ₁) = kgRho1024 (kgD σ₂) := rho_pub pub
   rw [h₁.r15, h₂.r15, e]
 
-theorem body_tr : RelCT isa (R (KB 16)) (ifOk rest) (R KEnd) := by
+theorem body_tr : RelCT isa (R K (KB 16)) (ifOk rest) (R K KEnd) := by
   refine ifOk_tr (fun x y ⟨_, _, _, _, pub, h₁, h₂⟩ => by rw [r15_pub pub h₁ h₂]) ?_ ?_
   · refine RelCT.mono rest_tr (fun x y ⟨x₀, y₀, ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩, hx, hy, hne⟩ => ?_)
       fun x y ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩ =>
@@ -155,15 +159,15 @@ theorem body_tr : RelCT isa (R (KB 16)) (ifOk rest) (R KEnd) := by
     have k₂ := h₂.flag p₂ (by decide) hy
     exact ⟨σ₁, σ₂, p₁, p₂, pub, ⟨k₁.a.kc, k₁.r15, fun h => absurd h o₁⟩, ⟨k₂.a.kc, k₂.r15, fun h => absurd h o₂⟩⟩
 
-theorem pro_tr : RelCT isa (R fun σ s => s = σ) (.block pro) fun _ _ => True :=
+theorem pro_tr : RelCT isa (R K fun σ s => s = σ) (.block pro) fun _ _ => True :=
   taintRel [.rcx, .rdi, .rsi, .rdx] (fun x y ⟨σ₁, σ₂, _, _, pub, h₁, h₂⟩ => by
     subst h₁ h₂
-    exact fa4 pub.2.2.2.1 pub.1 pub.2.1 pub.2.2.1) (by taint_decide)
+    exact fa4 (K.eq pub).2.2.2.1 (K.eq pub).1 (K.eq pub).2.1 (K.eq pub).2.2.1) (by taint_decide)
 
-theorem epi_tr : RelCT isa (R KEnd) (.block topEpi) fun _ _ => True :=
+theorem epi_tr : RelCT isa (R K KEnd) (.block topEpi) fun _ _ => True :=
   taintRel [.rbx] (fun x y ⟨σ₁, σ₂, _, _, pub, h₁, h₂⟩ r hr => by
     simp only [List.mem_singleton] at hr; subst hr
-    rw [h₁.kc.top.regs (.rbx, .rcx) (by decide), h₂.kc.top.regs (.rbx, .rcx) (by decide), pub.2.2.2.1])
+    rw [h₁.kc.top.regs (.rbx, .rcx) (by decide), h₂.kc.top.regs (.rbx, .rcx) (by decide), (K.eq pub).2.2.2.1])
     (by taint_decide)
 
 end KeyGen4
@@ -171,6 +175,7 @@ end KeyGen4
 open KeyGen4 in
 theorem keyGen1024_ct (v : Sample4Impl) :
     ConstantTime isa keyGen1024K.pre keyGen1024K.pub (keyGen1024 v.callee) := by
+  show ConstantTime isa kgK.pre kgK.pub _
   refine relStart (Q := fun _ _ => True) ?_
   unfold keyGen1024
   refine RelCT.seq (relInv (I' := fun σ s => KC σ s ∧ s.gpr .r15 = 1)

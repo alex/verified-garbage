@@ -95,7 +95,32 @@ structure KC (σ s : State) : Prop where
 def kcChk (ws : List (Ptr × Nat)) : Bool :=
   topChk kgB ws && keepB kgB ws (.rbp, 0) 32 && keepB kgB ws (.rbp, 32) 32
 
-theorem KC.lay {s : State} (h : KC σ s) : Lay kgR kgW s := kgLay hp h.top
+end
+
+/-- The precondition `pre` of a function that keeps the pointers of `vg_mlkem1024_keygen` (`kgM`), under
+which its buffers are laid out as `kgR`/`kgW` (`lay`), and its public data `pub`, on which two runs have the
+same pointers and `ρ` (`eq`). The proof of `vg_mlkem1024_keygen` holds for any: `vg_mlkem1024_keygen_expanded`
+runs it with a larger `ek`. -/
+structure KPre where
+  pre : State → Prop
+  pub : State → State → Prop
+  lay : ∀ {σ s : State}, pre σ → Top kgM σ s → Lay kgR kgW s
+  eq : ∀ {σ₁ σ₂ : State}, pub σ₁ σ₂ → σ₁.gpr .rdi = σ₂.gpr .rdi ∧ σ₁.gpr .rsi = σ₂.gpr .rsi ∧
+    σ₁.gpr .rdx = σ₂.gpr .rdx ∧ σ₁.gpr .rcx = σ₂.gpr .rcx ∧ σ₁.gpr .rsp = σ₂.gpr .rsp ∧
+    keyGenRho mlKem1024 (kgD σ₁) = keyGenRho mlKem1024 (kgD σ₂)
+
+/-- `vg_mlkem1024_keygen`'s. -/
+def kgK : KPre where
+  pre := keyGen1024K.pre
+  pub := keyGen1024K.pub
+  lay hp h := kgLay hp h
+  eq h := h
+
+section
+variable {K : KPre} {σ : State} (hp : K.pre σ)
+include hp
+
+theorem KC.lay {s : State} (h : KC σ s) : Lay kgR kgW s := K.lay hp h.top
 
 theorem KC.step {s s' : State} (h : KC σ s) {ws : List (Ptr × Nat)} (hP : PPostB s s' ws)
     (hc : kcChk ws = true) : KC σ s' := by
@@ -110,10 +135,11 @@ theorem pro_eq : pro = [.store (at_ .rcx 840) .rbx, .store (at_ .rcx 848) .rbp, 
     .store (at_ .rcx 864) .r13, .store (at_ .rcx 872) .r14, .store (at_ .rcx 880) .r15, .mov .rbx (.reg .rcx),
     .mov .rbp (.reg .rdi), .mov .r12 (.reg .rsi), .mov .r13 (.reg .rdx), .mov32 .r15 (.imm 1)] := rfl
 
-theorem pro_ok {σ : State} (hp : keyGen1024K.pre σ) : WP isa (.block pro) σ fun s => KC σ s ∧ s.gpr .r15 = 1 := by
-  have hp' := hp
-  obtain ⟨hrd, hwr, d1, d2, d3, d4, d5, d6, r1, r2, r3, r4, k1, k2, k3, k4, n1, n2, n3, n4⟩ := hp'
-  have hS : ⟨σ.gpr .rcx, 49152⟩ ∈ σ.wr := by rw [hwr]; simp
+/-- The prologue, from the facts it needs of the precondition: `scratch` is written, and apart from `seed`
+and the return address. -/
+theorem pro_okF {σ : State} (hS : ⟨σ.gpr .rcx, 49152⟩ ∈ σ.wr)
+    (d3 : Region.Disjoint ⟨σ.gpr .rdi, 64⟩ ⟨σ.gpr .rcx, 49152⟩) (r4 : (retR σ).Disjoint ⟨σ.gpr .rcx, 49152⟩) :
+    WP isa (.block pro) σ fun s => KC σ s ∧ s.gpr .r15 = 1 := by
   have c : ∀ o, o + 8 ≤ 49152 → (⟨σ.gpr .rcx, 49152⟩ : Region).Contains (σ.gpr .rcx + BitVec.ofNat 64 o) 8 :=
     fun o ho => contains_offset' ho (by omega)
   have w : ∀ o, o + 8 ≤ 49152 → InRegions σ.wr (σ.gpr .rcx + BitVec.ofNat 64 o) 8 := fun o ho => ⟨_, hS, c o ho⟩
@@ -146,6 +172,10 @@ theorem pro_ok {σ : State} (hp : keyGen1024K.pre σ) : WP isa (.block pro) σ f
   · rw [pa, hbp, ← bytesAt_slice s.mem _ (show 32 + 32 ≤ 64 by decide), hsd,
       bytesAt_slice σ.mem _ (show 32 + 32 ≤ 64 by decide)]
     rfl
+
+theorem pro_ok {σ : State} (hp : keyGen1024K.pre σ) : WP isa (.block pro) σ fun s => KC σ s ∧ s.gpr .r15 = 1 := by
+  obtain ⟨_, hwr, _, _, d3, _, _, _, _, _, _, r4, _⟩ := hp
+  exact pro_okF (by rw [hwr]; simp) d3 r4
 
 end KeyGen4
 

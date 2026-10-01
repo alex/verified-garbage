@@ -64,8 +64,8 @@ use crate::arch::mlkem768::{vg_mlkem768_check_ek, vg_mlkem768_encaps};
 use crate::arch::mlkem768::{vg_mlkem768_decaps, vg_mlkem768_keygen};
 #[cfg(target_arch = "x86_64")]
 use crate::arch::mlkem1024::{
-    VG_MLKEM1024_DECAPS_AVX2_FEATURES, VG_MLKEM1024_ENCAPS_AVX2_FEATURES,
-    VG_MLKEM1024_KEYGEN_AVX2_FEATURES,
+    VG_MLKEM1024_ENCAPS_AVX2_FEATURES, VG_MLKEM1024_EXPAND_EK_AVX2_FEATURES,
+    VG_MLKEM1024_KEYGEN_EXPANDED_AVX2_FEATURES,
 };
 #[cfg(target_arch = "x86_64")]
 use crate::cpu::{Features, detected};
@@ -104,9 +104,9 @@ impl Backend {
             VG_MLKEM768_KEYGEN_EXPANDED_AVX2_FEATURES,
             VG_MLKEM768_ENCAPS_AVX2_FEATURES,
             VG_MLKEM768_EXPAND_EK_AVX2_FEATURES,
-            VG_MLKEM1024_KEYGEN_AVX2_FEATURES,
+            VG_MLKEM1024_KEYGEN_EXPANDED_AVX2_FEATURES,
             VG_MLKEM1024_ENCAPS_AVX2_FEATURES,
-            VG_MLKEM1024_DECAPS_AVX2_FEATURES,
+            VG_MLKEM1024_EXPAND_EK_AVX2_FEATURES,
         ])) {
             Backend::Avx2
         } else {

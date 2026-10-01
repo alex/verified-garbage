@@ -61,21 +61,52 @@ def dcXA : Ctx dcR dcW where
 
 theorem dcEncChk : Enc4.encChk (dcR ++ dcW) dcW dckChk (.rbp, 1536) = true := by decide
 
+theorem dc_lrel {σ₁ σ₂ x y : State} (p₁ : decaps1024K.pre σ₁) (p₂ : decaps1024K.pre σ₂) (pub : decaps1024K.pub σ₁ σ₂)
+    (h₁ : DC σ₁ x) (h₂ : DC σ₂ y) : LRel dcR dcW x y := by
+  obtain ⟨e1, e2, e3, e4, e5, _⟩ := pub
+  refine ⟨h₁.lay p₁, h₂.lay p₂, fa4 ?_ ?_ ?_ ?_, by rw [h₁.top.rsp, h₂.top.rsp, e5]⟩
+  · rw [h₁.top.regs (.rbp, .rdi) (by decide), h₂.top.regs (.rbp, .rdi) (by decide), e1]
+  · rw [h₁.top.regs (.r14, .rsi) (by decide), h₂.top.regs (.r14, .rsi) (by decide), e2]
+  · rw [h₁.top.regs (.rbx, .rcx) (by decide), h₂.top.regs (.rbx, .rcx) (by decide), e4]
+  · rw [h₁.top.regs (.r12, .rdx) (by decide), h₂.top.regs (.r12, .rdx) (by decide), e3]
+
+theorem dcChks : decWs.all dcChk = true := by decide +kernel
+
+/-- What `vg_mlkem1024_decaps` holds of its state while it decrypts. -/
+def dcD : DCtx where
+  Pre := decaps1024K.pre
+  Pub := decaps1024K.pub
+  Out := DC
+  chk := dcChk
+  dk := dcDk
+  c := dcC
+  lay hp h := h.lay hp
+  step hp h hP hc := h.step hp hP hc
+  dkAt h := h.dk
+  cAt h := h.c
+  lrel := dc_lrel
+  chks := dcChks
+
+theorem dcD_dk (σ : State) : dcD.dk σ = dcDk σ := by simp only [dcD]
+theorem dcD_c (σ : State) : dcD.c σ = dcC σ := by simp only [dcD]
+
 /-! ## `G(m' ‖ h)` and `J(z ‖ c)` -/
 
 /-- The inputs of `K-PKE.Encrypt`, and `r15 = 1`. -/
 abbrev EncI (σ s : State) : Prop := Enc4.EIn (dcX σ) (.rbp, 1536) (dcEk σ) (dcM' σ) (dcG σ).2 s ∧ s.gpr .r15 = 1
 
-theorem hashes_ok {σ : State} (hp : decaps1024K.pre σ) {s : State} (h : DM σ s) : WP isa hashes s (EncI σ) := by
-  have L := h.dc.lay hp
+theorem hashes_ok {σ : State} (hp : decaps1024K.pre σ) {s : State} (h : DM dcD σ s) : WP isa hashes s (EncI σ) := by
+  have hm := h.m
+  rw [dcD_dk, dcD_c] at hm
+  have L := h.out.lay hp
   unfold hashes
   -- `G(m' ‖ h)`.
   refine WP.seq (WP.mono (hash_ok dcB_bases (ps := [(sc oM, 32), ((.rbp, 3104), 32)]) (rate := 72) (out := sc oG)
     (len := 64) (by decide) (show 6 < 256 by decide) L) fun s₁ ⟨hP₁, hb₁⟩ => ?_)
-  have k₁ := h.dc.step hp hP₁.b (by decide)
+  have k₁ := h.out.step hp hP₁.b (by decide)
   have L₁ := k₁.lay hp
-  simp only [pieces, List.flatMap_cons, List.flatMap_nil, List.append_nil, h.m,
-    Decaps.slice_of h.dc.dk (show 3104 + 32 ≤ 3168 by decide), KeyGen.sha3Suffix6] at hb₁
+  simp only [pieces, List.flatMap_cons, List.flatMap_nil, List.append_nil, hm,
+    Decaps.slice_of h.out.dk (show 3104 + 32 ≤ 3168 by decide), KeyGen.sha3Suffix6] at hb₁
   rw [← sha3_512_eq, ← hP₁.pa rbx_cs] at hb₁
   -- `J(z ‖ c)`.
   refine WP.mono (hash_ok dcB_bases (ps := [((.rbp, 3136), 32), ((.r14, 0), 1568)]) (rate := 136) (out := sc oKB)
@@ -94,7 +125,7 @@ theorem hashes_ok {σ : State} (hp : decaps1024K.pre σ) {s : State} (h : DM σ 
       rw [e, pa, pa, off_add]
     rw [← e', hG]; rfl
   refine ⟨⟨⟨hp, k₂, hK, hb₂⟩, Decaps.slice_of k₂.dk (show 1536 + 1568 ≤ 3168 by decide), ?_, hr⟩, ?_⟩
-  · rw [L₁.keepBytes hP₂.b (by decide), L.keepBytes hP₁.b (by decide)]; exact h.m
+  · rw [L₁.keepBytes hP₂.b (by decide), L.keepBytes hP₁.b (by decide)]; exact hm
   · rw [hP₂.cs .r15 (by decide), hP₁.cs .r15 (by decide), h.r15]
 
 /-! ## The key -/
@@ -147,13 +178,13 @@ theorem post_of {σ s : State} (h : DEnd σ s) {s' : State}
     rfl
 
 theorem decrypt_ok {σ : State} (hp : decaps1024K.pre σ) {s : State} (h : DC σ s) (h15 : s.gpr .r15 = 1) :
-    WP isa decrypt s (DM σ) := by
+    WP isa decrypt s (DM dcD σ) := by
   unfold decrypt
-  refine WP.seq (WP.mono (seqR_ok (I := fun k => DR k 0 σ) 4 0 (fun k _ hk s hs => u_ok hp (by omega) hs) s
+  refine WP.seq (WP.mono (seqR_ok (I := fun k => DR dcD k 0 σ) 4 0 (fun k _ hk s hs => u_ok (D := dcD) hp (by omega) hs) s
     (DR.zero h h15)) fun s₁ h₁ => ?_)
-  refine WP.seq (WP.mono (seqR_ok (I := fun k => DR 4 k σ) 4 0 (fun k _ hk s hs => s_ok hp (by omega) hs) s₁ h₁)
+  refine WP.seq (WP.mono (seqR_ok (I := fun k => DR dcD 4 k σ) 4 0 (fun k _ hk s hs => s_ok (D := dcD) hp (by omega) hs) s₁ h₁)
     fun s₂ h₂ => ?_)
-  exact tail_ok hp h₂
+  exact tail_ok (D := dcD) hp h₂
 
 end Decaps4
 
@@ -183,15 +214,15 @@ theorem ekRho_dkEk (dk : List Byte) : ekRho mlKem1024 (dkEk1024 dk) = dkRho mlKe
 theorem rho_pub {σ₁ σ₂ : State} (pub : decaps1024K.pub σ₁ σ₂) : Enc4.rhoE (dcEk σ₁) = Enc4.rhoE (dcEk σ₂) := by
   rw [Enc4.rhoE, Enc4.rhoE, ekRho_dkEk, ekRho_dkEk]; exact pub.2.2.2.2.2
 
-theorem decrypt_tr : RelCT isa (R fun σ s => DC σ s ∧ s.gpr .r15 = 1) decrypt fun _ _ => True := by
+theorem decrypt_tr : RelCT isa (R dcD fun σ s => DC σ s ∧ s.gpr .r15 = 1) decrypt fun _ _ => True := by
   unfold decrypt
-  refine RelCT.seq (RelCT.mono (seqR_tr (R := fun k => R (DR k 0)) 4 0
-    fun k _ hk => relInv (fun σ s hp hs => u_ok hp (by omega) hs) (u_tr (by omega)))
+  refine RelCT.seq (RelCT.mono (seqR_tr (R := fun k => R dcD (DR dcD k 0)) 4 0
+    fun k _ hk => relInv (fun σ s hp hs => u_ok (D := dcD) hp (by omega) hs) (u_tr (by omega)))
     (fun _ _ ⟨σ₁, σ₂, p₁, p₂, pub, h₁, h₂⟩ => ⟨σ₁, σ₂, p₁, p₂, pub, DR.zero h₁.1 h₁.2, DR.zero h₂.1 h₂.2⟩)
     fun _ _ h => h) ?_
-  refine RelCT.seq (seqR_tr (R := fun k => R (DR 4 k)) 4 0
-    fun k _ hk => relInv (fun σ s hp hs => s_ok hp (by omega) hs) (s_tr (by omega))) ?_
-  exact tail_tr
+  refine RelCT.seq (seqR_tr (R := fun k => R dcD (DR dcD 4 k)) 4 0
+    fun k _ hk => relInv (fun σ s hp hs => s_ok (D := dcD) hp (by omega) hs) (s_tr (by omega))) ?_
+  exact tail_tr (D := dcD)
 
 theorem hashes_trL : RelCT isa (LRel dcR dcW) hashes fun _ _ => True := by
   unfold hashes
@@ -202,8 +233,8 @@ theorem hashes_trL : RelCT isa (LRel dcR dcW) hashes fun _ _ => True := by
     (hash_tr dcB_bases (ps := [((.rbp, 3136), 32), ((.r14, 0), 1568)]) (rate := 136) (out := sc oKB) (len := 32)
       (by decide) (show 0x1f < 256 by decide))
 
-theorem hashes_tr : RelCT isa (R DM) hashes fun _ _ => True :=
-  rel2_of hashes_trL fun _ _ _ _ p₁ p₂ pub h₁ h₂ => dc_lrel p₁ p₂ pub h₁.dc h₂.dc
+theorem hashes_tr : RelCT isa (R dcD (DM dcD)) hashes fun _ _ => True :=
+  rel2_of hashes_trL fun _ _ _ _ p₁ p₂ pub h₁ h₂ => dc_lrel p₁ p₂ pub h₁.out h₂.out
 
 theorem EIn.any {σ : State} {E : Ptr} {ek m r : List Byte} {s : State} (h : Enc4.EIn (dcX σ) E ek m r s) :
     Enc4.EIn dcXA E ek m r s :=
@@ -213,7 +244,7 @@ theorem copyRho_taint : (taint.check (X86_64.Taint.ofRegs [.rbx, .rbp]) (copy (s
     (Taint.hintOf taint (X86_64.Taint.ofRegs [.rbx, .rbp]) (copy (sc oSB) (.rbp, 1536 + 1536) 32))).isSome = true := by
   taint_decide
 
-theorem encrypt_tr (v : Sample4Impl) : RelCT isa (R EncI) (encrypt1024 v.callee (.rbp, 1536)) fun _ _ => True := by
+theorem encrypt_tr (v : Sample4Impl) : RelCT isa (R dcD EncI) (encrypt1024 v.callee (.rbp, 1536)) fun _ _ => True := by
   refine RelCT.mono (RelCT.exists_ (P := fun ρ x y => LRel dcR dcW x y ∧ Enc4.EIρ dcXA (.rbp, 1536) ρ x ∧
       Enc4.EIρ dcXA (.rbp, 1536) ρ y) (Q := fun _ _ => True) fun ρ =>
       RelCT.mono (Enc4.encrypt_tr v (C := dcXA) dcEncChk copyRho_taint (ρ := ρ)) (fun _ _ h => h)
@@ -223,18 +254,18 @@ theorem encrypt_tr (v : Sample4Impl) : RelCT isa (R EncI) (encrypt1024 v.callee 
   have i₂ : Enc4.EIρ dcXA (.rbp, 1536) (Enc4.rhoE (dcEk σ₁)) y := ⟨_, _, _, (rho_pub pub).symm, EIn.any h₂.1, h₂.2⟩
   exact ⟨Enc4.rhoE (dcEk σ₁), dc_lrel p₁ p₂ pub h₁.1.out.2.dc h₂.1.out.2.dc, i₁, i₂⟩
 
-theorem select_tr : RelCT isa (R EncO) Decaps1024.select fun _ _ => True :=
+theorem select_tr : RelCT isa (R dcD EncO) Decaps1024.select fun _ _ => True :=
   rel2_of (Q := LRel dcR dcW) (taintRel [.rbx, .r12, .r14] (fun x y h =>
     fa3 (h.eq (p := sc 0) (l := 1) (by decide)) (h.eq (p := (.r12, 0)) (l := 1) (by decide))
       (h.eq (p := (.r14, 0)) (l := 1) (by decide))) (by taint_decide))
     fun _ _ _ _ p₁ p₂ pub h₁ h₂ => dc_lrel p₁ p₂ pub h₁.out.2.dc h₂.out.2.dc
 
-theorem pro_tr : RelCT isa (R fun σ s => s = σ) (.block pro) fun _ _ => True :=
+theorem pro_tr : RelCT isa (R dcD fun σ s => s = σ) (.block pro) fun _ _ => True :=
   taintRel [.rcx, .rdi, .rsi, .rdx] (fun x y ⟨σ₁, σ₂, _, _, pub, h₁, h₂⟩ => by
     subst h₁ h₂
     exact fa4 pub.2.2.2.1 pub.1 pub.2.1 pub.2.2.1) (by taint_decide)
 
-theorem epi_tr : RelCT isa (R DEnd) (.block topEpi) fun _ _ => True :=
+theorem epi_tr : RelCT isa (R dcD DEnd) (.block topEpi) fun _ _ => True :=
   taintRel [.rbx] (fun x y ⟨σ₁, σ₂, _, _, pub, h₁, h₂⟩ r hr => by
     simp only [List.mem_singleton] at hr; subst hr
     rw [h₁.dc.top.regs (.rbx, .rcx) (by decide), h₂.dc.top.regs (.rbx, .rcx) (by decide), pub.2.2.2.1])
@@ -249,7 +280,7 @@ theorem decaps1024_ct (v : Sample4Impl) :
   unfold decaps1024
   refine RelCT.seq (relInv (I' := fun σ s => DC σ s ∧ s.gpr .r15 = 1)
     (fun σ s hp hs => by subst hs; exact pro_ok hp) pro_tr) ?_
-  refine RelCT.seq (relInv (I' := DM) (fun σ s hp hs => decrypt_ok hp hs.1 hs.2) decrypt_tr) ?_
+  refine RelCT.seq (relInv (I' := DM dcD) (fun σ s hp hs => decrypt_ok hp hs.1 hs.2) decrypt_tr) ?_
   refine RelCT.seq (relInv (I' := EncI) (fun σ s hp hs => hashes_ok hp hs) hashes_tr) ?_
   refine RelCT.seq (relInv (I' := EncO) (fun σ s _ hs => Enc4.encrypt_ok v (C := dcX σ) dcEncChk hs.1 hs.2)
     (encrypt_tr v)) ?_
