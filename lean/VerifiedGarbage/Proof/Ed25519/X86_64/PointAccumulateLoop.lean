@@ -8,6 +8,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off Keeps clob Outside)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem accumulateDec_ok (s : State) (n : Nat)
     (hc : s.gpr .rbx = BitVec.ofNat 64 (n + 1)) :
     WP isa (.block [.alu .sub .rbx (.imm 1)]) s fun t =>
@@ -40,7 +42,7 @@ theorem accumulateBody_ok {s : State} {base : Addr} (hs : Scratch s base)
     (hd : env s.mem base 16 = Spec.Ed25519.d)
     (hp : point (env s.mem base) 0 1 2 3 = after scalar p (start + n + 1))
     (ht : tablePoint s.mem base (5376 + 128 * n) = powerPoint p (start + n)) :
-    WP isa (.block accumulateBody) s fun t =>
+    WP isa (.block (accumulateBody fld)) s fun t =>
       t.gpr .rbx = BitVec.ofNat 64 n ∧ t.zf = some (decide (n = 0)) ∧
       point (env t.mem base) 0 1 2 3 = after scalar p (start + n) ∧
       env t.mem base 16 = Spec.Ed25519.d ∧ RbxKeep base s t := by
@@ -81,7 +83,7 @@ theorem accumulateLoop_ok {s₀ : State} {base : Addr} (hs : Scratch s₀ base)
     (hd : env s₀.mem base 16 = Spec.Ed25519.d)
     (hp : point (env s₀.mem base) 0 1 2 3 = after scalar p (start + 16))
     (ht : ∀ i < 16, tablePoint s₀.mem base (5376 + 128 * i) = powerPoint p (start + i)) :
-    WP isa (.loop (.block accumulateBody) .ne) s₀ fun t =>
+    WP isa (.loop (.block (accumulateBody fld)) .ne) s₀ fun t =>
       point (env t.mem base) 0 1 2 3 = after scalar p start ∧
       env t.mem base 16 = Spec.Ed25519.d ∧ RbxKeep base s₀ t := by
   apply WP.loop (AccumulateInv s₀ base start scalar p) (n := 16)
@@ -122,7 +124,7 @@ theorem accumulate16_ok {s : State} {base : Addr} (hs : Scratch s base)
     (hd : env s.mem base 16 = Spec.Ed25519.d)
     (hp : point (env s.mem base) 0 1 2 3 = after scalar p (start + 16))
     (ht : ∀ i < 16, tablePoint s.mem base (5376 + 128 * i) = powerPoint p (start + i)) :
-    WP isa accumulate16 s fun t => point (env t.mem base) 0 1 2 3 = after scalar p start ∧
+    WP isa (accumulate16 fld) s fun t => point (env t.mem base) 0 1 2 3 = after scalar p start ∧
       env t.mem base 16 = Spec.Ed25519.d ∧ RbxKeep base s t := by
   rw [accumulate16]
   refine WP.seq (WP.mono (accumulateInit_ok s) fun a ⟨ac, ka⟩ => ?_)

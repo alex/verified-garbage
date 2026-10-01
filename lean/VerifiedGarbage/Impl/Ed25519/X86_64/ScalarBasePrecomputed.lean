@@ -5,10 +5,10 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.ScalarBase
 namespace VG.Impl.Ed25519.X86_64
 open VG.X86_64
 
-def scalarBasePrecomputedEngine : Prog isa :=
-  .seq scalarBasePrepare (.seq baseMultiply pointEncode)
+def scalarBasePrecomputedEngine (fld : Arith) : Prog isa :=
+  .seq (scalarBasePrepare fld) (.seq (baseMultiply fld) (pointEncode fld))
 
-def scalarBase_precomputed : Prog isa :=
-  scalarBaseWith scalarBasePrecomputedEngine
+def scalarBase_precomputed (fld : Arith) : Prog isa :=
+  scalarBaseWith (scalarBasePrecomputedEngine fld)
 
 end VG.Impl.Ed25519.X86_64

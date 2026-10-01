@@ -74,7 +74,13 @@ def Sym.setReg (σ : Sym) (d : Nat) (f : Nat → T) : Sym :=
 /-- The two-bit field `i` of `o`. -/
 def sel2 (o i : Nat) : Nat := o / 4 ^ i % 4
 
-/-- Doubleword `p` of `op a b`. -/
+/-- Whether doubleword `p` of `op a b` is a term in doublewords of `a` and
+`b` (`zbinT`): not for the quadword operations, which ChaCha20 does not use. -/
+def dwordwise : ZBinOp → Bool
+  | .vpaddq | .vpmuludq | .vpandq | .vporq | .vpandnq => false
+  | _ => true
+
+/-- Doubleword `p` of `op a b`, for an operation that is `dwordwise`. -/
 def zbinT (op : ZBinOp) (A B : Nat → T) (p : Nat) : T :=
   match op with
   | .vpaddd => .add (A (4 * (p / 4) + p % 4)) (B (4 * (p / 4) + p % 4))
@@ -84,6 +90,7 @@ def zbinT (op : ZBinOp) (A B : Nat → T) (p : Nat) : T :=
     if p % 4 % 2 = 0 then A (4 * (p / 4) + (2 + p % 4 / 2)) else B (4 * (p / 4) + (2 + p % 4 / 2))
   | .vpunpcklqdq => if p % 4 < 2 then A (4 * (p / 4) + p % 4) else B (4 * (p / 4) + (p % 4 - 2))
   | .vpunpckhqdq => if p % 4 < 2 then A (4 * (p / 4) + (2 + p % 4)) else B (4 * (p / 4) + p % 4)
+  | _ => .reg 0 0
 
 /-- The region and first doubleword of an access of `n` doublewords, within
 the first `lim b` doublewords of its region `b`. -/
@@ -93,7 +100,8 @@ def slot (m : MemOp) (n : Nat) (lim : Nat → Nat) : Option (Nat × Nat) :=
   | _, _, _ => none
 
 def Sym.step (σ : Sym) : Instr → Option Sym
-  | .zop (.zbin op d a b) => some (σ.setReg (xidx d) (zbinT op (σ.reg (xidx a)) (σ.reg (xidx b))))
+  | .zop (.zbin op d a b) =>
+    if dwordwise op then some (σ.setReg (xidx d) (zbinT op (σ.reg (xidx a)) (σ.reg (xidx b)))) else none
   | .zop (.vpshufd d a o) =>
     some (σ.setReg (xidx d) fun p => σ.reg (xidx a) (4 * (p / 4) + sel2 o.toNat (p % 4)))
   | .zop (.vshufi32x4 d a b n) =>
@@ -189,7 +197,8 @@ theorem SRel.setReg {σ : Sym} {s₀ s s' : State} (h : SRel σ s₀ s) {d : XRe
 
 theorem zw_split {s : State} {r : XReg} {p : Nat} : zw s r p = dword (s.zlane r (p / 4)) (p % 4) := rfl
 
-theorem zbinT_eval (op : ZBinOp) {A B : Nat → T} {s₀ : State} {x y : BitVec 128} {p : Nat}
+theorem zbinT_eval {op : ZBinOp} (hop : dwordwise op = true) {A B : Nat → T} {s₀ : State}
+    {x y : BitVec 128} {p : Nat}
     (hA : ∀ k, k < 4 → (A (4 * (p / 4) + k)).eval s₀ = dword x k)
     (hB : ∀ k, k < 4 → (B (4 * (p / 4) + k)).eval s₀ = dword y k) :
     (zbinT op A B p).eval s₀ = dword (op.sse.eval x y) (p % 4) := by
@@ -201,7 +210,7 @@ theorem zbinT_eval (op : ZBinOp) {A B : Nat → T} {s₀ : State} {x y : BitVec 
   have a2 := hA 2 (by decide); have a3 := hA 3 (by decide)
   have b0 := hB 0 (by decide); have b1 := hB 1 (by decide)
   have b2 := hB 2 (by decide); have b3 := hB 3 (by decide)
-  rcases cases4 hq with rfl | rfl | rfl | rfl <;> cases op <;>
+  rcases cases4 hq with rfl | rfl | rfl | rfl <;> cases op <;> (try cases hop) <;>
     simp only [ZBinOp.sse, T.eval, dword_paddd _ _ (show (0 : Nat) < 4 by decide),
       dword_paddd _ _ (show (1 : Nat) < 4 by decide), dword_paddd _ _ (show (2 : Nat) < 4 by decide),
       dword_paddd _ _ (show (3 : Nat) < 4 by decide), dword_pxor, dword_punpckldq, dword_punpckhdq,
@@ -246,11 +255,14 @@ theorem sstep_ok {s₀ : State} (hc : Ctx s₀) {σ σ' : Sym} {s : State} (h : 
   unfold Sym.step at e
   split at e
   · rename_i op d a b
+    split at e
+    case isFalse => cases e
+    rename_i hop
     cases e
     refine ⟨_, rfl, h.setReg (fun r p hp => ?_) (by simp) (by simp) (by simp) (by simp)⟩
     rw [zw_split, zlane_zbin _ _ _ _ _ _ (div4_lt hp)]
     split
-    · exact (zbinT_eval op (fun k hk => (h.reg a _ (by omega)).symm.trans (zw_lk s a hk))
+    · exact (zbinT_eval hop (fun k hk => (h.reg a _ (by omega)).symm.trans (zw_lk s a hk))
         (fun k hk => (h.reg b _ (by omega)).symm.trans (zw_lk s b hk))).symm
     · rfl
   · rename_i d a o

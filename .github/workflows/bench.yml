@@ -68,7 +68,9 @@ jobs:
         include: ${{ fromJSON(needs.arches.outputs.matrix) }}
     name: Compare with base (${{ matrix.arch }}${{ matrix.cpu-features && format(', VG_CPU_FEATURES={0}', matrix.cpu-features) || '' }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    # Running every benchmark (for a shared change, or by hand) takes about
+    # 14 minutes on the aarch64 runners and longer on the others.
+    timeout-minutes: 30
     # With an empty image the job runs directly on the runner.
     container:
       image: ${{ matrix.image || '' }}

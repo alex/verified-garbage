@@ -7,6 +7,8 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
+variable {fld : Arith} [EdArith fld]
+
 def recoverResult (y : Spec.X25519.Fe) (b : Bool) : Option Spec.Ed25519.Point :=
   if rootV y * rootX y * rootX y = rootU y then signResult (rootX y) y b
   else if rootV y * rootX y * rootX y = 0 - rootU y then signResult (rootX y * Spec.Ed25519.sqrtM1) y b
@@ -47,13 +49,13 @@ theorem recoverResult_spec (y : Spec.X25519.Fe) (b : Bool) :
 private theorem sign_known {s : State} {base : Addr} (hs : Scratch s base)
     (b : Bool) (hb : s.gpr .rsi = signWord b) (x y : Spec.X25519.Fe)
     (hx : env s.mem base 0 = x) (hy : env s.mem base 1 = y) :
-    WP isa recoverSign s fun t => RbxKeep base s t ∧ DecodeResult base (signResult x y b) t := by
+    WP isa (recoverSign fld) s fun t => RbxKeep base s t ∧ DecodeResult base (signResult x y b) t := by
   refine WP.mono (recoverSign_ok hs b hb) fun t ⟨kt, tr⟩ => ?_
   exact ⟨RbxKeep.of_keep kt, by rw [hx, hy] at tr; exact tr⟩
 
 theorem recoverPoint_ok {s : State} {base : Addr} (hs : Scratch s base)
     (b : Bool) (hb : s.gpr .rsi = signWord b) :
-    WP isa recoverPoint s fun t => RbxKeep base s t ∧
+    WP isa (recoverPoint fld) s fun t => RbxKeep base s t ∧
       DecodeResult base ((Spec.Ed25519.recoverX (env s.mem base 1) b).map
         (fun x => recoveredPoint x (env s.mem base 1))) t := by
   rw [← recoverResult_spec, recoverPoint]
