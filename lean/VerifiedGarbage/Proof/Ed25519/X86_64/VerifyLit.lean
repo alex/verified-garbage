@@ -1,3 +1,4 @@
+import VerifiedGarbage.Impl.X25519.X86_64.Adx
 import VerifiedGarbage.Proof.Framework.X86_64.Lit
 import VerifiedGarbage.Impl.Ed25519.X86_64.Verify
 
@@ -5,6 +6,7 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.Verify
 
 namespace VG
 
-materialize_code Impl.Ed25519.X86_64.verifyEquation
+materialize_code verifyEquationLit := (Impl.Ed25519.X86_64.verifyEquation Impl.X25519.X86_64.baseline )
+materialize_code verifyEquationAdxLit := (Impl.Ed25519.X86_64.verifyEquation Impl.X25519.X86_64.adx )
 
 end VG

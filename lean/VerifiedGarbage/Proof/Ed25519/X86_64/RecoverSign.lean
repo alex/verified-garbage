@@ -6,6 +6,8 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
+variable {fld : Arith} [EdArith fld]
+
 def DecodeResult (base : Addr) (p : Option Spec.Ed25519.Point) (s : State) : Prop :=
   match p with
   | none => s.gpr .rax = 0
@@ -20,7 +22,7 @@ theorem recoverInvalid_ok (s : State) (base : Addr) :
 
 theorem recoverSign_ok {s : State} {base : Addr} (hs : Scratch s base)
     (b : Bool) (hb : s.gpr .rsi = signWord b) :
-    WP isa recoverSign s fun t => Keep base s t ∧
+    WP isa (recoverSign fld) s fun t => Keep base s t ∧
       DecodeResult base (signResult (env s.mem base 0) (env s.mem base 1) b) t := by
   rw [recoverSign]
   refine WP.seq (WP.mono (fieldZero_ok hs 0) fun a ⟨az, ka, am⟩ => ?_)

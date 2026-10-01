@@ -10,6 +10,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off ofs Outside val4)
 
+variable {fld : Arith} [EdArith fld]
+
 def encodedValue (p : Spec.Ed25519.Point) : Nat :=
   (p.Y * Spec.X25519.pow p.Z (Spec.X25519.P - 2)).val +
     ((p.X * Spec.X25519.pow p.Z (Spec.X25519.P - 2)).val % 2) * 2 ^ 255
@@ -21,7 +23,7 @@ theorem powersKeep_outside {base : Addr} {s t : State} (h : PowersKeep base 56 7
     Outside base 56 7368 s.mem t.mem := fun p hp => h.mem p (by omega) hp
 
 theorem scalarBaseInit_ok {s : State} {base : Addr} (hs : Scratch s base) :
-    WP isa (.block scalarBaseInit) s fun t => Keep base s t ∧
+    WP isa (.block (scalarBaseInit fld)) s fun t => Keep base s t ∧
       point (env t.mem base) 0 1 2 3 = Spec.Ed25519.basePoint ∧ env t.mem base 16 = Spec.Ed25519.d := by
   rw [scalarBaseInit, WP.block_append_iff]
   refine WP.mono (constFieldWide_ok hs 16 Spec.Ed25519.d) fun a ⟨ka, va⟩ => ?_
@@ -34,7 +36,7 @@ theorem scalarBaseInit_ok {s : State} {base : Addr} (hs : Scratch s base) :
 theorem scalarBasePrepare_ok {s : State} {base k : Addr} (hs : Scratch s base) (hp : s.gpr .rsi = k)
     (hr : ∀ q < 32, InRegions (s.rd ++ s.wr) (off k q) 1)
     (hd : ∀ q < 32, 8192 ≤ ofs base (off k q)) :
-    WP isa scalarBasePrepare s fun t => PowersKeep base 56 7368 s t ∧
+    WP isa (scalarBasePrepare fld) s fun t => PowersKeep base 56 7368 s t ∧
       point (env t.mem base) 0 1 2 3 = Spec.Ed25519.basePoint ∧
       env t.mem base 16 = Spec.Ed25519.d ∧
       (∀ i < 16 * 16, t.mem (off base (768 + i)) =
@@ -75,7 +77,7 @@ def BaseEngineCorrect (engine : Prog isa) : Prop :=
 theorem scalarBaseEngine_ok {s : State} {base k : Addr} (hs : Scratch s base) (hp : s.gpr .rsi = k)
     (hr : ∀ q < 32, InRegions (s.rd ++ s.wr) (off k q) 1)
     (hd : ∀ q < 32, 8192 ≤ ofs base (off k q)) :
-    WP isa scalarBaseEngine s fun t => PowersKeep base 56 7368 s t ∧
+    WP isa (scalarBaseEngine fld) s fun t => PowersKeep base 56 7368 s t ∧
       val4 (t.gpr .r8) (t.gpr .r9) (t.gpr .r10) (t.gpr .r11) =
         encodedValue (Spec.Ed25519.pointMul (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem k 32))
           Spec.Ed25519.basePoint) := by

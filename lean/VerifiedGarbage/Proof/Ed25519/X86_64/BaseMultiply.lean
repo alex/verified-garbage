@@ -15,12 +15,14 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off Keeps clob Outside)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem baseMulBatch_ok {s : State} {base : Addr} (hs : Scratch s base)
     (j scalar : Nat) (hj : j < 16)
     (hc : s.mem.readW (off base 56) 64 = BitVec.ofNat 64 (j + 1))
     (hp : point (env s.mem base) 0 1 2 3 = after scalar Spec.Ed25519.basePoint (16 * (j + 1)))
     (hb : ∀ i < 16 * 16, s.mem (off base (768 + i)) = BitVec.ofNat 8 ((scalar / 2 ^ i) % 2)) :
-    WP isa baseMulBatch s fun t =>
+    WP isa (baseMulBatch fld) s fun t =>
       t.mem.readW (off base 56) 64 = BitVec.ofNat 64 j ∧ t.zf = some (decide (j = 0)) ∧
       point (env t.mem base) 0 1 2 3 = after scalar Spec.Ed25519.basePoint (16 * j) ∧
       (∀ i < 16 * 16, t.mem (off base (768 + i)) = BitVec.ofNat 8 ((scalar / 2 ^ i) % 2)) ∧
@@ -76,7 +78,7 @@ structure BaseMulInv (s₀ : State) (base : Addr) (scalar : Nat) (n : Nat) (s : 
   keep : PowersKeep base 56 7368 s₀ s
 
 theorem baseMulLoop_ok {s₀ : State} {base : Addr} (scalar : Nat) (h₀ : BaseMulInv s₀ base scalar 16 s₀) :
-    WP isa (.loop baseMulBatch .ne) s₀ fun t =>
+    WP isa (.loop (baseMulBatch fld) .ne) s₀ fun t =>
       point (env t.mem base) 0 1 2 3 = Spec.Ed25519.pointMul scalar Spec.Ed25519.basePoint ∧
       PowersKeep base 56 7368 s₀ t := by
   apply WP.loop (BaseMulInv s₀ base scalar) (n := 16)
@@ -98,7 +100,7 @@ theorem baseMulLoop_ok {s₀ : State} {base : Addr} (scalar : Nat) (h₀ : BaseM
 theorem baseMultiplyInit_ok {s : State} {base : Addr} (hs : Scratch s base)
     (scalar : Nat) (hscalar : scalar < 2 ^ (16 * 16))
     (hb : ∀ i < 16 * 16, s.mem (off base (768 + i)) = BitVec.ofNat 8 ((scalar / 2 ^ i) % 2)) :
-    WP isa (.block baseMultiplyInit) s (BaseMulInv s base scalar 16) := by
+    WP isa (.block (baseMultiplyInit fld)) s (BaseMulInv s base scalar 16) := by
   rw [baseMultiplyInit, WP.block_append_iff]
   refine WP.mono (fieldCodeWide_ok hs (constPointOps Spec.Ed25519.identity)) fun b ⟨kb, vb⟩ => ?_
   have kbp : PowersKeep base 56 7368 s b := PowersKeep.of_keep kb
@@ -114,7 +116,7 @@ theorem baseMultiplyInit_ok {s : State} {base : Addr} (hs : Scratch s base)
 theorem baseMultiply_ok {s : State} {base : Addr} (hs : Scratch s base)
     (scalar : Nat) (hscalar : scalar < 2 ^ (16 * 16))
     (hb : ∀ i < 16 * 16, s.mem (off base (768 + i)) = BitVec.ofNat 8 ((scalar / 2 ^ i) % 2)) :
-    WP isa baseMultiply s fun t =>
+    WP isa (baseMultiply fld) s fun t =>
       point (env t.mem base) 0 1 2 3 = Spec.Ed25519.pointMul scalar Spec.Ed25519.basePoint ∧
       PowersKeep base 56 7368 s t := by
   rw [baseMultiply]

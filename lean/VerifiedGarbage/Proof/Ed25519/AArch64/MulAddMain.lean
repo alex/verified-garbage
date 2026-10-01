@@ -45,21 +45,22 @@ theorem scalarMulAdd_correct {s : State} (hs : MulAddPre s) :
   refine WP.mono (storeWide_ok ⟨base₂, wr₂ ▸ hw, hs.nowrap⟩) fun s₃ ⟨v₃, g₃, rd₃, wr₃, sp₃, o₃⟩ => ?_
   rw [WP.block_append_iff]
   refine WP.mono (reduceArgs_ok s₃) fun s₄ ⟨x1₄, x2₄, x0₄, k₄⟩ => ?_
-  refine WP.mono (scalarInit_ok s₄) fun s₅ ⟨b₅, v₅, z₅, one₅, k₅⟩ => ?_
+  refine WP.mono (scalarInit_ok s₄) fun s₅ ⟨b₅, v₅, z₅, k₅⟩ => ?_
   have x1₅ : s₅.gpr .x1 = off (s.gpr .x4) 128 := by rw [k₅.gpr _ (by decide), x1₄, g₃, base₂]
   have x2₅ : s₅.gpr .x2 = s.gpr .x4 := by rw [k₅.gpr _ (by decide), x2₄, g₃, base₂]
   have x0₅ : s₅.gpr .x0 = s.gpr .x0 := by
     rw [k₅.gpr _ (by decide), x0₄, g₃, k₂.gpr _ (by decide), h₁.out]
   have wr₅ : s₅.wr = s.wr := by rw [k₅.wr, k₄.wr, wr₃, wr₂]
-  have read₅ : ∀ n < 64, InRegions (s₅.rd ++ s₅.wr) (s₅.gpr .x1 + BitVec.ofNat 64 n) 1 := by
-    intro n hn
+  have read₅ : ∀ k < 8,
+      InRegions (s₅.rd ++ s₅.wr) (s₅.gpr .x1 + BitVec.ofNat 64 (8 * k)) 8 := by
+    intro k hk
     refine ⟨⟨s.gpr .x4, 8192⟩, List.mem_append_right _ (wr₅ ▸ hw), ?_⟩
     rw [x1₅, Offset.add_add]; exact Offset.contains_base _ (by omega) (by omega)
   have sv₅ : Saved (s.gpr .x4) s.gpr s₅.mem := by
     have sv₂ : Saved (s.gpr .x4) s.gpr s₂.mem := by rw [k₂.mem]; exact h₁.saved
     rw [k₅.mem, k₄.mem]; exact sv₂.outside o₃ (by decide)
   apply WP.seq
-  refine WP.mono (scalarLoop_ok s₅ b₅ v₅ read₅ z₅ one₅) fun s₆ ⟨v₆, k₆⟩ => ?_
+  refine WP.mono (scalarLoop_ok s₅ b₅ v₅ read₅ z₅) fun s₆ ⟨v₆, k₆⟩ => ?_
   have wr₆ : s₆.wr = s.wr := k₆.wr.trans wr₅
   have val₆ : scalarValue s₆ = (fe s.mem (s.gpr .x1) 0 +
       fe s.mem (s.gpr .x2) 0 * fe s.mem (s.gpr .x3) 0) % Spec.Ed25519.L := by

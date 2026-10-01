@@ -18,6 +18,8 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64 VG.Proof.Ed25519 Edwards
 open VG.Proof.X25519.X86_64 (off ofs Keeps clob Outside)
 
+variable {fld : Arith} [EdArith fld]
+
 /-- What a window may change: the field workspace, and the registers it
 computes with. -/
 structure WinKeep (base : Addr) (s t : State) : Prop where
@@ -69,7 +71,7 @@ theorem dblOps_eval (e : Env) :
 
 theorem dbl_ok {s : State} {base : Addr} (hs : Scratch s base) (t : Bool) {a : EPoint dZ}
     (ha : RepP (point (env s.mem base) 0 1 2 3) a) :
-    WP isa (.block (fieldCode (dblOps t))) s fun u => Keep base s u ∧
+    WP isa (.block (fieldCode fld (dblOps t))) s fun u => Keep base s u ∧
       RepP (point (env u.mem base) 0 1 2 3) (a + a) ∧
       (t = true → Rep (point (env u.mem base) 0 1 2 3) (a + a)) ∧
       ∀ i : Slot, 16 ≤ i.val → env u.mem base i = env s.mem base i := by
@@ -93,7 +95,7 @@ theorem dbl_ok {s : State} {base : Addr} (hs : Scratch s base) (t : Bool) {a : E
 
 theorem double4_ok {s : State} {base : Addr} {a : EPoint dZ} (hs : Scratch s base)
     (ha : Rep (point (env s.mem base) 0 1 2 3) a) :
-    WP isa double4 s fun t => Rep (point (env t.mem base) 0 1 2 3) ((16 : Nat) • a) ∧
+    WP isa (double4 fld) s fun t => Rep (point (env t.mem base) 0 1 2 3) ((16 : Nat) • a) ∧
       (∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i) ∧ DoubleKeep base s t := by
   rw [double4]
   refine WP.seq (WP.mono (show WP isa (.block [.mov32 .rsi (.imm 3)]) s
@@ -364,7 +366,7 @@ def DigitSpec (base : Addr) (s : State) (digit : List Instr) (v : Nat) : Prop :=
 theorem windowA_ok {s : State} {base kp sp : Addr} {A a : EPoint dZ} (h : WinCtx base kp sp A s)
     (hd : env s.mem base 16 = Spec.Ed25519.d) (ha : Rep (point (env s.mem base) 0 1 2 3) a)
     {digit : List Instr} {v : Nat} (hv : v < 16) (hdig : DigitSpec base s digit v) :
-    WP isa (windowA digit) s fun t => Rep (point (env t.mem base) 0 1 2 3) ((16 : Nat) • a + v • A) ∧
+    WP isa (windowA fld digit) s fun t => Rep (point (env t.mem base) 0 1 2 3) ((16 : Nat) • a + v • A) ∧
       env t.mem base 16 = Spec.Ed25519.d ∧ WinKeep base s t := by
   rw [windowA]
   refine WP.seq (WP.mono (double4_ok h.scratch ha) fun b ⟨br, bh, bk⟩ => ?_)
@@ -381,7 +383,7 @@ theorem windowAB_ok {s : State} {base kp sp : Addr} {A a : EPoint dZ} (h : WinCt
     (hd : env s.mem base 16 = Spec.Ed25519.d) (ha : Rep (point (env s.mem base) 0 1 2 3) a)
     {digitA digitB : List Instr} {vA vB : Nat} (hvA : vA < 16) (hvB : vB < 16)
     (hdA : DigitSpec base s digitA vA) (hdB : DigitSpec base s digitB vB) :
-    WP isa (windowAB digitA digitB) s fun t =>
+    WP isa (windowAB fld digitA digitB) s fun t =>
       Rep (point (env t.mem base) 0 1 2 3) ((16 : Nat) • a + vA • A + vB • (-baseAff)) ∧
       env t.mem base 16 = Spec.Ed25519.d ∧ WinKeep base s t := by
   rw [windowAB]

@@ -108,15 +108,17 @@ def mulAddArgs : List Instr :=
 def wipe : List Instr :=
   ([.alu32 .xor .rax (.reg .rax)] : List Instr) ++ (List.range 24).map (fun i => .store (stk (8 * i)) .rax)
 
-def body (f : Callee) (suffix : String) : Prog isa :=
+def body (fld : Arith) (fs : String) (f : Callee) (suffix : String) : Prog isa :=
   .seq (hashSeed f suffix) (.seq (.block saveSecret)
     (.seq (hashNonce f suffix) (.seq (reduce 64)
-    (.seq (callWith baseArgs scalarBaseName scalarBase_precomputed)
+    (.seq (callWith baseArgs (scalarBaseName fs) (scalarBase_precomputed fld))
     (.seq (hashChallenge f suffix) (.seq (reduce 96)
     (.seq (callWith mulAddArgs "vg_ed25519_scalar_mul_add" scalarMulAdd) (.block wipe))))))))
 
-def code (f : Callee) (suffix : String) : Prog isa :=
+/-- Signing, with the field multiplications `fld`, those of
+`vg_ed25519_scalar_base_precomputed` with the suffix `fs`. -/
+def code (fld : Arith) (fs : String) (f : Callee) (suffix : String) : Prog isa :=
   .frame (.push ([.rdi, .rsi, .rdx, .rcx, .r8, .r9] ++ List.replicate 25 .rax))
-    (body f suffix) (.pop .rax 31)
+    (body fld fs f suffix) (.pop .rax 31)
 
 end VG.Impl.Ed25519.X86_64.SignCached
