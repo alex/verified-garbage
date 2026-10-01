@@ -31,6 +31,37 @@ theorem index_imm (i : Nat) (hi : i < 256) :
   have h : BitVec.ofNat 32 i = (BitVec.ofNat 8 i).setWidth 32 := by bv_omega
   rw [h, byte_imm]
 
+/-- SUB followed by SBB of a register from itself selects equality. -/
+theorem borrowMask_eq (x y : BitVec 8) :
+    (0 - (BitVec.ofBool ((x.setWidth 64 ^^^ y.setWidth 64).toNat < 1)).setWidth 64 : BitVec 64) =
+      if x = y then BitVec.allOnes 64 else 0 := by
+  have he : ((x.setWidth 64 ^^^ y.setWidth 64).toNat < 1) ↔ x = y := by
+    rw [Nat.lt_one_iff]
+    have hz : (x.setWidth 64 ^^^ y.setWidth 64).toNat = 0 ↔
+        x.setWidth 64 ^^^ y.setWidth 64 = 0#64 := by
+      constructor
+      · intro h
+        apply BitVec.eq_of_toNat_eq
+        exact h
+      · intro h; rw [h]; rfl
+    rw [hz, BitVec.xor_eq_zero_iff]
+    constructor
+    · intro h
+      have h' := congrArg (BitVec.setWidth 8) h
+      simpa using h'
+    · exact congrArg (BitVec.setWidth 64)
+  by_cases h : x = y
+  · rw [ite_eq_left h]
+    have hb : decide ((x.setWidth 64 ^^^ y.setWidth 64).toNat < 1) = true := by
+      exact decide_eq_true (he.mpr h)
+    rw [hb]
+    decide
+  · rw [ite_eq_right h]
+    have hb : decide ((x.setWidth 64 ^^^ y.setWidth 64).toNat < 1) = false := by
+      exact decide_eq_false (mt he.mp h)
+    rw [hb]
+    decide
+
 theorem piStep_ok (s : State) (x : Byte) (hx : s.gpr .rax = x.setWidth 64)
     (i : Nat) (hi : i < 256) :
     ∃ s', runBlock isa (piStep i) s = some s' ∧
@@ -38,9 +69,9 @@ theorem piStep_ok (s : State) (x : Byte) (hx : s.gpr .rax = x.setWidth 64)
         (if x.toNat = i then (Spec.Rc2.piTable.getD i 0).setWidth 64 else 0) ∧
       Keep [.rcx, .r10, .r11] s s' := by
   refine ⟨_, by
-    simp (config := {decide := true}) only [piStep, selectMask, rr, imm, List.cons_append,
-      List.nil_append, runBlock_cons, runStep_some, runBlock_nil, exec, execAlu, execShift,
-      readSrc, Option.bind_some, Option.map_some, gpr_setReg, gpr_arithFlags,
+    simp (config := {decide := true}) only [piStep, selectMask, rr, List.cons_append,
+      List.nil_append, runBlock_cons, runStep_some, runBlock_nil, exec, execAlu,
+      readSrc, Option.bind_some, Option.map_some, gpr_setReg, gpr_arithFlags, cf_setReg, cf_arithFlags,
       ite_true, ite_false]
     rfl, ?_⟩
   have he : x = BitVec.ofNat 8 i ↔ x.toNat = i := by
@@ -49,21 +80,22 @@ theorem piStep_ok (s : State) (x : Byte) (hx : s.gpr .rax = x.setWidth 64)
     · intro h; rw [← h, BitVec.ofNat_toNat, BitVec.setWidth_eq]
   constructor
   · simp only [gpr_setReg, gpr_arithFlags, reduceCtorEq, ite_true, ite_false]
+    simp only [BitVec.sub_self]
     rw [hx, index_imm i hi, byte_imm]
     change s.gpr .rcx |||
-      ((0 - (((x.setWidth 64 ^^^ (BitVec.ofNat 8 i).setWidth 64) - 1) >>> 63)) &&&
+      ((0 - (BitVec.ofBool ((x.setWidth 64 ^^^ (BitVec.ofNat 8 i).setWidth 64).toNat < 1)).setWidth 64) &&&
         (Spec.Rc2.piTable.getD i 0).setWidth 64) = _
-    rw [selectMask_eq]
+    rw [borrowMask_eq]
     by_cases h : x.toNat = i
     · rw [ite_eq_left (he.mpr h), ite_eq_left h, BitVec.allOnes_and]
     · simp [h, mt he.mp h]
   · constructor
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-      simp only [gpr_setReg, gpr_arithFlags, gpr_setFlags, hr.1, hr.2.1, hr.2.2, ite_false]
-    · simp only [mem_setReg, mem_arithFlags, mem_setFlags]
-    · simp only [rd_setReg, rd_arithFlags, rd_setFlags]
-    · simp only [wr_setReg, wr_arithFlags, wr_setFlags]
+      simp only [gpr_setReg, gpr_arithFlags, hr.1, hr.2.1, ite_false]
+    · simp only [mem_setReg, mem_arithFlags]
+    · simp only [rd_setReg, rd_arithFlags]
+    · simp only [wr_setReg, wr_arithFlags]
 
 theorem piSteps_ok (is : List Nat) (hi : ∀ i ∈ is, i < 256)
     (s : State) (x : Byte) (hx : s.gpr .rax = x.setWidth 64) :
@@ -158,12 +190,12 @@ theorem keyStep_ok (s : State) (x : Byte) (hx : s.gpr .rax = x.setWidth 64)
           else 0) ∧
       Keep [.rcx, .r8, .r9, .r10, .r11] s s' := by
   refine ⟨_, by
-    simp (config := {decide := true}) only [keyStep, selectMask, loadKey, rr, imm, memOp,
+    simp (config := {decide := true}) only [keyStep, selectMask, loadKey, rr, memOp,
       List.cons_append, List.nil_append, runBlock_cons, runStep_some, runBlock_nil,
       exec, execAlu, execShift, readSrc, State.load8, State.ea, offset_nat,
-      Option.bind_some, Option.map_some, gpr_setReg, gpr_arithFlags, gpr_setFlags,
-      mem_setReg, mem_arithFlags, mem_setFlags, rd_setReg, rd_arithFlags, rd_setFlags,
-      wr_setReg, wr_arithFlags, wr_setFlags, hlo, hhi, ite_true, ite_false]
+      Option.bind_some, Option.map_some, gpr_setReg, gpr_arithFlags, cf_setReg, cf_arithFlags, gpr_setFlags,
+      mem_setReg, mem_arithFlags, rd_setReg, rd_arithFlags,
+      wr_setReg, wr_arithFlags, hlo, hhi, ite_true, ite_false]
     rfl, ?_⟩
   have he : x = BitVec.ofNat 8 i ↔ x.toNat = i := by
     constructor
@@ -171,12 +203,13 @@ theorem keyStep_ok (s : State) (x : Byte) (hx : s.gpr .rax = x.setWidth 64)
     · intro h; rw [← h, BitVec.ofNat_toNat, BitVec.setWidth_eq]
   constructor
   · simp only [gpr_setReg, gpr_arithFlags, gpr_setFlags, reduceCtorEq, ite_true, ite_false]
+    simp only [BitVec.sub_self]
     rw [hx, index_imm i (by omega)]
     change s.gpr .rcx |||
       (((s.mem (s.gpr .rdi + BitVec.ofNat 64 (2 * i))).setWidth 64 |||
         ((s.mem (s.gpr .rdi + BitVec.ofNat 64 (2 * i + 1))).setWidth 64).rotateRight 56) &&&
-        (0 - (((x.setWidth 64 ^^^ (BitVec.ofNat 8 i).setWidth 64) - 1) >>> 63))) = _
-    rw [selectMask_eq, joinBytes]
+        (0 - (BitVec.ofBool ((x.setWidth 64 ^^^ (BitVec.ofNat 8 i).setWidth 64).toNat < 1)).setWidth 64)) = _
+    rw [borrowMask_eq, joinBytes]
     by_cases h : x.toNat = i
     · rw [ite_eq_left (he.mpr h), ite_eq_left h, BitVec.and_allOnes]
     · simp [h, mt he.mp h]
@@ -184,7 +217,7 @@ theorem keyStep_ok (s : State) (x : Byte) (hx : s.gpr .rax = x.setWidth 64)
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
       simp only [gpr_setReg, gpr_arithFlags, gpr_setFlags,
-        hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2, ite_false]
+        hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, ite_false]
     · simp only [mem_setReg, mem_arithFlags, mem_setFlags]
     · simp only [rd_setReg, rd_arithFlags, rd_setFlags]
     · simp only [wr_setReg, wr_arithFlags, wr_setFlags]
