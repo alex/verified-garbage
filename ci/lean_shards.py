@@ -1,55 +1,164 @@
 #!/usr/bin/env python3
-"""Splits the Lean build into shards that CI builds on separate runners.
+"""Plans how CI splits the Lean build across runners.
 
-The Lean build is limited by throughput, not by the depth of its import
-graph: one runner spends most of its time checking the proofs of one target
-after another, although no target's proofs need another's. So CI builds one
-shard per target, each with the modules whose name has that target's
-directory (a subdirectory of `VerifiedGarbage/TCB/`, e.g. `Proof.Sha256.Arm.…`,
-`Artifacts.Sha256.Arm`), and one shard, `common`, with the rest (the TCB, the
-specifications, the framework and the golden tests). Each shard builds its
-modules and whatever they import, and hands on the outputs of its own
-modules; a final job puts them together, checks with `lake build` that
-nothing is missing, and runs the emitter. A new target is a new shard,
-without changing CI.
+CI restores the last build `main` saved, and Lake rebuilds only the modules
+whose sources changed since, and the modules importing them. The build is
+limited by throughput, not by the depth of its import graph, so the modules
+to rebuild are split into shards that build in parallel on separate runners,
+as many as the work needs: none when there is little (the final job builds
+it), up to `MAX_SHARDS` when everything changed.
 
-  lean_shards.py list            the shards, as a JSON list (for a matrix)
-  lean_shards.py targets SHARD   the modules of SHARD, as `lake build`
-                                 targets (`+Module`), one per line
-  lean_shards.py outputs SHARD   of the paths on stdin (files under
-                                 `lean/.lake/build/`, relative to it), those
-                                 that are outputs of SHARD's modules
+`main` saves a manifest next to its build: the hash of every module's source
+and how long each module took to build (from the shards' build logs, kept
+from earlier builds for the modules this one did not rebuild). A plan
+compares the sources with the manifest's to find the modules to rebuild,
+estimates each from its time, and packs them into shards: a shard builds the
+modules that nothing imports ("sinks") it is given, and so everything they
+import, so the sinks are packed by the time to rebuild their imports, largest
+first, each into the shard it adds the least to. Every module is in exactly
+one shard (the first that builds it), so the shards' outputs together are
+the whole build. A plan is only an estimate: whatever the shards leave
+unbuilt, the final job builds.
 
-Every module (every file the lakefile's libraries build) is in exactly one
-shard, so the shards' outputs together are the whole build.
+  lean_shards.py plan MANIFEST PLAN     write the plan for the sources (with
+                                        the manifest's build, which may be
+                                        missing) to PLAN, and print the number
+                                        of shards (`count=`) and their names
+                                        (`shards=`, a JSON list) for
+                                        $GITHUB_OUTPUT
+  lean_shards.py targets PLAN SHARD     the sinks of SHARD, as `lake build`
+                                        targets (`+Module`), one per line
+  lean_shards.py outputs PLAN SHARD     of the paths on stdin (files under
+                                        `lean/.lake/build/`, relative to it),
+                                        those that are outputs of SHARD's
+                                        modules
+  lean_shards.py times                  the time of each module a `lake build`
+                                        log on stdin built, as JSON
+  lean_shards.py manifest OLD TIMES...  the manifest of the sources, with the
+                                        times of TIMES (files of `times`) and,
+                                        for the modules they lack, of OLD
+                                        (which may be missing)
 """
 
+import hashlib
 import json
+import math
 import pathlib
+import re
 import sys
 
 LEAN = pathlib.Path(__file__).resolve().parent.parent / "lean"
 # The libraries of `lean/lakefile.toml`: `VerifiedGarbage.*` (the root module
 # and every module under it) and `VerifiedGarbageTest.+` (every module under it).
 LIBRARIES = {"VerifiedGarbage": True, "VerifiedGarbageTest": False}
-COMMON = "common"
+# Files any change of which rebuilds every module.
+INPUTS = ["lakefile.toml", "lean-toolchain", "lake-manifest.json"]
+# A shard per this much estimated build time (in seconds of `lake build`'s
+# times, which a runner's build runs about five of at once), up to
+# `MAX_SHARDS`; with less in all than `MIN_WORK`, no shard.
+WORK_PER_SHARD = 800.0
+MAX_SHARDS = 16
+MIN_WORK = 300.0
+# The time to check that a module is up to date, and to build one the
+# manifest has no time for when it has none at all.
+UP_TO_DATE = 0.02
+DEFAULT_TIME = 3.0
+BUILT = re.compile(r"\bBuilt (\S+) \((\d+(?:\.\d+)?)(ms|s)\)")
 
 
-def target_names() -> list[str]:
-    return sorted(p.name for p in (LEAN / "VerifiedGarbage" / "TCB").iterdir() if p.is_dir())
-
-
-def modules() -> list[str]:
-    mods = []
+def modules() -> dict[str, pathlib.Path]:
+    mods = {}
     for lib, root in LIBRARIES.items():
         if root and (LEAN / f"{lib}.lean").is_file():
-            mods.append(lib)
-        mods += [".".join(f.relative_to(LEAN).with_suffix("").parts) for f in (LEAN / lib).rglob("*.lean")]
-    return sorted(mods)
+            mods[lib] = LEAN / f"{lib}.lean"
+        for f in (LEAN / lib).rglob("*.lean"):
+            mods[".".join(f.relative_to(LEAN).with_suffix("").parts)] = f
+    return dict(sorted(mods.items()))
 
 
-def shard_of(module: str, names: list[str]) -> str:
-    return next((part for part in module.split(".") if part in names), COMMON)
+def digest(path: pathlib.Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def imports(mods: dict[str, pathlib.Path]) -> dict[str, list[str]]:
+    """The modules of the project each module imports."""
+    return {
+        m: [i for i in re.findall(r"^\s*import\s+(\S+)", f.read_text(), re.M) if i in mods]
+        for m, f in mods.items()
+    }
+
+
+def closures(imps: dict[str, list[str]]) -> dict[str, frozenset[str]]:
+    """Each module and everything it imports, directly or not."""
+    done: dict[str, frozenset[str]] = {}
+    for root in imps:
+        stack = [(root, False)]
+        while stack:
+            m, ready = stack.pop()
+            if m in done:
+                continue
+            if ready:
+                done[m] = frozenset({m}).union(*(done[i] for i in imps[m]))
+            else:
+                stack.append((m, True))
+                stack += [(i, False) for i in imps[m] if i not in done]
+    return done
+
+
+def read_json(path: str) -> dict:
+    p = pathlib.Path(path)
+    return json.loads(p.read_text()) if p.is_file() else {}
+
+
+def plan(manifest: dict) -> dict:
+    mods = modules()
+    imps = imports(mods)
+    closure = closures(imps)
+    inputs = {f: digest(LEAN / f) for f in INPUTS}
+    sources = manifest.get("sources", {})
+    if manifest.get("inputs") == inputs:
+        changed = {m for m, f in mods.items() if sources.get(m) != digest(f)}
+    else:
+        changed = set(mods)
+    stale = {m for m in mods if closure[m] & changed}
+    times = manifest.get("times", {})
+    default = sorted(times.values())[len(times) // 2] if times else DEFAULT_TIME
+    cost = {m: (times.get(m, default) if m in stale else UP_TO_DATE) for m in mods}
+    work = sum(cost[m] for m in stale)
+    count = 0 if work < MIN_WORK else min(MAX_SHARDS, math.ceil(work / WORK_PER_SHARD))
+
+    imported = {i for m in mods for i in imps[m]}
+    sinks = sorted(
+        (m for m in mods if m not in imported),
+        key=lambda m: (-sum(cost[x] for x in closure[m]), m),
+    )
+    shards: list[set[str]] = [set() for _ in range(count)]
+    loads = [0.0] * count
+    targets: list[list[str]] = [[] for _ in range(count)]
+    for s in sinks if count else []:
+        added = [sum(cost[x] for x in closure[s] - shard) for shard in shards]
+        best = min(range(count), key=lambda i: (loads[i] + added[i], i))
+        shards[best] |= closure[s]
+        loads[best] += added[best]
+        targets[best].append(s)
+    owner = {}
+    for i, shard in enumerate(shards):
+        for m in sorted(shard):
+            owner.setdefault(m, i)
+    return {
+        "stale": len(stale),
+        "work": round(work),
+        "loads": [round(x) for x in loads],
+        "targets": [sorted(t) for t in targets],
+        "owner": owner,
+    }
+
+
+def shard_index(p: dict, name: str) -> int:
+    i = int(name) - 1
+    if not 0 <= i < len(p["targets"]):
+        raise SystemExit(f"no shard {name}")
+    return i
 
 
 def module_of_output(path: str) -> str:
@@ -62,23 +171,52 @@ def module_of_output(path: str) -> str:
 
 
 def main(args: list[str]) -> int:
-    names = target_names()
-    shards = [*names, COMMON]
-    if args == ["list"]:
-        print(json.dumps(shards))
+    if len(args) == 3 and args[0] == "plan":
+        p = plan(read_json(args[1]))
+        pathlib.Path(args[2]).write_text(json.dumps(p, indent=1) + "\n")
+        count = len(p["targets"])
+        print(f"{p['stale']} modules to build, about {p['work']} s; shards: {p['loads']}", file=sys.stderr)
+        print(f"count={count}")
+        print(f"shards={json.dumps([str(i + 1) for i in range(count)])}")
         return 0
-    if len(args) == 2 and args[0] in ("targets", "outputs") and args[1] in shards:
+    if len(args) == 3 and args[0] in ("targets", "outputs"):
+        p = read_json(args[1])
+        i = shard_index(p, args[2])
         if args[0] == "targets":
             # `+`: the module, not the package or library of the same name
             # (`VerifiedGarbage` is all three).
-            for m in modules():
-                if shard_of(m, names) == args[1]:
-                    print(f"+{m}")
+            for m in p["targets"][i]:
+                print(f"+{m}")
         else:
+            # Outputs of no module (the precompiled libraries' shared
+            # libraries) are the first shard's.
             for line in sys.stdin:
                 path = line.strip()
-                if path and shard_of(module_of_output(path), names) == args[1]:
+                if path and p["owner"].get(module_of_output(path), 0) == i:
                     print(path)
+        return 0
+    if args == ["times"]:
+        times = {}
+        for m in BUILT.finditer(sys.stdin.read()):
+            if ":" not in m.group(1):
+                times[m.group(1)] = float(m.group(2)) / (1000 if m.group(3) == "ms" else 1)
+        print(json.dumps(times, indent=1, sort_keys=True))
+        return 0
+    if len(args) >= 2 and args[0] == "manifest":
+        mods = modules()
+        times = read_json(args[1]).get("times", {})
+        for t in args[2:]:
+            times.update(read_json(t))
+        print(
+            json.dumps(
+                {
+                    "inputs": {f: digest(LEAN / f) for f in INPUTS},
+                    "sources": {m: digest(f) for m, f in mods.items()},
+                    "times": {m: times[m] for m in mods if m in times},
+                },
+                indent=1,
+            )
+        )
         return 0
     print(__doc__, file=sys.stderr)
     return 2

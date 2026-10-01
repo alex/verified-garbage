@@ -10,8 +10,8 @@ import VerifiedGarbage.Impl.Pbkdf2.X86
 Untrusted: everything here is checked by Lean. The same structure as the
 ARMv7 proof (`VG.Proof.Pbkdf2.Arm`), with the same target-independent memory
 lemmas (`VG.Proof.Pbkdf2.Memory`). Each step is two calls
-of `vg_sha256_compress`, used as a black box through its proof
-(`compressAt_ok`, from the streaming SHA-256 proof), each using the 20 bytes
+of the selected compression backend, used as a black box through the
+generic proof in `Proof/Pbkdf2/Sha256/X86.lean`, each using the 20 bytes
 below `esp`. The hash value being compressed is `t`, and `T` is kept in
 `scratch[160..192)`.
 -/
@@ -74,7 +74,7 @@ open VG.Impl.Sha256.X86.Stream (compressAt saved)
 open VG.Impl.Hmac.X86 (bswapWord copyWord)
 open VG.Proof.Sha256.X86 (contains_offset)
 open VG.Proof.Sha256.X86.Stream (Upd Mupd Fupd wp_mov wp_movi wp_movm wp_store wp_addi ea_at sub_offset
-  addr_toNat compressAt_ok stk_eq)
+  addr_toNat stk_eq)
 open VG.Proof.Hmac.X86 (copyWords_ok bswapWords_ok)
 open VG.Proof.Hmac.X86.Finalize (beWords_stateAt)
 open VG.Proof.Hmac.Common (bytesAt_length bytesAt_writeBytes_sep bytesAt_add extractLsb'_read)
@@ -315,40 +315,6 @@ theorem atBlock_ok {s₀ : State} {s : State} (h : Regs s₀ s) {rest : List Ins
   refine wp_mov fun s₁ u₁ => wp_addi fun s₂ u₂ => k s₂ ⟨by rw [u₂.rd, u₁.rd], by rw [u₂.wr, u₁.wr],
     fun r hr => by rw [u₂.other r (ne r hr), u₁.other r (ne r hr)], by rw [u₂.mem, u₁.mem]; exact Frame.refl _ _⟩
     (by rw [u₂.mem, u₁.mem]) (by rw [u₂.gpr, u₁.gpr, h.ebp]; rfl)
-
-/-- Compressing the block into the hash value in `t`. -/
-theorem cmp_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Regs s₀ s)
-    (hax : s.gpr .eax = scr s₀ + BitVec.ofNat 32 192) {Q : State → Prop}
-    (k : ∀ s', Keep s₀ s s' →
-      stateAt s'.mem (tA s₀) = compress (stateAt s.mem (tA s₀)) (blockAt s.mem (blkA s₀)) → Q s') :
-    WP isa (compressAt .ebx .ebp) s Q := by
-  have := hp.scr_fit; have := hp.t_fit
-  have ea : (scr s₀ + BitVec.ofNat 32 192).setWidth 64 = blkA s₀ := addr_off (len := 256) hp.scr_fit (by omega)
-  have et : (scr s₀ + BitVec.ofNat 32 192).toNat = (scr s₀).toNat + 192 := by
-    rw [BitVec.toNat_add, BitVec.toNat_ofNat]; omega
-  have hsc : scR s₀ ∈ s.wr := by simp [h.wr, hp.wr]
-  have htr : tR s₀ ∈ s.wr := by simp [h.wr, hp.wr]
-  have b64 : Region.Sub ⟨(scr s₀ + BitVec.ofNat 32 192).setWidth 64, 64⟩ (sR s₀ 192 64) := by
-    rw [ea]; exact fun _ h => h
-  refine compressAt_ok (st := tP s₀) (scr := scr s₀) (blk := scr s₀ + BitVec.ofNat 32 192) (E := esp₀ s₀)
-    (by decide) (by decide) (by decide) (by decide) h.esp h.ebx h.ebp hax hp.sp_lo (by omega)
-    (by rw [et]; omega) (by omega) (hp.t_s.sub_right (cmp_sub s₀))
-    ((hp.t_s.sub_right (scr_sub s₀ (o := 192) (n := 64) (by omega))).symm.sub_left b64)
-    ((scr_disj0 s₀ (a := 192) (m := 64) (by omega) (by omega)).sub_left b64)
-    hp.stk_t (hp.stk_s.sub_right (cmp_sub s₀)) (hp.stk_s.sub_right fun a ha => scr_sub s₀ (o := 192) (n := 64) (by omega) a (b64 a ha)) ?_ ?_
-    fun s' hrd hwr hcs hf hst => k s' ⟨hrd, hwr, fun r hr => hcs r (by
-      simp only [kept, List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl | rfl <;> simp [calleeSaved]), hf⟩ (by rw [hst, ea])
-  · rw [ea]
-    refine Covers.of_sub fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    subst hr
-    exact ⟨scR s₀, List.mem_append_right _ hsc, 192, rfl, by simp⟩
-  · refine Covers.of_sub fun r hr => ?_
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rcases hr with rfl | rfl
-    · exact ⟨tR s₀, htr, 0, by simp, by simp⟩
-    · exact ⟨scR s₀, hsc, 0, by simp, by simp⟩
 
 /-! ## The digest into the block -/
 

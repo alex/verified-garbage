@@ -6,7 +6,8 @@ namespace VG.Proof.Rc2.X86_64
 
 open VG VG.X86_64 VG.Impl.Rc2.X86_64
 
-theorem descendLoop_ok (s : State) (l : KeyBytes) (t8 : Nat) (ht : 1 ≤ t8) (ht' : t8 < 128)
+theorem descendLoop_ok (s : State)
+    (hlookup : InRegions s.wr (s.gpr .r8 + BitVec.ofNat 64 64) 16) (l : KeyBytes) (t8 : Nat) (ht : 1 ≤ t8) (ht' : t8 < 128)
     (len : s.gpr .rbp = BitVec.ofNat 64 t8) (start : s.gpr .rbx = BitVec.ofNat 64 (128 - t8))
     (writable : ∀ i < 128, InRegions s.wr (s.gpr .r14 + BitVec.ofNat 64 i) 1)
     (initialPrefix : BytesPrefix s.mem (s.gpr .r14) l 128) :
@@ -48,7 +49,8 @@ theorem descendLoop_ok (s : State) (l : KeyBytes) (t8 : Nat) (ht : 1 ≤ t8) (ht
     rw [loAddr]; exact read₁ _ (by omega)
   have readHi : InRegions (s₁.rd ++ s₁.wr) (s₁.gpr .r14 + (s₁.gpr .rbx - 1#64 + s₁.gpr .rbp)) 1 := by
     rw [hiAddr]; exact read₁ _ (by omega)
-  apply WP.mono (descendKey_ok s₁ readLo readHi write₁)
+  apply WP.mono (descendKey_ok s₁ (by
+    rw [frame₁.wr, frame₁.reg .r8 (by decide)]; exact hlookup) readLo readHi write₁)
   intro s₂ h₂
   let b := Spec.Rc2.pi ((descend l t8 j).getD (127 - t8 - j + 1) 0 ^^^
     (descend l t8 j).getD (127 - t8 - j + t8) 0)

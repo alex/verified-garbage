@@ -1,3 +1,5 @@
+import VerifiedGarbage.Proof.Rc2.X86_64.Sse2KeyLookup
+import VerifiedGarbage.Proof.Rc2.X86_64.ScanMemory
 import VerifiedGarbage.Impl.Rc2.X86_64.Block
 import VerifiedGarbage.Proof.Rc2.X86_64.Lookup
 import VerifiedGarbage.Proof.Rc2.Word
@@ -340,8 +342,7 @@ def mashSpec (direction : Spec.Rc2.Direction) (k : Spec.Rc2.Schedule)
 
 theorem mash_ok (direction : Spec.Rc2.Direction) (s : State)
     (v : Spec.Rc2.State) (hv : Words s v) (i : Nat) (hi : i < 4)
-    (readable : ∀ k < 128,
-      InRegions (s.rd ++ s.wr) (s.gpr .rdi + BitVec.ofNat 64 k) 1) :
+    (readable : ScanMemory s) :
     WP isa (.block (mash direction i)) s (fun s' =>
       Words s' (mashSpec direction (Spec.Rc2.scheduleAt s.mem (s.gpr .rdi)) i v) ∧
       Keep (wordReg i :: temps) s s') := by
@@ -359,10 +360,8 @@ theorem mash_ok (direction : Spec.Rc2.Direction) (s : State)
     · exact rd_setReg _ _ _
     · exact wr_setReg _ _ _
   have ptr₁ := keep₁.reg .rdi (by decide)
-  have read₁ : ∀ k < 128,
-      InRegions (s₁.rd ++ s₁.wr) (s₁.gpr .rdi + BitVec.ofNat 64 k) 1 := by
-    rw [keep₁.rd, keep₁.wr, ptr₁]; exact readable
-  apply WP.mono (keyLookup_ok s₁ read₁)
+  have read₁ : ScanMemory s₁ := readable.keep keep₁ (by decide) (by decide)
+  apply WP.mono (Sse2.keyLookup_ok s₁ read₁.vectors read₁.scratch)
   intro s₂ h₂
   let k := Spec.Rc2.scheduleAt s.mem (s.gpr .rdi)
   let key := k.getD ((v.getD ((i + 3) % 4) 0 &&& 63).toNat) 0

@@ -7,6 +7,10 @@ product x21–x24, the row multiplicand x3, and its carry x20. x8/x2 hold
 the low/high product, x9 is a loaded operand, x10 is zero, and x11 is 38.
 x1 and x19 are available to the point and scalar loops. The six used
 callee-saved registers x19–x24 are saved in the first 48 workspace bytes.
+
+Field multiplication and squaring keep their operands in registers: the
+words of one operand in x12–x15, the products in x2, x3, x8, x9, x11, x16
+and x17, and the eight words of the full product in x4–x7 and x21–x24.
 -/
 
 namespace VG.Impl.Ed25519.AArch64
@@ -64,15 +68,69 @@ def carry38 : List Instr :=
 
 def fold : List Instr := [.mul .x .x8 .x20 .x11] ++ carry38
 
-def reduce : List Instr :=
-  [.movz .w .x3 38 0, .movz .w .x20 0 0] ++
-    (List.range 4).flatMap (fun j => mulStep (wordReg j) .x20 .x3 (wordReg (4 + j))) ++ fold
+/-- `t0 + 2⁶⁴ t1 + 2¹²⁸ t2 + 2¹⁹² t3 + a · (b0 + … + 2¹⁹² b3)` into `t0`–`t4`,
+with x10 = 0: the low halves of the products added in one carry chain, and
+the high halves one word up in another. -/
+def rowAcc (a b0 b1 b2 b3 t0 t1 t2 t3 t4 : Reg) : List Instr :=
+  [.mul .x .x2 a b0, .mul .x .x8 a b1, .mul .x .x9 a b2, .mul .x .x16 a b3,
+    .adds .x t0 t0 .x2, .adcs .x t1 t1 .x8, .adcs .x t2 t2 .x9, .adcs .x t3 t3 .x16,
+    .adcs .x t4 .x10 .x10,
+    .umulh .x2 a b0, .umulh .x8 a b1, .umulh .x9 a b2, .umulh .x16 a b3,
+    .adds .x t1 t1 .x2, .adcs .x t2 t2 .x8, .adcs .x t3 t3 .x9, .adcs .x t4 t4 .x16]
 
-def wideProduct (a b : Nat) : List Instr :=
-  zero4 ++ row a b 0 ++ row a b 1 ++ row a b 2 ++ row a b 3
+/-- `a · (b0 + … + 2¹⁹² b3)` into `t0`–`t4`, with x10 = 0. -/
+def rowFirst (a b0 b1 b2 b3 t0 t1 t2 t3 t4 : Reg) : List Instr :=
+  [.mul .x t0 a b0, .mul .x t1 a b1, .mul .x t2 a b2, .mul .x t3 a b3,
+    .umulh .x2 a b0, .umulh .x8 a b1, .umulh .x9 a b2, .umulh .x16 a b3,
+    .adds .x t1 t1 .x2, .adcs .x t2 t2 .x8, .adcs .x t3 t3 .x9, .adcs .x t4 .x16 .x10]
+
+/-- The eight-word product of the field elements at `a` and `b`, with x10 = 0. -/
+def mulWide (a b : Nat) : List Instr :=
+  loads b .x12 .x13 .x14 .x15 ++
+    [ld .x3 a] ++ rowFirst .x3 .x12 .x13 .x14 .x15 .x4 .x5 .x6 .x7 .x21 ++
+    [ld .x3 (a + 8)] ++ rowAcc .x3 .x12 .x13 .x14 .x15 .x5 .x6 .x7 .x21 .x22 ++
+    [ld .x3 (a + 16)] ++ rowAcc .x3 .x12 .x13 .x14 .x15 .x6 .x7 .x21 .x22 .x23 ++
+    [ld .x3 (a + 24)] ++ rowAcc .x3 .x12 .x13 .x14 .x15 .x7 .x21 .x22 .x23 .x24
+
+/-- The products `aᵢ aⱼ` (`i < j`) of the words x12–x15, at their word
+`i + j` of x4–x7, x21–x24 less one: into x5–x7, x21–x23, with x10 = 0. -/
+def sqrCross : List Instr :=
+  [.mul .x .x5 .x12 .x13, .mul .x .x6 .x12 .x14, .mul .x .x7 .x12 .x15,
+    .umulh .x2 .x12 .x13, .umulh .x8 .x12 .x14, .umulh .x9 .x12 .x15,
+    .adds .x .x6 .x6 .x2, .adcs .x .x7 .x7 .x8, .adcs .x .x21 .x9 .x10,
+    .mul .x .x2 .x13 .x14, .mul .x .x8 .x13 .x15, .umulh .x9 .x13 .x14, .umulh .x16 .x13 .x15,
+    .adds .x .x7 .x7 .x2, .adcs .x .x21 .x21 .x8, .adcs .x .x22 .x16 .x10,
+    .adds .x .x21 .x21 .x9, .adcs .x .x22 .x22 .x10,
+    .mul .x .x2 .x14 .x15, .umulh .x8 .x14 .x15,
+    .adds .x .x22 .x22 .x2, .adcs .x .x23 .x8 .x10]
+
+/-- Double x5–x7, x21–x23 into x5–x7, x21–x24, with x10 = 0. -/
+def sqrDouble : List Instr :=
+  [.adds .x .x5 .x5 .x5, .adcs .x .x6 .x6 .x6, .adcs .x .x7 .x7 .x7,
+    .adcs .x .x21 .x21 .x21, .adcs .x .x22 .x22 .x22, .adcs .x .x23 .x23 .x23,
+    .adcs .x .x24 .x10 .x10]
+
+/-- Add the squares `aᵢ²` of the words x12–x15 at word `2 i`, setting x4. -/
+def sqrDiag : List Instr :=
+  [.mul .x .x4 .x12 .x12, .umulh .x2 .x12 .x12, .mul .x .x8 .x13 .x13, .umulh .x9 .x13 .x13,
+    .mul .x .x16 .x14 .x14, .umulh .x17 .x14 .x14, .mul .x .x3 .x15 .x15, .umulh .x11 .x15 .x15,
+    .adds .x .x5 .x5 .x2, .adcs .x .x6 .x6 .x8, .adcs .x .x7 .x7 .x9, .adcs .x .x21 .x21 .x16,
+    .adcs .x .x22 .x22 .x17, .adcs .x .x23 .x23 .x3, .adcs .x .x24 .x24 .x11]
+
+/-- The eight-word square of the field element at `a`, with x10 = 0. -/
+def sqrWide (a : Nat) : List Instr :=
+  loads a .x12 .x13 .x14 .x15 ++ sqrCross ++ sqrDouble ++ sqrDiag
+
+/-- Reduce the eight words x4–x7, x21–x24 modulo p into x4–x7, with x10 = 0:
+add 38 times the high half to the low half, then fold the carry word. -/
+def reduceWide : List Instr :=
+  [.movz .w .x11 38 0] ++ rowAcc .x11 .x21 .x22 .x23 .x24 .x4 .x5 .x6 .x7 .x20 ++ fold
 
 def fieldMul (o a b : Nat) : List Instr :=
-  [.movz .w .x10 0 0, .movz .w .x11 38 0] ++ wideProduct a b ++ reduce ++ store4 o
+  [.movz .w .x10 0 0] ++ mulWide a b ++ reduceWide ++ store4 o
+
+def fieldSqr (o a : Nat) : List Instr :=
+  [.movz .w .x10 0 0] ++ sqrWide a ++ reduceWide ++ store4 o
 
 def fieldAddWords (a b : Nat) : List Instr :=
   [ld .x4 a, ld .x9 b, .adds .x .x4 .x4 .x9,

@@ -6,8 +6,10 @@ import VerifiedGarbage.Spec.Pbkdf2.Contract
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on x86 (32-bit)
 
-Untrusted: everything here is checked by Lean. The prologue, the epilogue,
-and `Verified`. Constant time is proven by the taint analysis: the argument
+Untrusted: everything here is checked by Lean. The compressor-dependent
+correctness proof is generic in `Proof/Pbkdf2/Sha256/X86.lean`; this module keeps
+the shared prologue, epilogue, contract and scalar constant-time facts.
+Constant time is proven by the taint analysis: the argument
 words holding `t` and `scratch` are the bases of the two writable regions,
 and the code keeps them in `ebx` and `ebp` across the calls, so the
 registers `vg_sha256_compress` saves in its scratch space and restores are
@@ -406,11 +408,6 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (h : Inv s₀ 0 s
 
 /-! ## Correctness -/
 
-theorem correct {s₀ : State} (hp : Pre s₀) : WP isa iterate s₀ (Post s₀) := by
-  unfold iterate
-  refine WP.seq (WP.mono (prologue_ok hp) fun s₁ ⟨h₁, z₁⟩ => ?_)
-  exact WP.seq (WP.mono (loop_ok hp h₁ z₁) fun s₂ h₂ => epilogue_ok hp h₂)
-
 /-! ## Constant time -/
 
 /-- The initial taint: the stack arguments are public, the words holding `t`
@@ -495,11 +492,6 @@ theorem sat_pre : Proof.Pbkdf2.iterateSha256X86.pre sat := by
     simp only [Region.Contains, sat] at h₁ h₂
     bv_omega
 
-theorem iterate_correct (s : State) (hs : Proof.Pbkdf2.iterateSha256X86.pre s) :
-    ∃ t s', Exec isa iterate s t s' ∧ abiPreserved s s' ∧ Proof.Pbkdf2.iterateSha256X86.post s s' := by
-  obtain ⟨t, s', he, h⟩ := correct (pre_of hs)
-  exact ⟨t, s', he, h⟩
-
 theorem iterate_ct : ConstantTime isa Proof.Pbkdf2.iterateSha256X86.pre
     Proof.Pbkdf2.iterateSha256X86.pub iterate :=
   VG.Taint.constantTime (A := taint) τ₀ (fun _ _ h₁ h₂ hp => agree₀ h₁ h₂ hp) (by taint_decide)
@@ -565,36 +557,5 @@ theorem iterateWide_implies : iterateWide.Implies (Spec.Pbkdf2.iterateSha256Cont
   sig_implies [Spec.Pbkdf2.iterateSha256Contract, Spec.Pbkdf2.iterateSha256Sig, iterateWide,
     Proof.Pbkdf2.iterateSha256X86, X86.abi, X86.argSlots, X86.argVal, X86.argBytes]
     [a0, a1, a2, a3, a4, e, esp] using wideSat
-
-/-- The proof is written against `iterateSha256X86`, widened to the shared
-contract's scratch and to writable arguments. -/
-theorem iterate_verified :
-    Verified X86.target Impl.Pbkdf2.X86.iterate (Spec.Pbkdf2.iterateSha256Contract X86.abi 20) :=
-  have hsat := iterateWide_implies.sat_left
-  (Verified.narrowTo (Verified.of_correct iterate_correct iterate_ct (.refl ⟨sat, sat_pre⟩))
-    narrowRd narrowWr iterateWide_pre
-    (fun _ h => by
-      obtain ⟨h₁, h₂, _⟩ := h
-      rw [h₁, h₂]
-      refine Covers.of_sub fun r hr => ?_
-      simp only [narrowRd, narrowWr, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
-        or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl | rfl
-      · exact ⟨_, List.mem_append_left _ List.mem_cons_self, 0, by simp, by simp⟩
-      · exact ⟨_, List.mem_append_left _ (List.mem_cons_of_mem _ List.mem_cons_self), 0, by simp, by simp⟩
-      · exact ⟨_, List.mem_append_right _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ List.mem_cons_self)),
-          0, by simp, by simp⟩
-      · exact ⟨_, List.mem_append_right _ List.mem_cons_self, 0, by simp, by simp⟩
-      · exact ⟨_, List.mem_append_right _ (List.mem_cons_of_mem _ List.mem_cons_self), 0, by simp, by simp⟩)
-    (fun _ h => by
-      obtain ⟨_, h₂, _⟩ := h
-      rw [h₂]
-      refine Covers.of_sub fun r hr => ?_
-      simp only [narrowWr, List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl
-      · exact ⟨_, List.mem_cons_self, 0, by simp, by simp⟩
-      · exact ⟨_, List.mem_cons_of_mem _ List.mem_cons_self, 0, by simp, by simp⟩)
-    (fun _ _ _ h => by narrow at h ⊢; exact h)
-    (fun _ _ _ _ h => by narrow; exact h) hsat).of_implies iterateWide_implies
 
 end VG.Proof.Pbkdf2.X86
