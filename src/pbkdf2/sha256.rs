@@ -39,7 +39,7 @@ use crate::arch::pbkdf2_sha256::{
 #[cfg(target_arch = "aarch64")]
 use crate::arch::pbkdf2_sha256::{VG_PBKDF2_HMAC_SHA256_SHA2_FEATURES, vg_pbkdf2_hmac_sha256_sha2};
 use crate::hashes::sha256::Sha256;
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[cfg(not(target_arch = "arm"))]
 use crate::hashes::sha256::Sha256Backend;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
@@ -72,7 +72,19 @@ fn iterate(key: &[u8; 192], u: &[u8; 32], n: u32, t: &mut [u8; 32]) {
     // stack below it (on x86), nor wrap around the address
     // space. `key` holds the streaming states for `K₀ ⊕ ipad` and `K₀ ⊕ opad`
     // that `vg_hmac_sha256_init` left.
-    unsafe { vg_pbkdf2_hmac_sha256_iterate(key, u, n, t, &mut scratch) };
+    #[cfg(target_arch = "arm")]
+    unsafe {
+        vg_pbkdf2_hmac_sha256_iterate(key, u, n, t, &mut scratch)
+    };
+    #[cfg(target_arch = "x86")]
+    {
+        let iterate = match Sha256Backend::select(crate::cpu::detected()) {
+            Sha256Backend::Scalar => vg_pbkdf2_hmac_sha256_iterate,
+        };
+        // SAFETY: the buffers satisfy the contract described above; selecting
+        // the hash backend also selects every PBKDF2 caller of that backend.
+        unsafe { iterate(key, u, n, t, &mut scratch) };
+    }
 }
 
 #[cfg(any(target_arch = "arm", target_arch = "x86"))]
