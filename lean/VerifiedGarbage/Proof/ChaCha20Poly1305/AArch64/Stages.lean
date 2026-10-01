@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
 import VerifiedGarbage.Proof.Poly1305.AArch64.Init
-import VerifiedGarbage.Proof.Poly1305.AArch64.Blocks
-import VerifiedGarbage.Proof.Poly1305.AArch64.Finalize
+import VerifiedGarbage.Proof.Poly1305.AArch64.Radix64.Blocks
+import VerifiedGarbage.Proof.Poly1305.AArch64.Radix64.Finalize
 import VerifiedGarbage.Proof.ChaCha20.AArch64.XorVariant
 import VerifiedGarbage.Proof.ChaCha20Poly1305.Spec
 import VerifiedGarbage.Impl.ChaCha20Poly1305.AArch64
@@ -91,8 +91,8 @@ theorem callEntry_gpr' (s : State) {r : Reg} (h : r ∉ linkRegs) : s.callEntry.
   State.callEntry_gpr _ h
 
 theorem init_noFrames : Impl.Poly1305.AArch64.init.noFrames = true := by decide +kernel
-theorem blocks_noFrames : Impl.Poly1305.AArch64.blocks.noFrames = true := by decide +kernel
-theorem finalize_noFrames : Impl.Poly1305.AArch64.finalize.noFrames = true := by decide +kernel
+theorem blocks_noFrames : Impl.Poly1305.AArch64.Radix64.blocks.noFrames = true := by decide +kernel
+theorem finalize_noFrames : Impl.Poly1305.AArch64.Radix64.finalize.noFrames = true := by decide +kernel
 
 /-! ## `vg_poly1305_init` -/
 
@@ -123,10 +123,10 @@ theorem blocks_call {s : State} {P p : Addr} {n : Nat} (hx0 : s.gpr .x0 = P) (hx
     {Q : State → Prop}
     (hQ : ∀ s', Kept [⟨P, 128⟩] s s' →
       (∀ key msg, Repr s.mem P key msg → Repr s'.mem P key (msg ++ bytesAt s.mem p (16 * n))) → Q s') :
-    WP isa (.call "vg_poly1305_blocks" Impl.Poly1305.AArch64.blocks) s Q := by
+    WP isa (.call "vg_poly1305_blocks" Impl.Poly1305.AArch64.Radix64.blocks) s Q := by
   have hn' : (BitVec.ofNat 64 n).toNat = n := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by lit_omega)
-  refine WP.call (k := Proof.Poly1305.blocksAArch64) Proof.Poly1305.AArch64.blocks_ok
+  refine WP.call (k := Proof.Poly1305.blocksAArch64) Proof.Poly1305.AArch64.Radix64.blocks_ok
     (rd := [⟨p, 16 * n⟩]) (wr := [⟨P, 128⟩]) ?_ hc hw ?_ blocks_noFrames
   · simp only [Proof.Poly1305.blocksAArch64, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs),
@@ -151,8 +151,8 @@ theorem finalize_call {s : State} {P O : Addr} (hx0 : s.gpr .x0 = P) (hx1 : s.gp
     {Q : State → Prop}
     (hQ : ∀ s', Kept [⟨P, 128⟩, ⟨O, 16⟩] s s' →
       (∀ key msg, Repr s.mem P key msg → bytesAt s'.mem O 16 = mac key msg) → Q s') :
-    WP isa (.call "vg_poly1305_finalize" Impl.Poly1305.AArch64.finalize) s Q := by
-  refine WP.call (k := Proof.Poly1305.finalizeAArch64) Proof.Poly1305.AArch64.finalize_ok
+    WP isa (.call "vg_poly1305_finalize" Impl.Poly1305.AArch64.Radix64.finalize) s Q := by
+  refine WP.call (k := Proof.Poly1305.finalizeAArch64) Proof.Poly1305.AArch64.Radix64.finalize_ok
     (rd := []) (wr := [⟨P, 128⟩, ⟨O, 16⟩]) ?_ hc hw ?_ finalize_noFrames
   · simp only [Proof.Poly1305.finalizeAArch64, State.withRegions_gpr, State.withRegions_wr,
       callEntry_gpr' s (by decide : Reg.x0 ∉ linkRegs), callEntry_gpr' s (by decide : Reg.x2 ∉ linkRegs),
@@ -1185,7 +1185,7 @@ theorem padTail_eq : padTail =
     .seq (.block [.movz .x .x11 0 0, .str .x .x11 .x21 576, .str .x .x11 .x21 584, .addImm .x .x9 .x21 576])
     (.seq (.loop (.block copyBody) (.nonzero .x .x10))
     (.seq (.block [.addImm .x .x0 .x21 448, .addImm .x .x1 .x21 576, .movz .x .x2 1 0])
-      (.call "vg_poly1305_blocks" Impl.Poly1305.AArch64.blocks))) := rfl
+      (.call "vg_poly1305_blocks" Impl.Poly1305.AArch64.Radix64.blocks))) := rfl
 
 theorem padTail_ok {s₀ : State} (hp : APre s₀) {s : State} {Q : Addr} {t : Nat} (ht0 : 0 < t) (ht : t < 16)
     (hx1 : s.gpr .x1 = Q) (hx10 : s.gpr .x10 = BitVec.ofNat 64 t) (hx21 : s.gpr .x21 = cx s₀)

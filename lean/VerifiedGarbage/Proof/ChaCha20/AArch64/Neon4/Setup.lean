@@ -46,13 +46,13 @@ def input (s : State) (k : Fin 16) (j : Nat) : Word :=
 theorem input_same {s s' : State} (h : LoadSame s s') (k : Fin 16) (j : Nat) :
     input s' k j = input s k j := by rw [input, h.mem, h.gpr _ (by decide)]; rfl
 
-theorem inputWord_ok (s : State) (k : Fin 16)
+theorem inputWordInto_ok (s : State) (k : Fin 16) (d : VReg)
     (hin : InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 (4 * k)) 4) :
-    WP isa (.block (inputWord k)) s fun s' =>
-      (∀ j, j < 4 → vword (s'.v .v31) j = input s k j) ∧
-      (∀ r, r ≠ .v31 → s'.v r = s.v r) ∧ LoadSame s s' := by
+    WP isa (.block (inputWordInto k d)) s fun s' =>
+      (∀ j, j < 4 → vword (s'.v d) j = input s k j) ∧
+      (∀ r, r ≠ d → s'.v r = s.v r) ∧ LoadSame s s' := by
   have ha : 4 * k.val % 4 = 0 ∧ 4 * k.val < 4096 * 4 := by omega
-  unfold inputWord
+  unfold inputWordInto
   split
   · rename_i hk
     subst k
@@ -85,6 +85,14 @@ theorem inputWord_ok (s : State) (k : Fin 16)
     · exact RegUpd.v_setV_of_ne _ _ hr
     · exact RegUpd.gpr_write_of_ne _ _ _ hr
 
+
+theorem inputWord_ok (s : State) (k : Fin 16)
+    (hin : InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 (4 * k)) 4) :
+    WP isa (.block (inputWord k)) s fun s' =>
+      (∀ j, j < 4 → vword (s'.v .v31) j = input s k j) ∧
+      (∀ r, r ≠ .v31 → s'.v r = s.v r) ∧ LoadSame s s' :=
+  inputWordInto_ok s k .v31 hin
+
 structure Loaded (s₀ : State) (ks : List (Fin 16)) (s : State) : Prop where
   words : ∀ k ∈ ks, ∀ j, j < 4 → vword (s.v (vreg k)) j = input s₀ k j
   same : LoadSame s₀ s
@@ -94,18 +102,12 @@ theorem setupWord_ok {s₀ s : State} {ks : List (Fin 16)} (h : Loaded s₀ ks s
     WP isa (.block (setupWord k)) s (Loaded s₀ (k :: ks)) := by
   have hi : InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 (4 * k)) 4 := by
     rw [h.same.rd, h.same.wr, h.same.gpr _ (by decide)]; exact hin k
-  apply WP.block_append
-  refine (inputWord_ok s k hi).mono fun s' ⟨hw, hv, hs⟩ => ?_
-  apply WP.of_runBlock
-  simp only [runBlock_cons, runBlock_nil, exec, VOp.eval, isa, runStep_some,
-    Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨fun l hl j hj => ?_, ?_⟩
-  · rw [RegUpd.v_setV]
-    by_cases e : l = k
-    · subst e; rw [ite_eq_left rfl, hw j hj, input_same h.same]
-    · rw [ite_eq_right (fun he => e ((vreg_inj l k).mp he)), hv _ (vreg_ne l)]
-      exact h.words l ((List.mem_cons.mp hl).resolve_left e) j hj
-  · exact h.same.trans ⟨hs.gpr, hs.mem, hs.rd, hs.wr, hs.sp⟩
+  refine (inputWordInto_ok s k (vreg k) hi).mono fun s' ⟨hw, hv, hs⟩ => ?_
+  refine ⟨fun l hl j hj => ?_, h.same.trans hs⟩
+  by_cases e : l = k
+  · subst e; rw [hw j hj, input_same h.same]
+  · rw [hv _ (fun he => e ((vreg_inj l k).mp he))]
+    exact h.words l ((List.mem_cons.mp hl).resolve_left e) j hj
 
 theorem setupList_ok (ks : List (Fin 16)) {s₀ s : State} {done : List (Fin 16)}
     (h : Loaded s₀ done s)
@@ -119,14 +121,31 @@ theorem setupList_ok (ks : List (Fin 16)) {s₀ s : State} {done : List (Fin 16)
     exact (ih h').mono fun _ ⟨hw, hs⟩ => ⟨fun l hl j hj => hw l (by simpa [List.mem_append,
       List.mem_cons, or_assoc, or_left_comm, or_comm] using hl) j hj, hs⟩
 
+set_option simprocs false in
+theorem setupTable_ok (s : State) :
+    WP isa (.block setupTable) s fun s' =>
+      s'.v .v30 = rol8Table ∧ (∀ r, r ≠ .v30 → s'.v r = s.v r) ∧ LoadSame s s' := by
+  apply WP.of_runBlock
+  simp (config := {decide := true}) only [setupTable, runBlock_cons, runBlock_nil, isa,
+    runStep_some, exec, State.read, Size.bits, BitVec.setWidth_eq, VOp.eval,
+    RegUpd.gpr_write, RegUpd.v_write, RegUpd.gpr_setV, RegUpd.v_setV,
+    ite_true, Option.map_some, Option.some.injEq, exists_eq_left']
+  refine ⟨?_, fun r hr => ?_, fun r hr => ?_, rfl, rfl, rfl, rfl⟩
+  · trivial
+  · simp only [hr, ite_false]
+  · simp only [RegUpd.gpr_write, RegUpd.gpr_setV, hr, ite_false]
+
 theorem setup_ok (s : State)
     (hin : ∀ k : Fin 16, InRegions (s.rd ++ s.wr) (s.gpr .x0 + BitVec.ofNat 64 (4 * k)) 4) :
     WP isa (.block setup) s fun s' =>
-      Holds (fun j => ctr (stateAt s.mem (s.gpr .x0)) j) s' ∧ LoadSame s s' := by
-  refine (setupList_ok (List.finRange 16) (done := [])
-    ⟨(fun _ h => by cases h), LoadSame.refl s⟩ hin).mono fun _ ⟨hw, hs⟩ => ⟨?_, hs⟩
+      Holds (fun j => ctr (stateAt s.mem (s.gpr .x0)) j) s' ∧ LoadSame s s' ∧
+      s'.v .v30 = rol8Table := by
+  rw [setup]
+  refine WP.block_append ((setupList_ok (List.finRange 16) (done := [])
+    ⟨(fun _ h => by cases h), LoadSame.refl s⟩ hin).mono fun a ⟨hw, hs⟩ => ?_)
+  refine (setupTable_ok a).mono fun b ⟨ht, hk, hab⟩ => ⟨?_, hs.trans hab, ht⟩
   intro k j hj
-  rw [hw k (by simp) j hj]
+  rw [hk (vreg k) (vreg_ne30 k), hw k (by simp) j hj]
   simp only [input, ctr, Vector.getElem_set, stateAt, Vector.getElem_ofFn, Fin.getElem_fin]
   by_cases hk : k = 12
   · subst k; rfl
