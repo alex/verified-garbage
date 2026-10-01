@@ -10,6 +10,18 @@ open VG.Proof.MdStream.X86_64 (wp_mov wp_addi wp_mov32i wp_subi)
 open VG.Spec.Blake2 (bytesAt)
 open VG.WriteBytes
 
+theorem bytesAt_writeBytes (m : Mem) (p : Addr) (xs : List Byte) (hn : xs.length < 2 ^ 64) :
+    bytesAt (writeBytes m p xs) p xs.length = xs := by
+  apply List.ext_getElem (by simp only [bytesAt, List.length_map, List.length_range])
+  intro i _ hi
+  simp only [bytesAt, List.getElem_map, List.getElem_range, writeBytes,
+    Offset.add_sub_cancel_left, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : i < 2 ^ 64),
+    hi, ite_true, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some]
+
+theorem bytesAt_take (m : Mem) (p : Addr) (n k : Nat) (hn : n ≤ k) :
+    (bytesAt m p k).take n = bytesAt m p n := by
+  simp only [bytesAt, ← List.map_take, List.take_range, Nat.min_eq_left hn]
+
 structure Copied (s : State) (k : Nat) (t : State) : Prop where
   output : t.gpr .r14 = s.gpr .r14 + BitVec.ofNat 64 k
   other : ∀ r, r ≠ .rax → r ≠ .rcx → r ≠ .rdx → r ≠ .r14 → t.gpr r = s.gpr r

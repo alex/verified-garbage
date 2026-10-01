@@ -55,6 +55,39 @@ theorem hPrime_length (n : Nat) (input : List Byte) : (hPrime n input).length = 
     rw [longHash_length _ _ _ hb.2.2.1 (H_length 64 _ (by decide))]
     exact hb.2.2.2
 
+/-- The digest after `r` further 64-byte hashes. -/
+def chainDigest : Nat → List Byte → List Byte
+  | 0, v => v
+  | r + 1, v => chainDigest r (H 64 v)
+
+/-- The prefixes emitted by those further hashes. -/
+def chainPrefixes : Nat → List Byte → List Byte
+  | 0, _ => []
+  | r + 1, v => (H 64 v).take 32 ++ chainPrefixes r (H 64 v)
+
+theorem chainDigest_length (r : Nat) (v : List Byte) (hv : v.length = 64) :
+    (chainDigest r v).length = 64 := by
+  induction r generalizing v with
+  | zero => exact hv
+  | succ r ih => exact ih _ (H_length _ _ (by decide))
+
+theorem chainPrefixes_length (r : Nat) (v : List Byte) :
+    (chainPrefixes r v).length = 32 * r := by
+  induction r generalizing v with
+  | zero => rfl
+  | succ r ih =>
+    simp only [chainPrefixes, List.length_append, List.length_take, H_length 64 _ (by decide), ih]
+    omega
+
+theorem longHash_chain (lastLen r : Nat) (v : List Byte) :
+    longHash lastLen (r + 1) v =
+      v.take 32 ++ chainPrefixes r v ++ H lastLen (chainDigest r v) := by
+  induction r generalizing v with
+  | zero => simp only [longHash, chainPrefixes, chainDigest, List.append_nil]
+  | succ r ih =>
+    rw [longHash, ih]
+    simp only [chainPrefixes, chainDigest, List.append_assoc]
+
 theorem getD_append_zeros (m : List Byte) (n i : Nat) :
     (m ++ List.replicate n 0).getD i 0 = m.getD i 0 := by
   by_cases hi : i < m.length
