@@ -23,4 +23,11 @@ def setup (start : Nat) : List Value → List Instr
   | [] => []
   | v :: vs => put start v ++ setup (start + 1) vs
 
+/-- Add a fixed prefix length to a caller's 32-bit length, preserving the
+carry in the high half of SHA-512's 64-bit outgoing count. -/
+def countArgs (index prefixLen : Nat) : List Instr :=
+  [.mov .eax (.mem (at_ (260 + 4 * index))), .mov .edx (.imm 0),
+   .alu .add .eax (.imm (BitVec.ofNat 32 prefixLen)), .alu .adc .edx (.imm 0),
+   .store (at_ 4) .eax, .store (at_ 8) .edx]
+
 end VG.Impl.Ed25519.X86.Whole
