@@ -1,0 +1,97 @@
+import VerifiedGarbage.Proof.Argon2.X86_64.HPrime.Copy
+import VerifiedGarbage.Proof.MdStream.X86_64.Common
+
+/-! # H′: emitting a digest or its 32-byte prefix -/
+
+namespace VG.Proof.Argon2.X86_64.HPrime
+
+open VG VG.X86_64 VG.Impl.Argon2.X86_64.HPrime
+open VG.Proof.MdStream.X86_64 (wp_mov wp_addi wp_mov32i wp_subi)
+open VG.Spec.Blake2 (bytesAt)
+open VG.WriteBytes
+
+structure Copied (s : State) (k : Nat) (t : State) : Prop where
+  output : t.gpr .r14 = s.gpr .r14 + BitVec.ofNat 64 k
+  other : ∀ r, r ≠ .rax → r ≠ .rcx → r ≠ .rdx → r ≠ .r14 → t.gpr r = s.gpr r
+  rd : t.rd = s.rd
+  wr : t.wr = s.wr
+  mem : t.mem = writeBytes s.mem (s.gpr .r14) (bytesAt s.mem (s.gpr .rbx + 768) k)
+
+theorem copy_ok (s : State) (k : Nat) (lo : 1 ≤ k) (hi : k ≤ 64)
+    (count : s.gpr .rax = BitVec.ofNat 64 k)
+    (work : (⟨s.gpr .rbx, 16384⟩ : Region) ∈ s.wr)
+    (out : ∀ i < k, InRegions s.wr (s.gpr .r14 + BitVec.ofNat 64 i) 1)
+    (sep : (⟨s.gpr .rbx + 768, k⟩ : Region).Disjoint ⟨s.gpr .r14, k⟩) :
+    WP isa copy s (Copied s k) := by
+  unfold copy
+  refine WP.seq (wp_mov fun a ha _ _ => wp_addi fun u hu => WP.block_nil ?_)
+  have src : u.gpr .rdx = s.gpr .rbx + 768 := by rw [hu.gpr, ha.gpr]; rfl
+  have other : ∀ r, r ≠ .rdx → u.gpr r = s.gpr r := fun r hr =>
+    (hu.other r hr).trans (ha.other r hr)
+  have mem : u.mem = s.mem := hu.mem.trans ha.mem
+  have rd : u.rd = s.rd := hu.rd.trans ha.rd
+  have wr : u.wr = s.wr := hu.wr.trans ha.wr
+  have read : ∀ i < k, InRegions (u.rd ++ u.wr)
+      (s.gpr .rbx + 768 + BitVec.ofNat 64 i) 1 := by
+    intro i hi'
+    rw [rd, wr, BitVec.add_assoc,
+      show (768 : Addr) = BitVec.ofNat 64 768 from rfl, ← BitVec.ofNat_add]
+    exact ⟨_, List.mem_append_right _ work,
+      Offset.contains_base _ (by omega : 768 + i + 1 ≤ 16384) (by omega)⟩
+  refine (copyLoop_ok u _ _ k lo (by omega) src (other .r14 (by decide))
+    ((other .rax (by decide)).trans count) read ?_ sep).mono ?_
+  · intro i hi'; rw [wr]; exact out i hi'
+  · intro t ht
+    refine ⟨ht.destination, fun r h1 h2 h3 h4 => (ht.other r h1 h2 h3 h4).trans (other r h3),
+      ht.rd.trans rd, ht.wr.trans wr, ?_⟩
+    rw [ht.mem, mem, List.take_of_length_le]
+    simp only [bytesAt, List.length_map, List.length_range, Nat.le_refl]
+
+theorem Copied.frame {s t : State} {k : Nat} (h : Copied s k t) :
+    Frame [⟨s.gpr .r14, k⟩] s.mem t.mem := by
+  rw [h.mem]
+  apply writeBytes_frame
+  simpa only [bytesAt, List.length_map, List.length_range, BitVec.add_zero] using
+    Offset.contains_base (s.gpr .r14) (d := 0) (n := k) (k := k) (by omega) (by decide)
+
+structure Emitted (s t : State) : Prop where
+  output : t.gpr .r14 = s.gpr .r14 + 32
+  remaining : t.gpr .r15 = s.gpr .r15 - 32
+  other : ∀ r, r ≠ .rax → r ≠ .rcx → r ≠ .rdx → r ≠ .r14 → r ≠ .r15 → t.gpr r = s.gpr r
+  rd : t.rd = s.rd
+  wr : t.wr = s.wr
+  mem : t.mem = writeBytes s.mem (s.gpr .r14) (bytesAt s.mem (s.gpr .rbx + 768) 32)
+
+theorem emitPrefix_ok (s : State)
+    (work : (⟨s.gpr .rbx, 16384⟩ : Region) ∈ s.wr)
+    (out : ∀ i < 32, InRegions s.wr (s.gpr .r14 + BitVec.ofNat 64 i) 1)
+    (sep : (⟨s.gpr .rbx + 768, 32⟩ : Region).Disjoint ⟨s.gpr .r14, 32⟩) :
+    WP isa emitPrefix s (Emitted s) := by
+  unfold emitPrefix
+  refine WP.seq (wp_mov32i fun a ha _ _ => WP.block_nil ?_)
+  have base : a.gpr .rbx = s.gpr .rbx := ha.other _ (by decide)
+  have dst : a.gpr .r14 = s.gpr .r14 := ha.other _ (by decide)
+  have workA : (⟨a.gpr .rbx, 16384⟩ : Region) ∈ a.wr := by rw [base, ha.wr]; exact work
+  have outA : ∀ i < 32, InRegions a.wr (a.gpr .r14 + BitVec.ofNat 64 i) 1 := by
+    rw [dst, ha.wr]; exact out
+  have sepA : (⟨a.gpr .rbx + 768, 32⟩ : Region).Disjoint ⟨a.gpr .r14, 32⟩ := by
+    rw [base, dst]; exact sep
+  refine WP.seq ((copy_ok a 32 (by decide) (by decide) ha.gpr workA outA sepA).mono ?_)
+  intro u hu
+  refine wp_subi fun t ht _ => WP.block_nil ?_
+  refine ⟨?_, ?_, fun r h1 h2 h3 h4 h5 => ?_, ht.rd.trans (hu.rd.trans ha.rd),
+    ht.wr.trans (hu.wr.trans ha.wr), ?_⟩
+  · rw [ht.other _ (by decide), hu.output, dst]; rfl
+  · rw [ht.gpr, hu.other _ (by decide) (by decide) (by decide) (by decide), ha.other _ (by decide)]
+    rfl
+  · exact (ht.other r h5).trans ((hu.other r h1 h2 h3 h4).trans (ha.other r h1))
+  · rw [ht.mem, hu.mem, ha.mem, base, dst]
+
+theorem Emitted.frame {s t : State} (h : Emitted s t) :
+    Frame [⟨s.gpr .r14, 32⟩] s.mem t.mem := by
+  rw [h.mem]
+  apply writeBytes_frame
+  simpa only [bytesAt, List.length_map, List.length_range, BitVec.add_zero] using
+    Offset.contains_base (s.gpr .r14) (d := 0) (n := 32) (k := 32) (by decide) (by decide)
+
+end VG.Proof.Argon2.X86_64.HPrime
