@@ -1,0 +1,42 @@
+// @generated from lean/VerifiedGarbage/Artifacts.lean by lean/Emit.lean. DO NOT EDIT.
+//! Verified `zeroize` functions for `arm`.
+#![allow(dead_code)]
+
+/// Wipes a buffer: sets the `len` bytes at `p` to zero, and writes no other memory. A call of it is not a dead store the compiler may remove, since the compiler cannot see its code.
+///
+/// Contract: `VG.Spec.Zeroize.zeroizeContract`. Constant time: only `p` and `len` may affect timing, not the bytes wiped.
+///
+/// # Safety
+///
+/// * `p` must be valid for reads and writes of `len` bytes.
+/// * `p` must not wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_zeroize(p: *mut u8, len: usize) {
+    core::arch::naked_asm!(
+        "mov r2, #0",
+        "lsr r3, r1, #2",
+        "and r1, r1, #3",
+        "cmp r3, #0",
+        "beq 20f",
+        "22:",
+        "str r2, [r0, #0]",
+        "add r0, r0, #4",
+        "subs r3, r3, #1",
+        "bne 22b",
+        "b 21f",
+        "20:",
+        "21:",
+        "mov r3, r1",
+        "cmp r3, #0",
+        "beq 23f",
+        "25:",
+        "strb r2, [r0, #0]",
+        "add r0, r0, #1",
+        "subs r3, r3, #1",
+        "bne 25b",
+        "b 24f",
+        "23:",
+        "24:",
+        "bx lr",
+    )
+}
