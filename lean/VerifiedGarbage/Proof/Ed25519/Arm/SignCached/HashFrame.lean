@@ -28,6 +28,14 @@ theorem frame_bytes {m n : Mem} {ws : List Region} (hf : Frame ws m n) (r : Regi
   intro i hi
   exact Frame.bytes hf hd hn (List.mem_range.mp hi)
 
+theorem setup_field_bytes {m n : Mem} (hf : Frame [slots L] m n)
+    {d : Nat} (hd : d + 32 ≤ 248) (hmin : 24 ≤ d) :
+    Spec.Ed25519.bytesAt n (State.addr L.E + BitVec.ofNat 64 d) 32 =
+      Spec.Ed25519.bytesAt m (State.addr L.E + BitVec.ofNat 64 d) 32 := by
+  apply frame_bytes hf (field L d) _ (by change 32 ≤ 2 ^ 64; decide)
+  rintro r hr; rw [List.mem_singleton.mp hr]
+  exact Offset.disjoint_base _ hmin (by omega)
+
 theorem setup_repr {m n : Mem} (hL : L.Ok) (hf : Frame [slots L] m n) {msg : List Byte}
     (hr : Spec.Sha512.Repr Spec.Sha512.H0_512 m (State.addr L.scr) msg) :
     Spec.Sha512.Repr Spec.Sha512.H0_512 n (State.addr L.scr) msg := by
