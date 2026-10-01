@@ -818,25 +818,6 @@ def blocksX86_64 : Contract X86_64.isa where
 open VG.X86_64 in
 /-- The contract the proof is written against (and verified callers use); the
 artifact's is the shared contract of `Spec/`, which implies it.
-`vg_poly1305_update(state: *mut [u64; 16], count: u64, data: *const u8, len: usize, …)`:
-only `count mod 16`, the number of bytes buffered, matters. The state must be
-writable, and it may be permitted to write other regions (which it does
-not). -/
-def updateX86_64 : Contract X86_64.isa where
-  pre s :=
-    let state : Region := ⟨s.gpr .rdi, 128⟩
-    let data : Region := ⟨s.gpr .rdx, (s.gpr .rcx).toNat⟩
-    let ret : Region := ⟨s.gpr .rsp, 8⟩
-    s.rd = [data] ∧ state ∈ s.wr ∧ state.Disjoint data ∧ ret.Disjoint state
-  post s s' := ∀ key msg, Buffered s.mem (s.gpr .rdi) key msg →
-    (s.gpr .rsi).toNat % 16 = msg.length % 16 →
-    Buffered s'.mem (s.gpr .rdi) key (msg ++ bytesAt s.mem (s.gpr .rdx) (s.gpr .rcx).toNat)
-  pub s₁ s₂ := s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧
-    s₁.gpr .rdx = s₂.gpr .rdx ∧ s₁.gpr .rcx = s₂.gpr .rcx
-
-open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
 `vg_poly1305_finalize(state: *mut [u64; 16], count: u64, out: *mut [u8; 16], …)`:
 only `count mod 16`, the number of bytes buffered, matters, and it returns
 with `rcx = out`. The state and `out` must be writable, and it may be
