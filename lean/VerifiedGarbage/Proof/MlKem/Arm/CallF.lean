@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.Framework.Arm.Frame
+import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # Calls of code with frames (ARMv7)
@@ -22,6 +23,7 @@ def stackUse : Prog isa → Nat
   | .loop b _ => stackUse b
   | .call _ b => stackUse b
   | .frame (.push rs) b _ => 4 * rs.length + stackUse b
+  | .frame (.alloc n) b _ => n + stackUse b
   | .frame _ b _ => stackUse b
 
 /-- The `n` bytes below `sp`. -/
@@ -78,7 +80,7 @@ theorem storeWords_frame (m : Mem) (a : BitVec 32) (vs : List (BitVec 32)) (h : 
 
 theorem pop_mem' {j : Instr} {s₁ s₂ s' : State} (h : isa.pop j s₁ s₂ = some s') : s'.mem = s₂.mem := by
   cases j <;> simp only [isa, pop, reduceCtorEq] at h
-  split at h <;> cases h; rfl
+  all_goals split at h <;> cases h <;> rfl
 
 theorem push_pushed' {rs : List Reg} {s a : State} (h : isa.push (.push rs) s = some a) :
     a = pushed rs s ∧ 4 * rs.length ≤ s.sp.toNat := by
@@ -155,6 +157,20 @@ theorem Exec.frameSp {c : Prog isa} {s s' : State} {t : List Leak} (h : Exec isa
         · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), frame_belowA hd⟩
         · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
         · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), belowA_push hd⟩
+    | alloc bytes =>
+      simp only [stackUse] at hd ⊢
+      simp only [isa, push] at hp
+      split at hp <;> [skip; cases hp]
+      cases hp
+      have f₁ := ih (by
+        change stackUse b ≤ (s₀.sp - BitVec.ofNat 32 bytes).toNat
+        bv_omega_using [hd])
+      refine f₁.sub fun r hr => ?_
+      simp only [List.cons_append, List.mem_cons, List.mem_append, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | hr | rfl
+      · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), frame_belowA hd⟩
+      · exact ⟨r, List.mem_append_left _ hr, fun _ h => h⟩
+      · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _), belowA_push hd⟩
     | _ => simp only [isa, push, reduceCtorEq] at hp
 
 /-- Calling verified code that may have frames: as `WP.callCalls`, but the
