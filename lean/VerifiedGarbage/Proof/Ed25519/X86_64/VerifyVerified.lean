@@ -1,6 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyCT
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyLit
 import VerifiedGarbage.Proof.Framework.Contract
+import VerifiedGarbage.Proof.Framework.X86_64.Mxcsr
 
 /-! Untrusted: the complete verifier satisfies the merged specification and leakage contract. -/
 
@@ -22,14 +23,15 @@ def verifySatState : State where
   rd := [⟨0x1000, 32⟩, ⟨0x2000, 64⟩, ⟨0x3000, 64⟩]
   wr := [⟨0x4000, 8192⟩]
 
-/-- The code never loads MXCSR: checked by evaluating it, for each `fld` and
-`dbl` it is registered with. -/
-abbrev NoMxcsr (c : Prog isa) : Prop := c.allInstrs (fun i => !loadsMxcsr i) = true
+/-- Every load of MXCSR by the code is between saving it in `r11` and loading
+it back (`ctlOk`): checked by evaluating it, for each `fld` and `dbl` it is
+registered with. -/
+abbrev MxcsrOk (c : Prog isa) : Prop := ctlOk c = true
 
-theorem verify_ok (hmx : NoMxcsr (verifyEquation fld dbl)) (s : State) (hs : verifyLocal.pre s) :
+theorem verify_ok (hmx : MxcsrOk (verifyEquation fld dbl)) (s : State) (hs : verifyLocal.pre s) :
     ∃ t s', Exec isa (verifyEquation fld dbl) s t s' ∧ abiPreserved s s' ∧ verifyLocal.post s s' := by
   obtain ⟨t, s', he, h⟩ := verify_correct (fld := fld) (dbl := dbl) hs
-  exact ⟨t, s', he, abiPreserved_of_exec hmx he h.1, h.2⟩
+  exact ⟨t, s', he, abiPreserved_of_ctl hmx he h.1, h.2⟩
 
 private theorem byteMap_inj : ∀ {xs ys : List Byte}, xs.map (·.toNat) = ys.map (·.toNat) → xs = ys
   | [], [], _ => rfl
@@ -61,7 +63,7 @@ theorem verify_implies : verifyLocal.Implies (Spec.Ed25519.verifyEquationContrac
     sig_implies_sat [Spec.Ed25519.verifyEquationContract, Spec.Ed25519.verifyEquationSig,
       Spec.Ed25519.scratchWords, X86_64.abi, X86_64.argRegs] [verifySatState] using verifySatState
 
-theorem verify_verified (hmx : NoMxcsr (verifyEquation fld dbl)) :
+theorem verify_verified (hmx : MxcsrOk (verifyEquation fld dbl)) :
     Verified X86_64.target (verifyEquation fld dbl) (Spec.Ed25519.verifyEquationContract X86_64.abi) :=
   Verified.of_correct (verify_ok hmx) verify_ct verify_implies
 

@@ -23,10 +23,12 @@ products with AVX512_IFMA's `vpmadd52luq` and `vpmadd52huq`, and `carry`.
 
 The constants are X25519's (`KM`, `K19`, `KB0`, `KB1`) and the masks of
 `vstore` (`EK13`, `EK26`, `EK39`), all below byte 1888 of the scratch, as
-are the operands' slots `OPL` and `OPV`. Verification's inputs are public, so
-the products need not run between Intel's MXCSR prologue and epilogue (see
-"MCDT" in `TCB/X86_64/Isa.lean`). Every address is the scratch plus a
-constant, and the only branch is on the loop counter.
+are the operands' slots `OPL` and `OPV`. The doublings and `vstore` run
+between Intel's MXCSR prologue and epilogue (`withMx`, see "MCDT" in
+`TCB/X86_64/Isa.lean`), which save MXCSR in `r11` and through the 8 bytes at
+`EMX`, below the constants: verification's inputs are public, but
+`ci/check_mcdt.py` checks every such product. Every address is the scratch
+plus a constant, and the only branch is on the loop counter.
 -/
 
 namespace VG.Impl.Ed25519.X86_64.Ifma
@@ -95,9 +97,22 @@ def vstore : List Instr :=
     .vop (.vperm2i128 (y 7) (y 0) (y 2) 0x31), .vop (.vperm2i128 (y 8) (y 1) (y 3) 0x31),
     st 64 5, st 96 6, st 128 7, st 160 8, .vop .vzeroupper]
 
-/-- Four doublings of slots 0–3, in the lanes, counted by `rsi`. -/
+/-- MXCSR's slot: the caller's MXCSR at `EMX`, and `0x1FBF` at `EMX + 4`. -/
+def EMX : Nat := 1600
+
+/-- `c` with MXCSR `0x1FBF`, through `[rdi + EMX]`: MXCSR saved in `r11`, and
+loaded back after `c`, which must not write `r11` (as X25519's
+`withMxcsr`). -/
+def withMx (c : Prog isa) : Prog isa :=
+  .seq (.block [.stmxcsr (sc EMX), .mov32 .r11 (.mem (sc EMX)), .alu32 .and .r11 (.imm 0xFFFF)])
+    (.seq (.seq (.block [.mov32 .rax (.imm 0x1FBF), .store32 (sc (EMX + 4)) .rax,
+        .ldmxcsr (sc (EMX + 4)), .lfence]) (.seq c (.block [.lfence])))
+      (.block [.store32 (sc EMX) .r11, .ldmxcsr (sc EMX)]))
+
+/-- Four doublings of slots 0–3, in the lanes, counted by `rsi`, with MXCSR
+`0x1FBF`. -/
 def double4 : Prog isa :=
   .seq (.block (VG.Impl.X25519.X86_64.Ifma.consts ++ vload ++ [.mov32 .rsi (.imm 4)]))
-    (.seq (.loop (.block (vdbl ++ [.alu .sub .rsi (.imm 1)])) .ne) (.block vstore))
+    (withMx (.seq (.loop (.block (vdbl ++ [.alu .sub .rsi (.imm 1)])) .ne) (.block vstore)))
 
 end VG.Impl.Ed25519.X86_64.Ifma
