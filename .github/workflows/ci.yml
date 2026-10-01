@@ -150,7 +150,7 @@ jobs:
       - run: python3 ci/algorithms_table.py --check
       - run: python3 ci/check_arch_gates.py
       - run: python3 ci/check_variants.py
-      - run: python3 -m unittest discover -s ci -p 'test_check_mcdt.py'
+      - run: python3 -m unittest discover -s ci -p 'test_check_*.py'
       - run: python3 ci/check_mcdt.py
 
   vectors:
