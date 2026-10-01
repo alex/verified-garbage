@@ -56,6 +56,7 @@ def ctr32Api : Api where
   module := "aes"
   name := "vg_aes_ctr32"
   sig := ctr32Sig
+  contracts := some fun A stack => ctr32Contract A stack
   summary := "AES counter mode with GCM's 32-bit increment (NIST SP 800-38D §6.5, on whole \
     blocks): XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` \
     is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in \
@@ -86,6 +87,7 @@ def ghashApi : Api where
   module := "gcm"
   name := "vg_ghash"
   sig := ghashSig
+  contracts := some fun A stack => ghashContract A stack
   summary := "GHASH (NIST SP 800-38D §6.4) continued over whole blocks: with the hash subkey `H` \
     the block at `h`, replaces the block `Y` at `*y` with `Yₙ`, where `Y₀ = Y` and \
     `Yᵢ = (Yᵢ₋₁ ⊕ Xᵢ) • H` for the `n` 16-byte blocks `X₁ … Xₙ` starting at `data` (blocks \

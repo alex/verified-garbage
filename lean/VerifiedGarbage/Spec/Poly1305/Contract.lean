@@ -49,6 +49,7 @@ def initApi : Api where
   module := "poly1305"
   name := "vg_poly1305_init"
   sig := initSig
+  contracts := some fun A stack => initContract A stack
   summary := "Starts a Poly1305 computation (RFC 8439 §2.5): makes the streaming state `*state` \
     represent the empty message under the 32-byte one-time key `*key`.\n\n\
     Contract: `VG.Spec.Poly1305.initContract`. The streaming state is the accumulator followed by \
@@ -73,6 +74,7 @@ def blocksApi : Api where
   module := "poly1305"
   name := "vg_poly1305_blocks"
   sig := blocksSig
+  contracts := some fun A stack => blocksContract A stack
   summary := "Absorbs whole blocks into a Poly1305 computation: if the streaming state `*state` \
     represents a message under a key, it then represents that message followed by the `n` 16-byte \
     blocks at `blocks`, under the same key.\n\n\
@@ -100,6 +102,7 @@ def updateApi : Api where
   module := "poly1305"
   name := "vg_poly1305_update"
   sig := updateSig
+  contracts := some fun A stack => updateContract A stack
   summary := "Absorbs data into a Poly1305 computation: if the streaming state `*state` represents \
     a message of `count` bytes (modulo 2⁶⁴) under a key, it then represents that message followed \
     by the `len` bytes at `data`, under the same key.\n\n\
@@ -130,6 +133,7 @@ def finalizeApi : Api where
   module := "poly1305"
   name := "vg_poly1305_finalize"
   sig := finalizeSig
+  contracts := some fun A stack => finalizeContract A stack
   summary := "Finishes a Poly1305 computation: if the streaming state `*state` represents a \
     message of `count` bytes (modulo 2⁶⁴) under a key, writes the tag of that message, under that \
     key, to `*out`.\n\n\
@@ -160,6 +164,7 @@ def finalizeTailApi : Api where
   module := "poly1305"
   name := "vg_poly1305_finalize"
   sig := finalizeTailSig
+  contracts := some fun A stack => finalizeTailContract A stack
   summary := "Finishes a Poly1305 computation: if the streaming state `*state` represents a \
     message under a key, writes the tag of that message followed by the `len` bytes at `tail`, \
     under that key, to `*out`.\n\n\

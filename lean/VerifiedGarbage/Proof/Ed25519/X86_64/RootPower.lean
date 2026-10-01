@@ -17,29 +17,29 @@ def rootEnv (e : VG.Proof.X25519.X86_64.Env) : VG.Proof.X25519.X86_64.Env :=
 
 theorem rootPower_spec (base : Addr) : ISpec base Impl.Ed25519.X86_64.rootPower rootEnv := by
   have h : ISpec base _ _ :=
-    (mulI base 16 4 4 ⟨by decide, by decide⟩).seq <|
-    ((mulI base 17 16 16 ⟨by decide, by decide⟩).append
-      (mulI base 17 17 17 ⟨by decide, by decide⟩)).seq <|
-    ((((mulI base 17 4 17 ⟨by decide, by decide⟩).append
-      (mulI base 16 16 17 ⟨by decide, by decide⟩)).append
-      (mulI base 18 16 16 ⟨by decide, by decide⟩)).append
-      (mulI base 17 17 18 ⟨by decide, by decide⟩)).seq <|
-    (sqnI base 18 17 ⟨by decide, by decide⟩ 5 (by decide) (by decide)).seq <|
-    (mulI base 17 18 17 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 18 17 ⟨by decide, by decide⟩ 10 (by decide) (by decide)).seq <|
-    (mulI base 18 18 17 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 19 18 ⟨by decide, by decide⟩ 20 (by decide) (by decide)).seq <|
-    (mulI base 18 19 18 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 18 18 ⟨by decide, by decide⟩ 10 (by decide) (by decide)).seq <|
-    (mulI base 17 18 17 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 18 17 ⟨by decide, by decide⟩ 50 (by decide) (by decide)).seq <|
-    (mulI base 18 18 17 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 19 18 ⟨by decide, by decide⟩ 100 (by decide) (by decide)).seq <|
-    (mulI base 18 19 18 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 18 18 ⟨by decide, by decide⟩ 50 (by decide) (by decide)).seq <|
-    (mulI base 17 18 17 ⟨by decide, by decide⟩).seq <|
-    (sqnI base 17 17 ⟨by decide, by decide⟩ 2 (by decide) (by decide)).seq
-    (mulI base 17 17 4 ⟨by decide, by decide⟩)
+    (mulI baseline_ok base 16 4 4 ⟨by decide, by decide⟩).seq <|
+    ((mulI baseline_ok base 17 16 16 ⟨by decide, by decide⟩).append
+      (mulI baseline_ok base 17 17 17 ⟨by decide, by decide⟩)).seq <|
+    ((((mulI baseline_ok base 17 4 17 ⟨by decide, by decide⟩).append
+      (mulI baseline_ok base 16 16 17 ⟨by decide, by decide⟩)).append
+      (mulI baseline_ok base 18 16 16 ⟨by decide, by decide⟩)).append
+      (mulI baseline_ok base 17 17 18 ⟨by decide, by decide⟩)).seq <|
+    (sqnI baseline_ok base 18 17 ⟨by decide, by decide⟩ 5 (by decide) (by decide)).seq <|
+    (mulI baseline_ok base 17 18 17 ⟨by decide, by decide⟩).seq <|
+    (sqnI baseline_ok base 18 17 ⟨by decide, by decide⟩ 10 (by decide) (by decide)).seq <|
+    (mulI baseline_ok base 18 18 17 ⟨by decide, by decide⟩).seq <|
+    (sqnI baseline_ok base 19 18 ⟨by decide, by decide⟩ 20 (by decide) (by decide)).seq <|
+    (mulI baseline_ok base 18 19 18 ⟨by decide, by decide⟩).seq <|
+    (sqnI baseline_ok base 18 18 ⟨by decide, by decide⟩ 10 (by decide) (by decide)).seq <|
+    (mulI baseline_ok base 17 18 17 ⟨by decide, by decide⟩).seq <|
+    (sqnI baseline_ok base 18 17 ⟨by decide, by decide⟩ 50 (by decide) (by decide)).seq <|
+    (mulI baseline_ok base 18 18 17 ⟨by decide, by decide⟩).seq <|
+    (sqnI baseline_ok base 19 18 ⟨by decide, by decide⟩ 100 (by decide) (by decide)).seq <|
+    (mulI baseline_ok base 18 19 18 ⟨by decide, by decide⟩).seq <|
+    (sqnI baseline_ok base 18 18 ⟨by decide, by decide⟩ 50 (by decide) (by decide)).seq <|
+    (mulI baseline_ok base 17 18 17 ⟨by decide, by decide⟩).seq <|
+    (sqnI baseline_ok base 17 17 ⟨by decide, by decide⟩ 2 (by decide) (by decide)).seq
+    (mulI baseline_ok base 17 17 4 ⟨by decide, by decide⟩)
   exact h
 
 theorem rootEnv_eval (e : VG.Proof.X25519.X86_64.Env) : rootEnv e 17 = VG.Proof.Ed25519.rootPower (e 4) := by

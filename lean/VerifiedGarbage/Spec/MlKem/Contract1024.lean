@@ -174,6 +174,7 @@ def compressEncodeApi : Api where
   name := "vg_mlkem1024_compress_encode"
   sig := compressEncodeSig
   writeArgs := true
+  contracts := some fun A stack => compressEncodeContract A stack
   summary := "`ByteEncode_d(Compress_d(f))` (FIPS 203 (4.7) and Algorithm 5) for the widths of \
     ML-KEM-1024: writes the 256 coefficients of `*f` (each less than `q` = 3329), compressed to \
     `d` bits, to `out` as `d`-bit little-endian fields.\n\n\
@@ -188,6 +189,7 @@ def decodeDecompressApi : Api where
   name := "vg_mlkem1024_decode_decompress"
   sig := decodeDecompressSig
   writeArgs := true
+  contracts := some fun A stack => decodeDecompressContract A stack
   summary := "`Decompress_d(ByteDecode_d(b))` (FIPS 203 Algorithm 6 and (4.8)) for the widths of \
     ML-KEM-1024: writes the 256 `d`-bit little-endian fields of the `len` bytes at `b`, \
     decompressed, to `*f` (each less than `q` = 3329).\n\n\
@@ -201,6 +203,7 @@ def keyGenApi : Api where
   name := "vg_mlkem1024_keygen"
   sig := keyGenSig
   writeArgs := true
+  contracts := some fun A stack => keyGenContract A stack
   summary := "ML-KEM-1024 key generation from a seed, `ML-KEM.KeyGen_internal(d, z)` (FIPS 203 \
     Algorithm 16): with `d` in bytes 0–31 of `*seed` and `z` in bytes 32–63, writes the \
     encapsulation key to `*ek` and the decapsulation key to `*dk`. " ++ outcomeDoc ++ "\n\n\
@@ -217,6 +220,7 @@ def checkEkApi : Api where
   module := "mlkem1024"
   name := "vg_mlkem1024_check_ek"
   sig := checkEkSig
+  contracts := some fun A stack => checkEkContract A stack
   summary := "The ML-KEM-1024 encapsulation key check (FIPS 203 §7.2): returns 1 if every \
     12-bit integer that the first 1536 bytes of `*ek` encode is less than `q` = 3329 (the \
     modulus check), and 0 otherwise. An encapsulation key must pass it before it is given to \
@@ -231,6 +235,7 @@ def encapsApi : Api where
   name := "vg_mlkem1024_encaps"
   sig := encapsSig
   writeArgs := true
+  contracts := some fun A stack => encapsContract A stack
   summary := "ML-KEM-1024 encapsulation with given randomness, `ML-KEM.Encaps_internal(ek, m)` \
     (FIPS 203 Algorithm 17): with the encapsulation key `*ek` and the randomness `*m`, writes \
     the shared secret key to `*key` and the ciphertext to `*ct`. " ++ outcomeDoc ++ "\n\n\
@@ -248,6 +253,7 @@ def decapsApi : Api where
   name := "vg_mlkem1024_decaps"
   sig := decapsSig
   writeArgs := true
+  contracts := some fun A stack => decapsContract A stack
   summary := "ML-KEM-1024 decapsulation, `ML-KEM.Decaps_internal(dk, c)` (FIPS 203 Algorithm \
     18): with the decapsulation key `*dk` and the ciphertext `*ct`, writes the shared secret key \
     to `*key`, which is the implicit rejection key `J(z ‖ c)` if the ciphertext does not \
