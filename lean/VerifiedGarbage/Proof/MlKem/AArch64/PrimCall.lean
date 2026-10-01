@@ -224,14 +224,14 @@ theorem decodeDecompress_call {s : State} {b f : Addr} {d : Nat} (h0 : s.gpr .x0
     exact hQ s' ⟨hcs, hsp, hrd, hwr, hf, hvec⟩ hpost
 
 theorem sampleNTTWith_fdepth (v : VG.Proof.Sha3.AArch64.Permutation) :
-    (Impl.MlKem.AArch64.sampleNTTWith v.callee).fdepth = 1 := by
+    (Impl.MlKem.AArch64.sampleNTTWith v.callee).aarch64Depth = 1 := by
   simp only [Impl.MlKem.AArch64.sampleNTTWith, Impl.MlKem.AArch64.sampleFastWith,
     Impl.MlKem.AArch64.sampleFullWith, Impl.MlKem.AArch64.sampleSqueezeWith,
     Impl.MlKem.AArch64.sampleSqueezeNWith, Impl.MlKem.AArch64.sampleZero,
-    Impl.MlKem.AArch64.sampleLoop, Impl.MlKem.AArch64.sampleBody, Code.fdepth,
+    Impl.MlKem.AArch64.sampleLoop, Impl.MlKem.AArch64.sampleBody, Code.aarch64Depth,
     v.absorb_depth, v.pad_depth, v.squeeze_depth, Nat.max_self, Nat.max_zero, Nat.zero_max]
 
-theorem sampleNTT_fdepth : Impl.MlKem.AArch64.sampleNTT.fdepth = 1 := by decide +kernel
+theorem sampleNTT_fdepth : Impl.MlKem.AArch64.sampleNTT.aarch64Depth = 1 := by decide +kernel
 
 /-- `vg_mlkem_sample_ntt(seed, a, scratch)`. -/
 theorem sample_callWith (v : VG.Proof.Sha3.AArch64.Permutation) {s : State} {sd a w : Addr} (h0 : s.gpr .x0 = sd) (h1 : s.gpr .x1 = a)

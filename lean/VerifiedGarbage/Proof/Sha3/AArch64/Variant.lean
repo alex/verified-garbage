@@ -31,7 +31,7 @@ structure Permutation where
     ∀ s, Proof.Sha3.absorbAArch64.pre s →
       ∃ t s', Exec isa code s t s' ∧ abiPreserved s s' ∧
         Proof.Sha3.absorbAArch64.post s s'
-  absorbOverrideDepth : ∀ code, callee.absorbOverride = some code → code.fdepth = 1
+  absorbOverrideDepth : ∀ code, callee.absorbOverride = some code → code.aarch64Depth = 1
   absorbKeeps : ∀ r ∈ [Reg.x25, .x26, .x27, .x28],
     ∀ i ∈ instrs (Impl.Sha3.AArch64.Stream.absorbMainWith callee), dstOf i ≠ some r
   squeezeKeeps : ∀ r ∈ [Reg.x25, .x26, .x27, .x28],
@@ -111,40 +111,40 @@ structure Permutation where
       ⟨.x28, 2048, p.k * Impl.MlDsa.AArch64.Sign.w1Len p⟩]
       ⟨.x28, 1040, Impl.MlDsa.AArch64.Sign.cLen p⟩) h).isSome = true
 
-theorem fdepth_of_noFrames {c : Prog isa} (h : c.noFrames = true) : c.fdepth = 0 := by
-  induction c <;> simp_all [Code.noFrames, Code.fdepth]
+theorem fdepth_of_noFrames {c : Prog isa} (h : c.noFrames = true) : c.aarch64Depth = 0 := by
+  induction c <;> simp_all [Code.noFrames, Code.aarch64Depth]
 
 theorem Permutation.absorbMain_depth (v : Permutation) :
-    (Impl.Sha3.AArch64.Stream.absorbMainWith v.callee).fdepth = 0 := by
-  simp only [Impl.Sha3.AArch64.Stream.absorbMainWith, Impl.Sha3.AArch64.Stream.absorbBodyWith, Impl.Sha3.AArch64.Stream.permuteAtWith, Code.fdepth,
+    (Impl.Sha3.AArch64.Stream.absorbMainWith v.callee).aarch64Depth = 0 := by
+  simp only [Impl.Sha3.AArch64.Stream.absorbMainWith, Impl.Sha3.AArch64.Stream.absorbBodyWith, Impl.Sha3.AArch64.Stream.permuteAtWith, Code.aarch64Depth,
     fdepth_of_noFrames v.noFrames, Nat.max_self]
 
 theorem Permutation.absorb_depth (v : Permutation) :
-    (Impl.Sha3.AArch64.Stream.absorbWith v.callee).fdepth = 1 := by
+    (Impl.Sha3.AArch64.Stream.absorbWith v.callee).aarch64Depth = 1 := by
   cases h : v.callee.absorbOverride with
   | none =>
     simp only [Impl.Sha3.AArch64.Stream.absorbWith, h,
-      Impl.Sha3.AArch64.Stream.absorbGenericWith, Code.fdepth, v.absorbMain_depth]
+      Impl.Sha3.AArch64.Stream.absorbGenericWith, Code.aarch64Depth, Instr.frameUnits, v.absorbMain_depth]
   | some code =>
     simpa only [Impl.Sha3.AArch64.Stream.absorbWith, h] using v.absorbOverrideDepth code h
 
 theorem Permutation.padMain_depth (v : Permutation) :
-    (Impl.Sha3.AArch64.Stream.padMainWith v.callee).fdepth = 0 := by
-  simp only [Impl.Sha3.AArch64.Stream.padMainWith, Code.fdepth,
+    (Impl.Sha3.AArch64.Stream.padMainWith v.callee).aarch64Depth = 0 := by
+  simp only [Impl.Sha3.AArch64.Stream.padMainWith, Code.aarch64Depth,
     fdepth_of_noFrames v.noFrames, Nat.max_self]
 
 theorem Permutation.pad_depth (v : Permutation) :
-    (Impl.Sha3.AArch64.Stream.padWith v.callee).fdepth = 1 := by
-  simp only [Impl.Sha3.AArch64.Stream.padWith, Code.fdepth, v.padMain_depth]
+    (Impl.Sha3.AArch64.Stream.padWith v.callee).aarch64Depth = 1 := by
+  simp only [Impl.Sha3.AArch64.Stream.padWith, Code.aarch64Depth, Instr.frameUnits, v.padMain_depth]
 
 theorem Permutation.squeezeMain_depth (v : Permutation) :
-    (Impl.Sha3.AArch64.Stream.squeezeMainWith v.callee).fdepth = 0 := by
-  simp only [Impl.Sha3.AArch64.Stream.squeezeMainWith, Impl.Sha3.AArch64.Stream.squeezeBodyWith, Impl.Sha3.AArch64.Stream.permuteAtWith, Code.fdepth,
+    (Impl.Sha3.AArch64.Stream.squeezeMainWith v.callee).aarch64Depth = 0 := by
+  simp only [Impl.Sha3.AArch64.Stream.squeezeMainWith, Impl.Sha3.AArch64.Stream.squeezeBodyWith, Impl.Sha3.AArch64.Stream.permuteAtWith, Code.aarch64Depth,
     fdepth_of_noFrames v.noFrames, Nat.max_self]
 
 theorem Permutation.squeeze_depth (v : Permutation) :
-    (Impl.Sha3.AArch64.Stream.squeezeWith v.callee).fdepth = 1 := by
-  simp only [Impl.Sha3.AArch64.Stream.squeezeWith, Code.fdepth, v.squeezeMain_depth]
+    (Impl.Sha3.AArch64.Stream.squeezeWith v.callee).aarch64Depth = 1 := by
+  simp only [Impl.Sha3.AArch64.Stream.squeezeWith, Code.aarch64Depth, Instr.frameUnits, v.squeezeMain_depth]
 
 theorem keeps_of_check {c : Prog isa} {rs : List Reg}
     (h : (c.allInstrs fun i => rs.all fun r => dstOf i != some r) = true) :
