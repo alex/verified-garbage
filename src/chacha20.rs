@@ -36,6 +36,7 @@ use crate::arch::chacha20::{
 };
 use crate::arch::chacha20::{vg_chacha20_block, vg_chacha20_xor};
 use crate::cpu::{Features, detected};
+use crate::zeroize::zeroize;
 
 /// The constants `"expand 32-byte k"` (RFC 8439 §2.3).
 const CONSTANTS: [u32; 4] = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
@@ -118,6 +119,14 @@ pub struct ChaCha20 {
     /// counter in word 12 to the last one, `0xffffffff`.
     remaining: u64,
     backend: Backend,
+}
+
+impl Drop for ChaCha20 {
+    /// Wipes the state, which holds the key, and the buffered keystream.
+    fn drop(&mut self) {
+        zeroize(&mut self.state);
+        zeroize(&mut self.keystream);
+    }
 }
 
 impl ChaCha20 {

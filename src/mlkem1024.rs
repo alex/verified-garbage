@@ -43,8 +43,9 @@ use crate::arch::mlkem1024::{
 use crate::arch::mlkem1024::{
     vg_mlkem1024_decaps_avx2, vg_mlkem1024_encaps_avx2, vg_mlkem1024_keygen_avx2,
 };
+use crate::mlkem768::Backend;
 pub use crate::mlkem768::Error;
-use crate::mlkem768::{Backend, zeroize};
+use crate::zeroize::zeroize;
 
 /// The working space of the assembly functions (48 KiB).
 type Scratch = [u64; 6144];
