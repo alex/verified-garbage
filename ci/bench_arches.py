@@ -47,7 +47,9 @@ PLATFORMS = {
     "arm": {
         "os": "ubuntu-24.04-arm",
         "image": "ghcr.io/pyca/cryptography-runner-ubuntu-rolling:armv7l",
-        "options": "--env RUSTUP_HOME=/root/.rustup",
+        # A fresh home avoids upgrading the image's incomplete Rust
+        # installation (as in ci.yml).
+        "options": "--env RUSTUP_HOME=/tmp/verified-garbage-rustup",
     },
 }
 
