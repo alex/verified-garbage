@@ -5,8 +5,11 @@ namespace VG.Proof.Sha3.AArch64.Sha3
 
 open VG VG.AArch64
 
-def callee : Impl.Sha3.AArch64.Callee :=
-  ⟨"vg_keccak_f1600_sha3", Impl.Sha3.AArch64.Sha3.Vector.permute, "_sha3"⟩
+def callee : Impl.Sha3.AArch64.Callee where
+  name := "vg_keccak_f1600_sha3"
+  code := Impl.Sha3.AArch64.Sha3.Vector.permute
+  suffix := "_sha3"
+  absorbOverride := none
 
 theorem absorbTaint : ∃ h, (taint.check (Taint.ofRegs [.x0, .x1, .x2, .x3, .x4, .x5])
     (Impl.Sha3.AArch64.Stream.absorbWith callee) h).isSome = true :=
@@ -127,6 +130,8 @@ def backend : Permutation where
   features := ["sha3"]
   ok := Vector.permute_correct
   noFrames := Vector.permute_noFrames
+  absorbOverrideOk := by intro code h; cases h
+  absorbOverrideDepth := by intro code h; cases h
   absorbKeeps := keeps_of_check (by lit_decide)
   squeezeKeeps := keeps_of_check (by lit_decide)
   absorbTaint := absorbTaint
