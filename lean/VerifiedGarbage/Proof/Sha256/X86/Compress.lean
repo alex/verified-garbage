@@ -72,13 +72,32 @@ theorem round_sep (t : Nat) :
   generalize t % 8 = c at *
   revert this; revert c; decide
 
+/-- Chained rotations share each intermediate XOR, avoiding a temporary register copy. -/
+theorem bsig0_chain (x : Word) :
+    bsig0 x = ((x.rotateRight 9 ^^^ x).rotateRight 11 ^^^ x).rotateRight 2 := by
+  simp only [rotateRight_xor, rotateRight_rotateRight, bsig0]
+  ac_rfl
+
+theorem bsig1_chain (x : Word) :
+    bsig1 x = ((x.rotateRight 14 ^^^ x).rotateRight 5 ^^^ x).rotateRight 6 := by
+  simp only [rotateRight_xor, rotateRight_rotateRight, bsig1]
+  ac_rfl
+
+theorem maj_chain (a b c : Word) :
+    VG.Spec.Sha256.maj a b c = (b ^^^ c) &&& (a ^^^ b) ^^^ b := by
+  ext i
+  simp only [VG.Spec.Sha256.maj, BitVec.getElem_xor, BitVec.getElem_and]
+  cases a[i] <;> cases b[i] <;> cases c[i] <;> rfl
+
 /-- The round is symbolically executed once, for any offsets `a … h` of the
 working variables (which `round_sep` says are in separate words). -/
 theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 32)
     (hS : Scratch s scr) (hv : Vars t scr s.mem v) (hesi : s.gpr .esi = scr)
-    (hw : s.mem.readW (addr scr (slot t)) 32 = w) :
+    (hw : s.mem.readW (addr scr (slot t)) 32 = w)
+    (hbc : s.gpr .edx = v[1] ^^^ v[2]) :
     WP isa (.block (round t)) s fun s' =>
       Vars (t + 1) scr s'.mem (roundKW v (K t) w) ∧
+      s'.gpr .edx = v[0] ^^^ v[1] ∧
       (∃ x y : Word, s'.mem = (s.mem.writeW (addr scr (var t 3)) x).writeW (addr scr (var t 7)) y) ∧
       s'.rd = s.rd ∧ s'.wr = s.wr ∧ ∀ r ∈ pubRegs, s'.gpr r = s.gpr r := by
   have hin := hS.rd; have hout := hS.wr
@@ -111,16 +130,16 @@ theorem round_ok (t : Nat) (s : State) (v : HashValue) (w : Word) (scr : BitVec 
     RegUpd.wr_setFlags, Nat.reduceLeDiff, Nat.reduceEqDiff, and_self, not_false_eq_true,
     reduceCtorEq,
     State.load32, State.store32, ite_true, ite_false,
-    hesi, hin, hout, hs, hrw, Mem.readW_writeW_self32, h0, h1, h2, h3, h4, h5, h6, h7, hw,
+    hesi, hin, hout, hs, hrw, Mem.readW_writeW_self32, h0, h1, h2, h3, h4, h5, h6, h7, hw, hbc,
     Option.bind_some, Option.map_some, Option.some.injEq, exists_eq_left']
-  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ⟨_, _, rfl⟩, trivial, trivial, fun r hr => ?_⟩
+  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, trivial, ⟨_, _, rfl⟩, trivial, trivial, fun r hr => ?_⟩
   rotate_right
   · simp only [pubRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;>
       simp only [RegUpd.gpr_setReg_of_ne, RegUpd.gpr_arithFlags, RegUpd.gpr_setFlags,
         not_false_eq_true, reduceCtorEq]
   all_goals
-    simp (config := {failIfUnchanged := false}) only [roundKW_0, roundKW_1, roundKW_2, roundKW_3, roundKW_4, roundKW_5, roundKW_6, roundKW_7, bsig1_eq, ch_eq, bsig0_eq, maj_eq, BitVec.add_assoc]
+    simp (config := {failIfUnchanged := false}) only [roundKW_0, roundKW_1, roundKW_2, roundKW_3, roundKW_4, roundKW_5, roundKW_6, roundKW_7, bsig1_chain, ch_eq, bsig0_chain, maj_chain, BitVec.add_assoc]
 
 theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32) (hS : Scratch s scr)
     (hedi : s.gpr .edi = bp) (hesi : s.gpr .esi = scr)
@@ -129,7 +148,7 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32) (hS :
     (hwin : 16 ≤ t → ∀ j, j < t → t ≤ j + 16 → s.mem.readW (addr scr (slot j)) 32 = W M j) :
     WP isa (.block (schedule t)) s fun s' =>
       s'.mem = s.mem.writeW (addr scr (slot t)) (W M t) ∧
-      s'.rd = s.rd ∧ s'.wr = s.wr ∧ ∀ r ∈ pubRegs, s'.gpr r = s.gpr r := by
+      s'.rd = s.rd ∧ s'.wr = s.wr ∧ s'.gpr .edx = s.gpr .edx ∧ ∀ r ∈ pubRegs, s'.gpr r = s.gpr r := by
   have hin : ∀ j, InRegions (s.rd ++ s.wr) (addr scr (slot j)) 4 :=
     fun j => hS.rd _ (by have := slot_lt j; omega)
   have hout : ∀ j, InRegions s.wr (addr scr (slot j)) 4 :=
@@ -144,7 +163,7 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32) (hS :
       RegUpd.wr_setReg, not_false_eq_true, reduceCtorEq,
       State.load32, State.store32, hedi, hesi, hi, hout, ite_true, hb,
       Option.map_some, Option.some.injEq, exists_eq_left']
-    refine ⟨trivial, trivial, trivial, fun r hr => ?_⟩
+    refine ⟨trivial, trivial, trivial, trivial, fun r hr => ?_⟩
     simp only [pubRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;>
       simp only [RegUpd.gpr_setReg_of_ne, not_false_eq_true, reduceCtorEq]
@@ -167,7 +186,7 @@ theorem schedule_ok (t : Nat) (s : State) (M : Block) (bp scr : BitVec 32) (hS :
       not_false_eq_true, reduceCtorEq, State.load32, State.store32, hesi, hin, hout,
       ite_true, ite_false, e2, e7, e15, e16, Option.bind_some, Option.map_some, Option.some.injEq,
       exists_eq_left']
-    refine ⟨?_, trivial, trivial, fun r hr => ?_⟩
+    refine ⟨?_, trivial, trivial, trivial, fun r hr => ?_⟩
     rotate_right
     · simp only [pubRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
       rcases hr with rfl | rfl | rfl | rfl <;>
@@ -205,6 +224,7 @@ theorem Vars.write {t : Nat} {scr : BitVec 32} (h : scr.toNat + 112 ≤ 2 ^ 32) 
 structure RInv (H : HashValue) (M : Block) (scr : BitVec 32) (sB : State) (t : Nat) (s : State) :
     Prop where
   vars : Vars t scr s.mem (VG.Spec.Sha256.rounds H M t)
+  bc : s.gpr .edx = (VG.Spec.Sha256.rounds H M t)[1] ^^^ (VG.Spec.Sha256.rounds H M t)[2]
   pub : ∀ r ∈ pubRegs, s.gpr r = sB.gpr r
   rd : s.rd = sB.rd
   wr : s.wr = sB.wr
@@ -226,9 +246,24 @@ theorem rounds_ok (H : HashValue) (M : Block) (bp scr : BitVec 32) (sB : State)
   intro t ht
   induction t with
   | zero =>
-    refine WP.block_nil (M := isa) ⟨?_, fun _ _ => rfl, rfl, rfl, Frame.refl _ _,
-      fun j hj => absurd hj (by omega)⟩
-    rw [rounds_zero]; exact h0
+    have hi1 := hS.rd (var 0 1) (by decide)
+    have hi2 := hS.rd (var 0 2) (by decide)
+    have h1 := h0.2.1
+    have h2 := h0.2.2.1
+    apply WP.of_runBlock
+    simp only [runBlock_cons, runBlock_nil, runStep_some, exec,
+      execAlu, readSrc, ea_at, sc, State.load32, hesi, hi1, hi2, h1, h2, ite_true,
+      RegUpd.gpr_setReg_self, RegUpd.gpr_setReg_of_ne, RegUpd.mem_setReg,
+      RegUpd.rd_setReg, RegUpd.wr_setReg, reduceCtorEq, not_false_eq_true,
+      Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
+    refine ⟨?_, ?_, ?_, rfl, rfl, Frame.refl _ _, fun j hj => absurd hj (by omega)⟩
+    · rw [rounds_zero]; exact h0
+    · rw [rounds_zero]
+      simp only [RegUpd.gpr_setReg_self]
+    · intro r hr
+      simp only [pubRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
+      rcases hr with rfl | rfl | rfl | rfl <;>
+        simp only [RegUpd.gpr_setReg_of_ne, RegUpd.gpr_arithFlags, reduceCtorEq, not_false_eq_true]
   | succ t ih =>
     refine WP.seq (WP.mono (ih (by omega)) fun s hs => ?_)
     rw [WP.block_append_iff]
@@ -236,7 +271,7 @@ theorem rounds_ok (H : HashValue) (M : Block) (bp scr : BitVec 32) (sB : State)
     have hs_esi : s.gpr .esi = scr := (hs.pub .esi (by decide)).trans hesi
     refine WP.mono (schedule_ok t s M bp scr (hS.congr hs.rd hs.wr) hs_edi hs_esi
       (fun h => by rw [hs.rd, hs.wr]; exact hbin t h) (hblk _ hs.frame t)
-      (fun _ => hs.win)) fun s₁ ⟨hm₁, hrd₁, hwr₁, hr₁⟩ => ?_
+      (fun _ => hs.win)) fun s₁ ⟨hm₁, hrd₁, hwr₁, hdx₁, hr₁⟩ => ?_
     have hslot := slot_lt t
     have hframe₁ : Frame [workRegion scr] sB.mem s₁.mem := by
       rw [hm₁]; exact hs.frame.writeW (List.mem_singleton_self _) _ (work_contains hfits (by omega))
@@ -247,14 +282,15 @@ theorem rounds_ok (H : HashValue) (M : Block) (bp scr : BitVec 32) (sB : State)
       exact hs.vars.write hfits (by omega) (fun k => .inl (by have := var_lt t k; omega)) _
     have hesi₁ : s₁.gpr .esi = scr := by rw [hr₁ .esi (by decide), hs_esi]
     refine WP.mono (round_ok t s₁ _ _ scr (hS.congr (by rw [hrd₁, hs.rd]) (by rw [hwr₁, hs.wr]))
-      hv₁ hesi₁ hself) fun s₂ ⟨hv₂, ⟨x, y, hm₂⟩, hrd₂, hwr₂, hr₂⟩ => ?_
+      hv₁ hesi₁ hself (hdx₁.trans hs.bc)) fun s₂ ⟨hv₂, hdx₂, ⟨x, y, hm₂⟩, hrd₂, hwr₂, hr₂⟩ => ?_
     have h3 := var_lt t 3
     have h7 := var_lt t 7
-    refine ⟨?_, fun r hr => ?_, by rw [hrd₂, hrd₁, hs.rd], by rw [hwr₂, hwr₁, hs.wr], ?_, ?_⟩
+    refine ⟨?_, ?_, fun r hr => ?_, by rw [hrd₂, hrd₁, hs.rd], by rw [hwr₂, hwr₁, hs.wr], ?_, ?_⟩
     · have e : VG.Spec.Sha256.rounds H M (t + 1) =
           roundKW (VG.Spec.Sha256.rounds H M t) (K t) (W M t) := by
         rw [rounds_succ, round_eq]
       rw [e]; exact hv₂
+    · rw [rounds_succ, round_eq, roundKW_1, roundKW_2]; exact hdx₂
     · rw [hr₂ r hr, hr₁ r hr, hs.pub r hr]
     · rw [hm₂]
       exact (hframe₁.writeW (List.mem_singleton_self _) _ (work_contains hfits (by omega))).writeW

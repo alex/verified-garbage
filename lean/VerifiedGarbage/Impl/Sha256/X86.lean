@@ -16,7 +16,8 @@ With only seven usable registers, the working variables live in memory:
   holds the working variables `a … h`, renamed between the fully unrolled
   rounds (in round `t`, variable `k` is at offset `var t k`), and
   `scratch[96..112)` holds the saved `ebx`, `esi`, `edi`, `ebp`.
-* `eax`, `ebx`, `ecx`, `edx` are the temporaries.
+* `eax`, `ebx`, `ecx` are the temporaries; `edx` retains `b ⊕ c` between
+  rounds, so computing the majority needs one fewer scratch-buffer load.
 -/
 
 namespace VG.Impl.Sha256.X86
@@ -67,17 +68,17 @@ def schedule (t : Nat) : List Instr :=
 
 /-- Round `t`. The additions are in the order of the specification. -/
 def round (t : Nat) : List Instr :=
-  let a := var t 0; let b := var t 1; let c := var t 2; let d := var t 3
+  let a := var t 0; let b := var t 1; let d := var t 3
   let e := var t 4; let f := var t 5; let g := var t 6; let h := var t 7
-  [ -- ebx := Σ₁(e), with e in eax
+  [ -- ebx := Σ₁(e), factoring the rotations as ROTR6(ROTR5(ROTR14(e) ⊕ e) ⊕ e)
+    -- so a second temporary-register copy is unnecessary.
     .mov .eax (sc e),
     .mov .ebx (.reg .eax),
+    .shift .ror .ebx 14,
+    .alu .xor .ebx (.reg .eax),
+    .shift .ror .ebx 5,
+    .alu .xor .ebx (.reg .eax),
     .shift .ror .ebx 6,
-    .mov .ecx (.reg .eax),
-    .shift .ror .ecx 11,
-    .alu .xor .ebx (.reg .ecx),
-    .shift .ror .ecx 14,
-    .alu .xor .ebx (.reg .ecx),
     -- ecx := h + Σ₁(e)
     .mov .ecx (sc h),
     .alu .add .ecx (.reg .ebx),
@@ -94,29 +95,28 @@ def round (t : Nat) : List Instr :=
     .mov .ebx (sc d),
     .alu .add .ebx (.reg .ecx),
     .store (at_ .esi d) .ebx,
-    -- ecx := ecx + Σ₀(a), with a in eax
+    -- ecx := ecx + Σ₀(a), similarly factored as ROTR2(ROTR11(ROTR9(a) ⊕ a) ⊕ a)
     .mov .eax (sc a),
     .mov .ebx (.reg .eax),
+    .shift .ror .ebx 9,
+    .alu .xor .ebx (.reg .eax),
+    .shift .ror .ebx 11,
+    .alu .xor .ebx (.reg .eax),
     .shift .ror .ebx 2,
-    .mov .edx (.reg .eax),
-    .shift .ror .edx 13,
-    .alu .xor .ebx (.reg .edx),
-    .shift .ror .edx 9,
-    .alu .xor .ebx (.reg .edx),
     .alu .add .ecx (.reg .ebx),
-    -- ecx := ecx + Maj(a, b, c), as ((a ∨ b) ∧ c) ∨ (a ∧ b); this is a' = T₁ + T₂
+    -- edx caches b ⊕ c; Maj = ((a ⊕ b) ∧ (b ⊕ c)) ⊕ b.
     .mov .ebx (.reg .eax),
-    .alu .or .ebx (sc b),
-    .alu .and .ebx (sc c),
-    .mov .edx (.reg .eax),
-    .alu .and .edx (sc b),
-    .alu .or .ebx (.reg .edx),
-    .alu .add .ecx (.reg .ebx),
+    .alu .xor .ebx (sc b),
+    .alu .and .edx (.reg .ebx),
+    .alu .xor .edx (sc b),
+    .alu .add .ecx (.reg .edx),
+    -- The next round's b ⊕ c is this round's a ⊕ b.
+    .mov .edx (.reg .ebx),
     .store (at_ .esi h) .ecx]
 
-/-- Rounds `0 … n-1`. -/
+/-- Initialize the cached `b ⊕ c`, then execute rounds `0 … n-1`. -/
 def rounds : Nat → Prog isa
-  | 0 => .block []
+  | 0 => .block [.mov .edx (sc (var 0 1)), .alu .xor .edx (sc (var 0 2))]
   | n + 1 => .seq (rounds n) (.block (schedule n ++ round n))
 
 /-- The callee-saved registers we use, and where they are saved. -/
