@@ -62,6 +62,6 @@ theorem mul_call_ct (hL : L.Ok) :
       call_gpr_eq (p := (.r1, .frame 88)) h (by simp) (by simp [linkRegs]),
       call_gpr_eq (p := (.r2, .frame 120)) h (by simp) (by simp [linkRegs]),
       call_gpr_eq (p := (.r3, .frame 24)) h (by simp) (by simp [linkRegs]),
-      stack_eq h (j := 0) (by decide)⟩
+      stack_arg_eq h (j := 0) (by decide)⟩
 
 end VG.Proof.Ed25519.Arm.SignCached

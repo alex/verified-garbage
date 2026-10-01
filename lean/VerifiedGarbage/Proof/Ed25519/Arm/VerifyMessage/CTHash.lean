@@ -37,7 +37,7 @@ theorem update_call_ct (hL : L.Ok) (count : Nat) (p n : Value)
     exact ⟨hsp, call_gpr_eq (p := (.r0, .caller 4 0)) h (by simp) (by simp [linkRegs]),
       call_gpr_eq (p := (.r2, .const count)) h (by simp) (by simp [linkRegs]),
       call_gpr_eq (p := (.r3, .const 0)) h (by simp) (by simp [linkRegs]),
-      stack_eq h (j := 0) (by simp), stack_eq h (j := 1) (by simp), stack_eq h (j := 2) (by simp)⟩
+      stack_arg_eq h (j := 0) (by simp), stack_arg_eq h (j := 1) (by simp), stack_arg_eq h (j := 2) (by simp)⟩
 
 theorem finalize_call_ct (hL : L.Ok) (n : Nat) (b : Bool) :
     RelCT isa (Two L g₁ g₂ m₁ m₂ (AllArgs L
@@ -59,7 +59,7 @@ theorem finalize_call_ct (hL : L.Ok) (n : Nat) (b : Bool) :
     exact ⟨hsp, call_gpr_eq (p := (.r0, .caller 4 0)) h (by simp) (by simp [linkRegs]),
       call_gpr_eq (p := (.r2, if b then .caller 2 n else .const n)) h (by simp) (by simp [linkRegs]),
       call_gpr_eq (p := (.r3, .const 0)) h (by simp) (by simp [linkRegs]),
-      stack_eq h (j := 0) (by decide), stack_eq h (j := 1) (by decide)⟩
+      stack_arg_eq h (j := 0) (by decide), stack_arg_eq h (j := 1) (by decide)⟩
 
 theorem init_ct (hL : L.Ok) (ha : Arguments L m₁) (hb : Arguments L m₂) :
     RelCT isa (Two L g₁ g₂ m₁ m₂ fun _ => True) init

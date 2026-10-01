@@ -47,7 +47,7 @@ theorem call_gpr_eq {args : List (Reg × Value)} {stack : List Value} {a b : Sta
   rw [State.callEntry_gpr _ hl, State.callEntry_gpr _ hl]
   exact args_eq h hp
 
-theorem stack_eq {args : List (Reg × Value)} {stack : List Value} {a b : State}
+theorem stack_arg_eq {args : List (Reg × Value)} {stack : List Value} {a b : State}
     (h : Two L g₁ g₂ m₁ m₂ (AllArgs L args stack) a b) {j : Nat} (hj : j < stack.length) :
     stackArg a j = stackArg b j := (h.2.2.1.2 j hj).trans (h.2.2.2.2 j hj).symm
 
