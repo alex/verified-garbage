@@ -782,7 +782,9 @@ def pop : Instr → State → State → Option State
   | _, _, _ => none
 
 /-- The CPU features an instruction needs beyond the AArch64 baseline
-(ARMv8.0-A with AdvSIMD, which every Rust AArch64 target assumes), named as
+(ARMv8.0-A with AdvSIMD, which every Rust AArch64 target but
+`aarch64-unknown-none-softfloat` assumes, and the target's `rustCfg`
+requires), named as
 Rust's target features. DDI 0487 A2 ("Armv8-A architecture extensions") and
 the "Is FEAT_…" condition in each instruction's decode (C7.2): FEAT_AES for
 AESE, AESD, AESMC, AESIMC and FEAT_PMULL for PMULL/PMULL2 with 64-bit

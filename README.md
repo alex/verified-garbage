@@ -12,6 +12,24 @@ The library is implemented in Lean, assembly, and Rust.
 
 It targets: x86 (i686 with SSE2), x86-64, ARMv7, ARM64, and PPC64le.
 
+The crate refuses to build for configurations its ISA models do not
+describe: big-endian ARM and ARM64, x32, x86 or x86-64 without SSE2 (e.g.
+`i586-*`, `x86_64-unknown-none`, the UEFI targets), ARM64 without NEON
+(`aarch64-unknown-none-softfloat`), and Apple's 32-bit ARM targets, which do
+not use AAPCS. Rust has no `cfg` for some other assumptions, so they are
+yours to keep:
+
+* On 32-bit x86, don't build with nightly's `-Zregparm`, which moves
+  `extern "C"` arguments from the stack to registers.
+* ARMv7 code does word loads and stores at unaligned addresses. Hosted
+  targets allow them; bare-metal code (e.g. `armv7a-none-eabi*`, built
+  `+strict-align`) must turn off alignment checking and run with the MMU
+  on, with its buffers in Normal memory: otherwise an unaligned access
+  faults or, on some cores, is UNPREDICTABLE.
+* Only ARMv7 and later are supported on 32-bit ARM; older targets
+  (`arm-*`, `armv5te-*`, …) are rejected only because the code does not
+  assemble for them.
+
 ## Algorithms
 
 <!-- BEGIN ci/algorithms_table.py: edit docs/algorithms/, then run it -->
