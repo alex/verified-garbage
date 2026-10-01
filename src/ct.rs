@@ -5,7 +5,8 @@
     target_arch = "x86_64",
     target_arch = "aarch64",
     target_arch = "arm",
-    target_arch = "x86"
+    target_arch = "x86",
+    all(target_arch = "powerpc64", target_endian = "little")
 ))]
 
 use crate::arch::ct::vg_ct_eq;
@@ -24,7 +25,14 @@ pub(crate) fn eq(a: &[u8], b: &[u8]) -> bool {
 /// the caller's code, never taken from a slice: PBKDF2's and scrypt's keys of
 /// different lengths share their prefixes, so a key checked at a length
 /// that came from elsewhere (a truncated stored key, or one an attacker sent)
-/// would be checked on as few bytes as that length.
+/// would be checked on as few bytes as that length. Its users (PBKDF2, scrypt
+/// and Argon2) are on these architectures.
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 macro_rules! assert_verify_len {
     ($n:expr) => {
         const {
@@ -36,6 +44,12 @@ macro_rules! assert_verify_len {
     };
 }
 
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 pub(crate) use assert_verify_len;
 
 #[cfg(test)]
