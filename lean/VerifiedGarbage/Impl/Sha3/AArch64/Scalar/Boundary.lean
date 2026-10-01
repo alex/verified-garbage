@@ -6,7 +6,7 @@ import VerifiedGarbage.Impl.Sha3.AArch64.Scalar.Core
 The 25 state words occupy x0–x24, with the reserved x18 replaced by x25.
 Caller-saved v30/v31 retain the two public pointers while all available GPRs
 are used by the scalar round. No SHA3 extension is required. Callee-saved
-GPRs are saved in the existing 512-byte scratch region; no stack frame is
+GPRs are retained in caller-saved vectors; no stack frame is
 opened, preserving the generic sponge callers' frame contract.
 -/
 
@@ -19,8 +19,8 @@ abbrev laneReg := VG.Impl.Sha3.AArch64.Scalar.laneReg
 def savedReg (i : Nat) : Reg :=
   [Reg.x19,.x20,.x21,.x22,.x23,.x24,.x25,.x26,.x27,.x28,.x30].getD i .x19
 
-/-- The existing scratch contains saved GPRs in [0,88) and two transient
-state words in [96,112). The state buffer remains disjoint from scratch. -/
+/-- Two transient state words occupy scratch[96..112); the round constants
+occupy scratch[128..320). The state buffer remains disjoint from scratch. -/
 def spillOffset (i : Nat) : Nat := 96 + 8 * i
 
 def savedVec (i : Nat) : VReg :=
