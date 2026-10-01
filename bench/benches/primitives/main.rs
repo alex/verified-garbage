@@ -39,13 +39,13 @@ mod pbkdf2_sha256;
 mod pbkdf2_sha512;
 mod poly1305;
 mod rc2_cbc;
-mod triple_des_ecb;
 mod scrypt;
 mod sha1;
 mod sha224;
 mod sha256;
 mod sha3;
 mod sha512;
+mod triple_des_ecb;
 mod x25519;
 mod x448;
 
