@@ -275,21 +275,23 @@ impl AesGcm {
             #[cfg(target_arch = "aarch64")]
             Backend::ArmCrypto => vg_ghash_pmull,
         };
-        // SAFETY: `self.h` is valid for reads of 16 bytes, `y` for reads and
-        // writes of 16, `blocks` for reads of `16 * blocks.len()` and
-        // `scratch` (uninitialized working space, as in `new`) for reads and
-        // writes of 256. `y` is a mutable borrow and `scratch` a local, so
-        // they overlap nothing else. The CPU has the features of the
-        // implementation selected.
-        unsafe {
-            f(
-                &self.h,
-                y,
-                blocks.as_ptr(),
-                blocks.len(),
-                scratch.as_mut_ptr(),
-            )
-        };
+        if !blocks.is_empty() {
+            // SAFETY: `self.h` is valid for reads of 16 bytes, `y` for reads and
+            // writes of 16, `blocks` for reads of `16 * blocks.len()` and
+            // `scratch` (uninitialized working space, as in `new`) for reads and
+            // writes of 256. `y` is a mutable borrow and `scratch` a local, so
+            // they overlap nothing else. The CPU has the features of the
+            // implementation selected.
+            unsafe {
+                f(
+                    &self.h,
+                    y,
+                    blocks.as_ptr(),
+                    blocks.len(),
+                    scratch.as_mut_ptr(),
+                )
+            };
+        }
         if !rest.is_empty() {
             let mut last = [[0u8; 16]];
             last[0][..rest.len()].copy_from_slice(rest);

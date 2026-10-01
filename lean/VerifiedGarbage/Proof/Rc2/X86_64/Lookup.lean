@@ -92,7 +92,7 @@ theorem piStep_ok (s : State) (x : Byte) (hx : s.gpr .rax = x.setWidth 64)
   · constructor
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-      simp only [gpr_setReg, gpr_arithFlags, hr.1, hr.2.1, hr.2.2, ite_false]
+      simp only [gpr_setReg, gpr_arithFlags, hr.1, hr.2.1, ite_false]
     · simp only [mem_setReg, mem_arithFlags]
     · simp only [rd_setReg, rd_arithFlags]
     · simp only [wr_setReg, wr_arithFlags]
@@ -217,7 +217,7 @@ theorem keyStep_ok (s : State) (x : Byte) (hx : s.gpr .rax = x.setWidth 64)
     · intro r hr
       simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
       simp only [gpr_setReg, gpr_arithFlags, gpr_setFlags,
-        hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2, ite_false]
+        hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, ite_false]
     · simp only [mem_setReg, mem_arithFlags, mem_setFlags]
     · simp only [rd_setReg, rd_arithFlags, rd_setFlags]
     · simp only [wr_setReg, wr_arithFlags, wr_setFlags]
