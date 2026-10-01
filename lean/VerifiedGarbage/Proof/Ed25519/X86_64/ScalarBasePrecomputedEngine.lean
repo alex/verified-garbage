@@ -6,10 +6,12 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (off ofs val4)
 
+variable {fld : Arith} [EdArith fld]
+
 theorem scalarBasePrecomputedEngine_ok {s : State} {base k : Addr} (hs : Scratch s base) (hp : s.gpr .rsi = k)
     (hr : ∀ q < 32, InRegions (s.rd ++ s.wr) (off k q) 1)
     (hd : ∀ q < 32, 8192 ≤ ofs base (off k q)) :
-    WP isa scalarBasePrecomputedEngine s fun t => PowersKeep base 56 7368 s t ∧
+    WP isa (scalarBasePrecomputedEngine fld) s fun t => PowersKeep base 56 7368 s t ∧
       val4 (t.gpr .r8) (t.gpr .r9) (t.gpr .r10) (t.gpr .r11) =
         encodedValue (Spec.Ed25519.pointMul (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem k 32))
           Spec.Ed25519.basePoint) := by

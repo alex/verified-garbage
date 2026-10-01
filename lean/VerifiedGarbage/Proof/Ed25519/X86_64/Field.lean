@@ -1,6 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.Field
 import VerifiedGarbage.Proof.Ed25519.X86_64.FieldMemory
 import VerifiedGarbage.Proof.X25519.Invert
+import VerifiedGarbage.Proof.X25519.X86_64.Adx.A24
 import VerifiedGarbage.Spec.Ed25519
 
 /-!
@@ -16,6 +17,18 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.X25519.X86_64 (Scr Outside Op clob F)
 open Fin.CommRing
 
+/-- The field multiplications the code may be emitted with: the baseline's, or BMI2 and
+ADX's. The proofs hold for any multiplications that are correct (`ok`); the constant-time
+proofs evaluate the code, so they consider each of these (`known`). -/
+class EdArith (fld : Arith) : Prop where
+  ok : Proof.X25519.X86_64.FieldOk fld
+  known : fld = Impl.X25519.X86_64.baseline ∨ fld = Impl.X25519.X86_64.adx
+
+instance : EdArith Impl.X25519.X86_64.baseline := ⟨Proof.X25519.X86_64.baseline_ok, .inl rfl⟩
+instance : EdArith Impl.X25519.X86_64.adx := ⟨Proof.X25519.X86_64.adx_ok, .inr rfl⟩
+
+variable {fld : Arith} [EdArith fld]
+
 abbrev Env := Slot → Spec.X25519.Fe
 
 def env (m : Mem) (base : Addr) : Env := fun i => F m base (offset i)
@@ -25,6 +38,7 @@ def evalOp (op : FieldOp) (e : Env) : Env :=
   | .copy o a => Function.update e o (e a)
   | .const o v => Function.update e o v
   | .mul o a b => Function.update e o (e a * e b)
+  | .sqr o a => Function.update e o (e a * e a)
   | .add o a b => Function.update e o (e a + e b)
   | .sub o a b => Function.update e o (e a - e b)
 
@@ -76,7 +90,7 @@ theorem op_keep {base : Addr} {o : Slot} {s t : State} (h : Op base (offset o) s
     (by simp only [offset]; omega)⟩
 
 theorem fieldOp_ok {s : State} {base : Addr} (hs : Scr s base) (op : FieldOp) :
-    WP isa (.block op.code) s fun t => Keep base s t ∧ env t.mem base = evalOp op (env s.mem base) := by
+    WP isa (.block (op.code fld)) s fun t => Keep base s t ∧ env t.mem base = evalOp op (env s.mem base) := by
   cases op with
   | copy o a =>
     refine WP.mono (copyField_op hs o a) fun t ⟨h, e⟩ => ?_
@@ -85,9 +99,13 @@ theorem fieldOp_ok {s : State} {base : Addr} (hs : Scr s base) (op : FieldOp) :
     refine WP.mono (constField_op hs o v) fun t ⟨h, e⟩ => ?_
     exact ⟨op_keep h, by rw [env_update o h.mem, e]; rfl⟩
   | mul o a b =>
-    refine WP.mono (Proof.X25519.X86_64.mul_ok hs
+    refine WP.mono ((EdArith.ok (fld := fld)).mul hs
       (by simp only [offset]; omega) (by simp only [offset]; omega)
       (by simp only [offset]; omega)) fun t ⟨h, e⟩ => ?_
+    exact ⟨op_keep h, by rw [env_update o h.mem, e]; rfl⟩
+  | sqr o a =>
+    refine WP.mono ((EdArith.ok (fld := fld)).sqr hs
+      (by simp only [offset]; omega) (by simp only [offset]; omega)) fun t ⟨h, e⟩ => ?_
     exact ⟨op_keep h, by rw [env_update o h.mem, e]; rfl⟩
   | add o a b =>
     refine WP.mono (Proof.X25519.X86_64.add_ok hs
@@ -101,7 +119,7 @@ theorem fieldOp_ok {s : State} {base : Addr} (hs : Scr s base) (op : FieldOp) :
     exact ⟨op_keep h, by rw [env_update o h.mem, e]; rfl⟩
 
 theorem fieldCode_ok (ops : List FieldOp) {s : State} {base : Addr} (hs : Scr s base) :
-    WP isa (.block (fieldCode ops)) s fun t =>
+    WP isa (.block (fieldCode fld ops)) s fun t =>
       Keep base s t ∧ env t.mem base = evalOps ops (env s.mem base) := by
   induction ops generalizing s with
   | nil => exact WP.block_nil ⟨Keep.refl _ _, rfl⟩

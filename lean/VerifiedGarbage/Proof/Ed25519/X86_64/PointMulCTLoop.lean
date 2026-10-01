@@ -7,10 +7,12 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
+variable {fld : Arith} [EdArith fld]
+
 theorem pointMulLoop_ct (s₁ s₂ : State) (base : Addr) (count scalar₁ scalar₂ : Nat)
     (p₁ p₂ : Spec.Ed25519.Point) (hn : count ≤ 32) (n : Nat) :
     RelCT isa (fun x y => PointMulInv s₁ base count scalar₁ p₁ n x ∧
-      PointMulInv s₂ base count scalar₂ p₂ n y) (.loop pointMulBatch .ne) (fun _ _ => True) := by
+      PointMulInv s₂ base count scalar₂ p₂ n y) (.loop (pointMulBatch fld) .ne) (fun _ _ => True) := by
   apply VG.RelCT.loop (M := isa) (fun n x y => PointMulInv s₁ base count scalar₁ p₁ n x ∧
     PointMulInv s₂ base count scalar₂ p₂ n y) _ n
   intro k
@@ -21,7 +23,7 @@ theorem pointMulLoop_ct (s₁ s₂ : State) (base : Addr) (count scalar₁ scala
     exact Nat.not_lt_zero _ h.1.positive
   | succ j =>
     by_cases hj : j < count
-    · have hct := (pointMulBatch_ct base j (by omega)).mono
+    · have hct := (pointMulBatch_ct (fld := fld) base j (by omega)).mono
         (fun x y (h : PointMulInv s₁ base count scalar₁ p₁ (j + 1) x ∧
             PointMulInv s₂ base count scalar₂ p₂ (j + 1) y) =>
           ⟨⟨h.1.scratch, h.1.counter, h.1.d⟩, ⟨h.2.scratch, h.2.counter, h.2.d⟩⟩)

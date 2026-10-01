@@ -21,6 +21,8 @@ open VG VG.X86_64 VG.Impl.Ed25519.X86_64 VG.Proof.Ed25519 Edwards
 open VG.Proof.X25519.X86_64 (off Keeps)
 open VG.Impl.X25519.X86_64 (sc)
 
+variable {fld : Arith} [EdArith fld]
+
 /-- Chains two programs, from runs that satisfy the same predicate. -/
 theorem seq_same {P F : State → Prop} {c₁ c₂ : Prog isa}
     (h₁ : RelCT isa (fun x y => P x ∧ P y) c₁ (fun _ _ => True)) (w : ∀ x, P x → WP isa c₁ x F)
@@ -94,22 +96,22 @@ theorem agree_rsi_rax {x y : State} (h : x.gpr .rsi = y.gpr .rsi ∧ x.gpr .rax 
 theorem high_ct : RelCT isa (fun x y => x.gpr .rsi = y.gpr .rsi ∧ x.gpr .rax = y.gpr .rax)
     (.block [.movzx8 .rbx { base := .rsi, index := some .rax }, .shift .shr .rbx 4,
       .alu .test .rbx (.reg .rbx)]) (fun _ _ => True) :=
-  VG.RelCT.taint (A := taint) (Taint.ofRegs [.rsi, .rax]) (fun _ _ h => agree_rsi_rax h)
-    (by taint_decide)
+  taintFld (Taint.ofRegs [.rsi, .rax]) (fun _ _ h => agree_rsi_rax h)
+    (by fld_taint_decide)
 
 theorem low_ct : RelCT isa (fun x y => x.gpr .rsi = y.gpr .rsi ∧ x.gpr .rax = y.gpr .rax)
     (.block [.movzx8 .rbx { base := .rsi, index := some .rax }, .alu .and .rbx (.imm 15)])
     (fun _ _ => True) :=
-  VG.RelCT.taint (A := taint) (Taint.ofRegs [.rsi, .rax]) (fun _ _ h => agree_rsi_rax h)
-    (by taint_decide)
+  taintFld (Taint.ofRegs [.rsi, .rax]) (fun _ _ h => agree_rsi_rax h)
+    (by fld_taint_decide)
 
 theorem prefixK_ct : RelCT isa (fun x y => x.gpr .rdi = y.gpr .rdi) (.block (digitPrefix 7952 0))
     (fun _ _ => True) :=
-  VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) (fun _ _ h => agree_rdi h) (by taint_decide)
+  taintFld (Taint.ofRegs [.rdi]) (fun _ _ h => agree_rdi h) (by fld_taint_decide)
 
 theorem prefixS_ct : RelCT isa (fun x y => x.gpr .rdi = y.gpr .rdi) (.block (digitPrefix 7944 32))
     (fun _ _ => True) :=
-  VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) (fun _ _ h => agree_rdi h) (by taint_decide)
+  taintFld (Taint.ofRegs [.rdi]) (fun _ _ h => agree_rdi h) (by fld_taint_decide)
 
 /-- What a digit's code reads, in both runs. -/
 abbrev DigitCT (base kp sp : Addr) (A : EPoint dZ) (C : Addr) (digit : List Instr) : Prop :=
@@ -149,9 +151,9 @@ structure WinPre (base kp sp : Addr) (A : EPoint dZ) (C : Addr) (digit : List In
   bound : v < 16
 
 theorem addDigitA_ct : RelCT isa (fun x y => x.gpr .rdi = y.gpr .rdi ∧ x.gpr .rbx = y.gpr .rbx)
-    (.block (([.alu .sub .rbx (.imm 1)] : List Instr) ++ tableAddr 5376 ++ pointFromTableQ ++ pointAdd))
+    (.block (([.alu .sub .rbx (.imm 1)] : List Instr) ++ tableAddr 5376 ++ pointFromTableQ ++ (pointAdd fld)))
     (fun _ _ => True) := by
-  apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rbx]) _ (by taint_decide)
+  apply taintFld (Taint.ofRegs [.rdi, .rbx]) _ (by fld_taint_decide)
   intro x y h
   apply Taint.agree_ofRegs
   intro r hr
@@ -162,8 +164,8 @@ theorem addDigitA_ct : RelCT isa (fun x y => x.gpr .rdi = y.gpr .rdi ∧ x.gpr .
 
 theorem addDigitB_ct : RelCT isa (fun x y => x.gpr .rdi = y.gpr .rdi ∧ x.gpr .rbx = y.gpr .rbx)
     (.block (([.alu .sub .rbx (.imm 1)] : List Instr) ++ tableAddr 2048 ++ pointFromTableQ ++
-      pointAddCached)) (fun _ _ => True) := by
-  apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi, .rbx]) _ (by taint_decide)
+      (pointAddCached fld))) (fun _ _ => True) := by
+  apply taintFld (Taint.ofRegs [.rdi, .rbx]) _ (by fld_taint_decide)
   intro x y h
   apply Taint.agree_ofRegs
   intro r hr
@@ -192,15 +194,15 @@ theorem digitAdd_ct {base kp sp : Addr} {A : EPoint dZ} {C : Addr} {digit add : 
   · exact hadd.mono (fun x y h => ⟨h.1.2.1.1.trans h.1.2.2.1.symm, h.1.2.1.2.1.trans h.1.2.2.2.1.symm⟩)
       (fun _ _ h => h)
 
-theorem double4_ct : RelCT isa (fun x y => x.gpr .rdi = y.gpr .rdi) double4 (fun _ _ => True) :=
-  VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) (fun _ _ h => agree_rdi h) (by taint_decide)
+theorem double4_ct : RelCT isa (fun x y => x.gpr .rdi = y.gpr .rdi) (double4 fld) (fun _ _ => True) :=
+  taintFld (Taint.ofRegs [.rdi]) (fun _ _ h => agree_rdi h) (by fld_taint_decide)
 
 theorem windowA_ct {base kp sp : Addr} {A : EPoint dZ} {C : Addr} {digit : List Instr} {v : Nat}
     (hdig : DigitCT base kp sp A C digit) :
     RelCT isa (fun x y => WinPre base kp sp A C digit v x ∧ WinPre base kp sp A C digit v y)
-      (windowA digit) (fun _ _ => True) := by
+      (windowA fld digit) (fun _ _ => True) := by
   have hw (x : State) (h : WinPre base kp sp A C digit v x) :
-      WP isa double4 x (WinPre base kp sp A C digit v) := by
+      WP isa (double4 fld) x (WinPre base kp sp A C digit v) := by
     obtain ⟨a, ha⟩ := h.value
     refine WP.mono (double4_ok h.ctx.scratch ha) fun b ⟨br, bh, bk⟩ => ?_
     have kb := WinKeep.of_double bk
@@ -213,7 +215,7 @@ theorem windowA_ct {base kp sp : Addr} {A : EPoint dZ} {C : Addr} {digit : List 
 theorem windowA_next {base kp sp : Addr} {A : EPoint dZ} {C : Addr} {digit next : List Instr}
     {v w : Nat} {x : State}
     (h : WinPre base kp sp A C digit v x ∧ DigitSpec base x next w ∧ w < 16) :
-    WP isa (windowA digit) x (WinPre base kp sp A C next w) := by
+    WP isa (windowA fld digit) x (WinPre base kp sp A C next w) := by
   obtain ⟨a, ha⟩ := h.1.value
   refine WP.mono (windowA_ok h.1.ctx h.1.d ha h.1.bound h.1.digit) fun b ⟨br, bd, kb⟩ => ?_
   exact ⟨h.1.ctx.of_keep kb, bd, ⟨_, br⟩, kb.counter.trans h.1.counter, h.2.1.of_keep kb, h.2.2⟩
@@ -222,7 +224,7 @@ theorem windowAB_ct {base kp sp : Addr} {A : EPoint dZ} {C : Addr} {digitA digit
     {vA vB : Nat} (hA : DigitCT base kp sp A C digitA) (hB : DigitCT base kp sp A C digitB) :
     RelCT isa (fun x y => (WinPre base kp sp A C digitA vA x ∧ DigitSpec base x digitB vB ∧ vB < 16) ∧
       (WinPre base kp sp A C digitA vA y ∧ DigitSpec base y digitB vB ∧ vB < 16))
-      (windowAB digitA digitB) (fun _ _ => True) := by
+      (windowAB fld digitA digitB) (fun _ _ => True) := by
   rw [windowAB]
   exact seq_same ((windowA_ct hA).mono (fun _ _ h => ⟨h.1.1, h.2.1⟩) (fun _ _ h => h))
     (fun x h => windowA_next h) (digitAdd_ct hB addDigitB_ct)
@@ -232,7 +234,7 @@ theorem windowAB_next {base kp sp : Addr} {A : EPoint dZ} {C : Addr}
     {digitA digitB nextA nextB : List Instr} {vA vB wA wB : Nat} {x : State}
     (h : (WinPre base kp sp A C digitA vA x ∧ DigitSpec base x digitB vB ∧ vB < 16) ∧
       (DigitSpec base x nextA wA ∧ wA < 16) ∧ (DigitSpec base x nextB wB ∧ wB < 16)) :
-    WP isa (windowAB digitA digitB) x fun u =>
+    WP isa (windowAB fld digitA digitB) x fun u =>
       WinPre base kp sp A C nextA wA u ∧ DigitSpec base u nextB wB ∧ wB < 16 := by
   obtain ⟨a, ha⟩ := h.1.1.value
   refine WP.mono (windowAB_ok h.1.1.ctx h.1.1.d ha h.1.1.bound h.1.2.2 h.1.1.digit h.1.2.1)
@@ -244,15 +246,15 @@ theorem windowAB_next {base kp sp : Addr} {A : EPoint dZ} {C : Addr}
 
 theorem batchBegin_ct : RelCT isa (fun x y => x.gpr .rdi = y.gpr .rdi) (.block batchBegin)
     (fun _ _ => True) :=
-  VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) (fun _ _ h => agree_rdi h) (by taint_decide)
+  taintFld (Taint.ofRegs [.rdi]) (fun _ _ h => agree_rdi h) (by fld_taint_decide)
 
 theorem batchTest_ct : RelCT isa (fun x y => x.gpr .rdi = y.gpr .rdi) (.block batchTest)
     (fun _ _ => True) :=
-  VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) (fun _ _ h => agree_rdi h) (by taint_decide)
+  taintFld (Taint.ofRegs [.rdi]) (fun _ _ h => agree_rdi h) (by fld_taint_decide)
 
 theorem counterCmp_ct : RelCT isa (fun x y => x.gpr .rdi = y.gpr .rdi)
     (.block [.mov .rbx (.mem (sc 56)), .alu .cmp .rbx (.imm 32)]) (fun _ _ => True) :=
-  VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) (fun _ _ h => agree_rdi h) (by taint_decide)
+  taintFld (Taint.ofRegs [.rdi]) (fun _ _ h => agree_rdi h) (by fld_taint_decide)
 
 theorem nibble_lt (b : Nat) : b % 256 / 16 < 16 :=
   Nat.div_lt_of_lt_mul (by have := Nat.mod_lt b (show 256 > 0 by decide); omega)
@@ -274,7 +276,7 @@ theorem byteBegin_ok {s₀ x : State} {base kp sp : Addr} {A : EPoint dZ} {K S i
 
 theorem byteStepA_ct {base kp sp : Addr} {A : EPoint dZ} {K S i : Nat} (hi : i < 64) :
     RelCT isa (fun x y => (∃ s₀, WinLoop s₀ base kp sp A K S (i + 1) x) ∧
-      (∃ s₀, WinLoop s₀ base kp sp A K S (i + 1) y)) byteStepA (fun _ _ => True) := by
+      (∃ s₀, WinLoop s₀ base kp sp A K S (i + 1) y)) (byteStepA fld) (fun _ _ => True) := by
   let C := BitVec.ofNat 64 i
   let vH := K / 256 ^ i % 256 / 16
   let vL := K / 256 ^ i % 256 % 16
@@ -287,7 +289,7 @@ theorem byteStepA_ct {base kp sp : Addr} {A : EPoint dZ} {K S i : Nat} (hi : i <
     · rw [show vH = (a.mem (off kp i)).toNat / 16 by rw [ak]]; exact digitKHigh actx hi ac
     · rw [show vL = (a.mem (off kp i)).toNat % 16 by rw [ak]]; exact digitKLow actx hi ac
   have w3 (x : State) (h : WinPre base kp sp A C (digitLow 7952 0) vL x) :
-      WP isa (windowA (digitLow 7952 0)) x fun c => c.gpr .rdi = base := by
+      WP isa (windowA fld (digitLow 7952 0)) x fun c => c.gpr .rdi = base := by
     obtain ⟨a, ha⟩ := h.value
     exact WP.mono (windowA_ok h.ctx h.d ha h.bound h.digit) fun _ ⟨_, _, kc⟩ =>
       (kc.scratch h.ctx.scratch).rdi
@@ -300,7 +302,7 @@ theorem byteStepA_ct {base kp sp : Addr} {A : EPoint dZ} {K S i : Nat} (hi : i <
 
 theorem byteStepAB_ct {base kp sp : Addr} {A : EPoint dZ} {K S i : Nat} (hi : i < 32) :
     RelCT isa (fun x y => (∃ s₀, WinLoop s₀ base kp sp A K S (i + 1) x) ∧
-      (∃ s₀, WinLoop s₀ base kp sp A K S (i + 1) y)) byteStepAB (fun _ _ => True) := by
+      (∃ s₀, WinLoop s₀ base kp sp A K S (i + 1) y)) (byteStepAB fld) (fun _ _ => True) := by
   let C := BitVec.ofNat 64 i
   let kH := K / 256 ^ i % 256 / 16
   let kL := K / 256 ^ i % 256 % 16
@@ -322,7 +324,7 @@ theorem byteStepAB_ct {base kp sp : Addr} {A : EPoint dZ} {K S i : Nat} (hi : i 
     · rw [show sL = (a.mem (off (off sp 32) i)).toNat % 16 by rw [as]]; exact digitSLow actx hi ac
   have w3 (x : State) (h : WinPre base kp sp A C (digitLow 7952 0) kL x ∧
       DigitSpec base x (digitLow 7944 32) sL ∧ sL < 16) :
-      WP isa (windowAB (digitLow 7952 0) (digitLow 7944 32)) x fun c => c.gpr .rdi = base := by
+      WP isa (windowAB fld (digitLow 7952 0) (digitLow 7944 32)) x fun c => c.gpr .rdi = base := by
     obtain ⟨a, ha⟩ := h.1.value
     exact WP.mono (windowAB_ok h.1.ctx h.1.d ha h.1.bound h.2.2 h.1.digit h.2.1) fun _ ⟨_, _, kc⟩ =>
       (kc.scratch h.1.ctx.scratch).rdi
@@ -341,7 +343,7 @@ def LoopRun (R₀ : State → Prop) (base kp sp : Addr) (A : EPoint dZ) (K S c :
 
 theorem loopA_ct {R₀ : State → Prop} {base kp sp : Addr} {A : EPoint dZ} {K S : Nat} :
     RelCT isa (fun x y => LoopRun R₀ base kp sp A K S 64 x ∧ LoopRun R₀ base kp sp A K S 64 y)
-      (.loop byteStepA .ne)
+      (.loop (byteStepA fld) .ne)
       (fun x y => LoopRun R₀ base kp sp A K S 32 x ∧ LoopRun R₀ base kp sp A K S 32 y) := by
   refine (VG.RelCT.loop (M := isa) (fun n x y => (LoopRun R₀ base kp sp A K S (32 + n) x ∧
     LoopRun R₀ base kp sp A K S (32 + n) y) ∧ 0 < n ∧ n ≤ 32) ?_ 32).mono
@@ -351,7 +353,7 @@ theorem loopA_ct {R₀ : State → Prop} {base kp sp : Addr} {A : EPoint dZ} {K 
   · exact VG.RelCT.of_false fun _ _ h => Nat.lt_irrefl 0 h.2.1
   by_cases hj : j < 32
   · have hw (x : State) (h : LoopRun R₀ base kp sp A K S (32 + (j + 1)) x) :
-        WP isa byteStepA x fun u => u.zf = some (decide (j = 0)) ∧
+        WP isa (byteStepA fld) x fun u => u.zf = some (decide (j = 0)) ∧
           LoopRun R₀ base kp sp A K S (32 + j) u := by
       obtain ⟨s₀, r₀, h⟩ := h
       exact WP.mono (stepA_ok hj h) fun u ⟨uz, hu⟩ => ⟨uz, s₀, r₀, hu⟩
@@ -378,7 +380,7 @@ theorem loopA_ct {R₀ : State → Prop} {base kp sp : Addr} {A : EPoint dZ} {K 
 
 theorem loopB_ct {R₀ : State → Prop} {base kp sp : Addr} {A : EPoint dZ} {K S : Nat} :
     RelCT isa (fun x y => LoopRun R₀ base kp sp A K S 32 x ∧ LoopRun R₀ base kp sp A K S 32 y)
-      (.loop byteStepAB .ne)
+      (.loop (byteStepAB fld) .ne)
       (fun x y => LoopRun R₀ base kp sp A K S 0 x ∧ LoopRun R₀ base kp sp A K S 0 y) := by
   refine (VG.RelCT.loop (M := isa) (fun n x y => (LoopRun R₀ base kp sp A K S n x ∧
     LoopRun R₀ base kp sp A K S n y) ∧ 0 < n ∧ n ≤ 32) ?_ 32).mono
@@ -388,7 +390,7 @@ theorem loopB_ct {R₀ : State → Prop} {base kp sp : Addr} {A : EPoint dZ} {K 
   · exact VG.RelCT.of_false fun _ _ h => Nat.lt_irrefl 0 h.2.1
   by_cases hj : j < 32
   · have hw (x : State) (h : LoopRun R₀ base kp sp A K S (j + 1) x) :
-        WP isa byteStepAB x fun u => u.zf = some (decide (j = 0)) ∧ LoopRun R₀ base kp sp A K S j u := by
+        WP isa (byteStepAB fld) x fun u => u.zf = some (decide (j = 0)) ∧ LoopRun R₀ base kp sp A K S j u := by
       obtain ⟨s₀, r₀, h⟩ := h
       exact WP.mono (stepB_ok hj h) fun u ⟨uz, hu⟩ => ⟨uz, s₀, r₀, hu⟩
     refine (VG.RelCT.wp ((byteStepAB_ct (i := j) hj).mono
@@ -420,13 +422,13 @@ def EqRepPre (base : Addr) (P Q : EPoint dZ) (s : State) : Prop :=
 
 theorem pointEqualRep_ct (base : Addr) (P Q : EPoint dZ) :
     RelCT isa (fun s t => EqRepPre base P Q s ∧ EqRepPre base P Q t)
-      Impl.Ed25519.X86_64.pointEqual (fun _ _ => True) := by
+      (Impl.Ed25519.X86_64.pointEqual fld) (fun _ _ => True) := by
   have ht : RelCT isa (fun s t => EqRepPre base P Q s ∧ EqRepPre base P Q t)
-      (.block (fieldCode pointEqualOps ++ fieldEqual 8 9)) (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+      (.block (fieldCode fld pointEqualOps ++ fieldEqual fld 8 9)) (fun _ _ => True) := by
+    apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
     exact fun _ _ h => rdi_agree h.1.1.rdi h.2.1.rdi
   have hw (s : State) (h : EqRepPre base P Q s) :
-      WP isa (.block (fieldCode pointEqualOps ++ fieldEqual 8 9)) s fun t =>
+      WP isa (.block (fieldCode fld pointEqualOps ++ fieldEqual fld 8 9)) s fun t =>
         Scratch t base ∧ t.zf = some (decide (P.x = Q.x)) ∧
           (env t.mem base 10 = env t.mem base 11 ↔ P.y = Q.y) := by
     refine WP.mono (equalFirst_ok h.1) fun t ⟨kt, tz, tu, tv⟩ => ?_
@@ -438,11 +440,11 @@ theorem pointEqualRep_ct (base : Addr) (P Q : EPoint dZ) :
   have hp := VG.RelCT.wp ht (fun s t h => ⟨hw s h.1, hw t h.2⟩)
   have ht2 : RelCT isa (fun s t => (Scratch s base ∧ (env s.mem base 10 = env s.mem base 11 ↔ P.y = Q.y)) ∧
       (Scratch t base ∧ (env t.mem base 10 = env t.mem base 11 ↔ P.y = Q.y)))
-      (.block (fieldEqual 10 11)) (fun _ _ => True) := by
-    apply VG.RelCT.taint (A := taint) (Taint.ofRegs [.rdi]) _ (by taint_decide)
+      (.block (fieldEqual fld 10 11)) (fun _ _ => True) := by
+    apply taintFld (Taint.ofRegs [.rdi]) _ (by fld_taint_decide)
     exact fun _ _ h => rdi_agree h.1.1.rdi h.2.1.rdi
   have hw2 (s : State) (h : Scratch s base ∧ (env s.mem base 10 = env s.mem base 11 ↔ P.y = Q.y)) :
-      WP isa (.block (fieldEqual 10 11)) s fun t => t.zf = some (decide (P.y = Q.y)) :=
+      WP isa (.block (fieldEqual fld 10 11)) s fun t => t.zf = some (decide (P.y = Q.y)) :=
     WP.mono (fieldEqual_ok h.1 10 11) fun _ k => by
       rw [k.1]; exact congrArg some (decide_eq_decide.mpr h.2)
   have hp2 := VG.RelCT.wp ht2 (fun s t h => ⟨hw2 s h.1, hw2 t h.2⟩)

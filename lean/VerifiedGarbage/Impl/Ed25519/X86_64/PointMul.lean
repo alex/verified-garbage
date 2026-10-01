@@ -16,19 +16,19 @@ def batchBitOffset : List Instr :=
 
 def batchTest : List Instr := [.mov .rbx (.mem (sc 56)), .alu .test .rbx (.reg .rbx)]
 
-def pointMulBatch : Prog isa :=
-  .seq (.block batchBegin) (.seq prepareBatch (.seq (.block batchBitOffset)
-    (.seq accumulate16 (.block batchTest))))
+def pointMulBatch (fld : Arith) : Prog isa :=
+  .seq (.block batchBegin) (.seq (prepareBatch fld) (.seq (.block batchBitOffset)
+    (.seq (accumulate16 fld) (.block batchTest))))
 
 def mulCounterInit (count : Nat) : List Instr :=
   [.movImm64 .rax (BitVec.ofNat 64 count), .store (sc 56) .rax]
 
 /-- The input point is in slots 0-3; scalar bits were expanded into bytes 768 onward. -/
-def pointMultiplyInit (count : Nat) : Prog isa :=
-  .seq (pointPowers 1280 count true) (.seq (.block (constPoint Spec.Ed25519.identity))
+def pointMultiplyInit (fld : Arith) (count : Nat) : Prog isa :=
+  .seq (pointPowers fld 1280 count true) (.seq (.block (constPoint fld Spec.Ed25519.identity))
     (.block (mulCounterInit count)))
 
-def pointMultiply (count : Nat) : Prog isa :=
-  .seq (pointMultiplyInit count) (.loop pointMulBatch .ne)
+def pointMultiply (fld : Arith) (count : Nat) : Prog isa :=
+  .seq (pointMultiplyInit fld count) (.loop (pointMulBatch fld) .ne)
 
 end VG.Impl.Ed25519.X86_64

@@ -13,11 +13,13 @@ its frame and calls use.
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey
 
+variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
+
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 open VG.Proof.Sha512.X86_64 (Compress)
 
 theorem publicKey_ct (v : Compress) :
-    ConstantTime isa pkLocal.pre pkLocal.pub (publicKey v.callee v.suffix) := by
+    ConstantTime isa pkLocal.pre pkLocal.pub (publicKey fld fs v.callee v.suffix) := by
   refine RelCT.constantTime (RelCT.frame (fun _ _ h => h.2.2.1) (RelCT.mono (body_ct v) ?_ fun _ _ _ => trivial))
   rintro _ _ ⟨s₁, s₂, ⟨h₁, h₂, hsp, hdi, hsi, hdx⟩, rfl, rfl⟩
   have e : lay s₂ = lay s₁ := by simp only [lay, hsp, hdi, hsi, hdx]
@@ -30,16 +32,16 @@ theorem implies : pkLocal.Implies (Spec.Ed25519.publicKeyContract X86_64.abi 72)
     using Proof.Ed25519.X86_64.baseSatState
 
 theorem publicKey_verified (v : Compress) :
-    Verified X86_64.target (publicKey v.callee v.suffix) (Spec.Ed25519.publicKeyContract X86_64.abi 72) :=
+    Verified X86_64.target (publicKey fld fs v.callee v.suffix) (Spec.Ed25519.publicKeyContract X86_64.abi 72) :=
   Verified.of_correct (fun _ h => publicKey_ok v h) (publicKey_ct v) implies
 
 /-- No instruction writes `rsp` but the frame's push and pop. -/
 theorem publicKey_spSafe (v : Compress) :
-    (publicKey v.callee v.suffix).all (fun i => !isa.writesSp i) = true := by
+    (publicKey fld fs v.callee v.suffix).all (fun i => !isa.writesSp i) = true := by
   have hu := Proof.Sha512.X86_64.Shared.update_spSafe v.spSafe
   have hf := Proof.Sha512.X86_64.Shared.finalize_spSafe v.spSafe
-  have hb : scalarBase_precomputed.all (fun i => !isa.writesSp i) = true :=
-    Code.all_of_allInstrs (by lit_decide)
+  have hb : (scalarBase_precomputed fld).all (fun i => !isa.writesSp i) = true :=
+    Code.all_of_allInstrs (by fld_lit_decide)
   have hi : (Impl.Sha512.X86_64.Stream.init Spec.Sha512.H0_512).all (fun i => !isa.writesSp i) = true := by
     decide +kernel
   simp only [publicKey, pkBody, pkHash, callWith, Code.all, hu, hf, hb, hi, Bool.and_true, Bool.true_and]

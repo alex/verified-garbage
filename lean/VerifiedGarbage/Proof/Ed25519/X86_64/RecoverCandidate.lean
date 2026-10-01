@@ -8,6 +8,8 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64
 
+variable {fld : Arith} [EdArith fld]
+
 private theorem recoverInit_eval (e : Env) :
     evalOps recoverInitOps e 1 = e 1 ∧
     evalOps recoverInitOps e 6 = rootU (e 1) ∧
@@ -29,7 +31,7 @@ private theorem recoverFinish_eval (e : Env) :
   exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 theorem recoverCandidate_ok {s : State} {base : Addr} (hs : Scratch s base) :
-    WP isa recoverCandidate s fun t => RbxKeep base s t ∧
+    WP isa (recoverCandidate fld) s fun t => RbxKeep base s t ∧
       env t.mem base 0 = rootX (env s.mem base 1) ∧
       env t.mem base 1 = env s.mem base 1 ∧
       env t.mem base 5 = 0 ∧ env t.mem base 6 = rootU (env s.mem base 1) ∧
