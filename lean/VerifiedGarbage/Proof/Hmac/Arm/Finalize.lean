@@ -167,7 +167,7 @@ theorem fin_ok {s₀ : State} (hp : Pre s₀) {s : State} (hrd : s.rd = s₀.rd)
     · exact ⟨scR s₀, by simp, 0, by simp, by simp⟩
   · intro s' h₁ h₂ h₃ h₄ hg hpost
     simp only [Proof.Sha256.finalizeArm, State.withRegions_gpr, State.withRegions_mem, h0, e0] at hpost
-    exact hQ s' h₁ h₂ h₃ h₄ (by rw [hg _ r0_ok (by decide), h0]) hpost
+    exact hQ s' h₁ h₂ h₃ h₄ (by rw [hg _ r0_ok (by decide), h0]) fun m hr hc => hpost Spec.Sha256.H0 m hr hc
 
 /-! ## Saving the outer hash value -/
 

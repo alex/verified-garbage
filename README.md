@@ -125,6 +125,22 @@ yours to keep:
 
 <tr>
 
+<td>SHA-224</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>SHA-256</td>
 
 <td>✅</td>
