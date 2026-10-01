@@ -85,9 +85,12 @@ theorem dblBS_nat (E : Env) : ∀ j < 5, ∀ l < 4,
   rcases (by omega : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3 ∨ j = 4) with rfl | rfl | rfl | rfl | rfl <;>
     rcases VG.X86_64.cases4 hl with rfl | rfl | rfl | rfl <;> exact ⟨rfl, rfl⟩
 
-/-- Bounds: carried limbs, and the bias. -/
+/-- The first product's limbs are below this. -/
+def prodBound : Nat := 2 ^ 60 + 2 ^ 56
+
+/-- Bounds: the first product's limbs, and the bias. -/
 def dblBB : Bnds :=
-  ⟨fun i => if i < 5 then 2 ^ 52 - 1 else 2 ^ 64 - 1, fun _ => 2 ^ 64 - 1,
+  ⟨fun i => if i < 5 then prodBound - 1 else 2 ^ 64 - 1, fun _ => 2 ^ 64 - 1,
     fun d => if d = KB0 then 2 ^ 62 - 38912 else if d = KB1 then 2 ^ 62 - 2048 else 2 ^ 64 - 1,
     fun d => if d = KB0 then 2 ^ 62 - 38912 else if d = KB1 then 2 ^ 62 - 2048 else 0⟩
 
