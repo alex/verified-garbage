@@ -15,7 +15,7 @@
 //! instead, which have the same contracts; on AArch64, CPUs with the AES and
 //! PMULL extensions run `vg_aes_expand_key_aes`, `vg_aes_ctr32_aes` and
 //! `vg_ghash_pmull`. On x86, AES-NI/PCLMULQDQ/SSSE3 select the accelerated
-//! counter mode and GHASH functions; key expansion remains scalar.
+//! key expansion, counter mode and GHASH functions.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -31,7 +31,7 @@ use crate::arch::aes::{
 };
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::arch::aes::{VG_AES_CTR32_AESNI_FEATURES, vg_aes_ctr32_aesni};
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use crate::arch::aes::{VG_AES_EXPAND_KEY_AESNI_FEATURES, vg_aes_expand_key_aesni};
 use crate::arch::aes::{vg_aes_ctr32, vg_aes_expand_key};
 use crate::arch::gcm::vg_ghash;
@@ -150,7 +150,6 @@ impl Backend {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn select(f: Features) -> Backend {
         if f.contains(Features::all(&[
-            #[cfg(target_arch = "x86_64")]
             VG_AES_EXPAND_KEY_AESNI_FEATURES,
             VG_AES_CTR32_AESNI_FEATURES,
             VG_GHASH_PCLMUL_FEATURES,
@@ -213,13 +212,9 @@ impl AesGcm {
                 Backend::Scalar => {
                     vg_aes_expand_key(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
                 }
-                #[cfg(target_arch = "x86_64")]
+                #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                 Backend::AesNi => {
                     vg_aes_expand_key_aesni(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
-                }
-                #[cfg(target_arch = "x86")]
-                Backend::AesNi => {
-                    vg_aes_expand_key(key_ptr, key.len(), schedule, scratch.as_mut_ptr())
                 }
                 #[cfg(target_arch = "aarch64")]
                 Backend::ArmCrypto => {
