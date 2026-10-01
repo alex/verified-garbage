@@ -1,6 +1,7 @@
 import VerifiedGarbage.TCB.Arm.Print
 import VerifiedGarbage.Proof.Framework.Arm.Call
 import VerifiedGarbage.Proof.Framework.Arm.Taint
+import VerifiedGarbage.Proof.MlKem.Arm.CallF
 import VerifiedGarbage.TCB.Axioms
 
 /-! ARMv7/Thumb-2 stack-buffer semantics and instruction encodings. -/
@@ -59,6 +60,10 @@ private def publicSP : Arm.Taint.T := { regs := .ofList [], flags := false, argL
 #guard ((Arm.Taint.step { publicSP with argLen := 0 } (.addSp .r3 192)).map
   (fun τ => Arm.Taint.pub τ .r3)) == some false
 
+-- Nested buffer frames contribute their full byte sizes to the stack bound.
+#guard stackUse (.frame (.alloc 224) (.frame (.alloc 16) (.block []) (.free 16)) (.free 224)) == 240
+
+#assert_standard_axioms VG.Arm.Exec.frameSp
 #assert_standard_axioms VG.Arm.WP.alloc
 #assert_standard_axioms VG.Arm.Exec.sp
 #assert_standard_axioms VG.Arm.Taint.step_sound
