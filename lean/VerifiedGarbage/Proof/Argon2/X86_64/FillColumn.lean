@@ -119,6 +119,28 @@ theorem previous_nat (column q : Nat) (positive : 0 < q) (bound : column < q) :
     rw [Nat.mod_eq_sub_mod (by omega : q ≤ column + q - 1), sub,
       Nat.mod_eq_of_lt (by omega : column - 1 < q)]
 
+theorem previous_word_nat (column q : Nat) (positive : 0 < q) (qBound : q < 2 ^ 64)
+    (bound : column < q) :
+    (if BitVec.ofNat 64 column = 0#64 then BitVec.ofNat 64 q else BitVec.ofNat 64 column) - 1 =
+      BitVec.ofNat 64 ((column + q - 1) % q) := by
+  have zero : BitVec.ofNat 64 column = 0#64 ↔
+      column = 0 := by
+    constructor
+    · intro h
+      have hn := congrArg BitVec.toNat h
+      rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (Nat.lt_trans bound qBound)] at hn
+      exact hn
+    · intro h; rw [h]
+  simp only [zero]
+  by_cases h : column = 0
+  · simp only [h, ite_true]
+    rw [show (1 : Addr) = BitVec.ofNat 64 1 from rfl,
+      Offset.ofNat_sub_ofNat positive, Nat.zero_add, Nat.mod_eq_of_lt (by omega : q - 1 < q)]
+  · simp only [h, ite_false]
+    rw [show (1 : Addr) = BitVec.ofNat 64 1 from rfl,
+      Offset.ofNat_sub_ofNat (by omega : 1 ≤ column),
+      ← previous_nat _ q positive bound, ite_eq_right h]
+
 theorem code_nat_ok (s : State) (slice segment index q : Nat)
     (hs : s.gpr .r14 = BitVec.ofNat 64 slice)
     (hg : s.gpr .r13 = BitVec.ofNat 64 segment)
@@ -136,25 +158,7 @@ theorem code_nat_ok (s : State) (slice segment index q : Nat)
       BitVec.ofNat 64 (slice * segment + index) := by
     rw [hs, hg, hi, ← BitVec.ofNat_mul, ← BitVec.ofNat_add]
   refine ⟨column.trans word, ?_, keeps⟩
-  have zero : BitVec.ofNat 64 (slice * segment + index) = 0#64 ↔
-      slice * segment + index = 0 := by
-    constructor
-    · intro h
-      have hn := congrArg BitVec.toNat h
-      rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (Nat.lt_trans bound qBound)] at hn
-      exact hn
-    · intro h; rw [h]
   rw [previous, word, hq]
-  change (if BitVec.ofNat 64 (slice * segment + index) = 0#64 then
-    BitVec.ofNat 64 q else BitVec.ofNat 64 (slice * segment + index)) - 1 = _
-  simp only [zero]
-  by_cases h : slice * segment + index = 0
-  · simp only [h, ite_true]
-    rw [show (1 : Addr) = BitVec.ofNat 64 1 from rfl,
-      Offset.ofNat_sub_ofNat positive, Nat.zero_add, Nat.mod_eq_of_lt (by omega : q - 1 < q)]
-  · simp only [h, ite_false]
-    rw [show (1 : Addr) = BitVec.ofNat 64 1 from rfl,
-      Offset.ofNat_sub_ofNat (by omega : 1 ≤ slice * segment + index),
-      ← previous_nat _ q positive bound, ite_eq_right h]
+  exact previous_word_nat _ q positive qBound bound
 
 end VG.Proof.Argon2.X86_64.FillColumn
