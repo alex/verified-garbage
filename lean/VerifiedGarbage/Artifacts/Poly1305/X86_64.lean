@@ -41,7 +41,7 @@ def artifacts : List Artifact := [
     name := Spec.Poly1305.blocksApi.name ++ "_avx2"
     target := X86_64.target
     doc := Spec.Poly1305.blocksApi.doc (notes := ["With AVX2: four blocks at a time, in four \
-      interleaved Horner evaluations, once there are at least 16 blocks; fewer, and the last \
+      interleaved Horner evaluations, once there are at least 32 blocks; fewer, and the last \
       `n mod 4`, with `vg_poly1305_blocks`. It sets MXCSR to Intel's value for data \
       operand-independent timing (`0x1FBF`) around its `vpmuludq`s, and restores it."])
     code := Impl.Poly1305.X86_64.Avx2.blocksAvx2
