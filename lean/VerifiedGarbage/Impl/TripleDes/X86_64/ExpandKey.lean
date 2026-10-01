@@ -23,7 +23,7 @@ def restore : List Instr :=
   savedRegs.zipIdx.map fun (r, i) => .mov r (.mem (memOp .rcx (8 * i)))
 
 def load (offset component : Nat) : List Instr :=
-  [.mov .rax (.mem (memOp .rdi offset)), .bswap .rax] ++
+  ([.mov .rax (.mem (memOp .rdi offset)), .bswap .rax] : List Instr) ++
     permuteCode Spec.TripleDes.pc1 64 .rbx .rax .rbp ++
     [rr .r12 .rbx, .shift .shr .r12 28, rr .r13 .rbx,
      .alu .and .r13 (.imm 0x0fffffff), imm .r14 0, rr .r15 .rdx,
