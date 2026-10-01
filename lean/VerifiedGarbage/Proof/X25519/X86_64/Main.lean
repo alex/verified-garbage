@@ -94,13 +94,18 @@ theorem finish_eq : finish fld = fld.mul X2 X2 T1 ++ (freeze X2 ++ (restore ++
       .store (at_ .rsi 24) .r11] : List Instr))) := by
   simp only [finish, List.append_assoc]
 
-theorem x25519_eq' : x25519With fld = .seq (.block setup) (.seq bits (.seq
-    (.block ([.mov .rsi (.reg .r12)] : List Instr)) (.seq (ladder fld) (.seq (.block lastSwap)
+theorem x25519_eq' (lad : Prog isa) : x25519Of fld lad = .seq (.block setup) (.seq bits (.seq
+    (.block ([.mov .rsi (.reg .r12)] : List Instr)) (.seq lad (.seq (.block lastSwap)
     (.seq (Impl.X25519.X86_64.invert fld) (.block (finish fld))))))) := rfl
 
 include hf in
-theorem correct {s₀ : State} (hp : Pre s₀) :
-    WP isa (x25519With fld) s₀ fun s' => gprPreserved s₀ s' ∧ Proof.X25519.x25519X86_64.post s₀ s' := by
+/-- X25519 with any ladder `lad` that leaves the ladder's final state as
+`ladder` does (`LPost`). -/
+theorem correct_of {lad : Prog isa}
+    (hlad : ∀ {s : State} {base : Addr} {k : Nat} {u : Spec.X25519.Fe}, LPre base k u s →
+      WP isa lad s (LPost base k u s))
+    {s₀ : State} (hp : Pre s₀) :
+    WP isa (x25519Of fld lad) s₀ fun s' => gprPreserved s₀ s' ∧ Proof.X25519.x25519X86_64.post s₀ s' := by
   obtain ⟨base, hbase⟩ : ∃ b, s₀.gpr .rcx = b := ⟨_, rfl⟩
   have hn : base.toNat + 4096 ≤ 2 ^ 64 := hbase ▸ hp.sc_fit
   have hw₀ : (⟨base, 4096⟩ : Region) ∈ s₀.wr := by rw [hp.wr, ← hbase]; simp
@@ -124,18 +129,13 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
   have hkb := bytesAt_outside o₁ hkd
   have e₃ : ∀ i : Fin 128, i.val < 24 → E s₃.mem base i = E s₁.mem base i :=
     fun i h₂ => by rw [k₃.2.1]; exact E_outside o₂ i (Or.inl (by simp only [BITS]; omega))
-  refine WP.seq (WP.mono (ladder_ok hf (s₀ := s₃) (s := s₃)
+  refine WP.seq (WP.mono (hlad (s := s₃)
     (k := Spec.X25519.decodeScalar25519 (Spec.X25519.bytesAt s₀.mem (s₀.gpr .rsi) 32))
     (u := toFe (Spec.X25519.decodeUCoordinate (Spec.X25519.bytesAt s₀.mem (s₀.gpr .rdx) 32)))
-    (fun t ht => by rw [k₃.2.1, b₂ t ht, hkb])
-    (fun s' hb g m rd wr => ⟨⟨by rw [g _ (by decide)]; exact hs₃.rdi, by rw [wr]; exact hs₃.wr, hn⟩,
-      fun r _ h => g r h, hb, rd, wr, by rw [m]; exact Outside.refl _ _ _ _,
-      by rw [m, e₃ 2 (by decide), x1₁],
-      by rw [m, e₃ 3 (by decide), x2₁]; rfl,
-      by rw [m, e₃ 4 (by decide), z2₁]; rfl,
-      by rw [m, e₃ 5 (by decide), x3₁]; rfl,
-      by rw [m, e₃ 6 (by decide), z3₁]; rfl,
-      by rw [m, k₃.2.1, o₂.word (by decide) (by decide), sw₁]; rfl⟩)) fun s₄ L => ?_)
+    ⟨hs₃, fun t ht => by rw [k₃.2.1, b₂ t ht, hkb],
+      by rw [e₃ 2 (by decide), x1₁], by rw [e₃ 3 (by decide), x2₁], by rw [e₃ 4 (by decide), z2₁],
+      by rw [e₃ 5 (by decide), x3₁], by rw [e₃ 6 (by decide), z3₁],
+      by rw [k₃.2.1, o₂.word (by decide) (by decide), sw₁]⟩) fun s₄ L => ?_)
   refine WP.seq (WP.mono (lastSwap_ok L.scr
     (by have := ladderAfter_swap_le
           (Spec.X25519.decodeScalar25519 (Spec.X25519.bytesAt s₀.mem (s₀.gpr .rsi) 32))
@@ -207,5 +207,10 @@ theorem correct {s₀ : State} (hp : Pre s₀) :
     rw [e₇]
     simp only [opMul, Function.update_self]
     rw [E_outside o₆ 3 (by decide), e3₅, e₆, e4₅]
+
+include hf in
+theorem correct {s₀ : State} (hp : Pre s₀) :
+    WP isa (x25519With fld) s₀ fun s' => gprPreserved s₀ s' ∧ Proof.X25519.x25519X86_64.post s₀ s' :=
+  correct_of hf (fun h => ladder_post hf h) hp
 
 end VG.Proof.X25519.X86_64

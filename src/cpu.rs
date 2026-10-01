@@ -23,7 +23,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The features detection knows, by their Rust `target_feature` names: bit
 /// `i` of a [`Features`] is `NAMES[i]`.
-pub(crate) const NAMES: [&str; 13] = [
+pub(crate) const NAMES: [&str; 15] = [
     "ssse3",
     "sha",
     "aes",
@@ -37,6 +37,8 @@ pub(crate) const NAMES: [&str; 13] = [
     "sha2",
     "sha3",
     "adx",
+    "avx512ifma",
+    "avx512vl",
 ];
 
 /// The bit of a feature detection does not know, which is never detected.
@@ -134,17 +136,19 @@ fn parse(names: &str) -> Option<u32> {
 
 /// Asks the CPU (Intel SDM Vol. 2A, CPUID: leaf 1 ECX bit 9 is SSSE3, bit 25
 /// AES, bit 1 PCLMULQDQ, bit 27 OSXSAVE and bit 28 AVX; leaf 7 sub-leaf 0 EBX
-/// bit 29 is SHA, bit 5 AVX2, bit 3 BMI1, bit 8 BMI2, bit 16 AVX512F and bit
-/// 19 ADX, and
+/// bit 29 is SHA, bit 5 AVX2, bit 3 BMI1, bit 8 BMI2, bit 16 AVX512F, bit
+/// 19 ADX, bit 21 AVX512_IFMA and bit 31 AVX512VL, and
 /// its EAX the highest sub-leaf; leaf 7 sub-leaf 1 EAX bit 0 is SHA512; AMD
 /// reports them in the same bits). AVX, AVX2
 /// and SHA512 (whose instructions are VEX.256-encoded, so also need AVX,
 /// Intel SDM Vol. 2, "VSHA512RNDS2") also need the operating system to save
 /// the `ymm` registers: XCR0
 /// bits 1 and 2, read with `xgetbv` only if OSXSAVE says it may be (Intel SDM
-/// Vol. 1, §14.3, "Detection of Intel AVX Instructions"); AVX512F also needs
+/// Vol. 1, §14.3, "Detection of Intel AVX Instructions"); AVX512F,
+/// AVX512_IFMA and AVX512VL (whose instructions are EVEX-encoded) also need
 /// the opmask and `zmm` state, XCR0 bits 5, 6 and 7 (§15.2, "Detection of
-/// AVX-512 Foundation Instructions").
+/// AVX-512 Foundation Instructions", and §15.4 for the other AVX-512
+/// instruction groups).
 #[cfg(target_arch = "x86_64")]
 fn runtime() -> u32 {
     use core::arch::x86_64::{__cpuid, __cpuid_count, _xgetbv};
@@ -182,6 +186,8 @@ fn runtime() -> u32 {
         let avx512f = (ebx >> 16) & avx & zmm;
         let sha512 = eax1 & avx;
         let adx = (ebx >> 19) & 1;
+        let avx512ifma = (ebx >> 21) & avx & zmm;
+        let avx512vl = (ebx >> 31) & avx & zmm;
         ssse3
             | (sha << 1)
             | (aes << 2)
@@ -193,6 +199,8 @@ fn runtime() -> u32 {
             | (avx512f << 8)
             | (sha512 << 9)
             | (adx << 12)
+            | (avx512ifma << 13)
+            | (avx512vl << 14)
     }
 }
 
@@ -270,6 +278,10 @@ mod tests {
         assert_eq!(
             Features::of(&["bmi2", "adx"]),
             Features((1 << 12) | (1 << 7))
+        );
+        assert_eq!(
+            Features::of(&["avx512vl", "avx512ifma"]),
+            Features((1 << 14) | (1 << 13))
         );
         assert_eq!(Features::of(&["avx512bw"]), Features(UNKNOWN));
         assert_eq!(Features::of(&["sha2"]), Features(1 << 10));

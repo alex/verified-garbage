@@ -34,7 +34,7 @@ other multiplications:
 * `freeze`: the full reduction of the result, by folding bit 255 in as 19,
   then selecting `x + 19 - 2²⁵⁵` with a mask if it is not negative.
 
-The ladder follows RFC 7748 §5 operation by operation, over the bits of `k`
+The ladder follows RFC 7748 §5 (in another order, `step`), over the bits of `k`
 from 254 down to 0 (the counter `rbx`, which indexes `BITS`), and the
 inversion `z2^(p-2)` is the addition chain of ref10 (254 squarings and 11
 multiplications).
@@ -237,16 +237,21 @@ def sqn (F : Field) (o a n : Nat) : Prog isa :=
 
 /-- One iteration of the ladder, for the bit `t = rbx - 1`: `k_t` from
 `BITS`, `swap ^= k_t` into the mask `rcx = -swap`, the swaps, `swap = k_t`,
-and the formulas of RFC 7748 §5 in order. -/
+and the formulas of RFC 7748 §5, ordered by their dependencies rather than
+as the RFC lists them: the four sums and differences, the four products of
+them, and so on, so that independent multiplications are next to each other
+and the processor overlaps them (the longest chain, to `z_3`, is three
+multiplications). -/
 def step (F : Field) : List Instr :=
   [.alu .sub .rbx (.imm 1), .movzx8 .rax { base := .rdi, index := some .rbx, disp := BITS },
     .mov .rdx (.mem (sc SWAP)), .alu .xor .rdx (.reg .rax), .store (sc SWAP) .rax,
     .mov32 .rcx (.imm 0), .alu .sub .rcx (.reg .rdx)] ++
   cswap X2 X3 ++ cswap Z2 Z3 ++
-  add A X2 Z2 ++ F.sqr AA A ++ sub B X2 Z2 ++ F.sqr BB B ++ sub E AA BB ++
-  add C X3 Z3 ++ sub D X3 Z3 ++ F.mul DA D A ++ F.mul CB C B ++
-  add X3 DA CB ++ F.sqr X3 X3 ++ sub Z3 DA CB ++ F.sqr Z3 Z3 ++ F.mul Z3 X1 Z3 ++
-  F.mul X2 AA BB ++ F.a24 Z2 E ++ add Z2 AA Z2 ++ F.mul Z2 E Z2 ++
+  add A X2 Z2 ++ sub B X2 Z2 ++ add C X3 Z3 ++ sub D X3 Z3 ++
+  F.sqr AA A ++ F.sqr BB B ++ F.mul DA D A ++ F.mul CB C B ++
+  sub E AA BB ++ sub Z3 DA CB ++ add X3 DA CB ++ F.a24 Z2 E ++
+  F.sqr Z3 Z3 ++ F.sqr X3 X3 ++ add Z2 AA Z2 ++ F.mul Z3 X1 Z3 ++
+  F.mul X2 AA BB ++ F.mul Z2 E Z2 ++
   [.alu .test .rbx (.reg .rbx)]
 
 /-- The 255 iterations, for `t` from 254 down to 0. -/
@@ -346,10 +351,15 @@ def lastSwap : List Instr :=
   [.mov .rdx (.mem (sc SWAP)), .mov32 .rcx (.imm 0), .alu .sub .rcx (.reg .rdx)] ++
   cswap X2 X3 ++ cswap Z2 Z3
 
-/-- X25519 with the field multiplications `F`. -/
-def x25519With (F : Field) : Prog isa :=
-  .seq (.block setup) <| .seq bits <| .seq (.block [.mov .rsi (.reg .r12)]) <| .seq (ladder F) <|
+/-- X25519 with the ladder `lad` (which leaves the ladder's final state in the
+working space as `ladder` does) and the field multiplications `F` for the
+inversion. -/
+def x25519Of (F : Field) (lad : Prog isa) : Prog isa :=
+  .seq (.block setup) <| .seq bits <| .seq (.block [.mov .rsi (.reg .r12)]) <| .seq lad <|
     .seq (.block lastSwap) <| .seq (invert F) (.block (finish F))
+
+/-- X25519 with the field multiplications `F`. -/
+def x25519With (F : Field) : Prog isa := x25519Of F (ladder F)
 
 def x25519 : Prog isa := x25519With baseline
 

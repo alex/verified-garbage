@@ -2,12 +2,12 @@ import VerifiedGarbage.Proof.MlKem.X86_64.FragS
 import VerifiedGarbage.Proof.MlKem.KPke
 
 /-!
-# ML-KEM-768 on x86-64: `PRF` and `SamplePolyCBD₂`, and sums of products
+# ML-KEM-768 on x86-64: the input of `PRF`, and sums of products
 
-Untrusted: everything here is checked by Lean. In a layout:
-`SamplePolyCBD₂(PRF₂(σ, N))` with `σ` at `G + 32` (`prfCbd_ok`,
-`prfCbd_tr`), and `a₀ ×_T b₀ + a₁ ×_T b₁ + a₂ ×_T b₂` to polynomial 15
-(`dotAt_ok`, `dotAt_tr`).
+Untrusted: everything here is checked by Lean. In a layout: the input of
+`PRF₂(σ, N)` (`prf_pieces`, for `Prfs.lean`), and
+`a₀ ×_T b₀ + a₁ ×_T b₁ + a₂ ×_T b₂` to polynomial 15 (`dotAt_ok`,
+`dotAt_tr`).
 -/
 
 namespace VG.Proof.MlKem.X86_64
@@ -21,22 +21,7 @@ theorem keepB_sub {bs : List (Reg × Nat)} {ws ws' : List (Ptr × Nat)} {p : Ptr
   simp only [keepB, Bool.and_eq_true, List.all_eq_true] at h ⊢
   exact ⟨h.1, fun w hw => h.2 w (hs w hw)⟩
 
-/-! ## `SamplePolyCBD₂(PRF₂(σ, N))` -/
-
-/-- `σ` (or `r`): the second half of `G`'s output. -/
-abbrev sigP : Ptr := sc (oG + 32)
-
-def prfChk (bs wbs : List (Reg × Nat)) (f : Ptr) : Bool :=
-  inB bs (sc oNB) 1 && inB wbs (sc oNB) 1 && hashChk bs wbs [(sigP, 32), (sc oNB, 1)] 136 (sc oPB) 128 &&
-    twoChk bs wbs (sc oPB) 128 f 1024 && keepB bs [(sc oNB, 1)] sigP 32 && decide (NA f) && decide (f.1 ∈ bases)
-
-theorem prfChk_spec {bs wbs : List (Reg × Nat)} {f : Ptr} (h : prfChk bs wbs f = true) :
-    inB bs (sc oNB) 1 = true ∧ inB wbs (sc oNB) 1 = true ∧
-      hashChk bs wbs [(sigP, 32), (sc oNB, 1)] 136 (sc oPB) 128 = true ∧
-      twoChk bs wbs (sc oPB) 128 f 1024 = true ∧ keepB bs [(sc oNB, 1)] sigP 32 = true ∧ NA f ∧ f.1 ∈ bases := by
-  simp only [prfChk, Bool.and_eq_true, decide_eq_true_eq] at h
-  obtain ⟨⟨⟨⟨⟨⟨h0, h1⟩, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩ := h
-  exact ⟨h0, h1, h2, h3, h4, h5, h6⟩
+/-! ## `PRF₂(σ, N)` -/
 
 theorem shake31 : BitVec.ofNat 8 0x1f = Spec.Sha3.shakeSuffix := by decide
 
@@ -44,42 +29,6 @@ theorem shake31 : BitVec.ofNat 8 0x1f = Spec.Sha3.shakeSuffix := by decide
 theorem prf_pieces {s : State} {N : Nat} (hN : bytesAt s.mem (pa s (sc oNB)) 1 = [BitVec.ofNat 8 N]) :
     pieces s [(sigP, 32), (sc oNB, 1)] = bytesAt s.mem (pa s sigP) 32 ++ [BitVec.ofNat 8 N] := by
   simp only [pieces, List.flatMap_cons, List.flatMap_nil, List.append_nil, hN]
-
-theorem prfCbd_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
-    (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {N : Nat} (hN : N < 256) {f : Ptr} (hc : prfChk (rbs ++ wbs) wbs f = true) :
-    WP isa (prfCbd sigP N f) s fun s' =>
-      PPost s s' ([(sc oNB, 1)] ++ [(sc 0, 200), (sc 200, 640), (sc oPB, 128)] ++ [(f, 1024)]) ∧
-      PolyIs s'.mem (pa s f) (Proof.MlKem.cbd (bytesAt s.mem (pa s sigP) 32) N) := by
-  obtain ⟨_, hNB, hh, htw, hk, hna, hfb⟩ := prfChk_spec hc
-  unfold prfCbd
-  refine WP.seq (WP.mono (setB_okL L (by decide) hN hNB) fun s₁ ⟨hP₁, hb₁⟩ => ?_)
-  have L₁ := L.post hP₁.b hcs
-  refine WP.seq (WP.mono (hash_ok hcs hh (by decide) L₁) fun s₂ ⟨hP₂, ho₂⟩ => ?_)
-  have L₂ := L₁.post hP₂.b hcs
-  refine WP.mono (cbd2At_okL L₂ hna htw) fun s₃ ⟨hP₃, hp₃⟩ => ⟨PPost.app (PPost.app hP₁ hP₂ (by decide)) hP₃
-    (by simp only [List.mem_singleton, forall_eq]; exact (by
-      simp only [bases, List.mem_cons, List.not_mem_nil, or_false] at hfb
-      rcases hfb with h | h | h | h | h <;> rw [h] <;> decide)), ?_⟩
-  have e1 : pa s₁ (sc oNB) = pa s (sc oNB) := hP₁.pa rbx_cs
-  have e2 : pa s₂ (sc oPB) = pa s₁ (sc oPB) := hP₂.pa rbx_cs
-  have ef : pa s₂ f = pa s f := by rw [hP₂.b.pa hfb, hP₁.b.pa hfb]
-  have hσ : bytesAt s₁.mem (pa s₁ sigP) 32 = bytesAt s.mem (pa s sigP) 32 := L.keepBytes hP₁.b hk
-  rw [← ef]
-  rw [e2, ho₂, prf_pieces (by rw [e1]; exact hb₁), hσ, shake31] at hp₃
-  rw [Proof.MlKem.cbd, prf_eq]
-  exact hp₃
-
-theorem prfCbd_tr {rbs wbs : List (Reg × Nat)} (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {N : Nat} (hN : N < 256)
-    {f : Ptr} (hc : prfChk (rbs ++ wbs) wbs f = true)
-    (ht : (taint.check (X86_64.Taint.ofRegs [.rbx]) (.block (setB (sc oNB) N)) (.block [])).isSome = true) :
-    RelCT isa (LRel rbs wbs) (prfCbd sigP N f) fun _ _ => True := by
-  obtain ⟨hin, hNB, hh, htw, _, hna, _⟩ := prfChk_spec hc
-  unfold prfCbd
-  exact RelCT.seq (LRel.step hcs (taintRel [.rbx] (fun x y h r hr => by
-      simp only [List.mem_singleton] at hr; subst hr; exact h.eq hin) ht)
-    fun x Lx => WP.mono (setB_okL Lx (by decide) hN hNB) fun _ h => ⟨_, h.1⟩)
-    (RelCT.seq (LRel.step hcs (hash_tr hcs hh (by decide))
-      fun x Lx => WP.mono (hash_ok hcs hh (by decide) Lx) fun _ h => ⟨_, h.1⟩) (cbd2At_trL hna htw))
 
 /-! ## Sequences, for constant time -/
 
