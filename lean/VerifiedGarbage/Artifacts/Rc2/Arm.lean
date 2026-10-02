@@ -1,12 +1,43 @@
 import VerifiedGarbage.Proof.Rc2.Arm.Block
 import VerifiedGarbage.Proof.Rc2.Arm.Key
 import VerifiedGarbage.Proof.Rc2.Arm.Cbc.Verified
+import VerifiedGarbage.Proof.Rc2.Arm.Stream.Verified
 
 /-! # RC2 artifacts on baseline ARMv7 -/
 
 namespace VG.Artifacts.Rc2.Arm
 
 def artifacts : List Artifact := [
+  { Spec.Rc2.cbcInitApi with
+    target := Arm.target
+    doc := Spec.Rc2.cbcInitApi.doc (notes := ["Baseline ARMv7, copying the IV and calling the verified \
+      key expansion."])
+    code := Impl.Rc2.Arm.Stream.init
+    contract := Spec.Rc2.cbcInitContract Arm.abi 8
+    stack := 8
+    ofSig := ⟨_, _, _, by unfold Spec.Rc2.cbcInitContract; rfl⟩
+    verified := Proof.Rc2.Arm.Stream.init_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.Rc2.cbcEncryptUpdateApi with
+    target := Arm.target
+    doc := Spec.Rc2.cbcEncryptUpdateApi.doc (notes := ["Baseline ARMv7, copying bytes one at a time and \
+      calling the verified RC2-CBC encryption."])
+    code := Impl.Rc2.Arm.Stream.encryptUpdate
+    contract := Spec.Rc2.cbcEncryptUpdateContract Arm.abi 8
+    stack := 8
+    ofSig := ⟨_, _, _, by unfold Spec.Rc2.cbcEncryptUpdateContract Spec.Rc2.cbcUpdateContract; rfl⟩
+    verified := Proof.Rc2.Arm.Stream.encryptUpdate_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
+  { Spec.Rc2.cbcDecryptUpdateApi with
+    target := Arm.target
+    doc := Spec.Rc2.cbcDecryptUpdateApi.doc (notes := ["Baseline ARMv7, copying bytes one at a time and \
+      calling the verified RC2-CBC decryption."])
+    code := Impl.Rc2.Arm.Stream.decryptUpdate
+    contract := Spec.Rc2.cbcDecryptUpdateContract Arm.abi 8
+    stack := 8
+    ofSig := ⟨_, _, _, by unfold Spec.Rc2.cbcDecryptUpdateContract Spec.Rc2.cbcUpdateContract; rfl⟩
+    verified := Proof.Rc2.Arm.Stream.decryptUpdate_verified
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.Rc2.cbcEncryptApi with
     target := Arm.target
     doc := Spec.Rc2.cbcEncryptApi.doc
