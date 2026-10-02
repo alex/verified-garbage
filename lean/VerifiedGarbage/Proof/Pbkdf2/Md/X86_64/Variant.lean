@@ -60,7 +60,7 @@ structure MdHash where
   H : Hash
   /-- The instance of the shared contracts. -/
   I : Spec.Hmac.Instance
-  hmacInit : Verified X86_64.target H.hmacInit (I.initContract X86_64.abi 16)
+  hmacInit : Verified X86_64.target H.hmacInit (I.initAnyKeyContract X86_64.abi 16)
   hmacFin : Verified X86_64.target H.hmacFin (I.finalizeContract X86_64.abi 16)
   iterate : Verified X86_64.target H.iterate (I.iterateContract X86_64.abi 8)
   pbkdf2 : Verified X86_64.target H.pbkdf2 (I.pbkdf2Contract X86_64.abi 24)
@@ -90,10 +90,11 @@ variable {H : Hash} {I : Spec.Hmac.Instance} (hH : HashOK H) (C : CoreOK (core H
   (hSH : hH.SH = I.S) (hW : H.W = I.scratch)
 include hH C K hSH hW
 
-theorem hmacInit_of (hs : ∃ s, (I.initContract X86_64.abi 16).pre s) :
-    Verified X86_64.target H.hmacInit (I.initContract X86_64.abi 16) := by
-  simp only [Spec.Hmac.Instance.initContract, ← hSH, ← hW] at hs ⊢
-  exact hmacInit_verified hH C K hs
+theorem hmacInit_of (hs : ∃ s, (I.initAnyKeyContract X86_64.abi 16).pre s) :
+    Verified X86_64.target H.hmacInit (I.initAnyKeyContract X86_64.abi 16) := by
+  simp only [Spec.Hmac.Instance.initAnyKeyContract, Spec.Hmac.Instance.initAnyKeyScratch, ← hSH, ← hW,
+    hH.hS] at hs ⊢
+  exact hmacInitAny_verified hH C K hs
 
 theorem hmacFin_of (hs : ∃ s, (I.finalizeContract X86_64.abi 16).pre s) :
     Verified X86_64.target H.hmacFin (I.finalizeContract X86_64.abi 16) := by
@@ -122,13 +123,14 @@ need of it and the satisfiability of the shared contracts. -/
 def MdHash.of {H : Hash} {I : Spec.Hmac.Instance} (hH : HashOK H) (C : CoreOK (core H)) (K : Callees H)
     (hSH : hH.SH = I.S) (hW : H.W = I.scratch)
     (hsI : ∃ s, (I.initContract X86_64.abi 16).pre s)
+    (hsA : ∃ s, (I.initAnyKeyContract X86_64.abi 16).pre s)
     (hsF : ∃ s, (I.finalizeContract X86_64.abi 16).pre s)
     (hsT : ∃ s, (I.iterateContract X86_64.abi 8).pre s)
     (hsP : ∃ s, (I.pbkdf2Contract X86_64.abi 24).pre s)
     (suffix : String) (features : List String) (stream : List StreamFn) : MdHash where
   H := H
   I := I
-  hmacInit := MdHash.hmacInit_of hH C K hSH hW hsI
+  hmacInit := MdHash.hmacInit_of hH C K hSH hW hsA
   hmacFin := MdHash.hmacFin_of hH C K hSH hW hsF
   iterate := MdHash.iterate_of hH C K hSH hW hsT
   pbkdf2 := MdHash.pbkdf2_of hH C K hSH hW hsI hsF hsT hsP

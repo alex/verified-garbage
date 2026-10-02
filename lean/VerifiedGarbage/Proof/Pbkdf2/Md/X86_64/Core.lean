@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Pbkdf2CT
 import VerifiedGarbage.Proof.Pbkdf2.X86_64.IterateCT
-import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Instances
+import VerifiedGarbage.Proof.Hmac.Generic.X86_64.InitAny
 import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.HmacFin
 
 /-!
@@ -22,7 +22,7 @@ namespace VG.Proof.Pbkdf2.Md.X86_64
 
 open VG.X86_64
 open VG.Impl.Pbkdf2.Md.X86_64 (Hash)
-open VG.Proof.Hmac.Generic.X86_64 (initG finG)
+open VG.Proof.Hmac.Generic.X86_64 (initG initAnyG finG)
 open VG.Proof.Pbkdf2.X86_64 (iterK iterImp)
 
 /-- No instruction of `c` writes `rsp`, from a check that runs in the kernel. -/
@@ -44,7 +44,8 @@ theorem core_pbkdf2 (h : (core H).pbkdf2.allInstrs p = true) : H.pbkdf2.allInstr
   simp only [Hash.pbkdf2, Hash.key, Hash.hashKey, Hash.setup, Hash.block, Hash.outLen, Hash.outLoop,
     Hash.hmacInit, Hash.hmacFin, Hash.iterate, Impl.Pbkdf2.X86_64.iterate, Impl.Pbkdf2.X86_64.body,
     Impl.Pbkdf2.X86_64.compressBlock, Hash.updC, Hash.finC, Hash.stream,
-    Impl.Hmac.Generic.X86_64.Hash.init,
+    Impl.Hmac.Generic.X86_64.Hash.initAny, Impl.Hmac.Generic.X86_64.Hash.hashKey,
+    Impl.Hmac.Generic.X86_64.Hash.callInit', Impl.Hmac.Generic.X86_64.Hash.init,
     Impl.Hmac.Generic.X86_64.Hash.callInit, Impl.Hmac.Generic.X86_64.Hash.callUpd,
     Impl.Hmac.Generic.X86_64.Hash.callFin,
     Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody, Impl.MdStream.X86_64.updateTail,
@@ -54,11 +55,13 @@ theorem core_pbkdf2 (h : (core H).pbkdf2.allInstrs p = true) : H.pbkdf2.allInstr
   exact h
 
 theorem core_hmacInit (h : (core H).hmacInit.allInstrs p = true) : H.hmacInit.allInstrs p = true := by
-  simp only [Hash.hmacInit, Hash.updC, Hash.stream,
-    Impl.Hmac.Generic.X86_64.Hash.init, Impl.Hmac.Generic.X86_64.Hash.callInit,
-    Impl.Hmac.Generic.X86_64.Hash.callUpd,
+  simp only [Hash.hmacInit, Hash.updC, Hash.finC, Hash.stream,
+    Impl.Hmac.Generic.X86_64.Hash.initAny, Impl.Hmac.Generic.X86_64.Hash.hashKey,
+    Impl.Hmac.Generic.X86_64.Hash.callInit', Impl.Hmac.Generic.X86_64.Hash.init,
+    Impl.Hmac.Generic.X86_64.Hash.callInit, Impl.Hmac.Generic.X86_64.Hash.callUpd,
     Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody, Impl.MdStream.X86_64.updateTail,
-    Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressWith,
+    Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith,
+    Impl.MdStream.X86_64.finalize, Impl.MdStream.X86_64.finalizeBody,
     core, Code.allInstrs, hc, hi, Bool.and_true, Bool.true_and] at h ⊢
   exact h
 
@@ -101,11 +104,13 @@ variable {H : Hash} (hc : H.compC.depth = 0) (hi : H.initC.depth = 0)
 include hc hi
 
 theorem core_hmacInit_depth (h : (core H).hmacInit.depth ≤ 2) : H.hmacInit.depth ≤ 2 := by
-  simp only [Hash.hmacInit, Hash.updC, Hash.stream,
-    Impl.Hmac.Generic.X86_64.Hash.init, Impl.Hmac.Generic.X86_64.Hash.callInit,
-    Impl.Hmac.Generic.X86_64.Hash.callUpd,
+  simp only [Hash.hmacInit, Hash.updC, Hash.finC, Hash.stream,
+    Impl.Hmac.Generic.X86_64.Hash.initAny, Impl.Hmac.Generic.X86_64.Hash.hashKey,
+    Impl.Hmac.Generic.X86_64.Hash.callInit', Impl.Hmac.Generic.X86_64.Hash.init,
+    Impl.Hmac.Generic.X86_64.Hash.callInit, Impl.Hmac.Generic.X86_64.Hash.callUpd,
     Impl.MdStream.X86_64.update, Impl.MdStream.X86_64.updateBody, Impl.MdStream.X86_64.updateTail,
-    Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressWith,
+    Impl.MdStream.X86_64.compressN, Impl.MdStream.X86_64.compressAt, Impl.MdStream.X86_64.compressWith,
+    Impl.MdStream.X86_64.finalize, Impl.MdStream.X86_64.finalizeBody,
     core, Code.depth, hc, hi] at h ⊢
   exact h
 
@@ -156,6 +161,7 @@ structure CoreOK (C : Hash) : Prop where
   pbk : Pbk.Checks C
   iter : VG.Proof.Pbkdf2.X86_64.Checks C.P C.D
   hinit : Hmac.Generic.X86_64.Init.Checks C.stream
+  hinitA : Hmac.Generic.X86_64.InitAny.Checks C.stream
   hfin : HmacFin.Checks C
   pbkMx : C.pbkdf2.allInstrs (fun i => !loadsMxcsr i) = true
   pbkSp : C.pbkdf2.allInstrs (fun i => !isa.writesSp i) = true
@@ -180,6 +186,11 @@ structure CoreOK (C : Hash) : Prop where
   /-- HMAC's buffers fit in the working space. -/
   fitI : C.stream.buf + 2 * C.stream.B ≤ 8 * C.W
   fitF : C.stream.buf + C.stream.F ≤ 8 * C.W
+  /-- The streaming state and the digest of a long key fit after them, in
+  `init`'s working space for a key of any length. -/
+  fitA : C.stream.ext + C.stream.S + C.stream.F ≤ 8 * (C.W + C.S)
+  /-- A digest is a key of at most a block. -/
+  dB : C.D ≤ C.P.B
 
 /-- What the kernel checks of the functions a hash function's code calls:
 its compression function and its streaming `init`. -/
@@ -229,10 +240,22 @@ section
 variable {H : Hash} (hH : HashOK H) (C : CoreOK (core H)) (K : Callees H)
 include hH C K
 
+/-- HMAC's `init`, for a key of at most a block, as `pbkdf2` calls it. -/
 theorem hmacInit_ok (hsat : ∃ s, (Spec.Hmac.initContract hH.SH H.W X86_64.abi 16).pre s) :
     Verified X86_64.target H.hmacInit (initG hH.SH H.W) :=
-  Hmac.Generic.X86_64.Init.verified hH.stream (Hmac.Generic.X86_64.Instances.Init.Checks.of_eq (H := (core H).stream) rfl rfl C.hinit)
+  Hmac.Generic.X86_64.InitAny.verifiedShort hH.stream
+    (Hmac.Generic.X86_64.Instances.Init.Checks.of_eq (H := (core H).stream) rfl rfl C.hinit)
+    (Hmac.Generic.X86_64.Instances.InitAny.Checks.of_eq (H := (core H).stream) rfl rfl rfl rfl C.hinitA)
     C.fitI (core_hmacInit K.cMx K.iMx C.hinitMx) (Hmac.Generic.X86_64.Instances.initImp _ _ hsat).sat_left
+
+/-- HMAC's `init`, for a key of any length. -/
+theorem hmacInitAny_ok (hsat : ∃ s, (Spec.Hmac.initAnyKeyContract hH.SH (H.W + H.S) X86_64.abi 16).pre s) :
+    Verified X86_64.target H.hmacInit (initAnyG hH.SH (H.W + H.S)) :=
+  Hmac.Generic.X86_64.InitAny.verifiedAny hH.stream
+    (Hmac.Generic.X86_64.Instances.Init.Checks.of_eq (H := (core H).stream) rfl rfl C.hinit)
+    (Hmac.Generic.X86_64.Instances.InitAny.Checks.of_eq (H := (core H).stream) rfl rfl rfl rfl C.hinitA)
+    C.fitA C.dB (core_hmacInit K.cMx K.iMx C.hinitMx)
+    (Hmac.Generic.X86_64.Instances.initAnyImp _ _ hsat).sat_left
 
 theorem hmacFin_ok (hsat : ∃ s, (Spec.Hmac.finalizeContract hH.SH H.W X86_64.abi 16).pre s) :
     Verified X86_64.target H.hmacFin (finG hH.SH H.W) :=
@@ -249,6 +272,12 @@ theorem iterate_ok (hsat : ∃ s, (Spec.Pbkdf2.iterateContract hH.SH H.W X86_64.
 theorem hmacInit_verified (hsat : ∃ s, (Spec.Hmac.initContract hH.SH H.W X86_64.abi 16).pre s) :
     Verified X86_64.target H.hmacInit (Spec.Hmac.initContract hH.SH H.W X86_64.abi 16) :=
   (hmacInit_ok hH C K hsat).of_implies (Hmac.Generic.X86_64.Instances.initImp _ _ hsat)
+
+/-- HMAC's `init` for a key of any length, verified against the shared contract. -/
+theorem hmacInitAny_verified
+    (hsat : ∃ s, (Spec.Hmac.initAnyKeyContract hH.SH (H.W + H.S) X86_64.abi 16).pre s) :
+    Verified X86_64.target H.hmacInit (Spec.Hmac.initAnyKeyContract hH.SH (H.W + H.S) X86_64.abi 16) :=
+  (hmacInitAny_ok hH C K hsat).of_implies (Hmac.Generic.X86_64.Instances.initAnyImp _ _ hsat)
 
 /-- HMAC's `finalize`, verified against the shared contract. -/
 theorem hmacFin_verified (hsat : ∃ s, (Spec.Hmac.finalizeContract hH.SH H.W X86_64.abi 16).pre s) :

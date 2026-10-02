@@ -14,7 +14,9 @@ implementation, made only of calls of `H`'s own `init`, `update` and
 
 * `init(inner = x0, outer = x1, key = x2, key_len = x3, scratch = x4)`
   writes `K₀ ⊕ ipad` and `K₀ ⊕ opad` into `scratch`, then starts each state
-  with `init` and absorbs its padded key with `update`.
+  with `init` and absorbs its padded key with `update`, for a key of at most
+  a block; `initAny`, for a key of any length, first replaces a longer key
+  by its digest (`hashKey`).
 * `finalize(inner = x0, outer = x1, count = x2, out = x3, scratch = x4)`
   finalizes the inner state into `scratch`, copies the outer state over the
   inner one, absorbs that digest into it with `update`, finalizes it into
@@ -135,6 +137,39 @@ def init : Prog isa :=
   (.seq (H.callInit .x20)
   (.seq (H.callUpd [mov .x0 .x20] 0 (H.buf + H.B) H.B)
     (.block H.restore)))))
+
+/-! ## `init` for a key of any length
+
+As on x86-64: `initAny` compares `key_len` with the block size
+(`key_len >> log₂ B` is zero for a shorter key, `key_len - B` for a key of a
+block). A longer key is hashed first (`hashKey`): `init`, `update` and
+`finalize` on a streaming state at `scratch + ext`, after `init`'s buffers,
+with the digest written after the state; then `init` runs on that digest,
+`D` bytes. `hashKey` keeps its variables where `init` does (`x19` =
+`inner`, `x20` = `outer`, `x21` = `key`, `x22` = `key_len`, `x23` =
+`scratch`), saving and restoring our caller's registers and our return
+address in the same place. -/
+
+/-- Where the streaming state of a long key is: after `init`'s buffers,
+rounded up to a whole word. Its digest follows it. -/
+def ext : Nat := 8 * ((H.buf + 2 * H.B + 7) / 8)
+
+def hashKey : Prog isa :=
+  .seq (.block (H.save ++ [mov .x19 .x0, mov .x20 .x1, mov .x21 .x2, mov .x22 .x3, mov .x23 .x4,
+      .addImm .x .x0 .x23 H.ext]))
+  (.seq (.call H.initN H.initC)
+  (.seq (.block [.addImm .x .x0 .x23 H.ext, .movz .x .x1 0 0, mov .x2 .x21, mov .x3 .x22, mov .x4 .x23])
+  (.seq (.call H.updN H.updC)
+  (.seq (.block [.addImm .x .x0 .x23 H.ext, mov .x1 .x22, .addImm .x .x2 .x23 (H.ext + H.S), mov .x3 .x23])
+  (.seq (.call H.finN H.finC)
+    (.block ([mov .x0 .x19, mov .x1 .x20, mov .x4 .x23, .addImm .x .x2 .x23 (H.ext + H.S),
+      .movz .x .x3 (BitVec.ofNat 16 H.D) 0] ++ H.restore)))))))
+
+def initAny : Prog isa :=
+  .seq (.block [.lsr .x .x9 .x3 (Nat.log2 H.B)])
+  (.seq (.ite (.zero .x .x9) (.block [])
+      (.seq (.block [.subImm .x .x9 .x3 H.B]) (.ite (.zero .x .x9) (.block []) H.hashKey)))
+    H.init)
 
 /-! ## `finalize`
 

@@ -57,6 +57,8 @@ theorem coreOK : CoreOK coreH where
     argU₁ := ⟨_, by taint_decide⟩
     argU₂ := ⟨_, by taint_decide⟩
     restore := ⟨_, by taint_decide⟩ }
+  hinitA := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
+    ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
     ⟨_, by taint_decide⟩⟩
   pbkMx := by decide +kernel
@@ -81,6 +83,8 @@ theorem coreOK : CoreOK coreH where
   finD := by decide +kernel
   fitI := by decide
   fitF := by decide
+  fitA := by decide
+  dB := by decide
 
 theorem callees : Callees hash where
   cMx := by simp only [hash]; lit_decide
@@ -138,6 +142,11 @@ theorem satI : ∃ s, (Spec.Hmac.md5I.initContract X86_64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.initContract, Spec.Hmac.md5I, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.md5S, Spec.Hmac.md5, X86_64.abi, X86_64.argRegs] using initSat 80 48
 
+theorem satA : ∃ s, (Spec.Hmac.md5I.initAnyKeyContract X86_64.abi 16).pre s := by
+  inst_sat [Spec.Hmac.Instance.initAnyKeyContract, Spec.Hmac.Instance.initAnyKeyScratch, Spec.Hmac.md5I,
+    Spec.Hmac.initAnyKeyContract, Spec.Hmac.initSig, Spec.Hmac.md5S, Spec.Hmac.md5, X86_64.abi,
+    X86_64.argRegs] using initSat 80 128
+
 theorem satF : ∃ s, (Spec.Hmac.md5I.finalizeContract X86_64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.md5I, Spec.Hmac.finalizeContract,
     Spec.Hmac.finalizeSig, Spec.Hmac.md5S, Spec.Hmac.md5, X86_64.abi, X86_64.argRegs] using finSat 80 16 48
@@ -153,6 +162,6 @@ theorem satP : ∃ s, (Spec.Hmac.md5I.pbkdf2Contract X86_64.abi 24).pre s := by
 
 /-- MD5, as a variant of `MdHash`. -/
 def variant : MdHash :=
-  MdHash.of ok coreOK callees rfl rfl satI satF satT satP "" [] []
+  MdHash.of ok coreOK callees rfl rfl satI satA satF satT satP "" [] []
 
 end VG.Proof.Pbkdf2.Md.X86_64.Md5

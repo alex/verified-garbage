@@ -4,7 +4,7 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Variant
 /-!
 # HMAC (RFC 2104) over a Merkle–Damgård hash function on x86-64
 
-A generic file (see `TCB/Emit.lean`): HMAC's `init` and `finalize`, the one
+A generic file (see `TCB/Emit.lean`): HMAC's `init` (for a key of any length) and `finalize`, the one
 implementation for every Merkle–Damgård hash function
 (`Impl/Hmac/Generic/X86_64.lean`), calling the hash function's streaming
 functions made with the variant's compression function, are emitted once for
@@ -22,13 +22,13 @@ unfolding the `Instance`'s contract to the generic one, which is a
 namespace VG.Generic.MdHash.X86_64.Hmac
 
 def artifacts (v : Proof.Pbkdf2.Md.X86_64.MdHash) : List Artifact := [
-  { v.I.initApi with
-    name := v.I.initApi.name ++ v.suffix
+  { v.I.initAnyKeyApi with
+    name := v.I.initAnyKeyApi.name ++ v.suffix
     target := X86_64.target
-    doc := v.I.initApi.doc
+    doc := v.I.initAnyKeyApi.doc
     code := v.H.hmacInit
-    contract := v.I.initContract X86_64.abi 16
-    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
+    contract := v.I.initAnyKeyContract X86_64.abi 16
+    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initAnyKeyContract; rfl⟩
     writeArgs := true
     stack := 16
     verified := v.hmacInit

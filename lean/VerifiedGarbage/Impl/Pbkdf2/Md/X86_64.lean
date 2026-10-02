@@ -13,7 +13,8 @@ compression function (and its name), its streaming `init`, and the names of
 the functions emitted for it.
 
 * HMAC's `init` is the code of `Impl/Hmac/Generic/X86_64.lean` for the
-  hash function's streaming `init`, `update` and `finalize` (`Hash.stream`).
+  hash function's streaming `init`, `update` and `finalize` (`Hash.stream`),
+  for a key of any length (`initAny`).
   Its `finalize` finalizes the inner state into `scratch`, writes the outer
   hash value and that digest over the inner state (the state that absorbed
   the outer block and the digest), finalizes it, and copies the MAC to
@@ -90,8 +91,8 @@ def stream : Impl.Hmac.Generic.X86_64.Hash :=
 def copy32 (src : Reg) (so : Nat) (dst : Reg) (d n : Nat) : List Instr :=
   (List.range n).flatMap (Impl.Pbkdf2.X86_64.cp32 src dst so d)
 
-/-- HMAC's `init`. -/
-def hmacInit : Prog isa := H.stream.init
+/-- HMAC's `init`, for a key of any length. -/
+def hmacInit : Prog isa := H.stream.initAny
 
 /-! ## HMAC's `finalize`
 

@@ -62,6 +62,8 @@ theorem coreOK : CoreOK coreH where
     argU₁ := ⟨_, by taint_decide⟩
     argU₂ := ⟨_, by taint_decide⟩
     restore := ⟨_, by taint_decide⟩ }
+  hinitA := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
+    ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩⟩
   hfin := ⟨⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩, ⟨_, by taint_decide⟩,
     ⟨_, by taint_decide⟩⟩
   pbkMx := by decide +kernel
@@ -86,6 +88,8 @@ theorem coreOK : CoreOK coreH where
   finD := by decide +kernel
   fitI := by decide
   fitF := by decide
+  fitA := by decide
+  dB := by decide
 
 variable (v : Compress)
 
@@ -147,6 +151,11 @@ theorem satI : ∃ s, (Spec.Hmac.sha256I.initContract X86_64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.initContract, Spec.Hmac.sha256I, Spec.Hmac.initContract, Spec.Hmac.initSig,
     Spec.Hmac.sha256S, Spec.Hmac.sha256, X86_64.abi, X86_64.argRegs] using initSat 96 104
 
+theorem satA : ∃ s, (Spec.Hmac.sha256I.initAnyKeyContract X86_64.abi 16).pre s := by
+  inst_sat [Spec.Hmac.Instance.initAnyKeyContract, Spec.Hmac.Instance.initAnyKeyScratch, Spec.Hmac.sha256I,
+    Spec.Hmac.initAnyKeyContract, Spec.Hmac.initSig, Spec.Hmac.sha256S, Spec.Hmac.sha256, X86_64.abi,
+    X86_64.argRegs] using initSat 96 200
+
 theorem satF : ∃ s, (Spec.Hmac.sha256I.finalizeContract X86_64.abi 16).pre s := by
   inst_sat [Spec.Hmac.Instance.finalizeContract, Spec.Hmac.sha256I, Spec.Hmac.finalizeContract,
     Spec.Hmac.finalizeSig, Spec.Hmac.sha256S, Spec.Hmac.sha256, X86_64.abi, X86_64.argRegs] using finSat 96 32 104
@@ -177,6 +186,6 @@ def stream : List StreamFn := [
 
 /-- SHA-256 with the implementation `v` of its compression function. -/
 def variant : MdHash :=
-  MdHash.of (ok v) coreOK (callees v) rfl rfl satI satF satT satP v.suffix v.features (stream v)
+  MdHash.of (ok v) coreOK (callees v) rfl rfl satI satA satF satT satP v.suffix v.features (stream v)
 
 end VG.Proof.Pbkdf2.Md.X86_64.Sha256

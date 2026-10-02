@@ -89,7 +89,7 @@ def copy32 (src : Reg) (so : Nat) (dst : Reg) (d n : Nat) : List Instr :=
   (List.range n).flatMap (cp32 src dst so d)
 
 /-- HMAC's `init`. -/
-def hmacInit : Prog isa := H.stream.init
+def hmacInit : Prog isa := H.stream.initAny
 
 /-! ## HMAC's `finalize`
 

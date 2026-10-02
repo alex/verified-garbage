@@ -13,7 +13,9 @@ implementation, made only of calls of `H`'s own `init`, `update` and
 
 * `init(inner = rdi, outer = rsi, key = rdx, key_len = rcx, scratch = r8)`
   writes `K₀ ⊕ ipad` and `K₀ ⊕ opad` into `scratch`, then starts each state
-  with `init` and absorbs its padded key with `update`.
+  with `init` and absorbs its padded key with `update`, for a key of at most
+  a block; `initAny`, for a key of any length, first replaces a longer key
+  by its digest (`hashKey`).
 * `finalize(inner = rdi, outer = rsi, count = rdx, out = rcx, scratch = r8)`
   finalizes the inner state into `scratch`, copies the outer state over the
   inner one, absorbs that digest into it with `update`, finalizes it into
@@ -84,6 +86,10 @@ def restore : List Instr := H.saved.map fun (r, d) => .mov r (.mem (at_ .r15 d))
 def callInit (st : Reg) : Prog isa :=
   .seq (.block [.mov .rdi (.reg st)]) (.call H.initN H.initC)
 
+/-- A call of `init` on the state at `scratch + o`. -/
+def callInit' (o : Nat) : Prog isa :=
+  .seq (.block (scr .rdi o)) (.call H.initN H.initC)
+
 /-- A call of `update` on the state at `rdi` (set by `st`), with the count
 `count` and the `len` bytes at `scratch + o`. -/
 def callUpd (st : List Instr) (count o len : Nat) : Prog isa :=
@@ -133,6 +139,37 @@ def init : Prog isa :=
   (.seq (H.callInit .r12)
   (.seq (H.callUpd [.mov .rdi (.reg .r12)] 0 (H.buf + H.B) H.B)
     (.block H.restore)))))
+
+/-! ## `init` for a key of any length
+
+`initAny` compares `key_len` with the block size. A longer key is hashed
+first (`hashKey`): `init`, `update` and `finalize` on a streaming state at
+`scratch + ext`, after `init`'s buffers, with the digest written after the
+state; then `init` runs on that digest, `D` bytes. `hashKey` keeps its
+variables where `init` does (`rbx` = `inner`, `r12` = `outer`, `r15` =
+`scratch`, `rbp` = `key`, `r13` = `key_len`), saving and restoring our
+caller's registers in the same place. -/
+
+/-- Where the streaming state of a long key is: after `init`'s buffers,
+rounded up to a whole word. Its digest follows it. -/
+def ext : Nat := 8 * ((H.buf + 2 * H.B + 7) / 8)
+
+def hashKey : Prog isa :=
+  .seq (.block (H.save ++ [.mov .rbx (.reg .rdi), .mov .r12 (.reg .rsi), .mov .r15 (.reg .r8),
+      .mov .rbp (.reg .rdx), .mov .r13 (.reg .rcx)]))
+  (.seq (H.callInit' H.ext)
+  (.seq (.block (scr .rdi H.ext ++ [.mov32 .rsi (.imm 0), .mov .rdx (.reg .rbp), .mov .rcx (.reg .r13),
+      .mov .r8 (.reg .r15)]))
+  (.seq (.call H.updN H.updC)
+  (.seq (.block (scr .rdi H.ext ++ [.mov .rsi (.reg .r13)] ++ scr .rdx (H.ext + H.S) ++
+      [.mov .rcx (.reg .r15)]))
+  (.seq (.call H.finN H.finC)
+    (.block ([.mov .rdi (.reg .rbx), .mov .rsi (.reg .r12), .mov .r8 (.reg .r15)] ++
+      scr .rdx (H.ext + H.S) ++ [.mov32 .rcx (.imm (BitVec.ofNat 32 H.D))] ++ H.restore)))))))
+
+def initAny : Prog isa :=
+  .seq (.block [.alu .cmp .rcx (.imm (BitVec.ofNat 32 (H.B + 1)))])
+  (.seq (.ite .b (.block []) H.hashKey) H.init)
 
 /-! ## `finalize`
 
