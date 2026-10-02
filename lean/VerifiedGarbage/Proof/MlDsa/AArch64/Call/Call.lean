@@ -22,7 +22,7 @@ verified against its contract with any stack up to `S` is
 
 namespace VG.Proof.MlDsa.AArch64
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call
 open VG.Proof.MlKem.AArch64 (Only Keep)
 
 /-! ## Blocks that access no memory -/

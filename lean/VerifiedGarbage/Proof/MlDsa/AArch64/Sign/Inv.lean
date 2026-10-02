@@ -13,7 +13,7 @@ consecutive slots (`Fam`), kept by pieces that write apart from them
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
@@ -72,7 +72,7 @@ theorem famChk_one {rbs wbs : List (Reg × Nat)} {ws : List (Ptr × Nat)} {b m j
   simp only [famChk, Bool.or_eq_true, beq_iff_eq] at h
   rcases h with rfl | h
   · exact absurd hj (Nat.not_lt_zero _)
-  · refine CallLay.keepB_sub h ?_ ?_ <;> simp only [oP] <;> omega
+  · refine keepB_sub h ?_ ?_ <;> simp only [oP] <;> omega
 
 theorem Fam.keep {S : Nat} {rbs wbs : List (Reg × Nat)} {s s' : State} (L : Lay S rbs wbs s)
     {ws : List (Ptr × Nat)} (hP : PPostB S s s' ws) {b m : Nat} {f : Nat → Poly}

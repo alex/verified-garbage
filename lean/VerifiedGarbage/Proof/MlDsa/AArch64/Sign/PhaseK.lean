@@ -13,7 +13,7 @@ sum against `ω` (`onesOk_ok`); so `x24` is 1 exactly when the iteration passes
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlKem.AArch64 (Only Keep wp_movz wp_nil)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -354,7 +354,7 @@ theorem HFam.keep {D : Nat} {rbs wbs : List (Reg × Nat)} {s s' : State} (L : La
     {ws : List (Ptr × Nat)} (hP : PPostB D s s' ws) {b m : Nat} {f : Nat → Vector Bool n}
     (hc : famChk rbs wbs ws b m = true) (h : HFam s b m f) : HFam s' b m f := fun j hj => by
   have hk := famChk_one hc hj
-  rw [hP.pa (keepB_bs hk)]
+  rw [hP.pa (L.keepBs hk)]
   exact hintIs_congr (VG.Proof.MlKem.bytes_frame hP.frame (L.fdisj hk) (by decide)) (h j hj)
 
 theorem HFam.snoc {s : State} {b m : Nat} {f : Nat → Vector Bool n} (h : HFam s b m f)

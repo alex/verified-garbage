@@ -16,7 +16,7 @@ sequences of pieces indexed by a number (`seqR_ok`, `seqR_tr`).
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlKem.AArch64 (Only Keep wp_nil wp_movz wp_addImm wp_ldrx in_rd_wr)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa

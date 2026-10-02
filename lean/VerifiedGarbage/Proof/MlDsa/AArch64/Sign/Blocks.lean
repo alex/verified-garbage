@@ -18,7 +18,7 @@ and the bytes of `κ + r` for `ExpandMask` (`kapAdd_ok`, `cntDec_ok`,
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlKem.AArch64 (Only Keep MemTo wp_nil wp_movz wp_strb wp_ldrb wp_ldrw wp_strw wp_ldrx wp_strx
   wp_addImm wp_subImm wp_lsr count_loop)
 open VG.Spec.MlDsa (coeffAt integerToBytes)

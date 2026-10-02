@@ -14,7 +14,7 @@ into them, for any parameter set, which `lay` proves from the offsets by
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params scratchWords mlDsa44 mlDsa65 mlDsa87)
 open VG.Spec.Sha3 (bytesAt)
 
@@ -128,10 +128,10 @@ theorem inB_x28W (p : Params) (o l : Nat) : inB (kgW p) (.x28, o) l = decide (o 
 theorem inB_x26W (p : Params) (o l : Nat) : inB (kgW p) (.x26, o) l = decide (o + l ≤ p.pkLen) := rfl
 theorem inB_x27W (p : Params) (o l : Nat) : inB (kgW p) (.x27, o) l = decide (o + l ≤ p.skLen) := rfl
 
-theorem sepB_kg {p : Params} (bs : List (Reg × Nat)) {r r' : Reg} (h : r ≠ r') (hr : r ∈ [Reg.x25, .x26, .x27, .x28])
+theorem sepB_kg {p : Params} {r r' : Reg} (h : r ≠ r') (hr : r ∈ [Reg.x25, .x26, .x27, .x28])
     (hr' : r' ∈ [Reg.x25, .x26, .x27, .x28]) (o l o' l' : Nat) :
-    CallLay.sepB (isW (kgW p)) bs (r, o) l (r', o') l' = (inB bs (r, o) l && inB bs (r', o') l') := by
-  refine CallLay.sepB_ne bs h ?_ o l o' l'
+    sepB kgR (kgW p) (r, o) l (r', o') l' = (inB (kgR ++ kgW p) (r, o) l && inB (kgR ++ kgW p) (r', o') l') := by
+  refine sepB_ne h ?_ o l o' l'
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr hr'
   rcases hr with rfl | rfl | rfl | rfl <;> rcases hr' with rfl | rfl | rfl | rfl <;> first | exact absurd rfl h | rfl
 
@@ -142,8 +142,8 @@ macro_rules
   | `(tactic| lay) => `(tactic| lay [])
   | `(tactic| lay [$ls,*]) => `(tactic| (
       set_option linter.unusedSimpArgs false in
-      simp (config := { decide := true }) only [VG.Proof.MlDsa.AArch64.keepB, VG.CallLay.keepB,
-        VG.CallLay.sepB_same, VG.Proof.MlDsa.AArch64.KeyGen.sepB_kg,
+      simp (config := { decide := true }) only [VG.Proof.MlDsa.AArch64.keepB,
+        VG.Proof.MlDsa.AArch64.sepB_same, VG.Proof.MlDsa.AArch64.KeyGen.sepB_kg,
         VG.Proof.MlDsa.AArch64.KeyGen.inB_x25, VG.Proof.MlDsa.AArch64.KeyGen.inB_x26,
         VG.Proof.MlDsa.AArch64.KeyGen.inB_x27, VG.Proof.MlDsa.AArch64.KeyGen.inB_x28,
         VG.Proof.MlDsa.AArch64.KeyGen.inB_x26W, VG.Proof.MlDsa.AArch64.KeyGen.inB_x27W,

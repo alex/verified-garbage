@@ -30,7 +30,7 @@ The framework of the proofs of `vg_mldsa*_keygen`, `vg_mldsa*_sign` and
 
 namespace VG.Proof.MlDsa.AArch64
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call
 open VG.Proof.MlKem.AArch64 (Only Keep wp_nil wp_movz wp_movImm wp_addImm wp_add)
 open VG.Spec.Sha3 (bytesAt)
 
@@ -111,13 +111,13 @@ theorem lea_ok {d b : Reg} (hd : d ≠ b) (off : Nat) {is : List Instr} {s : Sta
     rw [e₂, h₁.get b (by simpa using hd.symm), e₁]
 
 /-- The value of an argument. -/
-def _root_.VG.Impl.MlDsa.AArch64.Arg.val (s : State) : Arg → BitVec 64
+def _root_.VG.Impl.MlDsa.AArch64.Call.Arg.val (s : State) : Arg → BitVec 64
   | .ptr p => pa s p
   | .imm v => BitVec.ofNat 64 v
 
 /-- An argument whose moves `glue` makes: a pointer based in a register the
 moves do not write. -/
-def _root_.VG.Impl.MlDsa.AArch64.Arg.Ok : Arg → Prop
+def _root_.VG.Impl.MlDsa.AArch64.Call.Arg.Ok : Arg → Prop
   | .ptr p => p.1 ∉ argRegs
   | .imm _ => True
 
@@ -236,27 +236,49 @@ end
 export VG.CallLay (inB isW lookup_mem inB_spec contains_trans inRegions_sub)
 
 /-- The `l` bytes at `p` and the `k` bytes at `q` lie within their buffers,
-apart: in different buffers, one of them written, or in the same buffer. -/
-abbrev sepB (rbs wbs : List (Reg × Nat)) (p : Ptr) (l : Nat) (q : Ptr) (k : Nat) : Bool :=
-  CallLay.sepB (isW wbs) (rbs ++ wbs) p l q k
+apart: in different buffers, one of them written, or in the same buffer
+(`CallLay.sepB`, unfolded one level for the checks' `simp`). -/
+def sepB (rbs wbs : List (Reg × Nat)) (p : Ptr) (l : Nat) (q : Ptr) (k : Nat) : Bool :=
+  inB (rbs ++ wbs) p l && inB (rbs ++ wbs) q k &&
+    ((p.1 != q.1 && (isW wbs p.1 || isW wbs q.1)) ||
+      (p.1 == q.1 && (decide (p.2 + l ≤ q.2) || decide (q.2 + k ≤ p.2))))
 
-/-- The `l` bytes at `p` lie in the layout, apart from the regions `ws`, and
-`p`'s register is one of `keptRegs`. -/
-abbrev keepB (rbs wbs : List (Reg × Nat)) (ws : List (Ptr × Nat)) (p : Ptr) (l : Nat) : Bool :=
-  CallLay.keepB (fun r => decide (r ∈ keptRegs)) (isW wbs) (rbs ++ wbs) ws p l
+/-- The `l` bytes at `p` lie in the layout, apart from the regions `ws`
+(`CallLay.keepB`; its register is one the code keeps, `Lay.bs`, so there is no
+register to check). -/
+def keepB (rbs wbs : List (Reg × Nat)) (ws : List (Ptr × Nat)) (p : Ptr) (l : Nat) : Bool :=
+  inB (rbs ++ wbs) p l && ws.all fun w => sepB rbs wbs p l w.1 w.2
+
+theorem sepB_eq (rbs wbs : List (Reg × Nat)) (p : Ptr) (l : Nat) (q : Ptr) (k : Nat) :
+    sepB rbs wbs p l q k = CallLay.sepB (isW wbs) (rbs ++ wbs) p l q k := rfl
+
+theorem keepB_eq (rbs wbs : List (Reg × Nat)) (ws : List (Ptr × Nat)) (p : Ptr) (l : Nat) :
+    keepB rbs wbs ws p l = CallLay.keepB (fun _ => true) (isW wbs) (rbs ++ wbs) ws p l := rfl
+
+/-- Two pointers into the same buffer are apart if their offsets are. -/
+theorem sepB_same (rbs wbs : List (Reg × Nat)) (r : Reg) (o l o' l' : Nat) :
+    sepB rbs wbs (r, o) l (r, o') l' =
+      (inB (rbs ++ wbs) (r, o) l && inB (rbs ++ wbs) (r, o') l' && (decide (o + l ≤ o') || decide (o' + l' ≤ o))) :=
+  CallLay.sepB_same _ _ r o l o' l'
+
+/-- Two pointers into different buffers, one of them written, are apart. -/
+theorem sepB_ne {rbs wbs : List (Reg × Nat)} {r r' : Reg} (h : r ≠ r') (hw : (isW wbs r || isW wbs r') = true)
+    (o l o' l' : Nat) :
+    sepB rbs wbs (r, o) l (r', o') l' = (inB (rbs ++ wbs) (r, o) l && inB (rbs ++ wbs) (r', o') l') :=
+  CallLay.sepB_ne _ h hw o l o' l'
 
 theorem sepB_spec {rbs wbs : List (Reg × Nat)} {p q : Ptr} {l k : Nat} (h : sepB rbs wbs p l q k = true) :
     inB (rbs ++ wbs) p l = true ∧ inB (rbs ++ wbs) q k = true ∧
       ((p.1 ≠ q.1 ∧ (isW wbs p.1 || isW wbs q.1) = true) ∨ (p.1 = q.1 ∧ (p.2 + l ≤ q.2 ∨ q.2 + k ≤ p.2))) :=
-  CallLay.sepB_spec h
-
-theorem keepB_bs {rbs wbs : List (Reg × Nat)} {ws : List (Ptr × Nat)} {p : Ptr} {l : Nat}
-    (hc : keepB rbs wbs ws p l = true) : p.1 ∈ keptRegs :=
-  of_decide_eq_true (CallLay.keepB_kp (kp := fun r => decide (r ∈ keptRegs)) hc)
+  CallLay.sepB_spec (sepB_eq .. ▸ h)
 
 theorem keepB_in {rbs wbs : List (Reg × Nat)} {ws : List (Ptr × Nat)} {p : Ptr} {l : Nat}
     (hc : keepB rbs wbs ws p l = true) : inB (rbs ++ wbs) p l = true :=
-  CallLay.keepB_in hc
+  CallLay.keepB_in (keepB_eq .. ▸ hc)
+
+theorem keepB_sub {rbs wbs : List (Reg × Nat)} {ws : List (Ptr × Nat)} {r : Reg} {o L o' l : Nat}
+    (h : keepB rbs wbs ws (r, o) L = true) (h1 : o ≤ o') (h2 : o' + l ≤ o + L) : keepB rbs wbs ws (r, o') l = true :=
+  keepB_eq .. ▸ CallLay.keepB_sub (keepB_eq .. ▸ h) h1 h2
 
 /-! ## Regions -/
 
@@ -313,7 +335,7 @@ theorem sub_of_inB {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) :
 
 theorem Lay.disj {p q : Ptr} {l k : Nat} (h : sepB rbs wbs p l q k = true) :
     Region.Disjoint ⟨pa s p, l⟩ ⟨pa s q, k⟩ :=
-  L.toLay.disj h
+  L.toLay.disj (sepB_eq .. ▸ h)
 
 theorem Lay.stkD {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) :
     (below s.sp S).Disjoint ⟨pa s p, l⟩ :=
@@ -382,42 +404,44 @@ variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s s' : State} (L : Lay S rbs w
   {p : Ptr} {l : Nat}
 include L
 
+theorem Lay.keepBs (hc : keepB rbs wbs ws p l = true) : p.1 ∈ keptRegs := L.ptrBs (keepB_in hc)
+
 theorem Lay.fdisj (hc : keepB rbs wbs ws p l = true) :
     ∀ r ∈ ws.map (toR s) ++ [below s.sp S], Region.Disjoint ⟨pa s p, l⟩ r :=
-  L.toLay.fdisj hc
+  L.toLay.fdisj (keepB_eq .. ▸ hc)
 
 theorem Lay.keepBytes (hP : PPostB S s s' ws) (hc : keepB rbs wbs ws p l = true) :
     bytesAt s'.mem (pa s' p) l = bytesAt s.mem (pa s p) l := by
-  rw [hP.pa (keepB_bs hc)]
+  rw [hP.pa (L.keepBs hc)]
   obtain ⟨n, hn, hl⟩ := inB_spec (keepB_in hc)
   exact Proof.MlKem.bytesAt_frame hP.frame (L.fdisj hc) (by have := L.small _ hn; simp only at this; omega)
 
 theorem Lay.keepPoly {f : Spec.MlDsa.Poly} (hP : PPostB S s s' ws) (hc : keepB rbs wbs ws p 1024 = true)
     (h : Spec.MlDsa.PolyIs s.mem (pa s p) f) : Spec.MlDsa.PolyIs s'.mem (pa s' p) f := by
-  rw [hP.pa (keepB_bs hc)]
+  rw [hP.pa (L.keepBs hc)]
   exact Proof.MlDsa.Verify.polyIs_frame hP.frame (L.fdisj hc) h
 
 theorem Lay.keepPolyAt (hP : PPostB S s s' ws) (hc : keepB rbs wbs ws p 1024 = true) :
     Spec.MlDsa.polyAt s'.mem (pa s' p) = Spec.MlDsa.polyAt s.mem (pa s p) := by
-  rw [hP.pa (keepB_bs hc)]
+  rw [hP.pa (L.keepBs hc)]
   exact Proof.MlDsa.Verify.polyAt_frame hP.frame (L.fdisj hc)
 
 theorem Lay.keepRed (hP : PPostB S s s' ws) (hc : keepB rbs wbs ws p 1024 = true)
     (h : Spec.MlDsa.Reduced s.mem (pa s p)) : Spec.MlDsa.Reduced s'.mem (pa s' p) := by
-  rw [hP.pa (keepB_bs hc)]
+  rw [hP.pa (L.keepBs hc)]
   exact Proof.MlDsa.Verify.reduced_frame hP.frame (L.fdisj hc) h
 
 theorem Lay.keepHint {k : Nat} {h : List (Vector Bool Spec.MlDsa.n)} (hP : PPostB S s s' ws)
     (hc : keepB rbs wbs ws p (1024 * k) = true)
     (hh : Spec.MlDsa.HintIs s.mem (pa s p) k h) : Spec.MlDsa.HintIs s'.mem (pa s' p) k h := by
-  rw [hP.pa (keepB_bs hc)]
+  rw [hP.pa (L.keepBs hc)]
   obtain ⟨n, hn, hl⟩ := inB_spec (keepB_in hc)
   exact Proof.MlDsa.Verify.hintIs_frame hP.frame (by have := L.small _ hn; simp only at this; omega)
     (L.fdisj hc) hh
 
 theorem Lay.keepW (hP : PPostB S s s' ws) (hc : keepB rbs wbs ws p 8 = true) :
     s'.mem.readW (pa s' p) 64 = s.mem.readW (pa s p) 64 := by
-  rw [hP.pa (keepB_bs hc)]
+  rw [hP.pa (L.keepBs hc)]
   exact hP.frame.readW (Region.contains_self _ _) (L.fdisj hc) (by decide)
 
 end

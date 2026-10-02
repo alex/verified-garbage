@@ -9,7 +9,7 @@ NTT(s₁[j])` in place (`nttS_piece`).
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params Poly IPoly toRq ntt polyAt coeffAt Reduced PolyIs bitPack)
 open VG.Proof.MlDsa.KeyGen (Small ifp ifn)
 open VG.Spec.Sha3 (bytesAt)

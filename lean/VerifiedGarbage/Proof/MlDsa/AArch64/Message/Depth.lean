@@ -37,7 +37,7 @@ theorem DLe.loop {c : isa.Cond} {a : Prog isa} (ha : DLe d a) : DLe d (.loop a c
 theorem DLe.call {c : Prog isa} (n : String) (h : DLe d c) : DLe d (.call n c) := ⟨h.1⟩
 
 theorem DLe.seqR {f : Nat → Prog isa} (h : ∀ k, DLe d (f k)) :
-    ∀ a n, DLe d (Impl.MlDsa.AArch64.seqR f a n)
+    ∀ a n, DLe d (Impl.MlDsa.AArch64.Call.seqR f a n)
   | _, 0 => DLe.block _
   | a, n + 1 => DLe.seq (h a) (DLe.seqR h (a + 1) n)
 

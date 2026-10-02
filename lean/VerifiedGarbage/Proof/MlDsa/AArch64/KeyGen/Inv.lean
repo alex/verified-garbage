@@ -14,7 +14,7 @@ correctness and constant time together.
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params keyGenSeeds)
 open VG.Spec.Sha3 (bytesAt)
 

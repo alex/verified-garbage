@@ -11,7 +11,7 @@ arguments into their registers (`glue`: an `add`, or a `movz` (and `movk`s)
 and an `add`, for a pointer; a `movz` (and `movk`s) for an integer).
 -/
 
-namespace VG.Impl.MlDsa.AArch64
+namespace VG.Impl.MlDsa.AArch64.Call
 
 open VG.AArch64
 
@@ -61,4 +61,4 @@ def seqR (f : Nat → Prog isa) (a : Nat) : Nat → Prog isa
   | 0 => .block []
   | n + 1 => .seq (f a) (seqR f (a + 1) n)
 
-end VG.Impl.MlDsa.AArch64
+end VG.Impl.MlDsa.AArch64.Call

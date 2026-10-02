@@ -24,7 +24,7 @@ proofs hold for any code that meets their contracts.
 
 namespace VG.Impl.MlDsa.AArch64.Sign
 
-open VG.AArch64
+open VG.AArch64 VG.Impl.MlDsa.AArch64.Call
 
 /-- The code of the polynomial primitives that signing calls. -/
 structure Prims where

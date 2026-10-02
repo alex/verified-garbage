@@ -24,7 +24,7 @@ that it can be proven for any implementations of them.
 
 namespace VG.Impl.MlDsa.AArch64.KeyGen
 
-open VG.AArch64
+open VG.AArch64 VG.Impl.MlDsa.AArch64.Call
 
 /-- Where the caller's `x24`–`x28` and `x30` are saved in `scratch`. -/
 def SV : Nat := 840

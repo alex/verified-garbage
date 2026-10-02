@@ -12,7 +12,7 @@ depend only on the pointers (`cmp_taint`, in `Final.lean`).
 
 namespace VG.Proof.MlDsa.AArch64.Verify
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
 open VG.Proof.MlDsa.AArch64.KeyGen
 open VG.Proof.MlKem.AArch64 (Keep Only wp_ldrb wp_eor wp_orr wp_addImm wp_subImm wp_lsr wp_movz wp_nil count_loop
   ptr_add ptr_zero)

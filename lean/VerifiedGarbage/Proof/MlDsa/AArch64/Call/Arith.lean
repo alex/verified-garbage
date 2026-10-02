@@ -12,7 +12,7 @@ registers agree leak the same (`…_tr`).
 
 namespace VG.Proof.MlDsa.AArch64
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call
 open VG.Spec.MlDsa
 
 /-! ## `NTT` and `NTT⁻¹` -/

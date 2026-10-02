@@ -17,7 +17,7 @@ namespace VG.Proof.MlDsa.AArch64
 
 variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Call
 open VG.Proof.MlKem.AArch64 (HSetup PieceOk preg pbytes Kept Outs hashWith_ok)
 open VG.Spec.Sha3 (bytesAt)
 
