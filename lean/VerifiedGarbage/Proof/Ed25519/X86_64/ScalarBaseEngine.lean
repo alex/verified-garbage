@@ -74,20 +74,4 @@ def BaseEngineCorrect (engine : Prog isa) : Prop :=
         encodedValue (Spec.Ed25519.pointMul (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem k 32))
           Spec.Ed25519.basePoint)
 
-theorem scalarBaseEngine_ok {s : State} {base k : Addr} (hs : Scratch s base) (hp : s.gpr .rsi = k)
-    (hr : ∀ q < 32, InRegions (s.rd ++ s.wr) (off k q) 1)
-    (hd : ∀ q < 32, 8192 ≤ ofs base (off k q)) :
-    WP isa (scalarBaseEngine fld) s fun t => PowersKeep base 56 7368 s t ∧
-      val4 (t.gpr .r8) (t.gpr .r9) (t.gpr .r10) (t.gpr .r11) =
-        encodedValue (Spec.Ed25519.pointMul (Spec.Ed25519.decodeLE (Spec.Ed25519.bytesAt s.mem k 32))
-          Spec.Ed25519.basePoint) := by
-  rw [scalarBaseEngine]
-  refine WP.seq (WP.mono (scalarBasePrepare_ok hs hp hr hd) fun b ⟨kab, bp, bd, bbits, hscalar⟩ => ?_)
-  refine WP.seq (WP.mono (pointMultiply_ok (kab.scratch hs) 16 _ (by decide) (by decide) hscalar bd bbits)
-    fun c ⟨cp, _, kc⟩ => ?_)
-  refine WP.mono (pointEncode_ok (kc.scratch (kab.scratch hs))) fun t ⟨kt, tv⟩ => ?_
-  refine ⟨(kab.trans kc).trans (PowersKeep.of_rbx kt), ?_⟩
-  change val4 (t.gpr .r8) (t.gpr .r9) (t.gpr .r10) (t.gpr .r11) = encodedValue (point (env c.mem base) 0 1 2 3) at tv
-  rw [tv, cp, bp]
-
 end VG.Proof.Ed25519.X86_64

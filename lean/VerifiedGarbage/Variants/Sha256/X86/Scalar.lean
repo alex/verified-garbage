@@ -9,6 +9,8 @@ open VG.X86
 materialize_code sha256HInit := Impl.Hmac.Sha256.X86.init "vg_sha256_compress" Impl.Sha256.X86.compress
 materialize_code sha256HFinalize := Impl.Hmac.Sha256.X86.finalize "vg_sha256_compress" Impl.Sha256.X86.compress
 materialize_code sha256HIterate := Impl.Pbkdf2.Sha256.X86.iterate "vg_sha256_compress" Impl.Sha256.X86.compress
+materialize_code sha256HPbkdf2 := (Proof.Pbkdf2.Whole.X86.sha256Fns "" "vg_sha256_compress" Impl.Sha256.X86.compress
+  Impl.Sha256.X86.Stream.update Impl.Sha256.X86.Stream.finalize).pbkdf2
 
 /-- Generic registration preserves every scalar construction instruction. -/
 theorem scalar_code_unchanged :
@@ -57,5 +59,20 @@ def variant : Proof.Sha256.X86.Variants.Backend where
   initSp := Code.all_of_allInstrs (by lit_decide)
   finSp := Code.all_of_allInstrs (by lit_decide)
   iterSp := Code.all_of_allInstrs (by lit_decide)
+  updC := Impl.Sha256.X86.Stream.update
+  upd := Proof.Sha256.X86.Stream.Update.update_verified
+  updNoSp := NoSp.of_all (by lit_decide)
+  updStack := by lit_decide
+  finC := Impl.Sha256.X86.Stream.finalize
+  fin := Proof.Sha256.X86.Stream.Finalize.finalize_verified
+  finNoSp := NoSp.of_all (by lit_decide)
+  finStack := by lit_decide
+  initNoSp := NoSp.of_all (by lit_decide)
+  initStack := by lit_decide
+  finalizeNoSp := NoSp.of_all (by lit_decide)
+  finalizeStack := by lit_decide
+  iterNoSp := NoSp.of_all (by lit_decide)
+  iterStack := by lit_decide
+  pbkdf2Sp := Code.all_of_allInstrs (by lit_decide)
 
 end VG.Variants.Sha256.X86.Scalar

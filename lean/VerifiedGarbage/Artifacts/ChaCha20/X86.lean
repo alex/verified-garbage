@@ -29,7 +29,7 @@ def artifacts : List Artifact := [
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.ChaCha20.xorApi with
     target := X86.target
-    doc := Spec.ChaCha20.xorApi.doc
+    doc := Spec.ChaCha20.xorApi.doc (notes := ["Calls `vg_chacha20_block` for each 64 bytes."])
     code := Impl.ChaCha20.X86.Xor.xor
     contract := Spec.ChaCha20.xorContract X86.abi 12
     stack := 12

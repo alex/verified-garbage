@@ -24,9 +24,14 @@
 //! On x86-64, CPUs with AVX-512F run `vg_chacha20_apply_avx512` instead, which
 //! has the same contract and XORs sixteen blocks at a time
 //! (`vg_chacha20_xor_avx512`), and other CPUs with AVX2 run
-//! `vg_chacha20_apply_avx2`, which XORs eight. On AArch64,
-//! `vg_chacha20_apply_neon` XORs whole blocks with the NEON backend, which
-//! computes four blocks in AdvSIMD lanes alongside one in integer registers.
+//! `vg_chacha20_apply_avx2`, which XORs eight (`vg_chacha20_xor_avx2`).
+//! On AArch64, CPUs with AdvSIMD (the baseline) run `vg_chacha20_apply_neon`,
+//! which XORs whole blocks with `vg_chacha20_xor_neon`: five independent
+//! blocks at a time, four in AdvSIMD lanes and one in the integer registers,
+//! then two to four more in AdvSIMD lanes if at least two remain, and the
+//! block function for the rest (at most two blocks).
+//! On every target, the keystream of a partial block, which the streaming
+//! state buffers, comes from the scalar `vg_chacha20_block`.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -53,7 +58,8 @@ use crate::zeroize::zeroize;
 pub(crate) enum Backend {
     /// Constant-time scalar code, for the target's baseline ISA.
     Scalar,
-    /// Four independent blocks in baseline AArch64 AdvSIMD lanes.
+    /// Five independent blocks at a time, four in baseline AArch64 AdvSIMD
+    /// lanes and one in the integer registers.
     #[cfg(target_arch = "aarch64")]
     Neon,
     /// AVX2, eight blocks at a time.

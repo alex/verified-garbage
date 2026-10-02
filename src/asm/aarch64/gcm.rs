@@ -213,9 +213,11 @@ pub(crate) unsafe extern "C" fn vg_ghash(h: *const [u8; 16], y: *mut [u8; 16], d
 /// The CPU features `vg_ghash_pmull` requires (`Artifact.features`).
 pub(crate) const VG_GHASH_PMULL_FEATURES: &[&str] = &["aes"];
 
-/// GHASH (SP 800-38D §6.4), with PMULL: replaces the block `*y` with `GHASH_H` continued from `*y` over the `n` 16-byte blocks starting at `data`, where `H` is the hash subkey `*h` (`Y ← (Y ⊕ Xᵢ) • H` for each block `Xᵢ`, in order). Eight blocks at a time, with `H²` to `H⁸` computed on each call that has at least eight blocks, then four, two and one.
+/// GHASH (NIST SP 800-38D §6.4) continued over whole blocks: with the hash subkey `H` the block at `h`, replaces the block `Y` at `*y` with `Yₙ`, where `Y₀ = Y` and `Yᵢ = (Yᵢ₋₁ ⊕ Xᵢ) • H` for the `n` 16-byte blocks `X₁ … Xₙ` starting at `data` (blocks big-endian, `•` the multiplication of §6.3).
 ///
 /// Contract: `VG.Spec.Gcm.ghashContract`. Constant time: only the pointers and `n` may affect timing, not `H`, `Y` or the data.
+///
+/// Uses PMULL: eight blocks at a time, with `H²` to `H⁸` computed on each call that has at least eight blocks, then four, two and one.
 ///
 /// # Safety
 ///

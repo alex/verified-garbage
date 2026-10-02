@@ -29,16 +29,6 @@ theorem decodeLE_wide (m : Mem) (base : Addr) :
   rw [hb, decodeLE_append, bytesAt_length, decodeLE_words, decodeLE_words]
   rfl
 
-theorem scratchFrame {base : Addr} {o n : Nat} {m m' : Mem}
-    (h : Outside base o n m m') (hn : o + n ≤ 8192) : Frame [⟨base, 8192⟩] m m' := by
-  intro x hx
-  apply h x
-  right
-  have hn' := hx _ (List.mem_singleton_self _)
-  simp only [Region.Contains] at hn'
-  simp only [ofs]
-  omega
-
 theorem fe_frame {base p : Addr} {m m' : Mem} (hf : Frame [⟨base, 8192⟩] m m')
     (hp : (⟨p, 32⟩ : Region).Disjoint ⟨base, 8192⟩) : fe m' p 0 = fe m p 0 := by
   have h : ∀ d, d + 8 ≤ 32 → m'.readW (off p d) 64 = m.readW (off p d) 64 := fun d hd =>
@@ -63,16 +53,19 @@ theorem storeWide_ok {s : State} {base : Addr} (hp : s.gpr .rdi = base)
     hm, fe_st4 _ _ (by decide), hg]
   rfl
 
-theorem reduceArgs_ok (s : State) :
+/-- The wide value's address into `rsi`, and the output's address (`rbx`) to byte 48 of the
+scratch (`rdi`). -/
+theorem reduceArgs_ok {s : State} {base : Addr} (hb : s.gpr .rdi = base)
+    (hw : (⟨base, 8192⟩ : Region) ∈ s.wr) :
     WP isa (.block reduceArgs) s fun t =>
-      t.gpr .rsi = off (s.gpr .rdi) 128 ∧ t.gpr .rdx = s.gpr .rdi ∧
-      t.gpr .rdi = s.gpr .rbx ∧ Keeps [.rsi, .rdx, .rdi] s t := by
+      t.gpr .rsi = off base 128 ∧ t.mem = s.mem.writeW (off base 48) (s.gpr .rbx) ∧
+      (∀ r, r ≠ .rsi → t.gpr r = s.gpr r) ∧ t.rd = s.rd ∧ t.wr = s.wr := by
+  have w : InRegions s.wr (off base 48) 8 := ⟨_, hw, Offset.contains_base base (by omega) (by omega)⟩
   apply WP.of_runBlock
-  simp only [reduceArgs, runBlock_cons, runStep_some, runBlock_nil, exec, readSrc, execAlu,
-    RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, ite_true, ite_false, reduceCtorEq,
-    Option.map_some, Option.bind_some, Option.some.injEq, exists_eq_left']
-  refine ⟨rfl, trivial, trivial, fun r hr => ?_, rfl, rfl, rfl⟩
-  simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-  simp only [RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, hr.1, hr.2.1, hr.2.2, ite_false]
+  simp only [reduceArgs, runBlock_cons, runStep_some, runBlock_nil, exec, readSrc, execAlu, ea_at,
+    State.store64, RegUpd.gpr_setReg, RegUpd.gpr_arithFlags, RegUpd.wr_setReg, RegUpd.wr_arithFlags,
+    RegUpd.mem_setReg, RegUpd.mem_arithFlags, RegUpd.rd_setReg, RegUpd.rd_arithFlags, hb, w, ite_true, ite_false, reduceCtorEq, Option.map_some, Option.bind_some, Option.some.injEq,
+    exists_eq_left']
+  exact ⟨rfl, trivial, fun r hr => by simp only [hr, ite_false], trivial, trivial⟩
 
 end VG.Proof.Ed25519.X86_64

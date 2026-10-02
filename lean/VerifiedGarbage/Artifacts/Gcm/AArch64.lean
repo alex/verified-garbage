@@ -30,15 +30,9 @@ def artifacts : List Artifact := [
   { Spec.Gcm.ghashApi with
     name := "vg_ghash_pmull"
     target := AArch64.target
-    doc := "GHASH (SP 800-38D §6.4), with PMULL: replaces the block `*y` with `GHASH_H` \
-      continued from `*y` over the `n` 16-byte blocks starting at `data`, where `H` is the \
-      hash subkey `*h` (`Y ← (Y ⊕ Xᵢ) • H` for each block `Xᵢ`, in order). Eight blocks at a \
-      time, with `H²` to `H⁸` computed on each call that has at least eight blocks, then \
-      four, two and one.\n\n\
-      Contract: `VG.Spec.Gcm.ghashContract`. Constant time: only the pointers and `n` may \
-      affect timing, not `H`, `Y` or the data.\n\n\
-      # Safety\n\n\
-      * The contents of `scratch` on return are unspecified."
+    doc := Spec.Gcm.ghashApi.doc
+      (notes := ["Uses PMULL: eight blocks at a time, with `H²` to `H⁸` computed on each call \
+        that has at least eight blocks, then four, two and one."])
     code := Impl.Gcm.AArch64.Pmull.ghash
     contract := Spec.Gcm.ghashContract AArch64.abi
     verified := Proof.Gcm.AArch64.Pmull.ghash_verified

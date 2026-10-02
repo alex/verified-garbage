@@ -23,7 +23,7 @@ def artifacts (v : Proof.ChaCha20.AArch64.XorImpl) : List Artifact := [
   { Spec.ChaCha20.xorApi with
     name := Spec.ChaCha20.xorApi.name ++ v.callee.suffix
     target := AArch64.target
-    doc := Spec.ChaCha20.xorApi.doc (notes := ["Stream backend `" ++ v.callee.name ++ "`."])
+    doc := Spec.ChaCha20.xorApi.doc (notes := v.notes)
     code := v.callee.code
     contract := Spec.ChaCha20.xorContract AArch64.abi
     verified := v.verified

@@ -103,6 +103,7 @@ def iterateApi : Api where
   module := s!"pbkdf2_{I.rust}"
   name := s!"vg_pbkdf2_hmac_{I.rust}_iterate"
   sig := Pbkdf2.iterateSig I.S I.scratch
+  writeArgs := true
   contracts := some fun A stack => I.iterateContract A stack
   summary := s!"Runs `n` steps of PBKDF2-HMAC-{I.alg}'s iteration: if, for a \
     {I.S.H.blockSize}-byte key `K₀`, the {I.alg} streaming state in bytes 0 to \

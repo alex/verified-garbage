@@ -1186,9 +1186,11 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_block(state: *const [u32; 16], 
     )
 }
 
-/// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`, calling `vg_chacha20_block` for each 64 bytes.
+/// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`.
 ///
 /// Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
+///
+/// Calls `vg_chacha20_block` for each 64 bytes.
 ///
 /// # Safety
 ///
@@ -1250,9 +1252,11 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor(state: *mut [u32; 16], data
 /// The CPU features `vg_chacha20_xor_avx2` requires (`Artifact.features`).
 pub(crate) const VG_CHACHA20_XOR_AVX2_FEATURES: &[&str] = &["avx", "avx2"];
 
-/// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`, with AVX2: eight blocks at a time while at least 512 bytes remain, then `vg_chacha20_xor` for the rest.
+/// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`.
 ///
 /// Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
+///
+/// Uses AVX2: eight blocks at a time while at least 512 bytes remain, then `vg_chacha20_xor` for the rest.
 ///
 /// # Safety
 ///
@@ -2967,9 +2971,11 @@ pub(crate) unsafe extern "sysv64" fn vg_chacha20_xor_avx2(state: *mut [u32; 16],
 /// The CPU features `vg_chacha20_xor_avx512` requires (`Artifact.features`).
 pub(crate) const VG_CHACHA20_XOR_AVX512_FEATURES: &[&str] = &["avx", "avx512f"];
 
-/// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`, with AVX-512: sixteen blocks at a time while at least 1024 bytes remain, then `vg_chacha20_xor` for the rest.
+/// XORs the first `len` bytes of the ChaCha20 keystream of the 16-word state `*state` (RFC 8439 §2.4: the block function of the state with its block counter, word 12, advanced by 0, 1, … modulo 2³²) into the `len` bytes at `data`.
 ///
 /// Contract: `VG.Spec.ChaCha20.xorContract`. Constant time: only the pointers and `len` may affect timing, not the state or the data.
+///
+/// Uses AVX-512: sixteen blocks at a time while at least 1024 bytes remain, then `vg_chacha20_xor` for the rest.
 ///
 /// # Safety
 ///

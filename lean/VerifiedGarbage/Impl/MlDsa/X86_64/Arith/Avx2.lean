@@ -1,5 +1,6 @@
 import VerifiedGarbage.Impl.MlDsa.X86_64.Arith.Backend
 import VerifiedGarbage.Impl.MlKem.X86_64.Avx
+import VerifiedGarbage.Impl.MlDsa.X86_64.Round.Avx2
 
 /-!
 # ML-DSA on x86-64: the polynomial arithmetic with AVX2
@@ -199,6 +200,7 @@ def subAvx2 : Prog isa :=
 
 /-- The AVX2 code. -/
 def Backend.avx2 : Backend :=
-  ⟨nttAvx2, nttInvAvx2, mulAvx2, mulAddAvx2, addAvx2, subAvx2, Sample.Rej4.rejNTT4Avx2, "_avx2"⟩
+  ⟨nttAvx2, nttInvAvx2, mulAvx2, mulAddAvx2, addAvx2, subAvx2, Round.highBitsAvx2,
+    Round.lowBitsAvx2, Round.normLtAvx2, Round.makeHintAvx2, Sample.Rej4.rejNTT4Avx2, "_avx2"⟩
 
 end VG.Impl.MlDsa.X86_64.Arith

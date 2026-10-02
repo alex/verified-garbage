@@ -4,6 +4,8 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Round.Bits
 import VerifiedGarbage.Proof.MlDsa.X86_64.Round.NormLt
 import VerifiedGarbage.Proof.MlDsa.X86_64.Round.UseHint
 import VerifiedGarbage.Proof.MlDsa.X86_64.Round.MakeHint
+import VerifiedGarbage.Proof.MlDsa.X86_64.Round.YBits
+import VerifiedGarbage.Proof.MlDsa.X86_64.Round.YHint
 
 /-!
 # ML-DSA (FIPS 204) on x86-64: rounding and hints
@@ -43,6 +45,26 @@ def artifacts : List Artifact := [
     contract := Spec.MlDsa.lowBitsContract X86_64.abi
     verified := lowBits_verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.MlDsa.highBitsApi with
+    name := Spec.MlDsa.highBitsApi.name ++ "_avx2"
+    target := X86_64.target
+    doc := Spec.MlDsa.highBitsApi.doc (notes := ["The function computes on eight coefficients at a time in AVX2 \
+      registers, multiplying by shifts and additions; it needs AVX and AVX2."])
+    code := Impl.MlDsa.X86_64.Round.highBitsAvx2
+    contract := Spec.MlDsa.highBitsContract X86_64.abi
+    verified := highBitsY_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel)
+    features := ["avx", "avx2"] },
+  { Spec.MlDsa.lowBitsApi with
+    name := Spec.MlDsa.lowBitsApi.name ++ "_avx2"
+    target := X86_64.target
+    doc := Spec.MlDsa.lowBitsApi.doc (notes := ["The function computes on eight coefficients at a time in AVX2 \
+      registers, multiplying by shifts and additions; it needs AVX and AVX2."])
+    code := Impl.MlDsa.X86_64.Round.lowBitsAvx2
+    contract := Spec.MlDsa.lowBitsContract X86_64.abi
+    verified := lowBitsY_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel)
+    features := ["avx", "avx2"] },
   { Spec.MlDsa.normLtApi with
     target := X86_64.target
     doc := Spec.MlDsa.normLtApi.doc
@@ -57,6 +79,26 @@ def artifacts : List Artifact := [
     contract := Spec.MlDsa.makeHintContract X86_64.abi
     verified := makeHint_verified
     spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.MlDsa.normLtApi with
+    name := Spec.MlDsa.normLtApi.name ++ "_avx2"
+    target := X86_64.target
+    doc := Spec.MlDsa.normLtApi.doc (notes := ["The function compares eight coefficients at a time in AVX2 \
+      registers; it needs AVX and AVX2."])
+    code := Impl.MlDsa.X86_64.Round.normLtAvx2
+    contract := Spec.MlDsa.normLtContract X86_64.abi
+    verified := normLtY_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel)
+    features := ["avx", "avx2"] },
+  { Spec.MlDsa.makeHintApi with
+    name := Spec.MlDsa.makeHintApi.name ++ "_avx2"
+    target := X86_64.target
+    doc := Spec.MlDsa.makeHintApi.doc (notes := ["The function computes eight hints at a time in AVX2 \
+      registers, multiplying by shifts and additions; it needs AVX and AVX2."])
+    code := Impl.MlDsa.X86_64.Round.makeHintAvx2
+    contract := Spec.MlDsa.makeHintContract X86_64.abi
+    verified := makeHintY_verified
+    spSafe := Code.all_of_allInstrs (by decide +kernel)
+    features := ["avx", "avx2"] },
   { Spec.MlDsa.useHintApi with
     target := X86_64.target
     doc := Spec.MlDsa.useHintApi.doc

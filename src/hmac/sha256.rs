@@ -13,8 +13,8 @@
 //! variants use the SHA-256 instructions through the same generic code.
 //!
 //! On ARMv7 and x86, their contracts are `VG.Spec.Hmac.initSha256Contract`
-//! and `VG.Spec.Hmac.finalizeSha256Contract` (or `finalizeSha256OutContract`
-//! on the 32-bit targets), with `VG.Spec.Sha256.updateContract`.
+//! and `VG.Spec.Hmac.finalizeSha256OutContract`, with
+//! `VG.Spec.Sha256.updateContract`.
 
 #![cfg(any(
     target_arch = "x86_64",
@@ -59,21 +59,6 @@ super::streaming_hmac!(
     scratch: 104,
     output: 32,
 );
-
-#[cfg(any(target_arch = "arm", target_arch = "x86"))]
-impl super::Hmac<Sha256> {
-    /// The key's two SHA-256 streaming states, for `K₀ ⊕ ipad` and then
-    /// `K₀ ⊕ opad`, as `vg_hmac_sha256_init` left them (the arguments of
-    /// `vg_pbkdf2_hmac_sha256_iterate`), for a computation that has not
-    /// absorbed any data yet.
-    pub(crate) fn sha256_key_states(&self) -> [u8; 192] {
-        debug_assert_eq!(self.state.count, Sha256::BLOCK_SIZE as u64);
-        let mut key = [0u8; 192];
-        key[..96].copy_from_slice(&self.state.inner);
-        key[96..].copy_from_slice(&self.state.outer);
-        key
-    }
-}
 
 /// An HMAC-SHA-256 computation: the SHA-256 streaming states for the inner
 /// hash, which represents `(K₀ ⊕ ipad) ‖ text`, and the outer one, which

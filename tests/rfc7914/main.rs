@@ -1,8 +1,8 @@
 //! The scrypt test vectors of RFC 7914 (§12), and scrypt's parameter checks.
 //!
-//! The RFC is vendored under `vectors/rfc7914/` (see `vectors/sources.toml`
-//! for where it comes from) and compiled into the test binary, so these tests
-//! always run.
+//! The RFC is vendored under `vectors/rfc7914/` (see
+//! `vectors/sources/rfc7914.toml` for where it comes from) and compiled into
+//! the test binary, so these tests always run.
 
 #![cfg(all(
     any(
