@@ -1,5 +1,5 @@
 import VerifiedGarbage.Proof.Pbkdf2.Md.Arm.Hash
-import VerifiedGarbage.Proof.Pbkdf2.MdInit
+import VerifiedGarbage.Proof.Pbkdf2.MdKeys
 
 /-!
 # HMAC's `init` over a Merkle–Damgård hash function on ARMv7: correct
@@ -49,7 +49,7 @@ theorem fillW_ok {y : BitVec 32} {o : Nat} {b : Byte} (n : Nat) (ho : o + 4 * n 
     refine wp_str (a := State.addr y + BitVec.ofNat 64 (o + 4 * n)) (by omega)
       (by rw [g₁, hy, addr_add (by omega)]) (by rw [wr₁]; exact hout n (by omega)) fun s₂ u₂ => ?_
     refine k s₂ (by rw [u₂.gpr, g₁]) (by rw [u₂.rd, rd₁]) (by rw [u₂.wr, wr₁]) (by rw [u₂.sp, sp₁]) ?_
-    rw [u₂.mem, m₁, g₁, hc, MdInit.writeW_rep, ← Memory.add_ofNat,
+    rw [u₂.mem, m₁, g₁, hc, MdKeys.writeW_rep, ← Memory.add_ofNat,
       Memory.writeBytes_append' _ _ _ (by rw [List.length_replicate]) (by simp; omega),
       List.replicate_append_replicate, show 4 * n + 4 = 4 * (n + 1) by omega]
 
@@ -97,7 +97,7 @@ theorem opadW_ok (H : Hash) {x y : BitVec 32} (n : Nat) (ho : H.N + 4 * n ≤ 40
     have v : s₃.gpr .r12 = s₁.mem.readW (State.addr x + BitVec.ofNat 64 (H.N + 4 * n)) 32 ^^^ 0x6a6a6a6a := by
       rw [u₃.gpr, u₂.gpr, u₂.other _ (by decide), g₁ _ (by decide), h1]
     rw [u₄.mem, v, u₃.mem, u₂.mem, ← Memory.add_ofNat, ← Memory.add_ofNat,
-      f₁.readW (r := ⟨_, 4⟩) (Region.contains_self _ _) dX (by decide), MdInit.c6a, MdInit.writeW_xorRep, m₁,
+      f₁.readW (r := ⟨_, 4⟩) (Region.contains_self _ _) dX (by decide), MdKeys.c6a, MdKeys.writeW_xorRep, m₁,
       Memory.writeBytes_append' _ _ _ (by rw [hl]) (by simp [bytesAt_length]; omega), ← List.map_append,
       ← bytesAt_add, show 4 * n + 4 = 4 * (n + 1) by omega]
 
@@ -145,7 +145,7 @@ theorem key_step (H : Hash) {s : State} {kp p : BitVec 32} {kl : Nat} (hkp : kp.
     rw [u₅.other _ (by decide), u₄.other _ (by decide), u₃.gpr, u₂.other _ (by decide), u₁.other _ (by decide),
       h.r7]
   have v : (t₂.gpr .r12).setWidth 8 = s.mem (State.addr kp + BitVec.ofNat 64 j) ^^^ Spec.Hmac.ipad := by
-    rw [u₂.gpr, u₁.gpr, MdInit.xor_byte, hbyte]; rfl
+    rw [u₂.gpr, u₁.gpr, MdKeys.xor_byte, hbyte]; rfl
   refine ⟨⟨by rw [u₆.rd, u₅.rd, u₄.rd, u₃.rd, u₂.rd, u₁.rd, h.rd],
     by rw [u₆.wr, u₅.wr, u₄.wr, u₃.wr, u₂.wr, u₁.wr, h.wr], by rw [u₆.sp, u₅.sp, u₄.sp, u₃.sp, u₂.sp, u₁.sp, h.sp],
     fun r h6 h7 h8 h12 => by
@@ -515,7 +515,7 @@ theorem keys_ok {s : State} (hk : KR H sc s₀ s) (h6 : s.gpr .r6 = kp s₀) (h7
         simp only [List.mem_singleton]; rintro r rfl
         exact (hp.i_s.symm.sub_left (save_sub hz hp)).sub_right sB)
       (by simp only [List.mem_singleton]; rintro r rfl; exact ⟨_, by simp, sB⟩), ft, ?_⟩
-  rw [ht.mem, MdInit.bytes_over (by rw [hl]; omega) (by omega) hm, hl, hk.key hp]
+  rw [ht.mem, MdKeys.bytes_over (by rw [hl]; omega) (by omega) hm, hl, hk.key hp]
   rfl
 
 /-- What the compression of the buffer of the state at `p` needs. -/
@@ -723,7 +723,7 @@ theorem correct :
   -- The key.
   have hK : xorPad (blockKey hH.SH.H (bytesAt s₀.mem (State.addr (kp s₀)) (kl s₀))) ipad =
       bytesAt s₅.mem (State.addr (inn s₀) + BitVec.ofNat 64 H.N) H.B := by
-    rw [bI₅, MdInit.blockKey_short _ (by rw [bytesAt_length, hH.hB]; exact hkl), MdInit.xorPad_short,
+    rw [bI₅, MdKeys.blockKey_short _ (by rw [bytesAt_length, hH.hB]; exact hkl), MdKeys.xorPad_short,
       bytesAt_length, hH.hB]
   have hKl : (xorPad (blockKey hH.SH.H (bytesAt s₀.mem (State.addr (kp s₀)) (kl s₀))) ipad).length = H.B := by
     rw [hK, bytesAt_length]
@@ -748,7 +748,7 @@ theorem correct :
     rw [m₈, keep_st hH f₇ (by have := d₇ (a := 0) (n := H.N) (by omega); rwa [BitVec.add_zero] at this), vO₆]
   have bO₈ : bytesAt s₈.mem (State.addr (out s₀) + BitVec.ofNat 64 H.N) H.B =
       xorPad (blockKey hH.SH.H (bytesAt s₀.mem (State.addr (kp s₀)) (kl s₀))) opad := by
-    rw [m₈, Memory.frame_bytesAt f₇ (d₇ (by omega)) (by omega), bO₆, ← hK, MdInit.xorPad_6a]
+    rw [m₈, Memory.frame_bytesAt f₇ (d₇ (by omega)) (by omega), bO₆, ← hK, MdKeys.xorOpad_ipad]
   have rO₉ := Md.repr_block (H := hH.md) (iv := hH.iv) (by omega)
     (by rw [xorPad_length, ← xorPad_length _ ipad, hKl]) bO₈ (by rw [e₉, vO₈])
   -- The end.

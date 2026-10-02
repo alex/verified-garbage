@@ -12,7 +12,7 @@ address (`pro_ok`), sets each state's hash value with the streaming `init`
 `K₀ ⊕ opad` into the outer one's (`keys_ok`), compresses each buffer into
 its state's hash value (`cmp_ok`), and loads our caller's registers back.
 A state whose initial hash value has absorbed the block in its buffer
-represents that block (`Md.repr_of_block`). No instruction of `init` or of
+represents that block (`Md.repr_block`). No instruction of `init` or of
 the functions it calls writes a SIMD register (`HashOK.hmacInit_keepsV`), so
 it keeps their low halves. Constant time: the taint analysis checks the
 pieces between the calls (`Checks`); the calls are constant time by the
@@ -32,7 +32,7 @@ open VG.Proof.Pbkdf2.Md.AArch64.Calls (initG rel_taint rel_wp init_call init_rel
 open VG.Proof.Hmac.Generic.Common (K0 K0_length covers_one InRegions.right' bytes_keep bytesAt_writeBytes_self')
 open VG.Proof.Hmac.Common (bytesAt_length bytesAt_writeBytes_sep)
 open VG.Proof.Pbkdf2.MdKeys (ipadBlk ipadBlk_length ipadBlk_zero ipadBlk_succ ipadBlk_eq writeBytes_set fill_mem
-  xorOpad_mem xorOpad_ipad)
+  xorOpad_mem xorOpad_ipad xor_byte)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_nil writeBytes_frame)
 open Spec.Sha256 (bytesAt)
 open Spec.Hmac (xorPad ipad opad blockKey)
@@ -88,9 +88,6 @@ theorem c36_32 : c36.setWidth 32 = (0x36363636 : BitVec 32) := by decide
 theorem c36_8 : c36.setWidth 8 = ipad := by decide
 
 theorem c6a_32 : c6a.setWidth 32 = (0x6a6a6a6a : BitVec 32) := by decide
-
-theorem xor_byte (b : Byte) (c : BitVec 64) : (b.setWidth 64 ^^^ c).setWidth 8 = b ^^^ c.setWidth 8 := by
-  ext i hi; simp [BitVec.getElem_setWidth, BitVec.getElem_xor]
 
 theorem xor_word (x : BitVec 32) (c : BitVec 64) : (x.setWidth 64 ^^^ c).setWidth 32 = x ^^^ c.setWidth 32 := by
   ext i hi; simp [BitVec.getElem_setWidth, BitVec.getElem_xor]
@@ -690,7 +687,7 @@ theorem correct : WP isa H.hmacInit s₀ fun s' => abiPreserved s₀ s' ∧ (ini
         · exact hp.stk_i.symm.sub_left hvI), iv r₂]
   have hl : (xorPad (k0 H s₀) ipad).length = H.P.B := by
     rw [Proof.Hmac.Common.xorPad_length, K0_length _ _ hkl]
-  have rI₅ := Md.repr_of_block hH.md hB0 hl iv₄ bI₄ e₅
+  have rI₅ := Md.repr_block (H := hH.md) (iv := hH.iv) hB0 hl bI₄ (e₅.trans (congrArg (hH.md.compress · _) iv₄))
   -- The outer state.
   have iv₆ : hH.md.stateAt s₆.mem (out s₀) = hH.iv := by
     rw [m₆, keepS f₅ (by
@@ -711,7 +708,7 @@ theorem correct : WP isa H.hmacInit s₀ fun s' => abiPreserved s₀ s' ∧ (ini
         · exact (so.sc.sub_left bO).sub_right (cal_sub hH hp)) (by omega), bO₄]
   have hl' : (xorPad (k0 H s₀) opad).length = H.P.B := by
     rw [Proof.Hmac.Common.xorPad_length, K0_length _ _ hkl]
-  have rO₇ := Md.repr_of_block hH.md hB0 hl' iv₆ bO₆ e₇
+  have rO₇ := Md.repr_block (H := hH.md) (iv := hH.iv) hB0 hl' bO₆ (e₇.trans (congrArg (hH.md.compress · _) iv₆))
   -- The inner state, kept by the outer compression.
   have rI₇ : hH.SH.Repr s₇.mem (inn s₀) (xorPad (k0 H s₀) ipad) :=
     repr_keep hH.stream f₇ (by
