@@ -2,6 +2,9 @@ import VerifiedGarbage.TCB.X86_64.Target
 import VerifiedGarbage.Impl.X448.X86_64
 import VerifiedGarbage.Proof.X448.X86_64.Verified
 import VerifiedGarbage.Proof.X448.X86_64.Lit
+import VerifiedGarbage.Impl.X448.X86_64.Adx
+import VerifiedGarbage.Proof.X448.X86_64.Adx.Verified
+import VerifiedGarbage.Proof.X448.X86_64.Adx.Lit
 
 /-! # X448 (RFC 7748) on x86-64 -/
 
@@ -17,6 +20,20 @@ def artifacts : List Artifact := [
     code := Impl.X448.X86_64.x448
     contract := Spec.X448.x448Contract X86_64.abi
     verified := Proof.X448.X86_64.x448_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) },
+  { Spec.X448.x448Api with
+    target := X86_64.target
+    name := "vg_x448_adx"
+    doc := Spec.X448.x448Api.doc (notes := ["The function saves its caller's callee-saved \
+      registers in `scratch`. Field elements are seven 64-bit words, multiplied by rows with \
+      BMI2's `mulx` and ADX's `adcx` and `adox` (two carry chains at once), squared computing \
+      each cross product once, and reduced with `2^448 = 2^224 + 1` (mod p). Inversion uses an \
+      addition chain for `p - 2`. The same code as `vg_x448` but for the field \
+      multiplications."])
+    code := Impl.X448.X86_64.x448Adx
+    contract := Spec.X448.x448Contract X86_64.abi
+    verified := Proof.X448.X86_64.x448Adx_verified
+    features := ["bmi2", "adx"]
     spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.X448.X86_64
