@@ -1,4 +1,5 @@
 import VerifiedGarbage.Spec.Aes
+import VerifiedGarbage.Spec.TripleDes
 
 /-!
 # CMAC (NIST SP 800-38B)
@@ -16,13 +17,15 @@ sequences of whole bytes here: every length (of the message and of the
 MAC) is a multiple of 8 bits, as every implementation we test against
 requires. A block's first byte holds its leftmost (most significant) bits.
 
-The instance for AES is `aesCmac`. The primitives implemented in assembly
-are the subkey generation (§6.1), the chaining of whole blocks (§6.2
-step 6, `chain`) and the last block (§6.2 steps 4 and 6), and streaming
-AES-CMAC built from them (`init`, `absorb` and `finish`, on the streaming
-state `Repr`), which takes the key and the message in pieces of any length;
-their contracts are in `Spec/Cmac/Contract.lean`. Truncating the MAC (§6.2
-step 7) and comparing MACs (§6.3) is the caller's (Rust's) job.
+The instances are `aesCmac` for AES and `tdesCmac` for TDEA (Triple DES,
+`Spec/TripleDes.lean`). The primitives implemented in assembly are the
+subkey generation (§6.1), the chaining of whole blocks (§6.2 step 6,
+`chain`) and the last block (§6.2 steps 4 and 6); their contracts are in
+`Spec/Cmac/Contract.lean` (AES) and `Spec/Cmac/TripleDesContract.lean`
+(TDEA). For AES there is also streaming AES-CMAC built from them (`init`,
+`absorb` and `finish`, on the streaming state `Repr`), which takes the key
+and the message in pieces of any length. Truncating the MAC (§6.2 step 7)
+and comparing MACs (§6.3) is the caller's (Rust's) job.
 -/
 
 namespace VG.Spec.Cmac
@@ -134,6 +137,21 @@ def aes (key : List Byte) : Cipher :=
 /-- AES-CMAC: the CMAC of `m` under the AES key `key` (16, 24 or 32 bytes),
 with a MAC of `t ≤ 16` bytes. -/
 def aesCmac (key : List Byte) (t : Nat) (m : List Byte) : List Byte := mac (aes key) 16 t m
+
+/-! ## TDEA-CMAC -/
+
+/-- `CIPH_K` for TDEA (FIPS 46-3, `TripleDes.encryptBlock`) with the
+schedule `k` (the three DES schedules), on 8-byte blocks. -/
+def tdesWith (k : TripleDes.Schedule) : Cipher := fun x =>
+  (TripleDes.encryptBlock k (Vector.ofFn fun i => x.getD i 0)).toList
+
+/-- `CIPH_K` for TDEA with the key `key` (16 bytes, `K1 ‖ K2` with
+`K3 = K1`, or 24 bytes, `K1 ‖ K2 ‖ K3`). -/
+def tdes (key : List Byte) : Cipher := tdesWith (TripleDes.expandKey key)
+
+/-- TDEA-CMAC (3DES-CMAC): the CMAC of `m` under the TDEA key `key` (16 or
+24 bytes), with a MAC of `t ≤ 8` bytes. -/
+def tdesCmac (key : List Byte) (t : Nat) (m : List Byte) : List Byte := mac (tdes key) 8 t m
 
 /-! ## On memory -/
 
