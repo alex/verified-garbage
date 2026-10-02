@@ -63,7 +63,6 @@ structure CrIn (Ctx St W SP : Addr) (R : Nat) (icb : Block) (P : Nat) (D : Addr)
   rbx : s.gpr .rbx = BitVec.ofNat 64 (P % 16)
   data : DataW Ctx St W SP s D n
   rounds : RoundsAt s.mem W R
-  ctr : Ctr s.mem (St + BitVec.ofNat 64 48) (St + BitVec.ofNat 64 64) (ciphOf s.mem Ctx R) icb P
 
 /-- Part of the way: `j` bytes done, from `m₀`. -/
 structure CrMid (Ctx St W SP : Addr) (R : Nat) (icb : Block) (P : Nat) (D : Addr) (n : Nat) (m₀ : Mem)
@@ -74,8 +73,10 @@ structure CrMid (Ctx St W SP : Addr) (R : Nat) (icb : Block) (P : Nat) (D : Addr
   rbp : s.gpr .rbp = BitVec.ofNat 64 (n - j)
   data : DataW Ctx St W SP s D n
   rounds : RoundsAt s.mem W R
-  ctr : Ctr s.mem (St + BitVec.ofNat 64 48) (St + BitVec.ofNat 64 64) (ciphOf m₀ Ctx R) icb (P + j)
-  done : bytesAt s.mem D j = xorKs (ciphOf m₀ Ctx R) icb P (bytesAt m₀ D j)
+  ctr : Ctr m₀ (St + BitVec.ofNat 64 48) (St + BitVec.ofNat 64 64) (ciphOf m₀ Ctx R) icb P →
+    Ctr s.mem (St + BitVec.ofNat 64 48) (St + BitVec.ofNat 64 64) (ciphOf m₀ Ctx R) icb (P + j)
+  done : Ctr m₀ (St + BitVec.ofNat 64 48) (St + BitVec.ofNat 64 64) (ciphOf m₀ Ctx R) icb P →
+    bytesAt s.mem D j = xorKs (ciphOf m₀ Ctx R) icb P (bytesAt m₀ D j)
   rest : bytesAt s.mem (D + BitVec.ofNat 64 j) (n - j) = bytesAt m₀ (D + BitVec.ofNat 64 j) (n - j)
   whole : n - j = 0 ∨ (P + j) % 16 = 0
   frame : Frame (crFrame St W SP D n) m₀ s.mem
@@ -85,8 +86,10 @@ structure CrOut (Ctx St W SP : Addr) (R : Nat) (icb : Block) (P : Nat) (D : Addr
     (s : State) : Prop where
   env : Env Ctx St W SP s
   rounds : RoundsAt s.mem W R
-  ctr : Ctr s.mem (St + BitVec.ofNat 64 48) (St + BitVec.ofNat 64 64) (ciphOf m₀ Ctx R) icb (P + n)
-  out : bytesAt s.mem D n = xorKs (ciphOf m₀ Ctx R) icb P (bytesAt m₀ D n)
+  ctr : Ctr m₀ (St + BitVec.ofNat 64 48) (St + BitVec.ofNat 64 64) (ciphOf m₀ Ctx R) icb P →
+    Ctr s.mem (St + BitVec.ofNat 64 48) (St + BitVec.ofNat 64 64) (ciphOf m₀ Ctx R) icb (P + n)
+  out : Ctr m₀ (St + BitVec.ofNat 64 48) (St + BitVec.ofNat 64 64) (ciphOf m₀ Ctx R) icb P →
+    bytesAt s.mem D n = xorKs (ciphOf m₀ Ctx R) icb P (bytesAt m₀ D n)
   frame : Frame (crFrame St W SP D n) m₀ s.mem
 
 section

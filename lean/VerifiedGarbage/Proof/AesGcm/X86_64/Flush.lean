@@ -74,13 +74,13 @@ theorem bytesAt_writeBytes_prefix (m : Mem) (p : Addr) (xs : List Byte) {n : Nat
 structure FlIn (Ctx St W SP : Addr) (yo : Nat) (H : Block) (x : List Byte) (s : State) : Prop where
   env : Env Ctx St W SP s
   hH : blockAt s.mem (Ctx + BitVec.ofNat 64 240) = H
-  abs : Absorbed s.mem (St + BitVec.ofNat 64 yo) (St + BitVec.ofNat 64 32) H x
 
 /-- After `flush yo`: GHASH has absorbed `x`, from `m₀`. -/
-structure FlOut (Ctx St W SP : Addr) (yo : Nat) (H : Block) (x : List Byte) (m₀ : Mem) (s : State) : Prop where
+structure FlOut (Ctx St W SP : Addr) (yo : Nat) (H : Block) (x₀ x : List Byte) (m₀ : Mem) (s : State) : Prop where
   env : Env Ctx St W SP s
   hH : blockAt s.mem (Ctx + BitVec.ofNat 64 240) = H
-  abs : Absorbed s.mem (St + BitVec.ofNat 64 yo) (St + BitVec.ofNat 64 32) H x
+  abs : Absorbed m₀ (St + BitVec.ofNat 64 yo) (St + BitVec.ofNat 64 32) H x₀ →
+    Absorbed s.mem (St + BitVec.ofNat 64 yo) (St + BitVec.ofNat 64 32) H x
   frame : Frame (tFrame St W SP yo) m₀ s.mem
 
 section
@@ -99,7 +99,7 @@ theorem ctx_tFrame : ∀ r ∈ tFrame St W SP yo, (⟨Ctx + BitVec.ofNat 64 240,
 /-- `flush yo`. -/
 theorem flush_ok {H : Block} {x : List Byte} {s : State} (h : FlIn Ctx St W SP yo H x s)
     (hbx : s.gpr .rbx = BitVec.ofNat 64 (x.length % 16)) :
-    WP isa (flush v.callees yo) s (FlOut Ctx St W SP yo H (x ++ zeros (padLen x.length)) s.mem) := by
+    WP isa (flush v.callees yo) s (FlOut Ctx St W SP yo H x (x ++ zeros (padLen x.length)) s.mem) := by
   have he := h.env
   have hlt := Nat.mod_lt x.length (show 16 > 0 by decide)
   obtain ⟨s₁, run₁, hzf, hg₁, hm₁, hrd₁, hwr₁⟩ := test_ok s .rbx hbx (by omega)
@@ -108,7 +108,7 @@ theorem flush_ok {H : Block} {x : List Byte} {s : State} (h : FlIn Ctx St W SP y
   refine WP.ite (decide (x.length % 16 = 0)) (eval_e hzf) (fun ht => ?_) (fun hf => ?_)
   · have h0 : x.length % 16 = 0 := by simpa using ht
     rw [Proof.Gcm.padLen_of_mod h0]
-    exact WP.block_nil ⟨he₁, by rw [hm₁]; exact h.hH, by rw [hm₁]; simpa [zeros] using h.abs,
+    exact WP.block_nil ⟨he₁, by rw [hm₁]; exact h.hH, fun ha => by rw [hm₁]; simpa [zeros] using ha,
       by rw [hm₁]; exact Frame.refl _ _⟩
   · have h0 : x.length % 16 ≠ 0 := by simpa using hf
     have h13 := he₁.r13; have h14 := he₁.r14; have h15 := he₁.r15
@@ -183,7 +183,8 @@ theorem flush_ok {H : Block} {x : List Byte} {s : State} (h : FlIn Ctx St W SP y
         · exact L.ctx_st (by decide) (by omega)
         · exact L.ctx_w (by decide) (by decide)
         · exact (L.stk_ctx (by decide)).symm), hH₃]
-    · refine Proof.Gcm.absorb_pad h.abs h0 (B := bytesAt s₃.mem (W + BitVec.ofNat 64 96) 16) hT ?_
+    · intro ha
+      refine Proof.Gcm.absorb_pad ha h0 (B := bytesAt s₃.mem (W + BitVec.ofNat 64 96) 16) hT ?_
       rw [g.out, hY₃, hH₃]; rfl
     · refine (f₃.sub fun r hr => ?_).trans (gh_tFrame g.frame)
       simp only [List.mem_singleton] at hr; subst hr

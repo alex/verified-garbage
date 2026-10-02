@@ -332,9 +332,10 @@ theorem j0hash_ok {H : Block} {Np : Addr} {n : Nat} {s : State} (h : J0In Ctx St
     decide
   have hai : AbsIn Ctx St W SP 0 H [] Np n s₁ :=
     ⟨he₁, by rw [hg₁ _ (by decide) (by decide), h.r12], by rw [hg₁ _ (by decide) (by decide), h.rbp],
-      by rw [hbx₁]; rfl, hd.of_eq hrd₁ hwr₁, hH₁, Proof.Gcm.absorbed_nil H hY₁⟩
+      by rw [hbx₁]; rfl, hd.of_eq hrd₁ hwr₁, hH₁⟩
   refine WP.seq (WP.mono (absorb_ok v L (yo := 0) (.inl rfl) hai) fun s₂ ho => ?_)
   rw [List.nil_append, hiv] at ho
+  have hab₂ := ho.abs (Proof.Gcm.absorbed_nil H hY₁)
   have he₂ := ho.env
   have hn₂ : s₂.mem.readW (W + BitVec.ofNat 64 216) 64 = BitVec.ofNat 64 n := by
     rw [ho.frame.readW (r := ⟨W + BitVec.ofNat 64 216, 8⟩) (Region.contains_self _ _) (aux_absFrame L) (by decide),
@@ -357,7 +358,7 @@ theorem j0hash_ok {H : Block} {Np : Addr} {n : Nat} {s : State} (h : J0In Ctx St
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl <;> exact hg₃ _ (by decide)) hrd₃ hwr₃
   have hfi : FlIn Ctx St W SP 0 H (bytesAt s.mem Np n) s₃ :=
-    ⟨he₃, by rw [hm₃, hH₂], by rw [hm₃]; exact ho.abs⟩
+    ⟨he₃, by rw [hm₃, hH₂]⟩
   refine WP.seq (WP.mono (flush_ok v L (yo := 0) (.inl rfl) hfi (by rw [hbx₃, length_bytesAt])) fun s₄ hf => ?_)
   have he₄ := hf.env
   have hn₄ : s₄.mem.readW (W + BitVec.ofNat 64 216) 64 = BitVec.ofNat 64 n := by
@@ -379,7 +380,7 @@ theorem j0hash_ok {H : Block} {Np : Addr} {n : Nat} {s : State} (h : J0In Ctx St
     rcases hr with rfl | rfl | rfl | rfl <;> exact hg₅ _ (by decide) (by decide)) hrd₅ hwr₅
   refine WP.mono (lens_ok v L (yo := 0) (.inl rfl) (H := H) he₅ (by rw [hm₅]; exact hf.hH)) fun s₆ ⟨he₆, hH₆, hY₆, f₆⟩ => ?_
   refine ⟨he₆, hH₆, ?_, ?_⟩
-  · have hw := (hf.abs).whole_eq (by
+  · have hw := (hf.abs (by rw [hm₃]; exact hab₂)).whole_eq (by
       simp only [List.length_append, length_bytesAt, Proof.Gcm.length_zeros]; exact Proof.Gcm.length_pad_mod n)
     rw [Proof.Gcm.j0_eq H (by rw [length_bytesAt]; exact hn), length_bytesAt, ← hw, ← hm₅,
       hbx₅, hbp₅, toNat_ofNat_of_lt (by decide), toNat_ofNat_of_lt hlt] at *
