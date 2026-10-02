@@ -15,8 +15,8 @@ function over a run of whole blocks (`compressBlocks`), and the streaming
 (incremental) interface: initialize with one of the four initial hash values,
 absorb message bytes, and pad and output the final hash value, on a streaming
 state that `Repr` relates to the message absorbed so far. Nothing here depends
-on the target: the contracts of each target's implementations are in
-`Spec/Sha512/<Target>.lean`.
+on the target: the contracts of the implementations, on every target, are in
+`Spec/Sha512/Contract.lean`.
 -/
 
 namespace VG.Spec.Sha512

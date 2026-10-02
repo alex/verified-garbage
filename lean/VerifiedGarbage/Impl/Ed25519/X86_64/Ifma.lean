@@ -79,9 +79,10 @@ def dblB : List Instr :=
 /-- `(E, G, F, E)` to `OPV`. -/
 def dblC : List Instr := (List.range 5).flatMap fun j => [st (OPV + 32 * j) j]
 
-/-- A doubling of the point in the lanes of `ymm0–ymm4`, with its `T`. -/
+/-- A doubling of the point in the lanes of `ymm0–ymm4`, with its `T`. The first product's
+limbs are not carried: they are small enough (below `2⁶⁰ + 2⁵⁶`) for `dblB`'s sums. -/
 def vdbl : List Instr :=
-  carry id ++ dblA ++ mul4 OPL ++ carry id ++ dblB ++ carry (5 + ·) ++ carry id ++ dblC ++ mul4 OPV
+  carry id ++ dblA ++ mul4 OPL ++ dblB ++ carry (5 + ·) ++ carry id ++ dblC ++ mul4 OPV
 
 /-- The lanes of `ymm0–ymm4`, carried as by `vfinish`, into slots 0–3. -/
 def vstore : List Instr :=

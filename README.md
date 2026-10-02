@@ -279,7 +279,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -318,6 +318,22 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+</tr>
+
+<tr>
+
+<td>HMAC-SHA-224</td>
+
+<td>✅</td>
+
+<td>✅ SHA extensions, AVX2, BMI1, BMI2</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>❌</td>
 
 </tr>
 
@@ -645,6 +661,22 @@ yours to keep:
 
 <tr>
 
+<td>PBKDF2-HMAC-SHA-224</td>
+
+<td>✅</td>
+
+<td>✅ SHA extensions, AVX2, BMI1, BMI2</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>PBKDF2-HMAC-SHA-256</td>
 
 <td>✅</td>
@@ -891,7 +923,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; matrix sampled four entries at a time in verification (four SHAKE128 instances at once with AVX2)</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; matrix sampled four entries at a time in key generation and verification (four SHAKE128 instances at once with AVX2)</td>
 
 <td>✅ SHA extensions</td>
 
@@ -907,7 +939,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; matrix sampled four entries at a time in verification (four SHAKE128 instances at once with AVX2)</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; matrix sampled four entries at a time in key generation and verification (four SHAKE128 instances at once with AVX2)</td>
 
 <td>✅ SHA extensions</td>
 
@@ -923,7 +955,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; matrix sampled four entries at a time in verification (four SHAKE128 instances at once with AVX2)</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic; matrix sampled four entries at a time in key generation and verification (four SHAKE128 instances at once with AVX2)</td>
 
 <td>✅ SHA extensions</td>
 
