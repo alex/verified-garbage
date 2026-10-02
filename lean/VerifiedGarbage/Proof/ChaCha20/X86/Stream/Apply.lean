@@ -339,7 +339,7 @@ structure R2 (s₀ s : State) : Prop where
 
 set_option simprocs false in
 theorem ptr_ok {s₀ : State} {s : State} (h : R1 s₀ (H s₀) s) :
-    WP isa (.block (ptr .edx .ebx 128 ++ [.alu .sub .edx (.reg .eax), .alu .sub .ebp (.reg .ecx)])) s (R2 s₀) := by
+    WP isa (.block (ptr .edx .ebx 128 ++ ([.alu .sub .edx (.reg .eax), .alu .sub .ebp (.reg .ecx)] : List Instr))) s (R2 s₀) := by
   have hO := O_lt s₀
   have hH := H_le s₀
   have hL := L_lt s₀
@@ -374,12 +374,12 @@ structure Q1 (s₀ s : State) : Prop where
 
 theorem part1_eq : part1 = .seq (.block start)
     (.seq (.ite .b (.block [.mov .ecx (.reg .eax)]) (.block []))
-    (.seq (.block (ptr .edx .ebx 128 ++ [.alu .sub .edx (.reg .eax), .alu .sub .ebp (.reg .ecx)]))
+    (.seq (.block (ptr .edx .ebx 128 ++ ([.alu .sub .edx (.reg .eax), .alu .sub .ebp (.reg .ecx)] : List Instr)))
     (.seq xorBytes (.block [.mov .ecx (.reg .ebp), .alu .and .ecx (.imm 0xffffffc0)])))) := rfl
 
 /-- The rest of `part1`, after the selection. -/
 abbrev rest1 : Prog isa :=
-  .seq (.block (ptr .edx .ebx 128 ++ [.alu .sub .edx (.reg .eax), .alu .sub .ebp (.reg .ecx)]))
+  .seq (.block (ptr .edx .ebx 128 ++ ([.alu .sub .edx (.reg .eax), .alu .sub .ebp (.reg .ecx)] : List Instr)))
     (.seq xorBytes (.block [.mov .ecx (.reg .ebp), .alu .and .ecx (.imm 0xffffffc0)]))
 
 set_option simprocs false in
@@ -726,8 +726,8 @@ theorem ctr_exec {s : State} {S : BitVec 32} (hebx : s.gpr .ebx = S)
     (he : (S + BitVec.ofNat 32 48).setWidth 64 = S.setWidth 64 + BitVec.ofNat 64 48)
     (hw : InRegions s.wr (S.setWidth 64 + BitVec.ofNat 64 48) 4)
     (hr : InRegions (s.rd ++ s.wr) (S.setWidth 64 + BitVec.ofNat 64 48) 4) :
-    WP isa (.block ([.mov .eax (.mem (at_ .ebx 48)), .alu .add .eax (.imm 1), .store (at_ .ebx 48) .eax] ++
-      ptr .edx .ebx 64 ++ [.mov .ecx (.reg .ebp)])) s fun s' =>
+    WP isa (.block (([.mov .eax (.mem (at_ .ebx 48)), .alu .add .eax (.imm 1), .store (at_ .ebx 48) .eax] : List Instr) ++
+      ptr .edx .ebx 64 ++ ([.mov .ecx (.reg .ebp)] : List Instr))) s fun s' =>
       s'.mem = s.mem.writeW (S.setWidth 64 + BitVec.ofNat 64 48) (s.mem.readW (S.setWidth 64 + BitVec.ofNat 64 48) 32 + 1) ∧
       s'.gpr .edx = S + BitVec.ofNat 32 64 ∧ s'.gpr .ecx = s.gpr .ebp ∧
       (∀ r, r ≠ .eax → r ≠ .edx → r ≠ .ecx → s'.gpr r = s.gpr r) ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
@@ -738,8 +738,8 @@ theorem ctr_exec {s : State} {S : BitVec 32} (hebx : s.gpr .ebx = S)
     hebx, he, hw, hr]
   exact ⟨trivial, trivial, trivial, fun r h₁ h₂ h₃ => by simp [h₁, h₂, h₃], trivial⟩
 
-theorem tailXor_eq : tailXor = .seq (.block ([.mov .eax (.mem (at_ .ebx 48)), .alu .add .eax (.imm 1),
-    .store (at_ .ebx 48) .eax] ++ ptr .edx .ebx 64 ++ [.mov .ecx (.reg .ebp)])) xorBytes := rfl
+theorem tailXor_eq : tailXor = .seq (.block (([.mov .eax (.mem (at_ .ebx 48)), .alu .add .eax (.imm 1),
+    .store (at_ .ebx 48) .eax] : List Instr) ++ ptr .edx .ebx 64 ++ ([.mov .ecx (.reg .ebp)] : List Instr))) xorBytes := rfl
 
 set_option simprocs false in
 theorem tail_ok {s₀ : State} (hp : APre s₀) {s : State} (h : Q2 s₀ s) (ht : T s₀ ≠ 0) :

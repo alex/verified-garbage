@@ -338,7 +338,7 @@ theorem copy_ok {s₀ : State} {t sr dr : Reg} {S D : BitVec 32} {so dof n : Nat
 
 /-! ## `init` -/
 
-theorem init_eq : init = .block ((copyWords .r3 .r1 .r0 0 16 8 ++ [.mov .r1 (.reg .r2)]) ++ setNonceInstrs) := rfl
+theorem init_eq : init = .block ((copyWords .r3 .r1 .r0 0 16 8 ++ ([.mov .r1 (.reg .r2)] : List Instr)) ++ setNonceInstrs) := rfl
 
 theorem init_ok (s : State) (hs : Proof.ChaCha20.initArm.pre s) :
     ∃ t s', Exec isa init s t s' ∧ abiPreserved s s' ∧ Proof.ChaCha20.initArm.post s s' := by
@@ -353,7 +353,7 @@ theorem init_ok (s : State) (hs : Proof.ChaCha20.initArm.pre s) :
         Proof.ChaCha20.Arm.contains_off (by omega) (by omega)⟩,
       by rw [z]; exact (hdk.sub_left (Offset.sub_base _ (by omega))).symm⟩
   rw [init_eq]
-  obtain ⟨t, s', he, hm, hg, hsp⟩ : WP isa (.block ((copyWords .r3 .r1 .r0 0 16 8 ++ [.mov .r1 (.reg .r2)]) ++
+  obtain ⟨t, s', he, hm, hg, hsp⟩ : WP isa (.block ((copyWords .r3 .r1 .r0 0 16 8 ++ ([.mov .r1 (.reg .r2)] : List Instr)) ++
       setNonceInstrs)) s fun s' =>
       (∃ m₁ : Mem, (∀ i < 32, m₁ (State.addr (s.gpr .r0) + BitVec.ofNat 64 (16 + i)) =
           s.mem (State.addr (s.gpr .r1) + BitVec.ofNat 64 (0 + i))) ∧

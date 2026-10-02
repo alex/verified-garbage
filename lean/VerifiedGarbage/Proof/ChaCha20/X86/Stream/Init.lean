@@ -336,7 +336,7 @@ theorem setNonceArgs_ok {s : State} (hp : NPre s) :
     ite_true, ite_false]
   exact ⟨trivial, trivial, fun r h₁ h₂ => by simp [h₁, h₂], trivial⟩
 
-theorem setNonce_eq : setNonce = .block (([.mov .eax (.mem (at_ .esp 4)), .mov .edx (.mem (at_ .esp 8))] ++
+theorem setNonce_eq : setNonce = .block ((([.mov .eax (.mem (at_ .esp 4)), .mov .edx (.mem (at_ .esp 8))] : List Instr) ++
     nonceLoads) ++ nonceStores) := rfl
 
 theorem setNonce_exec {s : State} (hp : NPre s) :
