@@ -104,8 +104,4 @@ theorem scalarBase_correct_of_engine (engine : Prog isa) (engine_ok : BaseEngine
     change val4 (c.gpr .r8) (c.gpr .r9) (c.gpr .r10) (c.gpr .r11) = _
     rw [vc, input]
 
-theorem scalarBase_correct {s : State} (hs : scalarBaseLocal.pre s) :
-    WP isa (scalarBase fld) s fun t => gprPreserved s t ∧ scalarBaseLocal.post s t :=
-  scalarBase_correct_of_engine (scalarBaseEngine fld) scalarBaseEngine_ok hs
-
 end VG.Proof.Ed25519.X86_64

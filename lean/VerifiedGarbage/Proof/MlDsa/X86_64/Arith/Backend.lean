@@ -4,6 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.NttInv
 import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Mul
 import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.AddSub
 import VerifiedGarbage.Proof.MlKem.X86_64.ArithOk
+import VerifiedGarbage.Proof.MlDsa.X86_64.Round.Bits
+import VerifiedGarbage.Proof.MlDsa.X86_64.Round.MakeHint
+import VerifiedGarbage.Proof.MlDsa.X86_64.Round.NormLt
 import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.Rej4Verified
 
 /-!
@@ -49,6 +52,10 @@ structure BackendOk (B : Backend) : Prop where
   mulAdd : FnOk (fun S => Spec.MlDsa.mulAddContract X86_64.abi S) B.mulAdd
   add : FnOk (fun S => Spec.MlDsa.addContract X86_64.abi S) B.add
   sub : FnOk (fun S => Spec.MlDsa.subContract X86_64.abi S) B.sub
+  highBits : FnOk (fun S => Spec.MlDsa.highBitsContract X86_64.abi S) B.highBits
+  lowBits : FnOk (fun S => Spec.MlDsa.lowBitsContract X86_64.abi S) B.lowBits
+  normLt : FnOk (fun S => Spec.MlDsa.normLtContract X86_64.abi S) B.normLt
+  makeHint : FnOk (fun S => Spec.MlDsa.makeHintContract X86_64.abi S) B.makeHint
   rej4 : Rej4Ok B.rej4
 
 /-- An implementation of the polynomial arithmetic on x86-64. -/
@@ -79,6 +86,14 @@ def ArithImpl.sse2 : ArithImpl where
       add := FnOk.of Arith.add_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
       sub := FnOk.of Arith.sub_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      highBits := FnOk.of Round.highBits_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      lowBits := FnOk.of Round.lowBits_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      normLt := FnOk.of Round.normLt_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      makeHint := FnOk.of Round.makeHint_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
       rej4 := ⟨Rej4.rejNTT4_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel), by decide +kernel,
         by decide +kernel, Code.all_of_allInstrs (by decide +kernel)⟩ }

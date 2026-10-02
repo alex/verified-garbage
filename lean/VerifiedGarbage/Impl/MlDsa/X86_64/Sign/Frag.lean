@@ -88,11 +88,11 @@ def setB (p : Ptr) (v : Nat) : List Instr := [.mov32 .rax (.imm (BitVec.ofNat 32
 /-- The 8 bytes `v` to `p`. -/
 def setQ (p : Ptr) (v : Nat) : List Instr := [.mov32 .rax (.imm (BitVec.ofNat 32 v)), .store (at_ p.1 p.2) .rax]
 
-/-- Copy `n` bytes from `src` to `dst`, one at a time. -/
+/-- Copy `n` bytes, a multiple of 8, from `src` to `dst`, 8 at a time. -/
 def copy (dst src : Ptr) (n : Nat) : Prog isa :=
-  .seq (.block (lea .rdi dst ++ lea .rsi src ++ [.mov32 .rcx (.imm (BitVec.ofNat 32 n))]))
-    (.loop (.block [.movzx8 .rax (at_ .rsi 0), .store8 (at_ .rdi 0) .rax, .alu .add .rdi (.imm 1),
-      .alu .add .rsi (.imm 1), .alu .sub .rcx (.imm 1)]) .ne)
+  .seq (.block (lea .rdi dst ++ lea .rsi src ++ [.mov32 .rcx (.imm (BitVec.ofNat 32 (n / 8)))]))
+    (.loop (.block [.mov .rax (.mem (at_ .rsi 0)), .store (at_ .rdi 0) .rax, .alu .add .rdi (.imm 8),
+      .alu .add .rsi (.imm 8), .alu .sub .rcx (.imm 1)]) .ne)
 
 /-! ## Calls
 
@@ -193,18 +193,18 @@ def ballAt (len tau : Nat) (c : Ptr) : Prog isa :=
   callP "vg_mldsa_sample_in_ball" P.ball [.ptr (sc oCT), .imm len, .imm tau, .ptr c, .ptr (sc oPS)]
 
 def highBitsAt (r : Ptr) (gamma2 : Nat) (out : Ptr) : Prog isa :=
-  callP "vg_mldsa_high_bits" P.highBits [.ptr r, .imm gamma2, .ptr out]
+  callP ("vg_mldsa_high_bits" ++ P.sfx) P.highBits [.ptr r, .imm gamma2, .ptr out]
 
 def lowBitsAt (r : Ptr) (gamma2 : Nat) (out : Ptr) : Prog isa :=
-  callP "vg_mldsa_low_bits" P.lowBits [.ptr r, .imm gamma2, .ptr out]
+  callP ("vg_mldsa_low_bits" ++ P.sfx) P.lowBits [.ptr r, .imm gamma2, .ptr out]
 
 /-- `‖f‖∞ < bound`, and `r15 ← r15 ∧ result`. -/
 def normAt (f : Ptr) (bound : Nat) : Prog isa :=
-  .seq (callP "vg_mldsa_norm_lt" P.normLt [.ptr f, .imm bound]) (.block [.alu32 .and .r15 (.reg .rax)])
+  .seq (callP ("vg_mldsa_norm_lt" ++ P.sfx) P.normLt [.ptr f, .imm bound]) (.block [.alu32 .and .r15 (.reg .rax)])
 
 /-- `MakeHint` of `z` and `r` to `h`, and the number of 1s added to `ONES`. -/
 def makeHintAt (z r : Ptr) (gamma2 : Nat) (h : Ptr) : Prog isa :=
-  .seq (callP "vg_mldsa_make_hint" P.makeHint [.ptr z, .ptr r, .imm gamma2, .ptr h])
+  .seq (callP ("vg_mldsa_make_hint" ++ P.sfx) P.makeHint [.ptr z, .ptr r, .imm gamma2, .ptr h])
     (.block [.mov32 .rcx (.mem (at_ .rbx oONES)), .alu32 .add .rcx (.reg .rax), .store (at_ .rbx oONES) .rcx])
 
 def simpleBitPackAt (f : Ptr) (b : Nat) (out : Ptr) (len : Nat) : Prog isa :=
