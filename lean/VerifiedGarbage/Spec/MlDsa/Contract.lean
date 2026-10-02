@@ -15,10 +15,19 @@ The functions are the internal algorithms of §6, on randomness that the
 caller generates (`ML-DSA.KeyGen` and the hedged `ML-DSA.Sign` are these on
 fresh random bytes from an approved RBG, §3.6.1), with the message
 representative `μ` computed by the caller (which Algorithms 7 and 8 allow:
-"may optionally be computed in a different cryptographic module"). A private
-key is kept as the 32-byte seed `ξ` it is generated from (§3.6.3):
+"may optionally be computed in a different cryptographic module"). The
+external functions `ML-DSA.Sign` and `ML-DSA.Verify` (Algorithms 2 and 3)
+are `vg_mldsa*_sign_message` and `vg_mldsa*_verify_message`, which format
+the message with its context string and compute `μ` themselves: on the
+randomness `rnd` that the caller generates (Algorithm 2, line 5), and with
+the public key hash `tr` from the private key (bytes 64–127, as
+`ML-DSA.Sign_internal` takes it, Algorithm 7, line 1) or computed from the
+public key (Algorithm 8, line 6). A context string longer than 255 bytes
+makes them return 2, the error indication `⊥` of lines 1–3 of both
+algorithms: its length is public, as every slice length is. A private key
+is kept as the 32-byte seed `ξ` it is generated from (§3.6.3):
 `vg_mldsa*_keygen` expands it into the public key and the private key,
-which is only ever passed to `vg_mldsa*_sign`.
+which is only ever passed to `vg_mldsa*_sign` and `vg_mldsa*_sign_message`.
 
 An implementation may bound the loops, as Appendix C allows, by at least
 `minBounds` (Table 3) and at most `maxBounds`. So key generation and signing
@@ -34,11 +43,15 @@ declare they may leak (`Sig.contract`'s `leak`): `ρ`, the seed of the matrix
 `Â`, which is part of the public key; in key generation, which half-bytes
 `RejBoundedPoly` rejects (`rejBoundedLeak`); and in signing, the number of
 iterations of the rejection sampling loop and the commitment hash `c̃` of
-each, and the hint of the signature (`signLeak`). Verification's inputs are
-all public, and it may leak them. The working space `scratch` holds
-intermediate values on return, which the caller must destroy (§3.6.3): room
-for the matrix `Â` (`kℓ` polynomials of 1 KiB), `4k + 3ℓ` more polynomials,
-and 32 KiB for the rest (`scratchWords`).
+each, and the hint of the signature (`signLeak`), which `vg_mldsa*_sign_message` leaks for
+the `μ` it computes (`signMessageLeak`): the contents of the message and the
+context string are secret, as `μ` is, and only their lengths are public.
+Verification's inputs are all public, and it may leak them. The working
+space `scratch` holds intermediate values on return, which the caller must
+destroy (§3.6.3): room for the matrix `Â` (`kℓ` polynomials of 1 KiB),
+`4k + 3ℓ` more polynomials, and 32 KiB for the rest (`scratchWords`); and,
+for the external functions, 1 KiB more (`messageScratchWords`), for `μ` and
+`tr` beside the working space of the functions on `μ`, which they may call.
 
 The functions may overwrite their arguments passed in memory, where the
 calling convention allows it (`writeArgs`), to pass arguments to the
@@ -54,6 +67,10 @@ open Sha3 (bytesAt)
 /-- The size of the working space, in `u64`s: 1 KiB (`128` of them) for each
 of `kℓ + 4k + 3ℓ + 32` polynomials. -/
 def scratchWords (p : Params) : Nat := 128 * (p.k * p.ℓ + 4 * p.k + 3 * p.ℓ + 32)
+
+/-- The size of the working space of the external functions, in `u64`s:
+`scratchWords` and 1 KiB (`128` of them) more. -/
+def messageScratchWords (p : Params) : Nat := scratchWords p + 128
 
 /-! ## Key generation -/
 
@@ -171,6 +188,80 @@ def verifyContract (p : Params) {M : ISA} (A : Abi M) (stack : Nat := 0) : Contr
     (leak := some fun pk mu sig _scratch m =>
       leakBytes (bytesAt m pk p.pkLen ++ bytesAt m mu 64 ++ bytesAt m sig p.sigLen))
 
+/-! ## Signing and verifying messages (Algorithms 2 and 3) -/
+
+/-- What `ML-DSA.Sign(sk, M, ctx)` (Algorithm 2) on the randomness `rnd` may
+leak: nothing if the context string `ctx` is longer than 255 bytes (lines
+1–3; its length is public); otherwise what `ML-DSA.Sign_internal(sk, M′, rnd)`
+may leak for the formatted message `M′` (line 10), with its message
+representative `μ = H(tr ‖ M′, 64)` (Algorithm 7, line 6, for `tr` in `sk`):
+`signLeak`. -/
+def signMessageLeak (p : Params) (sk M ctx rnd : List Byte) : List Nat :=
+  match formatMessage ctx M with
+  | none => []
+  | some M' => signLeak p sk (messageRep (skTr sk) M') rnd
+
+/-- `vg_mldsa*_sign_message(sk: *const [u8; skLen], msg: *const u8, msg_len: usize, ctx: *const u8, ctx_len: usize, rnd: *const [u8; 32], sig: *mut [u8; sigLen], scratch: *mut [u64; messageScratchWords]) -> u32`.
+`rnd` is the randomness; `scratch` is working space. -/
+def signMessageSig (p : Params) : Sig where
+  params := [("sk", .array false .u8 p.skLen), ("msg", .slice false .u8 "msg_len"),
+    ("ctx", .slice false .u8 "ctx_len"), ("rnd", .array false .u8 32),
+    ("sig", .array true .u8 p.sigLen), ("scratch", .array true .u64 (messageScratchWords p))]
+  ret := some .u32
+
+/-- With the private key at `sk`, the message `M` of `msg_len` bytes at
+`msg`, the context string `ctx` of `ctx_len` bytes at `ctx` and the 32 bytes
+of randomness at `rnd`: returns 2 if `ctx` is longer than 255 bytes
+(`ML-DSA.Sign(sk, M, ctx)`, Algorithm 2, lines 1–3, returns `⊥`), and `sig`
+is unspecified; otherwise writes the signature
+`ML-DSA.Sign_internal(sk, M′, rnd)` (Algorithm 7) of the parameter set `p`,
+for the formatted message `M′ = 0 ‖ |ctx| ‖ ctx ‖ M` (`formatMessage`,
+Algorithm 2, line 10), to `sig`, and returns 1; or returns 0 (see
+`Outcome`). May leak what `signMessageLeak` says. -/
+def signMessageContract (p : Params) {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
+  (signMessageSig p).contract A
+    (post := fun sk msg msgLen ctx ctxLen rnd sig _scratch m m' r =>
+      match formatMessage (bytesAt m ctx ctxLen.toNat) (bytesAt m msg msgLen.toNat) with
+      | none => r = 2
+      | some M' =>
+        Outcome (fun b => signInternal p b (bytesAt m sk p.skLen) M' (bytesAt m rnd 32)) r
+          (bytesAt m' sig p.sigLen))
+    (writeArgs := true)
+    (stack := stack)
+    (leak := some fun sk msg msgLen ctx ctxLen rnd _sig _scratch m =>
+      signMessageLeak p (bytesAt m sk p.skLen) (bytesAt m msg msgLen.toNat)
+        (bytesAt m ctx ctxLen.toNat) (bytesAt m rnd 32))
+
+/-- `vg_mldsa*_verify_message(pk: *const [u8; pkLen], msg: *const u8, msg_len: usize, ctx: *const u8, ctx_len: usize, sig: *const [u8; sigLen], scratch: *mut [u64; messageScratchWords]) -> u32`.
+`scratch` is working space. -/
+def verifyMessageSig (p : Params) : Sig where
+  params := [("pk", .array false .u8 p.pkLen), ("msg", .slice false .u8 "msg_len"),
+    ("ctx", .slice false .u8 "ctx_len"), ("sig", .array false .u8 p.sigLen),
+    ("scratch", .array true .u64 (messageScratchWords p))]
+  ret := some .u32
+
+/-- With the public key at `pk`, the message `M` of `msg_len` bytes at `msg`,
+the context string `ctx` of `ctx_len` bytes at `ctx` and the signature at
+`sig`: returns 2 if `ctx` is longer than 255 bytes
+(`ML-DSA.Verify(pk, M, σ, ctx)`, Algorithm 3, lines 1–3, returns `⊥`);
+otherwise returns 1 if `ML-DSA.Verify_internal(pk, M′, σ)` (Algorithm 8) of
+the parameter set `p`, for the formatted message `M′ = 0 ‖ |ctx| ‖ ctx ‖ M`
+(`formatMessage`, Algorithm 3, line 5), is true; and 0 if it is false, or
+if a loop does not finish within `minBounds`. May leak its inputs. -/
+def verifyMessageContract (p : Params) {M : ISA} (A : Abi M) (stack : Nat := 0) : Contract M :=
+  (verifyMessageSig p).contract A
+    (post := fun pk msg msgLen ctx ctxLen sig _scratch m _m' r =>
+      match formatMessage (bytesAt m ctx ctxLen.toNat) (bytesAt m msg msgLen.toNat) with
+      | none => r = 2
+      | some M' =>
+        let v := fun b => verifyInternal p b (bytesAt m pk p.pkLen) M' (bytesAt m sig p.sigLen)
+        (r = 1 ∧ ∃ b, v b = some true) ∨ (r = 0 ∧ v minBounds ≠ some true))
+    (writeArgs := true)
+    (stack := stack)
+    (leak := some fun pk msg msgLen ctx ctxLen sig _scratch m =>
+      leakBytes (bytesAt m pk p.pkLen ++ bytesAt m msg msgLen.toNat ++
+        bytesAt m ctx ctxLen.toNat ++ bytesAt m sig p.sigLen))
+
 /-! ## The functions on every target -/
 
 /-- What the documentation says of the return value of a function whose
@@ -246,6 +337,52 @@ def verifyApi (p : Params) (module name : String) : Api where
     public key, the message representative and the signature."
   safety := [scratchSafety]
 
+/-- What the documentation says of a context string that is too long. -/
+private def contextDoc : String :=
+  "Returns 2 if `ctx_len` is greater than 255 (FIPS 204 returns the error indication `⊥`)"
+
+/-- `vg_<module>_sign_message` for the parameter set `p` named `name`. -/
+def signMessageApi (p : Params) (module name : String) : Api where
+  module := module
+  name := s!"vg_{module}_sign_message"
+  sig := signMessageSig p
+  writeArgs := true
+  contracts := some fun A stack => signMessageContract p A stack
+  summary := s!"{name} signing, `ML-DSA.Sign(sk, M, ctx)` (FIPS 204 Algorithm 2) on the \
+    randomness `*rnd` (line 5): with the private key `*sk`, the `msg_len` bytes of the message \
+    at `msg` and the `ctx_len` bytes of the context string at `ctx`, writes the signature of \
+    the formatted message `M′ = 0 ‖ ctx_len ‖ ctx ‖ M` (line 10), \
+    `ML-DSA.Sign_internal(sk, M′, rnd)` (Algorithm 7), to `*sig`. " ++ outcomeDoc ++ " " ++
+    contextDoc ++ ": `*sig` is then unspecified." ++ "\n\n\
+    Contract: `VG.Spec.MlDsa.signMessageContract`. Constant time but for `ρ` and the rejection \
+    sampling: timing may depend on the pointers, on `msg_len` and `ctx_len`, on `ρ` (the first \
+    32 bytes of `*sk`), on the number of iterations of the signing loop and the commitment \
+    hash of each, and on the hint of the signature (`signMessageLeak`), but not on anything \
+    else of the key, the message, the context string or the randomness."
+  safety := [
+    "`sk` must have been written by `" ++ s!"vg_{module}_keygen" ++ "`.",
+    "`rnd` must be fresh random bytes (FIPS 204 §3.6.1), or 32 zero bytes for deterministic \
+      signing.",
+    scratchSafety]
+
+/-- `vg_<module>_verify_message` for the parameter set `p` named `name`. -/
+def verifyMessageApi (p : Params) (module name : String) : Api where
+  module := module
+  name := s!"vg_{module}_verify_message"
+  sig := verifyMessageSig p
+  writeArgs := true
+  contracts := some fun A stack => verifyMessageContract p A stack
+  summary := s!"{name} verification, `ML-DSA.Verify(pk, M, σ, ctx)` (FIPS 204 Algorithm 3): \
+    with the public key `*pk`, the `msg_len` bytes of the message at `msg`, the `ctx_len` \
+    bytes of the context string at `ctx` and the signature `*sig`, returns 1 if the signature \
+    of the formatted message `M′ = 0 ‖ ctx_len ‖ ctx ‖ M` (line 5) is valid, \
+    `ML-DSA.Verify_internal(pk, M′, σ)` (Algorithm 8), and 0 if it is not or if a loop \
+    reaches its bound, which is at least the limit of FIPS 204 Appendix C, Table 3 (this \
+    happens with probability about 2^-256 or less). " ++ contextDoc ++ ".\n\n\
+    Contract: `VG.Spec.MlDsa.verifyMessageContract`. Not constant time: timing may depend on \
+    the public key, the message, the context string and the signature."
+  safety := [scratchSafety]
+
 /-- `vg_mldsa44_keygen` on every target. -/
 def keyGen44Api : Api := keyGenApi mlDsa44 "mldsa44" "ML-DSA-44"
 /-- `vg_mldsa44_sign` on every target. -/
@@ -264,5 +401,17 @@ def keyGen87Api : Api := keyGenApi mlDsa87 "mldsa87" "ML-DSA-87"
 def sign87Api : Api := signApi mlDsa87 "mldsa87" "ML-DSA-87"
 /-- `vg_mldsa87_verify` on every target. -/
 def verify87Api : Api := verifyApi mlDsa87 "mldsa87" "ML-DSA-87"
+/-- `vg_mldsa44_sign_message` on every target. -/
+def signMessage44Api : Api := signMessageApi mlDsa44 "mldsa44" "ML-DSA-44"
+/-- `vg_mldsa44_verify_message` on every target. -/
+def verifyMessage44Api : Api := verifyMessageApi mlDsa44 "mldsa44" "ML-DSA-44"
+/-- `vg_mldsa65_sign_message` on every target. -/
+def signMessage65Api : Api := signMessageApi mlDsa65 "mldsa65" "ML-DSA-65"
+/-- `vg_mldsa65_verify_message` on every target. -/
+def verifyMessage65Api : Api := verifyMessageApi mlDsa65 "mldsa65" "ML-DSA-65"
+/-- `vg_mldsa87_sign_message` on every target. -/
+def signMessage87Api : Api := signMessageApi mlDsa87 "mldsa87" "ML-DSA-87"
+/-- `vg_mldsa87_verify_message` on every target. -/
+def verifyMessage87Api : Api := verifyMessageApi mlDsa87 "mldsa87" "ML-DSA-87"
 
 end VG.Spec.MlDsa

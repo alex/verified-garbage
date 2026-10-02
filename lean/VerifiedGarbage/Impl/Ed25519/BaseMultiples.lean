@@ -8,7 +8,7 @@ import VerifiedGarbage.Spec.Ed25519
 for `i < 15`. The proof checks both against the specification's addition.
 -/
 
-namespace VG.Impl.Ed25519.X86_64
+namespace VG.Impl.Ed25519
 
 /-- Affine `(x, y)` of `[i + 1]B`, at index `i`. -/
 def baseMultiples : List (Spec.X25519.Fe × Spec.X25519.Fe) := [
@@ -108,4 +108,4 @@ def negBaseCachedTable : List Spec.Ed25519.Point := [
 
 def negBaseCached (i : Nat) : Spec.Ed25519.Point := negBaseCachedTable.getD i Spec.Ed25519.identity
 
-end VG.Impl.Ed25519.X86_64
+end VG.Impl.Ed25519

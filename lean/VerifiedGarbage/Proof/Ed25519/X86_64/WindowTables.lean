@@ -1,5 +1,5 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.Verify
-import VerifiedGarbage.Proof.Ed25519.X86_64.WindowConstants
+import VerifiedGarbage.Proof.Ed25519.WindowConstants
 import VerifiedGarbage.Proof.Ed25519.X86_64.WindowEntry
 import VerifiedGarbage.Proof.Ed25519.X86_64.CachedPoint
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulBatch
@@ -16,6 +16,7 @@ namespace VG.Proof.Ed25519.X86_64
 
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64 VG.Proof.Ed25519 Edwards
 open VG.Proof.X25519.X86_64 (off Keeps clob Outside)
+open VG.Impl.Ed25519 (negBaseCached)
 
 variable {fld : Arith} [EdArith fld]
 
