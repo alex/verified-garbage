@@ -173,7 +173,55 @@ yours to keep:
 
 <tr>
 
-<td>SHA-384, SHA-512, SHA-512/224, SHA-512/256</td>
+<td>SHA-384</td>
+
+<td>✅</td>
+
+<td>✅ SHA512, AVX2, BMI1, BMI2</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+</tr>
+
+<tr>
+
+<td>SHA-512/224</td>
+
+<td>✅</td>
+
+<td>✅ SHA512, AVX2, BMI1, BMI2</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+</tr>
+
+<tr>
+
+<td>SHA-512/256</td>
+
+<td>✅</td>
+
+<td>✅ SHA512, AVX2, BMI1, BMI2</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+</tr>
+
+<tr>
+
+<td>SHA-512</td>
 
 <td>✅</td>
 

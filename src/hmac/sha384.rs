@@ -28,7 +28,7 @@ use crate::arch::hmac_sha384::{
     vg_hmac_sha384_finalize_sha3, vg_hmac_sha384_init_sha3,
 };
 use crate::arch::hmac_sha384::{vg_hmac_sha384_finalize, vg_hmac_sha384_init};
-use crate::hashes::sha512::{Sha384, Sha384Backend};
+use crate::hashes::sha384::{Sha384, Sha384Backend};
 
 super::streaming_hmac!(
     Sha384 (Sha384Backend) {

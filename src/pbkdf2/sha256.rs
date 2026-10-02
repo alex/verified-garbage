@@ -25,6 +25,7 @@
     target_arch = "x86"
 ))]
 
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 use core::num::NonZeroU32;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
@@ -99,16 +100,4 @@ impl super::Pbkdf2Hash for Sha256 {
             iterate,
         );
     }
-}
-
-/// Fills `out` with the key derived from `password` and `salt` with
-/// `iterations` iterations of PBKDF2 with HMAC-SHA-256
-/// (`pbkdf2_hmac::<Sha256>`).
-///
-/// # Panics
-///
-/// If `out` is longer than (2³² − 1) · 32 bytes ("derived key too long" in
-/// RFC 8018).
-pub fn pbkdf2_hmac_sha256(password: &[u8], salt: &[u8], iterations: NonZeroU32, out: &mut [u8]) {
-    super::pbkdf2_hmac::<Sha256>(password, salt, iterations, out);
 }
