@@ -158,17 +158,22 @@ impl ChaCha20 {
     /// Starts the keystream for `key` and `nonce` (the initial block counter,
     /// little-endian, followed by the 12-byte RFC 8439 nonce).
     pub fn new(key: &[u8; 32], nonce: &[u8; 16]) -> Self {
-        let mut c = ChaCha20 {
-            state: MaybeUninit::uninit(),
-            backend: Backend::select(detected()),
-        };
-        // SAFETY: `state` is valid for writes of 768 bytes (`init` reads
+        // The fields are written one at a time: a `ChaCha20 { .. }` literal
+        // with an uninitialized `state` compiles to a fill of all 776 bytes.
+        let mut c = MaybeUninit::<ChaCha20>::uninit();
+        let p = c.as_mut_ptr();
+        // SAFETY: `p` is valid for writes of a `ChaCha20`, so its `backend`
+        // field is; `state` is valid for writes of 768 bytes (`init` reads
         // none of them), `key` for reads of 32 bytes and `nonce` for reads of
         // 16 bytes; they are distinct objects, so they do not overlap each
         // other or the return address, and do not wrap around the end of the
-        // address space.
-        unsafe { vg_chacha20_init(c.state.as_mut_ptr(), key, nonce) };
-        c
+        // address space. Both fields are then initialized (`state` is a
+        // `MaybeUninit`), so `c` is.
+        unsafe {
+            core::ptr::addr_of_mut!((*p).backend).write(Backend::select(detected()));
+            vg_chacha20_init(core::ptr::addr_of_mut!((*p).state).cast(), key, nonce);
+            c.assume_init()
+        }
     }
 
     /// Restarts the keystream, with the same key, for `nonce`.
