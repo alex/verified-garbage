@@ -20,7 +20,7 @@ buffer, or the stack) and loads them back before returning. Given the list
 * `Saved.frame`, `Saved.writeW`: the slots keep their values across a frame
   or a write that misses them;
 * `restore_run`, `restore_ok`: the restore loads every register of `l` back
-  from `Saved` slots, and leaves the other registers and everything else as
+  from `Saved` slots (the base register too, if it comes last), and leaves the other registers and everything else as
   it was. The state stays folded (`restoreState`, a `setReg` per pair).
 
 Everything is proven once, by induction on `l`.
@@ -224,7 +224,7 @@ theorem restoreState_eq (s : State) :
 end
 
 theorem restore_run (b : Reg) (l : List (Reg × Nat)) (g : Reg → BitVec 64) (s : State)
-    (hb : ∀ p ∈ l, p.1 ≠ b)
+    (hb : ∀ p ∈ l.dropLast, p.1 ≠ b)
     (hr : ∀ p ∈ l, InRegions (s.rd ++ s.wr) (slot (s.gpr b) p.2) 8)
     (hs : Saved s.mem (s.gpr b) g l) :
     runBlock isa (restoreCode b l) s = some (restoreState s g l) := by
@@ -233,14 +233,17 @@ theorem restore_run (b : Reg) (l : List (Reg × Nat)) (g : Reg → BitVec 64) (s
   | cons p l ih =>
     simp only [restoreCode, List.map_cons, runBlock_cons, exec, readSrc, State.load64, ea_slot,
       hr p List.mem_cons_self, ite_true, hs p List.mem_cons_self, Option.map_some, runStep_some]
-    have hb' : (s.setReg p.1 (g p.1)).gpr b = s.gpr b :=
-      gpr_setReg_of_ne _ _ (Ne.symm (hb p List.mem_cons_self))
-    refine ih _ (fun q hq => hb q (List.mem_cons_of_mem _ hq)) (fun q hq => ?_) (fun q hq => ?_)
-    · rw [hb', rd_setReg, wr_setReg]; exact hr q (List.mem_cons_of_mem _ hq)
-    · rw [hb', mem_setReg]; exact hs q (List.mem_cons_of_mem _ hq)
+    cases l with
+    | nil => exact runBlock_nil
+    | cons q l =>
+      have hb' : (s.setReg p.1 (g p.1)).gpr b = s.gpr b :=
+        gpr_setReg_of_ne _ _ (Ne.symm (hb p List.mem_cons_self))
+      refine ih _ (fun q hq => hb q (List.mem_cons_of_mem _ hq)) (fun q hq => ?_) (fun q hq => ?_)
+      · rw [hb', rd_setReg, wr_setReg]; exact hr q (List.mem_cons_of_mem _ hq)
+      · rw [hb', mem_setReg]; exact hs q (List.mem_cons_of_mem _ hq)
 
 theorem restore_ok (b : Reg) (l : List (Reg × Nat)) (g : Reg → BitVec 64) (s : State)
-    (hb : ∀ p ∈ l, p.1 ≠ b)
+    (hb : ∀ p ∈ l.dropLast, p.1 ≠ b)
     (hr : ∀ p ∈ l, InRegions (s.rd ++ s.wr) (slot (s.gpr b) p.2) 8)
     (hs : Saved s.mem (s.gpr b) g l) :
     WP isa (.block (restoreCode b l)) s fun s' =>
@@ -253,7 +256,7 @@ theorem restore_ok (b : Reg) (l : List (Reg × Nat)) (g : Reg → BitVec 64) (s 
 
 /-- The restore, then `rest` from the state it leaves. -/
 theorem restore_then (b : Reg) (l : List (Reg × Nat)) (g : Reg → BitVec 64) {s : State}
-    {rest : List Instr} {Q : State → Prop} (hb : ∀ p ∈ l, p.1 ≠ b)
+    {rest : List Instr} {Q : State → Prop} (hb : ∀ p ∈ l.dropLast, p.1 ≠ b)
     (hr : ∀ p ∈ l, InRegions (s.rd ++ s.wr) (slot (s.gpr b) p.2) 8)
     (hs : Saved s.mem (s.gpr b) g l) (h : WP isa (.block rest) (restoreState s g l) Q) :
     WP isa (.block (restoreCode b l ++ rest)) s Q :=
