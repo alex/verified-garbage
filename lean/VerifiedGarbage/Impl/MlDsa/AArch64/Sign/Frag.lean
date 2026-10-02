@@ -98,11 +98,6 @@ def shakeAtWith (c : Impl.Sha3.AArch64.Callee) (ins : List Impl.MlKem.AArch64.Pi
 
 /-! ## Sequences -/
 
-/-- `f a, f (a + 1), …, f (a + n - 1)`, in sequence. -/
-def seqR (f : Nat → Prog isa) (a : Nat) : Nat → Prog isa
-  | 0 => .block []
-  | n + 1 => .seq (f a) (seqR f (a + 1) n)
-
 /-! ## The polynomial primitives
 
 Each takes its working space (if any) at `PS`. -/

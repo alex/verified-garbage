@@ -129,24 +129,6 @@ theorem Piece.mono {c : Prog isa} {I' J' : State → State → Prop} (h : Piece 
     RelCT.mono h.tr (fun _ _ ⟨σ₁, σ₂, p₁, p₂, pub, i₁, i₂⟩ => ⟨σ₁, σ₂, p₁, p₂, pub, hI _ _ p₁ i₁, hI _ _ p₂ i₂⟩)
       fun _ _ h => h⟩
 
-theorem seqR_ok {f : Nat → Prog isa} {I : Nat → State → Prop} :
-    ∀ (n a : Nat), (∀ k, a ≤ k → k < a + n → ∀ s, I k s → WP isa (f k) s (I (k + 1))) →
-      ∀ s, I a s → WP isa (seqR f a n) s (I (a + n))
-  | 0, a, _, s, h => by simp only [seqR, Nat.add_zero]; exact WP.block_nil h
-  | n + 1, a, hf, s, h => by
-    refine WP.seq (WP.mono (hf a (Nat.le_refl _) (by omega) s h) fun s' h' => ?_)
-    have := seqR_ok n (a + 1) (fun k h₁ h₂ => hf k (by omega) (by omega)) s' h'
-    rwa [show a + 1 + n = a + (n + 1) by omega] at this
-
-theorem seqR_tr {f : Nat → Prog isa} {Q : Nat → State → State → Prop} :
-    ∀ (n a : Nat), (∀ k, a ≤ k → k < a + n → RelCT isa (Q k) (f k) (Q (k + 1))) →
-      RelCT isa (Q a) (seqR f a n) (Q (a + n))
-  | 0, a, _ => by simp only [seqR, Nat.add_zero]; exact RelCT.block_nil (fun _ _ h => h)
-  | n + 1, a, hf => by
-    have := seqR_tr n (a + 1) (fun k h₁ h₂ => hf k (by omega) (by omega))
-    rw [show a + 1 + n = a + (n + 1) by omega] at this
-    exact RelCT.seq (hf a (Nat.le_refl _) (by omega)) this
-
 theorem Piece.seqR {f : Nat → Prog isa} {I : Nat → State → State → Prop} :
     ∀ (n a : Nat), (∀ k, a ≤ k → k < a + n → Piece p S (I k) (I (k + 1)) (f k)) →
       Piece p S (I a) (I (a + n)) (seqR f a n)

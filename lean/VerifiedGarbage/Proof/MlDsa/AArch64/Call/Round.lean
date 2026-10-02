@@ -72,4 +72,9 @@ theorem normAt_tr {S : Nat} {nm : String} {cd : Prog isa} (C : CalleeOk S cd (no
     exact ⟨e.2, e.pa hb, trivial⟩
   · rw [e.pa hb]; exact (norm_cov Ly hc).1
 
+/-- The values of `γ₂`, as an immediate. -/
+theorem gamma2_lt {g2 : Nat} (h : g2 ∈ gamma2s) : g2 < 2 ^ 32 := by
+  simp only [gamma2s, List.mem_cons, List.not_mem_nil, or_false] at h
+  rcases h with rfl | rfl <;> decide
+
 end VG.Proof.MlDsa.AArch64

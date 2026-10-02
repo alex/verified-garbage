@@ -241,10 +241,6 @@ theorem maskAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.expandMask (expandMas
 
 /-! ## `HighBits` and `LowBits` -/
 
-theorem gamma2_lt {g2 : Nat} (h : g2 ∈ gamma2s) : g2 < 2 ^ 32 := by
-  simp only [gamma2s, List.mem_cons, List.not_mem_nil, or_false] at h
-  rcases h with rfl | rfl <;> decide
-
 /-- The contract of `vg_mldsa_high_bits` or `vg_mldsa_low_bits`: `bitsSig`'s,
 with the postcondition `Q γ₂ (the polynomial at r) m' out`. -/
 abbrev bitsC (Q : Nat → Poly → Mem → Addr → Prop) (S : Nat) : Contract isa :=

@@ -72,7 +72,7 @@ theorem expandA_tr {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : a
       fun h0 => absurd (h0.symm.trans e15) (by decide)⟩
   · obtain ⟨⟨σ₁, σ₂, _, _, _, ⟨_, h₁⟩, ⟨_, h₂⟩⟩, _⟩ := h
     rw [fx, fy, h₁, h₂]
-  · have := seqR_tr (f := sampleE P p) (R := fun k => RA p D k) (p.k * p.ℓ) 0
+  · have := seqR_tr (f := sampleE P p) (Q := fun k => RA p D k) (p.k * p.ℓ) 0
       fun k _ hk => sampleE_tr hP (he k (by omega))
     rwa [Nat.zero_add] at this
 

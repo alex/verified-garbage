@@ -261,32 +261,4 @@ theorem ifOkElse_tr {t e : Prog isa} {P Q : State → State → Prop}
     (RelCT.mono ht (fun x y ⟨h, hc⟩ => ⟨h, by rw [eval24] at hc; simpa using hc⟩) fun _ _ h => h)
     (RelCT.mono he (fun x y ⟨h, hc⟩ => ⟨h, by rw [eval24] at hc; simpa using hc⟩) fun _ _ h => h)
 
-/-! ## Sequences -/
-
-theorem seqR_ok {f : Nat → Prog isa} {I : Nat → State → Prop} :
-    ∀ (n a : Nat), (∀ k, a ≤ k → k < a + n → ∀ s, I k s → WP isa (f k) s (I (k + 1))) →
-      ∀ s, I a s → WP isa (seqR f a n) s (I (a + n))
-  | 0, a, _, s, hs => WP.block_nil hs
-  | n + 1, a, h, s, hs => by
-    rw [seqR]
-    refine WP.seq (WP.mono (h a (Nat.le_refl _) (by omega) s hs) fun s₁ h₁ => ?_)
-    rw [show a + (n + 1) = a + 1 + n by omega]
-    exact seqR_ok n (a + 1) (fun k hk hk' => h k (by omega) (by omega)) s₁ h₁
-
-theorem nil_tr {P : State → State → Prop} : RelCT isa P (.block []) P := by
-  intro s₁ s₂ t₁ t₂ s₁' s₂' hp e₁ e₂
-  rw [Exec.block_iff] at e₁ e₂
-  simp only [execBlock, Option.some.injEq, Prod.mk.injEq] at e₁ e₂
-  obtain ⟨rfl, rfl⟩ := e₁
-  obtain ⟨rfl, rfl⟩ := e₂
-  exact ⟨rfl, hp⟩
-
-theorem seqR_tr {f : Nat → Prog isa} {R : Nat → State → State → Prop} :
-    ∀ (n a : Nat), (∀ k, a ≤ k → k < a + n → RelCT isa (R k) (f k) (R (k + 1))) →
-      RelCT isa (R a) (seqR f a n) (R (a + n))
-  | 0, _, _ => nil_tr
-  | n + 1, a, h => by
-    rw [seqR, show a + (n + 1) = a + 1 + n by omega]
-    exact RelCT.seq (h a (Nat.le_refl _) (by omega)) (seqR_tr n (a + 1) fun k hk hk' => h k (by omega) (by omega))
-
 end VG.Proof.MlDsa.AArch64.Sign

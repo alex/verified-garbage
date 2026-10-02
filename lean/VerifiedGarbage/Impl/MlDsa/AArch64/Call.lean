@@ -56,4 +56,9 @@ upper half of `x0` is unspecified): the AND of the results that decide
 whether the function goes on. -/
 def and24 : List Instr := [.logic .and .w .x24 .x24 .x0]
 
+/-- `f a, f (a + 1), …, f (a + n - 1)`, in sequence. -/
+def seqR (f : Nat → Prog isa) (a : Nat) : Nat → Prog isa
+  | 0 => .block []
+  | n + 1 => .seq (f a) (seqR f (a + 1) n)
+
 end VG.Impl.MlDsa.AArch64

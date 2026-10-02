@@ -111,10 +111,6 @@ theorem useHint_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {h
   exact ⟨⟨ptr_ok (ptr_kept L c3), by decide⟩, ⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨trivial, by decide⟩,
     ⟨ptr_ok (ptr_kept L c5), by decide⟩⟩
 
-theorem gamma2_lt {g2 : Nat} (h : g2 ∈ gamma2s) : g2 < 2 ^ 32 := by
-  simp only [gamma2s, List.mem_cons, List.not_mem_nil, or_false] at h
-  rcases h with rfl | rfl <;> decide
-
 section
 variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {h r out : Ptr}
   (hc : useHintChk rbs wbs h r out = true)

@@ -29,11 +29,6 @@ open VG.AArch64
 /-- Where the caller's `x24`–`x28` and `x30` are saved in `scratch`. -/
 def SV : Nat := 840
 
-/-- `f a, f (a + 1), …, f (a + n - 1)`, in sequence. -/
-def seqR (f : Nat → Prog isa) (a : Nat) : Nat → Prog isa
-  | 0 => .block []
-  | n + 1 => .seq (f a) (seqR f (a + 1) n)
-
 /-! ## The primitives -/
 
 /-- The code of the primitives `vg_mldsa_*` that key generation and

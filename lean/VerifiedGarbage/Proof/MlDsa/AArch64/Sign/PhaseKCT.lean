@@ -167,15 +167,15 @@ theorem checks_tr (hc : ksChk p = true) {E : State → State → Prop} {t : Nat}
       (fun _ _ _ h => cntt_ok hP hc h) (ipAt_tr (t := ntt) hP.ntt c1)) ?_
   refine RelCT.seq (R := RS p D E fun σ s => IZ p D σ t 0 s)
     (liftT (fun _ _ h => h.b.l.st) (fun _ _ _ h => kInit_ok hc h) (lrel_tr (fun x y h => h) (by taint_decide))) ?_
-  refine RelCT.seq (R := RS p D E fun σ s => IR p D σ t 0 s) (RelCT.mono (seqR_tr (R := fun r => RS p D E
+  refine RelCT.seq (R := RS p D E fun σ s => IR p D σ t 0 s) (RelCT.mono (seqR_tr (Q := fun r => RS p D E
     fun σ s => IZ p D σ t r s) p.ℓ 0 fun r _ hr => liftL (T := fun s => ∃ σ, IZ p D σ t r s)
       (fun σ s h => ⟨h.1.b.l.st, σ, h⟩) (fun _ _ _ h => zR_ok hP (hz r (by omega)) h) (zR_trL hP (hz r (by omega))))
     (fun _ _ h => h) fun x y h => by rw [Nat.zero_add] at h; exact h.mono (fun _ _ h => h) fun _ _ h => h.ir) ?_
-  refine RelCT.seq (R := RS p D E fun σ s => IH p D σ t 0 s) (RelCT.mono (seqR_tr (R := fun i => RS p D E
+  refine RelCT.seq (R := RS p D E fun σ s => IH p D σ t 0 s) (RelCT.mono (seqR_tr (Q := fun i => RS p D E
     fun σ s => IR p D σ t i s) p.k 0 fun i _ hi => liftL (T := fun s => ∃ σ, IR p D σ t i s)
       (fun σ s h => ⟨h.1.b.l.st, σ, h⟩) (fun _ _ _ h => r0R_ok hP (hr i (by omega)) h) (r0R_trL hP (hr i (by omega))))
     (fun _ _ h => h) fun x y h => by rw [Nat.zero_add] at h; exact h.mono (fun _ _ h => h) fun _ _ h => h.ih) ?_
-  refine RelCT.seq (R := RS p D E fun σ s => IH p D σ t p.k s) (RelCT.mono (seqR_tr (R := fun i => RS p D E
+  refine RelCT.seq (R := RS p D E fun σ s => IH p D σ t p.k s) (RelCT.mono (seqR_tr (Q := fun i => RS p D E
     fun σ s => IH p D σ t i s) p.k 0 fun i _ hi => liftL (T := fun s => ∃ σ, IH p D σ t i s)
       (fun σ s h => ⟨h.1.b.l.st, σ, h⟩) (fun _ _ _ h => hR_ok hP (hh i (by omega)) h) (hR_trL hP (hh i (by omega))))
     (fun _ _ h => h) fun x y h => by rwa [Nat.zero_add] at h) ?_
