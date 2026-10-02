@@ -1544,13 +1544,9 @@ namespace VG.Proof.Scrypt.Arm.RoMix
 open VG VG.Arm VG.Impl.Scrypt.Arm
 open VG.Spec.Scrypt (bytesAt blockMix)
 open VG.Proof.MdStream.Arm (Upd wp_mov wp_add op2_reg op2_imm op2_lsr eval_ne)
-open VG.Proof.Scrypt.Arm.BlockMix (covers_of_in)
 open VG.Proof.Scrypt.Memory (InRegions.right)
 
 /-! ## The call of `vg_scrypt_blockmix` -/
-
-theorem covers_of_all {rs rs' : List Region} (h : ∀ R ∈ rs, Covers [R] rs') : Covers rs rs' :=
-  fun x n ⟨r, hr, hc⟩ => h r hr x n ⟨_, List.mem_singleton_self _, hc⟩
 
 theorem stackArg_entry (s : State) (rd wr : List Region) :
     stackArg (s.callEntry.withRegions rd wr) 0 = stackArg s 0 := rfl
@@ -1580,7 +1576,7 @@ theorem bm_pre {s : State} {src dst scr : BitVec 32} {r : Nat} (h0 : s.gpr .r0 =
   have tr : (BitVec.ofNat 32 r).toNat = r := by
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by omega)
   have c128 : r * 128 = 128 * r := Nat.mul_comm _ _
-  refine ⟨?_, covers_of_all fun R hR => ?_, covers_of_all fun R hR => ?_⟩
+  refine ⟨?_, Covers.of_forall fun R hR => ?_, Covers.of_forall fun R hR => ?_⟩
   · simp only [Proof.Scrypt.blockMixArm, State.withRegions_gpr, State.withRegions_rd,
       State.withRegions_wr, State.withRegions_sp, State.callEntry_sp, stackArg_entry,
       stackArgAddr_entry,
@@ -1592,18 +1588,18 @@ theorem bm_pre {s : State} {src dst scr : BitVec 32} {r : Nat} (h0 : s.gpr .r0 =
   · simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
       or_false] at hR
     rcases hR with rfl | rfl | rfl | rfl
-    · exact covers_of_in isrc
-    · exact covers_of_in iarg
+    · exact Covers.one isrc
+    · exact Covers.one iarg
     · intro a n h
-      obtain ⟨R', hR', hc'⟩ := covers_of_in idst a n h
+      obtain ⟨R', hR', hc'⟩ := Covers.one idst a n h
       exact ⟨R', List.mem_append_right _ hR', hc'⟩
     · intro a n h
-      obtain ⟨R', hR', hc'⟩ := covers_of_in iscr a n h
+      obtain ⟨R', hR', hc'⟩ := Covers.one iscr a n h
       exact ⟨R', List.mem_append_right _ hR', hc'⟩
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hR
     rcases hR with rfl | rfl
-    · exact covers_of_in idst
-    · exact covers_of_in iscr
+    · exact Covers.one idst
+    · exact Covers.one iscr
 
 theorem blockMixSpec : BlockMixSpec Impl.Scrypt.Arm.blockMix := by
   intro s src dst scr r h0 h1 h2 h3 h4 hr hlt hds hsd hss had has nsrc ndst nscr nsp isrc iarg

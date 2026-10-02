@@ -39,7 +39,7 @@ theorem p2r_cov : Covers ([⟨pa s t, 1024⟩] ++ [⟨pa s t1, 1024⟩, ⟨pa s 
     Covers [⟨pa s t1, 1024⟩, ⟨pa s t0, 1024⟩] s.wr := by
   simp only [p2rChk, Bool.and_eq_true, and_assoc] at hc
   obtain ⟨_, _, _, c4, _, _, c7, c8⟩ := hc
-  exact ⟨covers_append (L.cR c4) (covers_wr (covers_cons (L.cW c7) (L.cW c8))), covers_cons (L.cW c7) (L.cW c8)⟩
+  exact ⟨Covers.append_left (L.cR c4) (Covers.right (Covers.cons (L.cW c7) (L.cW c8))), Covers.cons (L.cW c7) (L.cW c8)⟩
 
 theorem p2r_pre (hr : Reduced s.mem (pa s t)) {s1 : State} (h1 : Args (p2rArgs t t1 t0) s s1) :
     (power2RoundContract AArch64.abi S).pre
@@ -123,7 +123,7 @@ theorem useHint_cov : Covers ([⟨pa s h, 1024⟩, ⟨pa s r, 1024⟩] ++ [⟨pa
     Covers [⟨pa s out, 1024⟩] s.wr := by
   simp only [useHintChk, Bool.and_eq_true, and_assoc] at hc
   obtain ⟨_, _, c3, c4, _, c6⟩ := hc
-  exact ⟨covers_append (covers_cons (L.cR c3) (L.cR c4)) (covers_wr (L.cW c6)), L.cW c6⟩
+  exact ⟨Covers.append_left (Covers.cons (L.cR c3) (L.cR c4)) (Covers.right (L.cW c6)), L.cW c6⟩
 
 theorem useHint_pre {g2 : Nat} (hg : g2 ∈ gamma2s) (hr : Reduced s.mem (pa s r)) {s1 : State}
     (h1 : Args (useHintArgs h r g2 out) s s1) :
@@ -196,7 +196,7 @@ variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs 
 include L hc
 
 theorem norm_cov : Covers ([⟨pa s f, 1024⟩] ++ []) (s.rd ++ s.wr) ∧ Covers [] s.wr :=
-  ⟨by rw [List.append_nil]; exact L.cR hc, covers_nil⟩
+  ⟨by rw [List.append_nil]; exact L.cR hc, Covers.nil⟩
 
 theorem norm_pre {bound : Nat} (hr : Reduced s.mem (pa s f)) {s1 : State} (h1 : Args (normArgs f bound) s s1) :
     (normLtContract AArch64.abi S).pre (s1.callEntry.withRegions [⟨pa s f, 1024⟩] []) := by
