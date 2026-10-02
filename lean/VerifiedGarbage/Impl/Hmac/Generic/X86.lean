@@ -149,6 +149,42 @@ def init : Prog isa :=
   (.seq (H.callUpd [] .esi .edi 0 (H.buf + H.B) H.B)
     (.block H.restore))))))
 
+/-! ## `init` for a key of any length
+
+`initAny` compares `key_len` with the block size. A longer key is hashed
+first (`hashKey`): `init`, `update` and `finalize` on a streaming state at
+`scratch + ext`, after `init`'s buffers, with the digest written after the
+state; then `init` runs on that digest, `D` bytes, which `hashKey` passes it
+in place of `key` and `key_len`, in their argument slots (the contract lets
+the function write its arguments). `hashKey` saves and restores our
+caller's registers where `init` does; `ebx` holds the state, `ebp`
+`scratch`. -/
+
+/-- Where the streaming state of a long key is: after `init`'s buffers,
+rounded up to a whole word. Its digest follows it. -/
+def ext : Nat := 8 * ((H.buf + 2 * H.B + 7) / 8)
+
+/-- The digest of the key, after `scratch + ext + S`. -/
+def hashCore : Prog isa :=
+  .seq (.block ([.mov .eax (.mem (at_ .esp 20))] ++ H.save ++ [.mov .ebp (.reg .eax)] ++ scr .ebx H.ext))
+  (.seq (H.callInit .ebx)
+  (.seq (.block [.mov .eax (.imm 0), .mov .edx (.mem (at_ .esp 12)), .mov .ecx (.mem (at_ .esp 16))])
+  (.seq (.frame (.push [.ebp, .ecx, .edx, .eax, .eax, .ebx]) (.call H.updN H.updC) (.pop .eax 6))
+  (.seq (.block ([.mov .eax (.mem (at_ .esp 16)), .mov .ecx (.imm 0)] ++ scr .edx (H.ext + H.S)))
+    (.frame (.push [.ebp, .edx, .ecx, .eax, .ebx]) (.call H.finN H.finC) (.pop .eax 5))))))
+
+/-- The digest and its size in place of `key` and `key_len`, and our
+caller's registers back. -/
+def hashArgs : List Instr :=
+  scr .eax (H.ext + H.S) ++ [.store (at_ .esp 12) .eax, .mov .eax (.imm (BitVec.ofNat 32 H.D)),
+    .store (at_ .esp 16) .eax] ++ H.restore
+
+def hashKey : Prog isa := .seq H.hashCore (.block H.hashArgs)
+
+def initAny : Prog isa :=
+  .seq (.block [.mov .eax (.mem (at_ .esp 16)), .alu .cmp .eax (.imm (BitVec.ofNat 32 (H.B + 1)))])
+  (.seq (.ite .b (.block []) H.hashKey) H.init)
+
 /-! ## `finalize`
 
 Registers: `ebx` = `inner`, `esi` = `outer` (then the low word of

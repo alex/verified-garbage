@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.X86.Target
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Instances
+import VerifiedGarbage.Proof.Hmac.Generic.X86.InitAny
 
 /-!
 # HMAC-MD5 (RFC 2104) on x86
@@ -24,15 +24,15 @@ namespace VG.Artifacts.HmacMd5.X86
 open VG.Proof.Hmac.Generic.X86
 
 def artifacts : List Artifact := [
-  { Spec.Hmac.md5I.initApi with
+  { Spec.Hmac.md5I.initAnyKeyApi with
     target := X86.target
-    doc := Spec.Hmac.md5I.initApi.doc
-    code := md5H.init
-    contract := Spec.Hmac.md5I.initContract X86.abi 48
-    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
+    doc := Spec.Hmac.md5I.initAnyKeyApi.doc
+    code := md5H.initAny
+    contract := Spec.Hmac.md5I.initAnyKeyContract X86.abi 48
+    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initAnyKeyContract; rfl⟩
     writeArgs := true
     stack := 48
-    verified := Instances.md5_init
+    verified := Instances.md5_initAny
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Hmac.md5I.finalizeApi with
     target := X86.target

@@ -1,5 +1,5 @@
 import VerifiedGarbage.TCB.X86.Target
-import VerifiedGarbage.Proof.Hmac.Generic.X86.Instances
+import VerifiedGarbage.Proof.Hmac.Generic.X86.InitAny
 
 /-!
 # HMAC-SHA-512/224 (RFC 2104) on x86
@@ -24,15 +24,15 @@ namespace VG.Artifacts.HmacSha512_224.X86
 open VG.Proof.Hmac.Generic.X86
 
 def artifacts : List Artifact := [
-  { Spec.Hmac.sha512_224I.initApi with
+  { Spec.Hmac.sha512_224I.initAnyKeyApi with
     target := X86.target
-    doc := Spec.Hmac.sha512_224I.initApi.doc
-    code := sha512_224H.init
-    contract := Spec.Hmac.sha512_224I.initContract X86.abi 48
-    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
+    doc := Spec.Hmac.sha512_224I.initAnyKeyApi.doc
+    code := sha512_224H.initAny
+    contract := Spec.Hmac.sha512_224I.initAnyKeyContract X86.abi 48
+    ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initAnyKeyContract; rfl⟩
     writeArgs := true
     stack := 48
-    verified := Instances.sha512_224_init
+    verified := Instances.sha512_224_initAny
     spSafe := Code.all_of_allInstrs (by lit_decide) },
   { Spec.Hmac.sha512_224I.finalizeApi with
     target := X86.target
