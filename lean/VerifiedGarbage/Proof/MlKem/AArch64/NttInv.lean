@@ -4,9 +4,8 @@ import Mathlib.Tactic.Set
 /-!
 # ML-KEM on AArch64: `vg_mlkem_inv_ntt`
 
-Untrusted: everything here is checked by Lean. As for the NTT
-(`NttFwd.lean`), with the inverse butterflies and the zetas from
-`zetas[127]` down: the layer with `len = 2` two blocks at a time
+As for the NTT (`NttFwd.lean`), with the inverse butterflies and the zetas
+from `zetas[127]` down: the layer with `len = 2` two blocks at a time
 (`ipair_step`), the layers with `len ≥ 4` (`ivstep`, `iblock_step`,
 `ilayer_step`), then the multiplication by 3303 (`scale_step`).
 -/

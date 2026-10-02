@@ -6,8 +6,6 @@ import VerifiedGarbage.Spec.Aes.Contract
 /-!
 # The AES key expansion on ARMv7
 
-Untrusted: everything here is checked by Lean.
-
 `subAll` (`ortho`, the S-box, `ortho`, with the loop registers kept in
 slots meanwhile) applies the S-box to every byte of the eight words
 (`subAll_wp`, from the bitsliced layers' lemmas); each word of the

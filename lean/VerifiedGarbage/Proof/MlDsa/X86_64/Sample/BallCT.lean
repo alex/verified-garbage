@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNttCT
 /-!
 # ML-DSA on x86-64: `vg_mldsa_sample_in_ball`, constant time but for `c̃`
 
-Untrusted: everything here is checked by Lean. Two runs whose `c̃` (the
-declared leak), `len`, `τ` and pointers agree leak the same: the prologue and
-the blocks around the loop by the taint analysis, the sponge by
-`sponge_ct`, and the loop, whose branches and addresses depend on the
-SHAKE256 output, by relating the two runs iteration by iteration
-(`body_ct`): both are at the same iteration with the same `i`, sign bits
-and byte to read, so each branch goes the same way and each access goes to
-the same address.
+Two runs whose `c̃` (the declared leak), `len`, `τ` and pointers agree leak
+the same: the prologue and the blocks around the loop by the taint analysis,
+the sponge by `sponge_ct`, and the loop, whose branches and addresses depend
+on the SHAKE256 output, by relating the two runs iteration by iteration
+(`body_ct`): both are at the same iteration with the same `i`, sign bits and
+byte to read, so each branch goes the same way and each access goes to the
+same address.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample

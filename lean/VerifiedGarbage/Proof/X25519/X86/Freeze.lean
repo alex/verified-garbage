@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.X25519.X86.Ops
 /-!
 # X25519 on x86 (32-bit): the full reduction
 
-Untrusted: everything here is checked by Lean. `freeze o` leaves at `o` the
-element's value modulo `p`: bit 255 is folded in as 19 (`V' < 2²⁵⁵ + 19 < 2p`),
-then `V' + 19 - 2²⁵⁵ = V' - p` is selected if it is not negative, that is if
-bit 255 of `W = V' + 19` is set.
+`freeze o` leaves at `o` the element's value modulo `p`: bit 255 is folded in
+as 19 (`V' < 2²⁵⁵ + 19 < 2p`), then `V' + 19 - 2²⁵⁵ = V' - p` is selected if it
+is not negative, that is if bit 255 of `W = V' + 19` is set.
 -/
 
 namespace VG.Proof.X25519.X86

@@ -24,8 +24,8 @@ section
 /-!
 # GHASH with PCLMULQDQ: the arithmetic
 
-Untrusted: everything here is checked by Lean. What the instructions of
-`Impl.Gcm.X86_64.Pclmul` compute, in the ring `Q` of `Proof/Gcm/Poly.lean`:
+What the instructions of `Impl.Gcm.X86_64.Pclmul` compute, in the ring `Q` of
+`Proof/Gcm/Poly.lean`:
 
 * `pclmulqdq` multiplies polynomials (`gp_clmul`), so the four of `acc`
   compute `x · a · b` as a 256-bit value (`Prod.val_prod`);
@@ -324,9 +324,8 @@ end
 /-!
 # GHASH with PCLMULQDQ: the instruction groups
 
-Untrusted: everything here is checked by Lean. What each group of
-instructions of `Impl.Gcm.X86_64.Pclmul` does to the state, each proved by
-one symbolic execution for any registers it is used with.
+What each group of instructions of `Impl.Gcm.X86_64.Pclmul` does to the state,
+each proved by one symbolic execution for any registers it is used with.
 -/
 
 namespace VG.Proof.Gcm.X86_64.Pclmul
@@ -486,8 +485,7 @@ section
 /-!
 # GHASH with PCLMULQDQ: the whole function
 
-Untrusted: everything here is checked by Lean. `ghash_verified` proves
-`Impl.Gcm.X86_64.Pclmul.ghash` against `ghashX86_64`.
+`ghash_verified` proves `Impl.Gcm.X86_64.Pclmul.ghash` against `ghashX86_64`.
 
 The registers `xmm3`–`xmm6` hold `Tₖ` with `x · Tₖ = Hᵏ` (`k = 1 … 4`), so
 that `mul(a, Tₖ) = a · Hᵏ`, and `xmm2` holds `Y` after `i` blocks, as a

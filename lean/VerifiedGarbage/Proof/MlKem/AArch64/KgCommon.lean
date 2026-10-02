@@ -5,11 +5,10 @@ import VerifiedGarbage.Impl.MlKem.AArch64.KeyGen
 /-!
 # ML-KEM-768 on AArch64: what the proof of `vg_mlkem768_keygen` shares
 
-Untrusted: everything here is checked by Lean. The per-target contract, the
-arguments as buffers (`kA`, `kL`: 0 `seed`, 1 `ek`, 2 `dk`, 3 `scratch`),
-and what holds from the prologue to the epilogue (`KB`): the pointers in
-`x25`–`x28`, our caller's registers saved in `scratch`, the other
-callee-saved registers, and the seed.
+The per-target contract, the arguments as buffers (`kA`, `kL`: 0 `seed`, 1
+`ek`, 2 `dk`, 3 `scratch`), and what holds from the prologue to the epilogue
+(`KB`): the pointers in `x25`–`x28`, our caller's registers saved in
+`scratch`, the other callee-saved registers, and the seed.
 -/
 
 namespace VG.Proof.MlKem

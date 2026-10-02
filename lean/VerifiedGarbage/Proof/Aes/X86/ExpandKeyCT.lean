@@ -6,8 +6,6 @@ import VerifiedGarbage.Spec.Aes
 /-!
 # The AES key expansion on x86 (32-bit): the contract, and constant time
 
-Untrusted: everything here is checked by Lean.
-
 The contract the proof is written against, and the constant-time half of
 the proof: the taint analysis (`VG.X86.Taint`) starts with `esp` public
 and knows where the arguments are and which of them are the base addresses

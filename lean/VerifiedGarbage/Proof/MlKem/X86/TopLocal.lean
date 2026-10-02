@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlKem.X86.TopHash
 /-!
 # ML-KEM on x86 (32-bit): the code of the top-level functions between calls
 
-Untrusted: everything here is checked by Lean. Storing a byte in `scratch`
-(`st8_piece`), copying words (`copyW_piece`), and, after a call of
-`vg_mlkem_sample_ntt`, keeping the AND of the values it returned and
-masking the polynomial it sampled (`maskA_piece`).
+Storing a byte in `scratch` (`st8_piece`), copying words (`copyW_piece`), and,
+after a call of `vg_mlkem_sample_ntt`, keeping the AND of the values it
+returned and masking the polynomial it sampled (`maskA_piece`).
 -/
 
 namespace VG.Proof.MlKem.X86.Top

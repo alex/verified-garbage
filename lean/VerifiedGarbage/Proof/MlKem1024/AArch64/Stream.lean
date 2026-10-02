@@ -5,10 +5,9 @@ import VerifiedGarbage.Impl.MlKem1024.AArch64.Compress
 /-!
 # ML-KEM-1024 on AArch64: bits streaming through a register
 
-Untrusted: everything here is checked by Lean. The arithmetic of the
-compression loops of ML-KEM-1024, which stream the bits of a group of
-8 coefficients of `d` bits (`8d` bits, `d` bytes) through `x9`, for
-`d` = 5 and 11:
+The arithmetic of the compression loops of ML-KEM-1024, which stream the bits
+of a group of 8 coefficients of `d` bits (`8d` bits, `d` bytes) through `x9`,
+for `d` = 5 and 11:
 
 * a number's low bits determine its low digits (`digits_range_mod`), so
   byte `j` of a group is byte `j` of the number of its first coefficients

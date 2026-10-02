@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.MlKem.Bits
 /-!
 # ML-DSA: bit packing as numbers, for every target
 
-Untrusted: everything here is checked by Lean. `SimpleBitPack` and
-`BitPack` (Algorithms 16 and 17) write the coefficients as `d`-bit fields
-through arrays of bits (`IntegerToBits`, `BitsToBytes`), and
+`SimpleBitPack` and `BitPack` (Algorithms 16 and 17) write the coefficients as
+`d`-bit fields through arrays of bits (`IntegerToBits`, `BitsToBytes`), and
 `SimpleBitUnpack` and `BitUnpack` (Algorithms 18 and 19) read them back
 (`BytesToBits`, `BitsToInteger`). Here they are restated without bits, as
 ML-KEM's `ByteEncode` and `ByteDecode` are (`Proof/MlKem/Bits.lean`, whose

@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.Blake2.Arm.CompressS.Exec
 /-!
 # BLAKE2s on ARMv7: the rounds
 
-Untrusted: everything here is checked by Lean. `G`, executed once for any of
-its registers and offsets (`wp_g`), and the rounds on the work vector: words
-0–3 in `r0`–`r3`, words 4–7 rotated left by 7 in `r4`–`r7`, words 8–11 in
-`scratch[64, 80)` and words 12–15 rotated left by 8 in `r8`–`r11` (`RI`).
+`G`, executed once for any of its registers and offsets (`wp_g`), and the
+rounds on the work vector: words 0–3 in `r0`–`r3`, words 4–7 rotated left by 7
+in `r4`–`r7`, words 8–11 in `scratch[64, 80)` and words 12–15 rotated left by
+8 in `r8`–`r11` (`RI`).
 -/
 
 namespace VG.Proof.Blake2.ArmS

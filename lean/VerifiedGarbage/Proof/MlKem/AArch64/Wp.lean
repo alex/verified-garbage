@@ -6,13 +6,13 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Compress
 /-!
 # ML-KEM on AArch64: one instruction at a time
 
-Untrusted: everything here is checked by Lean. Weakest-precondition rules
-for the instruction forms the ML-KEM code uses, in continuation style: each
-rule runs one instruction in front of the rest of a block, and hands the
-rest the state it leaves, with what changed (`Only`: only the registers
-listed may differ; `MemTo`: only the memory differs). Values are stated as
-natural numbers (`toNat`), which `omega` reasons about; the `_n` lemmas
-turn the machine's operations into operations on them when nothing wraps.
+Weakest-precondition rules for the instruction forms the ML-KEM code uses, in
+continuation style: each rule runs one instruction in front of the rest of a
+block, and hands the rest the state it leaves, with what changed (`Only`: only
+the registers listed may differ; `MemTo`: only the memory differs). Values are
+stated as natural numbers (`toNat`), which `omega` reasons about; the `_n`
+lemmas turn the machine's operations into operations on them when nothing
+wraps.
 -/
 
 namespace VG.Proof.MlKem.AArch64

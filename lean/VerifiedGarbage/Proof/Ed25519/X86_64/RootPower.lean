@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.RootPower
 import VerifiedGarbage.Proof.Ed25519.RootPower
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointAffine
 
-/-! Untrusted: decoding reuses the proved field multiplication and squaring loops. -/
+/-! Decoding reuses the proved field multiplication and squaring loops. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

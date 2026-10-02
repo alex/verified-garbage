@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlKem.Arm.Encrypt
 /-!
 # ML-KEM-768 on 32-bit ARM: `vg_mlkem768_encaps`, correctness
 
-Untrusted: everything here is checked by Lean. The buffers of the function
-(`lay`): `scratch` (the argument on the stack), the stack below the stack
-pointer, `ek`, `key` and `ct`; `m`, which may overlap `ek`, is only read by
-its copy into `scratch`, with a layout of its own (`layM`). What every phase
-keeps (`EnEnv`), and the phases: the setup, `m` copied, `H(ek)`,
-`G(m ‖ H(ek))` into `K ‖ r`, `K` copied into `key`, and K-PKE.Encrypt
-(`Enc.encrypt_ok`) into `ct`.
+The buffers of the function (`lay`): `scratch` (the argument on the stack),
+the stack below the stack pointer, `ek`, `key` and `ct`; `m`, which may
+overlap `ek`, is only read by its copy into `scratch`, with a layout of its
+own (`layM`). What every phase keeps (`EnEnv`), and the phases: the setup, `m`
+copied, `H(ek)`, `G(m ‖ H(ek))` into `K ‖ r`, `K` copied into `key`, and
+K-PKE.Encrypt (`Enc.encrypt_ok`) into `ct`.
 -/
 
 namespace VG.Proof.MlKem.Arm.Encaps

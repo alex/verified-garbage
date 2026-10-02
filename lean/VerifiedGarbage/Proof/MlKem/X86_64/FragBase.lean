@@ -6,8 +6,7 @@ import VerifiedGarbage.Proof.MlKem.X86_64.SampleLoop
 /-!
 # ML-KEM-768 on x86-64: moves, byte stores and copies
 
-Untrusted: everything here is checked by Lean. The address of a pointer
-(`pa`), and what `setB` and `copy` do.
+The address of a pointer (`pa`), and what `setB` and `copy` do.
 -/
 
 namespace VG.Proof.MlKem.X86_64

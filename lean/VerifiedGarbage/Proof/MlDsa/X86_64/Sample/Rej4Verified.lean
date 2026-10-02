@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.S4Verified
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_ntt_poly4` and `vg_mldsa_rej_ntt_poly4_avx2`, verified
 
-Untrusted: everything here is checked by Lean. The contract of the proofs
-(`r4K`) implies the shared one of `Spec/`: a seed with 256 coefficients in
-the 1008 bytes both implementations sample from has them within those
-bounds (`rejNTT_some`), and one without has none within the least bound
-(`rejNTT_none`).
+The contract of the proofs (`r4K`) implies the shared one of `Spec/`: a seed
+with 256 coefficients in the 1008 bytes both implementations sample from has
+them within those bounds (`rejNTT_some`), and one without has none within the
+least bound (`rejNTT_none`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Rej4

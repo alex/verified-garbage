@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyHeaders
 
-/-! Untrusted: the left side of the equation is [S]B, retaining A and R. -/
+/-! The left side of the equation is [S]B, retaining A and R. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

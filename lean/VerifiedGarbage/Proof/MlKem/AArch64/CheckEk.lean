@@ -6,9 +6,9 @@ import VerifiedGarbage.Spec.MlKem.Contract
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_check_ek`
 
-Untrusted: everything here is checked by Lean. The modulus check holds
-exactly when no 12-bit field of `ek[0 : 1152]` is at least `q`
-(`ekCheck768`); the code counts those fields (`cnt`) without branching.
+The modulus check holds exactly when no 12-bit field of `ek[0 : 1152]` is at
+least `q` (`ekCheck768`); the code counts those fields (`cnt`) without
+branching.
 -/
 
 namespace VG.Proof.MlKem

@@ -4,13 +4,12 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Encrypt
 /-!
 # ML-KEM-768 on x86-64: K-PKE.Encrypt, its context and the matrix
 
-Untrusted: everything here is checked by Lean. `encrypt` runs in both
-`vg_mlkem768_encaps` and `vg_mlkem768_decaps`, in their layouts, and keeps
-what each of them holds of its state (`Ctx`: a predicate `Out` kept by the
-pieces whose writes pass `chk`). Its inputs (`EIn`): the encryption key at
-`r14`, the message at `M`, the randomness at `G + 32`. The matrix `Â` from
-`ρ` (the last 32 bytes of the key), as in `vg_mlkem768_keygen` (`mat_ok`),
-and its constant time, for a given `ρ` (`mat_tr`).
+`encrypt` runs in both `vg_mlkem768_encaps` and `vg_mlkem768_decaps`, in their
+layouts, and keeps what each of them holds of its state (`Ctx`: a predicate
+`Out` kept by the pieces whose writes pass `chk`). Its inputs (`EIn`): the
+encryption key at `r14`, the message at `M`, the randomness at `G + 32`. The
+matrix `Â` from `ρ` (the last 32 bytes of the key), as in `vg_mlkem768_keygen`
+(`mat_ok`), and its constant time, for a given `ρ` (`mat_tr`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

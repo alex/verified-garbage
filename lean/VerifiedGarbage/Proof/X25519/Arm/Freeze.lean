@@ -5,8 +5,8 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # X25519 on 32-bit ARM: the final reduction and the output
 
-Untrusted: everything here is checked by Lean. `freeze` stores the 32 bytes
-of the element at `X2`, reduced fully modulo `p`, at `out` (`freeze_ok`).
+`freeze` stores the 32 bytes of the element at `X2`, reduced fully modulo `p`,
+at `out` (`freeze_ok`).
 -/
 
 namespace VG.Proof.X25519.Arm

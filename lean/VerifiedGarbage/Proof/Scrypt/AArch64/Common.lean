@@ -7,10 +7,9 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # scrypt on AArch64: common lemmas
 
-Untrusted: everything here is checked by Lean. The target-independent lemmas
-about addresses and bytes are in `Proof/Scrypt/Memory.lean`; here are the
-weakest-precondition rules for the AArch64 forms, and the 64-byte
-exclusive-or.
+The target-independent lemmas about addresses and bytes are in
+`Proof/Scrypt/Memory.lean`; here are the weakest-precondition rules for the
+AArch64 forms, and the 64-byte exclusive-or.
 -/
 
 namespace VG.Proof.Scrypt

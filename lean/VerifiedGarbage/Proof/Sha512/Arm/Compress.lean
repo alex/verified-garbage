@@ -8,8 +8,6 @@ import VerifiedGarbage.Proof.Sha512.Arm.Lit
 
 /-!
 # SHA-512 compression function on ARMv7: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 /-!

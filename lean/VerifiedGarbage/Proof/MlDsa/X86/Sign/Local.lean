@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Call
 /-!
 # ML-DSA signing on x86 (32-bit): copies and hashes
 
-Untrusted: everything here is checked by Lean. A copy of words
-(`copy_piece`), and SHAKE256 of two buffers (`shake2_piece`), as ML-KEM's
-`copyW_piece` and `hash2_piece`, but with the moves of their arguments
-proven constant time by `esOk` rather than the taint analysis, so that
-their buffers may be at offsets that depend on the parameter set.
+A copy of words (`copy_piece`), and SHAKE256 of two buffers (`shake2_piece`),
+as ML-KEM's `copyW_piece` and `hash2_piece`, but with the moves of their
+arguments proven constant time by `esOk` rather than the taint analysis, so
+that their buffers may be at offsets that depend on the parameter set.
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

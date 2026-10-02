@@ -12,12 +12,12 @@ import VerifiedGarbage.Proof.Pbkdf2.Arm.Lit
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on ARMv7: the parts of a step
 
-Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 and AArch64 proofs (`Proof/Pbkdf2/X86_64/Iterate.lean`,
-`VG.Proof.Pbkdf2.AArch64`), with the same target-independent memory lemmas
-(`VG.Proof.Pbkdf2.Memory`). Each step is two calls of `vg_sha256_compress`, used as a black box
-through its proof (`compressAt_ok`, from the streaming SHA-256 proof). The
-hash value being compressed is `t`, and `T` is kept in `scratch[160..192)`.
+The same structure as the x86-64 and AArch64 proofs
+(`Proof/Pbkdf2/X86_64/Iterate.lean`, `VG.Proof.Pbkdf2.AArch64`), with the same
+target-independent memory lemmas (`VG.Proof.Pbkdf2.Memory`). Each step is two
+calls of `vg_sha256_compress`, used as a black box through its proof
+(`compressAt_ok`, from the streaming SHA-256 proof). The hash value being
+compressed is `t`, and `T` is kept in `scratch[160..192)`.
 -/
 
 namespace VG.Proof.Pbkdf2
@@ -492,8 +492,8 @@ end VG.Proof.Pbkdf2.Arm
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on ARMv7: the loop
 
-Untrusted: everything here is checked by Lean. One step is HMAC-SHA-256 of
-`U` as two compressions (`VG.Proof.Pbkdf2.hmac_step`), then `T ← T ⊕ U`.
+One step is HMAC-SHA-256 of `U` as two compressions
+(`VG.Proof.Pbkdf2.hmac_step`), then `T ← T ⊕ U`.
 -/
 
 namespace VG.Proof.Pbkdf2.Arm
@@ -690,11 +690,11 @@ end VG.Proof.Pbkdf2.Arm
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on ARMv7
 
-Untrusted: everything here is checked by Lean. The prologue, the epilogue,
-and `Verified`. Constant time is proven by the taint analysis: `t` (in `r0`
-around the calls) and the scratch space (in `r3`) are the bases of the two
-writable regions, so the registers `vg_sha256_compress` saves in its scratch
-space and restores are known to keep their public values.
+The prologue, the epilogue, and `Verified`. Constant time is proven by the
+taint analysis: `t` (in `r0` around the calls) and the scratch space (in `r3`)
+are the bases of the two writable regions, so the registers
+`vg_sha256_compress` saves in its scratch space and restores are known to keep
+their public values.
 -/
 
 namespace VG.Proof.Pbkdf2.Arm

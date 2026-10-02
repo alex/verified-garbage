@@ -14,8 +14,6 @@ import VerifiedGarbage.Proof.Sha1.Arm.Lit
 
 /-!
 # SHA-1 compression function on ARMv7: the message schedule and the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha1.Arm
@@ -290,8 +288,6 @@ end VG.Proof.Sha1.Arm
 
 /-!
 # SHA-1 compression function on ARMv7: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 /-!

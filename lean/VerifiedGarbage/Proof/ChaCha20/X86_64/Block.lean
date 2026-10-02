@@ -15,8 +15,6 @@ section
 
 /-!
 # ChaCha20 block function on x86-64: the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64
@@ -288,8 +286,6 @@ end
 
 /-!
 # ChaCha20 block function on x86-64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20

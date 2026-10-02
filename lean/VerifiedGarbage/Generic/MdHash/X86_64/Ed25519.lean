@@ -15,14 +15,6 @@ and BMI2's and ADX's, `_adx`), and verification for its doublings with
 AVX512_IFMA (`_ifma`). Each operation includes its streaming hash calls and
 carries the backend's suffix and CPU features, then the field's.
 Other hash families emit no Ed25519 artifacts.
-
-**Review note**: `sig` and `doc` are
-trusted, as they tie the Rust caller to the contract: they are those of the
-function's `Api` (`Spec/Ed25519/Contract.lean`), and this file adds only
-notes on the implementation. The emitter adds the `# Safety` items that
-depend on the target (`Sig.layoutDoc`), from `stack` and `writeArgs`, which
-`ofSig` checks against the contract, and the CPU features the
-implementation needs.
 -/
 
 namespace VG.Generic.MdHash.X86_64.Ed25519

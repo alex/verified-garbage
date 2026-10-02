@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.CallSample
 /-!
 # ML-DSA on AArch64: calls of the rounding primitives
 
-Untrusted: everything here is checked by Lean. For each call of
-`vg_mldsa_power2round`, `vg_mldsa_use_hint` and `vg_mldsa_norm_lt`: what it
-needs of the layout (`…Chk`), what it does (`…_ok`), and that two runs whose
-layout registers agree leak the same (`…_tr`).
+For each call of `vg_mldsa_power2round`, `vg_mldsa_use_hint` and
+`vg_mldsa_norm_lt`: what it needs of the layout (`…Chk`), what it does
+(`…_ok`), and that two runs whose layout registers agree leak the same
+(`…_tr`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

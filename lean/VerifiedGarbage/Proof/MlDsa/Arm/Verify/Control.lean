@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.Framework.RelCTAssoc
 /-!
 # ML-DSA verification on 32-bit ARM: two runs, and the branches
 
-Untrusted: everything here is checked by Lean. Two runs whose entry states
-agree on the public data have the same layout (`vc_twoL`), so that the taint
-analysis from its pointers checks the parts without calls (`vtaint7`). A
-branch on `r11` (`ifOk`) takes the same way in two runs where `r11` is a
-function of the public data (`ifOk_piece`).
+Two runs whose entry states agree on the public data have the same layout
+(`vc_twoL`), so that the taint analysis from its pointers checks the parts
+without calls (`vtaint7`). A branch on `r11` (`ifOk`) takes the same way in
+two runs where `r11` is a function of the public data (`ifOk_piece`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

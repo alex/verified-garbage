@@ -7,8 +7,6 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # Taint tracking for x86-64
 
-Untrusted: everything here is checked by Lean.
-
 The abstract state is the list of registers known to be public, whether the
 (modelled) flags are public, and what is known about memory. Memory is secret
 unless known otherwise: an address must be computed from public registers,

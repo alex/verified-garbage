@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.Cmac.Dbl
 /-!
 # AES-CMAC on x86: doubling a block in four 32-bit words
 
-Untrusted: everything here is checked by Lean. `dbl src dst` loads a block
-as four byte-reversed words (`bswap`), the block as a big-endian integer
-(`Cmac.ofBytes_rev4`), doubles the integer a word at a time
-(`Cmac.dbl_words4`, shifting by `add r, r`), and stores the words
+`dbl src dst` loads a block as four byte-reversed words (`bswap`), the block
+as a big-endian integer (`Cmac.ofBytes_rev4`), doubles the integer a word at a
+time (`Cmac.dbl_words4`, shifting by `add r, r`), and stores the words
 byte-reversed again (`Cmac.le4_rev4`).
 -/
 

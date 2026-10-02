@@ -12,9 +12,9 @@ import Mathlib.Tactic.Ring.RingNF
 /-!
 # GHASH with PMULL: the whole function
 
-Untrusted: everything here is checked by Lean. `ghash_verified` proves
-`Impl.Gcm.AArch64.Pmull.ghash` against `Proof.Gcm.ghashAArch64` (the
-contract of `vg_ghash`, `Proof/Gcm/AArch64/Ghash.lean`).
+`ghash_verified` proves `Impl.Gcm.AArch64.Pmull.ghash` against
+`Proof.Gcm.ghashAArch64` (the contract of `vg_ghash`,
+`Proof/Gcm/AArch64/Ghash.lean`).
 
 The registers `tReg k` hold `Tₖ` with `x · Tₖ = Hᵏ` (`k = 1 …`, up to 8
 once the powers are computed), so that `mul(a, Tₖ) = a · Hᵏ`, `sReg k` the

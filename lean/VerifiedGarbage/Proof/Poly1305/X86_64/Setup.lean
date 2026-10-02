@@ -18,11 +18,11 @@ section
 /-!
 # Poly1305 on x86-64: the arithmetic of a block
 
-Untrusted: everything here is checked by Lean. The numbers the code computes
-while absorbing a block (see `Impl/Poly1305/X86_64.lean`), as natural
-numbers: the accumulator `h = h0 + 2⁶⁴ h1 + 2¹²⁸ h2`, the clamped
-`r = r0 + 2⁶⁴ r1` with `r1 = 4 q`, and `s1 = 5 q`. The products are named
-(`h0 * r0`, …) so that `omega` treats them as atoms.
+The numbers the code computes while absorbing a block (see
+`Impl/Poly1305/X86_64.lean`), as natural numbers: the accumulator `h = h0 +
+2⁶⁴ h1 + 2¹²⁸ h2`, the clamped `r = r0 + 2⁶⁴ r1` with `r1 = 4 q`, and `s1 = 5
+q`. The products are named (`h0 * r0`, …) so that `omega` treats them as
+atoms.
 -/
 
 open VG.PowLit
@@ -42,9 +42,8 @@ end
 /-!
 # Poly1305 on x86-64: the steps of a block
 
-Untrusted: everything here is checked by Lean. Each lemma runs a few
-instructions symbolically and states their effect on the numbers in the
-registers.
+Each lemma runs a few instructions symbolically and states their effect on the
+numbers in the registers.
 -/
 
 open VG.PowLit
@@ -216,8 +215,6 @@ section
 
 /-!
 # Poly1305 on x86-64: absorbing a block
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -394,8 +391,6 @@ section
 
 /-!
 # Poly1305 on x86-64: the final reduction
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -522,8 +517,6 @@ section
 
 /-!
 # Poly1305 on x86-64: the state in memory, and loading the key
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -668,8 +661,6 @@ end
 
 /-!
 # Poly1305 on x86-64: saving registers, loading the key and the accumulator
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit

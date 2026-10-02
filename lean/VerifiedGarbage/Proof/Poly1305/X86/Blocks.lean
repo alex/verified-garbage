@@ -16,8 +16,6 @@ import VerifiedGarbage.Spec.Poly1305.Contract
 /-!
 # Poly1305 on x86: carries and digits, for `omega` on small linear problems
 
-Untrusted: everything here is checked by Lean.
-
 `omega` handles `x / n` and `x % n` by introducing a new variable and its
 constraints, in every call, and a chain of carries `(a + (b + c / n) / n) % m`
 makes every call pay for all of them (and the kernel check a large
@@ -57,11 +55,11 @@ section
 /-!
 # Poly1305 on x86 (32-bit): the arithmetic in radix `2³²`
 
-Untrusted: everything here is checked by Lean. The numbers the code computes
-(see `Impl/Poly1305/X86.lean`), as natural numbers: five words `a0, …, a4`
-stand for `val5 a0 a1 a2 a3 a4 = a0 + 2³² a1 + 2⁶⁴ a2 + 2⁹⁶ a3 + 2¹²⁸ a4`,
-and the clamped `r` for `r0 + 2³² 4 q1 + 2⁶⁴ 4 q2 + 2⁹⁶ 4 q3`, with
-`sj = 5 qj`. The products are named so that `omega` treats them as atoms.
+The numbers the code computes (see `Impl/Poly1305/X86.lean`), as natural
+numbers: five words `a0, …, a4` stand for `val5 a0 a1 a2 a3 a4 = a0 + 2³² a1 +
+2⁶⁴ a2 + 2⁹⁶ a3 + 2¹²⁸ a4`, and the clamped `r` for `r0 + 2³² 4 q1 + 2⁶⁴ 4 q2 +
+2⁹⁶ 4 q3`, with `sj = 5 qj`. The products are named so that `omega` treats
+them as atoms.
 -/
 
 open VG.PowLit
@@ -346,9 +344,8 @@ end
 /-!
 # Poly1305 on x86 (32-bit): the steps of the code
 
-Untrusted: everything here is checked by Lean. Each lemma runs a few
-instructions symbolically and states their effect on the numbers in the
-registers and the words in memory.
+Each lemma runs a few instructions symbolically and states their effect on the
+numbers in the registers and the words in memory.
 -/
 
 open VG.PowLit
@@ -836,8 +833,6 @@ section
 
 /-!
 # Poly1305 on x86 (32-bit): absorbing a block
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -1419,8 +1414,6 @@ end
 
 /-!
 # Poly1305 on x86 (32-bit): the final reduction
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -1709,8 +1702,8 @@ section
 /-!
 # Poly1305 on x86 (32-bit): the state in memory, as the specification sees it
 
-Untrusted: everything here is checked by Lean. Little-endian numbers of
-32-bit words in memory, the key and its clamped `r`, and the tag.
+Little-endian numbers of 32-bit words in memory, the key and its clamped `r`,
+and the tag.
 -/
 
 open VG.PowLit
@@ -1865,8 +1858,6 @@ section
 
 /-!
 # Poly1305 on x86 (32-bit): saving registers and clamping the key
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -2054,14 +2045,12 @@ section
 /-!
 # Poly1305 on x86 (32-bit): straight-line code runs, whatever the values
 
-Untrusted: everything here is checked by Lean. The lemmas on absorbing a
-block and the final reduction (above) state what the code computes where
-the numbers are within their bounds (as they are when the state represents
-a message). Whatever the
-values, the code runs without a fault: it accesses only the state (at `edi`)
-and the block (at `esi`), stores only some words of the state and writes only
-some registers. `okList` checks this of a block of code, by evaluation, and
-`okList_ok` proves it.
+The lemmas on absorbing a block and the final reduction (above) state what the
+code computes where the numbers are within their bounds (as they are when the
+state represents a message). Whatever the values, the code runs without a
+fault: it accesses only the state (at `edi`) and the block (at `esi`), stores
+only some words of the state and writes only some registers. `okList` checks
+this of a block of code, by evaluation, and `okList_ok` proves it.
 -/
 
 namespace VG.Proof.Poly1305.X86
@@ -2250,9 +2239,9 @@ end
 /-!
 # Poly1305 on x86 (32-bit): the parts of each function, whatever the values
 
-Untrusted: everything here is checked by Lean. Absorbing a block and the final
-reduction run whatever the values (`Safe`), and compute what the lemmas on
-them (above) say where the numbers are within their bounds.
+Absorbing a block and the final reduction run whatever the values (`Safe`),
+and compute what the lemmas on them (above) say where the numbers are within
+their bounds.
 -/
 
 open VG.PowLit
@@ -2389,8 +2378,6 @@ section
 
 /-!
 # Poly1305 on x86 (32-bit): `blocks`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit

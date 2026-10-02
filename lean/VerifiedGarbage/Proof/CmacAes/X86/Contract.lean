@@ -5,11 +5,11 @@ import VerifiedGarbage.Impl.CmacAes.X86
 /-!
 # AES-CMAC on x86: the contracts the proofs are written against
 
-Untrusted: everything here is checked by Lean. The artifacts' contracts are
-the shared ones of `Spec/Cmac/Contract.lean`, which imply these
-(`Verified.lean`). The arguments are on the stack, from `[esp + 4]` (cdecl).
-Each call of `vg_aes_ctr32` pushes its six arguments and the return address
-in the 28 bytes below `esp`, which may not overlap any buffer.
+The artifacts' contracts are the shared ones of `Spec/Cmac/Contract.lean`,
+which imply these (`Verified.lean`). The arguments are on the stack, from
+`[esp + 4]` (cdecl). Each call of `vg_aes_ctr32` pushes its six arguments and
+the return address in the 28 bytes below `esp`, which may not overlap any
+buffer.
 -/
 
 namespace VG.Proof.CmacAes.X86

@@ -5,15 +5,14 @@ import VerifiedGarbage.Impl.MlDsa.Arm.Sample.RejBounded
 /-!
 # ML-DSA on 32-bit ARM: the loop of `vg_mldsa_rej_bounded_poly`
 
-Untrusted: everything here is checked by Lean. The coefficient of an
-accepted half-byte, computed without a branch (`rbVal`), is the one of
-`CoeffFromHalfByte`, modulo `q` (`rbF_eq`, by evaluation on the accepted
-half-bytes); so a try does what `hbTry` does (`try_ok`, from its pieces
-`tsgn_ok`, `acc_ok` and `rej_ok`, which the proof of constant time reuses),
-and an iteration what `rbStep` does (`body_ok`). Between the pieces, `Base`
-holds: the environment, the XOF output, the pointer `r0` to the byte of
-iteration `t`, the count `r3` and the coefficients `L` stored, `j = |L|`
-in `r2`.
+The coefficient of an accepted half-byte, computed without a branch (`rbVal`),
+is the one of `CoeffFromHalfByte`, modulo `q` (`rbF_eq`, by evaluation on the
+accepted half-bytes); so a try does what `hbTry` does (`try_ok`, from its
+pieces `tsgn_ok`, `acc_ok` and `rej_ok`, which the proof of constant time
+reuses), and an iteration what `rbStep` does (`body_ok`). Between the pieces,
+`Base` holds: the environment, the XOF output, the pointer `r0` to the byte of
+iteration `t`, the count `r3` and the coefficients `L` stored, `j = |L|` in
+`r2`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sample.RejBounded

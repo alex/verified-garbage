@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-KEM on AArch64: `vg_mlkem_decode_decompress`
 
-Untrusted: everything here is checked by Lean. Group `g` of the input is
-the number whose bytes are its bytes (`num g nb`, built byte by byte,
-`byte_step`), and coefficient `e` of the group is its base-`2ᵈ` digit `e`
-(`byteDecode_group`), decompressed (`coeff_step`).
+Group `g` of the input is the number whose bytes are its bytes (`num g nb`,
+built byte by byte, `byte_step`), and coefficient `e` of the group is its
+base-`2ᵈ` digit `e` (`byteDecode_group`), decompressed (`coeff_step`).
 -/
 
 namespace VG.Proof.MlKem

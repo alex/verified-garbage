@@ -9,12 +9,11 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # Streaming Merkle–Damgård hash functions on x86 (32-bit): common lemmas
 
-Untrusted: everything here is checked by Lean. The contracts the generic
-proofs are written against, what they need of a hash function's parameters
-(`Dims`, `Shape`) and of its compression function (`CalleeOk`), the call of
-the compression function (`compressAt_ok`), weakest-precondition rules for
-the instructions used that expose only what changes, and arithmetic on
-32-bit values.
+The contracts the generic proofs are written against, what they need of a hash
+function's parameters (`Dims`, `Shape`) and of its compression function
+(`CalleeOk`), the call of the compression function (`compressAt_ok`),
+weakest-precondition rules for the instructions used that expose only what
+changes, and arithmetic on 32-bit values.
 -/
 
 namespace VG.Proof.MdStream.X86

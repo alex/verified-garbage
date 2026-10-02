@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.Framework.AArch64.Exec
 /-!
 # Streaming BLAKE2 on AArch64: `init`
 
-Untrusted: everything here is checked by Lean. `initState` stores the
-initial hash value (`initState_ok`); for a key, `keyBlock` zeroes the buffer
-(`zero_ok`) and copies the key into it (`keyLoop_ok`). `init` is a leaf
-function writing only `x2`, `x3` and `x9`–`x12`.
+`initState` stores the initial hash value (`initState_ok`); for a key,
+`keyBlock` zeroes the buffer (`zero_ok`) and copies the key into it
+(`keyLoop_ok`). `init` is a leaf function writing only `x2`, `x3` and
+`x9`–`x12`.
 -/
 
 namespace VG.Proof.Blake2.AArch64.Stream.Init

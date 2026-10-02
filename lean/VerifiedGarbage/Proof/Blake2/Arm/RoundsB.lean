@@ -5,12 +5,11 @@ import VerifiedGarbage.Impl.Blake2.Arm.CompressB
 /-!
 # BLAKE2b on ARMv7: the rounds
 
-Untrusted: everything here is checked by Lean. Weakest-precondition rules for
-the 64-bit operations `G` uses on pairs of 32-bit registers (exclusive or and
-rotations; loads, stores and additions are SHA-512's,
-`Proof/Sha512/Arm/Rounds.lean`), in continuation-passing style; `G`, executed
-once for any offsets of its words and message words (`wp_g`); and the rounds
-on the work vector in `scratch[0, 128)`.
+Weakest-precondition rules for the 64-bit operations `G` uses on pairs of
+32-bit registers (exclusive or and rotations; loads, stores and additions are
+SHA-512's, `Proof/Sha512/Arm/Rounds.lean`), in continuation-passing style;
+`G`, executed once for any offsets of its words and message words (`wp_g`);
+and the rounds on the work vector in `scratch[0, 128)`.
 -/
 
 namespace VG.Proof.Blake2.ArmB

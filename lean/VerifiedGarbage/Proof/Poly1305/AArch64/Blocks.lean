@@ -22,9 +22,9 @@ section
 /-!
 # Poly1305 on AArch64: the arithmetic in radix `2²⁶`
 
-Untrusted: everything here is checked by Lean. The numbers the code computes
-(see `Impl/Poly1305/AArch64.lean`), as natural numbers: five limbs `a0, …, a4`
-stand for `val5 a0 a1 a2 a3 a4 = a0 + 2²⁶ a1 + 2⁵² a2 + 2⁷⁸ a3 + 2¹⁰⁴ a4`.
+The numbers the code computes (see `Impl/Poly1305/AArch64.lean`), as natural
+numbers: five limbs `a0, …, a4` stand for `val5 a0 a1 a2 a3 a4 = a0 + 2²⁶ a1 +
+2⁵² a2 + 2⁷⁸ a3 + 2¹⁰⁴ a4`.
 -/
 
 open VG.PowLit
@@ -339,9 +339,8 @@ end
 /-!
 # Poly1305 on AArch64: the steps of the code
 
-Untrusted: everything here is checked by Lean. Each lemma runs a few
-instructions symbolically and states their effect on the numbers in the
-registers, unconditionally (modulo `2⁶⁴` where the code wraps).
+Each lemma runs a few instructions symbolically and states their effect on the
+numbers in the registers, unconditionally (modulo `2⁶⁴` where the code wraps).
 -/
 
 open VG.PowLit
@@ -765,8 +764,6 @@ section
 
 /-!
 # Poly1305 on AArch64: absorbing a block
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -971,8 +968,6 @@ section
 
 /-!
 # Poly1305 on AArch64: the final reduction
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Poly1305.AArch64
@@ -1005,8 +1000,6 @@ section
 
 /-!
 # Poly1305 on AArch64: the state in memory
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -1130,8 +1123,6 @@ end
 
 /-!
 # Poly1305 on AArch64: the coefficients and the accumulator on entry
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -1429,8 +1420,6 @@ section
 
 /-!
 # Poly1305 on AArch64: `blocks`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit

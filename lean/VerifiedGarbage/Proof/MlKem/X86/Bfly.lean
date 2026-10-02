@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.Ntt
 /-!
 # ML-KEM on x86 (32-bit): the butterflies
 
-Untrusted: everything here is checked by Lean. With `esi` at coefficient `j`
-and `edi` at coefficient `j + len` of a polynomial `G` stored at `p` and
-`ebp` at a zeta `z` (`BIn`), `bflyBody` leaves `bfly G j len z` there and
-`ibflyBody` leaves `bflyInv G j len z` (`BOut`), both advancing `esi` and
-`edi` by 4 and counting `ecx` down.
+With `esi` at coefficient `j` and `edi` at coefficient `j + len` of a
+polynomial `G` stored at `p` and `ebp` at a zeta `z` (`BIn`), `bflyBody`
+leaves `bfly G j len z` there and `ibflyBody` leaves `bflyInv G j len z`
+(`BOut`), both advancing `esi` and `edi` by 4 and counting `ecx` down.
 -/
 
 namespace VG.Proof.MlKem.X86

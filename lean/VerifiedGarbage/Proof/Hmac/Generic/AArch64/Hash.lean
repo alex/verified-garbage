@@ -131,15 +131,14 @@ end VG.Proof.Hmac.Generic.AArch64
 /-!
 # HMAC over any streaming hash function on AArch64: the functions we call
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Hmac/Generic/X86_64/Hash.lean`): `HashOK H` is what the proofs know
-of the hash function `H`: its streaming functions are verified against
-`initK`, `updK` and `finK`, the representation of its streaming state is
-determined by the state's bytes, and its sizes are small. From it, each call
-is run with `WP.callFV` (the callee may have a frame, in the 16 bytes below
-the stack pointer), and shown constant time in two runs with `RelCT.call`.
-A call writes no memory of its own on AArch64: the return address is in
-`x30`.
+As on x86-64 (`Proof/Hmac/Generic/X86_64/Hash.lean`): `HashOK H` is what the
+proofs know of the hash function `H`: its streaming functions are verified
+against `initK`, `updK` and `finK`, the representation of its streaming state
+is determined by the state's bytes, and its sizes are small. From it, each
+call is run with `WP.callFV` (the callee may have a frame, in the 16 bytes
+below the stack pointer), and shown constant time in two runs with
+`RelCT.call`. A call writes no memory of its own on AArch64: the return
+address is in `x30`.
 -/
 
 namespace VG.Proof.Hmac.Generic.AArch64

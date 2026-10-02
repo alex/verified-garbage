@@ -3,8 +3,6 @@ import VerifiedGarbage.TCB.X86_64.Isa
 /-!
 # x86-64: reading a state after a write, for symbolic execution
 
-Untrusted: everything here is checked by Lean.
-
 Unfolding `State.setReg` (or `setFlags`, `arithFlags`, `setXmm`, `setV`)
 turns the state into a structure of functions
 `fun r' => if r' = r then v else …`, and `simp` then re-simplifies the body of

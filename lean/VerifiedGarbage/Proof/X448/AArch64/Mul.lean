@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.X448.AArch64.Reduce
 /-!
 # X448 on AArch64: field multiplication
 
-Untrusted: everything here is checked by Lean. The row loop, coefficient
-folds and carry passes together compute multiplication modulo the field
-prime, with bounded output limbs. Either input may also be the output.
+The row loop, coefficient folds and carry passes together compute
+multiplication modulo the field prime, with bounded output limbs. Either input
+may also be the output.
 -/
 
 namespace VG.Proof.X448.AArch64

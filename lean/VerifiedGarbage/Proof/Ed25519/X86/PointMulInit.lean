@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.PointMultiplyFrame
 
-/-! Untrusted: checkpoints, identity accumulator and the public batch count. -/
+/-! Checkpoints, identity accumulator and the public batch count. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

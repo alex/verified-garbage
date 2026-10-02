@@ -4,9 +4,9 @@ import Mathlib.Tactic.Set
 /-!
 # ML-KEM on AArch64: `vg_mlkem_multiply_ntts`
 
-Untrusted: everything here is checked by Lean. Four pairs of coefficients
-per iteration (`multiplyNTTs_even`, `multiplyNTTs_odd`), in the lanes of
-vectors (`vpair_ok`), with the `γᵢ` read from the table in `scratch`.
+Four pairs of coefficients per iteration (`multiplyNTTs_even`,
+`multiplyNTTs_odd`), in the lanes of vectors (`vpair_ok`), with the `γᵢ` read
+from the table in `scratch`.
 -/
 
 namespace VG.Proof.MlKem

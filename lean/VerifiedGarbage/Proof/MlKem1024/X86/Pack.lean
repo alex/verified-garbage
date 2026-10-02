@@ -6,12 +6,11 @@ import VerifiedGarbage.Impl.MlKem1024.X86.Compress
 /-!
 # ML-KEM-1024 on x86 (32-bit): compressing and packing coefficients
 
-Untrusted: everything here is checked by Lean. As `Proof/MlKem/X86/Pack.lean`,
-for the widths of ML-KEM-1024: `cOp` computes the compress formula of
-`Compress1024.lean` (`cOp_spec`); `accS` packs one more compressed
-coefficient into `ebx` (`accS_spec`), and `accSs d o j` packs `j` of them,
-from `o + j - 1` down to `o` (`accSs_spec`), as the number `pk` whose base-`2ᵈ`
-digits they are.
+As `Proof/MlKem/X86/Pack.lean`, for the widths of ML-KEM-1024: `cOp` computes
+the compress formula of `Compress1024.lean` (`cOp_spec`); `accS` packs one more
+compressed coefficient into `ebx` (`accS_spec`), and `accSs d o j` packs `j` of
+them, from `o + j - 1` down to `o` (`accSs_spec`), as the number `pk` whose
+base-`2ᵈ` digits they are.
 -/
 
 namespace VG.Proof.MlKem1024.X86

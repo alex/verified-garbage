@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # Streaming RC2-CBC: the contracts from memory facts
 
-Untrusted: everything here is checked by Lean. Target-independent lemmas that
-reduce the postconditions of `vg_rc2_cbc_init` and the update functions
-(`Spec.Rc2.cbcInitContract`, `Spec.Rc2.cbcUpdateContract`) to facts about
-the memory an implementation leaves, for implementations that
+Target-independent lemmas that reduce the postconditions of `vg_rc2_cbc_init`
+and the update functions (`Spec.Rc2.cbcInitContract`,
+`Spec.Rc2.cbcUpdateContract`) to facts about the memory an implementation
+leaves, for implementations that
 
 * `init`: check the lengths in order, and on success copy the IV to
   `ctx + 128` and expand the key into `ctx` (`init_post`, `init_post_error`);

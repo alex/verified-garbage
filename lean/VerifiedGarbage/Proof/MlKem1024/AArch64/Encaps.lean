@@ -4,9 +4,9 @@ import VerifiedGarbage.Impl.MlKem1024.AArch64.Encaps
 /-!
 # ML-KEM-1024 on AArch64: `vg_mlkem1024_encaps`
 
-Untrusted: everything here is checked by Lean. Correctness is the prologue,
-`m`, `H(ek)`, `G(m ‖ H(ek))` and `ρ` (`a_ok`), the matrix (`matrix_ok`),
-then `ŷ`, `u` and `v` (`encrypt_ok`) and the epilogue (`c_ok`).
+Correctness is the prologue, `m`, `H(ek)`, `G(m ‖ H(ek))` and `ρ` (`a_ok`),
+the matrix (`matrix_ok`), then `ŷ`, `u` and `v` (`encrypt_ok`) and the
+epilogue (`c_ok`).
 
 Constant time up to `ρ`, relating two runs from states that agree on the
 pointers and on `ρ`: the first and last phases by the taint analysis, the

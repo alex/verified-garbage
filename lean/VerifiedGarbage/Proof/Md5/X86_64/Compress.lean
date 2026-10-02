@@ -16,10 +16,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # MD5 compression function on x86-64: the 64 operations
 
-Untrusted: everything here is checked by Lean. Each operation is the
-auxiliary function of its round, symbolically executed once per round
-(`fn_ok`), followed by the additions and the rotation, symbolically executed
-once for all operations (`tail_ok`).
+Each operation is the auxiliary function of its round, symbolically executed
+once per round (`fn_ok`), followed by the additions and the rotation,
+symbolically executed once for all operations (`tail_ok`).
 -/
 
 namespace VG.Proof.Md5.X86_64
@@ -188,8 +187,6 @@ end VG.Proof.Md5.X86_64
 
 /-!
 # MD5 compression function on x86-64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 /-!

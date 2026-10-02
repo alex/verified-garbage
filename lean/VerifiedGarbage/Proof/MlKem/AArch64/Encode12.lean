@@ -5,8 +5,7 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Encode
 /-!
 # ML-KEM on AArch64: `vg_mlkem_encode12`
 
-Untrusted: everything here is checked by Lean. Three bytes per pair of
-coefficients (`encode12_byte0`–`encode12_byte2`).
+Three bytes per pair of coefficients (`encode12_byte0`–`encode12_byte2`).
 -/
 
 namespace VG.Proof.MlKem

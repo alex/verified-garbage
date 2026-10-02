@@ -4,8 +4,6 @@ import VerifiedGarbage.Impl.CmacTripleDes.Index
 /-!
 # DES: the bits of the specification's permutations and round function
 
-Untrusted: everything here is checked by Lean.
-
 The specification builds `permute` and the S-boxes' outputs one bit (or
 four) at a time, most significant first. These lemmas say which input bit
 each output bit is, so that the implementations, checked bit by bit, can be

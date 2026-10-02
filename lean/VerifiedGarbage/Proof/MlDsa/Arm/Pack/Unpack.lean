@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Pack.BitPack
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_bit_unpack` and `vg_mldsa_unpack_t1`
 
-Untrusted: everything here is checked by Lean. The coefficient of a field
-`y` is `b - y`, plus `q` if that is negative (`bm`), which is `b - y` in
-`ℤ_q` (`Pack/Arith.lean`), or `y · 2¹³`. The loop is proven once for every
-width (`unpackLoop_ok`); `unpackLoop_buFin_ok` states what the loop of
-`buFin B` does for any state, which `vg_mldsa_bit_unpack` (by its five
-cases, in its frame) and ExpandMask use.
+The coefficient of a field `y` is `b - y`, plus `q` if that is negative
+(`bm`), which is `b - y` in `ℤ_q` (`Pack/Arith.lean`), or `y · 2¹³`. The loop
+is proven once for every width (`unpackLoop_ok`); `unpackLoop_buFin_ok` states
+what the loop of `buFin B` does for any state, which `vg_mldsa_bit_unpack` (by
+its five cases, in its frame) and ExpandMask use.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Pack

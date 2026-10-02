@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.PhaseK
 /-!
 # ML-DSA signing on x86-64: the checks leak only the pointers and whether they passed
 
-Untrusted: everything here is checked by Lean. Each check leaks only its
-pointers, given that its inputs are reduced (`zR_trL`, `r0R_trL`,
-`hR_trL`); the branch on their result leaks whether the iteration passed,
-which two runs agree on when they agree on what the iteration leaks
-(`checks_tr`).
+Each check leaks only its pointers, given that its inputs are reduced
+(`zR_trL`, `r0R_trL`, `hR_trL`); the branch on their result leaks whether the
+iteration passed, which two runs agree on when they agree on what the
+iteration leaks (`checks_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

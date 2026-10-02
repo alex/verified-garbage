@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.Base
 /-!
 # ML-DSA on 32-bit ARM: pieces of code, correct and constant time together
 
-Untrusted: everything here is checked by Lean. As on x86-64: a piece of code
-takes each run of a function, from an entry state `σ` that satisfies its
-precondition `Pre`, from the invariant `I` to `J` (`ok`), and leaks the same
-in two runs related by `I` whose entry states agree on the public data `Pub`
-(`tr`, `Rel2`). Pieces compose (`Piece.seq`, `Piece.seqR`), which proves
-correctness and constant time together.
+As on x86-64: a piece of code takes each run of a function, from an entry
+state `σ` that satisfies its precondition `Pre`, from the invariant `I` to `J`
+(`ok`), and leaks the same in two runs related by `I` whose entry states agree
+on the public data `Pub` (`tr`, `Rel2`). Pieces compose (`Piece.seq`,
+`Piece.seqR`), which proves correctness and constant time together.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

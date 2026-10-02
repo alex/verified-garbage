@@ -9,8 +9,6 @@ import VerifiedGarbage.Proof.Sha1.X86.Lit
 
 /-!
 # Streaming SHA-1 on x86 (32-bit): `init`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha1.X86.Stream

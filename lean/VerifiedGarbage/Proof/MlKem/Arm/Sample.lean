@@ -8,14 +8,13 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on 32-bit ARM: `vg_mlkem_sample_ntt`, correctness
 
-Untrusted: everything here is checked by Lean. The phases of the function,
-each proved from the state the previous one leaves: the registers saved and
-the Keccak state zeroed (`setup_ok`), the seed absorbed, the padding, 840
-bytes squeezed (`absorb_phase`, `pad_phase`, `squeeze_phase`, from
-`absorb_ok`, … of `Keccak.lean`), then the loop of Algorithm 7 over the
-280 chunks (`body_ok`, with the invariant `Inv`: the coefficients sampled
-from the first `t` chunks, `sampleAfter`), and the result. What every phase
-keeps is `SEnv`.
+The phases of the function, each proved from the state the previous one
+leaves: the registers saved and the Keccak state zeroed (`setup_ok`), the seed
+absorbed, the padding, 840 bytes squeezed (`absorb_phase`, `pad_phase`,
+`squeeze_phase`, from `absorb_ok`, … of `Keccak.lean`), then the loop of
+Algorithm 7 over the 280 chunks (`body_ok`, with the invariant `Inv`: the
+coefficients sampled from the first `t` chunks, `sampleAfter`), and the
+result. What every phase keeps is `SEnv`.
 -/
 
 namespace VG.Proof.MlKem.Arm.Sample

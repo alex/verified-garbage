@@ -3,13 +3,13 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.Glue
 /-!
 # ML-DSA signing on x86-64: the primitives it calls
 
-Untrusted: everything here is checked by Lean. What the proofs need of the
-implementations of the primitives (`PrimsOk`): each is verified against its
-shared contract (`Spec/MlDsa/Poly.lean`) for a stack that fits in the `D`
-bytes the function gives its calls (`Callee`); and, of the two samplers
-whose result the function branches on, that the result is public in their
-own runs (`RetPub`) and that they succeed only when the algorithm finishes
-within `maxBounds`, the bounds the leakage of signing is stated for.
+What the proofs need of the implementations of the primitives (`PrimsOk`):
+each is verified against its shared contract (`Spec/MlDsa/Poly.lean`) for a
+stack that fits in the `D` bytes the function gives its calls (`Callee`); and,
+of the two samplers whose result the function branches on, that the result is
+public in their own runs (`RetPub`) and that they succeed only when the
+algorithm finishes within `maxBounds`, the bounds the leakage of signing is
+stated for.
 
 For each call of an arithmetic primitive: what it does (`…At_ok`), and that
 two runs in the same layout leak the same (`…At_tr`).

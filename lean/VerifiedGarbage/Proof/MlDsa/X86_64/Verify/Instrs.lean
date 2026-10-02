@@ -5,13 +5,12 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Same
 /-!
 # ML-DSA verification on x86-64: properties of every instruction
 
-Untrusted: everything here is checked by Lean. A property `q` of every
-instruction of `verify P p` (`Code.allInstrs q`) holds if it holds of every
-instruction of the primitives `P` and of `verify P0 p`, the same code with
-the primitives empty (`verify_q`), which the kernel evaluates. So it never
-writes the stack pointer (`verify_spSafe`) if the primitives do not. Likewise
-for `ctlC` (`verify_c`): it loads MXCSR only to restore it (`verify_ctl`) if
-the primitives do (`ctlOk`).
+A property `q` of every instruction of `verify P p` (`Code.allInstrs q`) holds
+if it holds of every instruction of the primitives `P` and of `verify P0 p`,
+the same code with the primitives empty (`verify_q`), which the kernel
+evaluates. So it never writes the stack pointer (`verify_spSafe`) if the
+primitives do not. Likewise for `ctlC` (`verify_c`): it loads MXCSR only to
+restore it (`verify_ctl`) if the primitives do (`ctlOk`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

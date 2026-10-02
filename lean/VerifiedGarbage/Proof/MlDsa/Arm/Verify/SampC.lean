@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Verify.SampA
 /-!
 # ML-DSA verification on 32-bit ARM: `c`, and the samplers
 
-Untrusted: everything here is checked by Lean. `c = SampleInBall(c̃)`,
-masked by its result (`ball_piece`); and the samplers from the checks of the
-signature (`samples_piece`): after them (`VS4`), `Â` and `c` are reduced, and
-`r11` is 1 if every sampler succeeded, with them those of the standard for
-some bounds, and 0 if one fails within the least bounds.
+`c = SampleInBall(c̃)`, masked by its result (`ball_piece`); and the samplers
+from the checks of the signature (`samples_piece`): after them (`VS4`), `Â`
+and `c` are reduced, and `r11` is 1 if every sampler succeeded, with them
+those of the standard for some bounds, and 0 if one fails within the least
+bounds.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

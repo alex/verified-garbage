@@ -3,9 +3,8 @@ import VerifiedGarbage.Spec.MlDsa.Poly
 /-!
 # ML-DSA: `Decompose` and `Power2Round` by multiplications and shifts, for every target
 
-Untrusted: everything here is checked by Lean. The rounding functions of
-FIPS 204 §7.4 in the form an implementation computes them, for every
-coefficient `a < q`:
+The rounding functions of FIPS 204 §7.4 in the form an implementation computes
+them, for every coefficient `a < q`:
 
 * `Power2Round(a)` is `(⌊(a + 4095) / 2¹³⌋, ((a + 4095) mod 2¹³) - 4095)`
   (`power2Round_eq`);

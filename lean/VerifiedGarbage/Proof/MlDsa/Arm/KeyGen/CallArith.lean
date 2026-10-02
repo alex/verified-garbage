@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.Call
 /-!
 # ML-DSA on 32-bit ARM: calling the multiplications, additions and subtractions
 
-Untrusted: everything here is checked by Lean. As `ip_ok` and `ip_tr`
-(`Call.lean`), for `vg_mldsa_multiply_ntt`, `vg_mldsa_multiply_add_ntt`,
-`vg_mldsa_add` and `vg_mldsa_sub`.
+As `ip_ok` and `ip_tr` (`Call.lean`), for `vg_mldsa_multiply_ntt`,
+`vg_mldsa_multiply_add_ntt`, `vg_mldsa_add` and `vg_mldsa_sub`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Bytes
 
-/-! Untrusted: split the fixed-width signature at the R/S boundary. -/
+/-! Split the fixed-width signature at the R/S boundary. -/
 
 namespace VG.Proof.Ed25519
 

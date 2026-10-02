@@ -13,8 +13,6 @@ import VerifiedGarbage.TCB.X86_64.Target
 
 /-!
 # SHA-1 compression function on x86-64: the message schedule and the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha1.X86_64
@@ -275,8 +273,6 @@ end VG.Proof.Sha1.X86_64
 
 /-!
 # SHA-1 compression function on x86-64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 /-!

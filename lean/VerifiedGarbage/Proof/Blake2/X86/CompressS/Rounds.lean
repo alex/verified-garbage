@@ -7,11 +7,10 @@ import VerifiedGarbage.Impl.Blake2.X86.CompressS
 /-!
 # BLAKE2s on x86 (32-bit): the rounds
 
-Untrusted: everything here is checked by Lean. `g_ok` executes `G`
-symbolically once, for any words of the work vector (in `scratch`, at `esi`)
-and of the block (at `edi`); `round_ok` and `rounds_ok` compose it into the
-rounds of `F`. `Holds` says that the work vector is in `scratch`, `Msg` that
-the block is at `edi`.
+`g_ok` executes `G` symbolically once, for any words of the work vector (in
+`scratch`, at `esi`) and of the block (at `edi`); `round_ok` and `rounds_ok`
+compose it into the rounds of `F`. `Holds` says that the work vector is in
+`scratch`, `Msg` that the block is at `edi`.
 -/
 
 namespace VG.Proof.Blake2.X86.CompressS

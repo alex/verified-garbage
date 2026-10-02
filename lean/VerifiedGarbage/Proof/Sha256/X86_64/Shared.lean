@@ -9,8 +9,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # Streaming SHA-256 on x86-64: `init`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha256.X86_64.Stream
@@ -109,11 +107,11 @@ end VG.Proof.Sha256.X86_64.Stream
 /-!
 # Sha256 on X86_64: the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha256/X86_64/Contract.lean`); these theorems move
-them to the shared contracts of `Spec/Sha256/Contract.lean`, which the
-artifacts are emitted with. `update` and `finalize` hold for any
-implementation `f` of the compression function.
+The proofs are written against per-target contracts
+(`Proof/Sha256/X86_64/Contract.lean`); these theorems move them to the shared
+contracts of `Spec/Sha256/Contract.lean`, which the artifacts are emitted with.
+`update` and `finalize` hold for any implementation `f` of the compression
+function.
 -/
 
 namespace VG.Proof.Sha256.X86_64.Shared

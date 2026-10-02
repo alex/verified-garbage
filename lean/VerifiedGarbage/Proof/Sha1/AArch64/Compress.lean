@@ -15,8 +15,6 @@ import VerifiedGarbage.Proof.Sha1.StateMem
 
 /-!
 # SHA-1 compression function on AArch64: the message schedule and the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha1.AArch64
@@ -281,8 +279,6 @@ end VG.Proof.Sha1.AArch64
 
 /-!
 # SHA-1 compression function on AArch64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 /-!

@@ -22,9 +22,8 @@ section
 /-!
 # SHA-3 on x86-64: one instruction at a time
 
-Untrusted: everything here is checked by Lean. Weakest-precondition rules
-for the instruction forms the SHA-3 code uses, exposing only what changes,
-so that proofs about a block stay small.
+Weakest-precondition rules for the instruction forms the SHA-3 code uses,
+exposing only what changes, so that proofs about a block stay small.
 -/
 
 namespace VG.Proof.Sha3.X86_64
@@ -177,8 +176,7 @@ end
 /-!
 # Keccak-f[1600] on x86-64: addresses
 
-Untrusted: everything here is checked by Lean. (A round is proven by
-evaluation, in `Round.lean`.)
+(A round is proven by evaluation, in `Round.lean`.)
 -/
 
 namespace VG.Proof.Sha3.X86_64
@@ -200,8 +198,6 @@ end
 
 /-!
 # Keccak-f[1600] on x86-64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha3
@@ -809,8 +805,6 @@ section
 
 /-!
 # SHA-3 on x86-64: calling the permutation
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha3.X86_64

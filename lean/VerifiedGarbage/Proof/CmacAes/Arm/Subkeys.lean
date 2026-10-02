@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.CmacAes.Arm.UpdateCorrect
 /-!
 # AES-CMAC on ARMv7: `vg_cmac_aes_subkeys`
 
-Untrusted: everything here is checked by Lean. `L = CIPH_K(0)` is computed
-into the first block of the subkeys (a zero counter block and a zero data
-block), then doubled there (`K1`) and into the second block (`K2`).
+`L = CIPH_K(0)` is computed into the first block of the subkeys (a zero
+counter block and a zero data block), then doubled there (`K1`) and into the
+second block (`K2`).
 -/
 
 namespace VG.Proof.CmacAes.Arm

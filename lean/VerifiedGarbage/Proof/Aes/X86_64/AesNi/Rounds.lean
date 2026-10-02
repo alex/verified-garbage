@@ -11,13 +11,13 @@ section
 /-!
 # AES-NI: the instructions are FIPS 197's rounds
 
-Untrusted: everything here is checked by Lean. An SSE register holds an
-AES state as its 16 bytes in memory order (`st`): byte `r + 4c` is
-`s[r, c]`, as FIPS 197 §3.4 lays the state out and as the SDM's AES
-instructions read it. On such registers `pxor`, `aesenc` and `aesenclast`
-are `AddRoundKey`, a full round and the last round of `Spec.Aes.cipher`
-(`pxor_st`, `aesenc_st`, `aesenclast_st`); the S-box of the ISA model,
-computed by repeated squaring, is the one of `Spec/Aes.lean` (`sbox_eq`).
+An SSE register holds an AES state as its 16 bytes in memory order (`st`):
+byte `r + 4c` is `s[r, c]`, as FIPS 197 §3.4 lays the state out and as the
+SDM's AES instructions read it. On such registers `pxor`, `aesenc` and
+`aesenclast` are `AddRoundKey`, a full round and the last round of
+`Spec.Aes.cipher` (`pxor_st`, `aesenc_st`, `aesenclast_st`); the S-box of the
+ISA model, computed by repeated squaring, is the one of `Spec/Aes.lean`
+(`sbox_eq`).
 -/
 
 namespace VG.Proof.Aes.X86_64.AesNi
@@ -191,10 +191,10 @@ end
 /-!
 # AES-NI: encrypting the block registers
 
-Untrusted: everything here is checked by Lean. `aes_ok`: `Impl.Aes.X86_64.AesNi.aes regs`
-encrypts each register of `regs` with the key schedule at `rdi` (10, 12 or
-14 rounds, as `rsi` says), whatever the list of registers; the rounds are
-composed by induction, one symbolic execution per instruction.
+`aes_ok`: `Impl.Aes.X86_64.AesNi.aes regs` encrypts each register of `regs`
+with the key schedule at `rdi` (10, 12 or 14 rounds, as `rsi` says), whatever
+the list of registers; the rounds are composed by induction, one symbolic
+execution per instruction.
 -/
 
 namespace VG.Proof.Aes.X86_64.AesNi

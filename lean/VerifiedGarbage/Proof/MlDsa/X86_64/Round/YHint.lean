@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Round.MakeHint
 /-!
 # ML-DSA on x86-64: `vg_mldsa_make_hint_avx2`
 
-Untrusted: everything here is checked by Lean. In each doubleword, `mhX`
-computes the hint bit (`mhL`, `mhL_toNat`); the loop stores the eight
-hints of an iteration and adds their count, the sum of the nibbles of the
-byte mask of the hints shifted to bit 7 (`nib_count`), to `r9`.
+In each doubleword, `mhX` computes the hint bit (`mhL`, `mhL_toNat`); the loop
+stores the eight hints of an iteration and adds their count, the sum of the
+nibbles of the byte mask of the hints shifted to bit 7 (`nib_count`), to `r9`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

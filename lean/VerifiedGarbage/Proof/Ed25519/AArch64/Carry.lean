@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Step
 import VerifiedGarbage.Proof.Ed25519.Field64
 
-/-! Untrusted: reduction of the carry above four 64-bit field limbs. -/
+/-! Reduction of the carry above four 64-bit field limbs. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64 VG.Proof.X25519
 

@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MdStream.X86.Common
 /-!
 # Streaming Merkle–Damgård hash functions on x86 (32-bit): length fields and digests
 
-Untrusted: everything here is checked by Lean. What the length fields
-(`len64`) and digests (`out32`) of `Impl/MdStream/X86.lean` write, for the
-hash functions' `Shape`s.
+What the length fields (`len64`) and digests (`out32`) of
+`Impl/MdStream/X86.lean` write, for the hash functions' `Shape`s.
 -/
 
 namespace VG.Proof.MdStream.X86

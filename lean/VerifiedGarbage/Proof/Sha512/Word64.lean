@@ -5,11 +5,11 @@ import VerifiedGarbage.Spec.Sha256
 /-!
 # 64-bit words as pairs of 32-bit halves
 
-Untrusted: everything here is checked by Lean. The halves (`lo`, `hi`) of
-sums, bitwise operations, rotations and shifts of 64-bit words, in the form
-32-bit code computes them, the halves of a 64-bit word in memory, and of the
-message length the padding ends with; for any 32-bit target (ARMv7, x86),
-whose implementations define `lo` and `hi` as here.
+The halves (`lo`, `hi`) of sums, bitwise operations, rotations and shifts of
+64-bit words, in the form 32-bit code computes them, the halves of a 64-bit
+word in memory, and of the message length the padding ends with; for any
+32-bit target (ARMv7, x86), whose implementations define `lo` and `hi` as
+here.
 -/
 
 namespace VG.Proof.Sha512.Word64

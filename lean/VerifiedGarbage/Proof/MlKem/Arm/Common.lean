@@ -7,11 +7,10 @@ import VerifiedGarbage.TCB.Arm.Target
 /-!
 # ML-KEM on 32-bit ARM: common lemmas
 
-Untrusted: everything here is checked by Lean. What the proofs of the
-primitives share: the rule for a loop counted down to zero (`wp_loop_ne`),
-the symbolic execution of a block (`run_block`), addresses in the arrays,
-and the arithmetic of the reductions modulo `q` (`fixq`, the value
-`VG.Impl.MlKem.Arm.fixup` computes).
+What the proofs of the primitives share: the rule for a loop counted down to
+zero (`wp_loop_ne`), the symbolic execution of a block (`run_block`),
+addresses in the arrays, and the arithmetic of the reductions modulo `q`
+(`fixq`, the value `VG.Impl.MlKem.Arm.fixup` computes).
 -/
 
 namespace VG.Proof.MlKem.Arm

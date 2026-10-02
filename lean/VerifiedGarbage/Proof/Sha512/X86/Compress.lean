@@ -8,8 +8,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # SHA-512 compression function on x86 (32-bit): the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 /-!

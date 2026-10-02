@@ -6,15 +6,14 @@ import VerifiedGarbage.Proof.Framework.Sig
 /-!
 # Streaming BLAKE2 on ARMv7: constant time
 
-Untrusted: everything here is checked by Lean. The taint analysis does not
-analyse frames, so `update` and `finalize`, whose calls are in frames, are
-proven constant time by relating two runs (`RelCT`), piece by piece: the code
-between the calls by the taint analysis, from the public arguments for the
-prologue and from the registers holding our variables afterwards (which the
-correctness proofs determine from the public arguments), and each call by the
-compression function's contract (`call_rel`: `RelCT.frame`, `RelCT.call`).
-The pieces do not depend on the compression function, so the taint analysis
-checks them here, for both word sizes.
+The taint analysis does not analyse frames, so `update` and `finalize`, whose
+calls are in frames, are proven constant time by relating two runs (`RelCT`),
+piece by piece: the code between the calls by the taint analysis, from the
+public arguments for the prologue and from the registers holding our variables
+afterwards (which the correctness proofs determine from the public arguments),
+and each call by the compression function's contract (`call_rel`:
+`RelCT.frame`, `RelCT.call`). The pieces do not depend on the compression
+function, so the taint analysis checks them here, for both word sizes.
 -/
 
 namespace VG.Proof.Blake2.Arm.Stream

@@ -7,18 +7,17 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # ML-DSA signing on ARMv7: the buffers of the function
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/MlDsa/X86_64/Sign/Lay.lean`): the function keeps the address of each
-buffer it works in (its arguments and its working space) in a callee-saved
-register; a layout (`Lay`) lists these registers with the lengths of their
-buffers, which are apart from each other and from the `D` bytes of stack
-below the stack pointer that the calls use, and do not wrap around the
-32-bit address space. A pointer (a register and an offset) into a buffer,
-and two pointers into the same buffer or different ones, are then checked
-by evaluation (`inB`, `sepB`): each pair of regions a call needs apart is,
-and each region is readable or writable (`Lay.disj`, `Lay.stkD`, `Lay.cR`,
-`Lay.cW`). A call leaves the layout as it was (`Lay.post`), and the bytes of
-a region apart from those it writes (`Lay.keepBytes`, `Lay.keepPoly`).
+As on x86-64 (`Proof/MlDsa/X86_64/Sign/Lay.lean`): the function keeps the
+address of each buffer it works in (its arguments and its working space) in a
+callee-saved register; a layout (`Lay`) lists these registers with the lengths
+of their buffers, which are apart from each other and from the `D` bytes of
+stack below the stack pointer that the calls use, and do not wrap around the
+32-bit address space. A pointer (a register and an offset) into a buffer, and
+two pointers into the same buffer or different ones, are then checked by
+evaluation (`inB`, `sepB`): each pair of regions a call needs apart is, and
+each region is readable or writable (`Lay.disj`, `Lay.stkD`, `Lay.cR`,
+`Lay.cW`). A call leaves the layout as it was (`Lay.post`), and the bytes of a
+region apart from those it writes (`Lay.keepBytes`, `Lay.keepPoly`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

@@ -8,10 +8,10 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Variant
 /-!
 # Poly1305 on x86-64 with AVX-512: `vg_poly1305_blocks_avx512`
 
-Untrusted: everything here is checked by Lean. The whole function: with
-fewer than 40 blocks it calls `vg_poly1305_blocks_avx2`; otherwise it
-absorbs the blocks eight at a time (see `Impl/Poly1305/X86_64/Avx512.lean`),
-and calls `vg_poly1305_blocks` for the last `n mod 8`.
+The whole function: with fewer than 40 blocks it calls
+`vg_poly1305_blocks_avx2`; otherwise it absorbs the blocks eight at a time
+(see `Impl/Poly1305/X86_64/Avx512.lean`), and calls `vg_poly1305_blocks` for
+the last `n mod 8`.
 
 As for AVX2 (`Avx2/Blocks.lean`), the vector code computes the right numbers
 only if the accumulator on entry is below `2¹⁹⁴`, which holds whenever the

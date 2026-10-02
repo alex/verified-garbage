@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Verify.Row
 /-!
 # ML-DSA verification on 32-bit ARM: `c̃′ = H(μ ‖ w1Encode(w′₁), λ/4)`
 
-Untrusted: everything here is checked by Lean. Once every row of `w′₁` is
-packed to `B`, the commitment hash of `μ` and `B`, to `CT`
-(`vhash_piece`).
+Once every row of `w′₁` is packed to `B`, the commitment hash of `μ` and `B`,
+to `CT` (`vhash_piece`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

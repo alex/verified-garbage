@@ -21,8 +21,6 @@ section
 
 /-!
 # ChaCha20 block function on AArch64: the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20.AArch64
@@ -135,8 +133,6 @@ end
 
 /-!
 # ChaCha20 block function on AArch64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20

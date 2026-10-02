@@ -4,11 +4,10 @@ import VerifiedGarbage.Impl.Blake2.X86.Stream
 /-!
 # BLAKE2b on x86 (32-bit): the streaming functions as literals
 
-Untrusted: everything here is checked by Lean. The code of BLAKE2b's
-streaming functions as literals (`materialize_code`,
+The code of BLAKE2b's streaming functions as literals (`materialize_code`,
 `Proof/Framework/Lit.lean`): the kernel checks each literal once here, and
-then evaluates it, rather than building the instructions again, in every
-check that evaluates the code (constant time, `spSafe`, properties of every
+then evaluates it, rather than building the instructions again, in every check
+that evaluates the code (constant time, `spSafe`, properties of every
 instruction). Their calls refer to the compression function's literal
 (`Proof/Blake2/X86/CompressB/Lit.lean`).
 -/

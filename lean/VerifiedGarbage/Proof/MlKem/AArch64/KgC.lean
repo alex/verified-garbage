@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlKem.AArch64.KgB
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_keygen`, the calls of phase C
 
-Untrusted: everything here is checked by Lean. Each building block of the
-computation of `ŝ`, `ê` and `t̂` (`(kgCbdNttWith keccak.callee)`, `kgEnc`, `kgMul`, `kgAdd`): what
-it needs, what it computes, what it keeps (`KB`), and the only memory it
-changes (`Frame`), so that the facts established before it survive it.
+Each building block of the computation of `ŝ`, `ê` and `t̂` (`(kgCbdNttWith
+keccak.callee)`, `kgEnc`, `kgMul`, `kgAdd`): what it needs, what it computes,
+what it keeps (`KB`), and the only memory it changes (`Frame`), so that the
+facts established before it survive it.
 -/
 
 namespace VG.Proof.MlKem.AArch64.KeyGen

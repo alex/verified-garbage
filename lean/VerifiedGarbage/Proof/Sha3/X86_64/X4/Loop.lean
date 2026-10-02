@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Sha3.X86_64.X4.Round
 /-!
 # Keccak-f[1600] four times at once on x86-64: the 24 rounds
 
-Untrusted: everything here is checked by Lean. `permute4` applies
-Keccak-f[1600] to each of the four interleaved states at `rdi`, using the
-800 bytes at `rsi` for every other round and the table of round constants
-at `rdx` (`permute4_ok`).
+`permute4` applies Keccak-f[1600] to each of the four interleaved states at
+`rdi`, using the 800 bytes at `rsi` for every other round and the table of
+round constants at `rdx` (`permute4_ok`).
 -/
 
 namespace VG.Proof.Sha3.X86_64.X4

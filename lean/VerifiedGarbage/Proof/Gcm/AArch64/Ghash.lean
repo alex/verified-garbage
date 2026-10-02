@@ -20,9 +20,8 @@ section
 /-!
 # GHASH on AArch64: one step of Algorithm 1
 
-Untrusted: everything here is checked by Lean. What the instructions of a
-step (`Impl.Gcm.AArch64.step`) compute on the two halves of a 128-bit value,
-stated on the whole value, and the 128 steps.
+What the instructions of a step (`Impl.Gcm.AArch64.step`) compute on the two
+halves of a 128-bit value, stated on the whole value, and the 128 steps.
 -/
 
 open VG.PowLit
@@ -252,8 +251,6 @@ section
 
 /-!
 # GHASH on AArch64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit

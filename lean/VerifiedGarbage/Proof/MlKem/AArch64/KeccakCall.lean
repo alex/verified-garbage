@@ -6,12 +6,11 @@ import VerifiedGarbage.Proof.MlKem.AArch64.Wp
 /-!
 # ML-KEM on AArch64: calling the Keccak functions
 
-Untrusted: everything here is checked by Lean. Each call of the verified
-`vg_keccak_absorb`, `vg_keccak_pad` and `vg_keccak_squeeze`, from its proof
-(with `WP.callF`: they save `x30` in a frame): what it needs of the state
-it is called from, and what holds when it returns (`Kept`: only the regions
-it may write and its frame's 16 bytes below the stack pointer change, and
-the callee-saved registers but `x30` are kept).
+Each call of the verified `vg_keccak_absorb`, `vg_keccak_pad` and
+`vg_keccak_squeeze`, from its proof (with `WP.callF`: they save `x30` in a
+frame): what it needs of the state it is called from, and what holds when it
+returns (`Kept`: only the regions it may write and its frame's 16 bytes below
+the stack pointer change, and the callee-saved registers but `x30` are kept).
 -/
 
 namespace VG.Proof.MlKem.AArch64

@@ -4,8 +4,6 @@ section
 
 /-!
 # SHA-3 on AArch64: calling the permutation, and saving registers
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha3.AArch64

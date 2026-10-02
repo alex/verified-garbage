@@ -8,9 +8,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # X448 on AArch64: the working space
 
-Untrusted: everything here is checked by Lean. Field elements occupy sixteen
-words of the 8 KiB working space. `Outside` tracks the bytes a block changes;
-`Keeps` tracks its registers and memory permissions independently.
+Field elements occupy sixteen words of the 8 KiB working space. `Outside`
+tracks the bytes a block changes; `Keeps` tracks its registers and memory
+permissions independently.
 -/
 
 namespace VG.Proof.X448.AArch64

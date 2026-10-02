@@ -22,9 +22,8 @@ section
 /-!
 # SHA-3 on AArch64: one instruction at a time
 
-Untrusted: everything here is checked by Lean. Weakest-precondition rules
-for the instruction forms the SHA-3 code uses, exposing only what changes,
-so that proofs about a block stay small.
+Weakest-precondition rules for the instruction forms the SHA-3 code uses,
+exposing only what changes, so that proofs about a block stay small.
 -/
 
 namespace VG.Proof.Sha3.AArch64
@@ -195,10 +194,9 @@ end
 /-!
 # Keccak-f[1600] on AArch64: one round
 
-Untrusted: everything here is checked by Lean. One round (`round`) from the
-state at `x0` to the state at `x1`, lane by lane (`Proof.Sha3.out`), and the
-swap of `x0` and `x1` after it. The same structure as the x86-64 proof
-(`VG.Proof.Sha3.X86_64`).
+One round (`round`) from the state at `x0` to the state at `x1`, lane by lane
+(`Proof.Sha3.out`), and the swap of `x0` and `x1` after it. The same structure
+as the x86-64 proof (`VG.Proof.Sha3.X86_64`).
 -/
 
 namespace VG.Proof.Sha3.AArch64
@@ -585,10 +583,9 @@ end
 /-!
 # Keccak-f[1600] on AArch64: the whole function
 
-Untrusted: everything here is checked by Lean. The same structure as the
-x86-64 proof (`VG.Proof.Sha3.X86_64`), with one round per iteration: the
-AArch64 constant-time analysis tracks only which registers are public, so
-swapping the pointers every round loses nothing.
+The same structure as the x86-64 proof (`VG.Proof.Sha3.X86_64`), with one
+round per iteration: the AArch64 constant-time analysis tracks only which
+registers are public, so swapping the pointers every round loses nothing.
 -/
 
 namespace VG.Proof.Sha3

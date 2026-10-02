@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Blocks
 /-!
 # ML-DSA signing on x86 (32-bit): what the pieces keep
 
-Untrusted: everything here is checked by Lean. The slots of polynomials
-(`nS` of them, `slot_okW`), families of consecutive slots (`Fam`), and what
-a piece that writes the buffers `bs` keeps: the frame of each call is
-widened to a few large buffers (`frIn`), so that what a whole phase keeps is
-shown once (`Fam.keep`, `keepB`, `keepW'`). The tactic `ofs` proves the
-arithmetic of offsets from the facts of `PS p`.
+The slots of polynomials (`nS` of them, `slot_okW`), families of consecutive
+slots (`Fam`), and what a piece that writes the buffers `bs` keeps: the frame
+of each call is widened to a few large buffers (`frIn`), so that what a whole
+phase keeps is shown once (`Fam.keep`, `keepB`, `keepW'`). The tactic `ofs`
+proves the arithmetic of offsets from the facts of `PS p`.
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

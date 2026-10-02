@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.RejNttCT
 /-!
 # ML-DSA on AArch64: `vg_mldsa_sample_in_ball`
 
-Untrusted: everything here is checked by Lean. Correctness: the prologue,
-the sponge (272 bytes of SHAKE256 of `c̃`), `c` set to zeros, the loop
-(`BallLoop.lean`), which leaves what `bFold` computes, and the end, which
-returns whether `i` reached 256. Constant time up to `c̃`, as for
-`vg_mldsa_rej_ntt_poly` (`RejNttCT.lean`): the loop, whose branches and
+Correctness: the prologue, the sponge (272 bytes of SHAKE256 of `c̃`), `c` set
+to zeros, the loop (`BallLoop.lean`), which leaves what `bFold` computes, and
+the end, which returns whether `i` reached 256. Constant time up to `c̃`, as
+for `vg_mldsa_rej_ntt_poly` (`RejNttCT.lean`): the loop, whose branches and
 addresses depend on the output, by `memTaint`, since both runs have the same
 output and zeros in `c`.
 -/

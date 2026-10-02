@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.Framework.X86_64.Avx
 /-!
 # ML-DSA signing on x86-64: the blocks between the calls
 
-Untrusted: everything here is checked by Lean. What the function's own
-instructions do, in its layout: copies (`copy_okB`), stores of a byte or of
-8 bytes (`setB_okB`, `setQ_okB`), the AND of a result into `r15`
-(`and15_ok`), the counters `κ` and `CNT` and the bytes of `κ + r` for
-`ExpandMask` (`kapAdd_ok`, `cntDec_ok`, `setKappa_ok`), the sum of the 1s of
-the hint (`onesAdd_ok`) and its check (`onesOk_ok`).
+What the function's own instructions do, in its layout: copies (`copy_okB`),
+stores of a byte or of 8 bytes (`setB_okB`, `setQ_okB`), the AND of a result
+into `r15` (`and15_ok`), the counters `κ` and `CNT` and the bytes of `κ + r`
+for `ExpandMask` (`kapAdd_ok`, `cntDec_ok`, `setKappa_ok`), the sum of the 1s
+of the hint (`onesAdd_ok`) and its check (`onesOk_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

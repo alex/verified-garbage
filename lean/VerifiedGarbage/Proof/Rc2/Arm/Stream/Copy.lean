@@ -6,11 +6,10 @@ import VerifiedGarbage.Proof.Rc2.Stream
 /-!
 # Streaming RC2-CBC on ARMv7: the byte copy
 
-Untrusted: everything here is checked by Lean. `copy_wp`: the copy of `L`
-bytes from `src + so` to `dst + dd` (`Impl.Rc2.Arm.Stream.copy`), for any
-registers, offsets and count, writes the source bytes at the destination
-(`writeBytes`), advances both pointers by `L`, and changes no other register
-but `r12` and the count.
+`copy_wp`: the copy of `L` bytes from `src + so` to `dst + dd`
+(`Impl.Rc2.Arm.Stream.copy`), for any registers, offsets and count, writes the
+source bytes at the destination (`writeBytes`), advances both pointers by `L`,
+and changes no other register but `r12` and the count.
 -/
 
 namespace VG.Proof.Rc2.Arm.Stream

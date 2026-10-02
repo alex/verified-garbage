@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseK
 /-!
 # ML-DSA signing on AArch64: the rejection sampling loop
 
-Untrusted: everything here is checked by Lean. An iteration (`iter_ok`)
-either continues, with the next iteration's head (`IL`), or ends the loop
-(`XS`): with `x24 = 1` when it passed, as `signIteration` does within
-`maxBounds` after the iterations before were rejected; with `x24 = 0`
-when `signLoop` returns nothing within `minBounds` (its `SampleInBall`
-did not finish, or it was the 814th rejected). So the loop (`signLoop_ok`)
-ends in `XS`.
+An iteration (`iter_ok`) either continues, with the next iteration's head
+(`IL`), or ends the loop (`XS`): with `x24 = 1` when it passed, as
+`signIteration` does within `maxBounds` after the iterations before were
+rejected; with `x24 = 0` when `signLoop` returns nothing within `minBounds`
+(its `SampleInBall` did not finish, or it was the 814th rejected). So the loop
+(`signLoop_ok`) ends in `XS`.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign

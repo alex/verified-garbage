@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.Top
 /-!
 # ML-DSA verification on x86-64: branches, sequences and the comparison
 
-Untrusted: everything here is checked by Lean. The branch on the result in
-`r15` (`ifOk_ok`, `ifOk_tr`), sequences of pieces indexed by a number
-(`seqR_ok`, `seqR_tr`), and the comparison of `c̃′` with `c̃` without a
-branch (`cmpAnd_ok`).
+The branch on the result in `r15` (`ifOk_ok`, `ifOk_tr`), sequences of pieces
+indexed by a number (`seqR_ok`, `seqR_tr`), and the comparison of `c̃′` with
+`c̃` without a branch (`cmpAnd_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

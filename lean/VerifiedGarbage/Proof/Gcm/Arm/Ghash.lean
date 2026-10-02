@@ -11,8 +11,6 @@ import VerifiedGarbage.Spec.Gcm.Contract
 /-!
 # GHASH on ARMv7: the whole function
 
-Untrusted: everything here is checked by Lean.
-
 The saves and restores of the callee-saved registers are checked by
 evaluation in the naming domain (`Bitslice.names`); a block is `load`
 (`Y ⊕ X` over `Y`, and `V := H`), the 16 bytes of steps (`Step.lean`) and

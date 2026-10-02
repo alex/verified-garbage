@@ -11,8 +11,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # The Salsa20/8 Core on AArch64: the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Scrypt.AArch64
@@ -120,8 +118,6 @@ end VG.Proof.Scrypt.AArch64
 
 /-!
 # The Salsa20/8 Core on AArch64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Scrypt

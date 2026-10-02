@@ -5,13 +5,12 @@ import VerifiedGarbage.Proof.MlKem.KPke
 /-!
 # ML-KEM on AArch64: `SampleNTT` up to its loop
 
-Untrusted: everything here is checked by Lean. `sampleSqueezeN len setup`
-saves our caller's `x25`, `x26`, `x30` and `x24` in `scratch`, computes
-`len` bytes of SHAKE128 of the seed into `scratch[0, len)` with the verified
-Keccak functions from the all-zero state (`Proof/MlKem/KPke.lean`), sets
-`a` to zeros, and sets up the loop: it leaves what the loop needs (`LPre`),
-and either the registers restored (`sampleSqueeze`, `rest_ok`) or still
-saved (`sampleFast`'s, `restN_ok`).
+`sampleSqueezeN len setup` saves our caller's `x25`, `x26`, `x30` and `x24` in
+`scratch`, computes `len` bytes of SHAKE128 of the seed into `scratch[0, len)`
+with the verified Keccak functions from the all-zero state
+(`Proof/MlKem/KPke.lean`), sets `a` to zeros, and sets up the loop: it leaves
+what the loop needs (`LPre`), and either the registers restored
+(`sampleSqueeze`, `rest_ok`) or still saved (`sampleFast`'s, `restN_ok`).
 -/
 
 namespace VG.Proof.MlKem

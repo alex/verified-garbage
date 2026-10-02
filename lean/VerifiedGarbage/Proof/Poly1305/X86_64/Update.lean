@@ -7,10 +7,10 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # Poly1305 on x86-64: `update`, up to the call
 
-Untrusted: everything here is checked by Lean. The contract `update` is
-proven against, and its code up to the call of `vg_poly1305_blocks`
-(`updatePre`): saving the caller's registers in `scratch`, filling the
-buffer and absorbing it once full, and setting up the call.
+The contract `update` is proven against, and its code up to the call of
+`vg_poly1305_blocks` (`updatePre`): saving the caller's registers in
+`scratch`, filling the buffer and absorbing it once full, and setting up the
+call.
 -/
 
 open VG.PowLit

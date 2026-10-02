@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Rc2.Arm.Stream.InitBody
 
 /-! # Streaming RC2-CBC on ARMv7: `vg_rc2_cbc_init` is correct
 
-Untrusted: everything here is checked by Lean. -/
+-/
 
 namespace VG.Proof.Rc2.Arm.Stream
 

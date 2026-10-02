@@ -10,8 +10,8 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # ChaCha20 keystream XOR on ARMv7
 
-Untrusted: everything here is checked by Lean. The per-instruction WP rules
-are those of the streaming hash proofs (`Proof/MdStream/Arm/Common.lean`).
+The per-instruction WP rules are those of the streaming hash proofs
+(`Proof/MdStream/Arm/Common.lean`).
 
 The call of the block function goes through its `Verified` proof
 (`WP.call`): it keeps `r1` (which its code never writes) and `r4`–`r11`,

@@ -13,8 +13,6 @@ section
 
 /-!
 # ChaCha20 block function on 32-bit ARM: the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20.Arm
@@ -245,8 +243,6 @@ end
 
 /-!
 # ChaCha20 block function on 32-bit ARM: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20

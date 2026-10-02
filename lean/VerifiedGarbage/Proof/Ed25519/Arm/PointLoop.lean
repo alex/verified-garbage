@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.Points
 import VerifiedGarbage.Proof.Ed25519.Arm.PointAffine
 import VerifiedGarbage.Proof.Ed25519.ScalarMul
 
-/-! Untrusted: fixed batches of exact doublings preserve the saved accumulator. -/
+/-! Fixed batches of exact doublings preserve the saved accumulator. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

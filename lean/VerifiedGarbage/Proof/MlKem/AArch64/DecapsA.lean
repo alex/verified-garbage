@@ -4,8 +4,8 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Decaps
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_decaps`, the first phase
 
-Untrusted: everything here is checked by Lean. The prologue,
-`m' = K-PKE.Decrypt(dk_PKE, c)` (`m_ok`), `G(m' ‖ h)` and `ρ` (`a_ok`).
+The prologue, `m' = K-PKE.Decrypt(dk_PKE, c)` (`m_ok`), `G(m' ‖ h)` and `ρ`
+(`a_ok`).
 -/
 
 namespace VG.Proof.MlKem

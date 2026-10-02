@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.MlKem.Mem
 /-!
 # ML-KEM: lemmas the x86 (32-bit) proofs use that do not depend on the target
 
-Untrusted: everything here is checked by Lean.
-
 * `Samp B a`: `SampleNTT(B)` finishes, with `a`, within some bound on its
   iterations; `a` is then unique (`Samp.unique`), and is `sv B`
   (`sv_eq`). Finitely many that each finish within some bound all finish

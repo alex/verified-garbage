@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Dom
 /-!
 # The truth-table domain: bitwise circuits on all inputs at once
 
-Untrusted: everything here is checked by Lean.
-
 Code that combines words only with `xor`, `and`, `or` and the constants 0
 and all-ones computes every bit position independently, by the same Boolean
 circuit. Evaluating it once over natural numbers used as truth tables runs

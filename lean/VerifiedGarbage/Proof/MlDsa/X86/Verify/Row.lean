@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.X86.Verify.Compute
 /-!
 # ML-DSA verification on x86 (32-bit): a row of `w′₁`
 
-Untrusted: everything here is checked by Lean. Row `r`, step by step, with
-what the temporaries hold (`RI`): `w′ = Σₛ Â[r, s] ẑ[s]` (`dotAcc`), `t₁[r]`
-unpacked and its NTT, `ĉ t̂₁[r]`, `w′ = NTT⁻¹(… - ĉ t̂₁[r])` (`wRow`), its
-`UseHint`s with `h[r]` (`w1Row`), and their `SimpleBitPack` to row `r` of
-`w1Encode(w′₁)` (`row_piece`).
+Row `r`, step by step, with what the temporaries hold (`RI`): `w′ = Σₛ Â[r, s]
+ẑ[s]` (`dotAcc`), `t₁[r]` unpacked and its NTT, `ĉ t̂₁[r]`, `w′ = NTT⁻¹(… - ĉ
+t̂₁[r])` (`wRow`), its `UseHint`s with `h[r]` (`w1Row`), and their
+`SimpleBitPack` to row `r` of `w1Encode(w′₁)` (`row_piece`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Verify

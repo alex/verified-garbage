@@ -4,8 +4,8 @@ import VerifiedGarbage.TCB.X86_64.Isa
 /-!
 # `bswap` of a little-endian load is a big-endian load
 
-Untrusted: everything here is checked by Lean. `bswap32` and `bswap64` are
-`byteRev32` and `byteRev64`, whose lemmas are in `Proof/Framework/Bswap.lean`.
+`bswap32` and `bswap64` are `byteRev32` and `byteRev64`, whose lemmas are in
+`Proof/Framework/Bswap.lean`.
 -/
 
 namespace VG.X86_64

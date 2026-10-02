@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # Streaming Merkle–Damgård hash functions on AArch64: `update`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`update`, for any hash function (`Md`) and any correct compression function
-(`CalleeOk`). The same structure as the x86-64 proof
-(`VG.Proof.MdStream.X86_64.Update`); the loop runs while data is left, so
-every iteration consumes at least one byte. Constant time is proven for each
-hash function's code by the taint analysis, calls included.
+The functional correctness of `update`, for any hash function (`Md`) and any
+correct compression function (`CalleeOk`). The same structure as the x86-64
+proof (`VG.Proof.MdStream.X86_64.Update`); the loop runs while data is left,
+so every iteration consumes at least one byte. Constant time is proven for
+each hash function's code by the taint analysis, calls included.
 -/
 
 namespace VG.Proof.MdStream.AArch64.Update

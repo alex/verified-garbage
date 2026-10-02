@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.Arith.Bfly
 /-!
 # ML-DSA on x86 (32-bit): writing a table of constants
 
-Untrusted: everything here is checked by Lean. `table t` stores the 256
-entries of `t` as words at `[eax]`, through `edx` (`table_spec`), one entry
-at a time (`tableN`), so that each step is a short symbolic execution. The
-table is read like a polynomial (`coeffAt`).
+`table t` stores the 256 entries of `t` as words at `[eax]`, through `edx`
+(`table_spec`), one entry at a time (`tableN`), so that each step is a short
+symbolic execution. The table is read like a polynomial (`coeffAt`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Arith

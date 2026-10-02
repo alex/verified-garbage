@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # The SHA-3 sponge on x86-64: the test for a lane at a time
 
-Untrusted: everything here is checked by Lean. `wordTest` sets ZF only if
-the position is at a lane and at least 8 bytes are left (`wordTest_ok`), so
-that `absorb` and `squeeze` can then move a lane at once.
+`wordTest` sets ZF only if the position is at a lane and at least 8 bytes are
+left (`wordTest_ok`), so that `absorb` and `squeeze` can then move a lane at
+once.
 -/
 
 namespace VG.Proof.Sha3.X86_64

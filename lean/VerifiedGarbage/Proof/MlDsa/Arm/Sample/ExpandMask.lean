@@ -6,15 +6,13 @@ import VerifiedGarbage.Proof.Framework.Arm.Inline
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_expand_mask_poly`
 
-Untrusted: everything here is checked by Lean. The function runs in pieces:
-the prologue (`J0`), the sponge, whose output is `H(ρ′, 640)` (`J6`), the
-branch on `γ₁`, and the loop of `vg_mldsa_bit_unpack` for
-`c = 1 + bitlen (γ₁ - 1)` on the first `32c` bytes of output
-(`Pack.unpackLoop_buFin_ok`, run from the state permitted only those bytes
-and `a`, and widened to the function's permissions by `Exec.widen`), which
-are `H(ρ′, 32c)` (`H_take`). It is constant time: the taint analysis proves
-each piece but the sponge, whose proof is `sponge_ct`, from the pointers
-and `γ₁`.
+The function runs in pieces: the prologue (`J0`), the sponge, whose output is
+`H(ρ′, 640)` (`J6`), the branch on `γ₁`, and the loop of `vg_mldsa_bit_unpack`
+for `c = 1 + bitlen (γ₁ - 1)` on the first `32c` bytes of output
+(`Pack.unpackLoop_buFin_ok`, run from the state permitted only those bytes and
+`a`, and widened to the function's permissions by `Exec.widen`), which are
+`H(ρ′, 32c)` (`H_take`). It is constant time: the taint analysis proves each
+piece but the sponge, whose proof is `sponge_ct`, from the pointers and `γ₁`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sample.ExpandMask

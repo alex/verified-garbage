@@ -6,13 +6,12 @@ import VerifiedGarbage.Impl.MlKem1024.AArch64.KeyGen
 /-!
 # ML-KEM-1024 on AArch64: what the proof of `vg_mlkem1024_keygen` shares
 
-Untrusted: everything here is checked by Lean. The per-target contract, the
-arguments as buffers (`kA`, `kL`: 0 `seed`, 1 `ek`, 2 `dk`, 3 `scratch`),
-and what holds from the prologue to the epilogue (`KB`): the pointers in
-`x25`–`x28`, our caller's registers saved in `scratch`, the other
-callee-saved registers, and the seed.
-The proof is ML-KEM-768's (`Proof/MlKem/AArch64/Kg*.lean`, `KeyGen.lean`)
-for `k = 4` and ML-KEM-1024's sizes and offsets.
+The per-target contract, the arguments as buffers (`kA`, `kL`: 0 `seed`, 1
+`ek`, 2 `dk`, 3 `scratch`), and what holds from the prologue to the epilogue
+(`KB`): the pointers in `x25`–`x28`, our caller's registers saved in
+`scratch`, the other callee-saved registers, and the seed. The proof is
+ML-KEM-768's (`Proof/MlKem/AArch64/Kg*.lean`, `KeyGen.lean`) for `k = 4` and
+ML-KEM-1024's sizes and offsets.
 -/
 
 namespace VG.Proof.MlKem1024

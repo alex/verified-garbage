@@ -16,8 +16,6 @@ section
 
 /-!
 # ChaCha20-Poly1305 on ARMv7: the entry state, regions and invariant
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit
@@ -344,12 +342,12 @@ end
 /-!
 # ChaCha20-Poly1305 on ARMv7: the calls
 
-Untrusted: everything here is checked by Lean. Each call of a verified
-function, from its proof of `Verified` (with `WP.call`): what it needs of the
-state it is called from, and what holds when it returns. A call (`bl`)
-stores nothing in memory, so the callee changes memory only within the
-regions it may write; the frame around `vg_poly1305_finalize` also stores
-its stack arguments below the stack pointer.
+Each call of a verified function, from its proof of `Verified` (with
+`WP.call`): what it needs of the state it is called from, and what holds when
+it returns. A call (`bl`) stores nothing in memory, so the callee changes
+memory only within the regions it may write; the frame around
+`vg_poly1305_finalize` also stores its stack arguments below the stack
+pointer.
 -/
 
 open VG.PowLit
@@ -683,9 +681,8 @@ section
 /-!
 # ChaCha20-Poly1305 on ARMv7: the prologue
 
-Untrusted: everything here is checked by Lean. Saving the registers, moving
-the arguments, copying words of the context, the ChaCha20 state for counter
-0, the one-time key and the Poly1305 state for it.
+Saving the registers, moving the arguments, copying words of the context, the
+ChaCha20 state for counter 0, the one-time key and the Poly1305 state for it.
 -/
 
 open VG.PowLit
@@ -1221,9 +1218,8 @@ end
 /-!
 # ChaCha20-Poly1305 on ARMv7: absorbing padded data
 
-Untrusted: everything here is checked by Lean. `macPad p n` absorbs the `n`
-bytes at `p` into the Poly1305 state (at `ctx`), and zeros to a multiple of
-16: `msg ++ x ++ pad16 x`.
+`macPad p n` absorbs the `n` bytes at `p` into the Poly1305 state (at `ctx`),
+and zeros to a multiple of 16: `msg ++ x ++ pad16 x`.
 -/
 
 open VG.PowLit
@@ -1721,9 +1717,8 @@ end VG.Proof.ChaCha20Poly1305.Arm
 /-!
 # ChaCha20-Poly1305 on ARMv7: the other parts
 
-Untrusted: everything here is checked by Lean. The encryption, the lengths
-block, the arguments of `vg_poly1305_finalize` and the tag, copying and
-comparing tags, and restoring the registers.
+The encryption, the lengths block, the arguments of `vg_poly1305_finalize` and
+the tag, copying and comparing tags, and restoring the registers.
 -/
 
 open VG.PowLit

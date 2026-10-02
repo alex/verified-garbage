@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Rc2.CbcMemory
 /-!
 # Streaming RC2-CBC on x86 (32-bit): `init` before the call
 
-Untrusted: everything here is checked by Lean. Names for the arguments and
-regions of `init` (`Pre`), the length checks (`checks_ok`), and the copy of
-the IV and the arguments of the key expansion (`initArgs_ok`).
+Names for the arguments and regions of `init` (`Pre`), the length checks
+(`checks_ok`), and the copy of the IV and the arguments of the key expansion
+(`initArgs_ok`).
 -/
 
 namespace VG.Proof.Rc2.X86.Stream.Init

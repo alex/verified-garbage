@@ -3,12 +3,12 @@ import VerifiedGarbage.Proof.MlKem.X86.TopLocal
 /-!
 # ML-KEM on x86 (32-bit): what a call leaves unchanged
 
-Untrusted: everything here is checked by Lean. A buffer apart from the
-regions a call or a block changes (`Frame`) keeps its bytes (`keep`), and so
-the polynomial, bytes or word it holds (`keepPoly`, `keepBytes`, `keepW`,
-`keepRed`), when its separation from them is computed (`decide`). The bytes
-of a buffer are those of its two parts (`bytes_split`). The body of a
-top-level function, which ends in `Ctx`, makes a leaf (`topLeaf`).
+A buffer apart from the regions a call or a block changes (`Frame`) keeps its
+bytes (`keep`), and so the polynomial, bytes or word it holds (`keepPoly`,
+`keepBytes`, `keepW`, `keepRed`), when its separation from them is computed
+(`decide`). The bytes of a buffer are those of its two parts (`bytes_split`).
+The body of a top-level function, which ends in `Ctx`, makes a leaf
+(`topLeaf`).
 -/
 
 namespace VG.Proof.MlKem.X86.Top

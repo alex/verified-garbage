@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.X86.CallWith
 /-!
 # Constant time of calls, by relating two runs (x86, 32-bit)
 
-Untrusted: everything here is checked by Lean.
-
 The taint analysis follows calls and frames, but forgets what a callee
 stores through pointers it cannot place in a region (such as a pointer into
 the middle of one), and with it the public values its caller keeps in memory.

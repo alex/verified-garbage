@@ -7,12 +7,11 @@ import VerifiedGarbage.Impl.Pbkdf2.X86
 /-!
 # PBKDF2-HMAC-SHA-256's iteration on x86 (32-bit): the parts of a step
 
-Untrusted: everything here is checked by Lean. The same structure as the
-ARMv7 proof (`VG.Proof.Pbkdf2.Arm`), with the same target-independent memory
-lemmas (`VG.Proof.Pbkdf2.Memory`). Each step is two calls
-of the selected compression backend, used as a black box through the
-generic proof in `Proof/Pbkdf2/Sha256/X86.lean`, each using the 20 bytes
-below `esp`. The hash value being compressed is `t`, and `T` is kept in
+The same structure as the ARMv7 proof (`VG.Proof.Pbkdf2.Arm`), with the same
+target-independent memory lemmas (`VG.Proof.Pbkdf2.Memory`). Each step is two
+calls of the selected compression backend, used as a black box through the
+generic proof in `Proof/Pbkdf2/Sha256/X86.lean`, each using the 20 bytes below
+`esp`. The hash value being compressed is `t`, and `T` is kept in
 `scratch[160..192)`.
 -/
 

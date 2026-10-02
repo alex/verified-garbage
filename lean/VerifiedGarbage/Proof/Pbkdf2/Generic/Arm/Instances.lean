@@ -7,10 +7,9 @@ import VerifiedGarbage.Proof.Hmac.Generic.Arm.Hashes
 /-!
 # PBKDF2-HMAC over any streaming hash function on 32-bit ARM: `iterate`, correct
 
-Untrusted: everything here is checked by Lean. As on x86
-(`Proof/Pbkdf2/Generic/X86/Iterate.lean`). `scratch` is a stack
-argument, loaded into `r12` first; the loop counts the steps left in `r6`
-down with `subs`, and branches on its result.
+As on x86 (`Proof/Pbkdf2/Generic/X86/Iterate.lean`). `scratch` is a stack
+argument, loaded into `r12` first; the loop counts the steps left in `r6` down
+with `subs`, and branches on its result.
 -/
 
 namespace VG.Proof.Pbkdf2.Generic.Arm
@@ -710,8 +709,7 @@ end VG.Proof.Pbkdf2.Generic.Arm
 /-!
 # PBKDF2-HMAC over any streaming hash function on 32-bit ARM: `iterate`, constant time
 
-Untrusted: everything here is checked by Lean. As on x86
-(`Proof/Pbkdf2/Generic/X86/IterateCT.lean`); the prologue loads
+As on x86 (`Proof/Pbkdf2/Generic/X86/IterateCT.lean`); the prologue loads
 `scratch` from the stack, so its taint check starts with the stack argument
 public (`argTaint`).
 -/
@@ -994,11 +992,10 @@ end VG.Proof.Pbkdf2.Generic.Arm
 /-!
 # PBKDF2-HMAC over the streaming hash functions on 32-bit ARM: the instances
 
-Untrusted: everything here is checked by Lean. As on x86
-(`Proof/Pbkdf2/Generic/X86/Instances.lean`): the generic proof
-(above) at each hash function of
-`Proof/Hmac/Generic/Arm/Hashes.lean`, moved to the shared contract of
-`Spec/Pbkdf2/Generic.lean` (`sig_implies`), which the artifacts are emitted with.
+As on x86 (`Proof/Pbkdf2/Generic/X86/Instances.lean`): the generic proof (above)
+at each hash function of `Proof/Hmac/Generic/Arm/Hashes.lean`, moved to the
+shared contract of `Spec/Pbkdf2/Generic.lean` (`sig_implies`), which the
+artifacts are emitted with.
 -/
 
 namespace VG.Proof.Pbkdf2.Generic.Arm.Instances

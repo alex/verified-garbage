@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.Verify.Samp
 /-!
 # ML-DSA verification on x86 (32-bit): `Â` and `c`
 
-Untrusted: everything here is checked by Lean. `ρ` copied to the seed, the
-rows of `Â` (`aRow_piece`), then `c = SampleInBall(c̃)` masked with its result
-(`samples_piece`): from the result 1 to `SC`.
+`ρ` copied to the seed, the rows of `Â` (`aRow_piece`), then `c =
+SampleInBall(c̃)` masked with its result (`samples_piece`): from the result 1
+to `SC`.
 -/
 
 namespace VG.Proof.MlDsa.X86.Verify

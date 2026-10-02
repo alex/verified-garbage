@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.S4Parse
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, the table
 
-Untrusted: everything here is checked by Lean. After the squeezes, the code
-writes the table of the sampling and the constants of the vector code over
-the states, quadword by quadword (`tab_ok`); with the output of the
-squeezes, which it does not touch, they make `PInv σ 0` (`pinv0_ok`).
+After the squeezes, the code writes the table of the sampling and the
+constants of the vector code over the states, quadword by quadword (`tab_ok`);
+with the output of the squeezes, which it does not touch, they make `PInv σ 0`
+(`pinv0_ok`).
 -/
 
 namespace VG.Proof.MlKem.X86_64.S4

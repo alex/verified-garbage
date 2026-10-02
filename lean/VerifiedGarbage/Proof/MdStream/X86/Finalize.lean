@@ -6,13 +6,12 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # Streaming Merkle–Damgård hash functions on x86 (32-bit): `update`
 
-Untrusted: everything here is checked by Lean. The correctness of `update`,
-for any hash function (`Md`) and any correct compression function
-(`CalleeOk`), with `state` in `ebx`, `data` in `ebp`, the bytes left in
-`esi`, the buffered bytes in `edi`, and `scratch` read from its argument word
-(`[esp + 24]`, never written) for each call of the compression function
-(`compressAt_ok`), which uses the 20 bytes below `esp`; and, from the taint
-analysis of each hash function's code (which looks into the compression
+The correctness of `update`, for any hash function (`Md`) and any correct
+compression function (`CalleeOk`), with `state` in `ebx`, `data` in `ebp`, the
+bytes left in `esi`, the buffered bytes in `edi`, and `scratch` read from its
+argument word (`[esp + 24]`, never written) for each call of the compression
+function (`compressAt_ok`), which uses the 20 bytes below `esp`; and, from the
+taint analysis of each hash function's code (which looks into the compression
 function), that it is constant time.
 -/
 
@@ -1064,15 +1063,14 @@ end VG.Proof.MdStream.X86.Update
 /-!
 # Streaming Merkle–Damgård hash functions on x86 (32-bit): `finalize`
 
-Untrusted: everything here is checked by Lean. The correctness of
-`finalize`, for any hash function (`Md`) whose code stores the length field
-and writes the digest as `Shape` says, and any correct compression function
-(`CalleeOk`), with `state` in `ebx`, `scratch` in `ebp`, the buffered bytes in
-`edi`, whether the block being padded is not the last in `esi`, and `count`
-and `out` in `scratch[so+16..so+28)`. Each compression calls the
-compression function (`compressAt_ok`), which uses the 20 bytes below
-`esp`. Constant time follows from the taint analysis of each hash function's
-code (which looks into the compression function).
+The correctness of `finalize`, for any hash function (`Md`) whose code stores
+the length field and writes the digest as `Shape` says, and any correct
+compression function (`CalleeOk`), with `state` in `ebx`, `scratch` in `ebp`,
+the buffered bytes in `edi`, whether the block being padded is not the last in
+`esi`, and `count` and `out` in `scratch[so+16..so+28)`. Each compression
+calls the compression function (`compressAt_ok`), which uses the 20 bytes
+below `esp`. Constant time follows from the taint analysis of each hash
+function's code (which looks into the compression function).
 -/
 
 namespace VG.Proof.MdStream.X86.Finalize

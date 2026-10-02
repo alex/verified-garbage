@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.VerifyCTDecodeA
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyCTScalar
 import VerifiedGarbage.Proof.Ed25519.Arm.ScalarBaseCTLit
 
-/-! Untrusted: the complete strict verifier leaks only its declared public inputs. -/
+/-! The complete strict verifier leaks only its declared public inputs. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm
 

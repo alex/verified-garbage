@@ -29,14 +29,14 @@ section
 /-!
 # Carry-less products from integer products with holes
 
-Untrusted: everything here is checked by Lean. The arithmetic of
-`Impl.Gcm.X86_64.product` (BearSSL's ctmul64): the integer product of two
-words whose bits are 4 apart, one of them with at most 8 bits, has the bits
-of their carry-less product at the positions of its class (`testBit_ip`),
-since the column sums (at most 8) never carry into the next position of the
-class. So the classes of the eight parts of `a` and the four of `b`, masked
-and added, give the carry-less product of `a` and `b` (`lp_prodVal`), which
-in SP 800-38D's reflected bit order is `x · a · b` (`gp_prodVal`).
+The arithmetic of `Impl.Gcm.X86_64.product` (BearSSL's ctmul64): the integer
+product of two words whose bits are 4 apart, one of them with at most 8 bits,
+has the bits of their carry-less product at the positions of its class
+(`testBit_ip`), since the column sums (at most 8) never carry into the next
+position of the class. So the classes of the eight parts of `a` and the four
+of `b`, masked and added, give the carry-less product of `a` and `b`
+(`lp_prodVal`), which in SP 800-38D's reflected bit order is `x · a · b`
+(`gp_prodVal`).
 
 `lp v` is the polynomial of the bits of `v` with bit `i` from the right the
 coefficient of `Xⁱ` (integers' order), and `sp v e m` the polynomial over
@@ -428,9 +428,9 @@ section
 /-!
 # GHASH on x86-64: running a word product
 
-Untrusted: everything here is checked by Lean. `Impl.Gcm.X86_64.product`
-leaves `prodVal` of its factors in `r14:r13` (`product_ok`), changing no
-other register but `rax, rdx, rbx, rbp, r9–r12`, and not memory.
+`Impl.Gcm.X86_64.product` leaves `prodVal` of its factors in `r14:r13`
+(`product_ok`), changing no other register but `rax, rdx, rbx, rbp, r9–r12`,
+and not memory.
 -/
 
 open VG.PowLit
@@ -666,9 +666,8 @@ section
 /-!
 # GHASH on x86-64: Karatsuba, the reduction and `x⁻¹ · H`
 
-Untrusted: everything here is checked by Lean. In the ring `Q` of
-`Proof/Gcm/Poly.lean`, with `ψ w` the class of a 64-bit word (the
-coefficients of `x⁰ … x⁶³`):
+In the ring `Q` of `Proof/Gcm/Poly.lean`, with `ψ w` the class of a 64-bit
+word (the coefficients of `x⁰ … x⁶³`):
 
 * the three word products of a block give `x · Y · H'` as four words
   (`ψ_karatsuba`);
@@ -835,9 +834,8 @@ end
 /-!
 # GHASH on x86-64: running the other parts of the code
 
-Untrusted: everything here is checked by Lean. What each straight-line
-part of `Impl.Gcm.X86_64.ghash` other than `product` does, one symbolic
-execution each.
+What each straight-line part of `Impl.Gcm.X86_64.ghash` other than `product`
+does, one symbolic execution each.
 -/
 
 namespace VG.Proof.Gcm.X86_64
@@ -1114,8 +1112,6 @@ section
 
 /-!
 # GHASH on x86-64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit

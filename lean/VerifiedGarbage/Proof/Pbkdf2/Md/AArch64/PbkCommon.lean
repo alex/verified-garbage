@@ -5,13 +5,12 @@ import VerifiedGarbage.Proof.Hmac.Generic.AArch64.Init
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on AArch64: `pbkdf2`'s parts
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Pbkdf2/Md/X86_64/PbkCommon.lean`): the precondition of `pbkdf2`
-(`Pre`), the parts of its `scratch`, and what every piece of it keeps
+As on x86-64 (`Proof/Pbkdf2/Md/X86_64/PbkCommon.lean`): the precondition of
+`pbkdf2` (`Pre`), the parts of its `scratch`, and what every piece of it keeps
 (`KR`): our caller's registers (those we save in `scratch`, and `x25`–`x28`,
-which nothing we run writes), `out`, `c - 1` and `out_len` in `scratch`,
-and that everything written is in `out`, `scratch` or the 16 bytes below
-the stack pointer.
+which nothing we run writes), `out`, `c - 1` and `out_len` in `scratch`, and
+that everything written is in `out`, `scratch` or the 16 bytes below the stack
+pointer.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.AArch64.Pbk

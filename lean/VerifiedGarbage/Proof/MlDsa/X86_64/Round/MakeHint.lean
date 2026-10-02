@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Round.UseHint
 /-!
 # ML-DSA on x86-64: `vg_mldsa_make_hint`
 
-Untrusted: everything here is checked by Lean. The loop also counts the 1s
-in `r9` (`onesFrom`).
+The loop also counts the 1s in `r9` (`onesFrom`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Round

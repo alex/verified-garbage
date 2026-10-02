@@ -6,13 +6,12 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # Poly1305 on 32-bit ARM: the steps of `update` and `finalize`
 
-Untrusted: everything here is checked by Lean. At a block boundary (`Acc`),
-the columns are congruent modulo `p` to an accumulator followed by some
-blocks; absorbing a block (`absorbAcc_ok`), the loop body of `blocks` over
-any blocks (`body_gen`), and reducing and storing the accumulator
-(`storeAcc_ok`) keep track of them. The callee-saved registers are saved in
-and restored from `scratch` (`saveScr_ok`, `restoreScr_ok`), and bytes are
-copied into the buffer, bytes 56–71 of the state (`copy_ok`).
+At a block boundary (`Acc`), the columns are congruent modulo `p` to an
+accumulator followed by some blocks; absorbing a block (`absorbAcc_ok`), the
+loop body of `blocks` over any blocks (`body_gen`), and reducing and storing
+the accumulator (`storeAcc_ok`) keep track of them. The callee-saved registers
+are saved in and restored from `scratch` (`saveScr_ok`, `restoreScr_ok`), and
+bytes are copied into the buffer, bytes 56–71 of the state (`copy_ok`).
 -/
 
 open VG.PowLit

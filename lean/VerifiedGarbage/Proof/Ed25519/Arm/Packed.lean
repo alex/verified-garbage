@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.FieldMemory
 import VerifiedGarbage.Proof.X25519.Bytes
 import VerifiedGarbage.Proof.Framework.WriteBytes
 
-/-! Untrusted: the compact point-table representation. -/
+/-! The compact point-table representation. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 open VG.Spec.X25519 (bytesAt)

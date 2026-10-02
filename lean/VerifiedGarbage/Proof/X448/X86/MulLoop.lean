@@ -4,8 +4,7 @@ import VerifiedGarbage.Proof.X448.X86.Row
 /-!
 # X448 on x86 (32-bit): the multiplication loop
 
-Untrusted: everything here is checked by Lean. All 28 rows terminate at a
-public counter, producing 56 bounded product limbs.
+All 28 rows terminate at a public counter, producing 56 bounded product limbs.
 -/
 
 namespace VG.Proof.X448.X86

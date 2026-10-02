@@ -4,11 +4,10 @@ import VerifiedGarbage.Impl.MlDsa.X86.Pack.Hint
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_hint_bit_unpack`, the setup
 
-Untrusted: everything here is checked by Lean. The code follows the fold
-form of `HintBitUnpack` (`hintBitUnpack_eq`, `Pack/Hint.lean`) step by step:
-after `i` polynomials the spec's state is `PS s₀ i`, `eax` is its index, or
-256 once a check has failed (`idxOf`), and while no check has failed the
-words of `h` are its hint (`SR`).
+The code follows the fold form of `HintBitUnpack` (`hintBitUnpack_eq`,
+`Pack/Hint.lean`) step by step: after `i` polynomials the spec's state is `PS
+s₀ i`, `eax` is its index, or 256 once a check has failed (`idxOf`), and while
+no check has failed the words of `h` are its hint (`SR`).
 
 Every register the code branches on or addresses memory with is a function
 of the entry state `s₀` through the input `y`, which two runs with the same

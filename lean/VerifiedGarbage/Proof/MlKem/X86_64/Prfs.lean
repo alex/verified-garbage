@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.MlKem.X86_64.PrfBatch
 /-!
 # ML-KEM on x86-64: several outputs of `PRF₂`
 
-Untrusted: everything here is checked by Lean. In a layout:
-`PRF₂(σ, N₀ + i)` to `scratch + o + 128 i` for each `i < n`, with `σ` at
-`G + 32` (`PrfsPost`), one at a time (`prfsScalar_ok`, `prfsScalar_tr`) or
-four at a time with AVX2, but for the first `prfsLead n`, one at a time
-(`prfsAvx2_ok`, `prfsAvx2_tr`), whichever
-implementation of `vg_mlkem_sample_ntt4` the top-level functions call goes
-with (`Callee4.prfs`). Both write within `prfsW` and need what `prfsChk`
-checks of the layout.
+In a layout: `PRF₂(σ, N₀ + i)` to `scratch + o + 128 i` for each `i < n`, with
+`σ` at `G + 32` (`PrfsPost`), one at a time (`prfsScalar_ok`, `prfsScalar_tr`)
+or four at a time with AVX2, but for the first `prfsLead n`, one at a time
+(`prfsAvx2_ok`, `prfsAvx2_tr`), whichever implementation of
+`vg_mlkem_sample_ntt4` the top-level functions call goes with
+(`Callee4.prfs`). Both write within `prfsW` and need what `prfsChk` checks of
+the layout.
 -/
 
 namespace VG.Proof.MlKem.X86_64

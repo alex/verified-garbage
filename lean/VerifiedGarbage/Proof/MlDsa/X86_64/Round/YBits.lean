@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Round.Bits
 /-!
 # ML-DSA on x86-64: `vg_mldsa_high_bits_avx2` and `vg_mldsa_low_bits_avx2`
 
-Untrusted: everything here is checked by Lean. After the constants
-(`yC_ok`), each iteration of the loop loads eight coefficients of `r`, does
-in each lane what `hbX` or `lbX` does to a register (`YBlock.lean`), whose
-proof holds of each lane (`ylanes`), and stores the eight results to `out`
-(`YMap.step`); the loop leaves `out` with all 256 (`YMap.loop_ok`), for the
-`γ₂` the function compared (`ybits_ok`).
+After the constants (`yC_ok`), each iteration of the loop loads eight
+coefficients of `r`, does in each lane what `hbX` or `lbX` does to a register
+(`YBlock.lean`), whose proof holds of each lane (`ylanes`), and stores the
+eight results to `out` (`YMap.step`); the loop leaves `out` with all 256
+(`YMap.loop_ok`), for the `γ₂` the function compared (`ybits_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

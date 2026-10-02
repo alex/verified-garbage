@@ -6,8 +6,6 @@ import VerifiedGarbage.Impl.Poly1305.X86_64.Callee
 /-!
 # Implementations of `vg_chacha20_xor` on x86-64
 
-Untrusted: everything here is checked by Lean.
-
 An `XorImpl` is what a function that calls `vg_chacha20_xor` needs of it, so
 that its proof holds for every implementation: each is a variant of the
 interface `ChaCha20Xor` on x86-64 (`Variants/ChaCha20Xor/X86_64/`), and each

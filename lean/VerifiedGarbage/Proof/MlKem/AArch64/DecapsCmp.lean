@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlKem.AArch64.DecapsA
 /-!
 # ML-KEM-768 on AArch64: `vg_mlkem768_decaps`, the comparison and the key
 
-Untrusted: everything here is checked by Lean. `c = c'` as the OR of the
-bytes of `c ⊕ c'` being 0 (`cmp_ok`), without branching, then a mask of ones
-exactly when they are equal, and `K'` or `K̄` into `key` through it
-(`sel_ok`).
+`c = c'` as the OR of the bytes of `c ⊕ c'` being 0 (`cmp_ok`), without
+branching, then a mask of ones exactly when they are equal, and `K'` or `K̄`
+into `key` through it (`sel_ok`).
 -/
 
 namespace VG.Proof.MlKem.AArch64.Decaps

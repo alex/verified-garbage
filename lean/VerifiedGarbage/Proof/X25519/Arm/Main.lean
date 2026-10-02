@@ -4,9 +4,8 @@ import VerifiedGarbage.TCB.Arm.Target
 /-!
 # X25519 on 32-bit ARM: the whole function
 
-Untrusted: everything here is checked by Lean. `vg_x25519` writes
-`X25519(k, u)` to `out` (`x25519_correct`), restoring the callee-saved
-registers.
+`vg_x25519` writes `X25519(k, u)` to `out` (`x25519_correct`), restoring the
+callee-saved registers.
 -/
 
 namespace VG.Proof.X25519.Arm

@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.Sample.LeNat
 /-!
 # ML-DSA: the sign bits of `SampleInBall` in two 32-bit words
 
-Untrusted: everything here is checked by Lean. An implementation with
-32-bit words keeps the sign bits of `SampleInBall` not yet used, the first
-8 bytes of the output as a little-endian integer `S` shifted right by the
-number `t` of signs used, as two words: `S / 2^t` (modulo `2³²`) and
-`S / 2^(t+32)`. They start as the two little-endian words of the bytes
-(`readW_lo`, `readW_hi`); the next sign is the low bit of the first
+An implementation with 32-bit words keeps the sign bits of `SampleInBall` not
+yet used, the first 8 bytes of the output as a little-endian integer `S`
+shifted right by the number `t` of signs used, as two words: `S / 2^t` (modulo
+`2³²`) and `S / 2^(t+32)`. They start as the two little-endian words of the
+bytes (`readW_lo`, `readW_hi`); the next sign is the low bit of the first
 (`signBit_eq`); and shifting the pair right by one bit is the first shifted
 right by one plus the low bit of the second rotated to the top
 (`signs_shift`).

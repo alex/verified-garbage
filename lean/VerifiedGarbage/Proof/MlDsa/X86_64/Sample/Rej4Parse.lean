@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sample.RejNtt
 /-!
 # ML-DSA on x86-64: `vg_mldsa_rej_ntt_poly4_avx2`, sampling
 
-Untrusted: everything here is checked by Lean. Each half of a seed's
-sampling (`half`) runs 168 iterations of `vg_mldsa_rej_ntt_poly`'s loop
-(`rnBody_ok`) on the 504 bytes of the seed's buffer, which hold bytes
-`504 h` to `504 h + 503` of its output `Xb` (`G` of the seed, as
-`vg_mldsa_rej_ntt_poly` squeezes it: `Xb_getD`): from `j` coefficients
-sampled, it samples those of the first `504 (h + 1)` bytes (`half_ok`), and
-writes only the seed's polynomial.
+Each half of a seed's sampling (`half`) runs 168 iterations of
+`vg_mldsa_rej_ntt_poly`'s loop (`rnBody_ok`) on the 504 bytes of the seed's
+buffer, which hold bytes `504 h` to `504 h + 503` of its output `Xb` (`G` of
+the seed, as `vg_mldsa_rej_ntt_poly` squeezes it: `Xb_getD`): from `j`
+coefficients sampled, it samples those of the first `504 (h + 1)` bytes
+(`half_ok`), and writes only the seed's polynomial.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Rej4

@@ -9,8 +9,6 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # ChaCha20 keystream XOR on x86 (32-bit)
 
-Untrusted: everything here is checked by Lean.
-
 Correctness follows the x86-64 proof (`Proof/ChaCha20/X86_64/Xor.lean`): an
 invariant before each block (`OInv`), one after the call of the block
 function (`AInv`) and one before each byte (`IInv`). The call runs in a

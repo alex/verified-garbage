@@ -8,13 +8,6 @@ A generic file (see `TCB/Emit.lean`): the artifacts it lists, which call an
 implementation `v` of the polynomial arithmetic (`vg_mldsa_ntt`, …), are
 emitted once for each implementation (`Variants/MlDsaArith/X86_64/`), named
 with its suffix (e.g. `vg_mldsa44_keygen_avx2`), and need its CPU features.
-**Review note**: `sig` and `doc` are trusted, as they tie the Rust caller to
-the contract; check them against the contract's `pre`/`post`. Each artifact
-is made from its function's `Api` (in `Spec/MlDsa/Contract.lean`, reviewed
-with the contract), and this file adds only notes on the implementation. The
-emitter adds the `# Safety` items that depend on the target
-(`Sig.layoutDoc`), from `stack` and `writeArgs`, which `ofSig` checks
-against the contract.
 -/
 
 namespace VG.Generic.MlDsaArith.X86_64.MlDsaKeyGen

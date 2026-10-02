@@ -9,11 +9,10 @@ import Mathlib.Tactic.Tauto
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_decode_decompress`
 
-Untrusted: everything here is checked by Lean. The branch on `d` depends
-only on `d`; each branch is a loop over groups of bytes, whose fields
-`unpackSteps` (`Unpack.lean`) decompresses into the coefficients of
-`decodeDecompress1`, `decodeDecompress4_*` and `decodeDecompress10_*`
-(`Encode.lean`).
+The branch on `d` depends only on `d`; each branch is a loop over groups of
+bytes, whose fields `unpackSteps` (`Unpack.lean`) decompresses into the
+coefficients of `decodeDecompress1`, `decodeDecompress4_*` and
+`decodeDecompress10_*` (`Encode.lean`).
 -/
 
 namespace VG.Proof.MlKem.X86.DecodeDecompress

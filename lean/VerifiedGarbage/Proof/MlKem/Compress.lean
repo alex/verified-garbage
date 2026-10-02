@@ -4,10 +4,9 @@ import VerifiedGarbage.Spec.MlKem.Poly
 /-!
 # ML-KEM: Compress and Decompress without division, for every target
 
-Untrusted: everything here is checked by Lean. `Compress_d` (4.7) divides
-by `q`, and `Decompress_d` (4.8) by `2ᵈ`. For the widths ML-KEM-768 uses
-(`compressWidths`: 1, 4 and 10), an implementation computes them with a
-32-bit multiply-low, an addition and shifts:
+`Compress_d` (4.7) divides by `q`, and `Decompress_d` (4.8) by `2ᵈ`. For the
+widths ML-KEM-768 uses (`compressWidths`: 1, 4 and 10), an implementation
+computes them with a 32-bit multiply-low, an addition and shifts:
 
 * `Compress_d(x) = ((x · M_d + 262080) >> 19) mod 2ᵈ` for every `x < q`,
   with `M₁ = 315`, `M₄ = 2520` and `M₁₀ = 161271` (`compressMul`); the

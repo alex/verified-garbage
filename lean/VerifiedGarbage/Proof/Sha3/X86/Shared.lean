@@ -8,11 +8,11 @@ import VerifiedGarbage.Spec.Sha3.Contract
 /-!
 # SHA-3 on x86 (32-bit): the shared contracts
 
-Untrusted: everything here is checked by Lean. The proofs are written against
-per-target contracts (`Proof/Sha3/X86/Permute.lean`); these theorems move
-them to the shared contracts of `Spec/Sha3/Contract.lean`, which the
-artifacts are emitted with. The streaming functions call the permutation,
-using the 12 bytes below the return address; the permutation uses no stack.
+The proofs are written against per-target contracts
+(`Proof/Sha3/X86/Permute.lean`); these theorems move them to the shared
+contracts of `Spec/Sha3/Contract.lean`, which the artifacts are emitted with.
+The streaming functions call the permutation, using the 12 bytes below the
+return address; the permutation uses no stack.
 -/
 
 namespace VG.Proof.Sha3.X86.Shared

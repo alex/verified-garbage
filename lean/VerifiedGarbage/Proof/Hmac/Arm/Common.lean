@@ -10,9 +10,8 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC-SHA-256 on ARMv7: common lemmas
 
-Untrusted: everything here is checked by Lean. Words copied between memory
-regions; the memory lemmas themselves are target-independent and shared by
-every target (`VG.Proof.Hmac.Common`).
+Words copied between memory regions; the memory lemmas themselves are
+target-independent and shared by every target (`VG.Proof.Hmac.Common`).
 -/
 
 namespace VG.Proof.Hmac

@@ -9,8 +9,8 @@ import VerifiedGarbage.Proof.Framework.AArch64.Taint
 /-!
 # ML-DSA signing on AArch64: moves, layouts and what code leaves
 
-Untrusted: everything here is checked by Lean. The framework of the proof of
-`vg_mldsa*_sign` on AArch64, as on x86-64 (`Proof/MlDsa/X86_64/Sign/Lay.lean`):
+The framework of the proof of `vg_mldsa*_sign` on AArch64, as on x86-64
+(`Proof/MlDsa/X86_64/Sign/Lay.lean`):
 
 * The moves of a call's arguments (`glue_ok`): each argument register holds
   the argument's value (`Arg.val`: a pointer's address `pa`, or an integer).

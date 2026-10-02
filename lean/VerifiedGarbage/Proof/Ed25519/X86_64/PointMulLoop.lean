@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulBatch
 
-/-! Untrusted: complete descent through the checkpoint table. -/
+/-! Complete descent through the checkpoint table. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

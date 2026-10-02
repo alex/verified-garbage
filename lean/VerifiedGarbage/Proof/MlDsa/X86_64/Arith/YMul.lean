@@ -4,15 +4,14 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Mul
 /-!
 # ML-DSA on x86-64: `vg_mldsa_multiply_ntt_avx2` and `vg_mldsa_multiply_add_ntt_avx2`
 
-Untrusted: everything here is checked by Lean. As `vg_mldsa_multiply_ntt`
-and `vg_mldsa_multiply_add_ntt` (`Mul.lean`) on eight coefficients at a
-time: each iteration of the loop loads eight coefficients of `f`, `g` and
-`h` and, in each lane, does what the SSE2 code's `mulCore` (`mulAddCore`)
-does (`ylanes`), on the coefficients `8i + 4l` to `8i + 4l + 3` of lane
-`l`, and stores the eight results (`YMul.step`); the loop stores the first
-248 (`YMul.loop_ok`), and the last eight, from the coefficients of `h` in
-`ymm6` (`YMul.last`), are stored after MXCSR is loaded back
-(`YMul.fn_ok`).
+As `vg_mldsa_multiply_ntt` and `vg_mldsa_multiply_add_ntt` (`Mul.lean`) on
+eight coefficients at a time: each iteration of the loop loads eight
+coefficients of `f`, `g` and `h` and, in each lane, does what the SSE2 code's
+`mulCore` (`mulAddCore`) does (`ylanes`), on the coefficients `8i + 4l` to `8i +
+4l + 3` of lane `l`, and stores the eight results (`YMul.step`); the loop
+stores the first 248 (`YMul.loop_ok`), and the last eight, from the
+coefficients of `h` in `ymm6` (`YMul.last`), are stored after MXCSR is loaded
+back (`YMul.fn_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

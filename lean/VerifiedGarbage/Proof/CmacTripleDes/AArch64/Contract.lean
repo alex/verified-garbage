@@ -4,9 +4,9 @@ import VerifiedGarbage.Spec.Cmac.TripleDesContract
 /-!
 # TDEA-CMAC on AArch64: the contracts the proofs are written against
 
-Untrusted: everything here is checked by Lean. The artifacts' contracts are
-the shared ones of `Spec/Cmac/TripleDesContract.lean`, which imply these
-(`Verified.lean`). The functions call nothing and use no stack: the return address stays in `x30`.
+The artifacts' contracts are the shared ones of
+`Spec/Cmac/TripleDesContract.lean`, which imply these (`Verified.lean`). The
+functions call nothing and use no stack: the return address stays in `x30`.
 -/
 
 namespace VG.Proof.CmacTripleDes.AArch64

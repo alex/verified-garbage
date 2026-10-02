@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.X448.X86.Columns
 /-!
 # X448 on x86 (32-bit): multiplication by a24
 
-Untrusted: everything here is checked by Lean. The 16-bit limbs keep
-multiplication by 39081 within a 32-bit word.
+The 16-bit limbs keep multiplication by 39081 within a 32-bit word.
 -/
 
 namespace VG.Proof.X448.X86

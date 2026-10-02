@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Entry
 /-!
 # ML-DSA on AArch64: calls of the arithmetic primitives
 
-Untrusted: everything here is checked by Lean. For each call of
-`vg_mldsa_ntt`, `vg_mldsa_inv_ntt` (`ipAt`), `vg_mldsa_multiply_ntt`,
-`vg_mldsa_multiply_add_ntt`, `vg_mldsa_add` and `vg_mldsa_sub`: what it
-needs of the layout (a check evaluated on the pointers, `…Chk`), what it
-does (`…_ok`), and that two runs whose layout registers agree leak the same
-(`…_tr`).
+For each call of `vg_mldsa_ntt`, `vg_mldsa_inv_ntt` (`ipAt`),
+`vg_mldsa_multiply_ntt`, `vg_mldsa_multiply_add_ntt`, `vg_mldsa_add` and
+`vg_mldsa_sub`: what it needs of the layout (a check evaluated on the
+pointers, `…Chk`), what it does (`…_ok`), and that two runs whose layout
+registers agree leak the same (`…_tr`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

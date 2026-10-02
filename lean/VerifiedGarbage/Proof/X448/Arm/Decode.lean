@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.Radix16Bytes
 /-!
 # X448 on ARMv7: decoding a coordinate limb
 
-Untrusted: everything here is checked by Lean. Two byte loads construct a
-16-bit limb, which is written to both initial coordinate slots.
+Two byte loads construct a 16-bit limb, which is written to both initial
+coordinate slots.
 -/
 
 namespace VG.Proof.X448.Arm

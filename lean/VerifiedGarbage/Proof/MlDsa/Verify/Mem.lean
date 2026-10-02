@@ -4,10 +4,9 @@ import VerifiedGarbage.Spec.MlDsa.Poly
 /-!
 # ML-DSA: polynomials in memory, for every target
 
-Untrusted: everything here is checked by Lean. The stored polynomials of
-`Spec/MlDsa/Poly.lean` (`coeffAt`, `polyAt`, `Reduced`, `PolyIs`,
-`natPolyAt`, `hintAt`) are unchanged by writes elsewhere (`…_congr`,
-`…_frame`); a hint stored as `k` polynomials gives each of them to
+The stored polynomials of `Spec/MlDsa/Poly.lean` (`coeffAt`, `polyAt`,
+`Reduced`, `PolyIs`, `natPolyAt`, `hintAt`) are unchanged by writes elsewhere
+(`…_congr`, `…_frame`); a hint stored as `k` polynomials gives each of them to
 `vg_mldsa_use_hint` (`hintAt_row`).
 -/
 

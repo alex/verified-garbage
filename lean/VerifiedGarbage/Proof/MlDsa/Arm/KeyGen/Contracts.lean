@@ -5,14 +5,13 @@ import VerifiedGarbage.Proof.Framework.Sig
 /-!
 # ML-DSA on 32-bit ARM: the contracts of the primitives, evaluated
 
-Untrusted: everything here is checked by Lean. For each primitive the
-top-level functions call, its contract's precondition (`ntt_pre`, …), from
-plain facts about the state `x` the callee starts from: the arguments in
-their registers (and the fifth in the stack slot, `stackArg x 0`), the
-regions it is given, their disjointness and the stack below `x.sp`; what its
-postcondition says (`…_post`); and its public data, from the equalities of
-two such states (`…_pub`). Each is proven once, by evaluating the contract
-(`sig_pre`, `sig_post`, `sig_pub`) on a state that is a variable.
+For each primitive the top-level functions call, its contract's precondition
+(`ntt_pre`, …), from plain facts about the state `x` the callee starts from:
+the arguments in their registers (and the fifth in the stack slot, `stackArg x
+0`), the regions it is given, their disjointness and the stack below `x.sp`;
+what its postcondition says (`…_post`); and its public data, from the
+equalities of two such states (`…_pub`). Each is proven once, by evaluating
+the contract (`sig_pre`, `sig_post`, `sig_pub`) on a state that is a variable.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

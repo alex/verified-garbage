@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Part1
 /-!
 # X25519 on x86-64 with AVX512_IFMA: stages 2 and 3 of an iteration
 
-Untrusted: everything here is checked by Lean. From `(AA, BB, DA, CB)` in
-the lanes of `ymm0–ymm4`, stage 2 and its product leave `(x₃', t, x₂', a24 E)`
-there (and its first operand, with `AA` and `E`, in `OPV`); stage 3 and its
-product then leave `(x₂', z₂', x₃', z₃')`.
+From `(AA, BB, DA, CB)` in the lanes of `ymm0–ymm4`, stage 2 and its product
+leave `(x₃', t, x₂', a24 E)` there (and its first operand, with `AA` and `E`,
+in `OPV`); stage 3 and its product then leave `(x₂', z₂', x₃', z₃')`.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma

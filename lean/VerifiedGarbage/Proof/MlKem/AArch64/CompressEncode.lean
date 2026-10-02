@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-KEM on AArch64: `ceLoop`, one width of `vg_mlkem_compress_encode`
 
-Untrusted: everything here is checked by Lean. Group `g` of the output is
-the number whose base-`2ᵈ` digits are the compressed coefficients
-`c g … c g + c - 1` (`byteEncode_group`): `acc g c`, built digit by digit
-(`coeff_step`) and stored byte by byte (`byte_step`).
+Group `g` of the output is the number whose base-`2ᵈ` digits are the
+compressed coefficients `c g … c g + c - 1` (`byteEncode_group`): `acc g c`,
+built digit by digit (`coeff_step`) and stored byte by byte (`byte_step`).
 -/
 
 namespace VG.Proof.MlKem.AArch64.CE

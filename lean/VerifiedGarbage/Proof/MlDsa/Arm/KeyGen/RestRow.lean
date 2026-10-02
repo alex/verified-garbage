@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.RestPack
 /-!
 # ML-DSA key generation on 32-bit ARM: the rows of `t`
 
-Untrusted: everything here is checked by Lean. Row `i` of `t`: the sum of
-the products `Â[i, j] ŝ₁[j]` in `t` (`rowMul_ok`, `rowMulAdd_ok`), `NTT⁻¹` of
-it plus `s₂[i]` (`rowInv_ok`, `rowAdd_ok`), then `Power2Round` (`rowP2r_ok`)
-and `t₁[i]` packed to `pk` and `t₀[i]` to `sk` (`rowSbp_ok`, `rowBp_ok`).
+Row `i` of `t`: the sum of the products `Â[i, j] ŝ₁[j]` in `t` (`rowMul_ok`,
+`rowMulAdd_ok`), `NTT⁻¹` of it plus `s₂[i]` (`rowInv_ok`, `rowAdd_ok`), then
+`Power2Round` (`rowP2r_ok`) and `t₁[i]` packed to `pk` and `t₀[i]` to `sk`
+(`rowSbp_ok`, `rowBp_ok`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

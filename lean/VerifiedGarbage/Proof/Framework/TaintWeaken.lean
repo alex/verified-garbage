@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Framework.Taint
 /-!
 # Hints that forget what the rest of the code does not need
 
-Untrusted: this only computes hints, which `Taint.check` checks.
+This only computes hints, which `Taint.check` checks.
 
 `taint_decide_weak w` weakens the taints of a hint computed without `w`: it
 can forget facts about memory, but not what the analysis derives from them

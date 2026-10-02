@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.PhaseA
 /-!
 # ML-DSA signing on AArch64: the private key and `ρ″`
 
-Untrusted: everything here is checked by Lean. Once `Â` is sampled (`IM`),
-`ŝ₁[r]`, `ŝ₂[i]` and `t̂₀[i]`, each the `NTT` of the `BitUnpack` of its
-piece of `sk` (`dec_ok`), in their slots (`ID`), and
+Once `Â` is sampled (`IM`), `ŝ₁[r]`, `ŝ₂[i]` and `t̂₀[i]`, each the `NTT` of
+the `BitUnpack` of its piece of `sk` (`dec_ok`), in their slots (`ID`), and
 `ρ″ = H(K ‖ rnd ‖ μ, 64)` at `MS` (`decode_ok`).
 -/
 

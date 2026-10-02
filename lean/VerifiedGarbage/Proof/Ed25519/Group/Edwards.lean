@@ -7,13 +7,13 @@ import Mathlib.Tactic.Ring
 /-!
 # The group law of a complete twisted Edwards curve with `a = -1`
 
-Untrusted. Over any field `F` with `2 ≠ 0`, a square root of `-1` and a
-nonsquare `d`, the curve `-x² + y² = 1 + d x² y²` with the addition law
-of RFC 8032 §5.1.4 (in affine coordinates) is complete: the denominators
-never vanish (Bernstein, Birkner, Joye, Lange and Peters, "Twisted Edwards
-curves", Theorem 3.3). Closure and associativity are polynomial identities
-modulo the curve equations, checked by `linear_combination` with the
-quotients of dividing by them (Hales, "The group law for Edwards curves").
+Over any field `F` with `2 ≠ 0`, a square root of `-1` and a nonsquare `d`,
+the curve `-x² + y² = 1 + d x² y²` with the addition law of RFC 8032 §5.1.4
+(in affine coordinates) is complete: the denominators never vanish (Bernstein,
+Birkner, Joye, Lange and Peters, "Twisted Edwards curves", Theorem 3.3).
+Closure and associativity are polynomial identities modulo the curve
+equations, checked by `linear_combination` with the quotients of dividing by
+them (Hales, "The group law for Edwards curves").
 -/
 
 namespace VG.Proof.Ed25519.Edwards

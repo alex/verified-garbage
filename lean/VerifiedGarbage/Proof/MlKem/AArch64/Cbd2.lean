@@ -5,10 +5,9 @@ import VerifiedGarbage.Impl.MlKem.AArch64.Encode
 /-!
 # ML-KEM on AArch64: `vg_mlkem_cbd2`
 
-Untrusted: everything here is checked by Lean. Two coefficients per byte
-(`samplePolyCBD2_val`): the sums of the pairs of bits of a byte `v`,
-`s = (v & 0x55) + ((v >> 1) & 0x55)`, are `x` and `y` of both nibbles
-(`sums`, checked for every byte by the kernel).
+Two coefficients per byte (`samplePolyCBD2_val`): the sums of the pairs of
+bits of a byte `v`, `s = (v & 0x55) + ((v >> 1) & 0x55)`, are `x` and `y` of
+both nibbles (`sums`, checked for every byte by the kernel).
 -/
 
 namespace VG.Proof.MlKem

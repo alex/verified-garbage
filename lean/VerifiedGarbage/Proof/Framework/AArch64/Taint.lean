@@ -5,8 +5,6 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # Taint tracking for AArch64
 
-Untrusted: everything here is checked by Lean.
-
 The abstract state is the set of registers known to be public; the stack
 pointer is always public. Memory is always secret: a loaded value is secret,
 and an address must be computed from public registers or the stack pointer.

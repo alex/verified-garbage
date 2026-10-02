@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.PointBatch
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointAccumulateLoop
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointPowersLoop
 
-/-! Untrusted: the local table preserves the accumulator, bits, and checkpoints. -/
+/-! The local table preserves the accumulator, bits, and checkpoints. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

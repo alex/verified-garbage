@@ -13,10 +13,9 @@ import VerifiedGarbage.Impl.Scrypt.Arm.BlockMix
 /-!
 # The Salsa20/8 Core on 32-bit ARM
 
-Untrusted: everything here is checked by Lean. The sixteen words live in
-`scratch`, word `k` at `4k`, and `b` keeps the input until the final
-addition. Each line of the rounds is proved once, for any indices
-(`line_ok`), and the lines are composed by induction.
+The sixteen words live in `scratch`, word `k` at `4k`, and `b` keeps the input
+until the final addition. Each line of the rounds is proved once, for any
+indices (`line_ok`), and the lines are composed by induction.
 -/
 
 namespace VG.Proof.Scrypt
@@ -460,9 +459,9 @@ end VG.Proof.Scrypt.Arm
 /-!
 # scrypt on 32-bit ARM: common lemmas
 
-Untrusted: everything here is checked by Lean. The target-independent lemmas
-about addresses and bytes are in `Proof/Scrypt/Memory.lean`; here are
-32-bit pointers as addresses, and the 64-byte exclusive-or.
+The target-independent lemmas about addresses and bytes are in
+`Proof/Scrypt/Memory.lean`; here are 32-bit pointers as addresses, and the
+64-byte exclusive-or.
 -/
 
 namespace VG.Proof.Scrypt.Arm
@@ -651,11 +650,11 @@ end VG.Proof.Scrypt.Arm
 /-!
 # scryptBlockMix on 32-bit ARM: the loop
 
-Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Scrypt/AArch64/BlockMixVerified.lean`), the calls of `vg_salsa20_8` are used
-through `SalsaSpec`, what its proof says about a call; the proof of this file
-holds for any code meeting it. Registers hold 32-bit pointers, and memory is
-addressed by their zero extensions (`State.addr`), which do not wrap.
+As on AArch64 (`Proof/Scrypt/AArch64/BlockMixVerified.lean`), the calls of
+`vg_salsa20_8` are used through `SalsaSpec`, what its proof says about a call;
+the proof of this file holds for any code meeting it. Registers hold 32-bit
+pointers, and memory is addressed by their zero extensions (`State.addr`), which
+do not wrap.
 -/
 
 namespace VG.Proof.Scrypt.Arm.BlockMix
@@ -1170,10 +1169,10 @@ end VG.Proof.Scrypt.Arm.BlockMix
 /-!
 # scryptBlockMix on 32-bit ARM: the whole function
 
-Untrusted: everything here is checked by Lean. The prologue loads the
-scratch pointer from the stack, saves our caller's `r4`–`r9` and our return
-address in `scratch` and sets up the loop's registers; the loop runs the
-`r` pairs; the epilogue restores the registers. There is no stack frame.
+The prologue loads the scratch pointer from the stack, saves our caller's
+`r4`–`r9` and our return address in `scratch` and sets up the loop's
+registers; the loop runs the `r` pairs; the epilogue restores the registers.
+There is no stack frame.
 -/
 
 namespace VG.Proof.Scrypt.Arm.BlockMix
@@ -1391,11 +1390,10 @@ end VG.Proof.Scrypt.Arm.BlockMix
 /-!
 # scryptBlockMix on 32-bit ARM: verified
 
-Untrusted: everything here is checked by Lean. `SalsaSpec` of the verified
-Salsa20/8 Core, from its `Verified` proof by `WP.call`; then the `Verified`
-proof of `vg_scrypt_blockmix`. Only the pointers, `r` and the stack argument
-(the scratch pointer) are public, and the taint analysis checks that nothing
-else reaches an address or a branch.
+`SalsaSpec` of the verified Salsa20/8 Core, from its `Verified` proof by
+`WP.call`; then the `Verified` proof of `vg_scrypt_blockmix`. Only the
+pointers, `r` and the stack argument (the scratch pointer) are public, and the
+taint analysis checks that nothing else reaches an address or a branch.
 -/
 
 namespace VG.Proof.Scrypt.Arm.BlockMix

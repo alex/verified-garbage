@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Sign.PrimsC
 /-!
 # ML-DSA signing on x86-64: calls of the packing primitives
 
-Untrusted: everything here is checked by Lean. As `Prims.lean`, for
-`vg_mldsa_simple_bit_pack`, `vg_mldsa_bit_pack`, `vg_mldsa_bit_unpack` and
-`vg_mldsa_hint_bit_pack` (which may leak the hint: two runs leak the same
-when their hints agree, `hintPackAt_tr`).
+As `Prims.lean`, for `vg_mldsa_simple_bit_pack`, `vg_mldsa_bit_pack`,
+`vg_mldsa_bit_unpack` and `vg_mldsa_hint_bit_pack` (which may leak the hint:
+two runs leak the same when their hints agree, `hintPackAt_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

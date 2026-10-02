@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.MlKem.X86_64.S4CT
 /-!
 # ML-KEM on x86-64: `vg_mlkem_sample_ntt4_avx2`, verified
 
-Untrusted: everything here is checked by Lean. The contract of the proof
-(`sample4K`) implies the shared one of `Spec/`.
+The contract of the proof (`sample4K`) implies the shared one of `Spec/`.
 -/
 
 namespace VG.Proof.MlKem.X86_64

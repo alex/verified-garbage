@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.Setup
 /-!
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: a block of the output, up to `U₁`
 
-Untrusted: everything here is checked by Lean. After `k` blocks of the
-output (`Inv`), `out` holds the first `done k` bytes of `T₁ ‖ … ‖ T_k`,
-`ebx` is `done k`, and `scratch` holds `INT (k + 1)`, byte-reversed. A step
-copies the salted inner state into the working state, absorbs `INT (k + 1)`
-into it (`update`) and computes `U₁` with HMAC's `finalize`.
+After `k` blocks of the output (`Inv`), `out` holds the first `done k` bytes
+of `T₁ ‖ … ‖ T_k`, `ebx` is `done k`, and `scratch` holds `INT (k + 1)`,
+byte-reversed. A step copies the salted inner state into the working state,
+absorbs `INT (k + 1)` into it (`update`) and computes `U₁` with HMAC's
+`finalize`.
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.X86

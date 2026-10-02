@@ -180,11 +180,11 @@ end VG.Proof.Hmac.Generic.Arm
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: the functions we call
 
-Untrusted: everything here is checked by Lean. As on x86-64 and AArch64
-(`Proof/Hmac/Generic/AArch64/Hash.lean`): `HashOK H` is what the proofs know
-of the hash function `H`: its streaming functions are verified against
-`initK`, `updK` and `finK` and have no frames, the representation of its
-streaming state is determined by the state's bytes, and its sizes are small.
+As on x86-64 and AArch64 (`Proof/Hmac/Generic/AArch64/Hash.lean`): `HashOK H`
+is what the proofs know of the hash function `H`: its streaming functions are
+verified against `initK`, `updK` and `finK` and have no frames, the
+representation of its streaming state is determined by the state's bytes, and
+its sizes are small.
 
 `init` is called with `WP.callCalls`. `update` and `finalize` are called in
 a frame that pushes their stack arguments (`WP.frame`), then sets the count

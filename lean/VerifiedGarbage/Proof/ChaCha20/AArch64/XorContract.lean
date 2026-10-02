@@ -16,8 +16,6 @@ import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # ChaCha20 keystream XOR on AArch64
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20

@@ -10,8 +10,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # AES counter mode on AArch64: the whole function
 
-Untrusted: everything here is checked by Lean.
-
 The prologue saves the callee-saved registers (checked by evaluation in the
 naming domain, as is the epilogue restoring them), copies the counter block
 to its slots and writes back the final counter; the key loop and the

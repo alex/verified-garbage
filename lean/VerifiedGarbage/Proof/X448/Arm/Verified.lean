@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # X448 on ARMv7: `Verified`
 
-Untrusted: everything here is checked by Lean. Constant time (by taint
-tracking: the only branches are on the loop counters, and every address is
-an argument plus a constant or a counter), satisfiability, and the shared
-contract of `Spec/`.
+Constant time (by taint tracking: the only branches are on the loop counters,
+and every address is an argument plus a constant or a counter),
+satisfiability, and the shared contract of `Spec/`.
 -/
 
 namespace VG.Proof.X448.Arm

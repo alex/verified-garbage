@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Framework.Sig
 /-!
 # Moving a proof from one contract to a stronger one
 
-Untrusted: everything here is checked by Lean.
-
 A proof may be written against a contract of its own (which its verified
 callers may also use with `WP.call`), with its facts spelled out for the
 target; the artifact is emitted with the shared contract of `Spec/`, built

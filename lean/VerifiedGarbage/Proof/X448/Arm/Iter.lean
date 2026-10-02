@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.Arm.Counters
 /-!
 # X448 on ARMv7: the Montgomery ladder
 
-Untrusted: everything here is checked by Lean. Each iteration consumes one
-scalar bit and updates the five field slots according to `ladderStep`.
+Each iteration consumes one scalar bit and updates the five field slots
+according to `ladderStep`.
 -/
 
 namespace VG.Proof.X448.Arm

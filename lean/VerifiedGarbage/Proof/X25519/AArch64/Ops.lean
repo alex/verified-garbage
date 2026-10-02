@@ -6,10 +6,10 @@ import VerifiedGarbage.Impl.X25519.AArch64
 /-!
 # X25519 on AArch64: the steps of the field operations
 
-Untrusted: everything here is checked by Lean. The field operations read
-and write words of the working space (`x3`, 4096 bytes) at constant offsets;
-each lemma here runs a few instructions and states their effect on the
-numbers in the registers and in the words of the working space.
+The field operations read and write words of the working space (`x3`, 4096
+bytes) at constant offsets; each lemma here runs a few instructions and states
+their effect on the numbers in the registers and in the words of the working
+space.
 -/
 
 namespace VG.Proof.X25519.AArch64

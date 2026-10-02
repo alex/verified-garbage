@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.Verify.Norm
 /-!
 # ML-DSA: when verification fails
 
-Untrusted: everything here is checked by Lean. `verifyMu` is false when the
-hint is malformed (`verifyMu_hint_none`), not true when `‖z‖∞` is too large
-(`verifyMu_norm`), and `none` when a sampler does not finish within its
-bound (`verifyMu_rej_none`, `verifyMu_ball_none`); and bounds for each
-entry of `Â` give one bound for all of them (`common_bound`).
+`verifyMu` is false when the hint is malformed (`verifyMu_hint_none`), not
+true when `‖z‖∞` is too large (`verifyMu_norm`), and `none` when a sampler
+does not finish within its bound (`verifyMu_rej_none`, `verifyMu_ball_none`);
+and bounds for each entry of `Â` give one bound for all of them
+(`common_bound`).
 -/
 
 namespace VG.Proof.MlDsa.Verify

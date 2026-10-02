@@ -9,9 +9,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # scrypt on x86-64: common lemmas
 
-Untrusted: everything here is checked by Lean. The contracts the proofs are
-written against, and the 64-byte exclusive-or (`xor64`); the
-target-independent memory lemmas are in `VG.Proof.Scrypt.Memory`.
+The contracts the proofs are written against, and the 64-byte exclusive-or
+(`xor64`); the target-independent memory lemmas are in
+`VG.Proof.Scrypt.Memory`.
 -/
 
 namespace VG.Proof.Scrypt

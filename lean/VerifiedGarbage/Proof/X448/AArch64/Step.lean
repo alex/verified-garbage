@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # X448 on AArch64: arithmetic steps
 
-Untrusted: everything here is checked by Lean. Each short instruction block
-is executed once symbolically. Bounds exclude overflow before interpreting
-machine words as natural numbers.
+Each short instruction block is executed once symbolically. Bounds exclude
+overflow before interpreting machine words as natural numbers.
 -/
 
 namespace VG.Proof.X448.AArch64

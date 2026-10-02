@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # Streaming Merkle–Damgård hash functions on x86-64: length fields and digests
 
-Untrusted: everything here is checked by Lean. What the length fields
-(`len64`) and digests (`out32`, `out64`) of `Impl/MdStream/X86_64.lean` write,
-for the hash functions' `Shape`s.
+What the length fields (`len64`) and digests (`out32`, `out64`) of
+`Impl/MdStream/X86_64.lean` write, for the hash functions' `Shape`s.
 -/
 
 namespace VG.Proof.MdStream.X86_64

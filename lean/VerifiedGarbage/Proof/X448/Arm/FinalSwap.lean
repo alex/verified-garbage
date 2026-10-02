@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.Arm.Iter
 /-!
 # X448 on ARMv7: the final ladder swap
 
-Untrusted: everything here is checked by Lean. The last swap bit selects
-the coordinates that are converted back to affine form.
+The last swap bit selects the coordinates that are converted back to affine
+form.
 -/
 
 namespace VG.Proof.X448.Arm

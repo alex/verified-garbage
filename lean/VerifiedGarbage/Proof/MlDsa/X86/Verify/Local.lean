@@ -5,12 +5,11 @@ import VerifiedGarbage.Proof.Framework.X86.Wp
 /-!
 # ML-DSA verification on x86 (32-bit): the code between the calls
 
-Untrusted: everything here is checked by Lean. The result ANDed with `eax`
-(`accAnd_piece`); a branch on the result so far (`ifOk_piece`), whose
-condition must be public; and the result ANDed with the equality of two
-byte strings, compared without a branch on them (`cmpAnd_piece`): `edx` is
-the OR of the XORs of their bytes (`Decaps.accB`), and `sub edx, 1; sbb eax,
-eax` all ones exactly when it is 0.
+The result ANDed with `eax` (`accAnd_piece`); a branch on the result so far
+(`ifOk_piece`), whose condition must be public; and the result ANDed with the
+equality of two byte strings, compared without a branch on them
+(`cmpAnd_piece`): `edx` is the OR of the XORs of their bytes (`Decaps.accB`),
+and `sub edx, 1; sbb eax, eax` all ones exactly when it is 0.
 -/
 
 namespace VG.Proof.MlDsa.X86.Verify

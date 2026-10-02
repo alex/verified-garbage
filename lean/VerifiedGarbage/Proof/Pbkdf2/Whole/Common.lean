@@ -7,12 +7,12 @@ import VerifiedGarbage.Proof.Hmac.Generic.Common
 /-!
 # PBKDF2 on the 32-bit targets, the whole derivation: what does not depend on the target
 
-Untrusted: everything here is checked by Lean. The output is the blocks
-`T₁ ‖ T₂ ‖ …` (`G`), of which `nb` are needed; after `k` of them, the
-first `done k` bytes of the output are written. `INT (i)` is the bytes of a
-byte-reversed word in memory (`bytes_rev_int`), and two disjoint regions
-that do not wrap around fit in the address space together (`len_add_le`).
-SHA-256's streaming state depends only on its bytes (`sha256_repr`).
+The output is the blocks `T₁ ‖ T₂ ‖ …` (`G`), of which `nb` are needed; after
+`k` of them, the first `done k` bytes of the output are written. `INT (i)` is
+the bytes of a byte-reversed word in memory (`bytes_rev_int`), and two
+disjoint regions that do not wrap around fit in the address space together
+(`len_add_le`). SHA-256's streaming state depends only on its bytes
+(`sha256_repr`).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole

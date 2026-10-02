@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Hmac.Generic.Implies
 /-!
 # PBKDF2-HMAC's iteration over a Merkle–Damgård hash function on x86-64: constant time
 
-Untrusted: everything here is checked by Lean.
-
 This holds for any compression function (`CalleeOk`), so it is proven once
 for every implementation. The taint analysis cannot prove it without
 looking into the compression function: it saves and restores our registers

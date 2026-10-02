@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-KEM-1024 on AArch64: `vg_mlkem1024_decode_decompress`
 
-Untrusted: everything here is checked by Lean. Group `g` of the input is
-the number whose bytes are its `d` bytes (`num g d`), and coefficient `e`
-of the group is its base-`2ᵈ` digit `e` (`byteDecode_group`), decompressed.
-Before coefficient `e`, `x9` holds the bits of the first `⌈d e / 8⌉` bytes
-above the first `d e` (`DInv`); the bytes coefficient `e` needs are added
-above them (`byte_step`), and its digit is decompressed and shifted out
-(`coeff_step`).
+Group `g` of the input is the number whose bytes are its `d` bytes (`num g
+d`), and coefficient `e` of the group is its base-`2ᵈ` digit `e`
+(`byteDecode_group`), decompressed. Before coefficient `e`, `x9` holds the
+bits of the first `⌈d e / 8⌉` bytes above the first `d e` (`DInv`); the bytes
+coefficient `e` needs are added above them (`byte_step`), and its digit is
+decompressed and shifted out (`coeff_step`).
 -/
 
 namespace VG.Proof.MlKem1024

@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.X25519.Ladder
 /-!
 # X25519 on x86-64: an iteration of the ladder
 
-Untrusted: everything here is checked by Lean. The start of an iteration
-(`stepPre`): the counter `rbx` counts down to the bit `t`, whose byte of the
-array `BITS` is `k_t`; `swap ^ k_t` becomes the mask in `rcx`, and `k_t` the
-new `swap` (a word at `SWAP`).
+The start of an iteration (`stepPre`): the counter `rbx` counts down to the
+bit `t`, whose byte of the array `BITS` is `k_t`; `swap ^ k_t` becomes the
+mask in `rcx`, and `k_t` the new `swap` (a word at `SWAP`).
 -/
 
 namespace VG.Proof.X25519.X86_64

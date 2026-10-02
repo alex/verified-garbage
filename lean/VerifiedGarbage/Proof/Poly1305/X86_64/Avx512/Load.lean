@@ -4,9 +4,9 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Load
 /-!
 # Poly1305 on x86-64 with AVX-512: loading blocks
 
-Untrusted: everything here is checked by Lean. `addGroup` splits the eight
-blocks at `rsi` into limbs (block `π k` in quadword `k`) and adds them, with
-the pad bit, to `H`; `addGroupM` likewise, with the pad bit from the state.
+`addGroup` splits the eight blocks at `rsi` into limbs (block `π k` in
+quadword `k`) and adds them, with the pad bit, to `H`; `addGroupM` likewise,
+with the pad bit from the state.
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx512

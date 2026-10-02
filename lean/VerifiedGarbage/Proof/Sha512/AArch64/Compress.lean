@@ -13,8 +13,6 @@ import VerifiedGarbage.Proof.Sha512.AArch64.Lit
 
 /-!
 # SHA-512 compression function on AArch64: the message schedule and the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha512.AArch64
@@ -241,8 +239,6 @@ end VG.Proof.Sha512.AArch64
 
 /-!
 # SHA-512 compression function on AArch64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 /-!

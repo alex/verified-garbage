@@ -15,10 +15,9 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC-SHA-256 on x86 (32-bit): `finalize`
 
-Untrusted: everything here is checked by Lean. The compressor-dependent
-correctness proof is generic in `Proof/Hmac/Sha256/X86/Finalize.lean`; this module keeps
-the shared memory, state and scalar constant-time facts. Lemmas `init` uses too, then
-`finalize`.
+The compressor-dependent correctness proof is generic in
+`Proof/Hmac/Sha256/X86/Finalize.lean`; this module keeps the shared memory,
+state and scalar constant-time facts. Lemmas `init` uses too, then `finalize`.
 -/
 
 /-!

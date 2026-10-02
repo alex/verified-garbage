@@ -5,13 +5,13 @@ import VerifiedGarbage.Proof.MlKem.Arm.Decaps
 /-!
 # ML-KEM-1024 on 32-bit ARM: `vg_mlkem1024_decaps`, correctness
 
-Untrusted: everything here is checked by Lean. The buffers of the function
-(`lay`): `scratch`, the stack below the stack pointer, `dk` and `key`; `c`,
-which may overlap `dk`, is only read by its copy into `scratch`, with a
-layout of its own (`layC`). What every phase keeps (`DEnv`), and the phases:
-the setup, `c` copied, K-PKE.Decrypt into `m'`, `G(m' ‖ h)` into `K' ‖ r'`,
-`J(z ‖ c)` into `K̄`, the re-encryption `c'` (`Enc.encrypt_ok`), the
-comparison of `c` and `c'`, and the selection of `K'` or `K̄` into `key`.
+The buffers of the function (`lay`): `scratch`, the stack below the stack
+pointer, `dk` and `key`; `c`, which may overlap `dk`, is only read by its copy
+into `scratch`, with a layout of its own (`layC`). What every phase keeps
+(`DEnv`), and the phases: the setup, `c` copied, K-PKE.Decrypt into `m'`,
+`G(m' ‖ h)` into `K' ‖ r'`, `J(z ‖ c)` into `K̄`, the re-encryption `c'`
+(`Enc.encrypt_ok`), the comparison of `c` and `c'`, and the selection of `K'`
+or `K̄` into `key`.
 -/
 
 namespace VG.Proof.MlKem1024.Arm.Decaps

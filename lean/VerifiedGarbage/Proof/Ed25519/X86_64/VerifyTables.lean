@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.Verify
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulBatch
 
-/-! Untrusted: store and reload verification points beyond the multiplication workspace. -/
+/-! Store and reload verification points beyond the multiplication workspace. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

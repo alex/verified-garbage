@@ -15,13 +15,12 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sample.BallTop
 /-!
 # ML-DSA signing on x86 (32-bit): the primitives it calls
 
-Untrusted: everything here is checked by Lean. The verified x86
-implementations of the primitives (`prims`), and what the proofs of signing
-need of them (`prims_ok`): their contracts, with 16 bytes of stack (56 for
-the samplers); that they never write `esp`; and, of the two samplers whose
-result signing branches on, what they return, from their own proofs (`Fin`
-of `RejNtt.lean` and `BallTop.lean`): 1 exactly when the loop over the
-output they squeeze (1008 and 272 bytes) finishes, which is within
+The verified x86 implementations of the primitives (`prims`), and what the
+proofs of signing need of them (`prims_ok`): their contracts, with 16 bytes of
+stack (56 for the samplers); that they never write `esp`; and, of the two
+samplers whose result signing branches on, what they return, from their own
+proofs (`Fin` of `RejNtt.lean` and `BallTop.lean`): 1 exactly when the loop
+over the output they squeeze (1008 and 272 bytes) finishes, which is within
 `maxBounds`.
 -/
 

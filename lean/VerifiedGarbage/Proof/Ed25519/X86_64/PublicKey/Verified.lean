@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.Sha512.X86_64.Shared
 /-!
 # Ed25519 public-key derivation on x86-64: the shared contract
 
-Untrusted: everything here is checked by Lean. `vg_ed25519_public_key`,
-made with any implementation `v` of the SHA-512 compression function, is
-verified against `Spec.Ed25519.publicKeyContract` for the 72 bytes of stack
-its frame and calls use.
+`vg_ed25519_public_key`, made with any implementation `v` of the SHA-512
+compression function, is verified against `Spec.Ed25519.publicKeyContract` for
+the 72 bytes of stack its frame and calls use.
 -/
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey

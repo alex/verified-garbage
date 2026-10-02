@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.AArch64.Row
 import VerifiedGarbage.Proof.Ed25519.AArch64.Reduce
 
-/-! Untrusted: four-by-four word field multiplication and its memory frame. -/
+/-! Four-by-four word field multiplication and its memory frame. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64 VG.Proof.X25519
 

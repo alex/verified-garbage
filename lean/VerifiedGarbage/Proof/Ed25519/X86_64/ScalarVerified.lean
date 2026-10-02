@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # Scalar reduction: the merged contract
 
-Untrusted. Correctness includes the ABI. Taint analysis checks that secret
-input bytes never determine branches or memory addresses. A concrete
-witness proves the signature contract is satisfiable.
+Correctness includes the ABI. Taint analysis checks that secret input bytes
+never determine branches or memory addresses. A concrete witness proves the
+signature contract is satisfiable.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

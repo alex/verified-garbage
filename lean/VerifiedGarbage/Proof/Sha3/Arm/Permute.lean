@@ -154,11 +154,10 @@ section
 /-!
 # Keccak-f[1600] on ARMv7: one round
 
-Untrusted: everything here is checked by Lean. One round (`round src dst`)
-from the state at `src` to the state at `dst`, lane by lane
-(`Proof.Sha3.out`), each lane a pair of 32-bit halves (as the SHA-512 proof
-handles them: `VG.Proof.Sha512.Arm`), proved once for both of the rounds of
-an iteration (`src`, `dst` being `r0`, `r1` or `r1`, `r0`).
+One round (`round src dst`) from the state at `src` to the state at `dst`,
+lane by lane (`Proof.Sha3.out`), each lane a pair of 32-bit halves (as the
+SHA-512 proof handles them: `VG.Proof.Sha512.Arm`), proved once for both of
+the rounds of an iteration (`src`, `dst` being `r0`, `r1` or `r1`, `r0`).
 -/
 
 namespace VG.Proof.Sha3.Arm
@@ -723,11 +722,10 @@ end
 /-!
 # Keccak-f[1600] on ARMv7: the whole function
 
-Untrusted: everything here is checked by Lean. The prologue saves the
-callee-saved registers and stores the round constants in the scratch space;
-each iteration of the loop runs two rounds (`round_ok`), from the state to
-the second state in the scratch space and back; the epilogue restores the
-registers.
+The prologue saves the callee-saved registers and stores the round constants
+in the scratch space; each iteration of the loop runs two rounds (`round_ok`),
+from the state to the second state in the scratch space and back; the epilogue
+restores the registers.
 -/
 
 namespace VG.Proof.Sha3.Arm
@@ -1261,10 +1259,9 @@ section
 /-!
 # SHA-3 on ARMv7: calling the permutation, and saving registers
 
-Untrusted: everything here is checked by Lean. What the streaming functions
-(`VG.Impl.Sha3.Arm.Stream`) share: the call of the permutation, the saving
-and restoring of our caller's registers in the scratch space, and
-arithmetic on 32-bit values.
+What the streaming functions (`VG.Impl.Sha3.Arm.Stream`) share: the call of
+the permutation, the saving and restoring of our caller's registers in the
+scratch space, and arithmetic on 32-bit values.
 -/
 
 namespace VG.Proof.Sha3.Arm
