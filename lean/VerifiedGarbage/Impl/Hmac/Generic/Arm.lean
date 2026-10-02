@@ -3,18 +3,20 @@ import VerifiedGarbage.TCB.Arm.Isa
 /-!
 # HMAC over any streaming hash function: 32-bit ARM implementation
 
-The same algorithm as on x86-64 and AArch64 (`VG.Impl.Hmac.Generic.X86_64`,
+HMAC's `init`, as on x86-64 and AArch64 (`VG.Impl.Hmac.Generic.X86_64`,
 `VG.Impl.Hmac.Generic.AArch64`), once for every streaming hash function whose
-`init`, `update` and `finalize` it calls (`Hash`):
+`init` and `update` it calls (`Hash`):
 
 * `init(inner = r0, outer = r1, key = r2, key_len = r3, scratch = [sp])`
   writes `K₀ ⊕ ipad` and `K₀ ⊕ opad` into `scratch`, then makes the inner
   state absorb the first and the outer state the second, with `init` and
   `update`.
-* `finalize(inner = r0, outer = r1, count = r2:r3, out = [sp],
-  scratch = [sp, #4])` finalizes the inner state into `scratch`, copies the
-  outer state over the inner one, absorbs the inner digest into it with
-  `update`, and finalizes it again; the MAC is copied to `out`.
+
+HMAC's `finalize` and PBKDF2's `iterate` for the Merkle–Damgård hash
+functions call their compression function instead
+(`VG.Impl.Pbkdf2.Md.Arm`), and use the helpers here (`saved`, `buf`,
+`callFin`, `scrAt`), as does the whole of PBKDF2 (`VG.Impl.Pbkdf2.Whole.Arm`,
+also `copy`).
 
 `update` and `finalize` take some of their arguments on the stack: each call
 of them is in a frame that pushes those (`push {r1, r7, r10, r12}` for
@@ -142,25 +144,6 @@ def init : Prog isa :=
   (.seq (H.callInit .r5)
   (.seq (H.callUpd [.mov .r0 (.reg .r5)] 0 (H.buf + H.B) H.B)
     (.block H.restore)))))
-
-/-! ## `finalize`
-
-Registers: `r4` = `inner`, `r5` = `outer`, `r6` = `out`, `r11` = `scratch`,
-`r8` = the byte index, `r9` = the bytes left. `count` stays in `r2:r3` until
-the first call. The digests are written to `scratch + buf`. -/
-
-def finPrologue : List Instr :=
-  [.ldrSp .r12 4] ++ H.save ++ [.mov .r4 (.reg .r0), .mov .r5 (.reg .r1), .ldrSp .r6 0,
-    .mov .r11 (.reg .r12)]
-
-def finalize : Prog isa :=
-  .seq (.block H.finPrologue)
-  (.seq (H.callFin [.mov .r0 (.reg .r4)] [] H.buf)
-  (.seq (copy .r5 0 .r4 0 H.S)
-  (.seq (H.callUpd [.mov .r0 (.reg .r4)] H.B H.buf H.D)
-  (.seq (H.callFin [.mov .r0 (.reg .r4)] [.movw .r2 (BitVec.ofNat 16 (H.B + H.D)), .mov .r3 (.imm 0)] H.buf)
-  (.seq (copy .r11 H.buf .r6 0 H.D)
-    (.block H.restore))))))
 
 end Hash
 

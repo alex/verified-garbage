@@ -136,4 +136,31 @@ theorem iterate_congr {D : Nat} {f g : List Byte → List Byte} (hfg : ∀ u, u.
     rw [hfg u hu]
     exact ih _ _ (hg u)
 
+/-- PBKDF2's iteration with HMAC as its pseudorandom function is the
+iteration of `step`, from the hash values of a key's streaming states. -/
+theorem iterate_hmac {S : StreamingHash} {iv : H.HV} {D : Nat} (hl : H.Link S iv D) {k0 : List Byte}
+    (hk : k0.length = S.H.blockSize) {mem : Mem} {p q : Addr} (hi : S.Repr mem p (xorPad k0 ipad))
+    (ho : S.Repr mem q (xorPad k0 opad)) (n : Nat) {u t : List Byte} (hu : u.length = D) :
+    Spec.Pbkdf2.iterate (hmacBlockKey S.H k0) n u t =
+      Spec.Pbkdf2.iterate (H.step D (H.stateAt mem p) (H.stateAt mem q)) n u t := by
+  have hB : 0 < B := by have := hl.DL; omega
+  rw [hl.hB] at hk
+  have li : (xorPad k0 ipad).length = B := by simp [xorPad, hk]
+  have lo : (xorPad k0 opad).length = B := by simp [xorPad, hk]
+  rw [stateAt_of_repr hB li (hl.repr _ _ _ hi), stateAt_of_repr hB lo (hl.repr _ _ _ ho)]
+  exact iterate_congr (fun u hu => hmac_step hl hk hu) (fun u => step_length H hl.DN _ _ u) n u t hu
+
+/-- HMAC's outer hash, for a key whose outer block's hash value is `ho`, of
+the inner digest `x`: one compression of the block `x ‖ pad`. -/
+theorem hmac_outer {S : StreamingHash} {iv : H.HV} {D : Nat} (hl : H.Link S iv D) {k0 text : List Byte}
+    (hk : k0.length = S.H.blockSize) {mem : Mem} {p : Addr} (ho : S.Repr mem p (xorPad k0 opad)) :
+    hmacBlockKey S.H k0 text =
+      (H.digest (H.compress (H.stateAt mem p) (H.tailBlock D (S.H.hash (xorPad k0 ipad ++ text))))).take D := by
+  have hB : 0 < B := by have := hl.DL; omega
+  rw [hl.hB] at hk
+  have lo : (xorPad k0 opad).length = B := by simp [xorPad, hk]
+  have hx : (S.H.hash (xorPad k0 ipad ++ text)).length = D := by
+    rw [hl.hash, List.length_take, Md.hash, H.digest_length]; exact Nat.min_eq_left hl.DN
+  rw [hmacBlockKey, hl.hash, hash_block H iv lo hx hl.DL, stateAt_of_repr hB lo (hl.repr _ _ _ ho)]
+
 end VG.Proof.MdStream.Md
