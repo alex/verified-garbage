@@ -20,8 +20,12 @@ def setup : List Instr :=
     .store (at_ .rbp 104) .rsi, .store (at_ .rbp 112) .rdi,
     .mov .rbx (.mem (at_ .rbp 248))]
 
-def prepare : Prog isa := .seq (.block setup)
-  (.seq (.block (normalize 176)) (.seq (.block (normalize 184)) (.block (normalize 192))))
+def normalizeArgs : List Nat → Prog isa
+  | [] => .block []
+  | [d] => .block (normalize d)
+  | d :: e :: ds => .seq (.block (normalize d)) (normalizeArgs (e :: ds))
+
+def prepare : Prog isa := .seq (.block setup) (normalizeArgs [176, 184, 192])
 
 /-- One nested frame per saved register restores every register separately.
 The inner fifteen words reserve the 120-byte local argument/hash frame. -/
