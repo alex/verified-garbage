@@ -33,14 +33,9 @@ def artifacts : List Artifact := [
   { Spec.Gcm.ghashApi with
     name := "vg_ghash_pclmul"
     target := X86_64.target
-    doc := "GHASH (SP 800-38D §6.4), with PCLMULQDQ: replaces the block `*y` with `GHASH_H` \
-      continued from `*y` over the `n` 16-byte blocks starting at `data`, where `H` is the \
-      hash subkey `*h` (`Y ← (Y ⊕ Xᵢ) • H` for each block `Xᵢ`, in order). Four blocks at a \
-      time, with `H²`, `H³` and `H⁴` computed on each call.\n\n\
-      Contract: `VG.Spec.Gcm.ghashContract`. Constant time: only the pointers and `n` may \
-      affect timing, not `H`, `Y` or the data.\n\n\
-      # Safety\n\n\
-      * The contents of `scratch` on return are unspecified."
+    doc := Spec.Gcm.ghashApi.doc
+      (notes := ["Uses PCLMULQDQ: four blocks at a time, with `H²`, `H³` and `H⁴` computed on \
+        each call."])
     code := Impl.Gcm.X86_64.Pclmul.ghash
     contract := Spec.Gcm.ghashContract X86_64.abi
     verified := Proof.Gcm.X86_64.Pclmul.ghash_verified

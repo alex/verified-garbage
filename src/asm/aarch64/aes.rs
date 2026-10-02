@@ -2703,9 +2703,11 @@ pub(crate) unsafe extern "C" fn vg_aes_ctr32(schedule: *const [u8; 240], rounds:
 /// The CPU features `vg_aes_expand_key_aes` requires (`Artifact.features`).
 pub(crate) const VG_AES_EXPAND_KEY_AES_FEATURES: &[&str] = &["aes"];
 
-/// AES key expansion (FIPS 197 §5.2), with the Armv8 Cryptographic Extension (AESE): writes the key schedule of the `key_len`-byte key at `key` (AES-128, AES-192 or AES-256) to the first `16 (Nr + 1)` bytes of `schedule`, where `Nr = key_len / 4 + 6`: the words `w[0] … w[4 Nr + 3]` in order, each as its 4 bytes. One word at a time, with AESE for `SUBWORD`.
+/// The AES key expansion (FIPS 197 §5.2, `KEYEXPANSION`): writes the key schedule of the `key_len`-byte key at `key`, the words `w[0] … w[4 * Nr + 3]` for `Nr = key_len / 4 + 6` rounds, each as its 4 bytes (`16 * (Nr + 1)` bytes in all), to the start of `*schedule`, as `vg_aes_ctr32` reads it.
 ///
 /// Contract: `VG.Spec.Aes.expandKeyContract`. Constant time: only the pointers and `key_len` may affect timing, not the key.
+///
+/// Uses the Armv8 Cryptographic Extension: one word at a time, with AESE for `SUBWORD`.
 ///
 /// # Safety
 ///
@@ -2713,7 +2715,7 @@ pub(crate) const VG_AES_EXPAND_KEY_AES_FEATURES: &[&str] = &["aes"];
 /// * `schedule` must be valid for reads and writes of 240 bytes.
 /// * `scratch` must be valid for reads and writes of 512 bytes.
 /// * `key_len` must be 16, 24 or 32.
-/// * The bytes of `schedule` after the first `16 (Nr + 1)` are unspecified on return.
+/// * The bytes of `schedule` after the key schedule are unspecified on return.
 /// * The contents of `scratch` on return are unspecified.
 /// * `schedule` and `scratch` must not overlap each other or `key` (distinct Rust objects never do).
 /// * None of `key`, `schedule` and `scratch` may wrap around the end of the address space (no Rust object does).
@@ -3221,9 +3223,11 @@ pub(crate) unsafe extern "C" fn vg_aes_expand_key_aes(key: *const u8, key_len: u
 /// The CPU features `vg_aes_ctr32_aes` requires (`Artifact.features`).
 pub(crate) const VG_AES_CTR32_AES_FEATURES: &[&str] = &["aes"];
 
-/// AES in GCM's counter mode (SP 800-38D §6.5, with `inc₃₂`), with the Armv8 Cryptographic Extension (AESE, AESMC): XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the block at `counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` at `counter`. `CIPH_K` is AES with `rounds` rounds and the key schedule in the first `16 (rounds + 1)` bytes of `schedule` (as `vg_aes_expand_key` or `vg_aes_expand_key_aes` writes it). The round keys stay in registers; eight blocks at a time, then one at a time.
+/// AES counter mode with GCM's 32-bit increment (NIST SP 800-38D §6.5, on whole blocks): XORs `CIPH_K(CB₁) … CIPH_K(CBₙ)` into the `n` 16-byte blocks at `data`, where `CB₁` is the counter block `*counter` and `CBᵢ₊₁ = inc₃₂(CBᵢ)`, and leaves `inc₃₂ⁿ(CB₁)` in `*counter`. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.
 ///
 /// Contract: `VG.Spec.Gcm.ctr32Contract`. Constant time: only the pointers, `rounds` and `n` may affect timing, not the key schedule, the counter block or the data.
+///
+/// Uses the Armv8 Cryptographic Extension (AESE, AESMC). The round keys stay in registers; eight blocks at a time, then one at a time.
 ///
 /// # Safety
 ///

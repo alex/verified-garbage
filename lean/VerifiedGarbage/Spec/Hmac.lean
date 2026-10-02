@@ -51,6 +51,9 @@ def hmac (key text : List Byte) : List Byte := hmacBlockKey H (blockKey H key) t
 /-- SHA-256 (block size 64 bytes, FIPS 180-4 §1). -/
 def sha256 : HashFunction := ⟨64, Sha256.hash⟩
 
+/-- SHA-224 (block size 64 bytes, FIPS 180-4 §1). -/
+def sha224 : HashFunction := ⟨64, Sha256.sha224⟩
+
 /-- SHA-1 (block size 64 bytes, FIPS 180-4 §1). -/
 def sha1 : HashFunction := ⟨64, Sha1.hash⟩
 
