@@ -389,49 +389,97 @@ jobs:
   # times slower than a runner that has them (#274), so that code only runs
   # natively:
   # * `skx` (Skylake-SP): AVX-512F, so ChaCha20 and Poly1305 with AVX-512F,
-  #   and SHA-256 and SHA-512 with AVX2; and BMI2 and ADX, so X25519 and
-  #   Ed25519 with them;
+  #   and SHA-256 and SHA-512 with AVX2; and BMI2 and ADX, so X25519 with
+  #   them, and Ed25519 with AVX2's SHA-512 and ADX's field (`_avx2_adx`);
   # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F or ADX, so ChaCha20
-  #   and Poly1305 with AVX2 even where this runner has AVX-512F,
-  #   X25519's and Ed25519's baselines, and ML-DSA with its polynomial
-  #   arithmetic in AVX2;
+  #   and Poly1305 with AVX2 even where this runner has AVX-512F, X25519's
+  #   baseline, Ed25519 with AVX2's SHA-512 and the baseline field
+  #   (`_avx2`), and ML-DSA with its polynomial arithmetic in AVX2;
   # * `p4p` (Pentium 4): nothing beyond x86-64's baseline, not even CPUID
   #   leaf 7, so the baseline ISA's implementations everywhere;
   # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
-  #   runner has. It also has the SHA extensions, so only SHA-512's tests
+  #   runner has, and Ed25519 with it and ADX's field (`_shani_adx`). It
+  #   also has the SHA extensions, so only SHA-512's and Ed25519's tests
   #   (and detection's) run there;
+  # * `icx` (Ice Lake server): AVX512_IFMA and AVX512VL, so X25519 with them
+  #   (`vg_x25519_ifma`), and Ed25519 with AVX2's SHA-512 and, in
+  #   verification, IFMA's field (`_avx2_ifma`; `_avx2_adx` otherwise). It
+  #   also has the SHA extensions, so only X25519's and Ed25519's tests (and
+  #   detection's) run there;
   # * `dmr` (Diamond Rapids): the SHA512 extension and AVX512_IFMA, so
-  #   Ed25519 with both, which no other chip has. It also has the SHA
-  #   extensions, so only Ed25519's tests (and detection's) run there.
+  #   Ed25519 with both (`_shani_ifma` in verification, `_shani_adx`
+  #   otherwise), which no other chip has. It also has the SHA extensions,
+  #   so only Ed25519's tests (and detection's) run there.
   # And natively on an ARM64 runner, whose AES and PMULL extensions
   # `cpu-features-env` detects at run time (without it, AArch64 detection is
   # at compile time, which the `rust` job tests).
+  # A chip with more features than a configuration wants is restricted with
+  # `VG_CPU_FEATURES` (`cpu-features`, empty for none), so that each of
+  # Ed25519's combinations of SHA-512 and field multiplications is chosen:
+  # `skx` with only BMI2 and ADX for scalar SHA-512 and ADX's field
+  # (`_adx`), `icx` without BMI1 for scalar SHA-512 and IFMA's field
+  # (`_ifma` in verification, `_adx` otherwise), and `arl` without BMI2 or
+  # ADX for the SHA512 extension and the baseline field (`_shani`); `p4p`
+  # chooses both baselines. This runner's choice depends on its CPU.
   # The coverage is merged with the rest, which checks that every
   # implementation was chosen on one of them.
   rust-cpu-features:
     strategy:
       fail-fast: false
       matrix:
+        arch: [x86_64]
         chip: [native, skx, hsw, p4p]
-        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem mldsa x25519 ed25519 cpu]
+        # Ed25519's are `ed25519` and RFC 8032's other two.
+        tests: [sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem mldsa x25519 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu]
         include:
+          # x86 feature dispatch, natively in a 32-bit userspace, with both
+          # the runner's features and the baseline implementations.
+          - chip: native
+            arch: x86
+            container:
+              image: rust:slim
+              options: --platform linux/386
+            install-amd64-libc: true
+            tests: sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu
+          - chip: native
+            arch: x86
+            cpu-features: none
+            container:
+              image: rust:slim
+              options: --platform linux/386
+            install-amd64-libc: true
+            tests: sha1 sha224 sha256 sha384 sha512 aes_gcm cmac chacha20 mlkem x25519 ed25519 cpu
           - chip: arl
-            tests: sha384 sha512 ed25519 cpu
+            tests: sha384 sha512 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          - chip: arl
+            cpu-features: avx,avx2,sha512
+            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          - chip: skx
+            cpu-features: bmi2,adx
+            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
           # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma
           # and Ed25519's IFMA variants.
           - chip: icx
-            tests: x25519 ed25519 cpu
+            tests: x25519 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          - chip: icx
+            cpu-features: avx,avx2,bmi2,adx,avx512ifma,avx512vl
+            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
           # Diamond Rapids: the SHA512 extension and AVX512_IFMA, for
           # Ed25519's verification with both (vg_ed25519_verify_shani_ifma).
           - chip: dmr
-            tests: ed25519 cpu
+            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
           - chip: native
+            arch: aarch64
             os: ubuntu-24.04-arm
-            tests: aes_gcm cmac sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
-    name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
+            tests: aes_gcm cmac sha1 sha224 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+    name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }}${{ matrix.arch && format(', {0}', matrix.arch) || '' }}${{ matrix.cpu-features && format(', VG_CPU_FEATURES={0}', matrix.cpu-features) || '' }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
+    container:
+      image: ${{ matrix.container.image || '' }}
+      options: ${{ matrix.container.options || '' }}
     env:
       RUSTUP_TOOLCHAIN: stable
+      VG_CPU_FEATURES: ${{ matrix.cpu-features || '' }}
       RUSTFLAGS: -D warnings -Cinstrument-coverage
       LLVM_PROFILE_FILE: .rust-cov/cov-%p-%m.profraw
       WYCHEPROOF_ROOT: wycheproof
@@ -439,6 +487,13 @@ jobs:
       SDE_URL: https://downloadmirror.intel.com/924984/sde-external-10.13.1-2026-07-28-lin.tar.xz
       SDE_SHA256: 94e97d623fec54385686e1e7ba65ebc9941748c05ee451423948334892bf2b50
     steps:
+      - name: Install the amd64 libc for the runner's Node
+        if: ${{ matrix.install-amd64-libc }}
+        run: |
+          dpkg --add-architecture amd64
+          apt-get update -qq
+          apt-get install -qq -y --no-install-recommends libc6:amd64 libstdc++6:amd64 git ca-certificates python3
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

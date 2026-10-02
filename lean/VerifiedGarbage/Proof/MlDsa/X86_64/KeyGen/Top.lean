@@ -140,7 +140,7 @@ theorem rest_piece {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) :
 
 theorem keyGen_piece {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) :
     Piece p (fun σ s => s = σ) (fun σ s => abiPreserved σ s ∧ (kgK p).post σ s) (keyGen P p) :=
-  (pro_piece hF).seq ((seeds_piece hF).seq ((sampA_piece hP hF).seq ((sampS_piece hP hF).seq
+  (pro_piece hF).seq ((seeds_piece hF).seq ((sampAll_piece hP hF).seq ((sampS_piece hP hF).seq
     ((rest_piece hP hF).seq (epi_piece hF)))))
 
 theorem keyGen_correct {P : Prims} (hP : PrimsOk P) {p : Params} (hF : PFacts p) (σ : State) (hp : (kgK p).pre σ) :

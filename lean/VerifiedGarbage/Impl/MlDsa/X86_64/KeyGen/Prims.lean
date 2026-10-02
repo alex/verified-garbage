@@ -36,6 +36,8 @@ structure Prims where
   simpleBitPack : Prog isa
   /-- `vg_mldsa_bit_pack` -/
   bitPack : Prog isa
+  /-- `vg_mldsa_rej_ntt_poly4` -/
+  rej4 : Prog isa
   /-- What the names of the polynomial arithmetic's functions end with (`Arith.Backend`). -/
   sfx : String := ""
 

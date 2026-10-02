@@ -108,7 +108,10 @@ impl Backend {
         }
     }
 
-    /// The best implementation the CPU can run: there is only one here.
+    /// The scalar implementation. It is the only one on 32-bit ARM and x86;
+    /// on AArch64 the `_sha3` instances are only selected with the
+    /// `cpu-features-env` feature, when `VG_CPU_FEATURES` asks for `sha3`
+    /// (see `crate::hashes::sha3::Backend::detected`).
     #[cfg(not(any(
         target_arch = "x86_64",
         all(target_arch = "aarch64", feature = "cpu-features-env")

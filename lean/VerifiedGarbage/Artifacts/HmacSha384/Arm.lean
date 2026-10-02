@@ -30,7 +30,6 @@ def artifacts : List Artifact := [
     code := sha384H.init
     contract := Spec.Hmac.sha384I.initContract Arm.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.initContract; rfl⟩
-    writeArgs := true
     stack := 16
     verified := Instances.sha384_init
     spSafe := Code.all_of_forall (fun _ => rfl) _ },
@@ -40,7 +39,6 @@ def artifacts : List Artifact := [
     code := sha384H.finalize
     contract := Spec.Hmac.sha384I.finalizeContract Arm.abi 16
     ofSig := ⟨_, _, _, by unfold Spec.Hmac.Instance.finalizeContract; rfl⟩
-    writeArgs := true
     stack := 16
     verified := Instances.sha384_finalize
     spSafe := Code.all_of_forall (fun _ => rfl) _ }]
