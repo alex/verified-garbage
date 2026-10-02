@@ -227,8 +227,7 @@ fn rfc9106_verify_keyed() {
         other[0] ^= 1;
         assert_eq!(
             verify_keyed(&p, &other, &salt, &secret, &ad, usize::MAX, &expected),
-            Err(Error::KeyMismatch),
-            "{variant:?}"
+            Err(Error::KeyMismatch)
         );
     }
 }
