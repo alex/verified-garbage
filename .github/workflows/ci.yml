@@ -399,7 +399,10 @@ jobs:
   #   leaf 7, so the baseline ISA's implementations everywhere;
   # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
   #   runner has. It also has the SHA extensions, so only SHA-512's tests
-  #   (and detection's) run there.
+  #   (and detection's) run there;
+  # * `dmr` (Diamond Rapids): the SHA512 extension and AVX512_IFMA, so
+  #   Ed25519 with both, which no other chip has. It also has the SHA
+  #   extensions, so only Ed25519's tests (and detection's) run there.
   # And natively on an ARM64 runner, whose AES and PMULL extensions
   # `cpu-features-env` detects at run time (without it, AArch64 detection is
   # at compile time, which the `rust` job tests).
@@ -414,9 +417,14 @@ jobs:
         include:
           - chip: arl
             tests: sha384 sha512 ed25519 cpu
-          # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma.
+          # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma
+          # and Ed25519's IFMA variants.
           - chip: icx
-            tests: x25519 cpu
+            tests: x25519 ed25519 cpu
+          # Diamond Rapids: the SHA512 extension and AVX512_IFMA, for
+          # Ed25519's verification with both (vg_ed25519_verify_shani_ifma).
+          - chip: dmr
+            tests: ed25519 cpu
           - chip: native
             os: ubuntu-24.04-arm
             tests: aes_gcm cmac sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu

@@ -827,7 +827,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ SHA512, AVX2, BMI1, BMI2, ADX</td>
+<td>✅ SHA512, AVX-512 IFMA, AVX-512VL, AVX2, BMI1, BMI2, ADX</td>
 
 <td>✅ SHA extensions</td>
 
