@@ -12,7 +12,8 @@ proven once, by induction over it; a caller's list is a literal, and its side
 conditions (`Slots`, `Restorable`) are closed by `decide`, which evaluates
 only `Nat` and `Bool` arithmetic.
 
-* `save_ok`, `restore_ok`: the code, with any instructions after it.
+* `save_ok`, `restoreList_ok`: the code, with any instructions after it, and
+  `save_slots_ok`, `restore_slots_ok` for slots in a range of bytes.
 * `saveMem`: the memory after saving, which changes only the slots
   (`saveMem_frame`) and holds the registers in them (`saveMem_saved`).
 * `Saved`: memory holding the registers in their slots, as long as a frame
@@ -95,6 +96,16 @@ theorem save_ok {b : Reg} {rest : List Instr} (l : List (Reg × Nat)) :
     refine WP.block_cons_iff.mpr ⟨_, exec_str h1 (by rw [addr_add h2]; exact h3), ?_⟩
     rw [addr_add h2]
     exact ih _ Q (fun q hq => hl q (List.mem_cons_of_mem _ hq)) k
+
+/-- `save_ok`, for a continuation that needs only what saving keeps. -/
+theorem saveList_ok {b : Reg} {rest : List Instr} (l : List (Reg × Nat)) :
+    ∀ (s : State) (Q : State → Prop),
+    (∀ p ∈ l, p.2 < 4096 ∧ (s.gpr b).toNat + p.2 < 2 ^ 32 ∧
+      InRegions s.wr (State.addr (s.gpr b) + BitVec.ofNat 64 p.2) 4) →
+    (∀ s', s'.gpr = s.gpr → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp →
+      s'.mem = saveMem s.mem (State.addr (s.gpr b)) s.gpr l → WP isa (.block rest) s' Q) →
+    WP isa (.block (l.map (fun p => Instr.str p.1 b p.2) ++ rest)) s Q :=
+  fun s Q hl k => save_ok l s Q hl (k _ rfl rfl rfl rfl rfl)
 
 /-- `save_ok` with the slots of `l` in bytes `[lo, hi)` of `b`, all writable. -/
 theorem save_slots_ok {b : Reg} {rest : List Instr} {lo hi : Nat} {l : List (Reg × Nat)}
@@ -195,7 +206,7 @@ theorem restored_of {l : List (Reg × Nat)} {s : State} {g : Reg → BitVec 32}
 
 /-- Loading the registers of `l` from offsets of `b`, which is none of them,
 then running `rest`. -/
-theorem restore_ok {b : Reg} {rest : List Instr} (l : List (Reg × Nat)) :
+theorem restoreList_ok {b : Reg} {rest : List Instr} (l : List (Reg × Nat)) :
     ∀ (s : State) (Q : State → Prop), (l.map Prod.fst).Nodup →
     (∀ p ∈ l, p.1 ≠ b ∧ p.2 < 4096 ∧ (s.gpr b).toNat + p.2 < 2 ^ 32 ∧
       InRegions (s.rd ++ s.wr) (State.addr (s.gpr b) + BitVec.ofNat 64 p.2) 4) →
@@ -223,7 +234,7 @@ theorem restore_ok {b : Reg} {rest : List Instr} (l : List (Reg × Nat)) :
     · simp only [List.map_cons, List.mem_cons, not_or] at hr
       rw [ho r hr.2, gpr_setReg_of_ne _ _ hr.1]
 
-/-- `restore_ok` from slots in bytes `[lo, hi)` of `b`, all readable, that
+/-- `restoreList_ok` from slots in bytes `[lo, hi)` of `b`, all readable, that
 hold the values `g`: each register of `l` gets its value, and the others and
 the memory are unchanged. -/
 theorem restore_slots_ok {b : Reg} {rest : List Instr} {lo hi : Nat} {l : List (Reg × Nat)}
@@ -234,9 +245,55 @@ theorem restore_slots_ok {b : Reg} {rest : List Instr} {lo hi : Nat} {l : List (
     (k : ∀ s', (∀ p ∈ l, s'.gpr p.1 = g p.1) → (∀ r, r ∉ l.map Prod.fst → s'.gpr r = s.gpr r) →
       s'.mem = s.mem → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp → WP isa (.block rest) s' Q) :
     WP isa (.block (l.map (fun p => Instr.ldr p.1 b p.2) ++ rest)) s Q :=
-  restore_ok l s Q hr.1 (fun p hp => by
+  restoreList_ok l s Q hr.1 (fun p hp => by
       have := hs.bound hp
       exact ⟨hr.ne hp, by omega, by omega, hin _ this.1 this.2.1⟩)
+    fun s' ho => k s' (hsv.restored ho)
+
+/-- `restoreList_ok`, then the base `b` itself, from offset `d`, last. -/
+theorem restoreBase_ok {b : Reg} {rest : List Instr} {l : List (Reg × Nat)} {d : Nat} (hr : Restorable b l)
+    {s : State} {Q : State → Prop}
+    (hl : ∀ p ∈ l ++ [(b, d)], p.2 < 4096 ∧ (s.gpr b).toNat + p.2 < 2 ^ 32 ∧
+      InRegions (s.rd ++ s.wr) (State.addr (s.gpr b) + BitVec.ofNat 64 p.2) 4)
+    (k : ∀ s', (∀ p ∈ l ++ [(b, d)], s'.gpr p.1 = s.mem.readW (State.addr (s.gpr b) + BitVec.ofNat 64 p.2) 32) →
+      (∀ r, r ∉ (l ++ [(b, d)]).map Prod.fst → s'.gpr r = s.gpr r) → s'.mem = s.mem → s'.rd = s.rd →
+      s'.wr = s.wr → s'.sp = s.sp → WP isa (.block rest) s' Q) :
+    WP isa (.block ((l ++ [(b, d)]).map (fun p => Instr.ldr p.1 b p.2) ++ rest)) s Q := by
+  rw [List.map_append, List.append_assoc]
+  refine restoreList_ok l s _ hr.1 (fun p hp => ⟨hr.ne hp, hl p (List.mem_append_left _ hp)⟩)
+    fun s₁ hl₁ ho hm hrd hwr hsp => ?_
+  have hb : b ∉ l.map Prod.fst := fun h => by
+    obtain ⟨p, hp, he⟩ := List.mem_map.mp h
+    exact hr.ne hp he
+  have b₁ : s₁.gpr b = s.gpr b := ho b hb
+  obtain ⟨h1, h2, h3⟩ := hl (b, d) (List.mem_append_right _ List.mem_cons_self)
+  rw [← b₁, ← hrd, ← hwr] at h3
+  rw [← b₁] at h2
+  rw [← addr_add h2] at h3
+  refine WP.block_cons_iff.mpr ⟨_, exec_ldr h1 h3, ?_⟩
+  refine k _ (fun p hp => ?_) (fun r hr' => ?_) (by rw [mem_setReg, hm]) (by rw [rd_setReg, hrd])
+    (by rw [wr_setReg, hwr]) (by rw [sp_setReg, hsp])
+  · rcases List.mem_append.mp hp with hp | hp
+    · have hne : p.1 ≠ b := hr.ne hp
+      rw [gpr_setReg_of_ne _ _ hne, hl₁ p hp]
+    · rw [List.mem_singleton.mp hp, gpr_setReg_self, addr_add h2, hm, b₁]
+  · simp only [List.map_append, List.map_cons, List.map_nil, List.mem_append, List.mem_singleton, not_or] at hr'
+    rw [gpr_setReg_of_ne _ _ hr'.2, ho r hr'.1]
+
+/-- `restoreBase_ok` from slots in bytes `[lo, hi)` of `b`, all readable,
+that hold the values `g`. -/
+theorem restoreBase_slots_ok {b : Reg} {rest : List Instr} {lo hi : Nat} {l : List (Reg × Nat)} {d : Nat}
+    (hs : Slots lo hi (l ++ [(b, d)])) (hr : Restorable b l) {s : State} {Q : State → Prop}
+    {g : Reg → BitVec 32} (hfit : (s.gpr b).toNat + hi ≤ 2 ^ 32)
+    (hin : ∀ d, lo ≤ d → d + 4 ≤ hi → InRegions (s.rd ++ s.wr) (State.addr (s.gpr b) + BitVec.ofNat 64 d) 4)
+    (hsv : Saved s.mem (State.addr (s.gpr b)) g (l ++ [(b, d)]))
+    (k : ∀ s', (∀ p ∈ l ++ [(b, d)], s'.gpr p.1 = g p.1) →
+      (∀ r, r ∉ (l ++ [(b, d)]).map Prod.fst → s'.gpr r = s.gpr r) →
+      s'.mem = s.mem → s'.rd = s.rd → s'.wr = s.wr → s'.sp = s.sp → WP isa (.block rest) s' Q) :
+    WP isa (.block ((l ++ [(b, d)]).map (fun p => Instr.ldr p.1 b p.2) ++ rest)) s Q :=
+  restoreBase_ok hr (fun p hp => by
+      have := hs.bound hp
+      exact ⟨by omega, by omega, hin _ this.1 this.2.1⟩)
     fun s' ho => k s' (hsv.restored ho)
 
 end VG.Arm.Spill
