@@ -23,8 +23,8 @@ def artifacts : List Artifact := [
     doc := Spec.X25519.x25519Api.doc (notes := ["The function saves the callee-saved registers \
       it uses (`x19`–`x24`) in `scratch`. Field elements are fifteen limbs of 17 bits \
       (`2^255 = 19` mod p), each in a 64-bit word, multiplied with `mul`/`madd` (which keep \
-      the low 64 bits) and carried with explicit bounds; the inversion is square-and-multiply \
-      over the bits of `p - 2`."])
+      the low 64 bits) and carried with explicit bounds; the inversion uses the ref10 addition chain \
+      (254 squarings and 11 multiplications)."])
     code := Impl.X25519.AArch64.x25519
     contract := Spec.X25519.x25519Contract AArch64.abi
     verified := Proof.X25519.AArch64.x25519_verified
