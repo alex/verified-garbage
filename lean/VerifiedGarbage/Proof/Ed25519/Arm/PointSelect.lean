@@ -50,7 +50,6 @@ theorem swapField_ok {s : State} {base : BitVec 32} (hc : Ctx base s) (hl : AllL
     ht.rest.gpr _ (by decide), funext fun i => congrArg VG.Proof.X25519.toFe (val16_congr (he i))⟩
   refine ht.frame.sub fun r hr => ⟨_, List.mem_singleton_self _, ?_⟩
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  have := ACC_eq
   rcases hr with rfl | rfl <;> exact Offset.sub _ (by omega) (by omega)
 
 theorem swapFields_ok {s : State} {base : BitVec 32} (hc : Ctx base s) (hl : AllLim s.mem base)

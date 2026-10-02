@@ -5,7 +5,7 @@ namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 
 abbrev TableFrame (b : BitVec 32) (o n : Nat) (m m' : Mem) : Prop :=
-  Frame [FA ACC b, ⟨State.addr b + BitVec.ofNat 64 o, n⟩] m m'
+  Frame [FA b, ⟨State.addr b + BitVec.ofNat 64 o, n⟩] m m'
 
 theorem TableFrame.mono {b : BitVec 32} {o n o' n' : Nat} {m m' : Mem}
     (h : TableFrame b o n m m') (ho : o' ≤ o) (hn : o + n ≤ o' + n') : TableFrame b o' n' m m' := by
@@ -16,7 +16,7 @@ theorem TableFrame.mono {b : BitVec 32} {o n o' n' : Nat} {m m' : Mem}
   · exact ⟨_, List.mem_cons_of_mem _ (List.mem_singleton_self _), Offset.sub _ ho hn⟩
 
 theorem TableFrame.workspace {b : BitVec 32} {o n : Nat} {m m' : Mem}
-    (h : Frame [FA ACC b] m m') : TableFrame b o n m m' :=
+    (h : Frame [FA b] m m') : TableFrame b o n m m' :=
   h.mono fun r hr => by rw [List.mem_singleton.mp hr]; exact List.mem_cons_self ..
 
 theorem TableFrame.table {b : BitVec 32} {o n : Nat} {m m' : Mem}
@@ -40,15 +40,14 @@ theorem TableFrame.point {b : BitVec 32} {o n : Nat} {m m' : Mem}
     tablePoint m' b d = tablePoint m b d := by
   refine tablePoint_frame h fun r hm => ?_
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hm
-  have := ACC_eq
   rcases hm with rfl | rfl
   · exact Offset.disjoint _ (.inr (by omega)) (by omega) (by decide)
   · exact Offset.disjoint _ hsep (by omega) (by omega)
 
-theorem workspace_tablePoint {b : BitVec 32} {m m' : Mem} (h : Frame [FA ACC b] m m')
+theorem workspace_tablePoint {b : BitVec 32} {m m' : Mem} (h : Frame [FA b] m m')
     {d : Nat} (hd : 1600 ≤ d) (hb : d + 128 ≤ 8192) : tablePoint m' b d = tablePoint m b d := by
   refine tablePoint_frame h fun r hm => ?_
-  rw [List.mem_singleton.mp hm, ACC_eq]
+  rw [List.mem_singleton.mp hm]
   exact Offset.disjoint _ (.inr (by omega)) (by omega) (by decide)
 
 abbrev powersClob : List Reg := [.r10, .r11, .r12] ++ clob

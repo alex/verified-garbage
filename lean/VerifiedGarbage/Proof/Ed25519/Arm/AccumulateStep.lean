@@ -22,7 +22,7 @@ theorem choose_after (s n : Nat) (p x y : Spec.Ed25519.Point)
 abbrev loopClob : List Reg := .r11 :: accClob
 structure LoopKeep (b : BitVec 32) (s t : State) : Prop where
   rest : Rest loopClob s t
-  frame : Frame [FA ACC b] s.mem t.mem
+  frame : Frame [FA b] s.mem t.mem
 
 theorem LoopKeep.refl (b : BitVec 32) (s : State) : LoopKeep b s s := ⟨Rest.refl _ _, Frame.refl _ _⟩
 theorem LoopKeep.ctx {b : BitVec 32} {s t : State} (h : LoopKeep b s t) (hc : Ctx b s) : Ctx b t :=

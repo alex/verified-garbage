@@ -7,7 +7,7 @@ namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 
 abbrev mulRegions (b : BitVec 32) (o n : Nat) : List Region :=
-  [⟨State.addr b + BitVec.ofNat 64 32, 16⟩, ⟨State.addr b + BitVec.ofNat 64 56, 4⟩, FA ACC b,
+  [⟨State.addr b + BitVec.ofNat 64 32, 16⟩, ⟨State.addr b + BitVec.ofNat 64 56, 4⟩, FA b,
     ⟨State.addr b + BitVec.ofNat 64 o, n⟩]
 
 structure MulKeep (b : BitVec 32) (o n : Nat) (s t : State) : Prop where
@@ -54,7 +54,6 @@ theorem MulKeep.word {b : BitVec 32} {o n : Nat} {s t : State}
   apply BitVec.eq_of_toNat_eq
   exact wd_frame h.frame fun r hr => by
     simp only [mulRegions, List.mem_cons, List.not_mem_nil, or_false] at hr
-    have := ACC_eq
     rcases hr with rfl | rfl | rfl | rfl <;>
       exact Offset.disjoint _ (by omega) (by omega) (by omega)
 
@@ -64,7 +63,6 @@ theorem MulKeep.table {b : BitVec 32} {o n : Nat} {s t : State}
     tablePoint t.mem b d = tablePoint s.mem b d := by
   refine tablePoint_frame h.frame fun r hr => ?_
   simp only [mulRegions, List.mem_cons, List.not_mem_nil, or_false] at hr
-  have := ACC_eq
   rcases hr with rfl | rfl | rfl | rfl <;>
     exact Offset.disjoint _ (by omega) (by omega) (by omega)
 

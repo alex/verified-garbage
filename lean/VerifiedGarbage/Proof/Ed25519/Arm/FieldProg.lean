@@ -25,7 +25,7 @@ def evalOps (ops : List FieldOp) (e : Env) : Env := ops.foldl (fun e op => evalO
 
 structure Keep (b : BitVec 32) (s s' : State) : Prop where
   rest : Rest clob s s'
-  frame : Frame [FA ACC b] s.mem s'.mem
+  frame : Frame [FA b] s.mem s'.mem
 
 theorem Keep.refl (b : BitVec 32) (s : State) : Keep b s s :=
   ⟨Rest.refl _ _, Frame.refl _ _⟩
