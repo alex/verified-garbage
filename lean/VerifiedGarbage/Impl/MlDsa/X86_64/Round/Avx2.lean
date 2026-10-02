@@ -6,12 +6,13 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Avx
 # ML-DSA on x86-64: rounding with AVX2
 
 `vg_mldsa_high_bits_avx2`, `vg_mldsa_low_bits_avx2`,
-`vg_mldsa_norm_lt_avx2` and `vg_mldsa_make_hint_avx2` are
-`vg_mldsa_high_bits`, `vg_mldsa_low_bits`, `vg_mldsa_norm_lt` and
-`vg_mldsa_make_hint` (`Round.lean`) on eight
+`vg_mldsa_norm_lt_avx2`, `vg_mldsa_make_hint_avx2` and
+`vg_mldsa_use_hint_avx2` are `vg_mldsa_high_bits`, `vg_mldsa_low_bits`,
+`vg_mldsa_norm_lt`, `vg_mldsa_make_hint` and `vg_mldsa_use_hint`
+(`Round.lean`) on eight
 coefficients at a time, in the doublewords of `ymm` registers: in each
 128-bit lane, the VEX.256 form (`toY`) of SSE2 code on the four doublewords
-of an `xmm` register (`hbX`, `lbX`, `nlX`, `mhX`), with `rdi` and `r10` at the eight
+of an `xmm` register (`hbX`, `lbX`, `nlX`, `mhX`, `uhX`), with `rdi` and `r10` at the eight
 coefficients of `r` and `out` and `rcx` counting down the 32 vectors.
 
 `Decompose` is the reference implementation's, as in `Round.lean`:
@@ -41,11 +42,14 @@ def mulX (sh : List Nat) : List Instr :=
   xmov .xmm1 .xmm0 :: sh.flatMap fun k =>
     [xmov .xmm2 .xmm1, .xop (.shift .pslld .xmm2 (BitVec.ofNat 8 k)), xb .paddd .xmm0 .xmm2]
 
+/-- `xmm0 ← f` of `xmm0`, with `127` and `2^(S-1)` in `xmm8` and `xmm9`. -/
+def hfX (g : Nat) : List Instr :=
+  [xb .paddd .xmm0 .xmm8, .xop (.shift .psrld .xmm0 7)] ++ mulX (dSh g) ++
+    [xb .paddd .xmm0 .xmm9, .xop (.shift .psrld .xmm0 (BitVec.ofNat 8 (dShift g)))]
+
 /-- `xmm0 ← r₁` of `xmm0`, with `127`, `2^(S-1)` and `m` in `xmm8`, `xmm9` and `xmm10`. -/
 def hbX (g : Nat) : List Instr :=
-  [xb .paddd .xmm0 .xmm8, .xop (.shift .psrld .xmm0 7)] ++ mulX (dSh g) ++
-    [xb .paddd .xmm0 .xmm9, .xop (.shift .psrld .xmm0 (BitVec.ofNat 8 (dShift g))), xmov .xmm1 .xmm0,
-      xb .psubd .xmm1 .xmm10, .xop (.shift .psrad .xmm1 31), xb .pand .xmm0 .xmm1]
+  hfX g ++ [xmov .xmm1 .xmm0, xb .psubd .xmm1 .xmm10, .xop (.shift .psrad .xmm1 31), xb .pand .xmm0 .xmm1]
 
 /-- `xmm1 ← xmm0 · 2γ₂`, through `xmm2`. -/
 def mul2X (g : Nat) : List Instr :=
@@ -154,5 +158,37 @@ def mhY (g : Nat) : Prog isa := .seq (.block (yC g ++ yconst .xmm11 63)) (rcxLoo
 def makeHintAvx2 : Prog isa :=
   .seq (.block (gammaCmp .rdx ++ [.mov .r10 (.reg .rcx), .mov32 .r9 (.imm 0)]))
     (.seq (.ite .e (mhY g32) (mhY g88)) (.block [.mov .rax (.reg .r9), .vop .vzeroupper]))
+
+/-! ## `vg_mldsa_use_hint_avx2`
+
+In each lane, `f` of `r` (`hfX`, which `hbX` reduces modulo `m`), the sign
+`P` of `f · 2γ₂ - r` (all ones exactly when `r₀ > 0`), and the sign `H` of
+`h | -h` (all ones exactly when the hint is not 0); then `δ = ¬(P + P) ∧ H`
+is `1` if `P` is set, `-1` if not, and `0` if the hint is 0, and the result
+is `(f + δ + m) mod m`, by two conditional subtractions of `m` (`msub`), as
+in `vg_mldsa_use_hint` (`Round.lean`). -/
+
+/-- `x ← x - m`, plus `m` if negative, with `m` in `xmm10`, through `t`. -/
+def msub (x t : XReg) : List Instr :=
+  [xb .psubd x .xmm10, xmov t x, .xop (.shift .psrad t 31), xb .pand t .xmm10, xb .paddd x t]
+
+/-- `xmm4 ← UseHint` of the hint in `xmm5` and `r` in `xmm0`. -/
+def uhX (g : Nat) : List Instr :=
+  xmov .xmm3 .xmm0 :: hfX g ++ xmov .xmm4 .xmm0 :: mul2X g ++
+    [xb .psubd .xmm1 .xmm3, .xop (.shift .psrad .xmm1 31), xb .paddd .xmm1 .xmm1, xb .pxor .xmm2 .xmm2,
+      xb .psubd .xmm2 .xmm5, xb .por .xmm2 .xmm5, .xop (.shift .psrad .xmm2 31), xb .pandn .xmm1 .xmm2,
+      xb .paddd .xmm4 .xmm1, xb .paddd .xmm4 .xmm10] ++ msub .xmm4 .xmm1 ++ msub .xmm4 .xmm1
+
+/-- Eight hints (at `rdi`) and coefficients of `r` (at `rsi`) to `out` (at `r10`). -/
+def uhBodyY (g : Nat) : List Instr :=
+  [.vmovdquLoad .l256 .xmm0 (at_ .rsi 0), .vmovdquLoad .l256 .xmm5 (at_ .rdi 0)] ++ toY (uhX g) ++
+    [.vmovdquStore .l256 (at_ .r10 0) .xmm4, .alu .add .rdi (.imm 32), .alu .add .rsi (.imm 32),
+      .alu .add .r10 (.imm 32)]
+
+def uhY (g : Nat) : Prog isa := .seq (.block (yC g)) (rcxLoop 32 (uhBodyY g))
+
+def useHintAvx2 : Prog isa :=
+  .seq (.block (gammaCmp .rdx ++ [.mov .r10 (.reg .rcx)]))
+    (.seq (.ite .e (uhY g32) (uhY g88)) (.block [.vop .vzeroupper]))
 
 end VG.Impl.MlDsa.X86_64.Round

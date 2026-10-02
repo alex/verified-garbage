@@ -25,6 +25,7 @@ mod sha384;
 mod sha512;
 mod sha512_224;
 mod sha512_256;
+mod triple_des_ecb;
 
 /// The `key = value` lines of a CAVP response file, in order, without the
 /// comments, blank lines and `[L = ...]` section headers.
