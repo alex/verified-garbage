@@ -1,15 +1,26 @@
 //! scrypt (RFC 7914 §6).
 //!
-//! `B = PBKDF2-HMAC-SHA256 (P, S, 1, p · 128 · r)` and the derived key
-//! `PBKDF2-HMAC-SHA256 (P, B, 1, dkLen)` are [`pbkdf2_hmac_sha256`]. In
-//! between, each of the `p` blocks of `B` goes through the verified
-//! `vg_scrypt_romix` (contract `VG.Spec.Scrypt.roMixContract`), which calls
-//! the verified `vg_scrypt_blockmix` and `vg_salsa20_8`. This module only
-//! checks the parameters and allocates the memory ROMix works in.
+//! On x86-64 and AArch64, the whole derivation is the verified `vg_scrypt`
+//! (contract `VG.Spec.Scrypt.scryptContract`): it calls the verified
+//! `vg_pbkdf2_hmac_sha256` for `B = PBKDF2-HMAC-SHA256 (P, S, 1, p · 128 · r)`
+//! and for the derived key `PBKDF2-HMAC-SHA256 (P, B, 1, dkLen)`, and in
+//! between the verified `vg_scrypt_romix` on each of the `p` blocks of `B`.
+//! It follows the implementation of SHA-256 that `Sha256` runs on this CPU:
+//! `vg_scrypt_shani` with the SHA extensions, the same verified code calling
+//! `vg_pbkdf2_hmac_sha256_shani`, with the same contract; likewise
+//! `vg_scrypt_avx2` with AVX2, and on AArch64 `vg_scrypt_sha2` with the
+//! SHA-256 instructions.
+//!
+//! On ARMv7 and x86, the two PBKDF2 steps are `pbkdf2_hmac_sha256`, and
+//! each block goes through `vg_scrypt_romix` in between.
+//!
+//! ROMix (contract `VG.Spec.Scrypt.roMixContract`) calls the verified
+//! `vg_scrypt_blockmix` and `vg_salsa20_8`. This module only checks the
+//! parameters and allocates the memory scrypt works in.
 //!
 //! scryptROMix reads its table `V` at indices derived from the password, so
 //! its memory accesses (and hence its timing, through the caches) depend on
-//! them. That is inherent to scrypt; ROMix's contract declares that it leaks
+//! them. That is inherent to scrypt; the contracts declare that scrypt leaks
 //! these indices and nothing else secret.
 
 #![cfg(all(
@@ -24,9 +35,20 @@
 
 use alloc::vec::Vec;
 use core::fmt;
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 use core::num::NonZeroU32;
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+use crate::arch::scrypt::vg_scrypt;
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 use crate::arch::scrypt::vg_scrypt_romix;
+#[cfg(target_arch = "aarch64")]
+use crate::arch::scrypt::vg_scrypt_sha2;
+#[cfg(target_arch = "x86_64")]
+use crate::arch::scrypt::{vg_scrypt_avx2, vg_scrypt_shani};
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+use crate::hashes::sha256::Sha256Backend;
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
 use crate::pbkdf2::pbkdf2_hmac_sha256;
 
 /// Why [`scrypt`] refused to derive a key.
@@ -56,6 +78,11 @@ impl fmt::Display for Error {
 
 impl core::error::Error for Error {}
 
+/// The 128-byte chunks of working space scrypt allocates beyond ROMix's
+/// `r + 2`, so that PBKDF2-HMAC-SHA256's 1,600 bytes fit in the `r + 16`
+/// chunks `vg_scrypt` takes.
+const PBKDF2_CHUNKS: usize = 14;
+
 /// A zeroed vector of `len` 128-byte chunks, or `AllocationFailed`.
 fn chunks(len: usize) -> Result<Vec<[u8; 128]>, Error> {
     let mut v = Vec::new();
@@ -72,7 +99,8 @@ fn chunks(len: usize) -> Result<Vec<[u8; 128]>, Error> {
 /// scrypt needs `128 · (r · (n + p) + r + 2)` bytes: `128 · r · n` for
 /// ROMix's table, `128 · r · p` for the blocks and `128 · (r + 2)` of working
 /// space. For `r ≥ 2` that is at most OpenSSL's `EVP_PBE_scrypt` accounting,
-/// `128 · r · (n + p + 2)` bytes.
+/// `128 · r · (n + p + 2)` bytes. The working space also holds PBKDF2's,
+/// 1,792 bytes more, which (like the stack) the limit does not count.
 ///
 /// # Errors
 ///
@@ -111,25 +139,126 @@ pub fn scrypt(
     }
     let mut b = chunks(r * p)?;
     let mut v = chunks(vlen)?;
-    let mut scratch = chunks(r + 2)?;
+    let mut scratch = chunks(r + 2 + PBKDF2_CHUNKS)?;
+    derive(password, salt, r, &mut b, &mut v, &mut scratch, out);
+    Ok(())
+}
+
+/// scrypt with block size parameter `r`, cost parameter `N = v.len() / r`
+/// and parallelization parameter `p = b.len() / r`, for parameters that
+/// [`scrypt`] checked, with `r + 16` chunks of `scratch`.
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+fn derive(
+    password: &[u8],
+    salt: &[u8],
+    r: usize,
+    b: &mut [[u8; 128]],
+    v: &mut [[u8; 128]],
+    scratch: &mut [[u8; 128]],
+    out: &mut [u8],
+) {
+    let scrypt = match Sha256Backend::select(crate::cpu::detected()) {
+        Sha256Backend::Scalar => vg_scrypt,
+        #[cfg(target_arch = "aarch64")]
+        Sha256Backend::Sha2 => vg_scrypt_sha2,
+        #[cfg(target_arch = "x86_64")]
+        Sha256Backend::ShaNi => vg_scrypt_shani,
+        #[cfg(target_arch = "x86_64")]
+        Sha256Backend::Avx2 => vg_scrypt_avx2,
+    };
+    // SAFETY: `r > 0`; `b.len() = r p` and `v.len() = n r` for `n`, `r`, `p`
+    // and `out.len()` that are valid (`scrypt` checked them as
+    // `VG.Spec.Scrypt.valid` states them, and `out.len() ≤ (2³² − 1) · 32`),
+    // and `scratch.len() = r + 16`. `password` and `salt` are valid for
+    // reads of their lengths, `b`, `v` and `scratch` for reads and writes of
+    // 128 bytes per chunk and `out` of its length; `b`, `v`, `scratch` and
+    // `out` are distinct objects from each other and the others (`password`
+    // and `salt` are only read), so none of them overlaps another written
+    // one or the call's stack frame, and, as Rust objects, none wraps around
+    // the address space. `scrypt` needs no CPU feature that the
+    // implementation of SHA-256 was not selected for
+    // (`tests::backend_features`).
+    unsafe {
+        scrypt(
+            password.as_ptr(),
+            password.len(),
+            salt.as_ptr(),
+            salt.len(),
+            r,
+            b.as_mut_ptr(),
+            b.len(),
+            v.as_mut_ptr(),
+            v.len(),
+            scratch.as_mut_ptr(),
+            scratch.len(),
+            out.as_mut_ptr(),
+            out.len(),
+        )
+    };
+}
+
+/// scrypt with block size parameter `r`, cost parameter `N = v.len() / r`
+/// and parallelization parameter `p = b.len() / r`, for parameters that
+/// [`scrypt`] checked, with at least `r + 2` chunks of `scratch`.
+#[cfg(any(target_arch = "arm", target_arch = "x86"))]
+fn derive(
+    password: &[u8],
+    salt: &[u8],
+    r: usize,
+    b: &mut [[u8; 128]],
+    v: &mut [[u8; 128]],
+    scratch: &mut [[u8; 128]],
+    out: &mut [u8],
+) {
     pbkdf2_hmac_sha256(password, salt, NonZeroU32::MIN, b.as_flattened_mut());
     for block in b.chunks_exact_mut(r) {
         // SAFETY: `block` is valid for reads and writes of `128 r` bytes,
-        // `v` of `128 vlen` bytes and `scratch` of `128 (r + 2)` bytes; they
-        // are distinct allocations, so they do not overlap each other or the
-        // stack, and they do not wrap around the address space. `r > 0`,
-        // `vlen = n r` with `n` a power of two, and `slen = r + 2`.
+        // `v` of `128 vlen` bytes and `scratch` of at least `128 (r + 2)`
+        // bytes; they are distinct allocations, so they do not overlap each
+        // other or the stack, and they do not wrap around the address space.
+        // `r > 0`, `vlen = n r` with `n` a power of two, and `slen = r + 2`.
         unsafe {
             vg_scrypt_romix(
                 block.as_mut_ptr(),
                 r,
                 v.as_mut_ptr(),
-                vlen,
+                v.len(),
                 scratch.as_mut_ptr(),
                 r + 2,
             )
         };
     }
     pbkdf2_hmac_sha256(password, b.as_flattened(), NonZeroU32::MIN, out);
-    Ok(())
+}
+
+#[cfg(all(test, any(target_arch = "x86_64", target_arch = "aarch64")))]
+mod tests {
+    use super::*;
+    #[cfg(target_arch = "aarch64")]
+    use crate::arch::scrypt::VG_SCRYPT_SHA2_FEATURES;
+    #[cfg(target_arch = "x86_64")]
+    use crate::arch::scrypt::{VG_SCRYPT_AVX2_FEATURES, VG_SCRYPT_SHANI_FEATURES};
+    use crate::cpu::{Features, NAMES};
+
+    /// Each implementation of `vg_scrypt` needs no CPU feature that the
+    /// implementation of SHA-256 is not selected for: on every set of
+    /// features that selects it.
+    #[test]
+    fn backend_features() {
+        #[cfg(target_arch = "x86_64")]
+        let variants = [
+            (Sha256Backend::ShaNi, VG_SCRYPT_SHANI_FEATURES),
+            (Sha256Backend::Avx2, VG_SCRYPT_AVX2_FEATURES),
+        ];
+        #[cfg(target_arch = "aarch64")]
+        let variants = [(Sha256Backend::Sha2, VG_SCRYPT_SHA2_FEATURES)];
+        for (backend, req) in variants {
+            for bits in 0..1u32 << NAMES.len() {
+                let f = Features(bits);
+                if Sha256Backend::select(f) == backend {
+                    assert!(f.contains(Features::all(&[req])));
+                }
+            }
+        }
+    }
 }
