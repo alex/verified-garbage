@@ -177,20 +177,15 @@ fn errors() {
     }
 }
 
-/// `check` accepts `key` and rejects any other: with a bit flipped in its
-/// first, a middle or its last byte, truncated, and with a byte appended
-/// (Argon2's keys of different lengths share no prefix).
-fn check_verify(key: &[u8], check: impl Fn(&[u8]) -> Result<(), Error>) {
+/// `check` accepts `key` and rejects it with a bit flipped in its first, a
+/// middle or its last byte.
+fn check_verify<const N: usize>(key: &[u8; N], check: impl Fn(&[u8; N]) -> Result<(), Error>) {
     assert_eq!(check(key), Ok(()));
-    for i in [0, key.len() / 2, key.len() - 1] {
-        let mut bad = key.to_vec();
+    for i in [0, N / 2, N - 1] {
+        let mut bad = *key;
         bad[i] ^= 1;
         assert_eq!(check(&bad), Err(Error::KeyMismatch));
     }
-    assert_eq!(check(&key[..key.len() - 1]), Err(Error::KeyMismatch));
-    let mut longer = key.to_vec();
-    longer.push(0);
-    assert_eq!(check(&longer), Err(Error::KeyMismatch));
 }
 
 /// `verify_keyed` accepts the RFC's tags and rejects any other, or a
@@ -208,6 +203,7 @@ fn rfc9106_verify_keyed() {
             .unwrap()
             .1;
         let expected = bytes(text, "Tag:", number(text, "Tag length:") as usize);
+        let expected: [u8; 32] = expected.try_into().unwrap();
         let p = Params {
             variant,
             iterations: number(text, "Passes:"),
@@ -232,7 +228,9 @@ fn rfc9106_verify_keyed() {
     }
 }
 
-/// `verify` checks the unkeyed key `derive` derives.
+/// `verify` checks the unkeyed key `derive` derives, and only at the length
+/// it was derived with: Argon2's keys of different lengths share no prefix,
+/// so neither a prefix of it nor it with a byte appended verifies.
 #[test]
 fn verify_is_unkeyed() {
     for variant in [Variant::Argon2d, Variant::Argon2i, Variant::Argon2id] {
@@ -244,23 +242,27 @@ fn verify_is_unkeyed() {
             verify(&p, b"passwore", b"saltsalt", 32 << 10, &key),
             Err(Error::KeyMismatch)
         );
+        let prefix: [u8; 16] = key[..16].try_into().unwrap();
+        assert_eq!(
+            verify(&p, b"password", b"saltsalt", 32 << 10, &prefix),
+            Err(Error::KeyMismatch)
+        );
+        let mut longer = [0; 33];
+        longer[..32].copy_from_slice(&key);
+        assert_eq!(
+            verify(&p, b"password", b"saltsalt", 32 << 10, &longer),
+            Err(Error::KeyMismatch)
+        );
     }
 }
 
-/// `verify` and `verify_keyed` refuse what `derive_keyed` refuses: a key
-/// shorter than 4 bytes (an empty one included), invalid parameters and
-/// more memory than the limit.
+/// `verify` and `verify_keyed` refuse what `derive_keyed` refuses: invalid
+/// parameters and more memory than the limit.
 #[test]
 fn verify_errors() {
     let p = params(Variant::Argon2id, 1, 8, 1);
-    let mut key = [0; 4];
+    let mut key = [0; 16];
     derive(&p, b"", b"", 8 << 10, &mut key).unwrap();
-    for len in 0..4 {
-        assert_eq!(
-            verify(&p, b"", b"", 8 << 10, &key[..len]),
-            Err(Error::InvalidParameters)
-        );
-    }
     assert_eq!(
         verify(&params(Variant::Argon2id, 0, 8, 1), b"", b"", 8 << 10, &key),
         Err(Error::InvalidParameters)
