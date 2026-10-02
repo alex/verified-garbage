@@ -41,7 +41,7 @@ def applyX86_64 : Contract X86_64.isa where
           restAt s'.mem (s.gpr .rdi) = restAt s.mem (s.gpr .rdi)
   pub s₁ s₂ :=
     s₁.gpr .rdi = s₂.gpr .rdi ∧ s₁.gpr .rsi = s₂.gpr .rsi ∧ s₁.gpr .rdx = s₂.gpr .rdx ∧
-      s₁.gpr .rsp = s₂.gpr .rsp ∧ leftAt s₁.mem (s₁.gpr .rdi) = leftAt s₂.mem (s₂.gpr .rdi)
+      s₁.gpr .rsp = s₂.gpr .rsp ∧ [leftAt s₁.mem (s₁.gpr .rdi)] = [leftAt s₂.mem (s₂.gpr .rdi)]
 
 end VG.Proof.ChaCha20
 
