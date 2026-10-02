@@ -98,6 +98,40 @@ theorem frameCall_ok {D : Nat} {n : String} {c : Prog isa} {k : Contract isa}
       · exact ⟨_, List.mem_append_right _ (List.mem_singleton_self _),
           fun x h => belowA_sub (show 8 + stackUse c ≤ D by omega) x (belowA_push hsu' x h)⟩
 
+/-- The regions a callee in a frame of `r12` and `lr` is given, within the
+state after the push. -/
+theorem cov_pushed {t1 : State} (h8 : 8 ≤ t1.sp.toNat) {rd wr : List Region}
+    (hr : ∀ r ∈ rd, ∃ R ∈ t1.rd ++ t1.wr, Within r R) (hw : ∀ r ∈ wr, ∃ R ∈ t1.wr, Within r R) :
+    Covers ((rd ++ [argR t1]) ++ wr) ((pushed [.r12, .lr] t1).rd ++ (pushed [.r12, .lr] t1).wr) ∧
+      Covers wr (pushed [.r12, .lr] t1).wr := by
+  have hwp : (pushed [.r12, .lr] t1).wr = belowA t1.sp 8 :: t1.wr := by rw [VG.Arm.pushed_wr, frame8 h8]
+  have cW : Covers wr (pushed [.r12, .lr] t1).wr := by
+    rw [hwp]
+    exact covers_of_within fun r h => let ⟨R, hR, w⟩ := hw r h; ⟨R, List.mem_cons_of_mem _ hR, w⟩
+  refine ⟨fun x m ⟨r, hr', hc⟩ => ?_, cW⟩
+  rcases List.mem_append.mp hr' with h | h
+  · rcases List.mem_append.mp h with h | h
+    · obtain ⟨R, hR, w⟩ := hr r h
+      have hR' : R ∈ (pushed [.r12, .lr] t1).rd ++ (pushed [.r12, .lr] t1).wr := by
+        rw [VG.Arm.pushed_rd, hwp]
+        rcases List.mem_append.mp hR with h' | h'
+        · exact List.mem_append_left _ h'
+        · exact List.mem_append_right _ (List.mem_cons_of_mem _ h')
+      exact covers_of_within (rs := [r]) (fun r' h' => by
+        simp only [List.mem_singleton] at h'; subst h'; exact ⟨R, hR', w⟩) x m ⟨r, List.mem_singleton_self _, hc⟩
+    · simp only [List.mem_singleton] at h; subst h
+      refine ⟨belowA t1.sp 8, by rw [hwp]; simp, ?_⟩
+      simp only [Region.Contains, belowA] at hc ⊢; omega
+  · obtain ⟨R, hR, c⟩ := cW x m ⟨r, h, hc⟩
+    exact ⟨R, List.mem_append_right _ hR, c⟩
+
+/-- The bytes of a region apart from the 8 the push writes, after the push. -/
+theorem storeWords_bytes {t : State} (h8 : 8 ≤ t.sp.toNat) {a : Addr} {n : Nat}
+    (hd : Region.Disjoint ⟨a, n⟩ (below t 8)) (hn : n ≤ 2 ^ 64) :
+    bytesAt (storeWords t.mem (t.sp - 8#32) [t.gpr .r12, t.gpr .lr]) a n = bytesAt t.mem a n :=
+  Proof.MlKem.bytesAt_frame (push2_frame h8) (fun r hr => by
+    simp only [List.mem_singleton] at hr; subst hr; exact hd) hn
+
 /-- The precondition of `signContract p Arm.abi 28`, from its facts. -/
 theorem signC_pre {p : Params} {E : State} (sp : 28 ≤ E.sp.toNat) (sp4 : E.sp.toNat + 4 ≤ 2 ^ 32)
     (rd : E.rd = [⟨State.addr (E.gpr .r0), p.skLen⟩, ⟨State.addr (E.gpr .r1), 64⟩, ⟨State.addr (E.gpr .r2), 32⟩,
@@ -293,9 +327,7 @@ theorem signCall_ok {n : String} {c : Prog isa} (hS : SignFn p c) (hp : p ∈ pa
   sig_reduce [signContract, signSig, Arm.abi, Arm.argRegs, Arm.reduceClassify, Arm.Loc.val] at hpost
   have pm : ∀ (x : BitVec 32) (n : Nat), Region.Disjoint ⟨State.addr x, n⟩ (below t1 8) → n ≤ 2 ^ 64 →
       bytesAt (storeWords t1.mem (t1.sp - 8#32) [t1.gpr .r12, t1.gpr .lr]) (BitVec.setWidth 64 x) n =
-        bytesAt t1.mem (State.addr x) n := fun x n hd hn =>
-    Proof.MlKem.bytesAt_frame (push2_frame h8') (fun r hr => by
-      simp only [List.mem_singleton] at hr; subst hr; exact hd) hn
+        bytesAt t1.mem (State.addr x) n := fun x n hd hn => storeWords_bytes h8' hd hn
   rw [e0, e1, e2, e3, pm _ _ (h.stkSk.symm.sub_right bk) (by have := h.nSk; omega),
     pm _ _ (by rw [mu_eq hL]; exact (k_mu hL).symm.sub_right bk) (by decide),
     pm _ _ (h.stkRnd.symm.sub_right bk) (by decide), mu_eq hL, hm₂, Proof.MlKem.Arm.setWidth_append32,
