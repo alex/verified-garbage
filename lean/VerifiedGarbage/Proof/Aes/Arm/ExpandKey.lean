@@ -6,8 +6,6 @@ import VerifiedGarbage.Spec.Aes.Contract
 /-!
 # The AES key expansion on ARMv7
 
-Untrusted: everything here is checked by Lean.
-
 `subAll` (`ortho`, the S-box, `ortho`, with the loop registers kept in
 slots meanwhile) applies the S-box to every byte of the eight words
 (`subAll_wp`, from the bitsliced layers' lemmas); each word of the
@@ -19,11 +17,9 @@ specification's (`WInv`).
 namespace VG.Proof.Aes
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for `vg_aes_expand_key(key = r0, key_len = r1,
-schedule = r2, scratch = r3)`: writes the key schedule of the
-`key_len`-byte key at `key` to `schedule`.
+/-- 32-bit ARM contract for `vg_aes_expand_key(key = r0, key_len = r1,
+schedule = r2, scratch = r3)`: writes the key schedule of the `key_len`-byte
+key at `key` to `schedule`.
 
 The code may read `key` (`key_len` bytes) and read and write `schedule`
 (240 bytes) and `scratch` (512 bytes, whose contents on exit are

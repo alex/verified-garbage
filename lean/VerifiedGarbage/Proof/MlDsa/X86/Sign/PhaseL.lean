@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.PhaseK
 /-!
 # ML-DSA signing on x86 (32-bit): the rejection sampling loop
 
-Untrusted: everything here is checked by Lean. Iteration `t` runs the
-commitment, `SampleInBall`, and the checks if it succeeded, and ends with
-`CNT ← CNT - 1` (`iter_piece`). The loop runs `NI` iterations (`loop_piece`):
-after `t < NI` of them, iteration `t` is next (`IT`); after all of them, the
-last one's outcome is in `OK`, with `c̃`, `z` and the hint if it succeeded
-(`Fin`).
+Iteration `t` runs the commitment, `SampleInBall`, and the checks if it
+succeeded, and ends with `CNT ← CNT - 1` (`iter_piece`). The loop runs `NI`
+iterations (`loop_piece`): after `t < NI` of them, iteration `t` is next
+(`IT`); after all of them, the last one's outcome is in `OK`, with `c̃`, `z`
+and the hint if it succeeded (`Fin`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

@@ -9,11 +9,10 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM-1024 on x86 (32-bit): `vg_mlkem1024_check_ek`
 
-Untrusted: everything here is checked by Lean. As `vg_mlkem768_check_ek`
-(`Proof/MlKem/X86/CheckEk.lean`, whose `ok`, `mask` and lemmas on them this
-uses): after `t` groups, `ebx` is all ones if both fields of every group so
-far are less than `q`, and 0 otherwise; the modulus check is that for all 512
-groups (`ekCheck1024`).
+As `vg_mlkem768_check_ek` (`Proof/MlKem/X86/CheckEk.lean`, whose `ok`, `mask`
+and lemmas on them this uses): after `t` groups, `ebx` is all ones if both
+fields of every group so far are less than `q`, and 0 otherwise; the modulus
+check is that for all 512 groups (`ekCheck1024`).
 -/
 
 namespace VG.Proof.MlKem1024.X86.CheckEk

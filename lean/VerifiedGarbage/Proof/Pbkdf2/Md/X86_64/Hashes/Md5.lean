@@ -8,9 +8,8 @@ import VerifiedGarbage.Spec.Md5.Contract
 /-!
 # MD5 on x86-64, as a Merkle–Damgård hash function
 
-Untrusted: everything here is checked by Lean. MD5, with its one
-implementation of the compression function, as a variant of `MdHash`
-(`variant`), from which HMAC and PBKDF2 are emitted
+MD5, with its one implementation of the compression function, as a variant of
+`MdHash` (`variant`), from which HMAC and PBKDF2 are emitted
 (`Generic/MdHash/X86_64/`): its streaming code is the generic Merkle–Damgård
 code (`Stream.params`), its specification `Spec.Hmac.md5S`. Its streaming
 `update` and `finalize` are in its registration file

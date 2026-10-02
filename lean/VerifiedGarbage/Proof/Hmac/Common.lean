@@ -6,10 +6,10 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC-SHA-256: lemmas shared by every target
 
-Untrusted: everything here is checked by Lean. Bytes copied between memory
-regions and read back, hash values written and read, and the streaming states
-`init` and `finalize` leave, about memory alone: every target's proof uses
-them, so they import no target's ISA or proofs.
+Bytes copied between memory regions and read back, hash values written and
+read, and the streaming states `init` and `finalize` leave, about memory
+alone: every target's proof uses them, so they import no target's ISA or
+proofs.
 -/
 
 namespace VG.Proof.Hmac.Common

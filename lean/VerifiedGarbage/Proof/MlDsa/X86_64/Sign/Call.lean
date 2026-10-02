@@ -7,16 +7,15 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # ML-DSA signing on x86-64: calls of verified code
 
-Untrusted: everything here is checked by Lean. A primitive the function
-calls is any code verified against its shared contract (`Spec/MlDsa/Poly.lean`)
-for some stack of `S` bytes that leaves 8 bytes for the return address in
-the `D` bytes the function gives its calls, and that never writes `rsp`
-(`Callee`). A call, with the moves of its arguments before it
-(`glueCall_ok`), leaves the permissions and the callee-saved registers as
+A primitive the function calls is any code verified against its shared contract
+(`Spec/MlDsa/Poly.lean`) for some stack of `S` bytes that leaves 8 bytes for
+the return address in the `D` bytes the function gives its calls, and that
+never writes `rsp` (`Callee`). A call, with the moves of its arguments before
+it (`glueCall_ok`), leaves the permissions and the callee-saved registers as
 they were, and changes memory only within the buffers it writes and the `D`
 bytes of stack below `rsp`. Two runs of it leak the same when the callee's
-public data agree (`glueCall_tr`), and a callee whose result is public in
-its own runs (`RetPub`) returns the same in both (`glueCallRet_tr`).
+public data agree (`glueCall_tr`), and a callee whose result is public in its
+own runs (`RetPub`) returns the same in both (`glueCallRet_tr`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sign

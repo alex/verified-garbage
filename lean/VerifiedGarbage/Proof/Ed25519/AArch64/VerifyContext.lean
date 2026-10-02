@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.PointDecode
 import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyPoints
 import VerifiedGarbage.Proof.Ed25519.Group.Decode
 
-/-! Untrusted: the verification inputs remain readable and outside the workspace. -/
+/-! The verification inputs remain readable and outside the workspace. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.VerifySetup
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyBody
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyFinish
 
-/-! Untrusted: the complete ARM verification equation restores the ABI and returns the specified flag. -/
+/-! The complete ARM verification equation restores the ABI and returns the specified flag. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Ntt
 /-!
 # ML-DSA on x86-64: `vg_mldsa_inv_ntt`
 
-Untrusted: everything here is checked by Lean. As `vg_mldsa_ntt`
-(`Ntt.lean`): each layer is `nttInvLayer` (with `vibfly`, which multiplies
-by `ζ` the difference the other way round: `nttInvBlk_ok`), the eight
-layers are those of `NTT⁻¹` (`nttInv_eq_layers`), and the last pass
+As `vg_mldsa_ntt` (`Ntt.lean`): each layer is `nttInvLayer` (with `vibfly`,
+which multiplies by `ζ` the difference the other way round: `nttInvBlk_ok`),
+the eight layers are those of `NTT⁻¹` (`nttInv_eq_layers`), and the last pass
 multiplies each coefficient by `8347681 = 256⁻¹ mod q` (`vscale_ok`).
 -/
 

@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.Framework.Arm.RegUpd
 /-!
 # ML-DSA on 32-bit ARM: the primitives, and calling them
 
-Untrusted: everything here is checked by Lean. Key generation and
-verification are proven for any implementations of the primitives they call
-that are verified against their contracts with at most `S` bytes of stack,
-and whose frames use at most `S` bytes (`Callee`).
+Key generation and verification are proven for any implementations of the
+primitives they call that are verified against their contracts with at most
+`S` bytes of stack, and whose frames use at most `S` bytes (`Callee`).
 
 A call is the moves of its arguments (`glue`, which computes `glueSt`), then
 the call (`callV`), or, with a fifth argument on the stack, the call in a

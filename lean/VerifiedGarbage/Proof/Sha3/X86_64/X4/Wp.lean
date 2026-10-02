@@ -5,9 +5,8 @@ import VerifiedGarbage.Impl.Sha3.X86_64.X4
 /-!
 # Keccak-f[1600] four times at once on x86-64: one instruction at a time
 
-Untrusted: everything here is checked by Lean. Weakest-precondition rules
-for the AVX2 instructions of `permute4`, in terms of the four 64-bit
-elements of each `ymm` register (`q4`), one per state.
+Weakest-precondition rules for the AVX2 instructions of `permute4`, in terms
+of the four 64-bit elements of each `ymm` register (`q4`), one per state.
 -/
 
 namespace VG.Proof.Sha3.X86_64.X4

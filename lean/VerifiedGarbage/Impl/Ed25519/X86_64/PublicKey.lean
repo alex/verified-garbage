@@ -9,13 +9,13 @@ import VerifiedGarbage.Spec.Sha512.Contract
 `SHA-512(seed)` with the streaming SHA-512 functions (`vg_sha512_init`, and
 `update` and `finalize` made with the compression function `f`, named with
 `suffix`), prunes the first half of the digest (RFC 8032 §5.1.5) and encodes
-`[s]B` with `vg_ed25519_scalar_base_precomputed`.
+`[s]B` with `vg_ed25519_scalar_base`.
 
 Everything runs in one stack frame of seven words, pushed from `rdi`, `rsi`,
 `rdx` and four copies of `rax`: from `rsp`, the pruned scalar (32 bytes),
 then `scratch`, `seed` and `out`, which the calls cannot change. The
 pruned scalar must lie outside `scratch` and `out`, which
-`vg_ed25519_scalar_base_precomputed` writes; it is cleared before the frame
+`vg_ed25519_scalar_base` writes; it is cleared before the frame
 is popped. In `scratch`: the SHA-512 streaming state (192 bytes), the
 working space of `update` and `finalize` (1376 bytes), and the digest (64
 bytes, at 1568).
@@ -55,7 +55,7 @@ def pkFinalizeArgs : List Instr :=
   [.mov .rdi (.mem (stk fScratch)), .mov32 .rsi (.imm 32)] ++ scrPtr .rdx digestAt ++
     scrPtr .rcx shaScratch
 
-/-- `scalar_base_precomputed(out, scalar = rsp, scratch)`. -/
+/-- `scalar_base(out, scalar = rsp, scratch)`. -/
 def pkBaseArgs : List Instr :=
   [.mov .rdi (.mem (stk fOut)), .mov .rsi (.reg .rsp), .mov .rdx (.mem (stk fScratch))]
 
@@ -98,7 +98,7 @@ def pkHash (f : Callee) (suffix : String) : Prog isa :=
 
 /-- The name of the base-point multiplication called, with the field
 multiplications' suffix `fs` (`_adx`, or none). -/
-def scalarBaseName (fs : String) : String := "vg_ed25519_scalar_base_precomputed" ++ fs
+def scalarBaseName (fs : String) : String := "vg_ed25519_scalar_base" ++ fs
 
 /-- The frame's body. -/
 def pkBody (fld : Arith) (fs : String) (f : Callee) (suffix : String) : Prog isa :=
@@ -107,7 +107,7 @@ def pkBody (fld : Arith) (fs : String) (f : Callee) (suffix : String) : Prog isa
     (.seq (.call (scalarBaseName fs) (scalarBase_precomputed fld)) (.block pkWipe))))
 
 /-- `vg_ed25519_public_key` (with `suffix`), with the field multiplications
-`fld`, those of `vg_ed25519_scalar_base_precomputed` with the suffix `fs`. -/
+`fld`, those of `vg_ed25519_scalar_base` with the suffix `fs`. -/
 def publicKey (fld : Arith) (fs : String) (f : Callee) (suffix : String) : Prog isa :=
   .frame (.push [.rdi, .rsi, .rdx, .rax, .rax, .rax, .rax]) (pkBody fld fs f suffix) (.pop .rax 7)
 

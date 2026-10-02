@@ -6,13 +6,12 @@ import VerifiedGarbage.Proof.MlKem.X86_64.CompressEncode
 /-!
 # ML-DSA on x86-64: the contracts of the encodings, for the proofs
 
-Untrusted: everything here is checked by Lean. For each function of this
-group, a contract with the facts of its shared contract
-(`Spec/MlDsa/Poly.lean`) spelled out for x86-64: the arguments in their
-registers, the permitted regions, their disjointness, and the
-postcondition. The proofs are written against these, and
-`Verified.of_correct` moves them to the shared contracts, which imply them.
-Also: `sel_ok`, the branch of `sel` on a 32-bit argument.
+For each function of this group, a contract with the facts of its shared
+contract (`Spec/MlDsa/Poly.lean`) spelled out for x86-64: the arguments in
+their registers, the permitted regions, their disjointness, and the
+postcondition. The proofs are written against these, and `Verified.of_correct`
+moves them to the shared contracts, which imply them. Also: `sel_ok`, the
+branch of `sel` on a 32-bit argument.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Pack

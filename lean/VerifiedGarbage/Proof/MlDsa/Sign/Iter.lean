@@ -4,15 +4,14 @@ import VerifiedGarbage.Proof.MlDsa.Round.Decompose
 /-!
 # ML-DSA: signing polynomial by polynomial
 
-Untrusted: everything here is checked by Lean. An implementation computes
-the vectors of signing one polynomial at a time, in buffers of their own:
-this file states the algorithm's lists as `List.range n` mapped by a
-function of the index, for the matrix, the private key, and each value of
-an iteration of the signing loop (`yF`, `wF`, `zF`, `hF`, …), so that
-`signCommit` (`signCommit_eq`), the validity checks (`iterOut_eq`, with
-each norm checked polynomial by polynomial, `passF`) and `signIteration`
-(`signIteration_eqF`) read as what the implementation computes. The norm
-of `r₀`, a vector of `R` of `LowBits`, is that of its image in `R_q`
+An implementation computes the vectors of signing one polynomial at a time, in
+buffers of their own: this file states the algorithm's lists as `List.range n`
+mapped by a function of the index, for the matrix, the private key, and each
+value of an iteration of the signing loop (`yF`, `wF`, `zF`, `hF`, …), so that
+`signCommit` (`signCommit_eq`), the validity checks (`iterOut_eq`, with each
+norm checked polynomial by polynomial, `passF`) and `signIteration`
+(`signIteration_eqF`) read as what the implementation computes. The norm of
+`r₀`, a vector of `R` of `LowBits`, is that of its image in `R_q`
 (`normR_lowBits`), which the implementation stores.
 -/
 

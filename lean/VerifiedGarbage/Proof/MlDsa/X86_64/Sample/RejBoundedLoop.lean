@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.MlDsa.Sample.RejBounded
 /-!
 # ML-DSA on x86-64: the loop of `vg_mldsa_rej_bounded_poly`
 
-Untrusted: everything here is checked by Lean. The coefficient of an
-accepted half-byte, computed without a branch (`rbVal`), is the one of
-`CoeffFromHalfByte`, modulo `q` (`rbF_eq`, by evaluation on the 16
-half-bytes); so a try does what `hbTry` does (`rbTry_ok`), and an
-iteration what `rbStep` does (`rbBody_ok`).
+The coefficient of an accepted half-byte, computed without a branch (`rbVal`),
+is the one of `CoeffFromHalfByte`, modulo `q` (`rbF_eq`, by evaluation on the
+16 half-bytes); so a try does what `hbTry` does (`rbTry_ok`), and an iteration
+what `rbStep` does (`rbBody_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Sample

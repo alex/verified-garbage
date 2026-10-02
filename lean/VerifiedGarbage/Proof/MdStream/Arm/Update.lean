@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # Streaming Merkle–Damgård hash functions on ARMv7: `update`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`update`, for any hash function (`Md`) and any correct compression function
-(`CalleeOk`). The same structure as the AArch64 proof
-(`VG.Proof.MdStream.AArch64.Update`), with `state` in `r0`, `scratch` in
+The functional correctness of `update`, for any hash function (`Md`) and any
+correct compression function (`CalleeOk`). The same structure as the AArch64
+proof (`VG.Proof.MdStream.AArch64.Update`), with `state` in `r0`, `scratch` in
 `r3`, `data` in `r5`, the bytes left in `r6`, the buffered bytes in `r4`, and
 whether a block is pending in `r7`. Constant time is proven for each hash
-function's code by the taint analysis, calls included, from the initial
-taint `τ₀`.
+function's code by the taint analysis, calls included, from the initial taint
+`τ₀`.
 -/
 
 namespace VG.Proof.MdStream.Arm.Update

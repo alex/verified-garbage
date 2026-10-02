@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Ifma.Bound
 /-!
 # X25519 on x86-64 with AVX512_IFMA: what a block leaves in memory
 
-Untrusted: everything here is checked by Lean. After a block whose stores
-(`Sym.st`) are 32-byte slots apart, each quadword of a slot it stored is its
-term, and every quadword it did not store is as before.
+After a block whose stores (`Sym.st`) are 32-byte slots apart, each quadword
+of a slot it stored is its term, and every quadword it did not store is as
+before.
 -/
 
 namespace VG.Proof.X25519.X86_64.Ifma

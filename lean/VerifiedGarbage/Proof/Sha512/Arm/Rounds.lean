@@ -5,12 +5,11 @@ import Mathlib.Tactic.Set
 /-!
 # SHA-512 on ARMv7: the 64-bit operations
 
-Untrusted: everything here is checked by Lean. Weakest-precondition rules
-for the macros of `VG.Impl.Sha512.Arm` (loads and stores of a 64-bit word,
-64-bit additions, constants, `Σ`/`σ`, `Ch` and `Maj`), each proved once for
-any registers and offsets, in continuation-passing style: the rule for `x`
-proves `WP (x ++ rest)` from a proof of `WP rest` for every state `x` can
-end in.
+Weakest-precondition rules for the macros of `VG.Impl.Sha512.Arm` (loads and
+stores of a 64-bit word, 64-bit additions, constants, `Σ`/`σ`, `Ch` and
+`Maj`), each proved once for any registers and offsets, in
+continuation-passing style: the rule for `x` proves `WP (x ++ rest)` from a
+proof of `WP rest` for every state `x` can end in.
 -/
 
 namespace VG.Proof.Sha512.Arm
@@ -602,8 +601,6 @@ end VG.Proof.Sha512.Arm
 
 /-!
 # SHA-512 on ARMv7: the message schedule and the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Sha512.Arm

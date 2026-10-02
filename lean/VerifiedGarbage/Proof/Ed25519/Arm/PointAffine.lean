@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.Arm.PointEncode
 import VerifiedGarbage.Proof.Ed25519.Arm.Power
 
-/-! Untrusted: affine conversion using the verified inversion chain. -/
+/-! Affine conversion using the verified inversion chain. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm
 

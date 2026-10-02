@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.X86.CallWith
 /-!
 # ML-KEM on x86 (32-bit): pieces of code, correct and constant time
 
-Untrusted: everything here is checked by Lean.
-
 A function is proven piece by piece. `Piece Pre Pub A B c` says that, for
 every initial state `s₀` satisfying `Pre`, `c` runs from any state
 satisfying `A s₀` to one satisfying `B s₀` (`WP`), and that two runs of `c`

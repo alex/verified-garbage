@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sample.RejBoundedBody
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_rej_bounded_poly`, correctness
 
-Untrusted: everything here is checked by Lean. The function runs in pieces:
-the prologue (`J0`), the sponge, whose output is `H(ρ, 544)` (`J6`), the
-branch on `η`, and the loop for `η`, iteration `t` of which starts from
-`Base` with the coefficients `rbFold` samples from the first `t` bytes of
-output stored (`loop_ok`); then the end returns whether there are 256.
+The function runs in pieces: the prologue (`J0`), the sponge, whose output is
+`H(ρ, 544)` (`J6`), the branch on `η`, and the loop for `η`, iteration `t` of
+which starts from `Base` with the coefficients `rbFold` samples from the first
+`t` bytes of output stored (`loop_ok`); then the end returns whether there are 256.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sample.RejBounded

@@ -4,15 +4,14 @@ import VerifiedGarbage.Proof.MlDsa.Sign.Setup
 /-!
 # ML-DSA signing on ARMv7: the function's contract, layout, entry and exit
 
-Untrusted: everything here is checked by Lean. As on x86-64: the contract
-the proof is written against (`signK`, which the shared contract implies),
-the layout of the function's buffers (`sk`, `mu`, `rnd` read, in `r4`, `r5`,
-`r6`; `scratch` and `sig` written, in `r7` and `r8`), what holds of the
-state throughout (`Top`: the permissions and the stack pointer of entry, the
-pointers in their registers, and the caller's `r4`–`r11` and `lr` saved in
-`scratch`), the prologue (`pro_ok`), the return (`topEnd_ok`), branches on
-`r11` (`ifOkElse_ok`, `ifOkElse_tr`) and sequences of pieces indexed by a
-number (`seqR_ok`, `seqR_tr`).
+As on x86-64: the contract the proof is written against (`signK`, which the
+shared contract implies), the layout of the function's buffers (`sk`, `mu`,
+`rnd` read, in `r4`, `r5`, `r6`; `scratch` and `sig` written, in `r7` and
+`r8`), what holds of the state throughout (`Top`: the permissions and the
+stack pointer of entry, the pointers in their registers, and the caller's
+`r4`–`r11` and `lr` saved in `scratch`), the prologue (`pro_ok`), the return
+(`topEnd_ok`), branches on `r11` (`ifOkElse_ok`, `ifOkElse_tr`) and sequences
+of pieces indexed by a number (`seqR_ok`, `seqR_tr`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

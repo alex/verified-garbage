@@ -3,8 +3,6 @@ import VerifiedGarbage.Spec.Scrypt.Contract
 
 /-!
 # Facts about the Salsa20/8 Core specification
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Scrypt

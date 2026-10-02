@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Prims
 /-!
 # ML-DSA signing on x86 (32-bit): calls of the encodings
 
-Untrusted: everything here is checked by Lean. `SimpleBitPack`
-(`sbp_piece`), `BitPack` (`bp_piece`), `BitUnpack` (`bu_piece`) and
-`HintBitPack` (`hbp_piece`, which may leak the hint).
+`SimpleBitPack` (`sbp_piece`), `BitPack` (`bp_piece`), `BitUnpack`
+(`bu_piece`) and `HintBitPack` (`hbp_piece`, which may leak the hint).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

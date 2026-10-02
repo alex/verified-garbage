@@ -4,10 +4,10 @@ import Mathlib.Tactic.Set
 /-!
 # ML-KEM on AArch64: `vg_mlkem_ntt`
 
-Untrusted: everything here is checked by Lean. Four butterflies of a block
-in vectors (`vstep`), the `len / 4` of them of a block (`block_step`), the
-blocks of a layer with `len ≥ 4` (`layer_step`), the layer with `len = 2`
-two blocks at a time (`pair_step`), and the seven layers (`ntt_eq_layers`).
+Four butterflies of a block in vectors (`vstep`), the `len / 4` of them of a
+block (`block_step`), the blocks of a layer with `len ≥ 4` (`layer_step`), the
+layer with `len = 2` two blocks at a time (`pair_step`), and the seven layers
+(`ntt_eq_layers`).
 -/
 
 namespace VG.Proof.MlKem.AArch64.Ntt

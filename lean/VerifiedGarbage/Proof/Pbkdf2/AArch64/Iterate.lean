@@ -9,11 +9,10 @@ import VerifiedGarbage.Impl.Pbkdf2.AArch64
 /-!
 # PBKDF2-HMAC's iteration over a Merkle–Damgård hash function on AArch64
 
-Untrusted: everything here is checked by Lean. The same proof as on x86-64
-(`Proof/Pbkdf2/X86_64/Iterate.lean`): the iteration
-(`Impl/Pbkdf2/AArch64.lean`) is correct for any hash function the generic
-streaming proofs describe (`Md`), whose code stores the length field and
-writes the digest as `Shape` says, with any correct compression function
+The same proof as on x86-64 (`Proof/Pbkdf2/X86_64/Iterate.lean`): the
+iteration (`Impl/Pbkdf2/AArch64.lean`) is correct for any hash function the
+generic streaming proofs describe (`Md`), whose code stores the length field
+and writes the digest as `Shape` says, with any correct compression function
 (`CompOk`), used as a black box through its proof; `Md.hmac_step` says that
 its two compressions per step compute HMAC.
 

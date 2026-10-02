@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.MlDsa.Sample.Mem
 /-!
 # ML-DSA: `SampleInBall` a byte at a time
 
-Untrusted: everything here is checked by Lean. An implementation that runs
-the loop of `SampleInBall` (Algorithm 29) over a fixed number of bytes of
-output, doing nothing once `i = 256`, leaves `bFold τ h (c, i) out`
-(`bStep` is one iteration): the polynomial and `i`. It computes
-`SampleInBall` if `i` reaches 256 (`sampleInBall_some`), and otherwise so
-does no shorter output (`sampleInBall_none`). The sign bits `h` are the bits
-of the first 8 bytes of output (`bytesToBits_getD`).
+An implementation that runs the loop of `SampleInBall` (Algorithm 29) over a
+fixed number of bytes of output, doing nothing once `i = 256`, leaves `bFold τ
+h (c, i) out` (`bStep` is one iteration): the polynomial and `i`. It computes
+`SampleInBall` if `i` reaches 256 (`sampleInBall_some`), and otherwise so does
+no shorter output (`sampleInBall_none`). The sign bits `h` are the bits of the
+first 8 bytes of output (`bytesToBits_getD`).
 -/
 
 namespace VG.Proof.MlDsa.Sample

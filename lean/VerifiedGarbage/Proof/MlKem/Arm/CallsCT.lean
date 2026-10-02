@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem.Arm.HashCT
 /-!
 # ML-KEM-768 on 32-bit ARM: calling the primitives in constant time
 
-Untrusted: everything here is checked by Lean. The taint analysis proves
-the primitives constant time from any state whose argument registers are
-public (`addT`, …), so two runs that call one with the same arguments leak
-the same trace (`RelCT.callT`), whatever else holds of them.
-`vg_mlkem_sample_ntt` leaks its seed, so two runs that call it must also
+The taint analysis proves the primitives constant time from any state whose
+argument registers are public (`addT`, …), so two runs that call one with the
+same arguments leak the same trace (`RelCT.callT`), whatever else holds of
+them. `vg_mlkem_sample_ntt` leaks its seed, so two runs that call it must also
 have the same seed (`sample_ct`).
 -/
 

@@ -6,8 +6,8 @@ import VerifiedGarbage.Proof.Ed25519.Window
 /-!
 # Verification's bytes: two windows per byte of the scalars
 
-Untrusted. Byte `i` of `k` (and of `S`) gives two digits, high nibble
-first; after it, the accumulator represents `[k / 256^i]A - [S / 256^i]B`.
+Byte `i` of `k` (and of `S`) gives two digits, high nibble first; after it,
+the accumulator represents `[k / 256^i]A - [S / 256^i]B`.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

@@ -6,9 +6,8 @@ import VerifiedGarbage.Spec.X25519.Contract
 /-!
 # X25519 on 32-bit ARM: verified
 
-Untrusted: everything here is checked by Lean. `vg_x25519` meets the shared
-contract of `Spec/X25519/Contract.lean`: the proof against `x25519Arm`,
-which it implies, and a state satisfying it.
+`vg_x25519` meets the shared contract of `Spec/X25519/Contract.lean`: the
+proof against `x25519Arm`, which it implies, and a state satisfying it.
 -/
 
 namespace VG.Proof.X25519.Arm

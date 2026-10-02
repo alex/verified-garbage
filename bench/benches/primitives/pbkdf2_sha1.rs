@@ -2,8 +2,6 @@
 
 use criterion::Criterion;
 
-/// The library modules whose code these benchmarks run (see
-/// `ci/bench_arches.py`): this one and those it calls.
 pub const USES: &[&str] = &["pbkdf2_sha1", "hmac_sha1", "sha1"];
 
 /// PBKDF2-HMAC-SHA-1 of a 32-byte password, deriving one block, with the

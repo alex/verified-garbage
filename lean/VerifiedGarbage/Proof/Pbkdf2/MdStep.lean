@@ -5,15 +5,14 @@ import VerifiedGarbage.Spec.Pbkdf2.Generic
 /-!
 # PBKDF2-HMAC over a Merkle–Damgård hash function: one step as two compressions
 
-Untrusted: everything here is checked by Lean. For a key `K₀` of one block,
-both hashes of HMAC of a `D`-byte `U` are of `B + D`-byte messages: a block
-(`K₀ ⊕ ipad` or `K₀ ⊕ opad`) whose compression is the hash value of the
-streaming state `init` leaves, then `D` bytes, which the padding (`pad`)
-completes to a second block (`block`). So a step of PBKDF2's iteration is two
-compressions (`step`), for any hash function the streaming proofs describe
-(`Md`), whatever the target. `Link` is what ties a hash function of the
-specification (`StreamingHash`) to its `Md`; HMAC's outer hash, of a key's
-outer block and an inner digest, is likewise one compression
+For a key `K₀` of one block, both hashes of HMAC of a `D`-byte `U` are of `B +
+D`-byte messages: a block (`K₀ ⊕ ipad` or `K₀ ⊕ opad`) whose compression is
+the hash value of the streaming state `init` leaves, then `D` bytes, which the
+padding (`pad`) completes to a second block (`block`). So a step of PBKDF2's
+iteration is two compressions (`step`), for any hash function the streaming
+proofs describe (`Md`), whatever the target. `Link` is what ties a hash
+function of the specification (`StreamingHash`) to its `Md`. HMAC's outer
+hash, of a key's outer block and an inner digest, is likewise one compression
 (`Link.hash_block`), which HMAC's `finalize` computes.
 -/
 

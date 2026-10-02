@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.RowTail
 /-!
 # X448 on x86 (32-bit): one multiplication row
 
-Untrusted: everything here is checked by Lean. Bounded input limbs and
-previous product digits keep every multiply-add within a 32-bit word.
+Bounded input limbs and previous product digits keep every multiply-add within
+a 32-bit word.
 -/
 
 namespace VG.Proof.X448.X86

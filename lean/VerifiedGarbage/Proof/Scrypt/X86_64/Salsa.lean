@@ -12,8 +12,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 
 /-!
 # The Salsa20/8 Core on x86-64: the rounds
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Scrypt.X86_64
@@ -267,8 +265,6 @@ end VG.Proof.Scrypt.X86_64
 
 /-!
 # The Salsa20/8 Core on x86-64: loading, finishing, saving and restoring
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Scrypt
@@ -276,10 +272,8 @@ namespace VG.Proof.Scrypt
 open Spec.Scrypt
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32; 16])`:
-replaces the 64 bytes at `b` by their Salsa20/8 Core.
+/-- X86-64 contract for `vg_salsa20_8(b: *mut [u8; 64], scratch: *mut [u32;
+16])`: replaces the 64 bytes at `b` by their Salsa20/8 Core.
 
 The code may read and write `b` and `scratch` (64 bytes each; the contents of
 `scratch` on exit are unspecified), which may not overlap each other or the
@@ -612,8 +606,6 @@ end VG.Proof.Scrypt.X86_64
 
 /-!
 # The Salsa20/8 Core on x86-64: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.Scrypt.X86_64

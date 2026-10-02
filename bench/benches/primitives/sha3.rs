@@ -2,8 +2,6 @@
 
 use criterion::Criterion;
 
-/// The library modules whose code these benchmarks run (see
-/// `ci/bench_arches.py`).
 pub const USES: &[&str] = &["sha3"];
 
 #[cfg(any(

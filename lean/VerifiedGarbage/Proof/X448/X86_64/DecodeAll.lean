@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86_64.DecodeStore
 /-!
 # X448 on x86-64: all input-coordinate bytes
 
-Untrusted: everything here is checked by Lean. Eight limb pairs fill the
-two coordinate slots. The input lies outside the writable working space.
+Eight limb pairs fill the two coordinate slots. The input lies outside the
+writable working space.
 -/
 
 namespace VG.Proof.X448.X86_64

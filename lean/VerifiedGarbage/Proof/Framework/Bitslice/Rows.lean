@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Lanes
 /-!
 # The row domain: bitwise circuits with constants that differ by position
 
-Untrusted: everything here is checked by Lean.
-
 Like the truth-table domain (`Table.lean`), but for circuits whose constants
 differ from one bit position to the next (a multiplexer tree selecting
 among constant words, say): code that combines words only with `xor`, `and`

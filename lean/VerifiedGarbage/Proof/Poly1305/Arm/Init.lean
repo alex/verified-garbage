@@ -7,9 +7,8 @@ import VerifiedGarbage.Proof.Framework.PowLit
 /-!
 # Poly1305 on 32-bit ARM: `init`
 
-Untrusted: everything here is checked by Lean. The key is copied to
-`[24, 56)` of the state, a word at a time, and the accumulator's six words
-are zeroed.
+The key is copied to `[24, 56)` of the state, a word at a time, and the
+accumulator's six words are zeroed.
 -/
 
 open VG.PowLit

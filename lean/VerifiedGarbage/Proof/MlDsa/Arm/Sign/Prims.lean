@@ -4,14 +4,13 @@ import VerifiedGarbage.Proof.Framework.Arm.Contract
 /-!
 # ML-DSA signing on ARMv7: the primitives it calls
 
-Untrusted: everything here is checked by Lean. What the proofs need of the
-implementations of the primitives (`PrimsOk`): each is verified against its
-shared contract (`Spec/MlDsa/Poly.lean`) for a stack that, with the frame of
-its stack arguments, fits in the `D` bytes the function gives its calls
-(`Callee`); and, of the two samplers whose result the function branches on,
-that the result is public in their own runs (`RetPub`) and that they
-succeed only when the algorithm finishes within `maxBounds`, the bounds the
-leakage of signing is stated for.
+What the proofs need of the implementations of the primitives (`PrimsOk`):
+each is verified against its shared contract (`Spec/MlDsa/Poly.lean`) for a
+stack that, with the frame of its stack arguments, fits in the `D` bytes the
+function gives its calls (`Callee`); and, of the two samplers whose result the
+function branches on, that the result is public in their own runs (`RetPub`)
+and that they succeed only when the algorithm finishes within `maxBounds`, the
+bounds the leakage of signing is stated for.
 
 A callee's precondition is stated of its entry state `E` (`Ent`): its stack
 pointer leaves `S` bytes below it, apart from the buffers of the layout, and

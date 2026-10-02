@@ -6,8 +6,8 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on x86-64: `vg_mldsa_simple_bit_pack`
 
-Untrusted: everything here is checked by Lean. The loop is proven once for
-every width (`packLoop_ok`), and the function by its three cases.
+The loop is proven once for every width (`packLoop_ok`), and the function by
+its three cases.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Pack

@@ -9,10 +9,9 @@ import Mathlib.Tactic.Tauto
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_compress_encode`
 
-Untrusted: everything here is checked by Lean. The branch on `d` depends
-only on `d`; each branch is a loop over groups of coefficients, packed with
-`accSteps` (`Pack.lean`) into the bytes of `compressEncode1`,
-`compressEncode4` and `compressEncode10_*` (`Encode.lean`).
+The branch on `d` depends only on `d`; each branch is a loop over groups of
+coefficients, packed with `accSteps` (`Pack.lean`) into the bytes of
+`compressEncode1`, `compressEncode4` and `compressEncode10_*` (`Encode.lean`).
 -/
 
 namespace VG.Proof.MlKem.X86.CompressEncode

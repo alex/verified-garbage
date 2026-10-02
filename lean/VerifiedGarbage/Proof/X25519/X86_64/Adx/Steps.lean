@@ -4,14 +4,13 @@ import VerifiedGarbage.Impl.X25519.X86_64.Adx
 /-!
 # X25519 on x86-64: the steps of the BMI2/ADX field arithmetic
 
-Untrusted: everything here is checked by Lean. The steps `mulX`, `sqrX` and
-`a24X` are made of (see `Impl/X25519/X86_64/Adx.lean`), each run
-symbolically once, for any registers: a product whose low half is added
-through CF (`mulAcc`), or through OF while its high half is added through CF
-(`madd`), the last of a row (`maddLast`), a word doubled through CF while
-another is added through OF (`dblAdd`), and the instructions around them.
-Each states what it computes as an equation on numbers, the carries in and
-out included, which `omega` composes.
+The steps `mulX`, `sqrX` and `a24X` are made of (see
+`Impl/X25519/X86_64/Adx.lean`), each run symbolically once, for any registers:
+a product whose low half is added through CF (`mulAcc`), or through OF while
+its high half is added through CF (`madd`), the last of a row (`maddLast`), a
+word doubled through CF while another is added through OF (`dblAdd`), and the
+instructions around them. Each states what it computes as an equation on
+numbers, the carries in and out included, which `omega` composes.
 -/
 
 namespace VG.Proof.X25519.X86_64

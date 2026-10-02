@@ -4,19 +4,17 @@ import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Instances
 /-!
 # HMAC over any Merkle–Damgård hash function on x86-64: `finalize`
 
-Untrusted: everything here is checked by Lean. HMAC's `finalize`
-(`Impl/Pbkdf2/Md/X86_64.lean`) starts as the generic one
+HMAC's `finalize` (`Impl/Pbkdf2/Md/X86_64.lean`) starts as the generic one
 (`Proof/Hmac/Generic/X86_64/Finalize.lean`), finalizing the inner state into
-`scratch`; then it computes the outer hash with one compression, as
-`iterate` does (`Proof/Pbkdf2/X86_64/Iterate.lean`): it writes the outer
-hash value over the inner state's and, into its buffer, the inner digest
-and the padding (`finMid`, `mid_ok`), compresses that block (`cmp_ok`) and
-writes the digest of the result to `out` (`finOut`, `out_ok`). That this is
-the outer hash is `Md.Link.hash_block`. Everything up to the inner digest is
-the generic proof's, for the hash function's streaming functions
-(`HashOK.stream`); constant time likewise, from the taint checks of the
-pieces between the calls (`Checks`) and the compression function's own
-proof (`compressAt_rel`).
+`scratch`; then it computes the outer hash with one compression, as `iterate`
+does (`Proof/Pbkdf2/X86_64/Iterate.lean`): it writes the outer hash value over
+the inner state's and, into its buffer, the inner digest and the padding
+(`finMid`, `mid_ok`), compresses that block (`cmp_ok`) and writes the digest
+of the result to `out` (`finOut`, `out_ok`). That this is the outer hash is
+`Md.Link.hash_block`. Everything up to the inner digest is the generic
+proof's, for the hash function's streaming functions (`HashOK.stream`);
+constant time likewise, from the taint checks of the pieces between the calls
+(`Checks`) and the compression function's own proof (`compressAt_rel`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64.HmacFin

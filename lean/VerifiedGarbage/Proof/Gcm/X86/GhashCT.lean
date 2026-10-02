@@ -6,8 +6,6 @@ import VerifiedGarbage.Spec.Gcm
 /-!
 # GHASH on x86 (32-bit): the contract, and constant time
 
-Untrusted: everything here is checked by Lean.
-
 The contract the proof is written against, and the constant-time half of
 the proof: the taint analysis (`VG.X86.Taint`) starts with `esp` public
 and knows where the arguments are and which of them are the base addresses
@@ -21,13 +19,10 @@ namespace VG.Proof.Gcm
 open Spec.Gcm
 
 open _root_.VG.X86 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86 (32-bit) contract for
-`vg_ghash(h: *const [u8; 16], y: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 32])`,
-whose arguments are on the stack: replaces the block `Y` at `y` with
-`GHASH_H` continued from `Y` over the `n` blocks at `data`, where `H` is the
-block at `h`.
+/-- X86 (32-bit) contract for `vg_ghash(h: *const [u8; 16], y: *mut [u8; 16],
+data: *const [u8; 16], n: usize, scratch: *mut [u64; 32])`, whose arguments are
+on the stack: replaces the block `Y` at `y` with `GHASH_H` continued from `Y`
+over the `n` blocks at `data`, where `H` is the block at `h`.
 
 The code may read `h` (16 bytes), `data` (`16 n` bytes) and the arguments
 (20 bytes above the return address), and read and write `y` (16 bytes) and

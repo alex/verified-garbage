@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.CallArith
 /-!
 # ML-DSA on AArch64: calls of the samplers
 
-Untrusted: everything here is checked by Lean. For each call of
-`vg_mldsa_rej_ntt_poly`, `vg_mldsa_rej_bounded_poly` and
-`vg_mldsa_sample_in_ball`: what it needs of the layout (`…Chk`), what it
-does (`…_ok`), and that two runs whose layout registers agree, and whose
-sampler leaks the same, leak the same (`…_tr`).
+For each call of `vg_mldsa_rej_ntt_poly`, `vg_mldsa_rej_bounded_poly` and
+`vg_mldsa_sample_in_ball`: what it needs of the layout (`…Chk`), what it does
+(`…_ok`), and that two runs whose layout registers agree, and whose sampler
+leaks the same, leak the same (`…_tr`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

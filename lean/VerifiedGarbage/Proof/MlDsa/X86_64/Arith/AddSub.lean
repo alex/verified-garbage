@@ -6,10 +6,10 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 /-!
 # ML-DSA on x86-64: `vg_mldsa_add` and `vg_mldsa_sub`
 
-Untrusted: everything here is checked by Lean. Each iteration of the loop
-stores four coefficients to `f` (`addBody_ok`, `subBody_ok`), each `csubL`
-of the sum (`caddL` of the difference), whose value is `addD_toNat`
-(`subD_toNat`); the loop leaves `f` with all 256 (`AddSub.fn_ok`).
+Each iteration of the loop stores four coefficients to `f` (`addBody_ok`,
+`subBody_ok`), each `csubL` of the sum (`caddL` of the difference), whose
+value is `addD_toNat` (`subD_toNat`); the loop leaves `f` with all 256
+(`AddSub.fn_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

@@ -3,11 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.Pack.HintUnpackMain
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_hint_bit_unpack`, the end
 
-Untrusted: everything here is checked by Lean. After the polynomials, the
-bytes from the index up to `ω` must be zero (`trail_piece`; the spec's
-`huTrail`): the index ends at `ω`, or 256 if a check failed (`fin`); the
-return value is 1 iff it is at most `ω` (`ret_piece`). Then the whole
-function (`piece`) and its contract (`hintBitUnpack_verified`).
+After the polynomials, the bytes from the index up to `ω` must be zero
+(`trail_piece`; the spec's `huTrail`): the index ends at `ω`, or 256 if a
+check failed (`fin`); the return value is 1 iff it is at most `ω`
+(`ret_piece`). Then the whole function (`piece`) and its contract
+(`hintBitUnpack_verified`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Pack.Hint

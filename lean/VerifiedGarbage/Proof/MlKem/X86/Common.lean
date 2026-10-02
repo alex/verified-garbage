@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.MlKem.Mem
 /-!
 # ML-KEM on x86 (32-bit): common lemmas
 
-Untrusted: everything here is checked by Lean. Addresses of coefficients
-and bytes at a 32-bit pointer, the states a straight-line block leaves
-(`Only`), and the arithmetic of `condSub`.
+Addresses of coefficients and bytes at a 32-bit pointer, the states a
+straight-line block leaves (`Only`), and the arithmetic of `condSub`.
 -/
 
 namespace VG.Proof.MlKem.X86

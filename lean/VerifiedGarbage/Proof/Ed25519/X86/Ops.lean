@@ -3,12 +3,12 @@ import VerifiedGarbage.Proof.Ed25519.X86.Arith
 /-!
 # Ed25519 on x86 (32-bit): sequences of field operations
 
-Untrusted: everything here is checked by Lean. The elements the ladder and the
-inversion compute with are at the *slots* of the working space (offsets
-`64 + 32 i` below `T`), and their values `F m x q` in `GF(p)`. A sequence of
-operations (`ops`) leaves in each slot the value of an evaluation of the
-operations on the values of the slots (`run`), and changes no memory
-outside the slots and `T`. Also: `copy`, and `cswap` by a mask.
+The elements the ladder and the inversion compute with are at the *slots* of
+the working space (offsets `64 + 32 i` below `T`), and their values `F m x q`
+in `GF(p)`. A sequence of operations (`ops`) leaves in each slot the value of
+an evaluation of the operations on the values of the slots (`run`), and
+changes no memory outside the slots and `T`. Also: `copy`, and `cswap` by a
+mask.
 -/
 
 namespace VG.Proof.Ed25519.X86

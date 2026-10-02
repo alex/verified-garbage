@@ -2,13 +2,13 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Backend
 import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.YNtt
 import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.YMul
 import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.YAddSub
+import VerifiedGarbage.Proof.MlDsa.X86_64.Round.YHint
 
 /-!
 # ML-DSA on x86-64: the polynomial arithmetic with AVX2, as an `ArithImpl`
 
-Untrusted: everything here is checked by Lean. The AVX2 code
-(`Impl/MlDsa/X86_64/Arith/Avx2.lean`) meets what the callers of the
-polynomial arithmetic need of it (`FnOk`), and requires AVX and AVX2.
+The AVX2 code (`Impl/MlDsa/X86_64/Arith/Avx2.lean`) meets what the callers of
+the polynomial arithmetic need of it (`FnOk`), and requires AVX and AVX2.
 -/
 
 namespace VG.Proof.MlDsa.X86_64
@@ -31,8 +31,16 @@ def ArithImpl.avx2 : ArithImpl where
         (by decide +kernel)
       sub := FnOk.of Arith.subY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
+      highBits := FnOk.of Round.highBitsY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      lowBits := FnOk.of Round.lowBitsY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      normLt := FnOk.of Round.normLtY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
+      makeHint := FnOk.of Round.makeHintY_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
+        (by decide +kernel)
       rej4 := ⟨Rej4.rejNTT4Avx2_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel), by decide +kernel,
-        by decide +kernel, Code.all_of_allInstrs (by decide +kernel)⟩ }
+        by decide +kernel, Code.all_of_allInstrs (by decide +kernel), fun _ _ _ => Rej4.rejNTT4Avx2_ret⟩ }
   features := ["avx", "avx2"]
 
 end VG.Proof.MlDsa.X86_64

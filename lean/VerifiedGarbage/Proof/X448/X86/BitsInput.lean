@@ -4,8 +4,8 @@ import VerifiedGarbage.Proof.X448.X86.Frame
 /-!
 # X448 on x86 (32-bit): loading the scalar argument
 
-Untrusted: everything here is checked by Lean. Scratch-only setup leaves
-the scalar pointer and input bytes available for expansion.
+Scratch-only setup leaves the scalar pointer and input bytes available for
+expansion.
 -/
 
 namespace VG.Proof.X448.X86

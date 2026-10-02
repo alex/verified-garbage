@@ -5,13 +5,12 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # Streaming BLAKE2 on ARMv7: common lemmas
 
-Untrusted: everything here is checked by Lean. The contracts the proofs of
-`init`, `update` and `finalize` are written against (for any word size, as
-on AArch64: `Proof/Blake2/AArch64/Stream/Common.lean`), weakest-precondition
-rules for the instructions the MD streaming proofs do not cover, 64-bit
-counts in register pairs, the number of buffered bytes, the loops copying
-bytes into the buffer and zeroing it, and saving and restoring the caller's
-registers.
+The contracts the proofs of `init`, `update` and `finalize` are written
+against (for any word size, as on AArch64:
+`Proof/Blake2/AArch64/Stream/Common.lean`), weakest-precondition rules for the
+instructions the MD streaming proofs do not cover, 64-bit counts in register
+pairs, the number of buffered bytes, the loops copying bytes into the buffer
+and zeroing it, and saving and restoring the caller's registers.
 -/
 
 namespace VG.Proof.Blake2

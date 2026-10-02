@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.CombStep
 /-!
 # The comb's loop
 
-Untrusted. After step `j`, the accumulator `A` (slots 0–3) represents
-`[G + Σ_{i < j} d_{2i+1} 256^i]B` and `B` (slots 17–20) represents
-`[G + Σ_{i < j} d_{2i} 256^i]B` (`CombDigits`); at the end, `16 A + B` is the
-scalar's multiple.
+After step `j`, the accumulator `A` (slots 0–3) represents `[G + Σ_{i < j}
+d_{2i+1} 256^i]B` and `B` (slots 17–20) represents `[G + Σ_{i < j} d_{2i}
+256^i]B` (`CombDigits`); at the end, `16 A + B` is the scalar's multiple.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

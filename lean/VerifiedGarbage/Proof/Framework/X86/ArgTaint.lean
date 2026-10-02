@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.X86.Taint
 /-!
 # A taint state for code reading its stack arguments (x86, 32-bit)
 
-Untrusted: everything here is checked by Lean.
-
 Pieces of code between calls (proved by relating two runs, `RelCT`) may read
 their function's stack arguments again: `argTaint rs n` makes `esp`, the
 registers `rs` and the `n - 4` bytes of arguments public, which two runs

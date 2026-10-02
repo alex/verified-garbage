@@ -5,12 +5,12 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # AES-CMAC on x86: `vg_cmac_aes_finalize`, the last block
 
-Untrusted: everything here is checked by Lean. The steps that form the last
-block `Mₙ` (§6.2 step 4) in the counter block, before the chaining value is
-XORed in: `Mₙ* ⊕ K1` for a complete block (`full_wp`), else `Mₙ*` copied a
-byte at a time onto zeros (`copy_wp`), `0x80` after it, and the block XORed
-with `K2` (`partial_wp`). The arguments are those of `vg_cmac_aes_update`
-but `last` (`Dp`) and `last_len` (`N`), so its abbreviations serve.
+The steps that form the last block `Mₙ` (§6.2 step 4) in the counter block,
+before the chaining value is XORed in: `Mₙ* ⊕ K1` for a complete block
+(`full_wp`), else `Mₙ*` copied a byte at a time onto zeros (`copy_wp`), `0x80`
+after it, and the block XORed with `K2` (`partial_wp`). The arguments are
+those of `vg_cmac_aes_update` but `last` (`Dp`) and `last_len` (`N`), so its
+abbreviations serve.
 -/
 
 namespace VG.Proof.CmacAes.X86

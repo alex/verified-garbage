@@ -11,8 +11,6 @@ import VerifiedGarbage.Spec.Gcm.Contract
 /-!
 # GHASH on ARMv7: the whole function
 
-Untrusted: everything here is checked by Lean.
-
 The saves and restores of the callee-saved registers are checked by
 evaluation in the naming domain (`Bitslice.names`); a block is `load`
 (`Y ⊕ X` over `Y`, and `V := H`), the 16 bytes of steps (`Step.lean`) and
@@ -24,9 +22,7 @@ namespace VG.Proof.Gcm
 open Spec.Gcm
 
 open VG.Arm in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-32-bit ARM contract for `vg_ghash(h = r0, y = r1, data = r2, n = r3,
+/-- 32-bit ARM contract for `vg_ghash(h = r0, y = r1, data = r2, n = r3,
 scratch = [sp])`: replaces the block `Y` at `y` with `GHASH_H` continued from
 `Y` over the `n` blocks at `data`, where `H` is the block at `h`.
 

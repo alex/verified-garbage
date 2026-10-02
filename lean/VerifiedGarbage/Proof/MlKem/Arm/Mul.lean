@@ -6,11 +6,10 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on 32-bit ARM: `vg_mlkem_multiply_ntts`
 
-Untrusted: everything here is checked by Lean. The registers saved and the
-table of the `γᵢ` stored (`setup_ok`); then one pair of coefficients per
-iteration (`multiplyNTTs_even`, `multiplyNTTs_odd`), whose body is
-symbolically executed once for any pointers (`body_ok`); the invariant
-says which coefficients of `h` are written, and that `h` is the only
+The registers saved and the table of the `γᵢ` stored (`setup_ok`); then one
+pair of coefficients per iteration (`multiplyNTTs_even`, `multiplyNTTs_odd`),
+whose body is symbolically executed once for any pointers (`body_ok`); the
+invariant says which coefficients of `h` are written, and that `h` is the only
 memory written since the setup (`Inv`); then the registers restored.
 -/
 

@@ -3,14 +3,13 @@ import VerifiedGarbage.Proof.MlDsa.X86.Pack.Loop
 /-!
 # ML-DSA on x86 (32-bit): the encodings' leaves, loading and branching
 
-Untrusted: everything here is checked by Lean. Each of the encodings is a
-leaf with one input and one output buffer, and its arguments on the stack
-(`Lay`: what the shared contract says of them on x86). After the leaf's
-push, it loads its input pointer (argument `i`) into `esi`, its output
-pointer (argument `o`) into `edi`, and its width (argument `w`) into `eax`
-(`ldArgs_piece`, `ldPtrs_piece`), and branches on the width (`sel_piece`)
-to one of the loops of `Loop.lean`. The branches depend only on the width,
-which is public.
+Each of the encodings is a leaf with one input and one output buffer, and its
+arguments on the stack (`Lay`: what the shared contract says of them on x86).
+After the leaf's push, it loads its input pointer (argument `i`) into `esi`,
+its output pointer (argument `o`) into `edi`, and its width (argument `w`)
+into `eax` (`ldArgs_piece`, `ldPtrs_piece`), and branches on the width
+(`sel_piece`) to one of the loops of `Loop.lean`. The branches depend only on
+the width, which is public.
 -/
 
 namespace VG.Proof.MlDsa.X86.Pack

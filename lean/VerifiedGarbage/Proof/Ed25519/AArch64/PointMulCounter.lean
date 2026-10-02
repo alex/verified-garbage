@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.AArch64.PointMul
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointPowers
 import VerifiedGarbage.Proof.Ed25519.AArch64.CounterKeep
 
-/-! Untrusted: the public batch counter survives field and table operations. -/
+/-! The public batch counter survives field and table operations. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 

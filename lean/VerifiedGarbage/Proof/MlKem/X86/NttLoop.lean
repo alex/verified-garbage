@@ -6,14 +6,13 @@ import VerifiedGarbage.Spec.MlKem.Poly
 /-!
 # ML-KEM on x86 (32-bit): the layers of the NTT and its inverse
 
-Untrusted: everything here is checked by Lean. A layer
-(`Impl.MlKem.X86.layerCode body dz len`) is a loop over its blocks, each a
-loop of butterflies `body`; this file proves it once for any butterfly that
-computes a function `op` of the polynomial (`Bfly`), with `ebp` moving up
+A layer (`Impl.MlKem.X86.layerCode body dz len`) is a loop over its blocks,
+each a loop of butterflies `body`; this file proves it once for any butterfly
+that computes a function `op` of the polynomial (`Bfly`), with `ebp` moving up
 (`dz = zUp`) or down (`zDown`) the zeta table, from its entry state `s₀`
-(`vg_mlkem_ntt(f, scratch)` or `vg_mlkem_inv_ntt(f, scratch)`, after the
-setup that stores the table in `scratch` and `f + 1024` in the argument
-slot of `scratch`).
+(`vg_mlkem_ntt(f, scratch)` or `vg_mlkem_inv_ntt(f, scratch)`, after the setup
+that stores the table in `scratch` and `f + 1024` in the argument slot of
+`scratch`).
 
 * `blockN op H len k start t`: the first `t` butterflies of a block;
   `layerN op kf P len c`: the first `c` blocks of a layer, block `c` with

@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 /-!
 # Streaming BLAKE2 on x86-64: constant time
 
-Untrusted: everything here is checked by Lean. The taint analysis of `init`,
-`update` and `finalize` (the compression function they call included), from
-the public arguments: the pointers, `outlen`, `keylen`, `count` and `len`.
+The taint analysis of `init`, `update` and `finalize` (the compression
+function they call included), from the public arguments: the pointers,
+`outlen`, `keylen`, `count` and `len`.
 -/
 
 namespace VG.Proof.Blake2.X86_64.Stream

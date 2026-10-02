@@ -7,10 +7,9 @@ import VerifiedGarbage.Proof.Framework.X86_64.Abi
 /-!
 # TDEA-CMAC on x86-64: `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness and constant
-time under this target's contracts (`Contract.lean`), and the shared
-contracts of `Spec/Cmac/TripleDesContract.lean`, which imply them, with no
-stack: the functions call nothing.
+Correctness and constant time under this target's contracts (`Contract.lean`),
+and the shared contracts of `Spec/Cmac/TripleDesContract.lean`, which imply
+them, with no stack: the functions call nothing.
 -/
 
 namespace VG.Proof.CmacTripleDes.X86_64

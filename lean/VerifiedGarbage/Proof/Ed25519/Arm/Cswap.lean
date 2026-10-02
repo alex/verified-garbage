@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.Ed25519.Arm.Field
 /-!
 # Ed25519 on ARMv7: the conditional swap
 
-Untrusted: everything here is checked by Lean. `cswap x y` swaps the
-elements at `x` and `y` if the mask in `r9` is `-1` and leaves them if it is
-`0` (`cswap_ok`).
+`cswap x y` swaps the elements at `x` and `y` if the mask in `r9` is `-1` and
+leaves them if it is `0` (`cswap_ok`).
 -/
 
 namespace VG.Proof.Ed25519.Arm

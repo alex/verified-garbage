@@ -1,7 +1,7 @@
 import VerifiedGarbage.Spec.Ed25519.Contract
 import VerifiedGarbage.Proof.X25519.Bytes
 
-/-! Untrusted: reuse the shared little-endian memory lemmas. -/
+/-! Reuse the shared little-endian memory lemmas. -/
 
 namespace VG.Proof.Ed25519
 

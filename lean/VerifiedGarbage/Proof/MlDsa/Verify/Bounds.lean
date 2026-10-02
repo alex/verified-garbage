@@ -4,12 +4,12 @@ import VerifiedGarbage.Proof.Sha3.Stream
 /-!
 # ML-DSA: larger bounds give the same results
 
-Untrusted: everything here is checked by Lean. `H` and `G` squeezed to
-fewer bytes give a prefix of their longer outputs (`H_take`, `G_take`), so
-the samplers `RejNTTPoly` and `SampleInBall`, which stop once they have
-their output, give the same result from any larger bound once they succeed
-(`rejNTTPoly_mono`, `sampleInBall_mono`); and so does `verifyMu`
-(`verifyMu_mono`), for bounds that are larger in the two loops it has.
+`H` and `G` squeezed to fewer bytes give a prefix of their longer outputs
+(`H_take`, `G_take`), so the samplers `RejNTTPoly` and `SampleInBall`, which
+stop once they have their output, give the same result from any larger bound
+once they succeed (`rejNTTPoly_mono`, `sampleInBall_mono`); and so does
+`verifyMu` (`verifyMu_mono`), for bounds that are larger in the two loops it
+has.
 -/
 
 namespace VG.Proof.MlDsa.Verify

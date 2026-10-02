@@ -7,9 +7,8 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on x86 (32-bit): `vg_mlkem_add` and `vg_mlkem_sub`
 
-Untrusted: everything here is checked by Lean. Both are `mapLoop` around an
-arithmetic step; the loop is proven once for any step that computes a
-function `F` of the two coefficients (`OpSpec`).
+Both are `mapLoop` around an arithmetic step; the loop is proven once for any
+step that computes a function `F` of the two coefficients (`OpSpec`).
 -/
 
 namespace VG.Proof.MlKem.X86

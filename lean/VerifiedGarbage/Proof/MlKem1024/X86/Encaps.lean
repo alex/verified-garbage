@@ -5,16 +5,15 @@ import VerifiedGarbage.Spec.MlKem.Contract1024
 /-!
 # ML-KEM-1024 on x86 (32-bit): `vg_mlkem1024_encaps`
 
-Untrusted: everything here is checked by Lean. The proof of
-`vg_mlkem768_encaps` (`Proof/MlKem/X86/Encaps.lean`) for `k = 4`. The layout of
-the arguments (`Y`: `ek`, `m`, `key`, `ct`, `scratch`, and the 88 bytes of stack), which the
-contract's precondition implies (`pre_of`); the public data, `ρ` (`pub_of`).
-`ek` and `m` are copied into `scratch`, `H(ek)` and `G(m ‖ H(ek))` hashed
-(`start_piece`), the ciphertext computed (`Enc.encrypt_piece`), and `K` and
-the ciphertext copied out (`fin_piece`). If every `SampleNTT` succeeded,
-K-PKE.Encrypt succeeds with the matrix sampled within one bound on their
-iterations (`kpkeEncrypt1024_some`); if one failed within `minIterations`,
-it fails with that bound (`kpkeEncrypt1024_none`).
+The proof of `vg_mlkem768_encaps` (`Proof/MlKem/X86/Encaps.lean`) for `k = 4`.
+The layout of the arguments (`Y`: `ek`, `m`, `key`, `ct`, `scratch`, and the 88
+bytes of stack), which the contract's precondition implies (`pre_of`); the
+public data, `ρ` (`pub_of`). `ek` and `m` are copied into `scratch`, `H(ek)` and
+`G(m ‖ H(ek))` hashed (`start_piece`), the ciphertext computed
+(`Enc.encrypt_piece`), and `K` and the ciphertext copied out (`fin_piece`). If
+every `SampleNTT` succeeded, K-PKE.Encrypt succeeds with the matrix sampled
+within one bound on their iterations (`kpkeEncrypt1024_some`); if one failed
+within `minIterations`, it fails with that bound (`kpkeEncrypt1024_none`).
 -/
 
 namespace VG.Proof.MlKem1024.X86.Encaps

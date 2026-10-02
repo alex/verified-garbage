@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Pack.HintBase
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_hint_bit_pack`, correct
 
-Untrusted: everything here is checked by Lean. As on x86-64, the code
-follows the fold form of `HintBitPack` (`Proof/MlDsa/Pack/Hint.lean`) step by
-step: the bytes of `y` are the array of the spec, and `r1` its index, which
-stays below `ω` because it counts the 1s before the current coefficient
-(`hpIdx_lt`). The loops (`main_ok`) run from any state that permits reading
-the hint and writing `y`, so that constant time can narrow the state to
-those two regions (`HintPackCT.lean`).
+As on x86-64, the code follows the fold form of `HintBitPack`
+(`Proof/MlDsa/Pack/Hint.lean`) step by step: the bytes of `y` are the array of
+the spec, and `r1` its index, which stays below `ω` because it counts the 1s
+before the current coefficient (`hpIdx_lt`). The loops (`main_ok`) run from
+any state that permits reading the hint and writing `y`, so that constant time
+can narrow the state to those two regions (`HintPackCT.lean`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Pack.Hint

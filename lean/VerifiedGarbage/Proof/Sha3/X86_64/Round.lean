@@ -5,8 +5,6 @@ import VerifiedGarbage.Impl.Sha3.X86_64
 /-!
 # Keccak-f[1600] on x86-64: a round, by evaluation
 
-Untrusted: everything here is checked by Lean.
-
 A round (`round s d k`) is checked by evaluating its code over the ANF
 domain (`Bitslice.Anf`, with `Straight.eval`): the lanes of the state at
 `s`, as stored (complemented, `Compl.cmpl`), are atoms `0–24`, and row 4 of

@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.X86_64.Inline
 /-!
 # x86-64: code that restores MXCSR
 
-Untrusted: everything here is checked by Lean.
-
 Code that loads MXCSR (for Intel's MCDT prologue: see "MCDT" in
 `TCB/X86_64/Isa.lean`) keeps its control bits if it first saves MXCSR in
 `r11` (`mxcsrSave`), never writes `r11`, and loads it back from `r11` last

@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Atoms
 /-!
 # The linear layers of bitsliced AES on 32-bit words, as atoms
 
-Untrusted: everything here is checked by Lean.
-
 What each linear layer of the bitsliced AES of `Ct32/Bitsliced.lean`
 computes, bit by bit, on input words given as atoms
 (`Framework/Bitslice/Atoms.lean`; bit `t` of input word `i` is atom

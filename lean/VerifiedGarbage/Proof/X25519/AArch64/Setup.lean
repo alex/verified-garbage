@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.X25519.Bytes
 /-!
 # X25519 on AArch64: the setup
 
-Untrusted: everything here is checked by Lean. `setup` saves our caller's
-registers, decodes the u-coordinate into `x1` and `x3` (`decode`), stores
-the bits of the scalar, clamped, at `BITS` (`bits`), and sets `x2 = 1`,
-`z2 = 0`, `z3 = 1` (`initSlots`).
+`setup` saves our caller's registers, decodes the u-coordinate into `x1` and
+`x3` (`decode`), stores the bits of the scalar, clamped, at `BITS` (`bits`),
+and sets `x2 = 1`, `z2 = 0`, `z3 = 1` (`initSlots`).
 -/
 
 namespace VG.Proof.X25519.AArch64

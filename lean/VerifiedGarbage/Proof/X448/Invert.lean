@@ -5,9 +5,9 @@ import Mathlib.Tactic.Ring
 /-!
 # X448: the inversion `z^(p-2)` as an addition chain
 
-Untrusted: everything here is checked by Lean. An addition chain for
-`z^(2⁴⁴⁸ - 2²²⁴ - 3)`, with runs of squarings shared by the targets.
-The chain first builds `z^(2²²² - 1)`, then its two final factors.
+An addition chain for `z^(2⁴⁴⁸ - 2²²⁴ - 3)`, with runs of squarings shared by
+the targets. The chain first builds `z^(2²²² - 1)`, then its two final
+factors.
 -/
 
 namespace VG.Proof.X448

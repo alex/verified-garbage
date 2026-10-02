@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarBaseEngine
 import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarBaseLit
 import VerifiedGarbage.Proof.Ed25519.AArch64.CTSupport
 
-/-! Untrusted: expanding the secret scalar's bits, the comb and the encoding have a public
+/-! Expanding the secret scalar's bits, the comb and the encoding have a public
 trace. The loops' counters (`x19`, and `x1` for the doublings) and the table index are
 public, every address is the workspace pointer `x0` plus a constant or a counter, and the
 digits only reach masks: one taint check covers the whole engine. -/

@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.Ed25519.Group.Extended
 /-!
 # Doubling with the dedicated formula
 
-Untrusted. `dblPoint` is the doubling `dbl-2008-hwcd` of Hisil, Wong, Carter
-and Dawson for `a = -1`, with the signs of `F` and `H` flipped, which scales
-the result by `-1` (the same point). It reads only `X : Y : Z` (`RepP`), so a
-chain of doublings need not compute `T` but at its end.
+`dblPoint` is the doubling `dbl-2008-hwcd` of Hisil, Wong, Carter and Dawson
+for `a = -1`, with the signs of `F` and `H` flipped, which scales the result
+by `-1` (the same point). It reads only `X : Y : Z` (`RepP`), so a chain of
+doublings need not compute `T` but at its end.
 -/
 
 namespace VG.Proof.Ed25519

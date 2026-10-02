@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.VerifyScalar
 import VerifiedGarbage.Proof.Ed25519.Arm.InitFields
 import VerifiedGarbage.Proof.Ed25519.VerifyBytes
 
-/-! Untrusted: the complete verifier body implements the reviewed strict equation. -/
+/-! The complete verifier body implements the reviewed strict equation. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

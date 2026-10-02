@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Base
 /-!
 # ML-DSA signing on x86 (32-bit): the parameter sets, and the layout
 
-Untrusted: everything here is checked by Lean. What the proofs need of a
-parameter set (`PS`), which the three parameter sets have (`PS.of`); and
-the layout as numbers (`Y_n`, `Y_alen0`, …), from which the tactic `ofs`
-(`Inv.lean`) proves the layout checks of a call by `omega`.
+What the proofs need of a parameter set (`PS`), which the three parameter sets
+have (`PS.of`); and the layout as numbers (`Y_n`, `Y_alen0`, …), from which
+the tactic `ofs` (`Inv.lean`) proves the layout checks of a call by `omega`.
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

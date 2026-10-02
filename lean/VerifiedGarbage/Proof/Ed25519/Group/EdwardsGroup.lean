@@ -5,9 +5,8 @@ import Mathlib.Algebra.Group.Basic
 /-!
 # The points of a complete twisted Edwards curve form a commutative group
 
-Untrusted. `EPoint d` is the type of affine points; its addition is the
-Edwards law of `Edwards.lean`, its zero `(0, 1)` and its negation
-`(-x, y)`.
+`EPoint d` is the type of affine points; its addition is the Edwards law of
+`Edwards.lean`, its zero `(0, 1)` and its negation `(-x, y)`.
 -/
 
 namespace VG.Proof.Ed25519.Edwards

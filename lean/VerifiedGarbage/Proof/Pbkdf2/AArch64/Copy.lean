@@ -5,8 +5,7 @@ import VerifiedGarbage.Impl.Pbkdf2.AArch64
 /-!
 # PBKDF2-HMAC's iteration on AArch64: copying words
 
-Untrusted: everything here is checked by Lean. What `n` copies of a 32-bit
-word (`cp32`, `Impl/Pbkdf2/AArch64.lean`) write.
+What `n` copies of a 32-bit word (`cp32`, `Impl/Pbkdf2/AArch64.lean`) write.
 -/
 
 namespace VG.Proof.Pbkdf2.AArch64

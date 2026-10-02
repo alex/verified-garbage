@@ -10,12 +10,12 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM on x86 (32-bit): the SHAKE128 output of `vg_mlkem_sample_ntt`
 
-Untrusted: everything here is checked by Lean. `vg_mlkem_sample_ntt(seed,
-a, scratch)` loads `scratch` into `esi` (`ld_piece`), zeros the Keccak state
-at `scratch + 840` (`zero_piece`), and absorbs the 34 bytes of the seed,
-pads, and squeezes 840 bytes into `scratch` with the verified Keccak
-functions (`absorb_call`, `pad_call`, `squeeze_call`), leaving the first 840
-bytes of the XOF output of the seed there (`Out`).
+`vg_mlkem_sample_ntt(seed, a, scratch)` loads `scratch` into `esi`
+(`ld_piece`), zeros the Keccak state at `scratch + 840` (`zero_piece`), and
+absorbs the 34 bytes of the seed, pads, and squeezes 840 bytes into `scratch`
+with the verified Keccak functions (`absorb_call`, `pad_call`,
+`squeeze_call`), leaving the first 840 bytes of the XOF output of the seed
+there (`Out`).
 
 The state `Base` is what holds throughout the body: `esp` as the leaf's
 frame left it, the permissions, and memory changed only in `a`, `scratch`

@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.AArch64.Depth
 /-!
 # Calls and frames (AArch64)
 
-Untrusted: everything here is checked by Lean.
-
 A call (`bl`) stores nothing in memory: it leaves unknown values in `x30`
 (the return address), `x16`, `x17` and PSTATE.C (`State.callEntry`). `WP.call` runs a
 call of verified code from the callee's `Verified` proof, as `WP.inline` does

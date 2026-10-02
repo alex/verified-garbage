@@ -4,9 +4,8 @@ import VerifiedGarbage.Impl.X25519.X86_64.Adx
 /-!
 # X25519 on x86-64 with BMI2 and ADX: the code as a literal
 
-Untrusted: everything here is checked by Lean. As for `vg_x25519`
-(`Proof/X25519/X86_64/Lit.lean`): the literal of the unrolled code, checked
-once here, for the checks that evaluate it.
+As for `vg_x25519` (`Proof/X25519/X86_64/Lit.lean`): the literal of the
+unrolled code, checked once here, for the checks that evaluate it.
 -/
 
 namespace VG

@@ -9,12 +9,11 @@ section
 /-!
 # ChaCha20-Poly1305 on ARMv7: correctness
 
-Untrusted: everything here is checked by Lean. `seal` and `open`, from their
-parts: up to the arguments of `vg_poly1305_finalize` (`sealMain`,
-`openMain`), the frame around it (`finalize`), and the rest (`sealEnd`,
-`openEnd`). The constant-time proof runs the taint analysis on the first and
-the last, and relates the two runs of the frame by what these theorems say
-of the states between them.
+`seal` and `open`, from their parts: up to the arguments of
+`vg_poly1305_finalize` (`sealMain`, `openMain`), the frame around it
+(`finalize`), and the rest (`sealEnd`, `openEnd`). The constant-time proof
+runs the taint analysis on the first and the last, and relates the two runs of
+the frame by what these theorems say of the states between them.
 -/
 
 namespace VG.Proof.ChaCha20Poly1305.Arm
@@ -412,8 +411,7 @@ end
 /-!
 # ChaCha20-Poly1305 on ARMv7: `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness (above),
-constant time, and a state satisfying the precondition.
+Correctness (above), constant time, and a state satisfying the precondition.
 
 Constant time relates two runs from states that agree on the public data
 (`RelCT`), part by part. The taint analysis does not analyse frames, so it

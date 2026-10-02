@@ -6,10 +6,9 @@ import VerifiedGarbage.Proof.MlDsa.Arith.Ntt
 /-!
 # ML-DSA on x86-64: four coefficients at a time in memory
 
-Untrusted: everything here is checked by Lean. 16-byte loads of four
-coefficients of a stored polynomial (`dlanes_load`) and stores of them
-(`polyIs_write2`), and the table of the zetas in Montgomery form
-(`Tab zmTab`), from which `vzeta` loads the zetas of up to four blocks
+16-byte loads of four coefficients of a stored polynomial (`dlanes_load`) and
+stores of them (`polyIs_write2`), and the table of the zetas in Montgomery
+form (`Tab zmTab`), from which `vzeta` loads the zetas of up to four blocks
 (`vzeta_ok`).
 -/
 

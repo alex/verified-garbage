@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Verify.Compute
 /-!
 # ML-DSA verification on 32-bit ARM: the rows of `w′₁`
 
-Untrusted: everything here is checked by Lean. Row `r`: the sum of the
-products `Â[r, s] ẑ[s]` in `W` (polynomial 18), `t̂₁[r]` unpacked from the
-public key (polynomial 16) and in the NTT domain, `ĉ t̂₁[r]` (polynomial 17)
-subtracted from the sum, `NTT⁻¹` of it, `w′₁[r]` (polynomial 19) by
-`UseHint`, and its `SimpleBitPack` to `B` (`row_piece`).
+Row `r`: the sum of the products `Â[r, s] ẑ[s]` in `W` (polynomial 18),
+`t̂₁[r]` unpacked from the public key (polynomial 16) and in the NTT domain,
+`ĉ t̂₁[r]` (polynomial 17) subtracted from the sum, `NTT⁻¹` of it, `w′₁[r]`
+(polynomial 19) by `UseHint`, and its `SimpleBitPack` to `B` (`row_piece`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

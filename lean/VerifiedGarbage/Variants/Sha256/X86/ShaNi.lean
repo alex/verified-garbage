@@ -1,7 +1,8 @@
 import VerifiedGarbage.Proof.Sha256.X86.Variants.Interface
 import VerifiedGarbage.Proof.Sha256.X86.ShaNi.Verified
 
-/-! SHA-NI compression and all generic SHA-256 constructions on x86. -/
+/-! SHA-NI compression and all generic SHA-256 constructions on x86 (PBKDF2's whole
+derivation among them). -/
 namespace VG.Variants.Sha256.X86.ShaNi
 open VG VG.X86
 open VG.Proof.Sha256.X86.Stream (params dims)
@@ -23,6 +24,9 @@ abbrev sha256HFinalizeHash := Impl.Hmac.Sha256.X86.finalizeHash cmpN cmpC
 materialize_code sha256HFinalizeHash
 abbrev sha256HIterate := Impl.Pbkdf2.Sha256.X86.iterate cmpN cmpC
 materialize_code sha256HIterate
+abbrev sha256HPbkdf2 :=
+  (Proof.Pbkdf2.Whole.X86.sha256Fns "_shani" cmpN cmpC sha256Update sha256Finalize).pbkdf2
+materialize_code sha256HPbkdf2
 
 theorem callee : CalleeOk (P := params) md cmpC :=
   ⟨Proof.Sha256.X86.ShaNi.compress_verified.1, Proof.Sha256.X86.ShaNi.compress_nosp,
@@ -108,5 +112,20 @@ def variant : Proof.Sha256.X86.Variants.Backend where
   initSp := Code.all_of_allInstrs (by lit_decide)
   finSp := Code.all_of_allInstrs (by lit_decide)
   iterSp := Code.all_of_allInstrs (by lit_decide)
+  updC := sha256Update
+  upd := Proof.Sha256.X86.Stream.update_of callee update_ct
+  updNoSp := NoSp.of_all (by lit_decide)
+  updStack := by lit_decide
+  finC := sha256Finalize
+  fin := Proof.Sha256.X86.Stream.finalize_of callee finalize_ct
+  finNoSp := NoSp.of_all (by lit_decide)
+  finStack := by lit_decide
+  initNoSp := NoSp.of_all (by lit_decide)
+  initStack := by lit_decide
+  finalizeNoSp := NoSp.of_all (by lit_decide)
+  finalizeStack := by lit_decide
+  iterNoSp := NoSp.of_all (by lit_decide)
+  iterStack := by lit_decide
+  pbkdf2Sp := Code.all_of_allInstrs (by lit_decide)
 
 end VG.Variants.Sha256.X86.ShaNi

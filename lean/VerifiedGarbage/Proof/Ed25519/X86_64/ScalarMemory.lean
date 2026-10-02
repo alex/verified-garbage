@@ -4,8 +4,9 @@ import VerifiedGarbage.Proof.X25519.X86_64.Finish
 /-!
 # Scalar reduction: memory and callee-saved registers
 
-Untrusted. Saving and restoring use the first 48 bytes of the scratch
-argument. The arithmetic loop changes no memory.
+Saving and restoring use the first 48 bytes of the scratch argument, and the
+next 8 hold the output's address while the loop keeps the scratch in `rdi`.
+The arithmetic loop changes no memory.
 -/
 
 namespace VG.Proof.Ed25519.X86_64
@@ -83,5 +84,41 @@ theorem scalarInit_ok (s : State) :
   refine ⟨rfl, rfl, fun r hr => ?_, rfl, rfl, rfl⟩
   simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
   simp only [RegUpd.gpr_setReg, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2, ite_false]
+
+/-- The output's address to byte 48 of the scratch (in `rdx`), and the scratch into `rdi`. -/
+theorem stashOut_ok {s : State} {base : Addr} (hb : s.gpr .rdx = base)
+    (hw : (⟨base, 8192⟩ : Region) ∈ s.wr) :
+    WP isa (.block [.store (at_ .rdx 48) .rdi, .mov .rdi (.reg .rdx)]) s fun t =>
+      t.mem = s.mem.writeW (off base 48) (s.gpr .rdi) ∧ t.gpr .rdi = base ∧
+      (∀ r, r ≠ .rdi → t.gpr r = s.gpr r) ∧ t.rd = s.rd ∧ t.wr = s.wr := by
+  have w : InRegions s.wr (off base 48) 8 := ⟨_, hw, Offset.contains_base base (by omega) (by omega)⟩
+  apply WP.of_runBlock
+  simp only [runBlock_cons, runStep_some, runBlock_nil, exec, readSrc, ea_at, hb, State.store64, w,
+    ite_true, RegUpd.gpr_setReg, Option.map_some, Option.some.injEq, exists_eq_left']
+  exact ⟨rfl, trivial, fun r hr => by simp only [hr, ite_false], rfl, rfl⟩
+
+/-- The scratch from `rdi` back into `rdx`, and the output's address from byte 48 into `rdi`. -/
+theorem finishArgs_ok {s : State} {base : Addr} (hb : s.gpr .rdi = base)
+    (hw : (⟨base, 8192⟩ : Region) ∈ s.wr) :
+    WP isa (.block scalarFinishArgs) s fun t =>
+      t.gpr .rdx = base ∧ t.gpr .rdi = s.mem.readW (off base 48) 64 ∧
+      (∀ r, r ≠ .rdx → r ≠ .rdi → t.gpr r = s.gpr r) ∧ t.mem = s.mem ∧ t.rd = s.rd ∧ t.wr = s.wr := by
+  have w : InRegions (s.rd ++ s.wr) (off base 48) 8 :=
+    ⟨_, List.mem_append_right _ hw, Offset.contains_base base (by omega) (by omega)⟩
+  apply WP.of_runBlock
+  simp only [scalarFinishArgs, runBlock_cons, runStep_some, runBlock_nil, exec, readSrc, ea_at,
+    State.load64, RegUpd.gpr_setReg, RegUpd.rd_setReg, RegUpd.wr_setReg, RegUpd.mem_setReg, hb, w,
+    ite_true, ite_false, reduceCtorEq, Option.map_some, Option.some.injEq, exists_eq_left']
+  exact ⟨trivial, trivial, fun r h1 h2 => by simp only [h1, h2, ite_false], trivial, trivial, trivial⟩
+
+theorem scratchFrame {base : Addr} {o n : Nat} {m m' : Mem}
+    (h : Outside base o n m m') (hn : o + n ≤ 8192) : Frame [⟨base, 8192⟩] m m' := by
+  intro x hx
+  apply h x
+  right
+  have hn' := hx _ (List.mem_singleton_self _)
+  simp only [Region.Contains] at hn'
+  simp only [ofs]
+  omega
 
 end VG.Proof.Ed25519.X86_64

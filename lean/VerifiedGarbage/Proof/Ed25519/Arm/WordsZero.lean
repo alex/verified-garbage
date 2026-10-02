@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.Arm.FieldCheck
 import VerifiedGarbage.Proof.Ed25519.Arm.Field
 
-/-! Untrusted: summing sixteen bounded limbs cannot overflow and detects zero. -/
+/-! Summing sixteen bounded limbs cannot overflow and detects zero. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

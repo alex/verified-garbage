@@ -7,10 +7,9 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-DSA on AArch64: streaming fields through `x9`
 
-Untrusted: everything here is checked by Lean. The group bodies of
-`Impl/MlDsa/AArch64/Pack/Stream.lean`, for any width `d`, group of `c`
-fields and `nb` bytes, and any code `ld` that loads a field's value
-(`LdOk`) or `fin` that stores a coefficient from it (`FinOk`):
+The group bodies of `Impl/MlDsa/AArch64/Pack/Stream.lean`, for any width `d`,
+group of `c` fields and `nb` bytes, and any code `ld` that loads a field's
+value (`LdOk`) or `fin` that stores a coefficient from it (`FinOk`):
 
 * `packBody_ok`: the `nb` bytes stored are those of the number `G` whose
   base-`2ᵈ` digits are the values of the group's coefficients, which the

@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.Rel
 /-!
 # ML-DSA on AArch64: `vg_mldsa_rej_ntt_poly`
 
-Untrusted: everything here is checked by Lean. Correctness: the function
-runs in pieces, the prologue (`J0`), the sponge, whose output is
-`G(ρ, 1008)` (`J6`), `a` set to zeros, the loop, which stores the
-coefficients `rnFold` samples from it (`RejNttLoop.lean`), and the end,
-which returns whether there are 256 of them. The postcondition of the
-contract follows from the prefix lemmas (`rejNTT_some`, `rejNTT_none`).
+Correctness: the function runs in pieces, the prologue (`J0`), the sponge,
+whose output is `G(ρ, 1008)` (`J6`), `a` set to zeros, the loop, which stores
+the coefficients `rnFold` samples from it (`RejNttLoop.lean`), and the end,
+which returns whether there are 256 of them. The postcondition of the contract
+follows from the prefix lemmas (`rejNTT_some`, `rejNTT_none`).
 
 Constant time up to the seed, relating two runs piece by piece (`Rel.lean`):
 the prologue, the sponge, the zeros and the end by the taint analysis, from

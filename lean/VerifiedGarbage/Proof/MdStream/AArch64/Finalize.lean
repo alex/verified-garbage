@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MdStream.AArch64.Common
 /-!
 # Streaming Merkle–Damgård hash functions on AArch64: `finalize`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`finalize`, for any hash function (`Md`) whose code stores the length field
-and writes the digest as `Shape` says, and any correct compression function
-(`CalleeOk`). The same structure as the x86-64 proof
-(`VG.Proof.MdStream.X86_64.Finalize`). Constant time is proven for each hash
-function's code by the taint analysis, calls included.
+The functional correctness of `finalize`, for any hash function (`Md`) whose
+code stores the length field and writes the digest as `Shape` says, and any
+correct compression function (`CalleeOk`). The same structure as the x86-64
+proof (`VG.Proof.MdStream.X86_64.Finalize`). Constant time is proven for each
+hash function's code by the taint analysis, calls included.
 -/
 
 namespace VG.Proof.MdStream.AArch64.Finalize

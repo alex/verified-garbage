@@ -6,10 +6,10 @@ import VerifiedGarbage.Proof.MlDsa.Sample.Hash
 /-!
 # ML-DSA signing on x86 (32-bit): the private key, and `ρ″`
 
-Untrusted: everything here is checked by Lean. `ŝ₁`, `ŝ₂` and `t̂₀` are the
-`NTT` of the `BitUnpack` of their pieces of `sk` (`decOne_piece`), in the
-slots from `s1B`, `s2B` and `t0B`, next to `Â` (`DK`); then `K ‖ rnd` is
-copied to `HIN`, and `ρ″ = H(K ‖ rnd ‖ μ, 64)` hashed to `MS` (`KD`).
+`ŝ₁`, `ŝ₂` and `t̂₀` are the `NTT` of the `BitUnpack` of their pieces of `sk`
+(`decOne_piece`), in the slots from `s1B`, `s2B` and `t0B`, next to `Â`
+(`DK`); then `K ‖ rnd` is copied to `HIN`, and `ρ″ = H(K ‖ rnd ‖ μ, 64)`
+hashed to `MS` (`KD`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign

@@ -6,9 +6,9 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # ML-DSA on 32-bit ARM: bytes, copies and the sponge in the buffers of a `Site`
 
-Untrusted: everything here is checked by Lean. A byte stored (`setB_ok`),
-bytes copied (`copyS`, from ML-KEM's `copy_loop`), and the sponge (`hashS`,
-from ML-KEM's `hash_ok`), with what they change as triples of the layout.
+A byte stored (`setB_ok`), bytes copied (`copyS`, from ML-KEM's `copy_loop`),
+and the sponge (`hashS`, from ML-KEM's `hash_ok`), with what they change as
+triples of the layout.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

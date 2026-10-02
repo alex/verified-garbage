@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.AddSub
 /-!
 # ML-DSA on x86-64: `vg_mldsa_add_avx2` and `vg_mldsa_sub_avx2`
 
-Untrusted: everything here is checked by Lean. Each iteration of the loop
-loads eight coefficients of `f` and of `g` and, in each lane, does what an
-iteration of `vg_mldsa_add` (`vg_mldsa_sub`) does (`AddSub.lean`), whose
-proof holds of each lane (`ylanes`), and stores the eight results to `f`
-(`YAddSub.step`); the loop leaves `f` with all 256 (`YAddSub.fn_ok`).
+Each iteration of the loop loads eight coefficients of `f` and of `g` and, in
+each lane, does what an iteration of `vg_mldsa_add` (`vg_mldsa_sub`) does
+(`AddSub.lean`), whose proof holds of each lane (`ylanes`), and stores the
+eight results to `f` (`YAddSub.step`); the loop leaves `f` with all 256
+(`YAddSub.fn_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

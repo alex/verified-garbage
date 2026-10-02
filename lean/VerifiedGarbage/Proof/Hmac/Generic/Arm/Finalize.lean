@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: `finalize`, correct
 
-Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Hmac/Generic/AArch64/Finalize.lean`). `out` and `scratch` are stack
-arguments, loaded into `r6` and `r12`; the count stays in `r2:r3` until the
-first call.
+As on AArch64 (`Proof/Hmac/Generic/AArch64/Finalize.lean`). `out` and
+`scratch` are stack arguments, loaded into `r6` and `r12`; the count stays in
+`r2:r3` until the first call.
 -/
 
 namespace VG.Proof.Hmac.Generic.Arm.Finalize

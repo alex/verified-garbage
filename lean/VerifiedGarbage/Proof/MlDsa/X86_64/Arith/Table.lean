@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Basic
 /-!
 # ML-DSA on x86-64: tables of constants in the working space
 
-Untrusted: everything here is checked by Lean. A table of `u32`s in the
-working space (`Tab`), which writes elsewhere keep (`Tab.frame`).
+A table of `u32`s in the working space (`Tab`), which writes elsewhere keep
+(`Tab.frame`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Arith

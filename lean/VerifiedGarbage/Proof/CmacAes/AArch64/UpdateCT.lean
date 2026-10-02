@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Framework.AArch64.Taint
 /-!
 # AES-CMAC on AArch64: `vg_cmac_aes_update` is constant time
 
-Untrusted: everything here is checked by Lean. Two runs from states that
-agree on the public arguments are related piece by piece (`RelCT`): the
-taint analysis covers the code between the calls, from the registers the
-correctness proof pins to the public arguments (`LInv`), and each call of
-`vg_aes_ctr32` is constant time by its own proof (`ctr_rel`).
+Two runs from states that agree on the public arguments are related piece by
+piece (`RelCT`): the taint analysis covers the code between the calls, from
+the registers the correctness proof pins to the public arguments (`LInv`), and
+each call of `vg_aes_ctr32` is constant time by its own proof (`ctr_rel`).
 -/
 
 namespace VG.Proof.CmacAes.AArch64

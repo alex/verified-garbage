@@ -4,11 +4,10 @@ import VerifiedGarbage.Impl.X25519.AArch64
 /-!
 # X25519 on AArch64: the code as a literal
 
-Untrusted: everything here is checked by Lean. The field arithmetic is
-unrolled, so the kernel would build the instructions again in every check
-that evaluates the code (constant time, properties of every instruction):
-the literal of the code (`materialize_code`, `Proof/Framework/Lit.lean`) is
-checked once here instead.
+The field arithmetic is unrolled, so the kernel would build the instructions
+again in every check that evaluates the code (constant time, properties of
+every instruction): the literal of the code (`materialize_code`,
+`Proof/Framework/Lit.lean`) is checked once here instead.
 -/
 
 namespace VG

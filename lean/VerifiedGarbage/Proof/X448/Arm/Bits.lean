@@ -4,8 +4,7 @@ import VerifiedGarbage.Proof.X448.Arm.Clamp
 /-!
 # X448 on ARMv7: the scalar's decoded bits
 
-Untrusted: everything here is checked by Lean. The loop expands all 56
-bytes before applying the RFC 7748 scalar clamp.
+The loop expands all 56 bytes before applying the RFC 7748 scalar clamp.
 -/
 
 namespace VG.Proof.X448.Arm

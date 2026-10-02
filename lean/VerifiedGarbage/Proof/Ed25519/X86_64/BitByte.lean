@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.Bits
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointPowers
 import VerifiedGarbage.Proof.X25519.X86_64.Bits
 
-/-! Untrusted: expanding each input byte uses the existing verified bit stores. -/
+/-! Expanding each input byte uses the existing verified bit stores. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

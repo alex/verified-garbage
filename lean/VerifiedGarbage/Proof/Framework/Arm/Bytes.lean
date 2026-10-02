@@ -4,8 +4,7 @@ import VerifiedGarbage.TCB.Arm.Isa
 /-!
 # ARMv7: the bytes of a word
 
-Untrusted: everything here is checked by Lean. The bits of a word loaded
-from memory (little-endian), and of `rev` of a word.
+The bits of a word loaded from memory (little-endian), and of `rev` of a word.
 -/
 
 namespace VG.Arm

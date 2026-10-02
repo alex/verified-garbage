@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.Pack.Coeffs
 /-!
 # ML-DSA: hints in memory, for every target
 
-Untrusted: everything here is checked by Lean. The parameters `(ω, k)` of
-the hint encodings, the coefficients of a hint stored as words (`hintAt`),
-and facts the proofs of `HintBitPack` and `HintBitUnpack` share on every
-target.
+The parameters `(ω, k)` of the hint encodings, the coefficients of a hint
+stored as words (`hintAt`), and facts the proofs of `HintBitPack` and
+`HintBitUnpack` share on every target.
 -/
 
 namespace VG.Proof.MlDsa.Pack

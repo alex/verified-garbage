@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.X86_64.Call
 /-!
 # Constant time of calls, by relating two runs (x86-64)
 
-Untrusted: everything here is checked by Lean.
-
 A call of verified code leaks the same trace in two runs when the callee's
 contract holds in both (narrowed to the regions it is given, as `WP.call`
 does) and its public data agrees: the callee's run from the narrowed state

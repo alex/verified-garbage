@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.KCall
 /-!
 # ML-DSA signing on x86-64: SHAKE256 through the sponge functions
 
-Untrusted: everything here is checked by Lean. Zeroing the Keccak state at
-`scratch` (`kzero_ok`), and the calls of `vg_keccak_absorb`,
-`vg_keccak_pad` and `vg_keccak_squeeze` on it, with the working space at
-`scratch + 200` (`kabs_ok`, `kpad_ok`, `ksqz_ok`, from the sponge
-functions' own call lemmas, `Proof/MlKem/X86_64/KCall.lean`); then
+Zeroing the Keccak state at `scratch` (`kzero_ok`), and the calls of
+`vg_keccak_absorb`, `vg_keccak_pad` and `vg_keccak_squeeze` on it, with the
+working space at `scratch + 200` (`kabs_ok`, `kpad_ok`, `ksqz_ok`, from the
+sponge functions' own call lemmas, `Proof/MlKem/X86_64/KCall.lean`); then
 `shakeAt ps out len`, which zeroes the state, absorbs the pieces `ps`, pads
 and squeezes `len` bytes to `out`: the output of the sponge from the padded
 state of their concatenation (`shake_ok`), leaking only the addresses

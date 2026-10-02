@@ -2,8 +2,6 @@ import VerifiedGarbage.Spec.ChaCha20
 
 /-!
 # Facts about the ChaCha20 specification
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.ChaCha20

@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.MlDsa.Arm.Sign.PhaseDCT
 /-!
 # ML-DSA signing on ARMv7: the signature leaks only the hint
 
-Untrusted: everything here is checked by Lean. Writing the signature leaks
-its pointers and the hint (`output_tr`), on which two runs whose loops
-leaked the same agree (`OX`); so all but `Â` leaks what `signLeakT` says
-(`rest_tr`).
+Writing the signature leaks its pointers and the hint (`output_tr`), on which
+two runs whose loops leaked the same agree (`OX`); so all but `Â` leaks what
+`signLeakT` says (`rest_tr`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sign

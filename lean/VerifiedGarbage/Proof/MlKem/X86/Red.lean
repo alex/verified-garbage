@@ -4,10 +4,9 @@ import VerifiedGarbage.Impl.MlKem.X86.Ntt
 /-!
 # ML-KEM on x86 (32-bit): Barrett reduction and products
 
-Untrusted: everything here is checked by Lean. `red r` reduces `x < 2³²`,
-held in `eax` and in `r`, modulo `q` (`red_spec`): `barrett64` with the
-quotient estimate the high half of a `mul`, then `condSub`. `mul r` multiplies
-(`wp_mul`).
+`red r` reduces `x < 2³²`, held in `eax` and in `r`, modulo `q` (`red_spec`):
+`barrett64` with the quotient estimate the high half of a `mul`, then
+`condSub`. `mul r` multiplies (`wp_mul`).
 -/
 
 namespace VG.Proof.MlKem.X86

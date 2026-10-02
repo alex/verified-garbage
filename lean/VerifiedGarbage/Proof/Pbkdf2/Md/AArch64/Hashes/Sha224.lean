@@ -8,15 +8,14 @@ import VerifiedGarbage.TCB.AArch64.Target
 /-!
 # SHA-224 on AArch64, as a Merkle–Damgård hash function
 
-Untrusted: everything here is checked by Lean. SHA-224 with an
-implementation of SHA-256's compression function, as a variant of `MdHash`
-(`variant`), from which HMAC and PBKDF2 are emitted
+SHA-224 with an implementation of SHA-256's compression function, as a variant
+of `MdHash` (`variant`), from which HMAC and PBKDF2 are emitted
 (`Generic/MdHash/AArch64/`): its streaming code is SHA-256's, the generic
 Merkle–Damgård code (`Stream.params`) from SHA-224's initial hash value
-(`vg_sha224_init`), its specification `Spec.Hmac.sha224S`, with the digest
-the first 28 bytes of the final hash value. The facts about the code HMAC
-and PBKDF2 add, which do not depend on the functions they call, are checked
-once (`coreOK`).
+(`vg_sha224_init`), its specification `Spec.Hmac.sha224S`, with the digest the
+first 28 bytes of the final hash value. The facts about the code HMAC and
+PBKDF2 add, which do not depend on the functions they call, are checked once
+(`coreOK`).
 
 Its streaming `update` and `finalize` are SHA-256's, which SHA-256's
 variants carry (`Proof/Pbkdf2/Md/AArch64/Hashes/Sha256.lean`): SHA-224's

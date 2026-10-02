@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86.Sign.Run
 /-!
 # ML-DSA signing on x86 (32-bit): the checks of an iteration
 
-Untrusted: everything here is checked by Lean. Once `SampleInBall`
-succeeded (`ballCall_piece`), the checks (`CS`: what they keep, with `y`,
-`w`, the hint, `OK` and `ONES` as far as they got) compute `z` in place of
-`y` (`zR_piece`), `w - cs₂` in place of `w` and the norm of its `LowBits`
-(`r0R_piece`), and `ct₀`, `w - cs₂ + ct₀` and the hint (`hR_piece`); `OK`
-is then 1 exactly when the checks pass (`onesOk_piece`, `pass_iff`).
+Once `SampleInBall` succeeded (`ballCall_piece`), the checks (`CS`: what they
+keep, with `y`, `w`, the hint, `OK` and `ONES` as far as they got) compute `z`
+in place of `y` (`zR_piece`), `w - cs₂` in place of `w` and the norm of its
+`LowBits` (`r0R_piece`), and `ct₀`, `w - cs₂ + ct₀` and the hint (`hR_piece`);
+`OK` is then 1 exactly when the checks pass (`onesOk_piece`, `pass_iff`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Sign
