@@ -224,19 +224,5 @@ def aChk (p : Params) : Bool :=
 theorem aChk_ok {p : Params} (h : Ok3 p) : aChk p = true := by
   rcases h with rfl | rfl | rfl <;> decide
 
-theorem expandA_ok {P : Prims} {D : Nat} (hP : PrimsOk P D) {p : Params} (hc : aChk p = true) {σ s : State}
-    (hs : St p D σ s) (h15 : s.gpr .x24 = 1) : WP isa (Impl.MlDsa.AArch64.Sign.expandA P p) s (IA p D σ (p.k * p.ℓ)) := by
-  simp only [aChk, Bool.and_eq_true, List.all_eq_true, List.mem_range, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨he, hcp⟩, hst⟩, hsk⟩ := hc
-  unfold Impl.MlDsa.AArch64.Sign.expandA
-  refine WP.seq (WP.mono (copyP_ok hs.lay hcp) fun s1 ⟨hP1, hcs1, hb⟩ => ?_)
-  have S1 := hs.step hP1 hst
-  have e15 : s1.gpr .x24 = 1 := by rw [hcs1.get .x24, h15]
-  have I0 : IA p D σ 0 s1 := ⟨S1, by rw [hP1.pa (by decide), hb, rhoOf, ← hs.sk, VG.Proof.MlKem.bytesAt_take _ _ hsk],
-    .inr e15, fun _ => ⟨fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩,
-    fun h0 => absurd (h0.symm.trans e15) (by decide)⟩
-  have := seqR_ok (f := sampleE P p) (I := IA p D σ) (p.k * p.ℓ) 0
-    (fun k _ hk s h => sampleE_ok hP (he k (by omega)) h) s1 I0
-  rwa [Nat.zero_add] at this
 
 end VG.Proof.MlDsa.AArch64.Sign

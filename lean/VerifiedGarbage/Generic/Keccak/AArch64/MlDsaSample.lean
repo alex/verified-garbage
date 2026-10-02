@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.Rej4.Verified
 import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.RejNttCT
 import VerifiedGarbage.Proof.MlDsa.AArch64.Sample.RejBoundedCT
@@ -11,6 +12,16 @@ namespace VG.Generic.Keccak.AArch64.MlDsaSample
 open VG
 
 def artifacts (v : Proof.Sha3.AArch64.Permutation) : List Artifact := [
+  { Spec.MlDsa.rejNTT4Api with
+    name := Spec.MlDsa.rejNTT4Api.name ++ v.callee.suffix
+    features := v.features
+    target := AArch64.target
+    doc := Spec.MlDsa.rejNTT4Api.doc (notes := ["Four SHAKE128 streams in two pairs of NEON lanes, \
+      using ARM SHA3 instructions when available. Each stream squeezes 1008 bytes (6 blocks)."])
+    code := Impl.MlDsa.AArch64.Sample.Rej4.rejNTT4With v.callee.pairedSha3
+    contract := Spec.MlDsa.rejNTT4Contract AArch64.abi
+    verified := Proof.MlDsa.AArch64.Sample.Rej4.verified v.callee.pairedSha3
+    spSafe := Code.all_of_forall (fun _ => rfl) _ },
   { Spec.MlDsa.rejNTTApi with
     name := Spec.MlDsa.rejNTTApi.name ++ v.callee.suffix
     features := v.features

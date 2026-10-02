@@ -287,12 +287,5 @@ end
 
 /-! ## The samplers -/
 
-theorem samples_vpiece {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF : VFacts p) :
-    VPiece p S (fun σ s => Z0 p p.ℓ σ s ∧ normOk p σ p.ℓ) (VB p) (samples P p) := by
-  unfold samples sampled
-  refine (copyRho_vpiece hF).seq (VPiece.seq ?_ ((ballCall_vpiece hP hF).seq (ballTail_vpiece hF)))
-  refine VPiece.mono (VPiece.seqR (I := fun e σ s => VA p σ e s) (p.k * p.ℓ) 0
-    fun e _ he => expA_vpiece hP hF (by omega)) (fun _ _ _ h => h) fun _ _ _ h => ?_
-  simpa using h
 
 end VG.Proof.MlDsa.AArch64.Verify

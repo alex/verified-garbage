@@ -7,6 +7,8 @@ structure Callee where
   name : String
   code : Prog VG.AArch64.isa
   suffix : String
+  /-- Paired-state sponge kernels may use ARM SHA3 instructions on this backend. -/
+  pairedSha3 : Bool := false
   /-- An independently verified full absorb entry point, when this backend
   keeps the permutation state resident across complete input blocks. -/
   absorbOverride : Option (Prog VG.AArch64.isa) := none

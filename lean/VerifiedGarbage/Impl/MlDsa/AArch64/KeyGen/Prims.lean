@@ -1,8 +1,9 @@
 import VerifiedGarbage.Impl.MlDsa.AArch64.Verify.Verify
-import VerifiedGarbage.Impl.MlDsa.AArch64.Arith.Ntt
+import VerifiedGarbage.Impl.MlDsa.AArch64.Arith.Neon.Ntt
 import VerifiedGarbage.Impl.MlDsa.AArch64.Arith.Mul
 import VerifiedGarbage.Impl.MlDsa.AArch64.Arith.AddSub
 import VerifiedGarbage.Impl.MlDsa.AArch64.Round.Round
+import VerifiedGarbage.Impl.MlDsa.AArch64.Sample.RejNtt4
 import VerifiedGarbage.Impl.MlDsa.AArch64.Sample.RejNtt
 import VerifiedGarbage.Impl.MlDsa.AArch64.Sample.RejBounded
 import VerifiedGarbage.Impl.MlDsa.AArch64.Sample.Ball
@@ -23,13 +24,14 @@ open VG.AArch64 VG.Impl.MlDsa.AArch64.Call
 /-- The AArch64 primitives. -/
 def primsWith (c : Impl.Sha3.AArch64.Callee) : Prims where
   suffix := c.suffix
-  ntt := Arith.ntt
-  invNtt := Arith.nttInv
+  ntt := Arith.Neon.ntt
+  invNtt := Arith.Neon.nttInv
   mul := Arith.mul
   mulAdd := Arith.mulAdd
   add := Arith.add
   sub := Arith.sub
   rejNtt := Sample.rejNTTWith c
+  rej4 := Sample.Rej4.rejNTT4With c.pairedSha3
   rejBounded := Sample.rejBoundedWith c
   ball := Sample.sampleInBallWith c
   power2Round := Round.power2Round

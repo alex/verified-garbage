@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Samp4
 import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.RestRow
 
 /-!
@@ -154,7 +155,7 @@ theorem rest_piece {P : Prims} {S' : Nat} (hP : PrimsOk P S') {p : Params} (hF :
 theorem keyGen_piece {P : Prims} {S' : Nat} (hP : PrimsOk P S') {p : Params} (hF : PFacts p) :
     Piece p S' (fun σ s => s = σ)
       (fun σ s => abiPreserved σ s ∧ (Spec.MlDsa.keyGenContract p AArch64.abi S').post σ s) ((keyGenWith keccak.callee) P p) :=
-  (pro_piece hF).seq ((seeds_piece hF hP.s16 hP.s64).seq ((sampA_piece hP hF).seq ((sampS_piece hP hF).seq
+  (pro_piece hF).seq ((seeds_piece hF hP.s16 hP.s64).seq ((sampAll_piece hP hF).seq ((sampS_piece hP hF).seq
     ((rest_piece hP hF).seq (epi_piece hF)))))
 
 /-- `vg_mldsa*_keygen` of the parameter set `p` meets its contract, for any
