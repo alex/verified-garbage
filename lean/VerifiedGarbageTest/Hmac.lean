@@ -247,7 +247,8 @@ run_cmd do
 open Spec.Hmac in
 /-- Each instance, with the `Api` of its hash's `finalize`. -/
 def finalizes : List (Spec.Hmac.Instance × Api) :=
-  [(sha256I, Spec.Sha256.finalizeApi), (sha1I, Spec.Sha1.finalizeApi),
+  [(sha256I, Spec.Sha256.finalizeApi), (sha224I, Spec.Sha256.finalizeApi),
+    (sha1I, Spec.Sha1.finalizeApi),
     (md5I, Spec.Md5.finalizeApi), (sha384I, Spec.Sha512.finalizeApi),
     (sha512I, Spec.Sha512.finalizeApi), (sha512_224I, Spec.Sha512.finalizeApi),
     (sha512_256I, Spec.Sha512.finalizeApi)]
