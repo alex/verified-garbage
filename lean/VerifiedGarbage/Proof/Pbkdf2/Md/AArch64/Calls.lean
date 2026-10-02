@@ -3,14 +3,14 @@ import VerifiedGarbage.TCB.AArch64.Target
 import VerifiedGarbage.Proof.Framework.RelCT
 import VerifiedGarbage.Proof.Framework.AArch64.RelCT
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
-import VerifiedGarbage.Impl.Hmac.Generic.AArch64
+import VerifiedGarbage.Impl.Pbkdf2.Md.AArch64
 import VerifiedGarbage.Proof.Framework.OmegaLit
 
 /-!
-# HMAC over any streaming hash function: the AArch64 contracts
+# HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function on AArch64: the calls
 
 The contracts the proofs are written against, as on x86-64
-(`Proof/Hmac/Generic/X86_64/Hash.lean`).
+(`Proof/Pbkdf2/Md/X86_64/Calls.lean`).
 
 * `initK`, `updK` and `finK` are the AArch64 contracts of a hash function's
   streaming `init`, `update` and `finalize`, with the sizes and the
@@ -18,17 +18,17 @@ The contracts the proofs are written against, as on x86-64
   use the 16 bytes below the stack pointer (a frame saving `x30`), as SHA-1's
   and MD5's do; the contracts the functions are proved against imply them
   (the SHA-512 family's, which use no stack, too).
-* `initG` and `finG` are those of our functions, which use no
+* `initG` and `finG` are those of HMAC's `init` and `finalize`, which use no
   stack of their own but let the functions they call use those 16 bytes;
   the artifacts are emitted with the shared contracts of
-  `Spec/Hmac/Generic.lean`, which imply them
-  (`Contract.Implies`).
+  `Spec/Hmac/Generic.lean`, which imply them (`initImp`, `finImp`,
+  `Contract.lean`).
 
 The return address is in `x30`, not on the stack, so no region needs to be
 kept disjoint from it.
 -/
 
-namespace VG.Proof.Hmac.Generic.AArch64
+namespace VG.Proof.Pbkdf2.Md.AArch64.Calls
 
 open VG.AArch64
 open Spec.Hmac (StreamingHash xorPad ipad opad blockKey hmacBlockKey)
@@ -126,31 +126,31 @@ def finG : Contract isa where
     s₁.gpr .x0 = s₂.gpr .x0 ∧ s₁.gpr .x1 = s₂.gpr .x1 ∧ s₁.gpr .x2 = s₂.gpr .x2 ∧
     s₁.gpr .x3 = s₂.gpr .x3 ∧ s₁.gpr .x4 = s₂.gpr .x4 ∧ s₁.sp = s₂.sp
 
-end VG.Proof.Hmac.Generic.AArch64
+end VG.Proof.Pbkdf2.Md.AArch64.Calls
 
 /-!
-# HMAC over any streaming hash function on AArch64: the functions we call
+# The streaming functions, called
 
-As on x86-64 (`Proof/Hmac/Generic/X86_64/Hash.lean`): `HashOK H` is what the
-proofs know of the hash function `H`: its streaming functions are verified
-against `initK`, `updK` and `finK`, the representation of its streaming state
-is determined by the state's bytes, and its sizes are small. From it, each
+As on x86-64 (`Proof/Pbkdf2/Md/X86_64/Calls.lean`): `StreamOK H` is what the
+proofs know of the streaming functions `H` of a hash function: they are
+verified against `initK`, `updK` and `finK`, the representation of the
+streaming state is determined by the state's bytes, and the sizes are small. From it, each
 call is run with `WP.callFV` (the callee may have a frame, in the 16 bytes
 below the stack pointer), and shown constant time in two runs with
 `RelCT.call`. A call writes no memory of its own on AArch64: the return
 address is in `x30`.
 -/
 
-namespace VG.Proof.Hmac.Generic.AArch64
+namespace VG.Proof.Pbkdf2.Md.AArch64.Calls
 
 open VG.AArch64
-open VG.Impl.Hmac.Generic.AArch64 (Hash)
+open VG.Impl.Pbkdf2.Md.AArch64 (Stream)
 open Spec.Hmac (StreamingHash)
 open Spec.Sha256 (bytesAt)
 
 /-- A streaming hash function's AArch64 functions, verified. `Wb` is the
 scratch space their contracts use, at most the `8 W` bytes we give them. -/
-structure HashOK (H : Hash) where
+structure StreamOK (H : Stream) where
   SH : StreamingHash
   Wb : Nat
   hS : SH.stateBytes = H.S
@@ -176,7 +176,7 @@ structure HashOK (H : Hash) where
   updDepth : H.updC.aarch64Depth ≤ 1
   finDepth : H.finC.aarch64Depth ≤ 1
 
-variable {H : Hash} (hH : HashOK H)
+variable {H : Stream} (hH : StreamOK H)
 
 theorem stk_eq (s : State) : stk s = below s.sp 16 := rfl
 
@@ -372,4 +372,4 @@ theorem rel_wp {F F' G G' : State → Prop} {c : Prog isa}
     RelCT isa (fun s s' => F s ∧ F' s') c fun s s' => G s ∧ G' s' :=
   (hct.wp fun s s' h => ⟨hw s h.1, hw' s' h.2⟩).mono (fun _ _ h => h) fun _ _ h => h.2
 
-end VG.Proof.Hmac.Generic.AArch64
+end VG.Proof.Pbkdf2.Md.AArch64.Calls
