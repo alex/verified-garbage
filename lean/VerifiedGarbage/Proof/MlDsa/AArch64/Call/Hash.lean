@@ -1,10 +1,10 @@
-import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.CallPack
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Entry
 import VerifiedGarbage.Proof.MlKem.KPke
 
 /-!
 # ML-DSA on AArch64: `H`, SHAKE256
 
-`shake256 ins [out]` (ML-KEM's `hash` on AArch64,
+`hashWith c .x28 0 200 136 0x1f ins [out]` (ML-KEM's `hash` on AArch64,
 `Proof/MlKem/AArch64/HashProof.lean`, with the Keccak state and its working
 space at the start of `scratch`): if the pieces are in the layout (a check
 evaluated on the pointers, `hashChk`), it writes `H` of the concatenation of
@@ -13,11 +13,11 @@ state and working space and the 16 bytes of stack below the stack pointer
 (`shake_ok`).
 -/
 
-namespace VG.Proof.MlDsa.AArch64.KeyGen
+namespace VG.Proof.MlDsa.AArch64
 
 variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64
 open VG.Proof.MlKem.AArch64 (HSetup PieceOk preg pbytes Kept Outs hashWith_ok)
 open VG.Spec.Sha3 (bytesAt)
 
@@ -30,7 +30,7 @@ def pieceChk (rbs wbs : List (Reg × Nat)) (w : Bool) (q : Impl.MlKem.AArch64.Pi
     (if w then inB wbs (q.base, q.off) q.len else true) &&
     sepB rbs wbs (q.base, q.off) q.len (sc 0) 200 && sepB rbs wbs (q.base, q.off) q.len (sc 200) 640
 
-/-- `shake256 ins [out]` can run in the layout. -/
+/-- `H` of the pieces `ins`, to `out`, can run in the layout. -/
 def hashChk (rbs wbs : List (Reg × Nat)) (ins : List Impl.MlKem.AArch64.Piece) (out : Impl.MlKem.AArch64.Piece) :
     Bool :=
   inB wbs (sc 0) 200 && inB wbs (sc 200) 640 && sepB rbs wbs (sc 0) 200 (sc 200) 640 &&
@@ -69,12 +69,12 @@ theorem pieceOk {w : Bool} {q : Impl.MlKem.AArch64.Piece} (hc : pieceChk rbs wbs
   simp only [pieceChk, Bool.and_eq_true, decide_eq_true_eq] at hc
   obtain ⟨⟨⟨⟨ho, hl⟩, hw⟩, d1⟩, d2⟩ := hc
   have hin : inB (rbs ++ wbs) (q.base, q.off) q.len = true := (sepB_spec d1).1
-  have hb : q.base ∈ bases := L.ptrBs hin
+  have hb : q.base ∈ keptRegs := L.ptrBs hin
   have e1 := L.disj d1
   have e2 := L.disj d2
   have e3 := L.stk16 h16 hS hin
   simp only [pa] at e1 e2 e3
-  refine ⟨bases_pres _ hb, ho, hl, e1, e2, e3, ?_⟩
+  refine ⟨kept_pres _ hb, ho, hl, e1, e2, e3, ?_⟩
   cases w
   · exact L.cR hin
   · simp only [ite_true] at hw ⊢; exact L.cW hw
@@ -89,7 +89,7 @@ theorem shake256_eq' (m : List Byte) (d : Nat) :
 theorem shake_ok {S : Nat} (h16 : 16 ≤ S) (hS : S < 2 ^ 64) {rbs wbs : List (Reg × Nat)} {s : State}
     (L : Lay S rbs wbs s) {ins : List Impl.MlKem.AArch64.Piece} {out : Impl.MlKem.AArch64.Piece}
     (hne : ins ≠ []) (hc : hashChk rbs wbs ins out = true) :
-    WP isa ((shake256With keccak.callee) ins [out]) s fun s' =>
+    WP isa (Impl.MlKem.AArch64.hashWith keccak.callee .x28 0 200 136 0x1f ins [out]) s fun s' =>
       PPostB S s s' [(sc 0, 200), (sc 200, 640), pieceP out] ∧ s'.gpr .x24 = s.gpr .x24 ∧
       bytesAt s'.mem (pa s (out.base, out.off)) out.len = Spec.MlDsa.H (ins.map (pbytes s)).flatten out.len := by
   obtain ⟨c1, c2, c3, c4, c5⟩ := hashChk_parts hc
@@ -108,4 +108,4 @@ theorem shake_ok {S : Nat} (h16 : 16 ≤ S) (hS : S < 2 ^ 64) {rbs wbs : List (R
   · rw [shake256_eq']
     exact o'.1
 
-end VG.Proof.MlDsa.AArch64.KeyGen
+end VG.Proof.MlDsa.AArch64

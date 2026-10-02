@@ -12,7 +12,7 @@ runs.
 
 namespace VG.Proof.MlDsa.AArch64.Verify
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
 open VG.Proof.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params Poly IPoly toRq polyAt coeffAt Reduced PolyIs HintIs normRq hintBitUnpack bitUnpack)
 open VG.Spec.Sha3 (bytesAt)
@@ -137,7 +137,7 @@ theorem hint_vpiece {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF : 
       | some hh => intro ⟨hr, _⟩; rw [hr]; rfl
       | none => intro hr; rw [hr]; rfl
     · rw [e] at hq
-      rw [hP₂.pa (show Reg.x28 ∈ bases by decide), hm, hP₁.pa (show Reg.x28 ∈ bases by decide)]
+      rw [hP₂.pa (show Reg.x28 ∈ keptRegs by decide), hm, hP₁.pa (show Reg.x28 ∈ keptRegs by decide)]
       exact hq.2
   · refine vrel_of (Q := fun x y => VTwo p S x y ∧ bytesAt x.mem (pa x (.x27, oHint p)) (p.ω + p.k) =
       bytesAt y.mem (pa y (.x27, oHint p)) (p.ω + p.k)) ?_ fun _ _ _ _ p₁ p₂ pub h₁ h₂ =>
@@ -212,7 +212,7 @@ theorem bu_vpiece : VPiece p S (Z0 p j) (Z1 p j)
   have := zl_le hj
   refine ⟨⟨h.1.keep hF hp hP' (by vzchk hF), by rw [x', h.2]⟩, ?_⟩
   rw [h.1.vc.slice (by rw [hF.sig]; omega), ← zOf_eq] at hq
-  rw [hP'.pa (show Reg.x28 ∈ bases by decide)]
+  rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide)]
   exact hq
 
 theorem norm_vpiece : VPiece p S (Z1 p j) (Z2 p j) (normLtAt P (zP p j) (p.γ₁ - p.β)) := by

@@ -16,7 +16,7 @@ sequences of pieces indexed by a number (`seqR_ok`, `seqR_tr`).
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlKem.AArch64 (Only Keep wp_nil wp_movz wp_addImm wp_ldrx in_rd_wr)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -105,18 +105,22 @@ theorem sgLay (hsz : scrLen p < 2 ^ 32 ∧ p.skLen < 2 ^ 32 ∧ p.sigLen < 2 ^ 3
     ⟨r, by rw [h.rd, h.wr]; exact hr, Region.contains_self _ _⟩
   have memw : ∀ r ∈ σ.wr, InRegions s.wr r.base r.len := fun r hr =>
     ⟨r, by rw [h.wr]; exact hr, Region.contains_self _ _⟩
-  refine ⟨?_, fun b hb b' hb' hne hw => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_,
-    sgB_bases p, by rw [h.sp]; exact hsp⟩
+  refine ⟨⟨?_, fun b hb b' hb' hne hw => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_, fun b hb => ?_⟩,
+    fun b hb => bases_kept _ (sgB_bases p b hb), by rw [h.sp]; exact hsp⟩
   · intro b hb
     simp only [sgR, sgW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hb
     rcases hb with rfl | rfl | rfl | rfl | rfl <;> simp only <;> omega
   · simp only [sgR, sgW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hb hb'
+    have w : ∀ r, isW (sgW p) r = (r == .x28 || r == .x23) := fun r => by cases r <;> rfl
     rcases hb with rfl | rfl | rfl | rfl | rfl <;> rcases hb' with rfl | rfl | rfl | rfl | rfl <;>
-      simp only [wRegs, List.mem_cons, List.not_mem_nil, or_false, reduceCtorEq, or_self, ne_eq,
-        not_true_eq_false] at hne hw ⊢ <;> simp only [e1, e2, e3, e4, e5]
+      simp only [w, e1, e2, e3, e4, e5] at hne hw ⊢ <;> revert hne hw
     all_goals first
-      | exact d1 | exact d2 | exact d3 | exact d4 | exact d5 | exact d6 | exact d7
-      | exact d1.symm | exact d2.symm | exact d3.symm | exact d4.symm | exact d5.symm | exact d6.symm | exact d7.symm
+      | exact fun h => absurd rfl h
+      | exact fun _ h => absurd h (by decide)
+      | exact fun _ _ => d1 | exact fun _ _ => d2 | exact fun _ _ => d3 | exact fun _ _ => d4
+      | exact fun _ _ => d5 | exact fun _ _ => d6 | exact fun _ _ => d7 | exact fun _ _ => d1.symm
+      | exact fun _ _ => d2.symm | exact fun _ _ => d3.symm | exact fun _ _ => d4.symm | exact fun _ _ => d5.symm
+      | exact fun _ _ => d6.symm | exact fun _ _ => d7.symm
   · simp only [sgR, sgW, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hb
     rcases hb with rfl | rfl | rfl | rfl | rfl <;> simp only [e1, e2, e3, e4, e5, h.sp]
     exacts [k1, k2, k3, k5, k4]
@@ -135,15 +139,15 @@ theorem sgLay (hsz : scrLen p < 2 ^ 32 ∧ p.skLen < 2 ^ 32 ∧ p.sigLen < 2 ^ 3
 end
 
 /-- The saved registers are apart from the regions `ws`. -/
-def topChk (bs : List (Reg × Nat)) (ws : List (Ptr × Nat)) : Bool :=
-  (List.range 7).all fun k => keepB bs ws (sc (oSV + 8 * k)) 8
+def topChk (rbs wbs : List (Reg × Nat)) (ws : List (Ptr × Nat)) : Bool :=
+  (List.range 7).all fun k => keepB rbs wbs ws (sc (oSV + 8 * k)) 8
 
 theorem Top.step {S : Nat} {σ s s' : State} {rbs wbs : List (Reg × Nat)} (h : Top σ s)
     (L : Lay S rbs wbs s) {ws : List (Ptr × Nat)} (hP : PPostB S s s' ws)
-    (hc : topChk (rbs ++ wbs) ws = true) : Top σ s' := by
+    (hc : topChk rbs wbs ws = true) : Top σ s' := by
   simp only [topChk, List.all_eq_true, List.mem_range] at hc
   refine ⟨hP.rd.trans h.rd, hP.wr.trans h.wr, hP.sp.trans h.sp,
-    fun m hm => (hP.bs _ (sgM_bases m hm)).trans (h.regs m hm),
+    fun m hm => (hP.bs _ (bases_kept _ (sgM_bases m hm))).trans (h.regs m hm),
     fun r hr => by rw [hP.cs r (untouched_kept r hr), h.cs r hr], fun k hk => ?_,
     fun r hr => (hP.vcs r hr).trans (h.vcs r hr)⟩
   rw [L.keepW hP (hc k hk)]; exact h.saved k hk

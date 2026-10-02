@@ -12,7 +12,7 @@ namespace VG.Proof.MlDsa.AArch64.Sign
 
 variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
@@ -43,7 +43,7 @@ structure IM (p : Params) (D : Nat) (σ s : State) : Prop where
   ok : ∀ e < p.k * p.ℓ, (rejNTTPoly maxBounds.rejNTT (seedE p σ e)).isSome
   A : Fam s (aBase p) (p.k * p.ℓ) (aVal p σ)
 
-def imChk (p : Params) (ws : List (Ptr × Nat)) : Bool := stChk p ws && famChk (sgB p) ws (aBase p) (p.k * p.ℓ)
+def imChk (p : Params) (ws : List (Ptr × Nat)) : Bool := stChk p ws && famChk (sgR p) (sgW p) ws (aBase p) (p.k * p.ℓ)
 
 theorem IM.step {p : Params} {D : Nat} {σ s s' : State} (h : IM p D σ s) {ws : List (Ptr × Nat)}
     (hP : PPostB D s s' ws) (hc : imChk p ws = true) : IM p D σ s' := by
@@ -63,7 +63,7 @@ structure ID (p : Params) (D : Nat) (σ : State) (a b c : Nat) (s : State) : Pro
   t0 : Fam s (t0Base p) c (T0v p σ)
 
 def idChk (p : Params) (ws : List (Ptr × Nat)) (a b c : Nat) : Bool :=
-  imChk p ws && famChk (sgB p) ws (s1Base p) a && famChk (sgB p) ws (s2Base p) b && famChk (sgB p) ws (t0Base p) c
+  imChk p ws && famChk (sgR p) (sgW p) ws (s1Base p) a && famChk (sgR p) (sgW p) ws (s2Base p) b && famChk (sgR p) (sgW p) ws (t0Base p) c
 
 theorem ID.step {p : Params} {D : Nat} {σ s s' : State} {a b c : Nat} (h : ID p D σ a b c s)
     {ws : List (Ptr × Nat)} (hP : PPostB D s s' ws) (hc : idChk p ws a b c = true) : ID p D σ a b c s' := by
@@ -72,9 +72,9 @@ theorem ID.step {p : Params} {D : Nat} {σ s s' : State} {a b c : Nat} (h : ID p
   have L := h.im.st.lay
   exact ⟨h.im.step hP h1, Fam.keep L hP h2 h.s1, Fam.keep L hP h3 h.s2, Fam.keep L hP h4 h.t0⟩
 
-theorem pS_bases (j : Nat) : (pS j).1 ∈ bases := by simp
+theorem pS_bases (j : Nat) : (pS j).1 ∈ keptRegs := by simp
 
-theorem sc_bases (o : Nat) : (sc o).1 ∈ bases := by simp
+theorem sc_bases (o : Nat) : (sc o).1 ∈ keptRegs := by simp
 
 theorem pa_add (s : State) (r : Reg) (a b : Nat) : pa s (r, a) + BitVec.ofNat 64 b = pa s (r, a + b) := by
   rw [pa, pa, BitVec.add_assoc, ← BitVec.ofNat_add]

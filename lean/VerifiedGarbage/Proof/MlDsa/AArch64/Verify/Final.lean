@@ -17,7 +17,7 @@ namespace VG.Proof.MlDsa.AArch64.Verify
 
 variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
 open VG.Proof.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params Poly IPoly toRq ntt polyAt Reduced PolyIs HintIs Bounds minBounds rejNTTPoly sampleInBall
   simpleBitPack verifyMu normRq normR)
@@ -99,7 +99,7 @@ theorem hash_vpiece {S : Nat} (h16 : 16 ≤ S) (hSl : S < 2 ^ 64) {p : Params} (
   refine WP.mono (shake_ok h16 hSl L (by simp) (hash_chk hF)) fun s' ⟨hP', x', ho⟩ => ⟨h, A', c0, q, ?_, ?_⟩
   · exact hs.keep hF hp hP' (by have := hF.ct.2; scchk hF) x'
   · simp only [List.map_cons, List.map_nil, List.flatten_cons, List.flatten_nil, List.append_nil] at ho
-    rw [hP'.pa (show Reg.x28 ∈ bases by decide), ho, rows_bytes hs]
+    rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide), ho, rows_bytes hs]
     refine congrArg (Spec.MlDsa.H · p.ctildeLen) (congrArg (· ++ _) ?_)
     show bytesAt s.mem (s.gpr .x26 + BitVec.ofNat 64 0) 64 = _
     exact hs.vc.mu

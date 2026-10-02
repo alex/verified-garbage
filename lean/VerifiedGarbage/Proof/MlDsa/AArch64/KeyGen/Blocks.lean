@@ -1,4 +1,5 @@
-import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Hash
+import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.CallPack
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Hash
 import VerifiedGarbage.Proof.MlKem.AArch64.KgEnd
 import VerifiedGarbage.Proof.MlDsa.KeyGen.Mono
 
@@ -13,7 +14,7 @@ zero if it failed.
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Proof.MlKem.AArch64 (Only Keep MemTo wp_nil wp_movz wp_strb wp_ldrw wp_strw wp_addImm wp_subImm
   count_loop)
 open VG.Spec.MlDsa (coeffAt)
@@ -61,7 +62,7 @@ theorem writeW8_self (m : Mem) (a : Addr) (b : Byte) : m.writeW a b a = b := by
 
 /-- The byte `v` to `p`. -/
 theorem setB_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {p : Ptr} {v : Nat}
-    (ho : p.2 < 4096) (hw : inB wbs p 1 = true) (hb : p.1 ∈ bases) :
+    (ho : p.2 < 4096) (hw : inB wbs p 1 = true) (hb : p.1 ∈ keptRegs) :
     WP isa (.block (setB p v)) s fun s' => PPostB S s s' [(p, 1)] ∧ Keep [.x9] s s' ∧
       s'.mem = s.mem.writeW (pa s p) (BitVec.ofNat 8 v) := by
   have h9 : p.1 ≠ .x9 := by
@@ -136,7 +137,7 @@ theorem mask_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S r
         if (s.gpr .x0).setWidth 32 = 1 then coeffAt s.mem (pa s a) i else 0 := by
   have hW : InRegions s.wr (pa s a) 1024 := L.inW hw
   have hn : (pa s a).toNat + 1024 ≤ 2 ^ 64 := L.nwp hin
-  have hb : a.1 ∈ bases := L.ptrBs hin
+  have hb : a.1 ∈ keptRegs := L.ptrBs hin
   have h1 : a.1 ≠ .x1 := by intro e; rw [e] at hb; revert hb; decide
   have h8 : a.1 ≠ .x8 := by intro e; rw [e] at hb; revert hb; decide
   unfold mask
@@ -198,7 +199,7 @@ theorem copyP_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S 
   obtain ⟨⟨⟨hso, hdo⟩, hsep⟩, hw⟩ := hc
   have i1 := (sepB_spec hsep).1
   have i2 := (sepB_spec hsep).2.1
-  have n9 : ∀ r ∈ bases, r ≠ .x9 := by decide
+  have n9 : ∀ r ∈ keptRegs, r ≠ .x9 := by decide
   refine WP.mono (Proof.MlKem.AArch64.KeyGen.copy_ok (S := s.gpr src.1) (D := s.gpr dst.1)
     (n9 _ (L.ptrBs i1)) (n9 _ (L.ptrBs i2)) hso hdo (L.disj hsep) rfl rfl (L.cR i1) (L.cW hw))
     fun s' ⟨k, f, b⟩ => ⟨postB_of_keep k (by decide) f, k, b⟩

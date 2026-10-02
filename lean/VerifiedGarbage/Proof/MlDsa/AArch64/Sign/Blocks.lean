@@ -1,4 +1,5 @@
-import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.Hash
+import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.CallMore
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Hash
 import VerifiedGarbage.Proof.MlKem.AArch64.KgEnd
 import VerifiedGarbage.Proof.MlKem.AArch64.KgA
 import VerifiedGarbage.Proof.MlDsa.KeyGen.Mono
@@ -16,7 +17,7 @@ the hint (`onesAdd_ok`) and its check (`onesOk_run`).
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlKem.AArch64 (Only Keep MemTo wp_nil wp_movz wp_strb wp_ldrb wp_ldrw wp_strw wp_ldrx wp_strx
   wp_addImm wp_subImm wp_lsr count_loop)
 open VG.Spec.MlDsa (coeffAt integerToBytes)
@@ -67,12 +68,12 @@ theorem bytesAt_one (m : Mem) (a : Addr) : bytesAt m a 1 = [m a] := by
 theorem writeW8_self (m : Mem) (a : Addr) (b : Byte) : m.writeW a b a = b := by
   rw [Proof.MlKem.writeW8_apply, Proof.MlDsa.KeyGen.ifp rfl]
 
-theorem ne_x9 {r : Reg} (h : r ∈ bases) : r ≠ .x9 := by
+theorem ne_x9 {r : Reg} (h : r ∈ keptRegs) : r ≠ .x9 := by
   intro e; rw [e] at h; revert h; decide
 
 /-- The byte `v` to `p`. -/
 theorem setB_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {p : Ptr} {v : Nat}
-    (ho : p.2 < 4096) (hw : inB wbs p 1 = true) (hb : p.1 ∈ bases) :
+    (ho : p.2 < 4096) (hw : inB wbs p 1 = true) (hb : p.1 ∈ keptRegs) :
     WP isa (.block (setB p v)) s fun s' => PPostB S s s' [(p, 1)] ∧ Keep [.x9] s s' ∧
       s'.mem = s.mem.writeW (pa s p) (BitVec.ofNat 8 v) := by
   have h9 := ne_x9 hb
@@ -86,7 +87,7 @@ theorem setB_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S r
 
 /-- The 8 bytes `v` to `p`. -/
 theorem setQ_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {p : Ptr} {v : Nat}
-    (ho : p.2 % 8 = 0 ∧ p.2 < 4096 * 8) (hv : v < 65536) (hw : inB wbs p 8 = true) (hb : p.1 ∈ bases) :
+    (ho : p.2 % 8 = 0 ∧ p.2 < 4096 * 8) (hv : v < 65536) (hw : inB wbs p 8 = true) (hb : p.1 ∈ keptRegs) :
     WP isa (.block (setQ p v)) s fun s' => PPostB S s s' [(p, 8)] ∧ Keep [.x9] s s' ∧
       s'.mem = s.mem.writeW (pa s p) (BitVec.ofNat 64 v) := by
   have h9 := ne_x9 hb
@@ -125,12 +126,12 @@ theorem postB24 {S : Nat} {s s' : State} (k : Only [.x24] s s') (W : List Region
 /-! ## Copies of 32 bytes -/
 
 /-- The 32 bytes at `src` can be copied to `dst`. -/
-def copyPChk (bs wbs : List (Reg × Nat)) (dst src : Ptr) : Bool :=
+def copyPChk (rbs wbs : List (Reg × Nat)) (dst src : Ptr) : Bool :=
   decide (src.2 % 8 = 0 ∧ src.2 + 32 ≤ 32768) && decide (dst.2 % 8 = 0 ∧ dst.2 + 32 ≤ 32768) &&
-    sepB bs src 32 dst 32 && inB wbs dst 32
+    sepB rbs wbs src 32 dst 32 && inB wbs dst 32
 
 theorem copyP_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {dst src : Ptr}
-    (hc : copyPChk (rbs ++ wbs) wbs dst src = true) :
+    (hc : copyPChk rbs wbs dst src = true) :
     WP isa (.block (Impl.MlKem.AArch64.copy32 src.1 src.2 dst.1 dst.2)) s fun s' =>
       PPostB S s s' [(dst, 32)] ∧ Keep [.x9] s s' ∧ bytesAt s'.mem (pa s dst) 32 = bytesAt s.mem (pa s src) 32 := by
   simp only [copyPChk, Bool.and_eq_true, decide_eq_true_eq] at hc
@@ -143,10 +144,10 @@ theorem copyP_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S 
 
 /-! ## Copies, a byte at a time -/
 
-theorem ne_x0 {r : Reg} (h : r ∈ bases) : r ≠ .x0 := by
+theorem ne_x0 {r : Reg} (h : r ∈ keptRegs) : r ≠ .x0 := by
   intro e; rw [e] at h; revert h; decide
 
-theorem ne_x1 {r : Reg} (h : r ∈ bases) : r ≠ .x1 := by
+theorem ne_x1 {r : Reg} (h : r ∈ keptRegs) : r ≠ .x1 := by
   intro e; rw [e] at h; revert h; decide
 
 theorem copyBody_ok (s : State) (h0 : InRegions (s.rd ++ s.wr) (s.gpr .x1) 1) (h1 : InRegions s.wr (s.gpr .x0) 1) :
@@ -180,7 +181,7 @@ theorem ofNat_sub_one {n i : Nat} (h : i < n) :
   omega
 
 /-- The glue of a copy: `x0 ← dst`, `x1 ← src`, `x2 ← n`. -/
-theorem copyGlue_ok {dst src : Ptr} {n : Nat} (hd : dst.1 ∈ bases) (hs : src.1 ∈ bases) (s : State) :
+theorem copyGlue_ok {dst src : Ptr} {n : Nat} (hd : dst.1 ∈ keptRegs) (hs : src.1 ∈ keptRegs) (s : State) :
     WP isa (.block (lea .x0 dst.1 dst.2 ++ lea .x1 src.1 src.2 ++ movV .x2 n)) s fun s' =>
       (s'.gpr .x0 = pa s dst ∧ s'.gpr .x1 = pa s src ∧ s'.gpr .x2 = BitVec.ofNat 64 n) ∧ Only [.x0, .x1, .x2] s s' := by
   rw [List.append_assoc, ← List.append_nil (movV .x2 n)]
@@ -190,7 +191,7 @@ theorem copyGlue_ok {dst src : Ptr} {n : Nat} (hd : dst.1 ∈ bases) (hs : src.1
   · rw [h₃.get .x1, e₂, h₁.get src.1 (by simpa using ne_x0 hs)]
 
 /-- A copy of `n` bytes from `src` to `dst`, apart. -/
-theorem copy_core {dst src : Ptr} {n : Nat} (h0 : 0 < n) (hn : n < 2 ^ 32) (hd : dst.1 ∈ bases) (hs : src.1 ∈ bases)
+theorem copy_core {dst src : Ptr} {n : Nat} (h0 : 0 < n) (hn : n < 2 ^ 32) (hd : dst.1 ∈ keptRegs) (hs : src.1 ∈ keptRegs)
     (s : State) (hrd : InRegions (s.rd ++ s.wr) (pa s src) n) (hwr : InRegions s.wr (pa s dst) n)
     (hdj : Region.Disjoint ⟨pa s src, n⟩ ⟨pa s dst, n⟩) :
     WP isa (copy dst src n) s fun s' =>
@@ -230,11 +231,11 @@ theorem copy_core {dst src : Ptr} {n : Nat} (h0 : 0 < n) (hn : n < 2 ^ 32) (hd :
     exact List.map_congr_left fun i hi => hc i (List.mem_range.mp hi)
 
 /-- What a copy of `n` bytes from `src` to `dst` needs of the layout. -/
-def copyChk (bs wbs : List (Reg × Nat)) (dst src : Ptr) (n : Nat) : Bool :=
-  inB wbs dst n && inB bs src n && sepB bs src n dst n && decide (0 < n) && decide (n < 2 ^ 32)
+def copyChk (rbs wbs : List (Reg × Nat)) (dst src : Ptr) (n : Nat) : Bool :=
+  inB wbs dst n && inB (rbs ++ wbs) src n && sepB rbs wbs src n dst n && decide (0 < n) && decide (n < 2 ^ 32)
 
 theorem copy_ok {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {dst src : Ptr} {n : Nat}
-    (hc : copyChk (rbs ++ wbs) wbs dst src n = true) :
+    (hc : copyChk rbs wbs dst src n = true) :
     WP isa (copy dst src n) s fun s' => PPostB S s s' [(dst, n)] ∧ s'.gpr .x24 = s.gpr .x24 ∧
       bytesAt s'.mem (pa s dst) n = bytesAt s.mem (pa s src) n := by
   simp only [copyChk, Bool.and_eq_true, decide_eq_true_eq] at hc

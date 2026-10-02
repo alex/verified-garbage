@@ -12,7 +12,7 @@ namespace VG.Proof.MlDsa.AArch64.Verify
 
 variable {keccak : VG.Proof.Sha3.AArch64.Permutation}
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Proof.MlDsa.AArch64.KeyGen (prims_okWith scrLen)
 
 /-- A state satisfying `verifyContract`'s precondition. -/

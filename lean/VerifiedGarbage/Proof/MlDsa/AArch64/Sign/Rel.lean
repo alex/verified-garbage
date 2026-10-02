@@ -14,7 +14,7 @@ leakage begins with.
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
@@ -30,7 +30,7 @@ variable {p : Params} {D : Nat}
 theorem lrel_of {σ₁ σ₂ x y : State} (hpub : (signK p D).pub σ₁ σ₂) (S₁ : St p D σ₁ x) (S₂ : St p D σ₂ y) :
     LRel D (sgR p) (sgW p) x y := by
   obtain ⟨h1, h2, h3, h4, h5, h6, _⟩ := hpub
-  refine ⟨S₁.lay, S₂.lay, fun r hr => ?_, by rw [S₁.top.sp, S₂.top.sp, h6]⟩
+  refine ⟨S₁.lay, S₂.lay, fun r hr => ?_, by rw [S₁.top.sp, S₂.top.sp, h6], fun b hb => ⟨sgB_bases p b hb, bases_kept _ (sgB_bases p b hb)⟩⟩
   have r₁ := S₁.top.regs
   have r₂ := S₂.top.regs
   simp only [bases, List.mem_cons, List.not_mem_nil, or_false] at hr

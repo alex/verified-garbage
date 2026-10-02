@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.CallArith
+import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.Base
 
 /-!
 # ML-DSA signing on AArch64: calls of the samplers
@@ -11,14 +11,14 @@ layout registers agree, and whose sampler leaks the same, leak the same
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
 
 /-! ## `RejNTTPoly` -/
 
 def rejNttChk (rbs wbs : List (Reg × Nat)) (seed a ss : Ptr) : Bool :=
-  sepB (rbs ++ wbs) seed 34 a 1024 && sepB (rbs ++ wbs) seed 34 ss 2048 && sepB (rbs ++ wbs) a 1024 ss 2048 &&
+  sepB rbs wbs seed 34 a 1024 && sepB rbs wbs seed 34 ss 2048 && sepB rbs wbs a 1024 ss 2048 &&
     inB (rbs ++ wbs) seed 34 && inB (rbs ++ wbs) a 1024 && inB (rbs ++ wbs) ss 2048 && inB wbs a 1024 &&
     inB wbs ss 2048
 
@@ -47,11 +47,11 @@ theorem rejNtt_pre {s1 : State} (h1 : Args (rejNttArgs seed a ss) s s1) :
 
 end
 
-theorem rejNtt_args {bs : List (Reg × Nat)} (L : LayOk bs) {seed a ss : Ptr} (c4 : inB bs seed 34 = true)
+theorem rejNtt_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {seed a ss : Ptr} (c4 : inB bs seed 34 = true)
     (c5 : inB bs a 1024 = true) (c6 : inB bs ss 2048 = true) :
     ∀ x ∈ rejNttArgs seed a ss, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨ptr_ok (ptr_bs L c5), by decide⟩, ⟨ptr_ok (ptr_bs L c6), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨ptr_ok (ptr_kept L c5), by decide⟩, ⟨ptr_ok (ptr_kept L c6), by decide⟩⟩
 
 theorem rejNttAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {seed a ss : Ptr}
@@ -63,7 +63,7 @@ theorem rejNttAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.r
   have hc' := hc
   simp only [rejNttChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
-  refine WP.mono (callAtK_ok hS C (rejNtt_args L.ok c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine WP.mono (callAt_ok hS C (rejNtt_args L.ok c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => rejNtt_pre L hc h1) (rejNtt_cov L hc).1 (rejNtt_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [rejNTTContract, rejNTTSig, AArch64.abi, VG.AArch64.argRegs] at hq
@@ -80,7 +80,7 @@ theorem rejNttAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContr
   simp only [rejNttChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
   have hb : seed.1 ∈ bases ∧ a.1 ∈ bases ∧ ss.1 ∈ bases := ⟨ptr_bs hB c4, ptr_bs hB c5, ptr_bs hB c6⟩
-  refine callAtK_tr C (rejNtt_args hB c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAt_tr C (rejNtt_args hB c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, hsd, e⟩ := hQ x y hp
   refine ⟨_, _, rejNtt_pre Lx hc h1, ?_, ?_, (rejNtt_cov Lx hc).1, (rejNtt_cov Lx hc).2, ?_, ?_⟩
@@ -96,7 +96,7 @@ theorem rejNttAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.rejNTT (rejNTTContr
 /-! ## `SampleInBall` -/
 
 def ballChk (rbs wbs : List (Reg × Nat)) (ct : Ptr) (len : Nat) (c ss : Ptr) : Bool :=
-  sepB (rbs ++ wbs) ct len c 1024 && sepB (rbs ++ wbs) ct len ss 2048 && sepB (rbs ++ wbs) c 1024 ss 2048 &&
+  sepB rbs wbs ct len c 1024 && sepB rbs wbs ct len ss 2048 && sepB rbs wbs c 1024 ss 2048 &&
     inB (rbs ++ wbs) ct len && inB (rbs ++ wbs) c 1024 && inB (rbs ++ wbs) ss 2048 && inB wbs c 1024 &&
     inB wbs ss 2048
 
@@ -131,12 +131,12 @@ theorem ball_pre {tau : Nat} (ht : (len, tau) ∈ ballParams) {s1 : State}
 
 end
 
-theorem ball_args {bs : List (Reg × Nat)} (L : LayOk bs) {ct c ss : Ptr} (len tau : Nat) (c4 : inB bs ct len = true)
+theorem ball_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {ct c ss : Ptr} (len tau : Nat) (c4 : inB bs ct len = true)
     (c5 : inB bs c 1024 = true) (c6 : inB bs ss 2048 = true) :
     ∀ x ∈ ballArgs ct len tau c ss, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
-    ⟨ptr_ok (ptr_bs L c5), by decide⟩, ⟨ptr_ok (ptr_bs L c6), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
+    ⟨ptr_ok (ptr_kept L c5), by decide⟩, ⟨ptr_ok (ptr_kept L c6), by decide⟩⟩
 
 theorem ballAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.ball (sampleInBallContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {ct c ss : Ptr} {len : Nat}
@@ -151,7 +151,7 @@ theorem ballAtK_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.bal
   have hc' := hc
   simp only [ballChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
-  refine WP.mono (callAtK_ok hS C (ball_args L.ok len tau c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine WP.mono (callAt_ok hS C (ball_args L.ok len tau c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     (fun s1 h1 => ball_pre L hc ht h1) (ball_cov L hc).1 (ball_cov L hc).2)
     fun s' ⟨hP, s1, h1, hq⟩ => ⟨hP.b, hP.cs .x24 (by decide) (by decide), ?_⟩
   sig_post [sampleInBallContract, sampleInBallSig, AArch64.abi, VG.AArch64.argRegs] at hq
@@ -172,7 +172,7 @@ theorem ballAtK_tr {S : Nat} {P : Prims} (C : CalleeOk S P.ball (sampleInBallCon
   simp only [ballChk, Bool.and_eq_true, and_assoc] at hc'
   obtain ⟨_, _, _, c4, c5, c6, _, _⟩ := hc'
   have hb : ct.1 ∈ bases ∧ c.1 ∈ bases ∧ ss.1 ∈ bases := ⟨ptr_bs hB c4, ptr_bs hB c5, ptr_bs hB c6⟩
-  refine callAtK_tr C (ball_args hB len tau c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
+  refine callAt_tr C (ball_args hB len tau c4 c5 c6) (by simp only [List.map_cons, List.map_nil]; decide)
     fun x y x1 y1 hp h1 h2 => ?_
   obtain ⟨Lx, Ly, hsd, e⟩ := hQ x y hp
   refine ⟨_, _, ball_pre Lx hc ht h1, ?_, ?_, (ball_cov Lx hc).1, (ball_cov Lx hc).2, ?_, ?_⟩

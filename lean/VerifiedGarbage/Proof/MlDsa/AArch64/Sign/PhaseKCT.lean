@@ -12,7 +12,7 @@ iteration leaks (`checks_tr`).
 
 namespace VG.Proof.MlDsa.AArch64.Sign
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.Sign
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.Sign
 open VG.Proof.MlKem.AArch64 (Only Keep)
 open VG.Proof.MlDsa.Sign
 open VG.Spec.MlDsa
@@ -102,7 +102,7 @@ theorem hR_trL {t i : Nat} (hc : hChk2 p i = true) :
   simp only [hChk2, Bool.and_eq_true, decide_eq_true_eq] at hc
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨cm, ci⟩, cn⟩, cc⟩, ca⟩, cs⟩, ch⟩, g1⟩, g2⟩, g3⟩, g4⟩, _⟩, g6⟩, _⟩, _⟩,
     _⟩, _⟩, o1⟩, o2⟩, o3⟩, o4⟩, _⟩, _⟩, t3⟩, t4⟩, u5⟩, _⟩, _⟩, _⟩, hγ'⟩, hγ⟩, hi⟩, _⟩ := hc
-  have f6 : keepB (sgB p) [(t4P, 1024)] (wP p i) 1024 = true := by
+  have f6 : keepB (sgR p) (sgW p) [(t4P, 1024)] (wP p i) 1024 = true := by
     simp only [hfam, Bool.and_eq_true] at g6
     exact famChk_one (b := wBase p) g6.1.1.2 (show i < i + 1 by omega)
   let J : State → Prop := fun s => (∃ σ, IHb p D σ t i i s) ∧ Reduced s.mem (pa s t3P)

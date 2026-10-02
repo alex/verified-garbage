@@ -11,7 +11,7 @@ their result `q` (`SC`): `ẑ[i] = NTT(z[i])` (`nttZ_vpiece`), `ĉ`
 
 namespace VG.Proof.MlDsa.AArch64.Verify
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen VG.Impl.MlDsa.AArch64.Verify
 open VG.Proof.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params Poly IPoly toRq ntt nttInv multiplyNTT polyAt natPolyAt coeffAt Reduced PolyIs NatPolyIs
   HintIs Bounds minBounds rejNTTPoly sampleInBall simpleBitPack d ofInt)
@@ -132,7 +132,7 @@ theorem nttZ_vpiece {i : Nat} (hi : i < p.ℓ) :
   · rw [ifp (by omega : i' < i + 1)]
     have := L.keepPoly hP' (by vlay) (hs.z i' hi')
     rwa [ifp hlt] at this
-  · rw [ifp (Nat.lt_succ_self _), hP'.pa (show Reg.x28 ∈ bases by decide)]
+  · rw [ifp (Nat.lt_succ_self _), hP'.pa (show Reg.x28 ∈ keptRegs by decide)]
     rw [hz.2] at hq
     exact hq
   · rw [ifn (by omega : ¬ i' < i + 1)]
@@ -156,7 +156,7 @@ theorem nttC_vpiece : VPiece p S (SCx p p.ℓ false 0) (SCx p p.ℓ true 0) (ntt
     fun r' hr' c hc' => L.keepPoly hP' (by have := ar_lt hr' hc'; vlay) (hs.a r' hr' c hc'),
     fun i hi => L.keepPoly hP' (by vlay) (hs.z i hi), ?_, fun _ h => absurd h (Nat.not_lt_zero _),
     by rw [x']; exact hs.x24⟩
-  rw [hP'.pa (show Reg.x28 ∈ bases by decide), ifp rfl]
+  rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide), ifp rfl]
   rw [hcc.2] at hq
   exact hq
 
@@ -245,7 +245,7 @@ theorem dot0_vpiece : VPiece p S (SCx p p.ℓ true r) (RowI p r (F1 p r 1)) (mul
       ⟨h, A', c0, q, hs.keep hF hp hP' (by scchk hF) x', ?_⟩
     rw [hA.2, hZ.2] at hq
     show PolyIs _ _ _
-    rw [hP'.pa (show Reg.x28 ∈ bases by decide)]
+    rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide)]
     simp only [dotAcc, Proof.MlDsa.Verify.add_zero_left]
     exact hq
   · have := h₁.a r hr 0 (by omega); rw [Nat.add_zero] at this; exact ⟨this.1, (h₁.zHat (c := 0) (by omega)).1⟩
@@ -267,7 +267,7 @@ theorem dotS_vpiece {j : Nat} (hj : j < p.ℓ) : VPiece p S (RowI p r (F1 p r j)
     ⟨h, A', c0, q, hs.keep hF hp hP' (by scchk hF) x', ?_⟩
   rw [hA.2, hZ.2, hw.2] at hq
   show PolyIs _ _ _
-  rw [hP'.pa (show Reg.x28 ∈ bases by decide)]
+  rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide)]
   exact hq
 
 theorem dot_vpiece : VPiece p S (SCx p p.ℓ true r) (RowI p r (F1 p r p.ℓ)) (dot P p r) := by
@@ -289,7 +289,7 @@ theorem t1_vpiece : VPiece p S (RowI p r (F1 p r p.ℓ)) (RowI p r (F3 p r)) (un
     ⟨h, A', c0, q, hs.keep hF hp hP' (by scchk hF) x', L.keepPoly hP' (by
       have := hF.k; have := hF.l; have := hF.kl; have := hF.scr; vlay) hw, ?_⟩
   rw [hs.vc.pkSlice (by rw [hF.pk]; omega)] at hq
-  rw [hP'.pa (show Reg.x28 ∈ bases by decide)]
+  rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide)]
   exact hq
 
 theorem nttT_vpiece : VPiece p S (RowI p r (F3 p r)) (RowI p r (F4 p r)) (nttAt P (sc oSS) (tmP p)) := by
@@ -305,7 +305,7 @@ theorem nttT_vpiece : VPiece p S (RowI p r (F3 p r)) (RowI p r (F4 p r)) (nttAt 
       ⟨h, A', c0, q, hs.keep hF hp hP' (by scchk hF) x', L.keepPoly hP' (by
         have := hF.k; have := hF.l; have := hF.kl; have := hF.scr; vlay) hw, ?_⟩
     rw [ht.2] at hq
-    rw [hP'.pa (show Reg.x28 ∈ bases by decide)]
+    rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide)]
     exact hq
   · obtain ⟨_, _, _, _, _, _, t⟩ := h₁; exact t.1
   · obtain ⟨_, _, _, _, _, _, t⟩ := h₂; exact t.1
@@ -325,7 +325,7 @@ theorem mulT_vpiece : VPiece p S (RowI p r (F4 p r)) (RowI p r (F5 p r)) (mulAt 
       ⟨h, A', c0, q, hs.keep hF hp hP' (by scchk hF) x', L.keepPoly hP' (by
         have := hF.k; have := hF.l; have := hF.kl; have := hF.scr; vlay) hw, ?_⟩
     rw [hC.2, ht.2] at hq
-    rw [hP'.pa (show Reg.x28 ∈ bases by decide)]
+    rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide)]
     exact hq
   · obtain ⟨_, _, _, _, hs, _, t⟩ := h₁; exact ⟨hs.c.1, t.1⟩
   · obtain ⟨_, _, _, _, hs, _, t⟩ := h₂; exact ⟨hs.c.1, t.1⟩
@@ -345,7 +345,7 @@ theorem sub_vpiece : VPiece p S (RowI p r (F5 p r)) (RowI p r (F6 p r)) (subAt P
       ⟨h, A', c0, q, hs.keep hF hp hP' (by scchk hF) x', ?_⟩
     rw [hw.2, ht.2] at hq
     show PolyIs _ _ _
-    rw [hP'.pa (show Reg.x28 ∈ bases by decide)]
+    rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide)]
     exact hq
   · obtain ⟨_, _, _, _, _, w, t⟩ := h₁; exact ⟨w.1, t.1⟩
   · obtain ⟨_, _, _, _, _, w, t⟩ := h₂; exact ⟨w.1, t.1⟩
@@ -363,7 +363,7 @@ theorem inv_vpiece : VPiece p S (RowI p r (F6 p r)) (RowI p r (F7 p r)) (invNttA
       ⟨h, A', c0, q, hs.keep hF hp hP' (by scchk hF) x', ?_⟩
     rw [hw.2] at hq
     show PolyIs _ _ _
-    rw [hP'.pa (show Reg.x28 ∈ bases by decide)]
+    rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide)]
     exact hq
   · obtain ⟨_, _, _, _, _, w⟩ := h₁; exact w.1
   · obtain ⟨_, _, _, _, _, w⟩ := h₂; exact w.1
@@ -380,7 +380,7 @@ theorem uh_vpiece : VPiece p S (RowI p r (F7 p r)) (RowI p r (F8 p r)) (useHintA
       ⟨h, A', c0, q, hs.keep hF hp hP' (by scchk hF) x', ?_⟩
     rw [hintRow_pa p s r, Proof.MlDsa.Verify.hintAt_row hs.hint hr, hw.2] at hq
     show natPolyAt _ _ = _
-    rw [hP'.pa (show Reg.x28 ∈ bases by decide)]
+    rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide)]
     exact hq
   · obtain ⟨_, _, _, _, _, w⟩ := h₁; exact w.1
   · obtain ⟨_, _, _, _, _, w⟩ := h₂; exact w.1
@@ -411,7 +411,7 @@ theorem sbpR_vpiece : VPiece p S (RowI p r (F8 p r)) (SCx p p.ℓ true (r + 1))
       hs'.x24⟩⟩
     rcases (by omega : r' < r ∨ r' = r) with hlt | rfl
     · exact hs'.rows r' hlt
-    · rw [hP'.pa (show Reg.x28 ∈ bases by decide), hq, hw]
+    · rw [hP'.pa (show Reg.x28 ∈ keptRegs by decide), hq, hw]
   · obtain ⟨_, _, _, _, _, w⟩ := h₁; exact w1_bound hF w
   · obtain ⟨_, _, _, _, _, w⟩ := h₂; exact w1_bound hF w
 

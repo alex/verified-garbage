@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.MlKem.AArch64.KeyGen
+import VerifiedGarbage.Impl.MlDsa.AArch64.Call
 import VerifiedGarbage.Impl.MlKem.AArch64.Compress
 import VerifiedGarbage.Impl.Sha3.AArch64.Stream
 
@@ -15,8 +15,7 @@ and saves its caller's values of these registers and of `x30` (the return
 address, which each call overwrites) in `scratch`; it uses no stack of its
 own. A buffer is at `p.1 + p.2` for a pointer `p` (a register and an
 offset). Each call is preceded by the moves of its arguments into their
-registers (an `add`, or a `movz` (and `movk`s) and an `add`, for a pointer;
-a `movz` (and `movk`s) for an integer). The model has no flags: branches
+registers (`callAt`, `Impl/MlDsa/AArch64/Call.lean`). The model has no flags: branches
 test a register (`cbz`, `cbnz`).
 
 The code is generic in the implementations of the primitives (`Prims`): the
@@ -26,9 +25,6 @@ proofs hold for any code that meets their contracts.
 namespace VG.Impl.MlDsa.AArch64.Sign
 
 open VG.AArch64
-
-/-- A pointer: a register and an offset. -/
-abbrev Ptr := Reg × Nat
 
 /-- The code of the polynomial primitives that signing calls. -/
 structure Prims where
@@ -75,18 +71,9 @@ def oPS : Nat := 3072
 /-- Polynomial `i`. -/
 def oP (i : Nat) : Nat := 5120 + 1024 * i
 
-/-- `scratch + off`. -/
-abbrev sc (off : Nat) : Ptr := (.x28, off)
+/-! ## Stores and copies
 
-/-! ## Moves -/
-
-/-- `d ← v`: a `movz`, or for `v ≥ 2¹⁶` a `movz` and three `movk`s. -/
-def movV (d : Reg) (v : Nat) : List Instr :=
-  if v < 65536 then [.movz .x d (BitVec.ofNat 16 v) 0] else Impl.MlKem.AArch64.movImm d (BitVec.ofNat 64 v)
-
-/-- `d ← b + off` (for `d ≠ b`). -/
-def lea (d b : Reg) (off : Nat) : List Instr :=
-  if off < 4096 then [.addImm .x d b off] else movV d off ++ [.add .x d b d]
+Moves and calls are in `Impl/MlDsa/AArch64/Call.lean`. -/
 
 /-- The byte `v` to `p` (`p.2 < 4096`), through `x9`. -/
 def setB (p : Ptr) (v : Nat) : List Instr := [.movz .x .x9 (BitVec.ofNat 16 v) 0, .strb .x9 p.1 p.2]
@@ -103,30 +90,6 @@ abbrev copyBody : List Instr :=
 def copy (dst src : Ptr) (n : Nat) : Prog isa :=
   .seq (.block (lea .x0 dst.1 dst.2 ++ lea .x1 src.1 src.2 ++ movV .x2 n))
     (.loop (.block copyBody) (.nonzero .x .x2))
-
-/-! ## Calls
-
-A call's arguments are pointers or immediates (`Arg`), each moved into its
-register (`glue`). -/
-
-/-- An argument: a pointer, or an immediate. -/
-inductive Arg
-  | ptr (p : Ptr)
-  | imm (v : Nat)
-
-/-- `d ← a`. -/
-def Arg.instrs (d : Reg) : Arg → List Instr
-  | .ptr p => lea d p.1 p.2
-  | .imm v => movV d v
-
-/-- The moves of the arguments `as` into their registers. -/
-def glue : List (Reg × Arg) → List Instr
-  | [] => []
-  | (d, a) :: as => a.instrs d ++ glue as
-
-/-- The moves of the arguments, then a call. -/
-def callAt (name : String) (c : Prog isa) (as : List (Reg × Arg)) : Prog isa :=
-  .seq (.block (glue as)) (.call name c)
 
 /-! ## The sponge -/
 

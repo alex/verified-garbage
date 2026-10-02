@@ -11,7 +11,7 @@ whose layout registers agree (and whose hint agrees) leak the same (`…_tr`).
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
 
@@ -41,10 +41,10 @@ theorem rw_parts {rbs wbs : List (Reg × Nat)} {f out : Ptr} {lf lo : Nat} (hc :
 abbrev sbpArgs (f : Ptr) (b : Nat) (out : Ptr) (len : Nat) : List (Reg × Arg) :=
   [(.x0, .ptr f), (.x1, .imm b), (.x2, .ptr out), (.x3, .imm len)]
 
-theorem sbp_args {bs : List (Reg × Nat)} (L : LayOk bs) {f out : Ptr} (b len : Nat) (c2 : inB bs f 1024 = true)
+theorem sbp_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {f out : Ptr} (b len : Nat) (c2 : inB bs f 1024 = true)
     (c3 : inB bs out len = true) : ∀ x ∈ sbpArgs f b out len, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c2), by decide⟩, ⟨trivial, by decide⟩, ⟨ptr_ok (ptr_bs L c3), by decide⟩,
+  exact ⟨⟨ptr_ok (ptr_kept L c2), by decide⟩, ⟨trivial, by decide⟩, ⟨ptr_ok (ptr_kept L c3), by decide⟩,
     ⟨trivial, by decide⟩⟩
 
 /-- What `SimpleBitPack` asks of its arguments. -/
@@ -113,11 +113,11 @@ theorem sbpAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.simpleBitPack (simpleBi
 abbrev bpArgs (f : Ptr) (a b : Nat) (out : Ptr) (len : Nat) : List (Reg × Arg) :=
   [(.x0, .ptr f), (.x1, .imm a), (.x2, .imm b), (.x3, .ptr out), (.x4, .imm len)]
 
-theorem bp_args {bs : List (Reg × Nat)} (L : LayOk bs) {f out : Ptr} (a b len : Nat) (c2 : inB bs f 1024 = true)
+theorem bp_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {f out : Ptr} (a b len : Nat) (c2 : inB bs f 1024 = true)
     (c3 : inB bs out len = true) : ∀ x ∈ bpArgs f a b out len, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c2), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
-    ⟨ptr_ok (ptr_bs L c3), by decide⟩, ⟨trivial, by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c2), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
+    ⟨ptr_ok (ptr_kept L c3), by decide⟩, ⟨trivial, by decide⟩⟩
 
 /-- What `BitPack` and `BitUnpack` ask of their arguments. -/
 structure BpOk (a b len : Nat) : Prop where
@@ -190,11 +190,11 @@ theorem bpAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.bitPack (bitPackContract
 abbrev buArgs (v : Ptr) (len a b : Nat) (f : Ptr) : List (Reg × Arg) :=
   [(.x0, .ptr v), (.x1, .imm len), (.x2, .imm a), (.x3, .imm b), (.x4, .ptr f)]
 
-theorem bu_args {bs : List (Reg × Nat)} (L : LayOk bs) {v f : Ptr} (len a b : Nat) (c2 : inB bs v len = true)
+theorem bu_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {v f : Ptr} (len a b : Nat) (c2 : inB bs v len = true)
     (c3 : inB bs f 1024 = true) : ∀ x ∈ buArgs v len a b f, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c2), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
-    ⟨ptr_ok (ptr_bs L c3), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c2), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
+    ⟨ptr_ok (ptr_kept L c3), by decide⟩⟩
 
 section
 variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {v f : Ptr} {a b len : Nat}
@@ -252,10 +252,10 @@ theorem buAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.bitUnpack (bitUnpackCont
 
 abbrev t1Args (v f : Ptr) : List (Reg × Arg) := [(.x0, .ptr v), (.x1, .ptr f)]
 
-theorem t1_args {bs : List (Reg × Nat)} (L : LayOk bs) {v f : Ptr} (c2 : inB bs v 320 = true)
+theorem t1_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {v f : Ptr} (c2 : inB bs v 320 = true)
     (c3 : inB bs f 1024 = true) : ∀ x ∈ t1Args v f, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c2), by decide⟩, ⟨ptr_ok (ptr_bs L c3), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c2), by decide⟩, ⟨ptr_ok (ptr_kept L c3), by decide⟩⟩
 
 section
 variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {v f : Ptr}
@@ -309,11 +309,11 @@ theorem t1At_tr {S : Nat} {P : Prims} (C : CalleeOk S P.unpackT1 (unpackT1Contra
 abbrev huArgs (y : Ptr) (len omega : Nat) (h : Ptr) (hlen : Nat) : List (Reg × Arg) :=
   [(.x0, .ptr y), (.x1, .imm len), (.x2, .imm omega), (.x3, .ptr h), (.x4, .imm hlen)]
 
-theorem hu_args {bs : List (Reg × Nat)} (L : LayOk bs) {y h : Ptr} (len omega hlen : Nat) (c2 : inB bs y len = true)
+theorem hu_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {y h : Ptr} (len omega hlen : Nat) (c2 : inB bs y len = true)
     (c3 : inB bs h (hlen * 4) = true) : ∀ x ∈ huArgs y len omega h hlen, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c2), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
-    ⟨ptr_ok (ptr_bs L c3), by decide⟩, ⟨trivial, by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c2), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
+    ⟨ptr_ok (ptr_kept L c3), by decide⟩, ⟨trivial, by decide⟩⟩
 
 /-- What `HintBitUnpack` asks of its arguments. -/
 structure HuOk (len omega hlen : Nat) : Prop where

@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.CallArith
+import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.Base
 
 /-!
 # ML-DSA on AArch64: calls of the samplers
@@ -11,7 +11,7 @@ leaks the same, leak the same (`…_tr`).
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
 
@@ -47,11 +47,11 @@ theorem rejNtt_pre {s1 : State} (h1 : Args (rejNttArgs seed a ss) s s1) :
 
 end
 
-theorem rejNtt_args {bs : List (Reg × Nat)} (L : LayOk bs) {seed a ss : Ptr} (c4 : inB bs seed 34 = true)
+theorem rejNtt_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {seed a ss : Ptr} (c4 : inB bs seed 34 = true)
     (c5 : inB bs a 1024 = true) (c6 : inB bs ss 2048 = true) :
     ∀ x ∈ rejNttArgs seed a ss, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨ptr_ok (ptr_bs L c5), by decide⟩, ⟨ptr_ok (ptr_bs L c6), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨ptr_ok (ptr_kept L c5), by decide⟩, ⟨ptr_ok (ptr_kept L c6), by decide⟩⟩
 
 theorem rejNttAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.rejNtt (rejNTTContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {seed a ss : Ptr}
@@ -128,12 +128,12 @@ theorem rejB_pre {eta : Nat} (he : eta = 2 ∨ eta = 4) {s1 : State} (h1 : Args 
 
 end
 
-theorem rejB_args {bs : List (Reg × Nat)} (L : LayOk bs) {seed a ss : Ptr} (eta : Nat) (c4 : inB bs seed 66 = true)
+theorem rejB_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {seed a ss : Ptr} (eta : Nat) (c4 : inB bs seed 66 = true)
     (c5 : inB bs a 1024 = true) (c6 : inB bs ss 2048 = true) :
     ∀ x ∈ rejBArgs seed eta a ss, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨trivial, by decide⟩, ⟨ptr_ok (ptr_bs L c5), by decide⟩,
-    ⟨ptr_ok (ptr_bs L c6), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨trivial, by decide⟩, ⟨ptr_ok (ptr_kept L c5), by decide⟩,
+    ⟨ptr_ok (ptr_kept L c6), by decide⟩⟩
 
 theorem rejBAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims}
     (C : CalleeOk S P.rejBounded (rejBoundedContract AArch64.abi S))
@@ -219,12 +219,12 @@ theorem ball_pre {tau : Nat} (ht : (len, tau) ∈ ballParams) {s1 : State}
 
 end
 
-theorem ball_args {bs : List (Reg × Nat)} (L : LayOk bs) {ct c ss : Ptr} (len tau : Nat) (c4 : inB bs ct len = true)
+theorem ball_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {ct c ss : Ptr} (len tau : Nat) (c4 : inB bs ct len = true)
     (c5 : inB bs c 1024 = true) (c6 : inB bs ss 2048 = true) :
     ∀ x ∈ ballArgs ct len tau c ss, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
-    ⟨ptr_ok (ptr_bs L c5), by decide⟩, ⟨ptr_ok (ptr_bs L c6), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨trivial, by decide⟩, ⟨trivial, by decide⟩,
+    ⟨ptr_ok (ptr_kept L c5), by decide⟩, ⟨ptr_ok (ptr_kept L c6), by decide⟩⟩
 
 theorem ballAt_ok {S : Nat} (hS : S < 2 ^ 64) {P : Prims} (C : CalleeOk S P.ball (sampleInBallContract AArch64.abi S))
     {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {ct c ss : Ptr} {len : Nat}

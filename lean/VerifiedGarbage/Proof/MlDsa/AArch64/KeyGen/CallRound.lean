@@ -11,7 +11,7 @@ For each call of `vg_mldsa_power2round`, `vg_mldsa_use_hint` and
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa
 open VG.Spec.Sha3 (bytesAt)
 
@@ -24,11 +24,11 @@ def p2rChk (rbs wbs : List (Reg × Nat)) (t t1 t0 : Ptr) : Bool :=
 
 abbrev p2rArgs (t t1 t0 : Ptr) : List (Reg × Arg) := [(.x0, .ptr t), (.x1, .ptr t1), (.x2, .ptr t0)]
 
-theorem p2r_args {bs : List (Reg × Nat)} (L : LayOk bs) {t t1 t0 : Ptr} (c4 : inB bs t 1024 = true)
+theorem p2r_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {t t1 t0 : Ptr} (c4 : inB bs t 1024 = true)
     (c5 : inB bs t1 1024 = true) (c6 : inB bs t0 1024 = true) :
     ∀ x ∈ p2rArgs t t1 t0, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨ptr_ok (ptr_bs L c5), by decide⟩, ⟨ptr_ok (ptr_bs L c6), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨ptr_ok (ptr_kept L c5), by decide⟩, ⟨ptr_ok (ptr_kept L c6), by decide⟩⟩
 
 section
 variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {t t1 t0 : Ptr}
@@ -103,12 +103,12 @@ def useHintChk (rbs wbs : List (Reg × Nat)) (h r out : Ptr) : Bool :=
 abbrev useHintArgs (h r : Ptr) (g2 : Nat) (out : Ptr) : List (Reg × Arg) :=
   [(.x0, .ptr h), (.x1, .ptr r), (.x2, .imm g2), (.x3, .ptr out)]
 
-theorem useHint_args {bs : List (Reg × Nat)} (L : LayOk bs) {h r out : Ptr} (g2 : Nat) (c3 : inB bs h 1024 = true)
+theorem useHint_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {h r out : Ptr} (g2 : Nat) (c3 : inB bs h 1024 = true)
     (c4 : inB bs r 1024 = true) (c5 : inB bs out 1024 = true) :
     ∀ x ∈ useHintArgs h r g2 out, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c3), by decide⟩, ⟨ptr_ok (ptr_bs L c4), by decide⟩, ⟨trivial, by decide⟩,
-    ⟨ptr_ok (ptr_bs L c5), by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c3), by decide⟩, ⟨ptr_ok (ptr_kept L c4), by decide⟩, ⟨trivial, by decide⟩,
+    ⟨ptr_ok (ptr_kept L c5), by decide⟩⟩
 
 theorem gamma2_lt {g2 : Nat} (h : g2 ∈ gamma2s) : g2 < 2 ^ 32 := by
   simp only [gamma2s, List.mem_cons, List.not_mem_nil, or_false] at h
@@ -185,10 +185,10 @@ theorem useHintAt_tr {S : Nat} {P : Prims} (C : CalleeOk S P.useHint (useHintCon
 
 abbrev normArgs (f : Ptr) (bound : Nat) : List (Reg × Arg) := [(.x0, .ptr f), (.x1, .imm bound)]
 
-theorem norm_args {bs : List (Reg × Nat)} (L : LayOk bs) {f : Ptr} (bound : Nat) (c1 : inB bs f 1024 = true) :
+theorem norm_args {B : List Reg} {bs : List (Reg × Nat)} (L : LayIn B bs) {f : Ptr} (bound : Nat) (c1 : inB bs f 1024 = true) :
     ∀ x ∈ normArgs f bound, x.2.Ok ∧ x.1 ∈ argRegs := by
   simp only [List.forall_mem_cons, List.not_mem_nil, false_implies, implies_true, and_true]
-  exact ⟨⟨ptr_ok (ptr_bs L c1), by decide⟩, ⟨trivial, by decide⟩⟩
+  exact ⟨⟨ptr_ok (ptr_kept L c1), by decide⟩, ⟨trivial, by decide⟩⟩
 
 section
 variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs s) {f : Ptr}

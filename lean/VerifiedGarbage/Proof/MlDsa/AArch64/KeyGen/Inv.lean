@@ -14,7 +14,7 @@ correctness and constant time together.
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Spec.MlDsa (Params keyGenSeeds)
 open VG.Spec.Sha3 (bytesAt)
 
@@ -92,7 +92,7 @@ theorem Two.step {p : Params} {S : Nat} {c : Prog isa} (htr : RelCT isa (Two p S
     RelCT isa (Two p S) c (Two p S) :=
   RelCT.postDep htr (F := fun x x' => ∃ W, PostB S x x' W) (fun x y h => ⟨hok x h.lx, hok y h.ly⟩)
     fun x y x' y' h ⟨_, hx⟩ ⟨_, hy⟩ => ⟨h.lx.post hx, h.ly.post hy,
-      fun r hr => by rw [hx.bs r hr, hy.bs r hr]; exact h.same.1 r hr, by rw [hx.sp, hy.sp]; exact h.same.2⟩
+      fun r hr => by rw [hx.bs r (bases_kept r hr), hy.bs r (bases_kept r hr)]; exact h.same.1 r hr, by rw [hx.sp, hy.sp]; exact h.same.2⟩
 
 theorem Two.x28 {p : Params} {S : Nat} {x y : State} (h : Two p S x y) :
     x.sp = y.sp ∧ ∀ r ∈ [Reg.x28], x.gpr r = y.gpr r := ⟨h.same.2, fun r hr => by

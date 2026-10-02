@@ -14,7 +14,7 @@ first `nj` of `s₁` in the NTT domain, and the first `nr` rows of `t` packed to
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen
 
-open VG VG.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
+open VG VG.AArch64 VG.Impl.MlDsa.AArch64 VG.Impl.MlDsa.AArch64.KeyGen
 open VG.Proof.MlKem.AArch64 (Keep)
 open VG.Spec.MlDsa (Params Poly IPoly toRq ntt polyAt coeffAt Reduced PolyIs bitPack simpleBitPack)
 open VG.Proof.MlDsa.KeyGen (t1K t0K Small ifp ifn)
@@ -78,11 +78,11 @@ theorem KR.keep {p : Params} (hF : PFacts p) {S' : Nat} {σ : State} (hp : kgPre
 /-- After the copies, for some `A`, `S` and `R`. -/
 abbrev KR0 (p : Params) (σ s : State) : Prop := ∃ A S R, KR p σ A S R 0 0 0 s
 
-theorem b26 (o n : Nat) : ∀ w ∈ [(((.x26, o) : Ptr), n)], w.1.1 ∈ bases := fun w hw => by
-  rw [List.mem_singleton] at hw; subst hw; show Reg.x26 ∈ bases; decide
+theorem b26 (o n : Nat) : ∀ w ∈ [(((.x26, o) : Ptr), n)], w.1.1 ∈ keptRegs := fun w hw => by
+  rw [List.mem_singleton] at hw; subst hw; show Reg.x26 ∈ keptRegs; decide
 
-theorem b27 (o n : Nat) : ∀ w ∈ [(((.x27, o) : Ptr), n)], w.1.1 ∈ bases := fun w hw => by
-  rw [List.mem_singleton] at hw; subst hw; show Reg.x27 ∈ bases; decide
+theorem b27 (o n : Nat) : ∀ w ∈ [(((.x27, o) : Ptr), n)], w.1.1 ∈ keptRegs := fun w hw => by
+  rw [List.mem_singleton] at hw; subst hw; show Reg.x27 ∈ keptRegs; decide
 
 theorem copies_ok {p : Params} (hF : PFacts p) {S' : Nat} {σ : State} (hp : kgPre p S' σ) {s : State}
     (h : KSamp p σ (p.k * p.ℓ) (p.ℓ + p.k) s) : WP isa (.block copies) s (KR0 p σ) := by
@@ -125,9 +125,9 @@ theorem copies_ok {p : Params} (hF : PFacts p) {S' : Nat} {σ : State} (hp : kgP
       fun j hj => by rw [ifn (Nat.not_lt_zero j)]; exact L.keepPoly hP (hc.2.2 j (by omega)) (hS j (by omega)).1,
       ?_, ?_, ?_, fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩⟩
     · rw [L₂.keepBytes hP₃ (by lay [hF.pk, hF.sk, hlen]), L₁.keepBytes hP₂ (by lay [hF.pk, hF.sk, hlen]),
-        hP₁.pa (show Reg.x26 ∈ bases by decide), hb₁, e1]
-    · rw [L₂.keepBytes hP₃ (by lay [hF.pk, hF.sk, hlen]), hP₂.pa (show Reg.x27 ∈ bases by decide), hb₂, e1']
-    · rw [hP₃.pa (show Reg.x27 ∈ bases by decide), hb₃, e2]
+        hP₁.pa (show Reg.x26 ∈ keptRegs by decide), hb₁, e1]
+    · rw [L₂.keepBytes hP₃ (by lay [hF.pk, hF.sk, hlen]), hP₂.pa (show Reg.x27 ∈ keptRegs by decide), hb₂, e1']
+    · rw [hP₃.pa (show Reg.x27 ∈ keptRegs by decide), hb₃, e2]
 
 theorem copies_piece {p : Params} (hF : PFacts p) {S : Nat} :
     Piece p S (fun σ s => KSamp p σ (p.k * p.ℓ) (p.ℓ + p.k) s) (KR0 p) (.block copies) :=
