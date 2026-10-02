@@ -15,12 +15,12 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Arith.Same
 /-!
 # ML-DSA key generation on x86-64, with this library's primitives
 
-Untrusted: everything here is checked by Lean. The x86-64 implementations of
-the primitives (`prims`) are verified, use at most 16 bytes of stack (24
-for `vg_mldsa_rej_ntt_poly4`), and never write `rsp` but by calls nested at
-most twice (three times for `vg_mldsa_rej_ntt_poly4`), with any implementation
-`v` of the polynomial arithmetic (`prims_okWith`), so key generation with
-them is verified (`keyGen_verifiedWith`).
+The x86-64 implementations of the primitives (`prims`) are verified, use at
+most 16 bytes of stack (24 for `vg_mldsa_rej_ntt_poly4`), and never write
+`rsp` but by calls nested at most twice (three times for
+`vg_mldsa_rej_ntt_poly4`), with any implementation `v` of the polynomial
+arithmetic (`prims_okWith`), so key generation with them is verified
+(`keyGen_verifiedWith`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.KeyGen

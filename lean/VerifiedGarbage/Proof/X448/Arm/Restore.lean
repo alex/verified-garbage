@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.X448.Arm.Save
 /-!
 # X448 on ARMv7: restoring the callee-saved registers
 
-Untrusted: everything here is checked by Lean. Each incoming register
-value is loaded from its designated working-space word.
+Each incoming register value is loaded from its designated working-space word.
 -/
 
 namespace VG.Proof.X448.Arm

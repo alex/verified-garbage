@@ -5,9 +5,8 @@ import VerifiedGarbage.Proof.X25519.Bytes
 /-!
 # X448: byte encodings
 
-Untrusted: everything here is checked by Lean. The target-independent
-little-endian helpers are shared with X25519; the width and clamping
-lemmas here are specific to X448.
+The target-independent little-endian helpers are shared with X25519; the width
+and clamping lemmas here are specific to X448.
 -/
 
 namespace VG.Proof.X448

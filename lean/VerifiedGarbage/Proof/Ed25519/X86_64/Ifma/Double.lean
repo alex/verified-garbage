@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.Ed25519.Group.Double
 /-!
 # Ed25519 doublings with AVX512_IFMA: a doubling in the lanes
 
-Untrusted: everything here is checked by Lean. `vdbl` leaves in the lanes
-of `ymm0–ymm4` the point `dblPoint` of the one there, as field elements
-(`fe5`).
+`vdbl` leaves in the lanes of `ymm0–ymm4` the point `dblPoint` of the one
+there, as field elements (`fe5`).
 -/
 
 namespace VG.Proof.Ed25519.X86_64.Ifma

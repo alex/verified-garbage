@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.X86.Power
 import VerifiedGarbage.Proof.Ed25519.X86.Field
 import VerifiedGarbage.Proof.X25519.Invert
 
-/-! Untrusted: fixed-count squaring and compositional field exponentiation. -/
+/-! Fixed-count squaring and compositional field exponentiation. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 open VG.Impl.X25519.X86 (mul)

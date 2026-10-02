@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86.PointTable
 import VerifiedGarbage.Proof.Ed25519.X86.Field
 
-/-! Untrusted: bounded word copies between disjoint scratch ranges. -/
+/-! Bounded word copies between disjoint scratch ranges. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

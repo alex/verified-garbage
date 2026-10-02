@@ -9,8 +9,6 @@ import VerifiedGarbage.Proof.Framework.Omega
 
 /-!
 # Poly1305 on AArch64: `update`
-
-Untrusted: everything here is checked by Lean.
 -/
 
 open VG.PowLit

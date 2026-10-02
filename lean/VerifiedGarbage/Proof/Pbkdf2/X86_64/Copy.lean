@@ -5,8 +5,7 @@ import VerifiedGarbage.Impl.Pbkdf2.X86_64
 /-!
 # PBKDF2-HMAC's iteration on x86-64: copying words
 
-Untrusted: everything here is checked by Lean. What `n` copies of a 32-bit
-word (`cp32`, `Impl/Pbkdf2/X86_64.lean`) write.
+What `n` copies of a 32-bit word (`cp32`, `Impl/Pbkdf2/X86_64.lean`) write.
 -/
 
 namespace VG.Proof.Pbkdf2.X86_64

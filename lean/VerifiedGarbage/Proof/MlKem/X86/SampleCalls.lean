@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem.X86.SampleSetup
 /-!
 # ML-KEM on x86 (32-bit): the Keccak calls of `vg_mlkem_sample_ntt`
 
-Untrusted: everything here is checked by Lean. From the all-zero state
-(`Z`), absorbing the seed (`absorb_call`), padding for SHAKE128
-(`pad_call`) and squeezing 840 bytes into `scratch` (`squeeze_call`) leaves
-the first 840 bytes of the XOF output of the seed there (`Out`). Each call's
-arguments are set by a block (`absArgs_piece`, `padArgs_piece`,
+From the all-zero state (`Z`), absorbing the seed (`absorb_call`), padding for
+SHAKE128 (`pad_call`) and squeezing 840 bytes into `scratch` (`squeeze_call`)
+leaves the first 840 bytes of the XOF output of the seed there (`Out`). Each
+call's arguments are set by a block (`absArgs_piece`, `padArgs_piece`,
 `sqArgs_piece`) from `esi = scratch` and the seed pointer on the stack.
 -/
 

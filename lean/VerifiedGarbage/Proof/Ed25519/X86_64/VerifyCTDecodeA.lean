@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyCTDecodeR
 
-/-! Untrusted: decoding the public key selects the public verification continuation. -/
+/-! Decoding the public key selects the public verification continuation. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

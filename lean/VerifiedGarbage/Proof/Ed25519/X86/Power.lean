@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86.PowerEnv
 import VerifiedGarbage.Proof.Ed25519.RootPower
 
-/-! Untrusted: the shared addition chain computes inversion and square-root powers. -/
+/-! The shared addition chain computes inversion and square-root powers. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

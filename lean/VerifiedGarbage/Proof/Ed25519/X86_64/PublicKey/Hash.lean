@@ -10,10 +10,9 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.X86_64.Hashes.Sha512
 /-!
 # Ed25519 public-key derivation on x86-64: the hash of the seed
 
-Untrusted: everything here is checked by Lean. From the state after the
-frame's push (`push_ctx`), the calls of `init`, `update` and `finalize`
-leave `SHA-512(seed)` at `scratch + 1568` (`hash_ok`), for any
-implementation `v` of the compression function.
+From the state after the frame's push (`push_ctx`), the calls of `init`,
+`update` and `finalize` leave `SHA-512(seed)` at `scratch + 1568` (`hash_ok`),
+for any implementation `v` of the compression function.
 -/
 
 namespace VG.Proof.Ed25519.X86_64.PublicKey

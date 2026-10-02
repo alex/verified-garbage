@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.HashCT
 /-!
 # ML-DSA verification on x86-64: the blocks between the calls
 
-Untrusted: everything here is checked by Lean. A byte store (`setB_ok`), a
-copy (`copy_ok`), the mask of a sampler's output by its result (`mask_ok`:
-unchanged if 1, zero if 0), and the updates of the result in `r15`
-(`and15_ok`, `mov15_ok`).
+A byte store (`setB_ok`), a copy (`copy_ok`), the mask of a sampler's output
+by its result (`mask_ok`: unchanged if 1, zero if 0), and the updates of the
+result in `r15` (`and15_ok`, `mov15_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

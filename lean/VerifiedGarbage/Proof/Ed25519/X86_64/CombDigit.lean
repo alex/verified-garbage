@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.CombSelect
 /-!
 # The comb's digits
 
-Untrusted. Step `c` reads digit `2c + 1` (`c < 32`) or `2(c - 32)` of the
-scalar from its bits, expanded one per byte at byte 768 of the scratch
-(`combIdx`), by Horner's rule.
+Step `c` reads digit `2c + 1` (`c < 32`) or `2(c - 32)` of the scalar from its
+bits, expanded one per byte at byte 768 of the scratch (`combIdx`), by
+Horner's rule.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

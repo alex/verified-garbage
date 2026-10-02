@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.MlKem.Encode
 /-!
 # ML-KEM on 32-bit ARM: `vg_mlkem_cbd2`
 
-Untrusted: everything here is checked by Lean. One symbolic execution of
-the loop body for any pointers (`body_ok`); the invariant says which
-coefficients are written (`Inv`); their values are `samplePolyCBD2_val`:
-the number of bits set in a 2-bit field `v` is `v - ⌊v / 2⌋`.
+One symbolic execution of the loop body for any pointers (`body_ok`); the
+invariant says which coefficients are written (`Inv`); their values are
+`samplePolyCBD2_val`: the number of bits set in a 2-bit field `v` is `v - ⌊v /
+2⌋`.
 -/
 
 namespace VG.Proof.MlKem.Arm.Cbd2

@@ -3,15 +3,14 @@ import VerifiedGarbage.Proof.MlKem1024.X86.EncRow
 /-!
 # ML-KEM-1024 on x86 (32-bit): the ciphertext of K-PKE.Encrypt
 
-Untrusted: everything here is checked by Lean. The end of row `i`
-(`row_piece`): `u[i] = NTT⁻¹(Â^⊺[i] ∘ ŷ) + e₁[i]`, compressed into the
-ciphertext. Then `v` (`v_piece`): the products `t̂[j] ×_T ŷ[j]`, with `t̂[j]`
-decoded from `ek` (`term0_piece`, `term_piece`), summed, `NTT⁻¹`, `e₂` and `μ`
-added, and `v` compressed into the ciphertext. `encrypt4` takes the inputs
-(`Base`) to `Done` (`encrypt_piece`): if `e4ACC` is 1, the ciphertext is
-K-PKE.Encrypt's for the matrix `aE` sampled (`ct_eq`), each of whose entries
-was sampled within some bound (`samples`); if 0, one sample failed within
-`minIterations`.
+The end of row `i` (`row_piece`): `u[i] = NTT⁻¹(Â^⊺[i] ∘ ŷ) + e₁[i]`,
+compressed into the ciphertext. Then `v` (`v_piece`): the products `t̂[j] ×_T
+ŷ[j]`, with `t̂[j]` decoded from `ek` (`term0_piece`, `term_piece`), summed,
+`NTT⁻¹`, `e₂` and `μ` added, and `v` compressed into the ciphertext.
+`encrypt4` takes the inputs (`Base`) to `Done` (`encrypt_piece`): if `e4ACC`
+is 1, the ciphertext is K-PKE.Encrypt's for the matrix `aE` sampled (`ct_eq`),
+each of whose entries was sampled within some bound (`samples`); if 0, one
+sample failed within `minIterations`.
 -/
 
 namespace VG.Proof.MlKem1024.X86.Enc

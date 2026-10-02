@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # BLAKE2b compression function on x86 (32-bit): the parts of one block
 
-Untrusted: everything here is checked by Lean. Copying 32-bit words
-(`copyWords_ok`), which copies the block and the state into `scratch`;
-initializing the rest of the work vector (`ivWord_ok`, `ivXor_ok`);
-XORing the work vector into the state (`finish_ok`); and advancing the
-parameters to the next block (`advance_ok`).
+Copying 32-bit words (`copyWords_ok`), which copies the block and the state
+into `scratch`; initializing the rest of the work vector (`ivWord_ok`,
+`ivXor_ok`); XORing the work vector into the state (`finish_ok`); and
+advancing the parameters to the next block (`advance_ok`).
 -/
 
 namespace VG.Proof.Blake2.X86.CompressB

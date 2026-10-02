@@ -5,8 +5,8 @@ import VerifiedGarbage.Proof.X25519.X86_64.Small
 /-!
 # Ed25519 scalar reduction: the conditional subtraction on x86-64
 
-Untrusted. Borrow equations account for every bit of all four limbs. The
-masked selection implements the conditional subtraction of `L`.
+Borrow equations account for every bit of all four limbs. The masked selection
+implements the conditional subtraction of `L`.
 -/
 
 namespace VG.Proof.Ed25519.X86_64

@@ -3,7 +3,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.ScalarMemory
 import VerifiedGarbage.Proof.Ed25519.AArch64.Codec
 import VerifiedGarbage.TCB.AArch64.Target
 
-/-! Untrusted: complete scalar reduction, including preservation of the AAPCS64 ABI. -/
+/-! Complete scalar reduction, including preservation of the AAPCS64 ABI. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 open VG.Spec.Ed25519 (bytesAt)

@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.X25519.Invert
 /-!
 # X25519 on x86-64: the inversion
 
-Untrusted: everything here is checked by Lean. The inversion `invert` writes
-only the temporaries `T0`–`T3` (slots 16–19, bytes `[512, 640)`) and, in its
-runs of squarings, the counter `rbx`; slot 17 (`T1`) ends as
-`VG.Proof.X25519.invert` of slot 4 (`Z2`). Each part of it is an `ISpec`: a
-change of the slots by a function of them, keeping everything else.
+The inversion `invert` writes only the temporaries `T0`–`T3` (slots 16–19,
+bytes `[512, 640)`) and, in its runs of squarings, the counter `rbx`; slot 17
+(`T1`) ends as `VG.Proof.X25519.invert` of slot 4 (`Z2`). Each part of it is
+an `ISpec`: a change of the slots by a function of them, keeping everything
+else.
 -/
 
 namespace VG.Proof.X25519.X86_64

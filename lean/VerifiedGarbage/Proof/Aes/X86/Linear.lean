@@ -6,8 +6,6 @@ import VerifiedGarbage.Proof.Aes.Ct32.Layers
 /-!
 # The linear layers of bitsliced AES on x86 (32-bit)
 
-Untrusted: everything here is checked by Lean.
-
 Each layer is checked by evaluation over the lane domain
 (`Framework/X86/Linear.lean`): the kernel runs it on the input words (the
 slots `0 … 7`, and for AddRoundKey the round key at `kp`) as atoms and

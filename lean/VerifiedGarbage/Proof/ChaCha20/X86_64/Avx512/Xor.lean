@@ -4,12 +4,11 @@ import VerifiedGarbage.Proof.ChaCha20.X86_64.Avx2.Xor
 /-!
 # ChaCha20 keystream XOR on x86-64 with AVX-512
 
-Untrusted: everything here is checked by Lean. The loop over 1024-byte chunks
-(`Setup`, `Rounds`, `Finish`), the call of `vg_chacha20_xor` for the rest,
-constant time and the calling convention. The contract is that of
-`vg_chacha20_xor_avx2` (`Avx2.xorAvx2X86_64`): 16 bytes of stack below the
-return address, for the call of `vg_chacha20_xor` and its call of the block
-function.
+The loop over 1024-byte chunks (`Setup`, `Rounds`, `Finish`), the call of
+`vg_chacha20_xor` for the rest, constant time and the calling convention. The
+contract is that of `vg_chacha20_xor_avx2` (`Avx2.xorAvx2X86_64`): 16 bytes of
+stack below the return address, for the call of `vg_chacha20_xor` and its call
+of the block function.
 -/
 
 namespace VG.Proof.ChaCha20.X86_64.Avx512

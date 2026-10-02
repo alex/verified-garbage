@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.AArch64.Env
 /-!
 # X448 on AArch64: sequences of field operations
 
-Untrusted: everything here is checked by Lean. Slot-indexed operations
-interpret the implementation's field-operation lists as environment updates.
+Slot-indexed operations interpret the implementation's field-operation lists
+as environment updates.
 -/
 
 namespace VG.Proof.X448.AArch64

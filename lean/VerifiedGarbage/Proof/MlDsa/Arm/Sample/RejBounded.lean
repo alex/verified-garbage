@@ -5,13 +5,13 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_rej_bounded_poly`, constant time and `Verified`
 
-Untrusted: everything here is checked by Lean. Two runs from states that
-agree on the public data (the pointers, `η`, the stack pointer, and which
-half-bytes of the XOF output are accepted, `rejBoundedLeak`) leak the same
-trace: the prologue and the blocks around the loop by the taint analysis,
-the sponge by `sponge_ct`, the branch on `η` because `η` is public, and the
-loop iteration by iteration (`loop_ct`), since the half-bytes of the first
-544 bytes of output are accepted alike (`leak_hbOks`).
+Two runs from states that agree on the public data (the pointers, `η`, the
+stack pointer, and which half-bytes of the XOF output are accepted,
+`rejBoundedLeak`) leak the same trace: the prologue and the blocks around the
+loop by the taint analysis, the sponge by `sponge_ct`, the branch on `η`
+because `η` is public, and the loop iteration by iteration (`loop_ct`), since
+the half-bytes of the first 544 bytes of output are accepted alike
+(`leak_hbOks`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Sample

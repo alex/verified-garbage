@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.CmacAes.Stream.Arm.Common
 /-!
 # Streaming AES-CMAC on ARMv7: copying bytes
 
-Untrusted: everything here is checked by Lean. `copy` copies the `r1`
-bytes at `r6` to `r2`, a byte at a time (none if `r1` is 0), advancing
-`r6` past them and taking them off `r7`, and changing only `r1`, `r2`, `r6`,
-`r7`, `r12` and the flags.
+`copy` copies the `r1` bytes at `r6` to `r2`, a byte at a time (none if `r1`
+is 0), advancing `r6` past them and taking them off `r7`, and changing only
+`r1`, `r2`, `r6`, `r7`, `r12` and the flags.
 -/
 
 namespace VG.Proof.CmacAes.Stream.Arm

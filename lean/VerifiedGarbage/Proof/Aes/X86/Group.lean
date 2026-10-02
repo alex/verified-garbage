@@ -5,8 +5,6 @@ import Mathlib.Tactic.SplitIfs
 /-!
 # One group of counter-mode blocks on x86 (32-bit)
 
-Untrusted: everything here is checked by Lean.
-
 `ctrBlocks` builds the counter blocks `c` and `c + 1` from the words of the
 counter block in the scratch buffer (`ctrBlocks_wp`, then `ctr_inRel` for
 `InRel`), `encrypt2` encrypts them (`Encrypt.lean`), and `xorGroup` XORs the

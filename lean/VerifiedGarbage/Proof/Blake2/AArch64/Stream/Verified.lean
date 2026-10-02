@@ -9,11 +9,10 @@ import VerifiedGarbage.Spec.Blake2.Contract
 /-!
 # Streaming BLAKE2 on AArch64: `Verified`
 
-Untrusted: everything here is checked by Lean. Correctness (from `Init`,
-`Update` and `Finalize`, with the compression function of
-`Proof/Blake2/AArch64/Compress.lean`), constant time (from `CT`), and a state
-satisfying each precondition, for BLAKE2b and BLAKE2s. `update` and
-`finalize` save `x30` in 16 bytes below the stack pointer.
+Correctness (from `Init`, `Update` and `Finalize`, with the compression
+function of `Proof/Blake2/AArch64/Compress.lean`), constant time (from `CT`),
+and a state satisfying each precondition, for BLAKE2b and BLAKE2s. `update`
+and `finalize` save `x30` in 16 bytes below the stack pointer.
 -/
 
 namespace VG.Proof.Blake2.AArch64.Stream

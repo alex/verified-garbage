@@ -4,15 +4,14 @@ import VerifiedGarbage.Spec.MlDsa.Poly
 /-!
 # ML-DSA on x86 (32-bit): the layers of the NTT and its inverse
 
-Untrusted: everything here is checked by Lean. A layer
-(`Impl.MlKem.X86.layerCode body dz len`) is a loop over its blocks, each a
-loop of butterflies `body`; this file proves it once for any butterfly that
-computes a function `op` of the polynomial (`Bfly`), with `ebp` moving up
+A layer (`Impl.MlKem.X86.layerCode body dz len`) is a loop over its blocks,
+each a loop of butterflies `body`; this file proves it once for any butterfly
+that computes a function `op` of the polynomial (`Bfly`), with `ebp` moving up
 (`dz = zUp`) or down (`zDown`) the table `T` of zetas `zv k` in Montgomery
 form, from its entry state `s₀` (`vg_mldsa_ntt(f, scratch)` or
 `vg_mldsa_inv_ntt(f, scratch)`, after the setup that stores the table in
-`scratch` and `f + 1024` in the argument slot of `scratch`), as for ML-KEM
-on x86. The butterflies of a block and the blocks of a layer are the loops
+`scratch` and `f + 1024` in the argument slot of `scratch`), as for ML-KEM on
+x86. The butterflies of a block and the blocks of a layer are the loops
 `blockN` and `layerN` of `Proof/MlDsa/Arith/Ntt.lean`.
 
 `MemOK s₀ T G m`: memory holds `G` at `f`, the table, `f` and `f + 1024` in

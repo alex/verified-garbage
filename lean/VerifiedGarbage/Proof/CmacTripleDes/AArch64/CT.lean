@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.Framework.AArch64.Taint
 /-!
 # TDEA-CMAC on AArch64: constant time
 
-Untrusted: everything here is checked by Lean. The taint analysis
-(`Framework/AArch64/Taint.lean`) checks that only the arguments, which are
-public, decide branches and addresses: the functions keep their pointers
-and counts in registers.
+The taint analysis (`Framework/AArch64/Taint.lean`) checks that only the
+arguments, which are public, decide branches and addresses: the functions keep
+their pointers and counts in registers.
 -/
 
 namespace VG.Proof.CmacTripleDes.AArch64

@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.ByteMem
 /-!
 # X448 on x86 (32-bit): expanding a scalar byte
 
-Untrusted: everything here is checked by Lean. Public shifts select each
-bit and write it to its own byte in the working space.
+Public shifts select each bit and write it to its own byte in the working
+space.
 -/
 
 namespace VG.Proof.X448.X86

@@ -3,9 +3,8 @@ import VerifiedGarbage.Proof.MlDsa.X86.KeyGen.Inv
 /-!
 # ML-DSA key generation on x86 (32-bit): the seeds
 
-Untrusted: everything here is checked by Lean. The AND of
-the samplers' results set to 1, `(ρ, ρ′, K) = H(ξ ‖ k ‖ ℓ, 128)`, `ρ` to the
-seed of `RejNTTPoly` and `ρ′ ‖ · ‖ 0` to that of `RejBoundedPoly`
+The AND of the samplers' results set to 1, `(ρ, ρ′, K) = H(ξ ‖ k ‖ ℓ, 128)`,
+`ρ` to the seed of `RejNTTPoly` and `ρ′ ‖ · ‖ 0` to that of `RejBoundedPoly`
 (`seeds_piece`, which ends in `KB` with the AND 1).
 -/
 

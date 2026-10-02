@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # Streaming AES-CMAC on ARMv7: arithmetic and memory
 
-Untrusted: everything here is checked by Lean. `count` in a register pair
-(`toNat_append32`, `or_beq_zero`), the number of bytes held back as the
-code computes it from the low word of `count` (`held_lo`), conditions, and
-bytes written.
+`count` in a register pair (`toNat_append32`, `or_beq_zero`), the number of
+bytes held back as the code computes it from the low word of `count`
+(`held_lo`), conditions, and bytes written.
 -/
 
 namespace VG.Proof.CmacAes.Stream.Arm

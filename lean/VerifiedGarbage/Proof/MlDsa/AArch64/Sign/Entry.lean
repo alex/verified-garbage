@@ -3,13 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.Call
 /-!
 # ML-DSA on AArch64: entry to a callee
 
-Untrusted: everything here is checked by Lean. What a callee's contract
-needs on its entry (the state of the call, with the link registers
-changed), from the layout of the caller (`cpre`): the stack it may use
-(`wfP_of`, `resv`), and its buffers apart from that stack and from each
-other, and not wrapping around. The values of the arguments after their
-moves (`Args.ptr`, `Args.imm`), and states that agree on the layout
-(`SameB`).
+What a callee's contract needs on its entry (the state of the call, with the
+link registers changed), from the layout of the caller (`cpre`): the stack it
+may use (`wfP_of`, `resv`), and its buffers apart from that stack and from
+each other, and not wrapping around. The values of the arguments after their
+moves (`Args.ptr`, `Args.imm`), and states that agree on the layout (`SameB`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sign

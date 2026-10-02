@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlKem.X86_64.VLay
 /-!
 # ML-KEM on x86-64: the layers of the NTT and its inverse with `len` = 4 and 2
 
-Untrusted: everything here is checked by Lean. The layer with `len = 4` runs
-two blocks at a time (`vstep4`): the lower halves of their coefficients
-gathered into `xmm0` and the upper ones into `xmm1` by `punpcklqdq` and
-`punpckhqdq`, and back. The layer with `len = 2` runs four blocks at a time
-(`vstep2`): their pairs gathered by `pshufd` and `punpck{l,h}qdq`, and
-interleaved back by `punpck{l,h}dq`.
+The layer with `len = 4` runs two blocks at a time (`vstep4`): the lower
+halves of their coefficients gathered into `xmm0` and the upper ones into
+`xmm1` by `punpcklqdq` and `punpckhqdq`, and back. The layer with `len = 2`
+runs four blocks at a time (`vstep2`): their pairs gathered by `pshufd` and
+`punpck{l,h}qdq`, and interleaved back by `punpck{l,h}dq`.
 -/
 
 namespace VG.Proof.MlKem.X86_64

@@ -5,10 +5,10 @@ import Mathlib.Tactic.LinearCombination
 /-!
 # ML-KEM on x86-64: `BaseCaseMultiply` on words
 
-Untrusted: everything here is checked by Lean. The words `vbase` computes
-for a pair (`baseW`): with `mont(x, y) = x · y · 2⁻¹⁶ mod q`,
-`mont(mont(a₀, b₀) + mont(mont(a₁, b₁), γ · 2¹⁶), R²)` is `a₀b₀ + a₁b₁γ` and
-`mont(mont(a₀, b₁) + mont(a₁, b₀), R²)` is `a₀b₁ + a₁b₀`, modulo `q`.
+The words `vbase` computes for a pair (`baseW`): with `mont(x, y) = x · y ·
+2⁻¹⁶ mod q`, `mont(mont(a₀, b₀) + mont(mont(a₁, b₁), γ · 2¹⁶), R²)` is `a₀b₀ +
+a₁b₁γ` and `mont(mont(a₀, b₁) + mont(a₁, b₀), R²)` is `a₀b₁ + a₁b₀`, modulo
+`q`.
 -/
 
 namespace VG.Proof.MlKem.X86_64.W

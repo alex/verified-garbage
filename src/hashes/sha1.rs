@@ -13,7 +13,7 @@
 //! `vg_sha1_update_shani` and `vg_sha1_finalize_shani` instead, which have
 //! the same contracts and call `vg_sha1_compress_shani`. On AArch64, the
 //! `sha2` feature group enables the `_sha2` variants using SHA1C/P/M/H and
-//! SHA1SU0/SHA1SU1. It follows the same dispatch mechanism as AES.
+//! SHA1SU0/SHA1SU1.
 
 #![cfg(any(
     target_arch = "x86_64",

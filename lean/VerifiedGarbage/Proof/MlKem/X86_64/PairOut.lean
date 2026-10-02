@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.Contracts
 /-!
 # ML-KEM on x86-64: loops that write a polynomial two coefficients at a time
 
-Untrusted: everything here is checked by Lean. A loop that reads its
-input through `rdi`, `d` bytes per iteration, and writes coefficients
-`2i` and `2i + 1` of the polynomial at `rsi` in iteration `i` (`PairInv`),
-one step further (`PairInv.step`), and its end (`PairInv.polyIs`).
+A loop that reads its input through `rdi`, `d` bytes per iteration, and writes
+coefficients `2i` and `2i + 1` of the polynomial at `rsi` in iteration `i`
+(`PairInv`), one step further (`PairInv.step`), and its end
+(`PairInv.polyIs`).
 -/
 
 namespace VG.Proof.MlKem.X86_64

@@ -5,10 +5,9 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.WindowCT
 /-!
 # Ed25519 doublings with AVX512_IFMA in verification's windows
 
-Untrusted: everything here is checked by Lean. `Ifma.double4` is four
-doublings as a window runs them (`EdDouble`): it represents `16a` in slots
-0–3, keeps the slots from 16 up and what `WinKeep` keeps, and its trace
-depends on the scratch's address alone.
+`Ifma.double4` is four doublings as a window runs them (`EdDouble`): it
+represents `16a` in slots 0–3, keeps the slots from 16 up and what `WinKeep`
+keeps, and its trace depends on the scratch's address alone.
 -/
 
 namespace VG.Proof.Ed25519.X86_64.Ifma

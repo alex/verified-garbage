@@ -5,9 +5,8 @@ import VerifiedGarbage.Proof.MlKem.X86.Ntt
 /-!
 # ML-KEM-768 on x86 (32-bit): `ŝ` and `ê` in `vg_mlkem768_keygen`
 
-Untrusted: everything here is checked by Lean. `kgPrf N` computes
-`NTT(SamplePolyCBD₂(PRF₂(σ, N)))` into `scratch[1024N]` (`prf_piece`), and the
-six of them take `P 0` to `P 6` (`prfs_piece`).
+`kgPrf N` computes `NTT(SamplePolyCBD₂(PRF₂(σ, N)))` into `scratch[1024N]`
+(`prf_piece`), and the six of them take `P 0` to `P 6` (`prfs_piece`).
 -/
 
 namespace VG.Proof.MlKem.X86.KeyGen

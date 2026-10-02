@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.CmacAes.Arm.Words
 /-!
 # AES-CMAC on ARMv7: `vg_cmac_aes_update`, the blocks before and in the loop
 
-Untrusted: everything here is checked by Lean. The invariant after `k`
-blocks (`LInv`): the registers hold the arguments (`r7` the next block, `r8`
-the blocks left), only the state, the first 2064 bytes of the scratch buffer
-and the 8 bytes below the stack pointer have changed since the registers were
-saved, and the state is the chaining value after the first `k` blocks.
+The invariant after `k` blocks (`LInv`): the registers hold the arguments
+(`r7` the next block, `r8` the blocks left), only the state, the first 2064
+bytes of the scratch buffer and the 8 bytes below the stack pointer have
+changed since the registers were saved, and the state is the chaining value
+after the first `k` blocks.
 -/
 
 namespace VG.Proof.CmacAes.Arm

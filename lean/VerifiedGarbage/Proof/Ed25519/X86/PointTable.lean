@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86.CopyWords
 
-/-! Untrusted: saving and loading four consecutive field coordinates. -/
+/-! Saving and loading four consecutive field coordinates. -/
 namespace VG.Proof.Ed25519.X86
 open VG VG.X86 VG.Impl.Ed25519.X86
 

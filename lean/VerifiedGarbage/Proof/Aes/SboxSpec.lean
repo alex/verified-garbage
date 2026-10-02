@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Framework.Bitslice.Table
 /-!
 # The specification's S-box, on all 256 inputs at once
 
-Untrusted: everything here is checked by Lean.
-
 Evaluating `Spec.Aes.sbox` in the kernel takes about 0.1 s per input. Here
 the specification's own computation (the inverse as `b²⁵⁴` by square and
 multiply with `mul`, then the affine transformation) is transcribed on

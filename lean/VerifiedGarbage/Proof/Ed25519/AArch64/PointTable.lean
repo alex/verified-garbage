@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.AArch64.PointTable
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointLoop
 
-/-! Untrusted: point table accesses remain within the caller's scratch argument. -/
+/-! Point table accesses remain within the caller's scratch argument. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

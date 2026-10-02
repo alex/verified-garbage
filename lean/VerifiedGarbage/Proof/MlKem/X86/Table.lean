@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.MlKem.Ntt
 /-!
 # ML-KEM on x86 (32-bit): writing a table of constants
 
-Untrusted: everything here is checked by Lean. `table T b` stores the 128
-entries of `T` as words at `[b]`, through `edx` (`table_spec`), one entry at
-a time (`tableN`), so that each step is a short symbolic execution. The
-table is read like the first half of a polynomial (`coeffAt`).
+`table T b` stores the 128 entries of `T` as words at `[b]`, through `edx`
+(`table_spec`), one entry at a time (`tableN`), so that each step is a short
+symbolic execution. The table is read like the first half of a polynomial
+(`coeffAt`).
 -/
 
 namespace VG.Proof.MlKem.X86

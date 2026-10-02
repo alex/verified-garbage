@@ -4,11 +4,11 @@ import VerifiedGarbage.Impl.MlDsa.X86.Arith.Mul
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_multiply_ntt` and `vg_mldsa_multiply_add_ntt`
 
-Untrusted: everything here is checked by Lean. `mulHead` leaves
-`f[i] · g[i] mod q` in `ebx` (`head_spec`): two Montgomery reductions, the
-second of the first times `2⁶⁴ mod q` (`mont_mont_R2`). The loop over the
-coefficients is proven once for both functions (`MulInv`, `step`), with the
-value `V a b c` of coefficient `i` from those of `f`, `g` and `h`.
+`mulHead` leaves `f[i] · g[i] mod q` in `ebx` (`head_spec`): two Montgomery
+reductions, the second of the first times `2⁶⁴ mod q` (`mont_mont_R2`). The
+loop over the coefficients is proven once for both functions (`MulInv`,
+`step`), with the value `V a b c` of coefficient `i` from those of `f`, `g`
+and `h`.
 -/
 
 namespace VG.Proof.MlDsa.X86.Arith

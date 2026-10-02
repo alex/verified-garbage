@@ -7,10 +7,9 @@ import VerifiedGarbage.Spec.Scrypt.Contract
 /-!
 # scryptBlockMix on AArch64: correctness of the loop
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Scrypt/X86_64/BlockMixCT.lean`), the calls of `vg_salsa20_8` are used
-through `SalsaSpec`, what its proof says about a call; the proof of this file
-holds for any code meeting it.
+As on x86-64 (`Proof/Scrypt/X86_64/BlockMixCT.lean`), the calls of
+`vg_salsa20_8` are used through `SalsaSpec`, what its proof says about a call;
+the proof of this file holds for any code meeting it.
 
 The function's body runs inside a frame saving `x30`; the state `s₀` here is
 the one the body starts in, and the frame is handled in
@@ -463,10 +462,9 @@ end VG.Proof.Scrypt.AArch64.BlockMix
 /-!
 # scryptBlockMix on AArch64: the whole function
 
-Untrusted: everything here is checked by Lean. The prologue saves our
-caller's `x19`–`x24` in `scratch` and sets up the loop's registers; the loop
-runs the `r` pairs; the epilogue restores the registers. Around all of it, a
-frame saves `x30`, which the calls replace.
+The prologue saves our caller's `x19`–`x24` in `scratch` and sets up the
+loop's registers; the loop runs the `r` pairs; the epilogue restores the
+registers. Around all of it, a frame saves `x30`, which the calls replace.
 -/
 
 namespace VG.Proof.Scrypt.AArch64.BlockMix
@@ -764,10 +762,10 @@ end VG.Proof.Scrypt.AArch64.BlockMix
 /-!
 # scryptBlockMix on AArch64: verified
 
-Untrusted: everything here is checked by Lean. `SalsaSpec` of the verified
-Salsa20/8 Core, from its `Verified` proof by `WP.call`; then the `Verified`
-proof of `vg_scrypt_blockmix`. Only the pointers and `r` are public, and the
-taint analysis checks that nothing else reaches an address or a branch.
+`SalsaSpec` of the verified Salsa20/8 Core, from its `Verified` proof by
+`WP.call`; then the `Verified` proof of `vg_scrypt_blockmix`. Only the
+pointers and `r` are public, and the taint analysis checks that nothing else
+reaches an address or a branch.
 -/
 
 namespace VG.Proof.Scrypt.AArch64.BlockMix

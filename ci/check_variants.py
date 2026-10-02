@@ -5,8 +5,7 @@ function built on it, from the generated code in `src/asm/`.
 A primitive can have several implementations with the same contract, e.g.
 `vg_sha256_compress` and `vg_sha256_compress_shani`: a *variant* of a
 function `f` on a target is a function of that target named `f_<suffix>`
-with the same Rust signature (`_shani`, `_avx2`, …). A faster variant is
-only worth having if everything built on the primitive can run it, so:
+with the same Rust signature (`_shani`, `_avx2`, …).
 
 * **Variants flow to callers.** If a function `g` calls `f`, and `f` has a
   variant `f_<s>`, then `g` must have the variant `g_<s>`, and it must call
@@ -17,19 +16,14 @@ only worth having if everything built on the primitive can run it, so:
   (e.g. Ed25519's operations over each SHA-512 backend and each field
   multiplication: `vg_ed25519_verify_avx2_adx` is the variant both of
   `vg_ed25519_verify_avx2` for `vg_ed25519_verify_equation_adx` and of
-  `vg_ed25519_verify_adx` for `vg_sha512_update_avx2`). In Lean this is what a *generic*
-  caller does (`Generic/<Iface>/<Target>/`, see "Variants and generic
-  callers" in `lean/VerifiedGarbage/TCB/Emit.lean`): proven once for any
-  implementation of `f`, and emitted once for each.
+  `vg_ed25519_verify_adx` for `vg_sha512_update_avx2`).
 * **Every variant is used.** Each variant is called by another generated
   function or used by the Rust code of the crate (`src/`, outside
   `src/asm/`): the generated modules allow dead code, so a variant the Rust
-  dispatch forgot would otherwise go unnoticed. The Rust code that
-  chooses among variants does so with an exhaustive `match` on the
-  primitive's backend enum, so that a new variant does not compile until it
-  is handled.
+  dispatch forgot would otherwise go unnoticed.
 
-There are no exceptions.
+See "An optimized implementation reaches everything built on it" in
+CLAUDE.md.
 """
 
 import pathlib

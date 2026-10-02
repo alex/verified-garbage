@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.VerifyCTRhs
 
-/-! Untrusted: the strict equation has identical traces for identical public inputs. -/
+/-! The strict equation has identical traces for identical public inputs. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm
 

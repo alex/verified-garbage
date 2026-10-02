@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.Contract
 
 /-!
 # TDEA-CMAC on x86-64: the shared contracts imply ours
-
-Untrusted: everything here is checked by Lean.
 -/
 
 namespace VG.Proof.CmacTripleDes.X86_64

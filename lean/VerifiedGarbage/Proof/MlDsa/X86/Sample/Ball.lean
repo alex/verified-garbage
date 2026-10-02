@@ -5,12 +5,11 @@ import VerifiedGarbage.Impl.MlDsa.X86.Sample.Ball
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_sample_in_ball`, the state of the loop
 
-Untrusted: everything here is checked by Lean. The body is the SHAKE256
-output of `c̃` at `scratch + 840` (`sponge_piece`), `c` zeroed (`zero_piece`),
-the setup of the loop (`setup_piece`): `i = 256 - τ`, and the sign bits
-`S` (the first 8 bytes of the output, as a little-endian integer) in the
-argument slots of `len` and `tau` as two words; then the 264 iterations of
-the loop (`BallLoop.lean`). Iteration `k` starts from the state
+The body is the SHAKE256 output of `c̃` at `scratch + 840` (`sponge_piece`),
+`c` zeroed (`zero_piece`), the setup of the loop (`setup_piece`): `i = 256 -
+τ`, and the sign bits `S` (the first 8 bytes of the output, as a little-endian
+integer) in the argument slots of `len` and `tau` as two words; then the 264
+iterations of the loop (`BallLoop.lean`). Iteration `k` starts from the state
 `st B τ k = bFold τ (signs X) (0, 256 - τ) ((X.drop 8).take k)` of
 `SampleInBall`'s loop (`Proof/MlDsa/Sample/Ball.lean`): the polynomial at `c`,
 `i` in `edi`, and the `t = i + τ - 256` signs used shifted out of the words

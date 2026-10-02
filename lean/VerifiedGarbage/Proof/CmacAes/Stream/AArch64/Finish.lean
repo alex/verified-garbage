@@ -3,13 +3,13 @@ import VerifiedGarbage.Proof.CmacAes.Stream.AArch64.Common
 /-!
 # Streaming AES-CMAC on AArch64: `vg_cmac_aes_finish`
 
-Untrusted: everything here is checked by Lean. The code copies the
-chaining value to `out`, saves `x19` and `x30` in the scratch buffer,
-computes the number of bytes held back, and calls `vg_cmac_aes_finalize`
-with the state as its key and `out` as its state: its result is the MAC of
-the message the state represents (`repr_finish`). The code before the call
-and the restore after it are constant time by the taint analysis, and the
-call by its own proof (`fin_rel`), its arguments pinned by `HMid`.
+The code copies the chaining value to `out`, saves `x19` and `x30` in the
+scratch buffer, computes the number of bytes held back, and calls
+`vg_cmac_aes_finalize` with the state as its key and `out` as its state: its
+result is the MAC of the message the state represents (`repr_finish`). The
+code before the call and the restore after it are constant time by the taint
+analysis, and the call by its own proof (`fin_rel`), its arguments pinned by
+`HMid`.
 -/
 
 namespace VG.Proof.CmacAes.Stream.AArch64

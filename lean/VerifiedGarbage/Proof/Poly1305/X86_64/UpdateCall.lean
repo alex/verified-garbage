@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Update
 /-!
 # Poly1305 on x86-64: `update`, from the call on
 
-Untrusted: everything here is checked by Lean. The call of an
-implementation of `vg_poly1305_blocks` for the whole blocks of the data
-(`BlocksImpl`), copying the rest into the buffer, restoring the registers,
-and the whole function.
+The call of an implementation of `vg_poly1305_blocks` for the whole blocks of
+the data (`BlocksImpl`), copying the rest into the buffer, restoring the
+registers, and the whole function.
 -/
 
 open VG.PowLit

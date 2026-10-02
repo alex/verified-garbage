@@ -1,7 +1,7 @@
 import VerifiedGarbage.Impl.Ed25519.X86_64.PointMul
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointBatch
 
-/-! Untrusted: the public batch counter survives field and table operations. -/
+/-! The public batch counter survives field and table operations. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

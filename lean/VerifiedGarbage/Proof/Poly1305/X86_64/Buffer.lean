@@ -10,9 +10,9 @@ section
 /-!
 # Poly1305 on x86-64: one instruction at a time
 
-Untrusted: everything here is checked by Lean. Weakest-precondition rules
-for the instruction forms of the byte loops and the counts of `update` and
-`finalize`, exposing only what changes, and facts about the counters.
+Weakest-precondition rules for the instruction forms of the byte loops and the
+counts of `update` and `finalize`, exposing only what changes, and facts about
+the counters.
 -/
 
 namespace VG.Proof.Poly1305.X86_64
@@ -118,9 +118,9 @@ end
 /-!
 # Poly1305 on x86-64: the buffer
 
-Untrusted: everything here is checked by Lean. Bytes stored into the buffer
-(bytes 56–71 of the state), absorbing the buffer as a block, and a message
-with its last bytes buffered (`Buffered`) as its whole blocks and the rest.
+Bytes stored into the buffer (bytes 56–71 of the state), absorbing the buffer
+as a block, and a message with its last bytes buffered (`Buffered`) as its
+whole blocks and the rest.
 -/
 
 open VG.PowLit

@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.Arm.Inline
 /-!
 # Calls (ARMv7)
 
-Untrusted: everything here is checked by Lean.
-
 A call (`Code.call`, `bl`) leaves the return address in `lr` and unknown
 values in `r12` and the condition flags (a linker veneer's), and runs the
 called function from there (`State.callEntry`); it does not touch the stack.

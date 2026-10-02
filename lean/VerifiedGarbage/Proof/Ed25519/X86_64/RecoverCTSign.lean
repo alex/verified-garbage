@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.RecoverCTAdjust
 
-/-! Untrusted: the negative-zero check leaks only the public coordinate and sign. -/
+/-! The negative-zero check leaks only the public coordinate and sign. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

@@ -7,12 +7,11 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # Streaming Merkle–Damgård hash functions on AArch64: common lemmas
 
-Untrusted: everything here is checked by Lean. The contracts the generic
-proofs are written against, what they need of a hash function's parameters
-(`Shape`) and of its compression function (`CalleeOk`), the call of the
-compression function (`compressAt`), saving and restoring the caller's
-registers, and weakest-precondition rules for the instruction forms used
-(which the proofs of other AArch64 code use too).
+The contracts the generic proofs are written against, what they need of a hash
+function's parameters (`Shape`) and of its compression function (`CalleeOk`),
+the call of the compression function (`compressAt`), saving and restoring the
+caller's registers, and weakest-precondition rules for the instruction forms
+used (which the proofs of other AArch64 code use too).
 -/
 
 namespace VG.Proof.MdStream.AArch64

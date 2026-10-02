@@ -5,12 +5,12 @@ import VerifiedGarbage.Proof.Hmac.Generic.Implies
 /-!
 # HMAC over any streaming hash function on AArch64: `init`, constant time
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Hmac/Generic/X86_64/Instances.lean`): two runs are related (`RelCT`);
-correctness determines the registers `KR` fixes from the public arguments,
-so they agree between the calls, where the taint analysis checks each piece
-of code (`Checks`, evaluated for each hash function, since the code depends
-on its sizes); the calls are constant time by the callees' own proofs.
+As on x86-64 (`Proof/Hmac/Generic/X86_64/Instances.lean`): two runs are
+related (`RelCT`); correctness determines the registers `KR` fixes from the
+public arguments, so they agree between the calls, where the taint analysis
+checks each piece of code (`Checks`, evaluated for each hash function, since
+the code depends on its sizes); the calls are constant time by the callees'
+own proofs.
 -/
 
 namespace VG.Proof.Hmac.Generic.AArch64.Init
@@ -180,7 +180,7 @@ end VG.Proof.Hmac.Generic.AArch64.Init
 /-!
 # HMAC over any streaming hash function on AArch64: `finalize`, constant time
 
-Untrusted: everything here is checked by Lean. As for `init` (above).
+As for `init` (above).
 -/
 
 namespace VG.Proof.Hmac.Generic.AArch64.Finalize
@@ -349,11 +349,11 @@ end VG.Proof.Hmac.Generic.AArch64.Finalize
 /-!
 # HMAC over the streaming hash functions on AArch64: toward the instances
 
-Untrusted: everything here is checked by Lean. What moves the generic proofs
-(above) to the shared contracts of `Spec/Hmac/Generic.lean` for any hash
-function (`initImp`, `finImp`, from states satisfying the shared contracts),
-and carries the taint checks over between hash functions of the same sizes.
-Each hash function's instance is in `Proof/Pbkdf2/Md/AArch64/Hashes/`.
+What moves the generic proofs (above) to the shared contracts of
+`Spec/Hmac/Generic.lean` for any hash function (`initImp`, `finImp`, from
+states satisfying the shared contracts), and carries the taint checks over
+between hash functions of the same sizes. Each hash function's instance is in
+`Proof/Pbkdf2/Md/AArch64/Hashes/`.
 -/
 
 namespace VG.Proof.Hmac.Generic.AArch64.Instances

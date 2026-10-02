@@ -11,14 +11,13 @@ import VerifiedGarbage.Proof.Md5.X86.Stream.Md
 /-!
 # HMAC over any streaming hash function on x86 (32-bit): the hash functions
 
-Untrusted: everything here is checked by Lean. `HashOK` for SHA-1, MD5
-and the SHA-512 family, from their own proofs, as on the other targets
-(`Proof/Hmac/Generic/Arm/Hashes.lean`). Their contracts are `initK`, `updK`
-and `finK` at their sizes, but for the SHA-512 family's `update` and
-`finalize`, which hold from any initial hash value, and whose `finalize`
-only reads its arguments (`finKr`). Another hash function with streaming
-functions verified on x86 is one more `HashOK` here, and a registration
-file for each of its functions.
+`HashOK` for SHA-1, MD5 and the SHA-512 family, from their own proofs, as on
+the other targets (`Proof/Hmac/Generic/Arm/Hashes.lean`). Their contracts are
+`initK`, `updK` and `finK` at their sizes, but for the SHA-512 family's
+`update` and `finalize`, which hold from any initial hash value, and whose
+`finalize` only reads its arguments (`finKr`). Another hash function with
+streaming functions verified on x86 is one more `HashOK` here, and a
+registration file for each of its functions.
 -/
 
 namespace VG.Proof.Hmac.Generic.X86

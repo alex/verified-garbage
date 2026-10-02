@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Framework.Range
 /-!
 # ML-KEM on AArch64: `ceLoop`, one width of `vg_mlkem_compress_encode`
 
-Untrusted: everything here is checked by Lean. Group `g` of the output is
-the number whose base-`2ᵈ` digits are the compressed coefficients
-`c g … c g + c - 1` (`byteEncode_group`): `acc g c`, built digit by digit
-(`coeff_step`) and stored byte by byte (`byte_step`).
+Group `g` of the output is the number whose base-`2ᵈ` digits are the
+compressed coefficients `c g … c g + c - 1` (`byteEncode_group`): `acc g c`,
+built digit by digit (`coeff_step`) and stored byte by byte (`byte_step`).
 -/
 
 namespace VG.Proof.MlKem.AArch64.CE
@@ -264,12 +263,10 @@ namespace VG.Proof.MlKem
 open VG VG.AArch64 VG.Spec.MlKem
 open VG.Spec.Sha3 (bytesAt)
 
-/-- The contract the proof is written against (and verified callers use);
-the artifact's is the shared contract of `Spec/`, which implies it.
-AArch64 contract for `vg_mlkem_compress_encode(f = x0, d = w1, out = x2,
+/-- AArch64 contract for `vg_mlkem_compress_encode(f = x0, d = w1, out = x2,
 len = x3)`: if `d` is 1, 4 or 10, `len = 32 d` and the polynomial at `f` is
-reduced, writes `ByteEncode_d(Compress_d(f))` to the `len` bytes at `out`.
-The code may read `f` and write `out`, which do not overlap. -/
+reduced, writes `ByteEncode_d(Compress_d(f))` to the `len` bytes at `out`. The
+code may read `f` and write `out`, which do not overlap. -/
 def compressEncodeAArch64 : Contract AArch64.isa where
   pre s :=
     s.rd = [⟨s.gpr .x0, 1024⟩] ∧ s.wr = [⟨s.gpr .x2, (s.gpr .x3).toNat⟩] ∧

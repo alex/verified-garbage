@@ -5,11 +5,10 @@ import VerifiedGarbage.Proof.MlDsa.Verify.Norm
 /-!
 # ML-DSA verification on x86-64: correctness
 
-Untrusted: everything here is checked by Lean. `vg_mldsa*_verify` returns 1
-only if `verifyMu` accepts the signature for some bounds on the samplers'
-loops, and 0 only if it does not accept it with the least bounds
-(`verify_correct`): a malformed hint returns 0 at once, a `z` too large
-after the norms, and otherwise `r15` holds the result of the samplers
+`vg_mldsa*_verify` returns 1 only if `verifyMu` accepts the signature for some
+bounds on the samplers' loops, and 0 only if it does not accept it with the
+least bounds (`verify_correct`): a malformed hint returns 0 at once, a `z` too
+large after the norms, and otherwise `r15` holds the result of the samplers
 (`S4`) and then the comparison of `c̃` (`compute_ok`).
 -/
 

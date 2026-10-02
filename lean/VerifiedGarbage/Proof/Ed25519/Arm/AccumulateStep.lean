@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.Arm.PointAccumulate
 
-/-! Untrusted: one descending scalar bit implements the specification's recursion. -/
+/-! One descending scalar bit implements the specification's recursion. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

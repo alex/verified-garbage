@@ -7,13 +7,12 @@ import VerifiedGarbage.Proof.MlKem.Mem
 /-!
 # ML-KEM on x86-64: calling the SHA-3 sponge
 
-Untrusted: everything here is checked by Lean. Calls of
-`vg_keccak_absorb`, `vg_keccak_pad` and `vg_keccak_squeeze` from their
-proofs (`WP.call`): the callee's precondition on entry (`absorb_pre`,
-`pad_pre`, `squeeze_pre`, which the constant-time proofs of callers use
-too), and what holds when it returns (`absorb_call`, `pad_call`,
-`squeeze_call`). A caller gives each call 16 bytes of stack below `rsp`
-(the return address and that of the permutation's call).
+Calls of `vg_keccak_absorb`, `vg_keccak_pad` and `vg_keccak_squeeze` from
+their proofs (`WP.call`): the callee's precondition on entry (`absorb_pre`,
+`pad_pre`, `squeeze_pre`, which the constant-time proofs of callers use too),
+and what holds when it returns (`absorb_call`, `pad_call`, `squeeze_call`). A
+caller gives each call 16 bytes of stack below `rsp` (the return address and
+that of the permutation's call).
 -/
 
 namespace VG.Proof.MlKem.X86_64

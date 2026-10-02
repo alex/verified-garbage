@@ -13,10 +13,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # MD5 compression function on ARMv7: the 64 operations
 
-Untrusted: everything here is checked by Lean. Each operation is the
-auxiliary function of its round, symbolically executed once per round
-(`fn_ok`), followed by the additions and the rotation, symbolically executed
-once for all operations (`tail_ok`).
+Each operation is the auxiliary function of its round, symbolically executed
+once per round (`fn_ok`), followed by the additions and the rotation,
+symbolically executed once for all operations (`tail_ok`).
 -/
 
 namespace VG.Proof.Md5.Arm
@@ -191,19 +190,17 @@ end VG.Proof.Md5.Arm
 
 /-!
 # MD5 compression function on ARMv7: the whole function
-
-Untrusted: everything here is checked by Lean.
 -/
 
 /-!
 ## MD5: the 32-bit ARM contract
 
-**Untrusted**: the contracts the proofs are written against; the artifacts are emitted with the shared contracts of `Spec/`, which imply these (`Contract.Implies`). The contracts of the 32-bit ARM
-implementations of the compression function and of the streaming functions
-(`init`, `update`, `finalize`; see `VG.Spec.Md5.Repr`), in terms of
-`Spec/Md5.lean`. The streaming contracts are those of AArch64
-(`Proof/Md5/AArch64/Compress.lean`), with the arguments
-where AAPCS passes them.
+The contracts the proofs are written against; the artifacts are emitted with the
+shared contracts of `Spec/`, which imply these (`Contract.Implies`). The
+contracts of the 32-bit ARM implementations of the compression function and of
+the streaming functions (`init`, `update`, `finalize`; see `VG.Spec.Md5.Repr`),
+in terms of `Spec/Md5.lean`. The streaming contracts are those of AArch64
+(`Proof/Md5/AArch64/Compress.lean`), with the arguments where AAPCS passes them.
 -/
 
 namespace VG.Proof.Md5

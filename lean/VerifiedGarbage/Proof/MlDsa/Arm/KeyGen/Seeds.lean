@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.MlDsa.Arm.KeyGen.Steps
 /-!
 # ML-DSA key generation on 32-bit ARM: the seeds
 
-Untrusted: everything here is checked by Lean. `(ρ, ρ′, K) = H(ξ ‖ k ‖ ℓ, 128)`
-to `HX`, `ρ` to the seed of `RejNTTPoly` and `ρ′ ‖ 0` to that of
-`RejBoundedPoly` (`seeds_piece`, `K1`).
+`(ρ, ρ′, K) = H(ξ ‖ k ‖ ℓ, 128)` to `HX`, `ρ` to the seed of `RejNTTPoly` and
+`ρ′ ‖ 0` to that of `RejBoundedPoly` (`seeds_piece`, `K1`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

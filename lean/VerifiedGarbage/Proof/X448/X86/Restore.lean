@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.X86.Save
 /-!
 # X448 on x86 (32-bit): restoring the callee-saved registers
 
-Untrusted: everything here is checked by Lean. The address is retained in
-eax so edi can be restored after the other saved registers.
+The address is retained in eax so edi can be restored after the other saved
+registers.
 -/
 
 namespace VG.Proof.X448.X86

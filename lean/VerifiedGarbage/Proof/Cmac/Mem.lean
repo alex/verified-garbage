@@ -5,8 +5,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # CMAC: blocks in memory as 64-bit words
 
-Untrusted: everything here is checked by Lean.
-
 A 16-byte block is loaded and stored as two little-endian 64-bit words:
 `le8 w` is the bytes of the word `w`, so the bytes at `p` are
 `le8 (readW p) ++ le8 (readW (p + BitVec.ofNat 64 8))`, and storing `w₀` at `p` and `w₁` at

@@ -6,17 +6,15 @@ import VerifiedGarbage.Proof.Pbkdf2.Md.AArch64.HmacFin
 /-!
 # HMAC and PBKDF2-HMAC over any Merkle–Damgård hash function on AArch64: the functions, verified
 
-Untrusted: everything here is checked by Lean. As on x86-64
-(`Proof/Pbkdf2/Md/X86_64/Core.lean`): what the kernel checks of a hash
-function's code does not depend on its compression function or its
-streaming functions, which our functions only call: `core H` is `H` with
-them replaced by empty code, and `CoreOK` is what the kernel checks of
-`core H` (the taint checks of the pieces between calls and that HMAC's
-buffers fit), once for each hash function. How deeply frames nest in our
-functions follows from the callees' (`hmacInit_fdepth`, …): ours push none.
-From them, HMAC's `init` and `finalize`, `iterate` and `pbkdf2` are verified
-against the shared contracts of `Spec/Hmac/Generic.lean` and
-`Spec/Pbkdf2/Generic.lean`.
+As on x86-64 (`Proof/Pbkdf2/Md/X86_64/Core.lean`): what the kernel checks of a
+hash function's code does not depend on its compression function or its
+streaming functions, which our functions only call: `core H` is `H` with them
+replaced by empty code, and `CoreOK` is what the kernel checks of `core H`
+(the taint checks of the pieces between calls and that HMAC's buffers fit),
+once for each hash function. How deeply frames nest in our functions follows
+from the callees' (`hmacInit_fdepth`, …): ours push none. From them, HMAC's
+`init` and `finalize`, `iterate` and `pbkdf2` are verified against the shared
+contracts of `Spec/Hmac/Generic.lean` and `Spec/Pbkdf2/Generic.lean`.
 
 There is no stack pointer to check (`writesSp` is always `false` on AArch64),
 so the artifacts' `spSafe` is `Code.all_of_forall`.

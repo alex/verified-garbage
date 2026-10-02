@@ -1,7 +1,7 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.Field
 import VerifiedGarbage.Proof.Framework.X86_64.Inline
 
-/-! Untrusted: run the field workspace inside Ed25519's eight-KiB scratch argument. -/
+/-! Run the field workspace inside Ed25519's eight-KiB scratch argument. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

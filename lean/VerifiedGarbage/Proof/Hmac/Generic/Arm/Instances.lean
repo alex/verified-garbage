@@ -8,10 +8,9 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: `init`, constant time
 
-Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Hmac/Generic/AArch64/Instances.lean`). The prologue loads `scratch`
-from the stack, so its taint check starts with the stack argument public
-(`argTaint`).
+As on AArch64 (`Proof/Hmac/Generic/AArch64/Instances.lean`). The prologue
+loads `scratch` from the stack, so its taint check starts with the stack
+argument public (`argTaint`).
 -/
 
 namespace VG.Proof.Hmac.Generic.Arm.Init
@@ -191,7 +190,7 @@ end VG.Proof.Hmac.Generic.Arm.Init
 /-!
 # HMAC over any streaming hash function on 32-bit ARM: `finalize`, constant time
 
-Untrusted: everything here is checked by Lean. As for `init` (above).
+As for `init` (above).
 -/
 
 namespace VG.Proof.Hmac.Generic.Arm.Finalize
@@ -385,9 +384,8 @@ end VG.Proof.Hmac.Generic.Arm.Finalize
 /-!
 # HMAC over the streaming hash functions on 32-bit ARM: the instances
 
-Untrusted: everything here is checked by Lean. As on AArch64
-(`Proof/Hmac/Generic/AArch64/Instances.lean`): the generic proofs at each hash
-function of `Hashes.lean`, moved to the shared contracts of
+As on AArch64 (`Proof/Hmac/Generic/AArch64/Instances.lean`): the generic proofs
+at each hash function of `Hashes.lean`, moved to the shared contracts of
 `Spec/Hmac/Generic.lean` (`sig_implies`), which the artifacts are emitted with.
 -/
 

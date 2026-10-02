@@ -8,13 +8,13 @@ import VerifiedGarbage.Spec.MlDsa.Contract
 /-!
 # ML-DSA signing on x86 (32-bit): the setting of the proof
 
-Untrusted: everything here is checked by Lean. The function is proven as
-ML-KEM's top-level functions on x86 are (`Proof/MlKem/X86/Top*.lean`), piece
-by piece (`Piece`), from the layout of its arguments (`Y`: `sk`, `mu`,
-`rnd`, `sig`, `scratch`, and 96 bytes of stack), with `Ctx` holding
-between the pieces. Two runs are related (`SPub`) by the pointers and what
-signing may leak (`signLeakT`, which is `signLeak`); a piece of ML-KEM's,
-whose runs are related by the pointers alone, is one of these (`lift`).
+The function is proven as ML-KEM's top-level functions on x86 are
+(`Proof/MlKem/X86/Top*.lean`), piece by piece (`Piece`), from the layout of
+its arguments (`Y`: `sk`, `mu`, `rnd`, `sig`, `scratch`, and 96 bytes of
+stack), with `Ctx` holding between the pieces. Two runs are related (`SPub`)
+by the pointers and what signing may leak (`signLeakT`, which is `signLeak`);
+a piece of ML-KEM's, whose runs are related by the pointers alone, is one of
+these (`lift`).
 
 Blocks whose addresses depend only on `esp` and `esi`, which they do not
 write (`esOk`), leak the same in runs that agree on both (`blk_piece`): the

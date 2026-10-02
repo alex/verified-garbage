@@ -10,8 +10,9 @@ Each instruction's semantics here must agree with the Intel SDM; when adding
 an instruction, cite the SDM pseudocode it transcribes.
 
 The model is split by instruction family: `State.lean` holds the registers,
-the state and memory operands; `Gpr.lean`, `Sse.lean` and `Avx.lean` the
-semantics of the general-purpose, SSE and AVX instructions; and this file the
+the state and memory operands; `Gpr.lean`, `Sse.lean`, `Avx.lean` and
+`Avx512.lean` the semantics of the general-purpose, SSE, AVX and AVX-512
+instructions; and this file the
 instructions themselves, the CPU features they require, and `exec`, which
 dispatches to those semantics.
 
@@ -101,8 +102,8 @@ Modelling choices:
   between Intel's prologue and epilogue:
   `stmxcsr` (save the caller's MXCSR), `ldmxcsr` of `0x1FBF`, `lfence`, then
   the code that uses them, then `lfence` and `ldmxcsr` of the saved value.
-  Reviewers of an implementation check this; `lfence` and the MXCSR
-  instructions exist in the model for it.
+  `ci/check_mcdt.py` checks this in the generated code; `lfence` and the
+  MXCSR instructions exist in the model for it.
 -/
 
 namespace VG.X86_64

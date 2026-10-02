@@ -3,8 +3,8 @@ import VerifiedGarbage.Proof.X448.Arm.Field
 /-!
 # X448 on ARMv7: pointwise field operations
 
-Untrusted: everything here is checked by Lean. A pointwise operation fills
-`TMP` before the carry passes write the output, permitting input/output aliasing.
+A pointwise operation fills `TMP` before the carry passes write the output,
+permitting input/output aliasing.
 -/
 
 namespace VG.Proof.X448.Arm

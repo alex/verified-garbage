@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # Ed25519 on AArch64: field elements in the working space
 
-Untrusted: everything here is checked by Lean. The working space is 8 KiB at
-`base`, which `x0` holds (`Scr`); a field element is the four words at an
-offset of it (`fe`), read as an element of `GF(p)` by `F`.
+The working space is 8 KiB at `base`, which `x0` holds (`Scr`); a field
+element is the four words at an offset of it (`fe`), read as an element of
+`GF(p)` by `F`.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

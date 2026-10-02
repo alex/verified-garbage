@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.Framework.RelCTAssoc
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: `pbkdf2`, correct
 
-Untrusted: everything here is checked by Lean. `pbkdf2` saves our caller's
-registers, makes the key (hashing a password longer than a block), HMAC's
-states for it and the inner state after the salt; then each block `i` of the
-output is `U₁` (`update` with `INT (i)` and HMAC's `finalize`), `iterate`
-from it, and as much of `T_i` as the output still needs.
+`pbkdf2` saves our caller's registers, makes the key (hashing a password
+longer than a block), HMAC's states for it and the inner state after the salt;
+then each block `i` of the output is `U₁` (`update` with `INT (i)` and HMAC's
+`finalize`), `iterate` from it, and as much of `T_i` as the output still
+needs.
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64.Pbk

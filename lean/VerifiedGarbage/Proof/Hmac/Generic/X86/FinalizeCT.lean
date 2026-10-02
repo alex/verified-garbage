@@ -5,7 +5,7 @@ import VerifiedGarbage.Proof.Framework.OmegaLit
 /-!
 # HMAC over any streaming hash function on x86 (32-bit): constant time
 
-Untrusted: everything here is checked by Lean. `init`, then `finalize`.
+`init`, then `finalize`.
 -/
 
 /-!

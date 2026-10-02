@@ -6,9 +6,9 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.VerifyTables
 /-!
 # Verification's tables: `[1]A … [15]A` and cached `-[1]B … -[15]B`
 
-Untrusted. The table of multiples of `A` is built by repeated addition of
-`A`, which stays in slots 4–7, each entry representing its multiple
-(`Rep`); the table of negated multiples of `B` is stored from constants.
+The table of multiples of `A` is built by repeated addition of `A`, which
+stays in slots 4–7, each entry representing its multiple (`Rep`); the table of
+negated multiples of `B` is stored from constants.
 -/
 
 namespace VG.Proof.Ed25519.AArch64

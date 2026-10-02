@@ -5,8 +5,7 @@ import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Common
 /-!
 # Streaming SHA-512 on AArch64: `init`
 
-Untrusted: everything here is checked by Lean. One proof for every initial
-hash value `iv`.
+One proof for every initial hash value `iv`.
 -/
 
 namespace VG.Proof.Sha512.AArch64.Stream

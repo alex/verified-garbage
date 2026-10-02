@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.Control
 /-!
 # ML-DSA verification on x86-64: what the proofs need of the primitives
 
-Untrusted: everything here is checked by Lean. `PrimsOk P`: each primitive
-of `P` is correct and constant time under its shared contract with at most
-16 bytes of stack (`CalleeOk`, from its `Verified` proof by
-`CalleeOk.of_verified`; 24 for `vg_mldsa_rej_ntt_poly4`), never writes the
-stack pointer, calls at most three deep and never loads MXCSR. The proofs
-of `vg_mldsa*_verify` hold for any such `P`.
+`PrimsOk P`: each primitive of `P` is correct and constant time under its
+shared contract with at most 16 bytes of stack (`CalleeOk`, from its
+`Verified` proof by `CalleeOk.of_verified`; 24 for `vg_mldsa_rej_ntt_poly4`),
+never writes the stack pointer, calls at most three deep and never loads
+MXCSR. The proofs of `vg_mldsa*_verify` hold for any such `P`.
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

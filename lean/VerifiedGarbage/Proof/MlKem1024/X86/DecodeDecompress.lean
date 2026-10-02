@@ -8,12 +8,12 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM-1024 on x86 (32-bit): `vg_mlkem1024_decode_decompress`
 
-Untrusted: everything here is checked by Lean. The branch on `d` depends
-only on `d`; each branch is a loop over the 32 groups of `d` bytes, loaded
-into `ebx` by `ldW` (`Unpack.lean`), whose fields (`fieldAt`, `crossAt`) are
-decompressed in order into the coefficients of `decodeDecompress5_*` and
-`decodeDecompress11_*` (`Encode1024.lean`). `D b t k` is the state within
-group `t` of `b` bytes, after its first `k` coefficients.
+The branch on `d` depends only on `d`; each branch is a loop over the 32
+groups of `d` bytes, loaded into `ebx` by `ldW` (`Unpack.lean`), whose fields
+(`fieldAt`, `crossAt`) are decompressed in order into the coefficients of
+`decodeDecompress5_*` and `decodeDecompress11_*` (`Encode1024.lean`). `D b t
+k` is the state within group `t` of `b` bytes, after its first `k`
+coefficients.
 -/
 
 namespace VG.Proof.MlKem1024.X86.DecodeDecompress

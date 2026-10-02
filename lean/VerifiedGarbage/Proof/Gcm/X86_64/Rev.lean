@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.Framework.X86_64.Sse
 /-!
 # GCM blocks in SSE registers
 
-Untrusted: everything here is checked by Lean. A 16-byte load puts the
-first byte in the least significant byte of the register (`byte_readW`);
-`pshufb` with the byte-reversal mask `revMask` turns it into the block's
-value as SP 800-38D reads it, the first byte the most significant
-(`blockAt_eq`), and back (`blockAt_store`).
+A 16-byte load puts the first byte in the least significant byte of the
+register (`byte_readW`); `pshufb` with the byte-reversal mask `revMask` turns
+it into the block's value as SP 800-38D reads it, the first byte the most
+significant (`blockAt_eq`), and back (`blockAt_store`).
 -/
 
 namespace VG.Proof.Gcm.X86_64

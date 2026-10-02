@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.Poly1305.X86_64.Avx2.Final
 /-!
 # Poly1305 on x86-64 with AVX-512: the accumulator in, and the lanes summed
 
-Untrusted: everything here is checked by Lean. `loadH` splits the
-accumulator into quadword 0 of `H`; after the last group, `sumLanes` adds
-the quadwords into quadword 0 and carries. The rest (`fullCarry`, `reduce`
-and `storeH`) is `vg_poly1305_blocks_avx2`'s code, on quadword 0 (see
-`Avx2/Final.lean`), whose quadwords are those of `Avx2.qw` (`qz_qw`).
+`loadH` splits the accumulator into quadword 0 of `H`; after the last group,
+`sumLanes` adds the quadwords into quadword 0 and carries. The rest
+(`fullCarry`, `reduce` and `storeH`) is `vg_poly1305_blocks_avx2`'s code, on
+quadword 0 (see `Avx2/Final.lean`), whose quadwords are those of `Avx2.qw`
+(`qz_qw`).
 -/
 
 namespace VG.Proof.Poly1305.X86_64.Avx512

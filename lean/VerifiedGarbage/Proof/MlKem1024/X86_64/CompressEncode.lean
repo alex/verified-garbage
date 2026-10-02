@@ -6,10 +6,10 @@ import VerifiedGarbage.Proof.Framework.Contract
 /-!
 # ML-KEM-1024 on x86-64: `vg_mlkem1024_compress_encode`
 
-Untrusted: everything here is checked by Lean. A segment of a group is
-bytes of the encoding (`ce_seg`); a group's segments write its `d` bytes
-(`grp5_ok`, `grp11_ok`); the loop is proven once for both widths, from what
-its group does (`CE4.loop_ok`), and the function by its two cases.
+A segment of a group is bytes of the encoding (`ce_seg`); a group's segments
+write its `d` bytes (`grp5_ok`, `grp11_ok`); the loop is proven once for both
+widths, from what its group does (`CE4.loop_ok`), and the function by its two
+cases.
 -/
 
 namespace VG.Proof.MlKem1024.X86_64

@@ -7,10 +7,9 @@ import VerifiedGarbage.Proof.Framework.WriteBytes
 /-!
 # ML-KEM: polynomials and bytes in memory, for every target
 
-Untrusted: everything here is checked by Lean. How the stored
-representation of `Spec/MlKem/Poly.lean` (a polynomial as `[u32; 256]`,
-`coeffAt`, `polyAt`, `Reduced`, `PolyIs`) and `bytesAt` change when a
-program writes a coefficient or a byte, and how to conclude `PolyIs` or
+How the stored representation of `Spec/MlKem/Poly.lean` (a polynomial as
+`[u32; 256]`, `coeffAt`, `polyAt`, `Reduced`, `PolyIs`) and `bytesAt` change
+when a program writes a coefficient or a byte, and how to conclude `PolyIs` or
 `bytesAt … = L` from what each word or byte holds.
 -/
 

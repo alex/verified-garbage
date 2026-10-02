@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.X86.Common
 /-!
 # PBKDF2-HMAC on x86 (32-bit), the whole derivation: the prologue and the key
 
-Untrusted: everything here is checked by Lean. The prologue saves our
-caller's registers in `scratch` (`save_ok`, which is
-`VG.Proof.Hmac.Generic.X86.save_ok` for any amount of working space before
-the save area); then the key is the password, or its digest if it is longer
-than a block (`key_ok`): either gives the same `K₀` (`KeyAt`).
+The prologue saves our caller's registers in `scratch` (`save_ok`, which is
+`VG.Proof.Hmac.Generic.X86.save_ok` for any amount of working space before the
+save area); then the key is the password, or its digest if it is longer than a
+block (`key_ok`): either gives the same `K₀` (`KeyAt`).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.X86

@@ -4,8 +4,6 @@ import Mathlib.Tactic.Set
 /-!
 # Calls and frames (x86, 32-bit)
 
-Untrusted: everything here is checked by Lean.
-
 A call (`Code.call`) stores its return address at `esp - 4` and runs the
 called function from there (`State.callEntry`). A frame's push stores its
 registers below `esp` (`pushed`), where a cdecl caller puts the arguments of

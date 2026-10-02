@@ -7,12 +7,12 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # ML-DSA key generation on 32-bit ARM: its parameters, precondition and buffers
 
-Untrusted: everything here is checked by Lean. The facts about the parameter
-sets the proof uses (`PFacts`); the precondition of the shared contract,
-evaluated (`Pre`, `pre_of`); and the buffers of the function (`lay`):
-`scratch`, the stack, `seed`, `pk` and `sk`, pairwise disjoint, of which all
-but `seed` are written. `lsep` proves the facts about the offsets of
-pointers into them (`sepB`, `inB`) by `omega`, for any parameter set.
+The facts about the parameter sets the proof uses (`PFacts`); the precondition
+of the shared contract, evaluated (`Pre`, `pre_of`); and the buffers of the
+function (`lay`): `scratch`, the stack, `seed`, `pk` and `sk`, pairwise
+disjoint, of which all but `seed` are written. `lsep` proves the facts about
+the offsets of pointers into them (`sepB`, `inB`) by `omega`, for any
+parameter set.
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

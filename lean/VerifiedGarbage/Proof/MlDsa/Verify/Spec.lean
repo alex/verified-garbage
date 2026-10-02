@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.MlDsa.Verify.Bounds
 /-!
 # ML-DSA: `verifyMu` as the verification functions compute it
 
-Untrusted: everything here is checked by Lean. The pieces of the public key
-and of the signature (`vT1`, `vCt`, `vZ`, `vHint`) and the seeds of `Â`
-(`aSeed`); and, once the hint is well formed and the samplers have given
-`Â` and `c` within the bounds `b`, `verifyMu` computed row by row
-(`verifyMu_rows`): row `r` of `w′` is `NTT⁻¹` of the sum of the products
-`Â[r, s] ẑ[s]` from `s = 0` (`dotAcc`), less `ĉ t̂₁[r]`, and its `w′₁` the
-`UseHint`s of `h[r]` and its coefficients.
+The pieces of the public key and of the signature (`vT1`, `vCt`, `vZ`,
+`vHint`) and the seeds of `Â` (`aSeed`); and, once the hint is well formed and
+the samplers have given `Â` and `c` within the bounds `b`, `verifyMu` computed
+row by row (`verifyMu_rows`): row `r` of `w′` is `NTT⁻¹` of the sum of the
+products `Â[r, s] ẑ[s]` from `s = 0` (`dotAcc`), less `ĉ t̂₁[r]`, and its
+`w′₁` the `UseHint`s of `h[r]` and its coefficients.
 -/
 
 namespace VG.Proof.MlDsa.Verify

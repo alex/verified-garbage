@@ -4,13 +4,12 @@ import VerifiedGarbage.Proof.Framework.Arm.ArgTaint
 /-!
 # Streaming AES-CMAC on ARMv7: `vg_cmac_aes_finish`
 
-Untrusted: everything here is checked by Lean. The code saves `r4`, `r5`
-and `lr`, copies the chaining value to `out`, computes the number of bytes
-held back, and calls `vg_cmac_aes_finalize` with the state as its key and
-`out` as its state: its result is the MAC of the message the state
-represents (`repr_finish`). The code before the call is constant time by
-the taint analysis, and the call by its own proof (`fin_rel`), its
-arguments pinned by `HMid`.
+The code saves `r4`, `r5` and `lr`, copies the chaining value to `out`,
+computes the number of bytes held back, and calls `vg_cmac_aes_finalize` with
+the state as its key and `out` as its state: its result is the MAC of the
+message the state represents (`repr_finish`). The code before the call is
+constant time by the taint analysis, and the call by its own proof
+(`fin_rel`), its arguments pinned by `HMid`.
 -/
 
 namespace VG.Proof.CmacAes.Stream.Arm

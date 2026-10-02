@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.CmacAes.X86_64.UpdateCorrect
 /-!
 # Streaming AES-CMAC on x86-64: `vg_cmac_aes_absorb`'s saved registers
 
-Untrusted: everything here is checked by Lean. `absorb` saves the six
-callee-saved registers it uses at `scratch + 2176`, where the functions it
-calls do not write, and restores them at the end.
+`absorb` saves the six callee-saved registers it uses at `scratch + 2176`,
+where the functions it calls do not write, and restores them at the end.
 -/
 
 namespace VG.Proof.CmacAes.Stream.X86_64

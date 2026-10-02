@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlKem.X86_64.FragHash
 /-!
 # ML-KEM-768 on x86-64: the calls of the polynomial primitives, in a layout
 
-Untrusted: everything here is checked by Lean. Each call of a primitive
-from a state in a layout whose pointers pass its check: what it leaves
-(`PPost`) and computes (`nttAt_ok`, …), and that two runs in the layout
-leak the same (`nttAt_tr`, …); and the same for the byte stores and copies
-between them.
+Each call of a primitive from a state in a layout whose pointers pass its
+check: what it leaves (`PPost`) and computes (`nttAt_ok`, …), and that two
+runs in the layout leak the same (`nttAt_tr`, …); and the same for the byte
+stores and copies between them.
 -/
 
 namespace VG.Proof.MlKem.X86_64

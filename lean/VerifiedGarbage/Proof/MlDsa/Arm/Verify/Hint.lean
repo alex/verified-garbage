@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.MlDsa.Verify.Spec
 /-!
 # ML-DSA verification on 32-bit ARM: the primitives, and the hint
 
-Untrusted: everything here is checked by Lean. The primitives verification
-calls, verified with at most `S` bytes of stack (`VPrimsOk`); and the hint
-`h` of the signature, unpacked to polynomials `0, …, k - 1`, with `r11` 1
-if it is well formed and 0 if not (`hint_piece`).
+The primitives verification calls, verified with at most `S` bytes of stack
+(`VPrimsOk`); and the hint `h` of the signature, unpacked to polynomials `0,
+…, k - 1`, with `r11` 1 if it is well formed and 0 if not (`hint_piece`).
 -/
 
 namespace VG.Proof.MlDsa.Arm.Verify

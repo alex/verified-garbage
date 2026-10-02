@@ -11,15 +11,14 @@ import VerifiedGarbage.Proof.MlKem.Arm.CallF
 /-!
 # ML-KEM on 32-bit ARM: calling the primitives
 
-Untrusted: everything here is checked by Lean. For each primitive, a
-contract written with the precondition of its proof (`Add.Pre`, …) and
-what its correctness proof shows (`kAdd`, …), from which a caller runs a
-call of it (`add_call`, …, by `WP.call`, or `WP.callF` for
-`vg_mlkem_sample_ntt`, which has frames), given its arguments in the
-registers and its buffers where it may access them (`AccArgs`, …); and
-that two runs that call it with the same pointers leak the same trace
-(`add_ct`, …, by `RelCT.call`, with constant time from the taint analysis
-of its code, or from `Sample.all_ct`).
+For each primitive, a contract written with the precondition of its proof
+(`Add.Pre`, …) and what its correctness proof shows (`kAdd`, …), from which a
+caller runs a call of it (`add_call`, …, by `WP.call`, or `WP.callF` for
+`vg_mlkem_sample_ntt`, which has frames), given its arguments in the registers
+and its buffers where it may access them (`AccArgs`, …); and that two runs
+that call it with the same pointers leak the same trace (`add_ct`, …, by
+`RelCT.call`, with constant time from the taint analysis of its code, or from
+`Sample.all_ct`).
 -/
 
 namespace VG.Proof.MlKem.Arm

@@ -4,13 +4,13 @@ import VerifiedGarbage.Proof.MlKem.KPke
 /-!
 # ML-DSA on AArch64: `H`, SHAKE256
 
-Untrusted: everything here is checked by Lean. `shake256 ins [out]`
-(ML-KEM's `hash` on AArch64, `Proof/MlKem/AArch64/HashProof.lean`, with the
-Keccak state and its working space at the start of `scratch`): if the
-pieces are in the layout (a check evaluated on the pointers, `hashChk`), it
-writes `H` of the concatenation of the input pieces to the output piece,
-and changes nothing else but the Keccak state and working space and the 16
-bytes of stack below the stack pointer (`shake_ok`).
+`shake256 ins [out]` (ML-KEM's `hash` on AArch64,
+`Proof/MlKem/AArch64/HashProof.lean`, with the Keccak state and its working
+space at the start of `scratch`): if the pieces are in the layout (a check
+evaluated on the pointers, `hashChk`), it writes `H` of the concatenation of
+the input pieces to the output piece, and changes nothing else but the Keccak
+state and working space and the 16 bytes of stack below the stack pointer
+(`shake_ok`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

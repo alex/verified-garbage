@@ -4,10 +4,9 @@ import VerifiedGarbage.Proof.Hmac.Generic.X86_64.Hash
 /-!
 # PBKDF2-HMAC over any Merkle–Damgård hash function on x86-64: `pbkdf2`'s contract
 
-Untrusted: everything here is checked by Lean. `pbkG` is the contract the
-proof of `pbkdf2` is written against: `VG.Spec.Pbkdf2.pbkdf2Contract` with its
-facts spelt out, which it implies for any streaming hash function and
-scratch space (`generic_implies`).
+`pbkG` is the contract the proof of `pbkdf2` is written against:
+`VG.Spec.Pbkdf2.pbkdf2Contract` with its facts spelt out, which it implies for
+any streaming hash function and scratch space (`generic_implies`).
 -/
 
 namespace VG.Proof.Pbkdf2.Md.X86_64

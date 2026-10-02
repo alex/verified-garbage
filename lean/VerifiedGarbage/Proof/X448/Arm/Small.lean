@@ -3,8 +3,7 @@ import VerifiedGarbage.Proof.X448.Arm.Columns
 /-!
 # X448 on ARMv7: multiplication by a24
 
-Untrusted: everything here is checked by Lean. The 16-bit limbs keep
-multiplication by 39081 within a 32-bit word.
+The 16-bit limbs keep multiplication by 39081 within a 32-bit word.
 -/
 
 namespace VG.Proof.X448.Arm

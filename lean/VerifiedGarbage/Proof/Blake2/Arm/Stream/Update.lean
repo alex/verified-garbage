@@ -3,13 +3,12 @@ import VerifiedGarbage.Proof.Blake2.Arm.Stream.Common
 /-!
 # Streaming BLAKE2 on ARMv7: `update`
 
-Untrusted: everything here is checked by Lean. The functional correctness of
-`update`, for either word size and any correct compression function
-(`CalleeOk`), piece by piece: the prologue, up to the first call (`pro_ok`),
-the first call (`call₁_ok`), the code between the calls (`mid_ok`), the
-second call (`call₂_ok`) and the end (`end_ok`). Each piece's postcondition
-gives the registers the next one starts from as functions of the arguments,
-which the constant-time proof (`CT.lean`) uses too.
+The functional correctness of `update`, for either word size and any correct
+compression function (`CalleeOk`), piece by piece: the prologue, up to the
+first call (`pro_ok`), the first call (`call₁_ok`), the code between the calls
+(`mid_ok`), the second call (`call₂_ok`) and the end (`end_ok`). Each piece's
+postcondition gives the registers the next one starts from as functions of the
+arguments, which the constant-time proof (`CT.lean`) uses too.
 -/
 
 namespace VG.Proof.Blake2.Arm.Stream.Update

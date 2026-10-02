@@ -4,8 +4,6 @@ import VerifiedGarbage.Proof.Aes.Blocks
 /-!
 # CMAC: lemmas about the specification
 
-Untrusted: everything here is checked by Lean.
-
 * `macFull_split`: the MAC of a message of whole blocks followed by its last
   bytes `Mₙ*` (at most a block, and some unless the message is empty) is the
   cipher of the chaining value of the whole blocks XORed with `Mₙ` (§6.2

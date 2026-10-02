@@ -6,9 +6,9 @@ import VerifiedGarbage.Proof.X448.X86.Freeze
 /-!
 # X448 on x86 (32-bit): the result and restored registers
 
-Untrusted: everything here is checked by Lean. The final multiplication,
-canonical reduction and encoding produce the affine coordinate. The four
-callee-saved registers are then restored from the disjoint working space.
+The final multiplication, canonical reduction and encoding produce the affine
+coordinate. The four callee-saved registers are then restored from the
+disjoint working space.
 -/
 
 namespace VG.Proof.X448.X86

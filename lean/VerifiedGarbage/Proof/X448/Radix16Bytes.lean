@@ -5,8 +5,8 @@ import VerifiedGarbage.Proof.Framework.AddrArith
 /-!
 # X448: byte encoding of 16-bit limbs
 
-Untrusted: everything here is checked by Lean. Each limb is two bytes,
-least significant first, with all 448 input bits retained.
+Each limb is two bytes, least significant first, with all 448 input bits
+retained.
 -/
 
 namespace VG.Proof.X448.Radix16

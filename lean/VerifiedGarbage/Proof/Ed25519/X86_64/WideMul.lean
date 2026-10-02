@@ -2,7 +2,7 @@ import VerifiedGarbage.Impl.Ed25519.X86_64.MulAdd
 import VerifiedGarbage.Proof.X25519.X86_64.Ops
 import VerifiedGarbage.Proof.Framework.X86_64.Inline
 
-/-! Untrusted: the eight product words represent the full unsigned product. -/
+/-! The eight product words represent the full unsigned product. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

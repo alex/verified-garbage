@@ -4,11 +4,11 @@ import VerifiedGarbage.Proof.MlDsa.Pack.Arith
 /-!
 # ML-DSA on x86 (32-bit): `vg_mldsa_bit_pack`
 
-Untrusted: everything here is checked by Lean. `bitPack(f, a, b, out, len)`
-loads `f` into `esi`, `out` into `edi` and `b` into `eax`, and branches on
-`b` to the pack loop for its width (`packLoop_piece`). The value of a
-coefficient `x` is `b - x`, plus `q` if that borrows (`subModQ`), which is
-`b - (x mod± q)` for a reduced `x` (`Pack/Arith.lean`).
+`bitPack(f, a, b, out, len)` loads `f` into `esi`, `out` into `edi` and `b`
+into `eax`, and branches on `b` to the pack loop for its width
+(`packLoop_piece`). The value of a coefficient `x` is `b - x`, plus `q` if
+that borrows (`subModQ`), which is `b - (x mod± q)` for a reduced `x`
+(`Pack/Arith.lean`).
 -/
 
 namespace VG.Proof.MlDsa.X86.Pack.BitPack

@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.Arm.VerifyPoints
 import VerifiedGarbage.Proof.Ed25519.Arm.DecodedThen
 import VerifiedGarbage.Proof.Ed25519.Arm.PointDecode
 
-/-! Untrusted: strict decoding of R precedes the full verification equation. -/
+/-! Strict decoding of R precedes the full verification equation. -/
 namespace VG.Proof.Ed25519.Arm
 open VG VG.Arm VG.Impl.Ed25519.Arm VG.Proof.X25519.Arm
 

@@ -5,9 +5,9 @@ import VerifiedGarbage.Proof.Framework.Omega
 /-!
 # ML-KEM on x86-64: arithmetic modulo `q` in 16-bit words
 
-Untrusted: everything here is checked by Lean. What `vmont`, `vcadd` and
-`vcsub` (`Impl/MlKem/X86_64/Vec.lean`) compute in each word (`montW`,
-`caddW`, `csubW`), on the words' signed values (`BitVec.toInt`):
+What `vmont`, `vcadd` and `vcsub` (`Impl/MlKem/X86_64/Vec.lean`) compute in
+each word (`montW`, `caddW`, `csubW`), on the words' signed values
+(`BitVec.toInt`):
 
 * `montW_spec`: `montW d z` is in `(-q, q)` and congruent to
   `d · z · 2⁻¹⁶` modulo `q`, if `|d · z| < q · 2¹⁵`;

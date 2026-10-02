@@ -3,8 +3,6 @@ import VerifiedGarbage.Proof.Framework.Mem
 /-!
 # Byte ranges at offsets from a base address
 
-Untrusted: everything here is checked by Lean.
-
 Facts about the addresses `p + d` (`d` a natural number) of a buffer at `p`,
 proven once for any offsets: the distance between two of them, and that two
 of its sub-ranges are separate or one contains the other. `bv_omega` proves

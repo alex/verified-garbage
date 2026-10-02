@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.X86.RecoverSign
 import VerifiedGarbage.Proof.Ed25519.X86.RecoverCandidate
 import VerifiedGarbage.Proof.Ed25519.X86.AccumulateStep
 
-/-! Untrusted: candidate validation implements RFC 8032's recoverX exactly. -/
+/-! Candidate validation implements RFC 8032's recoverX exactly. -/
 
 namespace VG.Proof.Ed25519.X86
 

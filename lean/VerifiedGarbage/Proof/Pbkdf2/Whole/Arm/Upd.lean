@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.Pbkdf2.Whole.Arm.Calls
 /-!
 # PBKDF2-HMAC on 32-bit ARM, the whole derivation: `update`, in its frame, of any length
 
-Untrusted: everything here is checked by Lean. `VG.Proof.Hmac.Generic.Arm.UpdArgs`
-and `upd_frame`, for data of any length that fits the address space (HMAC's
-functions only absorb constants of fewer than 2¹⁶ bytes, which `movw` sets;
-we absorb the password and the salt).
+`VG.Proof.Hmac.Generic.Arm.UpdArgs` and `upd_frame`, for data of any length
+that fits the address space (HMAC's functions only absorb constants of fewer
+than 2¹⁶ bytes, which `movw` sets; we absorb the password and the salt).
 -/
 
 namespace VG.Proof.Pbkdf2.Whole.Arm

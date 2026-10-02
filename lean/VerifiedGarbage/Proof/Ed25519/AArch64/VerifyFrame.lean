@@ -1,7 +1,7 @@
 import VerifiedGarbage.Spec.Ed25519.Contract
 import VerifiedGarbage.Proof.Ed25519.AArch64.PointMulBatch
 
-/-! Untrusted: verification preserves input buffers and its saved pointers. -/
+/-! Verification preserves input buffers and its saved pointers. -/
 
 namespace VG.Proof.Ed25519.AArch64
 

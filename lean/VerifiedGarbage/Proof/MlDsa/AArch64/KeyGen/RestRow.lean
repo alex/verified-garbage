@@ -3,10 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.KeyGen.RestPack
 /-!
 # ML-DSA key generation on AArch64: the rows of `t`
 
-Untrusted: everything here is checked by Lean. Row `i` of `t`: the sum of
-the products `Â[i, j] ŝ₁[j]` in `t` (`mul_ok`, `mulAdd_ok`), `NTT⁻¹` of it
-plus `s₂[i]` (`inv_ok`, `addS2_ok`), then `Power2Round` (`p2r_ok`) and
-`t₁[i]` packed to `pk` and `t₀[i]` to `sk` (`sbp_ok`, `bp_ok`).
+Row `i` of `t`: the sum of the products `Â[i, j] ŝ₁[j]` in `t` (`mul_ok`,
+`mulAdd_ok`), `NTT⁻¹` of it plus `s₂[i]` (`inv_ok`, `addS2_ok`), then
+`Power2Round` (`p2r_ok`) and `t₁[i]` packed to `pk` and `t₀[i]` to `sk`
+(`sbp_ok`, `bp_ok`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

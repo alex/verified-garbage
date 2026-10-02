@@ -5,10 +5,9 @@ import VerifiedGarbage.TCB.X86_64.Target
 /-!
 # BLAKE2 compression function on x86-64: the contract
 
-Untrusted: everything here is checked by Lean. The contract the proof of the
-compression function is written against, and which the streaming functions
-use for their calls of it; the artifacts' contract is the shared one of
-`Spec/Blake2/Contract.lean`, which implies it.
+The contract the proof of the compression function is written against, and
+which the streaming functions use for their calls of it; the artifacts'
+contract is the shared one of `Spec/Blake2/Contract.lean`, which implies it.
 -/
 
 namespace VG.Proof.Blake2

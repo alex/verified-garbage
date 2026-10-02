@@ -8,11 +8,10 @@ import VerifiedGarbage.Proof.Sha512.X86_64.Avx2.Lit
 /-!
 # SHA-512 with AVX2 on x86-64: the rounds of the first block
 
-Untrusted: everything here is checked by Lean. Group `n` computes the
-message words `2n+16` and `2n+17` of both blocks, stores them, and runs
-rounds `2n` and `2n+1` of the first block, which read their words from the
-scratch space. The words of both blocks are then all stored, for the rounds
-of the second one.
+Group `n` computes the message words `2n+16` and `2n+17` of both blocks,
+stores them, and runs rounds `2n` and `2n+1` of the first block, which read
+their words from the scratch space. The words of both blocks are then all
+stored, for the rounds of the second one.
 -/
 
 namespace VG.Proof.Sha512.X86_64.Avx2
@@ -212,10 +211,10 @@ end VG.Proof.Sha512.X86_64.Avx2
 /-!
 # SHA-512 compression function on x86-64 with AVX2 and BMI
 
-Untrusted: everything here is checked by Lean. `compress_verified` proves
-`Impl.Sha512.X86_64.Avx2.compress` against the contract the scalar
-`vg_sha512_compress` is widened to (`compressWideX86_64`, with the scratch
-space of the shared contract), reusing the scalar proof's block lemmas.
+`compress_verified` proves `Impl.Sha512.X86_64.Avx2.compress` against the
+contract the scalar `vg_sha512_compress` is widened to (`compressWideX86_64`,
+with the scratch space of the shared contract), reusing the scalar proof's
+block lemmas.
 -/
 
 

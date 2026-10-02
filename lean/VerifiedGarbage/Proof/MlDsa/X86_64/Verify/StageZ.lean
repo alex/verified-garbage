@@ -3,10 +3,9 @@ import VerifiedGarbage.Proof.MlDsa.X86_64.Verify.PrimsOk
 /-!
 # ML-DSA verification on x86-64: the hint and `z`
 
-Untrusted: everything here is checked by Lean. `HintIs` the hint of the
-signature, and `r15` whether it is well formed (`hint_ok`); then, if it is,
-`z[i]` (polynomial `8 + i`) and `r15` whether each norm so far is small
-(`zOne_ok`).
+`HintIs` the hint of the signature, and `r15` whether it is well formed
+(`hint_ok`); then, if it is, `z[i]` (polynomial `8 + i`) and `r15` whether
+each norm so far is small (`zOne_ok`).
 -/
 
 namespace VG.Proof.MlDsa.X86_64.Verify

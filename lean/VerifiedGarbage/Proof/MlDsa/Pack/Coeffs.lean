@@ -3,11 +3,10 @@ import VerifiedGarbage.Proof.MlDsa.Pack.Mem
 /-!
 # ML-DSA: coefficients written in order, for every target
 
-Untrusted: everything here is checked by Lean. A loop that writes the
-coefficients of a polynomial of `[u32; 256]` one after the other: after `t`
-of them, coefficient `i` is `G i` for `i < t` and what it was before
-otherwise (`CoeffsUpTo`), until all 256 are written; and the bytes of the
-words of a polynomial, from the words.
+A loop that writes the coefficients of a polynomial of `[u32; 256]` one after
+the other: after `t` of them, coefficient `i` is `G i` for `i < t` and what it
+was before otherwise (`CoeffsUpTo`), until all 256 are written; and the bytes
+of the words of a polynomial, from the words.
 -/
 
 namespace VG.Proof.MlDsa.Pack

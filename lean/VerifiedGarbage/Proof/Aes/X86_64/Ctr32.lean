@@ -10,8 +10,6 @@ import VerifiedGarbage.Proof.Framework.Offset
 /-!
 # AES counter mode on x86-64: the whole function
 
-Untrusted: everything here is checked by Lean.
-
 The prologue saves the callee-saved registers (checked by evaluation in the
 naming domain, as is the epilogue restoring them), copies the counter block
 to its slots and writes back the final counter; the key loop and the
@@ -23,11 +21,9 @@ namespace VG.Proof.Aes
 open Spec.Gcm
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for
-`vg_aes_ctr32(schedule: *const [u8; 240], rounds: usize, counter: *mut [u8; 16], data: *mut [u8; 16], n: usize, scratch: *mut [u64; 256])`:
-XORs the AES counter-mode keystream from the counter block at `counter`
+/-- X86-64 contract for `vg_aes_ctr32(schedule: *const [u8; 240], rounds: usize,
+counter: *mut [u8; 16], data: *mut [u8; 16], n: usize, scratch: *mut [u64;
+256])`: XORs the AES counter-mode keystream from the counter block at `counter`
 into the `n` blocks at `data`, and advances the counter block by `n`.
 
 The code may read `schedule` (240 bytes) and read and write `counter` (16
@@ -61,11 +57,9 @@ def ctr32X86_64 : Contract X86_64.isa where
     s₁.gpr .rsp = s₂.gpr .rsp
 
 open VG.X86_64 in
-/-- The contract the proof is written against (and verified callers use); the
-artifact's is the shared contract of `Spec/`, which implies it.
-x86-64 contract for
-`vg_aes_expand_key(key: *const u8, key_len: usize, schedule: *mut [u8; 240], scratch: *mut [u64; 64])`:
-writes the key schedule of the `key_len`-byte key at `key` to `schedule`.
+/-- X86-64 contract for `vg_aes_expand_key(key: *const u8, key_len: usize,
+schedule: *mut [u8; 240], scratch: *mut [u64; 64])`: writes the key schedule of
+the `key_len`-byte key at `key` to `schedule`.
 
 The code may read `key` (`key_len` bytes) and read and write `schedule`
 (240 bytes) and `scratch` (512 bytes, whose contents on exit are

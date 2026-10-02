@@ -7,11 +7,10 @@ import VerifiedGarbage.Proof.MlKem.X86.AddSub
 /-!
 # ML-KEM on x86 (32-bit): calls of the primitives in the top-level functions
 
-Untrusted: everything here is checked by Lean. Each primitive is called
-(`call_piece`) with its buffers named as `Buf`s, from registers holding
-their addresses; its contract's precondition (`Sig.contract`) at the
-callee's entry comes from `Ctx` and the buffers' layout, and its
-postcondition is restated on the caller's memory.
+Each primitive is called (`call_piece`) with its buffers named as `Buf`s, from
+registers holding their addresses; its contract's precondition
+(`Sig.contract`) at the callee's entry comes from `Ctx` and the buffers'
+layout, and its postcondition is restated on the caller's memory.
 -/
 
 namespace VG.Proof.MlKem.X86.Top

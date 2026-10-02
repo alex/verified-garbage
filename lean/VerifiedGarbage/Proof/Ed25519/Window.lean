@@ -5,10 +5,10 @@ import Mathlib.Tactic.Module
 /-!
 # Verification with windows: the arithmetic of the digits and the equation
 
-Untrusted. Target-independent facts for verification's windowed
-multiplication: the bytes of a little-endian scalar are its base-256 digits,
-each splits into two nibbles, and the windows' result `[k]A - [S]B` equals
-`-R` exactly when the specification's equation `[S]B = R + [k]A` holds.
+Target-independent facts for verification's windowed multiplication: the bytes
+of a little-endian scalar are its base-256 digits, each splits into two
+nibbles, and the windows' result `[k]A - [S]B` equals `-R` exactly when the
+specification's equation `[S]B = R + [k]A` holds.
 -/
 
 namespace VG.Proof.Ed25519

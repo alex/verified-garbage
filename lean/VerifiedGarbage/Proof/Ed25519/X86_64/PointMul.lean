@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Ed25519.X86_64.PointMulLoop
 
-/-! Untrusted: checkpoint generation and batch descent implement pointMul. -/
+/-! Checkpoint generation and batch descent implement pointMul. -/
 
 namespace VG.Proof.Ed25519.X86_64
 

@@ -4,9 +4,8 @@ import VerifiedGarbage.Proof.MlDsa.AArch64.Arith.Basic
 /-!
 # ML-DSA on AArch64: `vg_mldsa_add` and `vg_mldsa_sub`
 
-Untrusted: everything here is checked by Lean. The body stores the value
-`v i` to coefficient `i` of `f` (`addBody_ok`, `subBody_ok`); the loop is
-proven once for any such body (`AddSub.fn_ok`).
+The body stores the value `v i` to coefficient `i` of `f` (`addBody_ok`,
+`subBody_ok`); the loop is proven once for any such body (`AddSub.fn_ok`).
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Arith

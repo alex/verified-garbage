@@ -2,7 +2,7 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.Mem
 import VerifiedGarbage.Proof.X25519.Bytes
 import VerifiedGarbage.Spec.Ed25519.Contract
 
-/-! Untrusted: the four-word output representation and its memory frame. -/
+/-! The four-word output representation and its memory frame. -/
 namespace VG.Proof.Ed25519.AArch64
 open VG VG.AArch64 Word64 VG.Proof.X25519
 

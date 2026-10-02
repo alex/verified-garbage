@@ -3,12 +3,11 @@ import VerifiedGarbage.Proof.MlKem.Arm.PrfCT
 /-!
 # ML-KEM-768 on 32-bit ARM: a row of `Â ∘ v̂` in constant time
 
-Untrusted: everything here is checked by Lean. Two runs of `rowSum` with the
-same `scratch`, the same `ρ` and the same row leak the same trace
-(`rowSum_ct`): the seeds of the `SampleNTT`s are the same (`ρ ‖ j ‖ i`), so
-their calls leak the same trace and return the same value, on which the
-selection of the entry branches; every other address is `scratch` plus an
-offset of the indices. What each run is at each step comes from its
+Two runs of `rowSum` with the same `scratch`, the same `ρ` and the same row
+leak the same trace (`rowSum_ct`): the seeds of the `SampleNTT`s are the same
+(`ρ ‖ j ‖ i`), so their calls leak the same trace and return the same value,
+on which the selection of the entry branches; every other address is `scratch`
+plus an offset of the indices. What each run is at each step comes from its
 correctness (`rowA_ok`, …).
 -/
 

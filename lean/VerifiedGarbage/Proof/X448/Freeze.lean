@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.X448.Limbs
 /-!
 # X448: canonical reduction
 
-Untrusted: everything here is checked by Lean. For a normalized value
-below 2⁴⁴⁸, adding 1 + 2²²⁴ produces a carry exactly when it is at least p.
-Selecting the carried result in that case gives the canonical residue.
+For a normalized value below 2⁴⁴⁸, adding 1 + 2²²⁴ produces a carry exactly
+when it is at least p. Selecting the carried result in that case gives the
+canonical residue.
 -/
 
 namespace VG.Proof.X448

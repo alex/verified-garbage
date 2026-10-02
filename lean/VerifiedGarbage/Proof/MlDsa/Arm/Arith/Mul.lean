@@ -5,11 +5,11 @@ import VerifiedGarbage.Impl.MlDsa.Arm.Arith.Mul
 /-!
 # ML-DSA on 32-bit ARM: `vg_mldsa_multiply_ntt` and `vg_mldsa_multiply_add_ntt`
 
-Untrusted: everything here is checked by Lean. The loop body is three
-blocks, each symbolically executed once for any state: the loads and the
-zPieces (`head_ok`), `mulz` (`mulz_ok`) and the rest (`tail_ok`,
-`tailAdd_ok`); the loop invariant says which coefficients of `h` are done
-(`Inv`), and `wp_saving` puts the loop in the frames that save `r4`–`r9`.
+The loop body is three blocks, each symbolically executed once for any state:
+the loads and the zPieces (`head_ok`), `mulz` (`mulz_ok`) and the rest
+(`tail_ok`, `tailAdd_ok`); the loop invariant says which coefficients of `h`
+are done (`Inv`), and `wp_saving` puts the loop in the frames that save
+`r4`–`r9`.
 -/
 
 namespace VG.Proof.MlDsa.Arm.Arith.Mul

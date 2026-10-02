@@ -3,9 +3,9 @@ import VerifiedGarbage.Proof.Framework.Bswap
 /-!
 # GHASH: byte reversal of 64-bit halves
 
-Untrusted: everything here is checked by Lean. The GHASH implementations
-load the big-endian halves of a block with a byte reversal (`bswap`, `rev`),
-and store them back with another: `byteRev64` is an involution.
+The GHASH implementations load the big-endian halves of a block with a byte
+reversal (`bswap`, `rev`), and store them back with another: `byteRev64` is an
+involution.
 -/
 
 namespace VG.Proof.Gcm

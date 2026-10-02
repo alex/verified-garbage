@@ -5,10 +5,10 @@ import VerifiedGarbage.Proof.MlDsa.KeyGen.Mono
 /-!
 # ML-DSA on AArch64: the blocks between calls
 
-Untrusted: everything here is checked by Lean. The byte stores (`setB_ok`),
-the copies of 32 bytes (`copy_ok`, ML-KEM's), the AND of a result into `x24`
-(`and24_ok`), and the masking of a sampled polynomial by its sampler's
-result (`mask_ok`): kept if the sampler succeeded, zero if it failed.
+The byte stores (`setB_ok`), the copies of 32 bytes (`copy_ok`, ML-KEM's), the
+AND of a result into `x24` (`and24_ok`), and the masking of a sampled
+polynomial by its sampler's result (`mask_ok`): kept if the sampler succeeded,
+zero if it failed.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.KeyGen

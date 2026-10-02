@@ -4,11 +4,10 @@ import VerifiedGarbage.Proof.MlDsa.Verify.Mem
 /-!
 # ML-DSA on 32-bit ARM: calling the primitives on the buffers of a `Site`
 
-Untrusted: everything here is checked by Lean. A call of each primitive, with
-its arguments pointers into the buffers of a `Site` (`PtrIn`): the callee's
-precondition from the layout (`ip_preS`, …), what the call changes and what
-its postcondition says (`ip_ok`, …), and that two runs of it with the same
-pointers leak the same (`ip_tr`, …).
+A call of each primitive, with its arguments pointers into the buffers of a
+`Site` (`PtrIn`): the callee's precondition from the layout (`ip_preS`, …),
+what the call changes and what its postcondition says (`ip_ok`, …), and that
+two runs of it with the same pointers leak the same (`ip_tr`, …).
 -/
 
 namespace VG.Proof.MlDsa.Arm.KeyGen

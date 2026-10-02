@@ -5,12 +5,12 @@ import VerifiedGarbage.Impl.MlDsa.AArch64.Sample.RejNtt
 /-!
 # ML-DSA on AArch64: the loop of `vg_mldsa_rej_ntt_poly`
 
-Untrusted: everything here is checked by Lean. The 336 iterations of the
-loop on the 1008 bytes `X` at `bP` store the coefficients that `rnFold`
-samples from them at `aP` (`loop_ok`): iteration `t` starts from `LAt t`,
-with those of the first `3t` bytes stored. A coefficient is stored as
-coefficient `j` whether it is accepted or not (`Stored` constrains only the
-first `j`). The loop reads only the output, and writes only `a`.
+The 336 iterations of the loop on the 1008 bytes `X` at `bP` store the
+coefficients that `rnFold` samples from them at `aP` (`loop_ok`): iteration
+`t` starts from `LAt t`, with those of the first `3t` bytes stored. A
+coefficient is stored as coefficient `j` whether it is accepted or not
+(`Stored` constrains only the first `j`). The loop reads only the output, and
+writes only `a`.
 -/
 
 namespace VG.Proof.MlDsa.AArch64.Sample.RejNtt

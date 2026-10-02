@@ -4,12 +4,11 @@ import VerifiedGarbage.Impl.MlKem.X86.Basic
 /-!
 # ML-KEM on x86 (32-bit): leaf functions
 
-Untrusted: everything here is checked by Lean. A function that calls no
-other one (`Impl.MlKem.X86.leaf`) pushes its caller's `ebx`, `esi`, `edi`
-and `ebp` in a frame of 16 bytes, runs its body, reloads `esi`, `edi` and
-`ebp` from the frame, and pops the frame into `ebx`. If the body changes
-memory only within regions `W` apart from the frame and the return
-address, the function meets the calling convention (`Piece.leaf`).
+A function that calls no other one (`Impl.MlKem.X86.leaf`) pushes its caller's
+`ebx`, `esi`, `edi` and `ebp` in a frame of 16 bytes, runs its body, reloads
+`esi`, `edi` and `ebp` from the frame, and pops the frame into `ebx`. If the
+body changes memory only within regions `W` apart from the frame and the
+return address, the function meets the calling convention (`Piece.leaf`).
 -/
 
 namespace VG.Proof.MlKem.X86

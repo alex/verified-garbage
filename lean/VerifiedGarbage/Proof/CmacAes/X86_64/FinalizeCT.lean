@@ -4,10 +4,10 @@ import VerifiedGarbage.Proof.Framework.X86_64.Taint
 /-!
 # AES-CMAC on x86-64: `vg_cmac_aes_finalize` is constant time
 
-Untrusted: everything here is checked by Lean. The code before the call is
-checked by the taint analysis (its branches and the copy loop depend only on
-`last_len`), and the call of `vg_aes_ctr32` is constant time by its own proof
-(`ctr_rel`), its arguments pinned by the correctness proof (`FMid`).
+The code before the call is checked by the taint analysis (its branches and
+the copy loop depend only on `last_len`), and the call of `vg_aes_ctr32` is
+constant time by its own proof (`ctr_rel`), its arguments pinned by the
+correctness proof (`FMid`).
 -/
 
 namespace VG.Proof.CmacAes.X86_64
