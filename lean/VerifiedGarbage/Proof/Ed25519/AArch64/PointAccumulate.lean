@@ -17,6 +17,7 @@ theorem scalarBitMask_ok {s : State} {base : Addr} (hs : Scr s base)
     (hb : s.mem (off base (768 + (start + j))) = BitVec.ofNat 8 bit) :
     WP isa (.block scalarBitMask) s fun t =>
       t.gpr .x3 = mask (decide (bit = 0)) ∧ Keeps [.x8, .x3] s t := by
+  have _hcap : workSize true = 8192 := rfl
   have hr : InRegions (s.rd ++ s.wr) (off base (768 + (start + j))) 1 :=
     ⟨_, List.mem_append_right _ hs.wr, Offset.contains_base _ (by omega) (by omega)⟩
   have he : base + (BitVec.ofNat 64 j + BitVec.ofNat 64 start) + BitVec.ofNat 64 768 =

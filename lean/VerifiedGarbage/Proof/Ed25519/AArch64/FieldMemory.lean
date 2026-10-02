@@ -3,10 +3,16 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.Ops
 
 /-! Untrusted: constants and copies in the field workspace. -/
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64 VG.Proof.X25519
 
-theorem slot_range (o : Slot) : FieldRange (offset o) := by
+theorem slot_rangeWith (o : Slot) : FieldRange (offset o) large := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   constructor <;> simp only [offset] <;> omega
+
+theorem slot_range (o : Slot) : FieldRange (offset o) := slot_rangeWith (large := true) o
 
 theorem limbs_nat (x : Nat) (hx : x < 2 ^ 256) :
     val4 (BitVec.ofNat 64 x) (BitVec.ofNat 64 (x / 2 ^ 64))
@@ -33,32 +39,38 @@ theorem constWords_ok (s : State) (v : Spec.X25519.Fe) :
     k4.gpr .x5 (by decide), k3.gpr .x5 (by decide), e2, k4.gpr .x6 (by decide), e3, e4]
   exact limbs_nat _ (by have := v.isLt; simp only [Spec.X25519.P] at this; omega)
 
-theorem constField_op {s : State} {base : Addr} (hs : Scr s base) (o : Slot) (v : Spec.X25519.Fe) :
+theorem constField_op {s : State} {base : Addr} (hs : Scr s base large) (o : Slot) (v : Spec.X25519.Fe) :
     WP isa (.block (constField o v)) s fun t =>
       Op base (offset o) s t ∧ F t.mem base (offset o) = v := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   rw [constField, WP.block_append_iff]
   refine WP.mono (constWords_ok s v) fun t ⟨hv, hk⟩ => ?_
-  refine WP.mono (store4_ok (hs.of_keeps hk (by decide)) (slot_range o)) fun u heq => ?_
+  refine WP.mono (store4_ok (hs.of_keeps hk (by decide)) (slot_rangeWith (large := large) o)) fun u heq => ?_
   subst u
-  refine ⟨Op.of_store (slot_range o) (hk.mono (by decide)) _ _ _ _, ?_⟩
-  rw [F, fe_st4 _ _ (by have := (slot_range o).2; omega), hv, toFe_self]
+  refine ⟨Op.of_store (slot_rangeWith (large := large) o) (hk.mono (by decide)) _ _ _ _, ?_⟩
+  rw [F, fe_st4 _ _ (by have := (slot_rangeWith (large := large) o).2; omega), hv, toFe_self]
 
-theorem loadsField_ok {s : State} {base : Addr} (hs : Scr s base) (a : Slot) :
+theorem loadsField_ok {s : State} {base : Addr} (hs : Scr s base large) (a : Slot) :
     WP isa (.block (loads (offset a) .x4 .x5 .x6 .x7)) s fun t =>
       val4 (t.gpr .x4) (t.gpr .x5) (t.gpr .x6) (t.gpr .x7) = fe s.mem base (offset a) ∧
       Keeps [.x4, .x5, .x6, .x7] s t := by
-  refine WP.mono (loads_ok hs (slot_range a) (by decide)) fun t ⟨e1, e2, e3, e4, k⟩ => ?_
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
+  refine WP.mono (loads_ok hs (slot_rangeWith (large := large) a) (by decide)) fun t ⟨e1, e2, e3, e4, k⟩ => ?_
   exact ⟨by rw [e1, e2, e3, e4], k⟩
 
-theorem copyField_op {s : State} {base : Addr} (hs : Scr s base) (o a : Slot) :
+theorem copyField_op {s : State} {base : Addr} (hs : Scr s base large) (o a : Slot) :
     WP isa (.block (copyField o a)) s fun t =>
       Op base (offset o) s t ∧ F t.mem base (offset o) = F s.mem base (offset a) := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   rw [copyField, WP.block_append_iff]
   refine WP.mono (loadsField_ok hs a) fun t ⟨hv, hk⟩ => ?_
-  refine WP.mono (store4_ok (hs.of_keeps hk (by decide)) (slot_range o)) fun u heq => ?_
+  refine WP.mono (store4_ok (hs.of_keeps hk (by decide)) (slot_rangeWith (large := large) o)) fun u heq => ?_
   subst u
-  refine ⟨Op.of_store (slot_range o) (hk.mono (by decide)) _ _ _ _, ?_⟩
-  rw [F, fe_st4 _ _ (by have := (slot_range o).2; omega), hv]
+  refine ⟨Op.of_store (slot_rangeWith (large := large) o) (hk.mono (by decide)) _ _ _ _, ?_⟩
+  rw [F, fe_st4 _ _ (by have := (slot_rangeWith (large := large) o).2; omega), hv]
 
 theorem Outside_F {base : Addr} {o n : Nat} {m m' : Mem}
     (h : Outside base o n m m') {d : Nat} (hd : d + 32 < 2 ^ 64)

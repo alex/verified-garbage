@@ -4,6 +4,8 @@ import VerifiedGarbage.Proof.X25519.Invert
 
 /-! Untrusted: compositional field exponentiation and fixed-count squaring loops. -/
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 open VG.Proof.X25519 (sqn)
 
@@ -23,22 +25,22 @@ theorem IKeep.trans {base : Addr} {s₁ s₂ s₃ : State} (h₁ : IKeep base s�
   ⟨fun r hr hb => (h₂.gpr r hr hb).trans (h₁.gpr r hr hb), h₂.rd.trans h₁.rd, h₂.wr.trans h₁.wr, h₂.sp.trans h₁.sp,
     h₁.mem.trans h₂.mem⟩
 
-theorem IKeep.scr {base : Addr} {s s' : State} (h : IKeep base s s') (hs : Scr s base) :
-    Scr s' base :=
+theorem IKeep.scr {base : Addr} {s s' : State} (h : IKeep base s s') (hs : Scr s base large) :
+    Scr s' base large :=
   ⟨(h.gpr _ (by decide) (by decide)).trans hs.x0, h.wr ▸ hs.wr, hs.nowrap⟩
 
 /-- `c` changes the slots by `f`, and keeps everything else (`IKeep`). -/
 def ISpec (base : Addr) (c : Prog isa) (f : Env → Env) : Prop :=
-  ∀ s, Scr s base → WP isa c s fun s' => IKeep base s s' ∧ env s'.mem base = f (env s.mem base)
+  ∀ s, Scr s base large → WP isa c s fun s' => IKeep base s s' ∧ env s'.mem base = f (env s.mem base)
 
-theorem ISpec.seq {base : Addr} {c₁ c₂ : Prog isa} {f g : Env → Env} (h₁ : ISpec base c₁ f)
-    (h₂ : ISpec base c₂ g) : ISpec base (.seq c₁ c₂) fun e => g (f e) := fun s hs =>
+theorem ISpec.seq {base : Addr} {c₁ c₂ : Prog isa} {f g : Env → Env} (h₁ : ISpec (large := large) base c₁ f)
+    (h₂ : ISpec (large := large) base c₂ g) : ISpec (large := large) base (.seq c₁ c₂) fun e => g (f e) := fun s hs =>
   WP.seq (WP.mono (h₁ s hs) fun _ ⟨k₁, e₁⟩ =>
     WP.mono (h₂ _ (k₁.scr hs)) fun _ ⟨k₂, e₂⟩ => ⟨k₁.trans k₂, by rw [e₂, e₁]⟩)
 
 theorem ISpec.append {base : Addr} {l₁ l₂ : List Instr} {f g : Env → Env}
-    (h₁ : ISpec base (.block l₁) f) (h₂ : ISpec base (.block l₂) g) :
-    ISpec base (.block (l₁ ++ l₂)) fun e => g (f e) := fun s hs => by
+    (h₁ : ISpec (large := large) base (.block l₁) f) (h₂ : ISpec (large := large) base (.block l₂) g) :
+    ISpec (large := large) base (.block (l₁ ++ l₂)) fun e => g (f e) := fun s hs => by
   rw [WP.block_append_iff]
   exact WP.mono (h₁ s hs) fun _ ⟨k₁, e₁⟩ =>
     WP.mono (h₂ _ (k₁.scr hs)) fun _ ⟨k₂, e₂⟩ => ⟨k₁.trans k₂, by rw [e₂, e₁]⟩
@@ -47,27 +49,27 @@ theorem ISpec.append {base : Addr} {l₁ l₂ : List Instr} {f g : Env → Env}
 abbrev ISlot (o : Slot) : Prop := 14 ≤ o.val ∧ o.val < 18
 
 /-- A multiplication into a slot of the inversion's, which also keeps `x19`. -/
-theorem mulI_ok {s : State} {base : Addr} (hs : Scr s base) (o a b : Slot) (ho : ISlot o) :
+theorem mulI_ok {s : State} {base : Addr} (hs : Scr s base large) (o a b : Slot) (ho : ISlot o) :
     WP isa (.block (fieldMul (offset o) (offset a) (offset b))) s fun s' =>
       IKeep base s s' ∧ s'.gpr .x19 = s.gpr .x19 ∧ env s'.mem base = opMul o a b (env s.mem base) :=
-  WP.mono (mul_ok hs (slot_range o) (slot_range a) (slot_range b)) fun _ ⟨h, e⟩ =>
+  WP.mono (mul_ok hs (slot_rangeWith (large := large) o) (slot_rangeWith (large := large) a) (slot_rangeWith (large := large) b)) fun _ ⟨h, e⟩ =>
     ⟨⟨fun r hr _ => h.gpr r hr, h.rd, h.wr, h.sp, h.mem.mono (by simp only [offset]; omega) (by simp only [offset]; omega)⟩,
       h.gpr _ (by decide), by rw [env_update o h.mem, e]; rfl⟩
 
 theorem mulI (base : Addr) (o a b : Slot) (ho : ISlot o) :
-    ISpec base (.block (fieldMul (offset o) (offset a) (offset b))) (opMul o a b) := fun _ hs =>
+    ISpec (large := large) base (.block (fieldMul (offset o) (offset a) (offset b))) (opMul o a b) := fun _ hs =>
   WP.mono (mulI_ok hs o a b ho) fun _ ⟨k, _, e⟩ => ⟨k, e⟩
 
 /-- A squaring into a slot of the inversion's, which also keeps `x19`. -/
-theorem sqrI_ok {s : State} {base : Addr} (hs : Scr s base) (o a : Slot) (ho : ISlot o) :
+theorem sqrI_ok {s : State} {base : Addr} (hs : Scr s base large) (o a : Slot) (ho : ISlot o) :
     WP isa (.block (fieldSqr (offset o) (offset a))) s fun s' =>
       IKeep base s s' ∧ s'.gpr .x19 = s.gpr .x19 ∧ env s'.mem base = opMul o a a (env s.mem base) :=
-  WP.mono (sqr_ok hs (slot_range o) (slot_range a)) fun _ ⟨h, e⟩ =>
+  WP.mono (sqr_ok hs (slot_rangeWith (large := large) o) (slot_rangeWith (large := large) a)) fun _ ⟨h, e⟩ =>
     ⟨⟨fun r hr _ => h.gpr r hr, h.rd, h.wr, h.sp, h.mem.mono (by simp only [offset]; omega) (by simp only [offset]; omega)⟩,
       h.gpr _ (by decide), by rw [env_update o h.mem, e]; rfl⟩
 
 theorem sqrI (base : Addr) (o a : Slot) (ho : ISlot o) :
-    ISpec base (.block (fieldSqr (offset o) (offset a))) (opMul o a a) := fun _ hs =>
+    ISpec (large := large) base (.block (fieldSqr (offset o) (offset a))) (opMul o a a) := fun _ hs =>
   WP.mono (sqrI_ok hs o a ho) fun _ ⟨k, _, e⟩ => ⟨k, e⟩
 
 /-! ## Runs of squarings -/
@@ -102,13 +104,15 @@ theorem opMul_update (o : Slot) (e : Env) (v : Spec.X25519.Fe) :
 
 /-- The loop of `sqn`, with the counter `x19 = m` and slot `o` squared
 `n - m` times since `s₀`. -/
-theorem sqLoop_ok {s₀ : State} {base : Addr} (hs₀ : Scr s₀ base) (o : Slot) (ho : ISlot o)
+theorem sqLoop_ok {s₀ : State} {base : Addr} (hs₀ : Scr s₀ base large) (o : Slot) (ho : ISlot o)
     (x : Spec.X25519.Fe) (n : Nat) (hn : n < 2 ^ 32) :
     ∀ m s, 1 ≤ m → m < n → IKeep base s₀ s → s.gpr .x19 = BitVec.ofNat 64 m →
       env s.mem base = Function.update (env s₀.mem base) o (sqn x (n - m)) →
       WP isa (.loop (.block (fieldSqr (offset o) (offset o) ++
           ([.subImm .x .x19 .x19 1] : List Instr))) (.nonzero .x .x19)) s fun s' =>
         IKeep base s₀ s' ∧ env s'.mem base = Function.update (env s₀.mem base) o (sqn x n) := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   intro m s h1 h2 hk hb he
   refine WP.loop (M := isa) (Inv := fun m (s : State) => 1 ≤ m ∧ m < n ∧ IKeep base s₀ s ∧
     s.gpr .x19 = BitVec.ofNat 64 m ∧
@@ -134,7 +138,9 @@ theorem sqLoop_ok {s₀ : State} {base : Addr} (hs₀ : Scr s₀ base) (o : Slot
 /-- `sqn o a n`: slot `o` becomes slot `a` squared `n` times (`o` may be `a`). -/
 theorem sqnI (base : Addr) (o a : Slot) (ho : ISlot o) (n : Nat) (hn : 2 ≤ n)
     (hn' : n < 2 ^ 32) :
-    ISpec base (Impl.Ed25519.AArch64.sqn (offset o) (offset a) n) (opSqn o a n) := by
+    ISpec (large := large) base (Impl.Ed25519.AArch64.sqn (offset o) (offset a) n) (opSqn o a n) := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   intro s hs
   refine WP.seq ?_
   rw [WP.block_append_iff]

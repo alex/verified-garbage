@@ -156,6 +156,7 @@ theorem signLoad_ok {s : State} {base : Addr} (hs : Scr s base) {S j i o : Nat} 
     WP isa (.block [.lsl .x .x3 .x19 3, .add .x .x3 .x0 .x3, .ldrb .x3 .x3 (o + 3),
       .subImm .x .x3 .x3 1]) s fun t =>
       t.gpr .x3 = mask (decide (nib S i < 8)) ∧ Keeps [.x3] s t := by
+  have _hcap : workSize true = 8192 := rfl
   have hr : InRegions (s.rd ++ s.wr) (off base (768 + (4 * i + 3))) 1 :=
     ⟨_, List.mem_append_right _ hs.wr, Offset.contains_base _ (by omega) (by omega)⟩
   have he : base + BitVec.ofNat 64 (8 * j) + BitVec.ofNat 64 (o + 3) = off base (768 + (4 * i + 3)) := by

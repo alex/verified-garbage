@@ -15,6 +15,8 @@ induction composes these into a proof for any list of field operations.
 -/
 
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64
 open Fin.CommRing
@@ -61,7 +63,7 @@ theorem Keep.trans {base : Addr} {s t u : State} (h : Keep base s t) (k : Keep b
   ⟨fun r hr => (k.gpr r hr).trans (h.gpr r hr), k.rd.trans h.rd, k.wr.trans h.wr,
     k.sp.trans h.sp, h.mem.trans k.mem⟩
 
-theorem Keep.scr {base : Addr} {s t : State} (h : Keep base s t) (hs : Scr s base) : Scr t base :=
+theorem Keep.scr {base : Addr} {s t : State} (h : Keep base s t) (hs : Scr s base large) : Scr t base large :=
   ⟨(h.gpr _ (by decide)).trans hs.x0, h.wr ▸ hs.wr, hs.nowrap⟩
 
 theorem env_update {base : Addr} {m m' : Mem} (o : Slot)
@@ -80,8 +82,10 @@ theorem op_keep {base : Addr} {o : Slot} {s t : State} (h : Op base (offset o) s
   ⟨h.gpr, h.rd, h.wr, h.sp, h.mem.mono (by simp only [offset]; omega)
     (by simp only [offset]; omega)⟩
 
-theorem fieldOp_ok {s : State} {base : Addr} (hs : Scr s base) (op : FieldOp) :
+theorem fieldOp_ok {s : State} {base : Addr} (hs : Scr s base large) (op : FieldOp) :
     WP isa (.block op.code) s fun t => Keep base s t ∧ env t.mem base = evalOp op (env s.mem base) := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   cases op with
   | copy o a =>
     refine WP.mono (copyField_op hs o a) fun t ⟨h, e⟩ => ?_
@@ -90,21 +94,23 @@ theorem fieldOp_ok {s : State} {base : Addr} (hs : Scr s base) (op : FieldOp) :
     refine WP.mono (constField_op hs o v) fun t ⟨h, e⟩ => ?_
     exact ⟨op_keep h, by rw [env_update o h.mem, e]; rfl⟩
   | mul o a b =>
-    refine WP.mono (mul_ok hs (slot_range o) (slot_range a) (slot_range b)) fun t ⟨h, e⟩ => ?_
+    refine WP.mono (mul_ok hs (slot_rangeWith (large := large) o) (slot_rangeWith (large := large) a) (slot_rangeWith (large := large) b)) fun t ⟨h, e⟩ => ?_
     exact ⟨op_keep h, by rw [env_update o h.mem, e]; rfl⟩
   | sqr o a =>
-    refine WP.mono (sqr_ok hs (slot_range o) (slot_range a)) fun t ⟨h, e⟩ => ?_
+    refine WP.mono (sqr_ok hs (slot_rangeWith (large := large) o) (slot_rangeWith (large := large) a)) fun t ⟨h, e⟩ => ?_
     exact ⟨op_keep h, by rw [env_update o h.mem, e]; rfl⟩
   | add o a b =>
-    refine WP.mono (add_ok hs (slot_range o) (slot_range a) (slot_range b)) fun t ⟨h, e⟩ => ?_
+    refine WP.mono (add_ok hs (slot_rangeWith (large := large) o) (slot_rangeWith (large := large) a) (slot_rangeWith (large := large) b)) fun t ⟨h, e⟩ => ?_
     exact ⟨op_keep h, by rw [env_update o h.mem, e]; rfl⟩
   | sub o a b =>
-    refine WP.mono (sub_ok hs (slot_range o) (slot_range a) (slot_range b)) fun t ⟨h, e⟩ => ?_
+    refine WP.mono (sub_ok hs (slot_rangeWith (large := large) o) (slot_rangeWith (large := large) a) (slot_rangeWith (large := large) b)) fun t ⟨h, e⟩ => ?_
     exact ⟨op_keep h, by rw [env_update o h.mem, e]; rfl⟩
 
-theorem fieldCode_ok (ops : List FieldOp) {s : State} {base : Addr} (hs : Scr s base) :
+theorem fieldCode_ok (ops : List FieldOp) {s : State} {base : Addr} (hs : Scr s base large) :
     WP isa (.block (fieldCode ops)) s fun t =>
       Keep base s t ∧ env t.mem base = evalOps ops (env s.mem base) := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   induction ops generalizing s with
   | nil => exact WP.block_nil ⟨Keep.refl _ _, rfl⟩
   | cons op ops ih =>
@@ -113,15 +119,19 @@ theorem fieldCode_ok (ops : List FieldOp) {s : State} {base : Addr} (hs : Scr s 
     refine WP.mono (ih (ht.scr hs)) fun u ⟨hu, eu⟩ => ?_
     exact ⟨ht.trans hu, by rw [eu, et]; rfl⟩
 
-theorem constField_ok {s : State} {base : Addr} (hs : Scr s base) (o : Slot) (v : Spec.X25519.Fe) :
+theorem constField_ok {s : State} {base : Addr} (hs : Scr s base large) (o : Slot) (v : Spec.X25519.Fe) :
     WP isa (.block (constField o v)) s fun t =>
       Keep base s t ∧ env t.mem base = Function.update (env s.mem base) o v := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   refine WP.mono (constField_op hs o v) fun t ⟨hk, hv⟩ => ?_
   exact ⟨op_keep hk, by rw [env_update o hk.mem, hv]⟩
 
-theorem copyField_ok {s : State} {base : Addr} (hs : Scr s base) (o a : Slot) :
+theorem copyField_ok {s : State} {base : Addr} (hs : Scr s base large) (o a : Slot) :
     WP isa (.block (copyField o a)) s fun t =>
       Keep base s t ∧ env t.mem base = Function.update (env s.mem base) o (env s.mem base a) := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   refine WP.mono (copyField_op hs o a) fun t ⟨hk, hv⟩ => ?_
   exact ⟨op_keep hk, by rw [env_update o hk.mem, hv]; rfl⟩
 
