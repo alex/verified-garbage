@@ -494,15 +494,16 @@ theorem epilogue_ok {s₀ : State} (hp : Pre s₀) {s : State} (hI : Inv s₀ (l
     WP isa (.block (Impl.Sha3.AArch64.mov .x0 .x22 :: restore)) s (Post s₀) := by
   have ⟨hr₀, _⟩ := hp.rt_pos
   refine wp_mov fun s₁ u₁ => ?_
-  refine WP.mono (restores_ok (scr := scr s₀) (by rw [u₁.other _ (by decide), hI.x20])
-    fun k hk => ⟨scR s₀, by simp [u₁.rd, u₁.wr, hI.rd, hI.wr, hp.wr], contains_offset (by omega) (by omega)⟩)
+  refine WP.mono (restores_ok (scr := scr s₀) (g := s₀.gpr) (by rw [u₁.other _ (by decide), hI.x20])
+    (fun k hk => ⟨scR s₀, by simp [u₁.rd, u₁.wr, hI.rd, hI.wr, hp.wr], contains_offset (by omega) (by omega)⟩)
+    (by rw [u₁.mem]; exact hI.saved))
     fun s' ⟨ax, sp, m, _, _, hv, other, v⟩ => ⟨fun k hk => ?_, by rw [sp, u₁.sp, hI.sp],
       (fun r hr => by rw [hv, u₁.vec]; exact hI.vcs r hr), ⟨fun msg hm hpm => ?_, ?_⟩, fun r hr => by
         have hne : r ≠ .x0 ∧ ∀ k < 6, r ≠ sv k := by
           exact ⟨by cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched],untouched_ne_sv r hr⟩
         rw [other r hne.2,u₁.other r hne.1]
         exact hI.untouched r hr⟩
-  · rw [v k hk, u₁.mem]; exact hI.saved k hk
+  · exact v k hk
   · rw [Proof.Sha3.repr_iff, m, u₁.mem]
     exact hI.repr msg ⟨hm, hpm⟩
   · rw [ax, u₁.gpr, hI.x22, toNat_ofNat_lt (by have := Nat.mod_lt (pos s₀ + len s₀) hr₀; omega)]

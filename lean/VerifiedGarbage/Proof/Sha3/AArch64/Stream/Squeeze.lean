@@ -389,15 +389,16 @@ theorem epilogue_ok {s₀ : State} (hp : SPre s₀) {k pos : Nat} {s : State} (h
   have hpl := hI.pos_le
   refine wp_mov fun s₁ u₁ => ?_
   have hx0 : s₁.gpr .x0 = BitVec.ofNat 64 pos := by rw [u₁.gpr, hI.x22]
-  refine WP.mono (restores_ok (scr := scrp s₀) (by rw [u₁.other _ (by decide), hI.x20])
-    fun k hk => ⟨CR s₀, by simp [u₁.rd, u₁.wr, hI.rd, hI.wr, hp.rd, hp.wr],
+  refine WP.mono (restores_ok (scr := scrp s₀) (g := s₀.gpr) (by rw [u₁.other _ (by decide), hI.x20])
+    (fun k hk => ⟨CR s₀, by simp [u₁.rd, u₁.wr, hI.rd, hI.wr, hp.rd, hp.wr],
       contains_offset (by omega) (by omega)⟩)
+    (by rw [u₁.mem]; exact hI.saved))
     fun s' ⟨ax, sp, m, _, _, hv, other, v⟩ => ⟨fun k hk => ?_, by rw [sp, u₁.sp, hI.sp],
       (fun r hr => by rw [hv, u₁.vec]; exact hI.vcs r hr), ⟨?_, ?_, fun d => ?_⟩, (fun r hr => by
         have hn : r ≠ .x0 := by cases r <;> simp_all [VG.Proof.Sha3.AArch64.untouched]
         rw [other r (untouched_ne_sv r hr),u₁.other r hn]
         exact hI.untouched r hr)⟩
-  · rw [v k hk, u₁.mem]; exact hI.saved k hk
+  · exact v k hk
   · show bytesAt s'.mem (outp s₀) (outn s₀) = Spec.Sha3.squeezeFrom (rate s₀) (S₀ s₀) (pos₀ s₀) (outn s₀)
     rw [m, u₁.mem]
     refine List.ext_getElem (by rw [length_squeezeFrom hr0 hr200]; simp [bytesAt]) fun j h₁ _ => ?_

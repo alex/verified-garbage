@@ -1,4 +1,5 @@
 import VerifiedGarbage.Proof.CmacAes.Stream.AArch64.Common
+import VerifiedGarbage.Proof.Framework.AArch64.Spill
 
 /-!
 # Streaming AES-CMAC on AArch64: `vg_cmac_aes_absorb`'s straight-line code
@@ -70,36 +71,17 @@ theorem nb16_bv {x : Nat} (hx : 0 < x) (hx' : x < 2 ^ 64) :
 /-! ## Saving and restoring the registers -/
 
 /-- The memory after saving the registers at `S + 2176`. -/
-def absSavedMem (s : State) (S : Addr) : Mem :=
-  saved.foldl (fun m (r, d) => m.writeW (S + BitVec.ofNat 64 d) (s.gpr r)) s.mem
+abbrev absSavedMem (s : State) (S : Addr) : Mem := Spill.saveMem s.mem S s.gpr saved
 
 /-- Each slot holds the register saved there. -/
 theorem absSaved_slot (s : State) (S : Addr) {r : Reg} {d : Nat} (h : (r, d) ∈ saved) :
-    (absSavedMem s S).readW (S + BitVec.ofNat 64 d) 64 = s.gpr r := by
-  simp only [saved, List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at h
-  simp only [absSavedMem, saved, List.foldl]
-  rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
-  repeat (first
-    | rw [Mem.readW_writeW_self64]
-    | rw [readW_writeW_other _ _ _ (by decide) (by decide) (by decide)])
-
-theorem slot_contains (b : Addr) {d : Nat} (h₁ : 2176 ≤ d) (h₂ : d + 8 ≤ 2232) :
-    (⟨b + BitVec.ofNat 64 2176, 56⟩ : Region).Contains (b + BitVec.ofNat 64 d) 8 := by
-  rw [show b + BitVec.ofNat 64 d = (b + BitVec.ofNat 64 2176) + BitVec.ofNat 64 (d - 2176) from
-    (Offset.add_add_eq b (by omega)).symm]
-  exact Offset.contains_base _ (by omega) (by omega)
+    (absSavedMem s S).readW (S + BitVec.ofNat 64 d) 64 = s.gpr r :=
+  Spill.saveMem_saved (l := saved) (by decide) s.mem S s.gpr (r, d) h
 
 /-- Saving the registers changes only their slots. -/
 theorem absSavedMem_frame (s : State) (S : Addr) :
-    Frame [⟨S + BitVec.ofNat 64 2176, 56⟩] s.mem (absSavedMem s S) := by
-  simp only [absSavedMem, saved, List.foldl]
-  exact ((((((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (slot_contains _ (by decide) (by decide))).writeW
-    (List.mem_singleton_self _) _ (slot_contains _ (by decide) (by decide))).writeW
-    (List.mem_singleton_self _) _ (slot_contains _ (by decide) (by decide))).writeW (List.mem_singleton_self _) _
-    (slot_contains _ (by decide) (by decide))).writeW
-    (List.mem_singleton_self _) _ (slot_contains _ (by decide) (by decide))).writeW (List.mem_singleton_self _) _
-    (slot_contains _ (by decide) (by decide))).writeW (List.mem_singleton_self _) _
-    (slot_contains _ (by decide) (by decide)))
+    Frame [⟨S + BitVec.ofNat 64 2176, 56⟩] s.mem (absSavedMem s S) :=
+  Spill.saveMem_frame (by decide) (by decide) _ _ _
 
 theorem save_ok (s : State) {S : Addr} (hS : s.gpr .x5 = S)
     (hw : ∀ d, 2176 ≤ d → d + 8 ≤ 2232 → InRegions s.wr (S + BitVec.ofNat 64 d) 8) :
@@ -120,7 +102,7 @@ theorem save_ok (s : State) {S : Addr} (hS : s.gpr .x5 = S)
   refine ⟨by simp [gpr_write], by simp [gpr_write], by simp [gpr_write], by simp [gpr_write],
     by simp [gpr_write], by simp [gpr_write], fun r h₁ h₂ h₃ h₄ h₅ => ?_, rfl, ?_, rfl, rfl⟩
   · simp [gpr_write, h₁, h₂, h₃, h₄, h₅]
-  · simp only [mem_write, absSavedMem, saved, List.foldl, Mem.writeW, BitVec.setWidth_eq]
+  · simp only [mem_write, absSavedMem, saved, Spill.saveMem, Mem.writeW, BitVec.setWidth_eq]
 
 theorem restore_ok (s : State) {B : Addr} (hb : s.gpr .x23 = B)
     (hr : ∀ d, 2176 ≤ d → d + 8 ≤ 2232 → InRegions (s.rd ++ s.wr) (B + BitVec.ofNat 64 d) 8) :
