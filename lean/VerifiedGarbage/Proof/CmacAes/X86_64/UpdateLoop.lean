@@ -102,14 +102,8 @@ theorem slot_contains (b : Addr) {d : Nat} (h₁ : 2064 ≤ d) (h₂ : d + 8 ≤
   exact Offset.contains_base _ (by omega) (by omega)
 
 /-- Saving the registers changes only their slots. -/
-theorem savedMem_frame (s : State) : Frame [⟨s.gpr .r9 + BitVec.ofNat 64 2064, 48⟩] s.mem (savedMem s) := by
-  simp only [savedMem, saved, List.foldl]
-  exact (((((((Frame.refl _ _).writeW (List.mem_singleton_self _) _ (slot_contains _ (by decide) (by decide))).writeW
-    (List.mem_singleton_self _) _ (slot_contains _ (by decide) (by decide))).writeW
-    (List.mem_singleton_self _) _ (slot_contains _ (by decide) (by decide))).writeW (List.mem_singleton_self _) _
-    (slot_contains _ (by decide) (by decide))).writeW
-    (List.mem_singleton_self _) _ (slot_contains _ (by decide) (by decide))).writeW (List.mem_singleton_self _) _
-    (slot_contains _ (by decide) (by decide)))
+theorem savedMem_frame (s : State) : Frame [⟨s.gpr .r9 + BitVec.ofNat 64 2064, 48⟩] s.mem (savedMem s) :=
+  Spill.saveMem_frame _ _ _ _ fun p hp => slot_contains _ (saved_bound p hp).1 (saved_bound p hp).2
 
 theorem advance_ok (s : State) :
     ∃ s', runBlock isa advance s = some s' ∧
