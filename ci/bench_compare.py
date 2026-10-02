@@ -36,6 +36,8 @@ import shutil
 import subprocess
 import sys
 
+from bench_arches import bench_catalog
+
 # Criterion filters (regexes over benchmark ids, which are
 # `<primitive>/<library>/<bytes>`, see bench/benches/primitives/main.rs).
 VG = "verified-garbage"
@@ -78,21 +80,21 @@ def build_base(base, head):
     binary's path and a note on which benchmark code it runs, or no path
     if neither builds."""
     if base == head:
-        return build(head / "bench"), None
+        return build(head / "bench"), None, head
     # A sibling of BASE's own `bench/`, so its `path = ".."` is BASE too.
     copy = base / "bench-head"
     shutil.rmtree(copy, ignore_errors=True)
     shutil.copytree(head / "bench", copy, ignore=shutil.ignore_patterns("target"))
     try:
-        return build(copy), None
+        return build(copy), None, head
     except subprocess.CalledProcessError:
         pass
     if (base / "bench").is_dir():
         try:
-            return build(base / "bench"), "Head's benchmarks don't build against base, so base ran its own."
+            return build(base / "bench"), "Head's benchmarks don't build against base, so base ran its own.", base
         except subprocess.CalledProcessError:
             pass
-    return None, "Base has no benchmarks that build, so head ran alone."
+    return None, "Base has no benchmarks that build, so head ran alone.", base
 
 
 NAMES = re.compile(r"const NAMES: \[&str; \d+\] = \[(.*?)\];", re.DOTALL)
@@ -108,7 +110,16 @@ def cpu_features(checkout):
     return ",".join(f for f in features.split(",") if f in known) or "none"
 
 
-def run(binary, home, library, args, checkout):
+def selected_modules(checkout, requested):
+    if not requested.strip():
+        return ""  # Explicit full-suite selection.
+    catalog = bench_catalog(root=str(checkout))
+    if catalog is None:
+        return None
+    return " ".join(sorted(set(requested.split()) & set().union(*catalog.values()))) or None
+
+
+def run(binary, home, library, args, checkout, modules):
     """Runs the benchmarks of `checkout` once, returning each one's median
     time (ns)."""
     subprocess.run(
@@ -130,7 +141,7 @@ def run(binary, home, library, args, checkout):
         env={
             **os.environ,
             "CRITERION_HOME": str(home),
-            "VG_BENCH_MODULES": args.modules,
+            "VG_BENCH_MODULES": modules,
             "VG_CPU_FEATURES": cpu_features(checkout),
         },
         check=True,
@@ -173,8 +184,15 @@ def main():
     args = p.parse_args()
 
     base, head = args.base.resolve(), args.head.resolve()
-    binaries = {"head": build(head / "bench")}
-    binaries["base"], note = build_base(base, head)
+    modules = {"head": selected_modules(head, args.modules), "base": selected_modules(base, args.modules)}
+    if modules["head"] is None or (args.modules and set(modules["head"].split()) != set(args.modules.split())):
+        p.error("head's benchmark registry does not use the selected modules")
+    binaries = {"head": build(head / "bench"), "base": None}
+    note = "Base has no selected benchmarks; head/OpenSSL results are new."
+    if modules["base"] is not None:
+        binaries["base"], note, source = build_base(base, head)
+        if binaries["base"] is not None:
+            modules["base"] = selected_modules(source, args.modules)
 
     shutil.rmtree(args.work_dir, ignore_errors=True)
     best = {"base": {}, "head": {}}
@@ -185,11 +203,11 @@ def main():
                 continue
             print(f"round {r + 1}/{args.rounds}: {side}", file=sys.stderr)
             checkout = base if side == "base" else head
-            times = run(binaries[side], args.work_dir.resolve() / f"{side}-{r}", VG, args, checkout)
+            times = run(binaries[side], args.work_dir.resolve() / f"{side}-{r}", VG, args, checkout, modules[side])
             for bench_id, t in times.items():
                 best[side][bench_id] = min(t, best[side].get(bench_id, t))
     print("OpenSSL", file=sys.stderr)
-    openssl = run(binaries["head"], args.work_dir.resolve() / "openssl", OPENSSL, args, head)
+    openssl = run(binaries["head"], args.work_dir.resolve() / "openssl", OPENSSL, args, head, modules["head"])
 
     cpu_features = os.environ.get("VG_CPU_FEATURES", "")
     lines = [
@@ -201,7 +219,7 @@ def main():
         *(
             [
                 f"Changed modules: {args.modules}. Only the benchmarks that use them ran"
-                " (all of them, if one of these modules has no benchmark)."
+                ". Base received only modules present in its benchmark registry."
             ]
             if args.modules.strip()
             else []
