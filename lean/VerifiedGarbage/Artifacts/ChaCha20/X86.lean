@@ -2,7 +2,7 @@ import VerifiedGarbage.TCB.X86.Target
 import VerifiedGarbage.Proof.ChaCha20.X86.Xor
 import VerifiedGarbage.Impl.ChaCha20.X86.Xor
 import VerifiedGarbage.Proof.ChaCha20.X86.Lit
-import VerifiedGarbage.Proof.ChaCha20.X86.Stream.Init
+import VerifiedGarbage.Proof.ChaCha20.X86.Stream.ApplyCT
 
 /-!
 # The ChaCha20 block function (RFC 8439) on x86
@@ -48,6 +48,14 @@ def artifacts : List Artifact := [
     code := Impl.ChaCha20.X86.Stream.setNonce
     contract := Spec.ChaCha20.setNonceContract X86.abi
     verified := Proof.ChaCha20.X86.Stream.setNonce_verified
-    spSafe := Code.all_of_allInstrs (by decide +kernel) }]
+    spSafe := Code.all_of_allInstrs (by decide +kernel) },
+  { Spec.ChaCha20.applyApi with
+    target := X86.target
+    doc := Spec.ChaCha20.applyApi.doc
+    code := Impl.ChaCha20.X86.Stream.apply
+    contract := Spec.ChaCha20.applyContract X86.abi 32
+    stack := 32
+    verified := Proof.ChaCha20.X86.Stream.apply_verified
+    spSafe := Code.all_of_allInstrs (by lit_decide) }]
 
 end VG.Artifacts.ChaCha20.X86
