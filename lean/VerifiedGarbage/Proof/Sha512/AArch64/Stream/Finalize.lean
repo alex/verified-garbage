@@ -26,7 +26,7 @@ abbrev out : Addr := s₀.gpr .x2
 abbrev scr : Addr := s₀.gpr .x3
 abbrev stR : Region := ⟨st s₀, 192⟩
 abbrev outR : Region := ⟨out s₀, 64⟩
-abbrev scR : Region := ⟨scr s₀, 224⟩
+abbrev scR : Region := ⟨scr s₀, 688⟩
 
 /-- The messages the initial state represents, from the initial hash value
 `iv`, of fewer than 2⁶⁴ bytes. -/
@@ -311,7 +311,7 @@ theorem compress_buf {code : Prog isa}
       stateAt s'.mem (st s₀) = compress (stateAt s.mem (st s₀)) (blockAt s.mem (st s₀ + 64)) → Q s') :
     WP isa (compressAtWith code) s Q := by
   have e32 : Region.Sub ⟨st s₀, 64⟩ (stR s₀) := Region.sub_prefix (by omega)
-  have e112 : Region.Sub ⟨scr s₀, 176⟩ (scR s₀) := Region.sub_prefix (by omega)
+  have e112 : Region.Sub ⟨scr s₀, 640⟩ (scR s₀) := Region.sub_prefix (by omega)
   have eb : Region.Sub ⟨st s₀ + 64, 128⟩ (stR s₀) := sub_offset (off := 64) (by omega) (by omega)
   refine compressAt_ok_of hcode hno hC.x19 hC.x20 hx1 ((hp.st_scr.sub_left e32).sub_right e112) ?_
     ((hp.st_scr.sub_left eb).sub_right e112) ?_ ?_ fun s' hrd hwr hcs hsp hf hstate =>
@@ -800,12 +800,12 @@ theorem correct_of {code : Prog isa}
       exact this
   · simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact hsv (.x19, 176) (by simp [saved])
-    · exact hsv (.x20, 184) (by simp [saved])
-    · exact hsv (.x21, 192) (by simp [saved])
-    · exact hsv (.x22, 200) (by simp [saved])
-    · exact hsv (.x23, 208) (by simp [saved])
-    · exact hsv (.x24, 216) (by simp [saved])
+    · exact hsv (.x19, 640) (by simp [saved])
+    · exact hsv (.x20, 648) (by simp [saved])
+    · exact hsv (.x21, 656) (by simp [saved])
+    · exact hsv (.x22, 664) (by simp [saved])
+    · exact hsv (.x23, 672) (by simp [saved])
+    · exact hsv (.x24, 680) (by simp [saved])
     all_goals exact hu _ (by simp [untouched])
 
 /-- The initial taint: only the arguments are public. -/
@@ -823,7 +823,7 @@ def sat : State where
   sp := 0x4000
   mem _ := 0
   rd := []
-  wr := [⟨0x1000, 192⟩, ⟨0x2000, 64⟩, ⟨0x3000, 224⟩]
+  wr := [⟨0x1000, 192⟩, ⟨0x2000, 64⟩, ⟨0x3000, 688⟩]
 
 theorem finalize_verified_of {code : Prog isa}
     (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true)

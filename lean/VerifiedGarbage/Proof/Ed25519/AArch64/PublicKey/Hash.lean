@@ -57,7 +57,7 @@ theorem finalize_writes (L : Lay) : ∀ r ∈ Whole.finalizeWr L.scr (L.E + 192)
   rcases hr with rfl | rfl | rfl
   · exact .inr ⟨L.SCR, by simp [Lay.outputs], 0, (BitVec.add_zero _).symm, by change 0 + 192 ≤ 8192; decide⟩
   · exact .inl ⟨192, rfl, by change 192 + 64 ≤ 256; decide⟩
-  · exact .inr ⟨L.SCR, by simp [Lay.outputs], 192, rfl, by change 192 + 224 ≤ 8192; decide⟩
+  · exact .inr ⟨L.SCR, by simp [Lay.outputs], 192, rfl, by change 192 + 688 ≤ 8192; decide⟩
 
 theorem finalize_step (v : Whole.Backend) (hc : Ctx L g vec m₀ t) (hL : L.Ok) (ha : Arguments L m₀)
     (hh : Spec.Sha512.Repr Spec.Sha512.H0_512 t.mem L.scr (Spec.Ed25519.bytesAt m₀ L.seed 32)) :

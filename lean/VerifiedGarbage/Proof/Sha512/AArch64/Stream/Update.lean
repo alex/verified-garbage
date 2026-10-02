@@ -29,7 +29,7 @@ abbrev len : Nat := (s₀.gpr .x3).toNat
 abbrev scr : Addr := s₀.gpr .x4
 abbrev stR : Region := ⟨st s₀, 192⟩
 abbrev dR : Region := ⟨dp s₀, len s₀⟩
-abbrev scR : Region := ⟨scr s₀, 224⟩
+abbrev scR : Region := ⟨scr s₀, 688⟩
 /-- The data. -/
 abbrev D : List Byte := bytesAt s₀.mem (dp s₀) (len s₀)
 
@@ -154,7 +154,7 @@ theorem Pending.compress_ok {code : Prog isa}
     (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true) {s₀ : State} (hp : Pre s₀) {c : Nat} {s : State} (h : Pending s₀ c s) :
     WP isa (compressAtWith code) s (Inv s₀ c) := by
   have e32 : Region.Sub ⟨st s₀, 64⟩ (stR s₀) := Region.sub_prefix (by omega)
-  have e112 : Region.Sub ⟨scr s₀, 176⟩ (scR s₀) := Region.sub_prefix (by omega)
+  have e112 : Region.Sub ⟨scr s₀, 640⟩ (scR s₀) := Region.sub_prefix (by omega)
   have eSrc : Region.Sub ⟨s.gpr .x1, 128⟩ (stR s₀) ∨ Region.Sub ⟨s.gpr .x1, 128⟩ (dR s₀) := by
     rcases h.src with h' | ⟨c₀, h', hc₀⟩
     · exact .inl (h' ▸ sub_offset (off := 64) (by omega) (by omega))
@@ -825,12 +825,12 @@ theorem correct_of {code : Prog isa}
       · exact .inr ⟨by rw [hz]; simp [hl], len s₀ - c', by omega, c', rfl, by omega, hI'⟩
   · simp only [preserved, List.mem_cons, List.not_mem_nil, or_false] at hr
     rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact hsv (.x19, 176) (by simp [saved])
-    · exact hsv (.x20, 184) (by simp [saved])
-    · exact hsv (.x21, 192) (by simp [saved])
-    · exact hsv (.x22, 200) (by simp [saved])
-    · exact hsv (.x23, 208) (by simp [saved])
-    · exact hsv (.x24, 216) (by simp [saved])
+    · exact hsv (.x19, 640) (by simp [saved])
+    · exact hsv (.x20, 648) (by simp [saved])
+    · exact hsv (.x21, 656) (by simp [saved])
+    · exact hsv (.x22, 664) (by simp [saved])
+    · exact hsv (.x23, 672) (by simp [saved])
+    · exact hsv (.x24, 680) (by simp [saved])
     all_goals exact hu _ (by simp [untouched])
 
 theorem agree₀ {s₁ s₂ : State} (hpub : Proof.Sha512.updateAArch64.pub s₁ s₂) :
@@ -847,7 +847,7 @@ def sat : State where
   sp := 0x4000
   mem _ := 0
   rd := [⟨0x2000, 0⟩]
-  wr := [⟨0x1000, 192⟩, ⟨0x3000, 224⟩]
+  wr := [⟨0x1000, 192⟩, ⟨0x3000, 688⟩]
 
 theorem update_verified_of {code : Prog isa}
     (hcode : Verified AArch64.target code Proof.Sha512.compressAArch64) (hno : code.noCalls = true)
