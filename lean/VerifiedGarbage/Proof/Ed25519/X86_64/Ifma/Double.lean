@@ -29,11 +29,14 @@ def Small (s : State) : Prop := ∀ l < 4, ∀ i < 5, lanes s 0 l i < 2 ^ 61
 theorem kbv_ge (i : Nat) : 2 ^ 61 ≤ kbv i := by
   simp only [kbv]; split <;> omega
 
+theorem prodBound_le (i : Nat) : prodBound ≤ kbv i := by
+  have := kbv_ge i; simp only [prodBound]; omega
+
 theorem fe_add_sub (a b c : Spec.X25519.Fe) : a + (b - c) = a - (c - b) :=
   toZ_inj.1 (by rw [toZ_add, toZ_sub, toZ_sub, toZ_sub]; ring)
 
 /-- `(E, G, F, E)` and `(F, H, G, H)` as field elements, from `(A, B, C', P)`. -/
-theorem ops_fe (x : Nat → Nat → Nat) (hx : ∀ l < 4, ∀ i < 5, x l i < 2 ^ 52) :
+theorem ops_fe (x : Nat → Nat → Nat) (hx : ∀ l < 4, ∀ i < 5, x l i < prodBound) :
     fe5 (op1 x 0) = fe5 (x 3) + fe5 (x 3) ∧ fe5 (op1 x 1) = fe5 (x 1) - fe5 (x 0) ∧
     fe5 (op1 x 2) = fe5 (x 2) + fe5 (x 2) - (fe5 (x 1) - fe5 (x 0)) ∧
     fe5 (op1 x 3) = fe5 (x 3) + fe5 (x 3) ∧
@@ -41,14 +44,14 @@ theorem ops_fe (x : Nat → Nat → Nat) (hx : ∀ l < 4, ∀ i < 5, x l i < 2 ^
     fe5 (op2 x 1) = fe5 (x 0) + fe5 (x 1) ∧ fe5 (op2 x 2) = fe5 (x 1) - fe5 (x 0) ∧
     fe5 (op2 x 3) = fe5 (x 0) + fe5 (x 1) := by
   have g : fe5 (fun i => kbv i + x 1 i - x 0 i) = fe5 (x 1) - fe5 (x 0) :=
-    fe5_sub (fun i hi => by have := hx 0 (by decide) i hi; have := kbv_ge i; omega)
-      (fun i hi => by have := hx 0 (by decide) i hi; have := kbv_ge i; omega)
+    fe5_sub (fun i hi => by have := hx 0 (by decide) i hi; have := prodBound_le i; omega)
+      (fun i hi => by have := hx 0 (by decide) i hi; have := prodBound_le i; omega)
   have f : fe5 (fv x) = fe5 (x 2) + fe5 (x 2) - (fe5 (x 1) - fe5 (x 0)) := by
     rw [fe5_add (z := fv x) (x := fun i => x 2 i + x 2 i) (y := fun i => kbv i + x 0 i - x 1 i)
       (fun i _ => rfl),
       fe5_add (z := fun i => x 2 i + x 2 i) (x := x 2) (y := x 2) (fun i _ => rfl),
-      fe5_sub (z := fun i => kbv i + x 0 i - x 1 i) (x := x 0) (y := x 1) (fun i hi => by have := hx 1 (by decide) i hi; have := kbv_ge i; omega)
-        (fun i hi => by have := hx 1 (by decide) i hi; have := kbv_ge i; omega), fe_add_sub]
+      fe5_sub (z := fun i => kbv i + x 0 i - x 1 i) (x := x 0) (y := x 1) (fun i hi => by have := hx 1 (by decide) i hi; have := prodBound_le i; omega)
+        (fun i hi => by have := hx 1 (by decide) i hi; have := prodBound_le i; omega), fe_add_sub]
   have e : fe5 (fun i => x 3 i + x 3 i) = fe5 (x 3) + fe5 (x 3) := fe5_add fun _ _ => rfl
   have h : fe5 (fun i => x 0 i + x 1 i) = fe5 (x 0) + fe5 (x 1) := fe5_add fun _ _ => rfl
   exact ⟨e, g, f, e, f, h, g, h⟩
@@ -81,11 +84,11 @@ theorem vdbl_wp {s : State} {base : Addr} (hs : s.gpr .rdi = base) (hc : VG.Proo
   have hc₂ : VG.Proof.X25519.X86_64.Ifma.Ctx s₂ := by intro d hd; rw [g₂, wr₂]; exact hc₁ d hd
   -- the first product: `(A, B, C', P)`
   rw [WP.block_append_iff]
-  refine WP.mono (mul4_wp (by decide) (mulS_eq OPL _) (mulL_nat) mulL_ok mulL_keep mulL_st hs₂ hc₂
+  refine WP.mono (mulLB_wp hs₂ hc₂
     (fun l hl i hi => by rw [(u₂ l hl i hi).1]; exact (u₁ _ (sel4_lt _ _) i hi).2)
     (fun l hl i hi => by rw [(u₂ l hl i hi).2]; exact (u₁ _ (sel4_lt _ _) i hi).2))
-    fun s₃ ⟨v₃, m₃, u₃, _⟩ => ?_
-  have p₃ : ∀ l < 4, fe5 (lanes s₃ 0 l) =
+    fun s₄ ⟨⟨v₄, m₄, u₃, _⟩, b₄⟩ => ?_
+  have p₄ : ∀ l < 4, fe5 (lanes s₄ 0 l) =
       fe5 (lanes s 0 (sel4 (ord 0 1 2 0).toNat l)) * fe5 (lanes s 0 (sel4 (ord 0 1 2 1).toNat l)) :=
     fun l hl => by
       rw [fe5_congr (fun i hi => (u₃ l hl i hi).1),
@@ -94,23 +97,14 @@ theorem vdbl_wp {s : State} {base : Addr} (hs : s.gpr .rdi = base) (hc : VG.Proo
         ← p₁ _ (sel4_lt _ _), ← p₁ _ (sel4_lt _ _)]
       exact congrArg₂ (· * ·) (fe5_congr fun i hi => (u₂ l hl i hi).1)
         (fe5_congr fun i hi => (u₂ l hl i hi).2)
-  have hs₃ : s₃.gpr .rdi = base := by rw [vm_gpr v₃]; exact hs₂
-  have hc₃ : VG.Proof.X25519.X86_64.Ifma.Ctx s₃ := by intro d hd; rw [vm_gpr v₃, vm_wr v₃]; exact hc₂ d hd
-  have mo₃ : Outside base 1024 320 s.mem s₃.mem := by
-    rw [m₃, ← m₁]; exact o₂.mono (by decide) (by decide)
-  have hk₃ : EConsts s₃.mem base := hk.outside mo₃
-  -- carried
-  rw [WP.block_append_iff]
-  refine WP.mono (carryI_wp hs₃ hc₃ hk₃.toCConsts fun l hl i hi => by have := (u₃ l hl i hi).2; omega)
-    fun s₄ ⟨v₄, m₄, u₄, _⟩ => ?_
-  have p₄ : ∀ l < 4, fe5 (lanes s₄ 0 l) = fe5 (lanes s₃ 0 l) := fun l hl => by
-    rw [fe5_congr (fun i hi => (u₄ l hl i hi).1), fe5_carry _ (by have := (u₃ l hl 4 (by decide)).2; omega)]
-  have hs₄ : s₄.gpr .rdi = base := by rw [vm_gpr v₄]; exact hs₃
-  have hc₄ : VG.Proof.X25519.X86_64.Ifma.Ctx s₄ := by intro d hd; rw [vm_gpr v₄, vm_wr v₄]; exact hc₃ d hd
-  have hk₄ : EConsts s₄.mem base := by rw [m₄]; exact hk₃
+  have hs₄ : s₄.gpr .rdi = base := by rw [vm_gpr v₄]; exact hs₂
+  have hc₄ : VG.Proof.X25519.X86_64.Ifma.Ctx s₄ := by intro d hd; rw [vm_gpr v₄, vm_wr v₄]; exact hc₂ d hd
+  have mo₃ : Outside base 1024 320 s.mem s₄.mem := by
+    rw [m₄, ← m₁]; exact o₂.mono (by decide) (by decide)
+  have hk₄ : EConsts s₄.mem base := hk.outside mo₃
   -- the second operands
   rw [WP.block_append_iff]
-  refine WP.mono (dblB_wp hs₄ hc₄ hk₄.toCConsts fun l hl i hi => (u₄ l hl i hi).2)
+  refine WP.mono (dblB_wp hs₄ hc₄ hk₄.toCConsts b₄)
     fun s₅ ⟨v₅, m₅, u₅, k₅⟩ => ?_
   have hs₅ : s₅.gpr .rdi = base := by rw [vm_gpr v₅]; exact hs₄
   have hc₅ : VG.Proof.X25519.X86_64.Ifma.Ctx s₅ := by intro d hd; rw [vm_gpr v₅, vm_wr v₅]; exact hc₄ d hd
@@ -141,11 +135,11 @@ theorem vdbl_wp {s : State} {base : Addr} (hs : s.gpr .rdi = base) (hc : VG.Proo
     (fun l hl i hi => by rw [u₈ l hl i hi]; exact (u₇ l hl i hi).2)
     (fun l hl i hi => by rw [l₈ l hl i hi, l₇ l hl i hi]; exact (u₆ l hl i hi).2))
     fun s₉ ⟨v₉, m₉, u₉, _⟩ => ?_
-  refine ⟨by rw [vm_gpr v₉, vm_gpr v₈, vm_gpr v₇, vm_gpr v₆, vm_gpr v₅, vm_gpr v₄, vm_gpr v₃, g₂, vm_gpr v₁],
-    by rw [vm_rd v₉, vm_rd v₈, vm_rd v₇, vm_rd v₆, vm_rd v₅, vm_rd v₄, vm_rd v₃, rd₂, vm_rd v₁],
-    by rw [vm_wr v₉, vm_wr v₈, vm_wr v₇, vm_wr v₆, vm_wr v₅, vm_wr v₄, vm_wr v₃, wr₂, vm_wr v₁], ?_,
+  refine ⟨by rw [vm_gpr v₉, vm_gpr v₈, vm_gpr v₇, vm_gpr v₆, vm_gpr v₅, vm_gpr v₄, g₂, vm_gpr v₁],
+    by rw [vm_rd v₉, vm_rd v₈, vm_rd v₇, vm_rd v₆, vm_rd v₅, vm_rd v₄, rd₂, vm_rd v₁],
+    by rw [vm_wr v₉, vm_wr v₈, vm_wr v₇, vm_wr v₆, vm_wr v₅, vm_wr v₄, wr₂, vm_wr v₁], ?_,
     fun l hl i hi => (u₉ l hl i hi).2, ?_⟩
-  · rw [m₇, m₆, m₅, m₄] at o₈
+  · rw [m₇, m₆, m₅] at o₈
     rw [m₉]; exact mo₃.trans (o₈.mono (by decide) (by decide))
   have p₉ : ∀ l < 4, fe5 (lanes s₉ 0 l) = fe5 (op1 (lanes s₄ 0) l) * fe5 (op2 (lanes s₄ 0) l) := fun l hl => by
     rw [fe5_congr (fun i hi => (u₉ l hl i hi).1),
@@ -158,15 +152,15 @@ theorem vdbl_wp {s : State} {base : Addr} (hs : s.gpr .rdi = base) (hc : VG.Proo
       fe5_congr (fun i hi => (u₆ l hl i hi).1),
       fe5_carry _ (by have := (u₅ l hl 4 (by decide)).2.2.2; omega),
       fe5_congr (fun i hi => (u₅ l hl i hi).2.2.1)]
-  obtain ⟨a0, a1, a2, a3, b0, b1, b2, b3⟩ := ops_fe (lanes s₄ 0) (fun l hl i hi => (u₄ l hl i hi).2)
+  obtain ⟨a0, a1, a2, a3, b0, b1, b2, b3⟩ := ops_fe (lanes s₄ 0) b₄
   have hA : fe5 (lanes s₄ 0 0) = fe5 (lanes s 0 0) * fe5 (lanes s 0 0) := by
-    rw [p₄ 0 (by decide), p₃ 0 (by decide)]; rfl
+    rw [p₄ 0 (by decide)]; rfl
   have hB : fe5 (lanes s₄ 0 1) = fe5 (lanes s 0 1) * fe5 (lanes s 0 1) := by
-    rw [p₄ 1 (by decide), p₃ 1 (by decide)]; rfl
+    rw [p₄ 1 (by decide)]; rfl
   have hC : fe5 (lanes s₄ 0 2) = fe5 (lanes s 0 2) * fe5 (lanes s 0 2) := by
-    rw [p₄ 2 (by decide), p₃ 2 (by decide)]; rfl
+    rw [p₄ 2 (by decide)]; rfl
   have hP : fe5 (lanes s₄ 0 3) = fe5 (lanes s 0 0) * fe5 (lanes s 0 1) := by
-    rw [p₄ 3 (by decide), p₃ 3 (by decide)]; rfl
+    rw [p₄ 3 (by decide)]; rfl
   simp only [lanePt, dblPoint]
   rw [p₉ 0 (by decide), p₉ 1 (by decide), p₉ 2 (by decide), p₉ 3 (by decide), a0, a1, a2, a3, b0, b1, b2, b3,
     hA, hB, hC, hP]
