@@ -1,7 +1,5 @@
 import VerifiedGarbageTest.Sha256
-import VerifiedGarbage.Spec.Hmac.Contract
 import VerifiedGarbage.Spec.Hmac.Generic
-import VerifiedGarbage.Spec.Pbkdf2.Contract
 import VerifiedGarbage.Spec.Pbkdf2.Generic
 import VerifiedGarbage.Spec.Sha256.Contract
 import VerifiedGarbage.Spec.Sha1.Contract
@@ -9,7 +7,7 @@ import VerifiedGarbage.Spec.Md5.Contract
 import VerifiedGarbage.Spec.Sha512.Contract
 
 /-!
-# Known-answer tests for HMAC, and the generic contracts at SHA-256
+# Known-answer tests for HMAC, and SHA-256's functions
 
 The HMAC-MD5 and HMAC-SHA-1 test cases of RFC 2202 (Sections 2 and 3) and
 the HMAC-SHA-224, HMAC-SHA-256, HMAC-SHA-384 and HMAC-SHA-512 ones of RFC 4231
@@ -189,25 +187,16 @@ run_cmd do
   check "HMAC-SHA-384" sha384 48 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-384"))
   check "HMAC-SHA-512" sha512 64 (← ok "rfc4231.txt" (cases4231 t4231 "HMAC-SHA-512"))
 
-/-! ## The generic contracts at SHA-256 -/
-
-example {M : ISA} (A : Abi M) (stack : Nat) :
-    Spec.Hmac.initContract Spec.Hmac.sha256S 76 A stack = Spec.Hmac.initSha256Contract A stack := rfl
-
-example {M : ISA} (A : Abi M) (stack : Nat) :
-    Spec.Pbkdf2.iterateContract Spec.Hmac.sha256S 104 A stack =
-      Spec.Pbkdf2.iterateSha256Contract A stack := rfl
-
-example {M : ISA} (A : Abi M) (stack : Nat) :
-    Spec.Hmac.sha256I.iterateContract A stack = Spec.Pbkdf2.iterateSha256Contract A stack := rfl
+/-! ## SHA-256's functions -/
 
 open Spec.Hmac in
 run_cmd do
-  -- `sha256I`'s functions have the names and modules of the existing ones.
-  for (a, b) in [(sha256I.initApi, initSha256Api), (sha256I.finalizeApi, finalizeSha256OutApi),
-      (sha256I.iterateApi, Spec.Pbkdf2.iterateSha256Api)] do
-    unless a.name == b.name && a.module == b.module do
-      throwError "{a.module}::{a.name} is not {b.module}::{b.name}"
+  -- `sha256I`'s functions have the names and modules the Rust code uses.
+  for (a, n, m) in [(sha256I.initApi, "vg_hmac_sha256_init", "hmac_sha256"),
+      (sha256I.finalizeApi, "vg_hmac_sha256_finalize", "hmac_sha256"),
+      (sha256I.iterateApi, "vg_pbkdf2_hmac_sha256_iterate", "pbkdf2_sha256")] do
+    unless a.name == n && a.module == m do
+      throwError "{a.module}::{a.name} is not {m}::{n}"
   unless sha256I.pbkdf2Api.name == "vg_pbkdf2_hmac_sha256" &&
       sha256I.pbkdf2Api.module == "pbkdf2_sha256" do
     throwError "{sha256I.pbkdf2Api.module}::{sha256I.pbkdf2Api.name}"

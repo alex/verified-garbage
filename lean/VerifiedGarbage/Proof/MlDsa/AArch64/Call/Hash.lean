@@ -59,7 +59,7 @@ theorem hsetup (hc : inB wbs (sc 0) 200 = true) (hc' : inB wbs (sc 200) 640 = tr
   have hd' := L.disj hd
   have k1 := L.stk16 h16 hS i1
   have k2 := L.stk16 h16 hS i2
-  have cv := covers_cons (L.cW hc) (L.cW hc')
+  have cv := Covers.cons (L.cW hc) (L.cW hc')
   simp only [pa] at hd' k1 k2 cv
   have hr : (136 : Nat) ∈ Spec.Sha3.rates := by simp [Spec.Sha3.rates]
   have hsp : 16 ≤ s.sp.toNat := by have := L.spS; omega

@@ -32,6 +32,8 @@ def init : Prog isa :=
 /-- The sizes, the length field and the digest. -/
 def params : Params where
   N := 20
+  B := 64
+  L := 8
   so := 112
   len := len64 112 76 true
   out := out32 5 true

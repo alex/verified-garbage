@@ -4,13 +4,11 @@ import VerifiedGarbage.Proof.Sha256.X86.Contract
 /-!
 # Streaming SHA-256 on x86 (32-bit): the loop of `finalize`
 
-The compressor-dependent correctness proof is generic in
-`Proof/Sha256/X86/Stream/FinalizeVariant.lean`. This module keeps the shared
-memory, state, prologue and scalar constant-time facts used by the generic
-proof, HMAC-SHA256 and SHA-512 on x86. The state is in `ebx`, scratch in `ebp`,
-buffered bytes in `edi`, and the padding-loop flag in `esi`; count and output
-are in `scratch[128..140)`. Each compression call uses the 20 bytes below
-`esp`.
+The memory, state, prologue and constant-time facts that SHA-512's
+`finalize` on x86 shares (`Proof/Sha512/X86/Stream/Finalize.lean`). The state
+is in `ebx`, scratch in `ebp`, buffered bytes in `edi`, and the padding-loop
+flag in `esi`; count and output are in `scratch[128..140)`. Each compression
+call uses the 20 bytes below `esp`.
 -/
 
 namespace VG.Proof.Sha256.X86.Stream.Finalize

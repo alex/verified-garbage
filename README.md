@@ -586,7 +586,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -602,7 +602,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -618,7 +618,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>❌</td>
+<td>✅</td>
 
 <td>❌</td>
 
@@ -924,7 +924,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix and masks sampled with four SHAKE128 or SHAKE256 instances at once</td>
 
 <td>✅ SHA extensions</td>
 
@@ -940,7 +940,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix and masks sampled with four SHAKE128 or SHAKE256 instances at once</td>
 
 <td>✅ SHA extensions</td>
 
@@ -956,7 +956,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix sampled with four SHAKE128 instances at once</td>
+<td>✅ AVX2; SSE2 and AVX2 polynomial arithmetic, rounding and norm check; matrix and masks sampled with four SHAKE128 or SHAKE256 instances at once</td>
 
 <td>✅ SHA extensions</td>
 
@@ -1051,13 +1051,12 @@ The public APIs are Rust around the verified functions, and that Rust is
 tested, not proven. Most of it only lays out buffers and selects an
 implementation, but in some algorithms it does part of the cryptography:
 
-* **AES-GCM**: only the key expansion, the CTR32 keystream over whole blocks
-  and GHASH over whole blocks are verified. The mode around them is Rust
-  (`src/aes_gcm.rs`): the pre-counter block `J0`, the final partial block,
-  the zero padding and the length block, the length limits, and the
-  comparison of the tag (a constant-time OR of byte differences, not a
-  verified primitive). ChaCha20-Poly1305 and ML-KEM, in contrast, are
-  verified end to end.
+* **AES-GCM**: the length limits of SP 800-38D §5.2.1.1 (a nonempty
+  nonce, at most `2^36 − 32` bytes of text and `2^61 − 1` of additional
+  data) and the order of the streaming calls are checked in Rust
+  (`src/aes_gcm.rs`); the mode itself, including `J0`, the padding, the
+  length block and the comparison of the tag, is verified end to end, as
+  are ChaCha20-Poly1305 and ML-KEM.
 * **ML-DSA**: the verified functions take the message representative `μ`.
   Binding it to the public key, the context string and the message
   (`μ = H(tr ‖ M′)`, with `M′ = 0 ‖ |ctx| ‖ ctx ‖ M` and `tr = H(pk)`: FIPS

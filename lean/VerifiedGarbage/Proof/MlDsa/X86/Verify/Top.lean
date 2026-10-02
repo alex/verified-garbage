@@ -101,7 +101,7 @@ end
 /-! ## The stack -/
 
 theorem NoSp.ite {cnd : Cond} {a b : Prog isa} (ha : NoSp a) (hb : NoSp b) : NoSp (.ite cnd a b) := fun i hi => by
-  simp only [X86.instrs, List.mem_append] at hi
+  simp only [VG.instrs, List.mem_append] at hi
   rcases hi with h | h
   exacts [ha i h, hb i h]
 

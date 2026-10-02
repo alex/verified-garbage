@@ -4,7 +4,8 @@ import VerifiedGarbage.Spec.Scrypt.Contract
 import VerifiedGarbage.TCB.Arm.Target
 import VerifiedGarbage.Proof.Scrypt.Memory
 import VerifiedGarbage.Proof.Framework.Range
-import VerifiedGarbage.Proof.Hmac.Arm.Init
+import VerifiedGarbage.Proof.MdStream.Arm.Common
+import VerifiedGarbage.Proof.Hmac.Common
 import VerifiedGarbage.Impl.Scrypt.Arm.Salsa
 import VerifiedGarbage.Proof.Framework.Arm.Contract
 import VerifiedGarbage.Proof.Framework.Arm.RelCT
@@ -105,8 +106,12 @@ open VG VG.Arm VG.Impl.Scrypt.Arm
 open VG.Spec.Scrypt (Word)
 open VG.Proof.Scrypt
 open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str wp_add op2_reg)
-open VG.Proof.Hmac.Arm.Init (wp_eor)
 open VG.Proof.Scrypt.Memory (contains_off)
+
+theorem wp_eor {is : List Instr} {s : State} {Q : State → Prop} {d n : Reg} {o : Op2} {y : BitVec 32}
+    (ho : o.eval s = some y) (k : ∀ s', Upd s s' d (s.gpr n ^^^ y) → WP isa (.block is) s' Q) :
+    WP isa (.block (.dp .eor d n o :: is)) s Q :=
+  MdStream.Arm.WP.cons (s' := s.setReg d (s.gpr n ^^^ y)) (by simp [exec, ho]) (k _ (Upd.setReg _ _ _))
 
 /-! ## The precondition -/
 
@@ -463,7 +468,6 @@ open VG.Spec.Scrypt (bytesAt)
 open VG.Spec.Pbkdf2 (xorBytes)
 open VG.Proof.Sha256.Stream (writeBytes writeBytes_append writeBytes_nil writeBytes_frame)
 open VG.Proof.MdStream.Arm (Upd Mupd wp_ldr wp_str op2_reg saveMem)
-open VG.Proof.Hmac.Arm.Init (wp_eor)
 open VG.Proof.Scrypt.Memory (sub_off xorBytes_length bytesAt_length bytesAt_add
   bytesAt_writeBytes_sep)
 
@@ -1392,28 +1396,12 @@ namespace VG.Proof.Scrypt.Arm.BlockMix
 
 open VG VG.Arm
 
-/-- A region inside one of `rs` is covered by `rs`. -/
-theorem covers_of_in {rs : List Region} {a : Addr} {n : Nat} (h : InRegions rs a n) :
-    Covers [⟨a, n⟩] rs := by
-  obtain ⟨R, hR, hc⟩ := h
-  refine Covers.of_sub fun r hr => ?_
-  simp only [List.mem_singleton] at hr; subst hr
-  exact ⟨R, hR, (a - R.base).toNat, by rw [BitVec.ofNat_toNat, BitVec.setWidth_eq]; bv_omega, hc⟩
-
-theorem covers_pair {rs : List Region} {a b : Region} (ha : Covers [a] rs) (hb : Covers [b] rs) :
-    Covers [a, b] rs := by
-  intro x n ⟨r, hr, hc⟩
-  simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  rcases hr with rfl | rfl
-  · exact ha x n ⟨_, List.mem_singleton_self _, hc⟩
-  · exact hb x n ⟨_, List.mem_singleton_self _, hc⟩
-
 theorem salsaSpec : SalsaSpec Impl.Scrypt.Arm.salsa := by
   intro s d sc hd hsc fd fsc hds hind hins Q hQ
   have c0 : s.callEntry.gpr .r0 = d := (State.callEntry_gpr _ (by decide)).trans hd
   have c1 : s.callEntry.gpr .r1 = sc := (State.callEntry_gpr _ (by decide)).trans hsc
   have hw : Covers [⟨State.addr d, 64⟩, ⟨State.addr sc, 64⟩] s.wr :=
-    covers_pair (covers_of_in hind) (covers_of_in hins)
+    Covers.pair (Covers.one hind) (Covers.one hins)
   refine WP.call (k := Proof.Scrypt.salsaArm) Proof.Scrypt.Arm.salsa_correct
     (rd := []) (wr := [⟨State.addr d, 64⟩, ⟨State.addr sc, 64⟩]) ?_ ?_ hw ?_
   · simp only [Proof.Scrypt.salsaArm, State.withRegions_gpr, State.withRegions_rd,

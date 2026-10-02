@@ -281,39 +281,6 @@ theorem keepB_sub {rbs wbs : List (Reg × Nat)} {ws : List (Ptr × Nat)} {r : Re
     (h : keepB rbs wbs ws (r, o) L = true) (h1 : o ≤ o') (h2 : o' + l ≤ o + L) : keepB rbs wbs ws (r, o') l = true :=
   keepB_eq .. ▸ CallLay.keepB_sub (keepB_eq .. ▸ h) h1 h2
 
-/-! ## Regions -/
-
-theorem covers_one {X : List Region} {a : Addr} {l : Nat} (h : InRegions X a l) : Covers [⟨a, l⟩] X := by
-  intro a' n' ⟨r0, hr0, hc⟩
-  simp only [List.mem_singleton] at hr0
-  subst hr0
-  obtain ⟨r, hr, hc'⟩ := h
-  refine ⟨r, hr, ?_⟩
-  simp only [Region.Contains] at hc hc' ⊢
-  rw [show a' - r.base = (a' - a) + (a - r.base) by rw [Offset.sub_add_sub_cancel], BitVec.toNat_add]
-  have := Nat.mod_le ((a' - a).toNat + (a - r.base).toNat) (2 ^ 64)
-  omega
-
-theorem covers_nil {X : List Region} : Covers [] X := fun _ _ ⟨_, h, _⟩ => absurd h List.not_mem_nil
-
-theorem covers_cons {r : Region} {rs X : List Region} (h : Covers [r] X) (h' : Covers rs X) :
-    Covers (r :: rs) X := by
-  intro a n ⟨r0, hr0, hc⟩
-  rcases List.mem_cons.mp hr0 with rfl | hr0
-  · exact h a n ⟨r0, List.mem_singleton_self _, hc⟩
-  · exact h' a n ⟨r0, hr0, hc⟩
-
-theorem covers_append {rs ts X : List Region} (h : Covers rs X) (h' : Covers ts X) : Covers (rs ++ ts) X := by
-  intro a n ⟨r0, hr0, hc⟩
-  rcases List.mem_append.mp hr0 with hr0 | hr0
-  · exact h a n ⟨r0, hr0, hc⟩
-  · exact h' a n ⟨r0, hr0, hc⟩
-
-theorem covers_wr {rs : List Region} {s : State} (h : Covers rs s.wr) : Covers rs (s.rd ++ s.wr) :=
-  fun a n hi => by
-    obtain ⟨r, hr, hc⟩ := h a n hi
-    exact ⟨r, List.mem_append_right _ hr, hc⟩
-
 /-! ## Layouts -/
 
 /-- The buffers of `rbs` (read) and `wbs` (written), at the addresses in
@@ -352,10 +319,10 @@ theorem Lay.inW {p : Ptr} {l : Nat} (h : inB wbs p l = true) : InRegions s.wr (p
   L.toLay.inW h
 
 theorem Lay.cR {p : Ptr} {l : Nat} (h : inB (rbs ++ wbs) p l = true) : Covers [⟨pa s p, l⟩] (s.rd ++ s.wr) :=
-  covers_one (L.inR h)
+  Covers.one (L.inR h)
 
 theorem Lay.cW {p : Ptr} {l : Nat} (h : inB wbs p l = true) : Covers [⟨pa s p, l⟩] s.wr :=
-  covers_one (L.inW h)
+  Covers.one (L.inW h)
 
 theorem Lay.s64 : S < 2 ^ 64 := Nat.lt_of_le_of_lt L.spS s.sp.isLt
 

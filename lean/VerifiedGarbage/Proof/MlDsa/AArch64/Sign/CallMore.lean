@@ -175,7 +175,7 @@ theorem mask_cov : Covers ([⟨pa s seed, 66⟩] ++ [⟨pa s a, 1024⟩, ⟨pa s
     Covers [⟨pa s a, 1024⟩, ⟨pa s ss, 2048⟩] s.wr := by
   simp only [maskChk, Bool.and_eq_true, and_assoc] at hc
   obtain ⟨_, _, _, c4, _, _, c7, c8⟩ := hc
-  exact ⟨covers_append (L.cR c4) (covers_wr (covers_cons (L.cW c7) (L.cW c8))), covers_cons (L.cW c7) (L.cW c8)⟩
+  exact ⟨Covers.append_left (L.cR c4) (Covers.right (Covers.cons (L.cW c7) (L.cW c8))), Covers.cons (L.cW c7) (L.cW c8)⟩
 
 theorem mask_pre {γ : Nat} (hγ : γ = 2 ^ 17 ∨ γ = 2 ^ 19) {s1 : State} (h1 : Args (maskArgs seed γ a ss) s s1) :
     (expandMaskContract AArch64.abi S).pre
@@ -333,7 +333,7 @@ theorem hint_cov : Covers ([⟨pa s z, 1024⟩, ⟨pa s r, 1024⟩] ++ [⟨pa s 
     Covers [⟨pa s h, 1024⟩] s.wr := by
   simp only [hintChk, Bool.and_eq_true] at hc
   obtain ⟨⟨⟨⟨⟨_, _⟩, c3⟩, c4⟩, _⟩, c6⟩ := hc
-  exact ⟨covers_append (covers_cons (L.cR c3) (L.cR c4)) (covers_wr (L.cW c6)), L.cW c6⟩
+  exact ⟨Covers.append_left (Covers.cons (L.cR c3) (L.cR c4)) (Covers.right (L.cW c6)), L.cW c6⟩
 
 theorem hint_pre {g2 : Nat} (hg : g2 ∈ gamma2s) (hz : Reduced s.mem (pa s z)) (hr : Reduced s.mem (pa s r))
     {s1 : State} (h1 : Args (hintArgs z r g2 h) s s1) :

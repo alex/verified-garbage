@@ -30,7 +30,7 @@ variable {S : Nat} {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay S rbs wbs 
 include L hc
 
 theorem norm_cov : Covers ([⟨pa s f, 1024⟩] ++ []) (s.rd ++ s.wr) ∧ Covers [] s.wr :=
-  ⟨by rw [List.append_nil]; exact L.cR hc, covers_nil⟩
+  ⟨by rw [List.append_nil]; exact L.cR hc, Covers.nil⟩
 
 theorem norm_pre {bound : Nat} (hr : Reduced s.mem (pa s f)) {s1 : State} (h1 : Args (normArgs f bound) s s1) :
     (normLtContract AArch64.abi S).pre (s1.callEntry.withRegions [⟨pa s f, 1024⟩] []) := by

@@ -40,7 +40,7 @@ theorem code_ok (v : Proof.Blake2.X86_64.Backend) (name : String)
     WP isa (code name (HPrime.hash v)) s fun t =>
       Initialized t.mem memory lanes q lanes (bytesAt s.mem (s.gpr .rbp) 64) ∧
       t.gpr .rbp = s.gpr .rbp ∧ t.gpr .rbx = s.gpr .rbx ∧ t.gpr .rsp = s.gpr .rsp ∧
-      t.rd = s.rd ∧ t.wr = s.wr ∧
+      t.gpr .r13 = BitVec.ofNat 64 (1024 * q) ∧ t.rd = s.rd ∧ t.wr = s.wr ∧
       Frame [⟨memory, 1024 * (lanes * q)⟩, ⟨s.gpr .rbx, 16384⟩,
         below (s.gpr .rsp) 24, ⟨s.gpr .rbp + 64, 8⟩] s.mem t.mem := by
   unfold code lanesSetupCode
@@ -81,7 +81,7 @@ theorem code_ok (v : Proof.Blake2.X86_64.Backend) (name : String)
   · intro t ht
     refine ⟨ht.initialized, ht.keeps.rbp.trans (bpB.trans bpA),
       ht.keeps.rbx.trans (bxB.trans bxA), ht.keeps.rsp.trans (spB.trans spA),
-      ht.keeps.rd.trans (hb.rd.trans ha.rd), ht.keeps.wr.trans (hb.wr.trans ha.wr), ?_⟩
+      (ht.keeps.regs .r13 (by decide)).trans hb.stride, ht.keeps.rd.trans (hb.rd.trans ha.rd), ht.keeps.wr.trans (hb.wr.trans ha.wr), ?_⟩
     have fb : Frame [⟨memory, 1024 * (lanes * q)⟩, ⟨s.gpr .rbx, 16384⟩,
         below (s.gpr .rsp) 24, ⟨s.gpr .rbp + 64, 8⟩] s.mem b.mem := by
       rw [hb.mem]

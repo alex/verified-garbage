@@ -18,8 +18,8 @@ namespace VG.Impl.Argon2.X86_64.Initial
 open VG.X86_64
 open VG.Impl.Argon2.X86_64.HPrime (Hash at_)
 
-/-- Frame offsets for the register arguments, followed by the caller's
-stack arguments. The enclosing frame occupies 168 bytes. -/
+/-- Frame offsets for the saved register arguments and private copies of
+the caller's stack arguments. The private frame occupies 272 bytes. -/
 def passOffset : Nat := 72
 def saltLenOffset : Nat := 80
 def saltOffset : Nat := 88

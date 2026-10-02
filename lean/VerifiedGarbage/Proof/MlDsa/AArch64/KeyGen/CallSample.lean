@@ -34,7 +34,7 @@ theorem rejB_cov : Covers ([⟨pa s seed, 66⟩] ++ [⟨pa s a, 1024⟩, ⟨pa s
     Covers [⟨pa s a, 1024⟩, ⟨pa s ss, 2048⟩] s.wr := by
   simp only [rejBChk, Bool.and_eq_true, and_assoc] at hc
   obtain ⟨_, _, _, c4, _, _, c7, c8⟩ := hc
-  exact ⟨covers_append (L.cR c4) (covers_wr (covers_cons (L.cW c7) (L.cW c8))), covers_cons (L.cW c7) (L.cW c8)⟩
+  exact ⟨Covers.append_left (L.cR c4) (Covers.right (Covers.cons (L.cW c7) (L.cW c8))), Covers.cons (L.cW c7) (L.cW c8)⟩
 
 theorem rejB_pre {eta : Nat} (he : eta = 2 ∨ eta = 4) {s1 : State} (h1 : Args (rejBArgs seed eta a ss) s s1) :
     (rejBoundedContract AArch64.abi S).pre

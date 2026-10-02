@@ -110,18 +110,18 @@ theorem main_ct : RelCT isa (fun a b => ZP s₁ a ∧ ZP s₂ b) hbpMain fun _ _
     have hwa : yR s₁ ∈ a.wr := by rw [ha.2.2.2.2.2.2.2.1]; simp [RegUpd.wr_setReg, hp₁.wr]
     have hrb : hR s₁ ∈ b.rd := by rw [hb.2.2.2.2.2.2.1, hR_eq h]; simp [RegUpd.rd_setReg, hp₂.rd]
     have hwb : yR s₁ ∈ b.wr := by rw [hb.2.2.2.2.2.2.2.1, yR_eq h]; simp [RegUpd.wr_setReg, hp₂.wr]
-    exact ⟨covers_of_mem fun r hr => by
+    exact ⟨Covers.of_mem fun r hr => by
         simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
         rcases hr with rfl | rfl
         · exact List.mem_append_left _ hra
         · exact List.mem_append_right _ hwa,
-      covers_of_mem fun r hr => by rw [List.mem_singleton] at hr; subst hr; exact hwa,
-      covers_of_mem fun r hr => by
+      Covers.of_mem fun r hr => by rw [List.mem_singleton] at hr; subst hr; exact hwa,
+      Covers.of_mem fun r hr => by
         simp only [List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
         rcases hr with rfl | rfl
         · exact List.mem_append_left _ hrb
         · exact List.mem_append_right _ hwb,
-      covers_of_mem fun r hr => by rw [List.mem_singleton] at hr; subst hr; exact hwb⟩
+      Covers.of_mem fun r hr => by rw [List.mem_singleton] at hr; subst hr; exact hwb⟩
   · obtain ⟨a0, a1, a2, a3, az, -⟩ := id ha
     obtain ⟨b0, b1, b2, b3, bz, -⟩ := id hb
     obtain ⟨t₁, u₁, e₁, -⟩ := main_ok hp₁ (mainPre_of hp₁ ha (rd := [hR s₁]) (wr := [yR s₁])
