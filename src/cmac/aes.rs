@@ -329,11 +329,7 @@ mod tests {
                         c.update(part);
                         c.update(&[]);
                     }
-                    assert_eq!(
-                        c.finalize(),
-                        expected,
-                        "key={key_len}, len={len}, chunk={chunk}"
-                    );
+                    assert_eq!(c.finalize(), expected, "{key_len}/{len}/{chunk}");
                 }
             }
         }
