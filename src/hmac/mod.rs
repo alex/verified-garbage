@@ -53,7 +53,7 @@ pub trait HmacHash: HashFunction + sealed::Sealed {
 }
 
 /// The MAC did not match: the message or the key is not what was
-/// authenticated.
+/// authenticated. [`crate::cmac`] returns this type too.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InvalidMac;
 

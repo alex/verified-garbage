@@ -12,7 +12,7 @@
 //! `init` and `finalize` and `vg_pbkdf2_hmac_sha1_iterate` (contract
 //! `VG.Spec.Hmac.Instance.iterateContract`), the one PBKDF2 iteration for
 //! every streaming hash function.
-
+//!
 //! On AArch64, the `_sha2` variants follow SHA-1 hardware dispatch.
 
 #![cfg(any(

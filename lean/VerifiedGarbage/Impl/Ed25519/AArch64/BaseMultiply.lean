@@ -1,14 +1,11 @@
-import VerifiedGarbage.Impl.Ed25519.BaseTable
 import VerifiedGarbage.Impl.Ed25519.AArch64.PointMul
 
 /-!
-# Cached points and the precomputed powers of the base point
+# Cached points
 
 A cached point `[Y - X, Y + X, 2dT, 2Z]` is added with eight
-multiplications (`pointAddCached`). Verification's multiplication by the
-base point writes each batch's sixteen powers `[2^i]B` into the local table
-at byte 5376 from constants (`baseCached`), chosen by comparing the public
-batch counter `x19` with each batch index.
+multiplications (`pointAddCached`), and stored from constants
+(`cachedPointStore`).
 -/
 
 namespace VG.Impl.Ed25519.AArch64
@@ -38,19 +35,5 @@ def cachedFieldStore (v : Spec.X25519.Fe) (dst : Nat) : List Instr := constWords
 def cachedPointStore (q : Spec.Ed25519.Point) (dst : Nat) : List Instr :=
   cachedFieldStore q.X dst ++ (cachedFieldStore q.Y (dst + 32) ++
     (cachedFieldStore q.Z (dst + 64) ++ cachedFieldStore q.T (dst + 96)))
-
-/-- The sixteen cached powers `[2^(16j + i)]B` of batch `j` to the local table. -/
-def baseBatchStores (j : Nat) : List Instr :=
-  (List.range 16).flatMap fun i => cachedPointStore (baseCached (16 * j + i)) (5376 + 128 * i)
-
-/-- The stores of batch `x19`, for the batch indices listed. -/
-def baseBatchTableFrom : List Nat → Prog isa
-  | [] => .block []
-  | k :: ks => .seq (.block [.subImm .x .x8 .x19 k])
-      (.ite (.zero .x .x8) (.block (baseBatchStores k)) (baseBatchTableFrom ks))
-
-def baseBatchTable : Prog isa := baseBatchTableFrom (List.range 16)
-
-def baseMultiplyInit : List Instr := constPoint Spec.Ed25519.identity ++ mulCounterInit 16
 
 end VG.Impl.Ed25519.AArch64

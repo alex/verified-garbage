@@ -8,6 +8,7 @@ namespace VG.Proof.Ed25519.X86_64
 open VG VG.X86_64 VG.Impl.Ed25519.X86_64 Edwards
 
 variable {fld : Arith} [EdArith fld]
+variable {dbl : Prog isa} [EdDouble dbl]
 
 def DecodeRCTPre (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte)
     (a : Spec.Ed25519.Point) (s : State) : Prop :=
@@ -18,7 +19,7 @@ theorem verifyStoreR_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List 
     RelCT isa (fun s t => (DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a s ∧
       point (env s.mem base) 0 1 2 3 = r) ∧ (DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a t ∧
       point (env t.mem base) 0 1 2 3 = r))
-      (.seq (.block (pointTableWrite 7552)) (verifyEquationPoints fld)) (fun _ _ => True) := by
+      (.seq (.block (pointTableWrite 7552)) (verifyEquationPoints fld dbl)) (fun _ _ => True) := by
   have ht := (pointTableWrite_ct base 7552 (by decide)).mono
     (fun s t (h : (DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a s ∧
       point (env s.mem base) 0 1 2 3 = r) ∧ (DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a t ∧
@@ -37,7 +38,7 @@ theorem verifyStoreR_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List 
 theorem verifyDecodeR_ct (base pk sig challenge : Addr) (pkbs rbs sbs kbs : List Byte)
     (a : Spec.Ed25519.Point) {Aa : EPoint dZ} (hA : Rep a Aa) :
     RelCT isa (fun s t => DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a s ∧
-      DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a t) (verifyDecodeR fld) (fun _ _ => True) := by
+      DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a t) (verifyDecodeR fld dbl) (fun _ _ => True) := by
   let P := DecodeRCTPre base pk sig challenge pkbs rbs sbs kbs a
   have loadCT : RelCT isa (fun s t => P s ∧ P t)
       (.block [.mov .rdx (.mem (Impl.X25519.X86_64.sc 7944))]) (fun _ _ => True) := by

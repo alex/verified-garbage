@@ -33,7 +33,7 @@ use crate::arch::pbkdf2_sha512_224::{
 use crate::arch::pbkdf2_sha512_224::{
     VG_PBKDF2_HMAC_SHA512_224_SHA3_FEATURES, vg_pbkdf2_hmac_sha512_224_sha3,
 };
-use crate::hashes::sha512::{Sha512_224, Sha512_224Backend};
+use crate::hashes::sha512_224::{Sha512_224, Sha512_224Backend};
 
 super::whole_pbkdf2!(
     Sha512_224 (Sha512_224Backend) {

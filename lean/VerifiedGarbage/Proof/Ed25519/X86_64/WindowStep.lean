@@ -4,6 +4,7 @@ import VerifiedGarbage.Proof.Ed25519.Bytes
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyInputs
 import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyFrame
 import VerifiedGarbage.Proof.Ed25519.Group.Double
+import VerifiedGarbage.Proof.Framework.RelCT
 
 /-!
 # Verification's windows: doublings, digits and table additions
@@ -20,13 +21,13 @@ open VG.Proof.X25519.X86_64 (off ofs Keeps clob Outside)
 
 variable {fld : Arith} [EdArith fld]
 
-/-- What a window may change: the field workspace, and the registers it
-computes with. -/
+/-- What a window may change: the field workspace and the doublings' (below
+byte 1888), and the registers it computes with. -/
 structure WinKeep (base : Addr) (s t : State) : Prop where
   gpr : ∀ r, r ∉ clob → r ≠ .rbx → r ≠ .rsi → t.gpr r = s.gpr r
   rd : t.rd = s.rd
   wr : t.wr = s.wr
-  mem : Outside base 64 704 s.mem t.mem
+  mem : Outside base 64 1824 s.mem t.mem
 
 theorem WinKeep.refl (base : Addr) (s : State) : WinKeep base s s :=
   ⟨fun _ _ _ _ => rfl, rfl, rfl, Outside.refl _ _ _ _⟩
@@ -40,7 +41,7 @@ theorem WinKeep.scratch {base : Addr} {s t : State} (h : WinKeep base s t) (hs :
     Scratch t base := ⟨(h.gpr _ (by decide) (by decide) (by decide)).trans hs.rdi, h.wr ▸ hs.wr, hs.nowrap⟩
 
 theorem WinKeep.of_keep {base : Addr} {s t : State} (h : Keep base s t) : WinKeep base s t :=
-  ⟨fun r hr _ _ => h.gpr r hr, h.rd, h.wr, h.mem⟩
+  ⟨fun r hr _ _ => h.gpr r hr, h.rd, h.wr, h.mem.mono (by decide) (by decide)⟩
 
 theorem WinKeep.of_keeps {base : Addr} {s t : State} {rs : List Reg} (h : Keeps rs s t)
     (hrs : ∀ r ∈ rs, r = .rbx ∨ r = .rsi ∨ r ∈ clob) : WinKeep base s t := by
@@ -51,10 +52,10 @@ theorem WinKeep.of_keeps {base : Addr} {s t : State} {rs : List Reg} (h : Keeps 
   · exact hr h
 
 theorem WinKeep.of_double {base : Addr} {s t : State} (h : DoubleKeep base s t) : WinKeep base s t :=
-  ⟨fun r hr _ hs => h.gpr r hs hr, h.rd, h.wr, h.mem⟩
+  ⟨fun r hr _ hs => h.gpr r hs hr, h.rd, h.wr, h.mem.mono (by decide) (by decide)⟩
 
 theorem WinKeep.of_rbx {base : Addr} {s t : State} (h : RbxKeep base s t) : WinKeep base s t :=
-  ⟨fun r hr hb _ => h.gpr r hr hb, h.rd, h.wr, h.mem⟩
+  ⟨fun r hr hb _ => h.gpr r hr hb, h.rd, h.wr, h.mem.mono (by decide) (by decide)⟩
 
 theorem WinKeep.counter {base : Addr} {s t : State} (h : WinKeep base s t) :
     t.mem.readW (off base 56) 64 = s.mem.readW (off base 56) 64 :=
@@ -318,23 +319,34 @@ structure WinCtx (base kp sp : Addr) (A : EPoint dZ) (s : State) : Prop where
   aTab : TableOf id s.mem base 5376 A
   bTab : TableOf cache s.mem base 2048 (-baseAff)
 
-theorem win_tablePoint {base : Addr} {m m' : Mem} (h : Outside base 56 712 m m') {d : Nat}
-    (hd : 768 ≤ d) (hb : d + 128 ≤ 8192) : tablePoint m' base d = tablePoint m base d := by
+/-- Four doublings of the point in slots 0–3, as a window runs them:
+`double4` with the field arithmetic, or `Ifma.double4`. -/
+class EdDouble (dbl : Prog isa) : Prop where
+  ok : ∀ {s : State} {base : Addr} {a : EPoint dZ}, Scratch s base →
+    Rep (point (env s.mem base) 0 1 2 3) a → WP isa dbl s fun t =>
+      Rep (point (env t.mem base) 0 1 2 3) ((16 : Nat) • a) ∧
+      (∀ i : Slot, 16 ≤ i.val → env t.mem base i = env s.mem base i) ∧ WinKeep base s t
+  ct : RelCT isa (fun x y => x.gpr .rdi = y.gpr .rdi) dbl (fun _ _ => True)
+
+variable {dbl : Prog isa} [EdDouble dbl]
+
+theorem win_tablePoint {base : Addr} {m m' : Mem} (h : Outside base 56 1832 m m') {d : Nat}
+    (hd : 1888 ≤ d) (hb : d + 128 ≤ 8192) : tablePoint m' base d = tablePoint m base d := by
   simp only [tablePoint]
   rw [Outside_F h (by omega) (Or.inr (by omega)), Outside_F h (by omega) (Or.inr (by omega)),
     Outside_F h (by omega) (Or.inr (by omega)), Outside_F h (by omega) (Or.inr (by omega))]
 
 theorem TableOf.of_win {f : Spec.Ed25519.Point → Spec.Ed25519.Point} {base : Addr} {m m' : Mem}
-    {o : Nat} {X : EPoint dZ} (h : TableOf f m base o X) (k : Outside base 56 712 m m')
-    (ho : 768 ≤ o) (hb : o + 1920 ≤ 8192) : TableOf f m' base o X := by
+    {o : Nat} {X : EPoint dZ} (h : TableOf f m base o X) (k : Outside base 56 1832 m m')
+    (ho : 1888 ≤ o) (hb : o + 1920 ≤ 8192) : TableOf f m' base o X := by
   intro j hj
   obtain ⟨q, hq, hr⟩ := h j hj
   exact ⟨q, by rw [win_tablePoint k (by omega) (by omega)]; exact hq, hr⟩
 
-theorem Outside.widen {base : Addr} {m m' : Mem} (h : Outside base 64 704 m m') :
-    Outside base 56 712 m m' := h.mono (by decide) (by decide)
+theorem Outside.widen {base : Addr} {m m' : Mem} (h : Outside base 64 1824 m m') :
+    Outside base 56 1832 m m' := h.mono (by decide) (by decide)
 
-theorem WinKeep.header {base : Addr} {s t : State} (h : WinKeep base s t) {d : Nat} (hd : 768 ≤ d)
+theorem WinKeep.header {base : Addr} {s t : State} (h : WinKeep base s t) {d : Nat} (hd : 1888 ≤ d)
     (hb : d + 8 ≤ 8192) : t.mem.readW (off base d) 64 = s.mem.readW (off base d) 64 :=
   h.mem.word (Or.inr (by omega)) (by omega)
 
@@ -366,11 +378,10 @@ def DigitSpec (base : Addr) (s : State) (digit : List Instr) (v : Nat) : Prop :=
 theorem windowA_ok {s : State} {base kp sp : Addr} {A a : EPoint dZ} (h : WinCtx base kp sp A s)
     (hd : env s.mem base 16 = Spec.Ed25519.d) (ha : Rep (point (env s.mem base) 0 1 2 3) a)
     {digit : List Instr} {v : Nat} (hv : v < 16) (hdig : DigitSpec base s digit v) :
-    WP isa (windowA fld digit) s fun t => Rep (point (env t.mem base) 0 1 2 3) ((16 : Nat) • a + v • A) ∧
+    WP isa (windowA fld dbl digit) s fun t => Rep (point (env t.mem base) 0 1 2 3) ((16 : Nat) • a + v • A) ∧
       env t.mem base 16 = Spec.Ed25519.d ∧ WinKeep base s t := by
   rw [windowA]
-  refine WP.seq (WP.mono (double4_ok h.scratch ha) fun b ⟨br, bh, bk⟩ => ?_)
-  have kb := WinKeep.of_double bk
+  refine WP.seq (WP.mono (EdDouble.ok h.scratch ha) fun b ⟨br, bh, kb⟩ => ?_)
   refine WP.seq (WP.mono (hdig b kb) fun c ⟨cv, cz, kc⟩ => ?_)
   have kc' : WinKeep base b c := WinKeep.of_keeps kc (by decide)
   have kbc := kb.trans kc'
@@ -383,7 +394,7 @@ theorem windowAB_ok {s : State} {base kp sp : Addr} {A a : EPoint dZ} (h : WinCt
     (hd : env s.mem base 16 = Spec.Ed25519.d) (ha : Rep (point (env s.mem base) 0 1 2 3) a)
     {digitA digitB : List Instr} {vA vB : Nat} (hvA : vA < 16) (hvB : vB < 16)
     (hdA : DigitSpec base s digitA vA) (hdB : DigitSpec base s digitB vB) :
-    WP isa (windowAB fld digitA digitB) s fun t =>
+    WP isa (windowAB fld dbl digitA digitB) s fun t =>
       Rep (point (env t.mem base) 0 1 2 3) ((16 : Nat) • a + vA • A + vB • (-baseAff)) ∧
       env t.mem base 16 = Spec.Ed25519.d ∧ WinKeep base s t := by
   rw [windowAB]

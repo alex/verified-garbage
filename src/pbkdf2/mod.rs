@@ -23,8 +23,6 @@ mod sha512;
 mod sha512_224;
 mod sha512_256;
 
-pub use sha256::pbkdf2_hmac_sha256;
-
 /// A hash function with a verified PBKDF2-HMAC implementation.
 pub trait Pbkdf2Hash: HmacHash {
     /// Fills `out` with the key derived from `password` and `salt` with

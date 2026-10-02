@@ -29,7 +29,10 @@ It also checks that the generic contracts of `Spec/Hmac/Generic.lean` and
 have the same working space (`init` at 76 words, and the iteration, also at
 `sha256I`), that `sha256I`'s functions have the names and modules of the
 existing SHA-256 ones, and that each `Instance` names its own record and its
-hash's `update` function, and has at least that function's working space.
+hash's `update` function, and has at least that function's working space
+and its `finalize`'s. `init` for a key of any length (`initAnyKeyApi`) is
+checked to be the same Rust function as `initApi`, with the same arguments
+but for its working space.
 -/
 
 namespace VG.Test.Hmac
@@ -200,7 +203,7 @@ example {M : ISA} (A : Abi M) (stack : Nat) :
 open Spec.Hmac in
 run_cmd do
   -- `sha256I`'s functions have the names and modules of the existing ones.
-  for (a, b) in [(sha256I.initApi, initSha256Api), (sha256I.finalizeApi, finalizeSha256Api),
+  for (a, b) in [(sha256I.initApi, initSha256Api), (sha256I.finalizeApi, finalizeSha256OutApi),
       (sha256I.iterateApi, Spec.Pbkdf2.iterateSha256Api)] do
     unless a.name == b.name && a.module == b.module do
       throwError "{a.module}::{a.name} is not {b.module}::{b.name}"
@@ -237,5 +240,36 @@ run_cmd do
   let names := instances.flatMap fun (I, _, _) =>
     [I.initApi.name, I.finalizeApi.name, I.iterateApi.name, I.pbkdf2Api.name]
   unless names.eraseDups.length == names.length do throwError "duplicate names: {names}"
+
+/-! ## `init` for a key of any length -/
+
+open Spec.Hmac in
+/-- Each instance, with the `Api` of its hash's `finalize`. -/
+def finalizes : List (Spec.Hmac.Instance × Api) :=
+  [(sha256I, Spec.Sha256.finalizeApi), (sha1I, Spec.Sha1.finalizeApi),
+    (md5I, Spec.Md5.finalizeApi), (sha384I, Spec.Sha512.finalizeApi),
+    (sha512I, Spec.Sha512.finalizeApi), (sha512_224I, Spec.Sha512.finalizeApi),
+    (sha512_256I, Spec.Sha512.finalizeApi)]
+
+run_cmd do
+  unless finalizes.map (·.1.lean) == instances.map (·.1.lean) do
+    throwError "`finalizes` does not list the instances"
+  for (I, finalize) in finalizes do
+    -- `initAnyKeyApi` replaces `initApi`: the same Rust function, with the
+    -- same arguments but for more working space, which also holds that of
+    -- the hash's `finalize` (and, as `scratch` does, of its `update`), and
+    -- a word for each byte of the streaming state.
+    let a := I.initAnyKeyApi
+    let b := I.initApi
+    unless a.name == b.name && a.module == b.module do
+      throwError "{a.module}::{a.name} is not {b.module}::{b.name}"
+    unless a.sig.params.dropLast == b.sig.params.dropLast do
+      throwError "{a.name}: the arguments differ from `initApi`'s"
+    unless scratchWords a.sig == some (I.scratch + I.S.stateBytes) do
+      throwError "{a.name}: working space is not {I.scratch + I.S.stateBytes} words"
+    let some w := scratchWords finalize.sig | throwError "{finalize.name} has no working space"
+    unless w ≤ I.scratch do throwError "{I.lean}: {finalize.name} needs {w} words of working space"
+    unless finalize.name.replace "_finalize" "_update" == I.update do
+      throwError "{I.lean}: {finalize.name} is not the `finalize` of {I.update}"
 
 end VG.Test.Hmac

@@ -7,10 +7,10 @@
 //! value of its whole blocks, and its remaining bytes), and pad it and output
 //! the digest.
 //!
-//! On x86-64, CPUs with the SHA extensions (and SSSE3) run
+//! On x86 and x86-64, CPUs with the SHA extensions (and SSSE3) run
 //! `vg_sha256_update_shani` and `vg_sha256_finalize_shani` instead, which
 //! have the same contracts and call `vg_sha256_compress_shani`; CPUs without
-//! them but with AVX2, BMI1 and BMI2 run `vg_sha256_update_avx2` and
+//! them on x86-64 but with AVX2, BMI1 and BMI2 run `vg_sha256_update_avx2` and
 //! `vg_sha256_finalize_avx2`, which call `vg_sha256_compress_avx2`.
 //! On AArch64, the `sha2` feature selects the `_sha2` streaming functions,
 //! whose compression uses SHA256H/SHA256H2 and SHA256SU0/SHA256SU1.
@@ -24,14 +24,18 @@
 
 #[cfg(target_arch = "x86_64")]
 use crate::arch::sha256::{
-    VG_SHA256_FINALIZE_AVX2_FEATURES, VG_SHA256_FINALIZE_SHANI_FEATURES,
-    VG_SHA256_UPDATE_AVX2_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES, vg_sha256_finalize_avx2,
-    vg_sha256_finalize_shani, vg_sha256_update_avx2, vg_sha256_update_shani,
+    VG_SHA256_FINALIZE_AVX2_FEATURES, VG_SHA256_UPDATE_AVX2_FEATURES, vg_sha256_finalize_avx2,
+    vg_sha256_update_avx2,
 };
 #[cfg(target_arch = "aarch64")]
 use crate::arch::sha256::{
     VG_SHA256_FINALIZE_SHA2_FEATURES, VG_SHA256_UPDATE_SHA2_FEATURES, vg_sha256_finalize_sha2,
     vg_sha256_update_sha2,
+};
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use crate::arch::sha256::{
+    VG_SHA256_FINALIZE_SHANI_FEATURES, VG_SHA256_UPDATE_SHANI_FEATURES, vg_sha256_finalize_shani,
+    vg_sha256_update_shani,
 };
 use crate::arch::sha256::{vg_sha256_finalize, vg_sha256_init, vg_sha256_update};
 
@@ -49,7 +53,7 @@ super::streaming_hash!(
             #[cfg(target_arch = "aarch64")]
             Sha2 if [VG_SHA256_UPDATE_SHA2_FEATURES, VG_SHA256_FINALIZE_SHA2_FEATURES] =>
                 (vg_sha256_update_sha2, vg_sha256_finalize_sha2),
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             ShaNi if [VG_SHA256_UPDATE_SHANI_FEATURES, VG_SHA256_FINALIZE_SHANI_FEATURES] =>
                 (vg_sha256_update_shani, vg_sha256_finalize_shani),
             #[cfg(target_arch = "x86_64")]
@@ -113,7 +117,16 @@ mod tests {
                 };
                 assert_eq!(backend, expected, "{bits:#b}");
             }
-            #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            #[cfg(target_arch = "x86")]
+            {
+                let expected = if Features(bits).contains(Features::of(&["sha", "ssse3"])) {
+                    Sha256Backend::ShaNi
+                } else {
+                    Sha256Backend::Scalar
+                };
+                assert_eq!(backend, expected, "{bits:#b}");
+            }
+            #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
             assert_eq!(backend, Sha256Backend::Scalar);
         }
         assert_eq!(Sha256::new().backend, Sha256Backend::select(detected()));
