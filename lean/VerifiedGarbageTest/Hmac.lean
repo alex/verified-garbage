@@ -200,7 +200,7 @@ example {M : ISA} (A : Abi M) (stack : Nat) :
 open Spec.Hmac in
 run_cmd do
   -- `sha256I`'s functions have the names and modules of the existing ones.
-  for (a, b) in [(sha256I.initApi, initSha256Api), (sha256I.finalizeApi, finalizeSha256Api),
+  for (a, b) in [(sha256I.initApi, initSha256Api), (sha256I.finalizeApi, finalizeSha256OutApi),
       (sha256I.iterateApi, Spec.Pbkdf2.iterateSha256Api)] do
     unless a.name == b.name && a.module == b.module do
       throwError "{a.module}::{a.name} is not {b.module}::{b.name}"
