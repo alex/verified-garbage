@@ -41,14 +41,14 @@ open VG.X86_64
 open VG.Impl.ChaCha20.X86_64 (at_ block)
 open VG.Impl.ChaCha20.X86_64.Xor (xorLoop)
 
-/-- The constants, the nonce at `rsi` and the number of bytes left, from
-state `rdi`. -/
+/-- The nonce at `rsi`, the constants and the number of bytes left, into
+the state at `rdi`. -/
 def setNonceInstrs : List Instr :=
-  [.movImm64 .rax 0x3320646e61707865, .store (at_ .rdi 0) .rax,
+  [.mov .rax (.mem (at_ .rsi 0)), .mov .rcx (.mem (at_ .rsi 8)), .mov32 .rdx (.mem (at_ .rsi 0)),
+   .store (at_ .rdi 48) .rax, .store (at_ .rdi 56) .rcx,
+   .movImm64 .rax 0x3320646e61707865, .store (at_ .rdi 0) .rax,
    .movImm64 .rax 0x6b20657479622d32, .store (at_ .rdi 8) .rax,
-   .mov .rax (.mem (at_ .rsi 0)), .store (at_ .rdi 48) .rax,
-   .mov .rax (.mem (at_ .rsi 8)), .store (at_ .rdi 56) .rax,
-   .mov32 .rax (.mem (at_ .rsi 0)), .movImm64 .rcx 0x100000000, .alu .sub .rcx (.reg .rax),
+   .movImm64 .rcx 0x100000000, .alu .sub .rcx (.reg .rdx),
    .alu .add .rcx (.reg .rcx), .alu .add .rcx (.reg .rcx), .alu .add .rcx (.reg .rcx),
    .alu .add .rcx (.reg .rcx), .alu .add .rcx (.reg .rcx), .alu .add .rcx (.reg .rcx),
    .store (at_ .rdi 128) .rcx]
@@ -57,11 +57,9 @@ def setNonce : Prog isa := .block setNonceInstrs
 
 /-- The key at `rsi` into words 4–11, and the nonce pointer into `rsi`. -/
 def keyInstrs : List Instr :=
-  [.mov .rax (.mem (at_ .rsi 0)), .store (at_ .rdi 16) .rax,
-   .mov .rax (.mem (at_ .rsi 8)), .store (at_ .rdi 24) .rax,
-   .mov .rax (.mem (at_ .rsi 16)), .store (at_ .rdi 32) .rax,
-   .mov .rax (.mem (at_ .rsi 24)), .store (at_ .rdi 40) .rax,
-   .mov .rsi (.reg .rdx)]
+  [.mov .rax (.mem (at_ .rsi 0)), .mov .rcx (.mem (at_ .rsi 8)), .mov .r8 (.mem (at_ .rsi 16)),
+   .mov .r9 (.mem (at_ .rsi 24)), .store (at_ .rdi 16) .rax, .store (at_ .rdi 24) .rcx,
+   .store (at_ .rdi 32) .r8, .store (at_ .rdi 40) .r9, .mov .rsi (.reg .rdx)]
 
 def init : Prog isa := .block (keyInstrs ++ setNonceInstrs)
 

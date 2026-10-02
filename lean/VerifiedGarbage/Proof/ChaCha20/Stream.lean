@@ -232,6 +232,54 @@ theorem keyAt_of_bytes {m : Mem} {p : Addr} {key : List Byte} (hk : key.length =
       hb i (by simpa [keyAt, length_bytesAt] using h₁), List.getD_eq_getElem?_getD,
       List.getElem?_eq_getElem h₂, Option.getD_some]
 
+/-- `restAt_of_bytes` and `keyAt_of_bytes` from the three parts of the
+16-word state: the constants, the key and the nonce. -/
+theorem stream_of_parts {m : Mem} {p : Addr} {key nonce : List Byte} (hk : key.length = 32)
+    (hσ : ∀ i < 16, m (p + BitVec.ofNat 64 i) = sigma.getD i 0)
+    (hK : ∀ i < 32, m (p + BitVec.ofNat 64 (16 + i)) = key.getD i 0)
+    (hN : ∀ i < 16, m (p + BitVec.ofNat 64 (48 + i)) = nonce.getD i 0)
+    (hl : leftAt m p = 64 * (2 ^ 32 - (wordLE nonce 0).toNat)) :
+    keyAt m p = key ∧ restAt m p = keystreamOf key nonce := by
+  refine ⟨keyAt_of_bytes hk hK, restAt_of_bytes hk (fun i hi => ?_) hl⟩
+  have l48 : (sigma ++ key).length = 48 := by rw [List.length_append, length_sigma, hk]
+  by_cases h₁ : i < 48
+  · rw [getD_append_left (by rw [l48]; exact h₁)]
+    by_cases h₂ : i < 16
+    · rw [getD_append_left (by rw [length_sigma]; exact h₂), hσ i h₂]
+    · rw [getD_append_right (by rw [length_sigma]; omega), length_sigma, ← hK (i - 16) (by omega),
+        show 16 + (i - 16) = i by omega]
+  · rw [getD_append_right (by rw [l48]; omega), l48, ← hN (i - 48) (by omega),
+      show 48 + (i - 48) = i by omega]
+
+/-- Byte `j` of a little-endian 64-bit word. -/
+theorem readW64_byte (m : Mem) (a : Addr) {j : Nat} (hj : j < 8) :
+    (m.readW a 64).extractLsb' (8 * j) 8 = m (a + BitVec.ofNat 64 j) := by
+  rw [← Mem.extractLsb'_read m a (n := 8) hj]
+  simp only [Mem.readW]
+  rfl
+
+/-- The bytes of memory from its 64-bit words. -/
+theorem byte_of_words64 {m : Mem} {p : Addr} {W : Nat → BitVec 64} {a b : Nat}
+    (h : ∀ k, a ≤ k → k < b → m.readW (p + BitVec.ofNat 64 (8 * k)) 64 = W k) {i : Nat}
+    (h₁ : 8 * a ≤ i) (h₂ : i < 8 * b) :
+    m (p + BitVec.ofNat 64 i) = (W (i / 8)).extractLsb' (8 * (i % 8)) 8 := by
+  rw [← h (i / 8) (by omega) (by omega), readW64_byte _ _ (Nat.mod_lt _ (by decide)), Offset.add_add,
+    show 8 * (i / 8) + i % 8 = i by omega]
+
+/-- The bytes of memory from its 32-bit words. -/
+theorem byte_of_words32 {m : Mem} {p : Addr} {W : Nat → BitVec 32} {a b : Nat}
+    (h : ∀ k, a ≤ k → k < b → m.readW (p + BitVec.ofNat 64 (4 * k)) 32 = W k) {i : Nat}
+    (h₁ : 4 * a ≤ i) (h₂ : i < 4 * b) :
+    m (p + BitVec.ofNat 64 i) = (W (i / 4)).extractLsb' (8 * (i % 4)) 8 := by
+  rw [← h (i / 4) (by omega) (by omega), ← Mem.readW_byte _ _ (Nat.mod_lt _ (by decide)), Offset.add_add,
+    show 4 * (i / 4) + i % 4 = i by omega]
+
+/-- The first word of a nonce in memory. -/
+theorem wordLE_bytesAt (m : Mem) (p : Addr) {n : Nat} (hn : 4 ≤ n) :
+    wordLE (bytesAt m p n) 0 = m.readW p 32 :=
+  word_ext fun i hi => by
+    rw [wordLE_byte _ _ hi, Nat.mul_zero, Nat.zero_add, bytesAt_getD _ _ (by omega), Mem.readW_byte m p hi]
+
 /-! ## Applying the keystream -/
 
 section Apply
