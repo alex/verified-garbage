@@ -8,16 +8,6 @@ pub const USES: &[&str] = &["sha512"];
 
 #[cfg(target_arch = "aarch64")]
 mod protos {
-    /// Prototype `dbl`.
-    #[unsafe(naked)]
-    pub unsafe extern "C" fn dbl(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
-        core::arch::naked_asm!(include_str!("sha512_proto/dbl.S"))
-    }
-    /// Prototype `dbl_ktab`.
-    #[unsafe(naked)]
-    pub unsafe extern "C" fn dbl_ktab(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
-        core::arch::naked_asm!(include_str!("sha512_proto/dbl_ktab.S"))
-    }
     /// Prototype `dblrot_keep`.
     #[unsafe(naked)]
     pub unsafe extern "C" fn dblrot_keep(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
@@ -28,15 +18,20 @@ mod protos {
     pub unsafe extern "C" fn dblrot_keep_ktab(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
         core::arch::naked_asm!(include_str!("sha512_proto/dblrot_keep_ktab.S"))
     }
-    /// Prototype `keep`.
+    /// Prototype `dblrot_ktabi2`.
     #[unsafe(naked)]
-    pub unsafe extern "C" fn keep(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
-        core::arch::naked_asm!(include_str!("sha512_proto/keep.S"))
+    pub unsafe extern "C" fn dblrot_ktabi2(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
+        core::arch::naked_asm!(include_str!("sha512_proto/dblrot_ktabi2.S"))
     }
-    /// Prototype `keep_ktab`.
+    /// Prototype `dblrot_ktabi4`.
     #[unsafe(naked)]
-    pub unsafe extern "C" fn keep_ktab(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
-        core::arch::naked_asm!(include_str!("sha512_proto/keep_ktab.S"))
+    pub unsafe extern "C" fn dblrot_ktabi4(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
+        core::arch::naked_asm!(include_str!("sha512_proto/dblrot_ktabi4.S"))
+    }
+    /// Prototype `dblrot_ktabi8`.
+    #[unsafe(naked)]
+    pub unsafe extern "C" fn dblrot_ktabi8(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
+        core::arch::naked_asm!(include_str!("sha512_proto/dblrot_ktabi8.S"))
     }
     /// Prototype `main`.
     #[unsafe(naked)]
@@ -47,21 +42,6 @@ mod protos {
     #[unsafe(naked)]
     pub unsafe extern "C" fn pr592(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
         core::arch::naked_asm!(include_str!("sha512_proto/pr592.S"))
-    }
-    /// Prototype `rot_keep`.
-    #[unsafe(naked)]
-    pub unsafe extern "C" fn rot_keep(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
-        core::arch::naked_asm!(include_str!("sha512_proto/rot_keep.S"))
-    }
-    /// Prototype `rot_keep_ktab`.
-    #[unsafe(naked)]
-    pub unsafe extern "C" fn rot_keep_ktab(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
-        core::arch::naked_asm!(include_str!("sha512_proto/rot_keep_ktab.S"))
-    }
-    /// Prototype `rot_ktab`.
-    #[unsafe(naked)]
-    pub unsafe extern "C" fn rot_ktab(_: *mut u64, _: *const u8, _: usize, _: *mut u64) {
-        core::arch::naked_asm!(include_str!("sha512_proto/rot_ktab.S"))
     }
 }
 
@@ -76,17 +56,13 @@ pub fn bench(c: &mut Criterion) {
         return;
     }
     let protos: &[(&str, Compress)] = &[
-        ("dbl", protos::dbl as Compress),
-        ("dbl_ktab", protos::dbl_ktab as Compress),
         ("dblrot_keep", protos::dblrot_keep as Compress),
         ("dblrot_keep_ktab", protos::dblrot_keep_ktab as Compress),
-        ("keep", protos::keep as Compress),
-        ("keep_ktab", protos::keep_ktab as Compress),
+        ("dblrot_ktabi2", protos::dblrot_ktabi2 as Compress),
+        ("dblrot_ktabi4", protos::dblrot_ktabi4 as Compress),
+        ("dblrot_ktabi8", protos::dblrot_ktabi8 as Compress),
         ("main", protos::main as Compress),
         ("pr592", protos::pr592 as Compress),
-        ("rot_keep", protos::rot_keep as Compress),
-        ("rot_keep_ktab", protos::rot_keep_ktab as Compress),
-        ("rot_ktab", protos::rot_ktab as Compress),
     ];
     let data = vec![0x5au8; 16384];
     let mut reference = None;
