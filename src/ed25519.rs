@@ -373,11 +373,8 @@ mod x86_64_tests {
         ];
         for (names, s, f) in cases {
             let features = Features::of(names);
-            assert_eq!(
-                (Sha512Backend::select(features), Field::select(features)),
-                (s, f),
-                "{names:?}"
-            );
+            let chosen = (Sha512Backend::select(features), Field::select(features));
+            assert_eq!(chosen, (s, f), "{names:?}");
         }
     }
 }
