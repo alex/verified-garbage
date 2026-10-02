@@ -110,4 +110,47 @@ theorem restore_ok (original s : State)
     simp only [savedRegs, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     simp only [gpr_setReg, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2, ite_false]
 
+theorem loadScratch_ok (s : State)
+    (hr : InRegions (s.rd ++ s.wr) (wordAddr (s.gpr .esp) 4) 4) :
+    ∃ s', runBlock isa [.mov .eax (.mem (memOp .esp 16))] s = some s' ∧
+      s'.gpr .eax = arg s 3 ∧ Keep [.eax] s s' := by
+  have he : exec (.mov .eax (.mem (memOp .esp 16))) s = some (s.setReg .eax (arg s 3)) := by
+    simp only [exec, readSrc, State.load32, State.ea, memOp]
+    change (if InRegions (s.rd ++ s.wr) (wordAddr (s.gpr .esp) 4) 4 then
+      some (s.mem.readW (wordAddr (s.gpr .esp) 4) 32) else none).map (s.setReg .eax) = _
+    rw [ite_eq_left hr, ← argument_word s 3, Option.map_some]
+  refine ⟨s.setReg .eax (arg s 3), by simp only [runBlock_cons, he, runStep_some, runBlock_nil],
+    gpr_setReg_self _ _ _, ?_⟩
+  exact ⟨fun r hr => gpr_setReg_of_ne _ _ (by simpa only [List.mem_singleton] using hr), rfl, rfl, rfl⟩
+
+theorem savedMem_eq (s : State) : savedMem s = VG.Proof.Rc2.X86.saveMem s.mem
+    (addr32 (s.gpr .eax) + BitVec.ofNat 64 512) (fun i => s.gpr (savedReg i)) 4 := by
+  simp only [VG.Proof.Rc2.X86.saveMem_succ]
+  change savedMem s = (((s.mem.writeW ((addr32 (s.gpr .eax) + BitVec.ofNat 64 512) + BitVec.ofNat 64 0) (s.gpr .ebp)).writeW
+    ((addr32 (s.gpr .eax) + BitVec.ofNat 64 512) + BitVec.ofNat 64 4) (s.gpr .ebx)).writeW
+    ((addr32 (s.gpr .eax) + BitVec.ofNat 64 512) + BitVec.ofNat 64 8) (s.gpr .esi)).writeW
+    ((addr32 (s.gpr .eax) + BitVec.ofNat 64 512) + BitVec.ofNat 64 12) (s.gpr .edi)
+  simp only [Offset.add_ofNat_add_ofNat]
+  rfl
+
+theorem savedMem_read (s : State) (i : Nat) (hi : i < 4) :
+    (savedMem s).readW (addr32 (s.gpr .eax) + BitVec.ofNat 64 (512 + 4 * i)) 32 =
+      s.gpr (savedReg i) := by
+  rw [savedMem_eq, ← Offset.add_ofNat_add_ofNat]
+  exact VG.Proof.Rc2.X86.saveMem_read _ _ _ 4 (by decide) i hi
+
+theorem LoopPost.scratchRead {d : Spec.TripleDes.Direction} {s s' : State} {n : Nat}
+    (h : LoopPost d s n s') (hp : StepPre s n) (i : Nat) (hi : 512 ≤ i ∧ i + 4 ≤ 1024) :
+    s'.mem.readW (addr32 (s.gpr .ebp) + BitVec.ofNat 64 i) 32 =
+      s.mem.readW (addr32 (s.gpr .ebp) + BitVec.ofNat 64 i) 32 := by
+  have sub : Region.Sub ⟨addr32 (s.gpr .ebp) + BitVec.ofNat 64 i, 4⟩ (bufR s) :=
+    Offset.sub_base _ hi.2
+  have sep : (Region.mk (addr32 (s.gpr .ebp) + BitVec.ofNat 64 i) 4).Disjoint
+      ⟨addr32 (s.gpr .ebp), 512⟩ := Offset.disjoint_base _ (by omega_using [hi]) (by omega_using [hi])
+  apply h.mem.readW (r := ⟨addr32 (s.gpr .ebp) + BitVec.ofNat 64 i, 4⟩)
+    (Region.contains_self _ _) (hn := by decide)
+  simpa only [loopWrites, List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq] using
+    And.intro ((hp.dataBuf.sub_right sub).symm)
+      (And.intro sep (hp.stackBuf.sub_right sub).symm)
+
 end VG.Proof.TripleDes.X86.Ecb
