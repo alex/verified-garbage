@@ -9,8 +9,9 @@ and `vg_cmac_aes_finish(state = rdi, rounds = rsi, count = rdx, out = rcx, scrat
 (see `VG.Spec.Cmac.aesInitContract` and the others), composed of calls of
 the verified `vg_aes_expand_key`, `vg_cmac_aes_subkeys`, `vg_cmac_aes_update`
 and `vg_cmac_aes_finalize`. Like those, they are generic over the
-implementation of AES they call (`Ctr32`, and the `ExpandKey` that goes with
-it, and `sfx`, the suffix of the names of the CMAC functions made with it): e.g. `vg_cmac_aes_absorb_aesni` calls `vg_cmac_aes_update_aesni`.
+implementation of AES they call (`Ctr32`, the `ExpandKey` that goes with it,
+and `sfx`, the suffix of the names of the CMAC functions made with it): e.g.
+`vg_cmac_aes_absorb_aesni` calls `vg_cmac_aes_update_aesni`.
 
 The state (`VG.Spec.Cmac.Repr`) is the key schedule (bytes 0–239), the
 subkeys (240–271), the chaining value (272–287) and the bytes held back
@@ -146,16 +147,16 @@ def rest : List Instr :=
 /-- Restores the registers, with `r15` (restored last) the scratch buffer. -/
 def restore : List Instr := saved.map fun (r, d) => .mov r (.mem (at_ .r15 d))
 
+/-- Everything before the first call. -/
+def absorbPre : Prog isa := .seq (.block save) (.seq held (.seq fill (.seq copy chain1)))
+
+/-- Everything after the second call. -/
+def absorbPost : Prog isa := .seq (.block rest) (.seq copy (.block restore))
+
 def absorb (c : Ctr32) (sfx : String) : Prog isa :=
-  .seq (.block save)
-    (.seq held
-      (.seq fill
-        (.seq copy
-          (.seq chain1
-            (.seq (.call ("vg_cmac_aes_update" ++ sfx) (Impl.CmacAes.X86_64.update c))
-              (.seq chain2
-                (.seq (.call ("vg_cmac_aes_update" ++ sfx) (Impl.CmacAes.X86_64.update c))
-                  (.seq (.block rest) (.seq copy (.block restore))))))))))
+  .seq absorbPre
+    (.seq (.call ("vg_cmac_aes_update" ++ sfx) (Impl.CmacAes.X86_64.update c))
+      (.seq chain2 (.seq (.call ("vg_cmac_aes_update" ++ sfx) (Impl.CmacAes.X86_64.update c)) absorbPost)))
 
 /-! ## `vg_cmac_aes_finish` -/
 
@@ -172,8 +173,10 @@ def lastLen : Prog isa :=
   .ite .e (.block [])
     (.block [.alu .sub .r8 (.imm 1), .alu .and .r8 (.imm 15), .alu .add .r8 (.imm 1)])
 
+/-- Everything before the call. -/
+def finPre : Prog isa := .seq (.block finishPre) lastLen
+
 def finish (c : Ctr32) (sfx : String) : Prog isa :=
-  .seq (.block finishPre)
-    (.seq lastLen (.call ("vg_cmac_aes_finalize" ++ sfx) (Impl.CmacAes.X86_64.finalize c)))
+  .seq finPre (.call ("vg_cmac_aes_finalize" ++ sfx) (Impl.CmacAes.X86_64.finalize c))
 
 end VG.Impl.CmacAes.Stream.X86_64
