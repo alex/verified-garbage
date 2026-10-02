@@ -1,5 +1,6 @@
 import VerifiedGarbage.Proof.AesGcm.X86_64.Cmp
 import VerifiedGarbage.Proof.AesGcm.X86_64.CryptOk
+import VerifiedGarbage.Proof.Framework.X86_64.Inline
 
 /-!
 # AES-GCM on x86-64: what every function does
@@ -30,6 +31,11 @@ theorem WP.forall_det {c : Prog isa} {s : State} {ι : Sort _} {P : ι → Prop}
   obtain ⟨t', s'', e', q⟩ := h i hi
   obtain ⟨-, rfl⟩ := Exec.det e e'
   exact q
+
+/-- Code never changes the permissions. -/
+theorem WP.with_rdwr {c : Prog isa} {s : State} {Q : State → Prop} (h : WP isa c s Q) :
+    WP isa c s fun s' => Q s' ∧ s'.rd = s.rd ∧ s'.wr = s.wr := by
+  obtain ⟨t, s', e, q⟩ := h; exact ⟨t, s', e, q, Exec.rdwr e⟩
 
 /-- Where `save` puts our caller's registers. -/
 def SavedAt (m : Mem) (W : Addr) (s₀ : State) : Prop :=

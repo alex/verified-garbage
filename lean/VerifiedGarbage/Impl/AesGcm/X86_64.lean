@@ -342,8 +342,8 @@ def textAbsorb : Prog isa :=
     (.ite .e (.block [])
       (.seq (.block [.mov .rax (.mem (at_ .r15 tlenO)), .alu .test .rax (.reg .rax)])
       (.seq (.ite .e (firstFlush c) (.block []))
-      (.seq (.block [.mov .r12 (.mem (at_ .r15 dataO)), .mov .rbx (.mem (at_ .r15 tlenO)),
-          .alu .and .rbx (imm 15)])
+      (.seq (.block [.mov .r12 (.mem (at_ .r15 dataO)), .mov .rbp (.mem (at_ .r15 lenO)),
+          .mov .rbx (.mem (at_ .r15 tlenO)), .alu .and .rbx (imm 15)])
         (absorb c 16)))))
 
 /-- `vg_aes_gcm_stream_encrypt`. -/
