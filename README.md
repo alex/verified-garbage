@@ -936,6 +936,22 @@ yours to keep:
 
 <tr>
 
+<td>DSA</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>ECDSA P-256</td>
 
 <td>✅</td>
