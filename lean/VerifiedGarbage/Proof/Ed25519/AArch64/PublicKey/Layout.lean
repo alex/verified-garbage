@@ -20,6 +20,8 @@ abbrev SCR : Region := ⟨L.scr, 8192⟩
 abbrev ARGS : Region := Whole.ARGS L.E
 abbrev FR : Region := Whole.FR L.E
 abbrev STK : Region := ⟨L.E, 336⟩
+/-- The frame of a callee, below the locals. -/
+abbrev CK : Region := Whole.CK L.E
 def inputs : List Region := [L.SEED, L.ARGS]
 def outputs : List Region := [L.OUT, L.SCR]
 def value (j : Nat) : Addr := match j with | 0 => L.out | 1 => L.seed | _ => L.scr
@@ -33,6 +35,10 @@ structure Ok : Prop where
   no : L.out.toNat + 32 ≤ 2 ^ 64
   ns : L.seed.toNat + 32 ≤ 2 ^ 64
   nc : L.scr.toNat + 8192 ≤ 2 ^ 64
+  e16 : 16 ≤ L.E.toNat
+  co : L.CK.Disjoint L.OUT
+  cs : L.CK.Disjoint L.SEED
+  cc : L.CK.Disjoint L.SCR
 end Lay
 
 abbrev Ctx (L : Lay) (g : Reg → Addr) (vec : VReg → BitVec 128) (m₀ : Mem) (t : State) :=
@@ -56,10 +62,11 @@ theorem Ctx.seed_bytes (hc : Ctx L g vec m₀ t) (hL : L.Ok) :
   unfold Spec.Ed25519.bytesAt
   refine List.map_congr_left fun i hi => hc.frame.bytes (R := L.SEED) ?_ (by change 32 ≤ 2 ^ 64; decide) (List.mem_range.mp hi)
   simp only [Lay.outputs, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false]
-  rintro r (rfl | rfl | rfl)
+  rintro r (rfl | rfl | rfl | rfl)
   · exact hL.os.symm
   · exact hL.sc
   · exact (hL.ks.sub_left (frame_sub L)).symm
+  · exact hL.cs.symm
 
 theorem Ctx.arg_word (hc : Ctx L g vec m₀ t) (hL : L.Ok) {j : Nat} (hj : j < 3) :
     t.mem.readW (L.E + BitVec.ofNat 64 (256 + 8 * j)) 64 =
@@ -67,10 +74,12 @@ theorem Ctx.arg_word (hc : Ctx L g vec m₀ t) (hL : L.Ok) {j : Nat} (hj : j < 3
   refine hc.frame.readW (r := L.ARGS)
     (Offset.contains _ (e := 256) (k := 48) (by omega) (by omega) (by decide)) ?_ (by decide)
   simp only [Lay.outputs, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false]
-  rintro r (rfl | rfl | rfl)
+  rintro r (rfl | rfl | rfl | rfl)
   · exact hL.ko.sub_left (args_sub L)
   · exact hL.kc.sub_left (args_sub L)
   · exact Offset.disjoint_base _ (by decide : 256 ≤ 256) (by decide : 256 + 48 ≤ 2 ^ 64)
+  · exact ((Offset.below_disjoint L.E (m := 16) (l := 304) (by decide)).sub_right
+      (Offset.sub_base _ (by decide : 256 + 48 ≤ 304))).symm
 
 theorem setup_ok (hc : Ctx L g vec m₀ t) (hL : L.Ok) (ha : Arguments L m₀)
     {args : List (Reg × Value)} (hn : (args.map Prod.fst).Nodup)

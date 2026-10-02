@@ -41,7 +41,8 @@ theorem finalize_ok (backend : Whole.Backend) (hc : Ctx L g v m₀ s) (hL : L.Ok
   have hd : Region.Disjoint ⟨L.E+192,64⟩ L.SCR :=
     hL.kc.sub_left (Offset.sub_base _ (by decide))
   have hr' : Spec.Sha512.Repr Spec.Sha512.H0_512 t.mem L.scr msg := htmem ▸ hr
-  refine WP.mono (Whole.finalize_call backend ht (Whole.finalize_pre a0 a2 a3 hd)
+  refine WP.mono (Whole.finalize_call backend ht (Whole.finalize_pre a0 a2 a3 hd (by rw [ht.sp]; exact hL.e16)
+    (by rw [ht.sp]; exact hL.cc) (by rw [ht.sp]; exact Whole.ck_frame (by decide : 192 + 64 ≤ 304)))
     (Whole.covers_writes finalize_writes) finalize_writes a0 a2 a1 hr'
     (by rw [hm]; exact hL.message_bound)) fun u ⟨hu,_,hp⟩ => ⟨hu,hp⟩
 

@@ -10,7 +10,7 @@ theorem reduce_call_ct (hL : L.Ok) :
     RelCT isa (Two L g₁ g₂ v₁ v₂ m₁ m₂ (OutArgs L reduceValues))
       (.call "vg_ed25519_scalar_reduce" Impl.Ed25519.AArch64.scalarReduce)
       (Two L g₁ g₂ v₁ v₂ m₁ m₂ fun _ => True) := by
-  apply call_ct scalarReduce_ok scalarReduce_ct reduce_noFrames
+  apply call_ct scalarReduce_ok scalarReduce_ct (Whole.depth_of_noFrames reduce_noFrames)
   · intro g v m t _ hs
     have a0 := hs (.x0,.frame 128) (by simp [reduceValues])
     have a1 := hs (.x1,.frame 192) (by simp [reduceValues])

@@ -1,9 +1,8 @@
 import VerifiedGarbage.Proof.Framework.Contract
 import VerifiedGarbage.Proof.Framework.AArch64.Inline
 import VerifiedGarbage.Proof.Sha512.AArch64.Compress
-import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Finalize
 import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Init
-import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Update
+import VerifiedGarbage.Proof.Sha512.AArch64.Stream.Md
 import VerifiedGarbage.Spec.Sha512.Contract
 
 /-!
@@ -41,8 +40,10 @@ def updateWide : Contract AArch64.isa :=
       let state : Region := ⟨s.gpr .x0, 192⟩
       let data : Region := ⟨s.gpr .x2, (s.gpr .x3).toNat⟩
       let scratch : Region := ⟨s.gpr .x4, 1376⟩
+      let stack : Region := ⟨s.sp - 16, 16⟩
       s.rd = [data] ∧ s.wr = [state, scratch] ∧
-      state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch }
+      state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
+      16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint scratch }
 
 /-- `finalizeAArch64` with 1376 bytes of scratch. -/
 def finalizeWide : Contract AArch64.isa :=
@@ -51,8 +52,10 @@ def finalizeWide : Contract AArch64.isa :=
       let state : Region := ⟨s.gpr .x0, 192⟩
       let out : Region := ⟨s.gpr .x2, 64⟩
       let scratch : Region := ⟨s.gpr .x3, 1376⟩
+      let stack : Region := ⟨s.sp - 16, 16⟩
       s.rd = [] ∧ s.wr = [state, out, scratch] ∧
-      state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch }
+      state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
+      16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch }
 
 theorem pfx {a : Addr} {m n : Nat} (h : Nat.ble m n = true) : Region.Prefix ⟨a, m⟩ ⟨a, n⟩ :=
   ⟨rfl, Nat.le_of_ble_eq_true h⟩
@@ -71,7 +74,9 @@ theorem updateWide_of {code : Prog isa} (hv : Verified AArch64.target code Proof
     Verified AArch64.target code updateWide :=
   Verified.widen hv
     (fun s => [⟨s.gpr .x0, 192⟩, ⟨s.gpr .x4, 224⟩])
-    (fun _ ⟨h₁, _, h₃, h₄, h₅⟩ => ⟨h₁, rfl, h₃.sub_right (sub224 _), h₄, h₅.sub_right (sub224 _)⟩)
+    (fun _ ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉⟩ =>
+      ⟨h₁, rfl, h₃.sub_right (sub224 _), h₄, h₅.sub_right (sub224 _), h₆, h₇, h₈,
+        h₉.sub_right (sub224 _)⟩)
     (fun _ ⟨_, h₂, _⟩ => h₂ ▸ .cons (pfx rfl) (.cons (pfx rfl) .nil))
     (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat
 
@@ -79,7 +84,9 @@ theorem finalizeWide_of {code : Prog isa} (hv : Verified AArch64.target code Pro
     Verified AArch64.target code finalizeWide :=
   Verified.widen hv
     (fun s => [⟨s.gpr .x0, 192⟩, ⟨s.gpr .x2, 64⟩, ⟨s.gpr .x3, 224⟩])
-    (fun _ ⟨h₁, _, h₃, h₄, h₅⟩ => ⟨h₁, rfl, h₃, h₄.sub_right (sub224 _), h₅.sub_right (sub224 _)⟩)
+    (fun _ ⟨h₁, _, h₃, h₄, h₅, h₆, h₇, h₈, h₉⟩ =>
+      ⟨h₁, rfl, h₃, h₄.sub_right (sub224 _), h₅.sub_right (sub224 _), h₆, h₇, h₈,
+        h₉.sub_right (sub224 _)⟩)
     (fun _ ⟨_, h₂, _⟩ => h₂ ▸ .cons (pfx rfl) (.cons (pfx rfl)
       (.cons (pfx rfl) .nil)))
     (fun _ _ _ h => h) (fun _ _ _ _ h => h) hsat
@@ -112,28 +119,24 @@ theorem init (iv : Spec.Sha512.HashValue) :
       [Proof.Sha512.AArch64.Stream.initSat] using Proof.Sha512.AArch64.Stream.initSat)
 
 theorem update_of {code : Prog isa} (hv : Verified AArch64.target code Proof.Sha512.updateAArch64) :
-    Verified AArch64.target code (Spec.Sha512.updateContract AArch64.abi) := by
-  have hi : updateWide.Implies (Spec.Sha512.updateContract AArch64.abi) := by
-    sig_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, updateWide,
+    Verified AArch64.target code (Spec.Sha512.updateContract AArch64.abi 16) := by
+  have hi : updateWide.Implies (Spec.Sha512.updateContract AArch64.abi 16) := by
+    contract_implies [Spec.Sha512.updateContract, Spec.Sha512.updateSig, updateWide,
       Proof.Sha512.updateAArch64, AArch64.abi, AArch64.argRegs]
-      [updateSat, Proof.Sha512.AArch64.Stream.Update.sat] using updateSat
+      [updateSat, Proof.Sha512.AArch64.Stream.Update.sat, MdStream.AArch64.Update.sat,
+        Impl.Sha512.AArch64.Stream.params] using updateSat
   exact (updateWide_of hv hi.sat_left).of_implies hi
 
 theorem finalize_of {code : Prog isa} (hv : Verified AArch64.target code Proof.Sha512.finalizeAArch64) :
-    Verified AArch64.target code (Spec.Sha512.finalizeContract AArch64.abi) := by
-  have hi : finalizeWide.Implies (Spec.Sha512.finalizeContract AArch64.abi) := by
-    sig_implies [Spec.Sha512.finalizeContract, Spec.Sha512.finalizeSig, finalizeWide,
+    Verified AArch64.target code (Spec.Sha512.finalizeContract AArch64.abi 16) := by
+  have hi : finalizeWide.Implies (Spec.Sha512.finalizeContract AArch64.abi 16) := by
+    contract_implies [Spec.Sha512.finalizeContract, Spec.Sha512.finalizeSig, finalizeWide,
       Proof.Sha512.finalizeAArch64, AArch64.abi, AArch64.argRegs]
-      [finalizeSat, Proof.Sha512.AArch64.Stream.Finalize.sat] using finalizeSat
+      [finalizeSat, Proof.Sha512.AArch64.Stream.Finalize.sat, MdStream.AArch64.Finalize.sat,
+        Impl.Sha512.AArch64.Stream.params] using finalizeSat
   exact (finalizeWide_of hv hi.sat_left).of_implies hi
 
 theorem compress : Verified AArch64.target Impl.Sha512.AArch64.compress (Spec.Sha512.compressContract AArch64.abi) :=
   compress_of Proof.Sha512.AArch64.compress_verified
-
-theorem update : Verified AArch64.target Impl.Sha512.AArch64.Stream.update (Spec.Sha512.updateContract AArch64.abi) :=
-  update_of Proof.Sha512.AArch64.Stream.Update.update_verified
-
-theorem finalize : Verified AArch64.target Impl.Sha512.AArch64.Stream.finalize (Spec.Sha512.finalizeContract AArch64.abi) :=
-  finalize_of Proof.Sha512.AArch64.Stream.Finalize.finalize_verified
 
 end VG.Proof.Sha512.AArch64.Shared

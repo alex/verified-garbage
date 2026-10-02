@@ -64,31 +64,16 @@ variable (P : Params)
 
 /-- The streaming code's parameters with the same hash value, scratch space,
 length field and digest, whose `save`, `restore` and `compressAt` we use. -/
-def md : MdStream.AArch64.Params := ⟨P.N, P.so, P.len, P.out⟩
+def md : MdStream.AArch64.Params := ⟨P.N, P.B, P.L, P.so, P.len, P.out⟩
 
 end Params
 
-/-- The streaming code's parameters of a hash function with 64-byte blocks
-and an 8-byte length field (MD5, SHA-1, SHA-256), as the iteration's. -/
-def ofMd (P : MdStream.AArch64.Params) : Params := ⟨P.N, 64, 8, P.so, P.len, P.out⟩
+/-- The streaming code's parameters, as the iteration's. -/
+def ofMd (P : MdStream.AArch64.Params) : Params := ⟨P.N, P.B, P.L, P.so, P.len, P.out⟩
 
 /-- Copying 32-bit word `k` from `[src + o₁]` to `[dst + o₂]`. -/
 def cp32 (src dst : Reg) (o₁ o₂ k : Nat) : List Instr :=
   [.ldr .w .x9 src (o₁ + 4 * k), .str .w .x9 dst (o₂ + 4 * k)]
-
-/-- The `n` 64-bit words at `x19`, written to `x21`, big-endian: the digest of
-the SHA-512 family. -/
-def out64 (n : Nat) : List Instr :=
-  (List.range n).flatMap fun k => [.ldr .x .x9 .x19 (8 * k), .rev .x9 .x9, .str .x .x9 .x21 (8 * k)]
-
-/-- The 16-byte length in bits, `8 · count` (from `count` in `x22`), big-endian
-at `x19 + d`: the length field of the SHA-512 family. `d` is a multiple of 8. -/
-def len128 (d : Nat) : List Instr :=
-  [.lsr .x .x9 .x22 61, .rev .x9 .x9, .str .x .x9 .x19 d] ++ MdStream.AArch64.len64 (d + 8) true
-
-/-- The SHA-512 family's: a 64-byte hash value, 128-byte blocks, a 16-byte
-length field and the 176 bytes of scratch space of `vg_sha512_compress`. -/
-def sha512 : Params := ⟨64, 128, 16, 176, len128 176, out64 8⟩
 
 variable (P : Params) (D : Nat)
 

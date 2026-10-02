@@ -304,15 +304,18 @@ represents `m` followed by the `len` bytes at `data`, from the same one.
 
 The code may read `data` (`len` bytes) and read and write `state` (192
 bytes) and `scratch` (224 bytes, whose contents on exit are unspecified).
-These may not overlap each other. The pointers, `count` and `len` are public;
-the state and the data are secret. -/
+These may not overlap each other, nor the 16 bytes below the stack pointer
+(the frame saving `x30`), which do not wrap around. The pointers, `count` and
+`len` are public; the state and the data are secret. -/
 def updateAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 192⟩
     let data : Region := ⟨s.gpr .x2, (s.gpr .x3).toNat⟩
     let scratch : Region := ⟨s.gpr .x4, 224⟩
+    let stack : Region := ⟨s.sp - 16, 16⟩
     s.rd = [data] ∧ s.wr = [state, scratch] ∧
-    state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch
+    state.Disjoint scratch ∧ data.Disjoint state ∧ data.Disjoint scratch ∧
+    16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint data ∧ stack.Disjoint scratch
   post s s' := ∀ iv m, Repr iv s.mem (s.gpr .x0) m → s.gpr .x1 = BitVec.ofNat 64 m.length →
     Repr iv s'.mem (s.gpr .x0) (m ++ bytesAt s.mem (s.gpr .x2) (s.gpr .x3).toNat)
   pub s₁ s₂ :=
@@ -330,15 +333,18 @@ bytes.
 
 The code may read and write `state` (192 bytes, whose contents on exit are
 unspecified), `out` (64 bytes) and `scratch` (224 bytes, whose contents on
-exit are unspecified). These may not overlap each other. The pointers and
-`count` are public; the state is secret. -/
+exit are unspecified). These may not overlap each other, nor the 16 bytes
+below the stack pointer (the frame saving `x30`), which do not wrap around.
+The pointers and `count` are public; the state is secret. -/
 def finalizeAArch64 : Contract AArch64.isa where
   pre s :=
     let state : Region := ⟨s.gpr .x0, 192⟩
     let out : Region := ⟨s.gpr .x2, 64⟩
     let scratch : Region := ⟨s.gpr .x3, 224⟩
+    let stack : Region := ⟨s.sp - 16, 16⟩
     s.rd = [] ∧ s.wr = [state, out, scratch] ∧
-    state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch
+    state.Disjoint out ∧ state.Disjoint scratch ∧ out.Disjoint scratch ∧
+    16 ≤ s.sp.toNat ∧ stack.Disjoint state ∧ stack.Disjoint out ∧ stack.Disjoint scratch
   post s s' := ∀ iv m, Repr iv s.mem (s.gpr .x0) m → m.length < 2 ^ 64 →
     s.gpr .x1 = BitVec.ofNat 64 m.length → bytesAt s'.mem (s.gpr .x2) 64 = finalHash iv m
   pub s₁ s₂ :=

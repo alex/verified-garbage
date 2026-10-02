@@ -3,14 +3,14 @@ import VerifiedGarbage.TCB.AArch64.Isa
 /-!
 # Streaming Merkle–Damgård hash functions: AArch64 implementation
 
-The streaming `update` and `finalize` of MD5, SHA-1 and SHA-256, whose blocks
-are 64 bytes and whose length fields are 8 bytes, and which differ only in
-the size of their hash values, in how they store the message length and
-output the digest, and in the compression function they call (`Params`).
-Each hash function's `Impl/<Alg>/AArch64/Stream.lean` instantiates them.
+The streaming `update` and `finalize` of MD5, SHA-1, SHA-256 and the SHA-512
+family, which differ only in their sizes, in how they store the message
+length and output the digest, and in the compression function they call
+(`Params`). Each hash function's `Impl/<Alg>/AArch64/Stream.lean`
+instantiates them.
 
-The streaming state (`N + 64` bytes at `state`) is the hash value (`N`
-bytes) followed by a 64-byte buffer.
+The streaming state (`N + B` bytes at `state`) is the hash value (`N` bytes)
+followed by a `B`-byte buffer.
 
 * `update(state = x0, count = x1, data = x2, len = x3, scratch = x4)`
   compresses, in each iteration, every whole block left in `data` with one
@@ -30,7 +30,7 @@ the whole function.
 The model has no register-offset addressing, so byte `r` of the buffer is
 addressed as `[x12, #N]` with `x12 = state + r` computed just before the
 access, and `data` is consumed through a pointer that advances. It has no
-flags either: every comparison is a shift (`len ≥ 64` iff `len >> 6 ≠ 0`)
+flags either: every comparison is a shift (`len ≥ B` iff `len >> log₂ B ≠ 0`)
 or a subtraction tested with `cbz`/`cbnz`. Every address and branch depends
 only on the pointers, `count` and `len`.
 -/
@@ -46,10 +46,14 @@ def mov (d n : Reg) : Instr := .addImm .x d n 0
 structure Params where
   /-- The size of the hash value, where the buffer starts. -/
   N : Nat
+  /-- The block size, a power of two. -/
+  B : Nat
+  /-- The size of the length field at the end of the last block. -/
+  L : Nat
   /-- Where our caller's registers are saved in the scratch space, after the
   compression function's own. -/
   so : Nat
-  /-- Stores the length field, from `count` in `x22`, at `x19 + N + 56`;
+  /-- Stores the length field, from `count` in `x22`, at `x19 + N + B - L`;
   writes only `x9` and `x12`. -/
   len : List Instr
   /-- Writes the digest, from the hash value at `x19`, to `x21`; writes only
@@ -57,6 +61,9 @@ structure Params where
   out : List Instr
 
 variable (P : Params)
+
+/-- `log₂ B`, the shift that divides by the block size. -/
+def lg : Nat := Nat.log2 P.B
 
 /-- The callee-saved registers we use, and where they are saved in `scratch`. -/
 def saved : List (Reg × Nat) :=
@@ -88,45 +95,46 @@ Registers: `x21` = `data`, `x22` = bytes of `data` left, `x23` = bytes in the
 buffer (`r`), `x10` = the number of blocks this iteration compresses (at
 `x1`).
 The loop runs while `x22 ≠ 0`, so each iteration starts with `x22 ≥ 1` and
-`x23 < 64`. -/
+`x23 < B`. -/
 
-/-- Every whole block left, straight from `data`: `len >> 6` blocks,
-`(len >> 6) << 6` bytes. -/
+/-- Every whole block left, straight from `data`: `len >> log₂ B` blocks,
+`(len >> log₂ B) << log₂ B` bytes. -/
 def direct : List Instr :=
-  [mov .x1 .x21, .lsr .x .x10 .x22 6, .lsl .x .x9 .x10 6, .add .x .x21 .x21 .x9, .sub .x .x22 .x22 .x9]
+  [mov .x1 .x21, .lsr .x .x10 .x22 (lg P), .lsl .x .x9 .x10 (lg P), .add .x .x21 .x21 .x9,
+    .sub .x .x22 .x22 .x9]
 
 /-- The copy loop's body. -/
 def copyBody : List Instr :=
   [.ldrb .x9 .x21 0, .add .x .x12 .x19 .x23, .strb .x9 .x12 P.N, .addImm .x .x21 .x21 1,
     .addImm .x .x23 .x23 1, .subImm .x .x11 .x11 1]
 
-/-- Copy `n = min(64 - r, len) ≥ 1` bytes of `data` into the buffer; if that
+/-- Copy `n = min(B - r, len) ≥ 1` bytes of `data` into the buffer; if that
 fills it, compress it. -/
 def fill : Prog isa :=
-  -- x11 := 64 - r; if len < 64 and len + r < 64 (i.e. len < 64 - r), x11 := len.
-  .seq (.block [.movz .x .x11 64 0, .sub .x .x11 .x11 .x23, .lsr .x .x9 .x22 6])
+  -- x11 := B - r; if len < B and len + r < B (i.e. len < B - r), x11 := len.
+  .seq (.block [.movz .x .x11 (BitVec.ofNat 16 P.B) 0, .sub .x .x11 .x11 .x23, .lsr .x .x9 .x22 (lg P)])
   (.seq (.ite (.zero .x .x9)
-      (.seq (.block [.add .x .x9 .x22 .x23, .lsr .x .x9 .x9 6])
+      (.seq (.block [.add .x .x9 .x22 .x23, .lsr .x .x9 .x9 (lg P)])
         (.ite (.zero .x .x9) (.block [mov .x11 .x22]) (.block [])))
       (.block []))
   (.seq (.block [.sub .x .x22 .x22 .x11])
   (.seq (.loop (.block (copyBody P)) (.nonzero .x .x11))
   -- Full: compress the buffer.
-  (.seq (.block [.subImm .x .x9 .x23 64])
+  (.seq (.block [.subImm .x .x9 .x23 P.B])
     (.ite (.zero .x .x9) (.block [.addImm .x .x1 .x19 P.N, .movz .x .x23 0 0, .movz .x .x10 1 0])
       (.block []))))))
 
 def updateBody (name : String) (code : Prog isa) : Prog isa :=
   .seq (.block [.movz .x .x10 0 0])
   (.seq (.ite (.zero .x .x23)
-      (.seq (.block [.lsr .x .x9 .x22 6]) (.ite (.zero .x .x9) (fill P) (.block direct)))
+      (.seq (.block [.lsr .x .x9 .x22 (lg P)]) (.ite (.zero .x .x9) (fill P) (.block (direct P))))
       (fill P))
     (.ite (.zero .x .x10) (.block []) (compressN name code)))
 
 /-- Save registers and set up ours. -/
 def updateStart : List Instr :=
-  save P .x4 ++ [mov .x19 .x0, mov .x20 .x4, mov .x21 .x2, mov .x22 .x3, .movz .x .x9 63 0,
-    .logic .and .x .x23 .x1 .x9]
+  save P .x4 ++ [mov .x19 .x0, mov .x20 .x4, mov .x21 .x2, mov .x22 .x3,
+    .movz .x .x9 (BitVec.ofNat 16 (P.B - 1)) 0, .logic .and .x .x23 .x1 .x9]
 
 /-- `update`, but for saving `x30`. -/
 def updateMain (name : String) (code : Prog isa) : Prog isa :=
@@ -147,9 +155,9 @@ def zeroBody : List Instr :=
   [.add .x .x12 .x19 .x23, .strb .x9 .x12 P.N, .addImm .x .x23 .x23 1, .subImm .x .x11 .x11 1]
 
 def finalizeBody (name : String) (code : Prog isa) : Prog isa :=
-  -- Zero the buffer from `r` to 64, or to 56 in the last block.
-  .seq (.block [.movz .x .x11 64 0])
-  (.seq (.ite (.zero .x .x24) (.block [.movz .x .x11 56 0]) (.block []))
+  -- Zero the buffer from `r` to `B`, or to `B - L` in the last block.
+  .seq (.block [.movz .x .x11 (BitVec.ofNat 16 P.B) 0])
+  (.seq (.ite (.zero .x .x24) (.block [.movz .x .x11 (BitVec.ofNat 16 (P.B - P.L)) 0]) (.block []))
   (.seq (.block [.movz .x .x9 0 0, .sub .x .x11 .x11 .x23])
   (.seq (.ite (.zero .x .x11) (.block []) (.loop (.block (zeroBody P)) (.nonzero .x .x11)))
   -- In the last block, the length field.
@@ -161,11 +169,11 @@ def finalizeBody (name : String) (code : Prog isa) : Prog isa :=
 /-- Save registers, append the `0x80` byte and choose the number of blocks. -/
 def finalizeStart : List Instr :=
   save P .x3 ++ [mov .x19 .x0, mov .x20 .x3, mov .x21 .x2, mov .x22 .x1,
-    .movz .x .x9 63 0, .logic .and .x .x23 .x22 .x9,
+    .movz .x .x9 (BitVec.ofNat 16 (P.B - 1)) 0, .logic .and .x .x23 .x22 .x9,
     -- The `0x80` byte.
     .movz .x .x9 0x80 0, .add .x .x12 .x19 .x23, .strb .x9 .x12 P.N, .addImm .x .x23 .x23 1,
-    -- Two blocks iff that leaves fewer than 8 bytes for the length (r ≥ 57).
-    .addImm .x .x24 .x23 7, .lsr .x .x24 .x24 6]
+    -- Two blocks iff that leaves fewer than `L` bytes for the length (r > B - L).
+    .addImm .x .x24 .x23 (P.L - 1), .lsr .x .x24 .x24 (lg P)]
 
 /-- `finalize`, but for saving `x30`. -/
 def finalizeMain (name : String) (code : Prog isa) : Prog isa :=
@@ -193,5 +201,14 @@ little-endian otherwise. -/
 def out32 (n : Nat) (be : Bool) : List Instr :=
   (List.range n).flatMap fun k =>
     [.ldr .w .x9 .x19 (4 * k)] ++ (if be then [.rev32 .x9 .x9] else []) ++ [.str .w .x9 .x21 (4 * k)]
+
+/-- The `n` 64-bit words at `x19`, written to `x21` big-endian. -/
+def out64 (n : Nat) : List Instr :=
+  (List.range n).flatMap fun k => [.ldr .x .x9 .x19 (8 * k), .rev .x9 .x9, .str .x .x9 .x21 (8 * k)]
+
+/-- The length in bits as a 16-byte big-endian integer at `x19 + d`:
+`count >> 61`, then `8 · count` (modulo 2⁶⁴). `d` is a multiple of 8. -/
+def len128 (d : Nat) : List Instr :=
+  [.lsr .x .x9 .x22 61, .rev .x9 .x9, .str .x .x9 .x19 d] ++ len64 (d + 8) true
 
 end VG.Impl.MdStream.AArch64
