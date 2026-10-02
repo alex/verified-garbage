@@ -135,7 +135,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 </tr>
 
@@ -151,7 +151,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 </tr>
 
@@ -173,7 +173,55 @@ yours to keep:
 
 <tr>
 
-<td>SHA-384, SHA-512, SHA-512/224, SHA-512/256</td>
+<td>SHA-384</td>
+
+<td>✅</td>
+
+<td>✅ SHA512, AVX2, BMI1, BMI2</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+</tr>
+
+<tr>
+
+<td>SHA-512/224</td>
+
+<td>✅</td>
+
+<td>✅ SHA512, AVX2, BMI1, BMI2</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+</tr>
+
+<tr>
+
+<td>SHA-512/256</td>
+
+<td>✅</td>
+
+<td>✅ SHA512, AVX2, BMI1, BMI2</td>
+
+<td>✅ SHA extensions</td>
+
+<td>✅</td>
+
+<td>✅</td>
+
+</tr>
+
+<tr>
+
+<td>SHA-512</td>
 
 <td>✅</td>
 
@@ -227,6 +275,22 @@ yours to keep:
 
 <tr>
 
+<td>3DES-CMAC (two- and three-key TDEA)</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>HMAC-MD5</td>
 
 <td>✅</td>
@@ -269,7 +333,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 </tr>
 
@@ -591,7 +655,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅</td>
+<td>✅ SHA extensions</td>
 
 </tr>
 
@@ -811,7 +875,7 @@ yours to keep:
 
 <td>✅</td>
 
-<td>✅ SHA512, AVX2, BMI1, BMI2, ADX</td>
+<td>✅ SHA512, AVX-512 IFMA, AVX-512VL, AVX2, BMI1, BMI2, ADX</td>
 
 <td>✅ SHA extensions</td>
 

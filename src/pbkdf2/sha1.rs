@@ -10,7 +10,7 @@
 //! On ARMv7 and x86, the iteration is `vg_pbkdf2_hmac_sha1_iterate` (contract
 //! `VG.Spec.Hmac.Instance.iterateContract`), the one PBKDF2 iteration for every
 //! streaming hash function, calling SHA-1's verified streaming functions.
-
+//!
 //! On AArch64, the `_sha2` variants follow SHA-1 hardware dispatch.
 
 #![cfg(any(

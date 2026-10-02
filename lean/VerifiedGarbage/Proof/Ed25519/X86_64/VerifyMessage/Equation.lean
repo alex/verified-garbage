@@ -6,6 +6,7 @@ import VerifiedGarbage.Proof.Ed25519.X86_64.VerifyVerified
 namespace VG.Proof.Ed25519.X86_64.VerifyMessage
 
 variable {fld : VG.Impl.Ed25519.X86_64.Arith} [VG.Proof.Ed25519.X86_64.EdArith fld] {fs : String}
+variable {dbl : VG.Prog VG.X86_64.isa} [VG.Proof.Ed25519.X86_64.EdDouble dbl]
 open VG VG.X86_64
 open VG.Impl.Ed25519.X86_64 (verifyEquation)
 open VG.Impl.Ed25519.X86_64.VerifyMessage
@@ -47,13 +48,23 @@ theorem eq_pre (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) (ha : EqArgs L t
     by simpa using hL.stk_scr (d := 16) (n := 64) (e := 0) (k := 8192) (by omega) (by omega),
     by simpa using hL.stk_scr (d := 8) (n := 8) (e := 0) (k := 8192) (by omega) (by omega), hL.nc⟩
 
-theorem eq_call (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) (ha : EqArgs L t)
+/-- What the call of the equation checker `c` needs of its code, beyond its
+correctness: it restores MXCSR (`ctlOk`), writes `rsp` only as calls and
+returns do, nests no calls, and writes no stack pointer. Decided for each
+checker in the registration file. -/
+structure EqCode (c : Prog isa) : Prop where
+  mx : VG.Proof.Ed25519.X86_64.MxcsrOk c
+  noSp : c.allInstrs (fun i => !Taint.clobbers i .rsp) = true
+  depth : c.depth ≤ 1
+  spSafe : c.all (fun i => !isa.writesSp i) = true
+
+theorem eq_call (hq : EqCode (VG.Impl.Ed25519.X86_64.verifyEquation fld dbl)) (hL : L.Ok) {t : State} (hc : Ctx L g mx m₀ t) (ha : EqArgs L t)
     {challenge : List Byte} (hh : Spec.Ed25519.bytesAt t.mem (L.B + BitVec.ofNat 64 16) 64 = challenge) :
-    WP isa (.call ("vg_ed25519_verify_equation" ++ fs) (verifyEquation fld)) t fun t' => Ctx L g mx m₀ t' ∧
+    WP isa (.call ("vg_ed25519_verify_equation" ++ fs) (verifyEquation fld dbl)) t fun t' => Ctx L g mx m₀ t' ∧
       t'.gpr .rax = Proof.Ed25519.X86_64.signWord (Spec.Ed25519.verifyEquation
         (Spec.Ed25519.bytesAt m₀ L.pk 32) (Spec.Ed25519.bytesAt m₀ L.sig 64) challenge) := by
-  refine call_ok hL verify_ok (Proof.Pbkdf2.Md.X86_64.nosp_of (by fld_lit_decide))
-    (by fld_lit_decide) hc (eq_pre hL hc ha) ?_ ?_
+  refine call_ok hL (verify_ok hq.mx) (Proof.Pbkdf2.Md.X86_64.nosp_of hq.noSp)
+    hq.depth hc (eq_pre hL hc ha) ?_ ?_
     fun s' hc' _ _ ⟨s₂, _, hg, hpost⟩ => ⟨hc', ?_⟩
   · intro r hr
     simp only [eqRd, eqWr, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
