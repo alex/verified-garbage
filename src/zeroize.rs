@@ -5,17 +5,9 @@
 //! * ML-KEM, ML-DSA, Ed25519, X25519 and X448 wipe their private keys when
 //!   they are dropped, and the intermediate values and working space of
 //!   each operation (FIPS 203 §3.3, FIPS 204 §3.6.3).
-//! * The key objects of the symmetric algorithms wipe their key material
-//!   when they are dropped: [`AesGcm`](crate::aes_gcm::AesGcm) its key
-//!   schedule and hash subkey, [`AesGcmStream`](crate::aes_gcm::AesGcmStream)
-//!   also its keystream, partial block and GHASH state,
-//!   [`ChaCha20`](crate::chacha20::ChaCha20) its state and keystream,
-//!   [`ChaCha20Poly1305`](crate::chacha20poly1305::ChaCha20Poly1305) its
-//!   key, [`Poly1305`](crate::poly1305::Poly1305) its state (which holds its
-//!   key), and the
-//!   hash functions (whose state, under HMAC, PBKDF2 or keyed BLAKE2,
-//!   represents the key) and [`Hmac`](crate::hmac::Hmac) their streaming
-//!   states.
+//! * Every other object holding key material (the ciphers, AEADs and MACs,
+//!   and the hash functions, whose state represents the key under HMAC,
+//!   PBKDF2 or keyed BLAKE2) wipes it when it is dropped.
 //!
 //! What is not: the working space (`scratch`) of the symmetric algorithms'
 //! calls, and the copies of states the Rust code makes on the stack when

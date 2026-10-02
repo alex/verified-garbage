@@ -2,8 +2,6 @@
 
 use criterion::Criterion;
 
-/// The library modules whose code these benchmarks run (see
-/// `ci/bench_arches.py`): this one and those it calls.
 pub const USES: &[&str] = &["cmac_aes", "aes"];
 
 /// The MAC of a message with a 16-byte key (setup included), computed and

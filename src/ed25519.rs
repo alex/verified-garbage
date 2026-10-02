@@ -192,8 +192,8 @@ fn public_key(seed: &[u8; 32]) -> [u8; 32] {
     // SAFETY: the output, seed, and scratch are distinct objects valid for
     // 32, 32, and 8192 bytes, respectively, so they overlap neither each
     // other nor the call's stack, and none wraps the address space. The
-    // seed is the caller's. SHA-512's backend and the field's, selected from
-    // features the CPU has, select every required CPU feature.
+    // seed is the caller's. The CPU has the features of both backends
+    // chosen (SHA-512's and the field's).
     unsafe { derive(&mut public, seed, &mut scratch) };
     zeroize(&mut scratch);
     public
@@ -224,9 +224,9 @@ fn verify_message(pk: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> u32 {
     };
     let mut scratch = [0u64; 1024];
     // SAFETY: input references are valid for their declared lengths and scratch
-    // is a distinct writable object. No object overlaps the call stack, and
-    // SHA-512's backend and the field's, selected from features the CPU has,
-    // select every required CPU feature.
+    // is a distinct writable object. No object overlaps the call stack. The
+    // CPU has the features of both backends chosen (SHA-512's and the
+    // field's).
     let valid = unsafe { verify(pk, message.as_ptr(), message.len(), signature, &mut scratch) };
     zeroize(&mut scratch);
     valid
@@ -255,8 +255,8 @@ fn sign_message(seed: &[u8; 32], pk: &[u8; 32], message: &[u8]) -> [u8; 64] {
     // Signature and scratch are distinct writable objects, disjoint from the
     // inputs and the call's stack. None wraps the address space. pk is seed's
     // public key (`SigningKey::sign` passes the one `from_seed` derived).
-    // SHA-512's backend and the field's, selected from features the CPU has,
-    // select every required CPU feature.
+    // The CPU has the features of both backends chosen (SHA-512's and the
+    // field's).
     unsafe {
         sign(
             &mut signature,
