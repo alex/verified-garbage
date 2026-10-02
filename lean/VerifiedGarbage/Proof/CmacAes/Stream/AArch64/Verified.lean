@@ -22,9 +22,9 @@ open VG.Proof.CmacAes.AArch64 (update_keepsV subkeys_keepsV finalize_keepsV)
 theorem init_keepsV (v : Ctr32Impl) : (init v.expand v.callee v.suffix).allInstrs keepsV = true := by
   simp only [init, Code.allInstrs, v.expandKeepsV, subkeys_keepsV v]; decide +kernel
 
-theorem absorb_keepsV (v : Ctr32Impl) : (absorb v.callee v.suffix).allInstrs keepsV = true := by
+theorem absorb_keepsV (v : Proof.CmacAes.AArch64.UpdateImpl) : (absorb v.callee).allInstrs keepsV = true := by
   simp only [absorb, absorbPre, absorbPost, held, clamp, fill, copy, chain1, chain2, Code.allInstrs,
-    update_keepsV v]
+    v.keepsV]
   decide +kernel
 
 theorem finish_keepsV (v : Ctr32Impl) : (finish v.callee v.suffix).allInstrs keepsV = true := by
@@ -34,8 +34,8 @@ theorem init_correct (v : Ctr32Impl) (s : State) (hs : initAArch64.pre s) :
     ∃ t s', Exec isa (init v.expand v.callee v.suffix) s t s' ∧ abiPreserved s s' ∧ initAArch64.post s s' :=
   WP.withPreservedV (init_wp v hs) (init_keepsV v)
 
-theorem absorb_correct (v : Ctr32Impl) (s : State) (hs : absorbAArch64.pre s) :
-    ∃ t s', Exec isa (absorb v.callee v.suffix) s t s' ∧ abiPreserved s s' ∧ absorbAArch64.post s s' :=
+theorem absorb_correct (v : Proof.CmacAes.AArch64.UpdateImpl) (s : State) (hs : absorbAArch64.pre s) :
+    ∃ t s', Exec isa (absorb v.callee) s t s' ∧ abiPreserved s s' ∧ absorbAArch64.post s s' :=
   WP.withPreservedV (absorb_wp v hs) (absorb_keepsV v)
 
 theorem finish_correct (v : Ctr32Impl) (s : State) (hs : finishAArch64.pre s) :
@@ -66,8 +66,8 @@ def absorbSat : State where
   rd := [⟨0x3000, 0⟩]
   wr := [⟨0x1000, 304⟩, ⟨0x4000, 2304⟩]
 
-theorem absorb_verified (v : Ctr32Impl) :
-    Verified AArch64.target (absorb v.callee v.suffix) (Spec.Cmac.aesAbsorbContract AArch64.abi) :=
+theorem absorb_verified (v : Proof.CmacAes.AArch64.UpdateImpl) :
+    Verified AArch64.target (absorb v.callee) (Spec.Cmac.aesAbsorbContract AArch64.abi) :=
   Verified.of_correct (absorb_correct v) (absorb_ct v) (by
     sig_implies [Spec.Cmac.aesAbsorbContract, Spec.Cmac.aesAbsorbSig, absorbAArch64, AArch64.abi,
       AArch64.argRegs] [absorbSat] using absorbSat)

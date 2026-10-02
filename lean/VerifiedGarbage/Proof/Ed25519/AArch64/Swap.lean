@@ -3,6 +3,8 @@ import VerifiedGarbage.Proof.Ed25519.Canonical64
 
 /-! Swapping four limbs with a mask and writing the two field elements. -/
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64
 
 theorem swapWords_ok (s : State) (sw : Bool) (hm : s.gpr .x3 = mask sw) :
@@ -26,8 +28,8 @@ theorem swapWords_ok (s : State) (sw : Bool) (hm : s.gpr .x3 = mask sw) :
     simp only [RegUpd.gpr_write, hr.1, hr.2.1, hr.2.2.1, hr.2.2.2.1, hr.2.2.2.2.1,
       hr.2.2.2.2.2.1, hr.2.2.2.2.2.2.1, hr.2.2.2.2.2.2.2.1, hr.2.2.2.2.2.2.2.2, ite_false]
 
-theorem cswap_ok {s : State} {base : Addr} (hs : Scr s base) {x y : Nat}
-    (hx : FieldRange x) (hy : FieldRange y) (hxy : x + 32 ≤ y ∨ y + 32 ≤ x)
+theorem cswap_ok {s : State} {base : Addr} (hs : Scr s base large) {x y : Nat}
+    (hx : FieldRange x large) (hy : FieldRange y large) (hxy : x + 32 ≤ y ∨ y + 32 ≤ x)
     {sw : Bool} (hm : s.gpr .x3 = mask sw) :
     WP isa (.block (cswap x y)) s fun t =>
       (∀ r, r ∉ clob → t.gpr r = s.gpr r) ∧ t.gpr .x3 = s.gpr .x3 ∧
@@ -36,6 +38,8 @@ theorem cswap_ok {s : State} {base : Addr} (hs : Scr s base) {x y : Nat}
         fe m base x = if sw then fe s.mem base y else fe s.mem base x) ∧
       fe t.mem base x = (if sw then fe s.mem base y else fe s.mem base x) ∧
       fe t.mem base y = (if sw then fe s.mem base x else fe s.mem base y) := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   rw [cswap, List.append_assoc, List.append_assoc, List.append_assoc, WP.block_append_iff]
   refine WP.mono (loads_ok hs hx (by decide)) fun s₁ ⟨a0, a1, a2, a3, k1⟩ => ?_
   rw [WP.block_append_iff]

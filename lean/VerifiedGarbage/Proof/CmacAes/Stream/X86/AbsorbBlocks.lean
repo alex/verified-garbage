@@ -15,6 +15,8 @@ f`, whether to chain the block held back (`b1`), the blocks chained after it
 namespace VG.Proof.CmacAes.Stream.X86
 
 open VG VG.X86 VG.Impl.CmacAes.Stream.X86
+
+variable (v : Proof.Aes.X86.Ctr32Impl)
 open VG.Impl.CmacAes.X86 (at_ argOp)
 open VG.Proof.MdStream.X86 (Upd Fupd wp_mov wp_movi wp_addi wp_add wp_subi wp_sub wp_andi wp_cmp wp_shr eval_e
   eval_b ofNat_beq_zero sub_ofNat)

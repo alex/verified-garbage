@@ -2,6 +2,159 @@
 //! Verified `cmac_aes` functions for `aarch64`.
 #![allow(dead_code)]
 
+/// The CPU features `vg_cmac_aes_update_aes_cbc` requires (`Artifact.features`).
+pub(crate) const VG_CMAC_AES_UPDATE_AES_CBC_FEATURES: &[&str] = &["aes"];
+
+/// CMAC's chaining (NIST SP 800-38B §6.2 step 6) for AES, over whole blocks: replaces the block `C₀` at `*state` with `Cₙ`, where `Cᵢ = CIPH_K(Cᵢ₋₁ ⊕ Mᵢ)` for the `n` 16-byte blocks `M₁ … Mₙ` starting at `data`. `CIPH_K` is AES (FIPS 197) with `rounds` rounds and the key schedule in the first `16 * (rounds + 1)` bytes of `*schedule`, as `vg_aes_expand_key` writes it.
+///
+/// Contract: `VG.Spec.Cmac.aesUpdateContract`. Constant time: only the pointers, `rounds` and `n` may affect timing, not the key schedule, the chaining value or the data.
+///
+/// The round keys and chaining value stay in vector registers across all blocks. The first and last round keys are folded into the input, and the round count is selected once. No stack or scratch space is used.
+///
+/// # Safety
+///
+/// * `schedule` must be valid for reads of 240 bytes.
+/// * `state` must be valid for reads and writes of 16 bytes.
+/// * `data` must be valid for reads of `16 * n` bytes.
+/// * `scratch` must be valid for reads and writes of 2176 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other, `schedule` or `data` (distinct Rust objects never do).
+/// * None of `schedule`, `state`, `data` and `scratch` may wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `aes` target feature.
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_update_aes_cbc(schedule: *const [u8; 240], rounds: usize, state: *mut [u8; 16], data: *const [u8; 16], n: usize, scratch: *mut [u64; 272]) {
+    core::arch::naked_asm!(
+        ".arch_extension aes",
+        "cbz x4, 20f",
+        "ldr q16, [x0, #0]",
+        "ldr q17, [x0, #16]",
+        "ldr q18, [x0, #32]",
+        "ldr q19, [x0, #48]",
+        "ldr q20, [x0, #64]",
+        "ldr q21, [x0, #80]",
+        "ldr q22, [x0, #96]",
+        "ldr q23, [x0, #112]",
+        "ldr q24, [x0, #128]",
+        "ldr q25, [x0, #144]",
+        "ldr q26, [x0, #160]",
+        "ldr q27, [x0, #176]",
+        "ldr q28, [x0, #192]",
+        "lsl x9, x1, #4",
+        "add x9, x0, x9",
+        "ldr q30, [x9, #0]",
+        "sub x9, x9, #16",
+        "ldr q29, [x9, #0]",
+        "sub x6, x1, #10",
+        "sub x7, x1, #12",
+        "ldr q0, [x2, #0]",
+        "eor v31.16b, v16.16b, v30.16b",
+        "eor v0.16b, v0.16b, v30.16b",
+        "cbz x6, 22f",
+        "cbz x7, 24f",
+        "26:",
+        "ldr q1, [x3, #0]",
+        "eor v1.16b, v1.16b, v31.16b",
+        "aese v0.16b, v1.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v17.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v18.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v19.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v20.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v21.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v22.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v23.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v24.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v25.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v26.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v27.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v28.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v29.16b",
+        "add x3, x3, #16",
+        "sub x4, x4, #1",
+        "cbnz x4, 26b",
+        "b 25f",
+        "24:",
+        "27:",
+        "ldr q1, [x3, #0]",
+        "eor v1.16b, v1.16b, v31.16b",
+        "aese v0.16b, v1.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v17.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v18.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v19.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v20.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v21.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v22.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v23.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v24.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v25.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v26.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v29.16b",
+        "add x3, x3, #16",
+        "sub x4, x4, #1",
+        "cbnz x4, 27b",
+        "25:",
+        "b 23f",
+        "22:",
+        "28:",
+        "ldr q1, [x3, #0]",
+        "eor v1.16b, v1.16b, v31.16b",
+        "aese v0.16b, v1.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v17.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v18.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v19.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v20.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v21.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v22.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v23.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v24.16b",
+        "aesmc v0.16b, v0.16b",
+        "aese v0.16b, v29.16b",
+        "add x3, x3, #16",
+        "sub x4, x4, #1",
+        "cbnz x4, 28b",
+        "23:",
+        "eor v0.16b, v0.16b, v30.16b",
+        "str q0, [x2, #0]",
+        "b 21f",
+        "20:",
+        "21:",
+        "ret",
+        ".arch_extension noaes",
+    )
+}
+
 /// The CPU features `vg_cmac_aes_subkeys_aes` requires (`Artifact.features`).
 pub(crate) const VG_CMAC_AES_SUBKEYS_AES_FEATURES: &[&str] = &["aes"];
 
@@ -305,140 +458,6 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_init_aes(state: *mut [u64; 38], key:
         ".arch_extension noaes",
         vg_aes_expand_key_aes = sym super::aes::vg_aes_expand_key_aes,
         vg_cmac_aes_subkeys_aes = sym super::cmac_aes::vg_cmac_aes_subkeys_aes,
-    )
-}
-
-/// The CPU features `vg_cmac_aes_absorb_aes` requires (`Artifact.features`).
-pub(crate) const VG_CMAC_AES_ABSORB_AES_FEATURES: &[&str] = &["aes"];
-
-/// Absorbs data into an AES-CMAC computation (NIST SP 800-38B §6.2): if the streaming state `*state` represents a message of `count` bytes under an AES key with `rounds` rounds (as `vg_cmac_aes_init` set it up), it then represents that message followed by the `len` bytes at `data`, under the same key, provided that the two together are shorter than 2⁶⁴ bytes. It chains (step 6) every block of the message but its last bytes `Mₙ*` (step 3), which it holds back in the state, since only `vg_cmac_aes_finish` knows they are the last.
-///
-/// Contract: `VG.Spec.Cmac.aesAbsorbContract`. Constant time: only the pointers, `rounds`, `count` and `len` may affect timing, not the state or the data.
-///
-/// This implementation calls the CMAC functions made with `vg_aes_ctr32_aes` (e.g. `vg_cmac_aes_update_aes`).
-///
-/// # Safety
-///
-/// * `state` must be valid for reads and writes of 304 bytes.
-/// * `data` must be valid for reads of `len` bytes.
-/// * `scratch` must be valid for reads and writes of 2304 bytes.
-/// * `rounds` must be 10, 12 or 14.
-/// * The contents of `scratch` on return are unspecified.
-/// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
-/// * None of `state`, `data` and `scratch` may wrap around the end of the address space (no Rust object does).
-/// * The CPU must support the `aes` target feature.
-#[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_cmac_aes_absorb_aes(state: *mut [u64; 38], rounds: usize, count: u64, data: *const u8, len: usize, scratch: *mut [u64; 288]) {
-    core::arch::naked_asm!(
-        ".arch_extension aes",
-        "str x19, [x5, #2176]",
-        "str x20, [x5, #2184]",
-        "str x21, [x5, #2192]",
-        "str x22, [x5, #2200]",
-        "str x24, [x5, #2208]",
-        "str x30, [x5, #2216]",
-        "str x23, [x5, #2224]",
-        "add x19, x0, #0",
-        "add x20, x1, #0",
-        "add x21, x3, #0",
-        "add x22, x4, #0",
-        "add x23, x5, #0",
-        "cbz x2, 20f",
-        "sub x9, x2, #1",
-        "movz x10, #15, lsl #0",
-        "and x9, x9, x10",
-        "add x9, x9, #1",
-        "b 21f",
-        "20:",
-        "movz x9, #0, lsl #0",
-        "21:",
-        "lsr x10, x22, #4",
-        "cbz x10, 22f",
-        "movz x10, #16, lsl #0",
-        "b 23f",
-        "22:",
-        "add x10, x22, #0",
-        "23:",
-        "movz x8, #16, lsl #0",
-        "sub x8, x8, x9",
-        "sub x11, x10, x8",
-        "lsr x11, x11, #63",
-        "cbz x11, 24f",
-        "add x8, x10, #0",
-        "b 25f",
-        "24:",
-        "25:",
-        "add x10, x8, #0",
-        "add x6, x19, x9",
-        "add x6, x6, #288",
-        "add x7, x21, #0",
-        "cbz x8, 26f",
-        "28:",
-        "ldrb w9, [x7, #0]",
-        "strb w9, [x6, #0]",
-        "add x7, x7, #1",
-        "add x6, x6, #1",
-        "sub x8, x8, #1",
-        "cbnz x8, 28b",
-        "b 27f",
-        "26:",
-        "27:",
-        "add x21, x21, x10",
-        "sub x22, x22, x10",
-        "movz x4, #0, lsl #0",
-        "cbz x22, 29f",
-        "movz x4, #1, lsl #0",
-        "b 210f",
-        "29:",
-        "210:",
-        "add x0, x19, #0",
-        "add x1, x20, #0",
-        "add x2, x19, #272",
-        "add x3, x19, #288",
-        "add x5, x23, #0",
-        "bl {vg_cmac_aes_update_aes}",
-        "movz x24, #0, lsl #0",
-        "cbz x22, 211f",
-        "sub x24, x22, #1",
-        "movz x9, #15, lsl #0",
-        "and x9, x24, x9",
-        "sub x24, x24, x9",
-        "b 212f",
-        "211:",
-        "212:",
-        "lsr x4, x24, #4",
-        "add x0, x19, #0",
-        "add x1, x20, #0",
-        "add x2, x19, #272",
-        "add x3, x21, #0",
-        "add x5, x23, #0",
-        "bl {vg_cmac_aes_update_aes}",
-        "add x21, x21, x24",
-        "sub x22, x22, x24",
-        "add x6, x19, #288",
-        "add x7, x21, #0",
-        "add x8, x22, #0",
-        "cbz x8, 213f",
-        "215:",
-        "ldrb w9, [x7, #0]",
-        "strb w9, [x6, #0]",
-        "add x7, x7, #1",
-        "add x6, x6, #1",
-        "sub x8, x8, #1",
-        "cbnz x8, 215b",
-        "b 214f",
-        "213:",
-        "214:",
-        "ldr x19, [x23, #2176]",
-        "ldr x20, [x23, #2184]",
-        "ldr x21, [x23, #2192]",
-        "ldr x22, [x23, #2200]",
-        "ldr x24, [x23, #2208]",
-        "ldr x30, [x23, #2216]",
-        "ldr x23, [x23, #2224]",
-        "ret",
-        ".arch_extension noaes",
-        vg_cmac_aes_update_aes = sym super::cmac_aes::vg_cmac_aes_update_aes,
     )
 }
 
@@ -776,11 +795,325 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_init(state: *mut [u64; 38], key: *co
     )
 }
 
+/// Finishes an AES-CMAC computation (NIST SP 800-38B §6.2, with `Tlen = 128`): if the streaming state `*state` represents a message of `count` bytes, shorter than 2⁶⁴ bytes, under an AES key with `rounds` rounds (as `vg_cmac_aes_init` and `vg_cmac_aes_absorb` set it up), writes the MAC of that message under that key to `*out`: `Cₙ = CIPH_K(Cₙ₋₁ ⊕ Mₙ)`, where `Mₙ = K1 ⊕ Mₙ*` if the message's last bytes `Mₙ*` are a complete block, and `Mₙ = K2 ⊕ (Mₙ* ‖ 10ʲ)` otherwise (step 4). The caller truncates it (step 7) and compares it (§6.3).
+///
+/// Contract: `VG.Spec.Cmac.aesFinishContract`. Constant time: only the pointers, `rounds` and `count` may affect timing, not the state.
+///
+/// This implementation calls the CMAC functions made with `vg_aes_ctr32` (e.g. `vg_cmac_aes_update`).
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 304 bytes.
+/// * `out` must be valid for reads and writes of 16 bytes.
+/// * `scratch` must be valid for reads and writes of 2304 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `state` on return are unspecified.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
+/// * None of `state`, `out` and `scratch` may wrap around the end of the address space (no Rust object does).
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_finish(state: *mut [u64; 38], rounds: usize, count: u64, out: *mut [u8; 16], scratch: *mut [u64; 288]) {
+    core::arch::naked_asm!(
+        "ldr x9, [x0, #272]",
+        "str x9, [x3, #0]",
+        "ldr x9, [x0, #280]",
+        "str x9, [x3, #8]",
+        "str x19, [x4, #2176]",
+        "str x30, [x4, #2184]",
+        "add x19, x4, #0",
+        "add x5, x4, #0",
+        "add x4, x2, #0",
+        "add x2, x3, #0",
+        "add x3, x0, #288",
+        "cbz x4, 20f",
+        "sub x4, x4, #1",
+        "movz x9, #15, lsl #0",
+        "and x4, x4, x9",
+        "add x4, x4, #1",
+        "b 21f",
+        "20:",
+        "21:",
+        "bl {vg_cmac_aes_finalize}",
+        "ldr x30, [x19, #2184]",
+        "ldr x19, [x19, #2176]",
+        "ret",
+        vg_cmac_aes_finalize = sym super::cmac_aes::vg_cmac_aes_finalize,
+    )
+}
+
+/// The CPU features `vg_cmac_aes_absorb_aes` requires (`Artifact.features`).
+pub(crate) const VG_CMAC_AES_ABSORB_AES_FEATURES: &[&str] = &["aes"];
+
 /// Absorbs data into an AES-CMAC computation (NIST SP 800-38B §6.2): if the streaming state `*state` represents a message of `count` bytes under an AES key with `rounds` rounds (as `vg_cmac_aes_init` set it up), it then represents that message followed by the `len` bytes at `data`, under the same key, provided that the two together are shorter than 2⁶⁴ bytes. It chains (step 6) every block of the message but its last bytes `Mₙ*` (step 3), which it holds back in the state, since only `vg_cmac_aes_finish` knows they are the last.
 ///
 /// Contract: `VG.Spec.Cmac.aesAbsorbContract`. Constant time: only the pointers, `rounds`, `count` and `len` may affect timing, not the state or the data.
 ///
-/// This implementation calls the CMAC functions made with `vg_aes_ctr32` (e.g. `vg_cmac_aes_update`).
+/// This implementation chains blocks with `vg_cmac_aes_update_aes`.
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 304 bytes.
+/// * `data` must be valid for reads of `len` bytes.
+/// * `scratch` must be valid for reads and writes of 2304 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
+/// * None of `state`, `data` and `scratch` may wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `aes` target feature.
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_absorb_aes(state: *mut [u64; 38], rounds: usize, count: u64, data: *const u8, len: usize, scratch: *mut [u64; 288]) {
+    core::arch::naked_asm!(
+        ".arch_extension aes",
+        "str x19, [x5, #2176]",
+        "str x20, [x5, #2184]",
+        "str x21, [x5, #2192]",
+        "str x22, [x5, #2200]",
+        "str x24, [x5, #2208]",
+        "str x30, [x5, #2216]",
+        "str x23, [x5, #2224]",
+        "add x19, x0, #0",
+        "add x20, x1, #0",
+        "add x21, x3, #0",
+        "add x22, x4, #0",
+        "add x23, x5, #0",
+        "cbz x2, 20f",
+        "sub x9, x2, #1",
+        "movz x10, #15, lsl #0",
+        "and x9, x9, x10",
+        "add x9, x9, #1",
+        "b 21f",
+        "20:",
+        "movz x9, #0, lsl #0",
+        "21:",
+        "lsr x10, x22, #4",
+        "cbz x10, 22f",
+        "movz x10, #16, lsl #0",
+        "b 23f",
+        "22:",
+        "add x10, x22, #0",
+        "23:",
+        "movz x8, #16, lsl #0",
+        "sub x8, x8, x9",
+        "sub x11, x10, x8",
+        "lsr x11, x11, #63",
+        "cbz x11, 24f",
+        "add x8, x10, #0",
+        "b 25f",
+        "24:",
+        "25:",
+        "add x10, x8, #0",
+        "add x6, x19, x9",
+        "add x6, x6, #288",
+        "add x7, x21, #0",
+        "cbz x8, 26f",
+        "28:",
+        "ldrb w9, [x7, #0]",
+        "strb w9, [x6, #0]",
+        "add x7, x7, #1",
+        "add x6, x6, #1",
+        "sub x8, x8, #1",
+        "cbnz x8, 28b",
+        "b 27f",
+        "26:",
+        "27:",
+        "add x21, x21, x10",
+        "sub x22, x22, x10",
+        "movz x4, #0, lsl #0",
+        "cbz x22, 29f",
+        "movz x4, #1, lsl #0",
+        "b 210f",
+        "29:",
+        "210:",
+        "add x0, x19, #0",
+        "add x1, x20, #0",
+        "add x2, x19, #272",
+        "add x3, x19, #288",
+        "add x5, x23, #0",
+        "bl {vg_cmac_aes_update_aes}",
+        "movz x24, #0, lsl #0",
+        "cbz x22, 211f",
+        "sub x24, x22, #1",
+        "movz x9, #15, lsl #0",
+        "and x9, x24, x9",
+        "sub x24, x24, x9",
+        "b 212f",
+        "211:",
+        "212:",
+        "lsr x4, x24, #4",
+        "add x0, x19, #0",
+        "add x1, x20, #0",
+        "add x2, x19, #272",
+        "add x3, x21, #0",
+        "add x5, x23, #0",
+        "bl {vg_cmac_aes_update_aes}",
+        "add x21, x21, x24",
+        "sub x22, x22, x24",
+        "add x6, x19, #288",
+        "add x7, x21, #0",
+        "add x8, x22, #0",
+        "cbz x8, 213f",
+        "215:",
+        "ldrb w9, [x7, #0]",
+        "strb w9, [x6, #0]",
+        "add x7, x7, #1",
+        "add x6, x6, #1",
+        "sub x8, x8, #1",
+        "cbnz x8, 215b",
+        "b 214f",
+        "213:",
+        "214:",
+        "ldr x19, [x23, #2176]",
+        "ldr x20, [x23, #2184]",
+        "ldr x21, [x23, #2192]",
+        "ldr x22, [x23, #2200]",
+        "ldr x24, [x23, #2208]",
+        "ldr x30, [x23, #2216]",
+        "ldr x23, [x23, #2224]",
+        "ret",
+        ".arch_extension noaes",
+        vg_cmac_aes_update_aes = sym super::cmac_aes::vg_cmac_aes_update_aes,
+    )
+}
+
+/// The CPU features `vg_cmac_aes_absorb_aes_cbc` requires (`Artifact.features`).
+pub(crate) const VG_CMAC_AES_ABSORB_AES_CBC_FEATURES: &[&str] = &["aes"];
+
+/// Absorbs data into an AES-CMAC computation (NIST SP 800-38B §6.2): if the streaming state `*state` represents a message of `count` bytes under an AES key with `rounds` rounds (as `vg_cmac_aes_init` set it up), it then represents that message followed by the `len` bytes at `data`, under the same key, provided that the two together are shorter than 2⁶⁴ bytes. It chains (step 6) every block of the message but its last bytes `Mₙ*` (step 3), which it holds back in the state, since only `vg_cmac_aes_finish` knows they are the last.
+///
+/// Contract: `VG.Spec.Cmac.aesAbsorbContract`. Constant time: only the pointers, `rounds`, `count` and `len` may affect timing, not the state or the data.
+///
+/// This implementation chains blocks with `vg_cmac_aes_update_aes_cbc`.
+///
+/// # Safety
+///
+/// * `state` must be valid for reads and writes of 304 bytes.
+/// * `data` must be valid for reads of `len` bytes.
+/// * `scratch` must be valid for reads and writes of 2304 bytes.
+/// * `rounds` must be 10, 12 or 14.
+/// * The contents of `scratch` on return are unspecified.
+/// * `state` and `scratch` must not overlap each other or `data` (distinct Rust objects never do).
+/// * None of `state`, `data` and `scratch` may wrap around the end of the address space (no Rust object does).
+/// * The CPU must support the `aes` target feature.
+#[unsafe(naked)]
+pub(crate) unsafe extern "C" fn vg_cmac_aes_absorb_aes_cbc(state: *mut [u64; 38], rounds: usize, count: u64, data: *const u8, len: usize, scratch: *mut [u64; 288]) {
+    core::arch::naked_asm!(
+        ".arch_extension aes",
+        "str x19, [x5, #2176]",
+        "str x20, [x5, #2184]",
+        "str x21, [x5, #2192]",
+        "str x22, [x5, #2200]",
+        "str x24, [x5, #2208]",
+        "str x30, [x5, #2216]",
+        "str x23, [x5, #2224]",
+        "add x19, x0, #0",
+        "add x20, x1, #0",
+        "add x21, x3, #0",
+        "add x22, x4, #0",
+        "add x23, x5, #0",
+        "cbz x2, 20f",
+        "sub x9, x2, #1",
+        "movz x10, #15, lsl #0",
+        "and x9, x9, x10",
+        "add x9, x9, #1",
+        "b 21f",
+        "20:",
+        "movz x9, #0, lsl #0",
+        "21:",
+        "lsr x10, x22, #4",
+        "cbz x10, 22f",
+        "movz x10, #16, lsl #0",
+        "b 23f",
+        "22:",
+        "add x10, x22, #0",
+        "23:",
+        "movz x8, #16, lsl #0",
+        "sub x8, x8, x9",
+        "sub x11, x10, x8",
+        "lsr x11, x11, #63",
+        "cbz x11, 24f",
+        "add x8, x10, #0",
+        "b 25f",
+        "24:",
+        "25:",
+        "add x10, x8, #0",
+        "add x6, x19, x9",
+        "add x6, x6, #288",
+        "add x7, x21, #0",
+        "cbz x8, 26f",
+        "28:",
+        "ldrb w9, [x7, #0]",
+        "strb w9, [x6, #0]",
+        "add x7, x7, #1",
+        "add x6, x6, #1",
+        "sub x8, x8, #1",
+        "cbnz x8, 28b",
+        "b 27f",
+        "26:",
+        "27:",
+        "add x21, x21, x10",
+        "sub x22, x22, x10",
+        "movz x4, #0, lsl #0",
+        "cbz x22, 29f",
+        "movz x4, #1, lsl #0",
+        "b 210f",
+        "29:",
+        "210:",
+        "add x0, x19, #0",
+        "add x1, x20, #0",
+        "add x2, x19, #272",
+        "add x3, x19, #288",
+        "add x5, x23, #0",
+        "bl {vg_cmac_aes_update_aes_cbc}",
+        "movz x24, #0, lsl #0",
+        "cbz x22, 211f",
+        "sub x24, x22, #1",
+        "movz x9, #15, lsl #0",
+        "and x9, x24, x9",
+        "sub x24, x24, x9",
+        "b 212f",
+        "211:",
+        "212:",
+        "lsr x4, x24, #4",
+        "add x0, x19, #0",
+        "add x1, x20, #0",
+        "add x2, x19, #272",
+        "add x3, x21, #0",
+        "add x5, x23, #0",
+        "bl {vg_cmac_aes_update_aes_cbc}",
+        "add x21, x21, x24",
+        "sub x22, x22, x24",
+        "add x6, x19, #288",
+        "add x7, x21, #0",
+        "add x8, x22, #0",
+        "cbz x8, 213f",
+        "215:",
+        "ldrb w9, [x7, #0]",
+        "strb w9, [x6, #0]",
+        "add x7, x7, #1",
+        "add x6, x6, #1",
+        "sub x8, x8, #1",
+        "cbnz x8, 215b",
+        "b 214f",
+        "213:",
+        "214:",
+        "ldr x19, [x23, #2176]",
+        "ldr x20, [x23, #2184]",
+        "ldr x21, [x23, #2192]",
+        "ldr x22, [x23, #2200]",
+        "ldr x24, [x23, #2208]",
+        "ldr x30, [x23, #2216]",
+        "ldr x23, [x23, #2224]",
+        "ret",
+        ".arch_extension noaes",
+        vg_cmac_aes_update_aes_cbc = sym super::cmac_aes::vg_cmac_aes_update_aes_cbc,
+    )
+}
+
+/// Absorbs data into an AES-CMAC computation (NIST SP 800-38B §6.2): if the streaming state `*state` represents a message of `count` bytes under an AES key with `rounds` rounds (as `vg_cmac_aes_init` set it up), it then represents that message followed by the `len` bytes at `data`, under the same key, provided that the two together are shorter than 2⁶⁴ bytes. It chains (step 6) every block of the message but its last bytes `Mₙ*` (step 3), which it holds back in the state, since only `vg_cmac_aes_finish` knows they are the last.
+///
+/// Contract: `VG.Spec.Cmac.aesAbsorbContract`. Constant time: only the pointers, `rounds`, `count` and `len` may affect timing, not the state or the data.
+///
+/// This implementation chains blocks with `vg_cmac_aes_update`.
 ///
 /// # Safety
 ///
@@ -901,51 +1234,5 @@ pub(crate) unsafe extern "C" fn vg_cmac_aes_absorb(state: *mut [u64; 38], rounds
         "ldr x23, [x23, #2224]",
         "ret",
         vg_cmac_aes_update = sym super::cmac_aes::vg_cmac_aes_update,
-    )
-}
-
-/// Finishes an AES-CMAC computation (NIST SP 800-38B §6.2, with `Tlen = 128`): if the streaming state `*state` represents a message of `count` bytes, shorter than 2⁶⁴ bytes, under an AES key with `rounds` rounds (as `vg_cmac_aes_init` and `vg_cmac_aes_absorb` set it up), writes the MAC of that message under that key to `*out`: `Cₙ = CIPH_K(Cₙ₋₁ ⊕ Mₙ)`, where `Mₙ = K1 ⊕ Mₙ*` if the message's last bytes `Mₙ*` are a complete block, and `Mₙ = K2 ⊕ (Mₙ* ‖ 10ʲ)` otherwise (step 4). The caller truncates it (step 7) and compares it (§6.3).
-///
-/// Contract: `VG.Spec.Cmac.aesFinishContract`. Constant time: only the pointers, `rounds` and `count` may affect timing, not the state.
-///
-/// This implementation calls the CMAC functions made with `vg_aes_ctr32` (e.g. `vg_cmac_aes_update`).
-///
-/// # Safety
-///
-/// * `state` must be valid for reads and writes of 304 bytes.
-/// * `out` must be valid for reads and writes of 16 bytes.
-/// * `scratch` must be valid for reads and writes of 2304 bytes.
-/// * `rounds` must be 10, 12 or 14.
-/// * The contents of `state` on return are unspecified.
-/// * The contents of `scratch` on return are unspecified.
-/// * `state`, `out` and `scratch` must not overlap each other (distinct Rust objects never do).
-/// * None of `state`, `out` and `scratch` may wrap around the end of the address space (no Rust object does).
-#[unsafe(naked)]
-pub(crate) unsafe extern "C" fn vg_cmac_aes_finish(state: *mut [u64; 38], rounds: usize, count: u64, out: *mut [u8; 16], scratch: *mut [u64; 288]) {
-    core::arch::naked_asm!(
-        "ldr x9, [x0, #272]",
-        "str x9, [x3, #0]",
-        "ldr x9, [x0, #280]",
-        "str x9, [x3, #8]",
-        "str x19, [x4, #2176]",
-        "str x30, [x4, #2184]",
-        "add x19, x4, #0",
-        "add x5, x4, #0",
-        "add x4, x2, #0",
-        "add x2, x3, #0",
-        "add x3, x0, #288",
-        "cbz x4, 20f",
-        "sub x4, x4, #1",
-        "movz x9, #15, lsl #0",
-        "and x4, x4, x9",
-        "add x4, x4, #1",
-        "b 21f",
-        "20:",
-        "21:",
-        "bl {vg_cmac_aes_finalize}",
-        "ldr x30, [x19, #2184]",
-        "ldr x19, [x19, #2176]",
-        "ret",
-        vg_cmac_aes_finalize = sym super::cmac_aes::vg_cmac_aes_finalize,
     )
 }

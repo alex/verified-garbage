@@ -3,6 +3,8 @@ import VerifiedGarbage.Proof.Ed25519.Canonical64
 
 /-! Full reduction of four limbs to the canonical residue. -/
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64
 open VG.Spec.X25519 (P)
 
@@ -77,10 +79,12 @@ theorem select4_ok (s : State) {sw : Bool} (hm : s.gpr .x3 = mask sw) :
     hr.2.2.2.2.1, hr.2.2.2.2.2.1, hr.2.2.2.2.2.2.1, hr.2.2.2.2.2.2.2, ite_false]
 
 /-- The result is the unique representative below p. -/
-theorem freeze_ok {s : State} {base : Addr} (hs : Scr s base) {a : Nat} (ha : FieldRange a) :
+theorem freeze_ok {s : State} {base : Addr} (hs : Scr s base large) {a : Nat} (ha : FieldRange a large) :
     WP isa (.block (freeze a)) s fun t =>
       val4 (t.gpr .x4) (t.gpr .x5) (t.gpr .x6) (t.gpr .x7) = fe s.mem base a % P ∧
       Keeps [.x2, .x3, .x4, .x5, .x6, .x7, .x8, .x10, .x11, .x21, .x22, .x23, .x24] s t := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   rw [freeze, List.append_assoc, List.append_assoc, List.append_assoc, List.append_assoc,
     WP.block_append_iff]
   refine WP.mono (fieldInit_ok s 19) fun s₀ ⟨hz, h19, k0⟩ => ?_

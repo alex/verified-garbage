@@ -13,7 +13,7 @@
 //! TDEA's 64-bit block makes it a poor choice for new protocols (see NIST
 //! SP 800-131A): this is for interoperating with existing ones.
 
-#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
 
 use super::{InvalidKeyLength, InvalidMac};
 use crate::arch::cmac_triple_des::{

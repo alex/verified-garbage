@@ -173,8 +173,10 @@ def stream : List StreamFn := [
     verified := Proof.Sha256.X86_64.Shared.finalize v.ok v.mxcsr
     spSafe := Proof.Sha256.X86_64.Shared.finalize_spSafe v.spSafe }]
 
-/-- SHA-256 with the implementation `v` of its compression function. -/
+/-- SHA-256 with the implementation `v` of its compression function, which it
+carries for the functions built on SHA-256 alone (`MdHash.sha256`). -/
 def variant : MdHash :=
-  MdHash.of (ok v) coreOK (callees v) rfl rfl satI satF satT satP v.suffix v.features (stream v)
+  { MdHash.of (ok v) coreOK (callees v) rfl rfl satI satF satT satP v.suffix v.features (stream v) with
+    sha256 := some v }
 
 end VG.Proof.Pbkdf2.Md.X86_64.Sha256

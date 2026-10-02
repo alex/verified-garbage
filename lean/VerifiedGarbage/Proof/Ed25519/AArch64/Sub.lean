@@ -2,21 +2,25 @@ import VerifiedGarbage.Proof.Ed25519.AArch64.Ops
 
 /-! Four-word field subtraction. -/
 namespace VG.Proof.Ed25519.AArch64
+variable {large : Bool}
+
 open VG VG.AArch64 VG.Impl.Ed25519.AArch64 Word64 VG.Proof.X25519
 
 /-- Read both operands before any stores, so destination aliases are valid. -/
-theorem subWords_ok {s : State} {base : Addr} (hs : Scr s base) {a b : Nat}
-    (ha : FieldRange a) (hb : FieldRange b) (hz : s.gpr .x10 = 0) (h38 : s.gpr .x11 = 38) :
+theorem subWords_ok {s : State} {base : Addr} (hs : Scr s base large) {a b : Nat}
+    (ha : FieldRange a large) (hb : FieldRange b large) (hz : s.gpr .x10 = 0) (h38 : s.gpr .x11 = 38) :
     WP isa (.block (fieldSubWords a b)) s fun t =>
       ∃ c : Bool,
         val4 (t.gpr .x4) (t.gpr .x5) (t.gpr .x6) (t.gpr .x7) + fe s.mem base b =
           fe s.mem base a + 2 ^ 256 * (1 - c.toNat) ∧
         (t.gpr .x8).toNat = 38 * (1 - c.toNat) ∧ Keeps [.x4, .x5, .x6, .x7, .x8, .x9] s t := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   obtain ⟨ha, ha'⟩ := ha
   obtain ⟨hb, hb'⟩ := hb
-  have w : ∀ d, d + 8 ≤ 8192 → InRegions (s.rd ++ s.wr) (off base d) 8 :=
-    fun d hd => ⟨_, List.mem_append_right _ hs.wr, contains_sc hd⟩
-  have enc : ∀ d, d + 8 ≤ 8192 → d < 4096 * Size.x.bytes := by
+  have w : ∀ d, d + 8 ≤ workSize large → InRegions (s.rd ++ s.wr) (off base d) 8 :=
+    fun d hd => ⟨_, List.mem_append_right _ hs.wr, contains_scWith (large := large) hd⟩
+  have enc : ∀ d, d + 8 ≤ workSize large → d < 4096 * Size.x.bytes := by
     intro d hd
     change d < 32768
     omega
@@ -92,10 +96,12 @@ theorem subLow_ok (s : State) (h : (s.gpr .x8).toNat ≤ (s.gpr .x4).toNat) :
     exact RegUpd.gpr_write_of_ne _ _ _ (by simpa only [List.mem_singleton] using hr)
 
 /-- Subtraction modulo p, including both possible borrow corrections. -/
-theorem sub_ok {s : State} {base : Addr} (hs : Scr s base) {o a b : Nat}
-    (ho : FieldRange o) (ha : FieldRange a) (hb : FieldRange b) :
+theorem sub_ok {s : State} {base : Addr} (hs : Scr s base large) {o a b : Nat}
+    (ho : FieldRange o large) (ha : FieldRange a large) (hb : FieldRange b large) :
     WP isa (.block (fieldSub o a b)) s fun t =>
       Op base o s t ∧ F t.mem base o = F s.mem base a - F s.mem base b := by
+  have _hcap := workSize_le large
+  have _hmin := workSize_ge large
   rw [fieldSub, List.append_assoc, List.append_assoc, List.append_assoc, WP.block_append_iff]
   refine WP.mono (fieldInit_ok s) fun s₀ ⟨hz, h38, k0⟩ => ?_
   have hs₀ := hs.of_keeps k0 (by decide)

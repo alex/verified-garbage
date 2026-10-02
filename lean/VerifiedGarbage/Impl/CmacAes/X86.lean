@@ -1,4 +1,4 @@
-import VerifiedGarbage.Impl.Aes.X86.Ctr32
+import VerifiedGarbage.Impl.Aes.X86.Callee
 
 /-!
 # AES-CMAC: x86 (32-bit) implementation
@@ -63,8 +63,8 @@ def restore (i : Nat) : List Instr := .mov .eax (argOp i) :: saved.map fun (r, d
 
 /-- The call of `vg_aes_ctr32(eax, ecx, edx, ebx, edi, ebp)`, its arguments
 pushed last to first. -/
-def ctrCall : Prog isa :=
-  .frame (.push [.ebp, .edi, .ebx, .edx, .ecx, .eax]) (.call "vg_aes_ctr32" Impl.Aes.X86.ctr32) (.pop .eax 6)
+def ctrCall (c : Impl.Aes.X86.Ctr32) : Prog isa :=
+  .frame (.push [.ebp, .edi, .ebx, .edx, .ecx, .eax]) (.call c.name c.code) (.pop .eax 6)
 
 /-- The arguments of `vg_aes_ctr32` but the data block (`ebx`) and the
 working space (`ebp`): the schedule and the rounds (our stack arguments 0
@@ -110,7 +110,7 @@ def dbl (src dst : Nat) : List Instr :=
 /-- `K1` over `L`, `K2` after it, and the saved registers restored. -/
 def subkeysPost : List Instr := dbl 0 0 ++ dbl 0 16 ++ restore 3
 
-def subkeys : Prog isa := .seq (.block subkeysPre) (.seq ctrCall (.block subkeysPost))
+def subkeys (c : Impl.Aes.X86.Ctr32) : Prog isa := .seq (.block subkeysPre) (.seq (ctrCall c) (.block subkeysPost))
 
 /-! ## `vg_cmac_aes_update` -/
 
@@ -130,10 +130,10 @@ def advance : List Instr :=
    .alu .add .eax (.reg .eax), .alu .add .eax (.reg .eax), .alu .add .eax (argOp 3), .alu .cmp .esi (.reg .eax)]
 
 /-- One block. -/
-def body : Prog isa := .seq (.block chainIn) (.seq ctrCall (.block advance))
+def body (c : Impl.Aes.X86.Ctr32) : Prog isa := .seq (.block chainIn) (.seq (ctrCall c) (.block advance))
 
-def update : Prog isa :=
-  .seq (.block setup) (.seq (.ite .e (.block []) (.loop body .ne)) (.block (restore 5)))
+def update (c : Impl.Aes.X86.Ctr32) : Prog isa :=
+  .seq (.block setup) (.seq (.ite .e (.block []) (.loop (body c) .ne)) (.block (restore 5)))
 
 /-! ## `vg_cmac_aes_finalize` -/
 
@@ -174,6 +174,6 @@ def finArgs : List Instr :=
 def finPre : Prog isa :=
   .seq (.block finSave) (.seq (.ite .e (.block full) partialBlock) (.block finArgs))
 
-def finalize : Prog isa := .seq finPre (.seq ctrCall (.block (restore 5)))
+def finalize (c : Impl.Aes.X86.Ctr32) : Prog isa := .seq finPre (.seq (ctrCall c) (.block (restore 5)))
 
 end VG.Impl.CmacAes.X86

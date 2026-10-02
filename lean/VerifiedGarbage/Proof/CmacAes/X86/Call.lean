@@ -1,4 +1,4 @@
-import VerifiedGarbage.Proof.Aes.X86.Ctr32
+import VerifiedGarbage.Proof.Aes.X86.Variant
 import VerifiedGarbage.Proof.Cmac.Frame
 import VerifiedGarbage.Proof.Framework.X86.CallWith
 import VerifiedGarbage.Proof.Framework.X86.RelCT
@@ -18,15 +18,18 @@ calls are constant time, by `vg_aes_ctr32`'s own proof.
 namespace VG.Proof.CmacAes.X86
 
 open VG VG.X86 VG.Impl.CmacAes.X86
+open VG.Proof.Aes.X86 (Ctr32Impl)
+
+variable (v : Ctr32Impl)
 
 theorem ofBytes_zeros : Spec.Gcm.ofBytes (Spec.Cmac.zeros 16) = 0 := by decide
 
 theorem toNat_rounds {R : Nat} (hR : R = 10 ∨ R = 12 ∨ R = 14) : (BitVec.ofNat 32 R).toNat = R := by
   rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by omega)
 
-theorem ctr_nosp : NoSp Impl.Aes.X86.ctr32 := NoSp.of_all (by decide +kernel)
+theorem ctr_nosp : NoSp v.callee.code := v.nosp
 
-theorem ctr_stack : stackUse Impl.Aes.X86.ctr32 = 0 := by decide +kernel
+theorem ctr_stack : stackUse v.callee.code = 0 := v.stack
 
 /-- The registers the call pushes, as `vg_aes_ctr32`'s arguments. -/
 abbrev ctrRegs : List Reg := [.ebp, .edi, .ebx, .edx, .ecx, .eax]
@@ -129,15 +132,15 @@ theorem callPre : CallPre Proof.Aes.ctr32X86 ctrRegs (ctrRd (s.gpr .esp) W) (ctr
 end CtrPre
 
 theorem ctr_call {s : State} {W C D S : BitVec 32} {R : Nat} (h : CtrPre s W C D S R) :
-    WP isa ctrCall s (CtrPost s W C D S R) := by
+    WP isa (ctrCall v.callee) s (CtrPost s W C D S R) := by
   have hR := toNat_rounds h.rounds
   have hR' : 16 * (R + 1) ≤ 240 := by rcases h.rounds with h' | h' | h' <;> omega
   unfold ctrCall
-  refine WP.callWith (rs := ctrRegs) (k := Proof.Aes.ctr32X86) Proof.Aes.X86.ctr32_correct ctr_nosp (by simp) hrs
-    (by rw [ctr_stack]; have := h.esp; simp only [List.length_cons, List.length_nil]; omega) h.callPre
+  refine WP.callWith (rs := ctrRegs) (k := Proof.Aes.ctr32X86) v.ok v.nosp (by decide) hrs
+    (by rw [v.stack]; have := h.esp; simp only [List.length_cons, List.length_nil]; omega) h.callPre
     fun s' rd' wr' cs' f' ⟨s₂, m₂, post⟩ => ?_
   obtain ⟨a0, a1, a2, a3, a4, a5⟩ := h.args
-  rw [ctr_stack] at f'
+  rw [v.stack] at f'
   have fE := callEntry_frame h.fit hrs
   rw [show 4 * ctrRegs.length + 4 = 28 from rfl] at fE
   have keep : ∀ {p : BitVec 32} {n k : Nat}, (below (s.gpr .esp) 28).Disjoint ⟨p.setWidth 64, n⟩ → k ≤ n →
@@ -152,19 +155,19 @@ theorem ctr_call {s : State} {W C D S : BitVec 32} {R : Nat} (h : CtrPre s W C D
   have one : ∀ m : Mem, Spec.Gcm.blocksAt m (D.setWidth 64) 1 = [Spec.Gcm.blockAt m (D.setWidth 64)] :=
     fun m => by simp [Spec.Gcm.blocksAt]
   have bD : Spec.Gcm.blockAt (pushed ctrRegs s).callEntry.mem (D.setWidth 64) = 0 := by
-    rw [Spec.Gcm.blockAt, keep h.bd (le_refl _) (by decide), h.zero, ofBytes_zeros]
+    rw [Spec.Gcm.blockAt, keep h.bd (Nat.le_refl _) (by decide), h.zero, ofBytes_zeros]
   rw [one, one, bD, Proof.Cmac.ctr32_one, List.cons.injEq] at hdata
   refine ⟨rd', wr', cs', ?_, ?_⟩
   · exact f'.mono fun r hr => by simp only [List.cons_append, List.nil_append] at hr; simpa using hr
-  · rw [Proof.Cmac.bytesAt_blockAt, hdata.1, Spec.Gcm.blockAt, keep h.bw hR' (le_refl _), keep h.bc (le_refl _) (by decide),
+  · rw [Proof.Cmac.bytesAt_blockAt, hdata.1, Spec.Gcm.blockAt, keep h.bw hR' (Nat.le_refl _), keep h.bc (Nat.le_refl _) (by decide),
       Proof.Cmac.aesWith_bytes _ _ (Proof.Cmac.bytesAt_length _ _ _)]
 
 /-- Calls of `vg_aes_ctr32` on one block, with the same arguments and stack
 pointer in both runs, are constant time. -/
 theorem ctr_rel {W C D S E : BitVec 32} {R : Nat} {P : State → State → Prop}
     (h : ∀ s₁ s₂, P s₁ s₂ → CtrPre s₁ W C D S R ∧ CtrPre s₂ W C D S R ∧ s₁.gpr .esp = E ∧ s₂.gpr .esp = E) :
-    RelCT isa P ctrCall fun _ _ => True := by
-  refine RelCT.callWith Proof.Aes.X86.ctr32_correct Proof.Aes.X86.ctr32_ct (ctrRd E W) (ctrWr C D S)
+    RelCT isa P (ctrCall v.callee) fun _ _ => True := by
+  refine RelCT.callWith v.ok v.ct (ctrRd E W) (ctrWr C D S)
     fun s₁ s₂ hp => ?_
   obtain ⟨h₁, h₂, e₁, e₂⟩ := h s₁ s₂ hp
   have p₁ := h₁.callPre

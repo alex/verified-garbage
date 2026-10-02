@@ -16,6 +16,9 @@ abbreviations serve.
 namespace VG.Proof.CmacAes.X86
 
 open VG VG.X86 VG.Impl.CmacAes.X86
+open VG.Proof.Aes.X86 (Ctr32Impl)
+
+variable (v : Ctr32Impl)
 open VG.Proof.MdStream.X86 (Upd Mupd Fupd wp_mov wp_movi wp_addi wp_subi wp_cmpi wp_test wp_movzx8 wp_store8
   eval_e eval_ne ofNat_beq_zero sub_ofNat)
 open VG.WriteBytes (writeBytes writeBytes_nil writeBytes_snoc writeBytes_frame)
