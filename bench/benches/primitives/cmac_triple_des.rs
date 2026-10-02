@@ -6,7 +6,12 @@ pub const USES: &[&str] = &["cmac_triple_des"];
 
 /// The MAC of a message with a 24-byte (three-key) key (setup included),
 /// computed and verified.
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+))]
 pub fn bench(c: &mut Criterion) {
     use std::hint::black_box;
 
@@ -61,5 +66,10 @@ pub fn bench(c: &mut Criterion) {
     g.finish();
 }
 
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm")))]
+#[cfg(not(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "arm",
+    target_arch = "x86"
+)))]
 pub fn bench(_: &mut Criterion) {}
