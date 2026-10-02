@@ -77,15 +77,10 @@ macro_rules! mlkem_tests {
                 // 32 bytes shorter than `ek`), which the API keeps private:
                 // check its layout against the seed and the key.
                 let pke = EK - 32;
-                assert_eq!(c.dk.0[pke..pke + EK], ek[..], "tcId {}", test.tc_id);
-                let h = Sha3_256::digest(ek);
-                assert_eq!(c.dk.0[pke + EK..pke + EK + 32], h, "tcId {}", test.tc_id);
-                assert_eq!(
-                    c.dk.0[pke + EK + 32..],
-                    dk.seed()[32..],
-                    "tcId {}",
-                    test.tc_id
-                );
+                let (h, z) = (pke + EK, pke + EK + 32);
+                assert_eq!(c.dk.0[pke..h], ek[..], "tcId {}", test.tc_id);
+                assert_eq!(c.dk.0[h..z], Sha3_256::digest(ek), "tcId {}", test.tc_id);
+                assert_eq!(c.dk.0[z..], dk.seed()[32..], "tcId {}", test.tc_id);
             }
         }
 
