@@ -1,10 +1,12 @@
-import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.CallPack
+import VerifiedGarbage.Proof.MlDsa.AArch64.Sign.Base
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Pack
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Sample
+import VerifiedGarbage.Proof.MlDsa.AArch64.Call.Round
 
 /-!
 # ML-DSA signing on AArch64: calls of the other primitives
 
-As `CallSample.lean`, `CallRound.lean` and `CallPack.lean`, for the other
-primitives signing calls: `vg_mldsa_expand_mask_poly`, `vg_mldsa_high_bits`,
+As `Proof/MlDsa/AArch64/Call/`, for the other primitives signing calls: `vg_mldsa_expand_mask_poly`, `vg_mldsa_high_bits`,
 `vg_mldsa_low_bits`, `vg_mldsa_make_hint` and `vg_mldsa_hint_bit_pack`.
 
 Signing branches on the results of the two samplers, so it needs them to be

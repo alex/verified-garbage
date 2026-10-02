@@ -178,7 +178,7 @@ theorem expA_tr {P : Prims} {S : Nat} (hP : PrimsOk P S) {p : Params} (hF : PFac
     (Q := fun x y => Two p S x y ∧ bytesAt x.mem (pa x (sc oSA)) 34 = bytesAt y.mem (pa y (sc oSA)) 34)
     fun x y x' y' ⟨T, e32⟩ ⟨⟨_, hx⟩, bx⟩ ⟨⟨_, hy⟩, by'⟩ => ⟨T.post hx hy, by rw [bx, by', e32]⟩) ?_
   have hc : rejNttChk kgR (kgW p) (sc oSA) (aP e) (sc oSS) = true := by unfold rejNttChk; lay
-  have ok := fun x (L : Lay S kgR (kgW p) x) => WP.mono (rejNttAt_ok hP.s64 hP.rejNtt L hc)
+  have ok := fun x (L : Lay S kgR (kgW p) x) => WP.mono (rejNttAt_ok (nm := "vg_mldsa_rej_ntt_poly" ++ P.suffix) hP.s64 hP.rejNtt L hc)
     fun _ h => (⟨_, h.1⟩ : ∃ W, PostB S x _ W)
   exact RelCT.seq (RelCT.two (fun _ _ h => h.1) (rejNttAt_tr hP.rejNtt (kgOk p) hc fun x y h =>
       ⟨h.1.lx, h.1.ly, h.2, h.1.same⟩)
