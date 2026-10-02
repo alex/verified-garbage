@@ -13684,25 +13684,50 @@ unsafe extern "C" fn vgp_mixed() {
 }
 #[cfg(target_arch = "aarch64")]
 pub fn bench(c: &mut Criterion) {
-    let mut g = c.benchmark_group("probe");
-    g.bench_function("add_chain/1200", |b| b.iter(|| unsafe { vgp_add_chain() }));
-    g.bench_function("umlal_tput/1200", |b| {
-        b.iter(|| unsafe { vgp_umlal_tput() })
-    });
-    g.bench_function("umlal_lat/400", |b| b.iter(|| unsafe { vgp_umlal_lat() }));
-    g.bench_function("umlal2_tput/1200", |b| {
-        b.iter(|| unsafe { vgp_umlal2_tput() })
-    });
-    g.bench_function("vadd_tput/1200", |b| b.iter(|| unsafe { vgp_vadd_tput() }));
-    g.bench_function("mac_tput/300", |b| b.iter(|| unsafe { vgp_mac_tput() }));
-    g.bench_function("umulh_tput/1200", |b| {
-        b.iter(|| unsafe { vgp_umulh_tput() })
-    });
-    g.bench_function("mul_tput/1200", |b| b.iter(|| unsafe { vgp_mul_tput() }));
-    g.bench_function("adds_tput/1200", |b| b.iter(|| unsafe { vgp_adds_tput() }));
-    g.bench_function("alu_tput/1200", |b| b.iter(|| unsafe { vgp_alu_tput() }));
-    g.bench_function("mixed/300", |b| b.iter(|| unsafe { vgp_mixed() }));
-    g.finish();
+    c.benchmark_group("probe_add_chain")
+        .bench_function("verified-garbage/1200", |b| {
+            b.iter(|| unsafe { vgp_add_chain() })
+        });
+    c.benchmark_group("probe_umlal_tput")
+        .bench_function("verified-garbage/1200", |b| {
+            b.iter(|| unsafe { vgp_umlal_tput() })
+        });
+    c.benchmark_group("probe_umlal_lat")
+        .bench_function("verified-garbage/400", |b| {
+            b.iter(|| unsafe { vgp_umlal_lat() })
+        });
+    c.benchmark_group("probe_umlal2_tput")
+        .bench_function("verified-garbage/1200", |b| {
+            b.iter(|| unsafe { vgp_umlal2_tput() })
+        });
+    c.benchmark_group("probe_vadd_tput")
+        .bench_function("verified-garbage/1200", |b| {
+            b.iter(|| unsafe { vgp_vadd_tput() })
+        });
+    c.benchmark_group("probe_mac_tput")
+        .bench_function("verified-garbage/300", |b| {
+            b.iter(|| unsafe { vgp_mac_tput() })
+        });
+    c.benchmark_group("probe_umulh_tput")
+        .bench_function("verified-garbage/1200", |b| {
+            b.iter(|| unsafe { vgp_umulh_tput() })
+        });
+    c.benchmark_group("probe_mul_tput")
+        .bench_function("verified-garbage/1200", |b| {
+            b.iter(|| unsafe { vgp_mul_tput() })
+        });
+    c.benchmark_group("probe_adds_tput")
+        .bench_function("verified-garbage/1200", |b| {
+            b.iter(|| unsafe { vgp_adds_tput() })
+        });
+    c.benchmark_group("probe_alu_tput")
+        .bench_function("verified-garbage/1200", |b| {
+            b.iter(|| unsafe { vgp_alu_tput() })
+        });
+    c.benchmark_group("probe_mixed")
+        .bench_function("verified-garbage/300", |b| {
+            b.iter(|| unsafe { vgp_mixed() })
+        });
 }
 
 #[cfg(not(target_arch = "aarch64"))]
