@@ -323,6 +323,22 @@ yours to keep:
 
 <tr>
 
+<td>HMAC-SHA-224</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+</tr>
+
+<tr>
+
 <td>HMAC-SHA-256</td>
 
 <td>✅</td>
@@ -640,6 +656,22 @@ yours to keep:
 <td>✅</td>
 
 <td>✅</td>
+
+</tr>
+
+<tr>
+
+<td>PBKDF2-HMAC-SHA-224</td>
+
+<td>✅</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
+
+<td>❌</td>
 
 </tr>
 
