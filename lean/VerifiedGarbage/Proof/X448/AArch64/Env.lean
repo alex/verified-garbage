@@ -1,3 +1,4 @@
+import VerifiedGarbage.Proof.X448.Wide.Mul
 import VerifiedGarbage.Proof.X448.AArch64.AddSub
 import VerifiedGarbage.Proof.X448.AArch64.Small
 import VerifiedGarbage.Proof.X448.AArch64.Swap
@@ -83,9 +84,9 @@ def opSwap (x y : Index) (sw : Bool) (e : Env) : Env :=
   Function.update (Function.update e x (if sw then e y else e x)) y (if sw then e x else e y)
 
 theorem mulE {s : State} {base : Addr} (hs : Scr s base) (hb : BoundedEnv s.mem base) (o a b : Index) :
-    WP isa (Impl.X448.AArch64.mul (slot o.val) (slot a.val) (slot b.val)) s fun t =>
+    WP isa (Impl.X448.AArch64.Wide.mul (slot o.val) (slot a.val) (slot b.val)) s fun t =>
       Keep base s t ∧ BoundedEnv t.mem base ∧ E t.mem base = opMul o a b (E s.mem base) :=
-  WP.mono (mul_ok hs (slot_bound o) (slot_aligned o) (slot_bound a) (slot_aligned a) (slot_bound b) (slot_aligned b) (hb a) (hb b)) fun _ ⟨h, bo, e⟩ =>
+  WP.mono (Wide.mul_ok hs (slot_bound o) (slot_aligned o) (slot_bound a) (slot_aligned a) (slot_bound b) (slot_aligned b) (hb a) (hb b)) fun _ ⟨h, bo, e⟩ =>
     ⟨h.keep, bounded_update h.mem hb bo, by rw [E_update h.mem, e]; rfl⟩
 
 theorem addE {s : State} {base : Addr} (hs : Scr s base) (hb : BoundedEnv s.mem base) (o a b : Index) :
