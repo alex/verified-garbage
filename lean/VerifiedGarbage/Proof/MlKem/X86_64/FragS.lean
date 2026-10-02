@@ -128,30 +128,36 @@ theorem setIJ_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
   · refine mem_of_bytesAt_one ?_; rw [← hib, pa, pa, off_add]
 
 theorem sampleIJ_ok {rbs wbs : List (Reg × Nat)} {s : State} (L : Lay rbs wbs s)
-    (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {i j : Nat} (hi : i < 256) (hj : j < 256)
-    (hc : ijChk (rbs ++ wbs) wbs (aS i j) = true) :
-    WP isa (sampleIJ i j) s fun s' =>
-      PPostB s s' ([(sc (oSB + 32), 1)] ++ [(sc (oSB + 33), 1)] ++ [(aS i j, 1024), (sc oSS, 2048)]) ∧
+    (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {a : Ptr} (hna : NA a) {i j : Nat} (hi : i < 256)
+    (hj : j < 256) (hc : ijChk (rbs ++ wbs) wbs a = true) :
+    WP isa (sampleIJ a i j) s fun s' =>
+      PPostB s s' ([(sc (oSB + 32), 1)] ++ [(sc (oSB + 33), 1)] ++ [(a, 1024), (sc oSS, 2048)]) ∧
       s'.gpr .r15 = BitVec.setWidth 64 ((s.gpr .r15).setWidth 32 &&&
         (if (sampleNTT minIterations (matSeed (bytesAt s.mem (pa s (sc oSB)) 32) i j)).isSome then 1 else 0)) ∧
       ∀ f, sampleNTT minIterations (matSeed (bytesAt s.mem (pa s (sc oSB)) 32) i j) = some f →
-        PolyIs s'.mem (pa s (aS i j)) f := by
+        PolyIs s'.mem (pa s a) f := by
   unfold sampleIJ
   rw [WP.seq_iff]
   refine WP.mono (setIJ_ok L hcs hi hj hc) fun s₂ ⟨hP₂, hseed⟩ => ?_
   have L₂ := L.post hP₂.b hcs
-  refine WP.mono (sampleAt_ok rbx_na (SampH.of L₂ (ijChk_spec hc).1)) fun s₃ h => ?_
-  have e3 : pa s₂ (aS i j) = pa s (aS i j) := hP₂.pa rbx_cs
-  refine ⟨PPostB.app hP₂.b h.b (by simp [bases]), ?_, fun f hf => ?_⟩
+  refine WP.mono (sampleAt_ok hna (SampH.of L₂ (ijChk_spec hc).1)) fun s₃ h => ?_
+  have hab : a.1 ∈ bases := by
+    obtain ⟨n, hn, _⟩ := inB_spec (sampChk_in (ijChk_spec hc).1).2
+    exact hcs (a.1, n) hn
+  have e3 : pa s₂ a = pa s a := hP₂.b.pa hab
+  refine ⟨PPostB.app hP₂.b h.b (fun w hw => by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hw
+    rcases hw with rfl | rfl
+    exacts [hab, by decide]), ?_, fun f hf => ?_⟩
   · rw [h.r15, hseed, hP₂.cs .r15 (by decide)]
   · rw [← e3]; exact h.res f (by rw [hseed]; exact hf)
 
-theorem sampleIJ_tr {rbs wbs : List (Reg × Nat)} (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {i j : Nat}
-    (hi : i < 256) (hj : j < 256) (hc : ijChk (rbs ++ wbs) wbs (aS i j) = true)
+theorem sampleIJ_tr {rbs wbs : List (Reg × Nat)} (hcs : ∀ b ∈ rbs ++ wbs, b.1 ∈ bases) {a : Ptr} (hna : NA a)
+    {i j : Nat} (hi : i < 256) (hj : j < 256) (hc : ijChk (rbs ++ wbs) wbs a = true)
     (ht : (taint.check (X86_64.Taint.ofRegs [.rbx]) (.block (setB (sc (oSB + 32)) j ++ setB (sc (oSB + 33)) i))
       (.block [])).isSome = true) :
     RelCT isa (fun x y => LRel rbs wbs x y ∧ bytesAt x.mem (pa x (sc oSB)) 32 = bytesAt y.mem (pa y (sc oSB)) 32)
-      (sampleIJ i j) fun _ _ => True := by
+      (sampleIJ a i j) fun _ _ => True := by
   have hin : inB (rbs ++ wbs) (sc oSB) 34 = true := (sampChk_in (ijChk_spec hc).1).1
   unfold sampleIJ
   refine RelCT.seq (RelCT.postDep (taintRel [.rbx] (fun x y h r hr => by
@@ -160,6 +166,6 @@ theorem sampleIJ_tr {rbs wbs : List (Reg × Nat)} (hcs : ∀ b ∈ rbs ++ wbs, b
       bytesAt x'.mem (pa x' (sc oSB)) 34 = matSeed (bytesAt x.mem (pa x (sc oSB)) 32) i j)
     (fun x y h => ⟨setIJ_ok h.1.1 hcs hi hj hc, setIJ_ok h.1.2.1 hcs hi hj hc⟩)
     fun x y x' y' h hx hy => ⟨h.1.post hcs hx.1.b hy.1.b, by rw [hx.2, hy.2, h.2]⟩)
-    (sampleAt_trL rbx_na (ijChk_spec hc).1)
+    (sampleAt_trL hna (ijChk_spec hc).1)
 
 end VG.Proof.MlKem.X86_64

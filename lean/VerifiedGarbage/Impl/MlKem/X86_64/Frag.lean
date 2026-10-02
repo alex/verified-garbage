@@ -9,9 +9,10 @@ import VerifiedGarbage.Impl.MlKem.X86_64.Sample
 import VerifiedGarbage.Impl.MlKem.X86_64.Sample4
 
 /-!
-# ML-KEM-768 on x86-64: the pieces of the top-level functions
+# ML-KEM on x86-64: the pieces of the top-level functions
 
-`vg_mlkem768_keygen`, `vg_mlkem768_encaps` and `vg_mlkem768_decaps` are
+The key generation, encapsulation and decapsulation of each parameter set
+(`Kem.lean`) are
 sequences of calls of the polynomial primitives and the SHA-3 sponge
 functions, on buffers in their working space `scratch` (whose address they
 keep in `rbx`) and their arguments (whose addresses they keep in `rbp`,
@@ -26,10 +27,9 @@ callee-saved registers at 840 (48 bytes); a byte (`NB`, an index) at 896
 and the seed of `SampleNTT` (`SB`, 34 bytes) at 904; the output of `G` at
 1024 (64 bytes), of `H` at 1088 (32 bytes), the message of decapsulation
 at 1248 (32 bytes), and its key `K̄` at 1280 (32 bytes); the working space
-of the primitives at 2048 (2048 bytes); and 28 polynomials of 1024 bytes
-from 4096 (`P k`). The outputs of `PRF₂` are in polynomial 20 (`PR`), and
-the working space of their computation from polynomial 17 (which also
-holds that of `vg_mlkem_sample_ntt4`).
+of the primitives at 2048 (2048 bytes); and polynomials of 1024 bytes from
+4096 (`P k`), where each parameter set places the matrix, the outputs of
+`PRF₂` and the working space of their computation (`Kem`).
 -/
 
 namespace VG.Impl.MlKem.X86_64
@@ -51,12 +51,6 @@ def oKB : Nat := 1280
 def oSS : Nat := 2048
 /-- Polynomial `k`. -/
 def oP (k : Nat) : Nat := 4096 + 1024 * k
-/-- The outputs of `PRF₂` (at most 8 of 128 bytes, in polynomial 20). -/
-def oPR : Nat := oP 20
-/-- The working space of `prfs` (2368 bytes, from polynomial 17), as a lane (32 bytes). -/
-def lPW : Nat := oP 17 / 32
-/-- The ciphertext of the re-encryption (1088 bytes, in polynomials 26 and 27). -/
-def oCT : Nat := oP 26
 
 /-- `scratch + off`. -/
 abbrev sc (off : Nat) : Ptr := (.rbx, off)
@@ -152,15 +146,23 @@ def enc12At (f out : Ptr) : Prog isa :=
 def dec12At (b f : Ptr) : Prog isa :=
   .seq (.block (lea .rdi b ++ lea .rsi f)) (.call "vg_mlkem_decode12" decode12)
 
-def ceAt (f : Ptr) (d : Nat) (out : Ptr) : Prog isa :=
+/-- A call of the compression `n` (code `c`, with the signature of
+`vg_mlkem_compress_encode`) of `f` to width `d`, to `out`. -/
+def ceCall (n : String) (c : Prog isa) (f : Ptr) (d : Nat) (out : Ptr) : Prog isa :=
   .seq (.block (lea .rdi f ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 d))] ++ lea .rdx out ++
       [.mov32 .rcx (.imm (BitVec.ofNat 32 (32 * d)))]))
-    (.call "vg_mlkem_compress_encode" compressEncode)
+    (.call n c)
 
-def ddAt (b : Ptr) (d : Nat) (f : Ptr) : Prog isa :=
+/-- A call of the decompression `n` (code `c`, with the signature of
+`vg_mlkem_decode_decompress`) of the `32d` bytes at `b` to `f`. -/
+def ddCall (n : String) (c : Prog isa) (b : Ptr) (d : Nat) (f : Ptr) : Prog isa :=
   .seq (.block (lea .rdi b ++ [.mov32 .rsi (.imm (BitVec.ofNat 32 (32 * d))), .mov32 .rdx (.imm (BitVec.ofNat 32 d))] ++
       lea .rcx f))
-    (.call "vg_mlkem_decode_decompress" decodeDecompress)
+    (.call n c)
+
+abbrev ceAt : Ptr → Nat → Ptr → Prog isa := ceCall "vg_mlkem_compress_encode" compressEncode
+
+abbrev ddAt : Ptr → Nat → Ptr → Prog isa := ddCall "vg_mlkem_decode_decompress" decodeDecompress
 
 /-- `SampleNTT` of the seed at `SB` to `a`, and `r15 ← r15 ∧ result`. -/
 def sampleAt (a : Ptr) : Prog isa :=
@@ -172,12 +174,9 @@ def sampleAt (a : Ptr) : Prog isa :=
 /-- Polynomial `k` of the working space. -/
 abbrev pS (k : Nat) : Ptr := sc (oP k)
 
-/-- `Â[i, j]`: polynomial `6 + 3i + j`. -/
-abbrev aS (i j : Nat) : Ptr := pS (6 + 3 * i + j)
-
-/-- `Â[i, j] = SampleNTT(ρ ‖ j ‖ i)`, with `ρ` at `SB`. -/
-def sampleIJ (i j : Nat) : Prog isa :=
-  .seq (.block (setB (sc (oSB + 32)) j ++ setB (sc (oSB + 33)) i)) (sampleAt (aS i j))
+/-- `Â[i, j] = SampleNTT(ρ ‖ j ‖ i)` to `a`, with `ρ` at `SB`. -/
+def sampleIJ (a : Ptr) (i j : Nat) : Prog isa :=
+  .seq (.block (setB (sc (oSB + 32)) j ++ setB (sc (oSB + 33)) i)) (sampleAt a)
 
 /-- Seed `k` of four, `ρ ‖ j ‖ i` with `ρ` at `SB`, to `34 k` bytes into `scratch`. -/
 def seedAt (k i j : Nat) : Prog isa :=
@@ -307,19 +306,9 @@ def quad (c : Callee4) (n e₀ : Nat) (a scr : Ptr) : Prog isa :=
     (.seq (seedAt 2 ((e₀ + 2) / n) ((e₀ + 2) % n)) (.seq (seedAt 3 ((e₀ + 3) / n) ((e₀ + 3) % n))
       (sample4At c a scr))))
 
-/-- The nine entries of `Â`, row by row (entry `e = 3i + j`): four at a
-time, with polynomials 17–24 as the working space, and the last on its own. -/
-def samples (c : Callee4) : Prog isa :=
-  .seq (quad c 3 0 (aS 0 0) (pS 17)) (.seq (quad c 3 4 (aS 1 1) (pS 17)) (sampleIJ 2 2))
-
 /-- `c` if every `SampleNTT` so far succeeded (`r15 ≠ 0`). -/
 def ifOk (c : Prog isa) : Prog isa :=
   .seq (.block [.alu32 .test .r15 (.reg .r15)]) (.ite .ne c (.block []))
-
-/-- `f[0] ×_T g[0] + f[1] ×_T g[1] + f[2] ×_T g[2]` to polynomial 15 (with 16 for the products). -/
-def dotAt (A : Arith) (f g : Nat → Ptr) : Prog isa :=
-  .seq (mulAt A (pS 15) (f 0) (g 0)) (.seq (mulAt A (pS 16) (f 1) (g 1)) (.seq (addAt (pS 15) (pS 16))
-    (.seq (mulAt A (pS 16) (f 2) (g 2)) (addAt (pS 15) (pS 16)))))
 
 /-! ## Entry and exit -/
 
