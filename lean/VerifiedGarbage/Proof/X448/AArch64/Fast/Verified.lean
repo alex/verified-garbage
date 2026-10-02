@@ -1,6 +1,6 @@
 import VerifiedGarbage.Proof.Framework.AArch64.VecPreserved
-import VerifiedGarbage.Proof.X448.AArch64.Weak.Main
-import VerifiedGarbage.Proof.X448.AArch64.Weak.Lit
+import VerifiedGarbage.Proof.X448.AArch64.Fast.Main
+import VerifiedGarbage.Proof.X448.AArch64.Fast.Lit
 import VerifiedGarbage.Proof.Framework.AArch64.Taint
 import VerifiedGarbage.Proof.Framework.Contract
 
@@ -13,9 +13,10 @@ an argument plus a constant or a counter), satisfiability, and the shared
 contract of `Spec/`.
 -/
 
-namespace VG.Proof.X448.AArch64.Weak
+namespace VG.Proof.X448.AArch64.Fast
 
 open VG VG.AArch64
+open VG.Proof.X448.AArch64 (Pre)
 
 /-- A state satisfying the precondition. -/
 def satState : State where
@@ -27,13 +28,13 @@ def satState : State where
   wr := [⟨0x1000, 56⟩, ⟨0x4000, 8192⟩]
 
 theorem x448_ok (s : State) (hs : Proof.X448.x448AArch64.pre s) :
-    ∃ t s', Exec isa Impl.X448.AArch64.Weak.x448 s t s' ∧ abiPreserved s s' ∧
+    ∃ t s', Exec isa Impl.X448.AArch64.Fast.x448 s t s' ∧ abiPreserved s s' ∧
       Proof.X448.x448AArch64.post s s' := by
   obtain ⟨t, s', he, h⟩ := correct (Pre.of s hs)
   exact ⟨t, s', he, ⟨h.1, Exec.sp he, Exec.preservedV he⟩, h.2⟩
 
 theorem x448_ct : ConstantTime isa Proof.X448.x448AArch64.pre Proof.X448.x448AArch64.pub
-    Impl.X448.AArch64.Weak.x448 := by
+    Impl.X448.AArch64.Fast.x448 := by
   refine VG.Taint.constantTime (A := taint) (Taint.ofRegs [.x0, .x1, .x2, .x3]) ?_
     (by taint_decide)
   intro s₁ s₂ _ _ ⟨h1, h2, h3, h4, hsp⟩
@@ -42,9 +43,9 @@ theorem x448_ct : ConstantTime isa Proof.X448.x448AArch64.pre Proof.X448.x448AAr
   rcases hr with rfl | rfl | rfl | rfl <;> assumption
 
 theorem x448_verified :
-    Verified AArch64.target Impl.X448.AArch64.Weak.x448 (Spec.X448.x448Contract AArch64.abi) :=
+    Verified AArch64.target Impl.X448.AArch64.Fast.x448 (Spec.X448.x448Contract AArch64.abi) :=
   Verified.of_correct x448_ok x448_ct (by
     sig_implies [Spec.X448.x448Contract, Spec.X448.x448Sig, AArch64.abi, AArch64.argRegs,
       Proof.X448.x448AArch64] [satState] using satState)
 
-end VG.Proof.X448.AArch64.Weak
+end VG.Proof.X448.AArch64.Fast
