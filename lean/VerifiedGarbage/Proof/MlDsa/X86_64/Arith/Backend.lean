@@ -43,6 +43,10 @@ structure Rej4Ok (c : Prog isa) : Prop where
   depth : c.depth ≤ 3
   ctl : ctlOk c = true
   sp : c.all (fun i => !isa.writesSp i) = true
+  /-- Its result is whether each seed has 256 coefficients in its first 1008 bytes of output, as
+  both implementations', which signing branches on. -/
+  ret : ∀ s t s', (Spec.MlDsa.rejNTT4Contract X86_64.abi 24).pre s → Exec isa c s t s' →
+    (s'.gpr .rax).setWidth 32 = Rej4.rej4Res s.mem (s.gpr .rdi)
 
 /-- Each function of the backend `B` meets its contract, and is safe to call. -/
 structure BackendOk (B : Backend) : Prop where
@@ -99,7 +103,7 @@ def ArithImpl.sse2 : ArithImpl where
       useHint := FnOk.of Round.useHint_verified (by decide +kernel) (by decide +kernel) (by decide +kernel)
         (by decide +kernel)
       rej4 := ⟨Rej4.rejNTT4_verified, Proof.MlKem.X86_64.nosp_of (by decide +kernel), by decide +kernel,
-        by decide +kernel, Code.all_of_allInstrs (by decide +kernel)⟩ }
+        by decide +kernel, Code.all_of_allInstrs (by decide +kernel), fun _ _ _ => Rej4.rejNTT4_ret⟩ }
   features := []
 
 end VG.Proof.MlDsa.X86_64
