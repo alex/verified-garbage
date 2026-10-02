@@ -389,19 +389,27 @@ jobs:
   # times slower than a runner that has them (#274), so that code only runs
   # natively:
   # * `skx` (Skylake-SP): AVX-512F, so ChaCha20 and Poly1305 with AVX-512F,
-  #   and SHA-256 and SHA-512 with AVX2; and BMI2 and ADX, so X25519 and
-  #   Ed25519 with them;
+  #   and SHA-256 and SHA-512 with AVX2; and BMI2 and ADX, so X25519 with
+  #   them, and Ed25519 with AVX2's SHA-512 and ADX's field (`_avx2_adx`);
   # * `hsw` (Haswell): AVX2 and BMI but not AVX-512F or ADX, so ChaCha20
-  #   and Poly1305 with AVX2 even where this runner has AVX-512F, and
-  #   X25519's and Ed25519's baselines;
+  #   and Poly1305 with AVX2 even where this runner has AVX-512F, X25519's
+  #   baseline, and Ed25519 with AVX2's SHA-512 and the baseline field
+  #   (`_avx2`);
   # * `p4p` (Pentium 4): nothing beyond x86-64's baseline, not even CPUID
   #   leaf 7, so the baseline ISA's implementations everywhere;
   # * `arl` (Arrow Lake): the SHA512 extension, so SHA-512 with it, which no
-  #   runner has. It also has the SHA extensions, so only SHA-512's tests
+  #   runner has, and Ed25519 with it and ADX's field (`_shani_adx`). It
+  #   also has the SHA extensions, so only SHA-512's and Ed25519's tests
   #   (and detection's) run there.
   # And natively on an ARM64 runner, whose AES and PMULL extensions
   # `cpu-features-env` detects at run time (without it, AArch64 detection is
   # at compile time, which the `rust` job tests).
+  # A chip with more features than a configuration wants is restricted with
+  # `VG_CPU_FEATURES` (`cpu-features`, empty for none), so that each of
+  # Ed25519's combinations of SHA-512 and field multiplications is chosen:
+  # `skx` with only BMI2 and ADX for scalar SHA-512 and ADX's field
+  # (`_adx`), and `arl` without BMI2 or ADX for the SHA512 extension and the
+  # baseline field (`_shani`); `p4p` chooses neither (the baselines).
   # The coverage is merged with the rest, which checks that every
   # implementation was chosen on one of them.
   rust-cpu-features:
@@ -409,17 +417,24 @@ jobs:
       fail-fast: false
       matrix:
         chip: [native, skx, hsw, p4p]
-        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem x25519 ed25519 cpu]
+        # Ed25519's are `ed25519` and RFC 8032's other two.
+        tests: [sha1 sha256 sha384 sha512 aes_gcm cmac chacha20 poly1305 mlkem x25519 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu]
         include:
           - chip: arl
-            tests: sha384 sha512 ed25519 cpu
+            tests: sha384 sha512 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          - chip: arl
+            cpu-features: avx,avx2,sha512
+            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
+          - chip: skx
+            cpu-features: bmi2,adx
+            tests: ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
           # Ice Lake server: AVX512_IFMA and AVX512VL, for vg_x25519_ifma.
           - chip: icx
             tests: x25519 cpu
           - chip: native
             os: ubuntu-24.04-arm
             tests: aes_gcm cmac sha1 sha256 sha384 sha512 sha3 shake mlkem mldsa scrypt chacha20 ed25519 message_boundaries_and_unaligned_inputs signing_with_aliased_read_only_inputs cpu
-    name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }})
+    name: Rust (${{ matrix.os && format('native, {0}', matrix.os) || matrix.chip == 'native' && 'native' || format('sde -{0}', matrix.chip) }}${{ matrix.cpu-features && format(', VG_CPU_FEATURES={0}', matrix.cpu-features) || '' }})
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     env:
       RUSTUP_TOOLCHAIN: stable
@@ -474,6 +489,7 @@ jobs:
         run: cargo test --locked --features cpu-features-env -- $TESTS
         env:
           TESTS: ${{ matrix.tests }}
+          VG_CPU_FEATURES: ${{ matrix.cpu-features }}
       - name: Test scalar ChaCha on ARM64
         if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
         run: cargo test --locked --features cpu-features-env -- chacha20
