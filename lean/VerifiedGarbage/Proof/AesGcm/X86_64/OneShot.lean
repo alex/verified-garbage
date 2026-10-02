@@ -475,3 +475,197 @@ theorem oneAad_ok {D Np A : Addr} {nl al n : Nat} {H : Block} {s : State} (he : 
 end
 
 end VG.Proof.AesGcm.X86_64
+
+namespace VG.Proof.AesGcm.X86_64
+
+open VG VG.X86_64 VG.X86_64.RegUpd VG.Impl.AesGcm.X86_64 VG.WriteBytes
+open VG.Spec.Aes (bytesAt)
+open VG.Spec.Gcm (Block blockAt StreamRepr ctxH ctxCiph ghashInput gctr inc32 zeros padLen ghashFrom ghash blocks
+  ofBytes toBytes)
+open VG.Proof.Gcm (Absorbed Ctr xorKs lensBlock padded)
+
+theorem padded_eq (a c : List Byte) :
+    a ++ zeros (padLen a.length) ++ c ++ zeros (padLen (a ++ zeros (padLen a.length) ++ c).length) = padded a c := by
+  by_cases hc : c = []
+  · subst hc
+    have : padLen (a ++ zeros (padLen a.length)).length = 0 := by
+      apply Proof.Gcm.padLen_of_mod
+      simp only [List.length_append, Proof.Gcm.length_zeros]; exact Proof.Gcm.length_pad_mod _
+    rw [List.append_nil, this, padded, Proof.Gcm.ghashInput_nil]
+    simp [zeros]
+  · rw [padded, Proof.Gcm.ghashInput_of_ne hc]
+
+section
+variable (v : GcmImpl) {Ctx W SP : Addr} (L : Lay Ctx (W + BitVec.ofNat 64 16) W SP)
+include L
+
+/-- `oneCrypt`: counter mode over the data, from the first counter block. -/
+theorem oneCrypt_ok {R : Nat} {icb : Block} {D : Addr} {n : Nat} {s : State}
+    (he : Env Ctx (W + BitVec.ofNat 64 16) W SP s) (hR : RoundsAt s.mem W R)
+    (hdat : s.mem.readW (W + BitVec.ofNat 64 200) 64 = D) (hlen : s.mem.readW (W + BitVec.ofNat 64 208) 64 = BitVec.ofNat 64 n)
+    (hd : DataW Ctx (W + BitVec.ofNat 64 16) W SP s D n) :
+    WP isa (oneCrypt v.callees) s fun s' => CrOut Ctx (W + BitVec.ofNat 64 16) W SP R icb 0 D n s.mem s' ∧
+      s'.rd = s.rd ∧ s'.wr = s.wr := by
+  have q₁ := he.perm.wR (show 200 + 8 ≤ 2560 by decide)
+  have q₂ := he.perm.wR (show 208 + 8 ≤ 2560 by decide)
+  obtain ⟨s₁, run₁, h12, hbp, hbx, hg₁, hm₁, hrd₁, hwr₁⟩ : ∃ s₁, runBlock isa [.mov .r12 (.mem (at_ .r15 dataO)),
+      .mov .rbp (.mem (at_ .r15 lenO)), .mov32 .rbx (imm 0)] s = some s₁ ∧
+      s₁.gpr .r12 = D ∧ s₁.gpr .rbp = BitVec.ofNat 64 n ∧ s₁.gpr .rbx = BitVec.ofNat 64 (0 % 16) ∧
+      (∀ r, r ≠ .r12 → r ≠ .rbp → r ≠ .rbx → s₁.gpr r = s.gpr r) ∧ s₁.mem = s.mem ∧ s₁.rd = s.rd ∧
+      s₁.wr = s.wr := by
+    refine ⟨_, by xrun [he.r15, q₁, q₂], ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · simp [gpr_setReg, hdat]
+    · simp [gpr_setReg, hlen]
+    · simp [gpr_setReg]
+    · intro r a b c; simp [gpr_setReg, a, b, c]
+    all_goals rfl
+  refine WP.seq (WP.of_runBlock ⟨s₁, run₁, ?_⟩)
+  have he₁ : Env Ctx (W + BitVec.ofNat 64 16) W SP s₁ := he.keep (fun r hr => by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl <;> exact hg₁ _ (by decide) (by decide) (by decide)) hrd₁ hwr₁
+  have := WP.with_rdwr (crypt_ok v L (R := R) (icb := icb) (P := 0)
+    ⟨he₁, h12, hbp, hbx, hd.of_eq hrd₁ hwr₁, by rw [hm₁]; exact hR⟩)
+  rw [hm₁] at this
+  exact WP.mono this fun s' ⟨h, a, b⟩ => ⟨h, a.trans hrd₁, b.trans hwr₁⟩
+
+end
+
+end VG.Proof.AesGcm.X86_64
+
+namespace VG.Proof.AesGcm.X86_64
+
+open VG VG.X86_64 VG.X86_64.RegUpd VG.Impl.AesGcm.X86_64 VG.WriteBytes
+open VG.Spec.Aes (bytesAt)
+open VG.Spec.Gcm (Block blockAt StreamRepr ctxH ctxCiph ghashInput gctr inc32 zeros padLen ghashFrom ghash blocks
+  ofBytes toBytes)
+open VG.Proof.Gcm (Absorbed Ctr xorKs lensBlock padded)
+
+section
+variable (v : GcmImpl) {Ctx W SP : Addr} (L : Lay Ctx (W + BitVec.ofNat 64 16) W SP)
+include L
+
+/-- `oneTag o`: the ciphertext absorbed, padded, and the tag into `W + o`. -/
+theorem oneTag_ok {o R : Nat} (ho : o = 0 ∨ o = 112) {D : Addr} {n al : Nat} {H : Block} {a : List Byte} {s : State}
+    (he : Env Ctx (W + BitVec.ofNat 64 16) W SP s) (hH : blockAt s.mem (Ctx + BitVec.ofNat 64 240) = H)
+    (hR : RoundsAt s.mem W R) (hdat : s.mem.readW (W + BitVec.ofNat 64 200) 64 = D)
+    (hlen : s.mem.readW (W + BitVec.ofNat 64 208) 64 = BitVec.ofNat 64 n)
+    (hal : s.mem.readW (W + BitVec.ofNat 64 184) 64 = BitVec.ofNat 64 al) (ha : a.length = al)
+    (hd : DataOk (W + BitVec.ofNat 64 16) W SP s D n) (hDW : (⟨D, n⟩ : Region).Disjoint ⟨W, 2560⟩)
+    (hCD : (⟨Ctx, 256⟩ : Region).Disjoint ⟨D, n⟩) :
+    WP isa (oneTag v.callees o) s fun s' => Env Ctx (W + BitVec.ofNat 64 16) W SP s' ∧
+      Frame (oneFrame W D SP n) s.mem s'.mem ∧ s'.rd = s.rd ∧ s'.wr = s.wr ∧
+      (Absorbed s.mem (W + BitVec.ofNat 64 16 + BitVec.ofNat 64 16) (W + BitVec.ofNat 64 16 + BitVec.ofNat 64 32) H
+          (a ++ zeros (padLen a.length)) →
+        bytesAt s'.mem (W + BitVec.ofNat 64 o) 16 =
+          toBytes (ghashFrom H (ghash H (blocks (padded a (bytesAt s.mem D n))))
+            [ofBytes (lensBlock a.length n)] ^^^ ciphOf s.mem Ctx R (blockAt s.mem (W + BitVec.ofNat 64 16)))) := by
+  have kp : ∀ {m m' : Mem}, Frame (oneFrame W D SP n) m m' → ∀ d, (128 ≤ d ∧ d + 8 ≤ 216) ∨ (224 ≤ d ∧ d + 8 ≤ 240) →
+      m'.readW (W + BitVec.ofNat 64 d) 64 = m.readW (W + BitVec.ofNat 64 d) 64 :=
+    fun hf d hd => hf.readW (r := ⟨W + BitVec.ofNat 64 d, 8⟩) (Region.contains_self _ _) (kept_oneFrame L hDW hd)
+      (by decide)
+  have hlt := hd.lt
+  generalize hx : a ++ zeros (padLen a.length) = x
+  have hx16 : x.length % 16 = 0 := by
+    rw [← hx]; simp only [List.length_append, Proof.Gcm.length_zeros]; exact Proof.Gcm.length_pad_mod _
+  have q₁ := he.perm.wR (show 200 + 8 ≤ 2560 by decide)
+  have q₂ := he.perm.wR (show 208 + 8 ≤ 2560 by decide)
+  obtain ⟨s₁, run₁, h12, hbp, hbx, hg₁, hm₁, hrd₁, hwr₁⟩ : ∃ s₁, runBlock isa [.mov .r12 (.mem (at_ .r15 dataO)),
+      .mov .rbp (.mem (at_ .r15 lenO)), .mov32 .rbx (imm 0)] s = some s₁ ∧
+      s₁.gpr .r12 = D ∧ s₁.gpr .rbp = BitVec.ofNat 64 n ∧ s₁.gpr .rbx = BitVec.ofNat 64 (x.length % 16) ∧
+      (∀ r, r ≠ .r12 → r ≠ .rbp → r ≠ .rbx → s₁.gpr r = s.gpr r) ∧ s₁.mem = s.mem ∧ s₁.rd = s.rd ∧
+      s₁.wr = s.wr := by
+    refine ⟨_, by xrun [he.r15, q₁, q₂], ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · simp [gpr_setReg, hdat]
+    · simp [gpr_setReg, hlen]
+    · simp [gpr_setReg, hx16]
+    · intro r a b c; simp [gpr_setReg, a, b, c]
+    all_goals rfl
+  refine WP.seq (WP.of_runBlock ⟨s₁, run₁, ?_⟩)
+  have he₁ : Env Ctx (W + BitVec.ofNat 64 16) W SP s₁ := he.keep (fun r hr => by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl <;> exact hg₁ _ (by decide) (by decide) (by decide)) hrd₁ hwr₁
+  have hai : AbsIn Ctx (W + BitVec.ofNat 64 16) W SP 16 H x D n s₁ :=
+    ⟨he₁, h12, hbp, hbx, hd.of_eq hrd₁ hwr₁, by rw [hm₁, hH]⟩
+  refine WP.seq (WP.mono (WP.with_rdwr (absorb_ok v L (yo := 16) (.inr rfl) hai)) fun s₂ ⟨ho', hrd₂, hwr₂⟩ => ?_)
+  rw [hm₁] at ho'
+  have he₂ := ho'.env
+  have f₂ := absFrame_one (D := D) (n := n) ho'.frame
+  have q₃ := he₂.perm.wR (show 208 + 8 ≤ 2560 by decide)
+  obtain ⟨s₃, run₃, hbx₃, hg₃, hm₃, hrd₃, hwr₃⟩ : ∃ s₃, runBlock isa [.mov .rbx (.mem (at_ .r15 lenO)),
+      .alu .and .rbx (imm 15)] s₂ = some s₃ ∧ s₃.gpr .rbx = BitVec.ofNat 64 ((x ++ bytesAt s.mem D n).length % 16) ∧
+      (∀ r, r ≠ .rbx → s₃.gpr r = s₂.gpr r) ∧ s₃.mem = s₂.mem ∧ s₃.rd = s₂.rd ∧ s₃.wr = s₂.wr := by
+    have hand := and15 (BitVec.ofNat 64 n)
+    rw [imm_eq (by decide), toNat_ofNat_of_lt hlt] at hand
+    have e : (x ++ bytesAt s.mem D n).length % 16 = n % 16 := by
+      simp only [List.length_append, length_bytesAt]; omega
+    refine ⟨_, by xrun [he₂.r15, q₃], ?_, ?_, ?_⟩
+    · simp only [gpr_setReg, gpr_arithFlags, ite_true, kp f₂ 208 (.inl ⟨by decide, by decide⟩), hlen, hand, e]
+    · intro r a; simp [gpr_setReg, gpr_arithFlags, a]
+    all_goals simp [mem_arithFlags, mem_setReg, rd_arithFlags, rd_setReg, wr_arithFlags, wr_setReg]
+  refine WP.seq (WP.of_runBlock ⟨s₃, run₃, ?_⟩)
+  have he₃ : Env Ctx (W + BitVec.ofNat 64 16) W SP s₃ := he₂.keep (fun r hr => by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl <;> exact hg₃ _ (by decide)) hrd₃ hwr₃
+  have hH₂ : blockAt s₂.mem (Ctx + BitVec.ofNat 64 240) = H := by
+    rw [blockAt_frame ho'.frame (ctx_absFrame L (.inr rfl)), hH]
+  refine WP.seq (WP.mono (WP.with_rdwr (flush_ok v L (yo := 16) (.inr rfl) (H := H) ⟨he₃, by rw [hm₃, hH₂]⟩ hbx₃))
+    fun s₄ ⟨hf, hrd₄, hwr₄⟩ => ?_)
+  rw [hm₃] at hf
+  have he₄ := hf.env
+  have f₄ := tFrame_one (D := D) (n := n) hf.frame
+  have q₄ := he₄.perm.wR (show 184 + 8 ≤ 2560 by decide)
+  have q₅ := he₄.perm.wR (show 208 + 8 ≤ 2560 by decide)
+  obtain ⟨s₅, run₅, hbx₅, hbp₅, hg₅, hm₅, hrd₅, hwr₅⟩ : ∃ s₅, runBlock isa [.mov .rbx (.mem (at_ .r15 alenO)),
+      .mov .rbp (.mem (at_ .r15 lenO))] s₄ = some s₅ ∧ s₅.gpr .rbx = BitVec.ofNat 64 al ∧
+      s₅.gpr .rbp = BitVec.ofNat 64 n ∧ (∀ r, r ≠ .rbx → r ≠ .rbp → s₅.gpr r = s₄.gpr r) ∧ s₅.mem = s₄.mem ∧
+      s₅.rd = s₄.rd ∧ s₅.wr = s₄.wr := by
+    refine ⟨_, by xrun [he₄.r15, q₄, q₅], ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · simp [gpr_setReg, kp f₄ 184 (.inl ⟨by decide, by decide⟩), kp f₂ 184 (.inl ⟨by decide, by decide⟩), hal]
+    · simp [gpr_setReg, kp f₄ 208 (.inl ⟨by decide, by decide⟩), kp f₂ 208 (.inl ⟨by decide, by decide⟩), hlen]
+    · intro r a b; simp [gpr_setReg, a, b]
+    all_goals rfl
+  refine WP.seq (WP.of_runBlock ⟨s₅, run₅, ?_⟩)
+  have he₅ : Env Ctx (W + BitVec.ofNat 64 16) W SP s₅ := he₄.keep (fun r hr => by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl <;> exact hg₅ _ (by decide) (by decide)) hrd₅ hwr₅
+  have f₅ : Frame (oneFrame W D SP n) s.mem s₅.mem := by rw [hm₅]; exact f₂.trans f₄
+  have hR₅ : RoundsAt s₅.mem W R := ⟨by rw [kp f₅ 176 (.inl ⟨by decide, by decide⟩)]; exact hR.1, hR.2⟩
+  have dC : ∀ r ∈ oneFrame W D SP n, (⟨Ctx, 256⟩ : Region).Disjoint r := by
+    intro r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl | rfl
+    · exact L.cw'.sub_right (Offset.sub_base W (show 0 + 128 ≤ 2560 by decide) |> fun h => by simpa using h)
+    · exact L.cw'.sub_right (Lay.wSub (by decide))
+    · exact L.cw'.sub_right (Lay.wSub (by decide))
+    · exact hCD
+    · exact L.kc.symm
+  have dS0 : ∀ r ∈ absFrame (W + BitVec.ofNat 64 16) W SP 16, (⟨W + BitVec.ofNat 64 16, 16⟩ : Region).Disjoint r := by
+    intro r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl
+    · simpa using L.st_st (a := 0) (n := 16) (d := 16) (k := 16) (.inl (by decide)) (by decide) (by decide)
+    · simpa using L.st_st (a := 0) (n := 16) (d := 32) (k := 16) (.inl (by decide)) (by decide) (by decide)
+    · simpa using L.st_w (a := 0) (n := 16) (d := 512) (k := 256) (by decide) (.inr ⟨by decide, by decide⟩)
+    · simpa using (L.stk_st (a := 0) (n := 16) (by decide)).symm
+  have dT0 : ∀ r ∈ tFrame (W + BitVec.ofNat 64 16) W SP 16, (⟨W + BitVec.ofNat 64 16, 16⟩ : Region).Disjoint r := by
+    intro r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl
+    · simpa using L.st_st (a := 0) (n := 16) (d := 16) (k := 16) (.inl (by decide)) (by decide) (by decide)
+    · simpa using L.st_w (a := 0) (n := 16) (d := 96) (k := 16) (by decide) (.inr ⟨by decide, by decide⟩)
+    · simpa using L.st_w (a := 0) (n := 16) (d := 512) (k := 256) (by decide) (.inr ⟨by decide, by decide⟩)
+    · simpa using (L.stk_st (a := 0) (n := 16) (by decide)).symm
+  have hJ₅ : blockAt s₅.mem (W + BitVec.ofNat 64 16) = blockAt s.mem (W + BitVec.ofNat 64 16) := by
+    rw [hm₅, blockAt_frame hf.frame dT0, blockAt_frame ho'.frame dS0]
+  have hH₅ : blockAt s₅.mem (Ctx + BitVec.ofNat 64 240) = H := by rw [hm₅, hf.hH]
+  refine WP.mono (WP.with_rdwr (tag_ok v L ho he₅ hH₅ hR₅ hJ₅)) fun s₆ ⟨ht, hrd₆, hwr₆⟩ =>
+    ⟨ht.env, f₅.trans (tagFrame_one ho ht.frame), by rw [hrd₆, hrd₅, hrd₄, hrd₃, hrd₂, hrd₁],
+      by rw [hwr₆, hwr₅, hwr₄, hwr₃, hwr₂, hwr₁], fun hab => ?_⟩
+  have hw := (hf.abs (ho'.abs (hx ▸ hab))).whole_eq (by
+    simp only [List.length_append, Proof.Gcm.length_zeros]; exact Proof.Gcm.length_pad_mod _)
+  rw [ht.out, ciph_frame f₅ dC hR.2, hbx₅, hbp₅, toNat_ofNat_of_lt hlt, BitVec.toNat_ofNat, lensBlock_mod_left, ha,
+    hm₅, hw, ← hx, padded_eq]
+
+end
+
+end VG.Proof.AesGcm.X86_64
