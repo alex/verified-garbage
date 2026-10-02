@@ -101,6 +101,12 @@ structure Ok : Prop where
   inArgs : L.ARGS ∈ L.wr
   argvLen : L.argv.length = L.nA
   nA8 : L.nA ≤ 8
+  nA5 : 5 ≤ L.nA
+  a0 : L.argv.getD 0 0 = L.key
+  a1 : L.argv.getD 1 0 = L.msg
+  a2 : L.argv.getD 2 0 = L.len
+  a3 : L.argv.getD 3 0 = L.ctx
+  a4 : L.argv.getD 4 0 = L.ctxLen
   nKey : L.key.toNat + L.keyLen ≤ 2 ^ 32
   nMsg : L.msg.toNat + L.len.toNat ≤ 2 ^ 32
   nCtx : L.ctx.toNat + L.ctxLen.toNat ≤ 2 ^ 32
