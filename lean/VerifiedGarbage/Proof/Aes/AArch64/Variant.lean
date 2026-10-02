@@ -1,5 +1,7 @@
 import VerifiedGarbage.Proof.Aes.AArch64.Ctr32
 import VerifiedGarbage.Proof.Aes.AArch64.Aese.Ctr32
+import VerifiedGarbage.Proof.Aes.AArch64.ExpandKey
+import VerifiedGarbage.Proof.Aes.AArch64.Aese.ExpandKey
 import VerifiedGarbage.Impl.Aes.AArch64.Callee
 import VerifiedGarbage.Proof.Framework.AArch64.Call
 
@@ -13,7 +15,10 @@ that its proof holds for every implementation: each is a variant of the
 interface `AesCtr32` on AArch64 (`Variants/AesCtr32/AArch64/`), and each
 caller (in `Generic/AesCtr32/AArch64/`) is emitted once for each of them (see
 `TCB/Emit.lean`). Every implementation is proven against the same contract,
-`Proof.Aes.ctr32AArch64`, and has no frames.
+`Proof.Aes.ctr32AArch64`, and has no frames. It comes with the
+implementation of `vg_aes_expand_key` that goes with it (with the same
+suffix and CPU features), for the callers that also expand the key, proven
+against `Proof.Aes.expandKeyAArch64`.
 -/
 
 namespace VG.Proof.Aes.AArch64
@@ -36,6 +41,14 @@ structure Ctr32Impl where
   suffix : String
   /-- The CPU features its code requires, which its callers require too. -/
   features : List String
+  /-- The implementation of `vg_aes_expand_key` that goes with it, which
+  needs no more CPU features. -/
+  expand : Impl.Aes.AArch64.ExpandKey
+  expandNoFrames : expand.code.noFrames = true
+  expandOk : ∀ s, Proof.Aes.expandKeyAArch64.pre s →
+    ∃ t s', Exec isa expand.code s t s' ∧ abiPreserved s s' ∧ Proof.Aes.expandKeyAArch64.post s s'
+  expandCt : ConstantTime isa Proof.Aes.expandKeyAArch64.pre Proof.Aes.expandKeyAArch64.pub expand.code
+  expandKeepsV : expand.code.allInstrs AArch64.keepsV = true
 
 namespace Ctr32Impl
 
@@ -48,6 +61,11 @@ def scalar : Ctr32Impl where
   keepsV := by decide +kernel
   suffix := ""
   features := []
+  expand := .scalar
+  expandNoFrames := by decide +kernel
+  expandOk := expandKey_correct
+  expandCt := expandKey_ct
+  expandKeepsV := by decide +kernel
 
 /-- The implementation with the Cryptographic Extension, `vg_aes_ctr32_aes`. -/
 def aese : Ctr32Impl where
@@ -58,6 +76,11 @@ def aese : Ctr32Impl where
   keepsV := by decide +kernel
   suffix := "_aes"
   features := ["aes"]
+  expand := .aese
+  expandNoFrames := by decide +kernel
+  expandOk := Aese.Key.expandKey_correct
+  expandCt := Aese.Key.expandKey_ct
+  expandKeepsV := by decide +kernel
 
 end Ctr32Impl
 
